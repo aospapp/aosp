@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
@@ -23,10 +24,10 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.provider.Settings;
-import android.test.AndroidTestCase;
+import android.test.InstrumentationTestCase;
 import android.util.Log;
 
-public class RingtoneTest extends AndroidTestCase {
+public class RingtoneTest extends InstrumentationTestCase {
     private static final String TAG = "RingtoneTest";
 
     private Context mContext;
@@ -40,7 +41,8 @@ public class RingtoneTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mContext = getContext();
+        enableAppOps();
+        mContext = getInstrumentation().getContext();
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         mRingtone = RingtoneManager.getRingtone(mContext, Settings.System.DEFAULT_RINGTONE_URI);
         // backup ringer settings
@@ -56,6 +58,18 @@ public class RingtoneTest extends AndroidTestCase {
 
         mDefaultRingUri = RingtoneManager.getActualDefaultRingtoneUri(mContext,
                 RingtoneManager.TYPE_RINGTONE);
+    }
+
+    private void enableAppOps() {
+        StringBuilder cmd = new StringBuilder();
+        cmd.append("appops set ");
+        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(" android:write_settings allow");
+        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+        try {
+            Thread.sleep(2200);
+        } catch (InterruptedException e) {
+        }
     }
 
     @Override
@@ -76,7 +90,7 @@ public class RingtoneTest extends AndroidTestCase {
     }
 
     private boolean hasAudioOutput() {
-        return getContext().getPackageManager()
+        return getInstrumentation().getContext().getPackageManager()
             .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
     }
 

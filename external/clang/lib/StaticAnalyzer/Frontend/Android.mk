@@ -6,6 +6,7 @@ clang_static_analyzer_frontend_C_INCLUDES := \
 clang_static_analyzer_frontend_TBLGEN_TABLES := \
   AttrList.inc \
   Attrs.inc \
+  AttrParsedAttrList.inc \
   AttrVisitor.inc \
   CommentCommandList.inc \
   CommentNodes.inc \
@@ -17,7 +18,9 @@ clang_static_analyzer_frontend_TBLGEN_TABLES := \
 clang_static_analyzer_frontend_SRC_FILES := \
   AnalysisConsumer.cpp \
   CheckerRegistration.cpp \
-  FrontendActions.cpp
+  FrontendActions.cpp \
+  ModelConsumer.cpp \
+  ModelInjector.cpp
 
 # For the host only
 # =====================================================

@@ -45,6 +45,8 @@
 #include <audio_effects/effect_aec.h>
 #include <system/audio.h>
 
+#include <ScopedUtfChars.h>
+
 #include "jni.h"
 #include "JNIHelp.h"
 
@@ -471,7 +473,7 @@ void AudioStream::decode(int tick)
 class AudioGroup
 {
 public:
-    AudioGroup();
+    AudioGroup(const String16 &opPackageName);
     ~AudioGroup();
     bool set(int sampleRate, int sampleCount);
 
@@ -495,6 +497,8 @@ private:
     AudioStream *mChain;
     int mEventQueue;
     volatile int mDtmfEvent;
+
+    String16 mOpPackageName;
 
     int mMode;
     int mSampleRate;
@@ -543,8 +547,9 @@ private:
     sp<DeviceThread> mDeviceThread;
 };
 
-AudioGroup::AudioGroup()
+AudioGroup::AudioGroup(const String16 &opPackageName)
 {
+    mOpPackageName = opPackageName;
     mMode = ON_HOLD;
     mChain = NULL;
     mEventQueue = -1;
@@ -806,7 +811,7 @@ bool AudioGroup::DeviceThread::threadLoop()
 
     // Initialize AudioTrack and AudioRecord.
     sp<AudioTrack> track = new AudioTrack();
-    sp<AudioRecord> record = new AudioRecord();
+    sp<AudioRecord> record = new AudioRecord(mGroup->mOpPackageName);
     if (track->set(AUDIO_STREAM_VOICE_CALL, sampleRate, AUDIO_FORMAT_PCM_16_BIT,
                 AUDIO_CHANNEL_OUT_MONO, output, AUDIO_OUTPUT_FLAG_NONE, NULL /*callback_t*/,
                 NULL /*user*/, 0 /*notificationFrames*/, 0 /*sharedBuffer*/,
@@ -832,10 +837,11 @@ bool AudioGroup::DeviceThread::threadLoop()
     // check if platform supports echo cancellation and do not active local echo suppression in
     // this case
     EchoSuppressor *echo = NULL;
-    AudioEffect *aec = NULL;
+    sp<AudioEffect> aec;
     if (mode == ECHO_SUPPRESSION) {
         if (mGroup->platformHasAec()) {
             aec = new AudioEffect(FX_IID_AEC,
+                                    mGroup->mOpPackageName,
                                     NULL,
                                     0,
                                     0,
@@ -846,12 +852,11 @@ bool AudioGroup::DeviceThread::threadLoop()
             if (status == NO_ERROR || status == ALREADY_EXISTS) {
                 aec->setEnabled(true);
             } else {
-                delete aec;
-                aec = NULL;
+                aec.clear();
             }
         }
         // Create local echo suppressor if platform AEC cannot be used.
-        if (aec == NULL) {
+        if (aec == 0) {
              echo = new EchoSuppressor(sampleCount,
                                        (track->latency() + record->latency()) * sampleRate / 1000);
         }
@@ -927,7 +932,6 @@ bool AudioGroup::DeviceThread::threadLoop()
 
 exit:
     delete echo;
-    delete aec;
     return true;
 }
 
@@ -938,7 +942,7 @@ static jfieldID gMode;
 
 jlong add(JNIEnv *env, jobject thiz, jint mode,
     jint socket, jstring jRemoteAddress, jint remotePort,
-    jstring jCodecSpec, jint dtmfType)
+    jstring jCodecSpec, jint dtmfType, jstring opPackageNameStr)
 {
     AudioCodec *codec = NULL;
     AudioStream *stream = NULL;
@@ -965,6 +969,8 @@ jlong add(JNIEnv *env, jobject thiz, jint mode,
             "cannot get stream socket");
         return 0;
     }
+
+    ScopedUtfChars opPackageName(env, opPackageNameStr);
 
     // Create audio codec.
     int codecType = -1;
@@ -995,7 +1001,7 @@ jlong add(JNIEnv *env, jobject thiz, jint mode,
     group = (AudioGroup *)env->GetLongField(thiz, gNative);
     if (!group) {
         int mode = env->GetIntField(thiz, gMode);
-        group = new AudioGroup;
+        group = new AudioGroup(String16(opPackageName.c_str()));
         if (!group->set(8000, 256) || !group->setMode(mode)) {
             jniThrowException(env, "java/lang/IllegalStateException",
                 "cannot initialize audio group");
@@ -1051,7 +1057,7 @@ void sendDtmf(JNIEnv *env, jobject thiz, jint event)
 }
 
 JNINativeMethod gMethods[] = {
-    {"nativeAdd", "(IILjava/lang/String;ILjava/lang/String;I)J", (void *)add},
+    {"nativeAdd", "(IILjava/lang/String;ILjava/lang/String;ILjava/lang/String;)J", (void *)add},
     {"nativeRemove", "(J)V", (void *)remove},
     {"nativeSetMode", "(I)V", (void *)setMode},
     {"nativeSendDtmf", "(I)V", (void *)sendDtmf},

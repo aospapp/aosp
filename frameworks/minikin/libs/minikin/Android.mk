@@ -15,7 +15,6 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-include external/stlport/libstlport.mk
 
 LOCAL_SRC_FILES := \
     AnalyzeStyle.cpp \
@@ -23,7 +22,10 @@ LOCAL_SRC_FILES := \
     FontCollection.cpp \
     FontFamily.cpp \
     GraphemeBreak.cpp \
+    Hyphenator.cpp \
     Layout.cpp \
+    LineBreaker.cpp \
+    Measurement.cpp \
     MinikinInternal.cpp \
     MinikinRefCounted.cpp \
     MinikinFontFreeType.cpp \
@@ -34,7 +36,6 @@ LOCAL_MODULE := libminikin
 LOCAL_C_INCLUDES += \
     external/harfbuzz_ng/src \
     external/freetype/include \
-    external/icu/icu4c/source/common \
     frameworks/minikin/include
 
 LOCAL_SHARED_LIBRARIES := \
@@ -43,7 +44,6 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libpng \
     libz \
-    libstlport \
     libicuuc \
     libutils
 

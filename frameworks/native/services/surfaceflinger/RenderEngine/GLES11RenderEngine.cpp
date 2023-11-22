@@ -43,12 +43,6 @@ GLES11RenderEngine::GLES11RenderEngine() {
     glDisable(GL_DITHER);
     glDisable(GL_CULL_FACE);
 
-    struct pack565 {
-        inline uint16_t operator() (int r, int g, int b) const {
-            return (r<<11)|(g<<5)|b;
-        }
-    } pack565;
-
     const uint16_t protTexData[] = { 0 };
     glGenTextures(1, &mProtectedTexName);
     glBindTexture(GL_TEXTURE_2D, mProtectedTexName);
@@ -266,14 +260,6 @@ void GLES11RenderEngine::drawMesh(const Mesh& mesh) {
     if (mesh.getTexCoordsSize()) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
-}
-
-void GLES11RenderEngine::beginGroup(const mat4& /*colorTransform*/) {
-    // doesn't do anything in GLES 1.1
-}
-
-void GLES11RenderEngine::endGroup() {
-    // doesn't do anything in GLES 1.1
 }
 
 void GLES11RenderEngine::dump(String8& result) {

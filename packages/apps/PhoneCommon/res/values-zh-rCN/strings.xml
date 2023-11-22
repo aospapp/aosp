@@ -17,16 +17,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="dialpad_0_number" msgid="9125850639884993690">"0"</string>
-    <string name="dialpad_1_number" msgid="761747742902363751">"1"</string>
-    <string name="dialpad_2_number" msgid="4473872718353086388">"2"</string>
-    <string name="dialpad_3_number" msgid="2631223250001985194">"3"</string>
-    <string name="dialpad_4_number" msgid="5209564123577292452">"4"</string>
-    <string name="dialpad_5_number" msgid="5634625806116989866">"5"</string>
-    <string name="dialpad_6_number" msgid="799658410454143963">"6"</string>
-    <string name="dialpad_7_number" msgid="6998407956591315524">"7"</string>
-    <string name="dialpad_8_number" msgid="7956944519599432140">"8"</string>
-    <string name="dialpad_9_number" msgid="9074552572438193202">"9"</string>
     <string name="description_dialpad_overflow" msgid="4853244877599437286">"更多选项"</string>
     <string name="description_delete_button" msgid="88733669653753441">"删除"</string>
     <string name="description_image_button_plus" msgid="7821061347207448362">"加号"</string>
@@ -45,11 +35,13 @@
     <string name="callFailed_powerOff" msgid="9179061328562234362">"无线装置已关闭"</string>
     <string name="callFailed_simError" msgid="3307159523385380486">"无SIM卡或SIM卡出错"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"无法连接到移动网络"</string>
-    <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN不允许外拨电话。"</string>
+    <string name="callFailed_fdn_only" msgid="1720606112619022283">"外拨电话受固定拨号限制。"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"您无法在开启了通话限制的情况下拨出电话。"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"权限控制设置不允许拨打电话。"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"权限控制设置不允许拨打紧急呼救电话。"</string>
     <string name="callFailed_dsac_restricted_normal" msgid="266947632344387216">"权限控制设置不允许拨打常规电话。"</string>
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"号码无效"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"语音信箱号码未知。"</string>
+    <string name="ringtone_silent" msgid="249805466934178869">"无"</string>
+    <string name="ringtone_unknown" msgid="2303463713486734520">"未知铃声"</string>
 </resources>

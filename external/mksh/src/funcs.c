@@ -5,7 +5,7 @@
 
 /*-
  * Copyright (c) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- *		 2010, 2011, 2012, 2013, 2014
+ *		 2010, 2011, 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -38,7 +38,7 @@
 #endif
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.258 2014/09/03 19:55:51 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/funcs.c,v 1.259.2.5 2015/04/19 19:18:16 tg Exp $");
 
 #if HAVE_KILLPG
 /*
@@ -550,7 +550,7 @@ c_whence(const char **wp)
 		if (vflag || (tp->type != CALIAS && tp->type != CEXEC &&
 		    tp->type != CTALIAS))
 			shf_puts(id, shl_stdout);
-		if (vflag)
+		if (vflag) {
 			switch (tp->type) {
 			case CKEYWD:
 			case CALIAS:
@@ -559,11 +559,20 @@ c_whence(const char **wp)
 				shf_puts(" is a", shl_stdout);
 				break;
 			}
+			switch (tp->type) {
+			case CKEYWD:
+			case CSHELL:
+			case CTALIAS:
+			case CEXEC:
+				shf_putc(' ', shl_stdout);
+				break;
+			}
+		}
 
 		switch (tp->type) {
 		case CKEYWD:
 			if (vflag)
-				shf_puts(" reserved word", shl_stdout);
+				shf_puts("reserved word", shl_stdout);
 			break;
 		case CALIAS:
 			if (vflag)
@@ -590,16 +599,17 @@ c_whence(const char **wp)
 			}
 			break;
 		case CSHELL:
-			if (vflag)
-				shprintf("%s %s %s",
-				    (tp->flag & SPEC_BI) ? " special" : null,
-				    "shell", Tbuiltin);
+			if (vflag) {
+				if (tp->flag & SPEC_BI)
+					shf_puts("special ", shl_stdout);
+				shprintf("%s %s", "shell", Tbuiltin);
+			}
 			break;
 		case CTALIAS:
 		case CEXEC:
 			if (tp->flag & ISSET) {
 				if (vflag) {
-					shf_puts(" is ", shl_stdout);
+					shf_puts("is ", shl_stdout);
 					if (tp->type == CTALIAS)
 						shprintf("a tracked %s%s for ",
 						    (tp->flag & EXPORT) ?
@@ -609,12 +619,12 @@ c_whence(const char **wp)
 				shf_puts(tp->val.s, shl_stdout);
 			} else {
 				if (vflag)
-					shprintf(" %s\n", "not found");
+					shf_puts("not found", shl_stdout);
 				rv = 1;
 			}
 			break;
 		default:
-			shprintf("%s is *GOK*", id);
+			shf_puts(" is *GOK*", shl_stdout);
 			break;
 		}
 		if (vflag || !rv)
@@ -768,7 +778,7 @@ c_typeset(const char **wp)
 
 	if (fieldstr && !bi_getn(fieldstr, &field))
 		return (1);
-	if (basestr && (!bi_getn(basestr, &base) || base < 1 || base > 36)) {
+	if (basestr && (!getn(basestr, &base) || base < 1 || base > 36)) {
 		bi_errorf("%s: %s", "bad integer base", basestr);
 		return (1);
 	}
@@ -1587,12 +1597,16 @@ c_shift(const char **wp)
 		return (1);
 	arg = wp[builtin_opt.optind];
 
-	if (arg) {
-		evaluate(arg, &val, KSH_UNWIND_ERROR, false);
-		n = val;
-	} else
+	if (!arg)
 		n = 1;
-	if (n < 0) {
+	else if (!evaluate(arg, &val, KSH_RETURN_ERROR, false)) {
+		/* error already printed */
+		bi_errorfz();
+		return (1);
+	} else if (!(n = val)) {
+		/* nothing to do */
+		return (0);
+	} else if (n < 0) {
 		bi_errorf("%s: %s", arg, "bad number");
 		return (1);
 	}
@@ -1803,9 +1817,10 @@ int
 c_read(const char **wp)
 {
 #define is_ifsws(c) (ctype((c), C_IFS) && ctype((c), C_IFSWS))
-	int c, fd = 0, rv = 0, lastparm = 0;
+	int c, fd = 0, rv = 0;
 	bool savehist = false, intoarray = false, aschars = false;
 	bool rawmode = false, expanding = false;
+	bool lastparmmode = false, lastparmused = false;
 	enum { LINES, BYTES, UPTO, READALL } readmode = LINES;
 	char delim = '\n';
 	size_t bytesleft = 128, bytesread;
@@ -1813,7 +1828,7 @@ c_read(const char **wp)
 	char *cp, *allocd = NULL, *xp;
 	const char *ccp;
 	XString xs;
-	ptrdiff_t xsave = 0;
+	size_t xsave = 0;
 	mksh_ttyst tios;
 	bool restore_tios = false;
 #if HAVE_SELECT
@@ -1841,7 +1856,7 @@ c_read(const char **wp)
 		if (!bi_getn(builtin_opt.optarg, &c))
 			return (2);
 		if (c == -1) {
-			readmode = READALL;
+			readmode = readmode == BYTES ? READALL : UPTO;
 			bytesleft = 1024;
 		} else
 			bytesleft = (unsigned int)c;
@@ -2109,7 +2124,7 @@ c_read(const char **wp)
 	}
 
 	if (!intoarray && wp[1] == NULL)
-		lastparm = 1;
+		lastparmmode = true;
 
  c_read_splitlast:
 	/* copy until IFS character */
@@ -2134,16 +2149,23 @@ c_read(const char **wp)
 	}
 	xsave = Xsavepos(xs, xp);
 	/* copy word delimiter: IFSWS+IFS,IFSWS */
+	expanding = false;
 	while (bytesread) {
 		char ch;
 
 		ch = *ccp;
 		if (!ctype(ch, C_IFS))
 			break;
-		Xcheck(xs, xp);
-		Xput(xs, xp, ch);
+		if (lastparmmode && !expanding && !rawmode && ch == '\\') {
+			expanding = true;
+		} else {
+			Xcheck(xs, xp);
+			Xput(xs, xp, ch);
+		}
 		++ccp;
 		--bytesread;
+		if (expanding)
+			continue;
 		if (!ctype(ch, C_IFSWS))
 			break;
 	}
@@ -2154,12 +2176,12 @@ c_read(const char **wp)
 		--bytesread;
 	}
 	/* if no more parameters, rinse and repeat */
-	if (lastparm && bytesread) {
-		++lastparm;
+	if (lastparmmode && bytesread) {
+		lastparmused = true;
 		goto c_read_splitlast;
 	}
 	/* get rid of the delimiter unless we pack the rest */
-	if (lastparm < 2)
+	if (!lastparmused)
 		xp = Xrestpos(xs, xp, xsave);
  c_read_gotword:
 	Xput(xs, xp, '\0');
@@ -2307,13 +2329,9 @@ c_exitreturn(const char **wp)
 		goto c_exitreturn_err;
 	arg = wp[builtin_opt.optind];
 
-	if (arg) {
-		if (!getn(arg, &n)) {
-			exstat = 1;
-			warningf(true, "%s: %s", arg, "bad number");
-		} else
-			exstat = n & 0xFF;
-	} else if (trap_exstat != -1)
+	if (arg)
+		exstat = bi_getn(arg, &n) ? (n & 0xFF) : 1;
+	else if (trap_exstat != -1)
 		exstat = trap_exstat;
 	if (wp[0][0] == 'r') {
 		/* return */
@@ -2417,9 +2435,8 @@ c_set(const char **wp)
 		return (c_typeset(args));
 	}
 
-	argi = parse_args(wp, OF_SET, &setargs);
-	if (argi < 0)
-		return (1);
+	if ((argi = parse_args(wp, OF_SET, &setargs)) < 0)
+		return (2);
 	/* set $# and $* */
 	if (setargs) {
 		wp += argi - 1;
@@ -2794,8 +2811,6 @@ c_test(const char **wp)
 
 	for (argc = 0; wp[argc]; argc++)
 		;
-	mkssert(argc > 0);
-	mkssert(wp[0] != NULL);
 
 	if (strcmp(wp[0], "[") == 0) {
 		if (strcmp(wp[--argc], "]") != 0) {

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 src_header = """/*
  * Copyright (C) 2014 The Android Open Source Project
@@ -72,8 +72,7 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase {
         /* obtain sepolicy file from running device */
         devicePolicyFile = File.createTempFile("sepolicy", ".tmp");
         devicePolicyFile.deleteOnExit();
-        mDevice.executeAdbCommand("pull", "/sys/fs/selinux/policy",
-                devicePolicyFile.getAbsolutePath());
+        mDevice.pullFile("/sys/fs/selinux/policy", devicePolicyFile);
     }
 """
 src_body = ""

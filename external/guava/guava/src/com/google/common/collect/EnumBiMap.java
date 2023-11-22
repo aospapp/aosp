@@ -17,6 +17,7 @@
 package com.google.common.collect;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -31,6 +32,10 @@ import java.util.Map;
  * A {@code BiMap} backed by two {@code EnumMap} instances. Null keys and values
  * are not permitted. An {@code EnumBiMap} and its inverse are both
  * serializable.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#BiMap">
+ * {@code BiMap}</a>.
  *
  * @author Mike Bostock
  * @since 2.0 (imported from Google Collections Library)
@@ -104,6 +109,16 @@ public final class EnumBiMap<K extends Enum<K>, V extends Enum<V>>
   /** Returns the associated value type. */
   public Class<V> valueType() {
     return valueType;
+  }
+
+  @Override
+  K checkKey(K key) {
+    return checkNotNull(key);
+  }
+
+  @Override
+  V checkValue(V value) {
+    return checkNotNull(value);
   }
 
   /**

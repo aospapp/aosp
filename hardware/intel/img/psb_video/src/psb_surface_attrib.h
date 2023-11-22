@@ -39,6 +39,7 @@ VAStatus psb_surface_create_from_ub(
     int width, int height, int fourcc, VASurfaceAttributeTPI *graphic_buffers,
     psb_surface_p psb_surface, /* out */
     void *vaddr,
+    int fd,
     unsigned int flags
 );
 

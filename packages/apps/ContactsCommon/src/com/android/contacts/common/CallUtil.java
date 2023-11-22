@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2015 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 
 package com.android.contacts.common;
 
+import com.android.contacts.common.util.PhoneNumberHelper;
+import com.android.phone.common.PhoneConstants;
+
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -23,12 +26,15 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
+import android.text.TextUtils;
 
-import com.android.contacts.common.util.PhoneNumberHelper;
-import com.android.phone.common.PhoneConstants;
+import java.util.List;
 
 /**
- * Utilities related to calls.
+ * Utilities related to calls that can be used by non system apps. These
+ * use {@link Intent#ACTION_CALL} instead of ACTION_CALL_PRIVILEGED.
+ *
+ * The privileged version of this util exists inside Dialer.
  */
 public class CallUtil {
 
@@ -37,7 +43,7 @@ public class CallUtil {
      * automatically.
      */
     public static Intent getCallIntent(String number) {
-        return getCallIntent(number, null, null);
+        return getCallIntent(getCallUri(number));
     }
 
     /**
@@ -45,99 +51,19 @@ public class CallUtil {
      * sanity check).
      */
     public static Intent getCallIntent(Uri uri) {
-        return getCallIntent(uri, null, null);
+        return new Intent(Intent.ACTION_CALL, uri);
     }
 
     /**
-     * A variant of {@link #getCallIntent(String)} but also accept a call origin.
-     * For more information about call origin, see comments in Phone package (PhoneApp).
-     */
-    public static Intent getCallIntent(String number, String callOrigin) {
-        return getCallIntent(getCallUri(number), callOrigin, null);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(String)} but also include {@code Account}.
-     */
-    public static Intent getCallIntent(String number, PhoneAccountHandle accountHandle) {
-        return getCallIntent(number, null, accountHandle);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(android.net.Uri)} but also include {@code Account}.
-     */
-    public static Intent getCallIntent(Uri uri, PhoneAccountHandle accountHandle) {
-        return getCallIntent(uri, null, accountHandle);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(String, String)} but also include {@code Account}.
-     */
-    public static Intent getCallIntent(
-            String number, String callOrigin, PhoneAccountHandle accountHandle) {
-        return getCallIntent(getCallUri(number), callOrigin, accountHandle);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(android.net.Uri)} but also accept a call
-     * origin and {@code Account}.
-     * For more information about call origin, see comments in Phone package (PhoneApp).
-     */
-    public static Intent getCallIntent(
-            Uri uri, String callOrigin, PhoneAccountHandle accountHandle) {
-        return getCallIntent(uri, callOrigin, accountHandle,
-                VideoProfile.VideoState.AUDIO_ONLY);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(String, String)} for starting a video call.
+     * A variant of {@link #getCallIntent} for starting a video call.
      */
     public static Intent getVideoCallIntent(String number, String callOrigin) {
-        return getCallIntent(getCallUri(number), callOrigin, null,
-                VideoProfile.VideoState.BIDIRECTIONAL);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(String, String, android.telecom.PhoneAccountHandle)} for
-     * starting a video call.
-     */
-    public static Intent getVideoCallIntent(
-            String number, String callOrigin, PhoneAccountHandle accountHandle) {
-        return getCallIntent(getCallUri(number), callOrigin, accountHandle,
-                VideoProfile.VideoState.BIDIRECTIONAL);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(String, String, android.telecom.PhoneAccountHandle)} for
-     * starting a video call.
-     */
-    public static Intent getVideoCallIntent(String number, PhoneAccountHandle accountHandle) {
-        return getVideoCallIntent(number, null, accountHandle);
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(android.net.Uri)} for calling Voicemail.
-     */
-    public static Intent getVoicemailIntent() {
-        return getCallIntent(Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "", null));
-    }
-
-    /**
-     * A variant of {@link #getCallIntent(android.net.Uri)} but also accept a call
-     * origin and {@code Account} and {@code VideoCallProfile} state.
-     * For more information about call origin, see comments in Phone package (PhoneApp).
-     */
-    public static Intent getCallIntent(
-            Uri uri, String callOrigin, PhoneAccountHandle accountHandle, int videoState) {
-        final Intent intent = new Intent(Intent.ACTION_CALL_PRIVILEGED, uri);
-        intent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);
-        if (callOrigin != null) {
+        final Intent intent = new Intent(Intent.ACTION_CALL, getCallUri(number));
+        intent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                VideoProfile.STATE_BIDIRECTIONAL);
+        if (!TextUtils.isEmpty(callOrigin)) {
             intent.putExtra(PhoneConstants.EXTRA_CALL_ORIGIN, callOrigin);
         }
-        if (accountHandle != null) {
-            intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, accountHandle);
-        }
-
         return intent;
     }
 
@@ -150,8 +76,15 @@ public class CallUtil {
              return Uri.fromParts(PhoneAccount.SCHEME_SIP, number, null);
         }
         return Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null);
-     }
+    }
 
+    /**
+     * Determines if one of the call capable phone accounts defined supports video calling.
+     *
+     * @param context The context.
+     * @return {@code true} if one of the call capable phone accounts supports video calling,
+     *      {@code false} otherwise.
+     */
     public static boolean isVideoEnabled(Context context) {
         TelecomManager telecommMgr = (TelecomManager)
                 context.getSystemService(Context.TELECOM_SERVICE);
@@ -159,8 +92,13 @@ public class CallUtil {
             return false;
         }
 
-        // TODO: Check telecommManager for value instead.
-        // return telecommMgr.isVideoEnabled();
+        List<PhoneAccountHandle> accountHandles = telecommMgr.getCallCapablePhoneAccounts();
+        for (PhoneAccountHandle accountHandle : accountHandles) {
+            PhoneAccount account = telecommMgr.getPhoneAccount(accountHandle);
+            if (account != null && account.hasCapabilities(PhoneAccount.CAPABILITY_VIDEO_CALLING)) {
+                return true;
+            }
+        }
         return false;
     }
 }

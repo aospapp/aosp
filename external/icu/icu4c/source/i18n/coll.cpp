@@ -59,8 +59,6 @@
 #include "uresimp.h"
 #include "ucln_in.h"
 
-#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
-
 static icu::Locale* availableLocaleList = NULL;
 static int32_t  availableLocaleListCount;
 static icu::ICULocaleService* gService = NULL;
@@ -296,11 +294,14 @@ static const char *collReorderCodes[UCOL_REORDER_CODE_LIMIT - UCOL_REORDER_CODE_
 };
 
 int32_t getReorderCode(const char *s) {
-    for (int32_t i = 0; i < LENGTHOF(collReorderCodes); ++i) {
+    for (int32_t i = 0; i < UPRV_LENGTHOF(collReorderCodes); ++i) {
         if (uprv_stricmp(s, collReorderCodes[i]) == 0) {
             return UCOL_REORDER_CODE_FIRST + i;
         }
     }
+    // Not supporting "others" = UCOL_REORDER_CODE_OTHERS
+    // as a synonym for Zzzz = USCRIPT_UNKNOWN for now:
+    // Avoid introducing synonyms/aliases.
     return -1;
 }
 
@@ -323,7 +324,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
     char value[1024];  // The reordering value could be long.
     // Check for collation keywords that were already deprecated
     // before any were supported in createInstance() (except for "collation").
-    int32_t length = loc.getKeywordValue("colHiraganaQuaternary", value, LENGTHOF(value), errorCode);
+    int32_t length = loc.getKeywordValue("colHiraganaQuaternary", value, UPRV_LENGTHOF(value), errorCode);
     if (U_FAILURE(errorCode)) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
@@ -332,7 +333,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
         errorCode = U_UNSUPPORTED_ERROR;
         return;
     }
-    length = loc.getKeywordValue("variableTop", value, LENGTHOF(value), errorCode);
+    length = loc.getKeywordValue("variableTop", value, UPRV_LENGTHOF(value), errorCode);
     if (U_FAILURE(errorCode)) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
@@ -345,15 +346,15 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
     if (errorCode == U_STRING_NOT_TERMINATED_WARNING) {
         errorCode = U_ZERO_ERROR;
     }
-    for (int32_t i = 0; i < LENGTHOF(collAttributes); ++i) {
-        length = loc.getKeywordValue(collAttributes[i].name, value, LENGTHOF(value), errorCode);
+    for (int32_t i = 0; i < UPRV_LENGTHOF(collAttributes); ++i) {
+        length = loc.getKeywordValue(collAttributes[i].name, value, UPRV_LENGTHOF(value), errorCode);
         if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING) {
             errorCode = U_ILLEGAL_ARGUMENT_ERROR;
             return;
         }
         if (length == 0) { continue; }
         for (int32_t j = 0;; ++j) {
-            if (j == LENGTHOF(collAttributeValues)) {
+            if (j == UPRV_LENGTHOF(collAttributeValues)) {
                 errorCode = U_ILLEGAL_ARGUMENT_ERROR;
                 return;
             }
@@ -363,7 +364,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
             }
         }
     }
-    length = loc.getKeywordValue("colReorder", value, LENGTHOF(value), errorCode);
+    length = loc.getKeywordValue("colReorder", value, UPRV_LENGTHOF(value), errorCode);
     if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
@@ -373,7 +374,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
         int32_t codesLength = 0;
         char *scriptName = value;
         for (;;) {
-            if (codesLength == LENGTHOF(codes)) {
+            if (codesLength == UPRV_LENGTHOF(codes)) {
                 errorCode = U_ILLEGAL_ARGUMENT_ERROR;
                 return;
             }
@@ -398,7 +399,7 @@ void setAttributesFromKeywords(const Locale &loc, Collator &coll, UErrorCode &er
         }
         coll.setReorderCodes(codes, codesLength, errorCode);
     }
-    length = loc.getKeywordValue("kv", value, LENGTHOF(value), errorCode);
+    length = loc.getKeywordValue("kv", value, UPRV_LENGTHOF(value), errorCode);
     if (U_FAILURE(errorCode) || errorCode == U_STRING_NOT_TERMINATED_WARNING) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
@@ -453,21 +454,21 @@ Collator* U_EXPORT2 Collator::createInstance(const Locale& desiredLocale,
 }
 
 
-Collator* Collator::makeInstance(const Locale&  desiredLocale, 
-                                         UErrorCode& status)
-{
-    Locale validLocale("");
-    const CollationTailoring *t =
-        CollationLoader::loadTailoring(desiredLocale, validLocale, status);
+Collator* Collator::makeInstance(const Locale&  desiredLocale, UErrorCode& status) {
+    const CollationCacheEntry *entry = CollationLoader::loadTailoring(desiredLocale, status);
     if (U_SUCCESS(status)) {
-        Collator *result = new RuleBasedCollator(t, validLocale);
+        Collator *result = new RuleBasedCollator(entry);
         if (result != NULL) {
+            // Both the unified cache's get() and the RBC constructor
+            // did addRef(). Undo one of them.
+            entry->removeRef();
             return result;
         }
         status = U_MEMORY_ALLOCATION_ERROR;
     }
-    if (t != NULL) {
-        t->deleteIfZeroRefCount();
+    if (entry != NULL) {
+        // Undo the addRef() from the cache.get().
+        entry->removeRef();
     }
     return NULL;
 }
@@ -868,37 +869,23 @@ Collator::getAvailableLocales(void)
 
 StringEnumeration* U_EXPORT2
 Collator::getKeywords(UErrorCode& status) {
-    // This is a wrapper over ucol_getKeywords
-    UEnumeration* uenum = ucol_getKeywords(&status);
-    if (U_FAILURE(status)) {
-        uenum_close(uenum);
-        return NULL;
-    }
-    return new UStringEnumeration(uenum);
+    return UStringEnumeration::fromUEnumeration(
+            ucol_getKeywords(&status), status);
 }
 
 StringEnumeration* U_EXPORT2
 Collator::getKeywordValues(const char *keyword, UErrorCode& status) {
-    // This is a wrapper over ucol_getKeywordValues
-    UEnumeration* uenum = ucol_getKeywordValues(keyword, &status);
-    if (U_FAILURE(status)) {
-        uenum_close(uenum);
-        return NULL;
-    }
-    return new UStringEnumeration(uenum);
+    return UStringEnumeration::fromUEnumeration(
+            ucol_getKeywordValues(keyword, &status), status);
 }
 
 StringEnumeration* U_EXPORT2
 Collator::getKeywordValuesForLocale(const char* key, const Locale& locale,
                                     UBool commonlyUsed, UErrorCode& status) {
-    // This is a wrapper over ucol_getKeywordValuesForLocale
-    UEnumeration *uenum = ucol_getKeywordValuesForLocale(key, locale.getName(),
-                                                        commonlyUsed, &status);
-    if (U_FAILURE(status)) {
-        uenum_close(uenum);
-        return NULL;
-    }
-    return new UStringEnumeration(uenum);
+    return UStringEnumeration::fromUEnumeration(
+            ucol_getKeywordValuesForLocale(
+                    key, locale.getName(), commonlyUsed, &status),
+            status);
 }
 
 Locale U_EXPORT2

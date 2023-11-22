@@ -143,7 +143,7 @@ public:
      *              fact ovals can report false.
      */
     bool isOval(SkRect* rect) const {
-        if (fIsOval && NULL != rect) {
+        if (fIsOval && rect) {
             *rect = getBounds();
         }
 
@@ -253,6 +253,8 @@ public:
      */
     uint32_t genID() const;
 
+    SkDEBUGCODE(void validate() const;)
+
 private:
     enum SerializationOffsets {
         kIsFinite_SerializationShift = 25,  // requires 1 bit
@@ -290,6 +292,8 @@ private:
     // called, if dirty, by getBounds()
     void computeBounds() const {
         SkDEBUGCODE(this->validate();)
+        // TODO(mtklein): remove fBoundsIsDirty and fIsFinite,
+        // using an inverted rect instead of fBoundsIsDirty and always recalculating fIsFinite.
         SkASSERT(fBoundsIsDirty);
 
         fIsFinite = ComputePtBounds(&fBounds, *this);
@@ -413,12 +417,10 @@ private:
         return reinterpret_cast<intptr_t>(fVerbs) - reinterpret_cast<intptr_t>(fPoints);
     }
 
-    SkDEBUGCODE(void validate() const;)
-
     /**
      * Called the first time someone calls CreateEmpty to actually create the singleton.
      */
-    static SkPathRef* CreateEmptyImpl();
+    friend SkPathRef* sk_create_empty_pathref();
 
     void setIsOval(bool isOval) { fIsOval = isOval; }
 
@@ -432,11 +434,12 @@ private:
         kMinSize = 256,
     };
 
-    mutable SkRect      fBounds;
-    uint8_t             fSegmentMask;
-    mutable uint8_t     fBoundsIsDirty;
-    mutable SkBool8     fIsFinite;    // only meaningful if bounds are valid
-    mutable SkBool8     fIsOval;
+    mutable SkRect   fBounds;
+    mutable uint8_t  fBoundsIsDirty;
+    mutable SkBool8  fIsFinite;    // only meaningful if bounds are valid
+
+    SkBool8  fIsOval;
+    uint8_t  fSegmentMask;
 
     SkPoint*            fPoints; // points to begining of the allocation
     uint8_t*            fVerbs; // points just past the end of the allocation (verbs grow backwards)

@@ -16,6 +16,8 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 
@@ -33,6 +35,10 @@ import javax.annotation.Nullable;
  * a {@code HashMap} instance for values-to-keys. Null keys are not permitted,
  * but null values are. An {@code EnumHashBiMap} and its inverse are both
  * serializable.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#BiMap">
+ * {@code BiMap}</a>.
  *
  * @author Mike Bostock
  * @since 2.0 (imported from Google Collections Library)
@@ -77,7 +83,12 @@ public final class EnumHashBiMap<K extends Enum<K>, V>
     this.keyType = keyType;
   }
 
-  // Overriding these two methods to show that values may be null (but not keys)
+  // Overriding these 3 methods to show that values may be null (but not keys)
+
+  @Override
+  K checkKey(K key) {
+    return checkNotNull(key);
+  }
 
   @Override public V put(K key, @Nullable V value) {
     return super.put(key, value);

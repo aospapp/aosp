@@ -24,15 +24,28 @@
     <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"ಸಂಪರ್ಕ ಹೆಸರುಗಳನ್ನು ಹುಡುಕು"</string>
     <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"ಕಾಗುಣಿತ ಪರೀಕ್ಷಕವು ನಿಮ್ಮ ಸಂಪರ್ಕ ಪಟ್ಟಿಯ ಮಾಹಿತಿಯನ್ನು ಬಳಸಿಕೊಳ್ಳುತ್ತದೆ"</string>
     <string name="vibrate_on_keypress" msgid="5258079494276955460">"ಕೀಲಿಯನ್ನು ಒತ್ತಿದಾಗ ವೈಬ್ರೇಷನ್‌"</string>
-    <string name="sound_on_keypress" msgid="6093592297198243644">"ಕೀಲಿಯನ್ನು ಒತ್ತಿದಾಗ ಶಬ್ದಮಾಡು"</string>
+    <string name="sound_on_keypress" msgid="6093592297198243644">"ಕೀ ಒತ್ತಿದಾಗ ಶಬ್ದಮಾಡು"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"ಕೀ ಒತ್ತಿದಾಗ ಪಾಪ್ ಅಪ್‌ ಮಾಡು"</string>
-    <string name="settings_screen_preferences" msgid="2696713156722014624">"ಆದ್ಯತೆಗಳು"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"ಗೋಚರತೆ &amp; ಲೇಔಟ್‌ಗಳು"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"ಬಹುಭಾಷೆ ಆಯ್ಕೆಗಳು"</string>
+    <string name="settings_screen_preferences" msgid="2696713156722014624">"ಪ್ರಾಶಸ್ತ್ಯಗಳು"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"ಖಾತೆಗಳು ಮತ್ತು ಗೌಪ್ಯತೆ"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"ಗೋಚರತೆ ಮತ್ತು ಲೇಔಟ್‌ಗಳು"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"ಗೆಸ್ಚರ್ ಟೈಪಿಂಗ್"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"ಪಠ್ಯ ತಿದ್ದುಪಡಿ"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"ಸುಧಾರಿತ"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"ಥೀಮ್"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"ಬೇರ್ಪಡೆ ಕೀಬೋರ್ಡ್ ಸಕ್ರಿಯಗೊಳಿಸಿ"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google ಕೀಬೋರ್ಡ್‌ ಸಿಂಕ್‌"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"ಸಿಂಕ್‌ ಆನ್‌ ಆಗಿದೆ"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ನಿಘಂಟನ್ನು ಸಾಧನಗಳಲ್ಲಿ ಸಿಂಕ್ ಮಾಡಿ"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"ಈಗ ಸಿಂಕ್ ಮಾಡು"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"ಮೇಘ ಡೇಟಾವನ್ನು ಅಳಿಸಿ"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google ನಿಂದ ನಿಮ್ಮ ಸಿಂಕ್ ಮಾಡಲಾದ ಡೇಟಾವನ್ನು ಅಳಿಸುತ್ತದೆ"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"ಸಿಂಕ್‌ ಮಾಡಲಾದ ಡೇಟಾವನ್ನು ಮೇಘದಿಂದ ಅಳಿಸಲಾಗುತ್ತದೆ. ಇದು ಖಚಿತವೇ?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"ಅಳಿಸು"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"ರದ್ದುಮಾಡು"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"ನಿಮ್ಮ ವೈಯಕ್ತಿಕ ನಿಘಂಟನ್ನು Google ಸರ್ವರ್‌ಗಳಿಗೆ ಸಿಂಕ್‌ ಮಾಡಲಾಗುತ್ತದೆ ಹಾಗೂ ಬ್ಯಾಕಪ್‌ ಮಾಡಲಾಗುತ್ತದೆ. ನಮ್ಮ ಉತ್ಪನ್ನಗಳನ್ನು ಸುಧಾರಿಸಲು ಪದ ಆವರ್ತನೆಯ ಅಂಕಿಅಂಶವನ್ನು ಸಂಗ್ರಹಿಸಬಹುದು. ಎಲ್ಲಾ ಮಾಹಿತಿಯ ಸಂಗ್ರಹಣೆ ಮತ್ತು ಬಳಕೆಯು "<a href="https://www.google.com/policies/privacy">"Google ನ ಗೌಪ್ಯತೆ ನೀತಿ"</a>"ಗೆ ಬದ್ಧವಾಗಿರುತ್ತವೆ."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"ಈ ಸಾಧನಕ್ಕೆ ಈ ವೈಶಿಷ್ಟ್ಯವನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಲು ದಯವಿಟ್ಟು Google ಖಾತೆಯನ್ನು ಸೇರಿಸಿ"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"ವ್ಯಾಪಾರಕ್ಕಾಗಿ Google Apps ಖಾತೆಗಳನ್ನು ಹೊಂದಿರುವ ಸಾಧನಗಳಿಗೆ ಸಿಂಕ್ ಲಭ್ಯವಿಲ್ಲ"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"ಇತರೆ ಇನ್‌ಪುಟ್ ವಿಧಾನಗಳಿಗೆ ಬದಲಾಯಿಸು"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"ಭಾಷಾ ಬದಲಾವಣೆ ಕೀಯು ಇತರೆ ಇನ್‌ಪುಟ್ ವಿಧಾನಗಳನ್ನು ಕೂಡ ಒಳಗೊಂಡಿರುತ್ತದೆ"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"ಭಾಷೆ ಬದಲಾವಣೆ ಕೀ"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"ಉಳಿಸಲು ಇಲ್ಲಿ ಸ್ಪರ್ಶಿಸಿ"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"ನಿಘಂಟು ಲಭ್ಯವಿದೆ"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"ಕೀಬೋರ್ಡ್ ಥೀಮ್"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"ಖಾತೆಗಳನ್ನು ಬದಲಿಸು"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"ಯಾವುದೇ ಖಾತೆಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿಲ್ಲ"</string>
+    <string name="account_selected" msgid="2846876462199625974">"ಪ್ರಸ್ತತವಾಗಿ <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> ಅನ್ನು ಬಳಸುತ್ತಿರುವಿರಿ"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ಸರಿ"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"ರದ್ದುಮಾಡು"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"ಸೈನ್ ಔಟ್"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"ಬಳಸಲು ಖಾತೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"ಇಂಗ್ಲಿಷ್ (UK)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"ಇಂಗ್ಲಿಷ್ (US)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"ಸ್ಪ್ಯಾನಿಷ್ (US)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"ಹಿಂಗ್ಲಿಷ್"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"ಸರ್ಬಿಯನ್ (ಲ್ಯಾಟಿನ್)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"ಇಂಗ್ಲಿಷ್ (UK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"ಇಂಗ್ಲಿಷ್ (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"ಸ್ಪ್ಯಾನಿಷ್ (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"ಹಿಂಗ್ಲಿಷ್ (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"ಸರ್ಬಿಯನ್ (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ಸಾಂಪ್ರದಾಯಿಕ)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ಸಿರಿಲಿಕ್)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ಲ್ಯಾಟಿನ್)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ಕಾಂಪ್ಯಾಕ್ಟ್‌‌)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"ಯಾವುದೇ ಭಾಷೆಯಿಲ್ಲ (ವರ್ಣಮಾಲೆ)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"ವರ್ಣಮಾಲೆ (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"ವರ್ಣಮಾಲೆ (QWERTZ)"</string>
@@ -100,7 +123,7 @@
     <string name="subtype_no_language_pcqwerty" msgid="5354918232046200018">"ವರ್ಣಮಾಲೆ (PC)"</string>
     <string name="subtype_emoji" msgid="7483586578074549196">"ಎಮೋಜಿ"</string>
     <string name="keyboard_theme" msgid="4909551808526178852">"ಕೀಬೋರ್ಡ್ ಥೀಮ್"</string>
-    <string name="custom_input_styles_title" msgid="8429952441821251512">"ಕಸ್ಟಮ್ ಇನ್‌ಪುಟ್ ಶೈಲಿಗಳು"</string>
+    <string name="custom_input_styles_title" msgid="8429952441821251512">"ಕಸ್ಟಮ್ ಇನ್‌ಪುಟ್ ಶೈಲಿ"</string>
     <string name="add_style" msgid="6163126614514489951">"ಶೈಲಿ ಸೇರಿಸು"</string>
     <string name="add" msgid="8299699805688017798">"ಸೇರಿಸು"</string>
     <string name="remove" msgid="4486081658752944606">"ತೆಗೆದುಹಾಕಿ"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"ಅದೇ ರೀತಿಯ ಇನ್‌ಪುಟ್ ಶೈಲಿಯು ಈಗಾಗಲೇ ಅಸ್ತಿತ್ವದಲ್ಲಿದೆ: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"ಕೀಒತ್ತುವ ವೈಬ್ರೇಷನ್‌‌ ಅವಧಿ"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"ಕೀಒತ್ತುವ ಶಬ್ದದ ವಾಲ್ಯೂಮ್"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"ಕೀಯ ದೀರ್ಘ ಒತ್ತುವ ವಿಳಂಬ"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"ಭೌತಿಕ ಕೀಬೋರ್ಡ್‌ಗೆ ಎಮೋಜಿ"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"ಭೌತಿಕ Alt ಕೀ ಎಮೋಜಿ ಪ್ಯಾಲೆಟ್ ತೋರಿಸುತ್ತದೆ"</string>
     <string name="button_default" msgid="3988017840431881491">"ಡೀಫಾಲ್ಟ್"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> ಗೆ ಸುಸ್ವಾಗತ"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"ಗೆಶ್ಚರ್ ಟೈಪಿಂಗ್‌ನೊಂದಿಗೆ"</string>
@@ -135,14 +161,14 @@
     <string name="app_name" msgid="6320102637491234792">"ನಿಘಂಟು ಪೂರೈಕೆದಾರರು"</string>
     <string name="dictionary_provider_name" msgid="3027315045397363079">"ನಿಘಂಟು ಪೂರೈಕೆದಾರರು"</string>
     <string name="dictionary_service_name" msgid="6237472350693511448">"ನಿಘಂಟು ಸೇವೆ"</string>
-    <string name="download_description" msgid="6014835283119198591">"ನಿಘಂಟು ನವೀಕರಣ ಮಾಹಿತಿ"</string>
+    <string name="download_description" msgid="6014835283119198591">"ನಿಘಂಟು ಅಪ್‌ಡೇಟ್‌‌ ಮಾಹಿತಿ"</string>
     <string name="dictionary_settings_title" msgid="8091417676045693313">"ಆಡ್-ಆನ್ ನಿಘಂಟುಗಳು"</string>
     <string name="dictionary_install_over_metered_network_prompt" msgid="3587517870006332980">"ನಿಘಂಟು ಲಭ್ಯವಿದೆ"</string>
     <string name="dictionary_settings_summary" msgid="5305694987799824349">"ನಿಘಂಟುಗಳಿಗಾಗಿ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="user_dictionaries" msgid="3582332055892252845">"ಬಳಕೆದಾರರ ನಿಘಂಟುಗಳು"</string>
     <string name="default_user_dict_pref_name" msgid="1625055720489280530">"ಬಳಕೆದಾರರ ನಿಘಂಟು"</string>
     <string name="dictionary_available" msgid="4728975345815214218">"ನಿಘಂಟು ಲಭ್ಯವಿದೆ"</string>
-    <string name="dictionary_downloading" msgid="2982650524622620983">"ಪ್ರಸ್ತುತವಾಗಿ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
+    <string name="dictionary_downloading" msgid="2982650524622620983">"ಪ್ರಸ್ತುತ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ"</string>
     <string name="dictionary_installed" msgid="8081558343559342962">"ಸ್ಥಾಪಿಸಲಾಗಿದೆ"</string>
     <string name="dictionary_disabled" msgid="8950383219564621762">"ಸ್ಥಾಪಿಸಲಾಗಿದೆ, ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ"</string>
     <string name="cannot_connect_to_dict_service" msgid="9216933695765732398">"ನಿಘಂಟು ಸೇವೆಗೆ ಸಂಪರ್ಕಗೊಳಿಸುವಾಗ ಸಮಸ್ಯೆ"</string>

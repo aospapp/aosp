@@ -37,21 +37,24 @@ public class EventLogTest extends TestCase {
         EventLog.writeEvent(ANSWER_TAG, markerData);
         EventLog.writeEvent(ANSWER_TAG, 12345);
         EventLog.writeEvent(ANSWER_TAG, 23456L);
+        EventLog.writeEvent(ANSWER_TAG, 42.4242f);
         EventLog.writeEvent(ANSWER_TAG, "Test");
-        EventLog.writeEvent(ANSWER_TAG, 12345, 23456L, "Test");
+        EventLog.writeEvent(ANSWER_TAG, 12345, 23456L, 42.4242f, "Test");
 
         List<EventLog.Event> events = getEventsAfterMarker(markerData, ANSWER_TAG);
-        assertEquals(4, events.size());
+        assertEquals(5, events.size());
         assertEquals(ANSWER_TAG, events.get(0).getTag());
         assertEquals(12345, events.get(0).getData());
         assertEquals(23456L, events.get(1).getData());
-        assertEquals("Test", events.get(2).getData());
+        assertEquals(42.4242f, events.get(2).getData());
+        assertEquals("Test", events.get(3).getData());
 
-        Object[] arr = (Object[]) events.get(3).getData();
-        assertEquals(3, arr.length);
+        Object[] arr = (Object[]) events.get(4).getData();
+        assertEquals(4, arr.length);
         assertEquals(12345, arr[0]);
         assertEquals(23456L, arr[1]);
-        assertEquals("Test", arr[2]);
+        assertEquals(42.4242f, arr[2]);
+        assertEquals("Test", arr[3]);
     }
 
     public void testWriteEventWithOversizeValue() throws Exception {
@@ -67,12 +70,11 @@ public class EventLogTest extends TestCase {
         EventLog.writeEvent(ANSWER_TAG, "hi", longString.toString());
         EventLog.writeEvent(ANSWER_TAG, 12345, longString.toString());
         EventLog.writeEvent(ANSWER_TAG, 12345L, longString.toString());
+        EventLog.writeEvent(ANSWER_TAG, 42.4242f, longString.toString());
         EventLog.writeEvent(ANSWER_TAG, longString.toString(), longString.toString());
         EventLog.writeEvent(ANSWER_TAG, longArray);
-        // Give the message some time to show up in the log
-        Thread.sleep(10);
         List<Event> events = getEventsAfterMarker(markerData, ANSWER_TAG);
-        assertEquals(6, events.size());
+        assertEquals(7, events.size());
 
         // subtract: log header, type byte, final newline
         final int max = 4096 - 20 - 4 - 1;
@@ -99,15 +101,21 @@ public class EventLogTest extends TestCase {
         assertEquals(12345L, arr3[0]);
         assertEquals(max - 2 - 9 - 5, ((String) arr3[1]).length());
 
-        // subtract: array header, string header (second string is dropped entirely)
+        // subtract: array header, float, string header
         Object[] arr4 = (Object[]) events.get(4).getData();
-        assertEquals(1, arr4.length);
-        assertEquals(max - 2 - 5, ((String) arr4[0]).length());
+        assertEquals(2, arr4.length);
+        assertEquals(42.4242f, arr4[0]);
+        assertEquals(max - 2 - 5 - 5, ((String) arr4[1]).length());
 
+        // subtract: array header, string header (second string is dropped entirely)
         Object[] arr5 = (Object[]) events.get(5).getData();
-        assertEquals(255, arr5.length);
-        assertEquals(12345, arr5[0]);
-        assertEquals(12345, arr5[arr5.length - 1]);
+        assertEquals(1, arr5.length);
+        assertEquals(max - 2 - 5, ((String) arr5[0]).length());
+
+        Object[] arr6 = (Object[]) events.get(6).getData();
+        assertEquals(255, arr6.length);
+        assertEquals(12345, arr6[0]);
+        assertEquals(12345, arr6[arr6.length - 1]);
     }
 
     public void testWriteNullEvent() throws Exception {
@@ -156,8 +164,11 @@ public class EventLogTest extends TestCase {
     }
 
     /** Return elements after and the event that has the marker data and matching tag. */
-    private List<Event> getEventsAfterMarker(Object marker, int... tags) throws IOException {
+    private List<Event> getEventsAfterMarker(Object marker, int... tags)
+            throws IOException, InterruptedException {
         List<Event> events = new ArrayList<Event>();
+        // Give the message some time to show up in the log
+        Thread.sleep(20);
         EventLog.readEvents(tags, events);
 
         for (Iterator<Event> itr = events.iterator(); itr.hasNext(); ) {

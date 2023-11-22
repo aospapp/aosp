@@ -48,7 +48,7 @@ public:
   // this Script object. Return false on error.
   //
   // This is equivalent to the call to Script::merge(...) on mSource.
-  bool mergeSource(Source &pSource, bool pPreserveSource = false);
+  bool mergeSource(Source &pSource);
 
   inline Source &getSource()
   { return *mSource; }

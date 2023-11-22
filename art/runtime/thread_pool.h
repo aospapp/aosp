@@ -22,17 +22,30 @@
 
 #include "barrier.h"
 #include "base/mutex.h"
-#include "closure.h"
 #include "mem_map.h"
 
 namespace art {
 
 class ThreadPool;
 
+class Closure {
+ public:
+  virtual ~Closure() { }
+  virtual void Run(Thread* self) = 0;
+};
+
 class Task : public Closure {
  public:
-  // Called when references reaches 0.
+  // Called after Closure::Run has been called.
   virtual void Finalize() { }
+};
+
+class SelfDeletingTask : public Task {
+ public:
+  virtual ~SelfDeletingTask() { }
+  virtual void Finalize() {
+    delete this;
+  }
 };
 
 class ThreadPoolWorker {
@@ -99,9 +112,9 @@ class ThreadPool {
   // get a task to run, blocks if there are no tasks left
   virtual Task* GetTask(Thread* self);
 
-  // Try to get a task, returning NULL if there is none available.
+  // Try to get a task, returning null if there is none available.
   Task* TryGetTask(Thread* self);
-  Task* TryGetTaskLocked(Thread* self) EXCLUSIVE_LOCKS_REQUIRED(task_queue_lock_);
+  Task* TryGetTaskLocked() EXCLUSIVE_LOCKS_REQUIRED(task_queue_lock_);
 
   // Are we shutting down?
   bool IsShuttingDown() const EXCLUSIVE_LOCKS_REQUIRED(task_queue_lock_) {
@@ -153,7 +166,7 @@ class WorkStealingWorker : public ThreadPoolWorker {
   virtual ~WorkStealingWorker();
 
   bool IsRunningTask() const {
-    return task_ != NULL;
+    return task_ != nullptr;
   }
 
  protected:
@@ -178,7 +191,7 @@ class WorkStealingThreadPool : public ThreadPool {
   size_t steal_index_;
 
   // Find a task to steal from
-  WorkStealingTask* FindTaskToStealFrom(Thread* self) EXCLUSIVE_LOCKS_REQUIRED(work_steal_lock_);
+  WorkStealingTask* FindTaskToStealFrom() EXCLUSIVE_LOCKS_REQUIRED(work_steal_lock_);
 
   friend class WorkStealingWorker;
 };

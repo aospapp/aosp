@@ -36,6 +36,15 @@ enum UDisplayContextType {
      * @stable ICU 51
      */
     UDISPCTX_TYPE_CAPITALIZATION = 1
+#ifndef U_HIDE_DRAFT_API
+    ,
+    /**
+     * Type to retrieve the display length setting, e.g.
+     * UDISPCTX_LENGTH_FULL, UDISPCTX_LENGTH_SHORT.
+     * @draft ICU 54
+     */
+    UDISPCTX_TYPE_DISPLAY_LENGTH = 2
+#endif  /* U_HIDE_DRAFT_API */
 };
 /**
 *  @stable ICU 51
@@ -107,6 +116,29 @@ enum UDisplayContext {
      * @stable ICU 51
      */
     UDISPCTX_CAPITALIZATION_FOR_STANDALONE = (UDISPCTX_TYPE_CAPITALIZATION<<8) + 4
+#ifndef U_HIDE_DRAFT_API
+    ,
+    /**
+     * ================================
+     * DISPLAY_LENGTH can be set to one of UDISPCTX_LENGTH_FULL or
+     * UDISPCTX_LENGTH_SHORT. Use UDisplayContextType UDISPCTX_TYPE_DISPLAY_LENGTH
+     * to get the value.
+     */
+    /**
+     * A possible setting for DISPLAY_LENGTH:
+     * use full names when generating a locale name,
+     * e.g. "United States" for US.
+     * @draft ICU 54
+     */
+    UDISPCTX_LENGTH_FULL = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 0,
+    /**
+     * A possible setting for DISPLAY_LENGTH:
+     * use short names when generating a locale name,
+     * e.g. "U.S." for US.
+     * @draft ICU 54
+     */
+    UDISPCTX_LENGTH_SHORT = (UDISPCTX_TYPE_DISPLAY_LENGTH<<8) + 1
+#endif  /* U_HIDE_DRAFT_API */
 };
 /**
 *  @stable ICU 51

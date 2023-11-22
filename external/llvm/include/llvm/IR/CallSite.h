@@ -46,12 +46,13 @@ template <typename FunTy = const Function,
 class CallSiteBase {
 protected:
   PointerIntPair<InstrTy*, 1, bool> I;
-public:
+
   CallSiteBase() : I(nullptr, false) {}
   CallSiteBase(CallTy *CI) : I(CI, true) { assert(CI); }
   CallSiteBase(InvokeTy *II) : I(II, false) { assert(II); }
-  CallSiteBase(ValTy *II) { *this = get(II); }
-protected:
+  explicit CallSiteBase(ValTy *II) { *this = get(II); }
+
+private:
   /// CallSiteBase::get - This static method is sort of like a constructor.  It
   /// will create an appropriate call site for a Call or Invoke instruction, but
   /// it can also create a null initialized CallSiteBase object for something
@@ -78,7 +79,7 @@ public:
 
   InstrTy *getInstruction() const { return I.getPointer(); }
   InstrTy *operator->() const { return I.getPointer(); }
-  LLVM_EXPLICIT operator bool() const { return I.getPointer(); }
+  explicit operator bool() const { return I.getPointer(); }
 
   /// getCalledValue - Return the pointer to function that is being called.
   ///
@@ -151,7 +152,7 @@ public:
   IterTy arg_end() const { return (*this)->op_end() - getArgumentEndOffset(); }
   bool arg_empty() const { return arg_end() == arg_begin(); }
   unsigned arg_size() const { return unsigned(arg_end() - arg_begin()); }
-  
+
   /// getType - Return the type of the instruction that generated this call site
   ///
   Type *getType() const { return (*this)->getType(); }
@@ -215,6 +216,12 @@ public:
   /// @brief Extract the alignment for a call or parameter (0=unknown).
   uint16_t getParamAlignment(uint16_t i) const {
     CALLSITE_DELEGATE_GETTER(getParamAlignment(i));
+  }
+
+  /// @brief Extract the number of dereferenceable bytes for a call or
+  /// parameter (0=unknown).
+  uint64_t getDereferenceableBytes(uint16_t i) const {
+    CALLSITE_DELEGATE_GETTER(getDereferenceableBytes(i));
   }
 
   /// \brief Return true if the call should not be treated as a call to a
@@ -302,6 +309,19 @@ public:
            paramHasAttr(ArgNo + 1, Attribute::ReadNone);
   }
 
+  /// @brief Return true if the return value is known to be not null.
+  /// This may be because it has the nonnull attribute, or because at least
+  /// one byte is dereferenceable and the pointer is in addrspace(0).
+  bool isReturnNonNull() const {
+    if (paramHasAttr(0, Attribute::NonNull))
+      return true;
+    else if (getDereferenceableBytes(0) > 0 &&
+             getType()->getPointerAddressSpace() == 0)
+      return true;
+
+    return false;
+  }
+
   /// hasArgument - Returns true if this CallSite passes the given Value* as an
   /// argument to the called function.
   bool hasArgument(const Value *Arg) const {
@@ -330,15 +350,13 @@ private:
 
 class CallSite : public CallSiteBase<Function, Value, User, Instruction,
                                      CallInst, InvokeInst, User::op_iterator> {
-  typedef CallSiteBase<Function, Value, User, Instruction,
-                       CallInst, InvokeInst, User::op_iterator> Base;
 public:
   CallSite() {}
-  CallSite(Base B) : Base(B) {}
-  CallSite(Value* V) : Base(V) {}
-  CallSite(CallInst *CI) : Base(CI) {}
-  CallSite(InvokeInst *II) : Base(II) {}
-  CallSite(Instruction *II) : Base(II) {}
+  CallSite(CallSiteBase B) : CallSiteBase(B) {}
+  CallSite(CallInst *CI) : CallSiteBase(CI) {}
+  CallSite(InvokeInst *II) : CallSiteBase(II) {}
+  explicit CallSite(Instruction *II) : CallSiteBase(II) {}
+  explicit CallSite(Value *V) : CallSiteBase(V) {}
 
   bool operator==(const CallSite &CS) const { return I == CS.I; }
   bool operator!=(const CallSite &CS) const { return I != CS.I; }
@@ -352,13 +370,13 @@ private:
 
 /// ImmutableCallSite - establish a view to a call site for examination
 class ImmutableCallSite : public CallSiteBase<> {
-  typedef CallSiteBase<> Base;
 public:
-  ImmutableCallSite(const Value* V) : Base(V) {}
-  ImmutableCallSite(const CallInst *CI) : Base(CI) {}
-  ImmutableCallSite(const InvokeInst *II) : Base(II) {}
-  ImmutableCallSite(const Instruction *II) : Base(II) {}
-  ImmutableCallSite(CallSite CS) : Base(CS.getInstruction()) {}
+  ImmutableCallSite() {}
+  ImmutableCallSite(const CallInst *CI) : CallSiteBase(CI) {}
+  ImmutableCallSite(const InvokeInst *II) : CallSiteBase(II) {}
+  explicit ImmutableCallSite(const Instruction *II) : CallSiteBase(II) {}
+  explicit ImmutableCallSite(const Value *V) : CallSiteBase(V) {}
+  ImmutableCallSite(CallSite CS) : CallSiteBase(CS.getInstruction()) {}
 };
 
 } // End llvm namespace

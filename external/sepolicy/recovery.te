@@ -36,15 +36,12 @@ recovery_only(`
   # support to OTAs. However, that code has a bug. When an update occurs,
   # some directories are inappropriately labeled as exec_type. This is
   # only transient, and subsequent steps in the OTA script correct this
-  # mistake.
-  # Allow this behavior for now until we can fix the underlying bug.
-  # b/15575013
+  # mistake. New devices are moving to block based OTAs, so this is not
+  # worth fixing. b/15575013
   allow recovery exec_type:dir { create_dir_perms relabelfrom relabelto };
-  auditallow recovery exec_type:dir { create_dir_perms relabelfrom relabelto };
 
   # Write to /proc/sys/vm/drop_caches
-  # TODO: create more specific label?
-  allow recovery proc:file w_file_perms;
+  allow recovery proc_drop_caches:file w_file_perms;
 
   # Write to /sys/class/android_usb/android0/enable.
   # TODO: create more specific label?
@@ -79,12 +76,14 @@ recovery_only(`
   allow recovery cache_file:dir create_dir_perms;
   allow recovery cache_file:file create_file_perms;
 
+  # Read files on /oem.
+  r_dir_file(recovery, oemfs);
+
   # Reboot the device
-  allow recovery powerctl_prop:property_service set;
-  unix_socket_connect(recovery, property, init)
+  set_prop(recovery, powerctl_prop)
 
   # Start/stop adbd via ctl.start adbd
-  allow recovery ctl_default_prop:property_service set;
+  set_prop(recovery, ctl_default_prop)
 
   # Use setfscreatecon() to label files for OTA updates.
   allow recovery self:process setfscreate;
@@ -100,3 +99,20 @@ recovery_only(`
   # set scheduling parameters for a kernel domain task.
   allow recovery kernel:process setsched;
 ')
+
+###
+### neverallow rules
+###
+
+# Recovery should never touch /data.
+#
+# In particular, if /data is encrypted, it is not accessible
+# to recovery anyway.
+#
+# For now, we only enforce write/execute restrictions, as domain.te
+# contains a number of read-only rules that apply to all
+# domains, including recovery.
+#
+# TODO: tighten this up further.
+neverallow recovery data_file_type:file { no_w_file_perms no_x_file_perms };
+neverallow recovery data_file_type:dir no_w_dir_perms;

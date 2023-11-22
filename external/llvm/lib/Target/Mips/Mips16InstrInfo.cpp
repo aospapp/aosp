@@ -1,4 +1,3 @@
-
 //===-- Mips16InstrInfo.cpp - Mips16 Instruction Information --------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -25,15 +24,15 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cctype>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "mips16-instrinfo"
 
-Mips16InstrInfo::Mips16InstrInfo(MipsTargetMachine &tm)
-  : MipsInstrInfo(tm, Mips::Bimm16),
-    RI(*tm.getSubtargetImpl()) {}
+Mips16InstrInfo::Mips16InstrInfo(const MipsSubtarget &STI)
+    : MipsInstrInfo(STI, Mips::Bimm16), RI() {}
 
 const MipsRegisterInfo &Mips16InstrInfo::getRegisterInfo() const {
   return RI;
@@ -44,9 +43,8 @@ const MipsRegisterInfo &Mips16InstrInfo::getRegisterInfo() const {
 /// the destination along with the FrameIndex of the loaded stack slot.  If
 /// not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than loading from the stack slot.
-unsigned Mips16InstrInfo::
-isLoadFromStackSlot(const MachineInstr *MI, int &FrameIndex) const
-{
+unsigned Mips16InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
+                                              int &FrameIndex) const {
   return 0;
 }
 
@@ -55,9 +53,8 @@ isLoadFromStackSlot(const MachineInstr *MI, int &FrameIndex) const
 /// the source reg along with the FrameIndex of the loaded stack slot.  If
 /// not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than storing to the stack slot.
-unsigned Mips16InstrInfo::
-isStoreToStackSlot(const MachineInstr *MI, int &FrameIndex) const
-{
+unsigned Mips16InstrInfo::isStoreToStackSlot(const MachineInstr *MI,
+                                             int &FrameIndex) const {
   return 0;
 }
 
@@ -93,11 +90,12 @@ void Mips16InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     MIB.addReg(SrcReg, getKillRegState(KillSrc));
 }
 
-void Mips16InstrInfo::
-storeRegToStack(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                unsigned SrcReg, bool isKill, int FI,
-                const TargetRegisterClass *RC, const TargetRegisterInfo *TRI,
-                int64_t Offset) const {
+void Mips16InstrInfo::storeRegToStack(MachineBasicBlock &MBB,
+                                      MachineBasicBlock::iterator I,
+                                      unsigned SrcReg, bool isKill, int FI,
+                                      const TargetRegisterClass *RC,
+                                      const TargetRegisterInfo *TRI,
+                                      int64_t Offset) const {
   DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
   MachineMemOperand *MMO = GetMemOperand(MBB, FI, MachineMemOperand::MOStore);
@@ -110,10 +108,12 @@ storeRegToStack(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
       .addMemOperand(MMO);
 }
 
-void Mips16InstrInfo::
-loadRegFromStack(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                 unsigned DestReg, int FI, const TargetRegisterClass *RC,
-                 const TargetRegisterInfo *TRI, int64_t Offset) const {
+void Mips16InstrInfo::loadRegFromStack(MachineBasicBlock &MBB,
+                                       MachineBasicBlock::iterator I,
+                                       unsigned DestReg, int FI,
+                                       const TargetRegisterClass *RC,
+                                       const TargetRegisterInfo *TRI,
+                                       int64_t Offset) const {
   DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
   MachineMemOperand *MMO = GetMemOperand(MBB, FI, MachineMemOperand::MOLoad);
@@ -144,7 +144,6 @@ bool Mips16InstrInfo::expandPostRAPseudo(MachineBasicBlock::iterator MI) const {
 /// opcode, e.g. turning BEQ to BNE.
 unsigned Mips16InstrInfo::getOppositeBranchOpc(unsigned Opc) const {
   switch (Opc) {
-  default:  llvm_unreachable("Illegal opcode!");
   case Mips::BeqzRxImmX16: return Mips::BnezRxImmX16;
   case Mips::BnezRxImmX16: return Mips::BeqzRxImmX16;
   case Mips::BeqzRxImm16: return Mips::BnezRxImm16;
@@ -166,12 +165,12 @@ unsigned Mips16InstrInfo::getOppositeBranchOpc(unsigned Opc) const {
   case Mips::BtnezT8SltX16: return Mips::BteqzT8SltX16;
   case Mips::BtnezT8SltiX16: return Mips::BteqzT8SltiX16;
   }
-  assert(false && "Implement this function.");
-  return 0;
+  llvm_unreachable("Illegal opcode!");
 }
 
 static void addSaveRestoreRegs(MachineInstrBuilder &MIB,
-                          const std::vector<CalleeSavedInfo> &CSI, unsigned Flags=0) {
+                               const std::vector<CalleeSavedInfo> &CSI,
+                               unsigned Flags = 0) {
   for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
     // Add the callee-saved register as live-in. Do not add if the register is
     // RA and return address is taken, because it has already been added in
@@ -195,8 +194,8 @@ static void addSaveRestoreRegs(MachineInstrBuilder &MIB,
 }
 // Adjust SP by FrameSize bytes. Save RA, S0, S1
 void Mips16InstrInfo::makeFrame(unsigned SP, int64_t FrameSize,
-                    MachineBasicBlock &MBB,
-                    MachineBasicBlock::iterator I) const {
+                                MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator I) const {
   DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
   MachineFunction &MF = *MBB.getParent();
   MachineFrameInfo *MFI    = MF.getFrameInfo();
@@ -265,9 +264,6 @@ void Mips16InstrInfo::adjustStackPtrBig(unsigned SP, int64_t Amount,
                                         MachineBasicBlock::iterator I,
                                         unsigned Reg1, unsigned Reg2) const {
   DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
-//  MachineRegisterInfo &RegInfo = MBB.getParent()->getRegInfo();
-//  unsigned Reg1 = RegInfo.createVirtualRegister(&Mips::CPU16RegsRegClass);
-//  unsigned Reg2 = RegInfo.createVirtualRegister(&Mips::CPU16RegsRegClass);
   //
   // li reg1, constant
   // move reg2, sp
@@ -287,16 +283,19 @@ void Mips16InstrInfo::adjustStackPtrBig(unsigned SP, int64_t Amount,
   MIB4.addReg(Reg1, RegState::Kill);
 }
 
-void Mips16InstrInfo::adjustStackPtrBigUnrestricted(unsigned SP, int64_t Amount,
-                    MachineBasicBlock &MBB,
-                    MachineBasicBlock::iterator I) const {
-   assert(false && "adjust stack pointer amount exceeded");
+void Mips16InstrInfo::adjustStackPtrBigUnrestricted(
+    unsigned SP, int64_t Amount, MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator I) const {
+   llvm_unreachable("adjust stack pointer amount exceeded");
 }
 
 /// Adjust SP by Amount bytes.
 void Mips16InstrInfo::adjustStackPtr(unsigned SP, int64_t Amount,
                                      MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator I) const {
+  if (Amount == 0)
+    return;
+
   if (isInt<16>(Amount))  // need to change to addiu sp, ....and isInt<16>
     BuildAddiuSpImm(MBB, I, Amount);
   else
@@ -305,11 +304,10 @@ void Mips16InstrInfo::adjustStackPtr(unsigned SP, int64_t Amount,
 
 /// This function generates the sequence of instructions needed to get the
 /// result of adding register REG and immediate IMM.
-unsigned
-Mips16InstrInfo::loadImmediate(unsigned FrameReg,
-                               int64_t Imm, MachineBasicBlock &MBB,
-                               MachineBasicBlock::iterator II, DebugLoc DL,
-                               unsigned &NewImm) const {
+unsigned Mips16InstrInfo::loadImmediate(unsigned FrameReg, int64_t Imm,
+                                        MachineBasicBlock &MBB,
+                                        MachineBasicBlock::iterator II,
+                                        DebugLoc DL, unsigned &NewImm) const {
   //
   // given original instruction is:
   // Instr rx, T[offset] where offset is too big.
@@ -345,7 +343,7 @@ Mips16InstrInfo::loadImmediate(unsigned FrameReg,
         !TargetRegisterInfo::isVirtualRegister(MO.getReg()))
       Candidates.reset(MO.getReg());
   }
-  //
+
   // If the same register was used and defined in an instruction, then
   // it will not be in the list of candidates.
   //
@@ -354,7 +352,6 @@ Mips16InstrInfo::loadImmediate(unsigned FrameReg,
   // present as an operand of the instruction. this tells
   // whether the register is live before the instruction. if it's not
   // then we don't need to save it in case there are no free registers.
-  //
   int DefReg = 0;
   for (unsigned i = 0, e = II->getNumOperands(); i != e; ++i) {
     MachineOperand &MO = II->getOperand(i);
@@ -363,9 +360,8 @@ Mips16InstrInfo::loadImmediate(unsigned FrameReg,
       break;
     }
   }
-  //
-  BitVector Available = rs.getRegsAvailable(&Mips::CPU16RegsRegClass);
 
+  BitVector Available = rs.getRegsAvailable(&Mips::CPU16RegsRegClass);
   Available &= Candidates;
   //
   // we use T0 for the first register, if we need to save something away.
@@ -373,7 +369,6 @@ Mips16InstrInfo::loadImmediate(unsigned FrameReg,
   //
   unsigned FirstRegSaved =0, SecondRegSaved=0;
   unsigned FirstRegSavedTo = 0, SecondRegSavedTo = 0;
-
 
   Reg = Available.find_first();
 
@@ -442,7 +437,6 @@ void Mips16InstrInfo::ExpandRetRA16(MachineBasicBlock &MBB,
   BuildMI(MBB, I, I->getDebugLoc(), get(Opc));
 }
 
-
 const MCInstrDesc &Mips16InstrInfo::AddiuSpImm(int64_t Imm) const {
   if (validSpImm8(Imm))
     return get(Mips::AddiuSpImm16);
@@ -456,8 +450,8 @@ void Mips16InstrInfo::BuildAddiuSpImm
   BuildMI(MBB, I, DL, AddiuSpImm(Imm)).addImm(Imm);
 }
 
-const MipsInstrInfo *llvm::createMips16InstrInfo(MipsTargetMachine &TM) {
-  return new Mips16InstrInfo(TM);
+const MipsInstrInfo *llvm::createMips16InstrInfo(const MipsSubtarget &STI) {
+  return new Mips16InstrInfo(STI);
 }
 
 bool Mips16InstrInfo::validImmediate(unsigned Opcode, unsigned Reg,
@@ -496,7 +490,6 @@ bool Mips16InstrInfo::validImmediate(unsigned Opcode, unsigned Reg,
 ///
 unsigned Mips16InstrInfo::getInlineAsmLength(const char *Str,
                                              const MCAsmInfo &MAI) const {
-
 
   // Count the number of instructions in the asm.
   bool atInsnStart = true;

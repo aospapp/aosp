@@ -25,7 +25,7 @@ void Animation::serialize(Context *rsc, OStream *stream) const {
 }
 
 Animation *Animation::createFromStream(Context *rsc, IStream *stream) {
-    return NULL;
+    return nullptr;
 }
 
 /*
@@ -34,8 +34,8 @@ Animation::Animation(Context *rsc) : ObjectBase(rsc)
     mAllocFile = __FILE__;
     mAllocLine = __LINE__;
 
-    mValuesInput = NULL;
-    mValuesOutput = NULL;
+    mValuesInput = nullptr;
+    mValuesOutput = nullptr;
     mValueCount = 0;
     mInterpolation = RS_ANIMATION_INTERPOLATION_STEP;
     mEdgePre = RS_ANIMATION_EDGE_UNDEFINED;
@@ -51,22 +51,22 @@ Animation * Animation::create(Context *rsc,
 {
     if (valueCount < 2) {
         rsc->setError(RS_ERROR_BAD_VALUE, "Animations require more than 2 values.");
-        return NULL;
+        return nullptr;
     }
     Animation *a = new Animation(rsc);
     if (!a) {
         rsc->setError(RS_ERROR_OUT_OF_MEMORY);
-        return NULL;
+        return nullptr;
     }
 
     float *vin = (float *)malloc(valueCount * sizeof(float));
     float *vout = (float *)malloc(valueCount * sizeof(float));
     a->mValuesInput = vin;
     a->mValuesOutput = vout;
-    if (a->mValuesInput == NULL || a->mValuesOutput == NULL) {
+    if (a->mValuesInput == nullptr || a->mValuesOutput == nullptr) {
         delete a;
         rsc->setError(RS_ERROR_OUT_OF_MEMORY);
-        return NULL;
+        return nullptr;
     }
 
     a->mEdgePre = pre;
@@ -127,8 +127,8 @@ RsAnimation rsi_AnimationCreate(Context *rsc,
                                 RsAnimationEdge pre,
                                 RsAnimationEdge post) {
     //ALOGE("rsi_ElementCreate %i %i %i %i", dt, dk, norm, vecSize);
-    Animation *a = NULL;//Animation::create(rsc, inValues, outValues, valueCount, interp, pre, post);
-    if (a != NULL) {
+    Animation *a = nullptr;//Animation::create(rsc, inValues, outValues, valueCount, interp, pre, post);
+    if (a != nullptr) {
         a->incUserRef();
     }
     return (RsAnimation)a;

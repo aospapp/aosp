@@ -3,14 +3,15 @@
 // found in the LICENSE file.
 
 #define LOG_TAG "ProxyResolverTest"
-
 #include <utils/Log.h>
-#include "android_runtime/AndroidRuntime.h"
+
 #include <string.h>
 
+#include <gtest/gtest.h>
+
+#include "android_runtime/AndroidRuntime.h"
 #include "proxy_test_script.h"
 #include "proxy_resolver_v8.h"
-#include "include/gtest/gtest.h"
 
 using namespace android;
 namespace net {

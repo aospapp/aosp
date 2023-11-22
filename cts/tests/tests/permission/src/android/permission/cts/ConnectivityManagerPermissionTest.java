@@ -53,21 +53,4 @@ public class ConnectivityManagerPermissionTest extends AndroidTestCase {
             // expected
         }
     }
-
-    /**
-     * Verify that calling {@link ConnectivityManager#requestRouteToHost(int, int)}
-     * requires permissions.
-     * <p>Tests Permission:
-     *   {@link android.Manifest.permission#CHANGE_NETWORK_STATE}.
-     */
-    @SmallTest
-    public void testRequestRouteToHost() {
-        try {
-            mConnectivityManager.requestRouteToHost(ConnectivityManager.TYPE_MOBILE, 1);
-            fail("Was able to call requestRouteToHost");
-        } catch (SecurityException e) {
-            // expected
-        }
-    }
 }
-

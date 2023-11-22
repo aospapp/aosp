@@ -62,7 +62,7 @@ public class BitmapWorkerOptions {
 
         private int mWidth;
         private int mHeight;
-        private Context mContext;
+        private final Context mContext;
         private int mCacheFlag;
         private Bitmap.Config mBitmapConfig;
 

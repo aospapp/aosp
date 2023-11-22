@@ -1234,6 +1234,17 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
       data.setValue("class.abstract", "abstract");
     }
 
+    int numAnnotationDocumentation = 0;
+    for (AnnotationInstanceInfo aii : annotations()) {
+      String annotationDocumentation = Doclava.getDocumentationStringForAnnotation(
+          aii.type().qualifiedName());
+      if (annotationDocumentation != null) {
+        data.setValue("class.annotationdocumentation." + numAnnotationDocumentation + ".text",
+            annotationDocumentation);
+        numAnnotationDocumentation++;
+      }
+    }
+
     ArrayList<AnnotationInstanceInfo> showAnnos = getShowAnnotationsIncludeOuters();
     AnnotationInstanceInfo.makeLinkListHDF(
       data,
@@ -1586,7 +1597,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   }
 
   public boolean hasShowAnnotation() {
-    return mShowAnnotations.size() > 0;
+    return mShowAnnotations != null && mShowAnnotations.size() > 0;
   }
 
   public ArrayList<AnnotationInstanceInfo> showAnnotations() {
@@ -2034,7 +2045,12 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
   }
 
   public boolean isConsistent(ClassInfo cl) {
+    return isConsistent(cl, null, null);
+  }
+
+  public boolean isConsistent(ClassInfo cl, List<MethodInfo> newCtors, List<MethodInfo> newMethods) {
     boolean consistent = true;
+    boolean diffMode = (newCtors != null) && (newMethods != null);
 
     if (isInterface() != cl.isInterface()) {
       Errors.error(Errors.CHANGED_CLASS, cl.position(), "Class " + cl.qualifiedName()
@@ -2071,7 +2087,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
         }
         if (mi == null) {
           Errors.error(Errors.REMOVED_METHOD, mInfo.position(), "Removed public method "
-              + mInfo.qualifiedName());
+              + mInfo.prettyQualifiedSignature());
           consistent = false;
         }
       }
@@ -2081,14 +2097,23 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
         /*
          * Similarly to the above, do not fail if this "new" method is really an override of an
          * existing superclass method.
+         * But we should fail if this is overriding an abstract method, because method's
+         * abstractness affects how users use it. See also Stubs.methodIsOverride().
          */
         MethodInfo mi = ClassInfo.overriddenMethod(mInfo, this);
-        if (mi == null) {
+        if (mi == null ||
+            mi.isAbstract() != mInfo.isAbstract()) {
           Errors.error(Errors.ADDED_METHOD, mInfo.position(), "Added public method "
-              + mInfo.qualifiedName());
+              + mInfo.prettyQualifiedSignature());
+          if (diffMode) {
+            newMethods.add(mInfo);
+          }
           consistent = false;
         }
       }
+    }
+    if (diffMode) {
+      Collections.sort(newMethods, MethodInfo.comparator);
     }
 
     for (MethodInfo mInfo : mApiCheckConstructors.values()) {
@@ -2098,16 +2123,22 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
         }
       } else {
         Errors.error(Errors.REMOVED_METHOD, mInfo.position(), "Removed public constructor "
-            + mInfo.prettySignature());
+            + mInfo.prettyQualifiedSignature());
         consistent = false;
       }
     }
     for (MethodInfo mInfo : cl.mApiCheckConstructors.values()) {
       if (!mApiCheckConstructors.containsKey(mInfo.getHashableName())) {
         Errors.error(Errors.ADDED_METHOD, mInfo.position(), "Added public constructor "
-            + mInfo.prettySignature());
+            + mInfo.prettyQualifiedSignature());
+        if (diffMode) {
+          newCtors.add(mInfo);
+        }
         consistent = false;
       }
+    }
+    if (diffMode) {
+      Collections.sort(newCtors, MethodInfo.comparator);
     }
 
     for (FieldInfo mInfo : mApiCheckFields.values()) {
@@ -2190,7 +2221,7 @@ public class ClassInfo extends DocInfo implements ContainerInfo, Comparable, Sco
     if (!isDeprecated() == cl.isDeprecated()) {
       consistent = false;
       Errors.error(Errors.CHANGED_DEPRECATED, cl.position(), "Class " + cl.qualifiedName()
-          + " has changed deprecation state");
+          + " has changed deprecation state " + isDeprecated() + " --> " + cl.isDeprecated());
     }
 
     if (superclassName() != null) { // java.lang.Object can't have a superclass.

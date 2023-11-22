@@ -17,11 +17,13 @@
 package com.android.cts.tradefed.testtype;
 
 import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IRemoteTest;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Container for CTS test info.
@@ -98,4 +100,9 @@ public interface ITestPackageDef extends Comparable<ITestPackageDef> {
      */
     public String getTargetPackageName();
 
+    /**
+     * Return a list of preparers used for setup or teardown of test cases in this package
+     * @return
+     */
+    public List<ITargetPreparer> getPackagePreparers();
 }

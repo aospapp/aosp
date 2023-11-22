@@ -390,9 +390,7 @@ public class CharsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(char[].class, new char[0]);
-    tester.testAllPublicStaticMethods(Chars.class);
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(Chars.class);
   }
 }

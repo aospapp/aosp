@@ -1,4 +1,3 @@
-
 ContextDestroy {
     direct
 }
@@ -31,6 +30,11 @@ ContextDeinitToClient {
     direct
 }
 
+ContextSetCacheDir {
+    direct
+    param const char * cacheDir
+}
+
 TypeCreate {
     direct
     param RsElement e
@@ -40,6 +44,12 @@ TypeCreate {
     param bool mipmaps
     param bool faces
     param uint32_t yuv
+    ret RsType
+}
+
+TypeCreate2 {
+    direct
+    param const RsTypeCreateParams *dat
     ret RsType
 }
 
@@ -81,6 +91,18 @@ AllocationSetSurface {
     param RsNativeWindow sur
     sync
     }
+
+AllocationAdapterCreate {
+    direct
+    param RsType vtype
+    param RsAllocation baseAlloc
+    ret RsAllocation
+}
+
+AllocationAdapterOffset {
+    param RsAllocation alloc
+    param const uint32_t *offsets
+}
 
 ContextFinish {
     sync
@@ -137,7 +159,7 @@ AllocationGetPointer {
     param uint32_t z
     param uint32_t array
     param size_t *stride
-    ret void *s
+    ret void *
     }
 
 Allocation1DData {
@@ -151,6 +173,16 @@ Allocation1DData {
 Allocation1DElementData {
     param RsAllocation va
     param uint32_t x
+    param uint32_t lod
+    param const void *data
+    param size_t comp_offset
+    }
+
+AllocationElementData {
+    param RsAllocation va
+    param uint32_t x
+    param uint32_t y
+    param uint32_t z
     param uint32_t lod
     param const void *data
     param size_t comp_offset
@@ -198,6 +230,16 @@ Allocation1DRead {
     param void *data
     }
 
+AllocationElementRead {
+    param RsAllocation va
+    param uint32_t x
+    param uint32_t y
+    param uint32_t z
+    param uint32_t lod
+    param void *data
+    param size_t comp_offset
+    }
+
 Allocation2DRead {
     param RsAllocation va
     param uint32_t xoff
@@ -210,6 +252,18 @@ Allocation2DRead {
     param size_t stride
 }
 
+Allocation3DRead {
+    param RsAllocation va
+    param uint32_t xoff
+    param uint32_t yoff
+    param uint32_t zoff
+    param uint32_t lod
+    param uint32_t w
+    param uint32_t h
+    param uint32_t d
+    param void *data
+    param size_t stride
+    }
 
 AllocationSyncAll {
     param RsAllocation va
@@ -252,6 +306,41 @@ AllocationCopy3DRange {
     param uint32_t srcMip
     }
 
+ClosureCreate {
+    direct
+    param RsScriptKernelID kernelID
+    param RsAllocation returnValue
+    param RsScriptFieldID * fieldIDs
+    param uintptr_t * values
+    param int * sizes
+    param RsClosure * depClosures
+    param RsScriptFieldID * depFieldIDs
+    ret RsClosure
+    }
+
+InvokeClosureCreate {
+    direct
+    param RsScriptInvokeID invokeID
+    param const void * params
+    param const RsScriptFieldID * fieldIDs
+    param const uintptr_t * values
+    param const int * sizes
+    ret RsClosure
+}
+
+ClosureSetArg {
+  param RsClosure closureID
+  param uint32_t index
+  param uintptr_t value
+  param size_t valueSize
+}
+
+ClosureSetGlobal {
+  param RsClosure closureID
+  param RsScriptFieldID fieldID
+  param uintptr_t value
+  param size_t valueSize
+}
 
 SamplerCreate {
     direct
@@ -273,6 +362,12 @@ ScriptBindAllocation {
 ScriptSetTimeZone {
     param RsScript s
     param const char * timeZone
+    }
+
+ScriptInvokeIDCreate {
+    param RsScript s
+    param uint32_t slot
+    ret RsScriptInvokeID
     }
 
 ScriptInvoke {
@@ -408,6 +503,14 @@ ScriptGroupSetInput {
 
 ScriptGroupExecute {
     param RsScriptGroup group
+}
+
+ScriptGroup2Create{
+    direct
+    param const char * name
+    param const char * cacheDir
+    param RsClosure * closures
+    ret RsScriptGroup2
 }
 
 AllocationIoSend {

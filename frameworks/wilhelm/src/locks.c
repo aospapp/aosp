@@ -15,10 +15,9 @@
  */
 
 #include "sles_allinclusive.h"
-#include <bionic_pthread.h>
 
 
-// Use this macro to validate a pthread_t before passing it into __pthread_gettid.
+// Use this macro to validate a pthread_t before passing it into pthread_gettid_np.
 // One of the common reasons for deadlock is trying to lock a mutex for an object
 // which has been destroyed (which does memset to 0x00 or 0x55 as the final step).
 // To avoid crashing with a SIGSEGV right before we're about to log a deadlock warning,
@@ -83,7 +82,7 @@ void object_lock_exclusive_(IObject *thiz, const char *file, int line)
                     pthread_t me = pthread_self();
                     pthread_t owner = thiz->mOwner;
                     // unlikely, but this could result in a memory fault if owner is corrupt
-                    pid_t ownerTid = LIKELY_VALID(owner) ? __pthread_gettid(owner) : -1;
+                    pid_t ownerTid = LIKELY_VALID(owner) ? pthread_gettid_np(owner) : -1;
                     SL_LOGW("%s:%d: pthread %p (tid %d) sees object %p was locked by pthread %p"
                             " (tid %d) at %s:%d\n", file, line, *(void **)&me, gettid(), thiz,
                             *(void **)&owner, ownerTid, thiz->mFile, thiz->mLine);
@@ -102,7 +101,7 @@ forward_progress:
     if (0 != memcmp(&zero, &thiz->mOwner, sizeof(pthread_t))) {
         pthread_t me = pthread_self();
         pthread_t owner = thiz->mOwner;
-        pid_t ownerTid = LIKELY_VALID(owner) ? __pthread_gettid(owner) : -1;
+        pid_t ownerTid = LIKELY_VALID(owner) ? pthread_gettid_np(owner) : -1;
         if (pthread_equal(pthread_self(), owner)) {
             SL_LOGE("%s:%d: pthread %p (tid %d) sees object %p was recursively locked by pthread"
                     " %p (tid %d) at %s:%d\n", file, line, *(void **)&me, gettid(), thiz,

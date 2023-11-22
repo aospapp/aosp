@@ -6,27 +6,24 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/LD/DiagnosticPrinter.h>
+#include "mcld/LD/DiagnosticPrinter.h"
 
-using namespace mcld;
+namespace mcld {
 
 //===----------------------------------------------------------------------===//
 // DiagnosticPrinter
 //===----------------------------------------------------------------------===//
-DiagnosticPrinter::DiagnosticPrinter()
-  : m_NumErrors(0), m_NumWarnings(0) {
+DiagnosticPrinter::DiagnosticPrinter() : m_NumErrors(0), m_NumWarnings(0) {
 }
 
-DiagnosticPrinter::~DiagnosticPrinter()
-{
+DiagnosticPrinter::~DiagnosticPrinter() {
   clear();
 }
 
 /// HandleDiagnostic - Handle this diagnostic, reporting it to the user or
 /// capturing it to a log as needed.
 void DiagnosticPrinter::handleDiagnostic(DiagnosticEngine::Severity pSeverity,
-                                         const Diagnostic& pInfo)
-{
+                                         const Diagnostic& pInfo) {
   if (pSeverity == DiagnosticEngine::Warning)
     ++m_NumWarnings;
 
@@ -34,3 +31,4 @@ void DiagnosticPrinter::handleDiagnostic(DiagnosticEngine::Severity pSeverity,
     ++m_NumErrors;
 }
 
+}  // namespace mcld

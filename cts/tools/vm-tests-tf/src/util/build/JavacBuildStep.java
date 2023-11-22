@@ -23,7 +23,7 @@ import java.io.PrintWriter;
 import java.util.HashSet;
 import java.util.Set;
 
-public class JavacBuildStep extends BuildStep {
+public class JavacBuildStep extends SourceBuildStep {
 
     private final String destPath;
     private final String classPath;
@@ -32,12 +32,13 @@ public class JavacBuildStep extends BuildStep {
         this.destPath = destPath;
         this.classPath = classPath;
     }
-    
+
+    @Override
     public void addSourceFile(String sourceFile)
     {
         sourceFiles.add(sourceFile);
     }
-    
+
     @Override
     boolean build() {
         if (super.build())
@@ -46,7 +47,7 @@ public class JavacBuildStep extends BuildStep {
             {
                 return true;
             }
-            
+
             File destFile = new File(destPath);
             if (!destFile.exists() && !destFile.mkdirs())
             {
@@ -59,13 +60,12 @@ public class JavacBuildStep extends BuildStep {
             commandLine[1] = classPath;
             commandLine[2] = "-d";
             commandLine[3] = destPath;
-             
+
             String[] files = new String[sourceFiles.size()];
             sourceFiles.toArray(files);
-            
+
             System.arraycopy(files, 0, commandLine, args, files.length);
-            
-            
+
             return Main.compile(commandLine, new PrintWriter(System.err)) == 0;
         }
         return false;
@@ -73,17 +73,16 @@ public class JavacBuildStep extends BuildStep {
 
     @Override
     public boolean equals(Object obj) {
-        // TODO Auto-generated method stub
         if (super.equals(obj))
         {
             JavacBuildStep other = (JavacBuildStep) obj;
-            return destPath.equals(other.destPath) 
+            return destPath.equals(other.destPath)
                 && classPath.equals(other.classPath)
                 && sourceFiles.equals(other.sourceFiles);
         }
         return false;
     }
-    
+
     @Override
     public int hashCode() {
         return destPath.hashCode() ^ classPath.hashCode() ^ sourceFiles.hashCode();

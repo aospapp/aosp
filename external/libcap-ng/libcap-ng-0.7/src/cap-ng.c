@@ -25,9 +25,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
-#if !defined(ANDROID)
 #include <stdio_ext.h>
-#endif
 #include <stdlib.h>
 #include <sys/prctl.h>
 #include <grp.h>
@@ -244,9 +242,7 @@ static int get_bounding_set(void)
 	f = fopen(buf, "re");
 	if (f == NULL)
 		return -1;
-#if !defined(ANDROID)
 	__fsetlocking(f, FSETLOCKING_BYCALLER);
-#endif
 	while (fgets(buf, sizeof(buf), f)) {
 		if (strncmp(buf, "CapB", 4))
 			continue;

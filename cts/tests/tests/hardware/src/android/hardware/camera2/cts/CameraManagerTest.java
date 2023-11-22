@@ -422,38 +422,23 @@ public class CameraManagerTest extends AndroidTestCase {
                         new BlockingStateCallback(mockFailListener);
 
                 mCameraManager.openCamera(ids[i], successListener, mHandler);
-
-                try {
-                    mCameraManager.openCamera(ids[i], failListener,
-                            mHandler);
-                } catch (CameraAccessException e) {
-                    // Optional (but common). Camera might fail asynchronously only.
-                    // Don't assert here, otherwise, all subsequent tests will fail because the
-                    // opened camera is never closed.
-                    mCollector.expectEquals(
-                            "If second camera open fails immediately, must be due to"
-                            + "camera being busy for ID: " + ids[i],
-                            CameraAccessException.CAMERA_ERROR, e.getReason());
-                }
+                mCameraManager.openCamera(ids[i], failListener,
+                        mHandler);
 
                 successListener.waitForState(BlockingStateCallback.STATE_OPENED,
                         CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
-                // Have to get the successCamera here, otherwise, it won't be
-                // closed if STATE_ERROR timeout exception occurs.
                 ArgumentCaptor<CameraDevice> argument =
                         ArgumentCaptor.forClass(CameraDevice.class);
                 verify(mockSuccessListener, atLeastOnce()).onOpened(argument.capture());
+                verify(mockSuccessListener, atLeastOnce()).onDisconnected(argument.capture());
 
-                failListener.waitForState(BlockingStateCallback.STATE_ERROR,
+                failListener.waitForState(BlockingStateCallback.STATE_OPENED,
                         CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
+                verify(mockFailListener, atLeastOnce()).onOpened(argument.capture());
 
                 successCamera = verifyCameraStateOpened(
-                        ids[i], mockSuccessListener);
+                        ids[i], mockFailListener);
 
-                verify(mockFailListener)
-                        .onError(
-                                and(notNull(CameraDevice.class), not(eq(successCamera))),
-                                eq(StateCallback.ERROR_CAMERA_IN_USE));
                 verifyNoMoreInteractions(mockFailListener);
             } finally {
                 if (successCamera != null) {

@@ -155,7 +155,6 @@ void va_TraceInit(VADisplay dpy)
 {
     char env_value[1024];
     unsigned short suffix = 0xffff & ((unsigned int)time(NULL));
-    int trace_index = 0;
     FILE *tmp;    
     struct trace_context *trace_ctx = calloc(sizeof(struct trace_context), 1);
 
@@ -283,7 +282,7 @@ void va_TraceMsg(struct trace_context *trace_ctx, const char *msg, ...)
 
 void va_TraceSurface(VADisplay dpy)
 {
-    unsigned int i, j;
+    unsigned int i;
     unsigned int fourcc; /* following are output argument */
     unsigned int luma_stride;
     unsigned int chroma_u_stride;
@@ -295,7 +294,6 @@ void va_TraceSurface(VADisplay dpy)
     void *buffer = NULL;
     unsigned char *Y_data, *UV_data, *tmp;
     VAStatus va_status;
-    unsigned char check_sum = 0;
     DPY2TRACECTX(dpy);
 
     if (!trace_ctx->trace_fp_surface)
@@ -679,9 +677,6 @@ void va_TraceDestroyBuffer (
     VABufferType type;
     unsigned int size;
     unsigned int num_elements;
-    
-    VACodedBufferSegment *buf_list;
-    int i = 0;
     
     DPY2TRACECTX(dpy);
 
@@ -1699,7 +1694,6 @@ static void va_TraceVAEncPackedHeaderParameterBufferType(
 {
     VAEncPackedHeaderParameterBuffer* p = (VAEncPackedHeaderParameterBuffer*)data;
     DPY2TRACECTX(dpy);
-    int i;
 
     if (!p)
         return;
@@ -2418,36 +2412,6 @@ static void va_TraceVAEncQMatrixBufferJPEG(
                         p->chroma_quantiser_matrix[i*8 + 6],
                         p->chroma_quantiser_matrix[i*8 + 7]);
         }
-    }
-    
-    va_TraceMsg(trace_ctx, NULL);
-    
-    return;
-}
-
-
-static void va_TraceVAEncSliceParameterBufferJPEG(
-    VADisplay dpy,
-    VAContextID __maybe_unused context,
-    VABufferID __maybe_unused buffer,
-    VABufferType __maybe_unused type,
-    unsigned int __maybe_unused size,
-    unsigned int __maybe_unused num_elements,
-    void *data)
-{
-    VAEncSliceParameterBufferJPEG *p = (VAEncSliceParameterBufferJPEG *)data;
-    int i;
-
-    DPY2TRACECTX(dpy);
-    
-    va_TraceMsg(trace_ctx, "\t--VAEncSliceParameterBufferJPEG\n");
-    va_TraceMsg(trace_ctx, "\trestart_interval = 0x%04x\n", p->restart_interval);
-    va_TraceMsg(trace_ctx, "\tnum_components = 0x%08x\n", p->num_components);
-    for (i=0; i<4; i++) {
-        va_TraceMsg(trace_ctx, "\tcomponents[%i] =\n ");
-        va_TraceMsg(trace_ctx, "\t\tcomponent_selector = %d\n", p->components[i].component_selector);
-        va_TraceMsg(trace_ctx, "\t\tdc_table_selector = %d\n", p->components[i].dc_table_selector);
-        va_TraceMsg(trace_ctx, "\t\tac_table_selector = %d\n", p->components[i].ac_table_selector);
     }
     
     va_TraceMsg(trace_ctx, NULL);

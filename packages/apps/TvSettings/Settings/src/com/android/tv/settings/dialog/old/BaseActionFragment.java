@@ -143,7 +143,9 @@ public class BaseActionFragment extends BaseScrollAdapterFragment
         }
     }
 
+    @Override
     public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
         if (hasCreatedView()) {
             // Try to save instance state only if the view has already been created.
             outState.putParcelableArrayList(EXTRA_ACTIONS, mAdapter.getActions());

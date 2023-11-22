@@ -20,8 +20,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_OBJCARC_OBJCARCALIASANALYSIS_H
-#define LLVM_TRANSFORMS_OBJCARC_OBJCARCALIASANALYSIS_H
+#ifndef LLVM_LIB_TRANSFORMS_OBJCARC_OBJCARCALIASANALYSIS_H
+#define LLVM_LIB_TRANSFORMS_OBJCARC_OBJCARCALIASANALYSIS_H
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Pass.h"
@@ -44,9 +44,7 @@ namespace objcarc {
     }
 
   private:
-    void initializePass() override {
-      InitializeAliasAnalysis(this);
-    }
+    bool doInitialization(Module &M) override;
 
     /// This method is used when a pass implements an analysis interface through
     /// multiple inheritance.  If needed, it should override this to adjust the
@@ -71,4 +69,4 @@ namespace objcarc {
 } // namespace objcarc
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_OBJCARC_OBJCARCALIASANALYSIS_H
+#endif

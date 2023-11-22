@@ -23,6 +23,7 @@ import static org.mockito.Mockito.*;
 import static android.hardware.camera2.CaptureRequest.*;
 
 import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -33,8 +34,10 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.media.ImageReader;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
@@ -49,9 +52,15 @@ import org.mockito.ArgumentMatcher;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
+import android.util.Size;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -274,6 +283,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                             sTemplates[j] == CameraDevice.TEMPLATE_VIDEO_SNAPSHOT) {
                         continue;
                     }
+                    // Skip non-PREVIEW templates for non-color output
+                    if (!mStaticInfo.isColorOutputSupported() &&
+                            sTemplates[j] != CameraDevice.TEMPLATE_PREVIEW) {
+                        continue;
+                    }
                     CaptureRequest.Builder capReq = mCamera.createCaptureRequest(sTemplates[j]);
                     assertNotNull("Failed to create capture request", capReq);
                     if (mStaticInfo.areKeysAvailable(CaptureRequest.SENSOR_EXPOSURE_TIME)) {
@@ -380,11 +394,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 closeSession();
             }
             finally {
-                try {
-
-                } finally {
-                    closeDevice(mCameraIds[i], mCameraMockListener);
-                }
+                closeDevice(mCameraIds[i], mCameraMockListener);
             }
         }
     }
@@ -401,9 +411,6 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
      */
     public void testChainedOperation() throws Throwable {
 
-        // Set up single dummy target
-        createDefaultImageReader(DEFAULT_CAPTURE_SIZE, ImageFormat.YUV_420_888, MAX_NUM_IMAGES,
-                /*listener*/ null);
         final ArrayList<Surface> outputs = new ArrayList<>();
         outputs.add(mReaderSurface);
 
@@ -542,6 +549,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         for (int i = 0; i < mCameraIds.length; i++) {
             Throwable result;
 
+            if (!(new StaticMetadata(mCameraManager.getCameraCharacteristics(mCameraIds[i]))).
+                    isColorOutputSupported()) {
+                Log.i(TAG, "Camera " + mCameraIds[i] + " does not support color outputs, skipping");
+                continue;
+            }
+
             // Start chained cascade
             ChainedCameraListener cameraListener = new ChainedCameraListener();
             mCameraManager.openCamera(mCameraIds[i], cameraListener, mHandler);
@@ -580,6 +593,265 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             }
         }
     }
+
+    /**
+     * Verify basic semantics and error conditions of the prepare call.
+     *
+     */
+    public void testPrepare() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+
+                prepareTestByCamera();
+            }
+            finally {
+                closeDevice(mCameraIds[i], mCameraMockListener);
+            }
+        }
+    }
+
+    /**
+     * Verify creating sessions back to back.
+     */
+    public void testCreateSessions() throws Exception {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+
+                testCreateSessionsByCamera(mCameraIds[i]);
+            }
+            finally {
+                closeDevice(mCameraIds[i], mCameraMockListener);
+            }
+        }
+    }
+
+    /**
+     * Verify creating sessions back to back and only the last one is valid for
+     * submitting requests.
+     */
+    private void testCreateSessionsByCamera(String cameraId) throws Exception {
+        final int NUM_SESSIONS = 3;
+        final int SESSION_TIMEOUT_MS = 1000;
+        final int CAPTURE_TIMEOUT_MS = 3000;
+
+        if (VERBOSE) {
+            Log.v(TAG, "Testing creating sessions for camera " + cameraId);
+        }
+
+        Size yuvSize = getSortedSizesForFormat(cameraId, mCameraManager, ImageFormat.YUV_420_888,
+                /*bound*/null).get(0);
+        Size jpegSize = getSortedSizesForFormat(cameraId, mCameraManager, ImageFormat.JPEG,
+                /*bound*/null).get(0);
+
+        // Create a list of image readers. JPEG for last one and YUV for the rest.
+        List<ImageReader> imageReaders = new ArrayList<>();
+        List<CameraCaptureSession> allSessions = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < NUM_SESSIONS - 1; i++) {
+                imageReaders.add(ImageReader.newInstance(yuvSize.getWidth(), yuvSize.getHeight(),
+                        ImageFormat.YUV_420_888, /*maxImages*/1));
+            }
+            imageReaders.add(ImageReader.newInstance(jpegSize.getWidth(), jpegSize.getHeight(),
+                    ImageFormat.JPEG, /*maxImages*/1));
+
+            // Create multiple sessions back to back.
+            MultipleSessionCallback sessionListener =
+                    new MultipleSessionCallback(/*failOnConfigureFailed*/true);
+            for (int i = 0; i < NUM_SESSIONS; i++) {
+                List<Surface> outputs = new ArrayList<>();
+                outputs.add(imageReaders.get(i).getSurface());
+                mCamera.createCaptureSession(outputs, sessionListener, mHandler);
+            }
+
+            // Verify we get onConfigured() for all sessions.
+            allSessions = sessionListener.getAllSessions(NUM_SESSIONS,
+                    SESSION_TIMEOUT_MS * NUM_SESSIONS);
+            assertEquals(String.format("Got %d sessions but configured %d sessions",
+                    allSessions.size(), NUM_SESSIONS), allSessions.size(), NUM_SESSIONS);
+
+            // Verify all sessions except the last one are closed.
+            for (int i = 0; i < NUM_SESSIONS - 1; i++) {
+                sessionListener.waitForSessionClose(allSessions.get(i), SESSION_TIMEOUT_MS);
+            }
+
+            // Verify we can capture a frame with the last session.
+            CameraCaptureSession session = allSessions.get(allSessions.size() - 1);
+            SimpleCaptureCallback captureListener = new SimpleCaptureCallback();
+            ImageReader reader = imageReaders.get(imageReaders.size() - 1);
+            SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+            reader.setOnImageAvailableListener(imageListener, mHandler);
+
+            CaptureRequest.Builder builder =
+                    mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            builder.addTarget(reader.getSurface());
+            CaptureRequest request = builder.build();
+
+            session.capture(request, captureListener, mHandler);
+            captureListener.getCaptureResultForRequest(request, CAPTURE_TIMEOUT_MS);
+            imageListener.getImage(CAPTURE_TIMEOUT_MS).close();
+        } finally {
+            for (ImageReader reader : imageReaders) {
+                reader.close();
+            }
+            for (CameraCaptureSession session : allSessions) {
+                session.close();
+            }
+        }
+    }
+
+    private void prepareTestByCamera() throws Exception {
+        final int PREPARE_TIMEOUT_MS = 10000;
+
+        mSessionMockListener = spy(new BlockingSessionCallback());
+
+        SurfaceTexture output1 = new SurfaceTexture(1);
+        Surface output1Surface = new Surface(output1);
+        SurfaceTexture output2 = new SurfaceTexture(2);
+        Surface output2Surface = new Surface(output2);
+
+        List<Surface> outputSurfaces = new ArrayList<>(
+            Arrays.asList(output1Surface, output2Surface));
+        mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
+
+        mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+
+        // Try basic prepare
+
+        mSession.prepare(output1Surface);
+
+        verify(mSessionMockListener, timeout(PREPARE_TIMEOUT_MS).times(1))
+                .onSurfacePrepared(eq(mSession), eq(output1Surface));
+
+        // Should not complain if preparing already prepared stream
+
+        mSession.prepare(output1Surface);
+
+        verify(mSessionMockListener, timeout(PREPARE_TIMEOUT_MS).times(2))
+                .onSurfacePrepared(eq(mSession), eq(output1Surface));
+
+        // Check surface not included in session
+
+        SurfaceTexture output3 = new SurfaceTexture(3);
+        Surface output3Surface = new Surface(output3);
+        try {
+            mSession.prepare(output3Surface);
+            // Legacy camera prepare always succeed
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                fail("Preparing surface not part of session must throw IllegalArgumentException");
+            }
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Ensure second prepare also works
+
+        mSession.prepare(output2Surface);
+
+        verify(mSessionMockListener, timeout(PREPARE_TIMEOUT_MS).times(1))
+                .onSurfacePrepared(eq(mSession), eq(output2Surface));
+
+        // Use output1
+
+        CaptureRequest.Builder r = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        r.addTarget(output1Surface);
+
+        mSession.capture(r.build(), null, null);
+
+        try {
+            mSession.prepare(output1Surface);
+            // Legacy camera prepare always succeed
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                fail("Preparing already-used surface must throw IllegalArgumentException");
+            }
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Create new session with outputs 1 and 3, ensure output1Surface still can't be prepared
+        // again
+
+        mSessionMockListener = spy(new BlockingSessionCallback());
+
+        outputSurfaces = new ArrayList<>(
+            Arrays.asList(output1Surface, output3Surface));
+        mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
+
+        mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+
+        try {
+            mSession.prepare(output1Surface);
+            // Legacy camera prepare always succeed
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                fail("Preparing surface used in previous session must throw " +
+                        "IllegalArgumentException");
+            }
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Use output3, wait for result, then make sure prepare still doesn't work
+
+        r = mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        r.addTarget(output3Surface);
+
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+        mSession.capture(r.build(), resultListener, mHandler);
+
+        resultListener.getCaptureResult(CAPTURE_RESULT_TIMEOUT_MS);
+
+        try {
+            mSession.prepare(output3Surface);
+            // Legacy camera prepare always succeed
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                fail("Preparing already-used surface must throw IllegalArgumentException");
+            }
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        // Create new session with outputs 1 and 2, ensure output2Surface can be prepared again
+
+        mSessionMockListener = spy(new BlockingSessionCallback());
+
+        outputSurfaces = new ArrayList<>(
+            Arrays.asList(output1Surface, output2Surface));
+        mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
+
+        mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
+
+        mSession.prepare(output2Surface);
+
+        verify(mSessionMockListener, timeout(PREPARE_TIMEOUT_MS).times(1))
+                .onSurfacePrepared(eq(mSession), eq(output2Surface));
+
+        try {
+            mSession.prepare(output1Surface);
+            // Legacy camera prepare always succeed
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                fail("Preparing surface used in previous session must throw " +
+                        "IllegalArgumentException");
+            }
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+    }
+
 
     private void invalidRequestCaptureTestByCamera() throws Exception {
         if (VERBOSE) Log.v(TAG, "invalidRequestCaptureTestByCamera");
@@ -729,6 +1001,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                                 sTemplates[j] == CameraDevice.TEMPLATE_VIDEO_SNAPSHOT) {
                             continue;
                         }
+                        // Skip non-PREVIEW templates for non-color output
+                        if (!mStaticInfo.isColorOutputSupported() &&
+                                sTemplates[j] != CameraDevice.TEMPLATE_PREVIEW) {
+                            continue;
+                        }
                         captureSingleShot(mCameraIds[i], sTemplates[j], repeating, abort);
                     }
                 }
@@ -736,13 +1013,16 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     // Test: burst of one shot
                     captureBurstShot(mCameraIds[i], sTemplates, 1, repeating, abort);
 
+                    int template = mStaticInfo.isColorOutputSupported() ?
+                        CameraDevice.TEMPLATE_STILL_CAPTURE :
+                        CameraDevice.TEMPLATE_PREVIEW;
                     int[] templates = new int[] {
-                            CameraDevice.TEMPLATE_STILL_CAPTURE,
-                            CameraDevice.TEMPLATE_STILL_CAPTURE,
-                            CameraDevice.TEMPLATE_STILL_CAPTURE,
-                            CameraDevice.TEMPLATE_STILL_CAPTURE,
-                            CameraDevice.TEMPLATE_STILL_CAPTURE
-                            };
+                        template,
+                        template,
+                        template,
+                        template,
+                        template
+                    };
 
                     // Test: burst of 5 shots of the same template type
                     captureBurstShot(mCameraIds[i], templates, templates.length, repeating, abort);
@@ -822,6 +1102,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     templates[i] == CameraDevice.TEMPLATE_VIDEO_SNAPSHOT) {
                 continue;
             }
+            // Skip non-PREVIEW templates for non-color outpu
+            if (!mStaticInfo.isColorOutputSupported() &&
+                    templates[i] != CameraDevice.TEMPLATE_PREVIEW) {
+                continue;
+            }
             CaptureRequest.Builder requestBuilder = mCamera.createCaptureRequest(templates[i]);
             assertNotNull("Failed to create capture request", requestBuilder);
             requestBuilder.addTarget(mReaderSurface);
@@ -882,13 +1167,18 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         mSessionMockListener = spy(new BlockingSessionCallback());
         mSessionWaiter = mSessionMockListener.getStateWaiter();
 
+        if (!mStaticInfo.isColorOutputSupported()) {
+            createDefaultImageReader(getMaxDepthSize(mCamera.getId(), mCameraManager),
+                    ImageFormat.DEPTH16, MAX_NUM_IMAGES, new ImageDropperListener());
+        }
+
         List<Surface> outputSurfaces = new ArrayList<>(Arrays.asList(mReaderSurface));
         mCamera.createCaptureSession(outputSurfaces, mSessionMockListener, mHandler);
 
         mSession = mSessionMockListener.waitAndGetSession(SESSION_CONFIGURE_TIMEOUT_MS);
         waitForSessionState(SESSION_CONFIGURED, SESSION_CONFIGURE_TIMEOUT_MS);
         waitForSessionState(SESSION_READY, SESSION_READY_TIMEOUT_MS);
-}
+    }
 
     private void waitForDeviceState(int state, long timeoutMs) {
         mCameraMockListener.waitForState(state, timeoutMs);
@@ -976,9 +1266,9 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
     private void checkAfMode(CaptureRequest.Builder request, int template,
             CameraCharacteristics props) {
-        boolean hasFocuser = !props.getKeys().contains(CameraCharacteristics.
-                LENS_INFO_MINIMUM_FOCUS_DISTANCE) ||
-                props.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) > 0f;
+        boolean hasFocuser = props.getKeys().contains(CameraCharacteristics.
+                LENS_INFO_MINIMUM_FOCUS_DISTANCE) &&
+                (props.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE) > 0f);
 
         if (!hasFocuser) {
             return;
@@ -1019,6 +1309,8 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         if (template == CameraDevice.TEMPLATE_MANUAL) {
             return;
         }
+
+        if (!mStaticInfo.isColorOutputSupported()) return;
 
         List<Integer> availableAntiBandingModes =
                 Arrays.asList(toObject(mStaticInfo.getAeAvailableAntiBandingModesChecked()));
@@ -1071,12 +1363,16 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         }
 
         // 3A settings--AE/AWB/AF.
-        int maxRegionsAe = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
-        int maxRegionsAwb = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB);
-        int maxRegionsAf = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
+        Integer maxRegionsAeVal = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
+        int maxRegionsAe = maxRegionsAeVal != null ? maxRegionsAeVal : 0;
+        Integer maxRegionsAwbVal = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB);
+        int maxRegionsAwb = maxRegionsAwbVal != null ? maxRegionsAwbVal : 0;
+        Integer maxRegionsAfVal = props.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
+        int maxRegionsAf = maxRegionsAfVal != null ? maxRegionsAfVal : 0;
+
+        checkFpsRange(request, template, props);
 
         checkAfMode(request, template, props);
-        checkFpsRange(request, template, props);
         checkAntiBandingMode(request, template);
 
         if (template == CameraDevice.TEMPLATE_MANUAL) {
@@ -1086,39 +1382,47 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             mCollector.expectKeyValueEquals(request, CONTROL_AWB_MODE,
                     CaptureRequest.CONTROL_AWB_MODE_OFF);
         } else {
-            mCollector.expectKeyValueEquals(request, CONTROL_AE_MODE,
-                    CaptureRequest.CONTROL_AE_MODE_ON);
-            mCollector.expectKeyValueEquals(request, CONTROL_AE_EXPOSURE_COMPENSATION, 0);
-            mCollector.expectKeyValueEquals(request, CONTROL_AE_LOCK, false);
-            mCollector.expectKeyValueEquals(request, CONTROL_AE_PRECAPTURE_TRIGGER,
-                    CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_IDLE);
+            if (mStaticInfo.isColorOutputSupported()) {
+                mCollector.expectKeyValueEquals(request, CONTROL_AE_MODE,
+                        CaptureRequest.CONTROL_AE_MODE_ON);
+                mCollector.expectKeyValueEquals(request, CONTROL_AE_EXPOSURE_COMPENSATION, 0);
+                mCollector.expectKeyValueEquals(request, CONTROL_AE_PRECAPTURE_TRIGGER,
+                        CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER_IDLE);
+                // if AE lock is not supported, expect the control key to be non-exist or false
+                if (mStaticInfo.isAeLockSupported() || request.get(CONTROL_AE_LOCK) != null) {
+                    mCollector.expectKeyValueEquals(request, CONTROL_AE_LOCK, false);
+                }
 
-            mCollector.expectKeyValueEquals(request, CONTROL_AF_TRIGGER,
-                    CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+                mCollector.expectKeyValueEquals(request, CONTROL_AF_TRIGGER,
+                        CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
 
-            mCollector.expectKeyValueEquals(request, CONTROL_AWB_MODE,
-                    CaptureRequest.CONTROL_AWB_MODE_AUTO);
-            mCollector.expectKeyValueEquals(request, CONTROL_AWB_LOCK, false);
+                mCollector.expectKeyValueEquals(request, CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_AUTO);
+                // if AWB lock is not supported, expect the control key to be non-exist or false
+                if (mStaticInfo.isAwbLockSupported() || request.get(CONTROL_AWB_LOCK) != null) {
+                    mCollector.expectKeyValueEquals(request, CONTROL_AWB_LOCK, false);
+                }
 
-            // Check 3A regions.
-            if (VERBOSE) {
-                Log.v(TAG, String.format("maxRegions is: {AE: %s, AWB: %s, AF: %s}",
-                        maxRegionsAe, maxRegionsAwb, maxRegionsAf));
-            }
-            if (maxRegionsAe > 0) {
-                mCollector.expectKeyValueNotNull(request, CONTROL_AE_REGIONS);
-                MeteringRectangle[] aeRegions = request.get(CONTROL_AE_REGIONS);
-                checkMeteringRect(aeRegions);
-            }
-            if (maxRegionsAwb > 0) {
-                mCollector.expectKeyValueNotNull(request, CONTROL_AWB_REGIONS);
-                MeteringRectangle[] awbRegions = request.get(CONTROL_AWB_REGIONS);
-                checkMeteringRect(awbRegions);
-            }
-            if (maxRegionsAf > 0) {
-                mCollector.expectKeyValueNotNull(request, CONTROL_AF_REGIONS);
-                MeteringRectangle[] afRegions = request.get(CONTROL_AF_REGIONS);
-                checkMeteringRect(afRegions);
+                // Check 3A regions.
+                if (VERBOSE) {
+                    Log.v(TAG, String.format("maxRegions is: {AE: %s, AWB: %s, AF: %s}",
+                                    maxRegionsAe, maxRegionsAwb, maxRegionsAf));
+                }
+                if (maxRegionsAe > 0) {
+                    mCollector.expectKeyValueNotNull(request, CONTROL_AE_REGIONS);
+                    MeteringRectangle[] aeRegions = request.get(CONTROL_AE_REGIONS);
+                    checkMeteringRect(aeRegions);
+                }
+                if (maxRegionsAwb > 0) {
+                    mCollector.expectKeyValueNotNull(request, CONTROL_AWB_REGIONS);
+                    MeteringRectangle[] awbRegions = request.get(CONTROL_AWB_REGIONS);
+                    checkMeteringRect(awbRegions);
+                }
+                if (maxRegionsAf > 0) {
+                    mCollector.expectKeyValueNotNull(request, CONTROL_AF_REGIONS);
+                    MeteringRectangle[] afRegions = request.get(CONTROL_AF_REGIONS);
+                    checkMeteringRect(afRegions);
+                }
             }
         }
 
@@ -1187,10 +1491,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         }
 
         // ISP-processing settings.
-        mCollector.expectKeyValueEquals(
-                request, STATISTICS_FACE_DETECT_MODE,
-                CaptureRequest.STATISTICS_FACE_DETECT_MODE_OFF);
-        mCollector.expectKeyValueEquals(request, FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+        if (mStaticInfo.isColorOutputSupported()) {
+            mCollector.expectKeyValueEquals(
+                    request, STATISTICS_FACE_DETECT_MODE,
+                    CaptureRequest.STATISTICS_FACE_DETECT_MODE_OFF);
+            mCollector.expectKeyValueEquals(request, FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+        }
 
         List<Integer> availableCaps = mStaticInfo.getAvailableCapabilitiesChecked();
         if (mStaticInfo.areKeysAvailable(STATISTICS_LENS_SHADING_MAP_MODE)) {
@@ -1201,6 +1507,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                         CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_OFF);
             }
         }
+
+        // Edge enhancement and noise reduction modes
+        boolean supportReprocessing =
+                availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING) ||
+                availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
 
         if (template == CameraDevice.TEMPLATE_STILL_CAPTURE) {
             // Not enforce high quality here, as some devices may not effectively have high quality
@@ -1254,7 +1565,23 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                             request, NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_OFF);
                 }
             }
+        } else if (template == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG && supportReprocessing) {
+            mCollector.expectKeyValueEquals(request, EDGE_MODE,
+                    CaptureRequest.EDGE_MODE_ZERO_SHUTTER_LAG);
+            mCollector.expectKeyValueEquals(request, NOISE_REDUCTION_MODE,
+                    CaptureRequest.NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG);
+        } else {
+            if (mStaticInfo.areKeysAvailable(EDGE_MODE)) {
+                mCollector.expectKeyValueNotNull(request, EDGE_MODE);
+            }
 
+            if (mStaticInfo.areKeysAvailable(NOISE_REDUCTION_MODE)) {
+                mCollector.expectKeyValueNotNull(request, NOISE_REDUCTION_MODE);
+            }
+        }
+
+        // Tone map and lens shading modes.
+        if (template == CameraDevice.TEMPLATE_STILL_CAPTURE) {
             mCollector.expectEquals("Tonemap mode must be present in request if " +
                             "available tonemap modes are present in metadata, and vice-versa.",
                     mStaticInfo.areKeysAvailable(CameraCharacteristics.
@@ -1281,17 +1608,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                             STATISTICS_LENS_SHADING_MAP_MODE_ON);
             }
         } else {
-            if (mStaticInfo.areKeysAvailable(EDGE_MODE)) {
-                mCollector.expectKeyValueNotNull(request, EDGE_MODE);
-            }
-
-            if (mStaticInfo.areKeysAvailable(NOISE_REDUCTION_MODE)) {
-                mCollector.expectKeyValueNotNull(request, NOISE_REDUCTION_MODE);
-            }
-
             if (mStaticInfo.areKeysAvailable(TONEMAP_MODE)) {
                 mCollector.expectKeyValueNotEquals(request, TONEMAP_MODE,
                         CaptureRequest.TONEMAP_MODE_CONTRAST_CURVE);
+                mCollector.expectKeyValueNotEquals(request, TONEMAP_MODE,
+                        CaptureRequest.TONEMAP_MODE_GAMMA_VALUE);
+                mCollector.expectKeyValueNotEquals(request, TONEMAP_MODE,
+                        CaptureRequest.TONEMAP_MODE_PRESET_CURVE);
             }
             if (mStaticInfo.areKeysAvailable(STATISTICS_LENS_SHADING_MAP_MODE)) {
                 mCollector.expectKeyValueNotNull(request, STATISTICS_LENS_SHADING_MAP_MODE);
@@ -1325,9 +1648,17 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                         !mStaticInfo.isCapabilitySupported(CameraCharacteristics.
                                 REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
                     // OK
+                } else if (template == CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG &&
+                        !mStaticInfo.isCapabilitySupported(CameraCharacteristics.
+                                REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING)) {
+                    // OK.
                 } else if (sLegacySkipTemplates.contains(template) &&
                         mStaticInfo.isHardwareLevelLegacy()) {
                     // OK
+                } else if (template != CameraDevice.TEMPLATE_PREVIEW &&
+                        mStaticInfo.isDepthOutputSupported() &&
+                        !mStaticInfo.isColorOutputSupported()) {
+                    // OK, depth-only devices need only support PREVIEW template
                 } else {
                     throw e; // rethrow
                 }
@@ -1377,5 +1708,98 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
         mSessionMockListener = null;
         mSessionWaiter = null;
+    }
+
+    /**
+     * A camera capture session listener that keeps all the configured and closed sessions.
+     */
+    private class MultipleSessionCallback extends CameraCaptureSession.StateCallback {
+        public static final int SESSION_CONFIGURED = 0;
+        public static final int SESSION_CLOSED = 1;
+
+        final List<CameraCaptureSession> mSessions = new ArrayList<>();
+        final Map<CameraCaptureSession, Integer> mSessionStates = new HashMap<>();
+        CameraCaptureSession mCurrentConfiguredSession = null;
+
+        final ReentrantLock mLock = new ReentrantLock();
+        final Condition mNewStateCond = mLock.newCondition();
+
+        final boolean mFailOnConfigureFailed;
+
+        /**
+         * If failOnConfigureFailed is true, it calls fail() when onConfigureFailed() is invoked
+         * for any session.
+         */
+        public MultipleSessionCallback(boolean failOnConfigureFailed) {
+            mFailOnConfigureFailed = failOnConfigureFailed;
+        }
+
+        @Override
+        public void onClosed(CameraCaptureSession session) {
+            mLock.lock();
+            mSessionStates.put(session, SESSION_CLOSED);
+            mNewStateCond.signal();
+            mLock.unlock();
+        }
+
+        @Override
+        public void onConfigured(CameraCaptureSession session) {
+            mLock.lock();
+            mSessions.add(session);
+            mSessionStates.put(session, SESSION_CONFIGURED);
+            mNewStateCond.signal();
+            mLock.unlock();
+        }
+
+        @Override
+        public void onConfigureFailed(CameraCaptureSession session) {
+            if (mFailOnConfigureFailed) {
+                fail("Configuring a session failed");
+            }
+        }
+
+        /**
+         * Get a number of sessions that have been configured.
+         */
+        public List<CameraCaptureSession> getAllSessions(int numSessions, int timeoutMs)
+                throws Exception {
+            long remainingTime = timeoutMs;
+            mLock.lock();
+            try {
+                while (mSessions.size() < numSessions) {
+                    long startTime = SystemClock.elapsedRealtime();
+                    boolean ret = mNewStateCond.await(remainingTime, TimeUnit.MILLISECONDS);
+                    remainingTime -= (SystemClock.elapsedRealtime() - startTime);
+                    ret &= remainingTime > 0;
+
+                    assertTrue("Get " + numSessions + " sessions timed out after " + timeoutMs +
+                            "ms", ret);
+                }
+
+                return mSessions;
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        /**
+         * Wait until a previously-configured sessoin is closed or it times out.
+         */
+        public void waitForSessionClose(CameraCaptureSession session, int timeoutMs) throws Exception {
+            long remainingTime = timeoutMs;
+            mLock.lock();
+            try {
+                while (mSessionStates.get(session).equals(SESSION_CLOSED) == false) {
+                    long startTime = SystemClock.elapsedRealtime();
+                    boolean ret = mNewStateCond.await(remainingTime, TimeUnit.MILLISECONDS);
+                    remainingTime -= (SystemClock.elapsedRealtime() - startTime);
+                    ret &= remainingTime > 0;
+
+                    assertTrue("Wait for session close timed out after " + timeoutMs + "ms", ret);
+                }
+            } finally {
+                mLock.unlock();
+            }
+        }
     }
 }

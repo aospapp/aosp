@@ -243,7 +243,6 @@ OMX_ERRORTYPE ComponentBase::GetHandle(OMX_HANDLETYPE *pHandle,
                                        OMX_PTR pAppData,
                                        OMX_CALLBACKTYPE *pCallBacks)
 {
-    OMX_U32 i;
     OMX_ERRORTYPE ret;
 
     if (!pHandle)
@@ -327,8 +326,6 @@ free_cmdwork:
 
 OMX_ERRORTYPE ComponentBase::FreeHandle(OMX_HANDLETYPE hComponent)
 {
-    OMX_ERRORTYPE ret;
-
     if (hComponent != handle)
         return OMX_ErrorBadParameter;
 
@@ -940,7 +937,6 @@ OMX_ERRORTYPE ComponentBase::CBaseUseBuffer(
     OMX_IN OMX_U8 *pBuffer)
 {
     PortBase *port = NULL;
-    OMX_ERRORTYPE ret;
 
     if (hComponent != handle)
         return OMX_ErrorBadParameter;
@@ -997,7 +993,6 @@ OMX_ERRORTYPE ComponentBase::CBaseAllocateBuffer(
     OMX_IN OMX_U32 nSizeBytes)
 {
     PortBase *port = NULL;
-    OMX_ERRORTYPE ret;
 
     if (hComponent != handle)
         return OMX_ErrorBadParameter;
@@ -1045,7 +1040,6 @@ OMX_ERRORTYPE ComponentBase::CBaseFreeBuffer(
     OMX_IN  OMX_BUFFERHEADERTYPE *pBuffer)
 {
     PortBase *port = NULL;
-    OMX_ERRORTYPE ret;
 
     if (hComponent != handle)
         return OMX_ErrorBadParameter;

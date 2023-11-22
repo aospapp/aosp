@@ -252,56 +252,56 @@ first_stage_top_four_bottom_four:
 //d7=x3
 
 skip_load4rows:
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v0.h[1]      //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v0.h[3]      //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v1.h[1]      //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v1.h[3]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlal       v26.4s, v7.4h, v2.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v3.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v2.4h[3]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
+    smlal       v24.4s, v7.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlal       v26.4s, v7.4h, v2.h[1]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v3.h[3]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v2.h[3]      //// y1 * sin1 - y3 * sin3(part of b3)
 
 
 
 
-    smull       v12.4s, v10.4h, v0.4h[0]
-    smlal       v12.4s, v11.4h, v0.4h[2]
-    smull       v14.4s, v10.4h, v0.4h[0]
-    smlal       v14.4s, v11.4h, v1.4h[2]
-    smull       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v2.4h[2]
-    smull       v18.4s, v10.4h, v0.4h[0]
-    smlal       v18.4s, v11.4h, v3.4h[2]
+
+
+    smull       v12.4s, v10.4h, v0.h[0]
+    smlal       v12.4s, v11.4h, v0.h[2]
+    smull       v14.4s, v10.4h, v0.h[0]
+    smlal       v14.4s, v11.4h, v1.h[2]
+    smull       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v2.h[2]
+    smull       v18.4s, v10.4h, v0.h[0]
+    smlal       v18.4s, v11.4h, v3.h[2]
 
     bge         skip_last12rows_kernel1
 
 
-    smlal       v24.4s, v8.4h, v1.4h[1]
-    smlal       v26.4s, v8.4h, v3.4h[3]
-    smlsl       v28.4s, v8.4h, v1.4h[3]
-    smlsl       v30.4s, v8.4h, v0.4h[3]
+    smlal       v24.4s, v8.4h, v1.h[1]
+    smlal       v26.4s, v8.4h, v3.h[3]
+    smlsl       v28.4s, v8.4h, v1.h[3]
+    smlsl       v30.4s, v8.4h, v0.h[3]
 
 
-    smlal       v24.4s, v9.4h, v1.4h[3]
-    smlsl       v26.4s, v9.4h, v2.4h[3]
-    smlsl       v28.4s, v9.4h, v0.4h[3]
-    smlal       v30.4s, v9.4h, v3.4h[3]
+    smlal       v24.4s, v9.4h, v1.h[3]
+    smlsl       v26.4s, v9.4h, v2.h[3]
+    smlsl       v28.4s, v9.4h, v0.h[3]
+    smlal       v30.4s, v9.4h, v3.h[3]
 
 
 
 
 
-    smlal       v12.4s, v4.4h, v1.4h[0]
-    smlal       v12.4s, v5.4h, v1.4h[2]
-    smlal       v14.4s, v4.4h, v3.4h[0]
-    smlsl       v14.4s, v5.4h, v3.4h[2]
-    smlsl       v16.4s, v4.4h, v3.4h[0]
-    smlsl       v16.4s, v5.4h, v0.4h[2]
-    smlsl       v18.4s, v4.4h, v1.4h[0]
-    smlsl       v18.4s, v5.4h, v2.4h[2]
+    smlal       v12.4s, v4.4h, v1.h[0]
+    smlal       v12.4s, v5.4h, v1.h[2]
+    smlal       v14.4s, v4.4h, v3.h[0]
+    smlsl       v14.4s, v5.4h, v3.h[2]
+    smlsl       v16.4s, v4.4h, v3.h[0]
+    smlsl       v16.4s, v5.4h, v0.h[2]
+    smlsl       v18.4s, v4.4h, v1.h[0]
+    smlsl       v18.4s, v5.4h, v2.h[2]
 
 //d0[0]=    64        d2[0]=64
 //d0[1]= 90        d2[1]=57
@@ -328,57 +328,57 @@ skip_load4rows:
 
 
 
-    smlal       v24.4s, v6.4h, v2.4h[1]     //// y1 * cos1(part of b0)
-    smlsl       v26.4s, v6.4h, v1.4h[1]     //// y1 * cos3(part of b1)
-    smlsl       v28.4s, v6.4h, v3.4h[1]     //// y1 * sin3(part of b2)
-    smlal       v30.4s, v6.4h, v0.4h[1]     //// y1 * sin1(part of b3)
+    smlal       v24.4s, v6.4h, v2.h[1]      //// y1 * cos1(part of b0)
+    smlsl       v26.4s, v6.4h, v1.h[1]      //// y1 * cos3(part of b1)
+    smlsl       v28.4s, v6.4h, v3.h[1]      //// y1 * sin3(part of b2)
+    smlal       v30.4s, v6.4h, v0.h[1]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v2.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v0.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v2.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlal       v30.4s, v7.4h, v3.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
-
-    smlal       v24.4s, v8.4h, v3.4h[1]
-    smlsl       v26.4s, v8.4h, v1.4h[3]
-    smlal       v28.4s, v8.4h, v0.4h[1]
-    smlsl       v30.4s, v8.4h, v1.4h[1]
-
-
-    smlal       v24.4s, v9.4h, v3.4h[3]
-    smlsl       v26.4s, v9.4h, v3.4h[1]
-    smlal       v28.4s, v9.4h, v2.4h[3]
-    smlsl       v30.4s, v9.4h, v2.4h[1]
+    smlal       v24.4s, v7.4h, v2.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v0.h[1]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v2.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlal       v30.4s, v7.4h, v3.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
 
 
 
+    smlal       v24.4s, v8.4h, v3.h[1]
+    smlsl       v26.4s, v8.4h, v1.h[3]
+    smlal       v28.4s, v8.4h, v0.h[1]
+    smlsl       v30.4s, v8.4h, v1.h[1]
 
 
-    smlal       v12.4s, v10.4h, v0.4h[0]
-    smlal       v12.4s, v11.4h, v2.4h[2]
-    smlal       v12.4s, v4.4h, v3.4h[0]
-    smlal       v12.4s, v5.4h, v3.4h[2]
+    smlal       v24.4s, v9.4h, v3.h[3]
+    smlsl       v26.4s, v9.4h, v3.h[1]
+    smlal       v28.4s, v9.4h, v2.h[3]
+    smlsl       v30.4s, v9.4h, v2.h[1]
 
 
 
 
-    smlsl       v14.4s, v10.4h, v0.4h[0]
-    smlsl       v14.4s, v11.4h, v0.4h[2]
-    smlsl       v14.4s, v4.4h, v1.4h[0]
-    smlsl       v14.4s, v5.4h, v2.4h[2]
+
+    smlal       v12.4s, v10.4h, v0.h[0]
+    smlal       v12.4s, v11.4h, v2.h[2]
+    smlal       v12.4s, v4.4h, v3.h[0]
+    smlal       v12.4s, v5.4h, v3.h[2]
 
 
-    smlsl       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v3.4h[2]
-    smlal       v16.4s, v4.4h, v1.4h[0]
-    smlal       v16.4s, v5.4h, v1.4h[2]
 
 
-    smlal       v18.4s, v10.4h, v0.4h[0]
-    smlal       v18.4s, v11.4h, v1.4h[2]
-    smlsl       v18.4s, v4.4h, v3.4h[0]
-    smlsl       v18.4s, v5.4h, v0.4h[2]
+    smlsl       v14.4s, v10.4h, v0.h[0]
+    smlsl       v14.4s, v11.4h, v0.h[2]
+    smlsl       v14.4s, v4.4h, v1.h[0]
+    smlsl       v14.4s, v5.4h, v2.h[2]
+
+
+    smlsl       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v3.h[2]
+    smlal       v16.4s, v4.4h, v1.h[0]
+    smlal       v16.4s, v5.4h, v1.h[2]
+
+
+    smlal       v18.4s, v10.4h, v0.h[0]
+    smlal       v18.4s, v11.4h, v1.h[2]
+    smlsl       v18.4s, v4.4h, v3.h[0]
+    smlsl       v18.4s, v5.4h, v0.h[2]
 
 skip_last12rows_kernel1:
     add         v20.4s,  v12.4s ,  v24.4s
@@ -430,55 +430,55 @@ first_stage_middle_eight:
 
 
 skip_stage1_kernel_load:
-    smull       v24.4s, v6.4h, v2.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v2.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v3.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v3.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v2.h[1]     //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v2.h[3]     //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v3.h[1]     //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v3.h[3]     //// y1 * sin1(part of b3)
 
-    smlsl       v24.4s, v7.4h, v1.4h[1]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v0.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v7.4h, v1.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v3.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
+    smlsl       v24.4s, v7.4h, v1.h[1]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v7.4h, v1.h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v3.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
 
 
-    smull       v22.4s, v10.4h, v0.4h[0]
-    smlsl       v22.4s, v11.4h, v3.4h[2]
-    smull       v20.4s, v10.4h, v0.4h[0]
-    smlsl       v20.4s, v11.4h, v2.4h[2]
-    smull       v16.4s, v10.4h, v0.4h[0]
-    smlsl       v16.4s, v11.4h, v1.4h[2]
-    smull       v18.4s, v10.4h, v0.4h[0]
-    smlsl       v18.4s, v11.4h, v0.4h[2]
+
+
+    smull       v22.4s, v10.4h, v0.h[0]
+    smlsl       v22.4s, v11.4h, v3.h[2]
+    smull       v20.4s, v10.4h, v0.h[0]
+    smlsl       v20.4s, v11.4h, v2.h[2]
+    smull       v16.4s, v10.4h, v0.h[0]
+    smlsl       v16.4s, v11.4h, v1.h[2]
+    smull       v18.4s, v10.4h, v0.h[0]
+    smlsl       v18.4s, v11.4h, v0.h[2]
 
 
     cmp         x11,x7
     bge         skip_last12rows_kernel2
 
-    smlsl       v24.4s, v8.4h, v3.4h[1]
-    smlal       v26.4s, v8.4h, v2.4h[1]
-    smlal       v28.4s, v8.4h, v0.4h[1]
-    smlal       v30.4s, v8.4h, v2.4h[3]
+    smlsl       v24.4s, v8.4h, v3.h[1]
+    smlal       v26.4s, v8.4h, v2.h[1]
+    smlal       v28.4s, v8.4h, v0.h[1]
+    smlal       v30.4s, v8.4h, v2.h[3]
 
 
-    smlal       v24.4s, v9.4h, v0.4h[1]
-    smlal       v26.4s, v9.4h, v3.4h[1]
-    smlsl       v28.4s, v9.4h, v1.4h[1]
-    smlsl       v30.4s, v9.4h, v2.4h[1]
+    smlal       v24.4s, v9.4h, v0.h[1]
+    smlal       v26.4s, v9.4h, v3.h[1]
+    smlsl       v28.4s, v9.4h, v1.h[1]
+    smlsl       v30.4s, v9.4h, v2.h[1]
 
 
 
-    smlsl       v22.4s, v4.4h, v1.4h[0]
-    smlal       v22.4s, v5.4h, v2.4h[2]
-    smlsl       v20.4s, v4.4h, v3.4h[0]
-    smlal       v20.4s, v5.4h, v0.4h[2]
-    smlal       v16.4s, v4.4h, v3.4h[0]
-    smlal       v16.4s, v5.4h, v3.4h[2]
-    smlal       v18.4s, v4.4h, v1.4h[0]
-    smlsl       v18.4s, v5.4h, v1.4h[2]
+    smlsl       v22.4s, v4.4h, v1.h[0]
+    smlal       v22.4s, v5.4h, v2.h[2]
+    smlsl       v20.4s, v4.4h, v3.h[0]
+    smlal       v20.4s, v5.4h, v0.h[2]
+    smlal       v16.4s, v4.4h, v3.h[0]
+    smlal       v16.4s, v5.4h, v3.h[2]
+    smlal       v18.4s, v4.4h, v1.h[0]
+    smlsl       v18.4s, v5.4h, v1.h[2]
 
 //d0[0]=    64        d2[0]=64
 //d0[1]= 90        d2[1]=57
@@ -502,55 +502,55 @@ skip_stage1_kernel_load:
     ld1         {v9.4h},[x9],x5
 
 
-    smlsl       v24.4s, v6.4h, v3.4h[3]     //// y1 * cos1(part of b0)
-    smlsl       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smlal       v28.4s, v6.4h, v2.4h[3]     //// y1 * sin3(part of b2)
-    smlal       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smlsl       v24.4s, v6.4h, v3.h[3]     //// y1 * cos1(part of b0)
+    smlsl       v26.4s, v6.4h, v0.h[3]     //// y1 * cos3(part of b1)
+    smlal       v28.4s, v6.4h, v2.h[3]     //// y1 * sin3(part of b2)
+    smlal       v30.4s, v6.4h, v1.h[3]     //// y1 * sin1(part of b3)
 
-    smlsl       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlal       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v3.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
-    smlal       v24.4s, v8.4h, v2.4h[3]
-    smlal       v26.4s, v8.4h, v3.4h[3]
-    smlsl       v28.4s, v8.4h, v2.4h[1]
-    smlal       v30.4s, v8.4h, v0.4h[3]
+    smlsl       v24.4s, v7.4h, v0.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlal       v26.4s, v7.4h, v1.h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v3.h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v1.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
-    smlal       v24.4s, v9.4h, v1.4h[3]
-    smlsl       v26.4s, v9.4h, v1.4h[1]
-    smlal       v28.4s, v9.4h, v0.4h[3]
-    smlsl       v30.4s, v9.4h, v0.4h[1]
+    smlal       v24.4s, v8.4h, v2.h[3]
+    smlal       v26.4s, v8.4h, v3.h[3]
+    smlsl       v28.4s, v8.4h, v2.h[1]
+    smlal       v30.4s, v8.4h, v0.h[3]
 
 
-
-
-    smlal       v22.4s, v10.4h, v0.4h[0]
-    smlsl       v22.4s, v11.4h, v1.4h[2]
-    smlsl       v22.4s, v4.4h, v3.4h[0]
-    smlal       v22.4s, v5.4h, v0.4h[2]
+    smlal       v24.4s, v9.4h, v1.h[3]
+    smlsl       v26.4s, v9.4h, v1.h[1]
+    smlal       v28.4s, v9.4h, v0.h[3]
+    smlsl       v30.4s, v9.4h, v0.h[1]
 
 
 
-    smlsl       v20.4s, v10.4h, v0.4h[0]
-    smlsl       v20.4s, v11.4h, v3.4h[2]
-    smlal       v20.4s, v4.4h, v1.4h[0]
-    smlsl       v20.4s, v5.4h, v1.4h[2]
 
-
-    smlsl       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v0.4h[2]
-    smlsl       v16.4s, v4.4h, v1.4h[0]
-    smlal       v16.4s, v5.4h, v2.4h[2]
+    smlal       v22.4s, v10.4h, v0.h[0]
+    smlsl       v22.4s, v11.4h, v1.h[2]
+    smlsl       v22.4s, v4.4h, v3.h[0]
+    smlal       v22.4s, v5.4h, v0.h[2]
 
 
 
-    smlal       v18.4s, v10.4h, v0.4h[0]
-    smlsl       v18.4s, v11.4h, v2.4h[2]
-    smlal       v18.4s, v4.4h, v3.4h[0]
-    smlsl       v18.4s, v5.4h, v3.4h[2]
+    smlsl       v20.4s, v10.4h, v0.h[0]
+    smlsl       v20.4s, v11.4h, v3.h[2]
+    smlal       v20.4s, v4.4h, v1.h[0]
+    smlsl       v20.4s, v5.4h, v1.h[2]
+
+
+    smlsl       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v0.h[2]
+    smlsl       v16.4s, v4.4h, v1.h[0]
+    smlal       v16.4s, v5.4h, v2.h[2]
+
+
+
+    smlal       v18.4s, v10.4h, v0.h[0]
+    smlsl       v18.4s, v11.4h, v2.h[2]
+    smlal       v18.4s, v4.4h, v3.h[0]
+    smlsl       v18.4s, v5.4h, v3.h[2]
 
 skip_last12rows_kernel2:
 
@@ -755,48 +755,48 @@ second_stage:
 second_stage_process:
 
 
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v0.h[1]     //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v0.h[3]     //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v1.h[1]     //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v1.h[3]     //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlal       v26.4s, v7.4h, v2.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v3.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v2.4h[3]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlal       v24.4s, v7.4h, v0.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlal       v26.4s, v7.4h, v2.h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v3.h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v2.h[3]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
-    smull       v12.4s, v10.4h, v0.4h[0]
-    smlal       v12.4s, v11.4h, v0.4h[2]
-    smull       v14.4s, v10.4h, v0.4h[0]
-    smlal       v14.4s, v11.4h, v1.4h[2]
-    smull       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v2.4h[2]
-    smull       v18.4s, v10.4h, v0.4h[0]
-    smlal       v18.4s, v11.4h, v3.4h[2]
+    smull       v12.4s, v10.4h, v0.h[0]
+    smlal       v12.4s, v11.4h, v0.h[2]
+    smull       v14.4s, v10.4h, v0.h[0]
+    smlal       v14.4s, v11.4h, v1.h[2]
+    smull       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v2.h[2]
+    smull       v18.4s, v10.4h, v0.h[0]
+    smlal       v18.4s, v11.4h, v3.h[2]
 
     bge         skip_last8rows_stage2_kernel1
 
-    smlal       v24.4s, v8.4h, v1.4h[1]
-    smlal       v26.4s, v8.4h, v3.4h[3]
-    smlsl       v28.4s, v8.4h, v1.4h[3]
-    smlsl       v30.4s, v8.4h, v0.4h[3]
+    smlal       v24.4s, v8.4h, v1.h[1]
+    smlal       v26.4s, v8.4h, v3.h[3]
+    smlsl       v28.4s, v8.4h, v1.h[3]
+    smlsl       v30.4s, v8.4h, v0.h[3]
 
 
-    smlal       v24.4s, v9.4h, v1.4h[3]
-    smlsl       v26.4s, v9.4h, v2.4h[3]
-    smlsl       v28.4s, v9.4h, v0.4h[3]
-    smlal       v30.4s, v9.4h, v3.4h[3]
+    smlal       v24.4s, v9.4h, v1.h[3]
+    smlsl       v26.4s, v9.4h, v2.h[3]
+    smlsl       v28.4s, v9.4h, v0.h[3]
+    smlal       v30.4s, v9.4h, v3.h[3]
 
 
-    smlal       v12.4s, v4.4h, v1.4h[0]
-    smlal       v12.4s, v5.4h, v1.4h[2]
-    smlal       v14.4s, v4.4h, v3.4h[0]
-    smlsl       v14.4s, v5.4h, v3.4h[2]
-    smlsl       v16.4s, v4.4h, v3.4h[0]
-    smlsl       v16.4s, v5.4h, v0.4h[2]
-    smlsl       v18.4s, v4.4h, v1.4h[0]
-    smlsl       v18.4s, v5.4h, v2.4h[2]
+    smlal       v12.4s, v4.4h, v1.h[0]
+    smlal       v12.4s, v5.4h, v1.h[2]
+    smlal       v14.4s, v4.4h, v3.h[0]
+    smlsl       v14.4s, v5.4h, v3.h[2]
+    smlsl       v16.4s, v4.4h, v3.h[0]
+    smlsl       v16.4s, v5.4h, v0.h[2]
+    smlsl       v18.4s, v4.4h, v1.h[0]
+    smlsl       v18.4s, v5.4h, v2.h[2]
 
     mov         x19,#0xff00
     cmp         x12,x19
@@ -812,57 +812,57 @@ second_stage_process:
 
 
 
-    smlal       v24.4s, v6.4h, v2.4h[1]     //// y1 * cos1(part of b0)
-    smlsl       v26.4s, v6.4h, v1.4h[1]     //// y1 * cos3(part of b1)
-    smlsl       v28.4s, v6.4h, v3.4h[1]     //// y1 * sin3(part of b2)
-    smlal       v30.4s, v6.4h, v0.4h[1]     //// y1 * sin1(part of b3)
+    smlal       v24.4s, v6.4h, v2.h[1]     //// y1 * cos1(part of b0)
+    smlsl       v26.4s, v6.4h, v1.h[1]     //// y1 * cos3(part of b1)
+    smlsl       v28.4s, v6.4h, v3.h[1]     //// y1 * sin3(part of b2)
+    smlal       v30.4s, v6.4h, v0.h[1]     //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v2.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v0.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v2.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlal       v30.4s, v7.4h, v3.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
-
-    smlal       v24.4s, v8.4h, v3.4h[1]
-    smlsl       v26.4s, v8.4h, v1.4h[3]
-    smlal       v28.4s, v8.4h, v0.4h[1]
-    smlsl       v30.4s, v8.4h, v1.4h[1]
-
-
-    smlal       v24.4s, v9.4h, v3.4h[3]
-    smlsl       v26.4s, v9.4h, v3.4h[1]
-    smlal       v28.4s, v9.4h, v2.4h[3]
-    smlsl       v30.4s, v9.4h, v2.4h[1]
+    smlal       v24.4s, v7.4h, v2.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v2.h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlal       v30.4s, v7.4h, v3.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
 
+    smlal       v24.4s, v8.4h, v3.h[1]
+    smlsl       v26.4s, v8.4h, v1.h[3]
+    smlal       v28.4s, v8.4h, v0.h[1]
+    smlsl       v30.4s, v8.4h, v1.h[1]
 
 
-    smlal       v12.4s, v10.4h, v0.4h[0]
-    smlal       v12.4s, v11.4h, v2.4h[2]
-    smlal       v12.4s, v4.4h, v3.4h[0]
-    smlal       v12.4s, v5.4h, v3.4h[2]
+    smlal       v24.4s, v9.4h, v3.h[3]
+    smlsl       v26.4s, v9.4h, v3.h[1]
+    smlal       v28.4s, v9.4h, v2.h[3]
+    smlsl       v30.4s, v9.4h, v2.h[1]
 
 
 
 
-    smlsl       v14.4s, v10.4h, v0.4h[0]
-    smlsl       v14.4s, v11.4h, v0.4h[2]
-    smlsl       v14.4s, v4.4h, v1.4h[0]
-    smlsl       v14.4s, v5.4h, v2.4h[2]
+
+    smlal       v12.4s, v10.4h, v0.h[0]
+    smlal       v12.4s, v11.4h, v2.h[2]
+    smlal       v12.4s, v4.4h, v3.h[0]
+    smlal       v12.4s, v5.4h, v3.h[2]
 
 
-    smlsl       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v3.4h[2]
-    smlal       v16.4s, v4.4h, v1.4h[0]
-    smlal       v16.4s, v5.4h, v1.4h[2]
 
 
-    smlal       v18.4s, v10.4h, v0.4h[0]
-    smlal       v18.4s, v11.4h, v1.4h[2]
-    smlsl       v18.4s, v4.4h, v3.4h[0]
-    smlsl       v18.4s, v5.4h, v0.4h[2]
+    smlsl       v14.4s, v10.4h, v0.h[0]
+    smlsl       v14.4s, v11.4h, v0.h[2]
+    smlsl       v14.4s, v4.4h, v1.h[0]
+    smlsl       v14.4s, v5.4h, v2.h[2]
+
+
+    smlsl       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v3.h[2]
+    smlal       v16.4s, v4.4h, v1.h[0]
+    smlal       v16.4s, v5.4h, v1.h[2]
+
+
+    smlal       v18.4s, v10.4h, v0.h[0]
+    smlal       v18.4s, v11.4h, v1.h[2]
+    smlsl       v18.4s, v4.4h, v3.h[0]
+    smlsl       v18.4s, v5.4h, v0.h[2]
 
 
 
@@ -914,25 +914,25 @@ skip_stage2_kernel_load:
     st1         {v18.4h, v19.4h},[x1],#16
     sub         x1,x1,#32
 
-    smull       v24.4s, v6.4h, v2.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v2.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v3.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v3.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v2.h[1]     //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v2.h[3]     //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v3.h[1]     //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v3.h[3]     //// y1 * sin1(part of b3)
 
-    smlsl       v24.4s, v7.4h, v1.4h[1]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v0.4h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v7.4h, v1.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v3.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlsl       v24.4s, v7.4h, v1.h[1]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v7.4h, v1.h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v3.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
-    smull       v22.4s, v10.4h, v0.4h[0]
-    smlsl       v22.4s, v11.4h, v3.4h[2]
-    smull       v20.4s, v10.4h, v0.4h[0]
-    smlsl       v20.4s, v11.4h, v2.4h[2]
-    smull       v16.4s, v10.4h, v0.4h[0]
-    smlsl       v16.4s, v11.4h, v1.4h[2]
-    smull       v18.4s, v10.4h, v0.4h[0]
-    smlsl       v18.4s, v11.4h, v0.4h[2]
+    smull       v22.4s, v10.4h, v0.h[0]
+    smlsl       v22.4s, v11.4h, v3.h[2]
+    smull       v20.4s, v10.4h, v0.h[0]
+    smlsl       v20.4s, v11.4h, v2.h[2]
+    smull       v16.4s, v10.4h, v0.h[0]
+    smlsl       v16.4s, v11.4h, v1.h[2]
+    smull       v18.4s, v10.4h, v0.h[0]
+    smlsl       v18.4s, v11.4h, v0.h[2]
 
 
 
@@ -940,27 +940,27 @@ skip_stage2_kernel_load:
     bge         skip_last8rows_stage2_kernel2
 
 
-    smlsl       v24.4s, v8.4h, v3.4h[1]
-    smlal       v26.4s, v8.4h, v2.4h[1]
-    smlal       v28.4s, v8.4h, v0.4h[1]
-    smlal       v30.4s, v8.4h, v2.4h[3]
+    smlsl       v24.4s, v8.4h, v3.h[1]
+    smlal       v26.4s, v8.4h, v2.h[1]
+    smlal       v28.4s, v8.4h, v0.h[1]
+    smlal       v30.4s, v8.4h, v2.h[3]
 
 
-    smlal       v24.4s, v9.4h, v0.4h[1]
-    smlal       v26.4s, v9.4h, v3.4h[1]
-    smlsl       v28.4s, v9.4h, v1.4h[1]
-    smlsl       v30.4s, v9.4h, v2.4h[1]
+    smlal       v24.4s, v9.4h, v0.h[1]
+    smlal       v26.4s, v9.4h, v3.h[1]
+    smlsl       v28.4s, v9.4h, v1.h[1]
+    smlsl       v30.4s, v9.4h, v2.h[1]
 
 
 
-    smlsl       v22.4s, v4.4h, v1.4h[0]
-    smlal       v22.4s, v5.4h, v2.4h[2]
-    smlsl       v20.4s, v4.4h, v3.4h[0]
-    smlal       v20.4s, v5.4h, v0.4h[2]
-    smlal       v16.4s, v4.4h, v3.4h[0]
-    smlal       v16.4s, v5.4h, v3.4h[2]
-    smlal       v18.4s, v4.4h, v1.4h[0]
-    smlsl       v18.4s, v5.4h, v1.4h[2]
+    smlsl       v22.4s, v4.4h, v1.h[0]
+    smlal       v22.4s, v5.4h, v2.h[2]
+    smlsl       v20.4s, v4.4h, v3.h[0]
+    smlal       v20.4s, v5.4h, v0.h[2]
+    smlal       v16.4s, v4.4h, v3.h[0]
+    smlal       v16.4s, v5.4h, v3.h[2]
+    smlal       v18.4s, v4.4h, v1.h[0]
+    smlsl       v18.4s, v5.4h, v1.h[2]
     mov         x19,#0xff00
     cmp         x12,x19
     bge         skip_last8rows_stage2_kernel2
@@ -970,55 +970,55 @@ skip_stage2_kernel_load:
     ld1         {v4.4h, v5.4h},[x0],#16
     ld1         {v8.4h, v9.4h},[x0],#16
 
-    smlsl       v24.4s, v6.4h, v3.4h[3]     //// y1 * cos1(part of b0)
-    smlsl       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smlal       v28.4s, v6.4h, v2.4h[3]     //// y1 * sin3(part of b2)
-    smlal       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smlsl       v24.4s, v6.4h, v3.h[3]     //// y1 * cos1(part of b0)
+    smlsl       v26.4s, v6.4h, v0.h[3]     //// y1 * cos3(part of b1)
+    smlal       v28.4s, v6.4h, v2.h[3]     //// y1 * sin3(part of b2)
+    smlal       v30.4s, v6.4h, v1.h[3]     //// y1 * sin1(part of b3)
 
-    smlsl       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlal       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlal       v28.4s, v7.4h, v3.4h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
-
-
-    smlal       v24.4s, v8.4h, v2.4h[3]
-    smlal       v26.4s, v8.4h, v3.4h[3]
-    smlsl       v28.4s, v8.4h, v2.4h[1]
-    smlal       v30.4s, v8.4h, v0.4h[3]
+    smlsl       v24.4s, v7.4h, v0.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlal       v26.4s, v7.4h, v1.h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlal       v28.4s, v7.4h, v3.h[3]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v1.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
 
 
-    smlal       v24.4s, v9.4h, v1.4h[3]
-    smlsl       v26.4s, v9.4h, v1.4h[1]
-    smlal       v28.4s, v9.4h, v0.4h[3]
-    smlsl       v30.4s, v9.4h, v0.4h[1]
+    smlal       v24.4s, v8.4h, v2.h[3]
+    smlal       v26.4s, v8.4h, v3.h[3]
+    smlsl       v28.4s, v8.4h, v2.h[1]
+    smlal       v30.4s, v8.4h, v0.h[3]
 
 
-
-
-    smlal       v22.4s, v10.4h, v0.4h[0]
-    smlsl       v22.4s, v11.4h, v1.4h[2]
-    smlsl       v22.4s, v4.4h, v3.4h[0]
-    smlal       v22.4s, v5.4h, v0.4h[2]
+    smlal       v24.4s, v9.4h, v1.h[3]
+    smlsl       v26.4s, v9.4h, v1.h[1]
+    smlal       v28.4s, v9.4h, v0.h[3]
+    smlsl       v30.4s, v9.4h, v0.h[1]
 
 
 
-    smlsl       v20.4s, v10.4h, v0.4h[0]
-    smlsl       v20.4s, v11.4h, v3.4h[2]
-    smlal       v20.4s, v4.4h, v1.4h[0]
-    smlsl       v20.4s, v5.4h, v1.4h[2]
 
-
-    smlsl       v16.4s, v10.4h, v0.4h[0]
-    smlal       v16.4s, v11.4h, v0.4h[2]
-    smlsl       v16.4s, v4.4h, v1.4h[0]
-    smlal       v16.4s, v5.4h, v2.4h[2]
+    smlal       v22.4s, v10.4h, v0.h[0]
+    smlsl       v22.4s, v11.4h, v1.h[2]
+    smlsl       v22.4s, v4.4h, v3.h[0]
+    smlal       v22.4s, v5.4h, v0.h[2]
 
 
 
-    smlal       v18.4s, v10.4h, v0.4h[0]
-    smlsl       v18.4s, v11.4h, v2.4h[2]
-    smlal       v18.4s, v4.4h, v3.4h[0]
-    smlsl       v18.4s, v5.4h, v3.4h[2]
+    smlsl       v20.4s, v10.4h, v0.h[0]
+    smlsl       v20.4s, v11.4h, v3.h[2]
+    smlal       v20.4s, v4.4h, v1.h[0]
+    smlsl       v20.4s, v5.4h, v1.h[2]
+
+
+    smlsl       v16.4s, v10.4h, v0.h[0]
+    smlal       v16.4s, v11.4h, v0.h[2]
+    smlsl       v16.4s, v4.4h, v1.h[0]
+    smlal       v16.4s, v5.4h, v2.h[2]
+
+
+
+    smlal       v18.4s, v10.4h, v0.h[0]
+    smlsl       v18.4s, v11.4h, v2.h[2]
+    smlal       v18.4s, v4.4h, v3.h[0]
+    smlsl       v18.4s, v5.4h, v3.h[2]
 
 
 skip_last8rows_stage2_kernel2:

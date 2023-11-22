@@ -338,18 +338,18 @@ public class LibraryClasspathContainerInitializer extends BaseClasspathContainer
                     return null;
                 }
                 BuildToolInfo buildToolInfo = state.getBuildToolInfo();
-                if (buildToolInfo != null) {
+                if (buildToolInfo == null) {
                     buildToolInfo = Sdk.getCurrent().getLatestBuildTool();
 
                     if (buildToolInfo == null) {
                         return null;
                     }
-
-                    File renderScriptSupportJar = RenderScriptProcessor.getSupportJar(
-                            buildToolInfo.getLocation().getAbsolutePath());
-
-                    jarFiles.add(renderScriptSupportJar);
                 }
+
+                File renderScriptSupportJar = RenderScriptProcessor.getSupportJar(
+                        buildToolInfo.getLocation().getAbsolutePath());
+
+                jarFiles.add(renderScriptSupportJar);
             }
 
             // process all the libraries

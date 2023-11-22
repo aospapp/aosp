@@ -15,71 +15,6 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-    <!-- Wi-Fi settings -->
-
-
-    <!-- Match this with the order of NetworkInfo.DetailedState. -->
-    <skip />
-    <!-- Wi-Fi settings. The status messages when the network is unknown. -->
-    <string-array name="wifi_status">
-
-        <!-- Status message of Wi-Fi when it is idle. -->
-        <item></item>
-        <!-- Status message of Wi-Fi when it is scanning. -->
-        <item>Scanning\u2026</item>
-        <!-- Status message of Wi-Fi when it is connecting. -->
-        <item>Connecting\u2026</item>
-        <!-- Status message of Wi-Fi when it is authenticating. -->
-        <item>Authenticating\u2026</item>
-        <!-- Status message of Wi-Fi when it is obtaining IP address. -->
-        <item>Obtaining IP address\u2026</item>
-        <!-- Status message of Wi-Fi when it is connected. -->
-        <item>Connected</item>
-        <!-- Status message of Wi-Fi when it is suspended. -->
-        <item>Suspended</item>
-        <!-- Status message of Wi-Fi when it is disconnecting. -->
-        <item>Disconnecting\u2026</item>
-        <!-- Status message of Wi-Fi when it is disconnected. -->
-        <item>Disconnected</item>
-        <!-- Status message of Wi-Fi when it is a failure. -->
-        <item>Unsuccessful</item>
-        <!-- Status message of Wi-Fi when it is blocked. -->
-        <item>Blocked</item>
-        <!-- Status message of Wi-Fi when connectiong is being verified. -->
-        <item>Temporarily avoiding poor connection</item>
-    </string-array>
-
-    <!-- Match this with the order of NetworkInfo.DetailedState. -->
-    <skip />
-    <!-- Wi-Fi settings. The status messages when the network is known. -->
-    <string-array name="wifi_status_with_ssid">
-
-        <!-- Status message of Wi-Fi when it is idle. -->
-        <item></item>
-        <!-- Status message of Wi-Fi when it is scanning. -->
-        <item>Scanning\u2026</item>
-        <!-- Status message of Wi-Fi when it is connecting to a network. -->
-        <item>Connecting to <xliff:g id="network_name">%1$s</xliff:g>\u2026</item>
-        <!-- Status message of Wi-Fi when it is authenticating with a network. -->
-        <item>Authenticating with <xliff:g id="network_name">%1$s</xliff:g>\u2026</item>
-        <!-- Status message of Wi-Fi when it is obtaining IP address from a network. -->
-        <item>Obtaining IP address from <xliff:g id="network_name">%1$s</xliff:g>\u2026</item>
-        <!-- Status message of Wi-Fi when it is connected to a network. -->
-        <item>Connected to <xliff:g id="network_name">%1$s</xliff:g></item>
-        <!-- Status message of Wi-Fi when it is suspended. -->
-        <item>Suspended</item>
-        <!-- Status message of Wi-Fi when it is disconnecting from a network. -->
-        <item>Disconnecting from <xliff:g id="network_name">%1$s</xliff:g>\u2026</item>
-        <!-- Status message of Wi-Fi when it is disconnected. -->
-        <item>Disconnected</item>
-        <!-- Status message of Wi-Fi when it is a failure. -->
-        <item>Unsuccessful</item>
-        <!-- Status message of Wi-Fi when it is blocked. -->
-        <item>Blocked</item>
-        <!-- Status message of Wi-Fi when connectiong is being verified. -->
-        <item>Temporarily avoiding poor connection</item>
-    </string-array>
-
     <!-- Display settings.  The delay in inactivity before the daydream starts. -->
     <string-array name="sleep_timeout_entries">
         <item>5 minutes</item>
@@ -130,32 +65,6 @@
         <item>-1</item>
     </string-array>
 
-
-    <!-- Titles for debug overdraw preference. [CHAR LIMIT=35] -->
-    <string-array name="debug_hw_overdraw_entries">
-        <item>Off</item>
-        <item>Show overdraw areas</item>
-        <item>Show overdraw counter</item>
-    </string-array>
-
-    <!-- Values for debug overdraw preference. -->
-    <string-array name="debug_hw_overdraw_values" translatable="false" >
-        <item>false</item>
-        <item>show</item>
-        <item>count</item>
-    </string-array>
-
-    <!-- Titles for HDMI optimization preference values [CHAR LIMIT=60] -->
-    <string-array name="hdmi_optimization_entries">
-        <item>Best resolution</item>
-        <item>Best framerate</item>
-    </string-array>
-
-    <!-- Values for HDMI optimization preference values DO NOT TRANSLATE -->
-    <string-array name="hdmi_optimization_values">
-        <item>Max</item>
-        <item>1080p</item>
-    </string-array>
 
     <!-- Titles for captioning typeface preference. [CHAR LIMIT=35] -->
     <string-array name="captioning_typeface_selector_titles">

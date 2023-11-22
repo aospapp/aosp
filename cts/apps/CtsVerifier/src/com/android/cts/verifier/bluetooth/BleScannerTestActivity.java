@@ -20,7 +20,11 @@ import com.android.cts.verifier.ManifestTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+import android.bluetooth.BluetoothAdapter;
 import android.os.Bundle;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class BleScannerTestActivity extends PassFailButtons.TestListActivity {
 
@@ -31,6 +35,14 @@ public class BleScannerTestActivity extends PassFailButtons.TestListActivity {
         setPassFailButtonClickListeners();
         setInfoResources(R.string.ble_scanner_test_name,
                          R.string.ble_scanner_test_info, -1);
-        setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName()));
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        List<String> disabledTest = new ArrayList<String>();
+        if (adapter == null || !adapter.isOffloadedFilteringSupported()) {
+            disabledTest.add(
+                    "com.android.cts.verifier.bluetooth.BleScannerHardwareScanFilterActivity");
+        }
+
+        setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
+                disabledTest.toArray(new String[disabledTest.size()])));
     }
 }

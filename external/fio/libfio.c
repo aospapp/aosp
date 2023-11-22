@@ -58,6 +58,7 @@ static const char *fio_os_strings[os_nr] = {
 	"Solaris",
 	"Windows",
 	"Android",
+	"DragonFly",
 };
 
 static const char *fio_arch_strings[arch_nr] = {
@@ -108,8 +109,10 @@ void clear_io_state(struct thread_data *td)
 	reset_io_counters(td);
 
 	close_files(td);
-	for_each_file(td, f, i)
+	for_each_file(td, f, i) {
 		fio_file_clear_done(f);
+		f->file_offset = get_start_offset(td, f);
+	}
 
 	/*
 	 * Set the same seed to get repeatable runs
@@ -187,6 +190,13 @@ void td_restore_runstate(struct thread_data *td, int old_state)
 	td_set_runstate(td, old_state);
 }
 
+void fio_mark_td_terminate(struct thread_data *td)
+{
+	fio_gettime(&td->terminate_time, NULL);
+	write_barrier();
+	td->terminate = 1;
+}
+
 void fio_terminate_threads(int group_id)
 {
 	struct thread_data *td;
@@ -199,7 +209,11 @@ void fio_terminate_threads(int group_id)
 		if (group_id == TERMINATE_ALL || groupid == td->groupid) {
 			dprint(FD_PROCESS, "setting terminate on %s/%d\n",
 						td->o.name, (int) td->pid);
-			td->terminate = 1;
+
+			if (td->terminate)
+				continue;
+
+			fio_mark_td_terminate(td);
 			td->o.start_delay = 0;
 
 			/*
@@ -285,6 +299,20 @@ static int endian_check(void)
 int initialize_fio(char *envp[])
 {
 	long ps;
+
+	/*
+	 * We need these to be properly 64-bit aligned, otherwise we
+	 * can run into problems on archs that fault on unaligned fp
+	 * access (ARM).
+	 */
+	compiletime_assert((offsetof(struct thread_stat, percentile_list) % 8) == 0, "stat percentile_list");
+	compiletime_assert((offsetof(struct thread_stat, total_run_time) % 8) == 0, "total_run_time");
+	compiletime_assert((offsetof(struct thread_stat, total_err_count) % 8) == 0, "total_err_count");
+	compiletime_assert((offsetof(struct thread_stat, latency_percentile) % 8) == 0, "stat latency_percentile");
+	compiletime_assert((offsetof(struct thread_options_pack, zipf_theta) % 8) == 0, "zipf_theta");
+	compiletime_assert((offsetof(struct thread_options_pack, pareto_h) % 8) == 0, "pareto_h");
+	compiletime_assert((offsetof(struct thread_options_pack, percentile_list) % 8) == 0, "percentile_list");
+	compiletime_assert((offsetof(struct thread_options_pack, latency_percentile) % 8) == 0, "latency_percentile");
 
 	if (endian_check()) {
 		log_err("fio: endianness settings appear wrong.\n");

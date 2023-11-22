@@ -28,14 +28,15 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-v7-cardview \
     android-support-v7-palette \
     android-support-v4 \
-    libphonenumber \
-    libgeocoding
+    libphonenumber
 
 LOCAL_PACKAGE_NAME := Contacts
 LOCAL_CERTIFICATE := shared
 LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
+
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_PACKAGE)
 

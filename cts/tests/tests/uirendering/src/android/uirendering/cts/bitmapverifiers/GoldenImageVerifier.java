@@ -25,8 +25,8 @@ public class GoldenImageVerifier extends BitmapVerifier {
     private int[] mGoldenBitmapArray;
 
     public GoldenImageVerifier(Bitmap goldenBitmap, BitmapComparer bitmapComparer) {
-        mGoldenBitmapArray = new int[goldenBitmap.getWidth() * goldenBitmap.getHeight()];
-        goldenBitmap.getPixels(mGoldenBitmapArray, 0, goldenBitmap.getWidth(), 0, 0,
+        mGoldenBitmapArray = new int[ActivityTestBase.TEST_WIDTH * ActivityTestBase.TEST_HEIGHT];
+        goldenBitmap.getPixels(mGoldenBitmapArray, 0, ActivityTestBase.TEST_WIDTH, 0, 0,
                 ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
         mBitmapComparer = bitmapComparer;
     }

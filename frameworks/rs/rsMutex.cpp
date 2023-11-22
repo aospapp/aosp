@@ -28,7 +28,7 @@ Mutex::~Mutex() {
 }
 
 bool Mutex::init() {
-    int status = pthread_mutex_init(&mMutex, NULL);
+    int status = pthread_mutex_init(&mMutex, nullptr);
     if (status) {
         ALOGE("Mutex::Mutex init failure");
         return false;

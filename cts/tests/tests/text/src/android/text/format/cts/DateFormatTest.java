@@ -19,19 +19,23 @@ package android.text.format.cts;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
-import android.test.AndroidTestCase;
+import android.test.InstrumentationTestCase;
 import android.text.format.DateFormat;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
+import java.util.Scanner;
 import java.util.TimeZone;
 
-public class DateFormatTest extends AndroidTestCase {
+public class DateFormatTest extends InstrumentationTestCase {
 
     private Context mContext;
     private ContentResolver mContentResolver;
@@ -46,17 +50,43 @@ public class DateFormatTest extends AndroidTestCase {
 
     private boolean mIs24HourFormat;
     private Locale mDefaultLocale;
-    private String mDefaultFormat;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mContext = getContext();
+        enableAppOps();
+        mContext = getInstrumentation().getContext();
         mContentResolver = mContext.getContentResolver();
         mIs24HourFormat = DateFormat.is24HourFormat(mContext);
         mDefaultLocale = Locale.getDefault();
-        mDefaultFormat = Settings.System.getString(mContext.getContentResolver(),
-                Settings.System.DATE_FORMAT);
+    }
+
+    private void enableAppOps() {
+        StringBuilder cmd = new StringBuilder();
+        cmd.append("appops set ");
+        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(" android:write_settings allow");
+        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+
+        StringBuilder query = new StringBuilder();
+        query.append("appops get ");
+        query.append(getInstrumentation().getContext().getPackageName());
+        query.append(" android:write_settings");
+        String queryStr = query.toString();
+
+        String result = "No operations.";
+        while (result.contains("No operations")) {
+            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
+                                        queryStr);
+            InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
+            result = convertStreamToString(inputStream);
+        }
+    }
+
+    private String convertStreamToString(InputStream is) {
+        try (Scanner scanner = new Scanner(is).useDelimiter("\\A")) {
+            return scanner.hasNext() ? scanner.next() : "";
+        }
     }
 
     @Override
@@ -67,7 +97,7 @@ public class DateFormatTest extends AndroidTestCase {
         if (!Locale.getDefault().equals(mDefaultLocale)) {
             Locale.setDefault(mDefaultLocale);
         }
-        Settings.System.putString(mContentResolver, Settings.System.DATE_FORMAT, mDefaultFormat);
+
         super.tearDown();
     }
 
@@ -145,12 +175,6 @@ public class DateFormatTest extends AndroidTestCase {
         source = dateFormat.format(date);
         assertTrue(source.indexOf("5") >= 0);
         assertTrue(source.indexOf("30") >= 0);
-
-        String testFormat = "yyyy-MM-dd";
-        String testOrder = "yMd";
-        Settings.System.putString(mContentResolver, Settings.System.DATE_FORMAT, testFormat);
-        String actualOrder = String.valueOf(DateFormat.getDateFormatOrder(mContext));
-        assertEquals(testOrder, actualOrder);
 
         String format = "MM/dd/yy";
         String expectedString = "12/18/08";

@@ -19,7 +19,6 @@ package com.android.deskclock.timer;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
-import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -31,7 +30,6 @@ import android.widget.TextView;
 
 import com.android.deskclock.CircleButtonsLayout;
 import com.android.deskclock.DeskClock;
-import com.android.deskclock.DeskClock.OnTapListener;
 import com.android.deskclock.LabelDialogFragment;
 import com.android.deskclock.R;
 
@@ -86,17 +84,13 @@ public class TimerItemFragment extends Fragment {
             case TimerObj.STATE_TIMESUP:
                 v.timesUp();
                 break;
-            case TimerObj.STATE_DONE:
-                v.done();
-                break;
             default:
                 break;
         }
 
         final CircleButtonsLayout circleLayout =
                 (CircleButtonsLayout) v.findViewById(R.id.timer_circle);
-        circleLayout.setCircleTimerViewIds(R.id.timer_time, R.id.reset_add, R.id.timer_label,
-                R.id.timer_label_text);
+        circleLayout.setCircleTimerViewIds(R.id.timer_time, R.id.reset_add, R.id.timer_label);
 
         return v;
     }
@@ -108,27 +102,18 @@ public class TimerItemFragment extends Fragment {
         if (v == null) {
             return;
         }
-        final FrameLayout labelLayout = (FrameLayout) v.findViewById(R.id.timer_label);
-        final TextView labelPlaceholder = (TextView) v.findViewById(R.id.timer_label_placeholder);
-        final TextView labelText = (TextView) v.findViewById(R.id.timer_label_text);
-        if (TextUtils.isEmpty(mTimerObj.mLabel)) {
-            labelText.setVisibility(View.GONE);
-            labelPlaceholder.setVisibility(View.VISIBLE);
-        } else {
-            labelText.setText(mTimerObj.mLabel);
-            labelText.setVisibility(View.VISIBLE);
-            labelPlaceholder.setVisibility(View.GONE);
-        }
-        final Activity activity = getActivity();
-        if (activity instanceof DeskClock) {
-            labelLayout.setOnClickListener(new OnClickListener() {
+
+        TextView label = (TextView) v.findViewById(R.id.timer_label);
+        label.setText(mTimerObj.mLabel);
+        if (getActivity() instanceof DeskClock) {
+            label.setOnClickListener(new View.OnClickListener() {
                 @Override
-                public void onClick(View view) {
+                public void onClick(View v) {
                     onLabelPressed(mTimerObj);
                 }
             });
-        } else {
-            labelPlaceholder.setVisibility(View.INVISIBLE);
+        } else if (TextUtils.isEmpty(mTimerObj.mLabel)) {
+            label.setVisibility(View.INVISIBLE);
         }
     }
 

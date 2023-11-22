@@ -133,23 +133,23 @@ ihevc_inter_pred_luma_horz_w16out_av8:
     mov         x15,#1
     //ble          end_loops
     mov         x14,x6                      //loads wd
-    dup         v24.8b, v2.8b[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
+    dup         v24.8b, v2.b[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
     sub         x16,x0,#3                   //pu1_src - 3
-    dup         v25.8b, v2.8b[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
+    dup         v25.8b, v2.b[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
     add         x8,x16,x2                   //pu1_src_tmp2_8 = pu1_src + src_strd
-    dup         v26.8b, v2.8b[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
+    dup         v26.8b, v2.b[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
     sub         x20,x14,x2,lsl #1           //2*src_strd - wd
     neg         x13, x20
-    dup         v27.8b, v2.8b[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
+    dup         v27.8b, v2.b[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
     sub         x20,x14,x3                  //dst_strd - wd
     neg         x12, x20
-    dup         v28.8b, v2.8b[4]            //coeffabs_4 = vdup_lane_u8(coeffabs, 4)
+    dup         v28.8b, v2.b[4]             //coeffabs_4 = vdup_lane_u8(coeffabs, 4)
 
-    dup         v29.8b, v2.8b[5]            //coeffabs_5 = vdup_lane_u8(coeffabs, 5)
+    dup         v29.8b, v2.b[5]             //coeffabs_5 = vdup_lane_u8(coeffabs, 5)
     and         x11,x19,#1                  //calculating ht_residue ht_residue = (ht & 1)
-    dup         v30.8b, v2.8b[6]            //coeffabs_6 = vdup_lane_u8(coeffabs, 6)
+    dup         v30.8b, v2.b[6]             //coeffabs_6 = vdup_lane_u8(coeffabs, 6)
     sub         x19,x19,x11                 //decrement height by ht_residue(residue value is calculated outside)
-    dup         v31.8b, v2.8b[7]            //coeffabs_7 = vdup_lane_u8(coeffabs, 7)
+    dup         v31.8b, v2.b[7]             //coeffabs_7 = vdup_lane_u8(coeffabs, 7)
 
     cmp         x11,#1
     beq         odd_height_decision

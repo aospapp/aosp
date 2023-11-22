@@ -15,41 +15,42 @@
 LOCAL_PATH:= $(call my-dir)
 
 src_files := \
-	memtrack.cpp
-
-includes := \
-    bionic \
-    external/stlport/stlport \
+    memtrack.cpp
 
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_SRC_FILES := $(src_files)
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
-LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := memtrack_share
 
 LOCAL_C_INCLUDES += $(includes)
 LOCAL_SHARED_LIBRARIES := \
-	libc \
-	libstlport \
-	liblog \
+    liblog \
 
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_SRC_FILES := $(src_files)
 LOCAL_MODULE_PATH := $(TARGET_OUT_OPTIONAL_EXECUTABLES)
-LOCAL_MODULE_TAGS := debug
 LOCAL_MODULE := memtrack
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
-LOCAL_C_INCLUDES += $(includes)
 LOCAL_STATIC_LIBRARIES := \
-	libc \
-	libstdc++ \
-	libstlport_static \
-	liblog \
+    libc \
+    liblog \
+    libc++abi \
+    libdl \
+
+LOCAL_CXX_STL := libc++_static
+
+# Bug: 18389563 - Today, libc++_static and libgcc have duplicate sybols for
+# __aeabi_uidiv(). Allowing multiple definitions lets the build proceed, but
+# updating compiler-rt to be a superset of libgcc will allow this WAR to be
+# removed.
+LOCAL_LDFLAGS := -Wl,-z,muldefs
 
 include $(BUILD_EXECUTABLE)

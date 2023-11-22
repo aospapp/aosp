@@ -86,6 +86,7 @@ public class DescriptionGenerator extends Doclet {
     static final String ATTRIBUTE_NAME = "name";
     static final String ATTRIBUTE_ABIS = "abis";
     static final String ATTRIBUTE_HOST_CONTROLLER = "HostController";
+    static final String ATTRIBUTE_TIMEOUT = "timeout";
 
     static final String XML_OUTPUT_PATH = "./description.xml";
 
@@ -438,6 +439,10 @@ public class DescriptionGenerator extends Doclet {
                     if ((caze.mController != null) && (caze.mController.length() != 0)) {
                         setAttribute(caseNode, ATTRIBUTE_HOST_CONTROLLER, caze.mController);
                     }
+                    if (caze.mTimeoutInMinutes != 0) {
+                        setAttribute(caseNode, ATTRIBUTE_TIMEOUT,
+                                     Integer.toString(caze.mTimeoutInMinutes));
+                    }
 
                     if (caze.mDescription != null && !caze.mDescription.equals("")) {
                         caseNode.appendChild(mDoc.createElement(TAG_DESCRIPTION))
@@ -573,9 +578,10 @@ public class DescriptionGenerator extends Doclet {
                             VogarUtils.buildFullTestName(clazz.toString(), name));
                     Set<String> supportedAbis =
                             VogarUtils.extractSupportedAbis(architecture, expectation);
+                    int timeoutInMinutes = VogarUtils.timeoutInMinutes(expectation);
                     cases.add(new TestMethod(
                             name, method.commentText(), controller, supportedAbis,
-                                    knownFailure, isBroken, isSuppressed));
+                                    knownFailure, isBroken, isSuppressed, timeoutInMinutes));
                 }
             }
 
@@ -635,6 +641,7 @@ public class DescriptionGenerator extends Doclet {
         String mKnownFailure;
         boolean mIsBroken;
         boolean mIsSuppressed;
+        int mTimeoutInMinutes;  // zero to use default timeout.
 
         /**
          * Construct an test case object.
@@ -644,7 +651,10 @@ public class DescriptionGenerator extends Doclet {
          * @param knownFailure The reason of known failure.
          */
         TestMethod(String name, String description, String controller, Set<String> abis,
-                String knownFailure, boolean isBroken, boolean isSuppressed) {
+                String knownFailure, boolean isBroken, boolean isSuppressed, int timeoutInMinutes) {
+            if (timeoutInMinutes < 0) {
+                throw new IllegalArgumentException("timeoutInMinutes < 0: " + timeoutInMinutes);
+            }
             mName = name;
             mDescription = description;
             mController = controller;
@@ -652,6 +662,7 @@ public class DescriptionGenerator extends Doclet {
             mKnownFailure = knownFailure;
             mIsBroken = isBroken;
             mIsSuppressed = isSuppressed;
+            mTimeoutInMinutes = timeoutInMinutes;
         }
     }
 }

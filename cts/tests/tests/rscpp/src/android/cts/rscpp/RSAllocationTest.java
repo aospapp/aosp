@@ -33,8 +33,33 @@ public class RSAllocationTest extends RSCppTest {
     }
 
     native boolean test1DCopy(String path);
-    public void testRSAllocationCopy() {
+    public void testRSAllocationCopy1D() {
         assertTrue(test1DCopy(this.getContext().getCacheDir().toString()));
+    }
+
+    native boolean test2DCopy(String path);
+    public void testRSAllocationCopy2D() {
+        assertTrue(test2DCopy(this.getContext().getCacheDir().toString()));
+    }
+
+    native boolean test3DCopy(String path);
+    public void testRSAllocationCopy3D() {
+        assertTrue(test3DCopy(this.getContext().getCacheDir().toString()));
+    }
+
+    native boolean test1DCopyPadded(String path);
+    public void testRSAllocationCopy1DPadded() {
+        assertTrue(test1DCopyPadded(this.getContext().getCacheDir().toString()));
+    }
+
+    native boolean test2DCopyPadded(String path);
+    public void testRSAllocationCopy2DPadded() {
+        assertTrue(test2DCopyPadded(this.getContext().getCacheDir().toString()));
+    }
+
+    native boolean test3DCopyPadded(String path);
+    public void testRSAllocationCopy3DPadded() {
+        assertTrue(test3DCopyPadded(this.getContext().getCacheDir().toString()));
     }
 
     native boolean testSetElementAt(String path);

@@ -85,4 +85,29 @@
         <item>VPN and apps</item>
         <item>Wi-Fi</item>
     </string-array>
+
+    <string name="wifi_title">Wi-Fi Profile</string>
+    <string name="wifi_detail_title">Details for %s</string>
+    <string name="wifi_detail_label">Details</string>
+    <string name="wifi_install_label">Install</string>
+    <!-- Toast message to be displayed when installing Hotspot 2.0 credentials [CHAR LIMIT=40] -->
+    <string name="wifi_installing_label">Installing</string>
+    <string name="wifi_cancel_label">Cancel</string>
+    <string name="wifi_dismiss_label">Dismiss</string>
+    <string name="wifi_no_config">None</string>
+    <string name="wifi_config_text">Name: %1$s\nFQDN: %2$s\nRoaming Consortiums: %3$s\nRealm: %4$s\nAuth method: EAP-%5$s\n</string>
+    <string name="wifi_ttls_config_text">User name: %s\n</string>
+    <string name="wifi_tls_config_text">Client certificate:\n%1$s\nKey: %2$s\n</string>
+    <string name="wifi_sim_config_text">SIM: %s\n</string>
+    <string name="wifi_trust_config_text">Trust certificate:\n%s\n</string>
+
+    <string name="install_done_title">Credentials installed</string>
+    <string name="install_done"><xliff:g id="name">%1$s</xliff:g> credentials have been added to Wi-Fi saved networks&#46;</string>
+    <string name="done_label">DONE</string>
+    <string name="wifi_installer_detail">Install Wi-Fi credentials to connect to networks available via <xliff:g id="name">%1$s</xliff:g>&#46;</string>
+    <string name="wifi_installer_download_error">Downloaded file has problems and can\'t be installed&#46; Make sure you downloaded the file from the correct source&#46;</string>
+    <string name="wifi_installer_fail">Can\'t install Wi-Fi credentials&#46; Try downloading the file again&#46;</string>
+    <string name="wifi_installer_fail_no_wifi_title">Installation canceled</string>
+    <string name="wifi_installer_fail_title">Can\'t install</string>
+    <string name="wifi_installer_fail_no_wifi">Turn on Wi-Fi and try again&#46;</string>
 </resources>

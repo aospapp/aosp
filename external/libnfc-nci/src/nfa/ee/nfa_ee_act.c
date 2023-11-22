@@ -1968,6 +1968,17 @@ tNFA_STATUS nfa_ee_route_add_one_ecb(tNFA_EE_ECB *p_cb, int *p_max_len, BOOLEAN 
         }
     }
 
+    /* add NFC-DEP routing to HOST */
+    if (p_cb->nfcee_id == NFC_DH_ID)
+    {
+        *pp++   = NFC_ROUTE_TAG_PROTO;
+        *pp++   = 3;
+        *pp++   = NFC_DH_ID;
+        *pp++   = NCI_ROUTE_PWR_STATE_ON;
+        *pp++   = NFC_PROTOCOL_NFC_DEP;
+        num_tlv++;
+    }
+
     /* update the num_tlv and current offset */
     entry_size       = (UINT8)(pp - p);
     *p_cur_offset   += entry_size;

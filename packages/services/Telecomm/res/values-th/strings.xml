@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"โทรศัพท์"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"การจัดการการโทรศัพท์"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"โทรศัพท์"</string>
     <string name="unknown" msgid="6878797917991465859">"ไม่ทราบ"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"สายที่ไม่ได้รับ"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"สายที่ไม่ได้รับ"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"คำตอบด่วน"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"ส่งข้อความไปยัง <xliff:g id="PHONE_NUMBER">%s</xliff:g> แล้ว"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"เจ้าของอุปกรณ์อนุญาตเฉพาะหมายเลขฉุกเฉิน"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"บัญชีการโทร"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"เจ้าของอุปกรณ์อนุญาตเฉพาะหมายเลขฉุกเฉิน"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"แอปพลิเคชันนี้ไม่สามารถโทรออกโดยไม่มีสิทธิ์ใช้โทรศัพท์"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"หากต้องการโทรออก โปรดป้อนหมายเลขที่ถูกต้อง"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"ไม่สามารถเพิ่มสายได้ในขณะนี้"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"โปรดปิดใช้โหมด TTY เพื่อแฮงเอาท์วิดีโอ"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"ไม่มีหมายเลขข้อความเสียง"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ไม่มีหมายเลขข้อความเสียงจัดเก็บอยู่ในซิมการ์ด"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"เพิ่มหมายเลข"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"เปลี่ยนแอปแป้นโทรศัพท์เริ่มต้นไหม"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ใช้ <xliff:g id="NEW_APP">%1$s</xliff:g> เป็นแอปแป้นโทรศัพท์เริ่มต้นแทน <xliff:g id="CURRENT_APP">%2$s</xliff:g> ไหม"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ใช้ <xliff:g id="NEW_APP">%s</xliff:g> เป็นแอปแป้นโทรศัพท์เริ่มต้นไหม"</string>
 </resources>

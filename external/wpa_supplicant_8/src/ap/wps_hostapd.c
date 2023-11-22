@@ -185,7 +185,7 @@ static void hostapd_wps_pin_needed_cb(void *ctx, const u8 *uuid_e,
 			  dev->model_number, dev->serial_number,
 			  wps_dev_type_bin2str(dev->pri_dev_type, devtype,
 					       sizeof(devtype)));
-	if (len > 0 && len < (int) sizeof(txt))
+	if (!os_snprintf_error(sizeof(txt), len))
 		wpa_msg(hapd->msg_ctx, MSG_INFO, "%s", txt);
 
 	if (hapd->conf->wps_pin_requests) {
@@ -324,7 +324,7 @@ static int hapd_wps_reconfig_in_memory(struct hostapd_data *hapd,
 	wpa_printf(MSG_DEBUG, "WPS: Updating in-memory configuration");
 
 	bss->wps_state = 2;
-	if (cred->ssid_len <= HOSTAPD_MAX_SSID_LEN) {
+	if (cred->ssid_len <= SSID_MAX_LEN) {
 		os_memcpy(bss->ssid.ssid, cred->ssid, cred->ssid_len);
 		bss->ssid.ssid_len = cred->ssid_len;
 		bss->ssid.ssid_set = 1;
@@ -347,8 +347,12 @@ static int hapd_wps_reconfig_in_memory(struct hostapd_data *hapd,
 			bss->wpa_key_mgmt = WPA_KEY_MGMT_PSK;
 
 		bss->wpa_pairwise = 0;
-		if (cred->encr_type & WPS_ENCR_AES)
-			bss->wpa_pairwise |= WPA_CIPHER_CCMP;
+		if (cred->encr_type & WPS_ENCR_AES) {
+			if (hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211AD)
+				bss->wpa_pairwise |= WPA_CIPHER_GCMP;
+			else
+				bss->wpa_pairwise |= WPA_CIPHER_CCMP;
+		}
 		if (cred->encr_type & WPS_ENCR_TKIP)
 			bss->wpa_pairwise |= WPA_CIPHER_TKIP;
 		bss->rsn_pairwise = bss->wpa_pairwise;
@@ -362,10 +366,9 @@ static int hapd_wps_reconfig_in_memory(struct hostapd_data *hapd,
 			if (bss->ssid.wpa_passphrase)
 				os_memcpy(bss->ssid.wpa_passphrase, cred->key,
 					  cred->key_len);
-			os_free(bss->ssid.wpa_psk);
-			bss->ssid.wpa_psk = NULL;
+			hostapd_config_clear_wpa_psk(&bss->ssid.wpa_psk);
 		} else if (cred->key_len == 64) {
-			os_free(bss->ssid.wpa_psk);
+			hostapd_config_clear_wpa_psk(&bss->ssid.wpa_psk);
 			bss->ssid.wpa_psk =
 				os_zalloc(sizeof(struct hostapd_wpa_psk));
 			if (bss->ssid.wpa_psk &&
@@ -531,7 +534,11 @@ static int hapd_wps_cred_cb(struct hostapd_data *hapd, void *ctx)
 		fprintf(nconf, "wpa_pairwise=");
 		prefix = "";
 		if (cred->encr_type & WPS_ENCR_AES) {
-			fprintf(nconf, "CCMP");
+			if (hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211AD)
+				fprintf(nconf, "GCMP");
+			else
+				fprintf(nconf, "CCMP");
+
 			prefix = " ";
 		}
 		if (cred->encr_type & WPS_ENCR_TKIP) {
@@ -845,7 +852,9 @@ static int hostapd_wps_rf_band_cb(void *ctx)
 	struct hostapd_data *hapd = ctx;
 
 	return hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211A ?
-		WPS_RF_50GHZ : WPS_RF_24GHZ; /* FIX: dualband AP */
+		WPS_RF_50GHZ :
+		hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211AD ?
+		WPS_RF_60GHZ : WPS_RF_24GHZ; /* FIX: dualband AP */
 }
 
 
@@ -857,8 +866,10 @@ static void hostapd_wps_clear_ies(struct hostapd_data *hapd, int deinit_only)
 	wpabuf_free(hapd->wps_probe_resp_ie);
 	hapd->wps_probe_resp_ie = NULL;
 
-	if (deinit_only)
+	if (deinit_only) {
+		hostapd_reset_ap_wps_ie(hapd);
 		return;
+	}
 
 	hostapd_set_ap_wps_ie(hapd);
 }
@@ -1040,7 +1051,9 @@ int hostapd_init_wps(struct hostapd_data *hapd,
 	} else {
 		wps->dev.rf_bands =
 			hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211A ?
-			WPS_RF_50GHZ : WPS_RF_24GHZ; /* FIX: dualband AP */
+			WPS_RF_50GHZ :
+			hapd->iconf->hw_mode == HOSTAPD_MODE_IEEE80211AD ?
+			WPS_RF_60GHZ : WPS_RF_24GHZ; /* FIX: dualband AP */
 	}
 
 	if (conf->wpa & WPA_PROTO_RSN) {
@@ -1049,7 +1062,7 @@ int hostapd_init_wps(struct hostapd_data *hapd,
 		if (conf->wpa_key_mgmt & WPA_KEY_MGMT_IEEE8021X)
 			wps->auth_types |= WPS_AUTH_WPA2;
 
-		if (conf->rsn_pairwise & WPA_CIPHER_CCMP)
+		if (conf->rsn_pairwise & (WPA_CIPHER_CCMP | WPA_CIPHER_GCMP))
 			wps->encr_types |= WPS_ENCR_AES;
 		if (conf->rsn_pairwise & WPA_CIPHER_TKIP)
 			wps->encr_types |= WPS_ENCR_TKIP;
@@ -1583,7 +1596,7 @@ int hostapd_wps_ap_pin_set(struct hostapd_data *hapd, const char *pin,
 	int ret;
 
 	ret = os_snprintf(data.pin_txt, sizeof(data.pin_txt), "%s", pin);
-	if (ret < 0 || ret >= (int) sizeof(data.pin_txt))
+	if (os_snprintf_error(sizeof(data.pin_txt), ret))
 		return -1;
 	data.timeout = timeout;
 	return hostapd_wps_for_each(hapd, wps_ap_pin_set, &data);

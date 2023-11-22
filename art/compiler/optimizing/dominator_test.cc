@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "base/arena_allocator.h"
 #include "builder.h"
 #include "dex_instruction.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
-#include "utils/arena_allocator.h"
 
 #include "gtest/gtest.h"
 
@@ -27,15 +27,22 @@ namespace art {
 static void TestCode(const uint16_t* data, const int* blocks, size_t blocks_length) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraphBuilder builder(&allocator);
+  HGraph* graph = CreateGraph(&allocator);
+  HGraphBuilder builder(graph);
   const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  HGraph* graph = builder.BuildGraph(*item);
-  ASSERT_NE(graph, nullptr);
+  bool graph_built = builder.BuildGraph(*item);
+  ASSERT_TRUE(graph_built);
   graph->BuildDominatorTree();
   ASSERT_EQ(graph->GetBlocks().Size(), blocks_length);
   for (size_t i = 0, e = blocks_length; i < e; ++i) {
     if (blocks[i] == -1) {
-      ASSERT_EQ(nullptr, graph->GetBlocks().Get(i)->GetDominator());
+      if (graph->GetBlocks().Get(i) == nullptr) {
+        // Dead block.
+      } else {
+        // Only the entry block has no dominator.
+        ASSERT_EQ(nullptr, graph->GetBlocks().Get(i)->GetDominator());
+        ASSERT_TRUE(graph->GetBlocks().Get(i)->IsEntryBlock());
+      }
     } else {
       ASSERT_NE(nullptr, graph->GetBlocks().Get(i)->GetDominator());
       ASSERT_EQ(blocks[i], graph->GetBlocks().Get(i)->GetDominator()->GetBlockId());

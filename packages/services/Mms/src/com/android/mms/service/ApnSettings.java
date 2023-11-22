@@ -23,7 +23,6 @@ import android.net.NetworkUtils;
 import android.net.Uri;
 import android.provider.Telephony;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.android.internal.telephony.PhoneConstants;
 import com.android.mms.service.exception.ApnException;
@@ -35,8 +34,6 @@ import java.net.URISyntaxException;
  * APN settings used for MMS transactions
  */
 public class ApnSettings {
-    private static final String TAG = MmsService.TAG;
-
     // MMSC URL
     private final String mServiceCenter;
     // MMSC proxy address
@@ -53,7 +50,7 @@ public class ApnSettings {
             Telephony.Carriers.MMSPORT,
             Telephony.Carriers.NAME,
             Telephony.Carriers.APN,
-            Telephony.Carriers.BEARER,
+            Telephony.Carriers.BEARER_BITMASK,
             Telephony.Carriers.PROTOCOL,
             Telephony.Carriers.ROAMING_PROTOCOL,
             Telephony.Carriers.AUTH_TYPE,
@@ -86,15 +83,13 @@ public class ApnSettings {
 
     /**
      * Load APN settings from system
-     *
-     * @param context
+     *  @param context
      * @param apnName the optional APN name to match
+     * @param requestId the request ID for logging
      */
-    public static ApnSettings load(Context context, String apnName, int subId)
+    public static ApnSettings load(Context context, String apnName, int subId, String requestId)
             throws ApnException {
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "ApnSettings: apnName " + apnName);
-        }
+        LogUtil.i(requestId, "Loading APN using name " + apnName);
         // TODO: CURRENT semantics is currently broken in telephony. Revive this when it is fixed.
         //String selection = Telephony.Carriers.CURRENT + " IS NOT NULL";
         String selection = null;
@@ -142,7 +137,7 @@ public class ApnSettings {
                                 try {
                                     proxyPort = Integer.parseInt(portString);
                                 } catch (NumberFormatException e) {
-                                    Log.e(TAG, "Invalid port " + portString);
+                                    LogUtil.e(requestId, "Invalid port " + portString);
                                     throw new ApnException("Invalid port " + portString);
                                 }
                             }

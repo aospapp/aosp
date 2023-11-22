@@ -35,20 +35,20 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsicYuvToRGB : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
-    virtual void invokeFreeChildren();
+    void populateScript(Script *) override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsicYuvToRGB();
+    ~RsdCpuScriptIntrinsicYuvToRGB() override;
     RsdCpuScriptIntrinsicYuvToRGB(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
     ObjectBaseRef<Allocation> alloc;
 
-    static void kernel(const RsForEachStubParamStruct *p,
+    static void kernel(const RsExpandKernelDriverInfo *info,
                        uint32_t xstart, uint32_t xend,
-                       uint32_t instep, uint32_t outstep);
+                       uint32_t outstep);
 };
 
 }
@@ -101,16 +101,16 @@ extern "C" void rsdIntrinsicYuv_K(void *dst, const uchar *Y, const uchar *uv, ui
 extern "C" void rsdIntrinsicYuvR_K(void *dst, const uchar *Y, const uchar *uv, uint32_t xstart, size_t xend);
 extern "C" void rsdIntrinsicYuv2_K(void *dst, const uchar *Y, const uchar *u, const uchar *v, size_t xstart, size_t xend);
 
-void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsExpandKernelDriverInfo *info,
                                            uint32_t xstart, uint32_t xend,
-                                           uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicYuvToRGB *cp = (RsdCpuScriptIntrinsicYuvToRGB *)p->usr;
+                                           uint32_t outstep) {
+    RsdCpuScriptIntrinsicYuvToRGB *cp = (RsdCpuScriptIntrinsicYuvToRGB *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("YuvToRGB executed without input, skipping");
         return;
     }
     const uchar *pinY = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
-    if (pinY == NULL) {
+    if (pinY == nullptr) {
         ALOGE("YuvToRGB executed without data, skipping");
         return;
     }
@@ -119,11 +119,11 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
 
     // calculate correct stride in legacy case
     if (cp->alloc->mHal.drvState.lod[0].dimY == 0) {
-        strideY = p->dimX;
+        strideY = info->dim.x;
     }
-    const uchar *Y = pinY + (p->y * strideY);
+    const uchar *Y = pinY + (info->current.y * strideY);
 
-    uchar4 *out = (uchar4 *)p->out + xstart;
+    uchar4 *out = (uchar4 *)info->outPtr[0] + xstart;
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -131,23 +131,23 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
 
     const uchar *pinU = (const uchar *)cp->alloc->mHal.drvState.lod[1].mallocPtr;
     const size_t strideU = cp->alloc->mHal.drvState.lod[1].stride;
-    const uchar *u = pinU + ((p->y >> 1) * strideU);
+    const uchar *u = pinU + ((info->current.y >> 1) * strideU);
 
     const uchar *pinV = (const uchar *)cp->alloc->mHal.drvState.lod[2].mallocPtr;
     const size_t strideV = cp->alloc->mHal.drvState.lod[2].stride;
-    const uchar *v = pinV + ((p->y >> 1) * strideV);
+    const uchar *v = pinV + ((info->current.y >> 1) * strideV);
 
-    //ALOGE("pinY, %p, Y, %p, p->y, %d, strideY, %d", pinY, Y, p->y, strideY);
-    //ALOGE("pinU, %p, U, %p, p->y, %d, strideU, %d", pinU, u, p->y, strideU);
-    //ALOGE("pinV, %p, V, %p, p->y, %d, strideV, %d", pinV, v, p->y, strideV);
+    //ALOGE("pinY, %p, Y, %p, info->current.y, %d, strideY, %d", pinY, Y, info->current.y, strideY);
+    //ALOGE("pinU, %p, U, %p, info->current.y, %d, strideU, %d", pinU, u, info->current.y, strideU);
+    //ALOGE("pinV, %p, V, %p, info->current.y, %d, strideV, %d", pinV, v, info->current.y, strideV);
     //ALOGE("dimX, %d, dimY, %d", cp->alloc->mHal.drvState.lod[0].dimX, cp->alloc->mHal.drvState.lod[0].dimY);
-    //ALOGE("p->dimX, %d, p->dimY, %d", p->dimX, p->dimY);
+    //ALOGE("info->dim.x, %d, info->dim.y, %d", info->dim.x, info->dim.y);
 
-    if (pinU == NULL) {
+    if (pinU == nullptr) {
         // Legacy yuv support didn't fill in uv
         v = ((uint8_t *)cp->alloc->mHal.drvState.lod[0].mallocPtr) +
-            (strideY * p->dimY) +
-            ((p->y >> 1) * strideY);
+            (strideY * info->dim.y) +
+            ((info->current.y >> 1) * strideY);
         u = v + 1;
         cstep = 2;
     }
@@ -166,7 +166,7 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
     if((x2 > x1) && gArchUseSIMD) {
         int32_t len = x2 - x1;
         if (cstep == 1) {
-            rsdIntrinsicYuv2_K(p->out, Y, u, v, x1, x2);
+            rsdIntrinsicYuv2_K(info->outPtr[0], Y, u, v, x1, x2);
             x1 += len;
             out += len;
         } else if (cstep == 2) {
@@ -175,11 +175,11 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
             intptr_t ipv = (intptr_t)v;
 
             if (ipu == (ipv + 1)) {
-                rsdIntrinsicYuv_K(p->out, Y, v, x1, x2);
+                rsdIntrinsicYuv_K(info->outPtr[0], Y, v, x1, x2);
                 x1 += len;
                 out += len;
             } else if (ipu == (ipv - 1)) {
-                rsdIntrinsicYuvR_K(p->out, Y, u, x1, x2);
+                rsdIntrinsicYuvR_K(info->outPtr[0], Y, u, x1, x2);
                 x1 += len;
                 out += len;
             }
@@ -188,7 +188,7 @@ void RsdCpuScriptIntrinsicYuvToRGB::kernel(const RsForEachStubParamStruct *p,
 #endif
 
     if(x2 > x1) {
-       // ALOGE("y %i  %i  %i", p->y, x1, x2);
+       // ALOGE("y %i  %i  %i", info->current.y, x1, x2);
         while(x1 < x2) {
             int cx = (x1 >> 1) * cstep;
             *out = rsYuvToRGBA_uchar4(Y[x1], u[cx], v[cx]);

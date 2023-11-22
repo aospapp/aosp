@@ -124,7 +124,7 @@ const DexFile::MethodId* DexFileVerifier::CheckLoadMethodId(uint32_t idx, const 
     error_stmt;                                             \
   }
 
-bool DexFileVerifier::Verify(const DexFile* dex_file, const byte* begin, size_t size,
+bool DexFileVerifier::Verify(const DexFile* dex_file, const uint8_t* begin, size_t size,
                              const char* location, std::string* error_msg) {
   std::unique_ptr<DexFileVerifier> verifier(new DexFileVerifier(dex_file, begin, size, location));
   if (!verifier->Verify()) {
@@ -142,7 +142,7 @@ bool DexFileVerifier::CheckShortyDescriptorMatch(char shorty_char, const char* d
         ErrorStringPrintf("Invalid use of void");
         return false;
       }
-      // Intentional fallthrough.
+      FALLTHROUGH_INTENDED;
     case 'B':
     case 'C':
     case 'D':
@@ -175,8 +175,8 @@ bool DexFileVerifier::CheckListSize(const void* start, size_t count, size_t elem
   // Check that size is not 0.
   CHECK_NE(elem_size, 0U);
 
-  const byte* range_start = reinterpret_cast<const byte*>(start);
-  const byte* file_start = reinterpret_cast<const byte*>(begin_);
+  const uint8_t* range_start = reinterpret_cast<const uint8_t*>(start);
+  const uint8_t* file_start = reinterpret_cast<const uint8_t*>(begin_);
 
   // Check for overflow.
   uintptr_t max = 0 - 1;
@@ -189,8 +189,8 @@ bool DexFileVerifier::CheckListSize(const void* start, size_t count, size_t elem
     return false;
   }
 
-  const byte* range_end = range_start + count * elem_size;
-  const byte* file_end = file_start + size_;
+  const uint8_t* range_end = range_start + count * elem_size;
+  const uint8_t* file_end = file_start + size_;
   if (UNLIKELY((range_start < file_start) || (range_end > file_end))) {
     // Note: these two tests are enough as we make sure above that there's no overflow.
     ErrorStringPrintf("Bad range for %s: %zx to %zx", label,
@@ -201,7 +201,7 @@ bool DexFileVerifier::CheckListSize(const void* start, size_t count, size_t elem
   return true;
 }
 
-bool DexFileVerifier::CheckList(size_t element_size, const char* label, const byte* *ptr) {
+bool DexFileVerifier::CheckList(size_t element_size, const char* label, const uint8_t* *ptr) {
   // Check that the list is available. The first 4B are the count.
   if (!CheckListSize(*ptr, 1, 4U, label)) {
     return false;
@@ -251,7 +251,7 @@ bool DexFileVerifier::CheckHeader() {
   // Compute and verify the checksum in the header.
   uint32_t adler_checksum = adler32(0L, Z_NULL, 0);
   const uint32_t non_sum = sizeof(header_->magic_) + sizeof(header_->checksum_);
-  const byte* non_sum_ptr = reinterpret_cast<const byte*>(header_) + non_sum;
+  const uint8_t* non_sum_ptr = reinterpret_cast<const uint8_t*>(header_) + non_sum;
   adler_checksum = adler32(adler_checksum, non_sum_ptr, expected_size - non_sum);
   if (adler_checksum != header_->checksum_) {
     ErrorStringPrintf("Bad checksum (%08x, expected %08x)", adler_checksum, header_->checksum_);
@@ -388,7 +388,7 @@ bool DexFileVerifier::CheckMap() {
 
 uint32_t DexFileVerifier::ReadUnsignedLittleEndian(uint32_t size) {
   uint32_t result = 0;
-  if (LIKELY(CheckListSize(ptr_, size, sizeof(byte), "encoded_value"))) {
+  if (LIKELY(CheckListSize(ptr_, size, sizeof(uint8_t), "encoded_value"))) {
     for (uint32_t i = 0; i < size; i++) {
       result |= ((uint32_t) *(ptr_++)) << (i * 8);
     }
@@ -398,7 +398,7 @@ uint32_t DexFileVerifier::ReadUnsignedLittleEndian(uint32_t size) {
 
 bool DexFileVerifier::CheckAndGetHandlerOffsets(const DexFile::CodeItem* code_item,
                                                 uint32_t* handler_offsets, uint32_t handlers_size) {
-  const byte* handlers_base = DexFile::GetCatchHandlerData(*code_item, 0);
+  const uint8_t* handlers_base = DexFile::GetCatchHandlerData(*code_item, 0);
 
   for (uint32_t i = 0; i < handlers_size; i++) {
     bool catch_all;
@@ -503,7 +503,7 @@ bool DexFileVerifier::CheckClassDataItemMethod(uint32_t idx, uint32_t access_fla
 
 bool DexFileVerifier::CheckPadding(size_t offset, uint32_t aligned_offset) {
   if (offset < aligned_offset) {
-    if (!CheckListSize(begin_ + offset, aligned_offset - offset, sizeof(byte), "section")) {
+    if (!CheckListSize(begin_ + offset, aligned_offset - offset, sizeof(uint8_t), "section")) {
       return false;
     }
     while (offset < aligned_offset) {
@@ -519,7 +519,7 @@ bool DexFileVerifier::CheckPadding(size_t offset, uint32_t aligned_offset) {
 }
 
 bool DexFileVerifier::CheckEncodedValue() {
-  if (!CheckListSize(ptr_, 1, sizeof(byte), "encoded_value header")) {
+  if (!CheckListSize(ptr_, 1, sizeof(uint8_t), "encoded_value header")) {
     return false;
   }
 
@@ -684,25 +684,52 @@ bool DexFileVerifier::CheckIntraClassDataItem() {
   ClassDataItemIterator it(*dex_file_, ptr_);
 
   // These calls use the raw access flags to check whether the whole dex field is valid.
-
+  uint32_t prev_index = 0;
   for (; it.HasNextStaticField(); it.Next()) {
-    if (!CheckClassDataItemField(it.GetMemberIndex(), it.GetRawMemberAccessFlags(), true)) {
+    uint32_t curr_index = it.GetMemberIndex();
+    if (curr_index < prev_index) {
+      ErrorStringPrintf("out-of-order static field indexes %d and %d", prev_index, curr_index);
+      return false;
+    }
+    prev_index = curr_index;
+    if (!CheckClassDataItemField(curr_index, it.GetRawMemberAccessFlags(), true)) {
       return false;
     }
   }
+  prev_index = 0;
   for (; it.HasNextInstanceField(); it.Next()) {
-    if (!CheckClassDataItemField(it.GetMemberIndex(), it.GetRawMemberAccessFlags(), false)) {
+    uint32_t curr_index = it.GetMemberIndex();
+    if (curr_index < prev_index) {
+      ErrorStringPrintf("out-of-order instance field indexes %d and %d", prev_index, curr_index);
+      return false;
+    }
+    prev_index = curr_index;
+    if (!CheckClassDataItemField(curr_index, it.GetRawMemberAccessFlags(), false)) {
       return false;
     }
   }
+  prev_index = 0;
   for (; it.HasNextDirectMethod(); it.Next()) {
-    if (!CheckClassDataItemMethod(it.GetMemberIndex(), it.GetRawMemberAccessFlags(),
+    uint32_t curr_index = it.GetMemberIndex();
+    if (curr_index < prev_index) {
+      ErrorStringPrintf("out-of-order direct method indexes %d and %d", prev_index, curr_index);
+      return false;
+    }
+    prev_index = curr_index;
+    if (!CheckClassDataItemMethod(curr_index, it.GetRawMemberAccessFlags(),
         it.GetMethodCodeItemOffset(), true)) {
       return false;
     }
   }
+  prev_index = 0;
   for (; it.HasNextVirtualMethod(); it.Next()) {
-    if (!CheckClassDataItemMethod(it.GetMemberIndex(), it.GetRawMemberAccessFlags(),
+    uint32_t curr_index = it.GetMemberIndex();
+    if (curr_index < prev_index) {
+      ErrorStringPrintf("out-of-order virtual method indexes %d and %d", prev_index, curr_index);
+      return false;
+    }
+    prev_index = curr_index;
+    if (!CheckClassDataItemMethod(curr_index, it.GetRawMemberAccessFlags(),
         it.GetMethodCodeItemOffset(), false)) {
       return false;
     }
@@ -746,7 +773,7 @@ bool DexFileVerifier::CheckIntraCodeItem() {
   // Grab the end of the insns if there are no try_items.
   uint32_t try_items_size = code_item->tries_size_;
   if (try_items_size == 0) {
-    ptr_ = reinterpret_cast<const byte*>(&insns[insns_size]);
+    ptr_ = reinterpret_cast<const uint8_t*>(&insns[insns_size]);
     return true;
   }
 
@@ -812,7 +839,7 @@ bool DexFileVerifier::CheckIntraCodeItem() {
 
 bool DexFileVerifier::CheckIntraStringDataItem() {
   uint32_t size = DecodeUnsignedLeb128(&ptr_);
-  const byte* file_end = begin_ + size_;
+  const uint8_t* file_end = begin_ + size_;
 
   for (uint32_t i = 0; i < size; i++) {
     CHECK_LT(i, size);  // b/15014252 Prevents hitting the impossible case below
@@ -944,7 +971,7 @@ bool DexFileVerifier::CheckIntraDebugInfoItem() {
         uint32_t type_idx = DecodeUnsignedLeb128(&ptr_);
         if (type_idx != 0) {
           type_idx--;
-          if (!CheckIndex(type_idx, header_->string_ids_size_, "DBG_START_LOCAL type_idx")) {
+          if (!CheckIndex(type_idx, header_->type_ids_size_, "DBG_START_LOCAL type_idx")) {
             return false;
           }
         }
@@ -975,7 +1002,7 @@ bool DexFileVerifier::CheckIntraDebugInfoItem() {
         uint32_t type_idx = DecodeUnsignedLeb128(&ptr_);
         if (type_idx != 0) {
           type_idx--;
-          if (!CheckIndex(type_idx, header_->string_ids_size_, "DBG_START_LOCAL_EXTENDED type_idx")) {
+          if (!CheckIndex(type_idx, header_->type_ids_size_, "DBG_START_LOCAL_EXTENDED type_idx")) {
             return false;
           }
         }
@@ -1003,7 +1030,7 @@ bool DexFileVerifier::CheckIntraDebugInfoItem() {
 }
 
 bool DexFileVerifier::CheckIntraAnnotationItem() {
-  if (!CheckListSize(ptr_, 1, sizeof(byte), "annotation visibility")) {
+  if (!CheckListSize(ptr_, 1, sizeof(uint8_t), "annotation visibility")) {
     return false;
   }
 
@@ -1090,7 +1117,7 @@ bool DexFileVerifier::CheckIntraAnnotationsDirectoryItem() {
   }
 
   // Return a pointer to the end of the annotations.
-  ptr_ = reinterpret_cast<const byte*>(parameter_item);
+  ptr_ = reinterpret_cast<const uint8_t*>(parameter_item);
   return true;
 }
 
@@ -1416,7 +1443,7 @@ bool DexFileVerifier::CheckOffsetToTypeMap(size_t offset, uint16_t type) {
   return true;
 }
 
-uint16_t DexFileVerifier::FindFirstClassDataDefiner(const byte* ptr, bool* success) {
+uint16_t DexFileVerifier::FindFirstClassDataDefiner(const uint8_t* ptr, bool* success) {
   ClassDataItemIterator it(*dex_file_, ptr);
   *success = true;
 
@@ -1435,7 +1462,7 @@ uint16_t DexFileVerifier::FindFirstClassDataDefiner(const byte* ptr, bool* succe
   return DexFile::kDexNoIndex16;
 }
 
-uint16_t DexFileVerifier::FindFirstAnnotationsDirectoryDefiner(const byte* ptr, bool* success) {
+uint16_t DexFileVerifier::FindFirstAnnotationsDirectoryDefiner(const uint8_t* ptr, bool* success) {
   const DexFile::AnnotationsDirectoryItem* item =
       reinterpret_cast<const DexFile::AnnotationsDirectoryItem*>(ptr);
   *success = true;
@@ -1473,7 +1500,7 @@ bool DexFileVerifier::CheckInterStringIdItem() {
   }
 
   // Check ordering between items.
-  if (previous_item_ != NULL) {
+  if (previous_item_ != nullptr) {
     const DexFile::StringId* prev_item = reinterpret_cast<const DexFile::StringId*>(previous_item_);
     const char* prev_str = dex_file_->GetStringData(*prev_item);
     const char* str = dex_file_->GetStringData(*item);
@@ -1499,7 +1526,7 @@ bool DexFileVerifier::CheckInterTypeIdItem() {
   }
 
   // Check ordering between items.
-  if (previous_item_ != NULL) {
+  if (previous_item_ != nullptr) {
     const DexFile::TypeId* prev_item = reinterpret_cast<const DexFile::TypeId*>(previous_item_);
     if (UNLIKELY(prev_item->descriptor_idx_ >= item->descriptor_idx_)) {
       ErrorStringPrintf("Out-of-order type_ids: %x then %x",
@@ -1548,7 +1575,7 @@ bool DexFileVerifier::CheckInterProtoIdItem() {
   }
 
   // Check ordering between items. This relies on type_ids being in order.
-  if (previous_item_ != NULL) {
+  if (previous_item_ != nullptr) {
     const DexFile::ProtoId* prev = reinterpret_cast<const DexFile::ProtoId*>(previous_item_);
     if (UNLIKELY(prev->return_type_idx_ > item->return_type_idx_)) {
       ErrorStringPrintf("Out-of-order proto_id return types");
@@ -1610,7 +1637,7 @@ bool DexFileVerifier::CheckInterFieldIdItem() {
   }
 
   // Check ordering between items. This relies on the other sections being in order.
-  if (previous_item_ != NULL) {
+  if (previous_item_ != nullptr) {
     const DexFile::FieldId* prev_item = reinterpret_cast<const DexFile::FieldId*>(previous_item_);
     if (UNLIKELY(prev_item->class_idx_ > item->class_idx_)) {
       ErrorStringPrintf("Out-of-order field_ids");
@@ -1657,7 +1684,7 @@ bool DexFileVerifier::CheckInterMethodIdItem() {
   }
 
   // Check ordering between items. This relies on the other sections being in order.
-  if (previous_item_ != NULL) {
+  if (previous_item_ != nullptr) {
     const DexFile::MethodId* prev_item = reinterpret_cast<const DexFile::MethodId*>(previous_item_);
     if (UNLIKELY(prev_item->class_idx_ > item->class_idx_)) {
       ErrorStringPrintf("Out-of-order method_ids");
@@ -1728,7 +1755,7 @@ bool DexFileVerifier::CheckInterClassDefItem() {
   }
 
   const DexFile::TypeList* interfaces = dex_file_->GetInterfacesList(*item);
-  if (interfaces != NULL) {
+  if (interfaces != nullptr) {
     uint32_t size = interfaces->Size();
 
     // Ensure that all interfaces refer to classes (not arrays or primitives).
@@ -1759,7 +1786,7 @@ bool DexFileVerifier::CheckInterClassDefItem() {
 
   // Check that references in class_data_item are to the right class.
   if (item->class_data_off_ != 0) {
-    const byte* data = begin_ + item->class_data_off_;
+    const uint8_t* data = begin_ + item->class_data_off_;
     bool success;
     uint16_t data_definer = FindFirstClassDataDefiner(data, &success);
     if (!success) {
@@ -1773,7 +1800,7 @@ bool DexFileVerifier::CheckInterClassDefItem() {
 
   // Check that references in annotations_directory_item are to right class.
   if (item->annotations_off_ != 0) {
-    const byte* data = begin_ + item->annotations_off_;
+    const uint8_t* data = begin_ + item->annotations_off_;
     bool success;
     uint16_t annotations_definer = FindFirstAnnotationsDirectoryDefiner(data, &success);
     if (!success) {
@@ -1804,7 +1831,7 @@ bool DexFileVerifier::CheckInterAnnotationSetRefList() {
     item++;
   }
 
-  ptr_ = reinterpret_cast<const byte*>(item);
+  ptr_ = reinterpret_cast<const uint8_t*>(item);
   return true;
 }
 
@@ -1834,7 +1861,7 @@ bool DexFileVerifier::CheckInterAnnotationSetItem() {
     offsets++;
   }
 
-  ptr_ = reinterpret_cast<const byte*>(offsets);
+  ptr_ = reinterpret_cast<const uint8_t*>(offsets);
   return true;
 }
 
@@ -1935,7 +1962,7 @@ bool DexFileVerifier::CheckInterAnnotationsDirectoryItem() {
     parameter_item++;
   }
 
-  ptr_ = reinterpret_cast<const byte*>(parameter_item);
+  ptr_ = reinterpret_cast<const uint8_t*>(parameter_item);
   return true;
 }
 
@@ -1952,11 +1979,11 @@ bool DexFileVerifier::CheckInterSectionIterate(size_t offset, uint32_t count, ui
   }
 
   // Iterate through the items in the section.
-  previous_item_ = NULL;
+  previous_item_ = nullptr;
   for (uint32_t i = 0; i < count; i++) {
     uint32_t new_offset = (offset + alignment_mask) & ~alignment_mask;
     ptr_ = begin_ + new_offset;
-    const byte* prev_ptr = ptr_;
+    const uint8_t* prev_ptr = ptr_;
 
     // Check depending on the section type.
     switch (type) {

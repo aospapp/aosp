@@ -284,15 +284,52 @@ static void ApplyAlphaMultiply_16b(uint8_t* rgba4444,
 #endif
 }
 
+static int ExtractAlpha(const uint8_t* argb, int argb_stride,
+                        int width, int height,
+                        uint8_t* alpha, int alpha_stride) {
+  uint8_t alpha_mask = 0xff;
+  int i, j;
+
+  for (j = 0; j < height; ++j) {
+    for (i = 0; i < width; ++i) {
+      const uint8_t alpha_value = argb[4 * i];
+      alpha[i] = alpha_value;
+      alpha_mask &= alpha_value;
+    }
+    argb += argb_stride;
+    alpha += alpha_stride;
+  }
+  return (alpha_mask == 0xff);
+}
+
 void (*WebPApplyAlphaMultiply)(uint8_t*, int, int, int, int);
 void (*WebPApplyAlphaMultiply4444)(uint8_t*, int, int, int);
+int (*WebPExtractAlpha)(const uint8_t*, int, int, int, uint8_t*, int);
 
 //------------------------------------------------------------------------------
 // Init function
 
+extern void WebPInitAlphaProcessingSSE2(void);
+
+static volatile VP8CPUInfo alpha_processing_last_cpuinfo_used =
+    (VP8CPUInfo)&alpha_processing_last_cpuinfo_used;
+
 void WebPInitAlphaProcessing(void) {
+  if (alpha_processing_last_cpuinfo_used == VP8GetCPUInfo) return;
+
   WebPMultARGBRow = MultARGBRow;
   WebPMultRow = MultRow;
   WebPApplyAlphaMultiply = ApplyAlphaMultiply;
   WebPApplyAlphaMultiply4444 = ApplyAlphaMultiply_16b;
+  WebPExtractAlpha = ExtractAlpha;
+
+  // If defined, use CPUInfo() to overwrite some pointers with faster versions.
+  if (VP8GetCPUInfo != NULL) {
+#if defined(WEBP_USE_SSE2)
+    if (VP8GetCPUInfo(kSSE2)) {
+      WebPInitAlphaProcessingSSE2();
+    }
+#endif
+  }
+  alpha_processing_last_cpuinfo_used = VP8GetCPUInfo;
 }

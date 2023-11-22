@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Run with directory arguments from any directory, with no special setup required.
 # Or:
-# for i in libc libdl libm linker libstdc++ libthread_db ; do ./libc/tools/generate-NOTICE.py $i > $i/NOTICE ; done
+# for i in libc libdl libm linker libstdc++ ; do ./libc/tools/generate-NOTICE.py $i > $i/NOTICE ; done
 
 import ftplib
 import hashlib
@@ -121,7 +121,6 @@ for arg in args:
             try:
                 content = open(path, 'r').read().decode('utf-8')
             except:
-                # TODO: update hash.h, md5.c, and md5.h; upstream is probably UTF-8 already.
                 sys.stderr.write('warning: bad UTF-8 in %s\n' % path)
                 content = open(path, 'r').read().decode('iso-8859-1')
 

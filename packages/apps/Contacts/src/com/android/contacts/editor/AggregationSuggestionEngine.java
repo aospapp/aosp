@@ -218,17 +218,16 @@ public class AggregationSuggestionEngine extends HandlerThread {
             return null;
         }
 
-        Builder builder = AggregationSuggestions.builder()
+        Builder builder = new AggregationSuggestions.Builder()
                 .setLimit(MAX_SUGGESTION_COUNT)
                 .setContactId(mContactId);
 
         if (nameSb.length() != 0) {
-            builder.addParameter(AggregationSuggestions.PARAMETER_MATCH_NAME, nameSb.toString());
+            builder.addNameParameter(nameSb.toString());
         }
 
         if (phoneticNameSb.length() != 0) {
-            builder.addParameter(
-                    AggregationSuggestions.PARAMETER_MATCH_NAME, phoneticNameSb.toString());
+            builder.addNameParameter(phoneticNameSb.toString());
         }
 
         return builder.build();

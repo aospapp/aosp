@@ -16,12 +16,7 @@
 
 package android.permission.cts;
 
-import android.os.RemoteException;
-import android.content.ContentProviderClient;
-import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.database.Cursor;
-import android.provider.Contacts;
 import android.provider.ContactsContract;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -71,7 +66,7 @@ public class ContactsProviderTest extends AndroidTestCase {
      * Verifies that query(ContactsContract.Profile.CONTENT_URI) requires
      * Permission.
      * <p>
-     * Requires Permission: {@link android.Manifest.permission#READ_PROFILE}.
+     * Requires Permission: {@link android.Manifest.permission#READ_CONTACTS}.
      */
     @SmallTest
     public void testQueryProfile() {
@@ -91,7 +86,7 @@ public class ContactsProviderTest extends AndroidTestCase {
      * permission, but trying to do it without the permission should throw a
      * SecurityException anyway.
      * <p>
-     * Requires Permission: {@link android.Manifest.permission#WRITE_PROFILE}.
+     * Requires Permission: {@link android.Manifest.permission#WRITE_CONTACTS}.
      */
     @SmallTest
     public void testInsertProfile() {
@@ -109,7 +104,7 @@ public class ContactsProviderTest extends AndroidTestCase {
      * Verifies that update(ContactsContract.Profile.CONTENT_URI) requires
      * Permission.
      * <p>
-     * Requires Permission: {@link android.Manifest.permission#WRITE_PROFILE}.
+     * Requires Permission: {@link android.Manifest.permission#WRITE_CONTACTS}.
      */
     @SmallTest
     public void testUpdateProfile() {
@@ -118,6 +113,43 @@ public class ContactsProviderTest extends AndroidTestCase {
                     new ContentValues(0), null, null);
             fail("update(ContactsContract.Profile.CONTENT_URI) did not throw SecurityException"
                     + " as expected");
+        } catch (SecurityException se) {
+            // Expected Exception
+        }
+    }
+
+    /**
+    * Verifies that query(ContactsContract.CommonDataKinds.Phone.ENTERPRISE_CONTENT_URI) requires
+    * Permission.
+    * <p>
+    * Requires Permission: {@link android.Manifest.permission#INTERACT_ACROSS_USERS}.
+    */
+    @SmallTest
+    public void testQueryPhoneEnterprise() {
+        try {
+            getContext().getContentResolver().query(
+                    ContactsContract.CommonDataKinds.Phone.ENTERPRISE_CONTENT_URI,
+                    null, null, null, null);
+            fail("query(ContactsContract.CommonDataKinds.Phone.ENTERPRISE_CONTENT_URI) did not"
+                    + " throw SecurityException as expected");
+        } catch (SecurityException se) {
+            // Expected Exception
+        }
+    }
+
+    /**
+    * Verifies that query(ContactsContract.RawContactsEntity.CORP_CONTENT_URI) requires
+    * Permission.
+    * <p>
+    * Requires Permission: {@link android.Manifest.permission#INTERACT_ACROSS_USERS}.
+    */
+    @SmallTest
+    public void testRawContactsEntityCorp() {
+        try {
+            getContext().getContentResolver().query(
+                    ContactsContract.RawContactsEntity.CORP_CONTENT_URI, null, null, null, null);
+            fail("query(ContactsContract.RawContactsEntity.CORP_CONTENT_URI) did not throw"
+                    + " SecurityException as expected");
         } catch (SecurityException se) {
             // Expected Exception
         }

@@ -200,7 +200,7 @@ epil_add_loop:
     mov         x20,#128
     csel        x6, x20, x6,eq
 
-    dup         v16.8b, v18.8b[0]           //dc_val
+    dup         v16.8b, v18.b[0]            //dc_val
     shl         d25, d18,#1                 //2*dc
 
     beq         prologue_cpy_32
@@ -218,7 +218,7 @@ epil_add_loop:
     add         d23,  d23 ,  d17            //3*dc + 2
     add         x12, x12, #8                //offset after one 8x8 block (-7*strd + 8)
 
-    dup         v24.8h, v23.4h[0]           //3*dc + 2 (moved to all lanes)
+    dup         v24.8h, v23.h[0]            //3*dc + 2 (moved to all lanes)
     sub         x0, x3, x4                  //strd - nt
 
 prologue_col:
@@ -368,9 +368,9 @@ prologue_cpy_32:
     add         x5, x2, x3
     add         x8, x5, x3
     add         x10, x8, x3
-    dup         v20.16b, v16.8b[0]
+    dup         v20.16b, v16.b[0]
     lsl         x6, x3, #2
-    add         x6, x6, #-16
+    sub         x6, x6, #16
 
     st1         {v20.16b}, [x2],#16
     st1         {v20.16b}, [x5],#16
@@ -451,7 +451,7 @@ dc_4:
     shl         d25, d18,#1                 //2*dc
     sub         x9, x9, #3                  //&src[2nt-1-row]
 
-    dup         v16.8b, v18.8b[0]           //dc_val
+    dup         v16.8b, v18.b[0]            //dc_val
     add         d27,  d25 ,  d28            //src[2nt+1]+2+src[2nt-1]+2dc_val
 
     ushr        v29.4h, v27.4h,#2           //final dst[0]'s value in d15[0]
@@ -461,7 +461,7 @@ dc_4:
     add         d23,  d23 ,  d17            //3*dc + 2
     add         x12, x12, #4                //offset after one 4x4 block (-3*strd + 4)
 
-    dup         v24.8h, v23.4h[0]           //3*dc + 2 (moved to all lanes)
+    dup         v24.8h, v23.h[0]            //3*dc + 2 (moved to all lanes)
     sub         x0, x3, x4                  //strd - nt
 
 

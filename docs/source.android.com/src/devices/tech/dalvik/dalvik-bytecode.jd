@@ -893,7 +893,7 @@ page.title=Dalvik bytecode
     <code>B:</code> first source register or pair (8 bits)<br/>
     <code>C:</code> second source register or pair (8 bits)</td>
   <td>Perform the identified binary operation on the two source registers,
-    storing the result in the first source register.</td>
+    storing the result in the destination register.</td>
 </tr>
 <tr>
   <td>b0..cf 12x</td>

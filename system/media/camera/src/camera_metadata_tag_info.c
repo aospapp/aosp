@@ -55,6 +55,8 @@ const char *camera_metadata_section_names[ANDROID_SECTION_COUNT] = {
     [ANDROID_INFO]                 = "android.info",
     [ANDROID_BLACK_LEVEL]          = "android.blackLevel",
     [ANDROID_SYNC]                 = "android.sync",
+    [ANDROID_REPROCESS]            = "android.reprocess",
+    [ANDROID_DEPTH]                = "android.depth",
 };
 
 unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
@@ -106,6 +108,10 @@ unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
                                        ANDROID_BLACK_LEVEL_END },
     [ANDROID_SYNC]                 = { ANDROID_SYNC_START,
                                        ANDROID_SYNC_END },
+    [ANDROID_REPROCESS]            = { ANDROID_REPROCESS_START,
+                                       ANDROID_REPROCESS_END },
+    [ANDROID_DEPTH]                = { ANDROID_DEPTH_START,
+                                       ANDROID_DEPTH_END },
 };
 
 static tag_info_t android_color_correction[ANDROID_COLOR_CORRECTION_END -
@@ -200,6 +206,12 @@ static tag_info_t android_control[ANDROID_CONTROL_END -
     [ ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS - ANDROID_CONTROL_START ] =
     { "availableHighSpeedVideoConfigurations",
                                         TYPE_INT32  },
+    [ ANDROID_CONTROL_AE_LOCK_AVAILABLE - ANDROID_CONTROL_START ] =
+    { "aeLockAvailable",               TYPE_BYTE   },
+    [ ANDROID_CONTROL_AWB_LOCK_AVAILABLE - ANDROID_CONTROL_START ] =
+    { "awbLockAvailable",              TYPE_BYTE   },
+    [ ANDROID_CONTROL_AVAILABLE_MODES - ANDROID_CONTROL_START ] =
+    { "availableModes",                TYPE_BYTE   },
 };
 
 static tag_info_t android_demosaic[ANDROID_DEMOSAIC_END -
@@ -288,14 +300,18 @@ static tag_info_t android_lens[ANDROID_LENS_END -
     { "opticalStabilizationMode",      TYPE_BYTE   },
     [ ANDROID_LENS_FACING - ANDROID_LENS_START ] =
     { "facing",                        TYPE_BYTE   },
-    [ ANDROID_LENS_OPTICAL_AXIS_ANGLE - ANDROID_LENS_START ] =
-    { "opticalAxisAngle",              TYPE_FLOAT  },
-    [ ANDROID_LENS_POSITION - ANDROID_LENS_START ] =
-    { "position",                      TYPE_FLOAT  },
+    [ ANDROID_LENS_POSE_ROTATION - ANDROID_LENS_START ] =
+    { "poseRotation",                  TYPE_FLOAT  },
+    [ ANDROID_LENS_POSE_TRANSLATION - ANDROID_LENS_START ] =
+    { "poseTranslation",               TYPE_FLOAT  },
     [ ANDROID_LENS_FOCUS_RANGE - ANDROID_LENS_START ] =
     { "focusRange",                    TYPE_FLOAT  },
     [ ANDROID_LENS_STATE - ANDROID_LENS_START ] =
     { "state",                         TYPE_BYTE   },
+    [ ANDROID_LENS_INTRINSIC_CALIBRATION - ANDROID_LENS_START ] =
+    { "intrinsicCalibration",          TYPE_FLOAT  },
+    [ ANDROID_LENS_RADIAL_DISTORTION - ANDROID_LENS_START ] =
+    { "radialDistortion",              TYPE_FLOAT  },
 };
 
 static tag_info_t android_lens_info[ANDROID_LENS_INFO_END -
@@ -498,6 +514,10 @@ static tag_info_t android_sensor_info[ANDROID_SENSOR_INFO_END -
     { "whiteLevel",                    TYPE_INT32  },
     [ ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE - ANDROID_SENSOR_INFO_START ] =
     { "timestampSource",               TYPE_BYTE   },
+    [ ANDROID_SENSOR_INFO_LENS_SHADING_APPLIED - ANDROID_SENSOR_INFO_START ] =
+    { "lensShadingApplied",            TYPE_BYTE   },
+    [ ANDROID_SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE - ANDROID_SENSOR_INFO_START ] =
+    { "preCorrectionActiveArraySize",  TYPE_INT32  },
 };
 
 static tag_info_t android_shading[ANDROID_SHADING_END -
@@ -506,6 +526,8 @@ static tag_info_t android_shading[ANDROID_SHADING_END -
     { "mode",                          TYPE_BYTE   },
     [ ANDROID_SHADING_STRENGTH - ANDROID_SHADING_START ] =
     { "strength",                      TYPE_BYTE   },
+    [ ANDROID_SHADING_AVAILABLE_MODES - ANDROID_SHADING_START ] =
+    { "availableModes",                TYPE_BYTE   },
 };
 
 static tag_info_t android_statistics[ANDROID_STATISTICS_END -
@@ -563,6 +585,8 @@ static tag_info_t android_statistics_info[ANDROID_STATISTICS_INFO_END -
     { "sharpnessMapSize",              TYPE_INT32  },
     [ ANDROID_STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES - ANDROID_STATISTICS_INFO_START ] =
     { "availableHotPixelMapModes",     TYPE_BYTE   },
+    [ ANDROID_STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES - ANDROID_STATISTICS_INFO_START ] =
+    { "availableLensShadingMapModes",  TYPE_BYTE   },
 };
 
 static tag_info_t android_tonemap[ANDROID_TONEMAP_END -
@@ -579,6 +603,10 @@ static tag_info_t android_tonemap[ANDROID_TONEMAP_END -
     { "maxCurvePoints",                TYPE_INT32  },
     [ ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES - ANDROID_TONEMAP_START ] =
     { "availableToneMapModes",         TYPE_BYTE   },
+    [ ANDROID_TONEMAP_GAMMA - ANDROID_TONEMAP_START ] =
+    { "gamma",                         TYPE_FLOAT  },
+    [ ANDROID_TONEMAP_PRESET_CURVE - ANDROID_TONEMAP_START ] =
+    { "presetCurve",                   TYPE_BYTE   },
 };
 
 static tag_info_t android_led[ANDROID_LED_END -
@@ -609,6 +637,30 @@ static tag_info_t android_sync[ANDROID_SYNC_END -
     { "maxLatency",                    TYPE_INT32  },
 };
 
+static tag_info_t android_reprocess[ANDROID_REPROCESS_END -
+        ANDROID_REPROCESS_START] = {
+    [ ANDROID_REPROCESS_EFFECTIVE_EXPOSURE_FACTOR - ANDROID_REPROCESS_START ] =
+    { "effectiveExposureFactor",       TYPE_FLOAT  },
+    [ ANDROID_REPROCESS_MAX_CAPTURE_STALL - ANDROID_REPROCESS_START ] =
+    { "maxCaptureStall",               TYPE_INT32  },
+};
+
+static tag_info_t android_depth[ANDROID_DEPTH_END -
+        ANDROID_DEPTH_START] = {
+    [ ANDROID_DEPTH_MAX_DEPTH_SAMPLES - ANDROID_DEPTH_START ] =
+    { "maxDepthSamples",               TYPE_INT32  },
+    [ ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDepthStreamConfigurations",
+                                        TYPE_INT32  },
+    [ ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDepthMinFrameDurations",
+                                        TYPE_INT64  },
+    [ ANDROID_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDepthStallDurations",  TYPE_INT64  },
+    [ ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE - ANDROID_DEPTH_START ] =
+    { "depthIsExclusive",              TYPE_BYTE   },
+};
+
 
 tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
     android_color_correction,
@@ -635,6 +687,8 @@ tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
     android_info,
     android_black_level,
     android_sync,
+    android_reprocess,
+    android_depth,
 };
 
 int camera_metadata_enum_snprint(uint32_t tag,
@@ -775,6 +829,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START:
                     msg = "START";
+                    ret = 0;
+                    break;
+                case ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_CANCEL:
+                    msg = "CANCEL";
                     ret = 0;
                     break;
                 default:
@@ -1075,6 +1133,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "HDR";
                     ret = 0;
                     break;
+                case ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY_LOW_LIGHT:
+                    msg = "FACE_PRIORITY_LOW_LIGHT";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -1229,6 +1291,39 @@ int camera_metadata_enum_snprint(uint32_t tag,
         case ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS: {
             break;
         }
+        case ANDROID_CONTROL_AE_LOCK_AVAILABLE: {
+            switch (value) {
+                case ANDROID_CONTROL_AE_LOCK_AVAILABLE_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_CONTROL_AE_LOCK_AVAILABLE_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_CONTROL_AWB_LOCK_AVAILABLE: {
+            switch (value) {
+                case ANDROID_CONTROL_AWB_LOCK_AVAILABLE_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_CONTROL_AWB_LOCK_AVAILABLE_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_CONTROL_AVAILABLE_MODES: {
+            break;
+        }
 
         case ANDROID_DEMOSAIC_MODE: {
             switch (value) {
@@ -1258,6 +1353,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_EDGE_MODE_HIGH_QUALITY:
                     msg = "HIGH_QUALITY";
+                    ret = 0;
+                    break;
+                case ANDROID_EDGE_MODE_ZERO_SHUTTER_LAG:
+                    msg = "ZERO_SHUTTER_LAG";
                     ret = 0;
                     break;
                 default:
@@ -1441,15 +1540,19 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "BACK";
                     ret = 0;
                     break;
+                case ANDROID_LENS_FACING_EXTERNAL:
+                    msg = "EXTERNAL";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
             break;
         }
-        case ANDROID_LENS_OPTICAL_AXIS_ANGLE: {
+        case ANDROID_LENS_POSE_ROTATION: {
             break;
         }
-        case ANDROID_LENS_POSITION: {
+        case ANDROID_LENS_POSE_TRANSLATION: {
             break;
         }
         case ANDROID_LENS_FOCUS_RANGE: {
@@ -1468,6 +1571,12 @@ int camera_metadata_enum_snprint(uint32_t tag,
                 default:
                     msg = "error: enum value out of range";
             }
+            break;
+        }
+        case ANDROID_LENS_INTRINSIC_CALIBRATION: {
+            break;
+        }
+        case ANDROID_LENS_RADIAL_DISTORTION: {
             break;
         }
 
@@ -1524,6 +1633,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY:
                     msg = "HIGH_QUALITY";
+                    ret = 0;
+                    break;
+                case ANDROID_NOISE_REDUCTION_MODE_MINIMAL:
+                    msg = "MINIMAL";
+                    ret = 0;
+                    break;
+                case ANDROID_NOISE_REDUCTION_MODE_ZERO_SHUTTER_LAG:
+                    msg = "ZERO_SHUTTER_LAG";
                     ret = 0;
                     break;
                 default:
@@ -1644,8 +1761,8 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "RAW";
                     ret = 0;
                     break;
-                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ZSL:
-                    msg = "ZSL";
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING:
+                    msg = "PRIVATE_REPROCESSING";
                     ret = 0;
                     break;
                 case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS:
@@ -1654,6 +1771,18 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE:
                     msg = "BURST_CAPTURE";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING:
+                    msg = "YUV_REPROCESSING";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT:
+                    msg = "DEPTH_OUTPUT";
+                    ret = 0;
+                    break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO:
+                    msg = "CONSTRAINED_HIGH_SPEED_VIDEO";
                     ret = 0;
                     break;
                 default:
@@ -2023,6 +2152,24 @@ int camera_metadata_enum_snprint(uint32_t tag,
             }
             break;
         }
+        case ANDROID_SENSOR_INFO_LENS_SHADING_APPLIED: {
+            switch (value) {
+                case ANDROID_SENSOR_INFO_LENS_SHADING_APPLIED_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_SENSOR_INFO_LENS_SHADING_APPLIED_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE: {
+            break;
+        }
 
         case ANDROID_SHADING_MODE: {
             switch (value) {
@@ -2044,6 +2191,9 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_SHADING_STRENGTH: {
+            break;
+        }
+        case ANDROID_SHADING_AVAILABLE_MODES: {
             break;
         }
 
@@ -2200,6 +2350,9 @@ int camera_metadata_enum_snprint(uint32_t tag,
         case ANDROID_STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES: {
             break;
         }
+        case ANDROID_STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES: {
+            break;
+        }
 
         case ANDROID_TONEMAP_CURVE_BLUE: {
             break;
@@ -2224,6 +2377,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "HIGH_QUALITY";
                     ret = 0;
                     break;
+                case ANDROID_TONEMAP_MODE_GAMMA_VALUE:
+                    msg = "GAMMA_VALUE";
+                    ret = 0;
+                    break;
+                case ANDROID_TONEMAP_MODE_PRESET_CURVE:
+                    msg = "PRESET_CURVE";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -2233,6 +2394,24 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES: {
+            break;
+        }
+        case ANDROID_TONEMAP_GAMMA: {
+            break;
+        }
+        case ANDROID_TONEMAP_PRESET_CURVE: {
+            switch (value) {
+                case ANDROID_TONEMAP_PRESET_CURVE_SRGB:
+                    msg = "SRGB";
+                    ret = 0;
+                    break;
+                case ANDROID_TONEMAP_PRESET_CURVE_REC709:
+                    msg = "REC709";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
             break;
         }
 
@@ -2330,6 +2509,53 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
 
+        case ANDROID_REPROCESS_EFFECTIVE_EXPOSURE_FACTOR: {
+            break;
+        }
+        case ANDROID_REPROCESS_MAX_CAPTURE_STALL: {
+            break;
+        }
+
+        case ANDROID_DEPTH_MAX_DEPTH_SAMPLES: {
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS: {
+            switch (value) {
+                case ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT:
+                    msg = "OUTPUT";
+                    ret = 0;
+                    break;
+                case ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_INPUT:
+                    msg = "INPUT";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS: {
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS: {
+            break;
+        }
+        case ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE: {
+            switch (value) {
+                case ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+
     }
 
     strncpy(dst, msg, size - 1);
@@ -2339,4 +2565,4 @@ int camera_metadata_enum_snprint(uint32_t tag,
 }
 
 
-#define CAMERA_METADATA_ENUM_STRING_MAX_SIZE 24
+#define CAMERA_METADATA_ENUM_STRING_MAX_SIZE 29

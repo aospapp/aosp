@@ -16,10 +16,6 @@
 
 package com.android.layoutlib.bridge.impl;
 
-import static com.android.ide.common.rendering.api.Result.Status.ERROR_LOCK_INTERRUPTED;
-import static com.android.ide.common.rendering.api.Result.Status.ERROR_TIMEOUT;
-import static com.android.ide.common.rendering.api.Result.Status.SUCCESS;
-
 import com.android.ide.common.rendering.api.HardwareConfig;
 import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.RenderParams;
@@ -31,18 +27,24 @@ import com.android.layoutlib.bridge.android.BridgeContext;
 import com.android.resources.Density;
 import com.android.resources.ResourceType;
 import com.android.resources.ScreenOrientation;
+import com.android.resources.ScreenRound;
 import com.android.resources.ScreenSize;
 
 import android.content.res.Configuration;
 import android.os.HandlerThread_Delegate;
-import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.view.ViewConfiguration_Accessor;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodManager_Accessor;
+import android.widget.SimpleMonthView_Delegate;
 
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.android.ide.common.rendering.api.Result.Status.ERROR_LOCK_INTERRUPTED;
+import static com.android.ide.common.rendering.api.Result.Status.ERROR_TIMEOUT;
+import static com.android.ide.common.rendering.api.Result.Status.SUCCESS;
 
 /**
  * Base class for rendering action.
@@ -71,7 +73,7 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
     /**
      * Creates a renderAction.
      * <p>
-     * This <b>must</b> be followed by a call to {@link RenderAction#init()}, which act as a
+     * This <b>must</b> be followed by a call to {@link RenderAction#init(long)}, which act as a
      * call to {@link RenderAction#acquire(long)}
      *
      * @param params the RenderParams. This must be a copy that the action can keep
@@ -121,8 +123,8 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
 
         // build the context
         mContext = new BridgeContext(mParams.getProjectKey(), metrics, resources,
-                mParams.getProjectCallback(), getConfiguration(), mParams.getTargetSdkVersion(),
-                mParams.isRtlSupported());
+                mParams.getAssets(), mParams.getLayoutlibCallback(), getConfiguration(),
+                mParams.getTargetSdkVersion(), mParams.isRtlSupported());
 
         setUp();
 
@@ -139,7 +141,7 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
      * The preparation can fail if another rendering took too long and the timeout was elapsed.
      *
      * More than one call to this from the same thread will have no effect and will return
-     * {@link Result#SUCCESS}.
+     * {@link Result.Status#SUCCESS}.
      *
      * After scene actions have taken place, only one call to {@link #release()} must be
      * done.
@@ -173,7 +175,7 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
      * Acquire the lock so that the scene can be acted upon.
      * <p>
      * This returns null if the lock was just acquired, otherwise it returns
-     * {@link Result#SUCCESS} if the lock already belonged to that thread, or another
+     * {@link Result.Status#SUCCESS} if the lock already belonged to that thread, or another
      * instance (see {@link Result#getStatus()}) if an error occurred.
      *
      * @param timeout the time to wait if another rendering is happening.
@@ -184,11 +186,11 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
      */
     private Result acquireLock(long timeout) {
         ReentrantLock lock = Bridge.getLock();
-        if (lock.isHeldByCurrentThread() == false) {
+        if (!lock.isHeldByCurrentThread()) {
             try {
                 boolean acquired = lock.tryLock(timeout, TimeUnit.MILLISECONDS);
 
-                if (acquired == false) {
+                if (!acquired) {
                     return ERROR_TIMEOUT.createResult();
                 }
             } catch (InterruptedException e) {
@@ -228,6 +230,9 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
      * The counterpart is {@link #tearDown()}.
      */
     private void setUp() {
+        // setup the ParserFactory
+        ParserFactory.setParserFactory(mParams.getLayoutlibCallback().getParserFactory());
+
         // make sure the Resources object references the context (and other objects) for this
         // scene
         mContext.initResources();
@@ -272,7 +277,8 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
             mContext.getRenderResources().setFrameworkResourceIdProvider(null);
             mContext.getRenderResources().setLogger(null);
         }
-
+        ParserFactory.setParserFactory(null);
+        SimpleMonthView_Delegate.clearCache();
     }
 
     public static BridgeContext getCurrentContext() {
@@ -308,7 +314,7 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
      */
     protected void checkLock() {
         ReentrantLock lock = Bridge.getLock();
-        if (lock.isHeldByCurrentThread() == false) {
+        if (!lock.isHeldByCurrentThread()) {
             throw new IllegalStateException("scene must be acquired first. see #acquire(long)");
         }
         if (sCurrentContext != mContext) {
@@ -347,6 +353,7 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
         config.screenWidthDp = hardwareConfig.getScreenWidth() / density.getDpiValue();
         config.screenHeightDp = hardwareConfig.getScreenHeight() / density.getDpiValue();
         if (config.screenHeightDp < config.screenWidthDp) {
+            //noinspection SuspiciousNameCombination
             config.smallestScreenWidthDp = config.screenHeightDp;
         } else {
             config.smallestScreenWidthDp = config.screenWidthDp;
@@ -367,12 +374,34 @@ public abstract class RenderAction<T extends RenderParams> extends FrameworkReso
                 config.orientation = Configuration.ORIENTATION_LANDSCAPE;
                 break;
             case SQUARE:
+                //noinspection deprecation
                 config.orientation = Configuration.ORIENTATION_SQUARE;
                 break;
             }
         } else {
             config.orientation = Configuration.ORIENTATION_UNDEFINED;
         }
+
+        try {
+            ScreenRound roundness = hardwareConfig.getScreenRoundness();
+            if (roundness != null) {
+                switch (roundness) {
+                    case ROUND:
+                        config.screenLayout |= Configuration.SCREENLAYOUT_ROUND_YES;
+                        break;
+                    case NOTROUND:
+                        config.screenLayout |= Configuration.SCREENLAYOUT_ROUND_NO;
+                }
+            } else {
+                config.screenLayout |= Configuration.SCREENLAYOUT_ROUND_UNDEFINED;
+            }
+        } catch (NoSuchMethodError ignored) {
+            // getScreenRoundness was added in later stages of API 15. So, it's not present on some
+            // preview releases of API 15.
+            // TODO: Remove the try catch around Oct 2015.
+        }
+        String locale = getParams().getLocale();
+        if (locale != null && !locale.isEmpty()) config.locale = new Locale(locale);
 
         // TODO: fill in more config info.
 

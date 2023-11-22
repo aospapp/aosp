@@ -19,6 +19,7 @@
 
 #include "base/macros.h"
 #include "base/mutex.h"
+#include "base/value_object.h"
 #include "gc_root.h"
 #include "object_callbacks.h"
 #include "offsets.h"
@@ -36,12 +37,35 @@ class String;
 }
 class InternTable;
 
-class Transaction {
+class Transaction FINAL {
  public:
+  static constexpr const char* kAbortExceptionDescriptor = "dalvik.system.TransactionAbortError";
+  static constexpr const char* kAbortExceptionSignature = "Ldalvik/system/TransactionAbortError;";
+
   Transaction();
   ~Transaction();
 
+  void Abort(const std::string& abort_message)
+      LOCKS_EXCLUDED(log_lock_)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void ThrowAbortError(Thread* self, const std::string* abort_message)
+      LOCKS_EXCLUDED(log_lock_)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  bool IsAborted() LOCKS_EXCLUDED(log_lock_);
+
   // Record object field changes.
+  void RecordWriteFieldBoolean(mirror::Object* obj, MemberOffset field_offset, uint8_t value,
+                               bool is_volatile)
+      LOCKS_EXCLUDED(log_lock_);
+  void RecordWriteFieldByte(mirror::Object* obj, MemberOffset field_offset, int8_t value,
+                               bool is_volatile)
+      LOCKS_EXCLUDED(log_lock_);
+  void RecordWriteFieldChar(mirror::Object* obj, MemberOffset field_offset, uint16_t value,
+                            bool is_volatile)
+      LOCKS_EXCLUDED(log_lock_);
+  void RecordWriteFieldShort(mirror::Object* obj, MemberOffset field_offset, int16_t value,
+                             bool is_volatile)
+      LOCKS_EXCLUDED(log_lock_);
   void RecordWriteField32(mirror::Object* obj, MemberOffset field_offset, uint32_t value,
                           bool is_volatile)
       LOCKS_EXCLUDED(log_lock_);
@@ -72,23 +96,27 @@ class Transaction {
       LOCKS_EXCLUDED(log_lock_);
 
   // Abort transaction by undoing all recorded changes.
-  void Abort()
+  void Rollback()
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
       LOCKS_EXCLUDED(log_lock_);
 
-  void VisitRoots(RootCallback* callback, void* arg)
+  void VisitRoots(RootVisitor* visitor)
       LOCKS_EXCLUDED(log_lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  private:
-  class ObjectLog {
+  class ObjectLog : public ValueObject {
    public:
+    void LogBooleanValue(MemberOffset offset, uint8_t value, bool is_volatile);
+    void LogByteValue(MemberOffset offset, int8_t value, bool is_volatile);
+    void LogCharValue(MemberOffset offset, uint16_t value, bool is_volatile);
+    void LogShortValue(MemberOffset offset, int16_t value, bool is_volatile);
     void Log32BitsValue(MemberOffset offset, uint32_t value, bool is_volatile);
     void Log64BitsValue(MemberOffset offset, uint64_t value, bool is_volatile);
     void LogReferenceValue(MemberOffset offset, mirror::Object* obj, bool is_volatile);
 
     void Undo(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-    void VisitRoots(RootCallback* callback, void* arg);
+    void VisitRoots(RootVisitor* visitor) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
     size_t Size() const {
       return field_values_.size();
@@ -96,17 +124,22 @@ class Transaction {
 
    private:
     enum FieldValueKind {
+      kBoolean,
+      kByte,
+      kChar,
+      kShort,
       k32Bits,
       k64Bits,
       kReference
     };
-    struct FieldValue {
+    struct FieldValue : public ValueObject {
       // TODO use JValue instead ?
       uint64_t value;
       FieldValueKind kind;
       bool is_volatile;
     };
 
+    void LogValue(FieldValueKind kind, MemberOffset offset, uint64_t value, bool is_volatile);
     void UndoFieldWrite(mirror::Object* obj, MemberOffset field_offset,
                         const FieldValue& field_value) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
@@ -114,7 +147,7 @@ class Transaction {
     std::map<uint32_t, FieldValue> field_values_;
   };
 
-  class ArrayLog {
+  class ArrayLog : public ValueObject {
    public:
     void LogValue(size_t index, uint64_t value);
 
@@ -133,7 +166,7 @@ class Transaction {
     std::map<size_t, uint64_t> array_values_;
   };
 
-  class InternStringLog {
+  class InternStringLog : public ValueObject {
    public:
     enum StringKind {
       kStrongString,
@@ -151,15 +184,15 @@ class Transaction {
     void Undo(InternTable* intern_table)
         SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
         EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_);
-    void VisitRoots(RootCallback* callback, void* arg);
+    void VisitRoots(RootVisitor* visitor) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
    private:
     mirror::String* str_;
-    StringKind string_kind_;
-    StringOp string_op_;
+    const StringKind string_kind_;
+    const StringOp string_op_;
   };
 
-  void LogInternedString(InternStringLog& log)
+  void LogInternedString(const InternStringLog& log)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::intern_table_lock_)
       LOCKS_EXCLUDED(log_lock_);
 
@@ -174,20 +207,24 @@ class Transaction {
       EXCLUSIVE_LOCKS_REQUIRED(log_lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  void VisitObjectLogs(RootCallback* callback, void* arg)
+  void VisitObjectLogs(RootVisitor* visitor)
       EXCLUSIVE_LOCKS_REQUIRED(log_lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void VisitArrayLogs(RootCallback* callback, void* arg)
+  void VisitArrayLogs(RootVisitor* visitor)
       EXCLUSIVE_LOCKS_REQUIRED(log_lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void VisitStringLogs(RootCallback* callback, void* arg)
+  void VisitStringLogs(RootVisitor* visitor)
       EXCLUSIVE_LOCKS_REQUIRED(log_lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
+  const std::string& GetAbortMessage() LOCKS_EXCLUDED(log_lock_);
 
   Mutex log_lock_ ACQUIRED_AFTER(Locks::intern_table_lock_);
   std::map<mirror::Object*, ObjectLog> object_logs_ GUARDED_BY(log_lock_);
   std::map<mirror::Array*, ArrayLog> array_logs_  GUARDED_BY(log_lock_);
   std::list<InternStringLog> intern_string_logs_ GUARDED_BY(log_lock_);
+  bool aborted_ GUARDED_BY(log_lock_);
+  std::string abort_message_ GUARDED_BY(log_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(Transaction);
 };

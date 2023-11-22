@@ -21,13 +21,6 @@
     <declare-styleable name="WifiEncryptionState">
         <attr name="state_encrypted" format="boolean" />
     </declare-styleable>
-    <declare-styleable name="PercentageBarChart">
-
-        <!-- Background color -->
-        <attr name="emptyColor" format="color" />
-        <!-- Minimum tick width for each slice in the bar chart. -->
-        <attr name="minTickWidth" format="dimension" />
-    </declare-styleable>
 
     <declare-styleable name="FrameLayoutWithShadows">
         <!-- default shadow drawable -->

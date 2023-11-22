@@ -17,15 +17,17 @@
 #
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE := libcoremathtestcpp_jni
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := CoreMathTestJni.cpp
 
+LOCAL_CFLAGS := -std=c++11
+
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
-LOCAL_C_INCLUDES += external/stlport/stlport bionic/ bionic/libstdc++/include
 
-LOCAL_SHARED_LIBRARIES := libdl liblog libRScpp libstlport
+LOCAL_SHARED_LIBRARIES := libdl liblog libRScpp
 LOCAL_STATIC_LIBRARIES := libcutils
 include $(BUILD_SHARED_LIBRARY)

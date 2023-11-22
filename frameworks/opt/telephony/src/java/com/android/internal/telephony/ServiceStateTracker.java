@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.AsyncResult;
+import android.os.BaseBundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
@@ -28,6 +29,7 @@ import android.os.RegistrantList;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.preference.PreferenceManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.CellInfo;
 import android.telephony.Rlog;
 import android.telephony.ServiceState;
@@ -39,9 +41,13 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.util.TimeUtils;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.content.Context;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -177,6 +183,7 @@ public abstract class ServiceStateTracker extends Handler {
     protected static final int EVENT_CHANGE_IMS_STATE                  = 45;
     protected static final int EVENT_IMS_STATE_CHANGED                 = 46;
     protected static final int EVENT_IMS_STATE_DONE                    = 47;
+    protected static final int EVENT_IMS_CAPABILITY_CHANGED            = 48;
 
     protected static final String TIMEZONE_PROPERTY = "persist.sys.timezone";
 
@@ -228,10 +235,11 @@ public abstract class ServiceStateTracker extends Handler {
     /** Keep track of SPN display rules, so we only broadcast intent if something changes. */
     protected boolean mSpnUpdatePending = false;
     protected String mCurSpn = null;
+    protected String mCurDataSpn = null;
     protected String mCurPlmn = null;
     protected boolean mCurShowPlmn = false;
     protected boolean mCurShowSpn = false;
-
+    protected int mSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
 
     private boolean mImsRegistered = false;
 
@@ -254,17 +262,12 @@ public abstract class ServiceStateTracker extends Handler {
             if (mPreviousSubId.getAndSet(subId) != subId) {
                 if (SubscriptionManager.isValidSubscriptionId(subId)) {
                     Context context = mPhoneBase.getContext();
-                    int networkType = PhoneFactory.calculatePreferredNetworkType(context, subId);
-                    mCi.setPreferredNetworkType(networkType, null);
 
                     mPhoneBase.notifyCallForwardingIndicator();
 
-                    boolean skipRestoringSelection = context.getResources().getBoolean(
+                    boolean restoreSelection = !context.getResources().getBoolean(
                             com.android.internal.R.bool.skip_restoring_network_selection);
-                    if (!skipRestoringSelection) {
-                        // restore the previous network selection.
-                        mPhoneBase.restoreSavedNetworkSelection(null);
-                    }
+                    mPhoneBase.sendSubscriptionSettings(restoreSelection);
 
                     mPhoneBase.setSystemProperty(TelephonyProperties.PROPERTY_DATA_NETWORK_TYPE,
                         ServiceState.rilRadioTechnologyToString(mSS.getRilDataRadioTechnology()));
@@ -280,21 +283,32 @@ public abstract class ServiceStateTracker extends Handler {
                     // older build that did not include subId in the names.
                     SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(
                             context);
-                    String oldNetworkSelectionName = sp.getString(PhoneBase.
-                            NETWORK_SELECTION_NAME_KEY, "");
-                    String oldNetworkSelection = sp.getString(PhoneBase.NETWORK_SELECTION_KEY,
-                            "");
-                    if (!TextUtils.isEmpty(oldNetworkSelectionName) ||
-                            !TextUtils.isEmpty(oldNetworkSelection)) {
+                    String oldNetworkSelection = sp.getString(
+                            PhoneBase.NETWORK_SELECTION_KEY, "");
+                    String oldNetworkSelectionName = sp.getString(
+                            PhoneBase.NETWORK_SELECTION_NAME_KEY, "");
+                    String oldNetworkSelectionShort = sp.getString(
+                            PhoneBase.NETWORK_SELECTION_SHORT_KEY, "");
+                    if (!TextUtils.isEmpty(oldNetworkSelection) ||
+                            !TextUtils.isEmpty(oldNetworkSelectionName) ||
+                            !TextUtils.isEmpty(oldNetworkSelectionShort)) {
                         SharedPreferences.Editor editor = sp.edit();
-                        editor.putString(PhoneBase.NETWORK_SELECTION_NAME_KEY + subId,
-                                oldNetworkSelectionName);
                         editor.putString(PhoneBase.NETWORK_SELECTION_KEY + subId,
                                 oldNetworkSelection);
-                        editor.remove(PhoneBase.NETWORK_SELECTION_NAME_KEY);
+                        editor.putString(PhoneBase.NETWORK_SELECTION_NAME_KEY + subId,
+                                oldNetworkSelectionName);
+                        editor.putString(PhoneBase.NETWORK_SELECTION_SHORT_KEY + subId,
+                                oldNetworkSelectionShort);
                         editor.remove(PhoneBase.NETWORK_SELECTION_KEY);
+                        editor.remove(PhoneBase.NETWORK_SELECTION_NAME_KEY);
+                        editor.remove(PhoneBase.NETWORK_SELECTION_SHORT_KEY);
                         editor.commit();
                     }
+
+                    // Once sub id becomes valid, we need to update the service provider name
+                    // displayed on the UI again. The old SPN update intents sent to
+                    // MobileSignalController earlier were actually ignored due to invalid sub id.
+                    updateSpnDisplay();
                 }
             }
         }
@@ -635,6 +649,7 @@ public abstract class ServiceStateTracker extends Handler {
     public abstract boolean isConcurrentVoiceAndDataAllowed();
 
     public abstract void setImsRegistrationState(boolean registered);
+    public void onImsCapabilityChanged() {}
     public abstract void pollState();
 
     /**
@@ -1057,5 +1072,74 @@ public abstract class ServiceStateTracker extends Handler {
 
     protected int getPhoneId() {
         return mPhoneBase.getPhoneId();
+    }
+
+    /* Reset Service state when IWLAN is enabled as polling in airplane mode
+     * causes state to go to OUT_OF_SERVICE state instead of STATE_OFF
+     */
+    protected void resetServiceStateInIwlanMode() {
+        if (mCi.getRadioState() == CommandsInterface.RadioState.RADIO_OFF) {
+            boolean resetIwlanRatVal = false;
+            log("set service state as POWER_OFF");
+            if (ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN
+                        == mNewSS.getRilDataRadioTechnology()) {
+                log("pollStateDone: mNewSS = " + mNewSS);
+                log("pollStateDone: reset iwlan RAT value");
+                resetIwlanRatVal = true;
+            }
+            mNewSS.setStateOff();
+            if (resetIwlanRatVal) {
+                mNewSS.setRilDataRadioTechnology(ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN);
+                mNewSS.setDataRegState(ServiceState.STATE_IN_SERVICE);
+                log("pollStateDone: mNewSS = " + mNewSS);
+            }
+        }
+    }
+
+    /**
+     * Check if device is non-roaming and always on home network.
+     *
+     * @param b carrier config bundle obtained from CarrierConfigManager
+     * @return true if network is always on home network, false otherwise
+     * @see CarrierConfigManager
+     */
+    protected final boolean alwaysOnHomeNetwork(BaseBundle b) {
+        return b.getBoolean(CarrierConfigManager.KEY_FORCE_HOME_NETWORK_BOOL);
+    }
+
+    /**
+     * Check if the network identifier has membership in the set of
+     * network identifiers stored in the carrier config bundle.
+     *
+     * @param b carrier config bundle obtained from CarrierConfigManager
+     * @param network The network identifier to check network existence in bundle
+     * @param key The key to index into the bundle presenting a string array of
+     *            networks to check membership
+     * @return true if network has membership in bundle networks, false otherwise
+     * @see CarrierConfigManager
+     */
+    private boolean isInNetwork(BaseBundle b, String network, String key) {
+        String[] networks = b.getStringArray(key);
+
+        if (networks != null && Arrays.asList(networks).contains(network)) {
+            return true;
+        }
+        return false;
+    }
+
+    protected final boolean isRoamingInGsmNetwork(BaseBundle b, String network) {
+        return isInNetwork(b, network, CarrierConfigManager.KEY_GSM_ROAMING_NETWORKS_STRING_ARRAY);
+    }
+
+    protected final boolean isNonRoamingInGsmNetwork(BaseBundle b, String network) {
+        return isInNetwork(b, network, CarrierConfigManager.KEY_GSM_NONROAMING_NETWORKS_STRING_ARRAY);
+    }
+
+    protected final boolean isRoamingInCdmaNetwork(BaseBundle b, String network) {
+        return isInNetwork(b, network, CarrierConfigManager.KEY_CDMA_ROAMING_NETWORKS_STRING_ARRAY);
+    }
+
+    protected final boolean isNonRoamingInCdmaNetwork(BaseBundle b, String network) {
+        return isInNetwork(b, network, CarrierConfigManager.KEY_CDMA_NONROAMING_NETWORKS_STRING_ARRAY);
     }
 }

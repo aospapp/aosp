@@ -127,6 +127,9 @@ if [ "$DARWIN_SSH" -a -z "$CUSTOM_SYSTEMS" ]; then
 fi
 
 FLAGS=
+if [ "$DRYRUN" = "yes" ]; then
+    FLAGS=$FLAGS" --dryrun"
+fi
 if [ "$VERBOSE" = "yes" ]; then
     FLAGS=$FLAGS" --verbose"
 fi
@@ -279,10 +282,6 @@ for SYSTEM in $SYSTEMS; do
     run $BUILDTOOLS/build-host-awk.sh $TOOLCHAIN_FLAGS
     fail_panic "awk build failure!"
 
-    echo "Building $SYSNAME ndk-sed"
-    run $BUILDTOOLS/build-host-sed.sh $TOOLCHAIN_FLAGS
-    fail_panic "sed build failure!"
-
     # ToDo: perl in windows/darwin cross.
     MAKE_PERL=no
     case $SYSTEM in
@@ -321,17 +320,11 @@ for SYSTEM in $SYSTEMS; do
 
     # Then the toolchains
     for ARCH in $ARCHS; do
-        TOOLCHAIN_NAMES=$(get_toolchain_name_list_for_arch $ARCH)
         if [ "$GCC_VERSION_LIST" != "default" ]; then
-           TOOLCHAINS=
-           for VERSION in $(commas_to_spaces $GCC_VERSION_LIST); do
-              for TOOLCHAIN in $TOOLCHAIN_NAMES; do
-                 if [ $TOOLCHAIN != ${TOOLCHAIN%%$VERSION} ]; then
-                    TOOLCHAINS="$TOOLCHAIN $TOOLCHAINS"
-                 fi
-              done
-           done
-           TOOLCHAIN_NAMES=$TOOLCHAINS
+            VERSIONS=$(spaces_to_commas $GCC_VERSION_LIST)
+            TOOLCHAIN_NAMES=$(get_toolchain_name_list_for_arch $ARCH $VERSIONS)
+        else
+            TOOLCHAIN_NAMES=$(get_toolchain_name_list_for_arch $ARCH)
         fi
         if [ -z "$TOOLCHAIN_NAMES" ]; then
             echo "ERROR: Toolchains: "$(spaces_to_commas $GCC_VERSION_LIST)" are not available for arch: $ARCH"
@@ -356,9 +349,11 @@ for SYSTEM in $SYSTEMS; do
         fail_panic "Could not build llvm for $SYSNAME"
     done
 
-    # Deploy ld.mcld
-    $PROGDIR/deploy-host-mcld.sh --package-dir=$PACKAGE_DIR --systems=$SYSNAME
-    fail_panic "Could not deploy ld.mcld for $SYSNAME"
+    if [ ! -z "$LLVM_VERSION_LIST" ]; then
+        # Deploy ld.mcld
+        run $PROGDIR/deploy-host-mcld.sh --package-dir=$PACKAGE_DIR --systems=$SYSNAME
+        fail_panic "Could not deploy ld.mcld for $SYSNAME"
+    fi
 
     # We're done for this system
 done

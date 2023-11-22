@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"按键音效"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"按键时弹出显示字符"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"偏好设置"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"外观和布局"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"多语言选项"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"帐户和隐私权"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"外观和布局"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"滑行输入"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"文字更正"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"高级"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"主题背景"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"使用分离式键盘"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google 键盘同步"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"同步功能已开启"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"在设备间同步您的个人字典"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"立即同步"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"删除云端数据"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"将您已同步的数据从 Google 删除"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"您已同步的数据将会从云端删除。确定要执行此操作吗？"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"删除"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"取消"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"您的个人字典将会同步并备份到 Google 服务器。系统可能会收集字词出现频率的统计信息，来帮助改进我们的产品。所有信息的收集和使用都会遵守 "<a href="https://www.google.com/policies/privacy">"Google 隐私权政策"</a>"。"</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"要启用此功能，请将 Google 帐户添加到此设备中"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"在登录了 Google Apps for Business 帐户的设备上无法使用同步功能"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"切换到其他输入法"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"语言切换键也可用于切换其他输入法"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"语言切换键"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"触摸此处即可保存"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"有可用字典"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"键盘主题"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"切换帐户"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"未选择任何帐户"</string>
+    <string name="account_selected" msgid="2846876462199625974">"当前使用的是<xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"确定"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"取消"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"退出帐户"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"选择要使用的帐户"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"英语(英国)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"英语(美国)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"西班牙语（美国）"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"印地英语"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"塞尔维亚语（拉丁语布局）"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"英式英语（<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>）"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"美式英语（<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>）"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"美式西班牙语（<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>）"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"印地英语（<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>）"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"塞尔维亚语（<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>布局）"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>（传统）"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>（西里尔文）"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>（拉丁文）"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>（紧凑型）"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"无语言（字母）"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"字母 (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"字母 (QWERTZ)"</string>
@@ -100,19 +123,22 @@
     <string name="subtype_no_language_pcqwerty" msgid="5354918232046200018">"字母 (PC)"</string>
     <string name="subtype_emoji" msgid="7483586578074549196">"表情符号"</string>
     <string name="keyboard_theme" msgid="4909551808526178852">"键盘主题"</string>
-    <string name="custom_input_styles_title" msgid="8429952441821251512">"自定义输入风格"</string>
+    <string name="custom_input_styles_title" msgid="8429952441821251512">"自定义输入样式"</string>
     <string name="add_style" msgid="6163126614514489951">"添加样式"</string>
     <string name="add" msgid="8299699805688017798">"添加"</string>
     <string name="remove" msgid="4486081658752944606">"删除"</string>
     <string name="save" msgid="7646738597196767214">"保存"</string>
     <string name="subtype_locale" msgid="8576443440738143764">"语言"</string>
     <string name="keyboard_layout_set" msgid="4309233698194565609">"布局"</string>
-    <string name="custom_input_style_note_message" msgid="8826731320846363423">"您需要先启用自定义输入风格，然后才能开始使用。要立即启用该风格吗？"</string>
+    <string name="custom_input_style_note_message" msgid="8826731320846363423">"您需要先启用自定义输入样式，然后才能开始使用。要立即启用该样式吗？"</string>
     <string name="enable" msgid="5031294444630523247">"启用"</string>
     <string name="not_now" msgid="6172462888202790482">"以后再说"</string>
-    <string name="custom_input_style_already_exists" msgid="8008728952215449707">"已经存在相同的输入风格：<xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
+    <string name="custom_input_style_already_exists" msgid="8008728952215449707">"已经存在相同的输入样式：<xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"按键振动时长"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"按键音量"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"按键长按延迟"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"通过实体键盘启用表情符号"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"按实体键盘上的 Alt 键可显示表情符号面板"</string>
     <string name="button_default" msgid="3988017840431881491">"默认"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"欢迎使用 <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"体验顺畅的滑行输入体验"</string>

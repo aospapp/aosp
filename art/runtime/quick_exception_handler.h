@@ -18,38 +18,37 @@
 #define ART_RUNTIME_QUICK_EXCEPTION_HANDLER_H_
 
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/mutex.h"
 #include "stack.h"  // StackReference
 
 namespace art {
 
 namespace mirror {
-class ArtMethod;
 class Throwable;
 }  // namespace mirror
+class ArtMethod;
 class Context;
 class Thread;
-class ThrowLocation;
 class ShadowFrame;
 
-// Manages exception delivery for Quick backend. Not used by Portable backend.
+// Manages exception delivery for Quick backend.
 class QuickExceptionHandler {
  public:
   QuickExceptionHandler(Thread* self, bool is_deoptimization)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  ~QuickExceptionHandler() {
+  NO_RETURN ~QuickExceptionHandler() {
     LOG(FATAL) << "UNREACHABLE";  // Expected to take long jump.
+    UNREACHABLE();
   }
 
-  void FindCatch(const ThrowLocation& throw_location, mirror::Throwable* exception,
-                 bool is_exception_reported)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void FindCatch(mirror::Throwable* exception) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void DeoptimizeStack() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void UpdateInstrumentationStack() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void DoLongJump() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  NO_RETURN void DoLongJump() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  void SetHandlerQuickFrame(StackReference<mirror::ArtMethod>* handler_quick_frame) {
+  void SetHandlerQuickFrame(ArtMethod** handler_quick_frame) {
     handler_quick_frame_ = handler_quick_frame;
   }
 
@@ -57,11 +56,11 @@ class QuickExceptionHandler {
     handler_quick_frame_pc_ = handler_quick_frame_pc;
   }
 
-  mirror::ArtMethod* GetHandlerMethod() const {
+  ArtMethod* GetHandlerMethod() const {
     return handler_method_;
   }
 
-  void SetHandlerMethod(mirror::ArtMethod* handler_quick_method) {
+  void SetHandlerMethod(ArtMethod* handler_quick_method) {
     handler_method_ = handler_quick_method;
   }
 
@@ -88,11 +87,11 @@ class QuickExceptionHandler {
   // Is method tracing active?
   const bool method_tracing_active_;
   // Quick frame with found handler or last frame if no handler found.
-  StackReference<mirror::ArtMethod>* handler_quick_frame_;
+  ArtMethod** handler_quick_frame_;
   // PC to branch to for the handler.
   uintptr_t handler_quick_frame_pc_;
   // The handler method to report to the debugger.
-  mirror::ArtMethod* handler_method_;
+  ArtMethod* handler_method_;
   // The handler's dex PC, zero implies an uncaught exception.
   uint32_t handler_dex_pc_;
   // Should the exception be cleared as the catch block has no move-exception?

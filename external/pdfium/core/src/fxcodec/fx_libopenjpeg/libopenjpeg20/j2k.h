@@ -293,6 +293,8 @@ typedef struct opj_tcp
 
 
 	/***** FLAGS *******/
+	/** If cod == 1 --> there was a COD marker for the present tile */
+	OPJ_UINT32 cod : 1;
 	/** If ppt == 1 --> there was a PPT marker for the present tile */
 	OPJ_UINT32 ppt : 1;
 	/** indicates if a POC marker has been used O:NO, 1:YES */
@@ -304,8 +306,6 @@ typedef struct opj_tcp
 
 typedef struct opj_encoding_param
 {
-	/** Digital cinema profile*/
-	OPJ_CINEMA_MODE m_cinema;
 	/** Maximum rate for each component. If == 0, component size limitation is not considered */
 	OPJ_UINT32 m_max_comp_size;
 	/** Position of tile part flag in progression order*/
@@ -343,7 +343,7 @@ typedef struct opj_cp
 	/** Size of the image in bits*/
 	/*int img_size;*/
 	/** Rsiz*/
-	OPJ_RSIZ_CAPABILITIES rsiz;
+    OPJ_UINT16 rsiz;
 	/** XTOsiz */
 	OPJ_UINT32 tx0; /* MSD see norm */
 	/** YTOsiz */
@@ -596,7 +596,7 @@ void opj_j2k_setup_decoder(opj_j2k_t *j2k, opj_dparameters_t *parameters);
 opj_j2k_t* opj_j2k_create_compress(void);
 
 
-void opj_j2k_setup_encoder(	opj_j2k_t *p_j2k,
+OPJ_BOOL opj_j2k_setup_encoder(	opj_j2k_t *p_j2k,
 						    opj_cparameters_t *parameters,
 						    opj_image_t *image,
 						    opj_event_mgr_t * p_manager);

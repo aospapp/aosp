@@ -4,10 +4,13 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#define FFL_BASE_USERUNIT			1.0f / 72.0f
+#ifndef FPDFSDK_INCLUDE_FORMFILLER_FFL_UTILS_H_
+#define FPDFSDK_INCLUDE_FORMFILLER_FFL_UTILS_H_
 
-template<class T> T FFL_MIN (const T & i, const T & j) { return ((i < j) ? i : j); }
-template<class T> T FFL_MAX (const T & i, const T & j) { return ((i > j) ? i : j); }
+#include "../../../core/include/fpdfapi/fpdf_parser.h"
+#include "../../../core/include/fxcrt/fx_memory.h"
+
+#define FFL_BASE_USERUNIT			(1.0f / 72.0f)
 
 class CFFL_Utils
 {
@@ -18,3 +21,4 @@ public:
 	static FX_BOOL					TraceObject(CPDF_Object* pObj);
 };
 
+#endif  // FPDFSDK_INCLUDE_FORMFILLER_FFL_UTILS_H_

@@ -1,9 +1,9 @@
-/*	$OpenBSD: history.c,v 1.39 2010/05/19 17:36:08 jasper Exp $	*/
+/*	$OpenBSD: history.c,v 1.40 2014/11/20 15:22:39 tedu Exp $	*/
 /*	$OpenBSD: trap.c,v 1.23 2010/05/19 17:36:08 jasper Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2014
+ *		 2011, 2012, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -27,7 +27,7 @@
 #include <sys/file.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.134 2014/06/09 13:25:53 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.134.2.5 2015/04/19 19:18:18 tg Exp $");
 
 Trap sigtraps[NSIG + 1];
 static struct sigaction Sigact_ign;
@@ -275,8 +275,9 @@ c_fc(const char **wp)
 		for (hp = rflag ? hlast : hfirst;
 		    hp >= hfirst && hp <= hlast; hp += rflag ? -1 : 1) {
 			if (!nflag)
-				shf_fprintf(shl_stdout, "%d",
-				    hist_source->line - (int)(histptr - hp));
+				shf_fprintf(shl_stdout, "%lu",
+				    (unsigned long)hist_source->line -
+				    (unsigned long)(histptr - hp));
 			shf_putc('\t', shl_stdout);
 			/* print multi-line commands correctly */
 			s = *hp;
@@ -303,7 +304,7 @@ c_fc(const char **wp)
 	for (hp = rflag ? hlast : hfirst;
 	    hp >= hfirst && hp <= hlast; hp += rflag ? -1 : 1)
 		shf_fprintf(shf, "%s\n", *hp);
-	if (shf_close(shf) == EOF) {
+	if (shf_close(shf) == -1) {
 		bi_errorf("can't %s temporary file %s: %s",
 		    "write", tf->tffn, cstrerror(errno));
 		return (1);
@@ -423,14 +424,14 @@ hist_get(const char *str, bool approx, bool allow_cur)
 
 	if (getn(str, &n)) {
 		hp = histptr + (n < 0 ? n : (n - hist_source->line));
-		if ((ptrdiff_t)hp < (ptrdiff_t)history) {
+		if ((size_t)hp < (size_t)history) {
 			if (approx)
 				hp = hist_get_oldest();
 			else {
 				bi_errorf("%s: %s", str, Tnot_in_history);
 				hp = NULL;
 			}
-		} else if ((ptrdiff_t)hp > (ptrdiff_t)histptr) {
+		} else if ((size_t)hp > (size_t)histptr) {
 			if (approx)
 				hp = hist_get_newest(allow_cur);
 			else {
@@ -563,7 +564,7 @@ sethistfile(const char *name)
 		return;
 
 	/* if the name is the same as the name we have */
-	if (hname && strcmp(hname, name) == 0)
+	if (hname && name && !strcmp(hname, name))
 		return;
 
 	/*
@@ -581,7 +582,8 @@ sethistfile(const char *name)
 		hist_source->line = 0;
 	}
 
-	hist_init(hist_source);
+	if (name)
+		hist_init(hist_source);
 }
 #endif
 
@@ -634,7 +636,6 @@ histsave(int *lnp, const char *cmd, bool dowrite MKSH_A_UNUSED, bool ignoredups)
 	char **hp;
 	char *c, *cp;
 
-	mkssert(cmd != NULL);
 	strdupx(c, cmd, APERM);
 	if ((cp = strchr(c, '\n')) != NULL)
 		*cp = '\0';
@@ -713,8 +714,10 @@ hist_init(Source *s)
 	hist_source = s;
 
 #if HAVE_PERSISTENT_HISTORY
-	if ((hname = str_val(global("HISTFILE"))) == NULL)
+	if (((hname = str_val(global("HISTFILE"))) == NULL) || !*hname) {
+		hname = NULL;
 		return;
+	}
 	strdupx(hname, hname, APERM);
 	hs = hist_init_first;
 

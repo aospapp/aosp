@@ -30,7 +30,7 @@ namespace art {
 
 class DexFileVerifierTest : public CommonRuntimeTest {};
 
-static const byte kBase64Map[256] = {
+static const uint8_t kBase64Map[256] = {
   255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
   255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
   255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -55,12 +55,12 @@ static const byte kBase64Map[256] = {
   255, 255, 255, 255
 };
 
-static inline byte* DecodeBase64(const char* src, size_t* dst_size) {
-  std::vector<byte> tmp;
+static inline uint8_t* DecodeBase64(const char* src, size_t* dst_size) {
+  std::vector<uint8_t> tmp;
   uint32_t t = 0, y = 0;
   int g = 3;
   for (size_t i = 0; src[i] != '\0'; ++i) {
-    byte c = kBase64Map[src[i] & 0xFF];
+    uint8_t c = kBase64Map[src[i] & 0xFF];
     if (c == 255) continue;
     // the final = symbols are read and used to trim the remaining bytes
     if (c == 254) {
@@ -91,7 +91,7 @@ static inline byte* DecodeBase64(const char* src, size_t* dst_size) {
     *dst_size = 0;
     return nullptr;
   }
-  std::unique_ptr<byte[]> dst(new byte[tmp.size()]);
+  std::unique_ptr<uint8_t[]> dst(new uint8_t[tmp.size()]);
   if (dst_size != nullptr) {
     *dst_size = tmp.size();
   } else {
@@ -101,17 +101,18 @@ static inline byte* DecodeBase64(const char* src, size_t* dst_size) {
   return dst.release();
 }
 
-static const DexFile* OpenDexFileBase64(const char* base64, const char* location,
-                                        std::string* error_msg) {
+static std::unique_ptr<const DexFile> OpenDexFileBase64(const char* base64,
+                                                        const char* location,
+                                                        std::string* error_msg) {
   // decode base64
-  CHECK(base64 != NULL);
+  CHECK(base64 != nullptr);
   size_t length;
-  std::unique_ptr<byte[]> dex_bytes(DecodeBase64(base64, &length));
-  CHECK(dex_bytes.get() != NULL);
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(base64, &length));
+  CHECK(dex_bytes.get() != nullptr);
 
   // write to provided file
   std::unique_ptr<File> file(OS::CreateEmptyFile(location));
-  CHECK(file.get() != NULL);
+  CHECK(file.get() != nullptr);
   if (!file->WriteFully(dex_bytes.get(), length)) {
     PLOG(FATAL) << "Failed to write base64 as dex file";
   }
@@ -122,11 +123,11 @@ static const DexFile* OpenDexFileBase64(const char* base64, const char* location
 
   // read dex file
   ScopedObjectAccess soa(Thread::Current());
-  std::vector<const DexFile*> tmp;
+  std::vector<std::unique_ptr<const DexFile>> tmp;
   bool success = DexFile::Open(location, location, error_msg, &tmp);
   CHECK(success) << error_msg;
   EXPECT_EQ(1U, tmp.size());
-  const DexFile* dex_file = tmp[0];
+  std::unique_ptr<const DexFile> dex_file = std::move(tmp[0]);
   EXPECT_EQ(PROT_READ, dex_file->GetPermissions());
   EXPECT_TRUE(dex_file->IsReadOnly());
   return dex_file;
@@ -156,18 +157,19 @@ TEST_F(DexFileVerifierTest, GoodDex) {
   ASSERT_TRUE(raw.get() != nullptr) << error_msg;
 }
 
-static void FixUpChecksum(byte* dex_file) {
+static void FixUpChecksum(uint8_t* dex_file) {
   DexFile::Header* header = reinterpret_cast<DexFile::Header*>(dex_file);
   uint32_t expected_size = header->file_size_;
   uint32_t adler_checksum = adler32(0L, Z_NULL, 0);
   const uint32_t non_sum = sizeof(DexFile::Header::magic_) + sizeof(DexFile::Header::checksum_);
-  const byte* non_sum_ptr = dex_file + non_sum;
+  const uint8_t* non_sum_ptr = dex_file + non_sum;
   adler_checksum = adler32(adler_checksum, non_sum_ptr, expected_size - non_sum);
   header->checksum_ = adler_checksum;
 }
 
-static const DexFile* FixChecksumAndOpen(byte* bytes, size_t length, const char* location,
-                                         std::string* error_msg) {
+static std::unique_ptr<const DexFile> FixChecksumAndOpen(uint8_t* bytes, size_t length,
+                                                         const char* location,
+                                                         std::string* error_msg) {
   // Check data.
   CHECK(bytes != nullptr);
 
@@ -176,7 +178,7 @@ static const DexFile* FixChecksumAndOpen(byte* bytes, size_t length, const char*
 
   // write to provided file
   std::unique_ptr<File> file(OS::CreateEmptyFile(location));
-  CHECK(file.get() != NULL);
+  CHECK(file.get() != nullptr);
   if (!file->WriteFully(bytes, length)) {
     PLOG(FATAL) << "Failed to write base64 as dex file";
   }
@@ -187,23 +189,23 @@ static const DexFile* FixChecksumAndOpen(byte* bytes, size_t length, const char*
 
   // read dex file
   ScopedObjectAccess soa(Thread::Current());
-  std::vector<const DexFile*> tmp;
+  std::vector<std::unique_ptr<const DexFile>> tmp;
   if (!DexFile::Open(location, location, error_msg, &tmp)) {
     return nullptr;
   }
   EXPECT_EQ(1U, tmp.size());
-  const DexFile* dex_file = tmp[0];
+  std::unique_ptr<const DexFile> dex_file = std::move(tmp[0]);
   EXPECT_EQ(PROT_READ, dex_file->GetPermissions());
   EXPECT_TRUE(dex_file->IsReadOnly());
   return dex_file;
 }
 
-static bool ModifyAndLoad(const char* location, size_t offset, uint8_t new_val,
-                                    std::string* error_msg) {
+static bool ModifyAndLoad(const char* dex_file_content, const char* location, size_t offset,
+                          uint8_t new_val, std::string* error_msg) {
   // Decode base64.
   size_t length;
-  std::unique_ptr<byte[]> dex_bytes(DecodeBase64(kGoodTestDex, &length));
-  CHECK(dex_bytes.get() != NULL);
+  std::unique_ptr<uint8_t[]> dex_bytes(DecodeBase64(dex_file_content, &length));
+  CHECK(dex_bytes.get() != nullptr);
 
   // Make modifications.
   dex_bytes.get()[offset] = new_val;
@@ -219,7 +221,7 @@ TEST_F(DexFileVerifierTest, MethodId) {
     // Class error.
     ScratchFile tmp;
     std::string error_msg;
-    bool success = !ModifyAndLoad(tmp.GetFilename().c_str(), 220, 0xFFU, &error_msg);
+    bool success = !ModifyAndLoad(kGoodTestDex, tmp.GetFilename().c_str(), 220, 0xFFU, &error_msg);
     ASSERT_TRUE(success);
     ASSERT_NE(error_msg.find("inter_method_id_item class_idx"), std::string::npos) << error_msg;
   }
@@ -228,7 +230,7 @@ TEST_F(DexFileVerifierTest, MethodId) {
     // Proto error.
     ScratchFile tmp;
     std::string error_msg;
-    bool success = !ModifyAndLoad(tmp.GetFilename().c_str(), 222, 0xFFU, &error_msg);
+    bool success = !ModifyAndLoad(kGoodTestDex, tmp.GetFilename().c_str(), 222, 0xFFU, &error_msg);
     ASSERT_TRUE(success);
     ASSERT_NE(error_msg.find("inter_method_id_item proto_idx"), std::string::npos) << error_msg;
   }
@@ -237,9 +239,80 @@ TEST_F(DexFileVerifierTest, MethodId) {
     // Name error.
     ScratchFile tmp;
     std::string error_msg;
-    bool success = !ModifyAndLoad(tmp.GetFilename().c_str(), 224, 0xFFU, &error_msg);
+    bool success = !ModifyAndLoad(kGoodTestDex, tmp.GetFilename().c_str(), 224, 0xFFU, &error_msg);
     ASSERT_TRUE(success);
     ASSERT_NE(error_msg.find("inter_method_id_item name_idx"), std::string::npos) << error_msg;
+  }
+}
+
+// Generated from:
+//
+// .class public LTest;
+// .super Ljava/lang/Object;
+// .source "Test.java"
+//
+// .method public constructor <init>()V
+//     .registers 1
+//
+//     .prologue
+//     .line 1
+//     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+//
+//     return-void
+// .end method
+//
+// .method public static main()V
+//     .registers 2
+//
+//     const-string v0, "a"
+//     const-string v0, "b"
+//     const-string v0, "c"
+//     const-string v0, "d"
+//     const-string v0, "e"
+//     const-string v0, "f"
+//     const-string v0, "g"
+//     const-string v0, "h"
+//     const-string v0, "i"
+//     const-string v0, "j"
+//     const-string v0, "k"
+//
+//     .local v1, "local_var":Ljava/lang/String;
+//     const-string v1, "test"
+// .end method
+
+static const char kDebugInfoTestDex[] =
+    "ZGV4CjAzNQCHRkHix2eIMQgvLD/0VGrlllZLo0Rb6VyUAgAAcAAAAHhWNBIAAAAAAAAAAAwCAAAU"
+    "AAAAcAAAAAQAAADAAAAAAQAAANAAAAAAAAAAAAAAAAMAAADcAAAAAQAAAPQAAACAAQAAFAEAABQB"
+    "AAAcAQAAJAEAADgBAABMAQAAVwEAAFoBAABdAQAAYAEAAGMBAABmAQAAaQEAAGwBAABvAQAAcgEA"
+    "AHUBAAB4AQAAewEAAIYBAACMAQAAAQAAAAIAAAADAAAABQAAAAUAAAADAAAAAAAAAAAAAAAAAAAA"
+    "AAAAABIAAAABAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAEAAAAAAAAAPwBAAAAAAAABjxpbml0PgAG"
+    "TFRlc3Q7ABJMamF2YS9sYW5nL09iamVjdDsAEkxqYXZhL2xhbmcvU3RyaW5nOwAJVGVzdC5qYXZh"
+    "AAFWAAFhAAFiAAFjAAFkAAFlAAFmAAFnAAFoAAFpAAFqAAFrAAlsb2NhbF92YXIABG1haW4ABHRl"
+    "c3QAAAABAAcOAAAAARYDARIDAAAAAQABAAEAAACUAQAABAAAAHAQAgAAAA4AAgAAAAAAAACZAQAA"
+    "GAAAABoABgAaAAcAGgAIABoACQAaAAoAGgALABoADAAaAA0AGgAOABoADwAaABAAGgETAAAAAgAA"
+    "gYAEpAMBCbwDAAALAAAAAAAAAAEAAAAAAAAAAQAAABQAAABwAAAAAgAAAAQAAADAAAAAAwAAAAEA"
+    "AADQAAAABQAAAAMAAADcAAAABgAAAAEAAAD0AAAAAiAAABQAAAAUAQAAAyAAAAIAAACUAQAAASAA"
+    "AAIAAACkAQAAACAAAAEAAAD8AQAAABAAAAEAAAAMAgAA";
+
+TEST_F(DexFileVerifierTest, DebugInfoTypeIdxTest) {
+  {
+    // The input dex file should be good before modification.
+    ScratchFile tmp;
+    std::string error_msg;
+    std::unique_ptr<const DexFile> raw(OpenDexFileBase64(kDebugInfoTestDex,
+                                                         tmp.GetFilename().c_str(),
+                                                         &error_msg));
+    ASSERT_TRUE(raw.get() != nullptr) << error_msg;
+  }
+
+  {
+    // Modify the debug information entry.
+    ScratchFile tmp;
+    std::string error_msg;
+    bool success = !ModifyAndLoad(kDebugInfoTestDex, tmp.GetFilename().c_str(), 416, 0x14U,
+                                  &error_msg);
+    ASSERT_TRUE(success);
+    ASSERT_NE(error_msg.find("DBG_START_LOCAL type_idx"), std::string::npos) << error_msg;
   }
 }
 

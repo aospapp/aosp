@@ -16,32 +16,80 @@
 
 package com.google.common.collect.testing.testers;
 
+import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
-import static com.google.common.collect.testing.features.MapFeature.SUPPORTS_CLEAR;
+import static com.google.common.collect.testing.features.MapFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
+import static com.google.common.collect.testing.features.MapFeature.SUPPORTS_REMOVE;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractMapTester;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
+
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 /**
  * A generic JUnit test which tests {@code clear()} operations on a map.
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.MapTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  * @author Chris Povirk
  */
+@GwtCompatible
 public class MapClearTester<K, V> extends AbstractMapTester<K, V> {
-  @MapFeature.Require(SUPPORTS_CLEAR)
+  @MapFeature.Require(SUPPORTS_REMOVE)
   public void testClear() {
     getMap().clear();
     assertTrue("After clear(), a map should be empty.",
         getMap().isEmpty());
   }
 
-  @MapFeature.Require(absent = SUPPORTS_CLEAR)
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testClearConcurrentWithEntrySetIteration() {
+    try {
+      Iterator<Entry<K, V>> iterator = getMap().entrySet().iterator();
+      getMap().clear();
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testClearConcurrentWithKeySetIteration() {
+    try {
+      Iterator<K> iterator = getMap().keySet().iterator();
+      getMap().clear();
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testClearConcurrentWithValuesIteration() {
+    try {
+      Iterator<V> iterator = getMap().values().iterator();
+      getMap().clear();
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require(absent = SUPPORTS_REMOVE)
   @CollectionSize.Require(absent = ZERO)
   public void testClear_unsupported() {
     try {
@@ -53,7 +101,7 @@ public class MapClearTester<K, V> extends AbstractMapTester<K, V> {
     expectUnchanged();
   }
 
-  @MapFeature.Require(absent = SUPPORTS_CLEAR)
+  @MapFeature.Require(absent = SUPPORTS_REMOVE)
   @CollectionSize.Require(ZERO)
   public void testClear_unsupportedByEmptyCollection() {
     try {

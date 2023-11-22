@@ -801,12 +801,15 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             if (mTopPresentation != null) {
                 mTopPresentation.dismissPresentation();
                 mTopPresentation.destroyVirtualDisplay();
+                mTopPresentation = null;
             }
             if (mTopWindow != null) {
                 mTopWindow.cleanup();
+                mTopWindow = null;
             }
             if (mEglHelper != null) {
                 mEglHelper.release();
+                mEglHelper = null;
             }
         }
 

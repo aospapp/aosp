@@ -88,6 +88,8 @@ public:
     NonLazyBind,           ///< Function is called early and/or
                            ///< often, so lazy binding isn't worthwhile
     NonNull,               ///< Pointer is known to be not null
+    Dereferenceable,       ///< Pointer is known to be dereferenceable
+    DereferenceableOrNull, ///< Pointer is either null or dereferenceable
     NoRedZone,             ///< Disable redzone
     NoReturn,              ///< Mark the function as not returning
     NoUnwind,              ///< Function doesn't unwind stack
@@ -133,6 +135,10 @@ public:
   /// alignment set.
   static Attribute getWithAlignment(LLVMContext &Context, uint64_t Align);
   static Attribute getWithStackAlignment(LLVMContext &Context, uint64_t Align);
+  static Attribute getWithDereferenceableBytes(LLVMContext &Context,
+                                              uint64_t Bytes);
+  static Attribute getWithDereferenceableOrNullBytes(LLVMContext &Context,
+                                                     uint64_t Bytes);
 
   //===--------------------------------------------------------------------===//
   // Attribute Accessors
@@ -141,8 +147,8 @@ public:
   /// \brief Return true if the attribute is an Attribute::AttrKind type.
   bool isEnumAttribute() const;
 
-  /// \brief Return true if the attribute is an alignment attribute.
-  bool isAlignAttribute() const;
+  /// \brief Return true if the attribute is an integer attribute.
+  bool isIntAttribute() const;
 
   /// \brief Return true if the attribute is a string (target-dependent)
   /// attribute.
@@ -177,6 +183,14 @@ public:
   /// \brief Returns the stack alignment field of an attribute as a byte
   /// alignment value.
   unsigned getStackAlignment() const;
+
+  /// \brief Returns the number of dereferenceable bytes from the
+  /// dereferenceable attribute (or zero if unknown).
+  uint64_t getDereferenceableBytes() const;
+
+  /// \brief Returns the number of dereferenceable_or_null bytes from the
+  /// dereferenceable_or_null attribute (or zero if unknown).
+  uint64_t getDereferenceableOrNullBytes() const;
 
   /// \brief The Attribute is converted to a string of equivalent mnemonic. This
   /// is, presumably, for writing out the mnemonics for the assembly writer.
@@ -275,6 +289,17 @@ public:
   AttributeSet removeAttributes(LLVMContext &C, unsigned Index, 
                                 AttributeSet Attrs) const;
 
+  /// \brief Add the dereferenceable attribute to the attribute set at the given
+  /// index. Since attribute sets are immutable, this returns a new set.
+  AttributeSet addDereferenceableAttr(LLVMContext &C, unsigned Index,
+                                      uint64_t Bytes) const;
+
+  /// \brief Add the dereferenceable_or_null attribute to the attribute set at
+  /// the given index. Since attribute sets are immutable, this returns a new
+  /// set.
+  AttributeSet addDereferenceableOrNullAttr(LLVMContext &C, unsigned Index,
+                                            uint64_t Bytes) const;
+
   //===--------------------------------------------------------------------===//
   // AttributeSet Accessors
   //===--------------------------------------------------------------------===//
@@ -315,6 +340,13 @@ public:
 
   /// \brief Get the stack alignment.
   unsigned getStackAlignment(unsigned Index) const;
+
+  /// \brief Get the number of dereferenceable bytes (or zero if unknown).
+  uint64_t getDereferenceableBytes(unsigned Index) const;
+
+  /// \brief Get the number of dereferenceable_or_null bytes (or zero if
+  /// unknown).
+  uint64_t getDereferenceableOrNullBytes(unsigned Index) const;
 
   /// \brief Return the attributes at the index as a string.
   std::string getAsString(unsigned Index, bool InAttrGrp = false) const;
@@ -395,13 +427,16 @@ class AttrBuilder {
   std::map<std::string, std::string> TargetDepAttrs;
   uint64_t Alignment;
   uint64_t StackAlignment;
+  uint64_t DerefBytes;
+  uint64_t DerefOrNullBytes;
 public:
-  AttrBuilder() : Attrs(0), Alignment(0), StackAlignment(0) {}
+  AttrBuilder() : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0) {}
   explicit AttrBuilder(uint64_t Val)
-    : Attrs(0), Alignment(0), StackAlignment(0) {
+    : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0) {
     addRawValue(Val);
   }
-  AttrBuilder(const Attribute &A) : Attrs(0), Alignment(0), StackAlignment(0) {
+  AttrBuilder(const Attribute &A)
+    : Attrs(0), Alignment(0), StackAlignment(0), DerefBytes(0) {
     addAttribute(A);
   }
   AttrBuilder(AttributeSet AS, unsigned Idx);
@@ -455,6 +490,14 @@ public:
   /// \brief Retrieve the stack alignment attribute, if it exists.
   uint64_t getStackAlignment() const { return StackAlignment; }
 
+  /// \brief Retrieve the number of dereferenceable bytes, if the dereferenceable
+  /// attribute exists (zero is returned otherwise).
+  uint64_t getDereferenceableBytes() const { return DerefBytes; }
+
+  /// \brief Retrieve the number of dereferenceable_or_null bytes, if the
+  /// dereferenceable_or_null attribute exists (zero is returned otherwise).
+  uint64_t getDereferenceableOrNullBytes() const { return DerefOrNullBytes; }
+
   /// \brief This turns an int alignment (which must be a power of 2) into the
   /// form used internally in Attribute.
   AttrBuilder &addAlignmentAttr(unsigned Align);
@@ -462,6 +505,14 @@ public:
   /// \brief This turns an int stack alignment (which must be a power of 2) into
   /// the form used internally in Attribute.
   AttrBuilder &addStackAlignmentAttr(unsigned Align);
+
+  /// \brief This turns the number of dereferenceable bytes into the form used
+  /// internally in Attribute.
+  AttrBuilder &addDereferenceableAttr(uint64_t Bytes);
+
+  /// \brief This turns the number of dereferenceable_or_null bytes into the
+  /// form used internally in Attribute.
+  AttrBuilder &addDereferenceableOrNullAttr(uint64_t Bytes);
 
   /// \brief Return true if the builder contains no target-independent
   /// attributes.

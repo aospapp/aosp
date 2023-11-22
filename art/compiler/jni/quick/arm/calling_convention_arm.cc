@@ -16,10 +16,31 @@
 
 #include "base/logging.h"
 #include "calling_convention_arm.h"
+#include "handle_scope-inl.h"
 #include "utils/arm/managed_register_arm.h"
 
 namespace art {
 namespace arm {
+
+// Used by hard float.
+static const Register kHFCoreArgumentRegisters[] = {
+  R0, R1, R2, R3
+};
+
+static const SRegister kHFSArgumentRegisters[] = {
+  S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
+};
+
+static const SRegister kHFSCalleeSaveRegisters[] = {
+  S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
+};
+
+static const DRegister kHFDArgumentRegisters[] = {
+  D0, D1, D2, D3, D4, D5, D6, D7
+};
+
+static_assert(arraysize(kHFDArgumentRegisters) * 2 == arraysize(kHFSArgumentRegisters),
+    "ks d argument registers mismatch");
 
 // Calling convention
 
@@ -31,26 +52,43 @@ ManagedRegister ArmJniCallingConvention::InterproceduralScratchRegister() {
   return ArmManagedRegister::FromCoreRegister(IP);  // R12
 }
 
-static ManagedRegister ReturnRegisterForShorty(const char* shorty) {
-  if (shorty[0] == 'F') {
-    return ArmManagedRegister::FromCoreRegister(R0);
-  } else if (shorty[0] == 'D') {
-    return ArmManagedRegister::FromRegisterPair(R0_R1);
-  } else if (shorty[0] == 'J') {
-    return ArmManagedRegister::FromRegisterPair(R0_R1);
-  } else if (shorty[0] == 'V') {
-    return ArmManagedRegister::NoRegister();
+ManagedRegister ArmManagedRuntimeCallingConvention::ReturnRegister() {
+  if (kArm32QuickCodeUseSoftFloat) {
+    switch (GetShorty()[0]) {
+    case 'V':
+      return ArmManagedRegister::NoRegister();
+    case 'D':
+    case 'J':
+      return ArmManagedRegister::FromRegisterPair(R0_R1);
+    default:
+      return ArmManagedRegister::FromCoreRegister(R0);
+    }
   } else {
-    return ArmManagedRegister::FromCoreRegister(R0);
+    switch (GetShorty()[0]) {
+    case 'V':
+      return ArmManagedRegister::NoRegister();
+    case 'D':
+      return ArmManagedRegister::FromDRegister(D0);
+    case 'F':
+      return ArmManagedRegister::FromSRegister(S0);
+    case 'J':
+      return ArmManagedRegister::FromRegisterPair(R0_R1);
+    default:
+      return ArmManagedRegister::FromCoreRegister(R0);
+    }
   }
 }
 
-ManagedRegister ArmManagedRuntimeCallingConvention::ReturnRegister() {
-  return ReturnRegisterForShorty(GetShorty());
-}
-
 ManagedRegister ArmJniCallingConvention::ReturnRegister() {
-  return ReturnRegisterForShorty(GetShorty());
+  switch (GetShorty()[0]) {
+  case 'V':
+    return ArmManagedRegister::NoRegister();
+  case 'D':
+  case 'J':
+    return ArmManagedRegister::FromRegisterPair(R0_R1);
+  default:
+    return ArmManagedRegister::FromCoreRegister(R0);
+  }
 }
 
 ManagedRegister ArmJniCallingConvention::IntReturnRegister() {
@@ -88,15 +126,79 @@ FrameOffset ArmManagedRuntimeCallingConvention::CurrentParamStackOffset() {
 const ManagedRegisterEntrySpills& ArmManagedRuntimeCallingConvention::EntrySpills() {
   // We spill the argument registers on ARM to free them up for scratch use, we then assume
   // all arguments are on the stack.
-  if (entry_spills_.size() == 0) {
-    size_t num_spills = NumArgs() + NumLongOrDoubleArgs();
-    if (num_spills > 0) {
-      entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R1));
-      if (num_spills > 1) {
-        entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R2));
-        if (num_spills > 2) {
-          entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R3));
+  if (kArm32QuickCodeUseSoftFloat) {
+    if (entry_spills_.size() == 0) {
+      size_t num_spills = NumArgs() + NumLongOrDoubleArgs();
+      if (num_spills > 0) {
+        entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R1));
+        if (num_spills > 1) {
+          entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R2));
+          if (num_spills > 2) {
+            entry_spills_.push_back(ArmManagedRegister::FromCoreRegister(R3));
+          }
         }
+      }
+    }
+  } else {
+    if ((entry_spills_.size() == 0) && (NumArgs() > 0)) {
+      uint32_t gpr_index = 1;  // R0 ~ R3. Reserve r0 for ArtMethod*.
+      uint32_t fpr_index = 0;  // S0 ~ S15.
+      uint32_t fpr_double_index = 0;  // D0 ~ D7.
+
+      ResetIterator(FrameOffset(0));
+      while (HasNext()) {
+        if (IsCurrentParamAFloatOrDouble()) {
+          if (IsCurrentParamADouble()) {  // Double.
+            // Double should not overlap with float.
+            fpr_double_index = (std::max(fpr_double_index * 2, RoundUp(fpr_index, 2))) / 2;
+            if (fpr_double_index < arraysize(kHFDArgumentRegisters)) {
+              entry_spills_.push_back(
+                  ArmManagedRegister::FromDRegister(kHFDArgumentRegisters[fpr_double_index++]));
+            } else {
+              entry_spills_.push_back(ManagedRegister::NoRegister(), 8);
+            }
+          } else {  // Float.
+            // Float should not overlap with double.
+            if (fpr_index % 2 == 0) {
+              fpr_index = std::max(fpr_double_index * 2, fpr_index);
+            }
+            if (fpr_index < arraysize(kHFSArgumentRegisters)) {
+              entry_spills_.push_back(
+                  ArmManagedRegister::FromSRegister(kHFSArgumentRegisters[fpr_index++]));
+            } else {
+              entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
+            }
+          }
+        } else {
+          // FIXME: Pointer this returns as both reference and long.
+          if (IsCurrentParamALong() && !IsCurrentParamAReference()) {  // Long.
+            if (gpr_index < arraysize(kHFCoreArgumentRegisters) - 1) {
+              // Skip R1, and use R2_R3 if the long is the first parameter.
+              if (gpr_index == 1) {
+                gpr_index++;
+              }
+            }
+
+            // If it spans register and memory, we must use the value in memory.
+            if (gpr_index < arraysize(kHFCoreArgumentRegisters) - 1) {
+              entry_spills_.push_back(
+                  ArmManagedRegister::FromCoreRegister(kHFCoreArgumentRegisters[gpr_index++]));
+            } else if (gpr_index == arraysize(kHFCoreArgumentRegisters) - 1) {
+              gpr_index++;
+              entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
+            } else {
+              entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
+            }
+          }
+          // High part of long or 32-bit argument.
+          if (gpr_index < arraysize(kHFCoreArgumentRegisters)) {
+            entry_spills_.push_back(
+                ArmManagedRegister::FromCoreRegister(kHFCoreArgumentRegisters[gpr_index++]));
+          } else {
+            entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
+          }
+        }
+        Next();
       }
     }
   }
@@ -128,6 +230,10 @@ ArmJniCallingConvention::ArmJniCallingConvention(bool is_static, bool is_synchro
   callee_save_regs_.push_back(ArmManagedRegister::FromCoreRegister(R8));
   callee_save_regs_.push_back(ArmManagedRegister::FromCoreRegister(R10));
   callee_save_regs_.push_back(ArmManagedRegister::FromCoreRegister(R11));
+
+  for (size_t i = 0; i < arraysize(kHFSCalleeSaveRegisters); ++i) {
+    callee_save_regs_.push_back(ArmManagedRegister::FromSRegister(kHFSCalleeSaveRegisters[i]));
+  }
 }
 
 uint32_t ArmJniCallingConvention::CoreSpillMask() const {
@@ -137,14 +243,21 @@ uint32_t ArmJniCallingConvention::CoreSpillMask() const {
   return result;
 }
 
+uint32_t ArmJniCallingConvention::FpSpillMask() const {
+  uint32_t result = 0;
+  for (size_t i = 0; i < arraysize(kHFSCalleeSaveRegisters); ++i) {
+    result |= (1 << kHFSCalleeSaveRegisters[i]);
+  }
+  return result;
+}
+
 ManagedRegister ArmJniCallingConvention::ReturnScratchRegister() const {
   return ArmManagedRegister::FromCoreRegister(R2);
 }
 
 size_t ArmJniCallingConvention::FrameSize() {
   // Method*, LR and callee save area size, local reference segment state
-  size_t frame_data_size = sizeof(StackReference<mirror::ArtMethod>) +
-      (2 + CalleeSaveRegisters().size()) * kFramePointerSize;
+  size_t frame_data_size = kArmPointerSize + (2 + CalleeSaveRegisters().size()) * kFramePointerSize;
   // References plus 2 words for HandleScope header
   size_t handle_scope_size = HandleScope::SizeOf(kFramePointerSize, ReferenceCount());
   // Plus return value spill area size

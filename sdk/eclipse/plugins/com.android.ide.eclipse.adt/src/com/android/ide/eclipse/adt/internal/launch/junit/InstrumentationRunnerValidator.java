@@ -16,6 +16,8 @@
 package com.android.ide.eclipse.adt.internal.launch.junit;
 
 import com.android.SdkConstants;
+import com.android.annotations.NonNull;
+import com.android.annotations.Nullable;
 import com.android.ide.common.xml.ManifestData;
 import com.android.ide.common.xml.ManifestData.Instrumentation;
 import com.android.ide.common.xml.ManifestData.UsesLibrary;
@@ -71,6 +73,12 @@ class InstrumentationRunnerValidator {
     }
 
     private void init(ManifestData manifestData) {
+        if (manifestData == null) {
+            mInstrumentationNames = new String[0];
+            mHasRunnerLibrary = false;
+            return;
+        }
+
         Instrumentation[] instrumentations = manifestData.getInstrumentations();
         mInstrumentationNames = new String[instrumentations.length];
         for (int i = 0; i < instrumentations.length; i++) {
@@ -98,9 +106,9 @@ class InstrumentationRunnerValidator {
     /**
      * Return the set of instrumentation names for the Android project.
      *
-     * @return <code>null</code> if error occurred parsing instrumentations, otherwise returns array
-     * of instrumentation class names
+     * @return array of instrumentation class names, possibly empty
      */
+    @NonNull
     String[] getInstrumentationNames() {
         return mInstrumentationNames;
     }
@@ -111,6 +119,7 @@ class InstrumentationRunnerValidator {
      * @return fully qualified instrumentation class name. <code>null</code> if no valid
      * instrumentation can be found.
      */
+    @Nullable
     String getValidInstrumentationTestRunner() {
         for (String instrumentation : getInstrumentationNames()) {
             if (validateInstrumentationRunner(instrumentation) == INSTRUMENTATION_OK) {

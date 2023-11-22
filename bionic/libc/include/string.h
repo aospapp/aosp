@@ -25,21 +25,28 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#ifndef _STRING_H_
-#define _STRING_H_
+
+#ifndef _STRING_H
+#define _STRING_H
 
 #include <sys/cdefs.h>
 #include <stddef.h>
-#include <malloc.h>
 #include <xlocale.h>
 
 __BEGIN_DECLS
+
+#if defined(__USE_BSD)
+#include <strings.h>
+#endif
 
 extern void*  memccpy(void* __restrict, const void* __restrict, int, size_t);
 extern void*  memchr(const void *, int, size_t) __purefunc;
 extern void*  memrchr(const void *, int, size_t) __purefunc;
 extern int    memcmp(const void *, const void *, size_t) __purefunc;
 extern void*  memcpy(void* __restrict, const void* __restrict, size_t);
+#if defined(__USE_GNU)
+extern void*  mempcpy(void* __restrict, const void* __restrict, size_t);
+#endif
 extern void*  memmove(void *, const void *, size_t);
 extern void*  memset(void *, int, size_t);
 extern void*  memmem(const void *, size_t, const void *, size_t) __purefunc;
@@ -57,8 +64,11 @@ extern char*  stpcpy(char* __restrict, const char* __restrict);
 extern char*  strcpy(char* __restrict, const char* __restrict);
 extern char*  strcat(char* __restrict, const char* __restrict);
 
-extern int    strcasecmp(const char *, const char *) __purefunc;
-extern int    strncasecmp(const char *, const char *, size_t) __purefunc;
+int strcasecmp(const char*, const char*) __purefunc;
+int strcasecmp_l(const char*, const char*, locale_t) __purefunc;
+int strncasecmp(const char*, const char*, size_t) __purefunc;
+int strncasecmp_l(const char*, const char*, size_t, locale_t) __purefunc;
+
 extern char*  strdup(const char *);
 
 extern char*  strstr(const char *, const char *) __purefunc;
@@ -66,8 +76,13 @@ extern char*  strcasestr(const char *haystack, const char *needle) __purefunc;
 extern char*  strtok(char* __restrict, const char* __restrict);
 extern char*  strtok_r(char* __restrict, const char* __restrict, char** __restrict);
 
-extern char*  strerror(int);
-extern int    strerror_r(int errnum, char *buf, size_t n);
+extern char* strerror(int);
+extern char* strerror_l(int, locale_t);
+#if defined(__USE_GNU)
+extern char* strerror_r(int, char*, size_t) __RENAME(__gnu_strerror_r);
+#else /* POSIX */
+extern int strerror_r(int, char*, size_t);
+#endif
 
 extern size_t strnlen(const char *, size_t) __purefunc;
 extern char*  strncat(char* __restrict, const char* __restrict, size_t);
@@ -92,6 +107,27 @@ extern size_t strxfrm(char* __restrict, const char* __restrict, size_t);
 extern int    strcoll_l(const char *, const char *, locale_t) __purefunc;
 extern size_t strxfrm_l(char* __restrict, const char* __restrict, size_t, locale_t);
 
+#if defined(__USE_GNU) && !defined(__bionic_using_posix_basename)
+/*
+ * glibc has a basename in <string.h> that's different to the POSIX one in <libgen.h>.
+ * It doesn't modify its argument, and in C++ it's const-correct.
+ */
+#if defined(__cplusplus)
+extern "C++" char* basename(char*) __RENAME(__gnu_basename) __nonnull((1));
+extern "C++" const char* basename(const char*) __RENAME(__gnu_basename) __nonnull((1));
+#else
+extern char* basename(const char*) __RENAME(__gnu_basename) __nonnull((1));
+#endif
+#define __bionic_using_gnu_basename
+#endif
+
+extern void* __memchr_chk(const void*, int, size_t, size_t);
+__errordecl(__memchr_buf_size_error, "memchr called with size bigger than buffer");
+
+extern void* __memrchr_chk(const void*, int, size_t, size_t);
+__errordecl(__memrchr_buf_size_error, "memrchr called with size bigger than buffer");
+extern void* __memrchr_real(const void*, int, size_t) __RENAME(memrchr);
+
 extern char* __stpncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
 extern char* __strncpy_chk2(char* __restrict, const char* __restrict, size_t, size_t, size_t);
 extern size_t __strlcpy_real(char* __restrict, const char* __restrict, size_t) __RENAME(strlcpy);
@@ -100,6 +136,48 @@ extern size_t __strlcat_real(char* __restrict, const char* __restrict, size_t) _
 extern size_t __strlcat_chk(char* __restrict, const char* __restrict, size_t, size_t);
 
 #if defined(__BIONIC_FORTIFY)
+
+__BIONIC_FORTIFY_INLINE
+void* memchr(const void *s, int c, size_t n) {
+    size_t bos = __bos(s);
+
+#if !defined(__clang__)
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __builtin_memchr(s, c, n);
+    }
+
+    if (__builtin_constant_p(n) && (n > bos)) {
+        __memchr_buf_size_error();
+    }
+
+    if (__builtin_constant_p(n) && (n <= bos)) {
+        return __builtin_memchr(s, c, n);
+    }
+#endif
+
+    return __memchr_chk(s, c, n, bos);
+}
+
+__BIONIC_FORTIFY_INLINE
+void* memrchr(const void *s, int c, size_t n) {
+    size_t bos = __bos(s);
+
+#if !defined(__clang__)
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __memrchr_real(s, c, n);
+    }
+
+    if (__builtin_constant_p(n) && (n > bos)) {
+        __memrchr_buf_size_error();
+    }
+
+    if (__builtin_constant_p(n) && (n <= bos)) {
+        return __memrchr_real(s, c, n);
+    }
+#endif
+
+    return __memrchr_chk(s, c, n, bos);
+}
 
 __BIONIC_FORTIFY_INLINE
 void* memcpy(void* __restrict dest, const void* __restrict src, size_t copy_amount) {
@@ -281,4 +359,4 @@ char* strrchr(const char *s, int c) {
 
 __END_DECLS
 
-#endif /* _STRING_H_ */
+#endif /* _STRING_H */

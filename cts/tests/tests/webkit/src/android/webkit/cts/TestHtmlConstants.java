@@ -67,6 +67,9 @@ public class TestHtmlConstants {
     public static final String STOP_LOADING_URL = "webkit/test_stop_loading.html";
     public static final String BLANK_TAG_URL = "webkit/blank_tag.html";
     public static final String PAGE_WITH_LINK_URL = "webkit/page_with_link.html";
+    // Not a real page, just triggers a 404 response.
+    public static final String NON_EXISTENT_PAGE_URL = "webkit/generate_404.html";
+    public static final String BAD_IMAGE_PAGE_URL = "webkit/test_bad_image_url.html";
 
     // Must match the title of the page at
     // android/frameworks/base/core/res/res/raw/loaderror.html

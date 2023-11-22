@@ -17,8 +17,17 @@
 package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.features.CollectionFeature;
+import com.google.common.collect.testing.features.CollectionSize;
+import com.google.common.collect.testing.features.MapFeature;
+import com.google.common.collect.testing.google.BiMapTestSuiteBuilder;
+import com.google.common.collect.testing.google.TestStringBiMapGenerator;
 
-import java.util.IdentityHashMap;
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
+
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -29,19 +38,35 @@ import java.util.Set;
  *
  * @author Mike Bostock
  */
-@GwtCompatible
-public class HashBiMapTest extends AbstractBiMapTest {
+@GwtCompatible(emulated = true)
+public class HashBiMapTest extends TestCase {
 
-  @Override protected BiMap<Integer, String> create() {
-    return HashBiMap.create();
+  public static final class HashBiMapGenerator extends TestStringBiMapGenerator {
+    @Override
+    protected BiMap<String, String> create(Entry<String, String>[] entries) {
+      BiMap<String, String> result = HashBiMap.create();
+      for (Entry<String, String> entry : entries) {
+        result.put(entry.getKey(), entry.getValue());
+      }
+      return result;
+    }
   }
 
-  public void testCreate() {
-    BiMap<String, String> bimap = HashBiMap.create();
-    assertEquals(0, bimap.size());
-    bimap.put("canada", "dollar");
-    assertEquals("dollar", bimap.get("canada"));
-    assertEquals("canada", bimap.inverse().get("dollar"));
+  @GwtIncompatible("suite")
+  public static Test suite() {
+    TestSuite suite = new TestSuite();
+    suite.addTest(BiMapTestSuiteBuilder.using(new HashBiMapGenerator())
+      .named("HashBiMap")
+      .withFeatures(CollectionSize.ANY,
+          CollectionFeature.SERIALIZABLE,
+          CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+          MapFeature.ALLOWS_NULL_KEYS,
+          MapFeature.ALLOWS_NULL_VALUES,
+          MapFeature.ALLOWS_ANY_NULL_QUERIES,
+          MapFeature.GENERAL_PURPOSE)
+      .createTestSuite());
+    suite.addTestSuite(HashBiMapTest.class);
+    return suite;
   }
 
   public void testMapConstructor() {
@@ -89,35 +114,16 @@ public class HashBiMapTest extends AbstractBiMapTest {
     }
   }
 
-  // The next two tests verify that map entries are not accessed after they're
-  // removed, since IdentityHashMap throws an exception when that occurs.
-  public void testIdentityKeySetIteratorRemove() {
-    bimap = new AbstractBiMap<Integer, String>(
-        new IdentityHashMap<Integer, String>(),
-        new IdentityHashMap<String, Integer>()) {};
-    putOneTwoThree();
-    Iterator<Integer> iterator = bimap.keySet().iterator();
-    iterator.next();
-    iterator.next();
-    iterator.remove();
-    iterator.next();
-    iterator.remove();
-    assertEquals(1, bimap.size());
-    assertEquals(1, bimap.inverse().size());
-  }
-
-  public void testIdentityEntrySetIteratorRemove() {
-    bimap = new AbstractBiMap<Integer, String>(
-        new IdentityHashMap<Integer, String>(),
-        new IdentityHashMap<String, Integer>()) {};
-    putOneTwoThree();
-    Iterator<Entry<Integer, String>> iterator = bimap.entrySet().iterator();
-    iterator.next();
-    iterator.next();
-    iterator.remove();
-    iterator.next();
-    iterator.remove();
-    assertEquals(1, bimap.size());
-    assertEquals(1, bimap.inverse().size());
+  public void testBiMapEntrySetIteratorRemove() {
+    BiMap<Integer, String> map = HashBiMap.create();
+    map.put(1, "one");
+    Set<Map.Entry<Integer, String>> entries = map.entrySet();
+    Iterator<Map.Entry<Integer, String>> iterator = entries.iterator();
+    Map.Entry<Integer, String> entry = iterator.next();
+    entry.setValue("two"); // changes the iterator's current entry value
+    assertEquals("two", map.get(1));
+    assertEquals(Integer.valueOf(1), map.inverse().get("two"));
+    iterator.remove(); // removes the updated entry
+    assertTrue(map.isEmpty());
   }
 }

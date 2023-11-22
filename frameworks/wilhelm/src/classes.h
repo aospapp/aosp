@@ -71,7 +71,7 @@
     SLuint8 mMuteMask;      // Mask for which channels are muted: bit 0=left, 1=right
     SLuint8 mSoloMask;      // Mask for which channels are soloed: bit 0=left, 1=right
     SLuint8 mNumChannels;   // initially UNKNOWN_NUMCHANNELS, then const once it is known,
-                            // range 1 <= x <= 8
+                            // range 1 <= x <= 8 FIXME FCC_8
     // End of former IMuteSolo fields
     SLuint32 mSampleRateMilliHz;// initially UNKNOWN_SAMPLERATE, then const once it is known
     // Formerly at IEffectSend
@@ -146,7 +146,7 @@
     DataLocatorFormat mDataSink;
     // cached data for this instance
     SLuint8 mNumChannels;   // initially UNKNOWN_NUMCHANNELS, then const once it is known,
-                            // range 1 <= x <= 8
+                            // range 1 <= x <= 8 FIXME FCC_8
     SLuint32 mSampleRateMilliHz;// initially UNKNOWN_SAMPLERATE, then const once it is known
     // implementation-specific data for this instance
 #ifdef ANDROID
@@ -335,7 +335,7 @@ typedef struct CMediaPlayer_struct {
     DataLocatorFormat mVibraSink;
     DataLocatorFormat mLEDArraySink;
     SLuint8 mNumChannels;   // initially UNKNOWN_NUMCHANNELS, then const once it is known,
-                            // range 1 <= x <= 8
+                            // range 1 <= x <= 8 FIXME FCC_8
 #ifdef ANDROID
     android::sp<android::GenericPlayer> mAVPlayer;
     android::sp<android::CallbackProtector> mCallbackProtector;

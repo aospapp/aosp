@@ -13,8 +13,9 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
- <animation-list xmlns:android="http://schemas.android.com/apk/res/android">
-    android:id="@+id/blink_animation" android:oneshot="false">
+ <animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/blink_animation"
+    android:oneshot="false">
     <item android:drawable="@drawable/pairing_press" android:duration="500" />
     <item android:drawable="@drawable/pairing_normal" android:duration="500" />
  </animation-list>

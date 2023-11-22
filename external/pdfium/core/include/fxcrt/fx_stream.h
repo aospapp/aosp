@@ -1,21 +1,24 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_STREAM_H_
-#define _FX_STREAM_H_
-#ifndef _FX_MEMORY_H_
+#ifndef CORE_INCLUDE_FXCRT_FX_STREAM_H_
+#define CORE_INCLUDE_FXCRT_FX_STREAM_H_
+
 #include "fx_memory.h"
-#endif
+#include "fx_string.h"
+
 void* FX_OpenFolder(FX_LPCSTR path);
 void* FX_OpenFolder(FX_LPCWSTR path);
 FX_BOOL FX_GetNextFile(void* handle, CFX_ByteString& filename, FX_BOOL& bFolder);
 FX_BOOL FX_GetNextFile(void* handle, CFX_WideString& filename, FX_BOOL& bFolder);
 void FX_CloseFolder(void* handle);
 FX_WCHAR FX_GetFolderSeparator();
-FX_DEFINEHANDLE(FX_HFILE)
+typedef struct FX_HFILE_ {
+    FX_LPVOID pData;
+}* FX_HFILE;
 #if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_
 #define FX_FILESIZE			FX_INT32
 #else
@@ -41,9 +44,9 @@ FX_DEFINEHANDLE(FX_HFILE)
 #define FX_FILEMODE_Write		0
 #define FX_FILEMODE_ReadOnly	1
 #define FX_FILEMODE_Truncate	2
-FX_HFILE	FX_File_Open(FX_BSTR fileName, FX_DWORD dwMode, IFX_Allocator* pAllocator = NULL);
-FX_HFILE	FX_File_Open(FX_WSTR fileName, FX_DWORD dwMode, IFX_Allocator* pAllocator = NULL);
-void		FX_File_Close(FX_HFILE hFile, IFX_Allocator* pAllocator = NULL);
+FX_HFILE	FX_File_Open(FX_BSTR fileName, FX_DWORD dwMode);
+FX_HFILE	FX_File_Open(FX_WSTR fileName, FX_DWORD dwMode);
+void		FX_File_Close(FX_HFILE hFile);
 FX_FILESIZE	FX_File_GetSize(FX_HFILE hFile);
 FX_FILESIZE	FX_File_GetPosition(FX_HFILE hFile);
 FX_FILESIZE	FX_File_SetPosition(FX_HFILE hFile, FX_FILESIZE pos);
@@ -64,7 +67,7 @@ FX_BOOL		FX_File_Move(FX_WSTR fileNameSrc, FX_WSTR fileNameDst);
 class IFX_StreamWrite
 {
 public:
-
+    virtual ~IFX_StreamWrite() { }
     virtual void		Release() = 0;
 
     virtual	FX_BOOL		WriteBlock(const void* pData, size_t size) = 0;
@@ -85,11 +88,12 @@ public:
         return WriteBlock(pData, GetSize(), size);
     }
 };
-IFX_FileWrite* FX_CreateFileWrite(FX_LPCSTR filename, IFX_Allocator* pAllocator = NULL);
-IFX_FileWrite* FX_CreateFileWrite(FX_LPCWSTR filename, IFX_Allocator* pAllocator = NULL);
+IFX_FileWrite* FX_CreateFileWrite(FX_LPCSTR filename);
+IFX_FileWrite* FX_CreateFileWrite(FX_LPCWSTR filename);
 class IFX_StreamRead
 {
 public:
+    virtual ~IFX_StreamRead() { }
 
     virtual void			Release() = 0;
 
@@ -102,7 +106,6 @@ public:
 class IFX_FileRead : IFX_StreamRead
 {
 public:
-
     virtual void			Release() = 0;
 
     virtual FX_FILESIZE		GetSize() = 0;
@@ -131,8 +134,8 @@ public:
         return 0;
     }
 };
-IFX_FileRead* FX_CreateFileRead(FX_LPCSTR filename, IFX_Allocator* pAllocator = NULL);
-IFX_FileRead* FX_CreateFileRead(FX_LPCWSTR filename, IFX_Allocator* pAllocator = NULL);
+IFX_FileRead* FX_CreateFileRead(FX_LPCSTR filename);
+IFX_FileRead* FX_CreateFileRead(FX_LPCWSTR filename);
 class IFX_FileStream : public IFX_FileRead, public IFX_FileWrite
 {
 public:
@@ -159,8 +162,8 @@ public:
 
     virtual FX_BOOL				Flush() = 0;
 };
-IFX_FileStream*		FX_CreateFileStream(FX_LPCSTR filename, FX_DWORD dwModes, IFX_Allocator* pAllocator = NULL);
-IFX_FileStream*		FX_CreateFileStream(FX_LPCWSTR filename, FX_DWORD dwModes, IFX_Allocator* pAllocator = NULL);
+IFX_FileStream*		FX_CreateFileStream(FX_LPCSTR filename, FX_DWORD dwModes);
+IFX_FileStream*		FX_CreateFileStream(FX_LPCWSTR filename, FX_DWORD dwModes);
 class IFX_MemoryStream : public IFX_FileStream
 {
 public:
@@ -175,8 +178,8 @@ public:
 
     virtual void			DetachBuffer() = 0;
 };
-IFX_MemoryStream*	FX_CreateMemoryStream(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver = FALSE, IFX_Allocator* pAllocator = NULL);
-IFX_MemoryStream*	FX_CreateMemoryStream(FX_BOOL bConsecutive = FALSE, IFX_Allocator* pAllocator = NULL);
+IFX_MemoryStream*	FX_CreateMemoryStream(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver = FALSE);
+IFX_MemoryStream*	FX_CreateMemoryStream(FX_BOOL bConsecutive = FALSE);
 class IFX_BufferRead : public IFX_StreamRead
 {
 public:
@@ -197,4 +200,5 @@ public:
 
     virtual FX_FILESIZE		GetBlockOffset() = 0;
 };
-#endif
+
+#endif  // CORE_INCLUDE_FXCRT_FX_STREAM_H_

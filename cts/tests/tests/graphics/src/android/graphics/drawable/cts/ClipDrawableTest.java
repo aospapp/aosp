@@ -22,6 +22,7 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -67,19 +68,21 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     public void testGetChangingConfigurations() {
+        final int SUPER_CONFIG = 1;
+        final int CONTAINED_DRAWABLE_CONFIG = 2;
+
         MockDrawable mockDrawable = new MockDrawable();
         ClipDrawable clipDrawable = new ClipDrawable(mockDrawable,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
+
         assertEquals(0, clipDrawable.getChangingConfigurations());
 
-        clipDrawable.setChangingConfigurations(1);
-        assertEquals(1, clipDrawable.getChangingConfigurations());
+        mockDrawable.setChangingConfigurations(CONTAINED_DRAWABLE_CONFIG);
+        assertEquals(CONTAINED_DRAWABLE_CONFIG, clipDrawable.getChangingConfigurations());
 
-        mockDrawable.setChangingConfigurations(2);
-        clipDrawable = new ClipDrawable(mockDrawable,
-                Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        clipDrawable.setChangingConfigurations(1);
-        assertEquals(3, clipDrawable.getChangingConfigurations());
+        clipDrawable.setChangingConfigurations(SUPER_CONFIG);
+        assertEquals(SUPER_CONFIG | CONTAINED_DRAWABLE_CONFIG,
+                clipDrawable.getChangingConfigurations());
     }
 
     public void testGetConstantState() {
@@ -125,16 +128,28 @@ public class ClipDrawableTest extends AndroidTestCase {
 
     @SuppressWarnings("deprecation")
     public void testGetOpacity() {
-        BitmapDrawable bmpDrawable =
-            new BitmapDrawable(Bitmap.createBitmap(100, 50, Config.RGB_565));
-        ClipDrawable clipDrawable = new ClipDrawable(bmpDrawable,
-                Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        assertEquals(PixelFormat.OPAQUE, clipDrawable.getOpacity());
+        MockDrawable dr;
+        ClipDrawable clipDrawable;
 
-        bmpDrawable = new BitmapDrawable(Bitmap.createBitmap(100, 50, Config.RGB_565));
-        bmpDrawable.setGravity(Gravity.CENTER);
-        clipDrawable = new ClipDrawable(bmpDrawable, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        assertEquals(PixelFormat.TRANSLUCENT, clipDrawable.getOpacity());
+        dr = new MockDrawable();
+        dr.setOpacity(PixelFormat.OPAQUE);
+        clipDrawable = new ClipDrawable(dr, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
+        clipDrawable.setLevel(0);
+        assertEquals("Fully-clipped opaque drawable is transparent",
+                PixelFormat.TRANSPARENT, clipDrawable.getOpacity());
+        clipDrawable.setLevel(5000);
+        assertEquals("Partially-clipped opaque drawable is translucent",
+                PixelFormat.TRANSLUCENT, clipDrawable.getOpacity());
+        clipDrawable.setLevel(10000);
+        assertEquals("Unclipped opaque drawable is opaque",
+                PixelFormat.OPAQUE, clipDrawable.getOpacity());
+
+        dr = new MockDrawable();
+        dr.setOpacity(PixelFormat.TRANSLUCENT);
+        clipDrawable = new ClipDrawable(dr, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
+        clipDrawable.setLevel(10000);
+        assertEquals("Unclipped translucent drawable is translucent",
+                PixelFormat.TRANSLUCENT, clipDrawable.getOpacity());
     }
 
     public void testGetPadding() {
@@ -219,7 +234,7 @@ public class ClipDrawableTest extends AndroidTestCase {
         MockCallback callback = new MockCallback();
         mockClipDrawable.setCallback(callback);
 
-        assertEquals(0, mockDrawable.getLevel());
+        assertEquals("Default level is 0", 0, mockDrawable.getLevel());
         mockClipDrawable.onLevelChange(1000);
         assertEquals(1000, mockDrawable.getLevel());
         assertSame(mockClipDrawable, callback.getInvalidateDrawable());
@@ -232,16 +247,24 @@ public class ClipDrawableTest extends AndroidTestCase {
     }
 
     public void testOnStateChange() {
-        MockDrawable mockDrawable = new MockDrawable();
-        MockClipDrawable mockClipDrawable = new MockClipDrawable(mockDrawable,
+        Drawable d = mContext.getDrawable(R.drawable.pass);
+        MockClipDrawable clipDrawable = new MockClipDrawable(d,
                 Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
-        assertEquals(StateSet.WILD_CARD, mockDrawable.getState());
+        assertEquals("initial child state is empty", d.getState(), StateSet.WILD_CARD);
 
-        int[] states = new int[] {1, 2, 3};
-        assertFalse(mockClipDrawable.onStateChange(states));
-        assertEquals(states, mockDrawable.getState());
+        int[] state = new int[] {1, 2, 3};
+        assertFalse("child did not change", clipDrawable.onStateChange(state));
+        assertEquals("child state did not change", d.getState(), StateSet.WILD_CARD);
 
-        mockClipDrawable.onStateChange(null);
+        d = mContext.getDrawable(R.drawable.statelistdrawable);
+        clipDrawable = new MockClipDrawable(d, Gravity.BOTTOM, ClipDrawable.HORIZONTAL);
+        assertEquals("initial child state is empty", d.getState(), StateSet.WILD_CARD);
+        clipDrawable.onStateChange(state);
+        assertTrue("child state changed", Arrays.equals(state, d.getState()));
+
+        // input null as param
+        clipDrawable.onStateChange(null);
+        // expected, no Exception thrown out, test success
     }
 
     public void testScheduleDrawable() {
@@ -335,6 +358,7 @@ public class ClipDrawableTest extends AndroidTestCase {
     private class MockDrawable extends Drawable {
         private ColorFilter mColorFilter;
         private ConstantState mConstantState;
+        private int mOpacity;
         private boolean mCalledDraw = false;
         private int mAlpha;
 
@@ -363,7 +387,11 @@ public class ClipDrawableTest extends AndroidTestCase {
         }
 
         public int getOpacity() {
-            return 0;
+            return mOpacity;
+        }
+
+        public void setOpacity(int opacity) {
+            mOpacity = opacity;
         }
 
         protected void onBoundsChange(Rect bounds) {

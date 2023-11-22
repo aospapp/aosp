@@ -690,6 +690,7 @@ mDNSlocal int SetupSocket(struct sockaddr *intfAddr, mDNSIPPort port, int interf
 			// We no longer depend on being able to get the received TTL, so don't worry if the option fails
 			}
 	#endif
+
 		// Add multicast group membership on this interface
 		if (err == 0 && JoinMulticastGroup)
 			{

@@ -8,7 +8,6 @@ static float4 data_f4[1025];
 static void test_mad4(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~1 billion ops
     for (int ct=0; ct < 1000 * (1000 / 80); ct++) {
         for (int i=0; i < (1000); i++) {
@@ -32,7 +31,6 @@ static void test_mad4(uint32_t index) {
 static void test_mad(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~1 billion ops
     for (int ct=0; ct < 1000 * (1000 / 20); ct++) {
         for (int i=0; i < (1000); i++) {
@@ -56,7 +54,6 @@ static void test_mad(uint32_t index) {
 static void test_norm(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~10 M ops
     for (int ct=0; ct < 1000 * 10; ct++) {
         for (int i=0; i < (1000); i++) {
@@ -71,7 +68,6 @@ static void test_norm(uint32_t index) {
 static void test_sincos4(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~10 M ops
     for (int ct=0; ct < 1000 * 10 / 4; ct++) {
         for (int i=0; i < (1000); i++) {
@@ -86,7 +82,6 @@ static void test_sincos4(uint32_t index) {
 static void test_sincos(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~10 M ops
     for (int ct=0; ct < 1000 * 10; ct++) {
         for (int i=0; i < (1000); i++) {
@@ -127,7 +122,6 @@ static void test_clamp(uint32_t index) {
 static void test_clamp4(uint32_t index) {
     start();
 
-    float total = 0;
     // Do ~100 M ops
     for (int ct=0; ct < 1000 * 100 /4; ct++) {
         for (int i=0; i < (1000); i++) {
@@ -170,5 +164,3 @@ void fp_mad_test(uint32_t index, int test_num) {
     rsDebug("fp_mad_test PASSED", 0);
     rsSendToClientBlocking(RS_MSG_TEST_PASSED);
 }
-
-

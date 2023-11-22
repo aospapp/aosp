@@ -96,7 +96,7 @@ Texture2DFormatCase::Texture2DFormatCase (tcu::TestContext& testCtx, glu::Render
 	, m_width		(width)
 	, m_height		(height)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -108,7 +108,7 @@ Texture2DFormatCase::Texture2DFormatCase (tcu::TestContext& testCtx, glu::Render
 	, m_width		(width)
 	, m_height		(height)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -257,7 +257,7 @@ TextureCubeFormatCase::TextureCubeFormatCase (tcu::TestContext& testCtx, glu::Re
 	, m_width		(width)
 	, m_height		(height)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curFace		(0)
 	, m_isOk		(false)
 {
@@ -271,7 +271,7 @@ TextureCubeFormatCase::TextureCubeFormatCase (tcu::TestContext& testCtx, glu::Re
 	, m_width		(width)
 	, m_height		(height)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curFace		(0)
 	, m_isOk		(false)
 {
@@ -453,7 +453,7 @@ Texture2DArrayFormatCase::Texture2DArrayFormatCase (tcu::TestContext& testCtx, g
 	, m_height		(height)
 	, m_numLayers	(numLayers)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curLayer	(0)
 {
 }
@@ -467,7 +467,7 @@ Texture2DArrayFormatCase::Texture2DArrayFormatCase (tcu::TestContext& testCtx, g
 	, m_height		(height)
 	, m_numLayers	(numLayers)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curLayer	(0)
 {
 }
@@ -605,7 +605,7 @@ Texture3DFormatCase::Texture3DFormatCase (tcu::TestContext& testCtx, glu::Render
 	, m_height		(height)
 	, m_depth		(depth)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curSlice	(0)
 {
 }
@@ -619,7 +619,7 @@ Texture3DFormatCase::Texture3DFormatCase (tcu::TestContext& testCtx, glu::Render
 	, m_height		(height)
 	, m_depth		(depth)
 	, m_texture		(DE_NULL)
-	, m_renderer	(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curSlice	(0)
 {
 }
@@ -721,15 +721,15 @@ Texture3DFormatCase::IterateResult Texture3DFormatCase::iterate (void)
 class Compressed2DFormatCase : public tcu::TestCase
 {
 public:
-										Compressed2DFormatCase		(tcu::TestContext&					testCtx,
-																	 glu::RenderContext&				renderCtx,
-																	 const glu::ContextInfo&			renderCtxInfo,
-																	 const char*						name,
-																	 const char*						description,
-																	 tcu::CompressedTexture::Format		format,
-																	 deUint32							randomSeed,
-																	 int								width,
-																	 int								height);
+										Compressed2DFormatCase		(tcu::TestContext&				testCtx,
+																	 glu::RenderContext&			renderCtx,
+																	 const glu::ContextInfo&		renderCtxInfo,
+																	 const char*					name,
+																	 const char*					description,
+																	 tcu::CompressedTexFormat		format,
+																	 deUint32						randomSeed,
+																	 int							width,
+																	 int							height);
 										~Compressed2DFormatCase		(void);
 
 	void								init						(void);
@@ -743,7 +743,7 @@ private:
 	glu::RenderContext&					m_renderCtx;
 	const glu::ContextInfo&				m_renderCtxInfo;
 
-	tcu::CompressedTexture::Format		m_format;
+	tcu::CompressedTexFormat			m_format;
 
 	deUint32							m_randomSeed;
 	int									m_width;
@@ -753,15 +753,15 @@ private:
 	TextureTestUtil::TextureRenderer	m_renderer;
 };
 
-Compressed2DFormatCase::Compressed2DFormatCase (tcu::TestContext&				testCtx,
-												glu::RenderContext&				renderCtx,
-												const glu::ContextInfo&			renderCtxInfo,
-												const char*						name,
-												const char*						description,
-												tcu::CompressedTexture::Format	format,
-												deUint32						randomSeed,
-												int								width,
-												int								height)
+Compressed2DFormatCase::Compressed2DFormatCase (tcu::TestContext&			testCtx,
+												glu::RenderContext&			renderCtx,
+												const glu::ContextInfo&		renderCtxInfo,
+												const char*					name,
+												const char*					description,
+												tcu::CompressedTexFormat	format,
+												deUint32					randomSeed,
+												int							width,
+												int							height)
 	: TestCase			(testCtx, name, description)
 	, m_renderCtx		(renderCtx)
 	, m_renderCtxInfo	(renderCtxInfo)
@@ -770,7 +770,7 @@ Compressed2DFormatCase::Compressed2DFormatCase (tcu::TestContext&				testCtx,
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -856,15 +856,16 @@ Compressed2DFormatCase::IterateResult Compressed2DFormatCase::iterate (void)
 class CompressedCubeFormatCase : public tcu::TestCase
 {
 public:
-										CompressedCubeFormatCase	(tcu::TestContext& testCtx,
-																	 glu::RenderContext& renderCtx,
-																	 const glu::ContextInfo& renderCtxInfo,
-																	 const char* name,
-																	 const char* description,
-																	 tcu::CompressedTexture::Format format,
-																	 deUint32 randomSeed,
-																	 int width,
-																	 int height);
+										CompressedCubeFormatCase	(tcu::TestContext&			testCtx,
+																	 glu::RenderContext&		renderCtx,
+																	 const glu::ContextInfo&	renderCtxInfo,
+																	 const char*				name,
+																	 const char*				description,
+																	 tcu::CompressedTexFormat	format,
+																	 deUint32					randomSeed,
+																	 int						width,
+																	 int						height);
+
 										~CompressedCubeFormatCase	(void);
 
 	void								init						(void);
@@ -880,7 +881,7 @@ private:
 	glu::RenderContext&					m_renderCtx;
 	const glu::ContextInfo&				m_renderCtxInfo;
 
-	tcu::CompressedTexture::Format		m_format;
+	tcu::CompressedTexFormat			m_format;
 
 	deUint32							m_randomSeed;
 	int									m_width;
@@ -893,15 +894,15 @@ private:
 	bool								m_isOk;
 };
 
-CompressedCubeFormatCase::CompressedCubeFormatCase (tcu::TestContext& testCtx,
-													glu::RenderContext& renderCtx,
-													const glu::ContextInfo& renderCtxInfo,
-													const char* name,
-													const char* description,
-													tcu::CompressedTexture::Format format,
-													deUint32 randomSeed,
-													int width,
-													int height)
+CompressedCubeFormatCase::CompressedCubeFormatCase (tcu::TestContext&			testCtx,
+													glu::RenderContext&			renderCtx,
+													const glu::ContextInfo&		renderCtxInfo,
+													const char*					name,
+													const char*					description,
+													tcu::CompressedTexFormat	format,
+													deUint32					randomSeed,
+													int							width,
+													int							height)
 	: TestCase			(testCtx, name, description)
 	, m_renderCtx		(renderCtx)
 	, m_renderCtxInfo	(renderCtxInfo)
@@ -910,7 +911,7 @@ CompressedCubeFormatCase::CompressedCubeFormatCase (tcu::TestContext& testCtx,
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curFace			(0)
 	, m_isOk			(false)
 {
@@ -1047,7 +1048,7 @@ Texture2DFileCase::Texture2DFileCase (tcu::TestContext& testCtx, glu::RenderCont
 	, m_renderCtxInfo	(renderCtxInfo)
 	, m_filenames		(filenames)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -1152,7 +1153,7 @@ TextureCubeFileCase::TextureCubeFileCase (tcu::TestContext& testCtx, glu::Render
 	, m_renderCtxInfo	(renderCtxInfo)
 	, m_filenames		(filenames)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 	, m_curFace			(0)
 	, m_isOk			(false)
 {
@@ -1456,21 +1457,21 @@ void TextureFormatTests::init (void)
 
 	// ETC-2 and EAC compressed formats.
 	struct {
-		const char*						descriptionBase;
-		const char*						nameBase;
-		tcu::CompressedTexture::Format	format;
+		const char*					descriptionBase;
+		const char*					nameBase;
+		tcu::CompressedTexFormat	format;
 	} etc2Formats[] =
 	{
-		{ "GL_COMPRESSED_R11_EAC",							"eac_r11",							tcu::CompressedTexture::EAC_R11,						},
-		{ "GL_COMPRESSED_SIGNED_R11_EAC",					"eac_signed_r11",					tcu::CompressedTexture::EAC_SIGNED_R11,					},
-		{ "GL_COMPRESSED_RG11_EAC",							"eac_rg11",							tcu::CompressedTexture::EAC_RG11,						},
-		{ "GL_COMPRESSED_SIGNED_RG11_EAC",					"eac_signed_rg11",					tcu::CompressedTexture::EAC_SIGNED_RG11,				},
-		{ "GL_COMPRESSED_RGB8_ETC2",						"etc2_rgb8",						tcu::CompressedTexture::ETC2_RGB8,						},
-		{ "GL_COMPRESSED_SRGB8_ETC2",						"etc2_srgb8",						tcu::CompressedTexture::ETC2_SRGB8,						},
-		{ "GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2",	"etc2_rgb8_punchthrough_alpha1",	tcu::CompressedTexture::ETC2_RGB8_PUNCHTHROUGH_ALPHA1,	},
-		{ "GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2",	"etc2_srgb8_punchthrough_alpha1",	tcu::CompressedTexture::ETC2_SRGB8_PUNCHTHROUGH_ALPHA1,	},
-		{ "GL_COMPRESSED_RGBA8_ETC2_EAC",					"etc2_eac_rgba8",					tcu::CompressedTexture::ETC2_EAC_RGBA8,					},
-		{ "GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC",			"etc2_eac_srgb8_alpha8",			tcu::CompressedTexture::ETC2_EAC_SRGB8_ALPHA8,			}
+		{ "GL_COMPRESSED_R11_EAC",							"eac_r11",							tcu::COMPRESSEDTEXFORMAT_EAC_R11,							},
+		{ "GL_COMPRESSED_SIGNED_R11_EAC",					"eac_signed_r11",					tcu::COMPRESSEDTEXFORMAT_EAC_SIGNED_R11,					},
+		{ "GL_COMPRESSED_RG11_EAC",							"eac_rg11",							tcu::COMPRESSEDTEXFORMAT_EAC_RG11,							},
+		{ "GL_COMPRESSED_SIGNED_RG11_EAC",					"eac_signed_rg11",					tcu::COMPRESSEDTEXFORMAT_EAC_SIGNED_RG11,					},
+		{ "GL_COMPRESSED_RGB8_ETC2",						"etc2_rgb8",						tcu::COMPRESSEDTEXFORMAT_ETC2_RGB8,							},
+		{ "GL_COMPRESSED_SRGB8_ETC2",						"etc2_srgb8",						tcu::COMPRESSEDTEXFORMAT_ETC2_SRGB8,						},
+		{ "GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2",	"etc2_rgb8_punchthrough_alpha1",	tcu::COMPRESSEDTEXFORMAT_ETC2_RGB8_PUNCHTHROUGH_ALPHA1,		},
+		{ "GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2",	"etc2_srgb8_punchthrough_alpha1",	tcu::COMPRESSEDTEXFORMAT_ETC2_SRGB8_PUNCHTHROUGH_ALPHA1,	},
+		{ "GL_COMPRESSED_RGBA8_ETC2_EAC",					"etc2_eac_rgba8",					tcu::COMPRESSEDTEXFORMAT_ETC2_EAC_RGBA8,					},
+		{ "GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC",			"etc2_eac_srgb8_alpha8",			tcu::COMPRESSEDTEXFORMAT_ETC2_EAC_SRGB8_ALPHA8,				}
 	};
 
 	for (int formatNdx = 0; formatNdx < DE_LENGTH_OF_ARRAY(etc2Formats); formatNdx++)

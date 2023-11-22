@@ -54,10 +54,11 @@ struct TransferFormat
 		, dataType	(dataType_)
 	{
 	}
-};
+} DE_WARN_UNUSED_TYPE;
 
 tcu::TextureFormat				mapGLTransferFormat					(deUint32 format, deUint32 dataType);
 tcu::TextureFormat				mapGLInternalFormat					(deUint32 internalFormat);
+tcu::CompressedTexFormat		mapGLCompressedTexFormat			(deUint32 format);
 bool							isGLInternalColorFormatFilterable	(deUint32 internalFormat);
 tcu::Sampler					mapGLSampler						(deUint32 wrapS, deUint32 minFilter, deUint32 magFilter);
 tcu::Sampler					mapGLSampler						(deUint32 wrapS, deUint32 wrapT, deUint32 minFilter, deUint32 magFilter);
@@ -66,13 +67,14 @@ tcu::Sampler::CompareMode		mapGLCompareFunc					(deUint32 mode);
 
 TransferFormat					getTransferFormat					(tcu::TextureFormat format);
 deUint32						getInternalFormat					(tcu::TextureFormat format);
-deUint32						getGLFormat							(tcu::CompressedTexture::Format format);
+deUint32						getGLFormat							(tcu::CompressedTexFormat format);
 
 deUint32						getGLWrapMode						(tcu::Sampler::WrapMode wrapMode);
 deUint32						getGLFilterMode						(tcu::Sampler::FilterMode filterMode);
 deUint32						getGLCompareFunc					(tcu::Sampler::CompareMode compareMode);
 
 deUint32						getGLCubeFace						(tcu::CubeFace face);
+tcu::CubeFace					getCubeFaceFromGL					(deUint32 face);
 
 DataType						getSampler1DType					(tcu::TextureFormat format);
 DataType						getSampler2DType					(tcu::TextureFormat format);
@@ -82,6 +84,9 @@ DataType						getSampler3DType					(tcu::TextureFormat format);
 DataType						getSamplerCubeArrayType				(tcu::TextureFormat format);
 
 bool							isSizedFormatColorRenderable		(const RenderContext& renderCtx, const ContextInfo& contextInfo, deUint32 sizedFormat);
+bool							isCompressedFormat					(deUint32 internalFormat);
+
+const tcu::IVec2				(&getDefaultGatherOffsets			(void))[4];
 
 } // glu
 

@@ -20,6 +20,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +30,7 @@ import java.util.List;
  */
 public class FormPage implements Parcelable {
 
-    public static String DATA_KEY_SUMMARY_STRING =
+    public static final String DATA_KEY_SUMMARY_STRING =
             "com.android.tv.settings.form.FormPage.summaryString";
 
     enum Type {
@@ -123,7 +124,7 @@ public class FormPage implements Parcelable {
     public FormPage(Parcel in) {
         mPageTitle = in.readString();
         mFormType = Type.valueOf(in.readString());
-        mFormChoices = new ArrayList<String>();
+        mFormChoices = new ArrayList<>();
         in.readStringList(mFormChoices);
         mFormIntent = in.readParcelable(null);
         mFormData = in.readParcelable(null);

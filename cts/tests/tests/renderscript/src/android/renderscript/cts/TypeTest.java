@@ -143,6 +143,14 @@ public class TypeTest extends RSBaseCompute {
         assertTrue(t.getY() == 4);
     }
 
+    public void testGetYuv() {
+        Type.Builder b = new Type.Builder(mRS, Element.F32(mRS));
+        b.setX(64).setY(64);
+        b.setYuvFormat(android.graphics.ImageFormat.YV12);
+        Type t = b.create();
+        assertTrue(t.getYuv() == android.graphics.ImageFormat.YV12);
+    }
+
     public void testGetZ() {
         Type.Builder b = new Type.Builder(mRS, Element.F32(mRS));
         b.setX(3).setY(4);

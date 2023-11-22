@@ -145,6 +145,7 @@ static void set_globals(char *server)
 
     sainfo.lifetime = IPSECDOI_ATTR_SA_LD_SEC_DEFAULT;
     sainfo.lifebyte = IPSECDOI_ATTR_SA_LD_KB_MAX;
+    add_sainfo_algorithm(algclass_ipsec_auth, IPSECDOI_ATTR_AUTH_HMAC_SHA2_256, 0);
     add_sainfo_algorithm(algclass_ipsec_auth, IPSECDOI_ATTR_AUTH_HMAC_SHA1, 0);
     add_sainfo_algorithm(algclass_ipsec_auth, IPSECDOI_ATTR_AUTH_HMAC_MD5, 0);
     add_sainfo_algorithm(algclass_ipsec_enc, IPSECDOI_ESP_AES, 256);
@@ -487,17 +488,25 @@ void setup(int argc, char **argv)
 
     /* Add proposals. */
     add_proposal(remoteconf, auth,
+            OAKLEY_ATTR_HASH_ALG_SHA2_256, OAKLEY_ATTR_ENC_ALG_AES, 256);
+    add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_SHA, OAKLEY_ATTR_ENC_ALG_AES, 256);
     add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_MD5, OAKLEY_ATTR_ENC_ALG_AES, 256);
+    add_proposal(remoteconf, auth,
+            OAKLEY_ATTR_HASH_ALG_SHA2_256, OAKLEY_ATTR_ENC_ALG_AES, 128);
     add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_SHA, OAKLEY_ATTR_ENC_ALG_AES, 128);
     add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_MD5, OAKLEY_ATTR_ENC_ALG_AES, 128);
     add_proposal(remoteconf, auth,
+            OAKLEY_ATTR_HASH_ALG_SHA2_256, OAKLEY_ATTR_ENC_ALG_3DES, 0);
+    add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_SHA, OAKLEY_ATTR_ENC_ALG_3DES, 0);
     add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_MD5, OAKLEY_ATTR_ENC_ALG_3DES, 0);
+    add_proposal(remoteconf, auth,
+            OAKLEY_ATTR_HASH_ALG_SHA2_256, OAKLEY_ATTR_ENC_ALG_DES, 0);
     add_proposal(remoteconf, auth,
             OAKLEY_ATTR_HASH_ALG_SHA, OAKLEY_ATTR_ENC_ALG_DES, 0);
     add_proposal(remoteconf, auth,

@@ -59,6 +59,7 @@ public class TestPackageXmlParser extends AbstractXmlParser {
      *     <TestSuite ...>
      *        <TestCase>
      *           <Test>
+     *             <TestInstance> (optional)
      */
     private class TestPackageHandler extends DefaultHandler {
 
@@ -66,9 +67,11 @@ public class TestPackageXmlParser extends AbstractXmlParser {
         private static final String TEST_SUITE_TAG = "TestSuite";
         private static final String TEST_CASE_TAG = "TestCase";
         private static final String TEST_TAG = "Test";
+        private static final String TEST_INSTANCE_TAG = "TestInstance";
 
         // holds current class name segments
         private Stack<String> mClassNameStack = new Stack<String>();
+        private TestIdentifier mTestId;
 
         @Override
         public void startElement(String uri, String localName, String name, Attributes attributes) {
@@ -139,6 +142,7 @@ public class TestPackageXmlParser extends AbstractXmlParser {
                             classNameBuilder.append(".");
                         }
                     }
+                    mTestId = new TestIdentifier(classNameBuilder.toString(), methodName);
                     int timeout = -1;
                     String timeoutStr = attributes.getValue("timeout");
                     if (timeoutStr != null) {
@@ -158,14 +162,24 @@ public class TestPackageXmlParser extends AbstractXmlParser {
                             }
                         }
                         for (String abi : abis) {
-                            TestIdentifier testId = new TestIdentifier(
-                                    classNameBuilder.toString(), methodName);
-                            mPackageDefs.get(abi).addTest(testId, timeout);
+                            mPackageDefs.get(abi).addTest(mTestId, timeout);
                         }
                     }
                 }
+            } else if (TEST_INSTANCE_TAG.equals(localName)) {
+                if (mTestId != null) {
+                    final Map<String, String> instanceArguments = genAttributeMap(attributes);
+                    for (TestPackageDef packageDef : mPackageDefs.values()) {
+                        if (packageDef.getTests().contains(mTestId)) {
+                            packageDef.addTestInstance(mTestId, instanceArguments);
+                        }
+                    }
+                } else {
+                    Log.e(LOG_TAG, String.format(
+                            "Invalid XML: encountered a '%s' tag not enclosed within a '%s' tag",
+                            TEST_INSTANCE_TAG, TEST_TAG));
+                }
             }
-
         }
 
         private String getTestType(Attributes attributes) {
@@ -182,6 +196,8 @@ public class TestPackageXmlParser extends AbstractXmlParser {
         public void endElement (String uri, String localName, String qName) {
             if (TEST_SUITE_TAG.equals(localName) || TEST_CASE_TAG.equals(localName)) {
                 mClassNameStack.pop();
+            } else if (TEST_TAG.equals(localName)) {
+                mTestId = null;
             }
         }
 
@@ -191,6 +207,19 @@ public class TestPackageXmlParser extends AbstractXmlParser {
         private boolean parseBoolean(final String stringValue) {
             return stringValue != null &&
                     Boolean.parseBoolean(stringValue);
+        }
+
+        private Map<String, String> genAttributeMap(Attributes attributes) {
+            final Map<String, String> attribMap = new HashMap<String, String>();
+            for (int i = 0; i < attributes.getLength(); ++i) {
+                final String localName = attributes.getLocalName(i);
+                final String namespace = attributes.getURI(i);
+                final String fullyQualifiedName =
+                        (namespace.isEmpty()) ? (localName) : (namespace + ":" + localName);
+
+                attribMap.put(fullyQualifiedName, attributes.getValue(i));
+            }
+            return attribMap;
         }
     }
 

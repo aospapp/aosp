@@ -22,11 +22,8 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.recipeassistant</package>
 
-
-
-    <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
-
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>

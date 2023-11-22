@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3853942104135735825">"স্পীচ সংশ্লেষণ ডেটা ইনস্টলার"</string>
+    <string name="app_name" msgid="3853942104135735825">"কথন সংশ্লেষণ ডেটা ইনস্টলার"</string>
     <string name="installing_message" product="nosdcard" msgid="737236126329813405">"USB সঞ্চয়স্থানে ভয়েস ডেটা ইনস্টল করা হচ্ছে।"</string>
     <string name="installing_message" product="default" msgid="8792926973732354514">"SD কার্ডে ভয়েস ডেটা ইনস্টল করা হচ্ছে।"</string>
     <string name="uninstall_message" msgid="174096141356529599">"ভয়েস ডেটা সফলভাবে ইনস্টল করা হয়েছে। আপনি এখন নিরাপদে এই ইনস্টলার সরাতে পারেন।"</string>

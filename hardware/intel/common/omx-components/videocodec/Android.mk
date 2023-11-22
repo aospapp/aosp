@@ -55,6 +55,7 @@ endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 ifeq ($(TARGET_VPP_USE_GEN),true)
@@ -114,6 +115,7 @@ endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 PLATFORM_USE_GEN_HW := \
@@ -227,12 +229,16 @@ LOCAL_CFLAGS += -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libOMXVideoDecoderVP9Hybrid
 
+# OMXVideoDecoderVP9Hybrid.h hides overloaded virtual function FillRenderBuffer.
+LOCAL_CLANG_CFLAGS += -Wno-overloaded-virtual
+
 ifeq ($(TARGET_BOARD_PLATFORM),merrifield)
 LOCAL_CFLAGS += -DVED_TILING
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
@@ -288,6 +294,7 @@ endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
@@ -345,6 +352,7 @@ endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),baytrail)
@@ -451,6 +459,7 @@ LOCAL_SRC_FILES += \
     securevideo/moorefield/OMXVideoDecoderAVCSecure.cpp \
     securevideo/moorefield/drm_vendor_api.c
 LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
 LOCAL_SHARED_LIBRARIES += libdl
 endif
 
@@ -461,6 +470,55 @@ LOCAL_MODULE := libOMXVideoDecoderAVCSecure
 include $(BUILD_SHARED_LIBRARY)
 
 endif #USE_INTEL_SECURE_AVC
+
+################################################################################
+PLATFORM_SUPPORT_MPEG2 := \
+    moorefield
+
+ifneq ($(filter $(TARGET_BOARD_PLATFORM),$(PLATFORM_SUPPORT_MPEG2)),)
+include $(CLEAR_VARS)
+
+ifeq ($(TARGET_HAS_ISV),true)
+LOCAL_CFLAGS += -DTARGET_HAS_ISV
+endif
+
+LOCAL_CPPFLAGS :=
+LOCAL_LDFLAGS :=
+
+LOCAL_SHARED_LIBRARIES := \
+    libwrs_omxil_common \
+    libva_videodecoder \
+    liblog \
+    libva \
+    libva-android
+
+LOCAL_C_INCLUDES := \
+    $(TARGET_OUT_HEADERS)/wrs_omxil_core \
+    $(TARGET_OUT_HEADERS)/khronos/openmax \
+    $(TARGET_OUT_HEADERS)/libmix_videodecoder \
+    $(TARGET_OUT_HEADERS)/libva \
+    $(call include-path-for, frameworks-native)/media/hardware \
+    $(call include-path-for, frameworks-native)/media/openmax
+
+LOCAL_SRC_FILES := \
+    OMXComponentCodecBase.cpp\
+    OMXVideoDecoderBase.cpp\
+    OMXVideoDecoderMPEG2.cpp
+
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := libOMXVideoDecoderMPEG2
+
+ifeq ($(TARGET_BOARD_PLATFORM),merrifield)
+LOCAL_CFLAGS += -DVED_TILING
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM),moorefield)
+LOCAL_CFLAGS += -DVED_TILING
+LOCAL_CFLAGS += -DUSE_META_DATA
+endif
+
+include $(BUILD_SHARED_LIBRARY)
+endif
 
 ################################################################################
 

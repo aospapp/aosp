@@ -13,17 +13,12 @@
     # If these become 'permanent', they should be moved into common_variables.gypi
     #
     'skia_for_android_framework_defines': [
-      'SK_SUPPORT_LEGACY_SETCONFIG_INFO',
-      'SK_SUPPORT_LEGACY_SETCONFIG',
-      'SK_SUPPORT_LEGACY_IMAGEDECODER_CONFIG',
-      'SK_SUPPORT_LEGACY_DEVICE_VIRTUAL_ISOPAQUE',
-      'SK_SUPPORT_LEGACY_BITMAP_CONFIG',
+      'SK_SUPPORT_LEGACY_PUBLIC_IMAGEINFO_FIELDS',
+      'SK_SUPPORT_LEGACY_GETDEVICE',
       # Needed until we fix skbug.com/2440.
       'SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG',
-      # Transitional, for deprecated SkCanvas::SaveFlags methods.
-      'SK_ATTR_DEPRECATED=SK_NOTHING_ARG1',
-      'SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX',
-      'SK_SUPPORT_LEGACY_COMPUTE_CONFIG_SIZE',
+      'SK_IGNORE_LINEONLY_AA_CONVEX_PATH_OPTS',
+      'SK_SUPPORT_LEGACY_SCALAR_DIV',
     ],
   },
 }

@@ -29,7 +29,8 @@ def main():
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.ev_compensation(props))
+        its.caps.skip_unless(its.caps.ev_compensation(props) and
+                             its.caps.ae_lock(props))
 
         ev_per_step = its.objects.rational_to_float(
                 props['android.control.aeCompensationStep'])

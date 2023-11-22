@@ -26,13 +26,13 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsicBlur : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
-    virtual void invokeFreeChildren();
+    void populateScript(Script *) override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalVar(uint32_t slot, const void *data, size_t dataLength);
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalVar(uint32_t slot, const void *data, size_t dataLength) override;
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsicBlur();
+    ~RsdCpuScriptIntrinsicBlur() override;
     RsdCpuScriptIntrinsicBlur(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
@@ -44,12 +44,12 @@ protected:
     int mIradius;
     ObjectBaseRef<Allocation> mAlloc;
 
-    static void kernelU4(const RsForEachStubParamStruct *p,
+    static void kernelU4(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelU1(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelU1(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
+                         uint32_t outstep);
     void ComputeGaussianWeights();
 };
 
@@ -113,7 +113,7 @@ void RsdCpuScriptIntrinsicBlur::setGlobalVar(uint32_t slot, const void *data, si
 
 
 
-static void OneVU4(const RsForEachStubParamStruct *p, float4 *out, int32_t x, int32_t y,
+static void OneVU4(const RsExpandKernelDriverInfo *info, float4 *out, int32_t x, int32_t y,
                    const uchar *ptrIn, int iStride, const float* gPtr, int iradius) {
 
     const uchar *pi = ptrIn + x*4;
@@ -121,7 +121,7 @@ static void OneVU4(const RsForEachStubParamStruct *p, float4 *out, int32_t x, in
     float4 blurredPixel = 0;
     for (int r = -iradius; r <= iradius; r ++) {
         int validY = rsMax((y + r), 0);
-        validY = rsMin(validY, (int)(p->dimY - 1));
+        validY = rsMin(validY, (int)(info->dim.y- 1));
         const uchar4 *pvy = (const uchar4 *)&pi[validY * iStride];
         float4 pf = convert_float4(pvy[0]);
         blurredPixel += pf * gPtr[0];
@@ -131,7 +131,7 @@ static void OneVU4(const RsForEachStubParamStruct *p, float4 *out, int32_t x, in
     out[0] = blurredPixel;
 }
 
-static void OneVU1(const RsForEachStubParamStruct *p, float *out, int32_t x, int32_t y,
+static void OneVU1(const RsExpandKernelDriverInfo *info, float *out, int32_t x, int32_t y,
                    const uchar *ptrIn, int iStride, const float* gPtr, int iradius) {
 
     const uchar *pi = ptrIn + x;
@@ -139,7 +139,7 @@ static void OneVU1(const RsForEachStubParamStruct *p, float *out, int32_t x, int
     float blurredPixel = 0;
     for (int r = -iradius; r <= iradius; r ++) {
         int validY = rsMax((y + r), 0);
-        validY = rsMin(validY, (int)(p->dimY - 1));
+        validY = rsMin(validY, (int)(info->dim.y - 1));
         float pf = (float)pi[validY * iStride];
         blurredPixel += pf * gPtr[0];
         gPtr++;
@@ -155,9 +155,9 @@ extern "C" void rsdIntrinsicBlurU4_K(uchar4 *out, uchar4 const *in, size_t w, si
                  size_t p, size_t x, size_t y, size_t count, size_t r, uint16_t const *tab);
 
 #if defined(ARCH_X86_HAVE_SSSE3)
-extern "C" void rsdIntrinsicBlurVFU4_K(void *dst, const void *pin, int stride, const void *gptr, int rct, int x1, int ct);
-extern "C" void rsdIntrinsicBlurHFU4_K(void *dst, const void *pin, const void *gptr, int rct, int x1, int ct);
-extern "C" void rsdIntrinsicBlurHFU1_K(void *dst, const void *pin, const void *gptr, int rct, int x1, int ct);
+extern void rsdIntrinsicBlurVFU4_K(void *dst, const void *pin, int stride, const void *gptr, int rct, int x1, int ct);
+extern void rsdIntrinsicBlurHFU4_K(void *dst, const void *pin, const void *gptr, int rct, int x1, int ct);
+extern void rsdIntrinsicBlurHFU1_K(void *dst, const void *pin, const void *gptr, int rct, int x1, int ct);
 #endif
 
 static void OneVFU4(float4 *out,
@@ -247,13 +247,13 @@ static void OneVFU1(float *out,
     }
 }
 
-static void OneHU4(const RsForEachStubParamStruct *p, uchar4 *out, int32_t x,
+static void OneHU4(const RsExpandKernelDriverInfo *info, uchar4 *out, int32_t x,
                    const float4 *ptrIn, const float* gPtr, int iradius) {
 
     float4 blurredPixel = 0;
     for (int r = -iradius; r <= iradius; r ++) {
         int validX = rsMax((x + r), 0);
-        validX = rsMin(validX, (int)(p->dimX - 1));
+        validX = rsMin(validX, (int)(info->dim.x - 1));
         float4 pf = ptrIn[validX];
         blurredPixel += pf * gPtr[0];
         gPtr++;
@@ -262,13 +262,13 @@ static void OneHU4(const RsForEachStubParamStruct *p, uchar4 *out, int32_t x,
     out->xyzw = convert_uchar4(blurredPixel);
 }
 
-static void OneHU1(const RsForEachStubParamStruct *p, uchar *out, int32_t x,
+static void OneHU1(const RsExpandKernelDriverInfo *info, uchar *out, int32_t x,
                    const float *ptrIn, const float* gPtr, int iradius) {
 
     float blurredPixel = 0;
     for (int r = -iradius; r <= iradius; r ++) {
         int validX = rsMax((x + r), 0);
-        validX = rsMin(validX, (int)(p->dimX - 1));
+        validX = rsMin(validX, (int)(info->dim.x - 1));
         float pf = ptrIn[validX];
         blurredPixel += pf * gPtr[0];
         gPtr++;
@@ -278,13 +278,13 @@ static void OneHU1(const RsForEachStubParamStruct *p, uchar *out, int32_t x,
 }
 
 
-void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicBlur::kernelU4(const RsExpandKernelDriverInfo *info,
                                          uint32_t xstart, uint32_t xend,
-                                         uint32_t instep, uint32_t outstep) {
+                                         uint32_t outstep) {
 
     float4 stackbuf[2048];
     float4 *buf = &stackbuf[0];
-    RsdCpuScriptIntrinsicBlur *cp = (RsdCpuScriptIntrinsicBlur *)p->usr;
+    RsdCpuScriptIntrinsicBlur *cp = (RsdCpuScriptIntrinsicBlur *)info->usr;
     if (!cp->mAlloc.get()) {
         ALOGE("Blur executed without input, skipping");
         return;
@@ -292,36 +292,37 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
     const uchar *pin = (const uchar *)cp->mAlloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
-    uchar4 *out = (uchar4 *)p->out;
+    uchar4 *out = (uchar4 *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
     if (gArchUseSIMD) {
-        rsdIntrinsicBlurU4_K(out, (uchar4 const *)(pin + stride * p->y), p->dimX, p->dimY,
-                 stride, x1, p->y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
+      rsdIntrinsicBlurU4_K(out, (uchar4 const *)(pin + stride * info->current.y),
+                 info->dim.x, info->dim.y,
+                 stride, x1, info->current.y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
         return;
     }
 #endif
 
-    if (p->dimX > 2048) {
-        if ((p->dimX > cp->mScratchSize[p->lid]) || !cp->mScratch[p->lid]) {
+    if (info->dim.x > 2048) {
+        if ((info->dim.x > cp->mScratchSize[info->lid]) || !cp->mScratch[info->lid]) {
             // Pad the side of the allocation by one unit to allow alignment later
-            cp->mScratch[p->lid] = realloc(cp->mScratch[p->lid], (p->dimX + 1) * 16);
-            cp->mScratchSize[p->lid] = p->dimX;
+            cp->mScratch[info->lid] = realloc(cp->mScratch[info->lid], (info->dim.x + 1) * 16);
+            cp->mScratchSize[info->lid] = info->dim.x;
         }
         // realloc only aligns to 8 bytes so we manually align to 16.
-        buf = (float4 *) ((((intptr_t)cp->mScratch[p->lid]) + 15) & ~0xf);
+        buf = (float4 *) ((((intptr_t)cp->mScratch[info->lid]) + 15) & ~0xf);
     }
     float4 *fout = (float4 *)buf;
-    int y = p->y;
-    if ((y > cp->mIradius) && (y < ((int)p->dimY - cp->mIradius))) {
+    int y = info->current.y;
+    if ((y > cp->mIradius) && (y < ((int)info->dim.y - cp->mIradius))) {
         const uchar *pi = pin + (y - cp->mIradius) * stride;
-        OneVFU4(fout, pi, stride, cp->mFp, cp->mIradius * 2 + 1, 0, p->dimX);
+        OneVFU4(fout, pi, stride, cp->mFp, cp->mIradius * 2 + 1, 0, info->dim.x);
     } else {
         x1 = 0;
-        while(p->dimX > x1) {
-            OneVU4(p, fout, x1, y, pin, stride, cp->mFp, cp->mIradius);
+        while(info->dim.x > x1) {
+            OneVU4(info, fout, x1, y, pin, stride, cp->mFp, cp->mIradius);
             fout++;
             x1++;
         }
@@ -329,7 +330,7 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
 
     x1 = xstart;
     while ((x1 < (uint32_t)cp->mIradius) && (x1 < x2)) {
-        OneHU4(p, out, x1, buf, cp->mFp, cp->mIradius);
+        OneHU4(info, out, x1, buf, cp->mFp, cp->mIradius);
         out++;
         x1++;
     }
@@ -344,17 +345,17 @@ void RsdCpuScriptIntrinsicBlur::kernelU4(const RsForEachStubParamStruct *p,
     }
 #endif
     while(x2 > x1) {
-        OneHU4(p, out, x1, buf, cp->mFp, cp->mIradius);
+        OneHU4(info, out, x1, buf, cp->mFp, cp->mIradius);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicBlur::kernelU1(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicBlur::kernelU1(const RsExpandKernelDriverInfo *info,
                                          uint32_t xstart, uint32_t xend,
-                                         uint32_t instep, uint32_t outstep) {
+                                         uint32_t outstep) {
     float buf[4 * 2048];
-    RsdCpuScriptIntrinsicBlur *cp = (RsdCpuScriptIntrinsicBlur *)p->usr;
+    RsdCpuScriptIntrinsicBlur *cp = (RsdCpuScriptIntrinsicBlur *)info->usr;
     if (!cp->mAlloc.get()) {
         ALOGE("Blur executed without input, skipping");
         return;
@@ -362,27 +363,27 @@ void RsdCpuScriptIntrinsicBlur::kernelU1(const RsForEachStubParamStruct *p,
     const uchar *pin = (const uchar *)cp->mAlloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->mAlloc->mHal.drvState.lod[0].stride;
 
-    uchar *out = (uchar *)p->out;
+    uchar *out = (uchar *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS)
     if (gArchUseSIMD) {
-        rsdIntrinsicBlurU1_K(out, pin + stride * p->y, p->dimX, p->dimY,
-                 stride, x1, p->y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
+        rsdIntrinsicBlurU1_K(out, pin + stride * info->current.y, info->dim.x, info->dim.y,
+                 stride, x1, info->current.y, x2 - x1, cp->mIradius, cp->mIp + cp->mIradius);
         return;
     }
 #endif
 
     float *fout = (float *)buf;
-    int y = p->y;
-    if ((y > cp->mIradius) && (y < ((int)p->dimY - cp->mIradius -1))) {
+    int y = info->current.y;
+    if ((y > cp->mIradius) && (y < ((int)info->dim.y - cp->mIradius -1))) {
         const uchar *pi = pin + (y - cp->mIradius) * stride;
-        OneVFU1(fout, pi, stride, cp->mFp, cp->mIradius * 2 + 1, 0, p->dimX);
+        OneVFU1(fout, pi, stride, cp->mFp, cp->mIradius * 2 + 1, 0, info->dim.x);
     } else {
         x1 = 0;
-        while(p->dimX > x1) {
-            OneVU1(p, fout, x1, y, pin, stride, cp->mFp, cp->mIradius);
+        while(info->dim.x > x1) {
+            OneVU1(info, fout, x1, y, pin, stride, cp->mFp, cp->mIradius);
             fout++;
             x1++;
         }
@@ -391,7 +392,7 @@ void RsdCpuScriptIntrinsicBlur::kernelU1(const RsForEachStubParamStruct *p,
     x1 = xstart;
     while ((x1 < x2) &&
            ((x1 < (uint32_t)cp->mIradius) || (((uintptr_t)out) & 0x3))) {
-        OneHU1(p, out, x1, buf, cp->mFp, cp->mIradius);
+        OneHU1(info, out, x1, buf, cp->mFp, cp->mIradius);
         out++;
         x1++;
     }
@@ -410,7 +411,7 @@ void RsdCpuScriptIntrinsicBlur::kernelU1(const RsForEachStubParamStruct *p,
     }
 #endif
     while(x2 > x1) {
-        OneHU1(p, out, x1, buf, cp->mFp, cp->mIradius);
+        OneHU1(info, out, x1, buf, cp->mFp, cp->mIradius);
         out++;
         x1++;
     }
@@ -420,7 +421,7 @@ RsdCpuScriptIntrinsicBlur::RsdCpuScriptIntrinsicBlur(RsdCpuReferenceImpl *ctx,
                                                      const Script *s, const Element *e)
             : RsdCpuScriptIntrinsic(ctx, s, e, RS_SCRIPT_INTRINSIC_ID_BLUR) {
 
-    mRootPtr = NULL;
+    mRootPtr = nullptr;
     if (e->getType() == RS_TYPE_UNSIGNED_8) {
         switch (e->getVectorSize()) {
         case 1:
@@ -470,5 +471,3 @@ RsdCpuScriptImpl * rsdIntrinsic_Blur(RsdCpuReferenceImpl *ctx, const Script *s, 
 
     return new RsdCpuScriptIntrinsicBlur(ctx, s, e);
 }
-
-

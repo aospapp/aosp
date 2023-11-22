@@ -60,7 +60,7 @@ public final class Timeouts {
      * in-call UI.
      */
     public static long getNewOutgoingCallCancelMillis(ContentResolver contentResolver) {
-        return get(contentResolver, "new_outgoing_call_cancel_ms", 300L);
+        return get(contentResolver, "new_outgoing_call_cancel_ms", 400L);
     }
 
     /**
@@ -88,5 +88,14 @@ public final class Timeouts {
     public static long getEmergencyCallTimeoutRadioOffMillis(ContentResolver contentResolver) {
         return get(contentResolver, "emergency_call_timeout_radio_off_millis",
                 60000L /* 1 minute */);
+    }
+
+    /**
+     * Returns the amount of delay before unbinding the in-call services after all the calls
+     * are removed.
+     */
+    public static long getCallRemoveUnbindInCallServicesDelay(ContentResolver contentResolver) {
+        return get(contentResolver, "call_remove_unbind_in_call_services_delay",
+                2000L /* 2 seconds */);
     }
 }

@@ -46,6 +46,7 @@
     <string name="description_action_menu_add_star" msgid="3327186327234177456">"Dodano med priljubljene"</string>
     <string name="menu_editContact" msgid="9042415603857662633">"Uredi"</string>
     <string name="menu_deleteContact" msgid="6788644058868189393">"Izbriši"</string>
+    <string name="menu_change_photo" msgid="7769177631511496210">"Sprememba fotografije"</string>
     <string name="menu_create_contact_shortcut" msgid="1217971915748509640">"Postavi na začetni zaslon"</string>
     <string name="menu_call" msgid="3992595586042260618">"Pokliči stik"</string>
     <string name="menu_sendSMS" msgid="5535886767547006515">"Pošlji SMS stiku"</string>
@@ -56,17 +57,24 @@
     <string name="menu_new_group_action_bar" msgid="3520232877587377175">"Dodajanje skupine"</string>
     <string name="splitConfirmation_title" msgid="633640935430370530">"Želite ločiti stik?"</string>
     <string name="splitConfirmation" msgid="740190210499587175">"Ta stik bo razdeljen na več stikov."</string>
-    <string name="menu_joinAggregate" msgid="5027981918265667970">"Pridruži"</string>
+    <string name="menu_joinAggregate" msgid="4050157483569357666">"Združi"</string>
+    <string name="menu_save" msgid="1727844363591825909">"Shrani"</string>
     <string name="titleJoinContactDataWith" msgid="7684875775798635354">"Pridruži stike"</string>
     <string name="blurbJoinContactDataWith" msgid="8736488417422708236">"Izberite stik, ki ga želite združiti s stikom <xliff:g id="NAME">%s</xliff:g>:"</string>
     <string name="showAllContactsJoinItem" msgid="2189695051430392383">"Prikaži vse stike"</string>
     <string name="separatorJoinAggregateSuggestions" msgid="2831414448851313345">"Predlagani stiki"</string>
     <string name="separatorJoinAggregateAll" msgid="7939932265026181043">"Vsi stiki"</string>
-    <string name="contactsJoinedMessage" msgid="7208148163607047389">"Stiki pridruženi"</string>
+    <string name="contactsJoinedMessage" msgid="656936718666768589">"Stika sta bila združena"</string>
+    <string name="contacts_deleted_toast" msgid="286851430992788215">"Stiki so bili izbrisani"</string>
     <string name="menu_set_ring_tone" msgid="8728345772068064946">"Nastavi zvonj."</string>
     <string name="menu_redirect_calls_to_vm" msgid="4181789196416396656">"Vsi klici na odzivnik"</string>
     <string name="readOnlyContactWarning" msgid="7808825687289848259">"Iz računov samo za branje stikov ni mogoče izbrisati, lahko pa jih skrijete na seznamih stikov."</string>
     <string name="readOnlyContactDeleteConfirmation" msgid="2137170726670196909">"Ta stik vsebuje podatke iz več računov. Podatki iz računov samo za branje ne bodo izbrisani s seznamov stikov, temveč bodo samo skriti."</string>
+    <string name="batch_merge_single_contact_warning" msgid="982585201970392110">"Za združevanje morate izbrati vsaj dva stika."</string>
+    <string name="batch_merge_confirmation" msgid="8551299480317422420">"Izbrani stiki bodo združeni v en stik."</string>
+    <string name="batch_delete_confirmation" msgid="2564172328268885394">"Izbrani stiki bodo izbrisani."</string>
+    <string name="batch_delete_read_only_contact_confirmation" msgid="6614878716815412523">"Podatki iz računov, ki so samo za branje, ne bodo izbrisani s seznamov stikov, temveč bodo samo skriti."</string>
+    <string name="batch_delete_multiple_accounts_confirmation" msgid="5189722181586680185">"Ti stiki vsebujejo podatke iz več računov. Podatki iz računov, ki so samo za branje, ne bodo izbrisani s seznamov stikov, temveč bodo samo skriti."</string>
     <string name="multipleContactDeleteConfirmation" msgid="938900978442960800">"Če boste izbrisali ta stik, boste izbrisali podatke iz več računov."</string>
     <string name="deleteConfirmation" msgid="811706994761610640">"Ta stik bo izbrisan."</string>
     <string name="menu_discard" msgid="6854657936970228164">"Zavrzi spremembe"</string>
@@ -92,22 +100,29 @@
     <string name="savingContact" msgid="4075751076741924939">"Shranjevanje stika..."</string>
     <string name="contactSavedToast" msgid="7152589189385441091">"Stik shranjen."</string>
     <string name="contactSavedErrorToast" msgid="3207250533172944892">"Sprememb v stikih ni bilo mogoče shraniti."</string>
+    <string name="contactPhotoSavedErrorToast" msgid="4079032272022979114">"Sprememb fotografije stika ni bilo mogoče shraniti."</string>
     <string name="groupSavedToast" msgid="1168756874239833756">"Skupina je shranjena."</string>
     <string name="groupSavedErrorToast" msgid="7984466936615304740">"Sprememb v skupini ni mogoče shraniti."</string>
-  <plurals name="listTotalPhoneContacts">
-    <item quantity="one" msgid="3015357862286673986">"1 stik s telefonsko število."</item>
-    <item quantity="other" msgid="3299954047880968205">"<xliff:g id="COUNT">%d</xliff:g> stikov s telefonskimi številkami"</item>
-  </plurals>
+    <plurals name="listTotalPhoneContacts" formatted="false" msgid="3692277679143308755">
+      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> stik s telefonsko številko</item>
+      <item quantity="two"><xliff:g id="COUNT">%d</xliff:g> stika s telefonsko številko</item>
+      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> stiki s telefonsko številko</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> stikov s telefonsko številko</item>
+    </plurals>
     <string name="listTotalPhoneContactsZero" msgid="6968813857632984319">"Ni stikov s telefonskimi številkami"</string>
-  <plurals name="listFoundAllContacts">
-    <item quantity="one" msgid="5517063038754171134">"1 najden"</item>
-    <item quantity="other" msgid="3852668542926965042">"<xliff:g id="COUNT">%d</xliff:g> najdenih"</item>
-  </plurals>
+    <plurals name="listFoundAllContacts" formatted="false" msgid="4872115339963093220">
+      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> najden</item>
+      <item quantity="two"><xliff:g id="COUNT">%d</xliff:g> najdena</item>
+      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> najdeni</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> najdenih</item>
+    </plurals>
     <string name="listFoundAllContactsZero" msgid="922980883593159444">"Ni stikov"</string>
-  <plurals name="searchFoundContacts">
-    <item quantity="one" msgid="4826918429708286628">"1 najden"</item>
-    <item quantity="other" msgid="7988132539476575389">"<xliff:g id="COUNT">%d</xliff:g> najdenih"</item>
-  </plurals>
+    <plurals name="searchFoundContacts" formatted="false" msgid="7223023725334884618">
+      <item quantity="one"><xliff:g id="COUNT">%d</xliff:g> najden</item>
+      <item quantity="two"><xliff:g id="COUNT">%d</xliff:g> najdena</item>
+      <item quantity="few"><xliff:g id="COUNT">%d</xliff:g> najdeni</item>
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> najdenih</item>
+    </plurals>
     <string name="all_contacts_tab_label" msgid="6250372293594147703">"Vsi stiki"</string>
     <string name="favorites_tab_label" msgid="1524869648904016414">"Priljubljeno"</string>
     <string name="callBack" msgid="5498224409038809224">"Povratni klic"</string>
@@ -134,19 +149,16 @@
     <string name="recent" msgid="2659189233141493004">"Nedavni"</string>
     <string name="recent_updates" msgid="4267258535615860710">"Nedavne posodobitve"</string>
     <string name="account_type_format" msgid="718948015590343010">"Stik <xliff:g id="SOURCE">%1$s</xliff:g>"</string>
+    <string name="google_account_type_format" msgid="5283997303922067997">"<xliff:g id="SOURCE">%1$s</xliff:g> Račun"</string>
     <!-- no translation found for from_account_format (4469138575127580203) -->
     <skip />
     <string name="contact_read_only" msgid="7421346527289472273">"S to aplikacijo urejanje ni mogoče."</string>
     <string name="group_read_only" msgid="1061762906115697637">"V tej napravi ni mogoče urejati skupine."</string>
     <string name="take_photo" msgid="7496128293167402354">"Posnemi fotografijo"</string>
     <string name="take_new_photo" msgid="7341354729436576304">"Posnemi novo fotografijo"</string>
-    <string name="pick_photo" msgid="2129509985223564942">"Izberite fotografijo"</string>
+    <string name="pick_photo" msgid="2129509985223564942">"Izberi fotografijo"</string>
     <string name="pick_new_photo" msgid="9122450996263688237">"Izberite novo fotografijo"</string>
-    <string name="locale_change_in_progress" msgid="7583992153091537467">"Seznam stikov se posodablja glede na izbrani jezik."</string>
     <string name="upgrade_in_progress" msgid="474511436863451061">"Seznam stikov se posodablja."</string>
-    <string name="upgrade_out_of_memory" msgid="1209994418877625940">"Stiki se nadgrajujejo.\n\nZa nadgradnjo je potrebno približno <xliff:g id="SIZE_IN_MEGABYTES">%s</xliff:g> MB notranjega pomnilnika telefona.\n\nIzberite eno od teh možnosti:"</string>
-    <string name="upgrade_out_of_memory_uninstall" msgid="1721798828992091432">"Odstranite nekaj aplikacij"</string>
-    <string name="upgrade_out_of_memory_retry" msgid="8431289830472724609">"Znova poskusi nadgraditi"</string>
     <string name="search_results_searching" msgid="3984833028938569930">"Iskanje ..."</string>
     <string name="menu_display_selected" msgid="6470001164297969034">"Pokaži izbrane"</string>
     <string name="menu_display_all" msgid="8887488642609786198">"Pokaži vse"</string>
@@ -160,10 +172,12 @@
     <string name="primary_photo" msgid="8517942231868516999">"Glavna fotogr."</string>
     <string name="description_star" msgid="2605854427360036550">"priljubljeno"</string>
     <string name="edit_contact" msgid="7529281274005689512">"Uredi stik"</string>
-  <plurals name="merge_info">
-    <item quantity="one" msgid="148365587896371969">"ni spojeno"</item>
-    <item quantity="other" msgid="425683718017380845">"spojeno iz <xliff:g id="COUNT">%0$d</xliff:g> virov"</item>
-  </plurals>
+    <plurals name="merge_info" formatted="false" msgid="2489323424994280962">
+      <item quantity="one">združeno iz <xliff:g id="COUNT">%0$d</xliff:g> vira</item>
+      <item quantity="two">združeno iz <xliff:g id="COUNT">%0$d</xliff:g> virov</item>
+      <item quantity="few">združeno iz <xliff:g id="COUNT">%0$d</xliff:g> virov</item>
+      <item quantity="other">združeno iz <xliff:g id="COUNT">%0$d</xliff:g> virov</item>
+    </plurals>
     <string name="aggregation_suggestion_join_dialog_message" msgid="3842757977671434836">"Želite združiti stik z izbranim stikom?"</string>
     <string name="aggregation_suggestion_edit_dialog_message" msgid="6549585283910518095">"Želite urejati izbrani stik? Podatki, ki ste jih doslej vnesli, bodo kopirani."</string>
     <string name="menu_copyContact" msgid="1573960845106822639">"Kopiraj v moje stike"</string>
@@ -172,7 +186,7 @@
     <string name="list_filter_custom" msgid="8910173055702057002">"Po meri"</string>
     <string name="activity_title_settings" msgid="5464130076132770781">"Nastavitve"</string>
     <string name="menu_settings" msgid="377929915873428211">"Nastavitve"</string>
-    <string name="menu_help" msgid="5123887102216637725">"Pomoč"</string>
+    <string name="menu_help" msgid="1680178646764069976">"Pomoč in povratne informacije"</string>
     <string name="preference_displayOptions" msgid="1341720270148252393">"Možnosti prikaza"</string>
     <string name="organization_company_and_title" msgid="6718207751363732025">"<xliff:g id="COMPANY_0">%2$s</xliff:g>, <xliff:g id="COMPANY_1">%1$s</xliff:g>"</string>
     <string name="non_phone_caption" msgid="1541655052330027380">"Telefonska številka"</string>
@@ -188,19 +202,25 @@
     <string name="contacts_unavailable_import_contacts" msgid="4957393255392437529">"Uvozi stike"</string>
     <string name="create_group_dialog_title" msgid="6874527142828424475">"Ustvarjanje nove skupine"</string>
     <string name="create_group_item_label" msgid="4411981763169654825">"Ustvari novo skupino"</string>
-  <plurals name="num_groups_in_account">
-    <item quantity="one" msgid="2944819210288517794">"1 skupina"</item>
-    <item quantity="other" msgid="1276758425904917367">"Št. skupin: <xliff:g id="COUNT">%0$d</xliff:g>"</item>
-  </plurals>
+    <plurals name="num_groups_in_account" formatted="false" msgid="6189297639209663469">
+      <item quantity="one"><xliff:g id="COUNT">%0$d</xliff:g> skupina</item>
+      <item quantity="two"><xliff:g id="COUNT">%0$d</xliff:g> skupini</item>
+      <item quantity="few"><xliff:g id="COUNT">%0$d</xliff:g> skupine</item>
+      <item quantity="other"><xliff:g id="COUNT">%0$d</xliff:g> skupin</item>
+    </plurals>
     <string name="delete_group_dialog_message" msgid="7586856514337560529">"Želite izbrisati skupino »<xliff:g id="GROUP_LABEL">%1$s</xliff:g>«? (Stiki ne bodo izbrisani.)"</string>
-  <plurals name="num_contacts_in_group">
-    <item quantity="one" msgid="1352418549951013448">"<xliff:g id="COUNT_0">%1$d</xliff:g> oseba iz <xliff:g id="ACCOUNT_TYPE">%2$s</xliff:g>"</item>
-    <item quantity="other" msgid="8146027769011086349">"Št. ljudi iz <xliff:g id="ACCOUNT_TYPE">%2$s</xliff:g>: <xliff:g id="COUNT_0">%1$d</xliff:g>"</item>
-  </plurals>
-  <plurals name="group_list_num_contacts_in_group">
-    <item quantity="one" msgid="3323065321661972446">"Št. oseb: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
-    <item quantity="other" msgid="6251996206137048525">"Št. oseb: <xliff:g id="COUNT">%1$d</xliff:g>"</item>
-  </plurals>
+    <plurals name="num_contacts_in_group" formatted="false" msgid="5520734553286350341">
+      <item quantity="one"><xliff:g id="COUNT_2">%1$d</xliff:g> oseba iz skupine <xliff:g id="ACCOUNT_TYPE_3">%2$s</xliff:g></item>
+      <item quantity="two"><xliff:g id="COUNT_2">%1$d</xliff:g> osebi iz skupine <xliff:g id="ACCOUNT_TYPE_3">%2$s</xliff:g></item>
+      <item quantity="few"><xliff:g id="COUNT_2">%1$d</xliff:g> osebe iz skupine <xliff:g id="ACCOUNT_TYPE_3">%2$s</xliff:g></item>
+      <item quantity="other"><xliff:g id="COUNT_2">%1$d</xliff:g> oseb iz skupine <xliff:g id="ACCOUNT_TYPE_3">%2$s</xliff:g></item>
+    </plurals>
+    <plurals name="group_list_num_contacts_in_group" formatted="false" msgid="8240460423614369023">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> oseba</item>
+      <item quantity="two"><xliff:g id="COUNT_1">%1$d</xliff:g> osebi</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> osebe</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> oseb</item>
+    </plurals>
     <string name="toast_join_with_empty_contact" msgid="2238581529864542985">"Vnesite ime stika pred združitvijo z drugim."</string>
     <string name="copy_text" msgid="3257145021583508761">"Kopiraj v odložišče"</string>
     <string name="set_default" msgid="4417505153468300351">"Nastavi za privzeto"</string>
@@ -220,7 +240,7 @@
     <string name="contact_editor_prompt_zero_accounts" msgid="1785345895691886499">"Nov stik ne bo varnostno kopiran. Želite dodati račun za varnostno kopiranje stikov v internetu?"</string>
     <string name="contact_editor_prompt_one_account" msgid="8669032699767375976">"Nov stik bo sinhroniziran z računom <xliff:g id="ACCOUNT_NAME">%1$s</xliff:g>."</string>
     <string name="contact_editor_prompt_multiple_accounts" msgid="611828200100438242">"Nov stik lahko sinhronizirate z enim od teh računov. Katerega želite uporabiti?"</string>
-    <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"Dodaj. novega stika"</string>
+    <string name="contact_editor_title_new_contact" msgid="7192223018128934940">"Dod. novega stika"</string>
     <string name="contact_editor_title_existing_contact" msgid="4898475703683187798">"Urejanje stika"</string>
     <string name="keep_local" msgid="1258761699192993322">"Ohrani lokalno"</string>
     <string name="add_account" msgid="8201790677994503186">"Dodaj račun"</string>
@@ -264,4 +284,7 @@
     <string name="content_description_recent_call" msgid="5183800406316723676">"nedavni klic. <xliff:g id="CALL_TYPE">%s</xliff:g>. <xliff:g id="PHONE_NUMBER">%s</xliff:g>. <xliff:g id="DATE">%s</xliff:g>. kliknite, če želite poklicati nazaj"</string>
     <string name="message_from_you_prefix" msgid="7180706529908434482">"Vi: <xliff:g id="SMS_BODY">%s</xliff:g>"</string>
     <string name="contact_editor_hangouts_im_alert" msgid="114855385615225735">"Pogovori Hangouts delujejo bolje, če v polje za e-pošto ali polje za telefon vnesete identifikator osebe za pogovore Hangouts."</string>
+    <string name="compact_editor_more_fields" msgid="2874181192382284115">"Več polj"</string>
+    <string name="compact_editor_change_photo_content_description" msgid="5495487714301211540">"Sprememba fotografije"</string>
+    <string name="quick_contact_display_name_with_phonetic" msgid="3692038078718876610">"<xliff:g id="DISPLAY_NAME">%s</xliff:g> (<xliff:g id="PHONETIC_NAME">%s</xliff:g>)"</string>
 </resources>

@@ -18,8 +18,12 @@ page.title=Compatibility Test Suite
 -->
 
 <h2 id="how-does-the-cts-work">How does the CTS work?</h2>
-<div style="float: right">
-    <img src="{@docRoot}images/cts-0.png">
+
+<div class="figure" style="width:383px">
+  <img src="{@docRoot}images/cts-0.png" alt="CTS flow" height="340px" id="figure1" />
+  <p class="img-caption">
+    <strong>Figure 1.</strong> How to use CTS
+  </p>
 </div>
 
 <p>The CTS is an automated testing harness that includes two major software components:</p>

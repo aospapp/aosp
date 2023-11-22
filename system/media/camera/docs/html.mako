@@ -105,6 +105,7 @@
   from metadata_helpers import md
   from metadata_helpers import IMAGE_SRC_METADATA
   from metadata_helpers import filter_tags
+  from metadata_helpers import filter_links
   from metadata_helpers import wbr
 
   # insert line breaks after every two \n\n
@@ -116,6 +117,24 @@
   def html_anchor(node):
     return '<a href="#%s_%s">%s</a>' % (node.kind, node.name, node.name)
 
+  # Convert target "xxx.yyy#zzz" to a HTML reference to Android public developer
+  # docs with link name from shortname.
+  def html_link(target, shortname):
+    if shortname == '':
+      lastdot = target.rfind('.')
+      if lastdot == -1:
+        shortname = target
+      else:
+        shortname = target[lastdot + 1:]
+
+    target = target.replace('.','/')
+    if target.find('#') != -1:
+      target = target.replace('#','.html#')
+    else:
+      target = target + '.html'
+
+    return '<a href="https://developer.android.com/reference/%s">%s</a>' % (target, shortname)
+
   # Render as markdown, and do HTML-doc-specific rewrites
   def md_html(text):
     return md(text, IMAGE_SRC_METADATA)
@@ -123,7 +142,8 @@
   # linkify tag names such as "android.x.y.z" into html anchors
   def linkify_tags(metadata):
     def linkify_filter(text):
-      return filter_tags(text, metadata, html_anchor)
+      tagged_text = filter_tags(text, metadata, html_anchor)
+      return filter_links(tagged_text, html_link)
     return linkify_filter
 
   # Number of rows an entry will span
@@ -279,11 +299,14 @@ ${          insert_toc_body(kind)}\
                   % for value in prop.enum.values:
                   <li>
                     <span class="entry_type_enum_name">${value.name}</span>
+                  % if value.deprecated:
+                    <span class="entry_type_enum_deprecated">[deprecated]</span>
+                  % endif:
                   % if value.optional:
                     <span class="entry_type_enum_optional">[optional]</span>
                   % endif:
                   % if value.hidden:
-                    <span class="entry_type_enum_optional">[hidden]</span>
+                    <span class="entry_type_enum_hidden">[hidden]</span>
                   % endif:
                   % if value.id is not None:
                     <span class="entry_type_enum_value">${value.id}</span>

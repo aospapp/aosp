@@ -86,8 +86,7 @@ printstrbufarg(struct tcb *tcp, long arg, int getting)
 	tprints(", ");
 }
 
-int
-sys_putmsg(struct tcb *tcp)
+SYS_FUNC(putmsg)
 {
 	int i;
 
@@ -103,8 +102,7 @@ sys_putmsg(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_getmsg(struct tcb *tcp)
+SYS_FUNC(getmsg)
 {
 	int i, flags;
 
@@ -152,8 +150,7 @@ sys_getmsg(struct tcb *tcp)
 # if defined SYS_putpmsg || defined SYS_getpmsg
 #include "xlat/pmsgflags.h"
 #  ifdef SYS_putpmsg
-int
-sys_putpmsg(struct tcb *tcp)
+SYS_FUNC(putpmsg)
 {
 	int i;
 
@@ -172,8 +169,7 @@ sys_putpmsg(struct tcb *tcp)
 }
 #  endif
 #  ifdef SYS_getpmsg
-int
-sys_getpmsg(struct tcb *tcp)
+SYS_FUNC(getpmsg)
 {
 	int i, flags;
 
@@ -190,7 +186,7 @@ sys_getpmsg(struct tcb *tcp)
 		for (i = 1; i < 3; i++)
 			printstrbufarg(tcp, tcp->u_arg[i], 1);
 		/* pointer to band */
-		printnum(tcp, tcp->u_arg[3], "%d");
+		printnum_int(tcp, tcp->u_arg[3], "%d");
 		tprints(", ");
 		/* pointer to flags */
 		if (tcp->u_arg[4] == 0)
@@ -263,7 +259,7 @@ decode_poll(struct tcb *tcp, long pts)
 				tprints("...");
 				break;
 			}
-			if (umoven(tcp, cur, sizeof fds, (char *) &fds) < 0) {
+			if (umoven(tcp, cur, sizeof fds, &fds) < 0) {
 				tprints("?");
 				failed = 1;
 				break;
@@ -313,7 +309,7 @@ decode_poll(struct tcb *tcp, long pts)
 		outptr = outstr;
 
 		for (cur = start; cur < end; cur += sizeof(fds)) {
-			if (umoven(tcp, cur, sizeof fds, (char *) &fds) < 0) {
+			if (umoven(tcp, cur, sizeof fds, &fds) < 0) {
 				if (outptr < end_outstr - 2)
 					*outptr++ = '?';
 				failed = 1;
@@ -363,8 +359,7 @@ decode_poll(struct tcb *tcp, long pts)
 	}
 }
 
-int
-sys_poll(struct tcb *tcp)
+SYS_FUNC(poll)
 {
 	int rc = decode_poll(tcp, 0);
 	if (entering(tcp)) {
@@ -378,8 +373,7 @@ sys_poll(struct tcb *tcp)
 	return rc;
 }
 
-int
-sys_ppoll(struct tcb *tcp)
+SYS_FUNC(ppoll)
 {
 	int rc = decode_poll(tcp, tcp->u_arg[2]);
 	if (entering(tcp)) {
@@ -393,8 +387,7 @@ sys_ppoll(struct tcb *tcp)
 }
 
 #else /* !HAVE_SYS_POLL_H */
-int
-sys_poll(struct tcb *tcp)
+SYS_FUNC(poll)
 {
 	return 0;
 }

@@ -216,9 +216,33 @@ template<> EIGEN_STRONG_INLINE Packet4f pandnot<Packet4f>(const Packet4f& a, con
 template<> EIGEN_STRONG_INLINE Packet2d pandnot<Packet2d>(const Packet2d& a, const Packet2d& b) { return _mm_andnot_pd(a,b); }
 template<> EIGEN_STRONG_INLINE Packet4i pandnot<Packet4i>(const Packet4i& a, const Packet4i& b) { return _mm_andnot_si128(a,b); }
 
-template<> EIGEN_STRONG_INLINE Packet4f pload<Packet4f>(const float*   from) { EIGEN_DEBUG_ALIGNED_LOAD return _mm_load_ps(from); }
-template<> EIGEN_STRONG_INLINE Packet2d pload<Packet2d>(const double*  from) { EIGEN_DEBUG_ALIGNED_LOAD return _mm_load_pd(from); }
-template<> EIGEN_STRONG_INLINE Packet4i pload<Packet4i>(const int*     from) { EIGEN_DEBUG_ALIGNED_LOAD return _mm_load_si128(reinterpret_cast<const Packet4i*>(from)); }
+template<> EIGEN_STRONG_INLINE Packet4f pload<Packet4f>(const float*   from) {
+  EIGEN_DEBUG_ALIGNED_LOAD
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  return _mm_loadu_ps(from);
+#else
+  return _mm_load_ps(from);
+#endif
+  }
+template<> EIGEN_STRONG_INLINE Packet2d pload<Packet2d>(const double*  from) {
+  EIGEN_DEBUG_ALIGNED_LOAD
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  return _mm_loadu_pd(from);
+#else
+  return _mm_load_pd(from);
+#endif
+  }
+template<> EIGEN_STRONG_INLINE Packet4i pload<Packet4i>(const int*     from) {
+  EIGEN_DEBUG_ALIGNED_LOAD
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  return _mm_loadu_si128(reinterpret_cast<const Packet4i*>(from));
+#else
+  return _mm_load_si128(reinterpret_cast<const Packet4i*>(from));
+#endif
+  }
 
 #if defined(_MSC_VER)
   template<> EIGEN_STRONG_INLINE Packet4f ploadu<Packet4f>(const float*  from) {
@@ -262,7 +286,12 @@ template<> EIGEN_STRONG_INLINE Packet4f ploadu<Packet4f>(const float* from)
   return _mm_loadu_ps(from);
 #else
   __m128d res;
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  res =  _mm_loadu_sd((const double*)(from)) ;
+#else
   res =  _mm_load_sd((const double*)(from)) ;
+#endif
   res =  _mm_loadh_pd(res, (const double*)(from+2)) ;
   return _mm_castpd_ps(res);
 #endif
@@ -274,7 +303,12 @@ template<> EIGEN_STRONG_INLINE Packet2d ploadu<Packet2d>(const double* from)
   return _mm_loadu_pd(from);
 #else
   __m128d res;
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  res = _mm_loadu_sd(from) ;
+#else
   res = _mm_load_sd(from) ;
+#endif
   res = _mm_loadh_pd(res,from+1);
   return res;
 #endif
@@ -286,7 +320,12 @@ template<> EIGEN_STRONG_INLINE Packet4i ploadu<Packet4i>(const int* from)
   return _mm_loadu_si128(reinterpret_cast<const Packet4i*>(from));
 #else
   __m128d res;
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  res =  _mm_loadu_sd((const double*)(from)) ;
+#else
   res =  _mm_load_sd((const double*)(from)) ;
+#endif
   res =  _mm_loadh_pd(res, (const double*)(from+2)) ;
   return _mm_castpd_si128(res);
 #endif
@@ -306,9 +345,33 @@ template<> EIGEN_STRONG_INLINE Packet4i ploaddup<Packet4i>(const int*     from)
   return vec4i_swizzle1(tmp, 0, 0, 1, 1);
 }
 
-template<> EIGEN_STRONG_INLINE void pstore<float>(float*   to, const Packet4f& from) { EIGEN_DEBUG_ALIGNED_STORE _mm_store_ps(to, from); }
-template<> EIGEN_STRONG_INLINE void pstore<double>(double* to, const Packet2d& from) { EIGEN_DEBUG_ALIGNED_STORE _mm_store_pd(to, from); }
-template<> EIGEN_STRONG_INLINE void pstore<int>(int*       to, const Packet4i& from) { EIGEN_DEBUG_ALIGNED_STORE _mm_store_si128(reinterpret_cast<Packet4i*>(to), from); }
+template<> EIGEN_STRONG_INLINE void pstore<float>(float*   to, const Packet4f& from) {
+  EIGEN_DEBUG_ALIGNED_STORE
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  _mm_storeu_ps(to, from);
+#else
+  _mm_store_ps(to, from);
+#endif
+  }
+template<> EIGEN_STRONG_INLINE void pstore<double>(double* to, const Packet2d& from) {
+  EIGEN_DEBUG_ALIGNED_STORE
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  _mm_storeu_pd(to, from);
+#else
+  _mm_store_pd(to, from);
+#endif
+  }
+template<> EIGEN_STRONG_INLINE void pstore<int>(int*       to, const Packet4i& from) {
+  EIGEN_DEBUG_ALIGNED_STORE
+#ifdef EIGEN_ANDROID_SSE_WR
+// Workaround for X86 on Android crash on aligned operation.
+  _mm_storeu_si128(reinterpret_cast<Packet4i*>(to), from);
+#else
+  _mm_store_si128(reinterpret_cast<Packet4i*>(to), from);
+#endif
+  }
 
 template<> EIGEN_STRONG_INLINE void pstoreu<double>(double* to, const Packet2d& from) {
   EIGEN_DEBUG_UNALIGNED_STORE

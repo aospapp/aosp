@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 #include "bt_gatt_types.h"
+#include "bt_common_types.h"
 
 __BEGIN_DECLS
 
@@ -69,6 +70,23 @@ typedef struct
 
 typedef struct
 {
+    uint8_t  client_if;
+    uint8_t  action;
+    uint8_t  filt_index;
+    uint16_t feat_seln;
+    uint16_t list_logic_type;
+    uint8_t  filt_logic_type;
+    uint8_t  rssi_high_thres;
+    uint8_t  rssi_low_thres;
+    uint8_t  dely_mode;
+    uint16_t found_timeout;
+    uint16_t lost_timeout;
+    uint8_t  found_timeout_cnt;
+    uint16_t  num_of_tracking_entries;
+} btgatt_filt_param_setup_t;
+
+typedef struct
+{
     bt_bdaddr_t        *bda1;
     bt_uuid_t          *uuid1;
     uint16_t            u1;
@@ -77,6 +95,25 @@ typedef struct
     uint16_t            u4;
     uint16_t            u5;
 } btgatt_test_params_t;
+
+/* BT GATT client error codes */
+typedef enum
+{
+    BT_GATTC_COMMAND_SUCCESS = 0,    /* 0  Command succeeded                 */
+    BT_GATTC_COMMAND_STARTED,        /* 1  Command started OK.               */
+    BT_GATTC_COMMAND_BUSY,           /* 2  Device busy with another command  */
+    BT_GATTC_COMMAND_STORED,         /* 3 request is stored in control block */
+    BT_GATTC_NO_RESOURCES,           /* 4  No resources to issue command     */
+    BT_GATTC_MODE_UNSUPPORTED,       /* 5  Request for 1 or more unsupported modes */
+    BT_GATTC_ILLEGAL_VALUE,          /* 6  Illegal command /parameter value  */
+    BT_GATTC_INCORRECT_STATE,        /* 7  Device in wrong state for request  */
+    BT_GATTC_UNKNOWN_ADDR,           /* 8  Unknown remote BD address         */
+    BT_GATTC_DEVICE_TIMEOUT,         /* 9  Device timeout                    */
+    BT_GATTC_INVALID_CONTROLLER_OUTPUT,/* 10  An incorrect value was received from HCI */
+    BT_GATTC_SECURITY_ERROR,          /* 11 Authorization or security failure or not authorized  */
+    BT_GATTC_DELAYED_ENCRYPTION_CHECK, /*12 Delayed encryption check */
+    BT_GATTC_ERR_PROCESSING           /* 12 Generic error                     */
+} btgattc_error_t;
 
 /** BT-GATT Client callback structure. */
 
@@ -202,8 +239,11 @@ typedef void (*batchscan_reports_callback)(int client_if, int status, int report
 typedef void (*batchscan_threshold_callback)(int client_if);
 
 /** Track ADV VSE callback invoked when tracked device is found or lost */
-typedef void (*track_adv_event_callback)(int client_if, int filt_index, int addr_type,
-                                             bt_bdaddr_t* bda, int adv_state);
+typedef void (*track_adv_event_callback)(btgatt_track_adv_info_t *p_track_adv_info);
+
+/** Callback invoked when scan parameter setup has completed */
+typedef void (*scan_parameter_setup_completed_callback)(int client_if,
+                                                        btgattc_error_t status);
 
 typedef struct {
     register_client_callback            register_client_cb;
@@ -238,6 +278,7 @@ typedef struct {
     batchscan_reports_callback          batchscan_reports_cb;
     batchscan_threshold_callback        batchscan_threshold_cb;
     track_adv_event_callback            track_adv_event_cb;
+    scan_parameter_setup_completed_callback scan_parameter_setup_completed_cb;
 } btgatt_client_callbacks_t;
 
 /** Represents the standard BT-GATT client interface. */
@@ -336,10 +377,7 @@ typedef struct {
     bt_status_t (*read_remote_rssi)( int client_if, const bt_bdaddr_t *bd_addr);
 
     /** Setup scan filter params */
-    bt_status_t (*scan_filter_param_setup)(int client_if, int action, int filt_index, int feat_seln,
-                                      int list_logic_type, int filt_logic_type, int rssi_high_thres,
-                                      int rssi_low_thres, int dely_mode, int found_timeout,
-                                      int lost_timeout, int found_timeout_cnt);
+    bt_status_t (*scan_filter_param_setup)(btgatt_filt_param_setup_t filt_param);
 
 
     /** Configure a scan filter condition  */
@@ -374,7 +412,7 @@ typedef struct {
                     int max_interval, int latency, int timeout);
 
     /** Sets the LE scan interval and window in units of N*0.625 msec */
-    bt_status_t (*set_scan_parameters)(int scan_interval, int scan_window);
+    bt_status_t (*set_scan_parameters)(int client_if, int scan_interval, int scan_window);
 
     /* Setup the parameters as per spec, user manual specified values and enable multi ADV */
     bt_status_t (*multi_adv_enable)(int client_if, int min_interval,int max_interval,int adv_type,

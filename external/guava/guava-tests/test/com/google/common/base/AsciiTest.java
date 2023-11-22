@@ -39,14 +39,16 @@ public class AsciiTest extends TestCase {
 
   public void testToLowerCase() {
     assertEquals(LOWER, Ascii.toLowerCase(UPPER));
-    assertEquals(LOWER, Ascii.toLowerCase(LOWER));
-    assertEquals(IGNORED, Ascii.toUpperCase(IGNORED));
+    assertSame(LOWER, Ascii.toLowerCase(LOWER));
+    assertEquals(IGNORED, Ascii.toLowerCase(IGNORED));
+    assertEquals("foobar", Ascii.toLowerCase("fOobaR"));
   }
 
   public void testToUpperCase() {
     assertEquals(UPPER, Ascii.toUpperCase(LOWER));
-    assertEquals(UPPER, Ascii.toUpperCase(UPPER));
+    assertSame(UPPER, Ascii.toUpperCase(UPPER));
     assertEquals(IGNORED, Ascii.toUpperCase(IGNORED));
+    assertEquals("FOOBAR", Ascii.toUpperCase("FoOBAr"));
   }
 
   public void testCharsIgnored() {
@@ -77,5 +79,71 @@ public class AsciiTest extends TestCase {
       assertFalse(str, Ascii.isLowerCase(c));
       assertTrue(str, Ascii.isUpperCase(c));
     }
+  }
+
+  public void testTruncate() {
+    assertEquals("foobar", Ascii.truncate("foobar", 10, "..."));
+    assertEquals("fo...", Ascii.truncate("foobar", 5, "..."));
+    assertEquals("foobar", Ascii.truncate("foobar", 6, "..."));
+    assertEquals("...", Ascii.truncate("foobar", 3, "..."));
+    assertEquals("foobar", Ascii.truncate("foobar", 10, "…"));
+    assertEquals("foo…", Ascii.truncate("foobar", 4, "…"));
+    assertEquals("fo--", Ascii.truncate("foobar", 4, "--"));
+    assertEquals("foobar", Ascii.truncate("foobar", 6, "…"));
+    assertEquals("foob…", Ascii.truncate("foobar", 5, "…"));
+    assertEquals("foo", Ascii.truncate("foobar", 3, ""));
+    assertEquals("", Ascii.truncate("", 5, ""));
+    assertEquals("", Ascii.truncate("", 5, "..."));
+    assertEquals("", Ascii.truncate("", 0, ""));
+  }
+
+  public void testTruncateIllegalArguments() {
+    String truncated = null;
+    try {
+      truncated = Ascii.truncate("foobar", 2, "...");
+      fail();
+    } catch (IllegalArgumentException expected) {}
+
+    try {
+      truncated = Ascii.truncate("foobar", 8, "1234567890");
+      fail();
+    } catch (IllegalArgumentException expected) {}
+
+    try {
+      truncated = Ascii.truncate("foobar", -1, "...");
+      fail();
+    } catch (IllegalArgumentException expected) {}
+
+    try {
+      truncated = Ascii.truncate("foobar", -1, "");
+      fail();
+    } catch (IllegalArgumentException expected) {}
+  }
+
+  public void testEqualsIgnoreCase() {
+    assertTrue(Ascii.equalsIgnoreCase("", ""));
+    assertFalse(Ascii.equalsIgnoreCase("", "x"));
+    assertFalse(Ascii.equalsIgnoreCase("x", ""));
+    assertTrue(Ascii.equalsIgnoreCase(LOWER, UPPER));
+    assertTrue(Ascii.equalsIgnoreCase(UPPER, LOWER));
+    // Create new strings here to avoid early-out logic.
+    assertTrue(Ascii.equalsIgnoreCase(new String(IGNORED), new String(IGNORED)));
+    // Compare to: "\u00c1".equalsIgnoreCase("\u00e1") == true
+    assertFalse(Ascii.equalsIgnoreCase("\u00c1", "\u00e1"));
+    // Test chars just outside the alphabetic range ('A'-1 vs 'a'-1, 'Z'+1 vs 'z'+1)
+    assertFalse(Ascii.equalsIgnoreCase("@", "`"));
+    assertFalse(Ascii.equalsIgnoreCase("[", "{"));
+  }
+
+  public void testEqualsIgnoreCaseUnicodeEquivalence() {
+    // Note that it's possible in future that the JDK's idea to toUpperCase() or equalsIgnoreCase()
+    // may change and break assumptions in this test [*]. This is not a bug in the implementation of
+    // Ascii.equalsIgnoreCase(), but it is a signal that its documentation may need updating as
+    // regards edge cases.
+
+    // The Unicode point {@code 00df} is the lowercase form of sharp-S (ß), whose uppercase is "SS".
+    assertEquals("pa\u00dfword".toUpperCase(), "PASSWORD");    // [*]
+    assertFalse("pa\u00dfword".equalsIgnoreCase("PASSWORD"));  // [*]
+    assertFalse(Ascii.equalsIgnoreCase("pa\u00dfword", "PASSWORD"));
   }
 }

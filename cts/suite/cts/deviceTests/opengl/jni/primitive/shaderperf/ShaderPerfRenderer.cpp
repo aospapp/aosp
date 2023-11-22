@@ -91,13 +91,13 @@ static int charCopy(const char* source, char* dest, int destStart) {
     return destAddr - destStart;
 }
 
-ShaderPerfRenderer::ShaderPerfRenderer(ANativeWindow* window, bool offscreen, int workload) :
-        Renderer(window, offscreen, workload) {
+ShaderPerfRenderer::ShaderPerfRenderer(ANativeWindow* window, bool offscreen) :
+        Renderer(window, offscreen) {
 }
 
-bool ShaderPerfRenderer::setUp() {
+bool ShaderPerfRenderer::setUp(int workload) {
     SCOPED_TRACE();
-    if (!Renderer::setUp()) {
+    if (!Renderer::setUp(workload)) {
         return false;
     }
 
@@ -106,7 +106,7 @@ bool ShaderPerfRenderer::setUp() {
     // Add the first part.
     int index = charCopy(SP_FRAGMENT_1, spFragment, 0);
     // Add the count, overwriting the '\0' added by charCopy.
-    spFragment[index - 1] = (char) (((int) '0') + mWorkload);
+    spFragment[index - 1] = (char) (((int) '0') + workload);
     // Add the second part.
     index += charCopy(SP_FRAGMENT_2, spFragment, index);
     // Create program.

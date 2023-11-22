@@ -28,6 +28,15 @@ struct f2fs_configuration config;
 /*
  * IO interfaces
  */
+int dev_read_version(void *buf, __u64 offset, size_t len)
+{
+	if (lseek64(config.kd, (off64_t)offset, SEEK_SET) < 0)
+		return -1;
+	if (read(config.kd, buf, len) < 0)
+		return -1;
+	return 0;
+}
+
 int dev_read(void *buf, __u64 offset, size_t len)
 {
 	if (lseek64(config.fd, (off64_t)offset, SEEK_SET) < 0)
@@ -35,6 +44,15 @@ int dev_read(void *buf, __u64 offset, size_t len)
 	if (read(config.fd, buf, len) < 0)
 		return -1;
 	return 0;
+}
+
+int dev_readahead(__u64 offset, size_t len)
+{
+#ifdef POSIX_FADV_WILLNEED
+	return posix_fadvise(config.fd, offset, len, POSIX_FADV_WILLNEED);
+#else
+	return 0;
+#endif
 }
 
 int dev_write(void *buf, __u64 offset, size_t len)
@@ -82,6 +100,11 @@ int dev_read_blocks(void *buf, __u64 addr, __u32 nr_blks)
 	return dev_read(buf, addr * F2FS_BLKSIZE, nr_blks * F2FS_BLKSIZE);
 }
 
+int dev_reada_block(__u64 blk_addr)
+{
+	return dev_readahead(blk_addr * F2FS_BLKSIZE, F2FS_BLKSIZE);
+}
+
 void f2fs_finalize_device(struct f2fs_configuration *c)
 {
 	/*
@@ -93,4 +116,6 @@ void f2fs_finalize_device(struct f2fs_configuration *c)
 
 	if (close(c->fd) < 0)
 		MSG(0, "\tError: Failed to close device file!!!\n");
+
+	close(c->kd);
 }

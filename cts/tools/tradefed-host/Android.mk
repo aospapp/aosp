@@ -27,6 +27,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := tradefed-prebuilt hosttestlib
 LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceinfolib
 
+LOCAL_JAR_MANIFEST := MANIFEST.mf
+
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 include $(BUILD_HOST_JAVA_LIBRARY)

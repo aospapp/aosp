@@ -15,6 +15,7 @@
 #define FLOCKINGSCENE_H
 
 #include <graphics/Program.h>
+#include <utils/Compat.h>
 
 #include "../Scene.h"
 #include "Boid.h"
@@ -41,6 +42,6 @@ private:
     float mBoardHeight;
     Program* mMainProgram;
     Program* mWaterProgram;
-    static const float BOID_SCALE = 1.0f / 50.0f;
+    static const CONSTEXPR float BOID_SCALE = 1.0f / 50.0f;
 };
 #endif

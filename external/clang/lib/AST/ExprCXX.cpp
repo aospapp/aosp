@@ -55,8 +55,8 @@ QualType CXXUuidofExpr::getTypeOperand(ASTContext &Context) const {
 }
 
 // static
-UuidAttr *CXXUuidofExpr::GetUuidAttrOfType(QualType QT,
-                                           bool *RDHasMultipleGUIDsPtr) {
+const UuidAttr *CXXUuidofExpr::GetUuidAttrOfType(QualType QT,
+                                                 bool *RDHasMultipleGUIDsPtr) {
   // Optionally remove one level of pointer, reference or array indirection.
   const Type *Ty = QT.getTypePtr();
   if (QT->isPointerType() || QT->isReferenceType())
@@ -64,22 +64,23 @@ UuidAttr *CXXUuidofExpr::GetUuidAttrOfType(QualType QT,
   else if (QT->isArrayType())
     Ty = Ty->getBaseElementTypeUnsafe();
 
-  // Loop all record redeclaration looking for an uuid attribute.
-  CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
+  const CXXRecordDecl *RD = Ty->getAsCXXRecordDecl();
   if (!RD)
     return nullptr;
 
+  if (const UuidAttr *Uuid = RD->getMostRecentDecl()->getAttr<UuidAttr>())
+    return Uuid;
+
   // __uuidof can grab UUIDs from template arguments.
-  if (ClassTemplateSpecializationDecl *CTSD =
+  if (const ClassTemplateSpecializationDecl *CTSD =
           dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
     const TemplateArgumentList &TAL = CTSD->getTemplateArgs();
-    UuidAttr *UuidForRD = nullptr;
+    const UuidAttr *UuidForRD = nullptr;
 
-    for (unsigned I = 0, N = TAL.size(); I != N; ++I) {
-      const TemplateArgument &TA = TAL[I];
+    for (const TemplateArgument &TA : TAL.asArray()) {
       bool SeenMultipleGUIDs = false;
 
-      UuidAttr *UuidForTA = nullptr;
+      const UuidAttr *UuidForTA = nullptr;
       if (TA.getKind() == TemplateArgument::Type)
         UuidForTA = GetUuidAttrOfType(TA.getAsType(), &SeenMultipleGUIDs);
       else if (TA.getKind() == TemplateArgument::Declaration)
@@ -107,10 +108,6 @@ UuidAttr *CXXUuidofExpr::GetUuidAttrOfType(QualType QT,
 
     return UuidForRD;
   }
-
-  for (auto I : RD->redecls())
-    if (auto Uuid = I->getAttr<UuidAttr>())
-      return Uuid;
 
   return nullptr;
 }
@@ -211,8 +208,9 @@ void CXXNewExpr::AllocateArgsArray(const ASTContext &C, bool isArray,
 }
 
 bool CXXNewExpr::shouldNullCheckAllocation(const ASTContext &Ctx) const {
-  return getOperatorNew()->getType()->
-    castAs<FunctionProtoType>()->isNothrow(Ctx);
+  return getOperatorNew()->getType()->castAs<FunctionProtoType>()->isNothrow(
+             Ctx) &&
+         !getOperatorNew()->isReservedGlobalPlacementOperator();
 }
 
 // CXXDeleteExpr
@@ -240,10 +238,7 @@ CXXPseudoDestructorExpr::CXXPseudoDestructorExpr(const ASTContext &Context,
                 SourceLocation ColonColonLoc, SourceLocation TildeLoc, 
                 PseudoDestructorTypeStorage DestroyedType)
   : Expr(CXXPseudoDestructorExprClass,
-         Context.getPointerType(Context.getFunctionType(
-             Context.VoidTy, None,
-             FunctionProtoType::ExtProtoInfo(
-                 Context.getDefaultCallingConvention(false, true)))),
+         Context.BoundMemberTy,
          VK_RValue, OK_Ordinary,
          /*isTypeDependent=*/(Base->isTypeDependent() ||
            (DestroyedType.getTypeSourceInfo() &&
@@ -362,8 +357,7 @@ OverloadExpr::OverloadExpr(StmtClass K, const ASTContext &C,
     Results = static_cast<DeclAccessPair *>(
                                 C.Allocate(sizeof(DeclAccessPair) * NumResults, 
                                            llvm::alignOf<DeclAccessPair>()));
-    memcpy(Results, &*Begin.getIterator(), 
-           NumResults * sizeof(DeclAccessPair));
+    memcpy(Results, Begin.I, NumResults * sizeof(DeclAccessPair));
   }
 
   // If we have explicit template arguments, check for dependent
@@ -404,8 +398,7 @@ void OverloadExpr::initializeResults(const ASTContext &C,
                                C.Allocate(sizeof(DeclAccessPair) * NumResults,
  
                                           llvm::alignOf<DeclAccessPair>()));
-     memcpy(Results, &*Begin.getIterator(), 
-            NumResults * sizeof(DeclAccessPair));
+     memcpy(Results, Begin.I, NumResults * sizeof(DeclAccessPair));
   }
 }
 
@@ -809,13 +802,16 @@ CXXTemporaryObjectExpr::CXXTemporaryObjectExpr(const ASTContext &C,
                                                SourceRange ParenOrBraceRange,
                                                bool HadMultipleCandidates,
                                                bool ListInitialization,
+                                               bool StdInitListInitialization,
                                                bool ZeroInitialization)
   : CXXConstructExpr(C, CXXTemporaryObjectExprClass, 
                      Type->getType().getNonReferenceType(), 
                      Type->getTypeLoc().getBeginLoc(),
                      Cons, false, Args,
                      HadMultipleCandidates,
-                     ListInitialization, ZeroInitialization,
+                     ListInitialization,
+                     StdInitListInitialization,
+                     ZeroInitialization,
                      CXXConstructExpr::CK_Complete, ParenOrBraceRange),
     Type(Type) {
 }
@@ -837,12 +833,14 @@ CXXConstructExpr *CXXConstructExpr::Create(const ASTContext &C, QualType T,
                                            ArrayRef<Expr*> Args,
                                            bool HadMultipleCandidates,
                                            bool ListInitialization,
+                                           bool StdInitListInitialization,
                                            bool ZeroInitialization,
                                            ConstructionKind ConstructKind,
                                            SourceRange ParenOrBraceRange) {
   return new (C) CXXConstructExpr(C, CXXConstructExprClass, T, Loc, D, 
                                   Elidable, Args,
                                   HadMultipleCandidates, ListInitialization,
+                                  StdInitListInitialization,
                                   ZeroInitialization, ConstructKind,
                                   ParenOrBraceRange);
 }
@@ -853,6 +851,7 @@ CXXConstructExpr::CXXConstructExpr(const ASTContext &C, StmtClass SC,
                                    ArrayRef<Expr*> args,
                                    bool HadMultipleCandidates,
                                    bool ListInitialization,
+                                   bool StdInitListInitialization,
                                    bool ZeroInitialization,
                                    ConstructionKind ConstructKind,
                                    SourceRange ParenOrBraceRange)
@@ -864,6 +863,7 @@ CXXConstructExpr::CXXConstructExpr(const ASTContext &C, StmtClass SC,
     NumArgs(args.size()),
     Elidable(elidable), HadMultipleCandidates(HadMultipleCandidates),
     ListInitialization(ListInitialization),
+    StdInitListInitialization(StdInitListInitialization),
     ZeroInitialization(ZeroInitialization),
     ConstructKind(ConstructKind), Args(nullptr)
 {
@@ -905,16 +905,21 @@ LambdaCapture::LambdaCapture(SourceLocation Loc, bool Implicit,
   case LCK_ByRef:
     assert(Var && "capture must have a variable!");
     break;
+  case LCK_VLAType:
+    assert(!Var && "VLA type capture cannot have a variable!");
+    Bits |= Capture_ByCopy;
+    break;
   }
   DeclAndBits.setInt(Bits);
 }
 
 LambdaCaptureKind LambdaCapture::getCaptureKind() const {
   Decl *D = DeclAndBits.getPointer();
+  bool CapByCopy = DeclAndBits.getInt() & Capture_ByCopy;
   if (!D)
-    return LCK_This;
+    return CapByCopy ? LCK_VLAType : LCK_This;
 
-  return (DeclAndBits.getInt() & Capture_ByCopy) ? LCK_ByCopy : LCK_ByRef;
+  return CapByCopy ? LCK_ByCopy : LCK_ByRef;
 }
 
 LambdaExpr::LambdaExpr(QualType T,
@@ -1069,8 +1074,8 @@ LambdaExpr::getCaptureInitIndexVars(capture_init_iterator Iter) const {
          "Capture index out-of-range");
   VarDecl **IndexVars = getArrayIndexVars();
   unsigned *IndexStarts = getArrayIndexStarts();
-  return ArrayRef<VarDecl *>(IndexVars + IndexStarts[Index],
-                             IndexVars + IndexStarts[Index + 1]);
+  return llvm::makeArrayRef(IndexVars + IndexStarts[Index],
+                            IndexVars + IndexStarts[Index + 1]);
 }
 
 CXXRecordDecl *LambdaExpr::getLambdaClass() const {
@@ -1395,7 +1400,8 @@ CXXRecordDecl *UnresolvedMemberExpr::getNamingClass() const {
   // It can't be dependent: after all, we were actually able to do the
   // lookup.
   CXXRecordDecl *Record = nullptr;
-  if (getQualifier()) {
+  auto *NNS = getQualifier();
+  if (NNS && NNS->getKind() != NestedNameSpecifier::Super) {
     const Type *T = getQualifier()->getAsType();
     assert(T && "qualifier in member expression does not name type");
     Record = T->getAsCXXRecordDecl();

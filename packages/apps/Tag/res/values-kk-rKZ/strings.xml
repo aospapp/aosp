@@ -21,7 +21,7 @@
     <string name="title_existing_tag" msgid="5656560272594190244">"Айдар"</string>
     <string name="tag_unknown" msgid="2897956823877728783">"Белгісіз айдар түрі"</string>
     <string name="tag_empty" msgid="3726529819932095782">"Айдар бос"</string>
-    <string name="button_done" msgid="7048822758098308158">"Орындалды"</string>
+    <string name="button_done" msgid="7048822758098308158">"Дайын"</string>
     <string name="action_text" msgid="577417996159152923">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне мәтін жіберу"</string>
     <string name="action_call" msgid="6226253647953184035">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне қоңырау шалу"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"Бұл айдар бос."</string>

@@ -10,7 +10,6 @@
 #include "Resources.h"
 #include "SkCanvas.h"
 #include "SkData.h"
-#include "SkDecodingImageGenerator.h"
 #include "SkDiscardableMemoryPool.h"
 #include "SkDiscardablePixelRef.h"
 #include "SkImageDecoder.h"
@@ -28,38 +27,30 @@ public:
     FactoryGM() {}
 
 protected:
-    virtual void onOnceBeforeDraw() SK_OVERRIDE {
-        SkString resourcePath = GetResourcePath();
+    void onOnceBeforeDraw() override {
         // Copyright-free file from http://openclipart.org/detail/29213/paper-plane-by-ddoo
-        SkString filename = SkOSPath::SkPathJoin(resourcePath.c_str(), "plane.png");
-        SkAutoDataUnref data(SkData::NewFromFileName(filename.c_str()));
-        if (NULL != data.get()) {
+        SkString pngFilename = GetResourcePath("plane.png");
+        SkAutoDataUnref data(SkData::NewFromFileName(pngFilename.c_str()));
+        if (data.get()) {
             // Create a cache which will boot the pixels out anytime the
             // bitmap is unlocked.
             SkAutoTUnref<SkDiscardableMemoryPool> pool(
                 SkDiscardableMemoryPool::Create(1));
-            SkAssertResult(SkInstallDiscardablePixelRef(
-                SkDecodingImageGenerator::Create(
-                    data, SkDecodingImageGenerator::Options()),
-                &fBitmap, pool));
+            SkAssertResult(SkInstallDiscardablePixelRef(SkImageGenerator::NewFromData(data),
+                                                        &fBitmap, pool));
         }
     }
 
-    virtual SkString onShortName() {
+    virtual SkString onShortName() override {
         return SkString("factory");
     }
 
-    virtual SkISize onISize() {
+    virtual SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) {
+    virtual void onDraw(SkCanvas* canvas) override {
         canvas->drawBitmap(fBitmap, 0, 0);
-    }
-
-    // Skip cross process pipe due to https://code.google.com/p/skia/issues/detail?id=1520
-    virtual uint32_t onGetFlags() const {
-        return INHERITED::onGetFlags() | kSkipPipeCrossProcess_Flag;
     }
 
 private:

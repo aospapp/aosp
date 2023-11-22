@@ -1,4 +1,4 @@
-//===- HexagonTargetInfo.cpp -----------------------------------------------===//
+//===- HexagonTargetInfo.cpp ----------------------------------------------===//
 //
 //                     The MCLinker Project
 //
@@ -6,8 +6,8 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Support/Target.h>
-#include <mcld/Support/TargetRegistry.h>
+#include "mcld/Support/Target.h"
+#include "mcld/Support/TargetRegistry.h"
 
 namespace mcld {
 
@@ -18,5 +18,4 @@ extern "C" void MCLDInitializeHexagonLDTargetInfo() {
   mcld::RegisterTarget<llvm::Triple::hexagon> X(TheHexagonTarget, "hexagon");
 }
 
-} // namespace of mcld
-
+}  // namespace mcld

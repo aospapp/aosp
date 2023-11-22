@@ -1,5 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
+include $(CLEAR_TBLGEN_VARS)
+
 clang_codegen_TBLGEN_TABLES := \
   AttrList.inc \
   AttrParsedAttrList.inc \
@@ -19,35 +21,35 @@ clang_codegen_SRC_FILES := \
   CGAtomic.cpp \
   CGBlocks.cpp \
   CGBuiltin.cpp \
-  CGCUDANV.cpp \
-  CGCUDARuntime.cpp \
-  CGCXX.cpp \
-  CGCXXABI.cpp \
   CGCall.cpp \
   CGClass.cpp \
   CGCleanup.cpp \
+  CGCUDANV.cpp \
+  CGCUDARuntime.cpp \
+  CGCXXABI.cpp \
+  CGCXX.cpp \
   CGDebugInfo.cpp \
   CGDecl.cpp \
   CGDeclCXX.cpp \
   CGException.cpp \
-  CGExpr.cpp \
   CGExprAgg.cpp \
-  CGExprCXX.cpp \
   CGExprComplex.cpp \
   CGExprConstant.cpp \
+  CGExpr.cpp \
+  CGExprCXX.cpp \
   CGExprScalar.cpp \
+  CGLoopInfo.cpp \
   CGObjC.cpp \
   CGObjCGNU.cpp \
   CGObjCMac.cpp \
   CGObjCRuntime.cpp \
   CGOpenCLRuntime.cpp \
   CGOpenMPRuntime.cpp \
-  CGLoopInfo.cpp \
   CGRecordLayoutBuilder.cpp \
   CGStmt.cpp \
   CGStmtOpenMP.cpp \
-  CGVTT.cpp \
   CGVTables.cpp \
+  CGVTT.cpp \
   CodeGenABITypes.cpp \
   CodeGenAction.cpp \
   CodeGenFunction.cpp \
@@ -55,16 +57,16 @@ clang_codegen_SRC_FILES := \
   CodeGenPGO.cpp \
   CodeGenTBAA.cpp \
   CodeGenTypes.cpp \
+  CoverageMappingGen.cpp \
   ItaniumCXXABI.cpp \
   MicrosoftCXXABI.cpp \
   ModuleBuilder.cpp \
-  SanitizerBlacklist.cpp \
+  SanitizerMetadata.cpp \
   TargetInfo.cpp
 
-# For the host only
+# For the host
 # =====================================================
 include $(CLEAR_VARS)
-include $(CLEAR_TBLGEN_VARS)
 
 LOCAL_MODULE:= libclangCodeGen
 LOCAL_MODULE_TAGS := optional
@@ -77,3 +79,19 @@ include $(CLANG_VERSION_INC_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(LLVM_GEN_INTRINSICS_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
+
+# For the target
+# =====================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE:= libclangCodeGen
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := $(clang_codegen_SRC_FILES)
+TBLGEN_TABLES := $(clang_codegen_TBLGEN_TABLES)
+
+include $(CLANG_DEVICE_BUILD_MK)
+include $(CLANG_VERSION_INC_MK)
+include $(CLANG_TBLGEN_RULES_MK)
+include $(LLVM_GEN_INTRINSICS_MK)
+include $(BUILD_STATIC_LIBRARY)

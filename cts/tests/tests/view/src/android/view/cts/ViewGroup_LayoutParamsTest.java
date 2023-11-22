@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import java.io.IOException;
+import com.android.cts.view.R;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -27,10 +27,9 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.cts.util.XmlUtils;
 
-import com.android.cts.view.R;
-import com.android.internal.util.XmlUtils;
-
+import java.io.IOException;
 
 public class ViewGroup_LayoutParamsTest extends AndroidTestCase {
     private ViewGroup.LayoutParams mLayoutParams;

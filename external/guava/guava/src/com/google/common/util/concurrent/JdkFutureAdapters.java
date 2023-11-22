@@ -17,9 +17,9 @@
 package com.google.common.util.concurrent;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly;
 
 import com.google.common.annotations.Beta;
-import com.google.common.annotations.VisibleForTesting;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -42,7 +42,7 @@ public final class JdkFutureAdapters {
    * Assigns a thread to the given {@link Future} to provide {@link
    * ListenableFuture} functionality.
    *
-   * <p><b>Warning:</b> If the input future does not already implement {@link
+   * <p><b>Warning:</b> If the input future does not already implement {@code
    * ListenableFuture}, the returned future will emulate {@link
    * ListenableFuture#addListener} by taking a thread from an internal,
    * unbounded pool at the first call to {@code addListener} and holding it
@@ -57,17 +57,40 @@ public final class JdkFutureAdapters {
    */
   public static <V> ListenableFuture<V> listenInPoolThread(
       Future<V> future) {
-    if (future instanceof ListenableFuture<?>) {
+    if (future instanceof ListenableFuture) {
       return (ListenableFuture<V>) future;
     }
     return new ListenableFutureAdapter<V>(future);
   }
 
-  @VisibleForTesting
-  static <V> ListenableFuture<V> listenInPoolThread(
+  /**
+   * Submits a blocking task for the given {@link Future} to provide {@link
+   * ListenableFuture} functionality.
+   *
+   * <p><b>Warning:</b> If the input future does not already implement {@code
+   * ListenableFuture}, the returned future will emulate {@link
+   * ListenableFuture#addListener} by submitting a task to the given executor at
+   * the first call to {@code addListener}. The task must be started by the
+   * executor promptly, or else the returned {@code ListenableFuture} may fail
+   * to work.  The task's execution consists of blocking until the input future
+   * is {@linkplain Future#isDone() done}, so each call to this method may
+   * claim and hold a thread for an arbitrary length of time. Use of bounded
+   * executors or other executors that may fail to execute a task promptly may
+   * result in deadlocks.
+   *
+   * <p>Prefer to create {@code ListenableFuture} instances with {@link
+   * SettableFuture}, {@link MoreExecutors#listeningDecorator(
+   * java.util.concurrent.ExecutorService)}, {@link ListenableFutureTask},
+   * {@link AbstractFuture}, and other utilities over creating plain {@code
+   * Future} instances to be upgraded to {@code ListenableFuture} after the
+   * fact.
+   *
+   * @since 12.0
+   */
+  public static <V> ListenableFuture<V> listenInPoolThread(
       Future<V> future, Executor executor) {
     checkNotNull(executor);
-    if (future instanceof ListenableFuture<?>) {
+    if (future instanceof ListenableFuture) {
       return (ListenableFuture<V>) future;
     }
     return new ListenableFutureAdapter<V>(future, executor);
@@ -138,13 +161,15 @@ public final class JdkFutureAdapters {
           @Override
           public void run() {
             try {
-              delegate.get();
+              /*
+               * Threads from our private pool are never interrupted. Threads
+               * from a user-supplied executor might be, but... what can we do?
+               * This is another reason to return a proper ListenableFuture
+               * instead of using listenInPoolThread.
+               */
+              getUninterruptibly(delegate);
             } catch (Error e) {
               throw e;
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              // Threads from our private pool are never interrupted.
-              throw new AssertionError(e);
             } catch (Throwable e) {
               // ExecutionException / CancellationException / RuntimeException
               // The task is done, run the listeners.

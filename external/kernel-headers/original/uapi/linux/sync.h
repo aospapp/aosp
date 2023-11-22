@@ -30,10 +30,10 @@ struct sync_merge_data {
  * struct sync_pt_info - detailed sync_pt information
  * @len:		length of sync_pt_info including any driver_data
  * @obj_name:		name of parent sync_timeline
- * @driver_name:	name of driver implmenting the parent
+ * @driver_name:	name of driver implementing the parent
  * @status:		status of the sync_pt 0:active 1:signaled <0:error
  * @timestamp_ns:	timestamp of status change in nanoseconds
- * @driver_data:	any driver dependant data
+ * @driver_data:	any driver dependent data
  */
 struct sync_pt_info {
 	__u32	len;
@@ -48,7 +48,7 @@ struct sync_pt_info {
 /**
  * struct sync_fence_info_data - data returned from fence info ioctl
  * @len:	ioctl caller writes the size of the buffer its passing in.
- *		ioctl returns length of sync_fence_data reutnred to userspace
+ *		ioctl returns length of sync_fence_data returned to userspace
  *		including pt_info.
  * @name:	name of fence
  * @status:	status of fence. 1: signaled 0:active <0:error
@@ -89,7 +89,7 @@ struct sync_fence_info_data {
  * pt_info.
  *
  * pt_info is a buffer containing sync_pt_infos for every sync_pt in the fence.
- * To itterate over the sync_pt_infos, use the sync_pt_info.len field.
+ * To iterate over the sync_pt_infos, use the sync_pt_info.len field.
  */
 #define SYNC_IOC_FENCE_INFO	_IOWR(SYNC_IOC_MAGIC, 2,\
 	struct sync_fence_info_data)

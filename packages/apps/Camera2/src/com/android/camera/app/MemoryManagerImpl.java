@@ -23,6 +23,7 @@ import android.content.res.Configuration;
 
 import com.android.camera.app.MediaSaver.QueueListener;
 import com.android.camera.debug.Log;
+import com.android.camera.util.AndroidServices;
 import com.android.camera.util.GservicesHelper;
 
 import java.util.HashMap;
@@ -68,8 +69,7 @@ public class MemoryManagerImpl implements MemoryManager, QueueListener, Componen
      * @return A wired-up memory manager instance.
      */
     public static MemoryManagerImpl create(Context context, MediaSaver mediaSaver) {
-        ActivityManager activityManager =
-                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager activityManager = AndroidServices.instance().provideActivityManager();
         int maxAllowedNativeMemory = getMaxAllowedNativeMemory(context);
         MemoryQuery mMemoryQuery = new MemoryQuery(activityManager);
         MemoryManagerImpl memoryManager = new MemoryManagerImpl(maxAllowedNativeMemory,
@@ -149,14 +149,14 @@ public class MemoryManagerImpl implements MemoryManager, QueueListener, Componen
     /** Helper to determine max allowed native memory allocation (in megabytes). */
     private static int getMaxAllowedNativeMemory(Context context) {
         // First check whether we have a system override.
-        int maxAllowedOverrideMb = GservicesHelper.getMaxAllowedNativeMemoryMb(context);
+        int maxAllowedOverrideMb = GservicesHelper.getMaxAllowedNativeMemoryMb(context
+                .getContentResolver());
         if (maxAllowedOverrideMb > 0) {
             Log.d(TAG, "Max native memory overridden: " + maxAllowedOverrideMb);
             return maxAllowedOverrideMb;
         }
 
-        ActivityManager activityManager = (ActivityManager) context
-                .getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager activityManager = AndroidServices.instance().provideActivityManager();
 
         // Use the max of the regular memory class and the large memory class.
         // This is defined as the maximum memory allowed to be used by the

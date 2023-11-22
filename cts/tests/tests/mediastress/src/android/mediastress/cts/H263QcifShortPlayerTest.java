@@ -16,10 +16,6 @@
 
 package android.mediastress.cts;
 
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder.AudioEncoder;
-import android.media.MediaRecorder.VideoEncoder;
-
 public class H263QcifShortPlayerTest extends MediaPlayerStressTest {
     private final static String VIDEO_PATH_MIDDLE = "bbb_short/176x144/3gp_h263_libfaac/";
     private final String[] mMedias = {
@@ -48,10 +44,6 @@ public class H263QcifShortPlayerTest extends MediaPlayerStressTest {
         "bbb_short.ffmpeg.176x144.3gp.h263_56kbps_25fps.libfaac_stereo_24kbps_11025Hz.3gp",
         "bbb_short.ffmpeg.176x144.3gp.h263_56kbps_25fps.libfaac_stereo_24kbps_22050Hz.3gp"
     };
-
-    public H263QcifShortPlayerTest() {
-        super(CamcorderProfile.QUALITY_QCIF, VideoEncoder.H263, AudioEncoder.AAC);
-    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackShort(0);

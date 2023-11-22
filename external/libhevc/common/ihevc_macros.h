@@ -37,7 +37,7 @@
 #define RETURN_IF(cond, retval) if(cond) {return (retval);}
 #define UNUSED(x) ((void)(x))
 
-#define CLIP3(x, min, max) (((x) > max) ? max :(((x) < min)? min:(x)))
+#define CLIP3(x, min, max) (((x) > (max)) ? (max) :(((x) < (min))? (min):(x)))
 
 #define MAX(x,y)    (((x) > (y)) ? (x) :(y))
 #define MIN(x,y)    (((x) < (y)) ? (x) :(y))

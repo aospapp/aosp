@@ -76,7 +76,7 @@
 #define NUM_FRAMES_LIMIT_ENABLED 0
 
 #if NUM_FRAMES_LIMIT_ENABLED
-#define NUM_FRAMES_LIMIT 3600
+#define NUM_FRAMES_LIMIT 10000
 #else
 #define NUM_FRAMES_LIMIT 0x7FFFFFFF
 #endif
@@ -183,15 +183,15 @@ static void ihevcd_fill_outargs(codec_t *ps_codec,
     ps_dec_op->u4_error_code = ihevcd_map_error((IHEVCD_ERROR_T)ps_codec->i4_error_code);
     ps_dec_op->u4_num_bytes_consumed = ps_dec_ip->u4_num_Bytes
                     - ps_codec->i4_bytes_remaining;
-    if(ps_codec->i4_sps_done)
-    {
-        ps_dec_op->u4_pic_wd = ps_codec->i4_disp_wd;
-        ps_dec_op->u4_pic_ht = ps_codec->i4_disp_ht;
-    }
-    else if(ps_codec->i4_error_code == IHEVCD_UNSUPPORTED_DIMENSIONS)
+    if(ps_codec->i4_error_code == IHEVCD_UNSUPPORTED_DIMENSIONS)
     {
         ps_dec_op->u4_pic_wd = ps_codec->i4_new_max_wd;
         ps_dec_op->u4_pic_ht = ps_codec->i4_new_max_ht;
+    }
+    else if(ps_codec->i4_sps_done)
+    {
+        ps_dec_op->u4_pic_wd = ps_codec->i4_disp_wd;
+        ps_dec_op->u4_pic_ht = ps_codec->i4_disp_ht;
     }
     else
     {
@@ -347,7 +347,11 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
     ps_dec_ip = (ivd_video_decode_ip_t *)pv_api_ip;
     ps_dec_op = (ivd_video_decode_op_t *)pv_api_op;
 
-    memset(ps_dec_op, 0, sizeof(ivd_video_decode_op_t));
+    {
+        UWORD32 u4_size = ps_dec_op->u4_size;
+        memset(ps_dec_op, 0, sizeof(ivd_video_decode_op_t));
+        ps_dec_op->u4_size = u4_size; //Restore size field
+    }
     if(ps_codec->i4_init_done != 1)
     {
         ps_dec_op->u4_error_code |= 1 << IVD_FATALERROR;
@@ -603,7 +607,7 @@ WORD32 ihevcd_decode(iv_obj_t *ps_codec_obj, void *pv_api_ip, void *pv_api_op)
             continue;
         }
 
-        if(((IHEVCD_FAIL == ret) && (ps_codec->i4_error_code == IVD_RES_CHANGED)) ||
+        if((IVD_RES_CHANGED == ret) ||
            (IHEVCD_UNSUPPORTED_DIMENSIONS == ret))
         {
             break;

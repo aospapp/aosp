@@ -36,24 +36,23 @@ public:
         }
     }
 
-    virtual bool isSuitableFor(Backend backend) SK_OVERRIDE {
+    bool isSuitableFor(Backend backend) override {
         return backend == kNonRendering_Backend;
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return fName.c_str();
     }
 
-    virtual void onPreDraw() SK_OVERRIDE {
+    void onPreDraw() override {
         SkString resourcePath = GetResourcePath();
         if (resourcePath.isEmpty()) {
             fValid = false;
             return;
         }
 
-        SkString fullPath = SkOSPath::SkPathJoin(resourcePath.c_str(),
-                                                 fFilename.c_str());
+        SkString fullPath = SkOSPath::Join(resourcePath.c_str(), fFilename.c_str());
         SkFILEStream fileStream(fullPath.c_str());
         fValid = fileStream.isValid() && fileStream.getLength() > 0;
         if (fValid) {
@@ -74,7 +73,7 @@ protected:
         }
     }
 
-    virtual void onDraw(const int loops, SkCanvas*) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas*) override {
         if (!fValid) {
 #ifdef SK_DEBUG
             SkDebugf("stream was invalid: %s\n", fFilename.c_str());
@@ -84,15 +83,15 @@ protected:
         // Decode a bunch of times
         SkBitmap bm;
         for (int i = 0; i < loops; ++i) {
-            SkDEBUGCODE(bool success =) fDecoder->decode(&fStream, &bm,
-                                                         SkImageDecoder::kDecodePixels_Mode);
+            SkDEBUGCODE(SkImageDecoder::Result result =) fDecoder->decode(&fStream, &bm,
+                    SkImageDecoder::kDecodePixels_Mode);
 #ifdef SK_DEBUG
-            if (!success) {
+            if (SkImageDecoder::kFailure == result) {
                 SkDebugf("failed to decode %s\n", fFilename.c_str());
                 return;
             }
 #endif
-            SkDEBUGCODE(success =) fStream.rewind();
+            SkDEBUGCODE(bool success =) fStream.rewind();
 #ifdef SK_DEBUG
             if (!success) {
                 SkDebugf("failed to rewind %s\n", fFilename.c_str());

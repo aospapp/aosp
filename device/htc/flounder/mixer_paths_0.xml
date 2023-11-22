@@ -7,17 +7,22 @@
   <ctl name="Mono ADC MIXL ADC2 Switch" value="0"/>
   <ctl name="TDM1 Mode" value="Normal"/>
   <ctl name="Mono ADC Capture Volume" value="77"/>
-
+  <ctl name="SPK VMixer SPK Switch" value="0"/>
+  <ctl name="Codec VMixer Codec Switch" value="0"/>
   <!-- TODO other defaults -->
 
   <path name="speaker">
+    <ctl name="SPK VMixer SPK Switch" value="1"/>
   </path>
 
   <path name="headphones">
     <ctl name="Headphone Jack Switch" value="1"/>
+    <ctl name="Codec VMixer Codec Switch" value="1"/>
   </path>
 
   <path name="speaker-and-headphones">
+    <ctl name="SPK VMixer SPK Switch" value="1"/>
+    <ctl name="Codec VMixer Codec Switch" value="1"/>
     <ctl name="Headphone Jack Switch" value="1"/>
   </path>
 

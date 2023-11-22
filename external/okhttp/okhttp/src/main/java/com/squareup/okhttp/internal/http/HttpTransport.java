@@ -18,8 +18,9 @@ package com.squareup.okhttp.internal.http;
 
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
 import java.io.IOException;
-import java.net.CacheRequest;
+import okio.Okio;
 import okio.Sink;
 import okio.Source;
 
@@ -32,36 +33,14 @@ public final class HttpTransport implements Transport {
     this.httpConnection = httpConnection;
   }
 
-  @Override public Sink createRequestBody(Request request) throws IOException {
-    long contentLength = OkHeaders.contentLength(request);
-
-    if (httpEngine.bufferRequestBody) {
-      if (contentLength > Integer.MAX_VALUE) {
-        throw new IllegalStateException("Use setFixedLengthStreamingMode() or "
-            + "setChunkedStreamingMode() for requests larger than 2 GiB.");
-      }
-
-      if (contentLength != -1) {
-        // Buffer a request body of a known length.
-        writeRequestHeaders(request);
-        return new RetryableSink((int) contentLength);
-      } else {
-        // Buffer a request body of an unknown length. Don't write request
-        // headers until the entire body is ready; otherwise we can't set the
-        // Content-Length header correctly.
-        return new RetryableSink();
-      }
-    }
-
+  @Override public Sink createRequestBody(Request request, long contentLength) throws IOException {
     if ("chunked".equalsIgnoreCase(request.header("Transfer-Encoding"))) {
       // Stream a request body of unknown length.
-      writeRequestHeaders(request);
       return httpConnection.newChunkedSink();
     }
 
     if (contentLength != -1) {
       // Stream a request body of a known length.
-      writeRequestHeaders(request);
       return httpConnection.newFixedLengthSink(contentLength);
     }
 
@@ -69,7 +48,7 @@ public final class HttpTransport implements Transport {
         "Cannot stream a request body without chunked encoding or a known content length!");
   }
 
-  @Override public void flushRequest() throws IOException {
+  @Override public void finishRequest() throws IOException {
     httpConnection.flush();
   }
 
@@ -93,8 +72,8 @@ public final class HttpTransport implements Transport {
     httpEngine.writingRequestHeaders();
     String requestLine = RequestLine.get(request,
         httpEngine.getConnection().getRoute().getProxy().type(),
-        httpEngine.getConnection().getHttpMinorVersion());
-    httpConnection.writeRequest(request.getHeaders(), requestLine);
+        httpEngine.getConnection().getProtocol());
+    httpConnection.writeRequest(request.headers(), requestLine);
   }
 
   @Override public Response.Builder readResponseHeaders() throws IOException {
@@ -127,28 +106,29 @@ public final class HttpTransport implements Transport {
     return true;
   }
 
-  @Override public void emptyTransferStream() throws IOException {
-    httpConnection.emptyResponseBody();
+  @Override public ResponseBody openResponseBody(Response response) throws IOException {
+    Source source = getTransferStream(response);
+    return new RealResponseBody(response.headers(), Okio.buffer(source));
   }
 
-  @Override public Source getTransferStream(CacheRequest cacheRequest) throws IOException {
-    if (!httpEngine.hasResponseBody()) {
-      return httpConnection.newFixedLengthSource(cacheRequest, 0);
+  private Source getTransferStream(Response response) throws IOException {
+    if (!HttpEngine.hasBody(response)) {
+      return httpConnection.newFixedLengthSource(0);
     }
 
-    if ("chunked".equalsIgnoreCase(httpEngine.getResponse().header("Transfer-Encoding"))) {
-      return httpConnection.newChunkedSource(cacheRequest, httpEngine);
+    if ("chunked".equalsIgnoreCase(response.header("Transfer-Encoding"))) {
+      return httpConnection.newChunkedSource(httpEngine);
     }
 
-    long contentLength = OkHeaders.contentLength(httpEngine.getResponse());
+    long contentLength = OkHeaders.contentLength(response);
     if (contentLength != -1) {
-      return httpConnection.newFixedLengthSource(cacheRequest, contentLength);
+      return httpConnection.newFixedLengthSource(contentLength);
     }
 
     // Wrap the input stream from the connection (rather than just returning
     // "socketIn" directly here), so that we can control its use after the
     // reference escapes.
-    return httpConnection.newUnknownLengthSource(cacheRequest);
+    return httpConnection.newUnknownLengthSource();
   }
 
   @Override public void disconnect(HttpEngine engine) throws IOException {

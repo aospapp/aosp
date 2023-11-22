@@ -49,6 +49,7 @@
     <string name="card_title_video_call" msgid="5898636679563320218">"Video call"</string>
     <string name="card_title_video_call_requesting" msgid="4587504939739340937">"Requesting video"</string>
     <string name="card_title_video_call_error" msgid="9000555878389539225">"Can\'t connect video call"</string>
+    <string name="card_title_video_call_rejected" msgid="462358296694719787">"Video request rejected"</string>
     <string name="card_title_callback_number" msgid="7307938207564217293">"Your callback number\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="card_title_callback_number_emergency" msgid="8634765419223426754">"Your emergency callback number\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="notification_dialing" msgid="2107666444937350731">"Dialling"</string>
@@ -57,8 +58,10 @@
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> missed calls"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"Missed call from <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
     <string name="notification_ongoing_call" msgid="7068688957273482989">"On-going call"</string>
+    <string name="notification_ongoing_call_wifi" msgid="8521553590606569379">"Ongoing Wi-Fi call"</string>
     <string name="notification_on_hold" msgid="3480694969511790465">"On hold"</string>
     <string name="notification_incoming_call" msgid="2820429205043529642">"Incoming call"</string>
+    <string name="notification_incoming_call_wifi" msgid="9210706506594546627">"Incoming Wi-Fi call"</string>
     <string name="notification_incoming_video_call" msgid="7356836933934464805">"Incoming video call"</string>
     <string name="notification_requesting_video_call" msgid="1405576812892369451">"Incoming video request"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"New voicemail"</string>
@@ -95,13 +98,9 @@
     <string name="dial_emergency_error" msgid="1509085166367420355">"Can\'t call. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> is not an emergency number."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Can\'t call. Dial an emergency number."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Use keyboard to dial"</string>
-    <string name="overflowHoldMenuItemText" msgid="7382457697092158039">"Hold call"</string>
-    <string name="overflowResumeMenuItemText" msgid="8826360006222366843">"Resume call"</string>
-    <string name="overflowAddMenuItemText" msgid="5605615101930811453">"Add call"</string>
-    <string name="overflowMergeMenuItemText" msgid="6305762210377655389">"Merge calls"</string>
-    <string name="overflowSwapMenuItemText" msgid="6603717809137071603">"Swap calls"</string>
-    <string name="onscreenHoldText" msgid="2285258239691145872">"Hold"</string>
-    <string name="onscreenEndCallText" msgid="4403855834875398585">"End"</string>
+    <string name="onscreenHoldText_unselected" msgid="7092499303393171276">"Hold Call"</string>
+    <string name="onscreenHoldText_selected" msgid="7127901498507384249">"Resume Call"</string>
+    <string name="onscreenEndCallText" msgid="9039601192595655846">"End Call"</string>
     <string name="onscreenShowDialpadText" msgid="8561805492659639893">"Dial pad"</string>
     <string name="onscreenMuteText" msgid="5011369181754261374">"Mute"</string>
     <string name="onscreenAddCallText" msgid="5140385634712287403">"Add call"</string>
@@ -115,6 +114,11 @@
     <string name="onscreenSwitchCameraText" msgid="5324543493442787798">"Switch camera"</string>
     <string name="onscreenPauseVideoText" msgid="5663965924921429203">"Pause video"</string>
     <string name="onscreenOverflowText" msgid="2702376562345723132">"More options"</string>
+    <string name="player_started" msgid="6046262510243983589">"Player Started"</string>
+    <string name="player_stopped" msgid="8856926759436364963">"Player Stopped"</string>
+    <string name="camera_not_ready" msgid="4955261496193316240">"Camera not ready"</string>
+    <string name="camera_ready" msgid="1903335385405807324">"Camera ready"</string>
+    <string name="unknown_call_session_event" msgid="2431061946920253582">"Unknown call session event"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"Service"</string>
     <string name="voicemail_settings" msgid="72448049107749316">"Setup"</string>
     <string name="voicemail_number_not_set" msgid="6724904736891087856">"&lt;Not set&gt;"</string>
@@ -134,6 +138,10 @@
     <string name="description_target_answer_audio_call" msgid="8396296303320994450">"Answer as audio call"</string>
     <string name="description_target_accept_upgrade_to_video_request" msgid="2894072808324604062">"Accept video request"</string>
     <string name="description_target_decline_upgrade_to_video_request" msgid="4093888612888538776">"Decline video request"</string>
+    <string name="description_target_accept_upgrade_to_video_transmit_request" msgid="5311037889642077468">"Accept video transmit request"</string>
+    <string name="description_target_decline_upgrade_to_video_transmit_request" msgid="3636108065510415975">"Decline video transmit request"</string>
+    <string name="description_target_accept_upgrade_to_video_receive_request" msgid="8668058323593087912">"Accept video receive request"</string>
+    <string name="description_target_decline_upgrade_to_video_receive_request" msgid="2355776509656298367">"Decline video receive request"</string>
     <string name="description_direction_up" msgid="4441409581444516690">"Slide up for <xliff:g id="TARGET_DESCRIPTION">%s</xliff:g>."</string>
     <string name="description_direction_left" msgid="7129873384376533287">"Slide left for <xliff:g id="TARGET_DESCRIPTION">%s</xliff:g>."</string>
     <string name="description_direction_right" msgid="2122584234531957308">"Slide right for <xliff:g id="TARGET_DESCRIPTION">%s</xliff:g>."</string>
@@ -144,8 +152,21 @@
     <string name="default_notification_description" msgid="78174796906240970">"Default sound (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="ringtone_title" msgid="6374978286202084684">"Phone ringtone"</string>
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Vibrate when ringing"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Dialpad auto-complete"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Ringtone &amp; Vibrate"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Manage conference call"</string>
     <string name="emergency_call_dialog_number_for_display" msgid="8373041754188879871">"Emergency number"</string>
+    <plurals name="duration_seconds" formatted="false" msgid="59971978269163609">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> seconds</item>
+      <item quantity="one">1 second</item>
+    </plurals>
+    <plurals name="duration_minutes" formatted="false" msgid="1103289948818175408">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> minutes</item>
+      <item quantity="one">1 minute</item>
+    </plurals>
+    <plurals name="duration_hours" formatted="false" msgid="7560637459014865969">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> hours</item>
+      <item quantity="one">1 hour</item>
+    </plurals>
+    <string name="profile_photo_description" msgid="5609894336203315400">"Profile photo"</string>
+    <string name="camera_off_description" msgid="5689494614359429889">"Camera off"</string>
 </resources>

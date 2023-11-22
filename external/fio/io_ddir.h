@@ -10,8 +10,20 @@ enum fio_ddir {
 	DDIR_DATASYNC,
 	DDIR_SYNC_FILE_RANGE,
 	DDIR_WAIT,
+	DDIR_LAST,
 	DDIR_INVAL = -1,
 };
+
+static inline const char *io_ddir_name(enum fio_ddir ddir)
+{
+	const char *name[] = { "read", "write", "trim", "sync", "datasync",
+				"sync_file_range", "write", };
+
+	if (ddir < DDIR_LAST)
+		return name[ddir];
+
+	return "invalid";
+}
 
 enum td_ddir {
 	TD_DDIR_READ		= 1 << 0,
@@ -30,7 +42,7 @@ enum td_ddir {
 #define td_trim(td)		((td)->o.td_ddir & TD_DDIR_TRIM)
 #define td_rw(td)		(((td)->o.td_ddir & TD_DDIR_RW) == TD_DDIR_RW)
 #define td_random(td)		((td)->o.td_ddir & TD_DDIR_RAND)
-#define file_randommap(td, f)	(!(td)->o.norandommap && (f)->io_axmap)
+#define file_randommap(td, f)	(!(td)->o.norandommap && fio_file_axmap((f)))
 
 static inline int ddir_sync(enum fio_ddir ddir)
 {
@@ -45,14 +57,12 @@ static inline int ddir_rw(enum fio_ddir ddir)
 
 static inline const char *ddir_str(enum td_ddir ddir)
 {
-	const char *ddir_str[] = { NULL, "read", "write", "rw", NULL,
-				   "randread", "randwrite", "randrw",
-				   "trim", NULL, NULL, NULL, "randtrim" };
+	const char *__str[] = { NULL, "read", "write", "rw", NULL,
+				"randread", "randwrite", "randrw",
+				"trim", NULL, NULL, NULL, "randtrim" };
 
-	return ddir_str[ddir];
+	return __str[ddir];
 }
-
-#define ddir_trim(ddir) ((ddir) == DDIR_TRIM)
 
 #define ddir_rw_sum(arr)	\
 	((arr)[DDIR_READ] + (arr)[DDIR_WRITE] + (arr)[DDIR_TRIM])

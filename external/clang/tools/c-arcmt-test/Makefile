@@ -30,8 +30,9 @@ USEDLIBS = clang.a \
 	   clangIndex.a \
 	   clangFormat.a \
 	   clangTooling.a \
+	   clangToolingCore.a \
 	   clangRewriteFrontend.a \
-	   clangRewriteCore.a \
+	   clangRewrite.a \
 	   clangFrontend.a clangDriver.a \
 	   clangStaticAnalyzerCheckers.a clangStaticAnalyzerCore.a \
 	   clangSerialization.a clangParse.a clangSema.a \

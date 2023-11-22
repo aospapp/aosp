@@ -5,9 +5,10 @@
 #ifndef NET_PROXY_PROXY_RESOLVER_V8_H_
 #define NET_PROXY_PROXY_RESOLVER_V8_H_
 #pragma once
-#include "proxy_resolver_js_bindings.h"
 
 #include <utils/String16.h>
+
+#include "proxy_resolver_js_bindings.h"
 
 namespace net {
 

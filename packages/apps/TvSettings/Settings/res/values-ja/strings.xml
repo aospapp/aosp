@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"アカウントを追加"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"同期"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"アカウントの削除"</string>
-    <string name="search_title" msgid="5474988613144349415">"検索"</string>
     <string name="account_sync" msgid="773808124331714965">"同期されたアプリを選択"</string>
     <string name="sync_now" msgid="8732244492880016471">"今すぐ同期"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"同期をキャンセル"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"現在、同期は機能していません。しばらくお待ちください。"</string>
     <string name="account_remove" msgid="4313580520737295272">"アカウントの削除"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"アカウントを削除できません"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"名前"</item>
-    <item msgid="6466271488216028049">"写真"</item>
-    <item msgid="5763918836533170723">"セキュリティ"</item>
-    <item msgid="5219275476980441834">"Googleウォレット"</item>
-    <item msgid="5333563881963545303">"購入履歴"</item>
-    <item msgid="6174147587962184914">"アカウントを削除"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"ネットワーク"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"イーサネット"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"常にスキャン"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Wi-FiがOFFになっていても、Googleの位置情報サービスと他のアプリでネットワークをスキャンする"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"スクリーンセーバー"</string>
     <string name="device_display" msgid="101455384386372747">"ディスプレイ"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"システム音"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"バックアップと復元"</string>
     <string name="device_reset" msgid="2827002349560023125">"データの初期化"</string>
     <string name="device_calibration" msgid="8632962533376605191">"キャリブレーション"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"キャッシュデータを消去しますか？"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"すべてのアプリのキャッシュデータが消去されます。"</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"ダウンロードしたアプリ"</string>
     <string name="apps_system" msgid="2499191125802829425">"システムアプリ"</string>
     <string name="apps_running" msgid="6430310491739956228">"実行中のアプリ"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"リモート"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"カメラ"</string>
     <string name="accessories_add" msgid="1347802656349218830">"アクセサリを追加"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Wi-Fiディスプレイ"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"ペアに設定しています…"</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"アクセサリ"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"名前を変更"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"ペアを解除"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"電池残量: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"端末のペアを解除しています…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"ペアリング済み"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"アクセサリを検索しています…"</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"日付と時刻"</string>
     <string name="system_language" msgid="2337138146114609247">"言語"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"キーボード"</string>
+    <string name="system_home" msgid="2858989138172296012">"ホーム画面"</string>
     <string name="system_search" msgid="2837264654143247611">"検索"</string>
     <string name="system_security" msgid="8230080273993484407">"セキュリティと制限"</string>
     <string name="system_speech" msgid="8128688499687306982">"音声"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"端末名"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"再起動"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"法的情報"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"保証書"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"オープンソースライセンス"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google利用規約"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ライセンスデータは使用できません"</string>
@@ -118,23 +109,13 @@
     <string name="about_version" msgid="1177287676732287266">"バージョン"</string>
     <string name="about_serial" msgid="2723560490027171187">"シリアル番号"</string>
     <string name="about_build" msgid="9148789767199785676">"ビルド"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"デベロッパーになるまであと<xliff:g id="STEP_COUNT">%1$d</xliff:g>ステップです"</item>
-    <item quantity="other" msgid="6907126743472136795">"デベロッパーになるまであと<xliff:g id="STEP_COUNT">%1$d</xliff:g>ステップです"</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="other">デベロッパーになるまであと<xliff:g id="STEP_COUNT_1">%1$d</xliff:g>ステップです</item>
+      <item quantity="one">デベロッパーになるまであと<xliff:g id="STEP_COUNT_0">%1$d</xliff:g>ステップです</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"広告"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"開発者向けオプションが有効になりました"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"開発者向けオプションが既に有効です"</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"なし"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"保存済み"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"無効"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"インターネット接続不良により無効"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"認証エラー"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"圏外"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"WPS利用可"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" （WPS利用可）"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"<xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>で保護"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">"、<xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>で保護"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"弱"</item>
     <item msgid="5986166866411161790">"中"</item>
@@ -154,10 +135,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"利用可能なネットワーク"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS経由の接続"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"新しいネットワークを追加"</string>
-    <string name="add_network" msgid="2074883912462075625">"ネットワークの追加"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"ネットワークSSID"</string>
     <string name="security_type" msgid="524443802004143058">"セキュリティのタイプ"</string>
-    <string name="password" msgid="1322790875762726719">"パスワード"</string>
     <string name="wps_network" msgid="1052148085426051873">"WPS経由の接続"</string>
     <string name="other_network" msgid="3539704463099544488">"他のネットワーク…"</string>
     <string name="skip_network" msgid="6380260543776712357">"スキップ"</string>
@@ -200,11 +178,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"使用しない"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"手動"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"保存"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"静的"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"ステータス情報"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"詳細オプション"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>、<xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"有効なIPアドレスを入力してください"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"有効なゲートウェイアドレスを入力してください"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"有効なDNSアドレスを入力してください"</string>
@@ -227,19 +203,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"ネットワーク未接続"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"既に<xliff:g id="SSID">%1$s</xliff:g>に接続しています。別のネットワークに接続しますか？"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"不明なネットワーク"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"詳細オプション"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>、<xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"IP設定"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"接続のテスト"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"静的"</string>
-    <string name="gateway" msgid="2467496590891949814">"ゲートウェイ"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"ネットワークプレフィックス長"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"OK"</string>
     <string name="title_cancel" msgid="4846143417666038604">"キャンセル"</string>
-    <string name="rename_device" msgid="8221482127562510757">"デバイス名を変更"</string>
     <string name="storage_title" msgid="2132026108559493394">"ストレージ"</string>
     <string name="storage_available" msgid="1241005580092138871">"使用可能"</string>
     <string name="storage_size" msgid="8958530823208352781">"合計容量: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +215,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"音声（音楽、ポッドキャストなど）"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"その他"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"キャッシュデータ"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"キャンセル"</string>
+    <string name="storage_eject" msgid="113476702798691558">"取り外し"</string>
+    <string name="storage_format" msgid="3759273736493279595">"消去してフォーマット"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"デバイスストレージとしてフォーマット"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"未接続"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"データを移行"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"この内部ストレージを切断"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"このドライブに保存されているアプリやデータを使用するには、接続し直してください。ドライブが使用できない場合は、切断することもできます。\n\n切断した場合、このドライブに保存されているすべてのデータは完全に失われます。\n\nアプリは後で再インストールできますが、このドライブに保存されているデータは失われます。"</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"端末のストレージ"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"リムーバブルストレージ"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"リセット"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g>をマウントしました"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"<xliff:g id="NAME">%1$s</xliff:g>をマウントできませんでした"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g>を安全に取り出しました"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"<xliff:g id="NAME">%1$s</xliff:g>を安全に取り出せませんでした"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"取り外すドライブが見つかりませんでした"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g>をフォーマットしました"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"<xliff:g id="NAME">%1$s</xliff:g>をフォーマットできませんでした"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"内部ストレージとしてフォーマット"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"セキュリティを確保するには、USBドライブをフォーマットする必要があります。フォーマット後、このドライブはこの端末でのみ使用できるようになります。フォーマットすると、このドライブに保存されているデータがすべて消去されます。データの消失を防ぐため、バックアップを検討してください。"</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"消去してフォーマット"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"フォーマット後、このUSBドライブは他の端末で使用できるようになります。データはすべて消去されます。まず、アプリを他の内部ストレージに移動してバックアップすることを検討してください。"</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USBドライブをフォーマットしています…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"この処理には時間がかかる場合があります。ドライブを取り外さないでください。"</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"<xliff:g id="NAME">%1$s</xliff:g>へのデータの移動"</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"写真、ファイル、アプリデータを<xliff:g id="NAME">%1$s</xliff:g>に移動します。移動には数分かかることがあります。移動中は一部のアプリが使用できなくなります。"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"今すぐ移動"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"後で移動"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"<xliff:g id="NAME">%1$s</xliff:g>にデータを移行しました"</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"<xliff:g id="NAME">%1$s</xliff:g>にデータを移行できませんでした"</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"<xliff:g id="NAME">%1$s</xliff:g>にデータを移動しています…"</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"移動には時間がかかることがあります。ドライブを取り外さないでください。\n移動中は一部のアプリが使用できなくなります。"</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"このドライブは速度が遅いようです。"</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"続行することはできますが、この場所に移動したアプリはスムーズに動作しないおそれがあります。また、データの転送に時間がかかる可能性があります。快適にご利用いただくには、高速ドライブの使用をご検討ください。"</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"フォーマット"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"アプリをバックアップ"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g>に保存されているアプリ"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g>に保存されているアプリとデータ"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"空き容量: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"内部ストレージの取り出し"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"この端末のストレージを取り出すと、保存されているアプリは使用できなくなります。このUSBドライブは、この端末用にフォーマットされており、他の端末では使用できません。"</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"<xliff:g id="NAME">%1$s</xliff:g>を取り外し中…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"使用されているストレージ"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g>を移動しています…"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"移動中はドライブを取り外さないでください。\nこの端末の<xliff:g id="APPNAME">%1$s</xliff:g>アプリは移動が完了するまで使用できません。"</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"内部ストレージを切断しますか？"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"切断すると、このドライブに保存されているすべてのデータは完全に失われます。続行しますか？"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"切断"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"USBドライブが接続されました"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"ブラウズ"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"内部ストレージとしてセットアップ"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"リムーバルストレージとしてセットアップ"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"取り外し"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g>は取り外されています"</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"ドライブを再接続するまで、一部のアプリは使用できないか、正しく機能しません。"</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"十分な空き容量がありません。"</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"アプリが存在しません。"</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"このアプリはコピー防止機能付きです。"</string>
+    <string name="invalid_location" msgid="5269044848535157307">"インストール先が無効です。"</string>
+    <string name="system_package" msgid="9200255718634512790">"システムアップデートは外部メディアにはインストールできません。"</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"詳細"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"再試行"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"WPSルーターを探しています…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"ルーターのWi-Fi保護設定ボタンを押します。\nボタンには[WPS]または左に示すような記号が表示されている場合があります。"</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Wi-FiルーターのPIN<xliff:g id="NUMBER">%1$s</xliff:g>を入力してください"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"PINを入力すると、セットアップは2分で完了します"</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"WPSを設定中です。完了まで2分ほどかかることがあります"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fiルーターが見つかりませんでした"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fiルーターのセキュリティ設定（WEP）はサポートされていません"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Wi-Fiルーターのセキュリティ設定（TKIP）はサポートされていません"</string>
@@ -266,17 +289,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"日付の設定"</string>
     <string name="system_set_time" msgid="4661804115501057452">"時刻の設定"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"タイムゾーンの設定"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>（<xliff:g id="NAME">%2$s</xliff:g>）"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24時間表示の使用"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g>（<xliff:g id="SAMPLE">%2$s</xliff:g>）"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"日付と時刻の自動設定"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"ネットワークから提供された時刻を使用する"</string>
     <string name="system_location" msgid="502463575930545806">"位置情報"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"ユーザーの許可をリクエストしたアプリに 位置情報の使用を許可する"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"Wi-Fi接続時の位置情報"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"アプリによる現在地の特定をGoogleがサポートすることを許可します。アプリが起動していなくても匿名の現在地データがGoogleに送信されることになります。"</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"位置情報についての同意"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"匿名化された現在地データの収集を Googleの位置情報サービスに許可します。 一部のデータがお使いの端末に保存されることがあります。 データ収集はアプリが起動していなくても行われることがあります。"</string>
-    <string name="location_title" msgid="7600163182794860262">"現在地"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"システム"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"モード"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"最近の位置情報リクエスト"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"位置情報を最近リクエストしたアプリはありません"</string>
@@ -318,9 +338,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"テキストの透明度"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"ウィンドウの色"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"ウィンドウの透明度"</string>
-    <string name="color_none" msgid="5281446963475996688">"なし"</string>
     <string name="color_white" msgid="65537523012024751">"白"</string>
-    <string name="color_gray" msgid="5637299846460438696">"グレー"</string>
     <string name="color_black" msgid="8804213372565106403">"黒"</string>
     <string name="color_red" msgid="5630553203246525989">"赤"</string>
     <string name="color_green" msgid="3745551274773976763">"緑"</string>
@@ -346,8 +364,6 @@
     <string name="system_drawing" msgid="6573389872154957039">"描画"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"監視"</string>
     <string name="system_apps" msgid="6293850468968494924">"アプリ"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"バグレポートの取得"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"バックアップパスワード"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"スリープモードにしない"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"HDCPチェック"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI最適化"</string>
@@ -383,8 +399,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"アクティビティを保持しない"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"バックグラウンドプロセスの上限"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"すべてのANRの表示"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"メールアドレスにレポートを送信する"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"デスクトップのフルバックアップを保護する"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"スリープを無効にする"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"DRMコンテンツのみに使用"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"最大解像度または最大フレームレートの表示を最適化します。この影響を受けるのはUltra HDディスプレイのみです。変更すると端末を再起動します。"</string>
@@ -399,7 +413,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"メインスレッドの処理が長引く場合は画面を点滅させる"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"現在のCPU使用状況をオーバーレイ表示する"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"adb shell dumpsys gfxinfoでレンダリング時間を測定"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"ローカル（<xliff:g id="DATE">%s</xliff:g>）"</string>
     <string name="action_on_title" msgid="6852389884236870765">"ON"</string>
     <string name="action_off_title" msgid="3157728958166559966">"OFF"</string>
     <string name="action_on_description" msgid="4559342592998850852">"ON"</string>
@@ -411,68 +424,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"提供元不明のアプリから携帯端末や個人データが攻撃を受ける可能性が高くなります。 このようなアプリの使用により生じる可能性がある携帯端末への損害やデータの損失について、 ユーザーご自身が単独で責任を負うことに同意するものとします。"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"アプリの確認"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"損害をもたらす可能性があるアプリのインストールを 禁止またはインストール前に警告する"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"使用しない"</item>
-    <item msgid="5583820743908145007">"DRMコンテンツにのみ使用する"</item>
-    <item msgid="6148080515126921450">"常に使用する"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"使用しない"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"DRMコンテンツにのみ使用する"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"常に使用する"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"最適な解像度"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"最適なフレームレート"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"OFF"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"オーバードロー領域の表示"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"オーバードローカウンタの表示"</string>
     <string name="no_application" msgid="1746564297589309465">"なし"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"なし"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace（グラフィック）"</item>
-    <item msgid="6650537879885155020">"glGetErrorでのスタック呼び出し"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"なし"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"アニメーションOFF"</item>
+    <item msgid="8327257151534006014">"アニメーションスケール.5x"</item>
+    <item msgid="2105786719544636780">"アニメーションスケール1x"</item>
+    <item msgid="5290554136790336403">"アニメーションスケール1.5x"</item>
+    <item msgid="1232929590838082483">"アニメーションスケール2x"</item>
+    <item msgid="1889239009419613796">"アニメーションスケール5x"</item>
+    <item msgid="7268894934484547297">"アニメーションスケール10x"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"アニメーションOFF"</item>
-    <item msgid="5618283113978106483">"アニメーションスケール.5x"</item>
-    <item msgid="397451685490290179">"アニメーションスケール1x"</item>
-    <item msgid="6331600473492644688">"アニメーションスケール1.5x"</item>
-    <item msgid="7004952449777104295">"アニメーションスケール2x"</item>
-    <item msgid="1063528777234221038">"アニメーションスケール5x"</item>
-    <item msgid="6926378938392529339">"アニメーションスケール10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"アニメーションOFF"</item>
-    <item msgid="5578331490208019526">"アニメーションスケール.5x"</item>
-    <item msgid="5338802612080069593">"アニメーションスケール1x"</item>
-    <item msgid="1309704285131661878">"アニメーションスケール1.5x"</item>
-    <item msgid="5654221040036850960">"アニメーションスケール2x"</item>
-    <item msgid="6092484055733043622">"アニメーションスケール5x"</item>
-    <item msgid="4049359393103906268">"アニメーションスケール10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"アニメーションOFF"</item>
-    <item msgid="1302400121783768928">"アニメーションスケール.5x"</item>
-    <item msgid="9088460595137551270">"アニメーションスケール1x"</item>
-    <item msgid="5640745580399155880">"アニメーションスケール1.5x"</item>
-    <item msgid="3320199023884342141">"アニメーションスケール2x"</item>
-    <item msgid="5620232666163371843">"アニメーションスケール5x"</item>
-    <item msgid="8580701701183364590">"アニメーションスケール10x"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"OFF"</item>
-    <item msgid="6446688182396957172">"バーとして画面に表示"</item>
-    <item msgid="9080500692341488612">"adb shell dumpsys gfxinfoを使用"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"標準の上限"</item>
-    <item msgid="6534728802931195545">"バックグラウンドプロセスを使用しない"</item>
-    <item msgid="290172167371846384">"プロセスの上限: 1"</item>
-    <item msgid="4818593824413771192">"プロセスの上限: 2"</item>
-    <item msgid="8337569181800165433">"プロセスの上限: 3"</item>
-    <item msgid="8261219565766202947">"プロセスの上限: 4"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"非常に遅い"</item>
-    <item msgid="3458529225374884970">"遅い"</item>
-    <item msgid="4131204219571166311">"標準"</item>
-    <item msgid="786682416218616624">"速い"</item>
-    <item msgid="1708844147149066133">"非常に速い"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"アカウントの種類の選択"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"アカウントの選択"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"新しいアカウントを追加"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"OFF"</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"バーとして画面に表示"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"標準の上限"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"バックグラウンドプロセスを使用しない"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"プロセスの上限: 1"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"プロセスの上限: 2"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"プロセスの上限: 3"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"プロセスの上限: 4"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"非常に遅い"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"遅い"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"標準"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"速い"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"非常に速い"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"現在のキーボード"</string>
     <string name="title_configure" msgid="6929522003149212388">"設定"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"キーボードオプション"</string>
@@ -481,9 +464,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"名前を変更"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fiディスプレイ"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PINが必要です"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"リモート情報: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"バグレポートを収集しています。\nレポートの準備ができたら詳細についてお聞きします。"</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"バグレポートを収集できませんでした。\nしばらくしてからもう一度お試しください。"</string>
     <string name="whichApplication" msgid="8382179653567099571">"アプリを選択"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"このオプションをこの操作に常に使用しますか？"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"常に使用"</string>
@@ -508,48 +488,39 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"テレビでHDMIデバイスの電源をオフにします"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"テレビの自動電源オン"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"HDMIデバイスでテレビの電源をオンにします"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"接続済みの入力"</item>
-    <item quantity="other" msgid="280747600882155182">"接続済みの入力"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"スタンバイ入力"</item>
-    <item quantity="other" msgid="1673538341842385592">"スタンバイ入力"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"未接続の入力"</item>
-    <item quantity="other" msgid="4526893384805247472">"未接続の入力"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"接続済み"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"スタンバイ"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"切断済み"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="other">接続済みの入力</item>
+      <item quantity="one">接続済みの入力</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="other">スタンバイ入力</item>
+      <item quantity="one">スタンバイ入力</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="other">未接続の入力</item>
+      <item quantity="one">未接続の入力</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"あなたのアカウントでアプリやその他のコンテンツへのアクセスを制限します"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"制限付きプロフィール"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"アプリとコンテンツへのアクセス"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"<xliff:g id="APP">%1$s</xliff:g>によって制御"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"このアプリは制限付きプロフィールではサポートされていません"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"このアプリはアカウントにアクセスする場合があります"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"位置情報"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"アプリに位置情報の使用を許可する"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"制限付きユーザーを作成"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"制限付きプロフィールを入力"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"制限付きプロフィールを終了"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"制限付きプロフィールを削除"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"設定"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"許可されたアプリ"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"1個のアプリを許可"</item>
-    <item quantity="other" msgid="5242661864373721262">"%d個のアプリを許可"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="other">%d個のアプリを許可</item>
+      <item quantity="one">1個のアプリを許可</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"許可済み"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"未許可"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"制限をカスタマイズ"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"しばらくお待ちください…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"PINの変更"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"制限付きプロフィールの終了に使用する新しいPINコードを設定"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"制限付きプロフィールの終了に使用するPINコードを確認"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"制限付きプロフィールを終了するためのPINコードを入力"</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"制限付きユーザーを削除しますか？"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"PINを入力してこのチャンネルを視聴"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"PINを入力してこのプログラムを視聴"</string>
@@ -557,9 +528,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"新しいPINの設定"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"新しいPINの再入力"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"以前のPINの入力"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"PINの入力を5回間違えました。\nもう一度お試しください<xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>。"</string>
-    <string name="pin_button_done" msgid="939191809977197451">"完了"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"取り消す"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"PINの入力を5回間違えました。\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g>秒後にもう一度お試しください。"</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"PINが間違っています。もう一度お試しください。"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"もう一度お試しください。PINが一致しません。"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g>のパスワードを入力してください"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"接続しました。"</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"保存しました。"</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"バージョン<xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"開く"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"強制停止"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"アプリを強制停止すると、アプリが正常に機能しないことがあります。"</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"アンインストール"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"このアプリをアンインストールしますか？"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"アップデートのアンインストール"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"このAndroidシステムアプリへのすべてのアップデートはアンインストールされます。"</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"無効にする"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"このアプリを無効にしますか？"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"有効にする"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"このアプリを有効にしますか？"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"使用されているストレージ"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"使用中の容量: <xliff:g id="SIZE">%1$s</xliff:g>（<xliff:g id="VOLUME">%2$s</xliff:g>）"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"データを消去"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"このアプリのすべてのデータ（ファイル、設定、アカウント、\nデータベースを含む）が完全に削除されます。"</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"デフォルトを消去"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"特定の操作でこのアプリを使用するよう設定"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"デフォルトは設定されていません"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"キャッシュを消去"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"通知"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"権限"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"キャンセル"</string>
+    <string name="settings_on" msgid="6892236264945435013">"ON"</string>
+    <string name="settings_off" msgid="449272161738237637">"OFF"</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"なし"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"スクリーンセーバー"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"今すぐ開始"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"スクリーンセーバー開始のタイミング"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"設定した時間以上、動作のない状態が続くと、スクリーンセーバーが開始します。選択していない場合は、画面がOFFになります。"</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"<xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>以上動作がない"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"スリープ開始のタイミング"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"設定した時間以上、動作のない状態が続くと、画面がOFFになります。"</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"現在バックアップデータを保存しているアカウントはありません"</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Wi-Fiパスワード、ブックマーク、その他の設定、およびアプリのデータのバックアップを停止し、Googleサーバー上のすべてのコピーを消去しますか？"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"データのバックアップ"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"バックアップアカウント"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"自動復元"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"端末をリセット"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"これにより、お使いの端末の内部ストレージから、Googleアカウント、システムとアプリのデータと設定、ダウンロードしたアプリなどすべてのデータが消去されます"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"個人情報とダウンロードしたアプリをすべて消去しますか？この操作を元に戻すことはできません。"</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"すべて消去"</string>
+    <string name="select_title" msgid="3905067953686121845">"あなた^1の名前を選択"</string>
+    <string name="select_description" msgid="4070142015460337658">"名前は、携帯電話、タブレット、パソコンなど、他のデバイスからアクセスする際に、あなたの^1の識別に役立ちます。"</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"リビングルーム"</item>
+    <item msgid="3722089849939477581">"メディアルーム"</item>
+    <item msgid="6108590585438763574">"ファミリールーム"</item>
+    <item msgid="2581035245390468625">"ダイニングルーム"</item>
+    <item msgid="3127487827308695324">"書斎"</item>
+    <item msgid="6172018430592195063">"寝室"</item>
+    <item msgid="8120010459866284578">"キッチン"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"カスタム名の入力…"</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"この^1の名前を設定済み"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"「^1」はこの^2の名前です。この名前を変更しますか？"</string>
+    <string name="change_setting" msgid="2047402388786162246">"変更する"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"変更しない"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"権限"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"アプリの権限"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g>/<xliff:g id="COUNT_1">%d</xliff:g>個のアプリを許可"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Androidセキュリティパッチレベル"</string>
 </resources>

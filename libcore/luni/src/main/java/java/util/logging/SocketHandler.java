@@ -17,6 +17,7 @@
 
 package java.util.logging;
 
+import libcore.net.NetworkSecurityPolicy;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -106,14 +107,21 @@ public class SocketHandler extends StreamHandler {
             throw new IllegalArgumentException("host == null || host.isEmpty()");
         }
         // check the validity of the port number
-        int p = 0;
+        int p;
         try {
             p = Integer.parsePositiveInt(port);
+            // Must be >= 0 to get this far. 0 is invalid too.
+            if (p == 0) {
+                throw new IllegalArgumentException("Illegal port argument " + port);
+            }
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Illegal port argument " + port);
         }
         // establish the network connection
         try {
+            if (!NetworkSecurityPolicy.isCleartextTrafficPermitted()) {
+                throw new IOException("Cleartext traffic not permitted");
+            }
             this.socket = new Socket(host, p);
         } catch (IOException e) {
             getErrorManager().error("Failed to establish the network connection", e,

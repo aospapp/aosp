@@ -24,55 +24,100 @@
  *//*--------------------------------------------------------------------*/
 
 #include "egluDefs.hpp"
-#include "egluHeaderWrapper.hpp"
+#include "eglwDefs.hpp"
+
+namespace eglw
+{
+class Library;
+}
 
 namespace eglu
 {
 
+class UniqueDisplay
+{
+public:
+							UniqueDisplay	(const eglw::Library& egl, eglw::EGLDisplay display);
+							~UniqueDisplay	(void);
+
+	eglw::EGLDisplay		operator*		(void) const { return m_display; }
+	operator				bool			(void) const;
+
+private:
+	const eglw::Library&	m_egl;
+	eglw::EGLDisplay		m_display;
+
+	// Disabled
+	UniqueDisplay&			operator=		(const UniqueDisplay&);
+							UniqueDisplay	(const UniqueDisplay&);
+};
+
 class UniqueSurface
 {
 public:
-					UniqueSurface	(EGLDisplay display, EGLSurface surface);
-					~UniqueSurface	(void);
+							UniqueSurface	(const eglw::Library& egl, eglw::EGLDisplay display, eglw::EGLSurface surface);
+							~UniqueSurface	(void);
 
-	EGLSurface		operator*		(void) { return m_surface; }
-	operator		bool			(void) const { return m_surface != EGL_NO_SURFACE; }
+	eglw::EGLSurface		operator*		(void) const { return m_surface; }
+	operator				bool			(void) const;
 
 private:
-	EGLDisplay		m_display;
-	EGLSurface		m_surface;
+	const eglw::Library&	m_egl;
+	eglw::EGLDisplay		m_display;
+	eglw::EGLSurface		m_surface;
 
 	// Disabled
-	UniqueSurface&	operator=		(const UniqueSurface&);
-					UniqueSurface	(const UniqueSurface&);
+	UniqueSurface&			operator=		(const UniqueSurface&);
+							UniqueSurface	(const UniqueSurface&);
 };
 
 class UniqueContext
 {
 public:
-					UniqueContext	(EGLDisplay display, EGLContext context);
-					~UniqueContext	(void);
+							UniqueContext	(const eglw::Library& egl, eglw::EGLDisplay display, eglw::EGLContext context);
+							~UniqueContext	(void);
 
-	EGLContext		operator*		(void) { return m_context; }
-	operator		bool			(void) const { return m_context != EGL_NO_CONTEXT; }
+	eglw::EGLContext		operator*		(void) const { return m_context; }
+	operator				bool			(void) const;
 
 private:
-	EGLDisplay		m_display;
-	EGLContext		m_context;
+	const eglw::Library&	m_egl;
+	eglw::EGLDisplay		m_display;
+	eglw::EGLContext		m_context;
 
 	// Disabled
-	UniqueContext	operator=		(const UniqueContext&);
-					UniqueContext	(const UniqueContext&);
+	UniqueContext			operator=		(const UniqueContext&);
+							UniqueContext	(const UniqueContext&);
 };
 
 class ScopedCurrentContext
 {
 public:
-	ScopedCurrentContext	(EGLDisplay display, EGLSurface draw, EGLSurface read, EGLContext context);
+	ScopedCurrentContext	(const eglw::Library& egl, eglw::EGLDisplay display, eglw::EGLSurface draw, eglw::EGLSurface read, eglw::EGLContext context);
 	~ScopedCurrentContext	(void);
 
 private:
-	EGLDisplay		m_display;
+	const eglw::Library&	m_egl;
+	eglw::EGLDisplay		m_display;
+};
+
+class UniqueImage
+{
+public:
+							UniqueImage		(const eglw::Library& egl, eglw::EGLDisplay display, eglw::EGLImage image);
+							~UniqueImage	(void);
+
+	eglw::EGLImage			operator*		(void) const { return m_image; }
+	operator				bool			(void) const;
+
+private:
+	const eglw::Library&	m_egl;
+	eglw::EGLDisplay		m_display;
+	eglw::EGLImage			m_image;
+
+	// Disabled
+	UniqueImage				operator=		(const UniqueImage&);
+							UniqueImage		(const UniqueImage&);
 };
 
 } // eglu

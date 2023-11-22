@@ -15,6 +15,7 @@
  */
 
 #include "ip.rsh"
+#pragma rs_fp_relaxed
 
 static float bright = 0.f;
 
@@ -22,10 +23,12 @@ void setBright(float v) {
     bright = 255.f / (255.f - v);
 }
 
-void exposure(const uchar4 *in, uchar4 *out)
+uchar4 RS_KERNEL exposure(uchar4 in)
 {
-    out->r = rsClamp((int)(bright * in->r), 0, 255);
-    out->g = rsClamp((int)(bright * in->g), 0, 255);
-    out->b = rsClamp((int)(bright * in->b), 0, 255);
+    uchar4 out = 0;
+    out.r = rsClamp((int)(bright * in.r), 0, 255);
+    out.g = rsClamp((int)(bright * in.g), 0, 255);
+    out.b = rsClamp((int)(bright * in.b), 0, 255);
+    return out;
 }
 

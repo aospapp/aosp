@@ -9,12 +9,13 @@ import com.bumptech.glide.load.engine.Resource;
  * @param <R> The type of the resource that will be transcoded to.
  */
 public interface ResourceTranscoder<Z, R> {
+
     /**
      * Transcodes the given resource to the new resource type and returns the wew resource.
      *
      * @param toTranscode The resource to transcode.
      */
-    public Resource<R> transcode(Resource<Z> toTranscode);
+    Resource<R> transcode(Resource<Z> toTranscode);
 
-    public String getId();
+    String getId();
 }

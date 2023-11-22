@@ -35,6 +35,7 @@
 class RsdFrameBufferObj;
 struct ANativeWindow;
 struct ANativeWindowBuffer;
+struct ANativeWindow_Buffer;
 
 struct DrvAllocation {
     // Is this a legal structure to be used as a texture source.
@@ -54,12 +55,14 @@ struct DrvAllocation {
     GLenum glType;
     GLenum glFormat;
 
-    ANativeWindow *wndSurface;
+    ANativeWindowBuffer *wndBuffer;
     android::GLConsumer *surfaceTexture;
 #else
     int glTarget;
     int glType;
     int glFormat;
+
+    ANativeWindow_Buffer *wndBuffer;
 #endif
 
     bool useUserProvidedPtr;
@@ -67,7 +70,7 @@ struct DrvAllocation {
 
     RsdFrameBufferObj * readBackFBO;
     ANativeWindow *wnd;
-    ANativeWindowBuffer *wndBuffer;
+    ANativeWindow *wndSurface;
 };
 
 #ifndef RS_COMPATIBILITY_LIB
@@ -81,6 +84,8 @@ uint32_t rsdAllocationGrallocBits(const android::renderscript::Context *rsc,
 bool rsdAllocationInit(const android::renderscript::Context *rsc,
                        android::renderscript::Allocation *alloc,
                        bool forceZero);
+bool rsdAllocationAdapterInit(const android::renderscript::Context *rsc,
+                              android::renderscript::Allocation *alloc);
 void rsdAllocationDestroy(const android::renderscript::Context *rsc,
                           android::renderscript::Allocation *alloc);
 
@@ -156,14 +161,15 @@ void rsdAllocationData3D_alloc(const android::renderscript::Context *rsc,
                                uint32_t srcXoff, uint32_t srcYoff, uint32_t srcZoff,
                                uint32_t srcLod);
 
-void rsdAllocationElementData1D(const android::renderscript::Context *rsc,
-                                const android::renderscript::Allocation *alloc,
-                                uint32_t x,
-                                const void *data, uint32_t elementOff, size_t sizeBytes);
-void rsdAllocationElementData2D(const android::renderscript::Context *rsc,
-                                const android::renderscript::Allocation *alloc,
-                                uint32_t x, uint32_t y,
-                                const void *data, uint32_t elementOff, size_t sizeBytes);
+void rsdAllocationElementData(const android::renderscript::Context *rsc,
+                              const android::renderscript::Allocation *alloc,
+                              uint32_t x, uint32_t y, uint32_t z,
+                              const void *data, uint32_t elementOff, size_t sizeBytes);
+
+void rsdAllocationElementRead(const android::renderscript::Context *rsc,
+                              const android::renderscript::Allocation *alloc,
+                              uint32_t x, uint32_t y, uint32_t z,
+                              void *data, uint32_t elementOff, size_t sizeBytes);
 
 void rsdAllocationGenerateMipmaps(const android::renderscript::Context *rsc,
                                   const android::renderscript::Allocation *alloc);
@@ -171,6 +177,9 @@ void rsdAllocationGenerateMipmaps(const android::renderscript::Context *rsc,
 void rsdAllocationUpdateCachedObject(const android::renderscript::Context *rsc,
                                      const android::renderscript::Allocation *alloc,
                                      android::renderscript::rs_allocation *obj);
+
+void rsdAllocationAdapterOffset(const android::renderscript::Context *rsc,
+                                const android::renderscript::Allocation *alloc);
 
 
 #endif

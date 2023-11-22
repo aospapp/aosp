@@ -64,6 +64,7 @@ public class MultiToggleImageButton extends ImageButton {
     private static final int UNSET = -1;
 
     private OnStateChangeListener mOnStateChangeListener;
+    private OnStateChangeListener mOnStatePreChangeListener;
     private int mState = UNSET;
     private int[] mImageIds;
     private int[] mDescIds;
@@ -96,10 +97,22 @@ public class MultiToggleImageButton extends ImageButton {
     /*
      * Set the state change listener.
      *
-     * @param onStateChangeListener the listener to set
+     * @param onStateChangeListener The listener to set.
      */
     public void setOnStateChangeListener(OnStateChangeListener onStateChangeListener) {
         mOnStateChangeListener = onStateChangeListener;
+    }
+
+    /**
+     * Set the listener that will be invoked right after the click event before
+     * all the operations required to change the state of the button.  This
+     * listener is useful if the client doesn't want to wait until the state
+     * change is completed to perform certain tasks.
+     *
+     * @param onStatePreChangeListener The listener to set.
+     */
+    public void setOnPreChangeListener(OnStateChangeListener onStatePreChangeListener) {
+        mOnStatePreChangeListener = onStatePreChangeListener;
     }
 
     /*
@@ -137,6 +150,10 @@ public class MultiToggleImageButton extends ImageButton {
      * @param callListener
      */
     private void setStateAnimatedInternal(final int state, final boolean callListener) {
+        if(callListener && mOnStatePreChangeListener != null) {
+            mOnStatePreChangeListener.stateChanged(MultiToggleImageButton.this, mState);
+        }
+
         if (mState == state || mState == UNSET) {
             setStateInternal(state, callListener);
             return;
@@ -348,10 +365,10 @@ public class MultiToggleImageButton extends ImageButton {
     }
 
     private Bitmap combine(int oldState, int newState) {
-        // in some cases, a new set of image Ids are set via overrideImageIds()
-        // and oldState overruns the array.
+        // In some cases, a new set of image Ids are set via overrideImageIds()
+        // and oldState or newState overrun the array.
         // check here for that.
-        if (oldState >= mImageIds.length) {
+        if (oldState >= mImageIds.length || newState >= mImageIds.length) {
             return null;
         }
 

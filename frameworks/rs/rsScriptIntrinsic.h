@@ -40,26 +40,19 @@ public:
     virtual RsA3DClassID getClassId() const;
     virtual bool freeChildren();
 
-    virtual void runForEach(Context *rsc,
-                            uint32_t slot,
-                            const Allocation * ain,
-                            Allocation * aout,
-                            const void * usr,
-                            size_t usrBytes,
-                            const RsScriptCall *sc = NULL);
-
     virtual void runForEach(Context* rsc,
                             uint32_t slot,
-                            const Allocation** ains,
+                            const Allocation ** ains,
                             size_t inLen,
                             Allocation* aout,
                             const void* usr,
                             size_t usrBytes,
-                            const RsScriptCall* sc = NULL);
+                            const RsScriptCall* sc = nullptr);
 
     virtual void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len);
     virtual void setupScript(Context *rsc);
     virtual uint32_t run(Context *);
+    virtual bool isInstrinsic() const { return true; }
 protected:
     uint32_t mIntrinsicID;
 
@@ -69,5 +62,3 @@ protected:
 }
 }
 #endif
-
-

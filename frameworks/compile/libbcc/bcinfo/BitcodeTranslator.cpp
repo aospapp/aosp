@@ -70,7 +70,7 @@ static const unsigned int kMinimumCompatibleVersion_LLVM_2_7 = 11;
 
 BitcodeTranslator::BitcodeTranslator(const char *bitcode, size_t bitcodeSize,
                                      unsigned int version)
-    : mBitcode(bitcode), mBitcodeSize(bitcodeSize), mTranslatedBitcode(NULL),
+    : mBitcode(bitcode), mBitcodeSize(bitcodeSize), mTranslatedBitcode(nullptr),
       mTranslatedBitcodeSize(0), mVersion(version) {
   return;
 }
@@ -82,7 +82,7 @@ BitcodeTranslator::~BitcodeTranslator() {
     // the bitcode would be improper.
     delete [] mTranslatedBitcode;
   }
-  mTranslatedBitcode = NULL;
+  mTranslatedBitcode = nullptr;
   return;
 }
 
@@ -123,24 +123,27 @@ bool BitcodeTranslator::translate() {
     llvm::MemoryBuffer::getMemBuffer(
       llvm::StringRef(mBitcode, mBitcodeSize), "", false));
   std::string error;
+  llvm::ErrorOr<llvm::MemoryBufferRef> MBOrErr = MEM->getMemBufferRef();
 
-  // Module ownership is handled by the context, so we don't need to free it.
-  llvm::Module *module = NULL;
+  llvm::ErrorOr<llvm::Module *> MOrErr(nullptr);
 
   if (mVersion >= kMinimumCompatibleVersion_LLVM_3_0) {
-    module = llvm_3_0::ParseBitcodeFile(MEM.get(), *mContext, &error);
+    MOrErr = llvm_3_0::parseBitcodeFile(*MBOrErr, *mContext);
   } else if (mVersion >= kMinimumCompatibleVersion_LLVM_2_7) {
-    module = llvm_2_7::ParseBitcodeFile(MEM.get(), *mContext, &error);
+    MOrErr = llvm_2_7::parseBitcodeFile(*MBOrErr, *mContext);
   } else {
     ALOGE("No compatible bitcode reader for API version %d", mVersion);
     return false;
   }
 
-  if (!module) {
+  if (std::error_code EC = MOrErr.getError()) {
     ALOGE("Could not parse bitcode file");
-    ALOGE("%s", error.c_str());
+    ALOGE("%s", EC.message().c_str());
     return false;
   }
+
+  // Module ownership is handled by the context, so we don't need to free it.
+  llvm::Module *module = MOrErr.get();
 
   std::string Buffer;
 
@@ -151,7 +154,7 @@ bool BitcodeTranslator::translate() {
 
   AndroidBitcodeWrapper wrapper;
   size_t actualWrapperLen = writeAndroidBitcodeWrapper(
-      &wrapper, Buffer.size(), BCWrapper.getTargetAPI(),
+      &wrapper, Buffer.size(), kMinimumUntranslatedVersion,
       BCWrapper.getCompilerVersion(), BCWrapper.getOptimizationLevel());
   if (!actualWrapperLen) {
     ALOGE("Couldn't produce bitcode wrapper!");

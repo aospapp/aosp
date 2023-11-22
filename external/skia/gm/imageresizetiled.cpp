@@ -6,7 +6,7 @@
  */
 
 #include "gm.h"
-#include "SkMatrixImageFilter.h"
+#include "SkImageFilter.h"
 #include "SkRandom.h"
 
 #define WIDTH 640
@@ -22,20 +22,21 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+
+    SkString onShortName() override {
         return SkString("imageresizetiled");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(WIDTH, HEIGHT);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkPaint paint;
         SkMatrix matrix;
         matrix.setScale(RESIZE_FACTOR, RESIZE_FACTOR);
         SkAutoTUnref<SkImageFilter> imageFilter(
-            SkMatrixImageFilter::Create(matrix, SkPaint::kNone_FilterLevel));
+            SkImageFilter::CreateMatrixFilter(matrix, kNone_SkFilterQuality));
         paint.setImageFilter(imageFilter.get());
         const SkScalar tile_size = SkIntToScalar(100);
         SkRect bounds;
@@ -55,6 +56,7 @@ protected:
                 };
                 SkPaint textPaint;
                 textPaint.setAntiAlias(true);
+                sk_tool_utils::set_portable_typeface(&textPaint);
                 textPaint.setTextSize(SkIntToScalar(100));
                 int posY = 0;
                 for (unsigned i = 0; i < SK_ARRAY_COUNT(str); i++) {

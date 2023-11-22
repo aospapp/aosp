@@ -21,14 +21,14 @@ using namespace android;
 using namespace RSC;
 
 void * BaseObj::getID() const {
-    if (mID == NULL) {
+    if (mID == nullptr) {
         ALOGE("Internal error: Object id 0.");
     }
     return mID;
 }
 
 void * BaseObj::getObjID(sp<const BaseObj> o) {
-    return o == NULL ? NULL : o->getID();
+    return o == nullptr ? nullptr : o->getID();
 }
 
 
@@ -47,12 +47,12 @@ BaseObj::~BaseObj() {
     if (mRS && mRS->getContext()) {
         RS::dispatch->ObjDestroy(mRS->getContext(), mID);
     }
-    mRS = NULL;
-    mID = NULL;
+    mRS = nullptr;
+    mID = nullptr;
 }
 
 void BaseObj::updateFromNative() {
-    const char *name = NULL;
+    const char *name = nullptr;
     RS::dispatch->GetName(mRS->getContext(), mID, &name);
     mName = name;
 }

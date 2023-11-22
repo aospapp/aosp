@@ -191,7 +191,9 @@ public class AppOpsState {
                     AppOpsManager.OP_SYSTEM_ALERT_WINDOW,
                     AppOpsManager.OP_WAKE_LOCK,
                     AppOpsManager.OP_PROJECT_MEDIA,
-                    AppOpsManager.OP_ACTIVATE_VPN, },
+                    AppOpsManager.OP_ACTIVATE_VPN,
+                    AppOpsManager.OP_ASSIST_STRUCTURE,
+                    AppOpsManager.OP_ASSIST_SCREENSHOT},
             new boolean[] { false,
                     true,
                     true,
@@ -199,7 +201,9 @@ public class AppOpsState {
                     true,
                     true,
                     false,
-                    false, }
+                    false,
+                    false,
+                    false }
             );
 
     public static final OpsTemplate[] ALL_TEMPLATES = new OpsTemplate[] {
@@ -579,7 +583,7 @@ public class AppOpsState {
 
                         }
                         AppOpsManager.OpEntry opEntry = new AppOpsManager.OpEntry(
-                                permOps.get(k), AppOpsManager.MODE_ALLOWED, 0, 0, 0);
+                                permOps.get(k), AppOpsManager.MODE_ALLOWED, 0, 0, 0, -1, null);
                         dummyOps.add(opEntry);
                         addOp(entries, pkgOps, appEntry, opEntry, packageName == null,
                                 packageName == null ? 0 : opToOrder[opEntry.getOp()]);

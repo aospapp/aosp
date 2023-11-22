@@ -17,6 +17,7 @@
 package com.android.packageinstaller;
 
 import android.app.Activity;
+import android.app.admin.IDevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -54,7 +55,6 @@ import java.util.List;
  */
 public class UninstallAppProgress extends Activity implements OnClickListener {
     private final String TAG="UninstallAppProgress";
-    private boolean localLOGV = false;
 
     private ApplicationInfo mAppInfo;
     private boolean mAllUsers;
@@ -69,6 +69,14 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
     private volatile int mResultCode = -1;
 
     private static final int UNINSTALL_COMPLETE = 1;
+
+    private boolean isProfileOfOrSame(UserManager userManager, int userId, int profileId) {
+        if (userId == profileId) {
+            return true;
+        }
+        UserInfo parentUser = userManager.getProfileParent(profileId);
+        return parentUser != null && parentUser.id == userId;
+    }
 
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -109,13 +117,45 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                             Toast.makeText(ctx, statusText, Toast.LENGTH_LONG).show();
                             setResultAndFinish(mResultCode);
                             return;
-                        case PackageManager.DELETE_FAILED_DEVICE_POLICY_MANAGER:
-                            Log.d(TAG, "Uninstall failed because " + packageName
-                                    + " is a device admin");
-                            mDeviceManagerButton.setVisibility(View.VISIBLE);
-                            statusText = getString(R.string.uninstall_failed_device_policy_manager);
+                        case PackageManager.DELETE_FAILED_DEVICE_POLICY_MANAGER: {
+                            UserManager userManager =
+                                    (UserManager) getSystemService(Context.USER_SERVICE);
+                            IDevicePolicyManager dpm = IDevicePolicyManager.Stub.asInterface(
+                                    ServiceManager.getService(Context.DEVICE_POLICY_SERVICE));
+                            // Find out if the package is an active admin for some non-current user.
+                            int myUserId = UserHandle.myUserId();
+                            UserInfo otherBlockingUser = null;
+                            for (UserInfo user : userManager.getUsers()) {
+                                // We only catch the case when the user in question is neither the
+                                // current user nor its profile.
+                                if (isProfileOfOrSame(userManager, myUserId, user.id)) continue;
+
+                                try {
+                                    if (dpm.packageHasActiveAdmins(packageName, user.id)) {
+                                        otherBlockingUser = user;
+                                        break;
+                                    }
+                                } catch (RemoteException e) {
+                                    Log.e(TAG, "Failed to talk to package manager", e);
+                                }
+                            }
+                            if (otherBlockingUser == null) {
+                                Log.d(TAG, "Uninstall failed because " + packageName
+                                        + " is a device admin");
+                                mDeviceManagerButton.setVisibility(View.VISIBLE);
+                                statusText = getString(
+                                        R.string.uninstall_failed_device_policy_manager);
+                            } else {
+                                Log.d(TAG, "Uninstall failed because " + packageName
+                                        + " is a device admin of user " + otherBlockingUser);
+                                mDeviceManagerButton.setVisibility(View.GONE);
+                                statusText = String.format(
+                                        getString(R.string.uninstall_failed_device_policy_manager_of_user),
+                                        otherBlockingUser.name);
+                            }
                             break;
-                        case PackageManager.DELETE_FAILED_OWNER_BLOCKED:
+                        }
+                        case PackageManager.DELETE_FAILED_OWNER_BLOCKED: {
                             UserManager userManager =
                                     (UserManager) getSystemService(Context.USER_SERVICE);
                             IPackageManager packageManager = IPackageManager.Stub.asInterface(
@@ -135,7 +175,12 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                                     Log.e(TAG, "Failed to talk to package manager", e);
                                 }
                             }
-                            mDeviceManagerButton.setVisibility(View.VISIBLE);
+                            int myUserId = UserHandle.myUserId();
+                            if (isProfileOfOrSame(userManager, myUserId, blockingUserId)) {
+                                mDeviceManagerButton.setVisibility(View.VISIBLE);
+                            } else {
+                                mDeviceManagerButton.setVisibility(View.GONE);
+                            }
                             if (blockingUserId == UserHandle.USER_OWNER) {
                                 statusText = getString(R.string.uninstall_blocked_device_owner);
                             } else if (blockingUserId == UserHandle.USER_NULL) {
@@ -143,12 +188,10 @@ public class UninstallAppProgress extends Activity implements OnClickListener {
                                         + msg.arg1 + " no blocking user");
                                 statusText = getString(R.string.uninstall_failed);
                             } else {
-                                String userName = userManager.getUserInfo(blockingUserId).name;
-                                statusText = String.format(
-                                        getString(R.string.uninstall_blocked_profile_owner),
-                                        userName);
+                                statusText = getString(R.string.uninstall_blocked_profile_owner);
                             }
                             break;
+                        }
                         default:
                             Log.d(TAG, "Uninstall failed for " + packageName + " with code "
                                     + msg.arg1);

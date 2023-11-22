@@ -4,14 +4,15 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPF_SKIA_FONTMGR_H_
-#define _FPF_SKIA_FONTMGR_H_
+#ifndef CORE_SRC_FXGE_ANDROID_FPF_SKIAFONTMGR_H_
+#define CORE_SRC_FXGE_ANDROID_FPF_SKIAFONTMGR_H_
+
 #if _FX_OS_ == _FX_ANDROID_
 #define FPF_SKIAFONTTYPE_Unknown	0
 #define	FPF_SKIAFONTTYPE_Path		1
 #define FPF_SKIAFONTTYPE_File		2
 #define FPF_SKIAFONTTYPE_Buffer		3
-class CFPF_SkiaFontDescriptor : public CFX_Object
+class CFPF_SkiaFontDescriptor 
 {
 public:
     CFPF_SkiaFontDescriptor() : m_pFamily(NULL), m_dwStyle(0), m_iFaceIndex(0), m_dwCharsets(0), m_iGlyphNum(0) {}
@@ -88,7 +89,7 @@ public:
     FX_LPVOID			m_pBuffer;
     size_t				m_szBuffer;
 };
-class CFPF_SkiaFontMgr : public IFPF_FontMgr, public CFX_Object
+class CFPF_SkiaFontMgr : public IFPF_FontMgr
 {
 public:
     CFPF_SkiaFontMgr();
@@ -114,4 +115,5 @@ protected:
     CFX_MapPtrToPtr		m_FamilyFonts;
 };
 #endif
-#endif
+
+#endif  // CORE_SRC_FXGE_ANDROID_FPF_SKIAFONTMGR_H_

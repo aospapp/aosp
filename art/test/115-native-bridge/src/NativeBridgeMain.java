@@ -31,6 +31,8 @@ class Main {
         testBooleanMethod();
         testCharMethod();
         testEnvironment();
+        testNewStringObject();
+        testSignalHandler();
     }
 
     public static native void testFindClassOnAttachedNativeThread();
@@ -167,6 +169,20 @@ class Main {
       //   throw new AssertionError("unexpected value for supported_abis");
       // }
     }
+
+    private static native void testNewStringObject();
+
+    // Test v2 special signal handlers. This uses the native code from 004-SignalTest to cause
+    // a non-managed segfault.
+    private static void testSignalHandler() {
+        // This uses code from 004-SignalTest.
+        int x = testSignal();
+        if (x != 1234) {
+            throw new AssertionError();
+        }
+    }
+
+    private static native int testSignal();
 }
 
 public class NativeBridgeMain {

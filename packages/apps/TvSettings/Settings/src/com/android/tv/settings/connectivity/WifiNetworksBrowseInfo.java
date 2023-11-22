@@ -18,7 +18,6 @@ package com.android.tv.settings.connectivity;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -26,12 +25,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.HeaderItem;
-import android.support.v17.leanback.widget.ObjectAdapter;
-import android.support.v17.leanback.widget.ListRow;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
-import android.util.SparseArray;
 
 import com.android.tv.settings.BrowseInfoBase;
 import com.android.tv.settings.MenuItem;

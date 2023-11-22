@@ -34,21 +34,21 @@ import java.util.Objects;
  * duplicate any functionality that is already blocking.</p>
  *
  * <p>Be careful when using this from UI thread! This function will typically block
- * for about 500ms when successful, and as long as {@value #OPEN_TIME_OUT}ms when timing out.</p>
+ * for about 500ms when successful, and as long as {@value #OPEN_TIME_OUT_MS}ms when timing out.</p>
  */
 public class BlockingCameraManager {
 
-    private static final String TAG = "CameraBlockingOpener";
+    private static final String TAG = "BlockingCameraManager";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
-    private static final int OPEN_TIME_OUT = 2000; // ms time out for openCamera
+    private static final int OPEN_TIME_OUT_MS = 2000; // ms time out for openCamera
 
     /**
      * Exception thrown by {@link #openCamera} if the open fails asynchronously.
      */
     public static class BlockingOpenException extends Exception {
         /**
-         * Suppress eclipse warning
+         * Suppress Eclipse warning
          */
         private static final long serialVersionUID = 12397123891238912L;
 
@@ -165,7 +165,7 @@ public class BlockingCameraManager {
      *
      * <p>Pass-through all StateCallback changes to the proxy.</p>
      *
-     * <p>Time out after {@link #OPEN_TIME_OUT} and unblock. Clean up camera if it arrives
+     * <p>Time out after {@link #OPEN_TIME_OUT_MS} and unblock. Clean up camera if it arrives
      * later.</p>
      */
     private class OpenListener extends CameraDevice.StateCallback {
@@ -283,14 +283,14 @@ public class BlockingCameraManager {
             /**
              * Block until onOpened, onError, or onDisconnected
              */
-            if (!mDeviceReady.block(OPEN_TIME_OUT)) {
+            if (!mDeviceReady.block(OPEN_TIME_OUT_MS)) {
 
                 synchronized (mLock) {
                     if (mNoReply) { // Give the async camera a fighting chance (required)
                         mTimedOut = true; // Clean up camera if it ever arrives later
                         throw new TimeoutRuntimeException(String.format(
                                 "Timed out after %d ms while trying to open camera device %s",
-                                OPEN_TIME_OUT, mCameraId));
+                                OPEN_TIME_OUT_MS, mCameraId));
                     }
                 }
             }

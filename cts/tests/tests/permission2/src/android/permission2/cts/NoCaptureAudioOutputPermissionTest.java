@@ -16,6 +16,7 @@
 
 package android.permission2.cts;
 
+import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder.AudioSource;
@@ -37,8 +38,19 @@ public class NoCaptureAudioOutputPermissionTest extends AndroidTestCase {
      */
     @SmallTest
     public void testCreateAudioRecord() {
-        final int bufferSize = AudioRecord.getMinBufferSize(44100,
+        int bufferSize = AudioRecord.getMinBufferSize(44100,
                 AudioFormat.CHANNEL_IN_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+
+        if (bufferSize <= 0)
+        {
+            // getMinBufferSize() returns an invalid buffer size.
+            // That could be because there is no microphone.  In that case,
+            // use this buffer size to test AudioRecord creation.
+            PackageManager packageManager = mContext.getPackageManager();
+            if (!packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+                bufferSize = 44100;
+            }
+        }
 
         // The attempt to create the AudioRecord object succeeds even if the
         // app does not have permission, but the object is not usable.

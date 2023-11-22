@@ -34,7 +34,7 @@ int test5(bool x, bool y, int z) {
 // CHECK: br i1
 //
 // y.true:
-// CHECK: load i32*
+// CHECK: load i32, i32*
 // CHECK: br label
 //
 // y.false:
@@ -58,7 +58,7 @@ int test6(bool x, bool y, int z) {
 // CHECK: br i1
 //
 // y.true:
-// CHECK: load i32*
+// CHECK: load i32, i32*
 // CHECK: br label
 //
 // y.false:
@@ -97,7 +97,7 @@ void test7(bool cond) {
   cond ? throw test7 : val;
 }
 
-// CHECK-LABEL: define nonnull i32* @_Z5test8b(
+// CHECK-LABEL: define dereferenceable(4) i32* @_Z5test8b(
 int &test8(bool cond) {
   // CHECK: br i1
   //

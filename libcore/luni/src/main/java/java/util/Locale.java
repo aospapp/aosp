@@ -99,6 +99,10 @@ import libcore.icu.ICU;
  *     <td><a href="http://site.icu-project.org/download/53">ICU 53</a></td>
  *     <td><a href="http://cldr.unicode.org/index/downloads/cldr-25">CLDR 25</a></td>
  *     <td><a href="http://www.unicode.org/versions/Unicode6.3.0/">Unicode 6.3</a></td></tr>
+ * <tr><td>Android 6.0 (Marshmallow)</td>
+ *     <td><a href="http://site.icu-project.org/download/55">ICU 55.1</a></td>
+ *     <td><a href="http://cldr.unicode.org/index/downloads/cldr-27">CLDR 27.0.1</a></td>
+ *     <td><a href="http://www.unicode.org/versions/Unicode7.0.0/">Unicode 7.0</a></td></tr>
  * </table>
  *
  * <a name="default_locale"></a><h3>Be wary of the default locale</h3>
@@ -272,17 +276,77 @@ public final class Locale implements Cloneable, Serializable {
      */
     private static final String UNDETERMINED_LANGUAGE = "und";
 
+
     /**
-     * The current default locale. It is temporarily assigned to US because we
-     * need a default locale to lookup the real default locale.
+     * Map of grandfathered language tags to their modern replacements.
      */
-    private static Locale defaultLocale = US;
+    private static final TreeMap<String, String> GRANDFATHERED_LOCALES;
 
     static {
-        String language = System.getProperty("user.language", "en");
-        String region = System.getProperty("user.region", "US");
-        String variant = System.getProperty("user.variant", "");
-        defaultLocale = new Locale(language, region, variant);
+        GRANDFATHERED_LOCALES = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+
+        // From http://tools.ietf.org/html/bcp47
+        //
+        // grandfathered = irregular           ; non-redundant tags registered
+        //               / regular             ; during the RFC 3066 era
+        //  irregular =
+        GRANDFATHERED_LOCALES.put("en-GB-oed", "en-GB-x-oed");
+        GRANDFATHERED_LOCALES.put("i-ami", "ami");
+        GRANDFATHERED_LOCALES.put("i-bnn", "bnn");
+        GRANDFATHERED_LOCALES.put("i-default", "en-x-i-default");
+        GRANDFATHERED_LOCALES.put("i-enochian", "und-x-i-enochian");
+        GRANDFATHERED_LOCALES.put("i-hak", "hak");
+        GRANDFATHERED_LOCALES.put("i-klingon", "tlh");
+        GRANDFATHERED_LOCALES.put("i-lux", "lb");
+        GRANDFATHERED_LOCALES.put("i-mingo", "see-x-i-mingo");
+        GRANDFATHERED_LOCALES.put("i-navajo", "nv");
+        GRANDFATHERED_LOCALES.put("i-pwn", "pwn");
+        GRANDFATHERED_LOCALES.put("i-tao", "tao");
+        GRANDFATHERED_LOCALES.put("i-tay", "tay");
+        GRANDFATHERED_LOCALES.put("i-tsu", "tsu");
+        GRANDFATHERED_LOCALES.put("sgn-BE-FR", "sfb");
+        GRANDFATHERED_LOCALES.put("sgn-BE-NL", "vgt");
+        GRANDFATHERED_LOCALES.put("sgn-CH-DE", "sgg");
+
+        // regular =
+        GRANDFATHERED_LOCALES.put("art-lojban", "jbo");
+        GRANDFATHERED_LOCALES.put("cel-gaulish", "xtg-x-cel-gaulish");
+        GRANDFATHERED_LOCALES.put("no-bok", "nb");
+        GRANDFATHERED_LOCALES.put("no-nyn", "nn");
+        GRANDFATHERED_LOCALES.put("zh-guoyu", "cmn");
+        GRANDFATHERED_LOCALES.put("zh-hakka", "hak");
+        GRANDFATHERED_LOCALES.put("zh-min", "nan-x-zh-min");
+        GRANDFATHERED_LOCALES.put("zh-min-nan", "nan");
+        GRANDFATHERED_LOCALES.put("zh-xiang", "hsn");
+    }
+
+    private static class NoImagePreloadHolder {
+        /**
+         * The default locale, returned by {@code Locale.getDefault()}.
+         * Initialize the default locale from the system properties.
+         */
+        private static Locale defaultLocale = Locale.getDefaultLocaleFromSystemProperties();
+    }
+
+    /**
+     * Returns the default locale from system properties.
+     *
+     * @hide visible for testing.
+     */
+    public static Locale getDefaultLocaleFromSystemProperties() {
+        final String languageTag = System.getProperty("user.locale", "");
+
+        final Locale defaultLocale;
+        if (!languageTag.isEmpty()) {
+            defaultLocale = Locale.forLanguageTag(languageTag);
+        } else {
+            String language = System.getProperty("user.language", "en");
+            String region = System.getProperty("user.region", "US");
+            String variant = System.getProperty("user.variant", "");
+            defaultLocale = new Locale(language, region, variant);
+        }
+
+        return defaultLocale;
     }
 
     /**
@@ -684,12 +748,13 @@ public final class Locale implements Cloneable, Serializable {
 
             final String normalizedValue = value.toLowerCase(Locale.ROOT).replace('_', '-');
             final String[] subtags = normalizedValue.split("-");
+            final char normalizedKey = Character.toLowerCase(key);
 
             // Lengths for subtags in the private use extension should be [1, 8] chars.
             // For all other extensions, they should be [2, 8] chars.
             //
             // http://www.rfc-editor.org/rfc/bcp/bcp47.txt
-            final int minimumLength = (key == PRIVATE_USE_EXTENSION) ? 1 : 2;
+            final int minimumLength = (normalizedKey == PRIVATE_USE_EXTENSION) ? 1 : 2;
             for (String subtag : subtags) {
                 if (!isValidBcp47Alphanum(subtag, minimumLength, 8)) {
                     throw new IllformedLocaleException(
@@ -699,14 +764,14 @@ public final class Locale implements Cloneable, Serializable {
 
             // We need to take special action in the case of unicode extensions,
             // since we claim to understand their keywords and attributes.
-            if (key == UNICODE_LOCALE_EXTENSION) {
+            if (normalizedKey == UNICODE_LOCALE_EXTENSION) {
                 // First clear existing attributes and keywords.
                 extensions.clear();
                 attributes.clear();
 
                 parseUnicodeExtension(subtags, keywords, attributes);
             } else {
-                extensions.put(key, normalizedValue);
+                extensions.put(normalizedKey, normalizedValue);
             }
 
             return this;
@@ -926,6 +991,27 @@ public final class Locale implements Cloneable, Serializable {
             this.unicodeKeywords = Collections.unmodifiableMap(keywordsCopy);
             this.extensions = Collections.unmodifiableMap(extensionsCopy);
         } else {
+
+            // The locales ja_JP_JP and th_TH_TH are ill formed since their variant is too
+            // short, however they have been used to represent a locale with the japanese imperial
+            // calendar and thai numbering respectively. We add an extension in their constructor
+            // to modernize them.
+            if ("ja".equals(language) && "JP".equals(country) && "JP".equals(variant)) {
+                Map<String, String> keywordsCopy = new TreeMap<>(unicodeKeywords);
+                keywordsCopy.put("ca", "japanese");
+                unicodeKeywords = keywordsCopy;
+            } else if ("th".equals(language) && "TH".equals(country) && "TH".equals(variant)) {
+                Map<String, String> keywordsCopy = new TreeMap<>(unicodeKeywords);
+                keywordsCopy.put("nu", "thai");
+                unicodeKeywords = keywordsCopy;
+            }
+
+            if (!unicodeKeywords.isEmpty() || !unicodeAttributes.isEmpty()) {
+                Map<Character, String> extensionsCopy = new TreeMap<>(extensions);
+                addUnicodeExtensionToExtensionsMap(unicodeAttributes, unicodeKeywords, extensionsCopy);
+                extensions = extensionsCopy;
+            }
+
             this.unicodeAttributes = unicodeAttributes;
             this.unicodeKeywords = unicodeKeywords;
             this.extensions = extensions;
@@ -1006,7 +1092,7 @@ public final class Locale implements Cloneable, Serializable {
      * Instead, use this method to look it up for each use.
      */
     public static Locale getDefault() {
-        return defaultLocale;
+        return NoImagePreloadHolder.defaultLocale;
     }
 
     /**
@@ -1600,7 +1686,7 @@ public final class Locale implements Cloneable, Serializable {
             throw new NullPointerException("locale == null");
         }
         String languageTag = locale.toLanguageTag();
-        defaultLocale = locale;
+        NoImagePreloadHolder.defaultLocale = locale;
         ICU.setDefaultLocale(languageTag);
     }
 
@@ -2020,49 +2106,6 @@ public final class Locale implements Cloneable, Serializable {
         return adjusted;
     }
 
-    /**
-     * Map of grandfathered language tags to their modern replacements.
-     */
-    private static final TreeMap<String, String> GRANDFATHERED_LOCALES;
-
-    static {
-        GRANDFATHERED_LOCALES = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
-
-        // From http://tools.ietf.org/html/bcp47
-        //
-        // grandfathered = irregular           ; non-redundant tags registered
-        //               / regular             ; during the RFC 3066 era
-        //  irregular =
-        GRANDFATHERED_LOCALES.put("en-GB-oed", "en-GB-x-oed");
-        GRANDFATHERED_LOCALES.put("i-ami", "ami");
-        GRANDFATHERED_LOCALES.put("i-bnn", "bnn");
-        GRANDFATHERED_LOCALES.put("i-default", "en-x-i-default");
-        GRANDFATHERED_LOCALES.put("i-enochian", "und-x-i-enochian");
-        GRANDFATHERED_LOCALES.put("i-hak", "hak");
-        GRANDFATHERED_LOCALES.put("i-klingon", "tlh");
-        GRANDFATHERED_LOCALES.put("i-lux", "lb");
-        GRANDFATHERED_LOCALES.put("i-mingo", "see-x-i-mingo");
-        GRANDFATHERED_LOCALES.put("i-navajo", "nv");
-        GRANDFATHERED_LOCALES.put("i-pwn", "pwn");
-        GRANDFATHERED_LOCALES.put("i-tao", "tao");
-        GRANDFATHERED_LOCALES.put("i-tay", "tay");
-        GRANDFATHERED_LOCALES.put("i-tsu", "tsu");
-        GRANDFATHERED_LOCALES.put("sgn-BE-FR", "sfb");
-        GRANDFATHERED_LOCALES.put("sgn-BE-NL", "vgt");
-        GRANDFATHERED_LOCALES.put("sgn-CH-DE", "sgg");
-
-        // regular =
-        GRANDFATHERED_LOCALES.put("art-lojban", "jbo");
-        GRANDFATHERED_LOCALES.put("cel-gaulish", "xtg-x-cel-gaulish");
-        GRANDFATHERED_LOCALES.put("no-bok", "nb");
-        GRANDFATHERED_LOCALES.put("no-nyn", "nn");
-        GRANDFATHERED_LOCALES.put("zh-guoyu", "cmn");
-        GRANDFATHERED_LOCALES.put("zh-hakka", "hak");
-        GRANDFATHERED_LOCALES.put("zh-min", "nan-x-zh-min");
-        GRANDFATHERED_LOCALES.put("zh-min-nan", "nan");
-        GRANDFATHERED_LOCALES.put("zh-xiang", "hsn");
-    }
-
     private static String convertGrandfatheredTag(String original) {
         final String converted = GRANDFATHERED_LOCALES.get(original);
         return converted != null ? converted : original;
@@ -2117,7 +2160,7 @@ public final class Locale implements Cloneable, Serializable {
                         return extensionKeyIndex;
                     }
 
-                    final String key = subtags[extensionKeyIndex];
+                    final String key = subtags[extensionKeyIndex].toLowerCase(Locale.ROOT);
                     if (extensions.containsKey(key.charAt(0))) {
                         return extensionKeyIndex;
                     }
@@ -2129,7 +2172,7 @@ public final class Locale implements Cloneable, Serializable {
                 // Mark the start of the next extension. Also keep track of whether this
                 // is a private use extension, and throw an error if it doesn't come last.
                 extensionKeyIndex = i;
-                if ("x".equals(subtag)) {
+                if ("x".equals(subtag.toLowerCase(Locale.ROOT))) {
                     privateUseExtensionIndex = i;
                 } else if (privateUseExtensionIndex != -1) {
                     // The private use extension must come last.
@@ -2152,7 +2195,7 @@ public final class Locale implements Cloneable, Serializable {
                 return extensionKeyIndex;
             }
 
-            final String key = subtags[extensionKeyIndex];
+            final String key = subtags[extensionKeyIndex].toLowerCase(Locale.ROOT);
             if (extensions.containsKey(key.charAt(0))) {
                 return extensionKeyIndex;
             }

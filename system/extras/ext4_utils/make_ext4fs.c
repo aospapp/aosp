@@ -18,7 +18,6 @@
 #include "ext4_utils.h"
 #include "allocate.h"
 #include "contents.h"
-#include "uuid.h"
 #include "wipe.h"
 
 #include <sparse/sparse.h>
@@ -62,7 +61,6 @@
 
 #include <selinux/selinux.h>
 #include <selinux/label.h>
-#include <selinux/android.h>
 
 #define O_BINARY 0
 
@@ -125,7 +123,7 @@ static u32 build_default_directory_structure(const char *dir_path,
    that does not exist on disk (e.g. lost+found).
    dir_path is an absolute path, with trailing slash, to the same directory
    if the image were mounted at the specified mount point */
-static u32 build_directory_structure(const char *full_path, const char *dir_path,
+static u32 build_directory_structure(const char *full_path, const char *dir_path, const char *target_out_path,
 		u32 dir_inode, fs_config_func_t fs_config_func,
 		struct selabel_handle *sehnd, int verbose, time_t fixed_time)
 {
@@ -143,8 +141,18 @@ static u32 build_directory_structure(const char *full_path, const char *dir_path
 	if (full_path) {
 		entries = scandir(full_path, &namelist, filter_dot, (void*)alphasort);
 		if (entries < 0) {
-			error_errno("scandir");
-			return EXT4_ALLOCATE_FAILED;
+#ifdef __GLIBC__
+			/* The scandir function implemented in glibc has a bug that makes it
+			   erroneously fail with ENOMEM under certain circumstances.
+			   As a workaround we can retry the scandir call with the same arguments.
+			   GLIBC BZ: https://sourceware.org/bugzilla/show_bug.cgi?id=17804 */
+			if (errno == ENOMEM)
+				entries = scandir(full_path, &namelist, filter_dot, (void*)alphasort);
+#endif
+			if (entries < 0) {
+				error_errno("scandir");
+				return EXT4_ALLOCATE_FAILED;
+			}
 		}
 	}
 
@@ -193,7 +201,7 @@ static u32 build_directory_structure(const char *full_path, const char *dir_path
 			unsigned int uid = 0;
 			unsigned int gid = 0;
 			int dir = S_ISDIR(stat.st_mode);
-			fs_config_func(dentries[i].path, dir, &uid, &gid, &mode, &capabilities);
+			fs_config_func(dentries[i].path, dir, target_out_path, &uid, &gid, &mode, &capabilities);
 			dentries[i].mode = mode;
 			dentries[i].uid = uid;
 			dentries[i].gid = gid;
@@ -277,8 +285,8 @@ static u32 build_directory_structure(const char *full_path, const char *dir_path
 			ret = asprintf(&subdir_dir_path, "%s/", dentries[i].path);
 			if (ret < 0)
 				critical_error_errno("asprintf");
-			entry_inode = build_directory_structure(subdir_full_path,
-					subdir_dir_path, inode, fs_config_func, sehnd, verbose, fixed_time);
+			entry_inode = build_directory_structure(subdir_full_path, subdir_dir_path, target_out_path,
+					inode, fs_config_func, sehnd, verbose, fixed_time);
 			free(subdir_full_path);
 			free(subdir_dir_path);
 		} else if (dentries[i].file_type == EXT4_FT_SYMLINK) {
@@ -396,7 +404,7 @@ int make_ext4fs_sparse_fd(int fd, long long len,
 	reset_ext4fs_info();
 	info.len = len;
 
-	return make_ext4fs_internal(fd, NULL, mountpoint, NULL, 0, 1, 0, 0, sehnd, 0, -1, NULL);
+	return make_ext4fs_internal(fd, NULL, NULL, mountpoint, NULL, 0, 1, 0, 0, 0, sehnd, 0, -1, NULL);
 }
 
 int make_ext4fs(const char *filename, long long len,
@@ -414,7 +422,7 @@ int make_ext4fs(const char *filename, long long len,
 		return EXIT_FAILURE;
 	}
 
-	status = make_ext4fs_internal(fd, NULL, mountpoint, NULL, 0, 0, 0, 1, sehnd, 0, -1, NULL);
+	status = make_ext4fs_internal(fd, NULL, NULL, mountpoint, NULL, 0, 0, 0, 1, 0, sehnd, 0, -1, NULL);
 	close(fd);
 
 	return status;
@@ -480,9 +488,9 @@ static char *canonicalize_rel_slashes(const char *str)
 	return canonicalize_slashes(str, false);
 }
 
-int make_ext4fs_internal(int fd, const char *_directory,
+int make_ext4fs_internal(int fd, const char *_directory, const char *_target_out_directory,
 						 const char *_mountpoint, fs_config_func_t fs_config_func, int gzip,
-						 int sparse, int crc, int wipe,
+						 int sparse, int crc, int wipe, int real_uuid,
 						 struct selabel_handle *sehnd, int verbose, time_t fixed_time,
 						 FILE* block_list_file)
 {
@@ -490,6 +498,7 @@ int make_ext4fs_internal(int fd, const char *_directory,
 	u16 root_mode;
 	char *mountpoint;
 	char *directory = NULL;
+	char *target_out_directory = NULL;
 
 	if (setjmp(setjmp_env))
 		return EXIT_FAILURE; /* Handle a call to longjmp() */
@@ -502,6 +511,10 @@ int make_ext4fs_internal(int fd, const char *_directory,
 
 	if (_directory) {
 		directory = canonicalize_rel_slashes(_directory);
+	}
+
+	if (_target_out_directory) {
+		target_out_directory = canonicalize_rel_slashes(_target_out_directory);
 	}
 
 	if (info.len <= 0)
@@ -575,7 +588,7 @@ int make_ext4fs_internal(int fd, const char *_directory,
 
 	block_allocator_init();
 
-	ext4_fill_in_sb();
+	ext4_fill_in_sb(real_uuid);
 
 	if (reserve_inodes(0, 10) == EXT4_ALLOCATE_FAILED)
 		error("failed to reserve first 10 inodes");
@@ -592,7 +605,7 @@ int make_ext4fs_internal(int fd, const char *_directory,
 	root_inode_num = build_default_directory_structure(mountpoint, sehnd);
 #else
 	if (directory)
-		root_inode_num = build_directory_structure(directory, mountpoint, 0,
+		root_inode_num = build_directory_structure(directory, mountpoint, target_out_directory, 0,
 			fs_config_func, sehnd, verbose, fixed_time);
 	else
 		root_inode_num = build_default_directory_structure(mountpoint, sehnd);

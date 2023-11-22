@@ -21,15 +21,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
+    <uses-permission android:name="android.permission.MANAGE_PROFILE_AND_DEVICE_OWNERS" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
     <uses-permission android:name="android.permission.INSTALL_PACKAGES"/>
     <uses-permission android:name="android.permission.DELETE_PACKAGES"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_ADMINS" />
+    <uses-permission android:name="android.permission.MANAGE_CA_CERTIFICATES" />
 
     <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" />
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" />
@@ -55,7 +56,8 @@
     <application
         android:allowClearUserData="false"
         android:hardwareAccelerated="true"
-        android:label="@string/app_name">
+        android:usesCleartextTraffic="true"
+        android:supportsRtl="true">
 
         <!--
              Note: Setup activities are android:immersive to prevent full-screen notifications (USB
@@ -63,21 +65,40 @@
             (phone calls) will still pop up a small window that can be activated.
         -->
         <activity
-            android:name="DeviceOwnerProvisioningActivity"
+            android:name="DeviceOwnerPreProvisioningActivity"
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
             android:theme="@style/SetupWorkSpaceTheme">
             <intent-filter android:priority="10">
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/com.android.managedprovisioning" />
-            </intent-filter>
-            <!-- Do not change the following action. -->
-            <intent-filter android:priority="10">
+                <action android:name="android.app.action.PROVISION_MANAGED_DEVICE" />
                 <action android:name="com.android.managedprovisioning.ACTION_PROVISION_MANAGED_DEVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+        </activity>
+        <!--
+            Nfc bump entry for device owner provisioning, protected by a permission so only the Nfc
+            stack can trigger this.
+        -->
+        <activity-alias
+            android:name="DeviceOwnerPreProvisioningActivityViaNfc"
+            android:targetActivity="DeviceOwnerPreProvisioningActivity"
+            android:permission="android.permission.DISPATCH_NFC_MESSAGE"
+            android:exported="true">
+            <intent-filter android:priority="10">
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/com.android.managedprovisioning" />
+                <data android:mimeType="application/com.android.managedprovisioning.v2"/>
+            </intent-filter>
+        </activity-alias>
+
+        <activity
+             android:name="DeviceOwnerProvisioningActivity"
+             android:excludeFromRecents="true"
+             android:immersive="true"
+             android:launchMode="singleTop"
+             android:theme="@style/SetupWorkSpaceTheme">
         </activity>
         <activity
             android:name="ProfileOwnerPreProvisioningActivity"
@@ -117,6 +138,12 @@
             android:theme="@style/SetupWorkSpaceTheme">
         </activity>
 
+        <activity
+            android:name=".TrampolineActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true">
+        </activity>
+
         <service
             android:name="ProfileOwnerProvisioningService" >
         </service>
@@ -147,6 +174,33 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <receiver android:name=".UserInitializedReceiver" >
+            <intent-filter>
+                <action android:name="android.intent.action.USER_INITIALIZE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- These 2 receivers, along with the CertService, handle installing CA certs for
+             secondary users. On initialization of secondary users, a broadcast
+             (InstallCertRequestReceiver) is sent to the primary user to request the CA certs. The
+             primary user responds, via CertService, with a broadcast (InstallCertReceiver)
+             containing the CA certs, which are then installed for the secondary user. -->
+        <receiver android:name=".InstallCertRequestReceiver"
+                  android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.managedprovisioning.REQUEST_CERT_ACTION" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".InstallCertReceiver"
+                  android:exported="false">
+            <intent-filter>
+                <action android:name="com.android.managedprovisioning.INSTALL_CERT_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name=".CertService"
+                 android:exported = "false"/>
 
     </application>
 </manifest>

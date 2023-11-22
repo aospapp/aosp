@@ -77,6 +77,8 @@ public:
     // return ISV component handle
     OMX_COMPONENTTYPE *getBaseComponent(){return &mBaseComponent;}
 
+    OMX_HANDLETYPE getComponent(){return static_cast<OMX_HANDLETYPE>(mComponent);}
+
     static Vector<ISVComponent*> g_isv_components;
 private:
     /*

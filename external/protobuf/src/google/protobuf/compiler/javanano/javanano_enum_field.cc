@@ -59,6 +59,7 @@ void SetEnumVariables(const Params& params,
     RenameJavaKeywords(UnderscoresToCapitalizedCamelCase(descriptor));
   (*variables)["number"] = SimpleItoa(descriptor->number());
   if (params.use_reference_types_for_primitives()
+      && !params.reftypes_primitive_enums()
       && !descriptor->is_repeated()) {
     (*variables)["type"] = "java.lang.Integer";
     (*variables)["default"] = "null";
@@ -75,6 +76,10 @@ void SetEnumVariables(const Params& params,
       internal::WireFormatLite::MakeTag(descriptor->number(),
           internal::WireFormat::WireTypeForFieldType(descriptor->type())));
   (*variables)["message_name"] = descriptor->containing_type()->name();
+  const EnumDescriptor* enum_type = descriptor->enum_type();
+  (*variables)["message_type_intdef"] = "@"
+      + ToJavaName(params, enum_type->name(), true,
+          enum_type->containing_type(), enum_type->file());
 }
 
 void LoadEnumValues(const Params& params,
@@ -115,8 +120,10 @@ EnumFieldGenerator::~EnumFieldGenerator() {}
 
 void EnumFieldGenerator::
 GenerateMembers(io::Printer* printer, bool /* unused lazy_init */) const {
-  printer->Print(variables_,
-    "public $type$ $name$;\n");
+  if (params_.generate_intdefs()) {
+    printer->Print(variables_, "$message_type_intdef$\n");
+  }
+  printer->Print(variables_, "public $type$ $name$;\n");
 
   if (params_.generate_has()) {
     printer->Print(variables_,
@@ -197,7 +204,8 @@ GenerateSerializedSizeCode(io::Printer* printer) const {
 }
 
 void EnumFieldGenerator::GenerateEqualsCode(io::Printer* printer) const {
-  if (params_.use_reference_types_for_primitives()) {
+  if (params_.use_reference_types_for_primitives()
+        && !params_.reftypes_primitive_enums()) {
     printer->Print(variables_,
       "if (this.$name$ == null) {\n"
       "  if (other.$name$ != null) {\n"
@@ -228,7 +236,8 @@ void EnumFieldGenerator::GenerateEqualsCode(io::Printer* printer) const {
 void EnumFieldGenerator::GenerateHashCodeCode(io::Printer* printer) const {
   printer->Print(
     "result = 31 * result + ");
-  if (params_.use_reference_types_for_primitives()) {
+  if (params_.use_reference_types_for_primitives()
+        && !params_.reftypes_primitive_enums()) {
     printer->Print(variables_,
       "(this.$name$ == null ? 0 : this.$name$)");
   } else {
@@ -253,12 +262,22 @@ AccessorEnumFieldGenerator::~AccessorEnumFieldGenerator() {}
 
 void AccessorEnumFieldGenerator::
 GenerateMembers(io::Printer* printer, bool /* unused lazy_init */) const {
+  printer->Print(variables_, "private int $name$_;\n");
+  if (params_.generate_intdefs()) {
+    printer->Print(variables_, "$message_type_intdef$\n");
+  }
   printer->Print(variables_,
-    "private int $name$_;\n"
     "public int get$capitalized_name$() {\n"
     "  return $name$_;\n"
     "}\n"
-    "public $message_name$ set$capitalized_name$(int value) {\n"
+    "public $message_name$ set$capitalized_name$(");
+  if (params_.generate_intdefs()) {
+    printer->Print(variables_,
+      "\n"
+      "    $message_type_intdef$ ");
+  }
+  printer->Print(variables_,
+    "int value) {\n"
     "  $name$_ = value;\n"
     "  $set_has$;\n"
     "  return this;\n"
@@ -492,6 +511,14 @@ GenerateSerializedSizeCode(io::Printer* printer) const {
   printer->Outdent();
 
   printer->Print(
+    "}\n");
+}
+
+void RepeatedEnumFieldGenerator::
+GenerateFixClonedCode(io::Printer* printer) const {
+  printer->Print(variables_,
+    "if (this.$name$ != null && this.$name$.length > 0) {\n"
+    "  cloned.$name$ = this.$name$.clone();\n"
     "}\n");
 }
 

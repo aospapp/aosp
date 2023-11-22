@@ -18,13 +18,14 @@
 
 PRODUCT_PACKAGES := \
     NotoColorEmoji.ttf \
-    NotoNaskh-Regular.ttf \
-    NotoNaskh-Bold.ttf \
-    NotoNaskhUI-Regular.ttf \
-    NotoNaskhUI-Bold.ttf \
+    NotoNaskhArabic-Regular.ttf \
+    NotoNaskhArabic-Bold.ttf \
+    NotoNaskhArabicUI-Regular.ttf \
+    NotoNaskhArabicUI-Bold.ttf \
     NotoSansArmenian-Regular.ttf \
     NotoSansArmenian-Bold.ttf \
     NotoSansBalinese-Regular.ttf \
+    NotoSansBamum-Regular.ttf \
     NotoSansBatak-Regular.ttf \
     NotoSansBengali-Regular.ttf \
     NotoSansBengali-Bold.ttf \
@@ -54,8 +55,6 @@ PRODUCT_PACKAGES := \
     NotoSansGurmukhi-Bold.ttf \
     NotoSansGurmukhiUI-Regular.ttf \
     NotoSansGurmukhiUI-Bold.ttf \
-    NotoSansHans-Regular.otf \
-    NotoSansHant-Regular.otf \
     NotoSansHanunoo-Regular.ttf \
     NotoSansHebrew-Regular.ttf \
     NotoSansHebrew-Bold.ttf \
@@ -77,23 +76,34 @@ PRODUCT_PACKAGES := \
     NotoSansLaoUI-Bold.ttf \
     NotoSansLepcha-Regular.ttf \
     NotoSansLimbu-Regular.ttf \
+    NotoSansLisu-Regular.ttf \
     NotoSansMalayalam-Regular.ttf \
     NotoSansMalayalam-Bold.ttf \
     NotoSansMalayalamUI-Regular.ttf \
     NotoSansMalayalamUI-Bold.ttf \
+    NotoSansMandaic-Regular.ttf \
     NotoSansMeeteiMayek-Regular.ttf \
+    NotoSansMongolian-Regular.ttf \
     NotoSansMyanmar-Regular.ttf \
     NotoSansMyanmar-Bold.ttf \
     NotoSansMyanmarUI-Regular.ttf \
     NotoSansMyanmarUI-Bold.ttf \
+    NotoSansNewTaiLue-Regular.ttf \
+    NotoSansNKo-Regular.ttf \
     NotoSansOlChiki-Regular.ttf \
+    NotoSansOriya-Regular.ttf \
+    NotoSansOriya-Bold.ttf \
+    NotoSansOriyaUI-Regular.ttf \
+    NotoSansOriyaUI-Bold.ttf \
     NotoSansRejang-Regular.ttf \
     NotoSansSaurashtra-Regular.ttf \
+    NotoSansSC-Regular.otf \
     NotoSansSinhala-Regular.ttf \
     NotoSansSinhala-Bold.ttf \
     NotoSansSundanese-Regular.ttf \
     NotoSansSylotiNagri-Regular.ttf \
     NotoSansSymbols-Regular-Subsetted.ttf \
+    NotoSansSyriacEstrangela-Regular.ttf \
     NotoSansTagbanwa-Regular.ttf \
     NotoSansTaiLe-Regular.ttf \
     NotoSansTaiTham-Regular.ttf \
@@ -102,6 +112,7 @@ PRODUCT_PACKAGES := \
     NotoSansTamil-Bold.ttf \
     NotoSansTamilUI-Regular.ttf \
     NotoSansTamilUI-Bold.ttf \
+    NotoSansTC-Regular.otf \
     NotoSansTelugu-Regular.ttf \
     NotoSansTelugu-Bold.ttf \
     NotoSansTeluguUI-Regular.ttf \
@@ -112,7 +123,9 @@ PRODUCT_PACKAGES := \
     NotoSansThai-Bold.ttf \
     NotoSansThaiUI-Regular.ttf \
     NotoSansThaiUI-Bold.ttf \
+    NotoSansTibetan-Regular.ttf \
     NotoSansTifinagh-Regular.ttf \
+    NotoSansVai-Regular.ttf \
     NotoSansYi-Regular.ttf \
     NotoSerif-Regular.ttf \
     NotoSerif-Bold.ttf \

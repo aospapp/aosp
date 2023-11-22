@@ -71,7 +71,7 @@ public class ContentProviderTest extends AndroidTestCase {
 
         ProviderInfo info1 = new ProviderInfo();
         info1.readPermission = "android.permission.READ_SMS";
-        info1.writePermission = "android.permission.WRITE_SMS";
+        info1.writePermission = null; // Guarded by an app op not a permission.
         mockContentProvider.attachInfo(getContext(), info1);
         assertSame(getContext(), mockContentProvider.getContext());
         assertEquals(info1.readPermission, mockContentProvider.getReadPermission());
@@ -153,10 +153,6 @@ public class ContentProviderTest extends AndroidTestCase {
         assertNull(mockContentProvider.getWritePermission());
 
         String expected = "android.permission.WRITE_CONTACTS";
-        mockContentProvider.setWritePermissionWrapper(expected);
-        assertEquals(expected, mockContentProvider.getWritePermission());
-
-        expected = "android.permission.WRITE_SMS";
         mockContentProvider.setWritePermissionWrapper(expected);
         assertEquals(expected, mockContentProvider.getWritePermission());
 

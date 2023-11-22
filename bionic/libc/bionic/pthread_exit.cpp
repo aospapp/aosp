@@ -37,6 +37,7 @@
 extern "C" __noreturn void _exit_with_stack_teardown(void*, size_t);
 extern "C" __noreturn void __exit(int);
 extern "C" int __set_tid_address(int*);
+extern "C" void __cxa_thread_finalize();
 
 /* CAVEAT: our implementation of pthread_cleanup_push/pop doesn't support C++ exceptions
  *         and thread cancelation
@@ -59,10 +60,13 @@ void __pthread_cleanup_pop(__pthread_cleanup_t* c, int execute) {
 }
 
 void pthread_exit(void* return_value) {
+  // Call dtors for thread_local objects first.
+  __cxa_thread_finalize();
+
   pthread_internal_t* thread = __get_thread();
   thread->return_value = return_value;
 
-  // Call the cleanup handlers first.
+  // Call the cleanup handlers.
   while (thread->cleanup_stack) {
     __pthread_cleanup_t* c = thread->cleanup_stack;
     thread->cleanup_stack = c->__cleanup_prev;
@@ -83,54 +87,40 @@ void pthread_exit(void* return_value) {
     sigaltstack(&ss, NULL);
 
     // Free it.
-    munmap(thread->alternate_signal_stack, SIGSTKSZ);
+    munmap(thread->alternate_signal_stack, SIGNAL_STACK_SIZE);
     thread->alternate_signal_stack = NULL;
   }
 
-  // Keep track of what we need to know about the stack before we lose the pthread_internal_t.
-  void* stack_base = thread->attr.stack_base;
-  size_t stack_size = thread->attr.stack_size;
-  bool user_allocated_stack = thread->user_allocated_stack();
+  ThreadJoinState old_state = THREAD_NOT_JOINED;
+  while (old_state == THREAD_NOT_JOINED &&
+         !atomic_compare_exchange_weak(&thread->join_state, &old_state, THREAD_EXITED_NOT_JOINED)) {
+  }
 
-  pthread_mutex_lock(&g_thread_list_lock);
-  if ((thread->attr.flags & PTHREAD_ATTR_FLAG_DETACHED) != 0) {
-    // The thread is detached, so we can free the pthread_internal_t.
+  if (old_state == THREAD_DETACHED) {
+    // The thread is detached, no one will use pthread_internal_t after pthread_exit.
+    // So we can free mapped space, which includes pthread_internal_t and thread stack.
     // First make sure that the kernel does not try to clear the tid field
     // because we'll have freed the memory before the thread actually exits.
     __set_tid_address(NULL);
-    _pthread_internal_remove_locked(thread);
-  } else {
-    // Make sure that the pthread_internal_t doesn't have stale pointers to a stack that
-    // will be unmapped after the exit call below.
-    if (!user_allocated_stack) {
-      thread->attr.stack_base = NULL;
-      thread->attr.stack_size = 0;
-      thread->tls = NULL;
+
+    // pthread_internal_t is freed below with stack, not here.
+    __pthread_internal_remove(thread);
+
+    if (thread->mmap_size != 0) {
+      // We need to free mapped space for detached threads when they exit.
+      // That's not something we can do in C.
+
+      // We don't want to take a signal after we've unmapped the stack.
+      // That's one last thing we can handle in C.
+      sigset_t mask;
+      sigfillset(&mask);
+      sigprocmask(SIG_SETMASK, &mask, NULL);
+
+      _exit_with_stack_teardown(thread->attr.stack_base, thread->mmap_size);
     }
-    // pthread_join is responsible for destroying the pthread_internal_t for non-detached threads.
-    // The kernel will futex_wake on the pthread_internal_t::tid field to wake pthread_join.
   }
-  pthread_mutex_unlock(&g_thread_list_lock);
 
-  // Perform a second key cleanup. When using jemalloc, a call to free from
-  // _pthread_internal_remove_locked causes the memory associated with a key
-  // to be reallocated.
-  // TODO: When b/16847284 is fixed this call can be removed.
-  pthread_key_clean_all();
-
-  if (user_allocated_stack) {
-    // Cleaning up this thread's stack is the creator's responsibility, not ours.
-    __exit(0);
-  } else {
-    // We need to munmap the stack we're running on before calling exit.
-    // That's not something we can do in C.
-
-    // We don't want to take a signal after we've unmapped the stack.
-    // That's one last thing we can handle in C.
-    sigset_t mask;
-    sigfillset(&mask);
-    sigprocmask(SIG_SETMASK, &mask, NULL);
-
-    _exit_with_stack_teardown(stack_base, stack_size);
-  }
+  // No need to free mapped space. Either there was no space mapped, or it is left for
+  // the pthread_join caller to clean up.
+  __exit(0);
 }

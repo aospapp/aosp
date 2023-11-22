@@ -91,4 +91,5 @@ __asm__ (
 );
 
 #include "../../arch-common/bionic/__dso_handle.h"
-#include "atexit.h"
+#include "../../arch-common/bionic/atexit.h"
+#include "../../arch-common/bionic/pthread_atfork.h"

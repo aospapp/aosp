@@ -94,16 +94,20 @@ print_blkpg_req(struct tcb *tcp, struct blkpg_ioctl_arg *blkpg)
 
 	if (umove(tcp, (long) blkpg->data, &p) < 0)
 		tprintf("%#lx}", (long) blkpg->data);
-	else
-		tprintf("{start=%lld, length=%lld, pno=%d, "
-			"devname=\"%.*s\", volname=\"%.*s\"}}",
-			p.start, p.length, p.pno,
-			(int) sizeof(p.devname), p.devname,
-			(int) sizeof(p.volname), p.volname);
+	else {
+		tprintf("{start=%lld, length=%lld, pno=%d, devname=",
+			p.start, p.length, p.pno);
+		print_quoted_string(p.devname, sizeof(p.devname),
+				    QUOTE_0_TERMINATED);
+		tprints(", volname=");
+		print_quoted_string(p.volname, sizeof(p.volname),
+				    QUOTE_0_TERMINATED);
+		tprints("}}");
+	}
 }
 
 int
-block_ioctl(struct tcb *tcp, long code, long arg)
+block_ioctl(struct tcb *tcp, const unsigned int code, long arg)
 {
 	switch (code) {
 	/* take arg as a value, not as a pointer */
@@ -116,6 +120,11 @@ block_ioctl(struct tcb *tcp, long code, long arg)
 	/* take a signed int */
 	case BLKROSET:
 	case BLKBSZSET:
+#ifdef FIFREEZE
+	/* First seen in linux-2.6.29 */
+	case FIFREEZE:
+	case FITHAW:
+#endif
 		if (entering(tcp)) {
 			int val;
 			if (umove(tcp, arg, &val) < 0)
@@ -257,11 +266,29 @@ block_ioctl(struct tcb *tcp, long code, long arg)
 			struct blk_user_trace_setup buts;
 			if (syserror(tcp) || umove(tcp, arg, &buts) < 0)
 				tprintf(", %#lx", arg);
-			else
-				tprintf(", {name=\"%.*s\"}",
-					(int) sizeof(buts.name), buts.name);
+			else {
+				tprints(", {name=");
+				print_quoted_string(buts.name, sizeof(buts.name),
+						    QUOTE_0_TERMINATED);
+				tprints("}");
+			}
 		}
 		break;
+
+#ifdef FITRIM
+	/* First seen in linux-2.6.37 */
+	case FITRIM:
+		if (entering(tcp)) {
+			struct fstrim_range fstrim;
+			if (umove(tcp, arg, &fstrim))
+				tprintf(", %#lx", arg);
+			else
+				tprintf(", {start=%#" PRIx64 ", len=%#" PRIx64 ", "
+					"minlen=%#" PRIx64 "}", (uint64_t) fstrim.start,
+					(uint64_t) fstrim.len, (uint64_t) fstrim.minlen);
+		}
+		break;
+#endif
 
 	/* No arguments or unhandled */
 	case BLKTRACESTART:

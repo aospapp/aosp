@@ -16,11 +16,20 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.Synchronized.SynchronizedBiMap;
 import com.google.common.collect.Synchronized.SynchronizedSet;
+import com.google.common.collect.testing.features.CollectionFeature;
+import com.google.common.collect.testing.features.CollectionSize;
+import com.google.common.collect.testing.features.MapFeature;
+import com.google.common.collect.testing.google.BiMapInverseTester;
+import com.google.common.collect.testing.google.BiMapTestSuiteBuilder;
+import com.google.common.collect.testing.google.TestStringBiMapGenerator;
 
 import junit.framework.TestSuite;
 
+import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -32,7 +41,28 @@ public class SynchronizedBiMapTest extends SynchronizedMapTest {
 
   public static TestSuite suite() {
     TestSuite suite = new TestSuite(SynchronizedBiMapTest.class);
-    suite.addTestSuite(AbstractBiMapTests.class);
+    suite.addTest(BiMapTestSuiteBuilder.using(new SynchTestingBiMapGenerator())
+        .named("Synchronized.biMap[TestBiMap]")
+        .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+            MapFeature.ALLOWS_NULL_KEYS,
+            MapFeature.ALLOWS_NULL_VALUES,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            MapFeature.GENERAL_PURPOSE,
+            MapFeature.REJECTS_DUPLICATES_AT_CREATION)
+        .createTestSuite());
+    suite.addTest(BiMapTestSuiteBuilder.using(new SynchronizedHashBiMapGenerator())
+        .named("synchronizedBiMap[HashBiMap]")
+        .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+            MapFeature.ALLOWS_NULL_KEYS,
+            MapFeature.ALLOWS_NULL_VALUES,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            MapFeature.GENERAL_PURPOSE,
+            MapFeature.REJECTS_DUPLICATES_AT_CREATION,
+            CollectionFeature.SERIALIZABLE)
+        .suppressing(BiMapInverseTester.getInverseSameAfterSerializingMethods())
+        .createTestSuite());
     return suite;
   }
 
@@ -41,6 +71,34 @@ public class SynchronizedBiMapTest extends SynchronizedMapTest {
         new TestBiMap<K, V>(HashBiMap.<K, V>create(), mutex);
     BiMap<K, V> outer = Synchronized.biMap(inner, mutex);
     return outer;
+  }
+
+  public static final class SynchronizedHashBiMapGenerator extends TestStringBiMapGenerator {
+    @Override
+    protected BiMap<String, String> create(Entry<String, String>[] entries) {
+      Object mutex = new Object();
+      BiMap<String, String> result = HashBiMap.create();
+      for (Entry<String, String> entry : entries) {
+        checkArgument(!result.containsKey(entry.getKey()));
+        result.put(entry.getKey(), entry.getValue());
+      }
+      return Maps.synchronizedBiMap(result);
+    }
+  }
+
+  public static final class SynchTestingBiMapGenerator extends TestStringBiMapGenerator {
+    @Override
+    protected BiMap<String, String> create(Entry<String, String>[] entries) {
+      Object mutex = new Object();
+      BiMap<String, String> backing =
+          new TestBiMap<String, String>(HashBiMap.<String, String>create(), mutex);
+      BiMap<String, String> result = Synchronized.biMap(backing, mutex);
+      for (Entry<String, String> entry : entries) {
+        checkArgument(!result.containsKey(entry.getKey()));
+        result.put(entry.getKey(), entry.getValue());
+      }
+      return result;
+    }
   }
 
   static class TestBiMap<K, V> extends TestMap<K, V> implements BiMap<K, V> {
@@ -88,27 +146,5 @@ public class SynchronizedBiMapTest extends SynchronizedMapTest {
     Set<Integer> values = map.values();
     assertTrue(values instanceof SynchronizedSet);
     assertSame(mutex, ((SynchronizedSet<?>) values).mutex);
-  }
-
-  public static class AbstractBiMapTests extends AbstractBiMapTest {
-    public final Object mutex = new Integer(1); // something Serializable
-
-    @Override protected BiMap<Integer, String> create() {
-      TestBiMap<Integer, String> inner = new TestBiMap<Integer, String>(
-          HashBiMap.<Integer, String>create(), mutex);
-      BiMap<Integer, String> outer = Synchronized.biMap(inner, mutex);
-      return outer;
-    }
-
-    /**
-     * If you serialize a synchronized bimap and its inverse together, the
-     * reserialized bimaps will have backing maps that stay in sync, as shown
-     * by the {@code testSerializationWithInverseEqual()} test. However, the
-     * inverse of one won't be the same as the other.
-     *
-     * To make them the same, the inverse synchronized bimap would need a custom
-     * serialized form, similar to what {@code AbstractBiMap.Inverse} does.
-     */
-    @Override public void testSerializationWithInverseSame() {}
   }
 }

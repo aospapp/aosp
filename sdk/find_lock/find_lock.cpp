@@ -591,7 +591,7 @@ bool findLock(CPath &path, CString *outModule) {
     if (isalpha(searchPath[0]) && searchPath[1] == ':') {
         searchPath += 2;
     }
-    int searchPathLen = strlen(searchPath);
+    size_t searchPathLen = strlen(searchPath);
 
     if (gIsDebug) fprintf(stderr, "Search path: '%s'\n", searchPath);
 

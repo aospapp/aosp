@@ -20,7 +20,7 @@
     <string name="phoneAppLabel" product="default" msgid="906161039445636857">"Tālrunis"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Ārkārtas numuru sastādītājs"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Tālrunis"</string>
-    <string name="fdnListLabel" msgid="8630418672279521003">"FNSN saraksts"</string>
+    <string name="fdnListLabel" msgid="8630418672279521003">"IZSN saraksts"</string>
     <string name="unknown" msgid="6878797917991465859">"Nezināms"</string>
     <string name="private_num" msgid="6713286113000232309">"Privāts numurs"</string>
     <string name="payphone" msgid="4793877574636445118">"Maksas tālrunis"</string>
@@ -54,7 +54,9 @@
     <string name="unlock_success" msgid="6770085622238180152">"Tīkla atbloķēšana bija veiksmīga."</string>
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Mobilā tīkla iestatījumi šim lietotājam nav pieejami."</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM zvanu iestatījumi"</string>
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM zvanu iestatījumi (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA zvanu iestatījumi"</string>
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA zvanu iestatījumi (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"Piekļuves punktu nosaukumi"</string>
     <string name="settings_label" msgid="3876743539816984008">"Tīkla iestatījumi"</string>
     <string name="phone_accounts" msgid="6376603393888116364">"Zvanu konti"</string>
@@ -66,18 +68,12 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Tālruņa konti"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"Pievienot SIP kontu"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"Konta iestatījumu konfigurēšana"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"Wi-Fi zvani"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"Neizmantot Wi-Fi zvanus"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"Neizmantot zvanu palīgu"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"Nav"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"Zvanu palīgs"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"Izmantot zvanu palīgu"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"Izvēlēties zvanu palīgu"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"Pārvaldīt tīklus, kas tiek izmantoti zvaniem ar:"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"Ļaut lietotnēm vai pakalpojumiem pārvaldīt zvaniem izmantotos tīklus"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"Konfigurēt"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"Visi zvanu konti"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"Atlasīt kontus, no kuriem var veikt zvanus"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi zvani"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"Iebūvēts savienojuma izveides pakalpojums"</string>
     <string name="voicemail" msgid="8693759337917898954">"Balss pasts"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"Balss pasts (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"BP:"</string>
     <string name="networks" msgid="8873030692174541976">"Tīkla operatori"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Ārkārtas paziņojumi"</string>
@@ -204,7 +200,8 @@
     <string name="roaming_enable" msgid="7331106985174381987">"Viesabonēšanas laikā izveidot savienojumu ar datu pakalpojumiem"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"Viesabonēšanas laikā izveidot savienojumu ar datu pakalpojumiem"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Datu savienojamība ir zaudēta, jo mājas tīkls ar datu viesabonēšanu ir izslēgts."</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"Vai atļaut datu lietojumu viesabonēšanas laikā? Var tikt iekasēta ievērojama maksa."</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"Var rasties ievērojamas izmaksas."</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"Vai atļaut datu viesabonēšanu?"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS opcijas"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA opcijas"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"Datu lietojums"</string>
@@ -332,19 +329,19 @@
     <string name="cdma_lte_data_service" msgid="4255018217292548962">"Datu pakalpojuma iestatīšana"</string>
     <string name="carrier_settings_title" msgid="9028166176523012300">"Operatora iestatījumi"</string>
     <string name="fdn" msgid="7878832555095183202">"Fiksētie numuru sastādīšanas numuri"</string>
-    <string name="fdn_with_label" msgid="187084204115493366">"Ierobežotais zvanu saraksts (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="manage_fdn_list" msgid="8777755791892122369">"FNSN saraksts"</string>
-    <string name="fdn_list_with_label" msgid="7437232552210469217">"FDN saraksts (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="fdn_activation" msgid="2156479741307463576">"FNSN aktivizācija"</string>
+    <string name="fdn_with_label" msgid="187084204115493366">"Fiksētie numuri (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="manage_fdn_list" msgid="8777755791892122369">"IZSN saraksts"</string>
+    <string name="fdn_list_with_label" msgid="7437232552210469217">"IZSN saraksts (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="fdn_activation" msgid="2156479741307463576">"IZSN aktivizācija"</string>
     <string name="fdn_enabled" msgid="5238109009915521240">"Fiksētie numuru sastādīšanas numuri ir iespējoti."</string>
     <string name="fdn_disabled" msgid="4700049736675368279">"Fiksētie numuru sastādīšanas numuri ir atspējoti."</string>
-    <string name="enable_fdn" msgid="3740191529180493851">"Iespējot FNSN"</string>
-    <string name="disable_fdn" msgid="7944020890722540616">"Atspējot FNSN"</string>
+    <string name="enable_fdn" msgid="3740191529180493851">"Iespējot IZSN"</string>
+    <string name="disable_fdn" msgid="7944020890722540616">"Atspējot IZSN"</string>
     <string name="change_pin2" msgid="2153563695382176676">"Mainīt PIN2"</string>
-    <string name="enable_fdn_ok" msgid="7215588870329688132">"Atspējot FNSN"</string>
-    <string name="disable_fdn_ok" msgid="5727046928930740173">"Iespējot FNSN"</string>
+    <string name="enable_fdn_ok" msgid="7215588870329688132">"Atspējot IZSN"</string>
+    <string name="disable_fdn_ok" msgid="5727046928930740173">"Iespējot IZSN"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"Pārvaldiet fiksētos numuru sastādīšanas numurus"</string>
-    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"Mainīt PIN kodu FNSN piekļuvei"</string>
+    <string name="sum_fdn_change_pin" msgid="6666549734792827932">"Mainīt PIN kodu IZSN piekļuvei"</string>
     <string name="sum_fdn_manage_list" msgid="8431088265332628316">"Pārvaldīt tālruņa numuru sarakstu"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"Balss konfidencialitāte"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"Iespējot uzlabotās konfidencialitātes režīmu"</string>
@@ -352,6 +349,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"Iestatīt teletaipa režīmu"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"Automātisks atkārtots mēģinājums"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"Iespējot automātiskā atkārtotā mēģinājuma režīmu"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"Videozvana laikā nav atļauts mainīt teksta tālruņa režīmu."</string>
     <string name="menu_add" msgid="1882023737425114762">"Pievienot kontaktpersonu"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Rediģēt kontaktpersonu"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Dzēst kontaktpersonu"</string>
@@ -368,14 +366,14 @@
     <string name="delete_fdn_contact" msgid="6668958073074151717">"Fiksētā numura sastādīšanas numura dzēšana"</string>
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Notiek fiksētā numuru sastādīšanas numura dzēšana…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Fiksētais numuru sastādīšanas numurs ir atspējots."</string>
-    <string name="pin2_invalid" msgid="5470854099230755944">"FDN nav atjaunināts, jo tika ievadīts nepareizs PIN."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"FDN netika atjaunināts, jo numurā nedrīkst būt vairāk par 20 cipariem."</string>
-    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN netika atjaunināts. Ievadītais PIN2 nebija pareizs, vai tālruņa numurs tika noraidīts."</string>
-    <string name="fdn_failed" msgid="540018079008319747">"FNSN ievadīšana neizdevās."</string>
+    <string name="pin2_invalid" msgid="5470854099230755944">"IZSN nav atjaunināts, jo tika ievadīts nepareizs PIN."</string>
+    <string name="fdn_invalid_number" msgid="1494755047900009147">"IZSN netika atjaunināts, jo numurā nedrīkst būt vairāk par 20 cipariem."</string>
+    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"IZSN netika atjaunināts. Ievadītais PIN2 nebija pareizs, vai tālruņa numurs tika noraidīts."</string>
+    <string name="fdn_failed" msgid="540018079008319747">"IZSN ievadīšana neizdevās."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Notiek lasīšana no SIM kartes..."</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"SIM kartē nav nevienas kontaktpersonas."</string>
-    <string name="simContacts_title" msgid="1861472842524839921">"Importējamo kontaktpersonu atlasīšana"</string>
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"Lai importētu kontaktinformāciju no SIM kartes, vispirms izslēdziet lidojuma režīmu."</string>
+    <string name="simContacts_title" msgid="1861472842524839921">"Importējamo kontaktu atlase"</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"Lai importētu kontaktpersonas no SIM kartes, izslēdziet lidojuma režīmu."</string>
     <string name="enable_pin" msgid="5422767284133234860">"Iespējot/atspējot SIM PIN"</string>
     <string name="change_pin" msgid="9174186126330785343">"SIM PIN mainīšana"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"SIM PIN:"</string>
@@ -409,6 +407,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 kods ir neatgriezeniski bloķēts."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"Jums atlikuši <xliff:g id="NUMBER">%d</xliff:g> mēģinājumi."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"PIN2 vairs nav bloķēts"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"Tīkla vai SIM kartes kļūda"</string>
     <string name="doneButton" msgid="2859593360997984240">"Gatavs"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"Balss pasta numurs"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"Notiek numura sastādīšana"</string>
@@ -419,26 +418,17 @@
     <string name="card_title_on_hold" msgid="821463117892339942">"Aizturēts"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"Notiek klausules nolikšana"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"Notiek saruna"</string>
-    <string name="notification_dialing" msgid="2107666444937350731">"Notiek numura sastādīšana"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"Neatbildēts zvans"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Neatbildētie zvani"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> neatbildēts(-i) zvans(-i)"</string>
-    <string name="notification_missedCallTicker" msgid="504686252427747209">"Neatbildēts zvans no: <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"Pašreizējā saruna"</string>
-    <string name="notification_on_hold" msgid="3480694969511790465">"Aizturēts"</string>
-    <string name="notification_incoming_call" msgid="2820429205043529642">"Ienākošs zvans"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"Jauns balss pasts"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"Jauns balss pasts (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"Sastādiet šādu numuru: <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Balss pasta numurs nav zināms."</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Nav pakalpojuma"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Atlasītais tīkls (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) nav pieejams"</string>
-    <string name="notification_action_end_call" msgid="6069460915123531620">"Pārtraukt"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Atzvanīt"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"Ziņojums"</string>
-    <string name="incall_error_power_off" msgid="6550191216405193368">"Lai veiktu zvanu, vispirms izslēdziet lidojuma režīmu."</string>
+    <string name="incall_error_power_off" msgid="2947938060513306698">"Lai veiktu zvanu, izslēdziet lidojuma režīmu."</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Lai veiktu zvanu, izslēdziet lidojuma režīmu vai izveidojiet savienojumu ar bezvadu tīklu."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Tīklā nav reģistrēts."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"Mobilais tīkls nav pieejams."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Mobilais tīkls nav pieejams. Lai veiktu zvanu, izveidojiet savienojumu ar bezvadu tīklu."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Lai veiktu zvanu, ievadiet derīgu numuru."</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"Nevar veikt zvanu."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Notiek MMI secības startēšana…"</string>
@@ -449,6 +439,7 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Nevar veikt konferences zvanus."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Nevar noraidīt zvanu."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Nevar pārtraukt zvanu(-us)."</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Lai veiktu zvanu, izveidojiet savienojumu ar bezvadu tīklu."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Ārkārtas zvans"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Notiek radio ieslēgšana..."</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Nav pakalpojuma. Notiek atkārtots mēģinājums…"</string>
@@ -510,18 +501,21 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Ievadītais ārkārtas atzvana režīms"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"Ārkārtas atzvana režīms"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Datu savienojums ir atspējots."</string>
-  <plurals name="phone_in_ecm_notification_time">
-    <item quantity="one" msgid="4866221796252472622">"Nav datu savienojuma <xliff:g id="COUNT">%s</xliff:g> minūti"</item>
-    <item quantity="other" msgid="3122217344579273583">"<xliff:g id="COUNT">%s</xliff:g> minūti(-es) nav datu savienojuma."</item>
-  </plurals>
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"Tālrunis ārkārtas atzvana režīmā atradīsies <xliff:g id="COUNT">%s</xliff:g> minūti. Lietojot šo režīmu, nevar izmantot nevienu lietotni, kurai nepieciešams datu savienojums. Vai vēlaties iziet tūlīt?"</item>
-    <item quantity="other" msgid="8617116564023933114">"Tālrunis ārkārtas atzvana režīmā atradīsies <xliff:g id="COUNT">%s</xliff:g> minūti(-es). Lietojot šo režīmu, nevar izmantot nevienu lietojumprogrammu, kurai nepieciešams datu savienojums. Vai vēlaties iziet tūlīt?"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"Atlasītā darbība nav pieejama, izmantojot ārkārtas atzvana režīmu. Tālrunis šajā režīmā atradīsies <xliff:g id="COUNT">%s</xliff:g> minūti. Vai vēlaties iziet tūlīt?"</item>
-    <item quantity="other" msgid="6115622137771382224">"Atlasītā darbība nav pieejama, izmantojot ārkārtas atzvana režīmu. Tālrunis šajā režīmā atradīsies <xliff:g id="COUNT">%s</xliff:g> minūti(-es). Vai vēlaties iziet tūlīt?"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="zero"><xliff:g id="COUNT_1">%s</xliff:g> minūtes nav datu savienojuma</item>
+      <item quantity="one"><xliff:g id="COUNT_1">%s</xliff:g> minūti nav datu savienojuma</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> minūtes nav datu savienojuma</item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="zero">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūtes būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
+      <item quantity="one">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūti būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
+      <item quantity="other">Tālrunī <xliff:g id="COUNT_1">%s</xliff:g> minūtes būs aktivizēts ārkārtas atzvana režīms. Šajā režīmā nevar izmantot lietotnes, kurās tiek lietots datu savienojums. Vai vēlaties to aizvērt tūlīt?</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="zero">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūtes. Vai vēlaties to aizvērt tūlīt?</item>
+      <item quantity="one">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūti. Vai vēlaties to aizvērt tūlīt?</item>
+      <item quantity="other">Atlasītā darbība nav pieejama ārkārtas atzvana režīmā. Šis režīms tālrunī būs aktivizēts <xliff:g id="COUNT_1">%s</xliff:g> minūtes. Vai vēlaties to aizvērt tūlīt?</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"Atlasītā darbība nav pieejama, veicot ārkārtas izsaukumu."</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"Notiek iziešana no ārkārtas atzvana režīma"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"Jā"</string>
@@ -539,8 +533,8 @@
     <string name="description_dial_button" msgid="7459705245418435351">"sastādīt numuru"</string>
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Vibrozvans"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Vibrozvans"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Vizuālais balss pasts"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Signāls"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Numura automātiska pabeigšana"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Zvana signāls un vibrācija"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Iebūvētās SIM kartes"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Ieslēgt videozvanus"</string>
@@ -550,4 +544,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"Ārkārtas izsaukumi"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Tikai ārkārtas izsaukumi"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM karte, slots: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Pieejamība"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Ienākošs Wi-Fi zvans"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi zvans"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Lai atvērtu, pieskarieties vēlreiz."</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"Atšifrējot ziņojumu, radās kļūda."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM kartē ir aktivizēts jūsu pakalpojums un atjauninātas tālruņa viesabonēšanas iespējas."</string>
 </resources>

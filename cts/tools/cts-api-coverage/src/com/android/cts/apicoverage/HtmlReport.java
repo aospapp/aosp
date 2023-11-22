@@ -37,7 +37,7 @@ import javax.xml.transform.stream.StreamSource;
 class HtmlReport {
 
     public static void printHtmlReport(final List<File> testApks, final ApiCoverage apiCoverage,
-            final String packageFilter, final String reportTitle, final OutputStream out)
+            final PackageFilter packageFilter, final String reportTitle, final OutputStream out)
                 throws IOException, TransformerException {
         final PipedOutputStream xmlOut = new PipedOutputStream();
         final PipedInputStream xmlIn = new PipedInputStream(xmlOut);

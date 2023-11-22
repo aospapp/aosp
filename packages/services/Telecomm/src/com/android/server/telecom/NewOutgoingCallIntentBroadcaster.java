@@ -16,6 +16,8 @@
 
 package com.android.server.telecom;
 
+import android.app.AppOpsManager;
+
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -51,9 +53,6 @@ import android.text.TextUtils;
  * prior to sending ACTION_NEW_OUTGOING_CALL and cannot be redirected nor prevented.
  */
 class NewOutgoingCallIntentBroadcaster {
-    /** Required permission for any app that wants to consume ACTION_NEW_OUTGOING_CALL. */
-    private static final String PERMISSION = android.Manifest.permission.PROCESS_OUTGOING_CALLS;
-
     private static final String EXTRA_ACTUAL_NUMBER_TO_DIAL =
             "android.telecom.extra.ACTUAL_NUMBER_TO_DIAL";
 
@@ -103,7 +102,8 @@ class NewOutgoingCallIntentBroadcaster {
             // Once the NEW_OUTGOING_CALL broadcast is finished, the resultData is used as the
             // actual number to call. (If null, no call will be placed.)
             String resultNumber = getResultData();
-            Log.v(this, "- got number from resultData: %s", Log.pii(resultNumber));
+            Log.i(this, "Received new-outgoing-call-broadcast for %s with data %s", mCall,
+                    Log.pii(resultNumber));
 
             boolean endEarly = false;
             if (resultNumber == null) {
@@ -141,7 +141,7 @@ class NewOutgoingCallIntentBroadcaster {
                     mIntent.getBooleanExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE,
                             false),
                     mIntent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
-                            VideoProfile.VideoState.AUDIO_ONLY));
+                            VideoProfile.STATE_AUDIO_ONLY));
             Trace.endSection();
         }
     }
@@ -156,8 +156,8 @@ class NewOutgoingCallIntentBroadcaster {
      * - CALL_PRIVILEGED (intent launched by system apps e.g. system Dialer, voice Dialer)
      * - CALL_EMERGENCY (intent launched by lock screen emergency dialer)
      *
-     * @return {@link CallActivity#OUTGOING_CALL_SUCCEEDED} if the call succeeded, and an
-     *         appropriate {@link DisconnectCause} if the call did not, describing why it failed.
+     * @return {@link DisconnectCause#NOT_DISCONNECTED} if the call succeeded, and an appropriate
+     *         {@link DisconnectCause} if the call did not, describing why it failed.
      */
     int processIntent() {
         Log.v(this, "Processing call intent in OutgoingCallIntentBroadcaster.");
@@ -182,7 +182,7 @@ class NewOutgoingCallIntentBroadcaster {
                 boolean speakerphoneOn = mIntent.getBooleanExtra(
                         TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
                 mCallsManager.placeOutgoingCall(mCall, handle, null, speakerphoneOn,
-                        VideoProfile.VideoState.AUDIO_ONLY);
+                        VideoProfile.STATE_AUDIO_ONLY);
 
                 return DisconnectCause.NOT_DISCONNECTED;
             } else {
@@ -243,7 +243,7 @@ class NewOutgoingCallIntentBroadcaster {
                     TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
             int videoState = mIntent.getIntExtra(
                     TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
-                    VideoProfile.VideoState.AUDIO_ONLY);
+                    VideoProfile.STATE_AUDIO_ONLY);
             mCallsManager.placeOutgoingCall(mCall, Uri.fromParts(scheme, number, null), null,
                     speakerphoneOn, videoState);
 
@@ -253,6 +253,7 @@ class NewOutgoingCallIntentBroadcaster {
             // initiate the call again because of the presence of the EXTRA_ALREADY_CALLED extra.
         }
 
+        Log.i(this, "Sending NewOutgoingCallBroadcast for %s", mCall);
         broadcastIntent(intent, number, !callImmediately);
         return DisconnectCause.NOT_DISCONNECTED;
     }
@@ -285,7 +286,8 @@ class NewOutgoingCallIntentBroadcaster {
         mContext.sendOrderedBroadcastAsUser(
                 broadcastIntent,
                 UserHandle.CURRENT,
-                PERMISSION,
+                android.Manifest.permission.PROCESS_OUTGOING_CALLS,
+                AppOpsManager.OP_PROCESS_OUTGOING_CALLS,
                 receiverRequired ? new NewOutgoingCallBroadcastIntentReceiver() : null,
                 null,  // scheduler
                 Activity.RESULT_OK,  // initialCode

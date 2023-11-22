@@ -16,9 +16,6 @@
 
 package com.android.tv.settings.util;
 
-import com.android.tv.settings.widget.BitmapWorkerOptions;
-import com.android.tv.settings.widget.DrawableDownloader;
-
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -32,6 +29,9 @@ import android.os.Parcelable;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
+
+import com.android.tv.settings.widget.BitmapWorkerOptions;
+import com.android.tv.settings.widget.DrawableDownloader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,9 +59,8 @@ public class TransitionImage {
     private int mBackground = Color.TRANSPARENT;
     private float mAlpha = 1f;
     private float mSaturation = 1f;
-    private RectF mUnclippedRect = new RectF();
-    private RectF mClippedRect = new RectF();
-    private Object mUserObject;
+    private final RectF mUnclippedRect = new RectF();
+    private final RectF mClippedRect = new RectF();
     private boolean mUseClippedRectOnTransparent = true;
 
     public static final String EXTRA_TRANSITION_BITMAP =
@@ -151,7 +150,7 @@ public class TransitionImage {
     }
 
     public static List<TransitionImage> readMultipleFromIntent(Context context, Intent intent) {
-        ArrayList<TransitionImage> transitions = new ArrayList<TransitionImage>();
+        ArrayList<TransitionImage> transitions = new ArrayList<>();
         Bundle extras = intent.getExtras();
         if (extras == null) {
             return transitions;
@@ -206,10 +205,7 @@ public class TransitionImage {
             DrawableDownloader downloader = DrawableDownloader.getInstance(context);
             BitmapWorkerOptions key = new BitmapWorkerOptions.Builder(context)
                     .resource(mUri).build();
-            Drawable d = downloader.getLargestBitmapFromMemCache(key);
-            if (d instanceof BitmapDrawable) {
-                bitmap = ((BitmapDrawable) d);
-            }
+            bitmap = downloader.getLargestBitmapFromMemCache(key);
         }
         if (bitmap == null) {
             if (bundle.containsKey(EXTRA_TRANSITION_BITMAP)) {
@@ -350,14 +346,6 @@ public class TransitionImage {
         } else {
             rect.set(mRect);
         }
-    }
-
-    public void setUserObject(Object object) {
-        mUserObject = object;
-    }
-
-    public Object getUserObject() {
-        return mUserObject;
     }
 
     @Override

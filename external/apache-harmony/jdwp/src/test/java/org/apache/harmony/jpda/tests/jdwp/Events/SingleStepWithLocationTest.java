@@ -60,7 +60,7 @@ public class SingleStepWithLocationTest extends JDWPEventTestCase {
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);
         logWriter.println("=> Send ReferenceType::Methods command and get methodIDs ");
 
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, BREAKPOINT_METHOD_NAME);
         logWriter.println("=> breakpointID = " + requestID);
         logWriter.println("=> starting thread");

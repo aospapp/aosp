@@ -18,7 +18,6 @@ package com.android.server.telecom;
 
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import android.telecom.CallState;
 import android.telephony.TelephonyManager;
 
 import com.android.internal.telephony.ITelephonyRegistry;
@@ -29,10 +28,12 @@ import com.android.internal.telephony.ITelephonyRegistry;
  */
 final class PhoneStateBroadcaster extends CallsManagerListenerBase {
 
+    private final CallsManager mCallsManager;
     private final ITelephonyRegistry mRegistry;
     private int mCurrentState = TelephonyManager.CALL_STATE_IDLE;
 
-    public PhoneStateBroadcaster() {
+    public PhoneStateBroadcaster(CallsManager callsManager) {
+        mCallsManager = callsManager;
         mRegistry = ITelephonyRegistry.Stub.asInterface(ServiceManager.getService(
                 "telephony.registry"));
         if (mRegistry == null) {
@@ -43,7 +44,8 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
     @Override
     public void onCallStateChanged(Call call, int oldState, int newState) {
         if ((newState == CallState.DIALING || newState == CallState.ACTIVE
-                || newState == CallState.ON_HOLD) && !CallsManager.getInstance().hasRingingCall()) {
+                || newState == CallState.ON_HOLD) &&
+                !mCallsManager.hasRingingCall()) {
             /*
              * EXTRA_STATE_RINGING takes precedence over EXTRA_STATE_OFFHOOK, so if there is
              * already a ringing call, don't broadcast EXTRA_STATE_OFFHOOK.
@@ -63,11 +65,10 @@ final class PhoneStateBroadcaster extends CallsManagerListenerBase {
     public void onCallRemoved(Call call) {
         // Recalculate the current phone state based on the consolidated state of the remaining
         // calls in the call list.
-        final CallsManager callsManager = CallsManager.getInstance();
         int callState = TelephonyManager.CALL_STATE_IDLE;
-        if (callsManager.hasRingingCall()) {
+        if (mCallsManager.hasRingingCall()) {
             callState = TelephonyManager.CALL_STATE_RINGING;
-        } else if (callsManager.getFirstCallWithState(CallState.DIALING, CallState.ACTIVE,
+        } else if (mCallsManager.getFirstCallWithState(CallState.DIALING, CallState.ACTIVE,
                     CallState.ON_HOLD) != null) {
             callState = TelephonyManager.CALL_STATE_OFFHOOK;
         }

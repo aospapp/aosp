@@ -15,4 +15,6 @@ allowable by an Android 5.0-based system. The only permitted values for
 <code>android.os.Build.VERSION.RELEASE</code> for Android 5.0 are:</p>
 <ul>
 <li>5.0</li>
+<li>5.0.1</li>
+<li>5.0.2</li>
 </ul>

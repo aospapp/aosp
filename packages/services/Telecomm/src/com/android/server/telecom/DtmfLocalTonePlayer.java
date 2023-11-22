@@ -19,7 +19,12 @@ package com.android.server.telecom;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.provider.Settings;
+
+import com.android.internal.util.Preconditions;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
@@ -38,6 +43,17 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
 
     /** The context. */
     private final Context mContext;
+
+    /**
+     * Message codes to be used for creating and deleting ToneGenerator object in the tonegenerator
+     * thread.
+     */
+    private static final int EVENT_CREATE_OBJECT = 1;
+    private static final int EVENT_DELETE_OBJECT = 2;
+
+    /** Handler running on the tonegenerator thread. */
+    private Handler mHandler;
+
 
     public DtmfLocalTonePlayer(Context context) {
         mContext = context;
@@ -61,14 +77,15 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
         if (mCall != call) {
             return;
         }
-
-        if (mToneGenerator == null) {
-            Log.d(this, "playTone: mToneGenerator == null, %c.", c);
-        } else {
-            Log.d(this, "starting local tone: %c.", c);
-            int tone = getMappedTone(c);
-            if (tone != ToneGenerator.TONE_UNKNOWN) {
-                mToneGenerator.startTone(tone, -1 /* toneDuration */);
+        synchronized(this) {
+            if (mToneGenerator == null) {
+                Log.d(this, "playTone: mToneGenerator == null, %c.", c);
+            } else {
+                Log.d(this, "starting local tone: %c.", c);
+                int tone = getMappedTone(c);
+                if (tone != ToneGenerator.TONE_UNKNOWN) {
+                    mToneGenerator.startTone(tone, -1 /* toneDuration */);
+                }
             }
         }
     }
@@ -83,12 +100,13 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
         if (mCall != call) {
             return;
         }
-
-        if (mToneGenerator == null) {
-            Log.d(this, "stopTone: mToneGenerator == null.");
-        } else {
-            Log.d(this, "stopping local tone.");
-            mToneGenerator.stopTone();
+        synchronized(this) {
+            if (mToneGenerator == null) {
+                Log.d(this, "stopTone: mToneGenerator == null.");
+            } else {
+                Log.d(this, "stopping local tone.");
+                mToneGenerator.stopTone();
+            }
         }
     }
 
@@ -113,14 +131,8 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
         mCall = call;
 
         if (areLocalTonesEnabled) {
-            if (mToneGenerator == null) {
-                try {
-                    mToneGenerator = new ToneGenerator(AudioManager.STREAM_DTMF, 80);
-                } catch (RuntimeException e) {
-                    Log.e(this, e, "Error creating local tone generator.");
-                    mToneGenerator = null;
-                }
-            }
+            Log.d(this, "Posting create.");
+            postMessage(EVENT_CREATE_OBJECT);
         }
     }
 
@@ -135,12 +147,76 @@ class DtmfLocalTonePlayer extends CallsManagerListenerBase {
             stopTone(call);
 
             mCall = null;
+            Log.d(this, "Posting delete.");
+            postMessage(EVENT_DELETE_OBJECT);
+        }
+    }
 
-            if (mToneGenerator != null) {
-                mToneGenerator.release();
-                mToneGenerator = null;
+    /**
+     * Posts a message to the tonegenerator-thread handler. Creates the handler if the handler
+     * has not been instantiated.
+     *
+     * @param messageCode The message to post.
+     */
+    private void postMessage(int messageCode) {
+        synchronized(this) {
+            if (mHandler == null) {
+                mHandler = getNewHandler();
+            }
+
+            if (mHandler == null) {
+                Log.d(this, "Message %d skipped because there is no handler.", messageCode);
+            } else {
+                mHandler.obtainMessage(messageCode, null).sendToTarget();
             }
         }
+    }
+
+    /**
+     * Creates a new tonegenerator Handler running in its own thread.
+     */
+    private Handler getNewHandler() {
+        Preconditions.checkState(mHandler == null);
+
+        HandlerThread thread = new HandlerThread("tonegenerator-dtmf");
+        thread.start();
+
+        return new Handler(thread.getLooper()) {
+            @Override
+            public void handleMessage(Message msg) {
+                switch(msg.what) {
+                    case EVENT_CREATE_OBJECT:
+                        synchronized(DtmfLocalTonePlayer.this) {
+                            if (mToneGenerator == null) {
+                                try {
+                                    mToneGenerator = new ToneGenerator(
+                                            AudioManager.STREAM_DTMF, 80);
+                                } catch (RuntimeException e) {
+                                    Log.e(this, e, "Error creating local tone generator.");
+                                    mToneGenerator = null;
+                                }
+                            }
+                        }
+                        break;
+                    case EVENT_DELETE_OBJECT:
+                        synchronized(DtmfLocalTonePlayer.this) {
+                            if (mToneGenerator != null) {
+                                mToneGenerator.release();
+                                mToneGenerator = null;
+                            }
+                            // Delete the handler after the tone generator object is deleted by
+                            // the tonegenerator thread.
+                            if (mHandler != null && !mHandler.hasMessages(EVENT_CREATE_OBJECT)) {
+                                // Stop the handler only if there are no pending CREATE messages.
+                                mHandler.removeMessages(EVENT_DELETE_OBJECT);
+                                mHandler.getLooper().quitSafely();
+                                mHandler = null;
+                            }
+                        }
+                        break;
+                }
+            }
+        };
     }
 
     private static final int getMappedTone(char digit) {

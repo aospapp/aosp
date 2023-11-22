@@ -41,7 +41,7 @@ public class Socket implements Closeable {
     private boolean isInputShutdown = false;
     private boolean isOutputShutdown = false;
 
-    private InetAddress localAddress = Inet4Address.ANY;
+    private InetAddress localAddress = Inet6Address.ANY;
 
     private final Object connectLock = new Object();
 
@@ -211,7 +211,7 @@ public class Socket implements Closeable {
     /**
      * Creates a new streaming socket connected to the target host specified by
      * the parameters {@code dstAddress} and {@code dstPort}. The socket is
-     * bound to any available port on the local host.
+     * bound to any available port on the local host using a wildcard address.
      *
      * @param dstAddress
      *            the target host address to connect to.
@@ -228,16 +228,18 @@ public class Socket implements Closeable {
 
     /**
      * Creates a new streaming socket connected to the target host specified by
-     * the parameters {@code dstAddress} and {@code dstPort}. On the local
-     * endpoint the socket is bound to the given address {@code localAddress} on
-     * port {@code localPort}.
+     * the parameters {@code dstAddress} and {@code dstPort}.
+     *
+     * <p>On the local endpoint the socket is bound to the given address {@code localAddress} on
+     * port {@code localPort}. If {@code localAddress} is {@code null} the socket will be bound to a
+     * wildcard address.
      *
      * @param dstAddress
      *            the target host address to connect to.
      * @param dstPort
      *            the port on the target host to connect to.
      * @param localAddress
-     *            the address on the local host to bind to.
+     *            the address on the local host to bind to, or null.
      * @param localPort
      *            the port on the local host to bind to.
      * @throws IOException
@@ -253,7 +255,7 @@ public class Socket implements Closeable {
     /**
      * Creates a new streaming or datagram socket connected to the target host
      * specified by the parameters {@code addr} and {@code port}. The socket is
-     * bound to any available port on the local host.
+     * bound to any available port on the local host using a wildcard address.
      *
      * @param addr
      *            the Internet address to connect to.
@@ -315,7 +317,7 @@ public class Socket implements Closeable {
         isConnected = false;
         // RI compatibility: the RI returns the any address (but the original local port) after
         // close.
-        localAddress = Inet4Address.ANY;
+        localAddress = Inet6Address.ANY;
         impl.close();
     }
 
@@ -330,7 +332,7 @@ public class Socket implements Closeable {
         isConnected = false;
         // RI compatibility: the RI returns the any address (but the original local port) after
         // close.
-        localAddress = Inet4Address.ANY;
+        localAddress = Inet6Address.ANY;
         impl.onClose();
     }
 
@@ -577,7 +579,7 @@ public class Socket implements Closeable {
             throw new IllegalArgumentException("Local port out of range: " + localPort);
         }
 
-        InetAddress addr = localAddress == null ? Inet4Address.ANY : localAddress;
+        InetAddress addr = localAddress == null ? Inet6Address.ANY : localAddress;
         synchronized (this) {
             impl.create(streaming);
             isCreated = true;
@@ -772,7 +774,7 @@ public class Socket implements Closeable {
         InetAddress addr;
         if (localAddr == null) {
             port = 0;
-            addr = Inet4Address.ANY;
+            addr = Inet6Address.ANY;
         } else {
             if (!(localAddr instanceof InetSocketAddress)) {
                 throw new IllegalArgumentException("Local address not an InetSocketAddress: " +
@@ -875,7 +877,7 @@ public class Socket implements Closeable {
                     // options on create
                     // impl.create(true);
                     if (!usingSocks()) {
-                        impl.bind(Inet4Address.ANY, 0);
+                        impl.bind(Inet6Address.ANY, 0);
                     }
                     isBound = true;
                 }

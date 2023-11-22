@@ -1,3 +1,4 @@
+
 Android BasicMediaRouter Sample
 ===================================
 
@@ -13,8 +14,8 @@ Once connected, use the "Change Color" button to change the background color of 
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Getting Started

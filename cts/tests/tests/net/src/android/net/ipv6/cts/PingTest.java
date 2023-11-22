@@ -155,7 +155,7 @@ public class PingTest extends AndroidTestCase {
     public void testLoopbackPing() throws ErrnoException, IOException {
         // Generate a random ping packet and send it to localhost.
         InetAddress ipv6Loopback = InetAddress.getByName(null);
-        assertEquals("localhost/::1", ipv6Loopback.toString());
+        assertEquals("::1", ipv6Loopback.getHostAddress());
 
         for (int i = 0; i < NUM_PACKETS; i++) {
             byte[] packet = pingPacket((int) (Math.random() * (MAX_SIZE - ICMP_HEADER_SIZE)));

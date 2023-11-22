@@ -21,7 +21,7 @@
 
 
     <!--TODO: change minSdk if needed-->
-    <minSdk>4</minSdk>
+    <minSdk>11</minSdk>
 
     <strings>
         <intro>

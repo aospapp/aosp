@@ -79,13 +79,10 @@ class CallIdMapper {
     private static int sIdCount;
 
     CallIdMapper(String callIdPrefix) {
-        ThreadUtil.checkOnMainThread();
         mCallIdPrefix = callIdPrefix + "@";
     }
 
     void replaceCall(Call newCall, Call callToReplace) {
-        ThreadUtil.checkOnMainThread();
-
         // Use the old call's ID for the new call.
         String callId = getCallId(callToReplace);
         mCalls.put(callId, newCall);
@@ -95,12 +92,10 @@ class CallIdMapper {
         if (call == null) {
             return;
         }
-        ThreadUtil.checkOnMainThread();
         mCalls.put(id, call);
     }
 
     void addCall(Call call) {
-        ThreadUtil.checkOnMainThread();
         addCall(call, getNewId());
     }
 
@@ -108,12 +103,10 @@ class CallIdMapper {
         if (call == null) {
             return;
         }
-        ThreadUtil.checkOnMainThread();
         mCalls.removeValue(call);
     }
 
     void removeCall(String callId) {
-        ThreadUtil.checkOnMainThread();
         mCalls.remove(callId);
     }
 
@@ -121,13 +114,10 @@ class CallIdMapper {
         if (call == null) {
             return null;
         }
-        ThreadUtil.checkOnMainThread();
         return mCalls.getKey(call);
     }
 
     Call getCall(Object objId) {
-        ThreadUtil.checkOnMainThread();
-
         String callId = null;
         if (objId instanceof String) {
             callId = (String) objId;

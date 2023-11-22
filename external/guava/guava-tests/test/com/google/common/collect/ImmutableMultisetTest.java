@@ -16,19 +16,23 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Arrays.asList;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.ListTestSuiteBuilder;
 import com.google.common.collect.testing.MinimalCollection;
 import com.google.common.collect.testing.SetTestSuiteBuilder;
+import com.google.common.collect.testing.TestStringListGenerator;
 import com.google.common.collect.testing.TestStringSetGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.google.MultisetTestSuiteBuilder;
 import com.google.common.collect.testing.google.TestStringMultisetGenerator;
 import com.google.common.collect.testing.google.UnmodifiableCollectionTests;
+import com.google.common.testing.EqualsTester;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
 
@@ -36,7 +40,9 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -61,30 +67,63 @@ public class ImmutableMultisetTest extends TestCase {
           }
         })
         .named("ImmutableMultiset")
-        .withFeatures(CollectionSize.ANY, 
-            CollectionFeature.ALLOWS_NULL_QUERIES)
-        .createTestSuite());
-
-    suite.addTest(MultisetTestSuiteBuilder.using(
-        new TestStringMultisetGenerator() {
-          @Override protected Multiset<String> create(String[] elements) {
-            return SerializableTester.reserialize(
-                ImmutableMultiset.copyOf(elements));
-          }
-        })
-        .named("ImmutableMultiset, reserialized")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE_INCLUDING_VIEWS,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
 
     suite.addTest(SetTestSuiteBuilder.using(new TestStringSetGenerator() {
           @Override protected Set<String> create(String[] elements) {
-            return SerializableTester.reserialize(
-                ImmutableMultiset.copyOf(elements).elementSet());
+            return ImmutableMultiset.copyOf(elements).elementSet();
           }
         })
         .named("ImmutableMultiset, element set")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
+            CollectionFeature.ALLOWS_NULL_QUERIES)
+        .createTestSuite());
+
+    suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
+          @Override protected List<String> create(String[] elements) {
+            return ImmutableMultiset.copyOf(elements).asList();
+          }
+
+          @Override
+          public List<String> order(List<String> insertionOrder) {
+            List<String> order = new ArrayList<String>();
+            for (String s : insertionOrder) {
+              int index = order.indexOf(s);
+              if (index == -1) {
+                order.add(s);
+              } else {
+                order.add(index, s);
+              }
+            }
+            return order;
+          }
+        })
+        .named("ImmutableMultiset.asList")
+        .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
+            CollectionFeature.ALLOWS_NULL_QUERIES)
+        .createTestSuite());
+
+    suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
+          @Override protected List<String> create(String[] elements) {
+            Set<String> set = new HashSet<String>();
+            ImmutableMultiset.Builder<String> builder = ImmutableMultiset.builder();
+            for (String s : elements) {
+              checkArgument(set.add(s));
+              builder.addCopies(s, 2);
+            }
+            ImmutableSet<String> elementSet = (ImmutableSet<String>) builder.build().elementSet();
+            return elementSet.asList();
+          }
+        })
+        .named("ImmutableMultiset.elementSet.asList")
+        .withFeatures(CollectionSize.ANY,
+            CollectionFeature.REJECTS_DUPLICATES_AT_CREATION,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
 
@@ -398,7 +437,7 @@ public class ImmutableMultisetTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointers() throws Exception {
+  public void testNullPointers() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(ImmutableMultiset.class);
   }
@@ -413,7 +452,7 @@ public class ImmutableMultisetTest extends TestCase {
   public void testSerialization_multiple() {
     Collection<String> c = ImmutableMultiset.of("a", "b", "a");
     Collection<String> copy = SerializableTester.reserializeAndAssert(c);
-    ASSERT.that(copy).hasContentsInOrder("a", "a", "b");
+    ASSERT.that(copy).has().exactly("a", "a", "b").inOrder();
   }
 
   @GwtIncompatible("SerializableTester")
@@ -421,7 +460,7 @@ public class ImmutableMultisetTest extends TestCase {
     Multiset<String> c = ImmutableMultiset.of("a", "b", "a");
     Collection<String> copy =
         LenientSerializableTester.reserializeAndAssertLenient(c.elementSet());
-    ASSERT.that(copy).hasContentsInOrder("a", "b");
+    ASSERT.that(copy).has().exactly("a", "b").inOrder();
   }
 
   @GwtIncompatible("SerializableTester")
@@ -440,7 +479,7 @@ public class ImmutableMultisetTest extends TestCase {
 
   public void testIterationOrder() {
     Collection<String> c = ImmutableMultiset.of("a", "b", "a");
-    ASSERT.that(c).hasContentsInOrder("a", "a", "b");
+    ASSERT.that(c).has().exactly("a", "a", "b").inOrder();
   }
 
   public void testMultisetWrites() {
@@ -462,5 +501,14 @@ public class ImmutableMultisetTest extends TestCase {
     ImmutableMultiset<String> multiset
         = ImmutableMultiset.of("a", "a", "b", "b", "b");
     SerializableTester.reserializeAndAssert(multiset.asList());
+  }
+
+  public void testEquals() {
+    new EqualsTester()
+        .addEqualityGroup(ImmutableMultiset.of(), ImmutableMultiset.of())
+        .addEqualityGroup(ImmutableMultiset.of(1), ImmutableMultiset.of(1))
+        .addEqualityGroup(ImmutableMultiset.of(1, 1), ImmutableMultiset.of(1, 1))
+        .addEqualityGroup(ImmutableMultiset.of(1, 2, 1), ImmutableMultiset.of(2, 1, 1))
+        .testEquals();
   }
 }

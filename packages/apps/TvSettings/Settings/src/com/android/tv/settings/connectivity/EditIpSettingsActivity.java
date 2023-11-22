@@ -16,26 +16,15 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
-
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.Parcel;
-import android.text.TextUtils;
-import android.util.Base64;
 import android.util.Log;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
 
 /**
  * Allows the modification of advanced Wi-Fi settings

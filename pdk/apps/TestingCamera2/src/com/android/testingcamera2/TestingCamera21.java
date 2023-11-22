@@ -184,6 +184,12 @@ public class TestingCamera21 extends Activity implements CameraControlPane.InfoD
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        mCameraOps.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
     /**
      * Get shared camera controls
      */

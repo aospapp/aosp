@@ -13,12 +13,16 @@
        limitations under the License.
   -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/test_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <ViewStub
-        android:id="@+id/test_content_stub"
+    <FrameLayout
         android:layout_gravity="center"
+        android:id="@+id/test_content_wrapper"
         android:layout_width="@dimen/test_width"
-        android:layout_height="@dimen/test_height"/>
+        android:layout_height="@dimen/test_height">
+        <ViewStub
+            android:id="@+id/test_content_stub"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </FrameLayout>
 </FrameLayout>

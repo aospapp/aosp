@@ -467,6 +467,8 @@ protected:
                 /* Stop the thread. */
                 THREAD_STOP
             };
+
+            Condition mSetup;
     };
 
     /* Worker thread accessor. */

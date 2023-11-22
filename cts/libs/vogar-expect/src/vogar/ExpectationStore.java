@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -50,7 +51,17 @@ import vogar.util.Log;
  * expectation, the outcome expectation will be returned.
  */
 public final class ExpectationStore {
+
+    /** The pattern to use when no expected output is specified */
+    private static final Pattern MATCH_ALL_PATTERN
+            = Pattern.compile(".*", Pattern.MULTILINE | Pattern.DOTALL);
+
+    /** The expectation of a general successful run. */
+    private static final Expectation SUCCESS = new Expectation(Result.SUCCESS, MATCH_ALL_PATTERN,
+            Collections.<String>emptySet(), "", -1);
+
     private static final int PATTERN_FLAGS = Pattern.MULTILINE | Pattern.DOTALL;
+
     private final Map<String, Expectation> outcomes = new LinkedHashMap<String, Expectation>();
     private final Map<String, Expectation> failures = new LinkedHashMap<String, Expectation>();
 
@@ -62,7 +73,7 @@ public final class ExpectationStore {
      */
     public Expectation get(String name) {
         Expectation byName = getByNameOrPackage(name);
-        return byName != null ? byName : Expectation.SUCCESS;
+        return byName != null ? byName : SUCCESS;
     }
 
     /**
@@ -87,7 +98,7 @@ public final class ExpectationStore {
         }
 
         Expectation byName = getByNameOrPackage(outcome.getName());
-        return byName != null ? byName : Expectation.SUCCESS;
+        return byName != null ? byName : SUCCESS;
     }
 
     private Expectation getByNameOrPackage(String name) {
@@ -141,8 +152,8 @@ public final class ExpectationStore {
 
     private void readExpectation(JsonReader reader, ModeId mode) throws IOException {
         boolean isFailure = false;
-        Result result = Result.SUCCESS;
-        Pattern pattern = Expectation.MATCH_ALL_PATTERN;
+        Result result = Result.EXEC_FAILED;
+        Pattern pattern = MATCH_ALL_PATTERN;
         Set<String> names = new LinkedHashSet<String>();
         Set<String> tags = new LinkedHashSet<String>();
         Set<ModeId> modes = null;
@@ -159,6 +170,12 @@ public final class ExpectationStore {
             } else if (name.equals("names")) {
                 readStrings(reader, names);
             } else if (name.equals("failure")) {
+                // isFailure is somewhat arbitrarily keyed on the existence of a "failure"
+                // element instead of looking at the "result" field. There are only about 5
+                // expectations in our entire expectation store that have this tag.
+                //
+                // TODO: Get rid of it and the "failures" map and just use the outcomes
+                // map for everything. Both uses seem useless.
                 isFailure = true;
                 names.add(reader.nextString());
             } else if (name.equals("pattern")) {

@@ -181,15 +181,6 @@ inline float triangleInterpolate (const tcu::Vec3& v, float x, float y)
 	return triangleInterpolate(v.x(), v.y(), v.z(), x, y);
 }
 
-inline float triQuadInterpolate (float x, float y, const tcu::Vec4& quad)
-{
-	// \note Top left fill rule.
-	if (x + y < 1.0f)
-		return triangleInterpolate(quad.x(), quad.y(), quad.z(), x, y);
-	else
-		return triangleInterpolate(quad.w(), quad.z(), quad.y(), 1.0f-x, 1.0f-y);
-}
-
 SurfaceAccess::SurfaceAccess (tcu::Surface& surface, const tcu::PixelFormat& colorFmt, int x, int y, int width, int height)
 	: m_surface		(&surface)
 	, m_colorMask	(getColorMask(colorFmt))
@@ -435,17 +426,21 @@ static inline tcu::Vec4 execSample (const tcu::Texture1DArrayView& src, const Re
 		return src.sample(params.sampler, s, t, lod);
 }
 
-static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture1DView& src, const tcu::Vec4& sq, const ReferenceParams& params)
+static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture1DView& rawSrc, const tcu::Vec4& sq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture1DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	int			srcSize		= src.getWidth();
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+
+	tcu::IVec2									dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	int											srcSize				= src.getWidth();
 
 	// Coordinates and lod per triangle.
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	float		triLod[2]	= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0]) + lodBias, params.minLod, params.maxLod),
-								de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1]) + lodBias, params.minLod, params.maxLod) };
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	float										triLod[2]			= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0]) + lodBias, params.minLod, params.maxLod),
+																		de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1]) + lodBias, params.minLod, params.maxLod) };
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -466,18 +461,22 @@ static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Text
 	}
 }
 
-static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture2DView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
+static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture2DView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture2DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	tcu::IVec2	srcSize		= tcu::IVec2(src.getWidth(), src.getHeight());
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+
+	tcu::IVec2									dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	tcu::IVec2									srcSize				= tcu::IVec2(src.getWidth(), src.getHeight());
 
 	// Coordinates and lod per triangle.
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	float		triLod[2]	= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias, params.minLod, params.maxLod),
-								de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias, params.minLod, params.maxLod) };
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	float										triLod[2]			= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias, params.minLod, params.maxLod),
+																		de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias, params.minLod, params.maxLod) };
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -499,17 +498,21 @@ static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Text
 	}
 }
 
-static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture1DView& src, const tcu::Vec4& sq, const ReferenceParams& params)
+static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture1DView& rawSrc, const tcu::Vec4& sq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
-	float		dstW		= (float)dst.getWidth();
-	float		dstH		= (float)dst.getHeight();
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture1DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::Vec4	uq			= sq * (float)src.getWidth();
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	float										dstW				= (float)dst.getWidth();
+	float										dstH				= (float)dst.getHeight();
 
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triU[2]		= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
-	tcu::Vec3	triW[2]		= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
+	tcu::Vec4									uq					= sq * (float)src.getWidth();
+
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triU[2]				= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
+	tcu::Vec3									triW[2]				= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
 
 	for (int py = 0; py < dst.getHeight(); py++)
 	{
@@ -535,20 +538,24 @@ static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture
 	}
 }
 
-static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture2DView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
+static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture2DView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
-	float		dstW		= (float)dst.getWidth();
-	float		dstH		= (float)dst.getHeight();
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture2DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::Vec4	uq			= sq * (float)src.getWidth();
-	tcu::Vec4	vq			= tq * (float)src.getHeight();
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	float										dstW				= (float)dst.getWidth();
+	float										dstH				= (float)dst.getHeight();
 
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	tcu::Vec3	triU[2]		= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
-	tcu::Vec3	triV[2]		= { vq.swizzle(0, 1, 2), vq.swizzle(3, 2, 1) };
-	tcu::Vec3	triW[2]		= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
+	tcu::Vec4									uq					= sq * (float)src.getWidth();
+	tcu::Vec4									vq					= tq * (float)src.getHeight();
+
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	tcu::Vec3									triU[2]				= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
+	tcu::Vec3									triV[2]				= { vq.swizzle(0, 1, 2), vq.swizzle(3, 2, 1) };
+	tcu::Vec3									triW[2]				= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
 
 	for (int py = 0; py < dst.getHeight(); py++)
 	{
@@ -637,20 +644,24 @@ static float computeCubeLodFromDerivates (LodMode lodMode, const tcu::Vec3& coor
 	}
 }
 
-static void sampleTexture (const SurfaceAccess& dst, const tcu::TextureCubeView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
+static void sampleTextureCube (const SurfaceAccess& dst, const tcu::TextureCubeView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
 {
-	const tcu::IVec2	dstSize			= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const int			srcSize			= src.getSize();
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::TextureCubeView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
+
+	const tcu::IVec2							dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const int									srcSize				= src.getSize();
 
 	// Coordinates per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triR[2]			= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
 
-	const float			lodBias			((params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f);
+	const float									lodBias				((params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f);
 
 	for (int py = 0; py < dst.getHeight(); py++)
 	{
@@ -689,28 +700,26 @@ void sampleTexture (const SurfaceAccess& dst, const tcu::TextureCubeView& src, c
 	const tcu::Vec4				tq		= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
 	const tcu::Vec4				rq		= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
 
-	return sampleTexture(dst, view, sq, tq, rq, params);
+	return sampleTextureCube(dst, view, sq, tq, rq, params);
 }
 
-// \todo [2013-07-17 pyry] Remove this!
-void sampleTextureMultiFace (const SurfaceAccess& dst, const tcu::TextureCubeView& src, const float* texCoord, const ReferenceParams& params)
+static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture2DArrayView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
 {
-	return sampleTexture(dst, src, texCoord, params);
-}
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture2DArrayView				src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture2DArrayView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
-{
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
 
-	tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	tcu::IVec2	srcSize		= tcu::IVec2(src.getWidth(), src.getHeight());
+	tcu::IVec2									dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	tcu::IVec2									srcSize				= tcu::IVec2(src.getWidth(), src.getHeight());
 
 	// Coordinates and lod per triangle.
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	tcu::Vec3	triR[2]		= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	float		triLod[2]	= { computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias,
-								computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias};
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	tcu::Vec3									triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	float										triLod[2]			= { computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0]) + lodBias,
+																		computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1]) + lodBias};
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -743,18 +752,22 @@ void sampleTexture (const SurfaceAccess& dst, const tcu::Texture2DArrayView& src
 	sampleTextureNonProjected(dst, src, sq, tq, rq, params);
 }
 
-static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture1DArrayView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
+static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture1DArrayView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture1DArrayView				src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	deInt32		srcSize		= src.getWidth();
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+
+	tcu::IVec2									dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	deInt32										srcSize				= src.getWidth();
 
 	// Coordinates and lod per triangle.
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	float		triLod[2]	= { computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0]) + lodBias,
-								computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1]) + lodBias};
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	float										triLod[2]			= { computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0]) + lodBias,
+																		computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1]) + lodBias};
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -785,19 +798,23 @@ void sampleTexture (const SurfaceAccess& dst, const tcu::Texture1DArrayView& src
 	sampleTextureNonProjected(dst, src, sq, tq, params);
 }
 
-static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture3DView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
+static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Texture3DView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture3DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
-	tcu::IVec3	srcSize		= tcu::IVec3(src.getWidth(), src.getHeight(), src.getDepth());
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+
+	tcu::IVec2									dstSize				= tcu::IVec2(dst.getWidth(), dst.getHeight());
+	tcu::IVec3									srcSize				= tcu::IVec3(src.getWidth(), src.getHeight(), src.getDepth());
 
 	// Coordinates and lod per triangle.
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	tcu::Vec3	triR[2]		= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	float		triLod[2]	= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0], triR[0]) + lodBias, params.minLod, params.maxLod),
-								de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1], triR[1]) + lodBias, params.minLod, params.maxLod) };
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	tcu::Vec3									triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	float										triLod[2]			= { de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[0], triT[0], triR[0]) + lodBias, params.minLod, params.maxLod),
+																		de::clamp(computeNonProjectedTriLod(params.lodMode, dstSize, srcSize, triS[1], triT[1], triR[1]) + lodBias, params.minLod, params.maxLod) };
 
 	for (int y = 0; y < dst.getHeight(); y++)
 	{
@@ -820,23 +837,27 @@ static void sampleTextureNonProjected (const SurfaceAccess& dst, const tcu::Text
 	}
 }
 
-static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture3DView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
+static void sampleTextureProjected (const SurfaceAccess& dst, const tcu::Texture3DView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const ReferenceParams& params)
 {
-	float		lodBias		= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
-	float		dstW		= (float)dst.getWidth();
-	float		dstH		= (float)dst.getHeight();
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture3DView					src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
 
-	tcu::Vec4	uq			= sq * (float)src.getWidth();
-	tcu::Vec4	vq			= tq * (float)src.getHeight();
-	tcu::Vec4	wq			= rq * (float)src.getDepth();
+	float										lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	float										dstW				= (float)dst.getWidth();
+	float										dstH				= (float)dst.getHeight();
 
-	tcu::Vec3	triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3	triT[2]		= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	tcu::Vec3	triR[2]		= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	tcu::Vec3	triU[2]		= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
-	tcu::Vec3	triV[2]		= { vq.swizzle(0, 1, 2), vq.swizzle(3, 2, 1) };
-	tcu::Vec3	triW[2]		= { wq.swizzle(0, 1, 2), wq.swizzle(3, 2, 1) };
-	tcu::Vec3	triP[2]		= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
+	tcu::Vec4									uq					= sq * (float)src.getWidth();
+	tcu::Vec4									vq					= tq * (float)src.getHeight();
+	tcu::Vec4									wq					= rq * (float)src.getDepth();
+
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	tcu::Vec3									triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	tcu::Vec3									triU[2]				= { uq.swizzle(0, 1, 2), uq.swizzle(3, 2, 1) };
+	tcu::Vec3									triV[2]				= { vq.swizzle(0, 1, 2), vq.swizzle(3, 2, 1) };
+	tcu::Vec3									triW[2]				= { wq.swizzle(0, 1, 2), wq.swizzle(3, 2, 1) };
+	tcu::Vec3									triP[2]				= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
 
 	for (int py = 0; py < dst.getHeight(); py++)
 	{
@@ -877,19 +898,23 @@ void sampleTexture (const SurfaceAccess& dst, const tcu::Texture3DView& src, con
 		sampleTextureNonProjected(dst, view, sq, tq, rq, params);
 }
 
-static void sampleTexture (const SurfaceAccess& dst, const tcu::TextureCubeArrayView& src, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const tcu::Vec4& qq, const ReferenceParams& params)
+static void sampleTextureCubeArray (const SurfaceAccess& dst, const tcu::TextureCubeArrayView& rawSrc, const tcu::Vec4& sq, const tcu::Vec4& tq, const tcu::Vec4& rq, const tcu::Vec4& qq, const ReferenceParams& params)
 {
-	const float		dstW	= (float)dst.getWidth();
-	const float		dstH	= (float)dst.getHeight();
+	// Separate combined DS formats
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::TextureCubeArrayView				src					= getEffectiveTextureView(rawSrc, srcLevelStorage, params.sampler);
+
+	const float									dstW				= (float)dst.getWidth();
+	const float									dstH				= (float)dst.getHeight();
 
 	// Coordinates per triangle.
-	tcu::Vec3		triS[2]	= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	tcu::Vec3		triT[2]	= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	tcu::Vec3		triR[2]	= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	tcu::Vec3		triQ[2]	= { qq.swizzle(0, 1, 2), qq.swizzle(3, 2, 1) };
-	const tcu::Vec3	triW[2]	= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
+	tcu::Vec3									triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	tcu::Vec3									triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	tcu::Vec3									triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	tcu::Vec3									triQ[2]				= { qq.swizzle(0, 1, 2), qq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { params.w.swizzle(0, 1, 2), params.w.swizzle(3, 2, 1) };
 
-	const float		lodBias	= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
+	const float									lodBias				= (params.flags & ReferenceParams::USE_BIAS) ? params.bias : 0.0f;
 
 	for (int py = 0; py < dst.getHeight(); py++)
 	{
@@ -931,13 +956,12 @@ void sampleTexture (const SurfaceAccess& dst, const tcu::TextureCubeArrayView& s
 	tcu::Vec4 rq = tcu::Vec4(texCoord[0+2], texCoord[4+2], texCoord[8+2], texCoord[12+2]);
 	tcu::Vec4 qq = tcu::Vec4(texCoord[0+3], texCoord[4+3], texCoord[8+3], texCoord[12+3]);
 
-	sampleTexture(dst, src, sq, tq, rq, qq, params);
+	sampleTextureCubeArray(dst, src, sq, tq, rq, qq, params);
 }
 
 void fetchTexture (const SurfaceAccess& dst, const tcu::ConstPixelBufferAccess& src, const float* texCoord, const tcu::Vec4& colorScale, const tcu::Vec4& colorBias)
 {
 	const tcu::Vec4		sq			= tcu::Vec4(texCoord[0], texCoord[1], texCoord[2], texCoord[3]);
-	const tcu::IVec2	dstSize		= tcu::IVec2(dst.getWidth(), dst.getHeight());
 	const tcu::Vec3		triS[2]		= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
 
 	for (int y = 0; y < dst.getHeight(); y++)
@@ -1027,9 +1051,9 @@ RandomViewport::RandomViewport (const tcu::RenderTarget& renderTarget, int prefe
 	y = rnd.getInt(0, renderTarget.getHeight()	- height);
 }
 
-ProgramLibrary::ProgramLibrary (const glu::RenderContext& context, tcu::TestContext& testCtx, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision)
+ProgramLibrary::ProgramLibrary (const glu::RenderContext& context, tcu::TestLog& log, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision)
 	: m_context				(context)
-	, m_testCtx				(testCtx)
+	, m_log					(log)
 	, m_glslVersion			(glslVersion)
 	, m_texCoordPrecision	(texCoordPrecision)
 {
@@ -1052,8 +1076,6 @@ void ProgramLibrary::clear (void)
 
 glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 {
-	TestLog& log = m_testCtx.getLog();
-
 	if (m_programs.find(program) != m_programs.end())
 		return m_programs[program]; // Return from cache.
 
@@ -1178,10 +1200,10 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 			case PROGRAM_2D_ARRAY_SHADOW:	sampler = "sampler2DArrayShadow";	lookup = "vec4(texture(u_sampler, vec4(v_texCoord, u_ref)), 0.0, 0.0, 1.0)";			break;
 			case PROGRAM_3D_FLOAT:			sampler = "sampler3D";				lookup = "texture(u_sampler, v_texCoord)";												break;
 			case PROGRAM_3D_INT:			sampler = "isampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord))";										break;
-			case PROGRAM_3D_UINT:			sampler =" usampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord))";										break;
+			case PROGRAM_3D_UINT:			sampler = "usampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord))";										break;
 			case PROGRAM_3D_FLOAT_BIAS:		sampler = "sampler3D";				lookup = "texture(u_sampler, v_texCoord, u_bias)";										break;
 			case PROGRAM_3D_INT_BIAS:		sampler = "isampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord, u_bias))";								break;
-			case PROGRAM_3D_UINT_BIAS:		sampler =" usampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord, u_bias))";								break;
+			case PROGRAM_3D_UINT_BIAS:		sampler = "usampler3D";				lookup = "vec4(texture(u_sampler, v_texCoord, u_bias))";								break;
 			case PROGRAM_CUBE_ARRAY_FLOAT:	sampler = "samplerCubeArray";		lookup = "texture(u_sampler, v_texCoord)";												break;
 			case PROGRAM_CUBE_ARRAY_INT:	sampler = "isamplerCubeArray";		lookup = "vec4(texture(u_sampler, v_texCoord))";										break;
 			case PROGRAM_CUBE_ARRAY_UINT:	sampler = "usamplerCubeArray";		lookup = "vec4(texture(u_sampler, v_texCoord))";										break;
@@ -1223,7 +1245,7 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 	glu::ShaderProgram* progObj = new glu::ShaderProgram(m_context, glu::makeVtxFragSources(vertSrc, fragSrc));
 	if (!progObj->isOk())
 	{
-		log << *progObj;
+		m_log << *progObj;
 		delete progObj;
 		TCU_FAIL("Failed to compile shader program");
 	}
@@ -1241,10 +1263,10 @@ glu::ShaderProgram* ProgramLibrary::getProgram (Program program)
 	return progObj;
 }
 
-TextureRenderer::TextureRenderer (const glu::RenderContext& context, tcu::TestContext& testCtx, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision)
+TextureRenderer::TextureRenderer (const glu::RenderContext& context, tcu::TestLog& log, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision)
 	: m_renderCtx		(context)
-	, m_testCtx			(testCtx)
-	, m_programLibrary	(context, testCtx, glslVersion, texCoordPrecision)
+	, m_log				(log)
+	, m_programLibrary	(context, log, glslVersion, texCoordPrecision)
 {
 }
 
@@ -1268,7 +1290,6 @@ void TextureRenderer::renderQuad (int texUnit, const float* texCoord, const Rend
 	const glw::Functions&	gl			= m_renderCtx.getFunctions();
 	tcu::Vec4				wCoord		= params.flags & RenderParams::PROJECTED ? params.w : tcu::Vec4(1.0f);
 	bool					useBias		= !!(params.flags & RenderParams::USE_BIAS);
-	TestLog&				log			= m_testCtx.getLog();
 	bool					logUniforms	= !!(params.flags & RenderParams::LOG_UNIFORMS);
 
 	// Render quad with texture.
@@ -1398,7 +1419,7 @@ void TextureRenderer::renderQuad (int texUnit, const float* texCoord, const Rend
 
 	// \todo [2012-09-26 pyry] Move to ProgramLibrary and log unique programs only(?)
 	if (params.flags & RenderParams::LOG_PROGRAMS)
-		log << *program;
+		m_log << *program;
 
 	GLU_EXPECT_NO_ERROR(gl.getError(), "Set vertex attributes");
 
@@ -1408,20 +1429,20 @@ void TextureRenderer::renderQuad (int texUnit, const float* texCoord, const Rend
 
 	gl.uniform1i(gl.getUniformLocation(prog, "u_sampler"), texUnit);
 	if (logUniforms)
-		log << TestLog::Message << "u_sampler = " << texUnit << TestLog::EndMessage;
+		m_log << TestLog::Message << "u_sampler = " << texUnit << TestLog::EndMessage;
 
 	if (useBias)
 	{
 		gl.uniform1f(gl.getUniformLocation(prog, "u_bias"), params.bias);
 		if (logUniforms)
-			log << TestLog::Message << "u_bias = " << params.bias << TestLog::EndMessage;
+			m_log << TestLog::Message << "u_bias = " << params.bias << TestLog::EndMessage;
 	}
 
 	if (params.samplerType == SAMPLERTYPE_SHADOW)
 	{
 		gl.uniform1f(gl.getUniformLocation(prog, "u_ref"), params.ref);
 		if (logUniforms)
-			log << TestLog::Message << "u_ref = " << params.ref << TestLog::EndMessage;
+			m_log << TestLog::Message << "u_ref = " << params.ref << TestLog::EndMessage;
 	}
 
 	gl.uniform4fv(gl.getUniformLocation(prog, "u_colorScale"),	1, params.colorScale.getPtr());
@@ -1429,8 +1450,8 @@ void TextureRenderer::renderQuad (int texUnit, const float* texCoord, const Rend
 
 	if (logUniforms)
 	{
-		log << TestLog::Message << "u_colorScale = " << params.colorScale << TestLog::EndMessage;
-		log << TestLog::Message << "u_colorBias = " << params.colorBias << TestLog::EndMessage;
+		m_log << TestLog::Message << "u_colorScale = " << params.colorScale << TestLog::EndMessage;
+		m_log << TestLog::Message << "u_colorBias = " << params.colorBias << TestLog::EndMessage;
 	}
 
 	GLU_EXPECT_NO_ERROR(gl.getError(), "Set program state");
@@ -1685,22 +1706,23 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::Texture1DView	src		= getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture1DView					src					= getEffectiveTextureView(getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel), srcLevelStorage, sampleParams.sampler);
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0], texCoord[1], texCoord[2], texCoord[3]);
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0], texCoord[1], texCoord[2], texCoord[3]);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const int			srcSize			= src.getWidth();
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const int									srcSize				= src.getWidth();
 
 	// Coordinates and lod per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -1779,7 +1801,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 							  const tcu::PixelBufferAccess&			errorMask,
 							  const tcu::Texture2DView&				baseView,
 							  const float*							texCoord,
-							  const ReferenceParams&					sampleParams,
+							  const ReferenceParams&				sampleParams,
 							  const tcu::LookupPrecision&			lookupPrec,
 							  const tcu::LodPrecision&				lodPrec,
 							  qpWatchDog*							watchDog)
@@ -1787,24 +1809,25 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::Texture2DView	src		= getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture2DView					src					= getEffectiveTextureView(getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel), srcLevelStorage, sampleParams.sampler);
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[2+0], texCoord[4+0], texCoord[6+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[2+1], texCoord[4+1], texCoord[6+1]);
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[2+0], texCoord[4+0], texCoord[6+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[2+1], texCoord[4+1], texCoord[6+1]);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const tcu::IVec2	srcSize			= tcu::IVec2(src.getWidth(), src.getHeight());
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const tcu::IVec2							srcSize				= tcu::IVec2(src.getWidth(), src.getHeight());
 
 	// Coordinates and lod per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -1858,8 +1881,6 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 					const float		nxo		= wxo/dstW;
 					const float		nyo		= wyo/dstH;
 
-					const tcu::Vec2	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo));
 					const tcu::Vec2	coordDxo	= tcu::Vec2(triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo),
 															triDerivateX(triT[triNdx], triW[triNdx], wxo, dstW, nyo)) * srcSize.asFloat();
 					const tcu::Vec2	coordDyo	= tcu::Vec2(triDerivateY(triS[triNdx], triW[triNdx], wyo, dstH, nxo),
@@ -1971,28 +1992,29 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::TextureCubeView	src		= getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::TextureCubeView					src					= getEffectiveTextureView(getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel), srcLevelStorage, sampleParams.sampler);
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
-	const tcu::Vec4		rq				= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
+	const tcu::Vec4								rq					= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const int			srcSize			= src.getSize();
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const int									srcSize				= src.getSize();
 
 	// Coordinates per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triR[2]			= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	const float			posEps			= 1.0f / float((1<<MIN_SUBPIXEL_BITS) + 1);
+	const float									posEps				= 1.0f / float(1<<MIN_SUBPIXEL_BITS);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -2029,8 +2051,8 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 				const float		nx		= wx / dstW;
 				const float		ny		= wy / dstH;
 
-				const bool		tri0	= nx + ny - posEps <= 1.0f;
-				const bool		tri1	= nx + ny + posEps >= 1.0f;
+				const bool		tri0	= (wx-posEps)/dstW + (wy-posEps)/dstH <= 1.0f;
+				const bool		tri1	= (wx+posEps)/dstW + (wy+posEps)/dstH >= 1.0f;
 
 				bool			isOk	= false;
 
@@ -2116,7 +2138,7 @@ bool verifyTextureResult (tcu::TestContext&						testCtx,
 
 	DE_ASSERT(getCompareMask(pixelFormat) == lookupPrec.colorMask);
 
-	sampleTextureMultiFace(SurfaceAccess(reference, pixelFormat), src, texCoord, sampleParams);
+	sampleTexture(SurfaceAccess(reference, pixelFormat), src, texCoord, sampleParams);
 	numFailedPixels = computeTextureLookupDiff(result, reference.getAccess(), errorMask.getAccess(), src, texCoord, sampleParams, lookupPrec, lodPrec, testCtx.getWatchDog());
 
 	if (numFailedPixels > 0)
@@ -2150,28 +2172,29 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::Texture3DView	src		= getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture3DView					src					= getEffectiveTextureView(getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel), srcLevelStorage, sampleParams.sampler);
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
-	const tcu::Vec4		rq				= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
+	const tcu::Vec4								rq					= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const tcu::IVec3	srcSize			= tcu::IVec3(src.getWidth(), src.getHeight(), src.getDepth());
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const tcu::IVec3							srcSize				= tcu::IVec3(src.getWidth(), src.getHeight(), src.getDepth());
 
 	// Coordinates and lod per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triR[2]			= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	const float			posEps			= 1.0f / float((1<<MIN_SUBPIXEL_BITS) + 1);
+	const float									posEps				= 1.0f / float(1<<MIN_SUBPIXEL_BITS);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -2202,8 +2225,8 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 				const float		nx		= wx / dstW;
 				const float		ny		= wy / dstH;
 
-				const bool		tri0	= nx + ny - posEps <= 1.0f;
-				const bool		tri1	= nx + ny + posEps >= 1.0f;
+				const bool		tri0	= (wx-posEps)/dstW + (wy-posEps)/dstH <= 1.0f;
+				const bool		tri1	= (wx+posEps)/dstW + (wy+posEps)/dstH >= 1.0f;
 
 				bool			isOk	= false;
 
@@ -2237,9 +2260,6 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 						const float		nxo		= wxo/dstW;
 						const float		nyo		= wyo/dstH;
 
-						const tcu::Vec3	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-													 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo),
-													 projectedTriInterpolate(triR[triNdx], triW[triNdx], nxo, nyo));
 						const tcu::Vec3	coordDxo	= tcu::Vec3(triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo),
 																triDerivateX(triT[triNdx], triW[triNdx], wxo, dstW, nyo),
 																triDerivateX(triR[triNdx], triW[triNdx], wxo, dstW, nyo)) * srcSize.asFloat();
@@ -2313,7 +2333,7 @@ bool verifyTextureResult (tcu::TestContext&						testCtx,
 int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 							  const tcu::ConstPixelBufferAccess&	reference,
 							  const tcu::PixelBufferAccess&			errorMask,
-							  const tcu::Texture1DArrayView&		src,
+							  const tcu::Texture1DArrayView&		baseView,
 							  const float*							texCoord,
 							  const ReferenceParams&				sampleParams,
 							  const tcu::LookupPrecision&			lookupPrec,
@@ -2323,22 +2343,25 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[2+0], texCoord[4+0], texCoord[6+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[2+1], texCoord[4+1], texCoord[6+1]);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture1DArrayView				src					= getEffectiveTextureView(baseView, srcLevelStorage, sampleParams.sampler);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const float			srcSize			= float(src.getWidth()); // For lod computation, thus #layers is ignored.
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[2+0], texCoord[4+0], texCoord[6+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[2+1], texCoord[4+1], texCoord[6+1]);
+
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const float									srcSize				= float(src.getWidth()); // For lod computation, thus #layers is ignored.
 
 	// Coordinates and lod per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -2390,8 +2413,6 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 					const float		nxo		= wxo/dstW;
 					const float		nyo		= wyo/dstH;
 
-					const tcu::Vec2	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo));
 					const float	coordDxo		= triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo) * srcSize;
 					const float	coordDyo		= triDerivateY(triS[triNdx], triW[triNdx], wyo, dstH, nxo) * srcSize;
 					const tcu::Vec2	lodO		= tcu::computeLodBoundsFromDerivates(coordDxo, coordDyo, lodPrec);
@@ -2419,7 +2440,7 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 							  const tcu::ConstPixelBufferAccess&	reference,
 							  const tcu::PixelBufferAccess&			errorMask,
-							  const tcu::Texture2DArrayView&		src,
+							  const tcu::Texture2DArrayView&		baseView,
 							  const float*							texCoord,
 							  const ReferenceParams&				sampleParams,
 							  const tcu::LookupPrecision&			lookupPrec,
@@ -2429,24 +2450,27 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
-	const tcu::Vec4		rq				= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::Texture2DArrayView				src					= getEffectiveTextureView(baseView, srcLevelStorage, sampleParams.sampler);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const tcu::Vec2		srcSize			= tcu::IVec2(src.getWidth(), src.getHeight()).asFloat(); // For lod computation, thus #layers is ignored.
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[3+0], texCoord[6+0], texCoord[9+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[3+1], texCoord[6+1], texCoord[9+1]);
+	const tcu::Vec4								rq					= tcu::Vec4(texCoord[0+2], texCoord[3+2], texCoord[6+2], texCoord[9+2]);
+
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const tcu::Vec2								srcSize				= tcu::IVec2(src.getWidth(), src.getHeight()).asFloat(); // For lod computation, thus #layers is ignored.
 
 	// Coordinates and lod per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triR[2]			= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -2501,9 +2525,6 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 					const float		nxo		= wxo/dstW;
 					const float		nyo		= wyo/dstH;
 
-					const tcu::Vec3	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triR[triNdx], triW[triNdx], nxo, nyo));
 					const tcu::Vec2	coordDxo	= tcu::Vec2(triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo),
 															triDerivateX(triT[triNdx], triW[triNdx], wxo, dstW, nyo)) * srcSize;
 					const tcu::Vec2	coordDyo	= tcu::Vec2(triDerivateY(triS[triNdx], triW[triNdx], wyo, dstH, nxo),
@@ -2616,31 +2637,31 @@ int computeTextureLookupDiff (const tcu::ConstPixelBufferAccess&	result,
 	DE_ASSERT(result.getWidth() == reference.getWidth() && result.getHeight() == reference.getHeight());
 	DE_ASSERT(result.getWidth() == errorMask.getWidth() && result.getHeight() == errorMask.getHeight());
 
-	const tcu::TextureCubeArrayView	src	= getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel);
+	std::vector<tcu::ConstPixelBufferAccess>	srcLevelStorage;
+	const tcu::TextureCubeArrayView				src					= getEffectiveTextureView(getSubView(baseView, sampleParams.baseLevel, sampleParams.maxLevel), srcLevelStorage, sampleParams.sampler);
 
-	// What is the 'q' in all these names? Also a two char name for something that is in scope for ~120 lines and only used twice each seems excessive
-	const tcu::Vec4		sq				= tcu::Vec4(texCoord[0+0], texCoord[4+0], texCoord[8+0], texCoord[12+0]);
-	const tcu::Vec4		tq				= tcu::Vec4(texCoord[0+1], texCoord[4+1], texCoord[8+1], texCoord[12+1]);
-	const tcu::Vec4		rq				= tcu::Vec4(texCoord[0+2], texCoord[4+2], texCoord[8+2], texCoord[12+2]);
-	const tcu::Vec4		qq				= tcu::Vec4(texCoord[0+3], texCoord[4+3], texCoord[8+3], texCoord[12+3]);
+	const tcu::Vec4								sq					= tcu::Vec4(texCoord[0+0], texCoord[4+0], texCoord[8+0], texCoord[12+0]);
+	const tcu::Vec4								tq					= tcu::Vec4(texCoord[0+1], texCoord[4+1], texCoord[8+1], texCoord[12+1]);
+	const tcu::Vec4								rq					= tcu::Vec4(texCoord[0+2], texCoord[4+2], texCoord[8+2], texCoord[12+2]);
+	const tcu::Vec4								qq					= tcu::Vec4(texCoord[0+3], texCoord[4+3], texCoord[8+3], texCoord[12+3]);
 
-	const tcu::IVec2	dstSize			= tcu::IVec2(result.getWidth(), result.getHeight());
-	const float			dstW			= float(dstSize.x());
-	const float			dstH			= float(dstSize.y());
-	const int			srcSize			= src.getSize();
+	const tcu::IVec2							dstSize				= tcu::IVec2(result.getWidth(), result.getHeight());
+	const float									dstW				= float(dstSize.x());
+	const float									dstH				= float(dstSize.y());
+	const int									srcSize				= src.getSize();
 
 	// Coordinates per triangle.
-	const tcu::Vec3		triS[2]			= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triT[2]			= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triR[2]			= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triQ[2]			= { qq.swizzle(0, 1, 2), qq.swizzle(3, 2, 1) };
-	const tcu::Vec3		triW[2]			= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
+	const tcu::Vec3								triS[2]				= { sq.swizzle(0, 1, 2), sq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triT[2]				= { tq.swizzle(0, 1, 2), tq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triR[2]				= { rq.swizzle(0, 1, 2), rq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triQ[2]				= { qq.swizzle(0, 1, 2), qq.swizzle(3, 2, 1) };
+	const tcu::Vec3								triW[2]				= { sampleParams.w.swizzle(0, 1, 2), sampleParams.w.swizzle(3, 2, 1) };
 
-	const tcu::Vec2		lodBias			((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
+	const tcu::Vec2								lodBias				((sampleParams.flags & ReferenceParams::USE_BIAS) ? sampleParams.bias : 0.0f);
 
-	const float			posEps			= 1.0f / float((1<<4) + 1); // ES3 requires at least 4 subpixel bits.
+	const float									posEps				= 1.0f / float((1<<4) + 1); // ES3 requires at least 4 subpixel bits.
 
-	int					numFailed		= 0;
+	int											numFailed			= 0;
 
 	const tcu::Vec2 lodOffsets[] =
 	{
@@ -2843,6 +2864,9 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 				continue;
 			}
 
+			// Reference result is known to be a valid result, we can
+			// skip verification if thes results are equal
+			if (resPix.x() != refPix.x())
 			{
 				const float		wx		= (float)px + 0.5f;
 				const float		wy		= (float)py + 0.5f;
@@ -2872,8 +2896,6 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 					const float		nxo		= wxo/dstW;
 					const float		nyo		= wyo/dstH;
 
-					const tcu::Vec2	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo));
 					const tcu::Vec2	coordDxo	= tcu::Vec2(triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo),
 															triDerivateX(triT[triNdx], triW[triNdx], wxo, dstW, nyo)) * srcSize.asFloat();
 					const tcu::Vec2	coordDyo	= tcu::Vec2(triDerivateY(triS[triNdx], triW[triNdx], wyo, dstH, nxo),
@@ -2948,6 +2970,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 			const tcu::Vec4	resPix	= result.getPixel(px, py);
 			const tcu::Vec4	refPix	= reference.getPixel(px, py);
 
+			// Other channels should trivially match to reference.
 			if (!tcu::boolAll(tcu::lessThanEqual(tcu::abs(refPix.swizzle(1,2,3) - resPix.swizzle(1,2,3)), nonShadowThreshold)))
 			{
 				errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
@@ -2955,6 +2978,9 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 				continue;
 			}
 
+			// Reference result is known to be a valid result, we can
+			// skip verification if thes results are equal
+			if (resPix.x() != refPix.x())
 			{
 				const float		wx		= (float)px + 0.5f;
 				const float		wy		= (float)py + 0.5f;
@@ -3066,6 +3092,7 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 			const tcu::Vec4	resPix	= result.getPixel(px, py);
 			const tcu::Vec4	refPix	= reference.getPixel(px, py);
 
+			// Other channels should trivially match to reference.
 			if (!tcu::boolAll(tcu::lessThanEqual(tcu::abs(refPix.swizzle(1,2,3) - resPix.swizzle(1,2,3)), nonShadowThreshold)))
 			{
 				errorMask.setPixel(tcu::RGBA::red.toVec(), px, py);
@@ -3073,6 +3100,9 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 				continue;
 			}
 
+			// Reference result is known to be a valid result, we can
+			// skip verification if thes results are equal
+			if (resPix.x() != refPix.x())
 			{
 				const float		wx		= (float)px + 0.5f;
 				const float		wy		= (float)py + 0.5f;
@@ -3103,8 +3133,6 @@ int computeTextureCompareDiff (const tcu::ConstPixelBufferAccess&	result,
 					const float		nxo		= wxo/dstW;
 					const float		nyo		= wyo/dstH;
 
-					const tcu::Vec2	coordO		(projectedTriInterpolate(triS[triNdx], triW[triNdx], nxo, nyo),
-												 projectedTriInterpolate(triT[triNdx], triW[triNdx], nxo, nyo));
 					const tcu::Vec2	coordDxo	= tcu::Vec2(triDerivateX(triS[triNdx], triW[triNdx], wxo, dstW, nyo),
 															triDerivateX(triT[triNdx], triW[triNdx], wxo, dstW, nyo)) * srcSize.asFloat();
 					const tcu::Vec2	coordDyo	= tcu::Vec2(triDerivateY(triS[triNdx], triW[triNdx], wyo, dstH, nxo),

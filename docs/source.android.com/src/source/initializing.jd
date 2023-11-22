@@ -2,7 +2,7 @@ page.title=Initializing a Build Environment
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -27,9 +27,6 @@ page.title=Initializing a Build Environment
 <p>This section describes how to set up your local work environment to build
 the Android source files. You will need to use Linux or Mac OS. Building under
 Windows is not currently supported.</p>
-<p><strong>Note</strong>: The source download is approximately 8.5GB in size.
-You will need over 30GB free to complete a single build, and
-up to 100GB (or more) for a full set of builds.</em></p>
 <p>For an overview of the entire code-review and code-update process, see <a
 href="life-of-a-patch.html">Life of a Patch</a>.</p>
 <h2 id="choosing-a-branch">Choosing a Branch</h2>
@@ -37,29 +34,25 @@ href="life-of-a-patch.html">Life of a Patch</a>.</p>
 version of the source code you plan to compile. See
 <a href="build-numbers.html">Build Numbers</a> for a full listing of branches you may
 choose from. You may also choose to download and build the latest source code
-(called "master"), in which case you will simply omit the branch specification
+(called <code>master</code>), in which case you will simply omit the branch specification
 when you initialize the repository.</p>
 <p>Once you have selected a branch, follow the appropriate instructions below to
 set up your build environment.</p>
 <h2 id="setting-up-a-linux-build-environment">Setting up a Linux build environment</h2>
-<p>These instructions apply to all branches, including master.</p>
+<p>These instructions apply to all branches, including <code>master</code>.</p>
 <p>The Android build is routinely tested in house on recent versions of
-Ubuntu LTS (12.04), but most distributions should have the required
+Ubuntu LTS (14.04), but most distributions should have the required
 build tools available. Reports of successes or failures on other
 distributions are welcome.</p>
-<p>For Gingerbread (2.3.x) and newer versions, including the master
+<p>For Gingerbread (2.3.x) and newer versions, including the <code>master</code>
 branch, a 64-bit environment is required. Older versions can be
 compiled on 32-bit systems.</p>
-<p><strong>Note</strong>: It is also possible to build Android in a virtual machine.
-If you are running Linux in a virtual machine, you will need at
-least 16GB of RAM/swap and 30GB or more of disk space in order to
-build the Android tree.</p>
-<p>See the <a href="building.html">Downloading and Building</a> page for the
-list of hardware and software requirements. Then follow the detailed
-instructions for Ubuntu and MacOS below.</p>
+<p><strong>Note</strong>: See the <a href="building.html">Downloading and
+Building</a> page for the list of hardware and software requirements. Then
+follow the detailed instructions for Ubuntu and Mac OS below.</p>
 
 <h3 id="installing-the-jdk">Installing the JDK</h3>
-<p>The master branch of Android in the <a
+<p>The <code>master</code> branch of Android in the <a
 href="https://android.googlesource.com/">Android Open Source Project (AOSP)</a>
 requires Java 7. On Ubuntu, use <a href="http://openjdk.java.net/install/">OpenJDK</a>.</p>
 <p>Java 7: For the latest version of Android</p>
@@ -84,9 +77,12 @@ Java 5: for Cupcake through Froyo</p>
 <p><strong>Note</strong>: The <code>lunch</code> command in the build step will ensure that the Sun JDK is
 used instead of any previously installed JDK.</p>
 
+<h3 id="installing-required-packages-ubuntu-1404">Installing required packages (Ubuntu 14.04)</h3>
+<p>You will need a 64-bit version of Ubuntu. Ubuntu 14.04 is recommended.</p>
+<pre><code>$ sudo apt-get install bison g++-multilib git gperf libxml2-utils make zlib1g-dev:i386 zip</code></pre>
+
 <h3 id="installing-required-packages-ubuntu-1204">Installing required packages (Ubuntu 12.04)</h3>
-<p>You will need a 64-bit version of Ubuntu.  Ubuntu 12.04 is recommended.
-Building using an older version of Ubuntu is not supported on master or recent releases.</p>
+<p>You may use Ubuntu 12.04 to build older versions of Android. Version 12.04 is not supported on master or recent releases.</p>
 <pre><code>$ sudo apt-get install git gnupg flex bison gperf build-essential \
   zip curl libc6-dev libncurses5-dev:i386 x11proto-core-dev \
   libx11-dev:i386 libreadline6-dev:i386 libgl1-mesa-glx:i386 \
@@ -95,15 +91,10 @@ Building using an older version of Ubuntu is not supported on master or recent r
 $ sudo ln -s /usr/lib/i386-linux-gnu/mesa/libGL.so.1 /usr/lib/i386-linux-gnu/libGL.so
 </code></pre>
 
-<h3 id="installing-required-packages-ubuntu-1404">Installing required packages (Ubuntu 14.04)</h3>
-<p>Building on Ubuntu 14.04 is experimental at the moment but will eventually become the recommended
-environment.</p>
-<pre><code>$ sudo apt-get install bison g++-multilib git gperf libxml2-utils</code></pre>
-
 <h3 id="installing-required-packages-ubuntu-1004-1110">Installing required packages (Ubuntu 10.04 -- 11.10)</h3>
 <p>Building on Ubuntu 10.04-11.10 is no longer supported, but may be useful for building older
 releases of AOSP.</p>
-<pre><code>$ sudo apt-get install git-core gnupg flex bison gperf build-essential \
+<pre><code>$ sudo apt-get install git gnupg flex bison gperf build-essential \
   zip curl zlib1g-dev libc6-dev lib32ncurses5-dev ia32-libs \
   x11proto-core-dev libx11-dev lib32readline5-dev lib32z-dev \
   libgl1-mesa-dev g++-multilib mingw32 tofrodos python-markdown \
@@ -116,7 +107,7 @@ releases of AOSP.</p>
 <pre><code>$ sudo apt-get install libx11-dev:i386
 </code></pre>
 <h3 id="configuring-usb-access">Configuring USB Access</h3>
-<p>Under GNU/linux systems (and specifically under Ubuntu systems),
+<p>Under GNU/Linux systems (and specifically under Ubuntu systems),
 regular users can't directly access USB devices by default. The
 system needs to be configured to allow such access.</p>
 <p>The recommended approach is to create a file
@@ -164,33 +155,9 @@ It might therefore be necessary to unplug the device and plug it
 back into the computer.</p>
 <p>This is known to work on both Ubuntu Hardy Heron (8.04.x LTS) and
 Lucid Lynx (10.04.x LTS). Other versions of Ubuntu or other
-variants of GNU/linux might require different configurations.</p>
-<p><a name="ccache"></a></p>
-<h3 id="setting-up-ccache">Setting up ccache</h3>
-<p>You can optionally tell the build to use the ccache compilation tool.
-Ccache acts as a compiler cache that can be used to speed-up rebuilds.
-This works very well if you do "make clean" often, or if you frequently
-switch between different build products.</p>
-<p>Put the following in your .bashrc or equivalent.</p>
-<pre><code>export USE_CCACHE=1
-</code></pre>
-<p>By default the cache will be stored in ~/.ccache.
-If your home directory is on NFS or some other non-local filesystem,
-you will want to specify the directory in your .bashrc as well.</p>
-<pre><code>export CCACHE_DIR=&lt;path-to-your-cache-directory&gt;
-</code></pre>
-<p>The suggested cache size is 50-100GB.
-You will need to run the following command once you have downloaded
-the source code:</p>
-<pre><code>prebuilts/misc/linux-x86/ccache/ccache -M 50G
-</code></pre>
-<p>When building Ice Cream Sandwich (4.0.x) or older, ccache is in
-a different location:</p>
-<pre><code>prebuilt/linux-x86/ccache/ccache -M 50G
-</code></pre>
-<p>This setting is stored in the CCACHE_DIR and is persistent.</p>
+variants of GNU/Linux might require different configurations.</p>
 <h3 id="using-a-separate-output-directory">Using a separate output directory</h3>
-<p>By default, the output of each build is stored in the out/
+<p>By default, the output of each build is stored in the <code>out/</code>
 subdirectory of the matching source tree.</p>
 <p>On some machines with multiple storage devices, builds are
 faster when storing the source files and the output on
@@ -214,59 +181,85 @@ trees stored in directories that have the same name,
 as those would end up sharing an output directory, with
 unpredictable results.</p>
 <p>This is only supported on Jelly Bean (4.1) and newer,
-including the master branch.</p>
-<h2 id="setting-up-a-mac-os-x-build-environment">Setting up a Mac OS X build environment</h2>
-<p>In a default installation, OS X runs on a case-preserving but case-insensitive
+including the <code>master</code> branch.</p>
+<h2 id="setting-up-a-mac-os-x-build-environment">Setting up a Mac OS build environment</h2>
+<p>In a default installation, Mac OS runs on a case-preserving but case-insensitive
 filesystem. This type of filesystem is not supported by git and will cause some
-git commands (such as "git status") to behave abnormally. Because of this, we
+git commands (such as <code>git status</code>) to behave abnormally. Because of this, we
 recommend that you always work with the AOSP source files on a case-sensitive
 filesystem. This can be done fairly easily using a disk image, discussed below.</p>
-<p>Once the proper filesystem is available, building the master branch in a modern
-OS X environment is very straightforward. Earlier branches, including ICS,
+<p>Once the proper filesystem is available, building the <code>master</code> branch in a modern
+Mac OS environment is very straightforward. Earlier branches, including ICS,
 require some additional tools and SDKs.</p>
 <h3 id="creating-a-case-sensitive-disk-image">Creating a case-sensitive disk image</h3>
-<p>You can create a case-sensitive filesystem within your existing OS X environment
+<p>You can create a case-sensitive filesystem within your existing Mac OS environment
 using a disk image. To create the image, launch Disk
 Utility and select "New Image".  A size of 25GB is the minimum to
-complete the build, larger numbers are more future-proof. Using sparse images
+complete the build; larger numbers are more future-proof. Using sparse images
 saves space while allowing to grow later as the need arises. Be sure to select
 "case sensitive, journaled" as the volume format.</p>
 <p>You can also create it from a shell with the following command:</p>
 <pre><code># hdiutil create -type SPARSE -fs 'Case-sensitive Journaled HFS+' -size 40g ~/android.dmg
 </code></pre>
-<p>This will create a .dmg (or possibly a .dmg.sparsefile) file which, once mounted, acts as a drive with the required formatting for Android development. For a disk image named "android.dmg" stored in your home directory, you can add the following to your <code>~/.bash_profile</code> to mount the image when you execute "mountAndroid":</p>
+<p>This will create a <code>.dmg</code> (or possibly a <code>.dmg.sparseimage</code>) file which, once mounted, acts as a drive with the required formatting for Android development.
+<p>If you need a larger volume later, you can also resize the sparse image with the following command:</p>
+<pre><code># hdiutil resize -size &lt;new-size-you-want&gt;g ~/android.dmg.sparseimage
+</code></pre>
+For a disk image named <code>android.dmg</code> stored in your home directory, you can add helper functions to your <code>~/.bash_profile</code>:
+<ul>
+<li>
+To mount the image when you execute <code>mountAndroid</code>:</p>
 <pre><code># mount the android file image
 function mountAndroid { hdiutil attach ~/android.dmg -mountpoint /Volumes/android; }
 </code></pre>
-<p>Once mounted, you'll do all your work in the "android" volume. You can eject it (unmount it) just like you would with an external drive.</p>
-<h3 id="master-branch">Master branch</h3>
-<p>To build the latest source in a Mac OS environment, you will need an Intel/x86
-machine running MacOS 10.8 (Mountain Lion), along with Xcode
-4.5.2 and Command Line Tools.</p>
-<p>You will also need the <a
-href="http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html">Java 7 JDK</a>.
-Select the file: jdk-7u51-macosx-x64.dmg</p>
+<p><strong>Note</strong>: If your system created a <code>.dmg.sparseimage</code> file, replace <code>~/android.dmg</code> with <code>~/android.dmg.sparseimage</code>.</p>
+</li>
+<li>
+<p>To unmount it when you execute <code>umountAndroid</code>:</p>
+<pre><code># unmount the android file image
+function umountAndroid() { hdiutil detach /Volumes/android; }
+</code></pre>
+</li>
+</ul>
+<p>Once you've mounted the <code>android</code> volume, you'll do all your work there. You can eject it (unmount it) just like you would with an external drive.</p>
+
+<h3 id="installing-the-mac-jdk">Installing the JDK</h3>
+<p>The <code>master</code> and <code>5.0.x</code> branches of Android in the <a
+href="https://android.googlesource.com/">Android Open Source Project (AOSP)</a>
+require Java 7. On Mac OS, use <a
+href="https://www.oracle.com/technetwork/java/javase/downloads/java-archive-downloads-javase7-521261.html#jdk-7u71-oth-JPR">jdk-7u71-macosx-x64.dmg</a>.</p>
 
 <p>To develop for versions of Android Gingerbread through KitKat, download and
 install the Java 6 version of the <a
 href="http://support.apple.com/kb/dl1572">Java JDK</a>.</p>
 
-<h3 id="branch-40x-and-all-earlier-branches">Branch 4.2.x and earlier branches</h3>
+<h3 id="master-branch">Master branch</h3>
+<p>To build the latest source in a Mac OS environment, you will need an Intel/x86
+machine running Mac OS X v10.8 (Mountain Lion) or later, along with Xcode
+4.5.2 or later including the Command Line Tools.</p>
+
+<h3 id="branch-50x-and-all-earlier-branches">Branch 5.0.x and earlier branches</h3>
+<p>To build 5.0.x and earlier source in a Mac OS environment, you will need an Intel/x86
+machine running Mac OS X v10.8 (Mountain Lion), along with Xcode
+4.5.2 and Command Line Tools.</p>
+
+<h3 id="branch-44x-and-all-earlier-branches">Branch 4.4.x and earlier branches</h3>
 <p>To build 4.2.x and earlier source in a Mac OS environment, you will need an Intel/x86
-machine running MacOS 10.6 (Snow Leopard) or MacOS 10.7 (Lion), along with Xcode
+machine running Mac OS X v10.6 (Snow Leopard) or Mac OS X v10.7 (Lion), along with Xcode
 4.2 (Apple's Developer Tools). Although Lion does not come with a JDK, it should
 install automatically when you attempt to build the source.</p>
-<p>The remaining sections for Mac OS X only apply to those who wish to build
+<p>The remaining sections for Mac OS apply only to those who wish to build
 earlier branches.</p>
+
 <h3 id="branch-40x-and-all-earlier-branches">Branch 4.0.x and all earlier branches</h3>
 <p>To build android-4.0.x and earlier branches in a Mac OS environment, you need an
-Intel/x86 machine running MacOS 10.5 (Leopard) or MacOS 10.6 (Snow Leopard). You
-will need the MacOS 10.5 SDK.</p>
+Intel/x86 machine running Mac OS X v10.5 (Leopard) or Mac OS X v10.6 (Snow Leopard). You
+will need the Mac OS X v10.5 SDK.</p>
 <h4 id="installing-required-packages">Installing required packages</h4>
 <ul>
 <li>
 <p>Install Xcode from <a href="http://developer.apple.com/">the Apple developer site</a>.
-We recommend version 3.1.4 or newer, i.e. gcc 4.2.
+We recommend version 3.1.4 or newer (e.g., gcc 4.2).
 Version 4.x could cause difficulties.
 If you are not already registered as an Apple developer, you will have to
 create an Apple ID in order to download.</p>
@@ -277,12 +270,15 @@ create an Apple ID in order to download.</p>
 <pre><code>export PATH=/opt/local/bin:$PATH
 </code></pre>
 <p><em>to your <code>~/.bash_profile</code>.</em></p>
+
+<p><strong>Note</strong>: If you do not have a <code>.bash_profile</code> file in your home directory, create one.</p>
+
 </li>
 <li>
 <p>Get make, git, and GPG packages from MacPorts: </p>
-<pre><code>$ POSIXLY_CORRECT=1 sudo port install gmake libsdl git-core gnupg
+<pre><code>$ POSIXLY_CORRECT=1 sudo port install gmake libsdl git gnupg
 </code></pre>
-<p>If using Mac OS 10.4, also install bison:</p>
+<p>If using Mac OS X v10.4, also install bison:</p>
 <pre><code>$ POSIXLY_CORRECT=1 sudo port install bison
 </code></pre>
 </li>
@@ -315,11 +311,39 @@ create an Apple ID in order to download.</p>
 </li>
 </ul>
 <h4 id="setting-a-file-descriptor-limit">Setting a file descriptor limit</h4>
-<p>On MacOS the default limit on the number of simultaneous file descriptors open is too low and a highly parallel build process may exceed this limit.<br />
+<p>On Mac OS, the default limit on the number of simultaneous file descriptors open is too low and a highly parallel build process may exceed this limit.<br />
 </p>
 <p>To increase the cap, add the following lines to your <code>~/.bash_profile</code>: </p>
 <pre><code># set the number of open files to be 1024
 ulimit -S -n 1024
 </code></pre>
+<h2 id="optimizing-a-build-environment">Optimizing a build environment (optional)</h2>
+<p><a name="ccache"></a></p>
+<h3 id="setting-up-ccache">Setting up ccache</h3>
+<p>You can optionally tell the build to use the ccache compilation tool.
+Ccache acts as a compiler cache that can be used to speed up rebuilds.
+This works very well if you use <code>make clean</code> often, or if you frequently
+switch between different build products.</p>
+<p>Put the following in your <code>.bashrc</code> (or equivalent):</p>
+<pre><code>export USE_CCACHE=1
+</code></pre>
+<p>By default the cache will be stored in <code>~/.ccache</code>.
+If your home directory is on NFS or some other non-local filesystem,
+you will want to specify the directory in your <code>.bashrc</code> file as well:</p>
+<pre><code>export CCACHE_DIR=&lt;path-to-your-cache-directory&gt;
+</code></pre>
+<p>The suggested cache size is 50-100GB.
+You will need to run the following command once you have downloaded
+the source code:</p>
+<pre><code>prebuilts/misc/linux-x86/ccache/ccache -M 50G
+</code></pre>
+<p>On Mac OS, you should replace <code>linux-x86</code> with <code>darwin-x86</code>:</p>
+<pre><code>prebuilts/misc/darwin-x86/ccache/ccache -M 50G
+</code></pre>
+<p>When building Ice Cream Sandwich (4.0.x) or older, ccache is in
+a different location:</p>
+<pre><code>prebuilt/linux-x86/ccache/ccache -M 50G
+</code></pre>
+<p>This setting is stored in the CCACHE_DIR and is persistent.</p>
 <h2 id="next-download-the-source">Next: Download the source</h2>
 <p>Your build environment is good to go! Proceed to <a href="downloading.html">downloading the source</a>.</p>

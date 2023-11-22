@@ -33,6 +33,7 @@
     <string name="alarm_vibrate" msgid="3476686921490362230">"တုန်ခါရန်"</string>
     <string name="alarm_repeat" msgid="7242985466344233206">"ထပ်လုပ်ရန်"</string>
     <string name="alert" msgid="6506982899651975645">"နှိုးစက် သံစဉ်"</string>
+    <string name="custom_ringtone" msgid="3477418548382111184">"စိတ်ကြိုက်ဖန်တီးထားသည့် မြည်သံ"</string>
     <string name="ringtone" msgid="9110746249688559579">"သံစဉ်"</string>
     <string name="time" msgid="8067216534232296518">"အချိန်"</string>
     <string name="alarm_tomorrow" msgid="131356848787643420">"နက်ဖြန်"</string>
@@ -44,16 +45,16 @@
     <string name="alarm_missed_title" msgid="3828345099754063392">"လွတ်သွားသည့် နှိုးစက်"</string>
     <string name="alarm_missed_text" msgid="6585658367289194023">"<xliff:g id="ALARM_TIME">%s</xliff:g> - <xliff:g id="ALARM_LABEL">%s</xliff:g>"</string>
     <string name="alarm_alert_snoozed_text" msgid="7064642998528766113">"မှေးနေ"</string>
-  <plurals name="alarm_alert_snooze_duration">
-    <item quantity="one" msgid="9092917312369131464">"၁ မိနစ်"</item>
-    <item quantity="other" msgid="6731274475422132958">"<xliff:g id="NUMBER">%d</xliff:g> မိစန်"</item>
-  </plurals>
+    <plurals name="alarm_alert_snooze_duration" formatted="false" msgid="7844300009062867865">
+      <item quantity="other"><xliff:g id="NUMBER">%d</xliff:g> မိနစ်</item>
+      <item quantity="one">၁ မိနစ်</item>
+    </plurals>
     <string name="alarm_alert_off_text" msgid="4472073417593915002">"နှိုးစက် ပိတ်ထား"</string>
     <string name="alarm_alert_snooze_text" msgid="1774416052207651584">"မှေးရန်"</string>
-  <plurals name="alarm_alert_snooze_set">
-    <item quantity="one" msgid="7884410398338611019">"1 မိနစ်ကြာ မှေးမည်။"</item>
-    <item quantity="other" msgid="7377899473014259727">"<xliff:g id="MINUTES">%d</xliff:g> မိနစ်ကြာ မှေးမည်။"</item>
-  </plurals>
+    <plurals name="alarm_alert_snooze_set" formatted="false" msgid="3212729193036041768">
+      <item quantity="other"><xliff:g id="MINUTES">%d</xliff:g> မိနစ်ကြာ မှေးမည်။</item>
+      <item quantity="one">၁ မိနစ်ကြာ မှေးမည်။</item>
+    </plurals>
     <string name="alarm_alert_snooze_until" msgid="6958013659168344550">"<xliff:g id="TIME">%s</xliff:g>အထိ မှေးရန်"</string>
     <string name="alarm_alert_predismiss_title" msgid="5723945586913705445">"လာတော့မည့် နှိုးစက်"</string>
     <string name="missed_alarm_has_been_deleted" msgid="5295473204045979335">"သင် လွတ်သွားခဲ့သည့် နှိုးစက်ကို ဖျက်လိုက်ပြီ"</string>
@@ -73,30 +74,38 @@
     <item msgid="9115697840826129603">"ယခု အချိန်မှ စပြီး <xliff:g id="HOURS">%2$s</xliff:g> နှင့် <xliff:g id="MINUTES">%3$s</xliff:g> အကြာမှာ နှိုးစက် သတ်မှတ်ထားသည်။"</item>
     <item msgid="2332583385137381060">"ယခု အချိန်မှ စပြီး <xliff:g id="DAYS">%1$s</xliff:g>၊ <xliff:g id="HOURS">%2$s</xliff:g>  နှင့် <xliff:g id="MINUTES">%3$s</xliff:g> အကြာမှာ နှိုးစက် သတ်မှတ်ထားသည်။"</item>
   </string-array>
-    <string name="day" msgid="7984755014526510295">"၁ ရက်"</string>
-    <string name="days" msgid="2070509222727852210">"<xliff:g id="DAYS">%s</xliff:g> ရက်"</string>
-    <string name="hour" msgid="2546819039651509323">"၁ နာရီ"</string>
-    <string name="hours" msgid="2071487018566991613">"<xliff:g id="HOURS">%s</xliff:g> နာရီ"</string>
-    <string name="minute" msgid="2486157997434653710">"၁ မိနစ်"</string>
-    <string name="minutes" msgid="6115838729146292526">"<xliff:g id="MINUTES">%s</xliff:g> မိနစ်"</string>
+    <plurals name="days" formatted="false" msgid="3706846447285206235">
+      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> ရက်</item>
+      <item quantity="one">1 ရက်</item>
+    </plurals>
+    <plurals name="hours" formatted="false" msgid="3871283109767171655">
+      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> နာရီ</item>
+      <item quantity="one"> ၁ နာရီ</item>
+    </plurals>
+    <plurals name="minutes" formatted="false" msgid="5484431721696058697">
+      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> မိနစ်</item>
+      <item quantity="one"> ၁ မိနစ်</item>
+    </plurals>
     <string name="every_day" msgid="4100909974923444602">"နေ့တိုင်း"</string>
-    <string name="never" msgid="54104287800571769">"မည်သည့်အခါမှ"</string>
     <string name="day_concat" msgid="971998564991636532">", "</string>
     <string name="clock_instructions" msgid="2656876819515011590">"နာရီ တစ်ခုကို ရွေးရန်"</string>
     <string name="analog_gadget" msgid="1670505720837152766">"လက်တံနာရီ"</string>
     <string name="help" msgid="7786263119482654015">"အကူအညီ"</string>
     <string name="settings" msgid="5849739030579520686">"ဆက်တင်များ"</string>
     <string name="snooze_duration_title" msgid="1097309861110780483">"မှေးစက်ကာလ"</string>
-  <plurals name="snooze_duration">
-    <item quantity="one" msgid="7406963706727564418">"၁ မိနစ်"</item>
-    <item quantity="other" msgid="568504136093419703">"<xliff:g id="NUMBER">%d</xliff:g> မိနစ်"</item>
-  </plurals>
-  <plurals name="snooze_picker_label">
-    <item quantity="one" msgid="3783171637798575068">"မိ​နစ်​"</item>
-    <item quantity="other" msgid="1304056759541595077">"မိနစ်"</item>
-  </plurals>
+    <plurals name="snooze_duration" formatted="false" msgid="3112918131095248271">
+      <item quantity="other"><xliff:g id="NUMBER">%s</xliff:g> မိနစ်</item>
+      <item quantity="one">၁ မိနစ်</item>
+    </plurals>
+    <plurals name="snooze_picker_label" formatted="false" msgid="322739253661747732">
+      <item quantity="other">မိနစ်</item>
+      <item quantity="one">မိနစ်</item>
+    </plurals>
     <string name="auto_silence_title" msgid="2012754009554434544">"နှိုးစက်သံကြာချိန်"</string>
-    <string name="auto_silence_summary" msgid="7028508740659733028">"<xliff:g id="MINUTES">%d</xliff:g> မိနစ်"</string>
+    <plurals name="auto_silence_summary" formatted="false" msgid="6579258788774360396">
+      <item quantity="other"><xliff:g id="FORMATTED_NUMBER">%s</xliff:g> မိနစ်</item>
+      <item quantity="one"> ၁ မိနစ်</item>
+    </plurals>
     <string name="auto_silence_never" msgid="4821982647348750809">"မည်သည့်အခါမှ"</string>
   <string-array name="auto_silence_entries">
     <item msgid="3024545954917711306">"၁ မိနစ်"</item>
@@ -106,6 +115,12 @@
     <item msgid="6330196381284475079">"၂၀ မိနစ်"</item>
     <item msgid="7809240121716151904">"၂၅ မိနစ်"</item>
     <item msgid="4278641338024561333">"မည်သည့်အခါမှ"</item>
+  </string-array>
+    <string name="week_start_title" msgid="4268917518596832096">"ရက်သတ္တပတ် စရက်"</string>
+  <string-array name="week_start_entries">
+    <item msgid="9010198173394482639">"စနေနေ့"</item>
+    <item msgid="3993530639455360921">"တနင်္ဂနွေနေ့"</item>
+    <item msgid="8594709368683324282">"တနင်္လာနေ့"</item>
   </string-array>
     <string name="done" msgid="6509722361933858451">"လုပ်ပြီး"</string>
     <string name="revert" msgid="9100911171235162926">"ပြန်လှန်"</string>
@@ -167,21 +182,26 @@
     <string name="sw_share_main" msgid="7703563468204234405">"ကျွန်ုပ်၏ အချိန်မှာ <xliff:g id="TIME">%s</xliff:g>"</string>
     <string name="sw_share_laps" msgid="614390674795945007">"တာ အချိန်များ:"</string>
     <string name="sw_notification_lap_number" msgid="3535420316052647126">"တာ<xliff:g id="NUMBER">%d</xliff:g>"</string>
-  <plurals name="Nhours_description">
-    <item quantity="one" msgid="371227238759147245">"၁ နာရီ"</item>
-    <item quantity="other" msgid="7018184076091344797">"<xliff:g id="NUMBER">%d</xliff:g> နာရီ"</item>
-  </plurals>
-  <plurals name="Nminutes_description">
-    <item quantity="one" msgid="1001391305885322059">"၁ မိနစ်"</item>
-    <item quantity="other" msgid="6948360065351547776">"<xliff:g id="NUMBER">%d</xliff:g> မိနစ်"</item>
-  </plurals>
-  <plurals name="Nseconds_description">
-    <item quantity="one" msgid="6589853086641485725">"၁ စက္ကန့်"</item>
-    <item quantity="other" msgid="7583230315175387547">"<xliff:g id="NUMBER">%d</xliff:g> စက္ကန့်"</item>
-  </plurals>
+  <string-array name="sw_lap_number_set">
+    <item msgid="2816627565030953899">"# <xliff:g id="NUMBER">%d</xliff:g>"</item>
+    <item msgid="316923361931627987">"# <xliff:g id="NUMBER">%02d</xliff:g>"</item>
+  </string-array>
+    <plurals name="Nhours_description" formatted="false" msgid="4539186407746763655">
+      <item quantity="other"><xliff:g id="NUMBER">%d</xliff:g> နာရီ</item>
+      <item quantity="one">၁ နာရီ</item>
+    </plurals>
+    <plurals name="Nminutes_description" formatted="false" msgid="6373760365221990859">
+      <item quantity="other"><xliff:g id="NUMBER">%d</xliff:g> မိနစ်</item>
+      <item quantity="one">၁ မိနစ်</item>
+    </plurals>
+    <plurals name="Nseconds_description" formatted="false" msgid="6456500168536594889">
+      <item quantity="other"><xliff:g id="NUMBER">%d</xliff:g> စက္ကန့်</item>
+      <item quantity="one">၁ စက္ကန့်</item>
+    </plurals>
     <string name="timer_add_timer" msgid="862733633862574752">"တိုင်မား ထည့်ရန်"</string>
     <string name="timer_start" msgid="6158486445614356442">"စတင်ရန်"</string>
     <string name="timer_delete" msgid="8699122001991909302">"ဖျက်သိမ်းရန်"</string>
+    <string name="timer_descriptive_delete" msgid="8794915342760383536">"<xliff:g id="NUMBER_STRING">%s</xliff:g> အားဖျက်မည်"</string>
     <string name="timer_plus_one" msgid="6631211310420106116">"၁ မိနစ် ထည့်ရန်"</string>
     <string name="timer_plus_1_min" msgid="8645224089494875062">"၁ မိနစ် ထည့်ရန်"</string>
     <string name="timer_stop" msgid="3361154678667736722">"ရပ်တန့်ရန်"</string>
@@ -203,10 +223,6 @@
     <item msgid="9071353477103826053">"သင့်ဆီမှာ ရွေးစရာ တစ်ပုံကြီးပဲ။"</item>
     <item msgid="3785193933691117181">"အလင်း၏ အမြန်နှုန်း။"</item>
   </string-array>
-  <plurals name="timers_num">
-    <item quantity="one" msgid="6764708652976799977">"၁ မိနစ်"</item>
-    <item quantity="other" msgid="3799129667336330616">"<xliff:g id="NUMBER">%d</xliff:g> တိုင်မား"</item>
-  </plurals>
     <string name="home_label" msgid="4436139365695453870">"ပင်မ​"</string>
     <string name="cities_activity_title" msgid="8552462751129256730">"မြို့များ"</string>
     <string name="clock_settings" msgid="8317286807280600391">"နာရီ"</string>
@@ -317,6 +333,7 @@
     <string name="swn_stopped" msgid="783124901663086172">"ရပ်ထားပြီ"</string>
     <string name="description_direction_right" msgid="5709209043267548985">"ပယ်ချရန် ညာဘက်သို့ ပွတ်ဆွဲပါ"</string>
     <string name="description_direction_left" msgid="7448141043674998679">"တစ်မှေးအိပ်ရန် ဘယ်ဘက်သို့ ပွတ်ဆွဲပါ"</string>
+    <string name="description_direction_both" msgid="1841309486023845685">"တစ်မှေးအိပ်ရန် ဘယ်ဘက်နှင့် ပယ်ချရန် ညာဘက်သို့ ပွတ်ဆွဲပါ။"</string>
     <string name="timer_stopped" msgid="2730331837832462008">"တိုင်မား ရပ်ထားပြီ"</string>
     <string name="timers_stopped" msgid="2393640808691864520">"<xliff:g id="NUMBER">%d</xliff:g> တိုင်မားများ ရပ်ထားပြီ"</string>
     <string name="all_timers_stopped_notif" msgid="278532320068394600">"သင်၏ တိုင်မားများကို ကြည့်ရန် ထိပါ"</string>
@@ -328,21 +345,59 @@
     <string name="expand_alarm" msgid="7392616528943305020">"နှိုးစက်ကို တိုးချဲ့ရန်"</string>
     <string name="collapse_alarm" msgid="3561772046433483980">"နှိုးစက်ကို ခေါက်သိမ်းပါ"</string>
     <string name="alarm_undo" msgid="5710042601177655254">"ပြန်ဖျက်"</string>
-    <string name="alarm_deleted" msgid="5017075127290219443">"နှိုးစက် ရှာတွေ့ခဲ့သည်။"</string>
+    <string name="alarm_deleted" msgid="6131529309389084785">"နိုးစက်ဖျက်လိုက်ပြီ"</string>
     <string name="slash" msgid="2077577763821006919">"/"</string>
     <string name="world_day_of_week_label" msgid="5911196322328341288">"/ <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="next_alarm_description" msgid="2650244835760747046">"နောက် နှိုးစက် တစ်ခု: <xliff:g id="ALARM_TIME">%s</xliff:g>"</string>
-    <string name="label_unlabeled" msgid="4699506713571930740"></string>
     <string name="alarms_selected" msgid="1075308195332888260">"<xliff:g id="ALARMS">%d</xliff:g> ရွေးထား"</string>
     <string name="deleted_message" msgid="1220848140260509437">"ဖျက်ပြီး"</string>
-  <plurals name="alarm_delete_confirmation">
-    <item quantity="one" msgid="111940612131906802">"ရွေးထားသည့် နှိုးစက် ဖျက်မလား?"</item>
-    <item quantity="other" msgid="6918176478191272189">"ရွေးထားသည့် နှိုးစက်များ ဖျက်မလား?"</item>
-  </plurals>
+    <plurals name="alarm_delete_confirmation" formatted="false" msgid="3591262014329613293">
+      <item quantity="other">ရွေးထားသော နှိုးစက်ချိန်များ ဖျက်မည်လား?</item>
+      <item quantity="one">ရွေးထားသော နှိုးစက်ချိန် ဖျက်မည်လား?</item>
+    </plurals>
     <string name="timer_delete_confirmation" msgid="2815524107015816453">"ဤတိုင်မားကို ဖျက်မလား?"</string>
     <string name="city_delete_confirmation" msgid="1783441538785676299">"ဤမြို့ကို ဖယ်ရှားရမလား?"</string>
     <string name="digital_gadget" msgid="2326954556720571358">"ဒီဂျစ်တယ်နာရီ"</string>
     <string name="no_alarms" msgid="6429431324842022917">"နှိုးစက် မရှိ"</string>
     <string name="no_alarms_set" msgid="4887558279496044764">"နှိုးစက်များ သတ်မှတ် မထား"</string>
     <string name="no_upcoming_alarms" msgid="2889840988069436254">"လာမည့် နှိုးစက်များ မရှိပါ"</string>
+    <string name="time_format_12_mode" msgid="1619464909892545536">"h:mm a"</string>
+    <string name="time_format_24_mode" msgid="7998512313148074539">"k:mm"</string>
+    <string name="weekday_time_format_12_mode" msgid="8648842975829470646">"EEE၊ h:mm a"</string>
+    <string name="weekday_time_format_24_mode" msgid="152964494051478631">"EEE၊ k:mm"</string>
+    <string name="invalid_time" msgid="2782334750243998633">"မမှန်ကန်သည့် အချိန် <xliff:g id="INVALID_HOUR">%d</xliff:g> : <xliff:g id="INVALID_MINUTES">%d</xliff:g><xliff:g id="INVALID_AMPM">%s</xliff:g>"</string>
+    <string name="no_alarm_at" msgid="8140632482969193119">"<xliff:g id="ALARM_TIME_HOUR">%d</xliff:g>:<xliff:g id="ALARM_TIME_MINUTES">%d</xliff:g> တွင် နှိုးစက် မရှိပါ"</string>
+    <string name="no_scheduled_alarms" msgid="2115420148192753534">"စီစဉ်ထားသည့် နိုးစက်မရှိပါ"</string>
+    <string name="no_label_specified" msgid="2008482054428460626">"ခေါင်းစဉ်ခွဲအားဖော်ပြထားခြင်းမရှိပါ"</string>
+    <string name="no_alarms_with_label" msgid="6250998794542941665">"မည်သည့် နှိုးစက်တွင်မဆို ခေါင်းစဉ်ခွဲမပါပါ"</string>
+    <string name="stopwatch_already_running" msgid="6598258908106423672">"အချိန်မှတ်နာရီ ဖွင့်ထားပြီးဖြစ်သည်"</string>
+    <string name="stopwatch_isnt_running" msgid="7147219965448204727">"အချိန်မှတ်နာရီ မဖွင့်ထားပါ"</string>
+    <string name="stopwatch_cant_be_reset_because_is_running" msgid="5713134605500796186">"ချိန်ကိုက်နာရီသည်လည်နေသည့်အတွက် အစမှပြန်မချိန်နိုင်ပါ"</string>
+    <string name="stopwatch_stopped" msgid="6927081018816192999">"ချိန်ကိုက်နာရီ ရပ်တန့်"</string>
+    <string name="stopwatch_reset" msgid="7585914953721021042">"ချိန်ကိုက်နာရီကို အစမှပြန်ချိန်ခြင်း"</string>
+    <string name="stopwatch_lapped" msgid="5844686448815550482">"ချိန်ကိုက်နာရီ စေ့ပြီ"</string>
+    <string name="stopwatch_started" msgid="7843882246387176304">"ချိန်ကိုင်နာရီအားစတင်ခဲ့"</string>
+    <string name="no_alarm_scheduled_for_this_time" msgid="4463069177414482818">"ဤအချိန်အတွက် နိုးစက်မစီစဉ်ထားပါ"</string>
+    <string name="alarm_is_dismissed" msgid="5509897230565826642">"<xliff:g id="ALARM_TIME">%s</xliff:g> နိုးစက် ဖျက်လိုက်ပြီ"</string>
+    <string name="alarm_is_set" msgid="5503226382620011088">"နိုးစက်ပေးထားသော အချိန်<xliff:g id="ALARM_TIME">%s</xliff:g>"</string>
+    <string name="no_timer_set" msgid="3326365650863016606">"အချိန်တိုင်းစက် မသတ်မှတ်ရသေးပါ"</string>
+    <string name="timer_deleted" msgid="9110322362460029392">"အချိန်သတ်မှတ်ခြင်း ဖျက်လိုက်ပါပြီ"</string>
+    <string name="timer_already_running" msgid="1259351124772803097">"အချိန်သတ်မှတ်ခြင်း ဖွင့်ထားပြီးပါပြီ"</string>
+    <string name="multiple_timers_available" msgid="6722110840279707462">"သင့်တောင်းဆိုချက် မပြီးမြောက်နိုင်ပါ၊ အချိန်တိုင်းစက် များစွာ ရှိနေ၏"</string>
+    <string name="timer_started" msgid="6715582052946641641">"တိုင်မားစတင်ပါပြီ"</string>
+    <string name="timer_created" msgid="4381027137335885547">"အချိန်ကိုက်ကိရိယာ ဖန်တီးလိုက်ပါပြီ"</string>
+    <string name="invalid_timer_length" msgid="3104567893212932487">"မမှန်ကန်သည့် အချိန်ကိုက် အလျား"</string>
+    <string name="timer_was_reset" msgid="6495796785185062631">"အချိန်သတ်မှတ်ခြင်း ပြန်လည်သတ်မှတ်လိုက်ပါပြီ"</string>
+    <string name="timer_cant_be_reset_because_its_running" msgid="7880015473706806640">"အချိန်သတ်မှတ်ခြင်း ဖွင့်ထားသောကြောင့် ပြန်လည်သတ်မှတ်၍မရပါ။ ပြန်လည်သတ်မှတ်ရန် အချိန်သတ်မှတ်ခြင်းကို ရပ်ပါ။"</string>
+    <string name="timer_already_stopped" msgid="8865820275829449054">"အချိန်သတ်မှတ်ခြင်း ရပ်ထားပါပြီ"</string>
+    <string name="no_city_selected" msgid="1007596865203283741">"မြို့မရွေးချယ်ထားပါ"</string>
+    <string name="the_city_you_specified_is_not_available" msgid="1753597460426454543">"သင်သတ်မှတ်သည့် မြို့တော် မရှိသေးပါ"</string>
+    <string name="the_city_already_added" msgid="3799050213771793020">"၎င်းမြို့တော်ကို ပေါင်းထည့်ပြီးပါပြီ"</string>
+    <string name="city_added" msgid="1335509457349179514">"<xliff:g id="CITY_NAME">%s</xliff:g> ပေါင်းထည့်ပြီးပြီ"</string>
+    <string name="city_deleted" msgid="3935141305276867838">"<xliff:g id="CITY_NAME">%s</xliff:g> ဖျက်လိုက်ပါပြီ"</string>
+    <string name="alarm_cant_be_dismissed_still_more_than_24_hours_away" msgid="8810520940995307437">"<xliff:g id="ALARM_TIME">%s</xliff:g> နိုးစက်ကို ဖျက်၍မရသေးပါ၊ 24 နာရီကျော်ကျန်သေးသည်"</string>
+    <string name="dismiss_alarm" msgid="7204593078688533541">"နှိုးစက်အား ပိတ်ရန်"</string>
+    <string name="pick_alarm_to_dismiss" msgid="5408769235866082896">"ဖယ်ရှားလိုသည့် နှိုးစက်အချိန်အား ရွေးပါ"</string>
+    <string name="no_firing_alarms" msgid="4986161963178722289">"ဖွင့်ရန်နိုးစက် မရှိပါ"</string>
+    <string name="alarm_is_snoozed" msgid="7044644119744928846">"<xliff:g id="ALARM_TIME">%s</xliff:g> နိုးစက်ကို 10 မိနစ် တစ်မှေအိပ်မည်"</string>
 </resources>

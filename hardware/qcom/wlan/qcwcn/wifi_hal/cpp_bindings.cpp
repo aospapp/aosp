@@ -38,12 +38,13 @@
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
+#include "qca-vendor.h"
 
-void appendFmt(char *buf, int &offset, const char *fmt, ...)
+void appendFmt(char *buf, size_t buf_len, int &offset, const char *fmt, ...)
 {
     va_list params;
     va_start(params, fmt);
-    offset += vsprintf(buf + offset, fmt, params);
+    offset += vsnprintf(buf + offset, buf_len - offset, fmt, params);
     va_end(params);
 }
 
@@ -504,24 +505,24 @@ void WifiEvent::log() {
         char line[81];
         int linelen = min(16, len - i);
         int offset = 0;
-        appendFmt(line, offset, "%02x", data[i]);
+        appendFmt(line, sizeof(line), offset, "%02x", data[i]);
         for (int j = 1; j < linelen; j++) {
-            appendFmt(line, offset, " %02x", data[i+j]);
+            appendFmt(line, sizeof(line), offset, " %02x", data[i+j]);
         }
 
         for (int j = linelen; j < 16; j++) {
-            appendFmt(line, offset, "   ");
+            appendFmt(line, sizeof(line), offset, "   ");
         }
 
         line[23] = '-';
 
-        appendFmt(line, offset, "  ");
+        appendFmt(line, sizeof(line), offset, "  ");
 
         for (int j = 0; j < linelen; j++) {
             if (isprint(data[i+j])) {
-                appendFmt(line, offset, "%c", data[i+j]);
+                appendFmt(line, sizeof(line), offset, "%c", data[i+j]);
             } else {
-                appendFmt(line, offset, "-");
+                appendFmt(line, sizeof(line), offset, "-");
             }
         }
 
@@ -625,7 +626,7 @@ int WifiCommand::requestResponse(WifiRequest& request) {
     while (err > 0) {                   /* wait for reply */
         int res = nl_recvmsgs(mInfo->cmd_sock, cb);
         if (res) {
-            ALOGE("nl80211: %s->nl_recvmsgs failed: %d", __func__, res);
+            ALOGE("nl80211: %s->nl_recvmsgs failed: %d", __FUNCTION__, res);
         }
     }
 out:
@@ -696,7 +697,7 @@ int WifiCommand::response_handler(struct nl_msg *msg, void *arg) {
         ALOGE("Failed to parse reply message = %d", res);
         return NL_SKIP;
     } else {
-        reply.log();
+        // reply.log(); /* Don't call log() to avoid excess WiFi HAL logging */
         return cmd->handleResponse(reply);
     }
 }
@@ -770,7 +771,9 @@ WifiVendorCommand::~WifiVendorCommand()
 // in the corresponding object
 int WifiVendorCommand::handleResponse(WifiEvent &reply)
 {
+#ifdef QC_HAL_DEBUG
     ALOGI("WifiVendorCommand::handleResponse");
+#endif
     struct nlattr **tb = reply.attributes();
     struct nlattr *attr = NULL;
     struct genlmsghdr *gnlh = reply.header();
@@ -779,7 +782,9 @@ int WifiVendorCommand::handleResponse(WifiEvent &reply)
         if (tb[NL80211_ATTR_VENDOR_DATA]) {
             mVendorData = (char *)nla_data(tb[NL80211_ATTR_VENDOR_DATA]);
             mDataLen = nla_len(tb[NL80211_ATTR_VENDOR_DATA]);
-            ALOGD("%s: Vendor data len received:%d", __func__, mDataLen);
+#ifdef QC_HAL_DEBUG
+            ALOGD("%s: Vendor data len received:%d", __FUNCTION__, mDataLen);
+#endif
         }
     }
     return NL_SKIP;
@@ -789,7 +794,9 @@ int WifiVendorCommand::handleResponse(WifiEvent &reply)
 // save it in the object
 int WifiVendorCommand::handleEvent(WifiEvent &event)
 {
+#ifdef QC_HAL_DEBUG
     ALOGI("WifiVendorCommand::handleEvent");
+#endif
     struct nlattr **tb = event.attributes();
     struct nlattr *attr = NULL;
     struct genlmsghdr *gnlh = event.header();
@@ -803,13 +810,17 @@ int WifiVendorCommand::handleEvent(WifiEvent &event)
         mVendor_id = nla_get_u32(tb[NL80211_ATTR_VENDOR_ID]);
         mSubcmd = nla_get_u32(tb[NL80211_ATTR_VENDOR_SUBCMD]);
 
+#ifdef QC_HAL_DEBUG
         ALOGD("%s: Vendor event: vendor_id=0x%x subcmd=%u",
-              __func__, mVendor_id, mSubcmd);
+              __FUNCTION__, mVendor_id, mSubcmd);
+#endif
 
         if (tb[NL80211_ATTR_VENDOR_DATA]) {
             mVendorData = (char *)nla_data(tb[NL80211_ATTR_VENDOR_DATA]);
             mDataLen = nla_len(tb[NL80211_ATTR_VENDOR_DATA]);
-            ALOGD("%s: Vendor data len received:%d", __func__, mDataLen);
+#ifdef QC_HAL_DEBUG
+            ALOGD("%s: Vendor data len received:%d", __FUNCTION__, mDataLen);
+#endif
             hexdump(mVendorData, mDataLen);
         }
     }
@@ -838,11 +849,17 @@ int WifiVendorCommand::create() {
 
     //insert the iface id to be "wlan0"
     ifindex = if_nametoindex("wlan0");
-    ALOGE("%s ifindex obtained:%d",__func__,ifindex);
+    ALOGE("%s ifindex obtained:%d",__FUNCTION__,ifindex);
     mMsg.set_iface_id(ifindex);
 out:
     return ret;
 
+}
+
+int WifiVendorCommand::requestResponse()
+{
+    ALOGD("%s: request a response", __FUNCTION__);
+    return WifiCommand::requestResponse(mMsg);
 }
 
 int WifiVendorCommand::requestEvent()
@@ -867,13 +884,68 @@ int WifiVendorCommand::put_u32(int attribute, uint32_t value)
     return mMsg.put_u32(attribute, value);
 }
 
-int WifiVendorCommand::put_s32(int attribute, int value) {
-    return mMsg.put_s32(attribute, value);
-}
-
 int WifiVendorCommand::put_u64(int attribute, uint64_t value)
 {
     return mMsg.put_u64(attribute, value);
+}
+
+int WifiVendorCommand::put_s8(int attribute, s8 value)
+{
+    return mMsg.put_s8(attribute, value);
+}
+
+int WifiVendorCommand::put_s16(int attribute, s16 value)
+{
+    return mMsg.put_s16(attribute, value);
+}
+
+int WifiVendorCommand::put_s32(int attribute, s32 value) {
+    return mMsg.put_s32(attribute, value);
+}
+
+int WifiVendorCommand::put_s64(int attribute, s64 value)
+{
+    return mMsg.put_s64(attribute, value);
+}
+
+u8 WifiVendorCommand::get_u8(const struct nlattr *nla)
+{
+    return mMsg.get_u8(nla);
+}
+
+u16 WifiVendorCommand::get_u16(const struct nlattr *nla)
+{
+    return mMsg.get_u16(nla);
+}
+
+u32 WifiVendorCommand::get_u32(const struct nlattr *nla)
+{
+    return mMsg.get_u32(nla);
+}
+
+u64 WifiVendorCommand::get_u64(const struct nlattr *nla)
+{
+    return mMsg.get_u64(nla);
+}
+
+s8 WifiVendorCommand::get_s8(const struct nlattr *nla)
+{
+    return mMsg.get_s8(nla);
+}
+
+s16 WifiVendorCommand::get_s16(const struct nlattr *nla)
+{
+    return mMsg.get_s16(nla);
+}
+
+s32 WifiVendorCommand::get_s32(const struct nlattr *nla)
+{
+    return mMsg.get_s32(nla);
+}
+
+s64 WifiVendorCommand::get_s64(const struct nlattr *nla)
+{
+    return mMsg.get_s64(nla);
 }
 
 int WifiVendorCommand::put_string(int attribute, const char *value)
@@ -899,11 +971,66 @@ void WifiVendorCommand::attr_end(struct nlattr *attribute)
 int WifiVendorCommand::set_iface_id(const char* name)
 {
     unsigned ifindex = if_nametoindex(name);
-    ALOGE("%s ifindex obtained:%d",__func__,ifindex);
+    ALOGE("%s ifindex obtained:%d", __FUNCTION__,ifindex);
     return mMsg.set_iface_id(ifindex);
 }
 
 int WifiVendorCommand::put_bytes(int attribute, const char *data, int len)
 {
     return mMsg.put_bytes(attribute, data, len);
+}
+
+wifi_error WifiVendorCommand::get_mac_addr(struct nlattr **tb_vendor,
+                                       int attribute,
+                                       mac_addr addr)
+{
+    if (!tb_vendor[attribute]) {
+        ALOGE("Failed to get attribute : %d", attribute);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+    if (!addr) {
+        ALOGE("addr is NULL");
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    memcpy(addr, (u8 *)nla_data(tb_vendor[attribute]),
+                  nla_len(tb_vendor[attribute]));
+    return WIFI_SUCCESS;
+}
+
+wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
+                                 u32 subcmd,
+                                 WifiVendorCommand **vCommand)
+{
+    int ret = 0;
+    interface_info *ifaceInfo = getIfaceInfo(iface);
+    wifi_handle wifiHandle = getWifiHandle(iface);
+
+    if (vCommand == NULL) {
+        ALOGE("%s: Error vCommand NULL", __FUNCTION__);
+        return WIFI_ERROR_INVALID_ARGS;
+    }
+
+    *vCommand = new WifiVendorCommand(wifiHandle, 0,
+                                      OUI_QCA,
+                                      subcmd);
+    if (*vCommand == NULL) {
+        ALOGE("%s: Object creation failed", __FUNCTION__);
+        return WIFI_ERROR_OUT_OF_MEMORY;
+    }
+
+    /* Create the message */
+    ret = (*vCommand)->create();
+    if (ret < 0)
+        goto cleanup;
+
+    ret = (*vCommand)->set_iface_id(ifaceInfo->name);
+    if (ret < 0)
+        goto cleanup;
+
+    return WIFI_SUCCESS;
+
+cleanup:
+    delete *vCommand;
+    return (wifi_error)ret;
 }

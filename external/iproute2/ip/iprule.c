@@ -49,7 +49,7 @@ int print_rule(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	struct rtmsg *r = NLMSG_DATA(n);
 	int len = n->nlmsg_len;
 	int host_len = -1;
-	__u32 table, uid_start, uid_end;
+	__u32 table;
 	struct rtattr * tb[FRA_MAX+1];
 	char abuf[256];
 	SPRINT_BUF(b1);

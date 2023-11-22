@@ -36,7 +36,7 @@ void ExitOnError( SLresult result )
 
 //-----------------------------------------------------------------
 /* PlayItf callback for an audio player */
-void PlayEventCallback( SLPlayItf caller,  void *pContext, SLuint32 event)
+void PlayEventCallback( SLPlayItf caller __unused,  void *pContext __unused, SLuint32 event)
 {
     fprintf(stdout, "PlayEventCallback event = ");
     if (event & SL_PLAYEVENT_HEADATEND) {

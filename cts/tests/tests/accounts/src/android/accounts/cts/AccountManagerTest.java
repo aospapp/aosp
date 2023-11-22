@@ -26,16 +26,19 @@ import android.accounts.OnAccountsUpdateListener;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.test.ActivityInstrumentationTestCase2;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * You can run those unit tests with the following command line:
@@ -52,13 +55,15 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     public static final String ACCOUNT_NAME_OTHER = "android.accounts.cts.account.name.other";
 
     public static final String ACCOUNT_TYPE = "android.accounts.cts.account.type";
-    public static final String ACCOUNT_TYPE_OTHER = "android.accounts.cts.account.type.other";
+    public static final String ACCOUNT_TYPE_CUSTOM = "android.accounts.cts.custom.account.type";
+    public static final String ACCOUNT_TYPE_ABSENT = "android.accounts.cts.account.type.absent";
 
     public static final String ACCOUNT_PASSWORD = "android.accounts.cts.account.password";
 
-    public static final String AUTH_TOKEN = "mockAuthToken";
     public static final String AUTH_TOKEN_TYPE = "mockAuthTokenType";
+    public static final String AUTH_EXPIRING_TOKEN_TYPE = "mockAuthExpiringTokenType";
     public static final String AUTH_TOKEN_LABEL = "mockAuthTokenLabel";
+    public static final long AUTH_TOKEN_DURATION_MILLIS = 10000L; // Ten seconds.
 
     public static final String FEATURE_1 = "feature.1";
     public static final String FEATURE_2 = "feature.2";
@@ -85,6 +90,9 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     public static final Account ACCOUNT_FOR_NEW_REMOVE_ACCOUNT_API = new Account(
             MockAccountAuthenticator.ACCOUNT_NAME_FOR_NEW_REMOVE_API, ACCOUNT_TYPE);
     public static final Account ACCOUNT_SAME_TYPE = new Account(ACCOUNT_NAME_OTHER, ACCOUNT_TYPE);
+
+    public static final Account CUSTOM_TOKEN_ACCOUNT =
+            new Account(ACCOUNT_NAME,ACCOUNT_TYPE_CUSTOM);
 
     private static MockAccountAuthenticator mockAuthenticator;
     private static final int LATCH_TIMEOUT_MS = 500;
@@ -130,16 +138,101 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertTrue(removeAccount(am, ACCOUNT_SAME_TYPE, mActivity, null /* callback */).getBoolean(
                 AccountManager.KEY_BOOLEAN_RESULT));
 
+        // Clean out any other accounts added during the tests.
+        Account[] ctsAccounts = am.getAccountsByType(ACCOUNT_TYPE);
+        Account[] ctsCustomAccounts = am.getAccountsByType(ACCOUNT_TYPE_CUSTOM);
+        ArrayList<Account> accounts = new ArrayList<>(Arrays.asList(ctsAccounts));
+        accounts.addAll(Arrays.asList(ctsCustomAccounts));
+        for (Account ctsAccount : accounts) {
+            removeAccount(am, ctsAccount, mActivity, null /* callback */);
+        }
+
         // need to clean up the authenticator cached data
         mockAuthenticator.clearData();
 
         super.tearDown();
     }
 
-    private void validateAccountAndAuthTokenResult(Bundle result) {
-        assertEquals(ACCOUNT_NAME, result.get(AccountManager.KEY_ACCOUNT_NAME));
-        assertEquals(ACCOUNT_TYPE, result.get(AccountManager.KEY_ACCOUNT_TYPE));
-        assertEquals(AUTH_TOKEN, result.get(AccountManager.KEY_AUTHTOKEN));
+    interface TokenFetcher {
+        public Bundle fetch(String tokenType)
+                throws OperationCanceledException, AuthenticatorException, IOException;
+        public Account getAccount();
+    }
+
+    private void validateSuccessfulTokenFetchingLifecycle(TokenFetcher fetcher, String tokenType)
+            throws OperationCanceledException, AuthenticatorException, IOException {
+        Account account = fetcher.getAccount();
+        Bundle expected = new Bundle();
+        expected.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
+        expected.putString(AccountManager.KEY_ACCOUNT_TYPE, account.type);
+
+        // First fetch.
+        Bundle actual = fetcher.fetch(tokenType);
+        assertTrue(mockAuthenticator.isRecentlyCalled());
+        validateAccountAndAuthTokenResult(expected, actual);
+
+        /*
+         * On the second fetch the cache will be populated if we are using a authenticator with
+         * customTokens=false or we are using a scope that will cause the authenticator to set an
+         * expiration time (and that expiration time hasn't been reached).
+         */
+        actual = fetcher.fetch(tokenType);
+
+        boolean isCachingExpected =
+                ACCOUNT_TYPE.equals(account.type) || AUTH_EXPIRING_TOKEN_TYPE.equals(tokenType);
+        assertEquals(isCachingExpected, !mockAuthenticator.isRecentlyCalled());
+        validateAccountAndAuthTokenResult(expected, actual);
+
+        try {
+            // Delay further execution until expiring tokens can actually expire.
+            Thread.sleep(mockAuthenticator.getTokenDurationMillis() + 1L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+        /*
+         * With the time shift above, the third request will result in cache hits only from
+         * customToken=false authenticators.
+         */
+        actual = fetcher.fetch(tokenType);
+        isCachingExpected = ACCOUNT_TYPE.equals(account.type);
+        assertEquals(isCachingExpected, !mockAuthenticator.isRecentlyCalled());
+        validateAccountAndAuthTokenResult(expected, actual);
+
+        // invalidate token
+        String token = actual.getString(AccountManager.KEY_AUTHTOKEN);
+        am.invalidateAuthToken(account.type, token);
+
+        /*
+         * Upon invalidating the token, the cache should be clear regardless of authenticator.
+         */
+        actual = fetcher.fetch(tokenType);
+        assertTrue(mockAuthenticator.isRecentlyCalled());
+        validateAccountAndAuthTokenResult(expected, actual);
+    }
+
+    private void validateAccountAndAuthTokenResult(Bundle actual) {
+        assertEquals(
+                ACCOUNT.name,
+                actual.get(AccountManager.KEY_ACCOUNT_NAME));
+        assertEquals(
+                ACCOUNT.type,
+                actual.get(AccountManager.KEY_ACCOUNT_TYPE));
+        assertEquals(
+                mockAuthenticator.getLastTokenServed(),
+                actual.get(AccountManager.KEY_AUTHTOKEN));
+    }
+
+    private void validateAccountAndAuthTokenResult(Bundle expected, Bundle actual) {
+        assertEquals(
+                expected.get(AccountManager.KEY_ACCOUNT_NAME),
+                actual.get(AccountManager.KEY_ACCOUNT_NAME));
+        assertEquals(
+                expected.get(AccountManager.KEY_ACCOUNT_TYPE),
+                actual.get(AccountManager.KEY_ACCOUNT_TYPE));
+        assertEquals(
+                mockAuthenticator.getLastTokenServed(),
+                actual.get(AccountManager.KEY_AUTHTOKEN));
     }
 
     private void validateAccountAndNoAuthTokenResult(Bundle result) {
@@ -224,7 +317,6 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     private boolean removeAccount(AccountManager am, Account account,
             AccountManagerCallback<Boolean> callback) throws IOException, AuthenticatorException,
                 OperationCanceledException {
-
         AccountManagerFuture<Boolean> futureBoolean = am.removeAccount(account,
                 callback,
                 null /* handler */);
@@ -357,6 +449,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
                 Bundle resultBundle = null;
                 try {
@@ -483,9 +576,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     /**
      * Test addAccountExplicitly() and removeAccountExplictly().
      */
-    public void testAddAccountExplicitlyAndRemoveAccountExplicitly() throws IOException,
-            AuthenticatorException, OperationCanceledException {
-
+    public void testAddAccountExplicitlyAndRemoveAccountExplicitly() {
         final int expectedAccountsCount = getAccountsCount();
 
         addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
@@ -581,7 +672,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         assertEquals(2, accounts.length);
 
         // Check if we dont have any account from the other type
-        accounts = am.getAccountsByType(ACCOUNT_TYPE_OTHER);
+        accounts = am.getAccountsByType(ACCOUNT_TYPE_ABSENT);
         assertEquals(0, accounts.length);
     }
 
@@ -684,6 +775,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch1 = new CountDownLatch(1);
 
         AccountManagerCallback<Account[]> callback1 = new AccountManagerCallback<Account[]>() {
+            @Override
             public void run(AccountManagerFuture<Account[]> accountsFuture) {
                 try {
                     Account[] accounts = accountsFuture.getResult();
@@ -724,6 +816,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch2 = new CountDownLatch(1);
 
         AccountManagerCallback<Account[]> callback2 = new AccountManagerCallback<Account[]>() {
+            @Override
             public void run(AccountManagerFuture<Account[]> accountsFuture) {
                 try {
                     Account[] accounts = accountsFuture.getResult();
@@ -765,25 +858,24 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
      */
     public void testSetAndPeekAndInvalidateAuthToken() {
         addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
-
-        am.setAuthToken(ACCOUNT, AUTH_TOKEN_TYPE, AUTH_TOKEN);
+        String expected = "x";
+        am.setAuthToken(ACCOUNT, AUTH_TOKEN_TYPE, expected);
 
         // Ask for the AuthToken
         String token = am.peekAuthToken(ACCOUNT, AUTH_TOKEN_TYPE);
         assertNotNull(token);
-        assertEquals(AUTH_TOKEN, token);
+        assertEquals(expected, token);
 
-        am.invalidateAuthToken(ACCOUNT_TYPE, AUTH_TOKEN);
+        am.invalidateAuthToken(ACCOUNT_TYPE, token);
         token = am.peekAuthToken(ACCOUNT, AUTH_TOKEN_TYPE);
         assertNull(token);
     }
 
     /**
-     * Test blockingGetAuthToken()
+     * Test successful blockingGetAuthToken() with customTokens=false authenticator.
      */
-    public void testBlockingGetAuthToken() throws IOException, AuthenticatorException,
-            OperationCanceledException {
-
+    public void testBlockingGetAuthToken_DefaultToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
         addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null);
 
         String token = am.blockingGetAuthToken(ACCOUNT,
@@ -792,17 +884,61 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
 
         // Ask for the AuthToken
         assertNotNull(token);
-        assertEquals(AUTH_TOKEN, token);
+        assertEquals(mockAuthenticator.getLastTokenServed(), token);
+    }
+
+    private static class BlockingGetAuthTokenFetcher implements TokenFetcher {
+        private final Account mAccount;
+
+        BlockingGetAuthTokenFetcher(Account account) {
+            mAccount = account;
+        }
+
+        @Override
+        public Bundle fetch(String tokenType)
+                throws OperationCanceledException, AuthenticatorException, IOException {
+            String token = am.blockingGetAuthToken(
+                    getAccount(),
+                    tokenType,
+                    false /* no failure notification */);
+            Bundle result = new Bundle();
+            result.putString(AccountManager.KEY_AUTHTOKEN, token);
+            result.putString(AccountManager.KEY_ACCOUNT_NAME, mAccount.name);
+            result.putString(AccountManager.KEY_ACCOUNT_TYPE, mAccount.type);
+            return result;
+        }
+        @Override
+        public Account getAccount() {
+            return CUSTOM_TOKEN_ACCOUNT;
+        }
     }
 
     /**
-     * Test getAuthToken()
+     * Test successful blockingGetAuthToken() with customTokens=true authenticator.
      */
-    public void testGetAuthToken() throws IOException, AuthenticatorException,
-            OperationCanceledException {
+    public void testBlockingGetAuthToken_CustomToken_NoCaching_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(CUSTOM_TOKEN_ACCOUNT, ACCOUNT_PASSWORD, null);
+        TokenFetcher f = new BlockingGetAuthTokenFetcher(CUSTOM_TOKEN_ACCOUNT);
+        validateSuccessfulTokenFetchingLifecycle(f, AUTH_TOKEN_TYPE);
+    }
 
+    /**
+     * Test successful blockingGetAuthToken() with customTokens=true authenticator.
+     */
+    public void testBlockingGetAuthToken_CustomToken_ExpiringCache_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(CUSTOM_TOKEN_ACCOUNT, ACCOUNT_PASSWORD, null);
+        TokenFetcher f = new BlockingGetAuthTokenFetcher(CUSTOM_TOKEN_ACCOUNT);
+        validateSuccessfulTokenFetchingLifecycle(f, AUTH_EXPIRING_TOKEN_TYPE);
+    }
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false authenticator.
+     */
+    public void testDeprecatedGetAuthTokenWithFuture_NoOptions_DefaultToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
         addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
-
         AccountManagerFuture<Bundle> futureBundle = am.getAuthToken(ACCOUNT,
                 AUTH_TOKEN_TYPE,
                 false /* no failure notification */,
@@ -817,6 +953,226 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
 
         // Assert returned result
         validateAccountAndAuthTokenResult(resultBundle);
+    }
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false without
+     * expiring tokens.
+     */
+    public void testDeprecatedGetAuthTokenWithFuture_NoOptions_CustomToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(CUSTOM_TOKEN_ACCOUNT, ACCOUNT_PASSWORD, null);
+        // validateSuccessfulTokenFetchingLifecycle(AccountManager am, TokenFetcher fetcher, String tokenType)
+        TokenFetcher f = new TokenFetcher() {
+            @Override
+            public Bundle fetch(String tokenType)
+                    throws OperationCanceledException, AuthenticatorException, IOException {
+                AccountManagerFuture<Bundle> futureBundle = am.getAuthToken(
+                        getAccount(),
+                        tokenType,
+                        false /* no failure notification */,
+                        null /* no callback */,
+                        null /* no handler */
+                );
+                Bundle actual = futureBundle.getResult();
+                assertTrue(futureBundle.isDone());
+                assertNotNull(actual);
+                return actual;
+            }
+
+            @Override
+            public Account getAccount() {
+                return CUSTOM_TOKEN_ACCOUNT;
+            }
+        };
+        validateSuccessfulTokenFetchingLifecycle(f, AUTH_EXPIRING_TOKEN_TYPE);
+        validateSuccessfulTokenFetchingLifecycle(f, AUTH_TOKEN_TYPE);
+    }
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false without
+     * expiring tokens.
+     */
+    public void testGetAuthTokenWithFuture_Options_DefaultToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
+
+        AccountManagerFuture<Bundle> futureBundle = am.getAuthToken(ACCOUNT,
+                AUTH_TOKEN_TYPE,
+                OPTIONS_BUNDLE,
+                mActivity,
+                null /* no callback */,
+                null /* no handler */
+        );
+
+        Bundle resultBundle = futureBundle.getResult();
+
+        assertTrue(futureBundle.isDone());
+        assertNotNull(resultBundle);
+
+        // Assert returned result
+        validateAccountAndAuthTokenResult(resultBundle);
+
+        validateOptions(null, mockAuthenticator.mOptionsAddAccount);
+        validateOptions(null, mockAuthenticator.mOptionsUpdateCredentials);
+        validateOptions(null, mockAuthenticator.mOptionsConfirmCredentials);
+        validateOptions(OPTIONS_BUNDLE, mockAuthenticator.mOptionsGetAuthToken);
+        validateSystemOptions(mockAuthenticator.mOptionsGetAuthToken);
+    }
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false without
+     * expiring tokens.
+     */
+    public void testGetAuthTokenWithFuture_Options_CustomToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(CUSTOM_TOKEN_ACCOUNT, ACCOUNT_PASSWORD, null);
+        TokenFetcher fetcherWithOptions = new TokenFetcher() {
+            @Override
+            public Bundle fetch(String tokenType)
+                    throws OperationCanceledException, AuthenticatorException, IOException {
+                AccountManagerFuture<Bundle> futureBundle = am.getAuthToken(
+                        getAccount(),
+                        tokenType,
+                        OPTIONS_BUNDLE,
+                        false /* no failure notification */,
+                        null /* no callback */,
+                        null /* no handler */
+                );
+                Bundle actual = futureBundle.getResult();
+                assertTrue(futureBundle.isDone());
+                assertNotNull(actual);
+                return actual;
+            }
+
+            @Override
+            public Account getAccount() {
+                return CUSTOM_TOKEN_ACCOUNT;
+            }
+        };
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_TOKEN_TYPE);
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_EXPIRING_TOKEN_TYPE);
+    }
+
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false without
+     * expiring tokens.
+     */
+    public void testGetAuthTokenWithCallback_Options_Handler_DefaultToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null);
+        final HandlerThread handlerThread = new HandlerThread("accounts.test");
+        handlerThread.start();
+        TokenFetcher fetcherWithOptions = new TokenFetcher() {
+            @Override
+            public Bundle fetch(String tokenType)
+                    throws OperationCanceledException, AuthenticatorException, IOException {
+                final AtomicReference<Bundle> actualRef = new AtomicReference<>();
+                final CountDownLatch latch = new CountDownLatch(1);
+
+                AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+                    @Override
+                    public void run(AccountManagerFuture<Bundle> bundleFuture) {
+                        Bundle resultBundle = null;
+                        try {
+                            resultBundle = bundleFuture.getResult();
+                            actualRef.set(resultBundle);
+                        } catch (OperationCanceledException e) {
+                            fail("should not throw an OperationCanceledException");
+                        } catch (IOException e) {
+                            fail("should not throw an IOException");
+                        } catch (AuthenticatorException e) {
+                            fail("should not throw an AuthenticatorException");
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
+                };
+
+                am.getAuthToken(getAccount(),
+                        tokenType,
+                        OPTIONS_BUNDLE,
+                        false /* no failure notification */,
+                        callback,
+                        new Handler(handlerThread.getLooper()));
+
+                // Wait with timeout for the callback to do its work
+                try {
+                    latch.await(LATCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    fail("should not throw an InterruptedException");
+                }
+                return actualRef.get();
+            }
+
+            @Override
+            public Account getAccount() {
+                return ACCOUNT;
+            }
+        };
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_TOKEN_TYPE);
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_EXPIRING_TOKEN_TYPE);
+    }
+
+    /**
+     * Test successful getAuthToken() using a future with customTokens=false without
+     * expiring tokens.
+     */
+    public void testGetAuthTokenWithCallback_Options_Handler_CustomToken_Success()
+            throws IOException, AuthenticatorException, OperationCanceledException {
+        addAccountExplicitly(CUSTOM_TOKEN_ACCOUNT, ACCOUNT_PASSWORD, null);
+        final HandlerThread handlerThread = new HandlerThread("accounts.test");
+        handlerThread.start();
+        TokenFetcher fetcherWithOptions = new TokenFetcher() {
+            @Override
+            public Bundle fetch(String tokenType)
+                    throws OperationCanceledException, AuthenticatorException, IOException {
+                final AtomicReference<Bundle> actualRef = new AtomicReference<>();
+                final CountDownLatch latch = new CountDownLatch(1);
+
+                AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+                    @Override
+                    public void run(AccountManagerFuture<Bundle> bundleFuture) {
+                        Bundle resultBundle = null;
+                        try {
+                            resultBundle = bundleFuture.getResult();
+                            actualRef.set(resultBundle);
+                        } catch (OperationCanceledException e) {
+                            fail("should not throw an OperationCanceledException");
+                        } catch (IOException e) {
+                            fail("should not throw an IOException");
+                        } catch (AuthenticatorException e) {
+                            fail("should not throw an AuthenticatorException");
+                        } finally {
+                            latch.countDown();
+                        }
+                    }
+                };
+
+                am.getAuthToken(getAccount(),
+                        tokenType,
+                        OPTIONS_BUNDLE,
+                        false /* no failure notification */,
+                        callback,
+                        new Handler(handlerThread.getLooper()));
+
+                // Wait with timeout for the callback to do its work
+                try {
+                    latch.await(LATCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    fail("should not throw an InterruptedException");
+                }
+                return actualRef.get();
+            }
+
+            @Override
+            public Account getAccount() {
+                return CUSTOM_TOKEN_ACCOUNT;
+            }
+        };
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_TOKEN_TYPE);
+        validateSuccessfulTokenFetchingLifecycle(fetcherWithOptions, AUTH_EXPIRING_TOKEN_TYPE);
     }
 
     /**
@@ -837,6 +1193,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
 
                 Bundle resultBundle = null;
@@ -880,37 +1237,6 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     }
 
     /**
-     * test getAuthToken() with options
-     */
-    public void testGetAuthTokenWithOptions() throws IOException, AuthenticatorException,
-            OperationCanceledException {
-
-        addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
-
-        AccountManagerFuture<Bundle> futureBundle = am.getAuthToken(ACCOUNT,
-                AUTH_TOKEN_TYPE,
-                OPTIONS_BUNDLE,
-                mActivity,
-                null /* no callback */,
-                null /* no handler */
-        );
-
-        Bundle resultBundle = futureBundle.getResult();
-
-        assertTrue(futureBundle.isDone());
-        assertNotNull(resultBundle);
-
-        // Assert returned result
-        validateAccountAndAuthTokenResult(resultBundle);
-
-        validateOptions(null, mockAuthenticator.mOptionsAddAccount);
-        validateOptions(null, mockAuthenticator.mOptionsUpdateCredentials);
-        validateOptions(null, mockAuthenticator.mOptionsConfirmCredentials);
-        validateOptions(OPTIONS_BUNDLE, mockAuthenticator.mOptionsGetAuthToken);
-        validateSystemOptions(mockAuthenticator.mOptionsGetAuthToken);
-    }
-
-    /**
      * test getAuthToken() with options and callback and handler
      */
     public void testGetAuthTokenWithOptionsAndCallback() throws IOException,
@@ -928,15 +1254,14 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
 
                 Bundle resultBundle = null;
                 try {
                     resultBundle = bundleFuture.getResult();
-
                     // Assert returned result
                     validateAccountAndAuthTokenResult(resultBundle);
-
                 } catch (OperationCanceledException e) {
                     fail("should not throw an OperationCanceledException");
                 } catch (IOException e) {
@@ -1039,7 +1364,6 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         validateOptions(null, mockAuthenticator.mOptionsUpdateCredentials);
         validateOptions(null, mockAuthenticator.mOptionsConfirmCredentials);
         validateOptions(null, mockAuthenticator.mOptionsGetAuthToken);
-
     }
 
     /**
@@ -1063,10 +1387,85 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
     }
 
     /**
+     * Tests the setting of lastAuthenticatedTime on adding account
+     */
+    public void testLastAuthenticatedTimeAfterAddAccount() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+        assertTrue(addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD) > 0);
+    }
+
+    /**
+     * Test confirmCredentials() for account not on device. Just that no error
+     * should be thrown.
+     */
+    public void testConfirmCredentialsAccountNotOnDevice() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        Account account = new Account("AccountNotOnThisDevice", ACCOUNT_TYPE);
+        AccountManagerFuture<Bundle> futureBundle = am.confirmCredentials(account,
+                OPTIONS_BUNDLE,
+                mActivity,
+                null /* callback */,
+                null /* handler */);
+
+        futureBundle.getResult();
+    }
+
+    /**
+     * Tests the setting of lastAuthenticatedTime on confirmCredentials being
+     * successful.
+     */
+    public void testLastAuthenticatedTimeAfterConfirmCredentialsSuccess() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        long accountAddTime = addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD);
+
+        // Now this confirm credentials call returns true, which in turn
+        // should update the last authenticated timestamp.
+        Bundle result = am.confirmCredentials(ACCOUNT,
+                OPTIONS_BUNDLE, /* options */
+                null, /* activity */
+                null /* callback */,
+                null /* handler */).getResult();
+        long confirmedCredTime = result.getLong(
+                AccountManager.KEY_LAST_AUTHENTICATED_TIME, -1);
+        assertTrue(confirmedCredTime > accountAddTime);
+    }
+
+    /**
+     * Tests the setting of lastAuthenticatedTime on updateCredentials being
+     * successful.
+     */
+    public void testLastAuthenticatedTimeAfterUpdateCredentialsSuccess() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+
+        long accountAddTime = addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD);
+
+        am.updateCredentials(ACCOUNT,
+                AUTH_TOKEN_TYPE,
+                OPTIONS_BUNDLE,
+                mActivity,
+                null /* callback */,
+                null /* handler */).getResult();
+        long updateCredTime = getLastAuthenticatedTime(ACCOUNT);
+        assertTrue(updateCredTime > accountAddTime);
+    }
+
+    /**
+     * LastAuthenticatedTime on setPassword should not be disturbed.
+     */
+    public void testLastAuthenticatedTimeAfterSetPassword() throws IOException,
+            AuthenticatorException, OperationCanceledException {
+        long accountAddTime = addAccountAndReturnAccountAddedTime(ACCOUNT, ACCOUNT_PASSWORD);
+        mockAuthenticator.callSetPassword();
+        long setPasswordTime = getLastAuthenticatedTime(ACCOUNT);
+        assertTrue(setPasswordTime == accountAddTime);
+    }
+
+    /**
      * Test confirmCredentials() with callback
      */
-    public void testConfirmCredentialsWithCallbackAndHandler() throws IOException,
-            AuthenticatorException, OperationCanceledException {
+    public void testConfirmCredentialsWithCallbackAndHandler() {
 
         addAccountExplicitly(ACCOUNT, ACCOUNT_PASSWORD, null /* userData */);
 
@@ -1074,12 +1473,10 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         testConfirmCredentialsWithCallbackAndHandler(new Handler(Looper.getMainLooper()));
     }
 
-    private void testConfirmCredentialsWithCallbackAndHandler(Handler handler) throws IOException,
-            AuthenticatorException, OperationCanceledException {
-
+    private void testConfirmCredentialsWithCallbackAndHandler(Handler handler) {
         final CountDownLatch latch = new CountDownLatch(1);
-
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
 
                 Bundle resultBundle = null;
@@ -1102,18 +1499,14 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
                 }
             }
         };
-
         AccountManagerFuture<Bundle> futureBundle = am.confirmCredentials(ACCOUNT,
                 OPTIONS_BUNDLE,
                 mActivity,
                 callback,
                 handler);
-
-        futureBundle.getResult();
-
         // Wait with timeout for the callback to do its work
         try {
-            latch.await(LATCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            latch.await(3 * LATCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             fail("should not throw an InterruptedException");
         }
@@ -1160,6 +1553,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
 
                 Bundle resultBundle = null;
@@ -1231,6 +1625,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         AccountManagerCallback<Bundle> callback = new AccountManagerCallback<Bundle>() {
+            @Override
             public void run(AccountManagerFuture<Bundle> bundleFuture) {
                 try {
                     // Assert returned result
@@ -1292,6 +1687,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         OnAccountsUpdateListener listener = new OnAccountsUpdateListener() {
+            @Override
             public void onAccountsUpdated(Account[] accounts) {
                 latch.countDown();
             }
@@ -1334,6 +1730,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         final CountDownLatch latch = new CountDownLatch(1);
 
         OnAccountsUpdateListener listener = new OnAccountsUpdateListener() {
+            @Override
             public void onAccountsUpdated(Account[] accounts) {
                 fail("should not be called");
             }
@@ -1424,6 +1821,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
 
     private AccountManagerCallback<Boolean> getAssertTrueCallback(final CountDownLatch latch) {
         return new AccountManagerCallback<Boolean>() {
+            @Override
             public void run(AccountManagerFuture<Boolean> booleanFuture) {
                 try {
                     // Assert returned result should be TRUE
@@ -1439,6 +1837,7 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
 
     private AccountManagerCallback<Boolean> getAssertFalseCallback(final CountDownLatch latch) {
         return new AccountManagerCallback<Boolean>() {
+            @Override
             public void run(AccountManagerFuture<Boolean> booleanFuture) {
                 try {
                     // Assert returned result should be FALSE
@@ -1519,11 +1918,37 @@ public class AccountManagerTest extends ActivityInstrumentationTestCase2<Account
         waitForLatch(latch);
     }
 
+    private long getLastAuthenticatedTime(Account account) throws OperationCanceledException,
+            AuthenticatorException, IOException {
+        Bundle options = new Bundle();
+        options.putBoolean(MockAccountAuthenticator.KEY_RETURN_INTENT, true);
+        // Not really confirming, but a way to get last authenticated timestamp
+        Bundle result = am.confirmCredentials(account,
+                options,// OPTIONS_BUNDLE,
+                null, /* activity */
+                null /* callback */,
+                null /* handler */).getResult();
+        return result.getLong(
+                AccountManager.KEY_LAST_AUTHENTICATED_TIME, -1);
+    }
+
+    private long addAccountAndReturnAccountAddedTime(Account account, String password)
+            throws OperationCanceledException, AuthenticatorException, IOException {
+        addAccount(am,
+                ACCOUNT_TYPE,
+                AUTH_TOKEN_TYPE,
+                REQUIRED_FEATURES,
+                OPTIONS_BUNDLE,
+                mActivity,
+                null /* callback */,
+                null /* handler */);
+        return getLastAuthenticatedTime(account);
+    }
+
     /**
      * Tests that AccountManagerService is properly caching data.
      */
-    public void testGetsAreCached() throws IOException, AuthenticatorException,
-            OperationCanceledException {
+    public void testGetsAreCached() {
 
         // Add an account,
         assertEquals(false, isAccountPresent(am.getAccounts(), ACCOUNT));

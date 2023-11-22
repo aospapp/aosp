@@ -220,7 +220,7 @@ int td_io_prep(struct thread_data *td, struct io_u *io_u)
 }
 
 int td_io_getevents(struct thread_data *td, unsigned int min, unsigned int max,
-		    struct timespec *t)
+		    const struct timespec *t)
 {
 	int r = 0;
 
@@ -294,12 +294,19 @@ int td_io_queue(struct thread_data *td, struct io_u *io_u)
 					sizeof(struct timeval));
 	}
 
-	if (ddir_rw(acct_ddir(io_u)))
+	if (ddir_rw(acct_ddir(io_u))) {
 		td->io_issues[acct_ddir(io_u)]++;
+		td->io_issue_bytes[acct_ddir(io_u)] += io_u->xfer_buflen;
+	}
 
 	ret = td->io_ops->queue(td, io_u);
 
 	unlock_file(td, io_u->file);
+
+	if (ret == FIO_Q_BUSY && ddir_rw(acct_ddir(io_u))) {
+		td->io_issues[acct_ddir(io_u)]--;
+		td->io_issue_bytes[acct_ddir(io_u)] -= io_u->xfer_buflen;
+	}
 
 	/*
 	 * If an error was seen and the io engine didn't propagate it
@@ -321,7 +328,7 @@ int td_io_queue(struct thread_data *td, struct io_u *io_u)
 			 "support direct IO, or iomem_align= is bad.\n");
 	}
 
-	if (!td->io_ops->commit || ddir_trim(io_u->ddir)) {
+	if (!td->io_ops->commit || io_u->ddir == DDIR_TRIM) {
 		io_u_mark_submit(td, 1);
 		io_u_mark_complete(td, 1);
 	}
@@ -506,6 +513,14 @@ int td_io_close_file(struct thread_data *td, struct fio_file *f)
 	return put_file(td, f);
 }
 
+int td_io_unlink_file(struct thread_data *td, struct fio_file *f)
+{
+	if (td->io_ops->unlink_file)
+		return td->io_ops->unlink_file(td, f);
+	else
+		return unlink(f->file_name);
+}
+
 int td_io_get_file_size(struct thread_data *td, struct fio_file *f)
 {
 	if (!td->io_ops->get_file_size)
@@ -514,7 +529,8 @@ int td_io_get_file_size(struct thread_data *td, struct fio_file *f)
 	return td->io_ops->get_file_size(td, f);
 }
 
-static int do_sync_file_range(struct thread_data *td, struct fio_file *f)
+static int do_sync_file_range(const struct thread_data *td,
+			      struct fio_file *f)
 {
 	off64_t offset, nbytes;
 
@@ -527,7 +543,7 @@ static int do_sync_file_range(struct thread_data *td, struct fio_file *f)
 	return sync_file_range(f->fd, offset, nbytes, td->o.sync_file_range);
 }
 
-int do_io_u_sync(struct thread_data *td, struct io_u *io_u)
+int do_io_u_sync(const struct thread_data *td, struct io_u *io_u)
 {
 	int ret;
 
@@ -553,7 +569,7 @@ int do_io_u_sync(struct thread_data *td, struct io_u *io_u)
 	return ret;
 }
 
-int do_io_u_trim(struct thread_data *td, struct io_u *io_u)
+int do_io_u_trim(const struct thread_data *td, struct io_u *io_u)
 {
 #ifndef FIO_HAVE_TRIM
 	io_u->error = EINVAL;

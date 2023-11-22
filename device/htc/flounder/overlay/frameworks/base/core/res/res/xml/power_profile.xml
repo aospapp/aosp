@@ -31,6 +31,8 @@
   <item name="wifi.scan">54</item>
   <item name="dsp.audio">10.8</item>
   <item name="dsp.video">39.6</item>
+  <item name="camera.avg">589.71</item>
+  <item name="camera.flashlight">376.4</item>
   <item name="radio.active">191.16</item>
   <item name="gps.on">50.4</item>
   <item name="battery.capacity">6700</item>

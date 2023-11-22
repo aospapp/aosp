@@ -16,6 +16,7 @@
 
 package com.android.providers.downloads;
 
+import android.app.AppOpsManager;
 import android.app.DownloadManager;
 import android.app.DownloadManager.Request;
 import android.content.ContentProvider;
@@ -34,8 +35,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.os.Binder;
-import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.OnCloseListener;
 import android.os.Process;
@@ -46,11 +47,11 @@ import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 
+import libcore.io.IoUtils;
+
 import com.android.internal.util.IndentingPrintWriter;
 import com.google.android.collect.Maps;
 import com.google.common.annotations.VisibleForTesting;
-
-import libcore.io.IoUtils;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -441,7 +442,10 @@ public final class DownloadProvider extends ContentProvider {
             mSystemFacade = new RealSystemFacade(getContext());
         }
 
-        mHandler = new Handler();
+        HandlerThread handlerThread =
+                new HandlerThread("DownloadProvider handler", Process.THREAD_PRIORITY_BACKGROUND);
+        handlerThread.start();
+        mHandler = new Handler(handlerThread.getLooper());
 
         mOpenHelper = new DatabaseHelper(getContext());
         // Initialize the system uid
@@ -551,11 +555,19 @@ public final class DownloadProvider extends ContentProvider {
                 dest = Downloads.Impl.DESTINATION_CACHE_PARTITION;
             }
             if (dest == Downloads.Impl.DESTINATION_FILE_URI) {
-                getContext().enforcePermission(
-                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                        Binder.getCallingPid(), Binder.getCallingUid(),
-                        "need WRITE_EXTERNAL_STORAGE permission to use DESTINATION_FILE_URI");
                 checkFileUriDestination(values);
+
+            } else if (dest == Downloads.Impl.DESTINATION_EXTERNAL) {
+                getContext().enforceCallingOrSelfPermission(
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        "No permission to write");
+
+                final AppOpsManager appOps = getContext().getSystemService(AppOpsManager.class);
+                if (appOps.noteProxyOp(AppOpsManager.OP_WRITE_EXTERNAL_STORAGE,
+                        getCallingPackage()) != AppOpsManager.MODE_ALLOWED) {
+                    throw new SecurityException("No permission to write");
+                }
+
             } else if (dest == Downloads.Impl.DESTINATION_SYSTEMCACHE_PARTITION) {
                 getContext().enforcePermission(
                         android.Manifest.permission.ACCESS_CACHE_FILESYSTEM,
@@ -702,14 +714,25 @@ public final class DownloadProvider extends ContentProvider {
         if (path == null) {
             throw new IllegalArgumentException("Invalid file URI: " + uri);
         }
-        try {
-            final String canonicalPath = new File(path).getCanonicalPath();
-            final String externalPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-            if (!canonicalPath.startsWith(externalPath)) {
-                throw new SecurityException("Destination must be on external storage: " + uri);
+
+        final File file = new File(path);
+        if (Helpers.isFilenameValidInExternalPackage(getContext(), file, getCallingPackage())) {
+            // No permissions required for paths belonging to calling package
+            return;
+        } else if (Helpers.isFilenameValidInExternal(getContext(), file)) {
+            // Otherwise we require write permission
+            getContext().enforceCallingOrSelfPermission(
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    "No permission to write to " + file);
+
+            final AppOpsManager appOps = getContext().getSystemService(AppOpsManager.class);
+            if (appOps.noteProxyOp(AppOpsManager.OP_WRITE_EXTERNAL_STORAGE,
+                    getCallingPackage()) != AppOpsManager.MODE_ALLOWED) {
+                throw new SecurityException("No permission to write to " + file);
             }
-        } catch (IOException e) {
-            throw new SecurityException("Problem resolving path: " + uri);
+
+        } else {
+            throw new SecurityException("Unsupported path " + file);
         }
     }
 
@@ -1142,9 +1165,7 @@ public final class DownloadProvider extends ContentProvider {
      * Deletes a row in the database
      */
     @Override
-    public int delete(final Uri uri, final String where,
-            final String[] whereArgs) {
-
+    public int delete(final Uri uri, final String where, final String[] whereArgs) {
         if (shouldRestrictVisibility()) {
             Helpers.validateSelection(where, sAppReadableColumnsSet);
         }
@@ -1161,12 +1182,21 @@ public final class DownloadProvider extends ContentProvider {
                 deleteRequestHeaders(db, selection.getSelection(), selection.getParameters());
 
                 final Cursor cursor = db.query(DB_TABLE, new String[] {
-                        Downloads.Impl._ID }, selection.getSelection(), selection.getParameters(),
-                        null, null, null);
+                        Downloads.Impl._ID, Downloads.Impl._DATA
+                }, selection.getSelection(), selection.getParameters(), null, null, null);
                 try {
                     while (cursor.moveToNext()) {
                         final long id = cursor.getLong(0);
                         DownloadStorageProvider.onDownloadProviderDelete(getContext(), id);
+
+                        final String path = cursor.getString(1);
+                        if (!TextUtils.isEmpty(path)) {
+                            final File file = new File(path);
+                            if (Helpers.isFilenameValid(getContext(), file)) {
+                                Log.v(Constants.TAG, "Deleting " + file + " via provider delete");
+                                file.delete();
+                            }
+                        }
                     }
                 } finally {
                     IoUtils.closeQuietly(cursor);

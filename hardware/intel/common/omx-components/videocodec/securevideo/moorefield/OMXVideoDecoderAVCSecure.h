@@ -87,6 +87,8 @@ private:
 
     timer_t mKeepAliveTimer;
 
+    // Keep track of number of allocated inport buffers
+    uint32_t mNumInportBuffers;
     bool mSessionPaused;
     struct drm_vendor_api drm_vendor_api;
     int mDrmDevFd;

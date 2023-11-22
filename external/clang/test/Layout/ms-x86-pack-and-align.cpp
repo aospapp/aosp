@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 -fno-rtti -emit-llvm-only -triple i686-pc-win32 -fdump-record-layouts -fsyntax-only %s 2>&1 \
+// RUN: %clang_cc1 -fno-rtti -emit-llvm-only -triple i686-pc-win32 -fdump-record-layouts -fsyntax-only -Wno-inaccessible-base %s 2>&1 \
 // RUN:            | FileCheck %s
-// RUN: %clang_cc1 -fno-rtti -emit-llvm-only -triple x86_64-pc-win32 -fdump-record-layouts -fsyntax-only %s 2>/dev/null \
+// RUN: %clang_cc1 -fno-rtti -emit-llvm-only -triple x86_64-pc-win32 -fdump-record-layouts -fsyntax-only -Wno-inaccessible-base %s 2>/dev/null \
 // RUN:            | FileCheck %s -check-prefix CHECK-X64
 
 extern "C" int printf(const char *fmt, ...);
@@ -544,6 +544,263 @@ struct RE {
 // CHECK-X64-NEXT:      | [sizeof=1029, align=1
 // CHECK-X64-NEXT:      |  nvsize=1029, nvalign=1]
 
+struct NA {};
+struct NB {};
+#pragma pack(push, 1)
+struct NC : virtual NA, virtual NB {};
+#pragma pack(pop)
+struct ND : NC {};
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct NA (empty)
+// CHECK-NEXT:      | [sizeof=1, align=1
+// CHECK-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct NB (empty)
+// CHECK-NEXT:      | [sizeof=1, align=1
+// CHECK-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct NC
+// CHECK-NEXT:    0 |   (NC vbtable pointer)
+// CHECK-NEXT:    4 |   struct NA (virtual base) (empty)
+// CHECK-NEXT:    8 |   struct NB (virtual base) (empty)
+// CHECK-NEXT:      | [sizeof=8, align=1
+// CHECK-NEXT:      |  nvsize=4, nvalign=1]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct ND
+// CHECK-NEXT:    0 |   struct NC (base)
+// CHECK-NEXT:    0 |     (NC vbtable pointer)
+// CHECK-NEXT:    4 |   struct NA (virtual base) (empty)
+// CHECK-NEXT:    8 |   struct NB (virtual base) (empty)
+// CHECK-NEXT:      | [sizeof=8, align=4
+// CHECK-NEXT:      |  nvsize=4, nvalign=4]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct NA (empty)
+// CHECK-X64-NEXT:      | [sizeof=1, align=1
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct NB (empty)
+// CHECK-X64-NEXT:      | [sizeof=1, align=1
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct NC
+// CHECK-X64-NEXT:    0 |   (NC vbtable pointer)
+// CHECK-X64-NEXT:    8 |   struct NA (virtual base) (empty)
+// CHECK-X64-NEXT:   12 |   struct NB (virtual base) (empty)
+// CHECK-X64-NEXT:      | [sizeof=12, align=1
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct ND
+// CHECK-X64-NEXT:    0 |   struct NC (base)
+// CHECK-X64-NEXT:    0 |     (NC vbtable pointer)
+// CHECK-X64-NEXT:    8 |   struct NA (virtual base) (empty)
+// CHECK-X64-NEXT:   12 |   struct NB (virtual base) (empty)
+// CHECK-X64-NEXT:      | [sizeof=12, align=4
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=4]
+
+struct OA {};
+struct OB {};
+struct OC : virtual OA, virtual OB {};
+#pragma pack(push, 1)
+struct OD : OC {};
+#pragma pack(pop)
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct OA (empty)
+// CHECK-NEXT:      | [sizeof=1, align=1
+// CHECK-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct OB (empty)
+// CHECK-NEXT:      | [sizeof=1, align=1
+// CHECK-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct OC
+// CHECK-NEXT:    0 |   (OC vbtable pointer)
+// CHECK-NEXT:    4 |   struct OA (virtual base) (empty)
+// CHECK-NEXT:    8 |   struct OB (virtual base) (empty)
+// CHECK-NEXT:      | [sizeof=8, align=4
+// CHECK-NEXT:      |  nvsize=4, nvalign=4]
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct OD
+// CHECK-NEXT:    0 |   struct OC (base)
+// CHECK-NEXT:    0 |     (OC vbtable pointer)
+// CHECK-NEXT:    4 |   struct OA (virtual base) (empty)
+// CHECK-NEXT:    8 |   struct OB (virtual base) (empty)
+// CHECK-NEXT:      | [sizeof=8, align=1
+// CHECK-NEXT:      |  nvsize=4, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct OA (empty)
+// CHECK-X64-NEXT:      | [sizeof=1, align=1
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct OB (empty)
+// CHECK-X64-NEXT:      | [sizeof=1, align=1
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=1]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct OC
+// CHECK-X64-NEXT:    0 |   (OC vbtable pointer)
+// CHECK-X64-NEXT:    8 |   struct OA (virtual base) (empty)
+// CHECK-X64-NEXT:   12 |   struct OB (virtual base) (empty)
+// CHECK-X64-NEXT:      | [sizeof=16, align=8
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=8]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct OD
+// CHECK-X64-NEXT:    0 |   struct OC (base)
+// CHECK-X64-NEXT:    0 |     (OC vbtable pointer)
+// CHECK-X64-NEXT:    8 |   struct OA (virtual base) (empty)
+// CHECK-X64-NEXT:   12 |   struct OB (virtual base) (empty)
+// CHECK-X64-NEXT:      | [sizeof=12, align=1
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=1]
+
+struct __declspec(align(4)) PA {
+  int c;
+};
+
+typedef __declspec(align(8)) PA PB;
+
+#pragma pack(push, 1)
+struct PC {
+  char a;
+  PB x;
+};
+#pragma pack(pop)
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK:         0 | struct PC
+// CHECK-NEXT:    0 |   char a
+// CHECK-NEXT:    8 |   struct PA x
+// CHECK-NEXT:    8 |     int c
+// CHECK-NEXT:      |   [sizeof=4, align=4
+// CHECK-NEXT:      |    nvsize=4, nvalign=4]
+// CHECK-NEXT:      | [sizeof=16, align=8
+// CHECK-NEXT:      |  nvsize=12, nvalign=8]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64:         0 | struct PC
+// CHECK-X64-NEXT:    0 |   char a
+// CHECK-X64-NEXT:    8 |   struct PA x
+// CHECK-X64-NEXT:    8 |     int c
+// CHECK-X64-NEXT:      |   [sizeof=4, align=4
+// CHECK-X64-NEXT:      |    nvsize=4, nvalign=4]
+// CHECK-X64-NEXT:      | [sizeof=16, align=8
+// CHECK-X64-NEXT:      |  nvsize=12, nvalign=8]
+
+typedef PB PD;
+
+#pragma pack(push, 1)
+struct PE {
+  char a;
+  PD x;
+};
+#pragma pack(pop)
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK:         0 | struct PE
+// CHECK-NEXT:    0 |   char a
+// CHECK-NEXT:    8 |   struct PA x
+// CHECK-NEXT:    8 |     int c
+// CHECK-NEXT:      |   [sizeof=4, align=4
+// CHECK-NEXT:      |    nvsize=4, nvalign=4]
+// CHECK-NEXT:      | [sizeof=16, align=8
+// CHECK-NEXT:      |  nvsize=12, nvalign=8]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64:         0 | struct PE
+// CHECK-X64-NEXT:    0 |   char a
+// CHECK-X64-NEXT:    8 |   struct PA x
+// CHECK-X64-NEXT:    8 |     int c
+// CHECK-X64-NEXT:      |   [sizeof=4, align=4
+// CHECK-X64-NEXT:      |    nvsize=4, nvalign=4]
+// CHECK-X64-NEXT:      | [sizeof=16, align=8
+// CHECK-X64-NEXT:      |  nvsize=12, nvalign=8]
+
+typedef int __declspec(align(2)) QA;
+#pragma pack(push, 1)
+struct QB {
+  char a;
+  QA b;
+};
+#pragma pack(pop)
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct QB
+// CHECK-NEXT:    0 |   char a
+// CHECK-NEXT:    2 |   QA b
+// CHECK-NEXT:      | [sizeof=6, align=2
+// CHECK-NEXT:      |  nvsize=6, nvalign=2]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct QB
+// CHECK-X64-NEXT:    0 |   char a
+// CHECK-X64-NEXT:    2 |   QA b
+// CHECK-X64-NEXT:      | [sizeof=6, align=2
+// CHECK-X64-NEXT:      |  nvsize=6, nvalign=2]
+
+struct QC {
+  char a;
+  QA b;
+};
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct QC
+// CHECK-NEXT:    0 |   char a
+// CHECK-NEXT:    4 |   QA b
+// CHECK-NEXT:      | [sizeof=8, align=4
+// CHECK-NEXT:      |  nvsize=8, nvalign=4]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct QC
+// CHECK-X64-NEXT:    0 |   char a
+// CHECK-X64-NEXT:    4 |   QA b
+// CHECK-X64-NEXT:      | [sizeof=8, align=4
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=4]
+
+struct QD {
+  char a;
+  QA b : 3;
+};
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct QD
+// CHECK-NEXT:    0 |   char a
+// CHECK-NEXT:    4 |   QA b
+// CHECK-NEXT:      | [sizeof=8, align=4
+// CHECK-NEXT:      |  nvsize=8, nvalign=4]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct QD
+// CHECK-X64-NEXT:    0 |   char a
+// CHECK-X64-NEXT:    4 |   QA b
+// CHECK-X64-NEXT:      | [sizeof=8, align=4
+// CHECK-X64-NEXT:      |  nvsize=8, nvalign=4]
+
+struct __declspec(align(4)) EmptyAlignedLongLongMemb {
+  long long FlexArrayMemb[0];
+};
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct EmptyAlignedLongLongMemb
+// CHECK-NEXT:    0 |   long long [0] FlexArrayMemb
+// CHECK-NEXT:      | [sizeof=8, align=8
+// CHECK-NEXT:      |  nvsize=0, nvalign=8]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct EmptyAlignedLongLongMemb
+// CHECK-X64-NEXT:    0 |   long long [0] FlexArrayMemb
+// CHECK-X64-NEXT:      | [sizeof=8, align=8
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=8]
+
+#pragma pack(1)
+struct __declspec(align(4)) EmptyPackedAlignedLongLongMemb {
+  long long FlexArrayMemb[0];
+};
+#pragma pack()
+
+// CHECK: *** Dumping AST Record Layout
+// CHECK-NEXT:    0 | struct EmptyPackedAlignedLongLongMemb
+// CHECK-NEXT:    0 |   long long [0] FlexArrayMemb
+// CHECK-NEXT:      | [sizeof=4, align=4
+// CHECK-NEXT:      |  nvsize=0, nvalign=4]
+// CHECK-X64: *** Dumping AST Record Layout
+// CHECK-X64-NEXT:    0 | struct EmptyPackedAlignedLongLongMemb
+// CHECK-X64-NEXT:    0 |   long long [0] FlexArrayMemb
+// CHECK-X64-NEXT:      | [sizeof=4, align=4
+// CHECK-X64-NEXT:      |  nvsize=0, nvalign=4]
+
 int a[
 sizeof(X)+
 sizeof(Y)+
@@ -568,4 +825,13 @@ sizeof(RB2)+
 sizeof(RB3)+
 sizeof(RC)+
 sizeof(RE)+
+sizeof(ND)+
+sizeof(OD)+
+sizeof(PC)+
+sizeof(PE)+
+sizeof(QB)+
+sizeof(QC)+
+sizeof(QD)+
+sizeof(EmptyAlignedLongLongMemb)+
+sizeof(EmptyPackedAlignedLongLongMemb)+
 0];

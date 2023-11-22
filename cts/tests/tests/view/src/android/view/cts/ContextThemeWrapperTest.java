@@ -43,11 +43,11 @@ public class ContextThemeWrapperTest extends AndroidTestCase {
     }
 
     public void testConstructor() {
-        // new the ContextThemeWrapper instance
         new ContextThemeWrapper();
 
-        // new the ContextThemeWrapper instance
         new ContextThemeWrapper(getContext(), R.style.TextAppearance);
+
+        new ContextThemeWrapper(getContext(), getContext().getTheme());
     }
 
     public void testAccessTheme() {

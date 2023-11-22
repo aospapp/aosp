@@ -252,7 +252,7 @@ tolower(){
 #
 source_path=${0%/*}
 enable_feature source_path_used
-if test -z "$source_path" -o "$source_path" = "." ; then
+if [ -z "$source_path" ] || [ "$source_path" = "." ]; then
     source_path="`pwd`"
     disable_feature source_path_used
 fi
@@ -381,8 +381,8 @@ EOF
 
 # tests for -m$1 toggling the feature given in $2. If $2 is empty $1 is used.
 check_gcc_machine_option() {
-    local opt="$1"
-    local feature="$2"
+    opt="$1"
+    feature="$2"
     [ -n "$feature" ] || feature="$opt"
 
     if enabled gcc && ! disabled "$feature" && ! check_cflags "-m$opt"; then
@@ -419,8 +419,8 @@ true
 }
 
 write_common_target_config_mk() {
-    local CC="${CC}"
-    local CXX="${CXX}"
+    saved_CC="${CC}"
+    saved_CXX="${CXX}"
     enabled ccache && CC="ccache ${CC}"
     enabled ccache && CXX="ccache ${CXX}"
     print_webm_license $1 "##" ""
@@ -470,6 +470,8 @@ EOF
 
     enabled msvs && echo "CONFIG_VS_VERSION=${vs_version}" >> "${1}"
 
+    CC="${saved_CC}"
+    CXX="${saved_CXX}"
 }
 
 
@@ -485,6 +487,7 @@ EOF
     print_config_h ARCH   "${TMP_H}" ${ARCH_LIST}
     print_config_h HAVE   "${TMP_H}" ${HAVE_LIST}
     print_config_h CONFIG "${TMP_H}" ${CONFIG_LIST}
+    print_config_vars_h   "${TMP_H}" ${VAR_LIST}
     echo "#endif /* VPX_CONFIG_H */" >> ${TMP_H}
     mkdir -p `dirname "$1"`
     cmp "$1" ${TMP_H} >/dev/null 2>&1 || mv ${TMP_H} "$1"
@@ -518,7 +521,7 @@ process_common_cmdline() {
         --enable-?*|--disable-?*)
         eval `echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g'`
         if echo "${ARCH_EXT_LIST}" | grep "^ *$option\$" >/dev/null; then
-            [ $action = "disable" ] && RTCD_OPTIONS="${RTCD_OPTIONS}${opt} "
+            [ $action = "disable" ] && RTCD_OPTIONS="${RTCD_OPTIONS}--disable-${option} "
         elif [ $action = "disable" ] && ! disabled $option ; then
           echo "${CMDLINE_SELECT}" | grep "^ *$option\$" >/dev/null ||
             die_unknown $opt
@@ -546,9 +549,19 @@ process_common_cmdline() {
         alt_libc="${optval}"
         ;;
         --as=*)
-        [ "${optval}" = yasm -o "${optval}" = nasm -o "${optval}" = auto ] \
+        [ "${optval}" = yasm ] || [ "${optval}" = nasm ] \
+            || [ "${optval}" = auto ] \
             || die "Must be yasm, nasm or auto: ${optval}"
         alt_as="${optval}"
+        ;;
+        --size-limit=*)
+        w="${optval%%x*}"
+        h="${optval##*x}"
+        VAR_LIST="DECODE_WIDTH_LIMIT ${w} DECODE_HEIGHT_LIMIT ${h}"
+        [ ${w} -gt 0 ] && [ ${h} -gt 0 ] || die "Invalid size-limit: too small."
+        [ ${w} -lt 65536 ] && [ ${h} -lt 65536 ] \
+            || die "Invalid size-limit: too big."
+        enable_feature size_limit
         ;;
         --prefix=*)
         prefix="${optval}"
@@ -774,6 +787,13 @@ process_common_toolchain() {
             add_cflags  "-mmacosx-version-min=10.9"
             add_ldflags "-mmacosx-version-min=10.9"
             ;;
+        *-iphonesimulator-*)
+            add_cflags  "-miphoneos-version-min=5.0"
+            add_ldflags "-miphoneos-version-min=5.0"
+            osx_sdk_dir="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+            add_cflags  "-isysroot ${osx_sdk_dir}"
+            add_ldflags "-isysroot ${osx_sdk_dir}"
+            ;;
     esac
 
     # Handle Solaris variants. Solaris 10 needs -lposix4
@@ -792,8 +812,12 @@ process_common_toolchain() {
     arm*)
         # on arm, isa versions are supersets
         case ${tgt_isa} in
-        armv7)
+        arm64|armv8)
             soft_enable neon
+            ;;
+        armv7|armv7s)
+            soft_enable neon
+            soft_enable neon_asm
             soft_enable media
             soft_enable edsp
             soft_enable fast_unaligned
@@ -820,7 +844,7 @@ process_common_toolchain() {
             arch_int=${arch_int%%te}
             check_add_asflags --defsym ARCHITECTURE=${arch_int}
             tune_cflags="-mtune="
-            if [ ${tgt_isa} = "armv7" ]; then
+            if [ ${tgt_isa} = "armv7" ] || [ ${tgt_isa} = "armv7s" ]; then
                 if [ -z "${float_abi}" ]; then
                     check_cpp <<EOF && float_abi=hard || float_abi=softfp
 #ifndef __ARM_PCS_VFP
@@ -831,7 +855,7 @@ EOF
                 check_add_cflags  -march=armv7-a -mfloat-abi=${float_abi}
                 check_add_asflags -march=armv7-a -mfloat-abi=${float_abi}
 
-                if enabled neon
+                if enabled neon || enabled neon_asm
                 then
                     check_add_cflags -mfpu=neon #-ftree-vectorize
                     check_add_asflags -mfpu=neon
@@ -859,19 +883,26 @@ EOF
             msvs_arch_dir=arm-msvs
             disable_feature multithread
             disable_feature unit_tests
+            vs_version=${tgt_cc##vs}
+            if [ $vs_version -ge 12 ]; then
+                # MSVC 2013 doesn't allow doing plain .exe projects for ARM,
+                # only "AppContainerApplication" which requires an AppxManifest.
+                # Therefore disable the examples, just build the library.
+                disable_feature examples
+            fi
             ;;
         rvct)
             CC=armcc
             AR=armar
             AS=armasm
-            LD=${source_path}/build/make/armlink_adapter.sh
+            LD="${source_path}/build/make/armlink_adapter.sh"
             STRIP=arm-none-linux-gnueabi-strip
             NM=arm-none-linux-gnueabi-nm
             tune_cflags="--cpu="
             tune_asflags="--cpu="
             if [ -z "${tune_cpu}" ]; then
                 if [ ${tgt_isa} = "armv7" ]; then
-                    if enabled neon
+                    if enabled neon || enabled neon_asm
                     then
                         check_add_cflags --fpu=softvfp+vfpv3
                         check_add_asflags --fpu=softvfp+vfpv3
@@ -1030,14 +1061,6 @@ EOF
         esac
     ;;
     x86*)
-        bits=32
-        enabled x86_64 && bits=64
-        check_cpp <<EOF && bits=x32
-#ifndef __ILP32__
-#error "not x32"
-#endif
-EOF
-
         case  ${tgt_os} in
             win*)
                 enabled gcc && add_cflags -fno-common
@@ -1076,8 +1099,6 @@ EOF
                 esac
             ;;
             gcc*)
-                add_cflags -m${bits}
-                add_ldflags -m${bits}
                 link_with_cc=gcc
                 tune_cflags="-march="
                 setup_gnu_toolchain
@@ -1102,6 +1123,20 @@ EOF
             ;;
         esac
 
+        bits=32
+        enabled x86_64 && bits=64
+        check_cpp <<EOF && bits=x32
+#ifndef __ILP32__
+#error "not x32"
+#endif
+EOF
+        case ${tgt_cc} in
+            gcc*)
+                add_cflags -m${bits}
+                add_ldflags -m${bits}
+            ;;
+        esac
+
         soft_enable runtime_cpu_detect
         # We can't use 'check_cflags' until the compiler is configured and CC is
         # populated.
@@ -1118,7 +1153,7 @@ EOF
             auto|"")
                 which nasm >/dev/null 2>&1 && AS=nasm
                 which yasm >/dev/null 2>&1 && AS=yasm
-                [ "${AS}" = auto -o -z "${AS}" ] \
+                [ "${AS}" = auto ] || [ -z "${AS}" ] \
                     && die "Neither yasm nor nasm have been found"
             ;;
         esac
@@ -1153,6 +1188,12 @@ EOF
                 # enabled icc && ! enabled pic && add_cflags -fno-pic -mdynamic-no-pic
                 enabled icc && ! enabled pic && add_cflags -fno-pic
             ;;
+            iphonesimulator)
+                add_asflags -f macho${bits}
+                enabled x86 && sim_arch="-arch i386" || sim_arch="-arch x86_64"
+                add_cflags  ${sim_arch}
+                add_ldflags ${sim_arch}
+           ;;
             os2)
                 add_asflags -f aout
                 enabled debug && add_asflags -g
@@ -1184,7 +1225,12 @@ EOF
         fi
     fi
 
-    enabled debug && check_add_cflags -g && check_add_ldflags -g
+    if enabled debug; then
+        check_add_cflags -g && check_add_ldflags -g
+    else
+        check_add_cflags -DNDEBUG
+    fi
+
     enabled gprof && check_add_cflags -pg && check_add_ldflags -pg
     enabled gcov &&
         check_add_cflags -fprofile-arcs -ftest-coverage &&
@@ -1198,10 +1244,12 @@ EOF
         fi
     fi
 
-    # default use_x86inc to yes if pic is no or 64bit or we are not on darwin
-    if [ ${tgt_isa} = x86_64 -o ! "$pic" = "yes" -o \
-         "${tgt_os#darwin}" = "${tgt_os}"  ]; then
-      soft_enable use_x86inc
+    tgt_os_no_version=$(echo "${tgt_os}" | tr -d "[0-9]")
+    # Default use_x86inc to yes when we are 64 bit, non-pic, or on any
+    # non-Darwin target.
+    if [ "${tgt_isa}" = "x86_64" ] || [ "${pic}" != "yes" ] || \
+            [ "${tgt_os_no_version}" != "darwin" ]; then
+        soft_enable use_x86inc
     fi
 
     # Position Independent Code (PIC) support, for building relocatable
@@ -1269,20 +1317,23 @@ process_toolchain() {
 }
 
 print_config_mk() {
-    local prefix=$1
-    local makefile=$2
+    saved_prefix="${prefix}"
+    prefix=$1
+    makefile=$2
     shift 2
     for cfg; do
-        upname="`toupper $cfg`"
         if enabled $cfg; then
+            upname="`toupper $cfg`"
             echo "${prefix}_${upname}=yes" >> $makefile
         fi
     done
+    prefix="${saved_prefix}"
 }
 
 print_config_h() {
-    local prefix=$1
-    local header=$2
+    saved_prefix="${prefix}"
+    prefix=$1
+    header=$2
     shift 2
     for cfg; do
         upname="`toupper $cfg`"
@@ -1292,12 +1343,24 @@ print_config_h() {
             echo "#define ${prefix}_${upname} 0" >> $header
         fi
     done
+    prefix="${saved_prefix}"
+}
+
+print_config_vars_h() {
+    header=$1
+    shift
+    while [ $# -gt 0 ]; do
+        upname="`toupper $1`"
+        echo "#define ${upname} $2" >> $header
+        shift 2
+    done
 }
 
 print_webm_license() {
-    local destination=$1
-    local prefix="$2"
-    local suffix="$3"
+    saved_prefix="${prefix}"
+    destination=$1
+    prefix="$2"
+    suffix="$3"
     shift 3
     cat <<EOF > ${destination}
 ${prefix} Copyright (c) 2011 The WebM project authors. All Rights Reserved.${suffix}
@@ -1308,6 +1371,7 @@ ${prefix} tree. An additional intellectual property rights grant can be found${s
 ${prefix} in the file PATENTS.  All contributing project authors may${suffix}
 ${prefix} be found in the AUTHORS file in the root of the source tree.${suffix}
 EOF
+    prefix="${saved_prefix}"
 }
 
 process_targets() {
@@ -1339,10 +1403,10 @@ process() {
     if enabled source_path_used; then
     # Prepare the PWD for building.
     for f in ${OOT_INSTALLS}; do
-            install -D ${source_path}/$f $f
+            install -D "${source_path}/$f" "$f"
     done
     fi
-    cp ${source_path}/build/make/Makefile .
+    cp "${source_path}/build/make/Makefile" .
 
     clean_temp_files
     true

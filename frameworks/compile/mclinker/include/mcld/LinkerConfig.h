@@ -6,16 +6,15 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef MCLD_LINKERCONFIG_H
-#define MCLD_LINKERCONFIG_H
+#ifndef MCLD_LINKERCONFIG_H_
+#define MCLD_LINKERCONFIG_H_
+
+#include "mcld/GeneralOptions.h"
+#include "mcld/TargetOptions.h"
+#include "mcld/AttributeOption.h"
+#include "mcld/Support/Path.h"
 
 #include <llvm/ADT/Triple.h>
-
-#include <mcld/GeneralOptions.h>
-#include <mcld/TargetOptions.h>
-#include <mcld/BitcodeOption.h>
-#include <mcld/AttributeOption.h>
-#include <mcld/Support/Path.h>
 
 #include <string>
 
@@ -27,17 +26,9 @@ namespace mcld {
  *   bitcode()        - the bitcode being linked
  *   attribute()      - the attribute options
  */
-class LinkerConfig
-{
-public:
-  enum CodeGenType {
-    Unknown,
-    Object,
-    DynObj,
-    Exec,
-    External,
-    Binary
-  };
+class LinkerConfig {
+ public:
+  enum CodeGenType { Unknown, Object, DynObj, Exec, External, Binary };
 
   /** \enum CodePosition
    *  CodePosition indicates the ability of the generated output to be
@@ -56,30 +47,27 @@ public:
    *  output.
    */
   enum CodePosition {
-    Independent,      ///< Position Independent
-    DynamicDependent, ///< Can call outside libraries
-    StaticDependent,  ///< Can not call outside libraries
-    Unset             ///< Undetermine code position mode
+    Independent,       ///< Position Independent
+    DynamicDependent,  ///< Can call outside libraries
+    StaticDependent,   ///< Can not call outside libraries
+    Unset              ///< Undetermine code position mode
   };
 
-public:
+ public:
   LinkerConfig();
 
-  explicit LinkerConfig(const std::string &pTripleString);
+  explicit LinkerConfig(const std::string& pTripleString);
 
   ~LinkerConfig();
 
   const GeneralOptions& options() const { return m_Options; }
-  GeneralOptions&       options()       { return m_Options; }
+  GeneralOptions& options() { return m_Options; }
 
-  const TargetOptions&  targets() const { return m_Targets; }
-  TargetOptions&        targets()       { return m_Targets; }
-
-  const BitcodeOption&  bitcode() const { return m_Bitcode; }
-  BitcodeOption&        bitcode()       { return m_Bitcode; }
+  const TargetOptions& targets() const { return m_Targets; }
+  TargetOptions& targets() { return m_Targets; }
 
   const AttributeOption& attribute() const { return m_Attribute; }
-  AttributeOption&       attribute()       { return m_Attribute; }
+  AttributeOption& attribute() { return m_Attribute; }
 
   CodeGenType codeGenType() const { return m_CodeGenType; }
 
@@ -88,24 +76,22 @@ public:
   CodePosition codePosition() const { return m_CodePosition; }
   void setCodePosition(CodePosition pPosition) { m_CodePosition = pPosition; }
 
-  bool isCodeIndep()   const { return (Independent == m_CodePosition); }
+  bool isCodeIndep() const { return (Independent == m_CodePosition); }
   bool isCodeDynamic() const { return (DynamicDependent == m_CodePosition); }
-  bool isCodeStatic()  const { return (StaticDependent == m_CodePosition); }
+  bool isCodeStatic() const { return (StaticDependent == m_CodePosition); }
 
   static const char* version();
 
-private:
+ private:
   // -----  General Options  ----- //
   GeneralOptions m_Options;
   TargetOptions m_Targets;
-  BitcodeOption m_Bitcode;
   AttributeOption m_Attribute;
 
   CodeGenType m_CodeGenType;
   CodePosition m_CodePosition;
 };
 
-} // namespace of mcld
+}  // namespace mcld
 
-#endif
-
+#endif  // MCLD_LINKERCONFIG_H_

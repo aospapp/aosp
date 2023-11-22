@@ -215,7 +215,7 @@
     <item quantity="other" msgid="4085982174357328926">"စာ အသစ် <xliff:g id="COUNT">%1$d</xliff:g> ခု"</item>
   </plurals>
     <string name="date_and_view_details" msgid="2952994746916149969">"<xliff:g id="DATE">%1$s</xliff:g> &lt;a href=\'http://www.example.com\'&gt;သေးစိတ် ကြည့်&lt;/a&gt;"</string>
-    <string name="hide_details" msgid="8018801050702453314">"အသေးစိတ်များ ဝှက်ထားရန်"</string>
+    <string name="hide_details" msgid="8018801050702453314">"အသေးစိတ်မပြနှင့်"</string>
     <string name="to_message_header" msgid="3954385178027011919">"<xliff:g id="RECIPIENTS">%1$s</xliff:g> ထံသို့"</string>
     <string name="bcc_header_for_recipient_summary" msgid="1834716758549842454">"bcc: "</string>
     <string name="contact_info_string" msgid="6484930184867405276">"<xliff:g id="NAME">%1$s</xliff:g> အတွက် ဆက်သွယ်ရေး အချက်အလက်ကို ပြပါ။"</string>

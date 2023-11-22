@@ -15,6 +15,7 @@
  */
 package android.hardware.cts.helpers;
 
+import android.hardware.Sensor;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -258,5 +259,21 @@ public class SensorCtsHelper {
         if(collection == null || collection.size() == 0) {
             throw new IllegalStateException("Collection cannot be null or empty");
         }
+    }
+
+    public static String getUnitsForSensor(Sensor sensor) {
+        switch(sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+                return "m/s^2";
+            case Sensor.TYPE_MAGNETIC_FIELD:
+            case Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED:
+                return "uT";
+            case Sensor.TYPE_GYROSCOPE:
+            case Sensor.TYPE_GYROSCOPE_UNCALIBRATED:
+                return "radians/sec";
+            case Sensor.TYPE_PRESSURE:
+                return "hPa";
+        };
+        return "";
     }
 }

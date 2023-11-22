@@ -22,11 +22,9 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.flashlight</package>
 
-
-
     <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
-
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>
@@ -37,8 +35,41 @@
         </intro>
     </strings>
 
-    <template src="base"/>
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Wearable</categories>
+        <technologies>Android</technologies>
+        <language>Java</language>
+        <solutions>Mobile</solutions>
+        <level>BEGINNER</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/flashlight.png</img>
+            <img>screenshots/party_mode.gif</img>
+        </screenshots>
+        <api_refs>
+            <android>android.app.Activity</android>
+            <android>android.app.Fragment</android>
+            <android>android.support.v4.view.ViewPager</android>
+        </api_refs>
+        <description>
+<![CDATA[
+Sample demonstrating the use of an Activity in a wearable application. The
+sample uses the screen as a flashlight.
+]]>
+        </description>
+        <intro>
+<![CDATA[
+Sample demonstrating the use of an Activity in a wearable application. The
+sample also demonstrates using a ViewPager allowing the user to swipe between
+Fragments.
+
+Swipe left to reveal a multi colored flashlight, swipe right to return to the
+white flashlight.
+]]>
+        </intro>
+    </metadata>
+
+    <template src="base-build" />
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
 </sample>

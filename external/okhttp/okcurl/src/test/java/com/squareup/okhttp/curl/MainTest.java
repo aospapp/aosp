@@ -16,8 +16,9 @@
 package com.squareup.okhttp.curl;
 
 import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
 import java.io.IOException;
-import okio.OkBuffer;
+import okio.Buffer;
 import org.junit.Test;
 
 import static com.squareup.okhttp.curl.Main.fromArgs;
@@ -32,16 +33,16 @@ public class MainTest {
     assertNull(request.body());
   }
 
-  @Test public void put() {
-    Request request = fromArgs("-X", "PUT", "http://example.com").createRequest();
+  @Test public void put() throws IOException {
+    Request request = fromArgs("-X", "PUT", "-d", "foo", "http://example.com").createRequest();
     assertEquals("PUT", request.method());
     assertEquals("http://example.com", request.urlString());
-    assertNull(request.body());
+    assertEquals(3, request.body().contentLength());
   }
 
   @Test public void dataPost() {
     Request request = fromArgs("-d", "foo", "http://example.com").createRequest();
-    Request.Body body = request.body();
+    RequestBody body = request.body();
     assertEquals("POST", request.method());
     assertEquals("http://example.com", request.urlString());
     assertEquals("application/x-form-urlencoded; charset=utf-8", body.contentType().toString());
@@ -50,7 +51,7 @@ public class MainTest {
 
   @Test public void dataPut() {
     Request request = fromArgs("-d", "foo", "-X", "PUT", "http://example.com").createRequest();
-    Request.Body body = request.body();
+    RequestBody body = request.body();
     assertEquals("PUT", request.method());
     assertEquals("http://example.com", request.urlString());
     assertEquals("application/x-form-urlencoded; charset=utf-8", body.contentType().toString());
@@ -60,7 +61,7 @@ public class MainTest {
   @Test public void contentTypeHeader() {
     Request request = fromArgs("-d", "foo", "-H", "Content-Type: application/json",
         "http://example.com").createRequest();
-    Request.Body body = request.body();
+    RequestBody body = request.body();
     assertEquals("POST", request.method());
     assertEquals("http://example.com", request.urlString());
     assertEquals("application/json; charset=utf-8", body.contentType().toString());
@@ -83,12 +84,17 @@ public class MainTest {
     assertNull(request.body());
   }
 
-  private static String bodyAsString(Request.Body body) {
+  @Test public void headerSplitWithDate() {
+    Request request = fromArgs("-H", "If-Modified-Since: Mon, 18 Aug 2014 15:16:06 GMT",
+        "http://example.com").createRequest();
+    assertEquals("Mon, 18 Aug 2014 15:16:06 GMT", request.header("If-Modified-Since"));
+  }
+
+  private static String bodyAsString(RequestBody body) {
     try {
-      OkBuffer buffer = new OkBuffer();
+      Buffer buffer = new Buffer();
       body.writeTo(buffer);
-      return new String(buffer.readByteString(buffer.size()).toByteArray(),
-          body.contentType().charset());
+      return buffer.readString(body.contentType().charset());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

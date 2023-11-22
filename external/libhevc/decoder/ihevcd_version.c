@@ -62,7 +62,7 @@
  * Version string. First two digits signify major version and last two minor
  * Increment major version for API change or major feature update
  */
-#define CODEC_RELEASE_VER       "04.01"
+#define CODEC_RELEASE_VER       "04.04"
 /**
  * Vendor name
  */

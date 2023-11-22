@@ -160,8 +160,12 @@ enum vp8e_enc_control_id {
                                           scale as used by the rc_*_quantizer config
                                           parameters */
   VP8E_SET_ARNR_MAXFRAMES,         /**< control function to set the max number of frames blurred creating arf*/
-  VP8E_SET_ARNR_STRENGTH,         /**< control function to set the filter strength for the arf */
-  VP8E_SET_ARNR_TYPE,         /**< control function to set the type of filter to use for the arf*/
+  VP8E_SET_ARNR_STRENGTH,          //!< control function to set the filter
+                                   //!< strength for the arf
+
+  /*!\deprecated control function to set the filter type to use for the arf */
+  VP8E_SET_ARNR_TYPE,
+
   VP8E_SET_TUNING,                 /**< control function to set visual tuning */
   /*!\brief control function to set constrained quality level
    *
@@ -201,7 +205,8 @@ enum vp8e_enc_control_id {
    *                     layer and 0..#vpx_codec_enc_cfg::ts_number_layers for
    *                     temporal layer.
    */
-  VP9E_SET_SVC_LAYER_ID
+  VP9E_SET_SVC_LAYER_ID,
+  VP9E_SET_TUNE_CONTENT
 };
 
 /*!\brief vpx 1-D scaling mode
@@ -273,6 +278,12 @@ typedef enum {
   VP8_EIGHT_TOKENPARTITION = 3
 } vp8e_token_partitions;
 
+/*!brief VP9 encoder content type */
+typedef enum {
+  VP9E_CONTENT_DEFAULT,
+  VP9E_CONTENT_SCREEN,
+  VP9E_CONTENT_INVALID
+} vp9e_tune_content;
 
 /*!\brief VP8 model tuning parameters
  *
@@ -294,7 +305,6 @@ typedef struct vpx_svc_parameters {
   unsigned int height;        /**< height of current spatial layer */
   int spatial_layer;          /**< current spatial layer number - 0 = base */
   int temporal_layer;         /**< current temporal layer number - 0 = base */
-  int flags;                  /**< encode frame flags */
   int max_quantizer;          /**< max quantizer for current layer */
   int min_quantizer;          /**< min quantizer for current layer */
   int distance_from_i_frame;  /**< frame number within current gop */
@@ -347,7 +357,7 @@ VPX_CTRL_USE_TYPE(VP8E_SET_TOKEN_PARTITIONS,   int) /* vp8e_token_partitions */
 
 VPX_CTRL_USE_TYPE(VP8E_SET_ARNR_MAXFRAMES,     unsigned int)
 VPX_CTRL_USE_TYPE(VP8E_SET_ARNR_STRENGTH,     unsigned int)
-VPX_CTRL_USE_TYPE(VP8E_SET_ARNR_TYPE,     unsigned int)
+VPX_CTRL_USE_TYPE_DEPRECATED(VP8E_SET_ARNR_TYPE,     unsigned int)
 VPX_CTRL_USE_TYPE(VP8E_SET_TUNING,             int) /* vp8e_tuning */
 VPX_CTRL_USE_TYPE(VP8E_SET_CQ_LEVEL,      unsigned int)
 
@@ -367,6 +377,7 @@ VPX_CTRL_USE_TYPE(VP9E_SET_AQ_MODE, unsigned int)
 
 VPX_CTRL_USE_TYPE(VP9E_SET_FRAME_PERIODIC_BOOST, unsigned int)
 
+VPX_CTRL_USE_TYPE(VP9E_SET_TUNE_CONTENT, int) /* vp9e_tune_content */
 /*! @} - end defgroup vp8_encoder */
 #ifdef __cplusplus
 }  // extern "C"

@@ -1,8 +1,0 @@
-AXWebArea
-    AXList AXSubrole=AXDescriptionList
-        AXGroup AXSubrole=AXTerm
-            AXStaticText AXValue='Term'
-        AXGroup AXSubrole=AXDescription
-            AXStaticText AXValue='Description'
-    AXGroup AXSubrole=AXDefinition
-        AXStaticText AXValue='Definition'

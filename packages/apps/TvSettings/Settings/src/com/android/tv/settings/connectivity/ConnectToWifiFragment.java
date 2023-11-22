@@ -16,13 +16,6 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.connectivity.ConnectivityListener;
-import com.android.tv.settings.connectivity.SaveWifiConfigurationFragment.Listener;
-import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
-import com.android.tv.settings.form.FormPage;
-
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -38,7 +31,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-import java.util.List;
+import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
+
+import java.lang.ref.WeakReference;
 
 /**
  * Connects to the wifi network specified by the given configuration.
@@ -85,7 +80,7 @@ public class ConnectToWifiFragment extends MessageWizardFragment
     private boolean mConnected;
 
     @Override
-    public void onAttach(Activity activity) {
+    public void onAttach(Context activity) {
         if (activity instanceof Listener) {
             mListener = (Listener) activity;
         } else {
@@ -101,27 +96,42 @@ public class ConnectToWifiFragment extends MessageWizardFragment
         mListener = null;
     }
 
+    private static class MessageHandler extends Handler {
+
+        private final WeakReference<ConnectToWifiFragment> mFragmentRef;
+
+        public MessageHandler(ConnectToWifiFragment fragment) {
+            mFragmentRef = new WeakReference<>(fragment);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            if (DEBUG) Log.d(TAG, "Timeout waiting on supplicant state change");
+
+            final ConnectToWifiFragment fragment = mFragmentRef.get();
+            if (fragment == null) {
+                return;
+            }
+
+            if (fragment.isNetworkConnected()) {
+                if (DEBUG) Log.d(TAG, "Fake timeout; we're actually connected");
+                fragment.mConnected = true;
+                fragment.notifyListener(RESULT_SUCCESS);
+            } else {
+                if (DEBUG) Log.d(TAG, "Timeout is real; telling the listener");
+                fragment.notifyListener(RESULT_TIMEOUT);
+            }
+        }
+    }
+
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
         mConnectivityListener = new ConnectivityListener(getActivity(), this);
-        mWifiConfiguration = (WifiConfiguration) getArguments().getParcelable(EXTRA_CONFIGURATION);
+        mWifiConfiguration = getArguments().getParcelable(EXTRA_CONFIGURATION);
         mWifiManager = ((WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE));
-        mHandler = new Handler() {
-            @Override
-            public void handleMessage(Message msg) {
-                if (DEBUG) Log.d(TAG, "Timeout waiting on supplicant state change");
-                if (isNetworkConnected()) {
-                    if (DEBUG) Log.d(TAG, "Fake timeout; we're actually connected");
-                    mConnected = true;
-                    notifyListener(RESULT_SUCCESS);
-                } else {
-                    if (DEBUG) Log.d(TAG, "Timeout is real; telling the listener");
-                    notifyListener(RESULT_TIMEOUT);
-                }
-            }
-        };
+        mHandler = new MessageHandler(this);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
@@ -129,7 +139,7 @@ public class ConnectToWifiFragment extends MessageWizardFragment
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (WifiManager.SUPPLICANT_STATE_CHANGED_ACTION.equals(intent.getAction())) {
-                    SupplicantState state = (SupplicantState) intent.getParcelableExtra(
+                    SupplicantState state = intent.getParcelableExtra(
                             WifiManager.EXTRA_NEW_STATE);
                     if (DEBUG) {
                         Log.d(TAG, "Got supplicant state: " + state.name());
@@ -179,7 +189,11 @@ public class ConnectToWifiFragment extends MessageWizardFragment
         };
         getActivity().registerReceiver(mReceiver, filter);
         mConnectivityListener.start();
+    }
 
+    @Override
+    public void onResume() {
+        super.onResume();
         if (isNetworkConnected()) {
             mConnected = true;
             notifyListener(RESULT_SUCCESS);
@@ -227,7 +241,7 @@ public class ConnectToWifiFragment extends MessageWizardFragment
     }
 
     private void notifyListener(int result) {
-        if (mListener != null) {
+        if (mListener != null && isResumed()) {
             mListener.onConnectToWifiCompleted(result);
             mListener = null;
         }

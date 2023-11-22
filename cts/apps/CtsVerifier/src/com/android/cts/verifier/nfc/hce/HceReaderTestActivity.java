@@ -40,12 +40,6 @@ public class HceReaderTestActivity extends PassFailButtons.TestListActivity {
 
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
             adapter.add(TestListItem.newCategory(this, R.string.nfc_hce_reader_tests));
-            /*
-             * Only add this test when supported in platform
-            adapter.add(TestListItem.newTest(this, R.string.nfc_hce_default_route_reader,
-                    SimpleReaderActivity.class.getName(),
-                    DefaultRouteEmulatorActivity.buildReaderIntent(this), null));
-             */
 
             adapter.add(TestListItem.newTest(this, R.string.nfc_hce_protocol_params_reader,
                     ProtocolParamsReaderActivity.class.getName(),

@@ -16,21 +16,23 @@
 package android.app.cts;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.Instrumentation;
-import android.app.ActivityManager.ProcessErrorStateInfo;
 import android.app.ActivityManager.RecentTaskInfo;
 import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.ActivityManager.RunningServiceInfo;
 import android.app.ActivityManager.RunningTaskInfo;
+import android.app.ActivityOptions;
+import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
 import android.app.Instrumentation.ActivityResult;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ConfigurationInfo;
 import android.test.InstrumentationTestCase;
 
@@ -39,6 +41,27 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     private static final int WAITFOR_MSEC = 5000;
     private static final String SERVICE_NAME = "android.app.cts.MockService";
     private static final int WAIT_TIME = 2000;
+    // A secondary test activity from another APK.
+    private static final String SIMPLE_PACKAGE_NAME = "com.android.cts.launcherapps.simpleapp";
+    private static final String SIMPLE_ACTIVITY = ".SimpleActivity";
+    private static final String SIMPLE_ACTIVITY_IMMEDIATE_EXIT = ".SimpleActivityImmediateExit";
+    private static final String SIMPLE_ACTIVITY_CHAIN_EXIT = ".SimpleActivityChainExit";
+    // The action sent back by the SIMPLE_APP after a restart.
+    private static final String ACTIVITY_LAUNCHED_ACTION =
+            "com.android.cts.launchertests.LauncherAppsTests.LAUNCHED_ACTION";
+    // The action sent back by the SIMPLE_APP_IMMEDIATE_EXIT when it terminates.
+    private static final String ACTIVITY_EXIT_ACTION =
+            "com.android.cts.launchertests.LauncherAppsTests.EXIT_ACTION";
+    // The action sent back by the SIMPLE_APP_CHAIN_EXIT when the task chain ends. 
+    private static final String ACTIVITY_CHAIN_EXIT_ACTION =
+            "com.android.cts.launchertests.LauncherAppsTests.CHAIN_EXIT_ACTION";
+    // The action sent to identify the time track info.
+    private static final String ACTIVITY_TIME_TRACK_INFO = "com.android.cts.TIME_TRACK_INFO";
+    // Return states of the ActivityReceiverFilter.
+    public static final int RESULT_PASS = 1;
+    public static final int RESULT_FAIL = 2;
+    public static final int RESULT_TIMEOUT = 3;
+
     private Context mContext;
     private ActivityManager mActivityManager;
     private Intent mIntent;
@@ -116,6 +139,79 @@ public class ActivityManagerTest extends InstrumentationTestCase {
             fail("Should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected exception
+        }
+    }
+
+    public void testGetRecentTasksLimitedToCurrentAPK() throws Exception {
+        int maxNum = 0;
+        int flags = 0;
+
+        // Check the number of tasks at this time.
+        List<RecentTaskInfo>  recentTaskList;
+        recentTaskList = mActivityManager.getRecentTasks(maxNum, flags);
+        int numberOfEntriesFirstRun = recentTaskList.size();
+
+        // Start another activity from another APK.
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        ActivityReceiverFilter receiver = new ActivityReceiverFilter(ACTIVITY_LAUNCHED_ACTION);
+        mContext.startActivity(intent);
+
+        // Make sure the activity has really started.
+        assertEquals(RESULT_PASS, receiver.waitForActivity());
+        receiver.close();
+
+        // There shouldn't be any more tasks in this list at this time.
+        recentTaskList = mActivityManager.getRecentTasks(maxNum, flags);
+        int numberOfEntriesSecondRun = recentTaskList.size();
+        assertTrue(numberOfEntriesSecondRun == numberOfEntriesFirstRun);
+    }
+
+    // The receiver filter needs to be instantiated with the command to filter for before calling
+    // startActivity.
+    private class ActivityReceiverFilter extends BroadcastReceiver {
+        // The activity we want to filter for.
+        private String mActivityToFilter;
+        private int result = RESULT_TIMEOUT;
+        public long mTimeUsed = 0;
+        private static final int TIMEOUT_IN_MS = 1000;
+
+        // Create the filter with the intent to look for.
+        public ActivityReceiverFilter(String activityToFilter) {
+            mActivityToFilter = activityToFilter;
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(mActivityToFilter);
+            mInstrumentation.getTargetContext().registerReceiver(this, filter);
+        }
+
+        // Turn off the filter.
+        public void close() {
+            mInstrumentation.getTargetContext().unregisterReceiver(this);
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(mActivityToFilter)) {
+                synchronized(this) {
+                   result = RESULT_PASS;
+                   if (mActivityToFilter.equals(ACTIVITY_TIME_TRACK_INFO)) {
+                       mTimeUsed = intent.getExtras().getLong(
+                               ActivityOptions.EXTRA_USAGE_TIME_REPORT);
+                   }
+                   notifyAll();
+                }
+            }
+        }
+
+        public int waitForActivity() {
+            synchronized(this) {
+                try {
+                    wait(TIMEOUT_IN_MS);
+                } catch (InterruptedException e) {
+                }
+            }
+            return result;
         }
     }
 
@@ -219,7 +315,8 @@ public class ActivityManagerTest extends InstrumentationTestCase {
                 hasTestProcess = true;
             }
         }
-        assertTrue(hasSystemProcess && hasTestProcess);
+        // For security reasons the system process is not exposed.
+        assertTrue(!hasSystemProcess && hasTestProcess);
 
         for (RunningAppProcessInfo ra : list) {
             if (ra.processName.equals("com.android.cts.app.stub:remote")) {
@@ -271,5 +368,159 @@ public class ActivityManagerTest extends InstrumentationTestCase {
     public void testIsRunningInTestHarness() {
         assertFalse("isRunningInTestHarness must be false in production builds",
                 ActivityManager.isRunningInTestHarness());
+    }
+
+    /**
+     * Go back to the home screen since running applications can interfere with application
+     * lifetime tests.
+     */
+    private void launchHome() throws Exception {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        Thread.sleep(WAIT_TIME);
+    }
+
+    /**
+     * Verify that the TimeTrackingAPI works properly when starting and ending an activity.
+     */
+    public void testTimeTrackingAPI_SimpleStartExit() throws Exception {
+        launchHome();
+        // Prepare to start an activity from another APK.
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(SIMPLE_PACKAGE_NAME,
+                SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY_IMMEDIATE_EXIT);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        // Prepare the time receiver action.
+        Context context = mInstrumentation.getTargetContext();
+        ActivityOptions options = ActivityOptions.makeBasic();
+        Intent receiveIntent = new Intent(ACTIVITY_TIME_TRACK_INFO);
+        options.requestUsageTimeReport(PendingIntent.getBroadcast(context,
+                0, receiveIntent, PendingIntent.FLAG_CANCEL_CURRENT));
+
+        // The application finished tracker.
+        ActivityReceiverFilter appEndReceiver = new ActivityReceiverFilter(ACTIVITY_EXIT_ACTION);
+
+        // The filter for the time event.
+        ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
+
+        // Run the activity.
+        mContext.startActivity(intent, options.toBundle());
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
+        appEndReceiver.close();
+
+        // At this time the timerReceiver should not fire, even though the activity has shut down,
+        // because we are back to the home screen.
+        assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
+        assertTrue(timeReceiver.mTimeUsed == 0);
+
+        // Issuing now another activity will trigger the timing information release.
+        final Intent dummyIntent = new Intent(context, MockApplicationActivity.class);
+        dummyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = mInstrumentation.startActivitySync(dummyIntent);
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
+        timeReceiver.close();
+        assertTrue(timeReceiver.mTimeUsed != 0);
+    }
+
+    /**
+     * Verify that the TimeTrackingAPI works properly when switching away from the monitored task.
+     */
+    public void testTimeTrackingAPI_SwitchAwayTriggers() throws Exception {
+        launchHome();
+
+        // Prepare to start an activity from another APK.
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        // Prepare the time receiver action.
+        Context context = mInstrumentation.getTargetContext();
+        ActivityOptions options = ActivityOptions.makeBasic();
+        Intent receiveIntent = new Intent(ACTIVITY_TIME_TRACK_INFO);
+        options.requestUsageTimeReport(PendingIntent.getBroadcast(context,
+                0, receiveIntent, PendingIntent.FLAG_CANCEL_CURRENT));
+
+        // The application started tracker.
+        ActivityReceiverFilter appStartedReceiver = new ActivityReceiverFilter(
+                ACTIVITY_LAUNCHED_ACTION);
+
+        // The filter for the time event.
+        ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
+
+        // Run the activity.
+        mContext.startActivity(intent, options.toBundle());
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
+        appStartedReceiver.close();
+
+        // At this time the timerReceiver should not fire since our app is running.
+        assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
+        assertTrue(timeReceiver.mTimeUsed == 0);
+
+        // Starting now another activity will put ours into the back hence releasing the timing.
+        final Intent dummyIntent = new Intent(context, MockApplicationActivity.class);
+        dummyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = mInstrumentation.startActivitySync(dummyIntent);
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
+        timeReceiver.close();
+        assertTrue(timeReceiver.mTimeUsed != 0);
+    }
+
+    /**
+     * Verify that the TimeTrackingAPI works properly when handling an activity chain gets started
+     * and ended.
+     */
+    public void testTimeTrackingAPI_ChainedActivityExit() throws Exception {
+        launchHome();
+        // Prepare to start an activity from another APK.
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(SIMPLE_PACKAGE_NAME,
+                SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY_CHAIN_EXIT);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        // Prepare the time receiver action.
+        Context context = mInstrumentation.getTargetContext();
+        ActivityOptions options = ActivityOptions.makeBasic();
+        Intent receiveIntent = new Intent(ACTIVITY_TIME_TRACK_INFO);
+        options.requestUsageTimeReport(PendingIntent.getBroadcast(context,
+                0, receiveIntent, PendingIntent.FLAG_CANCEL_CURRENT));
+
+        // The application finished tracker.
+        ActivityReceiverFilter appEndReceiver = new ActivityReceiverFilter(
+                ACTIVITY_CHAIN_EXIT_ACTION);
+
+        // The filter for the time event.
+        ActivityReceiverFilter timeReceiver = new ActivityReceiverFilter(ACTIVITY_TIME_TRACK_INFO);
+
+        // Run the activity.
+        mContext.startActivity(intent, options.toBundle());
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, appEndReceiver.waitForActivity());
+        appEndReceiver.close();
+
+        // At this time the timerReceiver should not fire, even though the activity has shut down.
+        assertEquals(RESULT_TIMEOUT, timeReceiver.waitForActivity());
+        assertTrue(timeReceiver.mTimeUsed == 0);
+
+        // Issue another activity so that the timing information gets released.
+        final Intent dummyIntent = new Intent(context, MockApplicationActivity.class);
+        dummyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        final Activity activity = mInstrumentation.startActivitySync(dummyIntent);
+
+        // Wait until it finishes and end the reciever then.
+        assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
+        timeReceiver.close();
+        assertTrue(timeReceiver.mTimeUsed != 0);
     }
 }

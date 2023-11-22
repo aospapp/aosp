@@ -16,11 +16,6 @@
 
 package com.android.tv.settings.widget;
 
-import com.android.tv.settings.widget.BitmapDownloader;
-import com.android.tv.settings.widget.BitmapDownloader.BitmapCallback;
-import com.android.tv.settings.widget.BitmapWorkerOptions;
-import com.android.tv.settings.R;
-
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -31,14 +26,17 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.tv.settings.R;
+import com.android.tv.settings.widget.BitmapDownloader.BitmapCallback;
+
 /**
  * Implementation of the SettingsToast notification.
  */
 public class SettingsToast extends Toast {
 
-    protected Context mContext;
-    protected TextView mTextView;
-    protected ImageView mIconView;
+    protected final Context mContext;
+    protected final TextView mTextView;
+    protected final ImageView mIconView;
     protected BitmapCallback mBitmapCallBack;
 
     /**

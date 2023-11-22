@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-ifneq ($(BUILD_TINY_ANDROID),true)
-
 LOCAL_PATH := $(call my-dir)
 
 # -----------------------------------------------------------------------------
@@ -54,8 +52,10 @@ test_cppflags = \
 libBionicStandardTests_src_files := \
     arpa_inet_test.cpp \
     buffer_tests.cpp \
+    complex_test.cpp \
     ctype_test.cpp \
     dirent_test.cpp \
+    error_test.cpp \
     eventfd_test.cpp \
     fcntl_test.cpp \
     fenv_test.cpp \
@@ -67,40 +67,33 @@ libBionicStandardTests_src_files := \
     libgen_test.cpp \
     locale_test.cpp \
     malloc_test.cpp \
-    math_cos_test.cpp \
-    math_cosf_test.cpp \
-    math_exp_test.cpp \
-    math_expf_test.cpp \
-    math_log_test.cpp \
-    math_logf_test.cpp \
-    math_pow_test.cpp \
-    math_powf_test.cpp \
-    math_sin_test.cpp \
-    math_sinf_test.cpp \
-    math_sincos_test.cpp \
-    math_sincosf_test.cpp \
-    math_tan_test.cpp \
-    math_tanf_test.cpp \
     math_test.cpp \
     mntent_test.cpp \
     netdb_test.cpp \
     pthread_test.cpp \
+    pty_test.cpp \
     regex_test.cpp \
     sched_test.cpp \
     search_test.cpp \
+    semaphore_test.cpp \
+    setjmp_test.cpp \
     signal_test.cpp \
     stack_protector_test.cpp \
     stack_unwinding_test.cpp \
     stdatomic_test.cpp \
     stdint_test.cpp \
     stdio_test.cpp \
+    stdio_ext_test.cpp \
     stdlib_test.cpp \
     string_test.cpp \
+    string_posix_strerror_r_test.cpp \
     strings_test.cpp \
     stubs_test.cpp \
     sstream_test.cpp \
     sys_epoll_test.cpp \
     sys_mman_test.cpp \
+    sys_personality_test.cpp \
+    sys_procfs_test.cpp \
     sys_resource_test.cpp \
     sys_select_test.cpp \
     sys_sendfile_test.cpp \
@@ -108,14 +101,18 @@ libBionicStandardTests_src_files := \
     sys_stat_test.cpp \
     sys_statvfs_test.cpp \
     sys_syscall_test.cpp \
+    sys_sysinfo_test.cpp \
     sys_time_test.cpp \
     sys_types_test.cpp \
+    sys_uio_test.cpp \
     sys_vfs_test.cpp \
+    sys_xattr_test.cpp \
     system_properties_test.cpp \
     time_test.cpp \
     uchar_test.cpp \
     uniqueptr_test.cpp \
     unistd_test.cpp \
+    utmp_test.cpp \
     wchar_test.cpp \
 
 libBionicStandardTests_cflags := \
@@ -132,6 +129,10 @@ libBionicStandardTests_cppflags := \
 
 libBionicStandardTests_c_includes := \
     bionic/libc \
+    external/tinyxml2 \
+
+libBionicStandardTests_static_libraries := \
+    libbase \
 
 libBionicStandardTests_ldlibs_host := \
     -lrt \
@@ -216,17 +217,63 @@ build_type := host
 include $(LOCAL_PATH)/Android.build.mk
 
 # -----------------------------------------------------------------------------
+# Library of bionic customized gtest main function, with simplified output format.
+# -----------------------------------------------------------------------------
+libBionicGtestMain_src_files := gtest_main.cpp
+
+libBionicGtestMain_cflags := $(test_cflags)
+
+libBionicGtestMain_cppflags := $(test_cppflags)
+
+module := libBionicGtestMain
+module_tag := optional
+build_type := target
+build_target := STATIC_TEST_LIBRARY
+include $(LOCAL_PATH)/Android.build.mk
+build_type := host
+include $(LOCAL_PATH)/Android.build.mk
+
+# -----------------------------------------------------------------------------
+# Library of bionic customized gtest main function, with normal gtest output format,
+# which is needed by bionic cts test.
+# -----------------------------------------------------------------------------
+libBionicCtsGtestMain_src_files := gtest_main.cpp
+
+libBionicCtsGtestMain_cflags := $(test_cflags)
+
+libBionicCtsGtestMain_cppflags := $(test_cppflags) -DUSING_GTEST_OUTPUT_FORMAT
+
+module := libBionicCtsGtestMain
+module_tag := optional
+build_type := target
+build_target := STATIC_TEST_LIBRARY
+include $(LOCAL_PATH)/Android.build.mk
+build_type := host
+include $(LOCAL_PATH)/Android.build.mk
+
+# -----------------------------------------------------------------------------
 # Tests for the device using bionic's .so. Run with:
 #   adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests32
 #   adb shell /data/nativetest/bionic-unit-tests/bionic-unit-tests64
 # -----------------------------------------------------------------------------
 bionic-unit-tests_whole_static_libraries := \
     libBionicTests \
+    libBionicGtestMain \
 
+bionic-unit-tests_static_libraries := \
+    libtinyxml2 \
+    liblog \
+    libbase \
+
+# TODO: Include __cxa_thread_atexit_test.cpp to glibc tests once it is upgraded (glibc 2.18+)
 bionic-unit-tests_src_files := \
     atexit_test.cpp \
+    dl_test.cpp \
     dlext_test.cpp \
+    __cxa_thread_atexit_test.cpp \
     dlfcn_test.cpp \
+    libdl_test.cpp \
+    pthread_dlfcn_test.cpp \
 
 bionic-unit-tests_cflags := $(test_cflags)
 
@@ -237,8 +284,7 @@ bionic-unit-tests_conlyflags := \
 bionic-unit-tests_cppflags := $(test_cppflags)
 
 bionic-unit-tests_ldflags := \
-    -Wl,--export-dynamic \
-    -Wl,-u,DlSymTestFunction \
+    -Wl,--export-dynamic
 
 bionic-unit-tests_c_includes := \
     bionic/libc \
@@ -247,6 +293,14 @@ bionic-unit-tests_c_includes := \
 bionic-unit-tests_shared_libraries_target := \
     libdl \
     libpagemap \
+    libdl_preempt_test_1 \
+    libdl_preempt_test_2
+
+# TODO: clang support for thread_local on arm is done via __aeabi_read_tp()
+# which bionic does not support. Reenable this once this question is resolved.
+bionic-unit-tests_clang_target := false
+
+bionic-unit-tests_shared_libraries_target += libdl_test_df_1_global
 
 module := bionic-unit-tests
 module_tag := optional
@@ -261,14 +315,24 @@ include $(LOCAL_PATH)/Android.build.mk
 # -----------------------------------------------------------------------------
 bionic-unit-tests-static_whole_static_libraries := \
     libBionicTests \
+    libBionicGtestMain \
 
 bionic-unit-tests-static_static_libraries := \
-    libstlport_static \
     libm \
     libc \
-    libstdc++ \
+    libc++_static \
+    libdl \
+    libtinyxml2 \
+    liblog \
+    libbase \
 
 bionic-unit-tests-static_force_static_executable := true
+
+# libc and libc++ both define std::nothrow. libc's is a private symbol, but this
+# still causes issues when linking libc.a and libc++.a, since private isn't
+# effective until it has been linked. To fix this, just allow multiple symbol
+# definitions for the static tests.
+bionic-unit-tests-static_ldflags := -Wl,--allow-multiple-definition
 
 module := bionic-unit-tests-static
 module_tag := optional
@@ -286,12 +350,27 @@ ifeq ($(HOST_OS)-$(HOST_ARCH),$(filter $(HOST_OS)-$(HOST_ARCH),linux-x86 linux-x
 bionic-unit-tests-glibc_src_files := \
     atexit_test.cpp \
     dlfcn_test.cpp \
+    dl_test.cpp \
+    pthread_dlfcn_test.cpp \
+
+bionic-unit-tests-glibc_shared_libraries := \
+    libdl_preempt_test_1 \
+    libdl_preempt_test_2
+
+bionic-unit-tests-glibc_shared_libraries += libdl_test_df_1_global
 
 bionic-unit-tests-glibc_whole_static_libraries := \
     libBionicStandardTests \
+    libBionicGtestMain \
+    $(fortify_libs) \
+
+bionic-unit-tests-glibc_static_libraries := \
+    libbase \
+    liblog \
+    libcutils \
 
 bionic-unit-tests-glibc_ldlibs := \
-    -lrt -ldl \
+    -lrt -ldl -lutil \
 
 bionic-unit-tests-glibc_c_includes := \
     bionic/libc \
@@ -300,19 +379,60 @@ bionic-unit-tests-glibc_cflags := $(test_cflags)
 bionic-unit-tests-glibc_cppflags := $(test_cppflags)
 bionic-unit-tests-glibc_ldflags := -Wl,--export-dynamic
 
+bionic-unit-tests-glibc_allow_asan := true
+
 module := bionic-unit-tests-glibc
 module_tag := optional
 build_type := host
 build_target := NATIVE_TEST
 include $(LOCAL_PATH)/Android.build.mk
 
-ifneq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm mips x86))
-LINKER = linker64
-NATIVE_TEST_SUFFIX=64
-else
-LINKER = linker
-NATIVE_TEST_SUFFIX=32
-endif
+# -----------------------------------------------------------------------------
+# Compile time tests.
+# -----------------------------------------------------------------------------
+
+# Some of these are intentionally using = instead of := since we need access to
+# some variables not initialtized until we're in the build system.
+
+include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+    $(LOCAL_PATH)/Android.mk \
+    $(LOCAL_PATH)/file-check-cxx \
+    | $(HOST_OUT_EXECUTABLES)/FileCheck$(HOST_EXECUTABLE_SUFFIX) \
+
+LOCAL_CXX = $(LOCAL_PATH)/file-check-cxx \
+    $(HOST_OUT_EXECUTABLES)/FileCheck \
+    $($(LOCAL_2ND_ARCH_VAR_PREFIX)TARGET_CXX) \
+    GCC \
+
+LOCAL_CLANG := false
+LOCAL_MODULE := bionic-compile-time-tests-g++
+LOCAL_CPPFLAGS := -Wall
+LOCAL_SRC_FILES := fortify_compilation_test.cpp
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := \
+    $(LOCAL_PATH)/Android.mk \
+    $(LOCAL_PATH)/file-check-cxx \
+    | $(HOST_OUT_EXECUTABLES)/FileCheck$(HOST_EXECUTABLE_SUFFIX) \
+
+LOCAL_CXX := $(LOCAL_PATH)/file-check-cxx \
+    $(HOST_OUT_EXECUTABLES)/FileCheck \
+    $(LLVM_PREBUILTS_PATH)/clang++ \
+    CLANG \
+
+LOCAL_CLANG := true
+LOCAL_MODULE := bionic-compile-time-tests-clang++
+LOCAL_CPPFLAGS := -Wall
+# FileCheck will error if there aren't any CLANG: lines in the file, but there
+# don't appear to be any cases where clang _does_ emit warnings for sn?printf :(
+LOCAL_SRC_FILES :=
+include $(BUILD_STATIC_LIBRARY)
+
+# -----------------------------------------------------------------------------
+# Host glibc tests.
+# -----------------------------------------------------------------------------
 
 # gtest needs ANDROID_DATA/local/tmp for death test output.
 # Make sure to create ANDROID_DATA/local/tmp if doesn't exist.
@@ -322,48 +442,37 @@ bionic-unit-tests-glibc-run: bionic-unit-tests-glibc
 	mkdir -p $(TARGET_OUT_DATA)/local/tmp
 	ANDROID_DATA=$(TARGET_OUT_DATA) \
 	ANDROID_ROOT=$(TARGET_OUT) \
-		$(HOST_OUT_EXECUTABLES)/bionic-unit-tests-glibc$(NATIVE_TEST_SUFFIX) $(BIONIC_TEST_FLAGS)
+		$(HOST_OUT_EXECUTABLES)/bionic-unit-tests-glibc64 $(BIONIC_TEST_FLAGS)
 
 # -----------------------------------------------------------------------------
 # Run the unit tests built against x86 bionic on an x86 host.
 # -----------------------------------------------------------------------------
 
+include $(LOCAL_PATH)/../build/run-on-host.mk
+
 ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
-# gtest needs ANDROID_DATA/local/tmp for death test output.
-# Make sure to create ANDROID_DATA/local/tmp if doesn't exist.
-# bionic itself should always work relative to ANDROID_DATA or ANDROID_ROOT.
+
+TEST_TIMEOUT := 0
+
 # BIONIC_TEST_FLAGS is either empty or it comes from the user.
-bionic-unit-tests-run-on-host: bionic-unit-tests $(TARGET_OUT_EXECUTABLES)/$(LINKER) $(TARGET_OUT_EXECUTABLES)/sh
-	if [ ! -d /system -o ! -d /system/bin ]; then \
-	  echo "Attempting to create /system/bin"; \
-	  sudo mkdir -p -m 0777 /system/bin; \
-	fi
-	mkdir -p $(TARGET_OUT_DATA)/local/tmp
-	cp $(TARGET_OUT_EXECUTABLES)/$(LINKER) /system/bin
-	cp $(TARGET_OUT_EXECUTABLES)/sh /system/bin
+bionic-unit-tests-run-on-host32: bionic-unit-tests bionic-prepare-run-on-host
 	ANDROID_DATA=$(TARGET_OUT_DATA) \
+	ANDROID_DNS_MODE=local \
 	ANDROID_ROOT=$(TARGET_OUT) \
-	LD_LIBRARY_PATH=$(TARGET_OUT_SHARED_LIBRARIES) \
-		$(TARGET_OUT_DATA_NATIVE_TESTS)/bionic-unit-tests/bionic-unit-tests$(NATIVE_TEST_SUFFIX) $(BIONIC_TEST_FLAGS)
+		timeout $(TEST_TIMEOUT) \
+		$(TARGET_OUT_DATA)/nativetest/bionic-unit-tests/bionic-unit-tests32 $(BIONIC_TEST_FLAGS)
+
+ifeq ($(TARGET_IS_64_BIT),true)
+# add target to run lp64 tests
+bionic-unit-tests-run-on-host64: bionic-unit-tests bionic-prepare-run-on-host
+	ANDROID_DATA=$(TARGET_OUT_DATA) \
+	ANDROID_DNS_MODE=local \
+	ANDROID_ROOT=$(TARGET_OUT) \
+		timeout $(TEST_TIMEOUT) \
+		$(TARGET_OUT_DATA)/nativetest64/bionic-unit-tests/bionic-unit-tests64 $(BIONIC_TEST_FLAGS)
 endif
 
-ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86_64))
-# add target to run lp32 tests
-bionic-unit-tests-run-on-host32: bionic-unit-tests_32 $(TARGET_OUT_EXECUTABLES)/$(LINKER) $(TARGET_OUT_EXECUTABLES)/sh
-	if [ ! -d /system -o ! -d /system/bin ]; then \
-	  echo "Attempting to create /system/bin"; \
-	  sudo mkdir -p -m 0777 /system/bin; \
-	fi
-	mkdir -p $(TARGET_OUT_DATA)/local/tmp
-	cp $(TARGET_OUT_EXECUTABLES)/linker /system/bin
-	cp $(TARGET_OUT_EXECUTABLES)/sh /system/bin
-	ANDROID_DATA=$(TARGET_OUT_DATA) \
-	ANDROID_ROOT=$(TARGET_OUT) \
-	LD_LIBRARY_PATH=$(2ND_TARGET_OUT_SHARED_LIBRARIES) \
-		$(2ND_TARGET_OUT_DATA_NATIVE_TESTS)/bionic-unit-tests/bionic-unit-tests32 $(BIONIC_TEST_FLAGS)
-endif
-
+endif # x86 x86_64
 endif # linux-x86
 
 include $(call first-makefiles-under,$(LOCAL_PATH))
-endif # !BUILD_TINY_ANDROID

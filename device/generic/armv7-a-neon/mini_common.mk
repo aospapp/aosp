@@ -61,8 +61,6 @@ PRODUCT_PACKAGES += \
 # be included in platform.zip
 PRODUCT_PACKAGES += camera.goldfish.jpeg
 
-PRODUCT_RUNTIMES := runtime_libart_default
-
 PRODUCT_COPY_FILES += \
     frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf \
     frameworks/native/data/etc/android.hardware.location.gps.xml:system/etc/permissions/android.hardware.location.gps.xml \
@@ -74,7 +72,6 @@ PRODUCT_COPY_FILES += \
 
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.carrier=unknown \
-    ro.com.android.dateformat=MM-dd-yyyy \
     ro.config.ringtone=Ring_Synth_04.ogg \
     ro.config.notification_sound=pixiedust.ogg
 
@@ -82,5 +79,5 @@ $(call inherit-product, build/target/product/core_base.mk)
 $(call inherit-product-if-exists, frameworks/webview/chromium/chromium.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
+$(call inherit-product-if-exists, external/roboto-fonts/fonts.mk)
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AudioPackage5.mk)
-

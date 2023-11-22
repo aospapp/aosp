@@ -98,7 +98,7 @@
 .extern gai4_ihevc_ang_table
 .extern gai4_ihevc_inv_ang_table
 .extern col_for_intra_luma
-.extern idx_11_17
+.extern idx_neg_idx_11_17
 
 .type ihevc_intra_pred_luma_mode_11_to_17_av8, %function
 
@@ -214,7 +214,7 @@ end_loop_copy:
     strb        w11, [x6], #1
     sxtw        x11,w11
 
-    cmp         x9, #-1
+    cmn         x9, #1
     bge         prologue_8_16_32
 
     add         x6, sp, x4                  //ref_temp + nt

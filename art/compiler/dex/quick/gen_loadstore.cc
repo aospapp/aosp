@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "mir_to_lir-inl.h"
+
 #include "dex/compiler_ir.h"
-#include "dex/compiler_internals.h"
-#include "dex/quick/mir_to_lir-inl.h"
+#include "dex/mir_graph.h"
 #include "invoke_type.h"
 
 namespace art {
@@ -36,67 +37,31 @@ LIR* Mir2Lir::LoadConstant(RegStorage r_dest, int value) {
 }
 
 /*
- * Temporary workaround for Issue 7250540.  If we're loading a constant zero into a
- * promoted floating point register, also copy a zero into the int/ref identity of
- * that sreg.
- */
-void Mir2Lir::Workaround7250540(RegLocation rl_dest, RegStorage zero_reg) {
-  if (rl_dest.fp) {
-    int pmap_index = SRegToPMap(rl_dest.s_reg_low);
-    if (promotion_map_[pmap_index].fp_location == kLocPhysReg) {
-      // Now, determine if this vreg is ever used as a reference.  If not, we're done.
-      bool used_as_reference = false;
-      int base_vreg = mir_graph_->SRegToVReg(rl_dest.s_reg_low);
-      for (int i = 0; !used_as_reference && (i < mir_graph_->GetNumSSARegs()); i++) {
-        if (mir_graph_->SRegToVReg(mir_graph_->reg_location_[i].s_reg_low) == base_vreg) {
-          used_as_reference |= mir_graph_->reg_location_[i].ref;
-        }
-      }
-      if (!used_as_reference) {
-        return;
-      }
-      RegStorage temp_reg = zero_reg;
-      if (!temp_reg.Valid()) {
-        temp_reg = AllocTemp();
-        LoadConstant(temp_reg, 0);
-      }
-      if (promotion_map_[pmap_index].core_location == kLocPhysReg) {
-        // Promoted - just copy in a zero
-        OpRegCopy(RegStorage::Solo32(promotion_map_[pmap_index].core_reg), temp_reg);
-      } else {
-        // Lives in the frame, need to store.
-        ScopedMemRefType mem_ref_type(this, ResourceMask::kDalvikReg);
-        StoreBaseDisp(TargetPtrReg(kSp), SRegOffset(rl_dest.s_reg_low), temp_reg, k32, kNotVolatile);
-      }
-      if (!zero_reg.Valid()) {
-        FreeTemp(temp_reg);
-      }
-    }
-  }
-}
-
-/*
  * Load a Dalvik register into a physical register.  Take care when
  * using this routine, as it doesn't perform any bookkeeping regarding
  * register liveness.  That is the responsibility of the caller.
  */
 void Mir2Lir::LoadValueDirect(RegLocation rl_src, RegStorage r_dest) {
-  rl_src = UpdateLoc(rl_src);
+  rl_src = rl_src.wide ? UpdateLocWide(rl_src) : UpdateLoc(rl_src);
   if (rl_src.location == kLocPhysReg) {
     OpRegCopy(r_dest, rl_src.reg);
   } else if (IsInexpensiveConstant(rl_src)) {
-    // On 64-bit targets, will sign extend.  Make sure constant reference is always NULL.
+    // On 64-bit targets, will sign extend.  Make sure constant reference is always null.
     DCHECK(!rl_src.ref || (mir_graph_->ConstantValue(rl_src) == 0));
     LoadConstantNoClobber(r_dest, mir_graph_->ConstantValue(rl_src));
   } else {
     DCHECK((rl_src.location == kLocDalvikFrame) ||
            (rl_src.location == kLocCompilerTemp));
     ScopedMemRefType mem_ref_type(this, ResourceMask::kDalvikReg);
+    OpSize op_size;
     if (rl_src.ref) {
-      LoadRefDisp(TargetPtrReg(kSp), SRegOffset(rl_src.s_reg_low), r_dest, kNotVolatile);
+      op_size = kReference;
+    } else if (rl_src.wide) {
+      op_size = k64;
     } else {
-      Load32Disp(TargetPtrReg(kSp), SRegOffset(rl_src.s_reg_low), r_dest);
+      op_size = k32;
     }
+    LoadBaseDisp(TargetPtrReg(kSp), SRegOffset(rl_src.s_reg_low), r_dest, op_size, kNotVolatile);
   }
 }
 
@@ -149,8 +114,9 @@ RegLocation Mir2Lir::LoadValue(RegLocation rl_src, RegisterClass op_kind) {
       // Wrong register class, realloc, copy and transfer ownership.
       RegStorage new_reg = AllocTypedTemp(rl_src.fp, op_kind);
       OpRegCopy(new_reg, rl_src.reg);
-      // Clobber the old reg.
+      // Clobber the old regs and free it.
       Clobber(rl_src.reg);
+      FreeTemp(rl_src.reg);
       // ...and mark the new one live.
       rl_src.reg = new_reg;
       MarkLive(rl_src);
@@ -164,10 +130,6 @@ RegLocation Mir2Lir::LoadValue(RegLocation rl_src, RegisterClass op_kind) {
   rl_src.location = kLocPhysReg;
   MarkLive(rl_src);
   return rl_src;
-}
-
-RegLocation Mir2Lir::LoadValue(RegLocation rl_src) {
-  return LoadValue(rl_src, LocToRegClass(rl_src));
 }
 
 void Mir2Lir::StoreValue(RegLocation rl_dest, RegLocation rl_src) {
@@ -236,8 +198,9 @@ RegLocation Mir2Lir::LoadValueWide(RegLocation rl_src, RegisterClass op_kind) {
       // Wrong register class, realloc, copy and transfer ownership.
       RegStorage new_regs = AllocTypedTempWide(rl_src.fp, op_kind);
       OpRegCopyWide(new_regs, rl_src.reg);
-      // Clobber the old regs.
+      // Clobber the old regs and free it.
       Clobber(rl_src.reg);
+      FreeTemp(rl_src.reg);
       // ...and mark the new ones live.
       rl_src.reg = new_regs;
       MarkLive(rl_src);
@@ -378,11 +341,31 @@ void Mir2Lir::StoreFinalValueWide(RegLocation rl_dest, RegLocation rl_src) {
 
 /* Utilities to load the current Method* */
 void Mir2Lir::LoadCurrMethodDirect(RegStorage r_tgt) {
-  LoadValueDirectFixed(mir_graph_->GetMethodLoc(), r_tgt);
+  if (GetCompilationUnit()->target64) {
+    LoadValueDirectWideFixed(mir_graph_->GetMethodLoc(), r_tgt);
+  } else {
+    LoadValueDirectFixed(mir_graph_->GetMethodLoc(), r_tgt);
+  }
+}
+
+RegStorage Mir2Lir::LoadCurrMethodWithHint(RegStorage r_hint) {
+  // If the method is promoted to a register, return that register, otherwise load it to r_hint.
+  // (Replacement for LoadCurrMethod() usually used when LockCallTemps() is in effect.)
+  DCHECK(r_hint.Valid());
+  RegLocation rl_method = mir_graph_->GetMethodLoc();
+  if (rl_method.location == kLocPhysReg) {
+    DCHECK(!IsTemp(rl_method.reg));
+    return rl_method.reg;
+  } else {
+    LoadCurrMethodDirect(r_hint);
+    return r_hint;
+  }
 }
 
 RegLocation Mir2Lir::LoadCurrMethod() {
-  return LoadValue(mir_graph_->GetMethodLoc(), kRefReg);
+  return GetCompilationUnit()->target64 ?
+      LoadValueWide(mir_graph_->GetMethodLoc(), kCoreReg) :
+      LoadValue(mir_graph_->GetMethodLoc(), kRefReg);
 }
 
 RegLocation Mir2Lir::ForceTemp(RegLocation loc) {

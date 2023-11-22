@@ -37,6 +37,7 @@ import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Principal;
 import java.security.cert.CertificateFactory;
@@ -764,6 +765,36 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         assertEquals(callCount + 1, webViewClient.getClientCertRequestCount());
     }
 
+    public void testProceedClientCertRequestKeyWithAndroidKeystoreKey() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        mWebServer = new CtsTestServer(getActivity(), CtsTestServer.SslMode.NEEDS_CLIENT_AUTH);
+        String url = mWebServer.getAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
+        final ClientCertWebViewClient webViewClient = new ClientCertWebViewClient(
+                mOnUiThread,
+                true // use an Android Keystore backed private key
+                );
+        mOnUiThread.setWebViewClient(webViewClient);
+        clearClientCertPreferences();
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        assertTrue(TestHtmlConstants.HELLO_WORLD_TITLE.equals(mOnUiThread.getTitle()));
+
+        // Test that the user's response for this server is kept in cache. Load a different
+        // page from the same server and make sure we don't receive a client cert request callback.
+        int callCount = webViewClient.getClientCertRequestCount();
+        url = mWebServer.getAssetUrl(TestHtmlConstants.HTML_URL1);
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        assertTrue(TestHtmlConstants.HTML_URL1_TITLE.equals(mOnUiThread.getTitle()));
+        assertEquals(callCount, webViewClient.getClientCertRequestCount());
+
+        // Now clear the cache and reload the page. We should receive a new callback.
+        clearClientCertPreferences();
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        assertTrue(TestHtmlConstants.HTML_URL1_TITLE.equals(mOnUiThread.getTitle()));
+        assertEquals(callCount + 1, webViewClient.getClientCertRequestCount());
+    }
+
     public void testIgnoreClientCertRequest() throws Throwable {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -925,12 +956,20 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
         public static final int CANCEL = 2;
         public static final int IGNORE = 3;
 
+        private final boolean mKeyFromAndroidKeystore;
+
         private int mClientCertRequests;
         private int mAction = PROCEED;
         private Principal[] mPrincipals;
 
         public ClientCertWebViewClient(WebViewOnUiThread onUiThread) {
+            this(onUiThread, false);
+        }
+
+        public ClientCertWebViewClient(WebViewOnUiThread onUiThread,
+                boolean keyFromAndroidKeystore) {
             super(onUiThread);
+            mKeyFromAndroidKeystore = keyFromAndroidKeystore;
         }
 
         public int getClientCertRequestCount() {
@@ -973,6 +1012,21 @@ public class WebViewSslTest extends ActivityInstrumentationTestCase2<WebViewCtsA
                     KeyFactory keyFactory = KeyFactory.getInstance("RSA");
                     PrivateKey key = keyFactory.generatePrivate(
                         new PKCS8EncodedKeySpec(FAKE_RSA_KEY_1));
+
+                    if (mKeyFromAndroidKeystore) {
+                        // Key needs to be backed by Android Keystore -- import it there.
+                        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+                        keyStore.load(null);
+                        Log.d(LOGTAG, "Importing private key into Android Keystore...");
+                        keyStore.setEntry(
+                                "fake1",
+                                new KeyStore.PrivateKeyEntry(key, certChain),
+                                null);
+
+                        key = (PrivateKey) keyStore.getKey("fake1", null);
+                        Log.i(LOGTAG, "Imported private key into Android Keystore. key: " + key);
+                    }
+
                     request.proceed(key, certChain);
                     return;
                 } catch (Exception e) {

@@ -1,9 +1,9 @@
-/*	$OpenBSD: misc.c,v 1.38 2013/11/28 10:33:37 sobrado Exp $	*/
+/*	$OpenBSD: misc.c,v 1.40 2015/03/18 15:12:36 tedu Exp $	*/
 /*	$OpenBSD: path.c,v 1.12 2005/03/30 17:16:37 deraadt Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014
+ *		 2011, 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -30,7 +30,7 @@
 #include <grp.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.219 2014/01/05 21:57:27 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/misc.c,v 1.219.2.3 2015/03/20 22:21:04 tg Exp $");
 
 #define KSH_CHVT_FLAG
 #ifdef MKSH_SMALL
@@ -281,15 +281,15 @@ change_flag(enum sh_flag f, int what, bool newset)
 #endif
 		DO_SETUID(setresuid, (ksheuid, ksheuid, ksheuid));
 #else /* !HAVE_SETRESUGID */
-		/* seteuid, setegid, setgid don't EAGAIN on Linux */
-#ifndef MKSH__NO_SETEUGID
-		seteuid(ksheuid);
-#endif
-		DO_SETUID(setuid, (ksheuid));
+		/* setgid, setegid, seteuid don't EAGAIN on Linux */
+		setgid(kshegid);
 #ifndef MKSH__NO_SETEUGID
 		setegid(kshegid);
 #endif
-		setgid(kshegid);
+		DO_SETUID(setuid, (ksheuid));
+#ifndef MKSH__NO_SETEUGID
+		seteuid(ksheuid);
+#endif
 #endif /* !HAVE_SETRESUGID */
 	} else if ((f == FPOSIX || f == FSH) && newval) {
 		/* Turning on -o posix or -o sh? */
@@ -304,6 +304,11 @@ change_flag(enum sh_flag f, int what, bool newset)
 void
 change_xtrace(unsigned char newval, bool dosnapshot)
 {
+	static bool in_xtrace;
+
+	if (in_xtrace)
+		return;
+
 	if (!dosnapshot && newval == Flag(FXTRACE))
 		return;
 
@@ -328,8 +333,13 @@ change_xtrace(unsigned char newval, bool dosnapshot)
 		shl_xtrace->fd = 2;
 
  changed_xtrace:
-	if ((Flag(FXTRACE) = newval) == 2)
+	if ((Flag(FXTRACE) = newval) == 2) {
+		in_xtrace = true;
+		Flag(FXTRACE) = 0;
 		shf_puts(substitute(str_val(global("PS4")), 0), shl_xtrace);
+		Flag(FXTRACE) = 2;
+		in_xtrace = false;
+	}
 }
 
 /*
@@ -485,7 +495,6 @@ parse_args(const char **argv,
 	if (arrayset) {
 		const char *ccp = NULL;
 
-		mkssert(array != NULL);
 		if (*array)
 			ccp = skip_varname(array, false);
 		if (!ccp || !(!ccp[0] || (ccp[0] == '+' && !ccp[1]))) {
@@ -1280,32 +1289,27 @@ print_columns(struct shf *shf, unsigned int n,
 	afree(str, ATEMP);
 }
 
-/* Strip any nul bytes from buf - returns new length (nbytes - # of nuls) */
+/* strip all NUL bytes from buf; output is NUL-terminated if stripped */
 void
-strip_nuls(char *buf, int nbytes)
+strip_nuls(char *buf, size_t len)
 {
-	char *dst;
+	char *cp, *dp, *ep;
 
-	/*
-	 * nbytes check because some systems (older FreeBSDs) have a
-	 * buggy memchr()
-	 */
-	if (nbytes && (dst = memchr(buf, '\0', nbytes))) {
-		char *end = buf + nbytes;
-		char *p, *q;
+	if (!len || !(dp = memchr(buf, '\0', len)))
+		return;
 
-		for (p = dst; p < end; p = q) {
-			/* skip a block of nulls */
-			while (++p < end && *p == '\0')
-				;
-			/* find end of non-null block */
-			if (!(q = memchr(p, '\0', end - p)))
-				q = end;
-			memmove(dst, p, q - p);
-			dst += q - p;
-		}
-		*dst = '\0';
-	}
+	ep = buf + len;
+	cp = dp;
+
+ cp_has_nul_byte:
+	while (cp++ < ep && *cp == '\0')
+		;	/* nothing */
+	while (cp < ep && *cp != '\0')
+		*dp++ = *cp++;
+	if (cp < ep)
+		goto cp_has_nul_byte;
+
+	*dp = '\0';
 }
 
 /*
@@ -1384,8 +1388,7 @@ do_realpath(const char *upath)
 {
 	char *xp, *ip, *tp, *ipath, *ldest = NULL;
 	XString xs;
-	ptrdiff_t pos;
-	size_t len;
+	size_t pos, len;
 	int llen;
 	struct stat sb;
 #ifdef MKSH__NO_PATH_MAX

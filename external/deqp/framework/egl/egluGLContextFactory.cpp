@@ -30,11 +30,14 @@
 #include "gluDefs.hpp"
 
 #include "egluDefs.hpp"
-#include "egluHeaderWrapper.hpp"
 #include "egluUtil.hpp"
+#include "egluGLUtil.hpp"
 #include "egluNativeWindow.hpp"
 #include "egluNativePixmap.hpp"
 #include "egluStrUtil.hpp"
+
+#include "eglwLibrary.hpp"
+#include "eglwEnums.hpp"
 
 #include "glwInitFunctions.hpp"
 #include "glwInitES20Direct.hpp"
@@ -49,23 +52,6 @@
 
 using std::string;
 using std::vector;
-
-#if !defined(EGL_KHR_create_context)
-	#define EGL_KHR_create_context 1
-	#define EGL_CONTEXT_MAJOR_VERSION_KHR						0x3098
-	#define EGL_CONTEXT_MINOR_VERSION_KHR						0x30FB
-	#define EGL_CONTEXT_FLAGS_KHR								0x30FC
-	#define EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR					0x30FD
-	#define EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_KHR	0x31BD
-	#define EGL_NO_RESET_NOTIFICATION_KHR						0x31BE
-	#define EGL_LOSE_CONTEXT_ON_RESET_KHR						0x31BF
-	#define EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR					0x00000001
-	#define EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR		0x00000002
-	#define EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR			0x00000004
-	#define EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR				0x00000001
-	#define EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR	0x00000002
-	#define EGL_OPENGL_ES3_BIT_KHR								0x00000040
-#endif // EGL_KHR_create_context
 
 // \todo [2014-03-12 pyry] Use command line arguments for libraries?
 
@@ -93,6 +79,8 @@ using std::vector;
 namespace eglu
 {
 
+using namespace eglw;
+
 namespace
 {
 
@@ -105,10 +93,18 @@ enum
 class GetProcFuncLoader : public glw::FunctionLoader
 {
 public:
+	GetProcFuncLoader (const Library& egl)
+		: m_egl(egl)
+	{
+	}
+
 	glw::GenericFuncType get (const char* name) const
 	{
-		return (glw::GenericFuncType)eglGetProcAddress(name);
+		return (glw::GenericFuncType)m_egl.getProcAddress(name);
 	}
+
+protected:
+	const Library& m_egl;
 };
 
 class DynamicFuncLoader : public glw::FunctionLoader
@@ -206,100 +202,6 @@ RenderContext::~RenderContext(void)
 	delete m_dynamicGLLibrary;
 }
 
-bool configMatches (EGLDisplay display, EGLConfig eglConfig, const glu::RenderConfig& renderConfig)
-{
-	// \todo [2014-03-12 pyry] Check other attributes like double-buffer bit.
-
-	{
-		EGLint		renderableType		= 0;
-		EGLint		requiredRenderable	= 0;
-
-		if (glu::isContextTypeES(renderConfig.type))
-		{
-			if (renderConfig.type.getMajorVersion() == 2)
-				requiredRenderable = EGL_OPENGL_ES2_BIT;
-			else if (renderConfig.type.getMajorVersion() == 3)
-				requiredRenderable = EGL_OPENGL_ES3_BIT_KHR;
-			else
-				throw tcu::NotSupportedError("Unsupported OpenGL ES version");
-		}
-		else
-		{
-			DE_ASSERT(glu::isContextTypeGLCore(renderConfig.type) || glu::isContextTypeGLCompatibility(renderConfig.type));
-			requiredRenderable = EGL_OPENGL_BIT;
-		}
-
-		EGLU_CHECK_CALL(eglGetConfigAttrib(display, eglConfig, EGL_RENDERABLE_TYPE, &renderableType));
-
-		if ((renderableType & requiredRenderable) == 0)
-			return false;
-	}
-
-	if (renderConfig.surfaceType != (glu::RenderConfig::SurfaceType)glu::RenderConfig::DONT_CARE)
-	{
-		EGLint		surfaceType		= 0;
-		EGLint		requiredSurface	= 0;
-
-		switch (renderConfig.surfaceType)
-		{
-			case glu::RenderConfig::SURFACETYPE_WINDOW:				requiredSurface = EGL_WINDOW_BIT;	break;
-			case glu::RenderConfig::SURFACETYPE_OFFSCREEN_NATIVE:	requiredSurface = EGL_PIXMAP_BIT;	break;
-			case glu::RenderConfig::SURFACETYPE_OFFSCREEN_GENERIC:	requiredSurface = EGL_PBUFFER_BIT;	break;
-			default:
-				DE_ASSERT(false);
-		}
-
-		EGLU_CHECK_CALL(eglGetConfigAttrib(display, eglConfig, EGL_SURFACE_TYPE, &surfaceType));
-
-		if ((surfaceType & requiredSurface) == 0)
-			return false;
-	}
-
-	{
-		static const struct
-		{
-			int	glu::RenderConfig::*field;
-			EGLint attrib;
-		} s_attribs[] =
-		{
-			{ &glu::RenderConfig::id,			EGL_CONFIG_ID		},
-			{ &glu::RenderConfig::redBits,		EGL_RED_SIZE		},
-			{ &glu::RenderConfig::greenBits,	EGL_GREEN_SIZE		},
-			{ &glu::RenderConfig::blueBits,		EGL_BLUE_SIZE		},
-			{ &glu::RenderConfig::alphaBits,	EGL_ALPHA_SIZE		},
-			{ &glu::RenderConfig::depthBits,	EGL_DEPTH_SIZE		},
-			{ &glu::RenderConfig::stencilBits,	EGL_STENCIL_SIZE	},
-			{ &glu::RenderConfig::numSamples,	EGL_SAMPLES			},
-		};
-
-		for (int attribNdx = 0; attribNdx < DE_LENGTH_OF_ARRAY(s_attribs); attribNdx++)
-		{
-			if (renderConfig.*s_attribs[attribNdx].field != glu::RenderConfig::DONT_CARE)
-			{
-				EGLint value = 0;
-				EGLU_CHECK_CALL(eglGetConfigAttrib(display, eglConfig, s_attribs[attribNdx].attrib, &value));
-				if (value != renderConfig.*s_attribs[attribNdx].field)
-					return false;
-			}
-		}
-	}
-
-	return true;
-}
-
-EGLConfig chooseConfig (EGLDisplay display, const glu::RenderConfig& config)
-{
-	const std::vector<EGLConfig> configs = eglu::getConfigs(display);
-
-	for (vector<EGLConfig>::const_iterator iter = configs.begin(); iter != configs.end(); ++iter)
-	{
-		if (configMatches(display, *iter, config))
-			return *iter;
-	}
-
-	throw tcu::NotSupportedError("Matching EGL config not found", DE_NULL, __FILE__, __LINE__);
-}
-
 static WindowParams::Visibility getNativeWindowVisibility (glu::RenderConfig::Visibility visibility)
 {
 	using glu::RenderConfig;
@@ -365,7 +267,7 @@ PixmapSurfacePair createPixmap (NativeDisplay* nativeDisplay, const NativePixmap
 	return PixmapSurfacePair(nativePixmap, surface);
 }
 
-EGLSurface createPBuffer (EGLDisplay display, EGLConfig eglConfig, const glu::RenderConfig& config)
+EGLSurface createPBuffer (const Library& egl, EGLDisplay display, EGLConfig eglConfig, const glu::RenderConfig& config)
 {
 	const int		width			= (config.width		== glu::RenderConfig::DONT_CARE ? DEFAULT_OFFSCREEN_WIDTH	: config.width);
 	const int		height			= (config.height	== glu::RenderConfig::DONT_CARE ? DEFAULT_OFFSCREEN_HEIGHT	: config.height);
@@ -377,95 +279,10 @@ EGLSurface createPBuffer (EGLDisplay display, EGLConfig eglConfig, const glu::Re
 		EGL_NONE
 	};
 
-	surface = eglCreatePbufferSurface(display, eglConfig, &(attribList[0]));
-	EGLU_CHECK_MSG("eglCreatePbufferSurface()");
+	surface = egl.createPbufferSurface(display, eglConfig, &(attribList[0]));
+	EGLU_CHECK_MSG(egl, "eglCreatePbufferSurface()");
 
 	return surface;
-}
-
-bool isClientExtensionSupported (EGLDisplay display, const std::string& extName)
-{
-	const vector<string> exts = getClientExtensions(display);
-	return de::contains(exts.begin(), exts.end(), extName);
-}
-
-EGLContext createContext (EGLDisplay display, EGLContext eglConfig, const glu::RenderConfig& config)
-{
-	const bool			khrCreateContextSupported	= isClientExtensionSupported(display, "EGL_KHR_create_context");
-	EGLContext			context						= EGL_NO_CONTEXT;
-	EGLenum				api							= EGL_NONE;
-	vector<EGLint>		attribList;
-
-	if (glu::isContextTypeES(config.type))
-	{
-		api = EGL_OPENGL_ES_API;
-
-		if (config.type.getMajorVersion() <= 2)
-		{
-			attribList.push_back(EGL_CONTEXT_CLIENT_VERSION);
-			attribList.push_back(config.type.getMajorVersion());
-		}
-		else
-		{
-			if (!khrCreateContextSupported)
-				throw tcu::NotSupportedError("EGL_KHR_create_context is required for OpenGL ES 3.0 and newer", DE_NULL, __FILE__, __LINE__);
-
-			attribList.push_back(EGL_CONTEXT_MAJOR_VERSION_KHR);
-			attribList.push_back(config.type.getMajorVersion());
-			attribList.push_back(EGL_CONTEXT_MINOR_VERSION_KHR);
-			attribList.push_back(config.type.getMinorVersion());
-		}
-	}
-	else
-	{
-		DE_ASSERT(glu::isContextTypeGLCore(config.type) || glu::isContextTypeGLCompatibility(config.type));
-
-		if (!khrCreateContextSupported)
-			throw tcu::NotSupportedError("EGL_KHR_create_context is required for OpenGL context creation", DE_NULL, __FILE__, __LINE__);
-
-		api = EGL_OPENGL_API;
-
-		attribList.push_back(EGL_CONTEXT_MAJOR_VERSION_KHR);
-		attribList.push_back(config.type.getMajorVersion());
-		attribList.push_back(EGL_CONTEXT_MINOR_VERSION_KHR);
-		attribList.push_back(config.type.getMinorVersion());
-		attribList.push_back(EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR);
-		attribList.push_back(glu::isContextTypeGLCore(config.type) ? EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR
-																   : EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR);
-	}
-
-	if (config.type.getFlags() != glu::ContextFlags(0))
-	{
-		EGLint flags = 0;
-
-		if (!khrCreateContextSupported)
-			throw tcu::NotSupportedError("EGL_KHR_create_context is required for creating robust/debug/forward-compatible contexts");
-
-		if ((config.type.getFlags() & glu::CONTEXT_DEBUG) != 0)
-			flags |= EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR;
-
-		if ((config.type.getFlags() & glu::CONTEXT_ROBUST) != 0)
-			flags |= EGL_CONTEXT_OPENGL_ROBUST_ACCESS_BIT_KHR;
-
-		if ((config.type.getFlags() & glu::CONTEXT_FORWARD_COMPATIBLE) != 0)
-		{
-			if (!glu::isContextTypeGLCore(config.type))
-				throw tcu::NotSupportedError("Only OpenGL core contexts can be forward-compatible");
-
-			flags |= EGL_CONTEXT_OPENGL_FORWARD_COMPATIBLE_BIT_KHR;
-		}
-
-		attribList.push_back(EGL_CONTEXT_FLAGS_KHR);
-		attribList.push_back(flags);
-	}
-
-	attribList.push_back(EGL_NONE);
-
-	EGLU_CHECK_CALL(eglBindAPI(api));
-	context = eglCreateContext(display, eglConfig, EGL_NO_CONTEXT, &(attribList[0]));
-	EGLU_CHECK_MSG("eglCreateContext()");
-
-	return context;
 }
 
 void RenderContext::create (const NativeDisplayFactory* displayFactory, const NativeWindowFactory* windowFactory, const NativePixmapFactory* pixmapFactory, const glu::RenderConfig& config)
@@ -477,18 +294,20 @@ void RenderContext::create (const NativeDisplayFactory* displayFactory, const Na
 	m_display		= displayFactory->createDisplay();
 	m_eglDisplay	= eglu::getDisplay(*m_display);
 
+	const Library& egl = m_display->getLibrary();
+
 	{
 		EGLint major = 0;
 		EGLint minor = 0;
-		EGLU_CHECK_CALL(eglInitialize(m_eglDisplay, &major, &minor));
+		EGLU_CHECK_CALL(egl, initialize(m_eglDisplay, &major, &minor));
 	}
 
-	m_eglConfig	= chooseConfig(m_eglDisplay, config);
+	m_eglConfig	= chooseConfig(egl, m_eglDisplay, config);
 
 	if (surfaceType == glu::RenderConfig::SURFACETYPE_DONT_CARE)
 	{
 		// Choose based on what selected configuration supports
-		const EGLint supportedTypes = eglu::getConfigAttribInt(m_eglDisplay, m_eglConfig, EGL_SURFACE_TYPE);
+		const EGLint supportedTypes = eglu::getConfigAttribInt(egl, m_eglDisplay, m_eglConfig, EGL_SURFACE_TYPE);
 
 		if ((supportedTypes & EGL_WINDOW_BIT) != 0)
 			surfaceType = glu::RenderConfig::SURFACETYPE_WINDOW;
@@ -529,23 +348,23 @@ void RenderContext::create (const NativeDisplayFactory* displayFactory, const Na
 		}
 
 		case glu::RenderConfig::SURFACETYPE_OFFSCREEN_GENERIC:
-			m_eglSurface = createPBuffer(m_eglDisplay, m_eglConfig, config);
+			m_eglSurface = createPBuffer(egl, m_eglDisplay, m_eglConfig, config);
 			break;
 
 		default:
 			throw tcu::InternalError("Invalid surface type");
 	}
 
-	m_eglContext = createContext(m_eglDisplay, m_eglConfig, config);
+	m_eglContext = createGLContext(egl, m_eglDisplay, m_eglConfig, config.type);
 
-	EGLU_CHECK_CALL(eglMakeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface, m_eglContext));
+	EGLU_CHECK_CALL(egl, makeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface, m_eglContext));
 
 	// Init core functions
 
-	if (isClientExtensionSupported(m_eglDisplay, "EGL_KHR_get_all_proc_addresses"))
+	if (hasExtension(egl, m_eglDisplay, "EGL_KHR_get_all_proc_addresses"))
 	{
 		// Use eglGetProcAddress() for core functions
-		GetProcFuncLoader funcLoader;
+		GetProcFuncLoader funcLoader(egl);
 		glu::initCoreFunctions(&m_glFunctions, &funcLoader, config.type.getAPI());
 	}
 #if !defined(DEQP_GLES2_RUNTIME_LOAD)
@@ -582,7 +401,7 @@ void RenderContext::create (const NativeDisplayFactory* displayFactory, const Na
 
 	// Init extension functions
 	{
-		GetProcFuncLoader extLoader;
+		GetProcFuncLoader extLoader(egl);
 		glu::initExtensionFunctions(&m_glFunctions, &extLoader, config.type.getAPI());
 	}
 
@@ -590,19 +409,19 @@ void RenderContext::create (const NativeDisplayFactory* displayFactory, const Na
 		EGLint				width, height, depthBits, stencilBits, numSamples;
 		tcu::PixelFormat	pixelFmt;
 
-		eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_WIDTH, &width);
-		eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_HEIGHT, &height);
+		egl.querySurface(m_eglDisplay, m_eglSurface, EGL_WIDTH,		&width);
+		egl.querySurface(m_eglDisplay, m_eglSurface, EGL_HEIGHT,	&height);
 
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_RED_SIZE,		&pixelFmt.redBits);
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_GREEN_SIZE,	&pixelFmt.greenBits);
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_BLUE_SIZE,	&pixelFmt.blueBits);
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_ALPHA_SIZE,	&pixelFmt.alphaBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_RED_SIZE,		&pixelFmt.redBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_GREEN_SIZE,		&pixelFmt.greenBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_BLUE_SIZE,		&pixelFmt.blueBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_ALPHA_SIZE,		&pixelFmt.alphaBits);
 
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_DEPTH_SIZE,	&depthBits);
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_STENCIL_SIZE,	&stencilBits);
-		eglGetConfigAttrib(m_eglDisplay, m_eglConfig, EGL_SAMPLES,		&numSamples);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_DEPTH_SIZE,		&depthBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_STENCIL_SIZE,	&stencilBits);
+		egl.getConfigAttrib(m_eglDisplay, m_eglConfig, EGL_SAMPLES,			&numSamples);
 
-		EGLU_CHECK_MSG("Failed to query config attributes");
+		EGLU_CHECK_MSG(egl, "Failed to query config attributes");
 
 		m_glRenderTarget = tcu::RenderTarget(width, height, pixelFmt, depthBits, stencilBits, numSamples);
 	}
@@ -610,17 +429,19 @@ void RenderContext::create (const NativeDisplayFactory* displayFactory, const Na
 
 void RenderContext::destroy (void)
 {
+	const Library& egl = m_display->getLibrary();
+
 	if (m_eglDisplay != EGL_NO_DISPLAY)
 	{
-		EGLU_CHECK_CALL(eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+		EGLU_CHECK_CALL(egl, makeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 
 		if (m_eglSurface != EGL_NO_SURFACE)
-			EGLU_CHECK_CALL(eglDestroySurface(m_eglDisplay, m_eglSurface));
+			EGLU_CHECK_CALL(egl, destroySurface(m_eglDisplay, m_eglSurface));
 
 		if (m_eglContext != EGL_NO_CONTEXT)
-			EGLU_CHECK_CALL(eglDestroyContext(m_eglDisplay, m_eglContext));
+			EGLU_CHECK_CALL(egl, destroyContext(m_eglDisplay, m_eglContext));
 
-		EGLU_CHECK_CALL(eglTerminate(m_eglDisplay));
+		EGLU_CHECK_CALL(egl, terminate(m_eglDisplay));
 
 		m_eglDisplay	= EGL_NO_DISPLAY;
 		m_eglSurface	= EGL_NO_SURFACE;
@@ -640,10 +461,12 @@ void RenderContext::destroy (void)
 
 void RenderContext::postIterate (void)
 {
+	const Library& egl = m_display->getLibrary();
+
 	if (m_window)
 	{
-		EGLBoolean	swapOk		= eglSwapBuffers(m_eglDisplay, m_eglSurface);
-		EGLint		error		= eglGetError();
+		EGLBoolean	swapOk		= egl.swapBuffers(m_eglDisplay, m_eglSurface);
+		EGLint		error		= egl.getError();
 		const bool	badWindow	= error == EGL_BAD_SURFACE || error == EGL_BAD_NATIVE_WINDOW;
 
 		if (!swapOk && !badWindow)
@@ -657,8 +480,8 @@ void RenderContext::postIterate (void)
 		{
 			tcu::print("Warning: Window destroyed, recreating...\n");
 
-			EGLU_CHECK_CALL(eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
-			EGLU_CHECK_CALL(eglDestroySurface(m_eglDisplay, m_eglSurface));
+			EGLU_CHECK_CALL(egl, makeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
+			EGLU_CHECK_CALL(egl, destroySurface(m_eglDisplay, m_eglSurface));
 			m_eglSurface = EGL_NO_SURFACE;
 
 			delete m_window;
@@ -670,7 +493,7 @@ void RenderContext::postIterate (void)
 				m_window		= windowSurface.first;
 				m_eglSurface	= windowSurface.second;
 
-				EGLU_CHECK_CALL(eglMakeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface, m_eglContext));
+				EGLU_CHECK_CALL(egl, makeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface, m_eglContext));
 
 				swapOk	= EGL_TRUE;
 				error	= EGL_SUCCESS;
@@ -679,8 +502,8 @@ void RenderContext::postIterate (void)
 			{
 				if (m_eglSurface)
 				{
-					eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-					eglDestroySurface(m_eglDisplay, m_eglSurface);
+					egl.makeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+					egl.destroySurface(m_eglDisplay, m_eglSurface);
 					m_eglSurface = EGL_NO_SURFACE;
 				}
 
@@ -702,9 +525,9 @@ void RenderContext::postIterate (void)
 			int	newWidth	= 0;
 			int	newHeight	= 0;
 
-			eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_WIDTH,	&newWidth);
-			eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_HEIGHT,	&newHeight);
-			EGLU_CHECK_MSG("Failed to query window size");
+			egl.querySurface(m_eglDisplay, m_eglSurface, EGL_WIDTH,		&newWidth);
+			egl.querySurface(m_eglDisplay, m_eglSurface, EGL_HEIGHT,	&newHeight);
+			EGLU_CHECK_MSG(egl, "Failed to query window size");
 
 			if (newWidth	!= m_glRenderTarget.getWidth() ||
 				newHeight	!= m_glRenderTarget.getHeight())
@@ -721,11 +544,7 @@ void RenderContext::postIterate (void)
 		}
 	}
 	else
-	{
-		// \todo [2014-05-02 mika] Should we call flush or finish? Old platform uses finish() but flush() is closer to the behaviour of eglSwapBuffers()
 		m_glFunctions.flush();
-		GLU_EXPECT_NO_ERROR(m_glFunctions.getError(), "glFlush()");
-	}
 }
 
 } // anonymous
@@ -736,50 +555,32 @@ GLContextFactory::GLContextFactory (const NativeDisplayFactoryRegistry& displayF
 {
 }
 
-namespace
-{
-
-template<typename Factory>
-const Factory* selectFactory (const tcu::FactoryRegistry<Factory>& registry, const char* objectTypeName, const char* cmdLineArg)
-{
-	if (cmdLineArg)
-	{
-		const Factory* factory = registry.getFactoryByName(cmdLineArg);
-
-		if (factory)
-			return factory;
-		else
-		{
-			tcu::print("ERROR: Unknown or unsupported EGL %s type '%s'", objectTypeName, cmdLineArg);
-			tcu::print("Available EGL %s types:\n", objectTypeName);
-			for (size_t ndx = 0; ndx < registry.getFactoryCount(); ndx++)
-				tcu::print("  %s: %s\n", registry.getFactoryByIndex(ndx)->getName(), registry.getFactoryByIndex(ndx)->getDescription());
-
-			throw tcu::NotSupportedError((string("Unsupported or unknown EGL ") + objectTypeName + " type '" + cmdLineArg + "'").c_str(), DE_NULL, __FILE__, __LINE__);
-		}
-	}
-	else if (!registry.empty())
-		return registry.getDefaultFactory();
-	else
-		return DE_NULL;
-}
-
-} // anonymous
-
 glu::RenderContext* GLContextFactory::createContext (const glu::RenderConfig& config, const tcu::CommandLine& cmdLine) const
 {
-	const NativeDisplayFactory* displayFactory = selectFactory(m_displayFactoryRegistry, "display", cmdLine.getEGLDisplayType());
+	const NativeDisplayFactory& displayFactory = selectNativeDisplayFactory(m_displayFactoryRegistry, cmdLine);
 
-	if (displayFactory)
+	const NativeWindowFactory*	windowFactory;
+	const NativePixmapFactory*	pixmapFactory;
+
+	try
 	{
-		// \note windowFactory & pixmapFactory are not mandatory
-		const NativeWindowFactory*	windowFactory	= selectFactory(displayFactory->getNativeWindowRegistry(), "window", cmdLine.getEGLWindowType());
-		const NativePixmapFactory*	pixmapFactory	= selectFactory(displayFactory->getNativePixmapRegistry(), "pixmap", cmdLine.getEGLPixmapType());
-
-		return new RenderContext(displayFactory, windowFactory, pixmapFactory, config);
+		windowFactory = &selectNativeWindowFactory(displayFactory, cmdLine);
 	}
-	else
-		throw tcu::NotSupportedError("No EGL displays available", DE_NULL, __FILE__, __LINE__);
+	catch (const tcu::NotSupportedError&)
+	{
+		windowFactory = DE_NULL;
+	}
+
+	try
+	{
+		pixmapFactory = &selectNativePixmapFactory(displayFactory, cmdLine);
+	}
+	catch (const tcu::NotSupportedError&)
+	{
+		pixmapFactory = DE_NULL;
+	}
+
+	return new RenderContext(&displayFactory, windowFactory, pixmapFactory, config);
 }
 
 } // eglu

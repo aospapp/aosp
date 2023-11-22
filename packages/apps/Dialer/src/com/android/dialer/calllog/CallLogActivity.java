@@ -35,45 +35,28 @@ import android.view.ViewGroup;
 
 import com.android.contacts.common.interactions.TouchPointManager;
 import com.android.contacts.common.list.ViewPagerTabs;
+import com.android.contacts.common.util.PermissionsUtil;
 import com.android.contacts.commonbind.analytics.AnalyticsUtil;
 import com.android.dialer.DialtactsActivity;
 import com.android.dialer.R;
 import com.android.dialer.voicemail.VoicemailStatusHelper;
 import com.android.dialer.voicemail.VoicemailStatusHelperImpl;
 
-public class CallLogActivity extends Activity implements CallLogQueryHandler.Listener,
-    ViewPager.OnPageChangeListener {
-    private Handler mHandler;
+public class CallLogActivity extends Activity implements ViewPager.OnPageChangeListener {
     private ViewPager mViewPager;
     private ViewPagerTabs mViewPagerTabs;
     private ViewPagerAdapter mViewPagerAdapter;
     private CallLogFragment mAllCallsFragment;
     private CallLogFragment mMissedCallsFragment;
-    private CallLogFragment mVoicemailFragment;
-    private VoicemailStatusHelper mVoicemailStatusHelper;
-
-    private static final int WAIT_FOR_VOICEMAIL_PROVIDER_TIMEOUT_MS = 300;
-    private boolean mSwitchToVoicemailTab;
 
     private String[] mTabTitles;
 
     private static final int TAB_INDEX_ALL = 0;
     private static final int TAB_INDEX_MISSED = 1;
-    private static final int TAB_INDEX_VOICEMAIL = 2;
 
-    private static final int TAB_INDEX_COUNT_DEFAULT = 2;
-    private static final int TAB_INDEX_COUNT_WITH_VOICEMAIL = 3;
+    private static final int TAB_INDEX_COUNT = 2;
 
-    private boolean mHasActiveVoicemailProvider;
-
-    private final Runnable mWaitForVoicemailTimeoutRunnable = new Runnable() {
-        @Override
-        public void run() {
-            mViewPagerTabs.setViewPager(mViewPager);
-            mViewPager.setCurrentItem(TAB_INDEX_ALL);
-            mSwitchToVoicemailTab = false;
-        }
-    };
+    private boolean mIsResumed;
 
     public class ViewPagerAdapter extends FragmentPagerAdapter {
         public ViewPagerAdapter(FragmentManager fm) {
@@ -87,8 +70,6 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
                     return new CallLogFragment(CallLogQueryHandler.CALL_TYPE_ALL);
                 case TAB_INDEX_MISSED:
                     return new CallLogFragment(Calls.MISSED_TYPE);
-                case TAB_INDEX_VOICEMAIL:
-                    return new CallLogFragment(Calls.VOICEMAIL_TYPE);
             }
             throw new IllegalStateException("No fragment at position " + position);
         }
@@ -104,9 +85,6 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
                 case TAB_INDEX_MISSED:
                     mMissedCallsFragment = fragment;
                     break;
-                case TAB_INDEX_VOICEMAIL:
-                    mVoicemailFragment = fragment;
-                    break;
             }
             return fragment;
         }
@@ -118,8 +96,7 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
 
         @Override
         public int getCount() {
-            return mHasActiveVoicemailProvider ? TAB_INDEX_COUNT_WITH_VOICEMAIL :
-                    TAB_INDEX_COUNT_DEFAULT;
+            return TAB_INDEX_COUNT;
         }
     }
 
@@ -134,8 +111,6 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        mHandler = new Handler();
 
         setContentView(R.layout.call_log_activity);
         getWindow().setBackgroundDrawable(null);
@@ -152,47 +127,37 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
             final int callType = intent.getIntExtra(CallLog.Calls.EXTRA_CALL_TYPE_FILTER, -1);
             if (callType == CallLog.Calls.MISSED_TYPE) {
                 startingTab = TAB_INDEX_MISSED;
-            } else if (callType == CallLog.Calls.VOICEMAIL_TYPE) {
-                startingTab = TAB_INDEX_VOICEMAIL;
             }
         }
 
-        mTabTitles = new String[TAB_INDEX_COUNT_WITH_VOICEMAIL];
+        mTabTitles = new String[TAB_INDEX_COUNT];
         mTabTitles[0] = getString(R.string.call_log_all_title);
         mTabTitles[1] = getString(R.string.call_log_missed_title);
-        mTabTitles[2] = getString(R.string.call_log_voicemail_title);
 
         mViewPager = (ViewPager) findViewById(R.id.call_log_pager);
 
         mViewPagerAdapter = new ViewPagerAdapter(getFragmentManager());
         mViewPager.setAdapter(mViewPagerAdapter);
-        mViewPager.setOffscreenPageLimit(2);
+        mViewPager.setOffscreenPageLimit(1);
         mViewPager.setOnPageChangeListener(this);
 
         mViewPagerTabs = (ViewPagerTabs) findViewById(R.id.viewpager_header);
 
-        if (startingTab == TAB_INDEX_VOICEMAIL) {
-            // The addition of the voicemail tab is an asynchronous process, so wait till the tab
-            // is added, before attempting to switch to it. If the querying of CP2 for voicemail
-            // providers takes too long, give up and show the first tab instead.
-            mSwitchToVoicemailTab = true;
-            mHandler.postDelayed(mWaitForVoicemailTimeoutRunnable,
-                    WAIT_FOR_VOICEMAIL_PROVIDER_TIMEOUT_MS);
-        } else {
-            mViewPagerTabs.setViewPager(mViewPager);
-            mViewPager.setCurrentItem(startingTab);
-        }
-
-        mVoicemailStatusHelper = new VoicemailStatusHelperImpl();
+        mViewPagerTabs.setViewPager(mViewPager);
+        mViewPager.setCurrentItem(startingTab);
     }
 
     @Override
     protected void onResume() {
+        mIsResumed = true;
         super.onResume();
-        CallLogQueryHandler callLogQueryHandler =
-                new CallLogQueryHandler(this.getContentResolver(), this);
-        callLogQueryHandler.fetchVoicemailStatus();
         sendScreenViewForChildFragment(mViewPager.getCurrentItem());
+    }
+
+    @Override
+    protected void onPause() {
+        mIsResumed = false;
+        super.onPause();
     }
 
     @Override
@@ -229,42 +194,13 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
     }
 
     @Override
-    public void onVoicemailStatusFetched(Cursor statusCursor) {
-        if (this.isFinishing()) {
-            return;
-        }
-
-        mHandler.removeCallbacks(mWaitForVoicemailTimeoutRunnable);
-        // Update mHasActiveVoicemailProvider, which controls the number of tabs displayed.
-        int activeSources = mVoicemailStatusHelper.getNumberActivityVoicemailSources(statusCursor);
-        if (activeSources > 0 != mHasActiveVoicemailProvider) {
-            mHasActiveVoicemailProvider = activeSources > 0;
-            mViewPagerAdapter.notifyDataSetChanged();
-            mViewPagerTabs.setViewPager(mViewPager);
-            if (mSwitchToVoicemailTab) {
-                mViewPager.setCurrentItem(TAB_INDEX_VOICEMAIL, false);
-            }
-        } else if (mSwitchToVoicemailTab) {
-            // The voicemail tab was requested, but it does not exist because there are no
-            // voicemail sources. Just fallback to the first item instead.
-            mViewPagerTabs.setViewPager(mViewPager);
-        }
-    }
-
-    @Override
-    public boolean onCallsFetched(Cursor statusCursor) {
-        // Return false; did not take ownership of cursor
-        return false;
-    }
-
-    @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
         mViewPagerTabs.onPageScrolled(position, positionOffset, positionOffsetPixels);
     }
 
     @Override
     public void onPageSelected(int position) {
-        if (isResumed()) {
+        if (mIsResumed) {
             sendScreenViewForChildFragment(position);
         }
         mViewPagerTabs.onPageSelected(position);
@@ -290,8 +226,6 @@ public class CallLogActivity extends Activity implements CallLogQueryHandler.Lis
                 return "All";
             case TAB_INDEX_MISSED:
                 return "Missed";
-            case TAB_INDEX_VOICEMAIL:
-                return "Voicemail";
         }
         return null;
     }

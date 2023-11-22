@@ -16,6 +16,7 @@
 
 /* Engine implementation */
 
+#include <endian.h>
 #include "sles_allinclusive.h"
 
 
@@ -60,7 +61,7 @@ static SLresult initializeAndroidBufferQueueMembers(CAudioPlayer *ap) {
         // initialize ABQ buffer type
         // assert below has been checked in android_audioPlayer_checkSourceSink
         assert(SL_DATAFORMAT_MIME == ap->mDataSource.mFormat.mFormatType);
-        switch(ap->mDataSource.mFormat.mMIME.containerType) {
+        switch (ap->mDataSource.mFormat.mMIME.containerType) {
           case SL_CONTAINERTYPE_MPEG_TS:
             ap->mAndroidBufferQueue.mBufferType = kAndroidBufferTypeMpeg2Ts;
             break;
@@ -317,7 +318,7 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
                         break;
                     }
 #ifdef ANDROID
-                    switch(thiz->mDataSink.mLocator.mLocatorType) {
+                    switch (thiz->mDataSink.mLocator.mLocatorType) {
                     case SL_DATALOCATOR_BUFFERQUEUE:
                     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
                         usesSimpleBufferQueue = true;
@@ -448,7 +449,7 @@ static SLresult IEngine_CreateAudioRecorder(SLEngineItf self, SLObjectItf *pReco
                     thiz->mDataSink.mFormat.mFormatType = SL_DATAFORMAT_NULL;
 
                     // These fields are set to real values by
-                    // android_audioRecorder_checkSourceSinkSupport.  Note that the data sink is
+                    // android_audioRecorder_checkSourceSink.  Note that the data sink is
                     // always PCM buffer queue, so we know the channel count and sample rate early.
                     thiz->mNumChannels = UNKNOWN_NUMCHANNELS;
                     thiz->mSampleRateMilliHz = UNKNOWN_SAMPLERATE;
@@ -485,7 +486,7 @@ static SLresult IEngine_CreateAudioRecorder(SLEngineItf self, SLObjectItf *pReco
 
                     // check the audio source and sink parameters against platform support
 #ifdef ANDROID
-                    result = android_audioRecorder_checkSourceSinkSupport(thiz);
+                    result = android_audioRecorder_checkSourceSink(thiz);
                     if (SL_RESULT_SUCCESS != result) {
                         SL_LOGE("Cannot create AudioRecorder: invalid source or sink");
                         break;
@@ -997,6 +998,11 @@ void IEngine_init(void *self)
     }
     thiz->mShutdown = SL_BOOLEAN_FALSE;
     thiz->mShutdownAck = SL_BOOLEAN_FALSE;
+#if _BYTE_ORDER == _BIG_ENDIAN
+    thiz->mNativeEndianness = SL_BYTEORDER_BIGENDIAN;
+#else
+    thiz->mNativeEndianness = SL_BYTEORDER_LITTLEENDIAN;
+#endif
 }
 
 void IEngine_deinit(void *self)
@@ -1201,8 +1207,7 @@ static XAresult IEngine_CreateMediaPlayer(XAEngineItf self, XAObjectItf *pPlayer
                             XAMediaContainerInformation *containerInfo =
                                     (XAMediaContainerInformation*)
                                         // always storing container info at index 0, as per spec
-                                        &(thiz->mStreamInfo.mStreamInfoTable.itemAt(0).
-                                                containerInfo);
+                                        &thiz->mStreamInfo.mStreamInfoTable.itemAt(0).containerInfo;
                             containerInfo->containerType = XA_CONTAINERTYPE_MPEG_TS;
                             // there are no streams at this stage
                             containerInfo->numStreams = 0;

@@ -19,11 +19,8 @@ package com.android.tv.settings.util;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent.ShortcutIconResource;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.text.TextUtils;
 
 /**
  * Utilities for working with URIs.
@@ -38,12 +35,6 @@ public final class UriUtils {
     private static final String HTTPS_PREFIX = "https";
     private static final String SCHEME_ACCOUNT_IMAGE = "image.account";
     private static final String ACCOUNT_IMAGE_CHANGE_NOTIFY_URI = "change_notify_uri";
-    private static final String DETAIL_DIALOG_URI_DIALOG_TITLE = "detail_dialog_title";
-    private static final String DETAIL_DIALOG_URI_DIALOG_DESCRIPTION = "detail_dialog_description";
-    private static final String DETAIL_DIALOG_URI_DIALOG_ACTION_START_INDEX =
-            "detail_dialog_action_start_index";
-    private static final String DETAIL_DIALOG_URI_DIALOG_ACTION_START_NAME =
-            "detail_dialog_action_start_name";
 
     /**
      * Non instantiable.
@@ -67,20 +58,6 @@ public final class UriUtils {
     }
 
     /**
-     * load drawable from resource
-     * TODO: move to a separate class to handle bitmap and drawables
-     */
-    public static Drawable getDrawable(Context context, ShortcutIconResource r)
-            throws NameNotFoundException {
-        Resources resources = context.getPackageManager().getResourcesForApplication(r.packageName);
-        if (resources == null) {
-            return null;
-        }
-        final int id = resources.getIdentifier(r.resourceName, null, null);
-        return resources.getDrawable(id);
-    }
-
-    /**
      * Gets a URI with short cut icon scheme.
      */
     public static Uri getShortcutIconResourceUri(ShortcutIconResource iconResource) {
@@ -90,27 +67,10 @@ public final class UriUtils {
     }
 
     /**
-     * Gets a URI with scheme = {@link ContentResolver#SCHEME_ANDROID_RESOURCE}.
-     */
-    public static Uri getAndroidResourceUri(String resourceName) {
-        Uri uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + SCHEME_DELIMITER
-                + resourceName.replace(URI_PACKAGE_DELIMITER, URI_PATH_DELIMITER));
-        return uri;
-    }
-
-    /**
      * Checks if the URI refers to an Android resource.
      */
     public static boolean isAndroidResourceUri(Uri uri) {
         return ContentResolver.SCHEME_ANDROID_RESOURCE.equals(uri.getScheme());
-    }
-
-    /**
-     * Gets a URI with the account image scheme.
-     */
-    public static Uri getAccountImageUri(String accountName) {
-        Uri uri = Uri.parse(SCHEME_ACCOUNT_IMAGE + SCHEME_DELIMITER + accountName);
-        return uri;
     }
 
     /**
@@ -131,13 +91,12 @@ public final class UriUtils {
      * Checks if the URI refers to an account image.
      */
     public static boolean isAccountImageUri(Uri uri) {
-        return uri == null ? false : SCHEME_ACCOUNT_IMAGE.equals(uri.getScheme());
+        return uri != null && SCHEME_ACCOUNT_IMAGE.equals(uri.getScheme());
     }
 
     public static String getAccountName(Uri uri) {
         if (isAccountImageUri(uri)) {
-            String accountName = uri.getAuthority() + uri.getPath();
-            return accountName;
+            return uri.getAuthority() + uri.getPath();
         } else {
             throw new IllegalArgumentException("Invalid account image URI. " + uri);
         }
@@ -206,149 +165,4 @@ public final class UriUtils {
         return HTTP_PREFIX.equals(scheme) || HTTPS_PREFIX.equals(scheme);
     }
 
-    /**
-     * Build a Uri for canvas details subactions dialog given content uri and optional parameters.
-     * @param uri the subactions ContentUri
-     * @param dialogTitle the custom subactions dialog title. If the value is null, canvas will
-     *        fall back to use previous action's name as the subactions dialog title.
-     * @param dialogDescription the custom subactions dialog description. If the value is null,
-     *        canvas will fall back to use previous action's subname as the subactions dialog
-     *        description.
-     * @return
-     */
-    public static Uri getSubactionDialogUri(Uri uri, String dialogTitle, String dialogDescription) {
-        return getSubactionDialogUri(uri, dialogTitle, dialogDescription, null, -1);
-    }
-
-    /**
-     * Build a Uri for canvas details subactions dialog given content uri and optional parameters.
-     * @param uri the subactions ContentUri
-     * @param dialogTitle the custom subactions dialog title. If the value is null, canvas will
-     *        fall back to use previous action's name as the subactions dialog title.
-     * @param dialogDescription the custom subactions dialog description. If the value is null,
-     *        canvas will fall back to use previous action's subname as the subactions dialog
-     *        description.
-     * @param startIndex the focused action in actions list when started.
-     * @return
-     */
-    public static Uri getSubactionDialogUri(Uri uri, String dialogTitle, String dialogDescription,
-            int startIndex) {
-        return getSubactionDialogUri(uri, dialogTitle, dialogDescription, null, startIndex);
-    }
-
-    /**
-     * Build a Uri for canvas details subactions dialog given content uri and optional parameters.
-     * @param uri the subactions ContentUri
-     * @param dialogTitle the custom subactions dialog title. If the value is null, canvas will
-     *        fall back to use previous action's name as the subactions dialog title.
-     * @param dialogDescription the custom subactions dialog description. If the value is null,
-     *        canvas will fall back to use previous action's subname as the subactions dialog
-     *        description.
-     * @param startName the name of action that is focused in actions list when started.
-     * @return
-     */
-    public static Uri getSubactionDialogUri(Uri uri, String dialogTitle, String dialogDescription,
-            String startName) {
-        return getSubactionDialogUri(uri, dialogTitle, dialogDescription, startName, -1);
-    }
-
-    /**
-     * Build a Uri for canvas details subactions dialog given content uri and optional parameters.
-     * @param uri the subactions ContentUri
-     * @param dialogTitle the custom subactions dialog title. If the value is null, canvas will
-     *        fall back to use previous action's name as the subactions dialog title.
-     * @param dialogDescription the custom subactions dialog description. If the value is null,
-     *        canvas will fall back to use previous action's subname as the subactions dialog
-     *        description.
-     * @param startIndex the focused action in actions list when started.
-     * @param startName the name of action that is focused in actions list when started. startName
-     * takes priority over start index.
-     * @return
-     */
-    public static Uri getSubactionDialogUri(Uri uri, String dialogTitle, String dialogDescription,
-            String startName, int startIndex) {
-        if (uri == null || !isContentUri(uri)) {
-            // If given uri is null, or it is not of contentUri type, return null.
-            return null;
-        }
-
-        Uri.Builder builder = uri.buildUpon();
-        if (!TextUtils.isEmpty(dialogTitle)) {
-            builder.appendQueryParameter(DETAIL_DIALOG_URI_DIALOG_TITLE, dialogTitle);
-        }
-
-        if (!TextUtils.isEmpty(DETAIL_DIALOG_URI_DIALOG_DESCRIPTION)) {
-            builder.appendQueryParameter(DETAIL_DIALOG_URI_DIALOG_DESCRIPTION, dialogDescription);
-        }
-
-        if (startIndex != -1) {
-            builder.appendQueryParameter(DETAIL_DIALOG_URI_DIALOG_ACTION_START_INDEX,
-                    Integer.toString(startIndex));
-        }
-
-        if (!TextUtils.isEmpty(startName)) {
-            builder.appendQueryParameter(DETAIL_DIALOG_URI_DIALOG_ACTION_START_NAME, startName);
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * Get subaction dialog title parameter from URI
-     * @param uri ContentUri for canvas details subactions
-     * @return custom dialog title if this parameter is available in URI. Otherwise, return null.
-     */
-    public static String getSubactionDialogTitle(Uri uri) {
-        if (uri == null || !isContentUri(uri)) {
-            return null;
-        }
-
-        return uri.getQueryParameter(DETAIL_DIALOG_URI_DIALOG_TITLE);
-    }
-
-    /**
-     * Get subaction dialog description parameter from URI
-     * @param uri ContentUri for canvas details subactions
-     * @return custom dialog description if this parameter is available in URI.
-     * Otherwise, return null.
-     */
-    public static String getSubactionDialogDescription(Uri uri) {
-        if (uri == null || !isContentUri(uri)) {
-            return null;
-        }
-
-        return uri.getQueryParameter(DETAIL_DIALOG_URI_DIALOG_DESCRIPTION);
-    }
-
-    /**
-     * Get subaction dialog action list focused index when started from URI
-     * @param uri ContentUri for canvas details subactions
-     * @return action starting index if this parameter is available in URI. Otherwise, return -1.
-     */
-    public static int getSubactionDialogActionStartIndex(Uri uri) {
-        if (uri == null || !isContentUri(uri)) {
-            return -1;
-        }
-
-        String startIndexStr = uri.getQueryParameter(DETAIL_DIALOG_URI_DIALOG_ACTION_START_INDEX);
-        if (!TextUtils.isEmpty(startIndexStr) && TextUtils.isDigitsOnly(startIndexStr)) {
-            return Integer.parseInt(startIndexStr);
-        } else {
-            return -1;
-        }
-    }
-
-    /**
-     * Get subaction dialog action list focused action name when started from URI
-     * @param uri ContentUri for canvas details subactions
-     * @return that name of starting action if this parameter is available in URI.
-     * Otherwise, return null.
-     */
-    public static String getSubactionDialogActionStartName(Uri uri) {
-        if (uri == null || !isContentUri(uri)) {
-            return null;
-        }
-
-        return uri.getQueryParameter(DETAIL_DIALOG_URI_DIALOG_ACTION_START_NAME);
-    }
 }

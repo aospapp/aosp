@@ -12,6 +12,17 @@
  * the License.
  */
 
+/*
+ * MurmurHash3 was written by Austin Appleby, and is placed in the public
+ * domain. The author hereby disclaims copyright to this source code.
+ */
+
+/*
+ * Source:
+ * http://code.google.com/p/smhasher/source/browse/trunk/MurmurHash3.cpp
+ * (Modified to adapt to Guava coding conventions and to use the HashFunction interface)
+ */
+
 package com.google.common.hash;
 
 import static com.google.common.primitives.UnsignedBytes.toInt;
@@ -20,12 +31,14 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import javax.annotation.Nullable;
+
 /**
  * See http://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp
  * MurmurHash3_x64_128
  *
- * @author aappleby@google.com (Austin Appleby)
- * @author andreou@google.com (Dimitris Andreou)
+ * @author Austin Appleby
+ * @author Dimitris Andreou
  */
 final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implements Serializable {
   // TODO(user): when the shortcuts are implemented, update BloomFilterStrategies
@@ -43,40 +56,55 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
     return new Murmur3_128Hasher(seed);
   }
 
+  @Override
+  public String toString() {
+    return "Hashing.murmur3_128(" + seed + ")";
+  }
+
+  @Override
+  public boolean equals(@Nullable Object object) {
+    if (object instanceof Murmur3_128HashFunction) {
+      Murmur3_128HashFunction other = (Murmur3_128HashFunction) object;
+      return seed == other.seed;
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return getClass().hashCode() ^ seed;
+  }
+
   private static final class Murmur3_128Hasher extends AbstractStreamingHasher {
-    long h1;
-    long h2;
-    long c1 = 0x87c37b91114253d5L;
-    long c2 = 0x4cf5ad432745937fL;
-    int len;
+    private static final int CHUNK_SIZE = 16;
+    private static final long C1 = 0x87c37b91114253d5L;
+    private static final long C2 = 0x4cf5ad432745937fL;
+    private long h1;
+    private long h2;
+    private int length;
 
     Murmur3_128Hasher(int seed) {
-      super(16);
-      h1 = seed;
-      h2 = seed;
+      super(CHUNK_SIZE);
+      this.h1 = seed;
+      this.h2 = seed;
+      this.length = 0;
     }
 
     @Override protected void process(ByteBuffer bb) {
       long k1 = bb.getLong();
       long k2 = bb.getLong();
-      len += 16;
       bmix64(k1, k2);
+      length += CHUNK_SIZE;
     }
 
     private void bmix64(long k1, long k2) {
-      k1 *= c1;
-      k1 = Long.rotateLeft(k1, 31);
-      k1 *= c2;
-      h1 ^= k1;
+      h1 ^= mixK1(k1);
 
       h1 = Long.rotateLeft(h1, 27);
       h1 += h2;
       h1 = h1 * 5 + 0x52dce729;
 
-      k2 *= c2;
-      k2 = Long.rotateLeft(k2, 33);
-      k2 *= c1;
-      h2 ^= k2;
+      h2 ^= mixK2(k2);
 
       h2 = Long.rotateLeft(h2, 31);
       h2 += h1;
@@ -86,7 +114,7 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
     @Override protected void processRemaining(ByteBuffer bb) {
       long k1 = 0;
       long k2 = 0;
-      len += bb.remaining();
+      length += bb.remaining();
       switch (bb.remaining()) {
         case 15:
           k2 ^= (long) toInt(bb.get(14)) << 48; // fall through
@@ -101,14 +129,10 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
         case 10:
           k2 ^= (long) toInt(bb.get(9)) << 8; // fall through
         case 9:
-          k2 ^= (long) toInt(bb.get(8)) << 0;
-          k2 *= c2;
-          k2 = Long.rotateLeft(k2, 33);
-          k2 *= c1;
-          h2 ^= k2;
-          // fall through
+          k2 ^= (long) toInt(bb.get(8)); // fall through
         case 8:
-          k1 ^= (long) toInt(bb.get(7)) << 56; // fall through
+          k1 ^= bb.getLong();
+          break;
         case 7:
           k1 ^= (long) toInt(bb.get(6)) << 48; // fall through
         case 6:
@@ -122,19 +146,18 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
         case 2:
           k1 ^= (long) toInt(bb.get(1)) << 8; // fall through
         case 1:
-          k1 ^= (long) toInt(bb.get(0)) << 0;
-          k1 *= c1;
-          k1 = Long.rotateLeft(k1, 31);
-          k1 *= c2;
-          h1 ^= k1;
-          // fall through
+          k1 ^= (long) toInt(bb.get(0));
+          break;
         default:
+          throw new AssertionError("Should never get here.");
       }
+      h1 ^= mixK1(k1);
+      h2 ^= mixK2(k2);
     }
 
     @Override public HashCode makeHash() {
-      h1 ^= len;
-      h2 ^= len;
+      h1 ^= length;
+      h2 ^= length;
 
       h1 += h2;
       h2 += h1;
@@ -145,19 +168,35 @@ final class Murmur3_128HashFunction extends AbstractStreamingHashFunction implem
       h1 += h2;
       h2 += h1;
 
-      ByteBuffer bb = ByteBuffer.wrap(new byte[16]).order(ByteOrder.LITTLE_ENDIAN);
-      bb.putLong(h1);
-      bb.putLong(h2);
-      return HashCodes.fromBytes(bb.array());
+      return HashCode.fromBytesNoCopy(ByteBuffer
+          .wrap(new byte[CHUNK_SIZE])
+          .order(ByteOrder.LITTLE_ENDIAN)
+          .putLong(h1)
+          .putLong(h2)
+          .array());
     }
 
-    private long fmix64(long k) {
+    private static long fmix64(long k) {
       k ^= k >>> 33;
       k *= 0xff51afd7ed558ccdL;
       k ^= k >>> 33;
       k *= 0xc4ceb9fe1a85ec53L;
       k ^= k >>> 33;
       return k;
+    }
+
+    private static long mixK1(long k1) {
+      k1 *= C1;
+      k1 = Long.rotateLeft(k1, 31);
+      k1 *= C2;
+      return k1;
+    }
+
+    private static long mixK2(long k2) {
+      k2 *= C2;
+      k2 = Long.rotateLeft(k2, 33);
+      k2 *= C1;
+      return k2;
     }
   }
 

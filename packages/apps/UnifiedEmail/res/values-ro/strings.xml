@@ -45,13 +45,13 @@
     <string name="too_large_to_attach_additional" msgid="4964155563465970480">"Fişierul nu a fost ataşat. A fost atinsă limita maximă de <xliff:g id="MAXSIZE">%1$s</xliff:g>."</string>
     <string name="generic_attachment_problem" msgid="4683974765387240723">"Nu s-a putut ataşa fişierul."</string>
     <string name="attachment_permission_denied" msgid="2274397783497640486">"S-a refuzat accesul la atașament."</string>
-    <string name="recipient_needed" msgid="319816879398937214">"Adăugaţi cel puţin un destinatar."</string>
+    <string name="recipient_needed" msgid="319816879398937214">"Introduceți cel puţin un destinatar."</string>
     <string name="confirm_send_message_with_no_subject" msgid="1442628074022609987">"Nu există text în subiectul mesajului."</string>
     <string name="confirm_send_message_with_no_body" msgid="3329355318700201516">"Nu există text în corpul mesajului."</string>
     <string name="confirm_send_message" msgid="6211518590166222735">"Trimiteţi acest mesaj?"</string>
     <string name="message_discarded" msgid="6792661321962262024">"Mesaj refuzat."</string>
     <string name="signature" msgid="3172144541947408374">\n\n"<xliff:g id="SIGNATURE">%s</xliff:g>"</string>
-    <string name="custom_from_account_label" msgid="5042317430007736322">"Trim. ca de la:"</string>
+    <string name="custom_from_account_label" msgid="5042317430007736322">"Trimiteți ca:"</string>
     <string name="send" msgid="4269810089682120826">"Trimiteţi"</string>
     <string name="mark_read" msgid="579388143288052493">"Marcaţi drept citită"</string>
     <string name="mark_unread" msgid="6245060538061533191">"Marcaţi drept necitită"</string>
@@ -143,7 +143,7 @@
     <string name="message_retrying" msgid="5335188121407261331">"Se reîncearcă..."</string>
     <string name="message_failed" msgid="7887650587384601790">"Nu a reușit"</string>
     <string name="send_failed" msgid="2186285547449865010">"Mesaj netrimis."</string>
-    <string name="me_object_pronoun" msgid="4674452244417913816">"eu"</string>
+    <string name="me_object_pronoun" msgid="4674452244417913816">"mine"</string>
     <string name="me_subject_pronoun" msgid="7479328865714008288">"eu"</string>
   <plurals name="confirm_delete_conversation">
     <item quantity="one" msgid="7605755011865575440">"Ștergeţi această conversaţie?"</item>
@@ -165,7 +165,7 @@
     <string name="empty_trash_folder" msgid="378119063015945020">"Niciun articol în coșul de gunoi. Vă mulțumim că reciclați."</string>
     <string name="empty_folder" msgid="3227552635613553855">"Nu există niciun e-mail în acest dosar."</string>
     <string name="getting_messages" msgid="8403333791332403244">"Mesaje în curs de încărcare"</string>
-    <string name="undo" msgid="8256285267701059609">"Anulaţi"</string>
+    <string name="undo" msgid="8256285267701059609">"Anulați"</string>
   <plurals name="conversation_unstarred">
     <item quantity="one" msgid="1701235480675303125">"Se anulează marcarea cu stea pentru <xliff:g id="COUNT">%1$d</xliff:g> conversație"</item>
     <item quantity="other" msgid="1154441830432477256">"Se anulează marcarea cu stea pentru <xliff:g id="COUNT">%1$d</xliff:g> (de) conversații"</item>
@@ -253,7 +253,7 @@
     <string name="send_anyway" msgid="2727576121007079643">"Trimiteți oricum"</string>
     <string name="ok" msgid="6178802457914802336">"OK"</string>
     <string name="done" msgid="344354738335270292">"Terminat"</string>
-    <string name="cancel" msgid="4831678293149626190">"Anulaţi"</string>
+    <string name="cancel" msgid="4831678293149626190">"Anulați"</string>
     <string name="clear" msgid="765949970989448022">"Ștergeți"</string>
     <string name="next" msgid="2662478712866255138">"Înainte"</string>
     <string name="previous" msgid="8985379053279804274">"Înapoi"</string>
@@ -368,7 +368,7 @@
     <string name="prefDialogTitle_removal_action" msgid="7914272565548361304">"Acțiune prestabilită"</string>
     <string name="preferences_default_reply_all_title" msgid="7255858488369635327">"Răspundeți tuturor"</string>
     <string name="preferences_default_reply_all_summary_impl" msgid="895581085692979709">"Utilizați ca setare prestabilită pentru răspunsurile la mesaje"</string>
-    <string name="preference_swipe_title" msgid="2073613840893904205">"Glisați acțiunile"</string>
+    <string name="preference_swipe_title" msgid="2073613840893904205">"Acțiunile de glisare"</string>
     <string name="preference_swipe_description" msgid="3036560323237015010">"În lista de conversații"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"Imaginea expeditorului"</string>
     <string name="preference_sender_image_description" msgid="3586817690132199889">"Afișați lângă nume în lista de conversații"</string>
@@ -457,7 +457,7 @@
     <string name="preference_confirm_before_delete_title" msgid="7563587174619033835">"Confirmaţi înainte de a şterge"</string>
     <string name="preference_confirm_before_archive_title" msgid="7318645995655875718">"Confirmaţi înainte de a arhiva"</string>
     <string name="preference_confirm_before_send_title" msgid="4136585783513077039">"Confirmaţi înainte de a trimite"</string>
-    <string name="preferences_conversation_mode_title" msgid="389352009651720838">"Ajustați mesajele automat"</string>
+    <string name="preferences_conversation_mode_title" msgid="389352009651720838">"Încadrează automat mesajele"</string>
     <string name="preferences_conversation_mode_summary" msgid="5730999743867653106">"Micșorați mesajele pentru a se încadra pe ecran"</string>
     <string name="preferences_disable_snap_headers_title" msgid="7257824136988429629">"Acţiuni pentru mesaje"</string>
   <string-array name="prefSummaries_snapHeader">

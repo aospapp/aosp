@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,6 +29,7 @@ import java.util.Iterator;
  *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public class MinimalCollection<E> extends AbstractCollection<E> {
   // TODO: expose allow nulls parameter?
 
@@ -93,7 +96,7 @@ public class MinimalCollection<E> extends AbstractCollection<E> {
 
   @Override public Object[] toArray() {
     Object[] result = new Object[contents.length];
-    Platform.unsafeArrayCopy(contents, 0, result, 0, contents.length);
+    System.arraycopy(contents, 0, result, 0, contents.length);
     return result;
   }
 

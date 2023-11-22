@@ -17,10 +17,13 @@ set(DE_INTERNAL_TESTS_SRCS
 	ditTestLogTests.hpp
 	ditTestPackage.cpp
 	ditTestPackage.hpp
+	ditSeedBuilderTests.hpp
+	ditSeedBuilderTests.cpp
 	)
 
 set(DE_INTERNAL_TESTS_LIBS
 	tcutil
+	referencerenderer
 	)
 
 add_deqp_module(de-internal-tests "${DE_INTERNAL_TESTS_SRCS}" "${DE_INTERNAL_TESTS_LIBS}" ditTestPackageEntry.cpp)

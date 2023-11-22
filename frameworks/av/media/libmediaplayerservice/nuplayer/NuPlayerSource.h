@@ -28,8 +28,7 @@
 namespace android {
 
 struct ABuffer;
-struct MetaData;
-struct MediaBuffer;
+class MediaBuffer;
 
 struct NuPlayer::Source : public AHandler {
     enum Flags {
@@ -54,8 +53,10 @@ struct NuPlayer::Source : public AHandler {
         kWhatCacheStats,
         kWhatSubtitleData,
         kWhatTimedTextData,
+        kWhatTimedMetaData,
         kWhatQueueDecoderShutdown,
         kWhatDrmNoLicense,
+        kWhatInstantiateSecureDecoders,
     };
 
     // The provides message is used to notify the player about various
@@ -117,6 +118,10 @@ struct NuPlayer::Source : public AHandler {
         return false;
     }
 
+    virtual bool isStreaming() const {
+        return true;
+    }
+
 protected:
     virtual ~Source() {}
 
@@ -126,6 +131,7 @@ protected:
 
     void notifyFlagsChanged(uint32_t flags);
     void notifyVideoSizeChanged(const sp<AMessage> &format = NULL);
+    void notifyInstantiateSecureDecoders(const sp<AMessage> &reply);
     void notifyPrepared(status_t err = OK);
 
 private:

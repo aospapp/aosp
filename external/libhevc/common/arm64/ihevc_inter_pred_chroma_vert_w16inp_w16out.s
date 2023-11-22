@@ -120,10 +120,10 @@ ihevc_inter_pred_chroma_vert_w16inp_w16out_av8:
     sxtl        v0.8h, v0.8b                //long the value
 
     tst         x6,#3                       //checks wd  == 2
-    dup         v16.4h, v0.4h[0]            //coeff_0
-    dup         v17.4h, v0.4h[1]            //coeff_1
-    dup         v18.4h, v0.4h[2]            //coeff_2
-    dup         v19.4h, v0.4h[3]            //coeff_3
+    dup         v16.4h, v0.h[0]             //coeff_0
+    dup         v17.4h, v0.h[1]             //coeff_1
+    dup         v18.4h, v0.h[2]             //coeff_2
+    dup         v19.4h, v0.h[3]             //coeff_3
 
     bgt         core_loop_ht_2              //jumps to loop handles wd 2
 

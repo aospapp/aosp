@@ -11,7 +11,7 @@
 
 #include <GL/gl.h>
 #include <WindowsX.h>
-#include "SkWGL.h"
+#include "win/SkWGL.h"
 #include "SkWindow.h"
 #include "SkCanvas.h"
 #include "SkOSMenu.h"
@@ -21,8 +21,8 @@
 #include "SkGraphics.h"
 
 #if SK_ANGLE
+#include "gl/angle/SkANGLEGLContext.h"
 #include "gl/GrGLInterface.h"
-
 #include "GLES2/gl2.h"
 
 #define ANGLE_GL_CALL(IFACE, X)                                 \
@@ -60,7 +60,7 @@ SkOSWindow::SkOSWindow(void* hWnd) {
 
 SkOSWindow::~SkOSWindow() {
 #if SK_SUPPORT_GPU
-    if (NULL != fHGLRC) {
+    if (fHGLRC) {
         wglDeleteContext((HGLRC)fHGLRC);
     }
 #if SK_ANGLE
@@ -331,7 +331,8 @@ void SkEvent::SignalQueueTimer(SkMSec delay)
 bool SkOSWindow::attachGL(int msaaSampleCount, AttachmentInfo* info) {
     HDC dc = GetDC((HWND)fHWND);
     if (NULL == fHGLRC) {
-        fHGLRC = SkCreateWGLContext(dc, msaaSampleCount, false);
+        fHGLRC = SkCreateWGLContext(dc, msaaSampleCount,
+                kGLPreferCompatibilityProfile_SkWGLContextRequest);
         if (NULL == fHGLRC) {
             return false;
         }
@@ -383,6 +384,7 @@ void SkOSWindow::presentGL() {
 }
 
 #if SK_ANGLE
+
 bool create_ANGLE(EGLNativeWindowType hWnd,
                   int msaaSampleCount,
                   EGLDisplay* eglDisplay,
@@ -406,9 +408,11 @@ bool create_ANGLE(EGLNativeWindowType hWnd,
         EGL_NONE, EGL_NONE
     };
 
-    EGLDisplay display = eglGetDisplay(GetDC(hWnd));
-    if (display == EGL_NO_DISPLAY ) {
-       return false;
+    EGLDisplay display = SkANGLEGLContext::GetD3DEGLDisplay(GetDC(hWnd));
+
+    if (EGL_NO_DISPLAY == display) {
+        SkDebugf("Could not create ANGLE egl display!\n");
+        return false;
     }
 
     // Initialize EGL

@@ -206,6 +206,7 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
                            psb_buffer_type_t type,
                            psb_buffer_p buf,
                            void * vaddr,
+                           int fd,
                            unsigned int flags
                           )
 {
@@ -221,6 +222,7 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
     buf->type = type;
     buf->driver_data = driver_data; /* only for RAR buffers */
     buf->user_ptr = vaddr;
+    buf->fd = fd;
 
     /* Xvideo will share surface buffer, set SHARED flag
     */
@@ -259,16 +261,16 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
     }
 
     /* here use the placement when gen buffer setted */
-    drv_debug_msg(VIDEO_DEBUG_GENERAL, "Create BO from user buffer %p, size=%d\n", vaddr, size);
+    drv_debug_msg(VIDEO_DEBUG_GENERAL, "Create BO from user buffer %p, size=%d, fd = %d\n", vaddr, size, fd);
 
-    ret = wsbmBODataUB(buf->drm_buf, size, NULL, NULL, 0, vaddr);
+    ret = wsbmBODataUB(buf->drm_buf, size, NULL, NULL, 0, vaddr, fd);
     if (ret) {
-        drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to alloc wsbm buffers, buf->drm_buf is 0x%x, size is %d, vaddr is 0x%x\n", buf->drm_buf, size, vaddr);
+        drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to alloc wsbm buffers, buf->drm_buf is 0x%x, size is %d, vaddr is 0x%x, fd=%d\n", buf->drm_buf, size, vaddr, fd);
         return 1;
     }
 
-    drv_debug_msg(VIDEO_DEBUG_GENERAL, "Create BO from user buffer 0x%08x (%d byte),BO GPU offset hint=0x%08x\n",
-    vaddr, size, wsbmBOOffsetHint(buf->drm_buf));
+    drv_debug_msg(VIDEO_DEBUG_GENERAL, "Create BO from user buffer 0x%08x (%d byte), fd=%d, BO GPU offset hint=0x%08x\n",
+    vaddr, size, fd, wsbmBOOffsetHint(buf->drm_buf));
 
     buf->pl_flags = placement;
     buf->status = psb_bs_ready;

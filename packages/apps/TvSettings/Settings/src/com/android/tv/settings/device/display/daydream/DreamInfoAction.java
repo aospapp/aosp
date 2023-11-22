@@ -16,15 +16,12 @@
 
 package com.android.tv.settings.device.display.daydream;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
@@ -35,6 +32,8 @@ import android.service.dreams.DreamService;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
+
+import com.android.tv.settings.dialog.old.Action;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -85,8 +84,8 @@ public class DreamInfoAction extends Action {
 
     protected DreamInfoAction(ResolveInfo resolveInfo, boolean checked, String title,
             ComponentName dreamComponentName, ComponentName settingsComponentName) {
-        super(null, title, null, null, 0, checked, false, settingsComponentName != null, false,
-                null, CHECK_SET_ID);
+        super(null, title, null, null, 0, null, checked, false, settingsComponentName != null,
+                false, null, CHECK_SET_ID, true);
         mResolveInfo = resolveInfo;
         mDreamComponentName = dreamComponentName;
         mSettingsComponentName = settingsComponentName;

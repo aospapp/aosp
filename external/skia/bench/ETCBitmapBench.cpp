@@ -9,7 +9,7 @@
 #include "Resources.h"
 #include "SkCanvas.h"
 #include "SkData.h"
-#include "SkDecodingImageGenerator.h"
+#include "SkImageGenerator.h"
 #include "SkImageDecoder.h"
 #include "SkOSFile.h"
 #include "SkPixelRef.h"
@@ -21,7 +21,7 @@
 // This takes the etc1 data pointed to by orig, and copies it `factor` times in each
 // dimension. The return value is the new data or NULL on error.
 static etc1_byte* create_expanded_etc1_bitmap(const uint8_t* orig, int factor) {
-    SkASSERT(NULL != orig);
+    SkASSERT(orig);
     SkASSERT(factor > 1);
 
     const etc1_byte* origData = reinterpret_cast<const etc1_byte*>(orig);
@@ -89,13 +89,10 @@ protected:
     SkAutoDataUnref fPKMData;
 
 private:
-    SkData *loadPKM() {
-        SkString resourcePath = GetResourcePath();
-        SkString filename = SkOSPath::SkPathJoin(resourcePath.c_str(),
-                                                 "mandrill_128.pkm");
-
+    SkData* loadPKM() {
+        SkString pkmFilename = GetResourcePath("mandrill_128.pkm");
         // Expand the data
-        SkAutoDataUnref fileData(SkData::NewFromFileName(filename.c_str()));
+        SkAutoDataUnref fileData(SkData::NewFromFileName(pkmFilename.c_str()));
         if (NULL == fileData) {
             SkDebugf("Could not open the file. Did you forget to set the resourcePath?\n");
             return NULL;
@@ -125,12 +122,12 @@ public:
     ETCBitmapBench(bool decompress, Backend backend)
         : fDecompress(decompress), fBackend(backend) { }
 
-    virtual bool isSuitableFor(Backend backend) SK_OVERRIDE {
+    bool isSuitableFor(Backend backend) override {
         return backend == this->fBackend;
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         if (kGPU_Backend == this->fBackend) {
             if (this->fDecompress) {
                 return "etc1bitmap_render_gpu_decompressed";
@@ -147,16 +144,14 @@ protected:
         }
     }
 
-    virtual void onPreDraw() SK_OVERRIDE {
+    void onPreDraw() override {
         if (NULL == fPKMData) {
             SkDebugf("Failed to load PKM data!\n");
             return;
         }
 
         // Install pixel ref
-        if (!SkInstallDiscardablePixelRef(
-                SkDecodingImageGenerator::Create(
-                    fPKMData, SkDecodingImageGenerator::Options()), &(this->fBitmap))) {
+        if (!SkInstallDiscardablePixelRef(fPKMData, &(this->fBitmap))) {
             SkDebugf("Could not install discardable pixel ref.\n");
             return;
         }
@@ -167,7 +162,7 @@ protected:
         }
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         for (int i = 0; i < loops; ++i) {
             canvas->drawBitmap(this->fBitmap, 0, 0, NULL);
         }
@@ -192,7 +187,7 @@ public:
         : ETCBitmapBench(decompress, backend) { }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         if (kGPU_Backend == this->backend()) {
             if (this->decompress()) {
                 return "etc1bitmap_upload_gpu_decompressed";
@@ -209,7 +204,7 @@ protected:
         }
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         SkPixelRef* pr = fBitmap.pixelRef();
         for (int i = 0; i < loops; ++i) {
             if (pr) {

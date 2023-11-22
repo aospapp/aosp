@@ -18,8 +18,6 @@ package android.view.cts;
 
 import com.android.cts.view.R;
 
-import dalvik.annotation.KnownFailure;
-
 import org.xmlpull.v1.XmlPullParser;
 
 import android.app.Activity;
@@ -157,13 +155,16 @@ public class ViewStubTest extends ActivityInstrumentationTestCase<ViewStubCtsAct
 
     public void testAccessInflatedId() {
         ViewStub viewStub = new ViewStub(mContext);
-        assertEquals(0, viewStub.getInflatedId());
+        assertEquals("Default ViewStub inflated ID is View.NO_ID",
+                View.NO_ID, viewStub.getInflatedId());
 
         viewStub.setInflatedId(R.id.inflated_id);
-        assertEquals(R.id.inflated_id, viewStub.getInflatedId());
+        assertEquals("Set ViewStub inflated ID to package resource ID",
+                R.id.inflated_id, viewStub.getInflatedId());
 
-        viewStub.setInflatedId(-1);
-        assertEquals(-1, viewStub.getInflatedId());
+        viewStub.setInflatedId(View.NO_ID);
+        assertEquals("Set ViewStub inflated ID to View.NO_ID",
+                View.NO_ID, viewStub.getInflatedId());
     }
 
     @UiThreadTest

@@ -46,7 +46,7 @@ __BEGIN_DECLS
 #define BT_PROFILE_HIDHOST_ID "hidhost"
 #define BT_PROFILE_PAN_ID "pan"
 #define BT_PROFILE_MAP_CLIENT_ID "map_client"
-
+#define BT_PROFILE_SDP_CLIENT_ID "sdp"
 #define BT_PROFILE_GATT_ID "gatt"
 #define BT_PROFILE_AV_RC_ID "avrcp"
 #define BT_PROFILE_AV_RC_CTRL_ID "avrcp_ctrl"
@@ -143,14 +143,17 @@ typedef struct
 
 typedef struct
 {
+    uint16_t version_supported;
     uint8_t local_privacy_enabled;
     uint8_t max_adv_instance;
     uint8_t rpa_offload_supported;
     uint8_t max_irk_list_size;
     uint8_t max_adv_filter_supported;
-    uint8_t scan_result_storage_size_lobyte;
-    uint8_t scan_result_storage_size_hibyte;
     uint8_t activity_energy_info_supported;
+    uint16_t scan_result_storage_size;
+    uint16_t total_trackable_advertisers;
+    bool extended_scan_support;
+    bool debug_logging_supported;
 }bt_local_le_features_t;
 
 /* Bluetooth Adapter and Remote Device property types */
@@ -315,7 +318,7 @@ typedef void (*discovery_state_changed_callback)(bt_discovery_state_t state);
 
 /** Bluetooth Legacy PinKey Request callback */
 typedef void (*pin_request_callback)(bt_bdaddr_t *remote_bd_addr,
-                                        bt_bdname_t *bd_name, uint32_t cod);
+                                        bt_bdname_t *bd_name, uint32_t cod, bool min_16_digit);
 
 /** Bluetooth SSP Request callback - Just Works & Numeric Comparison*/
 /** pass_key - Shall be 0 for BT_SSP_PAIRING_VARIANT_CONSENT &
@@ -533,6 +536,18 @@ typedef struct {
       * Success indicates that the VSC command was sent to controller
       */
     int (*read_energy_info)();
+
+    /**
+     * Native support for dumpsys function
+     * Function is synchronous and |fd| is owned by caller.
+     */
+    void (*dump)(int fd);
+
+    /**
+     * Clear /data/misc/bt_config.conf and erase all stored connections
+     */
+    int (*config_clear)(void);
+
 } bt_interface_t;
 
 /** TODO: Need to add APIs for Service Discovery, Service authorization and
@@ -545,6 +560,8 @@ typedef struct {
 } bluetooth_device_t;
 
 typedef bluetooth_device_t bluetooth_module_t;
+
+
 __END_DECLS
 
 #endif /* ANDROID_INCLUDE_BLUETOOTH_H */

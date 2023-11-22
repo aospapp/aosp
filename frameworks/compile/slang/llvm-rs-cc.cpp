@@ -17,6 +17,8 @@
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
+#include "clang/Frontend/CompilerInvocation.h"
+#include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Frontend/Utils.h"
 
@@ -24,43 +26,40 @@
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 
 #include "llvm/Option/OptTable.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Target/TargetMachine.h"
 
 #include "rs_cc_options.h"
 #include "slang.h"
 #include "slang_assert.h"
 #include "slang_diagnostic_buffer.h"
-#include "slang_rs.h"
 #include "slang_rs_reflect_utils.h"
 
 #include <list>
 #include <set>
 #include <string>
 
-// SaveStringInSet, ExpandArgsFromBuf and ExpandArgv are all copied from
-// $(CLANG_ROOT)/tools/driver/driver.cpp for processing argc/argv passed in
-// main().
-static inline const char *SaveStringInSet(std::set<std::string> &SavedStrings,
-                                          llvm::StringRef S) {
-  return SavedStrings.insert(S).first->c_str();
+namespace {
+class StringSet : public llvm::cl::StringSaver {
+public:
+  const char *SaveString(const char *Str) override {
+    return Strings.insert(Str).first->c_str();
+  }
+
+private:
+  std::set<std::string> Strings;
+};
 }
-static void ExpandArgsFromBuf(const char *Arg,
-                              llvm::SmallVectorImpl<const char*> &ArgVector,
-                              std::set<std::string> &SavedStrings);
-static void ExpandArgv(int argc, const char **argv,
-                       llvm::SmallVectorImpl<const char*> &ArgVector,
-                       std::set<std::string> &SavedStrings);
 
 static const char *DetermineOutputFile(const std::string &OutputDir,
                                        const std::string &PathSuffix,
                                        const char *InputFile,
                                        slang::Slang::OutputType OutputType,
-                                       std::set<std::string> &SavedStrings) {
+                                       StringSet *SavedStrings) {
   if (OutputType == slang::Slang::OT_Nothing)
     return "/dev/null";
 
@@ -112,7 +111,7 @@ static const char *DetermineOutputFile(const std::string &OutputDir,
     }
   }
 
-  return SaveStringInSet(SavedStrings, OutputFile);
+  return SavedStrings->SaveString(OutputFile.c_str());
 }
 
 typedef std::list<std::pair<const char*, const char*> > NamePairList;
@@ -136,20 +135,15 @@ typedef std::list<std::pair<const char*, const char*> > NamePairList;
  * 32-bit and 64-bit bitcode outputs to be included in the final reflected
  * source code that is emitted.
  */
-static int compileFiles(NamePairList *IOFiles, NamePairList *IOFiles32,
+static void makeFileList(NamePairList *IOFiles, NamePairList *DepFiles,
     const llvm::SmallVector<const char*, 16> &Inputs, slang::RSCCOptions &Opts,
-    clang::DiagnosticsEngine *DiagEngine, slang::DiagnosticBuffer *DiagClient,
-    std::set<std::string> *SavedStrings) {
-  NamePairList DepFiles;
+    StringSet *SavedStrings) {
   std::string PathSuffix = "";
-  bool CompileSecondTimeFor64Bit = false;
-
   // In our mixed 32/64-bit path, we need to suffix our files differently for
   // both 32-bit and 64-bit versions.
   if (Opts.mEmit3264) {
     if (Opts.mBitWidth == 64) {
       PathSuffix = "bc64";
-      CompileSecondTimeFor64Bit = true;
     } else {
       PathSuffix = "bc32";
     }
@@ -160,8 +154,8 @@ static int compileFiles(NamePairList *IOFiles, NamePairList *IOFiles32,
 
     const char *BCOutputFile = DetermineOutputFile(Opts.mBitcodeOutputDir,
                                                    PathSuffix, InputFile,
-                                                   slang::Slang::OT_Bitcode,
-                                                   *SavedStrings);
+                                                   Opts.mOutputType,
+                                                   SavedStrings);
     const char *OutputFile = BCOutputFile;
 
     if (Opts.mEmitDependency) {
@@ -170,23 +164,16 @@ static int compileFiles(NamePairList *IOFiles, NamePairList *IOFiles32,
       // because they share the same sources/dependencies.
       const char *DepOutputFile =
           DetermineOutputFile(Opts.mDependencyOutputDir, "", InputFile,
-                              slang::Slang::OT_Dependency, *SavedStrings);
+                              slang::Slang::OT_Dependency, SavedStrings);
       if (Opts.mOutputType == slang::Slang::OT_Dependency) {
         OutputFile = DepOutputFile;
       }
 
-      DepFiles.push_back(std::make_pair(BCOutputFile, DepOutputFile));
+      DepFiles->push_back(std::make_pair(BCOutputFile, DepOutputFile));
     }
 
     IOFiles->push_back(std::make_pair(InputFile, OutputFile));
   }
-
-  std::unique_ptr<slang::SlangRS> Compiler(new slang::SlangRS());
-  Compiler->init(Opts.mBitWidth, DiagEngine, DiagClient);
-  int CompileFailed = !Compiler->compile(*IOFiles, *IOFiles32, DepFiles, Opts);
-  // We suppress warnings (via reset) if we are doing a second compilation.
-  Compiler->reset(CompileSecondTimeFor64Bit);
-  return CompileFailed;
 }
 
 #define str(s) #s
@@ -208,150 +195,101 @@ static void llvm_rs_cc_VersionPrinter() {
 #undef wrap_str
 #undef str
 
+static void LLVMErrorHandler(void *UserData, const std::string &Message,
+                             bool GenCrashDialog) {
+  clang::DiagnosticsEngine *DiagEngine =
+      static_cast<clang::DiagnosticsEngine *>(UserData);
+
+  DiagEngine->Report(clang::diag::err_fe_error_backend) << Message;
+
+  // Run the interrupt handlers to make sure any special cleanups get done, in
+  // particular that we remove files registered with RemoveFileOnSignal.
+  llvm::sys::RunInterruptHandlers();
+
+  exit(1);
+}
+
 int main(int argc, const char **argv) {
-  std::set<std::string> SavedStrings;
-  llvm::SmallVector<const char*, 256> ArgVector;
+  llvm::llvm_shutdown_obj Y; // Call llvm_shutdown() on exit.
+  LLVMInitializeARMTargetInfo();
+  LLVMInitializeARMTarget();
+  LLVMInitializeARMAsmPrinter();
+
+  StringSet SavedStrings; // Keeps track of strings to be destroyed at the end.
+
+  // Parse the command line arguments and respond to show help & version
+  // commands.
+  llvm::SmallVector<const char *, 16> Inputs;
   slang::RSCCOptions Opts;
-  llvm::SmallVector<const char*, 16> Inputs;
-  std::string Argv0;
-
-  llvm::llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
-
-  ExpandArgv(argc, argv, ArgVector, SavedStrings);
-
-  // Argv0
-  Argv0 = llvm::sys::path::stem(ArgVector[0]);
-
-  // Setup diagnostic engine
-  slang::DiagnosticBuffer *DiagClient = new slang::DiagnosticBuffer();
-
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> DiagIDs(
-    new clang::DiagnosticIDs());
-
-  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts(
-    new clang::DiagnosticOptions());
-  clang::DiagnosticsEngine DiagEngine(DiagIDs, &*DiagOpts, DiagClient, true);
-
-  slang::Slang::GlobalInitialization();
-
-  slang::ParseArguments(ArgVector, Inputs, Opts, DiagEngine);
-
-  // Exits when there's any error occurred during parsing the arguments
-  if (DiagEngine.hasErrorOccurred()) {
-    llvm::errs() << DiagClient->str();
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts =
+      new clang::DiagnosticOptions();
+  if (!slang::ParseArguments(llvm::makeArrayRef(argv, argc), Inputs, Opts,
+                             *DiagOpts, SavedStrings)) {
+    // Exits when there's any error occurred during parsing the arguments
     return 1;
   }
-
   if (Opts.mShowHelp) {
     std::unique_ptr<llvm::opt::OptTable> OptTbl(slang::createRSCCOptTable());
+    const std::string Argv0 = llvm::sys::path::stem(argv[0]);
     OptTbl->PrintHelp(llvm::outs(), Argv0.c_str(),
                       "Renderscript source compiler");
     return 0;
   }
-
   if (Opts.mShowVersion) {
     llvm_rs_cc_VersionPrinter();
     return 0;
   }
 
-  // No input file
+  // Initialize the diagnostic objects
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> DiagIDs(
+      new clang::DiagnosticIDs());
+  slang::DiagnosticBuffer DiagsBuffer;
+  clang::DiagnosticsEngine DiagEngine(DiagIDs, &*DiagOpts, &DiagsBuffer, false);
+  clang::ProcessWarningOptions(DiagEngine, *DiagOpts);
+  (void)DiagEngine.setSeverityForGroup(clang::diag::Flavor::WarningOrError,
+                                       "implicit-function-declaration",
+                                       clang::diag::Severity::Error);
+
+  // Report error if no input file
   if (Inputs.empty()) {
     DiagEngine.Report(clang::diag::err_drv_no_input_files);
-    llvm::errs() << DiagClient->str();
+    llvm::errs() << DiagsBuffer.str();
     return 1;
   }
 
-  // Prepare input data for RS compiler.
-  NamePairList IOFiles64;
-  NamePairList IOFiles32;
+  llvm::install_fatal_error_handler(LLVMErrorHandler, &DiagEngine);
 
-  int CompileFailed = compileFiles(&IOFiles32, &IOFiles32, Inputs, Opts,
-                                   &DiagEngine, DiagClient, &SavedStrings);
+  // Compile the 32 bit version
+  NamePairList IOFiles32;
+  NamePairList DepFiles32;
+  makeFileList(&IOFiles32, &DepFiles32, Inputs, Opts, &SavedStrings);
+
+  int CompileFailed = 0;
+  // Handle 32-bit case for Java and C++ reflection.
+  // For Java, both 32bit and 64bit will be generated.
+  // For C++, either 64bit or 32bit will be generated based on the target.
+  if (Opts.mEmit3264 || Opts.mBitWidth == 32) {
+      std::unique_ptr<slang::Slang> Compiler(
+          new slang::Slang(32, &DiagEngine, &DiagsBuffer));
+      CompileFailed =
+          !Compiler->compile(IOFiles32, IOFiles32, DepFiles32, Opts, *DiagOpts);
+  }
 
   // Handle the 64-bit case too!
-  if (Opts.mEmit3264 && !CompileFailed) {
+  bool needEmit64 = Opts.mEmit3264 || Opts.mBitWidth == 64;
+  if (needEmit64 && !CompileFailed) {
     Opts.mBitWidth = 64;
-    CompileFailed = compileFiles(&IOFiles64, &IOFiles32, Inputs, Opts,
-                                 &DiagEngine, DiagClient, &SavedStrings);
+    NamePairList IOFiles64;
+    NamePairList DepFiles64;
+    makeFileList(&IOFiles64, &DepFiles64, Inputs, Opts, &SavedStrings);
+
+    std::unique_ptr<slang::Slang> Compiler(
+        new slang::Slang(64, &DiagEngine, &DiagsBuffer));
+    CompileFailed =
+        !Compiler->compile(IOFiles64, IOFiles32, DepFiles64, Opts, *DiagOpts);
   }
 
+  llvm::errs() << DiagsBuffer.str();
+  llvm::remove_fatal_error_handler();
   return CompileFailed;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-// ExpandArgsFromBuf -
-static void ExpandArgsFromBuf(const char *Arg,
-                              llvm::SmallVectorImpl<const char*> &ArgVector,
-                              std::set<std::string> &SavedStrings) {
-  const char *FName = Arg + 1;
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MBOrErr =
-      llvm::MemoryBuffer::getFile(FName);
-  if (MBOrErr.getError()) {
-    // Unable to open the file
-    ArgVector.push_back(SaveStringInSet(SavedStrings, Arg));
-    return;
-  }
-  std::unique_ptr<llvm::MemoryBuffer> MemBuf = std::move(MBOrErr.get());
-
-  const char *Buf = MemBuf->getBufferStart();
-  char InQuote = ' ';
-  std::string CurArg;
-
-  for (const char *P = Buf; ; ++P) {
-    if (*P == '\0' || (isspace(*P) && InQuote == ' ')) {
-      if (!CurArg.empty()) {
-        if (CurArg[0] != '@') {
-          ArgVector.push_back(SaveStringInSet(SavedStrings, CurArg));
-        } else {
-          ExpandArgsFromBuf(CurArg.c_str(), ArgVector, SavedStrings);
-        }
-
-        CurArg = "";
-      }
-      if (*P == '\0')
-        break;
-      else
-        continue;
-    }
-
-    if (isspace(*P)) {
-      if (InQuote != ' ')
-        CurArg.push_back(*P);
-      continue;
-    }
-
-    if (*P == '"' || *P == '\'') {
-      if (InQuote == *P)
-        InQuote = ' ';
-      else if (InQuote == ' ')
-        InQuote = *P;
-      else
-        CurArg.push_back(*P);
-      continue;
-    }
-
-    if (*P == '\\') {
-      ++P;
-      if (*P != '\0')
-        CurArg.push_back(*P);
-      continue;
-    }
-    CurArg.push_back(*P);
-  }
-}
-
-// ExpandArgsFromBuf -
-static void ExpandArgv(int argc, const char **argv,
-                       llvm::SmallVectorImpl<const char*> &ArgVector,
-                       std::set<std::string> &SavedStrings) {
-  for (int i = 0; i < argc; ++i) {
-    const char *Arg = argv[i];
-    if (Arg[0] != '@') {
-      ArgVector.push_back(SaveStringInSet(SavedStrings, std::string(Arg)));
-      continue;
-    }
-
-    ExpandArgsFromBuf(Arg, ArgVector, SavedStrings);
-  }
 }

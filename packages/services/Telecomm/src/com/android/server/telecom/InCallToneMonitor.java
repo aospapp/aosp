@@ -17,7 +17,8 @@
 package com.android.server.telecom;
 
 import android.media.ToneGenerator;
-import android.telecom.CallState;
+import android.telecom.Connection;
+import android.telecom.VideoProfile;
 
 import java.util.Collection;
 
@@ -76,6 +77,38 @@ public final class InCallToneMonitor extends CallsManagerListenerBase {
             if (toneToPlay != InCallTonePlayer.TONE_INVALID) {
                 mPlayerFactory.createPlayer(toneToPlay).startTone();
             }
+        }
+    }
+
+    /**
+     * Handles requests received via the {@link VideoProviderProxy} requesting a change in the video
+     * state of the call by the peer.  If the request involves the peer turning their camera on,
+     * the call waiting tone is played to inform the user of the incoming request.
+     *
+     * @param call The call.
+     * @param videoProfile The requested video profile.
+     */
+    @Override
+    public void onSessionModifyRequestReceived(Call call, VideoProfile videoProfile) {
+        if (videoProfile == null) {
+            return;
+        }
+
+        if (mCallsManager.getForegroundCall() != call) {
+            // We only play tones for foreground calls.
+            return;
+        }
+
+        int previousVideoState = call.getVideoState();
+        int newVideoState = videoProfile.getVideoState();
+        Log.v(this, "onSessionModifyRequestReceived : videoProfile = " + VideoProfile
+                .videoStateToString(newVideoState));
+
+        boolean isUpgradeRequest = !VideoProfile.isReceptionEnabled(previousVideoState) &&
+                VideoProfile.isReceptionEnabled(newVideoState);
+
+        if (isUpgradeRequest) {
+            mPlayerFactory.createPlayer(InCallTonePlayer.TONE_VIDEO_UPGRADE).startTone();
         }
     }
 }

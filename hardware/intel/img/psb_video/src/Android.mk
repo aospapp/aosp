@@ -26,6 +26,17 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
+# pnw_H264.c, pnw_MPEG4.c, pnw_MPEG2.c, pnw_VC1.c, pnw_H263ES.c, tng_H263ES.c, etc.
+# all use GNU old-style field designator extension.
+# psb_drv_video.c: comparison of constant 32 with expression of type 'VAProfile'
+# is always false
+# pnw_H263ES.c and tng_hostcode.c has implicit conversion
+# from one enumeration type to another
+LOCAL_CLANG_CFLAGS += \
+    -Wno-gnu-designator \
+    -Wno-tautological-constant-out-of-range-compare \
+    -Wno-enum-conversion
+
 LOCAL_CFLAGS := \
     -DLINUX -DANDROID -g -Wall -Wno-unused \
     -DPSBVIDEO_LOG_ENABLE -DPSBVIDEO_VXD392 \

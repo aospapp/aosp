@@ -33,7 +33,7 @@
     <string name="policy_dont_allow_storage_cards" msgid="1305111581282078881">"Älä salli tallennuskortteja"</string>
     <string name="policy_dont_allow_unsigned_apps" msgid="7663879438028397642">"Älä salli allekirjoittamatt. sovelluksia"</string>
     <string name="policy_dont_allow_unsigned_installers" msgid="8227232531632246827">"Älä salli allekirjoittamatt. sov. asent."</string>
-    <string name="policy_dont_allow_wifi" msgid="8501275982154914194">"Älä salli wifi-yhteyttä"</string>
+    <string name="policy_dont_allow_wifi" msgid="8501275982154914194">"Älä salli Wi-Fi-yhteyttä"</string>
     <string name="policy_dont_allow_text_messaging" msgid="860590081742537792">"Älä salli tekstiviestejä"</string>
     <string name="policy_dont_allow_pop_imap" msgid="5772539239469636191">"Älä salli POP3- tai IMAP-tilejä"</string>
     <string name="policy_dont_allow_irda" msgid="8230803019935893114">"Älä salli infrapunaviestintää"</string>

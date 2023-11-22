@@ -22,7 +22,7 @@ LOCAL_PATH:= $(call my-dir)
 src_files := \
 	cmemory.c          cstring.c          \
 	cwchar.c           locmap.c           \
-	lrucache.cpp \
+	loadednormalizer2impl.cpp \
 	punycode.cpp       putil.cpp          \
 	sharedobject.cpp \
 	simplepatternformatter.cpp \
@@ -30,7 +30,7 @@ src_files := \
 	ubidiln.c          ubidi_props.c      \
 	ubidiwrt.c         ucase.cpp          \
 	ucasemap.cpp       ucat.c             \
-	uchar.c            ucln_cmn.c         \
+	uchar.c            ucln_cmn.cpp       \
 	ucmndata.c                            \
 	ucnv2022.cpp       ucnv_bld.cpp       \
 	ucnvbocu.cpp       ucnv.c             \
@@ -39,7 +39,7 @@ src_files := \
 	ucnv_ext.cpp       ucnvhz.c           \
 	ucnv_io.cpp        ucnvisci.c         \
 	ucnvlat1.c         ucnv_lmb.c         \
-	ucnvmbcs.c         ucnvscsu.c         \
+	ucnvmbcs.cpp       ucnvscsu.c         \
 	ucnv_set.c         ucnv_u16.c         \
 	ucnv_u32.c         ucnv_u7.c          \
 	ucnv_u8.c                             \
@@ -54,13 +54,15 @@ src_files := \
 	usc_impl.c         uscript.c          \
 	uscript_props.cpp  \
 	ushape.cpp         ustrcase.cpp       \
-	ustr_cnv.c         ustrfmt.c          \
+	ustr_cnv.cpp       ustrfmt.c          \
 	ustring.cpp        ustrtrns.cpp       \
 	ustr_wcs.cpp       utf_impl.c         \
 	utrace.c           utrie.cpp          \
 	utypes.c           wintz.c            \
-	utrie2_builder.cpp icuplug.c          \
+	utrie2_builder.cpp icuplug.cpp        \
 	propsvec.c         ulist.c            \
+	ulistformatter.cpp \
+	uloc_keytype.cpp \
 	uloc_tag.c         ucnv_ct.c
 
 src_files += \
@@ -83,6 +85,7 @@ src_files += \
 	ubrk.cpp         \
 	uchriter.cpp    uhash_us.cpp     \
 	uidna.cpp       uiter.cpp        \
+	unifiedcache.cpp \
 	unifilt.cpp     unifunct.cpp     \
 	uniset.cpp      uniset_props.cpp \
 	unistr_case.cpp unistr_cnv.cpp   \
@@ -123,19 +126,15 @@ c_includes := \
 	$(LOCAL_PATH) \
 	$(LOCAL_PATH)/../i18n
 
-# We make the ICU data directory relative to $ANDROID_ROOT on Android, so both
-# device and sim builds can use the same codepath, and it's hard to break one
-# without noticing because the other still works.
-local_cflags := '-DICU_DATA_DIR_PREFIX_ENV_VAR="ANDROID_ROOT"'
-local_cflags += '-DICU_DATA_DIR="/usr/icu"'
-
-# bionic doesn't have <langinfo.h>.
-local_cflags += -DU_HAVE_NL_LANGINFO_CODESET=0
+# We deliberately do not set -DICU_DATA_DIR: ICU4C is configured on Android
+# using udata_setCommonData.
 
 local_cflags += -D_REENTRANT
 local_cflags += -DU_COMMON_IMPLEMENTATION
 
 local_cflags += -O3 -fvisibility=hidden
+
+local_cflags += -Wno-unused-parameter -Wno-missing-field-initializers -Wno-sign-compare
 
 #
 # Build for the target (device).
@@ -148,11 +147,10 @@ LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC
 LOCAL_SHARED_LIBRARIES += libdl $(optional_android_logging_libraries)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicuuc
+LOCAL_RTTI_FLAG := -frtti
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
 LOCAL_REQUIRED_MODULES += icu-data
-# Use "-include" to not fail apps_only build.
--include abi/cpp/use_rtti.mk
--include external/stlport/libstlport.mk
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_SHARED_LIBRARY)
 
 #
@@ -170,6 +168,7 @@ LOCAL_MODULE := libicuuc-host
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
 LOCAL_REQUIRED_MODULES += icu-data-host
 LOCAL_MULTILIB := both
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 #
@@ -181,8 +180,8 @@ LOCAL_SDK_VERSION := 9
 LOCAL_NDK_STL_VARIANT := stlport_static
 LOCAL_C_INCLUDES += $(c_includes)
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)
-LOCAL_CPP_FEATURES := rtti
-LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC -frtti
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC
 # Using -Os over -O3 actually cuts down the final executable size by a few dozen kilobytes
 LOCAL_CFLAGS += -Os
 LOCAL_EXPORT_CFLAGS += -DU_STATIC_IMPLEMENTATION=1

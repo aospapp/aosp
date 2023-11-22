@@ -90,22 +90,9 @@ public final class BluetoothOppProvider extends ContentProvider {
     /** URI matcher constant for the URI of an individual share */
     private static final int SHARES_ID = 2;
 
-    /** URI matcher constant for the URI of live folder */
-    private static final int LIVE_FOLDER_RECEIVED_FILES = 3;
     static {
         sURIMatcher.addURI("com.android.bluetooth.opp", "btopp", SHARES);
         sURIMatcher.addURI("com.android.bluetooth.opp", "btopp/#", SHARES_ID);
-        sURIMatcher.addURI("com.android.bluetooth.opp", "live_folders/received",
-                LIVE_FOLDER_RECEIVED_FILES);
-    }
-
-    private static final HashMap<String, String> LIVE_FOLDER_PROJECTION_MAP;
-    static {
-        LIVE_FOLDER_PROJECTION_MAP = new HashMap<String, String>();
-        LIVE_FOLDER_PROJECTION_MAP.put(LiveFolders._ID, BluetoothShare._ID + " AS "
-                + LiveFolders._ID);
-        LIVE_FOLDER_PROJECTION_MAP.put(LiveFolders.NAME, BluetoothShare.FILENAME_HINT + " AS "
-                + LiveFolders.NAME);
     }
 
     /** The database that lies underneath this content provider */
@@ -228,6 +215,13 @@ public final class BluetoothOppProvider extends ContentProvider {
         }
     }
 
+    private static final void copyLong(String key, ContentValues from, ContentValues to) {
+        Long i = from.getAsLong(key);
+        if (i != null) {
+            to.put(key, i);
+        }
+    }
+
     @Override
     public Uri insert(Uri uri, ContentValues values) {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
@@ -245,8 +239,7 @@ public final class BluetoothOppProvider extends ContentProvider {
         copyString(BluetoothShare.DESTINATION, values, filteredValues);
 
         copyInteger(BluetoothShare.VISIBILITY, values, filteredValues);
-        copyInteger(BluetoothShare.TOTAL_BYTES, values, filteredValues);
-
+        copyLong(BluetoothShare.TOTAL_BYTES, values, filteredValues);
         if (values.getAsInteger(BluetoothShare.VISIBILITY) == null) {
             filteredValues.put(BluetoothShare.VISIBILITY, BluetoothShare.VISIBILITY_VISIBLE);
         }
@@ -316,14 +309,6 @@ public final class BluetoothOppProvider extends ContentProvider {
                 qb.setTables(DB_TABLE);
                 qb.appendWhere(BluetoothShare._ID + "=");
                 qb.appendWhere(uri.getPathSegments().get(1));
-                break;
-            }
-            case LIVE_FOLDER_RECEIVED_FILES: {
-                qb.setTables(DB_TABLE);
-                qb.setProjectionMap(LIVE_FOLDER_PROJECTION_MAP);
-                qb.appendWhere(BluetoothShare.DIRECTION + "=" + BluetoothShare.DIRECTION_INBOUND
-                        + " AND " + BluetoothShare.STATUS + "=" + BluetoothShare.STATUS_SUCCESS);
-                sortOrder = "_id DESC, " + sortOrder;
                 break;
             }
             default: {

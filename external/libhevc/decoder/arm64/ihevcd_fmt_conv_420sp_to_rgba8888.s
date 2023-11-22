@@ -121,16 +121,16 @@ ihevcd_fmt_conv_420sp_to_rgba8888_av8:
 
     ///* can be loaded from a defined const type */
     mov         x10,#0x3311
-    mov         v0.4h[0], w10               ////C1
+    mov         v0.h[0], w10               ////C1
 
     mov         x10,#0xF379
-    mov         v0.4h[1], w10               ////C2
+    mov         v0.h[1], w10               ////C2
 
     mov         x10,#0xE5F8
-    mov         v0.4h[2], w10               ////C3
+    mov         v0.h[2], w10               ////C3
 
     mov         x10,#0x4092
-    mov         v0.4h[3], w10               ////C4
+    mov         v0.h[3], w10               ////C4
 
     ////LOAD CONSTANT 128 INTO A CORTEX REGISTER
     MOV         x10,#128
@@ -197,16 +197,16 @@ LABEL_YUV420SP_TO_RGB8888_WIDTH_LOOP:
     prfm        PLDL1KEEP,[x1]
 
     ////NEED TO MULTIPLY WITH Q2,Q3 WITH CO-EEFICIENTS
-    sMULL       v5.4s, v4.4h, v0.4h[3]      ////(U-128)*C4 FOR B
-    sMULL2      v7.4s, v4.8h, v0.4h[3]      ////(U-128)*C4 FOR B
+    sMULL       v5.4s, v4.4h, v0.h[3]      ////(U-128)*C4 FOR B
+    sMULL2      v7.4s, v4.8h, v0.h[3]      ////(U-128)*C4 FOR B
 
-    sMULL       v20.4s, v6.4h, v0.4h[0]     ////(V-128)*C1 FOR R
-    sMULL2      v22.4s, v6.8h, v0.4h[0]     ////(V-128)*C1 FOR R
+    sMULL       v20.4s, v6.4h, v0.h[0]     ////(V-128)*C1 FOR R
+    sMULL2      v22.4s, v6.8h, v0.h[0]     ////(V-128)*C1 FOR R
 
-    sMULL       v12.4s, v4.4h, v0.4h[1]     ////(U-128)*C2 FOR G
-    sMLAL       v12.4s, v6.4h, v0.4h[2]     ////Q6 = (U-128)*C2 + (V-128)*C3
-    sMULL2      v14.4s, v4.8h, v0.4h[1]     ////(U-128)*C2 FOR G
-    sMLAL2      v14.4s, v6.8h, v0.4h[2]     ////Q7 = (U-128)*C2 + (V-128)*C3
+    sMULL       v12.4s, v4.4h, v0.h[1]     ////(U-128)*C2 FOR G
+    sMLAL       v12.4s, v6.4h, v0.h[2]     ////Q6 = (U-128)*C2 + (V-128)*C3
+    sMULL2      v14.4s, v4.8h, v0.h[1]     ////(U-128)*C2 FOR G
+    sMLAL2      v14.4s, v6.8h, v0.h[2]     ////Q7 = (U-128)*C2 + (V-128)*C3
 
     ////NARROW RIGHT SHIFT BY 13 FOR R&B
     sqshrn      v5.4h, v5.4s,#13            ////D8 = (U-128)*C4>>13 4 16-BIT VALUES
@@ -360,16 +360,16 @@ LABEL_YUV420SP_TO_RGB8888_WIDTH_LOOP_SKIP:
 
 
     ////NEED TO MULTIPLY WITH Q2,Q3 WITH CO-EEFICIENTS
-    sMULL       v5.4s, v4.4h, v0.4h[3]      ////(U-128)*C4 FOR B
-    sMULL2      v7.4s, v4.8h, v0.4h[3]      ////(U-128)*C4 FOR B
+    sMULL       v5.4s, v4.4h, v0.h[3]      ////(U-128)*C4 FOR B
+    sMULL2      v7.4s, v4.8h, v0.h[3]      ////(U-128)*C4 FOR B
 
-    sMULL       v20.4s, v6.4h, v0.4h[0]     ////(V-128)*C1 FOR R
-    sMULL2      v22.4s, v6.8h, v0.4h[0]     ////(V-128)*C1 FOR R
+    sMULL       v20.4s, v6.4h, v0.h[0]     ////(V-128)*C1 FOR R
+    sMULL2      v22.4s, v6.8h, v0.h[0]     ////(V-128)*C1 FOR R
 
-    sMULL       v12.4s, v4.4h, v0.4h[1]     ////(U-128)*C2 FOR G
-    sMLAL       v12.4s, v6.4h, v0.4h[2]     ////Q6 = (U-128)*C2 + (V-128)*C3
-    sMULL2      v14.4s, v4.8h, v0.4h[1]     ////(U-128)*C2 FOR G
-    sMLAL2      v14.4s, v6.8h, v0.4h[2]     ////Q7 = (U-128)*C2 + (V-128)*C3
+    sMULL       v12.4s, v4.4h, v0.h[1]     ////(U-128)*C2 FOR G
+    sMLAL       v12.4s, v6.4h, v0.h[2]     ////Q6 = (U-128)*C2 + (V-128)*C3
+    sMULL2      v14.4s, v4.8h, v0.h[1]     ////(U-128)*C2 FOR G
+    sMLAL2      v14.4s, v6.8h, v0.h[2]     ////Q7 = (U-128)*C2 + (V-128)*C3
 
     ////NARROW RIGHT SHIFT BY 13 FOR R&B
     sqshrn      v5.4h, v5.4s,#13            ////D8 = (U-128)*C4>>13 4 16-BIT VALUES

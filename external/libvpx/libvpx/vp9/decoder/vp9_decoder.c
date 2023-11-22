@@ -32,85 +32,16 @@
 #include "vp9/decoder/vp9_detokenize.h"
 #include "vp9/decoder/vp9_dthread.h"
 
-#define WRITE_RECON_BUFFER 0
-#if WRITE_RECON_BUFFER == 1
-static void recon_write_yuv_frame(const char *name,
-                                  const YV12_BUFFER_CONFIG *s,
-                                  int w, int _h) {
-  FILE *yuv_file = fopen(name, "ab");
-  const uint8_t *src = s->y_buffer;
-  int h = _h;
-
-  do {
-    fwrite(src, w, 1,  yuv_file);
-    src += s->y_stride;
-  } while (--h);
-
-  src = s->u_buffer;
-  h = (_h + 1) >> 1;
-  w = (w + 1) >> 1;
-
-  do {
-    fwrite(src, w, 1,  yuv_file);
-    src += s->uv_stride;
-  } while (--h);
-
-  src = s->v_buffer;
-  h = (_h + 1) >> 1;
-
-  do {
-    fwrite(src, w, 1, yuv_file);
-    src += s->uv_stride;
-  } while (--h);
-
-  fclose(yuv_file);
-}
-#endif
-#if WRITE_RECON_BUFFER == 2
-void write_dx_frame_to_file(YV12_BUFFER_CONFIG *frame, int this_frame) {
-  // write the frame
-  FILE *yframe;
-  int i;
-  char filename[255];
-
-  snprintf(filename, sizeof(filename)-1, "dx\\y%04d.raw", this_frame);
-  yframe = fopen(filename, "wb");
-
-  for (i = 0; i < frame->y_height; i++)
-    fwrite(frame->y_buffer + i * frame->y_stride,
-           frame->y_width, 1, yframe);
-
-  fclose(yframe);
-  snprintf(filename, sizeof(filename)-1, "dx\\u%04d.raw", this_frame);
-  yframe = fopen(filename, "wb");
-
-  for (i = 0; i < frame->uv_height; i++)
-    fwrite(frame->u_buffer + i * frame->uv_stride,
-           frame->uv_width, 1, yframe);
-
-  fclose(yframe);
-  snprintf(filename, sizeof(filename)-1, "dx\\v%04d.raw", this_frame);
-  yframe = fopen(filename, "wb");
-
-  for (i = 0; i < frame->uv_height; i++)
-    fwrite(frame->v_buffer + i * frame->uv_stride,
-           frame->uv_width, 1, yframe);
-
-  fclose(yframe);
-}
-#endif
-
-void vp9_initialize_dec() {
+static void initialize_dec() {
   static int init_done = 0;
 
   if (!init_done) {
     vp9_init_neighbors();
-    vp9_init_quant_tables();
     init_done = 1;
   }
 }
 
-VP9Decoder *vp9_decoder_create(const VP9D_CONFIG *oxcf) {
+VP9Decoder *vp9_decoder_create() {
   VP9Decoder *const pbi = vpx_memalign(32, sizeof(*pbi));
   VP9_COMMON *const cm = pbi ? &pbi->common : NULL;
 
@@ -126,7 +57,7 @@ VP9Decoder *vp9_decoder_create(const VP9D_CONFIG *oxcf) {
   }
 
   cm->error.setjmp = 1;
-  vp9_initialize_dec();
+  initialize_dec();
 
   vp9_rtcd();
 
@@ -134,9 +65,7 @@ VP9Decoder *vp9_decoder_create(const VP9D_CONFIG *oxcf) {
   vpx_memset(&cm->ref_frame_map, -1, sizeof(cm->ref_frame_map));
 
   cm->current_video_frame = 0;
-  pbi->oxcf = *oxcf;
   pbi->ready_for_new_data = 1;
-  pbi->decoded_key_frame = 0;
 
   // vp9_init_dequantizer() is first called here. Add check in
   // frame_init_dequantizer() to avoid unnecessary calling of
@@ -147,7 +76,7 @@ VP9Decoder *vp9_decoder_create(const VP9D_CONFIG *oxcf) {
 
   cm->error.setjmp = 0;
 
-  vp9_worker_init(&pbi->lf_worker);
+  vp9_get_worker_interface()->init(&pbi->lf_worker);
 
   return pbi;
 }
@@ -156,12 +85,12 @@ void vp9_decoder_remove(VP9Decoder *pbi) {
   VP9_COMMON *const cm = &pbi->common;
   int i;
 
-  vp9_remove_common(cm);
-  vp9_worker_end(&pbi->lf_worker);
+  vp9_get_worker_interface()->end(&pbi->lf_worker);
   vpx_free(pbi->lf_worker.data1);
+  vpx_free(pbi->tile_data);
   for (i = 0; i < pbi->num_tile_workers; ++i) {
     VP9Worker *const worker = &pbi->tile_workers[i];
-    vp9_worker_end(worker);
+    vp9_get_worker_interface()->end(worker);
     vpx_free(worker->data1);
     vpx_free(worker->data2);
   }
@@ -173,6 +102,7 @@ void vp9_decoder_remove(VP9Decoder *pbi) {
     vp9_loop_filter_dealloc(&pbi->lf_row_sync, sb_rows);
   }
 
+  vp9_remove_common(cm);
   vpx_free(pbi);
 }
 
@@ -251,17 +181,6 @@ vpx_codec_err_t vp9_set_reference_dec(VP9_COMMON *cm,
   return cm->error.error_code;
 }
 
-
-int vp9_get_reference_dec(VP9Decoder *pbi, int index, YV12_BUFFER_CONFIG **fb) {
-  VP9_COMMON *cm = &pbi->common;
-
-  if (index < 0 || index >= REF_FRAMES)
-    return -1;
-
-  *fb = &cm->frame_bufs[cm->ref_frame_map[index]].buf;
-  return 0;
-}
-
 /* If any buffer updating is signaled it should be done here. */
 static void swap_frame_buffers(VP9Decoder *pbi) {
   int ref_index = 0, mask;
@@ -288,8 +207,7 @@ static void swap_frame_buffers(VP9Decoder *pbi) {
 }
 
 int vp9_receive_compressed_data(VP9Decoder *pbi,
-                                size_t size, const uint8_t **psource,
-                                int64_t time_stamp) {
+                                size_t size, const uint8_t **psource) {
   VP9_COMMON *const cm = &pbi->common;
   const uint8_t *source = *psource;
   int retcode = 0;
@@ -317,6 +235,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
 
   if (setjmp(cm->error.jmp)) {
     cm->error.setjmp = 0;
+    vp9_clear_system_state();
 
     // We do not know if the missing frame(s) was supposed to update
     // any of the reference buffers, but we act conservative and
@@ -325,10 +244,10 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
     // TODO(jkoleszar): Error concealment is undefined and non-normative
     // at this point, but if it becomes so, [0] may not always be the correct
     // thing to do here.
-    if (cm->frame_refs[0].idx != INT_MAX)
+    if (cm->frame_refs[0].idx != INT_MAX && cm->frame_refs[0].buf != NULL)
       cm->frame_refs[0].buf->corrupted = 1;
 
-    if (cm->frame_bufs[cm->new_fb_idx].ref_count > 0)
+    if (cm->new_fb_idx > 0 && cm->frame_bufs[cm->new_fb_idx].ref_count > 0)
       cm->frame_bufs[cm->new_fb_idx].ref_count--;
 
     return -1;
@@ -336,51 +255,9 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
 
   cm->error.setjmp = 1;
 
-  retcode = vp9_decode_frame(pbi, source, source + size, psource);
-
-  if (retcode < 0) {
-    cm->error.error_code = VPX_CODEC_ERROR;
-    cm->error.setjmp = 0;
-    if (cm->frame_bufs[cm->new_fb_idx].ref_count > 0)
-      cm->frame_bufs[cm->new_fb_idx].ref_count--;
-    return retcode;
-  }
+  vp9_decode_frame(pbi, source, source + size, psource);
 
   swap_frame_buffers(pbi);
-
-#if WRITE_RECON_BUFFER == 2
-  if (cm->show_frame)
-    write_dx_frame_to_file(cm->frame_to_show,
-                           cm->current_video_frame);
-  else
-    write_dx_frame_to_file(cm->frame_to_show,
-                           cm->current_video_frame + 1000);
-#endif
-
-  if (!pbi->do_loopfilter_inline) {
-    // If multiple threads are used to decode tiles, then we use those threads
-    // to do parallel loopfiltering.
-    if (pbi->num_tile_workers) {
-      vp9_loop_filter_frame_mt(pbi, cm, &pbi->mb, cm->lf.filter_level, 0, 0);
-    } else {
-      vp9_loop_filter_frame(cm, &pbi->mb, cm->lf.filter_level, 0, 0);
-    }
-  }
-
-#if WRITE_RECON_BUFFER == 2
-  if (cm->show_frame)
-    write_dx_frame_to_file(cm->frame_to_show,
-                           cm->current_video_frame + 2000);
-  else
-    write_dx_frame_to_file(cm->frame_to_show,
-                           cm->current_video_frame + 3000);
-#endif
-
-#if WRITE_RECON_BUFFER == 1
-  if (cm->show_frame)
-    recon_write_yuv_frame("recon.yuv", cm->frame_to_show,
-                          cm->width, cm->height);
-#endif
 
   vp9_clear_system_state();
 
@@ -397,37 +274,38 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
   }
 
   pbi->ready_for_new_data = 0;
-  pbi->last_time_stamp = time_stamp;
 
   cm->error.setjmp = 0;
   return retcode;
 }
 
 int vp9_get_raw_frame(VP9Decoder *pbi, YV12_BUFFER_CONFIG *sd,
-                      int64_t *time_stamp, int64_t *time_end_stamp,
                       vp9_ppflags_t *flags) {
+  VP9_COMMON *const cm = &pbi->common;
   int ret = -1;
+#if !CONFIG_VP9_POSTPROC
+  (void)*flags;
+#endif
 
   if (pbi->ready_for_new_data == 1)
     return ret;
 
-  /* ie no raw frame to show!!! */
-  if (pbi->common.show_frame == 0)
+  /* no raw frame to show!!! */
+  if (!cm->show_frame)
     return ret;
 
   pbi->ready_for_new_data = 1;
-  *time_stamp = pbi->last_time_stamp;
-  *time_end_stamp = 0;
 
 #if CONFIG_VP9_POSTPROC
-  ret = vp9_post_proc_frame(&pbi->common, sd, flags);
-#else
-    *sd = *pbi->common.frame_to_show;
-    sd->y_width = pbi->common.width;
-    sd->y_height = pbi->common.height;
-    sd->uv_width = sd->y_width >> pbi->common.subsampling_x;
-    sd->uv_height = sd->y_height >> pbi->common.subsampling_y;
+  if (!cm->show_existing_frame) {
+    ret = vp9_post_proc_frame(cm, sd, flags);
+  } else {
+    *sd = *cm->frame_to_show;
     ret = 0;
+  }
+#else
+  *sd = *cm->frame_to_show;
+  ret = 0;
 #endif /*!CONFIG_POSTPROC*/
   vp9_clear_system_state();
   return ret;

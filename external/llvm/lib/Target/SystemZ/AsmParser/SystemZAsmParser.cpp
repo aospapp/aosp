@@ -57,6 +57,7 @@ private:
     KindReg,
     KindAccessReg,
     KindImm,
+    KindImmTLS,
     KindMem
   };
 
@@ -96,11 +97,19 @@ private:
     const MCExpr *Length;
   };
 
+  // Imm is an immediate operand, and Sym is an optional TLS symbol
+  // for use with a __tls_get_offset marker relocation.
+  struct ImmTLSOp {
+    const MCExpr *Imm;
+    const MCExpr *Sym;
+  };
+
   union {
     TokenOp Token;
     RegOp Reg;
     unsigned AccessReg;
     const MCExpr *Imm;
+    ImmTLSOp ImmTLS;
     MemOp Mem;
   };
 
@@ -160,6 +169,14 @@ public:
     Op->Mem.Length = Length;
     return Op;
   }
+  static std::unique_ptr<SystemZOperand>
+  createImmTLS(const MCExpr *Imm, const MCExpr *Sym,
+               SMLoc StartLoc, SMLoc EndLoc) {
+    auto Op = make_unique<SystemZOperand>(KindImmTLS, StartLoc, EndLoc);
+    Op->ImmTLS.Imm = Imm;
+    Op->ImmTLS.Sym = Sym;
+    return Op;
+  }
 
   // Token operands
   bool isToken() const override {
@@ -198,6 +215,11 @@ public:
   const MCExpr *getImm() const {
     assert(Kind == KindImm && "Not an immediate");
     return Imm;
+  }
+
+  // Immediate operands with optional TLS symbol.
+  bool isImmTLS() const {
+    return Kind == KindImmTLS;
   }
 
   // Memory operands.
@@ -259,6 +281,13 @@ public:
     Inst.addOperand(MCOperand::CreateReg(Mem.Base));
     addExpr(Inst, Mem.Disp);
     addExpr(Inst, Mem.Length);
+  }
+  void addImmTLSOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 2 && "Invalid number of operands");
+    assert(Kind == KindImmTLS && "Invalid operand type");
+    addExpr(Inst, ImmTLS.Imm);
+    if (ImmTLS.Sym)
+      addExpr(Inst, ImmTLS.Sym);
   }
 
   // Used by the TableGen code to check for particular operand types.
@@ -325,6 +354,9 @@ private:
                                     const unsigned *Regs, RegisterKind RegKind,
                                     MemoryKind MemKind);
 
+  OperandMatchResultTy parsePCRel(OperandVector &Operands, int64_t MinVal,
+                                  int64_t MaxVal, bool AllowTLS);
+
   bool parseOperand(OperandVector &Operands, StringRef Mnemonic);
 
 public:
@@ -345,7 +377,7 @@ public:
                         SMLoc NameLoc, OperandVector &Operands) override;
   bool MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                OperandVector &Operands, MCStreamer &Out,
-                               unsigned &ErrorInfo,
+                               uint64_t &ErrorInfo,
                                bool MatchingInlineAsm) override;
 
   // Used by the TableGen code to parse particular operand types.
@@ -395,13 +427,17 @@ public:
     return parseAddress(Operands, SystemZMC::GR64Regs, ADDR64Reg, BDLMem);
   }
   OperandMatchResultTy parseAccessReg(OperandVector &Operands);
-  OperandMatchResultTy parsePCRel(OperandVector &Operands, int64_t MinVal,
-                                  int64_t MaxVal);
   OperandMatchResultTy parsePCRel16(OperandVector &Operands) {
-    return parsePCRel(Operands, -(1LL << 16), (1LL << 16) - 1);
+    return parsePCRel(Operands, -(1LL << 16), (1LL << 16) - 1, false);
   }
   OperandMatchResultTy parsePCRel32(OperandVector &Operands) {
-    return parsePCRel(Operands, -(1LL << 32), (1LL << 32) - 1);
+    return parsePCRel(Operands, -(1LL << 32), (1LL << 32) - 1, false);
+  }
+  OperandMatchResultTy parsePCRelTLS16(OperandVector &Operands) {
+    return parsePCRel(Operands, -(1LL << 16), (1LL << 16) - 1, true);
+  }
+  OperandMatchResultTy parsePCRelTLS32(OperandVector &Operands) {
+    return parsePCRel(Operands, -(1LL << 32), (1LL << 32) - 1, true);
   }
 };
 } // end anonymous namespace
@@ -677,7 +713,7 @@ bool SystemZAsmParser::parseOperand(OperandVector &Operands,
 bool SystemZAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
                                                OperandVector &Operands,
                                                MCStreamer &Out,
-                                               unsigned &ErrorInfo,
+                                               uint64_t &ErrorInfo,
                                                bool MatchingInlineAsm) {
   MCInst Inst;
   unsigned MatchResult;
@@ -685,7 +721,6 @@ bool SystemZAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
   MatchResult = MatchInstructionImpl(Operands, Inst, ErrorInfo,
                                      MatchingInlineAsm);
   switch (MatchResult) {
-  default: break;
   case Match_Success:
     Inst.setLoc(IDLoc);
     Out.EmitInstruction(Inst, STI);
@@ -696,7 +731,7 @@ bool SystemZAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
     // Special case the error message for the very common case where only
     // a single subtarget feature is missing
     std::string Msg = "instruction requires:";
-    unsigned Mask = 1;
+    uint64_t Mask = 1;
     for (unsigned I = 0; I < sizeof(ErrorInfo) * 8 - 1; ++I) {
       if (ErrorInfo & Mask) {
         Msg += " ";
@@ -709,7 +744,7 @@ bool SystemZAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
 
   case Match_InvalidOperand: {
     SMLoc ErrorLoc = IDLoc;
-    if (ErrorInfo != ~0U) {
+    if (ErrorInfo != ~0ULL) {
       if (ErrorInfo >= Operands.size())
         return Error(IDLoc, "too few operands for instruction");
 
@@ -744,7 +779,7 @@ SystemZAsmParser::parseAccessReg(OperandVector &Operands) {
 
 SystemZAsmParser::OperandMatchResultTy
 SystemZAsmParser::parsePCRel(OperandVector &Operands, int64_t MinVal,
-                             int64_t MaxVal) {
+                             int64_t MaxVal, bool AllowTLS) {
   MCContext &Ctx = getContext();
   MCStreamer &Out = getStreamer();
   const MCExpr *Expr;
@@ -767,9 +802,54 @@ SystemZAsmParser::parsePCRel(OperandVector &Operands, int64_t MinVal,
     Expr = Value == 0 ? Base : MCBinaryExpr::CreateAdd(Base, Expr, Ctx);
   }
 
+  // Optionally match :tls_gdcall: or :tls_ldcall: followed by a TLS symbol.
+  const MCExpr *Sym = nullptr;
+  if (AllowTLS && getLexer().is(AsmToken::Colon)) {
+    Parser.Lex();
+
+    if (Parser.getTok().isNot(AsmToken::Identifier)) {
+      Error(Parser.getTok().getLoc(), "unexpected token");
+      return MatchOperand_ParseFail;
+    }
+
+    MCSymbolRefExpr::VariantKind Kind = MCSymbolRefExpr::VK_None;
+    StringRef Name = Parser.getTok().getString();
+    if (Name == "tls_gdcall")
+      Kind = MCSymbolRefExpr::VK_TLSGD;
+    else if (Name == "tls_ldcall")
+      Kind = MCSymbolRefExpr::VK_TLSLDM;
+    else {
+      Error(Parser.getTok().getLoc(), "unknown TLS tag");
+      return MatchOperand_ParseFail;
+    }
+    Parser.Lex();
+
+    if (Parser.getTok().isNot(AsmToken::Colon)) {
+      Error(Parser.getTok().getLoc(), "unexpected token");
+      return MatchOperand_ParseFail;
+    }
+    Parser.Lex();
+
+    if (Parser.getTok().isNot(AsmToken::Identifier)) {
+      Error(Parser.getTok().getLoc(), "unexpected token");
+      return MatchOperand_ParseFail;
+    }
+
+    StringRef Identifier = Parser.getTok().getString();
+    Sym = MCSymbolRefExpr::Create(Ctx.GetOrCreateSymbol(Identifier),
+                                  Kind, Ctx);
+    Parser.Lex();
+  }
+
   SMLoc EndLoc =
     SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
-  Operands.push_back(SystemZOperand::createImm(Expr, StartLoc, EndLoc));
+
+  if (AllowTLS)
+    Operands.push_back(SystemZOperand::createImmTLS(Expr, Sym,
+                                                    StartLoc, EndLoc));
+  else
+    Operands.push_back(SystemZOperand::createImm(Expr, StartLoc, EndLoc));
+
   return MatchOperand_Success;
 }
 

@@ -20,6 +20,7 @@
 namespace llvm {
 
 class raw_ostream;
+class raw_pwrite_stream;
 class DataLayout;
 class TargetMachine;
 
@@ -58,33 +59,34 @@ public:
     kErrCreateTargetMachine,
     kErrSwitchTargetMachine,
     kErrNoTargetMachine,
-    kErrDataLayoutNoMemory,
     kErrMaterialization,
     kErrInvalidOutputFileState,
     kErrPrepareOutput,
     kPrepareCodeGenPass,
 
-    kErrHookBeforeAddLTOPasses,
-    kErrHookAfterAddLTOPasses,
-    kErrHookAfterExecuteLTOPasses,
+    kErrCustomPasses,
 
-    kErrHookBeforeAddCodeGenPasses,
-    kErrHookAfterAddCodeGenPasses,
-    kErrHookBeforeExecuteCodeGenPasses,
-    kErrHookAfterExecuteCodeGenPasses,
+    kErrInvalidSource,
 
-    kErrInvalidSource
+    kIllegalGlobalFunction
   };
 
   static const char *GetErrorString(enum ErrorCode pErrCode);
 
 private:
   llvm::TargetMachine *mTarget;
-  // LTO is enabled by default.
-  bool mEnableLTO;
+  // Optimization is enabled by default.
+  bool mEnableOpt;
 
-  enum ErrorCode runLTO(Script &pScript);
-  enum ErrorCode runCodeGen(Script &pScript, llvm::raw_ostream &pResult);
+  enum ErrorCode runPasses(Script &pScript, llvm::raw_pwrite_stream &pResult);
+
+  bool addCustomPasses(Script &pScript, llvm::legacy::PassManager &pPM);
+  bool addInternalizeSymbolsPass(Script &pScript, llvm::legacy::PassManager &pPM);
+  bool addExpandForEachPass(Script &pScript, llvm::legacy::PassManager &pPM);
+  bool addGlobalInfoPass(Script &pScript, llvm::legacy::PassManager &pPM);
+  bool addInvariantPass(llvm::legacy::PassManager &pPM);
+  bool addInvokeHelperPass(llvm::legacy::PassManager &pPM);
+  bool addPostLTOCustomPasses(llvm::legacy::PassManager &pPM);
 
 public:
   Compiler();
@@ -96,7 +98,7 @@ public:
   //
   // @param IRStream If not NULL, the LLVM-IR that is fed to code generation
   //                 will be written to IRStream.
-  enum ErrorCode compile(Script &pScript, llvm::raw_ostream &pResult,
+  enum ErrorCode compile(Script &pScript, llvm::raw_pwrite_stream &pResult,
                          llvm::raw_ostream *IRStream);
 
   // Compile a script and output the result to a file.
@@ -106,48 +108,15 @@ public:
   const llvm::TargetMachine& getTargetMachine() const
   { return *mTarget; }
 
-  void enableLTO(bool pEnable = true)
-  { mEnableLTO = pEnable; }
+  void enableOpt(bool pEnable = true)
+  { mEnableOpt = pEnable; }
 
-  virtual ~Compiler();
+  ~Compiler();
 
-protected:
-  //===--------------------------------------------------------------------===//
-  // Plugin callbacks for sub-class.
-  //===--------------------------------------------------------------------===//
-  // Called before adding first pass to code-generation passes.
-  virtual bool beforeAddLTOPasses(Script &pScript, llvm::PassManager &pPM)
-  { return true; }
-
-  // Called after adding last pass to code-generation passes.
-  virtual bool afterAddLTOPasses(Script &pScript, llvm::PassManager &pPM)
-  { return true; }
-
-  // Called before executing code-generation passes.
-  virtual bool beforeExecuteLTOPasses(Script &pScript,
-                                          llvm::PassManager &pPM)
-  { return true; }
-
-  // Called after executing code-generation passes.
-  virtual bool afterExecuteLTOPasses(Script &pScript)
-  { return true; }
-
-  // Called before adding first pass to code-generation passes.
-  virtual bool beforeAddCodeGenPasses(Script &pScript, llvm::PassManager &pPM)
-  { return true; }
-
-  // Called after adding last pass to code-generation passes.
-  virtual bool afterAddCodeGenPasses(Script &pScript, llvm::PassManager &pPM)
-  { return true; }
-
-  // Called before executing code-generation passes.
-  virtual bool beforeExecuteCodeGenPasses(Script &pScript,
-                                          llvm::PassManager &pPM)
-  { return true; }
-
-  // Called after executing code-generation passes.
-  virtual bool afterExecuteCodeGenPasses(Script &pScript)
-  { return true; }
+  // Compare undefined external functions in pScript against a 'whitelist' of
+  // all RenderScript functions.  Returns error if any external function that is
+  // not in this whitelist is callable from the script.
+  enum ErrorCode screenGlobalFunctions(Script &pScript);
 };
 
 } // end namespace bcc

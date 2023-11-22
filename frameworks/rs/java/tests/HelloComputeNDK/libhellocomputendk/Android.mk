@@ -17,6 +17,7 @@
 #
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_CLANG := true
 
 LOCAL_MODULE := libhellocomputendk
@@ -26,10 +27,18 @@ LOCAL_SRC_FILES := helloComputeNDK.cpp mono.rs
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
-LOCAL_C_INCLUDES += external/stlport/stlport bionic/ bionic/libstdc++/include
 
+LOCAL_CFLAGS := -std=c++11
 LOCAL_LDFLAGS := -Wl,-Bsymbolic
 LOCAL_SHARED_LIBRARIES := libdl liblog libjnigraphics
 LOCAL_STATIC_LIBRARIES := libRScpp_static
+
+ifeq ($(my_32_64_bit_suffix),32)
+LOCAL_SDK_VERSION := 8
+else
+LOCAL_SDK_VERSION := 21
+endif
+
+LOCAL_NDK_STL_VARIANT := stlport_static
 
 include $(BUILD_SHARED_LIBRARY)

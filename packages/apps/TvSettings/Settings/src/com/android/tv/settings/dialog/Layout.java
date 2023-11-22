@@ -16,7 +16,6 @@
 
 package com.android.tv.settings.dialog;
 
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
@@ -28,6 +27,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A data class which represents a settings layout within an
@@ -53,14 +53,18 @@ public class Layout implements Parcelable {
     private abstract static class LayoutTreeNode implements Node {
         LayoutTreeBranch mParent;
 
-        void Log(int level) {
+        /* package */ boolean isEnabled() {
+            return false;
         }
+
+        /* package */ abstract Appearance getAppearance();
+        /* package */ abstract void Log(int level);
     }
 
     private abstract static class LayoutTreeBranch extends LayoutTreeNode {
-        ArrayList<LayoutTreeNode> mChildren;
+        final ArrayList<LayoutTreeNode> mChildren;
         LayoutTreeBranch() {
-            mChildren = new ArrayList<LayoutTreeNode>();
+            mChildren = new ArrayList<>();
         }
     }
 
@@ -68,14 +72,16 @@ public class Layout implements Parcelable {
         public static final int NO_CHECK_SET = 0;
         public static final int VIEW_TYPE_ACTION = 0;
         public static final int VIEW_TYPE_STATIC = 1;
+        public static final int VIEW_TYPE_WALLOFTEXT = 2;
 
         private String mTitle;
         private StringGetter mDescription;
-        private LayoutTreeNode mNode;
-        private boolean mEnabled;
-        private int mViewType;
-        private boolean mChecked = false;
+        private final LayoutTreeNode mNode;
+        private final boolean mEnabled;
+        private final int mViewType;
+        private BooleanGetter mChecked = FALSE_GETTER;
         private Drawable mIcon = null;
+        private int mSelectionIndex;
 
         public Node getNode() {
             return mNode;
@@ -94,11 +100,15 @@ public class Layout implements Parcelable {
         }
 
         public boolean isChecked() {
+            return mChecked.get();
+        }
+
+        public BooleanGetter getChecked() {
             return mChecked;
         }
 
         public void setChecked(boolean v) {
-            mChecked = v;
+            mChecked = v ? TRUE_GETTER : FALSE_GETTER;
         }
 
         public boolean infoOnly() {
@@ -113,10 +123,6 @@ public class Layout implements Parcelable {
             return false;
         }
 
-        public boolean hasMultilineDescription() {
-            return false;
-        }
-
         public String getTitle() {
             return mTitle;
         }
@@ -127,6 +133,18 @@ public class Layout implements Parcelable {
 
         public int getViewType() {
             return mViewType;
+        }
+
+        public boolean isRadio() {
+            return mNode instanceof SelectionGroup;
+        }
+
+        public int getRadioId() {
+            return ((SelectionGroup) mNode).getId(mSelectionIndex);
+        }
+
+        public boolean setRadioSelectedIndex() {
+            return ((SelectionGroup) mNode).setSelectedIndex(mSelectionIndex);
         }
 
         public boolean isGoBack() {
@@ -158,34 +176,112 @@ public class Layout implements Parcelable {
 
         public LayoutRow(LayoutTreeNode node) {
             mNode = node;
-            mViewType = VIEW_TYPE_ACTION;
-            Appearence a;
-            if (node instanceof Header) {
-                a = ((Header) node).mAppearence;
-                mEnabled = true;
-            } else if (node instanceof Action) {
-                a = ((Action) node).mAppearence;
-                mEnabled = true;
-            } else if (node instanceof Status) {
-                a = ((Status) node).mAppearence;
-                mEnabled = true;
+            if (node instanceof Static) {
+                mViewType = VIEW_TYPE_STATIC;
+                mTitle = ((Static) node).mTitle;
+            } else if (node instanceof WallOfText) {
+                mViewType = VIEW_TYPE_WALLOFTEXT;
+                mTitle = ((WallOfText) node).mTitle;
             } else {
-                a = null;
-                mEnabled = false;
-                if (node instanceof Static) {
-                    mViewType = VIEW_TYPE_STATIC;
-                    Static s = (Static) node;
-                    mTitle = s.mTitle;
-                }
+                mViewType = VIEW_TYPE_ACTION;
             }
+            mEnabled = node.isEnabled();
+            final Appearance a = node.getAppearance();
             if (a != null) {
                 mTitle = a.getTitle();
                 mDescription = a.mDescriptionGetter;
                 mIcon = a.getIcon();
-                mChecked = a.isChecked();
+                mChecked = a.getChecked();
+            }
+        }
+
+        public LayoutRow(final SelectionGroup selectionGroup, int selectedIndex) {
+            mNode = selectionGroup;
+            mViewType = VIEW_TYPE_ACTION;
+            mSelectionIndex = selectedIndex;
+            mTitle = selectionGroup.getTitle(selectedIndex);
+            mChecked = selectionGroup.getChecked(selectedIndex) ? TRUE_GETTER : FALSE_GETTER;
+            mDescription = selectionGroup.getDescription(selectedIndex);
+            mEnabled = true;
+        }
+    }
+
+    /**
+     * Getter object for boolean values, mostly used for checked state on headers/actions/etc.
+     * This is a slightly simpler alternative to using a LayoutGetter to make sure the checked state
+     * is always up to date.
+     */
+    public abstract static class BooleanGetter {
+        private ContentNodeRefreshListener mListener;
+
+        public void setListener(ContentNodeRefreshListener listener) {
+            mListener = listener;
+        }
+
+        public abstract boolean get();
+
+        /**
+         * Notification from client that antecedent data has changed and the string should be
+         * redisplayed.
+         */
+        public void refreshView() {
+            if (mListener != null) {
+                mListener.onRefreshView();
             }
         }
     }
+
+    /**
+     * Basic mutable implementation of BooleanGetter. Call {@link MutableBooleanGetter#set(boolean)}
+     * to modify the state and automatically refresh the view.
+     */
+    public final static class MutableBooleanGetter extends BooleanGetter {
+        private boolean mState;
+
+        public MutableBooleanGetter() {
+            mState = false;
+        }
+
+        public MutableBooleanGetter(boolean state) {
+            mState = state;
+        }
+
+        @Override
+        public boolean get() {
+            return mState;
+        }
+
+        /**
+         * Set the boolean value for this object. Automatically calls {@link #refreshView()}
+         * @param newState State to set
+         */
+        public void set(boolean newState) {
+            mState = newState;
+            refreshView();
+        }
+    }
+
+    private final static class LiteralBooleanGetter extends BooleanGetter {
+        private final boolean mState;
+
+        public LiteralBooleanGetter(boolean state) {
+            mState = state;
+        }
+
+        @Override
+        public boolean get() {
+            return mState;
+        }
+
+        @Override
+        public void setListener(ContentNodeRefreshListener listener) {}
+
+        @Override
+        public void refreshView() {}
+    }
+
+    private static final BooleanGetter TRUE_GETTER = new LiteralBooleanGetter(true);
+    private static final BooleanGetter FALSE_GETTER = new LiteralBooleanGetter(false);
 
     public abstract static class DrawableGetter {
         public abstract Drawable get();
@@ -286,19 +382,194 @@ public class Layout implements Parcelable {
             return null;
         }
 
-        void Log(int level) {
+        @Override
+        /* package */ Appearance getAppearance() {
+            return null;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
             Log.d("Layout", indent(level) + "LayoutGetter");
             Layout l = get();
             l.Log(level + 1);
         }
     }
 
-    private static class Appearence {
+    /**
+     * A list of "select one of" radio style buttons.
+     */
+    public static class SelectionGroup extends LayoutTreeNode {
+        final String mTitle[];
+        final StringGetter mDescription[];
+        final int mId[];
+        int mSelectedIndex;
+
+        public static final class Builder {
+            private static class Item {
+                public final String title;
+                public final StringGetter description;
+                public final int id;
+
+                public Item(String title, String description, int id) {
+                    this.title = title;
+                    if (TextUtils.isEmpty(description)) {
+                        this.description = null;
+                    } else {
+                        this.description = new LiteralStringGetter(description);
+                    }
+                    this.id = id;
+                }
+            }
+
+            private final List<Item> mItems;
+            private boolean mSetInitialId = false;
+            private int mInitialId;
+
+            public Builder() {
+                mItems = new ArrayList<>();
+            }
+
+            public Builder(int count) {
+                mItems = new ArrayList<>(count);
+            }
+
+            public Builder add(String title, String description, int id) {
+                mItems.add(new Item(title, description, id));
+                return this;
+            }
+
+            public Builder select(int id) {
+                mSetInitialId = true;
+                mInitialId = id;
+                return this;
+            }
+
+            public SelectionGroup build() {
+                final int size = mItems.size();
+                final String[] titles = new String[size];
+                final StringGetter[] descriptions = new StringGetter[size];
+                final int[] ids = new int[size];
+                int i = 0;
+                for (final Item item : mItems) {
+                    titles[i] = item.title;
+                    descriptions[i] = item.description;
+                    ids[i] = item.id;
+                    i++;
+                }
+                final SelectionGroup selectionGroup = new SelectionGroup(titles, descriptions, ids);
+                if (mSetInitialId) {
+                    selectionGroup.setSelected(mInitialId);
+                }
+                return selectionGroup;
+            }
+        }
+
+        public SelectionGroup(Resources res, int param[][]) {
+            mSelectedIndex = -1;
+            mTitle = new String[param.length];
+            mDescription = new StringGetter[param.length];
+            mId = new int[param.length];
+            for (int i = 0; i < param.length; ++i) {
+                mTitle[i] = res.getString(param[i][0]);
+                mId[i] = param[i][1];
+            }
+        }
+
+        public SelectionGroup(String[] titles, StringGetter[] descriptions, int[] ids) {
+            mSelectedIndex = -1;
+            mTitle = titles;
+            mDescription = descriptions;
+            mId = ids;
+        }
+
+        @Override
+        public String getTitle() {
+            if (mSelectedIndex >= 0 && mSelectedIndex < mTitle.length) {
+                return mTitle[mSelectedIndex];
+            } else {
+                return "";
+            }
+        }
+
+        @Override
+        /* package */ Appearance getAppearance() {
+            return null;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
+            Log.d("Layout", indent(level) + "SelectionGroup  '" + getTitle() + "'");
+        }
+
+        public String getTitle(int index) {
+            return mTitle[index];
+        }
+
+        public StringGetter getDescription(int index) {
+            return mDescription[index];
+        }
+
+        public boolean getChecked(int index) {
+            return mSelectedIndex == index;
+        }
+
+        public int size() {
+            return mTitle.length;
+        }
+
+        public void setSelected(int id) {
+            mSelectedIndex = -1;
+            for (int index = 0, dim = mId.length; index < dim; ++index) {
+                if (mId[index] == id) {
+                    mSelectedIndex = index;
+                    break;
+                }
+            }
+        }
+
+        public boolean setSelectedIndex(int selectedIndex) {
+            if (mSelectedIndex != selectedIndex && selectedIndex < mId.length) {
+                mSelectedIndex = selectedIndex;
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        public int getId(int index) {
+            return mId[index];
+        }
+
+        public int getId() {
+            return mId[mSelectedIndex];
+        }
+    }
+
+    /**
+     * Implementation of "StringGetter" that returns a string describing the currently selected
+     * item in a SelectionGroup.
+     */
+    public static class SelectionGroupStringGetter extends StringGetter {
+
+        private final SelectionGroup mSelectionGroup;
+
+        @Override
+        public String get() {
+            return mSelectionGroup.getTitle();
+        }
+
+        public SelectionGroupStringGetter(SelectionGroup selectionGroup) {
+            mSelectionGroup = selectionGroup;
+        }
+
+    }
+
+    private static class Appearance {
         private Drawable mIcon;
         private DrawableGetter mIconGetter;
         private String mTitle;
         private StringGetter mDescriptionGetter;
-        private boolean mChecked = false;
+        private BooleanGetter mChecked = FALSE_GETTER;
 
         public String toString() {
             StringBuilder stringBuilder = new StringBuilder()
@@ -313,7 +584,7 @@ public class Layout implements Parcelable {
             }
             stringBuilder
                 .append(" : '")
-                .append(mChecked)
+                .append(mChecked.get())
                 .append("'");
             return stringBuilder.toString();
         }
@@ -330,8 +601,16 @@ public class Layout implements Parcelable {
             }
         }
 
-        public boolean isChecked() {
+        public BooleanGetter getChecked() {
             return mChecked;
+        }
+
+        public void setChecked(boolean checked) {
+            mChecked = checked ? TRUE_GETTER : FALSE_GETTER;
+        }
+
+        public void setChecked(BooleanGetter getter) {
+            mChecked = getter;
         }
     }
 
@@ -339,26 +618,27 @@ public class Layout implements Parcelable {
      * Header is a container for a sub-menu of "LayoutTreeNode" items.
      */
     public static class Header extends LayoutTreeBranch {
-        private Appearence mAppearence = new Appearence();
+        private final Appearance mAppearance = new Appearance();
         private int mSelectedIndex = 0;
         private String mDetailedDescription;
         private int mContentIconRes = 0;
+        private boolean mEnabled = true;
 
         public static class Builder {
-            private Resources mRes;
-            private Header mHeader = new Header();
+            private final Resources mRes;
+            private final Header mHeader = new Header();
 
             public Builder(Resources res) {
                 mRes = res;
             }
 
             public Builder icon(int resId) {
-                mHeader.mAppearence.mIcon = mRes.getDrawable(resId);
+                mHeader.mAppearance.mIcon = mRes.getDrawable(resId);
                 return this;
             }
 
             public Builder icon(DrawableGetter drawableGetter) {
-                mHeader.mAppearence.mIconGetter = drawableGetter;
+                mHeader.mAppearance.mIconGetter = drawableGetter;
                 return this;
             }
 
@@ -368,27 +648,34 @@ public class Layout implements Parcelable {
             }
 
             public Builder title(int resId) {
-                mHeader.mAppearence.mTitle = mRes.getString(resId);
+                mHeader.mAppearance.mTitle = mRes.getString(resId);
                 return this;
             }
 
             public Builder description(int resId) {
-                mHeader.mAppearence.mDescriptionGetter = new ResourceStringGetter(mRes, resId);
+                mHeader.mAppearance.mDescriptionGetter = new ResourceStringGetter(mRes, resId);
+                return this;
+            }
+
+            public Builder description(SelectionGroup selectionGroup) {
+                mHeader.mAppearance.mDescriptionGetter = new SelectionGroupStringGetter(
+                        selectionGroup);
                 return this;
             }
 
             public Builder title(String title) {
-                mHeader.mAppearence.mTitle = title;
+                mHeader.mAppearance.mTitle = title;
                 return this;
             }
 
             public Builder description(String description) {
-                mHeader.mAppearence.mDescriptionGetter = new LiteralStringGetter(description);
+                mHeader.mAppearance.mDescriptionGetter = description != null ?
+                        new LiteralStringGetter(description) : null;
                 return this;
             }
 
             public Builder description(StringGetter description) {
-                mHeader.mAppearence.mDescriptionGetter = description;
+                mHeader.mAppearance.mDescriptionGetter = description;
                 return this;
             }
 
@@ -402,6 +689,11 @@ public class Layout implements Parcelable {
                 return this;
             }
 
+            public Builder enabled(boolean enabled) {
+                mHeader.mEnabled = enabled;
+                return this;
+            }
+
             public Header build() {
                 return mHeader;
             }
@@ -409,7 +701,7 @@ public class Layout implements Parcelable {
 
         @Override
         public String getTitle() {
-            return mAppearence.getTitle();
+            return mAppearance.getTitle();
         }
 
         public Header add(LayoutTreeNode node) {
@@ -418,12 +710,31 @@ public class Layout implements Parcelable {
             return this;
         }
 
+        public Header setSelectionGroup(SelectionGroup selectionGroup) {
+            selectionGroup.mParent = this;
+            mChildren.add(selectionGroup);
+            mAppearance.mDescriptionGetter = new SelectionGroupStringGetter(
+                    selectionGroup);
+            return this;
+        }
+
         String getDetailedDescription() {
             return mDetailedDescription;
         }
 
-        void Log(int level) {
-            Log.d("Layout", indent(level) + "Header  " + mAppearence);
+        @Override
+        /* package */ boolean isEnabled() {
+            return mEnabled;
+        }
+
+        @Override
+        /* package */ Appearance getAppearance() {
+            return mAppearance;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
+            Log.d("Layout", indent(level) + "Header  " + mAppearance);
             for (LayoutTreeNode i : mChildren)
                 i.Log(level + 1);
         }
@@ -433,14 +744,16 @@ public class Layout implements Parcelable {
         public static final int ACTION_NONE = -1;
         public static final int ACTION_INTENT = -2;
         public static final int ACTION_BACK = -3;
-        private int mActionId;
-        private Intent mIntent;
-        private Appearence mAppearence = new Appearence();
+        private final int mActionId;
+        private final Intent mIntent;
+        private final Appearance mAppearance = new Appearance();
         private Bundle mActionData;
         private boolean mDefaultSelection = false;
+        private boolean mEnabled = true;
 
-        private Action(int id) {
+        public Action(int id) {
             mActionId = id;
+            mIntent = null;
         }
 
         private Action(Intent intent) {
@@ -449,8 +762,8 @@ public class Layout implements Parcelable {
         }
 
         public static class Builder {
-            private Resources mRes;
-            private Action mAction;
+            private final Resources mRes;
+            private final Action mAction;
 
             public Builder(Resources res, int id) {
                 mRes = res;
@@ -463,38 +776,48 @@ public class Layout implements Parcelable {
             }
 
             public Builder title(int resId) {
-                mAction.mAppearence.mTitle = mRes.getString(resId);
+                mAction.mAppearance.mTitle = mRes.getString(resId);
                 return this;
             }
 
             public Builder description(int resId) {
-                mAction.mAppearence.mDescriptionGetter = new LiteralStringGetter(mRes.getString(
+                mAction.mAppearance.mDescriptionGetter = new LiteralStringGetter(mRes.getString(
                         resId));
                 return this;
             }
 
             public Builder title(String title) {
-                mAction.mAppearence.mTitle = title;
+                mAction.mAppearance.mTitle = title;
                 return this;
             }
 
-             public Builder icon(int resId) {
-                 mAction.mAppearence.mIcon = mRes.getDrawable(resId);
-                 return this;
-             }
+            public Builder icon(int resId) {
+                mAction.mAppearance.mIcon = mRes.getDrawable(resId);
+                return this;
+            }
+
+            public Builder icon(Drawable drawable) {
+                mAction.mAppearance.mIcon = drawable;
+                return this;
+            }
 
             public Builder description(String description) {
-                mAction.mAppearence.mDescriptionGetter = new LiteralStringGetter(description);
+                mAction.mAppearance.mDescriptionGetter = new LiteralStringGetter(description);
                 return this;
             }
 
             public Builder description(StringGetter description) {
-                mAction.mAppearence.mDescriptionGetter = description;
+                mAction.mAppearance.mDescriptionGetter = description;
                 return this;
             }
 
             public Builder checked(boolean checked) {
-                mAction.mAppearence.mChecked = checked;
+                mAction.mAppearance.setChecked(checked);
+                return this;
+            }
+
+            public Builder checked(BooleanGetter getter) {
+                mAction.mAppearance.setChecked(getter);
                 return this;
             }
 
@@ -511,13 +834,29 @@ public class Layout implements Parcelable {
                 return this;
             }
 
+            public Builder enabled(boolean enabled) {
+                mAction.mEnabled = enabled;
+                return this;
+            }
+
             public Action build() {
                 return mAction;
             }
         }
 
-        void Log(int level) {
-            Log.d("Layout", indent(level) + "Action  #" + mActionId + "  " + mAppearence);
+        @Override
+        /* package */ boolean isEnabled() {
+            return mEnabled;
+        }
+
+        @Override
+        /* package */ Appearance getAppearance() {
+            return mAppearance;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
+            Log.d("Layout", indent(level) + "Action  #" + mActionId + "  " + mAppearance);
         }
 
         public int getId() {
@@ -530,7 +869,7 @@ public class Layout implements Parcelable {
 
         @Override
         public String getTitle() {
-            return mAppearence.getTitle();
+            return mAppearance.getTitle();
         }
 
         public Bundle getData() {
@@ -539,44 +878,50 @@ public class Layout implements Parcelable {
     }
 
     public static class Status extends LayoutTreeNode {
-        private Appearence mAppearence = new Appearence();
+        private final Appearance mAppearance = new Appearance();
+        private boolean mEnabled = true;
 
         public static class Builder {
-            private Resources mRes;
-            private Status mStatus = new Status();
+            private final Resources mRes;
+            private final Status mStatus = new Status();
 
             public Builder(Resources res) {
                 mRes = res;
             }
 
             public Builder icon(int resId) {
-                mStatus.mAppearence.mIcon = mRes.getDrawable(resId);
+                mStatus.mAppearance.mIcon = mRes.getDrawable(resId);
                 return this;
             }
 
             public Builder title(int resId) {
-                mStatus.mAppearence.mTitle = mRes.getString(resId);
+                mStatus.mAppearance.mTitle = mRes.getString(resId);
                 return this;
             }
 
             public Builder description(int resId) {
-                mStatus.mAppearence.mDescriptionGetter = new LiteralStringGetter(mRes.getString(
+                mStatus.mAppearance.mDescriptionGetter = new LiteralStringGetter(mRes.getString(
                         resId));
                 return this;
             }
 
             public Builder title(String title) {
-                mStatus.mAppearence.mTitle = title;
+                mStatus.mAppearance.mTitle = title;
                 return this;
             }
 
             public Builder description(String description) {
-                mStatus.mAppearence.mDescriptionGetter = new LiteralStringGetter(description);
+                mStatus.mAppearance.mDescriptionGetter = new LiteralStringGetter(description);
                 return this;
             }
 
             public Builder description(StringGetter description) {
-                mStatus.mAppearence.mDescriptionGetter = description;
+                mStatus.mAppearance.mDescriptionGetter = description;
+                return this;
+            }
+
+            public Builder enabled(boolean enabled) {
+                mStatus.mEnabled = enabled;
                 return this;
             }
 
@@ -587,11 +932,22 @@ public class Layout implements Parcelable {
 
         @Override
         public String getTitle() {
-            return mAppearence.getTitle();
+            return mAppearance.getTitle();
         }
 
-        void Log(int level) {
-            Log.d("Layout", indent(level) + "Status  " + mAppearence);
+        @Override
+        /* package */ boolean isEnabled() {
+            return mEnabled;
+        }
+
+        @Override
+        /* package */ Appearance getAppearance() {
+            return mAppearance;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
+            Log.d("Layout", indent(level) + "Status  " + mAppearance);
         }
     }
 
@@ -599,8 +955,8 @@ public class Layout implements Parcelable {
         private String mTitle;
 
         public static class Builder {
-            private Resources mRes;
-            private Static mStatic = new Static();
+            private final Resources mRes;
+            private final Static mStatic = new Static();
 
             public Builder(Resources res) {
                 mRes = res;
@@ -626,7 +982,55 @@ public class Layout implements Parcelable {
             return mTitle;
         }
 
-        void Log(int level) {
+        @Override
+        /* package */ Appearance getAppearance() {
+            return null;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
+            Log.d("Layout", indent(level) + "Static  '" + mTitle + "'");
+        }
+    }
+
+    public static class WallOfText extends LayoutTreeNode {
+        private String mTitle;
+
+        public static class Builder {
+            private final Resources mRes;
+            private final WallOfText mWallOfText = new WallOfText();
+
+            public Builder(Resources res) {
+                mRes = res;
+            }
+
+            public Builder title(int resId) {
+                mWallOfText.mTitle = mRes.getString(resId);
+                return this;
+            }
+
+            public Builder title(String title) {
+                mWallOfText.mTitle = title;
+                return this;
+            }
+
+            public WallOfText build() {
+                return mWallOfText;
+            }
+        }
+
+        @Override
+        public String getTitle() {
+            return mTitle;
+        }
+
+        @Override
+        /* package */ Appearance getAppearance() {
+            return null;
+        }
+
+        @Override
+        /* package */ void Log(int level) {
             Log.d("Layout", indent(level) + "Static  '" + mTitle + "'");
         }
     }
@@ -642,9 +1046,9 @@ public class Layout implements Parcelable {
      * to carry forward a selection.
      */
     private int mInitialItemIndex = -1;
-    private final ArrayList<LayoutRow> mLayoutRows = new ArrayList<LayoutRow>();
-    private final ArrayList<LayoutGetter> mVisibleLayoutGetters = new ArrayList<LayoutGetter>();
-    private final ArrayList<LayoutTreeNode> mChildren = new ArrayList<LayoutTreeNode>();
+    private final ArrayList<LayoutRow> mLayoutRows = new ArrayList<>();
+    private final ArrayList<LayoutGetter> mVisibleLayoutGetters = new ArrayList<>();
+    private final ArrayList<LayoutTreeNode> mChildren = new ArrayList<>();
     private String mTopLevelBreadcrumb = "";
     private LayoutNodeRefreshListener mListener;
 
@@ -654,6 +1058,9 @@ public class Layout implements Parcelable {
 
     public void setRefreshViewListener(LayoutNodeRefreshListener listener) {
         mListener = listener;
+        for (final LayoutGetter getter : mVisibleLayoutGetters) {
+            getter.setListener(listener);
+        }
     }
 
     /**
@@ -665,7 +1072,7 @@ public class Layout implements Parcelable {
           return mTopLevelBreadcrumb;
       } else {
           // Showing a header down the hierarchy, breadcrumb is title of item above.
-          return ((Header) (mNavigationCursor.mParent)).mAppearence.mTitle;
+          return ((Header) (mNavigationCursor.mParent)).mAppearance.mTitle;
       }
     }
 
@@ -676,12 +1083,9 @@ public class Layout implements Parcelable {
      */
     public boolean goBack() {
         if (mNavigationCursor.mParent != null) {
-            Header u = (Header) mNavigationCursor.mParent;
-            if (u != null) {
-                mNavigationCursor = u;
-                updateLayoutRows();
-                return true;
-            }
+            mNavigationCursor = (Header) mNavigationCursor.mParent;
+            updateLayoutRows();
+            return true;
         }
         return false;
     }
@@ -716,11 +1120,11 @@ public class Layout implements Parcelable {
     };
 
     String getTitle() {
-        return mNavigationCursor.mAppearence.mTitle;
+        return mNavigationCursor.mAppearance.mTitle;
     }
 
     Drawable getIcon() {
-        return mNavigationCursor.mAppearence.getIcon();
+        return mNavigationCursor.mAppearance.getIcon();
     }
 
     String getDescription() {
@@ -730,7 +1134,7 @@ public class Layout implements Parcelable {
     public void goToTitle(String title) {
         while (mNavigationCursor.mParent != null) {
             mNavigationCursor = (Header) (mNavigationCursor.mParent);
-            if (TextUtils.equals(mNavigationCursor.mAppearence.mTitle, title)) {
+            if (TextUtils.equals(mNavigationCursor.mAppearance.mTitle, title)) {
                 break;
             }
         }
@@ -839,6 +1243,11 @@ public class Layout implements Parcelable {
                     mNavigationCursor.mSelectedIndex = mLayoutRows.size() + initialIndex;
                 }
                 addNodeListToLayoutRows(layout.mChildren);
+            } else if (node instanceof SelectionGroup) {
+                SelectionGroup sg = (SelectionGroup) node;
+                for (int i = 0; i < sg.size(); ++i) {
+                    mLayoutRows.add(new LayoutRow(sg, i));
+                }
             } else {
                 if (node instanceof Action && ((Action) node).mDefaultSelection) {
                     mNavigationCursor.mSelectedIndex = mLayoutRows.size();
@@ -855,13 +1264,24 @@ public class Layout implements Parcelable {
         }
         mVisibleLayoutGetters.clear();
         addNodeListToLayoutRows(mNavigationCursor.mChildren);
+
+        // Skip past any unselectable items
+        final int rowCount = mLayoutRows.size();
+        while (mNavigationCursor.mSelectedIndex < rowCount - 1 &&
+                mNavigationCursor.mSelectedIndex >= 0 &&
+                ((mLayoutRows.get(mNavigationCursor.mSelectedIndex).mViewType
+                        == LayoutRow.VIEW_TYPE_STATIC) ||
+                (mLayoutRows.get(mNavigationCursor.mSelectedIndex).mViewType
+                        == LayoutRow.VIEW_TYPE_WALLOFTEXT))) {
+            mNavigationCursor.mSelectedIndex++;
+        }
     }
 
     private static String indent(int level) {
-        String s = new String();
+        StringBuilder s = new StringBuilder();
         for (int i = 0; i < level; ++i) {
-            s += "  ";
+            s.append("  ");
         }
-        return s;
+        return s.toString();
     }
 }

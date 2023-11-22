@@ -54,6 +54,8 @@ public final class Os {
    */
   public static void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException { Libcore.os.bind(fd, address, port); }
 
+  /** @hide */ public static void bind(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException { Libcore.os.bind(fd, address); }
+
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/chmod.2.html">chmod(2)</a>.
    */
@@ -73,6 +75,8 @@ public final class Os {
    * See <a href="http://man7.org/linux/man-pages/man2/connect.2.html">connect(2)</a>.
    */
   public static void connect(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException { Libcore.os.connect(fd, address, port); }
+
+  /** @hide */ public static void connect(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException { Libcore.os.connect(fd, address); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/dup.2.html">dup(2)</a>.
@@ -109,9 +113,9 @@ public final class Os {
    */
   public static void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException { Libcore.os.fchown(fd, uid, gid); }
 
-  /** @hide */ public static int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException { return Libcore.os.fcntlVoid(fd, cmd); }
-  /** @hide */ public static int fcntlLong(FileDescriptor fd, int cmd, long arg) throws ErrnoException { return Libcore.os.fcntlLong(fd, cmd, arg); }
   /** @hide */ public static int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException { return Libcore.os.fcntlFlock(fd, cmd, arg); }
+  /** @hide */ public static int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException { return Libcore.os.fcntlInt(fd, cmd, arg); }
+  /** @hide */ public static int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException { return Libcore.os.fcntlVoid(fd, cmd); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/fdatasync.2.html">fdatasync(2)</a>.
@@ -171,6 +175,11 @@ public final class Os {
   public static SocketAddress getpeername(FileDescriptor fd) throws ErrnoException { return Libcore.os.getpeername(fd); }
 
   /**
+   * See <a href="http://man7.org/linux/man-pages/man2/getpgid.2.html">getpgid(2)</a>.
+   */
+  /** @hide */ public static int getpgid(int pid) throws ErrnoException { return Libcore.os.getpgid(pid); }
+
+  /**
    * See <a href="http://man7.org/linux/man-pages/man2/getpid.2.html">getpid(2)</a>.
    */
   public static int getpid() { return Libcore.os.getpid(); }
@@ -205,6 +214,8 @@ public final class Os {
    * See <a href="http://man7.org/linux/man-pages/man2/getuid.2.html">getuid(2)</a>.
    */
   public static int getuid() { return Libcore.os.getuid(); }
+
+  /** @hide */ public static int getxattr(String path, String name, byte[] outValue) throws ErrnoException { return Libcore.os.getxattr(path, name, outValue); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man3/if_indextoname.3.html">if_indextoname(3)</a>.
@@ -302,10 +313,16 @@ public final class Os {
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/pipe.2.html">pipe(2)</a>.
    */
-  public static FileDescriptor[] pipe() throws ErrnoException { return Libcore.os.pipe(); }
+  public static FileDescriptor[] pipe() throws ErrnoException { return Libcore.os.pipe2(0); }
+
+  /** @hide */ public static FileDescriptor[] pipe2(int flags) throws ErrnoException { return Libcore.os.pipe2(flags); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/poll.2.html">poll(2)</a>.
+   *
+   * <p>Note that in Lollipop this could throw an {@code ErrnoException} with {@code EINTR}.
+   * In later releases, the implementation will automatically just restart the system call with
+   * an appropriately reduced timeout.
    */
   public static int poll(StructPollfd[] fds, int timeoutMs) throws ErrnoException { return Libcore.os.poll(fds, timeoutMs); }
 
@@ -374,6 +391,8 @@ public final class Os {
    */
   public static void remove(String path) throws ErrnoException { Libcore.os.remove(path); }
 
+  /** @hide */ public static void removexattr(String path, String name) throws ErrnoException { Libcore.os.removexattr(path, name); }
+
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/rename.2.html">rename(2)</a>.
    */
@@ -393,6 +412,11 @@ public final class Os {
    * See <a href="http://man7.org/linux/man-pages/man2/sendto.2.html">sendto(2)</a>.
    */
   public static int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException { return Libcore.os.sendto(fd, bytes, byteOffset, byteCount, flags, inetAddress, port); }
+
+  /**
+   * See <a href="http://man7.org/linux/man-pages/man2/sendto.2.html">sendto(2)</a>.
+   */
+  /** @hide */ public static int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException { return Libcore.os.sendto(fd, bytes, byteOffset, byteCount, flags, address); }
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/setegid.2.html">setegid(2)</a>.
@@ -415,6 +439,21 @@ public final class Os {
   public static void setgid(int gid) throws ErrnoException { Libcore.os.setgid(gid); }
 
   /**
+   * See <a href="http://man7.org/linux/man-pages/man2/setpgid.2.html">setpgid(2)</a>.
+   */
+  /** @hide */ public static void setpgid(int pid, int pgid) throws ErrnoException { Libcore.os.setpgid(pid, pgid); }
+
+  /**
+   * See <a href="http://man7.org/linux/man-pages/man2/setregid.2.html">setregid(2)</a>.
+   */
+  /** @hide */ public static void setregid(int rgid, int egid) throws ErrnoException { Libcore.os.setregid(rgid, egid); }
+
+  /**
+   * See <a href="http://man7.org/linux/man-pages/man2/setreuid.2.html">setreuid(2)</a>.
+   */
+  /** @hide */ public static void setreuid(int ruid, int euid) throws ErrnoException { Libcore.os.setreuid(ruid, euid); }
+
+  /**
    * See <a href="http://man7.org/linux/man-pages/man2/setsid.2.html">setsid(2)</a>.
    */
   public static int setsid() throws ErrnoException { return Libcore.os.setsid(); }
@@ -432,6 +471,8 @@ public final class Os {
    * See <a href="http://man7.org/linux/man-pages/man2/setuid.2.html">setuid(2)</a>.
    */
   public static void setuid(int uid) throws ErrnoException { Libcore.os.setuid(uid); }
+
+  /** @hide */ public static void setxattr(String path, String name, byte[] value, int flags) throws ErrnoException { Libcore.os.setxattr(path, name, value, flags); };
 
   /**
    * See <a href="http://man7.org/linux/man-pages/man2/shutdown.2.html">shutdown(2)</a>.

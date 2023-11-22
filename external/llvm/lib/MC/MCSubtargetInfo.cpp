@@ -17,8 +17,6 @@
 
 using namespace llvm;
 
-MCSchedModel MCSchedModel::DefaultSchedModel; // For unknown processors.
-
 /// InitMCProcessorInfo - Set or change the CPU (optionally supplemented
 /// with feature string). Recompute feature bits and scheduling model.
 void
@@ -33,11 +31,11 @@ MCSubtargetInfo::InitCPUSchedModel(StringRef CPU) {
   if (!CPU.empty())
     CPUSchedModel = getSchedModelForCPU(CPU);
   else
-    CPUSchedModel = &MCSchedModel::DefaultSchedModel;
+    CPUSchedModel = MCSchedModel::GetDefaultSchedModel();
 }
 
 void
-MCSubtargetInfo::InitMCSubtargetInfo(StringRef TT, StringRef CPU, StringRef FS,
+MCSubtargetInfo::InitMCSubtargetInfo(StringRef TT, StringRef C, StringRef FS,
                                      ArrayRef<SubtargetFeatureKV> PF,
                                      ArrayRef<SubtargetFeatureKV> PD,
                                      const SubtargetInfoKV *ProcSched,
@@ -48,6 +46,7 @@ MCSubtargetInfo::InitMCSubtargetInfo(StringRef TT, StringRef CPU, StringRef FS,
                                      const unsigned *OC,
                                      const unsigned *FP) {
   TargetTriple = TT;
+  CPU = C;
   ProcFeatures = PF;
   ProcDesc = PD;
   ProcSchedModels = ProcSched;
@@ -78,7 +77,7 @@ uint64_t MCSubtargetInfo::ToggleFeature(StringRef FS) {
 }
 
 
-const MCSchedModel *
+MCSchedModel
 MCSubtargetInfo::getSchedModelForCPU(StringRef CPU) const {
   assert(ProcSchedModels && "Processor machine model not available!");
 
@@ -94,18 +93,19 @@ MCSubtargetInfo::getSchedModelForCPU(StringRef CPU) const {
   const SubtargetInfoKV *Found =
     std::lower_bound(ProcSchedModels, ProcSchedModels+NumProcs, CPU);
   if (Found == ProcSchedModels+NumProcs || StringRef(Found->Key) != CPU) {
-    errs() << "'" << CPU
-           << "' is not a recognized processor for this target"
-           << " (ignoring processor)\n";
-    return &MCSchedModel::DefaultSchedModel;
+    if (CPU != "help") // Don't error if the user asked for help.
+      errs() << "'" << CPU
+             << "' is not a recognized processor for this target"
+             << " (ignoring processor)\n";
+    return MCSchedModel::GetDefaultSchedModel();
   }
   assert(Found->Value && "Missing processor SchedModel value");
-  return (const MCSchedModel *)Found->Value;
+  return *(const MCSchedModel *)Found->Value;
 }
 
 InstrItineraryData
 MCSubtargetInfo::getInstrItineraryForCPU(StringRef CPU) const {
-  const MCSchedModel *SchedModel = getSchedModelForCPU(CPU);
+  const MCSchedModel SchedModel = getSchedModelForCPU(CPU);
   return InstrItineraryData(SchedModel, Stages, OperandCycles, ForwardingPaths);
 }
 

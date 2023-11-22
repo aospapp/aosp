@@ -17,10 +17,10 @@
 #ifndef ART_RUNTIME_ARCH_ARM64_QUICK_METHOD_FRAME_INFO_ARM64_H_
 #define ART_RUNTIME_ARCH_ARM64_QUICK_METHOD_FRAME_INFO_ARM64_H_
 
+#include "base/bit_utils.h"
 #include "quick/quick_method_frame_info.h"
 #include "registers_arm64.h"
 #include "runtime.h"  // for Runtime::CalleeSaveType.
-#include "utils.h"  // for POPCOUNT
 
 namespace art {
 namespace arm64 {
@@ -33,10 +33,10 @@ static constexpr uint32_t kArm64CalleeSaveAlwaysSpills =
     (1 << art::arm64::LR);
 // Callee saved registers
 static constexpr uint32_t kArm64CalleeSaveRefSpills =
-    (1 << art::arm64::X20) | (1 << art::arm64::X21) | (1 << art::arm64::X22) |
-    (1 << art::arm64::X23) | (1 << art::arm64::X24) | (1 << art::arm64::X25) |
-    (1 << art::arm64::X26) | (1 << art::arm64::X27) | (1 << art::arm64::X28) |
-    (1 << art::arm64::X29);
+    (1 << art::arm64::X19) | (1 << art::arm64::X20) | (1 << art::arm64::X21) |
+    (1 << art::arm64::X22) | (1 << art::arm64::X23) | (1 << art::arm64::X24) |
+    (1 << art::arm64::X25) | (1 << art::arm64::X26) | (1 << art::arm64::X27) |
+    (1 << art::arm64::X28) | (1 << art::arm64::X29);
 // X0 is the method pointer. Not saved.
 static constexpr uint32_t kArm64CalleeSaveArgSpills =
     (1 << art::arm64::X1) | (1 << art::arm64::X2) | (1 << art::arm64::X3) |
@@ -44,9 +44,7 @@ static constexpr uint32_t kArm64CalleeSaveArgSpills =
     (1 << art::arm64::X7);
 static constexpr uint32_t kArm64CalleeSaveAllSpills =
     // Thread register.
-    (1 << art::arm64::X18) |
-    // Suspend register.
-    1 << art::arm64::X19;
+    (1 << art::arm64::X18);
 
 static constexpr uint32_t kArm64CalleeSaveFpAlwaysSpills = 0;
 static constexpr uint32_t kArm64CalleeSaveFpRefSpills = 0;
@@ -54,7 +52,7 @@ static constexpr uint32_t kArm64CalleeSaveFpArgSpills =
     (1 << art::arm64::D0) | (1 << art::arm64::D1) | (1 << art::arm64::D2) |
     (1 << art::arm64::D3) | (1 << art::arm64::D4) | (1 << art::arm64::D5) |
     (1 << art::arm64::D6) | (1 << art::arm64::D7);
-static constexpr uint32_t kArm64FpAllSpills =
+static constexpr uint32_t kArm64CalleeSaveFpAllSpills =
     (1 << art::arm64::D8)  | (1 << art::arm64::D9)  | (1 << art::arm64::D10) |
     (1 << art::arm64::D11)  | (1 << art::arm64::D12)  | (1 << art::arm64::D13) |
     (1 << art::arm64::D14)  | (1 << art::arm64::D15);
@@ -68,7 +66,7 @@ constexpr uint32_t Arm64CalleeSaveCoreSpills(Runtime::CalleeSaveType type) {
 constexpr uint32_t Arm64CalleeSaveFpSpills(Runtime::CalleeSaveType type) {
   return kArm64CalleeSaveFpAlwaysSpills | kArm64CalleeSaveFpRefSpills |
       (type == Runtime::kRefsAndArgs ? kArm64CalleeSaveFpArgSpills: 0) |
-      (type == Runtime::kSaveAll ? kArm64FpAllSpills : 0);
+      (type == Runtime::kSaveAll ? kArm64CalleeSaveFpAllSpills : 0);
 }
 
 constexpr uint32_t Arm64CalleeSaveFrameSize(Runtime::CalleeSaveType type) {

@@ -52,7 +52,7 @@ import org.apache.harmony.security.utils.AlgNameMapper;
 import org.conscrypt.OpenSSLX509CertificateFactory.ParsingException;
 
 public class OpenSSLX509Certificate extends X509Certificate {
-    private final long mContext;
+    private transient final long mContext;
 
     OpenSSLX509Certificate(long ctx) {
         mContext = ctx;
@@ -61,7 +61,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
     public static OpenSSLX509Certificate fromX509DerInputStream(InputStream is)
             throws ParsingException {
         @SuppressWarnings("resource")
-        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         try {
             final long certCtx = NativeCrypto.d2i_X509_bio(bis.getBioContext());
@@ -87,7 +87,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
     public static List<OpenSSLX509Certificate> fromPkcs7DerInputStream(InputStream is)
             throws ParsingException {
         @SuppressWarnings("resource")
-        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         final long[] certRefs;
         try {
@@ -116,7 +116,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
     public static OpenSSLX509Certificate fromX509PemInputStream(InputStream is)
             throws ParsingException {
         @SuppressWarnings("resource")
-        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         try {
             final long certCtx = NativeCrypto.PEM_read_bio_X509(bis.getBioContext());
@@ -134,7 +134,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
     public static List<OpenSSLX509Certificate> fromPkcs7PemInputStream(InputStream is)
             throws ParsingException {
         @SuppressWarnings("resource")
-        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         final long[] certRefs;
         try {
@@ -213,7 +213,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public boolean hasUnsupportedCriticalExtension() {
-        return (NativeCrypto.get_X509_ex_flags(mContext) & NativeCrypto.EXFLAG_CRITICAL) != 0;
+        return (NativeCrypto.get_X509_ex_flags(mContext) & NativeConstants.EXFLAG_CRITICAL) != 0;
     }
 
     @Override
@@ -325,7 +325,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
 
     @Override
     public int getBasicConstraints() {
-        if ((NativeCrypto.get_X509_ex_flags(mContext) & NativeCrypto.EXFLAG_CA) == 0) {
+        if ((NativeCrypto.get_X509_ex_flags(mContext) & NativeConstants.EXFLAG_CA) == 0) {
             return -1;
         }
 
@@ -346,7 +346,7 @@ public class OpenSSLX509Certificate extends X509Certificate {
             NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException,
             SignatureException {
         try {
-            NativeCrypto.X509_verify(mContext, pkey.getPkeyContext());
+            NativeCrypto.X509_verify(mContext, pkey.getNativeRef());
         } catch (RuntimeException e) {
             throw new CertificateException(e);
         } catch (BadPaddingException e) {

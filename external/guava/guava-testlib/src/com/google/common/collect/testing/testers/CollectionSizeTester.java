@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing.testers;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 
 /**
@@ -23,10 +24,9 @@ import com.google.common.collect.testing.AbstractCollectionTester;
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public class CollectionSizeTester<E> extends AbstractCollectionTester<E> {
   public void testSize() {
     assertEquals("size():", getNumElements(), collection.size());

@@ -27,7 +27,7 @@ import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
-import com.android.phone.Constants;
+import com.android.phone.settings.SettingsConstants;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -155,13 +155,16 @@ final class CdmaConnection extends TelephonyConnection {
         mIsCallWaiting = originalConnection != null &&
                 originalConnection.getState() == Call.State.WAITING;
 
-        if (state == android.telecom.Connection.STATE_DIALING) {
-            if (isEmergency()) {
-                mEmergencyTonePlayer.start();
+        if (mEmergencyTonePlayer != null) {
+            if (state == android.telecom.Connection.STATE_DIALING) {
+                if (isEmergency()) {
+                    mEmergencyTonePlayer.start();
+                }
+            } else {
+                // No need to check if it is an emergency call, since it is a no-op if it
+                // isn't started.
+                mEmergencyTonePlayer.stop();
             }
-        } else {
-            // No need to check if it is an emergency call, since it is a no-op if it isn't started.
-            mEmergencyTonePlayer.stop();
         }
 
         super.onStateChanged(state);
@@ -189,7 +192,7 @@ final class CdmaConnection extends TelephonyConnection {
         if (isDialing) {
             setDialing();
         } else {
-            updateState();
+            updateState(true);
         }
     }
 
@@ -234,8 +237,8 @@ final class CdmaConnection extends TelephonyConnection {
         int dtmfTypeSetting = Settings.System.getInt(
                 getPhone().getContext().getContentResolver(),
                 Settings.System.DTMF_TONE_TYPE_WHEN_DIALING,
-                Constants.DTMF_TONE_TYPE_NORMAL);
-        return dtmfTypeSetting == Constants.DTMF_TONE_TYPE_NORMAL;
+                SettingsConstants.DTMF_TONE_TYPE_NORMAL);
+        return dtmfTypeSetting == SettingsConstants.DTMF_TONE_TYPE_NORMAL;
     }
 
     private void sendShortDtmfToNetwork(char digit) {

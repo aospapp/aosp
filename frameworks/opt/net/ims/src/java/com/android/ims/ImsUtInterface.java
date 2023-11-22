@@ -150,12 +150,12 @@ public interface ImsUtInterface {
      * Modifies the configuration of the call forward.
      */
     public void updateCallForward(int action, int condition, String number,
-            int timeSeconds, Message result);
+            int serviceClass, int timeSeconds, Message result);
 
     /**
      * Modifies the configuration of the call waiting.
      */
-    public void updateCallWaiting(boolean enable, Message result);
+    public void updateCallWaiting(boolean enable, int serviceClass, Message result);
 
     /**
      * Updates the configuration of the CLIR supplementary service.

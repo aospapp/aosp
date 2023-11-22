@@ -23,16 +23,18 @@ import com.squareup.okhttp.Protocol;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 
 import okio.ByteString;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -47,56 +49,37 @@ public class PlatformTest {
 
     // Expect no error
     TestSSLSocketImpl arbitrarySocketImpl = new TestSSLSocketImpl();
-    platform.enableTlsExtensions(arbitrarySocketImpl, "host");
+    List<Protocol> protocols = Arrays.asList(Protocol.HTTP_1_1, Protocol.SPDY_3);
+    platform.configureTlsExtensions(arbitrarySocketImpl, "host", protocols);
+    NpnOnlySSLSocketImpl npnOnlySSLSocketImpl = new NpnOnlySSLSocketImpl();
+    platform.configureTlsExtensions(npnOnlySSLSocketImpl, "host", protocols);
 
     FullOpenSSLSocketImpl openSslSocket = new FullOpenSSLSocketImpl();
-    platform.enableTlsExtensions(openSslSocket, "host");
+    platform.configureTlsExtensions(openSslSocket, "host", protocols);
     assertTrue(openSslSocket.useSessionTickets);
     assertEquals("host", openSslSocket.hostname);
+    assertArrayEquals(Platform.concatLengthPrefixed(protocols), openSslSocket.alpnProtocols);
   }
 
   @Test
-  public void getNpnSelectedProtocol() throws Exception {
+  public void getSelectedProtocol() throws Exception {
     Platform platform = new Platform();
-    byte[] npnBytes = "npn".getBytes();
-    byte[] alpnBytes = "alpn".getBytes();
+    String selectedProtocol = "alpn";
 
     TestSSLSocketImpl arbitrarySocketImpl = new TestSSLSocketImpl();
-    assertNull(platform.getNpnSelectedProtocol(arbitrarySocketImpl));
+    assertNull(platform.getSelectedProtocol(arbitrarySocketImpl));
 
     NpnOnlySSLSocketImpl npnOnlySSLSocketImpl = new NpnOnlySSLSocketImpl();
-    npnOnlySSLSocketImpl.npnProtocols = npnBytes;
-    assertEquals(ByteString.of(npnBytes), platform.getNpnSelectedProtocol(npnOnlySSLSocketImpl));
+    assertNull(platform.getSelectedProtocol(npnOnlySSLSocketImpl));
 
     FullOpenSSLSocketImpl openSslSocket = new FullOpenSSLSocketImpl();
-    openSslSocket.npnProtocols = npnBytes;
-    openSslSocket.alpnProtocols = alpnBytes;
-    assertEquals(ByteString.of(alpnBytes), platform.getNpnSelectedProtocol(openSslSocket));
-  }
-
-  @Test
-  public void setNpnProtocols() throws Exception {
-    Platform platform = new Platform();
-    List<Protocol> protocols = Arrays.asList(Protocol.SPDY_3);
-
-    // No error
-    TestSSLSocketImpl arbitrarySocketImpl = new TestSSLSocketImpl();
-    platform.setNpnProtocols(arbitrarySocketImpl, protocols);
-
-    NpnOnlySSLSocketImpl npnOnlySSLSocketImpl = new NpnOnlySSLSocketImpl();
-    platform.setNpnProtocols(npnOnlySSLSocketImpl, protocols);
-    assertNotNull(npnOnlySSLSocketImpl.npnProtocols);
-
-    FullOpenSSLSocketImpl openSslSocket = new FullOpenSSLSocketImpl();
-    platform.setNpnProtocols(openSslSocket, protocols);
-    assertNotNull(openSslSocket.npnProtocols);
-    assertNotNull(openSslSocket.alpnProtocols);
+    openSslSocket.alpnProtocols = selectedProtocol.getBytes(StandardCharsets.UTF_8);
+    assertEquals(selectedProtocol, platform.getSelectedProtocol(openSslSocket));
   }
 
   private static class FullOpenSSLSocketImpl extends OpenSSLSocketImpl {
     private boolean useSessionTickets;
     private String hostname;
-    private byte[] npnProtocols;
     private byte[] alpnProtocols;
 
     public FullOpenSSLSocketImpl() throws IOException {
@@ -114,16 +97,6 @@ public class PlatformTest {
     }
 
     @Override
-    public void setNpnProtocols(byte[] npnProtocols) {
-      this.npnProtocols = npnProtocols;
-    }
-
-    @Override
-    public byte[] getNpnSelectedProtocol() {
-      return npnProtocols;
-    }
-
-    @Override
     public void setAlpnProtocols(byte[] alpnProtocols) {
       this.alpnProtocols = alpnProtocols;
     }
@@ -134,7 +107,7 @@ public class PlatformTest {
     }
   }
 
-  // Legacy case
+  // Legacy case - NPN support has been dropped.
   private static class NpnOnlySSLSocketImpl extends TestSSLSocketImpl {
 
     private byte[] npnProtocols;

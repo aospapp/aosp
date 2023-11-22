@@ -26,8 +26,8 @@
  * partition.
  */
 
+#include <stdbool.h>
 #include <cutils/properties.h>
-#include <openssl/sha.h>
 
 /* The current cryptfs version */
 #define CURRENT_MAJOR_VERSION 1
@@ -72,10 +72,7 @@
 /* Key Derivation Function algorithms */
 #define KDF_PBKDF2 1
 #define KDF_SCRYPT 2
-/* TODO(paullawrence): Remove KDF_SCRYPT_KEYMASTER_UNPADDED and KDF_SCRYPT_KEYMASTER_BADLY_PADDED
- * when it is safe to do so. */
-#define KDF_SCRYPT_KEYMASTER_UNPADDED 3
-#define KDF_SCRYPT_KEYMASTER_BADLY_PADDED 4
+/* Algorithms 3 & 4 deprecated before shipping outside of google, so removed */
 #define KDF_SCRYPT_KEYMASTER 5
 
 /* Maximum allowed keymaster blob size. */
@@ -83,6 +80,10 @@
 
 /* __le32 and __le16 defined in system/extras/ext4_utils/ext4_utils.h */
 #define __le8  unsigned char
+
+#if !defined(SHA256_DIGEST_LENGTH)
+#define SHA256_DIGEST_LENGTH 32
+#endif
 
 struct crypt_mnt_ftr {
   __le32 magic;         /* See above */
@@ -172,20 +173,6 @@ struct crypt_persist_data {
   struct crypt_persist_entry persist_entry[0];
 };
 
-struct volume_info {
-   unsigned int size;
-   unsigned int flags;
-   struct crypt_mnt_ftr crypt_ftr;
-   char mnt_point[256];
-   char blk_dev[256];
-   char crypto_blkdev[256];
-   char label[256];
-};
-#define VOL_NONREMOVABLE   0x1
-#define VOL_ENCRYPTABLE    0x2
-#define VOL_PRIMARY        0x4
-#define VOL_PROVIDES_ASEC  0x8
-
 #define DATA_MNT_POINT "/data"
 
 /* Return values for cryptfs_crypto_complete */
@@ -222,6 +209,8 @@ struct volume_info {
 extern "C" {
 #endif
 
+  int wait_and_unmount(const char *mountpoint, bool kill);
+
   typedef int (*kdf_func)(const char *passwd, const unsigned char *salt,
                           unsigned char *ikey, void *params);
 
@@ -232,16 +221,23 @@ extern "C" {
   int cryptfs_enable(char *flag, int type, char *passwd, int allow_reboot);
   int cryptfs_changepw(int type, const char *newpw);
   int cryptfs_enable_default(char *flag, int allow_reboot);
-  int cryptfs_setup_volume(const char *label, int major, int minor,
-                           char *crypto_dev_path, unsigned int max_pathlen,
-                           int *new_major, int *new_minor);
-  int cryptfs_revert_volume(const char *label);
+  int cryptfs_setup_ext_volume(const char* label, const char* real_blkdev,
+          const unsigned char* key, int keysize, char* out_crypto_blkdev);
+  int cryptfs_revert_ext_volume(const char* label);
+  int cryptfs_enable_file();
   int cryptfs_getfield(const char *fieldname, char *value, int len);
   int cryptfs_setfield(const char *fieldname, const char *value);
   int cryptfs_mount_default_encrypted(void);
   int cryptfs_get_password_type(void);
-  char* cryptfs_get_password(void);
+  const char* cryptfs_get_password(void);
   void cryptfs_clear_password(void);
+
+  // Functions for file encryption to use to inherit our encryption logic
+  int cryptfs_create_default_ftr(struct crypt_mnt_ftr* ftr, int key_length);
+  int cryptfs_get_master_key(struct crypt_mnt_ftr* ftr, const char* password,
+                             unsigned char* master_key);
+  int cryptfs_set_password(struct crypt_mnt_ftr* ftr, const char* password,
+                           const unsigned char* master_key);
 #ifdef __cplusplus
 }
 #endif

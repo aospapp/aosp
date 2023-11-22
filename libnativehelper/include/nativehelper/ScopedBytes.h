@@ -48,17 +48,15 @@ public:
     }
 
 private:
-    JNIEnv* mEnv;
-    jobject mObject;
+    JNIEnv* const mEnv;
+    const jobject mObject;
     jbyteArray mByteArray;
 
 protected:
     jbyte* mPtr;
 
 private:
-    // Disallow copy and assignment.
-    ScopedBytes(const ScopedBytes&);
-    void operator=(const ScopedBytes&);
+    DISALLOW_COPY_AND_ASSIGN(ScopedBytes);
 };
 
 class ScopedBytesRO : public ScopedBytes<true> {

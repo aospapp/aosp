@@ -16,10 +16,6 @@
 
 package com.android.cts.devicepolicy;
 
-import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
-
 /**
  * Set of tests for Device Owner use cases.
  */
@@ -27,6 +23,18 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
 
     private static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
     private static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";
+
+    private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
+    private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
+    private static final String MANAGED_PROFILE_ADMIN =
+            MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
+
+    private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
+    private static final String INTENT_RECEIVER_APK = "CtsIntentReceiverApp.apk";
+
+    private static final String WIFI_CONFIG_CREATOR_PKG =
+            "com.android.cts.deviceowner.wificonfigcreator";
+    private static final String WIFI_CONFIG_CREATOR_APK = "CtsWifiConfigCreator.apk";
 
     private static final String ADMIN_RECEIVER_TEST_CLASS =
             DEVICE_OWNER_PKG + ".BaseDeviceOwnerTest$BasicAdminReceiver";
@@ -38,7 +46,8 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         super.setUp();
         if (mHasFeature) {
             installApp(DEVICE_OWNER_APK);
-            setDeviceOwner(DEVICE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS);
+            assertTrue("Failed to set device owner",
+                    setDeviceOwner(DEVICE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS));
         }
     }
 
@@ -51,10 +60,6 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         }
 
         super.tearDown();
-    }
-
-    public void testApplicationRestrictions() throws Exception {
-        executeDeviceOwnerTest("ApplicationRestrictionsTest");
     }
 
     public void testCaCertManagement() throws Exception {
@@ -70,15 +75,44 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     public void testLockTask() throws Exception {
-        executeDeviceOwnerTest("LockTaskTest");
+        try {
+            installApp(INTENT_RECEIVER_APK);
+            executeDeviceOwnerTest("LockTaskTest");
+        } finally {
+            getDevice().uninstallPackage(INTENT_RECEIVER_PKG);
+        }
     }
 
-    public void testPersistentIntentResolving() throws Exception {
-        executeDeviceOwnerTest("PersistentIntentResolvingTest");
+    public void testSystemUpdatePolicy() throws Exception {
+        executeDeviceOwnerTest("SystemUpdatePolicyTest");
     }
 
-    public void testScreenCaptureDisabled() throws Exception {
-        executeDeviceOwnerTest("ScreenCaptureDisabledTest");
+    public void testWifiConfigLockdown() throws Exception {
+        final boolean hasWifi = hasDeviceFeature("android.hardware.wifi");
+        if (hasWifi && mHasFeature) {
+            try {
+                installApp(WIFI_CONFIG_CREATOR_APK);
+                executeDeviceOwnerTest("WifiConfigLockdownTest");
+            } finally {
+                getDevice().uninstallPackage(WIFI_CONFIG_CREATOR_PKG);
+            }
+        }
+    }
+
+    public void testCannotSetDeviceOwnerAgain() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        // verify that we can't set the same admin receiver as device owner again
+        assertFalse(setDeviceOwner(DEVICE_OWNER_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS));
+
+        // verify that we can't set a different admin receiver as device owner
+        try {
+            installApp(MANAGED_PROFILE_APK);
+            assertFalse(setDeviceOwner(MANAGED_PROFILE_PKG + "/" + MANAGED_PROFILE_ADMIN));
+        } finally {
+            getDevice().uninstallPackage(MANAGED_PROFILE_PKG);
+        }
     }
 
     private void executeDeviceOwnerTest(String testClassName) throws Exception {
@@ -88,13 +122,4 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         String testClass = DEVICE_OWNER_PKG + "." + testClassName;
         assertTrue(testClass + " failed.", runDeviceTests(DEVICE_OWNER_PKG, testClass));
     }
-
-    private void setDeviceOwner(String componentName) throws DeviceNotAvailableException {
-        String command = "dpm set-device-owner '" + componentName + "'";
-        String commandOutput = getDevice().executeShellCommand(command);
-        CLog.logAndDisplay(LogLevel.INFO, "Output for command " + command + ": " + commandOutput);
-        assertTrue(commandOutput + " expected to start with \"Success:\"",
-                commandOutput.startsWith("Success:"));
-    }
-
 }

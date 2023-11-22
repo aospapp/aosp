@@ -396,7 +396,7 @@
     Specifies the number of bits to be filled
 */
 #ifndef PCM_DATA_FMT_FILL_NUM
-#define PCM_DATA_FMT_FILL_NUM           3
+#define PCM_DATA_FMT_FILL_NUM           0
 #endif
 
 /* PCM_DATA_FMT_JUSTIFY_MODE

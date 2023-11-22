@@ -73,9 +73,6 @@
 #define	_PATH_PROTOCOLS	"/system/etc/protocols"
 #define	_PATH_SERVICES	"/system/etc/services"
 
-#define  MAXHOSTNAMELEN  256
-
-
 /*
  * Structures returned by network data base library.  All addresses are
  * supplied in host order, and returned in network order (suitable for
@@ -209,7 +206,7 @@ void endprotoent(void);
 void endservent(void);
 void freehostent(struct hostent *);
 struct hostent	*gethostbyaddr(const void *, socklen_t, int);
-int gethostbyaddr_r(const void *, int, int, struct hostent *, char *, size_t, struct hostent **, int *);
+int gethostbyaddr_r(const void *, socklen_t, int, struct hostent *, char *, size_t, struct hostent **, int *);
 struct hostent	*gethostbyname(const char *);
 int gethostbyname_r(const char *, struct hostent *, char *, size_t, struct hostent **, int *);
 struct hostent	*gethostbyname2(const char *, int);

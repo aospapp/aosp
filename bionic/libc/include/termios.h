@@ -35,6 +35,7 @@
 
 __BEGIN_DECLS
 
+#if __ANDROID_API__ >= 21
 speed_t cfgetispeed(const struct termios*);
 speed_t cfgetospeed(const struct termios*);
 void cfmakeraw(struct termios*);
@@ -48,6 +49,9 @@ int tcgetattr(int, struct termios*);
 pid_t tcgetsid(int);
 int tcsendbreak(int, int);
 int tcsetattr(int, int, const struct termios*);
+#else
+#include <android/legacy_termios_inlines.h>
+#endif
 
 __END_DECLS
 

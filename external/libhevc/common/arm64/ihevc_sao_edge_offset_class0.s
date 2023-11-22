@@ -123,12 +123,12 @@ WIDTH_LOOP_16:
     CMP         x8,x9                       //if(col == wd)
     BNE         AU1_MASK_FF                 //jump to else part
     LDRB        w12,[x7]                    //pu1_avail[0]
-    mov         v3.8b[0], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
+    mov         v3.b[0], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
     B           SKIP_AU1_MASK_FF            //Skip the else part
 
 AU1_MASK_FF:
     MOV         x12,#0xFF                   //move -1 to x12
-    mov         v3.8b[0], w12               //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
+    mov         v3.b[0], w12                //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
 
 SKIP_AU1_MASK_FF:
     CMP         x8,#16                      //If col == 16
@@ -146,7 +146,7 @@ PU1_SRC_LOOP:
     SUB         x5,x9,x8                    //wd - col
 
     SUB         x14,x10,x4                  //ht - row
-    mov         v21.8b[15], w11             //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
+    mov         v21.b[15], w11              //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
     mul         x14, x14, x1                //(ht - row) * src_strd
 
     LD1         {v26.16b},[x12]             //II Iteration pu1_cur_row = vld1q_u8(pu1_src_cpy)
@@ -158,7 +158,7 @@ PU1_SRC_LOOP:
     LDRB        w14,[x6,x5]                 //pu1_src_org[(ht - row) * src_strd + 16 - 1 + (wd - col)]
 
     SUB         x4,x4,#1
-    mov         v28.8b[15], w11             //II Iteration vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
+    mov         v28.b[15], w11              //II Iteration vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
     cmhi        v18.16b,  v21.16b ,  v17.16b //vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
 
     SUB         x12,x12,x1                  //Decrement the pu1_src pointer by src_strd
@@ -170,7 +170,7 @@ PU1_SRC_LOOP:
     SUB         x5,x9,x8                    //II wd - col
 
     ADD         x12,x12,x1                  //Increment the pu1_src pointer by src_strd
-    mov         v21.8b[0], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v21.b[0], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
     cmhi        v30.16b,  v26.16b ,  v28.16b //II vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
 
     LDRB        w11,[x12,#16]               //II pu1_src_cpy[16]
@@ -178,7 +178,7 @@ PU1_SRC_LOOP:
     SUB         x14,x10,x4                  //II ht - row
 
     cmhi        v0.16b,  v28.16b ,  v26.16b //II vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
-    mov         v28.8b[0], w11              //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v28.b[0], w11               //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
     SUB         x12,x12,x1                  //Decrement the pu1_src pointer by src_strd
 
     mul         x14, x14, x1                //II (ht - row) * src_strd
@@ -271,25 +271,25 @@ WIDTH_RESIDUE:
     CMP         x8,x9                       //if(wd_rem == wd)
     BNE         AU1_MASK_FF_RESIDUE         //jump to else part
     LDRB        w12,[x7]                    //pu1_avail[0]
-    mov         v3.8b[0], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
+    mov         v3.b[0], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
     B           SKIP_AU1_MASK_FF_RESIDUE    //Skip the else part
 
 AU1_MASK_FF_RESIDUE:
     MOV         x12,#0xFF                   //move -s to x12
-    mov         v3.8b[0], w12               //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
+    mov         v3.b[0], w12                //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
 
 SKIP_AU1_MASK_FF_RESIDUE:
     LDRB        w11,[x7,#1]                 //pu1_avail[1]
     SUB         x5,x9,#1                    //wd - 1
 
     MOV         x4,x10                      //move ht to x4 for loop count
-    mov         v3.8b[7], w11               //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
+    mov         v3.b[7], w11                //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
     MOV         x12,x0                      //pu1_src_cpy = pu1_src
 
 PU1_SRC_LOOP_RESIDUE:
     LD1         {v17.16b},[x12]             //pu1_cur_row = vld1q_u8(pu1_src_cpy)
     LDRB        w11,[x2]                    //load pu1_src_left
-    mov         v21.8b[15], w11             //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
+    mov         v21.b[15], w11              //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
     EXT         v21.16b,  v21.16b ,  v17.16b,#15 //pu1_cur_row_tmp = vextq_u8(pu1_cur_row_tmp, pu1_cur_row, 15)
 
     cmhi        v16.16b,  v17.16b ,  v21.16b //vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
@@ -297,7 +297,7 @@ PU1_SRC_LOOP_RESIDUE:
     SUB         v20.16b,  v18.16b ,  v16.16b //sign_left = vreinterpretq_s8_u8(vsubq_u8(cmp_lt, cmp_gt))
 
     LDRB        w11,[x12,#16]               //pu1_src_cpy[16]
-    mov         v21.8b[0], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v21.b[0], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
     EXT         v21.16b,  v17.16b ,  v21.16b,#1 //pu1_cur_row_tmp = vextq_u8(pu1_cur_row, pu1_cur_row_tmp, 1)
 
     cmhi        v16.16b,  v17.16b ,  v21.16b //vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)

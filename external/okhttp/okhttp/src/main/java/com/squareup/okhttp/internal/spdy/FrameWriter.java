@@ -19,13 +19,14 @@ package com.squareup.okhttp.internal.spdy;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import okio.OkBuffer;
+import okio.Buffer;
 
 /** Writes transport frames for SPDY/3 or HTTP/2. */
 public interface FrameWriter extends Closeable {
   /** HTTP/2 only. */
-  void connectionHeader() throws IOException;
-  void ackSettings() throws IOException;
+  void connectionPreface() throws IOException;
+  /** Informs the peer that we've applied its latest settings. */
+  void ackSettings(Settings peerSettings) throws IOException;
 
   /**
    * HTTP/2 only. Send a push promise header block.
@@ -48,21 +49,24 @@ public interface FrameWriter extends Closeable {
   /** SPDY/3 only. */
   void flush() throws IOException;
   void synStream(boolean outFinished, boolean inFinished, int streamId, int associatedStreamId,
-      int priority, int slot, List<Header> headerBlock) throws IOException;
+      List<Header> headerBlock) throws IOException;
   void synReply(boolean outFinished, int streamId, List<Header> headerBlock)
       throws IOException;
   void headers(int streamId, List<Header> headerBlock) throws IOException;
   void rstStream(int streamId, ErrorCode errorCode) throws IOException;
 
+  /** The maximum size of bytes that may be sent in a single call to {@link #data}. */
+  int maxDataLength();
+
   /**
-   * {@code data.length} may be longer than the max length of the variant's data frame.
+   * {@code source.length} may be longer than the max length of the variant's data frame.
    * Implementations must send multiple frames as necessary.
    *
    * @param source the buffer to draw bytes from. May be null if byteCount is 0.
+   * @param byteCount must be between 0 and the minimum of {code source.length}
+   * and {@link #maxDataLength}.
    */
-  void data(boolean outFinished, int streamId, OkBuffer source, int byteCount) throws IOException;
-
-  void data(boolean outFinished, int streamId, OkBuffer source) throws IOException;
+  void data(boolean outFinished, int streamId, Buffer source, int byteCount) throws IOException;
 
   /** Write okhttp's settings to the peer. */
   void settings(Settings okHttpSettings) throws IOException;
@@ -87,7 +91,7 @@ public interface FrameWriter extends Closeable {
    * @param lastGoodStreamId the last stream ID processed, or zero if no
    * streams were processed.
    * @param errorCode reason for closing the connection.
-   * @param debugData only valid for http/2; opaque debug data to send.
+   * @param debugData only valid for HTTP/2; opaque debug data to send.
    */
   void goAway(int lastGoodStreamId, ErrorCode errorCode, byte[] debugData) throws IOException;
 

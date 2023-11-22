@@ -19,7 +19,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="from" msgid="5159056500059912358">"প্রেরক"</string>
-    <string name="to" msgid="3971614275716830581">"প্রতি"</string>
+    <string name="to" msgid="3971614275716830581">"প্রাপক"</string>
     <string name="cc" msgid="8768828862207919684">"Cc"</string>
     <string name="bcc" msgid="519303553518479171">"Bcc"</string>
     <string name="subject_hint" msgid="2136470287303571827">"বিষয়"</string>
@@ -36,7 +36,7 @@
     <item msgid="2758162027982270607">"ফরোয়ার্ড"</item>
   </string-array>
     <string name="reply_attribution" msgid="1114972798797833259">"<xliff:g id="DATE">%s</xliff:g> এ, <xliff:g id="PERSON">%s</xliff:g> লিখেছেন:"</string>
-    <string name="forward_attribution" msgid="597850048345475752">"---------- ফরোয়ার্ড করা বার্তা ----------&lt;br&gt;থেকে: <xliff:g id="FROM">%1$s</xliff:g>&lt;br&gt;তারিখ: <xliff:g id="DATE">%2$s</xliff:g>&lt;br&gt;বিষয়: <xliff:g id="SUBJECT">%3$s</xliff:g>&lt;br&gt;প্রতি: <xliff:g id="TO">%4$s</xliff:g>&lt;br&gt;"</string>
+    <string name="forward_attribution" msgid="597850048345475752">"---------- ফরোয়ার্ড করা বার্তা ----------&lt;br&gt;থেকে: <xliff:g id="FROM">%1$s</xliff:g>&lt;br&gt;তারিখ: <xliff:g id="DATE">%2$s</xliff:g>&lt;br&gt;বিষয়: <xliff:g id="SUBJECT">%3$s</xliff:g>&lt;br&gt;প্রাপক: <xliff:g id="TO">%4$s</xliff:g>&lt;br&gt;"</string>
     <string name="forward_attribution_no_headers" msgid="1828826576779486239">"---------- ফরোয়ার্ড করা বার্তা ----------"</string>
     <string name="cc_attribution" msgid="2928584226469388899">"Cc: <xliff:g id="CC">%1$s</xliff:g>&lt;br&gt;"</string>
     <string name="select_attachment_type" msgid="353236686616663062">"সংযুক্তির প্রকার চয়ন করুন"</string>
@@ -228,8 +228,8 @@
   </plurals>
     <string name="from_heading" msgid="48290556829713090">"প্রেরক:"</string>
     <string name="replyto_heading" msgid="8275255318292059079">"একে-উত্তর দিন:"</string>
-    <string name="to_heading" msgid="3495203282540398336">"প্রতি: "</string>
-    <string name="to_heading_no_space" msgid="679167047628308670">"প্রতি:"</string>
+    <string name="to_heading" msgid="3495203282540398336">"প্রাপক: "</string>
+    <string name="to_heading_no_space" msgid="679167047628308670">"প্রাপক:"</string>
     <string name="cc_heading" msgid="5603892257866345823">"Cc:"</string>
     <string name="bcc_heading" msgid="1482186590756218269">"Bcc:"</string>
     <string name="date_heading" msgid="4213063948406397168">"তারিখ:"</string>
@@ -404,7 +404,7 @@
     <item quantity="other" msgid="962415099931188360">"<xliff:g id="COUNT">%1$d</xliff:g>টি বার্তা"</item>
   </plurals>
     <string name="date_message_received_print" msgid="4168417403884350040">"<xliff:g id="DAY_AND_DATE">%1$s</xliff:g> তারিখে <xliff:g id="TIME">%2$s</xliff:g> এ"</string>
-    <string name="draft_to_heading" msgid="7370121943946205024">"খসড়া প্রতি:"</string>
+    <string name="draft_to_heading" msgid="7370121943946205024">"খসড়া প্রাপক:"</string>
     <string name="draft_heading" msgid="7032951343184552800">"খসড়া"</string>
     <string name="quoted_text_hidden_print" msgid="5256754205675159141">"উদ্ধৃত পাঠ্য লুক্কায়িত"</string>
   <plurals name="num_attachments">

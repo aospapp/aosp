@@ -132,8 +132,8 @@ int StochasticLinearRanker<Key, Hash>::UpdateClassifier(
   return 0;
 }
 
-template class StochasticLinearRanker<std::string, std::hash_map<std::string, double> >;
-template class StochasticLinearRanker<int, std::hash_map<int, double> >;
-template class StochasticLinearRanker<uint64, std::hash_map<uint64, double> >;
+template class StochasticLinearRanker<std::string, std::unordered_map<std::string, double> >;
+template class StochasticLinearRanker<int, std::unordered_map<int, double> >;
+template class StochasticLinearRanker<uint64, std::unordered_map<uint64, double> >;
 
 }  // namespace learning_stochastic_linear

@@ -18,8 +18,6 @@
 
 #include "rs_graphics.rsh"
 
-#pragma rs export_func(resize)
-
 #define FOV 60.0f
 #define SPIRAL_ROTATE_SPEED 15.0f
 #define INNER_ROTATE_SPEED 1.5f

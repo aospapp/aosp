@@ -1,31 +1,29 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
 #include "../../include/fxcrt/fx_basic.h"
 FX_STRSIZE FX_ftoa(FX_FLOAT f, FX_LPSTR buf);
-CFX_BinaryBuf::CFX_BinaryBuf(IFX_Allocator* pAllocator)
-    : m_pAllocator(pAllocator)
-    , m_AllocStep(0)
+CFX_BinaryBuf::CFX_BinaryBuf()
+    : m_AllocStep(0)
     , m_pBuffer(NULL)
     , m_DataSize(0)
     , m_AllocSize(0)
 {
 }
-CFX_BinaryBuf::CFX_BinaryBuf(FX_STRSIZE size, IFX_Allocator* pAllocator)
-    : m_pAllocator(pAllocator)
-    , m_AllocStep(0)
+CFX_BinaryBuf::CFX_BinaryBuf(FX_STRSIZE size)
+    : m_AllocStep(0)
     , m_DataSize(size)
     , m_AllocSize(size)
 {
-    m_pBuffer = FX_Allocator_Alloc(m_pAllocator, FX_BYTE, size);
+    m_pBuffer = FX_Alloc(FX_BYTE, size);
 }
 CFX_BinaryBuf::~CFX_BinaryBuf()
 {
     if (m_pBuffer) {
-        FX_Allocator_Free(m_pAllocator, m_pBuffer);
+        FX_Free(m_pBuffer);
     }
 }
 void CFX_BinaryBuf::Delete(int start_index, int count)
@@ -49,7 +47,7 @@ void CFX_BinaryBuf::DetachBuffer()
 void CFX_BinaryBuf::AttachData(void* buffer, FX_STRSIZE size)
 {
     if (m_pBuffer) {
-        FX_Allocator_Free(m_pAllocator, m_pBuffer);
+        FX_Free(m_pBuffer);
     }
     m_DataSize = size;
     m_pBuffer = (FX_LPBYTE)buffer;
@@ -86,14 +84,12 @@ void CFX_BinaryBuf::ExpandBuf(FX_STRSIZE add_size)
     new_size = (new_size + alloc_step - 1) / alloc_step * alloc_step;
     FX_LPBYTE pNewBuffer = m_pBuffer;
     if (pNewBuffer) {
-        pNewBuffer = FX_Allocator_Realloc(m_pAllocator, FX_BYTE, m_pBuffer, new_size);
+        pNewBuffer = FX_Realloc(FX_BYTE, m_pBuffer, new_size);
     } else {
-        pNewBuffer = FX_Allocator_Alloc(m_pAllocator, FX_BYTE, new_size);
+        pNewBuffer = FX_Alloc(FX_BYTE, new_size);
     }
-    if (pNewBuffer) {
-        m_pBuffer = pNewBuffer;
-        m_AllocSize = new_size;
-    }
+    m_pBuffer = pNewBuffer;
+    m_AllocSize = new_size;
 }
 void CFX_BinaryBuf::CopyData(const void* pStr, FX_STRSIZE size)
 {
@@ -143,27 +139,23 @@ CFX_ByteStringC CFX_BinaryBuf::GetByteString() const
 {
     return CFX_ByteStringC(m_pBuffer, m_DataSize);
 }
-void CFX_BinaryBuf::GetByteStringL(CFX_ByteStringL &str) const
-{
-    str.Set(CFX_ByteStringC(m_pBuffer, m_DataSize), m_pAllocator);
-}
 CFX_ByteTextBuf& CFX_ByteTextBuf::operator << (FX_BSTR lpsz)
 {
-    AppendBlock((FX_LPCBYTE)lpsz, lpsz.GetLength());
+    AppendBlock(lpsz.GetPtr(), lpsz.GetLength());
     return *this;
 }
 CFX_ByteTextBuf& CFX_ByteTextBuf::operator << (int i)
 {
     char buf[32];
     FXSYS_itoa(i, buf, 10);
-    AppendBlock(buf, (FX_STRSIZE)FXSYS_strlen(buf));
+    AppendBlock(buf, FXSYS_strlen(buf));
     return *this;
 }
 CFX_ByteTextBuf& CFX_ByteTextBuf::operator << (FX_DWORD i)
 {
     char buf[32];
     FXSYS_itoa(i, buf, 10);
-    AppendBlock(buf, (FX_STRSIZE)FXSYS_strlen(buf));
+    AppendBlock(buf, FXSYS_strlen(buf));
     return *this;
 }
 CFX_ByteTextBuf& CFX_ByteTextBuf::operator << (double f)
@@ -180,7 +172,7 @@ CFX_ByteTextBuf& CFX_ByteTextBuf::operator << (const CFX_ByteTextBuf& buf)
 }
 void CFX_ByteTextBuf::operator =(const CFX_ByteStringC& str)
 {
-    CopyData((FX_LPCBYTE)str, str.GetLength());
+    CopyData(str.GetPtr(), str.GetLength());
 }
 void CFX_WideTextBuf::AppendChar(FX_WCHAR ch)
 {
@@ -198,14 +190,14 @@ CFX_WideTextBuf& CFX_WideTextBuf::operator << (FX_WSTR str)
 }
 CFX_WideTextBuf& CFX_WideTextBuf::operator << (const CFX_WideString &str)
 {
-    AppendBlock((FX_LPCWSTR)str, str.GetLength() * sizeof(FX_WCHAR));
+    AppendBlock(str.c_str(), str.GetLength() * sizeof(FX_WCHAR));
     return *this;
 }
 CFX_WideTextBuf& CFX_WideTextBuf::operator << (int i)
 {
     char buf[32];
     FXSYS_itoa(i, buf, 10);
-    FX_STRSIZE len = (FX_STRSIZE)FXSYS_strlen(buf);
+    FX_STRSIZE len = FXSYS_strlen(buf);
     if (m_AllocSize < m_DataSize + (FX_STRSIZE)(len * sizeof(FX_WCHAR))) {
         ExpandBuf(len * sizeof(FX_WCHAR));
     }
@@ -234,7 +226,7 @@ CFX_WideTextBuf& CFX_WideTextBuf::operator << (double f)
 }
 CFX_WideTextBuf& CFX_WideTextBuf::operator << (FX_LPCWSTR lpsz)
 {
-    AppendBlock(lpsz, (FX_STRSIZE)FXSYS_wcslen(lpsz)*sizeof(FX_WCHAR));
+    AppendBlock(lpsz, FXSYS_wcslen(lpsz)*sizeof(FX_WCHAR));
     return *this;
 }
 CFX_WideTextBuf& CFX_WideTextBuf::operator << (const CFX_WideTextBuf& buf)
@@ -249,10 +241,6 @@ void CFX_WideTextBuf::operator =(FX_WSTR str)
 CFX_WideStringC CFX_WideTextBuf::GetWideString() const
 {
     return CFX_WideStringC((FX_LPCWSTR)m_pBuffer, m_DataSize / sizeof(FX_WCHAR));
-}
-void CFX_WideTextBuf::GetWideStringL(CFX_WideStringL& wideText) const
-{
-    wideText.Set(CFX_WideStringC((FX_LPCWSTR)m_pBuffer, m_DataSize / sizeof(FX_WCHAR)), m_pAllocator);
 }
 CFX_ArchiveSaver& CFX_ArchiveSaver::operator << (FX_BYTE i)
 {
@@ -295,16 +283,16 @@ CFX_ArchiveSaver& CFX_ArchiveSaver::operator << (FX_BSTR bstr)
     int len = bstr.GetLength();
     if (m_pStream) {
         m_pStream->WriteBlock(&len, sizeof(int));
-        m_pStream->WriteBlock(bstr, len);
+        m_pStream->WriteBlock(bstr.GetPtr(), len);
     } else {
         m_SavingBuf.AppendBlock(&len, sizeof(int));
-        m_SavingBuf.AppendBlock(bstr, len);
+        m_SavingBuf.AppendBlock(bstr.GetPtr(), len);
     }
     return *this;
 }
 CFX_ArchiveSaver& CFX_ArchiveSaver::operator << (FX_LPCWSTR wstr)
 {
-    FX_STRSIZE len = (FX_STRSIZE)FXSYS_wcslen(wstr);
+    FX_STRSIZE len = FXSYS_wcslen(wstr);
     if (m_pStream) {
         m_pStream->WriteBlock(&len, sizeof(int));
         m_pStream->WriteBlock(wstr, len);
@@ -381,7 +369,7 @@ CFX_ArchiveLoader& CFX_ArchiveLoader::operator >> (CFX_WideString& str)
 {
     CFX_ByteString encoded;
     operator >> (encoded);
-    str = CFX_WideString::FromUTF16LE((const unsigned short*)(FX_LPCSTR)encoded, encoded.GetLength());
+    str = CFX_WideString::FromUTF16LE((const unsigned short*)encoded.c_str(), encoded.GetLength());
     return *this;
 }
 FX_BOOL CFX_ArchiveLoader::Read(void* pBuf, FX_DWORD dwSize)
@@ -439,9 +427,8 @@ FX_DWORD CFX_BitStream::GetBits(FX_DWORD nBits)
     m_BitPos += nBits;
     return result;
 }
-IFX_BufferArchive::IFX_BufferArchive(FX_STRSIZE size, IFX_Allocator* pAllocator)
-    : m_pAllocator(pAllocator)
-    , m_BufSize(size)
+IFX_BufferArchive::IFX_BufferArchive(FX_STRSIZE size)
+    : m_BufSize(size)
     , m_pBuffer(NULL)
     , m_Length(0)
 {
@@ -450,7 +437,7 @@ void IFX_BufferArchive::Clear()
 {
     m_Length = 0;
     if (m_pBuffer) {
-        FX_Allocator_Free(m_pAllocator, m_pBuffer);
+        FX_Free(m_pBuffer);
         m_pBuffer = NULL;
     }
 }
@@ -466,10 +453,7 @@ FX_INT32 IFX_BufferArchive::AppendBlock(const void* pBuf, size_t size)
         return 0;
     }
     if (!m_pBuffer) {
-        m_pBuffer = FX_Allocator_Alloc(m_pAllocator, FX_BYTE, m_BufSize);
-        if (!m_pBuffer) {
-            return -1;
-        }
+        m_pBuffer = FX_Alloc(FX_BYTE, m_BufSize);
     }
     FX_LPBYTE buffer = (FX_LPBYTE)pBuf;
     FX_STRSIZE temp_size = (FX_STRSIZE)size;
@@ -499,10 +483,10 @@ FX_INT32 IFX_BufferArchive::AppendDWord(FX_DWORD i)
 }
 FX_INT32 IFX_BufferArchive::AppendString(FX_BSTR lpsz)
 {
-    return AppendBlock((FX_LPCBYTE)lpsz, lpsz.GetLength());
+    return AppendBlock(lpsz.GetPtr(), lpsz.GetLength());
 }
-CFX_FileBufferArchive::CFX_FileBufferArchive(FX_STRSIZE size, IFX_Allocator* pAllocator)
-    : IFX_BufferArchive(size, pAllocator)
+CFX_FileBufferArchive::CFX_FileBufferArchive(FX_STRSIZE size)
+    : IFX_BufferArchive(size)
     , m_pFile(NULL)
     , m_bTakeover(FALSE)
 {

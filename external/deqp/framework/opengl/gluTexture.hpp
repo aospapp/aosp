@@ -29,6 +29,7 @@
 #include "tcuResource.hpp"
 #include "gluRenderContext.hpp"
 #include "gluContextInfo.hpp"
+#include "deArrayBuffer.hpp"
 
 #include <vector>
 #include <string>
@@ -60,7 +61,7 @@ private:
 	deUint32				m_format;				//!< Internal format.
 	tcu::Texture1D			m_refTexture;
 	deUint32				m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief 2D Texture
@@ -68,7 +69,7 @@ private:
 class Texture2D
 {
 public:
-							Texture2D				(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::CompressedTexture::DecompressionParams& = tcu::CompressedTexture::DecompressionParams(false));
+							Texture2D				(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams = tcu::TexDecompressionParams());
 							Texture2D				(const RenderContext& context, deUint32 format, deUint32 dataType, int width, int height);
 							Texture2D				(const RenderContext& context, deUint32 internalFormat, int width, int height);
 							~Texture2D				(void);
@@ -87,7 +88,7 @@ private:
 							Texture2D				(const Texture2D& other); // Not allowed!
 	Texture2D&				operator=				(const Texture2D& other); // Not allowed!
 
-	void					loadCompressed			(int numLevels, const tcu::CompressedTexture* levels, const tcu::CompressedTexture::DecompressionParams&);
+	void					loadCompressed			(int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams);
 
 	const RenderContext&	m_context;
 
@@ -96,7 +97,7 @@ private:
 
 	tcu::Texture2D			m_refTexture;
 	deUint32				m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief Cube Map Texture
@@ -108,7 +109,7 @@ public:
 	// to laid out to array in following order:
 	//   { l0_neg_x, l0_pos_x, l0_neg_y, l0_pos_y, l0_neg_z, l0_pos_z, l1_neg_x, l1_pos_x, ... }
 
-							TextureCube				(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::CompressedTexture::DecompressionParams& = tcu::CompressedTexture::DecompressionParams(false));
+							TextureCube				(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams = tcu::TexDecompressionParams());
 							TextureCube				(const RenderContext& context, deUint32 format, deUint32 dataType, int size);
 							TextureCube				(const RenderContext& context, deUint32 internalFormat, int size);
 							~TextureCube			(void);
@@ -126,7 +127,7 @@ private:
 							TextureCube				(const TextureCube& other); // Not allowed!
 	TextureCube&			operator=				(const TextureCube& other); // Not allowed!
 
-	void					loadCompressed			(int numLevels, const tcu::CompressedTexture* levels, const tcu::CompressedTexture::DecompressionParams&);
+	void					loadCompressed			(int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams);
 
 	const RenderContext&	m_context;
 
@@ -135,7 +136,7 @@ private:
 
 	tcu::TextureCube		m_refTexture;
 	deUint32				m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief 2D Array Texture
@@ -146,6 +147,7 @@ class Texture2DArray
 public:
 								Texture2DArray			(const RenderContext& context, deUint32 format, deUint32 dataType, int width, int height, int numLayers);
 								Texture2DArray			(const RenderContext& context, deUint32 internalFormat, int width, int height, int numLayers);
+								Texture2DArray			(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams = tcu::TexDecompressionParams());
 								~Texture2DArray			(void);
 
 	void						upload					(void);
@@ -158,13 +160,17 @@ private:
 								Texture2DArray			(const Texture2DArray& other); // Not allowed!
 	Texture2DArray&				operator=				(const Texture2DArray& other); // Not allowed!
 
+	void						loadCompressed			(int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams);
+
+
 	const RenderContext&		m_context;
 
+	bool						m_isCompressed;
 	deUint32					m_format;				//!< Internal format.
 
 	tcu::Texture2DArray			m_refTexture;
 	deUint32					m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief 1D Array Texture
@@ -193,7 +199,7 @@ private:
 
 	tcu::Texture1DArray			m_refTexture;
 	deUint32					m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief 3D Texture
@@ -204,6 +210,7 @@ class Texture3D
 public:
 								Texture3D			(const RenderContext& context, deUint32 format, deUint32 dataType, int width, int height, int depth);
 								Texture3D			(const RenderContext& context, deUint32 internalFormat, int width, int height, int depth);
+								Texture3D			(const RenderContext& context, const ContextInfo& contextInfo, int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams = tcu::TexDecompressionParams());
 								~Texture3D			(void);
 
 	void						upload				(void);
@@ -216,13 +223,16 @@ private:
 								Texture3D			(const Texture3D& other); // Not allowed!
 	Texture3D&					operator=			(const Texture3D& other); // Not allowed!
 
+	void						loadCompressed		(int numLevels, const tcu::CompressedTexture* levels, const tcu::TexDecompressionParams& decompressionParams);
+
 	const RenderContext&		m_context;
 
+	bool						m_isCompressed;
 	deUint32					m_format;			//!< Internal format.
 
 	tcu::Texture3D				m_refTexture;
 	deUint32					m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief Cube Map Array Texture
@@ -233,6 +243,7 @@ class TextureCubeArray
 public:
 									TextureCubeArray	(const RenderContext& context, deUint32 format, deUint32 dataType, int size, int numLayers);
 									TextureCubeArray	(const RenderContext& context, deUint32 internalFormat, int size, int numLayers);
+
 									~TextureCubeArray	(void);
 
 	void							upload				(void);
@@ -247,11 +258,12 @@ private:
 
 	const RenderContext&			m_context;
 
+	bool							m_isCompressed;
 	deUint32						m_format;			//!< Internal format.
 
 	tcu::TextureCubeArray			m_refTexture;
 	deUint32						m_glTexture;
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief 1D Texture Buffer only supported on OpenGL
@@ -296,7 +308,7 @@ private:
 	tcu::PixelBufferAccess	m_refTexture;
 	deUint32				m_glTexture;
 	deUint32				m_glBuffer;
-};
+} DE_WARN_UNUSED_TYPE;
 
 } // glu
 

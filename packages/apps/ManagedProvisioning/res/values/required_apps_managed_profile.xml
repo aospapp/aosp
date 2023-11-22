@@ -17,7 +17,8 @@
  */
 -->
 <resources>
-    <!-- A list of apps to be retained in the managed profile. -->
+    <!-- A list of apps to be retained in the managed profile.
+            Takes precedence over the disallowed apps lists. -->
     <string-array name="required_apps_managed_profile">
         <item>com.android.contacts</item>
         <item>com.android.settings</item>

@@ -24,7 +24,7 @@ import static com.android.ide.eclipse.adt.internal.wizards.templates.TemplateHan
 
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
-import com.android.ide.common.sdk.SdkVersionInfo;
+import com.android.sdklib.SdkVersionInfo;
 import com.android.ide.eclipse.adt.AdtPlugin;
 import com.android.ide.eclipse.adt.AdtUtils;
 import com.android.ide.eclipse.adt.internal.lint.EclipseLintClient;
@@ -35,7 +35,6 @@ import com.android.sdklib.IAndroidTarget;
 import com.android.utils.GrabProcessOutput;
 import com.android.utils.GrabProcessOutput.IProcessOutput;
 import com.android.utils.GrabProcessOutput.Wait;
-import com.android.tools.lint.checks.BuiltinIssueRegistry;
 import com.android.tools.lint.checks.ManifestDetector;
 import com.android.tools.lint.checks.SecurityDetector;
 import com.android.tools.lint.client.api.Configuration;
@@ -51,6 +50,7 @@ import com.android.tools.lint.detector.api.Location;
 import com.android.tools.lint.detector.api.Project;
 import com.android.tools.lint.detector.api.Scope;
 import com.android.tools.lint.detector.api.Severity;
+import com.android.tools.lint.detector.api.TextFormat;
 import com.google.common.base.Charsets;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
@@ -155,7 +155,7 @@ public class TemplateHandlerTest extends SdkLoadingTestCase {
     }
 
     public void testNewBlankProject() throws Exception {
-        Stopwatch stopwatch = new Stopwatch();
+        Stopwatch stopwatch = Stopwatch.createUnstarted();
         stopwatch.start();
         checkProjectWithActivity(null);
         stopwatch.stop();
@@ -267,7 +267,7 @@ public class TemplateHandlerTest extends SdkLoadingTestCase {
     // ---- Test support code below ----
 
     private void checkCreateActivityInProject(String activityName) throws Exception {
-        Stopwatch stopwatch = new Stopwatch();
+        Stopwatch stopwatch = Stopwatch.createUnstarted();
         stopwatch.start();
         File templateFile = findTemplate("activities", activityName);
         sProjectTestedSeparately.add(templateFile);
@@ -278,7 +278,7 @@ public class TemplateHandlerTest extends SdkLoadingTestCase {
     }
 
     private void checkCreateTemplate(String category, String name) throws Exception {
-        Stopwatch stopwatch = new Stopwatch();
+        Stopwatch stopwatch = Stopwatch.createUnstarted();
         stopwatch.start();
         File templateFile = findTemplate(category, name);
         assertNotNull(templateFile);
@@ -762,11 +762,11 @@ public class TemplateHandlerTest extends SdkLoadingTestCase {
         System.setProperty("com.android.tools.lint.bindir", AdtPrefs.getPrefs().getOsSdkFolder()
                 + File.separator + FD_TOOLS);
 
-        LintDriver driver = new LintDriver(new BuiltinIssueRegistry(), new LintClient() {
+        LintDriver driver = new LintDriver(EclipseLintClient.getRegistry(), new LintClient() {
             @Override
             public void report(@NonNull Context context,
                     @NonNull Issue issue, @NonNull Severity severity,
-                    @Nullable Location location, @NonNull String message, @Nullable Object data) {
+                    @Nullable Location location, @NonNull String message, @NonNull TextFormat format) {
                 String s = "Found lint error: " + issue.getId() + ": " + message + " at " + location;
                 job.setProperty(ERROR_KEY, s);
                 fail(s);

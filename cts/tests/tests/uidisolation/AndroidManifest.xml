@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.uidisolation">
 
+    <uses-library android:name="org.apache.http.legacy" android:required="false" />
+
     <application android:label="UidIsolationTest">
       <activity android:name="android.uidisolation.cts.ServiceRunnerActivity"
                 android:label="UidIsolationTest"/>

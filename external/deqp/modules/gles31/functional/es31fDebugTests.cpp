@@ -50,6 +50,9 @@
 #include "tes31Context.hpp"
 #include "tcuTestContext.hpp"
 #include "tcuCommandLine.hpp"
+#include "tcuResultCollector.hpp"
+
+#include "glsStateQueryUtil.hpp"
 
 namespace deqp
 {
@@ -61,12 +64,19 @@ namespace
 {
 using namespace glw;
 
-using NegativeTestShared::NegativeTestContext;
-using NegativeTestShared::FunctionContainer;
 using std::string;
 using std::vector;
+using std::set;
+using std::map;
+using de::MovePtr;
 
-GLenum debugTypes[] =
+using tcu::ResultCollector;
+using tcu::TestLog;
+using glu::CallLogWrapper;
+
+using NegativeTestShared::NegativeTestContext;
+
+static const GLenum s_debugTypes[] =
 {
 	GL_DEBUG_TYPE_ERROR,
 	GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR,
@@ -79,7 +89,7 @@ GLenum debugTypes[] =
 	GL_DEBUG_TYPE_POP_GROUP,
 };
 
-GLenum debugSeverities[] =
+static const GLenum s_debugSeverities[] =
 {
 	GL_DEBUG_SEVERITY_HIGH,
     GL_DEBUG_SEVERITY_MEDIUM,
@@ -87,14 +97,88 @@ GLenum debugSeverities[] =
     GL_DEBUG_SEVERITY_NOTIFICATION,
 };
 
-void emitMessages(NegativeTestContext& ctx, GLenum source)
+class BaseCase;
+
+class DebugMessageTestContext : public NegativeTestContext
 {
-	for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(debugTypes); typeNdx++)
+public:
+				DebugMessageTestContext		(BaseCase&					host,
+											 glu::RenderContext&		renderCtx,
+											 const glu::ContextInfo&	ctxInfo,
+											 tcu::TestLog&				log,
+											 tcu::ResultCollector&		results,
+											 bool						enableLog);
+				~DebugMessageTestContext	(void);
+
+	void		expectMessage				(GLenum source, GLenum type);
+
+private:
+	BaseCase&	m_debugHost;
+};
+
+class TestFunctionWrapper
+{
+public:
+	typedef void (*CoreTestFunc)(NegativeTestContext& ctx);
+	typedef void (*DebugTestFunc)(DebugMessageTestContext& ctx);
+
+				TestFunctionWrapper	(void);
+	explicit	TestFunctionWrapper	(CoreTestFunc func);
+	explicit	TestFunctionWrapper	(DebugTestFunc func);
+
+	void		call				(DebugMessageTestContext& ctx) const;
+
+private:
+	enum FuncType
 	{
-		for (int severityNdx = 0; severityNdx < DE_LENGTH_OF_ARRAY(debugSeverities); severityNdx++)
+		TYPE_NULL = 0,
+		TYPE_CORE,
+		TYPE_DEBUG,
+	};
+	FuncType m_type;
+
+	union
+	{
+		CoreTestFunc	coreFn;
+		DebugTestFunc	debugFn;
+	} m_func;
+};
+
+TestFunctionWrapper::TestFunctionWrapper (void)
+	: m_type(TYPE_NULL)
+{
+}
+
+TestFunctionWrapper::TestFunctionWrapper (CoreTestFunc func)
+	: m_type(TYPE_CORE)
+{
+	m_func.coreFn = func;
+}
+
+TestFunctionWrapper::TestFunctionWrapper (DebugTestFunc func)
+	: m_type(TYPE_DEBUG)
+{
+	m_func.debugFn = func;
+}
+
+void TestFunctionWrapper::call (DebugMessageTestContext& ctx) const
+{
+	if (m_type == TYPE_CORE)
+		m_func.coreFn(static_cast<NegativeTestContext&>(ctx));
+	else if (m_type == TYPE_DEBUG)
+		m_func.debugFn(ctx);
+	else
+		DE_ASSERT(false);
+}
+
+void emitMessages (DebugMessageTestContext& ctx, GLenum source)
+{
+	for (int typeNdx = 0; typeNdx < DE_LENGTH_OF_ARRAY(s_debugTypes); typeNdx++)
+	{
+		for (int severityNdx = 0; severityNdx < DE_LENGTH_OF_ARRAY(s_debugSeverities); severityNdx++)
 		{
-			const GLenum type		= debugTypes[typeNdx];
-			const GLenum severity	= debugSeverities[severityNdx];
+			const GLenum type		= s_debugTypes[typeNdx];
+			const GLenum severity	= s_debugSeverities[severityNdx];
 			const string msg		= string("Application generated message with type ") + glu::getDebugMessageTypeName(type)
 									  + " and severity " + glu::getDebugMessageSeverityName(severity);
 
@@ -105,21 +189,21 @@ void emitMessages(NegativeTestContext& ctx, GLenum source)
 	}
 }
 
-void application_messages (NegativeTestContext& ctx)
+void application_messages (DebugMessageTestContext& ctx)
 {
 	ctx.beginSection("Messages with source of GL_DEBUG_SOURCE_APPLICATION");
 	emitMessages(ctx, GL_DEBUG_SOURCE_APPLICATION);
 	ctx.endSection();
 }
 
-void thirdparty_messages (NegativeTestContext& ctx)
+void thirdparty_messages (DebugMessageTestContext& ctx)
 {
 	ctx.beginSection("Messages with source of GL_DEBUG_SOURCE_THIRD_PARTY");
 	emitMessages(ctx, GL_DEBUG_SOURCE_THIRD_PARTY);
 	ctx.endSection();
 }
 
-void push_pop_messages (NegativeTestContext& ctx)
+void push_pop_messages (DebugMessageTestContext& ctx)
 {
 	ctx.beginSection("Push/Pop Debug Group");
 
@@ -154,40 +238,24 @@ void push_pop_messages (NegativeTestContext& ctx)
 	ctx.endSection();
 }
 
+struct FunctionContainer
+{
+	TestFunctionWrapper	function;
+	const char*			name;
+	const char*			desc;
+};
+
 vector<FunctionContainer> getUserMessageFuncs (void)
 {
 	FunctionContainer funcs[] =
 	{
-		{ application_messages,	"application_messages", "Externally generated messages from the application"	},
-		{ thirdparty_messages,	"third_party_messages",	"Externally generated messages from a third party"		},
-		{ push_pop_messages,	"push_pop_stack",		"Messages from pushing/popping debug groups"			},
+		{ TestFunctionWrapper(application_messages),	"application_messages", "Externally generated messages from the application"	},
+		{ TestFunctionWrapper(thirdparty_messages),		"third_party_messages",	"Externally generated messages from a third party"		},
+		{ TestFunctionWrapper(push_pop_messages),		"push_pop_stack",		"Messages from pushing/popping debug groups"			},
 	};
 
 	return std::vector<FunctionContainer>(DE_ARRAY_BEGIN(funcs), DE_ARRAY_END(funcs));
 }
-
-} // Anonymous
-
-namespace
-{
-
-using std::string;
-using std::vector;
-using std::set;
-using std::map;
-using de::MovePtr;
-
-using glw::GLenum;
-using glw::GLuint;
-using glw::GLsizei;
-
-using tcu::ResultCollector;
-using tcu::TestLog;
-using glu::CallLogWrapper;
-
-using NegativeTestShared::TestFunc;
-using NegativeTestShared::FunctionContainer;
-using NegativeTestShared::NegativeTestContext;
 
 // Data required to uniquely identify a debug message
 struct MessageID
@@ -543,27 +611,27 @@ bool BaseCase::isDebugContext (void) const
 class CallbackErrorCase : public BaseCase
 {
 public:
-							CallbackErrorCase	(Context&				ctx,
-												 const char*			name,
-												 const char*			desc,
-												 TestFunc				errorFunc);
-	virtual 				~CallbackErrorCase	(void) {}
+								CallbackErrorCase	(Context&				ctx,
+													 const char*			name,
+													 const char*			desc,
+													 TestFunctionWrapper	errorFunc);
+	virtual 					~CallbackErrorCase	(void) {}
 
-	virtual IterateResult	iterate				(void);
+	virtual IterateResult		iterate				(void);
 
-	virtual void			expectMessage		(GLenum source, GLenum type);
+	virtual void				expectMessage		(GLenum source, GLenum type);
 
 private:
-	virtual void			callback			(GLenum source, GLenum type, GLuint id, GLenum severity, const string& message);
+	virtual void				callback			(GLenum source, GLenum type, GLuint id, GLenum severity, const string& message);
 
-	const TestFunc			m_errorFunc;
-	MessageData				m_lastMessage;
+	const TestFunctionWrapper	m_errorFunc;
+	MessageData					m_lastMessage;
 };
 
 CallbackErrorCase::CallbackErrorCase (Context&				ctx,
 									  const char*			name,
 									  const char*			desc,
-									  TestFunc				errorFunc)
+									  TestFunctionWrapper	errorFunc)
 	: BaseCase		(ctx, name, desc)
 	, m_errorFunc	(errorFunc)
 {
@@ -575,7 +643,7 @@ CallbackErrorCase::IterateResult CallbackErrorCase::iterate (void)
 
 	const glw::Functions&	gl		= m_context.getRenderContext().getFunctions();
 	tcu::TestLog&			log		= m_testCtx.getLog();
-	NegativeTestContext		context	= NegativeTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
+	DebugMessageTestContext	context	= DebugMessageTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
 
 	gl.enable(GL_DEBUG_OUTPUT);
 	gl.enable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -585,7 +653,7 @@ CallbackErrorCase::IterateResult CallbackErrorCase::iterate (void)
 	gl.debugMessageControl(GL_DEBUG_SOURCE_THIRD_PARTY, GL_DONT_CARE, GL_DONT_CARE, 0, DE_NULL, true); // enable third party messages
 	gl.debugMessageCallback(callbackHandle, this);
 
-	m_errorFunc(context);
+	m_errorFunc.call(context);
 
 	gl.debugMessageCallback(DE_NULL, DE_NULL);
 	gl.disable(GL_DEBUG_OUTPUT);
@@ -600,7 +668,8 @@ void CallbackErrorCase::expectMessage (GLenum source, GLenum type)
 	verifyMessage(m_lastMessage, source, type);
 	m_lastMessage = MessageData();
 
-	// Reset error so that code afterwards doesn't break because of lingering error state
+	// Reset error so that code afterwards (such as glu::ShaderProgram) doesn't break because of
+	// lingering error state.
 	m_context.getRenderContext().getFunctions().getError();
 }
 
@@ -613,25 +682,25 @@ void CallbackErrorCase::callback (GLenum source, GLenum type, GLuint id, GLenum 
 class LogErrorCase : public BaseCase
 {
 public:
-							LogErrorCase	(Context&				context,
-											 const char*			name,
-											 const char*			desc,
-											 TestFunc				errorFunc);
-	virtual 				~LogErrorCase	(void) {}
+								LogErrorCase	(Context&				context,
+												 const char*			name,
+												 const char*			desc,
+												 TestFunctionWrapper	errorFunc);
+	virtual		 				~LogErrorCase	(void) {}
 
-	virtual IterateResult	iterate			(void);
+	virtual IterateResult		iterate			(void);
 
-	virtual void			expectMessage	(GLenum source, GLenum type);
+	virtual void				expectMessage	(GLenum source, GLenum type);
 
 private:
-	const TestFunc			m_errorFunc;
-	MessageData				m_lastMessage;
+	const TestFunctionWrapper	m_errorFunc;
+	MessageData					m_lastMessage;
 };
 
-LogErrorCase::LogErrorCase (Context&	ctx,
-							const char*	name,
-							const char*	desc,
-							TestFunc	errorFunc)
+LogErrorCase::LogErrorCase (Context&			ctx,
+							const char*			name,
+							const char*			desc,
+							TestFunctionWrapper	errorFunc)
 	: BaseCase		(ctx, name, desc)
 	, m_errorFunc	(errorFunc)
 {
@@ -643,7 +712,7 @@ LogErrorCase::IterateResult LogErrorCase::iterate (void)
 
 	const glw::Functions&	gl		= m_context.getRenderContext().getFunctions();
 	tcu::TestLog&			log		= m_testCtx.getLog();
-	NegativeTestContext		context	= NegativeTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
+	DebugMessageTestContext	context	= DebugMessageTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
 	GLint					numMsg	= 0;
 
 	gl.enable(GL_DEBUG_OUTPUT);
@@ -654,7 +723,7 @@ LogErrorCase::IterateResult LogErrorCase::iterate (void)
 	gl.getIntegerv(GL_DEBUG_LOGGED_MESSAGES, &numMsg);
 	gl.getDebugMessageLog(numMsg, 0, DE_NULL, DE_NULL, DE_NULL, DE_NULL, DE_NULL, DE_NULL); // clear log
 
-	m_errorFunc(context);
+	m_errorFunc.call(context);
 
 	gl.disable(GL_DEBUG_OUTPUT);
 	m_results.setTestContextResult(m_testCtx);
@@ -712,7 +781,8 @@ void LogErrorCase::expectMessage (GLenum source, GLenum type)
 
 	verifyMessage(lastMsg, source, type);
 
-	// Reset error so that code afterwards doesn't break because of lingering error state
+	// Reset error so that code afterwards (such as glu::ShaderProgram) doesn't break because of
+	// lingering error state.
 	m_context.getRenderContext().getFunctions().getError();
 }
 
@@ -720,25 +790,25 @@ void LogErrorCase::expectMessage (GLenum source, GLenum type)
 class GetErrorCase : public BaseCase
 {
 public:
-							GetErrorCase	(Context&				ctx,
-											 const char*			name,
-											 const char*			desc,
-											 TestFunc				errorFunc);
-	virtual 				~GetErrorCase	(void) {}
+								GetErrorCase	(Context&				ctx,
+												 const char*			name,
+												 const char*			desc,
+												 TestFunctionWrapper	errorFunc);
+	virtual 					~GetErrorCase	(void) {}
 
-	virtual IterateResult	iterate			(void);
+	virtual IterateResult		iterate			(void);
 
-	virtual void			expectMessage	(GLenum source, GLenum type);
-	virtual void			expectError		(glw::GLenum error0, glw::GLenum error1);
+	virtual void				expectMessage	(GLenum source, GLenum type);
+	virtual void				expectError		(glw::GLenum error0, glw::GLenum error1);
 
 private:
-	const TestFunc			m_errorFunc;
+	const TestFunctionWrapper	m_errorFunc;
 };
 
-GetErrorCase::GetErrorCase (Context&	ctx,
-							const char*	name,
-							const char*	desc,
-							TestFunc	errorFunc)
+GetErrorCase::GetErrorCase (Context&			ctx,
+							const char*			name,
+							const char*			desc,
+							TestFunctionWrapper	errorFunc)
 	: BaseCase		(ctx, name, desc)
 	, m_errorFunc	(errorFunc)
 {
@@ -747,9 +817,9 @@ GetErrorCase::GetErrorCase (Context&	ctx,
 GetErrorCase::IterateResult GetErrorCase::iterate (void)
 {
 	tcu::TestLog&			log		= m_testCtx.getLog();
-	NegativeTestContext		context	= NegativeTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
+	DebugMessageTestContext	context	= DebugMessageTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
 
-	m_errorFunc(context);
+	m_errorFunc.call(context);
 
 	m_results.setTestContextResult(m_testCtx);
 
@@ -792,15 +862,15 @@ void GetErrorCase::expectError (glw::GLenum error0, glw::GLenum error1)
 class FilterCase : public BaseCase
 {
 public:
-								FilterCase		(Context&				ctx,
-												 const char*			name,
-												 const char*			desc,
-												 const vector<TestFunc>	errorFuncs);
-	virtual 					~FilterCase		(void) {}
+										FilterCase		(Context&							ctx,
+														 const char*						name,
+														 const char*						desc,
+														 const vector<TestFunctionWrapper>&	errorFuncs);
+	virtual 							~FilterCase		(void) {}
 
-	virtual IterateResult		iterate			(void);
+	virtual IterateResult				iterate			(void);
 
-	virtual void				expectMessage	(GLenum source, GLenum type);
+	virtual void						expectMessage	(GLenum source, GLenum type);
 
 protected:
 	struct MessageFilter
@@ -815,27 +885,27 @@ protected:
 		bool			enabled;
 	};
 
-	virtual void				callback			(GLenum source, GLenum type, GLuint id, GLenum severity, const string& message);
+	virtual void						callback			(GLenum source, GLenum type, GLuint id, GLenum severity, const string& message);
 
-	vector<MessageData>			genMessages			(bool uselog, const string& desc);
+	vector<MessageData>					genMessages			(bool uselog, const string& desc);
 
-	vector<MessageFilter>		genFilters			(const vector<MessageData>& messages, const vector<MessageFilter>& initial, deUint32 seed, int iterations) const;
-	void						applyFilters		(const vector<MessageFilter>& filters) const;
-	bool						isEnabled			(const vector<MessageFilter>& filters, const MessageData& message) const;
+	vector<MessageFilter>				genFilters			(const vector<MessageData>& messages, const vector<MessageFilter>& initial, deUint32 seed, int iterations) const;
+	void								applyFilters		(const vector<MessageFilter>& filters) const;
+	bool								isEnabled			(const vector<MessageFilter>& filters, const MessageData& message) const;
 
-	void						verify				(const vector<MessageData>&		refMessages,
-													 const vector<MessageData>&		filteredMessages,
-													 const vector<MessageFilter>&	filters);
+	void								verify				(const vector<MessageData>&		refMessages,
+															 const vector<MessageData>&		filteredMessages,
+															 const vector<MessageFilter>&	filters);
 
-	const vector<TestFunc>		m_errorFuncs;
+	const vector<TestFunctionWrapper>	m_errorFuncs;
 
-	vector<MessageData>*		m_currentErrors;
+	vector<MessageData>*				m_currentErrors;
 };
 
-FilterCase::FilterCase (Context&				ctx,
-						const char*				name,
-						const char*				desc,
-						const vector<TestFunc>	errorFuncs)
+FilterCase::FilterCase (Context&							ctx,
+						const char*							name,
+						const char*							desc,
+						const vector<TestFunctionWrapper>&	errorFuncs)
 	: BaseCase			(ctx, name, desc)
 	, m_errorFuncs		(errorFuncs)
 	, m_currentErrors	(DE_NULL)
@@ -893,14 +963,14 @@ void FilterCase::callback (GLenum source, GLenum type, GLuint id, GLenum severit
 vector<MessageData> FilterCase::genMessages (bool uselog, const string& desc)
 {
 	tcu::TestLog&			log			= m_testCtx.getLog();
-	NegativeTestContext		context		= NegativeTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, uselog);
+	DebugMessageTestContext	context		= DebugMessageTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, uselog);
 	tcu::ScopedLogSection	section		(log, "message gen", desc);
 	vector<MessageData>		messages;
 
 	m_currentErrors = &messages;
 
 	for (int ndx = 0; ndx < int(m_errorFuncs.size()); ndx++)
-		m_errorFuncs[ndx](context);
+		m_errorFuncs[ndx].call(context);
 
 	m_currentErrors = DE_NULL;
 
@@ -1126,19 +1196,19 @@ void FilterCase::verify (const vector<MessageData>& refMessages, const vector<Me
 class GroupFilterCase : public FilterCase
 {
 public:
-							GroupFilterCase		(Context&				ctx,
-												 const char*			name,
-												 const char*			desc,
-												 const vector<TestFunc>	errorFuncs);
+							GroupFilterCase		(Context&							ctx,
+												 const char*						name,
+												 const char*						desc,
+												 const vector<TestFunctionWrapper>&	errorFuncs);
 	virtual 				~GroupFilterCase	(void) {}
 
 	virtual IterateResult	iterate				(void);
 };
 
-GroupFilterCase::GroupFilterCase (Context&					ctx,
-								  const char*				name,
-								  const char*				desc,
-								  const vector<TestFunc>	errorFuncs)
+GroupFilterCase::GroupFilterCase (Context&								ctx,
+								  const char*							name,
+								  const char*							desc,
+								  const vector<TestFunctionWrapper>&	errorFuncs)
 	: FilterCase(ctx, name, desc, errorFuncs)
 {
 }
@@ -1169,10 +1239,10 @@ GroupFilterCase::IterateResult GroupFilterCase::iterate (void)
 	{
 
 		// Generate reference (all errors)
-		const vector<MessageData>	refMessages	 = genMessages(true, "Reference run");
-		const deUint32				baseSeed	 = deStringHash(getName()) ^ m_testCtx.getCommandLine().getBaseSeed();
-		const MessageFilter			baseFilter	 (GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, vector<GLuint>(), true);
-		const vector<MessageFilter>	filter0		 = genFilters(refMessages, vector<MessageFilter>(1, baseFilter), baseSeed, 4);
+		const vector<MessageData>	refMessages		= genMessages(true, "Reference run");
+		const deUint32				baseSeed		= deStringHash(getName()) ^ m_testCtx.getCommandLine().getBaseSeed();
+		const MessageFilter			baseFilter		 (GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, vector<GLuint>(), true);
+		const vector<MessageFilter>	filter0			= genFilters(refMessages, vector<MessageFilter>(1, baseFilter), baseSeed, 4);
 		vector<MessageData>			resMessages0;
 
 		applyFilters(filter0);
@@ -1301,16 +1371,16 @@ void GroupCase::callback (GLenum source, GLenum type, GLuint id, GLenum severity
 class AsyncCase : public BaseCase
 {
 public:
-							AsyncCase			(Context&				ctx,
-												 const char*			name,
-												 const char*			desc,
-												 const vector<TestFunc>	errorFuncs,
-												 bool					useCallbacks);
-	virtual					~AsyncCase			() {}
+										AsyncCase			(Context&							ctx,
+															 const char*						name,
+															 const char*						desc,
+															 const vector<TestFunctionWrapper>&	errorFuncs,
+															 bool								useCallbacks);
+	virtual								~AsyncCase			(void) {}
 
-	virtual IterateResult	iterate				(void);
+	virtual IterateResult				iterate				(void);
 
-	virtual void			expectMessage		(glw::GLenum source, glw::GLenum type);
+	virtual void						expectMessage		(glw::GLenum source, glw::GLenum type);
 
 private:
 	struct MessageCount
@@ -1331,23 +1401,23 @@ private:
 		VERIFY_LAST
 	};
 
-	virtual void			callback			(glw::GLenum source, glw::GLenum type, glw::GLuint id, glw::GLenum severity, const std::string& message);
-	VerifyState				verify				(bool uselog);
-	void					fetchLogMessages	(void);
+	virtual void						callback			(glw::GLenum source, glw::GLenum type, glw::GLuint id, glw::GLenum severity, const std::string& message);
+	VerifyState							verify				(bool uselog);
+	void								fetchLogMessages	(void);
 
-	const vector<TestFunc>	m_errorFuncs;
-	const bool				m_useCallbacks;
+	const vector<TestFunctionWrapper>	m_errorFuncs;
+	const bool							m_useCallbacks;
 
-	MessageCounter			m_counts;
+	MessageCounter						m_counts;
 
-	de::Mutex				m_mutex;
+	de::Mutex							m_mutex;
 };
 
-AsyncCase::AsyncCase (Context&					ctx,
-					  const char*				name,
-					  const char*				desc,
-					  const vector<TestFunc>	errorFuncs,
-					  bool						useCallbacks)
+AsyncCase::AsyncCase (Context&								ctx,
+					  const char*							name,
+					  const char*							desc,
+					  const vector<TestFunctionWrapper>&	errorFuncs,
+					  bool									useCallbacks)
 	: BaseCase			(ctx, name, desc)
 	, m_errorFuncs		(errorFuncs)
 	, m_useCallbacks	(useCallbacks)
@@ -1358,11 +1428,11 @@ AsyncCase::IterateResult AsyncCase::iterate (void)
 {
 	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
 
-	const glw::Functions& gl = m_context.getRenderContext().getFunctions();
-	tcu::TestLog&		log			= m_testCtx.getLog();
-	NegativeTestContext	context		= NegativeTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
-	const int			maxWait		= 10000; // ms
-	const int			warnWait	= 100;
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::TestLog&			log			= m_testCtx.getLog();
+	DebugMessageTestContext	context		= DebugMessageTestContext(*this, m_context.getRenderContext(), m_context.getContextInfo(), log, m_results, true);
+	const int				maxWait		= 10000; // ms
+	const int				warnWait	= 100;
 
 	gl.enable(GL_DEBUG_OUTPUT);
 	gl.enable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -1381,7 +1451,7 @@ AsyncCase::IterateResult AsyncCase::iterate (void)
 		tcu::ScopedLogSection section(log, "reference run", "Reference run (synchronous)");
 
 		for (int ndx = 0; ndx < int(m_errorFuncs.size()); ndx++)
-			m_errorFuncs[ndx](context);
+			m_errorFuncs[ndx].call(context);
 	}
 
 	if (m_counts.empty())
@@ -1408,7 +1478,7 @@ AsyncCase::IterateResult AsyncCase::iterate (void)
 
 	// Result run (async)
 	for (int ndx = 0; ndx < int(m_errorFuncs.size()); ndx++)
-		m_errorFuncs[ndx](context);
+		m_errorFuncs[ndx].call(context);
 
 	// Repatedly try verification, new results may be added to m_receivedMessages at any time
 	{
@@ -1641,6 +1711,7 @@ LabelCase::IterateResult LabelCase::iterate (void)
 
 	gl.objectLabel(m_identifier, object, -1, msg);
 
+	deMemset(buffer, 'X', sizeof(buffer));
 	gl.getObjectLabel(m_identifier, object, sizeof(buffer), &outlen, buffer);
 
 	if (outlen == 0)
@@ -1652,6 +1723,7 @@ LabelCase::IterateResult LabelCase::iterate (void)
 	}
 	else
 	{
+		buffer[63] = '\0'; // make sure buffer is null terminated before printing
 		m_testCtx.getLog() << TestLog::Message << "Query returned wrong string: expected \"" << msg << "\" but got \"" << buffer << "\"" << TestLog::EndMessage;
 		m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Query returned wrong label");
 	}
@@ -1676,7 +1748,1098 @@ LabelCase::IterateResult LabelCase::iterate (void)
 	return STOP;
 }
 
-} // Anonymous
+
+DebugMessageTestContext::DebugMessageTestContext (BaseCase&					host,
+												  glu::RenderContext&		renderCtx,
+												  const glu::ContextInfo&	ctxInfo,
+												  tcu::TestLog&				log,
+												  tcu::ResultCollector&		results,
+												  bool						enableLog)
+	: NegativeTestContext	(host, renderCtx, ctxInfo, log, results, enableLog)
+	, m_debugHost			(host)
+{
+}
+
+DebugMessageTestContext::~DebugMessageTestContext (void)
+{
+}
+
+void DebugMessageTestContext::expectMessage (GLenum source, GLenum type)
+{
+	m_debugHost.expectMessage(source, type);
+}
+
+class SyncLabelCase : public TestCase
+{
+public:
+							SyncLabelCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate			(void);
+};
+
+SyncLabelCase::SyncLabelCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+SyncLabelCase::IterateResult SyncLabelCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	const char*	const		msg			= "This is a debug label";
+	char					buffer[64];
+	int						outlen		= 0;
+
+	glw::GLsync				sync		= gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLU_EXPECT_NO_ERROR(gl.getError(), "fenceSync");
+
+	gl.objectPtrLabel(sync, -1, msg);
+
+	deMemset(buffer, 'X', sizeof(buffer));
+	gl.getObjectPtrLabel(sync, sizeof(buffer), &outlen, buffer);
+
+	if (outlen == 0)
+		m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Failed to query debug label from object");
+	else if (deStringEqual(msg, buffer))
+	{
+		m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
+	}
+	else
+	{
+		buffer[63] = '\0'; // make sure buffer is null terminated before printing
+		m_testCtx.getLog() << TestLog::Message << "Query returned wrong string: expected \"" << msg << "\" but got \"" << buffer << "\"" << TestLog::EndMessage;
+		m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Query returned wrong label");
+	}
+
+	gl.deleteSync(sync);
+
+	return STOP;
+}
+
+class InitialLabelCase : public TestCase
+{
+public:
+							InitialLabelCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate				(void);
+};
+
+InitialLabelCase::InitialLabelCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+InitialLabelCase::IterateResult InitialLabelCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	GLuint					shader;
+	glw::GLsync				sync;
+	char					buffer[64];
+	int						outlen;
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Shader", "Shader object");
+		m_testCtx.getLog() << TestLog::Message << "Querying initial value" << TestLog::EndMessage;
+
+		buffer[0] = 'X';
+		outlen = -1;
+		gl.getObjectLabel(GL_SHADER, shader, sizeof(buffer), &outlen, buffer);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != 0)
+			result.fail("'length' was not zero, got " + de::toString(outlen));
+		else if (buffer[0] != '\0')
+			result.fail("label was not null terminated");
+		else
+			m_testCtx.getLog() << TestLog::Message << "Got 0-sized null-terminated string." << TestLog::EndMessage;
+	}
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Sync", "Sync object");
+		m_testCtx.getLog() << TestLog::Message << "Querying initial value" << TestLog::EndMessage;
+
+		buffer[0] = 'X';
+		outlen = -1;
+		gl.getObjectPtrLabel(sync, sizeof(buffer), &outlen, buffer);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != 0)
+			result.fail("'length' was not zero, got " + de::toString(outlen));
+		else if (buffer[0] != '\0')
+			result.fail("label was not null terminated");
+		else
+			m_testCtx.getLog() << TestLog::Message << "Got 0-sized null-terminated string." << TestLog::EndMessage;
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class ClearLabelCase : public TestCase
+{
+public:
+							ClearLabelCase		(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate				(void);
+};
+
+ClearLabelCase::ClearLabelCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+ClearLabelCase::IterateResult ClearLabelCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	static const struct
+	{
+		const char*	description;
+		int			length;
+	} s_clearMethods[] =
+	{
+		{ " with NULL label and 0 length",			0	},
+		{ " with NULL label and 1 length",			1	},
+		{ " with NULL label and negative length",	-1	},
+	};
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	const char*	const		msg			= "This is a debug label";
+	GLuint					shader;
+	glw::GLsync				sync;
+	char					buffer[64];
+	int						outlen;
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Shader", "Shader object");
+
+		for (int methodNdx = 0; methodNdx < DE_LENGTH_OF_ARRAY(s_clearMethods); ++methodNdx)
+		{
+			m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+			gl.objectLabel(GL_SHADER, shader, -2,  msg);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+			m_testCtx.getLog() << TestLog::Message << "Clearing label " << s_clearMethods[methodNdx].description << TestLog::EndMessage;
+			gl.objectLabel(GL_SHADER, shader, s_clearMethods[methodNdx].length, DE_NULL);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying label" << TestLog::EndMessage;
+			buffer[0] = 'X';
+			outlen = -1;
+			gl.getObjectLabel(GL_SHADER, shader, sizeof(buffer), &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+			if (outlen != 0)
+				result.fail("'length' was not zero, got " + de::toString(outlen));
+			else if (buffer[0] != '\0')
+				result.fail("label was not null terminated");
+			else
+				m_testCtx.getLog() << TestLog::Message << "Got 0-sized null-terminated string." << TestLog::EndMessage;
+		}
+	}
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Sync", "Sync object");
+
+		for (int methodNdx = 0; methodNdx < DE_LENGTH_OF_ARRAY(s_clearMethods); ++methodNdx)
+		{
+			m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+			gl.objectPtrLabel(sync, -2, msg);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+			m_testCtx.getLog() << TestLog::Message << "Clearing label " << s_clearMethods[methodNdx].description << TestLog::EndMessage;
+			gl.objectPtrLabel(sync, s_clearMethods[methodNdx].length, DE_NULL);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying label" << TestLog::EndMessage;
+			buffer[0] = 'X';
+			outlen = -1;
+			gl.getObjectPtrLabel(sync, sizeof(buffer), &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+			if (outlen != 0)
+				result.fail("'length' was not zero, got " + de::toString(outlen));
+			else if (buffer[0] != '\0')
+				result.fail("label was not null terminated");
+			else
+				m_testCtx.getLog() << TestLog::Message << "Got 0-sized null-terminated string." << TestLog::EndMessage;
+		}
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class SpecifyWithLengthCase : public TestCase
+{
+public:
+							SpecifyWithLengthCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate					(void);
+};
+
+SpecifyWithLengthCase::SpecifyWithLengthCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+SpecifyWithLengthCase::IterateResult SpecifyWithLengthCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	const char*	const		msg			= "This is a debug label";
+	const char*	const		clipMsg		= "This is a de";
+	GLuint					shader;
+	glw::GLsync				sync;
+	char					buffer[64];
+	int						outlen;
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Shader", "Shader object");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\" with length 12" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, 12, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label" << TestLog::EndMessage;
+		deMemset(buffer, 'X', sizeof(buffer));
+		gl.getObjectLabel(GL_SHADER, shader, sizeof(buffer), &outlen, buffer);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != 12)
+			result.fail("'length' was not 12, got " + de::toString(outlen));
+		else if (deStringEqual(clipMsg, buffer))
+		{
+			m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		else
+		{
+			buffer[63] = '\0'; // make sure buffer is null terminated before printing
+			m_testCtx.getLog() << TestLog::Message << "Query returned wrong string: expected \"" << clipMsg << "\" but got \"" << buffer << "\"" << TestLog::EndMessage;
+			result.fail("Query returned wrong label");
+		}
+	}
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Sync", "Sync object");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\" with length 12" << TestLog::EndMessage;
+		gl.objectPtrLabel(sync, 12, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label" << TestLog::EndMessage;
+		deMemset(buffer, 'X', sizeof(buffer));
+		gl.getObjectPtrLabel(sync, sizeof(buffer), &outlen, buffer);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != 12)
+			result.fail("'length' was not 12, got " + de::toString(outlen));
+		else if (deStringEqual(clipMsg, buffer))
+		{
+			m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		else
+		{
+			buffer[63] = '\0'; // make sure buffer is null terminated before printing
+			m_testCtx.getLog() << TestLog::Message << "Query returned wrong string: expected \"" << clipMsg << "\" but got \"" << buffer << "\"" << TestLog::EndMessage;
+			result.fail("Query returned wrong label");
+		}
+	}
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "ZeroSized", "ZeroSized");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\" with length 0" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, 0, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label" << TestLog::EndMessage;
+		deMemset(buffer, 'X', sizeof(buffer));
+		gl.getObjectLabel(GL_SHADER, shader, sizeof(buffer), &outlen, buffer);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != 0)
+			result.fail("'length' was not zero, got " + de::toString(outlen));
+		else if (buffer[0] != '\0')
+			result.fail("label was not null terminated");
+		else
+			m_testCtx.getLog() << TestLog::Message << "Got 0-sized null-terminated string." << TestLog::EndMessage;
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class BufferLimitedLabelCase : public TestCase
+{
+public:
+							BufferLimitedLabelCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate					(void);
+};
+
+BufferLimitedLabelCase::BufferLimitedLabelCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+BufferLimitedLabelCase::IterateResult BufferLimitedLabelCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	const char*	const		msg			= "This is a debug label";
+	GLuint					shader;
+	glw::GLsync				sync;
+	char					buffer[64];
+	int						outlen;
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection superSection(m_testCtx.getLog(), "Shader", "Shader object");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, -1, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryAll", "Query All");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 22" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectLabel(GL_SHADER, shader, 22, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+			if (outlen != 21)
+				result.fail("'length' was not 21, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringEqual(msg, buffer))
+			{
+				buffer[63] = '\0'; // make sure buffer is null terminated before printing
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryAllNoSize", "Query all without size");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 22" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectLabel(GL_SHADER, shader, 22, DE_NULL, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+			buffer[63] = '\0'; // make sure buffer is null terminated before strlen
+
+			if (strlen(buffer) != 21)
+				result.fail("Buffer length was not 21");
+			else if (buffer[21] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[22] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringEqual(msg, buffer))
+			{
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryLess", "Query substring");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 2" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectLabel(GL_SHADER, shader, 2, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+			if (outlen != 1)
+				result.fail("'length' was not 1, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringBeginsWith(msg, buffer))
+			{
+				buffer[63] = '\0'; // make sure buffer is null terminated before printing
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryNone", "Query one character");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 1" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectLabel(GL_SHADER, shader, 1, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+			if (outlen != 0)
+				result.fail("'length' was not 0, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned zero-sized null-terminated string" << TestLog::EndMessage;
+		}
+	}
+
+	{
+		const tcu::ScopedLogSection superSection(m_testCtx.getLog(), "Sync", "Sync object");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+		gl.objectPtrLabel(sync, -1, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryAll", "Query All");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 22" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectPtrLabel(sync, 22, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+			if (outlen != 21)
+				result.fail("'length' was not 21, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringEqual(msg, buffer))
+			{
+				buffer[63] = '\0'; // make sure buffer is null terminated before printing
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryAllNoSize", "Query all without size");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 22" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectPtrLabel(sync, 22, DE_NULL, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+			buffer[63] = '\0'; // make sure buffer is null terminated before strlen
+
+			if (strlen(buffer) != 21)
+				result.fail("Buffer length was not 21");
+			else if (buffer[21] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[22] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringEqual(msg, buffer))
+			{
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryLess", "Query substring");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 2" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectPtrLabel(sync, 2, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+			if (outlen != 1)
+				result.fail("'length' was not 1, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else if (!deStringBeginsWith(msg, buffer))
+			{
+				buffer[63] = '\0'; // make sure buffer is null terminated before printing
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+				result.fail("Query returned wrong label");
+			}
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned string: \"" << buffer << "\"" << TestLog::EndMessage;
+		}
+		{
+			const tcu::ScopedLogSection section(m_testCtx.getLog(), "QueryNone", "Query one character");
+
+			m_testCtx.getLog() << TestLog::Message << "Querying whole label, buffer size = 1" << TestLog::EndMessage;
+			deMemset(buffer, 'X', sizeof(buffer));
+			gl.getObjectPtrLabel(sync, 1, &outlen, buffer);
+			GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+			if (outlen != 0)
+				result.fail("'length' was not 0, got " + de::toString(outlen));
+			else if (buffer[outlen] != '\0')
+				result.fail("Buffer was not null-terminated");
+			else if (buffer[outlen+1] != 'X')
+				result.fail("Query wrote over buffer bound");
+			else
+				m_testCtx.getLog() << TestLog::Message << "Query returned zero-sized null-terminated string" << TestLog::EndMessage;
+		}
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class LabelMaxSizeCase : public TestCase
+{
+public:
+							LabelMaxSizeCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate				(void);
+};
+
+LabelMaxSizeCase::LabelMaxSizeCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+LabelMaxSizeCase::IterateResult LabelMaxSizeCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	int						maxLabelLen	= -1;
+	GLuint					shader;
+	glw::GLsync				sync;
+	int						outlen;
+
+	gl.getIntegerv(GL_MAX_LABEL_LENGTH, &maxLabelLen);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "GL_MAX_LABEL_LENGTH");
+
+	m_testCtx.getLog() << TestLog::Message << "GL_MAX_LABEL_LENGTH = " << maxLabelLen << TestLog::EndMessage;
+
+	if (maxLabelLen < 256)
+		throw tcu::TestError("maxLabelLen was less than required (256)");
+	if (maxLabelLen > 8192)
+	{
+		m_testCtx.getLog()
+			<< TestLog::Message
+			<< "GL_MAX_LABEL_LENGTH is very large. Application having larger labels is unlikely, skipping test."
+			<< TestLog::EndMessage;
+		m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
+		return STOP;
+	}
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection	section		(m_testCtx.getLog(), "Shader", "Shader object");
+		std::vector<char>			buffer		(maxLabelLen, 'X');
+		std::vector<char>			readBuffer	(maxLabelLen, 'X');
+
+		buffer[maxLabelLen-1] = '\0';
+
+		m_testCtx.getLog() << TestLog::Message << "Setting max length label, with implicit size. (length = -1)" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, -1,  &buffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label back" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectLabel(GL_SHADER, shader, maxLabelLen, &outlen, &readBuffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != maxLabelLen-1)
+			result.fail("'length' was not " + de::toString(maxLabelLen-1) + ", got " + de::toString(outlen));
+		else if (readBuffer[outlen] != '\0')
+			result.fail("Buffer was not null-terminated");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting max length label, with explicit size. (length = " << (maxLabelLen-1) << ")" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, maxLabelLen-1,  &buffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label back" << TestLog::EndMessage;
+		outlen = -1;
+		readBuffer[maxLabelLen-1] = 'X';
+		gl.getObjectLabel(GL_SHADER, shader, maxLabelLen, &outlen, &readBuffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != maxLabelLen-1)
+			result.fail("'length' was not " + de::toString(maxLabelLen-1) + ", got " + de::toString(outlen));
+		else if (readBuffer[outlen] != '\0')
+			result.fail("Buffer was not null-terminated");
+	}
+
+	{
+		const tcu::ScopedLogSection section		(m_testCtx.getLog(), "Sync", "Sync object");
+		std::vector<char>			buffer		(maxLabelLen, 'X');
+		std::vector<char>			readBuffer	(maxLabelLen, 'X');
+
+		buffer[maxLabelLen-1] = '\0';
+
+		m_testCtx.getLog() << TestLog::Message << "Setting max length label, with implicit size. (length = -1)" << TestLog::EndMessage;
+		gl.objectPtrLabel(sync, -1,  &buffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label back" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectPtrLabel(sync, maxLabelLen, &outlen, &readBuffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != maxLabelLen-1)
+			result.fail("'length' was not " + de::toString(maxLabelLen-1) + ", got " + de::toString(outlen));
+		else if (readBuffer[outlen] != '\0')
+			result.fail("Buffer was not null-terminated");
+
+		m_testCtx.getLog() << TestLog::Message << "Setting max length label, with explicit size. (length = " << (maxLabelLen-1) << ")" << TestLog::EndMessage;
+		gl.objectPtrLabel(sync, maxLabelLen-1,  &buffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label back" << TestLog::EndMessage;
+		outlen = -1;
+		readBuffer[maxLabelLen-1] = 'X';
+		gl.getObjectPtrLabel(sync, maxLabelLen, &outlen, &readBuffer[0]);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != maxLabelLen-1)
+			result.fail("'length' was not " + de::toString(maxLabelLen-1) + ", got " + de::toString(outlen));
+		else if (readBuffer[outlen] != '\0')
+			result.fail("Buffer was not null-terminated");
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class LabelLengthCase : public TestCase
+{
+public:
+							LabelLengthCase	(Context& ctx, const char* name, const char* desc);
+	virtual IterateResult	iterate			(void);
+};
+
+LabelLengthCase::LabelLengthCase (Context& ctx, const char* name, const char* desc)
+	: TestCase(ctx, name, desc)
+{
+}
+
+LabelLengthCase::IterateResult LabelLengthCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	const glw::Functions&	gl			= m_context.getRenderContext().getFunctions();
+	tcu::ResultCollector	result		(m_testCtx.getLog(), " // ERROR: ");
+	const char*	const		msg			= "This is a debug label";
+	GLuint					shader;
+	glw::GLsync				sync;
+	int						outlen;
+
+	sync = gl.fenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "fenceSync");
+
+	shader = gl.createShader(GL_FRAGMENT_SHADER);
+	GLS_COLLECT_GL_ERROR(result, gl.getError(), "createShader");
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Shader", "Shader object");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label length" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectLabel(GL_SHADER, shader, 0, &outlen, DE_NULL);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != 0)
+			result.fail("'length' was not 0, got " + de::toString(outlen));
+		else
+			m_testCtx.getLog() << TestLog::Message << "Query returned length: " << outlen << TestLog::EndMessage;
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+		gl.objectLabel(GL_SHADER, shader, -1, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label length" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectLabel(GL_SHADER, shader, 0, &outlen, DE_NULL);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectLabel");
+
+		if (outlen != 21)
+			result.fail("'length' was not 21, got " + de::toString(outlen));
+		else
+			m_testCtx.getLog() << TestLog::Message << "Query returned length: " << outlen << TestLog::EndMessage;
+	}
+
+	{
+		const tcu::ScopedLogSection section(m_testCtx.getLog(), "Sync", "Sync object");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label length" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectPtrLabel(sync, 0, &outlen, DE_NULL);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != 0)
+			result.fail("'length' was not 0, got " + de::toString(outlen));
+		else
+			m_testCtx.getLog() << TestLog::Message << "Query returned length: " << outlen << TestLog::EndMessage;
+
+		m_testCtx.getLog() << TestLog::Message << "Setting label to string: \"" << msg << "\"" << TestLog::EndMessage;
+		gl.objectPtrLabel(sync, -1, msg);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "objectPtrLabel");
+
+		m_testCtx.getLog() << TestLog::Message << "Querying label length" << TestLog::EndMessage;
+		outlen = -1;
+		gl.getObjectPtrLabel(sync, 0, &outlen, DE_NULL);
+		GLS_COLLECT_GL_ERROR(result, gl.getError(), "getObjectPtrLabel");
+
+		if (outlen != 21)
+			result.fail("'length' was not 21, got " + de::toString(outlen));
+		else
+			m_testCtx.getLog() << TestLog::Message << "Query returned length: " << outlen << TestLog::EndMessage;
+	}
+
+	gl.deleteShader(shader);
+	gl.deleteSync(sync);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class LimitQueryCase : public TestCase
+{
+public:
+											LimitQueryCase	(Context&						context,
+															 const char*					name,
+															 const char*					description,
+															 glw::GLenum					target,
+															 int							limit,
+															 gls::StateQueryUtil::QueryType	type);
+
+	IterateResult							iterate			(void);
+private:
+	const gls::StateQueryUtil::QueryType	m_type;
+	const int								m_limit;
+	const glw::GLenum						m_target;
+};
+
+LimitQueryCase::LimitQueryCase (Context&						context,
+								const char*						name,
+								const char*						description,
+								glw::GLenum						target,
+								int								limit,
+								gls::StateQueryUtil::QueryType	type)
+	: TestCase	(context, name, description)
+	, m_type	(type)
+	, m_limit	(limit)
+	, m_target	(target)
+{
+}
+
+LimitQueryCase::IterateResult LimitQueryCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+
+	gl.enableLogging(true);
+	gls::StateQueryUtil::verifyStateIntegerMin(result, gl, m_target, m_limit, m_type);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class IsEnabledCase : public TestCase
+{
+public:
+	enum InitialValue
+	{
+		INITIAL_CTX_IS_DEBUG = 0,
+		INITIAL_FALSE,
+	};
+
+											IsEnabledCase	(Context&						context,
+															 const char*					name,
+															 const char*					description,
+															 glw::GLenum					target,
+															 InitialValue					initial,
+															 gls::StateQueryUtil::QueryType	type);
+
+	IterateResult							iterate			(void);
+private:
+	const gls::StateQueryUtil::QueryType	m_type;
+	const glw::GLenum						m_target;
+	const InitialValue						m_initial;
+};
+
+IsEnabledCase::IsEnabledCase (Context&							context,
+							  const char*						name,
+							  const char*						description,
+							  glw::GLenum						target,
+							  InitialValue						initial,
+							  gls::StateQueryUtil::QueryType	type)
+	: TestCase	(context, name, description)
+	, m_type	(type)
+	, m_target	(target)
+	, m_initial	(initial)
+{
+}
+
+IsEnabledCase::IterateResult IsEnabledCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+	bool					initial;
+
+	gl.enableLogging(true);
+
+	if (m_initial == INITIAL_FALSE)
+		initial = false;
+	else
+	{
+		DE_ASSERT(m_initial == INITIAL_CTX_IS_DEBUG);
+		initial = (m_context.getRenderContext().getType().getFlags() & glu::CONTEXT_DEBUG) != 0;
+	}
+
+	// check inital value
+	gls::StateQueryUtil::verifyStateBoolean(result, gl, m_target, initial, m_type);
+
+	// check toggle
+
+	gl.glEnable(m_target);
+	GLS_COLLECT_GL_ERROR(result, gl.glGetError(), "glEnable");
+
+	gls::StateQueryUtil::verifyStateBoolean(result, gl, m_target, true, m_type);
+
+	gl.glDisable(m_target);
+	GLS_COLLECT_GL_ERROR(result, gl.glGetError(), "glDisable");
+
+	gls::StateQueryUtil::verifyStateBoolean(result, gl, m_target, false, m_type);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class PositiveIntegerCase : public TestCase
+{
+public:
+											PositiveIntegerCase	(Context&						context,
+																 const char*					name,
+																 const char*					description,
+																 glw::GLenum					target,
+																 gls::StateQueryUtil::QueryType	type);
+
+	IterateResult							iterate			(void);
+private:
+	const gls::StateQueryUtil::QueryType	m_type;
+	const glw::GLenum						m_target;
+};
+
+PositiveIntegerCase::PositiveIntegerCase (Context&							context,
+										  const char*						name,
+										  const char*						description,
+										  glw::GLenum						target,
+										  gls::StateQueryUtil::QueryType	type)
+	: TestCase	(context, name, description)
+	, m_type	(type)
+	, m_target	(target)
+{
+}
+
+PositiveIntegerCase::IterateResult PositiveIntegerCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+
+	gl.enableLogging(true);
+	gls::StateQueryUtil::verifyStateIntegerMin(result, gl, m_target, 0, m_type);
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class GroupStackDepthQueryCase : public TestCase
+{
+public:
+											GroupStackDepthQueryCase	(Context&						context,
+																		 const char*					name,
+																		 const char*					description,
+																		 gls::StateQueryUtil::QueryType	type);
+
+	IterateResult							iterate			(void);
+private:
+	const gls::StateQueryUtil::QueryType	m_type;
+};
+
+GroupStackDepthQueryCase::GroupStackDepthQueryCase (Context&						context,
+													const char*						name,
+													const char*						description,
+													gls::StateQueryUtil::QueryType	type)
+	: TestCase	(context, name, description)
+	, m_type	(type)
+{
+}
+
+GroupStackDepthQueryCase::IterateResult GroupStackDepthQueryCase::iterate (void)
+{
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+
+	gl.enableLogging(true);
+
+	{
+		const tcu::ScopedLogSection	section(m_testCtx.getLog(), "Initial", "Initial");
+
+		gls::StateQueryUtil::verifyStateInteger(result, gl, GL_DEBUG_GROUP_STACK_DEPTH, 1, m_type);
+	}
+
+	{
+		const tcu::ScopedLogSection	section(m_testCtx.getLog(), "Scoped", "Scoped");
+
+		gl.glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Application group 1");
+		gls::StateQueryUtil::verifyStateInteger(result, gl, GL_DEBUG_GROUP_STACK_DEPTH, 2, m_type);
+		gl.glPopDebugGroup();
+	}
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+extern "C" void GLW_APIENTRY dummyCallback(GLenum, GLenum, GLuint, GLenum, GLsizei, const char*, void*)
+{
+	// dummy
+}
+
+class DebugCallbackFunctionCase : public TestCase
+{
+public:
+					DebugCallbackFunctionCase	(Context& context, const char* name, const char* description);
+	IterateResult	iterate						(void);
+};
+
+DebugCallbackFunctionCase::DebugCallbackFunctionCase (Context& context, const char* name, const char* description)
+	: TestCase	(context, name, description)
+{
+}
+
+DebugCallbackFunctionCase::IterateResult DebugCallbackFunctionCase::iterate (void)
+{
+	using namespace gls::StateQueryUtil;
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+
+	gl.enableLogging(true);
+
+	{
+		const tcu::ScopedLogSection	section(m_testCtx.getLog(), "Initial", "Initial");
+
+		verifyStatePointer(result, gl, GL_DEBUG_CALLBACK_FUNCTION, 0, QUERY_POINTER);
+	}
+
+	{
+		const tcu::ScopedLogSection	section(m_testCtx.getLog(), "Set", "Set");
+
+		gl.glDebugMessageCallback(dummyCallback, DE_NULL);
+		verifyStatePointer(result, gl, GL_DEBUG_CALLBACK_FUNCTION, (const void*)dummyCallback, QUERY_POINTER);
+	}
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+class DebugCallbackUserParamCase : public TestCase
+{
+public:
+					DebugCallbackUserParamCase	(Context& context, const char* name, const char* description);
+	IterateResult	iterate						(void);
+};
+
+DebugCallbackUserParamCase::DebugCallbackUserParamCase (Context& context, const char* name, const char* description)
+	: TestCase	(context, name, description)
+{
+}
+
+DebugCallbackUserParamCase::IterateResult DebugCallbackUserParamCase::iterate (void)
+{
+	using namespace gls::StateQueryUtil;
+	TCU_CHECK_AND_THROW(NotSupportedError, m_context.getContextInfo().isExtensionSupported("GL_KHR_debug"), "GL_KHR_debug is not supported");
+
+	glu::CallLogWrapper		gl		(m_context.getRenderContext().getFunctions(), m_testCtx.getLog());
+	tcu::ResultCollector	result	(m_testCtx.getLog(), " // ERROR: ");
+
+	gl.enableLogging(true);
+
+	{
+		const tcu::ScopedLogSection	section(m_testCtx.getLog(), "Initial", "Initial");
+
+		verifyStatePointer(result, gl, GL_DEBUG_CALLBACK_USER_PARAM, 0, QUERY_POINTER);
+	}
+
+	{
+		const tcu::ScopedLogSection	section	(m_testCtx.getLog(), "Set", "Set");
+		const void*					param	= (void*)(int*)0x123;
+
+		gl.glDebugMessageCallback(dummyCallback, param);
+		verifyStatePointer(result, gl, GL_DEBUG_CALLBACK_USER_PARAM, param, QUERY_POINTER);
+	}
+
+	result.setTestContextResult(m_testCtx);
+	return STOP;
+}
+
+} // anonymous
 
 DebugTests::DebugTests (Context& context)
 	: TestCaseGroup(context, "debug", "Debug tests")
@@ -1692,7 +2855,7 @@ enum CaseType
 	CASETYPE_LAST
 };
 
-tcu::TestNode* createCase (CaseType type, Context& ctx, const char* name, const char* desc, TestFunc function)
+tcu::TestNode* createCase (CaseType type, Context& ctx, const char* name, const char* desc, TestFunctionWrapper function)
 {
 	switch(type)
 	{
@@ -1717,15 +2880,110 @@ tcu::TestCaseGroup* createChildCases (CaseType type, Context& ctx, const char* n
 	return host;
 }
 
+vector<FunctionContainer> wrapCoreFunctions (const vector<NegativeTestShared::FunctionContainer>& fns)
+{
+	vector<FunctionContainer> retVal;
+
+	retVal.resize(fns.size());
+	for (int ndx = 0; ndx < (int)fns.size(); ++ndx)
+	{
+		retVal[ndx].function = TestFunctionWrapper(fns[ndx].function);
+		retVal[ndx].name = fns[ndx].name;
+		retVal[ndx].desc = fns[ndx].desc;
+	}
+
+	return retVal;
+}
+
 void DebugTests::init (void)
 {
-	const vector<FunctionContainer> bufferFuncs		= NegativeTestShared::getNegativeBufferApiTestFunctions();
-	const vector<FunctionContainer> textureFuncs	= NegativeTestShared::getNegativeTextureApiTestFunctions();
-	const vector<FunctionContainer> shaderFuncs		= NegativeTestShared::getNegativeShaderApiTestFunctions();
-	const vector<FunctionContainer> fragmentFuncs	= NegativeTestShared::getNegativeFragmentApiTestFunctions();
-	const vector<FunctionContainer> vaFuncs			= NegativeTestShared::getNegativeVertexArrayApiTestFunctions();
-	const vector<FunctionContainer> stateFuncs		= NegativeTestShared::getNegativeStateApiTestFunctions();
+	const vector<FunctionContainer> bufferFuncs		= wrapCoreFunctions(NegativeTestShared::getNegativeBufferApiTestFunctions());
+	const vector<FunctionContainer> textureFuncs	= wrapCoreFunctions(NegativeTestShared::getNegativeTextureApiTestFunctions());
+	const vector<FunctionContainer> shaderFuncs		= wrapCoreFunctions(NegativeTestShared::getNegativeShaderApiTestFunctions());
+	const vector<FunctionContainer> fragmentFuncs	= wrapCoreFunctions(NegativeTestShared::getNegativeFragmentApiTestFunctions());
+	const vector<FunctionContainer> vaFuncs			= wrapCoreFunctions(NegativeTestShared::getNegativeVertexArrayApiTestFunctions());
+	const vector<FunctionContainer> stateFuncs		= wrapCoreFunctions(NegativeTestShared::getNegativeStateApiTestFunctions());
 	const vector<FunctionContainer> externalFuncs	= getUserMessageFuncs();
+
+	{
+		using namespace gls::StateQueryUtil;
+
+		tcu::TestCaseGroup* const queries = new tcu::TestCaseGroup(m_testCtx, "state_query", "State query");
+
+		static const struct
+		{
+			const char*	name;
+			const char*	targetName;
+			glw::GLenum	target;
+			int			limit;
+		} limits[] =
+		{
+			{ "max_debug_message_length",		"MAX_DEBUG_MESSAGE_LENGTH",		GL_MAX_DEBUG_MESSAGE_LENGTH,	1	},
+			{ "max_debug_logged_messages",		"MAX_DEBUG_LOGGED_MESSAGES",	GL_MAX_DEBUG_LOGGED_MESSAGES,	1	},
+			{ "max_debug_group_stack_depth",	"MAX_DEBUG_GROUP_STACK_DEPTH",	GL_MAX_DEBUG_GROUP_STACK_DEPTH,	64	},
+			{ "max_label_length",				"MAX_LABEL_LENGTH",				GL_MAX_LABEL_LENGTH,			256	},
+		};
+
+		addChild(queries);
+
+		#define FOR_ALL_TYPES(X) \
+			do \
+			{ \
+				{ \
+					const char* const	postfix = "_getboolean"; \
+					const QueryType		queryType = QUERY_BOOLEAN; \
+					X; \
+				} \
+				{ \
+					const char* const	postfix = "_getinteger"; \
+					const QueryType		queryType = QUERY_INTEGER; \
+					X; \
+				} \
+				{ \
+					const char* const	postfix = "_getinteger64"; \
+					const QueryType		queryType = QUERY_INTEGER64; \
+					X; \
+				} \
+				{ \
+					const char* const	postfix = "_getfloat"; \
+					const QueryType		queryType = QUERY_FLOAT; \
+					X; \
+				} \
+			} \
+			while (deGetFalse())
+		#define FOR_ALL_ENABLE_TYPES(X) \
+			do \
+			{ \
+				{ \
+					const char* const	postfix = "_isenabled"; \
+					const QueryType		queryType = QUERY_ISENABLED; \
+					X; \
+				} \
+				FOR_ALL_TYPES(X); \
+			} \
+			while (deGetFalse())
+
+		for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(limits); ++ndx)
+		{
+			FOR_ALL_TYPES(queries->addChild(new LimitQueryCase(m_context,
+															   (std::string(limits[ndx].name) + postfix).c_str(),
+															   (std::string("Test ") + limits[ndx].targetName).c_str(),
+															   limits[ndx].target, limits[ndx].limit, queryType)));
+		}
+
+		FOR_ALL_ENABLE_TYPES(queries->addChild(new IsEnabledCase	(m_context, (std::string("debug_output") + postfix).c_str(),						"Test DEBUG_OUTPUT",						GL_DEBUG_OUTPUT,				IsEnabledCase::INITIAL_CTX_IS_DEBUG,	queryType)));
+		FOR_ALL_ENABLE_TYPES(queries->addChild(new IsEnabledCase	(m_context, (std::string("debug_output_synchronous") + postfix).c_str(),			"Test DEBUG_OUTPUT_SYNCHRONOUS",			GL_DEBUG_OUTPUT_SYNCHRONOUS,	IsEnabledCase::INITIAL_FALSE,			queryType)));
+
+		FOR_ALL_TYPES(queries->addChild(new PositiveIntegerCase		(m_context, (std::string("debug_logged_messages") + postfix).c_str(),				"Test DEBUG_LOGGED_MESSAGES",				GL_DEBUG_LOGGED_MESSAGES,				queryType)));
+		FOR_ALL_TYPES(queries->addChild(new PositiveIntegerCase		(m_context, (std::string("debug_next_logged_message_length") + postfix).c_str(),	"Test DEBUG_NEXT_LOGGED_MESSAGE_LENGTH",	GL_DEBUG_NEXT_LOGGED_MESSAGE_LENGTH,	queryType)));
+		FOR_ALL_TYPES(queries->addChild(new GroupStackDepthQueryCase(m_context, (std::string("debug_group_stack_depth") + postfix).c_str(),				"Test DEBUG_GROUP_STACK_DEPTH", 			queryType)));
+
+		queries->addChild(new DebugCallbackFunctionCase	(m_context, "debug_callback_function_getpointer", 	"Test DEBUG_CALLBACK_FUNCTION"));
+		queries->addChild(new DebugCallbackUserParamCase(m_context, "debug_callback_user_param_getpointer", "Test DEBUG_CALLBACK_USER_PARAM"));
+
+		#undef FOR_ALL_TYPES
+		#undef FOR_ALL_ENABLE_TYPES
+	}
 
 	{
 		tcu::TestCaseGroup* const	negative	= new tcu::TestCaseGroup(m_testCtx, "negative_coverage", "API error coverage with various reporting methods");
@@ -1772,7 +3030,7 @@ void DebugTests::init (void)
 	}
 
 	{
-		tcu::TestCaseGroup*			host	= createChildCases(CASETYPE_CALLBACK, m_context, "externally_generated", "Externally Generated Messages", externalFuncs);
+		tcu::TestCaseGroup* const host = createChildCases(CASETYPE_CALLBACK, m_context, "externally_generated", "Externally Generated Messages", externalFuncs);
 
 		host->addChild(new GroupCase(m_context, "push_pop_consistency", "Push/pop message generation with full message output checking"));
 
@@ -1781,7 +3039,7 @@ void DebugTests::init (void)
 
 	{
 		vector<FunctionContainer>	containers;
-		vector<TestFunc>			allFuncs;
+		vector<TestFunctionWrapper>	allFuncs;
 
 		de::Random					rng			(0x53941903 ^ m_context.getTestContext().getCommandLine().getBaseSeed());
 
@@ -1804,10 +3062,10 @@ void DebugTests::init (void)
 
 			for (int caseNdx = 0; caseNdx < de::min(caseCount, maxFilteringCaseCount); caseNdx++)
 			{
-				const int			start		= caseNdx*errorFuncsPerCase;
-				const int			end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
-				const string		name		= "case_" + de::toString(caseNdx);
-				vector<TestFunc>	funcs		(allFuncs.begin()+start, allFuncs.begin()+end);
+				const int					start		= caseNdx*errorFuncsPerCase;
+				const int					end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
+				const string				name		= "case_" + de::toString(caseNdx);
+				vector<TestFunctionWrapper>	funcs		(allFuncs.begin()+start, allFuncs.begin()+end);
 
 				// These produce lots of different message types, thus always include at least one when testing filtering
 				funcs.insert(funcs.end(), externalFuncs[caseNdx%externalFuncs.size()].function);
@@ -1826,10 +3084,10 @@ void DebugTests::init (void)
 
 			for (int caseNdx = 0; caseNdx < caseCount && caseNdx < maxFilteringCaseCount; caseNdx++)
 			{
-				const int			start		= caseNdx*errorFuncsPerCase;
-				const int			end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
-				const string		name		= ("case_" + de::toString(caseNdx)).c_str();
-				vector<TestFunc>	funcs		(&allFuncs[0]+start, &allFuncs[0]+end);
+				const int					start		= caseNdx*errorFuncsPerCase;
+				const int					end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
+				const string				name		= ("case_" + de::toString(caseNdx)).c_str();
+				vector<TestFunctionWrapper>	funcs		(&allFuncs[0]+start, &allFuncs[0]+end);
 
 				// These produce lots of different message types, thus always include at least one when testing filtering
 				funcs.insert(funcs.end(), externalFuncs[caseNdx%externalFuncs.size()].function);
@@ -1848,10 +3106,10 @@ void DebugTests::init (void)
 
 			for (int caseNdx = 0; caseNdx < caseCount && caseNdx < maxAsyncCaseCount; caseNdx++)
 			{
-				const int			start		= caseNdx*errorFuncsPerCase;
-				const int			end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
-				const string		name		= ("case_" + de::toString(caseNdx)).c_str();
-				vector<TestFunc>	funcs		(&allFuncs[0]+start, &allFuncs[0]+end);
+				const int					start		= caseNdx*errorFuncsPerCase;
+				const int					end			= de::min((caseNdx+1)*errorFuncsPerCase, int(allFuncs.size()));
+				const string				name		= ("case_" + de::toString(caseNdx)).c_str();
+				vector<TestFunctionWrapper>	funcs		(&allFuncs[0]+start, &allFuncs[0]+end);
 
 				if (caseNdx&0x1)
 					async->addChild(new AsyncCase(m_context, (name+"_callback").c_str(), "Async message generation", funcs, true));
@@ -1885,8 +3143,16 @@ void DebugTests::init (void)
 
 		addChild(labels);
 
+		labels->addChild(new InitialLabelCase		(m_context, "initial",				"Debug label initial value"));
+		labels->addChild(new ClearLabelCase			(m_context, "clearing",				"Debug label clearing"));
+		labels->addChild(new SpecifyWithLengthCase	(m_context, "specify_with_length",	"Debug label specified with length"));
+		labels->addChild(new BufferLimitedLabelCase	(m_context, "buffer_limited_query",	"Debug label query to too short buffer"));
+		labels->addChild(new LabelMaxSizeCase		(m_context, "max_label_length",		"Max sized debug label"));
+		labels->addChild(new LabelLengthCase		(m_context, "query_length_only",	"Query debug label length"));
+
 		for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(cases); ndx++)
 			labels->addChild(new LabelCase(m_context, cases[ndx].name, cases[ndx].desc, cases[ndx].identifier));
+		labels->addChild(new SyncLabelCase(m_context, "sync", "Debug label on a sync object"));
 	}
 }
 

@@ -1096,7 +1096,7 @@ Encode_Status VideoEncoderAVC::renderPackedSequenceParams(EncodeTask *) {
     VAEncSequenceParameterBufferH264 *avcSeqParams;
     VAEncPackedHeaderParameterBuffer packed_header_param_buffer;
     unsigned char *packed_seq_buffer = NULL;
-    unsigned int length_in_bits, offset_in_bytes;
+    unsigned int length_in_bits;
 
     LOG_V("Begin\n");
 
@@ -1215,7 +1215,7 @@ Encode_Status VideoEncoderAVC::renderPackedPictureParams(EncodeTask *) {
     VAEncPictureParameterBufferH264 *avcPicParams;
     VAEncPackedHeaderParameterBuffer packed_header_param_buffer;
     unsigned char *packed_pic_buffer = NULL;
-    unsigned int length_in_bits, offset_in_bytes;
+    unsigned int length_in_bits;
 
     LOG_V("Begin\n");
 

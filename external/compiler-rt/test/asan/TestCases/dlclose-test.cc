@@ -15,13 +15,13 @@
 // REQUIRES: x86_64-supported-target,i386-supported-target
 
 // RUN: %clangxx_asan -O0 -DSHARED_LIB %s -fPIC -shared -o %t-so.so
-// RUN: %clangxx_asan -O0 %s -ldl -o %t && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O0 %s %libdl -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O1 -DSHARED_LIB %s -fPIC -shared -o %t-so.so
-// RUN: %clangxx_asan -O1 %s -ldl -o %t && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O1 %s %libdl -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O2 -DSHARED_LIB %s -fPIC -shared -o %t-so.so
-// RUN: %clangxx_asan -O2 %s -ldl -o %t && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O2 %s %libdl -o %t && %run %t 2>&1 | FileCheck %s
 // RUN: %clangxx_asan -O3 -DSHARED_LIB %s -fPIC -shared -o %t-so.so
-// RUN: %clangxx_asan -O3 %s -ldl -o %t && %run %t 2>&1 | FileCheck %s
+// RUN: %clangxx_asan -O3 %s %libdl -o %t && %run %t 2>&1 | FileCheck %s
 
 #if !defined(SHARED_LIB)
 #include <assert.h>
@@ -32,6 +32,13 @@
 #include <unistd.h>
 
 #include <string>
+
+#if defined(__FreeBSD__)
+// The MAP_NORESERVE define has been removed in FreeBSD 11.x, and even before
+// that, it was never implemented. So just define it to zero.
+#undef MAP_NORESERVE
+#define MAP_NORESERVE 0
+#endif
 
 using std::string;
 
@@ -66,7 +73,7 @@ int main(int argc, char *argv[]) {
   size_t page_beg = ((size_t)addr) & ~(PageSize - 1);
   void *res = mmap((void*)(page_beg), PageSize,
                    PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANON | MAP_FIXED | MAP_NORESERVE, 0, 0);
+                   MAP_PRIVATE | MAP_ANON | MAP_FIXED | MAP_NORESERVE, -1, 0);
   if (res == (char*)-1L) {
     printf("failed to mmap\n");
     return 1;

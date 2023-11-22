@@ -35,7 +35,7 @@ enum {
 class Instruction {
  public:
   // NOP-encoded switch-statement signatures.
-  enum {
+  enum Signatures {
     kPackedSwitchSignature = 0x0100,
     kSparseSwitchSignature = 0x0200,
     kArrayDataSignature = 0x0300,
@@ -79,15 +79,13 @@ class Instruction {
     DISALLOW_COPY_AND_ASSIGN(ArrayDataPayload);
   };
 
-  // TODO: the code layout below is deliberate to avoid this enum being picked up by
-  //       generate-operator-out.py.
-  enum Code
-  {  // NOLINT(whitespace/braces)
+  enum Code {  // private marker to avoid generate-operator-out.py from processing.
 #define INSTRUCTION_ENUM(opcode, cname, p, f, r, i, a, v) cname = opcode,
 #include "dex_instruction_list.h"
     DEX_INSTRUCTION_LIST(INSTRUCTION_ENUM)
 #undef DEX_INSTRUCTION_LIST
 #undef INSTRUCTION_ENUM
+    RSUB_INT_LIT16 = RSUB_INT,
   };
 
   enum Format {
@@ -185,12 +183,12 @@ class Instruction {
 
   // Reads an instruction out of the stream at the specified address.
   static const Instruction* At(const uint16_t* code) {
-    DCHECK(code != NULL);
+    DCHECK(code != nullptr);
     return reinterpret_cast<const Instruction*>(code);
   }
 
   // Reads an instruction out of the stream from the current address plus an offset.
-  const Instruction* RelativeAt(int32_t offset) const {
+  const Instruction* RelativeAt(int32_t offset) const WARN_UNUSED {
     return At(reinterpret_cast<const uint16_t*>(this) + offset);
   }
 
@@ -526,6 +524,10 @@ class Instruction {
 
   // Dump code_units worth of this instruction, padding to code_units for shorter instructions
   std::string DumpHex(size_t code_units) const;
+
+  // Little-endian dump code_units worth of this instruction, padding to code_units for
+  // shorter instructions
+  std::string DumpHexLE(size_t instr_code_units) const;
 
   uint16_t Fetch16(size_t offset) const {
     const uint16_t* insns = reinterpret_cast<const uint16_t*>(this);

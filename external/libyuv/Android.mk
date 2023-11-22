@@ -1,6 +1,5 @@
 # This is the Android makefile for google3/third_party/libsrtp so that we can
 # build it with the Android NDK.
-ifeq ($(TARGET_ARCH),arm)
 
 LOCAL_PATH := $(call my-dir)
 
@@ -52,5 +51,3 @@ LOCAL_MODULE:= libyuv_static
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_LIBRARY)
-
-endif

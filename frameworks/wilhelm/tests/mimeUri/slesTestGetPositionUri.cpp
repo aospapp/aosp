@@ -63,7 +63,7 @@ void SignalEos() {
 
 //-----------------------------------------------------------------
 /* PrefetchStatusItf callback for an audio player */
-void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext, SLuint32 event)
+void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext __unused, SLuint32 event)
 {
     SLpermille level = 0;
     SLresult res = (*caller)->GetFillLevel(caller, &level); CheckErr(res);
@@ -89,7 +89,7 @@ void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext, SLuint3
 /* PlayItf callback for playback events */
 void PlayEventCallback(
         SLPlayItf caller,
-        void *pContext,
+        void *pContext __unused,
         SLuint32 event)
 {
     SLmillisecond posMsec = SL_TIME_UNKNOWN;

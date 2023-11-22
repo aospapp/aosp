@@ -232,8 +232,9 @@ static void render_line(int n,int x0,int x1,int y0,int y1,ogg_int32_t *d){
 
   if(n>x1)n=x1;
   n -= x0;
-  if (n <= 0)
+  if (n <= 0 || y0 < 0 || y0 > 255 || y1 < 0 || y1 > 255) {
     return;
+  }
   dy=y1-y0;
   adx=x1-x0;
   ady=abs(dy);

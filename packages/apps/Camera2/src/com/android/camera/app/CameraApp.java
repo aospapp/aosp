@@ -19,94 +19,56 @@ package com.android.camera.app;
 import android.app.Application;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.os.Debug;
 
-import com.android.camera.MediaSaverImpl;
-import com.android.camera.debug.LogHelper;
-import com.android.camera.processing.ProcessingServiceManager;
-import com.android.camera.remote.RemoteShutterListener;
-import com.android.camera.session.CaptureSessionManager;
-import com.android.camera.session.CaptureSessionManagerImpl;
-import com.android.camera.session.PlaceholderManager;
-import com.android.camera.session.SessionStorageManager;
-import com.android.camera.session.SessionStorageManagerImpl;
-import com.android.camera.settings.SettingsManager;
-import com.android.camera.util.CameraUtil;
-import com.android.camera.util.RemoteShutterHelper;
-import com.android.camera.util.SessionStatsCollector;
-import com.android.camera.util.UsageStatistics;
+import com.android.camera.stats.UsageStatistics;
+import com.android.camera.stats.profiler.Profile;
+import com.android.camera.stats.profiler.Profilers;
+import com.android.camera.util.AndroidContext;
+import com.android.camera.util.AndroidServices;
+
 
 /**
  * The Camera application class containing important services and functionality
  * to be used across modules.
  */
-public class CameraApp extends Application implements CameraServices {
-    private MediaSaver mMediaSaver;
-    private CaptureSessionManager mSessionManager;
-    private SessionStorageManager mSessionStorageManager;
-    private MemoryManagerImpl mMemoryManager;
-    private PlaceholderManager mPlaceHolderManager;
-    private RemoteShutterListener mRemoteShutterListener;
-    private MotionManager mMotionManager;
-    private SettingsManager mSettingsManager;
+public class CameraApp extends Application {
+    /**
+     * This is for debugging only: If set to true, application will not start
+     * until a debugger is attached.
+     * <p>
+     * Use this if you need to debug code that is executed while the app starts
+     * up and it would be too late to attach a debugger afterwards.
+     */
+    private static final boolean WAIT_FOR_DEBUGGER_ON_START = false;
 
     @Override
     public void onCreate() {
         super.onCreate();
 
+        if (WAIT_FOR_DEBUGGER_ON_START) {
+            Debug.waitForDebugger();
+        }
+
+        // Android context must be the first item initialized.
         Context context = getApplicationContext();
-        LogHelper.initialize(context);
+        AndroidContext.initialize(context);
+
+        // This will measure and write to the exception handler if
+        // the time between any two calls or the total time from
+        // start to stop is over 10ms.
+        Profile guard = Profilers.instance().guard("CameraApp onCreate()");
 
         // It is important that this gets called early in execution before the
-        // app has had the opportunity to create any shared preferences.
+        // app has had the opportunity to touch shared preferences.
+        FirstRunDetector.instance().initializeTimeOfFirstRun(context);
+        guard.mark("initializeTimeOfFirstRun");
+
         UsageStatistics.instance().initialize(this);
-        SessionStatsCollector.instance().initialize(this);
-        CameraUtil.initialize(this);
-
-        ProcessingServiceManager.initSingleton(context);
-
-        mMediaSaver = new MediaSaverImpl();
-        mPlaceHolderManager = new PlaceholderManager(context);
-        mSessionStorageManager = SessionStorageManagerImpl.create(this);
-        mSessionManager = new CaptureSessionManagerImpl(mMediaSaver, getContentResolver(),
-                mPlaceHolderManager, mSessionStorageManager);
-        mMemoryManager = MemoryManagerImpl.create(getApplicationContext(), mMediaSaver);
-        mRemoteShutterListener = RemoteShutterHelper.create(this);
-        mSettingsManager = new SettingsManager(this);
+        guard.mark("UsageStatistics.initialize");
 
         clearNotifications();
-
-        mMotionManager = new MotionManager(context);
-    }
-
-    @Override
-    public CaptureSessionManager getCaptureSessionManager() {
-        return mSessionManager;
-    }
-
-    @Override
-    public MemoryManager getMemoryManager() {
-        return mMemoryManager;
-    }
-
-    @Override
-    public MotionManager getMotionManager() {
-        return mMotionManager;
-    }
-
-    @Override
-    @Deprecated
-    public MediaSaver getMediaSaver() {
-        return mMediaSaver;
-    }
-
-    @Override
-    public RemoteShutterListener getRemoteShutterListener() {
-        return mRemoteShutterListener;
-    }
-
-    @Override
-    public SettingsManager getSettingsManager() {
-        return mSettingsManager;
+        guard.stop("clearNotifications");
     }
 
     /**
@@ -114,8 +76,7 @@ public class CameraApp extends Application implements CameraServices {
      * created earlier but remained after a crash.
      */
     private void clearNotifications() {
-        NotificationManager manager = (NotificationManager) getSystemService(
-                Context.NOTIFICATION_SERVICE);
+        NotificationManager manager = AndroidServices.instance().provideNotificationManager();
         if (manager != null) {
             manager.cancelAll();
         }

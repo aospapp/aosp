@@ -45,6 +45,12 @@
     <!-- need app that has RECORD_AUDIO but not CAPTURE_AUDIO_OUTPUT -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
+    <!-- need app that has READ_CONTACTS but not READ_PROFILE -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
+
+    <!-- need app that has WRITE_CONTACTS but not WRITE_PROFILE -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
+
     <!-- need a permission that would ordinarily be granted, but has a maxSdkVersion that
          causes it to be withheld under the current API level -->
     <uses-permission

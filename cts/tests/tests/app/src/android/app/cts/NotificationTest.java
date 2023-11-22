@@ -77,7 +77,7 @@ public class NotificationTest extends AndroidTestCase {
         mNotification.tickerText = TICKER_TEXT;
 
         final RemoteViews contentView = new RemoteViews(mContext.getPackageName(),
-                com.android.internal.R.layout.status_bar_latest_event_content);
+                android.R.layout.simple_list_item_1);
         mNotification.contentView = contentView;
         mNotification.defaults = 0;
         mNotification.flags = 0;
@@ -150,13 +150,19 @@ public class NotificationTest extends AndroidTestCase {
         assertNull(result.sound);
     }
 
-    public void testSetLatestEventInfo() {
-        mNotification = new Notification();
-        mNotification.icon = 1;
+    public void testBuilder() {
         final Intent intent = new Intent();
         final PendingIntent contentIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
-        mNotification.setLatestEventInfo(mContext, CONTENT_TITLE, CONTENT_TEXT, contentIntent);
-        assertTrue(mNotification.contentView instanceof RemoteViews);
+        mNotification = new Notification.Builder(mContext)
+                .setSmallIcon(1)
+                .setContentTitle(CONTENT_TITLE)
+                .setContentText(CONTENT_TEXT)
+                .setContentIntent(contentIntent)
+                .build();
+        assertEquals(CONTENT_TEXT, mNotification.extras.getString(Notification.EXTRA_TEXT));
+        assertEquals(CONTENT_TITLE, mNotification.extras.getString(Notification.EXTRA_TITLE));
+        assertEquals(1, mNotification.icon);
+        assertEquals(contentIntent, mNotification.contentIntent);
         assertNotNull(mNotification.contentView);
     }
 

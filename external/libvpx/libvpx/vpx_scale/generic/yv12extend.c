@@ -56,6 +56,9 @@ static void extend_plane(uint8_t *const src, int src_stride,
 }
 
 void vp8_yv12_extend_frame_borders_c(YV12_BUFFER_CONFIG *ybf) {
+  const int uv_border = ybf->border / 2;
+
+  assert(ybf->border % 2 == 0);
   assert(ybf->y_height - ybf->y_crop_height < 16);
   assert(ybf->y_width - ybf->y_crop_width < 16);
   assert(ybf->y_height - ybf->y_crop_height >= 0);
@@ -68,27 +71,28 @@ void vp8_yv12_extend_frame_borders_c(YV12_BUFFER_CONFIG *ybf) {
                ybf->border + ybf->y_width - ybf->y_crop_width);
 
   extend_plane(ybf->u_buffer, ybf->uv_stride,
-               (ybf->y_crop_width + 1) / 2, (ybf->y_crop_height + 1) / 2,
-               ybf->border / 2, ybf->border / 2,
-               (ybf->border + ybf->y_height - ybf->y_crop_height + 1) / 2,
-               (ybf->border + ybf->y_width - ybf->y_crop_width + 1) / 2);
+               ybf->uv_crop_width, ybf->uv_crop_height,
+               uv_border, uv_border,
+               uv_border + ybf->uv_height - ybf->uv_crop_height,
+               uv_border + ybf->uv_width - ybf->uv_crop_width);
 
   extend_plane(ybf->v_buffer, ybf->uv_stride,
-               (ybf->y_crop_width + 1) / 2, (ybf->y_crop_height + 1) / 2,
-               ybf->border / 2, ybf->border / 2,
-               (ybf->border + ybf->y_height - ybf->y_crop_height + 1) / 2,
-               (ybf->border + ybf->y_width - ybf->y_crop_width + 1) / 2);
+               ybf->uv_crop_width, ybf->uv_crop_height,
+               uv_border, uv_border,
+               uv_border + ybf->uv_height - ybf->uv_crop_height,
+               uv_border + ybf->uv_width - ybf->uv_crop_width);
 }
 
 #if CONFIG_VP9
 static void extend_frame(YV12_BUFFER_CONFIG *const ybf, int ext_size) {
   const int c_w = ybf->uv_crop_width;
   const int c_h = ybf->uv_crop_height;
-  const int c_ext_size = ext_size >> 1;
-  const int c_et = c_ext_size;
-  const int c_el = c_ext_size;
-  const int c_eb = c_ext_size + ybf->uv_height - ybf->uv_crop_height;
-  const int c_er = c_ext_size + ybf->uv_width - ybf->uv_crop_width;
+  const int ss_x = ybf->uv_width < ybf->y_width;
+  const int ss_y = ybf->uv_height < ybf->y_height;
+  const int c_et = ext_size >> ss_y;
+  const int c_el = ext_size >> ss_x;
+  const int c_eb = c_et + ybf->uv_height - ybf->uv_crop_height;
+  const int c_er = c_el + ybf->uv_width - ybf->uv_crop_width;
 
   assert(ybf->y_height - ybf->y_crop_height < 16);
   assert(ybf->y_width - ybf->y_crop_width < 16);

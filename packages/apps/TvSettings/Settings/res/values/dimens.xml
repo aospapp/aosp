@@ -34,60 +34,37 @@
     <dimen name="text_size_scroll_list_unfocused">20sp</dimen>
     <dimen name="text_size_scroll_list_focused">24sp</dimen>
     <dimen name="text_size_scroll_list_header_focused">14sp</dimen>
-    <dimen name="width_wifi_network_list">400dp</dimen>
-    <dimen name="padding_wifi_network_list">40dp</dimen>
-    <dimen name="width_remote_enable_list">800dp</dimen>
-    <dimen name="padding_remote_enable_list">40dp</dimen>
     <dimen name="text_padding_vertical">6dp</dimen>
     <dimen name="remote_settings_pane_padding">50dp</dimen>
     <dimen name="progress_bar_horizontal_padding">64dp</dimen>
     <dimen name="progress_bar_vertical_padding">32dp</dimen>
-    <dimen name="progress_bar_horizontal_width">120dp</dimen>
-    <dimen name="content_fragment_caption_text_size">20sp</dimen>
-    <dimen name="content_fragment_text_padding">20dip</dimen>
-    <dimen name="content_fragment_text_size">30sp</dimen>
-    <dimen name="app_info_size">260dp</dimen>
     <dimen name="app_icon_size">240dp</dimen>
     <dimen name="app_icon_size_minus_margin">190dp</dimen>
     <dimen name="settings_list_text_padding_vertical">1dp</dimen>
-    <dimen name="settings_list_app_padding">10dp</dimen>
-    <dimen name="settings_list_app_contents_padding">10dp</dimen>
     <dimen name="settings_list_padding_vertical">120dp</dimen>
-    <dimen name="settings_list_fade_length">30dp</dimen>
-    <dimen name="app_management_content_select_padding">10dp</dimen>
     <dimen name="app_icon_margin_start">50dp</dimen>
     <dimen name="app_icon_margin_end">40dp</dimen>
     <dimen name="app_icon_list_margin_bottom">10dp</dimen>
-    <dimen name="network_list_height">192dp</dimen>
-    <dimen name="network_list_width">128dp</dimen>
-    <dimen name="network_list_margin">24dp</dimen>
     <dimen name="storage_bar_min_tick_width">3dp</dimen>
     <dimen name="device_storage_usage_indicator_width">32dip</dimen>
     <dimen name="device_storage_usage_indicator_height">32dip</dimen>
-    <dimen name="action_min_height">80dp</dimen>
     <dimen name="add_accessory_padding_start">50dp</dimen>
     <dimen name="bt_secure_pair_hint_start_margin">5dp</dimen>
     <dimen name="bt_secure_pair_hint_top_margin">3dp</dimen>
 
     <integer name="captioning_preview_default_font_size">48</integer>
 
-    <dimen name="list_header_height">36dp</dimen>
-
-    <!-- scale animation factor (larger value gets shorter duration) -->
-    <item name="browse_scale_anim_factor" format="float" type="string">1.4</item>
-    <item name="browse_item_unfocused_satuation" type="dimen">70%</item>
-    <item name="browse_item_unfocused_alpha" type="dimen">100%</item>
-    <item name="legacy_app_item_unfocused_alpha" type="dimen">70%</item>
-
     <dimen name="browse_item_title_font_size">16sp</dimen>
     <dimen name="browse_item_title_font_size_small">12sp</dimen>
     <dimen name="browse_item_description_font_size">14sp</dimen>
-    <dimen name="browse_item_bottom_padding">12dp</dimen>
 
     <integer name="lb_dialog_animation_duration">150</integer>
     <dimen name="lb_action_fragment_selector_min_height">8dp</dimen>
     <dimen name="lb_dialog_list_item_min_height">64dp</dimen>
+    <dimen name="lb_dialog_list_item_min_height_small">48dp</dimen>
     <dimen name="lb_dialog_list_item_vertical_padding">12dp</dimen>
+    <dimen name="lb_dialog_list_item_full_start_padding">32dp</dimen>
+    <dimen name="lb_dialog_list_item_full_end_padding">56dp</dimen>
     <dimen name="lb_dialog_list_item_start_padding">20dp</dimen>
     <dimen name="lb_dialog_list_item_end_padding">28dp</dimen>
     <dimen name="lb_dialog_list_item_checkmark_diameter">8dp</dimen>
@@ -157,9 +134,6 @@
     <dimen name="content_fragment_delimiter_padding">16dp</dimen>
     <dimen name="content_fragment_description_text_size">14sp</dimen>
     <dimen name="content_fragment_icon_width">140dp</dimen>
-    <dimen name="content_fragment_icon_height">140dp</dimen>
-    <dimen name="content_fragment_badge_icon_width">48dp</dimen>
-    <dimen name="content_fragment_badge_icon_height">48dp</dimen>
     <dimen name="content_fragment_start_padding">48dp</dimen>
     <dimen name="content_fragment_max_icon_height">280dp</dimen>
     <dimen name="content_fragment_title_text_bottom_padding">4dp</dimen>
@@ -170,20 +144,12 @@
     <dimen name="edit_text_width_small">200dp</dimen>
     <dimen name="indeterminate_bottom_padding">4dp</dimen>
 
-    <dimen name="list_item_badge_icon_height">18dp</dimen>
-    <dimen name="list_item_badge_icon_margin_start">8dp</dimen>
-    <dimen name="list_item_badge_icon_width">18dp</dimen>
     <dimen name="list_item_checkmark_diameter">8dp</dimen>
     <dimen name="list_item_delimiter_padding">4dp</dimen>
     <dimen name="list_item_description_font_size">12sp</dimen>
     <dimen name="list_item_height">48dp</dimen>
-    <dimen name="list_item_icon_big_height">80dp</dimen>
-    <dimen name="list_item_icon_big_margin_end">8dp</dimen>
-    <dimen name="list_item_icon_big_width">80dp</dimen>
     <dimen name="list_item_icon_height">32dp</dimen>
     <dimen name="list_item_icon_size">32dp</dimen>
-    <dimen name="list_item_icon_small_height">24dp</dimen>
-    <dimen name="list_item_icon_small_width">24dp</dimen>
     <dimen name="list_item_icon_width">32dp</dimen>
     <dimen name="list_item_start_padding">20dp</dimen>
     <dimen name="list_item_min_height">64dp</dimen>
@@ -195,7 +161,6 @@
     <dimen name="pad_start_unsafe_action">56dp</dimen>
     <dimen name="pad_start_unsafe_description">56dp</dimen>
     <dimen name="pad_end_unsafe_action">56dp</dimen>
-    <dimen name="pad_top_unsafe_progress">32dp</dimen>
 
     <dimen name="picker_column_height">192dp</dimen>
     <dimen name="picker_column_horizontal_padding">8dp</dimen>
@@ -203,15 +168,11 @@
     <dimen name="picker_start_padding">24dp</dimen>
     <dimen name="picker_separator_horizontal_padding">4dp</dimen>
 
-    <dimen name="setup_activity_overscan_margin">48dp</dimen>
     <dimen name="setup_scroll_list_top_padding">0dp</dimen>
     <dimen name="setup_list_item_icon_margin_end">8dp</dimen>
     <dimen name="setup_title_height">285dp</dimen>
-    <dimen name="tos_webview_padding_without_progress_bar">40dp</dimen>
-    <dimen name="tos_webview_padding_with_progress_bar">80dp</dimen>
     <dimen name="width_action">256dp</dimen>
     <dimen name="width_description">536dp</dimen>
-    <dimen name="width_setup_max">872dp</dimen>
 
     <integer name="action_description_min_lines">2</integer>
     <integer name="action_title_min_lines">1</integer>
@@ -229,4 +190,8 @@
     <integer name="alpha_activity_in_bkg_duration">@integer/base_animation_duration</integer>
     <integer name="alpha_activity_out_bkg_delay">0</integer>
     <integer name="alpha_activity_out_bkg_duration">@integer/base_animation_duration</integer>
+
+    <dimen name="progress_fragment_side_margin">212dp</dimen>
+
+    <dimen name="content_icon_inset">16dp</dimen>
 </resources>

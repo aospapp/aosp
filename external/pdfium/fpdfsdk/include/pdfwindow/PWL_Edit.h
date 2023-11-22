@@ -4,16 +4,21 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_EDIT_H_
-#define _PWL_EDIT_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDIT_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDIT_H_
 
-class IPWL_Filler_Notify;
+#include "../../../core/include/fxcrt/fx_basic.h"
+#include "PWL_EditCtrl.h"
+#include "PWL_Wnd.h"
+
 class CPWL_Edit;
+class IPWL_Filler_Notify;
 class IPWL_SpellCheck;
 
 class IPWL_Filler_Notify
 {
 public:
+        virtual ~IPWL_Filler_Notify() { }
 	virtual void					QueryWherePopup(void* pPrivateData, FX_FLOAT fPopupMin,FX_FLOAT fPopupMax, 
 										FX_INT32 & nRet, FX_FLOAT & fPopupRet) = 0; //nRet: (0:bottom 1:top)
 	virtual void					OnBeforeKeyStroke(FX_BOOL bEditOrList, void* pPrivateData, FX_INT32 nKeyCode,
@@ -134,5 +139,4 @@ private:
 	void*							m_pFormFiller;
 };
 
-#endif 
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDIT_H_

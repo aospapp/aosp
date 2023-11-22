@@ -27,17 +27,30 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"कीप्रेस करताना होणारा ध्वनी"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"कीप्रेस करताना पॉपअप"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"प्राधान्ये"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"स्वरूप आणि लेआउट"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"बहुभाषिक पर्याय"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"खाती आणि गोपनीयता"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"स्वरूप आणि लेआउट"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"जेश्चर टायपिंग"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"मजकूर दुरुस्ती"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"प्रगत"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"थीम"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"विभाजित कीबोर्ड सक्षम करा"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google कीबोर्ड संकालन"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"संकालन चालू केले आहे"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"डिव्‍हाइसेस वरून आपला वैयक्तिक शब्दकोश संकालित करा"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"आता संकालन करा"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"मेघ डेटा हटवा"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google वरून आपला संकालित केलेला डेटा हटविते"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"आपला संकालित केलेला डेटा मेघवरून हटविला जाईल. आपल्‍याला खात्री आहे?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"हटवा"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"रद्द करा"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"आपली वैयक्तिक निर्देशिका Google सर्व्हरवर संकालित केली जाईल आणि बॅकअप घेतला जाईल. आमचे उत्पादन सुधारित करण्यात मदत करण्यासाठी शब्दाच्या वारंवारतेची आकडेवारी माहिती गोळा केली जाऊ शकते. सर्व माहितीचे संकलन आणि वापर "<a href="https://www.google.com/policies/privacy">"Google चे गोपनीयता धोरण"</a>" शी सुसंगत असेल."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"या डिव्हाइसमध्ये हे वैशिष्ट्य सक्षम करण्यासाठी कृपया एक Google खाते जोडा"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Google Apps for Business खात्यांसह डिव्हाइसेससाठी संकालन उपलब्ध नाही"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"अन्य इनपुट पद्धतींवर स्विच करा"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"भाषा स्विच की अन्य इनपुट पद्धती देखील समाविष्ट करते"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"भाषा स्विच की"</string>
     <string name="show_language_switch_key_summary" msgid="7343403647474265713">"एकाधिक इनपुट भाषा सक्षम केलेल्या असताना दर्शवा"</string>
-    <string name="key_preview_popup_dismiss_delay" msgid="6213164897443068248">"की पॉपअप विलंब डिसमिस करते"</string>
+    <string name="key_preview_popup_dismiss_delay" msgid="6213164897443068248">"की पॉपअप डिसमिस विलंब"</string>
     <string name="key_preview_popup_dismiss_no_delay" msgid="2096123151571458064">"विलंब नाही"</string>
     <string name="key_preview_popup_dismiss_default_delay" msgid="2166964333903906734">"डीफॉल्ट"</string>
     <string name="abbreviation_unit_milliseconds" msgid="8700286094028323363">"<xliff:g id="MILLISECONDS">%s</xliff:g>मिसे"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"जतन करण्यासाठी येथे स्पर्श करा"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"शब्दकोश उपलब्ध"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"कीबोर्ड थीम"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"खाती स्विच करा"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"कोणतीही खाती निवडली नाहीत"</string>
+    <string name="account_selected" msgid="2846876462199625974">"सध्‍या <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> चा वापर करीत आहे"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ठीक आहे"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"रद्द करा"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"साइन आउट करा"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"वापरण्‍यासाठी एक खाते निवडा"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"इंग्रजी (यूके)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"इंग्रजी (यूएस)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"स्पॅनिश (यूएस)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"हिंग्लिश"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"सर्बियन (लॅटिन)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"इंग्रजी (यूके) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"इंग्रजी (यूएस) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"स्पॅनिश (यूएस) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"हिंग्लिश (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"सर्बियन (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (पारंपारिक)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (सिरिलिक)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (लॅटिन)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (संक्षिप्त)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"भाषा नाही (वर्णमाला)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"वर्णमाला (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"वर्णमाला (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"समान इनपुट शैली आधीपासूनच अस्तित्वात आहे: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"कीप्रेस कंपन कालावधी"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"कीप्रेस ध्वनी तीव्रता"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"की जास्त दाबण्यात विलंब"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"वास्तविक कीबोर्डसाठी इमोजी"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"वास्तविक Alt की इमोजी पॅलेट दर्शविते"</string>
     <string name="button_default" msgid="3988017840431881491">"डीफॉल्ट"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> वर स्वागत आहे"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"जेश्चर टायपिंग करून"</string>

@@ -15,31 +15,25 @@
  */
 package com.squareup.okhttp.internal;
 
-import com.squareup.okhttp.OkAuthenticator;
-import java.io.IOException;
+import com.squareup.okhttp.Authenticator;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
 import java.net.Proxy;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class RecordingOkAuthenticator implements OkAuthenticator {
-  public final List<URL> urls = new ArrayList<URL>();
-  public final List<List<Challenge>> challengesList = new ArrayList<List<Challenge>>();
-  public final List<Proxy> proxies = new ArrayList<Proxy>();
-  public final Credential credential;
+public final class RecordingOkAuthenticator implements Authenticator {
+  public final List<Response> responses = new ArrayList<>();
+  public final List<Proxy> proxies = new ArrayList<>();
+  public final String credential;
 
-  public RecordingOkAuthenticator(Credential credential) {
+  public RecordingOkAuthenticator(String credential) {
     this.credential = credential;
   }
 
-  public URL onlyUrl() {
-    if (urls.size() != 1) throw new IllegalStateException();
-    return urls.get(0);
-  }
-
-  public List<Challenge> onlyChallenge() {
-    if (challengesList.size() != 1) throw new IllegalStateException();
-    return challengesList.get(0);
+  public Response onlyResponse() {
+    if (responses.size() != 1) throw new IllegalStateException();
+    return responses.get(0);
   }
 
   public Proxy onlyProxy() {
@@ -47,19 +41,19 @@ public final class RecordingOkAuthenticator implements OkAuthenticator {
     return proxies.get(0);
   }
 
-  @Override public Credential authenticate(Proxy proxy, URL url, List<Challenge> challenges)
-      throws IOException {
-    urls.add(url);
-    challengesList.add(challenges);
+  @Override public Request authenticate(Proxy proxy, Response response) {
+    responses.add(response);
     proxies.add(proxy);
-    return credential;
+    return response.request().newBuilder()
+        .addHeader("Authorization", credential)
+        .build();
   }
 
-  @Override public Credential authenticateProxy(Proxy proxy, URL url, List<Challenge> challenges)
-      throws IOException {
-    urls.add(url);
-    challengesList.add(challenges);
+  @Override public Request authenticateProxy(Proxy proxy, Response response) {
+    responses.add(response);
     proxies.add(proxy);
-    return credential;
+    return response.request().newBuilder()
+        .addHeader("Proxy-Authorization", credential)
+        .build();
   }
 }

@@ -192,5 +192,25 @@
                 </configuration>
             </plugin>
         </plugins>
+        <!--
+          Don't include META-INF/maven in the jar files, this causes an unnecessary increase in the
+          path length as that folder contained the files with the longest paths (one path was 190 chars).
+          Windows has a limit of ~260 chars, but removing all the maven info lowers our max path length
+          from 190 to about 150.
+        -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.eclipse.tycho</groupId>
+                    <artifactId>tycho-packaging-plugin</artifactId>
+                    <version>${tycho-version}</version>
+                    <configuration>
+                        <archive>
+                            <addMavenDescriptor>false</addMavenDescriptor>
+                        </archive>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 </project>

@@ -107,10 +107,10 @@ public class PackageManagerTest extends AndroidTestCase {
         checkActivityInfoName(RECEIVER_NAME, broadcastReceivers);
 
         // Test queryPermissionsByGroup, queryContentProviders
-        String testPermissionsGroup = "android.permission-group.NETWORK";
+        String testPermissionsGroup = "android.permission-group.COST_MONEY";
         List<PermissionInfo> permissions = mPackageManager.queryPermissionsByGroup(
                 testPermissionsGroup, PackageManager.GET_META_DATA);
-        checkPermissionInfoName(PERMISSION_NAME, permissions);
+        checkPermissionInfoName("com.android.cts.content.CALL_ABROAD_PERMISSION", permissions);
 
         ApplicationInfo appInfo = mPackageManager.getApplicationInfo(PACKAGE_NAME, 0);
         List<ProviderInfo> providers = mPackageManager.queryContentProviders(PACKAGE_NAME,
@@ -148,17 +148,12 @@ public class PackageManagerTest extends AndroidTestCase {
     }
 
     private void checkPermissionInfoName(String expectedName, List<PermissionInfo> permissions) {
-        boolean isContained = false;
-        Iterator<PermissionInfo> infoIterator = permissions.iterator();
-        String current;
-        while (infoIterator.hasNext()) {
-            current = infoIterator.next().name;
-            if (current.equals(expectedName)) {
-                isContained = true;
-                break;
-            }
+        List<String> names = new ArrayList<String>();
+        for (PermissionInfo permission : permissions) {
+            names.add(permission.name);
         }
-        assertTrue(isContained);
+        boolean isContained = names.contains(expectedName);
+        assertTrue("Permission " + expectedName + " not present in " + names, isContained);
     }
 
     private void checkProviderInfoName(String expectedName, List<ProviderInfo> providers) {

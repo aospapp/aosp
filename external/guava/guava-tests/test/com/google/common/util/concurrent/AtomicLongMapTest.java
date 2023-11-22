@@ -1,7 +1,23 @@
-// Copyright 2011 Google Inc. All Rights Reserved.
+/*
+ * Copyright (C) 2011 The Guava Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package com.google.common.util.concurrent;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.testing.NullPointerTester;
@@ -19,15 +35,17 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Tests for {@link AtomicLongMap}.
  *
- * @author schmoe@google.com (mike nonemacher)
+ * @author mike nonemacher
  */
+@GwtCompatible(emulated = true)
 public class AtomicLongMapTest extends TestCase {
   private static final int ITERATIONS = 100;
   private static final int MAX_ADDEND = 100;
 
   private Random random = new Random(301);
 
-  public void testNulls() throws Exception {
+  @GwtIncompatible("NullPointerTester")
+  public void testNulls() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicConstructors(AtomicLongMap.class);
     tester.testAllPublicStaticMethods(AtomicLongMap.class);
@@ -536,6 +554,7 @@ public class AtomicLongMapTest extends TestCase {
     assertFalse(map.replace("a", 1L, 0L));
   }
 
+  @GwtIncompatible("threads")
   public void testModify_basher() throws InterruptedException {
     int nTasks = 3000;
     int nThreads = 100;

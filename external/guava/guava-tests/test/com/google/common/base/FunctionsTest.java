@@ -20,6 +20,7 @@ import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.testing.ClassSanityTester;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
@@ -78,7 +79,7 @@ public class FunctionsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointerExceptions() throws Exception {
+  public void testNullPointerExceptions() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(Functions.class);
   }
@@ -385,14 +386,14 @@ public class FunctionsTest extends TestCase {
       implements Supplier<Integer>, Serializable {
 
     private static final long serialVersionUID = 0;
-    
+
     private int value;
 
     @Override
     public Integer get() {
       return ++value;
     }
-    
+
     @Override
     public boolean equals(Object obj) {
       if (obj instanceof CountingSupplier) {
@@ -400,7 +401,7 @@ public class FunctionsTest extends TestCase {
       }
       return false;
     }
-    
+
     @Override
     public int hashCode() {
       return value;
@@ -413,7 +414,7 @@ public class FunctionsTest extends TestCase {
 
     assertEquals(1, (int) function.apply(null));
     assertEquals(2, (int) function.apply("foo"));
-    
+
     new EqualsTester()
         .addEqualityGroup(function, Functions.forSupplier(supplier))
         .addEqualityGroup(Functions.forSupplier(new CountingSupplier()))
@@ -427,8 +428,18 @@ public class FunctionsTest extends TestCase {
     checkCanReserialize(Functions.forSupplier(new CountingSupplier()));
   }
 
+  @GwtIncompatible("reflection")
+  public void testNulls() throws Exception {
+    new ClassSanityTester().forAllPublicStaticMethods(Functions.class).testNulls();
+  }
+
+  @GwtIncompatible("reflection")
+  public void testEqualsAndSerializable() throws Exception {
+    new ClassSanityTester().forAllPublicStaticMethods(Functions.class).testEqualsAndSerializable();
+  }
+
   @GwtIncompatible("SerializableTester")
-  private <Y> void checkCanReserialize(Function<? super Integer, Y> f) {
+  private static <Y> void checkCanReserialize(Function<? super Integer, Y> f) {
     Function<? super Integer, Y> g = SerializableTester.reserializeAndAssert(f);
     for (int i = 1; i < 5; i++) {
       // convoluted way to check that the same result happens from each
@@ -448,7 +459,7 @@ public class FunctionsTest extends TestCase {
   }
 
   @GwtIncompatible("SerializableTester")
-  private <Y> void checkCanReserializeSingleton(Function<? super String, Y> f) {
+  private static <Y> void checkCanReserializeSingleton(Function<? super String, Y> f) {
     Function<? super String, Y> g = SerializableTester.reserializeAndAssert(f);
     assertSame(f, g);
     for (Integer i = 1; i < 5; i++) {

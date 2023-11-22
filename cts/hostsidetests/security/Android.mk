@@ -29,7 +29,15 @@ LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
 
 LOCAL_CTS_TEST_PACKAGE := android.host.security
 
-LOCAL_JAVA_RESOURCE_FILES := $(HOST_OUT_EXECUTABLES)/sepolicy-analyze
+selinux_general_seapp_contexts := $(call intermediates-dir-for,ETC,general_seapp_contexts)/general_seapp_contexts
+
+selinux_general_file_contexts := $(call intermediates-dir-for,ETC,general_file_contexts)/general_file_contexts
+
+selinux_general_property_contexts := $(call intermediates-dir-for,ETC,general_property_contexts)/general_property_contexts
+
+selinux_general_service_contexts := $(call intermediates-dir-for,ETC,general_service_contexts)/general_service_contexts
+
+LOCAL_JAVA_RESOURCE_FILES := $(HOST_OUT_EXECUTABLES)/sepolicy-analyze $(HOST_OUT_EXECUTABLES)/checkseapp $(HOST_OUT_EXECUTABLES)/checkfc $(selinux_general_seapp_contexts) $(selinux_general_file_contexts) $(selinux_general_property_contexts) $(selinux_general_service_contexts)
 
 selinux_general_policy := $(call intermediates-dir-for,ETC,general_sepolicy.conf)/general_sepolicy.conf
 

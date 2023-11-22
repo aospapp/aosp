@@ -150,6 +150,14 @@
     <style name="Theme_OverrideAttr">
         <item name="themeType">3</item>
     </style>
+
+    <style name="Theme_OverrideInclude">
+        <item name="themeType">4</item>
+    </style>
+
+    <style name="Theme_OverrideView">
+        <item name="themeType">5</item>
+    </style>
     
     <style name="Theme_ThemedDrawableTest">
         <item name="themeBoolean">true</item>

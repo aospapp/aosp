@@ -29,6 +29,10 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.CodecProfileLevel;
+
 import com.android.cts.media.R;
 
 import java.io.File;
@@ -111,28 +115,28 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     private String mOutputFile;
 
     public void testExtractDecodeEditEncodeMuxQCIF() throws Throwable {
-        setSize(176, 144);
+        if(!setSize(176, 144)) return;
         setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
         setCopyVideo();
         TestWrapper.runTest(this);
     }
 
     public void testExtractDecodeEditEncodeMuxQVGA() throws Throwable {
-        setSize(320, 240);
+        if(!setSize(320, 240)) return;
         setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
         setCopyVideo();
         TestWrapper.runTest(this);
     }
 
     public void testExtractDecodeEditEncodeMux720p() throws Throwable {
-        setSize(1280, 720);
+        if(!setSize(1280, 720)) return;
         setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
         setCopyVideo();
         TestWrapper.runTest(this);
     }
 
     public void testExtractDecodeEditEncodeMuxAudio() throws Throwable {
-        setSize(1280, 720);
+        if(!setSize(1280, 720)) return;
         setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
         setCopyAudio();
         setVerifyAudioFormat();
@@ -140,7 +144,7 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     }
 
     public void testExtractDecodeEditEncodeMuxAudioVideo() throws Throwable {
-        setSize(1280, 720);
+        if(!setSize(1280, 720)) return;
         setSource(R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz);
         setCopyAudio();
         setCopyVideo();
@@ -203,14 +207,21 @@ public class ExtractDecodeEditEncodeMuxTest extends AndroidTestCase {
     }
 
     /**
-     * Sets the desired frame size.
+     * Sets the desired frame size and returns whether the given resolution is
+     * supported.
+     *
+     * <p>If decoding/encoding using AVC as the codec, checks that the resolution
+     * is supported. For other codecs, always return {@code true}.
      */
-    private void setSize(int width, int height) {
+    private boolean setSize(int width, int height) {
         if ((width % 16) != 0 || (height % 16) != 0) {
             Log.w(TAG, "WARNING: width or height not multiple of 16");
         }
         mWidth = width;
         mHeight = height;
+
+	// TODO: remove this logic in setSize as it is now handled when configuring codecs
+        return true;
     }
 
     /**

@@ -19,21 +19,35 @@ package com.android.server.wifi;
 import android.net.wifi.BatchedScanSettings;
 import android.net.wifi.RttManager;
 import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiLinkLayerStats;
+import android.net.wifi.WifiManager;
 import android.net.wifi.WifiScanner;
+import android.net.wifi.RttManager;
+import android.net.wifi.WifiSsid;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pGroup;
+import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import android.net.wifi.p2p.nsd.WifiP2pServiceInfo;
+import android.util.Base64;
 import android.util.LocalLog;
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
+import java.util.zip.Deflater;
+import libcore.util.HexEncoding;
 /**
  * Native calls for bring up/shut down of the supplicant daemon and for
  * sending requests to the supplicant daemon
@@ -65,6 +79,10 @@ public class WifiNative {
 
     private boolean mSuspendOptEnabled = false;
 
+    private static final int EID_HT_OPERATION = 61;
+    private static final int EID_VHT_OPERATION = 192;
+    private static final int EID_EXTENDED_CAPS = 127;
+    private static final int RTT_RESP_ENABLE_BIT = 70;
     /* Register native functions */
 
     static {
@@ -122,12 +140,12 @@ public class WifiNative {
         }
     }
 
-    private static final LocalLog mLocalLog = new LocalLog(1024);
+    private static final LocalLog mLocalLog = new LocalLog(16384);
 
     // hold mLock before accessing mCmdIdLock
     private static int sCmdId;
 
-    public LocalLog getLocalLog() {
+    public static LocalLog getLocalLog() {
         return mLocalLog;
     }
 
@@ -141,14 +159,17 @@ public class WifiNative {
     }
 
     public boolean connectToSupplicant() {
-        // No synchronization necessary .. it is implemented in WifiMonitor
-        localLog(mInterfacePrefix + "connectToSupplicant");
-        return connectToSupplicantNative();
+        synchronized(mLock) {
+            localLog(mInterfacePrefix + "connectToSupplicant");
+            return connectToSupplicantNative();
+        }
     }
 
     public void closeSupplicantConnection() {
-        localLog(mInterfacePrefix + "closeSupplicantConnection");
-        closeSupplicantConnectionNative();
+        synchronized(mLock) {
+            localLog(mInterfacePrefix + "closeSupplicantConnection");
+            closeSupplicantConnectionNative();
+        }
     }
 
     public String waitForEvent() {
@@ -163,6 +184,16 @@ public class WifiNative {
             String toLog = Integer.toString(cmdId) + ":" + mInterfacePrefix + command;
             boolean result = doBooleanCommandNative(mInterfacePrefix + command);
             localLog(toLog + " -> " + result);
+            if (DBG) Log.d(mTAG, command + ": returned " + result);
+            return result;
+        }
+    }
+
+    private boolean doBooleanCommandWithoutLogging(String command) {
+        if (DBG) Log.d(mTAG, "doBooleanCommandWithoutLogging: " + command);
+        synchronized (mLock) {
+            int cmdId = getNewCmdIdLocked();
+            boolean result = doBooleanCommandNative(mInterfacePrefix + command);
             if (DBG) Log.d(mTAG, command + ": returned " + result);
             return result;
         }
@@ -264,7 +295,12 @@ public class WifiNative {
 
     public boolean setNetworkVariable(int netId, String name, String value) {
         if (TextUtils.isEmpty(name) || TextUtils.isEmpty(value)) return false;
-        return doBooleanCommand("SET_NETWORK " + netId + " " + name + " " + value);
+        if (name.equals(WifiConfiguration.pskVarName)
+                || name.equals(WifiEnterpriseConfig.PASSWORD_KEY)) {
+            return doBooleanCommandWithoutLogging("SET_NETWORK " + netId + " " + name + " " + value);
+        } else {
+            return doBooleanCommand("SET_NETWORK " + netId + " " + name + " " + value);
+        }
     }
 
     public String getNetworkVariable(int netId, String name) {
@@ -305,6 +341,11 @@ public class WifiNative {
         return doBooleanCommand("DISABLE_NETWORK " + netId);
     }
 
+    public boolean selectNetwork(int netId) {
+        if (DBG) logDbg("selectNetwork nid=" + Integer.toString(netId));
+        return doBooleanCommand("SELECT_NETWORK " + netId);
+    }
+
     public boolean reconnect() {
         if (DBG) logDbg("RECONNECT ");
         return doBooleanCommand("RECONNECT");
@@ -342,6 +383,8 @@ public class WifiNative {
         return null;
     }
 
+
+
     /**
      * Format of results:
      * =================
@@ -358,9 +401,29 @@ public class WifiNative {
      * RANGE=ALL gets all scan results
      * RANGE=ID- gets results from ID
      * MASK=<N> see wpa_supplicant/src/common/wpa_ctrl.h for details
+     * 0                         0                        1                       0     2
+     *                           WPA_BSS_MASK_MESH_SCAN | WPA_BSS_MASK_DELIM    | WPA_BSS_MASK_WIFI_DISPLAY
+     * 0                         0                        0                       1     1   -> 9
+     * WPA_BSS_MASK_INTERNETW  | WPA_BSS_MASK_P2P_SCAN  | WPA_BSS_MASK_WPS_SCAN | WPA_BSS_MASK_SSID
+     * 1                         0                        0                       1     9   -> d
+     * WPA_BSS_MASK_FLAGS      | WPA_BSS_MASK_IE        | WPA_BSS_MASK_AGE      | WPA_BSS_MASK_TSF
+     * 1                         0                        0                       0     8
+     * WPA_BSS_MASK_LEVEL      | WPA_BSS_MASK_NOISE     | WPA_BSS_MASK_QUAL     | WPA_BSS_MASK_CAPABILITIES
+     * 0                         1                        1                       1     7
+     * WPA_BSS_MASK_BEACON_INT | WPA_BSS_MASK_FREQ      | WPA_BSS_MASK_BSSID    | WPA_BSS_MASK_ID
+     *
+     * WPA_BSS_MASK_INTERNETW adds ANQP info (ctrl_iface:4151-4176)
+     *
+     * ctrl_iface.c:wpa_supplicant_ctrl_iface_process:7884
+     *  wpa_supplicant_ctrl_iface_bss:4315
+     *  print_bss_info
      */
     public String scanResults(int sid) {
-        return doStringCommandWithoutLogging("BSS RANGE=" + sid + "- MASK=0x21987");
+        return doStringCommandWithoutLogging("BSS RANGE=" + sid + "- MASK=0x29d87");
+    }
+
+    public String doCustomCommand(String command) {
+        return doStringCommand(command);
     }
 
     /**
@@ -507,22 +570,24 @@ public class WifiNative {
             && doBooleanCommand("DRIVER RXFILTER-START");
     }
 
-    public int getBand() {
-       String ret = doStringCommand("DRIVER GETBAND");
-        if (!TextUtils.isEmpty(ret)) {
-            //reply is "BAND X" where X is the band
-            String[] tokens = ret.split(" ");
-            try {
-                if (tokens.length == 2) return Integer.parseInt(tokens[1]);
-            } catch (NumberFormatException e) {
-                return -1;
-            }
-        }
-        return -1;
-    }
-
+    /**
+     * Set the operational frequency band
+     * @param band One of
+     *     {@link WifiManager#WIFI_FREQUENCY_BAND_AUTO},
+     *     {@link WifiManager#WIFI_FREQUENCY_BAND_5GHZ},
+     *     {@link WifiManager#WIFI_FREQUENCY_BAND_2GHZ},
+     * @return {@code true} if the operation succeeded, {@code false} otherwise
+     */
     public boolean setBand(int band) {
-        return doBooleanCommand("DRIVER SETBAND " + band);
+        String bandstr;
+
+        if (band == WifiManager.WIFI_FREQUENCY_BAND_5GHZ)
+            bandstr = "5G";
+        else if (band == WifiManager.WIFI_FREQUENCY_BAND_2GHZ)
+            bandstr = "2G";
+        else
+            bandstr = "AUTO";
+        return doBooleanCommand("SET SETBAND " + bandstr);
     }
 
     /**
@@ -583,15 +648,20 @@ public class WifiNative {
     }
 
     public boolean setCountryCode(String countryCode) {
-        return doBooleanCommand("DRIVER COUNTRY " + countryCode.toUpperCase(Locale.ROOT));
+        if (countryCode != null)
+            return doBooleanCommand("DRIVER COUNTRY " + countryCode.toUpperCase(Locale.ROOT));
+        else
+            return doBooleanCommand("DRIVER COUNTRY");
     }
 
-    public void enableBackgroundScan(boolean enable) {
+    public boolean enableBackgroundScan(boolean enable) {
+        boolean ret;
         if (enable) {
-            doBooleanCommand("SET pno 1");
+            ret = doBooleanCommand("SET pno 1");
         } else {
-            doBooleanCommand("SET pno 0");
+            ret = doBooleanCommand("SET pno 0");
         }
+        return ret;
     }
 
     public void enableAutoConnect(boolean enable) {
@@ -694,9 +764,16 @@ public class WifiNative {
         }
     }
 
-    public boolean simAuthResponse(int id, String response) {
+    public boolean simAuthResponse(int id, String type, String response) {
+        // with type = GSM-AUTH, UMTS-AUTH or UMTS-AUTS
         synchronized (mLock) {
-            return doBooleanCommand("CTRL-RSP-SIM-" + id + ":GSM-AUTH" + response);
+            return doBooleanCommand("CTRL-RSP-SIM-" + id + ":" + type + response);
+        }
+    }
+
+    public boolean simIdentityResponse(int id, String response) {
+        synchronized (mLock) {
+            return doBooleanCommand("CTRL-RSP-IDENTITY-" + id + ":" + response);
         }
     }
 
@@ -1129,379 +1206,6 @@ public class WifiNative {
         return doBooleanCommand("ANQP_GET " + bssid + " " + subtypes);
     }
 
-    /* WIFI HAL support */
-
-    private static final String TAG = "WifiNative-HAL";
-    private static long sWifiHalHandle = 0;  /* used by JNI to save wifi_handle */
-    private static long[] sWifiIfaceHandles = null;  /* used by JNI to save interface handles */
-    private static int sWlan0Index = -1;
-    private static int sP2p0Index = -1;
-
-    private static boolean sHalIsStarted = false;
-    private static boolean sHalFailed = false;
-
-    private static native boolean startHalNative();
-    private static native void stopHalNative();
-    private static native void waitForHalEventNative();
-
-    private static class MonitorThread extends Thread {
-        public void run() {
-            Log.i(TAG, "Waiting for HAL events mWifiHalHandle=" + Long.toString(sWifiHalHandle));
-            waitForHalEventNative();
-        }
-    }
-
-    synchronized public static boolean startHal() {
-        Log.i(TAG, "startHal");
-        synchronized (mLock) {
-            if (sHalIsStarted)
-                return true;
-            if (sHalFailed)
-                return false;
-            if (startHalNative() && (getInterfaces() != 0) && (sWlan0Index != -1)) {
-                new MonitorThread().start();
-                sHalIsStarted = true;
-                return true;
-            } else {
-                Log.i(TAG, "Could not start hal");
-                sHalIsStarted = false;
-                sHalFailed = true;
-                return false;
-            }
-        }
-    }
-
-    synchronized public static void stopHal() {
-        stopHalNative();
-    }
-
-    private static native int getInterfacesNative();
-
-    synchronized public static int getInterfaces() {
-        synchronized (mLock) {
-            if (sWifiIfaceHandles == null) {
-                int num = getInterfacesNative();
-                int wifi_num = 0;
-                for (int i = 0; i < num; i++) {
-                    String name = getInterfaceNameNative(i);
-                    Log.i(TAG, "interface[" + i + "] = " + name);
-                    if (name.equals("wlan0")) {
-                        sWlan0Index = i;
-                        wifi_num++;
-                    } else if (name.equals("p2p0")) {
-                        sP2p0Index = i;
-                        wifi_num++;
-                    }
-                }
-                return wifi_num;
-            } else {
-                return sWifiIfaceHandles.length;
-            }
-        }
-    }
-
-    private static native String getInterfaceNameNative(int index);
-    synchronized public static String getInterfaceName(int index) {
-        return getInterfaceNameNative(index);
-    }
-
-    public static class ScanCapabilities {
-        public int  max_scan_cache_size;                 // in number of scan results??
-        public int  max_scan_buckets;
-        public int  max_ap_cache_per_scan;
-        public int  max_rssi_sample_size;
-        public int  max_scan_reporting_threshold;        // in number of scan results??
-        public int  max_hotlist_aps;
-        public int  max_significant_wifi_change_aps;
-    }
-
-    public static boolean getScanCapabilities(ScanCapabilities capabilities) {
-        return getScanCapabilitiesNative(sWlan0Index, capabilities);
-    }
-
-    private static native boolean getScanCapabilitiesNative(
-            int iface, ScanCapabilities capabilities);
-
-    private static native boolean startScanNative(int iface, int id, ScanSettings settings);
-    private static native boolean stopScanNative(int iface, int id);
-    private static native ScanResult[] getScanResultsNative(int iface, boolean flush);
-    private static native WifiLinkLayerStats getWifiLinkLayerStatsNative(int iface);
-
-    public static class ChannelSettings {
-        int frequency;
-        int dwell_time_ms;
-        boolean passive;
-    }
-
-    public static class BucketSettings {
-        int bucket;
-        int band;
-        int period_ms;
-        int report_events;
-        int num_channels;
-        ChannelSettings channels[];
-    }
-
-    public static class ScanSettings {
-        int base_period_ms;
-        int max_ap_per_scan;
-        int report_threshold;
-        int num_buckets;
-        BucketSettings buckets[];
-    }
-
-    public static interface ScanEventHandler {
-        void onScanResultsAvailable();
-        void onFullScanResult(ScanResult fullScanResult);
-        void onSingleScanComplete();
-        void onScanPaused();
-        void onScanRestarted();
-    }
-
-    synchronized static void onScanResultsAvailable(int id) {
-        if (sScanEventHandler  != null) {
-            sScanEventHandler.onScanResultsAvailable();
-        }
-    }
-
-    /* scan status, keep these values in sync with gscan.h */
-    private static int WIFI_SCAN_BUFFER_FULL = 0;
-    private static int WIFI_SCAN_COMPLETE = 1;
-
-    synchronized static void onScanStatus(int status) {
-        Log.i(TAG, "Got a scan status changed event, status = " + status);
-
-        if (status == WIFI_SCAN_BUFFER_FULL) {
-            /* we have a separate event to take care of this */
-        } else if (status == WIFI_SCAN_COMPLETE) {
-            if (sScanEventHandler  != null) {
-                sScanEventHandler.onSingleScanComplete();
-            }
-        }
-    }
-
-    synchronized static void onFullScanResult(int id, ScanResult result, byte bytes[]) {
-        if (DBG) Log.i(TAG, "Got a full scan results event, ssid = " + result.SSID + ", " +
-                "num = " + bytes.length);
-
-        if (sScanEventHandler == null) {
-            return;
-        }
-
-        int num = 0;
-        for (int i = 0; i < bytes.length; ) {
-            int type  = bytes[i] & 0xFF;
-            int len = bytes[i + 1] & 0xFF;
-
-            if (i + len + 2 > bytes.length) {
-                Log.w(TAG, "bad length " + len + " of IE " + type + " from " + result.BSSID);
-                Log.w(TAG, "ignoring the rest of the IEs");
-                break;
-            }
-            num++;
-            i += len + 2;
-            if (DBG) Log.i(TAG, "bytes[" + i + "] = [" + type + ", " + len + "]" + ", " +
-                    "next = " + i);
-        }
-
-        ScanResult.InformationElement elements[] = new ScanResult.InformationElement[num];
-        for (int i = 0, index = 0; i < num; i++) {
-            int type  = bytes[index] & 0xFF;
-            int len = bytes[index + 1] & 0xFF;
-            if (DBG) Log.i(TAG, "index = " + index + ", type = " + type + ", len = " + len);
-            ScanResult.InformationElement elem = new ScanResult.InformationElement();
-            elem.id = type;
-            elem.bytes = new byte[len];
-            for (int j = 0; j < len; j++) {
-                elem.bytes[j] = bytes[index + j + 2];
-            }
-            elements[i] = elem;
-            index += (len + 2);
-        }
-
-        result.informationElements = elements;
-        sScanEventHandler.onFullScanResult(result);
-    }
-
-    private static int sScanCmdId = 0;
-    private static ScanEventHandler sScanEventHandler;
-    private static ScanSettings sScanSettings;
-
-    synchronized public static boolean startScan(
-            ScanSettings settings, ScanEventHandler eventHandler) {
-        synchronized (mLock) {
-
-            if (sScanCmdId != 0) {
-                stopScan();
-            } else if (sScanSettings != null || sScanEventHandler != null) {
-                /* current scan is paused; no need to stop it */
-            }
-
-            sScanCmdId = getNewCmdIdLocked();
-
-            sScanSettings = settings;
-            sScanEventHandler = eventHandler;
-
-            if (startScanNative(sWlan0Index, sScanCmdId, settings) == false) {
-                sScanEventHandler = null;
-                sScanSettings = null;
-                return false;
-            }
-
-            return true;
-        }
-    }
-
-    synchronized public static void stopScan() {
-        synchronized (mLock) {
-            stopScanNative(sWlan0Index, sScanCmdId);
-            sScanSettings = null;
-            sScanEventHandler = null;
-            sScanCmdId = 0;
-        }
-    }
-
-    synchronized public static void pauseScan() {
-        synchronized (mLock) {
-            if (sScanCmdId != 0 && sScanSettings != null && sScanEventHandler != null) {
-                Log.d(TAG, "Pausing scan");
-                stopScanNative(sWlan0Index, sScanCmdId);
-                sScanCmdId = 0;
-                sScanEventHandler.onScanPaused();
-            }
-        }
-    }
-
-    synchronized public static void restartScan() {
-        synchronized (mLock) {
-            if (sScanCmdId == 0 && sScanSettings != null && sScanEventHandler != null) {
-                Log.d(TAG, "Restarting scan");
-                startScan(sScanSettings, sScanEventHandler);
-                sScanEventHandler.onScanRestarted();
-            }
-        }
-    }
-
-    synchronized public static ScanResult[] getScanResults() {
-        synchronized (mLock) {
-            return getScanResultsNative(sWlan0Index, /* flush = */ false);
-        }
-    }
-
-    public static interface HotlistEventHandler {
-        void onHotlistApFound (ScanResult[]result);
-    }
-
-    private static int sHotlistCmdId = 0;
-    private static HotlistEventHandler sHotlistEventHandler;
-
-    private native static boolean setHotlistNative(int iface, int id,
-            WifiScanner.HotlistSettings settings);
-    private native static boolean resetHotlistNative(int iface, int id);
-
-    synchronized public static boolean setHotlist(WifiScanner.HotlistSettings settings,
-                                    HotlistEventHandler eventHandler) {
-        synchronized (mLock) {
-            if (sHotlistCmdId != 0) {
-                return false;
-            } else {
-                sHotlistCmdId = getNewCmdIdLocked();
-            }
-
-            sHotlistEventHandler = eventHandler;
-            if (setHotlistNative(sWlan0Index, sScanCmdId, settings) == false) {
-                sHotlistEventHandler = null;
-                return false;
-            }
-
-            return true;
-        }
-    }
-
-    synchronized public static void resetHotlist() {
-        synchronized (mLock) {
-            if (sHotlistCmdId != 0) {
-                resetHotlistNative(sWlan0Index, sHotlistCmdId);
-                sHotlistCmdId = 0;
-                sHotlistEventHandler = null;
-            }
-        }
-    }
-
-    synchronized public static void onHotlistApFound(int id, ScanResult[] results) {
-        synchronized (mLock) {
-            if (sHotlistCmdId != 0) {
-                sHotlistEventHandler.onHotlistApFound(results);
-            } else {
-                /* this can happen because of race conditions */
-                Log.d(TAG, "Ignoring hotlist AP found change");
-            }
-        }
-    }
-
-    public static interface SignificantWifiChangeEventHandler {
-        void onChangesFound(ScanResult[] result);
-    }
-
-    private static SignificantWifiChangeEventHandler sSignificantWifiChangeHandler;
-    private static int sSignificantWifiChangeCmdId;
-
-    private static native boolean trackSignificantWifiChangeNative(
-            int iface, int id, WifiScanner.WifiChangeSettings settings);
-    private static native boolean untrackSignificantWifiChangeNative(int iface, int id);
-
-    synchronized public static boolean trackSignificantWifiChange(
-            WifiScanner.WifiChangeSettings settings, SignificantWifiChangeEventHandler handler) {
-        synchronized (mLock) {
-            if (sSignificantWifiChangeCmdId != 0) {
-                return false;
-            } else {
-                sSignificantWifiChangeCmdId = getNewCmdIdLocked();
-            }
-
-            sSignificantWifiChangeHandler = handler;
-            if (trackSignificantWifiChangeNative(sWlan0Index, sScanCmdId, settings) == false) {
-                sSignificantWifiChangeHandler = null;
-                return false;
-            }
-
-            return true;
-        }
-    }
-
-    synchronized static void untrackSignificantWifiChange() {
-        synchronized (mLock) {
-            if (sSignificantWifiChangeCmdId != 0) {
-                untrackSignificantWifiChangeNative(sWlan0Index, sSignificantWifiChangeCmdId);
-                sSignificantWifiChangeCmdId = 0;
-                sSignificantWifiChangeHandler = null;
-            }
-        }
-    }
-
-    synchronized static void onSignificantWifiChange(int id, ScanResult[] results) {
-        synchronized (mLock) {
-            if (sSignificantWifiChangeCmdId != 0) {
-                sSignificantWifiChangeHandler.onChangesFound(results);
-            } else {
-                /* this can happen because of race conditions */
-                Log.d(TAG, "Ignoring significant wifi change");
-            }
-        }
-    }
-
-    synchronized public static WifiLinkLayerStats getWifiLinkLayerStats(String iface) {
-        // TODO: use correct iface name to Index translation
-        if (iface == null) return null;
-        synchronized (mLock) {
-            if (!sHalIsStarted)
-                startHal();
-            if (sHalIsStarted)
-                return getWifiLinkLayerStatsNative(sWlan0Index);
-        }
-        return null;
-    }
-
     /*
      * NFC-related calls
      */
@@ -1525,9 +1229,594 @@ public class WifiNative {
         return doBooleanCommand("NFC_REPORT_HANDOVER RESP P2P " + requestMessage + " 00");
     }
 
+    /* WIFI HAL support */
+
+    private static final String TAG = "WifiNative-HAL";
+    private static long sWifiHalHandle = 0;             /* used by JNI to save wifi_handle */
+    private static long[] sWifiIfaceHandles = null;     /* used by JNI to save interface handles */
+    private static int sWlan0Index = -1;
+    private static int sP2p0Index = -1;
+    private static MonitorThread sThread;
+    private static final int STOP_HAL_TIMEOUT_MS = 1000;
+
+    private static native boolean startHalNative();
+    private static native void stopHalNative();
+    private static native void waitForHalEventNative();
+
+    private static class MonitorThread extends Thread {
+        public void run() {
+            Log.i(TAG, "Waiting for HAL events mWifiHalHandle=" + Long.toString(sWifiHalHandle));
+            waitForHalEventNative();
+        }
+    }
+
+    synchronized public static boolean startHal() {
+
+        String debugLog = "startHal stack: ";
+        java.lang.StackTraceElement[] elements = Thread.currentThread().getStackTrace();
+        for (int i = 2; i < elements.length && i <= 7; i++ ) {
+            debugLog = debugLog + " - " + elements[i].getMethodName();
+        }
+
+        mLocalLog.log(debugLog);
+
+        synchronized (mLock) {
+            if (startHalNative() && (getInterfaces() != 0) && (sWlan0Index != -1)) {
+                sThread = new MonitorThread();
+                sThread.start();
+                return true;
+            } else {
+                if (DBG) mLocalLog.log("Could not start hal");
+                Log.e(TAG, "Could not start hal");
+                return false;
+            }
+        }
+    }
+
+    synchronized public static void stopHal() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                stopHalNative();
+                try {
+                    sThread.join(STOP_HAL_TIMEOUT_MS);
+                    Log.d(TAG, "HAL event thread stopped successfully");
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Could not stop HAL cleanly");
+                }
+                sThread = null;
+                sWifiHalHandle = 0;
+                sWifiIfaceHandles = null;
+                sWlan0Index = -1;
+                sP2p0Index = -1;
+            }
+        }
+    }
+
+    public static boolean isHalStarted() {
+        return (sWifiHalHandle != 0);
+    }
+    private static native int getInterfacesNative();
+
+    synchronized public static int getInterfaces() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sWifiIfaceHandles == null) {
+                    int num = getInterfacesNative();
+                    int wifi_num = 0;
+                    for (int i = 0; i < num; i++) {
+                        String name = getInterfaceNameNative(i);
+                        Log.i(TAG, "interface[" + i + "] = " + name);
+                        if (name.equals("wlan0")) {
+                            sWlan0Index = i;
+                            wifi_num++;
+                        } else if (name.equals("p2p0")) {
+                            sP2p0Index = i;
+                            wifi_num++;
+                        }
+                    }
+                    return wifi_num;
+                } else {
+                    return sWifiIfaceHandles.length;
+                }
+            } else {
+                return 0;
+            }
+        }
+    }
+
+    private static native String getInterfaceNameNative(int index);
+    synchronized public static String getInterfaceName(int index) {
+        return getInterfaceNameNative(index);
+    }
+
+    public static class ScanCapabilities {
+        public int  max_scan_cache_size;                 // in number of scan results??
+        public int  max_scan_buckets;
+        public int  max_ap_cache_per_scan;
+        public int  max_rssi_sample_size;
+        public int  max_scan_reporting_threshold;        // in number of scan results??
+        public int  max_hotlist_bssids;
+        public int  max_significant_wifi_change_aps;
+    }
+
+    synchronized public static boolean getScanCapabilities(ScanCapabilities capabilities) {
+        synchronized (mLock) {
+            return isHalStarted() && getScanCapabilitiesNative(sWlan0Index, capabilities);
+        }
+    }
+
+    private static native boolean getScanCapabilitiesNative(
+            int iface, ScanCapabilities capabilities);
+
+    private static native boolean startScanNative(int iface, int id, ScanSettings settings);
+    private static native boolean stopScanNative(int iface, int id);
+    private static native WifiScanner.ScanData[] getScanResultsNative(int iface, boolean flush);
+    private static native WifiLinkLayerStats getWifiLinkLayerStatsNative(int iface);
+    private static native void setWifiLinkLayerStatsNative(int iface, int enable);
+
+    public static class ChannelSettings {
+        int frequency;
+        int dwell_time_ms;
+        boolean passive;
+    }
+
+    public static class BucketSettings {
+        int bucket;
+        int band;
+        int period_ms;
+        int report_events;
+        int num_channels;
+        ChannelSettings channels[];
+    }
+
+    public static class ScanSettings {
+        int base_period_ms;
+        int max_ap_per_scan;
+        int report_threshold_percent;
+        int report_threshold_num_scans;
+        int num_buckets;
+        BucketSettings buckets[];
+    }
+
+    public static interface ScanEventHandler {
+        void onScanResultsAvailable();
+        void onFullScanResult(ScanResult fullScanResult);
+        void onScanStatus();
+        void onScanPaused(WifiScanner.ScanData[] data);
+        void onScanRestarted();
+    }
+
+    synchronized static void onScanResultsAvailable(int id) {
+        if (sScanEventHandler  != null) {
+            sScanEventHandler.onScanResultsAvailable();
+        }
+    }
+
+    /* scan status, keep these values in sync with gscan.h */
+    private static int WIFI_SCAN_BUFFER_FULL = 0;
+    private static int WIFI_SCAN_COMPLETE = 1;
+
+    synchronized static void onScanStatus(int status) {
+        if (status == WIFI_SCAN_BUFFER_FULL) {
+            /* we have a separate event to take care of this */
+        } else if (status == WIFI_SCAN_COMPLETE) {
+            if (sScanEventHandler  != null) {
+                sScanEventHandler.onScanStatus();
+            }
+        }
+    }
+
+    public static  WifiSsid createWifiSsid (byte[] rawSsid) {
+        String ssidHexString = String.valueOf(HexEncoding.encode(rawSsid));
+
+        if (ssidHexString == null) {
+            return null;
+        }
+
+        WifiSsid wifiSsid = WifiSsid.createFromHex(ssidHexString);
+
+        return wifiSsid;
+    }
+
+    public static String ssidConvert(byte[] rawSsid) {
+        String ssid;
+
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
+        try {
+            CharBuffer decoded = decoder.decode(ByteBuffer.wrap(rawSsid));
+            ssid = decoded.toString();
+        } catch (CharacterCodingException cce) {
+            ssid = null;
+        }
+
+        if (ssid == null) {
+            ssid = new String(rawSsid, StandardCharsets.ISO_8859_1);
+        }
+
+        return ssid;
+    }
+
+    public static boolean setSsid(byte[] rawSsid, ScanResult result) {
+        if (rawSsid == null || rawSsid.length == 0 || result == null) {
+            return false;
+        }
+
+        result.SSID = ssidConvert(rawSsid);
+        result.wifiSsid = createWifiSsid(rawSsid);
+        return true;
+    }
+
+    static void populateScanResult(ScanResult result, byte bytes[], String dbg) {
+        int num = 0;
+        if (bytes == null) return;
+        if (dbg == null) dbg = "";
+        for (int i = 0; i < bytes.length - 1; ) {
+            int type  = bytes[i] & 0xFF;
+            int len = bytes[i + 1] & 0xFF;
+            if (i + len + 2 > bytes.length) {
+                Log.w(TAG, dbg + "bad length " + len + " of IE " + type + " from " + result.BSSID);
+                Log.w(TAG, dbg + "ignoring the rest of the IEs");
+                break;
+            }
+            num++;
+            if (DBG) Log.i(TAG, dbg + "bytes[" + i + "] = [" + type + ", " + len + "]" + ", " +
+                    "next = " + (i + len + 2));
+            i += len + 2;
+        }
+
+        int secondChanelOffset = 0;
+        byte channelMode = 0;
+        byte centerFreqIndex1 = 0;
+        byte centerFreqIndex2 = 0;
+
+        boolean is80211McRTTResponder = false;
+
+        ScanResult.InformationElement elements[] = new ScanResult.InformationElement[num];
+        for (int i = 0, index = 0; i < num; i++) {
+            int type  = bytes[index] & 0xFF;
+            int len = bytes[index + 1] & 0xFF;
+            if (DBG) Log.i(TAG, dbg + "index = " + index + ", type = " + type + ", len = " + len);
+            ScanResult.InformationElement elem = new ScanResult.InformationElement();
+            elem.id = type;
+            elem.bytes = new byte[len];
+            for (int j = 0; j < len; j++) {
+                elem.bytes[j] = bytes[index + j + 2];
+            }
+            elements[i] = elem;
+            int inforStart = index + 2;
+            index += (len + 2);
+
+            if(type == EID_HT_OPERATION) {
+                secondChanelOffset = bytes[inforStart + 1] & 0x3;
+            } else if(type == EID_VHT_OPERATION) {
+                channelMode = bytes[inforStart];
+                centerFreqIndex1 = bytes[inforStart + 1];
+                centerFreqIndex2 = bytes[inforStart + 2];
+            } else if (type == EID_EXTENDED_CAPS) {
+                int tempIndex = RTT_RESP_ENABLE_BIT / 8;
+                byte offset = RTT_RESP_ENABLE_BIT % 8;
+
+                if(len < tempIndex + 1) {
+                    is80211McRTTResponder = false;
+                } else {
+                    if ((bytes[inforStart + tempIndex] & ((byte)0x1 << offset)) != 0) {
+                        is80211McRTTResponder = true;
+                    } else {
+                        is80211McRTTResponder = false;
+                    }
+                }
+            }
+        }
+
+        if (is80211McRTTResponder) {
+            result.setFlag(ScanResult.FLAG_80211mc_RESPONDER);
+        } else {
+            result.clearFlag(ScanResult.FLAG_80211mc_RESPONDER);
+        }
+
+        //handle RTT related information
+        if (channelMode != 0) {
+            // 80 or 160 MHz
+            result.channelWidth = channelMode + 1;
+
+            //convert channel index to frequency in MHz, channel 36 is 5180MHz
+            result.centerFreq0 = (centerFreqIndex1 - 36) * 5 + 5180;
+
+            if(channelMode > 1) { //160MHz
+                result.centerFreq1 = (centerFreqIndex2 - 36) * 5 + 5180;
+            } else {
+                result.centerFreq1 = 0;
+            }
+        } else {
+            //20 or 40 MHz
+            if (secondChanelOffset != 0) {//40MHz
+                result.channelWidth = 1;
+                if (secondChanelOffset == 1) {
+                    result.centerFreq0 = result.frequency + 20;
+                } else if (secondChanelOffset == 3) {
+                    result.centerFreq0 = result.frequency - 20;
+                } else {
+                    result.centerFreq0 = 0;
+                    Log.e(TAG, dbg + ": Error on secondChanelOffset");
+                }
+            } else {
+                result.centerFreq0  = 0;
+                result.centerFreq1  = 0;
+            }
+            result.centerFreq1  = 0;
+        }
+        if(DBG) {
+            Log.d(TAG, dbg + "SSID: " + result.SSID + " ChannelWidth is: " + result.channelWidth +
+                    " PrimaryFreq: " + result.frequency +" mCenterfreq0: " + result.centerFreq0 +
+                    " mCenterfreq1: " + result.centerFreq1 + (is80211McRTTResponder ?
+                    "Support RTT reponder: " : "Do not support RTT responder"));
+        }
+
+        result.informationElements = elements;
+    }
+
+    synchronized static void onFullScanResult(int id, ScanResult result, byte bytes[]) {
+        if (DBG) Log.i(TAG, "Got a full scan results event, ssid = " + result.SSID + ", " +
+                "num = " + bytes.length);
+
+        if (sScanEventHandler == null) {
+            return;
+        }
+        populateScanResult(result, bytes, " onFullScanResult ");
+
+        sScanEventHandler.onFullScanResult(result);
+    }
+
+    private static int sScanCmdId = 0;
+    private static ScanEventHandler sScanEventHandler;
+    private static ScanSettings sScanSettings;
+
+    synchronized public static boolean startScan(
+            ScanSettings settings, ScanEventHandler eventHandler) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+
+                if (sScanCmdId != 0) {
+                    stopScan();
+                } else if (sScanSettings != null || sScanEventHandler != null) {
+                /* current scan is paused; no need to stop it */
+                }
+
+                sScanCmdId = getNewCmdIdLocked();
+
+                sScanSettings = settings;
+                sScanEventHandler = eventHandler;
+
+                if (startScanNative(sWlan0Index, sScanCmdId, settings) == false) {
+                    sScanEventHandler = null;
+                    sScanSettings = null;
+                    sScanCmdId = 0;
+                    return false;
+                }
+
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    synchronized public static void stopScan() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                stopScanNative(sWlan0Index, sScanCmdId);
+                sScanSettings = null;
+                sScanEventHandler = null;
+                sScanCmdId = 0;
+            }
+        }
+    }
+
+    synchronized public static void pauseScan() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sScanCmdId != 0 && sScanSettings != null && sScanEventHandler != null) {
+                    Log.d(TAG, "Pausing scan");
+                    WifiScanner.ScanData scanData[] = getScanResultsNative(sWlan0Index, true);
+                    stopScanNative(sWlan0Index, sScanCmdId);
+                    sScanCmdId = 0;
+                    sScanEventHandler.onScanPaused(scanData);
+                }
+            }
+        }
+    }
+
+    synchronized public static void restartScan() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sScanCmdId == 0 && sScanSettings != null && sScanEventHandler != null) {
+                    Log.d(TAG, "Restarting scan");
+                    ScanEventHandler handler = sScanEventHandler;
+                    ScanSettings settings = sScanSettings;
+                    if (startScan(sScanSettings, sScanEventHandler)) {
+                        sScanEventHandler.onScanRestarted();
+                    } else {
+                    /* we are still paused; don't change state */
+                        sScanEventHandler = handler;
+                        sScanSettings = settings;
+                    }
+                }
+            }
+        }
+    }
+
+    synchronized public static WifiScanner.ScanData[] getScanResults(boolean flush) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getScanResultsNative(sWlan0Index, flush);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    public static interface HotlistEventHandler {
+        void onHotlistApFound (ScanResult[] result);
+        void onHotlistApLost  (ScanResult[] result);
+    }
+
+    private static int sHotlistCmdId = 0;
+    private static HotlistEventHandler sHotlistEventHandler;
+
+    private native static boolean setHotlistNative(int iface, int id,
+            WifiScanner.HotlistSettings settings);
+    private native static boolean resetHotlistNative(int iface, int id);
+
+    synchronized public static boolean setHotlist(WifiScanner.HotlistSettings settings,
+                                    HotlistEventHandler eventHandler) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sHotlistCmdId != 0) {
+                    return false;
+                } else {
+                    sHotlistCmdId = getNewCmdIdLocked();
+                }
+
+                sHotlistEventHandler = eventHandler;
+                if (setHotlistNative(sWlan0Index, sHotlistCmdId, settings) == false) {
+                    sHotlistEventHandler = null;
+                    return false;
+                }
+
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    synchronized public static void resetHotlist() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sHotlistCmdId != 0) {
+                    resetHotlistNative(sWlan0Index, sHotlistCmdId);
+                    sHotlistCmdId = 0;
+                    sHotlistEventHandler = null;
+                }
+            }
+        }
+    }
+
+    synchronized public static void onHotlistApFound(int id, ScanResult[] results) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sHotlistCmdId != 0) {
+                    sHotlistEventHandler.onHotlistApFound(results);
+                } else {
+                /* this can happen because of race conditions */
+                    Log.d(TAG, "Ignoring hotlist AP found event");
+                }
+            }
+        }
+    }
+
+    synchronized public static void onHotlistApLost(int id, ScanResult[] results) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sHotlistCmdId != 0) {
+                    sHotlistEventHandler.onHotlistApLost(results);
+                } else {
+                /* this can happen because of race conditions */
+                    Log.d(TAG, "Ignoring hotlist AP lost event");
+                }
+            }
+        }
+    }
+
+    public static interface SignificantWifiChangeEventHandler {
+        void onChangesFound(ScanResult[] result);
+    }
+
+    private static SignificantWifiChangeEventHandler sSignificantWifiChangeHandler;
+    private static int sSignificantWifiChangeCmdId;
+
+    private static native boolean trackSignificantWifiChangeNative(
+            int iface, int id, WifiScanner.WifiChangeSettings settings);
+    private static native boolean untrackSignificantWifiChangeNative(int iface, int id);
+
+    synchronized public static boolean trackSignificantWifiChange(
+            WifiScanner.WifiChangeSettings settings, SignificantWifiChangeEventHandler handler) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sSignificantWifiChangeCmdId != 0) {
+                    return false;
+                } else {
+                    sSignificantWifiChangeCmdId = getNewCmdIdLocked();
+                }
+
+                sSignificantWifiChangeHandler = handler;
+                if (trackSignificantWifiChangeNative(sWlan0Index, sScanCmdId, settings) == false) {
+                    sSignificantWifiChangeHandler = null;
+                    return false;
+                }
+
+                return true;
+            } else {
+                return false;
+            }
+
+        }
+    }
+
+    synchronized static void untrackSignificantWifiChange() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sSignificantWifiChangeCmdId != 0) {
+                    untrackSignificantWifiChangeNative(sWlan0Index, sSignificantWifiChangeCmdId);
+                    sSignificantWifiChangeCmdId = 0;
+                    sSignificantWifiChangeHandler = null;
+                }
+            }
+        }
+    }
+
+    synchronized static void onSignificantWifiChange(int id, ScanResult[] results) {
+        synchronized (mLock) {
+            if (sSignificantWifiChangeCmdId != 0) {
+                sSignificantWifiChangeHandler.onChangesFound(results);
+            } else {
+            /* this can happen because of race conditions */
+                Log.d(TAG, "Ignoring significant wifi change");
+            }
+        }
+    }
+
+    synchronized public static WifiLinkLayerStats getWifiLinkLayerStats(String iface) {
+        // TODO: use correct iface name to Index translation
+        if (iface == null) return null;
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getWifiLinkLayerStatsNative(sWlan0Index);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    synchronized public static void setWifiLinkLayerStats(String iface, int enable) {
+        if (iface == null) return;
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                setWifiLinkLayerStatsNative(sWlan0Index, enable);
+            }
+        }
+    }
+
     public static native int getSupportedFeatureSetNative(int iface);
     synchronized public static int getSupportedFeatureSet() {
-        return getSupportedFeatureSetNative(sWlan0Index);
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getSupportedFeatureSetNative(sWlan0Index);
+            } else {
+                Log.d(TAG, "Failing getSupportedFeatureset because HAL isn't started");
+                return 0;
+            }
+        }
     }
 
     /* Rtt related commands/events */
@@ -1544,7 +1833,7 @@ public class WifiNative {
             sRttEventHandler.onRttResults(results);
             sRttCmdId = 0;
         } else {
-            Log.d(TAG, "Received event for unknown cmd = " + id + ", current id = " + sRttCmdId);
+            Log.d(TAG, "RTT Received event for unknown cmd = " + id + ", current id = " + sRttCmdId);
         }
     }
 
@@ -1556,25 +1845,39 @@ public class WifiNative {
     synchronized public static boolean requestRtt(
             RttManager.RttParams[] params, RttEventHandler handler) {
         synchronized (mLock) {
-            if (sRttCmdId != 0) {
-                return false;
+            if (isHalStarted()) {
+                if (sRttCmdId != 0) {
+                    Log.v("TAG", "Last one is still under measurement!");
+                    return false;
+                } else {
+                    sRttCmdId = getNewCmdIdLocked();
+                }
+                sRttEventHandler = handler;
+                Log.v(TAG, "native issue RTT request");
+                return requestRangeNative(sWlan0Index, sRttCmdId, params);
             } else {
-                sRttCmdId = getNewCmdIdLocked();
+                return false;
             }
-            sRttEventHandler = handler;
-            return requestRangeNative(sWlan0Index, sRttCmdId, params);
         }
     }
 
     synchronized public static boolean cancelRtt(RttManager.RttParams[] params) {
         synchronized(mLock) {
-            if (sRttCmdId == 0) {
-                return false;
-            }
+            if (isHalStarted()) {
+                if (sRttCmdId == 0) {
+                    return false;
+                }
 
-            if (cancelRangeRequestNative(sWlan0Index, sRttCmdId, params)) {
-                sRttEventHandler = null;
-                return true;
+                sRttCmdId = 0;
+
+                if (cancelRangeRequestNative(sWlan0Index, sRttCmdId, params)) {
+                    sRttEventHandler = null;
+                    Log.v(TAG, "RTT cancel Request Successfully");
+                    return true;
+                } else {
+                    Log.e(TAG, "RTT cancel Request failed");
+                    return false;
+                }
             } else {
                 return false;
             }
@@ -1585,7 +1888,7 @@ public class WifiNative {
 
     synchronized public static boolean setScanningMacOui(byte[] oui) {
         synchronized (mLock) {
-            if (startHal()) {
+            if (isHalStarted()) {
                 return setScanningMacOuiNative(sWlan0Index, oui);
             } else {
                 return false;
@@ -1598,10 +1901,493 @@ public class WifiNative {
 
     synchronized public static int [] getChannelsForBand(int band) {
         synchronized (mLock) {
-            if (startHal()) {
+            if (isHalStarted()) {
                 return getChannelsForBandNative(sWlan0Index, band);
+	    } else {
+                return null;
+            }
+        }
+    }
+
+    private static native boolean isGetChannelsForBandSupportedNative();
+    synchronized public static boolean isGetChannelsForBandSupported(){
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return isGetChannelsForBandSupportedNative();
+	    } else {
+                return false;
+            }
+        }
+    }
+
+    private static native boolean setDfsFlagNative(int iface, boolean dfsOn);
+    synchronized public static boolean setDfsFlag(boolean dfsOn) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return setDfsFlagNative(sWlan0Index, dfsOn);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static native boolean toggleInterfaceNative(int on);
+    synchronized public static boolean toggleInterface(int on) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return toggleInterfaceNative(0);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static native RttManager.RttCapabilities getRttCapabilitiesNative(int iface);
+    synchronized public static RttManager.RttCapabilities getRttCapabilities() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getRttCapabilitiesNative(sWlan0Index);
+            }else {
+                return null;
+            }
+        }
+    }
+
+    private static native boolean setCountryCodeHalNative(int iface, String CountryCode);
+    synchronized public static boolean setCountryCodeHal( String CountryCode) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return setCountryCodeHalNative(sWlan0Index, CountryCode);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    /* Rtt related commands/events */
+    public abstract class TdlsEventHandler {
+        abstract public void onTdlsStatus(String macAddr, int status, int reason);
+    }
+
+    private static TdlsEventHandler sTdlsEventHandler;
+
+    private static native boolean enableDisableTdlsNative(int iface, boolean enable,
+            String macAddr);
+    synchronized public static boolean enableDisableTdls(boolean enable, String macAdd,
+            TdlsEventHandler tdlsCallBack) {
+        synchronized (mLock) {
+            sTdlsEventHandler = tdlsCallBack;
+            return enableDisableTdlsNative(sWlan0Index, enable, macAdd);
+        }
+    }
+
+    // Once TDLS per mac and event feature is implemented, this class definition should be
+    // moved to the right place, like WifiManager etc
+    public static class TdlsStatus {
+        int channel;
+        int global_operating_class;
+        int state;
+        int reason;
+    }
+    private static native TdlsStatus getTdlsStatusNative(int iface, String macAddr);
+    synchronized public static TdlsStatus getTdlsStatus (String macAdd) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getTdlsStatusNative(sWlan0Index, macAdd);
             } else {
                 return null;
+            }
+        }
+    }
+
+    //ToFix: Once TDLS per mac and event feature is implemented, this class definition should be
+    // moved to the right place, like WifiStateMachine etc
+    public static class TdlsCapabilities {
+        /* Maximum TDLS session number can be supported by the Firmware and hardware */
+        int maxConcurrentTdlsSessionNumber;
+        boolean isGlobalTdlsSupported;
+        boolean isPerMacTdlsSupported;
+        boolean isOffChannelTdlsSupported;
+    }
+
+
+
+    private static native TdlsCapabilities getTdlsCapabilitiesNative(int iface);
+    synchronized public static TdlsCapabilities getTdlsCapabilities () {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getTdlsCapabilitiesNative(sWlan0Index);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    synchronized private static boolean onTdlsStatus(String macAddr, int status, int reason) {
+         if (sTdlsEventHandler == null) {
+             return false;
+         } else {
+             sTdlsEventHandler.onTdlsStatus(macAddr, status, reason);
+             return true;
+         }
+    }
+
+    //---------------------------------------------------------------------------------
+
+    /* Wifi Logger commands/events */
+
+    public static native boolean startLogging(int iface);
+
+    public static interface WifiLoggerEventHandler {
+        void onRingBufferData(RingBufferStatus status, byte[] buffer);
+        void onWifiAlert(int errorCode, byte[] buffer);
+    }
+
+    private static WifiLoggerEventHandler sWifiLoggerEventHandler = null;
+
+    private static void onRingBufferData(RingBufferStatus status, byte[] buffer) {
+        if (sWifiLoggerEventHandler != null)
+            sWifiLoggerEventHandler.onRingBufferData(status, buffer);
+    }
+
+    private static void onWifiAlert(byte[] buffer, int errorCode) {
+        if (sWifiLoggerEventHandler != null)
+            sWifiLoggerEventHandler.onWifiAlert(errorCode, buffer);
+    }
+
+    private static int sLogCmdId = -1;
+    private static native boolean setLoggingEventHandlerNative(int iface, int id);
+    synchronized public static boolean setLoggingEventHandler(WifiLoggerEventHandler handler) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                int oldId =  sLogCmdId;
+                sLogCmdId = getNewCmdIdLocked();
+                if (!setLoggingEventHandlerNative(sWlan0Index, sLogCmdId)) {
+                    sLogCmdId = oldId;
+                    return false;
+                }
+                sWifiLoggerEventHandler = handler;
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static native boolean startLoggingRingBufferNative(int iface, int verboseLevel,
+            int flags, int minIntervalSec ,int minDataSize, String ringName);
+    synchronized public static boolean startLoggingRingBuffer(int verboseLevel, int flags, int maxInterval,
+            int minDataSize, String ringName){
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return startLoggingRingBufferNative(sWlan0Index, verboseLevel, flags, maxInterval,
+                        minDataSize, ringName);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static native int getSupportedLoggerFeatureSetNative(int iface);
+    synchronized public static int getSupportedLoggerFeatureSet() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getSupportedLoggerFeatureSetNative(sWlan0Index);
+            } else {
+                return 0;
+            }
+        }
+    }
+
+    private static native boolean resetLogHandlerNative(int iface, int id);
+    synchronized public static boolean resetLogHandler() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if (sLogCmdId == -1) {
+                    Log.e(TAG,"Can not reset handler Before set any handler");
+                    return false;
+                }
+                sWifiLoggerEventHandler = null;
+                if (resetLogHandlerNative(sWlan0Index, sLogCmdId)) {
+                    sLogCmdId = -1;
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private static native String getDriverVersionNative(int iface);
+    synchronized public static String getDriverVersion() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getDriverVersionNative(sWlan0Index);
+            } else {
+                return "";
+            }
+        }
+    }
+
+
+    private static native String getFirmwareVersionNative(int iface);
+    synchronized public static String getFirmwareVersion() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getFirmwareVersionNative(sWlan0Index);
+            } else {
+                return "";
+            }
+        }
+    }
+
+    public static class RingBufferStatus{
+        String name;
+        int flag;
+        int ringBufferId;
+        int ringBufferByteSize;
+        int verboseLevel;
+        int writtenBytes;
+        int readBytes;
+        int writtenRecords;
+
+        @Override
+        public String toString() {
+            return "name: " + name + " flag: " + flag + " ringBufferId: " + ringBufferId +
+                    " ringBufferByteSize: " +ringBufferByteSize + " verboseLevel: " +verboseLevel +
+                    " writtenBytes: " + writtenBytes + " readBytes: " + readBytes +
+                    " writtenRecords: " + writtenRecords;
+        }
+    }
+
+    private static native RingBufferStatus[] getRingBufferStatusNative(int iface);
+    synchronized public static RingBufferStatus[] getRingBufferStatus() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getRingBufferStatusNative(sWlan0Index);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    private static native boolean getRingBufferDataNative(int iface, String ringName);
+    synchronized public static boolean getRingBufferData(String ringName) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                return getRingBufferDataNative(sWlan0Index, ringName);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    static private byte[] mFwMemoryDump;
+    private static void onWifiFwMemoryAvailable(byte[] buffer) {
+        mFwMemoryDump = buffer;
+        if (DBG) {
+            Log.d(TAG, "onWifiFwMemoryAvailable is called and buffer length is: " +
+                    (buffer == null ? 0 :  buffer.length));
+        }
+    }
+
+    private static native boolean getFwMemoryDumpNative(int iface);
+    synchronized public static byte[] getFwMemoryDump() {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                if(getFwMemoryDumpNative(sWlan0Index)) {
+                    byte[] fwMemoryDump = mFwMemoryDump;
+                    mFwMemoryDump = null;
+                    return fwMemoryDump;
+                } else {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    //---------------------------------------------------------------------------------
+    /* Configure ePNO */
+
+    public class WifiPnoNetwork {
+        String SSID;
+        int rssi_threshold;
+        int flags;
+        int auth;
+        String configKey; // kept for reference
+
+        WifiPnoNetwork(WifiConfiguration config, int threshold) {
+            if (config.SSID == null) {
+                this.SSID = "";
+                this.flags = 1;
+            } else {
+                this.SSID = config.SSID;
+            }
+            this.rssi_threshold = threshold;
+            if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_PSK)) {
+                auth |= 2;
+            } else if (config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.WPA_EAP) ||
+                    config.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.IEEE8021X)) {
+                auth |= 4;
+            } else if (config.wepKeys[0] != null) {
+                auth |= 1;
+            } else {
+                auth |= 1;
+            }
+//            auth = 0;
+            flags |= 6; //A and G
+            configKey = config.configKey();
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sbuf = new StringBuilder();
+            sbuf.append(this.SSID);
+            sbuf.append(" flags=").append(this.flags);
+            sbuf.append(" rssi=").append(this.rssi_threshold);
+            sbuf.append(" auth=").append(this.auth);
+            return sbuf.toString();
+        }
+    }
+
+    public static interface WifiPnoEventHandler {
+        void onPnoNetworkFound(ScanResult results[]);
+    }
+
+    private static WifiPnoEventHandler sWifiPnoEventHandler;
+
+    private static int sPnoCmdId = 0;
+
+    private native static boolean setPnoListNative(int iface, int id, WifiPnoNetwork list[]);
+
+    synchronized public static boolean setPnoList(WifiPnoNetwork list[],
+                                                  WifiPnoEventHandler eventHandler) {
+        Log.e(TAG, "setPnoList cmd " + sPnoCmdId);
+
+        synchronized (mLock) {
+            if (isHalStarted()) {
+
+                sPnoCmdId = getNewCmdIdLocked();
+
+                sWifiPnoEventHandler = eventHandler;
+                if (setPnoListNative(sWlan0Index, sPnoCmdId, list)) {
+                    return true;
+                }
+            }
+
+            sWifiPnoEventHandler = null;
+            return false;
+        }
+    }
+
+    synchronized public static void onPnoNetworkFound(int id, ScanResult[] results) {
+
+        if (results == null) {
+            Log.e(TAG, "onPnoNetworkFound null results");
+            return;
+
+        }
+        Log.d(TAG, "WifiNative.onPnoNetworkFound result " + results.length);
+
+        //Log.e(TAG, "onPnoNetworkFound length " + results.length);
+        //return;
+        for (int i=0; i<results.length; i++) {
+            Log.e(TAG, "onPnoNetworkFound SSID " + results[i].SSID
+                    + " " + results[i].level + " " + results[i].frequency);
+
+            populateScanResult(results[i], results[i].bytes, "onPnoNetworkFound ");
+            results[i].wifiSsid = WifiSsid.createFromAsciiEncoded(results[i].SSID);
+        }
+        synchronized (mLock) {
+            if (sPnoCmdId != 0 && sWifiPnoEventHandler != null) {
+                sWifiPnoEventHandler.onPnoNetworkFound(results);
+            } else {
+                /* this can happen because of race conditions */
+                Log.d(TAG, "Ignoring Pno Network found event");
+            }
+        }
+    }
+
+    public class WifiLazyRoamParams {
+        int A_band_boost_threshold;
+        int A_band_penalty_threshold;
+        int A_band_boost_factor;
+        int A_band_penalty_factor;
+        int A_band_max_boost;
+        int lazy_roam_hysteresis;
+        int alert_roam_rssi_trigger;
+
+        WifiLazyRoamParams() {
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sbuf = new StringBuilder();
+            sbuf.append(" A_band_boost_threshold=").append(this.A_band_boost_threshold);
+            sbuf.append(" A_band_penalty_threshold=").append(this.A_band_penalty_threshold);
+            sbuf.append(" A_band_boost_factor=").append(this.A_band_boost_factor);
+            sbuf.append(" A_band_penalty_factor=").append(this.A_band_penalty_factor);
+            sbuf.append(" A_band_max_boost=").append(this.A_band_max_boost);
+            sbuf.append(" lazy_roam_hysteresis=").append(this.lazy_roam_hysteresis);
+            sbuf.append(" alert_roam_rssi_trigger=").append(this.alert_roam_rssi_trigger);
+            return sbuf.toString();
+        }
+    }
+
+    private native static boolean setLazyRoamNative(int iface, int id,
+                                              boolean enabled, WifiLazyRoamParams param);
+
+    synchronized public static boolean setLazyRoam(boolean enabled, WifiLazyRoamParams params) {
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                sPnoCmdId = getNewCmdIdLocked();
+                return setLazyRoamNative(sWlan0Index, sPnoCmdId, enabled, params);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private native static boolean setBssidBlacklistNative(int iface, int id,
+                                              String list[]);
+
+    synchronized public static boolean setBssidBlacklist(String list[]) {
+        int size = 0;
+        if (list != null) {
+            size = list.length;
+        }
+        Log.e(TAG, "setBssidBlacklist cmd " + sPnoCmdId + " size " + size);
+
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                sPnoCmdId = getNewCmdIdLocked();
+                return setBssidBlacklistNative(sWlan0Index, sPnoCmdId, list);
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private native static boolean setSsidWhitelistNative(int iface, int id, String list[]);
+
+    synchronized public static boolean setSsidWhitelist(String list[]) {
+        int size = 0;
+        if (list != null) {
+            size = list.length;
+        }
+        Log.e(TAG, "setSsidWhitelist cmd " + sPnoCmdId + " size " + size);
+
+        synchronized (mLock) {
+            if (isHalStarted()) {
+                sPnoCmdId = getNewCmdIdLocked();
+
+                return setSsidWhitelistNative(sWlan0Index, sPnoCmdId, list);
+            } else {
+                return false;
             }
         }
     }

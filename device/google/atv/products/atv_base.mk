@@ -22,7 +22,7 @@ PRODUCT_PACKAGES := \
     tv_input.default
 
 PRODUCT_COPY_FILES := \
-    device/google/atv/tv_core_hardware.xml:system/etc/permissions/tv_core_hardware.xml
+    device/google/atv/permissions/tv_core_hardware.xml:system/etc/permissions/tv_core_hardware.xml
 
 DEVICE_PACKAGE_OVERLAYS := \
     device/google/atv/overlay
@@ -41,13 +41,14 @@ PRODUCT_PACKAGES += \
     libstagefright_soft_amrdec \
     libstagefright_soft_amrnbenc \
     libstagefright_soft_amrwbenc \
+    libstagefright_soft_avcdec \
+    libstagefright_soft_avcenc \
     libstagefright_soft_flacenc \
     libstagefright_soft_g711dec \
     libstagefright_soft_gsmdec \
-    libstagefright_soft_h264dec \
-    libstagefright_soft_h264enc \
     libstagefright_soft_hevcdec \
     libstagefright_soft_mp3dec \
+    libstagefright_soft_mpeg2dec \
     libstagefright_soft_mpeg4dec \
     libstagefright_soft_mpeg4enc \
     libstagefright_soft_opusdec \
@@ -67,13 +68,11 @@ PRODUCT_PACKAGES += \
     FusedLocation \
     InputDevices \
     KeyChain \
-    Launcher2 \
     PicoTts \
     PacProcessor \
     PrintSpooler \
     ProxyHandler \
     SharedStorageBackup \
-    TeleService \
     VpnDialogs
 
 # From build/target/product/generic_no_telephony.mk
@@ -95,16 +94,32 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.sys.media.avsync=true
 
+# Use full Noto Sans Japanese font
+FONT_NOTOSANS_JP_FULL := true
+
+# Do not include the Live Channels app if USE_OEM_TV_APP flag is set.
+# The feature com.google.android.tv.installed is used to tell whether a device
+# has the pre-installed Live Channels app. This is necessary for the Play Store
+# to identify the compatible devices that can install later updates of the app.
+ifneq ($(USE_OEM_TV_APP),true)
+    PRODUCT_PACKAGES += TV
+    PRODUCT_COPY_FILES += \
+        device/google/atv/permissions/com.google.android.tv.installed.xml:system/etc/permissions/com.google.android.tv.installed.xml
+endif
+
+# To enable access to /dev/dvb*
+BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy
+
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AllAudio.mk)
 $(call inherit-product-if-exists, external/svox/pico/lang/all_pico_languages.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/dancing-script/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/carrois-gothic-sc/fonts.mk)
 $(call inherit-product-if-exists, external/google-fonts/coming-soon/fonts.mk)
-$(call inherit-product-if-exists, external/google-fonts/cutive-mono/fonts.mk)    
-$(call inherit-product-if-exists, external/lohit-fonts/fonts.mk)
+$(call inherit-product-if-exists, external/google-fonts/cutive-mono/fonts.mk)
 $(call inherit-product-if-exists, external/noto-fonts/fonts.mk)
-$(call inherit-product-if-exists, external/naver-fonts/fonts.mk)
+$(call inherit-product-if-exists, external/roboto-fonts/fonts.mk)
+$(call inherit-product-if-exists, external/hyphenation-patterns/patterns.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product-if-exists, frameworks/webview/chromium/chromium.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_minimal.mk)

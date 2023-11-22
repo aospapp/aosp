@@ -17,26 +17,16 @@
 #ifndef SYSTEM_KEYMASTER_KEY_H_
 #define SYSTEM_KEYMASTER_KEY_H_
 
+#include <UniquePtr.h>
+
+#include <hardware/keymaster_defs.h>
 #include <keymaster/authorization_set.h>
-#include <keymaster/keymaster_defs.h>
-#include <keymaster/logger.h>
 
 namespace keymaster {
 
-class KeyBlob;
-class Operation;
-
 class Key {
   public:
-    static Key* CreateKey(const KeyBlob& blob, const Logger& logger, keymaster_error_t* error);
-    static Key* GenerateKey(const AuthorizationSet& key_description, const Logger& logger,
-                            keymaster_error_t* error);
-    static Key* ImportKey(const AuthorizationSet& key_description,
-                          keymaster_key_format_t key_format, const uint8_t* key_data,
-                          size_t key_data_length, const Logger& logger, keymaster_error_t* error);
-
     virtual ~Key() {}
-    virtual Operation* CreateOperation(keymaster_purpose_t purpose, keymaster_error_t* error) = 0;
 
     /**
      * Return a copy of raw key material, in the key's preferred binary format.
@@ -53,11 +43,8 @@ class Key {
     const AuthorizationSet& authorizations() const { return authorizations_; }
 
   protected:
-    Key(const KeyBlob& blob, const Logger& logger);
-    Key(const AuthorizationSet& authorizations, const Logger& logger)
-        : logger_(logger), authorizations_(authorizations) {}
-
-    const Logger& logger_;
+    Key(const AuthorizationSet& hw_enforced, const AuthorizationSet& sw_enforced,
+        keymaster_error_t* error);
 
   private:
     AuthorizationSet authorizations_;

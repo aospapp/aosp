@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -71,7 +72,7 @@ XAuint32 prefetch_status = PREFETCHSTATUS_UNKNOWN;
         (XA_PREFETCHEVENT_STATUSCHANGE | XA_PREFETCHEVENT_FILLLEVELCHANGE)
 
 // stream event change callback
-void streamEventChangeCallback(XAStreamInformationItf caller, XAuint32 eventId,
+void streamEventChangeCallback(XAStreamInformationItf caller __unused, XAuint32 eventId,
         XAuint32 streamIndex, void *pEventData, void *pContext)
 {
     // context parameter is specified as NULL and is unused here
@@ -153,12 +154,12 @@ void playEventCallback(XAPlayItf caller, void *pContext, XAuint32 event)
 XAresult bufferQueueCallback(
         XAAndroidBufferQueueItf caller,
         void *pCallbackContext,
-        void *pBufferContext,
-        void *pBufferData,
-        XAuint32 dataSize,
-        XAuint32 dataUsed,
-        const XAAndroidBufferItem *pItems,
-        XAuint32 itemsLength)
+        void *pBufferContext __unused,
+        void *pBufferData __unused,
+        XAuint32 dataSize __unused,
+        XAuint32 dataUsed __unused,
+        const XAAndroidBufferItem *pItems __unused,
+        XAuint32 itemsLength __unused)
 {
     XAPlayItf playerPlay = (XAPlayItf) pCallbackContext;
     // enqueue the .ts data directly from mapped memory, so ignore the empty buffer pBufferData
@@ -806,7 +807,7 @@ streamIndex, &mediaContainerInformation);
         if (pauseMs >= 0) {
             result = (*playerPlay)->GetPosition(playerPlay, &position);
             assert(XA_RESULT_SUCCESS == result);
-            if (position >= pauseMs) {
+            if ((int) position >= pauseMs) {
                 printf("Pausing for 5 seconds at position %u\n", position);
                 result = (*playerPlay)->SetPlayState(playerPlay, XA_PLAYSTATE_PAUSED);
                 assert(XA_RESULT_SUCCESS == result);

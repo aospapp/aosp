@@ -87,7 +87,7 @@ void EmulatedCameraHotplugThread::requestExit() {
     if (rmWatchFailed) { // unlikely
         // Give the thread a fighting chance to error out on the next
         // read
-        if (TEMP_FAILURE_RETRY(close(mInotifyFd)) == -1) {
+        if (close(mInotifyFd) == -1) {
             ALOGE("%s: close failure error: '%s' (%d)",
                  __FUNCTION__, strerror(errno), errno);
         }
@@ -132,7 +132,7 @@ status_t EmulatedCameraHotplugThread::readyToRun() {
         status_t err = -errno;
 
         if (mInotifyFd != -1) {
-            TEMP_FAILURE_RETRY(close(mInotifyFd));
+            close(mInotifyFd);
         }
 
         return err;
@@ -212,7 +212,7 @@ bool EmulatedCameraHotplugThread::threadLoop() {
     }
 
     if (!mRunning) {
-        TEMP_FAILURE_RETRY(close(mInotifyFd));
+        close(mInotifyFd);
         return false;
     }
 
@@ -243,7 +243,7 @@ bool EmulatedCameraHotplugThread::createFileIfNotExists(int cameraId) const
         return false;
     }
 
-    TEMP_FAILURE_RETRY(close(fd));
+    close(fd);
     return true;
 }
 
@@ -364,7 +364,7 @@ int EmulatedCameraHotplugThread::readFile(String8 filePath) const {
         retval = 1;
     }
 
-    TEMP_FAILURE_RETRY(close(fd));
+    close(fd);
 
     return retval;
 }

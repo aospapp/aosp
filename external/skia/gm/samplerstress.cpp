@@ -8,12 +8,12 @@
 #include "gm.h"
 #include "SkCanvas.h"
 #include "SkShader.h"
-#include "SkStippleMaskFilter.h"
+#include "SkBlurMaskFilter.h"
 
 namespace skiagm {
 
 /**
- * Stress test the samplers by rendering a textured glyph with a mask and
+ * Stress test the GPU samplers by rendering a textured glyph with a mask and
  * an AA clip
  */
 class SamplerStressGM : public GM {
@@ -28,15 +28,12 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
+
+    SkString onShortName() override {
+        return SkString("gpusamplerstress");
     }
 
-    virtual SkString onShortName() {
-        return SkString("samplerstress");
-    }
-
-    virtual SkISize onISize() {
+    SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
@@ -71,7 +68,7 @@ protected:
     }
 
     void createShader() {
-        if (NULL != fShader.get()) {
+        if (fShader.get()) {
             return;
         }
 
@@ -83,15 +80,15 @@ protected:
     }
 
     void createMaskFilter() {
-        if (NULL != fMaskFilter.get()) {
+        if (fMaskFilter.get()) {
             return;
         }
 
-        fMaskFilter.reset(SkStippleMaskFilter::Create());
+        const SkScalar sigma = 1;
+        fMaskFilter.reset(SkBlurMaskFilter::Create(kNormal_SkBlurStyle, sigma));
     }
 
-    virtual void onDraw(SkCanvas* canvas) {
-
+    void onDraw(SkCanvas* canvas) override {
         createShader();
         createMaskFilter();
 

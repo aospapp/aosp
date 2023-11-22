@@ -392,7 +392,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 	m_emptyTex1D.getSampler().magFilter	= tcu::Sampler::NEAREST;
 	m_emptyTex1D.allocLevel(0, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1);
 	m_emptyTex1D.getLevel(0).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0);
-	m_emptyTex1D.updateView();
+	m_emptyTex1D.updateView(tcu::Sampler::MODE_LAST);
 
 	m_emptyTex2D.getSampler().wrapS		= tcu::Sampler::CLAMP_TO_EDGE;
 	m_emptyTex2D.getSampler().wrapT		= tcu::Sampler::CLAMP_TO_EDGE;
@@ -400,7 +400,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 	m_emptyTex2D.getSampler().magFilter	= tcu::Sampler::NEAREST;
 	m_emptyTex2D.allocLevel(0, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1, 1);
 	m_emptyTex2D.getLevel(0).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0);
-	m_emptyTex2D.updateView();
+	m_emptyTex2D.updateView(tcu::Sampler::MODE_LAST);
 
 	m_emptyTexCube.getSampler().wrapS		= tcu::Sampler::CLAMP_TO_EDGE;
 	m_emptyTexCube.getSampler().wrapT		= tcu::Sampler::CLAMP_TO_EDGE;
@@ -411,7 +411,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 		m_emptyTexCube.allocFace(0, (tcu::CubeFace)face, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1, 1);
 		m_emptyTexCube.getFace(0, (tcu::CubeFace)face).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0);
 	}
-	m_emptyTexCube.updateView();
+	m_emptyTexCube.updateView(tcu::Sampler::MODE_LAST);
 
 	m_emptyTex2DArray.getSampler().wrapS		= tcu::Sampler::CLAMP_TO_EDGE;
 	m_emptyTex2DArray.getSampler().wrapT		= tcu::Sampler::CLAMP_TO_EDGE;
@@ -419,7 +419,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 	m_emptyTex2DArray.getSampler().magFilter	= tcu::Sampler::NEAREST;
 	m_emptyTex2DArray.allocLevel(0, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1, 1, 1);
 	m_emptyTex2DArray.getLevel(0).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0);
-	m_emptyTex2DArray.updateView();
+	m_emptyTex2DArray.updateView(tcu::Sampler::MODE_LAST);
 
 	m_emptyTex3D.getSampler().wrapS		= tcu::Sampler::CLAMP_TO_EDGE;
 	m_emptyTex3D.getSampler().wrapT		= tcu::Sampler::CLAMP_TO_EDGE;
@@ -428,7 +428,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 	m_emptyTex3D.getSampler().magFilter	= tcu::Sampler::NEAREST;
 	m_emptyTex3D.allocLevel(0, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1, 1, 1);
 	m_emptyTex3D.getLevel(0).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0);
-	m_emptyTex3D.updateView();
+	m_emptyTex3D.updateView(tcu::Sampler::MODE_LAST);
 
 	m_emptyTexCubeArray.getSampler().wrapS		= tcu::Sampler::CLAMP_TO_EDGE;
 	m_emptyTexCubeArray.getSampler().wrapT		= tcu::Sampler::CLAMP_TO_EDGE;
@@ -437,7 +437,7 @@ ReferenceContext::ReferenceContext (const ReferenceContextLimits& limits, const 
 	m_emptyTexCubeArray.allocLevel(0, tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), 1, 1, 6);
 	for (int faceNdx = 0; faceNdx < 6; faceNdx++)
 		m_emptyTexCubeArray.getLevel(0).setPixel(Vec4(0.0f, 0.0f, 0.0f, 1.0f), 0, 0, faceNdx);
-	m_emptyTexCubeArray.updateView();
+	m_emptyTexCubeArray.updateView(tcu::Sampler::MODE_LAST);
 
 	if (glu::isContextTypeGLCore(getType()))
 		m_sRGBUpdateEnabled = false;
@@ -972,12 +972,25 @@ static void depthValueFloatClampCopy (const PixelBufferAccess& dst, const ConstP
 	DE_ASSERT(src.getWidth() == width && src.getHeight() == height && src.getDepth() == depth);
 
 	// clamping copy
-	for (int z = 0; z < depth; z++)
-	for (int y = 0; y < height; y++)
-	for (int x = 0; x < width; x++)
+
+	if (src.getFormat().order == tcu::TextureFormat::DS && dst.getFormat().order == tcu::TextureFormat::DS)
 	{
-		const Vec4 data = src.getPixel(x, y, z);
-		dst.setPixel(Vec4(de::clamp(data.x(), 0.0f, 1.0f), data.y(), data.z(), data.w()), x, y, z);
+		// copy only depth and stencil
+		for (int z = 0; z < depth; z++)
+		for (int y = 0; y < height; y++)
+		for (int x = 0; x < width; x++)
+		{
+			dst.setPixDepth(de::clamp(src.getPixDepth(x, y, z), 0.0f, 1.0f), x, y, z);
+			dst.setPixStencil(src.getPixStencil(x, y, z), x, y, z);
+		}
+	}
+	else
+	{
+		// copy only depth
+		for (int z = 0; z < depth; z++)
+		for (int y = 0; y < height; y++)
+		for (int x = 0; x < width; x++)
+			dst.setPixDepth(de::clamp(src.getPixDepth(x, y, z), 0.0f, 1.0f), x, y, z);
 	}
 }
 
@@ -989,6 +1002,20 @@ void ReferenceContext::texImage1D (deUint32 target, int level, deUint32 internal
 void ReferenceContext::texImage2D (deUint32 target, int level, deUint32 internalFormat, int width, int height, int border, deUint32 format, deUint32 type, const void* data)
 {
 	texImage3D(target, level, internalFormat, width, height, 1, border, format, type, data);
+}
+
+static void clearToTextureInitialValue (PixelBufferAccess access)
+{
+	const bool hasDepth		= access.getFormat().order == tcu::TextureFormat::D || access.getFormat().order == tcu::TextureFormat::DS;
+	const bool hasStencil	= access.getFormat().order == tcu::TextureFormat::S || access.getFormat().order == tcu::TextureFormat::DS;
+	const bool hasColor		= !hasDepth && !hasStencil;
+
+	if (hasDepth)
+		tcu::clearDepth(access, 0.0f);
+	if (hasStencil)
+		tcu::clearStencil(access, 0u);
+	if (hasColor)
+		tcu::clear(access, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
 }
 
 void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internalFormat, int width, int height, int depth, int border, deUint32 format, deUint32 type, const void* data)
@@ -1043,9 +1070,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getLevel(level);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getLevel(level));
 		}
 	}
 	else if (target == GL_TEXTURE_2D)
@@ -1080,9 +1106,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getLevel(level);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getLevel(level));
 		}
 	}
 	else if (target == GL_TEXTURE_CUBE_MAP_NEGATIVE_X ||
@@ -1123,9 +1148,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getFace(level, face);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getFace(level, face));
 		}
 	}
 	else if (target == GL_TEXTURE_2D_ARRAY)
@@ -1163,9 +1187,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getLevel(level);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getLevel(level));
 		}
 	}
 	else if (target == GL_TEXTURE_3D)
@@ -1203,9 +1226,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getLevel(level);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getLevel(level));
 		}
 	}
 	else if (target == GL_TEXTURE_CUBE_MAP_ARRAY)
@@ -1244,9 +1266,8 @@ void ReferenceContext::texImage3D (deUint32 target, int level, deUint32 internal
 		}
 		else
 		{
-			// No data supplied, clear to black.
-			PixelBufferAccess dst = texture->getLevel(level);
-			tcu::clear(dst, Vec4(0.0f, 0.0f, 0.0f, 1.0f));
+			// No data supplied, clear to initial
+			clearToTextureInitialValue(texture->getLevel(level));
 		}
 	}
 	else
@@ -2981,17 +3002,33 @@ static int getNumStencilBits (const tcu::TextureFormat& format)
 	}
 }
 
-static inline int maskStencil (int bits, int s) { return s & ((1<<bits)-1); }
-
-static inline void writeStencilOnly (const rr::MultisamplePixelBufferAccess& access, int s, int x, int y, int stencil, deUint32 writeMask)
+static inline deUint32 maskStencil (int numBits, deUint32 s)
 {
-	int const oldVal = access.raw().getPixelInt(s, x, y).w();
-	access.raw().setPixStencil((oldVal & ~writeMask) | (stencil & writeMask), s, x, y);
+	return s & deBitMask32(0, numBits);
+}
+
+static inline void writeMaskedStencil (const rr::MultisamplePixelBufferAccess& access, int s, int x, int y, deUint32 stencil, deUint32 writeMask)
+{
+	DE_ASSERT(access.raw().getFormat().order == tcu::TextureFormat::S);
+
+	const deUint32 oldVal = access.raw().getPixelUint(s, x, y).x();
+	const deUint32 newVal = (oldVal & ~writeMask) | (stencil & writeMask);
+	access.raw().setPixel(tcu::UVec4(newVal, 0u, 0u, 0u), s, x, y);
 }
 
 static inline void writeDepthOnly (const rr::MultisamplePixelBufferAccess& access, int s, int x, int y, float depth)
 {
 	access.raw().setPixDepth(depth, s, x, y);
+}
+
+static rr::MultisamplePixelBufferAccess getDepthMultisampleAccess (const rr::MultisamplePixelBufferAccess& combinedDSaccess)
+{
+	return rr::MultisamplePixelBufferAccess::fromMultisampleAccess(tcu::getEffectiveDepthStencilAccess(combinedDSaccess.raw(), tcu::Sampler::MODE_DEPTH));
+}
+
+static rr::MultisamplePixelBufferAccess getStencilMultisampleAccess (const rr::MultisamplePixelBufferAccess& combinedDSaccess)
+{
+	return rr::MultisamplePixelBufferAccess::fromMultisampleAccess(tcu::getEffectiveDepthStencilAccess(combinedDSaccess.raw(), tcu::Sampler::MODE_STENCIL));
 }
 
 deUint32 ReferenceContext::blitResolveMultisampleFramebuffer (deUint32 mask, const IVec4& srcRect, const IVec4& dstRect, bool flipX, bool flipY)
@@ -3004,8 +3041,8 @@ deUint32 ReferenceContext::blitResolveMultisampleFramebuffer (deUint32 mask, con
 		bool									dstIsFloat	= dstClass == tcu::TEXTURECHANNELCLASS_FLOATING_POINT		||
 															  dstClass == tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT	||
 															  dstClass == tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT;
-		bool									srcIsSRGB	= src.raw().getFormat().order == tcu::TextureFormat::sRGB || src.raw().getFormat().order == tcu::TextureFormat::sRGBA;
-		bool									dstIsSRGB	= dst.getFormat().order == tcu::TextureFormat::sRGB || dst.getFormat().order == tcu::TextureFormat::sRGBA;
+		bool									srcIsSRGB	= tcu::isSRGB(src.raw().getFormat());
+		bool									dstIsSRGB	= tcu::isSRGB(dst.getFormat());
 		const bool								convertSRGB	= m_sRGBUpdateEnabled && glu::isContextTypeES(getType());
 
 		if (!convertSRGB)
@@ -3037,7 +3074,7 @@ deUint32 ReferenceContext::blitResolveMultisampleFramebuffer (deUint32 mask, con
 
 	if (mask & GL_DEPTH_BUFFER_BIT)
 	{
-		rr::MultisampleConstPixelBufferAccess	src	= rr::getSubregion(getReadColorbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w());
+		rr::MultisampleConstPixelBufferAccess	src	= rr::getSubregion(getReadDepthbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w());
 		rr::MultisamplePixelBufferAccess		dst	= rr::getSubregion(getDrawDepthbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w());
 
 		for (int x = 0; x < dstRect.z(); ++x)
@@ -3052,16 +3089,17 @@ deUint32 ReferenceContext::blitResolveMultisampleFramebuffer (deUint32 mask, con
 
 	if (mask & GL_STENCIL_BUFFER_BIT)
 	{
-		rr::MultisampleConstPixelBufferAccess	src	= rr::getSubregion(getReadColorbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w());
-		rr::MultisamplePixelBufferAccess		dst	= rr::getSubregion(getDrawDepthbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w());
+		rr::MultisampleConstPixelBufferAccess	src	= getStencilMultisampleAccess(rr::getSubregion(getReadStencilbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w()));
+		rr::MultisamplePixelBufferAccess		dst	= getStencilMultisampleAccess(rr::getSubregion(getDrawStencilbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w()));
 
 		for (int x = 0; x < dstRect.z(); ++x)
 		for (int y = 0; y < dstRect.w(); ++y)
 		{
-			int srcX = (flipX) ? (srcRect.z() - x - 1) : (x);
-			int srcY = (flipY) ? (srcRect.z() - y - 1) : (y);
+			int			srcX		= (flipX) ? (srcRect.z() - x - 1) : (x);
+			int			srcY		= (flipY) ? (srcRect.z() - y - 1) : (y);
+			deUint32	srcStencil	= src.raw().getPixelUint(0, srcX, srcY).x();
 
-			writeStencilOnly(dst, 0, x, y, src.raw().getPixelInt(0, srcX, srcY).w(), m_stencil[rr::FACETYPE_FRONT].writeMask);
+			writeMaskedStencil(dst, 0, x, y, srcStencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
 		}
 	}
 
@@ -3156,8 +3194,8 @@ void ReferenceContext::blitFramebuffer (int srcX0, int srcY0, int srcX1, int src
 		tcu::Sampler::FilterMode		sFilter		= (scale && filter == GL_LINEAR) ? tcu::Sampler::LINEAR : tcu::Sampler::NEAREST;
 		tcu::Sampler					sampler		(tcu::Sampler::CLAMP_TO_EDGE, tcu::Sampler::CLAMP_TO_EDGE, tcu::Sampler::CLAMP_TO_EDGE,
 													 sFilter, sFilter, 0.0f /* lod threshold */, false /* non-normalized coords */);
-		bool							srcIsSRGB	= src.getFormat().order == tcu::TextureFormat::sRGB || src.getFormat().order == tcu::TextureFormat::sRGBA;
-		bool							dstIsSRGB	= dst.getFormat().order == tcu::TextureFormat::sRGB || dst.getFormat().order == tcu::TextureFormat::sRGBA;
+		bool							srcIsSRGB	= tcu::isSRGB(src.getFormat());
+		bool							dstIsSRGB	= tcu::isSRGB(dst.getFormat());
 		const bool						convertSRGB	= m_sRGBUpdateEnabled && glu::isContextTypeES(getType());
 
 		if (!convertSRGB)
@@ -3197,8 +3235,8 @@ void ReferenceContext::blitFramebuffer (int srcX0, int srcY0, int srcX1, int src
 
 	if ((mask & GL_DEPTH_BUFFER_BIT) && m_depthMask)
 	{
-		rr::MultisampleConstPixelBufferAccess	src		= rr::getSubregion(getReadDepthbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w());
-		rr::MultisamplePixelBufferAccess		dst		= rr::getSubregion(getDrawDepthbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w());
+		rr::MultisampleConstPixelBufferAccess	src		= getDepthMultisampleAccess(rr::getSubregion(getReadDepthbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w()));
+		rr::MultisamplePixelBufferAccess		dst		= getDepthMultisampleAccess(rr::getSubregion(getDrawDepthbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w()));
 
 		for (int yo = 0; yo < dstRect.w(); yo++)
 		{
@@ -3211,28 +3249,29 @@ void ReferenceContext::blitFramebuffer (int srcX0, int srcY0, int srcX1, int src
 				float	sX	= transform(0, 0)*dX + transform(0, 1)*dY + transform(0, 2);
 				float	sY	= transform(1, 0)*dX + transform(1, 1)*dY + transform(1, 2);
 
-				writeDepthOnly(dst, sampleNdx, xo, yo, src.raw().getPixel(sampleNdx, deFloorFloatToInt32(sX), deFloorFloatToInt32(sY)).x());
+				writeDepthOnly(dst, sampleNdx, xo, yo, src.raw().getPixDepth(sampleNdx, deFloorFloatToInt32(sX), deFloorFloatToInt32(sY)));
 			}
 		}
 	}
 
 	if (mask & GL_STENCIL_BUFFER_BIT)
 	{
-		rr::MultisampleConstPixelBufferAccess	src		= rr::getSubregion(getReadStencilbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w());
-		rr::MultisamplePixelBufferAccess		dst		= rr::getSubregion(getDrawStencilbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w());
+		rr::MultisampleConstPixelBufferAccess	src	= getStencilMultisampleAccess(rr::getSubregion(getReadStencilbuffer(), srcRect.x(), srcRect.y(), srcRect.z(), srcRect.w()));
+		rr::MultisamplePixelBufferAccess		dst	= getStencilMultisampleAccess(rr::getSubregion(getDrawStencilbuffer(), dstRect.x(), dstRect.y(), dstRect.z(), dstRect.w()));
 
 		for (int yo = 0; yo < dstRect.w(); yo++)
 		{
 			for (int xo = 0; xo < dstRect.z(); xo++)
 			{
-				const int sampleNdx = 0; // multisample read buffer case is already handled
+				const int	sampleNdx = 0; // multisample read buffer case is already handled
 
-				float	dX	= (float)xo + 0.5f;
-				float	dY	= (float)yo + 0.5f;
-				float	sX	= transform(0, 0)*dX + transform(0, 1)*dY + transform(0, 2);
-				float	sY	= transform(1, 0)*dX + transform(1, 1)*dY + transform(1, 2);
+				float		dX			= (float)xo + 0.5f;
+				float		dY			= (float)yo + 0.5f;
+				float		sX			= transform(0, 0)*dX + transform(0, 1)*dY + transform(0, 2);
+				float		sY			= transform(1, 0)*dX + transform(1, 1)*dY + transform(1, 2);
+				deUint32	srcStencil	= src.raw().getPixelUint(sampleNdx, deFloorFloatToInt32(sX), deFloorFloatToInt32(sY)).x();
 
-				writeStencilOnly(dst, sampleNdx, xo, yo, src.raw().getPixelInt(sampleNdx, deFloorFloatToInt32(sX), deFloorFloatToInt32(sY)).w(), m_stencil[rr::FACETYPE_FRONT].writeMask);
+				writeMaskedStencil(dst, sampleNdx, xo, yo, srcStencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
 			}
 		}
 	}
@@ -3275,42 +3314,22 @@ void ReferenceContext::invalidateSubFramebuffer (deUint32 target, int numAttachm
 		bool								isColor					= ndx == 0;
 		bool								isDepth					= ndx == 1;
 		bool								isStencil				= ndx == 2;
-		rr::MultisamplePixelBufferAccess	buf						= isColor ? getDrawColorbuffer() :
-																	  isDepth ? getDrawDepthbuffer() :
-																				getDrawStencilbuffer();
+		rr::MultisamplePixelBufferAccess	buf						= isColor ? getDrawColorbuffer()								:
+																	  isDepth ? getDepthMultisampleAccess(getDrawDepthbuffer())		:
+																				getStencilMultisampleAccess(getDrawStencilbuffer());
 
 		if (isEmpty(buf))
 			continue;
 
 		tcu::IVec4							area					= intersect(tcu::IVec4(0, 0, buf.raw().getHeight(), buf.raw().getDepth()), tcu::IVec4(x, y, width, height));
 		rr::MultisamplePixelBufferAccess	access					= rr::getSubregion(buf, area.x(), area.y(), area.z(), area.w());
-		bool								isSharedDepthStencil	= access.raw().getFormat().order == tcu::TextureFormat::DS;
 
-		if (isSharedDepthStencil)
-		{
-			for (int yo = 0; yo < access.raw().getDepth(); yo++)
-			{
-				for (int xo = 0; xo < access.raw().getHeight(); xo++)
-				{
-					for (int s = 0; s < access.getNumSamples(); s++)
-					{
-						if (isDepth)
-							writeDepthOnly(access, s, xo, yo, depthClearValue);
-						else if (isStencil)
-							writeStencilOnly(access, s, xo, yo, stencilClearValue, 0xffffffffu);
-					}
-				}
-			}
-		}
-		else
-		{
-			if (isColor)
-				rr::clear(access, colorClearValue);
-			else if (isDepth)
-				rr::clear(access, tcu::Vec4(depthClearValue));
-			else if (isStencil)
-				rr::clear(access, tcu::IVec4(stencilClearValue));
-		}
+		if (isColor)
+			rr::clear(access, colorClearValue);
+		else if (isDepth)
+			rr::clear(access, tcu::Vec4(depthClearValue));
+		else if (isStencil)
+			rr::clear(access, tcu::IVec4(stencilClearValue));
 	}
 }
 
@@ -3341,16 +3360,18 @@ void ReferenceContext::clear (deUint32 buffers)
 	rr::MultisamplePixelBufferAccess	colorBuf0	= getDrawColorbuffer();
 	rr::MultisamplePixelBufferAccess	depthBuf	= getDrawDepthbuffer();
 	rr::MultisamplePixelBufferAccess	stencilBuf	= getDrawStencilbuffer();
-	bool								hasColor0	= !isEmpty(colorBuf0);
-	bool								hasDepth	= !isEmpty(depthBuf);
-	bool								hasStencil	= !isEmpty(stencilBuf);
 	IVec4								baseArea	= m_scissorEnabled ? m_scissorBox : IVec4(0, 0, 0x7fffffff, 0x7fffffff);
+	IVec4								colorArea	= intersect(baseArea, getBufferRect(colorBuf0));
+	IVec4								depthArea	= intersect(baseArea, getBufferRect(depthBuf));
+	IVec4								stencilArea	= intersect(baseArea, getBufferRect(stencilBuf));
+	bool								hasColor0	= !isEmpty(colorArea);
+	bool								hasDepth	= !isEmpty(depthArea);
+	bool								hasStencil	= !isEmpty(stencilArea);
 
 	if (hasColor0 && (buffers & GL_COLOR_BUFFER_BIT) != 0)
 	{
-		IVec4								colorArea	= intersect(baseArea, getBufferRect(colorBuf0));
 		rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(colorBuf0, colorArea.x(), colorArea.y(), colorArea.z(), colorArea.w());
-		bool								isSRGB		= colorBuf0.raw().getFormat().order == tcu::TextureFormat::sRGB || colorBuf0.raw().getFormat().order == tcu::TextureFormat::sRGBA;
+		bool								isSRGB		= tcu::isSRGB(colorBuf0.raw().getFormat());
 		Vec4								c			= (isSRGB && m_sRGBUpdateEnabled) ? tcu::linearToSRGB(m_clearColor) : m_clearColor;
 		bool								maskUsed	= !m_colorMask[0] || !m_colorMask[1] || !m_colorMask[2] || !m_colorMask[3];
 		bool								maskZero	= !m_colorMask[0] && !m_colorMask[1] && !m_colorMask[2] && !m_colorMask[3];
@@ -3369,64 +3390,26 @@ void ReferenceContext::clear (deUint32 buffers)
 
 	if (hasDepth && (buffers & GL_DEPTH_BUFFER_BIT) != 0 && m_depthMask)
 	{
-		IVec4								depthArea				= intersect(baseArea, getBufferRect(depthBuf));
-		rr::MultisamplePixelBufferAccess	access					= rr::getSubregion(depthBuf, depthArea.x(), depthArea.y(), depthArea.z(), depthArea.w());
-		bool								isSharedDepthStencil	= depthBuf.raw().getFormat().order != tcu::TextureFormat::D;
-
-		if (isSharedDepthStencil)
-		{
-			// Slow path where stencil is masked out in write.
-			for (int y = 0; y < access.raw().getDepth(); y++)
-				for (int x = 0; x < access.raw().getHeight(); x++)
-					for (int s = 0; s < access.getNumSamples(); s++)
-						writeDepthOnly(access, s, x, y, m_clearDepth);
-		}
-		else
-		{
-			// Fast path.
-			int						pixelSize		= access.raw().getFormat().getPixelSize();
-			std::vector<deUint8>	row				(access.raw().getWidth()*access.raw().getHeight()*pixelSize);
-			tcu::PixelBufferAccess	rowAccess		(depthBuf.raw().getFormat(), access.raw().getWidth(), access.raw().getHeight(), 1, &row[0]);
-
-			for (int y = 0; y < rowAccess.getHeight(); y++)
-				for (int x = 0; x < rowAccess.getWidth(); x++)
-					rowAccess.setPixel(tcu::Vec4(m_clearDepth), x, y);
-
-			for (int y = 0; y < access.raw().getDepth(); y++)
-				deMemcpy((deUint8*)access.raw().getDataPtr() + access.raw().getSlicePitch()*y, &row[0], (int)row.size());
-		}
+		rr::MultisamplePixelBufferAccess access = getDepthMultisampleAccess(rr::getSubregion(depthBuf, depthArea.x(), depthArea.y(), depthArea.z(), depthArea.w()));
+		rr::clearDepth(access, m_clearDepth);
 	}
 
 	if (hasStencil && (buffers & GL_STENCIL_BUFFER_BIT) != 0)
 	{
-		IVec4								stencilArea				= intersect(baseArea, getBufferRect(stencilBuf));
-		rr::MultisamplePixelBufferAccess	access					= rr::getSubregion(stencilBuf, stencilArea.x(), stencilArea.y(), stencilArea.z(), stencilArea.w());
+		rr::MultisamplePixelBufferAccess	access					= getStencilMultisampleAccess(rr::getSubregion(stencilBuf, stencilArea.x(), stencilArea.y(), stencilArea.z(), stencilArea.w()));
 		int									stencilBits				= getNumStencilBits(stencilBuf.raw().getFormat());
 		int									stencil					= maskStencil(stencilBits, m_clearStencil);
-		bool								isSharedDepthStencil	= stencilBuf.raw().getFormat().order != tcu::TextureFormat::S;
 
-		if (isSharedDepthStencil || ((m_stencil[rr::FACETYPE_FRONT].writeMask & ((1u<<stencilBits)-1u)) != ((1u<<stencilBits)-1u)))
+		if ((m_stencil[rr::FACETYPE_FRONT].writeMask & ((1u<<stencilBits)-1u)) != ((1u<<stencilBits)-1u))
 		{
 			// Slow path where depth or stencil is masked out in write.
 			for (int y = 0; y < access.raw().getDepth(); y++)
 				for (int x = 0; x < access.raw().getHeight(); x++)
 					for (int s = 0; s < access.getNumSamples(); s++)
-						writeStencilOnly(access, s, x, y, stencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
+						writeMaskedStencil(access, s, x, y, stencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
 		}
 		else
-		{
-			// Fast path.
-			int						pixelSize		= access.raw().getFormat().getPixelSize();
-			std::vector<deUint8>	row				(access.raw().getWidth()*access.raw().getHeight()*pixelSize);
-			tcu::PixelBufferAccess	rowAccess		(stencilBuf.raw().getFormat(), access.raw().getWidth(), access.raw().getHeight(), 1, &row[0]);
-
-			for (int y = 0; y < rowAccess.getHeight(); y++)
-				for (int x = 0; x < rowAccess.getWidth(); x++)
-					rowAccess.setPixel(tcu::IVec4(stencil), x, y);
-
-			for (int y = 0; y < access.raw().getDepth(); y++)
-				deMemcpy((deUint8*)access.raw().getDataPtr() + access.raw().getSlicePitch()*y, &row[0], (int)row.size());
-		}
+			rr::clearStencil(access, stencil);
 	}
 }
 
@@ -3442,10 +3425,10 @@ void ReferenceContext::clearBufferiv (deUint32 buffer, int drawbuffer, const int
 		rr::MultisamplePixelBufferAccess	colorBuf	= getDrawColorbuffer();
 		bool								maskUsed	= !m_colorMask[0] || !m_colorMask[1] || !m_colorMask[2] || !m_colorMask[3];
 		bool								maskZero	= !m_colorMask[0] && !m_colorMask[1] && !m_colorMask[2] && !m_colorMask[3];
+		IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 
-		if (!isEmpty(colorBuf) && !maskZero)
+		if (!isEmpty(area) && !maskZero)
 		{
-			IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 			rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(colorBuf, area.x(), area.y(), area.z(), area.w());
 			IVec4								color		(value[0], value[1], value[2], value[3]);
 
@@ -3464,18 +3447,18 @@ void ReferenceContext::clearBufferiv (deUint32 buffer, int drawbuffer, const int
 	{
 		TCU_CHECK_INTERNAL(buffer == GL_STENCIL);
 
-		rr::MultisamplePixelBufferAccess stencilBuf = getDrawStencilbuffer();
+		rr::MultisamplePixelBufferAccess	stencilBuf	= getDrawStencilbuffer();
+		IVec4								area		= intersect(baseArea, getBufferRect(stencilBuf));
 
-		if (!isEmpty(stencilBuf) && m_stencil[rr::FACETYPE_FRONT].writeMask != 0)
+		if (!isEmpty(area) && m_stencil[rr::FACETYPE_FRONT].writeMask != 0)
 		{
-			IVec4								area		= intersect(baseArea, getBufferRect(stencilBuf));
-			rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(stencilBuf, area.x(), area.y(), area.z(), area.w());
+			rr::MultisamplePixelBufferAccess	access		= getStencilMultisampleAccess(rr::getSubregion(stencilBuf, area.x(), area.y(), area.z(), area.w()));
 			int									stencil		= value[0];
 
 			for (int y = 0; y < access.raw().getDepth(); y++)
 				for (int x = 0; x < access.raw().getHeight(); x++)
 					for (int s = 0; s < access.getNumSamples(); s++)
-						writeStencilOnly(access, s, x, y, stencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
+						writeMaskedStencil(access, s, x, y, stencil, m_stencil[rr::FACETYPE_FRONT].writeMask);
 		}
 	}
 }
@@ -3492,15 +3475,14 @@ void ReferenceContext::clearBufferfv (deUint32 buffer, int drawbuffer, const flo
 		rr::MultisamplePixelBufferAccess	colorBuf	= getDrawColorbuffer();
 		bool								maskUsed	= !m_colorMask[0] || !m_colorMask[1] || !m_colorMask[2] || !m_colorMask[3];
 		bool								maskZero	= !m_colorMask[0] && !m_colorMask[1] && !m_colorMask[2] && !m_colorMask[3];
+		IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 
-		if (!isEmpty(colorBuf) && !maskZero)
+		if (!isEmpty(area) && !maskZero)
 		{
-			IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 			rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(colorBuf, area.x(), area.y(), area.z(), area.w());
 			Vec4								color		(value[0], value[1], value[2], value[3]);
 
-			if (m_sRGBUpdateEnabled && (access.raw().getFormat().order == tcu::TextureFormat::sRGB ||
-										access.raw().getFormat().order == tcu::TextureFormat::sRGBA))
+			if (m_sRGBUpdateEnabled && tcu::isSRGB(access.raw().getFormat()))
 				color = tcu::linearToSRGB(color);
 
 			if (!maskUsed)
@@ -3518,18 +3500,15 @@ void ReferenceContext::clearBufferfv (deUint32 buffer, int drawbuffer, const flo
 	{
 		TCU_CHECK_INTERNAL(buffer == GL_DEPTH);
 
-		rr::MultisamplePixelBufferAccess depthBuf = getDrawDepthbuffer();
+		rr::MultisamplePixelBufferAccess	depthBuf	= getDrawDepthbuffer();
+		IVec4								area		= intersect(baseArea, getBufferRect(depthBuf));
 
-		if (!isEmpty(depthBuf) && m_depthMask)
+		if (!isEmpty(area) && m_depthMask)
 		{
-			IVec4								area		= intersect(baseArea, getBufferRect(depthBuf));
 			rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(depthBuf, area.x(), area.y(), area.z(), area.w());
 			float								depth		= value[0];
 
-			for (int y = 0; y < access.raw().getDepth(); y++)
-				for (int x = 0; x < access.raw().getHeight(); x++)
-					for (int s = 0; s < access.getNumSamples(); s++)
-						writeDepthOnly(access, s, x, y, depth);
+			rr::clearDepth(access, depth);
 		}
 	}
 }
@@ -3546,10 +3525,10 @@ void ReferenceContext::clearBufferuiv (deUint32 buffer, int drawbuffer, const de
 		rr::MultisamplePixelBufferAccess	colorBuf	= getDrawColorbuffer();
 		bool								maskUsed	= !m_colorMask[0] || !m_colorMask[1] || !m_colorMask[2] || !m_colorMask[3];
 		bool								maskZero	= !m_colorMask[0] && !m_colorMask[1] && !m_colorMask[2] && !m_colorMask[3];
+		IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 
-		if (!isEmpty(colorBuf) && !maskZero)
+		if (!isEmpty(area) && !maskZero)
 		{
-			IVec4								area		= intersect(baseArea, getBufferRect(colorBuf));
 			rr::MultisamplePixelBufferAccess	access		= rr::getSubregion(colorBuf, area.x(), area.y(), area.z(), area.w());
 			tcu::UVec4							color		(value[0], value[1], value[2], value[3]);
 
@@ -4302,8 +4281,8 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 		return;
 
 	rr::MultisamplePixelBufferAccess	colorBuf0	= getDrawColorbuffer();
-	rr::MultisamplePixelBufferAccess	depthBuf	= getDrawDepthbuffer();
-	rr::MultisamplePixelBufferAccess	stencilBuf	= getDrawStencilbuffer();
+	rr::MultisamplePixelBufferAccess	depthBuf	= getDepthMultisampleAccess(getDrawDepthbuffer());
+	rr::MultisamplePixelBufferAccess	stencilBuf	= getStencilMultisampleAccess(getDrawStencilbuffer());
 	const bool							hasStencil	= !isEmpty(stencilBuf);
 	const int							stencilBits	= (hasStencil) ? (getNumStencilBits(stencilBuf.raw().getFormat())) : (0);
 
@@ -4426,7 +4405,8 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 	// Set shader samplers
 	for (size_t uniformNdx = 0; uniformNdx < m_currentProgram->m_program->m_uniforms.size(); ++uniformNdx)
 	{
-		const int texNdx = m_currentProgram->m_program->m_uniforms[uniformNdx].value.i;
+		const tcu::Sampler::DepthStencilMode	depthStencilMode	= tcu::Sampler::MODE_DEPTH; // \todo[jarkko] support sampler state
+		const int								texNdx				= m_currentProgram->m_program->m_uniforms[uniformNdx].value.i;
 
 		switch (m_currentProgram->m_program->m_uniforms[uniformNdx].type)
 		{
@@ -4441,7 +4421,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.tex1D = tex;
 				}
 				else
@@ -4460,7 +4440,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.tex2D = tex;
 				}
 				else
@@ -4479,7 +4459,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.texCube = tex;
 				}
 				else
@@ -4498,7 +4478,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.tex2DArray = tex;
 				}
 				else
@@ -4517,7 +4497,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.tex3D = tex;
 				}
 				else
@@ -4536,7 +4516,7 @@ void ReferenceContext::drawWithReference (const rr::PrimitiveList& primitives, i
 
 				if (tex && tex->isComplete())
 				{
-					tex->updateView();
+					tex->updateView(depthStencilMode);
 					m_currentProgram->m_program->m_uniforms[uniformNdx].sampler.texCubeArray = tex;
 				}
 				else
@@ -4680,7 +4660,6 @@ namespace rc
 
 TextureLevelArray::TextureLevelArray (void)
 {
-	deMemset(&m_data[0], 0, sizeof(m_data));
 }
 
 TextureLevelArray::~TextureLevelArray (void)
@@ -4694,34 +4673,36 @@ void TextureLevelArray::clear (void)
 
 	for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(m_data); ndx++)
 	{
-		delete[] m_data[ndx];
-
-		m_data[ndx]		= DE_NULL;
-		m_access[ndx]	= PixelBufferAccess();
+		m_data[ndx].clear();
+		m_access[ndx] = PixelBufferAccess();
 	}
 }
 
 void TextureLevelArray::allocLevel (int level, const tcu::TextureFormat& format, int width, int height, int depth)
 {
-	const int	dataSize	= format.getPixelSize()*width*height*depth;
+	const int dataSize = format.getPixelSize()*width*height*depth;
 
-	DE_ASSERT(level < DE_LENGTH_OF_ARRAY(m_data));
+	DE_ASSERT(deInBounds32(level, 0, DE_LENGTH_OF_ARRAY(m_data)));
 
 	if (hasLevel(level))
 		clearLevel(level);
 
-	m_data[level]	= new deUint8[dataSize];
-	m_access[level]	= PixelBufferAccess(format, width, height, depth, m_data[level]);
+	m_data[level].setStorage(dataSize);
+	m_access[level] = PixelBufferAccess(format, width, height, depth, m_data[level].getPtr());
 }
 
 void TextureLevelArray::clearLevel (int level)
 {
-	DE_ASSERT(level < DE_LENGTH_OF_ARRAY(m_data));
+	DE_ASSERT(deInBounds32(level, 0, DE_LENGTH_OF_ARRAY(m_data)));
 
-	delete[] m_data[level];
+	m_data[level].clear();
+	m_access[level] = PixelBufferAccess();
+}
 
-	m_data[level]	= DE_NULL;
-	m_access[level]	= PixelBufferAccess();
+void TextureLevelArray::updateSamplerMode (tcu::Sampler::DepthStencilMode mode)
+{
+	for (int levelNdx = 0; hasLevel(levelNdx); ++levelNdx)
+		m_effectiveAccess[levelNdx] = tcu::getEffectiveDepthStencilAccess(m_access[levelNdx], mode);
 }
 
 Texture::Texture (deUint32 name, Type type)
@@ -4825,7 +4806,7 @@ void Texture1D::sample4 (tcu::Vec4 output[4], const float packetTexcoords[4], fl
 	}
 }
 
-void Texture1D::updateView (void)
+void Texture1D::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int baseLevel	= getBaseLevel();
 
@@ -4835,7 +4816,8 @@ void Texture1D::updateView (void)
 		const bool	isMipmap	= isMipmapFilter(getSampler().minFilter);
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels1D(width)) : 1;
 
-		m_view = tcu::Texture2DView(numLevels, m_levels.getLevels() + baseLevel);
+		m_levels.updateSamplerMode(mode);
+		m_view = tcu::Texture2DView(numLevels, m_levels.getEffectiveLevels() + baseLevel);
 	}
 	else
 		m_view = tcu::Texture2DView(0, DE_NULL);
@@ -4896,7 +4878,7 @@ bool Texture2D::isComplete (void) const
 		return false;
 }
 
-void Texture2D::updateView (void)
+void Texture2D::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int baseLevel	= getBaseLevel();
 
@@ -4908,7 +4890,8 @@ void Texture2D::updateView (void)
 		const bool	isMipmap	= isMipmapFilter(getSampler().minFilter);
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels2D(width, height)) : 1;
 
-		m_view = tcu::Texture2DView(numLevels, m_levels.getLevels() + baseLevel);
+		m_levels.updateSamplerMode(mode);
+		m_view = tcu::Texture2DView(numLevels, m_levels.getEffectiveLevels() + baseLevel);
 	}
 	else
 		m_view = tcu::Texture2DView(0, DE_NULL);
@@ -5007,7 +4990,7 @@ bool TextureCube::isComplete (void) const
 		return false;
 }
 
-void TextureCube::updateView (void)
+void TextureCube::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int							baseLevel	= getBaseLevel();
 	const tcu::ConstPixelBufferAccess*	faces[tcu::CUBEFACE_LAST];
@@ -5021,7 +5004,10 @@ void TextureCube::updateView (void)
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels1D(size)) : 1;
 
 		for (int face = 0; face < tcu::CUBEFACE_LAST; face++)
-			faces[face] = m_levels[face].getLevels() + baseLevel;
+		{
+			m_levels[face].updateSamplerMode(mode);
+			faces[face] = m_levels[face].getEffectiveLevels() + baseLevel;
+		}
 
 		m_view = tcu::TextureCubeView(numLevels, faces);
 	}
@@ -5126,7 +5112,7 @@ bool Texture2DArray::isComplete (void) const
 		return false;
 }
 
-void Texture2DArray::updateView (void)
+void Texture2DArray::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int baseLevel	= getBaseLevel();
 
@@ -5137,7 +5123,8 @@ void Texture2DArray::updateView (void)
 		const bool	isMipmap	= isMipmapFilter(getSampler().minFilter);
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels2D(width, height)) : 1;
 
-		m_view = tcu::Texture2DArrayView(numLevels, m_levels.getLevels() + baseLevel);
+		m_levels.updateSamplerMode(mode);
+		m_view = tcu::Texture2DArrayView(numLevels, m_levels.getEffectiveLevels() + baseLevel);
 	}
 	else
 		m_view = tcu::Texture2DArrayView(0, DE_NULL);
@@ -5231,7 +5218,7 @@ bool TextureCubeArray::isComplete (void) const
 		return false;
 }
 
-void TextureCubeArray::updateView (void)
+void TextureCubeArray::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int baseLevel	= getBaseLevel();
 
@@ -5242,7 +5229,8 @@ void TextureCubeArray::updateView (void)
 		const bool	isMipmap	= isMipmapFilter(getSampler().minFilter);
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels2D(width, height)) : 1;
 
-		m_view = tcu::TextureCubeArrayView(numLevels, m_levels.getLevels() + baseLevel);
+		m_levels.updateSamplerMode(mode);
+		m_view = tcu::TextureCubeArrayView(numLevels, m_levels.getEffectiveLevels() + baseLevel);
 	}
 	else
 		m_view = tcu::TextureCubeArrayView(0, DE_NULL);
@@ -5383,7 +5371,7 @@ void Texture3D::sample4 (tcu::Vec4 output[4], const tcu::Vec3 packetTexcoords[4]
 	}
 }
 
-void Texture3D::updateView (void)
+void Texture3D::updateView (tcu::Sampler::DepthStencilMode mode)
 {
 	const int baseLevel	= getBaseLevel();
 
@@ -5395,7 +5383,8 @@ void Texture3D::updateView (void)
 		const bool	isMipmap	= isMipmapFilter(getSampler().minFilter);
 		const int	numLevels	= isMipmap ? de::min(getMaxLevel()-baseLevel+1, getNumMipLevels3D(width, height, depth)) : 1;
 
-		m_view = tcu::Texture3DView(numLevels, m_levels.getLevels() + baseLevel);
+		m_levels.updateSamplerMode(mode);
+		m_view = tcu::Texture3DView(numLevels, m_levels.getEffectiveLevels() + baseLevel);
 	}
 	else
 		m_view = tcu::Texture3DView(0, DE_NULL);

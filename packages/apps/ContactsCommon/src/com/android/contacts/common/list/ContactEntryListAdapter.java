@@ -22,6 +22,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.Directory;
@@ -722,6 +723,10 @@ public abstract class ContactEntryListAdapter extends IndexerListAdapter {
         QuickContactBadge quickContact = view.getQuickContact();
         quickContact.assignContactUri(
                 getContactUri(partitionIndex, cursor, contactIdColumn, lookUpKeyColumn));
+        // The Contacts app never uses the QuickContactBadge. Therefore, it is safe to assume
+        // that only Dialer will use this QuickContact badge. This means prioritizing the phone
+        // mimetype here is reasonable.
+        quickContact.setPrioritizedMimeType(Phone.CONTENT_ITEM_TYPE);
 
         if (photoId != 0 || photoUriColumn == -1) {
             getPhotoLoader().loadThumbnail(quickContact, photoId, mDarkTheme, mCircularPhotos,
@@ -761,13 +766,8 @@ public abstract class ContactEntryListAdapter extends IndexerListAdapter {
         long contactId = cursor.getLong(contactIdColumn);
         String lookupKey = cursor.getString(lookUpKeyColumn);
         long directoryId = ((DirectoryPartition)getPartition(partitionIndex)).getDirectoryId();
-        // Remote directories must have a lookup key or we don't have
-        // a working contact URI
-        if (TextUtils.isEmpty(lookupKey) && isRemoteDirectory(directoryId)) {
-            return null;
-        }
         Uri uri = Contacts.getLookupUri(contactId, lookupKey);
-        if (directoryId != Directory.DEFAULT) {
+        if (uri != null && directoryId != Directory.DEFAULT) {
             uri = uri.buildUpon().appendQueryParameter(
                     ContactsContract.DIRECTORY_PARAM_KEY, String.valueOf(directoryId)).build();
         }

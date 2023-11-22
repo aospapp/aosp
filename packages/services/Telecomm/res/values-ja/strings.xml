@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"電話"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"通話管理"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"電話"</string>
     <string name="unknown" msgid="6878797917991465859">"通知不可能"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"不在着信"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"不在着信"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"クイック返信"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>にメッセージを送信しました。"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"端末の所有者に許可されているのは緊急通報のみです。"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"通話アカウント"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"端末の所有者によって許可されているのは緊急通報のみです。"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"このアプリは、電話権限がないため発信できません。"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"発信するには、有効な番号を入力してください。"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"通話は現在追加できません。"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"ビデオハングアウトを行うにはTTYモードを無効にしてください。"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"ボイスメール番号がありません"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIMカードにボイスメールの番号がありません。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"番号を追加"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"既定の電話アプリを変更しますか？"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="NEW_APP">%1$s</xliff:g>を<xliff:g id="CURRENT_APP">%2$s</xliff:g>の代わりに既定の電話アプリとして使用しますか？"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g>を既定の電話アプリとして使用しますか？"</string>
 </resources>

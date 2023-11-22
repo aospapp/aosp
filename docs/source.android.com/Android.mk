@@ -34,6 +34,5 @@ pdk-hal-ref:
 
 setup-tradefed-ref:
 	$(hide) rm -rf $(OUT_DOCS)/online-sac/reference
-	$(hide) cp -R out/target/common/docs/tradefed/reference $(OUT_DOCS)/online-sac
-	$(hide) cp out/target/common/docs/tradefed/navtree_data.js $(OUT_DOCS)/online-sac/navtree_data.js
-
+	$(hide) cp -R $(OUT_DOCS)/tradefed/reference $(OUT_DOCS)/online-sac
+	$(hide) cp $(OUT_DOCS)/tradefed/navtree_data.js $(OUT_DOCS)/online-sac/navtree_data.js

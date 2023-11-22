@@ -29,6 +29,8 @@ import android.os.Debug;
 import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.transition.Transition;
+import android.transition.TransitionValues;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -73,7 +75,7 @@ public class PopupWindowTest extends
 
         new PopupWindow(mActivity, null);
 
-        new PopupWindow(mActivity, null, com.android.internal.R.attr.popupWindowStyle);
+        new PopupWindow(mActivity, null, android.R.attr.popupWindowStyle);
 
         mPopupWindow = new PopupWindow();
         assertEquals(0, mPopupWindow.getWidth());
@@ -141,12 +143,8 @@ public class PopupWindowTest extends
         // default is -1
         assertEquals(-1, mPopupWindow.getAnimationStyle());
 
-        mPopupWindow.setAnimationStyle(com.android.internal.R.style.Animation_Toast);
-        assertEquals(com.android.internal.R.style.Animation_Toast,
-                mPopupWindow.getAnimationStyle());
-
-        mPopupWindow.setAnimationStyle(com.android.internal.R.style.Animation_DropDownDown);
-        assertEquals(com.android.internal.R.style.Animation_DropDownDown,
+        mPopupWindow.setAnimationStyle(android.R.style.Animation_Toast);
+        assertEquals(android.R.style.Animation_Toast,
                 mPopupWindow.getAnimationStyle());
 
         // abnormal values
@@ -189,8 +187,7 @@ public class PopupWindowTest extends
 
     public void testAccessHeight() {
         mPopupWindow = new PopupWindow(mActivity);
-        // default is 0
-        assertEquals(0, mPopupWindow.getHeight());
+        assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, mPopupWindow.getHeight());
 
         int height = getDisplay().getHeight() / 2;
         mPopupWindow.setHeight(height);
@@ -224,7 +221,7 @@ public class PopupWindowTest extends
 
     public void testAccessWidth() {
         mPopupWindow = new PopupWindow(mActivity);
-        assertEquals(0, mPopupWindow.getWidth());
+        assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, mPopupWindow.getWidth());
 
         int width = getDisplay().getWidth() / 2;
         mPopupWindow.setWidth(width);
@@ -335,6 +332,41 @@ public class PopupWindowTest extends
         dismissPopup();
     }
 
+    public void testOverlapAnchor() {
+        int[] anchorXY = new int[2];
+        int[] viewOnScreenXY = new int[2];
+        int[] viewInWindowXY = new int[2];
+
+        mPopupWindow = createPopupWindow(createPopupContent());
+        final View upperAnchor = mActivity.findViewById(R.id.anchor_upper);
+        upperAnchor.getLocationOnScreen(anchorXY);
+
+        assertFalse(mPopupWindow.getOverlapAnchor());
+        mPopupWindow.setOverlapAnchor(true);
+        assertTrue(mPopupWindow.getOverlapAnchor());
+
+        mInstrumentation.runOnMainSync(new Runnable() {
+            public void run() {
+                mPopupWindow.showAsDropDown(upperAnchor, 0, 0);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        mPopupWindow.getContentView().getLocationOnScreen(viewOnScreenXY);
+        mPopupWindow.getContentView().getLocationInWindow(viewInWindowXY);
+        assertEquals(anchorXY[0] + viewInWindowXY[0], viewOnScreenXY[0]);
+        assertEquals(anchorXY[1] + viewInWindowXY[1], viewOnScreenXY[1]);
+    }
+
+    public void testAccessWindowLayoutType() {
+        mPopupWindow = createPopupWindow(createPopupContent());
+        assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION_PANEL,
+                mPopupWindow.getWindowLayoutType());
+        mPopupWindow.setWindowLayoutType(WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL);
+        assertEquals(WindowManager.LayoutParams.TYPE_APPLICATION_SUB_PANEL,
+                mPopupWindow.getWindowLayoutType());
+    }
+
     public void testGetMaxAvailableHeight() {
         mPopupWindow = createPopupWindow(createPopupContent());
 
@@ -358,7 +390,11 @@ public class PopupWindowTest extends
         assertTrue(maxAvailableHeightWithOffset <= avaliable);
 
         anchorView = mActivity.findViewById(R.id.anchor_lower);
-        avaliable = getDisplay().getHeight() - anchorView.getHeight();
+        // On some devices the view might actually have larger size than the physical display
+        // due to chin and content will be laid out as if outside of the display. We need to use
+        // larger from the display height and the main view height.
+        avaliable = Math.max(getDisplay().getHeight(),
+                mActivity.findViewById(android.R.id.content).getHeight()) - anchorView.getHeight();
         maxAvailableHeight = mPopupWindow.getMaxAvailableHeight(anchorView);
         assertTrue(maxAvailableHeight > 0);
         assertTrue(maxAvailableHeight <= avaliable);
@@ -418,7 +454,7 @@ public class PopupWindowTest extends
         mPopupWindow.setOutsideTouchable(true);
 
         WindowManager.LayoutParams p = (WindowManager.LayoutParams)
-                mPopupWindow.getContentView().getLayoutParams();
+                mPopupWindow.getContentView().getRootView().getLayoutParams();
 
         assertEquals(0, WindowManager.LayoutParams.FLAG_IGNORE_CHEEK_PRESSES & p.flags);
         assertEquals(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
@@ -446,6 +482,36 @@ public class PopupWindowTest extends
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS & p.flags);
         assertEquals(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM & p.flags);
+    }
+
+    public void testEnterExitTransition() {
+        mPopupWindow = createPopupWindow(createPopupContent());
+        final View anchorView = mActivity.findViewById(R.id.anchor_upper);
+
+        final MockTransition enterTransition = new MockTransition();
+        final MockTransition exitTransition = new MockTransition();
+        mPopupWindow.setEnterTransition(enterTransition);
+        mPopupWindow.setExitTransition(exitTransition);
+
+        mInstrumentation.runOnMainSync(new Runnable() {
+            public void run() {
+                mPopupWindow.showAsDropDown(anchorView, 0, 0);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertEquals(1, enterTransition.getTransitionCount());
+        assertEquals(0, exitTransition.getTransitionCount());
+
+        mInstrumentation.runOnMainSync(new Runnable() {
+            public void run() {
+                mPopupWindow.dismiss();
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertEquals(1, enterTransition.getTransitionCount());
+        assertEquals(1, exitTransition.getTransitionCount());
     }
 
     public void testUpdatePositionAndDimension() {
@@ -748,7 +814,7 @@ public class PopupWindowTest extends
         mPopupWindow = new PopupWindow(new TextView(mActivity));
         showPopup();
 
-        ViewGroup.LayoutParams p = mPopupWindow.getContentView().getLayoutParams();
+        ViewGroup.LayoutParams p = mPopupWindow.getContentView().getRootView().getLayoutParams();
         assertEquals(0, p.width);
         assertEquals(0, p.height);
 
@@ -821,6 +887,48 @@ public class PopupWindowTest extends
         public boolean onTouch(View v, MotionEvent event) {
             mOnTouchCalledCount++;
             return true;
+        }
+    }
+
+    private static class MockTransition extends Transition {
+        private int mTransitionCount;
+
+        private MockTransition() {
+            addListener(new Transition.TransitionListener() {
+                @Override
+                public void onTransitionStart(Transition transition) {
+
+                }
+
+                public void onTransitionEnd(Transition transition) {
+                    mTransitionCount++;
+                }
+
+                @Override
+                public void onTransitionCancel(Transition transition) {
+
+                }
+
+                @Override
+                public void onTransitionPause(Transition transition) {
+
+                }
+
+                @Override
+                public void onTransitionResume(Transition transition) {
+
+                }
+            });
+        }
+
+        public void captureStartValues(TransitionValues transitionValues) {
+        }
+
+        public void captureEndValues(TransitionValues transitionValues) {
+        }
+
+        int getTransitionCount() {
+            return mTransitionCount;
         }
     }
 

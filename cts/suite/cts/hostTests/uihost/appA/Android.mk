@@ -26,8 +26,6 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsDeviceTaskswitchingAppA
 
-LOCAL_SDK_VERSION := 16
+LOCAL_SDK_VERSION := current
 
-include $(BUILD_CTS_PACKAGE)
-
-
+include $(BUILD_CTS_SUPPORT_PACKAGE)

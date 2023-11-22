@@ -20,7 +20,7 @@
 #include <rs_hal.h>
 
 bool rsdScriptGroupInit(const android::renderscript::Context *rsc,
-                        android::renderscript::ScriptGroup *sg);
+                        android::renderscript::ScriptGroupBase *sg);
 void rsdScriptGroupSetInput(const android::renderscript::Context *rsc,
                             const android::renderscript::ScriptGroup *sg,
                             const android::renderscript::ScriptKernelID *kid,
@@ -30,9 +30,9 @@ void rsdScriptGroupSetOutput(const android::renderscript::Context *rsc,
                              const android::renderscript::ScriptKernelID *kid,
                              android::renderscript::Allocation *);
 void rsdScriptGroupExecute(const android::renderscript::Context *rsc,
-                           const android::renderscript::ScriptGroup *sg);
+                           const android::renderscript::ScriptGroupBase *sg);
 void rsdScriptGroupDestroy(const android::renderscript::Context *rsc,
-                           const android::renderscript::ScriptGroup *sg);
+                           const android::renderscript::ScriptGroupBase *sg);
 void rsdScriptGroupUpdateCachedObject(const android::renderscript::Context *rsc,
                                       const android::renderscript::ScriptGroup *sg,
                                       android::renderscript::rs_script_group *obj);

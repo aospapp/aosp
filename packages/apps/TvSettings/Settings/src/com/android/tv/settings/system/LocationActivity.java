@@ -16,163 +16,98 @@
 
 package com.android.tv.settings.system;
 
-import com.android.tv.settings.R;
-
-import com.android.tv.settings.ActionBehavior;
-import com.android.tv.settings.ActionKey;
-import com.android.tv.settings.BaseSettingsActivity;
-import android.accounts.Account;
-import android.accounts.AccountManager;
-import com.android.tv.settings.util.SettingsHelper;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.device.apps.AppManagementActivity;
-
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.location.LocationManager;
-import android.os.Bundle;
-import android.preference.Preference;
+import android.content.res.Resources;
 import android.provider.Settings;
 import android.util.Log;
-import java.util.ArrayList;
-import java.util.HashMap;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.device.apps.AppManagementActivity;
+import com.android.tv.settings.dialog.Layout;
+import com.android.tv.settings.dialog.SettingsLayoutActivity;
+
 import java.util.List;
 
 /**
  * Controls location settings.
  */
-public class LocationActivity extends BaseSettingsActivity implements ActionAdapter.Listener {
+public class LocationActivity extends SettingsLayoutActivity {
 
     private static final String TAG = "LocationActivity";
     private static final boolean DEBUG = false;
 
-    /**
-     * Stores a BatterySipper object and records whether the sipper has been
-     * used.
-     */
+    private static final int ACTION_LOCATION_ON = 1;
+    private static final int ACTION_LOCATION_OFF = 2;
+
     private static final int RECENT_TIME_INTERVAL_MILLIS = 15 * 60 * 1000;
-    /**
-     * Package name of GmsCore
-     */
-    private static final String GMS_PACKAGE = "com.google.android.gms";
-    /**
-     * Class name of Google location settings
-     */
-    private static final String GOOGLE_LOCATION_SETTINGS_CLASS =
-            "com.google.android.location.settings.GoogleLocationSettingsActivity";
-    /**
-     * Account type for google accounts
-     */
-    private static final String ACCOUNT_TYPE_GOOGLE = "com.google";
 
-    /**
-     * The extra key whose value specifies the name of account to be operated
-     * on.
-     */
-    static final String EXTRA_KEY_ACCOUNT = "com.google.android.location.settings.extra.account";
-
-    private SettingsHelper mHelper;
-    private String mAccountName = null;
+    private final Layout.LayoutGetter mRecentRequestsLayoutGetter =
+            new RecentRequestsLayoutGetter();
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        mHelper = new SettingsHelper(getApplicationContext());
+    public Layout createLayout() {
+        final Resources res = getResources();
+        return new Layout().breadcrumb(getString(R.string.header_category_personal))
+                .add(new Layout.Header.Builder(res)
+                        .title(R.string.system_location)
+                        .icon(R.drawable.ic_settings_location)
+                        .detailedDescription(R.string.system_desc_location)
+                        .build()
+                        .add(new Layout.Header.Builder(res)
+                                .title(R.string.location_status)
+                                .build()
+                                .setSelectionGroup(new Layout.SelectionGroup.Builder(2)
+                                        .add(getString(R.string.location_mode_wifi_description),
+                                                null, ACTION_LOCATION_ON)
+                                        .add(getString(R.string.off), null, ACTION_LOCATION_OFF)
+                                        .select(isLocationEnabled() ?
+                                                ACTION_LOCATION_ON : ACTION_LOCATION_OFF)
+                                        .build()))
+                        .add(mRecentRequestsLayoutGetter));
+    }
 
-        super.onCreate(savedInstanceState);
+    private class RecentRequestsLayoutGetter extends Layout.LayoutGetter {
+
+        @Override
+        public Layout get() {
+            if (isLocationEnabled()) {
+                return new Layout()
+                        .add(getRecentRequestHeader());
+            } else {
+                return new Layout();
+            }
+        }
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-    }
-
-    @Override
-    protected Object getInitialState() {
-        return ActionType.LOCATION_OVERVIEW;
-    }
-
-    @Override
-    protected void refreshActionList() {
-        mActions.clear();
-        switch ((ActionType) mState) {
-            case LOCATION_OVERVIEW:
-                mActions.add(ActionType.LOCATION_STATUS.toAction(
-                        mResources, mHelper.getStatusStringFromBoolean(isLocationEnabled())));
-                if (isLocationEnabled()) {
-                    mActions.add(ActionType.LOCATION_MODE.toAction(mResources,
-                            getString(R.string.location_mode_wifi_description), false));
-                    mActions.add(ActionType.LOCATION_RECENT_REQUESTS.toAction(mResources));
-                }
+    public void onActionClicked(Layout.Action action) {
+        switch (action.getId()) {
+            case ACTION_LOCATION_ON:
+                setLocationMode(true);
                 break;
-            case LOCATION_STATUS:
-                Action locationStatusOn = ActionType.ON.toAction(mResources);
-                locationStatusOn.setChecked(isLocationEnabled());
-                Action locationStatusOff = ActionType.OFF.toAction(mResources);
-                locationStatusOff.setChecked(!isLocationEnabled());
-                mActions.add(locationStatusOn);
-                mActions.add(locationStatusOff);
-                break;
-            case LOCATION_RECENT_REQUESTS:
-                mActions = getRecentRequestActions();
-                if (mActions.size() == 0) {
-                    mActions.add(ActionType.LOCATION_NO_RECENT_REQUESTS.toAction(
-                            mResources, false));
-                }
-                break;
-            case LOCATION_SERVICES:
-                mActions.add(ActionType.LOCATION_SERVICES_GOOGLE.toAction(mResources));
-                break;
-            case LOCATION_SERVICES_GOOGLE:
-                mActions = getAccountsActions();
-                break;
-            case LOCATION_SERVICES_GOOGLE_SETTINGS:
-                // TODO add on and off
-                mActions.add(ActionType.LOCATION_SERVICES_GOOGLE_REPORTING.toAction(mResources));
-                mActions.add(ActionType.LOCATION_SERVICES_GOOGLE_HISTORY.toAction(mResources));
-                break;
-            case LOCATION_SERVICES_GOOGLE_REPORTING:
-            case LOCATION_SERVICES_GOOGLE_HISTORY:
-                // TODO set checked here
-                mActions.add(ActionType.ON.toAction(mResources));
-                mActions.add(ActionType.OFF.toAction(mResources));
+            case ACTION_LOCATION_OFF:
+                setLocationMode(false);
                 break;
             default:
+                final Intent intent = action.getIntent();
+                if (intent != null) {
+                    startActivity(intent);
+                }
         }
-    }
-
-    // TODO Remove this. Use our own UI
-    private void startHoloGoogleLocationServicesSettings() {
-        Intent i = new Intent();
-        i.setClassName(GMS_PACKAGE, GOOGLE_LOCATION_SETTINGS_CLASS);
-        startActivity(i);
-    }
-
-    private ArrayList<Action> getAccountsActions(){
-        ArrayList<Action> result = new ArrayList<Action>();
-        Action.Builder builder = new Action.Builder();
-        Account[] googleAccounts = ((AccountManager) getSystemService(Context.ACCOUNT_SERVICE))
-                .getAccountsByType(ACCOUNT_TYPE_GOOGLE);
-        for (Account account : googleAccounts) {
-            result.add(builder.key(account.name).title(account.name).build());
-        }
-        return result;
     }
 
     /**
      * Fills a list of applications which queried location recently within
      * specified time. TODO: add icons
      */
-    private ArrayList<Action> getRecentRequestActions() {
-        ArrayList<Action> result = new ArrayList<Action>();
+    private Layout.Header getRecentRequestHeader() {
+        final Layout.Header header = new Layout.Header.Builder(getResources())
+                .title(R.string.location_category_recent_location_requests)
+                .build();
 
         // Retrieve a location usage list from AppOps
         AppOpsManager aoManager = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
@@ -183,16 +118,16 @@ public class LocationActivity extends BaseSettingsActivity implements ActionAdap
                 });
         long now = System.currentTimeMillis();
         for (AppOpsManager.PackageOps ops : appOps) {
-            Action action = getActionFromOps(now, ops);
+            Layout.Action action = getActionFromOps(now, ops);
             if (action != null) {
-                result.add(action);
+                header.add(action);
             }
         }
 
-        return result;
+        return header;
     }
 
-    private Action getActionFromOps(long now, AppOpsManager.PackageOps ops) {
+    private Layout.Action getActionFromOps(long now, AppOpsManager.PackageOps ops) {
         String packageName = ops.getPackageName();
         List<AppOpsManager.OpEntry> entries = ops.getOps();
         boolean highBattery = false;
@@ -223,14 +158,14 @@ public class LocationActivity extends BaseSettingsActivity implements ActionAdap
             return null;
         }
 
-        Action.Builder builder = new Action.Builder();
+        Layout.Action.Builder builder = new Layout.Action.Builder(getResources(),
+                AppManagementActivity.getLaunchIntent(packageName));
         // The package is fresh enough, continue.
         try {
             ApplicationInfo appInfo = getPackageManager().getApplicationInfo(
                     packageName, PackageManager.GET_META_DATA);
             if (appInfo.uid == ops.getUid()) {
-                builder.key(packageName)
-                        .title(getPackageManager().getApplicationLabel(appInfo).toString())
+                builder.title(getPackageManager().getApplicationLabel(appInfo).toString())
                         .description(highBattery ? getString(R.string.location_high_battery_use)
                                 : getString(R.string.location_low_battery_use));
             } else if (DEBUG) {
@@ -247,102 +182,6 @@ public class LocationActivity extends BaseSettingsActivity implements ActionAdap
         return Settings.Secure.getInt(getContentResolver(),
                 Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF) !=
                 Settings.Secure.LOCATION_MODE_OFF;
-    }
-
-    @Override
-    protected void updateView() {
-        refreshActionList();
-        switch ((ActionType) mState) {
-            case LOCATION_OVERVIEW:
-                setView(R.string.system_location, R.string.settings_app_name,
-                        R.string.system_desc_location, R.drawable.ic_settings_location);
-                break;
-            case LOCATION_SERVICES_GOOGLE_SETTINGS:
-                setView(mAccountName, getPrevState() != null ?
-                        ((ActionType) getPrevState()).getTitle(mResources) : null,
-                        ((ActionType) mState).getDescription(mResources), 0);
-                break;
-            case ON:
-            case OFF:
-            case LOCATION_SERVICES_GOOGLE_REPORTING:
-            case LOCATION_SERVICES_GOOGLE_HISTORY:
-                break;
-            default:
-                setView(((ActionType) mState).getTitle(mResources), getPrevState() != null ?
-                        ((ActionType) getPrevState()).getTitle(mResources) : null,
-                        ((ActionType) mState).getDescription(mResources), 0);
-                break;
-        }
-    }
-
-    @Override
-    public void onActionClicked(Action action) {
-        // clicking on recent location access apps
-        switch ((ActionType) mState) {
-            case LOCATION_RECENT_REQUESTS:
-                // TODO handle no recent apps
-                String packageName = action.getKey();
-                Intent i = AppManagementActivity.getLaunchIntent(packageName);
-                startActivity(i);
-                return;
-
-            case LOCATION_SERVICES_GOOGLE:
-                mAccountName = action.getTitle();
-                setState(ActionType.LOCATION_SERVICES_GOOGLE_SETTINGS, true);
-                return;
-            default:
-        }
-
-        ActionKey<ActionType, ActionBehavior> actionKey = new ActionKey<ActionType, ActionBehavior>(
-                ActionType.class, ActionBehavior.class, action.getKey());
-        final ActionType type = actionKey.getType();
-        switch (type) {
-            case ON:
-                setProperty(true);
-                goBack();
-                break;
-            case OFF:
-                setProperty(false);
-                goBack();
-                break;
-            case LOCATION_SERVICES_GOOGLE_REPORTING:
-                startLocationReportingSettings();
-                break;
-            case LOCATION_SERVICES_GOOGLE_HISTORY:
-                startLocationHistorySettings();
-                break;
-            case LOCATION_SERVICES_GOOGLE: // TODO remove this here, it should
-                                           // fall into the default once we
-                                           // figure out how to now use the
-                                           // settings in GmsCore
-                startHoloGoogleLocationServicesSettings();
-                break;
-            default:
-                setState(type, true);
-                break;
-        }
-    }
-
-    @Override
-    protected void setProperty(boolean enable) {
-        switch ((ActionType) mState) {
-            case LOCATION_STATUS:
-                setLocationMode(enable);
-                break;
-             default:
-        }
-    }
-
-    // TODO Location history settings is currently in
-    // com.google.android.location.settings.LocationHistorySettingsActivity and
-    // is non exported
-    private void startLocationHistorySettings() {
-    }
-
-    // TODO Location reporting settings is currently in
-    // com.google.android.location.settings.LocationReportingSettingsActivity
-    // and is non exported
-    private void startLocationReportingSettings() {
     }
 
     private void setLocationMode(boolean enable) {

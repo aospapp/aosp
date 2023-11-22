@@ -184,30 +184,30 @@ ihevc_itrans_recon_8x8_av8:
     ld1         {v2.4h},[x0],#8
     ld1         {v3.4h},[x9],#8
     ld1         {v4.4h},[x0],x5
-    smull       v20.4s, v2.4h, v0.4h[0]     //// y0 * cos4(part of c0 and c1)
+    smull       v20.4s, v2.4h, v0.h[0]      //// y0 * cos4(part of c0 and c1)
     ld1         {v5.4h},[x9],x5
-    smull       v18.4s, v3.4h, v1.4h[2]     //// y2 * sin2 (q3 is freed by this time)(part of d1)
+    smull       v18.4s, v3.4h, v1.h[2]      //// y2 * sin2 (q3 is freed by this time)(part of d1)
     ld1         {v6.4h},[x0],#8
     ld1         {v7.4h},[x9],#8
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
+    smull       v24.4s, v6.4h, v0.h[1]      //// y1 * cos1(part of b0)
     ld1         {v8.4h},[x0],x10
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
+    smull       v26.4s, v6.4h, v0.h[3]      //// y1 * cos3(part of b1)
     ld1         {v9.4h},[x9],x10
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
+    smull       v28.4s, v6.4h, v1.h[1]      //// y1 * sin3(part of b2)
     ld1         {v10.4h},[x0],#8
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v30.4s, v6.4h, v1.h[3]      //// y1 * sin1(part of b3)
     ld1         {v11.4h},[x9],#8
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlal       v24.4s, v7.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
     ld1         {v12.4h},[x0],x5
-    smlsl       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v26.4s, v7.4h, v1.h[3]      //// y1 * cos3 - y3 * sin1(part of b1)
     ld1         {v13.4h},[x9],x5
-    smlsl       v28.4s, v7.4h, v0.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v28.4s, v7.4h, v0.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
     ld1         {v14.4h},[x0],#8
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlsl       v30.4s, v7.4h, v1.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
     ld1         {v15.4h},[x9],#8
-    smull       v22.4s, v10.4h, v0.4h[0]    //// y4 * cos4(part of c0 and c1)
+    smull       v22.4s, v10.4h, v0.h[0]     //// y4 * cos4(part of c0 and c1)
     ld1         {v16.4h},[x0],x10
-    smull       v6.4s, v3.4h, v0.4h[2]      //// y2 * cos2(part of d0)
+    smull       v6.4s, v3.4h, v0.h[2]       //// y2 * cos2(part of d0)
     ld1         {v17.4h},[x9],x10
 
     ///* this following was activated when alignment is not there */
@@ -231,21 +231,21 @@ ihevc_itrans_recon_8x8_av8:
 
 
 
-    smlal       v24.4s, v14.4h, v1.4h[1]    //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
-    smlsl       v26.4s, v14.4h, v0.4h[1]    //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
-    smlal       v28.4s, v14.4h, v1.4h[3]    //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
-    smlal       v30.4s, v14.4h, v0.4h[3]    //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
+    smlal       v24.4s, v14.4h, v1.h[1]     //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
+    smlsl       v26.4s, v14.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
+    smlal       v28.4s, v14.4h, v1.h[3]     //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
+    smlal       v30.4s, v14.4h, v0.h[3]     //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
 
-    smlsl       v18.4s, v11.4h, v0.4h[2]    //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
-    smlal       v6.4s, v11.4h, v1.4h[2]     //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
+    smlsl       v18.4s, v11.4h, v0.h[2]     //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
+    smlal       v6.4s, v11.4h, v1.h[2]      //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
 
     add         v10.4s,  v20.4s ,  v22.4s   //// c0 = y0 * cos4 + y4 * cos4(part of a0 and a1)
     sub         v20.4s,  v20.4s ,  v22.4s   //// c1 = y0 * cos4 - y4 * cos4(part of a0 and a1)
 
-    smlal       v24.4s, v15.4h, v1.4h[3]    //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
-    smlsl       v26.4s, v15.4h, v1.4h[1]    //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
-    smlal       v28.4s, v15.4h, v0.4h[3]    //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
-    smlsl       v30.4s, v15.4h, v0.4h[1]    //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
+    smlal       v24.4s, v15.4h, v1.h[3]     //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
+    smlsl       v26.4s, v15.4h, v1.h[1]     //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
+    smlal       v28.4s, v15.4h, v0.h[3]     //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
+    smlsl       v30.4s, v15.4h, v0.h[1]     //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
 
     add         v14.4s,  v10.4s ,  v6.4s    ////    a0 = c0 + d0(part of x0,x7)
     sub         v10.4s,  v10.4s ,  v6.4s    //// a3 = c0 - d0(part of x3,x4)
@@ -301,20 +301,20 @@ skip_last4_rows:
 
 
 
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v0.h[1]      //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v0.h[3]      //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v1.h[1]      //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v1.h[3]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v7.4h, v0.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlal       v24.4s, v7.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v1.h[3]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v7.4h, v0.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v1.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
 
-    smull       v18.4s, v3.4h, v1.4h[2]     //// y2 * sin2 (q3 is freed by this time)(part of d1)
-    smull       v6.4s, v3.4h, v0.4h[2]      //// y2 * cos2(part of d0)
+    smull       v18.4s, v3.4h, v1.h[2]      //// y2 * sin2 (q3 is freed by this time)(part of d1)
+    smull       v6.4s, v3.4h, v0.h[2]       //// y2 * cos2(part of d0)
 
-    smull       v20.4s, v2.4h, v0.4h[0]     //// y0 * cos4(part of c0 and c1)
+    smull       v20.4s, v2.4h, v0.h[0]      //// y0 * cos4(part of c0 and c1)
 
 
     add         v14.4s,  v20.4s ,  v6.4s    ////    a0 = c0 + d0(part of x0,x7)
@@ -350,37 +350,37 @@ last4_cols:
     cmp         x12,#0xf0
     bge         skip_last4cols
 
-    smull       v24.4s, v8.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v8.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v8.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v8.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v8.4h, v0.h[1]      //// y1 * cos1(part of b0)
+    smull       v26.4s, v8.4h, v0.h[3]      //// y1 * cos3(part of b1)
+    smull       v28.4s, v8.4h, v1.h[1]      //// y1 * sin3(part of b2)
+    smull       v30.4s, v8.4h, v1.h[3]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v9.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v9.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v9.4h, v0.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v9.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlal       v24.4s, v9.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v9.4h, v1.h[3]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v9.4h, v0.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v9.4h, v1.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
 
-    smull       v18.4s, v5.4h, v1.4h[2]     //// y2 * sin2 (q4 is freed by this time)(part of d1)
-    smull       v8.4s, v5.4h, v0.4h[2]      //// y2 * cos2(part of d0)
+    smull       v18.4s, v5.4h, v1.h[2]      //// y2 * sin2 (q4 is freed by this time)(part of d1)
+    smull       v8.4s, v5.4h, v0.h[2]       //// y2 * cos2(part of d0)
 
-    smull       v20.4s, v4.4h, v0.4h[0]     //// y0 * cos4(part of c0 and c1)
-    smull       v22.4s, v12.4h, v0.4h[0]    //// y4 * cos4(part of c0 and c1)
+    smull       v20.4s, v4.4h, v0.h[0]      //// y0 * cos4(part of c0 and c1)
+    smull       v22.4s, v12.4h, v0.h[0]     //// y4 * cos4(part of c0 and c1)
 
-    smlal       v24.4s, v16.4h, v1.4h[1]    //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
-    smlsl       v26.4s, v16.4h, v0.4h[1]    //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
-    smlal       v28.4s, v16.4h, v1.4h[3]    //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
-    smlal       v30.4s, v16.4h, v0.4h[3]    //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
+    smlal       v24.4s, v16.4h, v1.h[1]     //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
+    smlsl       v26.4s, v16.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
+    smlal       v28.4s, v16.4h, v1.h[3]     //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
+    smlal       v30.4s, v16.4h, v0.h[3]     //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
 
-    smlsl       v18.4s, v13.4h, v0.4h[2]    //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
-    smlal       v8.4s, v13.4h, v1.4h[2]     //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
+    smlsl       v18.4s, v13.4h, v0.h[2]     //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
+    smlal       v8.4s, v13.4h, v1.h[2]      //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
 
     add         v12.4s,  v20.4s ,  v22.4s   //// c0 = y0 * cos4 + y4 * cos4(part of a0 and a1)
     sub         v20.4s,  v20.4s ,  v22.4s   //// c1 = y0 * cos4 - y4 * cos4(part of a0 and a1)
 
-    smlal       v24.4s, v17.4h, v1.4h[3]    //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of e0,e7)
-    smlsl       v26.4s, v17.4h, v1.4h[1]    //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of e1,e6)
-    smlal       v28.4s, v17.4h, v0.4h[3]    //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of e2,e5)
-    smlsl       v30.4s, v17.4h, v0.4h[1]    //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of e3,e4)
+    smlal       v24.4s, v17.4h, v1.h[3]     //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of e0,e7)
+    smlsl       v26.4s, v17.4h, v1.h[1]     //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of e1,e6)
+    smlal       v28.4s, v17.4h, v0.h[3]     //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of e2,e5)
+    smlsl       v30.4s, v17.4h, v0.h[1]     //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of e3,e4)
 
     add         v16.4s,  v12.4s ,  v8.4s    ////    a0 = c0 + d0(part of e0,e7)
     sub         v12.4s,  v12.4s ,  v8.4s    //// a3 = c0 - d0(part of e3,e4)
@@ -440,21 +440,21 @@ skip_last4cols:
 
     mov         v25.d[0],x15
 
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v0.h[1]      //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v0.h[3]      //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v1.h[1]      //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v1.h[3]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v7.4h, v0.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlal       v24.4s, v7.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v1.h[3]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v7.4h, v0.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v1.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
 
-    smull       v20.4s, v2.4h, v0.4h[0]     //// y0 * cos4(part of c0 and c1)
+    smull       v20.4s, v2.4h, v0.h[0]      //// y0 * cos4(part of c0 and c1)
 //    vmull.s16    q11,d4,d0[0]                    @// y4 * cos4(part of c0 and c1)
 
-    smull       v18.4s, v3.4h, v1.4h[2]     //// y2 * sin2 (q3 is freed by this time)(part of d1)
-    smull       v6.4s, v3.4h, v0.4h[2]      //// y2 * cos2(part of d0)
+    smull       v18.4s, v3.4h, v1.h[2]      //// y2 * sin2 (q3 is freed by this time)(part of d1)
+    smull       v6.4s, v3.4h, v0.h[2]       //// y2 * cos2(part of d0)
 
 
 
@@ -520,19 +520,19 @@ skip_last4cols:
     mov         v25.d[0],x19
     mov         v25.d[1],x20
 
-    smull       v24.4s, v14.4h, v0.4h[1]    //// y1 * cos1(part of b0)
+    smull       v24.4s, v14.4h, v0.h[1]     //// y1 * cos1(part of b0)
 
-    smull       v26.4s, v14.4h, v0.4h[3]    //// y1 * cos3(part of b1)
-    smull       v28.4s, v14.4h, v1.4h[1]    //// y1 * sin3(part of b2)
-    smull       v30.4s, v14.4h, v1.4h[3]    //// y1 * sin1(part of b3)
+    smull       v26.4s, v14.4h, v0.h[3]     //// y1 * cos3(part of b1)
+    smull       v28.4s, v14.4h, v1.h[1]     //// y1 * sin3(part of b2)
+    smull       v30.4s, v14.4h, v1.h[3]     //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v15.4h, v0.4h[3]    //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v15.4h, v1.4h[3]    //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v15.4h, v0.4h[1]    //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v15.4h, v1.4h[1]    //// y1 * sin1 - y3 * sin3(part of b3)
-    smull       v20.4s, v10.4h, v0.4h[0]    //// y0 * cos4(part of c0 and c1)
-    smull       v18.4s, v11.4h, v1.4h[2]    //// y2 * sin2 (q7 is freed by this time)(part of d1)
-    smull       v14.4s, v11.4h, v0.4h[2]    //// y2 * cos2(part of d0)
+    smlal       v24.4s, v15.4h, v0.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v15.4h, v1.h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v15.4h, v0.h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v15.4h, v1.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smull       v20.4s, v10.4h, v0.h[0]     //// y0 * cos4(part of c0 and c1)
+    smull       v18.4s, v11.4h, v1.h[2]     //// y2 * sin2 (q7 is freed by this time)(part of d1)
+    smull       v14.4s, v11.4h, v0.h[2]     //// y2 * cos2(part of d0)
 
 
     add         x4,x2,x8, lsl #1            // x4 = x2 + pred_strd * 2    => x4 points to 3rd row of pred data
@@ -698,38 +698,38 @@ end_skip_last4cols:
 ////        q5    ->    q2
 ////        q7    ->    q4
 
-    smull       v24.4s, v6.4h, v0.4h[1]     //// y1 * cos1(part of b0)
-    smull       v26.4s, v6.4h, v0.4h[3]     //// y1 * cos3(part of b1)
-    smull       v28.4s, v6.4h, v1.4h[1]     //// y1 * sin3(part of b2)
-    smull       v30.4s, v6.4h, v1.4h[3]     //// y1 * sin1(part of b3)
+    smull       v24.4s, v6.4h, v0.h[1]      //// y1 * cos1(part of b0)
+    smull       v26.4s, v6.4h, v0.h[3]      //// y1 * cos3(part of b1)
+    smull       v28.4s, v6.4h, v1.h[1]      //// y1 * sin3(part of b2)
+    smull       v30.4s, v6.4h, v1.h[3]      //// y1 * sin1(part of b3)
 
-    smlal       v24.4s, v7.4h, v0.4h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v7.4h, v1.4h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v7.4h, v0.4h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v7.4h, v1.4h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smlal       v24.4s, v7.4h, v0.h[3]      //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v7.4h, v1.h[3]      //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v7.4h, v0.h[1]      //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v7.4h, v1.h[1]      //// y1 * sin1 - y3 * sin3(part of b3)
 
-    smull       v20.4s, v2.4h, v0.4h[0]     //// y0 * cos4(part of c0 and c1)
-    smull       v22.4s, v4.4h, v0.4h[0]     //// y4 * cos4(part of c0 and c1)
+    smull       v20.4s, v2.4h, v0.h[0]      //// y0 * cos4(part of c0 and c1)
+    smull       v22.4s, v4.4h, v0.h[0]      //// y4 * cos4(part of c0 and c1)
 
-    smull       v18.4s, v3.4h, v1.4h[2]     //// y2 * sin2 (q3 is freed by this time)(part of d1)
-    smull       v6.4s, v3.4h, v0.4h[2]      //// y2 * cos2(part of d0)
+    smull       v18.4s, v3.4h, v1.h[2]      //// y2 * sin2 (q3 is freed by this time)(part of d1)
+    smull       v6.4s, v3.4h, v0.h[2]       //// y2 * cos2(part of d0)
 
 
-    smlal       v24.4s, v8.4h, v1.4h[1]     //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
-    smlsl       v26.4s, v8.4h, v0.4h[1]     //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
-    smlal       v28.4s, v8.4h, v1.4h[3]     //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
-    smlal       v30.4s, v8.4h, v0.4h[3]     //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
+    smlal       v24.4s, v8.4h, v1.h[1]      //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
+    smlsl       v26.4s, v8.4h, v0.h[1]      //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
+    smlal       v28.4s, v8.4h, v1.h[3]      //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
+    smlal       v30.4s, v8.4h, v0.h[3]      //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
 
-    smlsl       v18.4s, v5.4h, v0.4h[2]     //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
-    smlal       v6.4s, v5.4h, v1.4h[2]      //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
+    smlsl       v18.4s, v5.4h, v0.h[2]      //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
+    smlal       v6.4s, v5.4h, v1.h[2]       //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
 
     add         v2.4s,  v20.4s ,  v22.4s    //// c0 = y0 * cos4 + y4 * cos4(part of a0 and a1)
     sub         v20.4s,  v20.4s ,  v22.4s   //// c1 = y0 * cos4 - y4 * cos4(part of a0 and a1)
 
-    smlal       v24.4s, v9.4h, v1.4h[3]     //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
-    smlsl       v26.4s, v9.4h, v1.4h[1]     //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
-    smlal       v28.4s, v9.4h, v0.4h[3]     //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
-    smlsl       v30.4s, v9.4h, v0.4h[1]     //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
+    smlal       v24.4s, v9.4h, v1.h[3]      //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
+    smlsl       v26.4s, v9.4h, v1.h[1]      //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
+    smlal       v28.4s, v9.4h, v0.h[3]      //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
+    smlsl       v30.4s, v9.4h, v0.h[1]      //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
 
     sub         v22.4s,  v2.4s ,  v6.4s     //// a3 = c0 - d0(part of x3,x4)
     add         v4.4s,  v2.4s ,  v6.4s      ////    a0 = c0 + d0(part of x0,x7)
@@ -794,53 +794,53 @@ end_skip_last4cols:
 
 
 
-    smull       v24.4s, v14.4h, v0.4h[1]    //// y1 * cos1(part of b0)
-    smull       v26.4s, v14.4h, v0.4h[3]    //// y1 * cos3(part of b1)
-    smull       v28.4s, v14.4h, v1.4h[1]    //// y1 * sin3(part of b2)
-    smull       v30.4s, v14.4h, v1.4h[3]    //// y1 * sin1(part of b3)
-    smlal       v24.4s, v15.4h, v0.4h[3]    //// y1 * cos1 + y3 * cos3(part of b0)
-    smlsl       v26.4s, v15.4h, v1.4h[3]    //// y1 * cos3 - y3 * sin1(part of b1)
-    smlsl       v28.4s, v15.4h, v0.4h[1]    //// y1 * sin3 - y3 * cos1(part of b2)
-    smlsl       v30.4s, v15.4h, v1.4h[1]    //// y1 * sin1 - y3 * sin3(part of b3)
-    smull       v20.4s, v10.4h, v0.4h[0]    //// y0 * cos4(part of c0 and c1)
-    smull       v22.4s, v12.4h, v0.4h[0]    //// y4 * cos4(part of c0 and c1)
-    smull       v18.4s, v11.4h, v1.4h[2]    //// y2 * sin2 (q7 is freed by this time)(part of d1)
-    smull       v14.4s, v11.4h, v0.4h[2]    //// y2 * cos2(part of d0)
-    smlal       v24.4s, v16.4h, v1.4h[1]    //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
+    smull       v24.4s, v14.4h, v0.h[1]     //// y1 * cos1(part of b0)
+    smull       v26.4s, v14.4h, v0.h[3]     //// y1 * cos3(part of b1)
+    smull       v28.4s, v14.4h, v1.h[1]     //// y1 * sin3(part of b2)
+    smull       v30.4s, v14.4h, v1.h[3]     //// y1 * sin1(part of b3)
+    smlal       v24.4s, v15.4h, v0.h[3]     //// y1 * cos1 + y3 * cos3(part of b0)
+    smlsl       v26.4s, v15.4h, v1.h[3]     //// y1 * cos3 - y3 * sin1(part of b1)
+    smlsl       v28.4s, v15.4h, v0.h[1]     //// y1 * sin3 - y3 * cos1(part of b2)
+    smlsl       v30.4s, v15.4h, v1.h[1]     //// y1 * sin1 - y3 * sin3(part of b3)
+    smull       v20.4s, v10.4h, v0.h[0]     //// y0 * cos4(part of c0 and c1)
+    smull       v22.4s, v12.4h, v0.h[0]     //// y4 * cos4(part of c0 and c1)
+    smull       v18.4s, v11.4h, v1.h[2]     //// y2 * sin2 (q7 is freed by this time)(part of d1)
+    smull       v14.4s, v11.4h, v0.h[2]     //// y2 * cos2(part of d0)
+    smlal       v24.4s, v16.4h, v1.h[1]     //// y1 * cos1 + y3 * cos3 + y5 * sin3(part of b0)
 
     add         x4,x2,x8, lsl #1            // x4 = x2 + pred_strd * 2    => x4 points to 3rd row of pred data
-    smlsl       v26.4s, v16.4h, v0.4h[1]    //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
+    smlsl       v26.4s, v16.4h, v0.h[1]     //// y1 * cos3 - y3 * sin1 - y5 * cos1(part of b1)
 
     add         x5,x8,x8, lsl #1            //
-    smlal       v28.4s, v16.4h, v1.4h[3]    //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
+    smlal       v28.4s, v16.4h, v1.h[3]     //// y1 * sin3 - y3 * cos1 + y5 * sin1(part of b2)
 
     add         x0,x3,x7, lsl #1            // x0 points to 3rd row of dest data
-    smlal       v30.4s, v16.4h, v0.4h[3]    //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
+    smlal       v30.4s, v16.4h, v0.h[3]     //// y1 * sin1 - y3 * sin3 + y5 * cos3(part of b3)
 
     add         x10,x7,x7, lsl #1           //
-    smlsl       v18.4s, v13.4h, v0.4h[2]    //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
+    smlsl       v18.4s, v13.4h, v0.h[2]     //// d1 = y2 * sin2 - y6 * cos2(part of a0 and a1)
 
 
-    smlal       v14.4s, v13.4h, v1.4h[2]    //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
+    smlal       v14.4s, v13.4h, v1.h[2]     //// d0 = y2 * cos2 + y6 * sin2(part of a0 and a1)
 
     add         v12.4s,  v20.4s ,  v22.4s   //// c0 = y0 * cos4 + y4 * cos4(part of a0 and a1)
     sub         v20.4s,  v20.4s ,  v22.4s   //// c1 = y0 * cos4 - y4 * cos4(part of a0 and a1)
 
-    smlal       v24.4s, v17.4h, v1.4h[3]    //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
+    smlal       v24.4s, v17.4h, v1.h[3]     //// b0 = y1 * cos1 + y3 * cos3 + y5 * sin3 + y7 * sin1(part of x0,x7)
 
     // swapping v3 and v6
     mov         v31.d[0], v3.d[0]
     mov         v3.d[0], v6.d[0]
     mov         v6.d[0], v31.d[0]
 
-    smlsl       v26.4s, v17.4h, v1.4h[1]    //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
+    smlsl       v26.4s, v17.4h, v1.h[1]     //// b1 = y1 * cos3 - y3 * sin1 - y5 * cos1 - y7 * sin3(part of x1,x6)
     // swapping v5 and v8
     mov         v31.d[0], v5.d[0]
     mov         v5.d[0], v8.d[0]
     mov         v8.d[0], v31.d[0]
 
-    smlal       v28.4s, v17.4h, v0.4h[3]    //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
-    smlsl       v30.4s, v17.4h, v0.4h[1]    //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
+    smlal       v28.4s, v17.4h, v0.h[3]     //// b2 = y1 * sin3 - y3 * cos1 + y5 * sin1 + y7 * cos3(part of x2,x5)
+    smlsl       v30.4s, v17.4h, v0.h[1]     //// b3 = y1 * sin1 - y3 * sin3 + y5 * cos3 - y7 * cos1(part of x3,x4)
 
     sub         v22.4s,  v12.4s ,  v14.4s   //// a3 = c0 - d0(part of x3,x4)
     add         v12.4s,  v12.4s ,  v14.4s   ////    a0 = c0 + d0(part of x0,x7)

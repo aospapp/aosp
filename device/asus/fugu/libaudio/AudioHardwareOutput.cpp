@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-#define LOG_TAG "AudioHAL:AudioHardwareOutput"
+#define LOG_TAG "AudioHAL_AudioHardwareOutput"
 
 #include <utils/Log.h>
 
@@ -115,12 +115,13 @@ AudioStreamOut* AudioHardwareOutput::openOutputStream(
     AudioStreamOut** pp_out;
     AudioStreamOut* out;
 
+    bool isIec958NonAudio = (flags & AUDIO_OUTPUT_FLAG_IEC958_NONAUDIO) != 0;
     if (!(flags & AUDIO_OUTPUT_FLAG_DIRECT)) {
         pp_out = &mMainOutput;
-        out = new AudioStreamOut(*this, false);
+        out = new AudioStreamOut(*this, false, isIec958NonAudio);
     } else {
         pp_out = &mMCOutput;
-        out = new AudioStreamOut(*this, true);
+        out = new AudioStreamOut(*this, true, isIec958NonAudio);
     }
 
     if (out == NULL) {

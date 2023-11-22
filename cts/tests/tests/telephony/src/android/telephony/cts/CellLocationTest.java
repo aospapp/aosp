@@ -60,6 +60,14 @@ public class CellLocationTest extends AndroidTestCase{
             return;
         }
 
+        // getCellLocation should never return null,
+        // but that is allowed if the cell network type
+        // is LTE (since there is no LteCellLocation class)
+        if (mTelephonyManager.getNetworkType() != TelephonyManager.NETWORK_TYPE_LTE) {
+            assertNotNull("TelephonyManager.getCellLocation() returned null!",
+                mTelephonyManager.getCellLocation());
+        }
+
         CellLocation cl = CellLocation.getEmpty();
         if (cl instanceof GsmCellLocation) {
             GsmCellLocation gcl = (GsmCellLocation) cl;

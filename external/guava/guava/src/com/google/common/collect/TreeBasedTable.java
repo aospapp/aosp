@@ -66,6 +66,10 @@ import javax.annotation.Nullable;
  * access this table concurrently and one of the threads modifies the table, it
  * must be synchronized externally.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Table">
+ * {@code Table}</a>.
+ *
  * @author Jared Levy
  * @author Louis Wasserman
  * @since 7.0
@@ -189,6 +193,10 @@ public class TreeBasedTable<R, C, V> extends StandardRowSortedTable<R, C, V> {
           || compare(lowerBound, upperBound) <= 0);
     }
 
+    @Override public SortedSet<C> keySet() {
+      return new Maps.SortedKeySet<C, V>(this);
+    }
+
     @Override public Comparator<? super C> comparator() {
       return columnComparator();
     }
@@ -298,38 +306,6 @@ public class TreeBasedTable<R, C, V> extends StandardRowSortedTable<R, C, V> {
 
   @Override public SortedMap<R, Map<C, V>> rowMap() {
     return super.rowMap();
-  }
-
-  // Overriding so NullPointerTester test passes.
-
-  @Override public boolean contains(
-      @Nullable Object rowKey, @Nullable Object columnKey) {
-    return super.contains(rowKey, columnKey);
-  }
-
-  @Override public boolean containsColumn(@Nullable Object columnKey) {
-    return super.containsColumn(columnKey);
-  }
-
-  @Override public boolean containsRow(@Nullable Object rowKey) {
-    return super.containsRow(rowKey);
-  }
-
-  @Override public boolean containsValue(@Nullable Object value) {
-    return super.containsValue(value);
-  }
-
-  @Override public V get(@Nullable Object rowKey, @Nullable Object columnKey) {
-    return super.get(rowKey, columnKey);
-  }
-
-  @Override public boolean equals(@Nullable Object obj) {
-    return super.equals(obj);
-  }
-
-  @Override public V remove(
-      @Nullable Object rowKey, @Nullable Object columnKey) {
-    return super.remove(rowKey, columnKey);
   }
 
   /**

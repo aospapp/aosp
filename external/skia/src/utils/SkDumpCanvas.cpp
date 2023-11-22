@@ -9,10 +9,12 @@
 #include "SkDumpCanvas.h"
 
 #ifdef SK_DEVELOPER
+#include "SkPatchUtils.h"
 #include "SkPicture.h"
 #include "SkPixelRef.h"
 #include "SkRRect.h"
 #include "SkString.h"
+#include "SkTextBlob.h"
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -192,9 +194,9 @@ void SkDumpCanvas::dump(Verb verb, const SkPaint* paint,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void SkDumpCanvas::willSave(SaveFlags flags) {
-    this->dump(kSave_Verb, NULL, "save(0x%X)", flags);
-    this->INHERITED::willSave(flags);
+void SkDumpCanvas::willSave() {
+    this->dump(kSave_Verb, NULL, "save()");
+    this->INHERITED::willSave();
 }
 
 SkCanvas::SaveLayerStrategy SkDumpCanvas::willSaveLayer(const SkRect* bounds, const SkPaint* paint,
@@ -290,40 +292,31 @@ void SkDumpCanvas::onClipRegion(const SkRegion& deviceRgn, SkRegion::Op op) {
     this->INHERITED::onClipRegion(deviceRgn, op);
 }
 
-void SkDumpCanvas::onPushCull(const SkRect& cullRect) {
-    SkString str;
-    toString(cullRect, &str);
-    this->dump(kCull_Verb, NULL, "pushCull(%s)", str.c_str());
-}
-
-void SkDumpCanvas::onPopCull() {
-    this->dump(kCull_Verb, NULL, "popCull()");
-}
 ///////////////////////////////////////////////////////////////////////////////
 
-void SkDumpCanvas::drawPaint(const SkPaint& paint) {
+void SkDumpCanvas::onDrawPaint(const SkPaint& paint) {
     this->dump(kDrawPaint_Verb, &paint, "drawPaint()");
 }
 
-void SkDumpCanvas::drawPoints(PointMode mode, size_t count,
+void SkDumpCanvas::onDrawPoints(PointMode mode, size_t count,
                                const SkPoint pts[], const SkPaint& paint) {
     this->dump(kDrawPoints_Verb, &paint, "drawPoints(%s, %d)", toString(mode),
                count);
 }
 
-void SkDumpCanvas::drawOval(const SkRect& rect, const SkPaint& paint) {
+void SkDumpCanvas::onDrawOval(const SkRect& rect, const SkPaint& paint) {
     SkString str;
     toString(rect, &str);
     this->dump(kDrawOval_Verb, &paint, "drawOval(%s)", str.c_str());
 }
 
-void SkDumpCanvas::drawRect(const SkRect& rect, const SkPaint& paint) {
+void SkDumpCanvas::onDrawRect(const SkRect& rect, const SkPaint& paint) {
     SkString str;
     toString(rect, &str);
     this->dump(kDrawRect_Verb, &paint, "drawRect(%s)", str.c_str());
 }
 
-void SkDumpCanvas::drawRRect(const SkRRect& rrect, const SkPaint& paint) {
+void SkDumpCanvas::onDrawRRect(const SkRRect& rrect, const SkPaint& paint) {
     SkString str;
     toString(rrect, &str);
     this->dump(kDrawDRRect_Verb, &paint, "drawRRect(%s)", str.c_str());
@@ -338,23 +331,22 @@ void SkDumpCanvas::onDrawDRRect(const SkRRect& outer, const SkRRect& inner,
                str0.c_str(), str1.c_str());
 }
 
-void SkDumpCanvas::drawPath(const SkPath& path, const SkPaint& paint) {
+void SkDumpCanvas::onDrawPath(const SkPath& path, const SkPaint& paint) {
     SkString str;
     toString(path, &str);
     this->dump(kDrawPath_Verb, &paint, "drawPath(%s)", str.c_str());
 }
 
-void SkDumpCanvas::drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
-                               const SkPaint* paint) {
+void SkDumpCanvas::onDrawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
+                                const SkPaint* paint) {
     SkString str;
     bitmap.toString(&str);
     this->dump(kDrawBitmap_Verb, paint, "drawBitmap(%s %g %g)", str.c_str(),
                SkScalarToFloat(x), SkScalarToFloat(y));
 }
 
-void SkDumpCanvas::drawBitmapRectToRect(const SkBitmap& bitmap, const SkRect* src,
-                                        const SkRect& dst, const SkPaint* paint,
-                                        DrawBitmapRectFlags flags) {
+void SkDumpCanvas::onDrawBitmapRect(const SkBitmap& bitmap, const SkRect* src, const SkRect& dst,
+                                    const SkPaint* paint, DrawBitmapRectFlags flags) {
     SkString bs, rs;
     bitmap.toString(&bs);
     toString(dst, &rs);
@@ -371,17 +363,42 @@ void SkDumpCanvas::drawBitmapRectToRect(const SkBitmap& bitmap, const SkRect* sr
                bs.c_str(), rs.c_str());
 }
 
-void SkDumpCanvas::drawBitmapMatrix(const SkBitmap& bitmap, const SkMatrix& m,
-                                     const SkPaint* paint) {
-    SkString bs, ms;
-    bitmap.toString(&bs);
-    m.toString(&ms);
-    this->dump(kDrawBitmap_Verb, paint, "drawBitmapMatrix(%s %s)",
-               bs.c_str(), ms.c_str());
+void SkDumpCanvas::onDrawBitmapNine(const SkBitmap& bitmap, const SkIRect& center,
+                                    const SkRect& dst, const SkPaint* paint) {
+    SkString str, centerStr, dstStr;
+    bitmap.toString(&str);
+    toString(center, &centerStr);
+    toString(dst, &dstStr);
+    this->dump(kDrawBitmap_Verb, paint, "drawBitmapNine(%s %s %s)", str.c_str(),
+               centerStr.c_str(), dstStr.c_str());
 }
 
-void SkDumpCanvas::drawSprite(const SkBitmap& bitmap, int x, int y,
-                               const SkPaint* paint) {
+void SkDumpCanvas::onDrawImage(const SkImage* image, SkScalar x, SkScalar y, const SkPaint* paint) {
+    SkString str;
+    image->toString(&str);
+    this->dump(kDrawBitmap_Verb, paint, "drawImage(%s %g %g)", str.c_str(),
+               SkScalarToFloat(x), SkScalarToFloat(y));
+}
+
+void SkDumpCanvas::onDrawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
+                                   const SkPaint* paint) {
+    SkString bs, rs;
+    image->toString(&bs);
+    toString(dst, &rs);
+    // show the src-rect only if its not everything
+    if (src && (src->fLeft > 0 || src->fTop > 0 ||
+                src->fRight < SkIntToScalar(image->width()) ||
+                src->fBottom < SkIntToScalar(image->height()))) {
+        SkString ss;
+        toString(*src, &ss);
+        rs.prependf("%s ", ss.c_str());
+    }
+    
+    this->dump(kDrawBitmap_Verb, paint, "drawImageRectToRect(%s %s)",
+               bs.c_str(), rs.c_str());
+}
+
+void SkDumpCanvas::onDrawSprite(const SkBitmap& bitmap, int x, int y, const SkPaint* paint) {
     SkString str;
     bitmap.toString(&str);
     this->dump(kDrawBitmap_Verb, paint, "drawSprite(%s %d %d)", str.c_str(),
@@ -422,30 +439,55 @@ void SkDumpCanvas::onDrawTextOnPath(const void* text, size_t byteLength, const S
                str.c_str(), byteLength);
 }
 
-void SkDumpCanvas::onDrawPicture(const SkPicture* picture) {
-    this->dump(kDrawPicture_Verb, NULL, "drawPicture(%p) %d:%d", picture,
-               picture->width(), picture->height());
-    fNestLevel += 1;
-    this->INHERITED::onDrawPicture(picture);
-    fNestLevel -= 1;
-    this->dump(kDrawPicture_Verb, NULL, "endPicture(%p) %d:%d", &picture,
-               picture->width(), picture->height());
+void SkDumpCanvas::onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,
+                                  const SkPaint& paint) {
+    SkString str;
+    toString(blob->bounds(), &str);
+    this->dump(kDrawText_Verb, &paint, "drawTextBlob(%p) [%s]", blob, str.c_str());
+    // FIXME: dump the actual blob content?
 }
 
-void SkDumpCanvas::drawVertices(VertexMode vmode, int vertexCount,
-                                 const SkPoint vertices[], const SkPoint texs[],
-                                 const SkColor colors[], SkXfermode* xmode,
-                                 const uint16_t indices[], int indexCount,
-                                 const SkPaint& paint) {
+void SkDumpCanvas::onDrawPicture(const SkPicture* picture, const SkMatrix* matrix,
+                                 const SkPaint* paint) {
+    this->dump(kDrawPicture_Verb, NULL, "drawPicture(%p) %f:%f:%f:%f", picture,
+               picture->cullRect().fLeft, picture->cullRect().fTop,
+               picture->cullRect().fRight, picture->cullRect().fBottom);
+    fNestLevel += 1;
+    this->INHERITED::onDrawPicture(picture, matrix, paint);
+    fNestLevel -= 1;
+    this->dump(kDrawPicture_Verb, NULL, "endPicture(%p) %f:%f:%f:%f", &picture,
+               picture->cullRect().fLeft, picture->cullRect().fTop,
+               picture->cullRect().fRight, picture->cullRect().fBottom);
+}
+
+void SkDumpCanvas::onDrawVertices(VertexMode vmode, int vertexCount,
+                                  const SkPoint vertices[], const SkPoint texs[],
+                                  const SkColor colors[], SkXfermode* xmode,
+                                  const uint16_t indices[], int indexCount,
+                                  const SkPaint& paint) {
     this->dump(kDrawVertices_Verb, &paint, "drawVertices(%s [%d] %g %g ...)",
                toString(vmode), vertexCount, SkScalarToFloat(vertices[0].fX),
                SkScalarToFloat(vertices[0].fY));
 }
 
-void SkDumpCanvas::drawData(const void* data, size_t length) {
-//    this->dump(kDrawData_Verb, NULL, "drawData(%d)", length);
-    this->dump(kDrawData_Verb, NULL, "drawData(%d) %.*s", length,
-               SkTMin<size_t>(length, 64), data);
+void SkDumpCanvas::onDrawPatch(const SkPoint cubics[12], const SkColor colors[4],
+                               const SkPoint texCoords[4], SkXfermode* xmode,
+                               const SkPaint& paint) {
+    //dumps corner points and colors in clockwise order starting on upper-left corner
+    this->dump(kDrawPatch_Verb, &paint, "drawPatch(Vertices{[%f, %f], [%f, %f], [%f, %f], [%f, %f]}\
+              | Colors{[0x%x], [0x%x], [0x%x], [0x%x]} | TexCoords{[%f,%f], [%f,%f], [%f,%f], \
+               [%f,%f]})",
+              cubics[SkPatchUtils::kTopP0_CubicCtrlPts].fX,
+              cubics[SkPatchUtils::kTopP0_CubicCtrlPts].fY,
+              cubics[SkPatchUtils::kTopP3_CubicCtrlPts].fX,
+              cubics[SkPatchUtils::kTopP3_CubicCtrlPts].fY,
+              cubics[SkPatchUtils::kBottomP3_CubicCtrlPts].fX,
+              cubics[SkPatchUtils::kBottomP3_CubicCtrlPts].fY,
+              cubics[SkPatchUtils::kBottomP0_CubicCtrlPts].fX,
+              cubics[SkPatchUtils::kBottomP0_CubicCtrlPts].fY,
+              colors[0], colors[1], colors[2], colors[3],
+              texCoords[0].x(), texCoords[0].y(), texCoords[1].x(), texCoords[1].y(),
+              texCoords[2].x(), texCoords[2].y(), texCoords[3].x(), texCoords[3].y());
 }
 
 void SkDumpCanvas::beginCommentGroup(const char* description) {

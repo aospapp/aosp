@@ -4,8 +4,8 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#if !defined(AFX_FFL_EDIT_H__8E0C9456_CBA2_4EFB_9F31_53C6D8C1A8AC__INCLUDED_)
-#define AFX_FFL_EDIT_H__8E0C9456_CBA2_4EFB_9F31_53C6D8C1A8AC__INCLUDED_
+#ifndef FPDFSDK_INCLUDE_FORMFILLER_FFL_TEXTFIELD_H_
+#define FPDFSDK_INCLUDE_FORMFILLER_FFL_TEXTFIELD_H_
 
 #include "FFL_FormFiller.h"
 
@@ -14,21 +14,6 @@
 #define BF_ALIGN_RIGHT			2
 
 class CBA_FontMap;
-
-class CFFL_EditUndoItem //: public IUndoItem
-{
-public:
-	CFFL_EditUndoItem(CPWL_Edit* pEdit);
-	virtual ~CFFL_EditUndoItem();
-	
-	virtual void					Undo();
-	virtual void					Redo();
-	virtual CFX_WideString			GetDescr();
-	virtual void					Release();
-	
-private:
-	CPWL_Edit*						m_pEdit;
-};
 
 struct FFL_TextFieldState
 {
@@ -81,9 +66,8 @@ public:
 	
 private:
 	CBA_FontMap*				m_pFontMap;
-//	CBA_SpellCheck*				m_pSpellCheck;
 	FFL_TextFieldState			m_State;
-//	CFFL_IM_BOX					m_IMBox;
+
 };
 
-#endif // !defined(AFX_FFL_EDIT_H__8E0C9456_CBA2_4EFB_9F31_53C6D8C1A8AC__INCLUDED_)
+#endif  // FPDFSDK_INCLUDE_FORMFILLER_FFL_TEXTFIELD_H_

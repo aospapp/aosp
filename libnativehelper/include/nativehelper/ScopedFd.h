@@ -18,14 +18,14 @@
 #define SCOPED_FD_H_included
 
 #include <unistd.h>
-#include "JNIHelp.h"  // for TEMP_FAILURE_RETRY
+#include "JNIHelp.h"  // for DISALLOW_COPY_AND_ASSIGN.
 
 // A smart pointer that closes the given fd on going out of scope.
 // Use this when the fd is incidental to the purpose of your function,
 // but needs to be cleaned up on exit.
 class ScopedFd {
 public:
-    explicit ScopedFd(int fd) : fd(fd) {
+    explicit ScopedFd(int fd) : fd_(fd) {
     }
 
     ~ScopedFd() {
@@ -33,28 +33,29 @@ public:
     }
 
     int get() const {
-        return fd;
+        return fd_;
     }
 
     int release() __attribute__((warn_unused_result)) {
-        int localFd = fd;
-        fd = -1;
+        int localFd = fd_;
+        fd_ = -1;
         return localFd;
     }
 
     void reset(int new_fd = -1) {
-      if (fd != -1) {
-          TEMP_FAILURE_RETRY(close(fd));
+      if (fd_ != -1) {
+        // Even if close(2) fails with EINTR, the fd will have been closed.
+        // Using TEMP_FAILURE_RETRY will either lead to EBADF or closing someone else's fd.
+        // http://lkml.indiana.edu/hypermail/linux/kernel/0509.1/0877.html
+        close(fd_);
       }
-      fd = new_fd;
+      fd_ = new_fd;
     }
 
 private:
-    int fd;
+    int fd_;
 
-    // Disallow copy and assignment.
-    ScopedFd(const ScopedFd&);
-    void operator=(const ScopedFd&);
+    DISALLOW_COPY_AND_ASSIGN(ScopedFd);
 };
 
 #endif  // SCOPED_FD_H_included

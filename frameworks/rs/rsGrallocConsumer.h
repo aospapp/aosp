@@ -65,7 +65,7 @@ class GrallocConsumer : public ConsumerBase
 
         AcquiredBuffer() :
                 mSlot(BufferQueue::INVALID_BUFFER_SLOT),
-                mBufferPointer(NULL) {
+                mBufferPointer(nullptr) {
         }
     };
     AcquiredBuffer mAcquiredBuffer;

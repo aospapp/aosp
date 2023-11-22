@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
+#include "base/arena_allocator.h"
 #include "builder.h"
 #include "dex_file.h"
 #include "dex_instruction.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 #include "ssa_liveness_analysis.h"
-#include "utils/arena_allocator.h"
 #include "pretty_printer.h"
 
 #include "gtest/gtest.h"
 
 namespace art {
 
-static HGraph* TestCode(const uint16_t* data, ArenaPool* pool) {
-  ArenaAllocator allocator(pool);
-  HGraphBuilder builder(&allocator);
+static HGraph* TestCode(const uint16_t* data, ArenaAllocator* allocator) {
+  HGraph* graph = CreateGraph(allocator);
+  HGraphBuilder builder(graph);
   const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  HGraph* graph = builder.BuildGraph(*item);
+  builder.BuildGraph(*item);
   graph->BuildDominatorTree();
-  graph->FindNaturalLoops();
+  graph->AnalyzeNaturalLoops();
   return graph;
 }
 
@@ -44,7 +44,8 @@ TEST(FindLoopsTest, CFG1) {
     Instruction::RETURN_VOID);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
     ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
   }
@@ -56,7 +57,8 @@ TEST(FindLoopsTest, CFG2) {
     Instruction::RETURN);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
     ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
   }
@@ -71,7 +73,8 @@ TEST(FindLoopsTest, CFG3) {
     Instruction::RETURN);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
     ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
   }
@@ -87,7 +90,8 @@ TEST(FindLoopsTest, CFG4) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
     ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
   }
@@ -101,7 +105,8 @@ TEST(FindLoopsTest, CFG5) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   for (size_t i = 0, e = graph->GetBlocks().Size(); i < e; ++i) {
     ASSERT_EQ(graph->GetBlocks().Get(i)->GetLoopInformation(), nullptr);
   }
@@ -146,7 +151,8 @@ TEST(FindLoopsTest, Loop1) {
     Instruction::RETURN_VOID);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header
@@ -173,7 +179,8 @@ TEST(FindLoopsTest, Loop2) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // goto block
@@ -197,7 +204,8 @@ TEST(FindLoopsTest, Loop3) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // goto block
@@ -222,18 +230,18 @@ TEST(FindLoopsTest, Loop4) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header
-  const int blocks2[] = {2, 3, 4, 5, 8};
-  TestBlock(graph, 2, true, 2, blocks2, 5);  // loop header
+  const int blocks2[] = {2, 3, 4, 5};
+  TestBlock(graph, 2, true, 2, blocks2, arraysize(blocks2));  // loop header
   TestBlock(graph, 3, false, 2);             // block in loop
-  TestBlock(graph, 4, false, 2);             // original back edge
-  TestBlock(graph, 5, false, 2);             // original back edge
+  TestBlock(graph, 4, false, 2);             // back edge
+  TestBlock(graph, 5, false, 2);             // back edge
   TestBlock(graph, 6, false, -1);            // return block
   TestBlock(graph, 7, false, -1);            // exit block
-  TestBlock(graph, 8, false, 2);             // synthesized back edge
 }
 
 
@@ -248,7 +256,8 @@ TEST(FindLoopsTest, Loop5) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header
@@ -271,9 +280,9 @@ TEST(FindLoopsTest, InnerLoop) {
     Instruction::GOTO | 0xFB00,
     Instruction::RETURN | 0 << 8);
 
-
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header of outer loop
@@ -302,9 +311,9 @@ TEST(FindLoopsTest, TwoLoops) {
     Instruction::GOTO | 0xFE00,  // second loop
     Instruction::RETURN | 0 << 8);
 
-
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header of first loop
@@ -333,7 +342,8 @@ TEST(FindLoopsTest, NonNaturalLoop) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
   ASSERT_TRUE(graph->GetBlocks().Get(3)->IsLoopHeader());
   HLoopInformation* info = graph->GetBlocks().Get(3)->GetLoopInformation();
   ASSERT_FALSE(info->GetHeader()->Dominates(info->GetBackEdges().Get(0)));
@@ -347,7 +357,8 @@ TEST(FindLoopsTest, DoWhileLoop) {
     Instruction::RETURN | 0 << 8);
 
   ArenaPool arena;
-  HGraph* graph = TestCode(data, &arena);
+  ArenaAllocator allocator(&arena);
+  HGraph* graph = TestCode(data, &allocator);
 
   TestBlock(graph, 0, false, -1);            // entry block
   TestBlock(graph, 1, false, -1);            // pre header of first loop

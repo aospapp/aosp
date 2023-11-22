@@ -300,6 +300,7 @@ typedef struct Engine_interface {
     SLboolean mShutdown;
     SLboolean mShutdownAck;
     // SLuint32 mVersion;      // 0xXXYYZZ where XX=major, YY=minor, ZZ=step
+    SLuint32 mNativeEndianness; // one of SL_BYTEORDER_LITTLEENDIAN or SL_BYTEORDER_BIGENDIAN
 } IEngine;
 
 typedef struct {
@@ -639,7 +640,7 @@ typedef struct {
 typedef struct {
     const struct SLAndroidEffectItf_ *mItf;
     IObject *mThis;
-    android::KeyedVector<SLuint32, android::AudioEffect* > *mEffects;
+    android::KeyedVector<SLuint32, android::sp<android::AudioEffect> > *mEffects;
 } IAndroidEffect;
 
 typedef struct {

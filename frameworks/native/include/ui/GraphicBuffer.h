@@ -49,7 +49,7 @@ public:
         USAGE_SW_READ_RARELY    = GRALLOC_USAGE_SW_READ_RARELY,
         USAGE_SW_READ_OFTEN     = GRALLOC_USAGE_SW_READ_OFTEN,
         USAGE_SW_READ_MASK      = GRALLOC_USAGE_SW_READ_MASK,
-        
+
         USAGE_SW_WRITE_NEVER    = GRALLOC_USAGE_SW_WRITE_NEVER,
         USAGE_SW_WRITE_RARELY   = GRALLOC_USAGE_SW_WRITE_RARELY,
         USAGE_SW_WRITE_OFTEN    = GRALLOC_USAGE_SW_WRITE_OFTEN,
@@ -72,11 +72,13 @@ public:
     GraphicBuffer();
 
     // creates w * h buffer
-    GraphicBuffer(uint32_t w, uint32_t h, PixelFormat format, uint32_t usage);
+    GraphicBuffer(uint32_t inWidth, uint32_t inHeight, PixelFormat inFormat,
+            uint32_t inUsage);
 
     // create a buffer from an existing handle
-    GraphicBuffer(uint32_t w, uint32_t h, PixelFormat format, uint32_t usage,
-            uint32_t stride, native_handle_t* handle, bool keepOwnership);
+    GraphicBuffer(uint32_t inWidth, uint32_t inHeight, PixelFormat inFormat,
+            uint32_t inUsage, uint32_t inStride, native_handle_t* inHandle,
+            bool keepOwnership);
 
     // create a buffer from an existing ANativeWindowBuffer
     GraphicBuffer(ANativeWindowBuffer* buffer, bool keepOwnership);
@@ -84,26 +86,39 @@ public:
     // return status
     status_t initCheck() const;
 
-    uint32_t getWidth() const           { return width; }
-    uint32_t getHeight() const          { return height; }
-    uint32_t getStride() const          { return stride; }
-    uint32_t getUsage() const           { return usage; }
+    uint32_t getWidth() const           { return static_cast<uint32_t>(width); }
+    uint32_t getHeight() const          { return static_cast<uint32_t>(height); }
+    uint32_t getStride() const          { return static_cast<uint32_t>(stride); }
+    uint32_t getUsage() const           { return static_cast<uint32_t>(usage); }
     PixelFormat getPixelFormat() const  { return format; }
     Rect getBounds() const              { return Rect(width, height); }
     uint64_t getId() const              { return mId; }
 
-    status_t reallocate(uint32_t w, uint32_t h, PixelFormat f, uint32_t usage);
+    uint32_t getGenerationNumber() const { return mGenerationNumber; }
+    void setGenerationNumber(uint32_t generation) {
+        mGenerationNumber = generation;
+    }
 
-    status_t lock(uint32_t usage, void** vaddr);
-    status_t lock(uint32_t usage, const Rect& rect, void** vaddr);
+    status_t reallocate(uint32_t inWidth, uint32_t inHeight,
+            PixelFormat inFormat, uint32_t inUsage);
+
+    bool needsReallocation(uint32_t inWidth, uint32_t inHeight,
+            PixelFormat inFormat, uint32_t inUsage);
+
+    status_t lock(uint32_t inUsage, void** vaddr);
+    status_t lock(uint32_t inUsage, const Rect& rect, void** vaddr);
     // For HAL_PIXEL_FORMAT_YCbCr_420_888
-    status_t lockYCbCr(uint32_t usage, android_ycbcr *ycbcr);
-    status_t lockYCbCr(uint32_t usage, const Rect& rect, android_ycbcr *ycbcr);
+    status_t lockYCbCr(uint32_t inUsage, android_ycbcr *ycbcr);
+    status_t lockYCbCr(uint32_t inUsage, const Rect& rect,
+            android_ycbcr *ycbcr);
     status_t unlock();
-    status_t lockAsync(uint32_t usage, void** vaddr, int fenceFd);
-    status_t lockAsync(uint32_t usage, const Rect& rect, void** vaddr, int fenceFd);
-    status_t lockAsyncYCbCr(uint32_t usage, android_ycbcr *ycbcr, int fenceFd);
-    status_t lockAsyncYCbCr(uint32_t usage, const Rect& rect, android_ycbcr *ycbcr, int fenceFd);
+    status_t lockAsync(uint32_t inUsage, void** vaddr, int fenceFd);
+    status_t lockAsync(uint32_t inUsage, const Rect& rect, void** vaddr,
+            int fenceFd);
+    status_t lockAsyncYCbCr(uint32_t inUsage, android_ycbcr *ycbcr,
+            int fenceFd);
+    status_t lockAsyncYCbCr(uint32_t inUsage, const Rect& rect,
+            android_ycbcr *ycbcr, int fenceFd);
     status_t unlockAsync(int *fenceFd);
 
     ANativeWindowBuffer* getNativeBuffer() const;
@@ -143,8 +158,8 @@ private:
     GraphicBuffer& operator = (const GraphicBuffer& rhs);
     const GraphicBuffer& operator = (const GraphicBuffer& rhs) const;
 
-    status_t initSize(uint32_t w, uint32_t h, PixelFormat format, 
-            uint32_t usage);
+    status_t initSize(uint32_t inWidth, uint32_t inHeight, PixelFormat inFormat,
+            uint32_t inUsage);
 
     void free_handle();
 
@@ -156,6 +171,11 @@ private:
     sp<ANativeWindowBuffer> mWrappedBuffer;
 
     uint64_t mId;
+
+    // Stores the generation number of this buffer. If this number does not
+    // match the BufferQueue's internal generation number (set through
+    // IGBP::setGenerationNumber), attempts to attach the buffer will fail.
+    uint32_t mGenerationNumber;
 };
 
 }; // namespace android

@@ -22,6 +22,7 @@
  *//*--------------------------------------------------------------------*/
 
 #include "ditDelibsTests.hpp"
+#include "tcuTestLog.hpp"
 
 // depool
 #include "dePoolArray.h"
@@ -34,9 +35,15 @@
 
 // dethread
 #include "deThreadTest.h"
+#include "deThread.h"
 
 // deutil
 #include "deTimerTest.h"
+#include "deCommandLine.h"
+
+// debase
+#include "deInt32.h"
+#include "deMath.h"
 
 // decpp
 #include "deBlockBuffer.hpp"
@@ -50,9 +57,13 @@
 #include "deCommandLine.hpp"
 #include "deArrayBuffer.hpp"
 #include "deStringUtil.hpp"
+#include "deSpinBarrier.hpp"
+#include "deSTLUtil.hpp"
 
 namespace dit
 {
+
+using tcu::TestLog;
 
 class DepoolTests : public tcu::TestCaseGroup
 {
@@ -74,6 +85,31 @@ public:
 	}
 };
 
+extern "C"
+{
+typedef deUint32	(*GetUint32Func)	(void);
+}
+
+class GetUint32Case : public tcu::TestCase
+{
+public:
+	GetUint32Case (tcu::TestContext& testCtx, const char* name, const char* description, GetUint32Func func)
+		: tcu::TestCase	(testCtx, name, description)
+		, m_func		(func)
+	{
+	}
+
+	IterateResult iterate (void)
+	{
+		m_testCtx.getLog() << TestLog::Message << getDescription() << " returned " << m_func() << TestLog::EndMessage;
+		m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
+		return STOP;
+	}
+
+private:
+	GetUint32Func	m_func;
+};
+
 class DethreadTests : public tcu::TestCaseGroup
 {
 public:
@@ -84,11 +120,14 @@ public:
 
 	void init (void)
 	{
-		addChild(new SelfCheckCase(m_testCtx, "thread",		"deThread_selfTest()",		deThread_selfTest));
-		addChild(new SelfCheckCase(m_testCtx, "mutex",		"deMutex_selfTest()",		deMutex_selfTest));
-		addChild(new SelfCheckCase(m_testCtx, "semaphore",	"deSemaphore_selfTest()",	deSemaphore_selfTest));
-		addChild(new SelfCheckCase(m_testCtx, "atomic",		"deAtomic_selfTest()",		deAtomic_selfTest));
-		addChild(new SelfCheckCase(m_testCtx, "singleton",	"deSingleton_selfTest()",	deSingleton_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "thread",						"deThread_selfTest()",				deThread_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "mutex",						"deMutex_selfTest()",				deMutex_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "semaphore",					"deSemaphore_selfTest()",			deSemaphore_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "atomic",						"deAtomic_selfTest()",				deAtomic_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "singleton",					"deSingleton_selfTest()",			deSingleton_selfTest));
+		addChild(new GetUint32Case(m_testCtx, "total_physical_cores",		"deGetNumTotalPhysicalCores()",		deGetNumTotalPhysicalCores));
+		addChild(new GetUint32Case(m_testCtx, "total_logical_cores",		"deGetNumTotalLogicalCores()",		deGetNumTotalLogicalCores));
+		addChild(new GetUint32Case(m_testCtx, "available_logical_cores",	"deGetNumAvailableLogicalCores()",	deGetNumAvailableLogicalCores));
 	}
 };
 
@@ -102,7 +141,23 @@ public:
 
 	void init (void)
 	{
-		addChild(new SelfCheckCase(m_testCtx, "timer",	"deTimer_selfTest()",	deTimer_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "timer",			"deTimer_selfTest()",		deTimer_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "command_line",	"deCommandLine_selfTest()",	deCommandLine_selfTest));
+	}
+};
+
+class DebaseTests : public tcu::TestCaseGroup
+{
+public:
+	DebaseTests (tcu::TestContext& testCtx)
+		: tcu::TestCaseGroup(testCtx, "debase", "debase self-tests")
+	{
+	}
+
+	void init (void)
+	{
+		addChild(new SelfCheckCase(m_testCtx, "int32",	"deInt32_selfTest()",	deInt32_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "math",	"deMath_selfTest()",	deMath_selfTest));
 	}
 };
 
@@ -127,6 +182,8 @@ public:
 		addChild(new SelfCheckCase(m_testCtx, "commandline",				"de::cmdline::selfTest()",				de::cmdline::selfTest));
 		addChild(new SelfCheckCase(m_testCtx, "array_buffer",				"de::ArrayBuffer_selfTest()",			de::ArrayBuffer_selfTest));
 		addChild(new SelfCheckCase(m_testCtx, "string_util",				"de::StringUtil_selfTest()",			de::StringUtil_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "spin_barrier",				"de::SpinBarrier_selfTest()",			de::SpinBarrier_selfTest));
+		addChild(new SelfCheckCase(m_testCtx, "stl_util",					"de::STLUtil_selfTest()",				de::STLUtil_selfTest));
 	}
 };
 
@@ -144,6 +201,7 @@ void DelibsTests::init (void)
 	addChild(new DepoolTests	(m_testCtx));
 	addChild(new DethreadTests	(m_testCtx));
 	addChild(new DeutilTests	(m_testCtx));
+	addChild(new DebaseTests	(m_testCtx));
 	addChild(new DecppTests		(m_testCtx));
 }
 

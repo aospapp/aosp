@@ -17,11 +17,13 @@
 package com.android.server.telecom;
 
 import android.telecom.AudioState;
+import android.telecom.CallAudioState;
+import android.telecom.VideoProfile;
 
 /**
  * Provides a default implementation for listeners of CallsManager.
  */
-class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
+public class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
     @Override
     public void onCallAdded(Call call) {
     }
@@ -54,7 +56,8 @@ class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
     }
 
     @Override
-    public void onAudioStateChanged(AudioState oldAudioState, AudioState newAudioState) {
+    public void onCallAudioStateChanged(CallAudioState oldAudioState,
+            CallAudioState newAudioState) {
     }
 
     @Override
@@ -75,5 +78,10 @@ class CallsManagerListenerBase implements CallsManager.CallsManagerListener {
 
     @Override
     public void onCanAddCallChanged(boolean canAddCall) {
+    }
+
+    @Override
+    public void onSessionModifyRequestReceived(Call call, VideoProfile videoProfile) {
+
     }
 }

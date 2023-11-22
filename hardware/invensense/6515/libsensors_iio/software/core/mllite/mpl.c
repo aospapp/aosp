@@ -46,7 +46,7 @@ inv_error_t inv_init_mpl(void)
     return INV_SUCCESS;
 }
 
-const char ml_ver[] = "InvenSense MA 5.2.0 K RC23";
+const char ml_ver[] = "InvenSense MA 5.2.0 L RC26";
 
 /**
  *  @brief  used to get the MPL version.

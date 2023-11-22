@@ -61,14 +61,12 @@ class ScopedStringChars {
   }
 
  private:
-  JNIEnv* env_;
-  jstring string_;
+  JNIEnv* const env_;
+  const jstring string_;
   const jchar* chars_;
   size_t size_;
 
-  // Disallow copy and assignment.
-  ScopedStringChars(const ScopedStringChars&);
-  void operator=(const ScopedStringChars&);
+  DISALLOW_COPY_AND_ASSIGN(ScopedStringChars);
 };
 
 #endif  // SCOPED_STRING_CHARS_H_included

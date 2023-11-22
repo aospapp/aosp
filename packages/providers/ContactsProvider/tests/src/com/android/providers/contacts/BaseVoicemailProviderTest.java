@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Process;
 import android.provider.CallLog.Calls;
 import android.provider.VoicemailContract;
 
@@ -37,12 +38,17 @@ public abstract class BaseVoicemailProviderTest extends BaseContactsProvider2Tes
 
     protected boolean mUseSourceUri = false;
     private File mTestDirectory;
+    ContactsMockPackageManager mPackageManager;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         addProvider(TestVoicemailProvider.class, VoicemailContract.AUTHORITY);
         TestVoicemailProvider.setVvmProviderCallDelegate(createMockProviderCalls());
+
+        mPackageManager = (ContactsMockPackageManager) getProvider()
+                .getContext().getPackageManager();
+        mPackageManager.addPackage(Process.myUid(), mActor.packageName);
     }
 
     @Override
@@ -98,6 +104,11 @@ public abstract class BaseVoicemailProviderTest extends BaseContactsProvider2Tes
             public File getDir(String name, int mode) {
                 return getTestDirectory();
             }
+
+            @Override
+            public PackageManager getPackageManager() {
+                return mActor.getProviderContext().getPackageManager();
+            }
         };
     }
 
@@ -145,6 +156,7 @@ public abstract class BaseVoicemailProviderTest extends BaseContactsProvider2Tes
     private interface VvmProviderCalls {
         public void sendOrderedBroadcast(Intent intent, String receiverPermission);
         public File getDir(String name, int mode);
+        public PackageManager getPackageManager();
     }
 
     public static class TestVoicemailProvider extends VoicemailContentProvider {
@@ -171,7 +183,7 @@ public abstract class BaseVoicemailProviderTest extends BaseContactsProvider2Tes
                 }
                 @Override
                 public PackageManager getPackageManager() {
-                    return new MockPackageManager("com.test.package1", "com.test.package2");
+                    return mDelegate.getPackageManager();
                 }
             };
         }

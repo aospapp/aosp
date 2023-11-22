@@ -45,14 +45,6 @@ public class BaseLauncherAppsTest extends BaseDevicePolicyTest {
         getDevice().uninstallPackage(SIMPLE_APP_PKG);
     }
 
-    protected void removeTestUsers() throws Exception {
-        for (int userId : listUsers()) {
-            if (userId != 0) {
-                removeUser(userId);
-            }
-        }
-    }
-
     protected void startCallbackService() throws Exception {
         String command = "am startservice --user 0 "
                 + "-a " + LAUNCHER_TESTS_SUPPORT_PKG + ".REGISTER_CALLBACK "

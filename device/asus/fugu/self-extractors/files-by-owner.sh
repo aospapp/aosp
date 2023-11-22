@@ -94,6 +94,9 @@ then
   if [[ $file == */lib64/* ]]
   then
     echo "    vendor/$target_owner/fugu/proprietary/lib64/$(basename $file):$file:$target_owner \\" >> $target_owner/staging/device-partial.mk
+  elif [[ $file == */arm/nb/* ]]
+  then
+    echo "    vendor/$target_owner/fugu/proprietary/armnb/$(basename $file):$file:$target_owner \\" >> $target_owner/staging/device-partial.mk
   else
     echo "    vendor/$target_owner/fugu/proprietary/$(basename $file):$file:$target_owner \\" >> $target_owner/staging/device-partial.mk
   fi

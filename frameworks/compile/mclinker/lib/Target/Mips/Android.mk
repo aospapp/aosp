@@ -3,17 +3,14 @@ LOCAL_PATH:= $(call my-dir)
 mcld_mips_target_SRC_FILES := \
   MipsDiagnostic.cpp  \
   MipsELFDynamic.cpp  \
-  MipsELFMCLinker.cpp  \
   MipsEmulation.cpp \
   MipsGNUInfo.cpp \
   MipsGOT.cpp \
   MipsGOTPLT.cpp \
   MipsLA25Stub.cpp \
   MipsLDBackend.cpp \
-  MipsMCLinker.cpp \
   MipsPLT.cpp \
-  MipsRelocator.cpp \
-  MipsTargetMachine.cpp
+  MipsRelocator.cpp
 
 # For the host
 # =====================================================

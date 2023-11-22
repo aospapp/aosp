@@ -7,14 +7,33 @@
 
 #include "fio.h"
 
-static char run_str[REAL_MAX_JOBS + 1];
+static char __run_str[REAL_MAX_JOBS + 1];
+static char run_str[__THREAD_RUNSTR_SZ(REAL_MAX_JOBS)];
+
+static void update_condensed_str(char *rstr, char *run_str_condensed)
+{
+	if (*rstr) {
+		while (*rstr) {
+			int nr = 1;
+
+			*run_str_condensed++ = *rstr++;
+			while (*(rstr - 1) == *rstr) {
+				rstr++;
+				nr++;
+			}
+			run_str_condensed += sprintf(run_str_condensed, "(%u),", nr);
+		}
+		run_str_condensed--;
+	}
+	*run_str_condensed = '\0';
+}
 
 /*
  * Sets the status of the 'td' in the printed status map.
  */
 static void check_str_update(struct thread_data *td)
 {
-	char c = run_str[td->thread_number - 1];
+	char c = __run_str[td->thread_number - 1];
 
 	switch (td->runstate) {
 	case TD_REAPED:
@@ -91,7 +110,8 @@ static void check_str_update(struct thread_data *td)
 		log_err("state %d\n", td->runstate);
 	}
 
-	run_str[td->thread_number - 1] = c;
+	__run_str[td->thread_number - 1] = c;
+	update_condensed_str(__run_str, run_str);
 }
 
 /*
@@ -214,11 +234,11 @@ static int thread_eta(struct thread_data *td)
 		 * if given, otherwise assume it'll run at the specified rate.
 		 */
 		if (td->o.timeout) {
-			uint64_t timeout = td->o.timeout;
+			uint64_t __timeout = td->o.timeout;
 			uint64_t start_delay = td->o.start_delay;
 			uint64_t ramp_time = td->o.ramp_time;
 
-			t_eta = timeout + start_delay + ramp_time;
+			t_eta = __timeout + start_delay + ramp_time;
 			t_eta /= 1000000ULL;
 
 			if (in_ramp_time(td)) {
@@ -372,10 +392,9 @@ int calc_thread_status(struct jobs_eta *je, int force)
 		} else if (td->runstate == TD_RAMP) {
 			je->nr_running++;
 			je->nr_ramp++;
-		} else if (td->runstate == TD_SETTING_UP) {
-			je->nr_running++;
+		} else if (td->runstate == TD_SETTING_UP)
 			je->nr_setting_up++;
-		} else if (td->runstate < TD_RUNNING)
+		else if (td->runstate < TD_RUNNING)
 			je->nr_pending++;
 
 		if (je->elapsed_sec >= 3)
@@ -446,7 +465,8 @@ int calc_thread_status(struct jobs_eta *je, int force)
 		return 0;
 
 	je->nr_threads = thread_number;
-	memcpy(je->run_str, run_str, thread_number * sizeof(char));
+	update_condensed_str(__run_str, run_str);
+	memcpy(je->run_str, run_str, strlen(run_str));
 	return 1;
 }
 
@@ -535,8 +555,7 @@ void display_thread_status(struct jobs_eta *je)
 	if (!eta_new_line_init) {
 		fio_gettime(&disp_eta_new_line, NULL);
 		eta_new_line_init = 1;
-	} else if (eta_new_line &&
-		   mtime_since_now(&disp_eta_new_line) > eta_new_line * 1000) {
+	} else if (eta_new_line && mtime_since_now(&disp_eta_new_line) > eta_new_line) {
 		fio_gettime(&disp_eta_new_line, NULL);
 		eta_new_line_pending = 1;
 	}
@@ -544,19 +563,35 @@ void display_thread_status(struct jobs_eta *je)
 	fflush(stdout);
 }
 
+struct jobs_eta *get_jobs_eta(int force, size_t *size)
+{
+	struct jobs_eta *je;
+
+	if (!thread_number)
+		return NULL;
+
+	*size = sizeof(*je) + THREAD_RUNSTR_SZ;
+	je = malloc(*size);
+	if (!je)
+		return NULL;
+	memset(je, 0, *size);
+
+	if (!calc_thread_status(je, force)) {
+		free(je);
+		return NULL;
+	}
+
+	*size = sizeof(*je) + strlen((char *) je->run_str) + 1;
+	return je;
+}
+
 void print_thread_status(void)
 {
 	struct jobs_eta *je;
 	size_t size;
 
-	if (!thread_number)
-		return;
-
-	size = sizeof(*je) + thread_number * sizeof(char) + 1;
-	je = malloc(size);
-	memset(je, 0, size);
-
-	if (calc_thread_status(je, 0))
+	je = get_jobs_eta(0, &size);
+	if (je)
 		display_thread_status(je);
 
 	free(je);
@@ -564,5 +599,6 @@ void print_thread_status(void)
 
 void print_status_init(int thr_number)
 {
-	run_str[thr_number] = 'P';
+	__run_str[thr_number] = 'P';
+	update_condensed_str(__run_str, run_str);
 }

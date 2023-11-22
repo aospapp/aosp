@@ -22,6 +22,12 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class ParamTagInfo extends ParsedTagInfo {
+  public static final ParamTagInfo[] EMPTY_ARRAY = new ParamTagInfo[0];
+
+  public static ParamTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new ParamTagInfo[size];
+  }
+
   static final Pattern PATTERN = Pattern.compile("([^ \t\r\n]+)[ \t\r\n]+(.*)", Pattern.DOTALL);
 
   private boolean mIsTypeParameter;

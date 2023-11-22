@@ -17,6 +17,7 @@
 #define LOG_TAG "StreamSplitter_test"
 //#define LOG_NDEBUG 0
 
+#include <gui/BufferItem.h>
 #include <gui/BufferQueue.h>
 #include <gui/IConsumerListener.h>
 #include <gui/ISurfaceComposer.h>
@@ -75,6 +76,8 @@ private:
     int mAllocCount;
 };
 
+static const uint32_t TEST_DATA = 0x12345678u;
+
 TEST_F(StreamSplitterTest, OneInputOneOutput) {
     sp<CountedAllocator> allocator(new CountedAllocator);
 
@@ -107,21 +110,22 @@ TEST_F(StreamSplitterTest, OneInputOneOutput) {
     uint32_t* dataIn;
     ASSERT_EQ(OK, buffer->lock(GraphicBuffer::USAGE_SW_WRITE_OFTEN,
             reinterpret_cast<void**>(&dataIn)));
-    *dataIn = 0x12345678;
+    *dataIn = TEST_DATA;
     ASSERT_EQ(OK, buffer->unlock());
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
+            HAL_DATASPACE_UNKNOWN,
             Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
             Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));
 
-    IGraphicBufferConsumer::BufferItem item;
+    BufferItem item;
     ASSERT_EQ(OK, outputConsumer->acquireBuffer(&item, 0));
 
     uint32_t* dataOut;
     ASSERT_EQ(OK, item.mGraphicBuffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN,
             reinterpret_cast<void**>(&dataOut)));
-    ASSERT_EQ(*dataOut, 0x12345678);
+    ASSERT_EQ(*dataOut, TEST_DATA);
     ASSERT_EQ(OK, item.mGraphicBuffer->unlock());
 
     ASSERT_EQ(OK, outputConsumer->releaseBuffer(item.mBuf, item.mFrameNumber,
@@ -173,22 +177,23 @@ TEST_F(StreamSplitterTest, OneInputMultipleOutputs) {
     uint32_t* dataIn;
     ASSERT_EQ(OK, buffer->lock(GraphicBuffer::USAGE_SW_WRITE_OFTEN,
             reinterpret_cast<void**>(&dataIn)));
-    *dataIn = 0x12345678;
+    *dataIn = TEST_DATA;
     ASSERT_EQ(OK, buffer->unlock());
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
+            HAL_DATASPACE_UNKNOWN,
             Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
             Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));
 
     for (int output = 0; output < NUM_OUTPUTS; ++output) {
-        IGraphicBufferConsumer::BufferItem item;
+        BufferItem item;
         ASSERT_EQ(OK, outputConsumers[output]->acquireBuffer(&item, 0));
 
         uint32_t* dataOut;
         ASSERT_EQ(OK, item.mGraphicBuffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN,
                     reinterpret_cast<void**>(&dataOut)));
-        ASSERT_EQ(*dataOut, 0x12345678);
+        ASSERT_EQ(*dataOut, TEST_DATA);
         ASSERT_EQ(OK, item.mGraphicBuffer->unlock());
 
         ASSERT_EQ(OK, outputConsumers[output]->releaseBuffer(item.mBuf,
@@ -234,6 +239,7 @@ TEST_F(StreamSplitterTest, OutputAbandonment) {
     outputConsumer->consumerDisconnect();
 
     IGraphicBufferProducer::QueueBufferInput qbInput(0, false,
+            HAL_DATASPACE_UNKNOWN,
             Rect(0, 0, 1, 1), NATIVE_WINDOW_SCALING_MODE_FREEZE, 0, false,
             Fence::NO_FENCE);
     ASSERT_EQ(OK, inputProducer->queueBuffer(slot, qbInput, &qbOutput));

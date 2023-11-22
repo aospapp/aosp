@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing.features;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.Helpers;
 
 import java.util.Collections;
@@ -25,10 +26,9 @@ import java.util.Set;
  * Encapsulates the constraints that a class under test must satisfy in order
  * for a tester method to be run against that class.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public final class TesterRequirements {
   private final Set<Feature<?>> presentFeatures;
   private final Set<Feature<?>> absentFeatures;

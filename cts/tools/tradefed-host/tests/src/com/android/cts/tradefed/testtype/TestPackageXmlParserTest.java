@@ -25,6 +25,8 @@ import junit.framework.TestCase;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Unit tests for {@link TestPackageXmlParser}.
@@ -64,6 +66,29 @@ public class TestPackageXmlParserTest extends TestCase {
     private static final String NATIVE_TEST_XML = "<TestPackage testType=\"native\"></TestPackage>";
 
     private static final String NO_TEST_DATA = "<invalid />";
+
+    private static final String INSTANCED_TEST_DATA =
+        "<TestPackage>\n" +
+        "    <TestSuite name=\"com\" >\n" +
+        "        <TestSuite name=\"example\" >\n" +
+        "            <TestCase name=\"ExampleTest\" >\n" +
+        "                <Test name=\"testMultiInstanced\" >\n" +
+        "                    <TestInstance foo=\"bar\" />\n" +
+        "                    <TestInstance foo=\"baz\" foo2=\"baz2\"/>\n" +
+        "                </Test>\n" +
+        "                <Test name=\"testSingleInstanced\" >\n" +
+        "                    <TestInstance foo=\"bar\" />\n" +
+        "                </Test>\n" +
+        "                <Test name=\"testEmptyInstances\" >\n" +
+        "                    <TestInstance />\n" +
+        "                    <TestInstance />\n" +
+        "                </Test>\n" +
+        "                <Test name=\"testNotInstanced\" >\n" +
+        "                </Test>\n" +
+        "            </TestCase>\n" +
+        "        </TestSuite>\n" +
+        "    </TestSuite>\n" +
+        "</TestPackage>";
 
     /**
      * Test parsing test case xml containing an instrumentation test definition.
@@ -160,6 +185,90 @@ public class TestPackageXmlParserTest extends TestCase {
         TestPackageXmlParser parser = new TestPackageXmlParser(true);
         parser.parse(getStringAsStream(NO_TEST_DATA));
         assertTrue(parser.getTestPackageDefs().isEmpty());
+    }
+
+    /**
+     * Test parsing a test case xml with multiple test instances
+     */
+    public void testParse_instancedMultiple() throws ParseException  {
+        TestPackageXmlParser parser = new TestPackageXmlParser(true);
+        parser.parse(getStringAsStream(INSTANCED_TEST_DATA));
+        for (TestPackageDef def : parser.getTestPackageDefs()) {
+            final TestIdentifier testId =
+                    new TestIdentifier("com.example.ExampleTest", "testMultiInstanced");
+            final List<Map<String, String>> targetInstances =
+                    def.getTestInstanceArguments().get(testId);
+            assertNotNull(targetInstances);
+            assertEquals(2, targetInstances.size());
+
+            final Iterator<Map<String, String>> iterator = targetInstances.iterator();
+            final Map<String, String> firstInstance = iterator.next();
+            final Map<String, String> secondInstance = iterator.next();
+
+            assertEquals("bar", firstInstance.get("foo"));
+            assertEquals("baz", secondInstance.get("foo"));
+            assertEquals("baz2", secondInstance.get("foo2"));
+        }
+    }
+
+    /**
+     * Test parsing a test case xml with single test instance
+     */
+    public void testParse_instancedSingle() throws ParseException  {
+        TestPackageXmlParser parser = new TestPackageXmlParser(true);
+        parser.parse(getStringAsStream(INSTANCED_TEST_DATA));
+        for (TestPackageDef def : parser.getTestPackageDefs()) {
+            final TestIdentifier testId =
+                    new TestIdentifier("com.example.ExampleTest", "testSingleInstanced");
+            final List<Map<String, String>> targetInstances =
+                    def.getTestInstanceArguments().get(testId);
+            assertNotNull(targetInstances);
+            assertEquals(1, targetInstances.size());
+
+            final Iterator<Map<String, String>> iterator = targetInstances.iterator();
+            final Map<String, String> firstInstance = iterator.next();
+
+            assertEquals("bar", firstInstance.get("foo"));
+        }
+    }
+
+    /**
+     * Test parsing a test case xml with multiple test instances with no data
+     */
+    public void testParse_instancedEmptys() throws ParseException  {
+        TestPackageXmlParser parser = new TestPackageXmlParser(true);
+        parser.parse(getStringAsStream(INSTANCED_TEST_DATA));
+        for (TestPackageDef def : parser.getTestPackageDefs()) {
+            final TestIdentifier testId =
+                    new TestIdentifier("com.example.ExampleTest", "testEmptyInstances");
+            final List<Map<String, String>> targetInstances =
+                    def.getTestInstanceArguments().get(testId);
+            assertNotNull(targetInstances);
+            assertEquals(2, targetInstances.size());
+
+            final Iterator<Map<String, String>> iterator = targetInstances.iterator();
+            final Map<String, String> firstInstance = iterator.next();
+            final Map<String, String> secondInstance = iterator.next();
+
+            assertTrue(firstInstance.isEmpty());
+            assertTrue(secondInstance.isEmpty());
+        }
+    }
+
+    /**
+     * Test parsing a test case xml with no test instances
+     */
+    public void testParse_instancedNoInstances() throws ParseException  {
+        TestPackageXmlParser parser = new TestPackageXmlParser(true);
+        parser.parse(getStringAsStream(INSTANCED_TEST_DATA));
+        for (TestPackageDef def : parser.getTestPackageDefs()) {
+            final TestIdentifier testId =
+                    new TestIdentifier("com.example.ExampleTest", "testNotInstanced");
+            final List<Map<String, String>> targetInstances =
+                    def.getTestInstanceArguments().get(testId);
+            assertNotNull(targetInstances);
+            assertTrue(targetInstances.isEmpty());
+        }
     }
 
     private InputStream getStringAsStream(String input) {

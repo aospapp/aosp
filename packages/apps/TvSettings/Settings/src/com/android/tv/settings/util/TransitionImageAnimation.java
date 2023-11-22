@@ -57,18 +57,18 @@ public class TransitionImageAnimation {
         }
     }
 
-    private static long DEFAULT_TRANSITION_TIMEOUT_MS = 2000;
-    private static long DEFAULT_CANCEL_TRANSITION_MS = 250;
-    private static long DEFAULT_TRANSITION_DURATION_MS = 250;
-    private static long DEFAULT_TRANSITION_START_DELAY_MS = 160;
+    private static final long DEFAULT_TRANSITION_TIMEOUT_MS = 2000;
+    private static final long DEFAULT_CANCEL_TRANSITION_MS = 250;
+    private static final long DEFAULT_TRANSITION_DURATION_MS = 250;
+    private static final long DEFAULT_TRANSITION_START_DELAY_MS = 160;
 
     private Interpolator mInterpolator = new DecelerateInterpolator();
-    private ViewGroup mRoot;
+    private final ViewGroup mRoot;
     private long mTransitionTimeoutMs = DEFAULT_TRANSITION_TIMEOUT_MS;
     private long mCancelTransitionMs = DEFAULT_CANCEL_TRANSITION_MS;
     private long mTransitionDurationMs = DEFAULT_TRANSITION_DURATION_MS;
     private long mTransitionStartDelayMs = DEFAULT_TRANSITION_START_DELAY_MS;
-    private List<TransitionImageView> mTransitions = new ArrayList<TransitionImageView>();
+    private final List<TransitionImageView> mTransitions = new ArrayList<>();
     private Listener mListener;
     private Comparator<TransitionImage> mComparator = new TransitionImageMatcher();
 
@@ -80,8 +80,8 @@ public class TransitionImageAnimation {
     private int mState;
 
     private boolean mListeningLayout;
-    private static RectF sTmpRect1 = new RectF();
-    private static RectF sTmpRect2 = new RectF();
+    private static final RectF sTmpRect1 = new RectF();
+    private static final RectF sTmpRect2 = new RectF();
 
     public TransitionImageAnimation(ViewGroup root) {
         mRoot = root;
@@ -200,7 +200,7 @@ public class TransitionImageAnimation {
         mState = STATE_WAIT_DST;
     }
 
-    private Runnable mCancelTransitionRunnable = new Runnable() {
+    private final Runnable mCancelTransitionRunnable = new Runnable() {
 
         @Override
         public void run() {
@@ -233,7 +233,7 @@ public class TransitionImageAnimation {
         }
     }
 
-    private View.OnLayoutChangeListener mInitializeClip = new View.OnLayoutChangeListener() {
+    private final View.OnLayoutChangeListener mInitializeClip = new View.OnLayoutChangeListener() {
         @Override
         public void onLayoutChange(View v, int left, int top, int right, int bottom,
                 int oldLeft, int oldTop, int oldRight, int oldBottom) {

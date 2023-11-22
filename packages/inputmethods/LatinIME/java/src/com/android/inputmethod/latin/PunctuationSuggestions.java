@@ -17,10 +17,13 @@
 package com.android.inputmethod.latin;
 
 import com.android.inputmethod.keyboard.internal.KeySpecParser;
-import com.android.inputmethod.latin.utils.StringUtils;
+import com.android.inputmethod.latin.common.Constants;
+import com.android.inputmethod.latin.common.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import javax.annotation.Nullable;
 
 /**
  * The extended {@link SuggestedWords} class to represent punctuation suggestions.
@@ -32,10 +35,12 @@ public final class PunctuationSuggestions extends SuggestedWords {
     private PunctuationSuggestions(final ArrayList<SuggestedWordInfo> punctuationsList) {
         super(punctuationsList,
                 null /* rawSuggestions */,
+                null /* typedWord */,
                 false /* typedWordValid */,
                 false /* hasAutoCorrectionCandidate */,
                 false /* isObsoleteSuggestions */,
-                INPUT_STYLE_NONE /* inputStyle */);
+                INPUT_STYLE_NONE /* inputStyle */,
+                SuggestedWords.NOT_A_SEQUENCE_NUMBER);
     }
 
     /**
@@ -46,17 +51,21 @@ public final class PunctuationSuggestions extends SuggestedWords {
      * @return The {@link PunctuationSuggestions} object.
      */
     public static PunctuationSuggestions newPunctuationSuggestions(
-            final String[] punctuationSpecs) {
-        final ArrayList<SuggestedWordInfo> puncuationsList = new ArrayList<>();
-        for (final String puncSpec : punctuationSpecs) {
-            puncuationsList.add(newHardCodedWordInfo(puncSpec));
+            @Nullable final String[] punctuationSpecs) {
+        if (punctuationSpecs == null || punctuationSpecs.length == 0) {
+            return new PunctuationSuggestions(new ArrayList<SuggestedWordInfo>(0));
         }
-        return new PunctuationSuggestions(puncuationsList);
+        final ArrayList<SuggestedWordInfo> punctuationList =
+                new ArrayList<>(punctuationSpecs.length);
+        for (String spec : punctuationSpecs) {
+            punctuationList.add(newHardCodedWordInfo(spec));
+        }
+        return new PunctuationSuggestions(punctuationList);
     }
 
     /**
      * {@inheritDoc}
-     * Note that {@link super#getWord(int)} returns a punctuation key specification text.
+     * Note that {@link SuggestedWords#getWord(int)} returns a punctuation key specification text.
      * The suggested punctuation should be gotten by parsing the key specification.
      */
     @Override
@@ -70,7 +79,7 @@ public final class PunctuationSuggestions extends SuggestedWords {
 
     /**
      * {@inheritDoc}
-     * Note that {@link super#getWord(int)} returns a punctuation key specification text.
+     * Note that {@link SuggestedWords#getWord(int)} returns a punctuation key specification text.
      * The displayed text should be gotten by parsing the key specification.
      */
     @Override
@@ -82,7 +91,7 @@ public final class PunctuationSuggestions extends SuggestedWords {
     /**
      * {@inheritDoc}
      * Note that {@link #getWord(int)} returns a suggested punctuation. We should create a
-     * {@link SuggestedWordInfo} object that represents a hard coded word.
+     * {@link SuggestedWords.SuggestedWordInfo} object that represents a hard coded word.
      */
     @Override
     public SuggestedWordInfo getInfo(final int index) {
@@ -105,7 +114,8 @@ public final class PunctuationSuggestions extends SuggestedWords {
     }
 
     private static SuggestedWordInfo newHardCodedWordInfo(final String keySpec) {
-        return new SuggestedWordInfo(keySpec, SuggestedWordInfo.MAX_SCORE,
+        return new SuggestedWordInfo(keySpec, "" /* prevWordsContext */,
+                SuggestedWordInfo.MAX_SCORE,
                 SuggestedWordInfo.KIND_HARDCODED,
                 Dictionary.DICTIONARY_HARDCODED,
                 SuggestedWordInfo.NOT_AN_INDEX /* indexOfTouchPointOfSecondWord */,

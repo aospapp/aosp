@@ -217,7 +217,7 @@ l1.1564:
     ldrb        w3,[x0,#0]                  // x4 has the 0 value
     uqadd       v16.8b,  v27.8b ,  v1.8b
     and         x2,x2,#0xff
-    mul         v12.8h, v7.8h, v0.4h[0]
+    mul         v12.8h, v7.8h, v0.h[0]
     ldr         w8, [x0,x10]                // has the 3 value
     uaddl       v10.8h,  v24.8b ,  v28.8b
     subs        x2,x2,x7
@@ -259,7 +259,7 @@ l1.1564:
     ble         l1.1840
 
     add         x10,x1,x1,lsl #1
-    mul         v16.8h, v16.8h, v0.4h[0]
+    mul         v16.8h, v16.8h, v0.h[0]
     add         x4,x0,#3
 
 
@@ -292,7 +292,7 @@ l1.1564:
     cmp         x8,x5,asr #3
     uqsub       v31.8b,  v25.8b ,  v1.8b
     bge         l1.1840
-    mul         v12.8h, v7.8h, v0.4h[0]
+    mul         v12.8h, v7.8h, v0.h[0]
     subs        x7,x3,x7
     uqadd       v16.8b,  v24.8b ,  v1.8b
     csneg       x7,x7,x7,pl
@@ -413,7 +413,7 @@ strong_filtering_q:
 strong_filtering_p:
     umax        v5.8b,  v18.8b ,  v17.8b
     mov         x12,x0
-    mul         v7.8h, v7.8h, v0.4h[0]
+    mul         v7.8h, v7.8h, v0.h[0]
     sub         x20,x1,#0
     neg         x11, x20
     add         v16.8h,  v7.8h ,  v14.8h
@@ -465,12 +465,12 @@ l1.2408:
 
     usubl       v10.8h,  v26.8b ,  v25.8b
 
-    mul         v10.8h, v10.8h, v0.4h[0]
+    mul         v10.8h, v10.8h, v0.h[0]
 
     movi        v0.4h, #0x3
 
     usubl       v12.8h,  v27.8b ,  v24.8b
-    mul         v12.8h, v12.8h, v0.4h[0]
+    mul         v12.8h, v12.8h, v0.h[0]
 
 
     dup         v30.8b,w6                   // duplicating the +tc value

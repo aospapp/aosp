@@ -31,7 +31,7 @@ import android.accounts.Account;
  */
 interface IKeyChainServiceTestSupport {
     boolean keystoreReset();
-    boolean keystorePassword(String password);
+    boolean keystoreSetPassword(String password);
     boolean keystorePut(String key, in byte[] value);
     boolean keystoreImportKey(String key, in byte[] value);
     void revokeAppPermission(int uid, String alias);

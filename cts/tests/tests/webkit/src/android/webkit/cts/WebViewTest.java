@@ -65,6 +65,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebView.HitTestResult;
 import android.webkit.WebView.PictureListener;
+import android.webkit.WebView.VisualStateCallback;
 import android.webkit.WebViewClient;
 import android.webkit.WebViewDatabase;
 import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
@@ -121,6 +122,11 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
      * has stopped.
      */
     private static final long SCROLL_WAIT_INTERVAL_MS = 200;
+
+    /**
+     * Epsilon used in page scale value comparisons.
+     */
+    private static final float PAGE_SCALE_EPSILON = 0.0001f;
 
     private WebView mWebView;
     private CtsTestServer mWebServer;
@@ -219,6 +225,9 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // full address
         assertEquals("455 LARKSPUR DRIVE CALIFORNIA SPRINGS CALIFORNIA 92826",
                 WebView.findAddress("455 LARKSPUR DRIVE CALIFORNIA SPRINGS CALIFORNIA 92826"));
+        // Zipcode is optional.
+        assertEquals("455 LARKSPUR DRIVE CALIFORNIA SPRINGS CALIFORNIA",
+                WebView.findAddress("455 LARKSPUR DRIVE CALIFORNIA SPRINGS CALIFORNIA"));
         // not an address
         assertNull(WebView.findAddress("This is not an address: no town, no state, no zip."));
     }
@@ -330,7 +339,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // that a scale change does *not* happen.
         Thread.sleep(500);
         currScale = mOnUiThread.getScale();
-        assertEquals(currScale, previousScale);
+        assertEquals(currScale, previousScale, PAGE_SCALE_EPSILON);
 
         assertTrue(mOnUiThread.zoomOut());
         previousScale = currScale;
@@ -354,7 +363,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // that a scale change does *not* happen.
         Thread.sleep(500);
         currScale = mOnUiThread.getScale();
-        assertEquals(currScale, previousScale);
+        assertEquals(currScale, previousScale, PAGE_SCALE_EPSILON);
 
         mOnUiThread.zoomBy(1.25f);
         previousScale = currScale;
@@ -378,7 +387,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // that a scale change does *not* happen.
         Thread.sleep(500);
         currScale = mOnUiThread.getScale();
-        assertEquals(currScale, previousScale);
+        assertEquals(currScale, previousScale, PAGE_SCALE_EPSILON);
 
         mOnUiThread.zoomBy(0.8f);
         previousScale = currScale;
@@ -402,30 +411,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // that a scale change does *not* happen.
         Thread.sleep(500);
         currScale = mOnUiThread.getScale();
-        assertEquals(currScale, previousScale);
-    }
-
-    @UiThreadTest
-    public void testSetScrollBarStyle() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        mWebView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
-        assertFalse(mWebView.overlayHorizontalScrollbar());
-        assertFalse(mWebView.overlayVerticalScrollbar());
-
-        mWebView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
-        assertTrue(mWebView.overlayHorizontalScrollbar());
-        assertTrue(mWebView.overlayVerticalScrollbar());
-
-        mWebView.setScrollBarStyle(View.SCROLLBARS_OUTSIDE_INSET);
-        assertFalse(mWebView.overlayHorizontalScrollbar());
-        assertFalse(mWebView.overlayVerticalScrollbar());
-
-        mWebView.setScrollBarStyle(View.SCROLLBARS_OUTSIDE_OVERLAY);
-        assertTrue(mWebView.overlayHorizontalScrollbar());
-        assertTrue(mWebView.overlayVerticalScrollbar());
+        assertEquals(currScale, previousScale, PAGE_SCALE_EPSILON);
     }
 
     @UiThreadTest
@@ -434,15 +420,12 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
             return;
         }
 
+        // These functions have no effect; just verify they don't crash
         mWebView.setHorizontalScrollbarOverlay(true);
         mWebView.setVerticalScrollbarOverlay(false);
+
         assertTrue(mWebView.overlayHorizontalScrollbar());
         assertFalse(mWebView.overlayVerticalScrollbar());
-
-        mWebView.setHorizontalScrollbarOverlay(false);
-        mWebView.setVerticalScrollbarOverlay(true);
-        assertFalse(mWebView.overlayHorizontalScrollbar());
-        assertTrue(mWebView.overlayVerticalScrollbar());
     }
 
     @UiThreadTest
@@ -1456,14 +1439,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
                 "Find all instances of a word on the page and highlight them.</p>";
 
         mOnUiThread.loadDataAndWaitForCompletion("<html><body>" + p + p + "</body></html>", "text/html", null);
-        WaitForFindResultsListener l = new WaitForFindResultsListener();
-        mOnUiThread.setFindListener(l);
 
         // highlight all the strings found
         mOnUiThread.findAll("all");
-        // make sure the findAll action is completed before findNext
-        l.get();
-        mOnUiThread.setFindListener(null);
+        getInstrumentation().waitForIdleSync();
 
         int previousScrollY = mOnUiThread.getScrollY();
 
@@ -1557,6 +1536,37 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         assertEquals(1, handler.getMsgArg1());
     }
 
+    private static void waitForFlingDone(WebViewOnUiThread webview) {
+        class ScrollDiffPollingCheck extends PollingCheck {
+            private static final long TIME_SLICE = 50;
+            WebViewOnUiThread mWebView;
+            private int mScrollX;
+            private int mScrollY;
+
+            ScrollDiffPollingCheck(WebViewOnUiThread webview) {
+                mWebView = webview;
+                mScrollX = mWebView.getScrollX();
+                mScrollY = mWebView.getScrollY();
+            }
+
+            @Override
+            protected boolean check() {
+                try {
+                    Thread.sleep(TIME_SLICE);
+                } catch (InterruptedException e) {
+                    // Intentionally ignored.
+                }
+                int newScrollX = mWebView.getScrollX();
+                int newScrollY = mWebView.getScrollY();
+                boolean flingDone = newScrollX == mScrollX && newScrollY == mScrollY;
+                mScrollX = newScrollX;
+                mScrollY = newScrollY;
+                return flingDone;
+            }
+        }
+        new ScrollDiffPollingCheck(webview).run();
+    }
+
     public void testPageScroll() throws Throwable {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -1578,29 +1588,29 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         }.run();
 
         do {
-            getInstrumentation().waitForIdleSync();
+            waitForFlingDone(mOnUiThread);
         } while (mOnUiThread.pageDown(false));
 
-        getInstrumentation().waitForIdleSync();
+        waitForFlingDone(mOnUiThread);
         int bottomScrollY = mOnUiThread.getScrollY();
 
         assertTrue(mOnUiThread.pageUp(false));
 
         do {
-            getInstrumentation().waitForIdleSync();
+            waitForFlingDone(mOnUiThread);
         } while (mOnUiThread.pageUp(false));
 
-        getInstrumentation().waitForIdleSync();
+        waitForFlingDone(mOnUiThread);
         int topScrollY = mOnUiThread.getScrollY();
 
         // jump to the bottom
         assertTrue(mOnUiThread.pageDown(true));
-        getInstrumentation().waitForIdleSync();
+        waitForFlingDone(mOnUiThread);
         assertEquals(bottomScrollY, mOnUiThread.getScrollY());
 
         // jump to the top
         assertTrue(mOnUiThread.pageUp(true));
-        getInstrumentation().waitForIdleSync();
+        waitForFlingDone(mOnUiThread);
         assertEquals(topScrollY, mOnUiThread.getScrollY());
     }
 
@@ -2413,6 +2423,47 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
             descriptor.close();
             file.delete();
         }
+    }
+
+    public void testVisualStateCallbackCalled() throws Exception {
+        // Check that the visual state callback is called correctly.
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        final CountDownLatch callbackLatch = new CountDownLatch(1);
+        final long kRequest = 100;
+
+        mOnUiThread.loadUrl("about:blank");
+
+        mOnUiThread.postVisualStateCallback(kRequest, new VisualStateCallback() {
+            public void onComplete(long requestId) {
+                assertEquals(kRequest, requestId);
+                callbackLatch.countDown();
+            }
+        });
+
+        assertTrue(callbackLatch.await(TEST_TIMEOUT, TimeUnit.MILLISECONDS));
+    }
+
+    public void testOnPageCommitVisibleCalled() throws Exception {
+        // Check that the onPageCommitVisible callback is called
+        // correctly.
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        final CountDownLatch callbackLatch = new CountDownLatch(1);
+
+        mOnUiThread.setWebViewClient(new WebViewClient() {
+                public void onPageCommitVisible(WebView view, String url) {
+                    assertEquals(url, "about:blank");
+                    callbackLatch.countDown();
+                }
+            });
+
+        mOnUiThread.loadUrl("about:blank");
+        assertTrue(callbackLatch.await(TEST_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
     private void savePrintedPage(final PrintDocumentAdapter adapter,

@@ -71,8 +71,7 @@ public class CtsApiCoverage {
         int format = FORMAT_TXT;
         String dexDeps = "dexDeps";
         String apiXmlPath = "";
-        // By default only care about packages starting with "android"
-        String packageFilter = "android";
+        PackageFilter packageFilter = new PackageFilter();
         String reportTitle = "CTS API Coverage";
 
         for (int i = 0; i < args.length; i++) {
@@ -95,7 +94,7 @@ public class CtsApiCoverage {
                 } else if ("-a".equals(args[i])) {
                     apiXmlPath = getExpectedArg(args, ++i);
                 } else if ("-p".equals(args[i])) {
-                    packageFilter = getExpectedArg(args, ++i);
+                    packageFilter.addPrefixToFilter(getExpectedArg(args, ++i));
                 } else if ("-t".equals(args[i])) {
                     reportTitle = getExpectedArg(args, ++i);
                 } else {
@@ -118,7 +117,8 @@ public class CtsApiCoverage {
          */
 
         ApiCoverage apiCoverage = getEmptyApiCoverage(apiXmlPath);
-        apiCoverage.removeEmptyAbstractClasses();
+        // Add superclass information into api coverage.
+        apiCoverage.resolveSuperClasses();
         for (File testApk : testApks) {
             addApiCoverage(apiCoverage, testApk, dexDeps);
         }
@@ -188,7 +188,7 @@ public class CtsApiCoverage {
     }
 
     private static void outputCoverageReport(ApiCoverage apiCoverage, List<File> testApks,
-            File outputFile, int format, String packageFilter, String reportTitle)
+            File outputFile, int format, PackageFilter packageFilter, String reportTitle)
                 throws IOException, TransformerException, InterruptedException {
 
         OutputStream out = outputFile != null

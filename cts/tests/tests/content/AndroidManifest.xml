@@ -39,7 +39,16 @@
                     android:label="Test Tree"/>
 
     <!-- Used for PackageManager test, don't delete this permission-group -->
-    <permission-group android:name="android.permission-group.COST_MONEY"/>
+    <permission-group android:name="android.permission-group.COST_MONEY"
+            android:label="@string/permlab_costMoney"
+            android:description="@string/permdesc_costMoney"/>
+
+    <permission android:name="com.android.cts.content.CALL_ABROAD_PERMISSION"
+                android:label="@string/permlab_callAbroad"
+                android:description="@string/permdesc_callAbroad"
+                android:protectionLevel="normal"
+                android:permissionGroup="android.permission-group.COST_MONEY" />
+
     <!-- Used for PackageManager test, don't delete! -->
     <uses-configuration/>
     <uses-feature android:name="android.hardware.camera" />
@@ -105,6 +114,14 @@
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_MOCKTEST" />
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT" />
                 <action android:name="android.content.cts.ContextWrapperTest.BROADCAST_TESTORDER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receiver that will be explicitly disabled at runtime -->
+        <receiver android:name="android.content.cts.MockReceiverDisableable"
+                android:enabled="true">
+            <intent-filter android:priority="1">
+                <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_DISABLED" />
             </intent-filter>
         </receiver>
 

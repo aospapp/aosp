@@ -19,14 +19,30 @@ package com.android.incalluibind;
 import android.content.Context;
 import android.content.Intent;
 
+import com.android.incallui.CallCardPresenter.EmergencyCallListener;
+import com.android.incallui.service.PhoneNumberService;
+
 public class ObjectFactory {
 
+    public static PhoneNumberService newPhoneNumberService(Context context) {
+        // no phone number service.
+        return null;
+    }
+
+    public static EmergencyCallListener newEmergencyCallListener() {
+        return null;
+    }
+
     /** @return An {@link Intent} to be broadcast when the InCallUI is visible. */
-    public static Intent getUiReadyBroadcastIntent(Context context) { return null; }
+    public static Intent getUiReadyBroadcastIntent(Context context) {
+        return null;
+    }
 
     /**
      * @return An {@link Intent} to be broadcast when the call state button in the InCallUI is
      * touched while in a call.
      */
-    public static Intent getCallStateButtonBroadcastIntent(Context context) { return null; }
+    public static Intent getCallStateButtonBroadcastIntent(Context context) {
+        return null;
+    }
 }

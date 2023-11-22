@@ -15,6 +15,7 @@
  */
 
 #include <link.h>
+#include <string.h>
 #include <sys/auxv.h>
 #include <unistd.h>
 
@@ -52,13 +53,13 @@ static vdso_entry vdso_entries[] = {
 
 int clock_gettime(int clock_id, timespec* tp) {
   static int (*vdso_clock_gettime)(int, timespec*) =
-      (int (*)(int, timespec*)) vdso_entries[VDSO_CLOCK_GETTIME].fn;
+      reinterpret_cast<int (*)(int, timespec*)>(vdso_entries[VDSO_CLOCK_GETTIME].fn);
   return vdso_clock_gettime(clock_id, tp);
 }
 
 int gettimeofday(timeval* tv, struct timezone* tz) {
   static int (*vdso_gettimeofday)(timeval*, struct timezone*) =
-      (int (*)(timeval*, struct timezone*)) vdso_entries[VDSO_GETTIMEOFDAY].fn;
+      reinterpret_cast<int (*)(timeval*, struct timezone*)>(vdso_entries[VDSO_GETTIMEOFDAY].fn);
   return vdso_gettimeofday(tv, tz);
 }
 

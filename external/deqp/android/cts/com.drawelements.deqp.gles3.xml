@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TestPackage name="dEQP-GLES3" appPackageName="com.drawelements.deqp.gles3" testType="deqpTest">
+<TestPackage name="dEQP-GLES3" appPackageName="com.drawelements.deqp.gles3" testType="deqpTest" xmlns:deqp="http://drawelements.com/deqp" deqp:glesVersion="196608">
 <TestSuite name="dEQP-GLES3">
 <TestCase name="info">
 <Test name="renderer" />
@@ -3986,10 +3986,10 @@
 <Test name="multidimensional_array_in_uniform_block_fragment" />
 <Test name="dynamic_expression_array_size_vertex" />
 <Test name="dynamic_expression_array_size_fragment" />
-<Test name="constructor_c-style1_vertex" />
-<Test name="constructor_c-style1_fragment" />
-<Test name="constructor_c-style2_vertex" />
-<Test name="constructor_c-style2_fragment" />
+<Test name="constructor_c_style1_vertex" />
+<Test name="constructor_c_style1_fragment" />
+<Test name="constructor_c_style2_vertex" />
+<Test name="constructor_c_style2_fragment" />
 </TestCase>
 </TestSuite>
 <TestSuite name="keywords">
@@ -35734,7 +35734,6 @@
 <TestCase name="random">
 <Test name="1" />
 <Test name="2" />
-<Test name="3" />
 <Test name="4" />
 <Test name="5" />
 <Test name="6" />
@@ -35759,7 +35758,6 @@
 <Test name="25" />
 <Test name="26" />
 <Test name="27" />
-<Test name="28" />
 <Test name="30" />
 <Test name="31" />
 <Test name="32" />
@@ -35778,7 +35776,6 @@
 <Test name="45" />
 <Test name="46" />
 <Test name="47" />
-<Test name="48" />
 <Test name="49" />
 <Test name="51" />
 <Test name="52" />
@@ -35799,9 +35796,7 @@
 <Test name="68" />
 <Test name="69" />
 <Test name="70" />
-<Test name="71" />
 <Test name="72" />
-<Test name="73" />
 <Test name="74" />
 <Test name="76" />
 <Test name="77" />
@@ -35983,13 +35978,11 @@
 <Test name="triangles" />
 <Test name="triangle_strip" />
 <Test name="triangle_fan" />
-<Test name="line_loop" />
 </TestCase>
 <TestCase name="projected">
 <Test name="triangles" />
 <Test name="triangle_strip" />
 <Test name="triangle_fan" />
-<Test name="line_strip" />
 </TestCase>
 </TestSuite>
 <TestCase name="flatshading">

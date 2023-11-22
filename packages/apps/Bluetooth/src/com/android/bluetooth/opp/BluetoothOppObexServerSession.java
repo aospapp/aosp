@@ -56,6 +56,8 @@ import javax.obex.ResponseCodes;
 import javax.obex.ServerRequestHandler;
 import javax.obex.ServerSession;
 
+import com.android.bluetooth.BluetoothObexTransport;
+
 /**
  * This class runs as an OBEX server
  */
@@ -115,8 +117,6 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
      * Header then wait for user confirmation
      */
     public void preStart() {
-        if (D) Log.d(TAG, "acquire full WakeLock");
-        mWakeLock.acquire();
         try {
             if (D) Log.d(TAG, "Create ServerSession with transport " + mTransport.toString());
             mSession = new ServerSession(mTransport, this, null);
@@ -181,8 +181,8 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
         }
 
         String destination;
-        if (mTransport instanceof BluetoothOppRfcommTransport) {
-            destination = ((BluetoothOppRfcommTransport)mTransport).getRemoteAddress();
+        if (mTransport instanceof BluetoothObexTransport) {
+            destination = ((BluetoothObexTransport)mTransport).getRemoteAddress();
         } else {
             destination = "FF:FF:FF:00:00:00";
         }
@@ -266,7 +266,9 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
         ContentValues values = new ContentValues();
 
         values.put(BluetoothShare.FILENAME_HINT, name);
-        values.put(BluetoothShare.TOTAL_BYTES, length.intValue());
+
+        values.put(BluetoothShare.TOTAL_BYTES, length);
+
         values.put(BluetoothShare.MIMETYPE, mimeType);
 
         values.put(BluetoothShare.DESTINATION, destination);
@@ -294,6 +296,9 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
         mLocalShareInfoId = Integer.parseInt(contentUri.getPathSegments().get(1));
 
         if (needConfirm) {
+            if (V) Log.d(TAG, "acquire full WakeLock");
+            mWakeLock.acquire();
+
             Intent in = new Intent(BluetoothShare.INCOMING_FILE_CONFIRMATION_REQUEST_ACTION);
             in.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
             mContext.sendBroadcast(in);
@@ -302,11 +307,9 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
         if (V) Log.v(TAG, "insert contentUri: " + contentUri);
         if (V) Log.v(TAG, "mLocalShareInfoId = " + mLocalShareInfoId);
 
-        if (V) Log.v(TAG, "acquire partial WakeLock");
-
-
         synchronized (this) {
             if (mWakeLock.isHeld()) {
+                if (V) Log.v(TAG, "acquire partial WakeLock");
                 mPartialWakeLock.acquire();
                 mWakeLock.release();
             }
@@ -555,8 +558,8 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler implemen
             return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
         }
         String destination;
-        if (mTransport instanceof BluetoothOppRfcommTransport) {
-            destination = ((BluetoothOppRfcommTransport)mTransport).getRemoteAddress();
+        if (mTransport instanceof BluetoothObexTransport) {
+            destination = ((BluetoothObexTransport)mTransport).getRemoteAddress();
         } else {
             destination = "FF:FF:FF:00:00:00";
         }

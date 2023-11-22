@@ -39,7 +39,8 @@ def main():
 
         # Capture at the smallest resolution.
         props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.manual_sensor(props))
+        its.caps.skip_unless(its.caps.manual_sensor(props) and
+                             its.caps.awb_lock(props))
 
         _, fmt = its.objects.get_fastest_manual_capture_settings(props)
         w,h = fmt["width"], fmt["height"]

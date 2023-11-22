@@ -21,5 +21,5 @@ LOCAL_SDK_VERSION := 14
 
 LOCAL_SRC_FILES := $(call private-function-all-cpp-files-under, src/lib)
 LOCAL_MODULE := libopenfst-gnustl-rtti
-
+LOCAL_CLANG := true
 include $(BUILD_STATIC_LIBRARY)

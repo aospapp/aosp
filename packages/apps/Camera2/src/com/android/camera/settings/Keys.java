@@ -62,17 +62,25 @@ public class Keys {
             "pref_release_dialog_last_shown_version";
     public static final String KEY_FLASH_SUPPORTED_BACK_CAMERA =
             "pref_flash_supported_back_camera";
+    public static final String KEY_HDR_SUPPORT_MODE_BACK_CAMERA =
+            "pref_hdr_support_mode_back_camera";
     public static final String KEY_UPGRADE_VERSION = "pref_upgrade_version";
     public static final String KEY_REQUEST_RETURN_HDR_PLUS = "pref_request_return_hdr_plus";
     public static final String KEY_SHOULD_SHOW_REFOCUS_VIEWER_CLING =
             "pref_should_show_refocus_viewer_cling";
     public static final String KEY_EXPOSURE_COMPENSATION_ENABLED =
             "pref_camera_exposure_compensation_key";
+
+    /**
+     * Whether the user has chosen an aspect ratio on the first run dialog.
+     */
     public static final String KEY_USER_SELECTED_ASPECT_RATIO = "pref_user_selected_aspect_ratio";
+
     public static final String KEY_COUNTDOWN_DURATION = "pref_camera_countdown_duration_key";
     public static final String KEY_HDR_PLUS_FLASH_MODE = "pref_hdr_plus_flash_mode";
     public static final String KEY_SHOULD_SHOW_SETTINGS_BUTTON_CLING =
             "pref_should_show_settings_button_cling";
+    public static final String KEY_HAS_SEEN_PERMISSIONS_DIALOGS = "pref_has_seen_permissions_dialogs";
 
     /**
      * Set some number of defaults for the defined keys.
@@ -93,6 +101,10 @@ public class Keys {
         settingsManager.setDefaults(KEY_FLASH_MODE,
             context.getString(R.string.pref_camera_flashmode_default),
             context.getResources().getStringArray(R.array.pref_camera_flashmode_entryvalues));
+
+        settingsManager.setDefaults(KEY_HDR_SUPPORT_MODE_BACK_CAMERA,
+            context.getString(R.string.pref_camera_hdr_supportmode_none),
+            context.getResources().getStringArray(R.array.pref_camera_hdr_supportmode_entryvalues));
 
         settingsManager.setDefaults(KEY_CAMERA_HDR, false);
         settingsManager.setDefaults(KEY_CAMERA_HDR_PLUS, false);
@@ -211,53 +223,5 @@ public class Keys {
         return settingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
                                           KEY_CAMERA_GRID_LINES);
     }
-
-    /**
-     * Returns whether pano orientation is horizontal.
-     */
-    public static boolean isPanoOrientationHorizontal(SettingsManager settingsManager) {
-        return settingsManager.isDefault(SettingsManager.SCOPE_GLOBAL,
-                                         KEY_CAMERA_PANO_ORIENTATION);
-    }
-
-    /**
-     * Sets the settings for whether location recording should be enabled or
-     * not. Also makes sure to pass on the change to the location manager.
-     */
-    public static void setLocation(SettingsManager settingsManager, boolean on,
-                                   LocationManager locationManager) {
-        settingsManager.set(SettingsManager.SCOPE_GLOBAL, KEY_RECORD_LOCATION, on);
-        locationManager.recordLocation(on);
-    }
-
-    /**
-     * Sets the user selected aspect ratio setting to selected.
-     */
-    public static void setAspectRatioSelected(SettingsManager settingsManager) {
-        settingsManager.set(SettingsManager.SCOPE_GLOBAL,
-                            KEY_USER_SELECTED_ASPECT_RATIO, true);
-    }
-
-    /**
-     * Sets the manual exposure compensation enabled setting
-     * to on/off based on the given argument.
-     */
-    public static void setManualExposureCompensation(SettingsManager settingsManager,
-                                              boolean on) {
-        settingsManager.set(SettingsManager.SCOPE_GLOBAL,
-                            KEY_EXPOSURE_COMPENSATION_ENABLED, on);
-    }
-
-    /**
-     * Reads the current location recording settings and passes it on to the
-     * given location manager.
-     */
-    public static void syncLocationManager(SettingsManager settingsManager,
-                                    LocationManager locationManager) {
-        boolean value = settingsManager.getBoolean(SettingsManager.SCOPE_GLOBAL,
-                                                   KEY_RECORD_LOCATION);
-        locationManager.recordLocation(value);
-    }
-
 }
 

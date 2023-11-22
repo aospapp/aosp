@@ -57,9 +57,8 @@ import java.util.concurrent.TimeoutException;
  *     ...
  *     protected void finalize() { latch.countDown(); ... }
  *   };
- *   x = null;  // Hint to the JIT that x is unreachable
- *   GcFinalization.await(latch);
- * }</pre>
+ *   x = null;  // Hint to the JIT that x is stack-unreachable
+ *   GcFinalization.await(latch);}</pre>
  *
  * <p>Here's an example that uses a user-defined finalization predicate:
  *
@@ -70,8 +69,24 @@ import java.util.concurrent.TimeoutException;
  *     public boolean isDone() {
  *       return map.isEmpty();
  *     }
- *   });
- * }</pre>
+ *   });}</pre>
+ *
+ * <p>Even if your non-test code does not use finalization, you can
+ * use this class to test for leaks, by ensuring that objects are no
+ * longer strongly referenced:
+ *
+ * <pre> {@code
+ * // Helper function keeps victim stack-unreachable.
+ * private WeakReference<Foo> fooWeakRef() {
+ *   Foo x = ....;
+ *   WeakReference<Foo> weakRef = new WeakReference<Foo>(x);
+ *   // ... use x ...
+ *   x = null;  // Hint to the JIT that x is stack-unreachable
+ *   return weakRef;
+ * }
+ * public void testFooLeak() {
+ *   GcFinalization.awaitClear(fooWeakRef());
+ * }}</pre>
  *
  * <p>This class cannot currently be used to test soft references, since this class does not try to
  * create the memory pressure required to cause soft references to be cleared.
@@ -79,8 +94,8 @@ import java.util.concurrent.TimeoutException;
  * <p>This class only provides testing utilities.  It is not designed for direct use in production
  * or for benchmarking.
  *
- * @author schmoe@google.com (mike nonemacher)
- * @author martinrb@google.com (Martin Buchholz)
+ * @author mike nonemacher
+ * @author Martin Buchholz
  * @since 11.0
  */
 @Beta
@@ -232,8 +247,7 @@ public final class GcFinalization {
    *     public boolean isDone() {
    *       return ref.get() == null;
    *     }
-   *   });
-   * }</pre>
+   *   });}</pre>
    *
    * @throws RuntimeException if timed out or interrupted while waiting
    */
@@ -243,5 +257,41 @@ public final class GcFinalization {
         return ref.get() == null;
       }
     });
+  }
+
+  /**
+   * Tries to perform a "full" garbage collection cycle (including processing of weak references
+   * and invocation of finalize methods) and waits for it to complete.  Ensures that at least one
+   * weak reference has been cleared and one {@code finalize} method has been run before this
+   * method returns.  This method may be useful when testing the garbage collection mechanism
+   * itself, or inhibiting a spontaneous GC initiation in subsequent code.
+   *
+   * <p>In contrast, a plain call to {@link java.lang.System#gc()} does not ensure finalization
+   * processing and may run concurrently, for example, if the JVM flag {@code
+   * -XX:+ExplicitGCInvokesConcurrent} is used.
+   *
+   * <p>Whenever possible, it is preferable to test directly for some observable change resulting
+   * from GC, as with {@link #awaitClear}.  Because there are no guarantees for the order of GC
+   * finalization processing, there may still be some unfinished work for the GC to do after this
+   * method returns.
+   *
+   * <p>This method does not create any memory pressure as would be required to cause soft
+   * references to be processed.
+   *
+   * @throws RuntimeException if timed out or interrupted while waiting
+   * @since 12.0
+   */
+  public static void awaitFullGc() {
+    final CountDownLatch finalizerRan = new CountDownLatch(1);
+    WeakReference<Object> ref = new WeakReference<Object>(
+        new Object() {
+          @Override protected void finalize() { finalizerRan.countDown(); }
+        });
+
+    await(finalizerRan);
+    awaitClear(ref);
+
+    // Hope to catch some stragglers queued up behind our finalizable object
+    System.runFinalization();
   }
 }

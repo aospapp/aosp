@@ -20,6 +20,7 @@ import static com.google.common.collect.testing.features.CollectionFeature.ALLOW
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 import com.google.common.collect.testing.MinimalCollection;
 import com.google.common.collect.testing.WrongType;
@@ -33,12 +34,11 @@ import java.util.Collection;
  * collection. Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  * @author Chris Povirk
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible
 public class CollectionContainsAllTester<E>
     extends AbstractCollectionTester<E> {
   public void testContainsAll_empty() {
@@ -57,6 +57,7 @@ public class CollectionContainsAllTester<E>
         collection.containsAll(MinimalCollection.of(createSamplesArray())));
   }
 
+  @SuppressWarnings("ModifyingCollectionWithItself")
   public void testContainsAll_self() {
     assertTrue("containsAll(this) should return true",
         collection.containsAll(collection));
@@ -85,6 +86,7 @@ public class CollectionContainsAllTester<E>
   }
 
   @CollectionFeature.Require(ALLOWS_NULL_VALUES)
+  @CollectionSize.Require(absent = ZERO)
   public void testContainsAll_nullPresent() {
     initCollectionWithNullElement();
     assertTrue(collection.containsAll(MinimalCollection.of((E) null)));

@@ -30,6 +30,24 @@
 // EP: "-P"
 // EP: "-o" "-"
 
+// RUN: %clang_cl /fp:fast /fp:except -### -- %s 2>&1 | FileCheck -check-prefix=fpexcept %s
+// fpexcept-NOT: -menable-unsafe-fp-math
+
+// RUN: %clang_cl /fp:fast /fp:except /fp:except- -### -- %s 2>&1 | FileCheck -check-prefix=fpexcept_ %s
+// fpexcept_: -menable-unsafe-fp-math
+
+// RUN: %clang_cl /fp:precise /fp:fast -### -- %s 2>&1 | FileCheck -check-prefix=fpfast %s
+// fpfast: -menable-unsafe-fp-math
+// fpfast: -ffast-math
+
+// RUN: %clang_cl /fp:fast /fp:precise -### -- %s 2>&1 | FileCheck -check-prefix=fpprecise %s
+// fpprecise-NOT: -menable-unsafe-fp-math
+// fpprecise-NOT: -ffast-math
+
+// RUN: %clang_cl /fp:fast /fp:strict -### -- %s 2>&1 | FileCheck -check-prefix=fpstrict %s
+// fpstrict-NOT: -menable-unsafe-fp-math
+// fpstrict-NOT: -ffast-math
+
 // RTTI is on by default; just check that we don't error.
 // RUN: %clang_cl /Zs /GR -- %s 2>&1
 
@@ -41,6 +59,13 @@
 
 // RUN: %clang_cl /Gy /Gy- -### -- %s 2>&1 | FileCheck -check-prefix=Gy_ %s
 // Gy_-NOT: -ffunction-sections
+
+// RUN: %clang_cl /Gs -### -- %s 2>&1 | FileCheck -check-prefix=Gs %s
+// Gs: "-mstack-probe-size=0"
+// RUN: %clang_cl /Gs0 -### -- %s 2>&1 | FileCheck -check-prefix=Gs0 %s
+// Gs0: "-mstack-probe-size=0"
+// RUN: %clang_cl /Gs4096 -### -- %s 2>&1 | FileCheck -check-prefix=Gs4096 %s
+// Gs4096: "-mstack-probe-size=4096"
 
 // RUN: %clang_cl /Gw -### -- %s 2>&1 | FileCheck -check-prefix=Gw %s
 // Gw: -fdata-sections
@@ -87,6 +112,10 @@
 // RUN: %clang_cl /showIncludes -### -- %s 2>&1 | FileCheck -check-prefix=showIncludes %s
 // showIncludes: --show-includes
 
+// RUN: %clang_cl /E /showIncludes -### -- %s 2>&1 | FileCheck -check-prefix=showIncludes_E %s
+// RUN: %clang_cl /EP /showIncludes -### -- %s 2>&1 | FileCheck -check-prefix=showIncludes_E %s
+// showIncludes_E: warning: argument unused during compilation: '--show-includes'
+
 // RUN: %clang_cl /Umymacro -### -- %s 2>&1 | FileCheck -check-prefix=U %s
 // RUN: %clang_cl /U mymacro -### -- %s 2>&1 | FileCheck -check-prefix=U %s
 // U: "-U" "mymacro"
@@ -112,6 +141,12 @@
 // RUN: %clang_cl /vmg /vmm /vms -### -- %s 2>&1 | FileCheck -check-prefix=VMX %s
 // VMX: '/vms' not allowed with '/vmm'
 
+// RUN: %clang_cl /volatile:iso -### -- %s 2>&1 | FileCheck -check-prefix=VOLATILE-ISO %s
+// VOLATILE-ISO-NOT: "-fms-volatile"
+
+// RUN: %clang_cl /volatile:ms -### -- %s 2>&1 | FileCheck -check-prefix=VOLATILE-MS %s
+// VOLATILE-MS: "-fms-volatile"
+
 // RUN: %clang_cl /W0 -### -- %s 2>&1 | FileCheck -check-prefix=W0 %s
 // W0: -w
 
@@ -130,6 +165,12 @@
 
 // RUN: %clang_cl /w -### -- %s 2>&1 | FileCheck -check-prefix=w %s
 // w: -w
+
+// RUN: %clang_cl /Zp -### -- %s 2>&1 | FileCheck -check-prefix=ZP %s
+// ZP: -fpack-struct=1
+
+// RUN: %clang_cl /Zp2 -### -- %s 2>&1 | FileCheck -check-prefix=ZP2 %s
+// ZP2: -fpack-struct=2
 
 // RUN: %clang_cl /Zs -### -- %s 2>&1 | FileCheck -check-prefix=Zs %s
 // Zs: -fsyntax-only
@@ -154,34 +195,42 @@
 // NOSTRICT: "-relaxed-aliasing"
 
 // For some warning ids, we can map from MSVC warning to Clang warning.
-// RUN: %clang_cl -wd4005 -### -- %s 2>&1 | FileCheck -check-prefix=wd4005 %s
-// wd4005: "-cc1"
-// wd4005: "-Wno-macro-redefined"
+// RUN: %clang_cl -wd4005 -wd4996 -### -- %s 2>&1 | FileCheck -check-prefix=Wno %s
+// Wno: "-cc1"
+// Wno: "-Wno-macro-redefined"
+// Wno: "-Wno-deprecated-declarations"
 
 // Ignored options. Check that we don't get "unused during compilation" errors.
-// (/Zs is for syntax-only)
-// RUN: %clang_cl /Zs \
+// RUN: %clang_cl /c \
 // RUN:    /analyze- \
+// RUN:    /cgthreads4 \
+// RUN:    /cgthreads8 \
+// RUN:    /d2Zi+ \
 // RUN:    /errorReport:foo \
+// RUN:    /Fdfoo \
 // RUN:    /FS \
+// RUN:    /Gd \
 // RUN:    /GF \
 // RUN:    /GS- \
 // RUN:    /kernel- \
 // RUN:    /nologo \
 // RUN:    /Ob1 \
 // RUN:    /Ob2 \
+// RUN:    /openmp- \
 // RUN:    /RTC1 \
 // RUN:    /sdl \
 // RUN:    /sdl- \
 // RUN:    /vmg \
+// RUN:    /volatile:iso \
 // RUN:    /w12345 \
 // RUN:    /wd1234 \
-// RUN:    /Zc:forScope \
-// RUN:    /Zc:wchar_t \
-// RUN:    /Zc:inline \
-// RUN:    /Zc:rvalueCast \
+// RUN:    /Zo \
+// RUN:    /Zo- \
 // RUN:    -### -- %s 2>&1 | FileCheck -check-prefix=IGNORED %s
 // IGNORED-NOT: argument unused during compilation
+// IGNORED-NOT: no such file or directory
+// Don't confuse /openmp- with the /o flag:
+// IGNORED-NOT: "-o" "penmp-.obj"
 
 // Ignored options and compile-only options are ignored for link jobs.
 // RUN: touch %t.obj
@@ -198,10 +247,8 @@
 // (/Zs is for syntax-only)
 // RUN: %clang_cl /Zs \
 // RUN:     /AIfoo \
-// RUN:     /arch:sse2 \
 // RUN:     /clr:pure \
 // RUN:     /docname \
-// RUN:     /d2Zi+ \
 // RUN:     /EHsc \
 // RUN:     /F \
 // RUN:     /FA \
@@ -211,11 +258,9 @@
 // RUN:     /FAu \
 // RUN:     /favor:blend \
 // RUN:     /FC \
-// RUN:     /Fdfoo \
 // RUN:     /Fifoo \
 // RUN:     /Fmfoo \
 // RUN:     /FpDebug\main.pch \
-// RUN:     /fp:precise \
 // RUN:     /Frfoo \
 // RUN:     /FRfoo \
 // RUN:     /FU foo \
@@ -233,9 +278,9 @@
 // RUN:     /Gm- \
 // RUN:     /Gr \
 // RUN:     /GS \
-// RUN:     /Gs1000 \
 // RUN:     /GT \
 // RUN:     /GX \
+// RUN:     /Gv \
 // RUN:     /Gz \
 // RUN:     /GZ \
 // RUN:     /H \
@@ -254,7 +299,7 @@
 // RUN:     /Qvec-report:2 \
 // RUN:     /u \
 // RUN:     /V \
-// RUN:     /volatile \
+// RUN:     /volatile:ms \
 // RUN:     /wfoo \
 // RUN:     /WL \
 // RUN:     /Wp64 \
@@ -268,15 +313,11 @@
 // RUN:     /Yustdafx.h \
 // RUN:     /Z7 \
 // RUN:     /Za \
-// RUN:     /Zc:auto \
-// RUN:     /Zc:wchar_t- \
 // RUN:     /Ze \
 // RUN:     /Zg \
 // RUN:     /Zi \
 // RUN:     /ZI \
 // RUN:     /Zl \
-// RUN:     /Zp \
-// RUN:     /Zp1 \
 // RUN:     /ZW:nostdlib \
 // RUN:     -- %s 2>&1
 
@@ -285,10 +326,6 @@
 // Xclang: "-cc1"
 // Xclang: "hellocc1"
 
-// We support -m32 and -m64.
-// RUN: %clang_cl /Zs /WX -m32 -m64 -### -- 2>&1 %s | FileCheck -check-prefix=MFLAGS %s
-// MFLAGS-NOT: argument unused during compilation
-
 // RTTI is on by default. /GR- controls -fno-rtti-data.
 // RUN: %clang_cl /c /GR- -### -- %s 2>&1 | FileCheck -check-prefix=NoRTTI %s
 // NoRTTI: "-fno-rtti-data"
@@ -296,6 +333,32 @@
 // RUN: %clang_cl /c /GR -### -- %s 2>&1 | FileCheck -check-prefix=RTTI %s
 // RTTI-NOT: "-fno-rtti-data"
 // RTTI-NOT: "-fno-rtti"
+
+// thread safe statics are off for versions < 19.
+// RUN: %clang_cl /c -### -- %s 2>&1 | FileCheck -check-prefix=NoThreadSafeStatics %s
+// RUN: %clang_cl /Zc:threadSafeInit /Zc:threadSafeInit- /c -### -- %s 2>&1 | FileCheck -check-prefix=NoThreadSafeStatics %s
+// NoThreadSafeStatics: "-fno-threadsafe-statics"
+
+// RUN: %clang_cl /Zc:threadSafeInit /c -### -- %s 2>&1 | FileCheck -check-prefix=ThreadSafeStatics %s
+// ThreadSafeStatics-NOT: "-fno-threadsafe-statics"
+
+// Accept "core" clang options.
+// (/Zs is for syntax-only, -Werror makes it fail hard on unknown options)
+// RUN: %clang_cl \
+// RUN:     --driver-mode=cl \
+// RUN:     -fcolor-diagnostics \
+// RUN:     -fno-color-diagnostics \
+// RUN:     -fdiagnostics-color \
+// RUN:     -fno-diagnostics-color \
+// RUN:     -ferror-limit=10 \
+// RUN:     -fmsc-version=1800 \
+// RUN:     -fno-strict-aliasing \
+// RUN:     -fstrict-aliasing \
+// RUN:     -fsyntax-only \
+// RUN:     -mllvm -disable-llvm-optzns \
+// RUN:     -Wunused-variable \
+// RUN:     -fmacro-backtrace-limit=0 \
+// RUN:     -Werror /Zs -- %s 2>&1
 
 
 void f() { }

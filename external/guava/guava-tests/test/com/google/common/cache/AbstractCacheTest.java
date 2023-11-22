@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import junit.framework.TestCase;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -41,12 +40,6 @@ public class AbstractCacheTest extends TestCase {
       public Object getIfPresent(Object key) {
         return valueRef.get();
       }
-
-      @Override
-      public Object get(Object key) throws ExecutionException {
-        throw new UnsupportedOperationException();
-      }
-
     };
 
     assertNull(cache.getIfPresent(new Object()));
@@ -60,12 +53,7 @@ public class AbstractCacheTest extends TestCase {
     final List<Object> invalidated = Lists.newArrayList();
     Cache<Integer, Integer> cache = new AbstractCache<Integer, Integer>() {
       @Override
-      public Integer getIfPresent(Integer key) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Integer get(Integer key) throws ExecutionException {
+      public Integer getIfPresent(Object key) {
         throw new UnsupportedOperationException();
       }
 
@@ -117,15 +105,15 @@ public class AbstractCacheTest extends TestCase {
     int requestCount = 11 + 23;
     assertEquals(requestCount, stats.requestCount());
     assertEquals(11, stats.hitCount());
-    assertEquals(11.0/requestCount, stats.hitRate());
+    assertEquals(11.0 / requestCount, stats.hitRate());
     int missCount = 23;
     assertEquals(missCount, stats.missCount());
-    assertEquals(((double) missCount)/requestCount, stats.missRate());
+    assertEquals(((double) missCount) / requestCount, stats.missRate());
     assertEquals(13, stats.loadSuccessCount());
     assertEquals(17, stats.loadExceptionCount());
     assertEquals(13 + 17, stats.loadCount());
     assertEquals(214, stats.totalLoadTime());
-    assertEquals(214.0/(13 + 17), stats.averageLoadPenalty());
+    assertEquals(214.0 / (13 + 17), stats.averageLoadPenalty());
     assertEquals(27, stats.evictionCount());
   }
 

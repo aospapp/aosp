@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SPARCMCEXPR_H
-#define LLVM_SPARCMCEXPR_H
+#ifndef LLVM_LIB_TARGET_SPARC_MCTARGETDESC_SPARCMCEXPR_H
+#define LLVM_LIB_TARGET_SPARC_MCTARGETDESC_SPARCMCEXPR_H
 
 #include "SparcFixupKinds.h"
 #include "llvm/MC/MCExpr.h"
@@ -62,8 +62,8 @@ private:
   const VariantKind Kind;
   const MCExpr *Expr;
 
-  explicit SparcMCExpr(VariantKind _Kind, const MCExpr *_Expr)
-    : Kind(_Kind), Expr(_Expr) {}
+  explicit SparcMCExpr(VariantKind Kind, const MCExpr *Expr)
+      : Kind(Kind), Expr(Expr) {}
 
 public:
   /// @name Construction
@@ -87,7 +87,8 @@ public:
   /// @}
   void PrintImpl(raw_ostream &OS) const override;
   bool EvaluateAsRelocatableImpl(MCValue &Res,
-                                 const MCAsmLayout *Layout) const override;
+                                 const MCAsmLayout *Layout,
+                                 const MCFixup *Fixup) const override;
   void visitUsedExpr(MCStreamer &Streamer) const override;
   const MCSection *FindAssociatedSection() const override {
     return getSubExpr()->FindAssociatedSection();

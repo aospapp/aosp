@@ -40,9 +40,11 @@ import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.database.AbstractCursor;
 import android.database.Cursor;
+import android.database.CursorWrapper;
 import android.database.DatabaseUtils;
 import android.database.MatrixCursor;
 import android.database.MatrixCursor.RowBuilder;
+import android.database.MergeCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDoneException;
 import android.database.sqlite.SQLiteQueryBuilder;
@@ -102,13 +104,15 @@ import android.provider.ContactsContract.Settings;
 import android.provider.ContactsContract.StatusUpdates;
 import android.provider.ContactsContract.StreamItemPhotos;
 import android.provider.ContactsContract.StreamItems;
+import android.provider.MediaStore;
+import android.provider.MediaStore.Audio.Media;
 import android.provider.OpenableColumns;
+import android.provider.Settings.Global;
 import android.provider.SyncStateContract;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
-
 import com.android.common.content.ProjectionMap;
 import com.android.common.content.SyncStateContentProviderHelper;
 import com.android.common.io.MoreCloseables;
@@ -129,6 +133,7 @@ import com.android.providers.contacts.ContactsDatabaseHelper.NameLookupColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.NameLookupType;
 import com.android.providers.contacts.ContactsDatabaseHelper.PhoneLookupColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.PhotoFilesColumns;
+import com.android.providers.contacts.ContactsDatabaseHelper.PreAuthorizedUris;
 import com.android.providers.contacts.ContactsDatabaseHelper.PresenceColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.Projections;
 import com.android.providers.contacts.ContactsDatabaseHelper.RawContactsColumns;
@@ -141,26 +146,27 @@ import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
 import com.android.providers.contacts.ContactsDatabaseHelper.ViewGroupsColumns;
 import com.android.providers.contacts.ContactsDatabaseHelper.Views;
 import com.android.providers.contacts.SearchIndexManager.FtsQueryBuilder;
+import com.android.providers.contacts.aggregation.AbstractContactAggregator;
+import com.android.providers.contacts.aggregation.AbstractContactAggregator.AggregationSuggestionParameter;
 import com.android.providers.contacts.aggregation.ContactAggregator;
-import com.android.providers.contacts.aggregation.ContactAggregator.AggregationSuggestionParameter;
+import com.android.providers.contacts.aggregation.ContactAggregator2;
 import com.android.providers.contacts.aggregation.ProfileAggregator;
 import com.android.providers.contacts.aggregation.util.CommonNicknameCache;
 import com.android.providers.contacts.database.ContactsTableUtil;
 import com.android.providers.contacts.database.DeletedContactsTableUtil;
 import com.android.providers.contacts.database.MoreDatabaseUtils;
 import com.android.providers.contacts.util.Clock;
+import com.android.providers.contacts.util.ContactsPermissions;
 import com.android.providers.contacts.util.DbQueryUtils;
 import com.android.providers.contacts.util.NeededForTesting;
 import com.android.providers.contacts.util.UserUtils;
 import com.android.vcard.VCardComposer;
 import com.android.vcard.VCardConfig;
-
 import com.google.android.collect.Lists;
 import com.google.android.collect.Maps;
 import com.google.android.collect.Sets;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-
 import libcore.io.IoUtils;
 
 import java.io.BufferedWriter;
@@ -194,7 +200,9 @@ import java.util.concurrent.CountDownLatch;
 public class ContactsProvider2 extends AbstractContactsProvider
         implements OnAccountsUpdateListener {
 
+    private static final String READ_PERMISSION = "android.permission.READ_CONTACTS";
     private static final String WRITE_PERMISSION = "android.permission.WRITE_CONTACTS";
+    private static final String INTERACT_ACROSS_USERS = "android.permission.INTERACT_ACROSS_USERS";
 
     /* package */ static final String UPDATE_TIMES_CONTACTED_CONTACTS_TABLE =
           "UPDATE " + Tables.CONTACTS + " SET " + Contacts.TIMES_CONTACTED + "=" +
@@ -233,6 +241,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private static final int BACKGROUND_TASK_CLEANUP_PHOTOS = 10;
     private static final int BACKGROUND_TASK_CLEAN_DELETE_LOG = 11;
 
+    protected static final int STATUS_NORMAL = 0;
+    protected static final int STATUS_UPGRADING = 1;
+    protected static final int STATUS_CHANGING_LOCALE = 2;
+    protected static final int STATUS_NO_ACCOUNTS_NO_CONTACTS = 3;
+
     /** Default for the maximum number of returned aggregation suggestions. */
     private static final int DEFAULT_MAX_SUGGESTIONS = 5;
 
@@ -260,7 +273,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     private static final String PREF_LOCALE = "locale";
 
-    private static final int PROPERTY_AGGREGATION_ALGORITHM_VERSION = 4;
+    private static int PROPERTY_AGGREGATION_ALGORITHM_VERSION;
+
+    private static final int AGGREGATION_ALGORITHM_OLD_VERSION = 4;
+
+    private static final int AGGREGATION_ALGORITHM_NEW_VERSION = 5;
 
     private static final String AGGREGATE_CONTACTS = "sync.contacts.aggregate";
 
@@ -338,6 +355,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private static final int CALLABLES_FILTER = 3013;
     private static final int CONTACTABLES = 3014;
     private static final int CONTACTABLES_FILTER = 3015;
+    private static final int PHONES_ENTERPRISE = 3016;
+    private static final int EMAILS_LOOKUP_ENTERPRISE = 3017;
 
     private static final int PHONE_LOOKUP = 4000;
     private static final int PHONE_LOOKUP_ENTERPRISE = 4001;
@@ -365,6 +384,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private static final int SEARCH_SHORTCUT = 12002;
 
     private static final int RAW_CONTACT_ENTITIES = 15001;
+    private static final int RAW_CONTACT_ENTITIES_CORP = 15002;
 
     private static final int PROVIDER_STATUS = 16001;
 
@@ -605,7 +625,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
             RawContacts.DATA_SET,
             RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
             RawContacts.DIRTY,
-            RawContacts.NAME_VERIFIED,
             RawContacts.SOURCE_ID,
             RawContacts.VERSION,
     };
@@ -666,8 +685,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
             .add(RawContacts.DATA_SET)
             .add(RawContacts.ACCOUNT_TYPE_AND_DATA_SET)
             .add(RawContacts.DIRTY)
-            .add(RawContacts.NAME_VERIFIED)
             .add(RawContacts.SOURCE_ID)
+            .add(RawContacts.BACKUP_ID)
             .add(RawContacts.VERSION)
             .build();
 
@@ -694,6 +713,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             .add(Data.DATA13)
             .add(Data.DATA14)
             .add(Data.DATA15)
+            .add(Data.CARRIER_PRESENCE)
             .add(Data.DATA_VERSION)
             .add(Data.IS_PRIMARY)
             .add(Data.IS_SUPER_PRIMARY)
@@ -871,6 +891,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private static final ProjectionMap sDataProjectionMap = ProjectionMap.builder()
             .add(Data._ID)
             .add(Data.RAW_CONTACT_ID)
+            .add(Data.HASH_ID)
             .add(Data.CONTACT_ID)
             .add(Data.NAME_RAW_CONTACT_ID)
             .add(RawContacts.RAW_CONTACT_IS_USER_PROFILE)
@@ -1198,10 +1219,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 RAW_CONTACTS_ID_STREAM_ITEMS_ID);
 
         matcher.addURI(ContactsContract.AUTHORITY, "raw_contact_entities", RAW_CONTACT_ENTITIES);
+        matcher.addURI(ContactsContract.AUTHORITY, "raw_contact_entities_corp", RAW_CONTACT_ENTITIES_CORP);
 
         matcher.addURI(ContactsContract.AUTHORITY, "data", DATA);
         matcher.addURI(ContactsContract.AUTHORITY, "data/#", DATA_ID);
         matcher.addURI(ContactsContract.AUTHORITY, "data/phones", PHONES);
+        matcher.addURI(ContactsContract.AUTHORITY, "data_enterprise/phones", PHONES_ENTERPRISE);
         matcher.addURI(ContactsContract.AUTHORITY, "data/phones/#", PHONES_ID);
         matcher.addURI(ContactsContract.AUTHORITY, "data/phones/filter", PHONES_FILTER);
         matcher.addURI(ContactsContract.AUTHORITY, "data/phones/filter/*", PHONES_FILTER);
@@ -1211,6 +1234,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
         matcher.addURI(ContactsContract.AUTHORITY, "data/emails/lookup/*", EMAILS_LOOKUP);
         matcher.addURI(ContactsContract.AUTHORITY, "data/emails/filter", EMAILS_FILTER);
         matcher.addURI(ContactsContract.AUTHORITY, "data/emails/filter/*", EMAILS_FILTER);
+        matcher.addURI(ContactsContract.AUTHORITY, "data/emails/lookup_enterprise",
+                EMAILS_LOOKUP_ENTERPRISE);
+        matcher.addURI(ContactsContract.AUTHORITY, "data/emails/lookup_enterprise/*",
+                EMAILS_LOOKUP_ENTERPRISE);
         matcher.addURI(ContactsContract.AUTHORITY, "data/postals", POSTALS);
         matcher.addURI(ContactsContract.AUTHORITY, "data/postals/#", POSTALS_ID);
         /** "*" is in CSV form with data IDs ("123,456,789") */
@@ -1333,7 +1360,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     // Depending on whether the action being performed is for the profile or not, we will use one of
     // two aggregator instances.
-    private final ThreadLocal<ContactAggregator> mAggregator = new ThreadLocal<ContactAggregator>();
+    private final ThreadLocal<AbstractContactAggregator> mAggregator =
+            new ThreadLocal<AbstractContactAggregator>();
 
     // Depending on whether the action being performed is for the profile or not, we will use one of
     // two photo store instances (with their files stored in separate sub-directories).
@@ -1346,9 +1374,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private final TransactionContext mProfileTransactionContext = new TransactionContext(true);
     private final ThreadLocal<TransactionContext> mTransactionContext =
             new ThreadLocal<TransactionContext>();
-
-    // Map of single-use pre-authorized URIs to expiration times.
-    private final Map<Uri, Long> mPreAuthorizedUris = Maps.newHashMap();
 
     // Random number generator.
     private final SecureRandom mRandom = new SecureRandom();
@@ -1397,8 +1422,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     private Account mAccount;
 
-    private ContactAggregator mContactAggregator;
-    private ContactAggregator mProfileAggregator;
+    private AbstractContactAggregator mContactAggregator;
+    private AbstractContactAggregator mProfileAggregator;
 
     // Duration in milliseconds that pre-authorized URIs will remain valid.
     private long mPreAuthorizedUriDuration;
@@ -1408,9 +1433,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private CommonNicknameCache mCommonNicknameCache;
     private SearchIndexManager mSearchIndexManager;
 
-    private int mProviderStatus = ProviderStatus.STATUS_NORMAL;
+    private int mProviderStatus = STATUS_NORMAL;
     private boolean mProviderStatusUpdateNeeded;
-    private long mEstimatedStorageRequirement = 0;
     private volatile CountDownLatch mReadAccessLatch;
     private volatile CountDownLatch mWriteAccessLatch;
     private boolean mAccountUpdateListenerRegistered;
@@ -1497,8 +1521,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
         mProfileProvider = newProfileProvider();
         mProfileProvider.setDbHelperToSerializeOn(mContactsHelper, CONTACTS_DB_TAG, this);
         ProviderInfo profileInfo = new ProviderInfo();
-        profileInfo.readPermission = "android.permission.READ_PROFILE";
-        profileInfo.writePermission = "android.permission.WRITE_PROFILE";
         profileInfo.authority = ContactsContract.AUTHORITY;
         mProfileProvider.attachInfo(getContext(), profileInfo);
         mProfileHelper = mProfileProvider.getDatabaseHelper(getContext());
@@ -1517,6 +1539,18 @@ public class ContactsProvider2 extends AbstractContactsProvider
         scheduleBackgroundTask(BACKGROUND_TASK_CLEAN_DELETE_LOG);
 
         return true;
+    }
+
+    @VisibleForTesting
+    public void setNewAggregatorForTest(boolean enabled) {
+        mContactAggregator = (enabled)
+                ? new ContactAggregator2(this, mContactsHelper,
+                createPhotoPriorityResolver(getContext()), mNameSplitter, mCommonNicknameCache)
+                : new ContactAggregator(this, mContactsHelper,
+                createPhotoPriorityResolver(getContext()), mNameSplitter, mCommonNicknameCache);
+        mContactAggregator.setEnabled(SystemProperties.getBoolean(AGGREGATE_CONTACTS, true));
+        initDataRowHandlers(mDataRowHandlers, mContactsHelper, mContactAggregator,
+                mContactsPhotoStore);
     }
 
     // Updates the locale set to reflect a new system locale.
@@ -1566,8 +1600,20 @@ public class ContactsProvider2 extends AbstractContactsProvider
         mPostalSplitter = new PostalSplitter(mCurrentLocales.getPrimaryLocale());
         mCommonNicknameCache = new CommonNicknameCache(mContactsHelper.getReadableDatabase());
         ContactLocaleUtils.setLocales(mCurrentLocales);
-        mContactAggregator = new ContactAggregator(this, mContactsHelper,
-                createPhotoPriorityResolver(context), mNameSplitter, mCommonNicknameCache);
+
+        int value = android.provider.Settings.Global.getInt(context.getContentResolver(),
+                    Global.NEW_CONTACT_AGGREGATOR, 1);
+
+        // Turn on aggregation algorithm updating process if new aggregator is enabled.
+        PROPERTY_AGGREGATION_ALGORITHM_VERSION = (value == 0)
+                ? AGGREGATION_ALGORITHM_OLD_VERSION
+                : AGGREGATION_ALGORITHM_NEW_VERSION;
+        mContactAggregator = (value == 0)
+                ? new ContactAggregator(this, mContactsHelper,
+                        createPhotoPriorityResolver(context), mNameSplitter, mCommonNicknameCache)
+                : new ContactAggregator2(this, mContactsHelper,
+                        createPhotoPriorityResolver(context), mNameSplitter, mCommonNicknameCache);
+
         mContactAggregator.setEnabled(SystemProperties.getBoolean(AGGREGATE_CONTACTS, true));
         mProfileAggregator = new ProfileAggregator(this, mProfileHelper,
                 createPhotoPriorityResolver(context), mNameSplitter, mCommonNicknameCache);
@@ -1589,7 +1635,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
     }
 
     private void initDataRowHandlers(Map<String, DataRowHandler> handlerMap,
-            ContactsDatabaseHelper dbHelper, ContactAggregator contactAggregator,
+            ContactsDatabaseHelper dbHelper, AbstractContactAggregator contactAggregator,
             PhotoStore photoStore) {
         Context context = getContext();
         handlerMap.put(Email.CONTENT_ITEM_TYPE,
@@ -1734,8 +1780,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     }
 
     public void onLocaleChanged() {
-        if (mProviderStatus != ProviderStatus.STATUS_NORMAL
-                && mProviderStatus != ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS) {
+        if (mProviderStatus != STATUS_NORMAL
+                && mProviderStatus != STATUS_NO_ACCOUNTS_NO_CONTACTS) {
             return;
         }
 
@@ -1772,7 +1818,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
     protected void updateLocaleInBackground() {
 
         // The process is already running - postpone the change
-        if (mProviderStatus == ProviderStatus.STATUS_CHANGING_LOCALE) {
+        if (mProviderStatus == STATUS_CHANGING_LOCALE) {
             return;
         }
 
@@ -1783,7 +1829,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         }
 
         int providerStatus = mProviderStatus;
-        setProviderStatus(ProviderStatus.STATUS_CHANGING_LOCALE);
+        setProviderStatus(STATUS_CHANGING_LOCALE);
         mContactsHelper.setLocale(currentLocales);
         mProfileHelper.setLocale(currentLocales);
         mSearchIndexManager.updateIndex(true);
@@ -1844,8 +1890,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     }
 
     private void updateProviderStatus() {
-        if (mProviderStatus != ProviderStatus.STATUS_NORMAL
-                && mProviderStatus != ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS) {
+        if (mProviderStatus != STATUS_NORMAL
+                && mProviderStatus != STATUS_NO_ACCOUNTS_NO_CONTACTS) {
             return;
         }
 
@@ -1858,12 +1904,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
             // TODO: Different status if there is a profile but no contacts?
             if (isContactsEmpty && profileNum <= 1) {
-                setProviderStatus(ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS);
+                setProviderStatus(STATUS_NO_ACCOUNTS_NO_CONTACTS);
             } else {
-                setProviderStatus(ProviderStatus.STATUS_NORMAL);
+                setProviderStatus(STATUS_NORMAL);
             }
         } else {
-            setProviderStatus(ProviderStatus.STATUS_NORMAL);
+            setProviderStatus(STATUS_NORMAL);
         }
     }
 
@@ -2016,7 +2062,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         mProfileHelper.wipeData();
         mContactsPhotoStore.clear();
         mProfilePhotoStore.clear();
-        mProviderStatus = ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS;
+        mProviderStatus = STATUS_NO_ACCOUNTS_NO_CONTACTS;
         initForDefaultLocale();
     }
 
@@ -2132,9 +2178,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
     public Uri insert(Uri uri, ContentValues values) {
         waitForAccess(mWriteAccessLatch);
 
-        // Enforce stream items access check if applicable.
-        enforceSocialStreamWritePermission(uri);
-
         if (mapsToProfileDbWithInsertedValues(uri, values)) {
             switchToProfileMode();
             return mProfileProvider.insert(uri, values);
@@ -2145,18 +2188,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     @Override
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
-        if (mWriteAccessLatch != null) {
-            // Update on PROVIDER_STATUS used to be used as a trigger to re-start legacy contact
-            // import.  Now that we no longer support it, we just ignore it.
-            int match = sUriMatcher.match(uri);
-            if (match == PROVIDER_STATUS) {
-                return 0;
-            }
-        }
         waitForAccess(mWriteAccessLatch);
-
-        // Enforce stream items access check if applicable.
-        enforceSocialStreamWritePermission(uri);
 
         if (mapsToProfileDb(uri)) {
             switchToProfileMode();
@@ -2169,9 +2201,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         waitForAccess(mWriteAccessLatch);
-
-        // Enforce stream items access check if applicable.
-        enforceSocialStreamWritePermission(uri);
 
         if (mapsToProfileDb(uri)) {
             switchToProfileMode();
@@ -2186,14 +2215,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
         waitForAccess(mReadAccessLatch);
         switchToContactMode();
         if (Authorization.AUTHORIZATION_METHOD.equals(method)) {
-            Uri uri = (Uri) extras.getParcelable(Authorization.KEY_URI_TO_AUTHORIZE);
+            Uri uri = extras.getParcelable(Authorization.KEY_URI_TO_AUTHORIZE);
 
-            // Check permissions on the caller.  The URI can only be pre-authorized if the caller
-            // already has the necessary permissions.
-            enforceSocialStreamReadPermission(uri);
-            if (mapsToProfileDb(uri)) {
-                mProfileProvider.enforceReadPermission(uri);
-            }
+            ContactsPermissions.enforceCallingOrSelfPermission(getContext(), READ_PERMISSION);
 
             // If there hasn't been a security violation yet, we're clear to pre-authorize the URI.
             Uri authUri = preAuthorizeUri(uri);
@@ -2201,7 +2225,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             response.putParcelable(Authorization.KEY_AUTHORIZED_URI, authUri);
             return response;
         } else if (PinnedPositions.UNDEMOTE_METHOD.equals(method)) {
-            getContext().enforceCallingOrSelfPermission(WRITE_PERMISSION, null);
+            ContactsPermissions.enforceCallingOrSelfPermission(getContext(), WRITE_PERMISSION);
             final long id;
             try {
                 id = Long.valueOf(arg);
@@ -2225,8 +2249,13 @@ public class ContactsProvider2 extends AbstractContactsProvider
         Uri authUri = uri.buildUpon()
                 .appendQueryParameter(PREAUTHORIZED_URI_TOKEN, token)
                 .build();
-        long expiration = SystemClock.elapsedRealtime() + mPreAuthorizedUriDuration;
-        mPreAuthorizedUris.put(authUri, expiration);
+        long expiration = Clock.getInstance().currentTimeMillis() + mPreAuthorizedUriDuration;
+
+        final SQLiteDatabase db = mDbHelper.get().getWritableDatabase();
+        final ContentValues values = new ContentValues();
+        values.put(PreAuthorizedUris.EXPIRATION, expiration);
+        values.put(PreAuthorizedUris.URI, authUri.toString());
+        db.insert(Tables.PRE_AUTHORIZED_URIS, null, values);
 
         return authUri;
     }
@@ -2240,22 +2269,27 @@ public class ContactsProvider2 extends AbstractContactsProvider
     public boolean isValidPreAuthorizedUri(Uri uri) {
         // Only proceed if the URI has a permission token parameter.
         if (uri.getQueryParameter(PREAUTHORIZED_URI_TOKEN) != null) {
-            // First expire any pre-authorization URIs that are no longer valid.
-            long now = SystemClock.elapsedRealtime();
-            Set<Uri> expiredUris = Sets.newHashSet();
-            for (Uri preAuthUri : mPreAuthorizedUris.keySet()) {
-                if (mPreAuthorizedUris.get(preAuthUri) < now) {
-                    expiredUris.add(preAuthUri);
-                }
-            }
-            for (Uri expiredUri : expiredUris) {
-                mPreAuthorizedUris.remove(expiredUri);
-            }
+            final long now = Clock.getInstance().currentTimeMillis();
+            final SQLiteDatabase db = mDbHelper.get().getWritableDatabase();
+            db.beginTransaction();
+            try {
+                // First delete any pre-authorization URIs that are no longer valid. Unfortunately,
+                // this operation will grab a write lock for readonly queries. Since this only
+                // affects readonly queries that use PREAUTHORIZED_URI_TOKEN, it isn't worth moving
+                // this deletion into a BACKGROUND_TASK.
+                db.delete(Tables.PRE_AUTHORIZED_URIS, PreAuthorizedUris.EXPIRATION + " < ?1",
+                        new String[]{String.valueOf(now)});
 
-            // Now check to see if the pre-authorized URI map contains the URI.
-            if (mPreAuthorizedUris.containsKey(uri)) {
-                // Unexpired token - skip the permission check.
-                return true;
+                // Now check to see if the pre-authorized URI map contains the URI.
+                final Cursor c = db.query(Tables.PRE_AUTHORIZED_URIS, null,
+                        PreAuthorizedUris.URI + "=?1",
+                        new String[]{uri.toString()}, null, null, null);
+                final boolean isValid = c.getCount() != 0;
+
+                db.setTransactionSuccessful();
+                return isValid;
+            } finally {
+                db.endTransaction();
             }
         }
         return false;
@@ -2940,31 +2974,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
     }
 
     /**
-     * If the given URI is reading stream items or stream photos, this will run a permission check
-     * for the android.permission.READ_SOCIAL_STREAM permission - otherwise it will do nothing.
-     * @param uri The URI to check.
-     */
-    private void enforceSocialStreamReadPermission(Uri uri) {
-        if (SOCIAL_STREAM_URIS.contains(sUriMatcher.match(uri))
-                && !isValidPreAuthorizedUri(uri)) {
-            getContext().enforceCallingOrSelfPermission(
-                    "android.permission.READ_SOCIAL_STREAM", null);
-        }
-    }
-
-    /**
-     * If the given URI is modifying stream items or stream photos, this will run a permission check
-     * for the android.permission.WRITE_SOCIAL_STREAM permission - otherwise it will do nothing.
-     * @param uri The URI to check.
-     */
-    private void enforceSocialStreamWritePermission(Uri uri) {
-        if (SOCIAL_STREAM_URIS.contains(sUriMatcher.match(uri))) {
-            getContext().enforceCallingOrSelfPermission(
-                    "android.permission.WRITE_SOCIAL_STREAM", null);
-        }
-    }
-
-    /**
      * Queries the database for stream items under the given raw contact.  If there are
      * more entries than {@link ContactsProvider2#MAX_STREAM_ITEMS_PER_RAW_CONTACT},
      * the oldest entries (as determined by timestamp) will be deleted.
@@ -3503,7 +3512,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 args[0] = String.valueOf(contactId);
                 args[1] = Uri.encode(lookupKey);
                 lookupQb.appendWhere(Contacts._ID + "=? AND " + Contacts.LOOKUP_KEY + "=?");
-                Cursor c = query(db, lookupQb, null, selection, args, null, null, null, null, null);
+                Cursor c = doQuery(db, lookupQb, null, selection, args, null, null, null, null,
+                        null);
                 try {
                     if (c.getCount() == 1) {
                         // Contact was unmodified so go ahead and delete it.
@@ -3723,24 +3733,26 @@ public class ContactsProvider2 extends AbstractContactsProvider
             c.close();
         }
 
+        final boolean contactIsSingleton =
+                ContactsTableUtil.deleteContactIfSingleton(db, rawContactId) == 1;
+        final int count;
+
         if (callerIsSyncAdapter || rawContactIsLocal(rawContactId)) {
             // When a raw contact is deleted, a SQLite trigger deletes the parent contact.
             // TODO: all contact deletes was consolidated into ContactTableUtil but this one can't
             // because it's in a trigger.  Consider removing trigger and replacing with java code.
             // This has to happen before the raw contact is deleted since it relies on the number
             // of raw contacts.
-            ContactsTableUtil.deleteContactIfSingleton(db, rawContactId);
-
             db.delete(Tables.PRESENCE, PresenceColumns.RAW_CONTACT_ID + "=" + rawContactId, null);
-            int count = db.delete(Tables.RAW_CONTACTS, RawContacts._ID + "=" + rawContactId, null);
-
-            mAggregator.get().updateAggregateData(mTransactionContext.get(), contactId);
+            count = db.delete(Tables.RAW_CONTACTS, RawContacts._ID + "=" + rawContactId, null);
             mTransactionContext.get().markRawContactChangedOrDeletedOrInserted(rawContactId);
-            return count;
+        } else {
+            count = markRawContactAsDeleted(db, rawContactId, callerIsSyncAdapter);
         }
-
-        ContactsTableUtil.deleteContactIfSingleton(db, rawContactId);
-        return markRawContactAsDeleted(db, rawContactId, callerIsSyncAdapter);
+        if (!contactIsSingleton) {
+            mAggregator.get().updateAggregateData(mTransactionContext.get(), contactId);
+        }
+        return count;
     }
 
     /**
@@ -4382,7 +4394,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
         int count = db.update(Tables.RAW_CONTACTS, values, selection, mSelectionArgs1);
         if (count != 0) {
-            final ContactAggregator aggregator = mAggregator.get();
+            final AbstractContactAggregator aggregator = mAggregator.get();
             int aggregationMode = getIntValue(
                     values, RawContacts.AGGREGATION_MODE, RawContacts.AGGREGATION_MODE_DEFAULT);
 
@@ -4418,14 +4430,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
             if (values.containsKey(RawContacts.SOURCE_ID)) {
                 aggregator.updateLookupKeyForRawContact(db, rawContactId);
-            }
-            if (flagExists(values, RawContacts.NAME_VERIFIED)) {
-                // If setting NAME_VERIFIED for this raw contact, reset it for all
-                // other raw contacts in the same aggregate
-                if (flagIsSet(values, RawContacts.NAME_VERIFIED)) {
-                    mDbHelper.get().resetNameVerifiedForOtherRawContacts(rawContactId);
-                }
-                aggregator.updateDisplayNameForRawContact(db, rawContactId);
             }
             if (requestUndoDelete && previousDeleted == 1) {
                 // Note before the accounts refactoring, we used to use the *old* account here,
@@ -4645,7 +4649,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             db.replace(Tables.AGGREGATION_EXCEPTIONS, AggregationExceptions._ID, exceptionValues);
         }
 
-        final ContactAggregator aggregator = mAggregator.get();
+        final AbstractContactAggregator aggregator = mAggregator.get();
         aggregator.invalidateAggregationExceptionCache();
         aggregator.markForAggregation(rawContactId1, RawContacts.AGGREGATION_MODE_DEFAULT, true);
         aggregator.markForAggregation(rawContactId2, RawContacts.AGGREGATION_MODE_DEFAULT, true);
@@ -4771,7 +4775,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
             if (!accountsWithDataSetsToDelete.isEmpty()) {
                 for (AccountWithDataSet accountWithDataSet : accountsWithDataSetsToDelete) {
-                    Log.d(TAG, "removing data for removed account " + accountWithDataSet);
                     final Long accountIdOrNull = dbHelper.getAccountIdOrNull(accountWithDataSet);
 
                     // getAccountIdOrNull() really shouldn't return null here, but just in case...
@@ -4959,7 +4962,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         try {
             return cs.getIsSyncable(account, ContactsContract.AUTHORITY) > 0;
         } catch (RemoteException e) {
-            Log.e(TAG, "Cannot obtain sync flag for account: " + account, e);
+            Log.e(TAG, "Cannot obtain sync flag for account", e);
             return false;
         }
     }
@@ -5015,9 +5018,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
         waitForAccess(mReadAccessLatch);
 
-        // Enforce stream items access check if applicable.
-        enforceSocialStreamReadPermission(uri);
-
         // Query the profile DB if appropriate.
         if (mapsToProfileDb(uri)) {
             switchToProfileMode();
@@ -5068,9 +5068,15 @@ public class ContactsProvider2 extends AbstractContactsProvider
             projection = getDefaultProjection(uri);
         }
 
-        Cursor cursor = getContext().getContentResolver().query(
-                directoryUri, projection, selection, selectionArgs, sortOrder);
-        if (cursor == null) {
+        Cursor cursor;
+        try {
+            cursor = getContext().getContentResolver().query(
+                    directoryUri, projection, selection, selectionArgs, sortOrder);
+            if (cursor == null) {
+                return null;
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "Directory query failed: uri=" + uri, e);
             return null;
         }
 
@@ -5661,7 +5667,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         new String[] {DisplayPhoto.DISPLAY_MAX_DIM, DisplayPhoto.THUMBNAIL_MAX_DIM},
                         new Object[] {getMaxDisplayPhotoDim(), getMaxThumbnailDim()});
             }
-
+            case PHONES_ENTERPRISE: {
+                ContactsPermissions.enforceCallingOrSelfPermission(getContext(),
+                        INTERACT_ACROSS_USERS);
+                return queryMergedDataPhones(uri, projection, selection, selectionArgs, sortOrder);
+            }
             case PHONES:
             case CALLABLES: {
                 final String mimeTypeIsPhoneExpression =
@@ -5869,6 +5879,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
                             Tables.DEFAULT_DIRECTORY + ") DESC";
                 }
                 break;
+            }
+            case EMAILS_LOOKUP_ENTERPRISE: {
+                return queryEmailsLookupEnterprise(uri, projection, selection, selectionArgs,
+                        sortOrder);
             }
 
             case EMAILS_FILTER: {
@@ -6166,10 +6180,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 if (uri.getPathSegments().size() != 2) {
                     throw new IllegalArgumentException("Phone number missing in URI: " + uri);
                 }
-                final String phoneNumber = Uri.decode(uri.getLastPathSegment());
-                final boolean isSipAddress = uri.getBooleanQueryParameter(
-                        PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, false);
-                return queryPhoneLookupEnterprise(phoneNumber, projection, isSipAddress);
+                return queryPhoneLookupEnterprise(uri, projection, selection, selectionArgs,
+                        sortOrder);
             }
             case PHONE_LOOKUP: {
                 // Phone lookup cannot be combined with a selection
@@ -6220,7 +6232,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                     // phone_number_compare_loose.
                     qb.setStrict(true);
                     boolean foundResult = false;
-                    Cursor cursor = query(db, qb, projectionWithNumber, selection, selectionArgs,
+                    Cursor cursor = doQuery(db, qb, projectionWithNumber, selection, selectionArgs,
                             sortOrder, groupBy, null, limit, cancellationSignal);
                     try {
                         if (cursor.getCount() > 0) {
@@ -6239,7 +6251,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         // numbers
                         mDbHelper.get().buildFallbackPhoneLookupAndContactQuery(qb, number);
 
-                        final Cursor fallbackCursor = query(db, qb, projectionWithNumber,
+                        final Cursor fallbackCursor = doQuery(db, qb, projectionWithNumber,
                                 selection, selectionArgs, sortOrder, groupBy, having, limit,
                                 cancellationSignal);
                         return PhoneLookupWithStarPrefix.removeNonStarMatchesFromCursor(
@@ -6382,6 +6394,20 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 setTablesAndProjectionMapForRawEntities(qb, uri);
                 break;
             }
+            case RAW_CONTACT_ENTITIES_CORP: {
+                ContactsPermissions.enforceCallingOrSelfPermission(getContext(),
+                        INTERACT_ACROSS_USERS);
+                final int corpUserId = UserUtils.getCorpUserId(getContext(), false);
+                if (corpUserId < 0) {
+                    // No Corp user or policy not allowed, return empty cursor
+                    final String[] outputProjection = (projection != null) ? projection
+                            : sRawEntityProjectionMap.getColumnNames();
+                    return new MatrixCursor(outputProjection);
+                }
+                final Uri remoteUri = maybeAddUserId(RawContactsEntity.CONTENT_URI, corpUserId);
+                return getContext().getContentResolver().query(remoteUri, projection, selection,
+                        selectionArgs, sortOrder);
+            }
 
             case RAW_CONTACT_ID_ENTITY: {
                 long rawContactId = Long.parseLong(uri.getPathSegments().get(1));
@@ -6392,9 +6418,18 @@ public class ContactsProvider2 extends AbstractContactsProvider
             }
 
             case PROVIDER_STATUS: {
+                final int providerStatus;
+                if (mProviderStatus == STATUS_UPGRADING
+                        || mProviderStatus == STATUS_CHANGING_LOCALE) {
+                    providerStatus = ProviderStatus.STATUS_BUSY;
+                } else if (mProviderStatus == STATUS_NORMAL) {
+                    providerStatus = ProviderStatus.STATUS_NORMAL;
+                } else {
+                    providerStatus = ProviderStatus.STATUS_EMPTY;
+                }
                 return buildSingleRowResult(projection,
-                        new String[] {ProviderStatus.STATUS, ProviderStatus.DATA1},
-                        new Object[] {mProviderStatus, mEstimatedStorageRequirement});
+                        new String[] {ProviderStatus.STATUS},
+                        new Object[] {providerStatus});
             }
 
             case DIRECTORIES : {
@@ -6441,8 +6476,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
         // Auto-rewrite SORT_KEY_{PRIMARY, ALTERNATIVE} sort orders.
         String localizedSortOrder = getLocalizedSortOrder(sortOrder);
         Cursor cursor =
-                query(db, qb, projection, selection, selectionArgs, localizedSortOrder, groupBy,
-                having, limit, cancellationSignal);
+                doQuery(db, qb, projection, selection, selectionArgs, localizedSortOrder, groupBy,
+                        having, limit, cancellationSignal);
 
         if (readBooleanQueryParameter(uri, Contacts.EXTRA_ADDRESS_BOOK_INDEX, false)) {
             bundleFastScrollingIndexExtras(cursor, uri, db, qb, selection,
@@ -6483,7 +6518,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         return localizedSortOrder;
     }
 
-    private Cursor query(final SQLiteDatabase db, SQLiteQueryBuilder qb, String[] projection,
+    private Cursor doQuery(final SQLiteDatabase db, SQLiteQueryBuilder qb, String[] projection,
             String selection, String[] selectionArgs, String sortOrder, String groupBy,
             String having, String limit, CancellationSignal cancellationSignal) {
         if (projection != null && projection.length == 1
@@ -6498,26 +6533,96 @@ public class ContactsProvider2 extends AbstractContactsProvider
         return c;
     }
 
-    /**
-     * Handles {@link PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
-     */
-    // TODO Test
-    private Cursor queryPhoneLookupEnterprise(String phoneNumber, String[] projection,
-            boolean isSipAddress) {
+    private static class EnterprisePhoneCursorWrapper extends CursorWrapper {
 
-        final int corpUserId = UserUtils.getCorpUserId(getContext());
+        public EnterprisePhoneCursorWrapper(Cursor cursor) {
+            super(cursor);
+        }
+
+        @Override
+        public int getInt(int column) {
+            return (int) getLong(column);
+        }
+
+        @Override
+        public long getLong(int column) {
+            long result = super.getLong(column);
+            String columnName = getColumnName(column);
+            // We change contactId only for now
+            switch (columnName) {
+                case Phone.CONTACT_ID:
+                    return result + Contacts.ENTERPRISE_CONTACT_ID_BASE;
+                default:
+                    return result;
+            }
+        }
+    }
+
+    /**
+     * Handles {@link Phone#ENTERPRISE_CONTENT_URI}.
+     */
+    private Cursor queryMergedDataPhones(Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        final List<String> pathSegments = uri.getPathSegments();
+        final int pathSegmentsSize = pathSegments.size();
+        // Ignore the first 2 path segments: "/data_enterprise/phones"
+        final StringBuilder newPathBuilder = new StringBuilder(Phone.CONTENT_URI.getPath());
+        for (int i = 2; i < pathSegmentsSize; i++) {
+            newPathBuilder.append('/');
+            newPathBuilder.append(pathSegments.get(i));
+        }
+        // Change /data_enterprise/phones/... to /data/phones/...
+        final Uri localUri = uri.buildUpon().path(newPathBuilder.toString()).build();
+        final String directory = getQueryParameter(uri, ContactsContract.DIRECTORY_PARAM_KEY);
+        final long directoryId =
+                (directory == null ? -1 :
+                (directory.equals("0") ? Directory.DEFAULT :
+                (directory.equals("1") ? Directory.LOCAL_INVISIBLE : Long.MIN_VALUE)));
+        final Cursor primaryCursor = queryLocal(localUri, projection, selection, selectionArgs,
+                sortOrder, directoryId, null);
+        try {
+            final int corpUserId = UserUtils.getCorpUserId(getContext(), false);
+            if (corpUserId < 0) {
+                // No Corp user or policy not allowed
+                return primaryCursor;
+            }
+            final Uri remoteUri = maybeAddUserId(localUri, corpUserId);
+            final Cursor managedCursor = getContext().getContentResolver().query(remoteUri,
+                    projection, selection, selectionArgs, sortOrder, null);
+            if (managedCursor == null) {
+                // No corp results.  Just return the local result.
+                return primaryCursor;
+            }
+            final Cursor[] cursorArray = new Cursor[] {
+                    primaryCursor, new EnterprisePhoneCursorWrapper(managedCursor)
+            };
+            // Sort order is not supported yet, will be fixed in M when we have
+            // merged provider
+            // MergeCursor will copy all the contacts from two cursors, which may
+            // cause OOM if there's a lot of contacts. But it's only used by
+            // Bluetooth, and Bluetooth will loop through the Cursor and put all
+            // content in ArrayList anyway, so we ignore OOM issue here for now
+            final MergeCursor mergeCursor = new MergeCursor(cursorArray);
+            return mergeCursor;
+        } catch (Throwable th) {
+            if (primaryCursor != null) {
+                primaryCursor.close();
+            }
+            throw th;
+        }
+    }
+
+    private Cursor queryEnterpriseIfNecessary(Uri localUri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder, String contactIdColumnName) {
+
+        final int corpUserId = UserUtils.getCorpUserId(getContext(), true);
 
         // Step 1. Look at the database on the current profile.
-        final Uri localUri = PhoneLookup.CONTENT_FILTER_URI.buildUpon().appendPath(phoneNumber)
-                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
-                        String.valueOf(isSipAddress))
-                .build();
         if (VERBOSE_LOGGING) {
             Log.v(TAG, "queryPhoneLookupEnterprise: local query URI=" + localUri);
         }
-        final Cursor local = queryLocal(localUri, projection,
-                /* selection */ null, /* args */ null, /* order */ null, /* directory */ 0,
-                /* cancellationsignal*/ null);
+        final Cursor local = queryLocal(localUri, projection, selection, selectionArgs,
+                sortOrder, /* directory */ 0, /* cancellationsignal */null);
         try {
             if (VERBOSE_LOGGING) {
                 MoreDatabaseUtils.dumpCursor(TAG, "local", local);
@@ -6531,6 +6636,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             local.close();
             throw th;
         }
+        // "local" is still open.  If we fail the managed CP2 query, we'll still return it.
 
         // Step 2.  No rows found in the local db, and there is a corp profile. Look at the corp
         // DB.
@@ -6541,14 +6647,20 @@ public class ContactsProvider2 extends AbstractContactsProvider
         if (VERBOSE_LOGGING) {
             Log.v(TAG, "queryPhoneLookupEnterprise: corp query URI=" + remoteUri);
         }
-        final Cursor corp = getContext().getContentResolver().query(remoteUri, projection,
-                /* selection */ null, /* args */ null, /* order */ null,
-                /* cancellationsignal*/ null);
+        // Note in order to re-write the cursor correctly, we need all columns from the corp cp2.
+        final Cursor corp = getContext().getContentResolver().query(remoteUri, null,
+                selection, selectionArgs, sortOrder, /* cancellationsignal */null);
+        if (corp == null) {
+            return local;
+        }
         try {
+            local.close();
             if (VERBOSE_LOGGING) {
                 MoreDatabaseUtils.dumpCursor(TAG, "corp raw", corp);
             }
-            final Cursor rewritten = rewriteCorpPhoneLookup(corp);
+            final Cursor rewritten = rewriteCorpLookup(
+                    (projection != null ? projection : corp.getColumnNames()), corp,
+                    contactIdColumnName);
             if (VERBOSE_LOGGING) {
                 MoreDatabaseUtils.dumpCursor(TAG, "corp rewritten", rewritten);
             }
@@ -6560,56 +6672,110 @@ public class ContactsProvider2 extends AbstractContactsProvider
     }
 
     /**
-     * Rewrite a cursor from the corp profile for {@link PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
+     * Handles {@link PhoneLookup#ENTERPRISE_CONTENT_FILTER_URI}.
+     */
+    // TODO Test
+    private Cursor queryPhoneLookupEnterprise(Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        final String phoneNumber = Uri.decode(uri.getLastPathSegment());
+        final boolean isSipAddress = uri.getBooleanQueryParameter(
+                PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS, false);
+        final Uri localUri = PhoneLookup.CONTENT_FILTER_URI
+                .buildUpon()
+                .appendPath(phoneNumber)
+                .appendQueryParameter(PhoneLookup.QUERY_PARAMETER_SIP_ADDRESS,
+                        String.valueOf(isSipAddress)).build();
+        return queryEnterpriseIfNecessary(localUri, projection, null, null, null,
+                isSipAddress ? Data.CONTACT_ID : PhoneLookup._ID);
+    }
+
+    /**
+     * Handles {@link Email#ENTERPRISE_CONTENT_LOOKUP_URI}.
+     */
+    private Cursor queryEmailsLookupEnterprise(Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        final List<String> pathSegments = uri.getPathSegments();
+        final int pathSegmentsSize = pathSegments.size();
+        // Ignore the first 3 path segments: "/data/emails_enterprise/lookup"
+        final StringBuilder newPathBuilder = new StringBuilder(Email.CONTENT_LOOKUP_URI.getPath());
+        for (int i = 3; i < pathSegmentsSize; i++) {
+            newPathBuilder.append('/');
+            newPathBuilder.append(pathSegments.get(i));
+        }
+        final Uri localUri = uri.buildUpon().path(newPathBuilder.toString()).build();
+        return queryEnterpriseIfNecessary(localUri, projection, selection, selectionArgs,
+                sortOrder, Data.CONTACT_ID);
+    }
+
+    /**
+     * Rewrite a cursor from the corp profile data
      */
     @VisibleForTesting
-    static Cursor rewriteCorpPhoneLookup(Cursor original) {
-        final String[] columns = original.getColumnNames();
-        final MatrixCursor ret = new MatrixCursor(columns);
-
+    static Cursor rewriteCorpLookup(String[] projection, Cursor original,
+            String contactIdColumnName) {
+        final MatrixCursor ret = new MatrixCursor(projection);
         original.moveToPosition(-1);
         while (original.moveToNext()) {
-            final int contactId = original.getInt(original.getColumnIndex(PhoneLookup._ID));
-
+            final int contactId = original.getInt(original.getColumnIndex(contactIdColumnName));
             final MatrixCursor.RowBuilder builder = ret.newRow();
-
-            for (int i = 0; i < columns.length; i++) {
-                switch (columns[i]) {
+            for (int i = 0; i < projection.length; i++) {
+                final String outputColumnName = projection[i];
+                final int originalColumnIndex = original.getColumnIndex(outputColumnName);
+                switch (outputColumnName) {
                     // Set artificial photo URLs using Contacts.CORP_CONTENT_URI.
-                    case PhoneLookup.PHOTO_THUMBNAIL_URI:
+                    case Contacts.PHOTO_THUMBNAIL_URI:
                         builder.add(getCorpThumbnailUri(contactId, original));
                         break;
-                    case PhoneLookup.PHOTO_URI:
+                    case Contacts.PHOTO_URI:
                         builder.add(getCorpDisplayPhotoUri(contactId, original));
                         break;
-                    case PhoneLookup._ID:
-                        builder.add(original.getLong(i) + Contacts.ENTERPRISE_CONTACT_ID_BASE);
-                        break;
-
-                    // These columns are set to null.
-                    // See the javadoc on PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI for the reasons.
-                    case PhoneLookup.PHOTO_FILE_ID:
-                    case PhoneLookup.PHOTO_ID:
-                    case PhoneLookup.CUSTOM_RINGTONE:
+                    case Data.PHOTO_FILE_ID:
+                    case Data.PHOTO_ID:
                         builder.add(null);
                         break;
+                    case Data.CUSTOM_RINGTONE:
+                        String ringtoneUri = original.getString(originalColumnIndex);
+                        // TODO: Remove this conditional block once accessing sounds in corp
+                        // profile becomes possible.
+                        if (ringtoneUri != null
+                                    && !Uri.parse(ringtoneUri).isPathPrefixMatch(
+                                            MediaStore.Audio.Media.INTERNAL_CONTENT_URI)) {
+                            ringtoneUri = null;
+                        }
+                        builder.add(ringtoneUri);
+                        break;
+                    case Contacts.LOOKUP_KEY:
+                        final String lookupKey = original.getString(originalColumnIndex);
+                        if (TextUtils.isEmpty(lookupKey)) {
+                            builder.add(null);
+                        } else {
+                            builder.add(Contacts.ENTERPRISE_CONTACT_LOOKUP_PREFIX + lookupKey);
+                        }
+                        break;
                     default:
+                        if (outputColumnName.equals(contactIdColumnName)) {
+                            // This will be _id if it's PhoneLookup, contacts_id
+                            // if it's Data.CONTACT_ID
+                            builder.add(original.getLong(originalColumnIndex)
+                                    + Contacts.ENTERPRISE_CONTACT_ID_BASE);
+                            break;
+                        }
                         // Copy the original value.
-                        switch (original.getType(i)) {
+                        switch (original.getType(originalColumnIndex)) {
                             case Cursor.FIELD_TYPE_NULL:
                                 builder.add(null);
                                 break;
                             case Cursor.FIELD_TYPE_INTEGER:
-                                builder.add(original.getLong(i));
+                                builder.add(original.getLong(originalColumnIndex));
                                 break;
                             case Cursor.FIELD_TYPE_FLOAT:
-                                builder.add(original.getFloat(i));
+                                builder.add(original.getFloat(originalColumnIndex));
                                 break;
                             case Cursor.FIELD_TYPE_STRING:
-                                builder.add(original.getString(i));
+                                builder.add(original.getString(originalColumnIndex));
                                 break;
                             case Cursor.FIELD_TYPE_BLOB:
-                                builder.add(original.getBlob(i));
+                                builder.add(original.getBlob(originalColumnIndex));
                                 break;
                         }
                 }
@@ -6677,7 +6843,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         args[0] = String.valueOf(contactId);
         args[1] = Uri.encode(lookupKey);
         lookupQb.appendWhere(contactIdColumn + "=? AND " + lookupKeyColumn + "=?");
-        Cursor c = query(db, lookupQb, projection, selection, args, sortOrder,
+        Cursor c = doQuery(db, lookupQb, projection, selection, args, sortOrder,
                 groupBy, null, limit, cancellationSignal);
         if (c.getCount() != 0) {
             return c;
@@ -8033,7 +8199,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             throw new IllegalArgumentException(
                     "Photos retrieved by contact ID can only be read.");
         }
-        final int corpUserId = UserUtils.getCorpUserId(getContext());
+        final int corpUserId = UserUtils.getCorpUserId(getContext(), true);
         if (corpUserId < 0) {
             // No corp profile or the currrent profile is not the personal.
             throw new FileNotFoundException(uri.toString());
@@ -8317,6 +8483,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                     return mContactsHelper.getDataMimeType(id);
                 }
             case PHONES:
+            case PHONES_ENTERPRISE:
                 return Phone.CONTENT_TYPE;
             case PHONES_ID:
                 return Phone.CONTENT_ITEM_TYPE;
@@ -8391,6 +8558,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
             case DATA_ID:
             case PHONES:
+            case PHONES_ENTERPRISE:
             case PHONES_ID:
             case EMAILS:
             case EMAILS_ID:
@@ -8699,7 +8867,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
         Log.i(TAG, "Upgrading aggregation algorithm");
 
         final long start = SystemClock.elapsedRealtime();
-        setProviderStatus(ProviderStatus.STATUS_UPGRADING);
+        setProviderStatus(STATUS_UPGRADING);
 
         // Re-aggregate all visible raw contacts.
         try {
@@ -8756,7 +8924,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 Log.e(TAG, "Failed to bump aggregation algorithm version; continuing anyway.", e2);
             }
         } finally { // Need one more finally because endTransaction() may fail.
-            setProviderStatus(ProviderStatus.STATUS_NORMAL);
+            setProviderStatus(STATUS_NORMAL);
         }
     }
 
@@ -9052,6 +9220,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+        if (mContactAggregator != null) {
+            pw.print("Contact aggregator type: " + mContactAggregator.getClass() + "\n");
+        }
         pw.print("FastScrollingIndex stats:\n");
         pw.printf("request=%d  miss=%d (%d%%)  avg time=%dms\n",
                 mFastScrollingIndexCacheRequestCount,

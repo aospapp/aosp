@@ -55,6 +55,7 @@ WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
                                      WORD32 level,
                                      WORD32 horz_pad,
                                      WORD32 vert_pad,
-                                     WORD32 num_ref_frames,
-                                     WORD32 num_reorder_frames);
+                                     WORD32 init_num_bufs,
+                                     WORD32 init_extra_bufs,
+                                     WORD32 chroma_only);
 #endif /* _IHEVCD_UTILS_H_ */

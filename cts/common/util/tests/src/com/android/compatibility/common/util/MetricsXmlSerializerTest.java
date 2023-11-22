@@ -36,7 +36,8 @@ public class MetricsXmlSerializerTest extends TestCase {
             HEADER
             + "<Summary message=\"Sample\" scoreType=\"higher_better\" unit=\"byte\">1.0</Summary>"
             + "<Details>"
-                    + "<ValueArray source=\"sun.reflect.NativeMethodAccessorImpl#invoke0:-2\""
+                    + "<ValueArray source=\"com.android.compatibility.common.util."
+                    + "MetricsXmlSerializerTest#testSerialize:84\""
                     + " message=\"Details\" scoreType=\"neutral\" unit=\"fps\">"
                         + "<Value>1.0</Value>"
                         + "<Value>11.0</Value>"

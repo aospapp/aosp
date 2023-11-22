@@ -1257,6 +1257,12 @@ IHEVCD_ERROR_T ihevcd_parse_sps(codec_t *ps_codec)
     if((0 >= ps_sps->i2_pic_width_in_luma_samples) || (0 >= ps_sps->i2_pic_height_in_luma_samples))
         return IHEVCD_INVALID_PARAMETER;
 
+    /* i2_pic_width_in_luma_samples and i2_pic_height_in_luma_samples
+       should be multiples of min_cb_size. Here these are aligned to 8,
+       i.e. smallest CB size */
+    ps_sps->i2_pic_width_in_luma_samples = ALIGN8(ps_sps->i2_pic_width_in_luma_samples);
+    ps_sps->i2_pic_height_in_luma_samples = ALIGN8(ps_sps->i2_pic_height_in_luma_samples);
+
     if((ps_sps->i2_pic_width_in_luma_samples > ps_codec->i4_max_wd) ||
        (ps_sps->i2_pic_width_in_luma_samples * ps_sps->i2_pic_height_in_luma_samples >
                        ps_codec->i4_max_wd * ps_codec->i4_max_ht) ||
@@ -1479,8 +1485,7 @@ IHEVCD_ERROR_T ihevcd_parse_sps(codec_t *ps_codec)
                     (ps_codec->i4_ht != ps_sps->i2_pic_height_in_luma_samples)))
     {
         ps_codec->i4_reset_flag = 1;
-        ps_codec->i4_error_code = IVD_RES_CHANGED;
-        return (IHEVCD_ERROR_T)IHEVCD_FAIL;
+        return (IHEVCD_ERROR_T)IVD_RES_CHANGED;
     }
 
     /* Update display width and display height */

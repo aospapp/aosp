@@ -28,6 +28,7 @@ import com.android.sdklib.devices.Hardware;
 import com.android.sdklib.devices.Screen;
 import com.android.sdklib.devices.State;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -233,7 +234,7 @@ public class VaryingConfiguration extends NestedConfiguration {
             mPrevParentDevice = device;
 
             // Pick a different device
-            List<Device> devices = mConfigChooser.getDeviceList();
+            Collection<Device> devices = mConfigChooser.getDevices();
 
             // Divide up the available devices into {@link #mVariationCount} + 1 buckets
             // (the + 1 is for the bucket now taken up by the inherited value).

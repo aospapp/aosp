@@ -21,8 +21,9 @@
 #include <cstddef>
 #include <memory>
 
-#include "driver/compiler_driver.h"
+#include "linker/relative_patcher.h"  // For linker::RelativePatcherTargetProvider.
 #include "mem_map.h"
+#include "method_reference.h"
 #include "oat.h"
 #include "mirror/class.h"
 #include "safe_map.h"
@@ -30,7 +31,11 @@
 namespace art {
 
 class BitVector;
+class CompiledMethod;
+class CompilerDriver;
+class ImageWriter;
 class OutputStream;
+class TimingLogger;
 
 // OatHeader         variable length with count of D OatDexFiles
 //
@@ -81,6 +86,7 @@ class OatWriter {
             uintptr_t image_file_location_oat_begin,
             int32_t image_patch_delta,
             const CompilerDriver* compiler,
+            ImageWriter* image_writer,
             TimingLogger* timings,
             SafeMap<std::string, std::string>* key_value_store);
 
@@ -92,25 +98,37 @@ class OatWriter {
     return size_;
   }
 
-  bool Write(OutputStream* out);
+  size_t GetBssSize() const {
+    return bss_size_;
+  }
+
+  const std::vector<uintptr_t>& GetAbsolutePatchLocations() const {
+    return absolute_patch_locations_;
+  }
+
+  bool WriteRodata(OutputStream* out);
+  bool WriteCode(OutputStream* out);
 
   ~OatWriter();
 
   struct DebugInfo {
-    DebugInfo(const std::string& method_name, uint32_t low_pc, uint32_t high_pc)
-      : method_name_(method_name), low_pc_(low_pc), high_pc_(high_pc) {
-    }
-    std::string method_name_;
-    uint32_t    low_pc_;
-    uint32_t    high_pc_;
+    const DexFile* dex_file_;
+    size_t class_def_index_;
+    uint32_t dex_method_index_;
+    uint32_t access_flags_;
+    const DexFile::CodeItem *code_item_;
+    bool deduped_;
+    uint32_t low_pc_;
+    uint32_t high_pc_;
+    CompiledMethod* compiled_method_;
   };
 
-  const std::vector<DebugInfo>& GetCFIMethodInfo() const {
+  const std::vector<DebugInfo>& GetMethodDebugInfo() const {
     return method_info_;
   }
 
-  bool DidAddSymbols() const {
-    return compiler_driver_->DidIncludeDebugSymbols();
+  const CompilerDriver* GetCompilerDriver() {
+    return compiler_driver_;
   }
 
  private:
@@ -156,6 +174,8 @@ class OatWriter {
   size_t WriteCode(OutputStream* out, const size_t file_offset, size_t relative_offset);
   size_t WriteCodeDexFiles(OutputStream* out, const size_t file_offset, size_t relative_offset);
 
+  bool WriteCodeAlignment(OutputStream* out, uint32_t aligned_code_delta);
+
   class OatDexFile {
    public:
     explicit OatDexFile(size_t offset, const DexFile& dex_file);
@@ -197,27 +217,24 @@ class OatWriter {
     }
 
     // Offset of start of OatClass from beginning of OatHeader. It is
-    // used to validate file position when writing. For Portable, it
-    // is also used to calculate the position of the OatMethodOffsets
-    // so that code pointers within the OatMethodOffsets can be
-    // patched to point to code in the Portable .o ELF objects.
+    // used to validate file position when writing.
     size_t offset_;
 
-    // CompiledMethods for each class_def_method_index, or NULL if no method is available.
+    // CompiledMethods for each class_def_method_index, or null if no method is available.
     std::vector<CompiledMethod*> compiled_methods_;
 
     // Offset from OatClass::offset_ to the OatMethodOffsets for the
     // class_def_method_index. If 0, it means the corresponding
     // CompiledMethod entry in OatClass::compiled_methods_ should be
-    // NULL and that the OatClass::type_ should be kOatClassBitmap.
+    // null and that the OatClass::type_ should be kOatClassBitmap.
     std::vector<uint32_t> oat_method_offsets_offsets_from_oat_class_;
 
     // data to write
 
-    COMPILE_ASSERT(mirror::Class::Status::kStatusMax < (2 ^ 16), class_status_wont_fit_in_16bits);
+    static_assert(mirror::Class::Status::kStatusMax < (2 ^ 16), "class status won't fit in 16bits");
     int16_t status_;
 
-    COMPILE_ASSERT(OatClassType::kOatClassMax < (2 ^ 16), oat_class_type_wont_fit_in_16bits);
+    static_assert(OatClassType::kOatClassMax < (2 ^ 16), "oat_class type won't fit in 16bits");
     uint16_t type_;
 
     uint32_t method_bitmap_size_;
@@ -226,12 +243,12 @@ class OatWriter {
     // OatClassType::type_ is kOatClassBitmap, a set bit indicates the
     // method has an OatMethodOffsets in methods_offsets_, otherwise
     // the entry was ommited to save space. If OatClassType::type_ is
-    // not is kOatClassBitmap, the bitmap will be NULL.
+    // not is kOatClassBitmap, the bitmap will be null.
     BitVector* method_bitmap_;
 
     // OatMethodOffsets and OatMethodHeaders for each CompiledMethod
     // present in the OatClass. Note that some may be missing if
-    // OatClass::compiled_methods_ contains NULL values (and
+    // OatClass::compiled_methods_ contains null values (and
     // oat_method_offsets_offsets_from_oat_class_ should contain 0
     // values in this case).
     std::vector<OatMethodOffsets> method_offsets_;
@@ -244,12 +261,19 @@ class OatWriter {
   std::vector<DebugInfo> method_info_;
 
   const CompilerDriver* const compiler_driver_;
+  ImageWriter* const image_writer_;
 
   // note OatFile does not take ownership of the DexFiles
   const std::vector<const DexFile*>* dex_files_;
 
   // Size required for Oat data structures.
   size_t size_;
+
+  // The size of the required .bss section holding the DexCache data.
+  size_t bss_size_;
+
+  // Offset of the oat data from the start of the mmapped region of the elf file.
+  size_t oat_data_offset_;
 
   // dependencies on the image.
   uint32_t image_file_location_oat_checksum_;
@@ -264,9 +288,6 @@ class OatWriter {
   std::unique_ptr<const std::vector<uint8_t>> interpreter_to_interpreter_bridge_;
   std::unique_ptr<const std::vector<uint8_t>> interpreter_to_compiled_code_bridge_;
   std::unique_ptr<const std::vector<uint8_t>> jni_dlsym_lookup_;
-  std::unique_ptr<const std::vector<uint8_t>> portable_imt_conflict_trampoline_;
-  std::unique_ptr<const std::vector<uint8_t>> portable_resolution_trampoline_;
-  std::unique_ptr<const std::vector<uint8_t>> portable_to_interpreter_bridge_;
   std::unique_ptr<const std::vector<uint8_t>> quick_generic_jni_trampoline_;
   std::unique_ptr<const std::vector<uint8_t>> quick_imt_conflict_trampoline_;
   std::unique_ptr<const std::vector<uint8_t>> quick_resolution_trampoline_;
@@ -281,9 +302,6 @@ class OatWriter {
   uint32_t size_interpreter_to_interpreter_bridge_;
   uint32_t size_interpreter_to_compiled_code_bridge_;
   uint32_t size_jni_dlsym_lookup_;
-  uint32_t size_portable_imt_conflict_trampoline_;
-  uint32_t size_portable_resolution_trampoline_;
-  uint32_t size_portable_to_interpreter_bridge_;
   uint32_t size_quick_generic_jni_trampoline_;
   uint32_t size_quick_imt_conflict_trampoline_;
   uint32_t size_quick_resolution_trampoline_;
@@ -292,6 +310,8 @@ class OatWriter {
   uint32_t size_method_header_;
   uint32_t size_code_;
   uint32_t size_code_alignment_;
+  uint32_t size_relative_call_thunks_;
+  uint32_t size_misc_thunks_;
   uint32_t size_mapping_table_;
   uint32_t size_vmap_table_;
   uint32_t size_gc_map_;
@@ -305,24 +325,19 @@ class OatWriter {
   uint32_t size_oat_class_method_bitmaps_;
   uint32_t size_oat_class_method_offsets_;
 
-  struct CodeOffsetsKeyComparator {
-    bool operator()(const CompiledMethod* lhs, const CompiledMethod* rhs) const {
-      if (lhs->GetQuickCode() != rhs->GetQuickCode()) {
-        return lhs->GetQuickCode() < rhs->GetQuickCode();
-      }
-      // If the code is the same, all other fields are likely to be the same as well.
-      if (UNLIKELY(&lhs->GetMappingTable() != &rhs->GetMappingTable())) {
-        return &lhs->GetMappingTable() < &rhs->GetMappingTable();
-      }
-      if (UNLIKELY(&lhs->GetVmapTable() != &rhs->GetVmapTable())) {
-        return &lhs->GetVmapTable() < &rhs->GetVmapTable();
-      }
-      if (UNLIKELY(&lhs->GetGcMap() != &rhs->GetGcMap())) {
-        return &lhs->GetGcMap() < &rhs->GetGcMap();
-      }
-      return false;
-    }
+  std::unique_ptr<linker::RelativePatcher> relative_patcher_;
+
+  // The locations of absolute patches relative to the start of the executable section.
+  std::vector<uintptr_t> absolute_patch_locations_;
+
+  // Map method reference to assigned offset.
+  // Wrap the map in a class implementing linker::RelativePatcherTargetProvider.
+  class MethodOffsetMap FINAL : public linker::RelativePatcherTargetProvider {
+   public:
+    std::pair<bool, uint32_t> FindMethodOffset(MethodReference ref) OVERRIDE;
+    SafeMap<MethodReference, uint32_t, MethodReferenceComparator> map;
   };
+  MethodOffsetMap method_offset_map_;
 
   DISALLOW_COPY_AND_ASSIGN(OatWriter);
 };

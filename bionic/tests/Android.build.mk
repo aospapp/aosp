@@ -36,7 +36,13 @@ endif
 
 LOCAL_CLANG := $($(module)_clang_$(build_type))
 
+ifneq ($($(module)_allow_asan),true)
+LOCAL_ADDRESS_SANITIZER := false
+endif
+
 LOCAL_FORCE_STATIC_EXECUTABLE := $($(module)_force_static_executable)
+
+LOCAL_ALLOW_UNDEFINED_SYMBOLS := $($(module)_allow_undefined_symbols)
 
 ifneq ($($(module)_multilib),)
     LOCAL_MULTILIB := $($(module)_multilib)
@@ -86,9 +92,13 @@ LOCAL_LDLIBS := \
     $($(module)_ldlibs) \
     $($(module)_ldlibs_$(build_type)) \
 
-ifeq ($(build_type),target)
-  include external/stlport/libstlport.mk
+ifeq ($(LOCAL_FORCE_STATIC_EXECUTABLE),true)
+LOCAL_CXX_STL := libc++_static
+else
+LOCAL_CXX_STL := libc++
+endif
 
+ifeq ($(build_type),target)
   include $(BUILD_$(build_target))
 endif
 

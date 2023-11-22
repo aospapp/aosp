@@ -18,7 +18,9 @@
 <resources>
     <string name="app_name">TestingCam</string>
 
+    <string name="hdr_on_label">HDR On</string>
     <string name="preview_on_label">Preview On</string>
+    <string name="hdr_off_label">HDR Off</string>
     <string name="preview_off_label">Preview Off</string>
     <string name="take_picture_label">Take picture</string>
     <string name="preview_resolution_prompt">Preview size</string>

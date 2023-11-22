@@ -13,7 +13,6 @@ LOCAL_SRC_FILES:= \
 	seekTorture.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 ifeq ($(TARGET_OS),linux)
@@ -37,7 +36,6 @@ LOCAL_SRC_FILES:= \
 	slesTest_playMuteSolo.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 ifeq ($(TARGET_OS),linux)

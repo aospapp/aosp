@@ -56,6 +56,7 @@ done
 SED_OLD="${OLD//./\.}"
 SED_NEW="${NEW//./\.}"
 for i in artifacts/*/pom.xml \
+         monitor/build.gradle \
          plugins/com.android.ide.eclipse.adt.package/ide.product   \
          plugins/com.android.ide.eclipse.monitor/monitor.product   \
          plugins/com.android.ide.eclipse.monitor/plugin.properties \

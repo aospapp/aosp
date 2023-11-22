@@ -21,36 +21,34 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        // Skip tiled drawing until https://code.google.com/p/skia/issues/detail?id=781 is fixed.
-        return this->INHERITED::onGetFlags() | GM::kSkipTiled_Flag;
-    }
 
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("imagemagnifier");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(WIDTH, HEIGHT);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
-        SkPaint paint;
-        paint.setImageFilter(
+    void onDraw(SkCanvas* canvas) override {
+        SkPaint filterPaint;
+        filterPaint.setImageFilter(
             SkMagnifierImageFilter::Create(
                 SkRect::MakeXYWH(SkIntToScalar(100), SkIntToScalar(100),
                                  SkIntToScalar(WIDTH / 2),
                                  SkIntToScalar(HEIGHT / 2)),
                 100))->unref();
-        canvas->saveLayer(NULL, &paint);
-        paint.setAntiAlias(true);
+        canvas->saveLayer(NULL, &filterPaint);
         const char* str = "The quick brown fox jumped over the lazy dog.";
         SkRandom rand;
         for (int i = 0; i < 25; ++i) {
             int x = rand.nextULessThan(WIDTH);
             int y = rand.nextULessThan(HEIGHT);
+            SkPaint paint;
+            sk_tool_utils::set_portable_typeface(&paint);
             paint.setColor(rand.nextBits(24) | 0xFF000000);
             paint.setTextSize(rand.nextRangeScalar(0, 300));
+            paint.setAntiAlias(true);
             canvas->drawText(str, strlen(str), SkIntToScalar(x),
                              SkIntToScalar(y), paint);
         }

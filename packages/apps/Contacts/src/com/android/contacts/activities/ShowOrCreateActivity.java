@@ -31,11 +31,14 @@ import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.PhoneLookup;
 import android.provider.ContactsContract.RawContacts;
 import android.telecom.PhoneAccount;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.ContactsActivity;
 import com.android.contacts.R;
+import com.android.contacts.common.activity.RequestPermissionsActivity;
+import com.android.contacts.common.util.ImplicitIntentsUtil;
 import com.android.contacts.util.NotifyingAsyncQueryHandler;
 
 /**
@@ -84,6 +87,10 @@ public final class ShowOrCreateActivity extends ContactsActivity
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+
+        if (RequestPermissionsActivity.startPermissionActivity(this)) {
+            return;
+        }
 
         // Create handler if doesn't exist, otherwise cancel any running
         if (mQueryHandler == null) {
@@ -169,11 +176,11 @@ public final class ShowOrCreateActivity extends ContactsActivity
             cursor.close();
         }
 
-        if (count == 1 && contactId != -1) {
+        if (count == 1 && contactId != -1 && !TextUtils.isEmpty(lookupKey)) {
             // If we only found one item, jump right to viewing it
             final Uri contactUri = Contacts.getLookupUri(contactId, lookupKey);
             final Intent viewIntent = new Intent(Intent.ACTION_VIEW, contactUri);
-            startActivity(viewIntent);
+            ImplicitIntentsUtil.startActivityInApp(this, viewIntent);
             finish();
 
         } else if (count > 1) {
@@ -192,7 +199,7 @@ public final class ShowOrCreateActivity extends ContactsActivity
                 createIntent.putExtras(mCreateExtras);
                 createIntent.setType(RawContacts.CONTENT_TYPE);
 
-                startActivity(createIntent);
+                ImplicitIntentsUtil.startActivityInApp(this, createIntent);
                 finish();
 
             } else {
@@ -249,7 +256,7 @@ public final class ShowOrCreateActivity extends ContactsActivity
 
         public void onClick(DialogInterface dialog, int which) {
             if (mIntent != null) {
-                mParent.startActivity(mIntent);
+                ImplicitIntentsUtil.startActivityInApp(mParent, mIntent);
             }
             mParent.finish();
         }

@@ -20,6 +20,7 @@ import java.text.BreakIterator;
 import java.text.Collator;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.util.Calendar;
 import java.util.IllformedLocaleException;
@@ -1145,5 +1146,95 @@ public class LocaleTest extends junit.framework.TestCase {
         final Locale locale = new Locale("en", "US", "variant");
         assertEquals("variant", locale.getVariant());
         assertEquals(locale, Locale.forLanguageTag(locale.toLanguageTag()));
+    }
+
+    public void testArabicDigits() throws Exception {
+        // ar-DZ uses latn digits by default, but we can override that.
+        Locale ar_DZ = Locale.forLanguageTag("ar-DZ");
+        Locale ar_DZ_arab = Locale.forLanguageTag("ar-DZ-u-nu-arab");
+        Locale ar_DZ_latn = Locale.forLanguageTag("ar-DZ-u-nu-latn");
+        assertEquals('0', new DecimalFormatSymbols(ar_DZ).getZeroDigit());
+        assertEquals('\u0660', new DecimalFormatSymbols(ar_DZ_arab).getZeroDigit());
+        assertEquals('0', new DecimalFormatSymbols(ar_DZ_latn).getZeroDigit());
+
+        // ar-EG uses arab digits by default, but we can override that.
+        Locale ar_EG = Locale.forLanguageTag("ar-EG");
+        Locale ar_EG_arab = Locale.forLanguageTag("ar-EG-u-nu-arab");
+        Locale ar_EG_latn = Locale.forLanguageTag("ar-EG-u-nu-latn");
+        assertEquals('\u0660', new DecimalFormatSymbols(ar_EG).getZeroDigit());
+        assertEquals('\u0660', new DecimalFormatSymbols(ar_EG_arab).getZeroDigit());
+        assertEquals('0', new DecimalFormatSymbols(ar_EG_latn).getZeroDigit());
+    }
+
+    public void testDefaultLocale() throws Exception {
+        final String userLanguage = System.getProperty("user.language", "");
+        final String userRegion = System.getProperty("user.region", "");
+        final String userLocale = System.getProperty("user.locale", "");
+        try {
+            // Assert that user.locale gets priority.
+            System.setUnchangeableSystemProperty("user.locale", "de-DE");
+            System.setUnchangeableSystemProperty("user.language", "en");
+            System.setUnchangeableSystemProperty("user.region", "US");
+
+            Locale l = Locale.getDefaultLocaleFromSystemProperties();
+            assertEquals("de", l.getLanguage());
+            assertEquals("DE", l.getCountry());
+
+            // Assert that it's parsed as a full language tag.
+            System.setUnchangeableSystemProperty("user.locale", "de-Latn-DE");
+            System.setUnchangeableSystemProperty("user.language", "en");
+            System.setUnchangeableSystemProperty("user.region", "US");
+
+            l = Locale.getDefaultLocaleFromSystemProperties();
+            assertEquals("de", l.getLanguage());
+            assertEquals("DE", l.getCountry());
+            assertEquals("Latn", l.getScript());
+
+            // Assert that we use "und" if we're faced with a bad language tag, and
+            // that we don't end up with a null default locale or an exception.
+            System.setUnchangeableSystemProperty("user.locale", "dexx-Latn-DE");
+
+            l = Locale.getDefaultLocaleFromSystemProperties();
+            assertEquals("und", l.getLanguage());
+            assertEquals("DE", l.getCountry());
+        } finally {
+            System.setUnchangeableSystemProperty("user.language", userLanguage);
+            System.setUnchangeableSystemProperty("user.region", userRegion);
+            System.setUnchangeableSystemProperty("user.locale", userLocale);
+        }
+    }
+
+    // http://b/20252611
+    public void testLegacyLocalesWithExtensions() {
+        Locale ja_JP_JP = new Locale("ja", "JP", "JP");
+        assertEquals("ca-japanese", ja_JP_JP.getExtension(Locale.UNICODE_LOCALE_EXTENSION));
+        assertEquals("japanese", ja_JP_JP.getUnicodeLocaleType("ca"));
+
+        Locale th_TH_TH = new Locale("th", "TH", "TH");
+        assertEquals("nu-thai", th_TH_TH.getExtension(Locale.UNICODE_LOCALE_EXTENSION));
+        assertEquals("thai", th_TH_TH.getUnicodeLocaleType("nu"));
+    }
+
+    // http://b/20252611
+    public void testLowerCaseExtensionKeys() {
+        // We must lowercase extension keys in forLanguageTag..
+        Locale ar_EG = Locale.forLanguageTag("ar-EG-U-nu-arab");
+        assertEquals("nu-arab", ar_EG.getExtension(Locale.UNICODE_LOCALE_EXTENSION));
+        assertEquals("ar-EG-u-nu-arab", ar_EG.toLanguageTag());
+
+        // ... and in builders.
+        Locale.Builder b = new Locale.Builder();
+        b.setLanguage("ar");
+        b.setRegion("EG");
+        b.setExtension('U', "nu-arab");
+        assertEquals("ar-EG-u-nu-arab", b.build().toLanguageTag());
+
+        // Corollary : extension keys are case insensitive.
+        b = new Locale.Builder();
+        b.setLanguage("ar");
+        b.setRegion("EG");
+        b.setExtension('U', "nu-arab");
+        b.setExtension('u', "nu-thai");
+        assertEquals("ar-EG-u-nu-thai", b.build().toLanguageTag());
     }
 }

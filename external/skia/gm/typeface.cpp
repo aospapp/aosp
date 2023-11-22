@@ -24,7 +24,7 @@ public:
     TypefaceGM() {
         fFaces = new SkTypeface*[SK_ARRAY_COUNT(gFaces)];
         for (size_t i = 0; i < SK_ARRAY_COUNT(gFaces); i++) {
-            fFaces[i] = SkTypeface::CreateFromName(gFaces[i], SkTypeface::kNormal);
+            fFaces[i] = sk_tool_utils::create_portable_typeface(gFaces[i], SkTypeface::kNormal);
         }
     }
 
@@ -36,15 +36,15 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("typeface");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkString text("Typefaces are fun!");
         SkScalar y = 0;
 
@@ -159,8 +159,8 @@ class TypefaceStylesGM : public skiagm::GM {
 public:
     TypefaceStylesGM(bool applyKerning) : fApplyKerning(applyKerning) {
         for (int i = 0; i < gFaceStylesCount; i++) {
-            fFaces[i] = SkTypeface::CreateFromName(gFaceStyles[i].fName,
-                                                   gFaceStyles[i].fStyle);
+            fFaces[i] = sk_tool_utils::create_portable_typeface(gFaceStyles[i].fName,
+                                                         gFaceStyles[i].fStyle);
         }
     }
 
@@ -171,7 +171,7 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         SkString name("typefacestyles");
         if (fApplyKerning) {
             name.append("_kerning");
@@ -179,11 +179,11 @@ protected:
         return name;
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkPaint paint;
         paint.setAntiAlias(true);
         paint.setTextSize(SkIntToScalar(30));

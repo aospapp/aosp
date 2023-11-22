@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,17 +26,29 @@
 
 #include "test-utils-a64.h"
 
-#include <math.h>   // Needed for isnan().
+#include <cmath>
 
-#include "cctest.h"
-#include "a64/macro-assembler-a64.h"
-#include "a64/simulator-a64.h"
-#include "a64/disasm-a64.h"
-#include "a64/cpu-a64.h"
+#include "test-runner.h"
+#include "vixl/a64/macro-assembler-a64.h"
+#include "vixl/a64/simulator-a64.h"
+#include "vixl/a64/disasm-a64.h"
+#include "vixl/a64/cpu-a64.h"
 
 #define __ masm->
 
 namespace vixl {
+
+
+// This value is a signalling NaN as both a double and as a float (taking the
+// least-significant word).
+const double kFP64SignallingNaN =
+    rawbits_to_double(UINT64_C(0x7ff000007f800001));
+const float kFP32SignallingNaN = rawbits_to_float(0x7f800001);
+
+// A similar value, but as a quiet NaN.
+const double kFP64QuietNaN = rawbits_to_double(UINT64_C(0x7ff800007fc00001));
+const float kFP32QuietNaN = rawbits_to_float(0x7fc00001);
+
 
 bool Equal32(uint32_t expected, const RegisterDump*, uint32_t result) {
   if (result != expected) {
@@ -58,11 +70,22 @@ bool Equal64(uint64_t expected, const RegisterDump*, uint64_t result) {
 }
 
 
+bool Equal128(vec128_t expected, const RegisterDump*, vec128_t result) {
+  if ((result.h != expected.h) || (result.l != expected.l)) {
+    printf("Expected 0x%016" PRIx64 "%016" PRIx64 "\t "
+           "Found 0x%016" PRIx64 "%016" PRIx64 "\n",
+           expected.h, expected.l, result.h, result.l);
+  }
+
+  return ((expected.h == result.h) && (expected.l == result.l));
+}
+
+
 bool EqualFP32(float expected, const RegisterDump*, float result) {
   if (float_to_rawbits(expected) == float_to_rawbits(result)) {
     return true;
   } else {
-    if (isnan(expected) || (expected == 0.0)) {
+    if (std::isnan(expected) || (expected == 0.0)) {
       printf("Expected 0x%08" PRIx32 "\t Found 0x%08" PRIx32 "\n",
              float_to_rawbits(expected), float_to_rawbits(result));
     } else {
@@ -81,7 +104,7 @@ bool EqualFP64(double expected, const RegisterDump*, double result) {
     return true;
   }
 
-  if (isnan(expected) || (expected == 0.0)) {
+  if (std::isnan(expected) || (expected == 0.0)) {
     printf("Expected 0x%016" PRIx64 "\t Found 0x%016" PRIx64 "\n",
            double_to_rawbits(expected), double_to_rawbits(result));
   } else {
@@ -109,12 +132,21 @@ bool Equal32(uint32_t expected, const RegisterDump* core, const Register& reg) {
 }
 
 
-bool Equal64(uint64_t expected,
-             const RegisterDump* core,
-             const Register& reg) {
+bool Equal64(uint64_t expected, const RegisterDump* core, const Register& reg) {
   VIXL_ASSERT(reg.Is64Bits());
   uint64_t result = core->xreg(reg.code());
   return Equal64(expected, core, result);
+}
+
+
+bool Equal128(uint64_t expected_h,
+              uint64_t expected_l,
+              const RegisterDump* core,
+              const VRegister& vreg) {
+  VIXL_ASSERT(vreg.Is128Bits());
+  vec128_t expected = {expected_l, expected_h};
+  vec128_t result = core->qreg(vreg.code());
+  return Equal128(expected, core, result);
 }
 
 
@@ -310,7 +342,7 @@ void Clobber(MacroAssembler* masm, CPURegList reg_list) {
   if (reg_list.type() == CPURegister::kRegister) {
     // This will always clobber X registers.
     Clobber(masm, reg_list.list());
-  } else if (reg_list.type() == CPURegister::kFPRegister) {
+  } else if (reg_list.type() == CPURegister::kVRegister) {
     // This will always clobber D registers.
     ClobberFP(masm, reg_list.list());
   } else {
@@ -339,6 +371,7 @@ void RegisterDump::Dump(MacroAssembler* masm) {
   const int w_offset = offsetof(dump_t, w_);
   const int d_offset = offsetof(dump_t, d_);
   const int s_offset = offsetof(dump_t, s_);
+  const int q_offset = offsetof(dump_t, q_);
   const int sp_offset = offsetof(dump_t, sp_);
   const int wsp_offset = offsetof(dump_t, wsp_);
   const int flags_offset = offsetof(dump_t, flags_);
@@ -383,6 +416,13 @@ void RegisterDump::Dump(MacroAssembler* masm) {
   for (unsigned i = 0; i < kNumberOfFPRegisters; i += 2) {
     __ Stp(FPRegister::SRegFromCode(i), FPRegister::SRegFromCode(i + 1),
            MemOperand(dump, i * kSRegSizeInBytes));
+  }
+
+  // Dump Q registers.
+  __ Add(dump, dump_base, q_offset);
+  for (unsigned i = 0; i < kNumberOfVRegisters; i += 2) {
+    __ Stp(VRegister::QRegFromCode(i), VRegister::QRegFromCode(i + 1),
+           MemOperand(dump, i * kQRegSizeInBytes));
   }
 
   // Dump the flags.

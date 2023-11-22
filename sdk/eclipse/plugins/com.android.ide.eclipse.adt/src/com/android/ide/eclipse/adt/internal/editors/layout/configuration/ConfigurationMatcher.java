@@ -21,9 +21,8 @@ import com.android.ide.common.resources.ResourceFile;
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.DeviceConfigHelper;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.common.resources.configuration.NightModeQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.ide.common.resources.configuration.ScreenOrientationQualifier;
 import com.android.ide.common.resources.configuration.ScreenSizeQualifier;
@@ -55,6 +54,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.ui.IEditorPart;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -204,8 +204,8 @@ public class ConfigurationMatcher {
                         Locale locale = localeList.get(i);
 
                         // update the test config with the locale qualifiers
-                        testConfig.setLanguageQualifier(locale.language);
-                        testConfig.setRegionQualifier(locale.region);
+                        testConfig.setLocaleQualifier(locale.qualifier);
+
 
                         if (editedConfig.isMatchFor(testConfig) &&
                                 isCurrentFileBestMatchFor(testConfig)) {
@@ -248,7 +248,7 @@ public class ConfigurationMatcher {
      */
     void findAndSetCompatibleConfig(boolean favorCurrentConfig) {
         List<Locale> localeList = mConfigChooser.getLocaleList();
-        List<Device> deviceList = mConfigChooser.getDeviceList();
+        Collection<Device> devices = mConfigChooser.getDevices();
         FolderConfiguration editedConfig = mConfiguration.getEditedConfig();
         FolderConfiguration currentConfig = mConfiguration.getFullConfig();
 
@@ -272,7 +272,7 @@ public class ConfigurationMatcher {
         // However, if it doesn't, we don't randomly take the first locale, we take one
         // matching the current host locale (making sure it actually exist in the project)
         int start, max;
-        if (editedConfig.getLanguageQualifier() != null || localeHostMatch == -1) {
+        if (editedConfig.getLocaleQualifier() != null || localeHostMatch == -1) {
             // add all the locales
             start = 0;
             max = localeList.size();
@@ -286,8 +286,7 @@ public class ConfigurationMatcher {
             Locale l = localeList.get(i);
 
             ConfigBundle bundle = new ConfigBundle();
-            bundle.config.setLanguageQualifier(l.language);
-            bundle.config.setRegionQualifier(l.region);
+            bundle.config.setLocaleQualifier(l.qualifier);
 
             bundle.localeIndex = i;
             configBundles.add(bundle);
@@ -301,7 +300,7 @@ public class ConfigurationMatcher {
 
         addRenderTargetToBundles(configBundles);
 
-        for (Device device : deviceList) {
+        for (Device device : devices) {
             for (State state : device.getAllStates()) {
 
                 // loop on the list of config bundles to create full
@@ -458,17 +457,15 @@ public class ConfigurationMatcher {
             final int count = localeList.size();
             for (int l = 0; l < count; l++) {
                 Locale locale = localeList.get(l);
-                LanguageQualifier langQ = locale.language;
-                RegionQualifier regionQ = locale.region;
+                LocaleQualifier qualifier = locale.qualifier;
 
                 // there's always a ##/Other or ##/Any (which is the same, the region
                 // contains FAKE_REGION_VALUE). If we don't find a perfect region match
                 // we take the fake region. Since it's last in the list, this makes the
                 // test easy.
-                if (langQ.getValue().equals(currentLanguage) &&
-                        (regionQ.getValue().equals(currentRegion) ||
-                         regionQ.getValue().equals(RegionQualifier.FAKE_REGION_VALUE))) {
-                    return l;
+                if (qualifier.getLanguage().equals(currentLanguage) &&
+                        (qualifier.getRegion() == null || qualifier.getRegion().equals(currentRegion))) {
+                      return l;
                 }
             }
 
@@ -765,7 +762,7 @@ public class ConfigurationMatcher {
      */
     private static class PhoneConfigComparator implements Comparator<ConfigMatch> {
 
-        private SparseIntArray mDensitySort = new SparseIntArray(4);
+        private final SparseIntArray mDensitySort = new SparseIntArray(4);
 
         public PhoneConfigComparator() {
             // put the sort order for the density.

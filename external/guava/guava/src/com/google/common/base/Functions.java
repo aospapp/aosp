@@ -30,7 +30,11 @@ import javax.annotation.Nullable;
 /**
  * Static utility methods pertaining to {@code Function} instances.
  *
- * <p>All methods returns serializable functions as long as they're given serializable parameters.
+ * <p>All methods return serializable functions as long as they're given serializable parameters.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/FunctionalExplained">the use of {@code
+ * Function}</a>.
  *
  * @author Mike Bostock
  * @author Jared Levy
@@ -70,6 +74,7 @@ public final class Functions {
   /**
    * Returns the identity function.
    */
+  // implementation is "fully variant"; E has become a "pass-through" type
   @SuppressWarnings("unchecked")
   public static <E> Function<E, E> identity() {
     return (Function<E, E>) IdentityFunction.INSTANCE;
@@ -80,7 +85,8 @@ public final class Functions {
     INSTANCE;
 
     @Override
-    public Object apply(Object o) {
+    @Nullable
+    public Object apply(@Nullable Object o) {
       return o;
     }
 
@@ -91,7 +97,12 @@ public final class Functions {
 
   /**
    * Returns a function which performs a map lookup. The returned function throws an {@link
-   * IllegalArgumentException} if given a key that does not exist in the map.
+   * IllegalArgumentException} if given a key that does not exist in the map. See also {@link
+   * #forMap(Map, Object)}, which returns a default value in this case.
+   *
+   * <p>Note: if {@code map} is a {@link com.google.common.collect.BiMap BiMap} (or can be one), you
+   * can use {@link com.google.common.collect.Maps#asConverter Maps.asConverter} instead to get a
+   * function that also supports reverse conversion.
    */
   public static <K, V> Function<K, V> forMap(Map<K, V> map) {
     return new FunctionForMapNoDefault<K, V>(map);
@@ -105,7 +116,7 @@ public final class Functions {
     }
 
     @Override
-    public V apply(K key) {
+    public V apply(@Nullable K key) {
       V result = map.get(key);
       checkArgument(result != null || map.containsKey(key), "Key '%s' not present in map", key);
       return result;
@@ -133,7 +144,7 @@ public final class Functions {
   /**
    * Returns a function which performs a map lookup with a default value. The function created by
    * this method returns {@code defaultValue} for all inputs that do not belong to the map's key
-   * set.
+   * set. See also {@link #forMap(Map)}, which throws an exception in this case.
    *
    * @param map source map that determines the function behavior
    * @param defaultValue the value to return for inputs that aren't map keys
@@ -154,7 +165,7 @@ public final class Functions {
     }
 
     @Override
-    public V apply(K key) {
+    public V apply(@Nullable K key) {
       V result = map.get(key);
       return (result != null || map.containsKey(key)) ? result : defaultValue;
     }
@@ -201,7 +212,7 @@ public final class Functions {
     }
 
     @Override
-    public C apply(A a) {
+    public C apply(@Nullable A a) {
       return g.apply(f.apply(a));
     }
 
@@ -218,7 +229,7 @@ public final class Functions {
     }
 
     @Override public String toString() {
-      return g.toString() + "(" + f.toString() + ")";
+      return g + "(" + f + ")";
     }
 
     private static final long serialVersionUID = 0;
@@ -243,7 +254,7 @@ public final class Functions {
     }
 
     @Override
-    public Boolean apply(T t) {
+    public Boolean apply(@Nullable T t) {
       return predicate.apply(t);
     }
 

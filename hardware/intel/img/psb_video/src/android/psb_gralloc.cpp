@@ -37,6 +37,10 @@
 #ifdef BAYTRAIL
 #include <ufo/gralloc.h>
 #endif
+#ifndef BAYTRAIL
+#include <hal/hal_public.h>
+#endif
+
 using namespace android;
 
 #ifdef  LOG_TAG
@@ -142,14 +146,9 @@ int gralloc_getdisplaystatus(buffer_handle_t handle,  int* status)
 {
     int err;
 #ifndef BAYTRAIL
-    int (*get_display_status)(gralloc_module_t*, buffer_handle_t, int*);
-
-    get_display_status = (int (*)(gralloc_module_t*, buffer_handle_t, int*))(mAllocMod->reserved_proc[0]);
-    if (get_display_status == NULL) {
-        ALOGE("can't get gralloc_getdisplaystatus(...) \n");
-        return -1;
-    }
-    err = (*get_display_status)(mAllocMod, handle, status);
+    uint32_t _status = 0U;
+    err = mAllocMod->perform(mAllocMod, GRALLOC_MODULE_GET_DISPLAY_STATUS_IMG, handle, &_status);
+    *status = (int)_status;
 #else
     err = 0;
     *status = mAllocMod->perform(mAllocMod, INTEL_UFO_GRALLOC_MODULE_PERFORM_GET_BO_STATUS, handle);
@@ -160,4 +159,9 @@ int gralloc_getdisplaystatus(buffer_handle_t handle,  int* status)
     }
 
     return err;
+}
+
+int gralloc_getbuffd(buffer_handle_t handle)
+{
+    return ((IMG_native_handle_t*)handle)->fd[0];
 }

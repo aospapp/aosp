@@ -16,24 +16,6 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.AdvancedWifiOptionsFlow;
-import com.android.tv.settings.connectivity.ConnectToWifiFragment;
-import com.android.tv.settings.connectivity.FormPageDisplayer;
-import com.android.tv.settings.connectivity.TimedMessageWizardFragment;
-import com.android.tv.settings.connectivity.WifiConfigHelper;
-import com.android.tv.settings.connectivity.WifiFormPageType;
-import com.android.tv.settings.connectivity.WifiMultiPagedFormActivity;
-import com.android.tv.settings.connectivity.WifiSecurity;
-import com.android.tv.settings.connectivity.WpsConnectionActivity;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.util.ThemeHelper;
-import com.android.tv.settings.util.TransitionUtils;
-
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
-
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
 import android.app.Fragment;
@@ -52,7 +34,22 @@ import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Pair;
-import android.view.View;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.AdvancedWifiOptionsFlow;
+import com.android.tv.settings.connectivity.ConnectToWifiFragment;
+import com.android.tv.settings.connectivity.FormPageDisplayer;
+import com.android.tv.settings.connectivity.TimedMessageWizardFragment;
+import com.android.tv.settings.connectivity.WifiConfigHelper;
+import com.android.tv.settings.connectivity.WifiFormPageType;
+import com.android.tv.settings.connectivity.WifiMultiPagedFormActivity;
+import com.android.tv.settings.connectivity.WifiSecurity;
+import com.android.tv.settings.connectivity.WpsConnectionActivity;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
+import com.android.tv.settings.util.ThemeHelper;
+import com.android.tv.settings.util.TransitionUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;

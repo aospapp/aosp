@@ -84,8 +84,10 @@
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Уюктук тармак жөндөөлөрү бул колдонуучу үчүн жеткиликтүү эмес"</string>
     <!-- no translation found for labelGSMMore (5930842194056092106) -->
     <skip />
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM чалуунун жөндөөлөрү (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <!-- no translation found for labelCDMAMore (1630676740428229339) -->
     <skip />
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA чалуунун жөндөөлөрү (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <!-- no translation found for apn_settings (9043423184895642077) -->
     <skip />
     <!-- no translation found for settings_label (3876743539816984008) -->
@@ -99,19 +101,13 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"Телефон каттоо эсептери"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"SIP каттоо эсебин кошуу"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"Каттоо эсеп жөндөөлөрүн конфигурациялоо"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"Wi-Fi чалуу"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"Wi-Fi чалуу колдонулбасын"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"Чалуу жардамчысы колдонулбасын"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"Эч нерсе жок"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"Чалуу жардамчысы"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"Чалуу жардамчысын колдонуу"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"Чалуу жардамчысын тандоо"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"Чалуулар үчүн колдонулган тармактарды башкаруу"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"Чалуулар үчүн колдонулган тармактарды колдонмолор же кызматтар башкарышына уруксат берүү"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"Конфигурациялоо"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"Бардык чалуу каттоо эсептери"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"Чалуулар жасала турган каттоо эсептерин тандаңыз"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi чалуу"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"Кыналган туташуу кызматы"</string>
     <!-- no translation found for voicemail (8693759337917898954) -->
     <skip />
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"Үн почтасы (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <!-- no translation found for voicemail_abbreviated (2215592488517217448) -->
     <skip />
     <!-- no translation found for networks (8873030692174541976) -->
@@ -299,7 +295,8 @@
     <!-- no translation found for roaming_disable (1843417228755568110) -->
     <skip />
     <string name="roaming_reenable_message" msgid="8913735676127858115">"Мобилдик берүү байланышын жоготтуңуз, анткени сиз мобилдик интернет роумингин иштетпестен, өзүңүздүн түйүнүңүздөн сырткары чыгып кеттиңиз."</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"Роуминг учурунда дайындарды пайдаланууга уруксатпы? Бир далай төлөмдөр колдонулушу мүмкүн."</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"Бир кыйла төлөмдөргө учурашыңыз мүмкүн."</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"Интернет-роумингге жол берилсинби?"</string>
     <!-- no translation found for gsm_umts_options (6538311689850981686) -->
     <skip />
     <!-- no translation found for cdma_options (4016822858172249884) -->
@@ -535,6 +532,7 @@
     <skip />
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"Авто-чалуу"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"Авто-чалуу тартибин иштетүү"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"Видео чалуу учурунда Телетайп түзмөк режимин өзгөртүүгө уруксат жок"</string>
     <!-- no translation found for menu_add (1882023737425114762) -->
     <skip />
     <!-- no translation found for menu_edit (7143003705504672374) -->
@@ -576,7 +574,7 @@
     <skip />
     <!-- no translation found for simContacts_title (1861472842524839921) -->
     <skip />
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"SIM-картадан байланыштарды импорттоо үчүн, алгач Учак тартибин өчүрүшүңүз керек."</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"SIM картадан байланыштарды импорттоо үчүн учак режимин өчүрүңүз."</string>
     <!-- no translation found for enable_pin (5422767284133234860) -->
     <skip />
     <!-- no translation found for change_pin (9174186126330785343) -->
@@ -621,6 +619,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 биротоло бөгөттөлдү."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"Сизде <xliff:g id="NUMBER">%d</xliff:g> аракет калды."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"Мындан ары PIN2 бөгөттөлбөйт"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"Тармак же SIM карта катасы"</string>
     <!-- no translation found for doneButton (2859593360997984240) -->
     <skip />
     <!-- no translation found for voicemail_settings_number_label (8524164258691887790) -->
@@ -640,20 +639,6 @@
     <skip />
     <!-- no translation found for card_title_in_call (6346543933068225205) -->
     <skip />
-    <string name="notification_dialing" msgid="2107666444937350731">"Терилүүдө"</string>
-    <!-- no translation found for notification_missedCallTitle (7554385905572364535) -->
-    <skip />
-    <!-- no translation found for notification_missedCallsTitle (1361677948941502522) -->
-    <skip />
-    <!-- no translation found for notification_missedCallsMsg (4575787816055205600) -->
-    <skip />
-    <!-- no translation found for notification_missedCallTicker (504686252427747209) -->
-    <skip />
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"Учурдагы чалуу"</string>
-    <!-- no translation found for notification_on_hold (3480694969511790465) -->
-    <skip />
-    <!-- no translation found for notification_incoming_call (2820429205043529642) -->
-    <skip />
     <!-- no translation found for notification_voicemail_title (8933468752045550523) -->
     <skip />
     <!-- no translation found for notification_voicemail_title_count (4366360747660929916) -->
@@ -666,14 +651,12 @@
     <skip />
     <!-- no translation found for notification_network_selection_text (2607085729661923269) -->
     <skip />
-    <string name="notification_action_end_call" msgid="6069460915123531620">"Телефонду коюу"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Кайра чалуу"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"Билдирүү"</string>
-    <!-- no translation found for incall_error_power_off (6550191216405193368) -->
-    <skip />
+    <string name="incall_error_power_off" msgid="2947938060513306698">"Чалуу үчүн учак режимин өчүрүңүз."</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Чалуу үчүн учак режимин өчүрүңүз же зымсыз тармакка туташыңыз."</string>
     <!-- no translation found for incall_error_emergency_only (4678640422710818317) -->
     <skip />
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"Уюктук тармак жеткиликтүү эмес."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Уюлдук тармак жеткиликтүү эмес. Чалуу үчүн зымсыз тармакка туташыңыз."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Чалуу үчүн, жарактуу номер киргизиңиз."</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"Чалынбай жатат."</string>
     <!-- no translation found for incall_status_dialed_mmi (3672498861336189563) -->
@@ -686,6 +669,7 @@
     <skip />
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Чалуу четке кагылбай жатат."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Чалуу(лар) бошотулбай жатат."</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Чалуу үчүн зымсыз тармакка туташыңыз."</string>
     <!-- no translation found for emergency_enable_radio_dialog_title (4627849966634578257) -->
     <skip />
     <!-- no translation found for emergency_enable_radio_dialog_message (207613549344420291) -->
@@ -781,16 +765,18 @@
     <skip />
     <!-- no translation found for phone_in_ecm_call_notification_text (4611608947314729773) -->
     <skip />
-    <!-- no translation found for phone_in_ecm_notification_time:one (4866221796252472622) -->
-    <!-- no translation found for phone_in_ecm_notification_time:other (3122217344579273583) -->
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"Телефон <xliff:g id="COUNT">%s</xliff:g> мүнөт Куткаруучулардын Кайра Чалуусу тартибинде иштейт. Бул тартипте колдонмолор мобилдик берүү туташуусун колдоно алышпайт. Азыр андан чыкканды каалайсызбы?"</item>
-    <item quantity="other" msgid="8617116564023933114">"Телефон <xliff:g id="COUNT">%s</xliff:g> мүнөт Куткаруучулардын Кайра Чалуусу тартибинде иштейт. Бул тартипте колдонмолор мобилдик берүү туташуусун колдоно алышпайт. Азыр андан чыкканды каалайсызбы?"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"Бул аракет Куткаруучулардын Кайра Чалуусу тартибинде иштебейт. Телефон бул тартипте <xliff:g id="COUNT">%s</xliff:g> мүнөт болот. Азыр андан чыкканды каалайсызбы?"</item>
-    <item quantity="other" msgid="6115622137771382224">"Бул аракет Куткаруучулардын Кайра Чалуусу тартибинде иштебейт. Телефон бул тартипте <xliff:g id="COUNT">%s</xliff:g> мүнөт болот. Азыр андан чыкканды каалайсызбы?"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="other"><xliff:g id="COUNT_1">%s</xliff:g> мүнөт бою маалыматтык туташуу болбойт</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%s</xliff:g> мүнөт бою маалыматтык туташуу болбойт</item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="other">Телефон Шашылыш кайра чалуу режиминде <xliff:g id="COUNT_1">%s</xliff:g> мүнөт бою болот. Бул режим күйүп турганда маалыматтык туташууну пайдаланган эч бир колдонмо иштетилбейт. Азыр чыгып кеткиңиз келеби?</item>
+      <item quantity="one">Телефон Шашылыш кайра чалуу режиминде <xliff:g id="COUNT_0">%s</xliff:g> мүнөт бою болот. Бул режим күйүп турганда маалыматтык туташууну пайдаланган эч бир колдонмо иштетилбейт. Азыр чыгып кеткиңиз келеби?</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="other">Тандалган аракет Шашылыш кайра чалуу режиминде жеткиликтүү эмес. Телефон бул режимде <xliff:g id="COUNT_1">%s</xliff:g> мүнөт бою болот. Азыр чыгып кеткиңиз келеби?</item>
+      <item quantity="one">Тандалган аракет Шашылыш кайра чалуу режиминде жеткиликтүү эмес. Телефон бул режимде <xliff:g id="COUNT_0">%s</xliff:g> мүнөт бою болот. Азыр чыгып кеткиңиз келеби?</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"Куткаруучуларга чалуу учурунда, бул тандалган аракет аткарылбайт."</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"Куткаруучулардын Кайра Чалуусу тартибинен чыгуу"</string>
     <!-- no translation found for alert_dialog_yes (6674268047820703974) -->
@@ -817,8 +803,8 @@
     <skip />
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Титиретүү"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Титиретүү"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Визуалдык үн почтасы"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Үнү"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Тергичти автотолтуруу"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Рингтон жана Титирөө"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Кыналган SIM карталар"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Видео чалууну күйгүзүү"</string>
@@ -828,4 +814,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"Шашылыш чалуулар"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Шашылыш чалуу гана"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM-карта, оюкча: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Жеткиликтүүлүк"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Кирүүчү Wi-Fi чалуу"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi чалуу"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"Ачуу үчүн кайра тийиңиз"</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"Билдирүү дешифрленип жатканда ката кеткен."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM-карта кызматыңызды жандырып, телефонуңуздун роуминг мүмкүнчүлүктөрүн жаңыртты."</string>
 </resources>

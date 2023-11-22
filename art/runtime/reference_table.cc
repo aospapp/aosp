@@ -24,6 +24,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/string-inl.h"
+#include "runtime-inl.h"
 #include "thread.h"
 #include "utils.h"
 
@@ -39,7 +40,7 @@ ReferenceTable::~ReferenceTable() {
 }
 
 void ReferenceTable::Add(mirror::Object* obj) {
-  DCHECK(obj != NULL);
+  DCHECK(obj != nullptr);
   VerifyObject(obj);
   if (entries_.size() >= max_size_) {
     LOG(FATAL) << "ReferenceTable '" << name_ << "' "
@@ -62,47 +63,13 @@ void ReferenceTable::Remove(mirror::Object* obj) {
 // If "obj" is an array, return the number of elements in the array.
 // Otherwise, return zero.
 static size_t GetElementCount(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  if (obj == NULL || obj == kClearedJniWeakGlobal || !obj->IsArrayInstance()) {
+  // We assume the special cleared value isn't an array in the if statement below.
+  DCHECK(!Runtime::Current()->GetClearedJniWeakGlobal()->IsArrayInstance());
+  if (obj == nullptr || !obj->IsArrayInstance()) {
     return 0;
   }
   return obj->AsArray()->GetLength();
 }
-
-struct ObjectComparator {
-  bool operator()(GcRoot<mirror::Object> root1, GcRoot<mirror::Object> root2)
-    // TODO: enable analysis when analysis can work with the STL.
-      NO_THREAD_SAFETY_ANALYSIS {
-    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
-    mirror::Object* obj1 = root1.Read<kWithoutReadBarrier>();
-    mirror::Object* obj2 = root2.Read<kWithoutReadBarrier>();
-    // Ensure null references and cleared jweaks appear at the end.
-    if (obj1 == NULL) {
-      return true;
-    } else if (obj2 == NULL) {
-      return false;
-    }
-    if (obj1 == kClearedJniWeakGlobal) {
-      return true;
-    } else if (obj2 == kClearedJniWeakGlobal) {
-      return false;
-    }
-
-    // Sort by class...
-    if (obj1->GetClass() != obj2->GetClass()) {
-      return obj1->GetClass()->IdentityHashCode() < obj2->GetClass()->IdentityHashCode();
-    } else {
-      // ...then by size...
-      size_t count1 = obj1->SizeOf();
-      size_t count2 = obj2->SizeOf();
-      if (count1 != count2) {
-        return count1 < count2;
-      } else {
-        // ...and finally by identity hash code.
-        return obj1->IdentityHashCode() < obj2->IdentityHashCode();
-      }
-    }
-  }
-};
 
 // Log an object with some additional info.
 //
@@ -112,11 +79,11 @@ struct ObjectComparator {
 static void DumpSummaryLine(std::ostream& os, mirror::Object* obj, size_t element_count,
                             int identical, int equiv)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  if (obj == NULL) {
-    os << "    NULL reference (count=" << equiv << ")\n";
+  if (obj == nullptr) {
+    os << "    null reference (count=" << equiv << ")\n";
     return;
   }
-  if (obj == kClearedJniWeakGlobal) {
+  if (Runtime::Current()->IsClearedJniWeakGlobal(obj)) {
     os << "    cleared jweak (count=" << equiv << ")\n";
     return;
   }
@@ -149,6 +116,38 @@ void ReferenceTable::Dump(std::ostream& os) {
 }
 
 void ReferenceTable::Dump(std::ostream& os, Table& entries) {
+  // Compare GC roots, first by class, then size, then address.
+  struct GcRootComparator {
+    bool operator()(GcRoot<mirror::Object> root1, GcRoot<mirror::Object> root2) const
+      // TODO: enable analysis when analysis can work with the STL.
+        NO_THREAD_SAFETY_ANALYSIS {
+      Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
+      // These GC roots are already forwarded in ReferenceTable::Dump. We sort by class since there
+      // are no suspend points which can happen during the sorting process. This works since
+      // we are guaranteed that the addresses of obj1, obj2, obj1->GetClass, obj2->GetClass wont
+      // change during the sorting process. The classes are forwarded by ref->GetClass().
+      mirror::Object* obj1 = root1.Read<kWithoutReadBarrier>();
+      mirror::Object* obj2 = root2.Read<kWithoutReadBarrier>();
+      DCHECK(obj1 != nullptr);
+      DCHECK(obj2 != nullptr);
+      Runtime* runtime = Runtime::Current();
+      DCHECK(!runtime->IsClearedJniWeakGlobal(obj1));
+      DCHECK(!runtime->IsClearedJniWeakGlobal(obj2));
+      // Sort by class...
+      if (obj1->GetClass() != obj2->GetClass()) {
+        return obj1->GetClass() < obj2->GetClass();
+      }
+      // ...then by size...
+      const size_t size1 = obj1->SizeOf();
+      const size_t size2 = obj2->SizeOf();
+      if (size1 != size2) {
+        return size1 < size2;
+      }
+      // ...and finally by address.
+      return obj1 < obj2;
+    }
+  };
+
   if (entries.empty()) {
     os << "  (empty)\n";
     return;
@@ -162,16 +161,17 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
     first = 0;
   }
   os << "  Last " << (count - first) << " entries (of " << count << "):\n";
+  Runtime* runtime = Runtime::Current();
   for (int idx = count - 1; idx >= first; --idx) {
     mirror::Object* ref = entries[idx].Read();
-    if (ref == NULL) {
+    if (ref == nullptr) {
       continue;
     }
-    if (ref == kClearedJniWeakGlobal) {
+    if (runtime->IsClearedJniWeakGlobal(ref)) {
       os << StringPrintf("    %5d: cleared jweak\n", idx);
       continue;
     }
-    if (ref->GetClass() == NULL) {
+    if (ref->GetClass() == nullptr) {
       // should only be possible right after a plain dvmMalloc().
       size_t size = ref->SizeOf();
       os << StringPrintf("    %5d: %p (raw) (%zd bytes)\n", idx, ref, size);
@@ -185,7 +185,7 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
     if (element_count != 0) {
       StringAppendF(&extras, " (%zd elements)", element_count);
     } else if (ref->GetClass()->IsStringClass()) {
-      mirror::String* s = const_cast<mirror::Object*>(ref)->AsString();
+      mirror::String* s = ref->AsString();
       std::string utf8(s->ToModifiedUtf8());
       if (s->GetLength() <= 16) {
         StringAppendF(&extras, " \"%s\"", utf8.c_str());
@@ -196,55 +196,51 @@ void ReferenceTable::Dump(std::ostream& os, Table& entries) {
     os << StringPrintf("    %5d: ", idx) << ref << " " << className << extras << "\n";
   }
 
-  // Make a copy of the table and sort it.
+  // Make a copy of the table and sort it, only adding non null and not cleared elements.
   Table sorted_entries;
-  for (size_t i = 0; i < entries.size(); ++i) {
-    mirror::Object* entry = entries[i].Read();
-    sorted_entries.push_back(GcRoot<mirror::Object>(entry));
-  }
-  std::sort(sorted_entries.begin(), sorted_entries.end(), ObjectComparator());
-
-  // Remove any uninteresting stuff from the list. The sort moved them all to the end.
-  while (!sorted_entries.empty() && sorted_entries.back().IsNull()) {
-    sorted_entries.pop_back();
-  }
-  while (!sorted_entries.empty() &&
-         sorted_entries.back().Read<kWithoutReadBarrier>() == kClearedJniWeakGlobal) {
-    sorted_entries.pop_back();
+  for (GcRoot<mirror::Object>& root : entries) {
+    if (!root.IsNull() && !runtime->IsClearedJniWeakGlobal(root.Read())) {
+      sorted_entries.push_back(root);
+    }
   }
   if (sorted_entries.empty()) {
     return;
   }
+  std::sort(sorted_entries.begin(), sorted_entries.end(), GcRootComparator());
 
   // Dump a summary of the whole table.
   os << "  Summary:\n";
   size_t equiv = 0;
   size_t identical = 0;
-  for (size_t idx = 1; idx < count; idx++) {
-    mirror::Object* prev = sorted_entries[idx-1].Read<kWithoutReadBarrier>();
-    mirror::Object* current = sorted_entries[idx].Read<kWithoutReadBarrier>();
-    size_t element_count = GetElementCount(prev);
-    if (current == prev) {
-      // Same reference, added more than once.
-      identical++;
-    } else if (current->GetClass() == prev->GetClass() && GetElementCount(current) == element_count) {
-      // Same class / element count, different object.
-      equiv++;
-    } else {
-      // Different class.
-      DumpSummaryLine(os, prev, element_count, identical, equiv);
-      equiv = identical = 0;
+  mirror::Object* prev = nullptr;
+  for (GcRoot<mirror::Object>& root : sorted_entries) {
+    mirror::Object* current = root.Read<kWithoutReadBarrier>();
+    if (prev != nullptr) {
+      const size_t element_count = GetElementCount(prev);
+      if (current == prev) {
+        // Same reference, added more than once.
+        ++identical;
+      } else if (current->GetClass() == prev->GetClass() &&
+          GetElementCount(current) == element_count) {
+        // Same class / element count, different object.
+        ++equiv;
+      } else {
+        // Different class.
+        DumpSummaryLine(os, prev, element_count, identical, equiv);
+        equiv = 0;
+        identical = 0;
+      }
     }
+    prev = current;
   }
   // Handle the last entry.
-  DumpSummaryLine(os, sorted_entries.back().Read<kWithoutReadBarrier>(),
-                  GetElementCount(sorted_entries.back().Read<kWithoutReadBarrier>()),
-                  identical, equiv);
+  DumpSummaryLine(os, prev, GetElementCount(prev), identical, equiv);
 }
 
-void ReferenceTable::VisitRoots(RootCallback* visitor, void* arg, const RootInfo& root_info) {
+void ReferenceTable::VisitRoots(RootVisitor* visitor, const RootInfo& root_info) {
+  BufferedRootVisitor<kDefaultBufferedRootCount> buffered_visitor(visitor, root_info);
   for (GcRoot<mirror::Object>& root : entries_) {
-    root.VisitRoot(visitor, arg, root_info);
+    buffered_visitor.VisitRoot(root);
   }
 }
 

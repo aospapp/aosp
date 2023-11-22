@@ -5,12 +5,13 @@
  * found in the LICENSE file.
  */
 
+#include "Test.h"
+
 // This test is specific to the GPU backend.
 #if SK_SUPPORT_GPU && !defined(SK_BUILD_FOR_ANDROID)
 
 #include "GrContextFactory.h"
 #include "SkGpuDevice.h"
-#include "Test.h"
 
 static const int X_SIZE = 12;
 static const int Y_SIZE = 12;
@@ -30,22 +31,22 @@ DEF_GPUTEST(ReadWriteAlpha, reporter, factory) {
 
         memset(textureData, 0, X_SIZE * Y_SIZE);
 
-        GrTextureDesc desc;
+        GrSurfaceDesc desc;
 
         // let Skia know we will be using this texture as a render target
-        desc.fFlags     = kRenderTarget_GrTextureFlagBit;
+        desc.fFlags     = kRenderTarget_GrSurfaceFlag;
         // it is a single channel texture
         desc.fConfig    = kAlpha_8_GrPixelConfig;
         desc.fWidth     = X_SIZE;
         desc.fHeight    = Y_SIZE;
 
         // We are initializing the texture with zeros here
-        GrTexture* texture = context->createUncachedTexture(desc, textureData, 0);
+        GrTexture* texture = context->textureProvider()->createTexture(desc, false, textureData, 0);
         if (!texture) {
             return;
         }
 
-        SkAutoUnref au(texture);
+        SkAutoTUnref<GrTexture> au(texture);
 
         // create a distinctive texture
         for (int y = 0; y < Y_SIZE; ++y) {
@@ -81,7 +82,8 @@ DEF_GPUTEST(ReadWriteAlpha, reporter, factory) {
         REPORTER_ASSERT(reporter, match);
 
         // Now try writing on the single channel texture
-        SkAutoTUnref<SkBaseDevice> device(new SkGpuDevice(context, texture->asRenderTarget()));
+        SkSurfaceProps props(SkSurfaceProps::kLegacyFontHost_InitType);
+        SkAutoTUnref<SkBaseDevice> device(SkGpuDevice::Create(texture->asRenderTarget(), &props));
         SkCanvas canvas(device);
 
         SkPaint paint;

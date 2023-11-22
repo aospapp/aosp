@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -30,7 +30,7 @@ import proguard.classfile.instruction.*;
 import proguard.classfile.instruction.visitor.InstructionVisitor;
 import proguard.classfile.util.*;
 import proguard.classfile.visitor.*;
-import proguard.optimize.*;
+import proguard.optimize.KeepMarker;
 import proguard.optimize.info.*;
 
 import java.util.*;
@@ -155,6 +155,8 @@ implements   AttributeVisitor,
                 System.err.println("  Inlined method = ["+method.getName(clazz)+method.getDescriptor(clazz)+"]");
             }
             System.err.println("  Exception      = ["+ex.getClass().getName()+"] ("+ex.getMessage()+")");
+
+            ex.printStackTrace();
             System.err.println("Not inlining this method");
 
             if (DEBUG)
@@ -185,7 +187,7 @@ implements   AttributeVisitor,
             exceptionInfoAdder           = new ExceptionInfoAdder(targetClass, codeAttributeComposer);
             estimatedResultingCodeLength = codeAttribute.u4codeLength;
             inliningMethods.clear();
-            uninitializedObjectCount     = method.getName(clazz).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT) ? 1 : 0;
+            uninitializedObjectCount     = method.getName(clazz).equals(ClassConstants.METHOD_NAME_INIT) ? 1 : 0;
             inlinedAny                   = false;
             codeAttributeComposer.reset();
             stackSizeComputer.visitCodeAttribute(clazz, method, codeAttribute);
@@ -252,7 +254,7 @@ implements   AttributeVisitor,
         String descriptor = method.getDescriptor(clazz);
 
         boolean isStatic =
-            (method.getAccessFlags() & ClassConstants.INTERNAL_ACC_STATIC) != 0;
+            (method.getAccessFlags() & ClassConstants.ACC_STATIC) != 0;
 
         // Count the number of parameters, taking into account their categories.
         int parameterCount  = ClassUtil.internalMethodParameterCount(descriptor);
@@ -287,23 +289,23 @@ implements   AttributeVisitor,
                 byte opcode;
                 switch (parameterType.charAt(0))
                 {
-                    case ClassConstants.INTERNAL_TYPE_BOOLEAN:
-                    case ClassConstants.INTERNAL_TYPE_BYTE:
-                    case ClassConstants.INTERNAL_TYPE_CHAR:
-                    case ClassConstants.INTERNAL_TYPE_SHORT:
-                    case ClassConstants.INTERNAL_TYPE_INT:
+                    case ClassConstants.TYPE_BOOLEAN:
+                    case ClassConstants.TYPE_BYTE:
+                    case ClassConstants.TYPE_CHAR:
+                    case ClassConstants.TYPE_SHORT:
+                    case ClassConstants.TYPE_INT:
                         opcode = InstructionConstants.OP_ISTORE;
                         break;
 
-                    case ClassConstants.INTERNAL_TYPE_LONG:
+                    case ClassConstants.TYPE_LONG:
                         opcode = InstructionConstants.OP_LSTORE;
                         break;
 
-                    case ClassConstants.INTERNAL_TYPE_FLOAT:
+                    case ClassConstants.TYPE_FLOAT:
                         opcode = InstructionConstants.OP_FSTORE;
                         break;
 
-                    case ClassConstants.INTERNAL_TYPE_DOUBLE:
+                    case ClassConstants.TYPE_DOUBLE:
                         opcode = InstructionConstants.OP_DSTORE;
                         break;
 
@@ -471,12 +473,9 @@ implements   AttributeVisitor,
 
     // Implementations for ConstantVisitor.
 
-    public void visitInterfaceMethodrefConstant(Clazz clazz, InterfaceMethodrefConstant interfaceMethodrefConstant) {}
-
-
-    public void visitMethodrefConstant(Clazz clazz, MethodrefConstant methodrefConstant)
+    public void visitAnyMethodrefConstant(Clazz clazz, RefConstant refConstant)
     {
-        methodrefConstant.referencedMemberAccept(this);
+        refConstant.referencedMemberAccept(this);
     }
 
 
@@ -493,22 +492,23 @@ implements   AttributeVisitor,
             !KeepMarker.isKept(programMethod)                                                     &&
 
             // Only inline the method if it is private, static, or final.
-            (accessFlags & (ClassConstants.INTERNAL_ACC_PRIVATE |
-                            ClassConstants.INTERNAL_ACC_STATIC  |
-                            ClassConstants.INTERNAL_ACC_FINAL)) != 0                              &&
+            // This currently precludes default interface methods, because
+            // they can't be final.
+            (accessFlags & (ClassConstants.ACC_PRIVATE |
+                            ClassConstants.ACC_STATIC  |
+                            ClassConstants.ACC_FINAL)) != 0                                       &&
 
             // Only inline the method if it is not synchronized, etc.
-            (accessFlags & (ClassConstants.INTERNAL_ACC_SYNCHRONIZED |
-                            ClassConstants.INTERNAL_ACC_NATIVE       |
-                            ClassConstants.INTERNAL_ACC_INTERFACE    |
-                            ClassConstants.INTERNAL_ACC_ABSTRACT)) == 0                           &&
+            (accessFlags & (ClassConstants.ACC_SYNCHRONIZED |
+                            ClassConstants.ACC_NATIVE       |
+                            ClassConstants.ACC_ABSTRACT)) == 0                                    &&
 
             // Don't inline an <init> method, except in an <init> method in the
             // same class.
-//            (!programMethod.getName(programClass).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT) ||
+//            (!programMethod.getName(programClass).equals(ClassConstants.METHOD_NAME_INIT) ||
 //             (programClass.equals(targetClass) &&
-//              targetMethod.getName(targetClass).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT))) &&
-            !programMethod.getName(programClass).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT) &&
+//              targetMethod.getName(targetClass).equals(ClassConstants.METHOD_NAME_INIT))) &&
+            !programMethod.getName(programClass).equals(ClassConstants.METHOD_NAME_INIT) &&
 
             // Don't inline a method into itself.
             (!programMethod.equals(targetMethod) ||
@@ -522,9 +522,10 @@ implements   AttributeVisitor,
             // introducing incompatible constructs.
             targetClass.u4version >= programClass.u4version                                       &&
 
-            // Only inline the method if it doesn't invoke a super method, or if
-            // it is in the same class.
-            (!SuperInvocationMarker.invokesSuperMethods(programMethod) ||
+            // Only inline the method if it doesn't invoke a super method or a
+            // dynamic method, or if it is in the same class.
+            (!SuperInvocationMarker.invokesSuperMethods(programMethod) &&
+             !DynamicInvocationMarker.invokesDynamically(programMethod) ||
              programClass.equals(targetClass))                                                    &&
 
             // Only inline the method if it doesn't branch backward while there
@@ -554,9 +555,11 @@ implements   AttributeVisitor,
 
             // Only inline the method if it comes from the a class with at most
             // a subset of the initialized superclasses.
-            (programClass.equals(targetClass) ||
+            ((accessFlags & ClassConstants.ACC_STATIC) == 0 ||
+             programClass.equals(targetClass)                        ||
              initializedSuperClasses(targetClass).containsAll(initializedSuperClasses(programClass))))
-        {                                                                                                   boolean oldInlining = inlining;
+        {
+            boolean oldInlining = inlining;
             inlining = true;
             inliningMethods.push(programMethod);
 
@@ -574,7 +577,7 @@ implements   AttributeVisitor,
             inlining = oldInlining;
             inliningMethods.pop();
         }
-        else if (programMethod.getName(programClass).equals(ClassConstants.INTERNAL_METHOD_NAME_INIT))
+        else if (programMethod.getName(programClass).equals(ClassConstants.METHOD_NAME_INIT))
         {
             uninitializedObjectCount--;
         }

@@ -34,7 +34,7 @@ LOCAL_STATIC_LIBRARIES := libutils libgtest_host libgtest_main_host  liblog libc
 # functions and linker error happens
 LOCAL_WHOLE_STATIC_LIBRARIES := libcts_audio_quality
 LOCAL_CFLAGS:= -g -fno-exceptions
-LOCAL_LDFLAGS:= -g -lrt -ldl -lstdc++ -lm -fno-exceptions -lpthread
+LOCAL_LDFLAGS:= -g -lrt -ldl -lm -fno-exceptions -lpthread
 LOCAL_MODULE:= cts_audio_quality_test
 include $(BUILD_HOST_EXECUTABLE)
 

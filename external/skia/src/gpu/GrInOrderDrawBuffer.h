@@ -9,17 +9,8 @@
 #define GrInOrderDrawBuffer_DEFINED
 
 #include "GrDrawTarget.h"
-#include "GrAllocPool.h"
-#include "GrAllocator.h"
-#include "GrPath.h"
-
-#include "SkClipStack.h"
-#include "SkTemplates.h"
-#include "SkTypes.h"
-
-class GrGpu;
-class GrIndexBufferAllocPool;
-class GrVertexBufferAllocPool;
+#include "GrCommandBuilder.h"
+#include "SkChunkAlloc.h"
 
 /**
  * GrInOrderDrawBuffer is an implementation of GrDrawTarget that queues up draws for eventual
@@ -31,247 +22,131 @@ class GrVertexBufferAllocPool;
  * in the GrGpu object that the buffer is played back into. The buffer requires VB and IB pools to
  * store geometry.
  */
-class GrInOrderDrawBuffer : public GrDrawTarget {
+class GrInOrderDrawBuffer : public GrClipTarget {
 public:
 
     /**
      * Creates a GrInOrderDrawBuffer
      *
-     * @param gpu        the gpu object that this draw buffer flushes to.
-     * @param vertexPool pool where vertices for queued draws will be saved when
-     *                   the vertex source is either reserved or array.
-     * @param indexPool  pool where indices for queued draws will be saved when
-     *                   the index source is either reserved or array.
+     * @param context    the context object that owns this draw buffer.
      */
-    GrInOrderDrawBuffer(GrGpu* gpu,
-                        GrVertexBufferAllocPool* vertexPool,
-                        GrIndexBufferAllocPool* indexPool);
+    GrInOrderDrawBuffer(GrContext* context);
 
-    virtual ~GrInOrderDrawBuffer();
-
-    /**
-     * Empties the draw buffer of any queued up draws. This must not be called while inside an
-     * unbalanced pushGeometrySource(). The current draw state and clip are preserved.
-     */
-    void reset();
-
-    /**
-     * This plays the queued up draws to its GrGpu target. It also resets this object (i.e. flushing
-     * is destructive). This buffer must not have an active reserved vertex or index source. Any
-     * reserved geometry on the target will be finalized because it's geometry source will be pushed
-     * before flushing and popped afterwards.
-     */
-    void flush();
+    ~GrInOrderDrawBuffer() override;
 
     // tracking for draws
-    virtual DrawToken getCurrentDrawToken() { return DrawToken(this, fDrawID); }
+    DrawToken getCurrentDrawToken() override { return DrawToken(this, fDrawID); }
 
-    // overrides from GrDrawTarget
-    virtual bool geometryHints(int* vertexCount,
-                               int* indexCount) const SK_OVERRIDE;
-    virtual void clear(const SkIRect* rect,
-                       GrColor color,
-                       bool canIgnoreRect,
-                       GrRenderTarget* renderTarget) SK_OVERRIDE;
+    void clearStencilClip(const SkIRect& rect,
+                          bool insideClip,
+                          GrRenderTarget* renderTarget) override;
 
-    virtual void discard(GrRenderTarget*) SK_OVERRIDE;
-
-    virtual void initCopySurfaceDstDesc(const GrSurface* src, GrTextureDesc* desc) SK_OVERRIDE;
+    void discard(GrRenderTarget*) override;
 
 protected:
-    virtual void clipWillBeSet(const GrClipData* newClip) SK_OVERRIDE;
+    void appendIndicesAndTransforms(const void* indexValues, PathIndexType indexType, 
+                                    const float* transformValues, PathTransformType transformType,
+                                    int count, char** indicesLocation, float** xformsLocation) {
+        int indexBytes = GrPathRange::PathIndexSizeInBytes(indexType);
+        *indicesLocation = (char*) fPathIndexBuffer.alloc(count * indexBytes,
+                                                          SkChunkAlloc::kThrow_AllocFailType);
+        SkASSERT(SkIsAlign4((uintptr_t)*indicesLocation));
+        memcpy(*indicesLocation, reinterpret_cast<const char*>(indexValues), count * indexBytes);
+
+        const int xformBytes = GrPathRendering::PathTransformSize(transformType) * sizeof(float);
+        *xformsLocation = NULL;
+
+        if (0 != xformBytes) {
+            *xformsLocation = (float*) fPathTransformBuffer.alloc(count * xformBytes,
+                                                               SkChunkAlloc::kThrow_AllocFailType);
+            SkASSERT(SkIsAlign4((uintptr_t)*xformsLocation));
+            memcpy(*xformsLocation, transformValues, count * xformBytes);
+        }
+    }
 
 private:
-    enum Cmd {
-        kDraw_Cmd           = 1,
-        kStencilPath_Cmd    = 2,
-        kSetState_Cmd       = 3,
-        kSetClip_Cmd        = 4,
-        kClear_Cmd          = 5,
-        kCopySurface_Cmd    = 6,
-        kDrawPath_Cmd       = 7,
-        kDrawPaths_Cmd      = 8,
-    };
+    friend class GrInOrderCommandBuilder;
+    friend class GrTargetCommands;
 
-    class DrawRecord : public DrawInfo {
-    public:
-        DrawRecord(const DrawInfo& info) : DrawInfo(info) {}
-        const GrVertexBuffer*   fVertexBuffer;
-        const GrIndexBuffer*    fIndexBuffer;
-    };
+    typedef GrTargetCommands::State State;
 
-    struct StencilPath : public ::SkNoncopyable {
-        StencilPath();
+    State* allocState(const GrPrimitiveProcessor* primProc = NULL) {
+        void* allocation = fPipelineBuffer.alloc(sizeof(State), SkChunkAlloc::kThrow_AllocFailType);
+        return SkNEW_PLACEMENT_ARGS(allocation, State, (primProc));
+    }
 
-        SkAutoTUnref<const GrPath>  fPath;
-        SkPath::FillType            fFill;
-    };
+    void unallocState(State* state) {
+        state->unref();
+        fPipelineBuffer.unalloc(state);
+    }
 
-    struct DrawPath : public ::SkNoncopyable {
-        DrawPath();
-
-        SkAutoTUnref<const GrPath>  fPath;
-        SkPath::FillType            fFill;
-        GrDeviceCoordTexture        fDstCopy;
-    };
-
-    struct DrawPaths : public ::SkNoncopyable {
-        DrawPaths();
-        ~DrawPaths();
-
-        int fPathCount;
-        const GrPath** fPaths;
-        SkMatrix* fTransforms;
-        SkPath::FillType fFill;
-        SkStrokeRec::Style fStroke;
-        GrDeviceCoordTexture fDstCopy;
-    };
-
-    // This is also used to record a discard by setting the color to GrColor_ILLEGAL
-    struct Clear : public ::SkNoncopyable {
-        Clear() : fRenderTarget(NULL) {}
-        ~Clear() { SkSafeUnref(fRenderTarget); }
-
-        SkIRect         fRect;
-        GrColor         fColor;
-        bool            fCanIgnoreRect;
-        GrRenderTarget* fRenderTarget;
-    };
-
-    struct CopySurface : public ::SkNoncopyable {
-        SkAutoTUnref<GrSurface> fDst;
-        SkAutoTUnref<GrSurface> fSrc;
-        SkIRect                 fSrcRect;
-        SkIPoint                fDstPoint;
-    };
+    void onReset() override;
+    void onFlush() override;
 
     // overrides from GrDrawTarget
-    virtual void onDraw(const DrawInfo&) SK_OVERRIDE;
-    virtual void onDrawRect(const SkRect& rect,
-                            const SkMatrix* matrix,
-                            const SkRect* localRect,
-                            const SkMatrix* localMatrix) SK_OVERRIDE;
+    void onDrawBatch(GrBatch*, const PipelineInfo&) override;
+    void onStencilPath(const GrPipelineBuilder&,
+                       const GrPathProcessor*,
+                       const GrPath*,
+                       const GrScissorState&,
+                       const GrStencilSettings&) override;
+    void onDrawPath(const GrPathProcessor*,
+                    const GrPath*,
+                    const GrStencilSettings&,
+                    const PipelineInfo&) override;
+    void onDrawPaths(const GrPathProcessor*,
+                     const GrPathRange*,
+                     const void* indices,
+                     PathIndexType,
+                     const float transformValues[],
+                     PathTransformType,
+                     int count,
+                     const GrStencilSettings&,
+                     const PipelineInfo&) override;
+    void onClear(const SkIRect* rect,
+                 GrColor color,
+                 bool canIgnoreRect,
+                 GrRenderTarget* renderTarget) override;
+    void onCopySurface(GrSurface* dst,
+                       GrSurface* src,
+                       const SkIRect& srcRect,
+                       const SkIPoint& dstPoint) override;
 
-    virtual void onStencilPath(const GrPath*, SkPath::FillType) SK_OVERRIDE;
-    virtual void onDrawPath(const GrPath*, SkPath::FillType,
-                            const GrDeviceCoordTexture* dstCopy) SK_OVERRIDE;
-    virtual void onDrawPaths(int, const GrPath**, const SkMatrix*,
-                             SkPath::FillType, SkStrokeRec::Style,
-                             const GrDeviceCoordTexture* dstCopy) SK_OVERRIDE;
+    // We lazily record clip changes in order to skip clips that have no effect.
+    void recordClipIfNecessary();
+    // Records any trace markers for a command
+    void recordTraceMarkersIfNecessary(GrTargetCommands::Cmd*);
+    SkString getCmdString(int index) const {
+        SkASSERT(index < fGpuCmdMarkers.count());
+        return fGpuCmdMarkers[index].toString();
+    }
+    bool isIssued(uint32_t drawID) override { return drawID != fDrawID; }
 
-    virtual bool onReserveVertexSpace(size_t vertexSize,
-                                      int vertexCount,
-                                      void** vertices) SK_OVERRIDE;
-    virtual bool onReserveIndexSpace(int indexCount,
-                                     void** indices) SK_OVERRIDE;
-    virtual void releaseReservedVertexSpace() SK_OVERRIDE;
-    virtual void releaseReservedIndexSpace() SK_OVERRIDE;
-    virtual void onSetVertexSourceToArray(const void* vertexArray,
-                                          int vertexCount) SK_OVERRIDE;
-    virtual void onSetIndexSourceToArray(const void* indexArray,
-                                         int indexCount) SK_OVERRIDE;
-    virtual void releaseVertexArray() SK_OVERRIDE;
-    virtual void releaseIndexArray() SK_OVERRIDE;
-    virtual void geometrySourceWillPush() SK_OVERRIDE;
-    virtual void geometrySourceWillPop(const GeometrySrcState& restoredState) SK_OVERRIDE;
-    virtual void willReserveVertexAndIndexSpace(int vertexCount,
-                                                int indexCount) SK_OVERRIDE;
-    virtual bool onCopySurface(GrSurface* dst,
-                               GrSurface* src,
-                               const SkIRect& srcRect,
-                               const SkIPoint& dstPoint)  SK_OVERRIDE;
-    virtual bool onCanCopySurface(GrSurface* dst,
-                                  GrSurface* src,
-                                  const SkIRect& srcRect,
-                                  const SkIPoint& dstPoint) SK_OVERRIDE;
-
-    bool quickInsideClip(const SkRect& devBounds);
-
-    virtual void didAddGpuTraceMarker() SK_OVERRIDE {}
-    virtual void didRemoveGpuTraceMarker() SK_OVERRIDE {}
-
-    // Attempts to concat instances from info onto the previous draw. info must represent an
-    // instanced draw. The caller must have already recorded a new draw state and clip if necessary.
-    int concatInstancedDraw(const DrawInfo& info);
-
-    // we lazily record state and clip changes in order to skip clips and states that have no
-    // effect.
-    bool needsNewState() const;
-    bool needsNewClip() const;
-
-    // these functions record a command
-    void            recordState();
-    void            recordClip();
-    DrawRecord*     recordDraw(const DrawInfo&);
-    StencilPath*    recordStencilPath();
-    DrawPath*       recordDrawPath();
-    DrawPaths*      recordDrawPaths();
-    Clear*          recordClear();
-    CopySurface*    recordCopySurface();
+    State* SK_WARN_UNUSED_RESULT setupPipelineAndShouldDraw(const GrPrimitiveProcessor*,
+                                                            const GrDrawTarget::PipelineInfo&);
+    State* SK_WARN_UNUSED_RESULT setupPipelineAndShouldDraw(GrBatch*,
+                                                            const GrDrawTarget::PipelineInfo&);
 
     // TODO: Use a single allocator for commands and records
     enum {
-        kCmdPreallocCnt          = 32,
-        kDrawPreallocCnt         = 8,
-        kStencilPathPreallocCnt  = 8,
-        kDrawPathPreallocCnt     = 8,
-        kDrawPathsPreallocCnt    = 8,
-        kStatePreallocCnt        = 8,
-        kClipPreallocCnt         = 8,
-        kClearPreallocCnt        = 4,
-        kGeoPoolStatePreAllocCnt = 4,
-        kCopySurfacePreallocCnt  = 4,
+        kPathIdxBufferMinReserve     = 2 * 64,  // 64 uint16_t's
+        kPathXformBufferMinReserve   = 2 * 64,  // 64 two-float transforms
+        kPipelineBufferMinReserve    = 32 * sizeof(State),
     };
 
-    SkSTArray<kCmdPreallocCnt, uint8_t, true>                          fCmds;
-    GrSTAllocator<kDrawPreallocCnt, DrawRecord>                        fDraws;
-    GrSTAllocator<kStencilPathPreallocCnt, StencilPath>                fStencilPaths;
-    GrSTAllocator<kDrawPathPreallocCnt, DrawPath>                      fDrawPath;
-    GrSTAllocator<kDrawPathsPreallocCnt, DrawPaths>                    fDrawPaths;
-    GrSTAllocator<kStatePreallocCnt, GrDrawState::DeferredState>       fStates;
-    GrSTAllocator<kClearPreallocCnt, Clear>                            fClears;
-    GrSTAllocator<kCopySurfacePreallocCnt, CopySurface>                fCopySurfaces;
-    GrSTAllocator<kClipPreallocCnt, SkClipStack>                       fClips;
-    GrSTAllocator<kClipPreallocCnt, SkIPoint>                          fClipOrigins;
-    SkTArray<GrTraceMarkerSet, false>                                  fGpuCmdMarkers;
+    // every 100 flushes we should reset our fPipelineBuffer to prevent us from holding at a
+    // highwater mark
+    static const int kPipelineBufferHighWaterMark = 100;
 
-    GrDrawTarget*                   fDstGpu;
+    SkAutoTDelete<GrCommandBuilder>     fCommands;
+    SkTArray<GrTraceMarkerSet, false>   fGpuCmdMarkers;
+    SkChunkAlloc                        fPathIndexBuffer;
+    SkChunkAlloc                        fPathTransformBuffer;
+    SkChunkAlloc                        fPipelineBuffer;
+    uint32_t                            fDrawID;
+    SkAutoTUnref<State>                 fPrevState;
 
-    bool                            fClipSet;
-
-    enum ClipProxyState {
-        kUnknown_ClipProxyState,
-        kValid_ClipProxyState,
-        kInvalid_ClipProxyState
-    };
-    ClipProxyState                  fClipProxyState;
-    SkRect                          fClipProxy;
-
-    GrVertexBufferAllocPool&        fVertexPool;
-
-    GrIndexBufferAllocPool&         fIndexPool;
-
-    struct GeometryPoolState {
-        const GrVertexBuffer*           fPoolVertexBuffer;
-        int                             fPoolStartVertex;
-        const GrIndexBuffer*            fPoolIndexBuffer;
-        int                             fPoolStartIndex;
-        // caller may conservatively over reserve vertices / indices.
-        // we release unused space back to allocator if possible
-        // can only do this if there isn't an intervening pushGeometrySource()
-        size_t                          fUsedPoolVertexBytes;
-        size_t                          fUsedPoolIndexBytes;
-    };
-    SkSTArray<kGeoPoolStatePreAllocCnt, GeometryPoolState> fGeoPoolStateStack;
-
-    virtual bool       isIssued(uint32_t drawID) { return drawID != fDrawID; }
-
-    void addToCmdBuffer(uint8_t cmd);
-
-    bool                            fFlushing;
-    uint32_t                        fDrawID;
-
-    typedef GrDrawTarget INHERITED;
+    typedef GrClipTarget INHERITED;
 };
 
 #endif

@@ -2,6 +2,8 @@
 #pragma version(1)
 #pragma rs java_package_name(foo)
 
+#include "rs_graphics.rsh"
+
 float f = 9.9999f;
 double d = 7.0;
 char c = 'a';
@@ -22,7 +24,6 @@ rs_allocation allocation;
 rs_sampler sampler;
 rs_script script;
 rs_mesh mesh;
-rs_path path;
 rs_program_fragment program_fragment;
 rs_program_vertex program_vertex;
 rs_program_raster program_raster;

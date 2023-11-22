@@ -94,8 +94,26 @@ public class Main {
       exception = e;
     }
 
+    // Test that we do NPE checks on array length.
+    exception = null;
+    try {
+      $opt$ArrayLengthOfNull(null);
+    } catch (NullPointerException e) {
+      exception = e;
+    }
+
     if (exception == null) {
       throw new Error("Missing NullPointerException");
+    }
+
+    result = $opt$InvokeVirtualMethod();
+    if (result != 42) {
+      throw new Error("Unexpected result: " + result);
+    }
+
+    String s = $opt$StringInit();
+    if (!s.equals("hello world")) {
+      throw new Error("Unexpected string: " + s);
     }
   }
 
@@ -203,6 +221,22 @@ public class Main {
 
   public static void $opt$SetFieldInOldObject(Main m) {
     m.o = new Main();
+  }
+
+  public static int $opt$InvokeVirtualMethod() {
+    return new Main().virtualMethod();
+  }
+
+  public int virtualMethod() {
+    return 42;
+  }
+
+  public static int $opt$ArrayLengthOfNull(int[] array) {
+    return array.length;
+  }
+
+  public static String $opt$StringInit() {
+    return new String("hello world");
   }
 
   Object o;

@@ -33,6 +33,8 @@ public class Log {
     public static final String CAMERA_LOGTAG_PREFIX = "CAM_";
     private static final Log.Tag TAG = new Log.Tag("Log");
 
+    private static boolean sSuppressForTesting = false;
+
     /**
      * This class restricts the length of the log tag to be less than the
      * framework limit and also prepends the common tag prefix defined by
@@ -65,6 +67,18 @@ public class Log {
         }
     }
 
+    public static void d(Tag tag, Object instance, String msg) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.d(tag.toString(), LogUtil.addTags(instance, msg));
+        }
+    }
+
+    public static void d(Tag tag, Object instance, String msg, String tags) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.d(tag.toString(), LogUtil.addTags(instance, msg, tags));
+        }
+    }
+
     public static void d(Tag tag, String msg, Throwable tr) {
         if (isLoggable(tag, android.util.Log.DEBUG)) {
             android.util.Log.d(tag.toString(), msg, tr);
@@ -74,6 +88,18 @@ public class Log {
     public static void e(Tag tag, String msg) {
         if (isLoggable(tag, android.util.Log.ERROR)) {
             android.util.Log.e(tag.toString(), msg);
+        }
+    }
+
+    public static void e(Tag tag, Object instance, String msg) {
+        if (isLoggable(tag, android.util.Log.ERROR)) {
+            android.util.Log.e(tag.toString(), LogUtil.addTags(instance, msg));
+        }
+    }
+
+    public static void e(Tag tag, Object instance, String msg, String tags) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.e(tag.toString(), LogUtil.addTags(instance, msg, tags));
         }
     }
 
@@ -89,6 +115,18 @@ public class Log {
         }
     }
 
+    public static void i(Tag tag, Object instance, String msg) {
+        if (isLoggable(tag, android.util.Log.INFO)) {
+            android.util.Log.i(tag.toString(), LogUtil.addTags(instance, msg));
+        }
+    }
+
+    public static void i(Tag tag, Object instance, String msg, String tags) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.i(tag.toString(), LogUtil.addTags(instance, msg, tags));
+        }
+    }
+
     public static void i(Tag tag, String msg, Throwable tr) {
         if (isLoggable(tag, android.util.Log.INFO)) {
             android.util.Log.i(tag.toString(), msg, tr);
@@ -98,6 +136,18 @@ public class Log {
     public static void v(Tag tag, String msg) {
         if (isLoggable(tag, android.util.Log.VERBOSE)) {
             android.util.Log.v(tag.toString(), msg);
+        }
+    }
+
+    public static void v(Tag tag, Object instance, String msg) {
+        if (isLoggable(tag, android.util.Log.VERBOSE)) {
+            android.util.Log.v(tag.toString(), LogUtil.addTags(instance, msg));
+        }
+    }
+
+    public static void v(Tag tag, Object instance, String msg, String tags) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.v(tag.toString(), LogUtil.addTags(instance, msg, tags));
         }
     }
 
@@ -113,19 +163,44 @@ public class Log {
         }
     }
 
+    public static void w(Tag tag, Object instance, String msg) {
+        if (isLoggable(tag, android.util.Log.WARN)) {
+            android.util.Log.w(tag.toString(), LogUtil.addTags(instance, msg));
+        }
+    }
+
+    public static void w(Tag tag, Object instance, String msg, String tags) {
+        if (isLoggable(tag, android.util.Log.DEBUG)) {
+            android.util.Log.w(tag.toString(), LogUtil.addTags(instance, msg, tags));
+        }
+    }
+
     public static void w(Tag tag, String msg, Throwable tr) {
         if (isLoggable(tag, android.util.Log.WARN)) {
             android.util.Log.w(tag.toString(), msg, tr);
         }
     }
 
+    /**
+     * If suppressed, logs will not output and won't execute Android framework
+     * classes.
+     *
+     * @param suppress if true, suppress log output
+     */
+    public static void suppressLogsForTesting(boolean suppress) {
+        sSuppressForTesting = suppress;
+    }
+
     private static boolean isLoggable(Tag tag, int level) {
+        if (sSuppressForTesting) {
+            return false;
+        }
         try {
-            if (LogHelper.getOverrideLevel() != 0) {
+            if (LogHelper.instance().getOverrideLevel() != 0) {
                 // Override system log level and output. VERBOSE is smaller than
                 // ERROR, so the comparison checks that the override value is smaller
                 // than the desired output level. This applies to all tags.
-                return LogHelper.getOverrideLevel() <= level;
+                return LogHelper.instance().getOverrideLevel() <= level;
             } else {
                 return ReleaseHelper.shouldLogVerbose() ||
                         isDebugOsBuild() || shouldLog(tag, level);

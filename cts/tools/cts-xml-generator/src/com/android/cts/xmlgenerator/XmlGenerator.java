@@ -20,6 +20,7 @@ import com.android.cts.util.AbiUtils;
 
 import vogar.Expectation;
 import vogar.ExpectationStore;
+import vogar.Result;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -228,7 +229,8 @@ class XmlGenerator {
     }
 
     public static boolean isKnownFailure(ExpectationStore expectationStore, String testName) {
-        return expectationStore != null && expectationStore.get(testName) != Expectation.SUCCESS;
+        return expectationStore != null
+            && expectationStore.get(testName).getResult() != Result.SUCCESS;
     }
 
     // Returns the list of ABIs supported by this TestCase on this architecture.

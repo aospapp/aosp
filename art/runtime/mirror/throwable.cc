@@ -45,7 +45,7 @@ void Throwable::SetCause(Throwable* cause) {
   CHECK(cause != nullptr);
   CHECK(cause != this);
   Throwable* current_cause = GetFieldObject<Throwable>(OFFSET_OF_OBJECT_MEMBER(Throwable, cause_));
-  CHECK(current_cause == NULL || current_cause == this);
+  CHECK(current_cause == nullptr || current_cause == this);
   if (Runtime::Current()->IsActiveTransaction()) {
     SetFieldObject<true>(OFFSET_OF_OBJECT_MEMBER(Throwable, cause_), cause);
   } else {
@@ -69,27 +69,47 @@ bool Throwable::IsCheckedException() {
   return !InstanceOf(WellKnownClasses::ToClass(WellKnownClasses::java_lang_RuntimeException));
 }
 
+int32_t Throwable::GetStackDepth() {
+  Object* stack_state = GetStackState();
+  if (stack_state == nullptr) {
+    return -1;
+  }
+  if (!stack_state->IsIntArray() && !stack_state->IsLongArray()) {
+    return -1;
+  }
+  mirror::PointerArray* method_trace = down_cast<mirror::PointerArray*>(stack_state->AsArray());
+  int32_t array_len = method_trace->GetLength();
+  // The format is [method pointers][pcs] so the depth is half the length (see method
+  // BuildInternalStackTraceVisitor::Init).
+  CHECK_EQ(array_len % 2, 0);
+  return array_len / 2;
+}
+
 std::string Throwable::Dump() {
   std::string result(PrettyTypeOf(this));
   result += ": ";
   String* msg = GetDetailMessage();
-  if (msg != NULL) {
+  if (msg != nullptr) {
     result += msg->ToModifiedUtf8();
   }
   result += "\n";
   Object* stack_state = GetStackState();
   // check stack state isn't missing or corrupt
-  if (stack_state != nullptr && stack_state->IsObjectArray()) {
+  if (stack_state != nullptr &&
+      (stack_state->IsIntArray() || stack_state->IsLongArray())) {
     // Decode the internal stack trace into the depth and method trace
-    ObjectArray<Object>* method_trace = down_cast<ObjectArray<Object>*>(stack_state);
-    int32_t depth = method_trace->GetLength() - 1;
-    IntArray* pc_trace = down_cast<IntArray*>(method_trace->Get(depth));
+    // Format is [method pointers][pcs]
+    auto* method_trace = down_cast<mirror::PointerArray*>(stack_state->AsArray());
+    auto array_len = method_trace->GetLength();
+    CHECK_EQ(array_len % 2, 0);
+    const auto depth = array_len / 2;
     if (depth == 0) {
       result += "(Throwable with empty stack trace)";
     } else {
+      auto ptr_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
       for (int32_t i = 0; i < depth; ++i) {
-        mirror::ArtMethod* method = down_cast<ArtMethod*>(method_trace->Get(i));
-        uint32_t dex_pc = pc_trace->Get(i);
+        ArtMethod* method = method_trace->GetElementPtrSize<ArtMethod*>(i, ptr_size);
+        uintptr_t dex_pc = method_trace->GetElementPtrSize<uintptr_t>(i + depth, ptr_size);
         int32_t line_number = method->GetLineNumFromDexPC(dex_pc);
         const char* source_file = method->GetDeclaringClassSourceFile();
         result += StringPrintf("  at %s (%s:%d)\n", PrettyMethod(method, true).c_str(),
@@ -101,17 +121,20 @@ std::string Throwable::Dump() {
     if (stack_trace != nullptr && stack_trace->IsObjectArray()) {
       CHECK_EQ(stack_trace->GetClass()->GetComponentType(),
                StackTraceElement::GetStackTraceElement());
-      ObjectArray<StackTraceElement>* ste_array =
-          down_cast<ObjectArray<StackTraceElement>*>(stack_trace);
+      auto* ste_array = down_cast<ObjectArray<StackTraceElement>*>(stack_trace);
       if (ste_array->GetLength() == 0) {
         result += "(Throwable with empty stack trace)";
       } else {
         for (int32_t i = 0; i < ste_array->GetLength(); ++i) {
           StackTraceElement* ste = ste_array->Get(i);
-          result += StringPrintf("  at %s (%s:%d)\n",
-                                 ste->GetMethodName()->ToModifiedUtf8().c_str(),
-                                 ste->GetFileName()->ToModifiedUtf8().c_str(),
-                                 ste->GetLineNumber());
+          DCHECK(ste != nullptr);
+          auto* method_name = ste->GetMethodName();
+          auto* file_name = ste->GetFileName();
+          result += StringPrintf(
+              "  at %s (%s:%d)\n",
+              method_name != nullptr ? method_name->ToModifiedUtf8().c_str() : "<unknown method>",
+              file_name != nullptr ? file_name->ToModifiedUtf8().c_str() : "(Unknown Source)",
+              ste->GetLineNumber());
         }
       }
     } else {
@@ -128,7 +151,7 @@ std::string Throwable::Dump() {
 
 void Throwable::SetClass(Class* java_lang_Throwable) {
   CHECK(java_lang_Throwable_.IsNull());
-  CHECK(java_lang_Throwable != NULL);
+  CHECK(java_lang_Throwable != nullptr);
   java_lang_Throwable_ = GcRoot<Class>(java_lang_Throwable);
 }
 
@@ -137,8 +160,8 @@ void Throwable::ResetClass() {
   java_lang_Throwable_ = GcRoot<Class>(nullptr);
 }
 
-void Throwable::VisitRoots(RootCallback* callback, void* arg) {
-  java_lang_Throwable_.VisitRootIfNonNull(callback, arg, RootInfo(kRootStickyClass));
+void Throwable::VisitRoots(RootVisitor* visitor) {
+  java_lang_Throwable_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
 }
 
 }  // namespace mirror

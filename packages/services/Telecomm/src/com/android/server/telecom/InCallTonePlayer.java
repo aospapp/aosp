@@ -33,13 +33,15 @@ public final class InCallTonePlayer extends Thread {
      */
     public static class Factory {
         private final CallAudioManager mCallAudioManager;
+        private final TelecomSystem.SyncRoot mLock;
 
-        Factory(CallAudioManager callAudioManager) {
+        Factory(CallAudioManager callAudioManager, TelecomSystem.SyncRoot lock) {
             mCallAudioManager = callAudioManager;
+            mLock = lock;
         }
 
         InCallTonePlayer createPlayer(int tone) {
-            return new InCallTonePlayer(tone, mCallAudioManager);
+            return new InCallTonePlayer(tone, mCallAudioManager, mLock);
         }
     }
 
@@ -58,6 +60,7 @@ public final class InCallTonePlayer extends Thread {
     public static final int TONE_RING_BACK = 11;
     public static final int TONE_UNOBTAINABLE_NUMBER = 12;
     public static final int TONE_VOICE_PRIVACY = 13;
+    public static final int TONE_VIDEO_UPGRADE = 14;
 
     private static final int RELATIVE_VOLUME_EMERGENCY = 100;
     private static final int RELATIVE_VOLUME_HIPRI = 80;
@@ -89,15 +92,22 @@ public final class InCallTonePlayer extends Thread {
     /** Current state of the tone player. */
     private int mState;
 
+    /** Telecom lock object. */
+    private final TelecomSystem.SyncRoot mLock;
+
     /**
      * Initializes the tone player. Private; use the {@link Factory} to create tone players.
      *
      * @param toneId ID of the tone to play, see TONE_* constants.
      */
-    private InCallTonePlayer(int toneId, CallAudioManager callAudioManager) {
+    private InCallTonePlayer(
+            int toneId,
+            CallAudioManager callAudioManager,
+            TelecomSystem.SyncRoot lock) {
         mState = STATE_OFF;
         mToneId = toneId;
         mCallAudioManager = callAudioManager;
+        mLock = lock;
     }
 
     /** {@inheritDoc} */
@@ -174,6 +184,12 @@ public final class InCallTonePlayer extends Thread {
                 case TONE_VOICE_PRIVACY:
                     // TODO: fill in.
                     throw new IllegalStateException("Voice privacy tone NYI.");
+                case TONE_VIDEO_UPGRADE:
+                    // Similar to the call waiting tone, but does not repeat.
+                    toneType = ToneGenerator.TONE_SUP_CALL_WAITING;
+                    toneVolume = RELATIVE_VOLUME_HIPRI;
+                    toneLengthMillis = 4000;
+                    break;
                 default:
                     throw new IllegalStateException("Bad toneId: " + mToneId);
             }
@@ -222,8 +238,6 @@ public final class InCallTonePlayer extends Thread {
     }
 
     void startTone() {
-        ThreadUtil.checkOnMainThread();
-
         sTonesPlaying++;
         if (sTonesPlaying == 1) {
             mCallAudioManager.setIsTonePlaying(true);
@@ -249,10 +263,12 @@ public final class InCallTonePlayer extends Thread {
         // Release focus on the main thread.
         mMainThreadHandler.post(new Runnable() {
             @Override public void run() {
-                if (sTonesPlaying == 0) {
-                    Log.wtf(this, "Over-releasing focus for tone player.");
-                } else if (--sTonesPlaying == 0) {
-                    mCallAudioManager.setIsTonePlaying(false);
+                synchronized (mLock) {
+                    if (sTonesPlaying == 0) {
+                        Log.wtf(this, "Over-releasing focus for tone player.");
+                    } else if (--sTonesPlaying == 0) {
+                        mCallAudioManager.setIsTonePlaying(false);
+                    }
                 }
             }
         });

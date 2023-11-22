@@ -51,6 +51,10 @@ public:
         return mLoopCount;
     }
 
+    virtual jobject getRawByteBuffer() const {
+        return mRawByteBuffer;
+    }
+
     virtual FrameSequenceState* createState() const;
 
     WebPDemuxer* getDemuxer() const { return mDemux; }
@@ -66,6 +70,7 @@ private:
     uint32_t mFormatFlags;
     // mIsKeyFrame[i] is true if ith canvas can be constructed without decoding any prior frames.
     bool* mIsKeyFrame;
+    jobject mRawByteBuffer;
 };
 
 // Produces frames of a possibly-animated WebP file for display.

@@ -21,10 +21,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.DeadObjectException;
 import android.os.IBinder;
 import android.security.cts.activity.ISecureRandomService;
 import android.security.cts.activity.SecureRandomService;
 import android.test.AndroidTestCase;
+import android.test.suitebuilder.annotation.LargeTest;
 
 import java.io.BufferedReader;
 import java.io.EOFException;
@@ -35,10 +37,11 @@ import java.util.BitSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+@LargeTest
 public class ClonedSecureRandomTest extends AndroidTestCase {
-    private static final int MAX_SHUTDOWN_TRIES = 10;
+    private static final int MAX_SHUTDOWN_TRIES = 50;
 
-    private static final int ANSWER_TIMEOUT_SECONDS = 60;
+    private static final int ANSWER_TIMEOUT_SECONDS = 180;
 
     private static final String SEPARATE_PROCESS_NAME = ":secureRandom";
 
@@ -120,6 +123,7 @@ public class ClonedSecureRandomTest extends AndroidTestCase {
          */
         int firstPid = -1;
         int previousPid = -1;
+        int lastPid = -1;
         for (int i = 0; i < MAX_PID; i++) {
             byte[] output = new byte[RANDOM_BYTES_PER_PID];
             int pid;
@@ -202,7 +206,9 @@ public class ClonedSecureRandomTest extends AndroidTestCase {
                 firstPid = pid;
             }
 
-            if (i > PRIMING_ITERATIONS) {
+            if (i <= PRIMING_ITERATIONS) {
+                lastPid = pid;
+            } else if (pid > lastPid && (lastPid > firstPid || pid < firstPid)) {
                 wastePids(firstPid, previousPid);
             }
         }

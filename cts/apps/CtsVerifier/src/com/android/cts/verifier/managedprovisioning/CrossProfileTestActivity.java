@@ -35,7 +35,12 @@ import com.android.cts.verifier.R;
  */
 public class CrossProfileTestActivity extends Activity {
     // Intent for app in both profiles
-    public static final String ACTION_CROSS_PROFILE = "com.android.cts.verifier.managedprovisioning.CROSS_PROFILE";
+    public static final String ACTION_CROSS_PROFILE_TO_PERSONAL =
+            "com.android.cts.verifier.managedprovisioning.CROSS_PROFILE_TO_PERSONAL";
+    public static final String ACTION_CROSS_PROFILE_TO_WORK =
+            "com.android.cts.verifier.managedprovisioning.CROSS_PROFILE_TO_WORK";
+    public static final String EXTRA_STARTED_FROM_WORK
+            = "com.android.cts.verifier.managedprovisioning.STARTED_FROM_WORK";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,9 +50,15 @@ public class CrossProfileTestActivity extends Activity {
 
         // Check if we are running in the work or personal side, by testing if currently we are the
         // profile owner or not.
-        textView.setText(isProfileOwner() ? R.string.provisioning_byod_cross_profile_app_work
-                : R.string.provisioning_byod_cross_profile_app_personal);
-
+        boolean inWorkProfile = isProfileOwner();
+        boolean startedFromWork = getIntent().getBooleanExtra(EXTRA_STARTED_FROM_WORK, false);
+        if (inWorkProfile && !startedFromWork) {
+            textView.setText(R.string.provisioning_byod_cross_profile_app_work);
+        } else if (!inWorkProfile && startedFromWork) {
+            textView.setText(R.string.provisioning_byod_cross_profile_app_personal);
+        } else { // started from the same side we're currently running in
+            textView.setText(R.string.provisioning_byod_cross_profile_app_ctsverifier);
+        }
         findViewById(R.id.button_finish).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {

@@ -17,19 +17,21 @@
 #ifndef BCC_RS_COMPILER_DRIVER_H
 #define BCC_RS_COMPILER_DRIVER_H
 
-#include "bcc/ExecutionEngine/CompilerRTSymbolResolver.h"
-#include "bcc/ExecutionEngine/SymbolResolvers.h"
-#include "bcc/ExecutionEngine/SymbolResolverProxy.h"
-#include "bcc/Renderscript/RSInfo.h"
-#include "bcc/Renderscript/RSCompiler.h"
+#include "bcc/Compiler.h"
 #include "bcc/Renderscript/RSScript.h"
+
+#include "bcinfo/MetadataExtractor.h"
+
+#include <list>
+#include <string>
+#include <vector>
 
 namespace bcc {
 
 class BCCContext;
 class CompilerConfig;
 class RSCompilerDriver;
-class RSExecutable;
+class Source;
 
 // Type signature for dynamically loaded initialization of an RSCompilerDriver.
 typedef void (*RSCompilerDriverInit_t) (bcc::RSCompilerDriver *);
@@ -39,7 +41,7 @@ typedef void (*RSCompilerDriverInit_t) (bcc::RSCompilerDriver *);
 class RSCompilerDriver {
 private:
   CompilerConfig *mConfig;
-  RSCompiler mCompiler;
+  Compiler mCompiler;
 
   // Are we compiling under an RS debug context with additional checks?
   bool mDebugContext;
@@ -54,26 +56,31 @@ private:
   // and work with.
   bool mEnableGlobalMerge;
 
+  // Specifies whether we should embed global variable information in the
+  // code via special RS variables that can be examined later by the driver.
+  bool mEmbedGlobalInfo;
+
+  // Specifies whether we should skip constant (immutable) global variables
+  // when potentially embedding information about globals.
+  bool mEmbedGlobalInfoSkipConstant;
+
   // Setup the compiler config for the given script. Return true if mConfig has
   // been changed and false if it remains unchanged.
   bool setupConfig(const RSScript &pScript);
 
   // Compiles the provided bitcode, placing the binary at pOutputPath.
-  // - If saveInfoFile is true, it also stores the RSInfo data in a file with a path derived from
-  //   pOutputPath.
-  // - pSourceHash and commandLineToEmbed are values to embed in the RSInfo for future cache
-  //   invalidation decision.
   // - If pDumpIR is true, a ".ll" file will also be created.
   Compiler::ErrorCode compileScript(RSScript& pScript, const char* pScriptName,
-                                    const char* pOutputPath, const char* pRuntimePath,
-                                    const RSInfo::DependencyHashTy& pSourceHash,
-                                    const char* commandLineToEmbed, bool saveInfoFile, bool pDumpIR);
+                                    const char* pOutputPath,
+                                    const char* pRuntimePath,
+                                    const char* pBuildChecksum,
+                                    bool pDumpIR);
 
 public:
   RSCompilerDriver(bool pUseCompilerRT = true);
   ~RSCompilerDriver();
 
-  RSCompiler *getCompiler() {
+  Compiler *getCompiler() {
     return &mCompiler;
   }
 
@@ -104,24 +111,51 @@ public:
     return mEnableGlobalMerge;
   }
 
+  // Set to true if we should embed global variable information in the code.
+  void setEmbedGlobalInfo(bool v) {
+    mEmbedGlobalInfo = v;
+  }
+
+  // Returns true if we should embed global variable information in the code.
+  bool getEmbedGlobalInfo() const {
+    return mEmbedGlobalInfo;
+  }
+
+  // Set to true if we should skip constant (immutable) global variables when
+  // potentially embedding information about globals.
+  void setEmbedGlobalInfoSkipConstant(bool v) {
+    mEmbedGlobalInfoSkipConstant = v;
+  }
+
+  // Returns true if we should skip constant (immutable) global variables when
+  // potentially embedding information about globals.
+  bool getEmbedGlobalInfoSkipConstant() const {
+    return mEmbedGlobalInfoSkipConstant;
+  }
+
   // FIXME: This method accompany with loadScript and compileScript should
   //        all be const-methods. They're not now because the getAddress() in
   //        SymbolResolverInterface is not a const-method.
   // Returns true if script is successfully compiled.
   bool build(BCCContext& pContext, const char* pCacheDir, const char* pResName,
-             const char* pBitcode, size_t pBitcodeSize, const char* commandLine,
-             const char* pRuntimePath, RSLinkRuntimeCallback pLinkRuntimeCallback = NULL,
+             const char* pBitcode, size_t pBitcodeSize,
+             const char *pBuildChecksum, const char* pRuntimePath,
+             RSLinkRuntimeCallback pLinkRuntimeCallback = nullptr,
              bool pDumpIR = false);
 
-  // Returns true if script is successfully compiled.
-  bool buildForCompatLib(RSScript &pScript, const char *pOut, const char *pRuntimePath);
+  bool buildScriptGroup(
+      BCCContext& Context, const char* pOutputFilepath, const char* pRuntimePath,
+      const char* pRuntimeRelaxedPath, bool dumpIR, const char* buildChecksum,
+      const std::vector<Source*>& sources,
+      const std::list<std::list<std::pair<int, int>>>& toFuse,
+      const std::list<std::string>& fused,
+      const std::list<std::list<std::pair<int, int>>>& invokes,
+      const std::list<std::string>& invokeBatchNames);
 
-  // Tries to load the the compiled bit code at pCacheDir of the given name.  It checks that
-  // the file has been compiled from the same bit code and with the same compile arguments as
-  // provided.
-  static RSExecutable* loadScript(const char* pCacheDir, const char* pResName, const char* pBitcode,
-                                  size_t pBitcodeSize, const char* expectedCompileCommandLine,
-                                  SymbolResolverProxy& pResolver);
+  // Returns true if script is successfully compiled.
+  bool buildForCompatLib(RSScript &pScript, const char *pOut,
+                         const char *pBuildChecksum, const char *pRuntimePath,
+                         bool pDumpIR);
 };
 
 } // end namespace bcc

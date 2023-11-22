@@ -50,7 +50,7 @@ public class BitmapFilterTests extends ActivityTestBase {
     };
     private static final BitmapVerifier GREY_ONLY_VERIFIER
             = new ColorVerifier(Color.argb(255, 127, 127, 127),
-            PerPixelBitmapVerifier.DEFAULT_THRESHOLD);
+            150); // content will be entirely grey, for a fairly wide range of grey
     private static final BitmapVerifier GREY_PARTIAL_VERIFIER
             = new ColorVerifier(Color.argb(255, 127, 127, 127),
             300, 0.8f); // content will be mostly grey, for a wide range of grey
@@ -69,7 +69,10 @@ public class BitmapFilterTests extends ActivityTestBase {
 
     private static final int SMALL_GRID_SIZE = 5;
     private Bitmap mSmallGridBitmap = createGridBitmap(SMALL_GRID_SIZE, SMALL_GRID_SIZE);
-    private static final int BIG_GRID_SIZE = 360;
+
+    // samples will occur in the middle of 4 pixels, 2 white
+    // and 2 black, and thus each be close to x7F7F7F grey
+    private static final int BIG_GRID_SIZE = TEST_WIDTH * 2;
     private Bitmap mBigGridBitmap = createGridBitmap(BIG_GRID_SIZE, BIG_GRID_SIZE);
 
     @SmallTest
@@ -117,6 +120,7 @@ public class BitmapFilterTests extends ActivityTestBase {
                     canvas.setDrawFilter(new PaintFlagsDrawFilter(Paint.FILTER_BITMAP_FLAG, 0));
                 }
                 canvas.drawBitmap(scaleUp ? mSmallGridBitmap : mBigGridBitmap, 0, 0, paint);
+                canvas.setDrawFilter(null);
             }
         };
         createTest()

@@ -43,6 +43,7 @@ public:
     static const unsigned MIN_OEM_ID;
     static const unsigned MAX_OEM_ID;
     static const unsigned LOCAL_NET_ID;
+    static const unsigned DUMMY_NET_ID;
 
     NetworkController();
 
@@ -55,6 +56,7 @@ public:
     uint32_t getNetworkForDns(unsigned* netId, uid_t uid) const;
     unsigned getNetworkForUser(uid_t uid) const;
     unsigned getNetworkForConnect(uid_t uid) const;
+    void getNetworkContext(unsigned netId, uid_t uid, struct android_net_context* netcontext) const;
     unsigned getNetworkForInterface(const char* interface) const;
     bool isVirtualNetwork(unsigned netId) const;
 

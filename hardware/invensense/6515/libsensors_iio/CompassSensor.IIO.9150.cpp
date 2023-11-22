@@ -332,6 +332,16 @@ void CompassSensor::fillList(struct sensor_t *list)
             return;
         }
         if(!strcmp(compass, "compass")
+                || !strcmp(compass, "INV_AK09912")
+                || !strcmp(compass, "AK09912")
+                || !strcmp(compass, "ak09912")) {
+            list->maxRange = COMPASS_AKM9912_RANGE;
+            list->resolution = COMPASS_AKM9912_RESOLUTION;
+            list->power = COMPASS_AKM9912_POWER;
+            list->minDelay = COMPASS_AKM9912_MINDELAY;
+            return;
+        }
+        if(!strcmp(compass, "compass")
                 || !strncmp(compass, "mlx90399",3)
                 || !strncmp(compass, "MLX90399",3)) {
             list->maxRange = COMPASS_MPU9350_RANGE;
@@ -368,28 +378,23 @@ int CompassSensor::inv_init_sysfs_attributes(void)
 {
     VFUNC_LOG;
 
-    unsigned char i = 0;
     char sysfs_path[MAX_SYSFS_NAME_LEN];
-    char iio_trigger_path[MAX_SYSFS_NAME_LEN], tbuf[2];
-    char *sptr;
-    char **dptr;
-    int num;
+    char iio_trigger_path[MAX_SYSFS_NAME_LEN];
 
-    pathP = (char*)malloc(
-                    sizeof(char[COMPASS_MAX_SYSFS_ATTRB][MAX_SYSFS_NAME_LEN]));
-    sptr = pathP;
-    dptr = (char**)&compassSysFs;
-    if (sptr == NULL)
+    pathP = (char*)calloc(COMPASS_MAX_SYSFS_ATTRB,
+                          sizeof(char[MAX_SYSFS_NAME_LEN]));
+    if (pathP == NULL)
         return -1;
 
     memset(sysfs_path, 0, sizeof(sysfs_path));
     memset(iio_trigger_path, 0, sizeof(iio_trigger_path));
 
-    do {
-        *dptr++ = sptr;
-        memset(sptr, 0, sizeof(sptr));
-        sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
-    } while (++i < COMPASS_MAX_SYSFS_ATTRB);
+    char *sptr = pathP;
+    char **dptr = reinterpret_cast<char **>(&compassSysFs);
+    for (size_t i = 0; i < COMPASS_MAX_SYSFS_ATTRB; i++) {
+      *dptr++ = sptr;
+      sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
+    }
 
     // get proper (in absolute/relative) IIO path & build MPU's sysfs paths
     // inv_get_sysfs_abs_path(sysfs_path);
@@ -397,6 +402,9 @@ int CompassSensor::inv_init_sysfs_attributes(void)
     inv_get_iio_trigger_path(iio_trigger_path);
 
 #if defined COMPASS_AK8975
+    char tbuf[2];
+    int num;
+
     inv_get_input_number(dev_name, &num);
     tbuf[0] = num + 0x30;
     tbuf[1] = 0;
@@ -415,12 +423,5 @@ int CompassSensor::inv_init_sysfs_attributes(void)
     sprintf(compassSysFs.compass_orient, "%s%s", sysfs_path, "/compass_matrix");
 #endif
 
-#if 0
-    // test print sysfs paths   
-    dptr = (char**)&compassSysFs;
-    for (i = 0; i < COMPASS_MAX_SYSFS_ATTRB; i++) {
-        LOGE("HAL:sysfs path: %s", *dptr++);
-    }
-#endif
     return 0;
 }

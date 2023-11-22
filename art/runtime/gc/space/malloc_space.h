@@ -19,7 +19,7 @@
 
 #include "space.h"
 
-#include <iostream>
+#include <ostream>
 #include <valgrind.h>
 #include <memcheck/memcheck.h>
 
@@ -55,17 +55,23 @@ class MallocSpace : public ContinuousMemMapAllocSpace {
 
   // Allocate num_bytes allowing the underlying space to grow.
   virtual mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes,
-                                          size_t* bytes_allocated, size_t* usable_size) = 0;
+                                          size_t* bytes_allocated, size_t* usable_size,
+                                          size_t* bytes_tl_bulk_allocated) = 0;
   // Allocate num_bytes without allowing the underlying space to grow.
   virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                size_t* usable_size) = 0;
-  // Return the storage space required by obj. If usable_size isn't nullptr then it is set to the
+                                size_t* usable_size, size_t* bytes_tl_bulk_allocated) = 0;
+  // Return the storage space required by obj. If usable_size isn't null then it is set to the
   // amount of the storage space that may be used by obj.
   virtual size_t AllocationSize(mirror::Object* obj, size_t* usable_size) = 0;
   virtual size_t Free(Thread* self, mirror::Object* ptr)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) = 0;
   virtual size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) = 0;
+
+  // Returns the maximum bytes that could be allocated for the given
+  // size in bulk, that is the maximum value for the
+  // bytes_allocated_bulk out param returned by MallocSpace::Alloc().
+  virtual size_t MaxBytesBulkAllocatedFor(size_t num_bytes) = 0;
 
 #ifndef NDEBUG
   virtual void CheckMoreCoreForPrecondition() {}  // to be overridden in the debug build.
@@ -110,13 +116,17 @@ class MallocSpace : public ContinuousMemMapAllocSpace {
     return GetMemMap()->Size();
   }
 
+  // Change the non growth limit capacity by shrinking or expanding the map. Currently, only
+  // shrinking is supported.
+  void ClampGrowthLimit();
+
   void Dump(std::ostream& os) const;
 
   void SetGrowthLimit(size_t growth_limit);
 
-  virtual MallocSpace* CreateInstance(const std::string& name, MemMap* mem_map, void* allocator,
-                                      byte* begin, byte* end, byte* limit, size_t growth_limit,
-                                      bool can_move_objects) = 0;
+  virtual MallocSpace* CreateInstance(MemMap* mem_map, const std::string& name, void* allocator,
+                                      uint8_t* begin, uint8_t* end, uint8_t* limit,
+                                      size_t growth_limit, bool can_move_objects) = 0;
 
   // Splits ourself into a zygote space and new malloc space which has our unused memory. When true,
   // the low memory mode argument specifies that the heap wishes the created space to be more
@@ -138,12 +148,12 @@ class MallocSpace : public ContinuousMemMapAllocSpace {
   }
 
  protected:
-  MallocSpace(const std::string& name, MemMap* mem_map, byte* begin, byte* end,
-              byte* limit, size_t growth_limit, bool create_bitmaps, bool can_move_objects,
+  MallocSpace(const std::string& name, MemMap* mem_map, uint8_t* begin, uint8_t* end,
+              uint8_t* limit, size_t growth_limit, bool create_bitmaps, bool can_move_objects,
               size_t starting_size, size_t initial_size);
 
   static MemMap* CreateMemMap(const std::string& name, size_t starting_size, size_t* initial_size,
-                              size_t* growth_limit, size_t* capacity, byte* requested_begin);
+                              size_t* growth_limit, size_t* capacity, uint8_t* requested_begin);
 
   // When true the low memory mode argument specifies that the heap wishes the created allocator to
   // be more aggressive in releasing unused pages.

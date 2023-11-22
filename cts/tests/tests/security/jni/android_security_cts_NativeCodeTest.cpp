@@ -16,10 +16,6 @@
 
 #include <jni.h>
 #include <linux/futex.h>
-#include <linux/netlink.h>
-#include <linux/sock_diag.h>
-#include <stdio.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -28,6 +24,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
@@ -37,9 +34,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/sysctl.h>
-
-#define PASSED 0
-#define UNKNOWN_ERROR -1
+#include <arpa/inet.h>
 
 /*
  * Returns true iff this device is vulnerable to CVE-2013-2094.
@@ -87,84 +82,6 @@ static jboolean android_security_cts_NativeCodeTest_doPerfEventTest2(JNIEnv* env
     close(fd[0]);
     close(fd[1]);
     return true;
-}
-
-/*
- * Will hang if vulnerable, return 0 if successful, -1 on unforseen
- * error.
- */
-static jint android_security_cts_NativeCodeTest_doSockDiagTest(JNIEnv* env, jobject thiz)
-{
-    int fd, nlmsg_size, err, len;
-    char buf[1024];
-    struct sockaddr_nl nladdr;
-    struct nlmsghdr *nlh;
-    struct msghdr msg;
-    struct iovec iov;
-    struct sock_diag_req* sock_diag_data;
-
-    int major, minor;
-    struct utsname uts;
-    if (uname(&uts) != -1 &&
-        sscanf(uts.release, "%d.%d", &major, &minor) == 2 &&
-        ((major > 3) || ((major == 3) && (minor > 8)))) {
-        // Kernels above 3.8 are patched against CVE-2013-1763
-        // This test generates false positives if run on > 3.8.
-        // b/17253473
-        return PASSED;
-    }
-
-    fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
-    if (fd == -1) {
-        switch (errno) {
-            /* NETLINK_SOCK_DIAG not accessible, vector dne */
-            case EACCES:
-            case EAFNOSUPPORT:
-            case EPERM:
-            case EPROTONOSUPPORT:
-                return PASSED;
-            default:
-                return UNKNOWN_ERROR;
-        }
-    }
-    /* prepare and send netlink packet */
-    memset(&nladdr, 0, sizeof(nladdr));
-    nladdr.nl_family = AF_NETLINK;
-    nlmsg_size = NLMSG_ALIGN(NLMSG_HDRLEN + sizeof(sock_diag_data));
-    nlh = (nlmsghdr *)malloc(nlmsg_size);
-    nlh->nlmsg_len = nlmsg_size;
-    nlh->nlmsg_pid = 0;      //send packet to kernel
-    nlh->nlmsg_type = SOCK_DIAG_BY_FAMILY;
-    nlh->nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
-    iov = { (void *) nlh, nlmsg_size };
-    msg = { (void *) &nladdr, sizeof(nladdr), &iov, 1, NULL, 0, 0 };
-    sock_diag_data = (sock_diag_req *) NLMSG_DATA(nlh);
-    sock_diag_data->sdiag_family = AF_MAX+1;
-    if ((err = sendmsg(fd, &msg, 0)) == -1) {
-        /* SELinux blocked it */
-        if (errno == 22) {
-            return PASSED;
-        } else {
-            return UNKNOWN_ERROR;
-        }
-    }
-    free(nlh);
-
-    memset(&nladdr, 0, sizeof(nladdr));
-    iov = { buf, sizeof(buf) };
-    msg = { (void *) &nladdr, sizeof(nladdr), &iov, 1, NULL, 0, 0 };
-    if ((len = recvmsg(fd, &msg, 0)) == -1) {
-        return UNKNOWN_ERROR;
-    }
-    for (nlh = (struct nlmsghdr *) buf; NLMSG_OK(nlh, len); nlh = NLMSG_NEXT (nlh, len)){
-        if (nlh->nlmsg_type == NLMSG_ERROR) {
-            /* -22 = -EINVAL from kernel */
-            if (*(int *)NLMSG_DATA(nlh) == -22) {
-                return PASSED;
-            }
-        }
-    }
-    return UNKNOWN_ERROR;
 }
 
 /*
@@ -282,20 +199,73 @@ static jboolean android_security_cts_NativeCodeTest_doFutexTest(JNIEnv*, jobject
     return (ret == -1 && errno == EINVAL);
 }
 
+static jboolean android_security_cts_NativeCodeTest_doNvmapIocFromIdTest(JNIEnv*, jobject)
+{
+    /*
+     * IOCTL code specified from the original notification.
+     * Also available in:
+     *     .../kernel/tegra/drivers/video/tegra/nvmap/nvmap_ioctl.h
+     * #define NVMAP_IOC_MAGIC 'N'
+     * #define NVMAP_IOC_FROM_ID _IOWR(NVMAP_IOC_MAGIC, 2, struct nvmap_create_handle)
+     */
+    const int NVMAP_IOC_FROM_ID = 0xc0084e02;
+    int       nvmap = open("/dev/nvmap", O_RDWR | O_CLOEXEC, 0);
+    bool      vulnerable = false;
+
+    if (nvmap >= 0) {
+        if (0 == ioctl(nvmap, NVMAP_IOC_FROM_ID)) {
+            /* IOCTL succeeded */
+            vulnerable = true;
+        }
+        else if (errno != ENOTTY) {
+            /* IOCTL failed, but provided the wrong error number */
+            vulnerable = true;
+        }
+
+        close(nvmap);
+    }
+
+    return !vulnerable;
+}
+
+static jboolean android_security_cts_NativeCodeTest_doPingPongRootTest(JNIEnv*, jobject)
+{
+    int icmp_sock;
+    struct sockaddr sock_addr;
+
+    memset(&sock_addr, 0, sizeof(sock_addr));
+    icmp_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+    sock_addr.sa_family = AF_INET;
+
+    /* first connect */
+    connect(icmp_sock, &sock_addr, sizeof(sock_addr));
+
+    /* disconnect */
+    sock_addr.sa_family = AF_UNSPEC;
+    connect(icmp_sock, &sock_addr, sizeof(sock_addr));
+
+    /* second disconnect -> crash */
+    sock_addr.sa_family = AF_UNSPEC;
+    connect(icmp_sock, &sock_addr, sizeof(sock_addr));
+
+    return true;
+}
 
 static JNINativeMethod gMethods[] = {
     {  "doPerfEventTest", "()Z",
             (void *) android_security_cts_NativeCodeTest_doPerfEventTest },
     {  "doPerfEventTest2", "()Z",
             (void *) android_security_cts_NativeCodeTest_doPerfEventTest2 },
-    {  "doSockDiagTest", "()I",
-            (void *) android_security_cts_NativeCodeTest_doSockDiagTest },
     {  "doVrootTest", "()Z",
             (void *) android_security_cts_NativeCodeTest_doVrootTest },
     {  "doCVE20141710Test", "()Z",
             (void *) android_security_cts_NativeCodeTest_doCVE20141710Test },
     {  "doFutexTest", "()Z",
             (void *) android_security_cts_NativeCodeTest_doFutexTest },
+    {  "doNvmapIocFromIdTest", "()Z",
+            (void *) android_security_cts_NativeCodeTest_doNvmapIocFromIdTest },
+    {  "doPingPongRootTest", "()Z",
+            (void *) android_security_cts_NativeCodeTest_doPingPongRootTest },
 };
 
 int register_android_security_cts_NativeCodeTest(JNIEnv* env)
@@ -304,3 +274,4 @@ int register_android_security_cts_NativeCodeTest(JNIEnv* env)
     return env->RegisterNatives(clazz, gMethods,
             sizeof(gMethods) / sizeof(JNINativeMethod));
 }
+

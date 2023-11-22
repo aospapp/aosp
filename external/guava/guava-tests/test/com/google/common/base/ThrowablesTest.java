@@ -31,9 +31,8 @@ import java.util.List;
 /**
  * Unit test for {@link Throwables}.
  *
- * @author Kevin Bourrillion 
+ * @author Kevin Bourrillion
  */
-@SuppressWarnings("serial") // this warning is silly for exceptions in tests 
 public class ThrowablesTest extends TestCase {
   public void testPropagateIfPossible_NoneDeclared_NoneThrown() {
     Sample sample = new Sample() {
@@ -442,7 +441,6 @@ public class ThrowablesTest extends TestCase {
     assertSame(cause, Throwables.getRootCause(exception));
   }
 
-  private static class SomeThrowable extends Throwable {}  
   private static class SomeError extends Error {}
   private static class SomeCheckedException extends Exception {}
   private static class SomeOtherCheckedException extends Exception {}
@@ -456,15 +454,7 @@ public class ThrowablesTest extends TestCase {
 
   static class Sample {
     void noneDeclared() {}
-    /*
-     * Subclasses of Sample will define methods with these signatures that throw
-     * these exceptions, so we must declare them in the throws clause here.
-     * Eclipse doesn't think being thrown from a subclass's non-public,
-     * non-protected method with the same signature counts as being "used."
-     */
-    @SuppressWarnings("unused")
     void oneDeclared() throws SomeCheckedException {}
-    @SuppressWarnings("unused")
     void twoDeclared() throws SomeCheckedException, SomeOtherCheckedException {}
   }
 
@@ -524,10 +514,7 @@ public class ThrowablesTest extends TestCase {
     }
   }
 
-  public void testNullPointers() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(Throwable.class, new SomeCheckedException());
-    tester.setDefault(Class.class, SomeCheckedException.class);
-    tester.testAllPublicStaticMethods(Throwables.class);
+  public void testNullPointers() {
+    new NullPointerTester().testAllPublicStaticMethods(Throwables.class);
   }
 }

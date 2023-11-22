@@ -32,6 +32,10 @@ public class WifiEnterpriseConfigTest extends AndroidTestCase {
     private static final String IDENTITY = "identity";
     private static final String PASSWORD = "password";
     private static final String SUBJECT_MATCH = "subjectmatch";
+    private static final String ALT_SUBJECT_MATCH = "altsubjectmatch";
+    private static final String DOM_SUBJECT_MATCH = "domsubjectmatch";
+    private static final String PLMN = "plmn";
+    private static final String REALM = "realm";
     private static final String ANON_IDENTITY = "anonidentity";
     private static final int ENABLE_DELAY = 10000;
 
@@ -87,6 +91,15 @@ public class WifiEnterpriseConfigTest extends AndroidTestCase {
         config.setClientKeyEntry(null, null);
         config.setSubjectMatch(SUBJECT_MATCH);
         assertTrue(config.getSubjectMatch().equals(SUBJECT_MATCH));
+        // Hotspot 2.0 related attributes
+        config.setPlmn(PLMN);
+        assertTrue(config.getPlmn().equals(PLMN));
+        config.setRealm(REALM);
+        assertTrue(config.getRealm().equals(REALM));
+        config.setAltSubjectMatch(ALT_SUBJECT_MATCH);
+        assertTrue(config.getAltSubjectMatch().equals(ALT_SUBJECT_MATCH));
+        config.setDomainSuffixMatch(DOM_SUBJECT_MATCH);
+        assertTrue(config.getDomainSuffixMatch().equals(DOM_SUBJECT_MATCH));
     }
 
     public void testAddEapNetwork() {

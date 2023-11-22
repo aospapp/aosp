@@ -73,15 +73,14 @@ protected:
     SkLightingImageFilter(SkLight* light,
                           SkScalar surfaceScale,
                           SkImageFilter* input,
-                          const CropRect* cropRect = NULL);
-    explicit SkLightingImageFilter(SkReadBuffer& buffer);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
-    const SkLight* light() const { return fLight; }
+                          const CropRect* cropRect);
+    void flatten(SkWriteBuffer&) const override;
+    const SkLight* light() const { return fLight.get(); }
     SkScalar surfaceScale() const { return fSurfaceScale; }
 
 private:
     typedef SkImageFilter INHERITED;
-    SkLight* fLight;
+    SkAutoTUnref<SkLight> fLight;
     SkScalar fSurfaceScale;
 };
 

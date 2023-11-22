@@ -4,13 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _RAO_FONTMAP_H_
-#define _RAO_FONTMAP_H_
+#ifndef FPDFSDK_INCLUDE_FORMFILLER_FFL_CBA_FONTMAP_H_
+#define FPDFSDK_INCLUDE_FORMFILLER_FFL_CBA_FONTMAP_H_
 
-#if _MSC_VER > 1000
-#pragma once
-#endif // _MSC_VER > 1000
+#include "../pdfwindow/PWL_FontMap.h"
 
+class CPDF_Dictionary;
 class CPDFSDK_Annot;
 
 class CBA_FontMap : public CPWL_FontMap
@@ -48,4 +47,4 @@ private:
 	CFX_ByteString				m_sAPType;
 };
 
-#endif // _RAO_FONTMAP_H_
+#endif  // FPDFSDK_INCLUDE_FORMFILLER_FFL_CBA_FONTMAP_H_

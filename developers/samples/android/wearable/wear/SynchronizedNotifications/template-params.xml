@@ -22,11 +22,12 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.synchronizednotifications</package>
 
-
-
-    <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
+    <targetSdkVersion>22</targetSdkVersion>
 
+    <wearable>
+        <has_handheld_app>true</has_handheld_app>
+    </wearable>
 
     <strings>
         <intro>

@@ -13,23 +13,19 @@
  */
 package com.android.tv.quicksettings;
 
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.support.v17.leanback.widget.OnChildSelectedListener;
 import android.support.v17.leanback.widget.VerticalGridView;
-import android.support.v7.widget.RecyclerView;
 import android.util.Log;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.Animation;
-import android.view.animation.AnimationSet;
-import android.view.animation.ScaleAnimation;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -38,17 +34,16 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 public class SettingsDialog extends Activity {
+
+    private static final int PRESET_SETTING_INDEX = 0;
+    private static final int INTEGER_SETTING_START_INDEX = 1;
 
     private static final String TAG = "SettingsDialog";
     private static final boolean DEBUG = true;
 
     static final String EXTRA_START_POS = "com.android.tv.quicksettings.START_POS";
-    static final String EXTRA_SETTINGS = "com.android.tv.quicksettings.SETTINGS";
-    static final String
-            RESULT_EXTRA_NEW_SETTINGS_VALUES = "com.android.tv.quicksettings.NEW_SETTINGS_VALUES";
     private static final int SETTING_INT_VALUE_MIN = 0;
     private static final int SETTING_INT_VALUE_STEP = 10;
 
@@ -56,13 +51,19 @@ public class SettingsDialog extends Activity {
     private SeekBar mSeekBar;
     private TextView mSettingValue;
     private DialogAdapter mAdapter;
-    private SettingSelectedListener mSettingSelectedListener = new SettingSelectedListener();
+    private final SettingSelectedListener mSettingSelectedListener = new SettingSelectedListener();
     private Setting mFocusedSetting;
     private ArrayList<Setting> mSettings;
+    private SharedPreferences mSharedPreferences;
+
+    private PresetSettingsListener mPresetSettingsListener;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        mPresetSettingsListener = new PresetSettingsListener(this);
 
         WindowManager.LayoutParams lp = getWindow().getAttributes();
         lp.height = WindowManager.LayoutParams.MATCH_PARENT;
@@ -81,17 +82,21 @@ public class SettingsDialog extends Activity {
         mPanelList.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_NO_EDGE);
         mPanelList.setOnChildSelectedListener(mSettingSelectedListener);
 
-        mSettings = getIntent().getParcelableArrayListExtra(EXTRA_SETTINGS);
-        int pivotX = getResources().getDimensionPixelSize(
-                R.dimen.main_panel_text_width_minus_padding);
-        int pivotY = getResources().getDimensionPixelSize(R.dimen.main_panel_text_height_half);
+        mSettings = getSettings();
+
+        final int pivotX;
+        if (getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
+            pivotX = getResources().getDimensionPixelSize(R.dimen.slider_horizontal_padding);
+        } else {
+            pivotX = getResources().getDimensionPixelSize(
+                    R.dimen.main_panel_text_width_minus_padding);
+        }
+        final int pivotY = getResources().getDimensionPixelSize(R.dimen.main_panel_text_height_half);
 
         mAdapter = new DialogAdapter(mSettings, pivotX, pivotY, new SettingClickedListener() {
             @Override
             public void onSettingClicked(Setting s) {
                 if (s.getType() != Setting.TYPE_UNKNOWN) {
-                    setResult(RESULT_OK, new Intent().putExtra(RESULT_EXTRA_NEW_SETTINGS_VALUES,
-                            mSettings));
                     finish();
                 } else {
                     new AlertDialog.Builder(SettingsDialog.this).setPositiveButton(
@@ -99,18 +104,11 @@ public class SettingsDialog extends Activity {
                                 @Override
                                 public void onClick(DialogInterface dialog, int id) {
                                     // User clicked OK button
-                                    String[] presetSettingChoices = getResources().getStringArray(
-                                            R.array.setting_preset_choices);
-                                    mSettings.get(QuickSettings.PRESET_SETTING_INDEX).setValue(
-                                            presetSettingChoices[getResources().getInteger(
+                                    String[] presetSettingValues = getResources().getStringArray(
+                                            R.array.setting_preset_values);
+                                    mSettings.get(PRESET_SETTING_INDEX).setValue(
+                                            presetSettingValues[getResources().getInteger(
                                                     R.integer.standard_setting_index)]);
-                                    int[] newSettingValues = getResources().getIntArray(
-                                            R.array.standard_setting_values);
-                                    for (int i = 0; i < newSettingValues.length; i++) {
-                                        mSettings.get(i + QuickSettings.INTEGER_SETTING_START_INDEX)
-                                                .setValue(
-                                                        newSettingValues[i]);
-                                    }
                                 }
                             }).setNegativeButton(android.R.string.cancel,
                             new DialogInterface.OnClickListener() {
@@ -124,7 +122,7 @@ public class SettingsDialog extends Activity {
         });
 
         mPanelList.setAdapter(mAdapter);
-        mPanelList.setSelectedPosition(startPos);
+        mPanelList.setSelectedPosition(startPos + 1);
         mPanelList.requestFocus();
 
         mSeekBar = (SeekBar) findViewById(R.id.main_slider);
@@ -132,12 +130,40 @@ public class SettingsDialog extends Activity {
         mSettingValue = (TextView) findViewById(R.id.setting_value);
     }
 
-    private class SettingSelectedListener implements OnChildSelectedListener {
-        private static final float ALPHA_UNSELECTED = 0.3f;
-        private static final float ALPHA_SELECTED = 1.0f;
-        private static final float SCALE_UNSELECTED = 1.0f;
-        private static final float SCALE_SELECTED = 1.3f;
+    @Override
+    protected void onResume() {
+        super.onResume();
 
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(mPresetSettingsListener);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        mSharedPreferences.unregisterOnSharedPreferenceChangeListener(mPresetSettingsListener);
+    }
+
+    private ArrayList<Setting> getSettings() {
+        ArrayList<Setting> settings = new ArrayList<>();
+
+        settings.add(new Setting(mSharedPreferences, "preset",
+                getString(R.string.setting_preset_name)));
+
+        String[] settingNames = getResources().getStringArray(R.array.setting_names);
+        String[] settingKeys = getResources().getStringArray(R.array.setting_keys);
+        int[] maxSettingValues = getResources().getIntArray(R.array.setting_max_values);
+        for (int i = 0; i < settingNames.length; i++) {
+            settings.add(
+                    new Setting(mSharedPreferences, settingKeys[i], settingNames[i],
+                            maxSettingValues[i]));
+        }
+        settings.add(new Setting(getString(R.string.setting_reset_defaults_name)));
+
+        return settings;
+    }
+
+    private class SettingSelectedListener implements OnChildSelectedListener {
         @Override
         public void onChildSelected(ViewGroup parent, View view, int position, long id) {
             mFocusedSetting = mSettings.get(position);
@@ -163,7 +189,7 @@ public class SettingsDialog extends Activity {
     }
 
     @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
+    public boolean onKeyUp(int keyCode, @NonNull KeyEvent event) {
         if (mFocusedSetting == null) {
             return super.onKeyUp(keyCode, event);
         }
@@ -199,8 +225,8 @@ public class SettingsDialog extends Activity {
         mSeekBar.setProgress(mFocusedSetting.getIntValue());
         mSettingValue.setText(Integer.toString(mFocusedSetting.getIntValue()));
         String[] presetSettingChoices = getResources().getStringArray(
-                R.array.setting_preset_choices);
-        mSettings.get(QuickSettings.PRESET_SETTING_INDEX).setValue(
+                R.array.setting_preset_values);
+        mSettings.get(PRESET_SETTING_INDEX).setValue(
                 presetSettingChoices[getResources().getInteger(R.integer.custom_setting_index)]);
     }
 
@@ -211,8 +237,9 @@ public class SettingsDialog extends Activity {
 
         String[] presetSettingChoices = getResources().getStringArray(
                 R.array.setting_preset_choices);
+        String[] presetSettingValues = getResources().getStringArray(R.array.setting_preset_values);
 
-        int currentIndex = Arrays.asList(presetSettingChoices).indexOf(
+        int currentIndex = Arrays.asList(presetSettingValues).indexOf(
                 mFocusedSetting.getStringValue());
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_RIGHT:
@@ -224,9 +251,9 @@ public class SettingsDialog extends Activity {
             default:
                 return super.onKeyUp(keyCode, event);
         }
-        int newIndex = (currentIndex + presetSettingChoices.length) % presetSettingChoices.length;
-        mFocusedSetting.setValue(presetSettingChoices[newIndex]);
-        mSettingValue.setText(mFocusedSetting.getStringValue());
+        int newIndex = (currentIndex + presetSettingValues.length) % presetSettingValues.length;
+        mFocusedSetting.setValue(presetSettingValues[newIndex]);
+        mSettingValue.setText(presetSettingChoices[newIndex]);
         int[] newSettingValues = null;
         if (newIndex == getResources().getInteger(R.integer.standard_setting_index)) {
             newSettingValues = getResources().getIntArray(R.array.standard_setting_values);
@@ -239,7 +266,7 @@ public class SettingsDialog extends Activity {
         }
         if (newSettingValues != null) {
             for (int i = 0; i < newSettingValues.length; i++) {
-                mSettings.get(i + QuickSettings.INTEGER_SETTING_START_INDEX).setValue(
+                mSettings.get(i + INTEGER_SETTING_START_INDEX).setValue(
                         newSettingValues[i]);
             }
         }

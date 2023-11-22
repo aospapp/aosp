@@ -18,6 +18,7 @@ package android.uirendering.cts.testinfrastructure;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -32,13 +33,14 @@ import com.android.cts.uirendering.R;
  * A generic activity that uses a view specified by the user.
  */
 public class DrawActivity extends Activity {
-    private final static long TIME_OUT = 10000;
-    private final Object mLock = new Object();
+    private final static long TIME_OUT_MS = 10000;
+    private final Point mLock = new Point();
     public static final int MIN_NUMBER_OF_DRAWS = 20;
 
     private Handler mHandler;
     private View mView;
-    private boolean mOnWatch;
+    private View mViewWrapper;
+    private boolean mOnTv;
 
     public void onCreate(Bundle bundle){
         super.onCreate(bundle);
@@ -46,14 +48,14 @@ public class DrawActivity extends Activity {
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN);
         mHandler = new RenderSpecHandler();
         int uiMode = getResources().getConfiguration().uiMode;
-        mOnWatch = (uiMode & Configuration.UI_MODE_TYPE_WATCH) == Configuration.UI_MODE_TYPE_WATCH;
+        mOnTv = (uiMode & Configuration.UI_MODE_TYPE_TELEVISION) == Configuration.UI_MODE_TYPE_TELEVISION;
     }
 
-    public boolean getOnWatch() {
-        return mOnWatch;
+    public boolean getOnTv() {
+        return mOnTv;
     }
 
-    public void enqueueRenderSpecAndWait(int layoutId, CanvasClient canvasClient, String webViewUrl,
+    public Point enqueueRenderSpecAndWait(int layoutId, CanvasClient canvasClient, String webViewUrl,
             @Nullable ViewInitializer viewInitializer, boolean useHardware) {
         ((RenderSpecHandler) mHandler).setViewInitializer(viewInitializer);
         int arg2 = (useHardware ? View.LAYER_TYPE_NONE : View.LAYER_TYPE_SOFTWARE);
@@ -65,13 +67,16 @@ public class DrawActivity extends Activity {
             mHandler.obtainMessage(RenderSpecHandler.LAYOUT_MSG, layoutId, arg2).sendToTarget();
         }
 
+        Point point = new Point();
         synchronized (mLock) {
             try {
-                mLock.wait(TIME_OUT);
+                mLock.wait(TIME_OUT_MS);
+                point.set(mLock.x, mLock.y);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+        return point;
     }
 
     private class RenderSpecHandler extends Handler {
@@ -89,6 +94,7 @@ public class DrawActivity extends Activity {
             int drawCountDelay = 0;
             setContentView(R.layout.test_container);
             ViewStub stub = (ViewStub) findViewById(R.id.test_content_stub);
+            mViewWrapper = findViewById(R.id.test_content_wrapper);
             switch (message.what) {
                 case LAYOUT_MSG: {
                     stub.setLayoutResource(message.arg1);
@@ -115,9 +121,12 @@ public class DrawActivity extends Activity {
             }
 
             if (mViewInitializer != null) {
-                mViewInitializer.intializeView(mView);
+                mViewInitializer.initializeView(mView);
             }
-            mView.setLayerType(message.arg2, null);
+
+            // set layer on wrapper parent of view, so view initializer
+            // can control layer type of View under test.
+            mViewWrapper.setLayerType(message.arg2, null);
 
             DrawCounterListener onDrawListener = new DrawCounterListener(drawCountDelay);
 
@@ -137,11 +146,13 @@ public class DrawActivity extends Activity {
 
         @Override
         public boolean onPreDraw() {
+
             mCurrentDraws++;
             if (mCurrentDraws < MIN_NUMBER_OF_DRAWS + mExtraDraws) {
                 mView.postInvalidate();
             } else {
                 synchronized (mLock) {
+                    mLock.set(mViewWrapper.getLeft(), mViewWrapper.getTop());
                     mLock.notify();
                 }
                 mView.getViewTreeObserver().removeOnPreDrawListener(this);

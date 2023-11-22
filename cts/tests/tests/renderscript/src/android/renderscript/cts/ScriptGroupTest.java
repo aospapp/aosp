@@ -34,6 +34,8 @@ import android.util.Log;
 
 public class ScriptGroupTest extends RSBaseCompute {
 
+    private static final String TAG = "ScriptGroupTest";
+    private static final int ARRAY_SIZE = 256;
     static int bDimX = 48;
     static int bDimY = 8;
 
@@ -308,5 +310,243 @@ public class ScriptGroupTest extends RSBaseCompute {
         }
 
         checkForErrors();
+    }
+
+    /**
+     * Tests that kernel-to-kernel dependency via input/output is handled correctly
+     */
+    public void testBuilder2PointWiseKernelToKernelDependency() {
+        ScriptC_increment s_inc = new ScriptC_increment(mRS);
+        ScriptC_double s_double = new ScriptC_double(mRS);
+        mRS.setMessageHandler(mRsMessage);
+
+        int[] array = new int[ARRAY_SIZE * 4];
+
+        for (int i = 0; i < ARRAY_SIZE * 4; i++) {
+            array[i] = i;
+        }
+
+        Allocation input = Allocation.createSized(mRS, Element.I32_4(mRS), ARRAY_SIZE);
+        input.copyFrom(array);
+
+        ScriptGroup.Builder2 builder = new ScriptGroup.Builder2(mRS);
+
+        ScriptGroup.Input unbound = builder.addInput();
+
+        Type connectType = Type.createX(mRS, Element.I32_4(mRS), ARRAY_SIZE);
+
+        ScriptGroup.Closure c0 =
+                builder.addKernel(s_inc.getKernelID_increment(),
+                                  connectType,
+                                  unbound);
+
+        ScriptGroup.Closure c1 =
+                builder.addKernel(s_double.getKernelID_doubleKernel(),
+                                  connectType,
+                                  c0.getReturn());
+
+        ScriptGroup group = builder.create("IncAndDbl", c1.getReturn());
+
+        int[] a = new int[ARRAY_SIZE * 4];
+        ((Allocation)group.execute(input)[0]).copyTo(a);
+
+        mRS.finish();
+
+        boolean failed = false;
+        for (int i = 0; i < ARRAY_SIZE * 4; i++) {
+            if (a[i] != (i+1) * 2) {
+                Log.e(TAG, "a["+i+"]="+a[i]+", should be "+ ((i+1) * 2));
+                failed = true;
+            }
+        }
+
+        assertTrue(!failed);
+    }
+
+    /**
+     * Tests that kernel-to-kernel dependency via global allocations is handled correctly
+     */
+    public void testBuilder2GatherScatterAcrossKernelsViaGlobals() {
+        ScriptC_reduction s = new ScriptC_reduction(mRS);
+
+        int[] array = new int[ARRAY_SIZE * 4];
+
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            array[i*4] = i * 7;
+            array[i*4 + 1] = i * 7;
+            array[i*4 + 2] = i * 7;
+            array[i*4 + 3] = i * 7;
+        }
+
+        Allocation input = Allocation.createSized(mRS, Element.I32_4(mRS), ARRAY_SIZE);
+        input.copyFrom(array);
+
+        ScriptGroup.Builder2 builder = new ScriptGroup.Builder2(mRS);
+
+        ScriptGroup.Input unbound = builder.addInput();
+
+        ScriptGroup.Closure c = null;
+        ScriptGroup.Binding b2 = new ScriptGroup.Binding(s.getFieldID_a(), unbound);
+        for (int stride = ARRAY_SIZE / 2; stride >= 1; stride >>= 1) {
+            ScriptGroup.Binding b1 = new ScriptGroup.Binding(s.getFieldID_reduction_stride(),
+                                                             stride);
+            c = builder.addKernel(s.getKernelID_add(),
+                                  Type.createX(mRS, Element.I32_4(mRS), stride),
+                                  b1, b2);
+            b2 = new ScriptGroup.Binding(s.getFieldID_a(), c.getReturn());
+        }
+
+        if (c == null) {
+            return;
+        }
+
+        ScriptGroup group = builder.create("Summation", c.getReturn());
+
+        int[] a = new int[4];
+        ((Allocation)group.execute(input)[0]).copyTo(a);
+
+        mRS.finish();
+
+        boolean failed = false;
+        for (int i = 0; i < 4; i++) {
+            if (failed == false && a[i] != ARRAY_SIZE * (ARRAY_SIZE - 1) * 7 / 2) {
+                Log.e(TAG,
+                      "a["+i+"]="+a[i]+", should be "+ (ARRAY_SIZE * (ARRAY_SIZE - 1) * 7 / 2));
+                failed = true;
+            }
+        }
+
+        assertTrue(!failed);
+    }
+
+    /**
+     * Tests that the kernel output to a global can be used as a future
+     */
+    public void testBuilder2KernelOutputToGlobal() {
+        ScriptC_reduction s = new ScriptC_reduction(mRS);
+
+        int[] array = new int[ARRAY_SIZE * 4];
+
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            array[i*4] = i;
+            array[i*4 + 1] = i;
+            array[i*4 + 2] = i;
+            array[i*4 + 3] = i;
+        }
+
+        Allocation input = Allocation.createSized(mRS, Element.I32_4(mRS), ARRAY_SIZE);
+        input.copyFrom(array);
+        Allocation input1 = Allocation.createSized(mRS, Element.I32_4(mRS), ARRAY_SIZE);
+
+        ScriptGroup.Builder2 builder = new ScriptGroup.Builder2(mRS);
+
+        ScriptGroup.Input unbound = builder.addInput();
+
+        ScriptGroup.Closure c = null;
+        ScriptGroup.Binding b2 = new ScriptGroup.Binding(s.getFieldID_a(), unbound);
+        for (int stride = ARRAY_SIZE / 2; stride >= 1; stride >>= 1) {
+            ScriptGroup.Binding b1 = new ScriptGroup.Binding(s.getFieldID_reduction_stride(),
+                                                             stride);
+            c = builder.addKernel(s.getKernelID_add2(),
+                                  Type.createX(mRS, Element.I32_4(mRS), stride),
+                                  b1, b2);
+            b2 = new ScriptGroup.Binding(s.getFieldID_a(),
+                                         c.getGlobal(s.getFieldID_a()));
+        }
+
+        if (c == null) {
+            return;
+        }
+
+        ScriptGroup group = builder.create("SummationGlobal", c.getGlobal(s.getFieldID_a()));
+
+        int[] a = new int[4 * ARRAY_SIZE];
+        ((Allocation)group.execute(input, input1)[0]).copyTo(a);
+
+        mRS.finish();
+
+        boolean failed = false;
+        for (int i = 0; i < 4; i++) {
+            if (failed == false && a[i] != ARRAY_SIZE * (ARRAY_SIZE - 1) / 2) {
+                Log.e(TAG,
+                      "a["+i+"]="+a[i]+", should be "+ (ARRAY_SIZE * (ARRAY_SIZE - 1) / 2));
+                failed = true;
+            }
+        }
+
+        assertTrue(!failed);
+    }
+
+    /**
+     * Tests that invoke-to-kernel dependency is handled correctly
+     */
+    public void testBuilder2InvokeToKernelDependency() {
+        ScriptC_matrix s = new ScriptC_matrix(mRS);
+
+        float[] array = new float[ARRAY_SIZE * 4];
+
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            array[i * 4] = i * 4 * 7;
+            array[i * 4 + 1] = (i * 4 + 1) * 7;
+            array[i * 4 + 2] = (i * 4 + 2) * 7;
+            array[i * 4 + 3] = (i * 4 + 3) * 7;
+        }
+
+        Allocation input = Allocation.createSized(mRS, Element.F32_4(mRS), ARRAY_SIZE);
+        input.copyFrom(array);
+
+        ScriptGroup.Builder2 builder = new ScriptGroup.Builder2(mRS);
+
+        ScriptGroup.Input unbound = builder.addInput();
+
+        Matrix4f mat = new Matrix4f();
+
+        mat.set(0, 0, 0.0f);
+        mat.set(0, 1, 0.0f);
+        mat.set(0, 2, 0.0f);
+        mat.set(0, 3, 1.0f);
+
+        mat.set(1, 0, 1.0f);
+        mat.set(1, 1, 0.0f);
+        mat.set(1, 2, 0.0f);
+        mat.set(1, 3, 0.0f);
+
+        mat.set(2, 0, 0.0f);
+        mat.set(2, 1, 1.0f);
+        mat.set(2, 2, 0.0f);
+        mat.set(2, 3, 0.0f);
+
+        mat.set(3, 0, 0.0f);
+        mat.set(3, 1, 0.0f);
+        mat.set(3, 2, 1.0f);
+        mat.set(3, 3, 0.0f);
+
+        ScriptGroup.Closure c1 =
+                builder.addInvoke(s.getInvokeID_setMatrix(), mat);
+
+        ScriptGroup.Closure c2 =
+                builder.addKernel(s.getKernelID_multiply(),
+                                  Type.createX(mRS, Element.F32_4(mRS), ARRAY_SIZE),
+                                  unbound);
+
+        ScriptGroup group = builder.create("Multiply", c2.getReturn());
+
+        float[] a = new float[ARRAY_SIZE * 4];
+        ((Allocation)group.execute(input)[0]).copyTo(a);
+
+        mRS.finish();
+
+        boolean failed = false;
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            for (int j = 0; j < 4; j++) {
+                float expected = (i*4+((j+1)%4))*7;
+                if (failed == false && a[i * 4 + j] != expected) {
+                    Log.e(TAG, "a["+i+"]="+a[i]+", should be "+ expected);
+                    failed = true;
+                }
+            }
+        }
+
+        assertTrue(!failed);
     }
 }

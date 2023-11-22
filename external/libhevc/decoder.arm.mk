@@ -3,7 +3,7 @@ libhevcd_inc_dir_arm   +=  $(LOCAL_PATH)/common/arm
 
 libhevcd_srcs_c_arm    +=  decoder/arm/ihevcd_function_selector.c
 libhevcd_srcs_c_arm    +=  decoder/arm/ihevcd_function_selector_noneon.c
-libhevcd_cflags_arm    += -DDISABLE_NEONINTR  -DARM -DARMGCC
+libhevcd_cflags_arm    += -DDISABLE_NEONINTR  -DARM -DARMGCC -fno-tree-vectorize
 
 LOCAL_ARM_MODE         := arm
 

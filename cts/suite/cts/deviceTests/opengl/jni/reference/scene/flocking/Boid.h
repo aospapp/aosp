@@ -16,6 +16,7 @@
 #define BOID_H
 
 #include <graphics/Vector2D.h>
+#include <utils/Compat.h>
 
 class Boid {
 public:
@@ -24,14 +25,14 @@ public:
     void flock(const Boid* boids[], int numBoids, int index, float limitX, float limitY);
     // The following floats are the parameters for the flocking algorithm, changing these
     // modifies the boid's behaviour.
-    static const float MAX_SPEED = 2.0f;// Upper limit of boid velocity.
-    static const float MAX_FORCE = 0.05f;// Upper limit of the force used to push a boid.
-    static const float NEIGHBOUR_RADIUS = 70.0f;// Radius used to find neighbours, was 50.
-    static const float DESIRED_BOID_DIST = 35.0f;// Distance boids want to be from others, was 25.
+    static const CONSTEXPR float MAX_SPEED = 2.0f;// Upper limit of boid velocity.
+    static const CONSTEXPR float MAX_FORCE = 0.05f;// Upper limit of the force used to push a boid.
+    static const CONSTEXPR float NEIGHBOUR_RADIUS = 70.0f;// Radius used to find neighbours, was 50.
+    static const CONSTEXPR float DESIRED_BOID_DIST = 35.0f;// Distance boids want to be from others, was 25.
     // The weightings of the components.
-    static const float SEPARATION_WEIGHT = 2.0f;
-    static const float ALIGNMENT_WEIGHT = 1.0f;
-    static const float COHESION_WEIGHT = 1.0f;
+    static const CONSTEXPR float SEPARATION_WEIGHT = 2.0f;
+    static const CONSTEXPR float ALIGNMENT_WEIGHT = 1.0f;
+    static const CONSTEXPR float COHESION_WEIGHT = 1.0f;
     Vector2D mPosition;
     Vector2D mVelocity;
     Vector2D mAcceleration;

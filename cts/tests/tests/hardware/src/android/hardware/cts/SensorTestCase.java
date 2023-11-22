@@ -32,15 +32,12 @@ public abstract class SensorTestCase extends AndroidTestCase {
     protected static final String LOG_TAG = "TestRunner";
 
     /**
-     * By default tests need to run in a {@link TestSensorEnvironment} that assumes each sensor is
-     * running with a load of several listeners, requesting data at different rates.
-     *
-     * In a better world the component acting as builder of {@link SensorOperation} would compute
-     * this value based on the tests composed.
-     *
-     * Ideally, each {@link Sensor} object would expose this information to clients.
+     * Previously for L release, we had this flag to know if each sensor is running with multiple
+     * listeners each requesting different data rates. Now before running CTS tests all sensors
+     * are de-activated by putting SensorService in RESTRICTED mode. Only CTS tests can
+     * activate/deactivate sensors in this mode. So we can default this flag value to false.
      */
-    private volatile boolean mEmulateSensorUnderLoad = true;
+    private volatile boolean mEmulateSensorUnderLoad = false;
 
     /**
      * By default the test class is the root of the test hierarchy.

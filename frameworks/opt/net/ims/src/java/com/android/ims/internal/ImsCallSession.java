@@ -18,7 +18,10 @@ package com.android.ims.internal;
 
 import android.os.Message;
 import android.os.RemoteException;
+import android.telecom.Connection;
 
+import java.util.Objects;
+import android.util.Log;
 import com.android.ims.ImsCallProfile;
 import com.android.ims.ImsConferenceState;
 import com.android.ims.ImsReasonInfo;
@@ -375,6 +378,18 @@ public class ImsCallSession {
          */
         public void callSessionTtyModeReceived(ImsCallSession session,
                                        int mode) {
+            // no-op
+        }
+
+        /**
+         * Notifies of a change to the multiparty state for this {@code ImsCallSession}.
+         *
+         * @param session The call session.
+         * @param isMultiParty {@code true} if the session became multiparty, {@code false}
+         *      otherwise.
+         */
+        public void callSessionMultipartyStateChanged(ImsCallSession session,
+                boolean isMultiParty) {
             // no-op
         }
     }
@@ -1019,10 +1034,9 @@ public class ImsCallSession {
         @Override
         public void callSessionMergeStarted(IImsCallSession session,
                 IImsCallSession newSession, ImsCallProfile profile) {
-            if (mListener != null) {
-                mListener.callSessionMergeStarted(ImsCallSession.this,
-                        new ImsCallSession(newSession), profile);
-            }
+            // This callback can be used for future use to add additional
+            // functionality that may be needed between conference start and complete
+            Log.d(TAG, "callSessionMergeStarted");
         }
 
         /**
@@ -1031,9 +1045,25 @@ public class ImsCallSession {
          * @param session The call session.
          */
         @Override
-        public void callSessionMergeComplete(IImsCallSession session) {
+        public void callSessionMergeComplete(IImsCallSession newSession) {
             if (mListener != null) {
-                mListener.callSessionMergeComplete(ImsCallSession.this);
+                if (newSession != null) {
+                    // Check if the active session is the same session that was
+                    // active before the merge request was sent.
+                    ImsCallSession validActiveSession = ImsCallSession.this;
+                    try {
+                        if (!Objects.equals(miSession.getCallId(), newSession.getCallId())) {
+                            // New session created after conference
+                            validActiveSession = new ImsCallSession(newSession);
+                        }
+                    } catch (RemoteException rex) {
+                        Log.e(TAG, "callSessionMergeComplete: exception for getCallId!");
+                    }
+                    mListener.callSessionMergeComplete(validActiveSession);
+               } else {
+                   // Session already exists. Hence no need to pass
+                   mListener.callSessionMergeComplete(null);
+               }
             }
         }
 
@@ -1178,6 +1208,9 @@ public class ImsCallSession {
             }
         }
 
+        /**
+         * Notifies of handover failure info for this call
+         */
         @Override
         public void callSessionHandoverFailed(IImsCallSession session,
                                        int srcAccessTech, int targetAccessTech,
@@ -1196,6 +1229,21 @@ public class ImsCallSession {
                 int mode) {
             if (mListener != null) {
                 mListener.callSessionTtyModeReceived(ImsCallSession.this, mode);
+            }
+        }
+
+        /**
+         * Notifies of a change to the multiparty state for this {@code ImsCallSession}.
+         *
+         * @param session The call session.
+         * @param isMultiParty {@code true} if the session became multiparty, {@code false}
+         *      otherwise.
+         */
+        public void callSessionMultipartyStateChanged(IImsCallSession session,
+                boolean isMultiParty) {
+
+            if (mListener != null) {
+                mListener.callSessionMultipartyStateChanged(ImsCallSession.this, isMultiParty);
             }
         }
     }

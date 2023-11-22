@@ -17,7 +17,16 @@
 #include <jni.h>
 #include <selinux/selinux.h>
 #include <JNIHelp.h>
+#include <ScopedLocalRef.h>
 #include <ScopedUtfChars.h>
+#include <UniquePtr.h>
+
+struct SecurityContext_Delete {
+    void operator()(security_context_t p) const {
+        freecon(p);
+    }
+};
+typedef UniquePtr<char[], SecurityContext_Delete> Unique_SecurityContext;
 
 /*
  * Function: checkSELinuxAccess
@@ -63,17 +72,56 @@ static jboolean android_security_cts_SELinuxTest_checkSELinuxContext(JNIEnv *env
     return (validContext == 0) ? true : false;
 }
 
+/*
+ * Function: getFileContext
+ * Purpose: retrieves the context associated with the given path in the file system
+ * Parameters:
+ *        path: given path in the file system
+ * Returns:
+ *        string representing the security context string of the file object
+ *        the string may be NULL if an error occured
+ * Exceptions: NullPointerException if the path object is null
+ */
+static jstring getFileContext(JNIEnv *env, jobject, jstring pathStr) {
+    ScopedUtfChars path(env, pathStr);
+    if (path.c_str() == NULL) {
+        return NULL;
+    }
+
+    security_context_t tmp = NULL;
+    int ret = getfilecon(path.c_str(), &tmp);
+    Unique_SecurityContext context(tmp);
+
+    ScopedLocalRef<jstring> securityString(env, NULL);
+    if (ret != -1) {
+        securityString.reset(env->NewStringUTF(context.get()));
+    }
+
+    return securityString.release();
+}
 
 static JNINativeMethod gMethods[] = {
     {  "checkSELinuxAccess", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
             (void *) android_security_cts_SELinuxTest_checkSELinuxAccess },
     {  "checkSELinuxContext", "(Ljava/lang/String;)Z",
             (void *) android_security_cts_SELinuxTest_checkSELinuxContext },
+    { "getFileContext", "(Ljava/lang/String;)Ljava/lang/String;",
+            (void*) getFileContext },
 };
+
+static int log_callback(int type __attribute__((unused)), const char *fmt __attribute__((unused)), ...)
+{
+    /* do nothing - silence the avc denials */
+    return 0;
+}
 
 int register_android_security_cts_SELinuxTest(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/security/cts/SELinuxTest");
+    union selinux_callback cb;
+    cb.func_log = log_callback;
+    selinux_set_callback(SELINUX_CB_LOG, cb);
+
     return env->RegisterNatives(clazz, gMethods,
             sizeof(gMethods) / sizeof(JNINativeMethod));
 }

@@ -1,5 +1,6 @@
 package org.bouncycastle.jcajce.provider.symmetric.util;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.security.AlgorithmParameters;
@@ -178,11 +179,11 @@ public class BaseBlockCipher
 
     protected byte[] engineGetIV()
     {
-        // BEGIN android-added
-        if (aeadParams != null) {
+        if (aeadParams != null)
+        {
             return aeadParams.getNonce();
         }
-        // END android-added
+
         return (ivParam != null) ? ivParam.getIV() : null;
     }
 
@@ -206,7 +207,7 @@ public class BaseBlockCipher
             {
                 try
                 {
-                    engineParams = AlgorithmParameters.getInstance(pbeAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                    engineParams = createParametersInstance(pbeAlgorithm);
                     engineParams.init(pbeSpec);
                 }
                 catch (Exception e)
@@ -225,7 +226,7 @@ public class BaseBlockCipher
 
                 try
                 {
-                    engineParams = AlgorithmParameters.getInstance(name, BouncyCastleProvider.PROVIDER_NAME);
+                    engineParams = createParametersInstance(name);
                     engineParams.init(ivParam.getIV());
                 }
                 catch (Exception e)
@@ -237,7 +238,7 @@ public class BaseBlockCipher
             {
                 try
                 {
-                    engineParams = AlgorithmParameters.getInstance("GCM", BouncyCastleProvider.PROVIDER_NAME);
+                    engineParams = createParametersInstance("GCM");
                     engineParams.init(new GCMParameters(aeadParams.getNonce(), aeadParams.getMacSize()).getEncoded());
                 }
                 catch (Exception e)
@@ -360,7 +361,9 @@ public class BaseBlockCipher
         // {
         //     if (engineProvider != null)
         //     {
-        //         // Nonce restricted to max 120 bits over 128 bit block cipher since draft-irtf-cfrg-ocb-03
+        //         /*
+        //          * RFC 7253 4.2. Nonce is a string of no more than 120 bits
+        //          */
         //         ivLength = 15;
         //         cipher = new AEADGenericBlockCipher(new OCBBlockCipher(baseEngine, engineProvider.get()));
         //     }
@@ -849,10 +852,6 @@ public class BaseBlockCipher
         {
             throw new IllegalBlockSizeException(e.getMessage());
         }
-        catch (InvalidCipherTextException e)
-        {
-            throw new BadPaddingException(e.getMessage());
-        }
 
         if (len == tmp.length)
         {
@@ -893,10 +892,6 @@ public class BaseBlockCipher
         {
             throw new IllegalBlockSizeException(e.getMessage());
         }
-        catch (InvalidCipherTextException e)
-        {
-            throw new BadPaddingException(e.getMessage());
-        }
     }
 
     private boolean isAEADModeName(
@@ -935,7 +930,8 @@ public class BaseBlockCipher
             throws DataLengthException;
 
         public int doFinal(byte[] out, int outOff)
-            throws IllegalStateException, InvalidCipherTextException;
+            throws IllegalStateException,
+            BadPaddingException;
     }
 
     private static class BufferedGenericBlockCipher
@@ -1004,15 +1000,48 @@ public class BaseBlockCipher
             return cipher.processBytes(in, inOff, len, out, outOff);
         }
 
-        public int doFinal(byte[] out, int outOff) throws IllegalStateException, InvalidCipherTextException
+        public int doFinal(byte[] out, int outOff) throws IllegalStateException, BadPaddingException
         {
-            return cipher.doFinal(out, outOff);
+            try
+            {
+                return cipher.doFinal(out, outOff);
+            }
+            catch (InvalidCipherTextException e)
+            {
+                throw new BadPaddingException(e.getMessage());
+            }
         }
     }
 
     private static class AEADGenericBlockCipher
         implements GenericBlockCipher
     {
+        private static final Constructor aeadBadTagConstructor;
+
+        static {
+            Class aeadBadTagClass = lookup("javax.crypto.AEADBadTagException");
+            if (aeadBadTagClass != null)
+            {
+                aeadBadTagConstructor = findExceptionConstructor(aeadBadTagClass);
+            }
+            else
+            {
+                aeadBadTagConstructor = null;
+            }
+        }
+
+        private static Constructor findExceptionConstructor(Class clazz)
+        {
+            try
+            {
+                return clazz.getConstructor(new Class[]{String.class});
+            }
+            catch (Exception e)
+            {
+                return null;
+            }
+        }
+
         private AEADBlockCipher cipher;
 
         AEADGenericBlockCipher(AEADBlockCipher cipher)
@@ -1066,9 +1095,33 @@ public class BaseBlockCipher
             return cipher.processBytes(in, inOff, len, out, outOff);
         }
 
-        public int doFinal(byte[] out, int outOff) throws IllegalStateException, InvalidCipherTextException
+        public int doFinal(byte[] out, int outOff) throws IllegalStateException, BadPaddingException
         {
-            return cipher.doFinal(out, outOff);
+            try
+            {
+                return cipher.doFinal(out, outOff);
+            }
+            catch (InvalidCipherTextException e)
+            {
+                if (aeadBadTagConstructor != null)
+                {
+                    BadPaddingException aeadBadTag = null;
+                    try
+                    {
+                        aeadBadTag = (BadPaddingException)aeadBadTagConstructor
+                                .newInstance(new Object[]{e.getMessage()});
+                    }
+                    catch (Exception i)
+                    {
+                        // Shouldn't happen, but fall through to BadPaddingException
+                    }
+                    if (aeadBadTag != null)
+                    {
+                        throw aeadBadTag;
+                    }
+                }
+                throw new BadPaddingException(e.getMessage());
+            }
         }
     }
 }

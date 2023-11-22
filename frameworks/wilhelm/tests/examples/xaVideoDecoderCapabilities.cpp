@@ -298,7 +298,7 @@ destroyRes:
 
 
 //-----------------------------------------------------------------
-int main(int argc, char* const argv[])
+int main(int argc __unused, char* const argv[])
 {
     XAresult    result;
     XAObjectItf sl;

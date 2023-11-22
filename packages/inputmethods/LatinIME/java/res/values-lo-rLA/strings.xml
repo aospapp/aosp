@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"ສຽງໃນການກົດປຸ່ມ"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"ໂຕອັກສອນເວລາພິມ"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"​​ການ​ຕັ້ງ​ຄ່າ"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"​ລັກ​ສະ​ນະ &amp; ໂຄງ​ຮ່າງ"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"ຕົວເລືອກຫຼາຍພາສາ"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"ບັນຊີ &amp; ​ຄວາມ​ເປັນ​ສ່ວນ​ຕົວ"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"​ລັກ​ສະ​ນະ &amp; ໂຄງ​ຮ່າງ"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"​ກາ​ນ​ພິມ​ແບບ​ລາກ​ນິ້ວ"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"​ການ​ແປງ​ຄຳ​ໃຫ້​ຖືກ​ຕ້ອງ"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"​ຂັ້ນ​ສູງ"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"ຮູບແບບສີສັນ"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"ເປີດ​ນຳ​ໃຊ້​ແປ້ນ​ພິມ​ແຍກ​ຕົວ"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"ການ​ຊິງ​ຄ໌​ແປ້ນ​ພິມ Google"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"ຊິງ​ຄ໌​ເປ​ີດ​ແລ້ວ"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"ຊິງ​ຄ໌​ພົດ​ຈະ​ນາ​ນຸ​ກົມ​ສ່ວນ​ຕົວ​ຂອງ​ທ່ານ​ໃນ​ທຸກ​ອຸ​ປະ​ກອນ"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"ຊິງ​ຄ໌ດຽວນີ້"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"ລຶບ​ຂໍ້​ມູນ​ຄ​ລາວ"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"ລຶບ​ຂໍ້​ມູນ​ທີ່​ຊິງ​ຄ໌​ແລ້ວ​ຂອງ​ທ່ານ​ຈາກ Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"ຂໍ້​ມູນ​ທີ່​ຊິງ​ຄ໌​ແລ້ວ​ຂອງ​ທ່ານ​ຈະ​ຖືກ​ລຶບ​ໄປ​ຈາກ​ຄ​ລາວ. ທ່ານ​ແນ່​ໃຈ​ບໍ?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"ລຶບ"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"ຍົກເລີກ"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"ພົດ​ຈະ​ນາ​ນຸ​ກົມ​ສ່ວນ​ຕົວ​ຂອງ​ທ່ານ​ຈະ​ຖືກ​ຊິງ​ຄ໌ ແລະ​ສຳ​ຮອງ​ໄປ​ໃສ່​ເຊີບ​ເວີ Google. ຂໍ້​ມູນ​ສະ​ຖິ​ຕິ​ຂອງ​ຄວາມ​ຖີ່​ຄຳ​ເວົ້າ​ອາດ​ຈະ​ຖືກ​ເກັບ​ກຳ ເພື່ອ​ຊ່ວຍ​ປັບ​ປຸງ​ຜະ​ລິດ​ຕະ​ພັນ​ຂອງ​ທ່ານ. ການ​ເກັບ​ກຳ ແລະ​ການ​ນຳ​ໃຊ້​ທຸກ​ຂໍ້​ມູນ​ຈະ​ເປັນ​ໄປ​ຕາມ "<a href="https://www.google.com/policies/privacy">"ນະ​ໂຍ​ບາຍ​ຄວາມ​ເປັນ​ສ່ວນ​ຕົວ​ຂອງ Googl"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"ກະ​ລຸ​ນາ​ເພີ່ມ​ບັນ​ຊີ Google ໃສ່​ອຸ​ປະ​ກອນ​ນີ້ ເພື່ອ​ເປີດ​ໃຊ້​ງານ​ຄຸນ​ສົມ​ບັດ​ນີ້"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"ບໍ່​ມີ​ການ​ຊິງ​ຄ໌​ໃຫ້​ສຳ​ລັບ​ອຸ​ປະ​ກອນ​ທີ່​ມີ Google Apps ສຳ​ລັບ​ບັນ​ຊີ Business"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"ປ່ຽນໄປໃຊ້ການປ້ອນຂໍ້ມູນແບບອື່ນ"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"ໂຕປ່ຽນພາສາເປັນທັງໂຕປ່ຽນຮູບແບບການປ້ອນຂໍ້ມູນເຊັ່ນກັນ"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"ປຸ່ມປ່ຽນພາສາ"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"ແຕະ​ບ່ອນ​ນີ້​ເພື່ອ​ບັນ​ທຶກ"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"ມີວັດຈະນານຸກົມ"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"ສີສັນແປ້ນພິມ"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"ສະລັບບັນຊີ"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"​ບໍ່​ໄດ້​ເລືອກ​ບັນ​ຊີ​ເທື່ອ"</string>
+    <string name="account_selected" msgid="2846876462199625974">"ຕອນ​ນີ້​ກຳ​ລັງ​ໃຊ້ <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ຕົກລົງ"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"​ຍົກ​ເລີກ"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"ອອກຈາກລະບົບ"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"​ເລືອກ​ບັນ​ຊີ​ທີ່​ຈະ​ໃຊ້"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"ອັງກິດ (ສະຫະລາດຊະອານາຈັກ)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"ອັງກິດ (ສະຫະລັດຯ)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"ສະເປນ (ອາເມລິກາ)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"ຮິງ​ລິສ"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"ເຊີ​ບຽນ (​ລາ​ຕິນ)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"ອັງ​ກິດ (ສະ​ຫະ​ລາດ​ຊະ​ອາ​ນາ​ຈັກ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"ອັງ​ກິດ (ສະ​ຫະ​ລັດຯ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"ສະ​ແປນ​ນິດ (ສະ​ຫະ​ລັດຯ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"ຮິງ​ລິສ (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"ເຊີ​ບຽນ (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ດັ້ງ​ເດີມ)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ຊິ​ຣິວ​ລິກ)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ລາ​ຕິນ)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ກະ​ທັດ​ຮັດ)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"ບໍ່ມີພາສາ (ໂຕອັກສອນ)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"ໂຕອັກສອນ (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"ໂຕອັກສອນ (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"ຮູບແບບການປ້ອນຂໍ້ມູນທີ່ຄືກັນມີຢູ່ແລ້ວ: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"ໄລຍະເວລາຂອງການສັ່ນໃນການກົດປຸ່ມ"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"ລະດັບສຽງຂອງການກົດປຸ່ມ"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"ໄລຍະເວລາຂອງການກົດປຸ່ມ"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Emoji ສຳ​ລັບ​ແປ້ນ​ພິມ​ແທ້"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"ປຸ່ມ Alt ແທ້​ສະ​ແດງ​ແຜ່ນ​ຮອງ emoji"</string>
     <string name="button_default" msgid="3988017840431881491">"ຄ່າເລີ່ມຕົ້ນ"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"ຍິນ​ດີ​ຕ້ອນ​ຮັບສູ່ <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"ດ້ວຍການພິມແບບ Gesture"</string>

@@ -7,6 +7,10 @@ import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
+/**
+ * A calculator that tries to intelligently determine cache sizes for a given device based on some constants and the
+ * devices screen density, width, and height.
+ */
 public class MemorySizeCalculator {
     private static final String TAG = "MemorySizeCalculator";
 
@@ -20,8 +24,8 @@ public class MemorySizeCalculator {
     private final int memoryCacheSize;
 
     interface ScreenDimensions {
-        public int getWidthPixels();
-        public int getHeightPixels();
+        int getWidthPixels();
+        int getHeightPixels();
     }
 
     public MemorySizeCalculator(Context context) {
@@ -55,10 +59,16 @@ public class MemorySizeCalculator {
         }
     }
 
+    /**
+     * Returns the recommended memory cache size for the device it is run on in bytes.
+     */
     public int getMemoryCacheSize() {
         return memoryCacheSize;
     }
 
+    /**
+     * Returns the recommended bitmap pool size for the device it is run on in bytes.
+     */
     public int getBitmapPoolSize() {
         return bitmapPoolSize;
     }
@@ -66,22 +76,23 @@ public class MemorySizeCalculator {
     private static int getMaxSize(ActivityManager activityManager) {
         final int memoryClassBytes = activityManager.getMemoryClass() * 1024 * 1024;
         final boolean isLowMemoryDevice = isLowMemoryDevice(activityManager);
-        return Math.round(memoryClassBytes *
-                (isLowMemoryDevice ? LOW_MEMORY_MAX_SIZE_MULTIPLIER : MAX_SIZE_MULTIPLIER));
+        return Math.round(memoryClassBytes
+                * (isLowMemoryDevice ? LOW_MEMORY_MAX_SIZE_MULTIPLIER : MAX_SIZE_MULTIPLIER));
     }
 
     private static int toMb(int bytes) {
         return bytes / (1024 * 1024);
     }
 
-    @TargetApi(19)
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     private static boolean isLowMemoryDevice(ActivityManager activityManager) {
         final int sdkInt = Build.VERSION.SDK_INT;
-        return sdkInt < 11 || (sdkInt >= 19 && activityManager.isLowRamDevice());
+        return sdkInt < Build.VERSION_CODES.HONEYCOMB
+                || (sdkInt >= Build.VERSION_CODES.KITKAT && activityManager.isLowRamDevice());
     }
 
     private static class DisplayMetricsScreenDimensions implements ScreenDimensions {
-        private DisplayMetrics displayMetrics;
+        private final DisplayMetrics displayMetrics;
 
         public DisplayMetricsScreenDimensions(DisplayMetrics displayMetrics) {
             this.displayMetrics = displayMetrics;

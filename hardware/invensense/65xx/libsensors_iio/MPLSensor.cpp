@@ -257,12 +257,8 @@ MPLSensor::MPLSensor(CompassSensor *compass, int (*m_pt2AccelCalLoadFunc)(long *
     VFUNC_LOG;
 
     inv_error_t rv;
-    int i, fd;
-    char *port = NULL;
+    int fd;
     char *ver_str;
-    unsigned long mSensorMask;
-    int res;
-    FILE *fptr;
 
     mCompassSensor = compass;
 
@@ -897,7 +893,7 @@ void MPLSensor::loadDMP(void)
 {
     VFUNC_LOG;
 
-    int res, fd;
+    int fd;
     FILE *fptr;
 
     if (isMpuNonDmp()) {
@@ -2052,7 +2048,6 @@ int MPLSensor::enableSensors(unsigned long sensors, int en, uint32_t changed)
 
     inv_error_t res = -1;
     int on = 1;
-    int off = 0;
     int cal_stored = 0;
 
     // Sequence to enable or disable a sensor
@@ -2328,8 +2323,6 @@ int MPLSensor::setBatch(int en, int toggleEnable)
     VFUNC_LOG;
 
     int res = 0;
-    int64_t wanted = 1000000000LL;
-    int64_t timeout = 0;
     int timeoutInMs = 0;
     int featureMask = computeBatchDataOutput();
 
@@ -2704,7 +2697,6 @@ int MPLSensor::gmHandler(sensors_event_t* s)
 int MPLSensor::psHandler(sensors_event_t* s)
 {
     VHANDLER_LOG;
-    int8_t status;
     int update = 0;
 
     s->pressure = mCachedPressureData / 100.f; //hpa (millibar)
@@ -2878,7 +2870,6 @@ int MPLSensor::enable(int32_t handle, int en)
     // pthread_mutex_lock(&mHALMutex);
 
     if ((uint32_t(newState) << what) != (mEnabled & (1 << what))) {
-        uint32_t sensor_type;
         short flags = newState;
         uint32_t lastEnabled = mEnabled, changed = 0;
 
@@ -3217,13 +3208,8 @@ int MPLSensor::update_delay(void)
         int64_t gyroRate;
         int64_t accelRate;
         int64_t compassRate;
-        int64_t pressureRate;
         
         int rateInus;
-        int mplGyroRate;
-        int mplAccelRate;
-        int mplCompassRate;
-        int tempRate = wanted;
 
         /* search the minimum delay requested across all enabled sensors */
         for (int i = 0; i < NumSensors; i++) {
@@ -3237,13 +3223,11 @@ int MPLSensor::update_delay(void)
             gyroRate = mDelays[Gyro] < mDelays[RawGyro] ? mDelays[Gyro] : mDelays[RawGyro];
             accelRate = mDelays[Accelerometer];
             compassRate = mDelays[MagneticField] < mDelays[RawMagneticField] ? mDelays[MagneticField] : mDelays[RawMagneticField];
-            pressureRate = mDelays[Pressure];
             
 #ifdef ENABLE_MULTI_RATE
             gyroRate = wanted;
             accelRate = wanted;
             compassRate = wanted;
-            pressureRate = wanted;   
             // same delay for 3rd party Accel or Compass
             wanted_3rd_party_sensor = wanted;
 #endif
@@ -3253,7 +3237,6 @@ int MPLSensor::update_delay(void)
             gyroRate = wanted;
             accelRate = wanted;
             compassRate = wanted;
-            pressureRate = wanted;   
             // same delay for 3rd party Accel or Compass
             wanted_3rd_party_sensor = wanted;
         }        
@@ -3303,7 +3286,6 @@ int MPLSensor::update_delay(void)
                     "mFeatureActiveMask=%016llx", mFeatureActiveMask);
             //TODO: may be able to combine DMP_FEATURE_MASK, DMP_SENSOR_MASK in the future
             if(mFeatureActiveMask & DMP_FEATURE_MASK) {
-                bool setDMPrate= 0;
                 gyroRate = wanted;
                 accelRate = wanted;
                 compassRate = wanted;      
@@ -3335,7 +3317,6 @@ int MPLSensor::update_delay(void)
                         LOGV_IF(ENG_VERBOSE, "HAL:MPL quat sample rate: "
                                 "(mpl)=%d us (mpu)=%.2f Hz", 
                                 rateInus, 1000000000.f / wanted);
-                        setDMPrate= 1;
                     }
                 }
             }
@@ -3564,7 +3545,7 @@ int MPLSensor::readAccelEvents(sensors_event_t* data, int count)
 
     int numEventReceived = 0;
     input_event const* event;
-    int nb, done = 0;
+    int done = 0;
 
     while (done == 0 && count && mAccelInputReader.readEvent(&event)) {
         int type = event->type;
@@ -3711,7 +3692,7 @@ void MPLSensor::buildMpuEvent(void)
         ped_quaternion_on = 0, ped_standalone_on = 0;
     size_t nbyte;
     unsigned short data_format = 0;
-    int i, nb, mask = 0,
+    int mask = 0,
         sensors = ((mLocalSensorMask & INV_THREE_AXIS_GYRO)? 1 : 0) +
             ((mLocalSensorMask & INV_THREE_AXIS_ACCEL)? 1 : 0) +
             (((mLocalSensorMask & INV_THREE_AXIS_COMPASS)
@@ -3955,7 +3936,6 @@ void MPLSensor::buildMpuEvent(void)
         if ((readCounter != 0) && ((checkBatchEnabled() && (rsize == (ssize_t)nbyte)) ||
                                    (!checkBatchEnabled() && (rsize != (ssize_t)nbyte)))
                                &&(readCounter <= storeBufferSize)) {
-            int currentBufferCounter = 0;
             LOGV_IF(0, "!!! not enough data readCounter=%d, expected nbyte=%d, rsize=%d", readCounter, nbyte, (int)rsize);
             memcpy(mLeftOverBuffer, rdata, readCounter);
             LOGV_IF(0, 
@@ -4238,7 +4218,7 @@ int MPLSensor::getCompassFd(void) const
 int MPLSensor::turnOffAccelFifo(void)
 {
     VFUNC_LOG;
-    int i, res = 0, tempFd;
+    int res = 0;
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%lld)",
                         0, mpu.accel_fifo_enable, getTimestamp());
     res += write_sysfs_int(mpu.accel_fifo_enable, 0);
@@ -4248,7 +4228,7 @@ int MPLSensor::turnOffAccelFifo(void)
 int MPLSensor::turnOffGyroFifo(void)
 {
     VFUNC_LOG;
-    int i, res = 0, tempFd;
+    int res = 0;
     LOGV_IF(SYSFS_VERBOSE, "HAL:sysfs:echo %d > %s (%lld)",
                         0, mpu.gyro_fifo_enable, getTimestamp());
     res += write_sysfs_int(mpu.gyro_fifo_enable, 0);
@@ -4259,7 +4239,6 @@ int MPLSensor::enableDmpOrientation(int en)
 {
     VFUNC_LOG;
     int res = 0;
-    int enabled_sensors = mEnabled;
 
     if (isMpuNonDmp())
         return res;
@@ -4731,9 +4710,10 @@ int MPLSensor::populateSensorList(struct sensor_t *list, int len)
     /* first add gyro, accel and compass to the list */
 
     /* fill in gyro/accel values */
-    if(chip_ID == NULL) {
-        LOGE("HAL:Can not get gyro/accel id");
-    }
+    // chip_ID is an array and will never equal to NULL.
+    //if(chip_ID == NULL) {
+    //    LOGE("HAL:Can not get gyro/accel id");
+    //}
     fillGyro(chip_ID, list);
     fillAccel(chip_ID, list);
 
@@ -5020,28 +5000,22 @@ int MPLSensor::inv_init_sysfs_attributes(void)
 {
     VFUNC_LOG;
 
-    unsigned char i = 0;
     char sysfs_path[MAX_SYSFS_NAME_LEN];
-    char tbuf[2];
-    char *sptr;
-    char **dptr;
-    int num;
 
     memset(sysfs_path, 0, sizeof(sysfs_path));
 
-    sysfs_names_ptr =
-            (char*)malloc(sizeof(char[MAX_SYSFS_ATTRB][MAX_SYSFS_NAME_LEN]));
-    sptr = sysfs_names_ptr;
-    if (sptr != NULL) {
-        dptr = (char**)&mpu;
-        do {
-            *dptr++ = sptr;
-            memset(sptr, 0, sizeof(sptr));
-            sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
-        } while (++i < MAX_SYSFS_ATTRB);
-    } else {
+    sysfs_names_ptr = (char*)calloc(MAX_SYSFS_ATTRB,
+                                    sizeof(char[MAX_SYSFS_NAME_LEN]));
+    if (sysfs_names_ptr == NULL) {
         LOGE("HAL:couldn't alloc mem for sysfs paths");
         return -1;
+    }
+
+    char *sptr = sysfs_names_ptr;
+    char **dptr = reinterpret_cast<char **>(&mpu);
+    for (size_t i = 0; i < MAX_SYSFS_ATTRB; i++) {
+      *dptr++ = sptr;
+      sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
     }
 
     // get proper (in absolute) IIO path & build MPU's sysfs paths
@@ -5298,7 +5272,6 @@ void MPLSensor::getGyroBias()
     VFUNC_LOG;
 
     long *temp = NULL;
-    long chipBias[3];
     long bias[3];
     unsigned short orient;
 
@@ -5370,8 +5343,6 @@ void MPLSensor::setGyroBias()
 void MPLSensor::getFactoryAccelBias()
 {
     VFUNC_LOG;
-
-    long temp;
 
     /* Get Values from MPL */
     inv_get_accel_bias(mFactoryAccelBias);
@@ -5665,9 +5636,9 @@ int MPLSensor::batch(int handle, int flags, int64_t period_ns, int64_t timeout)
         mBatchTimeoutInMs = timeoutInMs;
         
         /* TODO: Calculate nSamples */
-        int nSamples = 0;
-        nSamples = (unsigned long)(
-            (1000000000.f / wanted) * ((float)timeout / 1000000000.f));
+        /* int nSamples = 0;
+           nSamples = (unsigned long)(
+               (1000000000.f / wanted) * ((float)timeout / 1000000000.f)); */
     } else {
         timeoutInMs = 0;    
     }
@@ -5921,12 +5892,10 @@ int MPLSensor::readDmpPedometerEvents(sensors_event_t* data, int count,
 {
     VFUNC_LOG;
 
-    int res = 0;
     char dummy[4];
     FILE *fp;
     uint64_t stepCount = 0;
     int numEventReceived = 0;
-    int update = 0;
 
     if((mDmpStepCountEnabled || mDmpPedometerEnabled) && count > 0) {
         /* handles return event */
@@ -6001,13 +5970,14 @@ int MPLSensor::readDmpSignificantMotionEvents(sensors_event_t* data, int count)
 {
     VFUNC_LOG;
 
-    int res = 0;
     char dummy[4];
     int significantMotion;
     FILE *fp;
+#if 0
+    int res = 0;
     int sensors = mEnabled;
+#endif
     int numEventReceived = 0;
-    int update = 0;
 
     /* Technically this step is not necessary for now  */
     /* In the future, we may have meaningful values */

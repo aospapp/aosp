@@ -4,11 +4,13 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef TTGSUBTable_H
-#define TTGSUBTable_H
-#include "../../fx_freetype.h"
+#ifndef CORE_SRC_FPDFAPI_FPDF_FONT_TTGSUBTABLE_H_
+#define CORE_SRC_FPDFAPI_FPDF_FONT_TTGSUBTABLE_H_
+
+#include "../../../include/fxge/fx_freetype.h"
 #include "../../../include/fxcrt/fx_basic.h"
 #include "common.h"
+
 class CFX_GlyphMap
 {
 public:
@@ -19,11 +21,11 @@ public:
 protected:
     CFX_BinaryBuf	m_Buffer;
 };
-class CFX_CTTGSUBTable : public CFX_Object
+class CFX_CTTGSUBTable 
 {
 public:
-    CFX_CTTGSUBTable(void): loaded(false), m_bFeautureMapLoad(FALSE) {};
-    CFX_CTTGSUBTable(FT_Bytes gsub): loaded(false), m_bFeautureMapLoad(FALSE)
+    CFX_CTTGSUBTable(void): m_bFeautureMapLoad(FALSE), loaded(false) {};
+    CFX_CTTGSUBTable(FT_Bytes gsub): m_bFeautureMapLoad(FALSE), loaded(false)
     {
         LoadGSUBTable(gsub);
     }
@@ -274,7 +276,7 @@ private:
     struct TSingleSubstFormat1: public TSubTableBase {
         TCoverageFormatBase *Coverage;
         TT_int16_t DeltaGlyphID;
-        TSingleSubstFormat1(): DeltaGlyphID(0), Coverage(NULL)
+        TSingleSubstFormat1(): Coverage(NULL), DeltaGlyphID(0)
         {
             SubstFormat = 1;
         }
@@ -406,14 +408,19 @@ private:
     struct TFeatureList FeatureList;
     struct TLookupList LookupList;
 };
-class CFX_GSUBTable : public IFX_GSUBTable, public CFX_Object
+class CFX_GSUBTable FX_FINAL : public IFX_GSUBTable
 {
 public:
-    virtual void	Release()
+    virtual void	Release() FX_OVERRIDE
     {
         delete this;
     }
-    virtual FX_BOOL GetVerticalGlyph(FX_DWORD glyphnum, FX_DWORD* vglyphnum);
+    virtual FX_BOOL GetVerticalGlyph(FX_DWORD glyphnum, FX_DWORD* vglyphnum) FX_OVERRIDE;
+
     CFX_CTTGSUBTable m_GsubImp;
+
+private:
+    ~CFX_GSUBTable() { }
 };
-#endif
+
+#endif  // CORE_SRC_FPDFAPI_FPDF_FONT_TTGSUBTABLE_H_

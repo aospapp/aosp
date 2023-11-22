@@ -26,6 +26,7 @@
 #include "gluStrUtil.hpp"
 #include "glwFunctions.hpp"
 #include "glwEnums.hpp"
+#include "deArrayUtil.hpp"
 
 #include <sstream>
 
@@ -54,6 +55,14 @@ ObjectWrapper::ObjectWrapper (const glw::Functions& gl, const ObjectTraits& trai
 	}
 }
 
+ObjectWrapper::ObjectWrapper (const glw::Functions& gl, const ObjectTraits& traits, deUint32 object)
+	: m_gl		(gl)
+	, m_traits	(traits)
+	, m_object	(object)
+{
+	DE_ASSERT(object != 0);
+}
+
 ObjectWrapper::~ObjectWrapper (void)
 {
 	(m_gl.*m_traits.deleteFunc)(1, &m_object);
@@ -68,6 +77,7 @@ static const ObjectTraits s_objectTraits[OBJECTTYPE_LAST] =
 	{ "transform feedback",	&glw::Functions::genTransformFeedbacks,	&glw::Functions::deleteTransformFeedbacks	},
 	{ "vertex array",		&glw::Functions::genVertexArrays, 		&glw::Functions::deleteVertexArrays			},
 	{ "query",				&glw::Functions::genQueries, 			&glw::Functions::deleteQueries				},
+	{ "sampler",			&glw::Functions::genSamplers, 			&glw::Functions::deleteSamplers				},
 };
 
 const ObjectTraits& objectTraits (ObjectType type)

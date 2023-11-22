@@ -4,7 +4,7 @@ codegen_SRC_FILES := \
   AggressiveAntiDepBreaker.cpp \
   AllocationOrder.cpp \
   Analysis.cpp \
-  AtomicExpandLoadLinkedPass.cpp \
+  AtomicExpandPass.cpp \
   BasicTargetTransformInfo.cpp \
   BranchFolding.cpp \
   CalcSpillWeights.cpp \
@@ -23,14 +23,13 @@ codegen_SRC_FILES := \
   ExpandPostRAPseudos.cpp \
   GCMetadata.cpp \
   GCMetadataPrinter.cpp \
+  GCRootLowering.cpp \
   GCStrategy.cpp \
   GlobalMerge.cpp \
   IfConversion.cpp \
   InlineSpiller.cpp \
   InterferenceCache.cpp \
   IntrinsicLowering.cpp \
-  JITCodeEmitter.cpp \
-  JumpInstrTables.cpp \
   LatencyPriorityQueue.cpp \
   LexicalScopes.cpp \
   LiveDebugVariables.cpp \
@@ -49,9 +48,10 @@ codegen_SRC_FILES := \
   MachineBlockFrequencyInfo.cpp \
   MachineBlockPlacement.cpp \
   MachineBranchProbabilityInfo.cpp \
-  MachineCodeEmitter.cpp \
+  MachineCombiner.cpp \
   MachineCopyPropagation.cpp \
   MachineCSE.cpp \
+  MachineDominanceFrontier.cpp \
   MachineDominators.cpp \
   MachineFunctionAnalysis.cpp \
   MachineFunction.cpp \
@@ -65,6 +65,7 @@ codegen_SRC_FILES := \
   MachineModuleInfoImpls.cpp \
   MachinePassRegistry.cpp \
   MachinePostDominators.cpp \
+  MachineRegionInfo.cpp \
   MachineRegisterInfo.cpp \
   MachineScheduler.cpp \
   MachineSink.cpp \
@@ -95,9 +96,9 @@ codegen_SRC_FILES := \
   ScheduleDAGPrinter.cpp \
   ScoreboardHazardRecognizer.cpp \
   ShadowStackGC.cpp \
+  ShadowStackGCLowering.cpp \
   SjLjEHPrepare.cpp \
   SlotIndexes.cpp \
-  Spiller.cpp \
   SpillPlacement.cpp \
   SplitKit.cpp \
   StackColoring.cpp \
@@ -105,6 +106,7 @@ codegen_SRC_FILES := \
   StackMaps.cpp \
   StackProtector.cpp \
   StackSlotColoring.cpp \
+  StatepointExampleGC.cpp \
   TailDuplication.cpp \
   TargetFrameLoweringImpl.cpp \
   TargetInstrInfo.cpp \
@@ -115,7 +117,8 @@ codegen_SRC_FILES := \
   TargetSchedule.cpp \
   TwoAddressInstructionPass.cpp \
   UnreachableBlockElim.cpp \
-  VirtRegMap.cpp
+  VirtRegMap.cpp \
+  WinEHPrepare.cpp
 
 # For the host
 # =====================================================

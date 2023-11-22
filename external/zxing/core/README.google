@@ -1,6 +1,6 @@
-URL: svn checkout -r 1937 http://zxing.googlecode.com/svn/trunk/ zxing-read-only
+URL: http://zxing.googlecode.com/svn/!svn/bc/2864/trunk/
 
-Version: 1.7.1 (Revision: r1937)
+Version: r2864
 
 License: Apache License 2.0
 
@@ -13,4 +13,4 @@ QR Codes, Data Matrix, and the UPC family of 1D barcodes. It will provide
 clients for J2ME, J2SE, and Android.
 
 Local Modifications:
-No modifications.
+See https://cs.corp.google.com/#piper///depot/google3/third_party/zxing/README.google.

@@ -29,7 +29,6 @@ import com.android.inputmethod.keyboard.Key;
 import com.android.inputmethod.keyboard.Keyboard;
 import com.android.inputmethod.keyboard.KeyboardId;
 import com.android.inputmethod.keyboard.KeyboardLayoutSet;
-import com.android.inputmethod.latin.Constants;
 import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.settings.Settings;
 
@@ -147,7 +146,7 @@ final class EmojiCategory {
         mShownCategories.add(properties);
     }
 
-    public String getCategoryName(final int categoryId, final int categoryPageId) {
+    public static String getCategoryName(final int categoryId, final int categoryPageId) {
         return sCategoryName[categoryId] + "-" + categoryPageId;
     }
 
@@ -271,7 +270,7 @@ final class EmojiCategory {
     }
 
     private static final Long getCategoryKeyboardMapKey(final int categoryId, final int id) {
-        return (((long) categoryId) << Constants.MAX_INT_BIT_COUNT) | id;
+        return (((long) categoryId) << Integer.SIZE) | id;
     }
 
     public DynamicGridKeyboard getKeyboard(final int categoryId, final int id) {

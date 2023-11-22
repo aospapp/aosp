@@ -21,7 +21,7 @@
     <name>SwipeRefreshListFragment</name>
     <group>UI</group>
     <package>com.example.android.swiperefreshlistfragment</package>
-    <minSdk>10</minSdk>
+    <minSdk>14</minSdk>
     <strings>
         <intro>
             <![CDATA[

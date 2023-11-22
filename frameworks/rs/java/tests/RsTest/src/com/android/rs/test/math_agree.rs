@@ -343,13 +343,9 @@ TEST_UC_UC_ALL(func)            \
 TEST_SS_SS_ALL(func)            \
 TEST_US_US_ALL(func)            \
 TEST_SI_SI_ALL(func)            \
-TEST_UI_UI_ALL(func)
-
-// TODO:  add long types to ALL macro
-#if 0
+TEST_UI_UI_ALL(func)            \
 TEST_SL_SL_ALL(func)            \
 TEST_UL_UL_ALL(func)
-#endif
 
 #define DECLARE_TEMP_SET(type, abbrev)  \
 volatile type    temp_##abbrev##1;               \
@@ -406,4 +402,3 @@ void math_agree_test() {
         rsSendToClientBlocking(RS_MSG_TEST_PASSED);
     }
 }
-

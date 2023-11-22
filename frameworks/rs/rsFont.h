@@ -73,7 +73,7 @@ public:
     }
 
     static Font * create(Context *rsc, const char *name, float fontSize, uint32_t dpi,
-                         const void *data = NULL, uint32_t dataLen = 0);
+                         const void *data = nullptr, uint32_t dataLen = 0);
 
 protected:
 
@@ -84,8 +84,8 @@ protected:
     // Last two variables are the initial pen position
     void renderUTF(const char *text, uint32_t len, int32_t x, int32_t y,
                    uint32_t start, int32_t numGlyphs,
-                   RenderMode mode = FRAMEBUFFER, Rect *bounds = NULL,
-                   uint8_t *bitmap = NULL, uint32_t bitmapW = 0, uint32_t bitmapH = 0);
+                   RenderMode mode = FRAMEBUFFER, Rect *bounds = nullptr,
+                   uint8_t *bitmap = nullptr, uint32_t bitmapW = 0, uint32_t bitmapH = 0);
 
     void invalidateTextureCache();
     struct CachedGlyphInfo
@@ -117,7 +117,7 @@ protected:
     uint32_t mDpi;
 
     Font(Context *rsc);
-    bool init(const char *name, float fontSize, uint32_t dpi, const void *data = NULL, uint32_t dataLen = 0);
+    bool init(const char *name, float fontSize, uint32_t dpi, const void *data = nullptr, uint32_t dataLen = 0);
 
     virtual void preDestroy() const;
     FT_FaceRec_ *mFace;
@@ -148,8 +148,8 @@ public:
     void renderText(const char *text, uint32_t len, int32_t x, int32_t y,
                     uint32_t startIndex = 0, int numGlyphs = -1,
                     Font::RenderMode mode = Font::FRAMEBUFFER,
-                    Font::Rect *bounds = NULL,
-                    uint8_t *bitmap = NULL, uint32_t bitmapW = 0, uint32_t bitmapH = 0);
+                    Font::Rect *bounds = nullptr,
+                    uint8_t *bitmap = nullptr, uint32_t bitmapW = 0, uint32_t bitmapH = 0);
 
     void measureText(const char *text, uint32_t len, Font::Rect *bounds);
 

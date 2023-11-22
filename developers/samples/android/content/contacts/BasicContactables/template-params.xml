@@ -19,11 +19,9 @@
     <group>Content</group>
     <package>com.example.android.basiccontactables</package>
 
-
-
     <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
-
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>

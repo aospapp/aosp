@@ -41,17 +41,12 @@ static void adopt_shader(SkPaint* paint, SkShader* shader) {
 }
 
 class BitmapShaderGM : public GM {
-public:
 
-    BitmapShaderGM() {
+protected:
+    void onOnceBeforeDraw() override {
         this->setBGColor(SK_ColorGRAY);
         draw_bm(&fBitmap);
         draw_mask(&fMask);
-    }
-
-protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
     }
 
     virtual SkString onShortName() {

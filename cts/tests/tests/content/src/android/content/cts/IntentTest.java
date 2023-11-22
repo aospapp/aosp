@@ -16,9 +16,6 @@
 
 package android.content.cts;
 
-import com.android.internal.app.ResolverActivity;
-import com.android.internal.util.XmlUtils;
-
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -26,6 +23,7 @@ import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.cts.util.XmlUtils;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -38,7 +36,6 @@ import android.os.ServiceManager;
 import android.provider.Contacts.People;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Xml;
 
 import java.io.IOException;

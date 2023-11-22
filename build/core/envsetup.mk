@@ -5,6 +5,11 @@
 # the bottom for the full list
 #     OUT_DIR is also set to "out" if it's not already set.
 #         this allows you to set it to somewhere else if you like
+#     SCAN_EXCLUDE_DIRS is an optional, whitespace separated list of
+#         directories that will also be excluded from full checkout tree
+#         searches for source or make files, in addition to OUT_DIR.
+#         This can be useful if you set OUT_DIR to be a different directory
+#         than other outputs of your build system.
 
 # Set up version information.
 include $(BUILD_SYSTEM)/version_defaults.mk
@@ -58,7 +63,7 @@ BUILD_OS := $(HOST_OS)
 # Under Linux, if USE_MINGW is set, we change HOST_OS to Windows to build the
 # Windows SDK. Only a subset of tools and SDK will manage to build properly.
 ifeq ($(HOST_OS),linux)
-ifneq ($(USE_MINGW),)
+ifdef USE_MINGW
   HOST_OS := windows
 endif
 endif
@@ -67,24 +72,15 @@ ifeq ($(HOST_OS),)
 $(error Unable to determine HOST_OS from uname -sm: $(UNAME)!)
 endif
 
-# TODO: Replace BUILD_HOST_64bit with a flag that forces 32-bit build,
-# after we default to 64-bit host build.
-ifeq (,$(BUILD_HOST_64bit))
-# Default to 32-bit-by-default multilib host build.
-HOST_PREFER_32_BIT := true
-endif
-
 # HOST_ARCH
 ifneq (,$(findstring x86_64,$(UNAME)))
   HOST_ARCH := x86_64
   HOST_2ND_ARCH := x86
   HOST_IS_64_BIT := true
-endif
-
-ifeq ($(HOST_PREFER_32_BIT),true)
-SDK_HOST_ARCH := x86
 else
-SDK_HOST_ARCH := $(HOST_ARCH)
+ifneq (,$(findstring x86,$(UNAME)))
+$(error Building on a 32-bit x86 host is not supported: $(UNAME)!)
+endif
 endif
 
 BUILD_ARCH := $(HOST_ARCH)
@@ -120,6 +116,7 @@ endif
 TARGET_COPY_OUT_SYSTEM := system
 TARGET_COPY_OUT_DATA := data
 TARGET_COPY_OUT_OEM := oem
+TARGET_COPY_OUT_ODM := odm
 TARGET_COPY_OUT_ROOT := root
 TARGET_COPY_OUT_RECOVERY := recovery
 ###########################################
@@ -142,6 +139,17 @@ ifneq ($(build_variant)-$(words $(TARGET_BUILD_VARIANT)),-1)
 $(warning bad TARGET_BUILD_VARIANT: $(TARGET_BUILD_VARIANT))
 $(error must be empty or one of: eng user userdebug)
 endif
+
+# Build host as 32-bit for SDK build.
+ifneq ($(filter $(MAKECMDGOALS),win_sdk sdk),)
+HOST_PREFER_32_BIT := true
+endif
+ifdef USE_MINGW
+# We only build sdk host tools in the MinGW windows build.
+# Build it as 32-bit as well.
+HOST_PREFER_32_BIT := true
+endif
+SDK_HOST_ARCH := x86
 
 # Boards may be defined under $(SRC_TARGET_DIR)/board/$(TARGET_DEVICE)
 # or under vendor/*/$(TARGET_DEVICE).  Search in both places, but
@@ -343,7 +351,7 @@ $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_VENDOR_APPS := $(TARGET_OUT_VENDOR_APPS)
 
 TARGET_OUT_OEM := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_OEM)
 TARGET_OUT_OEM_EXECUTABLES := $(TARGET_OUT_OEM)/bin
-ifneq ($(filter %64,$(TARGET_ARCH)),)
+ifeq ($(TARGET_IS_64_BIT),true)
 TARGET_OUT_OEM_SHARED_LIBRARIES := $(TARGET_OUT_OEM)/lib64
 else
 TARGET_OUT_OEM_SHARED_LIBRARIES := $(TARGET_OUT_OEM)/lib
@@ -356,6 +364,20 @@ TARGET_OUT_OEM_ETC := $(TARGET_OUT_OEM)/etc
 $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_OEM_EXECUTABLES := $(TARGET_OUT_OEM_EXECUTABLES)
 $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_OEM_SHARED_LIBRARIES := $(TARGET_OUT_OEM)/lib
 $(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_OEM_APPS := $(TARGET_OUT_OEM_APPS)
+
+TARGET_OUT_ODM := $(PRODUCT_OUT)/$(TARGET_COPY_OUT_ODM)
+TARGET_OUT_ODM_EXECUTABLES := $(TARGET_OUT_ODM)/bin
+ifeq ($(TARGET_IS_64_BIT),true)
+TARGET_OUT_ODM_SHARED_LIBRARIES := $(TARGET_OUT_ODM)/lib64
+else
+TARGET_OUT_ODM_SHARED_LIBRARIES := $(TARGET_OUT_ODM)/lib
+endif
+TARGET_OUT_ODM_APPS := $(TARGET_OUT_ODM)/app
+TARGET_OUT_ODM_ETC := $(TARGET_OUT_ODM)/etc
+
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_ODM_EXECUTABLES := $(TARGET_OUT_ODM_EXECUTABLES)
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_ODM_SHARED_LIBRARIES := $(TARGET_OUT_ODM)/lib
+$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_ODM_APPS := $(TARGET_OUT_ODM_APPS)
 
 TARGET_OUT_UNSTRIPPED := $(PRODUCT_OUT)/symbols
 TARGET_OUT_EXECUTABLES_UNSTRIPPED := $(TARGET_OUT_UNSTRIPPED)/system/bin
@@ -382,8 +404,6 @@ TARGET_INSTALLER_OUT := $(PRODUCT_OUT)/installer
 TARGET_INSTALLER_DATA_OUT := $(TARGET_INSTALLER_OUT)/data
 TARGET_INSTALLER_ROOT_OUT := $(TARGET_INSTALLER_OUT)/root
 TARGET_INSTALLER_SYSTEM_OUT := $(TARGET_INSTALLER_OUT)/root/system
-
-TARGET_FACTORY_RAMDISK_OUT := $(PRODUCT_OUT)/factory_ramdisk
 
 COMMON_MODULE_CLASSES := TARGET-NOTICE_FILES HOST-NOTICE_FILES HOST-JAVA_LIBRARIES
 

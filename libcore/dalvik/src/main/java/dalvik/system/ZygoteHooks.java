@@ -29,7 +29,7 @@ public final class ZygoteHooks {
 
     /**
      * Called by the zygote prior to every fork. Each call to {@code preFork}
-     * is followed by a matching call to {@link #postForkChild(int)} on the child
+     * is followed by a matching call to {@link #postForkChild(int, String)} on the child
      * process and {@link #postForkCommon()} on both the parent and the child
      * process. {@code postForkCommon} is called after {@code postForkChild} in
      * the child process.
@@ -47,6 +47,8 @@ public final class ZygoteHooks {
      */
     public void postForkChild(int debugFlags, String instructionSet) {
         nativePostForkChild(token, debugFlags, instructionSet);
+
+        Math.setRandomSeedInternal(System.currentTimeMillis());
     }
 
     /**
@@ -68,13 +70,10 @@ public final class ZygoteHooks {
      */
     private static void waitUntilAllThreadsStopped() {
         File tasks = new File("/proc/self/task");
+        // All Java daemons are stopped already. We're just waiting for their OS counterparts to
+        // finish as well. This shouldn't take much time so spinning is ok here.
         while (tasks.list().length > 1) {
-            try {
-                // Experimentally, booting and playing about with a stingray, I never saw us
-                // go round this loop more than once with a 10ms sleep.
-                Thread.sleep(10);
-            } catch (InterruptedException ignored) {
-            }
+          Thread.yield();
         }
     }
 }

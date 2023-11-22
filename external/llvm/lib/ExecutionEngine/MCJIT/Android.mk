@@ -4,9 +4,8 @@ LOCAL_PATH:= $(call my-dir)
 # =====================================================
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES :=	\
-	MCJIT.cpp \
-	SectionMemoryManager.cpp
+LOCAL_SRC_FILES := \
+  MCJIT.cpp
 
 LOCAL_MODULE:= libLLVMMCJIT
 

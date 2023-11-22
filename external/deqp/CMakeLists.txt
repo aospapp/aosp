@@ -2,16 +2,13 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-# Paths to dependencies
-set(DELIBS_DIR "framework/delibs" CACHE STRING "Path to delibs (../delibs).")
-
 # dEQP Target.
 set(DEQP_TARGET "default" CACHE STRING "dEQP Target (default, android...)")
 
 project(dEQP-Core-${DEQP_TARGET})
 
-include(${DELIBS_DIR}/cmake/Defs.cmake NO_POLICY_SCOPE)
-include(${DELIBS_DIR}/cmake/CFlags.cmake)
+include(framework/delibs/cmake/Defs.cmake NO_POLICY_SCOPE)
+include(framework/delibs/cmake/CFlags.cmake)
 
 add_definitions(-DDE_ASSERT_FAILURE_CALLBACK)
 
@@ -33,8 +30,8 @@ set(DEQP_VG_LIBRARIES		)				# VG libraries
 set(DEQP_SUPPORT_EGL		OFF)			# Is EGL supported
 set(DEQP_EGL_LIBRARIES		)				# EGL libraries
 
-set(DEQP_SUPPORT_OPENCL		OFF)			# Is OpenCL supported
-set(DEQP_OPENCL_LIBRARIES	)				# OpenCL libraries
+set(DEQP_SUPPORT_GLX		OFF)			# Is GLX supported
+set(DEQP_SUPPORT_WGL		OFF)			# Is WGL supported
 
 set(DEQP_PLATFORM_LIBRARIES	)				# Other platform libraries
 
@@ -45,12 +42,12 @@ set(DEQP_PLATFORM_COPY_LIBRARIES	)		# Libraries / binaries that need to be copie
 
 # Delibs include directories
 include_directories(
-	${DELIBS_DIR}/debase
-	${DELIBS_DIR}/decpp
-	${DELIBS_DIR}/depool
-	${DELIBS_DIR}/dethread
-	${DELIBS_DIR}/deutil
-	${DELIBS_DIR}/destream
+	framework/delibs/debase
+	framework/delibs/decpp
+	framework/delibs/depool
+	framework/delibs/dethread
+	framework/delibs/deutil
+	framework/delibs/destream
 	)
 
 # Include target-specific definitions
@@ -80,21 +77,6 @@ endif ()
 
 include_directories(${PNG_INCLUDE_PATH})
 
-# \todo [2013-04-14 pyry] Remove once we've got dynamic loading of GL libraries figured out
-if (DEQP_RUNTIME_LINK)
-	include_directories(wrappers/dynlib/inc)
-
-	if (DEQP_SUPPORT_GLES3)
-		set(DEQP_GLES2_LIBRARIES GLESv3)
-		set(DEQP_GLES3_LIBRARIES GLESv3)
-	else ()
-		set(DEQP_GLES2_LIBRARIES GLESv2)
-	endif ()
-
-	set(DEQP_EGL_LIBRARIES EGL)
-	add_definitions(-DKHRONOS_STATIC_LIB)
-endif ()
-
 message(STATUS "DEQP_TARGET_NAME        = ${DEQP_TARGET_NAME}")
 message(STATUS "DEQP_SUPPORT_GLES1      = ${DEQP_SUPPORT_GLES1}")
 message(STATUS "DEQP_GLES1_LIBRARIES    = ${DEQP_GLES1_LIBRARIES}")
@@ -106,10 +88,10 @@ message(STATUS "DEQP_SUPPORT_VG         = ${DEQP_SUPPORT_VG}")
 message(STATUS "DEQP_VG_LIBRARIES       = ${DEQP_VG_LIBRARIES}")
 message(STATUS "DEQP_SUPPORT_EGL        = ${DEQP_SUPPORT_EGL}")
 message(STATUS "DEQP_EGL_LIBRARIES      = ${DEQP_EGL_LIBRARIES}")
-message(STATUS "DEQP_SUPPORT_OPENCL     = ${DEQP_SUPPORT_OPENCL}")
-message(STATUS "DEQP_OPENCL_LIBRARIES   = ${DEQP_OPENCL_LIBRARIES}")
 message(STATUS "DEQP_SUPPORT_OPENGL     = ${DEQP_SUPPORT_OPENGL}")
 message(STATUS "DEQP_PLATFORM_LIBRARIES = ${DEQP_PLATFORM_LIBRARIES}")
+message(STATUS "DEQP_SUPPORT_WGL        = ${DEQP_SUPPORT_WGL}")
+message(STATUS "DEQP_SUPPORT_GLX        = ${DEQP_SUPPORT_GLX}")
 
 # Defines
 add_definitions(-DDEQP_TARGET_NAME="${DEQP_TARGET_NAME}")
@@ -132,10 +114,6 @@ endif ()
 
 if (DEQP_SUPPORT_EGL)
 	add_definitions(-DDEQP_SUPPORT_EGL=1)
-endif ()
-
-if (DEQP_SUPPORT_OPENCL)
-	add_definitions(-DDEQP_SUPPORT_OPENCL=1)
 endif ()
 
 if (DEQP_SUPPORT_OPENGL)
@@ -168,11 +146,7 @@ if (DEQP_SUPPORT_VG AND NOT DEFINED DEQP_VG_LIBRARIES)
 endif ()
 
 if (DEQP_SUPPORT_EGL AND NOT DEFINED DEQP_EGL_LIBRARIES)
-	message(FATAL_ERROR "Run-time loading of EGL is not supported (DEQP_EGL_LIBRARIES is not set)")
-endif ()
-
-if (DEQP_SUPPORT_OPENCL AND NOT DEFINED DEQP_OPENCL_LIBRARIES)
-	message(FATAL_ERROR "Run-time loading of OpenCL is not supported (DEQP_OPENCL_LIBRARIES is not set)")
+	add_definitions(-DDEQP_EGL_RUNTIME_LOAD=1)
 endif ()
 
 # OpenGL is always loaded on run-time
@@ -186,17 +160,12 @@ if (DE_COMPILER_IS_MSC)
 endif ()
 
 # delibs projects
-add_subdirectory(${DELIBS_DIR}/debase		debase)
-add_subdirectory(${DELIBS_DIR}/depool		depool)
-add_subdirectory(${DELIBS_DIR}/dethread		dethread)
-add_subdirectory(${DELIBS_DIR}/destream		destream)
-add_subdirectory(${DELIBS_DIR}/deutil		deutil)
-add_subdirectory(${DELIBS_DIR}/decpp		decpp)
-
-# \todo [2013-04-14 pyry] Remove once we've got dynamic loading of GL libraries figured out
-if (DEQP_RUNTIME_LINK)
-	add_subdirectory(wrappers/dynlib)
-endif ()
+add_subdirectory(framework/delibs/debase)
+add_subdirectory(framework/delibs/depool)
+add_subdirectory(framework/delibs/dethread)
+add_subdirectory(framework/delibs/destream)
+add_subdirectory(framework/delibs/deutil)
+add_subdirectory(framework/delibs/decpp)
 
 # ExecServer
 add_subdirectory(execserver)
@@ -204,12 +173,6 @@ add_subdirectory(execserver)
 # Executor framework and tools
 if (IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/executor)
 	add_subdirectory(executor)
-endif ()
-
-if (DEQP_SUPPORT_OPENCL)
-	# We need to support all older CL1.x versions
-	add_definitions(-DCL_USE_DEPRECATED_OPENCL_1_0_APIS)
-	add_definitions(-DCL_USE_DEPRECATED_OPENCL_1_1_APIS)
 endif ()
 
 # Test framework include directories
@@ -221,11 +184,9 @@ include_directories(
 	framework/referencerenderer
 	framework/opengl/simplereference
 	framework/randomshaders
+	framework/egl
+	framework/egl/wrapper
 	)
-
-if (DEQP_SUPPORT_EGL)
-	include_directories(framework/egl)
-endif ()
 
 if (DE_OS_IS_ANDROID OR DE_OS_IS_IOS)
 	# On Android deqp modules are compiled as libraries and linked into final .so
@@ -316,11 +277,9 @@ add_subdirectory(modules)
 
 # Single-binary targets
 if (DE_OS_IS_ANDROID)
-	# CTS activities require headers from Android port directory
-	include_directories(framework/platform/android)
 	include_directories(executor)
 
-	add_library(deqp SHARED framework/platform/android/tcuAndroidMain.cpp framework/platform/android/tcuAndroidJNI.cpp framework/platform/android/tcuTestLogParserJNI.cpp ${DEQP_MODULE_ENTRY_POINTS})
+	add_library(deqp SHARED framework/platform/android/tcuAndroidMain.cpp framework/platform/android/tcuAndroidJNI.cpp framework/platform/android/tcuAndroidPlatformCapabilityQueryJNI.cpp framework/platform/android/tcuTestLogParserJNI.cpp ${DEQP_MODULE_ENTRY_POINTS})
 	target_link_libraries(deqp tcutil-platform xecore ${DEQP_MODULE_LIBRARIES})
 
 elseif (DE_OS_IS_IOS)

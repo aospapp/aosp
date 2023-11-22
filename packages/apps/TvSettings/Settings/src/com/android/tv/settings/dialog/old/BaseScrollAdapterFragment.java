@@ -38,6 +38,7 @@ import com.android.tv.settings.widget.ScrollAdapterView.OnScrollListener;
  * Users can either subclass this or just use listener objects to receive life cycle events.
  */
 public class BaseScrollAdapterFragment implements OnScrollListener {
+    private static final String STATE_SELECTION = "BaseScrollAdapterFragment.selection";
     private int mAnimationDuration;
     private final LiteFragment mFragment;
 
@@ -58,16 +59,21 @@ public class BaseScrollAdapterFragment implements OnScrollListener {
         return v;
     }
 
+    public void onSaveInstanceState(Bundle outState) {
+        if (mScrollAdapterView != null) {
+            outState.putInt(STATE_SELECTION, getSelectedItemPosition());
+        }
+    }
+
     public void onViewCreated(View view, Bundle savedInstanceState) {
         ensureList();
+        if (savedInstanceState != null) {
+            setSelection(savedInstanceState.getInt(STATE_SELECTION, 0));
+        }
     }
 
     public boolean hasCreatedView() {
-        if (mFragment == null || mFragment.getView() == null) {
-            return false;
-        } else {
-            return true;
-        }
+        return mFragment != null && mFragment.getView() != null;
     }
 
     public ScrollAdapterView getScrollAdapterView() {
@@ -138,7 +144,7 @@ public class BaseScrollAdapterFragment implements OnScrollListener {
      * is in the process of animating.
      */
     private class Listener implements Animator.AnimatorListener {
-        private boolean mFadingOut;
+        private final boolean mFadingOut;
         private boolean mCanceled;
 
         public Listener(boolean fadingOut) {

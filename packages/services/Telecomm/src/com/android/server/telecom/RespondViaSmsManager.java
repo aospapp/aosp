@@ -28,6 +28,7 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.telecom.Response;
 import android.telephony.SubscriptionManager;
@@ -41,32 +42,15 @@ import java.util.List;
  * Helper class to manage the "Respond via Message" feature for incoming calls.
  */
 public class RespondViaSmsManager extends CallsManagerListenerBase {
-    private static final int MSG_CANNED_TEXT_MESSAGES_READY = 1;
     private static final int MSG_SHOW_SENT_TOAST = 2;
 
-    private static final RespondViaSmsManager sInstance = new RespondViaSmsManager();
+    private final CallsManager mCallsManager;
+    private final TelecomSystem.SyncRoot mLock;
 
-    private final Handler mHandler = new Handler() {
+    private final Handler mHandler = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case MSG_CANNED_TEXT_MESSAGES_READY: {
-                    SomeArgs args = (SomeArgs) msg.obj;
-                    try {
-                        Response<Void, List<String>> response =
-                                (Response<Void, List<String>>) args.arg1;
-                        List<String> textMessages =
-                                (List<String>) args.arg2;
-                        if (textMessages != null) {
-                            response.onResult(null, textMessages);
-                        } else {
-                            response.onError(null, 0, null);
-                        }
-                    } finally {
-                        args.recycle();
-                    }
-                    break;
-                }
                 case MSG_SHOW_SENT_TOAST: {
                     SomeArgs args = (SomeArgs) msg.obj;
                     try {
@@ -82,9 +66,10 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
         }
     };
 
-    public static RespondViaSmsManager getInstance() { return sInstance; }
-
-    private RespondViaSmsManager() {}
+    public RespondViaSmsManager(CallsManager callsManager, TelecomSystem.SyncRoot lock) {
+        mCallsManager = callsManager;
+        mLock = lock;
+    }
 
     /**
      * Read the (customizable) canned responses from SharedPreferences,
@@ -132,10 +117,9 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
                         "loadCannedResponses() completed, found responses: %s",
                         textMessages.toString());
 
-                SomeArgs args = SomeArgs.obtain();
-                args.arg1 = response;
-                args.arg2 = textMessages;
-                mHandler.obtainMessage(MSG_CANNED_TEXT_MESSAGES_READY, args).sendToTarget();
+                synchronized (mLock) {
+                    response.onResult(null, textMessages);
+                }
             }
         }.start();
     }
@@ -143,9 +127,7 @@ public class RespondViaSmsManager extends CallsManagerListenerBase {
     @Override
     public void onIncomingCallRejected(Call call, boolean rejectWithMessage, String textMessage) {
         if (rejectWithMessage && call.getHandle() != null) {
-            PhoneAccountRegistrar phoneAccountRegistrar =
-                    CallsManager.getInstance().getPhoneAccountRegistrar();
-            int subId = phoneAccountRegistrar.getSubscriptionIdForPhoneAccount(
+            int subId = mCallsManager.getPhoneAccountRegistrar().getSubscriptionIdForPhoneAccount(
                     call.getTargetPhoneAccount());
             rejectCallWithMessage(call.getContext(), call.getHandle().getSchemeSpecificPart(),
                     textMessage, subId);

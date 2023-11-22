@@ -22,13 +22,12 @@ import com.android.ide.common.resources.configuration.CountryCodeQualifier;
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.KeyboardStateQualifier;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
 import com.android.ide.common.resources.configuration.LayoutDirectionQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.common.resources.configuration.NavigationMethodQualifier;
 import com.android.ide.common.resources.configuration.NavigationStateQualifier;
 import com.android.ide.common.resources.configuration.NetworkCodeQualifier;
 import com.android.ide.common.resources.configuration.NightModeQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
 import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.ide.common.resources.configuration.ScreenDimensionQualifier;
 import com.android.ide.common.resources.configuration.ScreenHeightQualifier;
@@ -94,8 +93,8 @@ import org.eclipse.swt.widgets.Text;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * Custom UI widget to let user build a Folder configuration.
@@ -173,7 +172,7 @@ public class ConfigurationSelector extends Composite {
         @Override
         public void verifyText(VerifyEvent e) {
             // check for length
-            if (e.text.length() - e.end + e.start + ((Combo)e.getSource()).getText().length() > 2) {
+            if (e.text.length() - e.end + e.start + ((Combo)e.getSource()).getText().length() > 6) {
                 e.doit = false;
                 return;
             }
@@ -181,6 +180,18 @@ public class ConfigurationSelector extends Composite {
             // check for lower case only.
             for (int i = 0 ; i < e.text.length(); i++) {
                 char letter = e.text.charAt(i);
+                if (letter == '-') {
+                    if (i+e.start != 2) {
+                        e.doit = false;
+                        return;
+                    } else {
+                        continue;
+                    }
+                }
+                if (i+e.start == 3 && letter != 'r') {
+                    e.doit = false;
+                    return;
+                }
                 if ((letter < 'a' || letter > 'z') && (letter < 'A' || letter > 'Z')) {
                     e.doit = false;
                     return;
@@ -433,8 +444,7 @@ public class ConfigurationSelector extends Composite {
             // ResourceQualifer class.
             mUiMap.put(CountryCodeQualifier.class, new MCCEdit(mQualifierEditParent));
             mUiMap.put(NetworkCodeQualifier.class, new MNCEdit(mQualifierEditParent));
-            mUiMap.put(LanguageQualifier.class, new LanguageEdit(mQualifierEditParent));
-            mUiMap.put(RegionQualifier.class, new RegionEdit(mQualifierEditParent));
+            mUiMap.put(LocaleQualifier.class, new LocaleEdit(mQualifierEditParent));
             mUiMap.put(LayoutDirectionQualifier.class,
                     new LayoutDirectionEdit(mQualifierEditParent));
             mUiMap.put(SmallestScreenWidthQualifier.class,
@@ -551,10 +561,6 @@ public class ConfigurationSelector extends Composite {
             return ConfigurationState.INVALID_CONFIG;
         }
 
-        if (mSelectedConfiguration.checkRegion() == false) {
-            return ConfigurationState.REGION_WITHOUT_LANGUAGE;
-        }
-
         return ConfigurationState.OK;
     }
 
@@ -663,7 +669,7 @@ public class ConfigurationSelector extends Composite {
             if (element instanceof ResourceQualifier) {
                 if (mShowQualifierValue) {
                     String value = ((ResourceQualifier)element).getShortDisplayValue();
-                    if (value.length() == 0) {
+                    if (value == null || value.length() == 0) {
                         return String.format("%1$s (?)",
                                 ((ResourceQualifier)element).getShortName());
                     } else {
@@ -730,7 +736,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class MCCEdit extends QualifierEditBase {
 
-        private Text mText;
+        private final Text mText;
 
         public MCCEdit(Composite parent) {
             super(parent, CountryCodeQualifier.NAME);
@@ -797,7 +803,7 @@ public class ConfigurationSelector extends Composite {
      * Edit widget for {@link NetworkCodeQualifier}.
      */
     private class MNCEdit extends QualifierEditBase {
-        private Text mText;
+        private final Text mText;
 
         public MNCEdit(Composite parent) {
             super(parent, NetworkCodeQualifier.NAME);
@@ -862,15 +868,15 @@ public class ConfigurationSelector extends Composite {
     /**
      * Edit widget for {@link LanguageQualifier}.
      */
-    private class LanguageEdit extends QualifierEditBase {
-        private Combo mLanguage;
-        private Label mName;
+    private class LocaleEdit extends QualifierEditBase {
+        private final Combo mLanguage;
+        private final Label mName;
 
-        public LanguageEdit(Composite parent) {
-            super(parent, LanguageQualifier.NAME);
+        public LocaleEdit(Composite parent) {
+            super(parent, LocaleQualifier.NAME);
 
             mLanguage = new Combo(this, SWT.DROP_DOWN);
-            Set<String> codes = LocaleManager.getLanguageCodes();
+            List<String> codes = LocaleManager.getLanguageCodes();
             String[] items = codes.toArray(new String[codes.size()]);
             Arrays.sort(items);
             mLanguage.setItems(items);
@@ -894,7 +900,7 @@ public class ConfigurationSelector extends Composite {
                 }
             });
 
-            new Label(this, SWT.NONE).setText("(2 letter code)");
+            new Label(this, SWT.NONE).setText("(2 letter code or language-rRegion)");
 
             mName = new Label(this, SWT.NONE);
             mName.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
@@ -918,19 +924,14 @@ public class ConfigurationSelector extends Composite {
                 // empty string, means no qualifier.
                 // Since the qualifier classes are immutable, and we don't want to
                 // remove the qualifier from the configuration, we create a new default one.
-                mSelectedConfiguration.setLanguageQualifier(new LanguageQualifier());
+                mSelectedConfiguration.setLocaleQualifier(new LocaleQualifier());
             } else {
-                LanguageQualifier qualifier = null;
-                String segment = LanguageQualifier.getFolderSegment(value);
-                if (segment != null) {
-                    qualifier = LanguageQualifier.getQualifier(segment);
-                }
-
+                LocaleQualifier qualifier = LocaleQualifier.getQualifier(value);
                 if (qualifier != null) {
-                    mSelectedConfiguration.setLanguageQualifier(qualifier);
+                    mSelectedConfiguration.setLocaleQualifier(qualifier);
                 } else {
                     // Failure! Looks like the value is wrong (for instance a one letter string).
-                    mSelectedConfiguration.setLanguageQualifier(new LanguageQualifier());
+                    mSelectedConfiguration.setLocaleQualifier(new LocaleQualifier());
                 }
             }
 
@@ -940,7 +941,7 @@ public class ConfigurationSelector extends Composite {
 
         @Override
         public void setQualifier(ResourceQualifier qualifier) {
-            LanguageQualifier q = (LanguageQualifier)qualifier;
+            LocaleQualifier q = (LocaleQualifier)qualifier;
 
             String value = q.getValue();
             if (value != null) {
@@ -950,82 +951,11 @@ public class ConfigurationSelector extends Composite {
     }
 
     /**
-     * Edit widget for {@link RegionQualifier}.
-     */
-    private class RegionEdit extends QualifierEditBase {
-        private Combo mRegion;
-
-        public RegionEdit(Composite parent) {
-            super(parent, RegionQualifier.NAME);
-
-            mRegion = new Combo(this, SWT.DROP_DOWN);
-            mRegion.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
-            mRegion.addVerifyListener(new LanguageRegionVerifier());
-            mRegion.addSelectionListener(new SelectionListener() {
-                @Override
-                public void widgetDefaultSelected(SelectionEvent e) {
-                    onRegionChange();
-                }
-                @Override
-                public void widgetSelected(SelectionEvent e) {
-                    onRegionChange();
-                }
-            });
-            mRegion.addModifyListener(new ModifyListener() {
-                @Override
-                public void modifyText(ModifyEvent e) {
-                    onRegionChange();
-                }
-            });
-
-            new Label(this, SWT.NONE).setText("(2 letter code)");
-        }
-
-        private void onRegionChange() {
-            // update the current config
-            String value = mRegion.getText();
-
-            if (value.length() == 0) {
-                // empty string, means no qualifier.
-                // Since the qualifier classes are immutable, and we don't want to
-                // remove the qualifier from the configuration, we create a new default one.
-                mSelectedConfiguration.setRegionQualifier(new RegionQualifier());
-            } else {
-                RegionQualifier qualifier = null;
-                String segment = RegionQualifier.getFolderSegment(value);
-                if (segment != null) {
-                    qualifier = RegionQualifier.getQualifier(segment);
-                }
-
-                if (qualifier != null) {
-                    mSelectedConfiguration.setRegionQualifier(qualifier);
-                } else {
-                    // Failure! Looks like the value is wrong (for instance a one letter string).
-                    mSelectedConfiguration.setRegionQualifier(new RegionQualifier());
-                }
-            }
-
-            // notify of change
-            onChange(true /* keepSelection */);
-        }
-
-        @Override
-        public void setQualifier(ResourceQualifier qualifier) {
-            RegionQualifier q = (RegionQualifier)qualifier;
-
-            String value = q.getValue();
-            if (value != null) {
-                mRegion.setText(q.getValue());
-            }
-        }
-    }
-
-    /**
      * Edit widget for {@link LayoutDirectionQualifier}.
      */
     private class LayoutDirectionEdit extends QualifierEditBase {
 
-        private Combo mDirection;
+        private final Combo mDirection;
 
         public LayoutDirectionEdit(Composite parent) {
             super(parent, LayoutDirectionQualifier.NAME);
@@ -1084,7 +1014,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class SmallestScreenWidthEdit extends QualifierEditBase {
 
-        private Text mSize;
+        private final Text mSize;
 
         public SmallestScreenWidthEdit(Composite parent) {
             super(parent, SmallestScreenWidthQualifier.NAME);
@@ -1152,7 +1082,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class ScreenWidthEdit extends QualifierEditBase {
 
-        private Text mSize;
+        private final Text mSize;
 
         public ScreenWidthEdit(Composite parent) {
             super(parent, ScreenWidthQualifier.NAME);
@@ -1218,7 +1148,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class ScreenHeightEdit extends QualifierEditBase {
 
-        private Text mSize;
+        private final Text mSize;
 
         public ScreenHeightEdit(Composite parent) {
             super(parent, ScreenHeightQualifier.NAME);
@@ -1285,7 +1215,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class ScreenSizeEdit extends QualifierEditBase {
 
-        private Combo mSize;
+        private final Combo mSize;
 
         public ScreenSizeEdit(Composite parent) {
             super(parent, ScreenSizeQualifier.NAME);
@@ -1343,7 +1273,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class ScreenRatioEdit extends QualifierEditBase {
 
-        private Combo mRatio;
+        private final Combo mRatio;
 
         public ScreenRatioEdit(Composite parent) {
             super(parent, ScreenRatioQualifier.NAME);
@@ -1401,7 +1331,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class OrientationEdit extends QualifierEditBase {
 
-        private Combo mOrientation;
+        private final Combo mOrientation;
 
         public OrientationEdit(Composite parent) {
             super(parent, ScreenOrientationQualifier.NAME);
@@ -1459,7 +1389,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class UiModeEdit extends QualifierEditBase {
 
-        private Combo mUiMode;
+        private final Combo mUiMode;
 
         public UiModeEdit(Composite parent) {
             super(parent, UiModeQualifier.NAME);
@@ -1516,7 +1446,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class NightModeEdit extends QualifierEditBase {
 
-        private Combo mNightMode;
+        private final Combo mNightMode;
 
         public NightModeEdit(Composite parent) {
             super(parent, NightModeQualifier.NAME);
@@ -1573,7 +1503,7 @@ public class ConfigurationSelector extends Composite {
      * Edit widget for {@link DensityQualifier}.
      */
     private class DensityEdit extends QualifierEditBase {
-        private Combo mDensity;
+        private final Combo mDensity;
 
         public DensityEdit(Composite parent) {
             super(parent, DensityQualifier.NAME);
@@ -1631,7 +1561,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class TouchEdit extends QualifierEditBase {
 
-        private Combo mTouchScreen;
+        private final Combo mTouchScreen;
 
         public TouchEdit(Composite parent) {
             super(parent, TouchScreenQualifier.NAME);
@@ -1688,7 +1618,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class KeyboardEdit extends QualifierEditBase {
 
-        private Combo mKeyboardState;
+        private final Combo mKeyboardState;
 
         public KeyboardEdit(Composite parent) {
             super(parent, KeyboardStateQualifier.NAME);
@@ -1746,7 +1676,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class TextInputEdit extends QualifierEditBase {
 
-        private Combo mTextInput;
+        private final Combo mTextInput;
 
         public TextInputEdit(Composite parent) {
             super(parent, TextInputMethodQualifier.NAME);
@@ -1804,7 +1734,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class NavigationStateEdit extends QualifierEditBase {
 
-        private Combo mNavigationState;
+        private final Combo mNavigationState;
 
         public NavigationStateEdit(Composite parent) {
             super(parent, NavigationStateQualifier.NAME);
@@ -1862,7 +1792,7 @@ public class ConfigurationSelector extends Composite {
      */
     private class NavigationEdit extends QualifierEditBase {
 
-        private Combo mNavigation;
+        private final Combo mNavigation;
 
         public NavigationEdit(Composite parent) {
             super(parent, NavigationMethodQualifier.NAME);
@@ -1920,8 +1850,8 @@ public class ConfigurationSelector extends Composite {
      */
     private class ScreenDimensionEdit extends QualifierEditBase {
 
-        private Text mSize1;
-        private Text mSize2;
+        private final Text mSize1;
+        private final Text mSize2;
 
         public ScreenDimensionEdit(Composite parent) {
             super(parent, ScreenDimensionQualifier.NAME);
@@ -1995,7 +1925,7 @@ public class ConfigurationSelector extends Composite {
      * Edit widget for {@link VersionQualifier}.
      */
     private class VersionEdit extends QualifierEditBase {
-        private Text mText;
+        private final Text mText;
 
         public VersionEdit(Composite parent) {
             super(parent, VersionQualifier.NAME);

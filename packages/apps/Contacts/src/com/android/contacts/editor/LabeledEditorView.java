@@ -79,6 +79,8 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     private boolean mWasEmpty = true;
     private boolean mIsDeletable = true;
     private boolean mIsAttachedToWindow;
+    private boolean mHideTypeInitially;
+    private boolean mHasTypes;
 
     private EditType mType;
 
@@ -118,6 +120,10 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     public LabeledEditorView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         init(context);
+    }
+
+    public Long getRawContactId() {
+        return mState == null ? null : mState.getRawContactId();
     }
 
     private void init(Context context) {
@@ -179,9 +185,14 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     }
 
     @Override
-    public void deleteEditor() {
+    public void markDeleted() {
         // Keep around in model, but mark as deleted
         mEntry.markDeleted();
+    }
+
+    @Override
+    public void deleteEditor() {
+        markDeleted();
 
         // Remove the view
         EditorAnimator.getInstance().removeEditorView(this);
@@ -225,6 +236,39 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
     public void setDeleteButtonVisible(boolean visible) {
         if (mIsDeletable) {
             mDeleteContainer.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+        }
+    }
+
+    /**
+     * Whether to hide the type dropdown after values have been set.
+     * By default the drop down is always displayed if there are types to display.
+     */
+    public void setHideTypeInitially(boolean hideTypeInitially) {
+        mHideTypeInitially = hideTypeInitially;
+    }
+
+    /**
+     * Whether the type drop down is visible.
+     */
+    public boolean isTypeVisible() {
+        return mLabel == null ? false : mLabel.getVisibility() == View.VISIBLE;
+    }
+
+    /**
+     * Makes the type drop down visible if it is not already so, and there are types to display.
+     */
+    public void showType() {
+        if (mHasTypes && mLabel != null && mLabel.getVisibility() != View.VISIBLE) {
+            EditorAnimator.getInstance().slideAndFadeIn(mLabel, mLabel.getHeight());
+        }
+    }
+
+    /**
+     * Hides the type drop down if there are types to display and it is not already hidden.
+     */
+    public void hideType() {
+        if (mHasTypes && mLabel != null && mLabel.getVisibility() != View.GONE) {
+            EditorAnimator.getInstance().hideEditorView(mLabel);
         }
     }
 
@@ -281,7 +325,7 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
      * possible custom label string.
      */
     public void rebuildLabel() {
-        mEditTypeAdapter = new EditTypeAdapter(mContext);
+        mEditTypeAdapter = new EditTypeAdapter(getContext());
         mLabel.setAdapter(mEditTypeAdapter);
         if (mEditTypeAdapter.hasCustomSelection()) {
             mLabel.setSelection(mEditTypeAdapter.getPosition(CUSTOM_SELECTION));
@@ -301,8 +345,6 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
 
         // Notify listener if applicable
         notifyEditorListener();
-
-        rebuildLabel();
     }
 
     protected void saveValue(String column, String value) {
@@ -375,12 +417,15 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
         setVisibility(View.VISIBLE);
 
         // Display label selector if multiple types available
-        final boolean hasTypes = RawContactModifier.hasEditTypes(kind);
-        setupLabelButton(hasTypes);
+        mHasTypes = RawContactModifier.hasEditTypes(kind);
+        setupLabelButton(mHasTypes);
         mLabel.setEnabled(!readOnly && isEnabled());
-        if (hasTypes) {
+        if (mHasTypes) {
             mType = RawContactModifier.getCurrentType(entry, kind);
             rebuildLabel();
+            if (mHideTypeInitially) {
+                mLabel.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -396,7 +441,7 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
      * no empty text is allowed in any custom label.
      */
     private Dialog createCustomDialog() {
-        final AlertDialog.Builder builder = new AlertDialog.Builder(mContext);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
         final LayoutInflater layoutInflater = LayoutInflater.from(builder.getContext());
         builder.setTitle(R.string.customLabelPickerTitle);
 
@@ -535,14 +580,12 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
         private boolean mHasCustomSelection;
         private int mTextColorHintUnfocused;
         private int mTextColorDark;
-        private int mTextColorSecondary;
 
         public EditTypeAdapter(Context context) {
             super(context, 0);
             mInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
             mTextColorHintUnfocused = context.getResources().getColor(
                     R.color.editor_disabled_text_color);
-            mTextColorSecondary = context.getResources().getColor(R.color.secondary_text_color);
             mTextColorDark = context.getResources().getColor(R.color.primary_text_color);
 
 
@@ -575,8 +618,6 @@ public abstract class LabeledEditorView extends LinearLayout implements Editor, 
             // color.
             if (!LabeledEditorView.this.isEmpty()) {
                 view.setTextColor(mTextColorDark);
-            } else if (LabeledEditorView.this.hasFocus()) {
-                view.setTextColor(mTextColorSecondary);
             } else {
                 view.setTextColor(mTextColorHintUnfocused);
             }

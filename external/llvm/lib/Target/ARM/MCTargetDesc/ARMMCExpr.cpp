@@ -10,6 +10,7 @@
 #include "ARMMCExpr.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCStreamer.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "armmcexpr"
@@ -33,12 +34,6 @@ void ARMMCExpr::PrintImpl(raw_ostream &OS) const {
   Expr->print(OS);
   if (Expr->getKind() != MCExpr::SymbolRef)
     OS << ')';
-}
-
-bool
-ARMMCExpr::EvaluateAsRelocatableImpl(MCValue &Res,
-                                     const MCAsmLayout *Layout) const {
-  return false;
 }
 
 void ARMMCExpr::visitUsedExpr(MCStreamer &Streamer) const {

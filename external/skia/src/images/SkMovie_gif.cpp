@@ -16,6 +16,10 @@
 
 #include "gif_lib.h"
 
+#if GIFLIB_MAJOR < 5 || (GIFLIB_MAJOR == 5 && GIFLIB_MINOR == 0)
+#define DGifCloseFile(a, b) DGifCloseFile(a)
+#endif
+
 class SkGIFMovie : public SkMovie {
 public:
     SkGIFMovie(SkStream* stream);
@@ -50,7 +54,7 @@ SkGIFMovie::SkGIFMovie(SkStream* stream)
 
     if (DGifSlurp(fGIF) != GIF_OK)
     {
-        DGifCloseFile(fGIF);
+        DGifCloseFile(fGIF, NULL);
         fGIF = NULL;
     }
     fCurrIndex = -1;
@@ -60,7 +64,7 @@ SkGIFMovie::SkGIFMovie(SkStream* stream)
 SkGIFMovie::~SkGIFMovie()
 {
     if (fGIF)
-        DGifCloseFile(fGIF);
+        DGifCloseFile(fGIF, NULL);
 }
 
 static SkMSec savedimage_duration(const SavedImage* image)
@@ -364,11 +368,11 @@ bool SkGIFMovie::onGetBitmap(SkBitmap* bm)
         startIndex = 0;
 
         // create bitmap
-        if (!bm->allocPixels(SkImageInfo::MakeN32Premul(width, height))) {
+        if (!bm->tryAllocN32Pixels(width, height)) {
             return false;
         }
         // create bitmap for backup
-        if (!fBackup.allocPixels(SkImageInfo::MakeN32Premul(width, height))) {
+        if (!fBackup.tryAllocN32Pixels(width, height)) {
             return false;
         }
     } else if (startIndex > fCurrIndex) {

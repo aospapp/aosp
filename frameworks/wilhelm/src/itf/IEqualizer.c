@@ -361,11 +361,7 @@ static SLresult IEqualizer_GetCurrentPreset(SLEqualizerItf self, SLuint16 *pPres
         }
         interface_unlock_shared(thiz);
 
-        if (preset < 0) {
-            *pPreset = SL_EQUALIZER_UNDEFINED;
-        } else {
-            *pPreset = (SLuint16) preset;
-        }
+        *pPreset = (SLuint16) preset;
 #endif
 
     }

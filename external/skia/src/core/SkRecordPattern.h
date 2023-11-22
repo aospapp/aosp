@@ -85,6 +85,10 @@ struct Or {
 template <typename A, typename B, typename C>
 struct Or3 : Or<A, Or<B, C> > {};
 
+// Matches if any of A, B, C or D does.  Stores nothing.
+template <typename A, typename B, typename C, typename D>
+struct Or4 : Or<A, Or<B, Or<C, D> > > {};
+
 // Star is a special matcher that greedily matches Matcher 0 or more times.  Stores nothing.
 template <typename Matcher>
 struct Star {
@@ -128,6 +132,7 @@ public:
     template <typename T> T* first()  { return fHead.get(); }
     template <typename T> T* second() { return fTail.fHead.get(); }
     template <typename T> T* third()  { return fTail.fTail.fHead.get(); }
+    template <typename T> T* fourth()  { return fTail.fTail.fTail.fHead.get(); }
 
 private:
     // If head isn't a Star, try to match at i once.
@@ -177,6 +182,18 @@ struct Pattern2 : Cons<A, Pattern1<B> > {};
 
 template <typename A, typename B, typename C>
 struct Pattern3 : Cons<A, Pattern2<B, C> > {};
+
+template <typename A, typename B, typename C, typename D>
+struct Pattern4 : Cons<A, Pattern3<B, C, D> > {};
+
+template <typename A, typename B, typename C, typename D, typename E>
+struct Pattern5 : Cons<A, Pattern4<B, C, D, E> > {};
+
+template <typename A, typename B, typename C, typename D, typename E, typename F>
+struct Pattern6 : Cons<A, Pattern5<B, C, D, E, F> > {};
+
+template <typename A, typename B, typename C, typename D, typename E, typename F, typename G>
+struct Pattern7 : Cons<A, Pattern6<B, C, D, E, F, G> > {};
 
 }  // namespace SkRecords
 

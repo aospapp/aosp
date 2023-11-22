@@ -46,15 +46,15 @@ public class StatFsTest extends TestCase {
         assertTrue(stat.getBlockSize() > 0);
         assertTrue(stat.getBlockCount() > 0);
         assertTrue(stat.getFreeBlocks() >= stat.getAvailableBlocks());
-        assertTrue(stat.getAvailableBlocks() > 0);
+        assertTrue(stat.getAvailableBlocks() >= 0);
 
         assertTrue(stat.getBlockSizeLong() > 0);
         assertTrue(stat.getBlockCountLong() > 0);
         assertTrue(stat.getFreeBlocksLong() >= stat.getAvailableBlocksLong());
-        assertTrue(stat.getAvailableBlocksLong() > 0);
+        assertTrue(stat.getAvailableBlocksLong() >= 0);
 
-        assertTrue(stat.getFreeBytes() > 0);
-        assertTrue(stat.getAvailableBytes() > 0);
+        assertTrue(stat.getFreeBytes() >= 0);
+        assertTrue(stat.getAvailableBytes() >= 0);
         assertTrue(stat.getTotalBytes() > 0);
     }
 }

@@ -16,15 +16,13 @@
 
 package com.android.tv.settings.system;
 
-import com.android.tv.settings.ActionBehavior;
-import com.android.tv.settings.ActionKey;
-import com.android.tv.settings.BaseSettingsActivity;
 import com.android.tv.settings.R;
-import com.android.tv.settings.users.RestrictedProfileActivity;
+import com.android.tv.settings.users.RestrictedProfileDialogFragment;
 import com.android.tv.settings.util.SettingsHelper;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.DialogFragment;
+import com.android.tv.settings.dialog.DialogFragment.Action;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -33,20 +31,37 @@ import android.os.Bundle;
 import android.os.UserManager;
 import android.provider.Settings;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Manages app security preferences.
- * TODO: get a better icon from UX
- * TODO: implement Notification listener settings
+ * Manages app security preferences. TODO: get a better icon from UX TODO: implement Notification
+ * listener settings
  */
-public class SecurityActivity extends BaseSettingsActivity implements ActionAdapter.Listener {
+public class SecurityActivity extends Activity implements Action.Listener {
 
+    private static final int CHECK_SET_ID = 1;
     private static final String PACKAGE_MIME_TYPE = "application/vnd.android.package-archive";
     private static final String ACTION_RESTRICTED_PROFILE = "action_restricted_profile";
+    private static final String ACTION_SECURITY_UNKNOWN_SOURCES = "action_security_unknown_sources";
+    private static final String ACTION_SECURITY_UNKNOWN_SOURCES_OFF =
+            "action_security_unknown_sources_off";
+    private static final String ACTION_SECURITY_VERIFY_APPS = "action_security_verify_apps";
+    private static final String ACTION_SECURITY_VERIFY_APPS_ON = "action_security_verify_apps_on";
+    private static final String ACTION_SECURITY_VERIFY_APPS_OFF = "action_security_verify_apps_off";
+    private static final String ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM =
+            "action_security_verify_apps_confirm";
+    private static final String ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_OK =
+            "action_security_verify_apps_confirm_ok";
+    private static final String ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_CANCEL =
+            "action_security_verify_apps_confirm_cancel";
+
+    private static final String TAG_RESTRICTED_PROFILE_SIDECAR_FRAGMENT =
+            "restricted_profile_sidecar";
 
     private SettingsHelper mHelper;
     private boolean mVerifierInstalled;
+    private DialogFragment mMainMenuDialogFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,135 +69,143 @@ public class SecurityActivity extends BaseSettingsActivity implements ActionAdap
         mVerifierInstalled = isVerifierInstalled();
         // Do this after setting up what's needed.
         super.onCreate(savedInstanceState);
-    }
-
-    @Override
-    protected Object getInitialState() {
-        return ActionType.SECURITY_OVERVIEW;
-    }
-
-    @Override
-    protected void updateView() {
-        refreshActionList();
-        switch ((ActionType) mState) {
-            case SECURITY_OVERVIEW:
-                setView(R.string.system_security, R.string.header_category_personal, 0,
-                        R.drawable.ic_settings_security);
-                break;
-            case SECURITY_UNKNOWN_SOURCES:
-                setView(R.string.security_unknown_sources_title, R.string.system_security,
-                        R.string.security_unknown_sources_desc, 0);
-                break;
-            case SECURITY_UNKNOWN_SOURCES_CONFIRM:
-                setView(R.string.security_unknown_sources_title, R.string.system_security,
-                        R.string.security_unknown_sources_confirm_desc, 0);
-                break;
-            case SECURITY_VERIFY_APPS:
-                setView(R.string.security_verify_apps_title, R.string.system_security,
-                        R.string.security_verify_apps_desc, 0);
-                break;
-            default:
-        }
-    }
-
-    @Override
-    protected void refreshActionList() {
-        mActions.clear();
-        boolean isNonMarketAppsAllowed = isNonMarketAppsAllowed();
-        switch ((ActionType) mState) {
-            case SECURITY_OVERVIEW:
-                mActions.add(ActionType.SECURITY_UNKNOWN_SOURCES.toAction(mResources,
-                        mHelper.getStatusStringFromBoolean(isNonMarketAppsAllowed())));
-                if (showVerifierSetting()) {
-                    Action verifierAction = ActionType.SECURITY_VERIFY_APPS.toAction(mResources,
-                            mHelper.getStatusStringFromBoolean(isVerifyAppsEnabled()
-                                    && mVerifierInstalled));
-                    verifierAction.setEnabled(mVerifierInstalled);
-                    mActions.add(verifierAction);
-                }
-                mActions.add(new Action.Builder().key(ACTION_RESTRICTED_PROFILE)
-                        .title(getString(R.string.launcher_restricted_profile_app_name))
-                        .description(RestrictedProfileActivity.getActionDescription(this))
-                        .intent(new Intent(this, RestrictedProfileActivity.class)).build());
-                break;
-            case SECURITY_UNKNOWN_SOURCES:
-                mActions.add(ActionBehavior.ON.toAction(ActionBehavior.getOnKey(
-                        ActionType.SECURITY_UNKNOWN_SOURCES.name()), mResources,
-                        isNonMarketAppsAllowed));
-                mActions.add(ActionBehavior.OFF.toAction(ActionBehavior.getOffKey(
-                        ActionType.SECURITY_UNKNOWN_SOURCES.name()), mResources,
-                        !isNonMarketAppsAllowed));
-                break;
-            case SECURITY_UNKNOWN_SOURCES_CONFIRM:
-                mActions.add(ActionBehavior.OK.toAction(ActionBehavior.getOnKey(
-                        ActionType.SECURITY_UNKNOWN_SOURCES_CONFIRM.name()), mResources));
-                mActions.add(ActionBehavior.CANCEL.toAction(ActionBehavior.getOffKey(
-                        ActionType.SECURITY_UNKNOWN_SOURCES_CONFIRM.name()), mResources));
-                break;
-            case SECURITY_VERIFY_APPS:
-                boolean isVerifyAppsEnabled = mVerifierInstalled && isVerifyAppsEnabled();
-                mActions.add(ActionBehavior.ON.toAction(ActionBehavior.getOnKey(
-                        ActionType.SECURITY_VERIFY_APPS.name()), mResources,
-                        isVerifyAppsEnabled));
-                mActions.add(ActionBehavior.OFF.toAction(ActionBehavior.getOffKey(
-                        ActionType.SECURITY_VERIFY_APPS.name()), mResources,
-                        !isVerifyAppsEnabled));
-                break;
-            default:
-        }
+        mMainMenuDialogFragment = new DialogFragment.Builder()
+                .breadcrumb(getString(R.string.header_category_personal))
+                .title(getString(R.string.system_security))
+                .iconResourceId(R.drawable.ic_settings_security)
+                .iconBackgroundColor(getResources().getColor(R.color.icon_background))
+                .actions(getMainMenuActions()).build();
+        DialogFragment.add(getFragmentManager(), mMainMenuDialogFragment);
     }
 
     @Override
     public void onActionClicked(Action action) {
         if (ACTION_RESTRICTED_PROFILE.equals(action.getKey())) {
-            startActivity(action.getIntent());
-            return;
-        }
-        String key = action.getKey();
-        ActionKey<ActionType, ActionBehavior> actionKey = new ActionKey<ActionType, ActionBehavior>(
-                ActionType.class, ActionBehavior.class, key);
-        final ActionType type = actionKey.getType();
-        final ActionBehavior behavior = actionKey.getBehavior();
-        switch (behavior) {
-            case INIT:
-                setState(type, true);
-                break;
-            case ON:
-            case OK:
-                if (ActionType.SECURITY_UNKNOWN_SOURCES == type) {
-                    setState(ActionType.SECURITY_UNKNOWN_SOURCES_CONFIRM, false);
-                } else {
-                    setProperty(type, true);
-                    goBack();
-                }
-                break;
-            case OFF:
-                setProperty(type, false);
-                goBack();
-                break;
-            case CANCEL:
-                goBack();
-            default:
-        }
-    }
+            getFragmentManager().beginTransaction().add(new RestrictedProfileDialogFragment(),
+                    TAG_RESTRICTED_PROFILE_SIDECAR_FRAGMENT).commit();
+        } else if (ACTION_SECURITY_UNKNOWN_SOURCES.equals(action.getKey())) {
+            boolean isNonMarketAppsAllowed = isNonMarketAppsAllowed();
+            ArrayList<Action> actions = new ArrayList<>();
+            // Note we only use the check set id if the "on" is checked so if "off" is selected
+            // there is an animation of the check for "off".  We don't want the same behavior for
+            // "on" because it has to go through a confirmation sub-dialog.
+            actions.add(new Action.Builder()
+                    .key(ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM)
+                    .title(getString(R.string.settings_on))
+                    .checked(isNonMarketAppsAllowed)
+                    .checkSetId(isNonMarketAppsAllowed ? CHECK_SET_ID : 0)
+                    .build());
+            actions.add(new Action.Builder()
+                    .key(ACTION_SECURITY_UNKNOWN_SOURCES_OFF)
+                    .title(getString(R.string.settings_off))
+                    .checked(!isNonMarketAppsAllowed)
+                    .checkSetId(CHECK_SET_ID)
+                    .build());
 
-    @Override
-    protected void setProperty(boolean enable) {
-    }
-
-    private void setProperty(ActionType type, boolean enable) {
-        if (type == ActionType.SECURITY_UNKNOWN_SOURCES_CONFIRM && enable) {
-            setNonMarketAppsAllowed(true);
-        } else if (type == ActionType.SECURITY_UNKNOWN_SOURCES && !enable) {
+            DialogFragment dialogFragment = new DialogFragment.Builder()
+                    .breadcrumb(getString(R.string.system_security))
+                    .title(getString(R.string.security_unknown_sources_title))
+                    .description(getString(R.string.security_unknown_sources_desc))
+                    .actions(actions)
+                    .build();
+            DialogFragment.add(getFragmentManager(), dialogFragment);
+        } else if (ACTION_SECURITY_UNKNOWN_SOURCES_OFF.equals(action.getKey())) {
             setNonMarketAppsAllowed(false);
-        } else if (type == ActionType.SECURITY_VERIFY_APPS) {
-            setVerifyAppsEnabled(enable);
+            mMainMenuDialogFragment.setActions(getMainMenuActions());
+            getFragmentManager().popBackStack();
+        } else if (ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM.equals(action.getKey())) {
+            // No point in issuing the confirmation sub-dialog if we're already "on".
+            if (isNonMarketAppsAllowed()) {
+                getFragmentManager().popBackStack();
+            } else {
+                ArrayList<Action> actions = new ArrayList<>();
+                actions.add(new Action.Builder()
+                        .key(ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_OK)
+                        .title(getString(R.string.settings_ok))
+                        .build());
+                actions.add(new Action.Builder()
+                        .key(ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_CANCEL)
+                        .title(getString(R.string.settings_cancel))
+                        .build());
+
+                DialogFragment dialogFragment = new DialogFragment.Builder()
+                        .breadcrumb(getString(R.string.system_security))
+                        .title(getString(R.string.security_unknown_sources_title))
+                        .description(getString(R.string.security_unknown_sources_confirm_desc))
+                        .actions(actions)
+                        .build();
+                DialogFragment.add(getFragmentManager(), dialogFragment);
+            }
+        } else if (ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_OK.equals(action.getKey())) {
+            setNonMarketAppsAllowed(true);
+            mMainMenuDialogFragment.setActions(getMainMenuActions());
+            getFragmentManager().popBackStack();
+            getFragmentManager().popBackStack();
+        } else if (ACTION_SECURITY_UNKNOWN_SOURCES_CONFIRM_CANCEL.equals(action.getKey())) {
+            getFragmentManager().popBackStack();
+            getFragmentManager().popBackStack();
+        } else if (ACTION_SECURITY_VERIFY_APPS.equals(action.getKey())) {
+            boolean isVerifyAppsEnabled = mVerifierInstalled && isVerifyAppsEnabled();
+
+            ArrayList<Action> actions = new ArrayList<>();
+            actions.add(new Action.Builder()
+                    .key(ACTION_SECURITY_VERIFY_APPS_ON)
+                    .title(getString(R.string.settings_on))
+                    .checked(isVerifyAppsEnabled)
+                    .checkSetId(CHECK_SET_ID)
+                    .build());
+            actions.add(new Action.Builder()
+                    .key(ACTION_SECURITY_VERIFY_APPS_OFF)
+                    .title(getString(R.string.settings_off))
+                    .checked(!isVerifyAppsEnabled)
+                    .checkSetId(CHECK_SET_ID)
+                    .build());
+
+            DialogFragment dialogFragment = new DialogFragment.Builder()
+                    .breadcrumb(getString(R.string.system_security))
+                    .title(getString(R.string.security_verify_apps_title))
+                    .description(getString(R.string.security_verify_apps_desc))
+                    .actions(actions)
+                    .build();
+            DialogFragment.add(getFragmentManager(), dialogFragment);
+        } else if (ACTION_SECURITY_VERIFY_APPS_ON.equals(action.getKey())) {
+            setVerifyAppsEnabled(true);
+            mMainMenuDialogFragment.setActions(getMainMenuActions());
+            getFragmentManager().popBackStack();
+        } else if (ACTION_SECURITY_VERIFY_APPS_OFF.equals(action.getKey())) {
+            setVerifyAppsEnabled(false);
+            mMainMenuDialogFragment.setActions(getMainMenuActions());
+            getFragmentManager().popBackStack();
         }
+    }
+
+    private ArrayList<Action> getMainMenuActions() {
+        boolean isNonMarketAppsAllowed = isNonMarketAppsAllowed();
+        ArrayList<Action> actions = new ArrayList<>();
+        actions.add(new Action.Builder()
+                .key(ACTION_SECURITY_UNKNOWN_SOURCES)
+                .title(getString(R.string.security_unknown_sources_title))
+                .description(mHelper.getStatusStringFromBoolean(isNonMarketAppsAllowed()))
+                .build());
+        if (showVerifierSetting()) {
+            actions.add(new Action.Builder()
+                    .key(ACTION_SECURITY_VERIFY_APPS)
+                    .title(getString(R.string.security_verify_apps_title))
+                    .description(mHelper.getStatusStringFromBoolean(isVerifyAppsEnabled()
+                            && mVerifierInstalled))
+                    .enabled(mVerifierInstalled)
+                    .build());
+        }
+        actions.add(new Action.Builder().key(ACTION_RESTRICTED_PROFILE)
+                .title(getString(R.string.launcher_restricted_profile_app_name))
+                .description(RestrictedProfileDialogFragment.getActionDescription(this))
+                .build());
+        return actions;
     }
 
     private boolean isNonMarketAppsAllowed() {
         return Settings.Global.getInt(getContentResolver(),
-                                      Settings.Global.INSTALL_NON_MARKET_APPS, 0) > 0;
+                Settings.Global.INSTALL_NON_MARKET_APPS, 0) > 0;
     }
 
     private void setNonMarketAppsAllowed(boolean enabled) {
@@ -192,12 +215,12 @@ public class SecurityActivity extends BaseSettingsActivity implements ActionAdap
         }
         // Change the system setting
         Settings.Global.putInt(getContentResolver(), Settings.Global.INSTALL_NON_MARKET_APPS,
-                                enabled ? 1 : 0);
+                enabled ? 1 : 0);
     }
 
     private boolean isVerifyAppsEnabled() {
         return Settings.Global.getInt(getContentResolver(),
-                                      Settings.Global.PACKAGE_VERIFIER_ENABLE, 1) > 0;
+                Settings.Global.PACKAGE_VERIFIER_ENABLE, 1) > 0;
     }
 
     private void setVerifyAppsEnabled(boolean enable) {

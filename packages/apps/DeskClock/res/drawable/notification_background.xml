@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-     Copyright (C) 2014 The Android Open Source Project
+     Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -15,9 +15,15 @@
      limitations under the License.
 -->
 
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="?android:attr/colorButtonNormal">
-    <item android:id="@android:id/mask">
-        <color android:color="?android:attr/colorButtonNormal" />
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/notification_bg"/>
+
+    <item>
+        <selector>
+            <item android:state_pressed="true"
+                android:drawable="@color/notification_pressed"/>
+            <item android:drawable="@color/transparent"/>
+        </selector>
     </item>
-</ripple>
+
+</layer-list>

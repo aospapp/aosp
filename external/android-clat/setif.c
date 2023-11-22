@@ -159,7 +159,7 @@ static int do_anycast_setsockopt(int sock, int what, struct in6_addr *addr, int 
  * ifname    - name of interface to add the address to
  */
 int add_anycast_address(int sock, struct in6_addr *addr, const char *ifname) {
-  int ifindex, s, ret;
+  int ifindex;
 
   ifindex = if_nametoindex(ifname);
   if (!ifindex) {

@@ -8,13 +8,13 @@ union u {
 
 static union u2 {
     int i;
-    rs_font f;
+    rs_element e;
 } myUnion2;
 
 
 void foo() {
     union iu {
-        rs_font f;
+        rs_element e;
         int i;
     } v;
     (void) v;

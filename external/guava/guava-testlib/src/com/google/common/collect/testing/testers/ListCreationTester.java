@@ -20,6 +20,7 @@ import static com.google.common.collect.testing.features.CollectionFeature.REJEC
 import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
@@ -28,10 +29,9 @@ import com.google.common.collect.testing.features.CollectionSize;
  * static factory method) of a list. Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.ListTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  */
+@GwtCompatible
 public class ListCreationTester<E> extends AbstractListTester<E> {
   @CollectionFeature.Require(absent = REJECTS_DUPLICATES_AT_CREATION)
   @CollectionSize.Require(absent = {ZERO, ONE})

@@ -23,20 +23,14 @@
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
-include $(BUILD_PACKAGE)
-
-cts_package_apk := $(CTS_TESTCASES_OUT)/$(LOCAL_PACKAGE_NAME).apk
-cts_package_xml := $(CTS_TESTCASES_OUT)/$(LOCAL_PACKAGE_NAME).xml
+include $(BUILD_CTS_SUPPORT_PACKAGE)
+include $(BUILD_CTS_MODULE_TEST_CONFIG)
 
 cts_src_dirs := $(LOCAL_PATH)
 cts_src_dirs += $(sort $(dir $(LOCAL_GENERATED_SOURCES)))
 cts_src_dirs := $(addprefix -s , $(cts_src_dirs))
 
-$(cts_package_apk): PRIVATE_PACKAGE := $(LOCAL_PACKAGE_NAME)
-$(cts_package_apk): $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/package.apk | $(ACP)
-	$(hide) mkdir -p $(CTS_TESTCASES_OUT)
-	$(hide) $(ACP) -fp $(call intermediates-dir-for,APPS,$(PRIVATE_PACKAGE))/package.apk $@
-
+cts_package_xml := $(CTS_TESTCASES_OUT)/$(LOCAL_PACKAGE_NAME).xml
 $(cts_package_xml): PRIVATE_SRC_DIRS := $(cts_src_dirs)
 $(cts_package_xml): PRIVATE_INSTRUMENTATION := $(LOCAL_INSTRUMENTATION_FOR)
 $(cts_package_xml): PRIVATE_PACKAGE := $(LOCAL_PACKAGE_NAME)
@@ -48,7 +42,9 @@ endif
 $(cts_package_xml): PRIVATE_TEST_PACKAGE := $(PRIVATE_CTS_TEST_PACKAGE_NAME_)
 $(cts_package_xml): PRIVATE_MANIFEST := $(LOCAL_PATH)/AndroidManifest.xml
 $(cts_package_xml): PRIVATE_TEST_TYPE := $(if $(LOCAL_CTS_TEST_RUNNER),$(LOCAL_CTS_TEST_RUNNER),'')
-$(cts_package_xml): $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/package.apk $(CTS_EXPECTATIONS) $(CTS_UNSUPPORTED_ABIS) $(CTS_JAVA_TEST_SCANNER_DOCLET) $(CTS_JAVA_TEST_SCANNER) $(CTS_XML_GENERATOR)
+$(cts_package_xml): $(cts_support_apks)
+$(cts_package_xml): $(cts_module_test_config)
+$(cts_package_xml): $(CTS_EXPECTATIONS) $(CTS_UNSUPPORTED_ABIS) $(CTS_JAVA_TEST_SCANNER_DOCLET) $(CTS_JAVA_TEST_SCANNER) $(CTS_XML_GENERATOR)
 	$(hide) echo Generating test description for java package $(PRIVATE_PACKAGE)
 	$(hide) mkdir -p $(CTS_TESTCASES_OUT)
 	$(hide) $(CTS_JAVA_TEST_SCANNER) \
@@ -64,6 +60,5 @@ $(cts_package_xml): $(call intermediates-dir-for,APPS,$(LOCAL_PACKAGE_NAME))/pac
 						-b $(CTS_UNSUPPORTED_ABIS) \
 						-a $(CTS_TARGET_ARCH) \
 						-o $@
-
 # Have the module name depend on the cts files; so the cts files get generated when you run mm/mmm/mma/mmma.
-$(my_register_name) : $(cts_package_apk) $(cts_package_xml)
+$(my_register_name) : $(cts_package_xml) $(cts_module_test_config)

@@ -33,8 +33,8 @@ extern "C" {
 #define pair_set_epi16(a, b) \
   _mm_set_epi16(b, a, b, a, b, a, b, a)
 
-#define pair_set_epi32(a, b) \
-  _mm_set_epi32(b, a, b, a)
+#define dual_set_epi16(a, b) \
+  _mm_set_epi16(b, b, b, b, a, a, a, a)
 
 // Constants:
 //  for (int i = 1; i< 32; ++i)
@@ -81,6 +81,16 @@ static const int sinpi_4_9 = 15212;
 
 static INLINE int dct_const_round_shift(int input) {
   int rv = ROUND_POWER_OF_TWO(input, DCT_CONST_BITS);
+#if CONFIG_COEFFICIENT_RANGE_CHECKING
+  // For valid VP9 input streams, intermediate stage coefficients should always
+  // stay within the range of a signed 16 bit integer. Coefficients can go out
+  // of this range for invalid/corrupt VP9 streams. However, strictly checking
+  // this range for every intermediate coefficient can burdensome for a decoder,
+  // therefore the following assertion is only enabled when configured with
+  // --enable-coefficient-range-checking.
+  assert(INT16_MIN <= rv);
+  assert(rv <= INT16_MAX);
+#endif
   return (int16_t)rv;
 }
 

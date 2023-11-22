@@ -78,6 +78,21 @@ public class LooperTest extends AndroidTestCase {
         t.runTest(WAIT_TIME);
     }
 
+    public void testIsCurrentThread() throws Throwable {
+        final Looper[] looper = new Looper[1];
+        TestThread t = new TestThread(new Runnable() {
+            @Override
+            public void run() {
+                Looper.prepare();
+                assertTrue(Looper.myLooper().isCurrentThread());
+                looper[0] = Looper.myLooper();
+            }
+        });
+
+        t.runTest(WAIT_TIME);
+        assertFalse(looper[0].isCurrentThread());
+    }
+
     public void testMyQueue() throws Throwable {
         TestThread t = new TestThread(new Runnable() {
             public void run() {
@@ -90,6 +105,18 @@ public class LooperTest extends AndroidTestCase {
                 Looper.prepare();
                 MessageQueue mq = Looper.myQueue();
                 assertNotNull(mq);
+            }
+        });
+
+        t.runTest(WAIT_TIME);
+    }
+
+    public void testGetQueue() throws Throwable {
+        TestThread t = new TestThread(new Runnable() {
+            public void run() {
+                Looper.prepare();
+                assertNotNull(Looper.myLooper().getQueue());
+                assertEquals(Looper.myLooper().getQueue(), Looper.myQueue());
             }
         });
 

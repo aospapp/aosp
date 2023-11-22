@@ -27,16 +27,17 @@ import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 
-import java.util.ArrayList;
-
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
+
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Activity that displays Device Name settings
  */
 public class DeviceNameSettingsActivity extends Activity implements AdapterView.OnItemClickListener,
-        TextInputWizardFragment.Listener {
+        TextInputWizardFragment.Listener, SetDeviceNameFragment.SetDeviceNameListener {
 
     private static final String TAG = DeviceNameSettingsActivity.class.getSimpleName();
     private static final boolean DEBUG = false;
@@ -44,7 +45,7 @@ public class DeviceNameSettingsActivity extends Activity implements AdapterView.
     public static final String EXTRA_SETUP_MODE = "in_setup_mode";
     private static final String INITIAL_STATE = "initial";
 
-    private ArrayList<String> mOptions = new ArrayList<String>(2);
+    private final ArrayList<String> mOptions = new ArrayList<>(2);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,7 +56,9 @@ public class DeviceNameSettingsActivity extends Activity implements AdapterView.
         Resources res = getResources();
         mOptions.add(res.getString(R.string.keep_settings));
         mOptions.add(res.getString(R.string.change_setting));
-        displaySummary();
+        if (savedInstanceState == null) {
+            displaySummary();
+        }
     }
 
     @Override
@@ -98,28 +101,9 @@ public class DeviceNameSettingsActivity extends Activity implements AdapterView.
     private void displaySetName() {
         FragmentTransaction transaction = getFragmentManager().beginTransaction();
         String[] rooms = getResources().getStringArray(R.array.rooms);
-        ArrayList<String> roomsList = new ArrayList<String>();
-        for (int ptr = 0; ptr < rooms.length; ptr++) {
-            roomsList.add(rooms[ptr]);
-        }
+        ArrayList<String> roomsList = new ArrayList<>(rooms.length);
+        Collections.addAll(roomsList, rooms);
         SetDeviceNameFragment nameUi = SetDeviceNameFragment.createInstance(roomsList, true);
-
-        nameUi.setListener(new SetDeviceNameListener() {
-            @Override
-            public boolean validateName(String name) {
-                return true;
-            }
-
-            @Override
-            public void onDeviceNameSelected(String name) {
-                setNameAndResetUi(name);
-            }
-
-            @Override
-            public void onCustomNameRequested() {
-                displayTextInputFragment();
-            }
-        });
 
         transaction.replace(R.id.content_wrapper, nameUi);
         transaction.addToBackStack(null);
@@ -158,5 +142,16 @@ public class DeviceNameSettingsActivity extends Activity implements AdapterView.
     private void setDeviceName(String name) {
         if (DEBUG) Log.v(TAG, String.format("Setting device name to %s", name));
         DeviceManager.setDeviceName(getApplicationContext(), name);
+    }
+
+    // SetDeviceNameListener implementation
+    @Override
+    public void onDeviceNameSelected(String name) {
+        setNameAndResetUi(name);
+    }
+
+    @Override
+    public void onCustomNameRequested() {
+        displayTextInputFragment();
     }
 }

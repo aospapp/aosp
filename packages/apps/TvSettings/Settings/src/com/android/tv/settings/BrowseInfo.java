@@ -26,8 +26,10 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.TypedArray;
@@ -35,13 +37,9 @@ import android.content.res.XmlResourceParser;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
-import android.os.Bundle;
-import android.os.Handler;
 import android.preference.PreferenceActivity;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.HeaderItem;
-import android.support.v17.leanback.widget.ObjectAdapter;
-import android.support.v17.leanback.widget.ListRow;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -52,7 +50,6 @@ import com.android.internal.util.XmlUtils;
 import com.android.tv.settings.accessories.AccessoryUtils;
 import com.android.tv.settings.accessories.BluetoothAccessoryActivity;
 import com.android.tv.settings.accessories.BluetoothConnectionsManager;
-import com.android.tv.settings.accounts.AccountImageUriGetter;
 import com.android.tv.settings.accounts.AccountSettingsActivity;
 import com.android.tv.settings.accounts.AddAccountWithTypeActivity;
 import com.android.tv.settings.accounts.AuthenticatorHelper;
@@ -60,9 +57,8 @@ import com.android.tv.settings.connectivity.ConnectivityStatusIconUriGetter;
 import com.android.tv.settings.connectivity.ConnectivityStatusTextGetter;
 import com.android.tv.settings.connectivity.WifiNetworksActivity;
 import com.android.tv.settings.device.sound.SoundActivity;
-import com.android.tv.settings.users.RestrictedProfileActivity;
+import com.android.tv.settings.users.RestrictedProfileDialogFragment;
 import com.android.tv.settings.util.UriUtils;
-import com.android.tv.settings.util.AccountImageHelper;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -76,12 +72,8 @@ import java.util.Set;
  */
 public class BrowseInfo extends BrowseInfoBase {
 
-    private static final String TAG = "CanvasSettings.BrowseInfo";
+    private static final String TAG = "TvSettings.BrowseInfo";
     private static final boolean DEBUG = false;
-
-    public static final String EXTRA_ACCESSORY_ADDRESS = "accessory_address";
-    public static final String EXTRA_ACCESSORY_NAME = "accessory_name";
-    public static final String EXTRA_ACCESSORY_ICON_ID = "accessory_icon_res";
 
     private static final String ACCOUNT_TYPE_GOOGLE = "com.google";
 
@@ -142,8 +134,6 @@ public class BrowseInfo extends BrowseInfoBase {
                             + "> tag; found" + nodeName + " at " + parser.getPositionDescription());
                 }
 
-                Bundle curBundle = null;
-
                 final int outerDepth = parser.getDepth();
                 while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
                         && (type != XmlPullParser.END_TAG || parser.getDepth() > outerDepth)) {
@@ -159,9 +149,7 @@ public class BrowseInfo extends BrowseInfoBase {
                     }
                 }
 
-            } catch (XmlPullParserException e) {
-                throw new RuntimeException("Error parsing headers", e);
-            } catch (IOException e) {
+            } catch (XmlPullParserException|IOException e) {
                 throw new RuntimeException("Error parsing headers", e);
             } finally {
                 if (parser != null)
@@ -171,10 +159,12 @@ public class BrowseInfo extends BrowseInfoBase {
     }
 
     private static final String PREF_KEY_ADD_ACCOUNT = "add_account";
-    private static final String PREF_KEY_ADD_ACCESSORY = "add_accessory";
     private static final String PREF_KEY_WIFI = "network";
     private static final String PREF_KEY_DEVELOPER = "developer";
     private static final String PREF_KEY_INPUTS = "inputs";
+    private static final String PREF_KEY_HOME = "home";
+    private static final String PREF_KEY_CAST = "cast";
+    private static final String PREF_KEY_GOOGLESETTINGS = "googleSettings";
 
     private final Context mContext;
     private final AuthenticatorHelper mAuthenticatorHelper;
@@ -183,12 +173,15 @@ public class BrowseInfo extends BrowseInfoBase {
     private final BluetoothAdapter mBtAdapter;
     private final Object mGuard = new Object();
     private MenuItem mWifiItem = null;
+    private MenuItem mSoundsItem = null;
+    private MenuItem mDeveloperOptionItem = null;
     private ArrayObjectAdapter mWifiRow = null;
-    private final Handler mHandler = new Handler();
+    private ArrayObjectAdapter mSoundsRow = null;
+    private ArrayObjectAdapter mDeveloperRow = null;
 
-    private PreferenceUtils mPreferenceUtils;
+    private final PreferenceUtils mPreferenceUtils;
     private boolean mDeveloperEnabled;
-    private boolean mInputSettingNeeded;
+    private final boolean mInputSettingNeeded;
 
     BrowseInfo(Context context) {
         mContext = context;
@@ -217,7 +210,10 @@ public class BrowseInfo extends BrowseInfoBase {
         final boolean developerEnabled = mPreferenceUtils.isDeveloperEnabled();
         if (developerEnabled != mDeveloperEnabled) {
             mDeveloperEnabled = developerEnabled;
-            init();
+            if (mDeveloperOptionItem != null) {
+                mDeveloperRow.add (mDeveloperOptionItem);
+                mDeveloperOptionItem = null;
+            }
         }
     }
 
@@ -248,7 +244,7 @@ public class BrowseInfo extends BrowseInfoBase {
     }
 
     private boolean isRestricted() {
-        return RestrictedProfileActivity.isRestrictedProfileInEffect(mContext);
+        return RestrictedProfileDialogFragment.isRestrictedProfileInEffect(mContext);
     }
 
     private class PreferenceXmlReaderListener implements XmlReaderListener {
@@ -278,24 +274,73 @@ public class BrowseInfo extends BrowseInfoBase {
             if (PREF_KEY_ADD_ACCOUNT.equals(key)) {
                 mAccountHeaderId = mHeaderId;
                 addAccounts(mRow);
-            } else if ((!key.equals(PREF_KEY_DEVELOPER) || mDeveloperEnabled)
-                    && (!key.equals(PREF_KEY_INPUTS) || mInputSettingNeeded)) {
+            } else if (PREF_KEY_HOME.equals(key)) {
+                // Only show home screen setting if there's a system app to handle the intent.
+                Intent recIntent = getIntent(parser, attrs);
+                if (systemIntentIsHandled(recIntent) != null) {
+                    mRow.add(new MenuItem.Builder()
+                            .id(mNextItemId++)
+                            .title(title)
+                            .imageResourceId(mContext, iconRes)
+                            .intent(recIntent)
+                            .build());
+                }
+            } else if (PREF_KEY_CAST.equals(key)) {
+                Intent i = getIntent(parser, attrs);
+                if (systemIntentIsHandled(i) != null) {
+                    mRow.add(new MenuItem.Builder()
+                            .id(mNextItemId++)
+                            .title(title)
+                            .imageResourceId(mContext, iconRes)
+                            .intent(i)
+                            .build());
+                }
+            } else if (PREF_KEY_GOOGLESETTINGS.equals(key)) {
+                Intent i = getIntent(parser, attrs);
+                final ResolveInfo info = systemIntentIsHandled(i);
+                if (info != null) {
+                    try {
+                        final PackageManager packageManager = context.getPackageManager();
+                        final String packageName = info.resolvePackageName != null ?
+                                info.resolvePackageName : info.activityInfo.packageName;
+                        final Resources targetResources =
+                                packageManager.getResourcesForApplication(packageName);
+                        final String targetTitle = info.loadLabel(packageManager).toString();
+                        mRow.add(new MenuItem.Builder()
+                                .id(mNextItemId++)
+                                .title(targetTitle)
+                                .imageResourceId(targetResources, info.iconResourceId)
+                                .intent(i)
+                                .build());
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error adding google settings", e);
+                    }
+                }
+            } else if (!PREF_KEY_INPUTS.equals(key) || mInputSettingNeeded) {
                 MenuItem.TextGetter descriptionGetter = getDescriptionTextGetterFromKey(key);
                 MenuItem.UriGetter uriGetter = getIconUriGetterFromKey(key);
                 MenuItem.Builder builder = new MenuItem.Builder().id(mNextItemId++).title(title)
                         .descriptionGetter(descriptionGetter)
-                        .intent(getIntent(parser, attrs, mHeaderId));
+                        .intent(getIntent(parser, attrs));
                 if(uriGetter == null) {
                     builder.imageResourceId(mContext, iconRes);
                 } else {
                     builder.imageUriGetter(uriGetter);
                 }
+                final MenuItem item = builder.build();
                 if (key.equals(PREF_KEY_WIFI)) {
-                    mWifiItem = builder.build();
-                    mRow.add(mWifiItem);
                     mWifiRow = mRow;
+                    mWifiItem = item;
+                    mRow.add(mWifiItem);
+                } else if (key.equals(SoundActivity.getPreferenceKey())) {
+                    mSoundsRow = mRow;
+                    mSoundsItem = item;
+                    mRow.add(mSoundsItem);
+                } else if (key.equals(PREF_KEY_DEVELOPER) && !mDeveloperEnabled) {
+                    mDeveloperRow = mRow;
+                    mDeveloperOptionItem = item;
                 } else {
-                    mRow.add(builder.build());
+                    mRow.add(item);
                 }
             }
         }
@@ -357,6 +402,15 @@ public class BrowseInfo extends BrowseInfoBase {
         }
     }
 
+    public void updateSounds() {
+        if (mSoundsItem != null) {
+            int index = mSoundsRow.indexOf(mSoundsItem);
+            if (index >= 0) {
+                mSoundsRow.notifyArrayItemRangeChanged(index, 1);
+            }
+        }
+    }
+
     private boolean isInputSettingNeeded() {
         TvInputManager manager = (TvInputManager) mContext.getSystemService(
                 Context.TV_INPUT_SERVICE);
@@ -380,14 +434,13 @@ public class BrowseInfo extends BrowseInfoBase {
         ComponentName componentName = new ComponentName("com.android.tv.settings",
                 "com.android.tv.settings.accessories.AddAccessoryActivity");
         Intent i = new Intent().setComponent(componentName);
-        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
         row.add(new MenuItem.Builder().id(mNextItemId++)
                 .title(mContext.getString(R.string.accessories_add))
                 .imageResourceId(mContext, R.drawable.ic_settings_bluetooth)
                 .intent(i).build());
     }
 
-    private Intent getIntent(XmlResourceParser parser, AttributeSet attrs, int headerId)
+    private Intent getIntent(XmlResourceParser parser, AttributeSet attrs)
             throws org.xmlpull.v1.XmlPullParserException, IOException {
         Intent intent = null;
         if (parser.next() == XmlPullParser.START_TAG && "intent".equals(parser.getName())) {
@@ -405,11 +458,13 @@ public class BrowseInfo extends BrowseInfoBase {
                 intent.setComponent(componentName);
             } else if (action != null) {
                 intent = new Intent(action);
+                if (targetPackage != null) {
+                    intent.setPackage(targetPackage);
+                }
             }
 
             XmlUtils.skipCurrentTag(parser);
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
         return intent;
     }
 
@@ -459,15 +514,13 @@ public class BrowseInfo extends BrowseInfoBase {
         int googleAccountCount = 0;
 
         for (AuthenticatorDescription authDesc : authTypes) {
-            Resources resources = null;
+            final Resources resources;
             try {
                 resources = pm.getResourcesForApplication(authDesc.packageName);
             } catch (NameNotFoundException e) {
                 Log.e(TAG, "Authenticator description with bad package name", e);
                 continue;
             }
-
-            allowableAccountTypes.add(authDesc.type);
 
             // Main title text comes from the authenticator description (e.g. "Google").
             String authTitle = null;
@@ -477,10 +530,20 @@ public class BrowseInfo extends BrowseInfoBase {
                     authTitle = null;  // Handled later when we add the row.
                 }
             } catch (NotFoundException e) {
-                Log.e(TAG, "Authenticator description with bad label id", e);
+                if (DEBUG) Log.e(TAG, "Authenticator description with bad label id", e);
+            }
+
+            // There exist some authenticators which aren't intended to be user-facing.
+            // If the authenticator doesn't have a title or an icon, don't present it to
+            // the user as an option.
+            if (authTitle != null || authDesc.iconId != 0) {
+                allowableAccountTypes.add(authDesc.type);
             }
 
             Account[] accounts = am.getAccountsByType(authDesc.type);
+            if (accounts == null || accounts.length == 0) {
+                continue;  // No point in continuing; there aren't any accounts to show.
+            }
 
             // Icon URI to be displayed for each account is based on the type of authenticator.
             String imageUri = null;
@@ -488,18 +551,21 @@ public class BrowseInfo extends BrowseInfoBase {
                 googleAccountCount = accounts.length;
                 imageUri = googleAccountIconUri(mContext);
             } else {
-                imageUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
-                        authDesc.packageName + '/' +
-                        resources.getResourceTypeName(authDesc.iconId) + '/' +
-                        resources.getResourceEntryName(authDesc.iconId))
-                        .toString();
+                try {
+                    imageUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" +
+                            authDesc.packageName + '/' +
+                            resources.getResourceTypeName(authDesc.iconId) + '/' +
+                            resources.getResourceEntryName(authDesc.iconId))
+                            .toString();
+                } catch (NotFoundException e) {
+                    if (DEBUG) Log.e(TAG, "Authenticator has bad resource ids", e);
+                }
             }
 
             // Display an entry for each installed account we have.
             for (final Account account : accounts) {
                 Intent i = new Intent(mContext, AccountSettingsActivity.class)
                         .putExtra(AccountSettingsActivity.EXTRA_ACCOUNT, account.name);
-                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
                 row.add(new MenuItem.Builder().id(mNextItemId++)
                         .title(authTitle != null ? authTitle : account.name)
                         .imageUri(imageUri)
@@ -521,7 +587,6 @@ public class BrowseInfo extends BrowseInfoBase {
             if (!allowableAccountTypes.isEmpty()) {
                 Intent i = new Intent().setComponent(new ComponentName("com.android.tv.settings",
                         "com.android.tv.settings.accounts.AddAccountWithTypeActivity"));
-                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
                 i.putExtra(AddAccountWithTypeActivity.EXTRA_ALLOWABLE_ACCOUNT_TYPES_STRING_ARRAY,
                         allowableAccountTypes.toArray(new String[allowableAccountTypes.size()]));
 
@@ -552,7 +617,6 @@ public class BrowseInfo extends BrowseInfoBase {
                 int resourceId = AccessoryUtils.getImageIdForDevice(device);
                 Intent i = BluetoothAccessoryActivity.getIntent(mContext, device.getAddress(),
                         device.getName(), resourceId);
-                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
 
                 String desc = connectedBluetoothAddresses.contains(device.getAddress())
                         ? mContext.getString(R.string.accessory_connected)
@@ -571,5 +635,25 @@ public class BrowseInfo extends BrowseInfoBase {
         iconResource.resourceName = context.getResources().getResourceName(
                 R.drawable.ic_settings_google_account);
         return UriUtils.getShortcutIconResourceUri(iconResource).toString();
+    }
+
+    private ResolveInfo systemIntentIsHandled(Intent intent) {
+        if (mContext == null || intent == null) {
+            return null;
+        }
+
+        PackageManager pm = mContext.getPackageManager();
+        if (pm == null) {
+            return null;
+        }
+
+        for (ResolveInfo info : pm.queryIntentActivities(intent, 0)) {
+            if (info.activityInfo != null && info.activityInfo.enabled &&
+                (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) ==
+                        ApplicationInfo.FLAG_SYSTEM) {
+                return info;
+            }
+        }
+        return null;
     }
 }

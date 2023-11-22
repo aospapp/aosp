@@ -18,6 +18,8 @@ package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
 
+import android.graphics.ImageFormat;
+import android.view.Surface;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraDevice;
@@ -29,6 +31,7 @@ import android.util.Size;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.util.Log;
+import android.util.Pair;
 import android.util.Range;
 
 import org.mockito.ArgumentCaptor;
@@ -36,6 +39,7 @@ import org.mockito.ArgumentMatcher;
 
 import static org.mockito.Mockito.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -73,7 +77,11 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
             try {
                 Log.i(TAG, "Testing preview for Camera " + mCameraIds[i]);
                 openDevice(mCameraIds[i]);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 previewTestByCamera();
             } finally {
                 closeDevice();
@@ -93,7 +101,11 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
             try {
                 Log.i(TAG, "Testing preview for Camera " + mCameraIds[i]);
                 openDevice(mCameraIds[i]);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 previewTestPatternTestByCamera();
             } finally {
                 closeDevice();
@@ -109,13 +121,209 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 previewFpsRangeTestByCamera();
             } finally {
                 closeDevice();
             }
         }
     }
+
+    /**
+     * Test to verify the {@link CameraCaptureSession#prepare} method works correctly, and has the
+     * expected effects on performance.
+     *
+     * - Ensure that prepare() results in onSurfacePrepared() being invoked
+     * - Ensure that prepare() does not cause preview glitches while operating
+     * - Ensure that starting to use a newly-prepared output does not cause additional
+     *   preview glitches to occur
+     */
+    public void testPreparePerformance() throws Throwable {
+        for (int i = 0; i < mCameraIds.length; i++) {
+            try {
+                openDevice(mCameraIds[i]);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                preparePerformanceTestByCamera(mCameraIds[i]);
+            }
+            finally {
+                closeDevice();
+            }
+        }
+    }
+
+    private void preparePerformanceTestByCamera(String cameraId) throws Exception {
+        final int MAX_IMAGES_TO_PREPARE = 10;
+        final int UNKNOWN_LATENCY_RESULT_WAIT = 5;
+        final int MAX_RESULTS_TO_WAIT = 10;
+        final int FRAMES_FOR_AVERAGING = 100;
+        final int PREPARE_TIMEOUT_MS = 10000; // 10 s
+        final float PREPARE_FRAME_RATE_BOUNDS = 0.05f; // fraction allowed difference
+        final float PREPARE_PEAK_RATE_BOUNDS = 0.5f; // fraction allowed difference
+
+        Size maxYuvSize = getSupportedPreviewSizes(cameraId, mCameraManager, null).get(0);
+        Size maxPreviewSize = mOrderedPreviewSizes.get(0);
+
+        // Don't need image data, just drop it right away to minimize overhead
+        ImageDropperListener imageListener = new ImageDropperListener();
+
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+
+        CaptureRequest.Builder previewRequest =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+
+        // Configure outputs and session
+
+        updatePreviewSurface(maxPreviewSize);
+
+        createImageReader(maxYuvSize, ImageFormat.YUV_420_888, MAX_IMAGES_TO_PREPARE, imageListener);
+
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        outputSurfaces.add(mPreviewSurface);
+        outputSurfaces.add(mReaderSurface);
+
+        CameraCaptureSession.StateCallback mockSessionListener =
+                mock(CameraCaptureSession.StateCallback.class);
+
+        mSession = configureCameraSession(mCamera, outputSurfaces, mockSessionListener, mHandler);
+
+        previewRequest.addTarget(mPreviewSurface);
+        Range<Integer> maxFpsTarget = mStaticInfo.getAeMaxTargetFpsRange();
+        previewRequest.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, maxFpsTarget);
+
+        mSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+
+        // Converge AE
+        waitForAeStable(resultListener, UNKNOWN_LATENCY_RESULT_WAIT);
+
+        if (mStaticInfo.isAeLockSupported()) {
+            // Lock AE if possible to improve stability
+            previewRequest.set(CaptureRequest.CONTROL_AE_LOCK, true);
+            mSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                // Legacy mode doesn't output AE state
+                waitForResultValue(resultListener, CaptureResult.CONTROL_AE_STATE,
+                        CaptureResult.CONTROL_AE_STATE_LOCKED, MAX_RESULTS_TO_WAIT);
+            }
+        }
+
+        // Measure frame rate for a bit
+        Pair<Long, Long> frameDurationStats =
+                measureMeanFrameInterval(resultListener, FRAMES_FOR_AVERAGING, /*prevTimestamp*/ 0);
+
+        Log.i(TAG, String.format("Frame interval avg during normal preview: %f ms, peak %f ms",
+                        frameDurationStats.first / 1e6, frameDurationStats.second / 1e6));
+
+        // Drain results, do prepare
+        resultListener.drain();
+
+        mSession.prepare(mReaderSurface);
+
+        verify(mockSessionListener,
+                timeout(PREPARE_TIMEOUT_MS).times(1)).
+                onSurfacePrepared(eq(mSession), eq(mReaderSurface));
+
+        // Calculate frame rate during prepare
+
+        int resultsReceived = (int) resultListener.getTotalNumFrames();
+        if (resultsReceived > 2) {
+            // Only verify frame rate if there are a couple of results
+            Pair<Long, Long> whilePreparingFrameDurationStats =
+                    measureMeanFrameInterval(resultListener, resultsReceived, /*prevTimestamp*/ 0);
+
+            Log.i(TAG, String.format("Frame interval during prepare avg: %f ms, peak %f ms",
+                            whilePreparingFrameDurationStats.first / 1e6,
+                            whilePreparingFrameDurationStats.second / 1e6));
+
+            if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                mCollector.expectTrue(
+                    String.format("Camera %s: Preview peak frame interval affected by prepare " +
+                            "call: preview avg frame duration: %f ms, peak during prepare: %f ms",
+                            cameraId,
+                            frameDurationStats.first / 1e6,
+                            whilePreparingFrameDurationStats.second / 1e6),
+                    (whilePreparingFrameDurationStats.second <=
+                            frameDurationStats.first * (1 + PREPARE_PEAK_RATE_BOUNDS)));
+                mCollector.expectTrue(
+                    String.format("Camera %s: Preview average frame interval affected by prepare " +
+                            "call: preview avg frame duration: %f ms, during prepare: %f ms",
+                            cameraId,
+                            frameDurationStats.first / 1e6,
+                            whilePreparingFrameDurationStats.first / 1e6),
+                    (whilePreparingFrameDurationStats.first <=
+                            frameDurationStats.first * (1 + PREPARE_FRAME_RATE_BOUNDS)));
+            }
+        }
+
+        resultListener.drain();
+
+        // Get at least one more preview result without prepared target
+        CaptureResult result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+        long prevTimestamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
+
+        // Now use the prepared stream and ensure there are no hiccups from using it
+        previewRequest.addTarget(mReaderSurface);
+
+        mSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+
+        Pair<Long, Long> preparedFrameDurationStats =
+                measureMeanFrameInterval(resultListener, MAX_IMAGES_TO_PREPARE*2, prevTimestamp);
+
+        Log.i(TAG, String.format("Frame interval with prepared stream added avg: %f ms, peak %f ms",
+                        preparedFrameDurationStats.first / 1e6,
+                        preparedFrameDurationStats.second / 1e6));
+
+        if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+            mCollector.expectTrue(
+                String.format("Camera %s: Preview peak frame interval affected by use of new " +
+                        " stream: preview avg frame duration: %f ms, peak with new stream: %f ms",
+                        cameraId,
+                        frameDurationStats.first / 1e6, preparedFrameDurationStats.second / 1e6),
+                (preparedFrameDurationStats.second <=
+                        frameDurationStats.first * (1 + PREPARE_PEAK_RATE_BOUNDS)));
+            mCollector.expectTrue(
+                String.format("Camera %s: Preview average frame interval affected by use of new " +
+                        "stream: preview avg frame duration: %f ms, with new stream: %f ms",
+                        cameraId,
+                        frameDurationStats.first / 1e6, preparedFrameDurationStats.first / 1e6),
+                (preparedFrameDurationStats.first <=
+                        frameDurationStats.first * (1 + PREPARE_FRAME_RATE_BOUNDS)));
+        }
+    }
+
+    /**
+     * Measure the inter-frame interval based on SENSOR_TIMESTAMP for frameCount frames from the
+     * provided capture listener.  If prevTimestamp is positive, it is used for the first interval
+     * calculation; otherwise, the first result is used to establish the starting time.
+     *
+     * Returns the mean interval in the first pair entry, and the largest interval in the second
+     * pair entry
+     */
+    Pair<Long, Long> measureMeanFrameInterval(SimpleCaptureCallback resultListener, int frameCount,
+            long prevTimestamp) throws Exception {
+        long summedIntervals = 0;
+        long maxInterval = 0;
+        int measurementCount = frameCount - ((prevTimestamp > 0) ? 0 : 1);
+
+        for (int i = 0; i < frameCount; i++) {
+            CaptureResult result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+            long timestamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
+            if (prevTimestamp > 0) {
+                long interval = timestamp - prevTimestamp;
+                if (interval > maxInterval) maxInterval = interval;
+                summedIntervals += interval;
+            }
+            prevTimestamp = timestamp;
+        }
+        return new Pair<Long, Long>(summedIntervals / measurementCount, maxInterval);
+    }
+
 
     /**
      * Test preview fps range for all supported ranges. The exposure time are frame duration are

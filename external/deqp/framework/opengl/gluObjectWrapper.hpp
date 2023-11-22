@@ -47,6 +47,7 @@ enum ObjectType
 	OBJECTTYPE_TRANSFORM_FEEDBACK,
 	OBJECTTYPE_VERTEX_ARRAY,
 	OBJECTTYPE_QUERY,
+	OBJECTTYPE_SAMPLER,
 
 	OBJECTTYPE_LAST
 };
@@ -64,6 +65,7 @@ class ObjectWrapper
 {
 public:
 							ObjectWrapper		(const glw::Functions& gl, const ObjectTraits& traits);
+							ObjectWrapper		(const glw::Functions& gl, const ObjectTraits& traits, deUint32 object);
 							~ObjectWrapper		(void);
 
 	inline deUint32			get					(void) const { return m_object; }
@@ -77,7 +79,7 @@ protected:
 private:
 							ObjectWrapper		(const ObjectWrapper& other);
 	ObjectWrapper&			operator=			(const ObjectWrapper& other);
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief API object wrapper template.
@@ -85,9 +87,10 @@ private:
 template<ObjectType Type> class TypedObjectWrapper : public ObjectWrapper
 {
 public:
+				TypedObjectWrapper (const glw::Functions& gl, deUint32 object) : ObjectWrapper(gl, objectTraits(Type), object) {}
 	explicit	TypedObjectWrapper (const RenderContext& context) : ObjectWrapper(context.getFunctions(), objectTraits(Type)) {}
 	explicit	TypedObjectWrapper (const glw::Functions& gl) : ObjectWrapper(gl, objectTraits(Type)) {}
-};
+} DE_WARN_UNUSED_TYPE;
 
 /*--------------------------------------------------------------------*//*!
  * \brief API object vector.
@@ -115,7 +118,7 @@ private:
 	const glw::Functions&				m_gl;
 	const ObjectTraits&					m_traits;
 	std::vector<deUint32>				m_objects;
-};
+} DE_WARN_UNUSED_TYPE;
 
 template<ObjectType Type> class TypedObjectVector : public ObjectVector
 {
@@ -133,6 +136,7 @@ typedef TypedObjectWrapper<OBJECTTYPE_FRAMEBUFFER>			Framebuffer;
 typedef TypedObjectWrapper<OBJECTTYPE_TRANSFORM_FEEDBACK>	TransformFeedback;
 typedef TypedObjectWrapper<OBJECTTYPE_VERTEX_ARRAY>			VertexArray;
 typedef TypedObjectWrapper<OBJECTTYPE_QUERY>				Query;
+typedef TypedObjectWrapper<OBJECTTYPE_SAMPLER>				Sampler;
 
 typedef TypedObjectVector<OBJECTTYPE_TEXTURE>				TextureVector;
 typedef TypedObjectVector<OBJECTTYPE_BUFFER>				BufferVector;

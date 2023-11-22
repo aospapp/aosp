@@ -4,7 +4,8 @@
           android:sharedUserId="android.uid.system"
           >
     <application android:label="@string/app_name"
-            android:allowBackup="false" >
+            android:allowBackup="false"
+            android:usesCleartextTraffic="false" >
         <service android:name="com.android.keychain.KeyChainService">
             <intent-filter>
                 <action android:name="android.security.IKeyChainService"/>

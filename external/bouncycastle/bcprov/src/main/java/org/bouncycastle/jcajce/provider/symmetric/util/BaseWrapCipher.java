@@ -8,7 +8,9 @@ import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -34,6 +36,9 @@ import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.Wrapper;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.jcajce.util.BCJcaJceHelper;
+import org.bouncycastle.jcajce.util.JcaJceHelper;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public abstract class BaseWrapCipher
@@ -64,6 +69,8 @@ public abstract class BaseWrapCipher
 
     private int                       ivSize;
     private byte[]                    iv;
+
+    private final JcaJceHelper helper = new BCJcaJceHelper();
 
     protected BaseWrapCipher()
     {
@@ -108,6 +115,12 @@ public abstract class BaseWrapCipher
     protected AlgorithmParameters engineGetParameters()
     {
         return null;
+    }
+
+    protected final AlgorithmParameters createParametersInstance(String algorithm)
+        throws NoSuchAlgorithmException, NoSuchProviderException
+    {
+        return helper.createAlgorithmParameters(algorithm);
     }
 
     protected void engineSetMode(
@@ -166,6 +179,11 @@ public abstract class BaseWrapCipher
             iv = new byte[ivSize];
             random.nextBytes(iv);
             param = new ParametersWithIV(param, iv);
+        }
+
+        if (random != null)
+        {
+            param = new ParametersWithRandom(param, random);
         }
 
         switch (opmode)
@@ -368,7 +386,7 @@ public abstract class BaseWrapCipher
         {
             try
             {
-                KeyFactory kf = KeyFactory.getInstance(wrappedKeyAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                KeyFactory kf = helper.createKeyFactory(wrappedKeyAlgorithm);
 
                 if (wrappedKeyType == Cipher.PUBLIC_KEY)
                 {

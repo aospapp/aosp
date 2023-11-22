@@ -1,6 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+# clang cannot compile 'variable length array in structure' in ipxfrm.c
+LOCAL_CLANG := false
 LOCAL_SRC_FILES := ip.c ipaddress.c ipaddrlabel.c iproute.c iprule.c ipnetns.c \
         rtm_map.c iptunnel.c ip6tunnel.c tunnel.c ipneigh.c ipntable.c iplink.c \
         ipmaddr.c ipmonitor.c ipmroute.c ipprefix.c iptuntap.c \

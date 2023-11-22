@@ -18,6 +18,7 @@ package com.google.common.primitives;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Converter;
 import com.google.common.collect.testing.Helpers;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
@@ -76,7 +77,7 @@ public class ShortsTest extends TestCase {
     assertEquals(LEAST, Shorts.saturatedCast(Long.MIN_VALUE));
   }
 
-  private void assertCastFails(long value) {
+  private static void assertCastFails(long value) {
     try {
       Shorts.checkedCast(value);
       fail("Cast to short should have failed: " + value);
@@ -322,6 +323,11 @@ public class ShortsTest extends TestCase {
     assertSame(comparator, SerializableTester.reserialize(comparator));
   }
 
+  @GwtIncompatible("SerializableTester")
+  public void testStringConverterSerialization() {
+    SerializableTester.reserializeAndAssert(Shorts.stringConverter());
+  }
+
   public void testToArray() {
     // need explicit type parameter to avoid javac warning!?
     List<Short> none = Arrays.<Short>asList();
@@ -363,6 +369,24 @@ public class ShortsTest extends TestCase {
     }
   }
 
+  public void testToArray_withConversion() {
+    short[] array = {(short) 0, (short) 1, (short) 2};
+
+    List<Byte> bytes = Arrays.asList((byte) 0, (byte) 1, (byte) 2);
+    List<Short> shorts = Arrays.asList((short) 0, (short) 1, (short) 2);
+    List<Integer> ints = Arrays.asList(0, 1, 2);
+    List<Float> floats = Arrays.asList((float) 0, (float) 1, (float) 2);
+    List<Long> longs = Arrays.asList((long) 0, (long) 1, (long) 2);
+    List<Double> doubles = Arrays.asList((double) 0, (double) 1, (double) 2);
+
+    assertTrue(Arrays.equals(array, Shorts.toArray(bytes)));
+    assertTrue(Arrays.equals(array, Shorts.toArray(shorts)));
+    assertTrue(Arrays.equals(array, Shorts.toArray(ints)));
+    assertTrue(Arrays.equals(array, Shorts.toArray(floats)));
+    assertTrue(Arrays.equals(array, Shorts.toArray(longs)));
+    assertTrue(Arrays.equals(array, Shorts.toArray(doubles)));
+  }
+
   public void testAsList_isAView() {
     short[] array = {(short) 0, (short) 1};
     List<Short> list = Shorts.asList(array);
@@ -400,9 +424,49 @@ public class ShortsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(Shorts.class);
+  }
+
+  public void testStringConverter_convert() {
+    Converter<String, Short> converter = Shorts.stringConverter();
+    assertEquals((Short) (short) 1, converter.convert("1"));
+    assertEquals((Short) (short) 0, converter.convert("0"));
+    assertEquals((Short) (short) (-1), converter.convert("-1"));
+    assertEquals((Short) (short) 255, converter.convert("0xff"));
+    assertEquals((Short) (short) 255, converter.convert("0xFF"));
+    assertEquals((Short) (short) (-255), converter.convert("-0xFF"));
+    assertEquals((Short) (short) 255, converter.convert("#0000FF"));
+    assertEquals((Short) (short) 438, converter.convert("0666"));
+  }
+
+  public void testStringConverter_convertError() {
+    try {
+      Shorts.stringConverter().convert("notanumber");
+      fail();
+    } catch (NumberFormatException expected) {
+    }
+  }
+
+  public void testStringConverter_nullConversions() {
+    assertNull(Shorts.stringConverter().convert(null));
+    assertNull(Shorts.stringConverter().reverse().convert(null));
+  }
+
+  public void testStringConverter_reverse() {
+    Converter<String, Short> converter = Shorts.stringConverter();
+    assertEquals("1", converter.reverse().convert((short) 1));
+    assertEquals("0", converter.reverse().convert((short) 0));
+    assertEquals("-1", converter.reverse().convert((short) -1));
+    assertEquals("255", converter.reverse().convert((short) 0xff));
+    assertEquals("255", converter.reverse().convert((short) 0xFF));
+    assertEquals("-255", converter.reverse().convert((short) -0xFF));
+    assertEquals("438", converter.reverse().convert((short) 0666));
+  }
+
+  @GwtIncompatible("NullPointerTester")
+  public void testStringConverter_nullPointerTester() throws Exception {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(short[].class, new short[0]);
-    tester.testAllPublicStaticMethods(Shorts.class);
+    tester.testAllPublicInstanceMethods(Shorts.stringConverter());
   }
 }

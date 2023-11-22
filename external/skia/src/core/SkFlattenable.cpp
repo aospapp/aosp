@@ -1,24 +1,13 @@
-
 /*
  * Copyright 2011 Google Inc.
  *
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
+
 #include "SkFlattenable.h"
 #include "SkPtrRecorder.h"
-
-///////////////////////////////////////////////////////////////////////////////
-
-void SkFlattenable::flatten(SkWriteBuffer&) const
-{
-    /*  we don't write anything at the moment, but this allows our subclasses
-        to not know that, since we want them to always call INHERITED::flatten()
-        in their code.
-    */
-}
-
-///////////////////////////////////////////////////////////////////////////////
+#include "SkReadBuffer.h"
 
 SkNamedFactorySet::SkNamedFactorySet() : fNextAddedFactory(0) {}
 
@@ -57,8 +46,6 @@ void SkRefCntSet::decPtr(void* ptr) {
     ((SkRefCnt*)ptr)->unref();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 #define MAX_ENTRY_COUNT  1024
@@ -115,7 +102,7 @@ SkFlattenable::Factory SkFlattenable::NameToFactory(const char name[]) {
 }
 
 bool SkFlattenable::NameToType(const char name[], SkFlattenable::Type* type) {
-    SkASSERT(NULL != type);
+    SkASSERT(type);
     InitializeFlattenablesIfNeeded();
 #ifdef SK_DEBUG
     report_no_entries(__FUNCTION__);

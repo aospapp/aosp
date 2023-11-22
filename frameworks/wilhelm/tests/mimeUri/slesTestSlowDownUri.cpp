@@ -34,7 +34,7 @@
 // These are extensions to OpenSL ES 1.0.1 values
 
 #define SL_PREFETCHSTATUS_UNKNOWN 0
-#define SL_PREFETCHSTATUS_ERROR   (-1)
+#define SL_PREFETCHSTATUS_ERROR   ((SLuint32) -1)
 
 // Mutex and condition shared with main program to protect prefetch_status
 
@@ -62,7 +62,7 @@ void ExitOnErrorFunc( SLresult result , int line)
 
 //-----------------------------------------------------------------
 /* PlayItf callback for an audio player */
-void PlayEventCallback( SLPlayItf caller,  void *pContext, SLuint32 event)
+void PlayEventCallback( SLPlayItf caller __unused, void *pContext, SLuint32 event)
 {
     fprintf(stdout, "PlayEventCallback event = ");
     if (event & SL_PLAYEVENT_HEADATEND) {

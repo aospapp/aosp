@@ -91,19 +91,32 @@ bool SkOffsetImageFilter::onFilterBounds(const SkIRect& src, const SkMatrix& ctm
     return true;
 }
 
+SkFlattenable* SkOffsetImageFilter::CreateProc(SkReadBuffer& buffer) {
+    SK_IMAGEFILTER_UNFLATTEN_COMMON(common, 1);
+    SkPoint offset;
+    buffer.readPoint(&offset);
+    return Create(offset.x(), offset.y(), common.getInput(0), &common.cropRect());
+}
+
 void SkOffsetImageFilter::flatten(SkWriteBuffer& buffer) const {
     this->INHERITED::flatten(buffer);
     buffer.writePoint(fOffset);
 }
 
 SkOffsetImageFilter::SkOffsetImageFilter(SkScalar dx, SkScalar dy, SkImageFilter* input,
-                                         const CropRect* cropRect) : INHERITED(input, cropRect) {
+                                         const CropRect* cropRect)
+  : INHERITED(1, &input, cropRect) {
     fOffset.set(dx, dy);
 }
 
-SkOffsetImageFilter::SkOffsetImageFilter(SkReadBuffer& buffer)
-  : INHERITED(1, buffer) {
-    buffer.readPoint(&fOffset);
-    buffer.validate(SkScalarIsFinite(fOffset.fX) &&
-                    SkScalarIsFinite(fOffset.fY));
+#ifndef SK_IGNORE_TO_STRING
+void SkOffsetImageFilter::toString(SkString* str) const {
+    str->appendf("SkOffsetImageFilter: (");
+    str->appendf("offset: (%f, %f) ", fOffset.fX, fOffset.fY);
+    str->append("input: (");
+    if (this->getInput(0)) {
+        this->getInput(0)->toString(str);
+    }
+    str->append("))");
 }
+#endif

@@ -46,14 +46,14 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"紧急警报"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"小区广播"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"紧急警报设置"</string>
-    <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"启用通知"</string>
+    <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"开启通知"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"显示紧急警报广播"</string>
     <string name="alert_sound_duration_title" msgid="4712853569849108005">"警报声持续时间"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"警报提醒"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"读出警报消息"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"使用文字转语音功能读出紧急警报消息"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"地震海啸警报系统设置"</string>
-    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"显示 ETWS 测试广播"</string>
+    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"显示ETWS测试广播"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"显示地震海啸警报系统的测试广播"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"显示极端威胁"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"针对生命和财产遭到极端威胁的情况显示警报"</string>
@@ -61,7 +61,7 @@
     <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"针对生命和财产遭到严重威胁的情况显示警报"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"显示安珀警报"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"显示儿童绑架/拐骗紧急公告（安珀警报）"</string>
-    <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"显示 CMAS 测试广播"</string>
+    <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"显示CMAS测试广播"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"显示商业移动警报系统的测试广播"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"振动"</string>
     <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"收到警报时振动"</string>
@@ -103,7 +103,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"接收时间："</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> 条未读警报。"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"新警报"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"在显示第一条 CMAS 警报（非总统警报）后显示警报停收对话框。"</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"在显示第一条CMAS警报（非总统警报）后，显示警报停收对话框。"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"显示警报停收对话框"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"当前设置是接收紧急警报。是否要继续接收紧急警报？"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"是"</string>

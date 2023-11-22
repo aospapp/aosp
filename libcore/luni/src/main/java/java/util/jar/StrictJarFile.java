@@ -24,6 +24,7 @@ import java.io.RandomAccessFile;
 import java.security.cert.Certificate;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.zip.Inflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -53,7 +54,7 @@ public final class StrictJarFile {
     private final CloseGuard guard = CloseGuard.get();
     private boolean closed;
 
-    public StrictJarFile(String fileName) throws IOException {
+    public StrictJarFile(String fileName) throws IOException, SecurityException {
         this.nativeHandle = nativeOpenJarFile(fileName);
         this.raf = new RandomAccessFile(fileName, "r");
 
@@ -64,11 +65,18 @@ public final class StrictJarFile {
             HashMap<String, byte[]> metaEntries = getMetaEntries();
             this.manifest = new Manifest(metaEntries.get(JarFile.MANIFEST_NAME), true);
             this.verifier = new JarVerifier(fileName, manifest, metaEntries);
+            Set<String> files = this.manifest.getEntries().keySet();
+            for (String file : files) {
+                if (findEntry(file) == null) {
+                    throw new SecurityException(fileName + ": File " + file + " in manifest does not exist");
+                }
+            }
 
             isSigned = verifier.readCertificates() && verifier.isSignedJar();
-        } catch (IOException ioe) {
+        } catch (IOException | SecurityException e) {
             nativeClose(this.nativeHandle);
-            throw ioe;
+            IoUtils.closeQuietly(this.raf);
+            throw e;
         }
 
         guard.open("close");

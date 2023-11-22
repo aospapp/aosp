@@ -16,7 +16,7 @@
 
 package org.conscrypt;
 
-import org.conscrypt.util.Arrays;
+import org.conscrypt.util.ArrayUtils;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
 import java.io.FileDescriptor;
@@ -31,13 +31,14 @@ import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.interfaces.ECKey;
+import java.security.spec.ECParameterSpec;
 import java.util.ArrayList;
 import javax.crypto.SecretKey;
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLProtocolException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.X509KeyManager;
@@ -292,6 +293,11 @@ public class OpenSSLSocketImpl
                         enableSessionCreation);
             }
 
+            // Allow servers to trigger renegotiation. Some inadvisable server
+            // configurations cause them to attempt to renegotiate during
+            // certain protocols.
+            NativeCrypto.SSL_set_reject_peer_renegotiations(sslNativePointer, false);
+
             final OpenSSLSessionImpl sessionToReuse = sslParameters.getSessionToReuse(
                     sslNativePointer, getHostname(), getPort());
             sslParameters.setSSLParameters(sslCtxNativePointer, sslNativePointer, this, this,
@@ -458,7 +464,7 @@ public class OpenSSLSocketImpl
     @Override
     @SuppressWarnings("unused") // used by NativeCrypto.SSLHandshakeCallbacks / info_callback
     public void onSSLStateChange(long sslSessionNativePtr, int type, int val) {
-        if (type != NativeCrypto.SSL_CB_HANDSHAKE_DONE) {
+        if (type != NativeConstants.SSL_CB_HANDSHAKE_DONE) {
             return;
         }
 
@@ -682,7 +688,7 @@ public class OpenSSLSocketImpl
             BlockGuard.getThreadPolicy().onNetwork();
 
             checkOpen();
-            Arrays.checkOffsetAndCount(buf.length, offset, byteCount);
+            ArrayUtils.checkOffsetAndCount(buf.length, offset, byteCount);
             if (byteCount == 0) {
                 return 0;
             }
@@ -748,7 +754,7 @@ public class OpenSSLSocketImpl
         public void write(byte[] buf, int offset, int byteCount) throws IOException {
             BlockGuard.getThreadPolicy().onNetwork();
             checkOpen();
-            Arrays.checkOffsetAndCount(buf.length, offset, byteCount);
+            ArrayUtils.checkOffsetAndCount(buf.length, offset, byteCount);
             if (byteCount == 0) {
                 return;
             }
@@ -960,7 +966,17 @@ public class OpenSSLSocketImpl
         } else {
             sslParameters.channelIdEnabled = true;
             try {
-                channelIdPrivateKey = OpenSSLKey.fromPrivateKey(privateKey);
+                ECParameterSpec ecParams = null;
+                if (privateKey instanceof ECKey) {
+                    ecParams = ((ECKey) privateKey).getParams();
+                }
+                if (ecParams == null) {
+                    // Assume this is a P-256 key, as specified in the contract of this method.
+                    ecParams =
+                            OpenSSLECGroupContext.getCurveByName("prime256v1").getECParameterSpec();
+                }
+                channelIdPrivateKey =
+                        OpenSSLKey.fromECPrivateKeyForTLSStackOnly(privateKey, ecParams);
             } catch (InvalidKeyException e) {
                 // Will have error in startHandshake
             }

@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.crypto.interfaces.DHPrivateKey;
@@ -55,13 +56,32 @@ import junit.framework.TestCase;
 
 public class KeyPairGeneratorTest extends TestCase {
 
-    public void test_providerCount() {
+    private List<Provider> providers = new ArrayList<Provider>();
+
+    @Override
+    public void setUp() {
         Provider[] providers = Security.getProviders();
+        for (Provider p : providers) {
+            // Do not test AndroidKeyStore Provider. It does not accept vanilla public keys for
+            // signature verification. It's OKish not to test here because it's tested by
+            // cts/tests/tests/keystore.
+            if (!p.getName().startsWith("AndroidKeyStore")) {
+                this.providers.add(p);
+            }
+        }
+    }
+
+    @Override
+    public void tearDown() {
+        providers.clear();
+    }
+
+    public void test_providerCount() {
         // We expect there to be at least one provider.
-        assertTrue(providers.length > 0);
+        assertTrue(providers.size() > 0);
         // If this fails remember to add _provider methods below. This test is sharded because it
         // takes a long time to execute.
-        assertTrue(providers.length < 10);
+        assertTrue(providers.size() < 10);
     }
 
     public void test_getInstance_provider0() throws Exception {
@@ -105,14 +125,14 @@ public class KeyPairGeneratorTest extends TestCase {
     }
 
     private void test_getInstance(int providerIndex) throws Exception {
-        Provider[] providers = Security.getProviders();
-        if (providerIndex >= providers.length) {
+        if (providerIndex >= providers.size()) {
             // Providers can be added by vendors and other tests. We do not
             // specify a fixed number and silenty pass if the provider at the
             // specified index does not exist.
             return;
         }
-        Provider provider = providers[providerIndex];
+
+        Provider provider = providers.get(providerIndex);
         Set<Provider.Service> services = provider.getServices();
         for (Provider.Service service : services) {
             String type = service.getType();
@@ -120,12 +140,6 @@ public class KeyPairGeneratorTest extends TestCase {
                 continue;
             }
             String algorithm = service.getAlgorithm();
-
-            // AndroidKeyStore is tested in CTS.
-            if ("AndroidKeyStore".equals(provider.getName())) {
-                continue;
-            }
-
             AlgorithmParameterSpec params = null;
 
             if ("DH".equals(algorithm)) {
@@ -195,7 +209,6 @@ public class KeyPairGeneratorTest extends TestCase {
         putKeySize("DiffieHellman", 512);
         putKeySize("DiffieHellman", 512+64);
         putKeySize("DiffieHellman", 1024);
-        putKeySize("EC", 192);
         putKeySize("EC", 224);
         putKeySize("EC", 256);
         putKeySize("EC", 384);
@@ -204,10 +217,10 @@ public class KeyPairGeneratorTest extends TestCase {
 
     /** Elliptic Curve Crypto named curves that should be supported. */
     private static final String[] EC_NAMED_CURVES = {
-        // NIST P-192 aka SECG secp192r1 aka ANSI X9.62 prime192v1
-        "secp192r1", "prime192v1",
         // NIST P-256 aka SECG secp256r1 aka ANSI X9.62 prime256v1
         "secp256r1", "prime256v1",
+        // NIST P-521 aka SECG secp521r1
+        "secp521r1",
     };
 
     private void test_KeyPairGenerator(KeyPairGenerator kpg) throws Exception {
@@ -264,7 +277,7 @@ public class KeyPairGeneratorTest extends TestCase {
     }
 
     private void test_Key(KeyPairGenerator kpg, Key k) throws Exception {
-        String expectedAlgorithm = kpg.getAlgorithm().toUpperCase();
+        String expectedAlgorithm = kpg.getAlgorithm().toUpperCase(Locale.ROOT);
         if (StandardNames.IS_RI && expectedAlgorithm.equals("DIFFIEHELLMAN")) {
             expectedAlgorithm = "DH";
         }
@@ -303,8 +316,6 @@ public class KeyPairGeneratorTest extends TestCase {
         byte[] encoded = k.getEncoded();
 
         String keyAlgo = k.getAlgorithm();
-
-        Provider[] providers = Security.getProviders();
         for (Provider p : providers) {
             Set<Provider.Service> services = p.getServices();
             for (Provider.Service service : services) {

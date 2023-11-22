@@ -21,6 +21,7 @@ import com.android.cts.media.R;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.test.AndroidTestCase;
@@ -29,6 +30,8 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 abstract class SoundPoolTest extends AndroidTestCase {
 
@@ -228,6 +231,104 @@ abstract class SoundPoolTest extends AndroidTestCase {
             mSoundPool.unload(sound);
         }
         mSoundPool.release();
+    }
+
+    public void testAutoPauseResume() throws Exception {
+        // The number of possible SoundPool streams simultaneously active is limited by
+        // track resources. Generally this is no greater than 32, but the actual
+        // amount may be less depending on concurrently running applications.
+        // Here we attempt to create more streams than what is normally possible;
+        // SoundPool should gracefully degrade to play those streams it can.
+        //
+        // Try to keep the maxStreams less than the number required to be active
+        // and certainly less than 20 to be cooperative to other applications.
+        final int TEST_STREAMS = 40;
+        SoundPool soundPool = null;
+        try {
+            soundPool = new SoundPool.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder().build())
+                    .setMaxStreams(TEST_STREAMS)
+                    .build();
+
+            // get our sounds
+            final int[] sounds = getSounds();
+
+            // set our completion listener
+            final int[] loadIds = new int[TEST_STREAMS];
+            final Object done = new Object();
+            final int[] loaded = new int[1]; // used as a "pointer" to an integer
+            final SoundPool fpool = soundPool; // final reference in scope of try block
+            soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+                    @Override
+                    public void onLoadComplete(SoundPool pool, int sampleId, int status) {
+                        assertEquals(fpool, pool);
+                        assertEquals(0 /* success */, status);
+                        synchronized(done) {
+                            loadIds[loaded[0]++] = sampleId;
+                            if (loaded[0] == loadIds.length) {
+                                done.notify();
+                            }
+                        }
+                    }
+                });
+
+            // initiate loading
+            final int[] soundIds = new int[TEST_STREAMS];
+            for (int i = 0; i < soundIds.length; i++) {
+                soundIds[i] = soundPool.load(mContext, sounds[i % sounds.length], PRIORITY);
+            }
+
+            // wait for all sounds to load
+            final long LOAD_TIMEOUT_IN_MS = 10000;
+            final long startTime = System.currentTimeMillis();
+            synchronized(done) {
+                while (loaded[0] != soundIds.length) {
+                    final long waitTime =
+                            LOAD_TIMEOUT_IN_MS - (System.currentTimeMillis() - startTime);
+                    assertTrue(waitTime > 0);
+                    done.wait(waitTime);
+                }
+            }
+
+            // verify the Ids match (actually does sorting too)
+            Arrays.sort(loadIds);
+            Arrays.sort(soundIds);
+            assertTrue(Arrays.equals(loadIds, soundIds));
+
+            // play - should hear the following:
+            // 1 second of sound
+            // 1 second of silence
+            // 1 second of sound.
+            int[] streamIds = new int[soundIds.length];
+            for (int i = 0; i < soundIds.length; i++) {
+                streamIds[i] = soundPool.play(soundIds[i],
+                        0.5f /* leftVolume */, 0.5f /* rightVolume */, PRIORITY,
+                        -1 /* loop (infinite) */, 1.0f /* rate */);
+            }
+            Thread.sleep(1000 /* millis */);
+            soundPool.autoPause();
+            Thread.sleep(1000 /* millis */);
+            soundPool.autoResume();
+            Thread.sleep(1000 /* millis */);
+
+            // clean up
+            for (int stream : streamIds) {
+                assertTrue(stream != 0);
+                soundPool.stop(stream);
+            }
+            for (int sound : soundIds) {
+                assertEquals(true, soundPool.unload(sound));
+            }
+            // check to see we're really unloaded
+            for (int sound : soundIds) {
+                assertEquals(false, soundPool.unload(sound));
+            }
+        } finally {
+            if (soundPool != null) {
+                soundPool.release();
+                soundPool = null;
+            }
+        }
     }
 
     /**

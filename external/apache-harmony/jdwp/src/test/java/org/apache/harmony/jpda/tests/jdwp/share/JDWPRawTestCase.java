@@ -59,6 +59,42 @@ public abstract class JDWPRawTestCase extends TestCase {
     protected abstract String getDebuggeeClassName();
 
     /**
+     * Returns the signature of the debuggee class. This is computed based on
+     * {@link #getDebuggeeClassName}.
+     *
+     * @return full debuggee class signature.
+     */
+    protected String getDebuggeeClassSignature() {
+        String debuggeeClassName = getDebuggeeClassName();
+        return getClassSignature(debuggeeClassName);
+    }
+
+    /**
+     * Returns the signature matching the given class name
+     * @param className
+     *          a fully qualified class name
+     * @return the class signature
+     */
+    protected static String getClassSignature(String className) {
+        StringBuilder builder = new StringBuilder();
+        builder.append('L');
+        builder.append(className.replace('.', '/'));
+        builder.append(';');
+        return builder.toString();
+    }
+
+    /**
+     * Returns the signature of the given class.
+     * @param c
+     *          a class
+     * @return the class signature
+     */
+    protected static String getClassSignature(Class<?> c) {
+        String className = c.getName();
+        return getClassSignature(className);
+    }
+
+    /**
      * This method will be invoked before starting each test.
      * 
      * @throws Exception
@@ -118,5 +154,14 @@ public abstract class JDWPRawTestCase extends TestCase {
         logWriter.println("<<<=====================================\n");
 
         super.tearDown();
+    }
+
+    /**
+     * Helper method to print a message prefixed by the current test name.
+     * @param msg the message to print
+     */
+    protected void printTestLog(String msg) {
+        String testName = getName();
+        logWriter.println(">> " + testName + ": " + msg);
     }
 }

@@ -19,15 +19,22 @@ package com.google.common.collect.testing.testers;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 import static com.google.common.collect.testing.features.MapFeature.ALLOWS_NULL_KEYS;
 import static com.google.common.collect.testing.features.MapFeature.ALLOWS_NULL_VALUES;
-import static com.google.common.collect.testing.features.MapFeature.SUPPORTS_PUT_ALL;
+import static com.google.common.collect.testing.features.MapFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
+import static com.google.common.collect.testing.features.MapFeature.SUPPORTS_PUT;
 import static java.util.Collections.singletonList;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.testing.AbstractMapTester;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.MinimalCollection;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,12 +45,11 @@ import java.util.Map.Entry;
  * invoked directly; please see
  * {@link com.google.common.collect.testing.MapTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  * @author Kevin Bourrillion
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible(emulated = true)
 public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
   private List<Entry<K, V>> containsNullKey;
   private List<Entry<K, V>> containsNullValue;
@@ -54,13 +60,13 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
     containsNullValue = singletonList(entry(samples.e3.getKey(), null));
   }
 
-  @MapFeature.Require(SUPPORTS_PUT_ALL)
+  @MapFeature.Require(SUPPORTS_PUT)
   public void testPutAll_supportedNothing() {
     getMap().putAll(emptyMap());
     expectUnchanged();
   }
 
-  @MapFeature.Require(absent = SUPPORTS_PUT_ALL)
+  @MapFeature.Require(absent = SUPPORTS_PUT)
   public void testPutAll_unsupportedNothing() {
     try {
       getMap().putAll(emptyMap());
@@ -69,13 +75,13 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
     expectUnchanged();
   }
 
-  @MapFeature.Require(SUPPORTS_PUT_ALL)
+  @MapFeature.Require(SUPPORTS_PUT)
   public void testPutAll_supportedNonePresent() {
     putAll(createDisjointCollection());
     expectAdded(samples.e3, samples.e4);
   }
 
-  @MapFeature.Require(absent = SUPPORTS_PUT_ALL)
+  @MapFeature.Require(absent = SUPPORTS_PUT)
   public void testPutAll_unsupportedNonePresent() {
     try {
       putAll(createDisjointCollection());
@@ -86,14 +92,28 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
     expectMissing(samples.e3, samples.e4);
   }
 
-  @MapFeature.Require(SUPPORTS_PUT_ALL)
+  @MapFeature.Require(SUPPORTS_PUT)
   @CollectionSize.Require(absent = ZERO)
   public void testPutAll_supportedSomePresent() {
     putAll(MinimalCollection.of(samples.e3, samples.e0));
     expectAdded(samples.e3);
   }
 
-  @MapFeature.Require(absent = SUPPORTS_PUT_ALL)
+  @MapFeature.Require({ FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_PUT })
+  @CollectionSize.Require(absent = ZERO)
+  public void testPutAllSomePresentConcurrentWithEntrySetIteration() {
+    try {
+      Iterator<Entry<K, V>> iterator = getMap().entrySet().iterator();
+      putAll(MinimalCollection.of(samples.e3, samples.e0));
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require(absent = SUPPORTS_PUT)
   @CollectionSize.Require(absent = ZERO)
   public void testPutAll_unsupportedSomePresent() {
     try {
@@ -104,7 +124,7 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
     expectUnchanged();
   }
 
-  @MapFeature.Require(absent = SUPPORTS_PUT_ALL)
+  @MapFeature.Require(absent = SUPPORTS_PUT)
   @CollectionSize.Require(absent = ZERO)
   public void testPutAll_unsupportedAllPresent() {
     try {
@@ -114,16 +134,16 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
     expectUnchanged();
   }
 
-  @MapFeature.Require({SUPPORTS_PUT_ALL,
+  @MapFeature.Require({SUPPORTS_PUT,
       ALLOWS_NULL_KEYS})
   public void testPutAll_nullKeySupported() {
     putAll(containsNullKey);
     expectAdded(containsNullKey.get(0));
   }
 
-  @MapFeature.Require(value = SUPPORTS_PUT_ALL,
+  @MapFeature.Require(value = SUPPORTS_PUT,
       absent = ALLOWS_NULL_KEYS)
-  public void testAdd_nullKeyUnsupported() {
+  public void testPutAll_nullKeyUnsupported() {
     try {
       putAll(containsNullKey);
       fail("putAll(containsNullKey) should throw");
@@ -135,16 +155,16 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
         "putAll(containsNullKey)");
   }
 
-  @MapFeature.Require({SUPPORTS_PUT_ALL,
+  @MapFeature.Require({SUPPORTS_PUT,
       ALLOWS_NULL_VALUES})
   public void testPutAll_nullValueSupported() {
     putAll(containsNullValue);
     expectAdded(containsNullValue.get(0));
   }
 
-  @MapFeature.Require(value = SUPPORTS_PUT_ALL,
+  @MapFeature.Require(value = SUPPORTS_PUT,
       absent = ALLOWS_NULL_VALUES)
-  public void testAdd_nullValueUnsupported() {
+  public void testPutAll_nullValueUnsupported() {
     try {
       putAll(containsNullValue);
       fail("putAll(containsNullValue) should throw");
@@ -156,7 +176,7 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
         "putAll(containsNullValue)");
   }
 
-  @MapFeature.Require(SUPPORTS_PUT_ALL)
+  @MapFeature.Require(SUPPORTS_PUT)
   public void testPutAll_nullCollectionReference() {
     try {
       getMap().putAll(null);
@@ -175,5 +195,17 @@ public class MapPutAllTester<K, V> extends AbstractMapTester<K, V> {
       map.put(entry.getKey(), entry.getValue());
     }
     getMap().putAll(map);
+  }
+
+  /**
+   * Returns the {@link Method} instance for {@link
+   * #testPutAll_nullKeyUnsupported()} so that tests can suppress it with {@code
+   * FeatureSpecificTestSuiteBuilder.suppressing()} until <a
+   * href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5045147">Sun
+   * bug 5045147</a> is fixed.
+   */
+  @GwtIncompatible("reflection")
+  public static Method getPutAllNullKeyUnsupportedMethod() {
+    return Helpers.getMethod(MapPutAllTester.class, "testPutAll_nullKeyUnsupported");
   }
 }

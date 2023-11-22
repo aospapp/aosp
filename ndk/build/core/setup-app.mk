@@ -41,6 +41,11 @@ all: ndk-app-$(_app)
 
 # which platform/abi/toolchain are we going to use?
 TARGET_PLATFORM := $(call get,$(_map),APP_PLATFORM)
+ifeq ($(TARGET_PLATFORM),android-L)
+$(call __ndk_warning,WARNING: android-L is renamed as android-21)
+TARGET_PLATFORM := android-21
+endif
+
 
 # The ABI(s) to use
 NDK_APP_ABI := $(subst $(comma),$(space),$(strip $(NDK_APP_ABI)))
@@ -59,12 +64,27 @@ endif
 #
 ifeq ($(NDK_APP_ABI),all)
     NDK_APP_ABI := $(NDK_APP_ABI_ALL_EXPANDED)
+    _abis_without_toolchain := $(filter-out $(NDK_ALL_ABIS),$(NDK_APP_ABI))
+    ifneq (,$(_abis_without_toolchain))
+        $(call ndk_log,Remove the following abis expanded from 'all' due to no toolchain: $(_abis_without_toolchain))
+        NDK_APP_ABI := $(filter-out $(_abis_without_toolchain),$(NDK_APP_ABI))
+    endif
 else
 ifeq ($(NDK_APP_ABI),all32)
     NDK_APP_ABI := $(NDK_APP_ABI_ALL32_EXPANDED)
+    _abis_without_toolchain := $(filter-out $(NDK_ALL_ABIS),$(NDK_APP_ABI))
+    ifneq (,$(_abis_without_toolchain))
+        $(call ndk_log,Remove the following abis expanded from 'all32' due to no toolchain: $(_abis_without_toolchain))
+        NDK_APP_ABI := $(filter-out $(_abis_without_toolchain),$(NDK_APP_ABI))
+    endif
 else
 ifeq ($(NDK_APP_ABI),all64)
     NDK_APP_ABI := $(NDK_APP_ABI_ALL64_EXPANDED)
+    _abis_without_toolchain := $(filter-out $(NDK_ALL_ABIS),$(NDK_APP_ABI))
+    ifneq (,$(_abis_without_toolchain))
+        $(call ndk_log,Remove the following abis expanded from 'all64' due to no toolchain: $(_abis_without_toolchain))
+        NDK_APP_ABI := $(filter-out $(_abis_without_toolchain),$(NDK_APP_ABI))
+    endif
 else
     # Plug in the unknown
     _unknown_abis := $(strip $(filter-out $(NDK_ALL_ABIS),$(NDK_APP_ABI)))
@@ -88,6 +108,7 @@ else
                 NDK_APP_ABI := $(subst $(_unknown_abis_prefix),$(filter-out $(NDK_KNOWN_ARCHS),$(NDK_FOUND_ARCHS)),$(NDK_APP_ABI))
             endif
         endif
+	TARGET_PLATFORM := android-21
     endif
     # check the target ABIs for this application
     _bad_abis = $(strip $(filter-out $(NDK_ALL_ABIS),$(NDK_APP_ABI)))
@@ -118,7 +139,7 @@ endif
 RENDERSCRIPT_TOOLCHAIN_ROOT   := $(NDK_ROOT)/toolchains/renderscript
 RENDERSCRIPT_TOOLCHAIN_PREBUILT_ROOT := $(call host-prebuilt-tag,$(RENDERSCRIPT_TOOLCHAIN_ROOT))
 RENDERSCRIPT_TOOLCHAIN_PREFIX := $(RENDERSCRIPT_TOOLCHAIN_PREBUILT_ROOT)/bin/
-RENDERSCRIPT_TOOLCHAIN_HEADER := $(RENDERSCRIPT_TOOLCHAIN_PREBUILT_ROOT)/lib/clang/3.3/include
+RENDERSCRIPT_TOOLCHAIN_HEADER := $(RENDERSCRIPT_TOOLCHAIN_PREBUILT_ROOT)/lib/clang/3.5/include
 
 # Each ABI
 $(foreach _abi,$(NDK_APP_ABI),\

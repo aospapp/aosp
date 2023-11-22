@@ -29,6 +29,7 @@ LOCAL_SRC_FILES := \
 	android_jni_cts_InstanceNonce.c \
 	android_jni_cts_JniCTest.c \
 	android_jni_cts_JniCppTest.cpp \
+	android_jni_cts_JniStaticTest.cpp \
 	android_jni_cts_StaticNonce.c \
 	helper.c \
 	register.c

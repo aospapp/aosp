@@ -81,11 +81,11 @@ public class DeviceNameSummaryFragment extends Fragment implements AdapterView.O
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
-        View content = inflater.inflate(R.layout.setup_content_area, null);
-        FrameLayout actionArea = (FrameLayout) content.findViewById(R.id.action);
-        FrameLayout descArea = (FrameLayout) content.findViewById(R.id.description);
+        final View content = inflater.inflate(R.layout.setup_content_area, container, false);
+        final FrameLayout actionArea = (FrameLayout) content.findViewById(R.id.action);
+        final FrameLayout descArea = (FrameLayout) content.findViewById(R.id.description);
 
-        View body = inflater.inflate(R.layout.setup_text_and_description, null);
+        final View body = inflater.inflate(R.layout.setup_text_and_description, descArea, false);
 
         // Title
         String title = getArguments().getString(ARG_TITLE);
@@ -101,8 +101,8 @@ public class DeviceNameSummaryFragment extends Fragment implements AdapterView.O
         descArea.addView(body);
 
         // Options
-        ScrollAdapterView actionList = (ScrollAdapterView) inflater.inflate(
-                R.layout.setup_scroll_adapter_view, null);
+        final ScrollAdapterView actionList = (ScrollAdapterView) inflater.inflate(
+                R.layout.setup_scroll_adapter_view, actionArea, false);
         ScrollArrayAdapter<String> adapter = new ScrollArrayAdapter<String>(getActivity(),
                 R.layout.setup_list_item_text_only, R.id.list_item_text, mOptions);
         actionList.setAdapter(adapter);

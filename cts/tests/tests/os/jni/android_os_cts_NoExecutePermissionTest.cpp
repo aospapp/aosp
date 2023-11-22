@@ -14,6 +14,7 @@
  * limitations under the License.
  *
  */
+#include <errno.h>
 #include <jni.h>
 #include <string.h>
 #include <stdio.h>

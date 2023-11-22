@@ -31,7 +31,7 @@ public class RefcountImageView extends ImageView {
 
     private boolean mAutoUnrefOnDetach;
     private boolean mHasClipRect;
-    private RectF mClipRect = new RectF();
+    private final RectF mClipRect = new RectF();
 
     public RefcountImageView(Context context) {
         this(context, null);

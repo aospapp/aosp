@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@
 
 #include "examples.h"
 
+
 // This is an interactive example, not to be used for testing.
 #ifndef TEST_EXAMPLES
 
@@ -48,6 +49,7 @@ void GenerateBreak(MacroAssembler* masm) {
 }
 
 
+#ifdef USE_SIMULATOR
 int main(void) {
   // Create and initialize the assembler and the debugger.
   byte assm_buf[BUF_SIZE];
@@ -62,9 +64,13 @@ int main(void) {
   masm.FinalizeCode();
 
   // Run the example function.
-  debugger.RunFrom(start.target());
+  debugger.RunFrom(masm.GetLabelAddress<Instruction*>(&start));
   printf("Debugger example run\n");
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

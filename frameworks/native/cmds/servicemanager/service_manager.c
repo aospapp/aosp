@@ -1,10 +1,12 @@
 /* Copyright 2008 The Android Open Source Project
  */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <private/android_filesystem_config.h>
 
@@ -20,8 +22,6 @@
 #define LOG_TAG "ServiceManager"
 #include <cutils/log.h>
 #endif
-
-uint32_t svcmgr_handle;
 
 const char *str8(const uint16_t *x, size_t x_len)
 {
@@ -169,28 +169,26 @@ uint16_t svcmgr_id[] = {
 
 uint32_t do_find_service(struct binder_state *bs, const uint16_t *s, size_t len, uid_t uid, pid_t spid)
 {
-    struct svcinfo *si;
+    struct svcinfo *si = find_svc(s, len);
+
+    if (!si || !si->handle) {
+        return 0;
+    }
+
+    if (!si->allow_isolated) {
+        // If this service doesn't allow access from isolated processes,
+        // then check the uid to see if it is isolated.
+        uid_t appid = uid % AID_USER;
+        if (appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END) {
+            return 0;
+        }
+    }
 
     if (!svc_can_find(s, len, spid)) {
-        ALOGE("find_service('%s') uid=%d - PERMISSION DENIED\n",
-             str8(s, len), uid);
         return 0;
     }
-    si = find_svc(s, len);
-    //ALOGI("check_service('%s') handle = %x\n", str8(s, len), si ? si->handle : 0);
-    if (si && si->handle) {
-        if (!si->allow_isolated) {
-            // If this service doesn't allow access from isolated processes,
-            // then check the uid to see if it is isolated.
-            uid_t appid = uid % AID_USER;
-            if (appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END) {
-                return 0;
-            }
-        }
-        return si->handle;
-    } else {
-        return 0;
-    }
+
+    return si->handle;
 }
 
 int do_add_service(struct binder_state *bs,
@@ -255,10 +253,10 @@ int svcmgr_handler(struct binder_state *bs,
     uint32_t strict_policy;
     int allow_isolated;
 
-    //ALOGI("target=%x code=%d pid=%d uid=%d\n",
-    //  txn->target.handle, txn->code, txn->sender_pid, txn->sender_euid);
+    //ALOGI("target=%p code=%d pid=%d uid=%d\n",
+    //      (void*) txn->target.ptr, txn->code, txn->sender_pid, txn->sender_euid);
 
-    if (txn->target.handle != svcmgr_handle)
+    if (txn->target.ptr != BINDER_SERVICE_MANAGER)
         return -1;
 
     if (txn->code == PING_TRANSACTION)
@@ -363,6 +361,7 @@ int main(int argc, char **argv)
 
     selinux_enabled = is_selinux_enabled();
     sehandle = selinux_android_service_context_handle();
+    selinux_status_open(true);
 
     if (selinux_enabled > 0) {
         if (sehandle == NULL) {
@@ -382,7 +381,6 @@ int main(int argc, char **argv)
     cb.func_log = selinux_log_callback;
     selinux_set_callback(SELINUX_CB_LOG, cb);
 
-    svcmgr_handle = BINDER_SERVICE_MANAGER;
     binder_loop(bs, svcmgr_handler);
 
     return 0;

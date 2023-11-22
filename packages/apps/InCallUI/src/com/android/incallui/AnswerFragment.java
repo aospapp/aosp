@@ -21,6 +21,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.telecom.VideoProfile;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -49,7 +50,7 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
     public static final int TARGET_SET_FOR_AUDIO_WITH_SMS = 1;
     public static final int TARGET_SET_FOR_VIDEO_WITHOUT_SMS = 2;
     public static final int TARGET_SET_FOR_VIDEO_WITH_SMS = 3;
-    public static final int TARGET_SET_FOR_VIDEO_UPGRADE_REQUEST = 4;
+    public static final int TARGET_SET_FOR_VIDEO_ACCEPT_REJECT_REQUEST = 4;
 
     /**
      * The popup showing the list of canned responses.
@@ -76,11 +77,11 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
 
     @Override
     public AnswerPresenter createPresenter() {
-        return new AnswerPresenter();
+        return InCallPresenter.getInstance().getAnswerPresenter();
     }
 
     @Override
-    AnswerPresenter.AnswerUi getUi() {
+    public AnswerPresenter.AnswerUi getUi() {
         return this;
     }
 
@@ -108,11 +109,9 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
     }
 
     @Override
-    public void showAnswerUi(boolean show) {
-        getView().setVisibility(show ? View.VISIBLE : View.GONE);
-
-        Log.d(this, "Show answer UI: " + show);
-        if (show) {
+    public void onShowAnswerUi(boolean shown) {
+        Log.d(this, "Show answer UI: " + shown);
+        if (shown) {
             mGlowpad.startPing();
         } else {
             mGlowpad.stopPing();
@@ -123,12 +122,21 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
      * Sets targets on the glowpad according to target set identified by the parameter.
      * @param targetSet Integer identifying the set of targets to use.
      */
-    @Override
     public void showTargets(int targetSet) {
+        showTargets(targetSet, VideoProfile.STATE_BIDIRECTIONAL);
+    }
+
+    /**
+     * Sets targets on the glowpad according to target set identified by the parameter.
+     * @param targetSet Integer identifying the set of targets to use.
+     */
+    @Override
+    public void showTargets(int targetSet, int videoState) {
         final int targetResourceId;
         final int targetDescriptionsResourceId;
         final int directionDescriptionsResourceId;
         final int handleDrawableResourceId;
+        mGlowpad.setVideoState(videoState);
 
         switch (targetSet) {
             case TARGET_SET_FOR_AUDIO_WITH_SMS:
@@ -155,12 +163,13 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
                         R.array.incoming_call_widget_video_with_sms_direction_descriptions;
                 handleDrawableResourceId = R.drawable.ic_incall_video_handle;
                 break;
-            case TARGET_SET_FOR_VIDEO_UPGRADE_REQUEST:
-                targetResourceId = R.array.incoming_call_widget_video_upgrade_request_targets;
+            case TARGET_SET_FOR_VIDEO_ACCEPT_REJECT_REQUEST:
+                targetResourceId =
+                    R.array.incoming_call_widget_video_request_targets;
                 targetDescriptionsResourceId =
-                        R.array.incoming_call_widget_video_upgrade_request_target_descriptions;
+                        R.array.incoming_call_widget_video_request_target_descriptions;
                 directionDescriptionsResourceId = R.array
-                        .incoming_call_widget_video_upgrade_request_target_direction_descriptions;
+                        .incoming_call_widget_video_request_target_direction_descriptions;
                 handleDrawableResourceId = R.drawable.ic_incall_video_handle;
                 break;
             case TARGET_SET_FOR_AUDIO_WITHOUT_SMS:
@@ -247,7 +256,7 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
        }
     }
 
-    public void dismissPendingDialogues() {
+    public void dismissPendingDialogs() {
         if (isCannedResponsePopupShowing()) {
             dismissCannedResponsePopup();
         }
@@ -284,6 +293,13 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
                         new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
+                        dismissCustomMessagePopup();
+                        getPresenter().onDismissDialog();
+                    }
+                })
+                .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialogInterface) {
                         dismissCustomMessagePopup();
                         getPresenter().onDismissDialog();
                     }
@@ -338,12 +354,18 @@ public class AnswerFragment extends BaseFragment<AnswerPresenter, AnswerPresente
 
     @Override
     public void onAnswer(int videoState, Context context) {
+        Log.d(this, "onAnswer videoState=" + videoState + " context=" + context);
         getPresenter().onAnswer(videoState, context);
     }
 
     @Override
-    public void onDecline() {
-        getPresenter().onDecline();
+    public void onDecline(Context context) {
+        getPresenter().onDecline(context);
+    }
+
+    @Override
+    public void onDeclineUpgradeRequest(Context context) {
+        InCallPresenter.getInstance().declineUpgradeRequest(context);
     }
 
     @Override

@@ -18,6 +18,12 @@ LOCAL_SRC_FILES := \
     src/screen.c \
     src/state.c
 
-LOCAL_CFLAGS := -std=c99
+LOCAL_CFLAGS += \
+    -std=c99 \
+    -Wno-missing-field-initializers \
+    -Wno-sign-compare \
+    -Wno-unused-parameter \
+
+LOCAL_CLANG := true
 
 include $(BUILD_STATIC_LIBRARY)

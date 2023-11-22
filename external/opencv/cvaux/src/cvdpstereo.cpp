@@ -76,8 +76,10 @@ typedef struct _CvRightImData
     uchar min_val, max_val;
 } _CvRightImData;
 
-#define CV_IMAX3(a,b,c) ((temp3 = (a) >= (b) ? (a) : (b)),(temp3 >= (c) ? temp3 : (c)))
-#define CV_IMIN3(a,b,c) ((temp3 = (a) <= (b) ? (a) : (b)),(temp3 <= (c) ? temp3 : (c)))
+// When CV_IMAX3 and CV_IMIN3 are used in the same expression, the evulation
+// order is undefined, and they should not assign to the same temporary variable.
+#define CV_IMAX3(a,b,c) ((max3 = (a) >= (b) ? (a) : (b)),(max3 >= (c) ?  max3 : (c)))
+#define CV_IMIN3(a,b,c) ((min3 = (a) <= (b) ? (a) : (b)),(min3 <= (c) ?  min3 : (c)))
 
 void icvFindStereoCorrespondenceByBirchfieldDP( uchar* src1, uchar* src2,
                                                 uchar* disparities,
@@ -87,7 +89,7 @@ void icvFindStereoCorrespondenceByBirchfieldDP( uchar* src1, uchar* src2,
                                                 float  _param3, float _param4,
                                                 float  _param5 )
 {
-    int     x, y, i, j, temp3;
+    int     x, y, i, j, max3, min3;
     int     d, s;
     int     dispH =  maxDisparity + 3; 
     uchar  *dispdata;

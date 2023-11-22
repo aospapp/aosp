@@ -18,12 +18,18 @@ package android.hardware.cts.helpers.sensorverification;
 
 import junit.framework.Assert;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+
+import android.util.Log;
 import android.hardware.Sensor;
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 import android.util.SparseIntArray;
+
+import com.android.cts.util.StatisticsUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -37,6 +43,9 @@ public class JitterVerification extends AbstractSensorVerification {
 
     // sensorType: threshold (% of expected period)
     private static final SparseIntArray DEFAULTS = new SparseIntArray(12);
+    // Max allowed jitter (in percentage).
+    private static final int GRACE_FACTOR = 2;
+    private static final int THRESHOLD_PERCENT_FOR_HIFI_SENSORS = 1 * GRACE_FACTOR;
     static {
         // Use a method so that the @deprecation warning can be set for that method only
         setDefaults();
@@ -65,6 +74,11 @@ public class JitterVerification extends AbstractSensorVerification {
         int threshold = DEFAULTS.get(sensorType, -1);
         if (threshold == -1) {
             return null;
+        }
+        boolean hasHifiSensors = environment.getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_HIFI_SENSORS);
+        if (hasHifiSensors) {
+           threshold = THRESHOLD_PERCENT_FOR_HIFI_SENSORS;
         }
         return new JitterVerification(threshold);
     }
@@ -131,7 +145,7 @@ public class JitterVerification extends AbstractSensorVerification {
         for (int i = 1; i < mTimestamps.size(); i++) {
             deltas.add(mTimestamps.get(i) - mTimestamps.get(i - 1));
         }
-        double deltaMean = SensorCtsHelper.getMean(deltas);
+        double deltaMean = StatisticsUtils.getMean(deltas);
         List<Double> jitters = new ArrayList<Double>(deltas.size());
         for (long delta : deltas) {
             jitters.add(Math.abs(delta - deltaMean));

@@ -26,7 +26,7 @@ import android.os.Parcelable;
  * Wi-Fi configuration that implements NetworkConfiguration.
  */
 class WifiConfig implements NetworkConfiguration {
-    private WifiManager mWifiManager;
+    private final WifiManager mWifiManager;
     private WifiConfiguration mWifiConfiguration;
 
     WifiConfig(Context context) {
@@ -54,14 +54,6 @@ class WifiConfig implements NetworkConfiguration {
      */
     public void load(int networkId) {
         mWifiConfiguration = WifiConfigHelper.getWifiConfiguration(mWifiManager, networkId);
-    }
-
-    public void setWifiConfiguration(WifiConfiguration configuration) {
-        mWifiConfiguration = configuration;
-    }
-
-    public WifiConfiguration getWifiConfiguration() {
-        return mWifiConfiguration;
     }
 
     @Override

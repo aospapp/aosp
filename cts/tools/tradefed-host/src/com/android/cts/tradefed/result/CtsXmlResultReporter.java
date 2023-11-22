@@ -25,7 +25,6 @@ import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IFolderBuildInfo;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ILogSaverListener;
@@ -42,6 +41,7 @@ import com.android.tradefed.util.StreamUtil;
 import org.kxml2.io.KXmlSerializer;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -62,6 +62,7 @@ public class CtsXmlResultReporter
 
     private static final String LOG_TAG = "CtsXmlResultReporter";
 
+    public static final String CTS_RESULT_DIR = "cts-result-dir";
     static final String TEST_RESULT_FILE_NAME = "testResult.xml";
     static final String CTS_RESULT_FILE_VERSION = "4.4";
     private static final String[] CTS_RESULT_RESOURCES = {"cts_result.xsl", "cts_result.css",
@@ -97,6 +98,9 @@ public class CtsXmlResultReporter
     @Option(name = "include-test-log-tags", description = "Include test log tags in XML report.")
     private boolean mIncludeTestLogTags = false;
 
+    @Option(name = "use-log-saver", description = "Also saves generated result XML with log saver")
+    private boolean mUseLogSaver = false;
+
     protected IBuildInfo mBuildInfo;
     private String mStartTime;
     private String mDeviceSerial;
@@ -104,10 +108,12 @@ public class CtsXmlResultReporter
     private TestPackageResult mCurrentPkgResult = null;
     private Test mCurrentTest = null;
     private boolean mIsDeviceInfoRun = false;
+    private boolean mIsExtendedDeviceInfoRun = false;
     private ResultReporter mReporter;
     private File mLogDir;
     private String mSuiteName;
     private String mReferenceUrl;
+    private ILogSaver mLogSaver;
 
     public void setReportDir(File reportDir) {
         mReportDir = reportDir;
@@ -154,6 +160,8 @@ public class CtsXmlResultReporter
         }
         mSuiteName = ctsBuildHelper.getSuiteName();
         mReporter = new ResultReporter(mResultServer, mSuiteName);
+
+        ctsBuild.addBuildAttribute(CTS_RESULT_DIR, mReportDir.getAbsolutePath());
 
         // TODO: allow customization of log dir
         // create a unique directory for saving logs, with same name as result dir
@@ -249,13 +257,14 @@ public class CtsXmlResultReporter
 
     @Override
     public void setLogSaver(ILogSaver logSaver) {
-      // Don't need to keep a reference to logSaver, because we don't save extra logs in this class.
+        mLogSaver = logSaver;
     }
 
     @Override
     public void testRunStarted(String id, int numTests) {
         mIsDeviceInfoRun = DeviceInfoCollector.IDS.contains(id);
-        if (!mIsDeviceInfoRun) {
+        mIsExtendedDeviceInfoRun = DeviceInfoCollector.EXTENDED_IDS.contains(id);
+        if (!mIsDeviceInfoRun && !mIsExtendedDeviceInfoRun) {
             mCurrentPkgResult = mResults.getOrCreatePackage(id);
             mCurrentPkgResult.setDeviceSerial(mDeviceSerial);
         }
@@ -266,7 +275,7 @@ public class CtsXmlResultReporter
      */
     @Override
     public void testStarted(TestIdentifier test) {
-        if (!mIsDeviceInfoRun) {
+        if (!mIsDeviceInfoRun && !mIsExtendedDeviceInfoRun) {
             mCurrentTest = mCurrentPkgResult.insertTest(test);
         }
     }
@@ -276,7 +285,7 @@ public class CtsXmlResultReporter
      */
     @Override
     public void testFailed(TestIdentifier test, String trace) {
-        if (!mIsDeviceInfoRun) {
+        if (!mIsDeviceInfoRun && !mIsExtendedDeviceInfoRun) {
             mCurrentPkgResult.reportTestFailure(test, CtsTestStatus.FAIL, trace);
         }
     }
@@ -287,7 +296,7 @@ public class CtsXmlResultReporter
     @Override
     public void testAssumptionFailure(TestIdentifier test, String trace) {
         // TODO: do something different here?
-        if (!mIsDeviceInfoRun) {
+        if (!mIsDeviceInfoRun && !mIsExtendedDeviceInfoRun) {
             mCurrentPkgResult.reportTestFailure(test, CtsTestStatus.FAIL, trace);
         }
     }
@@ -305,7 +314,7 @@ public class CtsXmlResultReporter
      */
     @Override
     public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
-        if (!mIsDeviceInfoRun) {
+        if (!mIsDeviceInfoRun && !mIsExtendedDeviceInfoRun) {
             mCurrentPkgResult.reportTestEnded(test, testMetrics);
         }
     }
@@ -317,8 +326,19 @@ public class CtsXmlResultReporter
     public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
         if (mIsDeviceInfoRun) {
             mResults.populateDeviceInfoMetrics(runMetrics);
+        } else if (mIsExtendedDeviceInfoRun) {
+            checkExtendedDeviceInfoMetrics(runMetrics);
         } else {
             mCurrentPkgResult.populateMetrics(runMetrics);
+        }
+    }
+
+    private void checkExtendedDeviceInfoMetrics(Map<String, String> runMetrics) {
+        for (Map.Entry<String, String> metricEntry : runMetrics.entrySet()) {
+            String value = metricEntry.getValue();
+            if (!value.endsWith(".deviceinfo.json")) {
+                CLog.e(String.format("%s failed: %s", metricEntry.getKey(), value));
+            }
         }
     }
 
@@ -335,6 +355,18 @@ public class CtsXmlResultReporter
 
         File reportFile = getResultFile(mReportDir);
         createXmlResult(reportFile, mStartTime, elapsedTime);
+        if (mUseLogSaver) {
+            FileInputStream fis = null;
+            try {
+                fis = new FileInputStream(reportFile);
+                mLogSaver.saveLogData("cts-result", LogDataType.XML, fis);
+            } catch (IOException ioe) {
+                CLog.e("error saving XML with log saver");
+                CLog.e(ioe);
+            } finally {
+                StreamUtil.close(fis);
+            }
+        }
         copyFormattingFiles(mReportDir);
         zipResults(mReportDir);
 
@@ -400,7 +432,7 @@ public class CtsXmlResultReporter
         serializer.attribute(ns, "endtime", endTime);
         serializer.attribute(ns, "version", CTS_RESULT_FILE_VERSION);
         serializer.attribute(ns, "suite", mSuiteName);
-        mResults.serialize(serializer);
+        mResults.serialize(serializer, mBuildInfo.getBuildId());
         // TODO: not sure why, but the serializer doesn't like this statement
         //serializer.endTag(ns, RESULT_TAG);
     }

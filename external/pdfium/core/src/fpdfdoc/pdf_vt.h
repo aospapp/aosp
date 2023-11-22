@@ -4,7 +4,9 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#define _PDF_VT_H_
+#ifndef CORE_SRC_FPDFDOC_PDF_VT_H_
+#define CORE_SRC_FPDFDOC_PDF_VT_H_
+
 class CPVT_Size;
 class CPVT_FloatRect;
 struct CPVT_SectionInfo;
@@ -104,14 +106,14 @@ struct CPVT_SectionInfo {
             if (pSecProps) {
                 *pSecProps = *other.pSecProps;
             } else {
-                pSecProps = FX_NEW CPVT_SecProps(*other.pSecProps);
+                pSecProps = new CPVT_SecProps(*other.pSecProps);
             }
         }
         if (other.pWordProps) {
             if (pWordProps) {
                 *pWordProps = *other.pWordProps;
             } else {
-                pWordProps = FX_NEW CPVT_WordProps(*other.pWordProps);
+                pWordProps = new CPVT_WordProps(*other.pWordProps);
             }
         }
     }
@@ -134,7 +136,7 @@ struct CPVT_LineInfo {
     FX_FLOAT					fLineAscent;
     FX_FLOAT					fLineDescent;
 };
-struct CPVT_WordInfo : public CFX_Object {
+struct CPVT_WordInfo  {
     CPVT_WordInfo() : Word(0), nCharset(0),
         fWordX(0.0f), fWordY(0.0f), fWordTail(0.0f), nFontIndex(-1), pWordProps(NULL)
     {
@@ -167,7 +169,7 @@ struct CPVT_WordInfo : public CFX_Object {
             if (pWordProps) {
                 *pWordProps = *word.pWordProps;
             } else {
-                pWordProps = FX_NEW CPVT_WordProps(*word.pWordProps);
+                pWordProps = new CPVT_WordProps(*word.pWordProps);
             }
         }
     }
@@ -213,7 +215,7 @@ public:
         }
     }
 };
-class CLine : public CFX_Object
+class CLine 
 {
 public:
     CLine();
@@ -256,18 +258,13 @@ public:
     FX_INT32								Add(const CPVT_LineInfo & lineinfo)
     {
         if (m_nTotal >= GetSize()) {
-            if (CLine * pLine = FX_NEW CLine) {
-                pLine->m_LineInfo = lineinfo;
-                m_Lines.Add(pLine);
-                return m_nTotal++;
-            }
-            return m_nTotal;
-        } else {
-            if (CLine * pLine = GetAt(m_nTotal)) {
-                pLine->m_LineInfo = lineinfo;
-            }
-            return m_nTotal++;
+            CLine* pLine = new CLine;
+            pLine->m_LineInfo = lineinfo;
+            m_Lines.Add(pLine);
+        } else if (CLine* pLine = GetAt(m_nTotal)) {
+            pLine->m_LineInfo = lineinfo;
         }
+        return m_nTotal++;
     }
     void									Clear()
     {
@@ -280,7 +277,7 @@ private:
     CPVT_ArrayTemplate<CLine*>				m_Lines;
     FX_INT32								m_nTotal;
 };
-class CSection : public CFX_Object
+class CSection 
 {
     friend class CTypeset;
 public:
@@ -398,7 +395,7 @@ private:
     CPDF_Rect								m_rcPlate;
     CPVT_FloatRect							m_rcContent;
 };
-class CPDF_VariableText : public IPDF_VariableText, public CFX_Object, private CPDF_EditContainer
+class CPDF_VariableText : public IPDF_VariableText, private CPDF_EditContainer
 {
     friend class CTypeset;
     friend class CSection;
@@ -518,8 +515,8 @@ public:
         return m_fCharSpace;
     }
 
-    inline CPVT_WordPlace					GetBeginWordPlace() const;
-    inline CPVT_WordPlace					GetEndWordPlace() const;
+    CPVT_WordPlace							GetBeginWordPlace() const;
+    CPVT_WordPlace							GetEndWordPlace() const;
     CPVT_WordPlace							GetPrevWordPlace(const CPVT_WordPlace & place) const;
     CPVT_WordPlace							GetNextWordPlace(const CPVT_WordPlace & place) const;
     CPVT_WordPlace							SearchWordPlace(const CPDF_Point & point) const;
@@ -603,18 +600,15 @@ private:
     FX_FLOAT								m_fCharSpace;
     FX_INT32								m_nHorzScale;
     FX_WORD									m_wSubWord;
-    FX_FLOAT								m_fWordSpace;
     FX_FLOAT								m_fFontSize;
 
 private:
     FX_BOOL									m_bInitial;
     FX_BOOL									m_bRichText;
-    FX_FLOAT								m_fCaretOriginX;
-    FX_INT32								m_nCurFontIndex;
     IPDF_VariableText_Provider *			m_pVTProvider;
     CPDF_VariableText_Iterator *			m_pVTIterator;
 };
-class CPDF_VariableText_Iterator : public IPDF_VariableText_Iterator, public CFX_Object
+class CPDF_VariableText_Iterator : public IPDF_VariableText_Iterator
 {
 public:
     CPDF_VariableText_Iterator(CPDF_VariableText * pVT);
@@ -640,3 +634,5 @@ private:
     CPVT_WordPlace							m_CurPos;
     CPDF_VariableText *						m_pVT;
 };
+
+#endif  // CORE_SRC_FPDFDOC_PDF_VT_H_

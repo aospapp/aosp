@@ -11,12 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CODEGEN_ASMPRINTER_DWARFACCELTABLE_H__
-#define CODEGEN_ASMPRINTER_DWARFACCELTABLE_H__
+#ifndef LLVM_LIB_CODEGEN_ASMPRINTER_DWARFACCELTABLE_H
+#define LLVM_LIB_CODEGEN_ASMPRINTER_DWARFACCELTABLE_H
 
-#include "DIE.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/CodeGen/DIE.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
@@ -62,7 +62,7 @@
 namespace llvm {
 
 class AsmPrinter;
-class DwarfFile;
+class DwarfDebug;
 
 class DwarfAccelTable {
 
@@ -140,7 +140,7 @@ public:
 private:
   struct TableHeaderData {
     uint32_t die_offset_base;
-    SmallVector<Atom, 1> Atoms;
+    SmallVector<Atom, 3> Atoms;
 
     TableHeaderData(ArrayRef<Atom> AtomList, uint32_t offset = 0)
         : die_offset_base(offset), Atoms(AtomList.begin(), AtomList.end()) {}
@@ -215,15 +215,15 @@ private:
 #endif
   };
 
-  DwarfAccelTable(const DwarfAccelTable &) LLVM_DELETED_FUNCTION;
-  void operator=(const DwarfAccelTable &) LLVM_DELETED_FUNCTION;
+  DwarfAccelTable(const DwarfAccelTable &) = delete;
+  void operator=(const DwarfAccelTable &) = delete;
 
   // Internal Functions
   void EmitHeader(AsmPrinter *);
   void EmitBuckets(AsmPrinter *);
   void EmitHashes(AsmPrinter *);
-  void EmitOffsets(AsmPrinter *, MCSymbol *);
-  void EmitData(AsmPrinter *, DwarfFile *D);
+  void emitOffsets(AsmPrinter *, const MCSymbol *);
+  void EmitData(AsmPrinter *, DwarfDebug *D);
 
   // Allocator for HashData and HashDataContents.
   BumpPtrAllocator Allocator;
@@ -248,7 +248,7 @@ public:
   void AddName(StringRef Name, MCSymbol *StrSym, const DIE *Die,
                char Flags = 0);
   void FinalizeTable(AsmPrinter *, StringRef);
-  void Emit(AsmPrinter *, MCSymbol *, DwarfFile *);
+  void emit(AsmPrinter *, const MCSymbol *, DwarfDebug *);
 #ifndef NDEBUG
   void print(raw_ostream &O);
   void dump() { print(dbgs()); }

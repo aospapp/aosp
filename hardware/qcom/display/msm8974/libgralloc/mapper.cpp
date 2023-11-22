@@ -275,6 +275,18 @@ int gralloc_lock_ycbcr(gralloc_module_t const* module,
                 ycbcr->cstride = cstride;
                 ycbcr->chroma_step = 2;
                 break;
+              //Planar
+            case HAL_PIXEL_FORMAT_YV12:
+                ystride = hnd->width;
+                cstride = ALIGN(hnd->width/2, 16);
+                ycbcr->y  = (void*)hnd->base;
+                ycbcr->cr = (void*)(hnd->base + ystride * hnd->height);
+                ycbcr->cb = (void*)(hnd->base + ystride * hnd->height +
+                        cstride * hnd->height/2);
+                ycbcr->ystride = ystride;
+                ycbcr->cstride = cstride;
+                ycbcr->chroma_step = 1;
+                break;
             default:
                 ALOGD("%s: Invalid format passed: 0x%x", __FUNCTION__,
                       hnd->format);
@@ -333,7 +345,7 @@ int gralloc_perform(struct gralloc_module_t const* module,
                 int format = va_arg(args, int);
 
                 native_handle_t** handle = va_arg(args, native_handle_t**);
-                int memoryFlags = va_arg(args, int);
+                int memoryFlags __unused = va_arg(args, int);
                 private_handle_t* hnd = (private_handle_t*)native_handle_create(
                     private_handle_t::sNumFds, private_handle_t::sNumInts);
                 hnd->magic = private_handle_t::sMagic;

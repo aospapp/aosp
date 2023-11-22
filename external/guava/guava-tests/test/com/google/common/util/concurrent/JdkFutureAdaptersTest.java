@@ -23,7 +23,7 @@ import static com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import com.google.common.testing.NullPointerTester;
+import com.google.common.testing.ClassSanityTester;
 import com.google.common.util.concurrent.FuturesTest.ExecutorSpy;
 import com.google.common.util.concurrent.FuturesTest.SingleCallListener;
 
@@ -33,6 +33,8 @@ import junit.framework.TestCase;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -99,6 +101,45 @@ public class JdkFutureAdaptersTest extends TestCase {
     singleCallListener.waitForCall();
 
     assertTrue(spy.wasExecuted);
+    assertTrue(singleCallListener.wasCalled());
+    assertTrue(listenableFuture.isDone());
+  }
+
+  public void testListenInPoolThreadCustomExecutorInterrupted()
+      throws Exception {
+    final CountDownLatch submitSuccessful = new CountDownLatch(1);
+    ExecutorService executorService = new ThreadPoolExecutor(
+        0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+        new SynchronousQueue<Runnable>(),
+        new ThreadFactoryBuilder().setDaemon(true).build()) {
+      @Override
+      protected void beforeExecute(Thread t, Runnable r) {
+        submitSuccessful.countDown();
+      }
+    };
+    NonListenableSettableFuture<String> abstractFuture =
+        NonListenableSettableFuture.create();
+    ListenableFuture<String> listenableFuture =
+        listenInPoolThread(abstractFuture, executorService);
+
+    SingleCallListener singleCallListener = new SingleCallListener();
+    singleCallListener.expectCall();
+
+    assertFalse(singleCallListener.wasCalled());
+    assertFalse(listenableFuture.isDone());
+
+    listenableFuture.addListener(singleCallListener, sameThreadExecutor());
+    /*
+     * Don't shut down until the listenInPoolThread task has been accepted to
+     * run. We want to see what happens when it's interrupted, not when it's
+     * rejected.
+     */
+    submitSuccessful.await();
+    executorService.shutdownNow();
+    abstractFuture.set(DATA1);
+    assertEquals(DATA1, listenableFuture.get());
+    singleCallListener.waitForCall();
+
     assertTrue(singleCallListener.wasCalled());
     assertTrue(listenableFuture.isDone());
   }
@@ -206,9 +247,10 @@ public class JdkFutureAdaptersTest extends TestCase {
     assertTrue(lateListener.wasRun.await(1, SECONDS));
   }
 
-  public void testNullArguments() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(Future.class, immediateFuture(DATA1));
-    tester.testAllPublicStaticMethods(JdkFutureAdapters.class);
+  public void testAdapters_nullChecks() throws Exception {
+    new ClassSanityTester()
+        .forAllPublicStaticMethods(JdkFutureAdapters.class)
+        .thatReturn(Future.class)
+        .testNulls();
   }
 }

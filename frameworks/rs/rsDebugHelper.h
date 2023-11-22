@@ -18,44 +18,38 @@
 #define ANDROID_RS_DEBUG_HELPER_H
 
 #include "rsUtils.h"
-#include "rsDefines.h"
+#include "rsInternalDefines.h"
 
-#ifndef RS_SERVER
-// This shouldn't ever be defined with RS_SERVER
-#define RS_OBJECT_DEBUG 0
-#endif
-
-#if RS_OBJECT_DEBUG
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
 #include <utils/CallStack.h>
 #endif
 
 namespace android {
 namespace renderscript {
 
-#if RS_OBJECT_DEBUG
 
 class DebugHelper {
 public:
     DebugHelper() {
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
         mStack.update(2);
+#endif
     }
 
     void dump() {
-        mStack.dump();
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
+        String8 s = mStack.toString();
+        ALOGV("%s", s.string());
+        //mStack.dump();
+#endif
     }
 
 private:
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
     CallStack mStack;
-};
-
-#else
-
-class DebugHelper {
-public:
-    DebugHelper() { }
-};
-
 #endif
+};
+
 
 }  // namespace renderscript
 }  // namespace android

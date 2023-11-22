@@ -236,6 +236,13 @@ png_crc_finish(png_structrp png_ptr, png_uint_32 skip)
 }
 
 #ifdef PNG_INDEX_SUPPORTED
+/* If tile index is used to skip over data and decode a partial image
+ * the crc value may be incorrect.
+ * The crc will only be calculated for the partial data read,
+ * not the entire data, which will result in an incorrect crc value.
+ * This function treats a png_crc_error as a warning, as opposed to the
+ * original function png_crc_finish, which will treat it as an error.
+ */
 int /* PRIVATE */
 png_opt_crc_finish(png_structrp png_ptr, png_uint_32 skip)
 {
@@ -3028,7 +3035,7 @@ png_combine_row(png_const_structrp png_ptr, png_bytep dp, int display)
 {
    unsigned int pixel_depth = png_ptr->transformed_pixel_depth;
    png_const_bytep sp = png_ptr->row_buf + 1;
-   png_uint_32 row_width = png_ptr->width;
+   png_alloc_size_t row_width = png_ptr->width;
    unsigned int pass = png_ptr->pass;
    png_bytep end_ptr = 0;
    png_byte end_byte = 0;
@@ -3301,7 +3308,7 @@ png_combine_row(png_const_structrp png_ptr, png_bytep dp, int display)
 
             /* But don't allow this number to exceed the actual row width. */
             if (bytes_to_copy > row_width)
-               bytes_to_copy = row_width;
+               bytes_to_copy = (unsigned int)/*SAFE*/row_width;
          }
 
          else /* normal row; Adam7 only ever gives us one pixel to copy. */
@@ -3481,7 +3488,7 @@ png_combine_row(png_const_structrp png_ptr, png_bytep dp, int display)
                   dp += bytes_to_jump;
                   row_width -= bytes_to_jump;
                   if (bytes_to_copy > row_width)
-                     bytes_to_copy = row_width;
+                     bytes_to_copy = (unsigned int)/*SAFE*/row_width;
                }
          }
 
@@ -4143,6 +4150,14 @@ png_read_finish_IDAT(png_structrp png_ptr)
        * crc_finish here.  If idat_size is non-zero we also need to read the
        * spurious bytes at the end of the chunk now.
        */
+#ifdef PNG_INDEX_SUPPORTED
+      if (png_ptr->index)
+      {
+        (void)png_opt_crc_finish(png_ptr, png_ptr->idat_size);
+        png_ptr->index->stream_idat_position = png_ptr->total_data_read;
+      }
+      else
+#endif
       (void)png_crc_finish(png_ptr, png_ptr->idat_size);
    }
 }

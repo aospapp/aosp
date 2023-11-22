@@ -16,7 +16,7 @@
 
 #include "disassembler.h"
 
-#include <iostream>
+#include <ostream>
 
 #include "base/logging.h"
 #include "base/stringprintf.h"
@@ -33,14 +33,16 @@ Disassembler* Disassembler::Create(InstructionSet instruction_set, DisassemblerO
   } else if (instruction_set == kArm64) {
     return new arm64::DisassemblerArm64(options);
   } else if (instruction_set == kMips) {
-    return new mips::DisassemblerMips(options);
+    return new mips::DisassemblerMips(options, false);
+  } else if (instruction_set == kMips64) {
+    return new mips::DisassemblerMips(options, true);
   } else if (instruction_set == kX86) {
     return new x86::DisassemblerX86(options, false);
   } else if (instruction_set == kX86_64) {
     return new x86::DisassemblerX86(options, true);
   } else {
     UNIMPLEMENTED(FATAL) << "no disassembler for " << instruction_set;
-    return NULL;
+    return nullptr;
   }
 }
 

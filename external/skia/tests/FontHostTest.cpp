@@ -27,7 +27,6 @@ static const struct TagSize {
 } gKnownTableSizes[] = {
     {   kFontTableTag_head,         54 },
     {   kFontTableTag_hhea,         36 },
-    {   kFontTableTag_maxp,         32 },
 };
 
 // Test that getUnitsPerEm() agrees with a direct lookup in the 'head' table
@@ -69,9 +68,10 @@ static void test_countGlyphs(skiatest::Reporter* reporter, SkTypeface* face) {
 }
 
 // The following three are all the same code points in various encodings.
-static uint8_t utf8Chars[] = { 0x61, 0xE4, 0xB8, 0xAD, 0xD0, 0xAF, 0xD7, 0x99, 0xD7, 0x95, 0xF0, 0x9D, 0x84, 0x9E, 0x61 };
-static uint16_t utf16Chars[] = { 0x0061, 0x4E2D, 0x042F, 0x05D9, 0x05D5, 0xD834, 0xDD1E, 0x0061 };
-static uint32_t utf32Chars[] = { 0x00000061, 0x00004E2D, 0x0000042F, 0x000005D9, 0x000005D5, 0x0001D11E, 0x00000061 };
+// a中Яיו𝄞a𠮟
+static uint8_t utf8Chars[] = { 0x61, 0xE4,0xB8,0xAD, 0xD0,0xAF, 0xD7,0x99, 0xD7,0x95, 0xF0,0x9D,0x84,0x9E, 0x61, 0xF0,0xA0,0xAE,0x9F };
+static uint16_t utf16Chars[] = { 0x0061, 0x4E2D, 0x042F, 0x05D9, 0x05D5, 0xD834,0xDD1E, 0x0061, 0xD842,0xDF9F };
+static uint32_t utf32Chars[] = { 0x00000061, 0x00004E2D, 0x0000042F, 0x000005D9, 0x000005D5, 0x0001D11E, 0x00000061, 0x00020B9F };
 
 struct CharsToGlyphs_TestData {
     const void* chars;
@@ -80,9 +80,9 @@ struct CharsToGlyphs_TestData {
     SkTypeface::Encoding typefaceEncoding;
     const char* name;
 } static charsToGlyphs_TestData[] = {
-    { utf8Chars, 7, sizeof(utf8Chars), SkTypeface::kUTF8_Encoding, "Simple UTF-8" },
-    { utf16Chars, 7, sizeof(utf16Chars), SkTypeface::kUTF16_Encoding, "Simple UTF-16" },
-    { utf32Chars, 7, sizeof(utf32Chars), SkTypeface::kUTF32_Encoding, "Simple UTF-32" },
+    { utf8Chars, 8, sizeof(utf8Chars), SkTypeface::kUTF8_Encoding, "Simple UTF-8" },
+    { utf16Chars, 8, sizeof(utf16Chars), SkTypeface::kUTF16_Encoding, "Simple UTF-16" },
+    { utf32Chars, 8, sizeof(utf32Chars), SkTypeface::kUTF32_Encoding, "Simple UTF-32" },
 };
 
 // Test that SkPaint::textToGlyphs agrees with SkTypeface::charsToGlyphs.
@@ -111,8 +111,7 @@ static void test_charsToGlyphs(skiatest::Reporter* reporter, SkTypeface* face) {
     }
 }
 
-static void test_fontstream(skiatest::Reporter* reporter,
-                            SkStream* stream, int ttcIndex) {
+static void test_fontstream(skiatest::Reporter* reporter, SkStream* stream, int ttcIndex) {
     int n = SkFontStream::GetTableTags(stream, ttcIndex, NULL);
     SkAutoTArray<SkFontTableTag> array(n);
 
@@ -138,30 +137,19 @@ static void test_fontstream(skiatest::Reporter* reporter,
     }
 }
 
-static void test_fontstream(skiatest::Reporter* reporter, SkStream* stream) {
+static void test_fontstream(skiatest::Reporter* reporter) {
+    SkAutoTDelete<SkStreamAsset> stream(GetResourceAsStream("/fonts/test.ttc"));
+    if (!stream) {
+        SkDebugf("Skipping FontHostTest::test_fontstream\n");
+        return;
+    }
+
     int count = SkFontStream::CountTTCEntries(stream);
 #ifdef DUMP_TTC_TABLES
     SkDebugf("CountTTCEntries %d\n", count);
 #endif
     for (int i = 0; i < count; ++i) {
         test_fontstream(reporter, stream, i);
-    }
-}
-
-static void test_fontstream(skiatest::Reporter* reporter) {
-    // This test cannot run if there is no resource path.
-    SkString resourcePath = GetResourcePath();
-    if (resourcePath.isEmpty()) {
-        SkDebugf("Could not run fontstream test because resourcePath not specified.");
-        return;
-    }
-    SkString filename = SkOSPath::SkPathJoin(resourcePath.c_str(), "test.ttc");
-
-    SkFILEStream stream(filename.c_str());
-    if (stream.isValid()) {
-        test_fontstream(reporter, &stream);
-    } else {
-        SkDebugf("Could not run fontstream test because test.ttc not found.");
     }
 }
 
@@ -211,8 +199,11 @@ static void test_tables(skiatest::Reporter* reporter, SkTypeface* face) {
 static void test_tables(skiatest::Reporter* reporter) {
     static const char* const gNames[] = {
         NULL,   // default font
-        "Arial", "Times", "Times New Roman", "Helvetica", "Courier",
-        "Courier New", "Terminal", "MS Sans Serif",
+        "Helvetica", "Arial",
+        "Times", "Times New Roman",
+        "Courier", "Courier New",
+        "Terminal", "MS Sans Serif",
+        "Hiragino Mincho ProN", "MS PGothic",
     };
 
     for (size_t i = 0; i < SK_ARRAY_COUNT(gNames); ++i) {

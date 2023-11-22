@@ -64,11 +64,7 @@ LOCAL_MODULE := mkfs.f2fs
 # mkfs.f2fs is used in recovery: must be static.
 LOCAL_FORCE_STATIC_EXECUTABLE := true
 
-# Recovery needs it also, so it must go into root/sbin/.
-# Directly generating into the recovery/root/sbin gets clobbered
-# when the recovery image is being made.
-# LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
-LOCAL_MODULE_PATH := $(TARGET_ROOT_OUT_SBIN)
+LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/sbin
 
 LOCAL_SRC_FILES := \
 	lib/libf2fs_io.c \
@@ -76,6 +72,21 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES := $(common_C_INCLUDES)
 LOCAL_CFLAGS := $(version_CFLAGS)
 LOCAL_STATIC_LIBRARIES := libc libf2fs_fmt libext2_uuid_static
+LOCAL_MODULE_TAGS := optional
+include $(BUILD_EXECUTABLE)
+
+#----------------------------------------------------------
+include $(CLEAR_VARS)
+LOCAL_MODULE := make_f2fs
+
+LOCAL_SRC_FILES := \
+	lib/libf2fs_io.c \
+	mkfs/f2fs_format_main.c
+LOCAL_C_INCLUDES := $(common_C_INCLUDES)
+LOCAL_CFLAGS := $(version_CFLAGS)
+LOCAL_STATIC_LIBRARIES := libf2fs_fmt
+LOCAL_SHARED_LIBRARIES := libext2_uuid
+LOCAL_SYSTEM_SHARED_LIBRARIES := libc
 LOCAL_MODULE_TAGS := optional
 include $(BUILD_EXECUTABLE)
 

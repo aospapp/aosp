@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
@@ -118,6 +120,17 @@ class SnapshotDialogFragment extends DialogFragment
         mJpegImage = image;
     }
 
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        TestingCamera parent = (TestingCamera) getActivity();
+        if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            parent.log("Storage write permission granted");
+            saveFile();
+        } else {
+            parent.log("Denied storage write permission; cannot save");
+        }
+    }
+
     private String getAttrib(ExifInterface exif, String tag) {
         String attribute = exif.getAttribute(tag);
         return (attribute == null) ? "???" : attribute;
@@ -127,6 +140,14 @@ class SnapshotDialogFragment extends DialogFragment
         if (!mSaved) {
             TestingCamera parent = (TestingCamera) getActivity();
             parent.log("Saving image");
+
+            if (parent.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                parent.log("Requesting storage write permission");
+                parent.requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        parent.PERMISSIONS_REQUEST_SNAPSHOT);
+                return;
+            }
 
             File targetFile = parent.getOutputMediaFile(TestingCamera.MEDIA_TYPE_IMAGE);
             if (targetFile == null) {

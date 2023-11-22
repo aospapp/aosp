@@ -844,8 +844,8 @@ define <4 x i8> @_Z18rsYuvToRGBA_uchar4hhh(i8 %pY, i8 %pU, i8 %pV) nounwind read
   %_u = tail call <4 x i32> @smear_4i32(i32 %_su2) nounwind readnone
   %_v = tail call <4 x i32> @smear_4i32(i32 %_sv2) nounwind readnone
 
-  %mu = load <4 x i32>* @yuv_U, align 8
-  %mv = load <4 x i32>* @yuv_V, align 8
+  %mu = load <4 x i32>, <4 x i32>* @yuv_U, align 8
+  %mv = load <4 x i32>, <4 x i32>* @yuv_V, align 8
   %_u2 = mul <4 x i32> %_u, %mu
   %_v2 = mul <4 x i32> %_v, %mv
   %_y2 = add <4 x i32> %_y, %_u2
@@ -855,8 +855,8 @@ define <4 x i8> @_Z18rsYuvToRGBA_uchar4hhh(i8 %pY, i8 %pU, i8 %pV) nounwind read
 ;  %r2 = trunc <4 x i16> %r1 to <4 x i8>
 ;  ret <4 x i8> %r2
 
-  %c0 = load <4 x i32>* @yuv_0, align 8
-  %c255 = load <4 x i32>* @yuv_255, align 8
+  %c0 = load <4 x i32>, <4 x i32>* @yuv_0, align 8
+  %c255 = load <4 x i32>, <4 x i32>* @yuv_255, align 8
   %r1 = tail call <4 x i32> @llvm.aarch64.neon.smax.v4i32(<4 x i32> %_y3, <4 x i32> %c0) nounwind readnone
   %r2 = tail call <4 x i32> @llvm.aarch64.neon.smin.v4i32(<4 x i32> %r1, <4 x i32> %c255) nounwind readnone
   %r3 = lshr <4 x i32> %r2, <i32 8, i32 8, i32 8, i32 8>
@@ -959,19 +959,19 @@ define <3 x float> @_Z16rsMatrixMultiplyPK12rs_matrix3x3Dv3_f(%struct.rs_matrix3
   %z0 = extractelement <3 x float> %in, i32 2
   %z = tail call <4 x float> @smear_f(float %z0) nounwind readnone
 
-  %px = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %px = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %px2 = bitcast float* %px to <4 x float>*
-  %xm = load <4 x float>* %px2, align 4
+  %xm = load <4 x float>, <4 x float>* %px2, align 4
 
-  %py = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %py = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %py2 = bitcast float* %py to <4 x float>*
   ; %ym = call <4 x float> @llvm.aarch64.neon.ld4.v4f32(i8* %py2, i32 4) nounwind
-  %ym = load <4 x float>* %py2, align 4
+  %ym = load <4 x float>, <4 x float>* %py2, align 4
 
-  %pz = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
+  %pz = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 5
   %pz2 = bitcast float* %pz to <4 x float>*
 ;  %zm2 = call <4 x float> @llvm.aarch64.neon.ld4.v4f32(i8* %pz2, i32 4) nounwind
-  %zm2 = load <4 x float>* %pz2, align 4
+  %zm2 = load <4 x float>, <4 x float>* %pz2, align 4
   %zm = shufflevector <4 x float> %zm2, <4 x float> undef, <4 x i32> <i32 1, i32 2, i32 3, i32 4>
 
   %a1 = fmul <4 x float> %x, %xm
@@ -989,12 +989,12 @@ define <3 x float> @_Z16rsMatrixMultiplyPK12rs_matrix3x3Dv2_f(%struct.rs_matrix3
   %y0 = extractelement <2 x float> %in, i32 1
   %y = tail call <4 x float> @smear_f(float %y0) nounwind readnone
 
-  %px = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
+  %px = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 0
   %px2 = bitcast float* %px to <4 x float>*
-  %xm = load <4 x float>* %px2, align 4
-  %py = getelementptr inbounds %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
+  %xm = load <4 x float>, <4 x float>* %px2, align 4
+  %py = getelementptr inbounds %struct.rs_matrix3x3, %struct.rs_matrix3x3* %m, i32 0, i32 0, i32 3
   %py2 = bitcast float* %py to <4 x float>*
-  %ym = load <4 x float>* %py2, align 4
+  %ym = load <4 x float>, <4 x float>* %py2, align 4
 
   %a1 = fmul <4 x float> %x, %xm
   %a2 = fmul <4 x float> %y, %ym
@@ -1013,18 +1013,18 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv4_f(%struct.rs_matrix4
   %w0 = extractelement <4 x float> %in, i32 3
   %w = tail call <4 x float> @smear_f(float %w0) nounwind readnone
 
-  %px = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %px = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %px2 = bitcast float* %px to <4 x float>*
-  %xm = load <4 x float>* %px2, align 4
-  %py = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %xm = load <4 x float>, <4 x float>* %px2, align 4
+  %py = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %py2 = bitcast float* %py to <4 x float>*
-  %ym = load <4 x float>* %py2, align 4
-  %pz = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %ym = load <4 x float>, <4 x float>* %py2, align 4
+  %pz = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %pz2 = bitcast float* %pz to <4 x float>*
-  %zm = load <4 x float>* %pz2, align 4
-  %pw = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %zm = load <4 x float>, <4 x float>* %pz2, align 4
+  %pw = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %pw2 = bitcast float* %pw to <4 x float>*
-  %wm = load <4 x float>* %pw2, align 4
+  %wm = load <4 x float>, <4 x float>* %pw2, align 4
 
   %a1 = fmul <4 x float> %x, %xm
   %a2 = fmul <4 x float> %y, %ym
@@ -1044,18 +1044,18 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv3_f(%struct.rs_matrix4
   %z0 = extractelement <3 x float> %in, i32 2
   %z = tail call <4 x float> @smear_f(float %z0) nounwind readnone
 
-  %px = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %px = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %px2 = bitcast float* %px to <4 x float>*
-  %xm = load <4 x float>* %px2, align 4
-  %py = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %xm = load <4 x float>, <4 x float>* %px2, align 4
+  %py = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %py2 = bitcast float* %py to <4 x float>*
-  %ym = load <4 x float>* %py2, align 4
-  %pz = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
+  %ym = load <4 x float>, <4 x float>* %py2, align 4
+  %pz = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 8
   %pz2 = bitcast float* %pz to <4 x float>*
-  %zm = load <4 x float>* %pz2, align 4
-  %pw = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %zm = load <4 x float>, <4 x float>* %pz2, align 4
+  %pw = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %pw2 = bitcast float* %pw to <4 x float>*
-  %wm = load <4 x float>* %pw2, align 4
+  %wm = load <4 x float>, <4 x float>* %pw2, align 4
 
   %a1 = fmul <4 x float> %x, %xm
   %a2 = fadd <4 x float> %wm, %a1
@@ -1072,15 +1072,15 @@ define <4 x float> @_Z16rsMatrixMultiplyPK12rs_matrix4x4Dv2_f(%struct.rs_matrix4
   %y0 = extractelement <2 x float> %in, i32 1
   %y = tail call <4 x float> @smear_f(float %y0) nounwind readnone
 
-  %px = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
+  %px = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 0
   %px2 = bitcast float* %px to <4 x float>*
-  %xm = load <4 x float>* %px2, align 4
-  %py = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
+  %xm = load <4 x float>, <4 x float>* %px2, align 4
+  %py = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 4
   %py2 = bitcast float* %py to <4 x float>*
-  %ym = load <4 x float>* %py2, align 4
-  %pw = getelementptr inbounds %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
+  %ym = load <4 x float>, <4 x float>* %py2, align 4
+  %pw = getelementptr inbounds %struct.rs_matrix4x4, %struct.rs_matrix4x4* %m, i32 0, i32 0, i32 12
   %pw2 = bitcast float* %pw to <4 x float>*
-  %wm = load <4 x float>* %pw2, align 4
+  %wm = load <4 x float>, <4 x float>* %pw2, align 4
 
   %a1 = fmul <4 x float> %x, %xm
   %a2 = fadd <4 x float> %wm, %a1
@@ -1105,9 +1105,9 @@ declare <4 x float> @_Z14convert_float4Dv4_h(<4 x i8> %in) nounwind readnone
 
 ; uchar4 __attribute__((overloadable)) rsPackColorTo8888(float4 color)
 define <4 x i8> @_Z17rsPackColorTo8888Dv4_f(<4 x float> %color) nounwind readnone {
-    %f255 = load <4 x float>* @fc_255.0, align 16
-    %f05 = load <4 x float>* @fc_0.5, align 16
-    %f0 = load <4 x float>* @fc_0, align 16
+    %f255 = load <4 x float>, <4 x float>* @fc_255.0, align 16
+    %f05 = load <4 x float>, <4 x float>* @fc_0.5, align 16
+    %f0 = load <4 x float>, <4 x float>* @fc_0, align 16
     %v1 = fmul <4 x float> %f255, %color
     %v2 = fadd <4 x float> %f05, %v1
     %v3 = tail call <4 x float> @_Z5clampDv4_fS_S_(<4 x float> %v2, <4 x float> %f0, <4 x float> %f255) nounwind readnone

@@ -4,14 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_RENDER_
-#define _FPDF_RENDER_
-#ifndef _FPDF_PAGE_
-#include "fpdf_page.h"
-#endif
-#ifndef _FX_GE_H_
+#ifndef CORE_INCLUDE_FPDFAPI_FPDF_RENDER_H_
+#define CORE_INCLUDE_FPDFAPI_FPDF_RENDER_H_
+
 #include "../fxge/fx_ge.h"
-#endif
+#include "fpdf_page.h"
+
 class CPDF_RenderContext;
 class CPDF_RenderOptions;
 class CPDF_ImageCache;
@@ -55,7 +53,7 @@ public:
 #define RENDER_NOPATHSMOOTH			0x20000000
 #define RENDER_NOIMAGESMOOTH		0x40000000
 #define RENDER_LIMITEDIMAGECACHE	0x80000000
-class CPDF_RenderOptions : public CFX_Object
+class CPDF_RenderOptions 
 {
 public:
 
@@ -81,7 +79,7 @@ public:
 
     FX_ARGB			TranslateColor(FX_ARGB argb) const;
 };
-class CPDF_RenderContext : public CFX_Object
+class CPDF_RenderContext 
 {
 public:
 
@@ -97,8 +95,6 @@ public:
     void			Clear();
 
     void			AppendObjectList(CPDF_PageObjects* pObjs, const CFX_AffineMatrix* pObject2Device);
-
-    void			SetBackground(class IPDF_BackgroundDraw* pBackground);
 
     void			Render(CFX_RenderDevice* pDevice, const CPDF_RenderOptions* pOptions = NULL,
                            const CFX_AffineMatrix* pFinalMatrix = NULL);
@@ -126,8 +122,6 @@ protected:
 
     CFX_ArrayTemplate<struct _PDF_RenderItem>	m_ContentList;
 
-    IPDF_BackgroundDraw*	m_pBackgroundDraw;
-
     FX_BOOL					m_bFirstLayer;
 
     void			Render(CFX_RenderDevice* pDevice, const CPDF_PageObject* pStopObj,
@@ -135,16 +129,7 @@ protected:
     friend class CPDF_RenderStatus;
     friend class CPDF_ProgressiveRenderer;
 };
-class IPDF_BackgroundDraw
-{
-public:
-
-    virtual	void	OnDrawBackground(
-        CFX_RenderDevice* pBitmapDevice,
-        const CFX_AffineMatrix* pOriginal2Bitmap
-    ) = 0;
-};
-class CPDF_ProgressiveRenderer : public CFX_Object
+class CPDF_ProgressiveRenderer 
 {
 public:
 
@@ -201,7 +186,7 @@ protected:
 
     void				RenderStep();
 };
-class CPDF_TextRenderer : public CFX_Object
+class CPDF_TextRenderer 
 {
 public:
 
@@ -236,20 +221,7 @@ public:
                                   CPDF_Font* pFont, FX_FLOAT font_size, const CFX_AffineMatrix* pText2Device,
                                   FX_ARGB fill_argb);
 };
-class IPDF_PageImageCache
-{
-public:
-
-    static IPDF_PageImageCache* Create();
-
-    virtual ~IPDF_PageImageCache() {}
-
-    virtual void		OutputPage(CFX_RenderDevice* pDevice, CPDF_Page* pPage,
-                                   int pos_x, int pos_y, int size_x, int size_y, int rotate) = 0;
-
-    virtual void		SetCacheLimit(FX_DWORD limit) = 0;
-};
-class CPDF_PageRenderCache : public CFX_Object
+class CPDF_PageRenderCache 
 {
 public:
     CPDF_PageRenderCache(CPDF_Page* pPage)
@@ -307,7 +279,7 @@ protected:
     FX_DWORD			m_nCacheSize;
     FX_BOOL				m_bCurFindCache;
 };
-class CPDF_RenderConfig : public CFX_Object
+class CPDF_RenderConfig 
 {
 public:
     CPDF_RenderConfig();
@@ -315,4 +287,5 @@ public:
     int					m_HalftoneLimit;
     int					m_RenderStepLimit;
 };
-#endif
+
+#endif  // CORE_INCLUDE_FPDFAPI_FPDF_RENDER_H_

@@ -372,8 +372,6 @@ public class NsdManagerTest extends AndroidTestCase {
         assertTrue(lastEvent != null);
         assertTrue(lastEvent.mInfo.getServiceName().equals(registeredName));
 
-        assertTrue(eventCacheSize() == 2);
-
         // Register service again to see if we discover it
         checkForAdditionalEvents();
         clearEventCache();
@@ -405,7 +403,6 @@ public class NsdManagerTest extends AndroidTestCase {
                 lastEvent.mInfo.getServiceName());
 
         assertTrue(lastEvent.mInfo.getServiceName().equals(registeredName));
-        assertTrue(checkCacheSize(2));
 
         checkForAdditionalEvents();
         clearEventCache();

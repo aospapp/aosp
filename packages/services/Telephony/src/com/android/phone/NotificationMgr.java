@@ -25,7 +25,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.UserInfo;
+import android.content.res.Resources;
 import android.net.Uri;
+import android.os.PersistableBundle;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -35,6 +37,7 @@ import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
@@ -48,6 +51,8 @@ import android.widget.Toast;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.TelephonyCapabilities;
+import com.android.phone.settings.VoicemailSettingsActivity;
+import com.android.phone.vvm.omtp.sync.VoicemailStatusQueryHelper;
 import com.android.phone.settings.VoicemailNotificationSettingsUtil;
 import com.android.phone.settings.VoicemailProviderSettingsUtil;
 
@@ -295,11 +300,20 @@ public class NotificationMgr {
             return;
         }
 
+        Phone phone = PhoneGlobals.getPhone(subId);
+        if (visible && phone != null) {
+            VoicemailStatusQueryHelper queryHelper = new VoicemailStatusQueryHelper(mContext);
+            PhoneAccountHandle phoneAccount = PhoneUtils.makePstnPhoneAccountHandle(phone);
+            if (queryHelper.isNotificationsChannelActive(phoneAccount)) {
+                Log.v(LOG_TAG, "Notifications channel active for visual voicemail, hiding mwi.");
+                visible = false;
+            }
+        }
+
         Log.i(LOG_TAG, "updateMwi(): subId " + subId + " update to " + visible);
         mMwiVisible.put(subId, visible);
 
         if (visible) {
-            Phone phone = PhoneGlobals.getPhone(subId);
             if (phone == null) {
                 Log.w(LOG_TAG, "Found null phone for: " + subId);
                 return;
@@ -357,10 +371,9 @@ public class NotificationMgr {
                 // to the voicemail settings.
                 notificationText = mContext.getString(
                         R.string.notification_voicemail_no_vm_number);
-                intent = new Intent(CallFeaturesSetting.ACTION_ADD_VOICEMAIL);
-                intent.putExtra(CallFeaturesSetting.SETUP_VOICEMAIL_EXTRA, true);
+                intent = new Intent(VoicemailSettingsActivity.ACTION_ADD_VOICEMAIL);
                 intent.putExtra(SubscriptionInfoHelper.SUB_ID_EXTRA, subId);
-                intent.setClass(mContext, CallFeaturesSetting.class);
+                intent.setClass(mContext, VoicemailSettingsActivity.class);
             } else {
                 if (mTelephonyManager.getPhoneCount() > 1) {
                     notificationText = subInfo.getDisplayName().toString();
@@ -371,7 +384,7 @@ public class NotificationMgr {
                 }
                 intent = new Intent(
                         Intent.ACTION_CALL, Uri.fromParts(PhoneAccount.SCHEME_VOICEMAIL, "",
-                        null));
+                                null));
                 intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle);
             }
 
@@ -383,6 +396,9 @@ public class NotificationMgr {
                 ringtoneUri = VoicemailNotificationSettingsUtil.getRingtoneUri(mPhone);
             }
 
+            Resources res = mContext.getResources();
+            PersistableBundle carrierConfig = PhoneGlobals.getInstance().getCarrierConfigForSubId(
+                    mPhone.getSubId());
             Notification.Builder builder = new Notification.Builder(mContext);
             builder.setSmallIcon(resId)
                     .setWhen(System.currentTimeMillis())
@@ -391,8 +407,9 @@ public class NotificationMgr {
                     .setContentText(notificationText)
                     .setContentIntent(pendingIntent)
                     .setSound(ringtoneUri)
-                    .setColor(mContext.getResources().getColor(R.color.dialer_theme_color))
-                    .setOngoing(true);
+                    .setColor(res.getColor(R.color.dialer_theme_color))
+                    .setOngoing(carrierConfig.getBoolean(
+                            CarrierConfigManager.KEY_VOICEMAIL_NOTIFICATION_PERSISTENT_BOOL));
 
             if (VoicemailNotificationSettingsUtil.isVibrationEnabled(phone)) {
                 builder.setDefaults(Notification.DEFAULT_VIBRATE);
@@ -405,7 +422,7 @@ public class NotificationMgr {
                 final UserHandle userHandle = user.getUserHandle();
                 if (!mUserManager.hasUserRestriction(
                         UserManager.DISALLOW_OUTGOING_CALLS, userHandle)
-                            && !user.isManagedProfile()) {
+                        && !user.isManagedProfile()) {
                     mNotificationManager.notifyAsUser(
                             Integer.toString(subId) /* tag */,
                             VOICEMAIL_NOTIFICATION,
@@ -556,6 +573,7 @@ public class NotificationMgr {
         // Use NetworkSetting to handle the selection intent
         intent.setComponent(new ComponentName("com.android.phone",
                 "com.android.phone.NetworkSetting"));
+        intent.putExtra(GsmUmtsOptions.EXTRA_SUB_ID, mPhone.getSubId());
         PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
 
         List<UserInfo> users = mUserManager.getUsers(true);

@@ -61,9 +61,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl
 
-ifndef WEBRTC_STL
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)
@@ -97,11 +95,6 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../interface \
     $(LOCAL_PATH)/../.. \
     $(LOCAL_PATH)/../../system_wrappers/interface \
-    external/gtest/include
-
-LOCAL_STATIC_LIBRARIES := \
-    libgtest \
-    libprotobuf-cpp-2.3.0-lite
 
 MY_LIB_SUFFIX :=
 ifdef WEBRTC_STL
@@ -115,8 +108,10 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_MODULE:= webrtc_apm_process_test
 
 ifndef WEBRTC_STL
-include external/stlport/libstlport.mk
+LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
 else
+LOCAL_STATIC_LIBRARIES := \
+    libprotobuf-cpp-lite
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)
@@ -153,12 +148,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/test \
     $(LOCAL_PATH)/../../system_wrappers/interface \
     $(LOCAL_PATH)/../../common_audio/signal_processing/include \
-    external/gtest/include \
     external/protobuf/src
-
-LOCAL_STATIC_LIBRARIES := \
-    libgtest \
-    libprotobuf-cpp-2.3.0-lite
 
 MY_LIB_SUFFIX :=
 ifdef WEBRTC_STL
@@ -171,8 +161,10 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_MODULE:= webrtc_apm_unit_test
 
 ifndef WEBRTC_STL
-include external/stlport/libstlport.mk
+LOCAL_SHARED_LIBRARIES += libprotobuf-cpp-lite
 else
+LOCAL_STATIC_LIBRARIES := \
+    libprotobuf-cpp-lite
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)

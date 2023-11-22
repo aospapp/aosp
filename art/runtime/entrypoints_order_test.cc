@@ -71,10 +71,9 @@ class EntrypointsOrderTest : public CommonRuntimeTest {
     EXPECT_OFFSET_DIFFP(Thread, tls32_, daemon, throwing_OutOfMemoryError, 4);
     EXPECT_OFFSET_DIFFP(Thread, tls32_, throwing_OutOfMemoryError, no_thread_suspension, 4);
     EXPECT_OFFSET_DIFFP(Thread, tls32_, no_thread_suspension, thread_exit_check_count, 4);
-    EXPECT_OFFSET_DIFFP(Thread, tls32_, thread_exit_check_count,
-                        is_exception_reported_to_instrumentation_, 4);
-    EXPECT_OFFSET_DIFFP(Thread, tls32_, is_exception_reported_to_instrumentation_,
-                        handling_signal_, 4);
+    EXPECT_OFFSET_DIFFP(Thread, tls32_, thread_exit_check_count, handling_signal_, 4);
+    EXPECT_OFFSET_DIFFP(Thread, tls32_, handling_signal_,
+                        deoptimization_return_value_is_reference, 4);
 
     // TODO: Better connection. Take alignment into account.
     EXPECT_OFFSET_DIFF_GT3(Thread, tls32_.thread_exit_check_count, tls64_.trace_clock_base, 4,
@@ -86,189 +85,234 @@ class EntrypointsOrderTest : public CommonRuntimeTest {
     // TODO: Better connection. Take alignment into account.
     EXPECT_OFFSET_DIFF_GT3(Thread, tls64_.stats, tlsPtr_.card_table, 8, thread_tls64_to_tlsptr);
 
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, card_table, exception, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, exception, stack_end, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_end, managed_stack, kPointerSize);
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, card_table, exception, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, exception, stack_end, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_end, managed_stack, sizeof(void*));
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, managed_stack, suspend_trigger, sizeof(ManagedStack));
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, suspend_trigger, jni_env, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, jni_env, self, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, self, opeer, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, opeer, jpeer, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, jpeer, stack_begin, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_begin, stack_size, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_size, throw_location, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, throw_location, stack_trace_sample, sizeof(ThrowLocation));
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_trace_sample, wait_next, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, wait_next, monitor_enter_object, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, monitor_enter_object, top_handle_scope, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, top_handle_scope, class_loader_override, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, class_loader_override, long_jump_context, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, long_jump_context, instrumentation_stack, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, instrumentation_stack, debug_invoke_req, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, debug_invoke_req, single_step_control, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, single_step_control, deoptimization_shadow_frame,
-                        kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, deoptimization_shadow_frame,
-                        shadow_frame_under_construction, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, shadow_frame_under_construction, name, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, name, pthread_self, kPointerSize);
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, suspend_trigger, jni_env, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, jni_env, tmp_jni_env, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, tmp_jni_env, self, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, self, opeer, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, opeer, jpeer, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, jpeer, stack_begin, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_begin, stack_size, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_size, stack_trace_sample, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stack_trace_sample, wait_next, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, wait_next, monitor_enter_object, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, monitor_enter_object, top_handle_scope, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, top_handle_scope, class_loader_override, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, class_loader_override, long_jump_context, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, long_jump_context, instrumentation_stack, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, instrumentation_stack, debug_invoke_req, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, debug_invoke_req, single_step_control, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, single_step_control, stacked_shadow_frame_record,
+                        sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, stacked_shadow_frame_record,
+                        deoptimization_return_value_stack, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, deoptimization_return_value_stack, name, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, name, pthread_self, sizeof(void*));
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, pthread_self, last_no_thread_suspension_cause,
-                        kPointerSize);
+                        sizeof(void*));
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, last_no_thread_suspension_cause, checkpoint_functions,
-                        kPointerSize);
+                        sizeof(void*));
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, checkpoint_functions, interpreter_entrypoints,
-                        kPointerSize * 3);
+                        sizeof(void*) * 3);
 
     // Skip across the entrypoints structures.
 
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_start, thread_local_pos, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_pos, thread_local_end, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_end, thread_local_objects, kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_objects, rosalloc_runs, kPointerSize);
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_start, thread_local_pos, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_pos, thread_local_end, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_end, thread_local_objects, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_objects, rosalloc_runs, sizeof(void*));
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, rosalloc_runs, thread_local_alloc_stack_top,
-                        kPointerSize * kNumRosAllocThreadLocalSizeBrackets);
+                        sizeof(void*) * kNumRosAllocThreadLocalSizeBrackets);
     EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_alloc_stack_top, thread_local_alloc_stack_end,
-                        kPointerSize);
-    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_alloc_stack_end, held_mutexes, kPointerSize);
-    EXPECT_OFFSET_DIFF(Thread, tlsPtr_.held_mutexes, Thread, wait_mutex_,
-                       kPointerSize * kLockLevelCount + kPointerSize, thread_tlsptr_end);
+                        sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, thread_local_alloc_stack_end, held_mutexes, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, held_mutexes, nested_signal_state,
+                        sizeof(void*) * kLockLevelCount);
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, nested_signal_state, flip_function, sizeof(void*));
+    EXPECT_OFFSET_DIFFP(Thread, tlsPtr_, flip_function, method_verifier, sizeof(void*));
+    EXPECT_OFFSET_DIFF(Thread, tlsPtr_.method_verifier, Thread, wait_mutex_, sizeof(void*),
+                       thread_tlsptr_end);
   }
 
   void CheckInterpreterEntryPoints() {
     CHECKED(OFFSETOF_MEMBER(InterpreterEntryPoints, pInterpreterToInterpreterBridge) == 0,
             InterpreterEntryPoints_start_with_i2i);
     EXPECT_OFFSET_DIFFNP(InterpreterEntryPoints, pInterpreterToInterpreterBridge,
-                         pInterpreterToCompiledCodeBridge, kPointerSize);
+                         pInterpreterToCompiledCodeBridge, sizeof(void*));
     CHECKED(OFFSETOF_MEMBER(InterpreterEntryPoints, pInterpreterToCompiledCodeBridge)
-            + kPointerSize == sizeof(InterpreterEntryPoints), InterpreterEntryPoints_all);
+            + sizeof(void*) == sizeof(InterpreterEntryPoints), InterpreterEntryPoints_all);
   }
 
   void CheckJniEntryPoints() {
     CHECKED(OFFSETOF_MEMBER(JniEntryPoints, pDlsymLookup) == 0,
             JniEntryPoints_start_with_dlsymlookup);
     CHECKED(OFFSETOF_MEMBER(JniEntryPoints, pDlsymLookup)
-            + kPointerSize == sizeof(JniEntryPoints), JniEntryPoints_all);
-  }
-
-  void CheckPortableEntryPoints() {
-    CHECKED(OFFSETOF_MEMBER(PortableEntryPoints, pPortableImtConflictTrampoline) == 0,
-            PortableEntryPoints_start_with_imt);
-    EXPECT_OFFSET_DIFFNP(PortableEntryPoints, pPortableImtConflictTrampoline,
-                         pPortableResolutionTrampoline, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(PortableEntryPoints, pPortableResolutionTrampoline,
-                         pPortableToInterpreterBridge, kPointerSize);
-    CHECKED(OFFSETOF_MEMBER(PortableEntryPoints, pPortableToInterpreterBridge)
-            + kPointerSize == sizeof(PortableEntryPoints), PortableEntryPoints_all);
+            + sizeof(void*) == sizeof(JniEntryPoints), JniEntryPoints_all);
   }
 
   void CheckQuickEntryPoints() {
     CHECKED(OFFSETOF_MEMBER(QuickEntryPoints, pAllocArray) == 0,
                 QuickEntryPoints_start_with_allocarray);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocArray, pAllocArrayResolved, kPointerSize);
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocArray, pAllocArrayResolved, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocArrayResolved, pAllocArrayWithAccessCheck,
-                         kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocArrayWithAccessCheck, pAllocObject, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocObject, pAllocObjectResolved, kPointerSize);
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocArrayWithAccessCheck, pAllocObject, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocObject, pAllocObjectResolved, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocObjectResolved, pAllocObjectInitialized,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocObjectInitialized, pAllocObjectWithAccessCheck,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocObjectWithAccessCheck, pCheckAndAllocArray,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCheckAndAllocArray, pCheckAndAllocArrayWithAccessCheck,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCheckAndAllocArrayWithAccessCheck,
-                         pInstanceofNonTrivial, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInstanceofNonTrivial, pCheckCast, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCheckCast, pInitializeStaticStorage, kPointerSize);
+                         pAllocStringFromBytes, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocStringFromBytes, pAllocStringFromChars,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocStringFromChars, pAllocStringFromString,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAllocStringFromString, pInstanceofNonTrivial,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInstanceofNonTrivial, pCheckCast, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCheckCast, pInitializeStaticStorage, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInitializeStaticStorage, pInitializeTypeAndVerifyAccess,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInitializeTypeAndVerifyAccess, pInitializeType,
-                         kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInitializeType, pResolveString, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pResolveString, pSet32Instance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet32Instance, pSet32Static, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet32Static, pSet64Instance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet64Instance, pSet64Static, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet64Static, pSetObjInstance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSetObjInstance, pSetObjStatic, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSetObjStatic, pGet32Instance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet32Instance, pGet32Static, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet32Static, pGet64Instance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet64Instance, pGet64Static, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet64Static, pGetObjInstance, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetObjInstance, pGetObjStatic, kPointerSize);
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInitializeType, pResolveString, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pResolveString, pSet8Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet8Instance, pSet8Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet8Static, pSet16Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet16Instance, pSet16Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet16Static, pSet32Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet32Instance, pSet32Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet32Static, pSet64Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet64Instance, pSet64Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSet64Static, pSetObjInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSetObjInstance, pSetObjStatic, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pSetObjStatic, pGetByteInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetByteInstance, pGetBooleanInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetBooleanInstance, pGetByteStatic, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetByteStatic, pGetBooleanStatic, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetBooleanStatic, pGetShortInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetShortInstance, pGetCharInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetCharInstance, pGetShortStatic, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetShortStatic, pGetCharStatic, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetCharStatic, pGet32Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet32Instance, pGet32Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet32Static, pGet64Instance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet64Instance, pGet64Static, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGet64Static, pGetObjInstance, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetObjInstance, pGetObjStatic, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pGetObjStatic, pAputObjectWithNullAndBoundCheck,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAputObjectWithNullAndBoundCheck,
-                         pAputObjectWithBoundCheck, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAputObjectWithBoundCheck, pAputObject, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAputObject, pHandleFillArrayData, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pHandleFillArrayData, pJniMethodStart, kPointerSize);
+                         pAputObjectWithBoundCheck, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAputObjectWithBoundCheck, pAputObject, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pAputObject, pHandleFillArrayData, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pHandleFillArrayData, pJniMethodStart, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodStart, pJniMethodStartSynchronized,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodStartSynchronized, pJniMethodEnd,
-                         kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodEnd, pJniMethodEndSynchronized, kPointerSize);
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodEnd, pJniMethodEndSynchronized, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodEndSynchronized, pJniMethodEndWithReference,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodEndWithReference,
-                         pJniMethodEndWithReferenceSynchronized, kPointerSize);
+                         pJniMethodEndWithReferenceSynchronized, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pJniMethodEndWithReferenceSynchronized,
-                         pQuickGenericJniTrampoline, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pQuickGenericJniTrampoline, pLockObject, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLockObject, pUnlockObject, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pUnlockObject, pCmpgDouble, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmpgDouble, pCmpgFloat, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmpgFloat, pCmplDouble, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmplDouble, pCmplFloat, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmplFloat, pFmod, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pFmod, pL2d, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pL2d, pFmodf, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pFmodf, pL2f, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pL2f, pD2iz, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pD2iz, pF2iz, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pF2iz, pIdivmod, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pIdivmod, pD2l, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pD2l, pF2l, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pF2l, pLdiv, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLdiv, pLmod, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLmod, pLmul, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLmul, pShlLong, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pShlLong, pShrLong, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pShrLong, pUshrLong, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pUshrLong, pIndexOf, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pIndexOf, pStringCompareTo, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pStringCompareTo, pMemcpy, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pMemcpy, pQuickImtConflictTrampoline, kPointerSize);
+                         pQuickGenericJniTrampoline, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pQuickGenericJniTrampoline, pLockObject, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLockObject, pUnlockObject, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pUnlockObject, pCmpgDouble, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmpgDouble, pCmpgFloat, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmpgFloat, pCmplDouble, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmplDouble, pCmplFloat, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pCmplFloat, pFmod, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pFmod, pL2d, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pL2d, pFmodf, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pFmodf, pL2f, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pL2f, pD2iz, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pD2iz, pF2iz, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pF2iz, pIdivmod, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pIdivmod, pD2l, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pD2l, pF2l, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pF2l, pLdiv, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLdiv, pLmod, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLmod, pLmul, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pLmul, pShlLong, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pShlLong, pShrLong, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pShrLong, pUshrLong, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pUshrLong, pIndexOf, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pIndexOf, pStringCompareTo, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pStringCompareTo, pMemcpy, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pMemcpy, pQuickImtConflictTrampoline, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pQuickImtConflictTrampoline, pQuickResolutionTrampoline,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pQuickResolutionTrampoline, pQuickToInterpreterBridge,
-                         kPointerSize);
+                         sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pQuickToInterpreterBridge,
-                         pInvokeDirectTrampolineWithAccessCheck, kPointerSize);
+                         pInvokeDirectTrampolineWithAccessCheck, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInvokeDirectTrampolineWithAccessCheck,
-                         pInvokeInterfaceTrampolineWithAccessCheck, kPointerSize);
+                         pInvokeInterfaceTrampolineWithAccessCheck, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInvokeInterfaceTrampolineWithAccessCheck,
-                         pInvokeStaticTrampolineWithAccessCheck, kPointerSize);
+                         pInvokeStaticTrampolineWithAccessCheck, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInvokeStaticTrampolineWithAccessCheck,
-                         pInvokeSuperTrampolineWithAccessCheck, kPointerSize);
+                         pInvokeSuperTrampolineWithAccessCheck, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInvokeSuperTrampolineWithAccessCheck,
-                         pInvokeVirtualTrampolineWithAccessCheck, kPointerSize);
+                         pInvokeVirtualTrampolineWithAccessCheck, sizeof(void*));
     EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pInvokeVirtualTrampolineWithAccessCheck,
-                         pTestSuspend, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pTestSuspend, pDeliverException, kPointerSize);
+                         pTestSuspend, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pTestSuspend, pDeliverException, sizeof(void*));
 
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pDeliverException, pThrowArrayBounds, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowArrayBounds, pThrowDivZero, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowDivZero, pThrowNoSuchMethod, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowNoSuchMethod, pThrowNullPointer, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowNullPointer, pThrowStackOverflow, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowStackOverflow, pA64Load, kPointerSize);
-    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pA64Load, pA64Store, kPointerSize);
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pDeliverException, pThrowArrayBounds, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowArrayBounds, pThrowDivZero, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowDivZero, pThrowNoSuchMethod, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowNoSuchMethod, pThrowNullPointer, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowNullPointer, pThrowStackOverflow, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pThrowStackOverflow, pDeoptimize, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pDeoptimize, pA64Load, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pA64Load, pA64Store, sizeof(void*));
 
-    CHECKED(OFFSETOF_MEMBER(QuickEntryPoints, pA64Store)
-            + kPointerSize == sizeof(QuickEntryPoints), QuickEntryPoints_all);
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pA64Store, pNewEmptyString, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewEmptyString, pNewStringFromBytes_B, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_B, pNewStringFromBytes_BI,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BI, pNewStringFromBytes_BII,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BII, pNewStringFromBytes_BIII,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BIII, pNewStringFromBytes_BIIString,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BIIString,
+                         pNewStringFromBytes_BString, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BString,
+                         pNewStringFromBytes_BIICharset, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BIICharset,
+                         pNewStringFromBytes_BCharset, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromBytes_BCharset,
+                         pNewStringFromChars_C, sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromChars_C, pNewStringFromChars_CII,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromChars_CII, pNewStringFromChars_IIC,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromChars_IIC, pNewStringFromCodePoints,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromCodePoints, pNewStringFromString,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromString, pNewStringFromStringBuffer,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromStringBuffer, pNewStringFromStringBuilder,
+                         sizeof(void*));
+    EXPECT_OFFSET_DIFFNP(QuickEntryPoints, pNewStringFromStringBuilder, pReadBarrierJni,
+                         sizeof(void*));
+
+    CHECKED(OFFSETOF_MEMBER(QuickEntryPoints, pReadBarrierJni)
+            + sizeof(void*) == sizeof(QuickEntryPoints), QuickEntryPoints_all);
   }
 };
 
@@ -282,10 +326,6 @@ TEST_F(EntrypointsOrderTest, InterpreterEntryPoints) {
 
 TEST_F(EntrypointsOrderTest, JniEntryPoints) {
   CheckJniEntryPoints();
-}
-
-TEST_F(EntrypointsOrderTest, PortableEntryPoints) {
-  CheckPortableEntryPoints();
 }
 
 TEST_F(EntrypointsOrderTest, QuickEntryPoints) {

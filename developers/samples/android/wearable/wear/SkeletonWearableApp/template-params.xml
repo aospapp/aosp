@@ -18,8 +18,10 @@
     <name>SkeletonWearableApp</name>
     <group>Wearable</group>
     <package>com.example.android.google.wearable.app</package>
-    <!-- change minSdk if needed-->
+
     <minSdk>18</minSdk>
+    <targetSdkVersion>22</targetSdkVersion>
+
     <strings>
         <intro>
             <![CDATA[
@@ -30,7 +32,7 @@
             ]]>
         </intro>
     </strings>
-    <template src="base"/>
+    <template src="base-build"/>
     <template src="Wear"/>
     <metadata>
         <status>PUBLISHED</status>

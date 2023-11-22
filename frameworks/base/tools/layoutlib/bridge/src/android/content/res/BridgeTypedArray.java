@@ -32,6 +32,7 @@ import com.android.resources.ResourceType;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import android.annotation.Nullable;
 import android.content.res.Resources.Theme;
 import android.graphics.drawable.Drawable;
 import android.util.DisplayMetrics;
@@ -40,8 +41,28 @@ import android.view.LayoutInflater_Delegate;
 import android.view.ViewGroup.LayoutParams;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
+
+import static android.util.TypedValue.TYPE_ATTRIBUTE;
+import static android.util.TypedValue.TYPE_DIMENSION;
+import static android.util.TypedValue.TYPE_FLOAT;
+import static android.util.TypedValue.TYPE_INT_BOOLEAN;
+import static android.util.TypedValue.TYPE_INT_COLOR_ARGB4;
+import static android.util.TypedValue.TYPE_INT_COLOR_ARGB8;
+import static android.util.TypedValue.TYPE_INT_COLOR_RGB4;
+import static android.util.TypedValue.TYPE_INT_COLOR_RGB8;
+import static android.util.TypedValue.TYPE_INT_DEC;
+import static android.util.TypedValue.TYPE_INT_HEX;
+import static android.util.TypedValue.TYPE_NULL;
+import static android.util.TypedValue.TYPE_REFERENCE;
+import static android.util.TypedValue.TYPE_STRING;
+import static com.android.SdkConstants.PREFIX_RESOURCE_REF;
+import static com.android.SdkConstants.PREFIX_THEME_REF;
+import static com.android.ide.common.rendering.api.RenderResources.REFERENCE_EMPTY;
+import static com.android.ide.common.rendering.api.RenderResources.REFERENCE_NULL;
+import static com.android.ide.common.rendering.api.RenderResources.REFERENCE_UNDEFINED;
 
 /**
  * Custom implementation of TypedArray to handle non compiled resources.
@@ -55,6 +76,11 @@ public final class BridgeTypedArray extends TypedArray {
     private final ResourceValue[] mResourceData;
     private final String[] mNames;
     private final boolean[] mIsFramework;
+
+    // Contains ids that are @empty. We still store null in mResourceData for that index, since we
+    // want to save on the check against empty, each time a resource value is requested.
+    @Nullable
+    private int[] mEmptyIds;
 
     public BridgeTypedArray(BridgeResources resources, BridgeContext context, int len,
             boolean platformFile) {
@@ -90,16 +116,29 @@ public final class BridgeTypedArray extends TypedArray {
         // fills TypedArray.mIndices which is used to implement getIndexCount/getIndexAt
         // first count the array size
         int count = 0;
+        ArrayList<Integer> emptyIds = null;
         for (int i = 0; i < mResourceData.length; i++) {
             ResourceValue data = mResourceData[i];
             if (data != null) {
-                if (RenderResources.REFERENCE_NULL.equals(data.getValue())) {
-                    // No need to store this resource value. This saves needless checking for
-                    // "@null" every time  an attribute is requested.
+                String dataValue = data.getValue();
+                if (REFERENCE_NULL.equals(dataValue) || REFERENCE_UNDEFINED.equals(dataValue)) {
                     mResourceData[i] = null;
+                } else if (REFERENCE_EMPTY.equals(dataValue)) {
+                    mResourceData[i] = null;
+                    if (emptyIds == null) {
+                        emptyIds = new ArrayList<Integer>(4);
+                    }
+                    emptyIds.add(i);
                 } else {
                     count++;
                 }
+            }
+        }
+
+        if (emptyIds != null) {
+            mEmptyIds = new int[emptyIds.size()];
+            for (int i = 0; i < emptyIds.size(); i++) {
+                mEmptyIds[i] = emptyIds.get(i);
             }
         }
 
@@ -200,15 +239,12 @@ public final class BridgeTypedArray extends TypedArray {
     public int getInt(int index, int defValue) {
         String s = getString(index);
         try {
-            if (s != null) {
-                return XmlUtils.convertValueToInt(s, defValue);
-            }
+            return convertValueToInt(s, defValue);
         } catch (NumberFormatException e) {
             Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
                     String.format("\"%1$s\" in attribute \"%2$s\" is not a valid integer",
                             s, mNames[index]),
                     null);
-            return defValue;
         }
         return defValue;
     }
@@ -298,7 +334,8 @@ public final class BridgeTypedArray extends TypedArray {
                 BridgeXmlBlockParser blockParser = new BridgeXmlBlockParser(
                         parser, mContext, resValue.isFramework());
                 try {
-                    return ColorStateList.createFromXml(mContext.getResources(), blockParser);
+                    return ColorStateList.createFromXml(mContext.getResources(), blockParser,
+                            mContext.getTheme());
                 } finally {
                     blockParser.ensurePopped();
                 }
@@ -422,7 +459,7 @@ public final class BridgeTypedArray extends TypedArray {
     @Override
     public int getDimensionPixelSize(int index, int defValue) {
         try {
-            return getDimension(index);
+            return getDimension(index, null);
         } catch (RuntimeException e) {
             String s = getString(index);
 
@@ -452,12 +489,12 @@ public final class BridgeTypedArray extends TypedArray {
     @Override
     public int getLayoutDimension(int index, String name) {
         try {
-            // this will throw an exception
-            return getDimension(index);
+            // this will throw an exception if not found.
+            return getDimension(index, name);
         } catch (RuntimeException e) {
 
             if (LayoutInflater_Delegate.sIsInInclude) {
-                throw new RuntimeException();
+                throw new RuntimeException("Layout Dimension '" + name + "' not found.");
             }
 
             Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
@@ -472,9 +509,13 @@ public final class BridgeTypedArray extends TypedArray {
         return getDimensionPixelSize(index, defValue);
     }
 
-    private int getDimension(int index) {
+    /** @param name attribute name, used for error reporting. */
+    private int getDimension(int index, @Nullable String name) {
         String s = getString(index);
         if (s == null) {
+            if (name != null) {
+                throw new RuntimeException("Attribute '" + name + "' not found");
+            }
             throw new RuntimeException();
         }
         // Check if the value is a magic constant that doesn't require a unit.
@@ -624,7 +665,7 @@ public final class BridgeTypedArray extends TypedArray {
                 if (isFrameworkId) {
                     idValue = Bridge.getResourceId(ResourceType.ID, idName);
                 } else {
-                    idValue = mContext.getProjectCallback().getResourceId(ResourceType.ID, idName);
+                    idValue = mContext.getLayoutlibCallback().getResourceId(ResourceType.ID, idName);
                 }
                 return idValue == null ? defValue : idValue;
             }
@@ -644,7 +685,7 @@ public final class BridgeTypedArray extends TypedArray {
             idValue = Bridge.getResourceId(resValue.getResourceType(),
                     resValue.getName());
         } else {
-            idValue = mContext.getProjectCallback().getResourceId(
+            idValue = mContext.getLayoutlibCallback().getResourceId(
                     resValue.getResourceType(), resValue.getName());
         }
 
@@ -736,6 +777,60 @@ public final class BridgeTypedArray extends TypedArray {
         return s != null && ResourceHelper.parseFloatAttribute(mNames[index], s, outValue, false);
     }
 
+    @Override
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    public int getType(int index) {
+        String value = getString(index);
+        if (value == null) {
+            return TYPE_NULL;
+        }
+        if (value.startsWith(PREFIX_RESOURCE_REF)) {
+            return TYPE_REFERENCE;
+        }
+        if (value.startsWith(PREFIX_THEME_REF)) {
+            return TYPE_ATTRIBUTE;
+        }
+        try {
+            // Don't care about the value. Only called to check if an exception is thrown.
+            convertValueToInt(value, 0);
+            if (value.startsWith("0x") || value.startsWith("0X")) {
+                return TYPE_INT_HEX;
+            }
+            // is it a color?
+            if (value.startsWith("#")) {
+                int length = value.length() - 1;
+                if (length == 3) {  // rgb
+                    return TYPE_INT_COLOR_RGB4;
+                }
+                if (length == 4) {  // argb
+                    return TYPE_INT_COLOR_ARGB4;
+                }
+                if (length == 6) {  // rrggbb
+                    return TYPE_INT_COLOR_RGB8;
+                }
+                if (length == 8) {  // aarrggbb
+                    return TYPE_INT_COLOR_ARGB8;
+                }
+            }
+            if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
+                return TYPE_INT_BOOLEAN;
+            }
+            return TYPE_INT_DEC;
+        } catch (NumberFormatException ignored) {
+            try {
+                Float.parseFloat(value);
+                return TYPE_FLOAT;
+            } catch (NumberFormatException ignore) {
+            }
+            // Might be a dimension.
+            if (ResourceHelper.parseFloatAttribute(null, value, new TypedValue(), false)) {
+                return TYPE_DIMENSION;
+            }
+        }
+        // TODO: handle fractions.
+        return TYPE_STRING;
+    }
+
     /**
      * Determines whether there is an attribute at <var>index</var>.
      *
@@ -746,6 +841,12 @@ public final class BridgeTypedArray extends TypedArray {
     @Override
     public boolean hasValue(int index) {
         return index >= 0 && index < mResourceData.length && mResourceData[index] != null;
+    }
+
+    @Override
+    public boolean hasValueOrEmpty(int index) {
+        return hasValue(index) || index >= 0 && index < mResourceData.length &&
+                mEmptyIds != null && Arrays.binarySearch(mEmptyIds, index) >= 0;
     }
 
     /**
@@ -837,6 +938,52 @@ public final class BridgeTypedArray extends TypedArray {
         }
 
         return null;
+    }
+
+    /**
+     * Copied from {@link XmlUtils#convertValueToInt(CharSequence, int)}, but adapted to account
+     * for aapt, and the fact that host Java VM's Integer.parseInt("XXXXXXXX", 16) cannot handle
+     * "XXXXXXXX" > 80000000.
+     */
+    private static int convertValueToInt(@Nullable String charSeq, int defValue) {
+        if (null == charSeq || charSeq.isEmpty())
+            return defValue;
+
+        int sign = 1;
+        int index = 0;
+        int len = charSeq.length();
+        int base = 10;
+
+        if ('-' == charSeq.charAt(0)) {
+            sign = -1;
+            index++;
+        }
+
+        if ('0' == charSeq.charAt(index)) {
+            //  Quick check for a zero by itself
+            if (index == (len - 1))
+                return 0;
+
+            char c = charSeq.charAt(index + 1);
+
+            if ('x' == c || 'X' == c) {
+                index += 2;
+                base = 16;
+            } else {
+                index++;
+                // Leave the base as 10. aapt removes the preceding zero, and thus when framework
+                // sees the value, it only gets the decimal value.
+            }
+        } else if ('#' == charSeq.charAt(index)) {
+            return ResourceHelper.getColor(charSeq) * sign;
+        } else if ("true".equals(charSeq) || "TRUE".equals(charSeq)) {
+            return -1;
+        } else if ("false".equals(charSeq) || "FALSE".equals(charSeq)) {
+            return 0;
+        }
+
+        // Use Long, since we want to handle hex ints > 80000000.
+        return ((int)Long.parseLong(charSeq.substring(index), base)) * sign;
     }
 
     static TypedArray obtain(Resources res, int len) {

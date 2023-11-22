@@ -1,6 +1,0 @@
-include_rules = [
-  "+components/pref_registry",
-  "+components/user_prefs",
-  "+content/public/browser",
-  "+content/public/common",
-]

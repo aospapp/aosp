@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"បាន​រក្សាទុក​ធាតុ​នេះ​ក្នុង​មូលដ្ឋាន​ និង​អាច​​ប្រើ​ក្រៅ​បណ្ដាញ​បាន។"</string>
     <string name="please_wait" msgid="1416313324505140068">"សូម​រង់ចាំ"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"ម៉ាស៊ីន​ថត​មាន​បញ្ហា"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"មិន​អាច​តភ្ជាប់​ម៉ាស៊ីន​ថត។"</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"បាន​បិទ​ម៉ាស៊ីន​ថត ដោយសារ​គោលនយោបាយ​សុវត្ថិភាព។"</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"មិនអាចភ្ជាប់ទៅកាមេរ៉ាបានទេ។"</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"បានបិទដំណើរការកាមេរ៉ា ដោយសារគោលការណ៍សុវត្ថិភាព។"</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"មានបញ្ហាក្នុងការរក្សាទុករូបថត ឬវីដេអូរបស់អ្នក។"</string>
+    <string name="error_permissions" msgid="3454167403425651254">"កម្មវិធីនេះមិនមានសិទ្ធិអនុញ្ញាតគ្រប់គ្រាន់ដើម្បីដំណើរការទេ។ សូមពិនិត្យការកំណត់សិទ្ធិអនុញ្ញាតរបស់អ្នក។"</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"បរាជ័យក្នុងការផ្ទុករូបថត។"</string>
     <string name="wait" msgid="765601745709933047">"សូម​រង់ចាំ…"</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"បញ្ចូល​កាត​អេសឌី​មុន​នឹង​ប្រើ​ម៉ាស៊ីន​ថត។"</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"កំពុង​រៀបចំ​កាត​អេសឌី..."</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"មិន​អាច​ចូល​ដំណើរការ​កាត​អេសឌី។"</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"កំណត់ត្រា​​ពេល​វេលា​កន្លង​ទៅ"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"កម្មវិធីនេះមិនអាចភ្ជាប់ទៅកាមេរ៉ាបានទេ"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"រូបថត ឬវីដេអូមិនបានរក្សាទុកទៅឧបករណ៍ទេ។"</string>
     <string name="capturing" msgid="5255164204641920893">"កំពុង​ចាប់​យក"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"ជ្រើស​ម៉ាស៊ីន​ថត"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"ខាង​ក្រោយ"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"ម៉ាស៊ីន​ថត​ខាងក្រោយ"</string>
     <string name="dialog_ok" msgid="774141340500181131">"យល់ព្រម"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"បោះបង់"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"រាយការណ៍"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"បដិសេធ"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"កាត​អេសឌី​របស់​អ្នក​ពេញ​ហើយ។ ប្ដូរ​ការ​កំណត់​គុណភាព លុប​រូបភាព​ ឬ​ឯកសារ​​មួយ​ចំនួន​ចេញ។"</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"បាន​ដល់​ទំហំ​ដែល​បាន​កំណត់។"</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"លឿន​ពេក"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"បញ្ជី​​របៀប"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"បិទ/បើក​ហ្វីល"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"ហ្វីល"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"ពង្រីក"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Z+"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"បង្រួម"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Z-"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"តម្លៃពង្រីក/បង្រួមគឺ %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"បើក"</string>
     <string name="capital_off" msgid="3020696135020167263">"បិទ"</string>
     <string name="video_control_play" msgid="6895236811408921715">"ចាក់​វីដេអូ"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"កំណត់​រយៈពេល​គិត​ជា​វិនាទី"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"កំពុង​រាប់​ថយក្រោយ​ដើម្បី​ថត"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"ចងចាំ​ទីតាំង​រូបថត?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"ដាក់​ស្លាក​រូបថត និង​វីដេអូ​​របស់​អ្នក​​ពី​ទីតាំង​ដែល​អ្នក​បាន​ថត។\n\nកម្មវិធី​ផ្សេង​អាច​ចូល​ប្រើ​ព័ត៌មាន​នេះ​តាមរយៈ​រូបភាព​ដែល​បាន​រក្សាទុក​របស់​អ្នក។"</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"ដាក់ស្លាករូបថត និងវីដេអូរបស់អ្នកជាមួយទីតាំងដែលអ្នកបានថត។"</string>
     <string name="remember_location_no" msgid="4412802756840226925">"ទេ អរគុណ!"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"បាទ/ចាស"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"ជម្រើស​ច្រើន​ទៀត"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"បោះបង់"</string>
     <string name="done_button_description" msgid="1334963435441544592">"រួចរាល់"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"ថត​ឡើងវិញ"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"ពិនិត្យ​ឡើងវិញ"</string>
     <string name="share_button_description" msgid="5108508790540832053">"ចែករំលែក​"</string>
     <string name="view_button_description" msgid="4985768837891362075">"មើល"</string>
     <string name="edit_button_description" msgid="98550816724901925">"កែសម្រួល"</string>
@@ -354,7 +367,7 @@
     <string name="cling_text_for_refocus_editor_button" msgid="4785017397116829802">"ដើម្បី​ផ្ដោត​ ប៉ះ​ទីនេះ"</string>
     <string name="pref_category_advanced" msgid="5921085080077574872">"កម្រិត​ខ្ពស់"</string>
     <string name="pref_camera_exposure_compensation" msgid="4143245817259719147">"កែតម្រូវពន្លឺដោយដៃ"</string>
-    <string name="settings_cling_text" msgid="5368054627268181292">"នៅ​ក្នុង​ការ​កំណត់ ប្ដូរ​គុណភាព​បង្ហាញ និង​គុណភាព ឬ​​សាកល្បង​លក្ខណៈ​កម្រិត​ខ្ពស់។"</string>
+    <string name="settings_cling_text" msgid="5368054627268181292">"នៅ​ក្នុង​ការ​កំណត់ អ្នក​អាច​ប្ដូរ​គុណភាព​បង្ហាញ និង​គុណភាព ឬ​​សាកល្បង​លក្ខណៈ​កម្រិត​ខ្ពស់។"</string>
     <string name="photo_size_selection_title" msgid="2789753590719172645">"ជ្រើស​ទំហំ​រូបថត"</string>
     <string name="photo_aspect_ratio_selection_content" msgid="6668224437962196229">"អ្នក​អាច​ប្ដូរ​វា​ពេល​ក្រោយ​ក្នុង​ការ​កំណត់។"</string>
     <string name="share_to" msgid="5144911209144798122">"ចែករំលែក"</string>
@@ -365,4 +378,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"ទំហំ​បាន​ច្រឹប \n(16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"កំពុងរក្សាទុក..."</string>
 </resources>

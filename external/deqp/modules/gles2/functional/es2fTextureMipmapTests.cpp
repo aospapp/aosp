@@ -138,7 +138,7 @@ Texture2DMipmapCase::Texture2DMipmapCase (tcu::TestContext&			testCtx,
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_100_ES,
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_100_ES,
 						 renderCtxInfo.isFragmentHighPrecisionSupported() ? glu::PRECISION_HIGHP // Use highp if available.
 																		  : glu::PRECISION_MEDIUMP)
 {
@@ -488,7 +488,7 @@ TextureCubeMipmapCase::TextureCubeMipmapCase (tcu::TestContext&			testCtx,
 	, m_dataType		(dataType)
 	, m_size			(size)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_100_ES,
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_100_ES,
 						 renderCtxInfo.isFragmentHighPrecisionSupported() ? glu::PRECISION_HIGHP // Use highp if available.
 																		  : glu::PRECISION_MEDIUMP)
 {
@@ -783,7 +783,7 @@ Texture2DGenMipmapCase::Texture2DGenMipmapCase (tcu::TestContext& testCtx, glu::
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP)
 {
 }
 
@@ -816,7 +816,6 @@ Texture2DGenMipmapCase::IterateResult Texture2DGenMipmapCase::iterate (void)
 	const deUint32			wrapT				= GL_CLAMP_TO_EDGE;
 
 	const int				numLevels			= deLog2Floor32(de::max(m_width, m_height))+1;
-	const tcu::Sampler		sampler				= glu::mapGLSampler(wrapS, wrapT, minFilter, magFilter);
 
 	tcu::Texture2D			resultTexture		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_texture->getRefTexture().getWidth(), m_texture->getRefTexture().getHeight());
 
@@ -917,7 +916,7 @@ TextureCubeGenMipmapCase::TextureCubeGenMipmapCase (tcu::TestContext& testCtx, g
 	, m_hint			(hint)
 	, m_size			(size)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP)
 {
 }
 
@@ -955,7 +954,6 @@ TextureCubeGenMipmapCase::IterateResult TextureCubeGenMipmapCase::iterate (void)
 	tcu::TextureCube		resultTexture		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_size);
 
 	const int				numLevels			= deLog2Floor32(m_size)+1;
-	tcu::Sampler			sampler				= glu::mapGLSampler(wrapS, wrapT, minFilter, magFilter);
 	vector<float>			texCoord;
 
 	// Initialize texture level 0 with colored grid.

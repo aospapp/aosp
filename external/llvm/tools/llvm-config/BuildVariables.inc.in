@@ -23,5 +23,6 @@
 #define LLVM_LDFLAGS ""
 #define LLVM_CXXFLAGS " -fPIC -fvisibility-inlines-hidden -Wall -W -Wno-unused-parameter -Wwrite-strings -Wmissing-field-initializers -pedantic -Wno-long-long -Wcovered-switch-default -Wnon-virtual-dtor -std=c++11 -fcolor-diagnostics -ffunction-sections -fdata-sections   -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"
 #define LLVM_BUILDMODE ""
+#define LLVM_LIBDIR_SUFFIX ""
 #define LLVM_TARGETS_BUILT "X86 AArch64 ARM Mips"
 #define LLVM_SYSTEM_LIBS "-lrt -ldl -ltinfo -lpthread"

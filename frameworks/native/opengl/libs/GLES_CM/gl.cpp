@@ -138,7 +138,7 @@ GL_API void GL_APIENTRY glWeightPointerOESBounds(GLint size, GLenum type,
 
 #elif defined(__i386__)
 
-    #define API_ENTRY(_api) __attribute__((noinline)) _api
+    #define API_ENTRY(_api) __attribute__((noinline,optimize("omit-frame-pointer"))) _api
 
     #define CALL_GL_API(_api, ...)                                  \
         register void* fn;                                          \
@@ -157,7 +157,7 @@ GL_API void GL_APIENTRY glWeightPointerOESBounds(GLint size, GLenum type,
 
 #elif defined(__x86_64__)
 
-    #define API_ENTRY(_api) __attribute__((noinline)) _api
+    #define API_ENTRY(_api) __attribute__((noinline,optimize("omit-frame-pointer"))) _api
 
     #define CALL_GL_API(_api, ...)                                  \
          register void** fn;                                        \
@@ -174,15 +174,48 @@ GL_API void GL_APIENTRY glWeightPointerOESBounds(GLint size, GLenum type,
             : "cc"                                                  \
             );
 
+#elif defined(__mips64)
+
+    #define API_ENTRY(_api) __attribute__((noinline)) _api
+
+    #define CALL_GL_API(_api, ...)                            \
+    register unsigned long _t0 asm("$12");                    \
+    register unsigned long _fn asm("$25");                    \
+    register unsigned long _tls asm("$3");                    \
+    register unsigned long _v0 asm("$2");                     \
+    asm volatile(                                             \
+        ".set  push\n\t"                                      \
+        ".set  noreorder\n\t"                                 \
+        "rdhwr %[tls], $29\n\t"                               \
+        "ld    %[t0], %[OPENGL_API](%[tls])\n\t"              \
+        "beqz  %[t0], 1f\n\t"                                 \
+        " move %[fn], $ra\n\t"                                \
+        "ld    %[t0], %[API](%[t0])\n\t"                      \
+        "beqz  %[t0], 1f\n\t"                                 \
+        " nop\n\t"                                            \
+        "move  %[fn], %[t0]\n\t"                              \
+        "1:\n\t"                                              \
+        "jalr  $0, %[fn]\n\t"                                 \
+        " move %[v0], $0\n\t"                                 \
+        ".set  pop\n\t"                                       \
+        : [fn] "=c"(_fn),                                     \
+          [tls] "=&r"(_tls),                                  \
+          [t0] "=&r"(_t0),                                    \
+          [v0] "=&r"(_v0)                                     \
+        : [OPENGL_API] "I"(TLS_SLOT_OPENGL_API*sizeof(void*)),\
+          [API] "I"(__builtin_offsetof(gl_hooks_t, gl._api))  \
+        :                                                     \
+        );
+
 #elif defined(__mips__)
 
     #define API_ENTRY(_api) __attribute__((noinline)) _api
 
     #define CALL_GL_API(_api, ...)                               \
-        register unsigned int _t0 asm("t0");                     \
-        register unsigned int _fn asm("t1");                     \
-        register unsigned int _tls asm("v1");                    \
-        register unsigned int _v0 asm("v0");                     \
+        register unsigned int _t0 asm("$8");                     \
+        register unsigned int _fn asm("$25");                    \
+        register unsigned int _tls asm("$3");                    \
+        register unsigned int _v0 asm("$2");                     \
         asm volatile(                                            \
             ".set  push\n\t"                                     \
             ".set  noreorder\n\t"                                \
@@ -191,10 +224,12 @@ GL_API void GL_APIENTRY glWeightPointerOESBounds(GLint size, GLenum type,
             "lw    %[t0], %[OPENGL_API](%[tls])\n\t"             \
             "beqz  %[t0], 1f\n\t"                                \
             " move %[fn], $ra\n\t"                               \
-            "lw    %[fn], %[API](%[t0])\n\t"                     \
-            "movz  %[fn], $ra, %[fn]\n\t"                        \
+            "lw    %[t0], %[API](%[t0])\n\t"                     \
+            "beqz  %[t0], 1f\n\t"                                \
+            " nop\n\t"                                           \
+            "move  %[fn], %[t0]\n\t"                             \
             "1:\n\t"                                             \
-            "j     %[fn]\n\t"                                    \
+            "jalr  $0, %[fn]\n\t"                                \
             " move %[v0], $0\n\t"                                \
             ".set  pop\n\t"                                      \
             : [fn] "=c"(_fn),                                    \

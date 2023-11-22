@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN i aplikacje"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"Profil Wi-Fi"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"Szczegóły: %s"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"Szczegóły"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"Zainstaluj"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"Instalowanie"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"Anuluj"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Zamknij"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Brak"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"Nazwa: %1$s\nPełna nazwa domenowa: %2$s\nKonsorcja roamingowe: %3$s\nObszar: %4$s\nMetoda uwierzytelniania: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Nazwa użytkownika: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"Certyfikat klienta:\n%1$s\nKlucz: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"Certyfikat zaufania:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"Zainstalowano dane logowania"</string>
+    <string name="install_done" msgid="1522718684172097080">"Dane logowania do <xliff:g id="NAME">%1$s</xliff:g> zostały dodane do zapisanych sieci Wi-Fi."</string>
+    <string name="done_label" msgid="5597425930652904250">"GOTOWE"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Zainstaluj dane logowania do sieci Wi-Fi, by łączyć się z sieciami dostępnymi przez <xliff:g id="NAME">%1$s</xliff:g>."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"W pobranym pliku występują błędy i nie można go zainstalować. Upewnij się, że został on pobrany z właściwego źródła."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Nie można zainstalować danych logowania do sieci Wi-Fi. Pobierz plik ponownie."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Instalacja została anulowana"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Nie można zainstalować"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Włącz Wi-Fi i spróbuj ponownie."</string>
 </resources>

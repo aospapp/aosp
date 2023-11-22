@@ -95,10 +95,10 @@ int NatController::setupIptablesHooks() {
          * Bug 17629786 asks to make the failure more obvious, or even fatal
          * so that all builds eventually gain the performance improvement.
          */
-        {{IPTABLES_PATH, "-F", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IPTABLES_PATH, "-X", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
-        {{IPTABLES_PATH, "-N", LOCAL_TETHER_COUNTERS_CHAIN,}, 1},
-        {{IPTABLES_PATH, "-t", "mangle", "-A", LOCAL_MANGLE_FORWARD, "-p", "tcp", "--tcp-flags",
+        {{IPTABLES_PATH, "-w", "-F", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
+        {{IPTABLES_PATH, "-w", "-X", LOCAL_TETHER_COUNTERS_CHAIN,}, 0},
+        {{IPTABLES_PATH, "-w", "-N", LOCAL_TETHER_COUNTERS_CHAIN,}, 1},
+        {{IPTABLES_PATH, "-w", "-t", "mangle", "-A", LOCAL_MANGLE_FORWARD, "-p", "tcp", "--tcp-flags",
                 "SYN", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu"}, 0},
     };
     for (unsigned int cmdNum = 0; cmdNum < ARRAY_SIZE(defaultCommands); cmdNum++) {
@@ -120,9 +120,9 @@ int NatController::setDefaults() {
      *  - internally it will be memcopied to an array and terminated with a NULL.
      */
     struct CommandsAndArgs defaultCommands[] = {
-        {{IPTABLES_PATH, "-F", LOCAL_FORWARD,}, 1},
-        {{IPTABLES_PATH, "-A", LOCAL_FORWARD, "-j", "DROP"}, 1},
-        {{IPTABLES_PATH, "-t", "nat", "-F", LOCAL_NAT_POSTROUTING}, 1},
+        {{IPTABLES_PATH, "-w", "-F", LOCAL_FORWARD,}, 1},
+        {{IPTABLES_PATH, "-w", "-A", LOCAL_FORWARD, "-j", "DROP"}, 1},
+        {{IPTABLES_PATH, "-w", "-t", "nat", "-F", LOCAL_NAT_POSTROUTING}, 1},
     };
     for (unsigned int cmdNum = 0; cmdNum < ARRAY_SIZE(defaultCommands); cmdNum++) {
         if (runCmd(ARRAY_SIZE(defaultCommands[cmdNum].cmd), defaultCommands[cmdNum].cmd) &&
@@ -155,6 +155,7 @@ int NatController::enableNat(const char* intIface, const char* extIface) {
     if (natCount == 0) {
         const char *cmd[] = {
                 IPTABLES_PATH,
+                "-w",
                 "-t",
                 "nat",
                 "-A",
@@ -184,6 +185,7 @@ int NatController::enableNat(const char* intIface, const char* extIface) {
     /* Always make sure the drop rule is at the end */
     const char *cmd1[] = {
             IPTABLES_PATH,
+            "-w",
             "-D",
             LOCAL_FORWARD,
             "-j",
@@ -192,21 +194,13 @@ int NatController::enableNat(const char* intIface, const char* extIface) {
     runCmd(ARRAY_SIZE(cmd1), cmd1);
     const char *cmd2[] = {
             IPTABLES_PATH,
+            "-w",
             "-A",
             LOCAL_FORWARD,
             "-j",
             "DROP"
     };
     runCmd(ARRAY_SIZE(cmd2), cmd2);
-
-    if (int ret = RouteController::enableTethering(intIface, extIface)) {
-        ALOGE("failed to add tethering rule for iif=%s oif=%s", intIface, extIface);
-        if (natCount == 0) {
-            setDefaults();
-        }
-        errno = -ret;
-        return -1;
-    }
 
     natCount++;
     return 0;
@@ -239,6 +233,7 @@ int NatController::setTetherCountingRules(bool add, const char *intIface, const 
     }
     const char *cmd2b[] = {
             IPTABLES_PATH,
+            "-w",
             "-A",
             LOCAL_TETHER_COUNTERS_CHAIN,
             "-i",
@@ -264,6 +259,7 @@ int NatController::setTetherCountingRules(bool add, const char *intIface, const 
 
     const char *cmd3b[] = {
             IPTABLES_PATH,
+            "-w",
             "-A",
             LOCAL_TETHER_COUNTERS_CHAIN,
             "-i",
@@ -287,6 +283,7 @@ int NatController::setTetherCountingRules(bool add, const char *intIface, const 
 int NatController::setForwardRules(bool add, const char *intIface, const char *extIface) {
     const char *cmd1[] = {
             IPTABLES_PATH,
+            "-w",
             add ? "-A" : "-D",
             LOCAL_FORWARD,
             "-i",
@@ -308,6 +305,7 @@ int NatController::setForwardRules(bool add, const char *intIface, const char *e
 
     const char *cmd2[] = {
             IPTABLES_PATH,
+            "-w",
             add ? "-A" : "-D",
             LOCAL_FORWARD,
             "-i",
@@ -324,6 +322,7 @@ int NatController::setForwardRules(bool add, const char *intIface, const char *e
 
     const char *cmd3[] = {
             IPTABLES_PATH,
+            "-w",
             add ? "-A" : "-D",
             LOCAL_FORWARD,
             "-i",
@@ -354,10 +353,10 @@ int NatController::setForwardRules(bool add, const char *intIface, const char *e
     return 0;
 
 err_return:
-    cmd2[1] = "-D";
+    cmd2[2] = "-D";
     runCmd(ARRAY_SIZE(cmd2), cmd2);
 err_invalid_drop:
-    cmd1[1] = "-D";
+    cmd1[2] = "-D";
     runCmd(ARRAY_SIZE(cmd1), cmd1);
     return rc;
 }
@@ -365,12 +364,6 @@ err_invalid_drop:
 int NatController::disableNat(const char* intIface, const char* extIface) {
     if (!isIfaceName(intIface) || !isIfaceName(extIface)) {
         errno = ENODEV;
-        return -1;
-    }
-
-    if (int ret = RouteController::disableTethering(intIface, extIface)) {
-        ALOGE("failed to remove tethering rule for iif=%s oif=%s", intIface, extIface);
-        errno = -ret;
         return -1;
     }
 

@@ -31,7 +31,8 @@ public class CtsBuildProvider implements IBuildProvider {
     @Option(name="cts-install-path", description="the path to the cts installation to use")
     private String mCtsRootDirPath = System.getProperty("CTS_ROOT");
 
-    public static final String CTS_BUILD_VERSION = "5.1_r0.5";
+    public static final String CTS_BUILD_VERSION = "6.0_r0";
+    public static final String CTS_PACKAGE = "com.android.cts.tradefed.testtype";
 
     /**
      * {@inheritDoc}
@@ -41,7 +42,9 @@ public class CtsBuildProvider implements IBuildProvider {
         if (mCtsRootDirPath == null) {
             throw new IllegalArgumentException("Missing --cts-install-path");
         }
-        IFolderBuildInfo ctsBuild = new FolderBuildInfo(CTS_BUILD_VERSION, "cts", "cts");
+        IFolderBuildInfo ctsBuild = new FolderBuildInfo(
+            Package.getPackage(CTS_PACKAGE).getImplementationVersion(),
+            "cts", "cts");
         ctsBuild.setRootDir(new File(mCtsRootDirPath));
         return ctsBuild;
     }

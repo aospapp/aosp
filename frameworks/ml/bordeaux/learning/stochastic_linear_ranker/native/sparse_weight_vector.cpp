@@ -392,7 +392,7 @@ int32 SparseWeightVector<Key, Hash>::Reproject(const double norm,
   return 0;
 }
 
-template class SparseWeightVector<std::string, std::hash_map<std::string, double> >;
-template class SparseWeightVector<int, std::hash_map<int, double> >;
-template class SparseWeightVector<uint64, std::hash_map<uint64, double> >;
+template class SparseWeightVector<std::string, std::unordered_map<std::string, double> >;
+template class SparseWeightVector<int, std::unordered_map<int, double> >;
+template class SparseWeightVector<uint64, std::unordered_map<uint64, double> >;
 }  // namespace learning_stochastic_linear

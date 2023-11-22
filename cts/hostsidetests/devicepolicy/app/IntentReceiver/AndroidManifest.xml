@@ -22,15 +22,53 @@
     <uses-permission android:name="com.android.cts.managedprofile.permission.SAMPLE"/>
 
     <application>
+
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name="com.android.cts.intent.receiver.IntentReceiverActivity">
             <intent-filter>
                 <action android:name="com.android.cts.action.COPY_TO_CLIPBOARD" />
                 <action android:name="com.android.cts.action.READ_FROM_URI" />
                 <action android:name="com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION" />
                 <action android:name="com.android.cts.action.WRITE_TO_URI" />
+                <action android:name="com.android.cts.action.JUST_CREATE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".SimpleIntentReceiverActivity" android:exported="true"/>
+
+        <activity-alias android:name=".BrowserActivity"
+            android:targetActivity=".SimpleIntentReceiverActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"/>
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".AppLinkActivity"
+            android:targetActivity=".SimpleIntentReceiverActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http" android:host="com.android.cts.intent.receiver"/>
+            </intent-filter>
+        </activity-alias>
+
+        <receiver android:name=".BroadcastIntentReceiver">
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_OWNER_CHANGED"/>
+            </intent-filter>
+        </receiver>
+
     </application>
+
+    <instrumentation
+        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:targetPackage="com.android.cts.intent.receiver"
+        android:label="Intent Receiver CTS Tests" />
 
 </manifest>

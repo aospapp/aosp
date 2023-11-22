@@ -1,6 +1,6 @@
 /*
  * WPA Supplicant - Common definitions
- * Copyright (c) 2004-2008, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2015, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -49,6 +49,8 @@ typedef enum { FALSE = 0, TRUE = 1 } Boolean;
 #define WPA_KEY_MGMT_WAPI_CERT BIT(13)
 #define WPA_KEY_MGMT_CCKM BIT(14)
 #define WPA_KEY_MGMT_OSEN BIT(15)
+#define WPA_KEY_MGMT_IEEE8021X_SUITE_B BIT(16)
+#define WPA_KEY_MGMT_IEEE8021X_SUITE_B_192 BIT(17)
 
 static inline int wpa_key_mgmt_wpa_ieee8021x(int akm)
 {
@@ -56,7 +58,9 @@ static inline int wpa_key_mgmt_wpa_ieee8021x(int akm)
 			 WPA_KEY_MGMT_FT_IEEE8021X |
 			 WPA_KEY_MGMT_CCKM |
 			 WPA_KEY_MGMT_OSEN |
-			 WPA_KEY_MGMT_IEEE8021X_SHA256));
+			 WPA_KEY_MGMT_IEEE8021X_SHA256 |
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B |
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B_192));
 }
 
 static inline int wpa_key_mgmt_wpa_psk(int akm)
@@ -85,7 +89,19 @@ static inline int wpa_key_mgmt_sha256(int akm)
 {
 	return !!(akm & (WPA_KEY_MGMT_PSK_SHA256 |
 			 WPA_KEY_MGMT_IEEE8021X_SHA256 |
-			 WPA_KEY_MGMT_OSEN));
+			 WPA_KEY_MGMT_OSEN |
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B));
+}
+
+static inline int wpa_key_mgmt_sha384(int akm)
+{
+	return !!(akm & WPA_KEY_MGMT_IEEE8021X_SUITE_B_192);
+}
+
+static inline int wpa_key_mgmt_suite_b(int akm)
+{
+	return !!(akm & (WPA_KEY_MGMT_IEEE8021X_SUITE_B |
+			 WPA_KEY_MGMT_IEEE8021X_SUITE_B_192));
 }
 
 static inline int wpa_key_mgmt_wpa(int akm)
@@ -279,6 +295,7 @@ enum hostapd_hw_mode {
 	HOSTAPD_MODE_IEEE80211G,
 	HOSTAPD_MODE_IEEE80211A,
 	HOSTAPD_MODE_IEEE80211AD,
+	HOSTAPD_MODE_IEEE80211ANY,
 	NUM_HOSTAPD_MODES
 };
 
@@ -294,10 +311,21 @@ enum wpa_ctrl_req_type {
 	WPA_CTRL_REQ_EAP_OTP,
 	WPA_CTRL_REQ_EAP_PASSPHRASE,
 	WPA_CTRL_REQ_SIM,
+	WPA_CTRL_REQ_PSK_PASSPHRASE,
 	NUM_WPA_CTRL_REQS
 };
 
 /* Maximum number of EAP methods to store for EAP server user information */
 #define EAP_MAX_METHODS 8
+
+enum mesh_plink_state {
+	PLINK_LISTEN = 1,
+	PLINK_OPEN_SENT,
+	PLINK_OPEN_RCVD,
+	PLINK_CNF_RCVD,
+	PLINK_ESTAB,
+	PLINK_HOLDING,
+	PLINK_BLOCKED,
+};
 
 #endif /* DEFS_H */

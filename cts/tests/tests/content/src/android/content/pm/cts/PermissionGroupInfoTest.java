@@ -24,8 +24,9 @@ import android.os.Parcel;
 import android.test.AndroidTestCase;
 
 public class PermissionGroupInfoTest extends AndroidTestCase {
-    private static final String PERMISSIONGROUP_NAME = "android.permission-group.COST_MONEY";
-    private static final String DEFAULT_DISCRIPTION = "Do things that can cost you money.";
+    private static final String GROUP = "android.permission-group.COST_MONEY";
+    private static final String GROUP_NAME = "Cost money";
+    private static final String GROUP_DESCRIPTION = "Do things that can cost you money.";
 
     public void testPermissionGroupInfo() throws NameNotFoundException {
         PackageManager pm = getContext().getPackageManager();
@@ -33,14 +34,15 @@ public class PermissionGroupInfoTest extends AndroidTestCase {
         // Test constructors
         new PermissionGroupInfo();
         PermissionGroupInfo permissionGroupInfo = pm
-                .getPermissionGroupInfo(PERMISSIONGROUP_NAME, 0);
+                .getPermissionGroupInfo(GROUP, 0);
         PermissionGroupInfo infoFromExisted = new PermissionGroupInfo(permissionGroupInfo);
         checkInfoSame(permissionGroupInfo, infoFromExisted);
 
         // Test toString, describeContents, loadDescription
         assertNotNull(permissionGroupInfo.toString());
         assertEquals(0, permissionGroupInfo.describeContents());
-        assertEquals(DEFAULT_DISCRIPTION, permissionGroupInfo.loadDescription(pm));
+        assertEquals(GROUP_NAME, permissionGroupInfo.loadLabel(pm));
+        assertEquals(GROUP_DESCRIPTION, permissionGroupInfo.loadDescription(pm));
 
         // Test writeToParcel
         permissionGroupInfo.writeToParcel(p, 0);

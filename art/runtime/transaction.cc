@@ -20,6 +20,7 @@
 #include "base/logging.h"
 #include "gc/accounting/card_table-inl.h"
 #include "intern_table.h"
+#include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
 
@@ -30,8 +31,9 @@ namespace art {
 // TODO: remove (only used for debugging purpose).
 static constexpr bool kEnableTransactionStats = false;
 
-Transaction::Transaction() : log_lock_("transaction log lock", kTransactionLogLock) {
-  CHECK(Runtime::Current()->IsCompiler());
+Transaction::Transaction()
+  : log_lock_("transaction log lock", kTransactionLogLock), aborted_(false) {
+  CHECK(Runtime::Current()->IsAotCompiler());
 }
 
 Transaction::~Transaction() {
@@ -56,6 +58,79 @@ Transaction::~Transaction() {
               << ", string_count=" << string_count;
   }
 }
+
+void Transaction::Abort(const std::string& abort_message) {
+  MutexLock mu(Thread::Current(), log_lock_);
+  // We may abort more than once if the exception thrown at the time of the
+  // previous abort has been caught during execution of a class initializer.
+  // We just keep the message of the first abort because it will cause the
+  // transaction to be rolled back anyway.
+  if (!aborted_) {
+    aborted_ = true;
+    abort_message_ = abort_message;
+  }
+}
+
+void Transaction::ThrowAbortError(Thread* self, const std::string* abort_message) {
+  const bool rethrow = (abort_message == nullptr);
+  if (kIsDebugBuild && rethrow) {
+    CHECK(IsAborted()) << "Rethrow " << Transaction::kAbortExceptionDescriptor
+                       << " while transaction is not aborted";
+  }
+  if (rethrow) {
+    // Rethrow an exception with the earlier abort message stored in the transaction.
+    self->ThrowNewWrappedException(Transaction::kAbortExceptionSignature,
+                                   GetAbortMessage().c_str());
+  } else {
+    // Throw an exception with the given abort message.
+    self->ThrowNewWrappedException(Transaction::kAbortExceptionSignature,
+                                   abort_message->c_str());
+  }
+}
+
+bool Transaction::IsAborted() {
+  MutexLock mu(Thread::Current(), log_lock_);
+  return aborted_;
+}
+
+const std::string& Transaction::GetAbortMessage() {
+  MutexLock mu(Thread::Current(), log_lock_);
+  return abort_message_;
+}
+
+void Transaction::RecordWriteFieldBoolean(mirror::Object* obj, MemberOffset field_offset,
+                                          uint8_t value, bool is_volatile) {
+  DCHECK(obj != nullptr);
+  MutexLock mu(Thread::Current(), log_lock_);
+  ObjectLog& object_log = object_logs_[obj];
+  object_log.LogBooleanValue(field_offset, value, is_volatile);
+}
+
+void Transaction::RecordWriteFieldByte(mirror::Object* obj, MemberOffset field_offset,
+                                       int8_t value, bool is_volatile) {
+  DCHECK(obj != nullptr);
+  MutexLock mu(Thread::Current(), log_lock_);
+  ObjectLog& object_log = object_logs_[obj];
+  object_log.LogByteValue(field_offset, value, is_volatile);
+}
+
+void Transaction::RecordWriteFieldChar(mirror::Object* obj, MemberOffset field_offset,
+                                       uint16_t value, bool is_volatile) {
+  DCHECK(obj != nullptr);
+  MutexLock mu(Thread::Current(), log_lock_);
+  ObjectLog& object_log = object_logs_[obj];
+  object_log.LogCharValue(field_offset, value, is_volatile);
+}
+
+
+void Transaction::RecordWriteFieldShort(mirror::Object* obj, MemberOffset field_offset,
+                                        int16_t value, bool is_volatile) {
+  DCHECK(obj != nullptr);
+  MutexLock mu(Thread::Current(), log_lock_);
+  ObjectLog& object_log = object_logs_[obj];
+  object_log.LogShortValue(field_offset, value, is_volatile);
+}
+
 
 void Transaction::RecordWriteField32(mirror::Object* obj, MemberOffset field_offset, uint32_t value,
                                      bool is_volatile) {
@@ -110,13 +185,13 @@ void Transaction::RecordWeakStringRemoval(mirror::String* s) {
   LogInternedString(log);
 }
 
-void Transaction::LogInternedString(InternStringLog& log) {
+void Transaction::LogInternedString(const InternStringLog& log) {
   Locks::intern_table_lock_->AssertExclusiveHeld(Thread::Current());
   MutexLock mu(Thread::Current(), log_lock_);
   intern_string_logs_.push_front(log);
 }
 
-void Transaction::Abort() {
+void Transaction::Rollback() {
   CHECK(!Runtime::Current()->IsActiveTransaction());
   Thread* self = Thread::Current();
   self->AssertNoPendingException();
@@ -155,24 +230,24 @@ void Transaction::UndoInternStringTableModifications() {
   intern_string_logs_.clear();
 }
 
-void Transaction::VisitRoots(RootCallback* callback, void* arg) {
+void Transaction::VisitRoots(RootVisitor* visitor) {
   MutexLock mu(Thread::Current(), log_lock_);
-  VisitObjectLogs(callback, arg);
-  VisitArrayLogs(callback, arg);
-  VisitStringLogs(callback, arg);
+  VisitObjectLogs(visitor);
+  VisitArrayLogs(visitor);
+  VisitStringLogs(visitor);
 }
 
-void Transaction::VisitObjectLogs(RootCallback* callback, void* arg) {
+void Transaction::VisitObjectLogs(RootVisitor* visitor) {
   // List of moving roots.
   typedef std::pair<mirror::Object*, mirror::Object*> ObjectPair;
   std::list<ObjectPair> moving_roots;
 
   // Visit roots.
   for (auto it : object_logs_) {
-    it.second.VisitRoots(callback, arg);
+    it.second.VisitRoots(visitor);
     mirror::Object* old_root = it.first;
     mirror::Object* new_root = old_root;
-    callback(&new_root, arg, RootInfo(kRootUnknown));
+    visitor->VisitRoot(&new_root, RootInfo(kRootUnknown));
     if (new_root != old_root) {
       moving_roots.push_back(std::make_pair(old_root, new_root));
     }
@@ -190,7 +265,7 @@ void Transaction::VisitObjectLogs(RootCallback* callback, void* arg) {
   }
 }
 
-void Transaction::VisitArrayLogs(RootCallback* callback, void* arg) {
+void Transaction::VisitArrayLogs(RootVisitor* visitor) {
   // List of moving roots.
   typedef std::pair<mirror::Array*, mirror::Array*> ArrayPair;
   std::list<ArrayPair> moving_roots;
@@ -199,7 +274,7 @@ void Transaction::VisitArrayLogs(RootCallback* callback, void* arg) {
     mirror::Array* old_root = it.first;
     CHECK(!old_root->IsObjectArray());
     mirror::Array* new_root = old_root;
-    callback(reinterpret_cast<mirror::Object**>(&new_root), arg, RootInfo(kRootUnknown));
+    visitor->VisitRoot(reinterpret_cast<mirror::Object**>(&new_root), RootInfo(kRootUnknown));
     if (new_root != old_root) {
       moving_roots.push_back(std::make_pair(old_root, new_root));
     }
@@ -217,41 +292,48 @@ void Transaction::VisitArrayLogs(RootCallback* callback, void* arg) {
   }
 }
 
-void Transaction::VisitStringLogs(RootCallback* callback, void* arg) {
+void Transaction::VisitStringLogs(RootVisitor* visitor) {
   for (InternStringLog& log : intern_string_logs_) {
-    log.VisitRoots(callback, arg);
+    log.VisitRoots(visitor);
   }
+}
+
+void Transaction::ObjectLog::LogBooleanValue(MemberOffset offset, uint8_t value, bool is_volatile) {
+  LogValue(ObjectLog::kBoolean, offset, value, is_volatile);
+}
+
+void Transaction::ObjectLog::LogByteValue(MemberOffset offset, int8_t value, bool is_volatile) {
+  LogValue(ObjectLog::kByte, offset, value, is_volatile);
+}
+
+void Transaction::ObjectLog::LogCharValue(MemberOffset offset, uint16_t value, bool is_volatile) {
+  LogValue(ObjectLog::kChar, offset, value, is_volatile);
+}
+
+void Transaction::ObjectLog::LogShortValue(MemberOffset offset, int16_t value, bool is_volatile) {
+  LogValue(ObjectLog::kShort, offset, value, is_volatile);
 }
 
 void Transaction::ObjectLog::Log32BitsValue(MemberOffset offset, uint32_t value, bool is_volatile) {
-  auto it = field_values_.find(offset.Uint32Value());
-  if (it == field_values_.end()) {
-    ObjectLog::FieldValue field_value;
-    field_value.value = value;
-    field_value.is_volatile = is_volatile;
-    field_value.kind = ObjectLog::k32Bits;
-    field_values_.insert(std::make_pair(offset.Uint32Value(), field_value));
-  }
+  LogValue(ObjectLog::k32Bits, offset, value, is_volatile);
 }
 
 void Transaction::ObjectLog::Log64BitsValue(MemberOffset offset, uint64_t value, bool is_volatile) {
+  LogValue(ObjectLog::k64Bits, offset, value, is_volatile);
+}
+
+void Transaction::ObjectLog::LogReferenceValue(MemberOffset offset, mirror::Object* obj, bool is_volatile) {
+  LogValue(ObjectLog::kReference, offset, reinterpret_cast<uintptr_t>(obj), is_volatile);
+}
+
+void Transaction::ObjectLog::LogValue(ObjectLog::FieldValueKind kind,
+                                      MemberOffset offset, uint64_t value, bool is_volatile) {
   auto it = field_values_.find(offset.Uint32Value());
   if (it == field_values_.end()) {
     ObjectLog::FieldValue field_value;
     field_value.value = value;
     field_value.is_volatile = is_volatile;
-    field_value.kind = ObjectLog::k64Bits;
-    field_values_.insert(std::make_pair(offset.Uint32Value(), field_value));
-  }
-}
-
-void Transaction::ObjectLog::LogReferenceValue(MemberOffset offset, mirror::Object* obj, bool is_volatile) {
-  auto it = field_values_.find(offset.Uint32Value());
-  if (it == field_values_.end()) {
-    ObjectLog::FieldValue field_value;
-    field_value.value = reinterpret_cast<uintptr_t>(obj);
-    field_value.is_volatile = is_volatile;
-    field_value.kind = ObjectLog::kReference;
+    field_value.kind = kind;
     field_values_.insert(std::make_pair(offset.Uint32Value(), field_value));
   }
 }
@@ -281,6 +363,42 @@ void Transaction::ObjectLog::UndoFieldWrite(mirror::Object* obj, MemberOffset fi
   // we'd need to disable the check.
   constexpr bool kCheckTransaction = true;
   switch (field_value.kind) {
+    case kBoolean:
+      if (UNLIKELY(field_value.is_volatile)) {
+        obj->SetFieldBooleanVolatile<false, kCheckTransaction>(field_offset,
+                                                         static_cast<bool>(field_value.value));
+      } else {
+        obj->SetFieldBoolean<false, kCheckTransaction>(field_offset,
+                                                 static_cast<bool>(field_value.value));
+      }
+      break;
+    case kByte:
+      if (UNLIKELY(field_value.is_volatile)) {
+        obj->SetFieldByteVolatile<false, kCheckTransaction>(field_offset,
+                                                         static_cast<int8_t>(field_value.value));
+      } else {
+        obj->SetFieldByte<false, kCheckTransaction>(field_offset,
+                                                 static_cast<int8_t>(field_value.value));
+      }
+      break;
+    case kChar:
+      if (UNLIKELY(field_value.is_volatile)) {
+        obj->SetFieldCharVolatile<false, kCheckTransaction>(field_offset,
+                                                          static_cast<uint16_t>(field_value.value));
+      } else {
+        obj->SetFieldChar<false, kCheckTransaction>(field_offset,
+                                                  static_cast<uint16_t>(field_value.value));
+      }
+      break;
+    case kShort:
+      if (UNLIKELY(field_value.is_volatile)) {
+        obj->SetFieldShortVolatile<false, kCheckTransaction>(field_offset,
+                                                          static_cast<int16_t>(field_value.value));
+      } else {
+        obj->SetFieldShort<false, kCheckTransaction>(field_offset,
+                                                  static_cast<int16_t>(field_value.value));
+      }
+      break;
     case k32Bits:
       if (UNLIKELY(field_value.is_volatile)) {
         obj->SetField32Volatile<false, kCheckTransaction>(field_offset,
@@ -307,21 +425,17 @@ void Transaction::ObjectLog::UndoFieldWrite(mirror::Object* obj, MemberOffset fi
       }
       break;
     default:
-      LOG(FATAL) << "Unknown value kind " << field_value.kind;
+      LOG(FATAL) << "Unknown value kind " << static_cast<int>(field_value.kind);
       break;
   }
 }
 
-void Transaction::ObjectLog::VisitRoots(RootCallback* callback, void* arg) {
+void Transaction::ObjectLog::VisitRoots(RootVisitor* visitor) {
   for (auto it : field_values_) {
     FieldValue& field_value = it.second;
     if (field_value.kind == ObjectLog::kReference) {
-      mirror::Object* obj =
-          reinterpret_cast<mirror::Object*>(static_cast<uintptr_t>(field_value.value));
-      if (obj != nullptr) {
-        callback(&obj, arg, RootInfo(kRootUnknown));
-        field_value.value = reinterpret_cast<uintptr_t>(obj);
-      }
+      visitor->VisitRootIfNonNull(reinterpret_cast<mirror::Object**>(&field_value.value),
+                                  RootInfo(kRootUnknown));
     }
   }
 }
@@ -329,42 +443,42 @@ void Transaction::ObjectLog::VisitRoots(RootCallback* callback, void* arg) {
 void Transaction::InternStringLog::Undo(InternTable* intern_table) {
   DCHECK(intern_table != nullptr);
   switch (string_op_) {
-      case InternStringLog::kInsert: {
-        switch (string_kind_) {
-          case InternStringLog::kStrongString:
-            intern_table->RemoveStrongFromTransaction(str_);
-            break;
-          case InternStringLog::kWeakString:
-            intern_table->RemoveWeakFromTransaction(str_);
-            break;
-          default:
-            LOG(FATAL) << "Unknown interned string kind";
-            break;
-        }
-        break;
+    case InternStringLog::kInsert: {
+      switch (string_kind_) {
+        case InternStringLog::kStrongString:
+          intern_table->RemoveStrongFromTransaction(str_);
+          break;
+        case InternStringLog::kWeakString:
+          intern_table->RemoveWeakFromTransaction(str_);
+          break;
+        default:
+          LOG(FATAL) << "Unknown interned string kind";
+          break;
       }
-      case InternStringLog::kRemove: {
-        switch (string_kind_) {
-          case InternStringLog::kStrongString:
-            intern_table->InsertStrongFromTransaction(str_);
-            break;
-          case InternStringLog::kWeakString:
-            intern_table->InsertWeakFromTransaction(str_);
-            break;
-          default:
-            LOG(FATAL) << "Unknown interned string kind";
-            break;
-        }
-        break;
-      }
-      default:
-        LOG(FATAL) << "Unknown interned string op";
-        break;
+      break;
     }
+    case InternStringLog::kRemove: {
+      switch (string_kind_) {
+        case InternStringLog::kStrongString:
+          intern_table->InsertStrongFromTransaction(str_);
+          break;
+        case InternStringLog::kWeakString:
+          intern_table->InsertWeakFromTransaction(str_);
+          break;
+        default:
+          LOG(FATAL) << "Unknown interned string kind";
+          break;
+      }
+      break;
+    }
+    default:
+      LOG(FATAL) << "Unknown interned string op";
+      break;
+  }
 }
 
-void Transaction::InternStringLog::VisitRoots(RootCallback* callback, void* arg) {
-  callback(reinterpret_cast<mirror::Object**>(&str_), arg, RootInfo(kRootInternedString));
+void Transaction::InternStringLog::VisitRoots(RootVisitor* visitor) {
+  visitor->VisitRoot(reinterpret_cast<mirror::Object**>(&str_), RootInfo(kRootInternedString));
 }
 
 void Transaction::ArrayLog::LogValue(size_t index, uint64_t value) {

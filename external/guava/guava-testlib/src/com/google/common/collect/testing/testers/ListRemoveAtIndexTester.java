@@ -16,14 +16,19 @@
 
 package com.google.common.collect.testing.testers;
 
+import static com.google.common.collect.testing.features.CollectionFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
 import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 import static com.google.common.collect.testing.features.ListFeature.SUPPORTS_REMOVE_WITH_INDEX;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.Helpers;
+import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.ListFeature;
 
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -31,10 +36,9 @@ import java.util.List;
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.ListTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  */
+@GwtCompatible
 public class ListRemoveAtIndexTester<E> extends AbstractListTester<E> {
   @ListFeature.Require(absent = SUPPORTS_REMOVE_WITH_INDEX)
   @CollectionSize.Require(absent = ZERO)
@@ -77,6 +81,20 @@ public class ListRemoveAtIndexTester<E> extends AbstractListTester<E> {
   @CollectionSize.Require(absent = {ZERO, ONE})
   public void testRemoveAtIndex_middle() {
     runRemoveTest(getNumElements() / 2);
+  }
+
+  @CollectionFeature.Require(FAILS_FAST_ON_CONCURRENT_MODIFICATION)
+  @ListFeature.Require(SUPPORTS_REMOVE_WITH_INDEX)
+  @CollectionSize.Require(absent = ZERO)
+  public void testRemoveAtIndexConcurrentWithIteration() {
+    try {
+      Iterator<E> iterator = collection.iterator();
+      getList().remove(getNumElements() / 2);
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
   }
 
   @ListFeature.Require(SUPPORTS_REMOVE_WITH_INDEX)

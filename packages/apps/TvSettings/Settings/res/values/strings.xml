@@ -46,8 +46,6 @@
     <string name="account_header_sync">Sync</string>
     <!-- Header for remove account [CHAR LIMIT=50] -->
     <string name="account_header_remove_account">Remove account</string>
-    <!-- Google services under account settings, title for Search -->
-    <string name="search_title">Search</string>
     <!-- Sync item label: control sync settings [CHAR LIMIT=100] -->
     <string name="account_sync">Choose synced apps</string>
     <!-- Label for action to sync now [CHAR LIMIT=50] -->
@@ -67,16 +65,6 @@
     <!-- Message posted if removing the account fails. [CHAR LIMIT=NONE] -->
     <string name="account_remove_failed">Can\'t remove account</string>
 
-    <!-- Account details settings  [CHAR LIMIT=50] -->
-    <string-array name="account_detail_settings">
-        <item>Name</item>
-        <item>Photo</item>
-        <item>Security</item>
-        <item>Google Wallet</item>
-        <item>Purchase History</item>
-        <item>Remove Account</item>
-    </string-array>
-
     <!-- Connectivity preferences -->
     <skip />
     <!-- Top level network card title. [CHAR LIMIT=50] -->
@@ -85,6 +73,12 @@
     <string name="connectivity_wifi">Wi-Fi</string>
     <!-- Preference which manages ethernet settings. [CHAR LIMIT=50] -->
     <string name="connectivity_ethernet">Ethernet</string>
+    <!-- Title for always scan wifi. [CHAR LIMIT=50] -->
+    <string name="wifi_setting_always_scan">Scanning always available</string>
+    <!-- Context help for always scan wifi. [CHAR LIMIT=200] -->
+    <string name="wifi_setting_always_scan_context">Let google\'s location service and other apps scan for networks, even when Wi-Fi is off</string>
+    <!-- Title for enable wifi. [CHAR LIMIT=50] -->
+    <string name="wifi_setting_enable_wifi">Wi-Fi</string>
 
     <!-- Device preferences -->
     <skip />
@@ -121,10 +115,6 @@
 
     <!-- Remote and Accessories -->
     <skip />
-    <!-- Preference which manages remote control settings. [CHAR LIMIT=50] -->
-    <string name="accessories_remote">Remote</string>
-    <!-- Preference which manages camera settings. [CHAR LIMIT=50] -->
-    <string name="accessories_camera">Camera</string>
     <!-- Preference which manages pairing new accessories. [CHAR LIMIT=50] -->
     <string name="accessories_add">Add accessory</string>
     <!-- Preference which manages WiFi display settings. [CHAR LIMIT=50] -->
@@ -145,6 +135,8 @@
     <string name="accessory_rename">Rename</string>
     <!-- Preference for unpairing a Bluetooth accessory[CHAR LIMIT=50] -->
     <string name="accessory_unpair">Unpair</string>
+    <!-- Preference for displaying battery level percentage. % symbol if used must be escaped as %% [CHAR LIMIT=150] -->
+    <string name="accessory_battery">Battery <xliff:g id="percentage">%1$d</xliff:g>%%</string>
     <!-- Description shown while we are waiting for a device unpair operation to finish[CHAR LIMIT=50] -->
     <string name="accessory_unpairing">Unpairing device&#8230;</string>
     <!-- Description for Connected accessory[CHAR LIMIT=50] -->
@@ -197,6 +189,8 @@
     <string name="system_language">Language</string>
     <!-- Preference which manages input method settings. [CHAR LIMIT=50] -->
     <string name="system_keyboard">Keyboard</string>
+    <!-- Preference which manages home screen settings. [CHAR LIMIT=50] -->
+    <string name="system_home">Home screen</string>
     <!-- Preference which manages search and google now settings. [CHAR LIMIT=50] -->
     <string name="system_search">Search</string>
     <!-- Preference which manages security settings. [CHAR LIMIT=50] -->
@@ -224,8 +218,6 @@
     <string name="restart_button_label">Restart</string>
     <!-- Preference which shows legal info. [CHAR LIMIT=50] -->
     <string name="about_legal_info">Legal information</string>
-    <!-- Preference which shows warranty info. [CHAR LIMIT=50] -->
-    <string name="about_warranty">Warranty</string>
     <!-- Preference which shows open source licenses [CHAR LIMIT=50]-->
     <string name="about_legal_license">Open source licenses</string>
     <!-- Preference which shows terms of service and privacy info [CHAR LIMIT=50]-->
@@ -254,68 +246,6 @@
 
     <!-- Wifi -->
     <skip />
-    <!-- Do not translate.  Concise terminology for wifi with WEP security -->
-    <string name="wifi_security_short_wep">WEP</string>
-    <!-- Do not translate.  Concise terminology for wifi with WPA security -->
-    <string name="wifi_security_short_wpa">WPA</string>
-    <!-- Do not translate.  Concise terminology for wifi with WPA2 security -->
-    <string name="wifi_security_short_wpa2">WPA2</string>
-    <!-- Do not translate.  Concise terminology for wifi with both WPA/WPA2 security -->
-    <string name="wifi_security_short_wpa_wpa2">WPA/WPA2</string>
-    <!-- Do not translate.  Concise terminology for wifi with unknown PSK type -->
-    <string name="wifi_security_short_psk_generic">@string/wifi_security_short_wpa_wpa2</string>
-    <!-- Do not translate.  Concise terminology for wifi with 802.1x EAP security -->
-    <string name="wifi_security_short_eap">802.1x</string>
-
-    <!-- Used in Wi-Fi settings dialogs when Wi-Fi does not have any security. -->
-    <string name="wifi_security_none">None</string>
-
-    <!-- Do not translate.  Terminology for wifi with WEP security -->
-    <string name="wifi_security_wep">WEP</string>
-    <!-- Do not translate.  Terminology for wifi with WPA security -->
-    <string name="wifi_security_wpa">WPA PSK</string>
-    <!-- Do not translate.  Terminology for wifi with WPA2 security -->
-    <string name="wifi_security_wpa2">WPA2 PSK</string>
-    <!-- Do not translate.  Terminology for wifi with both WPA/WPA2 security, or unknown -->
-    <string name="wifi_security_wpa_wpa2">WPA/WPA2 PSK</string>
-    <!-- Do not translate.  Terminology for wifi with unknown PSK type -->
-    <string name="wifi_security_psk_generic">@string/wifi_security_wpa_wpa2</string>
-    <!-- Do not translate.  Concise terminology for wifi with 802.1x EAP security -->
-    <string name="wifi_security_eap">802.1x EAP</string>
-
-    <!-- Summary for the remembered network. -->
-    <string name="wifi_remembered">Saved</string>
-    <!-- Status for networks disabled for unknown reason -->
-    <string name="wifi_disabled_generic">Disabled</string>
-    <!-- Status for networked disabled from a DNS or DHCP failure -->
-    <string name="wifi_disabled_network_failure">Avoided poor Internet connection</string>
-    <!--
-         Status for networks disabled from authentication failure (wrong password
-         or certificate).
-    -->
-    <string name="wifi_disabled_password_failure">Authentication problem</string>
-    <!-- Summary for the remembered network but currently not in range. -->
-    <string name="wifi_not_in_range">Not in range</string>
-    <!--
-         Substring of status line when Wi-Fi Protected Setup (WPS) is available and
-         string is listed first [CHAR LIMIT=20]
-    -->
-    <string name="wifi_wps_available_first_item">WPS available</string>
-    <!--
-         Substring of wifi status when Wi-Fi Protected Setup (WPS) is available and
-         string is listed after a wifi_secured_* string
-    -->
-    <string name="wifi_wps_available_second_item">\u0020(WPS available)</string>
-    <!--
-         Substring of wifi status for wifi with authentication.  This version is for when the
-         string is first in the list (titlecase in english)
-    -->
-    <string name="wifi_secured_first_item">Secured with <xliff:g id="wifi_security_short">%1$s</xliff:g></string>
-    <!--
-         Substring of wifi status for wifi with authentication.  This version is for when the
-         string is not first in the list (lowercase in english)
-    -->
-    <string name="wifi_secured_second_item">, secured with <xliff:g id="wifi_security_short">%1$s</xliff:g></string>
 
     <!-- wifi signal strength array [CHAR LIMIT=30] -->
     <string-array name="wifi_signal_strength">
@@ -354,14 +284,8 @@
     <string name="wifi_setting_other_options_add_network">Add new network</string>
 
     <!-- Strings for Add Network under Connectivity Setting -->
-    <!-- Add network title on add network form page [CHAR LIMIT=30] -->
-    <string name="add_network">Add network</string>
-    <!-- Network SSID title on add network form page [CHAR LIMIT=30] -->
-    <string name="network_ssid">Network SSID</string>
     <!-- Security type title on add network form page [CHAR LIMIT=30] -->
     <string name="security_type">Type of security</string>
-    <!-- Password title on add network form page [CHAR LIMIT=30] -->
-    <string name="password">Password</string>
 
     <!-- Title for connecting to a WPS network in setup mode [CHAR LIMIT=30] -->
     <string name="wps_network">Connect via WPS</string>
@@ -449,16 +373,12 @@
     <string name="wifi_action_proxy_manual">Manual</string>
     <!-- Label for action to use dhcp to obtain an ip address for the wifi connection [CHAR LIMIT=50] -->
     <string name="wifi_action_dhcp">DHCP</string>
-    <!-- Label for action to save advanced settings [CHAR LIMIT=50] -->
-    <string name="wifi_action_save">Save</string>
     <!-- Label for action to setup static ip information for the wifi connection [CHAR LIMIT=50] -->
     <string name="wifi_action_static">Static</string>
     <!-- Title for action to show status information for the wifi connection [CHAR LIMIT=50] -->
     <string name="wifi_action_status_info">Status info</string>
     <!-- Title for action to setup advanced options for the wifi connection [CHAR LIMIT=50] -->
     <string name="wifi_action_advanced_options_title">Advanced options</string>
-    <!-- Description for action to setup advanced options for the wifi connection [CHAR LIMIT=50] -->
-    <string name="wifi_action_advanced_options_description"><xliff:g id="proxy_settings_summary">%1$s</xliff:g>, <xliff:g id="ip_settings_summary">%2$s</xliff:g></string>
     <!-- Error message if the IP address is not valid [CHAR LIMIT=50]-->
     <string name="wifi_ip_settings_invalid_ip_address">Enter a valid IP address</string>
     <!-- Error message if the gateway is not valid [CHAR LIMIT=50]-->
@@ -505,34 +425,11 @@
     <!-- Name to use when we don't know the name of the wifi network the device is connected to [CHAR LIMIT=20] -->
     <string name="wifi_summary_unknown_network">an unknown network</string>
 
-    <!-- Title for action to configure advanced options for a wifi or ethernet connection [CHAR LIMIT=80] -->
-    <string name="connectivity_advanced_options">Advanced options</string>
-    <!-- Description for action to configure advanced options for a wifi or ethernet connection showing a summary of advanced options[CHAR LIMIT=80] -->
-    <string name="connectivity_advanced_options_description"><xliff:g id="ssid">%1$s</xliff:g>, <xliff:g id="ssid">%2$s</xliff:g></string>
-
     <!-- Strings for Ethernet under Connectivity Setting -->
-    <!-- Key for ip settings [CHAR LIMIT=30] -->
-    <string name="title_ip_settings">IP settings</string>
-    <!-- Title for Test Connection [CHAR LIMIT=50] -->
-    <string name="title_test_connection">Test connection</string>
-    <!-- DHCP in IP setting [CHAR LIMIT=50] -->
-    <string name="dhcp">DHCP</string>
-    <!-- Static in IP setting [CHAR LIMIT=50] -->
-    <string name="title_static">Static</string>
-    <!-- Gateway title in network setting [CHAR LIMIT=50] -->
-    <string name="gateway">Gateway</string>
-    <!-- Title for network prefix length in network setting [CHAR LIMIT=50] -->
-    <string name="title_network_prefix_length">Network prefix length</string>
-    <!-- Title for DNS 1 [CHAR LIMIT=50] -->
-    <string name="title_dns_1">DNS 1</string>
-    <!-- Title for DNS 2 [CHAR LIMIT=50] -->
-    <string name="title_dns_2">DNS 2</string>
     <!-- Title for OK [CHAR LIMIT=50] -->
     <string name="title_ok">OK</string>
     <!-- Title for DNS 2 [CHAR LIMIT=50] -->
     <string name="title_cancel">Cancel</string>
-    <!-- Title of renaming wifi direct device [CHAR LIMIT=50] -->
-    <string name="rename_device">Rename device</string>
 
     <!-- Storage settings screen heading. This is displayed above items that pertain to the phone's internal storage [CHAR LIMIT=50] -->
     <string name="storage_title">Storage</string>
@@ -554,9 +451,147 @@
     <string name="storage_media_misc_usage">Misc.</string>
     <!-- Storage settings title. Displayed as a title when showing the total usage of all cached data on device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
     <string name="storage_media_cache_usage">Cached data</string>
+    <!-- Storage settings eject action [CHAR LIMIT=50] -->
+    <string name="storage_eject">Eject</string>
+    <!-- Storage settings erase and format action [CHAR LIMIT=50] -->
+    <string name="storage_format">Erase &amp; format</string>
+    <!-- Storage settings format for internal storage action [CHAR LIMIT=50] -->
+    <string name="storage_format_for_private">Format as device storage</string>
+    <!-- Description for a storage volume which is not currently connected to the device -->
+    <string name="storage_not_connected">Not connected</string>
+    <!-- Storage settings migrate primary storage action [CHAR_LIMIT=50] -->
+    <string name="storage_migrate">Migrate data</string>
 
-    <!-- Action to cancel WPS scanning [CHAR LIMIT=50] -->
-    <string name="wifi_wps_cancel_scan">Cancel</string>
+    <!-- Storage settings forget action [CHAR_LIMIT=50] -->
+    <string name="storage_forget">Forget this internal storage</string>
+    <!-- Storage settings forget description [CHAR_LIMIT=NONE] -->
+    <string name="storage_forget_wall_of_text">To use the apps or data this drive contains, replug it in. Alternatively, you can choose to forget this storage if the drive isn\'t available.\n\nIf you choose Forget, all the data the drive contains will be lost forever.\n\nYou can reinstall the apps later, but the data stored on this drive will be lost.</string>
+
+    <!-- Header title for device storage [CHAR_LIMIT=50] -->
+    <string name="storage_device_storage_section">Device storage</string>
+    <!-- Header title for removable storage [CHAR_LIMIT=50] -->
+    <string name="storage_removable_storage_section">Removable storage</string>
+    <!-- Header title for device reset [CHAR_LIMIT=50] -->
+    <string name="storage_reset_section">Reset</string>
+
+    <!-- Toast informing that storage mount operation was successful. [CHAR LIMIT=64]-->
+    <string name="storage_mount_success"><xliff:g id="name" example="SD card">%1$s</xliff:g> is mounted</string>
+    <!-- Toast informing that storage unmount operation failed. [CHAR LIMIT=64]-->
+    <string name="storage_mount_failure">Couldn\'t mount <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+
+    <!-- Toast informing that storage unmount operation was successful. [CHAR LIMIT=64]-->
+    <string name="storage_unmount_success"><xliff:g id="name" example="SD card">%1$s</xliff:g> is safely ejected</string>
+    <!-- Toast informing that storage unmount operation failed. [CHAR LIMIT=64]-->
+    <string name="storage_unmount_failure">Couldn\'t safely eject <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+    <!-- Toast informing that storage unmount operation failed because the volume couldn't be found. [CHAR LIMIT=64]-->
+    <string name="storage_unmount_failure_cant_find">Could\'t find drive to eject</string>
+
+    <!-- Toast informing that storage format operation was successful. [CHAR LIMIT=64]-->
+    <string name="storage_format_success"><xliff:g id="name" example="SD card">%1$s</xliff:g> is formatted</string>
+    <!-- Toast informing that storage format operation failed. [CHAR LIMIT=64]-->
+    <string name="storage_format_failure">Couldn\'t format <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+
+    <!-- Title for wizard screen for formatting storage as internal [CHAR LIMIT=64] -->
+    <string name="storage_wizard_format_as_private_title">Format as internal storage</string>
+    <!-- Description for wizard screen for formatting storage as internal [CHAR LIMIT=NONE] -->
+    <string name="storage_wizard_format_as_private_description">This requires the USB drive to be formatted to make it secure. After securely formatting, this drive will only work with this device. Formatting erases all data currently stored on the drive. To avoid losing the data, consider backing it up.</string>
+
+    <!-- Title for wizard screen for formatting storage as internal [CHAR LIMIT=64] -->
+    <string name="storage_wizard_format_as_public_title">Erase &amp; Format</string>
+    <!-- Description for wizard screen for formatting storage as internal [CHAR LIMIT=NONE] -->
+    <string name="storage_wizard_format_as_public_description">After formatting, you can use this USB drive in other devices. All data will be erased. Consider backing up first by moving apps to other internal storage.</string>
+
+    <!-- Title for wizard progress screen for formatting drive [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_format_progress_title">Formatting USB Drive&#8230;</string>
+    <!-- Description for wizard progress screen for formatting drive [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_format_progress_description">This may take a moment. Please don\'t remove the drive.</string>
+
+    <!-- Title for wizard confirmation screen for migrating data to new drive [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_migrate_confirm_title">Move data to <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+    <!-- Description for wizard confirmation screen for migrating data to new drive [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_migrate_confirm_description">Move your photos, files and app data to <xliff:g id="name" example="SD card">%1$s</xliff:g>. This may take a few minutes. Some apps won\'t work correctly during the move.</string>
+    <!-- Positive action for wizard confirmation screen for migrating data to new drive [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_migrate_confirm_action_move_now">Move now</string>
+    <!-- Negative action for wizard confirmation screen for migrating data to new drive [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_migrate_confirm_action_move_later">Move later</string>
+
+    <!-- Success toast for migrating data [CHAR_LIMIT=100] -->
+    <string name="storage_wizard_migrate_toast_success">Migrated data to <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+    <!-- Failure toast for migrating data [CHAR_LIMIT=100] -->
+    <string name="storage_wizard_migrate_toast_failure">Could not migrate data to <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+
+    <!-- Title for wizard progress screen for migrating data to new drive [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_migrate_progress_title">Moving data to <xliff:g id="name" example="SD card">%1$s</xliff:g>&#8230;</string>
+    <!-- Description for wizard progress screen for migrating data to new drive [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_migrate_progress_description">This may take a moment. Please don\'t remove the drive.\nSome apps won\'t work correctly during the move.</string>
+
+    <!-- Title for warning dialog for slow drives [CHAR_LIMIT=64] -->
+    <string name="storage_wizard_format_slow_title">This drive appears to be slow.</string>
+
+    <!-- Summary for warning dialog for slow drives [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_format_slow_summary">You can continue, but apps moved to this location may stutter and data transfers may take a long time. Consider using a faster drive for better performance.</string>
+
+    <!-- Format action for wizard screen for formatting storage [CHAR LIMIT=50] -->
+    <string name="storage_wizard_format_action">Format</string>
+    <!-- Back up apps action for wizard screen for formatting storage [CHAR LIMIT=50]-->
+    <string name="storage_wizard_backup_apps_action">Back up apps</string>
+
+    <!-- Back up apps title [CHAR LIMIT=50] -->
+    <string name="storage_wizard_back_up_apps_title">Apps stored in <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+    <!-- Back up apps title [CHAR LIMIT=50] -->
+    <string name="storage_wizard_back_up_apps_and_data_title">Apps and data stored in <xliff:g id="name" example="SD card">%1$s</xliff:g></string>
+    <!-- Back up apps storage available description [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_back_up_apps_space_available"><xliff:g id="size" example="1.23GB">%1$s</xliff:g> available</string>
+
+    <!-- Title for wizard screen for ejecting internal storage [CHAR LIMIT=64] -->
+    <string name="storage_wizard_eject_internal_title">Eject internal storage</string>
+    <!-- Description for wizard screen for ejecting internal storage [CHAR LIMIT=NONE] -->
+    <string name="storage_wizard_eject_internal_description">Apps on this device storage will stop working when it\'s ejected. This USB drive is formatted to work on this device only. It won\'t work on any others.</string>
+
+    <!-- Title for wizard progress screen for ejecting a drive [CHAR_LIMIT=64] -->
+    <string name="sotrage_wizard_eject_progress_title">Ejecting <xliff:g id="name" example="SD Card">%1$s</xliff:g>&#8230;</string>
+
+    <!-- Title for wizard screen for moving apps [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_move_app_title">Storage used</string>
+
+    <!-- Title for wizard progress screen for moving apps [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_move_app_progress_title">Moving <xliff:g id="name" example="YouTube">%1$s</xliff:g>&#8230;</string>
+    <!-- Description for wizard progress screen for moving apps [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_move_app_progress_description">"Don't remove the drive during the move.\nThe <xliff:g id="appname" example="YouTube">%1$s</xliff:g> app on this device won't be available until the move is complete.</string>
+
+    <!-- Title for wizard screen for forgetting private storage [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_forget_confirm_title">Forget internal storage?</string>
+    <!-- Description for wizard screen for forgetting private storage [CHAR_LIMIT=NONE] -->
+    <string name="storage_wizard_forget_confirm_description">All your data stored in this drive will be lost forever with \'Forget\'. Would you like to proceed?</string>
+    <!-- Action for wizard screen for forgetting private storage [CHAR_LIMIT=50] -->
+    <string name="storage_wizard_forget_action">Forget</string>
+
+    <!-- Title for new storage activity [CHAR_LIMIT=50] -->
+    <string name="storage_new_title">USB drive connected</string>
+    <!-- Browse action for new storage activity [CHAR_LIMIT=50] -->
+    <string name="storage_new_action_browse">Browse</string>
+    <!-- Adopt action for new storage activity [CHAR_LIMIT=50] -->
+    <string name="storage_new_action_adopt">Set up as internal storage</string>
+    <!-- Format as removable action for new storage activity [CHAR_LIMIT=50] -->
+    <string name="storage_new_action_format_public">Set up as removable storage</string>
+    <!-- Eject action for new storage activity [CHAR_LIMIT=50] -->
+    <string name="storage_new_action_eject">Eject</string>
+
+    <!-- Title for missing storage activity shown when a drive is removed [CHAR_LIMIT=50] -->
+    <string name="storage_missing_title"><xliff:g id="name" example="SD Card">%1$s</xliff:g> removed</string>
+    <!-- Description for missing storage activity shown when a drive is removed [CHAR_LIMIT=NONE] -->
+    <string name="storage_missing_description">Some apps will be unavailable or not function correctly until the drive is reconnected.</string>
+
+    <!-- Manage applications, text for move error messages -->
+    <string name="insufficient_storage">Not enough storage space.</string>
+    <string name="does_not_exist">App doesn\u2019t exist.</string>
+    <string name="app_forward_locked">App is copy-protected.</string>
+    <string name="invalid_location">Install location isn\u2019t valid.</string>
+    <string name="system_package">System updates can\u2019t be installed on external media.</string>
+
+    <!-- Learn more action title [CHAR_LIMIT=50] -->
+    <string name="learn_more_action">Learn more</string>
+
     <!-- Action to retry WPS scanning [CHAR LIMIT=50] -->
     <string name="wifi_wps_retry_scan">Retry</string>
     <!-- Message indicating we are scanning for WPS routers [CHAR LIMIT=150] -->
@@ -567,8 +602,6 @@
     <string name="wifi_wps_onstart_pin">Enter PIN <xliff:g id="number">%1$s</xliff:g> on your Wi-Fi router</string>
     <!-- Description Message in WPS dialog for PIN after start up [CHAR LIMIT=150] -->
     <string name="wifi_wps_onstart_pin_description">After you enter the PIN, setup can take up to 2 minutes to finish</string>
-    <!-- Text displayed when WPS setup is in progress [CHAR LIMIT=150] -->
-    <string name="wifi_wps_in_progress">WPS is already in progress and can take up to 2 minutes to finish</string>
     <!-- Text displayed when WPS fails to start [CHAR LIMIT=150] -->
     <string name="wifi_wps_failed_generic">Couldn\'t find Wi-Fi router</string>
     <!-- Text displayed when WPS fails due to WEP [CHAR LIMIT=150] -->
@@ -588,28 +621,23 @@
     <string name="system_set_time">Set time</string>
     <!-- Title for Set Time Zone in System Settings Date Time [CHAR LIMIT=50] -->
     <string name="system_set_time_zone">Set time zone</string>
+    <!-- Format string for displaying the current time zone, eg "GMT-08:00, Pacific Standard Time" [CHAR LIMIT=10] -->
+    <string name="desc_set_time_zone"><xliff:g id="offset" example="GMT-08:00">%1$s</xliff:g>, <xliff:g id="name" example="Pacific Standard Time">%2$s</xliff:g></string>
     <!-- Title for Set time format in System Settings Date Time [CHAR LIMIT=50] -->
     <string name="system_set_time_format">Use 24-hour format</string>
+    <!-- Format string for displaying the current time format (12/24 hour) [CHAR LIMIT=10] -->
+    <string name="desc_set_time_format"><xliff:g id="state" example="Off">%1$s</xliff:g> (<xliff:g id="sample" example="3:14 PM">%2$s</xliff:g>)</string>
     <!-- Title for automatic date & time [CHAR LIMIT = 80] -->
     <string name="system_auto_date_time">Automatic date &amp; time</string>
     <!-- Description for using automatic date & time in date time settings [CHAR LIMIT=100] -->
     <string name="desc_auto_date_time">Use network-provided time</string>
+
     <!-- Title for Location in System Settings [CHAR LIMIT=50] -->
     <string name="system_location">Location</string>
     <!-- Description for Location in System Settings [CHAR LIMIT=NONE] -->
     <string name="system_desc_location">Let apps that have asked your permission use your location information</string>
-    <!-- Title for the Google location source in System Settings [CHAR LIMIT=50]-->
-    <string name="system_network_location">Wi-Fi network location</string>
-    <!-- Description for the Google location source in System Settings [CHAR LIMIT=150]-->
-    <string name="system_desc_network_location">Let Google help apps determine location. This means sending anonymous location data to Google, even when no apps are running.</string>
     <!-- Title for confirming location consent [CHAR LIMIT=50] -->
     <string name="system_network_location_confirm">Location consent</string>
-    <!-- Description for confirming location consent [CHAR LIMIT=NONE] -->
-    <string name="system_desc_network_location_confirm">Allow Google\'s location service to collect anonymous location data. Some data may be stored on your device. Collection may occur even when no apps are running.</string>
-    <!-- Security & location settings screen, section header for settings relating to location -->
-    <string name="location_title">My location</string>
-    <!-- Header title for SecurityActivity [CHAR LIMIT=50] -->
-    <string name="header_category_system">System</string>
     <!-- [CHAR LIMIT=30] Location settings screen, setting preference screen box label for location mode -->
     <string name="location_mode_title">Mode</string>
     <!-- [CHAR LIMIT=30] Location settings screen, sub category for recent location requests -->
@@ -695,12 +723,8 @@
     <!-- Title for captions window opacity setting [CHAR LIMIT=50] -->
     <string name="captions_windowopacity">Window opacity</string>
 
-    <!-- Label for no color. [CHAR LIMIT=35] -->
-    <string name="color_none">None</string>
     <!-- Label for the color white. [CHAR LIMIT=35] -->
     <string name="color_white">White</string>
-    <!-- Label for the color gray. [CHAR LIMIT=35] -->
-    <string name="color_gray">Gray</string>
     <!-- Label for the color black. [CHAR LIMIT=35] -->
     <string name="color_black">Black</string>
     <!-- Label for the color red. [CHAR LIMIT=35] -->
@@ -715,8 +739,6 @@
     <string name="color_yellow">Yellow</string>
     <!-- Label for the color magenta. [CHAR LIMIT=35] -->
     <string name="color_magenta">Magenta</string>
-    <!-- Label for custom colors, formats as a HTML color. -->
-    <string name="color_custom" translatable="false">#%1$02X%2$02X%3$02X</string>
 
     <!-- Title for accessibility service status [CHAR LIMIT=50] -->
     <string name="system_accessibility_status">State</string>
@@ -754,10 +776,6 @@
     <string name="system_monitoring">Monitoring</string>
     <!-- Title for Set Apps in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_apps">Apps</string>
-    <!-- Title for Set Take bug report in System Settings Developer options [CHAR LIMIT=50] -->
-    <string name="system_take_bug_report">Take bug report</string>
-    <!-- Title for Set Backup password in System Settings Developer options [CHAR LIMIT=50] -->
-    <string name="system_backup_password">Backup password</string>
     <!-- Title for Set Stay awake in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_stay_awake">Stay awake</string>
     <!-- Title for Set HDCP checking in System Settings Developer options [CHAR LIMIT=50] -->
@@ -829,10 +847,6 @@
     <!-- Title for Set Show all ANRs in System Settings Developer options [CHAR LIMIT=50] -->
     <string name="system_show_all_anrs">Show all ANRs</string>
 
-    <!-- Description for Take bug report in System Settings Developer options [CHAR LIMIT=100] -->
-    <string name="system_desc_take_bug_report">Send report to email address</string>
-    <!-- Description for backup password in System Settings Developer options [CHAR LIMIT=100] -->
-    <string name="system_desc_backup_password">Protect desktop full backups</string>
     <!-- Description for stay awake System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_stay_awake">Disable sleep</string>
     <!-- Description for hdcp checking System Settings Developer options [CHAR LIMIT=100] -->
@@ -862,10 +876,6 @@
     <!-- Description for profile GPU rendering in System Settings Developer options [CHAR LIMIT=100] -->
     <string name="system_desc_profile_gpu_rendering">Measure rendering time in adb shell dumpsys gfxinfo</string>
 
-    <!-- The option in the date-format picker for using the normal format
-         called for by the user's locale. -->
-    <string name="normal_date_format">Regional (<xliff:g id="date" example="12-31-2009">%s</xliff:g>)</string>
-
     <!-- General use strings -->
     <skip />
     <!-- Title for an action which turns a feature on [CHAR LIMIT=30] -->
@@ -894,41 +904,40 @@
     <!-- Description for action to warn before installing of applications that may cause harm [CHAR LIMIT=NONE]-->
     <string name="security_verify_apps_desc">Disallow or warn before installation of apps that may cause harm</string>
 
-    <!-- Values for HDCP checking preference. -->
-    <string-array name="hdcp_checking_values" translatable="false" >
-        <item>never</item>
-        <item>drm-only</item>
-        <item>always</item>
-    </string-array>
+    <!-- Summary for HDCP checking preference. [CHAR LIMIT=100]-->
+    <string name="system_hdcp_checking_never">Never</string>
+    <!-- Summary for HDCP checking preference. [CHAR LIMIT=100]-->
+    <string name="system_hdcp_checking_drm">For DRM content</string>
+    <!-- Summary for HDCP checking preference. [CHAR LIMIT=100]-->
+    <string name="system_hdcp_checking_always">Always</string>
 
-    <!-- Summaries for HDCP checking preference. [CHAR LIMIT=100]-->
-    <string-array name="hdcp_checking_summaries" >
-        <item>Never</item>
-        <item>For DRM content</item>
-        <item>Always</item>
-    </string-array>
+    <!-- Title for HDMI optimization preference value [CHAR LIMIT=60] -->
+    <string name="system_hdmi_optimization_best_resolution">Best resolution</string>
+    <!-- Title for HDMI optimization preference value [CHAR LIMIT=60] -->
+    <string name="system_hdmi_optimization_best_framerate">Best framerate</string>
 
-    <!-- UI debug setting: label for app picker to select no applicatiojn [CHAR LIMIT=50] -->
+    <!-- Title for debug overdraw preference. [CHAR LIMIT=35] -->
+    <string name="system_hw_overdraw_off">Off</string>
+    <!-- Title for debug overdraw preference. [CHAR LIMIT=35] -->
+    <string name="system_hw_overdraw_areas">Show overdraw areas</string>
+    <!-- Title for debug overdraw preference. [CHAR LIMIT=35] -->
+    <string name="system_hw_overdraw_counter">Show overdraw counter</string>
+
+
+    <!-- UI debug setting: label for app picker to select no application [CHAR LIMIT=50] -->
     <string name="no_application">Nothing</string>
 
-    <!-- Titles for OpenGL traces preference. [CHAR LIMIT=35] -->
-    <string-array name="enable_opengl_traces_entries">
-        <item>None</item>
-        <item>Logcat</item>
-        <item>Systrace (Graphics)</item>
-        <item>Call stack on glGetError</item>
-    </string-array>
-
-    <!-- Values for OpenGL traces preference. -->
-    <string-array name="enable_opengl_traces_values" translatable="false" >
-        <item>0</item>
-        <item>1</item>
-        <item>systrace</item>
-        <item>error</item>
-    </string-array>
+    <!-- Title for OpenGL traces preference. [CHAR LIMIT=35] -->
+    <string name="enable_opengl_traces_none">None</string>
+    <!-- Title for OpenGL traces preference. Do not translate "Logcat" [CHAR LIMIT=35] -->
+    <string name="enable_opengl_traces_logcat">Logcat</string>
+    <!-- Title for OpenGL traces preference. Do not translate "Systrace" [CHAR LIMIT=35] -->
+    <string name="enable_opengl_traces_systrace">Systrace (Graphics)</string>
+    <!-- Title for OpenGL traces preference. "Call stack" is a developer term. Do not translate "glGetError" [CHAR LIMIT=35] -->
+    <string name="enable_opengl_traces_error">Call stack on glGetError</string>
 
     <!-- Titles for window animation scale preference. [CHAR LIMIT=35] -->
-    <string-array name="window_animation_scale_entries">
+    <string-array name="animation_scale_entries">
         <item>Animation off</item>
         <item>Animation scale .5x</item>
         <item>Animation scale 1x</item>
@@ -939,7 +948,7 @@
     </string-array>
 
     <!-- Values for window animation scale preference. -->
-    <string-array name="window_animation_scale_values" translatable="false" >
+    <string-array name="animation_scale_values" translatable="false" >
         <item>0</item>
         <item>.5</item>
         <item>1</item>
@@ -949,83 +958,26 @@
         <item>10</item>
     </string-array>
 
-    <!-- Titles for transition animation scale preference. [CHAR LIMIT=35] -->
-    <string-array name="transition_animation_scale_entries">
-        <item>Animation off</item>
-        <item>Animation scale .5x</item>
-        <item>Animation scale 1x</item>
-        <item>Animation scale 1.5x</item>
-        <item>Animation scale 2x</item>
-        <item>Animation scale 5x</item>
-        <item>Animation scale 10x</item>
-    </string-array>
+    <!-- Title for frame time tracking preference. [CHAR LIMIT=35] -->
+    <string name="track_frame_time_off">Off</string>
+    <!-- Title for frame time tracking preference. [CHAR LIMIT=35] -->
+    <string name="track_frame_time_bars">On screen as bars</string>
+    <!-- Title for frame time tracking preference. Do not translate "adb shell dumpsys gfxinfo" [CHAR LIMIT=35] -->
+    <string name="track_frame_time_gfxinfo">In adb shell dumpsys gfxinfo</string>
 
-    <!-- Values for transition animation scale preference. -->
-    <string-array name="transition_animation_scale_values" translatable="false" >
-        <item>0</item>
-        <item>.5</item>
-        <item>1</item>
-        <item>1.5</item>
-        <item>2</item>
-        <item>5</item>
-        <item>10</item>
-    </string-array>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_standard">Standard limit</string>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_zero">No background processes</string>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_one">At most 1 process</string>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_two">At most 2 processes</string>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_three">At most 3 processes</string>
+    <!-- Title for app process limit preference. [CHAR LIMIT=35] -->
+    <string name="app_process_limit_four">At most 4 processes</string>
 
-    <!-- Titles for animator duration scale preference. [CHAR LIMIT=35] -->
-    <string-array name="animator_duration_scale_entries">
-        <item>Animation off</item>
-        <item>Animation scale .5x</item>
-        <item>Animation scale 1x</item>
-        <item>Animation scale 1.5x</item>
-        <item>Animation scale 2x</item>
-        <item>Animation scale 5x</item>
-        <item>Animation scale 10x</item>
-    </string-array>
-
-    <!-- Values for animator duration scale preference. -->
-    <string-array name="animator_duration_scale_values" translatable="false" >
-        <item>0</item>
-        <item>.5</item>
-        <item>1</item>
-        <item>1.5</item>
-        <item>2</item>
-        <item>5</item>
-        <item>10</item>
-    </string-array>
-
-    <!-- Titles for frame time tracking preference. [CHAR LIMIT=35] -->
-    <string-array name="track_frame_time_entries">
-        <item>Off</item>
-        <item>On screen as bars</item>
-        <item>In adb shell dumpsys gfxinfo</item>
-    </string-array>
-
-    <!-- Values for frame time tracking preference. -->
-    <string-array name="track_frame_time_values" translatable="false" >
-        <item>false</item>
-        <item>visual_bars</item>
-        <item>true</item>
-    </string-array>
-
-    <!-- Titles for app process limit preference. [CHAR LIMIT=35] -->
-    <string-array name="app_process_limit_entries">
-        <item>Standard limit</item>
-        <item>No background processes</item>
-        <item>At most 1 process</item>
-        <item>At most 2 processes</item>
-        <item>At most 3 processes</item>
-        <item>At most 4 processes</item>
-    </string-array>
-
-    <!-- Values for app process limit preference. -->
-    <string-array name="app_process_limit_values" translatable="false" >
-        <item>-1</item>
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-        <item>3</item>
-        <item>4</item>
-    </string-array>
     <!--  Description for the preference screen to enable the global gesture that turns on accessibility. [CHAR LIMIT=none] -->
 
     <!-- Do not translate. -->
@@ -1046,31 +998,16 @@
 
     <!-- TTS settings -->
 
-    <!-- Default speech rate choices [CHAR LIMIT=30] -->
-    <string-array name="tts_rate_entries">
-        <item>Very slow</item>
-        <item>Slow</item>
-        <item>Normal</item>
-        <item>Fast</item>
-        <item>Very fast</item>
-    </string-array>
-    <!-- Text to speech rate values [DO NOT TRANSLATE] -->
-    <string-array name="tts_rate_values">
-        <item>60</item>
-        <item>80</item>
-        <item>100</item>
-        <item>150</item>
-        <item>200</item>
-    </string-array>
-    <!-- Default Text to Speach rate. Should match value for "Normal" in the above array. [DO NOT TRANSLATE] -->
-    <string name="tts_rate_default_value">100</string>
-
-    <!-- Title for choose account type screen [CHAR LIMIT=100]-->
-    <string name="choose_account_type_title">Choose account type</string>
-    <!-- Title for choose account screen [CHAR LIMIT=80]-->
-    <string name="choose_account_title">Choose account</string>
-    <!-- Action option which adds a new account [CHAR LIMIT=80]-->
-    <string name="add_account_button_label">Add new account</string>
+    <!-- Text-to-speech speech rate choice [CHAR LIMIT=30] -->
+    <string name="tts_rate_very_slow">Very slow</string>
+    <!-- Text-to-speech speech rate choice [CHAR LIMIT=30] -->
+    <string name="tts_rate_slow">Slow</string>
+    <!-- Text-to-speech speech rate choice [CHAR LIMIT=30] -->
+    <string name="tts_rate_normal">Normal</string>
+    <!-- Text-to-speech speech rate choice [CHAR LIMIT=30] -->
+    <string name="tts_rate_fast">Fast</string>
+    <!-- Text-to-speech speech rate choice [CHAR LIMIT=30] -->
+    <string name="tts_rate_very_fast">Very fast</string>
 
     <!-- Keyboard Settings -->
     <!-- Title for Current Keyboard [CHAR LIMIT=80] -->
@@ -1094,16 +1031,6 @@
 
     <!-- Action option which allows the enabling or disabling the PIN requirement of wifi display [CHAR LIMIT=40] -->
     <string name="accessories_wifi_display_pin_required">PIN required</string>
-
-    <!-- Header used to list a connected Remote and its serial number. %1 gets replaced with the serial number. [CHAR LIMIT=40] -->
-    <string name="accessories_remote_list_title">Remote information: <xliff:g id="serialnumber">%1$s</xliff:g></string>
-
-    <!-- Bug Report strings. NOTE: these will not be shown to external users, only internal ones. -->
-    <skip />
-    <!-- Message shown when a bug report is being collected [CHAR LIMIT=100] -->
-    <string name="system_collecting_bug_report">Collecting bug report!\nWe\'ll ask you for more info once the report is ready.</string>
-    <!-- Message shown when a bug report could not be collected [CHAR LIMIT=100] -->
-    <string name="system_collecting_bug_report_error">Could not collect bug report!\nPlease try again later.</string>
 
     <!-- Disambiguation Activity-->
     <!-- Title of intent resolver activity when selecting an application to run. [CHAR LIMIT=50]-->
@@ -1170,19 +1097,11 @@
         <item quantity="one">NOT CONNECTED INPUT</item>
         <item quantity="other">NOT CONNECTED INPUTS</item>
     </plurals>
-    <!-- State of a TV input for 'connected' [CHAR LIMIT=30] -->
-    <string name="inputs_state_connected">Connected</string>
-    <!-- State of a TV input for 'standby' [CHAR LIMIT=30] -->
-    <string name="inputs_state_connected_standby">Standby</string>
-    <!-- State of a TV input for 'disconnected' [CHAR LIMIT=30] -->
-    <string name="inputs_state_disconnected">Disconnected</string>
 
     <!-- Summary for add restricted profile entry in the choice dialog [CHAR LIMIT=none] -->
     <string name="user_add_profile_item_summary">Restrict access to apps and other content in your account</string>
     <!-- User details new restricted profile name [CHAR LIMIT=30] -->
     <string name="user_new_profile_name">Restricted Profile</string>
-    <!-- User app limits screen title [CHAR LIMIT=35] -->
-    <string name="user_restrictions_title">App &amp; content access</string>
     <!-- Summary for app entries that are controlled by another entry [CHAR LIMIT=none] -->
     <string name="user_restrictions_controlled_by">Controlled by <xliff:g id="app">%1$s</xliff:g></string>
     <!-- Summary for apps that aren't supported in limited users [CHAR LIMIT=none] -->
@@ -1193,16 +1112,12 @@
     <string name="restriction_location_enable_title">Location</string>
     <!-- Restrictions summary for allowing location sharing [CHAR LIMIT=100] -->
     <string name="restriction_location_enable_summary" >Let apps use your location information</string>
-    <!-- Action to create a restricted profile [CHAR LIMIT=100] -->
-    <string name="restricted_profile_create" >Create restricted user</string>
     <!-- Action to switch to a restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_switch_to" >Enter restricted profile</string>
     <!-- Action to switch out of a restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_switch_out" >Exit restricted profile</string>
     <!-- Title for action to delete a restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_delete_title" >Delete restricted profile</string>
-    <!-- DO NOT TRANSLATE Description for action to delete a restricted profile [CHAR LIMIT=100] -->
-    <string name="restricted_profile_delete_description" translatable="false" >NOTE: This is debug only!</string>
     <!-- Title for action to configure a restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_configure_title" >Settings</string>
     <!-- Title for action to configure apps for a restricted profile [CHAR LIMIT=100] -->
@@ -1222,14 +1137,6 @@
     <string name="restricted_profile_configure_apps_description_loading" >One moment\u2026</string>
     <!-- Title for action to change the PIN code to use when exiting restricted profile [CHAR LIMIT=100] -->
     <string name="restricted_profile_change_password_title" >Change pin</string>
-    <!-- Text to indicate user should enter a new password [CHAR LIMIT=100] -->
-    <string name="restricted_profile_set_password" >Set new PIN code used to exit restricted profile</string>
-    <!-- Text to indicate user should enter a the password they just entered [CHAR LIMIT=100] -->
-    <string name="restricted_profile_confirm_password" >Confirm PIN code used to exit restricted profile</string>
-    <!-- Text to indicate user should enter the password to get out of restricted profile[CHAR LIMIT=100] -->
-    <string name="restricted_profile_enter_password" >Enter PIN code to exit restricted profile</string>
-    <!-- Title for dialog to remove restricted user [CHAR LIMIT=100] -->
-    <string name="restricted_profile_delete_dialog_title" >Remove restricted user?</string>
     <!-- Description for action to configure an application's restriction [CHAR LIMIT=200] -->
     <string name="restriction_description" ><xliff:g id="description">%1$s</xliff:g>\n<xliff:g id="value">%2$s</xliff:g></string>
 
@@ -1254,14 +1161,149 @@
     <!-- Title of PIN dialog when an user is about to change older PIN. [CHAR LIMIT=50] -->
     <string name="pin_enter_old_pin">Enter old PIN</string>
     <!-- Message shown in the dialog when the user entered the wrong. [CHAR LIMIT=128] -->
-    <string name="pin_enter_wrong">You entered the wrong PIN 5 times.\nTry again <xliff:g id="relative_time_span" example="in 60 seconds">%1$s</xliff:g>.</string>
-    <!-- Name of PIN dialog button for OK. [CHAR LIMIT=8] -->
-    <string name="pin_button_done">Done</string>
-    <!-- Name of PIN dialog button for cancel. [CHAR LIMIT=8] -->
-    <string name="pin_button_cancel">Cancel</string>
+    <string name="pin_enter_wrong_seconds">You entered the wrong PIN 5 times.\nTry again in <xliff:g id="relative_time_span" example="60">%1$d</xliff:g> seconds.</string>
     <!-- Toast message when an user entered wrong PIN. [CHAR LIMIT=128] -->
     <string name="pin_toast_wrong">Wrong PIN, try again</string>
     <!-- Toast message when an user couldn't pass the PIN confirmation. [CHAR LIMIT=128] -->
     <string name="pin_toast_not_match">Try again, PIN doesn\'t match</string>
+
+    <!-- Message displayed to prompt the user to input the network password, ^1 will be replaced with the name of the network and should be a possive form related to password [CHAR LIMIT=NONE] -->
+    <string name="wifi_setup_input_password">Enter password for <xliff:g id="ssid">%1$s</xliff:g></string>
+    <!-- Message displayed when the selected Wi-Fi network has been connected to [CHAR LIMIT=40] -->
+    <string name="wifi_setup_connection_success">Connected successfully.</string>
+    <!-- Message displayed when the Wi-Fi network's configuration has been saved [CHAR LIMIT=40] -->
+    <string name="wifi_setup_save_success">Saved successfully.</string>
+
+    <!-- Application management application version label [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_version">version <xliff:g id="app_version">%1$s</xliff:g></string>
+    <!-- Application management description for opening the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_open">Open</string>
+    <!-- Application management choice for force stopping the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_force_stop">Force stop</string>
+    <!-- Application management description for force stopping the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_force_stop_desc">If you force stop an app, it may misbehave.</string>
+    <!-- Application management choice for uninstalling the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_uninstall">Uninstall</string>
+    <!-- Application management description for uninstalling the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_uninstall_desc">Do you want to uninstall this app?</string>
+    <!-- Application management choice for uninstalling updates for the application [CHAR_LIMIT=40] -->
+    <string name="device_apps_app_management_uninstall_updates">Uninstall updates</string>
+    <!-- Application management description for uninstalling updates for the application [CHAR_LIMIT=NONE] -->
+    <string name="device_apps_app_management_uninstall_updates_desc">All updates to this Android system app will be uninstalled.</string>
+    <!-- Application management choice for disabling the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_disable">Disable</string>
+    <!-- Application management description for disabling the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_disable_desc">Do you want to disable this app?</string>
+    <!-- Application management choice for enabling the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_enable">Enable</string>
+    <!-- Application management description for enabling the application [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_enable_desc">Do you want to enable this app?</string>
+    <!-- Application management choice for displaying the application's size [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_storage_used">Storage used</string>
+    <!-- Application management description for displaying the applicantion's size [CHAR_LIMIT=NONE] -->
+    <string name="device_apps_app_management_storage_used_desc"><xliff:g id="size" example="30.2MB">%1$s</xliff:g> used in <xliff:g id="volume" example="internal storage">%2$s</xliff:g></string>
+    <!-- Application management choice for clearing the application's data [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_clear_data">Clear data</string>
+    <!-- Application management description for clearing the application's data [CHAR LIMIT=NONE] -->
+    <string name="device_apps_app_management_clear_data_desc">All this app’s data will be deleted permanently.\nThis includes all files, settings, accounts, databases, etc.</string>
+    <!-- Application management choice for clearing the application's default actions [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_clear_default">Clear defaults</string>
+    <!-- Application management description for defaults are set for the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_clear_default_set">Set to launch this app for some actions</string>
+    <!-- Application management description for defaults aren't set for the application [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_clear_default_none">No defaults set</string>
+    <!-- Application management choice for clearing the application's cache [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_clear_cache">Clear cache</string>
+    <!-- Application management choice for changing the application's notifications option [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_notifications">Notifications</string>
+    <!-- Application management choice for displaying the application's permissions [CHAR LIMIT=40] -->
+    <string name="device_apps_app_management_permissions">Permissions</string>
+    <!-- General settings choice for agreeing to the displayed action [CHAR LIMIT=40] -->
+    <string name="settings_ok">OK</string>
+    <!-- General settings choice for disagreeing with the displayed action [CHAR LIMIT=40] -->
+    <string name="settings_cancel">Cancel</string>
+    <!-- General settings choice for on [CHAR LIMIT=40] -->
+    <string name="settings_on">On</string>
+    <!-- General settings choice for off [CHAR LIMIT=40] -->
+    <string name="settings_off">Off</string>
+    <!-- Daydream choice for not having a daydream [CHAR LIMIT=40] -->
+    <string name="device_daydreams_none">None</string>
+    <!-- Daydream choice for selecting a different daydream [CHAR LIMIT=40] -->
+    <string name="device_daydreams_select">Daydream</string>
+    <!-- Daydream choice for testing the selected daydream [CHAR LIMIT=40] -->
+    <string name="device_daydreams_test">Start now</string>
+    <!-- Daydream choice for configuring the time before the device goes to sleep [CHAR LIMIT=40] -->
+    <string name="device_daydreams_sleep">When to daydream</string>
+    <!-- Daydream description for configuring the time before the device goes to sleep [CHAR LIMIT=NONE] -->
+    <string name="device_daydreams_sleep_description">Daydreaming begins after this period of inactivity. If no daydream is selected, the display turns off.</string>
+    <!-- Daydream summary for displaying the time before the device goes to sleep -->
+    <string name="device_daydreams_sleep_summary">After <xliff:g id="sleep_description">%1$s</xliff:g> of inactivity</string>
+    <!-- Daydream choice for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=40] -->
+    <string name="device_daydreams_screen_off">When to sleep</string>
+    <!-- Daydream description for configuring the time before the device's screen goes off after dreaming [CHAR LIMIT=NONE] -->
+    <string name="device_daydreams_screen_off_description">Screen turns off after this period of inactivity.</string>
+    <!-- Default summary text of the "Configure backup account" setting [CHAR LIMIT=80] -->
+    <string name="backup_configure_account_default_summary">No account is currently storing backed up data</string>
+    <!-- Dialog title for confirmation to erase backup data from server -->
+    <string name="backup_erase_dialog_title"></string>
+    <!-- Dialog title for confirmation to erase backup data from server -->
+    <string name="backup_erase_dialog_message">Stop backing up your Wi-Fi passwords, bookmarks, other settings, and app data, and erase all copies on Google servers?</string>
+    <!-- Privacy choice for configuring backing up data [CHAR LIMIT=40] -->
+    <string name="privacy_backup_data">Back up my data</string>
+    <!-- Privacy choice for choosing which account to backup [CHAR LIMIT=40] -->
+    <string name="privacy_backup_account">Backup account</string>
+    <!-- Privacy choice for configuring automatic restore [CHAR LIMIT=40] -->
+    <string name="privacy_automatic_restore">Automatic restore</string>
+    <!-- Factory reset choice for initiating a factory reset [CHAR LIMIT=40] -->
+    <string name="factory_reset_device">Reset device</string>
+    <!-- Factory reset description about what happens when you perform a factory reset [CHAR LIMIT=NONE] -->
+    <string name="factory_reset_description">This will erase all data from your device\'s internal storage, including: your Google account, system and app data and settings, and downloaded apps</string>
+    <!-- Factory reset screen, message on screen after user selects Reset phone button -->
+    <string name="confirm_factory_reset_description">Erase all your personal information and downloaded apps? You can\'t reverse this action!</string>
+    <!-- Factory reset screen, button on screen after user selects Reset phone button -->
+    <string name="confirm_factory_reset_device">Erase everything</string>
+
+
+    <!-- Title for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
+    <string name="select_title">Choose a name for your ^1</string>
+    <!-- Description for screen where user selects a name for their device [CHAR LIMIT=NONE] -->
+    <string name="select_description">A name will help identify your ^1 when accessing it from other devices like your phone, tablet, or computer.</string>
+    <!-- Rooms where a user's device might be placed [CHAR LIMIT=40] -->
+    <string-array name="rooms">
+        <!-- [CHAR LIMIT=40] -->
+        <item>Living Room</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Media Room</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Family Room</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Dining Room</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Den</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Bedroom</item>
+        <!-- [CHAR LIMIT=40] -->
+        <item>Kitchen</item>
+    </string-array>
+    <!-- String displayed for option where user will type in a room name rather than selecting from the list of defaults [CHAR LIMIT=40] -->
+    <string name="custom_room">Enter Custom Name&#8230;</string>
+    <!-- Title of settings summary/status screen [CHAR LIMIT=100] -->
+    <string name="settings_status_title">This ^1 is named</string>
+    <!-- Description on summary/status screen that tells you what the name of your device is [CHAR LIMIT=NONE] -->
+    <string name="settings_status_description">\"^1\" is the name of this ^2. Would you like to change this?</string>
+    <!-- The 'yes' or 'edit' equivalent in a yes/no choice circumstance [CHAR LIMIT=30] -->
+    <string name="change_setting">Change</string>
+    <!-- The 'no' or  'keep the same' equivalent in a yes/no choice circumstance [CHAR LIMIT=30]-->
+    <string name="keep_settings">Don\'t change</string>
+
+    <!-- Group header for app permissions [CHAR LIMIT=20] -->
+    <string name="apps_permissions">Permissions</string>
+    <!-- Item title for app permissions [CHAR LIMIT=20] -->
+    <string name="device_apps_permissions">App permissions</string>
+    <!-- Summary of number of apps currently granted a single permission [CHAR LIMIT=45] -->
+    <string name="app_permissions_group_summary"><xliff:g id="count" example="10">%d</xliff:g> of <xliff:g id="count" example="10">%d</xliff:g> apps allowed</string>
+
+    <!-- About phone screen, status item label  [CHAR LIMIT=60] -->
+    <string name="security_patch">Android security patch level</string>
 
 </resources>

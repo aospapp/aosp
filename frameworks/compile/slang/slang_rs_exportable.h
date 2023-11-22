@@ -50,7 +50,7 @@ class RSExportable {
   // responsibility is then transferred to the object who invoked this function.
   // Return false if the exportable is kept or failed to keep.
   virtual bool keep();
-  inline bool isKeep() const { return (mContext == NULL); }
+  inline bool isKeep() const { return (mContext == nullptr); }
 
   virtual bool equals(const RSExportable *E) const;
 

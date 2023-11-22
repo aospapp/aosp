@@ -70,7 +70,8 @@ def rational_to_float(r):
     else:
         return float(r["numerator"]) / float(r["denominator"])
 
-def manual_capture_request(sensitivity, exp_time, linear_tonemap=False):
+def manual_capture_request(
+        sensitivity, exp_time, linear_tonemap=False, props=None):
     """Return a capture request with everything set to manual.
 
     Uses identity/unit color correction, and the default tonemap curve.
@@ -82,6 +83,9 @@ def manual_capture_request(sensitivity, exp_time, linear_tonemap=False):
             with.
         linear_tonemap: [Optional] whether a linear tonemap should be used
             in this request.
+        props: [Optional] the object returned from
+            its.device.get_camera_properties(). Must present when
+            linear_tonemap is True.
 
     Returns:
         The default manual capture request, ready to be passed to the
@@ -105,10 +109,20 @@ def manual_capture_request(sensitivity, exp_time, linear_tonemap=False):
         "android.shading.mode": 1
         }
     if linear_tonemap:
-        req["android.tonemap.mode"] = 0
-        req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
-        req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
-        req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
+        assert(props is not None)
+        #CONTRAST_CURVE mode
+        if 0 in props["android.tonemap.availableToneMapModes"]:
+            req["android.tonemap.mode"] = 0
+            req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
+            req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
+            req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
+        #GAMMA_VALUE mode
+        elif 3 in props["android.tonemap.availableToneMapModes"]:
+            req["android.tonemap.mode"] = 3
+            req["android.tonemap.gamma"] = 1.0
+        else:
+            print "Linear tonemap is not supported"
+            assert(False)
     return req
 
 def auto_capture_request():
@@ -142,13 +156,15 @@ def get_available_output_sizes(fmt, props):
     """Return a sorted list of available output sizes for a given format.
 
     Args:
-        fmt: the output format, as a string in ["jpg", "yuv", "raw"].
+        fmt: the output format, as a string in
+            ["jpg", "yuv", "raw", "raw10", "raw12"].
         props: the object returned from its.device.get_camera_properties().
 
     Returns:
         A sorted list of (w,h) tuples (sorted large-to-small).
     """
-    fmt_codes = {"raw":0x20, "raw10":0x25, "yuv":0x23, "jpg":0x100, "jpeg":0x100}
+    fmt_codes = {"raw":0x20, "raw10":0x25, "raw12":0x26, "yuv":0x23,
+                 "jpg":0x100, "jpeg":0x100}
     configs = props['android.scaler.streamConfigurationMap']\
                    ['availableStreamConfigurations']
     fmt_configs = [cfg for cfg in configs if cfg['format'] == fmt_codes[fmt]]
@@ -195,12 +211,20 @@ def turn_slow_filters_off(props, req):
     set_filter_off_or_fast_if_possible(props, req,
         "android.colorCorrection.availableAberrationModes",
         "android.colorCorrection.aberrationMode")
-    set_filter_off_or_fast_if_possible(props, req,
-        "android.hotPixel.availableHotPixelModes",
-        "android.hotPixel.mode")
-    set_filter_off_or_fast_if_possible(props, req,
-        "android.edge.availableEdgeModes",
-        "android.edge.mode")
+    if props.has_key("android.request.availableCharacteristicsKeys"):
+        hot_pixel_modes = 393217 in props["android.request.availableCharacteristicsKeys"]
+        edge_modes = 196610 in props["android.request.availableCharacteristicsKeys"]
+    if props.has_key("android.request.availableRequestKeys"):
+        hot_pixel_mode = 393216 in props["android.request.availableRequestKeys"]
+        edge_mode = 196608 in props["android.request.availableRequestKeys"]
+    if hot_pixel_modes and hot_pixel_mode:
+        set_filter_off_or_fast_if_possible(props, req,
+            "android.hotPixel.availableHotPixelModes",
+            "android.hotPixel.mode")
+    if edge_modes and edge_mode:
+        set_filter_off_or_fast_if_possible(props, req,
+            "android.edge.availableEdgeModes",
+            "android.edge.mode")
 
 def get_fastest_manual_capture_settings(props):
     """Return a capture request and format spec for the fastest capture.

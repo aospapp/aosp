@@ -76,6 +76,18 @@ which is a mode in the bootloader that can be used to flash the devices:</p>
 </thead>
 <tbody>
 <tr>
+<td>shamu</td>
+<td>Press and hold <em>Volume Down</em>, then press and hold <em>Power</em></td>
+</tr>
+<tr>
+<td>fugu</td>
+<td>Press and hold <em>Power</em></td>
+</tr>
+<tr>
+<td>volantis</td>
+<td>Press and hold <em>Volume Down</em>, then press and hold <em>Power</em></td>
+</tr>
+<tr>
 <td>hammerhead</td>
 <td>Press and hold both <em>Volume Up</em> and <em>Volume Down</em>, then press
 and hold <em>Power</em></td>
@@ -203,6 +215,22 @@ the lunch menu, accessed when running the <code>lunch</code> command with no arg
 </tr>
 </thead>
 <tbody>
+<tr>
+  <td>Nexus 6</td>
+<td>shamu</td>
+<td>aosp_shamu-userdebug</td>
+</tr>
+</tr>
+<tr>
+  <td>Nexus Player</td>
+<td>fugu</td>
+<td>aosp_fugu-userdebug</td>
+</tr>
+<tr>
+  <td>Nexus 9</td>
+<td>volantis (flounder)</td>
+<td>aosp_flounder-userdebug</td>
+</tr>
 <tr>
   <td>Nexus 5 (GSM/LTE)</td>
 <td>hammerhead</td>

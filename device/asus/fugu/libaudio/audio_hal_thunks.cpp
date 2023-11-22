@@ -207,13 +207,34 @@ static int out_get_presentation_position(const struct audio_stream_out *stream,
     return tstream->impl->getPresentationPosition(frames, timestamp);
 }
 
-static int out_get_next_write_timestamp(const struct audio_stream_out *stream,
-                                        int64_t *timestamp)
+static int out_get_next_write_timestamp(const struct audio_stream_out *stream __unused,
+                                        int64_t *timestamp __unused)
+{
+    return -ENOSYS;
+}
+
+static int out_pause(struct audio_stream_out* stream)
 {
     const struct atv_stream_out* tstream =
         reinterpret_cast<const struct atv_stream_out*>(stream);
 
-    return tstream->impl->getNextWriteTimestamp(timestamp);
+    return tstream->impl->pause();
+}
+
+static int out_resume(struct audio_stream_out* stream)
+{
+    const struct atv_stream_out* tstream =
+        reinterpret_cast<const struct atv_stream_out*>(stream);
+
+    return tstream->impl->resume();
+}
+
+static int out_flush(struct audio_stream_out* stream)
+{
+    const struct atv_stream_out* tstream =
+        reinterpret_cast<const struct atv_stream_out*>(stream);
+
+    return tstream->impl->flush();
 }
 
 /*******************************************************************************
@@ -525,6 +546,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
     out->stream.get_presentation_position = out_get_presentation_position;
+    out->stream.pause = out_pause;
+    out->stream.resume = out_resume;
+    out->stream.flush = out_flush;
 
     out->impl = adev->output->openOutputStream(
             devices,

@@ -31,6 +31,7 @@ LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libctsos_jni
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
         src/android/os/cts/IParcelFileDescriptorPeer.aidl \
         src/android/os/cts/IEmptyService.aidl \
+        src/android/os/cts/ISeccompIsolatedService.aidl \
         src/android/os/cts/ISecondary.aidl
 
 LOCAL_PACKAGE_NAME := CtsOsTestCases

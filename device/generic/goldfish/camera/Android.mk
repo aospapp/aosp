@@ -20,6 +20,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter -Wno-missing-field-initializers
+LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
 LOCAL_SHARED_LIBRARIES:= \
     libbinder \
     liblog \
@@ -80,6 +81,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS += -fno-short-enums -DQEMU_HARDWARE
 LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
 LOCAL_SHARED_LIBRARIES:= \
     libcutils \
     liblog \

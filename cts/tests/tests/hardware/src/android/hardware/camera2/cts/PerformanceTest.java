@@ -19,16 +19,19 @@ package android.hardware.camera2.cts;
 import static com.android.ex.camera2.blocking.BlockingSessionCallback.*;
 
 import android.graphics.ImageFormat;
+import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
+import android.hardware.camera2.params.InputConfiguration;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -36,10 +39,10 @@ import android.view.Surface;
 import android.cts.util.DeviceReportLog;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.ImageWriter;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
 
-import com.android.cts.util.ReportLog;
 import com.android.cts.util.ResultType;
 import com.android.cts.util.ResultUnit;
 import com.android.cts.util.Stat;
@@ -47,6 +50,7 @@ import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -61,8 +65,27 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
     private static final int NUM_TEST_LOOPS = 5;
     private static final int NUM_MAX_IMAGES = 4;
     private static final int NUM_RESULTS_WAIT = 30;
+    private static final int[] REPROCESS_FORMATS = {ImageFormat.YUV_420_888, ImageFormat.PRIVATE};
+    private final int MAX_REPROCESS_IMAGES = 10;
+    private final int MAX_JPEG_IMAGES = MAX_REPROCESS_IMAGES;
+    private final int MAX_INPUT_IMAGES = MAX_REPROCESS_IMAGES;
+    // ZSL queue depth should be bigger than the max simultaneous reprocessing capture request
+    // count to maintain reasonable number of candidate image for the worse-case.
+    // Here we want to make sure we at most dequeue half of the queue max images for the worst-case.
+    private final int MAX_ZSL_IMAGES = MAX_REPROCESS_IMAGES * 2;
+    private final double REPROCESS_STALL_MARGIN = 0.1;
 
     private DeviceReportLog mReportLog;
+
+    // Used for reading camera output buffers.
+    private ImageReader mCameraZslReader;
+    private SimpleImageReaderListener mCameraZslImageListener;
+    // Used for reprocessing (jpeg) output.
+    private ImageReader mJpegReader;
+    private SimpleImageReaderListener mJpegListener;
+    // Used for reprocessing input.
+    private ImageWriter mWriter;
+    private SimpleCaptureCallback mZslResultListener;
 
     @Override
     protected void setUp() throws Exception {
@@ -86,7 +109,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
      * case, there is no way for client to know the exact preview frame
      * arrival time. To approximate this time, a companion YUV420_888 stream is
      * created. The first YUV420_888 Image coming out of the ImageReader is treated
-     * as the first preview arrival time.
+     * as the first preview arrival time.</p>
+     * <p>
+     * For depth-only devices, timing is done with the DEPTH16 format instead.
      * </p>
      */
     public void testCameraLaunch() throws Exception {
@@ -96,10 +121,20 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         double[] stopPreviewTimes = new double[NUM_TEST_LOOPS];
         double[] cameraCloseTimes = new double[NUM_TEST_LOOPS];
         double[] cameraLaunchTimes = new double[NUM_TEST_LOOPS];
+        double[] avgCameraLaunchTimes = new double[mCameraIds.length];
 
+        int counter = 0;
         for (String id : mCameraIds) {
             try {
-                initializeImageReader(id, ImageFormat.YUV_420_888);
+                mStaticInfo = new StaticMetadata(mCameraManager.getCameraCharacteristics(id));
+                if (mStaticInfo.isColorOutputSupported()) {
+                    initializeImageReader(id, ImageFormat.YUV_420_888);
+                } else {
+                    assertTrue("Depth output must be supported if regular output isn't!",
+                            mStaticInfo.isDepthOutputSupported());
+                    initializeImageReader(id, ImageFormat.DEPTH16);
+                }
+
                 SimpleImageListener imageListener = null;
                 long startTimeMs, openTimeMs, configureTimeMs, previewStartedTimeMs;
                 for (int i = 0; i < NUM_TEST_LOOPS; i++) {
@@ -121,8 +156,8 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                         configureStreamTimes[i] = configureTimeMs - openTimeMs;
 
                         // Blocking start preview (start preview to first image arrives)
-                        CameraTestUtils.SimpleCaptureCallback resultListener =
-                                new CameraTestUtils.SimpleCaptureCallback();
+                        SimpleCaptureCallback resultListener =
+                                new SimpleCaptureCallback();
                         blockingStartPreview(resultListener, imageListener);
                         previewStartedTimeMs = SystemClock.elapsedRealtime();
                         startPreviewTimes[i] = previewStartedTimeMs - configureTimeMs;
@@ -144,6 +179,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     }
                 }
 
+                avgCameraLaunchTimes[counter] = Stat.getAverage(cameraLaunchTimes);
                 // Finish the data collection, report the KPIs.
                 mReportLog.printArray("Camera " + id
                         + ": Camera open time", cameraOpenTimes,
@@ -163,13 +199,15 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                 mReportLog.printArray("Camera " + id
                         + ": Camera launch time", cameraLaunchTimes,
                         ResultType.LOWER_BETTER, ResultUnit.MS);
-                mReportLog.printSummary("Camera launch average time for Camera " + id,
-                        Stat.getAverage(cameraLaunchTimes),
-                        ResultType.LOWER_BETTER, ResultUnit.MS);
             }
             finally {
                 closeImageReader();
             }
+            counter++;
+        }
+        if (mCameraIds.length != 0) {
+            mReportLog.printSummary("Camera launch average time for all cameras ",
+                    Stat.getAverage(avgCameraLaunchTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
         }
     }
 
@@ -190,10 +228,18 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         double[] captureTimes = new double[NUM_TEST_LOOPS];
         double[] getPartialTimes = new double[NUM_TEST_LOOPS];
         double[] getResultTimes = new double[NUM_TEST_LOOPS];
+        double[] avgResultTimes = new double[mCameraIds.length];
 
+        int counter = 0;
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
+
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
+
 
                 boolean partialsExpected = mStaticInfo.getPartialResultCount() > 1;
                 long startTimeMs;
@@ -205,14 +251,14 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                     CaptureRequest.Builder captureBuilder =
                             mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-                    CameraTestUtils.SimpleCaptureCallback previewResultListener =
-                            new CameraTestUtils.SimpleCaptureCallback();
+                    SimpleCaptureCallback previewResultListener =
+                            new SimpleCaptureCallback();
                     SimpleTimingResultListener captureResultListener =
                             new SimpleTimingResultListener();
                     SimpleImageListener imageListener = new SimpleImageListener();
 
-                    Size maxYuvSize = CameraTestUtils.getSupportedPreviewSizes(id, mCameraManager,
-                            /*bound*/null).get(0);
+                    Size maxYuvSize = CameraTestUtils.getSortedSizesForFormat(
+                        id, mCameraManager, ImageFormat.YUV_420_888, /*bound*/null).get(0);
 
                     prepareCaptureAndStartPreview(previewBuilder, captureBuilder,
                             mOrderedPreviewSizes.get(0), maxYuvSize,
@@ -252,7 +298,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     // simulate real scenario (preview runs a bit)
                     waitForNumResults(previewResultListener, NUM_RESULTS_WAIT);
 
-                    stopPreview();
+                    blockingStopPreview();
 
                 }
                 mReportLog.printArray("Camera " + id
@@ -267,12 +313,353 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                 mReportLog.printArray("Camera " + id
                         + ": Camera capture result latency", getResultTimes,
                         ResultType.LOWER_BETTER, ResultUnit.MS);
+
+                avgResultTimes[counter] = Stat.getAverage(getResultTimes);
             }
             finally {
                 closeImageReader();
                 closeDevice();
             }
+            counter++;
         }
+
+        // Result will not be reported in CTS report if no summary is printed.
+        if (mCameraIds.length != 0) {
+            mReportLog.printSummary("Camera capture result average latency for all cameras ",
+                    Stat.getAverage(avgResultTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
+        }
+    }
+
+    /**
+     * Test reprocessing shot-to-shot latency, i.e., from the time a reprocess
+     * request is issued to the time the reprocess image is returned.
+     *
+     */
+    public void testReprocessingLatency() throws Exception {
+        for (String id : mCameraIds) {
+            for (int format : REPROCESS_FORMATS) {
+                if (!isReprocessSupported(id, format)) {
+                    continue;
+                }
+
+                try {
+                    openDevice(id);
+
+                    reprocessingPerformanceTestByCamera(format, /*asyncMode*/false);
+                } finally {
+                    closeReaderWriters();
+                    closeDevice();
+                }
+            }
+        }
+    }
+
+    /**
+     * Test reprocessing throughput, i.e., how many frames can be reprocessed
+     * during a given amount of time.
+     *
+     */
+    public void testReprocessingThroughput() throws Exception {
+        for (String id : mCameraIds) {
+            for (int format : REPROCESS_FORMATS) {
+                if (!isReprocessSupported(id, format)) {
+                    continue;
+                }
+
+                try {
+                    openDevice(id);
+
+                    reprocessingPerformanceTestByCamera(format, /*asyncMode*/true);
+                } finally {
+                    closeReaderWriters();
+                    closeDevice();
+                }
+            }
+        }
+    }
+
+    /**
+     * Testing reprocessing caused preview stall (frame drops)
+     */
+    public void testReprocessingCaptureStall() throws Exception {
+        for (String id : mCameraIds) {
+            for (int format : REPROCESS_FORMATS) {
+                if (!isReprocessSupported(id, format)) {
+                    continue;
+                }
+
+                try {
+                    openDevice(id);
+
+                    reprocessingCaptureStallTestByCamera(format);
+                } finally {
+                    closeReaderWriters();
+                    closeDevice();
+                }
+            }
+        }
+    }
+
+    private void reprocessingCaptureStallTestByCamera(int reprocessInputFormat) throws Exception {
+        prepareReprocessCapture(reprocessInputFormat);
+
+        // Let it stream for a while before reprocessing
+        startZslStreaming();
+        waitForFrames(NUM_RESULTS_WAIT);
+
+        final int NUM_REPROCESS_TESTED = MAX_REPROCESS_IMAGES / 2;
+        // Prepare several reprocessing request
+        Image[] inputImages = new Image[NUM_REPROCESS_TESTED];
+        CaptureRequest.Builder[] reprocessReqs = new CaptureRequest.Builder[MAX_REPROCESS_IMAGES];
+        for (int i = 0; i < NUM_REPROCESS_TESTED; i++) {
+            inputImages[i] =
+                    mCameraZslImageListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+            TotalCaptureResult zslResult =
+                    mZslResultListener.getCaptureResult(
+                            WAIT_FOR_RESULT_TIMEOUT_MS, inputImages[i].getTimestamp());
+            reprocessReqs[i] = mCamera.createReprocessCaptureRequest(zslResult);
+            reprocessReqs[i].addTarget(mJpegReader.getSurface());
+            mWriter.queueInputImage(inputImages[i]);
+        }
+
+        double[] maxCaptureGapsMs = new double[NUM_REPROCESS_TESTED];
+        double[] averageFrameDurationMs = new double[NUM_REPROCESS_TESTED];
+        Arrays.fill(averageFrameDurationMs, 0.0);
+        final int MAX_REPROCESS_RETURN_FRAME_COUNT = 20;
+        SimpleCaptureCallback reprocessResultListener = new SimpleCaptureCallback();
+        for (int i = 0; i < NUM_REPROCESS_TESTED; i++) {
+            mZslResultListener.drain();
+            CaptureRequest reprocessRequest = reprocessReqs[i].build();
+            mSession.capture(reprocessRequest, reprocessResultListener, mHandler);
+            // Wait for reprocess output jpeg and result come back.
+            reprocessResultListener.getCaptureResultForRequest(reprocessRequest,
+                    CameraTestUtils.CAPTURE_RESULT_TIMEOUT_MS);
+            mJpegListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+            long numFramesMaybeStalled = mZslResultListener.getTotalNumFrames();
+            assertTrue("Reprocess capture result should be returned in "
+                    + MAX_REPROCESS_RETURN_FRAME_COUNT + " frames",
+                    numFramesMaybeStalled <= MAX_REPROCESS_RETURN_FRAME_COUNT);
+
+            // Need look longer time, as the stutter could happen after the reprocessing
+            // output frame is received.
+            long[] timestampGap = new long[MAX_REPROCESS_RETURN_FRAME_COUNT + 1];
+            Arrays.fill(timestampGap, 0);
+            CaptureResult[] results = new CaptureResult[timestampGap.length];
+            long[] frameDurationsNs = new long[timestampGap.length];
+            for (int j = 0; j < results.length; j++) {
+                results[j] = mZslResultListener.getCaptureResult(
+                        CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+                if (j > 0) {
+                    timestampGap[j] = results[j].get(CaptureResult.SENSOR_TIMESTAMP) -
+                            results[j - 1].get(CaptureResult.SENSOR_TIMESTAMP);
+                    assertTrue("Time stamp should be monotonically increasing",
+                            timestampGap[j] > 0);
+                }
+                frameDurationsNs[j] = results[j].get(CaptureResult.SENSOR_FRAME_DURATION);
+            }
+
+            if (VERBOSE) {
+                Log.i(TAG, "timestampGap: " + Arrays.toString(timestampGap));
+                Log.i(TAG, "frameDurationsNs: " + Arrays.toString(frameDurationsNs));
+            }
+
+            // Get the number of candidate results, calculate the average frame duration
+            // and max timestamp gap.
+            Arrays.sort(timestampGap);
+            double maxTimestampGapMs = timestampGap[timestampGap.length - 1] / 1000000.0;
+            for (int m = 0; m < frameDurationsNs.length; m++) {
+                averageFrameDurationMs[i] += (frameDurationsNs[m] / 1000000.0);
+            }
+            averageFrameDurationMs[i] /= frameDurationsNs.length;
+
+            maxCaptureGapsMs[i] = maxTimestampGapMs;
+        }
+
+        String reprocessType = " YUV reprocessing ";
+        if (reprocessInputFormat == ImageFormat.PRIVATE) {
+            reprocessType = " opaque reprocessing ";
+        }
+
+        mReportLog.printArray("Camera " + mCamera.getId()
+                + ":" + reprocessType + " max capture timestamp gaps", maxCaptureGapsMs,
+                ResultType.LOWER_BETTER, ResultUnit.MS);
+        mReportLog.printArray("Camera " + mCamera.getId()
+                + ":" + reprocessType + "capture average frame duration", averageFrameDurationMs,
+                ResultType.LOWER_BETTER, ResultUnit.MS);
+        mReportLog.printSummary("Camera reprocessing average max capture timestamp gaps for Camera "
+                + mCamera.getId(), Stat.getAverage(maxCaptureGapsMs), ResultType.LOWER_BETTER,
+                ResultUnit.MS);
+
+        // The max timestamp gap should be less than (captureStall + 1) x average frame
+        // duration * (1 + error margin).
+        int maxCaptureStallFrames = mStaticInfo.getMaxCaptureStallOrDefault();
+        for (int i = 0; i < maxCaptureGapsMs.length; i++) {
+            double stallDurationBound = averageFrameDurationMs[i] *
+                    (maxCaptureStallFrames + 1) * (1 + REPROCESS_STALL_MARGIN);
+            assertTrue("max capture stall duration should be no larger than " + stallDurationBound,
+                    maxCaptureGapsMs[i] <= stallDurationBound);
+        }
+    }
+
+    private void reprocessingPerformanceTestByCamera(int reprocessInputFormat, boolean asyncMode)
+            throws Exception {
+        // Prepare the reprocessing capture
+        prepareReprocessCapture(reprocessInputFormat);
+
+        // Start ZSL streaming
+        startZslStreaming();
+        waitForFrames(NUM_RESULTS_WAIT);
+
+        CaptureRequest.Builder[] reprocessReqs = new CaptureRequest.Builder[MAX_REPROCESS_IMAGES];
+        Image[] inputImages = new Image[MAX_REPROCESS_IMAGES];
+        double[] getImageLatenciesMs = new double[MAX_REPROCESS_IMAGES];
+        long startTimeMs;
+        for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
+            inputImages[i] =
+                    mCameraZslImageListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+            TotalCaptureResult zslResult =
+                    mZslResultListener.getCaptureResult(
+                            WAIT_FOR_RESULT_TIMEOUT_MS, inputImages[i].getTimestamp());
+            reprocessReqs[i] = mCamera.createReprocessCaptureRequest(zslResult);
+            reprocessReqs[i].addTarget(mJpegReader.getSurface());
+        }
+
+        if (asyncMode) {
+            // async capture: issue all the reprocess requests as quick as possible, then
+            // check the throughput of the output jpegs.
+            for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
+                // Could be slow for YUV reprocessing, do it in advance.
+                mWriter.queueInputImage(inputImages[i]);
+            }
+
+            // Submit the requests
+            for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
+                mSession.capture(reprocessReqs[i].build(), null, null);
+            }
+
+            // Get images
+            startTimeMs = SystemClock.elapsedRealtime();
+            for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
+                mJpegListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+                getImageLatenciesMs[i] = SystemClock.elapsedRealtime() - startTimeMs;
+                startTimeMs = SystemClock.elapsedRealtime();
+            }
+        } else {
+            // sync capture: issue reprocess request one by one, only submit next one when
+            // the previous capture image is returned. This is to test the back to back capture
+            // performance.
+            for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
+                startTimeMs = SystemClock.elapsedRealtime();
+                mWriter.queueInputImage(inputImages[i]);
+                mSession.capture(reprocessReqs[i].build(), null, null);
+                mJpegListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+                getImageLatenciesMs[i] = SystemClock.elapsedRealtime() - startTimeMs;
+            }
+        }
+
+        String reprocessType = " YUV reprocessing ";
+        if (reprocessInputFormat == ImageFormat.PRIVATE) {
+            reprocessType = " opaque reprocessing ";
+        }
+
+        // Report the performance data
+        if (asyncMode) {
+            mReportLog.printArray("Camera " + mCamera.getId()
+                    + ":" + reprocessType + "capture latency", getImageLatenciesMs,
+                    ResultType.LOWER_BETTER, ResultUnit.MS);
+            mReportLog.printSummary("Camera reprocessing average latency for Camera " +
+                    mCamera.getId(), Stat.getAverage(getImageLatenciesMs), ResultType.LOWER_BETTER,
+                    ResultUnit.MS);
+        } else {
+            mReportLog.printArray("Camera " + mCamera.getId()
+                    + ":" + reprocessType + "shot to shot latency", getImageLatenciesMs,
+                    ResultType.LOWER_BETTER, ResultUnit.MS);
+            mReportLog.printSummary("Camera reprocessing shot to shot average latency for Camera " +
+                    mCamera.getId(), Stat.getAverage(getImageLatenciesMs), ResultType.LOWER_BETTER,
+                    ResultUnit.MS);
+        }
+    }
+
+    /**
+     * Start preview and ZSL streaming
+     */
+    private void startZslStreaming() throws Exception {
+        CaptureRequest.Builder zslBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG);
+        zslBuilder.addTarget(mPreviewSurface);
+        zslBuilder.addTarget(mCameraZslReader.getSurface());
+        mSession.setRepeatingRequest(zslBuilder.build(), mZslResultListener, mHandler);
+    }
+
+    /**
+     * Wait for a certain number of frames, the images and results will be drained from the
+     * listeners to make sure that next reprocessing can get matched results and images.
+     *
+     * @param numFrameWait The number of frames to wait before return, 0 means that
+     *      this call returns immediately after streaming on.
+     */
+    private void waitForFrames(int numFrameWait) {
+        if (numFrameWait < 0) {
+            throw new IllegalArgumentException("numFrameWait " + numFrameWait +
+                    " should be non-negative");
+        }
+
+        if (numFrameWait == 0) {
+            // Let is stream out for a while
+            waitForNumResults(mZslResultListener, numFrameWait);
+            // Drain the pending images, to ensure that all future images have an associated
+            // capture result available.
+            mCameraZslImageListener.drain();
+        }
+    }
+
+    private void closeReaderWriters() {
+        CameraTestUtils.closeImageReader(mCameraZslReader);
+        mCameraZslReader = null;
+        CameraTestUtils.closeImageReader(mJpegReader);
+        mJpegReader = null;
+        CameraTestUtils.closeImageWriter(mWriter);
+        mWriter = null;
+    }
+
+    private void prepareReprocessCapture(int inputFormat)
+                    throws CameraAccessException {
+        // 1. Find the right preview and capture sizes.
+        Size maxPreviewSize = mOrderedPreviewSizes.get(0);
+        Size[] supportedInputSizes =
+                mStaticInfo.getAvailableSizesForFormatChecked(inputFormat,
+                StaticMetadata.StreamDirection.Input);
+        Size maxInputSize = CameraTestUtils.getMaxSize(supportedInputSizes);
+        Size maxJpegSize = mOrderedStillSizes.get(0);
+        updatePreviewSurface(maxPreviewSize);
+        mZslResultListener = new SimpleCaptureCallback();
+
+        // 2. Create camera output ImageReaders.
+        // YUV/Opaque output, camera should support output with input size/format
+        mCameraZslImageListener = new SimpleImageReaderListener(
+                /*asyncMode*/true, MAX_ZSL_IMAGES / 2);
+        mCameraZslReader = CameraTestUtils.makeImageReader(
+                maxInputSize, inputFormat, MAX_ZSL_IMAGES, mCameraZslImageListener, mHandler);
+        // Jpeg reprocess output
+        mJpegListener = new SimpleImageReaderListener();
+        mJpegReader = CameraTestUtils.makeImageReader(
+                maxJpegSize, ImageFormat.JPEG, MAX_JPEG_IMAGES, mJpegListener, mHandler);
+
+        // create camera reprocess session
+        List<Surface> outSurfaces = new ArrayList<Surface>();
+        outSurfaces.add(mPreviewSurface);
+        outSurfaces.add(mCameraZslReader.getSurface());
+        outSurfaces.add(mJpegReader.getSurface());
+        InputConfiguration inputConfig = new InputConfiguration(maxInputSize.getWidth(),
+                maxInputSize.getHeight(), inputFormat);
+        mSessionListener = new BlockingSessionCallback();
+        mSession = CameraTestUtils.configureReprocessableCameraSession(
+                mCamera, inputConfig, outSurfaces, mSessionListener, mHandler);
+
+        // 3. Create ImageWriter for input
+        mWriter = CameraTestUtils.makeImageWriter(
+                mSession.getInputSurface(), MAX_INPUT_IMAGES, /*listener*/null, /*handler*/null);
+
     }
 
     private void blockingStopPreview() throws Exception {
@@ -289,22 +676,11 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
 
         CaptureRequest.Builder previewBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        previewBuilder.addTarget(mPreviewSurface);
+        if (mStaticInfo.isColorOutputSupported()) {
+            previewBuilder.addTarget(mPreviewSurface);
+        }
         previewBuilder.addTarget(mReaderSurface);
         mSession.setRepeatingRequest(previewBuilder.build(), listener, mHandler);
-        imageListener.waitForImageAvailable(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
-    }
-
-    private void blockingCaptureImage(CaptureCallback listener,
-            SimpleImageListener imageListener) throws Exception {
-        if (mReaderSurface == null) {
-            throw new IllegalStateException("reader surface must be initialized first");
-        }
-
-        CaptureRequest.Builder captureBuilder =
-                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-        captureBuilder.addTarget(mReaderSurface);
-        mSession.capture(captureBuilder.build(), listener, mHandler);
         imageListener.waitForImageAvailable(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
     }
 
@@ -317,7 +693,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         }
         mSessionListener = new BlockingSessionCallback();
         List<Surface> outputSurfaces = new ArrayList<>();
-        outputSurfaces.add(mPreviewSurface);
+        if (mStaticInfo.isColorOutputSupported()) {
+            outputSurfaces.add(mPreviewSurface);
+        }
         outputSurfaces.add(mReaderSurface);
         mSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
                 mSessionListener, mHandler);
@@ -329,8 +707,10 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
      * @param format The format used to create ImageReader instance.
      */
     private void initializeImageReader(String cameraId, int format) throws Exception {
-        mOrderedPreviewSizes = CameraTestUtils.getSupportedPreviewSizes(
-                cameraId, mCameraManager, CameraTestUtils.PREVIEW_SIZE_BOUND);
+        mOrderedPreviewSizes = CameraTestUtils.getSortedSizesForFormat(
+                cameraId, mCameraManager, format,
+                CameraTestUtils.getPreviewSizeBound(mWindowManager,
+                    CameraTestUtils.PREVIEW_SIZE_BOUND));
         Size maxPreviewSize = mOrderedPreviewSizes.get(0);
         createImageReader(maxPreviewSize, format, NUM_MAX_IMAGES, /*listener*/null);
         updatePreviewSurface(maxPreviewSize);

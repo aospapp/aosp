@@ -17,23 +17,24 @@
 #include "shared.rsh"
 
 int gAllowedIntError = 0;
+float gAllowedFloatError = 0.0001f;
+double gAllowedFloatMatError = 0.00000001;
+double gAllowedDoubleMatError = 0.00000000001;
 static bool hadError = false;
 static int2 errorLoc = {0,0};
 
-
 static bool compare_float(float f1, float f2) {
-    if (fabs(f1-f2) > 0.0001f) {
+    if (fabs(f1-f2) > gAllowedFloatError) {
         hadError = true;
         return false;
     }
     return true;
 }
 
-static bool verify_float4(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_float4(rs_allocation in1, rs_allocation in2) {
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             float4 pref = rsGetElementAt_float4(in1, x, y);
             float4 ptst = rsGetElementAt_float4(in2, x, y);
@@ -51,11 +52,10 @@ static bool verify_float4(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_float3(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_float3(rs_allocation in1, rs_allocation in2) {
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             float3 pref = rsGetElementAt_float3(in1, x, y);
             float3 ptst = rsGetElementAt_float3(in2, x, y);
@@ -72,11 +72,10 @@ static bool verify_float3(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_float2(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_float2(rs_allocation in1, rs_allocation in2) {
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             float2 pref = rsGetElementAt_float2(in1, x, y);
             float2 ptst = rsGetElementAt_float2(in2, x, y);
@@ -92,11 +91,10 @@ static bool verify_float2(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_float(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_float(rs_allocation in1, rs_allocation in2) {
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             float pref = rsGetElementAt_float(in1, x, y);
             float ptst = rsGetElementAt_float(in2, x, y);
@@ -111,12 +109,11 @@ static bool verify_float(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_uchar4(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_uchar4(rs_allocation in1, rs_allocation in2) {
     int merr = 0;
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             int4 pref = convert_int4(rsGetElementAt_uchar4(in1, x, y));
             int4 ptst = convert_int4(rsGetElementAt_uchar4(in2, x, y));
@@ -138,12 +135,11 @@ static bool verify_uchar4(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_uchar3(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_uchar3(rs_allocation in1, rs_allocation in2) {
     int merr = 0;
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             int3 pref = convert_int3(rsGetElementAt_uchar3(in1, x, y));
             int3 ptst = convert_int3(rsGetElementAt_uchar3(in2, x, y));
@@ -164,12 +160,11 @@ static bool verify_uchar3(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_uchar2(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_uchar2(rs_allocation in1, rs_allocation in2) {
     int merr = 0;
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             int2 pref = convert_int2(rsGetElementAt_uchar2(in1, x, y));
             int2 ptst = convert_int2(rsGetElementAt_uchar2(in2, x, y));
@@ -189,12 +184,11 @@ static bool verify_uchar2(rs_allocation in1, rs_allocation in2)
     return true;
 }
 
-static bool verify_uchar(rs_allocation in1, rs_allocation in2)
-{
+static bool verify_uchar(rs_allocation in1, rs_allocation in2) {
     int merr = 0;
     uint32_t w = rsAllocationGetDimX(in1);
     uint32_t h = rsAllocationGetDimY(in1);
-    for (uint32_t y=0; y < h; y++) {
+    for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x=0; x < w; x++) {
             int pref = rsGetElementAt_uchar(in1, x, y);
             int ptst = rsGetElementAt_uchar(in2, x, y);
@@ -232,7 +226,7 @@ static bool verify_uchar(rs_allocation in1, rs_allocation in2)
             rsDebug(txt, rsGetElementAt_uchar(a, xy.x, xy.y)); \
             break; \
         } \
-    } else { \
+    } else if (dt == RS_TYPE_FLOAT_32) { \
         switch(vs) { \
         case 4: \
             rsDebug(txt, rsGetElementAt_float4(a, xy.x, xy.y)); \
@@ -247,11 +241,24 @@ static bool verify_uchar(rs_allocation in1, rs_allocation in2)
             rsDebug(txt, rsGetElementAt_float(a, xy.x, xy.y)); \
             break; \
         } \
+    } else if (dt == RS_TYPE_FLOAT_64) { \
+        switch(vs) { \
+        case 4: \
+            rsDebug(txt, rsGetElementAt_double4(a, xy.x, xy.y)); \
+            break; \
+        case 3: \
+            rsDebug(txt, rsGetElementAt_double3(a, xy.x, xy.y)); \
+            break; \
+        case 2: \
+            rsDebug(txt, rsGetElementAt_double2(a, xy.x, xy.y)); \
+            break; \
+        case 1: \
+            rsDebug(txt, rsGetElementAt_double(a, xy.x, xy.y)); \
+        } \
     } \
 }
 
-void verify(rs_allocation ref_in, rs_allocation tst_in, rs_allocation src_in)
-{
+void verify(rs_allocation ref_in, rs_allocation tst_in, rs_allocation src_in) {
     rs_element e = rsAllocationGetElement(ref_in);
     rs_data_type dt = rsElementGetDataType(e);
     uint32_t vs = rsElementGetVectorSize(e);
@@ -293,6 +300,135 @@ void verify(rs_allocation ref_in, rs_allocation tst_in, rs_allocation src_in)
         printCell("start value     ", src_in, errorLoc);
         printCell("reference value ", ref_in, errorLoc);
         printCell("test value      ", tst_in, errorLoc);
+    }
+}
+
+
+static bool verify_CMatrix(rs_allocation in1, rs_allocation in2, double l2Norm, bool isUpperMatrix) {
+    uint32_t w = rsAllocationGetDimX(in1);
+    uint32_t h = rsAllocationGetDimY(in1);
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t xStart = 0;
+        if (isUpperMatrix) {
+            // Just test the upper matrix for certain BLAS routines
+            xStart = y;
+        }
+        for (uint32_t x = xStart; x < w; x++) {
+            float2 pref = rsGetElementAt_float2(in1, x, y);
+            float2 ptst = rsGetElementAt_float2(in2, x, y);
+            double absErr = (pref.x - ptst.x) * (pref.x - ptst.x) + (pref.y - ptst.y) * (pref.y - ptst.y);
+            if (absErr > l2Norm * gAllowedFloatMatError) {
+                errorLoc.x = x;
+                errorLoc.y = y;
+                hadError = true;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool verify_SMatrix(rs_allocation in1, rs_allocation in2, double l2Norm, bool isUpperMatrix) {
+    uint32_t w = rsAllocationGetDimX(in1);
+    uint32_t h = rsAllocationGetDimY(in1);
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t xStart = 0;
+        if (isUpperMatrix) {
+            // Just test the upper matrix for certain BLAS routines
+            xStart = y;
+        }
+        for (uint32_t x = xStart; x < w; x++) {
+            float pref = rsGetElementAt_float(in1, x, y);
+            float ptst = rsGetElementAt_float(in2, x, y);
+            double absErr = (pref - ptst) * (pref - ptst);
+            if (absErr > l2Norm * gAllowedFloatMatError) {
+                errorLoc.x = x;
+                errorLoc.y = y;
+                hadError = true;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool verify_ZMatrix(rs_allocation in1, rs_allocation in2, double l2Norm, bool isUpperMatrix) {
+    uint32_t w = rsAllocationGetDimX(in1);
+    uint32_t h = rsAllocationGetDimY(in1);
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t xStart = 0;
+        if (isUpperMatrix) {
+            // Just test the upper matrix for certain BLAS routines
+            xStart = y;
+        }
+        for (uint32_t x = xStart; x < w; x++) {
+            double2 pref = rsGetElementAt_double2(in1, x, y);
+            double2 ptst = rsGetElementAt_double2(in2, x, y);
+            double absErr = (pref.x - ptst.x) * (pref.x - ptst.x) + (pref.y - ptst.y) * (pref.y - ptst.y);
+            if (absErr > l2Norm * gAllowedDoubleMatError) {
+                errorLoc.x = x;
+                errorLoc.y = y;
+                hadError = true;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool verify_DMatrix(rs_allocation in1, rs_allocation in2, double l2Norm, bool isUpperMatrix) {
+    uint32_t w = rsAllocationGetDimX(in1);
+    uint32_t h = rsAllocationGetDimY(in1);
+    for (uint32_t y = 0; y < h; y++) {
+        uint32_t xStart = 0;
+        if (isUpperMatrix) {
+            // Just test the upper matrix for certain BLAS routines
+            xStart = y;
+        }
+        for (uint32_t x = xStart; x < w; x++) {
+            double pref = rsGetElementAt_double(in1, x, y);
+            double ptst = rsGetElementAt_double(in2, x, y);
+            double absErr = (pref - ptst) * (pref - ptst);
+            if (absErr > l2Norm * gAllowedDoubleMatError) {
+                errorLoc.x = x;
+                errorLoc.y = y;
+                hadError = true;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+void verifyMatrix(rs_allocation ref_in, rs_allocation tst_in, double l2Norm, bool isUpperMatrix) {
+    rs_element e = rsAllocationGetElement(ref_in);
+    rs_data_type dt = rsElementGetDataType(e);
+    uint32_t vs = rsElementGetVectorSize(e);
+    bool valid = false;
+
+    if (dt == RS_TYPE_FLOAT_32) {
+        switch(vs) {
+        case 2:
+            valid = verify_CMatrix(ref_in, tst_in, l2Norm, isUpperMatrix);
+            break;
+        case 1:
+            valid = verify_SMatrix(ref_in, tst_in, l2Norm, isUpperMatrix);
+            break;
+        }
+    } else if (dt == RS_TYPE_FLOAT_64) {
+        switch(vs) {
+        case 2:
+            valid = verify_ZMatrix(ref_in, tst_in, l2Norm, isUpperMatrix);
+            break;
+        case 1:
+            valid = verify_DMatrix(ref_in, tst_in, l2Norm, isUpperMatrix);
+            break;
+        }
+    }
+    if (!valid) {
+        rsDebug("verify failure at xy", errorLoc);
+        printCell("Expected value ", ref_in, errorLoc);
+        printCell("Actual value   ", tst_in, errorLoc);
     }
 }
 

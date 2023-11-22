@@ -9,4 +9,7 @@ LOCAL_CFLAGS := -Werror
 LOCAL_SHARED_LIBRARIES := liblog
 LOCAL_MODULE_TAGS := optional
 
+# power.c uses of GNU old-style field designator extension
+LOCAL_CLANG_CFLAGS += -Wno-gnu-designator
+
 include $(BUILD_SHARED_LIBRARY)

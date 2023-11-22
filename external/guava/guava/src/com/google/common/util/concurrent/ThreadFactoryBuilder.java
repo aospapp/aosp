@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * handler}
  * <li> a {@linkplain ThreadFactory#newThread backing thread factory}
  * </ul>
- * If no backing thread factory is provided, a default backing thread factory is
+ * <p>If no backing thread factory is provided, a default backing thread factory is
  * used as if by calling {@code setThreadFactory(}{@link
  * Executors#defaultThreadFactory()}{@code )}.
  *
@@ -61,9 +61,12 @@ public final class ThreadFactoryBuilder {
    * @param nameFormat a {@link String#format(String, Object...)}-compatible
    *     format String, to which a unique integer (0, 1, etc.) will be supplied
    *     as the single parameter. This integer will be unique to the built
-   *     instance of the ThreadFactory and will be assigned sequentially.
+   *     instance of the ThreadFactory and will be assigned sequentially. For
+   *     example, {@code "rpc-pool-%d"} will generate thread names like
+   *     {@code "rpc-pool-0"}, {@code "rpc-pool-1"}, {@code "rpc-pool-2"}, etc.
    * @return this for the builder pattern
    */
+  @SuppressWarnings("ReturnValueIgnored")
   public ThreadFactoryBuilder setNameFormat(String nameFormat) {
     String.format(nameFormat, 0); // fail fast if the format is bad or null
     this.nameFormat = nameFormat;

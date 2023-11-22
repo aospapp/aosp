@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.device.display.daydream;
 
-import com.android.tv.settings.dialog.old.Action;
-
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;

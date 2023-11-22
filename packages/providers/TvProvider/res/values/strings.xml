@@ -19,29 +19,38 @@
 
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_readEpgData">read TV channel/program information</string>
+    <string name="permlab_readTvListings">read all TV listings</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_readEpgData">Allows the app to read the TV channel/program information stored on your device.</string>
+    <string name="permdesc_readTvListings">Allows the app to read all the TV listings stored on your device.</string>
+
+    <!-- Title of an application permission, listed so the user can choose
+        whether they want to allow the application to do this.
+        @deprecated -->
+    <string name="permlab_readEpgData">read TV listings</string>
+    <!-- Description of an application permission, listed so the user can choose
+        whether they want to allow the application to do this.
+        @deprecated -->
+    <string name="permdesc_readEpgData">Allows the app to read its own TV listings stored on your device.</string>
 
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_writeEpgData">write TV channel/program information</string>
+    <string name="permlab_writeEpgData">write TV listings</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_writeEpgData">Allows the app to provide and modify the TV channel/program information on your device.</string>
+    <string name="permdesc_writeEpgData">Allows the app to write its own TV listings on your device storage.</string>
 
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_accessAllEpgData">access all TV channel/program information</string>
+    <string name="permlab_accessAllEpgData">access all listings</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_accessAllEpgData">Allows the app to read and write all TV channel/program data stored on your device.</string>
+    <string name="permdesc_accessAllEpgData">Allows the app to read and write all the TV listings stored on your device.</string>
 
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_accessWatchedPrograms">access watched TV program information</string>
+    <string name="permlab_accessWatchedPrograms">access TV watch history</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_accessWatchedPrograms">Allows the app to read and write the list of TV programs you watched. Malicious apps may collect your private TV watch history.</string>
+    <string name="permdesc_accessWatchedPrograms">Allows the app to read and write your TV watch history. Malicious apps may collect your private watch history.</string>
 </resources>

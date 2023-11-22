@@ -46,10 +46,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl
 
-ifndef WEBRTC_STL
-LOCAL_SHARED_LIBRARIES += libstlport
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)
@@ -69,6 +66,8 @@ LOCAL_MODULE := libwebrtc_aecm_neon
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := aecm_core_neon.c
+# Assembly code in aecm_core_neon.c does not compile with Clang.
+LOCAL_CLANG_CFLAGS_arm += -no-integrated-as
 
 # Flags passed to both C and C++ files.
 LOCAL_CFLAGS := \
@@ -85,10 +84,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../.. \
     $(LOCAL_PATH)/../../../common_audio/signal_processing/include
 
-ifndef WEBRTC_STL
-LOCAL_SHARED_LIBRARIES += libstlport
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)

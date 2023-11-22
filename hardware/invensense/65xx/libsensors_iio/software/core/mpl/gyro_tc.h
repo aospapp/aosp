@@ -12,7 +12,7 @@
  *****************************************************************************/
 
 #ifndef _GYRO_TC_H
-#define _GYRO_TC_H_
+#define _GYRO_TC_H
 
 #include "mltypes.h"
 

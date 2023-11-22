@@ -23,12 +23,16 @@ import android.content.res.AssetFileDescriptor;
 import android.cts.util.MediaUtils;
 import android.media.AudioManager;
 import android.media.MediaCodec;
+import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnErrorListener;
 import android.media.MediaRecorder;
-import android.media.MediaMetadataRetriever;
+import android.media.MediaTimestamp;
+import android.media.PlaybackParams;
+import android.media.SyncParams;
 import android.media.TimedText;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.Visualizer;
@@ -67,6 +71,8 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     private static final int  RECORDED_VIDEO_WIDTH  = 176;
     private static final int  RECORDED_VIDEO_HEIGHT = 144;
     private static final long RECORDED_DURATION_MS  = 3000;
+    private static final float FLOAT_TOLERANCE = .0001f;
+
     private Vector<Integer> mTimedTextTrackIndex = new Vector<Integer>();
     private int mSelectedTimedTextIndex;
     private Monitor mOnTimedTextCalled = new Monitor();
@@ -117,10 +123,10 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         }
     }
 
-    public void testPlayNullSource() throws Exception {
+    public void testPlayNullSourcePath() throws Exception {
         try {
             mMediaPlayer.setDataSource((String) null);
-            fail("Null URI was accepted");
+            fail("Null path was accepted");
         } catch (RuntimeException e) {
             // expected
         }
@@ -348,10 +354,6 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     }
 
     public void testPlayAudioTwice() throws Exception {
-        if (!hasAudioOutput()) {
-            Log.i(LOG_TAG, "SKIPPING testPlayAudioTwice(). No audio output.");
-            return;
-        }
 
         final int resid = R.raw.camera_click;
 
@@ -599,10 +601,6 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     }
 
     private void testGapless(int resid1, int resid2) throws Exception {
-        if (!hasAudioOutput()) {
-            Log.i(LOG_TAG, "SKIPPING testPlayAudioTwice(). No audio output.");
-            return;
-        }
 
         MediaPlayer mp1 = new MediaPlayer();
         mp1.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -838,6 +836,92 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         assertEquals(Integer.parseInt(rotation), angle);
     }
 
+    public void testPlaybackRate() throws Exception {
+        final int toleranceMs = 1000;
+        if (!checkLoadResource(
+                R.raw.video_480x360_mp4_h264_1000kbps_30fps_aac_stereo_128kbps_44100hz)) {
+            return; // skip
+        }
+
+        mMediaPlayer.setDisplay(mActivity.getSurfaceHolder());
+        mMediaPlayer.prepare();
+        SyncParams sync = new SyncParams().allowDefaults();
+        mMediaPlayer.setSyncParams(sync);
+        sync = mMediaPlayer.getSyncParams();
+
+        float[] rates = { 0.25f, 0.5f, 1.0f, 2.0f };
+        for (float playbackRate : rates) {
+            mMediaPlayer.seekTo(0);
+            Thread.sleep(1000);
+            int playTime = 4000;  // The testing clip is about 10 second long.
+            mMediaPlayer.setPlaybackParams(new PlaybackParams().setSpeed(playbackRate));
+            mMediaPlayer.start();
+            Thread.sleep(playTime);
+            PlaybackParams pbp = mMediaPlayer.getPlaybackParams();
+            assertEquals(
+                    playbackRate, pbp.getSpeed(),
+                    FLOAT_TOLERANCE + playbackRate * sync.getTolerance());
+            assertTrue("MediaPlayer should still be playing", mMediaPlayer.isPlaying());
+
+            int playedMediaDurationMs = mMediaPlayer.getCurrentPosition();
+            int diff = Math.abs((int)(playedMediaDurationMs / playbackRate) - playTime);
+            if (diff > toleranceMs) {
+                fail("Media player had error in playback rate " + playbackRate
+                     + ", play time is " + playTime + " vs expected " + playedMediaDurationMs);
+            }
+            mMediaPlayer.pause();
+            pbp = mMediaPlayer.getPlaybackParams();
+            assertEquals(0.f, pbp.getSpeed(), FLOAT_TOLERANCE);
+        }
+        mMediaPlayer.stop();
+    }
+
+    public void testGetTimestamp() throws Exception {
+        final int toleranceUs = 100000;
+        final float playbackRate = 1.0f;
+        if (!checkLoadResource(
+                R.raw.video_480x360_mp4_h264_1000kbps_30fps_aac_stereo_128kbps_44100hz)) {
+            return; // skip
+        }
+
+        mMediaPlayer.setDisplay(mActivity.getSurfaceHolder());
+        mMediaPlayer.prepare();
+        mMediaPlayer.start();
+        mMediaPlayer.setPlaybackParams(new PlaybackParams().setSpeed(playbackRate));
+        Thread.sleep(SLEEP_TIME);  // let player get into stable state.
+        long nt1 = System.nanoTime();
+        MediaTimestamp ts1 = mMediaPlayer.getTimestamp();
+        long nt2 = System.nanoTime();
+        assertTrue("Media player should return a valid time stamp", ts1 != null);
+        assertEquals("MediaPlayer had error in clockRate " + ts1.getMediaClockRate(),
+                playbackRate, ts1.getMediaClockRate(), 0.001f);
+        assertTrue("The nanoTime of Media timestamp should be taken when getTimestamp is called.",
+                nt1 <= ts1.getAnchorSytemNanoTime() && ts1.getAnchorSytemNanoTime() <= nt2);
+
+        mMediaPlayer.pause();
+        ts1 = mMediaPlayer.getTimestamp();
+        assertTrue("Media player should return a valid time stamp", ts1 != null);
+        assertTrue("Media player should have play rate of 0.0f when paused",
+                ts1.getMediaClockRate() == 0.0f);
+
+        mMediaPlayer.seekTo(0);
+        mMediaPlayer.start();
+        Thread.sleep(SLEEP_TIME);  // let player get into stable state.
+        int playTime = 4000;  // The testing clip is about 10 second long.
+        ts1 = mMediaPlayer.getTimestamp();
+        assertTrue("Media player should return a valid time stamp", ts1 != null);
+        Thread.sleep(playTime);
+        MediaTimestamp ts2 = mMediaPlayer.getTimestamp();
+        assertTrue("Media player should return a valid time stamp", ts2 != null);
+        assertTrue("The clockRate should not be changed.",
+                ts1.getMediaClockRate() == ts2.getMediaClockRate());
+        assertEquals("MediaPlayer had error in timestamp.",
+                ts1.getAnchorMediaTimeUs() + (long)(playTime * ts1.getMediaClockRate() * 1000),
+                ts2.getAnchorMediaTimeUs(), toleranceUs);
+
+        mMediaPlayer.stop();
+    }
+
     public void testLocalVideo_MP4_H264_480x360_500kbps_25fps_AAC_Stereo_128kbps_44110Hz()
             throws Exception {
         playVideoTest(
@@ -1038,13 +1122,22 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         if (trackInfos == null || trackInfos.length == 0) {
             return;
         }
+
+        Vector<Integer> externalTrackIndex = new Vector<>();
         for (int i = 0; i < trackInfos.length; ++i) {
             assertTrue(trackInfos[i] != null);
-            if (trackInfos[i].getTrackType() ==
-                 MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
-                mTimedTextTrackIndex.add(i);
+            if (trackInfos[i].getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
+                MediaFormat format = trackInfos[i].getFormat();
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (MediaPlayer.MEDIA_MIMETYPE_TEXT_SUBRIP.equals(mime)) {
+                    externalTrackIndex.add(i);
+                } else {
+                    mTimedTextTrackIndex.add(i);
+                }
             }
         }
+
+        mTimedTextTrackIndex.addAll(externalTrackIndex);
     }
 
     private int getTimedTextTrackCount() {
@@ -1310,6 +1403,42 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         return 1;
     }
 
+    public void testPositionAtEnd() throws Throwable {
+        testPositionAtEnd(R.raw.test1m1shighstereo);
+        testPositionAtEnd(R.raw.loudsoftmp3);
+        testPositionAtEnd(R.raw.loudsoftmp3);
+        testPositionAtEnd(R.raw.loudsoftwav);
+        testPositionAtEnd(R.raw.loudsoftogg);
+        testPositionAtEnd(R.raw.loudsoftitunes);
+        testPositionAtEnd(R.raw.loudsoftfaac);
+        testPositionAtEnd(R.raw.loudsoftaac);
+    }
+
+    private void testPositionAtEnd(int res) throws Throwable {
+
+        loadResource(res);
+        mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mMediaPlayer.prepare();
+        int duration = mMediaPlayer.getDuration();
+        assertTrue("resource too short", duration > 6000);
+        mOnCompletionCalled.reset();
+        mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                mOnCompletionCalled.signal();
+            }
+        });
+        mMediaPlayer.seekTo(duration - 5000);
+        mMediaPlayer.start();
+        while (mMediaPlayer.isPlaying()) {
+            Log.i("@@@@", "position: " + mMediaPlayer.getCurrentPosition());
+            Thread.sleep(500);
+        }
+        Log.i("@@@@", "final position: " + mMediaPlayer.getCurrentPosition());
+        assertTrue(mMediaPlayer.getCurrentPosition() > duration - 1000);
+        mMediaPlayer.reset();
+    }
+
     public void testCallback() throws Throwable {
         final int mp4Duration = 8484;
 
@@ -1469,5 +1598,95 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     private boolean hasMicrophone() {
         return getActivity().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_MICROPHONE);
+    }
+
+    // Smoke test playback from a MediaDataSource.
+    public void testPlaybackFromAMediaDataSource() throws Exception {
+        final int resid = R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+        final int duration = 10000;
+
+        if (!MediaUtils.hasCodecsForResource(mContext, resid)) {
+            return;
+        }
+
+        TestMediaDataSource dataSource =
+                TestMediaDataSource.fromAssetFd(mResources.openRawResourceFd(resid));
+        // Test returning -1 from getSize() to indicate unknown size.
+        dataSource.returnFromGetSize(-1);
+        mMediaPlayer.setDataSource(dataSource);
+        playLoadedVideo(null, null, -1);
+        assertTrue(mMediaPlayer.isPlaying());
+
+        // Test pause and restart.
+        mMediaPlayer.pause();
+        Thread.sleep(SLEEP_TIME);
+        assertFalse(mMediaPlayer.isPlaying());
+        mMediaPlayer.start();
+        assertTrue(mMediaPlayer.isPlaying());
+
+        // Test reset.
+        mMediaPlayer.stop();
+        mMediaPlayer.reset();
+        mMediaPlayer.setDataSource(dataSource);
+        mMediaPlayer.prepare();
+        mMediaPlayer.start();
+        assertTrue(mMediaPlayer.isPlaying());
+
+        // Test seek. Note: the seek position is cached and returned as the
+        // current position so there's no point in comparing them.
+        mMediaPlayer.seekTo(duration - SLEEP_TIME);
+        while (mMediaPlayer.isPlaying()) {
+            Thread.sleep(SLEEP_TIME);
+        }
+    }
+
+    public void testNullMediaDataSourceIsRejected() throws Exception {
+        try {
+            mMediaPlayer.setDataSource((MediaDataSource) null);
+            fail("Null MediaDataSource was accepted");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    public void testMediaDataSourceIsClosedOnReset() throws Exception {
+        TestMediaDataSource dataSource = new TestMediaDataSource(new byte[0]);
+        mMediaPlayer.setDataSource(dataSource);
+        mMediaPlayer.reset();
+        assertTrue(dataSource.isClosed());
+    }
+
+    public void testPlaybackFailsIfMediaDataSourceThrows() throws Exception {
+        final int resid = R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+        if (!MediaUtils.hasCodecsForResource(mContext, resid)) {
+            return;
+        }
+
+        setOnErrorListener();
+        TestMediaDataSource dataSource =
+                TestMediaDataSource.fromAssetFd(mResources.openRawResourceFd(resid));
+        mMediaPlayer.setDataSource(dataSource);
+        mMediaPlayer.prepare();
+
+        dataSource.throwFromReadAt();
+        mMediaPlayer.start();
+        assertTrue(mOnErrorCalled.waitForSignal());
+    }
+
+    public void testPlaybackFailsIfMediaDataSourceReturnsAnError() throws Exception {
+        final int resid = R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+        if (!MediaUtils.hasCodecsForResource(mContext, resid)) {
+            return;
+        }
+
+        setOnErrorListener();
+        TestMediaDataSource dataSource =
+                TestMediaDataSource.fromAssetFd(mResources.openRawResourceFd(resid));
+        mMediaPlayer.setDataSource(dataSource);
+        mMediaPlayer.prepare();
+
+        dataSource.returnFromReadAt(-2);
+        mMediaPlayer.start();
+        assertTrue(mOnErrorCalled.waitForSignal());
     }
 }

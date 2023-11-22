@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
-libgabi++_cflags := \
-	-I$(LOCAL_PATH)/include 
+libgabi++_c_includes := \
+	$(LOCAL_PATH)/include \
 
 libgabi++_common_src_files := \
 	src/array_type_info.cc \
@@ -19,37 +19,23 @@ libgabi++_common_src_files := \
 	src/vmi_class_type_info.cc
 
 include $(CLEAR_VARS)
-
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE_TAGS := optional
-
 LOCAL_CPP_EXTENSION := .cc
-
 LOCAL_SRC_FILES:= $(libgabi++_common_src_files)
-
 LOCAL_MODULE:= libgabi++
-
-LOCAL_CFLAGS := $(libgabi++_cflags)
-
+LOCAL_C_INCLUDES := $(libgabi++_c_includes)
 LOCAL_RTTI_FLAG := -frtti
-
-LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-
+LOCAL_CXX_STL := libstdc++
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
-
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE_TAGS := optional
-
 LOCAL_CPP_EXTENSION := .cc
-
 LOCAL_SRC_FILES:= $(libgabi++_common_src_files)
-
 LOCAL_MODULE:= libgabi++
-
-LOCAL_CFLAGS := $(libgabi++_cflags)
-
+LOCAL_C_INCLUDES := $(libgabi++_c_includes)
 LOCAL_RTTI_FLAG := -frtti
-
-LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-
+LOCAL_CXX_STL := libstdc++
 include $(BUILD_STATIC_LIBRARY)

@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
 mcld_support_SRC_FILES := \
-  CommandLine.cpp \
+  Demangle.cpp \
   Directory.cpp \
   FileHandle.cpp \
   FileOutputBuffer.cpp \
@@ -15,8 +15,7 @@ mcld_support_SRC_FILES := \
   RealPath.cpp \
   SystemUtils.cpp \
   Target.cpp \
-  TargetRegistry.cpp \
-  ToolOutputFile.cpp
+  TargetRegistry.cpp
 
 # For the host
 # =====================================================

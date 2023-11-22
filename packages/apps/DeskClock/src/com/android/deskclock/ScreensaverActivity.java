@@ -16,16 +16,18 @@
 
 package com.android.deskclock;
 
-import android.app.Activity;
 import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
+import android.database.ContentObserver;
 import android.os.BatteryManager;
+import android.os.Build;
 import android.os.Handler;
-import android.util.Log;
+import android.provider.Settings;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -33,13 +35,16 @@ import android.widget.TextClock;
 
 import com.android.deskclock.Utils.ScreensaverMoveSaverRunnable;
 
-public class ScreensaverActivity extends Activity {
+public class ScreensaverActivity extends AppCompatActivity {
     static final boolean DEBUG = false;
     static final String TAG = "DeskClock/ScreensaverActivity";
 
     // This value must match android:defaultValue of
     // android:key="screensaver_clock_style" in dream_settings.xml
     static final String DEFAULT_CLOCK_STYLE = "digital";
+
+    private static final boolean PRE_L_DEVICE =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP;
 
     private View mContentView, mSaverView;
     private View mAnalogClock, mDigitalClock;
@@ -58,9 +63,7 @@ public class ScreensaverActivity extends Activity {
     private final BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (DEBUG) {
-                Log.v(TAG, "ScreensaverActivity onReceive, action: " + intent.getAction());
-            }
+            LogUtils.v(TAG, "ScreensaverActivity onReceive, action: " + intent.getAction());
 
             boolean changed = intent.getAction().equals(Intent.ACTION_TIME_CHANGED)
                     || intent.getAction().equals(Intent.ACTION_TIMEZONE_CHANGED);
@@ -86,6 +89,16 @@ public class ScreensaverActivity extends Activity {
         }
     };
 
+    /* Register ContentObserver to see alarm changes for pre-L */
+    private final ContentObserver mSettingsContentObserver = PRE_L_DEVICE
+        ? new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange) {
+                Utils.refreshAlarm(ScreensaverActivity.this, mContentView);
+            }
+        }
+        : null;
+
     // Thread that runs every midnight and refreshes the date.
     private final Runnable mMidnightUpdater = new Runnable() {
         @Override
@@ -96,7 +109,7 @@ public class ScreensaverActivity extends Activity {
     };
 
     public ScreensaverActivity() {
-        if (DEBUG) Log.d(TAG, "Screensaver allocated");
+        LogUtils.d(TAG, "Screensaver allocated");
         mMoveSaverRunnable = new ScreensaverMoveSaverRunnable(mHandler);
     }
 
@@ -110,6 +123,12 @@ public class ScreensaverActivity extends Activity {
         filter.addAction(Intent.ACTION_TIME_CHANGED);
         filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         registerReceiver(mIntentReceiver, filter);
+        if (PRE_L_DEVICE) {
+            getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(Settings.System.NEXT_ALARM_FORMATTED),
+                false,
+                mSettingsContentObserver);
+        }
     }
 
     @Override
@@ -136,19 +155,21 @@ public class ScreensaverActivity extends Activity {
     public void onPause() {
         mHandler.removeCallbacks(mMoveSaverRunnable);
         Utils.cancelMidnightUpdater(mHandler, mMidnightUpdater);
-        finish();
         super.onPause();
     }
 
     @Override
     public void onStop() {
+        if (PRE_L_DEVICE) {
+            getContentResolver().unregisterContentObserver(mSettingsContentObserver);
+        }
         unregisterReceiver(mIntentReceiver);
         super.onStop();
    }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
-        if (DEBUG) Log.d(TAG, "Screensaver configuration changed");
+        LogUtils.d(TAG, "Screensaver configuration changed");
         super.onConfigurationChanged(newConfig);
         mHandler.removeCallbacks(mMoveSaverRunnable);
         layoutClockSaver();
@@ -186,8 +207,8 @@ public class ScreensaverActivity extends Activity {
         mDigitalClock = findViewById(R.id.digital_clock);
         mAnalogClock = findViewById(R.id.analog_clock);
         setClockStyle();
-        Utils.setTimeFormat((TextClock)mDigitalClock,
-            (int)getResources().getDimension(R.dimen.main_ampm_font_size));
+        Utils.setTimeFormat(this, (TextClock) mDigitalClock,
+                getResources().getDimensionPixelSize(R.dimen.main_ampm_font_size));
 
         mContentView = (View) mSaverView.getParent();
         mContentView.forceLayout();

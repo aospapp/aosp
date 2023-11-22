@@ -58,6 +58,11 @@
 #define CONTEXT(id) ((object_context_p) object_heap_lookup( &driver_data->context_heap, id ))
 #define CONFIG(id)  ((object_config_p) object_heap_lookup( &driver_data->config_heap, id ))
 
+/*picture structure*/
+#define TOP_FIELD                       1
+#define BOTTOM_FIELD                    2
+#define FRAME_PICTURE                   3
+
 #define CHECK_SURFACE_REALLOC(psb_surface, msvdx_rotate, need)  \
 do {                                                            \
     int old_rotate = GET_SURFACE_INFO_rotate(psb_surface);      \
@@ -369,8 +374,17 @@ void psb_CheckInterlaceRotate(object_context_p obj_context, unsigned char *pic_p
 
     switch (obj_context->profile) {
     case VAProfileMPEG2Simple:
-    case VAProfileMPEG2Main:
+    case VAProfileMPEG2Main: {
+        VAPictureParameterBufferMPEG2 *pic_params = (VAPictureParameterBufferMPEG2 *)pic_param_tmp;
+        if ((pic_params->picture_coding_extension.bits.picture_structure == TOP_FIELD) ||
+            (pic_params->picture_coding_extension.bits.picture_structure == BOTTOM_FIELD) ||
+            ((pic_params->picture_coding_extension.bits.picture_structure == FRAME_PICTURE) &&
+             (pic_params->picture_coding_extension.bits.progressive_frame == 0)))
+            obj_context->interlaced_stream = 1;
+        else
+            obj_context->interlaced_stream = 0;
         break;
+    }
     case VAProfileMPEG4Simple:
     case VAProfileMPEG4AdvancedSimple:
     case VAProfileMPEG4Main:
@@ -412,7 +426,7 @@ void psb_CheckInterlaceRotate(object_context_p obj_context, unsigned char *pic_p
         if (obj_context->interlaced_stream) {
             SET_SURFACE_INFO_rotate(obj_surface->psb_surface, 0);
             obj_context->msvdx_rotate = 0;
-            share_info->bob_deinterlace = 1;
+            share_info->bob_deinterlace = 1; //enable interlace flag
         } else {
            share_info->bob_deinterlace = 0;
        }

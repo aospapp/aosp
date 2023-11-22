@@ -15,41 +15,21 @@
  */
 
 #include "ip.rsh"
-//#pragma rs_fp_relaxed
+#pragma rs_fp_relaxed
 
-static int histR[256] = {0}, histG[256] = {0}, histB[256] = {0};
-
-rs_allocation histogramSource;
-uint32_t histogramHeight;
-uint32_t histogramWidth;
-
-static float scaleR;
-static float scaleG;
-static float scaleB;
+rs_allocation histogramValues;
+static float3 scale;
 
 static uchar4 estimateWhite() {
-
-    for (int i = 0; i < 256; i++) {
-        histR[i] = 0; histG[i] = 0; histB[i] = 0;
-    }
-
-    for (uint32_t i = 0; i < histogramHeight; i++) {
-        for (uint32_t j = 0; j < histogramWidth; j++) {
-            uchar4 in = rsGetElementAt_uchar4(histogramSource, j, i);
-            histR[in.r]++;
-            histG[in.g]++;
-            histB[in.b]++;
-        }
-    }
-
     int min_r = -1, min_g = -1, min_b = -1;
     int max_r =  0, max_g =  0, max_b =  0;
     int sum_r =  0, sum_g =  0, sum_b =  0;
 
     for (int i = 1; i < 255; i++) {
-        int r = histR[i];
-        int g = histG[i];
-        int b = histB[i];
+        int4 hv = rsGetElementAt_int4(histogramValues, i);
+        int r = hv.r;
+        int g = hv.g;
+        int b = hv.b;
         sum_r += r;
         sum_g += g;
         sum_b += b;
@@ -73,9 +53,10 @@ static uchar4 estimateWhite() {
     int tmp_r = 0, tmp_g = 0, tmp_b = 0;
 
     for (int i = 254; i >0; i--) {
-        int r = histR[i];
-        int g = histG[i];
-        int b = histB[i];
+        int4 hv = rsGetElementAt_int4(histogramValues, i);
+        int r = hv.r;
+        int g = hv.g;
+        int b = hv.b;
         tmp_r += r;
         tmp_g += g;
         tmp_b += b;
@@ -115,28 +96,18 @@ void prepareWhiteBalance() {
     int maximum = max(estimation.r, max(estimation.g, estimation.b));
     float avg = (minimum + maximum) / 2.f;
 
-    scaleR =  avg/estimation.r;
-    scaleG =  avg/estimation.g;
-    scaleB =  avg/estimation.b;
-
+    scale.r =  avg / estimation.r;
+    scale.g =  avg / estimation.g;
+    scale.b =  avg / estimation.b;
 }
 
-static unsigned char contrastClamp(int c)
-{
-    int N = 255;
-    c &= ~(c >> 31);
-    c -= N;
-    c &= (c >> 31);
-    c += N;
-    return  (unsigned char) c;
-}
+uchar4 RS_KERNEL whiteBalanceKernel(uchar4 in) {
+    float3 t = convert_float3(in.rgb);
+    t *= scale;
+    t = min(t, 255.f);
 
-void whiteBalanceKernel(const uchar4 *in, uchar4 *out) {
-    float Rc =  in->r*scaleR;
-    float Gc =  in->g*scaleG;
-    float Bc =  in->b*scaleB;
-
-    out->r = contrastClamp(Rc);
-    out->g = contrastClamp(Gc);
-    out->b = contrastClamp(Bc);
+    uchar4 out;
+    out.rgb = convert_uchar3(t);
+    out.a = 255;
+    return out;
 }

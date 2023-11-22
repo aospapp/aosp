@@ -65,7 +65,7 @@ final class WifiNotificationController {
     /**
      * The Notification object given to the NotificationManager.
      */
-    private Notification mNotification;
+    private Notification.Builder mNotificationBuilder;
     /**
      * Whether the notification is being shown, as set by us. That is, if the
      * user cancels the notification, we will not receive the callback so this
@@ -229,31 +229,32 @@ final class WifiNotificationController {
                 return;
             }
 
-            if (mNotification == null) {
-                // Cache the Notification object.
-                mNotification = new Notification();
-                mNotification.when = 0;
-                mNotification.icon = ICON_NETWORKS_AVAILABLE;
-                mNotification.flags = Notification.FLAG_AUTO_CANCEL;
-                mNotification.contentIntent = TaskStackBuilder.create(mContext)
-                        .addNextIntentWithParentStack(
-                                new Intent(WifiManager.ACTION_PICK_WIFI_NETWORK))
-                        .getPendingIntent(0, 0, null, UserHandle.CURRENT);
+            if (mNotificationBuilder == null) {
+                // Cache the Notification builder object.
+                mNotificationBuilder = new Notification.Builder(mContext)
+                        .setWhen(0)
+                        .setSmallIcon(ICON_NETWORKS_AVAILABLE)
+                        .setAutoCancel(true)
+                        .setContentIntent(TaskStackBuilder.create(mContext)
+                                .addNextIntentWithParentStack(
+                                        new Intent(WifiManager.ACTION_PICK_WIFI_NETWORK))
+                                .getPendingIntent(0, 0, null, UserHandle.CURRENT))
+                        .setColor(mContext.getResources().getColor(
+                                com.android.internal.R.color.system_notification_accent_color));
             }
 
             CharSequence title = mContext.getResources().getQuantityText(
                     com.android.internal.R.plurals.wifi_available, numNetworks);
             CharSequence details = mContext.getResources().getQuantityText(
                     com.android.internal.R.plurals.wifi_available_detailed, numNetworks);
-            mNotification.tickerText = title;
-            mNotification.color = mContext.getResources().getColor(
-                    com.android.internal.R.color.system_notification_accent_color);
-            mNotification.setLatestEventInfo(mContext, title, details, mNotification.contentIntent);
+            mNotificationBuilder.setTicker(title);
+            mNotificationBuilder.setContentTitle(title);
+            mNotificationBuilder.setContentText(details);
 
             mNotificationRepeatTime = System.currentTimeMillis() + NOTIFICATION_REPEAT_DELAY_MS;
 
-            notificationManager.notifyAsUser(null, ICON_NETWORKS_AVAILABLE, mNotification,
-                    UserHandle.ALL);
+            notificationManager.notifyAsUser(null, ICON_NETWORKS_AVAILABLE,
+                    mNotificationBuilder.build(), UserHandle.ALL);
         } else {
             notificationManager.cancelAsUser(null, ICON_NETWORKS_AVAILABLE, UserHandle.ALL);
         }

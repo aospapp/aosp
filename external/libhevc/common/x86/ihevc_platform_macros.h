@@ -91,6 +91,57 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
     }
 }
 
+/**
+******************************************************************************
+ *  @brief  returns postion of msb bit for 32bit input
+******************************************************************************
+ */
+#define GET_POS_MSB_32(r,word)                         \
+{                                                       \
+    if(word)                                           \
+    {                                                   \
+        r = 31 - __builtin_clz(word);                  \
+    }                                                   \
+    else                                                \
+    {                                                   \
+        r = -1;                                         \
+    }                                                   \
+}
+
+/**
+******************************************************************************
+ *  @brief  returns postion of msb bit for 64bit input
+******************************************************************************
+ */
+#define GET_POS_MSB_64(r,word)                          \
+{                                                       \
+    if(word)                                            \
+    {                                                   \
+        r = 63 - __builtin_clzll(word);                 \
+    }                                                   \
+    else                                                \
+    {                                                   \
+        r = -1;                                         \
+    }                                                   \
+}
+
+
+/**
+******************************************************************************
+ *  @brief  returns max number of bits required to represent input word (max 32bits)
+******************************************************************************
+ */
+#define GETRANGE(r,word)                                \
+{                                                       \
+    if(word)                                            \
+    {                                                   \
+        r = 32 - __builtin_clz(word);                   \
+    }                                                   \
+    else                                                \
+    {                                                   \
+        r = 1;                                          \
+    }                                                   \
+}
 #define GCC_ENABLE 1
 
 #if GCC_ENABLE

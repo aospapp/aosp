@@ -16,14 +16,16 @@
 
 package com.android.server.telecom;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import android.content.Context;
 import android.os.PowerManager;
-import android.telecom.CallState;
 
 /**
  * Handles acquisition and release of wake locks relating to call state.
  */
-class InCallWakeLockController extends CallsManagerListenerBase {
+@VisibleForTesting
+public class InCallWakeLockController extends CallsManagerListenerBase {
 
     private static final String TAG = "InCallWakeLockContoller";
 
@@ -31,7 +33,8 @@ class InCallWakeLockController extends CallsManagerListenerBase {
     private final PowerManager.WakeLock mFullWakeLock;
     private final CallsManager mCallsManager;
 
-    InCallWakeLockController(Context context, CallsManager callsManager) {
+    @VisibleForTesting
+    public InCallWakeLockController(Context context, CallsManager callsManager) {
         mContext = context;
         mCallsManager = callsManager;
 

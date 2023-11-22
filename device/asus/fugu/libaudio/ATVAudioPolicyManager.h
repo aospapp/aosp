@@ -20,7 +20,7 @@
 #include <utils/Timers.h>
 #include <utils/Errors.h>
 #include <utils/KeyedVector.h>
-#include <AudioPolicyManager.h>
+#include <managerdefault/AudioPolicyManager.h>
 
 #ifndef ANDROID_ATV_AUDIO_POLICY_MANAGER_H
 #define ANDROID_ATV_AUDIO_POLICY_MANAGER_H
@@ -35,14 +35,14 @@ public:
 
     virtual status_t setDeviceConnectionState(audio_devices_t device,
                                               audio_policy_dev_state_t state,
-                                              const char *device_address);
+                                              const char *device_address,
+                                              const char *device_name);
 
     virtual audio_devices_t getDeviceForInputSource(audio_source_t inputSource);
 
 protected:
     virtual float computeVolume(audio_stream_type_t stream,
                                 int index,
-                                audio_io_handle_t output,
                                 audio_devices_t device);
 
 private:

@@ -31,6 +31,7 @@
 package com.google.protobuf.nano;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Abstract interface implemented by Protocol Message objects.
@@ -151,6 +152,31 @@ public abstract class MessageNano {
     }
 
     /**
+     * Compares two {@code MessageNano}s and returns true if the message's are the same class and
+     * have serialized form equality (i.e. all of the field values are the same).
+     */
+    public static final boolean messageNanoEquals(MessageNano a, MessageNano b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        if (a.getClass() != b.getClass()) {
+          return false;
+        }
+        final int serializedSize = a.getSerializedSize();
+        if (b.getSerializedSize() != serializedSize) {
+            return false;
+        }
+        final byte[] aByteArray = new byte[serializedSize];
+        final byte[] bByteArray = new byte[serializedSize];
+        toByteArray(a, aByteArray, 0, serializedSize);
+        toByteArray(b, bByteArray, 0, serializedSize);
+        return Arrays.equals(aByteArray, bByteArray);
+    }
+
+    /**
      * Returns a string that is (mostly) compatible with ProtoBuffer's TextFormat. Note that groups
      * (which are deprecated) are not serialized with the correct field name.
      *
@@ -160,5 +186,13 @@ public abstract class MessageNano {
     @Override
     public String toString() {
         return MessageNanoPrinter.print(this);
+    }
+
+    /**
+     * Provides support for cloning. This only works if you specify the generate_clone method.
+     */
+    @Override
+    public MessageNano clone() throws CloneNotSupportedException {
+        return (MessageNano) super.clone();
     }
 }

@@ -16,26 +16,22 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import com.android.tv.settings.R;
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
 import android.os.Bundle;
-import android.os.Handler;
 import android.text.InputType;
-import android.text.TextUtils;
-import android.text.method.PasswordTransformationMethod;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.View.OnClickListener;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.TextView;
+
+import com.android.tv.settings.R;
 
 /**
  * Displays a UI for text input in the "wizard" style.
@@ -55,55 +51,44 @@ public class PasswordInputWizardFragment extends Fragment {
 
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_DESCRIPTION = "description";
-    private static final String EXTRA_INPUT_TYPE = "input_type";
     private static final String EXTRA_PREFILL = "prefill";
-    private static final String EXTRA_EDIT_SUFFIX = "edit_suffix";
-
-    public static PasswordInputWizardFragment newInstance(
-            String title, String description, int inputType, String prefill) {
-        return newInstance(title, description, inputType, prefill, null);
-    }
 
     //TODO: Add a boolean parameter that controls whether the default is show or hide
-    private static PasswordInputWizardFragment newInstance(
-            String title, String description, int inputType, String prefill, String editSuffix) {
+    public static PasswordInputWizardFragment newInstance(
+            String title, String description, String prefill) {
         PasswordInputWizardFragment fragment = new PasswordInputWizardFragment();
         Bundle args = new Bundle();
         args.putString(EXTRA_TITLE, title);
         args.putString(EXTRA_DESCRIPTION, description);
-        args.putInt(EXTRA_INPUT_TYPE, inputType);
         args.putString(EXTRA_PREFILL, prefill);
-        args.putString(EXTRA_EDIT_SUFFIX, editSuffix);
         fragment.setArguments(args);
         return fragment;
     }
 
-    private Handler mHandler;
     private EditText mTextInput;
-    private CheckBox textObsufactionToggle;
+    private CheckBox mTextObsufactionToggle;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
-        mHandler = new Handler();
-        View view = inflater.inflate(R.layout.account_content_area, container, false);
-        View content = inflater.inflate(R.layout.wifi_content, null);
-        View action = inflater.inflate(R.layout.password_text_input, null);
-        ((ViewGroup) view.findViewById(R.id.description)).addView(content);
-        ((ViewGroup) view.findViewById(R.id.action)).addView(action);
+        final View view = inflater.inflate(R.layout.account_content_area, container, false);
+
+        final ViewGroup descriptionArea = (ViewGroup) view.findViewById(R.id.description);
+        final View content = inflater.inflate(R.layout.wifi_content, descriptionArea, false);
+        descriptionArea.addView(content);
+
+        final ViewGroup actionArea = (ViewGroup) view.findViewById(R.id.action);
+        final View action = inflater.inflate(R.layout.password_text_input, actionArea, false);
+        actionArea.addView(action);
 
         TextView titleText = (TextView) content.findViewById(R.id.title_text);
         TextView descriptionText = (TextView) content.findViewById(R.id.description_text);
         mTextInput = (EditText) action.findViewById(R.id.text_input);
-        textObsufactionToggle = (CheckBox) action.findViewById(R.id.text_obfuscation_toggle);
+        mTextObsufactionToggle = (CheckBox) action.findViewById(R.id.text_obfuscation_toggle);
 
-        TextView editSuffixText = (TextView) action.findViewById(R.id.edit_suffix_text);
-
-        Bundle args = getArguments();
-        String title = args.getString(EXTRA_TITLE);
-        String description = args.getString(EXTRA_DESCRIPTION);
-        int inputType = args.getInt(EXTRA_INPUT_TYPE);
-        String prefill = args.getString(EXTRA_PREFILL);
-        String editSuffix = args.getString(EXTRA_EDIT_SUFFIX);
+        final Bundle args = getArguments();
+        final String title = args.getString(EXTRA_TITLE);
+        final String description = args.getString(EXTRA_DESCRIPTION);
+        final String prefill = args.getString(EXTRA_PREFILL);
 
         if (title != null) {
             titleText.setText(title);
@@ -119,34 +104,14 @@ public class PasswordInputWizardFragment extends Fragment {
             descriptionText.setVisibility(View.GONE);
         }
 
-        if (editSuffix != null) {
-            ViewGroup.LayoutParams params = mTextInput.getLayoutParams();
-            params.width = getActivity()
-                    .getResources().getDimensionPixelSize(R.dimen.edit_text_width_small);
-            editSuffixText.setText(editSuffix);
-            editSuffixText.setVisibility(View.VISIBLE);
-        } else {
-            editSuffixText.setVisibility(View.GONE);
-        }
-
-        textObsufactionToggle.setOnClickListener(new OnClickListener() {
-
+        mTextObsufactionToggle.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean hidePassword = textObsufactionToggle.isChecked();
-                if (hidePassword) {
-                    mTextInput.setTransformationMethod(new PasswordTransformationMethod());
-                } else {
-                    mTextInput.setTransformationMethod(null);
-                }
+                updatePasswordInputObfuscation();
             }
         });
 
-        if (textObsufactionToggle.isChecked()) {
-            mTextInput.setTransformationMethod(new PasswordTransformationMethod());
-        }
-        mTextInput.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS |
-            InputType.TYPE_CLASS_TEXT);
+        updatePasswordInputObfuscation();
 
         if (prefill != null) {
             mTextInput.setText(prefill);
@@ -159,9 +124,14 @@ public class PasswordInputWizardFragment extends Fragment {
                 if (event == null || event.getAction() == KeyEvent.ACTION_UP) {
                     Activity a = getActivity();
                     if (a instanceof Listener) {
-                        return ((Listener) a).onPasswordInputComplete(v.getText().toString());
+                        boolean inputValid =
+                                ((Listener) a).onPasswordInputComplete(v.getText().toString());
+                        if (inputValid) {
+                            InputMethodManager imm = (InputMethodManager) getActivity()
+                                    .getSystemService(Context.INPUT_METHOD_SERVICE);
+                            imm.hideSoftInputFromWindow(mTextInput.getWindowToken(), 0);
+                        }
                     }
-                    return false;
                 }
                 return true;  // If we don't return true on ACTION_DOWN, we don't get the ACTION_UP.
             }
@@ -170,28 +140,11 @@ public class PasswordInputWizardFragment extends Fragment {
         return view;
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                Activity a = getActivity();
-                if (a != null) {
-                    InputMethodManager inputMethodManager = (InputMethodManager) a.getSystemService(
-                            Context.INPUT_METHOD_SERVICE);
-                    inputMethodManager.showSoftInput(mTextInput, 0);
-                    mTextInput.requestFocus();
-                }
-            }
-        });
+    public void updatePasswordInputObfuscation() {
+        mTextInput.setInputType(InputType.TYPE_CLASS_TEXT |
+                (mTextObsufactionToggle.isChecked() ?
+                        InputType.TYPE_TEXT_VARIATION_PASSWORD :
+                        InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
     }
 
-    @Override
-    public void onPause() {
-        InputMethodManager imm = (InputMethodManager) getActivity()
-                .getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(mTextInput.getWindowToken(), 0);
-        super.onPause();
-    }
 }

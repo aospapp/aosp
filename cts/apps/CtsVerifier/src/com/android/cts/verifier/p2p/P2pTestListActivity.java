@@ -125,12 +125,12 @@ public class P2pTestListActivity extends PassFailButtons.TestListActivity {
      * If WiFi Direct is disabled, show the dialog to jump to system setting activity.
      **/
     @Override
-    protected void onListItemClick(ListView listView, View view, int position, long id) {
+    protected void handleItemClick(ListView listView, View view, int position, long id) {
         if (!mIsP2pEnabled) {
             showP2pEnableDialog();
             return;
         }
-        super.onListItemClick(listView, view, position, id);
+        super.handleItemClick(listView, view, position, id);
     }
 
     /**

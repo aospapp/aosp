@@ -20,11 +20,11 @@
 #include <stdio.h>
 #include <memory>
 
-#include "class_linker.h"
+#include "art_method-inl.h"
+#include "class_linker-inl.h"
 #include "common_compiler_test.h"
 #include "dex_file.h"
 #include "gc/heap.h"
-#include "mirror/art_method-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/dex_cache-inl.h"
@@ -41,7 +41,7 @@ class CompilerDriverTest : public CommonCompilerTest {
     TimingLogger timings("CompilerDriverTest::CompileAll", false, false);
     TimingLogger::ScopedTiming t(__FUNCTION__, &timings);
     compiler_driver_->CompileAll(class_loader,
-                                 Runtime::Current()->GetCompileTimeClassPath(class_loader),
+                                 GetDexFiles(class_loader),
                                  &timings);
     t.NewTiming("MakeAllExecutable");
     MakeAllExecutable(class_loader);
@@ -56,21 +56,20 @@ class CompilerDriverTest : public CommonCompilerTest {
     CHECK(started);
     env_ = Thread::Current()->GetJniEnv();
     class_ = env_->FindClass(class_name);
-    CHECK(class_ != NULL) << "Class not found: " << class_name;
+    CHECK(class_ != nullptr) << "Class not found: " << class_name;
     if (is_virtual) {
       mid_ = env_->GetMethodID(class_, method, signature);
     } else {
       mid_ = env_->GetStaticMethodID(class_, method, signature);
     }
-    CHECK(mid_ != NULL) << "Method not found: " << class_name << "." << method << signature;
+    CHECK(mid_ != nullptr) << "Method not found: " << class_name << "." << method << signature;
   }
 
   void MakeAllExecutable(jobject class_loader) {
-    const std::vector<const DexFile*>& class_path
-        = Runtime::Current()->GetCompileTimeClassPath(class_loader);
+    const std::vector<const DexFile*> class_path = GetDexFiles(class_loader);
     for (size_t i = 0; i != class_path.size(); ++i) {
       const DexFile* dex_file = class_path[i];
-      CHECK(dex_file != NULL);
+      CHECK(dex_file != nullptr);
       MakeDexFileExecutable(class_loader, *dex_file);
     }
   }
@@ -85,12 +84,13 @@ class CompilerDriverTest : public CommonCompilerTest {
       Handle<mirror::ClassLoader> loader(
           hs.NewHandle(soa.Decode<mirror::ClassLoader*>(class_loader)));
       mirror::Class* c = class_linker->FindClass(soa.Self(), descriptor, loader);
-      CHECK(c != NULL);
-      for (size_t i = 0; i < c->NumDirectMethods(); i++) {
-        MakeExecutable(c->GetDirectMethod(i));
+      CHECK(c != nullptr);
+      const auto pointer_size = class_linker->GetImagePointerSize();
+      for (auto& m : c->GetDirectMethods(pointer_size)) {
+        MakeExecutable(&m);
       }
-      for (size_t i = 0; i < c->NumVirtualMethods(); i++) {
-        MakeExecutable(c->GetVirtualMethod(i));
+      for (auto& m : c->GetVirtualMethods(pointer_size)) {
+        MakeExecutable(&m);
       }
     }
   }
@@ -102,46 +102,42 @@ class CompilerDriverTest : public CommonCompilerTest {
 
 // Disabled due to 10 second runtime on host
 TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
-  CompileAll(NULL);
+  CompileAll(nullptr);
 
   // All libcore references should resolve
   ScopedObjectAccess soa(Thread::Current());
-  const DexFile* dex = java_lang_dex_file_;
-  mirror::DexCache* dex_cache = class_linker_->FindDexCache(*dex);
-  EXPECT_EQ(dex->NumStringIds(), dex_cache->NumStrings());
+  ASSERT_TRUE(java_lang_dex_file_ != nullptr);
+  const DexFile& dex = *java_lang_dex_file_;
+  mirror::DexCache* dex_cache = class_linker_->FindDexCache(dex);
+  EXPECT_EQ(dex.NumStringIds(), dex_cache->NumStrings());
   for (size_t i = 0; i < dex_cache->NumStrings(); i++) {
     const mirror::String* string = dex_cache->GetResolvedString(i);
-    EXPECT_TRUE(string != NULL) << "string_idx=" << i;
+    EXPECT_TRUE(string != nullptr) << "string_idx=" << i;
   }
-  EXPECT_EQ(dex->NumTypeIds(), dex_cache->NumResolvedTypes());
+  EXPECT_EQ(dex.NumTypeIds(), dex_cache->NumResolvedTypes());
   for (size_t i = 0; i < dex_cache->NumResolvedTypes(); i++) {
     mirror::Class* type = dex_cache->GetResolvedType(i);
-    EXPECT_TRUE(type != NULL) << "type_idx=" << i
-                              << " " << dex->GetTypeDescriptor(dex->GetTypeId(i));
+    EXPECT_TRUE(type != nullptr) << "type_idx=" << i
+                              << " " << dex.GetTypeDescriptor(dex.GetTypeId(i));
   }
-  EXPECT_EQ(dex->NumMethodIds(), dex_cache->NumResolvedMethods());
+  EXPECT_EQ(dex.NumMethodIds(), dex_cache->NumResolvedMethods());
+  auto* cl = Runtime::Current()->GetClassLinker();
+  auto pointer_size = cl->GetImagePointerSize();
   for (size_t i = 0; i < dex_cache->NumResolvedMethods(); i++) {
-    mirror::ArtMethod* method = dex_cache->GetResolvedMethod(i);
-    EXPECT_TRUE(method != NULL) << "method_idx=" << i
-                                << " " << dex->GetMethodDeclaringClassDescriptor(dex->GetMethodId(i))
-                                << " " << dex->GetMethodName(dex->GetMethodId(i));
-    EXPECT_TRUE(method->GetEntryPointFromQuickCompiledCode() != NULL) << "method_idx=" << i
-                                           << " "
-                                           << dex->GetMethodDeclaringClassDescriptor(dex->GetMethodId(i))
-                                           << " " << dex->GetMethodName(dex->GetMethodId(i));
-#if defined(ART_USE_PORTABLE_COMPILER)
-    EXPECT_TRUE(method->GetEntryPointFromPortableCompiledCode() != NULL) << "method_idx=" << i
-                                           << " "
-                                           << dex->GetMethodDeclaringClassDescriptor(dex->GetMethodId(i))
-                                           << " " << dex->GetMethodName(dex->GetMethodId(i));
-#endif
+    ArtMethod* method = dex_cache->GetResolvedMethod(i, pointer_size);
+    EXPECT_TRUE(method != nullptr) << "method_idx=" << i
+                                << " " << dex.GetMethodDeclaringClassDescriptor(dex.GetMethodId(i))
+                                << " " << dex.GetMethodName(dex.GetMethodId(i));
+    EXPECT_TRUE(method->GetEntryPointFromQuickCompiledCode() != nullptr) << "method_idx=" << i
+        << " " << dex.GetMethodDeclaringClassDescriptor(dex.GetMethodId(i)) << " "
+        << dex.GetMethodName(dex.GetMethodId(i));
   }
-  EXPECT_EQ(dex->NumFieldIds(), dex_cache->NumResolvedFields());
+  EXPECT_EQ(dex.NumFieldIds(), dex_cache->NumResolvedFields());
   for (size_t i = 0; i < dex_cache->NumResolvedFields(); i++) {
-    mirror::ArtField* field = dex_cache->GetResolvedField(i);
-    EXPECT_TRUE(field != NULL) << "field_idx=" << i
-                               << " " << dex->GetFieldDeclaringClassDescriptor(dex->GetFieldId(i))
-                               << " " << dex->GetFieldName(dex->GetFieldId(i));
+    ArtField* field = cl->GetResolvedField(i, dex_cache);
+    EXPECT_TRUE(field != nullptr) << "field_idx=" << i
+                               << " " << dex.GetFieldDeclaringClassDescriptor(dex.GetFieldId(i))
+                               << " " << dex.GetFieldName(dex.GetFieldId(i));
   }
 
   // TODO check Class::IsVerified for all classes
@@ -150,7 +146,6 @@ TEST_F(CompilerDriverTest, DISABLED_LARGE_CompileDexLibCore) {
 }
 
 TEST_F(CompilerDriverTest, AbstractMethodErrorStub) {
-  TEST_DISABLED_FOR_PORTABLE();
   TEST_DISABLED_FOR_HEAP_REFERENCE_POISONING();
   jobject class_loader;
   {
@@ -160,17 +155,20 @@ TEST_F(CompilerDriverTest, AbstractMethodErrorStub) {
     CompileDirectMethod(NullHandle<mirror::ClassLoader>(), "java.lang.Object", "<init>", "()V");
     class_loader = LoadDex("AbstractMethod");
   }
-  ASSERT_TRUE(class_loader != NULL);
+  ASSERT_TRUE(class_loader != nullptr);
   EnsureCompiled(class_loader, "AbstractClass", "foo", "()V", true);
 
   // Create a jobj_ of ConcreteClass, NOT AbstractClass.
   jclass c_class = env_->FindClass("ConcreteClass");
+
   jmethodID constructor = env_->GetMethodID(c_class, "<init>", "()V");
+
   jobject jobj_ = env_->NewObject(c_class, constructor);
-  ASSERT_TRUE(jobj_ != NULL);
+  ASSERT_TRUE(jobj_ != nullptr);
 
   // Force non-virtual call to AbstractClass foo, will throw AbstractMethodError exception.
   env_->CallNonvirtualVoidMethod(jobj_, class_, mid_);
+
   EXPECT_EQ(env_->ExceptionCheck(), JNI_TRUE);
   jthrowable exception = env_->ExceptionOccurred();
   env_->ExceptionClear();
@@ -180,6 +178,59 @@ TEST_F(CompilerDriverTest, AbstractMethodErrorStub) {
     ScopedObjectAccess soa(Thread::Current());
     Thread::Current()->ClearException();
   }
+}
+
+class CompilerDriverMethodsTest : public CompilerDriverTest {
+ protected:
+  std::unordered_set<std::string>* GetCompiledMethods() OVERRIDE {
+    return new std::unordered_set<std::string>({
+      "byte StaticLeafMethods.identity(byte)",
+      "int StaticLeafMethods.sum(int, int, int)",
+      "double StaticLeafMethods.sum(double, double, double, double)"
+    });
+  }
+};
+
+TEST_F(CompilerDriverMethodsTest, Selection) {
+  Thread* self = Thread::Current();
+  jobject class_loader;
+  {
+    ScopedObjectAccess soa(self);
+    class_loader = LoadDex("StaticLeafMethods");
+  }
+  ASSERT_NE(class_loader, nullptr);
+
+  // Need to enable dex-file writability. Methods rejected to be compiled will run through the
+  // dex-to-dex compiler.
+  for (const DexFile* dex_file : GetDexFiles(class_loader)) {
+    ASSERT_TRUE(dex_file->EnableWrite());
+  }
+
+  CompileAll(class_loader);
+
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  StackHandleScope<1> hs(self);
+  ScopedObjectAccess soa(self);
+  Handle<mirror::ClassLoader> h_loader(hs.NewHandle(
+      reinterpret_cast<mirror::ClassLoader*>(self->DecodeJObject(class_loader))));
+  mirror::Class* klass = class_linker->FindClass(self, "LStaticLeafMethods;", h_loader);
+  ASSERT_NE(klass, nullptr);
+
+  std::unique_ptr<std::unordered_set<std::string>> expected(GetCompiledMethods());
+
+  const auto pointer_size = class_linker->GetImagePointerSize();
+  for (auto& m : klass->GetDirectMethods(pointer_size)) {
+    std::string name = PrettyMethod(&m, true);
+    const void* code = m.GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
+    ASSERT_NE(code, nullptr);
+    if (expected->find(name) != expected->end()) {
+      expected->erase(name);
+      EXPECT_FALSE(class_linker->IsQuickToInterpreterBridge(code));
+    } else {
+      EXPECT_TRUE(class_linker->IsQuickToInterpreterBridge(code));
+    }
+  }
+  EXPECT_TRUE(expected->empty());
 }
 
 // TODO: need check-cast test (when stub complete & we can throw/catch

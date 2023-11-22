@@ -27,6 +27,8 @@
 #include <wchar.h>
 #include <locale.h>
 
+#include <vector>
+
 #include "TemporaryFile.h"
 
 TEST(stdio, flockfile_18208568_stderr) {
@@ -77,7 +79,7 @@ TEST(stdio, dprintf) {
   int rc = dprintf(tf.fd, "hello\n");
   ASSERT_EQ(rc, 6);
 
-  lseek(tf.fd, SEEK_SET, 0);
+  lseek(tf.fd, 0, SEEK_SET);
   FILE* tfile = fdopen(tf.fd, "r");
   ASSERT_TRUE(tfile != NULL);
 
@@ -107,7 +109,7 @@ TEST(stdio, getdelim) {
     ASSERT_FALSE(feof(fp));
     ASSERT_EQ(getdelim(&word_read, &allocated_length, ' ', fp), static_cast<int>(strlen(expected[i])));
     ASSERT_GE(allocated_length, strlen(expected[i]));
-    ASSERT_STREQ(word_read, expected[i]);
+    ASSERT_STREQ(expected[i], word_read);
   }
   // The last read should have set the end-of-file indicator for the stream.
   ASSERT_TRUE(feof(fp));
@@ -149,6 +151,15 @@ TEST(stdio, getdelim_invalid) {
   fclose(fp);
 }
 
+TEST(stdio, getdelim_directory) {
+  FILE* fp = fopen("/proc", "r");
+  ASSERT_TRUE(fp != NULL);
+  char* word_read;
+  size_t allocated_length;
+  ASSERT_EQ(-1, getdelim(&word_read, &allocated_length, ' ', fp));
+  fclose(fp);
+}
+
 TEST(stdio, getline) {
   FILE* fp = tmpfile();
   ASSERT_TRUE(fp != NULL);
@@ -171,7 +182,7 @@ TEST(stdio, getline) {
   while ((read_char_count = getline(&line_read, &allocated_length, fp)) != -1) {
     ASSERT_EQ(read_char_count, static_cast<int>(strlen(line_written)));
     ASSERT_GE(allocated_length, strlen(line_written));
-    ASSERT_STREQ(line_read, line_written);
+    ASSERT_STREQ(line_written, line_read);
     ++read_line_count;
   }
   ASSERT_EQ(read_line_count, line_count);
@@ -364,22 +375,52 @@ TEST(stdio, snprintf_smoke) {
   EXPECT_STREQ("print_me_twice print_me_twice", buf);
 }
 
-TEST(stdio, snprintf_f_special) {
-  char buf[BUFSIZ];
-  snprintf(buf, sizeof(buf), "%f", nanf(""));
-  EXPECT_STRCASEEQ("NaN", buf);
+template <typename T>
+void CheckInfNan(int snprintf_fn(T*, size_t, const T*, ...),
+                 const T* fmt, const T* fmt_plus,
+                 const T* minus_inf, const T* inf_, const T* plus_inf,
+                 const T* minus_nan, const T* nan_, const T* plus_nan) {
+  T buf[BUFSIZ];
 
-  snprintf(buf, sizeof(buf), "%f", HUGE_VALF);
-  EXPECT_STRCASEEQ("Inf", buf);
+  snprintf_fn(buf, sizeof(buf), fmt, nan(""));
+  EXPECT_STREQ(nan_, buf) << fmt;
+  snprintf_fn(buf, sizeof(buf), fmt, -nan(""));
+  EXPECT_STREQ(minus_nan, buf) << fmt;
+  snprintf_fn(buf, sizeof(buf), fmt_plus, nan(""));
+  EXPECT_STREQ(plus_nan, buf) << fmt_plus;
+  snprintf_fn(buf, sizeof(buf), fmt_plus, -nan(""));
+  EXPECT_STREQ(minus_nan, buf) << fmt_plus;
+
+  snprintf_fn(buf, sizeof(buf), fmt, HUGE_VAL);
+  EXPECT_STREQ(inf_, buf) << fmt;
+  snprintf_fn(buf, sizeof(buf), fmt, -HUGE_VAL);
+  EXPECT_STREQ(minus_inf, buf) << fmt;
+  snprintf_fn(buf, sizeof(buf), fmt_plus, HUGE_VAL);
+  EXPECT_STREQ(plus_inf, buf) << fmt_plus;
+  snprintf_fn(buf, sizeof(buf), fmt_plus, -HUGE_VAL);
+  EXPECT_STREQ(minus_inf, buf) << fmt_plus;
 }
 
-TEST(stdio, snprintf_g_special) {
-  char buf[BUFSIZ];
-  snprintf(buf, sizeof(buf), "%g", nan(""));
-  EXPECT_STRCASEEQ("NaN", buf);
+TEST(stdio, snprintf_inf_nan) {
+  CheckInfNan(snprintf, "%a", "%+a", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
+  CheckInfNan(snprintf, "%A", "%+A", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
+  CheckInfNan(snprintf, "%e", "%+e", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
+  CheckInfNan(snprintf, "%E", "%+E", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
+  CheckInfNan(snprintf, "%f", "%+f", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
+  CheckInfNan(snprintf, "%F", "%+F", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
+  CheckInfNan(snprintf, "%g", "%+g", "-inf", "inf", "+inf", "-nan", "nan", "+nan");
+  CheckInfNan(snprintf, "%G", "%+G", "-INF", "INF", "+INF", "-NAN", "NAN", "+NAN");
+}
 
-  snprintf(buf, sizeof(buf), "%g", HUGE_VAL);
-  EXPECT_STRCASEEQ("Inf", buf);
+TEST(stdio, wsprintf_inf_nan) {
+  CheckInfNan(swprintf, L"%a", L"%+a", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
+  CheckInfNan(swprintf, L"%A", L"%+A", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
+  CheckInfNan(swprintf, L"%e", L"%+e", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
+  CheckInfNan(swprintf, L"%E", L"%+E", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
+  CheckInfNan(swprintf, L"%f", L"%+f", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
+  CheckInfNan(swprintf, L"%F", L"%+F", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
+  CheckInfNan(swprintf, L"%g", L"%+g", L"-inf", L"inf", L"+inf", L"-nan", L"nan", L"+nan");
+  CheckInfNan(swprintf, L"%G", L"%+G", L"-INF", L"INF", L"+INF", L"-NAN", L"NAN", L"+NAN");
 }
 
 TEST(stdio, snprintf_d_INT_MAX) {
@@ -439,8 +480,22 @@ TEST(stdio, snprintf_e) {
 TEST(stdio, snprintf_negative_zero_5084292) {
   char buf[BUFSIZ];
 
+  snprintf(buf, sizeof(buf), "%e", -0.0);
+  EXPECT_STREQ("-0.000000e+00", buf);
+  snprintf(buf, sizeof(buf), "%E", -0.0);
+  EXPECT_STREQ("-0.000000E+00", buf);
   snprintf(buf, sizeof(buf), "%f", -0.0);
   EXPECT_STREQ("-0.000000", buf);
+  snprintf(buf, sizeof(buf), "%F", -0.0);
+  EXPECT_STREQ("-0.000000", buf);
+  snprintf(buf, sizeof(buf), "%g", -0.0);
+  EXPECT_STREQ("-0", buf);
+  snprintf(buf, sizeof(buf), "%G", -0.0);
+  EXPECT_STREQ("-0", buf);
+  snprintf(buf, sizeof(buf), "%a", -0.0);
+  EXPECT_STREQ("-0x0p+0", buf);
+  snprintf(buf, sizeof(buf), "%A", -0.0);
+  EXPECT_STREQ("-0X0P+0", buf);
 }
 
 TEST(stdio, snprintf_utf8_15439554) {
@@ -695,6 +750,125 @@ TEST(stdio, fpos_t_and_seek) {
   fclose(fp);
 }
 
+TEST(stdio, fmemopen) {
+  char buf[16];
+  memset(buf, 0, sizeof(buf));
+  FILE* fp = fmemopen(buf, sizeof(buf), "r+");
+  ASSERT_EQ('<', fputc('<', fp));
+  ASSERT_NE(EOF, fputs("abc>\n", fp));
+  fflush(fp);
+
+  ASSERT_STREQ("<abc>\n", buf);
+
+  rewind(fp);
+
+  char line[16];
+  char* s = fgets(line, sizeof(line), fp);
+  ASSERT_TRUE(s != NULL);
+  ASSERT_STREQ("<abc>\n", s);
+
+  fclose(fp);
+}
+
+TEST(stdio, fmemopen_NULL) {
+  FILE* fp = fmemopen(nullptr, 128, "r+");
+  ASSERT_NE(EOF, fputs("xyz\n", fp));
+
+  rewind(fp);
+
+  char line[16];
+  char* s = fgets(line, sizeof(line), fp);
+  ASSERT_TRUE(s != NULL);
+  ASSERT_STREQ("xyz\n", s);
+
+  fclose(fp);
+}
+
+TEST(stdio, fmemopen_EINVAL) {
+  char buf[16];
+
+  // Invalid size.
+  errno = 0;
+  ASSERT_EQ(nullptr, fmemopen(buf, 0, "r+"));
+  ASSERT_EQ(EINVAL, errno);
+
+  // No '+' with NULL buffer.
+  errno = 0;
+  ASSERT_EQ(nullptr, fmemopen(nullptr, 0, "r"));
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(stdio, open_memstream) {
+  char* p = nullptr;
+  size_t size = 0;
+  FILE* fp = open_memstream(&p, &size);
+  ASSERT_NE(EOF, fputs("hello, world!", fp));
+  fclose(fp);
+
+  ASSERT_STREQ("hello, world!", p);
+  ASSERT_EQ(strlen("hello, world!"), size);
+  free(p);
+}
+
+TEST(stdio, open_memstream_EINVAL) {
+#if defined(__BIONIC__)
+  char* p;
+  size_t size;
+
+  // Invalid buffer.
+  errno = 0;
+  ASSERT_EQ(nullptr, open_memstream(nullptr, &size));
+  ASSERT_EQ(EINVAL, errno);
+
+  // Invalid size.
+  errno = 0;
+  ASSERT_EQ(nullptr, open_memstream(&p, nullptr));
+  ASSERT_EQ(EINVAL, errno);
+#else
+  GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif
+}
+
+TEST(stdio, fdopen_CLOEXEC) {
+  int fd = open("/proc/version", O_RDONLY);
+  ASSERT_TRUE(fd != -1);
+
+  // This fd doesn't have O_CLOEXEC...
+  int flags = fcntl(fd, F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(0, flags & FD_CLOEXEC);
+
+  FILE* fp = fdopen(fd, "re");
+  ASSERT_TRUE(fp != NULL);
+
+  // ...but the new one does.
+  flags = fcntl(fileno(fp), F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(FD_CLOEXEC, flags & FD_CLOEXEC);
+
+  fclose(fp);
+  close(fd);
+}
+
+TEST(stdio, freopen_CLOEXEC) {
+  FILE* fp = fopen("/proc/version", "r");
+  ASSERT_TRUE(fp != NULL);
+
+  // This FILE* doesn't have O_CLOEXEC...
+  int flags = fcntl(fileno(fp), F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(0, flags & FD_CLOEXEC);
+
+  fp = freopen("/proc/version", "re", fp);
+
+  // ...but the new one does.
+  flags = fcntl(fileno(fp), F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(FD_CLOEXEC, flags & FD_CLOEXEC);
+
+  fclose(fp);
+}
+
 // https://code.google.com/p/android/issues/detail?id=81155
 // http://b/18556607
 TEST(stdio, fread_unbuffered_pathological_performance) {
@@ -709,7 +883,7 @@ TEST(stdio, fread_unbuffered_pathological_performance) {
 
   time_t t0 = time(NULL);
   for (size_t i = 0; i < 1024; ++i) {
-    fread(buf, 64*1024, 1, fp);
+    ASSERT_EQ(1U, fread(buf, 64*1024, 1, fp));
   }
   time_t t1 = time(NULL);
 
@@ -724,4 +898,117 @@ TEST(stdio, fread_unbuffered_pathological_performance) {
   for (size_t i = 64*1024; i < 65*1024; ++i) {
     ASSERT_EQ('\xff', buf[i]);
   }
+}
+
+TEST(stdio, fread_EOF) {
+  std::string digits("0123456789");
+  FILE* fp = fmemopen(&digits[0], digits.size(), "r");
+
+  // Try to read too much, but little enough that it still fits in the FILE's internal buffer.
+  char buf1[4 * 4];
+  memset(buf1, 0, sizeof(buf1));
+  ASSERT_EQ(2U, fread(buf1, 4, 4, fp));
+  ASSERT_STREQ("0123456789", buf1);
+  ASSERT_TRUE(feof(fp));
+
+  rewind(fp);
+
+  // Try to read way too much so stdio tries to read more direct from the stream.
+  char buf2[4 * 4096];
+  memset(buf2, 0, sizeof(buf2));
+  ASSERT_EQ(2U, fread(buf2, 4, 4096, fp));
+  ASSERT_STREQ("0123456789", buf2);
+  ASSERT_TRUE(feof(fp));
+
+  fclose(fp);
+}
+
+static void test_fread_from_write_only_stream(size_t n) {
+  FILE* fp = fopen("/dev/null", "w");
+  std::vector<char> buf(n, 0);
+  errno = 0;
+  ASSERT_EQ(0U, fread(&buf[0], n, 1, fp));
+  ASSERT_EQ(EBADF, errno);
+  ASSERT_TRUE(ferror(fp));
+  ASSERT_FALSE(feof(fp));
+  fclose(fp);
+}
+
+TEST(stdio, fread_from_write_only_stream_slow_path) {
+  test_fread_from_write_only_stream(1);
+}
+
+TEST(stdio, fread_from_write_only_stream_fast_path) {
+  test_fread_from_write_only_stream(64*1024);
+}
+
+static void test_fwrite_after_fread(size_t n) {
+  TemporaryFile tf;
+
+  FILE* fp = fdopen(tf.fd, "w+");
+  ASSERT_EQ(1U, fwrite("1", 1, 1, fp));
+  fflush(fp);
+
+  // We've flushed but not rewound, so there's nothing to read.
+  std::vector<char> buf(n, 0);
+  ASSERT_EQ(0U, fread(&buf[0], 1, buf.size(), fp));
+  ASSERT_TRUE(feof(fp));
+
+  // But hitting EOF doesn't prevent us from writing...
+  errno = 0;
+  ASSERT_EQ(1U, fwrite("2", 1, 1, fp)) << errno;
+
+  // And if we rewind, everything's there.
+  rewind(fp);
+  ASSERT_EQ(2U, fread(&buf[0], 1, buf.size(), fp));
+  ASSERT_EQ('1', buf[0]);
+  ASSERT_EQ('2', buf[1]);
+
+  fclose(fp);
+}
+
+TEST(stdio, fwrite_after_fread_slow_path) {
+  test_fwrite_after_fread(16);
+}
+
+TEST(stdio, fwrite_after_fread_fast_path) {
+  test_fwrite_after_fread(64*1024);
+}
+
+// http://b/19172514
+TEST(stdio, fread_after_fseek) {
+  TemporaryFile tf;
+
+  FILE* fp = fopen(tf.filename, "w+");
+  ASSERT_TRUE(fp != nullptr);
+
+  char file_data[12288];
+  for (size_t i = 0; i < 12288; i++) {
+    file_data[i] = i;
+  }
+  ASSERT_EQ(12288U, fwrite(file_data, 1, 12288, fp));
+  fclose(fp);
+
+  fp = fopen(tf.filename, "r");
+  ASSERT_TRUE(fp != nullptr);
+
+  char buffer[8192];
+  size_t cur_location = 0;
+  // Small read to populate internal buffer.
+  ASSERT_EQ(100U, fread(buffer, 1, 100, fp));
+  ASSERT_EQ(memcmp(file_data, buffer, 100), 0);
+
+  cur_location = static_cast<size_t>(ftell(fp));
+  // Large read to force reading into the user supplied buffer and bypassing
+  // the internal buffer.
+  ASSERT_EQ(8192U, fread(buffer, 1, 8192, fp));
+  ASSERT_EQ(memcmp(file_data+cur_location, buffer, 8192), 0);
+
+  // Small backwards seek to verify fseek does not reuse the internal buffer.
+  ASSERT_EQ(0, fseek(fp, -22, SEEK_CUR));
+  cur_location = static_cast<size_t>(ftell(fp));
+  ASSERT_EQ(22U, fread(buffer, 1, 22, fp));
+  ASSERT_EQ(memcmp(file_data+cur_location, buffer, 22), 0);
+
+  fclose(fp);
 }

@@ -61,6 +61,7 @@
 @r8=>   ht
 
 .text
+.syntax unified
 .p2align 2
 
 .extern gi1_table_edge_idx
@@ -289,7 +290,7 @@ ulbl5:
     add         r2,r2,pc
 
     MOV         r6,r7                       @move wd to r6 loop_count
-    VMOV.S8     Q4,#0XFF                    @au1_mask = vdupq_n_s8(-1)
+    VMOV.S8     Q4,#0xFF                    @au1_mask = vdupq_n_s8(-1)
     CMP         r7,#16                      @Compare wd with 16
 
     BLT         WIDTH_RESIDUE               @If not jump to WIDTH_RESIDUE where loop is unrolled for 8 case
@@ -300,7 +301,7 @@ WIDTH_LOOP_16:
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
     LDR         r7,[sp,#0x114]              @Loads wd
     CMP         r6,r7                       @col == wd
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
 
     MOVNE       r8,#-1
     VMOV.8      D8[0],r8                    @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
@@ -684,7 +685,7 @@ WD_16_HT_4_LOOP:
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
     LDR         r7,[sp,#0x114]              @Loads wd
     CMP         r6,r7                       @col == wd
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
 
     MOVNE       r8,#-1
     VMOV.8      D8[0],r8                    @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
@@ -835,7 +836,7 @@ WIDTH_RESIDUE:
     LDR         r7,[sp,#0x114]              @Loads wd
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
     CMP         r6,r7                       @wd_residue == wd
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
 
     MOVNE       r8,#-1
     VMOV.8      d8[0],r8                    @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)

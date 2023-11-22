@@ -25,6 +25,11 @@ import com.android.tradefed.log.LogUtil.CLog;
  */
 public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
+    private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
+    private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
+    private static final String ADMIN_RECEIVER_TEST_CLASS =
+            MANAGED_PROFILE_PKG + ".BaseManagedProfileTest$BasicAdminReceiver";
+
     private int mProfileUserId;
     private int mProfileSerialNumber;
     private int mMainUserSerialNumber;
@@ -32,17 +37,15 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        // We need multi user to be supported in order to create a profile of the user owner.
-        mHasFeature = mHasFeature && (getMaxNumberOfUsersSupported() > 1);
-
+        mHasFeature = mHasFeature && hasDeviceFeature("android.software.managed_users");
         if (mHasFeature) {
             removeTestUsers();
             installTestApps();
             // Create a managed profile
             mProfileUserId = createManagedProfile();
             installApp(MANAGED_PROFILE_APK);
-            setProfileOwner(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mProfileUserId);
+            setProfileOwnerOrFail(MANAGED_PROFILE_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS,
+                    mProfileUserId);
             mProfileSerialNumber = getUserSerialNumber(mProfileUserId);
             mMainUserSerialNumber = getUserSerialNumber(0);
             startUser(mProfileUserId);

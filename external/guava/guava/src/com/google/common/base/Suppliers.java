@@ -62,10 +62,27 @@ public final class Suppliers {
       this.function = function;
       this.supplier = supplier;
     }
-    @Override
-    public T get() {
+
+    @Override public T get() {
       return function.apply(supplier.get());
     }
+
+    @Override public boolean equals(@Nullable Object obj) {
+      if (obj instanceof SupplierComposition) {
+        SupplierComposition<?, ?> that = (SupplierComposition<?, ?>) obj;
+        return function.equals(that.function) && supplier.equals(that.supplier);
+      }
+      return false;
+    }
+
+    @Override public int hashCode() {
+      return Objects.hashCode(function, supplier);
+    }
+
+    @Override public String toString() {
+      return "Suppliers.compose(" + function + ", " + supplier + ")";
+    }
+
     private static final long serialVersionUID = 0;
   }
 
@@ -100,8 +117,7 @@ public final class Suppliers {
       this.delegate = delegate;
     }
 
-    @Override
-    public T get() {
+    @Override public T get() {
       // A 2-field variant of Double Checked Locking.
       if (!initialized) {
         synchronized (this) {
@@ -114,6 +130,10 @@ public final class Suppliers {
         }
       }
       return value;
+    }
+
+    @Override public String toString() {
+      return "Suppliers.memoize(" + delegate + ")";
     }
 
     private static final long serialVersionUID = 0;
@@ -157,8 +177,7 @@ public final class Suppliers {
       Preconditions.checkArgument(duration > 0);
     }
 
-    @Override
-    public T get() {
+    @Override public T get() {
       // Another variant of Double Checked Locking.
       //
       // We use two volatile reads.  We could reduce this to one by
@@ -183,6 +202,13 @@ public final class Suppliers {
       return value;
     }
 
+    @Override public String toString() {
+      // This is a little strange if the unit the user provided was not NANOS,
+      // but we don't want to store the unit just for toString
+      return "Suppliers.memoizeWithExpiration(" + delegate + ", " +
+          durationNanos + ", NANOS)";
+    }
+
     private static final long serialVersionUID = 0;
   }
 
@@ -200,10 +226,27 @@ public final class Suppliers {
     SupplierOfInstance(@Nullable T instance) {
       this.instance = instance;
     }
-    @Override
-    public T get() {
+
+    @Override public T get() {
       return instance;
     }
+
+    @Override public boolean equals(@Nullable Object obj) {
+      if (obj instanceof SupplierOfInstance) {
+        SupplierOfInstance<?> that = (SupplierOfInstance<?>) obj;
+        return Objects.equal(instance, that.instance);
+      }
+      return false;
+    }
+
+    @Override public int hashCode() {
+      return Objects.hashCode(instance);
+    }
+
+    @Override public String toString() {
+      return "Suppliers.ofInstance(" + instance + ")";
+    }
+
     private static final long serialVersionUID = 0;
   }
 
@@ -222,12 +265,17 @@ public final class Suppliers {
     ThreadSafeSupplier(Supplier<T> delegate) {
       this.delegate = delegate;
     }
-    @Override
-    public T get() {
+
+    @Override public T get() {
       synchronized (delegate) {
         return delegate.get();
       }
     }
+
+    @Override public String toString() {
+      return "Suppliers.synchronizedSupplier(" + delegate + ")";
+    }
+
     private static final long serialVersionUID = 0;
   }
 
@@ -238,17 +286,24 @@ public final class Suppliers {
    * @since 8.0
    */
   @Beta
-  @SuppressWarnings("unchecked") // SupplierFunction works for any T.
   public static <T> Function<Supplier<T>, T> supplierFunction() {
-    return (Function) SupplierFunction.INSTANCE;
+    @SuppressWarnings("unchecked") // implementation is "fully variant"
+    SupplierFunction<T> sf = (SupplierFunction<T>) SupplierFunctionImpl.INSTANCE;
+    return sf;
   }
 
-  private enum SupplierFunction implements Function<Supplier<?>, Object> {
+  private interface SupplierFunction<T> extends Function<Supplier<T>, T> {}
+
+  private enum SupplierFunctionImpl implements SupplierFunction<Object> {
     INSTANCE;
 
-    @Override
-    public Object apply(Supplier<?> input) {
+    // Note: This makes T a "pass-through type"
+    @Override public Object apply(Supplier<Object> input) {
       return input.get();
+    }
+
+    @Override public String toString() {
+      return "Suppliers.supplierFunction()";
     }
   }
 }

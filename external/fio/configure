@@ -133,7 +133,8 @@ cpu=""
 # default options
 show_help="no"
 exit_val=0
-gfio="no"
+gfio_check="no"
+libhdfs="no"
 
 # parse options
 for opt do
@@ -141,16 +142,30 @@ for opt do
   case "$opt" in
   --cpu=*) cpu="$optarg"
   ;;
+  #  esx is cross compiled and cannot be detect through simple uname calls
+  --esx)
+  esx="yes"
+  ;;
   --cc=*) CC="$optarg"
   ;;
   --extra-cflags=*) CFLAGS="$CFLAGS $optarg"
   ;;
   --build-32bit-win) build_32bit_win="yes"
   ;;
+  --build-static) build_static="yes"
+  ;;
   --enable-gfio)
-  gfio="yes"
+  gfio_check="yes"
   ;;
   --disable-numa) disable_numa="yes"
+  ;;
+  --disable-rbd) disable_rbd="yes"
+  ;;
+  --disable-gfapi) disable_gfapi="yes"
+  ;;
+  --enable-libhdfs) libhdfs="yes"
+  ;;
+  --disable-shm) output_sym "CONFIG_NO_SHM"
   ;;
   --help)
     show_help="yes"
@@ -167,8 +182,11 @@ if test "$show_help" = "yes" ; then
   echo "--cc=                  Specify compiler to use"
   echo "--extra-cflags=        Specify extra CFLAGS to pass to compiler"
   echo "--build-32bit-win      Enable 32-bit build on Windows"
+  echo "--build-static         Build a static fio"
+  echo "--esx                  Configure build options for esx"
   echo "--enable-gfio          Enable building of gtk gfio"
   echo "--disable-numa         Disable libnuma even if found"
+  echo "--enable-libhdfs       Enable hdfs support"
   exit $exit_val
 fi
 
@@ -385,6 +403,16 @@ echo "Big endian                    $bigendian"
 echo "Compiler                      $cc"
 echo "Cross compile                 $cross_compile"
 echo
+
+##########################################
+# See if we need to build a static build
+if test "$build_static" = "yes" ; then
+  CFLAGS="$CFLAGS -ffunction-sections -fdata-sections"
+  LDFLAGS="$LDFLAGS -static -Wl,--gc-sections"
+else
+  build_static="no"
+fi
+echo "Static build                  $build_static"
 
 ##########################################
 # check for wordsize
@@ -859,7 +887,7 @@ cat > $TMPC << EOF
 int main(int argc, char **argv)
 {
   struct bitmask *mask = numa_parse_nodestring(NULL);
-  return 0;
+  return mask->size == 0;
 }
 EOF
 if compile_prog "" "" "libnuma api"; then
@@ -969,7 +997,8 @@ echo "__thread                      $tls_thread"
 
 ##########################################
 # Check if we have required gtk/glib support for gfio
-if test "$gfio" = "yes" ; then
+gfio="no"
+if test "$gfio_check" = "yes" ; then
   cat > $TMPC << EOF
 #include <glib.h>
 #include <cairo.h>
@@ -983,6 +1012,8 @@ int main(void)
 }
 EOF
 GTK_CFLAGS=$(pkg-config --cflags gtk+-2.0 gthread-2.0)
+ORG_LDFLAGS=$LDFLAGS
+LDFLAGS=$(echo $LDFLAGS | sed s/"-static"//g)
 if test "$?" != "0" ; then
   echo "configure: gtk and gthread not found"
   exit 1
@@ -996,7 +1027,7 @@ if compile_prog "$GTK_CFLAGS" "$GTK_LIBS" "gfio" ; then
   r=$($TMPE)
   if test "$r" != "0" ; then
     gfio="yes"
-    LIBS="$LIBS $GTK_LIBS"
+    GFIO_LIBS="$LIBS $GTK_LIBS"
     CFLAGS="$CFLAGS $GTK_CFLAGS"
   else
     echo "GTK found, but need version 2.18 or higher"
@@ -1006,9 +1037,12 @@ else
   echo "Please install gtk and gdk libraries"
   gfio="no"
 fi
+LDFLAGS=$ORG_LDFLAGS
 fi
 
-echo "gtk 2.18 or higher            $gfio"
+if test "$gfio_check" = "yes" ; then
+  echo "gtk 2.18 or higher            $gfio"
+fi
 
 # Check whether we have getrusage(RUSAGE_THREAD)
 rusage_thread="no"
@@ -1060,6 +1094,45 @@ if compile_prog "" "" "TCP_NODELAY"; then
   tcp_nodelay="yes"
 fi
 echo "TCP_NODELAY                   $tcp_nodelay"
+
+##########################################
+# Check whether we have SO_SNDBUF
+window_size="no"
+cat > $TMPC << EOF
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+int main(int argc, char **argv)
+{
+  setsockopt(0, SOL_SOCKET, SO_SNDBUF, NULL, 0);
+  setsockopt(0, SOL_SOCKET, SO_RCVBUF, NULL, 0);
+}
+EOF
+if compile_prog "" "" "SO_SNDBUF"; then
+  window_size="yes"
+fi
+echo "Net engine window_size        $window_size"
+
+##########################################
+# Check whether we have TCP_MAXSEG
+mss="no"
+cat > $TMPC << EOF
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+int main(int argc, char **argv)
+{
+  return setsockopt(0, IPPROTO_TCP, TCP_MAXSEG, NULL, 0);
+}
+EOF
+if compile_prog "" "" "TCP_MAXSEG"; then
+  mss="yes"
+fi
+echo "TCP_MAXSEG                    $mss"
 
 ##########################################
 # Check whether we have RLIMIT_MEMLOCK
@@ -1141,11 +1214,31 @@ int main(int argc, char **argv)
   return 0;
 }
 EOF
-if compile_prog "" "-lrbd -lrados" "rbd"; then
+if test "$disable_rbd" != "yes"  && compile_prog "" "-lrbd -lrados" "rbd"; then
   LIBS="-lrbd -lrados $LIBS"
   rbd="yes"
 fi
 echo "Rados Block Device engine     $rbd"
+
+##########################################
+# check for rbd_invaidate_cache()
+rbd_inval="no"
+if test "$rbd" = "yes"; then
+cat > $TMPC << EOF
+#include <rbd/librbd.h>
+
+int main(int argc, char **argv)
+{
+  rbd_image_t image;
+
+  return rbd_invalidate_cache(image);
+}
+EOF
+if compile_prog "" "-lrbd -lrados" "rbd"; then
+  rbd_inval="yes"
+fi
+echo "rbd_invalidate_cache          $rbd_inval"
+fi
 
 ##########################################
 # Check whether we have setvbuf
@@ -1164,6 +1257,64 @@ if compile_prog "" "" "setvbuf"; then
   setvbuf="yes"
 fi
 echo "setvbuf                       $setvbuf"
+
+# check for gfapi
+gfapi="no"
+cat > $TMPC << EOF
+#include <glusterfs/api/glfs.h>
+
+int main(int argc, char **argv)
+{
+
+  glfs_t *g = glfs_new("foo");
+
+  return 0;
+}
+EOF
+if test "$disable_gfapi" != "yes"  && compile_prog "" "-lgfapi -lglusterfs" "gfapi"; then
+  LIBS="-lgfapi -lglusterfs $LIBS"
+  gfapi="yes"
+fi
+ echo "Gluster API engine            $gfapi"
+
+##########################################
+# check for gfapi fadvise support
+if test "$gfapi" = "yes" ; then
+gf_fadvise="no"
+cat > $TMPC << EOF
+#include <glusterfs/api/glfs.h>
+
+int main(int argc, char **argv)
+{
+  struct glfs_fd *fd;
+  int ret = glfs_fadvise(fd, 0, 0, 1);
+
+  return 0;
+}
+EOF
+if compile_prog "" "-lgfapi -lglusterfs" "gfapi"; then
+  gf_fadvise="yes"
+fi
+echo "Gluster API use fadvise       $gf_fadvise"
+fi
+
+##########################################
+# check for gfapi trim support
+gf_trim="no"
+if test "$gfapi" = "yes" ; then
+cat > $TMPC << EOF
+#include <glusterfs/api/glfs.h>
+
+int main(int argc, char **argv)
+{
+  return glfs_discard_async(NULL, 0, 0);
+}
+EOF
+if compile_prog "" "-lgfapi -lglusterfs" "gf trim"; then
+  gf_trim="yes"
+fi
+echo "Gluster API trim support      $gf_trim"
+fi
 
 ##########################################
 # Check if we support stckf on s390
@@ -1195,6 +1346,73 @@ if compile_prog "" "" "s390_z196_facilities"; then
   fi
 fi
 echo "s390_z196_facilities          $s390_z196_facilities"
+
+##########################################
+# Check if we have required environment variables configured for libhdfs
+if test "$libhdfs" = "yes" ; then
+  hdfs_conf_error=0
+  if test "$JAVA_HOME" = "" ; then
+    echo "configure: JAVA_HOME should be defined to jdk/jvm path"
+    hdfs_conf_error=1
+  fi
+  if test "$FIO_LIBHDFS_INCLUDE" = "" ; then
+    echo "configure: FIO_LIBHDFS_INCLUDE should be defined to libhdfs inlude path"
+    hdfs_conf_error=1
+  fi
+  if test "$FIO_LIBHDFS_LIB" = "" ; then
+    echo "configure: FIO_LIBHDFS_LIB should be defined to libhdfs library path"
+    hdfs_conf_error=1
+  fi
+  if test "$hdfs_conf_error" = "1" ; then
+    exit 1
+  fi
+fi
+echo "HDFS engine                   $libhdfs"
+
+# Check if we have lex/yacc available
+yacc="no"
+yacc_is_bison="no"
+lex="no"
+arith="no"
+if test "$targetos" != "SunOS" ; then
+LEX=$(which lex 2> /dev/null)
+if test -x "$LEX" ; then
+  lex="yes"
+fi
+YACC=$(which bison 2> /dev/null)
+if test -x "$YACC" ; then
+  yacc="yes"
+  yacc_is_bison="yes"
+else
+  YACC=$(which yacc 2> /dev/null)
+  if test -x "$YACC" ; then
+    yacc="yes"
+  fi
+fi
+if test "$yacc" = "yes" && test "$lex" = "yes" ; then
+  arith="yes"
+fi
+
+if test "$arith" = "yes" ; then
+cat > $TMPC << EOF
+extern int yywrap(void);
+
+int main(int argc, char **argv)
+{
+  yywrap();
+  return 0;
+}
+EOF
+if compile_prog "" "-ll" "lex"; then
+  LIBS="-ll $LIBS"
+else
+  arith="no"
+fi
+fi
+fi
+
+echo "lex/yacc for arithmetic       $arith"
+
 #############################################################################
 
 if test "$wordsize" = "64" ; then
@@ -1301,11 +1519,21 @@ fi
 if test "$gfio" = "yes" ; then
   echo "CONFIG_GFIO=y" >> $config_host_mak
 fi
+if test "$esx" = "yes" ; then
+  output_sym "CONFIG_ESX"
+  output_sym "CONFIG_NO_SHM"
+fi
 if test "$sched_idle" = "yes" ; then
   output_sym "CONFIG_SCHED_IDLE"
 fi
 if test "$tcp_nodelay" = "yes" ; then
   output_sym "CONFIG_TCP_NODELAY"
+fi
+if test "$window_size" = "yes" ; then
+  output_sym "CONFIG_NET_WINDOWSIZE"
+fi
+if test "$mss" = "yes" ; then
+  output_sym "CONFIG_NET_MSS"
 fi
 if test "$rlimit_memlock" = "yes" ; then
   output_sym "CONFIG_RLIMIT_MEMLOCK"
@@ -1319,6 +1547,9 @@ fi
 if test "$rbd" = "yes" ; then
   output_sym "CONFIG_RBD"
 fi
+if test "$rbd_inval" = "yes" ; then
+  output_sym "CONFIG_RBD_INVAL"
+fi
 if test "$setvbuf" = "yes" ; then
   output_sym "CONFIG_SETVBUF"
 fi
@@ -1326,8 +1557,37 @@ if test "$s390_z196_facilities" = "yes" ; then
   output_sym "CONFIG_S390_Z196_FACILITIES"
   CFLAGS="$CFLAGS -march=z9-109"
 fi
+if test "$gfapi" = "yes" ; then
+  output_sym "CONFIG_GFAPI"
+fi
+if test "$gf_fadvise" = "yes" ; then
+  output_sym "CONFIG_GF_FADVISE"
+fi
+if test "$gf_trim" = "yes" ; then
+  output_sym "CONFIG_GF_TRIM"
+fi
+if test "$libhdfs" = "yes" ; then
+  output_sym "CONFIG_LIBHDFS"
+  echo "JAVA_HOME=$JAVA_HOME" >> $config_host_mak
+  echo "FIO_LIBHDFS_INCLUDE=$FIO_LIBHDFS_INCLUDE" >> $config_host_mak
+  echo "FIO_LIBHDFS_LIB=$FIO_LIBHDFS_LIB" >> $config_host_mak
+ fi
+if test "$arith" = "yes" ; then
+  output_sym "CONFIG_ARITHMETIC"
+  if test "$yacc_is_bison" = "yes" ; then
+    echo "YACC=$YACC -y" >> $config_host_mak
+  else
+    echo "YACC=$YACC" >> $config_host_mak
+  fi
+fi
+
+if test "$zlib" = "no" ; then
+  echo "Consider installing zlib-dev (zlib-devel), some fio features depend on it."
+fi
 
 echo "LIBS+=$LIBS" >> $config_host_mak
+echo "GFIO_LIBS+=$GFIO_LIBS" >> $config_host_mak
 echo "CFLAGS+=$CFLAGS" >> $config_host_mak
+echo "LDFLAGS+=$LDFLAGS" >> $config_host_mak
 echo "CC=$cc" >> $config_host_mak
 echo "BUILD_CFLAGS=$BUILD_CFLAGS $CFLAGS" >> $config_host_mak

@@ -4,10 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef LayoutProvider_TaggedPDF_H
-#define LayoutProvider_TaggedPDF_H
+#ifndef CORE_SRC_REFLOW_LAYOUTPROVIDER_TAGGEDPDF_H_
+#define CORE_SRC_REFLOW_LAYOUTPROVIDER_TAGGEDPDF_H_
+
 #include "../../include/reflow/reflowengine.h"
-class CPDF_LayoutElement : public IPDF_LayoutElement, public CFX_Object
+
+class CPDF_LayoutElement : public IPDF_LayoutElement
 {
 public:
     CPDF_LayoutElement();
@@ -47,7 +49,7 @@ protected:
     FX_COLORREF		GetDefaultColorValue(LayoutAttr attr_type);
     CFX_PtrArray	m_ObjArray;
 };
-class CPDF_LayoutProvider_TaggedPDF : public IPDF_LayoutProvider, public CFX_Object
+class CPDF_LayoutProvider_TaggedPDF : public IPDF_LayoutProvider
 {
 public:
     CPDF_LayoutProvider_TaggedPDF();
@@ -79,4 +81,5 @@ protected:
     CPDF_StructTree*	m_pPageTree;
     int					m_TopElementIndex;
 };
-#endif
+
+#endif  // CORE_SRC_REFLOW_LAYOUTPROVIDER_TAGGEDPDF_H_

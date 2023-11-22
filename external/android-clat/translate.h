@@ -32,17 +32,6 @@
 
 #define MAX_TCP_HDR (15 * 4)   // Data offset field is 4 bits and counts in 32-bit words.
 
-// A clat_packet is an array of iovec structures representing a packet that we are translating.
-// The CLAT_POS_XXX constants represent the array indices within the clat_packet that contain
-// specific parts of the packet. The packet_* functions operate on all the packet segments past a
-// given position.
-typedef enum {
-    CLAT_POS_TUNHDR, CLAT_POS_IPHDR, CLAT_POS_FRAGHDR, CLAT_POS_TRANSPORTHDR,
-    CLAT_POS_ICMPERR_IPHDR, CLAT_POS_ICMPERR_FRAGHDR, CLAT_POS_ICMPERR_TRANSPORTHDR,
-    CLAT_POS_PAYLOAD, CLAT_POS_MAX
-} clat_packet_index;
-typedef struct iovec clat_packet[CLAT_POS_MAX];
-
 // Calculates the checksum over all the packet components starting from pos.
 uint16_t packet_checksum(uint32_t checksum, clat_packet packet, clat_packet_index pos);
 

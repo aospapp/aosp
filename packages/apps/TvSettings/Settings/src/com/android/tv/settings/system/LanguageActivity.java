@@ -16,14 +16,6 @@
 
 package com.android.tv.settings.system;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.ContentFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-import com.android.internal.app.LocalePicker;
-
 import android.app.ActivityManagerNative;
 import android.app.Fragment;
 import android.content.Context;
@@ -34,8 +26,16 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.widget.ArrayAdapter;
+
+import com.android.internal.app.LocalePicker;
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.old.ActionFragment;
+import com.android.tv.settings.dialog.old.ContentFragment;
+import com.android.tv.settings.dialog.old.DialogActivity;
+import com.android.tv.settings.widget.BitmapDownloader;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -115,9 +115,11 @@ public class LanguageActivity extends DialogActivity implements ActionAdapter.Li
             } else {
                 // neither side is the US, sort based on display language name
                 // then country name
-                int langEquiv = lhs.getDisplayLanguage(lhs).compareTo(rhs.getDisplayLanguage(rhs));
+                int langEquiv = lhs.getDisplayLanguage(lhs)
+                        .compareToIgnoreCase(rhs.getDisplayLanguage(rhs));
                 if (langEquiv == 0) {
-                    return lhs.getDisplayCountry(lhs).compareTo(rhs.getDisplayCountry(rhs));
+                    return lhs.getDisplayCountry(lhs)
+                            .compareToIgnoreCase(rhs.getDisplayCountry(rhs));
                 } else {
                     return langEquiv;
                 }
@@ -149,6 +151,9 @@ public class LanguageActivity extends DialogActivity implements ActionAdapter.Li
             int i = Integer.parseInt(s);
             setLanguagePreference(i);
             setWifiCountryCode();
+            // Locale change can mean new icons for RTL languages, so invalidate
+            // any cached images from resources.
+            BitmapDownloader.getInstance(this).invalidateCachedResources();
             finish();
         }
     }

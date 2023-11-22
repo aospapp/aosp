@@ -317,6 +317,7 @@ vspDRMCmdBuf(int fd, int ioctl_offset, psb_buffer_p *buffer_list, int buffer_cou
 #if 1
 		req->presumed_gpu_offset = (uint64_t)wsbmBOOffsetHint(buffer_list[i]->drm_buf);
 		req->presumed_flags = PSB_USE_PRESUMED;
+                req->unfence_flag = buffer_list[i]->unfence_flag;
 #else
 		req->presumed_flags = 0;
 #endif

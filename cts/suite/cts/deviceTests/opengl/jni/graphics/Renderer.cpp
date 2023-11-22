@@ -22,6 +22,14 @@
 
 // Used to center the grid on the screen.
 #define CENTER_GRID(x) ((((x) * 2.0 + 1) - OFFSCREEN_GRID_SIZE) / OFFSCREEN_GRID_SIZE)
+// Leave a good error message if something fails.
+#define EGL_RESULT_CHECK(X) do { \
+                                   EGLint error = eglGetError(); \
+                                   if (!(X) || error != EGL_SUCCESS) { \
+                                       ALOGE("EGL error '%d' at %s:%d", error, __FILE__, __LINE__);\
+                                       return false; \
+                                    } \
+                            } while (0)
 
 static const int FBO_NUM_VERTICES = 6;
 
@@ -66,7 +74,7 @@ static const EGLint contextAttribs[] = {
         EGL_NONE };
 
 static const EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
@@ -78,53 +86,60 @@ static const EGLint configAttribs[] = {
 
 static const int FBO_SIZE = 128;
 
-Renderer::Renderer(ANativeWindow* window, bool offscreen, int workload) :
-        mOffscreen(offscreen), mWindow(window), mEglDisplay(EGL_NO_DISPLAY),
-        mEglSurface(EGL_NO_SURFACE), mEglContext(EGL_NO_CONTEXT), mWorkload(workload) {
+Renderer::Renderer(EGLNativeWindowType window, bool offscreen) :
+        mOffscreen(offscreen), mEglDisplay(EGL_NO_DISPLAY), mEglSurface(EGL_NO_SURFACE),
+        mEglContext(EGL_NO_CONTEXT), mWindow(window)  {
 }
 
-bool Renderer::setUp() {
+bool Renderer::eglSetUp() {
     SCOPED_TRACE();
     mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (EGL_NO_DISPLAY == mEglDisplay || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+    EGL_RESULT_CHECK(mEglDisplay != EGL_NO_DISPLAY);
 
     EGLint major;
     EGLint minor;
-    if (!eglInitialize(mEglDisplay, &major, &minor) || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+    EGL_RESULT_CHECK(eglInitialize(mEglDisplay, &major, &minor));
 
     EGLint numConfigs = 0;
-    if (!eglChooseConfig(mEglDisplay, configAttribs, &mGlConfig, 1, &numConfigs)
-            || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+    EGL_RESULT_CHECK(eglChooseConfig(mEglDisplay, configAttribs, &mGlConfig, 1, &numConfigs)
+                     && (numConfigs > 0));
 
     mEglSurface = eglCreateWindowSurface(mEglDisplay, mGlConfig, mWindow, NULL);
-    if (EGL_NO_SURFACE == mEglSurface || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+    EGL_RESULT_CHECK(mEglSurface != EGL_NO_SURFACE);
 
     mEglContext = eglCreateContext(mEglDisplay, mGlConfig, EGL_NO_CONTEXT, contextAttribs);
-    if (EGL_NO_CONTEXT == mEglContext || EGL_SUCCESS != eglGetError()) {
-        return false;
+    EGL_RESULT_CHECK(mEglContext != EGL_NO_CONTEXT);
+
+    EGL_RESULT_CHECK(eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext));
+    EGL_RESULT_CHECK(eglQuerySurface(mEglDisplay, mEglSurface, EGL_WIDTH, &mWidth));
+    EGL_RESULT_CHECK(eglQuerySurface(mEglDisplay, mEglSurface, EGL_HEIGHT, &mHeight));
+
+    return true;
+}
+
+void Renderer::eglTearDown() {
+    SCOPED_TRACE();
+    eglMakeCurrent(mEglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+    if (mEglContext != EGL_NO_CONTEXT) {
+        eglDestroyContext(mEglDisplay, mEglContext);
+        mEglContext = EGL_NO_CONTEXT;
     }
 
-    if (!eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)
-            || EGL_SUCCESS != eglGetError()) {
-        return false;
+    if (mEglSurface != EGL_NO_SURFACE) {
+        mEglSurface = EGL_NO_SURFACE;
     }
 
-    if (!eglQuerySurface(mEglDisplay, mEglSurface, EGL_WIDTH, &mWidth)
-            || EGL_SUCCESS != eglGetError()) {
-        return false;
+    if (mEglDisplay != EGL_NO_DISPLAY) {
+        eglTerminate(mEglDisplay);
+        mEglDisplay = EGL_NO_DISPLAY;
     }
-    if (!eglQuerySurface(mEglDisplay, mEglSurface, EGL_HEIGHT, &mHeight)
-            || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+}
+
+bool Renderer::setUp(int /*workload*/) {
+    SCOPED_TRACE();
+
+    EGL_RESULT_CHECK(eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext));
 
     if (mOffscreen) {
         mFboWidth = FBO_SIZE;
@@ -178,6 +193,7 @@ bool Renderer::setUp() {
         ALOGE("GLError %d in setUp", err);
         return false;
     }
+
     return true;
 }
 
@@ -202,29 +218,14 @@ bool Renderer::tearDown() {
         ALOGE("GLError %d in tearDown", err);
         return false;
     }
-    if (mEglContext != EGL_NO_CONTEXT) {
-        eglDestroyContext(mEglDisplay, mEglContext);
-        mEglContext = EGL_NO_CONTEXT;
-    }
-    if (mEglSurface != EGL_NO_SURFACE) {
-        eglDestroySurface(mEglDisplay, mEglSurface);
-        mEglSurface = EGL_NO_SURFACE;
-    }
-    if (mEglDisplay != EGL_NO_DISPLAY) {
-        eglMakeCurrent(mEglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        eglTerminate(mEglDisplay);
-        mEglDisplay = EGL_NO_DISPLAY;
-    }
 
-    return EGL_SUCCESS == eglGetError();
+    return true;
 }
 
 bool Renderer::draw() {
     SCOPED_TRACE();
-    if (!eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)
-            || EGL_SUCCESS != eglGetError()) {
-        return false;
-    }
+
+    EGL_RESULT_CHECK(eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext));
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, mWidth, mHeight);
@@ -287,5 +288,6 @@ bool Renderer::draw() {
         return false;
     }
 
-    return eglSwapBuffers(mEglDisplay, mEglSurface);
+    EGL_RESULT_CHECK(eglSwapBuffers(mEglDisplay, mEglSurface)); 
+    return true;
 }

@@ -15,18 +15,19 @@
  */
 package com.android.ide.eclipse.adt.internal.editors.layout.configuration;
 
-import static com.android.ide.common.resources.configuration.LanguageQualifier.FAKE_LANG_VALUE;
-import static com.android.ide.common.resources.configuration.RegionQualifier.FAKE_REGION_VALUE;
+import static com.android.ide.common.resources.configuration.LocaleQualifier.FAKE_VALUE;
 
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.resources.Density;
 import com.android.sdklib.devices.Device;
 import com.android.sdklib.devices.DeviceManager;
 import com.android.sdklib.devices.Screen;
 import com.android.utils.StdLogger;
+import com.google.common.collect.Lists;
 
 import java.lang.reflect.Constructor;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -53,25 +54,25 @@ public class ConfigurationTest extends TestCase {
         DeviceManager deviceManager = DeviceManager.createInstance(
                                                         null /*osSdkPath*/,
                                                         new StdLogger(StdLogger.Level.VERBOSE));
-        List<Device> devices = deviceManager.getDevices(DeviceManager.DeviceFilter.DEFAULT);
+        Collection<Device> devices = deviceManager.getDevices(DeviceManager.DeviceFilter.DEFAULT);
         assertNotNull(devices);
         assertTrue(devices.size() > 0);
-        configuration.setDevice(devices.get(0), false);
+        configuration.setDevice(devices.iterator().next(), false);
 
         // Check syncing
         FolderConfiguration folderConfig = configuration.getFullConfig();
-        assertEquals(FAKE_LANG_VALUE, folderConfig.getLanguageQualifier().getValue());
-        assertEquals(FAKE_REGION_VALUE, folderConfig.getRegionQualifier().getValue());
+        assertEquals(FAKE_VALUE, folderConfig.getLocaleQualifier().getLanguage());
+        assertEquals(FAKE_VALUE, folderConfig.getLocaleQualifier().getRegion());
         assertEquals(Locale.ANY, configuration.getLocale());
 
-        Locale language = Locale.create(new LanguageQualifier("nb"));
+        Locale language = Locale.create(new LocaleQualifier("nb"));
         configuration.setLocale(language, true /* skipSync */);
-        assertEquals(FAKE_LANG_VALUE, folderConfig.getLanguageQualifier().getValue());
-        assertEquals(FAKE_REGION_VALUE, folderConfig.getRegionQualifier().getValue());
+        assertEquals(FAKE_VALUE, folderConfig.getLocaleQualifier().getLanguage());
+        assertEquals(FAKE_VALUE, folderConfig.getLocaleQualifier().getRegion());
 
         configuration.setLocale(language, false /* skipSync */);
-        assertEquals(FAKE_REGION_VALUE, folderConfig.getRegionQualifier().getValue());
-        assertEquals("nb", folderConfig.getLanguageQualifier().getValue());
+        assertEquals(FAKE_VALUE, folderConfig.getLocaleQualifier().getRegion());
+        assertEquals("nb", folderConfig.getLocaleQualifier().getLanguage());
 
         assertEquals("2.7in QVGA::nb-__:+Theme::notnight::", configuration.toPersistentString());
 
@@ -113,13 +114,13 @@ public class ConfigurationTest extends TestCase {
         DeviceManager deviceManager = DeviceManager.createInstance(
                                             null /*osSdkPath*/,
                                             new StdLogger(StdLogger.Level.VERBOSE));
-        List<Device> devices = deviceManager.getDevices(DeviceManager.DeviceFilter.DEFAULT);
+        List<Device> devices = Lists.newArrayList(deviceManager.getDevices(DeviceManager.DeviceFilter.DEFAULT));
         assertNotNull(devices);
         assertTrue(devices.size() > 0);
         configuration.setDevice(devices.get(0), false);
         configuration.setActivity("foo.bar.FooActivity");
         configuration.setTheme("@android:style/Theme.Holo.Light");
-        Locale locale = Locale.create(new LanguageQualifier("nb"));
+        Locale locale = Locale.create(new LocaleQualifier("nb"));
         configuration.setLocale(locale, false /* skipSync */);
 
         Configuration copy = Configuration.copy(configuration);
@@ -133,7 +134,7 @@ public class ConfigurationTest extends TestCase {
         configuration.setTheme("@android:style/Theme.Holo");
         configuration.setDevice(devices.get(1), true);
 
-        assertTrue(copy.getFullConfig().getLanguageQualifier().equals(locale.language));
+        assertTrue(copy.getFullConfig().getLocaleQualifier().equals(locale.qualifier));
         assertEquals(locale, copy.getLocale());
         assertEquals("foo.bar.FooActivity", copy.getActivity());
         assertEquals("@android:style/Theme.Holo.Light", copy.getTheme());

@@ -16,12 +16,14 @@
 
 package com.google.common.collect.testing.testers;
 
+import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
 import static com.google.common.collect.testing.features.CollectionFeature.KNOWN_ORDER;
 import static com.google.common.collect.testing.features.CollectionFeature.NON_STANDARD_TOSTRING;
 import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
@@ -32,10 +34,9 @@ import com.google.common.collect.testing.features.CollectionSize;
  * collection. Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public class CollectionToStringTester<E> extends AbstractCollectionTester<E> {
   public void testToString_minimal() {
     assertNotNull("toString() should not return null",
@@ -63,5 +64,12 @@ public class CollectionToStringTester<E> extends AbstractCollectionTester<E> {
     String expected = Helpers.copyToList(getOrderedElements()).toString();
     assertEquals("collection.toString() incorrect",
         expected, collection.toString());
+  }
+
+  @CollectionSize.Require(absent = ZERO)
+  @CollectionFeature.Require(ALLOWS_NULL_VALUES)
+  public void testToString_null() {
+    initCollectionWithNullElement();
+    testToString_minimal();
   }
 }

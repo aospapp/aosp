@@ -26,7 +26,7 @@ nanopb_c_src_files := \
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libnanopb-c-2.8.0
+LOCAL_MODULE := libprotobuf-c-nano
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_EXTENSION := .c
 LOCAL_SRC_FILES := $(nanopb_c_src_files)
@@ -43,7 +43,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libnanopb-c-2.8.0-enable_malloc
+LOCAL_MODULE := libprotobuf-c-nano-enable_malloc
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_EXTENSION := .c
 LOCAL_SRC_FILES := $(nanopb_c_src_files)
@@ -60,4 +60,3 @@ include $(BUILD_STATIC_LIBRARY)
 
 # Clean temp vars
 nanopb_c_src_files :=
-

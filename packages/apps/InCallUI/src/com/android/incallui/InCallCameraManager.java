@@ -25,11 +25,21 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.util.Size;
 
 import java.lang.String;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 /**
  * Used to track which camera is used for outgoing video.
  */
 public class InCallCameraManager {
+
+    public interface Listener {
+        void onActiveCameraSelectionChanged(boolean isUsingFrontFacingCamera);
+    }
+
+    private final Set<Listener> mCameraSelectionListeners = Collections.
+        newSetFromMap(new ConcurrentHashMap<Listener, Boolean>(8,0.9f,1));
 
     /**
      * The camera ID for the front facing camera.
@@ -47,14 +57,15 @@ public class InCallCameraManager {
     private boolean mUseFrontFacingCamera;
 
     /**
-     * Aspect ratio of the front facing camera.
+     * Indicates whether the list of cameras has been initialized yet.  Initialization is delayed
+     * until a video call is present.
      */
-    private float mFrontFacingCameraAspectRatio;
+    private boolean mIsInitialized = false;
 
     /**
-     * Aspect ratio of the rear facing camera.
+     * The context.
      */
-    private float mRearFacingCameraAspectRatio;
+    private Context mContext;
 
     /**
      * Initializes the InCall CameraManager.
@@ -63,7 +74,7 @@ public class InCallCameraManager {
      */
     public InCallCameraManager(Context context) {
         mUseFrontFacingCamera = true;
-        initializeCameraList(context);
+        mContext = context;
     }
 
     /**
@@ -73,6 +84,9 @@ public class InCallCameraManager {
      */
     public void setUseFrontFacingCamera(boolean useFrontFacingCamera) {
         mUseFrontFacingCamera = useFrontFacingCamera;
+        for (Listener listener : mCameraSelectionListeners) {
+            listener.onActiveCameraSelectionChanged(mUseFrontFacingCamera);
+        }
     }
 
     /**
@@ -90,6 +104,8 @@ public class InCallCameraManager {
      * @return The active camera ID.
      */
     public String getActiveCameraId() {
+        maybeInitializeCameraList(mContext);
+
         if (mUseFrontFacingCamera) {
             return mFrontFacingCameraId;
         } else {
@@ -98,14 +114,16 @@ public class InCallCameraManager {
     }
 
     /**
-     * Get the camera ID and aspect ratio for the front and rear cameras.
+     * Get the list of cameras available for use.
      *
      * @param context The context.
      */
-    private void initializeCameraList(Context context) {
-        if (context == null) {
+    private void maybeInitializeCameraList(Context context) {
+        if (mIsInitialized || context == null) {
             return;
         }
+
+        Log.v(this, "initializeCameraList");
 
         CameraManager cameraManager = null;
         try {
@@ -146,6 +164,21 @@ public class InCallCameraManager {
                     mRearFacingCameraId = cameraIds[i];
                 }
             }
+        }
+
+        mIsInitialized = true;
+        Log.v(this, "initializeCameraList : done");
+    }
+
+    public void addCameraSelectionListener(Listener listener) {
+        if (listener != null) {
+            mCameraSelectionListeners.add(listener);
+        }
+    }
+
+    public void removeCameraSelectionListener(Listener listener) {
+        if (listener != null) {
+            mCameraSelectionListeners.remove(listener);
         }
     }
 }

@@ -20,6 +20,7 @@ import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
+import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -62,6 +63,7 @@ class PlaybackControlsPresenter extends ControlBarPresenter {
         StringBuilder mCurrentTimeStringBuilder = new StringBuilder();
         int mCurrentTimeMarginStart;
         int mTotalTimeMarginEnd;
+        final PersistentFocusWrapper mControlsFocusWrapper;
 
         ViewHolder(View rootView) {
             super(rootView);
@@ -89,6 +91,7 @@ class PlaybackControlsPresenter extends ControlBarPresenter {
                     ((MarginLayoutParams) mCurrentTime.getLayoutParams()).getMarginStart();
             mTotalTimeMarginEnd =
                     ((MarginLayoutParams) mTotalTime.getLayoutParams()).getMarginEnd();
+            mControlsFocusWrapper = (PersistentFocusWrapper) mControlBar.getParent();
         }
 
         void showMoreActions(boolean show) {
@@ -225,7 +228,7 @@ class PlaybackControlsPresenter extends ControlBarPresenter {
         return mMoreActionsEnabled;
     }
 
-    public void setProgressColor(ViewHolder vh, int color) {
+    public void setProgressColor(ViewHolder vh, @ColorInt int color) {
         Drawable drawable = new ClipDrawable(new ColorDrawable(color),
                 Gravity.LEFT, ClipDrawable.HORIZONTAL);
         ((LayerDrawable) vh.mProgressBar.getProgressDrawable())
@@ -260,6 +263,11 @@ class PlaybackControlsPresenter extends ControlBarPresenter {
         if (vh.mMoreActionsShowing) {
             vh.toggleMoreActions();
         }
+    }
+
+    public void resetFocus(ViewHolder vh) {
+        vh.mControlsFocusWrapper.clearSelection();
+        vh.mControlBar.requestFocus();
     }
 
     public void enableTimeMargins(ViewHolder vh, boolean enable) {
@@ -300,8 +308,10 @@ class PlaybackControlsPresenter extends ControlBarPresenter {
     public void onUnbindViewHolder(Presenter.ViewHolder holder) {
         super.onUnbindViewHolder(holder);
         ViewHolder vh = (ViewHolder) holder;
-        vh.mMoreActionsAdapter.unregisterObserver(vh.mMoreActionsObserver);
-        vh.mMoreActionsAdapter = null;
+        if (vh.mMoreActionsAdapter != null) {
+            vh.mMoreActionsAdapter.unregisterObserver(vh.mMoreActionsObserver);
+            vh.mMoreActionsAdapter = null;
+        }
     }
 
     int getChildMarginBigger(Context context) {

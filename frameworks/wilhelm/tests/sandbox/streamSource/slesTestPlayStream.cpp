@@ -72,13 +72,13 @@ bool prefetchError = false;
 /* AndroidBufferQueueItf callback for an audio player */
 SLresult AndroidBufferQueueCallback(
         SLAndroidBufferQueueItf caller,
-        void *pCallbackContext,            /* input */
+        void *pCallbackContext __unused,   /* input */
         void *pBufferContext,              /* input */
-        void *pBufferData,                 /* input */
-        SLuint32 dataSize,                 /* input */
-        SLuint32 dataUsed,                 /* input */
-        const SLAndroidBufferItem *pItems, /* input */
-        SLuint32 itemsLength               /* input */)
+        void *pBufferData __unused,        /* input */
+        SLuint32 dataSize __unused,        /* input */
+        SLuint32 dataUsed __unused,        /* input */
+        const SLAndroidBufferItem *pItems __unused, /* input */
+        SLuint32 itemsLength __unused      /* input */)
 {
     // assert(BUFFER_SIZE <= dataSize);
 
@@ -387,10 +387,8 @@ int main(int argc, char* const argv[])
             "sink\n");
     fprintf(stdout, "Plays a sound and stops after its reported duration\n\n");
 
-    if (argc == 1) {
-        fprintf(stdout, "Usage: %s path \n", argv[0]);
-        fprintf(stdout, "Example: \"%s /sdcard/my.ts\n",
-                argv[0], argv[0]);
+    if (argc != 2) {
+        fprintf(stdout, "Usage: %s path.ts\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 

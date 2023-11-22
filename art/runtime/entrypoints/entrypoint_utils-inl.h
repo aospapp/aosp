@@ -19,32 +19,54 @@
 
 #include "entrypoint_utils.h"
 
+#include "art_method.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
 #include "dex_file.h"
+#include "entrypoints/quick/callee_save_frame.h"
+#include "handle_scope-inl.h"
 #include "indirect_reference_table.h"
 #include "invoke_type.h"
 #include "jni_internal.h"
-#include "mirror/art_method.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/throwable.h"
-#include "handle_scope-inl.h"
+#include "nth_caller_visitor.h"
+#include "runtime.h"
 #include "thread.h"
 
 namespace art {
 
-// TODO: Fix no thread safety analysis when GCC can handle template specialization.
+inline ArtMethod* GetCalleeSaveMethodCaller(Thread* self, Runtime::CalleeSaveType type)
+    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  auto** refs_only_sp = self->GetManagedStack()->GetTopQuickFrame();
+  DCHECK_EQ(*refs_only_sp, Runtime::Current()->GetCalleeSaveMethod(type));
+
+  const size_t callee_frame_size = GetCalleeSaveFrameSize(kRuntimeISA, type);
+  auto** caller_sp = reinterpret_cast<ArtMethod**>(
+      reinterpret_cast<uintptr_t>(refs_only_sp) + callee_frame_size);
+  auto* caller = *caller_sp;
+
+  if (kIsDebugBuild) {
+    NthCallerVisitor visitor(self, 1, true);
+    visitor.WalkStack();
+    CHECK(caller == visitor.caller);
+  }
+
+  return caller;
+}
+
 template <const bool kAccessCheck>
-static inline mirror::Class* CheckObjectAlloc(uint32_t type_idx,
-                                              mirror::ArtMethod* method,
-                                              Thread* self, bool* slow_path) {
+ALWAYS_INLINE
+inline mirror::Class* CheckObjectAlloc(uint32_t type_idx,
+                                       ArtMethod* method,
+                                       Thread* self, bool* slow_path) {
   mirror::Class* klass = method->GetDexCacheResolvedType<false>(type_idx);
-  if (UNLIKELY(klass == NULL)) {
+  if (UNLIKELY(klass == nullptr)) {
     klass = Runtime::Current()->GetClassLinker()->ResolveType(type_idx, method);
     *slow_path = true;
-    if (klass == NULL) {
+    if (klass == nullptr) {
       DCHECK(self->IsExceptionPending());
       return nullptr;  // Failure
     } else {
@@ -53,9 +75,7 @@ static inline mirror::Class* CheckObjectAlloc(uint32_t type_idx,
   }
   if (kAccessCheck) {
     if (UNLIKELY(!klass->IsInstantiable())) {
-      ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-      self->ThrowNewException(throw_location, "Ljava/lang/InstantiationError;",
-                              PrettyDescriptor(klass).c_str());
+      self->ThrowNewException("Ljava/lang/InstantiationError;", PrettyDescriptor(klass).c_str());
       *slow_path = true;
       return nullptr;  // Failure
     }
@@ -78,7 +98,7 @@ static inline mirror::Class* CheckObjectAlloc(uint32_t type_idx,
     // has changed and to null-check the return value in case the
     // initialization fails.
     *slow_path = true;
-    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(h_klass, true, true)) {
+    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_klass, true, true)) {
       DCHECK(self->IsExceptionPending());
       return nullptr;  // Failure
     } else {
@@ -89,10 +109,10 @@ static inline mirror::Class* CheckObjectAlloc(uint32_t type_idx,
   return klass;
 }
 
-// TODO: Fix no thread safety analysis when annotalysis is smarter.
-static inline mirror::Class* CheckClassInitializedForObjectAlloc(mirror::Class* klass,
-                                                                 Thread* self,
-                                                                 bool* slow_path) {
+ALWAYS_INLINE
+inline mirror::Class* CheckClassInitializedForObjectAlloc(mirror::Class* klass,
+                                                          Thread* self,
+                                                          bool* slow_path) {
   if (UNLIKELY(!klass->IsInitialized())) {
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> h_class(hs.NewHandle(klass));
@@ -105,7 +125,7 @@ static inline mirror::Class* CheckClassInitializedForObjectAlloc(mirror::Class* 
     // has changed and to null-check the return value in case the
     // initialization fails.
     *slow_path = true;
-    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(h_class, true, true)) {
+    if (!Runtime::Current()->GetClassLinker()->EnsureInitialized(self, h_class, true, true)) {
       DCHECK(self->IsExceptionPending());
       return nullptr;  // Failure
     }
@@ -118,12 +138,12 @@ static inline mirror::Class* CheckClassInitializedForObjectAlloc(mirror::Class* 
 // cannot be resolved, throw an error. If it can, use it to create an instance.
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
-// TODO: Fix NO_THREAD_SAFETY_ANALYSIS when GCC is smarter.
 template <bool kAccessCheck, bool kInstrumented>
-static inline mirror::Object* AllocObjectFromCode(uint32_t type_idx,
-                                                  mirror::ArtMethod* method,
-                                                  Thread* self,
-                                                  gc::AllocatorType allocator_type) {
+ALWAYS_INLINE
+inline mirror::Object* AllocObjectFromCode(uint32_t type_idx,
+                                           ArtMethod* method,
+                                           Thread* self,
+                                           gc::AllocatorType allocator_type) {
   bool slow_path = false;
   mirror::Class* klass = CheckObjectAlloc<kAccessCheck>(type_idx, method, self, &slow_path);
   if (UNLIKELY(slow_path)) {
@@ -137,12 +157,11 @@ static inline mirror::Object* AllocObjectFromCode(uint32_t type_idx,
 }
 
 // Given the context of a calling Method and a resolved class, create an instance.
-// TODO: Fix NO_THREAD_SAFETY_ANALYSIS when GCC is smarter.
 template <bool kInstrumented>
-static inline mirror::Object* AllocObjectFromCodeResolved(mirror::Class* klass,
-                                                          mirror::ArtMethod* method,
-                                                          Thread* self,
-                                                          gc::AllocatorType allocator_type) {
+ALWAYS_INLINE
+inline mirror::Object* AllocObjectFromCodeResolved(mirror::Class* klass,
+                                                   Thread* self,
+                                                   gc::AllocatorType allocator_type) {
   DCHECK(klass != nullptr);
   bool slow_path = false;
   klass = CheckClassInitializedForObjectAlloc(klass, self, &slow_path);
@@ -159,24 +178,23 @@ static inline mirror::Object* AllocObjectFromCodeResolved(mirror::Class* klass,
 }
 
 // Given the context of a calling Method and an initialized class, create an instance.
-// TODO: Fix NO_THREAD_SAFETY_ANALYSIS when GCC is smarter.
 template <bool kInstrumented>
-static inline mirror::Object* AllocObjectFromCodeInitialized(mirror::Class* klass,
-                                                             mirror::ArtMethod* method,
-                                                             Thread* self,
-                                                             gc::AllocatorType allocator_type) {
+ALWAYS_INLINE
+inline mirror::Object* AllocObjectFromCodeInitialized(mirror::Class* klass,
+                                                      Thread* self,
+                                                      gc::AllocatorType allocator_type) {
   DCHECK(klass != nullptr);
   // Pass in false since the object can not be finalizable.
   return klass->Alloc<kInstrumented, false>(self, allocator_type);
 }
 
 
-// TODO: Fix no thread safety analysis when GCC can handle template specialization.
 template <bool kAccessCheck>
-static inline mirror::Class* CheckArrayAlloc(uint32_t type_idx,
-                                             mirror::ArtMethod* method,
-                                             int32_t component_count,
-                                             bool* slow_path) {
+ALWAYS_INLINE
+inline mirror::Class* CheckArrayAlloc(uint32_t type_idx,
+                                      int32_t component_count,
+                                      ArtMethod* method,
+                                      bool* slow_path) {
   if (UNLIKELY(component_count < 0)) {
     ThrowNegativeArraySizeException(component_count);
     *slow_path = true;
@@ -207,15 +225,15 @@ static inline mirror::Class* CheckArrayAlloc(uint32_t type_idx,
 // it cannot be resolved, throw an error. If it can, use it to create an array.
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
-// TODO: Fix no thread safety analysis when GCC can handle template specialization.
 template <bool kAccessCheck, bool kInstrumented>
-static inline mirror::Array* AllocArrayFromCode(uint32_t type_idx,
-                                                mirror::ArtMethod* method,
-                                                int32_t component_count,
-                                                Thread* self,
-                                                gc::AllocatorType allocator_type) {
+ALWAYS_INLINE
+inline mirror::Array* AllocArrayFromCode(uint32_t type_idx,
+                                         int32_t component_count,
+                                         ArtMethod* method,
+                                         Thread* self,
+                                         gc::AllocatorType allocator_type) {
   bool slow_path = false;
-  mirror::Class* klass = CheckArrayAlloc<kAccessCheck>(type_idx, method, component_count,
+  mirror::Class* klass = CheckArrayAlloc<kAccessCheck>(type_idx, component_count, method,
                                                        &slow_path);
   if (UNLIKELY(slow_path)) {
     if (klass == nullptr) {
@@ -223,19 +241,20 @@ static inline mirror::Array* AllocArrayFromCode(uint32_t type_idx,
     }
     gc::Heap* heap = Runtime::Current()->GetHeap();
     return mirror::Array::Alloc<kInstrumented>(self, klass, component_count,
-                                               klass->GetComponentSize(),
+                                               klass->GetComponentSizeShift(),
                                                heap->GetCurrentAllocator());
   }
   return mirror::Array::Alloc<kInstrumented>(self, klass, component_count,
-                                             klass->GetComponentSize(), allocator_type);
+                                             klass->GetComponentSizeShift(), allocator_type);
 }
 
 template <bool kAccessCheck, bool kInstrumented>
-static inline mirror::Array* AllocArrayFromCodeResolved(mirror::Class* klass,
-                                                        mirror::ArtMethod* method,
-                                                        int32_t component_count,
-                                                        Thread* self,
-                                                        gc::AllocatorType allocator_type) {
+ALWAYS_INLINE
+inline mirror::Array* AllocArrayFromCodeResolved(mirror::Class* klass,
+                                                 int32_t component_count,
+                                                 ArtMethod* method,
+                                                 Thread* self,
+                                                 gc::AllocatorType allocator_type) {
   DCHECK(klass != nullptr);
   if (UNLIKELY(component_count < 0)) {
     ThrowNegativeArraySizeException(component_count);
@@ -251,12 +270,12 @@ static inline mirror::Array* AllocArrayFromCodeResolved(mirror::Class* klass,
   // No need to retry a slow-path allocation as the above code won't cause a GC or thread
   // suspension.
   return mirror::Array::Alloc<kInstrumented>(self, klass, component_count,
-                                             klass->GetComponentSize(), allocator_type);
+                                             klass->GetComponentSizeShift(), allocator_type);
 }
 
 template<FindFieldType type, bool access_check>
-static inline mirror::ArtField* FindFieldFromCode(uint32_t field_idx, mirror::ArtMethod* referrer,
-                                                  Thread* self, size_t expected_size) {
+inline ArtField* FindFieldFromCode(uint32_t field_idx, ArtMethod* referrer,
+                                           Thread* self, size_t expected_size) {
   bool is_primitive;
   bool is_set;
   bool is_static;
@@ -272,7 +291,7 @@ static inline mirror::ArtField* FindFieldFromCode(uint32_t field_idx, mirror::Ar
     default:                     is_primitive = true;  is_set = true;  is_static = true;  break;
   }
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  mirror::ArtField* resolved_field = class_linker->ResolveField(field_idx, referrer, is_static);
+  ArtField* resolved_field = class_linker->ResolveField(field_idx, referrer, is_static);
   if (UNLIKELY(resolved_field == nullptr)) {
     DCHECK(self->IsExceptionPending());  // Throw exception and unwind.
     return nullptr;  // Failure.
@@ -295,9 +314,7 @@ static inline mirror::ArtField* FindFieldFromCode(uint32_t field_idx, mirror::Ar
     } else {
       if (UNLIKELY(resolved_field->IsPrimitiveType() != is_primitive ||
                    resolved_field->FieldSize() != expected_size)) {
-        ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-        DCHECK(throw_location.GetMethod() == referrer);
-        self->ThrowNewExceptionF(throw_location, "Ljava/lang/NoSuchFieldError;",
+        self->ThrowNewExceptionF("Ljava/lang/NoSuchFieldError;",
                                  "Attempted read of %zd-bit %s on field '%s'",
                                  expected_size * (32 / sizeof(int32_t)),
                                  is_primitive ? "primitive" : "non-primitive",
@@ -316,7 +333,7 @@ static inline mirror::ArtField* FindFieldFromCode(uint32_t field_idx, mirror::Ar
     } else {
       StackHandleScope<1> hs(self);
       Handle<mirror::Class> h_class(hs.NewHandle(fields_class));
-      if (LIKELY(class_linker->EnsureInitialized(h_class, true, true))) {
+      if (LIKELY(class_linker->EnsureInitialized(self, h_class, true, true))) {
         // Otherwise let's ensure the class is initialized before resolving the field.
         return resolved_field;
       }
@@ -329,9 +346,9 @@ static inline mirror::ArtField* FindFieldFromCode(uint32_t field_idx, mirror::Ar
 // Explicit template declarations of FindFieldFromCode for all field access types.
 #define EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type, _access_check) \
 template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) ALWAYS_INLINE \
-mirror::ArtField* FindFieldFromCode<_type, _access_check>(uint32_t field_idx, \
-                                                          mirror::ArtMethod* referrer, \
-                                                          Thread* self, size_t expected_size) \
+ArtField* FindFieldFromCode<_type, _access_check>(uint32_t field_idx, \
+                                                  ArtMethod* referrer, \
+                                                  Thread* self, size_t expected_size) \
 
 #define EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(_type) \
     EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type, false); \
@@ -350,17 +367,16 @@ EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticPrimitiveWrite);
 #undef EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL
 
 template<InvokeType type, bool access_check>
-static inline mirror::ArtMethod* FindMethodFromCode(uint32_t method_idx,
-                                                    mirror::Object** this_object,
-                                                    mirror::ArtMethod** referrer, Thread* self) {
+inline ArtMethod* FindMethodFromCode(uint32_t method_idx, mirror::Object** this_object,
+                                     ArtMethod** referrer, Thread* self) {
   ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
-  mirror::ArtMethod* resolved_method = class_linker->GetResolvedMethod(method_idx, *referrer, type);
+  ArtMethod* resolved_method = class_linker->GetResolvedMethod(method_idx, *referrer);
   if (resolved_method == nullptr) {
     StackHandleScope<1> hs(self);
     mirror::Object* null_this = nullptr;
     HandleWrapper<mirror::Object> h_this(
         hs.NewHandleWrapper(type == kStatic ? &null_this : this_object));
-    resolved_method = class_linker->ResolveMethod(self, method_idx, referrer, type);
+    resolved_method = class_linker->ResolveMethod(self, method_idx, *referrer, type);
   }
   if (UNLIKELY(resolved_method == nullptr)) {
     DCHECK(self->IsExceptionPending());  // Throw exception and unwind.
@@ -368,9 +384,7 @@ static inline mirror::ArtMethod* FindMethodFromCode(uint32_t method_idx,
   } else if (UNLIKELY(*this_object == nullptr && type != kStatic)) {
     // Maintain interpreter-like semantics where NullPointerException is thrown
     // after potential NoSuchMethodError from class linker.
-    ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-    DCHECK_EQ(*referrer, throw_location.GetMethod());
-    ThrowNullPointerExceptionForMethodAccess(throw_location, method_idx, type);
+    ThrowNullPointerExceptionForMethodAccess(method_idx, type);
     return nullptr;  // Failure.
   } else if (access_check) {
     // Incompatible class change should have been handled in resolve method.
@@ -405,7 +419,7 @@ static inline mirror::ArtMethod* FindMethodFromCode(uint32_t method_idx,
         return nullptr;  // Failure.
       }
       DCHECK(klass->HasVTable()) << PrettyClass(klass);
-      return klass->GetVTableEntry(vtable_index);
+      return klass->GetVTableEntry(vtable_index, class_linker->GetImagePointerSize());
     }
     case kSuper: {
       mirror::Class* super_class = (*referrer)->GetDeclaringClass()->GetSuperClass();
@@ -424,23 +438,25 @@ static inline mirror::ArtMethod* FindMethodFromCode(uint32_t method_idx,
         DCHECK(super_class != nullptr);
       }
       DCHECK(super_class->HasVTable());
-      return super_class->GetVTableEntry(vtable_index);
+      return super_class->GetVTableEntry(vtable_index, class_linker->GetImagePointerSize());
     }
     case kInterface: {
       uint32_t imt_index = resolved_method->GetDexMethodIndex() % mirror::Class::kImtSize;
-      mirror::ArtMethod* imt_method = (*this_object)->GetClass()->GetEmbeddedImTableEntry(imt_index);
+      ArtMethod* imt_method = (*this_object)->GetClass()->GetEmbeddedImTableEntry(
+          imt_index, class_linker->GetImagePointerSize());
       if (!imt_method->IsImtConflictMethod() && !imt_method->IsImtUnimplementedMethod()) {
         if (kIsDebugBuild) {
           mirror::Class* klass = (*this_object)->GetClass();
-          mirror::ArtMethod* method = klass->FindVirtualMethodForInterface(resolved_method);
+          ArtMethod* method = klass->FindVirtualMethodForInterface(
+              resolved_method, class_linker->GetImagePointerSize());
           CHECK_EQ(imt_method, method) << PrettyMethod(resolved_method) << " / " <<
               PrettyMethod(imt_method) << " / " << PrettyMethod(method) << " / " <<
               PrettyClass(klass);
         }
         return imt_method;
       } else {
-        mirror::ArtMethod* interface_method =
-            (*this_object)->GetClass()->FindVirtualMethodForInterface(resolved_method);
+        ArtMethod* interface_method = (*this_object)->GetClass()->FindVirtualMethodForInterface(
+            resolved_method, class_linker->GetImagePointerSize());
         if (UNLIKELY(interface_method == nullptr)) {
           ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(resolved_method,
                                                                      *this_object, *referrer);
@@ -458,10 +474,10 @@ static inline mirror::ArtMethod* FindMethodFromCode(uint32_t method_idx,
 // Explicit template declarations of FindMethodFromCode for all invoke types.
 #define EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, _access_check)                 \
   template SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) ALWAYS_INLINE                       \
-  mirror::ArtMethod* FindMethodFromCode<_type, _access_check>(uint32_t method_idx,         \
-                                                              mirror::Object** this_object, \
-                                                              mirror::ArtMethod** referrer, \
-                                                              Thread* self)
+  ArtMethod* FindMethodFromCode<_type, _access_check>(uint32_t method_idx,         \
+                                                      mirror::Object** this_object, \
+                                                      ArtMethod** referrer, \
+                                                      Thread* self)
 #define EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(_type) \
     EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, false);   \
     EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, true)
@@ -476,11 +492,10 @@ EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kInterface);
 #undef EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL
 
 // Fast path field resolution that can't initialize classes or throw exceptions.
-static inline mirror::ArtField* FindFieldFast(uint32_t field_idx,
-                                              mirror::ArtMethod* referrer,
-                                              FindFieldType type, size_t expected_size) {
-  mirror::ArtField* resolved_field =
-      referrer->GetDeclaringClass()->GetDexCache()->GetResolvedField(field_idx);
+inline ArtField* FindFieldFast(uint32_t field_idx, ArtMethod* referrer, FindFieldType type,
+                               size_t expected_size) {
+  ArtField* resolved_field =
+      referrer->GetDeclaringClass()->GetDexCache()->GetResolvedField(field_idx, sizeof(void*));
   if (UNLIKELY(resolved_field == nullptr)) {
     return nullptr;
   }
@@ -498,11 +513,8 @@ static inline mirror::ArtField* FindFieldFast(uint32_t field_idx,
     case StaticPrimitiveRead:    is_primitive = true;  is_set = false; is_static = true;  break;
     case StaticPrimitiveWrite:   is_primitive = true;  is_set = true;  is_static = true;  break;
     default:
-      LOG(FATAL) << "UNREACHABLE";  // Assignment below to avoid GCC warnings.
-      is_primitive = true;
-      is_set = true;
-      is_static = true;
-      break;
+      LOG(FATAL) << "UNREACHABLE";
+      UNREACHABLE();
   }
   if (UNLIKELY(resolved_field->IsStatic() != is_static)) {
     // Incompatible class change.
@@ -518,8 +530,7 @@ static inline mirror::ArtField* FindFieldFast(uint32_t field_idx,
   }
   mirror::Class* referring_class = referrer->GetDeclaringClass();
   if (UNLIKELY(!referring_class->CanAccess(fields_class) ||
-               !referring_class->CanAccessMember(fields_class,
-                                                 resolved_field->GetAccessFlags()) ||
+               !referring_class->CanAccessMember(fields_class, resolved_field->GetAccessFlags()) ||
                (is_set && resolved_field->IsFinal() && (fields_class != referring_class)))) {
     // Illegal access.
     return nullptr;
@@ -532,23 +543,21 @@ static inline mirror::ArtField* FindFieldFast(uint32_t field_idx,
 }
 
 // Fast path method resolution that can't throw exceptions.
-static inline mirror::ArtMethod* FindMethodFast(uint32_t method_idx,
-                                                mirror::Object* this_object,
-                                                mirror::ArtMethod* referrer,
-                                                bool access_check, InvokeType type) {
-  if (UNLIKELY(this_object == NULL && type != kStatic)) {
-    return NULL;
+inline ArtMethod* FindMethodFast(uint32_t method_idx, mirror::Object* this_object,
+                                 ArtMethod* referrer, bool access_check, InvokeType type) {
+  if (UNLIKELY(this_object == nullptr && type != kStatic)) {
+    return nullptr;
   }
-  mirror::ArtMethod* resolved_method =
-      referrer->GetDeclaringClass()->GetDexCache()->GetResolvedMethod(method_idx);
-  if (UNLIKELY(resolved_method == NULL)) {
-    return NULL;
+  ArtMethod* resolved_method =
+      referrer->GetDeclaringClass()->GetDexCache()->GetResolvedMethod(method_idx, sizeof(void*));
+  if (UNLIKELY(resolved_method == nullptr)) {
+    return nullptr;
   }
   if (access_check) {
     // Check for incompatible class change errors and access.
     bool icce = resolved_method->CheckIncompatibleClassChange(type);
     if (UNLIKELY(icce)) {
-      return NULL;
+      return nullptr;
     }
     mirror::Class* methods_class = resolved_method->GetDeclaringClass();
     mirror::Class* referring_class = referrer->GetDeclaringClass();
@@ -556,26 +565,25 @@ static inline mirror::ArtMethod* FindMethodFast(uint32_t method_idx,
                  !referring_class->CanAccessMember(methods_class,
                                                    resolved_method->GetAccessFlags()))) {
       // Potential illegal access, may need to refine the method's class.
-      return NULL;
+      return nullptr;
     }
   }
   if (type == kInterface) {  // Most common form of slow path dispatch.
-    return this_object->GetClass()->FindVirtualMethodForInterface(resolved_method);
+    return this_object->GetClass()->FindVirtualMethodForInterface(resolved_method, sizeof(void*));
   } else if (type == kStatic || type == kDirect) {
     return resolved_method;
   } else if (type == kSuper) {
-    return referrer->GetDeclaringClass()->GetSuperClass()
-                   ->GetVTableEntry(resolved_method->GetMethodIndex());
+    return referrer->GetDeclaringClass()->GetSuperClass()->GetVTableEntry(
+        resolved_method->GetMethodIndex(), sizeof(void*));
   } else {
     DCHECK(type == kVirtual);
-    return this_object->GetClass()->GetVTableEntry(resolved_method->GetMethodIndex());
+    return this_object->GetClass()->GetVTableEntry(
+        resolved_method->GetMethodIndex(), sizeof(void*));
   }
 }
 
-static inline mirror::Class* ResolveVerifyAndClinit(uint32_t type_idx,
-                                                    mirror::ArtMethod* referrer,
-                                                    Thread* self, bool can_run_clinit,
-                                                    bool verify_access) {
+inline mirror::Class* ResolveVerifyAndClinit(uint32_t type_idx, ArtMethod* referrer, Thread* self,
+                                             bool can_run_clinit, bool verify_access) {
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   mirror::Class* klass = class_linker->ResolveType(type_idx, referrer);
   if (UNLIKELY(klass == nullptr)) {
@@ -601,26 +609,23 @@ static inline mirror::Class* ResolveVerifyAndClinit(uint32_t type_idx,
   }
   StackHandleScope<1> hs(self);
   Handle<mirror::Class> h_class(hs.NewHandle(klass));
-  if (!class_linker->EnsureInitialized(h_class, true, true)) {
+  if (!class_linker->EnsureInitialized(self, h_class, true, true)) {
     CHECK(self->IsExceptionPending());
     return nullptr;  // Failure - Indicate to caller to deliver exception
   }
   return h_class.Get();
 }
 
-static inline mirror::String* ResolveStringFromCode(mirror::ArtMethod* referrer,
-                                                    uint32_t string_idx) {
+inline mirror::String* ResolveStringFromCode(ArtMethod* referrer, uint32_t string_idx) {
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   return class_linker->ResolveString(string_idx, referrer);
 }
 
-static inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self) {
+inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self) {
   // Save any pending exception over monitor exit call.
-  mirror::Throwable* saved_exception = NULL;
-  ThrowLocation saved_throw_location;
-  bool is_exception_reported = self->IsExceptionReportedToInstrumentation();
+  mirror::Throwable* saved_exception = nullptr;
   if (UNLIKELY(self->IsExceptionPending())) {
-    saved_exception = self->GetException(&saved_throw_location);
+    saved_exception = self->GetException();
     self->ClearException();
   }
   // Decode locked object and unlock, before popping local references.
@@ -629,29 +634,16 @@ static inline void UnlockJniSynchronizedMethod(jobject locked, Thread* self) {
     LOG(FATAL) << "Synchronized JNI code returning with an exception:\n"
         << saved_exception->Dump()
         << "\nEncountered second exception during implicit MonitorExit:\n"
-        << self->GetException(NULL)->Dump();
+        << self->GetException()->Dump();
   }
   // Restore pending exception.
-  if (saved_exception != NULL) {
-    self->SetException(saved_throw_location, saved_exception);
-    self->SetExceptionReportedToInstrumentation(is_exception_reported);
-  }
-}
-
-static inline void CheckSuspend(Thread* thread) {
-  for (;;) {
-    if (thread->ReadFlag(kCheckpointRequest)) {
-      thread->RunCheckpointFunction();
-    } else if (thread->ReadFlag(kSuspendRequest)) {
-      thread->FullSuspendCheck();
-    } else {
-      break;
-    }
+  if (saved_exception != nullptr) {
+    self->SetException(saved_exception);
   }
 }
 
 template <typename INT_TYPE, typename FLOAT_TYPE>
-static inline INT_TYPE art_float_to_integral(FLOAT_TYPE f) {
+inline INT_TYPE art_float_to_integral(FLOAT_TYPE f) {
   const INT_TYPE kMaxInt = static_cast<INT_TYPE>(std::numeric_limits<INT_TYPE>::max());
   const INT_TYPE kMinInt = static_cast<INT_TYPE>(std::numeric_limits<INT_TYPE>::min());
   const FLOAT_TYPE kMaxIntAsFloat = static_cast<FLOAT_TYPE>(kMaxInt);

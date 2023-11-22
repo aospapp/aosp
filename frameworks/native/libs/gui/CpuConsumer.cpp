@@ -16,22 +16,23 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "CpuConsumer"
-#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+//#define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
 #include <cutils/compiler.h>
 #include <utils/Log.h>
+#include <gui/BufferItem.h>
 #include <gui/CpuConsumer.h>
 
-#define CC_LOGV(x, ...) ALOGV("[%s] "x, mName.string(), ##__VA_ARGS__)
-#define CC_LOGD(x, ...) ALOGD("[%s] "x, mName.string(), ##__VA_ARGS__)
-#define CC_LOGI(x, ...) ALOGI("[%s] "x, mName.string(), ##__VA_ARGS__)
-#define CC_LOGW(x, ...) ALOGW("[%s] "x, mName.string(), ##__VA_ARGS__)
-#define CC_LOGE(x, ...) ALOGE("[%s] "x, mName.string(), ##__VA_ARGS__)
+#define CC_LOGV(x, ...) ALOGV("[%s] " x, mName.string(), ##__VA_ARGS__)
+//#define CC_LOGD(x, ...) ALOGD("[%s] " x, mName.string(), ##__VA_ARGS__)
+//#define CC_LOGI(x, ...) ALOGI("[%s] " x, mName.string(), ##__VA_ARGS__)
+#define CC_LOGW(x, ...) ALOGW("[%s] " x, mName.string(), ##__VA_ARGS__)
+#define CC_LOGE(x, ...) ALOGE("[%s] " x, mName.string(), ##__VA_ARGS__)
 
 namespace android {
 
 CpuConsumer::CpuConsumer(const sp<IGraphicBufferConsumer>& bq,
-        uint32_t maxLockedBuffers, bool controlledByApp) :
+        size_t maxLockedBuffers, bool controlledByApp) :
     ConsumerBase(bq, controlledByApp),
     mMaxLockedBuffers(maxLockedBuffers),
     mCurrentLockedBuffers(0)
@@ -40,7 +41,7 @@ CpuConsumer::CpuConsumer(const sp<IGraphicBufferConsumer>& bq,
     mAcquiredBuffers.insertAt(0, maxLockedBuffers);
 
     mConsumer->setConsumerUsageBits(GRALLOC_USAGE_SW_READ_OFTEN);
-    mConsumer->setMaxAcquiredBufferCount(maxLockedBuffers);
+    mConsumer->setMaxAcquiredBufferCount(static_cast<int32_t>(maxLockedBuffers));
 }
 
 CpuConsumer::~CpuConsumer() {
@@ -55,30 +56,16 @@ void CpuConsumer::setName(const String8& name) {
     mConsumer->setConsumerName(name);
 }
 
-status_t CpuConsumer::setDefaultBufferSize(uint32_t width, uint32_t height)
-{
-    Mutex::Autolock _l(mMutex);
-    return mConsumer->setDefaultBufferSize(width, height);
-}
-
-status_t CpuConsumer::setDefaultBufferFormat(uint32_t defaultFormat)
-{
-    Mutex::Autolock _l(mMutex);
-    return mConsumer->setDefaultBufferFormat(defaultFormat);
-}
-
 static bool isPossiblyYUV(PixelFormat format) {
-    switch ((int)format) {
+    switch (static_cast<int>(format)) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
         case HAL_PIXEL_FORMAT_RGBX_8888:
         case HAL_PIXEL_FORMAT_RGB_888:
         case HAL_PIXEL_FORMAT_RGB_565:
         case HAL_PIXEL_FORMAT_BGRA_8888:
-        case HAL_PIXEL_FORMAT_sRGB_A_8888:
-        case HAL_PIXEL_FORMAT_sRGB_X_8888:
         case HAL_PIXEL_FORMAT_Y8:
         case HAL_PIXEL_FORMAT_Y16:
-        case HAL_PIXEL_FORMAT_RAW16: // same as HAL_PIXEL_FORMAT_RAW_SENSOR
+        case HAL_PIXEL_FORMAT_RAW16:
         case HAL_PIXEL_FORMAT_RAW10:
         case HAL_PIXEL_FORMAT_RAW_OPAQUE:
         case HAL_PIXEL_FORMAT_BLOB:
@@ -100,12 +87,12 @@ status_t CpuConsumer::lockNextBuffer(LockedBuffer *nativeBuffer) {
 
     if (!nativeBuffer) return BAD_VALUE;
     if (mCurrentLockedBuffers == mMaxLockedBuffers) {
-        CC_LOGW("Max buffers have been locked (%d), cannot lock anymore.",
+        CC_LOGW("Max buffers have been locked (%zd), cannot lock anymore.",
                 mMaxLockedBuffers);
         return NOT_ENOUGH_DATA;
     }
 
-    BufferQueue::BufferItem b;
+    BufferItem b;
 
     Mutex::Autolock _l(mMutex);
 
@@ -173,7 +160,7 @@ status_t CpuConsumer::lockNextBuffer(LockedBuffer *nativeBuffer) {
     }
 
     size_t lockedIdx = 0;
-    for (; lockedIdx < mMaxLockedBuffers; lockedIdx++) {
+    for (; lockedIdx < static_cast<size_t>(mMaxLockedBuffers); lockedIdx++) {
         if (mAcquiredBuffers[lockedIdx].mSlot ==
                 BufferQueue::INVALID_BUFFER_SLOT) {
             break;
@@ -193,19 +180,20 @@ status_t CpuConsumer::lockNextBuffer(LockedBuffer *nativeBuffer) {
     nativeBuffer->format = format;
     nativeBuffer->flexFormat = flexFormat;
     nativeBuffer->stride = (ycbcr.y != NULL) ?
-            ycbcr.ystride :
+            static_cast<uint32_t>(ycbcr.ystride) :
             mSlots[buf].mGraphicBuffer->getStride();
 
     nativeBuffer->crop        = b.mCrop;
     nativeBuffer->transform   = b.mTransform;
     nativeBuffer->scalingMode = b.mScalingMode;
     nativeBuffer->timestamp   = b.mTimestamp;
+    nativeBuffer->dataSpace   = b.mDataSpace;
     nativeBuffer->frameNumber = b.mFrameNumber;
 
     nativeBuffer->dataCb       = reinterpret_cast<uint8_t*>(ycbcr.cb);
     nativeBuffer->dataCr       = reinterpret_cast<uint8_t*>(ycbcr.cr);
-    nativeBuffer->chromaStride = ycbcr.cstride;
-    nativeBuffer->chromaStep   = ycbcr.chroma_step;
+    nativeBuffer->chromaStride = static_cast<uint32_t>(ycbcr.cstride);
+    nativeBuffer->chromaStep   = static_cast<uint32_t>(ycbcr.chroma_step);
 
     mCurrentLockedBuffers++;
 
@@ -215,10 +203,9 @@ status_t CpuConsumer::lockNextBuffer(LockedBuffer *nativeBuffer) {
 status_t CpuConsumer::unlockBuffer(const LockedBuffer &nativeBuffer) {
     Mutex::Autolock _l(mMutex);
     size_t lockedIdx = 0;
-    status_t err;
 
     void *bufPtr = reinterpret_cast<void *>(nativeBuffer.data);
-    for (; lockedIdx < mMaxLockedBuffers; lockedIdx++) {
+    for (; lockedIdx < static_cast<size_t>(mMaxLockedBuffers); lockedIdx++) {
         if (bufPtr == mAcquiredBuffers[lockedIdx].mBufferPointer) break;
     }
     if (lockedIdx == mMaxLockedBuffers) {
@@ -229,13 +216,13 @@ status_t CpuConsumer::unlockBuffer(const LockedBuffer &nativeBuffer) {
     return releaseAcquiredBufferLocked(lockedIdx);
 }
 
-status_t CpuConsumer::releaseAcquiredBufferLocked(int lockedIdx) {
+status_t CpuConsumer::releaseAcquiredBufferLocked(size_t lockedIdx) {
     status_t err;
     int fd = -1;
 
     err = mAcquiredBuffers[lockedIdx].mGraphicBuffer->unlockAsync(&fd);
     if (err != OK) {
-        CC_LOGE("%s: Unable to unlock graphic buffer %d", __FUNCTION__,
+        CC_LOGE("%s: Unable to unlock graphic buffer %zd", __FUNCTION__,
                 lockedIdx);
         return err;
     }

@@ -107,10 +107,10 @@ LOCAL_MODULE := android-support-v17-leanback
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 
-intermediates.COMMON := $(call intermediates-dir-for,$(LOCAL_MODULE_CLASS),android-support-v17-leanback,,COMMON)
+gen_res_src_dirs := $(call intermediates-dir-for,JAVA_LIBRARIES,android-support-v17-leanback-res,,COMMON)/src
 
 LOCAL_SRC_FILES := $(leanback.docs.src_files)
-LOCAL_ADDITONAL_JAVA_DIR := $(intermediates.COMMON)/src
+LOCAL_ADDITIONAL_JAVA_DIR := $(gen_res_src_dirs)
 
 LOCAL_SDK_VERSION := 19
 LOCAL_IS_HOST_MODULE := false
@@ -127,41 +127,20 @@ LOCAL_DROIDDOC_OPTIONS := \
 
 include $(BUILD_DROIDDOC)
 
-# Stub source files
-# ===========================================================
-
-leanback_internal_api_file := $(TARGET_OUT_COMMON_INTERMEDIATES)/PACKAGING/android-support-v17-leanback_api.txt
-leanback.docs.stubpackages := android.support.v17.leanback:android.support.v17.leanback.app:android.support.v17.leanback.database:android.support.v17.leanback.widget
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := android-support-v17-leanback-stubs
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_SRC_FILES := $(leanback.docs.src_files)
-LOCAL_JAVA_LIBRARIES := $(leanback.docs.java_libraries)
-LOCAL_SDK_VERSION := current
-
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR := build/tools/droiddoc/templates-sdk
-LOCAL_UNINSTALLABLE_MODULE := true
-
-LOCAL_DROIDDOC_OPTIONS := \
-    -stubs $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/android-support-v17-leanback-stubs_intermediates/src \
-    -stubpackages $(leanback.docs.stubpackages) \
-    -api $(leanback_internal_api_file) \
-    -hide 113 \
-    -nodocs
-
-include $(BUILD_DROIDDOC)
-leanback_stubs_stamp := $(full_target)
-$(leanback_internal_api_file) : $(full_target)
+# API Check
+# ---------------------------------------------
+support_module := $(LOCAL_MODULE)
+support_module_api_dir := $(LOCAL_PATH)/api
+support_module_src_files := $(leanback.docs.src_files)
+support_module_java_libraries := $(leanback.docs.java_libraries)
+support_module_java_packages := android.support.v17.leanback*
+include $(SUPPORT_API_CHECK)
 
 # Cleanup temp vars
 # ===========================================================
 leanback.docs.src_files :=
 leanback.docs.java_libraries :=
-intermediates.COMMON :=
+gen_res_src_dirs :=
 leanback_internal_api_file :=
 leanback_stubs_stamp :=
 leanback.docs.stubpackages :=

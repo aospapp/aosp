@@ -37,7 +37,6 @@
 
 #ifndef RS_COMPATIBILITY_LIB
 #include "rsFont.h"
-#include "rsPath.h"
 #include "rsProgramFragment.h"
 #include "rsProgramStore.h"
 #include "rsProgramRaster.h"
@@ -46,6 +45,13 @@
 
 #endif
 
+/*
+ * This global will be found by the debugger and will have its value flipped.
+ * It's independent of the Context class to allow the debugger to do the above
+ * without knowing the type makeup. This allows the debugger to be attached at
+ * an earlier stage.
+*/
+extern "C" int gDebuggerPresent;
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -217,7 +223,6 @@ public:
     struct {
         bool mLogTimes;
         bool mLogScripts;
-        bool mLogObjects;
         bool mLogShaders;
         bool mLogShadersAttr;
         bool mLogShadersUniforms;
@@ -234,7 +239,7 @@ public:
     static void printWatchdogInfo(void *ctx);
 
     void dumpDebug() const;
-    void setError(RsError e, const char *msg = NULL) const;
+    void setError(RsError e, const char *msg = nullptr) const;
 
     mutable const ObjectBase * mObjHead;
 
@@ -247,7 +252,53 @@ public:
     RsContextType getContextType() const { return mContextType; }
     void setContextType(RsContextType ct) { mContextType = ct; }
 
+    // Check for Fatal errors
+    // Should be used to prevent work from being launched
+    // which could take the process down.  Maximizes the chance
+    // the process lives long enough to get the error to the developer
+    bool hadFatalError() {return mFatalErrorOccured;}
+
     Device *mDev;
+
+#ifdef RS_COMPATIBILITY_LIB
+    void setNativeLibDir(const char * libDir, uint32_t length) {
+        if (!hasSetNativeLibDir) {
+            if (length <= PATH_MAX) {
+                memcpy(nativeLibDir, libDir, length);
+                nativeLibDir[length] = 0;
+                hasSetNativeLibDir = true;
+            } else {
+                setError(RS_ERROR_BAD_VALUE, "Invalid path");
+            }
+        }
+    }
+    const char * getNativeLibDir() {
+        return nativeLibDir;
+    }
+#endif
+
+    void setCacheDir(const char * cacheDir_arg, uint32_t length);
+    const char * getCacheDir() {
+        if (hasSetCacheDir) {
+            return mCacheDir;
+        }
+        return nullptr;
+    }
+
+    // Returns the actual loaded driver's name (like "libRSDriver.so").
+    const char * getDriverName() {
+        return mDriverName;
+    }
+
+    // Set a new driver name, should be called from within
+    // rsdHalInit in order to alter default behaviour.
+    void setDriverName(const char * name) {
+        if (!mDriverName) {
+            mDriverName = name;
+        }
+    }
+
+
 protected:
 
     uint32_t mTargetSdkVersion;
@@ -264,7 +315,9 @@ protected:
     bool mRunning;
     bool mExit;
     bool mPaused;
+    mutable bool mFatalErrorOccured;
     mutable RsError mError;
+
 
     pthread_t mThreadId;
     pid_t mNativeThreadId;
@@ -283,19 +336,25 @@ protected:
 private:
     Context();
     bool initContext(Device *, const RsSurfaceConfig *sc);
-
+    void waitForDebugger();
     bool mSynchronous;
     bool initGLThread();
     void deinitEGL();
 
     uint32_t runRootScript();
 
-    static bool loadRuntime(const char* filename, Context* rsc);
+    bool loadRuntime(const char* filename);
+    bool loadDriver(bool forceDefault);
     static void * threadProc(void *);
     static void * helperThreadProc(void *);
 
     bool mHasSurface;
     bool mIsContextLite;
+
+    // This holds the name of the driver (like "libRSDriver.so").
+    // Since this is always just a static string, we don't have to
+    // allocate, copy, or free any memory here.
+    const char* mDriverName;
 
     Vector<ObjectBase *> mNames;
 
@@ -310,6 +369,12 @@ private:
     uint32_t mAverageFPSFrameCount;
     uint64_t mAverageFPSStartTime;
     uint32_t mAverageFPS;
+#ifdef RS_COMPATIBILITY_LIB
+    bool hasSetNativeLibDir = false;
+    char nativeLibDir[PATH_MAX+1];
+#endif
+    bool hasSetCacheDir = false;
+    char mCacheDir[PATH_MAX+1];
 };
 
 void LF_ObjDestroy_handcode(const Context *rsc, RsAsyncVoidPtr objPtr);

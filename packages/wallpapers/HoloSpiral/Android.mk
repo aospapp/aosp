@@ -25,4 +25,7 @@ LOCAL_PACKAGE_NAME := HoloSpiralWallpaper
 LOCAL_CERTIFICATE := shared
 LOCAL_SDK_VERSION := 14
 
+# Renderscript and sdk version < 21, 32bit only.
+LOCAL_MULTILIB := 32
+
 include $(BUILD_PACKAGE)

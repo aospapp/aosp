@@ -4,14 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_GE_H_
-#define _FX_GE_H_
-#ifndef _FX_DIB_H_
+#ifndef CORE_INCLUDE_FXGE_FX_GE_H_
+#define CORE_INCLUDE_FXGE_FX_GE_H_
+
 #include "fx_dib.h"
-#endif
-#ifndef _FX_FONT_H_
 #include "fx_font.h"
-#endif
+
 class CFX_ClipRgn;
 class CFX_PathData;
 class CFX_GraphStateData;
@@ -23,7 +21,8 @@ class CFX_RenderDevice;
 class IFX_RenderDeviceDriver;
 class CCodec_ModuleMgr;
 class IFXG_PaintModuleMgr;
-class CFX_GEModule : public CFX_Object
+
+class CFX_GEModule 
 {
 public:
 
@@ -87,7 +86,7 @@ typedef struct {
 #define FXPT_TYPE				0x06
 #define FXFILL_ALTERNATE		1
 #define FXFILL_WINDING			2
-class CFX_ClipRgn : public CFX_Object
+class CFX_ClipRgn 
 {
 public:
 
@@ -146,7 +145,7 @@ inline FX_ARGB ArgbGammaInverse(FX_ARGB argb)
 {
     return argb;
 }
-class CFX_PathData : public CFX_Object
+class CFX_PathData 
 {
 public:
 
@@ -186,11 +185,9 @@ public:
         return m_pPoints;
     }
 
-    FX_BOOL				SetPointCount(int nPoints);
-
-    FX_BOOL				AllocPointCount(int nPoints);
-
-    FX_BOOL				AddPointCount(int addPoints);
+    void SetPointCount(int nPoints);
+    void AllocPointCount(int nPoints);
+    void AddPointCount(int addPoints);
 
     CFX_FloatRect		GetBoundingBox() const;
 
@@ -204,15 +201,14 @@ public:
 
     FX_BOOL				IsRect(const CFX_AffineMatrix* pMatrix, CFX_FloatRect* rect) const;
 
-    FX_BOOL				Append(const CFX_PathData* pSrc, const CFX_AffineMatrix* pMatrix);
-
-    FX_BOOL				AppendRect(FX_FLOAT left, FX_FLOAT bottom, FX_FLOAT right, FX_FLOAT top);
+    void Append(const CFX_PathData* pSrc, const CFX_AffineMatrix* pMatrix);
+    void AppendRect(FX_FLOAT left, FX_FLOAT bottom, FX_FLOAT right, FX_FLOAT top);
 
     void				SetPoint(int index, FX_FLOAT x, FX_FLOAT y, int flag);
 
     void				TrimPoints(int nPoints);
 
-    FX_BOOL				Copy(const CFX_PathData &src);
+    void Copy(const CFX_PathData &src);
 protected:
     friend class		CPDF_Path;
 
@@ -222,7 +218,7 @@ protected:
 
     int					m_AllocCount;
 };
-class CFX_GraphStateData : public CFX_Object
+class CFX_GraphStateData 
 {
 public:
 
@@ -305,7 +301,7 @@ typedef struct {
     FX_DWORD			m_ExtGID;
     FX_BOOL				m_bFontStyle;
 } FXTEXT_CHARPOS;
-class CFX_RenderDevice : public CFX_Object
+class CFX_RenderDevice 
 {
 public:
     CFX_RenderDevice();
@@ -505,7 +501,7 @@ protected:
 
     FX_BOOL			m_bOwnedBitmap;
 };
-class IFX_RenderDeviceDriver : public CFX_Object
+class IFX_RenderDeviceDriver 
 {
 public:
 
@@ -637,12 +633,14 @@ public:
 class IFX_PSOutput
 {
 public:
-
-    virtual void	OutputPS(FX_LPCSTR string, int len) = 0;
     virtual void  Release() = 0;
+    virtual void	OutputPS(FX_LPCSTR string, int len) = 0;
+
+protected:
+    ~IFX_PSOutput() { }
 };
 class CPSFont;
-class CFX_PSRenderer : public CFX_Object
+class CFX_PSRenderer 
 {
 public:
 
@@ -730,4 +728,5 @@ private:
 
     void			WritePSBinary(FX_LPCBYTE data, int len);
 };
-#endif
+
+#endif  // CORE_INCLUDE_FXGE_FX_GE_H_

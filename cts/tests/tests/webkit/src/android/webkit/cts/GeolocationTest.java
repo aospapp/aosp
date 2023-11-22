@@ -17,6 +17,7 @@
 package android.webkit.cts;
 
 import android.content.Context;
+import android.cts.util.LocationUtils;
 import android.cts.util.NullWebViewUtils;
 import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
@@ -136,6 +137,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
     protected void setUp() throws Exception {
         super.setUp();
 
+        LocationUtils.registerMockLocationProvider(getInstrumentation(), true);
         WebView webview = getActivity().getWebView();
 
         if (webview != null) {
@@ -185,6 +187,7 @@ public class GeolocationTest extends ActivityInstrumentationTestCase2<WebViewCts
                 } catch (IllegalArgumentException e) {} // Not much to do about this
             }
         }
+        LocationUtils.registerMockLocationProvider(getInstrumentation(), false);
 
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();

@@ -124,7 +124,7 @@ void SignalEos() {
 
 //-----------------------------------------------------------------
 /* Callback for "prefetch" events, here used to detect audio resource opening errors */
-void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext, SLuint32 event)
+void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext __unused, SLuint32 event)
 {
     SLpermille level = 0;
     SLresult result;
@@ -145,7 +145,7 @@ void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext, SLuint3
 /* Callback for "playback" events, i.e. event happening during decoding */
 void DecProgressCallback(
         SLPlayItf caller,
-        void *pContext,
+        void *pContext __unused,
         SLuint32 event)
 {
     SLresult result;

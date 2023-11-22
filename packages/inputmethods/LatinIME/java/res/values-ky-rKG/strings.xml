@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Баскыч басылганда чыккан үн"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Баскыч басылганда калкып чыкма"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Мүмкүнчүлүктөрдү тандоо"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Көрүнүш &amp; жайгашуулар"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Көп тилдүү параметрлер"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Каттоо эсептери жана купуялык"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Көрүнүш жана жайгашуулар"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Жаңсап терүү"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Текстти оңдоо"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Өркүндөтүлгөн"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Тема"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Баскычтопту бөлүүнү иштетүү"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google тергичин шайкештирүү"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Шайкештирүү өчүрүлгөн"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Жеке сөздүгүңүздү бардык түзмөктөрүңүздө шайкештириңиз"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Азыр шайкштр"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Булут дайындарын жок кылуу"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Шайкештештирилген дайындарыңыз Google\'дан жок кылынат"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Шайкештирилген дайындарыңыз булуттан жок кылынат. Макулсузбу?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Жок кылуу"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Жокко чыгаруу"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Жеке сөздүгүңүз шайкештирилет жана Google серверлерине сакталат. Өндүрүмдөрүбүздү жакшыртууга жардамдашуу максатында сөз жыштыгынын статистикалык маалыматы топтолушу мүмкүн. Бардык маалыматты топтоо жана колдонуу "<a href="https://www.google.com/policies/privacy">"Google\'дун Купуялык Саясатына"</a>" ылайык болот."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Бул өзгөчөлүктү иштт ү-н ушул түзмөккө Google каттоо эсбн кошңз"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Ишкердик каттоо эсептери үчүн Google Apps\'те шайкештирүү жеткиликтүү эмес"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Башка киргзүү ыкмалрна которуу"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Тил которуштуруу баскычында башка киргизүү ыкмалары дагы камтылган"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Тил которуштуруу баскычы"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Сактоо үчүн бул жерди басыңыз"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Сөздүк бар"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Баскычтоп темасы"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Каттоо эсептерин которуштуруу"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Бир дагы каттоо эсеби тандалган жок"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Учурда <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> колдонулууда"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"OK"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Жокко чыгаруу"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Чыгуу"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Колдонуу үчүн каттоо эсебин тандаңыз"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Англисче (UK)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Англисче (US)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Испанча (US)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Хинглиш"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Сербче (Латын)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Англисче (UK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Англисче (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Испанча (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Хинглиш (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Сербче (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Салттык)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Кирилл)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Латын)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Чакан)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Тил жок (Алфавит)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Алфавит (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Алфавит (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Мындай жазуу стили мурунтан бар: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Басылган баскычтын дирлдөө узактгы"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Басылган баскычтын үнүнүн катуулугу"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Баскычты көпкө басууну кечиктирүү"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Тышкы тергич үчүн быйтыкчалар"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Alt баскычы басылганда быйтыкчалар тактасы көрүнөт"</string>
     <string name="button_default" msgid="3988017840431881491">"Демейки"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> кош келиңиз"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"Жаңсап терүү менен"</string>

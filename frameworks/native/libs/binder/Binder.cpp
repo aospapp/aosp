@@ -72,7 +72,7 @@ public:
 
 BBinder::BBinder()
 {
-    atomic_init(&mExtras, 0);
+  atomic_init(&mExtras, static_cast<uintptr_t>(0));
 }
 
 bool BBinder::isBinderAlive() const
@@ -160,10 +160,18 @@ void BBinder::attachObject(
     e->mObjects.attach(objectID, object, cleanupCookie, func);
 }
 
+// The C11 standard doesn't allow atomic loads from const fields,
+// though C++11 does.  Fudge it until standards get straightened out.
+static inline uintptr_t load_const_atomic(const atomic_uintptr_t* p,
+                                          memory_order mo) {
+    atomic_uintptr_t* non_const_p = const_cast<atomic_uintptr_t*>(p);
+    return atomic_load_explicit(non_const_p, mo);
+}
+
 void* BBinder::findObject(const void* objectID) const
 {
     Extras* e = reinterpret_cast<Extras*>(
-                    atomic_load_explicit(&mExtras, memory_order_acquire));
+                    load_const_atomic(&mExtras, memory_order_acquire));
     if (!e) return NULL;
 
     AutoMutex _l(e->mLock);

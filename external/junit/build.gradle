@@ -30,13 +30,6 @@ sourceSets {
     }
 }
 
-dependencies {
-    targetCompile getAndroidPrebuilt('4')
-    targetCompile project(':hamcrest')
-
-    hostCompile project(':hamcrest')
-}
-
 task targetJar(type: Jar) {
     from sourceSets.target.output
     dependsOn targetClasses
@@ -54,4 +47,24 @@ task hostJar(type: Jar) {
 artifacts {
     host hostJar
     target targetJar
+}
+
+if (project.hasProperty("usePrebuilts") && project.usePrebuilts == "true") {
+    repositories {
+        maven { url '../../prebuilts/tools/common/m2/repository' }
+    }
+
+    dependencies {
+        targetCompile getAndroidPrebuilt('4')
+        targetCompile 'org.hamcrest:hamcrest-core:1.1'
+
+        hostCompile 'org.hamcrest:hamcrest-core:1.1'
+    }
+} else {
+    dependencies {
+        targetCompile getAndroidPrebuilt('4')
+        targetCompile project(':hamcrest')
+
+        hostCompile project(':hamcrest')
+    }
 }

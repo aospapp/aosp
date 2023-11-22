@@ -136,10 +136,13 @@ public class ConversationInfo implements Parcelable {
         for (ParticipantInfo pi : participantInfos) {
             changed |= pi.markRead(read);
         }
-        if (read) {
-            firstSnippet = lastSnippet;
-        } else {
-            firstSnippet = firstUnreadSnippet;
+        // Change the firstSnippet only if the conversion has messages.
+        if (messageCount > 0) {
+            if (read) {
+                firstSnippet = lastSnippet;
+            } else {
+                firstSnippet = firstUnreadSnippet;
+            }
         }
         return changed;
     }

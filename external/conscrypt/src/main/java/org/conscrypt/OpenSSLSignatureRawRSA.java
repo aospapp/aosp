@@ -97,7 +97,7 @@ public class OpenSSLSignatureRawRSA extends SignatureSpi {
         }
 
         // Allocate buffer according to RSA modulus size.
-        int maxSize = NativeCrypto.RSA_size(key.getPkeyContext());
+        int maxSize = NativeCrypto.RSA_size(key.getNativeRef());
         inputBuffer = new byte[maxSize];
         inputOffset = 0;
     }
@@ -115,7 +115,7 @@ public class OpenSSLSignatureRawRSA extends SignatureSpi {
         }
 
         // Allocate buffer according to RSA modulus size.
-        int maxSize = NativeCrypto.RSA_size(key.getPkeyContext());
+        int maxSize = NativeCrypto.RSA_size(key.getNativeRef());
         inputBuffer = new byte[maxSize];
         inputOffset = 0;
     }
@@ -139,7 +139,7 @@ public class OpenSSLSignatureRawRSA extends SignatureSpi {
         byte[] outputBuffer = new byte[inputBuffer.length];
         try {
             NativeCrypto.RSA_private_encrypt(inputOffset, inputBuffer, outputBuffer,
-                    key.getPkeyContext(), NativeCrypto.RSA_PKCS1_PADDING);
+                    key.getNativeRef(), NativeConstants.RSA_PKCS1_PADDING);
             return outputBuffer;
         } catch (Exception ex) {
             throw new SignatureException(ex);
@@ -159,12 +159,19 @@ public class OpenSSLSignatureRawRSA extends SignatureSpi {
             return false;
         }
 
+        // We catch this case here instead of BoringSSL so we can throw an
+        // exception that matches other implementations.
+        if (sigBytes.length > inputBuffer.length) {
+            throw new SignatureException("Input signature length is too large: " + sigBytes.length
+                    + " > " + inputBuffer.length);
+        }
+
         byte[] outputBuffer = new byte[inputBuffer.length];
         try {
             final int resultSize;
             try {
                 resultSize = NativeCrypto.RSA_public_decrypt(sigBytes.length, sigBytes,
-                        outputBuffer, key.getPkeyContext(), NativeCrypto.RSA_PKCS1_PADDING);
+                        outputBuffer, key.getNativeRef(), NativeConstants.RSA_PKCS1_PADDING);
             } catch (SignatureException e) {
                 throw e;
             } catch (Exception e) {

@@ -19,6 +19,12 @@ package com.google.doclava;
 import java.util.ArrayList;
 
 public class ParsedTagInfo extends TagInfo {
+  public static final ParsedTagInfo[] EMPTY_ARRAY = new ParsedTagInfo[0];
+
+  public static ParsedTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new ParsedTagInfo[size];
+  }
+
   private ContainerInfo mContainer;
   private String mCommentText;
   private Comment mComment;
@@ -50,6 +56,6 @@ public class ParsedTagInfo extends TagInfo {
         list.add(t[j]);
       }
     }
-    return list.toArray(new TagInfo[list.size()]);
+    return list.toArray(TagInfo.getArray(list.size()));
   }
 }

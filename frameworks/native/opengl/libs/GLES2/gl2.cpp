@@ -82,7 +82,7 @@ using namespace android;
 
 #elif defined(__i386__)
 
-    #define API_ENTRY(_api) __attribute__((noinline)) _api
+    #define API_ENTRY(_api) __attribute__((noinline,optimize("omit-frame-pointer"))) _api
 
     #define CALL_GL_API(_api, ...)                                  \
         register void** fn;                                         \
@@ -101,7 +101,7 @@ using namespace android;
 
 #elif defined(__x86_64__)
 
-    #define API_ENTRY(_api) __attribute__((noinline)) _api
+    #define API_ENTRY(_api) __attribute__((noinline,optimize("omit-frame-pointer"))) _api
 
     #define CALL_GL_API(_api, ...)                                  \
          register void** fn;                                        \
@@ -118,27 +118,62 @@ using namespace android;
             : "cc"                                                  \
             );
 
+#elif defined(__mips64)
+
+    #define API_ENTRY(_api) __attribute__((noinline)) _api
+
+    #define CALL_GL_API(_api, ...)                            \
+    register unsigned long _t0 asm("$12");                    \
+    register unsigned long _fn asm("$25");                    \
+    register unsigned long _tls asm("$3");                    \
+    register unsigned long _v0 asm("$2");                     \
+    asm volatile(                                             \
+        ".set  push\n\t"                                      \
+        ".set  noreorder\n\t"                                 \
+        "rdhwr %[tls], $29\n\t"                               \
+        "ld    %[t0], %[OPENGL_API](%[tls])\n\t"              \
+        "beqz  %[t0], 1f\n\t"                                 \
+        " move %[fn], $ra\n\t"                                \
+        "ld    %[t0], %[API](%[t0])\n\t"                      \
+        "beqz  %[t0], 1f\n\t"                                 \
+        " nop\n\t"                                            \
+        "move  %[fn], %[t0]\n\t"                              \
+        "1:\n\t"                                              \
+        "jalr  $0, %[fn]\n\t"                                 \
+        " move %[v0], $0\n\t"                                 \
+        ".set  pop\n\t"                                       \
+        : [fn] "=c"(_fn),                                     \
+          [tls] "=&r"(_tls),                                  \
+          [t0] "=&r"(_t0),                                    \
+          [v0] "=&r"(_v0)                                     \
+        : [OPENGL_API] "I"(TLS_SLOT_OPENGL_API*sizeof(void*)),\
+          [API] "I"(__builtin_offsetof(gl_hooks_t, gl._api))  \
+        :                                                     \
+        );
+
 #elif defined(__mips__)
 
     #define API_ENTRY(_api) __attribute__((noinline)) _api
 
     #define CALL_GL_API(_api, ...)                               \
-        register unsigned int _t0 asm("t0");                     \
-        register unsigned int _fn asm("t1");                     \
-        register unsigned int _tls asm("v1");                    \
-        register unsigned int _v0 asm("v0");                     \
+        register unsigned int _t0 asm("$8");                     \
+        register unsigned int _fn asm("$25");                    \
+        register unsigned int _tls asm("$3");                    \
+        register unsigned int _v0 asm("$2");                     \
         asm volatile(                                            \
             ".set  push\n\t"                                     \
             ".set  noreorder\n\t"                                \
-            ".set mips32r2\n\t"                                  \
+            ".set  mips32r2\n\t"                                 \
             "rdhwr %[tls], $29\n\t"                              \
             "lw    %[t0], %[OPENGL_API](%[tls])\n\t"             \
             "beqz  %[t0], 1f\n\t"                                \
             " move %[fn],$ra\n\t"                                \
-            "lw    %[fn], %[API](%[t0])\n\t"                     \
-            "movz  %[fn], $ra, %[fn]\n\t"                        \
+            "lw    %[t0], %[API](%[t0])\n\t"                     \
+            "beqz  %[t0], 1f\n\t"                                \
+            " nop\n\t"                                           \
+            "move  %[fn], %[t0]\n\t"                             \
             "1:\n\t"                                             \
-            "j     %[fn]\n\t"                                    \
+            "jalr  $0, %[fn]\n\t"                                \
             " move %[v0], $0\n\t"                                \
             ".set  pop\n\t"                                      \
             : [fn] "=c"(_fn),                                    \
@@ -170,17 +205,87 @@ extern "C" {
 #undef CALL_GL_API_RETURN
 
 /*
- * glGetString() is special because we expose some extensions in the wrapper
+ * glGetString() and glGetStringi() are special because we expose some
+ * extensions in the wrapper. Also, wrapping glGetXXX() is required because
+ * the value returned for GL_NUM_EXTENSIONS may have been altered by the
+ * injection of the additional extensions.
  */
 
-extern "C" const GLubyte * __glGetString(GLenum name);
+extern "C" {
+    const GLubyte * __glGetString(GLenum name);
+    const GLubyte * __glGetStringi(GLenum name, GLuint index);
+    void __glGetBooleanv(GLenum pname, GLboolean * data);
+    void __glGetFloatv(GLenum pname, GLfloat * data);
+    void __glGetIntegerv(GLenum pname, GLint * data);
+    void __glGetInteger64v(GLenum pname, GLint64 * data);
+}
 
-const GLubyte * glGetString(GLenum name)
-{
+const GLubyte * glGetString(GLenum name) {
     const GLubyte * ret = egl_get_string_for_current_context(name);
     if (ret == NULL) {
         gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
-        ret = _c->glGetString(name);
+        if(_c) ret = _c->glGetString(name);
     }
     return ret;
+}
+
+const GLubyte * glGetStringi(GLenum name, GLuint index) {
+    const GLubyte * ret = egl_get_string_for_current_context(name, index);
+    if (ret == NULL) {
+        gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
+        if(_c) ret = _c->glGetStringi(name, index);
+    }
+    return ret;
+}
+
+void glGetBooleanv(GLenum pname, GLboolean * data) {
+    if (pname == GL_NUM_EXTENSIONS) {
+        int num_exts = egl_get_num_extensions_for_current_context();
+        if (num_exts >= 0) {
+            *data = num_exts > 0 ? GL_TRUE : GL_FALSE;
+            return;
+        }
+    }
+
+    gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
+    if (_c) _c->glGetBooleanv(pname, data);
+}
+
+void glGetFloatv(GLenum pname, GLfloat * data) {
+    if (pname == GL_NUM_EXTENSIONS) {
+        int num_exts = egl_get_num_extensions_for_current_context();
+        if (num_exts >= 0) {
+            *data = (GLfloat)num_exts;
+            return;
+        }
+    }
+
+    gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
+    if (_c) _c->glGetFloatv(pname, data);
+}
+
+void glGetIntegerv(GLenum pname, GLint * data) {
+    if (pname == GL_NUM_EXTENSIONS) {
+        int num_exts = egl_get_num_extensions_for_current_context();
+        if (num_exts >= 0) {
+            *data = (GLint)num_exts;
+            return;
+        }
+    }
+
+    gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
+    if (_c) _c->glGetIntegerv(pname, data);
+}
+
+void glGetInteger64v(GLenum pname, GLint64 * data) {
+    if (pname == GL_NUM_EXTENSIONS) {
+        int num_exts = egl_get_num_extensions_for_current_context();
+        if (num_exts >= 0) {
+            *data = (GLint64)num_exts;
+            return;
+        }
+    }
+
+    gl_hooks_t::gl_t const * const _c = &getGlThreadSpecific()->gl;
+    if (_c) _c->glGetInteger64v(pname, data);
 }

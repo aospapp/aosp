@@ -39,14 +39,15 @@ def main():
                              its.caps.per_frame_control(props))
 
         manual_tonemap = [0,0, 1,1] # Linear
-        manual_transform = its.objects.int_to_rational([1,2,3, 4,5,6, 7,8,9])
-        manual_gains = [1,2,3,4]
+        manual_transform = its.objects.float_to_rational(
+                [-1.5,-1.0,-0.5, 0.0,0.5,1.0, 1.5,2.0,3.0])
+        manual_gains = [1,1.5,2.0,3.0]
         manual_region = [{"x":8,"y":8,"width":128,"height":128,"weight":1}]
         manual_exp_time = min(props['android.sensor.info.exposureTimeRange'])
         manual_sensitivity = min(props['android.sensor.info.sensitivityRange'])
 
         # The camera HAL may not support different gains for two G channels.
-        manual_gains_ok = [[1,2,3,4],[1,2,2,4],[1,3,3,4]]
+        manual_gains_ok = [[1,1.5,2.0,3.0],[1,1.5,1.5,3.0],[1,2.0,2.0,3.0]]
 
         auto_req = its.objects.auto_capture_request()
         auto_req["android.statistics.lensShadingMapMode"] = 1

@@ -49,6 +49,9 @@ import java.util.List;
  * bar.
  */
 public class TvProviderPerfTest extends CtsAndroidTestCase {
+    private static final int TRANSACTION_RUNS = 100;
+    private static final int QUERY_RUNS = 10;
+
     private ContentResolver mContentResolver;
     private String mInputId;
     private boolean mHasTvInputFramework;
@@ -74,15 +77,14 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         }
     }
 
-    @TimeoutReq(minutes = 10)
+    @TimeoutReq(minutes = 8)
     public void testChannels() throws Exception {
         if (!mHasTvInputFramework) return;
-        double[] averages = new double[3];
+        double[] averages = new double[5];
 
         // Insert
         final ArrayList<ContentProviderOperation> operations = new ArrayList<>();
         final int TRANSACTION_SIZE = 1000;
-        final int TRANSACTION_RUNS = 100;
         double[] applyBatchTimes = MeasureTime.measure(TRANSACTION_RUNS, new MeasureRun() {
             @Override
             public void run(int i) {
@@ -136,6 +138,42 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[1] = Stat.getAverage(applyBatchTimes);
 
+        // Query channels
+        applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
+            @Override
+            public void run(int i) {
+                try (Cursor cursor = mContentResolver.query(Channels.CONTENT_URI, null, null,
+                        null, null)) {
+                    while (cursor.moveToNext()) {
+                        // Do nothing. Just iterate all the items.
+                    }
+                }
+            }
+        });
+        getReportLog().printArray("Elapsed time for query (channels): ",
+                applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
+        averages[2] = Stat.getAverage(applyBatchTimes);
+
+        // Query a channel
+        try (final Cursor cursor = mContentResolver.query(Channels.CONTENT_URI,
+                projection, null, null, null)) {
+            final Uri channelUri = TvContract.buildChannelUri(cursor.getLong(0));
+            applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
+                @Override
+                public void run(int i) {
+                    assertTrue(cursor.moveToNext());
+                    try (Cursor c = mContentResolver.query(channelUri, null, null, null, null)) {
+                        while (c.moveToNext()) {
+                            // Do nothing. Just iterate all the items.
+                        }
+                    }
+                }
+            });
+        }
+        getReportLog().printArray("Elapsed time for query (a channel): ",
+                applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
+        averages[3] = Stat.getAverage(applyBatchTimes);
+
         // Delete
         applyBatchTimes = MeasureTime.measure(1, new MeasureRun() {
             @Override
@@ -145,17 +183,17 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         });
         getReportLog().printArray("Elapsed time for delete: ",
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
-        averages[2] = Stat.getAverage(applyBatchTimes);
+        averages[4] = Stat.getAverage(applyBatchTimes);
 
-        // Query is not interesting for channels.
-        getReportLog().printArray("Average elapsed time for (insert, update, delete): ",
+        getReportLog().printArray("Average elapsed time for insert, update, query (channels), "
+                + "query (a channel), delete: ",
                 averages, ResultType.LOWER_BETTER, ResultUnit.MS);
     }
 
-    @TimeoutReq(minutes = 15)
+    @TimeoutReq(minutes = 12)
     public void testPrograms() throws Exception {
         if (!mHasTvInputFramework) return;
-        double[] averages = new double[5];
+        double[] averages = new double[7];
 
         // Prepare (insert channels)
         final ArrayList<ContentProviderOperation> operations = new ArrayList<>();
@@ -217,7 +255,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
             public void run(int i) {
                 Uri channelUri = channelUris.get(i);
                 operations.clear();
-                try (final Cursor cursor = mContentResolver.query(
+                try (Cursor cursor = mContentResolver.query(
                         TvContract.buildProgramsUriForChannel(channelUri),
                         projection, null, null, null)) {
                     long startTimeMs = 0;
@@ -244,26 +282,61 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[1] = Stat.getAverage(applyBatchTimes);
 
-        // Query
-        applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
+        // Query programs
+        applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
             @Override
             public void run(int i) {
-                Uri channelUri = channelUris.get(i);
-                int j = 0;
-                try (final Cursor cursor = mContentResolver.query(
-                        TvContract.buildProgramsUriForChannel(
-                                channelUri, 0,
-                                PROGRAM_DURATION_MS * TRANSACTION_SIZE / 2),
-                        projection, null, null, null)) {
+                try (Cursor cursor = mContentResolver.query(Programs.CONTENT_URI, null, null,
+                        null, null)) {
                     while (cursor.moveToNext()) {
-                        ++j;
+                        // Do nothing. Just iterate all the items.
                     }
                 }
             }
         });
-        getReportLog().printArray("Elapsed time for query: ",
+        getReportLog().printArray("Elapsed time for query (programs): ",
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
         averages[2] = Stat.getAverage(applyBatchTimes);
+
+        // Query programs with selection
+        applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
+            @Override
+            public void run(int i) {
+                Uri channelUri = channelUris.get(i);
+                try (Cursor cursor = mContentResolver.query(
+                        TvContract.buildProgramsUriForChannel(
+                                channelUri, 0,
+                                PROGRAM_DURATION_MS * TRANSACTION_SIZE / 2),
+                        null, null, null, null)) {
+                    while (cursor.moveToNext()) {
+                        // Do nothing. Just iterate all the items.
+                    }
+                }
+            }
+        });
+        getReportLog().printArray("Elapsed time for query (programs with selection): ",
+                applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
+        averages[3] = Stat.getAverage(applyBatchTimes);
+
+        // Query a program
+        try (final Cursor cursor = mContentResolver.query(Programs.CONTENT_URI,
+                projection, null, null, null)) {
+            final Uri programUri = TvContract.buildProgramUri(cursor.getLong(0));
+            applyBatchTimes = MeasureTime.measure(QUERY_RUNS, new MeasureRun() {
+                @Override
+                public void run(int i) {
+                    assertTrue(cursor.moveToNext());
+                    try (Cursor c = mContentResolver.query(programUri, null, null, null, null)) {
+                        while (c.moveToNext()) {
+                            // Do nothing. Just iterate all the items.
+                        }
+                    }
+                }
+            });
+        }
+        getReportLog().printArray("Elapsed time for query (a program): ",
+                applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
+        averages[4] = Stat.getAverage(applyBatchTimes);
 
         // Delete programs
         applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
@@ -280,7 +353,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         });
         getReportLog().printArray("Elapsed time for delete programs: ",
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
-        averages[3] = Stat.getAverage(applyBatchTimes);
+        averages[5] = Stat.getAverage(applyBatchTimes);
 
         // Delete channels
         applyBatchTimes = MeasureTime.measure(NUM_CHANNELS, new MeasureRun() {
@@ -292,10 +365,11 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         });
         getReportLog().printArray("Elapsed time for delete channels: ",
                 applyBatchTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
-        averages[4] = Stat.getAverage(applyBatchTimes);
+        averages[6] = Stat.getAverage(applyBatchTimes);
 
-        getReportLog().printArray("Average elapsed time for (insert, update, query, "
-                + "delete channels, delete programs): ",
+        getReportLog().printArray("Average elapsed time for insert, update, query (programs), "
+                + "query (programs with selection), query (a channel), delete (channels), "
+                + "delete (programs): ",
                 averages, ResultType.LOWER_BETTER, ResultUnit.MS);
     }
 }

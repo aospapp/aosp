@@ -17,7 +17,7 @@
 package android.view.cts;
 
 import com.android.cts.view.R;
-import com.android.internal.util.XmlUtils;
+import android.view.cts.util.XmlUtils;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -29,7 +29,6 @@ import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
 import android.test.AndroidTestCase;
-import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.util.Xml;
@@ -370,6 +369,8 @@ public class LayoutInflaterTest extends AndroidTestCase {
         verifyThemeType(container, "view_outer", R.id.view_outer, 1);
         verifyThemeType(container, "view_inner", R.id.view_inner, 2);
         verifyThemeType(container, "view_attr", R.id.view_attr, 3);
+        verifyThemeType(container, "view_include", R.id.view_include, 4);
+        verifyThemeType(container, "view_include_notheme", R.id.view_include_notheme, 5);
     }
 
     private void verifyThemeType(View container, String tag, int id, int type) {

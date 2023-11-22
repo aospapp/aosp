@@ -15,6 +15,7 @@
  */
 
 package com.android.internal.telephony;
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
@@ -88,8 +89,8 @@ public abstract class SMSDispatcher extends Handler {
     private static final String SEND_NEXT_MSG_EXTRA = "SendNextMsg";
 
     /** Permission required to send SMS to short codes without user confirmation. */
-    private static final String SEND_SMS_NO_CONFIRMATION_PERMISSION =
-            "android.permission.SEND_SMS_NO_CONFIRMATION";
+    private static final String SEND_RESPOND_VIA_MESSAGE_PERMISSION =
+            "android.permission.SEND_RESPOND_VIA_MESSAGE";
 
     private static final int PREMIUM_RULE_USE_SIM = 1;
     private static final int PREMIUM_RULE_USE_NETWORK = 2;
@@ -354,6 +355,13 @@ public abstract class SMSDispatcher extends Handler {
         }
     }
 
+    private static int getSendSmsFlag(@Nullable PendingIntent deliveryIntent) {
+        if (deliveryIntent == null) {
+            return 0;
+        }
+        return CarrierMessagingService.SEND_FLAG_REQUEST_DELIVERY_STATUS;
+    }
+
     /**
      * Use the carrier messaging service to send a text SMS.
      */
@@ -370,7 +378,8 @@ public abstract class SMSDispatcher extends Handler {
             if (text != null) {
                 try {
                     carrierMessagingService.sendTextSms(text, getSubId(),
-                            mTracker.mDestAddress, mSenderCallback);
+                            mTracker.mDestAddress, getSendSmsFlag(mTracker.mDeliveryIntent),
+                            mSenderCallback);
                 } catch (RemoteException e) {
                     Rlog.e(TAG, "Exception sending the SMS: " + e);
                     mSenderCallback.onSendSmsComplete(
@@ -402,7 +411,8 @@ public abstract class SMSDispatcher extends Handler {
             if (data != null) {
                 try {
                     carrierMessagingService.sendDataSms(data, getSubId(),
-                            mTracker.mDestAddress, destPort, mSenderCallback);
+                            mTracker.mDestAddress, destPort,
+                            getSendSmsFlag(mTracker.mDeliveryIntent), mSenderCallback);
                 } catch (RemoteException e) {
                     Rlog.e(TAG, "Exception sending the SMS: " + e);
                     mSenderCallback.onSendSmsComplete(
@@ -528,7 +538,8 @@ public abstract class SMSDispatcher extends Handler {
         protected void onServiceReady(ICarrierMessagingService carrierMessagingService) {
             try {
                 carrierMessagingService.sendMultipartTextSms(
-                        mParts, getSubId(), mTrackers[0].mDestAddress, mSenderCallback);
+                        mParts, getSubId(), mTrackers[0].mDestAddress,
+                        getSendSmsFlag(mTrackers[0].mDeliveryIntent), mSenderCallback);
             } catch (RemoteException e) {
                 Rlog.e(TAG, "Exception sending the SMS: " + e);
                 mSenderCallback.onSendMultipartSmsComplete(
@@ -765,10 +776,12 @@ public abstract class SMSDispatcher extends Handler {
      *  broadcast when the message is delivered to the recipient.  The
      * @param messageUri optional URI of the message if it is already stored in the system
      * @param callingPkg the calling package name
+     * @param persistMessage whether to save the sent message into SMS DB for a
+     *   non-default SMS app.
      */
     protected abstract void sendText(String destAddr, String scAddr, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent, Uri messageUri,
-            String callingPkg);
+            String callingPkg, boolean persistMessage);
 
     /**
      * Inject an SMS PDU into the android platform.
@@ -818,10 +831,13 @@ public abstract class SMSDispatcher extends Handler {
      *   to the recipient.  The raw pdu of the status report is in the
      * @param messageUri optional URI of the message if it is already stored in the system
      * @param callingPkg the calling package name
+     * @param persistMessage whether to save the sent message into SMS DB for a
+     *   non-default SMS app.
      */
     protected void sendMultipartText(String destAddr, String scAddr,
             ArrayList<String> parts, ArrayList<PendingIntent> sentIntents,
-            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg) {
+            ArrayList<PendingIntent> deliveryIntents, Uri messageUri, String callingPkg,
+            boolean persistMessage) {
         final String fullMessageText = getMultipartMessageText(parts);
         int refNumber = getNextConcatenatedRef() & 0x00FF;
         int msgCount = parts.size();
@@ -879,6 +895,7 @@ public abstract class SMSDispatcher extends Handler {
                 getNewSubmitPduTracker(destAddr, scAddr, parts.get(i), smsHeader, encoding,
                         sentIntent, deliveryIntent, (i == (msgCount - 1)),
                         unsentPartCount, anyPartFailed, messageUri, fullMessageText);
+            trackers[i].mPersistMessage = persistMessage;
         }
 
         if (parts == null || trackers == null || trackers.length == 0
@@ -995,7 +1012,7 @@ public abstract class SMSDispatcher extends Handler {
      * @return true if the destination is approved; false if user confirmation event was sent
      */
     boolean checkDestination(SmsTracker tracker) {
-        if (mContext.checkCallingOrSelfPermission(SEND_SMS_NO_CONFIRMATION_PERMISSION)
+        if (mContext.checkCallingOrSelfPermission(SEND_RESPOND_VIA_MESSAGE_PERMISSION)
                 == PackageManager.PERMISSION_GRANTED) {
             return true;            // app is pre-approved to send to short codes
         } else {
@@ -1265,7 +1282,7 @@ public abstract class SMSDispatcher extends Handler {
         }
 
         sendMultipartText(destinationAddress, scAddress, parts, sentIntents, deliveryIntents,
-                null/*messageUri*/, null/*callingPkg*/);
+                null/*messageUri*/, null/*callingPkg*/, tracker.mPersistMessage);
     }
 
     /**
@@ -1304,11 +1321,13 @@ public abstract class SMSDispatcher extends Handler {
         // If this is a text message (instead of data message)
         private boolean mIsText;
 
+        private boolean mPersistMessage;
+
         private SmsTracker(HashMap<String, Object> data, PendingIntent sentIntent,
                 PendingIntent deliveryIntent, PackageInfo appInfo, String destAddr, String format,
                 AtomicInteger unsentPartCount, AtomicBoolean anyPartFailed, Uri messageUri,
                 SmsHeader smsHeader, boolean isExpectMore, String fullMessageText, int subId,
-                boolean isText) {
+                boolean isText, boolean persistMessage) {
             mData = data;
             mSentIntent = sentIntent;
             mDeliveryIntent = deliveryIntent;
@@ -1326,6 +1345,7 @@ public abstract class SMSDispatcher extends Handler {
             mFullMessageText = fullMessageText;
             mSubId = subId;
             mIsText = isText;
+            mPersistMessage = persistMessage;
         }
 
         /**
@@ -1386,7 +1406,7 @@ public abstract class SMSDispatcher extends Handler {
          * @return The telephony provider URI if stored
          */
         private Uri persistSentMessageIfRequired(Context context, int messageType, int errorCode) {
-            if (!mIsText ||
+            if (!mIsText || !mPersistMessage ||
                     !SmsApplication.shouldWriteMessageForPackage(mAppInfo.packageName, context)) {
                 return null;
             }
@@ -1529,7 +1549,7 @@ public abstract class SMSDispatcher extends Handler {
     protected SmsTracker getSmsTracker(HashMap<String, Object> data, PendingIntent sentIntent,
             PendingIntent deliveryIntent, String format, AtomicInteger unsentPartCount,
             AtomicBoolean anyPartFailed, Uri messageUri, SmsHeader smsHeader,
-            boolean isExpectMore, String fullMessageText, boolean isText) {
+            boolean isExpectMore, String fullMessageText, boolean isText, boolean persistMessage) {
         // Get calling app package name via UID from Binder call
         PackageManager pm = mContext.getPackageManager();
         String[] packageNames = pm.getPackagesForUid(Binder.getCallingUid());
@@ -1549,15 +1569,15 @@ public abstract class SMSDispatcher extends Handler {
         String destAddr = PhoneNumberUtils.extractNetworkPortion((String) data.get("destAddr"));
         return new SmsTracker(data, sentIntent, deliveryIntent, appInfo, destAddr, format,
                 unsentPartCount, anyPartFailed, messageUri, smsHeader, isExpectMore,
-                fullMessageText, getSubId(), isText);
+                fullMessageText, getSubId(), isText, persistMessage);
     }
 
     protected SmsTracker getSmsTracker(HashMap<String, Object> data, PendingIntent sentIntent,
             PendingIntent deliveryIntent, String format, Uri messageUri, boolean isExpectMore,
-            String fullMessageText, boolean isText) {
+            String fullMessageText, boolean isText, boolean persistMessage) {
         return getSmsTracker(data, sentIntent, deliveryIntent, format, null/*unsentPartCount*/,
                 null/*anyPartFailed*/, messageUri, null/*smsHeader*/, isExpectMore,
-                fullMessageText, isText);
+                fullMessageText, isText, persistMessage);
     }
 
     protected HashMap<String, Object> getSmsTrackerMap(String destAddr, String scAddr,

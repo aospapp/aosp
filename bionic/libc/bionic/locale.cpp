@@ -26,9 +26,14 @@
  * SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <locale.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <time.h>
+#include <wchar.h>
 
 #include "private/bionic_macros.h"
 
@@ -53,14 +58,17 @@ struct __locale_t {
   DISALLOW_COPY_AND_ASSIGN(__locale_t);
 };
 
+size_t __ctype_get_mb_cur_max() {
+  locale_t l = uselocale(NULL);
+  if (l == LC_GLOBAL_LOCALE) {
+    return __bionic_current_locale_is_utf8 ? 4 : 1;
+  } else {
+    return l->mb_cur_max;
+  }
+}
+
 static pthread_once_t g_locale_once = PTHREAD_ONCE_INIT;
 static lconv g_locale;
-
-// We don't use pthread_once for this so that we know when the resource (a TLS slot) will be taken.
-static pthread_key_t g_uselocale_key;
-__attribute__((constructor)) static void __bionic_tls_uselocale_key_init() {
-  pthread_key_create(&g_uselocale_key, NULL);
-}
 
 static void __locale_init() {
   g_locale.decimal_point = const_cast<char*>(".");
@@ -92,15 +100,6 @@ static void __locale_init() {
   g_locale.int_n_sign_posn = CHAR_MAX;
 }
 
-size_t __ctype_get_mb_cur_max() {
-  locale_t l = reinterpret_cast<locale_t>(pthread_getspecific(g_uselocale_key));
-  if (l == nullptr || l == LC_GLOBAL_LOCALE) {
-    return __bionic_current_locale_is_utf8 ? 4 : 1;
-  } else {
-    return l->mb_cur_max;
-  }
-}
-
 static bool __is_supported_locale(const char* locale) {
   return (strcmp(locale, "") == 0 ||
           strcmp(locale, "C") == 0 ||
@@ -123,8 +122,8 @@ void freelocale(locale_t l) {
 }
 
 locale_t newlocale(int category_mask, const char* locale_name, locale_t /*base*/) {
-  // Is 'category_mask' valid?
-  if ((category_mask & ~LC_ALL_MASK) != 0) {
+  // Are 'category_mask' and 'locale_name' valid?
+  if ((category_mask & ~LC_ALL_MASK) != 0 || locale_name == NULL) {
     errno = EINVAL;
     return NULL;
   }
@@ -157,7 +156,16 @@ char* setlocale(int category, const char* locale_name) {
   return const_cast<char*>(__bionic_current_locale_is_utf8 ? "C.UTF-8" : "C");
 }
 
+// We can't use a constructor to create g_uselocal_key, because it may be used in constructors.
+static pthread_once_t g_uselocale_once = PTHREAD_ONCE_INIT;
+static pthread_key_t g_uselocale_key;
+
+static void g_uselocale_key_init() {
+  pthread_key_create(&g_uselocale_key, NULL);
+}
+
 locale_t uselocale(locale_t new_locale) {
+  pthread_once(&g_uselocale_once, g_uselocale_key_init);
   locale_t old_locale = static_cast<locale_t>(pthread_getspecific(g_uselocale_key));
 
   // If this is the first call to uselocale(3) on this thread, we return LC_GLOBAL_LOCALE.
@@ -170,4 +178,48 @@ locale_t uselocale(locale_t new_locale) {
   }
 
   return old_locale;
+}
+
+int strcasecmp_l(const char* s1, const char* s2, locale_t) {
+  return strcasecmp(s1, s2);
+}
+
+int strcoll_l(const char* s1, const char* s2, locale_t) {
+  return strcoll(s1, s2);
+}
+
+char* strerror_l(int error, locale_t) {
+  return strerror(error);
+}
+
+size_t strftime_l(char* s, size_t max, const char* format, const struct tm* tm, locale_t) {
+  return strftime(s, max, format, tm);
+}
+
+int strncasecmp_l(const char* s1, const char* s2, size_t n, locale_t) {
+  return strncasecmp(s1, s2, n);
+}
+
+long double strtold_l(const char* s, char** end_ptr, locale_t) {
+  return strtold(s, end_ptr);
+}
+
+long long strtoll_l(const char* s, char** end_ptr, int base, locale_t) {
+  return strtoll(s, end_ptr, base);
+}
+
+unsigned long long strtoull_l(const char* s, char** end_ptr, int base, locale_t) {
+  return strtoull(s, end_ptr, base);
+}
+
+size_t strxfrm_l(char* dst, const char* src, size_t n, locale_t) {
+  return strxfrm(dst, src, n);
+}
+
+int wcscasecmp_l(const wchar_t* ws1, const wchar_t* ws2, locale_t) {
+  return wcscasecmp(ws1, ws2);
+}
+
+int wcsncasecmp_l(const wchar_t* ws1, const wchar_t* ws2, size_t n, locale_t) {
+  return wcsncasecmp(ws1, ws2, n);
 }

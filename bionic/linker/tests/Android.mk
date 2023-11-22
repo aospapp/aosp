@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-ifneq ($(BUILD_TINY_ANDROID),true)
-
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -30,9 +28,12 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/../../libc/
 
 LOCAL_SRC_FILES := \
   linked_list_test.cpp \
-  linker_allocator_test.cpp \
+  linker_block_allocator_test.cpp \
+  ../linker_block_allocator.cpp \
+  linker_memory_allocator_test.cpp \
   ../linker_allocator.cpp
 
-include $(BUILD_NATIVE_TEST)
+# for __libc_fatal
+LOCAL_SRC_FILES += ../../libc/bionic/libc_logging.cpp
 
-endif # !BUILD_TINY_ANDROID
+include $(BUILD_NATIVE_TEST)

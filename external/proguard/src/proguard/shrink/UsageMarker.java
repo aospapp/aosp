@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -52,6 +52,7 @@ implements ClassVisitor,
            ExceptionInfoVisitor,
            StackMapFrameVisitor,
            VerificationTypeVisitor,
+           ParameterInfoVisitor,
            LocalVariableInfoVisitor,
            LocalVariableTypeInfoVisitor,
 //         AnnotationVisitor,
@@ -71,8 +72,8 @@ implements ClassVisitor,
                                                                                    new MyNonEmptyMethodUsageMarker());
     private final ConstantVisitor                 parameterlessConstructorMarker = new ConstantTagFilter(new int[] { ClassConstants.CONSTANT_String, ClassConstants.CONSTANT_Class },
                                                                                    new ReferencedClassVisitor(
-                                                                                   new NamedMethodVisitor(ClassConstants.INTERNAL_METHOD_NAME_INIT,
-                                                                                                          ClassConstants.INTERNAL_METHOD_TYPE_INIT,
+                                                                                   new NamedMethodVisitor(ClassConstants.METHOD_NAME_INIT,
+                                                                                                          ClassConstants.METHOD_TYPE_INIT,
                                                                                                           this)));
 
     // Implementations for ClassVisitor.
@@ -105,8 +106,8 @@ implements ClassVisitor,
                                      interfaceUsageMarker);
 
         // Explicitly mark the <clinit> method, if it's not empty.
-        programClass.methodAccept(ClassConstants.INTERNAL_METHOD_NAME_CLINIT,
-                                  ClassConstants.INTERNAL_METHOD_TYPE_CLINIT,
+        programClass.methodAccept(ClassConstants.METHOD_NAME_CLINIT,
+                                  ClassConstants.METHOD_TYPE_CLINIT,
                                   nonEmptyMethodUsageMarker);
 
         // Process all class members that have already been marked as possibly used.
@@ -355,18 +356,18 @@ implements ClassVisitor,
     {
         int accessFlags = method.getAccessFlags();
         if ((accessFlags &
-             (ClassConstants.INTERNAL_ACC_PRIVATE |
-              ClassConstants.INTERNAL_ACC_STATIC)) == 0 &&
+             (ClassConstants.ACC_PRIVATE |
+              ClassConstants.ACC_STATIC)) == 0 &&
             !ClassUtil.isInitializer(method.getName(clazz)))
         {
             // We can skip private and static methods in the hierarchy, and
             // also abstract methods, unless they might widen a current
             // non-public access.
             int requiredUnsetAccessFlags =
-                ClassConstants.INTERNAL_ACC_PRIVATE |
-                ClassConstants.INTERNAL_ACC_STATIC  |
-                ((accessFlags & ClassConstants.INTERNAL_ACC_PUBLIC) == 0 ? 0 :
-                     ClassConstants.INTERNAL_ACC_ABSTRACT);
+                ClassConstants.ACC_PRIVATE |
+                ClassConstants.ACC_STATIC  |
+                ((accessFlags & ClassConstants.ACC_PUBLIC) == 0 ? 0 :
+                     ClassConstants.ACC_ABSTRACT);
 
             clazz.accept(new ConcreteClassDownTraveler(
                          new ClassHierarchyTraveler(true, true, false, true,
@@ -448,6 +449,9 @@ implements ClassVisitor,
 
             markConstant(clazz, invokeDynamicConstant.u2nameAndTypeIndex);
 
+            // Mark the referenced descriptor classes.
+            invokeDynamicConstant.referencedClassesAccept(this);
+
             // Mark the bootstrap methods attribute.
             clazz.attributesAccept(new MyBootStrapMethodUsageMarker(invokeDynamicConstant.u2bootstrapMethodAttributeIndex));
         }
@@ -507,6 +511,9 @@ implements ClassVisitor,
             markAsUsed(methodTypeConstant);
 
             markConstant(clazz, methodTypeConstant.u2descriptorIndex);
+
+            // Mark the referenced descriptor classes.
+            methodTypeConstant.referencedClassesAccept(this);
         }
     }
 
@@ -553,11 +560,11 @@ implements ClassVisitor,
                 markAsUsed(bootstrapMethodsAttribute);
 
                 markConstant(clazz, bootstrapMethodsAttribute.u2attributeNameIndex);
-
-                bootstrapMethodsAttribute.bootstrapMethodEntryAccept(clazz,
-                                                                     bootstrapMethodIndex,
-                                                                     this);
             }
+
+            bootstrapMethodsAttribute.bootstrapMethodEntryAccept(clazz,
+                                                                 bootstrapMethodIndex,
+                                                                 this);
         }
 
 
@@ -658,12 +665,15 @@ implements ClassVisitor,
 
     public void visitSignatureAttribute(Clazz clazz, SignatureAttribute signatureAttribute)
     {
-        // Don't mark the attribute and its contents yet. We may mark them later,
-        // in SignatureUsageMarker.
-        //markAsUsed(signatureAttribute);
-        //
-        //markConstant(clazz, signatureAttribute.u2attributeNameIndex);
-        //markConstant(clazz, signatureAttribute.u2signatureIndex);
+        markAsUsed(signatureAttribute);
+
+        markConstant(clazz, signatureAttribute.u2attributeNameIndex);
+        markConstant(clazz, signatureAttribute.u2signatureIndex);
+
+        // Don't mark the referenced classes. We'll clean them up in
+        // ClassShrinker, if they appear unused.
+        //// Mark the classes referenced in the descriptor string.
+        //signatureAttribute.referencedClassesAccept(this);
     }
 
 
@@ -673,6 +683,17 @@ implements ClassVisitor,
 
         markConstant(clazz, constantValueAttribute.u2attributeNameIndex);
         markConstant(clazz, constantValueAttribute.u2constantValueIndex);
+    }
+
+
+    public void visitMethodParametersAttribute(Clazz clazz, Method method, MethodParametersAttribute methodParametersAttribute)
+    {
+        markAsUsed(methodParametersAttribute);
+
+        markConstant(clazz, methodParametersAttribute.u2attributeNameIndex);
+
+        // Mark the constant pool entries referenced by the parameter information.
+        methodParametersAttribute.parametersAccept(clazz, method, this);
     }
 
 
@@ -787,12 +808,12 @@ implements ClassVisitor,
     {
         // Don't mark the attribute and its contents yet. We may mark them later,
         // in AnnotationUsageMarker.
-//        markAsUsed(annotationDefaultAttribute);
-//
-//        markConstant(clazz, annotationDefaultAttribute.u2attributeNameIndex);
-//
-//        // Mark the constant pool entries referenced by the element value.
-//        annotationDefaultAttribute.defaultValueAccept(clazz, this);
+        //markAsUsed(annotationDefaultAttribute);
+        //
+        //markConstant(clazz, annotationDefaultAttribute.u2attributeNameIndex);
+        //
+        //// Mark the constant pool entries referenced by the element value.
+        //annotationDefaultAttribute.defaultValueAccept(clazz, this);
     }
 
 
@@ -862,6 +883,14 @@ implements ClassVisitor,
     public void visitObjectType(Clazz clazz, Method method, CodeAttribute codeAttribute, int offset, ObjectType objectType)
     {
         markConstant(clazz, objectType.u2classIndex);
+    }
+
+
+    // Implementations for ParameterInfoVisitor.
+
+    public void visitParameterInfo(Clazz clazz, Method method, int parameterIndex, ParameterInfo parameterInfo)
+    {
+        markConstant(clazz, parameterInfo.u2nameIndex);
     }
 
 

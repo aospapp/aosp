@@ -25,6 +25,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
 #ifndef _UNISTD_H_
 #define _UNISTD_H_
 
@@ -33,19 +34,44 @@
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/sysconf.h>
-#include <pathconf.h>
+
+#include <machine/posix_limits.h>
 
 __BEGIN_DECLS
 
-/* Standard file descriptor numbers. */
 #define STDIN_FILENO	0
 #define STDOUT_FILENO	1
 #define STDERR_FILENO	2
 
-/* Values for whence in fseek and lseek */
+#define F_OK 0
+#define X_OK 1
+#define W_OK 2
+#define R_OK 4
+
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+
+#define _PC_FILESIZEBITS 0
+#define _PC_LINK_MAX 1
+#define _PC_MAX_CANON 2
+#define _PC_MAX_INPUT 3
+#define _PC_NAME_MAX 4
+#define _PC_PATH_MAX 5
+#define _PC_PIPE_BUF 6
+#define _PC_2_SYMLINKS 7
+#define _PC_ALLOC_SIZE_MIN 8
+#define _PC_REC_INCR_XFER_SIZE 9
+#define _PC_REC_MAX_XFER_SIZE 10
+#define _PC_REC_MIN_XFER_SIZE 11
+#define _PC_REC_XFER_ALIGN 12
+#define _PC_SYMLINK_MAX 13
+#define _PC_CHOWN_RESTRICTED 14
+#define _PC_NO_TRUNC 15
+#define _PC_VDISABLE 16
+#define _PC_ASYNC_IO 17
+#define _PC_PRIO_IO 18
+#define _PC_SYNC_IO 19
 
 extern char** environ;
 
@@ -90,17 +116,9 @@ extern int setresgid(gid_t, gid_t, gid_t);
 extern int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid);
 extern int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid);
 extern char* getlogin(void);
-extern char* getusershell(void);
-extern void setusershell(void);
-extern void endusershell(void);
 
-
-
-/* Macros for access() */
-#define R_OK  4  /* Read */
-#define W_OK  2  /* Write */
-#define X_OK  1  /* Execute */
-#define F_OK  0  /* Existence */
+extern long fpathconf(int, int);
+extern long pathconf(const char*, int);
 
 extern int access(const char*, int);
 extern int faccessat(int, const char*, int, int);
@@ -112,7 +130,7 @@ extern int chdir(const char *);
 extern int fchdir(int);
 extern int rmdir(const char *);
 extern int pipe(int *);
-#ifdef _GNU_SOURCE
+#if defined(__USE_GNU)
 extern int pipe2(int *, int);
 #endif
 extern int chroot(const char *);
@@ -124,34 +142,40 @@ extern int chown(const char *, uid_t, gid_t);
 extern int fchown(int, uid_t, gid_t);
 extern int fchownat(int, const char*, uid_t, gid_t, int);
 extern int lchown(const char *, uid_t, gid_t);
-extern int truncate(const char *, off_t);
-extern int truncate64(const char *, off64_t);
 extern char *getcwd(char *, size_t);
 
 extern int sync(void);
 
 extern int close(int);
-extern off_t lseek(int, off_t, int);
-extern off64_t lseek64(int, off64_t, int);
 
 extern ssize_t read(int, void *, size_t);
 extern ssize_t write(int, const void *, size_t);
-extern ssize_t pread(int, void *, size_t, off_t);
-extern ssize_t pread64(int, void *, size_t, off64_t);
-extern ssize_t pwrite(int, const void *, size_t, off_t);
-extern ssize_t pwrite64(int, const void *, size_t, off64_t);
 
 extern int dup(int);
 extern int dup2(int, int);
-#ifdef _GNU_SOURCE
 extern int dup3(int, int, int);
-#endif
 extern int fcntl(int, int, ...);
 extern int ioctl(int, int, ...);
-extern int flock(int, int);
 extern int fsync(int);
 extern int fdatasync(int);
+
+#if defined(__USE_FILE_OFFSET64)
+extern int truncate(const char *, off_t) __RENAME(truncate64);
+extern off_t lseek(int, off_t, int) __RENAME(lseek64);
+extern ssize_t pread(int, void *, size_t, off_t) __RENAME(pread64);
+extern ssize_t pwrite(int, const void *, size_t, off_t) __RENAME(pwrite64);
+extern int ftruncate(int, off_t) __RENAME(ftruncate64);
+#else
+extern int truncate(const char *, off_t);
+extern off_t lseek(int, off_t, int);
+extern ssize_t pread(int, void *, size_t, off_t);
+extern ssize_t pwrite(int, const void *, size_t, off_t);
 extern int ftruncate(int, off_t);
+#endif
+extern int truncate64(const char *, off64_t);
+extern off64_t lseek64(int, off64_t, int);
+extern ssize_t pread64(int, void *, size_t, off64_t);
+extern ssize_t pwrite64(int, const void *, size_t, off64_t);
 extern int ftruncate64(int, off64_t);
 
 extern int pause(void);
@@ -159,7 +183,8 @@ extern unsigned int alarm(unsigned int);
 extern unsigned int sleep(unsigned int);
 extern int usleep(useconds_t);
 
-extern int gethostname(char *, size_t);
+int gethostname(char*, size_t);
+int sethostname(const char*, size_t);
 
 extern void *__brk(void *);
 extern int brk(void *);
@@ -170,7 +195,7 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 
 extern int isatty(int);
-extern char* ttyname(int) __warnattr("ttyname is not thread-safe; use ttyname_r instead");
+extern char* ttyname(int);
 extern int ttyname_r(int, char*, size_t);
 
 extern int  acct(const char*  filepath);
@@ -178,6 +203,8 @@ extern int  acct(const char*  filepath);
 int getpagesize(void);
 
 long sysconf(int);
+
+long syscall(long number, ...);
 
 extern int daemon(int, int);
 
@@ -197,12 +224,88 @@ extern int   tcsetpgrp(int fd, pid_t _pid);
     } while (_rc == -1 && errno == EINTR); \
     _rc; })
 
+extern ssize_t __pread_chk(int, void*, size_t, off_t, size_t);
+__errordecl(__pread_dest_size_error, "pread called with size bigger than destination");
+__errordecl(__pread_count_toobig_error, "pread called with count > SSIZE_MAX");
+extern ssize_t __pread_real(int, void*, size_t, off_t) __RENAME(pread);
+
+extern ssize_t __pread64_chk(int, void*, size_t, off64_t, size_t);
+__errordecl(__pread64_dest_size_error, "pread64 called with size bigger than destination");
+__errordecl(__pread64_count_toobig_error, "pread64 called with count > SSIZE_MAX");
+extern ssize_t __pread64_real(int, void*, size_t, off64_t) __RENAME(pread64);
+
 extern ssize_t __read_chk(int, void*, size_t, size_t);
 __errordecl(__read_dest_size_error, "read called with size bigger than destination");
 __errordecl(__read_count_toobig_error, "read called with count > SSIZE_MAX");
 extern ssize_t __read_real(int, void*, size_t) __RENAME(read);
 
+extern ssize_t __readlink_chk(const char*, char*, size_t, size_t);
+__errordecl(__readlink_dest_size_error, "readlink called with size bigger than destination");
+__errordecl(__readlink_size_toobig_error, "readlink called with size > SSIZE_MAX");
+extern ssize_t __readlink_real(const char*, char*, size_t) __RENAME(readlink);
+
+extern ssize_t __readlinkat_chk(int dirfd, const char*, char*, size_t, size_t);
+__errordecl(__readlinkat_dest_size_error, "readlinkat called with size bigger than destination");
+__errordecl(__readlinkat_size_toobig_error, "readlinkat called with size > SSIZE_MAX");
+extern ssize_t __readlinkat_real(int dirfd, const char*, char*, size_t) __RENAME(readlinkat);
+
 #if defined(__BIONIC_FORTIFY)
+
+#if defined(__USE_FILE_OFFSET64)
+#define __PREAD_PREFIX(x) __pread64_ ## x
+#else
+#define __PREAD_PREFIX(x) __pread_ ## x
+#endif
+
+__BIONIC_FORTIFY_INLINE
+ssize_t pread(int fd, void* buf, size_t count, off_t offset) {
+    size_t bos = __bos0(buf);
+
+#if !defined(__clang__)
+    if (__builtin_constant_p(count) && (count > SSIZE_MAX)) {
+        __PREAD_PREFIX(count_toobig_error)();
+    }
+
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __PREAD_PREFIX(real)(fd, buf, count, offset);
+    }
+
+    if (__builtin_constant_p(count) && (count > bos)) {
+        __PREAD_PREFIX(dest_size_error)();
+    }
+
+    if (__builtin_constant_p(count) && (count <= bos)) {
+        return __PREAD_PREFIX(real)(fd, buf, count, offset);
+    }
+#endif
+
+    return __PREAD_PREFIX(chk)(fd, buf, count, offset, bos);
+}
+
+__BIONIC_FORTIFY_INLINE
+ssize_t pread64(int fd, void* buf, size_t count, off64_t offset) {
+    size_t bos = __bos0(buf);
+
+#if !defined(__clang__)
+    if (__builtin_constant_p(count) && (count > SSIZE_MAX)) {
+        __pread64_count_toobig_error();
+    }
+
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __pread64_real(fd, buf, count, offset);
+    }
+
+    if (__builtin_constant_p(count) && (count > bos)) {
+        __pread64_dest_size_error();
+    }
+
+    if (__builtin_constant_p(count) && (count <= bos)) {
+        return __pread64_real(fd, buf, count, offset);
+    }
+#endif
+
+    return __pread64_chk(fd, buf, count, offset, bos);
+}
 
 __BIONIC_FORTIFY_INLINE
 ssize_t read(int fd, void* buf, size_t count) {
@@ -228,6 +331,57 @@ ssize_t read(int fd, void* buf, size_t count) {
 
     return __read_chk(fd, buf, count, bos);
 }
+
+__BIONIC_FORTIFY_INLINE
+ssize_t readlink(const char* path, char* buf, size_t size) {
+    size_t bos = __bos(buf);
+
+#if !defined(__clang__)
+    if (__builtin_constant_p(size) && (size > SSIZE_MAX)) {
+        __readlink_size_toobig_error();
+    }
+
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __readlink_real(path, buf, size);
+    }
+
+    if (__builtin_constant_p(size) && (size > bos)) {
+        __readlink_dest_size_error();
+    }
+
+    if (__builtin_constant_p(size) && (size <= bos)) {
+        return __readlink_real(path, buf, size);
+    }
+#endif
+
+    return __readlink_chk(path, buf, size, bos);
+}
+
+__BIONIC_FORTIFY_INLINE
+ssize_t readlinkat(int dirfd, const char* path, char* buf, size_t size) {
+    size_t bos = __bos(buf);
+
+#if !defined(__clang__)
+    if (__builtin_constant_p(size) && (size > SSIZE_MAX)) {
+        __readlinkat_size_toobig_error();
+    }
+
+    if (bos == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+        return __readlinkat_real(dirfd, path, buf, size);
+    }
+
+    if (__builtin_constant_p(size) && (size > bos)) {
+        __readlinkat_dest_size_error();
+    }
+
+    if (__builtin_constant_p(size) && (size <= bos)) {
+        return __readlinkat_real(dirfd, path, buf, size);
+    }
+#endif
+
+    return __readlinkat_chk(dirfd, path, buf, size, bos);
+}
+
 #endif /* defined(__BIONIC_FORTIFY) */
 
 __END_DECLS

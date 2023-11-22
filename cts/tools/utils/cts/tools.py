@@ -134,7 +134,7 @@ class TestPlan(object):
     """
     packaged_test_list = []
     for test in test_list:
-      packaged_test_list.append(package + '.' + test)
+      packaged_test_list.append(test)
 
     if package in self.includedTestsMap:
       self.includedTestsMap[package] += packaged_test_list
@@ -152,7 +152,7 @@ class TestPlan(object):
     """
     packaged_test_list = []
     for test in test_list:
-      packaged_test_list.append(package + '.' + test)
+      packaged_test_list.append(test)
     if package in self.excludedTestsMap:
       self.excludedTestsMap[package] += packaged_test_list
     else:

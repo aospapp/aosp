@@ -29,6 +29,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -69,6 +70,10 @@ public class MethodExitTest extends JDWPEventTestCase {
                 parsedEvents[0].getEventKind(),
                 JDWPConstants.EventKind.getName(JDWPConstants.EventKind.METHOD_EXIT),
                 JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
+
+        long eventThreadID = ((EventThread) parsedEvents[0]).getThreadID();
+        checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+                JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
 
         logWriter.println("MethodExitTest done");
     }

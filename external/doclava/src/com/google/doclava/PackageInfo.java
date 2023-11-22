@@ -18,8 +18,8 @@ package com.google.doclava;
 
 import com.google.doclava.apicheck.ApiInfo;
 import com.google.clearsilver.jsilver.data.Data;
-
 import com.sun.javadoc.*;
+
 import java.util.*;
 
 public class PackageInfo extends DocInfo implements ContainerInfo {
@@ -395,11 +395,107 @@ public class PackageInfo extends DocInfo implements ContainerInfo {
   }
 
   public boolean isConsistent(PackageInfo pInfo) {
+    return isConsistent(pInfo, null);
+  }
+
+  /**
+   * Creates the delta class by copying class signatures from original, but use provided list of
+   * constructors and methods.
+   */
+  private ClassInfo createDeltaClass(ClassInfo original,
+      ArrayList<MethodInfo> constructors, ArrayList<MethodInfo> methods) {
+    ArrayList<FieldInfo> emptyFields = new ArrayList<>();
+    ArrayList<ClassInfo> emptyClasses = new ArrayList<>();
+    ArrayList<TypeInfo> emptyTypes = new ArrayList<>();
+    ArrayList<MethodInfo> emptyMethods = new ArrayList<>();
+    ClassInfo ret = new ClassInfo(null, original.getRawCommentText(), original.position(),
+        original.isPublic(), original.isProtected(), original.isPackagePrivate(),
+        original.isPrivate(), original.isStatic(), original.isInterface(),
+        original.isAbstract(), original.isOrdinaryClass(),
+        original.isException(), original.isError(), original.isEnum(), original.isAnnotation(),
+        original.isFinal(), original.isIncluded(), original.name(), original.qualifiedName(),
+        original.qualifiedTypeName(), original.isPrimitive());
+    ArrayList<ClassInfo> interfaces = original.interfaces();
+    // avoid providing null to init method, replace with empty array list when needed
+    if (interfaces == null) {
+      interfaces = emptyClasses;
+    }
+    ArrayList<TypeInfo> interfaceTypes = original.interfaceTypes();
+    if (interfaceTypes == null) {
+      interfaceTypes = emptyTypes;
+    }
+    ArrayList<ClassInfo> innerClasses = original.innerClasses();
+    if (innerClasses == null) {
+      innerClasses = emptyClasses;
+    }
+    ArrayList<MethodInfo> annotationElements = original.annotationElements();
+    if (annotationElements == null) {
+      annotationElements = emptyMethods;
+    }
+    ArrayList<AnnotationInstanceInfo> annotations = original.annotations();
+    if (annotations == null) {
+      annotations = new ArrayList<>();
+    }
+    ret.init(original.type(), interfaces, interfaceTypes, innerClasses,
+        constructors, methods, annotationElements,
+        emptyFields /* fields */, emptyFields /* enum */,
+        original.containingPackage(), original.containingClass(), original.superclass(),
+        original.superclassType(), annotations);
+    return ret;
+  }
+
+  /**
+   * Check if packages are consistent, also record class deltas.
+   * <p>
+   * <ul>class deltas are:
+   * <li>brand new classes that are not present in current package
+   * <li>stripped existing classes stripped where only newly added methods are kept
+   * @param pInfo
+   * @param clsInfoDiff
+   * @return
+   */
+  public boolean isConsistent(PackageInfo pInfo, List<ClassInfo> clsInfoDiff) {
+      return isConsistent(pInfo, clsInfoDiff, null);
+  }
+
+  /**
+   * Check if packages are consistent, also record class deltas.
+   * <p>
+   * <ul>class deltas are:
+   * <li>brand new classes that are not present in current package
+   * <li>stripped existing classes stripped where only newly added methods are kept
+   * @param pInfo
+   * @param clsInfoDiff
+   * @param ignoredClasses
+   * @return
+   */
+  public boolean isConsistent(PackageInfo pInfo, List<ClassInfo> clsInfoDiff,
+      Collection<String> ignoredClasses) {
     boolean consistent = true;
+    boolean diffMode = clsInfoDiff != null;
     for (ClassInfo cInfo : mClasses.values()) {
+      ArrayList<MethodInfo> newClsApis = null;
+      ArrayList<MethodInfo> newClsCtors = null;
+
+      // TODO: Add support for matching inner classes (e.g, something like
+      //  example.Type.* should match example.Type.InnerType)
+      if (ignoredClasses != null && ignoredClasses.contains(cInfo.qualifiedName())) {
+          // TODO: Log skipping this?
+          continue;
+      }
       if (pInfo.mClasses.containsKey(cInfo.name())) {
-        if (!cInfo.isConsistent(pInfo.mClasses.get(cInfo.name()))) {
+        if (diffMode) {
+          newClsApis = new ArrayList<>();
+          newClsCtors = new ArrayList<>();
+        }
+        if (!cInfo.isConsistent(pInfo.mClasses.get(cInfo.name()), newClsCtors, newClsApis)) {
           consistent = false;
+        }
+        // if we are in diff mode, add class to list if there's new ctor or new apis
+        if (diffMode && !(newClsCtors.isEmpty() && newClsApis.isEmpty())) {
+          // generate a "delta" class with only added methods and constructors, but no fields etc
+          ClassInfo deltaClsInfo = createDeltaClass(cInfo, newClsCtors, newClsApis);
+          clsInfoDiff.add(deltaClsInfo);
         }
       } else {
         Errors.error(Errors.REMOVED_CLASS, cInfo.position(), "Removed public class "
@@ -408,11 +504,22 @@ public class PackageInfo extends DocInfo implements ContainerInfo {
       }
     }
     for (ClassInfo cInfo : pInfo.mClasses.values()) {
+      if (ignoredClasses != null && ignoredClasses.contains(cInfo.qualifiedName())) {
+          // TODO: Log skipping this?
+          continue;
+      }
       if (!mClasses.containsKey(cInfo.name())) {
         Errors.error(Errors.ADDED_CLASS, cInfo.position(), "Added class " + cInfo.name()
             + " to package " + pInfo.name());
         consistent = false;
+        // brand new class, add everything as is
+        if (diffMode) {
+            clsInfoDiff.add(cInfo);
+        }
       }
+    }
+    if (diffMode) {
+      Collections.sort(clsInfoDiff, ClassInfo.comparator);
     }
     return consistent;
   }

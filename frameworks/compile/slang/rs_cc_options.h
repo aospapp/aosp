@@ -28,6 +28,9 @@
 #include <vector>
 
 namespace llvm {
+namespace cl {
+class StringSaver;
+}
 namespace opt {
 class OptTable;
 }
@@ -125,10 +128,12 @@ llvm::opt::OptTable *createRSCCOptTable();
  * \param Opts - returned options after command line has been processed
  * \param DiagEngine - input for issuing warnings/errors on arguments
  */
-void ParseArguments(llvm::SmallVectorImpl<const char *> &ArgVector,
-                    llvm::SmallVectorImpl<const char *> &Inputs,
-                    RSCCOptions &Opts, clang::DiagnosticsEngine &DiagEngine);
 
-}  // namespace slang
+bool ParseArguments(const llvm::ArrayRef<const char *> &ArgsIn,
+                    llvm::SmallVectorImpl<const char *> &Inputs,
+                    RSCCOptions &Opts, clang::DiagnosticOptions &DiagOpts,
+                    llvm::cl::StringSaver &StringSaver);
+
+} // namespace slang
 
 #endif  // _FRAMEWORKS_COMPILE_SLANG_RS_CC_OPTIONS_H_

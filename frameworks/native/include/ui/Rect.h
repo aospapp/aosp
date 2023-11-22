@@ -18,6 +18,7 @@
 #define ANDROID_UI_RECT
 
 #include <utils/Flattenable.h>
+#include <utils/Log.h>
 #include <utils/TypeHelpers.h>
 #include <ui/Point.h>
 
@@ -30,6 +31,8 @@ class Rect : public ARect, public LightFlattenablePod<Rect>
 public:
     typedef ARect::value_type value_type;
 
+    static const Rect INVALID_RECT;
+
     // we don't provide copy-ctor and operator= on purpose
     // because we want the compiler generated versions
 
@@ -38,6 +41,22 @@ public:
     }
 
     inline Rect(int32_t w, int32_t h) {
+        left = top = 0;
+        right = w;
+        bottom = h;
+    }
+
+    inline Rect(uint32_t w, uint32_t h) {
+        if (w > INT32_MAX) {
+            ALOG(LOG_WARN, "Rect",
+                    "Width %u too large for Rect class, clamping", w);
+            w = INT32_MAX;
+        }
+        if (h > INT32_MAX) {
+            ALOG(LOG_WARN, "Rect",
+                    "Height %u too large for Rect class, clamping", h);
+            h = INT32_MAX;
+        }
         left = top = 0;
         right = w;
         bottom = h;

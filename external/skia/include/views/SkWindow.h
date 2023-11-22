@@ -14,6 +14,7 @@
 #include "SkRegion.h"
 #include "SkEvent.h"
 #include "SkKey.h"
+#include "SkSurfaceProps.h"
 #include "SkTDArray.h"
 
 #ifdef SK_BUILD_FOR_WINCEx
@@ -21,14 +22,29 @@
 #endif
 //#define USE_GX_SCREEN
 
-class SkCanvas;
-
+class SkSurface;
 class SkOSMenu;
+
+#if SK_SUPPORT_GPU
+struct GrGLInterface;
+class GrContext;
+class GrRenderTarget;
+#endif
 
 class SkWindow : public SkView {
 public:
             SkWindow();
     virtual ~SkWindow();
+
+    struct AttachmentInfo {
+        int fSampleCount;
+        int fStencilBits;
+    };
+
+    SkSurfaceProps getSurfaceProps() const { return fSurfaceProps; }
+    void setSurfaceProps(const SkSurfaceProps& props) {
+        fSurfaceProps = props;
+    }
 
     const SkBitmap& getBitmap() const { return fBitmap; }
 
@@ -59,7 +75,7 @@ public:
     void    preConcat(const SkMatrix&);
     void    postConcat(const SkMatrix&);
 
-    virtual SkCanvas* createCanvas();
+    virtual SkSurface* createSurface();
 
     virtual void onPDFSaved(const char title[], const char desc[],
         const char path[]) {}
@@ -80,7 +96,13 @@ protected:
     virtual bool onGetFocusView(SkView** focus) const;
     virtual bool onSetFocusView(SkView* focus);
 
+#if SK_SUPPORT_GPU
+    GrRenderTarget* renderTarget(const AttachmentInfo& attachmentInfo,
+                                 const GrGLInterface* , GrContext* grContext);
+#endif
+
 private:
+    SkSurfaceProps  fSurfaceProps;
     SkColorType fColorType;
     SkBitmap    fBitmap;
     SkRegion    fDirtyRgn;
@@ -100,9 +122,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#if defined(SK_BUILD_FOR_NACL)
-    #include "SkOSWindow_NaCl.h"
-#elif defined(SK_BUILD_FOR_MAC)
+#if defined(SK_BUILD_FOR_MAC)
     #include "SkOSWindow_Mac.h"
 #elif defined(SK_BUILD_FOR_WIN)
     #include "SkOSWindow_Win.h"

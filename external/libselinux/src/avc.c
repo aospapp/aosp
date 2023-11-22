@@ -9,6 +9,7 @@
  */
 #include <selinux/avc.h>
 #include "selinux_internal.h"
+#include <assert.h>
 #include "avc_sidtab.h"
 #include "avc_internal.h"
 
@@ -69,6 +70,9 @@ static inline int avc_hash(security_id_t ssid,
 int avc_context_to_sid(const char * ctx, security_id_t * sid)
 {
 	int rc;
+	/* avc_init needs to be called before this function */
+	assert(avc_running);
+
 	avc_get_lock(avc_lock);
 	rc = sidtab_context_to_sid(&avc_sidtab, ctx, sid);
 	avc_release_lock(avc_lock);
@@ -124,6 +128,9 @@ int avc_init(const char *prefix,
 {
 	struct avc_node *new;
 	int i, rc = 0;
+
+	if (avc_running)
+		return 0;
 
 	if (prefix)
 		strncpy(avc_prefix, prefix, AVC_PREFIX_SIZE - 1);
@@ -206,6 +213,8 @@ void avc_cache_stats(struct avc_cache_stats *p)
 
 void avc_sid_stats(void)
 {
+	/* avc_init needs to be called before this function */
+	assert(avc_running);
 	avc_get_lock(avc_log_lock);
 	avc_get_lock(avc_lock);
 	sidtab_sid_stats(&avc_sidtab, avc_audit_buf, AVC_AUDIT_BUFSIZE);
@@ -287,7 +296,7 @@ static inline struct avc_node *avc_reclaim_node(void)
 
 static inline void avc_clear_avc_entry(struct avc_entry *ae)
 {
-	memset(ae, 0, sizeof *ae);
+	memset(ae, 0, sizeof(*ae));
 }
 
 static inline struct avc_node *avc_claim_node(security_id_t ssid,
@@ -435,7 +444,7 @@ static int avc_insert(security_id_t ssid, security_id_t tsid,
 		goto out;
 	}
 
-	memcpy(&node->ae.avd, &ae->avd, sizeof ae->avd);
+	memcpy(&node->ae.avd, &ae->avd, sizeof(ae->avd));
 	aeref->ae = &node->ae;
       out:
 	return rc;
@@ -497,6 +506,8 @@ void avc_destroy(void)
 	struct avc_callback_node *c;
 	struct avc_node *node, *tmp;
 	int i;
+	/* avc_init needs to be called before this function */
+	assert(avc_running);
 
 	avc_get_lock(avc_lock);
 
@@ -680,6 +691,16 @@ void avc_audit(security_id_t ssid, security_id_t tsid,
 
 hidden_def(avc_audit)
 
+
+static void avd_init(struct av_decision *avd)
+{
+	avd->allowed = 0;
+	avd->auditallow = 0;
+	avd->auditdeny = 0xffffffff;
+	avd->seqno = avc_cache.latest_notif;
+	avd->flags = 0;
+}
+
 int avc_has_perm_noaudit(security_id_t ssid,
 			 security_id_t tsid,
 			 security_class_t tclass,
@@ -691,6 +712,9 @@ int avc_has_perm_noaudit(security_id_t ssid,
 	struct avc_entry entry;
 	access_vector_t denied;
 	struct avc_entry_ref ref;
+
+	if (avd)
+		avd_init(avd);
 
 	if (!avc_using_threads && !avc_app_main_loop) {
 		(void)avc_netlink_check_nb();
@@ -724,6 +748,10 @@ int avc_has_perm_noaudit(security_id_t ssid,
 			rc = security_compute_av(ssid->ctx, tsid->ctx,
 						 tclass, requested,
 						 &entry.avd);
+			if (rc && errno == EINVAL && !avc_enforcing) {
+				rc = errno = 0;
+				goto out;
+			}
 			if (rc)
 				goto out;
 			rc = avc_insert(ssid, tsid, tclass, &entry, aeref);
@@ -761,8 +789,6 @@ int avc_has_perm(security_id_t ssid, security_id_t tsid,
 {
 	struct av_decision avd;
 	int errsave, rc;
-
-	memset(&avd, 0, sizeof(avd));
 
 	rc = avc_has_perm_noaudit(ssid, tsid, tclass, requested, aeref, &avd);
 	errsave = errno;

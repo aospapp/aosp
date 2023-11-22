@@ -619,6 +619,18 @@ LLCP_API extern UINT8 LLCP_GetRemoteLSC (void);
 
 /*******************************************************************************
 **
+** Function         LLCP_GetRemoteVersion
+**
+** Description      Return LLCP version of connected device
+**
+**
+** Returns          LLCP version
+**
+*******************************************************************************/
+LLCP_API extern UINT8 LLCP_GetRemoteVersion (void);
+
+/*******************************************************************************
+**
 ** Function         LLCP_GetLinkMIU
 **
 ** Description      Return local and remote link MIU

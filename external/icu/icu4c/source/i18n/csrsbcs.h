@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2013, International Business Machines
+ *   Copyright (C) 2005-2015, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -33,9 +33,7 @@ protected:
 
 public:
     NGramParser(const int32_t *theNgramList, const uint8_t *theCharMap);
-    virtual ~NGramParser()   // Google patch: declare virtual destructor
-      {
-      }
+    virtual ~NGramParser();
 
 private:
     /*
@@ -53,6 +51,7 @@ public:
 
 };
 
+#if !UCONFIG_ONLY_HTML_CONVERSION
 class NGramParser_IBM420 : public NGramParser
 {
 private:
@@ -64,6 +63,7 @@ private:
 public:
     NGramParser_IBM420(const int32_t *theNgramList, const uint8_t *theCharMap);
 };
+#endif
 
 
 class CharsetRecog_sbcs : public CharsetRecognizer
@@ -232,6 +232,7 @@ public:
     virtual UBool match(InputText *det, CharsetMatch *results) const;
 };
 
+#if !UCONFIG_ONLY_HTML_CONVERSION
 class CharsetRecog_IBM424_he : public CharsetRecog_sbcs
 {
 public:
@@ -283,6 +284,7 @@ class CharsetRecog_IBM420_ar_ltr : public CharsetRecog_IBM420_ar {
     
     virtual UBool match(InputText *det, CharsetMatch *results) const;
 };
+#endif
 
 U_NAMESPACE_END
 

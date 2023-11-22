@@ -17,7 +17,6 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.android.internal.util.FastMath;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -33,6 +32,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
@@ -40,7 +40,9 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.test.ActivityInstrumentationTestCase2;
+import android.test.MoreAsserts;
 import android.test.TouchUtils;
 import android.test.UiThreadTest;
 import android.text.Editable;
@@ -75,16 +77,21 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
+import android.view.ActionMode;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnCreateContextMenuListener;
 import android.view.View.OnLongClickListener;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
+import android.view.inputmethod.InputConnection;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -94,6 +101,7 @@ import android.widget.TextView.BufferType;
 import android.widget.TextView.OnEditorActionListener;
 
 import java.io.IOException;
+import java.util.Locale;
 
 /**
  * Test {@link TextView}.
@@ -126,6 +134,21 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             }
         }.run();
         mInstrumentation = getInstrumentation();
+    }
+
+    /**
+     * Promotes the TextView to editable and places focus in it to allow simulated typing.
+     */
+    private void initTextViewForTyping() {
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView = findTextView(R.id.textview_text);
+                mTextView.setKeyListener(QwertyKeyListener.getInstance(false, Capitalize.NONE));
+                mTextView.setText("", BufferType.EDITABLE);
+                mTextView.requestFocus();
+            }
+        });
+        mInstrumentation.waitForIdleSync();
     }
 
     public void testConstructor() {
@@ -762,37 +785,38 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         float add = 1.2f;
         float mult = 1.4f;
         setLineSpacing(add, mult);
-        assertEquals(FastMath.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
         add = 0.0f;
         mult = 1.4f;
         setLineSpacing(add, mult);
-        assertEquals(FastMath.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
 
         // abnormal
         add = -1.2f;
         mult = 1.4f;
         setLineSpacing(add, mult);
-        assertEquals(FastMath.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
         add = -1.2f;
         mult = -1.4f;
         setLineSpacing(add, mult);
-        assertEquals(FastMath.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
         add = 1.2f;
         mult = 0.0f;
         setLineSpacing(add, mult);
-        assertEquals(FastMath.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
 
         // edge
         add = Float.MIN_VALUE;
         mult = Float.MIN_VALUE;
         setLineSpacing(add, mult);
-        float expected = originalLineHeight * mult + add;
-        assertEquals(FastMath.round(expected), mTextView.getLineHeight());
+        assertEquals(Math.round(originalLineHeight * mult + add), mTextView.getLineHeight());
+
+        // edge case where the behavior of Math.round() deviates from
+        // FastMath.round(), requiring us to use an explicit 0 value
         add = Float.MAX_VALUE;
         mult = Float.MAX_VALUE;
         setLineSpacing(add, mult);
-        expected = originalLineHeight * mult + add;
-        assertEquals(FastMath.round(expected), mTextView.getLineHeight());
+        assertEquals(0, mTextView.getLineHeight());
     }
 
     public void testInstanceState() {
@@ -1241,6 +1265,537 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         }
     }
 
+    public void testUndo_insert() {
+        initTextViewForTyping();
+
+        // Type some text.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Precondition: The cursor is at the end of the text.
+                assertEquals(3, mTextView.getSelectionStart());
+
+                // Undo removes the typed string in one step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+                assertEquals(0, mTextView.getSelectionStart());
+
+                // Redo restores the text and cursor position.
+                mTextView.onTextContextMenuItem(android.R.id.redo);
+                assertEquals("abc", mTextView.getText().toString());
+                assertEquals(3, mTextView.getSelectionStart());
+
+                // Undoing the redo clears the text again.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+
+                // Undo when the undo stack is empty does nothing.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_delete() {
+        initTextViewForTyping();
+
+        // Simulate deleting text and undoing it.
+        mInstrumentation.sendStringSync("xyz");
+        sendKeys(KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL);
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Precondition: The text was actually deleted.
+                assertEquals("", mTextView.getText().toString());
+                assertEquals(0, mTextView.getSelectionStart());
+
+                // Undo restores the typed string and cursor position in one step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("xyz", mTextView.getText().toString());
+                assertEquals(3, mTextView.getSelectionStart());
+
+                // Redo removes the text in one step.
+                mTextView.onTextContextMenuItem(android.R.id.redo);
+                assertEquals("", mTextView.getText().toString());
+                assertEquals(0, mTextView.getSelectionStart());
+
+                // Undoing the redo restores the text again.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("xyz", mTextView.getText().toString());
+                assertEquals(3, mTextView.getSelectionStart());
+
+                // Undoing again undoes the original typing.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+                assertEquals(0, mTextView.getSelectionStart());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    // Initialize the text view for simulated IME typing. Must be called on UI thread.
+    private InputConnection initTextViewForSimulatedIme() {
+        mTextView = findTextView(R.id.textview_text);
+        mTextView.setKeyListener(QwertyKeyListener.getInstance(false, Capitalize.NONE));
+        mTextView.setText("", BufferType.EDITABLE);
+        return mTextView.onCreateInputConnection(new EditorInfo());
+    }
+
+    // Simulates IME composing text behavior.
+    private void setComposingTextInBatch(InputConnection input, CharSequence text) {
+        input.beginBatchEdit();
+        input.setComposingText(text, 1);  // Leave cursor at end.
+        input.endBatchEdit();
+    }
+
+    @UiThreadTest
+    public void testUndo_imeInsertLatin() {
+        InputConnection input = initTextViewForSimulatedIme();
+
+        // Simulate IME text entry behavior. The Latin IME enters text by replacing partial words,
+        // such as "c" -> "ca" -> "cat" -> "cat ".
+        setComposingTextInBatch(input, "c");
+        setComposingTextInBatch(input, "ca");
+
+        // The completion and space are added in the same batch.
+        input.beginBatchEdit();
+        input.commitText("cat", 1);
+        input.commitText(" ", 1);
+        input.endBatchEdit();
+
+        // The repeated replacements undo in a single step.
+        mTextView.onTextContextMenuItem(android.R.id.undo);
+        assertEquals("", mTextView.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testUndo_imeInsertJapanese() {
+        InputConnection input = initTextViewForSimulatedIme();
+
+        // The Japanese IME does repeated replacements of Latin characters to hiragana to kanji.
+        final String HA = "\u306F";  // HIRAGANA LETTER HA
+        final String NA = "\u306A";  // HIRAGANA LETTER NA
+        setComposingTextInBatch(input, "h");
+        setComposingTextInBatch(input, HA);
+        setComposingTextInBatch(input, HA + "n");
+        setComposingTextInBatch(input, HA + NA);
+
+        // The result may be a surrogate pair. The composition ends in the same batch.
+        input.beginBatchEdit();
+        input.commitText("\uD83C\uDF37", 1);  // U+1F337 TULIP
+        input.setComposingText("", 1);
+        input.endBatchEdit();
+
+        // The repeated replacements are a single undo step.
+        mTextView.onTextContextMenuItem(android.R.id.undo);
+        assertEquals("", mTextView.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testUndo_imeCancel() {
+        InputConnection input = initTextViewForSimulatedIme();
+        mTextView.setText("flower");
+
+        // Start typing a composition.
+        final String HA = "\u306F";  // HIRAGANA LETTER HA
+        setComposingTextInBatch(input, "h");
+        setComposingTextInBatch(input, HA);
+        setComposingTextInBatch(input, HA + "n");
+
+        // Cancel the composition.
+        setComposingTextInBatch(input, "");
+
+        // Undo and redo do nothing.
+        mTextView.onTextContextMenuItem(android.R.id.undo);
+        assertEquals("flower", mTextView.getText().toString());
+        mTextView.onTextContextMenuItem(android.R.id.redo);
+        assertEquals("flower", mTextView.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testUndo_imeEmptyBatch() {
+        InputConnection input = initTextViewForSimulatedIme();
+        mTextView.setText("flower");
+
+        // Send an empty batch edit. This happens if the IME is hidden and shown.
+        input.beginBatchEdit();
+        input.endBatchEdit();
+
+        // Undo and redo do nothing.
+        mTextView.onTextContextMenuItem(android.R.id.undo);
+        assertEquals("flower", mTextView.getText().toString());
+        mTextView.onTextContextMenuItem(android.R.id.redo);
+        assertEquals("flower", mTextView.getText().toString());
+    }
+
+    public void testUndo_setText() {
+        initTextViewForTyping();
+
+        // Create two undo operations, an insert and a delete.
+        mInstrumentation.sendStringSync("xyz");
+        sendKeys(KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_DEL);
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Calling setText() clears both undo operations, so undo doesn't happen.
+                mTextView.setText("Hello", BufferType.EDITABLE);
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("Hello", mTextView.getText().toString());
+
+                // Clearing text programmatically does not undo either.
+                mTextView.setText("", BufferType.EDITABLE);
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testRedo_setText() {
+        initTextViewForTyping();
+
+        // Type some text. This creates an undo entry.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Undo the typing to create a redo entry.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+
+                // Calling setText() clears the redo stack, so redo doesn't happen.
+                mTextView.setText("Hello", BufferType.EDITABLE);
+                mTextView.onTextContextMenuItem(android.R.id.redo);
+                assertEquals("Hello", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_directAppend() {
+        initTextViewForTyping();
+
+        // Type some text.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Programmatically append some text.
+                mTextView.append("def");
+                assertEquals("abcdef", mTextView.getText().toString());
+
+                // Undo removes the append as a separate step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("abc", mTextView.getText().toString());
+
+                // Another undo removes the original typing.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_directInsert() {
+        initTextViewForTyping();
+
+        // Type some text.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Directly modify the underlying Editable to insert some text.
+                // NOTE: This is a violation of the API of getText() which specifies that the
+                // returned object should not be modified. However, some apps do this anyway and
+                // the framework needs to handle it.
+                Editable text = (Editable) mTextView.getText();
+                text.insert(0, "def");
+                assertEquals("defabc", mTextView.getText().toString());
+
+                // Undo removes the insert as a separate step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("abc", mTextView.getText().toString());
+
+                // Another undo removes the original typing.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_noCursor() {
+        initTextViewForTyping();
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Append some text to create an undo operation. There is no cursor present.
+                mTextView.append("cat");
+
+                // Place the cursor at the end of the text so the undo will have to change it.
+                Selection.setSelection((Spannable) mTextView.getText(), 3);
+
+                // Undo the append. This should not crash, despite not having a valid cursor
+                // position in the undo operation.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_textWatcher() {
+        initTextViewForTyping();
+
+        // Add a TextWatcher that converts the text to spaces on each change.
+        mTextView.addTextChangedListener(new ConvertToSpacesTextWatcher());
+
+        // Type some text.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // TextWatcher altered the text.
+                assertEquals("   ", mTextView.getText().toString());
+
+                // Undo reverses both changes in one step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_textWatcherDirectAppend() {
+        initTextViewForTyping();
+
+        // Add a TextWatcher that converts the text to spaces on each change.
+        mTextView.addTextChangedListener(new ConvertToSpacesTextWatcher());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Programmatically append some text. The TextWatcher changes it to spaces.
+                mTextView.append("abc");
+                assertEquals("   ", mTextView.getText().toString());
+
+                // Undo reverses both changes in one step.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_shortcuts() {
+        initTextViewForTyping();
+
+        // Type some text.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Pressing Control-Z triggers undo.
+                KeyEvent control = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_Z, 0,
+                        KeyEvent.META_CTRL_LEFT_ON);
+                assertTrue(mTextView.onKeyShortcut(KeyEvent.KEYCODE_Z, control));
+                assertEquals("", mTextView.getText().toString());
+
+                // Pressing Control-Shift-Z triggers redo.
+                KeyEvent controlShift = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_Z,
+                        0, KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_SHIFT_LEFT_ON);
+                assertTrue(mTextView.onKeyShortcut(KeyEvent.KEYCODE_Z, controlShift));
+                assertEquals("abc", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_saveInstanceState() {
+        initTextViewForTyping();
+
+        // Type some text to create an undo operation.
+        mInstrumentation.sendStringSync("abc");
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Parcel and unparcel the TextView.
+                Parcelable state = mTextView.onSaveInstanceState();
+                mTextView.onRestoreInstanceState(state);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Delete a character to create a new undo operation.
+        sendKeys(KeyEvent.KEYCODE_DEL);
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                assertEquals("ab", mTextView.getText().toString());
+
+                // Undo the delete.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("abc", mTextView.getText().toString());
+
+                // Undo the typing, which verifies that the original undo operation was parceled
+                // correctly.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+
+                // Parcel and unparcel the undo stack (which is empty but has been used and may
+                // contain other state).
+                Parcelable state = mTextView.onSaveInstanceState();
+                mTextView.onRestoreInstanceState(state);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testUndo_saveInstanceStateEmpty() {
+        initTextViewForTyping();
+
+        // Type and delete to create two new undo operations.
+        mInstrumentation.sendStringSync("a");
+        sendKeys(KeyEvent.KEYCODE_DEL);
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Empty the undo stack then parcel and unparcel the TextView. While the undo
+                // stack contains no operations it may contain other state.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                Parcelable state = mTextView.onSaveInstanceState();
+                mTextView.onRestoreInstanceState(state);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Create two more undo operations.
+        mInstrumentation.sendStringSync("b");
+        sendKeys(KeyEvent.KEYCODE_DEL);
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Verify undo still works.
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("b", mTextView.getText().toString());
+                mTextView.onTextContextMenuItem(android.R.id.undo);
+                assertEquals("", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testCopyAndPaste() {
+        initTextViewForTyping();
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setText("abcd", BufferType.EDITABLE);
+                mTextView.setSelected(true);
+
+                // Copy "bc".
+                Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+                mTextView.onTextContextMenuItem(android.R.id.copy);
+
+                // Paste "bc" between "b" and "c".
+                Selection.setSelection((Spannable) mTextView.getText(), 2, 2);
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("abbccd", mTextView.getText().toString());
+
+                // Select entire text and paste "bc".
+                Selection.selectAll((Spannable) mTextView.getText());
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("bc", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    public void testCutAndPaste() {
+        initTextViewForTyping();
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setText("abcd", BufferType.EDITABLE);
+                mTextView.setSelected(true);
+
+                // Cut "bc".
+                Selection.setSelection((Spannable) mTextView.getText(), 1, 3);
+                mTextView.onTextContextMenuItem(android.R.id.cut);
+                assertEquals("ad", mTextView.getText().toString());
+
+                // Cut "ad".
+                Selection.setSelection((Spannable) mTextView.getText(), 0, 2);
+                mTextView.onTextContextMenuItem(android.R.id.cut);
+                assertEquals("", mTextView.getText().toString());
+
+                // Paste "ad".
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("ad", mTextView.getText().toString());
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    private static boolean hasSpansAtMiddleOfText(final TextView textView, final Class<?> type) {
+        final Spannable spannable = (Spannable)textView.getText();
+        final int at = spannable.length() / 2;
+        return spannable.getSpans(at, at, type).length > 0;
+    }
+
+    public void testCutAndPaste_withAndWithoutStyle() {
+        initTextViewForTyping();
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.setText("example", BufferType.EDITABLE);
+                mTextView.setSelected(true);
+
+                // Set URLSpan.
+                final Spannable spannable = (Spannable) mTextView.getText();
+                spannable.setSpan(new URLSpan("http://example.com"), 0, spannable.length(), 0);
+                assertTrue(hasSpansAtMiddleOfText(mTextView, URLSpan.class));
+
+                // Cut entire text.
+                Selection.selectAll((Spannable) mTextView.getText());
+                mTextView.onTextContextMenuItem(android.R.id.cut);
+                assertEquals("", mTextView.getText().toString());
+
+                // Paste without style.
+                mTextView.onTextContextMenuItem(android.R.id.pasteAsPlainText);
+                assertEquals("example", mTextView.getText().toString());
+                // Check that the text doesn't have URLSpan.
+                assertFalse(hasSpansAtMiddleOfText(mTextView, URLSpan.class));
+
+                // Paste with style.
+                Selection.selectAll((Spannable) mTextView.getText());
+                mTextView.onTextContextMenuItem(android.R.id.paste);
+                assertEquals("example", mTextView.getText().toString());
+                // Check that the text has URLSpan.
+                assertTrue(hasSpansAtMiddleOfText(mTextView, URLSpan.class));
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+    }
+
+    @UiThreadTest
+    public void testSaveInstanceState() {
+        TextView originalTextView = new TextView(mActivity);
+        final String text = "This is a string";
+        originalTextView.setText(text);
+        originalTextView.setFreezesText(true);  // needed to actually save state
+        Parcelable state = originalTextView.onSaveInstanceState();
+
+        TextView restoredTextView = new TextView(mActivity);
+        restoredTextView.onRestoreInstanceState(state);
+        assertEquals(text, restoredTextView.getText().toString());
+    }
+
+    @UiThreadTest
+    public void testSaveInstanceStateSelection() {
+        TextView originalTextView = new TextView(mActivity);
+        final String text = "This is a string";
+        final Spannable spannable = new SpannableString(text);
+        originalTextView.setText(spannable);
+        originalTextView.setTextIsSelectable(true);
+        Selection.setSelection((Spannable) originalTextView.getText(), 5, 7);
+        originalTextView.setFreezesText(true);  // needed to actually save state
+        Parcelable state = originalTextView.onSaveInstanceState();
+
+        TextView restoredTextView = new TextView(mActivity);
+        // Setting a selection only has an effect on a TextView when it is selectable.
+        restoredTextView.setTextIsSelectable(true);
+        restoredTextView.onRestoreInstanceState(state);
+        assertEquals(text, restoredTextView.getText().toString());
+        assertEquals(5, restoredTextView.getSelectionStart());
+        assertEquals(7, restoredTextView.getSelectionEnd());
+    }
+
     @UiThreadTest
     public void testSetText() {
         TextView tv = findTextView(R.id.textview_text);
@@ -1583,17 +2138,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
     }
 
     public void testPressKey() {
-        final QwertyKeyListener qwertyKeyListener
-                = QwertyKeyListener.getInstance(false, Capitalize.NONE);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mTextView = findTextView(R.id.textview_text);
-                mTextView.setKeyListener(qwertyKeyListener);
-                mTextView.setText("", BufferType.EDITABLE);
-                mTextView.requestFocus();
-            }
-        });
-        mInstrumentation.waitForIdleSync();
+        initTextViewForTyping();
 
         mInstrumentation.sendStringSync("a");
         assertEquals("a", mTextView.getText().toString());
@@ -2107,6 +2652,88 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertTrue(mTextView.getHeight() <= maxLines * mTextView.getLineHeight());
     }
 
+    public int calculateTextWidth(String text) {
+        mTextView = findTextView(R.id.textview_text);
+
+        // Set the TextView width as the half of the whole text.
+        float[] widths = new float[text.length()];
+        mTextView.getPaint().getTextWidths(text, widths);
+        float textfieldWidth = 0.0f;
+        for (int i = 0; i < text.length(); ++i) {
+            textfieldWidth += widths[i];
+        }
+        return (int)textfieldWidth;
+
+    }
+
+    @UiThreadTest
+    public void testHyphenationNotHappen_frequencyNone() {
+        final int[] BREAK_STRATEGIES = {
+            Layout.BREAK_STRATEGY_SIMPLE, Layout.BREAK_STRATEGY_HIGH_QUALITY,
+            Layout.BREAK_STRATEGY_BALANCED };
+
+        mTextView = findTextView(R.id.textview_text);
+
+        for (int breakStrategy : BREAK_STRATEGIES) {
+            for (int charWidth = 10; charWidth < 120; charWidth += 5) {
+                // Change the text view's width to charWidth width.
+                mTextView.setWidth(calculateTextWidth(LONG_TEXT.substring(0, charWidth)));
+
+                mTextView.setText(LONG_TEXT);
+                mTextView.setBreakStrategy(breakStrategy);
+
+                mTextView.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
+
+                mTextView.requestLayout();
+                mTextView.onPreDraw();  // For freezing the layout.
+                Layout layout = mTextView.getLayout();
+
+                final int lineCount = layout.getLineCount();
+                for (int line = 0; line < lineCount; ++line) {
+                    final int lineEnd = layout.getLineEnd(line);
+                    // In any width, any break strategy, hyphenation should not happen if
+                    // HYPHENATION_FREQUENCY_NONE is specified.
+                    assertTrue(lineEnd == LONG_TEXT.length() ||
+                            Character.isWhitespace(LONG_TEXT.charAt(lineEnd - 1)));
+                }
+            }
+        }
+    }
+
+    @UiThreadTest
+    public void testHyphenationNotHappen_breakStrategySimple() {
+        final int[] HYPHENATION_FREQUENCIES = {
+            Layout.HYPHENATION_FREQUENCY_NORMAL, Layout.HYPHENATION_FREQUENCY_FULL,
+            Layout.HYPHENATION_FREQUENCY_NONE };
+
+        mTextView = findTextView(R.id.textview_text);
+
+        for (int hyphenationFrequency: HYPHENATION_FREQUENCIES) {
+            for (int charWidth = 10; charWidth < 120; charWidth += 5) {
+                // Change the text view's width to charWidth width.
+                mTextView.setWidth(calculateTextWidth(LONG_TEXT.substring(0, charWidth)));
+
+                mTextView.setText(LONG_TEXT);
+                mTextView.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+
+                mTextView.setHyphenationFrequency(hyphenationFrequency);
+
+                mTextView.requestLayout();
+                mTextView.onPreDraw();  // For freezing the layout.
+                Layout layout = mTextView.getLayout();
+
+                final int lineCount = layout.getLineCount();
+                for (int line = 0; line < lineCount; ++line) {
+                    final int lineEnd = layout.getLineEnd(line);
+                    // In any width, any hyphenation frequency, hyphenation should not happen if
+                    // BREAK_STRATEGY_SIMPLE is specified.
+                    assertTrue(lineEnd == LONG_TEXT.length() ||
+                            Character.isWhitespace(LONG_TEXT.charAt(lineEnd - 1)));
+                }
+            }
+        }
+    }
+
     @UiThreadTest
     public void testSetMaxLinesException() {
         mTextView = new TextView(mActivity);
@@ -2324,7 +2951,7 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertEquals(40, mTextView.getPaddingBottom());
     }
 
-    public void testSetTextAppearance() {
+    public void testDeprecatedSetTextAppearance() {
         mTextView = new TextView(mActivity);
 
         mTextView.setTextAppearance(mActivity, R.style.TextAppearance_All);
@@ -2353,8 +2980,47 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertEquals(null, mTextView.getTypeface());
     }
 
+    public void testSetTextAppearance() {
+        mTextView = new TextView(mActivity);
+
+        mTextView.setTextAppearance(R.style.TextAppearance_All);
+        assertEquals(mActivity.getResources().getColor(R.drawable.black),
+                mTextView.getCurrentTextColor());
+        assertEquals(20f, mTextView.getTextSize(), 0.01f);
+        assertEquals(Typeface.BOLD, mTextView.getTypeface().getStyle());
+        assertEquals(mActivity.getResources().getColor(R.drawable.red),
+                mTextView.getCurrentHintTextColor());
+        assertEquals(mActivity.getResources().getColor(R.drawable.blue),
+                mTextView.getLinkTextColors().getDefaultColor());
+
+        mTextView.setTextAppearance(R.style.TextAppearance_Colors);
+        assertEquals(mActivity.getResources().getColor(R.drawable.black),
+                mTextView.getCurrentTextColor());
+        assertEquals(mActivity.getResources().getColor(R.drawable.blue),
+                mTextView.getCurrentHintTextColor());
+        assertEquals(mActivity.getResources().getColor(R.drawable.yellow),
+                mTextView.getLinkTextColors().getDefaultColor());
+
+        mTextView.setTextAppearance(R.style.TextAppearance_NotColors);
+        assertEquals(17f, mTextView.getTextSize(), 0.01f);
+        assertEquals(Typeface.NORMAL, mTextView.getTypeface().getStyle());
+
+        mTextView.setTextAppearance(R.style.TextAppearance_Style);
+        assertEquals(null, mTextView.getTypeface());
+    }
+
     public void testOnPreDraw() {
         // Do not test. Implementation details.
+    }
+
+    public void testAccessCompoundDrawableTint() {
+        mTextView = new TextView(mActivity);
+
+        ColorStateList colors = ColorStateList.valueOf(Color.RED);
+        mTextView.setCompoundDrawableTintList(colors);
+        mTextView.setCompoundDrawableTintMode(PorterDuff.Mode.XOR);
+        assertSame(colors, mTextView.getCompoundDrawableTintList());
+        assertEquals(PorterDuff.Mode.XOR, mTextView.getCompoundDrawableTintMode());
     }
 
     public void testSetHorizontallyScrolling() {
@@ -3005,6 +3671,39 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertTrue(mTextView.didTouchFocusSelect());
     }
 
+    public void testSelectAllJustAfterTap() {
+        // Prepare an EditText with focus.
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView = new EditText(mActivity);
+                mActivity.setContentView(mTextView);
+
+                assertFalse(mTextView.didTouchFocusSelect());
+                mTextView.setFocusable(true);
+                mTextView.requestFocus();
+                assertTrue(mTextView.didTouchFocusSelect());
+
+                mTextView.setText("Hello, World.", BufferType.SPANNABLE);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Tap the view to show InsertPointController.
+        TouchUtils.tapView(this, mTextView);
+
+        // Execute SelectAll context menu.
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView.onTextContextMenuItem(android.R.id.selectAll);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // The selection must be whole of the text contents.
+        assertEquals(0, mTextView.getSelectionStart());
+        assertEquals(mTextView.length(), mTextView.getSelectionEnd());
+    }
+
     public void testExtractText() {
         mTextView = new TextView(mActivity);
 
@@ -3022,6 +3721,11 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         assertEquals(mActivity.getResources().getString(R.string.text_view_hello),
                 outText.text.toString());
+
+        // Tests for invalid arguments.
+        assertFalse(mTextView.extractText(request, null));
+        assertFalse(mTextView.extractText(null, outText));
+        assertFalse(mTextView.extractText(null, null));
     }
 
     @UiThreadTest
@@ -3051,6 +3755,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getRawTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getRawTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getRawTextDirection());
     }
 
     @UiThreadTest
@@ -3077,6 +3787,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
     }
 
     @UiThreadTest
@@ -3105,6 +3821,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
     }
 
     @UiThreadTest
@@ -3131,6 +3853,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
     }
 
     @UiThreadTest
@@ -3160,6 +3888,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getTextDirection());
 
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
+
         // Force to RTL text direction on the layout
         ll.setTextDirection(View.TEXT_DIRECTION_RTL);
 
@@ -3180,6 +3914,12 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
 
         tv.setTextDirection(View.TEXT_DIRECTION_LOCALE);
         assertEquals(View.TEXT_DIRECTION_LOCALE, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+        tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+        assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
     }
 
     @UiThreadTest
@@ -3198,6 +3938,126 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         // Reset is done when we add the view
         ll.addView(tv);
         assertEquals(View.TEXT_DIRECTION_FIRST_STRONG, tv.getTextDirection());
+    }
+
+    @UiThreadTest
+    public void testTextDirectionFirstStrongLtr() {
+        {
+            // The first directional character is LTR, the paragraph direction is LTR.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("this is a test");
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_LEFT_TO_RIGHT, layout.getParagraphDirection(0));
+        }
+        {
+            // The first directional character is RTL, the paragraph direction is RTL.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("\u05DD\u05DE"); // Hebrew
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_RIGHT_TO_LEFT, layout.getParagraphDirection(0));
+        }
+        {
+            // The first directional character is not a strong directional character, the paragraph
+            // direction is LTR.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("\uFFFD");  // REPLACEMENT CHARACTER. Neutral direction.
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_LTR);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_LTR, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_LEFT_TO_RIGHT, layout.getParagraphDirection(0));
+        }
+    }
+
+    @UiThreadTest
+    public void testTextDirectionFirstStrongRtl() {
+        {
+            // The first directional character is LTR, the paragraph direction is LTR.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("this is a test");
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_LEFT_TO_RIGHT, layout.getParagraphDirection(0));
+        }
+        {
+            // The first directional character is RTL, the paragraph direction is RTL.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("\u05DD\u05DE"); // Hebrew
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_RIGHT_TO_LEFT, layout.getParagraphDirection(0));
+        }
+        {
+            // The first directional character is not a strong directional character, the paragraph
+            // direction is RTL.
+            LinearLayout ll = new LinearLayout(mActivity);
+
+            TextView tv = new TextView(mActivity);
+            tv.setText("\uFFFD");  // REPLACEMENT CHARACTER. Neutral direction.
+            ll.addView(tv);
+
+            tv.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG_RTL);
+            assertEquals(View.TEXT_DIRECTION_FIRST_STRONG_RTL, tv.getTextDirection());
+
+            tv.onPreDraw();  // For freezing layout.
+            Layout layout = tv.getLayout();
+            assertEquals(Layout.DIR_RIGHT_TO_LEFT, layout.getParagraphDirection(0));
+        }
+    }
+
+    public void testAllCapsLocalization() {
+        String testString = "abcdefghijklmnopqrstuvwxyz";
+
+        // The capitalized characters of "i" on Turkish and Azerbaijani are different from English.
+        Locale[] testLocales = {
+            new Locale("az", "AZ"),
+            new Locale("tr", "TR"),
+            new Locale("en", "US"),
+        };
+
+        TextView tv = new TextView(mActivity);
+        tv.setAllCaps(true);
+        for (Locale locale: testLocales) {
+            tv.setTextLocale(locale);
+            assertEquals("Locale: " + locale.getDisplayName(),
+                         testString.toUpperCase(locale),
+                         tv.getTransformationMethod().getTransformation(testString, tv).toString());
+        }
     }
 
     @UiThreadTest
@@ -3552,6 +4412,182 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
         assertNull(drawables[TOP]);
         assertNull(drawables[BOTTOM]);
     }
+
+    public void testSetGetBreakStrategy() {
+        TextView tv = new TextView(mActivity);
+
+        // The default value is from the theme, here the default is BREAK_STRATEGY_HIGH_QUALITY for
+        // TextView.
+        assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, tv.getBreakStrategy());
+
+        tv.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+        assertEquals(Layout.BREAK_STRATEGY_SIMPLE, tv.getBreakStrategy());
+
+        tv.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY);
+        assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, tv.getBreakStrategy());
+
+        tv.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED);
+        assertEquals(Layout.BREAK_STRATEGY_BALANCED, tv.getBreakStrategy());
+
+        EditText et = new EditText(mActivity);
+
+        // The default value is from the theme, here the default is BREAK_STRATEGY_SIMPLE for
+        // EditText.
+        assertEquals(Layout.BREAK_STRATEGY_SIMPLE, et.getBreakStrategy());
+
+        et.setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE);
+        assertEquals(Layout.BREAK_STRATEGY_SIMPLE, et.getBreakStrategy());
+
+        et.setBreakStrategy(Layout.BREAK_STRATEGY_HIGH_QUALITY);
+        assertEquals(Layout.BREAK_STRATEGY_HIGH_QUALITY, et.getBreakStrategy());
+
+        et.setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED);
+        assertEquals(Layout.BREAK_STRATEGY_BALANCED, et.getBreakStrategy());
+    }
+
+    public void testSetGetHyphenationFrequency() {
+        TextView tv = new TextView(mActivity);
+
+        assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, tv.getHyphenationFrequency());
+
+        tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
+        assertEquals(Layout.HYPHENATION_FREQUENCY_NONE, tv.getHyphenationFrequency());
+
+        tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NORMAL);
+        assertEquals(Layout.HYPHENATION_FREQUENCY_NORMAL, tv.getHyphenationFrequency());
+
+        tv.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_FULL);
+        assertEquals(Layout.HYPHENATION_FREQUENCY_FULL, tv.getHyphenationFrequency());
+    }
+
+    public void testSetAndGetCustomSelectionActionModeCallback() {
+        final String text = "abcde";
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTextView = new EditText(mActivity);
+                mActivity.setContentView(mTextView);
+                mTextView.setText(text, BufferType.SPANNABLE);
+                mTextView.setTextIsSelectable(true);
+                mTextView.requestFocus();
+                mTextView.setSelected(true);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Check default value.
+        assertNull(mTextView.getCustomSelectionActionModeCallback());
+
+        MockActionModeCallback callbackBlockActionMode = new MockActionModeCallback(false);
+        mTextView.setCustomSelectionActionModeCallback(callbackBlockActionMode);
+        assertEquals(callbackBlockActionMode,
+                mTextView.getCustomSelectionActionModeCallback());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Set selection and try to start action mode.
+                final Bundle args = new Bundle();
+                args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+                args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, text.length());
+                mTextView.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_SET_SELECTION, args);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertEquals(1, callbackBlockActionMode.getCreateCount());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Remove selection and stop action mode.
+                mTextView.onTextContextMenuItem(android.R.id.copy);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Action mode was blocked.
+        assertEquals(0, callbackBlockActionMode.getDestroyCount());
+
+        // Overwrite callback.
+        MockActionModeCallback callbackStartActionMode = new MockActionModeCallback(true);
+        mTextView.setCustomSelectionActionModeCallback(callbackStartActionMode);
+        assertEquals(callbackStartActionMode, mTextView.getCustomSelectionActionModeCallback());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Set selection and try to start action mode.
+                final Bundle args = new Bundle();
+                args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, 0);
+                args.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, text.length());
+                mTextView.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_SET_SELECTION, args);
+
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        assertEquals(1, callbackStartActionMode.getCreateCount());
+
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                // Remove selection and stop action mode.
+                mTextView.onTextContextMenuItem(android.R.id.copy);
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+
+        // Action mode was started
+        assertEquals(1, callbackStartActionMode.getDestroyCount());
+    }
+
+    public void testSetAndGetCustomInseltionActionMode() {
+        initTextViewForTyping();
+        // Check default value.
+        assertNull(mTextView.getCustomInsertionActionModeCallback());
+
+        MockActionModeCallback callback = new MockActionModeCallback(false);
+        mTextView.setCustomInsertionActionModeCallback(callback);
+        assertEquals(callback, mTextView.getCustomInsertionActionModeCallback());
+        // TODO(Bug: 22033189): Tests the set callback is actually used.
+    }
+
+    private static class MockActionModeCallback implements ActionMode.Callback {
+        private int mCreateCount = 0;
+        private int mDestroyCount = 0;
+        private final boolean mAllowToStartActionMode;
+
+        public MockActionModeCallback(boolean allowToStartActionMode) {
+            mAllowToStartActionMode = allowToStartActionMode;
+        }
+
+        public int getCreateCount() {
+            return mCreateCount;
+        }
+
+        public int getDestroyCount() {
+            return mDestroyCount;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            mDestroyCount++;
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            mCreateCount++;
+            return mAllowToStartActionMode;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            return false;
+        }
+    };
 
     private static class MockOnEditorActionListener implements OnEditorActionListener {
         private boolean isOnEditorActionCalled;
@@ -3923,6 +4959,37 @@ public class TextViewTest extends ActivityInstrumentationTestCase2<TextViewCtsAc
             if (!mIsMenuItemsBlank) {
                 menu.add("menu item");
             }
+        }
+    }
+
+    /**
+     * A TextWatcher that converts the text to spaces whenever the text changes.
+     */
+    private static class ConvertToSpacesTextWatcher implements TextWatcher {
+        boolean mChangingText;
+
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+        }
+
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+        }
+
+        @Override
+        public void afterTextChanged(Editable s) {
+            // Avoid infinite recursion.
+            if (mChangingText) {
+                return;
+            }
+            mChangingText = true;
+            // Create a string of s.length() spaces.
+            StringBuilder builder = new StringBuilder(s.length());
+            for (int i = 0; i < s.length(); i++) {
+                builder.append(' ');
+            }
+            s.replace(0, s.length(), builder.toString());
+            mChangingText = false;
         }
     }
 }

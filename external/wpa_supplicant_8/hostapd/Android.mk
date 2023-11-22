@@ -29,8 +29,9 @@ L_CFLAGS += -Wno-unused-parameter
 
 # Set Android extended P2P functionality
 L_CFLAGS += -DANDROID_P2P
+
 ifeq ($(BOARD_HOSTAPD_PRIVATE_LIB),)
-L_CFLAGS += -DANDROID_P2P_STUB
+L_CFLAGS += -DANDROID_LIB_STUB
 endif
 
 # Use Android specific directory for control interface sockets
@@ -45,7 +46,6 @@ endif
 INCLUDES = $(LOCAL_PATH)
 INCLUDES += $(LOCAL_PATH)/src
 INCLUDES += $(LOCAL_PATH)/src/utils
-INCLUDES += external/openssl/include
 INCLUDES += system/security/keystore/include
 ifdef CONFIG_DRIVER_NL80211
 ifneq ($(wildcard external/libnl),)
@@ -95,6 +95,7 @@ OBJS += src/ap/preauth_auth.c
 OBJS += src/ap/pmksa_cache_auth.c
 OBJS += src/ap/ieee802_11_shared.c
 OBJS += src/ap/beacon.c
+OBJS += src/ap/bss_load.c
 OBJS_d =
 OBJS_p =
 LIBS =
@@ -133,6 +134,7 @@ OBJS += src/utils/ip_addr.c
 
 OBJS += src/common/ieee802_11_common.c
 OBJS += src/common/wpa_common.c
+OBJS += src/common/hw_features_common.c
 
 OBJS += src/eapol_auth/eapol_auth_sm.c
 
@@ -179,8 +181,6 @@ OBJS += ctrl_iface.c
 OBJS += src/ap/ctrl_iface_ap.c
 endif
 
-OBJS += src/crypto/md5.c
-
 L_CFLAGS += -DCONFIG_CTRL_IFACE -DCONFIG_CTRL_IFACE_UNIX
 
 ifdef CONFIG_IAPP
@@ -200,6 +200,22 @@ endif
 
 ifdef CONFIG_HS20
 NEED_AES_OMAC1=y
+CONFIG_PROXYARP=y
+endif
+
+ifdef CONFIG_PROXYARP
+CONFIG_L2_PACKET=y
+endif
+
+ifdef CONFIG_SUITEB
+L_CFLAGS += -DCONFIG_SUITEB
+NEED_SHA256=y
+NEED_AES_OMAC1=y
+endif
+
+ifdef CONFIG_SUITEB192
+L_CFLAGS += -DCONFIG_SUITEB192
+NEED_SHA384=y
 endif
 
 ifdef CONFIG_IEEE80211W
@@ -542,33 +558,6 @@ CONFIG_INTERNAL_RC4=y
 CONFIG_INTERNAL_DH_GROUP5=y
 endif
 
-ifeq ($(CONFIG_TLS), schannel)
-ifdef TLS_FUNCS
-OBJS += src/crypto/tls_schannel.c
-endif
-OBJS += src/crypto/crypto_cryptoapi.c
-OBJS_p += src/crypto/crypto_cryptoapi.c
-CONFIG_INTERNAL_SHA256=y
-CONFIG_INTERNAL_RC4=y
-CONFIG_INTERNAL_DH_GROUP5=y
-endif
-
-ifeq ($(CONFIG_TLS), nss)
-ifdef TLS_FUNCS
-OBJS += src/crypto/tls_nss.c
-LIBS += -lssl3
-endif
-OBJS += src/crypto/crypto_nss.c
-ifdef NEED_FIPS186_2_PRF
-OBJS += src/crypto/fips_prf_internal.c
-OBJS += src/crypto/sha1-internal.c
-endif
-LIBS += -lnss3
-LIBS_h += -lnss3
-CONFIG_INTERNAL_MD4=y
-CONFIG_INTERNAL_DH_GROUP5=y
-endif
-
 ifeq ($(CONFIG_TLS), internal)
 ifndef CONFIG_CRYPTO
 CONFIG_CRYPTO=internal
@@ -675,7 +664,9 @@ ifdef CONFIG_INTERNAL_AES
 AESOBJS += src/crypto/aes-internal.c src/crypto/aes-internal-enc.c
 endif
 
+ifneq ($(CONFIG_TLS), openssl)
 AESOBJS += src/crypto/aes-wrap.c
+endif
 ifdef NEED_AES_EAX
 AESOBJS += src/crypto/aes-eax.c
 NEED_AES_CTR=y
@@ -690,12 +681,16 @@ ifdef NEED_AES_OMAC1
 AESOBJS += src/crypto/aes-omac1.c
 endif
 ifdef NEED_AES_UNWRAP
+ifneq ($(CONFIG_TLS), openssl)
 NEED_AES_DEC=y
 AESOBJS += src/crypto/aes-unwrap.c
 endif
+endif
 ifdef NEED_AES_CBC
 NEED_AES_DEC=y
+ifneq ($(CONFIG_TLS), openssl)
 AESOBJS += src/crypto/aes-cbc.c
+endif
 endif
 ifdef NEED_AES_DEC
 ifdef CONFIG_INTERNAL_AES
@@ -731,6 +726,10 @@ endif
 
 ifdef NEED_SHA1
 OBJS += $(SHA1OBJS)
+endif
+
+ifneq ($(CONFIG_TLS), openssl)
+OBJS += src/crypto/md5.c
 endif
 
 ifdef NEED_MD5
@@ -771,6 +770,9 @@ ifdef NEED_TLS_PRF_SHA256
 OBJS += src/crypto/sha256-tlsprf.c
 endif
 endif
+ifdef NEED_SHA384
+L_CFLAGS += -DCONFIG_SHA384
+endif
 
 ifdef NEED_DH_GROUPS
 OBJS += src/crypto/dh_groups.c
@@ -795,7 +797,9 @@ OBJS += src/crypto/random.c
 HOBJS += src/crypto/random.c
 HOBJS += src/utils/eloop.c
 HOBJS += $(SHA1OBJS)
+ifneq ($(CONFIG_TLS), openssl)
 HOBJS += src/crypto/md5.c
+endif
 endif
 
 ifdef CONFIG_RADIUS_SERVER
@@ -854,6 +858,15 @@ OBJS += src/common/gas.c
 OBJS += src/ap/gas_serv.c
 endif
 
+ifdef CONFIG_PROXYARP
+L_CFLAGS += -DCONFIG_PROXYARP
+OBJS += src/ap/x_snoop.c
+OBJS += src/ap/dhcp_snoop.c
+ifdef CONFIG_IPV6
+OBJS += src/ap/ndisc_snoop.c
+endif
+endif
+
 OBJS += src/drivers/driver_common.c
 
 ifdef CONFIG_ACS
@@ -880,6 +893,7 @@ endif
 
 OBJS_c = hostapd_cli.c src/common/wpa_ctrl.c src/utils/os_$(CONFIG_OS).c
 OBJS_c += src/utils/eloop.c
+OBJS_c += src/utils/common.c
 ifdef CONFIG_WPA_TRACE
 OBJS_c += src/utils/trace.c
 endif

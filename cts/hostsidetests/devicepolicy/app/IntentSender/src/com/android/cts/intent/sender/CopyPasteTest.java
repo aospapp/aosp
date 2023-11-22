@@ -44,7 +44,7 @@ public class CopyPasteTest extends InstrumentationTestCase
         super.setUp();
         Context context = getInstrumentation().getTargetContext();
         mActivity = launchActivity(context.getPackageName(), IntentSenderActivity.class, null);
-        mClipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        mClipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
     }
 
     @Override

@@ -27,18 +27,31 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Âm thanh khi nhấn phím"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Bật lên khi nhấn phím"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Tùy chọn"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Giao diện và bố cục"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Tùy chọn đa ngôn ngữ"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Tài khoản và bảo mật"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Giao diện và bố cục"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Nhập bằng cử chỉ"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Sửa văn bản"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Nâng cao"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Chủ đề"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Bật chia bàn phím"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Đồng bộ hóa Bàn phím Google"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Đã bật tính năng đồng bộ hóa"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Đồng bộ hóa từ điển cá nhân của bạn trên các thiết bị"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Đồng bộ hóa ngay bây giờ"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Xóa dữ liệu đám mây"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Xóa dữ liệu đã được đồng bộ hóa của bạn khỏi Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Dữ liệu đã đồng bộ hóa của bạn sẽ bị xóa khỏi đám mây. Bạn có chắc chắn không?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Xóa"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Hủy"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Từ điển cá nhân của bạn sẽ được đồng bộ hóa và sao lưu vào máy chủ Google. Chúng tôi có thể thu thập thông tin thống kê về tần suất của từ để giúp cải thiện sản phẩm của mình. Việc thu thập và sử dụng tất cả thông tin sẽ tuân thủ "<a href="https://www.google.com/policies/privacy">"Chính sách bảo mật của Google"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Vui lòng thêm một tài khoản Google vào thiết bị này để bật tính năng này"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Tính năng đồng bộ hóa không khả dụng cho các thiết bị có tài khoản Google Apps for Business"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Phương thức nhập khác"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Khóa chuyển ngôn ngữ bao gồm cả các phương thức nhập liệu khác"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Phím chuyển đổi ngôn ngữ"</string>
     <string name="show_language_switch_key_summary" msgid="7343403647474265713">"Hiển thị khi nhiều ngôn ngữ đầu vào được bật"</string>
     <string name="key_preview_popup_dismiss_delay" msgid="6213164897443068248">"Độ trễ ẩn phím bật lên"</string>
-    <string name="key_preview_popup_dismiss_no_delay" msgid="2096123151571458064">"Không có tgian trễ"</string>
+    <string name="key_preview_popup_dismiss_no_delay" msgid="2096123151571458064">"Không trễ"</string>
     <string name="key_preview_popup_dismiss_default_delay" msgid="2166964333903906734">"Mặc định"</string>
     <string name="abbreviation_unit_milliseconds" msgid="8700286094028323363">"<xliff:g id="MILLISECONDS">%s</xliff:g> mili giây"</string>
     <string name="settings_system_default" msgid="6268225104743331821">"Mặc định của hệ thống"</string>
@@ -46,7 +59,7 @@
     <string name="use_contacts_dict_summary" msgid="6599983334507879959">"Sử dụng tên từ Danh bạ cho các đề xuất và chỉnh sửa"</string>
     <string name="use_personalized_dicts" msgid="5167396352105467626">"Đề xuất được cá nhân hóa"</string>
     <string name="enable_metrics_logging" msgid="5506372337118822837">"Cải thiện <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
-    <string name="use_double_space_period" msgid="8781529969425082860">"Nhấn đúp phím cách chèn dấu chấm câu"</string>
+    <string name="use_double_space_period" msgid="8781529969425082860">"Đúp phím cách chèn dấu chấm"</string>
     <string name="use_double_space_period_summary" msgid="6532892187247952799">"Nhấn đúp phím cách sẽ chèn thêm một dấu chấm câu, theo sau là dấu cách"</string>
     <string name="auto_cap" msgid="1719746674854628252">"Tự động viết hoa"</string>
     <string name="auto_cap_summary" msgid="7934452761022946874">"Viết hoa chữ đầu tiên của mỗi câu"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Chạm vào đây để lưu"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Có sẵn từ điển"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Chủ đề bàn phím"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Chuyển đổi tài khoản"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Chưa chọn tài khoản nào"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Hiện đang sử dụng <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"OK"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Hủy"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Đăng xuất"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Chọn một tài khoản để sử dụng"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Tiếng Anh (Anh)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Tiếng Anh (Mỹ)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Tiếng Tây Ban Nha (Mỹ)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Tiếng Anh-Hindi"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Tiếng Serbia (La tinh)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Tiếng Anh (Anh) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Tiếng Anh (Mỹ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Tiếng Tây Ban Nha (Mỹ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Tiếng Anh-Hindi (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Tiếng Serbia (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Truyền thống)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (tiếng Kirin)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (tiếng Latin)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Viết tắt)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Không ngôn ngữ nào (Bảng chữ cái)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Bảng chữ cái (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Bảng chữ cái (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Đã tồn tại kiểu nhập tương tự: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Thời gian rung khi nhấn phím"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Âm lượng khi nhấn phím"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Thời gian trễ nhấn và giữ phím"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Biểu tượng cảm xúc cho bàn phím thực"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Phím Alt thực hiển thị bảng biểu tượng cảm xúc"</string>
     <string name="button_default" msgid="3988017840431881491">"Mặc định"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Chào mừng bạn đến với <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"với Nhập bằng cử chỉ"</string>

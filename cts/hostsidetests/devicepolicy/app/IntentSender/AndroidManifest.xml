@@ -52,7 +52,7 @@
     </application>
 
     <instrumentation
-        android:name="android.test.InstrumentationTestRunner"
+        android:name="android.support.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.intent.sender"
         android:label="Intent Sender CTS Tests" />
 

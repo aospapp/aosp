@@ -22,6 +22,7 @@ import android.os.Looper;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
+import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.net.ConnectivityManager;
 import android.test.InstrumentationTestCase;
@@ -40,6 +41,7 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
     private boolean mOnMessageWaitingIndicatorChangedCalled;
     private boolean mOnServiceStateChangedCalled;
     private boolean mOnSignalStrengthChangedCalled;
+    private SignalStrength mSignalStrength;
     private TelephonyManager mTelephonyManager;
     private PhoneStateListener mListener;
     private final Object mLock = new Object();
@@ -150,6 +152,54 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
         }
         t.checkException();
         assertTrue(mOnSignalStrengthChangedCalled);
+    }
+
+    public void testOnSignalStrengthsChanged() throws Throwable {
+        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
+            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+            return;
+        }
+
+        TestThread t = new TestThread(new Runnable() {
+            public void run() {
+                Looper.prepare();
+
+                mListener = new PhoneStateListener() {
+                    @Override
+                    public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+                        synchronized(mLock) {
+                            mSignalStrength = signalStrength;
+                            mLock.notify();
+                        }
+                    }
+                };
+                mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+
+                Looper.loop();
+            }
+        });
+
+        assertTrue(mSignalStrength == null);
+        t.start();
+
+        synchronized (mLock) {
+            while(mSignalStrength == null) {
+                mLock.wait();
+            }
+        }
+        t.checkException();
+        assertTrue(mSignalStrength != null);
+
+        // Call SignalStrength methods to make sure they do not throw any exceptions
+        mSignalStrength.getCdmaDbm();
+        mSignalStrength.getCdmaEcio();
+        mSignalStrength.getEvdoDbm();
+        mSignalStrength.getEvdoEcio();
+        mSignalStrength.getEvdoSnr();
+        mSignalStrength.getGsmBitErrorRate();
+        mSignalStrength.getGsmSignalStrength();
+        mSignalStrength.isGsm();
+        mSignalStrength.getLevel();
     }
 
     public void testOnMessageWaitingIndicatorChanged() throws Throwable {

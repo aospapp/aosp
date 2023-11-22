@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,9 +20,9 @@
  */
 package proguard.classfile.editor;
 
-import proguard.classfile.attribute.visitor.LineNumberInfoVisitor;
-import proguard.classfile.attribute.*;
 import proguard.classfile.*;
+import proguard.classfile.attribute.*;
+import proguard.classfile.attribute.visitor.LineNumberInfoVisitor;
 
 /**
  * This LineNumberInfoVisitor adds all line numbers that it visits to the given

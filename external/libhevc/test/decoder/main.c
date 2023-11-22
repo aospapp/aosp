@@ -57,7 +57,7 @@
 #include "ithread.h"
 
 
-#define MD5_DISABLE
+//#define MD5_DISABLE
 #ifdef X86_MSVC
 #include <windows.h>
 #else
@@ -1781,10 +1781,6 @@ int main(WORD32 argc, CHAR *argv[])
 #endif
     WORD32 width = 0, height = 0;
     iv_obj_t *codec_obj;
-#if defined(GPU_BUILD) && !defined(X86)
-//    int ioctl_init();
-//    ioctl_init();
-#endif
 
 #ifdef X86_MINGW
     //For getting printfs without any delay

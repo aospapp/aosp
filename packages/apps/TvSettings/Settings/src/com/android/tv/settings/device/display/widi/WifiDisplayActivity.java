@@ -16,19 +16,18 @@
 
 package com.android.tv.settings.device.display.widi;
 
+import android.content.Context;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.WifiDisplayStatus;
+import android.os.Bundle;
+import android.provider.Settings;
+
 import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.old.Action;
 import com.android.tv.settings.dialog.old.ActionAdapter;
 import com.android.tv.settings.dialog.old.ActionFragment;
 import com.android.tv.settings.dialog.old.ContentFragment;
 import com.android.tv.settings.dialog.old.DialogActivity;
-
-import android.content.Context;
-import android.hardware.display.DisplayManager;
-import android.hardware.display.WifiDisplay;
-import android.hardware.display.WifiDisplayStatus;
-import android.os.Bundle;
-import android.provider.Settings;
 
 import java.util.ArrayList;
 

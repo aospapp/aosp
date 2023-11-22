@@ -744,11 +744,11 @@ public final class Sdk  {
                         }
 
                         AdtPlugin.log(t, "Exception in checkAndLoadTargetData.");    //$NON-NLS-1$
-                        return new Status(IStatus.ERROR, AdtPlugin.PLUGIN_ID,
-                                String.format(
-                                        "Parsing Data for %1$s failed", //$NON-NLS-1$
-                                        target.hashString()),
-                                t);
+                        String message = String.format("Parsing Data for %1$s failed",  target.hashString());
+                        if (t instanceof UnsupportedClassVersionError) {
+                            message = "To use this platform, run Eclipse with JDK 7 or later. (" + message + ")";
+                        }
+                        return new Status(IStatus.ERROR, AdtPlugin.PLUGIN_ID, message, t);
                     }
                 }
             };

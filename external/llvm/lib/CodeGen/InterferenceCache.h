@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CODEGEN_INTERFERENCECACHE
-#define LLVM_CODEGEN_INTERFERENCECACHE
+#ifndef LLVM_LIB_CODEGEN_INTERFERENCECACHE_H
+#define LLVM_LIB_CODEGEN_INTERFERENCECACHE_H
 
 #include "llvm/CodeGen/LiveIntervalUnion.h"
 
@@ -170,8 +170,8 @@ public:
   /// Cursor - The primary query interface for the block interference cache.
   class Cursor {
     Entry *CacheEntry;
-    BlockInterference *Current;
-    static BlockInterference NoInterference;
+    const BlockInterference *Current;
+    static const BlockInterference NoInterference;
 
     void setEntry(Entry *E) {
       Current = nullptr;

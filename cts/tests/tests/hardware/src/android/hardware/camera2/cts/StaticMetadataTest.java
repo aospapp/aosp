@@ -19,18 +19,19 @@ package android.hardware.camera2.cts;
 import static android.hardware.camera2.CameraCharacteristics.*;
 
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.CameraCharacteristics.Key;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
-
-import junit.framework.Assert;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,12 +63,20 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
      * Test the available capability for different hardware support level devices.
      */
     public void testHwSupportedLevel() throws Exception {
+        Key<StreamConfigurationMap> key =
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+        final float SIZE_ERROR_MARGIN = 0.03f;
         for (String id : mCameraIds) {
             initStaticMetadata(id);
+            StreamConfigurationMap configs = mStaticInfo.getValueFromKeyNonNull(key);
+            Rect activeRect = mStaticInfo.getActiveArraySizeChecked();
+            Size sensorSize = new Size(activeRect.width(), activeRect.height());
             List<Integer> availableCaps = mStaticInfo.getAvailableCapabilitiesChecked();
 
-            mCollector.expectTrue("All device must contains BACKWARD_COMPATIBLE capability",
-                    availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE));
+            mCollector.expectTrue("All devices must contains BACKWARD_COMPATIBLE capability or " +
+                    "DEPTH_OUTPUT capabillity" ,
+                    availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE) ||
+                    availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT) );
 
             if (mStaticInfo.isHardwareLevelFull()) {
                 // Capability advertisement must be right.
@@ -79,19 +88,29 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 mCollector.expectTrue("Full device must contain BURST_CAPTURE capability",
                         availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE));
 
-                // Max resolution fps must be >= 20.
-                mCollector.expectTrue("Full device must support at least 20fps for max resolution",
-                        getFpsForMaxSize(id) >= MIN_FPS_FOR_FULL_DEVICE);
-
                 // Need support per frame control
                 mCollector.expectTrue("Full device must support per frame control",
                         mStaticInfo.isPerFrameControlSupported());
+            }
+
+            if (mStaticInfo.isHardwareLevelLegacy()) {
+                mCollector.expectTrue("Legacy devices must contain BACKWARD_COMPATIBLE capability",
+                        availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE));
             }
 
             if (availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
                 mCollector.expectTrue("MANUAL_SENSOR capability always requires " +
                         "READ_SENSOR_SETTINGS capability as well",
                         availableCaps.contains(REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS));
+            }
+
+            if (mStaticInfo.isColorOutputSupported()) {
+                // Max jpeg resolution must be very close to  sensor resolution
+                Size[] jpegSizes = mStaticInfo.getJpegOutputSizesChecked();
+                Size maxJpegSize = CameraTestUtils.getMaxSize(jpegSizes);
+                mCollector.expectSizesAreSimilar(
+                    "Active array size and max JPEG size should be similar",
+                    sensorSize, maxJpegSize, SIZE_ERROR_MARGIN);
             }
 
             // TODO: test all the keys mandatory for all capability devices.
@@ -117,9 +136,9 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 mCollector.expectTrue("max number of processed (non-stalling) output streams" +
                         "must be >= 3 for FULL device",
                         maxNumStreamsProc >= 3);
-            } else {
+            } else if (mStaticInfo.isColorOutputSupported()) {
                 mCollector.expectTrue("max number of processed (non-stalling) output streams" +
-                        "must be >= 2 for LIMITED device",
+                        "must be >= 2 for devices that support color output",
                         maxNumStreamsProc >= 2);
             }
         }
@@ -254,12 +273,10 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 capabilityName = "REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE";
                 requestKeys.add(CaptureRequest.CONTROL_AE_ANTIBANDING_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION);
-                requestKeys.add(CaptureRequest.CONTROL_AE_LOCK);
                 requestKeys.add(CaptureRequest.CONTROL_AE_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE);
                 requestKeys.add(CaptureRequest.CONTROL_AF_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_AF_TRIGGER);
-                requestKeys.add(CaptureRequest.CONTROL_AWB_LOCK);
                 requestKeys.add(CaptureRequest.CONTROL_AWB_MODE);
                 requestKeys.add(CaptureRequest.CONTROL_CAPTURE_INTENT);
                 requestKeys.add(CaptureRequest.CONTROL_EFFECT_MODE);
@@ -305,17 +322,23 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 requestKeys.add(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE);
                 requestKeys.add(CaptureRequest.TONEMAP_CURVE);
                 requestKeys.add(CaptureRequest.COLOR_CORRECTION_ABERRATION_MODE);
+                requestKeys.add(CaptureRequest.CONTROL_AWB_LOCK);
 
                 // Legacy mode always doesn't support these requirements
                 Boolean contrastCurveModeSupported = false;
+                Boolean gammaAndPresetModeSupported = false;
                 Boolean offColorAberrationModeSupported = false;
-                if (mStaticInfo.isHardwareLevelLimitedOrBetter()) {
+                if (mStaticInfo.isHardwareLevelLimitedOrBetter() && mStaticInfo.isColorOutputSupported()) {
                     int[] tonemapModes = mStaticInfo.getAvailableToneMapModesChecked();
                     List<Integer> modeList = (tonemapModes.length == 0) ?
                             new ArrayList<Integer>() :
                             Arrays.asList(CameraTestUtils.toObject(tonemapModes));
                     contrastCurveModeSupported =
                             modeList.contains(CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE);
+                    gammaAndPresetModeSupported =
+                            modeList.contains(CameraMetadata.TONEMAP_MODE_GAMMA_VALUE) &&
+                            modeList.contains(CameraMetadata.TONEMAP_MODE_PRESET_CURVE);
+
                     int[] colorAberrationModes =
                             mStaticInfo.getAvailableColorAberrationModesChecked();
                     modeList = (colorAberrationModes.length == 0) ?
@@ -324,13 +347,20 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                     offColorAberrationModeSupported =
                             modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF);
                 }
+                Boolean tonemapModeQualified =
+                        contrastCurveModeSupported || gammaAndPresetModeSupported;
                 additionalRequirements.add(new Pair<String, Boolean>(
-                        "Tonemap mode must include CONTRAST_CURVE", contrastCurveModeSupported));
+                        "Tonemap mode must include {CONTRAST_CURVE} and/or " +
+                        "{GAMMA_VALUE, PRESET_CURVE}",
+                        tonemapModeQualified));
                 additionalRequirements.add(new Pair<String, Boolean>(
                         "Color aberration mode must include OFF", offColorAberrationModeSupported));
+                additionalRequirements.add(new Pair<String, Boolean>(
+                        "Must support AWB lock", mStaticInfo.isAwbLockSupported()));
                 break;
             case REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR:
                 capabilityName = "REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR";
+                requestKeys.add(CaptureRequest.CONTROL_AE_LOCK);
                 requestKeys.add(CaptureRequest.SENSOR_FRAME_DURATION);
                 requestKeys.add(CaptureRequest.SENSOR_EXPOSURE_TIME);
                 requestKeys.add(CaptureRequest.SENSOR_SENSITIVITY);
@@ -341,6 +371,8 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                     requestKeys.add(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE);
                 }
                 requestKeys.add(CaptureRequest.BLACK_LEVEL_LOCK);
+                additionalRequirements.add(new Pair<String, Boolean>(
+                        "Must support AE lock", mStaticInfo.isAeLockSupported()));
                 break;
             case REQUEST_AVAILABLE_CAPABILITIES_RAW:
                 // RAW_CAPABILITY needs to check for not just capture request keys
@@ -360,6 +392,14 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                     resultKeys.add(CaptureResult.LENS_FILTER_DENSITY);
                 }
                 break;
+
+            case REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING:
+            case REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING:
+                // Tested in ExtendedCameraCharacteristicsTest
+                return;
+            case REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT:
+                // Tested in ExtendedCameracharacteristicsTest
+                return;
             default:
                 capabilityName = "Unknown";
                 assertTrue(String.format("Unknown capability set: %d", capability),

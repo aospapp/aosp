@@ -2,7 +2,7 @@ page.title=Android Compatibility
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project     
+    Copyright 2015 The Android Open Source Project     
 
     Licensed under the Apache License, Version 2.0 (the "License");    
     you may not use this file except in compliance with the License.   
@@ -64,9 +64,15 @@ Test Suite (CTS)</a></em>.
 </li>
 </ol>
 
-<h2 id="joining-the-ecosystem">Joining the ecosystem</h2>
-<p>Once you've built a compatible device, you may wish to include Google
-Play to provide your users access to the third-party app ecosystem.
-Unfortunately, for a variety of legal and business reasons, we aren't able to
-automatically license Google Play to all compatible devices. To inquire
-about access to Google Play, you can <a href="contact-us.html">contact us</a>.</p>
+<p>After complying with the CDD and passing the CTS, your device is now Android
+compatible. Android apps in the ecosystem will have a consistent experience on
+your device.</p>
+
+<h2 id="licensing-gms">Licensing Google Mobile Services</h2>
+<p>If you've built an Android compatible device, you may wish to inquire about
+licensing Google’s proprietary suite of apps that run on top of Android -
+Google Mobile Services (GMS, which include Google Play, YouTube, Google Maps,
+Gmail, and more). Google Mobile Services is not part of the Android Open Source
+Project and is available only through a license with Google. Please visit the
+‘contact’ us section for more information on how to inquire about a GMS
+license.</p>

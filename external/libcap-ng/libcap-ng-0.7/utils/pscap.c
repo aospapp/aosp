@@ -23,9 +23,7 @@
 
 #include "config.h"
 #include <stdio.h>
-#if !defined(ANDROID)
 #include <stdio_ext.h>
-#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -128,9 +126,7 @@ int main(int argc, char *argv[])
 				euid = 0;
 			else {
 				line = 0;
-#if !defined(ANDROID)
 				__fsetlocking(f, FSETLOCKING_BYCALLER);
-#endif
 				while (fgets(buf, sizeof(buf), f)) {
 					if (line == 0) {
 						line++;

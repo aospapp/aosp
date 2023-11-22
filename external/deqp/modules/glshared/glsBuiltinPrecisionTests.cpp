@@ -32,6 +32,7 @@
 #include "deStringUtil.hpp"
 #include "deUniquePtr.hpp"
 #include "deSharedPtr.hpp"
+#include "deArrayUtil.hpp"
 
 #include "tcuCommandLine.hpp"
 #include "tcuFloatFormat.hpp"
@@ -40,6 +41,7 @@
 #include "tcuTestLog.hpp"
 #include "tcuVector.hpp"
 #include "tcuMatrix.hpp"
+#include "tcuResultCollector.hpp"
 
 #include "gluContextInfo.hpp"
 #include "gluVarType.hpp"
@@ -562,7 +564,7 @@ public:
 		deUint8* const data = new deUint8[sizeof(value)];
 
 		deMemcpy(data, &value, sizeof(value));
-		de::insert(m_map, variable.getName(), SharedPtr<deUint8>(data));
+		de::insert(m_map, variable.getName(), SharedPtr<deUint8>(data, de::ArrayDeleter<deUint8>()));
 	}
 
 	template<typename T>
@@ -574,7 +576,7 @@ public:
 	}
 
 private:
-	map<string, SharedPtr<deUint8, de::ArrayDeleter<deUint8> > >	m_map;
+	map<string, SharedPtr<deUint8> >	m_map;
 };
 
 /*--------------------------------------------------------------------*//*!
@@ -1300,6 +1302,31 @@ protected:
 	ArgExprs			m_args;
 };
 
+template<typename T>
+class Alternatives : public Func<Signature<T, T, T> >
+{
+public:
+	typedef typename	Alternatives::Sig		Sig;
+
+protected:
+	typedef typename	Alternatives::IRet		IRet;
+	typedef typename	Alternatives::IArgs		IArgs;
+
+	virtual string		getName				(void) const			{ return "alternatives"; }
+	virtual void		doPrintDefinition	(std::ostream&) const	{}
+	void				doGetUsedFuncs		(FuncSet&) const		{}
+
+	virtual IRet		doApply				(const EvalContext&, const IArgs& args) const
+	{
+		return unionIVal<T>(args.a, args.b);
+	}
+
+	virtual void		doPrint				(ostream& os, const BaseArgExprs& args)	const
+	{
+		os << "{" << *args[0] << " | " << *args[1] << "}";
+	}
+};
+
 template <typename Sig>
 ExprP<typename Sig::Ret> createApply (const Func<Sig>&						func,
 									  const typename Func<Sig>::ArgExprs&	args)
@@ -1344,6 +1371,13 @@ typename F::IRet call (const EvalContext&			ctx,
 					   const typename F::IArg3&		arg3 = Void())
 {
 	return instance<F>().apply(ctx, arg0, arg1, arg2, arg3);
+}
+
+template <typename T>
+ExprP<T> alternatives (const ExprP<T>& arg0,
+					   const ExprP<T>& arg1)
+{
+	return createApply<typename Alternatives<T>::Sig>(instance<Alternatives<T> >(), arg0, arg1);
 }
 
 template <typename Sig>
@@ -1985,16 +2019,23 @@ protected:
 		return ret;
 	}
 
-protected:
+	double		applyExact		(double x, double y) const { return x / y; }
 
-	double		applyExact	(double x, double y) const { return x / y; }
-
-	Interval	applyPoint	(const EvalContext&	ctx, double x, double y) const
+	Interval	applyPoint		(const EvalContext&	ctx, double x, double y) const
 	{
-		return FloatFunc2::applyPoint(ctx, x, y);
+		Interval ret = FloatFunc2::applyPoint(ctx, x, y);
+
+		if (!deIsInf(x) && !deIsInf(y) && y != 0.0)
+		{
+			const Interval dst = ctx.format.convert(ret);
+			if (dst.contains(-TCU_INFINITY)) ret |= -ctx.format.getMaxValue();
+			if (dst.contains(+TCU_INFINITY)) ret |= +ctx.format.getMaxValue();
+		}
+
+		return ret;
 	}
 
-	double		precision	(const EvalContext& ctx, double ret, double, double den) const
+	double		precision		(const EvalContext& ctx, double ret, double, double den) const
 	{
 		const FloatFormat&	fmt		= ctx.format;
 
@@ -2253,8 +2294,23 @@ protected:
 				return deLdExp(deAbs(arg), -12);
 			}
 		}
+		else if (ctx.floatPrecision == glu::PRECISION_MEDIUMP)
+		{
+			if (-DE_PI_DOUBLE <= arg && arg <= DE_PI_DOUBLE)
+			{
+				// from OpenCL half-float extension specification
+				return ctx.format.ulp(ret, 2.0);
+			}
+			else
+			{
+				// |x| * 2^-10, slightly larger than 2 ULP at x == pi
+				return deLdExp(deAbs(arg), -10);
+			}
+		}
 		else
 		{
+			DE_ASSERT(ctx.floatPrecision == glu::PRECISION_LOWP);
+
 			// from OpenCL half-float extension specification
 			return ctx.format.ulp(ret, 2.0);
 		}
@@ -2290,6 +2346,31 @@ ExprP<float> cos (const ExprP<float>& x) { return app<Cos>(x); }
 
 DEFINE_DERIVED_FLOAT1(Tan, tan, x, sin(x) * (constant(1.0f) / cos(x)));
 
+class ASin : public CFloatFunc1
+{
+public:
+					ASin		(void) : CFloatFunc1("asin", deAsin) {}
+
+protected:
+	double			precision	(const EvalContext& ctx, double, double x) const
+	{
+		if (!de::inBounds(x, -1.0, 1.0))
+			return TCU_NAN;
+
+		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
+		{
+			// Absolute error of 2^-11
+			return deLdExp(1.0, -11);
+		}
+		else
+		{
+			// Absolute error of 2^-8
+			return deLdExp(1.0, -8);
+		}
+
+	}
+};
+
 class ArcTrigFunc : public CFloatFunc1
 {
 public:
@@ -2311,7 +2392,7 @@ protected:
 
 		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
 		{
-			// Use OpenCL's precision
+			// Use OpenCL's fast relaxed math precision
 			return ctx.format.ulp(ret, m_precision);
 		}
 		else
@@ -2329,18 +2410,10 @@ protected:
 	const Interval	m_codomain;
 };
 
-class ASin : public ArcTrigFunc
-{
-public:
-	ASin (void) : ArcTrigFunc("asin", deAsin, 4.0,
-							  Interval(-1.0, 1.0),
-							  Interval(-DE_PI_DOUBLE * 0.5, DE_PI_DOUBLE * 0.5)) {}
-};
-
 class ACos : public ArcTrigFunc
 {
 public:
-	ACos (void) : ArcTrigFunc("acos", deAcos, 4.0,
+	ACos (void) : ArcTrigFunc("acos", deAcos, 4096.0,
 							  Interval(-1.0, 1.0),
 							  Interval(0.0, DE_PI_DOUBLE)) {}
 };
@@ -2348,7 +2421,7 @@ public:
 class ATan : public ArcTrigFunc
 {
 public:
-	ATan (void) : ArcTrigFunc("atan", deAtanOver, 5.0,
+	ATan (void) : ArcTrigFunc("atan", deAtanOver, 4096.0,
 							  Interval::unbounded(),
 							  Interval(-DE_PI_DOUBLE * 0.5, DE_PI_DOUBLE * 0.5)) {}
 };
@@ -2359,7 +2432,7 @@ public:
 				ATan2			(void) : CFloatFunc2 ("atan", deAtan2) {}
 
 protected:
-	Interval	innerExtrema	(const EvalContext&,
+	Interval	innerExtrema	(const EvalContext&		ctx,
 								 const Interval&		yi,
 								 const Interval& 		xi) const
 	{
@@ -2373,13 +2446,19 @@ protected:
 				ret |= Interval(-DE_PI_DOUBLE, DE_PI_DOUBLE);
 		}
 
+		if (ctx.format.hasInf() != YES && (!yi.isFinite() || !xi.isFinite()))
+		{
+			// Infinities may not be supported, allow anything, including NaN
+			ret |= TCU_NAN;
+		}
+
 		return ret;
 	}
 
 	double		precision		(const EvalContext& ctx, double ret, double, double) const
 	{
 		if (ctx.floatPrecision == glu::PRECISION_HIGHP)
-			return ctx.format.ulp(ret, 6.0);
+			return ctx.format.ulp(ret, 4096.0);
 		else
 			return ctx.format.ulp(ret, 2.0);
 	}
@@ -2993,6 +3072,8 @@ class Reflect : public DerivedFunc<
 {
 public:
 	typedef typename	Reflect::Ret		Ret;
+	typedef typename	Reflect::Arg0		Arg0;
+	typedef typename	Reflect::Arg1		Arg1;
 	typedef typename	Reflect::ArgExprs	ArgExprs;
 
 	string		getName		(void) const
@@ -3001,9 +3082,14 @@ public:
 	}
 
 protected:
-	ExprP<Ret>	doExpand	(ExpandContext&, const ArgExprs& args) const
+	ExprP<Ret>	doExpand	(ExpandContext& ctx, const ArgExprs& args) const
 	{
-		return args.a - (args.b * dot(args.b, args.a) * constant(2.0f));
+		const ExprP<Arg0>&	i		= args.a;
+		const ExprP<Arg1>&	n		= args.b;
+		const ExprP<float>	dotNI	= bindExpression("dotNI", ctx, dot(n, i));
+
+		return i - alternatives((n * dotNI) * constant(2.0f),
+								n * (dotNI * constant(2.0f)));
 	}
 };
 
@@ -3138,6 +3224,14 @@ protected:
 		TCU_INTERVAL_APPLY_MONOTONE1(fracIV, x, iargs.a, frac, frac = deModf(x, &intPart));
 		TCU_INTERVAL_APPLY_MONOTONE1(wholeIV, x, iargs.a, whole,
 									 deModf(x, &intPart); whole = intPart);
+
+		if (!iargs.a.isFinite())
+		{
+			// Behavior on modf(Inf) not well-defined, allow anything as a fractional part
+			// See Khronos bug 13907
+			fracIV |= TCU_NAN;
+		}
+
 		return fracIV;
 	}
 
@@ -3171,7 +3265,8 @@ ExprP<float> clamp(const ExprP<float>& x, const ExprP<float>& minVal, const Expr
 	return app<Clamp>(x, minVal, maxVal);
 }
 
-DEFINE_DERIVED_FLOAT3(Mix, mix, x, y, a, (x * (constant(1.0f) - a)) + y * a);
+DEFINE_DERIVED_FLOAT3(Mix, mix, x, y, a, alternatives((x * (constant(1.0f) - a)) + y * a,
+													  x + (y - x) * a));
 
 static double step (double edge, double x)
 {
@@ -5190,9 +5285,9 @@ TestCaseGroup* createFuncGroup (const PrecisionTestContext&	ctx,
 	{
 		const Precision		precision	= Precision(precNdx);
 		const string		precName	(glu::getPrecisionName(precision));
-		const FloatFormat&	fmt			= *de::getSizedArrayElement(ctx.formats, precNdx);
-		const FloatFormat&	highpFmt	= *de::getSizedArrayElement(ctx.formats,
-																	glu::PRECISION_HIGHP);
+		const FloatFormat&	fmt			= *de::getSizedArrayElement<glu::PRECISION_LAST>(ctx.formats, precNdx);
+		const FloatFormat&	highpFmt	= *de::getSizedArrayElement<glu::PRECISION_LAST>(ctx.formats,
+																						 glu::PRECISION_HIGHP);
 
 		for (size_t shaderNdx = 0; shaderNdx < ctx.shaderTypes.size(); ++shaderNdx)
 		{
@@ -5215,6 +5310,9 @@ void addBuiltinPrecisionTests (TestContext&					testCtx,
 							   const vector<ShaderType>&	shaderTypes,
 							   TestCaseGroup&				dstGroup)
 {
+	const int						userRandoms	= testCtx.getCommandLine().getTestIterationCount();
+	const int						defRandoms	= 16384;
+	const int						numRandoms	= userRandoms > 0 ? userRandoms : defRandoms;
 	const FloatFormat				highp		(-126, 127, 23, true,
 												 tcu::MAYBE,	// subnormals
 												 tcu::YES,		// infinities
@@ -5225,7 +5323,7 @@ void addBuiltinPrecisionTests (TestContext&					testCtx,
 	// exponent and support for subnormals.
 	const FloatFormat				lowp		(0, 0, 7, false, tcu::YES);
 	const PrecisionTestContext		ctx			(testCtx, renderCtx, highp, mediump, lowp,
-												 shaderTypes, 16384);
+												 shaderTypes, numRandoms);
 
 	for (size_t ndx = 0; ndx < cases.getFactories().size(); ++ndx)
 		dstGroup.addChild(createFuncGroup(ctx, *cases.getFactories()[ndx]));

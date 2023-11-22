@@ -14,6 +14,7 @@
 package android.support.v17.leanback.widget;
 
 import android.content.Context;
+import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -22,23 +23,24 @@ import android.view.ViewGroup;
 import android.graphics.Rect;
 
 /**
- * ShadowOverlayContainer Provides a SDK version independent wrapper container
- * to take care of shadow and/or color overlay.
+ * Provides an SDK version-independent wrapper to support shadows, color overlays, and rounded
+ * corners.
  * <p>
- * Shadow and color dimmer overlay are both optional.  When shadow is used,  it's
- * user's responsibility to properly call setClipChildren(false) on parent views if
- * the shadow can appear outside bounds of parent views.
  * {@link #prepareParentForShadow(ViewGroup)} must be called on parent of container
  * before using shadow.  Depending on sdk version, optical bounds might be applied
  * to parent.
  * </p>
  * <p>
- * {@link #initialize(boolean, boolean, boolean)} must be first called on the container
- * to initialize shadows and/or color overlay.  Then call {@link #wrap(View)} to insert
- * wrapped view into container.
+ * If shadows can appear outside the bounds of the parent view, setClipChildren(false) must
+ * be called on the grandparent view.
  * </p>
  * <p>
- * Call {@link #setShadowFocusLevel(float)} to control shadow alpha.
+ * {@link #initialize(boolean, boolean, boolean)} must be first called on the container.
+ * Then call {@link #wrap(View)} to insert the wrapped view into the container.
+ * </p>
+ * <p>
+ * Call {@link #setShadowFocusLevel(float)} to control the strength of the shadow (focused shadows
+ * cast stronger shadows).
  * </p>
  * <p>
  * Call {@link #setOverlayColor(int)} to control overlay color.
@@ -46,10 +48,29 @@ import android.graphics.Rect;
  */
 public class ShadowOverlayContainer extends ViewGroup {
 
+    /**
+     * No shadow.
+     */
+    public static final int SHADOW_NONE = 1;
+
+    /**
+     * Shadows are fixed.
+     */
+    public static final int SHADOW_STATIC = 2;
+
+    /**
+     * Shadows depend on the size, shape, and position of the view.
+     */
+    public static final int SHADOW_DYNAMIC = 3;
+
     private boolean mInitialized;
     private View mColorDimOverlay;
     private Object mShadowImpl;
     private View mWrappedView;
+    private boolean mRoundedCorners;
+    private int mShadowType = SHADOW_NONE;
+    private float mUnfocusedZ;
+    private float mFocusedZ;
     private static final Rect sTempRect = new Rect();
 
     public ShadowOverlayContainer(Context context) {
@@ -62,13 +83,22 @@ public class ShadowOverlayContainer extends ViewGroup {
 
     public ShadowOverlayContainer(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        useStaticShadow();
+        useDynamicShadow();
     }
 
     /**
      * Return true if the platform sdk supports shadow.
      */
     public static boolean supportsShadow() {
-        return ShadowHelper.getInstance().supportsShadow();
+        return StaticShadowHelper.getInstance().supportsShadow();
+    }
+
+    /**
+     * Returns true if the platform sdk supports dynamic shadows.
+     */
+    public static boolean supportsDynamicShadow() {
+        return ShadowHelper.getInstance().supportsDynamicShadow();
     }
 
     /**
@@ -77,7 +107,50 @@ public class ShadowOverlayContainer extends ViewGroup {
      * to parent.
      */
     public static void prepareParentForShadow(ViewGroup parent) {
-        ShadowHelper.getInstance().prepareParent(parent);
+        StaticShadowHelper.getInstance().prepareParent(parent);
+    }
+
+    /**
+     * Sets the shadow type to {@link #SHADOW_DYNAMIC} if supported.
+     */
+    public void useDynamicShadow() {
+        useDynamicShadow(getResources().getDimension(R.dimen.lb_material_shadow_normal_z),
+                getResources().getDimension(R.dimen.lb_material_shadow_focused_z));
+    }
+
+    /**
+     * Sets the shadow type to {@link #SHADOW_DYNAMIC} if supported and sets the elevation/Z
+     * values to the given parameteres.
+     */
+    public void useDynamicShadow(float unfocusedZ, float focusedZ) {
+        if (mInitialized) {
+            throw new IllegalStateException("Already initialized");
+        }
+        if (supportsDynamicShadow()) {
+            mShadowType = SHADOW_DYNAMIC;
+            mUnfocusedZ = unfocusedZ;
+            mFocusedZ = focusedZ;
+        }
+    }
+
+    /**
+     * Sets the shadow type to {@link #SHADOW_STATIC} if supported.
+     */
+    public void useStaticShadow() {
+        if (mInitialized) {
+            throw new IllegalStateException("Already initialized");
+        }
+        if (supportsShadow()) {
+            mShadowType = SHADOW_STATIC;
+        }
+    }
+
+    /**
+     * Returns the shadow type, one of {@link #SHADOW_NONE}, {@link #SHADOW_STATIC}, or
+     * {@link #SHADOW_DYNAMIC}.
+     */
+    public int getShadowType() {
+        return mShadowType;
     }
 
     /**
@@ -98,11 +171,18 @@ public class ShadowOverlayContainer extends ViewGroup {
         }
         mInitialized = true;
         if (hasShadow) {
-            mShadowImpl = ShadowHelper.getInstance().addShadow(this, roundedCorners);
-        } else if (roundedCorners) {
-            RoundedRectHelper.getInstance().setRoundedRectBackground(this,
-                    android.graphics.Color.TRANSPARENT);
+            switch (mShadowType) {
+                case SHADOW_DYNAMIC:
+                    mShadowImpl = ShadowHelper.getInstance().addDynamicShadow(
+                            this, mUnfocusedZ, mFocusedZ, roundedCorners);
+                    break;
+                case SHADOW_STATIC:
+                    mShadowImpl = StaticShadowHelper.getInstance().addStaticShadow(
+                            this, roundedCorners);
+                    break;
+            }
         }
+        mRoundedCorners = roundedCorners;
         if (hasColorDimOverlay) {
             mColorDimOverlay = LayoutInflater.from(getContext())
                     .inflate(R.layout.lb_card_color_overlay, this, false);
@@ -120,14 +200,21 @@ public class ShadowOverlayContainer extends ViewGroup {
             } else if (level > 1f) {
                 level = 1f;
             }
-            ShadowHelper.getInstance().setShadowFocusLevel(mShadowImpl, level);
+            switch (mShadowType) {
+                case SHADOW_DYNAMIC:
+                    ShadowHelper.getInstance().setShadowFocusLevel(mShadowImpl, level);
+                    break;
+                case SHADOW_STATIC:
+                    StaticShadowHelper.getInstance().setShadowFocusLevel(mShadowImpl, level);
+                    break;
+            }
         }
     }
 
     /**
      * Set color (with alpha) of the overlay.
      */
-    public void setOverlayColor(int overlayColor) {
+    public void setOverlayColor(@ColorInt int overlayColor) {
         if (mColorDimOverlay != null) {
             mColorDimOverlay.setBackgroundColor(overlayColor);
         }
@@ -146,6 +233,16 @@ public class ShadowOverlayContainer extends ViewGroup {
             addView(view);
         }
         mWrappedView = view;
+        if (mRoundedCorners) {
+            RoundedRectHelper.getInstance().setClipToRoundedOutline(mWrappedView, true);
+        }
+    }
+
+    /**
+     * Returns the wrapper view.
+     */
+    public View getWrappedView() {
+        return mWrappedView;
     }
 
     @Override

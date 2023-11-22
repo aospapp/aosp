@@ -41,7 +41,7 @@ CPDF_Document* CPWL_FontMap::GetDocument()
 	{
 		if (CPDF_ModuleMgr::Get())
 		{
-			m_pPDFDoc = FX_NEW CPDF_Document;
+			m_pPDFDoc = new CPDF_Document;
 			m_pPDFDoc->CreateNewDoc();
 		}
 	}
@@ -312,11 +312,7 @@ FX_INT32 CPWL_FontMap::GetPWLFontIndex(FX_WORD word, FX_INT32 nCharset)
 	}
 	*/
 
-#ifdef FOXIT_CHROME_BUILD
-  CFX_ByteString sAlias = EncodeFontAlias("Arial_Chrome", nCharset);
-#else
-	CFX_ByteString sAlias = EncodeFontAlias("Arial_Foxit", nCharset);
-#endif
+	CFX_ByteString sAlias = EncodeFontAlias("Arial_Chrome", nCharset);
 	AddedFont(pNewFont, sAlias);
 
 	return AddFontData(pNewFont, sAlias, nCharset);
@@ -508,7 +504,11 @@ const CPWL_FontMap::CharsetFontMap CPWL_FontMap::defaultTTFMap[] = {
 	{ SHIFTJIS_CHARSET, "MS Gothic" },
 	{ HANGUL_CHARSET, "Batang" },
 	{ RUSSIAN_CHARSET, "Arial" },
+#if _FXM_PLATFORM_ == _FXM_PLATFORM_LINUX_ || _FXM_PLATFORM_ == _FXM_PLATFORM_APPLE_
+	{ EASTEUROPE_CHARSET, "Arial" },
+#else
 	{ EASTEUROPE_CHARSET, "Tahoma" },
+#endif
 	{ ARABIC_CHARSET, "Arial" },
 	{ -1, NULL }
 };

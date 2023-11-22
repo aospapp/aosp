@@ -22,18 +22,25 @@ namespace sk_tools {
     class CopyTilesRenderer : public TiledPictureRenderer {
 
     public:
+#if SK_SUPPORT_GPU
+        CopyTilesRenderer(const GrContext::Options &opts, int x, int y);
+#else
         CopyTilesRenderer(int x, int y);
-        virtual void init(SkPicture* pict, const SkString* writePath, const SkString* mismatchPath,
+#endif
+        virtual void init(const SkPicture* pict, 
+                          const SkString* writePath, 
+                          const SkString* mismatchPath,
                           const SkString* inputFilename,
-                          bool useChecksumBasedFilenames) SK_OVERRIDE;
+                          bool useChecksumBasedFilenames,
+                          bool useMultiPictureDraw) override;
 
         /**
          *  Similar to TiledPictureRenderer, this will draw a PNG for each tile. However, the
          *  numbering (and actual tiles) will be different.
          */
-        virtual bool render(SkBitmap** out) SK_OVERRIDE;
+        bool render(SkBitmap** out) override;
 
-        virtual bool supportsTimingIndividualTiles() SK_OVERRIDE { return false; }
+        bool supportsTimingIndividualTiles() override { return false; }
 
     private:
         int fXTilesPerLargeTile;
@@ -42,7 +49,7 @@ namespace sk_tools {
         int fLargeTileWidth;
         int fLargeTileHeight;
 
-        virtual SkString getConfigNameInternal() SK_OVERRIDE;
+        SkString getConfigNameInternal() override;
 
         typedef TiledPictureRenderer INHERITED;
     };

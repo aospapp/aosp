@@ -16,6 +16,7 @@
 
 package android.app;
 
+import android.Manifest;
 import android.annotation.SystemApi;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
@@ -206,12 +207,41 @@ public class AppOpsManager {
     public static final int OP_PROJECT_MEDIA = 46;
     /** @hide Activate a VPN connection without user intervention. */
     public static final int OP_ACTIVATE_VPN = 47;
+    /** @hide Access the WallpaperManagerAPI to write wallpapers. */
+    public static final int OP_WRITE_WALLPAPER = 48;
+    /** @hide Received the assist structure from an app. */
+    public static final int OP_ASSIST_STRUCTURE = 49;
+    /** @hide Received a screenshot from assist. */
+    public static final int OP_ASSIST_SCREENSHOT = 50;
+    /** @hide Read the phone state. */
+    public static final int OP_READ_PHONE_STATE = 51;
+    /** @hide Add voicemail messages to the voicemail content provider. */
+    public static final int OP_ADD_VOICEMAIL = 52;
+    /** @hide Access APIs for SIP calling over VOIP or WiFi. */
+    public static final int OP_USE_SIP = 53;
+    /** @hide Intercept outgoing calls. */
+    public static final int OP_PROCESS_OUTGOING_CALLS = 54;
+    /** @hide User the fingerprint API. */
+    public static final int OP_USE_FINGERPRINT = 55;
+    /** @hide Access to body sensors such as heart rate, etc. */
+    public static final int OP_BODY_SENSORS = 56;
+    /** @hide Read previously received cell broadcast messages. */
+    public static final int OP_READ_CELL_BROADCASTS = 57;
+    /** @hide Inject mock location into the system. */
+    public static final int OP_MOCK_LOCATION = 58;
+    /** @hide Read external storage. */
+    public static final int OP_READ_EXTERNAL_STORAGE = 59;
+    /** @hide Write external storage. */
+    public static final int OP_WRITE_EXTERNAL_STORAGE = 60;
+    /** @hide Turned on the screen. */
+    public static final int OP_TURN_SCREEN_ON = 61;
+    /** @hide Get device accounts. */
+    public static final int OP_GET_ACCOUNTS = 62;
     /** @hide */
-    public static final int _NUM_OP = 48;
+    public static final int _NUM_OP = 63;
 
     /** Access to coarse location information. */
-    public static final String OPSTR_COARSE_LOCATION =
-            "android:coarse_location";
+    public static final String OPSTR_COARSE_LOCATION = "android:coarse_location";
     /** Access to fine location information. */
     public static final String OPSTR_FINE_LOCATION =
             "android:fine_location";
@@ -226,7 +256,86 @@ public class AppOpsManager {
             = "android:get_usage_stats";
     /** Activate a VPN connection without user intervention. @hide */
     @SystemApi
-    public static final String OPSTR_ACTIVATE_VPN = "android:activate_vpn";
+    public static final String OPSTR_ACTIVATE_VPN
+            = "android:activate_vpn";
+    /** Allows an application to read the user's contacts data. */
+    public static final String OPSTR_READ_CONTACTS
+            = "android:read_contacts";
+    /** Allows an application to write to the user's contacts data. */
+    public static final String OPSTR_WRITE_CONTACTS
+            = "android:write_contacts";
+    /** Allows an application to read the user's call log. */
+    public static final String OPSTR_READ_CALL_LOG
+            = "android:read_call_log";
+    /** Allows an application to write to the user's call log. */
+    public static final String OPSTR_WRITE_CALL_LOG
+            = "android:write_call_log";
+    /** Allows an application to read the user's calendar data. */
+    public static final String OPSTR_READ_CALENDAR
+            = "android:read_calendar";
+    /** Allows an application to write to the user's calendar data. */
+    public static final String OPSTR_WRITE_CALENDAR
+            = "android:write_calendar";
+    /** Allows an application to initiate a phone call. */
+    public static final String OPSTR_CALL_PHONE
+            = "android:call_phone";
+    /** Allows an application to read SMS messages. */
+    public static final String OPSTR_READ_SMS
+            = "android:read_sms";
+    /** Allows an application to receive SMS messages. */
+    public static final String OPSTR_RECEIVE_SMS
+            = "android:receive_sms";
+    /** Allows an application to receive MMS messages. */
+    public static final String OPSTR_RECEIVE_MMS
+            = "android:receive_mms";
+    /** Allows an application to receive WAP push messages. */
+    public static final String OPSTR_RECEIVE_WAP_PUSH
+            = "android:receive_wap_push";
+    /** Allows an application to send SMS messages. */
+    public static final String OPSTR_SEND_SMS
+            = "android:send_sms";
+    /** Required to be able to access the camera device. */
+    public static final String OPSTR_CAMERA
+            = "android:camera";
+    /** Required to be able to access the microphone device. */
+    public static final String OPSTR_RECORD_AUDIO
+            = "android:record_audio";
+    /** Required to access phone state related information. */
+    public static final String OPSTR_READ_PHONE_STATE
+            = "android:read_phone_state";
+    /** Required to access phone state related information. */
+    public static final String OPSTR_ADD_VOICEMAIL
+            = "android:add_voicemail";
+    /** Access APIs for SIP calling over VOIP or WiFi */
+    public static final String OPSTR_USE_SIP
+            = "android:use_sip";
+    /** Use the fingerprint API. */
+    public static final String OPSTR_USE_FINGERPRINT
+            = "android:use_fingerprint";
+    /** Access to body sensors such as heart rate, etc. */
+    public static final String OPSTR_BODY_SENSORS
+            = "android:body_sensors";
+    /** Read previously received cell broadcast messages. */
+    public static final String OPSTR_READ_CELL_BROADCASTS
+            = "android:read_cell_broadcasts";
+    /** Inject mock location into the system. */
+    public static final String OPSTR_MOCK_LOCATION
+            = "android:mock_location";
+    /** Read external storage. */
+    public static final String OPSTR_READ_EXTERNAL_STORAGE
+            = "android:read_external_storage";
+    /** Write external storage. */
+    public static final String OPSTR_WRITE_EXTERNAL_STORAGE
+            = "android:write_external_storage";
+    /** Required to draw on top of other apps. */
+    public static final String OPSTR_SYSTEM_ALERT_WINDOW
+            = "android:system_alert_window";
+    /** Required to write/modify/update system settingss. */
+    public static final String OPSTR_WRITE_SETTINGS
+            = "android:write_settings";
+    /** @hide Get device accounts. */
+    public static final String OPSTR_GET_ACCOUNTS
+            = "android:get_accounts";
 
     /**
      * This maps each operation to the operation that serves as the
@@ -285,6 +394,21 @@ public class AppOpsManager {
             OP_TOAST_WINDOW,
             OP_PROJECT_MEDIA,
             OP_ACTIVATE_VPN,
+            OP_WRITE_WALLPAPER,
+            OP_ASSIST_STRUCTURE,
+            OP_ASSIST_SCREENSHOT,
+            OP_READ_PHONE_STATE,
+            OP_ADD_VOICEMAIL,
+            OP_USE_SIP,
+            OP_PROCESS_OUTGOING_CALLS,
+            OP_USE_FINGERPRINT,
+            OP_BODY_SENSORS,
+            OP_READ_CELL_BROADCASTS,
+            OP_MOCK_LOCATION,
+            OP_READ_EXTERNAL_STORAGE,
+            OP_WRITE_EXTERNAL_STORAGE,
+            OP_TURN_SCREEN_ON,
+            OP_GET_ACCOUNTS,
     };
 
     /**
@@ -296,30 +420,30 @@ public class AppOpsManager {
             OPSTR_FINE_LOCATION,
             null,
             null,
+            OPSTR_READ_CONTACTS,
+            OPSTR_WRITE_CONTACTS,
+            OPSTR_READ_CALL_LOG,
+            OPSTR_WRITE_CALL_LOG,
+            OPSTR_READ_CALENDAR,
+            OPSTR_WRITE_CALENDAR,
             null,
             null,
             null,
+            OPSTR_CALL_PHONE,
+            OPSTR_READ_SMS,
+            null,
+            OPSTR_RECEIVE_SMS,
+            null,
+            OPSTR_RECEIVE_MMS,
+            OPSTR_RECEIVE_WAP_PUSH,
+            OPSTR_SEND_SMS,
             null,
             null,
+            OPSTR_WRITE_SETTINGS,
+            OPSTR_SYSTEM_ALERT_WINDOW,
             null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
+            OPSTR_CAMERA,
+            OPSTR_RECORD_AUDIO,
             null,
             null,
             null,
@@ -340,6 +464,21 @@ public class AppOpsManager {
             null,
             null,
             OPSTR_ACTIVATE_VPN,
+            null,
+            null,
+            null,
+            OPSTR_READ_PHONE_STATE,
+            OPSTR_ADD_VOICEMAIL,
+            OPSTR_USE_SIP,
+            null,
+            OPSTR_USE_FINGERPRINT,
+            OPSTR_BODY_SENSORS,
+            OPSTR_READ_CELL_BROADCASTS,
+            OPSTR_MOCK_LOCATION,
+            OPSTR_READ_EXTERNAL_STORAGE,
+            OPSTR_WRITE_EXTERNAL_STORAGE,
+            null,
+            OPSTR_GET_ACCOUNTS
     };
 
     /**
@@ -395,6 +534,21 @@ public class AppOpsManager {
             "TOAST_WINDOW",
             "PROJECT_MEDIA",
             "ACTIVATE_VPN",
+            "WRITE_WALLPAPER",
+            "ASSIST_STRUCTURE",
+            "ASSIST_SCREENSHOT",
+            "OP_READ_PHONE_STATE",
+            "ADD_VOICEMAIL",
+            "USE_SIP",
+            "PROCESS_OUTGOING_CALLS",
+            "USE_FINGERPRINT",
+            "BODY_SENSORS",
+            "READ_CELL_BROADCASTS",
+            "MOCK_LOCATION",
+            "READ_EXTERNAL_STORAGE",
+            "WRITE_EXTERNAL_STORAGE",
+            "TURN_ON_SCREEN",
+            "GET_ACCOUNTS",
     };
 
     /**
@@ -417,14 +571,14 @@ public class AppOpsManager {
             null, // neighboring cells shares the coarse location perm
             android.Manifest.permission.CALL_PHONE,
             android.Manifest.permission.READ_SMS,
-            android.Manifest.permission.WRITE_SMS,
+            null, // no permission required for writing sms
             android.Manifest.permission.RECEIVE_SMS,
             android.Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
             android.Manifest.permission.RECEIVE_MMS,
             android.Manifest.permission.RECEIVE_WAP_PUSH,
             android.Manifest.permission.SEND_SMS,
             android.Manifest.permission.READ_SMS,
-            android.Manifest.permission.WRITE_SMS,
+            null, // no permission required for writing icc sms
             android.Manifest.permission.WRITE_SETTINGS,
             android.Manifest.permission.SYSTEM_ALERT_WINDOW,
             android.Manifest.permission.ACCESS_NOTIFICATIONS,
@@ -450,6 +604,21 @@ public class AppOpsManager {
             null, // no permission for displaying toasts
             null, // no permission for projecting media
             null, // no permission for activating vpn
+            null, // no permission for supporting wallpaper
+            null, // no permission for receiving assist structure
+            null, // no permission for receiving assist screenshot
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.ADD_VOICEMAIL,
+            Manifest.permission.USE_SIP,
+            Manifest.permission.PROCESS_OUTGOING_CALLS,
+            Manifest.permission.USE_FINGERPRINT,
+            Manifest.permission.BODY_SENSORS,
+            Manifest.permission.READ_CELL_BROADCASTS,
+            null,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            null, // no permission for turning the screen on
+            Manifest.permission.GET_ACCOUNTS
     };
 
     /**
@@ -485,7 +654,7 @@ public class AppOpsManager {
             UserManager.DISALLOW_CREATE_WINDOWS, //SYSTEM_ALERT_WINDOW
             null, //ACCESS_NOTIFICATIONS
             null, //CAMERA
-            null, //RECORD_AUDIO
+            UserManager.DISALLOW_RECORD_AUDIO, //RECORD_AUDIO
             null, //PLAY_AUDIO
             null, //READ_CLIPBOARD
             null, //WRITE_CLIPBOARD
@@ -506,6 +675,21 @@ public class AppOpsManager {
             UserManager.DISALLOW_CREATE_WINDOWS, // TOAST_WINDOW
             null, //PROJECT_MEDIA
             UserManager.DISALLOW_CONFIG_VPN, // ACTIVATE_VPN
+            UserManager.DISALLOW_WALLPAPER, // WRITE_WALLPAPER
+            null, // ASSIST_STRUCTURE
+            null, // ASSIST_SCREENSHOT
+            null, // READ_PHONE_STATE
+            null, // ADD_VOICEMAIL
+            null, // USE_SIP
+            null, // PROCESS_OUTGOING_CALLS
+            null, // USE_FINGERPRINT
+            null, // BODY_SENSORS
+            null, // READ_CELL_BROADCASTS
+            null, // MOCK_LOCATION
+            null, // READ_EXTERNAL_STORAGE
+            null, // WRITE_EXTERNAL_STORAGE
+            null, // TURN_ON_SCREEN
+            null, // GET_ACCOUNTS
     };
 
     /**
@@ -561,6 +745,21 @@ public class AppOpsManager {
             true, //TOAST_WINDOW
             false, //PROJECT_MEDIA
             false, //ACTIVATE_VPN
+            false, //WALLPAPER
+            false, //ASSIST_STRUCTURE
+            false, //ASSIST_SCREENSHOT
+            false, //READ_PHONE_STATE
+            false, //ADD_VOICEMAIL
+            false, // USE_SIP
+            false, // PROCESS_OUTGOING_CALLS
+            false, // USE_FINGERPRINT
+            false, // BODY_SENSORS
+            false, // READ_CELL_BROADCASTS
+            false, // MOCK_LOCATION
+            false, // READ_EXTERNAL_STORAGE
+            false, // WRITE_EXTERNAL_STORAGE
+            false, // TURN_ON_SCREEN
+            false, // GET_ACCOUNTS
     };
 
     /**
@@ -590,8 +789,8 @@ public class AppOpsManager {
             AppOpsManager.MODE_ALLOWED,
             AppOpsManager.MODE_ALLOWED,
             AppOpsManager.MODE_ALLOWED,
-            AppOpsManager.MODE_ALLOWED,
-            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_DEFAULT, // OP_WRITE_SETTINGS
+            AppOpsManager.MODE_DEFAULT, // OP_SYSTEM_ALERT_WINDOW
             AppOpsManager.MODE_ALLOWED,
             AppOpsManager.MODE_ALLOWED,
             AppOpsManager.MODE_ALLOWED,
@@ -615,6 +814,21 @@ public class AppOpsManager {
             AppOpsManager.MODE_ALLOWED,
             AppOpsManager.MODE_IGNORED, // OP_PROJECT_MEDIA
             AppOpsManager.MODE_IGNORED, // OP_ACTIVATE_VPN
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ERRORED,  // OP_MOCK_LOCATION
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,
+            AppOpsManager.MODE_ALLOWED,  // OP_TURN_ON_SCREEN
+            AppOpsManager.MODE_ALLOWED,
     };
 
     /**
@@ -673,9 +887,32 @@ public class AppOpsManager {
             false,
             false,
             false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
     };
 
-    private static HashMap<String, Integer> sOpStrToOp = new HashMap<String, Integer>();
+    /**
+     * Mapping from an app op name to the app op code.
+     */
+    private static HashMap<String, Integer> sOpStrToOp = new HashMap<>();
+
+    /**
+     * Mapping from a permission to the corresponding app op.
+     */
+    private static HashMap<String, Integer> sPermToOp = new HashMap<>();
 
     static {
         if (sOpToSwitch.length != _NUM_OP) {
@@ -713,6 +950,11 @@ public class AppOpsManager {
         for (int i=0; i<_NUM_OP; i++) {
             if (sOpToString[i] != null) {
                 sOpStrToOp.put(sOpToString[i], i);
+            }
+        }
+        for (int i=0; i<_NUM_OP; i++) {
+            if (sOpPerms[i] != null) {
+                sPermToOp.put(sOpPerms[i], i);
             }
         }
     }
@@ -760,6 +1002,15 @@ public class AppOpsManager {
      */
     public static String opToRestriction(int op) {
         return sOpRestrictions[op];
+    }
+
+    /**
+     * Retrieve the app op code for a permission, or null if there is not one.
+     * @hide
+     */
+    public static int permissionToOpCode(String permission) {
+        Integer boxedOpCode = sPermToOp.get(permission);
+        return boxedOpCode != null ? boxedOpCode : OP_NONE;
     }
 
     /**
@@ -860,13 +1111,18 @@ public class AppOpsManager {
         private final long mTime;
         private final long mRejectTime;
         private final int mDuration;
+        private final int mProxyUid;
+        private final String mProxyPackageName;
 
-        public OpEntry(int op, int mode, long time, long rejectTime, int duration) {
+        public OpEntry(int op, int mode, long time, long rejectTime, int duration,
+                int proxyUid, String proxyPackage) {
             mOp = op;
             mMode = mode;
             mTime = time;
             mRejectTime = rejectTime;
             mDuration = duration;
+            mProxyUid = proxyUid;
+            mProxyPackageName = proxyPackage;
         }
 
         public int getOp() {
@@ -893,6 +1149,14 @@ public class AppOpsManager {
             return mDuration == -1 ? (int)(System.currentTimeMillis()-mTime) : mDuration;
         }
 
+        public int getProxyUid() {
+            return  mProxyUid;
+        }
+
+        public String getProxyPackageName() {
+            return mProxyPackageName;
+        }
+
         @Override
         public int describeContents() {
             return 0;
@@ -905,6 +1169,8 @@ public class AppOpsManager {
             dest.writeLong(mTime);
             dest.writeLong(mRejectTime);
             dest.writeInt(mDuration);
+            dest.writeInt(mProxyUid);
+            dest.writeString(mProxyPackageName);
         }
 
         OpEntry(Parcel source) {
@@ -913,6 +1179,8 @@ public class AppOpsManager {
             mTime = source.readLong();
             mRejectTime = source.readLong();
             mDuration = source.readInt();
+            mProxyUid = source.readInt();
+            mProxyPackageName = source.readString();
         }
 
         public static final Creator<OpEntry> CREATOR = new Creator<OpEntry>() {
@@ -979,6 +1247,14 @@ public class AppOpsManager {
     }
 
     /** @hide */
+    public void setUidMode(int code, int uid, int mode) {
+        try {
+            mService.setUidMode(code, uid, mode);
+        } catch (RemoteException e) {
+        }
+    }
+
+    /** @hide */
     public void setMode(int code, int uid, String packageName, int mode) {
         try {
             mService.setMode(code, uid, packageName, mode);
@@ -1012,6 +1288,22 @@ public class AppOpsManager {
             mService.resetAllModes(UserHandle.myUserId(), null);
         } catch (RemoteException e) {
         }
+    }
+
+    /**
+     * Gets the app op name associated with a given permission.
+     * The app op name is one of the public constants defined
+     * in this class such as {@link #OPSTR_COARSE_LOCATION}.
+     *
+     * @param permission The permission.
+     * @return The app op associated with the permission or null.
+     */
+    public static String permissionToOp(String permission) {
+        final Integer opCode = sPermToOp.get(permission);
+        if (opCode == null) {
+            return null;
+        }
+        return sOpToString[opCode];
     }
 
     /**
@@ -1141,6 +1433,33 @@ public class AppOpsManager {
     }
 
     /**
+     * Make note of an application performing an operation on behalf of another
+     * application when handling an IPC. Note that you must pass the package name
+     * of the application that is being proxied while its UID will be inferred from
+     * the IPC state; this function will verify that the calling uid and proxied
+     * package name match, and if not, return {@link #MODE_IGNORED}. If this call
+     * succeeds, the last execution time of the operation for the proxied app and
+     * your app will be updated to the current time.
+     * @param op The operation to note.  One of the OPSTR_* constants.
+     * @param proxiedPackageName The name of the application calling into the proxy application.
+     * @return Returns {@link #MODE_ALLOWED} if the operation is allowed, or
+     * {@link #MODE_IGNORED} if it is not allowed and should be silently ignored (without
+     * causing the app to crash).
+     * @throws SecurityException If the app has been configured to crash on this op.
+     */
+    public int noteProxyOp(String op, String proxiedPackageName) {
+        return noteProxyOp(strOpToOp(op), proxiedPackageName);
+    }
+
+    /**
+     * Like {@link #noteProxyOp(String, String)} but instead
+     * of throwing a {@link SecurityException} it returns {@link #MODE_ERRORED}.
+     */
+    public int noteProxyOpNoThrow(String op, String proxiedPackageName) {
+        return noteProxyOpNoThrow(strOpToOp(op), proxiedPackageName);
+    }
+
+    /**
      * Report that an application has started executing a long-running operation.  Note that you
      * must pass in both the uid and name of the application to be checked; this function will
      * verify that these two match, and if not, return {@link #MODE_IGNORED}.  If this call
@@ -1217,7 +1536,7 @@ public class AppOpsManager {
             return mService.checkOperation(op, uid, packageName);
         } catch (RemoteException e) {
         }
-        return MODE_IGNORED;
+        return MODE_ERRORED;
     }
 
     /**
@@ -1263,7 +1582,7 @@ public class AppOpsManager {
             return mService.checkAudioOperation(op, stream, uid, packageName);
         } catch (RemoteException e) {
         }
-        return MODE_IGNORED;
+        return MODE_ERRORED;
     }
 
     /**
@@ -1294,6 +1613,49 @@ public class AppOpsManager {
     }
 
     /**
+     * Make note of an application performing an operation on behalf of another
+     * application when handling an IPC. Note that you must pass the package name
+     * of the application that is being proxied while its UID will be inferred from
+     * the IPC state; this function will verify that the calling uid and proxied
+     * package name match, and if not, return {@link #MODE_IGNORED}. If this call
+     * succeeds, the last execution time of the operation for the proxied app and
+     * your app will be updated to the current time.
+     * @param op The operation to note. One of the OPSTR_* constants.
+     * @param proxiedPackageName The name of the application calling into the proxy application.
+     * @return Returns {@link #MODE_ALLOWED} if the operation is allowed, or
+     * {@link #MODE_IGNORED} if it is not allowed and should be silently ignored (without
+     * causing the app to crash).
+     * @throws SecurityException If the proxy or proxied app has been configured to
+     * crash on this op.
+     *
+     * @hide
+     */
+    public int noteProxyOp(int op, String proxiedPackageName) {
+        int mode = noteProxyOpNoThrow(op, proxiedPackageName);
+        if (mode == MODE_ERRORED) {
+            throw new SecurityException("Proxy package " + mContext.getOpPackageName()
+                    + " from uid " + Process.myUid() + " or calling package "
+                    + proxiedPackageName + " from uid " + Binder.getCallingUid()
+                    + " not allowed to perform " + sOpNames[op]);
+        }
+        return mode;
+    }
+
+    /**
+     * Like {@link #noteProxyOp(int, String)} but instead
+     * of throwing a {@link SecurityException} it returns {@link #MODE_ERRORED}.
+     * @hide
+     */
+    public int noteProxyOpNoThrow(int op, String proxiedPackageName) {
+        try {
+            return mService.noteProxyOperation(op, mContext.getOpPackageName(),
+                    Binder.getCallingUid(), proxiedPackageName);
+        } catch (RemoteException e) {
+        }
+        return MODE_ERRORED;
+    }
+
+    /**
      * Like {@link #noteOp} but instead of throwing a {@link SecurityException} it
      * returns {@link #MODE_ERRORED}.
      * @hide
@@ -1303,7 +1665,7 @@ public class AppOpsManager {
             return mService.noteOperation(op, uid, packageName);
         } catch (RemoteException e) {
         }
-        return MODE_IGNORED;
+        return MODE_ERRORED;
     }
 
     /** @hide */
@@ -1365,7 +1727,7 @@ public class AppOpsManager {
             return mService.startOperation(getToken(mService), op, uid, packageName);
         } catch (RemoteException e) {
         }
-        return MODE_IGNORED;
+        return MODE_ERRORED;
     }
 
     /** @hide */

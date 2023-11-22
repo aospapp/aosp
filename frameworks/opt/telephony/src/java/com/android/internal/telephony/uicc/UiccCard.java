@@ -27,6 +27,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.res.Resources;
 import android.os.AsyncResult;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
@@ -36,6 +37,7 @@ import android.preference.PreferenceManager;
 import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+import android.util.LocalLog;
 import android.view.WindowManager;
 
 import com.android.internal.telephony.CommandsInterface;
@@ -93,6 +95,8 @@ public class UiccCard {
     private static final int EVENT_TRANSMIT_APDU_BASIC_CHANNEL_DONE = 18;
     private static final int EVENT_SIM_IO_DONE = 19;
     private static final int EVENT_CARRIER_PRIVILIGES_LOADED = 20;
+
+    private static final LocalLog mLocalLog = new LocalLog(100);
 
     private int mPhoneId;
 
@@ -364,8 +368,8 @@ public class UiccCard {
                 case EVENT_SIM_IO_DONE:
                     AsyncResult ar = (AsyncResult)msg.obj;
                     if (ar.exception != null) {
-                       if (DBG)
-                         log("Error in SIM access with exception" + ar.exception);
+                        loglocal("Exception: " + ar.exception);
+                        log("Error in SIM access with exception" + ar.exception);
                     }
                     AsyncResult.forMessage((Message)ar.userObj, ar.result, ar.exception);
                     ((Message)ar.userObj).sendToTarget();
@@ -458,25 +462,33 @@ public class UiccCard {
 
     /**
      * Resets the application with the input AID. Returns true if any changes were made.
+     *
+     * A null aid implies a card level reset - all applications must be reset.
      */
     public boolean resetAppWithAid(String aid) {
         synchronized (mLock) {
+            boolean changed = false;
             for (int i = 0; i < mUiccApplications.length; i++) {
-                if (mUiccApplications[i] != null && aid.equals(mUiccApplications[i].getAid())) {
+                if (mUiccApplications[i] != null &&
+                    (aid == null || aid.equals(mUiccApplications[i].getAid()))) {
                     // Delete removed applications
                     mUiccApplications[i].dispose();
                     mUiccApplications[i] = null;
-                    return true;
+                    changed = true;
                 }
             }
-            return false;
+            return changed;
         }
+        // TODO: For a card level notification, we should delete the CarrierPrivilegeRules and the
+        // CAT service.
     }
 
     /**
      * Exposes {@link CommandsInterface.iccOpenLogicalChannel}
      */
     public void iccOpenLogicalChannel(String AID, Message response) {
+        loglocal("Open Logical Channel: " + AID + " by pid:" + Binder.getCallingPid()
+                + " uid:" + Binder.getCallingUid());
         mCi.iccOpenLogicalChannel(AID,
                 mHandler.obtainMessage(EVENT_OPEN_LOGICAL_CHANNEL_DONE, response));
     }
@@ -485,6 +497,7 @@ public class UiccCard {
      * Exposes {@link CommandsInterface.iccCloseLogicalChannel}
      */
     public void iccCloseLogicalChannel(int channel, Message response) {
+        loglocal("Close Logical Channel: " + channel);
         mCi.iccCloseLogicalChannel(channel,
                 mHandler.obtainMessage(EVENT_CLOSE_LOGICAL_CHANNEL_DONE, response));
     }
@@ -633,6 +646,10 @@ public class UiccCard {
         Rlog.e(LOG_TAG, msg);
     }
 
+    private void loglocal(String msg) {
+        if (DBG) mLocalLog.log(msg);
+    }
+
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("UiccCard:");
         pw.println(" mCi=" + mCi);
@@ -692,6 +709,9 @@ public class UiccCard {
             pw.println("  mCarrierPrivilegeRegistrants[" + i + "]="
                     + ((Registrant)mCarrierPrivilegeRegistrants.get(i)).getHandler());
         }
+        pw.flush();
+        pw.println("mLocalLog:");
+        mLocalLog.dump(fd, pw, args);
         pw.flush();
     }
 }

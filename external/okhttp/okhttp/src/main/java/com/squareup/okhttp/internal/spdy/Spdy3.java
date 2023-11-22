@@ -22,18 +22,18 @@ import java.io.UnsupportedEncodingException;
 import java.net.ProtocolException;
 import java.util.List;
 import java.util.zip.Deflater;
+import okio.Buffer;
 import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.ByteString;
 import okio.DeflaterSink;
-import okio.OkBuffer;
 import okio.Okio;
 
 /**
  * Read and write spdy/3.1 frames.
  * http://www.chromium.org/spdy/spdy-protocol/spdy-protocol-draft3-1
  */
-final class Spdy3 implements Variant {
+public final class Spdy3 implements Variant {
 
   @Override public Protocol getProtocol() {
     return Protocol.SPDY_3;
@@ -103,10 +103,6 @@ final class Spdy3 implements Variant {
     return new Writer(sink, client);
   }
 
-  @Override public int maxFrameSize() {
-    return 16383;
-  }
-
   /** Read spdy/3 frames. */
   static final class Reader implements FrameReader {
     private final BufferedSource source;
@@ -119,7 +115,7 @@ final class Spdy3 implements Variant {
       this.client = client;
     }
 
-    @Override public void readConnectionHeader() {
+    @Override public void readConnectionPreface() {
     }
 
     /**
@@ -196,17 +192,15 @@ final class Spdy3 implements Variant {
     private void readSynStream(Handler handler, int flags, int length) throws IOException {
       int w1 = source.readInt();
       int w2 = source.readInt();
-      int s3 = source.readShort();
       int streamId = w1 & 0x7fffffff;
       int associatedStreamId = w2 & 0x7fffffff;
-      int priority = (s3 & 0xe000) >>> 13;
-      // int slot = s3 & 0xff;
+      source.readShort(); // int priority = (s3 & 0xe000) >>> 13; int slot = s3 & 0xff;
       List<Header> headerBlock = headerBlockReader.readNameValueBlock(length - 10);
 
       boolean inFinished = (flags & FLAG_FIN) != 0;
       boolean outFinished = (flags & FLAG_UNIDIRECTIONAL) != 0;
-      handler.headers(outFinished, inFinished, streamId, associatedStreamId, priority,
-          headerBlock, HeadersMode.SPDY_SYN_STREAM);
+      handler.headers(outFinished, inFinished, streamId, associatedStreamId, headerBlock,
+          HeadersMode.SPDY_SYN_STREAM);
     }
 
     private void readSynReply(Handler handler, int flags, int length) throws IOException {
@@ -214,7 +208,7 @@ final class Spdy3 implements Variant {
       int streamId = w1 & 0x7fffffff;
       List<Header> headerBlock = headerBlockReader.readNameValueBlock(length - 4);
       boolean inFinished = (flags & FLAG_FIN) != 0;
-      handler.headers(false, inFinished, streamId, -1, -1, headerBlock, HeadersMode.SPDY_REPLY);
+      handler.headers(false, inFinished, streamId, -1, headerBlock, HeadersMode.SPDY_REPLY);
     }
 
     private void readRstStream(Handler handler, int flags, int length) throws IOException {
@@ -232,7 +226,7 @@ final class Spdy3 implements Variant {
       int w1 = source.readInt();
       int streamId = w1 & 0x7fffffff;
       List<Header> headerBlock = headerBlockReader.readNameValueBlock(length - 4);
-      handler.headers(false, false, streamId, -1, -1, headerBlock, HeadersMode.SPDY_HEADERS);
+      handler.headers(false, false, streamId, -1, headerBlock, HeadersMode.SPDY_HEADERS);
     }
 
     private void readWindowUpdate(Handler handler, int flags, int length) throws IOException {
@@ -292,7 +286,7 @@ final class Spdy3 implements Variant {
   /** Write spdy/3 frames. */
   static final class Writer implements FrameWriter {
     private final BufferedSink sink;
-    private final OkBuffer headerBlockBuffer;
+    private final Buffer headerBlockBuffer;
     private final BufferedSink headerBlockOut;
     private final boolean client;
     private boolean closed;
@@ -303,11 +297,11 @@ final class Spdy3 implements Variant {
 
       Deflater deflater = new Deflater();
       deflater.setDictionary(DICTIONARY);
-      headerBlockBuffer = new OkBuffer();
+      headerBlockBuffer = new Buffer();
       headerBlockOut = Okio.buffer(new DeflaterSink(headerBlockBuffer, deflater));
     }
 
-    @Override public void ackSettings() {
+    @Override public void ackSettings(Settings peerSettings) {
       // Do nothing: no ACK for SPDY/3 settings.
     }
 
@@ -317,8 +311,8 @@ final class Spdy3 implements Variant {
       // Do nothing: no push promise for SPDY/3.
     }
 
-    @Override public synchronized void connectionHeader() {
-      // Do nothing: no connection header for SPDY/3.
+    @Override public synchronized void connectionPreface() {
+      // Do nothing: no connection preface for SPDY/3.
     }
 
     @Override public synchronized void flush() throws IOException {
@@ -327,7 +321,7 @@ final class Spdy3 implements Variant {
     }
 
     @Override public synchronized void synStream(boolean outFinished, boolean inFinished,
-        int streamId, int associatedStreamId, int priority, int slot, List<Header> headerBlock)
+        int streamId, int associatedStreamId, List<Header> headerBlock)
         throws IOException {
       if (closed) throw new IOException("closed");
       writeNameValueBlockToBuffer(headerBlock);
@@ -340,8 +334,8 @@ final class Spdy3 implements Variant {
       sink.writeInt((flags & 0xff) << 24 | length & 0xffffff);
       sink.writeInt(streamId & 0x7fffffff);
       sink.writeInt(associatedStreamId & 0x7fffffff);
-      sink.writeShort((priority & 0x7) << 13 | (unused & 0x1f) << 8 | (slot & 0xff));
-      sink.write(headerBlockBuffer, headerBlockBuffer.size());
+      sink.writeShort((unused & 0x7) << 13 | (unused & 0x1f) << 8 | (unused & 0xff));
+      sink.writeAll(headerBlockBuffer);
       sink.flush();
     }
 
@@ -356,7 +350,7 @@ final class Spdy3 implements Variant {
       sink.writeInt(0x80000000 | (VERSION & 0x7fff) << 16 | type & 0xffff);
       sink.writeInt((flags & 0xff) << 24 | length & 0xffffff);
       sink.writeInt(streamId & 0x7fffffff);
-      sink.write(headerBlockBuffer, headerBlockBuffer.size());
+      sink.writeAll(headerBlockBuffer);
       sink.flush();
     }
 
@@ -371,7 +365,7 @@ final class Spdy3 implements Variant {
       sink.writeInt(0x80000000 | (VERSION & 0x7fff) << 16 | type & 0xffff);
       sink.writeInt((flags & 0xff) << 24 | length & 0xffffff);
       sink.writeInt(streamId & 0x7fffffff);
-      sink.write(headerBlockBuffer, headerBlockBuffer.size());
+      sink.writeAll(headerBlockBuffer);
     }
 
     @Override public synchronized void rstStream(int streamId, ErrorCode errorCode)
@@ -388,18 +382,17 @@ final class Spdy3 implements Variant {
       sink.flush();
     }
 
-    @Override public synchronized void data(boolean outFinished, int streamId, OkBuffer source)
-        throws IOException {
-      data(outFinished, streamId, source, (int) source.size());
+    @Override public int maxDataLength() {
+      return 16383;
     }
 
-    @Override public synchronized void data(boolean outFinished, int streamId, OkBuffer source,
+    @Override public synchronized void data(boolean outFinished, int streamId, Buffer source,
         int byteCount) throws IOException {
       int flags = (outFinished ? FLAG_FIN : 0);
       sendDataFrame(streamId, flags, source, byteCount);
     }
 
-    void sendDataFrame(int streamId, int flags, OkBuffer buffer, int byteCount)
+    void sendDataFrame(int streamId, int flags, Buffer buffer, int byteCount)
         throws IOException {
       if (closed) throw new IOException("closed");
       if (byteCount > 0xffffffL) {

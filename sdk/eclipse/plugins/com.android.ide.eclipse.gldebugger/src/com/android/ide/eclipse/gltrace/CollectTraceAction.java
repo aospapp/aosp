@@ -70,7 +70,7 @@ public class CollectTraceAction implements IWorkbenchWindowActionDelegate {
     private static final String SYSTEM_APP = "system";          //$NON-NLS-1$
 
     /** Time to wait for the application to launch (seconds) */
-    private static final int LAUNCH_TIMEOUT = 5;
+    private static final int LAUNCH_TIMEOUT = 15;
 
     /** Time to wait for the application to die (seconds) */
     private static final int KILL_TIMEOUT = 5;
@@ -224,13 +224,6 @@ public class CollectTraceAction implements IWorkbenchWindowActionDelegate {
 
     @SuppressWarnings("resource") // Closeables.closeQuietly
     public static void startTracing(Shell shell, TraceOptions traceOptions, int port) {
-        FileOutputStream fos = null;
-        try {
-            fos = new FileOutputStream(traceOptions.traceDestination, false);
-        } catch (FileNotFoundException e) {
-            // input path is valid, so this cannot occur
-        }
-
         Socket socket = new Socket();
         DataInputStream traceDataStream = null;
         DataOutputStream traceCommandsStream = null;
@@ -243,7 +236,6 @@ public class CollectTraceAction implements IWorkbenchWindowActionDelegate {
             MessageDialog.openError(shell,
                     "OpenGL Trace",
                     "Unable to connect to remote GL Trace Server: " + e.getMessage());
-            Closeables.closeQuietly(fos);
             return;
         }
 
@@ -258,8 +250,14 @@ public class CollectTraceAction implements IWorkbenchWindowActionDelegate {
                     "OpenGL Trace",
                     "Unexpected error while setting trace options: " + e.getMessage());
             closeSocket(socket);
-            Closeables.closeQuietly(fos);
             return;
+        }
+
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(traceOptions.traceDestination, false);
+        } catch (FileNotFoundException e) {
+            // input path is valid, so this cannot occur
         }
 
         // create trace writer that writes to a trace file

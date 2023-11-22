@@ -24,22 +24,14 @@
 
 namespace art {
 
-typedef uint8_t byte;
-typedef intptr_t word;
-typedef uintptr_t uword;
-
 static constexpr size_t KB = 1024;
 static constexpr size_t MB = KB * KB;
 static constexpr size_t GB = KB * KB * KB;
 
 // Runtime sizes.
-static constexpr size_t kWordSize = sizeof(word);
-static constexpr size_t kPointerSize = sizeof(void*);
-
 static constexpr size_t kBitsPerByte = 8;
 static constexpr size_t kBitsPerByteLog2 = 3;
-static constexpr int kBitsPerWord = kWordSize * kBitsPerByte;
-static constexpr size_t kWordHighBitMask = static_cast<size_t>(1) << (kBitsPerWord - 1);
+static constexpr int kBitsPerIntPtrT = sizeof(intptr_t) * kBitsPerByte;
 
 // Required stack alignment
 static constexpr size_t kStackAlignment = 16;
@@ -66,23 +58,17 @@ static constexpr bool kIsTargetBuild = true;
 static constexpr bool kIsTargetBuild = false;
 #endif
 
-#if defined(ART_USE_PORTABLE_COMPILER)
-static constexpr bool kUsePortableCompiler = true;
+#if defined(ART_USE_OPTIMIZING_COMPILER)
+static constexpr bool kUseOptimizingCompiler = true;
 #else
-static constexpr bool kUsePortableCompiler = false;
+static constexpr bool kUseOptimizingCompiler = false;
 #endif
 
 // Garbage collector constants.
-static constexpr bool kMovingCollector = true && !kUsePortableCompiler;
+static constexpr bool kMovingCollector = true;
 static constexpr bool kMarkCompactSupport = false && kMovingCollector;
-// True if we allow moving field arrays, this can cause complication with mark compact.
-static constexpr bool kMoveFieldArrays = !kMarkCompactSupport;
 // True if we allow moving classes.
 static constexpr bool kMovingClasses = !kMarkCompactSupport;
-// True if we allow moving fields.
-static constexpr bool kMovingFields = false;
-// True if we allow moving methods.
-static constexpr bool kMovingMethods = false;
 
 // If true, the quick compiler embeds class pointers in the compiled
 // code, if possible.
@@ -100,25 +86,46 @@ static constexpr bool kUseBrooksReadBarrier = true;
 static constexpr bool kUseBrooksReadBarrier = false;
 #endif
 
+#ifdef USE_TABLE_LOOKUP_READ_BARRIER
+static constexpr bool kUseTableLookupReadBarrier = true;
+#else
+static constexpr bool kUseTableLookupReadBarrier = false;
+#endif
+
 static constexpr bool kUseBakerOrBrooksReadBarrier = kUseBakerReadBarrier || kUseBrooksReadBarrier;
+static constexpr bool kUseReadBarrier = kUseBakerReadBarrier || kUseBrooksReadBarrier ||
+    kUseTableLookupReadBarrier;
 
 // If true, references within the heap are poisoned (negated).
+#ifdef ART_HEAP_POISONING
+static constexpr bool kPoisonHeapReferences = true;
+#else
 static constexpr bool kPoisonHeapReferences = false;
+#endif
+
+// If true, enable the tlab allocator by default.
+#ifdef ART_USE_TLAB
+static constexpr bool kUseTlab = true;
+#else
+static constexpr bool kUseTlab = false;
+#endif
 
 // Kinds of tracing clocks.
-enum TraceClockSource {
-  kTraceClockSourceThreadCpu,
-  kTraceClockSourceWall,
-  kTraceClockSourceDual,  // Both wall and thread CPU clocks.
+enum class TraceClockSource {
+  kThreadCpu,
+  kWall,
+  kDual,  // Both wall and thread CPU clocks.
 };
 
-#if defined(HAVE_POSIX_CLOCKS)
-static constexpr TraceClockSource kDefaultTraceClockSource = kTraceClockSourceDual;
+#if defined(__linux__)
+static constexpr TraceClockSource kDefaultTraceClockSource = TraceClockSource::kDual;
 #else
-static constexpr TraceClockSource kDefaultTraceClockSource = kTraceClockSourceWall;
+static constexpr TraceClockSource kDefaultTraceClockSource = TraceClockSource::kWall;
 #endif
 
 static constexpr bool kDefaultMustRelocate = true;
+
+static constexpr bool kArm32QuickCodeUseSoftFloat = false;
 
 }  // namespace art
 

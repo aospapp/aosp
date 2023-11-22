@@ -25,6 +25,7 @@ import android.net.wifi.WifiChannel;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConnectionStatistics;
 import android.net.wifi.WifiActivityEnergyInfo;
+import android.net.Network;
 
 import android.net.DhcpInfo;
 
@@ -46,6 +47,8 @@ interface IWifiManager
     List<WifiConfiguration> getConfiguredNetworks();
 
     List<WifiConfiguration> getPrivilegedConfiguredNetworks();
+
+    WifiConfiguration getMatchingWifiConfig(in ScanResult scanResult);
 
     int addOrUpdateNetwork(in WifiConfiguration config);
 
@@ -79,6 +82,8 @@ interface IWifiManager
 
     void setCountryCode(String country, boolean persist);
 
+    String getCountryCode();
+
     void setFrequencyBand(int band, boolean persist);
 
     int getFrequencyBand();
@@ -110,6 +115,8 @@ interface IWifiManager
     int getWifiApEnabledState();
 
     WifiConfiguration getWifiApConfiguration();
+
+    WifiConfiguration buildWifiConfig(String uriString, String mimeType, in byte[] data);
 
     void setWifiApConfiguration(in WifiConfiguration wifiConfig);
 
@@ -145,16 +152,24 @@ interface IWifiManager
 
     int getVerboseLoggingLevel();
 
+    void enableAggressiveHandover(int enabled);
     int getAggressiveHandover();
 
-    void enableAggressiveHandover(int enabled);
-
+    void setAllowScansWithTraffic(int enabled);
     int getAllowScansWithTraffic();
 
-    void setAllowScansWithTraffic(int enabled);
+    void setHalBasedAutojoinOffload(int enabled);
+    int getHalBasedAutojoinOffload();
+
+    boolean enableAutoJoinWhenAssociated(boolean enabled);
+    boolean getEnableAutoJoinWhenAssociated();
 
     WifiConnectionStatistics getConnectionStatistics();
 
     void disableEphemeralNetwork(String SSID);
+
+    void factoryReset();
+
+    Network getCurrentNetwork();
 }
 

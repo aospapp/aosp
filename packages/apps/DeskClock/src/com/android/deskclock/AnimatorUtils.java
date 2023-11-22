@@ -19,8 +19,9 @@ package com.android.deskclock;
 import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
-import android.animation.TypeEvaluator;
 import android.animation.ValueAnimator;
+import android.graphics.drawable.Drawable;
+import android.support.v4.graphics.drawable.DrawableCompat;
 import android.util.Property;
 import android.view.View;
 import android.view.animation.Interpolator;
@@ -75,19 +76,50 @@ public class AnimatorUtils {
 
         @Override
         public void set(ImageView view, Integer value) {
-            view.getDrawable().setTint(value);
+            // Ensure the drawable is wrapped using DrawableCompat.
+            final Drawable drawable = view.getDrawable();
+            final Drawable wrappedDrawable = DrawableCompat.wrap(drawable);
+            if (wrappedDrawable != drawable) {
+                view.setImageDrawable(wrappedDrawable);
+            }
+            // Set the new tint value via DrawableCompat.
+            DrawableCompat.setTint(wrappedDrawable, value);
         }
     };
 
-    public static final TypeEvaluator ARGB_EVALUATOR = new ArgbEvaluator();
+    public static final ArgbEvaluator ARGB_EVALUATOR = new ArgbEvaluator();
 
-    public static void start(ValueAnimator... animators) {
-        for (ValueAnimator animator : animators) {
-            final float fraction = animator.getAnimatedFraction();
-            if (fraction < 1.0f) {
-                animator.start();
+    private static Method sAnimateValue;
+    private static boolean sTryAnimateValue = true;
+
+    public static void setAnimatedFraction(ValueAnimator animator, float fraction) {
+        if (Utils.isLMR1OrLater()) {
+            animator.setCurrentFraction(fraction);
+            return;
+        }
+
+        if (sTryAnimateValue) {
+            // try to set the animated fraction directly so that it isn't affected by the
+            // internal animator scale or time (b/17938711)
+            try {
+                if (sAnimateValue == null) {
+                    sAnimateValue = ValueAnimator.class
+                            .getDeclaredMethod("animateValue", float.class);
+                    sAnimateValue.setAccessible(true);
+                }
+
+                sAnimateValue.invoke(animator, fraction);
+                return;
+            } catch (NoSuchMethodException | InvocationTargetException
+                    | IllegalAccessException e) {
+                // something went wrong, don't try that again
+                LogUtils.e("Unable to use animateValue directly", e);
+                sTryAnimateValue = false;
             }
         }
+
+        // if that doesn't work then just fall back to setting the current play time
+        animator.setCurrentPlayTime(Math.round(fraction * animator.getDuration()));
     }
 
     public static void reverse(ValueAnimator... animators) {
@@ -95,6 +127,7 @@ public class AnimatorUtils {
             final float fraction = animator.getAnimatedFraction();
             if (fraction > 0.0f) {
                 animator.reverse();
+                setAnimatedFraction(animator, 1.0f - fraction);
             }
         }
     }

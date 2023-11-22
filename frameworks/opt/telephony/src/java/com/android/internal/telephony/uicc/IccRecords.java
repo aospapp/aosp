@@ -23,12 +23,17 @@ import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
 
+import android.telephony.Rlog;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
+
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -36,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public abstract class IccRecords extends Handler implements IccConstants {
     protected static final boolean DBG = true;
+    protected static final boolean VDBG = false; // STOPSHIP if true
 
     // ***** Instance Variables
     protected AtomicBoolean mDestroyed = new AtomicBoolean(false);
@@ -78,6 +84,8 @@ public abstract class IccRecords extends Handler implements IccConstants {
     private String mSpn;
 
     protected String mGid1;
+    protected String mGid2;
+    protected String mPrefLang;
 
     private final Object mLock = new Object();
 
@@ -124,7 +132,7 @@ public abstract class IccRecords extends Handler implements IccConstants {
                 + " newVoiceMailNum=" + mNewVoiceMailNum
                 + " newVoiceMailTag=" + mNewVoiceMailTag
                 + " isVoiceMailFixed=" + mIsVoiceMailFixed
-                + " mImsi=" + mImsi
+                + (VDBG ? (" mImsi=" + mImsi) : "")
                 + " mncLength=" + mMncLength
                 + " mailboxIndex=" + mMailboxIndex
                 + " spn=" + mSpn;
@@ -280,6 +288,14 @@ public abstract class IccRecords extends Handler implements IccConstants {
      * @return null if SIM is not yet ready
      */
     public String getGid1() {
+        return null;
+    }
+
+    /**
+     * Get the Group Identifier Level 2 (GID2) on a SIM.
+     * @return null if SIM is not yet ready
+     */
+    public String getGid2() {
         return null;
     }
 
@@ -481,6 +497,49 @@ public abstract class IccRecords extends Handler implements IccConstants {
         }
     }
 
+    /**
+     * Returns the SIM language derived from the EF-LI and EF-PL sim records.
+     */
+    public String getSimLanguage() {
+        return mPrefLang;
+    }
+
+    protected void setSimLanguage(byte[] efLi, byte[] efPl) {
+        String[] locales = mContext.getAssets().getLocales();
+        try {
+            mPrefLang = findBestLanguage(efLi, locales);
+        } catch (UnsupportedEncodingException uee) {
+            log("Unable to parse EF-LI: " + Arrays.toString(efLi));
+        }
+
+        if (mPrefLang == null) {
+            try {
+                mPrefLang = findBestLanguage(efPl, locales);
+            } catch (UnsupportedEncodingException uee) {
+                log("Unable to parse EF-PL: " + Arrays.toString(efLi));
+            }
+        }
+    }
+
+    protected static String findBestLanguage(byte[] languages, String[] locales)
+            throws UnsupportedEncodingException {
+        if ((languages == null) || (locales == null)) return null;
+
+        // Each 2-bytes consists of one language
+        for (int i = 0; (i + 1) < languages.length; i += 2) {
+            String lang = new String(languages, i, 2, "ISO-8859-1");
+            for (int j = 0; j < locales.length; j++) {
+                if (locales[j] != null && locales[j].length() >= 2 &&
+                        locales[j].substring(0, 2).equalsIgnoreCase(lang)) {
+                    return lang;
+                }
+            }
+        }
+
+        // no match found. return null
+        return null;
+    }
+
     protected abstract void onRecordLoaded();
 
     protected abstract void onAllRecordsLoaded();
@@ -656,14 +715,18 @@ public abstract class IccRecords extends Handler implements IccConstants {
         pw.println(" mRecordsToLoad=" + mRecordsToLoad);
         pw.println(" mRdnCache=" + mAdnCache);
         pw.println(" iccid=" + mIccId);
-        pw.println(" mMsisdn=" + mMsisdn);
+        if (TextUtils.isEmpty(mMsisdn)) {
+            pw.println(" mMsisdn=null");
+        } else {
+            pw.println(" mMsisdn=" + (VDBG ? mMsisdn : "XXX"));
+        }
         pw.println(" mMsisdnTag=" + mMsisdnTag);
         pw.println(" mVoiceMailNum=" + mVoiceMailNum);
         pw.println(" mVoiceMailTag=" + mVoiceMailTag);
         pw.println(" mNewVoiceMailNum=" + mNewVoiceMailNum);
         pw.println(" mNewVoiceMailTag=" + mNewVoiceMailTag);
         pw.println(" mIsVoiceMailFixed=" + mIsVoiceMailFixed);
-        pw.println(" mImsi=" + mImsi);
+        if (VDBG) pw.println(" mImsi=" + mImsi);
         pw.println(" mMncLength=" + mMncLength);
         pw.println(" mMailboxIndex=" + mMailboxIndex);
         pw.println(" mSpn=" + mSpn);

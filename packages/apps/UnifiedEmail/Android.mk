@@ -18,9 +18,9 @@ LOCAL_PATH:= $(call my-dir)
 chips_dir := ../../../frameworks/opt/chips/res
 
 #Include res dir from libraries
-appcompat_dir := ../../../prebuilts/sdk/current/support/v7/appcompat/res
+appcompat_dir := ../../../$(SUPPORT_LIBRARY_ROOT)/v7/appcompat/res
 photo_dir := ../../../frameworks/opt/photoviewer/res ../../../frameworks/opt/photoviewer/appcompat/res
-gridlayout_dir := ../../../prebuilts/sdk/current/support/v7/gridlayout/res
+gridlayout_dir := ../../../$(SUPPORT_LIBRARY_ROOT)/v7/gridlayout/res
 bitmap_dir := ../../../frameworks/opt/bitmap/res
 datetimepicker_dir := ../../../frameworks/opt/datetimepicker/res
 res_dirs := res $(appcompat_dir) $(chips_dir) $(photo_dir) $(gridlayout_dir) $(bitmap_dir) $(datetimepicker_dir)

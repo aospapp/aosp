@@ -15,6 +15,8 @@
  */
 package com.android.camera.widget;
 
+import com.google.common.base.Optional;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -55,7 +57,7 @@ public class ModeOptions extends FrameLayout {
     private static final int RADIUS_ANIMATION_TIME = 250;
     private static final int SHOW_ALPHA_ANIMATION_TIME = 350;
     private static final int HIDE_ALPHA_ANIMATION_TIME = 200;
-    private static final int PADDING_ANIMATION_TIME = 350;
+    public static final int PADDING_ANIMATION_TIME = 350;
 
     private ViewGroup mMainBar;
     private ViewGroup mActiveBar;
@@ -66,8 +68,47 @@ public class ModeOptions extends FrameLayout {
     private boolean mIsPortrait;
     private float mRadius = 0f;
 
+    /**
+     * A class implementing this interface will receive callback events from
+     * mode options.
+     */
+    public interface Listener {
+        /**
+         * Called when about to start animating the mode options from hidden
+         * to visible.
+         */
+        public void onBeginToShowModeOptions();
+
+        /**
+         * Called when about to start animating the mode options from visible
+         * to hidden.
+         */
+        public void onBeginToHideModeOptions();
+    }
+
+    /** The listener. */
+    private Optional<Listener> mListener;
+
     public ModeOptions(Context context, AttributeSet attrs) {
         super(context, attrs);
+        mListener = Optional.absent();
+    }
+
+    /**
+     * Whether the mode options is hidden or in the middle of fading
+     * out.
+     */
+    public boolean isHiddenOrHiding() {
+        return mIsHiddenOrHiding;
+    }
+
+    /**
+     * Sets the listener.
+     *
+     * @param listener The listener to be set.
+     */
+    public void setListener(Listener listener) {
+        mListener = Optional.of(listener);
     }
 
     public void setViewToShowHide(View v) {
@@ -84,16 +125,12 @@ public class ModeOptions extends FrameLayout {
         mModeOptionsPano = (RadioOptions) findViewById(R.id.mode_options_pano);
         mModeOptionsExposure = (RadioOptions) findViewById(R.id.mode_options_exposure);
         mMainBar = mActiveBar = mModeOptionsButtons;
+    }
 
-        ImageButton exposureButton = (ImageButton) findViewById(R.id.exposure_button);
-        exposureButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mActiveBar = mModeOptionsExposure;
-                mMainBar.setVisibility(View.INVISIBLE);
-                mActiveBar.setVisibility(View.VISIBLE);
-            }
-        });
+    public void showExposureOptions() {
+        mActiveBar = mModeOptionsExposure;
+        mMainBar.setVisibility(View.INVISIBLE);
+        mActiveBar.setVisibility(View.VISIBLE);
     }
 
     public void setMainBar(int b) {
@@ -346,6 +383,9 @@ public class ModeOptions extends FrameLayout {
             mVisibleAnimator.end();
             setVisibility(View.VISIBLE);
             mVisibleAnimator.start();
+            if (mListener.isPresent()) {
+                mListener.get().onBeginToShowModeOptions();
+            }
         }
         mIsHiddenOrHiding = false;
     }
@@ -355,6 +395,9 @@ public class ModeOptions extends FrameLayout {
             mVisibleAnimator.cancel();
             mHiddenAnimator.end();
             mHiddenAnimator.start();
+            if (mListener.isPresent()) {
+                mListener.get().onBeginToHideModeOptions();
+            }
         }
         mIsHiddenOrHiding = true;
     }

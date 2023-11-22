@@ -109,32 +109,44 @@ public class CdmaSMSDispatcher extends SMSDispatcher {
             byte[] data, PendingIntent sentIntent, PendingIntent deliveryIntent) {
         SmsMessage.SubmitPdu pdu = SmsMessage.getSubmitPdu(
                 scAddr, destAddr, destPort, data, (deliveryIntent != null));
-        HashMap map = getSmsTrackerMap(destAddr, scAddr, destPort, data, pdu);
-        SmsTracker tracker = getSmsTracker(map, sentIntent, deliveryIntent, getFormat(),
-                null /*messageUri*/, false /*isExpectMore*/, null /*fullMessageText*/,
-                false /*isText*/);
+        if (pdu != null) {
+            HashMap map = getSmsTrackerMap(destAddr, scAddr, destPort, data, pdu);
+            SmsTracker tracker = getSmsTracker(map, sentIntent, deliveryIntent, getFormat(),
+                    null /*messageUri*/, false /*isExpectMore*/, null /*fullMessageText*/,
+                    false /*isText*/, true /*persistMessage*/);
 
-        String carrierPackage = getCarrierAppPackageName();
-        if (carrierPackage != null) {
-            Rlog.d(TAG, "Found carrier package.");
-            DataSmsSender smsSender = new DataSmsSender(tracker);
-            smsSender.sendSmsByCarrierApp(carrierPackage, new SmsSenderCallback(smsSender));
+            String carrierPackage = getCarrierAppPackageName();
+            if (carrierPackage != null) {
+                Rlog.d(TAG, "Found carrier package.");
+                DataSmsSender smsSender = new DataSmsSender(tracker);
+                smsSender.sendSmsByCarrierApp(carrierPackage, new SmsSenderCallback(smsSender));
+            } else {
+                Rlog.v(TAG, "No carrier package.");
+                sendSubmitPdu(tracker);
+            }
         } else {
-            Rlog.v(TAG, "No carrier package.");
-            sendSubmitPdu(tracker);
+            Rlog.e(TAG, "CdmaSMSDispatcher.sendData(): getSubmitPdu() returned null");
+            if (sentIntent != null) {
+                try {
+                    sentIntent.send(SmsManager.RESULT_ERROR_GENERIC_FAILURE);
+                } catch (CanceledException ex) {
+                    Rlog.e(TAG, "Intent has been canceled!");
+                }
+            }
         }
     }
 
     /** {@inheritDoc} */
     @Override
     protected void sendText(String destAddr, String scAddr, String text, PendingIntent sentIntent,
-            PendingIntent deliveryIntent, Uri messageUri, String callingPkg) {
+            PendingIntent deliveryIntent, Uri messageUri, String callingPkg,
+            boolean persistMessage) {
         SmsMessage.SubmitPdu pdu = SmsMessage.getSubmitPdu(
                 scAddr, destAddr, text, (deliveryIntent != null), null);
         if (pdu != null) {
             HashMap map = getSmsTrackerMap(destAddr, scAddr, text, pdu);
             SmsTracker tracker = getSmsTracker(map, sentIntent, deliveryIntent, getFormat(),
-                    messageUri, false /*isExpectMore*/, text, true /*isText*/);
+                    messageUri, false /*isExpectMore*/, text, true /*isText*/, persistMessage);
 
             String carrierPackage = getCarrierAppPackageName();
             if (carrierPackage != null) {
@@ -147,6 +159,13 @@ public class CdmaSMSDispatcher extends SMSDispatcher {
             }
         } else {
             Rlog.e(TAG, "CdmaSMSDispatcher.sendText(): getSubmitPdu() returned null");
+            if (sentIntent != null) {
+                try {
+                    sentIntent.send(SmsManager.RESULT_ERROR_GENERIC_FAILURE);
+                } catch (CanceledException ex) {
+                    Rlog.e(TAG, "Intent has been canceled!");
+                }
+            }
         }
     }
 
@@ -191,7 +210,8 @@ public class CdmaSMSDispatcher extends SMSDispatcher {
                 message, submitPdu);
         return getSmsTracker(map, sentIntent, deliveryIntent,
                 getFormat(), unsentPartCount, anyPartFailed, messageUri, smsHeader,
-                false /*isExpextMore*/, fullMessageText, true /*isText*/);
+                false /*isExpextMore*/, fullMessageText, true /*isText*/,
+                true /*persistMessage*/);
     }
 
     @Override

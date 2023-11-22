@@ -15,8 +15,10 @@
  */
 package com.android.managedprovisioning;
 
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 
 import android.app.Notification;
@@ -29,68 +31,77 @@ import android.content.Intent;
 import android.os.Bundle;
 
 /**
- * Class that handles the resuming process that takes place after a reboot for encryption
- * during the provisioning process.
+ * Class that handles the resuming process that takes place after a reboot during the provisioning
+ * process. The reboot could be an unexpected reboot or a reboot during the encryption process.
  */
 public class BootReminder extends BroadcastReceiver {
     private static final int NOTIFY_ID = 1;
 
     /*
-     * Profile owner parameters that are stored in the IntentStore for resuming provisioning.
+     * Profile owner parameters that are stored in the IntentStore for resuming provisioning after
+     * encryption.
      */
-    private static final String PROFILE_OWNER_PREFERENCES_NAME =
-            "profile-owner-provisioning-resume";
+    private static final String PROFILE_OWNER_ENCRYPTION_PREFERENCES_NAME =
+            "profile-owner-encryption-resume";
 
-    private static final String[] PROFILE_OWNER_STRING_EXTRAS = {
-        // Key for the device admin package name
-        EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME
-    };
-
-    private static final String[] PROFILE_OWNER_PERSISTABLE_BUNDLE_EXTRAS = {
-        // Key for the admin extras bundle
-        EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE
-    };
-
-    private static final String[] PROFILE_OWNER_ACCOUNT_EXTRAS = {
-        // Key for the account extras
-        EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE
-    };
+    /*
+     * Profile owner parameters that are stored in the IntentStore for resuming provisioning after
+     * Setup wizard has shutdown.
+     */
+    private static final String PROFILE_OWNER_FINALIZING_PREFERENCES_NAME =
+            "profile-owner-finalizing-resume";
 
     private static final ComponentName PROFILE_OWNER_INTENT_TARGET =
             ProfileOwnerPreProvisioningActivity.ALIAS_NO_CHECK_CALLER;
 
     /*
-     * Device owner parameters that are stored in the IntentStore for resuming provisioning.
+     * Device owner parameters that are stored in the IntentStore for resuming provisioning after
+     * encryption.
      */
-    private static final String DEVICE_OWNER_PREFERENCES_NAME =
-            "device-owner-provisioning-resume";
+    private static final String DEVICE_OWNER_ENCRYPTION_PREFERENCES_NAME =
+            "device-owner-encryption-resume";
+
+    // Device owner parameter stored for resuming provisioning after unexpected device reboot during
+    // finalizing stage.
+    private static final String DEVICE_OWNER_FINALIZING_PREFERENCES_NAME =
+            "device-owner-finalizing-resume";
 
     private static final ComponentName DEVICE_OWNER_INTENT_TARGET =
             new ComponentName("com.android.managedprovisioning",
-                    "com.android.managedprovisioning.DeviceOwnerProvisioningActivity");
+                    "com.android.managedprovisioning.DeviceOwnerPreProvisioningActivity");
+
+    private static final ComponentName HOME_RECEIVER_INTENT_TARGET =
+            new ComponentName("com.android.managedprovisioning",
+                    "com.android.managedprovisioning.HomeReceiverActivity");
 
     @Override
     public void onReceive(Context context, Intent intent) {
         if (android.content.Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
 
             // Resume profile owner provisioning if applicable.
-            IntentStore profileOwnerIntentStore = getProfileOwnerIntentStore(context);
+            IntentStore profileOwnerIntentStore =
+                    getProfileOwnerEncryptionResumptionIntentStore(context);
             final Intent resumeProfileOwnerPrvIntent = profileOwnerIntentStore.load();
-            if (resumeProfileOwnerPrvIntent != null) {
-                if (EncryptDeviceActivity.isDeviceEncrypted()) {
+            if (resumeProfileOwnerPrvIntent != null && EncryptDeviceActivity.isDeviceEncrypted()) {
+                profileOwnerIntentStore.clear();
+                if (Utils.isUserSetupCompleted(context)) {
                     // Show reminder notification and then forget about it for next boot
-                    profileOwnerIntentStore.clear();
                     setNotification(context, resumeProfileOwnerPrvIntent);
+                } else {
+                    resumeProfileOwnerPrvIntent.setAction(ACTION_PROVISION_MANAGED_PROFILE);
+                    TrampolineActivity.startActivity(context, resumeProfileOwnerPrvIntent);
                 }
             }
 
-            // Resume device owner provisioning if applicable.
-            IntentStore deviceOwnerIntentStore = getDeviceOwnerIntentStore(context);
+            // Resume device owner provisioning after encryption if applicable.
+            IntentStore deviceOwnerIntentStore =
+                    getDeviceOwnerEncryptionResumptionIntentStore(context);
             Intent resumeDeviceOwnerPrvIntent = deviceOwnerIntentStore.load();
             if (resumeDeviceOwnerPrvIntent != null) {
                 deviceOwnerIntentStore.clear();
-                resumeDeviceOwnerPrvIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(resumeDeviceOwnerPrvIntent);
+                resumeDeviceOwnerPrvIntent.setAction(
+                        DeviceOwnerPreProvisioningActivity.LEGACY_ACTION_PROVISION_MANAGED_DEVICE);
+                TrampolineActivity.startActivity(context, resumeDeviceOwnerPrvIntent);
             }
         }
     }
@@ -104,8 +115,8 @@ public class BootReminder extends BroadcastReceiver {
      * and {@link EncryptDeviceActivity.TARGET_DEVICE_OWNER}
      *
      * <p> In case of TARGET_PROFILE_OWNER {@code extras} should further contain a value for at
-     * least the key: {@link EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME}, a {@link String} which
-     * specifies the package to set as profile owner.
+     * least the key: {@link EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME}, a {@link String}
+     * which, when unflattened to a componentName, specifies the component to set as profile owner.
      *
      * <p>
      * See {@link MessageParser} for the TARGET_DEVICE_OWNER case.
@@ -121,9 +132,9 @@ public class BootReminder extends BroadcastReceiver {
             return;
         }
         if (resumeTarget.equals(EncryptDeviceActivity.TARGET_PROFILE_OWNER)) {
-            intentStore = getProfileOwnerIntentStore(context);
+            intentStore = getProfileOwnerEncryptionResumptionIntentStore(context);
         } else if (resumeTarget.equals(EncryptDeviceActivity.TARGET_DEVICE_OWNER)) {
-            intentStore = getDeviceOwnerIntentStore(context);
+            intentStore = getDeviceOwnerEncryptionResumptionIntentStore(context);
         } else {
             ProvisionLogger.loge("Unknown resume target for bootreminder.");
             return;
@@ -135,25 +146,49 @@ public class BootReminder extends BroadcastReceiver {
      * Cancel all active provisioning reminders.
      */
     public static void cancelProvisioningReminder(Context context) {
-        getProfileOwnerIntentStore(context).clear();
-        getDeviceOwnerIntentStore(context).clear();
+        getProfileOwnerEncryptionResumptionIntentStore(context).clear();
+        getDeviceOwnerEncryptionResumptionIntentStore(context).clear();
         setNotification(context, null);
     }
 
-    private static IntentStore getProfileOwnerIntentStore(Context context) {
-        return new IntentStore(context,PROFILE_OWNER_INTENT_TARGET, PROFILE_OWNER_PREFERENCES_NAME)
-                .setStringKeys(PROFILE_OWNER_STRING_EXTRAS)
-                .setPersistableBundleKeys(PROFILE_OWNER_PERSISTABLE_BUNDLE_EXTRAS)
-                .setAccountKeys(PROFILE_OWNER_ACCOUNT_EXTRAS);
+    private static IntentStore getProfileOwnerIntentStore(Context context,
+            ComponentName intentTarget, String storeName) {
+        return new IntentStore(context, intentTarget, storeName)
+                .setComponentNameKeys(MessageParser.PROFILE_OWNER_COMPONENT_NAME_EXTRAS)
+                .setStringKeys(MessageParser.PROFILE_OWNER_STRING_EXTRAS)
+                .setPersistableBundleKeys(MessageParser.PROFILE_OWNER_PERSISTABLE_BUNDLE_EXTRAS)
+                .setAccountKeys(MessageParser.PROFILE_OWNER_ACCOUNT_EXTRAS);
     }
 
-    private static IntentStore getDeviceOwnerIntentStore(Context context) {
-        return new IntentStore(context, DEVICE_OWNER_INTENT_TARGET, DEVICE_OWNER_PREFERENCES_NAME)
+    private static IntentStore getDeviceOwnerIntentStore(Context context,
+            ComponentName intentTarget, String storeName) {
+        return new IntentStore(context, intentTarget, storeName)
+                .setComponentNameKeys(MessageParser.DEVICE_OWNER_COMPONENT_NAME_EXTRAS)
                 .setStringKeys(MessageParser.DEVICE_OWNER_STRING_EXTRAS)
                 .setLongKeys(MessageParser.DEVICE_OWNER_LONG_EXTRAS)
                 .setIntKeys(MessageParser.DEVICE_OWNER_INT_EXTRAS)
                 .setBooleanKeys(MessageParser.DEVICE_OWNER_BOOLEAN_EXTRAS)
                 .setPersistableBundleKeys(MessageParser.DEVICE_OWNER_PERSISTABLE_BUNDLE_EXTRAS);
+    }
+
+    private static IntentStore getDeviceOwnerEncryptionResumptionIntentStore(Context context) {
+        return getDeviceOwnerIntentStore(context, DEVICE_OWNER_INTENT_TARGET,
+                DEVICE_OWNER_ENCRYPTION_PREFERENCES_NAME);
+    }
+
+    protected static IntentStore getDeviceOwnerFinalizingIntentStore(Context context) {
+        return getDeviceOwnerIntentStore(context, HOME_RECEIVER_INTENT_TARGET,
+                DEVICE_OWNER_FINALIZING_PREFERENCES_NAME);
+    }
+
+    private static IntentStore getProfileOwnerEncryptionResumptionIntentStore(Context context) {
+        return getProfileOwnerIntentStore(context, PROFILE_OWNER_INTENT_TARGET,
+                PROFILE_OWNER_ENCRYPTION_PREFERENCES_NAME);
+    }
+
+    protected static IntentStore getProfileOwnerFinalizingIntentStore(Context context) {
+        return getProfileOwnerIntentStore(context, HOME_RECEIVER_INTENT_TARGET,
+                PROFILE_OWNER_FINALIZING_PREFERENCES_NAME);
     }
 
     /** Create and show the provisioning reminder notification. */

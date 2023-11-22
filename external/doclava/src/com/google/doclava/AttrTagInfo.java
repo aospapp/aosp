@@ -22,6 +22,12 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class AttrTagInfo extends TagInfo {
+  public static final AttrTagInfo[] EMPTY_ARRAY = new AttrTagInfo[0];
+
+  public static AttrTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new AttrTagInfo[size];
+  }
+
   private static final String REF_COMMAND = "ref";
   private static final String NAME_COMMAND = "name";
   private static final String DESCRIPTION_COMMAND = "description";

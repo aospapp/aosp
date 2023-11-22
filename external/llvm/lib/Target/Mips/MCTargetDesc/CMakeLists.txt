@@ -1,4 +1,5 @@
 add_llvm_library(LLVMMipsDesc
+  MipsABIInfo.cpp
   MipsABIFlagsSection.cpp
   MipsAsmBackend.cpp
   MipsELFObjectWriter.cpp
@@ -8,5 +9,6 @@ add_llvm_library(LLVMMipsDesc
   MipsMCExpr.cpp
   MipsMCTargetDesc.cpp
   MipsNaClELFStreamer.cpp
+  MipsOptionRecord.cpp
   MipsTargetStreamer.cpp
   )

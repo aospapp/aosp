@@ -64,6 +64,8 @@
 
 using namespace android;
 
+static const bool kIsDebug = false;
+
 /*
  * Names for default app, locale, and vendor.  We might want to change
  * these to be an actual locale, e.g. always use en-US as the default.
@@ -152,15 +154,19 @@ AssetManager::AssetManager(CacheMode cacheMode)
       mResources(NULL), mConfig(new ResTable_config),
       mCacheMode(cacheMode), mCacheValid(false)
 {
-    int count = android_atomic_inc(&gCount)+1;
-    //ALOGI("Creating AssetManager %p #%d\n", this, count);
+    int count = android_atomic_inc(&gCount) + 1;
+    if (kIsDebug) {
+        ALOGI("Creating AssetManager %p #%d\n", this, count);
+    }
     memset(mConfig, 0, sizeof(ResTable_config));
 }
 
 AssetManager::~AssetManager(void)
 {
     int count = android_atomic_dec(&gCount);
-    //ALOGI("Destroying AssetManager in %p #%d\n", this, count);
+    if (kIsDebug) {
+        ALOGI("Destroying AssetManager in %p #%d\n", this, count);
+    }
 
     delete mConfig;
     delete mResources;
@@ -295,6 +301,10 @@ bool AssetManager::addOverlayPath(const String8& packagePath, int32_t* cookie)
 #endif
     mAssetPaths.add(oap);
     *cookie = static_cast<int32_t>(mAssetPaths.size());
+
+    if (mResources != NULL) {
+        appendPathToResTable(oap);
+    }
 
     return true;
  }
@@ -601,6 +611,11 @@ FileType AssetManager::getFileType(const char* fileName)
 }
 
 bool AssetManager::appendPathToResTable(const asset_path& ap) const {
+    // skip those ap's that correspond to system overlays
+    if (ap.isSystemOverlay) {
+        return true;
+    }
+
     Asset* ass = NULL;
     ResTable* sharedRes = NULL;
     bool shared = true;
@@ -786,6 +801,7 @@ void AssetManager::addSystemOverlays(const char* pathOverlaysList,
         oap.path = String8(buf, space - buf);
         oap.type = kFileTypeRegular;
         oap.idmap = String8(space + 1, newline - space - 1);
+        oap.isSystemOverlay = true;
 
         Asset* oass = const_cast<AssetManager*>(this)->
             openNonAssetInPathLocked("resources.arsc",
@@ -1140,13 +1156,11 @@ Asset* AssetManager::openAssetFromZipLocked(const ZipFileRO* pZipFile,
     Asset* pAsset = NULL;
 
     // TODO: look for previously-created shared memory slice?
-    int method;
-    size_t uncompressedLen;
+    uint16_t method;
+    uint32_t uncompressedLen;
 
     //printf("USING Zip '%s'\n", pEntry->getFileName());
 
-    //pZipFile->getEntryInfo(entry, &method, &uncompressedLen, &compressedLen,
-    //    &offset);
     if (!pZipFile->getEntryInfo(entry, &method, &uncompressedLen, NULL, NULL,
             NULL, NULL))
     {
@@ -1165,8 +1179,8 @@ Asset* AssetManager::openAssetFromZipLocked(const ZipFileRO* pZipFile,
         ALOGV("Opened uncompressed entry %s in zip %s mode %d: %p", entryName.string(),
                 dataMap->getFileName(), mode, pAsset);
     } else {
-        pAsset = Asset::createFromCompressedMap(dataMap, method,
-            uncompressedLen, mode);
+        pAsset = Asset::createFromCompressedMap(dataMap,
+            static_cast<size_t>(uncompressedLen), mode);
         ALOGV("Opened compressed entry %s in zip %s mode %d: %p", entryName.string(),
                 dataMap->getFileName(), mode, pAsset);
     }
@@ -1864,7 +1878,9 @@ AssetManager::SharedZip::SharedZip(const String8& path, time_t modWhen)
     : mPath(path), mZipFile(NULL), mModWhen(modWhen),
       mResourceTableAsset(NULL), mResourceTable(NULL)
 {
-    //ALOGI("Creating SharedZip %p %s\n", this, (const char*)mPath);
+    if (kIsDebug) {
+        ALOGI("Creating SharedZip %p %s\n", this, (const char*)mPath);
+    }
     ALOGV("+++ opening zip '%s'\n", mPath.string());
     mZipFile = ZipFileRO::open(mPath.string());
     if (mZipFile == NULL) {
@@ -1958,7 +1974,9 @@ bool AssetManager::SharedZip::getOverlay(size_t idx, asset_path* out) const
 
 AssetManager::SharedZip::~SharedZip()
 {
-    //ALOGI("Destroying SharedZip %p %s\n", this, (const char*)mPath);
+    if (kIsDebug) {
+        ALOGI("Destroying SharedZip %p %s\n", this, (const char*)mPath);
+    }
     if (mResourceTable != NULL) {
         delete mResourceTable;
     }

@@ -16,11 +16,9 @@
 
 package com.android.camera.session;
 
+import android.graphics.Bitmap;
 import android.location.Location;
 import android.net.Uri;
-
-import com.android.camera.app.MediaSaver.OnMediaSavedListener;
-import com.android.camera.exif.ExifInterface;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,22 +44,46 @@ public interface CaptureSessionManager {
         public void onSessionUpdated(Uri mediaUri);
 
         /**
-         * Called when the preview of the media underlying the session with the
-         * given Uri has been updated.
+         * Called when the capture indicator for the given session has changed
+         * and should be updated.
+         *
+         * @param bitmap the capture indicator bitmap
+         * @param rotationDegrees the rotation of the updated preview
          */
-        public void onSessionPreviewAvailable(Uri mediaUri);
+        public void onSessionCaptureIndicatorUpdate(Bitmap bitmap, int rotationDegrees);
 
         /** Called when the session with the given Uri finished. */
         public void onSessionDone(Uri mediaUri);
 
         /** Called when the session with the given Uri failed processing. */
-        public void onSessionFailed(Uri mediaUri, CharSequence reason);
+        public void onSessionFailed(Uri mediaUri, int failureMessageId, boolean removeFromFilmstrip);
+
+        /** Called when the session with the given Uri was canceled. */
+        public void onSessionCanceled(Uri mediaUri);
 
         /** Called when the session with the given Uri has progressed. */
         public void onSessionProgress(Uri mediaUri, int progress);
 
         /** Called when the session with the given Uri has changed its progress text. */
-        public void onSessionProgressText(Uri mediaUri, CharSequence message);
+        public void onSessionProgressText(Uri mediaUri, int messageId);
+
+        /**
+         * Called when the thumbnail for the given session has changed and
+         * should be updated. This is only used by @{link CaptureIntentModule}.
+         * Filmstrip uses onSessionUpdated to refresh the thumbnail.
+         *
+         * @param bitmap the thumbnail bitmap
+         */
+        public void onSessionThumbnailUpdate(Bitmap bitmap);
+
+        /**
+         * Called when the compressed picture data for the given session has
+         * changed and should be updated.
+         *
+         * @param pictureData the picture JPEG byte array.
+         * @param orientation the picture orientation.
+         */
+        public void onSessionPictureDataUpdate(byte[] pictureData, int orientation);
     }
 
     /**
@@ -71,13 +93,7 @@ public interface CaptureSessionManager {
      * @param sessionStartMillis the start time of the new session (millis since epoch).
      * @param location the location of the new session.
      */
-    CaptureSession createNewSession(String title, long sessionStartMillis, Location location);
-
-    /**
-     * Creates a session based on an existing URI in the filmstrip and media
-     * store. This can be used to re-process an image.
-     */
-    CaptureSession createSession();
+    public CaptureSession createNewSession(String title, long sessionStartMillis, Location location);
 
     /**
      * Returns a session by session Uri or null if it is not found.
@@ -86,23 +102,7 @@ public interface CaptureSessionManager {
      *
      * @return The corresponding CaptureSession.
      */
-    CaptureSession getSession(Uri sessionUri);
-
-    /**
-     * Save an image without creating a session that includes progress.
-     *
-     * @param data the image data to be saved.
-     * @param title the title of the media item.
-     * @param date the timestamp of the capture.
-     * @param loc the capture location.
-     * @param width the width of the captured image.
-     * @param height the height of the captured image.
-     * @param orientation the orientation of the captured image.
-     * @param exif the EXIF data of the captured image.
-     * @param listener called when saving is complete.
-     */
-    void saveImage(byte[] data, String title, long date, Location loc, int width, int height,
-            int orientation, ExifInterface exif, OnMediaSavedListener listener);
+    public CaptureSession getSession(Uri sessionUri);
 
     /**
      * Add a listener to be informed about capture session updates.
@@ -116,6 +116,13 @@ public interface CaptureSessionManager {
      * Adds the session with the given uri.
      */
     public void putSession(Uri sessionUri, CaptureSession session);
+
+    /**
+     * Removes the session with the given uri from the manager. This may not
+     * remove temporary in memory resources from the session itself, see
+     * {@link CaptureSession#finalizeSession()} to complete session removal.
+     */
+    public CaptureSession removeSession(Uri sessionUri);
 
     /**
      * Removes a previously added listener from receiving further capture
@@ -142,13 +149,16 @@ public interface CaptureSessionManager {
     public boolean hasErrorMessage(Uri uri);
 
     /**
-     * @return If existant, returns the error message for the session with the
-     *         given URI.
+     * @return If existant, returns the error message ID for the session with the
+     *         given URI, -1 otherwise.
      */
-    public CharSequence getErrorMesage(Uri uri);
+    public int getErrorMessageId(Uri uri);
 
     /**
      * Removes any existing error messages for the session with the given URI.
      */
     public void removeErrorMessage(Uri uri);
+
+    /** Sets the error message for the session with the given URI. */
+    public void putErrorMessage(Uri uri, int failureMessageId);
 }

@@ -336,14 +336,14 @@ string PrimitiveTypeName(JavaType type) {
     case JAVATYPE_STRING : return "java.lang.String";
     case JAVATYPE_BYTES  : return "byte[]";
     case JAVATYPE_ENUM   : return "int";
-    case JAVATYPE_MESSAGE: return NULL;
+    case JAVATYPE_MESSAGE: return "";
 
     // No default because we want the compiler to complain if any new
     // JavaTypes are added.
   }
 
   GOOGLE_LOG(FATAL) << "Can't get here.";
-  return NULL;
+  return "";
 }
 
 string BoxedPrimitiveTypeName(JavaType type) {
@@ -356,14 +356,14 @@ string BoxedPrimitiveTypeName(JavaType type) {
     case JAVATYPE_STRING : return "java.lang.String";
     case JAVATYPE_BYTES  : return "byte[]";
     case JAVATYPE_ENUM   : return "java.lang.Integer";
-    case JAVATYPE_MESSAGE: return NULL;
+    case JAVATYPE_MESSAGE: return "";
 
     // No default because we want the compiler to complain if any new
     // JavaTypes are added.
   }
 
   GOOGLE_LOG(FATAL) << "Can't get here.";
-  return NULL;
+  return "";
 }
 
 string EmptyArrayName(const Params& params, const FieldDescriptor* field) {
@@ -392,6 +392,10 @@ string DefaultValue(const Params& params, const FieldDescriptor* field) {
   }
 
   if (params.use_reference_types_for_primitives()) {
+    if (params.reftypes_primitive_enums()
+          && field->cpp_type() == FieldDescriptor::CPPTYPE_ENUM) {
+      return "Integer.MIN_VALUE";
+    }
     return "null";
   }
 

@@ -34,6 +34,7 @@ package java.lang;
 
 import dalvik.system.BaseDexClassLoader;
 import dalvik.system.VMDebug;
+import dalvik.system.VMRuntime;
 import dalvik.system.VMStack;
 import java.io.File;
 import java.io.IOException;
@@ -418,8 +419,14 @@ public class Runtime {
 
         // So, find out what the native library search path is for the ClassLoader in question...
         String ldLibraryPath = null;
-        if (loader != null && loader instanceof BaseDexClassLoader) {
-            ldLibraryPath = ((BaseDexClassLoader) loader).getLdLibraryPath();
+        String dexPath = null;
+        if (loader == null) {
+            // We use the given library path for the boot class loader. This is the path
+            // also used in loadLibraryName if loader is null.
+            ldLibraryPath = System.getProperty("java.library.path");
+        } else if (loader instanceof BaseDexClassLoader) {
+            BaseDexClassLoader dexClassLoader = (BaseDexClassLoader) loader;
+            ldLibraryPath = dexClassLoader.getLdLibraryPath();
         }
         // nativeLoad should be synchronized so there's only one LD_LIBRARY_PATH in use regardless
         // of how many ClassLoaders are in the system, but dalvik doesn't support synchronized
@@ -430,23 +437,21 @@ public class Runtime {
     }
 
     // TODO: should be synchronized, but dalvik doesn't support synchronized internal natives.
-    private static native String nativeLoad(String filename, ClassLoader loader, String ldLibraryPath);
+    private static native String nativeLoad(String filename, ClassLoader loader,
+            String ldLibraryPath);
 
     /**
-     * Provides a hint to the VM that it would be useful to attempt
+     * Provides a hint to the runtime that it would be useful to attempt
      * to perform any outstanding object finalization.
      */
     public void runFinalization() {
-        try {
-            FinalizerReference.finalizeAllEnqueued();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // 0 for no timeout.
+        VMRuntime.runFinalization(0);
     }
 
     /**
      * Sets the flag that indicates whether all objects are finalized when the
-     * VM is about to exit. Note that all finalization which occurs
+     * runtime is about to exit. Note that all finalization which occurs
      * when the system is exiting is performed after all running threads have
      * been terminated.
      *

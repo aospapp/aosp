@@ -18,10 +18,9 @@
 #define SYSTEM_KEYMASTER_ECDSA_OPERATION_H_
 
 #include <openssl/ec.h>
+#include <openssl/evp.h>
 
 #include <UniquePtr.h>
-
-#include <keymaster/key_blob.h>
 
 #include "operation.h"
 
@@ -29,38 +28,76 @@ namespace keymaster {
 
 class EcdsaOperation : public Operation {
   public:
-    EcdsaOperation(keymaster_purpose_t purpose, const Logger& logger, keymaster_digest_t digest,
-                   keymaster_padding_t padding, EC_KEY* key)
-        : Operation(purpose, logger), ecdsa_key_(key), digest_(digest), padding_(padding) {}
+    EcdsaOperation(keymaster_purpose_t purpose, keymaster_digest_t digest, EVP_PKEY* key)
+        : Operation(purpose), digest_(digest), ecdsa_key_(key) {
+        EVP_MD_CTX_init(&digest_ctx_);
+    }
     ~EcdsaOperation();
 
-    virtual keymaster_error_t Begin() { return KM_ERROR_OK; }
-    virtual keymaster_error_t Update(const Buffer& input, Buffer* output);
-    virtual keymaster_error_t Abort() { return KM_ERROR_OK; }
+    keymaster_error_t Abort() override { return KM_ERROR_OK; }
 
   protected:
-    keymaster_error_t StoreData(const Buffer& input);
+    keymaster_error_t StoreData(const Buffer& input, size_t* input_consumed);
+    keymaster_error_t InitDigest();
 
-    EC_KEY* ecdsa_key_;
     keymaster_digest_t digest_;
-    keymaster_padding_t padding_;
+    const EVP_MD* digest_algorithm_;
+    EVP_PKEY* ecdsa_key_;
+    EVP_MD_CTX digest_ctx_;
     Buffer data_;
 };
 
 class EcdsaSignOperation : public EcdsaOperation {
   public:
-    EcdsaSignOperation(keymaster_purpose_t purpose, const Logger& logger, keymaster_digest_t digest,
-                       keymaster_padding_t padding, EC_KEY* key)
-        : EcdsaOperation(purpose, logger, digest, padding, key) {}
-    virtual keymaster_error_t Finish(const Buffer& signature, Buffer* output);
+    EcdsaSignOperation(keymaster_purpose_t purpose, keymaster_digest_t digest, EVP_PKEY* key)
+        : EcdsaOperation(purpose, digest, key) {}
+    keymaster_error_t Begin(const AuthorizationSet& input_params,
+                            AuthorizationSet* output_params) override;
+    keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
+                             AuthorizationSet* output_params, Buffer* output,
+                             size_t* input_consumed) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
+                             AuthorizationSet* output_params, Buffer* output) override;
 };
 
 class EcdsaVerifyOperation : public EcdsaOperation {
   public:
-    EcdsaVerifyOperation(keymaster_purpose_t purpose, const Logger& logger,
-                         keymaster_digest_t digest, keymaster_padding_t padding, EC_KEY* key)
-        : EcdsaOperation(purpose, logger, digest, padding, key) {}
-    virtual keymaster_error_t Finish(const Buffer& signature, Buffer* output);
+    EcdsaVerifyOperation(keymaster_purpose_t purpose, keymaster_digest_t digest, EVP_PKEY* key)
+        : EcdsaOperation(purpose, digest, key) {}
+    keymaster_error_t Begin(const AuthorizationSet& input_params,
+                            AuthorizationSet* output_params) override;
+    keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
+                             AuthorizationSet* output_params, Buffer* output,
+                             size_t* input_consumed) override;
+    keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& signature,
+                             AuthorizationSet* output_params, Buffer* output) override;
+};
+
+class EcdsaOperationFactory : public OperationFactory {
+  private:
+    KeyType registry_key() const override { return KeyType(KM_ALGORITHM_EC, purpose()); }
+    Operation* CreateOperation(const Key& key, const AuthorizationSet& begin_params,
+                               keymaster_error_t* error) override;
+    const keymaster_digest_t* SupportedDigests(size_t* digest_count) const override;
+
+    virtual keymaster_purpose_t purpose() const = 0;
+    virtual Operation* InstantiateOperation(keymaster_digest_t digest, EVP_PKEY* key) = 0;
+};
+
+class EcdsaSignOperationFactory : public EcdsaOperationFactory {
+  private:
+    keymaster_purpose_t purpose() const override { return KM_PURPOSE_SIGN; }
+    Operation* InstantiateOperation(keymaster_digest_t digest, EVP_PKEY* key) {
+        return new (std::nothrow) EcdsaSignOperation(purpose(), digest, key);
+    }
+};
+
+class EcdsaVerifyOperationFactory : public EcdsaOperationFactory {
+  public:
+    keymaster_purpose_t purpose() const override { return KM_PURPOSE_VERIFY; }
+    Operation* InstantiateOperation(keymaster_digest_t digest, EVP_PKEY* key) {
+        return new (std::nothrow) EcdsaVerifyOperation(KM_PURPOSE_VERIFY, digest, key);
+    }
 };
 
 }  // namespace keymaster

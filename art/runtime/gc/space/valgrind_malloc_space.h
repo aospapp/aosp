@@ -27,13 +27,20 @@ namespace space {
 
 // A specialization of DlMallocSpace/RosAllocSpace that places valgrind red zones around
 // allocations.
-template <typename BaseMallocSpaceType, typename AllocatorType>
+template <typename BaseMallocSpaceType,
+          size_t kValgrindRedZoneBytes,
+          bool kAdjustForRedzoneInAllocSize,
+          bool kUseObjSizeForUsable>
 class ValgrindMallocSpace FINAL : public BaseMallocSpaceType {
  public:
   mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                  size_t* usable_size) OVERRIDE;
+                                  size_t* usable_size, size_t* bytes_tl_bulk_allocated)
+      OVERRIDE;
   mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                        size_t* usable_size) OVERRIDE;
+                        size_t* usable_size, size_t* bytes_tl_bulk_allocated) OVERRIDE;
+  mirror::Object* AllocThreadUnsafe(Thread* self, size_t num_bytes, size_t* bytes_allocated,
+                                    size_t* usable_size, size_t* bytes_tl_bulk_allocated)
+      OVERRIDE EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE;
 
@@ -44,11 +51,13 @@ class ValgrindMallocSpace FINAL : public BaseMallocSpaceType {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   void RegisterRecentFree(mirror::Object* ptr) OVERRIDE {
+    UNUSED(ptr);
   }
 
-  ValgrindMallocSpace(const std::string& name, MemMap* mem_map, AllocatorType allocator,
-                      byte* begin, byte* end, byte* limit, size_t growth_limit,
-                      size_t initial_size, bool can_move_objects, size_t starting_size);
+  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) OVERRIDE;
+
+  template <typename... Params>
+  explicit ValgrindMallocSpace(MemMap* mem_map, size_t initial_size, Params... params);
   virtual ~ValgrindMallocSpace() {}
 
  private:

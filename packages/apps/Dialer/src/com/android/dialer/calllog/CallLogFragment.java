@@ -16,15 +16,19 @@
 
 package com.android.dialer.calllog;
 
+import static android.Manifest.permission.READ_CALL_LOG;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.DialogFragment;
+import android.app.Fragment;
 import android.app.KeyguardManager;
-import android.app.ListFragment;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Rect;
@@ -34,24 +38,29 @@ import android.provider.CallLog;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract;
 import android.provider.VoicemailContract.Status;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.LinearLayoutManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import com.android.contacts.common.GeoUtil;
+import com.android.contacts.common.util.PermissionsUtil;
 import com.android.contacts.common.util.ViewUtil;
 import com.android.dialer.R;
 import com.android.dialer.list.ListsFragment.HostInterface;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.EmptyLoader;
+import com.android.dialer.voicemail.VoicemailPlaybackPresenter;
 import com.android.dialer.voicemail.VoicemailStatusHelper;
 import com.android.dialer.voicemail.VoicemailStatusHelper.StatusMessage;
 import com.android.dialer.voicemail.VoicemailStatusHelperImpl;
+import com.android.dialer.widget.EmptyContentView;
+import com.android.dialer.widget.EmptyContentView.OnEmptyViewActionButtonClickedListener;
 import com.android.dialerbind.ObjectFactory;
 
 import java.util.List;
@@ -60,15 +69,9 @@ import java.util.List;
  * Displays a list of call log entries. To filter for a particular kind of call
  * (all, missed or voicemails), specify it in the constructor.
  */
-public class CallLogFragment extends ListFragment
-        implements CallLogQueryHandler.Listener, CallLogAdapter.OnReportButtonClickListener,
-        CallLogAdapter.CallFetcher,
-        CallLogAdapter.CallItemExpandedListener {
+public class CallLogFragment extends Fragment implements CallLogQueryHandler.Listener,
+        CallLogAdapter.CallFetcher, OnEmptyViewActionButtonClickedListener {
     private static final String TAG = "CallLogFragment";
-
-    private static final String REPORT_DIALOG_TAG = "report_dialog";
-    private String mReportDialogNumber;
-    private boolean mIsReportDialogShowing;
 
     /**
      * ID of the empty loader to defer other fragments.
@@ -78,33 +81,30 @@ public class CallLogFragment extends ListFragment
     private static final String KEY_FILTER_TYPE = "filter_type";
     private static final String KEY_LOG_LIMIT = "log_limit";
     private static final String KEY_DATE_LIMIT = "date_limit";
-    private static final String KEY_SHOW_FOOTER = "show_footer";
-    private static final String KEY_IS_REPORT_DIALOG_SHOWING = "is_report_dialog_showing";
-    private static final String KEY_REPORT_DIALOG_NUMBER = "report_dialog_number";
 
+    // No limit specified for the number of logs to show; use the CallLogQueryHandler's default.
+    private static final int NO_LOG_LIMIT = -1;
+    // No date-based filtering.
+    private static final int NO_DATE_LIMIT = 0;
+
+    private static final int READ_CALL_LOG_PERMISSION_REQUEST_CODE = 1;
+
+    private RecyclerView mRecyclerView;
+    private LinearLayoutManager mLayoutManager;
     private CallLogAdapter mAdapter;
     private CallLogQueryHandler mCallLogQueryHandler;
+    private VoicemailPlaybackPresenter mVoicemailPlaybackPresenter;
     private boolean mScrollToTop;
 
     /** Whether there is at least one voicemail source installed. */
     private boolean mVoicemailSourcesAvailable = false;
 
-    private VoicemailStatusHelper mVoicemailStatusHelper;
-    private View mStatusMessageView;
-    private TextView mStatusMessageText;
-    private TextView mStatusMessageAction;
+    private EmptyContentView mEmptyListView;
     private KeyguardManager mKeyguardManager;
-    private View mFooterView;
 
     private boolean mEmptyLoaderRunning;
     private boolean mCallLogFetched;
     private boolean mVoicemailStatusFetched;
-
-    private float mExpandedItemTranslationZ;
-    private int mFadeInDuration;
-    private int mFadeInStartDelay;
-    private int mFadeOutDuration;
-    private int mExpandCollapseDuration;
 
     private final Handler mHandler = new Handler();
 
@@ -124,6 +124,8 @@ public class CallLogFragment extends ListFragment
     private final ContentObserver mVoicemailStatusObserver = new CustomContentObserver();
     private boolean mRefreshDataRequired = true;
 
+    private boolean mHasReadCallLogPermission = false;
+
     // Exactly same variable is in Fragment as a package private.
     private boolean mMenuVisible = true;
 
@@ -132,27 +134,32 @@ public class CallLogFragment extends ListFragment
 
     // Log limit - if no limit is specified, then the default in {@link CallLogQueryHandler}
     // will be used.
-    private int mLogLimit = -1;
+    private int mLogLimit = NO_LOG_LIMIT;
 
     // Date limit (in millis since epoch) - when non-zero, only calls which occurred on or after
     // the date filter are included.  If zero, no date-based filtering occurs.
-    private long mDateLimit = 0;
+    private long mDateLimit = NO_DATE_LIMIT;
 
-    // Whether or not to show the Show call history footer view
-    private boolean mHasFooterView = false;
+    /*
+     * True if this instance of the CallLogFragment is the Recents screen shown in
+     * DialtactsActivity.
+     */
+    private boolean mIsRecentsFragment;
+
+    public interface HostInterface {
+        public void showDialpad();
+    }
 
     public CallLogFragment() {
-        this(CallLogQueryHandler.CALL_TYPE_ALL, -1);
+        this(CallLogQueryHandler.CALL_TYPE_ALL, NO_LOG_LIMIT);
     }
 
     public CallLogFragment(int filterType) {
-        this(filterType, -1);
+        this(filterType, NO_LOG_LIMIT);
     }
 
     public CallLogFragment(int filterType, int logLimit) {
-        super();
-        mCallTypeFilter = filterType;
-        mLogLimit = logLimit;
+        this(filterType, logLimit, NO_DATE_LIMIT);
     }
 
     /**
@@ -162,7 +169,7 @@ public class CallLogFragment extends ListFragment
      * @param dateLimit limits results to calls occurring on or after the specified date.
      */
     public CallLogFragment(int filterType, long dateLimit) {
-        this(filterType, -1, dateLimit);
+        this(filterType, NO_LOG_LIMIT, dateLimit);
     }
 
     /**
@@ -173,7 +180,8 @@ public class CallLogFragment extends ListFragment
      * @param dateLimit limits results to calls occurring on or after the specified date.
      */
     public CallLogFragment(int filterType, int logLimit, long dateLimit) {
-        this(filterType, logLimit);
+        mCallTypeFilter = filterType;
+        mLogLimit = logLimit;
         mDateLimit = dateLimit;
     }
 
@@ -184,43 +192,25 @@ public class CallLogFragment extends ListFragment
             mCallTypeFilter = state.getInt(KEY_FILTER_TYPE, mCallTypeFilter);
             mLogLimit = state.getInt(KEY_LOG_LIMIT, mLogLimit);
             mDateLimit = state.getLong(KEY_DATE_LIMIT, mDateLimit);
-            mHasFooterView = state.getBoolean(KEY_SHOW_FOOTER, mHasFooterView);
-            mIsReportDialogShowing = state.getBoolean(KEY_IS_REPORT_DIALOG_SHOWING,
-                    mIsReportDialogShowing);
-            mReportDialogNumber = state.getString(KEY_REPORT_DIALOG_NUMBER, mReportDialogNumber);
         }
 
-        String currentCountryIso = GeoUtil.getCurrentCountryIso(getActivity());
-        mAdapter = ObjectFactory.newCallLogAdapter(getActivity(), this,
-                new ContactInfoHelper(getActivity(), currentCountryIso), this, this, true);
-        setListAdapter(mAdapter);
-        mCallLogQueryHandler = new CallLogQueryHandler(getActivity().getContentResolver(),
-                this, mLogLimit);
+        mIsRecentsFragment = mLogLimit != NO_LOG_LIMIT;
+
+        final Activity activity = getActivity();
+        final ContentResolver resolver = activity.getContentResolver();
+        String currentCountryIso = GeoUtil.getCurrentCountryIso(activity);
+        mCallLogQueryHandler = new CallLogQueryHandler(activity, resolver, this, mLogLimit);
         mKeyguardManager =
-                (KeyguardManager) getActivity().getSystemService(Context.KEYGUARD_SERVICE);
-        getActivity().getContentResolver().registerContentObserver(CallLog.CONTENT_URI, true,
-                mCallLogObserver);
-        getActivity().getContentResolver().registerContentObserver(
-                ContactsContract.Contacts.CONTENT_URI, true, mContactsObserver);
-        getActivity().getContentResolver().registerContentObserver(
-                Status.CONTENT_URI, true, mVoicemailStatusObserver);
+                (KeyguardManager) activity.getSystemService(Context.KEYGUARD_SERVICE);
+        resolver.registerContentObserver(CallLog.CONTENT_URI, true, mCallLogObserver);
+        resolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true,
+                mContactsObserver);
+        resolver.registerContentObserver(Status.CONTENT_URI, true, mVoicemailStatusObserver);
         setHasOptionsMenu(true);
-        updateCallList(mCallTypeFilter, mDateLimit);
 
-        mExpandedItemTranslationZ =
-                getResources().getDimension(R.dimen.call_log_expanded_translation_z);
-        mFadeInDuration = getResources().getInteger(R.integer.call_log_actions_fade_in_duration);
-        mFadeInStartDelay = getResources().getInteger(R.integer.call_log_actions_fade_start);
-        mFadeOutDuration = getResources().getInteger(R.integer.call_log_actions_fade_out_duration);
-        mExpandCollapseDuration = getResources().getInteger(
-                R.integer.call_log_expand_collapse_duration);
-
-        if (mIsReportDialogShowing) {
-            DialogFragment df = ObjectFactory.getReportDialogFragment(mReportDialogNumber);
-            if (df != null) {
-                df.setTargetFragment(this, 0);
-                df.show(getActivity().getFragmentManager(), REPORT_DIALOG_TAG);
-            }
+        if (mCallTypeFilter == Calls.VOICEMAIL_TYPE) {
+            mVoicemailPlaybackPresenter = VoicemailPlaybackPresenter
+                    .getInstance(activity, state);
         }
     }
 
@@ -235,16 +225,21 @@ public class CallLogFragment extends ListFragment
         mAdapter.changeCursor(cursor);
         // This will update the state of the "Clear call log" menu item.
         getActivity().invalidateOptionsMenu();
+
+        boolean showListView = cursor != null && cursor.getCount() > 0;
+        mRecyclerView.setVisibility(showListView ? View.VISIBLE : View.GONE);
+        mEmptyListView.setVisibility(!showListView ? View.VISIBLE : View.GONE);
+
         if (mScrollToTop) {
-            final ListView listView = getListView();
             // The smooth-scroll animation happens over a fixed time period.
             // As a result, if it scrolls through a large portion of the list,
             // each frame will jump so far from the previous one that the user
             // will not experience the illusion of downward motion.  Instead,
             // if we're not already near the top of the list, we instantly jump
             // near the top, and animate from there.
-            if (listView.getFirstVisiblePosition() > 5) {
-                listView.setSelection(5);
+            if (mLayoutManager.findFirstVisibleItemPosition() > 5) {
+                // TODO: Jump to near the top, then begin smooth scroll.
+                mRecyclerView.smoothScrollToPosition(0);
             }
             // Workaround for framework issue: the smooth-scroll doesn't
             // occur if setSelection() is called immediately before.
@@ -254,7 +249,7 @@ public class CallLogFragment extends ListFragment
                    if (getActivity() == null || getActivity().isFinishing()) {
                        return;
                    }
-                   listView.smoothScrollToPosition(0);
+                   mRecyclerView.smoothScrollToPosition(0);
                }
             });
 
@@ -270,13 +265,11 @@ public class CallLogFragment extends ListFragment
      */
     @Override
     public void onVoicemailStatusFetched(Cursor statusCursor) {
-        if (getActivity() == null || getActivity().isFinishing()) {
+        Activity activity = getActivity();
+        if (activity == null || activity.isFinishing()) {
             return;
         }
-        updateVoicemailStatusMessage(statusCursor);
 
-        int activeSources = mVoicemailStatusHelper.getNumberActivityVoicemailSources(statusCursor);
-        setVoicemailSourcesAvailable(activeSources != 0);
         mVoicemailStatusFetched = true;
         destroyEmptyLoaderIfAllDataFetched();
     }
@@ -288,50 +281,37 @@ public class CallLogFragment extends ListFragment
         }
     }
 
-    /** Sets whether there are any voicemail sources available in the platform. */
-    private void setVoicemailSourcesAvailable(boolean voicemailSourcesAvailable) {
-        if (mVoicemailSourcesAvailable == voicemailSourcesAvailable) return;
-        mVoicemailSourcesAvailable = voicemailSourcesAvailable;
-
-        Activity activity = getActivity();
-        if (activity != null) {
-            // This is so that the options menu content is updated.
-            activity.invalidateOptionsMenu();
-        }
-    }
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedState) {
         View view = inflater.inflate(R.layout.call_log_fragment, container, false);
-        mVoicemailStatusHelper = new VoicemailStatusHelperImpl();
-        mStatusMessageView = view.findViewById(R.id.voicemail_status);
-        mStatusMessageText = (TextView) view.findViewById(R.id.voicemail_status_message);
-        mStatusMessageAction = (TextView) view.findViewById(R.id.voicemail_status_action);
+
+        mRecyclerView = (RecyclerView) view.findViewById(R.id.recycler_view);
+        mRecyclerView.setHasFixedSize(true);
+        mLayoutManager = new LinearLayoutManager(getActivity());
+        mRecyclerView.setLayoutManager(mLayoutManager);
+        mEmptyListView = (EmptyContentView) view.findViewById(R.id.empty_list_view);
+        mEmptyListView.setImage(R.drawable.empty_call_log);
+        mEmptyListView.setActionClickedListener(this);
+
+        String currentCountryIso = GeoUtil.getCurrentCountryIso(getActivity());
+        boolean isShowingRecentsTab = mLogLimit != NO_LOG_LIMIT || mDateLimit != NO_DATE_LIMIT;
+        mAdapter = ObjectFactory.newCallLogAdapter(
+                getActivity(),
+                this,
+                new ContactInfoHelper(getActivity(), currentCountryIso),
+                mVoicemailPlaybackPresenter,
+                isShowingRecentsTab);
+        mRecyclerView.setAdapter(mAdapter);
+
+        fetchCalls();
         return view;
     }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        getListView().setEmptyView(view.findViewById(R.id.empty_list_view));
-        getListView().setItemsCanFocus(true);
-        maybeAddFooterView();
-
         updateEmptyMessage(mCallTypeFilter);
-    }
-
-    /**
-     * Based on the new intent, decide whether the list should be configured
-     * to scroll up to display the first item.
-     */
-    public void configureScreenFromIntent(Intent newIntent) {
-        // Typically, when switching to the call-log we want to show the user
-        // the same section of the list that they were most recently looking
-        // at.  However, under some circumstances, we want to automatically
-        // scroll to the top of the list to present the newest call items.
-        // For example, immediately after a call is finished, we want to
-        // display information about that call.
-        mScrollToTop = Calls.CONTENT_TYPE.equals(newIntent.getType());
+        mAdapter.onRestoreInstanceState(savedInstanceState);
     }
 
     @Override
@@ -347,59 +327,49 @@ public class CallLogFragment extends ListFragment
     @Override
     public void onResume() {
         super.onResume();
-        refreshData();
-    }
-
-    private void updateVoicemailStatusMessage(Cursor statusCursor) {
-        List<StatusMessage> messages = mVoicemailStatusHelper.getStatusMessages(statusCursor);
-        if (messages.size() == 0) {
-            mStatusMessageView.setVisibility(View.GONE);
-        } else {
-            mStatusMessageView.setVisibility(View.VISIBLE);
-            // TODO: Change the code to show all messages. For now just pick the first message.
-            final StatusMessage message = messages.get(0);
-            if (message.showInCallLog()) {
-                mStatusMessageText.setText(message.callLogMessageId);
-            }
-            if (message.actionMessageId != -1) {
-                mStatusMessageAction.setText(message.actionMessageId);
-            }
-            if (message.actionUri != null) {
-                mStatusMessageAction.setVisibility(View.VISIBLE);
-                mStatusMessageAction.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        getActivity().startActivity(
-                                new Intent(Intent.ACTION_VIEW, message.actionUri));
-                    }
-                });
-            } else {
-                mStatusMessageAction.setVisibility(View.GONE);
-            }
+        final boolean hasReadCallLogPermission =
+                PermissionsUtil.hasPermission(getActivity(), READ_CALL_LOG);
+        if (!mHasReadCallLogPermission && hasReadCallLogPermission) {
+            // We didn't have the permission before, and now we do. Force a refresh of the call log.
+            // Note that this code path always happens on a fresh start, but mRefreshDataRequired
+            // is already true in that case anyway.
+            mRefreshDataRequired = true;
+            updateEmptyMessage(mCallTypeFilter);
         }
+        mHasReadCallLogPermission = hasReadCallLogPermission;
+        refreshData();
+        mAdapter.startCache();
     }
 
     @Override
     public void onPause() {
+        if (mVoicemailPlaybackPresenter != null) {
+            mVoicemailPlaybackPresenter.onPause();
+        }
+        mAdapter.pauseCache();
         super.onPause();
-        // Kill the requests thread
-        mAdapter.stopRequestProcessing();
     }
 
     @Override
     public void onStop() {
+        updateOnTransition(false /* onEntry */);
+
         super.onStop();
-        updateOnExit();
     }
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
-        mAdapter.stopRequestProcessing();
+        mAdapter.pauseCache();
         mAdapter.changeCursor(null);
+
+        if (mVoicemailPlaybackPresenter != null) {
+            mVoicemailPlaybackPresenter.onDestroy();
+        }
+
         getActivity().getContentResolver().unregisterContentObserver(mCallLogObserver);
         getActivity().getContentResolver().unregisterContentObserver(mContactsObserver);
         getActivity().getContentResolver().unregisterContentObserver(mVoicemailStatusObserver);
+        super.onDestroy();
     }
 
     @Override
@@ -408,9 +378,12 @@ public class CallLogFragment extends ListFragment
         outState.putInt(KEY_FILTER_TYPE, mCallTypeFilter);
         outState.putInt(KEY_LOG_LIMIT, mLogLimit);
         outState.putLong(KEY_DATE_LIMIT, mDateLimit);
-        outState.putBoolean(KEY_SHOW_FOOTER, mHasFooterView);
-        outState.putBoolean(KEY_IS_REPORT_DIALOG_SHOWING, mIsReportDialogShowing);
-        outState.putString(KEY_REPORT_DIALOG_NUMBER, mReportDialogNumber);
+
+        mAdapter.onSaveInstanceState(outState);
+
+        if (mVoicemailPlaybackPresenter != null) {
+            mVoicemailPlaybackPresenter.onSaveInstanceState(outState);
+        }
     }
 
     @Override
@@ -418,20 +391,18 @@ public class CallLogFragment extends ListFragment
         mCallLogQueryHandler.fetchCalls(mCallTypeFilter, mDateLimit);
     }
 
-    public void startCallsQuery() {
-        mAdapter.setLoading(true);
-        mCallLogQueryHandler.fetchCalls(mCallTypeFilter, mDateLimit);
-    }
-
-    private void startVoicemailStatusQuery() {
-        mCallLogQueryHandler.fetchVoicemailStatus();
-    }
-
-    private void updateCallList(int filterType, long dateLimit) {
-        mCallLogQueryHandler.fetchCalls(filterType, dateLimit);
-    }
-
     private void updateEmptyMessage(int filterType) {
+        final Context context = getActivity();
+        if (context == null) {
+            return;
+        }
+
+        if (!PermissionsUtil.hasPermission(context, READ_CALL_LOG)) {
+            mEmptyListView.setDescription(R.string.permission_no_calllog);
+            mEmptyListView.setActionLabel(R.string.permission_single_turn_on);
+            return;
+        }
+
         final int messageId;
         switch (filterType) {
             case Calls.MISSED_TYPE:
@@ -447,8 +418,12 @@ public class CallLogFragment extends ListFragment
                 throw new IllegalArgumentException("Unexpected filter type in CallLogFragment: "
                         + filterType);
         }
-        DialerUtils.configureEmptyListView(
-                getListView().getEmptyView(), R.drawable.empty_call_log, messageId, getResources());
+        mEmptyListView.setDescription(messageId);
+        if (mIsRecentsFragment) {
+            mEmptyListView.setActionLabel(R.string.recentCalls_empty_action);
+        } else {
+            mEmptyListView.setActionLabel(EmptyContentView.NO_LABEL);
+        }
     }
 
     CallLogAdapter getAdapter() {
@@ -461,7 +436,7 @@ public class CallLogFragment extends ListFragment
         if (mMenuVisible != menuVisible) {
             mMenuVisible = menuVisible;
             if (!menuVisible) {
-                updateOnExit();
+                updateOnTransition(false /* onEntry */);
             } else if (isResumed()) {
                 refreshData();
             }
@@ -475,24 +450,26 @@ public class CallLogFragment extends ListFragment
             // Mark all entries in the contact info cache as out of date, so they will be looked up
             // again once being shown.
             mAdapter.invalidateCache();
-            startCallsQuery();
-            startVoicemailStatusQuery();
-            updateOnEntry();
+            mAdapter.setLoading(true);
+
+            fetchCalls();
+            mCallLogQueryHandler.fetchVoicemailStatus();
+
+            updateOnTransition(true /* onEntry */);
             mRefreshDataRequired = false;
+        } else {
+            // Refresh the display of the existing data to update the timestamp text descriptions.
+            mAdapter.notifyDataSetChanged();
         }
     }
 
-    /** Updates call data and notification state while leaving the call log tab. */
-    private void updateOnExit() {
-        updateOnTransition(false);
-    }
-
-    /** Updates call data and notification state while entering the call log tab. */
-    private void updateOnEntry() {
-        updateOnTransition(true);
-    }
-
-    // TODO: Move to CallLogActivity
+    /**
+     * Updates the call data and notification state on entering or leaving the call log tab.
+     *
+     * If we are leaving the call log tab, mark all the missed calls as read.
+     *
+     * TODO: Move to CallLogActivity
+     */
     private void updateOnTransition(boolean onEntry) {
         // We don't want to update any call data when keyguard is on because the user has likely not
         // seen the new calls yet.
@@ -509,194 +486,29 @@ public class CallLogFragment extends ListFragment
         }
     }
 
-    /**
-     * Enables/disables the showing of the view full call history footer
-     *
-     * @param hasFooterView Whether or not to show the footer
-     */
-    public void setHasFooterView(boolean hasFooterView) {
-        mHasFooterView = hasFooterView;
-        maybeAddFooterView();
-    }
-
-    /**
-     * Determine whether or not the footer view should be added to the listview. If getView()
-     * is null, which means onCreateView hasn't been called yet, defer the addition of the footer
-     * until onViewCreated has been called.
-     */
-    private void maybeAddFooterView() {
-        if (!mHasFooterView || getView() == null) {
+    @Override
+    public void onEmptyViewActionButtonClicked() {
+        final Activity activity = getActivity();
+        if (activity == null) {
             return;
         }
 
-        if (mFooterView == null) {
-            mFooterView = getActivity().getLayoutInflater().inflate(
-                    R.layout.recents_list_footer, getListView(), false);
-            mFooterView.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    ((HostInterface) getActivity()).showCallHistory();
-                }
-            });
+        if (!PermissionsUtil.hasPermission(activity, READ_CALL_LOG)) {
+            requestPermissions(new String[] {READ_CALL_LOG}, READ_CALL_LOG_PERMISSION_REQUEST_CODE);
+        } else if (mIsRecentsFragment) {
+            // Show dialpad if we are the recents fragment.
+            ((HostInterface) activity).showDialpad();
         }
-
-        final ListView listView = getListView();
-        listView.removeFooterView(mFooterView);
-        listView.addFooterView(mFooterView);
-
-        ViewUtil.addBottomPaddingToListViewForFab(listView, getResources());
     }
 
     @Override
-    public void onItemExpanded(final View view) {
-        final int startingHeight = view.getHeight();
-        final CallLogListItemViews viewHolder = (CallLogListItemViews) view.getTag();
-        final ViewTreeObserver observer = getListView().getViewTreeObserver();
-        observer.addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
-            @Override
-            public boolean onPreDraw() {
-                // We don't want to continue getting called for every draw.
-                if (observer.isAlive()) {
-                    observer.removeOnPreDrawListener(this);
-                }
-                // Calculate some values to help with the animation.
-                final int endingHeight = view.getHeight();
-                final int distance = Math.abs(endingHeight - startingHeight);
-                final int baseHeight = Math.min(endingHeight, startingHeight);
-                final boolean isExpand = endingHeight > startingHeight;
-
-                // Set the views back to the start state of the animation
-                view.getLayoutParams().height = startingHeight;
-                if (!isExpand) {
-                    viewHolder.actionsView.setVisibility(View.VISIBLE);
-                }
-                CallLogAdapter.expandVoicemailTranscriptionView(viewHolder, !isExpand);
-
-                // Set up the fade effect for the action buttons.
-                if (isExpand) {
-                    // Start the fade in after the expansion has partly completed, otherwise it
-                    // will be mostly over before the expansion completes.
-                    viewHolder.actionsView.setAlpha(0f);
-                    viewHolder.actionsView.animate()
-                            .alpha(1f)
-                            .setStartDelay(mFadeInStartDelay)
-                            .setDuration(mFadeInDuration)
-                            .start();
-                } else {
-                    viewHolder.actionsView.setAlpha(1f);
-                    viewHolder.actionsView.animate()
-                            .alpha(0f)
-                            .setDuration(mFadeOutDuration)
-                            .start();
-                }
-                view.requestLayout();
-
-                // Set up the animator to animate the expansion and shadow depth.
-                ValueAnimator animator = isExpand ? ValueAnimator.ofFloat(0f, 1f)
-                        : ValueAnimator.ofFloat(1f, 0f);
-
-                // Figure out how much scrolling is needed to make the view fully visible.
-                final Rect localVisibleRect = new Rect();
-                view.getLocalVisibleRect(localVisibleRect);
-                final int scrollingNeeded = localVisibleRect.top > 0 ? -localVisibleRect.top
-                        : view.getMeasuredHeight() - localVisibleRect.height();
-                final ListView listView = getListView();
-                animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-
-                    private int mCurrentScroll = 0;
-
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator animator) {
-                        Float value = (Float) animator.getAnimatedValue();
-
-                        // For each value from 0 to 1, animate the various parts of the layout.
-                        view.getLayoutParams().height = (int) (value * distance + baseHeight);
-                        float z = mExpandedItemTranslationZ * value;
-                        viewHolder.callLogEntryView.setTranslationZ(z);
-                        view.setTranslationZ(z); // WAR
-                        view.requestLayout();
-
-                        if (isExpand) {
-                            if (listView != null) {
-                                int scrollBy = (int) (value * scrollingNeeded) - mCurrentScroll;
-                                listView.smoothScrollBy(scrollBy, /* duration = */ 0);
-                                mCurrentScroll += scrollBy;
-                            }
-                        }
-                    }
-                });
-                // Set everything to their final values when the animation's done.
-                animator.addListener(new AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(Animator animation) {
-                        view.getLayoutParams().height = LayoutParams.WRAP_CONTENT;
-
-                        if (!isExpand) {
-                            viewHolder.actionsView.setVisibility(View.GONE);
-                        } else {
-                            // This seems like it should be unnecessary, but without this, after
-                            // navigating out of the activity and then back, the action view alpha
-                            // is defaulting to the value (0) at the start of the expand animation.
-                            viewHolder.actionsView.setAlpha(1);
-                        }
-                        CallLogAdapter.expandVoicemailTranscriptionView(viewHolder, isExpand);
-                    }
-                });
-
-                animator.setDuration(mExpandCollapseDuration);
-                animator.start();
-
-                // Return false so this draw does not occur to prevent the final frame from
-                // being drawn for the single frame before the animations start.
-                return false;
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (requestCode == READ_CALL_LOG_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length >= 1 && PackageManager.PERMISSION_GRANTED == grantResults[0]) {
+                // Force a refresh of the data since we were missing the permission before this.
+                mRefreshDataRequired = true;
             }
-        });
-    }
-
-    /**
-     * Retrieves the call log view for the specified call Id.  If the view is not currently
-     * visible, returns null.
-     *
-     * @param callId The call Id.
-     * @return The call log view.
-     */
-    @Override
-    public View getViewForCallId(long callId) {
-        ListView listView = getListView();
-
-        int firstPosition = listView.getFirstVisiblePosition();
-        int lastPosition = listView.getLastVisiblePosition();
-
-        for (int position = 0; position <= lastPosition - firstPosition; position++) {
-            View view = listView.getChildAt(position);
-
-            if (view != null) {
-                final CallLogListItemViews viewHolder = (CallLogListItemViews) view.getTag();
-                if (viewHolder != null && viewHolder.rowId == callId) {
-                    return view;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    public void onBadDataReported(String number) {
-        mIsReportDialogShowing = false;
-        if (number == null) {
-            return;
-        }
-        mAdapter.onBadDataReported(number);
-        mAdapter.notifyDataSetChanged();
-    }
-
-    public void onReportButtonClick(String number) {
-        DialogFragment df = ObjectFactory.getReportDialogFragment(number);
-        if (df != null) {
-            df.setTargetFragment(this, 0);
-            df.show(getActivity().getFragmentManager(), REPORT_DIALOG_TAG);
-            mReportDialogNumber = number;
-            mIsReportDialogShowing = true;
         }
     }
 }

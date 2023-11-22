@@ -200,9 +200,10 @@ VAStatus psb_CreateSurfacesFromGralloc(
             vaStatus = VA_STATUS_ERROR_UNKNOWN;
         } else {
             int cache_flag = PSB_USER_BUFFER_UNCACHED;
+            int buf_fd = gralloc_getbuffd(handle);
 
             vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
-                    external_buffers, psb_surface, vaddr,
+                    external_buffers, psb_surface, vaddr, buf_fd,
                     cache_flag);
 
             psb_surface->buf.handle = handle;
@@ -263,8 +264,6 @@ VAStatus psb_CreateSurfacesFromGralloc(
     unsigned long handle;
     int size = num_surfaces * sizeof(unsigned int);
     void *vaddr[GRALLOC_SUB_BUFFER_MAX];
-    unsigned char * surface_data = NULL;
-
 
     /* follow are gralloc-buffers */
     format = format & (~VA_RT_FORMAT_PROTECTED);
@@ -358,23 +357,24 @@ VAStatus psb_CreateSurfacesFromGralloc(
         if (gfx_colorformat == HAL_PIXEL_FORMAT_NV12)
             usage |= GRALLOC_USAGE_SW_READ_OFTEN;
         else {
-#ifdef PSBVIDEO_MRFL
-            usage |= GRALLOC_USAGE_SW_WRITE_OFTEN;
-#endif
+            // video decoder allows app to read/write the buffer
+            usage |= GRALLOC_USAGE_SW_WRITE_RARELY | GRALLOC_USAGE_SW_READ_RARELY;
         }
 
         handle = (unsigned long)external_buffers->buffers[i];
         pthread_mutex_lock(&gralloc_mutex);
+
         if (gralloc_lock((buffer_handle_t)handle, usage, 0, 0, width, height, (void **)&vaddr[GRALLOC_SUB_BUFFER0])) {
             vaStatus = VA_STATUS_ERROR_UNKNOWN;
         } else {
             int cache_flag = PSB_USER_BUFFER_UNCACHED;
+            int buf_fd = gralloc_getbuffd((buffer_handle_t)handle);
 #ifdef PSBVIDEO_MRFL
             //cache_flag = 0;
 #endif
             vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
                     (VASurfaceAttributeTPI *)external_buffers, psb_surface,
-                    vaddr[GRALLOC_SUB_BUFFER0], cache_flag);
+                    vaddr[GRALLOC_SUB_BUFFER0], buf_fd, cache_flag);
             psb_surface->buf.handle = (void *)handle;
             obj_surface->share_info = NULL;
 
@@ -412,6 +412,31 @@ VAStatus psb_CreateSurfacesFromGralloc(
 
                     attribute_tpi->reserved[1] = (unsigned long)obj_surface->share_info;
 
+                    if (vaddr[GRALLOC_SUB_BUFFER0] == NULL) {
+                        drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to lock graphic buffer in psb_video");
+                    }
+                    else {
+                        size = psb_surface->chroma_offset;
+                        // the following memset was used to work-around Bug 19197299 on L.
+                        // on DDK-1.5 we didn't observe the problem so comment it out.
+                        // memset((char *)vaddr[GRALLOC_SUB_BUFFER0], 0, size);
+                        // memset((char *)vaddr[GRALLOC_SUB_BUFFER0] + size, 0x80, psb_surface->size - size);
+                    }
+                    // overlay only support BT.601 and BT.709
+                    if (driver_data->load_csc_matrix == 1) {
+                        obj_surface->share_info->csc_mode = (driver_data->is_BT601 == 1) ? 0 : 1;
+                    } else {
+                        // if csc matrix is not set, use BT601 by default
+                        obj_surface->share_info->csc_mode = 0;
+                    }
+
+                    if (driver_data->set_video_range == 1) {
+                        obj_surface->share_info->video_range = driver_data->video_range;
+                    } else {
+                        // if video range is not set, use limited range by default
+                        obj_surface->share_info->video_range = 0;
+                    }
+
                     obj_surface->share_info->surface_protected = driver_data->protected;
                     if (driver_data->render_rect.width == 0 || driver_data->render_rect.height == 0) {
                         obj_surface->share_info->crop_width = obj_surface->share_info->width;
@@ -433,16 +458,6 @@ VAStatus psb_CreateSurfacesFromGralloc(
             }
             gralloc_unlock((buffer_handle_t)handle);
             psb_surface->buf.user_ptr = NULL;
-
-            if (psb_buffer_map(&psb_surface->buf, &surface_data)) {
-                drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to map rotation buffer before clear it");
-            }
-            else {
-                size = psb_surface->chroma_offset;
-                memset(surface_data, 0, size);
-                memset(surface_data + size, 0x80, psb_surface->size - size);
-                psb_buffer_unmap(&psb_surface->buf);
-            }
         }
         pthread_mutex_unlock(&gralloc_mutex);
 

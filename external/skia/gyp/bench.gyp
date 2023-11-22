@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 # GYP file to build performance testbench.
 #
 {
@@ -6,48 +10,51 @@
   ],
   'targets': [
     {
-      'target_name': 'bench',
+      'target_name': 'nanobench',
       'type': 'executable',
-      'dependencies': [
-        'etc1.gyp:libetc1',
-        'flags.gyp:flags',
-        'jsoncpp.gyp:jsoncpp',
-        'skia_lib.gyp:skia_lib',
-        'tools.gyp:crash_handler',
-        'tools.gyp:resources',
-        'tools.gyp:timer',
-      ],
       'sources': [
-        '../bench/BenchLogger.cpp',
-        '../bench/BenchLogger.h',
+        '../gm/gm.cpp',
+        '../bench/CodecBench.cpp',
+        '../bench/DecodingBench.cpp',
+        '../bench/DecodingSubsetBench.cpp',
         '../bench/GMBench.cpp',
-        '../bench/GMBench.h',
-        '../bench/ResultsWriter.cpp',
-        '../bench/benchmain.cpp',
-        '../tools/sk_tool_utils.cpp',
-      ],
-      'conditions': [
-        ['skia_gpu == 1',
-          {
-            'include_dirs' : [
-              '../src/gpu',
-            ],
-            'dependencies': [
-              'gputest.gyp:skgputest',
-            ],
-          },
-        ],
-        ['skia_android_framework == 1',
-          {
-            'libraries': [
-              '-lskia',
-            ],
-          },
-        ],
+        '../bench/RecordingBench.cpp',
+        '../bench/SKPAnimationBench.cpp',
+        '../bench/SKPBench.cpp',
+        '../bench/nanobench.cpp',
       ],
       'includes': [
         'bench.gypi',
         'gmslides.gypi',
+      ],
+      'dependencies': [
+        'flags.gyp:flags_common',
+        'jsoncpp.gyp:jsoncpp',
+        'skia_lib.gyp:skia_lib',
+        'tools.gyp:crash_handler',
+        'tools.gyp:proc_stats',
+        'tools.gyp:timer',
+      ],
+      'conditions': [
+        ['skia_android_framework', {
+          'libraries': [
+            '-lskia',
+            '-landroid',
+            '-lgui',
+            '-lhwui',
+            '-lutils',
+          ],
+          'include_dirs': [
+            '../../../frameworks/base/libs/hwui/',
+            '../../../frameworks/native/include/',
+          ],
+          'sources': [
+            '../bench/nanobenchAndroid.cpp',
+          ],
+          'dependencies': [
+            'utils.gyp:android_utils',
+          ],
+        }],
       ],
     },
   ],

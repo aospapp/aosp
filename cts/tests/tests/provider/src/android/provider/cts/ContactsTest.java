@@ -40,6 +40,7 @@ import android.provider.Contacts.PeopleColumns;
 import android.provider.Contacts.Phones;
 import android.provider.Contacts.Photos;
 import android.provider.Contacts.Settings;
+import android.provider.ContactsContract;
 import android.telephony.PhoneNumberUtils;
 import android.test.InstrumentationTestCase;
 
@@ -56,7 +57,7 @@ public class ContactsTest extends InstrumentationTestCase {
     protected void setUp() throws Exception {
         super.setUp();
         mContentResolver = getInstrumentation().getTargetContext().getContentResolver();
-        mProvider = mContentResolver.acquireContentProviderClient(Contacts.AUTHORITY);
+        mProvider = mContentResolver.acquireContentProviderClient(ContactsContract.AUTHORITY);
         mCallLogProvider = mContentResolver.acquireContentProviderClient(CallLog.AUTHORITY);
     }
 
@@ -416,7 +417,7 @@ public class ContactsTest extends InstrumentationTestCase {
                 Calls.CACHED_NUMBER_LABEL, Calls.CACHED_FORMATTED_NUMBER,
                 Calls.CACHED_MATCHED_NUMBER, Calls.CACHED_NORMALIZED_NUMBER,
                 Calls.CACHED_LOOKUP_URI, Calls.CACHED_PHOTO_ID, Calls.COUNTRY_ISO,
-                Calls.GEOCODED_LOCATION};
+                Calls.GEOCODED_LOCATION, Calls.CACHED_PHOTO_URI};
         final int ID_INDEX = 0;
         final int NUMBER_INDEX = 1;
         final int DATE_INDEX = 2;
@@ -433,6 +434,7 @@ public class ContactsTest extends InstrumentationTestCase {
         final int CACHED_PHOTO_ID_INDEX = 13;
         final int COUNTRY_ISO_INDEX = 14;
         final int GEOCODED_LOCATION_INDEX = 15;
+        final int CACHED_PHOTO_URI_INDEX = 16;
 
         String insertCallsNumber = "0123456789";
         int insertCallsDuration = 120;
@@ -448,6 +450,7 @@ public class ContactsTest extends InstrumentationTestCase {
         String updateCachedNormalizedNumber = "+1987654321";
         String updateCachedLookupUri = "cached_lookup_uri_update";
         long updateCachedPhotoId = 100;
+        String updateCachedPhotoUri = "content://com.android.contacts/display_photo/1";
         String updateCountryIso = "hk";
         String updateGeocodedLocation = "Hong Kong";
 
@@ -497,6 +500,7 @@ public class ContactsTest extends InstrumentationTestCase {
             value.put(Calls.CACHED_MATCHED_NUMBER, updateCachedMatchedNumber);
             value.put(Calls.CACHED_NORMALIZED_NUMBER, updateCachedNormalizedNumber);
             value.put(Calls.CACHED_PHOTO_ID, updateCachedPhotoId);
+            value.put(Calls.CACHED_PHOTO_URI, updateCachedPhotoUri);
             value.put(Calls.COUNTRY_ISO, updateCountryIso);
             value.put(Calls.GEOCODED_LOCATION, updateGeocodedLocation);
             value.put(Calls.CACHED_LOOKUP_URI, updateCachedLookupUri);
@@ -519,6 +523,7 @@ public class ContactsTest extends InstrumentationTestCase {
             assertEquals(updateCachedNormalizedNumber,
                     cursor.getString(CACHED_NORMALIZED_NUMBER_INDEX));
             assertEquals(updateCachedPhotoId, cursor.getLong(CACHED_PHOTO_ID_INDEX));
+            assertEquals(updateCachedPhotoUri, cursor.getString(CACHED_PHOTO_URI_INDEX));
             assertEquals(updateCountryIso, cursor.getString(COUNTRY_ISO_INDEX));
             assertEquals(updateGeocodedLocation, cursor.getString(GEOCODED_LOCATION_INDEX));
             assertEquals(updateCachedLookupUri, cursor.getString(CACHED_LOOKUP_URI_INDEX));

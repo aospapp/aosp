@@ -48,11 +48,11 @@ import com.android.contacts.common.model.AccountTypeManager;
 import com.android.contacts.common.model.account.AccountWithDataSet;
 import com.android.contacts.common.util.AccountSelectionUtil;
 import com.android.contacts.common.util.AccountsListAdapter.AccountListFilter;
+import com.android.contacts.common.util.ImplicitIntentsUtil;
 import com.android.contacts.common.vcard.ExportVCardActivity;
 import com.android.contacts.common.vcard.VCardCommonArguments;
 import com.android.contacts.commonbind.analytics.AnalyticsUtil;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -117,13 +117,18 @@ public class ImportExportDialogFragment extends DialogFragment
 
         mSubscriptionManager = SubscriptionManager.from(getActivity());
 
-        if (res.getBoolean(R.bool.config_allow_import_from_sdcard)) {
-            adapter.add(new AdapterEntry(getString(R.string.import_from_sdcard),
-                    R.string.import_from_sdcard));
+        if (res.getBoolean(R.bool.config_allow_import_from_vcf_file)) {
+            adapter.add(new AdapterEntry(getString(R.string.import_from_vcf_file),
+                    R.string.import_from_vcf_file));
         }
         if (manager != null && res.getBoolean(R.bool.config_allow_sim_import)) {
-            final List<SubscriptionInfo> subInfoRecords =
-                    mSubscriptionManager.getActiveSubscriptionInfoList();
+            List<SubscriptionInfo> subInfoRecords = null;
+            try {
+                subInfoRecords =  mSubscriptionManager.getActiveSubscriptionInfoList();
+            } catch (SecurityException e) {
+                Log.w(TAG, "SecurityException thrown, lack permission for"
+                        + " getActiveSubscriptionInfoList", e);
+            }
             if (subInfoRecords != null) {
                 if (subInfoRecords.size() == 1) {
                     adapter.add(new AdapterEntry(getString(R.string.import_from_sim),
@@ -136,10 +141,10 @@ public class ImportExportDialogFragment extends DialogFragment
                 }
             }
         }
-        if (res.getBoolean(R.bool.config_allow_export_to_sdcard)) {
+        if (res.getBoolean(R.bool.config_allow_export)) {
             if (contactsAreAvailable) {
-                adapter.add(new AdapterEntry(getString(R.string.export_to_sdcard),
-                        R.string.export_to_sdcard));
+                adapter.add(new AdapterEntry(getString(R.string.export_to_vcf_file),
+                        R.string.export_to_vcf_file));
             }
         }
         if (res.getBoolean(R.bool.config_allow_share_visible_contacts)) {
@@ -157,12 +162,12 @@ public class ImportExportDialogFragment extends DialogFragment
                 final int resId = adapter.getItem(which).mChoiceResourceId;
                 switch (resId) {
                     case R.string.import_from_sim:
-                    case R.string.import_from_sdcard: {
+                    case R.string.import_from_vcf_file: {
                         dismissDialog = handleImportRequest(resId,
                                 adapter.getItem(which).mSubscriptionId);
                         break;
                     }
-                    case R.string.export_to_sdcard: {
+                    case R.string.export_to_vcf_file: {
                         dismissDialog = true;
                         Intent exportIntent = new Intent(getActivity(), ExportVCardActivity.class);
                         exportIntent.putExtra(VCardCommonArguments.ARG_CALLING_ACTIVITY,
@@ -195,35 +200,42 @@ public class ImportExportDialogFragment extends DialogFragment
     }
 
     private void doShareVisibleContacts() {
-        // TODO move the query into a loader and do this in a background thread
-        final Cursor cursor = getActivity().getContentResolver().query(Contacts.CONTENT_URI,
-                LOOKUP_PROJECTION, Contacts.IN_VISIBLE_GROUP + "!=0", null, null);
-        if (cursor != null) {
-            try {
-                if (!cursor.moveToFirst()) {
-                    Toast.makeText(getActivity(), R.string.share_error, Toast.LENGTH_SHORT).show();
-                    return;
+        try {
+            // TODO move the query into a loader and do this in a background thread
+            final Cursor cursor = getActivity().getContentResolver().query(Contacts.CONTENT_URI,
+                    LOOKUP_PROJECTION, Contacts.IN_VISIBLE_GROUP + "!=0", null, null);
+            if (cursor != null) {
+                try {
+                    if (!cursor.moveToFirst()) {
+                        Toast.makeText(getActivity(), R.string.share_error, Toast.LENGTH_SHORT)
+                                .show();
+                        return;
+                    }
+
+                    StringBuilder uriListBuilder = new StringBuilder();
+                    int index = 0;
+                    do {
+                        if (index != 0)
+                            uriListBuilder.append(':');
+                        uriListBuilder.append(cursor.getString(0));
+                        index++;
+                    } while (cursor.moveToNext());
+                    Uri uri = Uri.withAppendedPath(
+                            Contacts.CONTENT_MULTI_VCARD_URI,
+                            Uri.encode(uriListBuilder.toString()));
+
+                    final Intent intent = new Intent(Intent.ACTION_SEND);
+                    intent.setType(Contacts.CONTENT_VCARD_TYPE);
+                    intent.putExtra(Intent.EXTRA_STREAM, uri);
+                    ImplicitIntentsUtil.startActivityOutsideApp(getActivity(), intent);
+                } finally {
+                    cursor.close();
                 }
-
-                StringBuilder uriListBuilder = new StringBuilder();
-                int index = 0;
-                do {
-                    if (index != 0)
-                        uriListBuilder.append(':');
-                    uriListBuilder.append(cursor.getString(0));
-                    index++;
-                } while (cursor.moveToNext());
-                Uri uri = Uri.withAppendedPath(
-                        Contacts.CONTENT_MULTI_VCARD_URI,
-                        Uri.encode(uriListBuilder.toString()));
-
-                final Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType(Contacts.CONTENT_VCARD_TYPE);
-                intent.putExtra(Intent.EXTRA_STREAM, uri);
-                getActivity().startActivity(intent);
-            } finally {
-                cursor.close();
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Sharing visible contacts failed", e);
+            Toast.makeText(getContext(), R.string.share_visible_contacts_failure,
+                    Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -289,7 +301,7 @@ public class ImportExportDialogFragment extends DialogFragment
         return TextUtils.expandTemplate(
                 getString(R.string.import_from_sim_summary),
                 name,
-                PhoneNumberUtils.ttsSpanAsPhoneNumber(record.getNumber()));
+                PhoneNumberUtils.createTtsSpannable(record.getNumber()));
     }
 
     private static class AdapterEntry {
@@ -304,7 +316,9 @@ public class ImportExportDialogFragment extends DialogFragment
         }
 
         public AdapterEntry(String label, int resId) {
-            this(label, resId, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+            // Store a nonsense value for mSubscriptionId. If this constructor is used,
+            // the mSubscriptionId value should not be read later.
+            this(label, resId, /* subId = */ -1);
         }
     }
 }

@@ -127,34 +127,34 @@ ihevc_itrans_recon_4x4_ttype1_av8:
     mov         x9,#55
     mov         x10,#74
     mov         x11,#84
-    mov         v4.4h[0], w8
+    mov         v4.h[0], w8
     ld1         {v0.4h},[x0],x4             //loading pi2_src 1st row
-    mov         v4.4h[1], w9
+    mov         v4.h[1], w9
     ld1         {v1.4h},[x0],x4             //loading pi2_src 2nd row
-    mov         v4.4h[2], w10
+    mov         v4.h[2], w10
     ld1         {v2.4h},[x0],x4             //loading pi2_src 3rd row
-    mov         v4.4h[3], w11
+    mov         v4.h[3], w11
     ld1         {v3.4h},[x0],x4             //loading pi2_src 4th row
 
     // first stage computation starts
-    smull       v6.4s, v1.4h, v4.4h[2]      //74 * pi2_src[1]
-    smlal       v6.4s, v0.4h, v4.4h[0]      //74 * pi2_src[1] + 29 * pi2_src[0]
-    smlal       v6.4s, v3.4h, v4.4h[1]      //74 * pi2_src[1] + 29 * pi2_src[0] + 55 * pi2_src[3]
-    smlal       v6.4s, v2.4h, v4.4h[3]      //pi2_out[0] = 29* pi2_src[0] + 74 * pi2_src[1] + 84* pi2_src[2] + 55 * pi2_src[3]
+    smull       v6.4s, v1.4h, v4.h[2]       //74 * pi2_src[1]
+    smlal       v6.4s, v0.4h, v4.h[0]       //74 * pi2_src[1] + 29 * pi2_src[0]
+    smlal       v6.4s, v3.4h, v4.h[1]       //74 * pi2_src[1] + 29 * pi2_src[0] + 55 * pi2_src[3]
+    smlal       v6.4s, v2.4h, v4.h[3]       //pi2_out[0] = 29* pi2_src[0] + 74 * pi2_src[1] + 84* pi2_src[2] + 55 * pi2_src[3]
 
-    smull       v5.4s, v1.4h, v4.4h[2]      //74 * pi2_src[1]
-    smlal       v5.4s, v0.4h, v4.4h[1]      //74 * pi2_src[1] + 55 * pi2_src[0]
-    smlsl       v5.4s, v2.4h, v4.4h[0]      //74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2]
-    smlsl       v5.4s, v3.4h, v4.4h[3]      //pi2_out[1] = 74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2] - 84 * pi2_src[3])
+    smull       v5.4s, v1.4h, v4.h[2]       //74 * pi2_src[1]
+    smlal       v5.4s, v0.4h, v4.h[1]       //74 * pi2_src[1] + 55 * pi2_src[0]
+    smlsl       v5.4s, v2.4h, v4.h[0]       //74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2]
+    smlsl       v5.4s, v3.4h, v4.h[3]       //pi2_out[1] = 74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2] - 84 * pi2_src[3])
 
-    smull       v7.4s, v0.4h, v4.4h[2]      // 74 * pi2_src[0]
-    smlsl       v7.4s, v2.4h, v4.4h[2]      // 74 * pi2_src[0] - 74 * pi2_src[2]
-    smlal       v7.4s, v3.4h, v4.4h[2]      //pi2_out[2] = 74 * pi2_src[0] - 74 * pi2_src[2] + 74 * pi2_src[3]
+    smull       v7.4s, v0.4h, v4.h[2]       // 74 * pi2_src[0]
+    smlsl       v7.4s, v2.4h, v4.h[2]       // 74 * pi2_src[0] - 74 * pi2_src[2]
+    smlal       v7.4s, v3.4h, v4.h[2]       //pi2_out[2] = 74 * pi2_src[0] - 74 * pi2_src[2] + 74 * pi2_src[3]
 
-    smull       v20.4s, v2.4h, v4.4h[1]     // 55 * pi2_src[2]
-    smlsl       v20.4s, v1.4h, v4.4h[2]     // 55 * pi2_src[2] - 74 * pi2_src[1]
-    smlsl       v20.4s, v3.4h, v4.4h[0]     // - 74 * pi2_src[1] +   55 * pi2_src[2]    - 29 * pi2_src[3]
-    smlal       v20.4s, v0.4h, v4.4h[3]     //pi2_out[3] = 84 * pi2_src[0] - 74 * pi2_src[1] + 55 * pi2_src[2] - 29 * pi2_src[3]
+    smull       v20.4s, v2.4h, v4.h[1]      // 55 * pi2_src[2]
+    smlsl       v20.4s, v1.4h, v4.h[2]      // 55 * pi2_src[2] - 74 * pi2_src[1]
+    smlsl       v20.4s, v3.4h, v4.h[0]      // - 74 * pi2_src[1] +   55 * pi2_src[2]    - 29 * pi2_src[3]
+    smlal       v20.4s, v0.4h, v4.h[3]      //pi2_out[3] = 84 * pi2_src[0] - 74 * pi2_src[1] + 55 * pi2_src[2] - 29 * pi2_src[3]
 
     sqrshrn     v28.4h, v6.4s,#shift_stage1_idct // (pi2_out[0] + rounding ) >> shift_stage1_idct
     sqrshrn     v29.4h, v5.4s,#shift_stage1_idct // (pi2_out[1] + rounding ) >> shift_stage1_idct
@@ -180,25 +180,25 @@ ihevc_itrans_recon_4x4_ttype1_av8:
     // d16 - d2
     // d17 - d3
     ld1         {v18.s}[1],[x2],x5
-    smull       v6.4s, v22.4h, v4.4h[2]     //74 * pi2_src[1]
-    smlal       v6.4s, v21.4h, v4.4h[0]     //74 * pi2_src[1] + 29 * pi2_src[0]
-    smlal       v6.4s, v17.4h, v4.4h[1]     //74 * pi2_src[1] + 29 * pi2_src[0] + 55 * pi2_src[3]
-    smlal       v6.4s, v16.4h, v4.4h[3]     //pi2_out[0] = 29* pi2_src[0] + 74 * pi2_src[1] + 84* pi2_src[2] + 55 * pi2_src[3]
+    smull       v6.4s, v22.4h, v4.h[2]      //74 * pi2_src[1]
+    smlal       v6.4s, v21.4h, v4.h[0]      //74 * pi2_src[1] + 29 * pi2_src[0]
+    smlal       v6.4s, v17.4h, v4.h[1]      //74 * pi2_src[1] + 29 * pi2_src[0] + 55 * pi2_src[3]
+    smlal       v6.4s, v16.4h, v4.h[3]      //pi2_out[0] = 29* pi2_src[0] + 74 * pi2_src[1] + 84* pi2_src[2] + 55 * pi2_src[3]
 
-    smull       v5.4s, v22.4h, v4.4h[2]     //74 * pi2_src[1]
-    smlal       v5.4s, v21.4h, v4.4h[1]     //74 * pi2_src[1] + 55 * pi2_src[0]
-    smlsl       v5.4s, v16.4h, v4.4h[0]     //74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2]
-    smlsl       v5.4s, v17.4h, v4.4h[3]     //pi2_out[1] = 74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2] - 84 * pi2_src[3])
+    smull       v5.4s, v22.4h, v4.h[2]      //74 * pi2_src[1]
+    smlal       v5.4s, v21.4h, v4.h[1]      //74 * pi2_src[1] + 55 * pi2_src[0]
+    smlsl       v5.4s, v16.4h, v4.h[0]      //74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2]
+    smlsl       v5.4s, v17.4h, v4.h[3]      //pi2_out[1] = 74 * pi2_src[1] + 55 * pi2_src[0] -  29 * pi2_src[2] - 84 * pi2_src[3])
 
-    smull       v7.4s, v21.4h, v4.4h[2]     // 74 * pi2_src[0]
-    smlsl       v7.4s, v16.4h, v4.4h[2]     // 74 * pi2_src[0] - 74 * pi2_src[2]
-    smlal       v7.4s, v17.4h, v4.4h[2]     //pi2_out[2] = 74 * pi2_src[0] - 74 * pi2_src[2] + 74 * pi2_src[3]
+    smull       v7.4s, v21.4h, v4.h[2]      // 74 * pi2_src[0]
+    smlsl       v7.4s, v16.4h, v4.h[2]      // 74 * pi2_src[0] - 74 * pi2_src[2]
+    smlal       v7.4s, v17.4h, v4.h[2]      //pi2_out[2] = 74 * pi2_src[0] - 74 * pi2_src[2] + 74 * pi2_src[3]
     ld1         {v19.s}[0],[x2],x5
 
-    smull       v20.4s, v16.4h, v4.4h[1]    // 55 * pi2_src[2]
-    smlsl       v20.4s, v22.4h, v4.4h[2]    //  - 74 * pi2_src[1] +   55 * pi2_src[2]
-    smlsl       v20.4s, v17.4h, v4.4h[0]    // - 74 * pi2_src[1] +   55 * pi2_src[2]    - 29 * pi2_src[3]
-    smlal       v20.4s, v21.4h, v4.4h[3]    //pi2_out[3] = 84 * pi2_src[0] - 74 * pi2_src[1] + 55 * pi2_src[2] - 29 * pi2_src[3]
+    smull       v20.4s, v16.4h, v4.h[1]     // 55 * pi2_src[2]
+    smlsl       v20.4s, v22.4h, v4.h[2]     //  - 74 * pi2_src[1] +   55 * pi2_src[2]
+    smlsl       v20.4s, v17.4h, v4.h[0]     // - 74 * pi2_src[1] +   55 * pi2_src[2]    - 29 * pi2_src[3]
+    smlal       v20.4s, v21.4h, v4.h[3]     //pi2_out[3] = 84 * pi2_src[0] - 74 * pi2_src[1] + 55 * pi2_src[2] - 29 * pi2_src[3]
 
     sqrshrn     v28.4h, v6.4s,#shift_stage2_idct // (pi2_out[0] + rounding ) >> shift_stage1_idct
     sqrshrn     v29.4h, v5.4s,#shift_stage2_idct // (pi2_out[1] + rounding ) >> shift_stage1_idct

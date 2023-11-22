@@ -1,4 +1,6 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin10 -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple armv7-apple-darwin10 -emit-llvm  -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple arm64-apple-ios -emit-llvm -o - %s | FileCheck %s
 // rdar://16206443
 
 @interface NSObject 
@@ -43,3 +45,16 @@ __attribute__((weak_import))
 
 // CHECK: @"OBJC_METACLASS_$_NSURLQueryItem" = extern_weak global
 // CHECK: @"OBJC_CLASS_$_NSURLQueryItem" = extern_weak global
+
+// rdar://17633301
+__attribute__((visibility("default"))) __attribute__((availability(ios,introduced=9876.5)))
+@interface AVScheduledAudioParameters @end
+
+@interface XXXX : AVScheduledAudioParameters
+@end
+
+@implementation AVScheduledAudioParameters @end
+@implementation XXXX @end
+
+// CHECK: @"OBJC_CLASS_$_AVScheduledAudioParameters" = global %struct._class_t
+// CHECK: @"OBJC_METACLASS_$_AVScheduledAudioParameters" = global %struct._class_t 

@@ -146,17 +146,17 @@ l1.88:
     add         x14,x0,x14
 
     sub         x19,x14,#3
-    dup         v4.2s, v24.2s[1]
+    dup         v4.2s, v24.s[1]
     ldrb        w2,[x19]                    // -2 value
-    dup         v7.2s, v2.2s[1]
+    dup         v7.2s, v2.s[1]
     ldrb        w10,[x19,#1]                // -2 value
-    dup         v3.2s, v2.2s[0]
+    dup         v3.2s, v2.s[0]
     ldrb        w11,[x19,#2]                // -1 value
-    dup         v5.2s, v1.2s[1]
+    dup         v5.2s, v1.s[1]
     ldrb        w12,[x14,#0]                // 0 value
-    dup         v6.2s, v1.2s[0]
+    dup         v6.2s, v1.s[0]
     ldrb        w3,[x14,#1]                 // 1 value
-    dup         v2.2s, v0.2s[0]
+    dup         v2.2s, v0.s[0]
     ldrb        w4,[x14,#2]                 // 2 value
 
 
@@ -191,7 +191,7 @@ l1.88:
 
 
     cmp         x11,x5
-    dup         v22.2s, v0.2s[1]
+    dup         v22.2s, v0.s[1]
     bge         l1.964
 
 //    if(d < beta)
@@ -415,7 +415,7 @@ l1.780:
     // x4 has the flag p
 
 
-    dup         v7.2s, v24.2s[0]
+    dup         v7.2s, v24.s[0]
     sub         x3,x0,#1
     uaddw       v16.8h,  v0.8h ,  v6.8b
     add         x7,x3,x1

@@ -33,103 +33,109 @@ namespace mirror {
   class Object;
 }  // namespace mirror
 
+namespace gc {
+namespace accounting {
+
 class CardTableTest : public CommonRuntimeTest {
  public:
-  std::unique_ptr<gc::accounting::CardTable> card_table_;
-  static constexpr size_t kCardSize = gc::accounting::CardTable::kCardSize;
+  std::unique_ptr<CardTable> card_table_;
 
   void CommonSetup() {
     if (card_table_.get() == nullptr) {
-      card_table_.reset(gc::accounting::CardTable::Create(heap_begin_, heap_size_));
+      card_table_.reset(CardTable::Create(heap_begin_, heap_size_));
       EXPECT_TRUE(card_table_.get() != nullptr);
     } else {
       ClearCardTable();
     }
   }
   // Default values for the test, not random to avoid undeterministic behaviour.
-  CardTableTest() : heap_begin_(reinterpret_cast<byte*>(0x2000000)), heap_size_(2 * MB) {
+  CardTableTest() : heap_begin_(reinterpret_cast<uint8_t*>(0x2000000)), heap_size_(2 * MB) {
   }
   void ClearCardTable() {
     card_table_->ClearCardTable();
   }
-  byte* HeapBegin() const {
+  uint8_t* HeapBegin() const {
     return heap_begin_;
   }
-  byte* HeapLimit() const {
+  uint8_t* HeapLimit() const {
     return HeapBegin() + heap_size_;
   }
-  byte PRandCard(const byte* addr) const {
-    size_t offset = RoundDown(addr - heap_begin_, kCardSize);
+  // Return a pseudo random card for an address.
+  uint8_t PseudoRandomCard(const uint8_t* addr) const {
+    size_t offset = RoundDown(addr - heap_begin_, CardTable::kCardSize);
     return 1 + offset % 254;
   }
   void FillRandom() {
-    for (const byte* addr = HeapBegin(); addr != HeapLimit(); addr += kCardSize) {
+    for (const uint8_t* addr = HeapBegin(); addr != HeapLimit(); addr += CardTable::kCardSize) {
       EXPECT_TRUE(card_table_->AddrIsInCardTable(addr));
-      byte* card = card_table_->CardFromAddr(addr);
-      *card = PRandCard(addr);
+      uint8_t* card = card_table_->CardFromAddr(addr);
+      *card = PseudoRandomCard(addr);
     }
   }
 
  private:
-  byte* const heap_begin_;
+  uint8_t* const heap_begin_;
   const size_t heap_size_;
 };
 
 TEST_F(CardTableTest, TestMarkCard) {
   CommonSetup();
-  for (const byte* addr = HeapBegin(); addr < HeapLimit(); addr += kObjectAlignment) {
+  for (const uint8_t* addr = HeapBegin(); addr < HeapLimit(); addr += kObjectAlignment) {
     auto obj = reinterpret_cast<const mirror::Object*>(addr);
-    EXPECT_EQ(card_table_->GetCard(obj), gc::accounting::CardTable::kCardClean);
+    EXPECT_EQ(card_table_->GetCard(obj), CardTable::kCardClean);
     EXPECT_TRUE(!card_table_->IsDirty(obj));
     card_table_->MarkCard(addr);
     EXPECT_TRUE(card_table_->IsDirty(obj));
-    EXPECT_EQ(card_table_->GetCard(obj), gc::accounting::CardTable::kCardDirty);
-    byte* card_addr = card_table_->CardFromAddr(addr);
-    EXPECT_EQ(*card_addr, gc::accounting::CardTable::kCardDirty);
-    *card_addr = gc::accounting::CardTable::kCardClean;
-    EXPECT_EQ(*card_addr, gc::accounting::CardTable::kCardClean);
+    EXPECT_EQ(card_table_->GetCard(obj), CardTable::kCardDirty);
+    uint8_t* card_addr = card_table_->CardFromAddr(addr);
+    EXPECT_EQ(*card_addr, CardTable::kCardDirty);
+    *card_addr = CardTable::kCardClean;
+    EXPECT_EQ(*card_addr, CardTable::kCardClean);
   }
 }
 
 class UpdateVisitor {
  public:
-  byte operator()(byte c) const {
+  uint8_t operator()(uint8_t c) const {
     return c * 93 + 123;
   }
-  void operator()(byte* /*card*/, byte /*expected_value*/, byte /*new_value*/) const {
+  void operator()(uint8_t* /*card*/, uint8_t /*expected_value*/, uint8_t /*new_value*/) const {
   }
 };
 
 TEST_F(CardTableTest, TestModifyCardsAtomic) {
   CommonSetup();
   FillRandom();
-  const size_t delta = std::min(static_cast<size_t>(HeapLimit() - HeapBegin()), 8U * kCardSize);
+  const size_t delta = std::min(static_cast<size_t>(HeapLimit() - HeapBegin()),
+                                8U * CardTable::kCardSize);
   UpdateVisitor visitor;
   size_t start_offset = 0;
-  for (byte* cstart = HeapBegin(); cstart < HeapBegin() + delta; cstart += kCardSize) {
-    start_offset = (start_offset + kObjectAlignment) % kCardSize;
+  for (uint8_t* cstart = HeapBegin(); cstart < HeapBegin() + delta; cstart += CardTable::kCardSize) {
+    start_offset = (start_offset + kObjectAlignment) % CardTable::kCardSize;
     size_t end_offset = 0;
-    for (byte* cend = HeapLimit() - delta; cend < HeapLimit(); cend += kCardSize) {
+    for (uint8_t* cend = HeapLimit() - delta; cend < HeapLimit(); cend += CardTable::kCardSize) {
       // Don't always start at a card boundary.
-      byte* start = cstart + start_offset;
-      byte* end = cend - end_offset;
-      end_offset = (end_offset + kObjectAlignment) % kCardSize;
+      uint8_t* start = cstart + start_offset;
+      uint8_t* end = cend - end_offset;
+      end_offset = (end_offset + kObjectAlignment) % CardTable::kCardSize;
       // Modify cards.
       card_table_->ModifyCardsAtomic(start, end, visitor, visitor);
       // Check adjacent cards not modified.
-      for (byte* cur = start - kCardSize; cur >= HeapBegin(); cur -= kCardSize) {
-        EXPECT_EQ(card_table_->GetCard(reinterpret_cast<mirror::Object*>(cur)), PRandCard(cur));
+      for (uint8_t* cur = start - CardTable::kCardSize; cur >= HeapBegin();
+          cur -= CardTable::kCardSize) {
+        EXPECT_EQ(card_table_->GetCard(reinterpret_cast<mirror::Object*>(cur)),
+                  PseudoRandomCard(cur));
       }
-      for (byte* cur = end + kCardSize; cur < HeapLimit(); cur += kCardSize) {
-        EXPECT_EQ(card_table_->GetCard(reinterpret_cast<mirror::Object*>(cur)), PRandCard(cur));
+      for (uint8_t* cur = end + CardTable::kCardSize; cur < HeapLimit();
+          cur += CardTable::kCardSize) {
+        EXPECT_EQ(card_table_->GetCard(reinterpret_cast<mirror::Object*>(cur)),
+                  PseudoRandomCard(cur));
       }
       // Verify Range.
-      for (byte* cur = start; cur < AlignUp(end, kCardSize); cur += kCardSize) {
-        byte* card = card_table_->CardFromAddr(cur);
-        byte value = PRandCard(cur);
-        if (visitor(value) != *card) {
-          LOG(ERROR) << reinterpret_cast<void*>(start) << " " << reinterpret_cast<void*>(cur) << " " << reinterpret_cast<void*>(end);
-        }
+      for (uint8_t* cur = start; cur < AlignUp(end, CardTable::kCardSize);
+          cur += CardTable::kCardSize) {
+        uint8_t* card = card_table_->CardFromAddr(cur);
+        uint8_t value = PseudoRandomCard(cur);
         EXPECT_EQ(visitor(value), *card);
         // Restore for next iteration.
         *card = value;
@@ -139,5 +145,6 @@ TEST_F(CardTableTest, TestModifyCardsAtomic) {
 }
 
 // TODO: Add test for CardTable::Scan.
-
+}  // namespace accounting
+}  // namespace gc
 }  // namespace art

@@ -18,11 +18,11 @@ package com.google.common.cache;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -31,24 +31,23 @@ import javax.annotation.Nullable;
 
 /**
  * A semi-persistent mapping from keys to values. Cache entries are manually added using
- * {@link #get(K, Callable)} or {@link #put(K, V)}, and are stored in the cache until either
- * evicted or manually invalidated.
- *
- * <p><b>Note:</b> in release 12.0, all methods moved from {@code Cache} to {@link LoadingCache}
- * will be deleted from {@code Cache}. As part of this transition {@code Cache} will no longer
- * extend {@link Function}.
+ * {@link #get(Object, Callable)} or {@link #put(Object, Object)}, and are stored in the cache until
+ * either evicted or manually invalidated.
  *
  * <p>Implementations of this interface are expected to be thread-safe, and can be safely accessed
  * by multiple concurrent threads.
  *
- * <p>All methods other than {@link #getIfPresent} are optional.
+ * <p>Note that while this class is still annotated as {@link Beta}, the API is frozen from a
+ * consumer's standpoint. In other words existing methods are all considered {@code non-Beta} and
+ * won't be changed without going through an 18 month deprecation cycle; however new methods may be
+ * added at any time.
  *
  * @author Charles Fry
  * @since 10.0
  */
 @Beta
 @GwtCompatible
-public interface Cache<K, V> extends Function<K, V> {
+public interface Cache<K, V> {
 
   /**
    * Returns the value associated with {@code key} in this cache, or {@code null} if there is no
@@ -57,7 +56,7 @@ public interface Cache<K, V> extends Function<K, V> {
    * @since 11.0
    */
   @Nullable
-  V getIfPresent(K key);
+  V getIfPresent(Object key);
 
   /**
    * Returns the value associated with {@code key} in this cache, obtaining that value from
@@ -83,7 +82,7 @@ public interface Cache<K, V> extends Function<K, V> {
    *
    * @since 11.0
    */
-  ImmutableMap<K, V> getAllPresent(Iterable<? extends K> keys);
+  ImmutableMap<K, V> getAllPresent(Iterable<?> keys);
 
   /**
    * Associates {@code value} with {@code key} in this cache. If the cache previously contained a
@@ -95,6 +94,16 @@ public interface Cache<K, V> extends Function<K, V> {
    * @since 11.0
    */
   void put(K key, V value);
+
+  /**
+   * Copies all of the mappings from the specified map to the cache. The effect of this call is
+   * equivalent to that of calling {@code put(k, v)} on this map once for each mapping from key
+   * {@code k} to value {@code v} in the specified map. The behavior of this operation is undefined
+   * if the specified map is modified while the operation is in progress.
+   *
+   * @since 12.0
+   */
+  void putAll(Map<? extends K,? extends V> m);
 
   /**
    * Discards any cached value for key {@code key}.
@@ -121,12 +130,17 @@ public interface Cache<K, V> extends Function<K, V> {
   /**
    * Returns a current snapshot of this cache's cumulative statistics. All stats are initialized
    * to zero, and are monotonically increasing over the lifetime of the cache.
+   *
    */
   CacheStats stats();
 
   /**
    * Returns a view of the entries stored in this cache as a thread-safe map. Modifications made to
    * the map directly affect the cache.
+   *
+   * <p>Iterators from the returned map are at least <i>weakly consistent</i>: they are safe for
+   * concurrent use, but if the cache is modified (including by eviction) after the iterator is
+   * created, it is undefined which of the changes (if any) will be reflected in that iterator.
    */
   ConcurrentMap<K, V> asMap();
 
@@ -135,55 +149,4 @@ public interface Cache<K, V> extends Function<K, V> {
    * performed -- if any -- is implementation-dependent.
    */
   void cleanUp();
-
-  /**
-   * Returns the value associated with {@code key} in this cache, first loading that value if
-   * necessary. No observable state associated with this cache is modified until loading completes.
-   *
-   * @throws ExecutionException if a checked exception was thrown while loading the value
-   * @throws UncheckedExecutionException if an unchecked exception was thrown while loading the
-   *     value
-   * @throws ExecutionError if an error was thrown while loading the value
-   * @deprecated This method has been split out into the {@link LoadingCache} interface, and will be
-   * removed from {@code Cache} in Guava release 12.0. Note that
-   * {@link CacheBuilder#build(CacheLoader)} now returns a {@code LoadingCache}, so this deprecation
-   * (migration) can be dealt with by simply changing the type of references to the results of
-   * {@link CacheBuilder#build(CacheLoader)}.
-   */
-  @Deprecated V get(K key) throws ExecutionException;
-
-  /**
-   * Returns the value associated with {@code key} in this cache, first loading that value if
-   * necessary. No observable state associated with this cache is modified until computation
-   * completes. Unlike {@link #get}, this method does not throw a checked exception, and thus should
-   * only be used in situations where checked exceptions are not thrown by the cache loader.
-   *
-   * <p><b>Warning:</b> this method silently converts checked exceptions to unchecked exceptions,
-   * and should not be used with cache loaders which throw checked exceptions.
-   *
-   * @throws UncheckedExecutionException if an exception was thrown while loading the value,
-   *     regardless of whether the exception was checked or unchecked
-   * @throws ExecutionError if an error was thrown while loading the value
-   * @deprecated This method has been split out into the {@link LoadingCache} interface, and will be
-   * removed from {@code Cache} in Guava release 12.0. Note that
-   * {@link CacheBuilder#build(CacheLoader)} now returns a {@code LoadingCache}, so this deprecation
-   * (migration) can be dealt with by simply changing the type of references to the results of
-   * {@link CacheBuilder#build(CacheLoader)}.
-   */
-  @Deprecated V getUnchecked(K key);
-
-  /**
-   * Discouraged. Provided to satisfy the {@code Function} interface; use {@link #get} or
-   * {@link #getUnchecked} instead.
-   *
-   * @throws UncheckedExecutionException if an exception was thrown while loading the value,
-   *     regardless of whether the exception was checked or unchecked
-   * @throws ExecutionError if an error was thrown while loading the value
-   * @deprecated This method has been split out into the {@link LoadingCache} interface, and will be
-   * removed from {@code Cache} in Guava release 12.0. Note that
-   * {@link CacheBuilder#build(CacheLoader)} now returns a {@code LoadingCache}, so this deprecation
-   * (migration) can be dealt with by simply changing the type of references to the results of
-   * {@link CacheBuilder#build(CacheLoader)}.
-   */
-  @Deprecated V apply(K key);
 }

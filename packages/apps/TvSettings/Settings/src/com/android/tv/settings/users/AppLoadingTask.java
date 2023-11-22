@@ -16,32 +16,28 @@
 
 package com.android.tv.settings.users;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.DialogFragment;
-import com.android.tv.settings.dialog.DialogFragment.Action;
-
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
-import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.RemoteException;
+import android.service.dreams.DreamService;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
+import com.android.tv.settings.dialog.DialogFragment.Action;
 import com.android.tv.settings.util.UriUtils;
 
 import java.util.ArrayList;
@@ -227,6 +223,10 @@ class AppLoadingTask extends AsyncTask<Void, Void, List<AppLoadingTask.Selectabl
         // Add widgets
         Intent widgetIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
         addSystemApps(visibleApps, widgetIntent, defaultSystemImes, mUserId);
+
+        // Add daydreams
+        Intent daydreamIntent = new Intent(DreamService.SERVICE_INTERFACE);
+        addSystemApps(visibleApps, daydreamIntent, defaultSystemImes, mUserId);
 
         List<ApplicationInfo> installedApps = mPackageManager.getInstalledApplications(
                 PackageManager.GET_UNINSTALLED_PACKAGES);
@@ -480,9 +480,10 @@ class AppLoadingTask extends AsyncTask<Void, Void, List<AppLoadingTask.Selectabl
         if (pi == null)
             return false;
         final int flags = pi.applicationInfo.flags;
+        final int privateFlags = pi.applicationInfo.privateFlags;
         // Return true if it is installed and not hidden
         return ((flags & ApplicationInfo.FLAG_INSTALLED) != 0
-                && (flags & ApplicationInfo.FLAG_HIDDEN) == 0);
+                && (privateFlags & ApplicationInfo.PRIVATE_FLAG_HIDDEN) == 0);
     }
 
     private static Uri getAppIconUri(Context context, ApplicationInfo info, int iconRes) {

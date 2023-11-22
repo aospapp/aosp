@@ -25,13 +25,13 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.X509Extensions;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.bouncycastle.x509.extension.AuthorityKeyIdentifierStructure;
-import org.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -40,6 +40,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
@@ -178,7 +179,7 @@ public class SslUtil {
     certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, true,
         authIdentifier);
     certGen.addExtension(X509Extensions.SubjectKeyIdentifier, true,
-        new SubjectKeyIdentifierStructure(pair.getPublic()));
+            createSubjectKeyIdentifier(pair.getPublic()));
 
     certGen.addExtension(X509Extensions.SubjectAlternativeName, false, new GeneralNames(
         new GeneralName(GeneralName.rfc822Name, "android-tv-remote-support@google.com")));
@@ -220,6 +221,23 @@ public class SslUtil {
     return new AuthorityKeyIdentifier(info, new GeneralNames(genName), serialNumber);
   }
   
+  /**
+   * Creates a SubjectKeyIdentifier from a public key.
+   * <p>
+   * @param publicKey  the public key
+   * @return  a new {@link SubjectKeyIdentifier}
+   */
+  static SubjectKeyIdentifier createSubjectKeyIdentifier(PublicKey publicKey) {
+    SubjectPublicKeyInfo info = SubjectPublicKeyInfo.getInstance(publicKey.getEncoded());
+    MessageDigest digester;
+    try {
+      digester = MessageDigest.getInstance("SHA-1");
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException("Could not get SHA-1 digest instance");
+    }
+    return new SubjectKeyIdentifier(digester.digest(info.getPublicKeyData().getBytes()));
+  }
+
   /**
    * Wrapper for {@link SslUtil#generateX509V3Certificate(KeyPair, String, Date, Date, BigInteger)}
    * which uses a default validity period and serial number.

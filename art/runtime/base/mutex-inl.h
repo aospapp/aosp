@@ -21,17 +21,11 @@
 
 #include "mutex.h"
 
-#define ATRACE_TAG ATRACE_TAG_DALVIK
-
-#include "cutils/trace.h"
-
 #include "base/stringprintf.h"
+#include "base/value_object.h"
 #include "runtime.h"
 #include "thread.h"
-
-namespace art {
-
-#define CHECK_MUTEX_CALL(call, args) CHECK_PTHREAD_CALL(call, args, name_)
+#include "utils.h"
 
 #if ART_USE_FUTEXES
 #include "linux/futex.h"
@@ -39,42 +33,21 @@ namespace art {
 #ifndef SYS_futex
 #define SYS_futex __NR_futex
 #endif
-static inline int futex(volatile int *uaddr, int op, int val, const struct timespec *timeout, volatile int *uaddr2, int val3) {
+#endif  // ART_USE_FUTEXES
+
+#define CHECK_MUTEX_CALL(call, args) CHECK_PTHREAD_CALL(call, args, name_)
+
+namespace art {
+
+#if ART_USE_FUTEXES
+static inline int futex(volatile int *uaddr, int op, int val, const struct timespec *timeout,
+                        volatile int *uaddr2, int val3) {
   return syscall(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
 }
 #endif  // ART_USE_FUTEXES
 
-class ScopedContentionRecorder {
- public:
-  ScopedContentionRecorder(BaseMutex* mutex, uint64_t blocked_tid, uint64_t owner_tid)
-      : mutex_(kLogLockContentions ? mutex : NULL),
-        blocked_tid_(kLogLockContentions ? blocked_tid : 0),
-        owner_tid_(kLogLockContentions ? owner_tid : 0),
-        start_nano_time_(kLogLockContentions ? NanoTime() : 0) {
-    if (ATRACE_ENABLED()) {
-      std::string msg = StringPrintf("Lock contention on %s (owner tid: %" PRIu64 ")",
-                                     mutex->GetName(), owner_tid);
-      ATRACE_BEGIN(msg.c_str());
-    }
-  }
-
-  ~ScopedContentionRecorder() {
-    ATRACE_END();
-    if (kLogLockContentions) {
-      uint64_t end_nano_time = NanoTime();
-      mutex_->RecordContention(blocked_tid_, owner_tid_, end_nano_time - start_nano_time_);
-    }
-  }
-
- private:
-  BaseMutex* const mutex_;
-  const uint64_t blocked_tid_;
-  const uint64_t owner_tid_;
-  const uint64_t start_nano_time_;
-};
-
 static inline uint64_t SafeGetTid(const Thread* self) {
-  if (self != NULL) {
+  if (self != nullptr) {
     return static_cast<uint64_t>(self->GetTid());
   } else {
     return static_cast<uint64_t>(GetTid());
@@ -106,7 +79,7 @@ static inline void CheckUnattachedThread(LockLevel level) NO_THREAD_SAFETY_ANALY
 }
 
 inline void BaseMutex::RegisterAsLocked(Thread* self) {
-  if (UNLIKELY(self == NULL)) {
+  if (UNLIKELY(self == nullptr)) {
     CheckUnattachedThread(level_);
     return;
   }
@@ -115,7 +88,7 @@ inline void BaseMutex::RegisterAsLocked(Thread* self) {
     bool bad_mutexes_held = false;
     for (int i = level_; i >= 0; --i) {
       BaseMutex* held_mutex = self->GetHeldMutex(static_cast<LockLevel>(i));
-      if (UNLIKELY(held_mutex != NULL)) {
+      if (UNLIKELY(held_mutex != nullptr)) {
         LOG(ERROR) << "Lock level violation: holding \"" << held_mutex->name_ << "\" "
                    << "(level " << LockLevel(i) << " - " << i
                    << ") while locking \"" << name_ << "\" "
@@ -126,7 +99,9 @@ inline void BaseMutex::RegisterAsLocked(Thread* self) {
         }
       }
     }
-    CHECK(!bad_mutexes_held);
+    if (gAborting == 0) {  // Avoid recursive aborts.
+      CHECK(!bad_mutexes_held);
+    }
   }
   // Don't record monitors as they are outside the scope of analysis. They may be inspected off of
   // the monitor list.
@@ -136,20 +111,20 @@ inline void BaseMutex::RegisterAsLocked(Thread* self) {
 }
 
 inline void BaseMutex::RegisterAsUnlocked(Thread* self) {
-  if (UNLIKELY(self == NULL)) {
+  if (UNLIKELY(self == nullptr)) {
     CheckUnattachedThread(level_);
     return;
   }
   if (level_ != kMonitorLock) {
-    if (kDebugLocking && !gAborting) {
+    if (kDebugLocking && gAborting == 0) {  // Avoid recursive aborts.
       CHECK(self->GetHeldMutex(level_) == this) << "Unlocking on unacquired mutex: " << name_;
     }
-    self->SetHeldMutex(level_, NULL);
+    self->SetHeldMutex(level_, nullptr);
   }
 }
 
 inline void ReaderWriterMutex::SharedLock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
 #if ART_USE_FUTEXES
   bool done = false;
   do {
@@ -158,15 +133,7 @@ inline void ReaderWriterMutex::SharedLock(Thread* self) {
       // Add as an extra reader.
       done = state_.CompareExchangeWeakAcquire(cur_state, cur_state + 1);
     } else {
-      // Owner holds it exclusively, hang up.
-      ScopedContentionRecorder scr(this, GetExclusiveOwnerTid(), SafeGetTid(self));
-      ++num_pending_readers_;
-      if (futex(state_.Address(), FUTEX_WAIT, cur_state, NULL, NULL, 0) != 0) {
-        if (errno != EAGAIN) {
-          PLOG(FATAL) << "futex wait failed for " << name_;
-        }
-      }
-      --num_pending_readers_;
+      HandleSharedLockContention(self, cur_state);
     }
   } while (!done);
 #else
@@ -178,7 +145,7 @@ inline void ReaderWriterMutex::SharedLock(Thread* self) {
 }
 
 inline void ReaderWriterMutex::SharedUnlock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   DCHECK(exclusive_owner_ == 0U || exclusive_owner_ == -1U);
   AssertSharedHeld(self);
   RegisterAsUnlocked(self);
@@ -196,7 +163,7 @@ inline void ReaderWriterMutex::SharedUnlock(Thread* self) {
         if (num_pending_writers_.LoadRelaxed() > 0 ||
             num_pending_readers_.LoadRelaxed() > 0) {
           // Wake any exclusive waiters as there are now no readers.
-          futex(state_.Address(), FUTEX_WAKE, -1, NULL, NULL, 0);
+          futex(state_.Address(), FUTEX_WAKE, -1, nullptr, nullptr, 0);
         }
       }
     } else {
@@ -209,11 +176,11 @@ inline void ReaderWriterMutex::SharedUnlock(Thread* self) {
 }
 
 inline bool Mutex::IsExclusiveHeld(const Thread* self) const {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   bool result = (GetExclusiveOwnerTid() == SafeGetTid(self));
   if (kDebugLocking) {
     // Sanity debug check that if we think it is locked we have it in our held mutexes.
-    if (result && self != NULL && level_ != kMonitorLock && !gAborting) {
+    if (result && self != nullptr && level_ != kMonitorLock && !gAborting) {
       CHECK_EQ(self->GetHeldMutex(level_), this);
     }
   }
@@ -225,11 +192,11 @@ inline uint64_t Mutex::GetExclusiveOwnerTid() const {
 }
 
 inline bool ReaderWriterMutex::IsExclusiveHeld(const Thread* self) const {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   bool result = (GetExclusiveOwnerTid() == SafeGetTid(self));
   if (kDebugLocking) {
     // Sanity that if the pthread thinks we own the lock the Thread agrees.
-    if (self != NULL && result)  {
+    if (self != nullptr && result)  {
       CHECK_EQ(self->GetHeldMutex(level_), this);
     }
   }

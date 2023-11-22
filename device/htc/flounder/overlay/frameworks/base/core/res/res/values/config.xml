@@ -117,6 +117,20 @@
          that can be set by the user. -->
     <integer name="config_screenBrightnessDim">2</integer>
 
+    <!-- Sets the minimum and maximum tilt tolerance for each possible rotation.
+         See comments in framework config.xml.
+
+         This has been tuned to support the shallow angle of the keyboard folio
+         with a typical tilt of 66 to 69 degrees.
+    -->
+    <integer-array name="config_autoRotationTiltTolerance">
+        <!-- rotation:   0 (natural)    --> <item>-25</item> <item>72</item>
+        <!-- rotation:  90 (rotate CCW) --> <item>-25</item> <item>72</item>
+        <!-- rotation: 180 (reverse)    --> <item>-25</item> <item>60</item>
+        <!-- rotation: 270 (rotate CW)  --> <item>-25</item> <item>72</item>
+    </integer-array>
+
+
     <!-- List of regexpressions describing the interface (if any) that represent tetherable
          USB interfaces.  If the device doesn't want to support tething over USB this should
          be empty.  An example would be "usb.*" -->
@@ -162,9 +176,6 @@
     <!-- Whether UI for multi user should be shown -->
     <bool name="config_enableMultiUserUI">true</bool>
 
-    <!-- This device allows sms service. -->
-    <bool name="config_sms_capable">true</bool>
-
     <bool name="config_ui_enableFadingMarquee">true</bool>
 
     <!-- XXXXX NOTE THE FOLLOWING RESOURCES USE THE WRONG NAMING CONVENTION.
@@ -208,6 +219,9 @@
     <!-- Boolean indicating whether the wifi chipset has dual frequency band support -->
     <bool translatable="false" name="config_wifi_dual_band_support">true</bool>
 
+    <!-- Boolean indicating whether Hotspot 2.0/Passpoint and ANQP queries is enabled -->
+    <bool translatable="false" name="config_wifi_hotspot2_enabled">true</bool>
+
     <!-- Boolean indicating whether the wifi chipset has background scan support -->
     <bool translatable="false" name="config_wifi_background_scan_support">true</bool>
 
@@ -217,4 +231,13 @@
 
     <!-- Is the device capable of hot swapping an UICC Card -->
     <bool name="config_hotswapCapable">true</bool>
+
+    <!-- Whether device supports double tap to wake -->
+    <bool name="config_supportDoubleTapWake">true</bool>
+
+    <!-- The RadioAccessFamilies supported by the device.
+         Empty is viewed as "all".  Only used on devices which
+         don't support RIL_REQUEST_GET_RADIO_CAPABILITY
+         format is UMTS|LTE|... -->
+    <string translatable="false" name="config_radio_access_family">GSM | WCDMA | LTE</string>
 </resources>

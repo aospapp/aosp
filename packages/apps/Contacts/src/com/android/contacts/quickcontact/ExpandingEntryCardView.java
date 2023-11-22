@@ -15,6 +15,9 @@
  */
 package com.android.contacts.quickcontact;
 
+import android.animation.Animator;
+import android.animation.Animator.AnimatorListener;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.Intent;
@@ -26,7 +29,6 @@ import android.support.v7.widget.CardView;
 import android.text.Spannable;
 import android.text.TextUtils;
 import android.transition.ChangeBounds;
-import android.transition.ChangeScroll;
 import android.transition.Fade;
 import android.transition.Transition;
 import android.transition.Transition.TransitionListener;
@@ -34,6 +36,7 @@ import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.Property;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -42,6 +45,7 @@ import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -57,10 +61,27 @@ public class ExpandingEntryCardView extends CardView {
 
     private static final String TAG = "ExpandingEntryCardView";
     private static final int DURATION_EXPAND_ANIMATION_FADE_IN = 200;
+    private static final int DURATION_COLLAPSE_ANIMATION_FADE_OUT = 75;
     private static final int DELAY_EXPAND_ANIMATION_FADE_IN = 100;
 
     public static final int DURATION_EXPAND_ANIMATION_CHANGE_BOUNDS = 300;
     public static final int DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS = 300;
+
+    private static final Property<View, Integer> VIEW_LAYOUT_HEIGHT_PROPERTY =
+            new Property<View, Integer>(Integer.class, "height") {
+                @Override
+                public void set(View view, Integer height) {
+                    LinearLayout.LayoutParams params = (LinearLayout.LayoutParams)
+                            view.getLayoutParams();
+                    params.height = height;
+                    view.setLayoutParams(params);
+                }
+
+                @Override
+                public Integer get(View view) {
+                    return view.getLayoutParams().height;
+                }
+            };
 
     /**
      * Entry data.
@@ -194,7 +215,8 @@ public class ExpandingEntryCardView extends CardView {
 
     public interface ExpandingEntryCardViewListener {
         void onCollapse(int heightDelta);
-        void onExpand(int heightDelta);
+        void onExpand();
+        void onExpandDone();
     }
 
     private View mExpandCollapseButton;
@@ -219,12 +241,18 @@ public class ExpandingEntryCardView extends CardView {
     private final ImageView mExpandCollapseArrow;
     private int mThemeColor;
     private ColorFilter mThemeColorFilter;
+    /**
+     * Whether to prioritize the first entry type. If prioritized, we should show at least two
+     * of this entry type.
+     */
+    private boolean mShowFirstEntryTypeTwice;
     private boolean mIsAlwaysExpanded;
     /** The ViewGroup to run the expand/collapse animation on */
     private ViewGroup mAnimationViewGroup;
     private LinearLayout mBadgeContainer;
     private final List<ImageView> mBadges;
     private final List<Integer> mBadgeIds;
+    private final int mDividerLineHeightPixels;
     /**
      * List to hold the separators. This saves us from reconstructing every expand/collapse and
      * provides a smoother animation.
@@ -262,9 +290,18 @@ public class ExpandingEntryCardView extends CardView {
         mExpandCollapseArrow = (ImageView) mExpandCollapseButton.findViewById(R.id.arrow);
         mExpandCollapseButton.setOnClickListener(mExpandCollapseButtonListener);
         mBadgeContainer = (LinearLayout) mExpandCollapseButton.findViewById(R.id.badge_container);
+        mDividerLineHeightPixels = getResources()
+                .getDimensionPixelSize(R.dimen.divider_line_height);
 
         mBadges = new ArrayList<ImageView>();
         mBadgeIds = new ArrayList<Integer>();
+    }
+
+    public void initialize(List<List<Entry>> entries, int numInitialVisibleEntries,
+            boolean isExpanded, boolean isAlwaysExpanded, ExpandingEntryCardViewListener listener,
+            ViewGroup animationViewGroup) {
+        initialize(entries, numInitialVisibleEntries, isExpanded, isAlwaysExpanded,
+                listener, animationViewGroup, /* showFirstEntryTypeTwice = */ false);
     }
 
     /**
@@ -274,7 +311,8 @@ public class ExpandingEntryCardView extends CardView {
      */
     public void initialize(List<List<Entry>> entries, int numInitialVisibleEntries,
             boolean isExpanded, boolean isAlwaysExpanded,
-            ExpandingEntryCardViewListener listener, ViewGroup animationViewGroup) {
+            ExpandingEntryCardViewListener listener, ViewGroup animationViewGroup,
+            boolean showFirstEntryTypeTwice) {
         LayoutInflater layoutInflater = LayoutInflater.from(getContext());
         mIsExpanded = isExpanded;
         mIsAlwaysExpanded = isAlwaysExpanded;
@@ -284,6 +322,7 @@ public class ExpandingEntryCardView extends CardView {
         mEntries = entries;
         mNumEntries = 0;
         mAllEntriesInflated = false;
+        mShowFirstEntryTypeTwice = showFirstEntryTypeTwice;
         for (List<Entry> entryList : mEntries) {
             mNumEntries += entryList.size();
             mEntryViews.add(new ArrayList<View>());
@@ -341,10 +380,34 @@ public class ExpandingEntryCardView extends CardView {
         mOnCreateContextMenuListener = listener;
     }
 
+    private List<View> calculateEntriesToRemoveDuringCollapse() {
+        final List<View> viewsToRemove = getViewsToDisplay(true);
+        final List<View> viewsCollapsed = getViewsToDisplay(false);
+        viewsToRemove.removeAll(viewsCollapsed);
+        return viewsToRemove;
+    }
+
     private void insertEntriesIntoViewGroup() {
         mEntriesViewGroup.removeAllViews();
 
-        if (mIsExpanded) {
+        for (View view : getViewsToDisplay(mIsExpanded)) {
+            mEntriesViewGroup.addView(view);
+        }
+
+        removeView(mExpandCollapseButton);
+        if (mCollapsedEntriesCount < mNumEntries
+                && mExpandCollapseButton.getParent() == null && !mIsAlwaysExpanded) {
+            mContainer.addView(mExpandCollapseButton, -1);
+        }
+    }
+
+    /**
+     * Returns the list of views that should be displayed. This changes depending on whether
+     * the card is expanded or collapsed.
+     */
+    private List<View> getViewsToDisplay(boolean isExpanded) {
+        final List<View> viewsToDisplay = new ArrayList<View>();
+        if (isExpanded) {
             for (int i = 0; i < mEntryViews.size(); i++) {
                 List<View> viewList = mEntryViews.get(i);
                 if (i > 0) {
@@ -355,10 +418,10 @@ public class ExpandingEntryCardView extends CardView {
                     } else {
                         separator = mSeparators.get(i - 1);
                     }
-                    mEntriesViewGroup.addView(separator);
+                    viewsToDisplay.add(separator);
                 }
                 for (View view : viewList) {
-                    addEntry(view);
+                    viewsToDisplay.add(view);
                 }
             }
         } else {
@@ -378,33 +441,40 @@ public class ExpandingEntryCardView extends CardView {
                     } else {
                         separator = mSeparators.get(i - 1);
                     }
-                    mEntriesViewGroup.addView(separator);
+                    viewsToDisplay.add(separator);
                 }
-                addEntry(entryViewList.get(0));
+                viewsToDisplay.add(entryViewList.get(0));
                 numInViewGroup++;
+
+                int indexInEntryViewList = 1;
+                if (mShowFirstEntryTypeTwice && i == 0 && entryViewList.size() > 1) {
+                    viewsToDisplay.add(entryViewList.get(1));
+                    numInViewGroup++;
+                    extraEntries--;
+                    indexInEntryViewList++;
+                }
+
                 // Insert entries in this list to hit mCollapsedEntriesCount.
-                for (int j = 1;
+                for (int j = indexInEntryViewList;
                         j < entryViewList.size() && numInViewGroup < mCollapsedEntriesCount &&
                         extraEntries > 0;
                         j++) {
-                    addEntry(entryViewList.get(j));
+                    viewsToDisplay.add(entryViewList.get(j));
                     numInViewGroup++;
                     extraEntries--;
                 }
             }
         }
 
-        removeView(mExpandCollapseButton);
-        if (mCollapsedEntriesCount < mNumEntries
-                && mExpandCollapseButton.getParent() == null && !mIsAlwaysExpanded) {
-            mContainer.addView(mExpandCollapseButton, -1);
-        }
+        formatEntryIfFirst(viewsToDisplay);
+        return viewsToDisplay;
     }
 
-    private void addEntry(View entry) {
+    private void formatEntryIfFirst(List<View> entriesViewGroup) {
         // If no title and the first entry in the group, add extra padding
         if (TextUtils.isEmpty(mTitleTextView.getText()) &&
-                mEntriesViewGroup.getChildCount() == 0) {
+                entriesViewGroup.size() > 0) {
+            final View entry = entriesViewGroup.get(0);
             entry.setPadding(entry.getPaddingLeft(),
                     getResources().getDimensionPixelSize(
                             R.dimen.expanding_entry_card_item_padding_top) +
@@ -413,7 +483,6 @@ public class ExpandingEntryCardView extends CardView {
                     entry.getPaddingRight(),
                     entry.getPaddingBottom());
         }
-        mEntriesViewGroup.addView(entry);
     }
 
     private View generateSeparator(View entry) {
@@ -423,8 +492,7 @@ public class ExpandingEntryCardView extends CardView {
         separator.setBackgroundColor(res.getColor(
                 R.color.divider_line_color_light));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                res.getDimensionPixelSize(R.dimen.divider_line_height));
+                ViewGroup.LayoutParams.MATCH_PARENT, mDividerLineHeightPixels);
         // The separator is aligned with the text in the entry. This is offset by a default
         // margin. If there is an icon present, the icon's width and margin are added
         int marginStart = res.getDimensionPixelSize(
@@ -478,9 +546,20 @@ public class ExpandingEntryCardView extends CardView {
                 entryViewList.add(createEntryView(layoutInflater, entryList.get(0),
                         /* showIcon = */ View.VISIBLE));
                 numInflated++;
+
+                int indexInEntryViewList = 1;
+                if (mShowFirstEntryTypeTwice && i == 0 && entryList.size() > 1) {
+                    entryViewList.add(createEntryView(layoutInflater, entryList.get(1),
+                        /* showIcon = */ View.INVISIBLE));
+                    numInflated++;
+                    extraEntries--;
+                    indexInEntryViewList++;
+                }
+
                 // Inflate entries in this list to hit mCollapsedEntriesCount.
-                for (int j = 1; j < entryList.size() && numInflated < mCollapsedEntriesCount &&
-                        extraEntries > 0; j++) {
+                for (int j = indexInEntryViewList; j < entryList.size()
+                        && numInflated < mCollapsedEntriesCount
+                        && extraEntries > 0; j++) {
                     entryViewList.add(createEntryView(layoutInflater, entryList.get(j),
                             /* showIcon = */ View.INVISIBLE));
                     numInflated++;
@@ -718,9 +797,14 @@ public class ExpandingEntryCardView extends CardView {
         if (mIsExpanded) {
             mBadgeContainer.removeAllViews();
         } else {
+            int numberOfMimeTypesShown = mCollapsedEntriesCount;
+            if (mShowFirstEntryTypeTwice && mEntries.size() > 0
+                    && mEntries.get(0).size() > 1) {
+                numberOfMimeTypesShown--;
+            }
             // Inflate badges if not yet created
-            if (mBadges.size() < mEntries.size() - mCollapsedEntriesCount) {
-                for (int i = mCollapsedEntriesCount; i < mEntries.size(); i++) {
+            if (mBadges.size() < mEntries.size() - numberOfMimeTypesShown) {
+                for (int i = numberOfMimeTypesShown; i < mEntries.size(); i++) {
                     Drawable badgeDrawable = mEntries.get(i).get(0).getIcon();
                     int badgeResourceId = mEntries.get(i).get(0).getIconResourceId();
                     // Do not add the same badge twice
@@ -770,12 +854,12 @@ public class ExpandingEntryCardView extends CardView {
         transitionSet.addListener(new TransitionListener() {
             @Override
             public void onTransitionStart(Transition transition) {
-                // The listener is used to turn off suppressing, the proper delta is not necessary
-                mListener.onExpand(0);
+                mListener.onExpand();
             }
 
             @Override
             public void onTransitionEnd(Transition transition) {
+                mListener.onExpandDone();
             }
 
             @Override
@@ -802,57 +886,62 @@ public class ExpandingEntryCardView extends CardView {
     }
 
     private void collapse() {
-        final int startingHeight = mEntriesViewGroup.getMeasuredHeight();
-        mIsExpanded = false;
-        updateExpandCollapseButton(getExpandButtonText(),
-                DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS);
+        final List<View> views = calculateEntriesToRemoveDuringCollapse();
 
-        final ChangeBounds boundsTransition = new ChangeBounds();
-        boundsTransition.setDuration(DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS);
-
-        final ChangeScroll scrollTransition = new ChangeScroll();
-        scrollTransition.setDuration(DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS);
-
-        TransitionSet transitionSet = new TransitionSet();
-        transitionSet.addTransition(boundsTransition);
-        transitionSet.addTransition(scrollTransition);
-
-        transitionSet.excludeTarget(R.id.text, /* exclude = */ true);
-
-        final ViewGroup transitionViewContainer = mAnimationViewGroup == null ?
-                this : mAnimationViewGroup;
-
-        boundsTransition.addListener(new TransitionListener() {
+        // This animation requires layout changes, unlike the expand() animation: the action bar
+        // might get scrolled open in order to fill empty space. As a result, we can't use
+        // ChangeBounds here. Instead manually animate view height and alpha. This isn't as
+        // efficient as the bounds and translation changes performed by ChangeBounds. Nonetheless, a
+        // reasonable frame-rate is achieved collapsing a dozen elements on a user Svelte N4. So the
+        // performance hit doesn't justify writing a less maintainable animation.
+        final AnimatorSet set = new AnimatorSet();
+        final List<Animator> animators = new ArrayList<Animator>(views.size());
+        int totalSizeChange = 0;
+        for (View viewToRemove : views) {
+            final ObjectAnimator animator = ObjectAnimator.ofObject(viewToRemove,
+                    VIEW_LAYOUT_HEIGHT_PROPERTY, null, viewToRemove.getHeight(), 0);
+            totalSizeChange += viewToRemove.getHeight();
+            animator.setDuration(DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS);
+            animators.add(animator);
+            viewToRemove.animate().alpha(0).setDuration(DURATION_COLLAPSE_ANIMATION_FADE_OUT);
+        }
+        set.playTogether(animators);
+        set.start();
+        set.addListener(new AnimatorListener() {
             @Override
-            public void onTransitionStart(Transition transition) {
-                /*
-                 * onTransitionStart is called after the view hierarchy has been changed but before
-                 * the animation begins.
-                 */
-                int finishingHeight = mEntriesViewGroup.getMeasuredHeight();
-                mListener.onCollapse(startingHeight - finishingHeight);
+            public void onAnimationStart(Animator animation) {
             }
 
             @Override
-            public void onTransitionEnd(Transition transition) {
+            public void onAnimationEnd(Animator animation) {
+                // Now that the views have been animated away, actually remove them from the view
+                // hierarchy. Reset their appearance so that they look appropriate when they
+                // get added back later.
+                insertEntriesIntoViewGroup();
+                for (View view : views) {
+                    if (view instanceof EntryView) {
+                        VIEW_LAYOUT_HEIGHT_PROPERTY.set(view, LayoutParams.WRAP_CONTENT);
+                    } else {
+                        VIEW_LAYOUT_HEIGHT_PROPERTY.set(view, mDividerLineHeightPixels);
+                    }
+                    view.animate().cancel();
+                    view.setAlpha(1);
+                }
             }
 
             @Override
-            public void onTransitionCancel(Transition transition) {
+            public void onAnimationCancel(Animator animation) {
             }
 
             @Override
-            public void onTransitionPause(Transition transition) {
-            }
-
-            @Override
-            public void onTransitionResume(Transition transition) {
+            public void onAnimationRepeat(Animator animation) {
             }
         });
 
-        TransitionManager.beginDelayedTransition(transitionViewContainer, transitionSet);
-
-        insertEntriesIntoViewGroup();
+        mListener.onCollapse(totalSizeChange);
+        mIsExpanded = false;
+        updateExpandCollapseButton(getExpandButtonText(),
+                DURATION_COLLAPSE_ANIMATION_CHANGE_BOUNDS);
     }
 
     /**
@@ -1049,7 +1138,7 @@ public class ExpandingEntryCardView extends CardView {
         }
 
         private boolean hitThirdIcon(MotionEvent event) {
-            if (mEntry.isLayoutRtl()) {
+            if (mEntry.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
                 return mThirdIcon.getVisibility() == View.VISIBLE &&
                         event.getX() < mThirdIcon.getRight();
             } else {
@@ -1065,7 +1154,7 @@ public class ExpandingEntryCardView extends CardView {
             // LayoutParams used to add the start margin to the touch area
             final RelativeLayout.LayoutParams alternateIconParams =
                     (RelativeLayout.LayoutParams) mAlternateIcon.getLayoutParams();
-            if (mEntry.isLayoutRtl()) {
+            if (mEntry.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
                 return mAlternateIcon.getVisibility() == View.VISIBLE &&
                         event.getX() < mAlternateIcon.getRight() + alternateIconParams.rightMargin;
             } else {

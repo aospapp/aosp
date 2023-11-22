@@ -1,5 +1,5 @@
 /*
-T * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2009 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@ T * Copyright (C) 2009 The Android Open Source Project
 
 package com.android.providers.contacts;
 
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.UserInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.database.CharArrayBuffer;
 import android.database.Cursor;
@@ -73,6 +74,8 @@ import android.provider.ContactsContract.StreamItems;
 import android.provider.VoicemailContract;
 import android.provider.VoicemailContract.Voicemails;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.text.util.Rfc822Token;
 import android.text.util.Rfc822Tokenizer;
@@ -84,16 +87,14 @@ import com.android.providers.contacts.database.ContactsTableUtil;
 import com.android.providers.contacts.database.DeletedContactsTableUtil;
 import com.android.providers.contacts.database.MoreDatabaseUtils;
 import com.android.providers.contacts.util.NeededForTesting;
-
 import com.google.android.collect.Sets;
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.HashMap;
+import libcore.icu.ICU;
+
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import libcore.icu.ICU;
 
 /**
  * Database helper for contacts. Designed as a singleton to make sure that all
@@ -116,10 +117,11 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
      *   600-699 Ice Cream Sandwich
      *   700-799 Jelly Bean
      *   800-899 Kitkat
-     *   900-999 L
+     *   900-999 Lollipop
+     *   1000-1099 M
      * </pre>
      */
-    static final int DATABASE_VERSION = 910;
+    static final int DATABASE_VERSION = 1011;
 
     public interface Tables {
         public static final String CONTACTS = "contacts";
@@ -148,6 +150,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String DEFAULT_DIRECTORY = "default_directory";
         public static final String SEARCH_INDEX = "search_index";
         public static final String VOICEMAIL_STATUS = "voicemail_status";
+        public static final String PRE_AUTHORIZED_URIS = "pre_authorized_uris";
 
         // This list of tables contains auto-incremented sequences.
         public static final String[] SEQUENCE_TABLES = new String[] {
@@ -409,6 +412,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String CONCRETE_ACCOUNT_ID = Tables.RAW_CONTACTS + "." + ACCOUNT_ID;
         public static final String CONCRETE_SOURCE_ID =
                 Tables.RAW_CONTACTS + "." + RawContacts.SOURCE_ID;
+        public static final String CONCRETE_BACKUP_ID =
+                Tables.RAW_CONTACTS + "." + RawContacts.BACKUP_ID;
         public static final String CONCRETE_VERSION =
                 Tables.RAW_CONTACTS + "." + RawContacts.VERSION;
         public static final String CONCRETE_DIRTY =
@@ -444,8 +449,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Tables.RAW_CONTACTS + "." + DISPLAY_NAME;
         public static final String CONCRETE_CONTACT_ID =
                 Tables.RAW_CONTACTS + "." + RawContacts.CONTACT_ID;
-        public static final String CONCRETE_NAME_VERIFIED =
-            Tables.RAW_CONTACTS + "." + RawContacts.NAME_VERIFIED;
         public static final String PHONEBOOK_LABEL_PRIMARY =
             ContactsColumns.PHONEBOOK_LABEL_PRIMARY;
         public static final String PHONEBOOK_BUCKET_PRIMARY =
@@ -454,6 +457,13 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             ContactsColumns.PHONEBOOK_LABEL_ALTERNATIVE;
         public static final String PHONEBOOK_BUCKET_ALTERNATIVE =
             ContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE;
+
+        /**
+         * This column is no longer used, but we keep it in the table so an upgraded database
+         * will look the same as a new database. This reduces the chance of OEMs adding a second
+         * column with the same name.
+         */
+        public static final String NAME_VERIFIED_OBSOLETE = "name_verified";
     }
 
     public interface ViewRawContactsColumns {
@@ -674,6 +684,12 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String CONTENT = "content";
         public static final String NAME = "name";
         public static final String TOKENS = "tokens";
+    }
+
+    public interface PreAuthorizedUris {
+        public static final String _ID = BaseColumns._ID;
+        public static final String URI = "uri";
+        public static final String EXPIRATION = "expiration";
     }
 
     /**
@@ -1092,7 +1108,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 StatusUpdates.CHAT_CAPABILITY + " INTEGER NOT NULL DEFAULT 0" +
         ");");
 
-
         db.execSQL("CREATE TRIGGER " + DATABASE_PRESENCE + "." + Tables.PRESENCE + "_deleted"
                 + " BEFORE DELETE ON " + DATABASE_PRESENCE + "." + Tables.PRESENCE
                 + " BEGIN "
@@ -1197,6 +1212,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 RawContactsColumns.ACCOUNT_ID + " INTEGER REFERENCES " +
                     Tables.ACCOUNTS + "(" + AccountsColumns._ID + ")," +
                 RawContacts.SOURCE_ID + " TEXT," +
+                RawContacts.BACKUP_ID + " TEXT," +
                 RawContacts.RAW_CONTACT_IS_READ_ONLY + " INTEGER NOT NULL DEFAULT 0," +
                 RawContacts.VERSION + " INTEGER NOT NULL DEFAULT 1," +
                 RawContacts.DIRTY + " INTEGER NOT NULL DEFAULT 0," +
@@ -1228,7 +1244,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                         ContactsProvider2.PHONEBOOK_COLLATOR_NAME + "," +
                 RawContactsColumns.PHONEBOOK_LABEL_ALTERNATIVE + " TEXT," +
                 RawContactsColumns.PHONEBOOK_BUCKET_ALTERNATIVE + " INTEGER," +
-                RawContacts.NAME_VERIFIED + " INTEGER NOT NULL DEFAULT 0," +
+                RawContactsColumns.NAME_VERIFIED_OBSOLETE + " INTEGER NOT NULL DEFAULT 0," +
                 RawContacts.SYNC1 + " TEXT, " +
                 RawContacts.SYNC2 + " TEXT, " +
                 RawContacts.SYNC3 + " TEXT, " +
@@ -1242,6 +1258,12 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX raw_contacts_source_id_account_id_index ON " +
                 Tables.RAW_CONTACTS + " (" +
                 RawContacts.SOURCE_ID + ", " +
+                RawContactsColumns.ACCOUNT_ID +
+        ");");
+
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS raw_contacts_backup_id_account_id_index ON " +
+                Tables.RAW_CONTACTS + " (" +
+                RawContacts.BACKUP_ID + ", " +
                 RawContactsColumns.ACCOUNT_ID +
         ");");
 
@@ -1307,6 +1329,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 DataColumns.PACKAGE_ID + " INTEGER REFERENCES package(_id)," +
                 DataColumns.MIMETYPE_ID + " INTEGER REFERENCES mimetype(_id) NOT NULL," +
                 Data.RAW_CONTACT_ID + " INTEGER REFERENCES raw_contacts(_id) NOT NULL," +
+                Data.HASH_ID + " TEXT," +
                 Data.IS_READ_ONLY + " INTEGER NOT NULL DEFAULT 0," +
                 Data.IS_PRIMARY + " INTEGER NOT NULL DEFAULT 0," +
                 Data.IS_SUPER_PRIMARY + " INTEGER NOT NULL DEFAULT 0," +
@@ -1329,7 +1352,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Data.SYNC1 + " TEXT, " +
                 Data.SYNC2 + " TEXT, " +
                 Data.SYNC3 + " TEXT, " +
-                Data.SYNC4 + " TEXT " +
+                Data.SYNC4 + " TEXT, " +
+                Data.CARRIER_PRESENCE + " INTEGER NOT NULL DEFAULT 0 " +
         ");");
 
         db.execSQL("CREATE INDEX data_raw_contact_id ON " + Tables.DATA + " (" +
@@ -1343,6 +1367,14 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 DataColumns.MIMETYPE_ID + "," +
                 Data.DATA1 +
         ");");
+
+        /**
+         * For contact backup restore queries.
+         */
+        db.execSQL("CREATE INDEX IF NOT EXISTS data_hash_id_index ON " + Tables.DATA + " (" +
+                Data.HASH_ID +
+        ");");
+
 
         // Private phone numbers table used for lookup
         db.execSQL("CREATE TABLE " + Tables.PHONE_LOOKUP + " (" +
@@ -1481,6 +1513,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Calls.FEATURES + " INTEGER NOT NULL DEFAULT 0," +
                 Calls.PHONE_ACCOUNT_COMPONENT_NAME + " TEXT," +
                 Calls.PHONE_ACCOUNT_ID + " TEXT," +
+                Calls.PHONE_ACCOUNT_ADDRESS + " TEXT," +
+                Calls.PHONE_ACCOUNT_HIDDEN + " INTEGER NOT NULL DEFAULT 0," +
                 Calls.SUB_ID + " INTEGER DEFAULT -1," +
                 Calls.NEW + " INTEGER," +
                 Calls.CACHED_NAME + " TEXT," +
@@ -1494,6 +1528,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Calls.CACHED_MATCHED_NUMBER + " TEXT," +
                 Calls.CACHED_NORMALIZED_NUMBER + " TEXT," +
                 Calls.CACHED_PHOTO_ID + " INTEGER NOT NULL DEFAULT 0," +
+                Calls.CACHED_PHOTO_URI + " TEXT," +
                 Calls.CACHED_FORMATTED_NUMBER + " TEXT," +
                 Voicemails._DATA + " TEXT," +
                 Voicemails.HAS_CONTENT + " INTEGER," +
@@ -1501,13 +1536,17 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Voicemails.SOURCE_DATA + " TEXT," +
                 Voicemails.SOURCE_PACKAGE + " TEXT," +
                 Voicemails.TRANSCRIPTION + " TEXT," +
-                Voicemails.STATE + " INTEGER" +
+                Voicemails.STATE + " INTEGER," +
+                Voicemails.DIRTY + " INTEGER NOT NULL DEFAULT 0," +
+                Voicemails.DELETED + " INTEGER NOT NULL DEFAULT 0" +
         ");");
 
         // Voicemail source status table.
         db.execSQL("CREATE TABLE " + Tables.VOICEMAIL_STATUS + " (" +
                 VoicemailContract.Status._ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
                 VoicemailContract.Status.SOURCE_PACKAGE + " TEXT UNIQUE NOT NULL," +
+                VoicemailContract.Status.PHONE_ACCOUNT_COMPONENT_NAME + " TEXT," +
+                VoicemailContract.Status.PHONE_ACCOUNT_ID + " TEXT," +
                 VoicemailContract.Status.SETTINGS_URI + " TEXT," +
                 VoicemailContract.Status.VOICEMAIL_ACCESS_URI + " TEXT," +
                 VoicemailContract.Status.CONFIGURATION_STATE + " INTEGER," +
@@ -1541,6 +1580,11 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 DataUsageStatColumns.DATA_ID + ", " +
                 DataUsageStatColumns.USAGE_TYPE_INT +
         ");");
+
+        db.execSQL("CREATE TABLE " + Tables.PRE_AUTHORIZED_URIS + " ("+
+                PreAuthorizedUris._ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                PreAuthorizedUris.URI + " STRING NOT NULL, " +
+                PreAuthorizedUris.EXPIRATION + " INTEGER NOT NULL DEFAULT 0);");
 
         // When adding new tables, be sure to also add size-estimates in updateSqliteStats
         createContactsViews(db);
@@ -1602,16 +1646,22 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     public void createSearchIndexTable(SQLiteDatabase db, boolean rebuildSqliteStats) {
-        db.execSQL("DROP TABLE IF EXISTS " + Tables.SEARCH_INDEX);
-        db.execSQL("CREATE VIRTUAL TABLE " + Tables.SEARCH_INDEX
-                + " USING FTS4 ("
+        db.beginTransaction();
+        try {
+            db.execSQL("DROP TABLE IF EXISTS " + Tables.SEARCH_INDEX);
+            db.execSQL("CREATE VIRTUAL TABLE " + Tables.SEARCH_INDEX
+                    + " USING FTS4 ("
                     + SearchIndexColumns.CONTACT_ID + " INTEGER REFERENCES contacts(_id) NOT NULL,"
                     + SearchIndexColumns.CONTENT + " TEXT, "
                     + SearchIndexColumns.NAME + " TEXT, "
                     + SearchIndexColumns.TOKENS + " TEXT"
-                + ")");
-        if (rebuildSqliteStats) {
-            updateSqliteStats(db);
+                    + ")");
+            if (rebuildSqliteStats) {
+                updateSqliteStats(db);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
     }
 
@@ -1805,6 +1855,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 + Data.DATA13 + ", "
                 + Data.DATA14 + ", "
                 + Data.DATA15 + ", "
+                + Data.CARRIER_PRESENCE + ", "
                 + Data.SYNC1 + ", "
                 + Data.SYNC2 + ", "
                 + Data.SYNC3 + ", "
@@ -1821,8 +1872,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                             + AccountsColumns.CONCRETE_DATA_SET + " END) AS "
                                 + RawContacts.ACCOUNT_TYPE_AND_DATA_SET + ","
                 + RawContactsColumns.CONCRETE_SOURCE_ID + " AS " + RawContacts.SOURCE_ID + ","
-                + RawContactsColumns.CONCRETE_NAME_VERIFIED + " AS "
-                        + RawContacts.NAME_VERIFIED + ","
+                + RawContactsColumns.CONCRETE_BACKUP_ID + " AS " + RawContacts.BACKUP_ID + ","
                 + RawContactsColumns.CONCRETE_VERSION + " AS " + RawContacts.VERSION + ","
                 + RawContactsColumns.CONCRETE_DIRTY + " AS " + RawContacts.DIRTY + ","
                 + RawContactsColumns.CONCRETE_SYNC1 + " AS " + RawContacts.SYNC1 + ","
@@ -1883,6 +1933,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         String dataSelect = "SELECT "
                 + DataColumns.CONCRETE_ID + " AS " + Data._ID + ","
+                + Data.HASH_ID + ", "
                 + Data.RAW_CONTACT_ID + ", "
                 + RawContactsColumns.CONCRETE_CONTACT_ID + " AS " + RawContacts.CONTACT_ID + ", "
                 + syncColumns + ", "
@@ -2802,6 +2853,62 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             upgradeToVersion910(db);
             oldVersion = 910;
         }
+        if (oldVersion < 1000) {
+            upgradeToVersion1000(db);
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1000;
+        }
+
+        if (oldVersion < 1002) {
+            rebuildSqliteStats = true;
+            upgradeToVersion1002(db);
+            oldVersion = 1002;
+        }
+
+        if (oldVersion < 1003) {
+            upgradeToVersion1003(db);
+            oldVersion = 1003;
+        }
+
+        if (oldVersion < 1004) {
+            upgradeToVersion1004(db);
+            oldVersion = 1004;
+        }
+
+        if (oldVersion < 1005) {
+            upgradeToVersion1005(db);
+            oldVersion = 1005;
+        }
+
+        if (oldVersion < 1006) {
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1006;
+        }
+
+        if (oldVersion < 1007) {
+            upgradeToVersion1007(db);
+            oldVersion = 1007;
+        }
+
+        if (oldVersion < 1009) {
+            upgradeToVersion1009(db);
+            oldVersion = 1009;
+        }
+
+        if (oldVersion < 1010) {
+            upgradeToVersion1010(db);
+            rebuildSqliteStats = true;
+            oldVersion = 1010;
+        }
+
+        if (oldVersion < 1011) {
+            // There was a merge error, so do step1010 again, and also re-crete views.
+            // upgradeToVersion1010() is safe to re-run.
+            upgradeToVersion1010(db);
+            rebuildSqliteStats = true;
+            upgradeViewsAndTriggers = true;
+            oldVersion = 1011;
+        }
 
         if (upgradeViewsAndTriggers) {
             createContactsViews(db);
@@ -2908,12 +3015,12 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         // For each Contact, find the RawContact that contributed the display name
         db.execSQL(
                 "UPDATE " + Tables.CONTACTS +
-                " SET " + Contacts.NAME_RAW_CONTACT_ID + "=(" +
+                        " SET " + Contacts.NAME_RAW_CONTACT_ID + "=(" +
                         " SELECT " + RawContacts._ID +
                         " FROM " + Tables.RAW_CONTACTS +
                         " WHERE " + RawContacts.CONTACT_ID + "=" + ContactsColumns.CONCRETE_ID +
                         " AND " + RawContactsColumns.CONCRETE_DISPLAY_NAME + "=" +
-                                Tables.CONTACTS + "." + Contacts.DISPLAY_NAME +
+                        Tables.CONTACTS + "." + Contacts.DISPLAY_NAME +
                         " ORDER BY " + RawContacts._ID +
                         " LIMIT 1)"
         );
@@ -3024,11 +3131,11 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         SQLiteStatement structuredNameUpdate = db.compileStatement(
                 "UPDATE " + Tables.DATA +
-                " SET " +
+                        " SET " +
                         StructuredName.FULL_NAME_STYLE + "=?," +
                         StructuredName.DISPLAY_NAME + "=?," +
                         StructuredName.PHONETIC_NAME_STYLE + "=?" +
-                " WHERE " + Data._ID + "=?");
+                        " WHERE " + Data._ID + "=?");
 
         NameSplitter.Name name = new NameSplitter.Name();
         Cursor cursor = db.query(StructName205Query.TABLE,
@@ -3156,7 +3263,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
     private void upgrateToVersion206(SQLiteDatabase db) {
         db.execSQL("ALTER TABLE " + Tables.RAW_CONTACTS
-                + " ADD " + RawContacts.NAME_VERIFIED + " INTEGER NOT NULL DEFAULT 0;");
+                + " ADD name_verified INTEGER NOT NULL DEFAULT 0;");
     }
 
     /**
@@ -3492,7 +3599,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     private void insertNicknameLookup(SQLiteDatabase db, SQLiteStatement nameLookupInsert) {
         final long mimeTypeId = lookupMimeTypeId(db, Nickname.CONTENT_ITEM_TYPE);
         Cursor cursor = db.query(NicknameQuery.TABLE, NicknameQuery.COLUMNS,
-                NicknameQuery.SELECTION, new String[] {String.valueOf(mimeTypeId)},
+                NicknameQuery.SELECTION, new String[]{String.valueOf(mimeTypeId)},
                 null, null, null);
         try {
             while (cursor.moveToNext()) {
@@ -4230,6 +4337,98 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * Add backup_id column to raw_contacts table and hash_id column to data table.
+     */
+    private void upgradeToVersion1000(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE raw_contacts ADD backup_id TEXT;");
+        db.execSQL("ALTER TABLE data ADD hash_id TEXT;");
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS raw_contacts_backup_id_account_id_index ON " +
+                "raw_contacts (backup_id, account_id);");
+        db.execSQL("CREATE INDEX IF NOT EXISTS data_hash_id_index ON data (hash_id);");
+    }
+
+    @VisibleForTesting
+    public void upgradeToVersion1002(SQLiteDatabase db) {
+        db.execSQL("DROP TABLE IF EXISTS pre_authorized_uris;");
+        db.execSQL("CREATE TABLE pre_authorized_uris ("+
+                "_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "uri STRING NOT NULL, " +
+                "expiration INTEGER NOT NULL DEFAULT 0);");
+    }
+
+    public void upgradeToVersion1003(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE calls ADD phone_account_address TEXT;");
+
+        // After version 1003, we are using the ICC ID as the phone-account ID. This code updates
+        // any existing telephony connection-service calllog entries to the ICC ID from the
+        // previously used subscription ID.
+        // TODO: This is inconsistent, depending on the initialization state of SubscriptionManager.
+        //       Sometimes it returns zero subscriptions. May want to move this upgrade to run after
+        //       ON_BOOT_COMPLETE instead of PRE_BOOT_COMPLETE.
+        SubscriptionManager sm = SubscriptionManager.from(mContext);
+        if (sm != null) {
+            Log.i(TAG, "count: " + sm.getAllSubscriptionInfoCount());
+            for (SubscriptionInfo info : sm.getAllSubscriptionInfoList()) {
+                String iccId = info.getIccId();
+                int subId = info.getSubscriptionId();
+                if (!TextUtils.isEmpty(iccId) &&
+                        subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("UPDATE calls SET subscription_id=");
+                    DatabaseUtils.appendEscapedSQLString(sb, iccId);
+                    sb.append(" WHERE subscription_id=");
+                    sb.append(subId);
+                    sb.append(" AND subscription_component_name='com.android.phone/"
+                            + "com.android.services.telephony.TelephonyConnectionService';");
+
+                    db.execSQL(sb.toString());
+                }
+            }
+        }
+    }
+
+    /**
+     * Add a "hidden" column for call log entries we want to hide after an upgrade until the user
+     * adds the right phone account to the device.
+     */
+    public void upgradeToVersion1004(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE calls ADD phone_account_hidden INTEGER NOT NULL DEFAULT 0;");
+    }
+
+    public void upgradeToVersion1005(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE calls ADD photo_uri TEXT;");
+    }
+
+    /**
+     * The try/catch pattern exists because some devices have the upgrade and some do not. This is
+     * because the below updates were merged into version 1005 after some devices had already
+     * upgraded to version 1005 and hence did not receive the below upgrades.
+     */
+    public void upgradeToVersion1007(SQLiteDatabase db) {
+        try {
+            // Add multi-sim fields
+            db.execSQL("ALTER TABLE voicemail_status ADD phone_account_component_name TEXT;");
+            db.execSQL("ALTER TABLE voicemail_status ADD phone_account_id TEXT;");
+
+            // For use by the sync adapter
+            db.execSQL("ALTER TABLE calls ADD dirty INTEGER NOT NULL DEFAULT 0;");
+            db.execSQL("ALTER TABLE calls ADD deleted INTEGER NOT NULL DEFAULT 0;");
+        } catch (SQLiteException e) {
+            // These columns already exist. Do nothing.
+            // Log verbose because this should be the majority case.
+            Log.v(TAG, "Version 1007: Columns already exist, skipping upgrade steps.");
+        }
+    }
+
+    public void upgradeToVersion1009(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE data ADD carrier_presence INTEGER NOT NULL DEFAULT 0");
+    }
+
+    public void upgradeToVersion1010(SQLiteDatabase db) {
+        db.execSQL("DROP TABLE IF EXISTS metadata_sync");
+    }
+
     public String extractHandleFromEmailAddress(String email) {
         Rfc822Token[] tokens = Rfc822Tokenizer.tokenize(email);
         if (tokens.length == 0) {
@@ -4356,7 +4555,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             updateIndexStats(db, Tables.RAW_CONTACTS,
                     "raw_contact_sort_key1_index", "10000 2");
             updateIndexStats(db, Tables.RAW_CONTACTS,
-                    "raw_contacts_source_id_account_id_index", "10000 1 1 1 1");
+                    "raw_contacts_source_id_account_id_index", "10000 1 1");
 
             updateIndexStats(db, Tables.NAME_LOOKUP,
                     "name_lookup_raw_contact_id_index", "35000 4");
@@ -4399,6 +4598,9 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
             updateIndexStats(db, Tables.ACCOUNTS,
                     null, "3");
+
+            updateIndexStats(db, Tables.PRE_AUTHORIZED_URIS,
+                    null, "1");
 
             updateIndexStats(db, Tables.VISIBLE_CONTACTS,
                     null, "2000");
@@ -4668,7 +4870,14 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         return mMimeTypeIdSip;
     }
 
-    public int getDisplayNameSourceForMimeTypeId(int mimeTypeId) {
+    /**
+     * Returns a {@link ContactsContract.DisplayNameSources} value based on {@param mimeTypeId}.
+     * This does not return {@link ContactsContract.DisplayNameSources#STRUCTURED_PHONETIC_NAME}.
+     * The calling client needs to inspect the structured name itself to distinguish between
+     * {@link ContactsContract.DisplayNameSources#STRUCTURED_NAME} and
+     * {@code STRUCTURED_PHONETIC_NAME}.
+     */
+    private int getDisplayNameSourceForMimeTypeId(int mimeTypeId) {
         if (mimeTypeId == mMimeTypeIdStructuredName) {
             return DisplayNameSources.STRUCTURED_NAME;
         }
@@ -5370,26 +5579,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Resets the {@link RawContacts#NAME_VERIFIED} flag to 0 on all other raw
-     * contacts in the same aggregate
-     */
-    public void resetNameVerifiedForOtherRawContacts(long rawContactId) {
-        if (mResetNameVerifiedForOtherRawContacts == null) {
-            mResetNameVerifiedForOtherRawContacts = getWritableDatabase().compileStatement(
-                    "UPDATE " + Tables.RAW_CONTACTS +
-                    " SET " + RawContacts.NAME_VERIFIED + "=0" +
-                    " WHERE " + RawContacts.CONTACT_ID + "=(" +
-                            "SELECT " + RawContacts.CONTACT_ID +
-                            " FROM " + Tables.RAW_CONTACTS +
-                            " WHERE " + RawContacts._ID + "=?)" +
-                    " AND " + RawContacts._ID + "!=?");
-        }
-        mResetNameVerifiedForOtherRawContacts.bindLong(1, rawContactId);
-        mResetNameVerifiedForOtherRawContacts.bindLong(2, rawContactId);
-        mResetNameVerifiedForOtherRawContacts.execute();
-    }
-
-    /**
      * Updates a raw contact display name based on data rows, e.g. structured name,
      * organization, email etc.
      */
@@ -5410,6 +5599,22 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             while (c.moveToNext()) {
                 int mimeType = c.getInt(RawContactNameQuery.MIMETYPE);
                 int source = getDisplayNameSourceForMimeTypeId(mimeType);
+
+                if (source == DisplayNameSources.STRUCTURED_NAME) {
+                    final String given = c.getString(RawContactNameQuery.GIVEN_NAME);
+                    final String middle = c.getString(RawContactNameQuery.MIDDLE_NAME);
+                    final String family = c.getString(RawContactNameQuery.FAMILY_NAME);
+                    final String suffix = c.getString(RawContactNameQuery.SUFFIX);
+                    final String prefix = c.getString(RawContactNameQuery.PREFIX);
+                    if (TextUtils.isEmpty(given) && TextUtils.isEmpty(middle)
+                            && TextUtils.isEmpty(family) && TextUtils.isEmpty(suffix)
+                            && TextUtils.isEmpty(prefix)) {
+                        // Every non-phonetic name component is empty. Therefore, lets lower the
+                        // source score to STRUCTURED_PHONETIC_NAME.
+                        source = DisplayNameSources.STRUCTURED_PHONETIC_NAME;
+                    }
+                }
+
                 if (source < bestDisplayNameSource || source == DisplayNameSources.UNDEFINED) {
                     continue;
                 }
@@ -5496,7 +5701,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String sortKeyAlternative = null;
         int displayNameStyle = FullNameStyle.UNDEFINED;
 
-        if (bestDisplayNameSource == DisplayNameSources.STRUCTURED_NAME) {
+        if (bestDisplayNameSource == DisplayNameSources.STRUCTURED_NAME
+                || bestDisplayNameSource == DisplayNameSources.STRUCTURED_PHONETIC_NAME) {
             displayNameStyle = bestName.fullNameStyle;
             if (displayNameStyle == FullNameStyle.CJK
                     || displayNameStyle == FullNameStyle.UNDEFINED) {

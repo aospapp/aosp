@@ -17,14 +17,17 @@
  */
 -->
 <resources>
-    <color name="text_black">#df000000</color>
-    <color name="light_gray">#ebebeb</color>
+    <color name="text_black">#333333</color>
+    <color name="black">#000000</color>
+    <color name="gray">#ebebeb</color>
+    <color name="light_gray">#fafafa</color>
     <color name="white">#ffffff</color>
-    <color name="teal">#4cb5ab</color>
-    <color name="light_teal">#a2dedb</color>
+    <color name="teal">#00796B</color>
+    <color name="dark_teal">#00695C</color>
     <color name="dark_turquoise">#4db6ac</color>
     <color name="transparent_dark_turquoise">#204db6ac</color>
-    <color name="accent">@color/dark_turquoise</color>
+    <color name="accent">@color/orange</color>
     <color name="accent_transparent">@color/transparent_dark_turquoise</color>
     <color name="transparent">#00000000</color>
+    <color name="orange">#FF5722</color>
 </resources>

@@ -1,34 +1,38 @@
 package com.bumptech.glide.load.resource.bitmap;
 
-import android.util.Log;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
 import static com.bumptech.glide.load.resource.bitmap.ImageHeaderParser.ImageType.GIF;
 import static com.bumptech.glide.load.resource.bitmap.ImageHeaderParser.ImageType.JPEG;
 import static com.bumptech.glide.load.resource.bitmap.ImageHeaderParser.ImageType.PNG;
 import static com.bumptech.glide.load.resource.bitmap.ImageHeaderParser.ImageType.PNG_A;
 import static com.bumptech.glide.load.resource.bitmap.ImageHeaderParser.ImageType.UNKNOWN;
 
+import android.util.Log;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 /**
- * A class for parsing the exif orientation from an InputStream for an image. Handles jpegs and tiffs.
+ * A class for parsing the exif orientation and other data from an image header.
  */
 public class ImageHeaderParser {
     private static final String TAG = "ImageHeaderParser";
 
+    /**
+     * The format of the image data including whether or not the image may include transparent pixels.
+     */
     public static enum ImageType {
-        /** GIF type */
+        /** GIF type. */
         GIF(true),
-        /** JPG type */
+        /** JPG type. */
         JPEG(false),
-        /** PNG type with alpha */
+        /** PNG type with alpha. */
         PNG_A(true),
-        /** PNG type without alpha */
+        /** PNG type without alpha. */
         PNG(false),
-        /** Unrecognized type */
+        /** Unrecognized type. */
         UNKNOWN(false);
         private final boolean hasAlpha;
 
@@ -44,21 +48,30 @@ public class ImageHeaderParser {
     private static final int GIF_HEADER = 0x474946;
     private static final int PNG_HEADER = 0x89504E47;
     private static final int EXIF_MAGIC_NUMBER = 0xFFD8;
-    private static final int MOTOROLA_TIFF_MAGIC_NUMBER = 0x4D4D;  // "MM"
-    private static final int INTEL_TIFF_MAGIC_NUMBER = 0x4949;     // "II"
+    // "MM".
+    private static final int MOTOROLA_TIFF_MAGIC_NUMBER = 0x4D4D;
+    // "II".
+    private static final int INTEL_TIFF_MAGIC_NUMBER = 0x4949;
     private static final String JPEG_EXIF_SEGMENT_PREAMBLE = "Exif\0\0";
-
+    private static final byte[] JPEG_EXIF_SEGMENT_PREAMBLE_BYTES;
     private static final int SEGMENT_SOS = 0xDA;
     private static final int MARKER_EOI = 0xD9;
-
     private static final int SEGMENT_START_ID = 0xFF;
     private static final int EXIF_SEGMENT_TYPE = 0xE1;
-
     private static final int ORIENTATION_TAG_TYPE = 0x0112;
-
     private static final int[] BYTES_PER_FORMAT = { 0, 1, 1, 2, 4, 8, 1, 1, 2, 4, 8, 4, 8 };
 
     private final StreamReader streamReader;
+
+    static {
+        byte[] bytes = new byte[0];
+        try {
+            bytes = JPEG_EXIF_SEGMENT_PREAMBLE.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            // Ignore.
+        }
+        JPEG_EXIF_SEGMENT_PREAMBLE_BYTES = bytes;
+    }
 
     public ImageHeaderParser(InputStream is) {
         streamReader = new StreamReader(is);
@@ -73,21 +86,24 @@ public class ImageHeaderParser {
     public ImageType getType() throws IOException {
         int firstByte = streamReader.getUInt8();
 
-        if (firstByte == EXIF_MAGIC_NUMBER >> 8) { //JPEG
+        // JPEG.
+        if (firstByte == EXIF_MAGIC_NUMBER >> 8) {
             return JPEG;
         }
 
         final int firstTwoBytes = firstByte << 8 & 0xFF00 | streamReader.getUInt8() & 0xFF;
         final int firstFourBytes = firstTwoBytes << 16 & 0xFFFF0000 | streamReader.getUInt16() & 0xFFFF;
-        if (firstFourBytes == PNG_HEADER) { //PNG
-            //see: http://stackoverflow.com/questions/2057923/how-to-check-a-png-for-grayscale-alpha-color-type
+        // PNG.
+        if (firstFourBytes == PNG_HEADER) {
+            // See: http://stackoverflow.com/questions/2057923/how-to-check-a-png-for-grayscale-alpha-color-type
             streamReader.skip(25 - 4);
             int alpha = streamReader.getByte();
             // A RGB indexed PNG can also have transparency. Better safe than sorry!
             return alpha >= 3 ? PNG_A : PNG;
         }
 
-        if (firstFourBytes >> 8 == GIF_HEADER) { //GIF from first 3 bytes
+        // GIF from first 3 bytes.
+        if (firstFourBytes >> 8 == GIF_HEADER) {
             return GIF;
         }
 
@@ -108,9 +124,19 @@ public class ImageHeaderParser {
             return -1;
         } else {
             byte[] exifData = getExifSegment();
-            if (exifData != null && exifData.length >= JPEG_EXIF_SEGMENT_PREAMBLE.length()
-                    && new String(exifData, 0, JPEG_EXIF_SEGMENT_PREAMBLE.length())
-                        .equalsIgnoreCase(JPEG_EXIF_SEGMENT_PREAMBLE)) {
+            boolean hasJpegExifPreamble = exifData != null
+                    && exifData.length >= JPEG_EXIF_SEGMENT_PREAMBLE_BYTES.length;
+
+            if (hasJpegExifPreamble) {
+                for (int i = 0; i < JPEG_EXIF_SEGMENT_PREAMBLE_BYTES.length; i++) {
+                    if (exifData[i] != JPEG_EXIF_SEGMENT_PREAMBLE_BYTES[i]) {
+                        hasJpegExifPreamble = false;
+                        break;
+                    }
+                }
+            }
+
+            if (hasJpegExifPreamble) {
                 return parseExifSegment(new RandomAccessReader(exifData));
             } else {
                 return -1;
@@ -142,7 +168,8 @@ public class ImageHeaderParser {
                 return null;
             }
 
-            segmentLength = streamReader.getUInt16() - 2; //segment length includes bytes for segment length
+            // Segment length includes bytes for segment length.
+            segmentLength = streamReader.getUInt16() - 2;
 
             if (segmentType != EXIF_SEGMENT_TYPE) {
                 if (segmentLength != streamReader.skip(segmentLength)) {
@@ -166,13 +193,12 @@ public class ImageHeaderParser {
         }
     }
 
-    private int parseExifSegment(RandomAccessReader segmentData) {
-
+    private static int parseExifSegment(RandomAccessReader segmentData) {
         final int headerOffsetSize = JPEG_EXIF_SEGMENT_PREAMBLE.length();
 
         short byteOrderIdentifier = segmentData.getInt16(headerOffsetSize);
         final ByteOrder byteOrder;
-        if (byteOrderIdentifier == MOTOROLA_TIFF_MAGIC_NUMBER) { //
+        if (byteOrderIdentifier == MOTOROLA_TIFF_MAGIC_NUMBER) {
             byteOrder = ByteOrder.BIG_ENDIAN;
         } else if (byteOrderIdentifier == INTEL_TIFF_MAGIC_NUMBER) {
             byteOrder = ByteOrder.LITTLE_ENDIAN;
@@ -194,13 +220,15 @@ public class ImageHeaderParser {
 
             tagType = segmentData.getInt16(tagOffset);
 
-            if (tagType != ORIENTATION_TAG_TYPE) { //we only want orientation
+            // We only want orientation.
+            if (tagType != ORIENTATION_TAG_TYPE) {
                 continue;
             }
 
             formatCode = segmentData.getInt16(tagOffset + 2);
 
-            if (formatCode < 1 || formatCode > 12) { //12 is max format code
+            // 12 is max format code.
+            if (formatCode < 1 || formatCode > 12) {
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "Got invalid format code = " + formatCode);
                 }
@@ -254,13 +282,13 @@ public class ImageHeaderParser {
     }
 
     private static int calcTagOffset(int ifdOffset, int tagIndex) {
-        return ifdOffset + 2 + (12 * tagIndex);
+        return ifdOffset + 2 + 12 * tagIndex;
     }
 
-    private boolean handles(int imageMagicNumber) {
-        return (imageMagicNumber & EXIF_MAGIC_NUMBER) == EXIF_MAGIC_NUMBER ||
-                imageMagicNumber == MOTOROLA_TIFF_MAGIC_NUMBER ||
-                imageMagicNumber == INTEL_TIFF_MAGIC_NUMBER;
+    private static boolean handles(int imageMagicNumber) {
+        return (imageMagicNumber & EXIF_MAGIC_NUMBER) == EXIF_MAGIC_NUMBER
+                || imageMagicNumber == MOTOROLA_TIFF_MAGIC_NUMBER
+                || imageMagicNumber == INTEL_TIFF_MAGIC_NUMBER;
     }
 
     private static class RandomAccessReader {

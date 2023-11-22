@@ -19,9 +19,6 @@ package com.android.speechrecorder;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
-import android.speech.srec.Recognizer;
-import android.speech.srec.WaveHeader;
-import android.speech.srec.MicrophoneInputStream;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -155,7 +152,7 @@ public class SpeechRecorderActivity extends Activity {
                 11025;
         mBaos = new ByteArrayOutputStream(mSampleRate * 2 * 20);
         try {
-            mMicrophone = new MicrophoneInputStream(mSampleRate, mSampleRate * 15);
+            mMicrophone = new MicrophoneInputStream(mSampleRate);
 
 //            mMicrophone = logInputStream(mUtterance.toString(), mMicrophone, mSampleRate);
         } catch (IOException e) {

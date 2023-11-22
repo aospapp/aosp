@@ -39,6 +39,12 @@ macro (DE_MAKE_ENV_BOOL BASE VALUE)
 	endif ()
 endmacro ()
 
+# Add build type RelWithAsserts
+set(CMAKE_CXX_FLAGS_RELWITHASSERTS ${CMAKE_CXX_FLAGS_RELEASE})
+set(CMAKE_C_FLAGS_RELWITHASSERTS ${CMAKE_C_FLAGS_RELEASE})
+set(CMAKE_EXE_LINKER_FLAGS_RELWITHASSERTS ${CMAKE_EXE_LINKER_FLAGS_RELEASE})
+set(CMAKE_SHARED_LINKER_FLAGS_RELWITHASSERTS ${CMAKE_SHARED_LINKER_FLAGS_RELEASE})
+
 # Os detection
 if (NOT DEFINED DE_OS)
 	if (WIN32)
@@ -59,8 +65,14 @@ DE_MAKE_ENV_BOOL("DE_OS" "UNIX")
 DE_MAKE_ENV_BOOL("DE_OS" "WINCE")
 DE_MAKE_ENV_BOOL("DE_OS" "OSX")
 DE_MAKE_ENV_BOOL("DE_OS" "ANDROID")
-DE_MAKE_ENV_BOOL("DE_OS" "SYMBIAN")
 DE_MAKE_ENV_BOOL("DE_OS" "IOS")
+
+# Prevent mixed compile with GCC and Clang
+if (NOT ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU") EQUAL ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
+	message(FATAL_ERROR "CMake C and CXX compilers do not match. Both or neither must be GNU.")
+elseif (NOT ("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") EQUAL ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+	message(FATAL_ERROR "CMake C and CXX compilers do not match. Both or neither must be Clang.")
+endif ()
 
 # Compiler detection
 if (NOT DEFINED DE_COMPILER)
@@ -127,7 +139,7 @@ endif ()
 
 # Debug definitions
 if (NOT DEFINED DE_DEBUG)
-	if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+	if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithAsserts")
 		set(DE_DEBUG 1)
 	else ()
 		set(DE_DEBUG 0)

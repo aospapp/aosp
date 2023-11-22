@@ -4,12 +4,14 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_SIGNATURE_H_
-#define _PWL_SIGNATURE_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_SIGNATURE_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_SIGNATURE_H_
 
-class CPWL_Signature;
+#include "PWL_Icon.h"
+#include "PWL_Wnd.h"
+
+class CFX_DIBSource;
 class CPWL_Label;
-class CPWL_Signature_Image;
 
 class CPWL_Signature_Image : public CPWL_Image
 {
@@ -62,6 +64,4 @@ private:
 	FX_BOOL								m_bFlagExist;
 };
 
-#endif // _PWL_SIGNATURE_H_
-
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_SIGNATURE_H_

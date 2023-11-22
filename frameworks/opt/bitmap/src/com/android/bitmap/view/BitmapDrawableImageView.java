@@ -30,6 +30,11 @@ import com.android.bitmap.drawable.BasicBitmapDrawable;
  * A helpful ImageView replacement that can generally be used in lieu of ImageView.
  * BitmapDrawableImageView has logic to unbind its BasicBitmapDrawable when it is detached from the
  * window.
+ *
+ * If you are using this with RecyclerView,
+ * or any use-case where {@link android.view.View#onDetachedFromWindow} is
+ * not a good signal for unbind,
+ * makes sure you {@link #setShouldUnbindOnDetachFromWindow} to false.
  */
 public class BitmapDrawableImageView extends ImageView {
     private static final boolean HAS_TRANSIENT_STATE_SUPPORTED =
@@ -38,6 +43,7 @@ public class BitmapDrawableImageView extends ImageView {
     private static final boolean PERMANENT = !TEMPORARY;
 
     private BasicBitmapDrawable mDrawable;
+    private boolean mShouldUnbindOnDetachFromWindow = true;
     private boolean mAttachedToWindow;
 
     public BitmapDrawableImageView(final Context context) {
@@ -51,6 +57,14 @@ public class BitmapDrawableImageView extends ImageView {
     public BitmapDrawableImageView(final Context context, final AttributeSet attrs,
             final int defStyle) {
         super(context, attrs, defStyle);
+    }
+
+  public boolean shouldUnbindOnDetachFromWindow() {
+    return mShouldUnbindOnDetachFromWindow;
+  }
+
+  public void setShouldUnbindOnDetachFromWindow(boolean shouldUnbindOnDetachFromWindow) {
+        mShouldUnbindOnDetachFromWindow = shouldUnbindOnDetachFromWindow;
     }
 
     /**
@@ -72,11 +86,13 @@ public class BitmapDrawableImageView extends ImageView {
      */
     public <E extends BasicBitmapDrawable> void setTypedDrawable(E drawable) {
         super.setImageDrawable(drawable);
-        unbindDrawable();
+        if (drawable != mDrawable) {
+            unbindDrawable();
+        }
         mDrawable = drawable;
     }
 
-    private void unbindDrawable() {
+    public void unbindDrawable() {
         unbindDrawable(PERMANENT);
     }
 
@@ -119,7 +135,7 @@ public class BitmapDrawableImageView extends ImageView {
         super.onAttachedToWindow();
         mAttachedToWindow = true;
         if (mDrawable != null && mDrawable.getKey() == null
-              && mDrawable.getPreviousKey() != null) {
+              && mDrawable.getPreviousKey() != null && mShouldUnbindOnDetachFromWindow) {
             mDrawable.bind(mDrawable.getPreviousKey());
         }
     }
@@ -128,7 +144,8 @@ public class BitmapDrawableImageView extends ImageView {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mAttachedToWindow = false;
-        if (HAS_TRANSIENT_STATE_SUPPORTED && !hasTransientState()) {
+        if (HAS_TRANSIENT_STATE_SUPPORTED && !hasTransientState()
+                && mShouldUnbindOnDetachFromWindow) {
             unbindDrawable(TEMPORARY);
         }
     }
@@ -136,8 +153,16 @@ public class BitmapDrawableImageView extends ImageView {
     @Override
     public void setHasTransientState(boolean hasTransientState) {
         super.setHasTransientState(hasTransientState);
-        if (!hasTransientState && !mAttachedToWindow) {
+        if (!hasTransientState && !mAttachedToWindow && mShouldUnbindOnDetachFromWindow) {
             unbindDrawable(TEMPORARY);
+        }
+    }
+
+    @Override
+    public void onRtlPropertiesChanged(int layoutDirection) {
+        super.onRtlPropertiesChanged(layoutDirection);
+        if (mDrawable != null) {
+          mDrawable.setLayoutDirectionLocal(layoutDirection);
         }
     }
 }

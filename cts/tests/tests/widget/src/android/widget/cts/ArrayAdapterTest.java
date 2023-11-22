@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import android.content.Context;
+import android.content.res.Resources.Theme;
 import android.database.DataSetObserver;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
@@ -202,6 +203,12 @@ public class ArrayAdapterTest extends InstrumentationTestCase {
         }
 
         mArrayAdapter.setDropDownViewResource(INVALD_ID);
+    }
+
+    public void testAccessDropDownViewTheme() {
+        Theme theme = mContext.getResources().newTheme();
+        mArrayAdapter.setDropDownViewTheme(theme);
+        assertSame(theme, mArrayAdapter.getDropDownViewTheme());
     }
 
     /**

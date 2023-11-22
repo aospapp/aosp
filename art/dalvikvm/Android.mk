@@ -29,13 +29,13 @@ LOCAL_CFLAGS := $(dalvikvm_cflags)
 LOCAL_C_INCLUDES := art/runtime
 LOCAL_SHARED_LIBRARIES := libdl liblog libnativehelper
 LOCAL_WHOLE_STATIC_LIBRARIES := libsigchain
-LOCAL_LDFLAGS := -Wl,--version-script,art/sigchainlib/version-script.txt -Wl,--export-dynamic
+LOCAL_LDFLAGS := -Wl,--export-dynamic
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_ADDITIONAL_DEPENDENCIES += art/build/Android.common.mk
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := dalvikvm32
 LOCAL_MODULE_STEM_64 := dalvikvm64
-include external/libcxx/libcxx.mk
+LOCAL_NATIVE_COVERAGE := $(ART_COVERAGE)
 include $(BUILD_EXECUTABLE)
 
 # Create symlink for the primary version target.
@@ -68,7 +68,7 @@ LOCAL_IS_HOST_MODULE := true
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := dalvikvm32
 LOCAL_MODULE_STEM_64 := dalvikvm64
-include external/libcxx/libcxx.mk
+LOCAL_NATIVE_COVERAGE := $(ART_COVERAGE)
 include $(BUILD_HOST_EXECUTABLE)
 
 # Create symlink for the primary version target.

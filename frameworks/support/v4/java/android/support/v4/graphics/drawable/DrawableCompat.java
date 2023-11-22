@@ -19,7 +19,7 @@ package android.support.v4.graphics.drawable;
 import android.content.res.ColorStateList;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
+import android.support.v4.view.ViewCompat;
 
 /**
  * Helper for accessing features in {@link android.graphics.drawable.Drawable}
@@ -38,6 +38,9 @@ public class DrawableCompat {
         void setTint(Drawable drawable, int tint);
         void setTintList(Drawable drawable, ColorStateList tint);
         void setTintMode(Drawable drawable, PorterDuff.Mode tintMode);
+        Drawable wrap(Drawable drawable);
+        void setLayoutDirection(Drawable drawable, int layoutDirection);
+        int getLayoutDirection(Drawable drawable);
     }
 
     /**
@@ -67,14 +70,32 @@ public class DrawableCompat {
 
         @Override
         public void setTint(Drawable drawable, int tint) {
+            DrawableCompatBase.setTint(drawable, tint);
         }
 
         @Override
         public void setTintList(Drawable drawable, ColorStateList tint) {
+            DrawableCompatBase.setTintList(drawable, tint);
         }
 
         @Override
         public void setTintMode(Drawable drawable, PorterDuff.Mode tintMode) {
+            DrawableCompatBase.setTintMode(drawable, tintMode);
+        }
+
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatBase.wrapForTinting(drawable);
+        }
+
+        @Override
+        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
+            // No op for API < 23
+        }
+
+        @Override
+        public int getLayoutDirection(Drawable drawable) {
+            return ViewCompat.LAYOUT_DIRECTION_LTR;
         }
     }
 
@@ -86,12 +107,30 @@ public class DrawableCompat {
         public void jumpToCurrentState(Drawable drawable) {
             DrawableCompatHoneycomb.jumpToCurrentState(drawable);
         }
+
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatHoneycomb.wrapForTinting(drawable);
+        }
+    }
+
+    static class JellybeanMr1DrawableImpl extends HoneycombDrawableImpl {
+        @Override
+        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
+            DrawableCompatJellybeanMr1.setLayoutDirection(drawable, layoutDirection);
+        }
+
+        @Override
+        public int getLayoutDirection(Drawable drawable) {
+            final int dir = DrawableCompatJellybeanMr1.getLayoutDirection(drawable);
+            return dir < 0 ? dir : ViewCompat.LAYOUT_DIRECTION_LTR;
+        }
     }
 
     /**
      * Interface implementation for devices with at least KitKat APIs.
      */
-    static class KitKatDrawableImpl extends HoneycombDrawableImpl {
+    static class KitKatDrawableImpl extends JellybeanMr1DrawableImpl {
         @Override
         public void setAutoMirrored(Drawable drawable, boolean mirrored) {
             DrawableCompatKitKat.setAutoMirrored(drawable, mirrored);
@@ -101,35 +140,70 @@ public class DrawableCompat {
         public boolean isAutoMirrored(Drawable drawable) {
             return DrawableCompatKitKat.isAutoMirrored(drawable);
         }
+
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatKitKat.wrapForTinting(drawable);
+        }
     }
 
     /**
      * Interface implementation for devices with at least L APIs.
      */
-    static class LDrawableImpl extends KitKatDrawableImpl {
+    static class LollipopDrawableImpl extends KitKatDrawableImpl {
         @Override
         public void setHotspot(Drawable drawable, float x, float y) {
-            DrawableCompatL.setHotspot(drawable, x, y);
+            DrawableCompatLollipop.setHotspot(drawable, x, y);
         }
 
         @Override
         public void setHotspotBounds(Drawable drawable, int left, int top, int right, int bottom) {
-            DrawableCompatL.setHotspotBounds(drawable, left, top, right, bottom);
+            DrawableCompatLollipop.setHotspotBounds(drawable, left, top, right, bottom);
         }
 
         @Override
         public void setTint(Drawable drawable, int tint) {
-            DrawableCompatL.setTint(drawable, tint);
+            DrawableCompatLollipop.setTint(drawable, tint);
         }
 
         @Override
         public void setTintList(Drawable drawable, ColorStateList tint) {
-            DrawableCompatL.setTintList(drawable, tint);
+            DrawableCompatLollipop.setTintList(drawable, tint);
         }
 
         @Override
         public void setTintMode(Drawable drawable, PorterDuff.Mode tintMode) {
-            DrawableCompatL.setTintMode(drawable, tintMode);
+            DrawableCompatLollipop.setTintMode(drawable, tintMode);
+        }
+
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatLollipop.wrapForTinting(drawable);
+        }
+    }
+
+    /**
+     * Interface implementation for devices with at least L APIs.
+     */
+    static class LollipopMr1DrawableImpl extends LollipopDrawableImpl {
+        @Override
+        public Drawable wrap(Drawable drawable) {
+            return DrawableCompatApi22.wrapForTinting(drawable);
+        }
+    }
+
+    /**
+     * Interface implementation for devices with at least M APIs.
+     */
+    static class MDrawableImpl extends LollipopMr1DrawableImpl {
+        @Override
+        public void setLayoutDirection(Drawable drawable, int layoutDirection) {
+            DrawableCompatApi23.setLayoutDirection(drawable, layoutDirection);
+        }
+
+        @Override
+        public int getLayoutDirection(Drawable drawable) {
+            return DrawableCompatApi23.getLayoutDirection(drawable);
         }
     }
 
@@ -139,10 +213,16 @@ public class DrawableCompat {
     static final DrawableImpl IMPL;
     static {
         final int version = android.os.Build.VERSION.SDK_INT;
-        if (version >= 21) {
-            IMPL = new LDrawableImpl();
+        if (version >= 23) {
+            IMPL = new MDrawableImpl();
+        } else if (version >= 22) {
+            IMPL = new LollipopMr1DrawableImpl();
+        } else if (version >= 21) {
+            IMPL = new LollipopDrawableImpl();
         } else if (version >= 19) {
             IMPL = new KitKatDrawableImpl();
+        } else if (version >= 17) {
+            IMPL = new JellybeanMr1DrawableImpl();
         } else if (version >= 11) {
             IMPL = new HoneycombDrawableImpl();
         } else {
@@ -219,7 +299,7 @@ public class DrawableCompat {
      * Specifies a tint for {@code drawable}.
      *
      * @param drawable The Drawable against which to invoke the method.
-     * @param tint Color to use for tinting this drawable
+     * @param tint     Color to use for tinting this drawable
      */
     public static void setTint(Drawable drawable, int tint) {
         IMPL.setTint(drawable, tint);
@@ -229,8 +309,7 @@ public class DrawableCompat {
      * Specifies a tint for {@code drawable} as a color state list.
      *
      * @param drawable The Drawable against which to invoke the method.
-     * @param tint Color state list to use for tinting this drawable, or null to
-     *            clear the tint
+     * @param tint     Color state list to use for tinting this drawable, or null to clear the tint
      */
     public static void setTintList(Drawable drawable, ColorStateList tint) {
         IMPL.setTintList(drawable, tint);
@@ -240,11 +319,70 @@ public class DrawableCompat {
      * Specifies a tint blending mode for {@code drawable}.
      *
      * @param drawable The Drawable against which to invoke the method.
-     * @param tintMode Color state list to use for tinting this drawable, or null to
-     *            clear the tint
      * @param tintMode A Porter-Duff blending mode
      */
     public static void setTintMode(Drawable drawable, PorterDuff.Mode tintMode) {
         IMPL.setTintMode(drawable, tintMode);
+    }
+
+    /**
+     * Potentially wrap {@code drawable} so that it may be used for tinting across the
+     * different API levels, via the tinting methods in this class.
+     * <p>
+     * If you need to get hold of the original {@link android.graphics.drawable.Drawable} again,
+     * you can use the value returned from {@link #unwrap(Drawable)}.
+     *
+     * @param drawable The Drawable to process
+     * @return A drawable capable of being tinted across all API levels.
+     *
+     * @see #setTint(Drawable, int)
+     * @see #setTintList(Drawable, ColorStateList)
+     * @see #setTintMode(Drawable, PorterDuff.Mode)
+     * @see #unwrap(Drawable)
+     */
+    public static Drawable wrap(Drawable drawable) {
+        return IMPL.wrap(drawable);
+    }
+
+    /**
+     * Unwrap {@code drawable} if it is the result of a call to {@link #wrap(Drawable)}. If
+     * the {@code drawable} is not the result of a call to {@link #wrap(Drawable)} then
+     * {@code drawable} is returned as-is.
+     *
+     * @param drawable The drawable to unwrap
+     * @return the unwrapped {@link Drawable} or {@code drawable} if it hasn't been wrapped.
+     *
+     * @see #wrap(Drawable)
+     */
+    public static <T extends Drawable> T unwrap(Drawable drawable) {
+        if (drawable instanceof DrawableWrapper) {
+            return (T) ((DrawableWrapper) drawable).getWrappedDrawable();
+        }
+        return (T) drawable;
+    }
+
+    /**
+     * Set the layout direction for this drawable. Should be a resolved
+     * layout direction, as the Drawable has no capacity to do the resolution on
+     * its own.
+     *
+     * @param layoutDirection the resolved layout direction for the drawable,
+     *                        either {@link ViewCompat#LAYOUT_DIRECTION_LTR}
+     *                        or {@link ViewCompat#LAYOUT_DIRECTION_RTL}
+     * @see #getLayoutDirection(Drawable)
+     */
+    public static void setLayoutDirection(Drawable drawable, int layoutDirection) {
+        IMPL.setLayoutDirection(drawable, layoutDirection);
+    }
+
+    /**
+     * Returns the resolved layout direction for this Drawable.
+     *
+     * @return One of {@link ViewCompat#LAYOUT_DIRECTION_LTR},
+     *         {@link ViewCompat#LAYOUT_DIRECTION_RTL}
+     * @see #setLayoutDirection(Drawable, int)
+     */
+    public static int getLayoutDirection(Drawable drawable) {
+        return IMPL.getLayoutDirection(drawable);
     }
 }

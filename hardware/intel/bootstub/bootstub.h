@@ -1,4 +1,4 @@
-/* define bootstub constrains here, like memory map etc. 
+/* define bootstub constrains here, like memory map etc.
  */
 
 #ifndef _BOOT_STUB_HEAD
@@ -25,7 +25,6 @@
 #define BZIMAGE_SIZE_OFFSET	(CMDLINE_OFFSET + CMDLINE_SIZE)
 #define INITRD_SIZE_OFFSET	(BZIMAGE_SIZE_OFFSET + 4)
 #define SPI_UART_SUPPRESSION	(INITRD_SIZE_OFFSET + 4)
-#define AOSP_HEADER_ADDRESS     0x10007800
 
 #define SPI_TYPE		(SPI_UART_SUPPRESSION + 4) /*0:SPI0  1:SPI1*/
 #define SPI_0		0
@@ -39,7 +38,7 @@
 #define XEN_SIZE_OFFSET		(SEC_PLAT_SVCS_SIZE_OFFSET + 4)
 
 #define BOOTSTUB_OFFSET		(BASE_ADDRESS + 0x1000)
-#define STACK_OFFSET		0x10f00000
+
 #define BZIMAGE_OFFSET		(BASE_ADDRESS + 0x3000)
 
 #define SETUP_HEADER_OFFSET (BZIMAGE_OFFSET + 0x1F1)

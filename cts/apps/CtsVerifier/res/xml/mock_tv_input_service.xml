@@ -15,5 +15,4 @@
 -->
 
 <tv-input xmlns:android="http://schemas.android.com/apk/res/android"
-    android:setupActivity="com.android.cts.verifier.tv.MockTvInputSetupActivity"
-    android:settingsActivity="com.android.cts.verifier.tv.MockTvInputSettingsActivity" />
+    android:setupActivity="com.android.cts.verifier.tv.MockTvInputSetupActivity" />

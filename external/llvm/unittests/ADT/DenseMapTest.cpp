@@ -46,6 +46,7 @@ public:
   CtorTester(const CtorTester &Arg) : Value(Arg.Value) {
     EXPECT_TRUE(Constructed.insert(this).second);
   }
+  CtorTester &operator=(const CtorTester &) = default;
   ~CtorTester() {
     EXPECT_EQ(1u, Constructed.erase(this));
   }
@@ -242,6 +243,11 @@ TYPED_TEST(DenseMapTest, AssignmentTest) {
   this->Map[this->getKey()] = this->getValue();
   TypeParam copyMap = this->Map;
 
+  EXPECT_EQ(1u, copyMap.size());
+  EXPECT_EQ(this->getValue(), copyMap[this->getKey()]);
+
+  // test self-assignment.
+  copyMap = copyMap;
   EXPECT_EQ(1u, copyMap.size());
   EXPECT_EQ(this->getValue(), copyMap[this->getKey()]);
 }

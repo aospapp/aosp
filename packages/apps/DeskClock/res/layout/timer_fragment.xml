@@ -18,8 +18,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/timers_list_page"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:paddingTop="?android:attr/actionBarSize">
+    android:layout_height="match_parent">
 
     <include layout="@layout/timer_timer_view"/>
 

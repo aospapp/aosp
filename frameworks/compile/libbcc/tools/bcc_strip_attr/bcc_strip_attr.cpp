@@ -16,11 +16,11 @@
 
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Pass.h"
-#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -49,6 +49,10 @@ namespace {
     static char ID;
 
     StripAttributes() : ModulePass(ID) {
+    }
+
+    virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
+      AU.setPreservesAll();
     }
 
     bool runOnFunction(Function &F) {
@@ -93,9 +97,9 @@ static inline std::unique_ptr<Module> LoadFile(const char *argv0,
                                                const std::string &FN,
                                                LLVMContext& Context) {
   SMDiagnostic Err;
-  Module* Result = ParseIRFile(FN, Err, Context);
+  std::unique_ptr<Module> Result = parseIRFile(FN, Err, Context);
   if (Result) {
-    return std::unique_ptr<Module>(Result);   // Load successful!
+    return Result;   // Load successful!
   }
 
   Err.print(argv0, errs());
@@ -122,15 +126,15 @@ int main(int argc, char **argv) {
   }
 
   // Perform the actual function attribute stripping.
-  PassManager PM;
+  legacy::PassManager PM;
   PM.add(createStripAttributePass());
   PM.run(*M.get());
 
-  std::string ErrorInfo;
-  tool_output_file Out(OutputFilename.c_str(), ErrorInfo,
+  std::error_code EC;
+  tool_output_file Out(OutputFilename.c_str(), EC,
                        sys::fs::F_None);
-  if (!ErrorInfo.empty()) {
-    errs() << ErrorInfo << '\n';
+  if (EC) {
+    errs() << EC.message() << '\n';
     return 1;
   }
 

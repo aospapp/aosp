@@ -26,6 +26,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.support.annotation.ColorInt;
 import android.support.v4.view.GravityCompat;
 import android.view.Gravity;
 import android.widget.RemoteViews;
@@ -342,6 +343,7 @@ public class NotificationCompat {
      * telling the system not to decorate this notification with any special color but instead use
      * default colors when presenting this notification.
      */
+    @ColorInt
     public static final int COLOR_DEFAULT = Color.TRANSPARENT;
 
     /**
@@ -442,7 +444,7 @@ public class NotificationCompat {
     private static final NotificationCompatImpl IMPL;
 
     interface NotificationCompatImpl {
-        public Notification build(Builder b);
+        public Notification build(Builder b, BuilderExtender extender);
         public Bundle getExtras(Notification n);
         public int getActionCount(Notification n);
         public Action getAction(Notification n, int actionIndex);
@@ -459,9 +461,20 @@ public class NotificationCompat {
                 RemoteInputCompatBase.RemoteInput.Factory remoteInputFactory);
     }
 
+    /**
+     * Interface for appcompat to extend v4 builder with media style.
+     *
+     * @hide
+     */
+    protected static class BuilderExtender {
+        public Notification build(Builder b, NotificationBuilderWithBuilderAccessor builder) {
+            return builder.build();
+        }
+    }
+
     static class NotificationCompatImplBase implements NotificationCompatImpl {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             Notification result = b.mNotification;
             result.setLatestEventInfo(b.mContext, b.mContentTitle,
                     b.mContentText, b.mContentIntent);
@@ -538,7 +551,7 @@ public class NotificationCompat {
 
     static class NotificationCompatImplGingerbread extends NotificationCompatImplBase {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             Notification result = b.mNotification;
             result.setLatestEventInfo(b.mContext, b.mContentTitle,
                     b.mContentText, b.mContentIntent);
@@ -554,7 +567,7 @@ public class NotificationCompat {
 
     static class NotificationCompatImplHoneycomb extends NotificationCompatImplBase {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             return NotificationCompatHoneycomb.add(b.mContext, b.mNotification,
                     b.mContentTitle, b.mContentText, b.mContentInfo, b.mTickerView,
                     b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon);
@@ -563,17 +576,19 @@ public class NotificationCompat {
 
     static class NotificationCompatImplIceCreamSandwich extends NotificationCompatImplBase {
         @Override
-        public Notification build(Builder b) {
-            return NotificationCompatIceCreamSandwich.add(b.mContext, b.mNotification,
-                    b.mContentTitle, b.mContentText, b.mContentInfo, b.mTickerView,
-                    b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
+        public Notification build(Builder b, BuilderExtender extender) {
+            NotificationCompatIceCreamSandwich.Builder builder =
+                    new NotificationCompatIceCreamSandwich.Builder(
+                    b.mContext, b.mNotification, b.mContentTitle, b.mContentText, b.mContentInfo,
+                    b.mTickerView, b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
                     b.mProgressMax, b.mProgress, b.mProgressIndeterminate);
+            return extender.build(b, builder);
         }
     }
 
     static class NotificationCompatImplJellybean extends NotificationCompatImplBase {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             NotificationCompatJellybean.Builder builder = new NotificationCompatJellybean.Builder(
                     b.mContext, b.mNotification, b.mContentTitle, b.mContentText, b.mContentInfo,
                     b.mTickerView, b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
@@ -582,7 +597,7 @@ public class NotificationCompat {
                     b.mGroupKey, b.mGroupSummary, b.mSortKey);
             addActionsToBuilder(builder, b.mActions);
             addStyleToBuilderJellybean(builder, b.mStyle);
-            return builder.build();
+            return extender.build(b, builder);
         }
 
         @Override
@@ -637,7 +652,7 @@ public class NotificationCompat {
 
     static class NotificationCompatImplKitKat extends NotificationCompatImplJellybean {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             NotificationCompatKitKat.Builder builder = new NotificationCompatKitKat.Builder(
                     b.mContext, b.mNotification, b.mContentTitle, b.mContentText, b.mContentInfo,
                     b.mTickerView, b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
@@ -646,7 +661,7 @@ public class NotificationCompat {
                     b.mPeople, b.mExtras, b.mGroupKey, b.mGroupSummary, b.mSortKey);
             addActionsToBuilder(builder, b.mActions);
             addStyleToBuilderJellybean(builder, b.mStyle);
-            return builder.build();
+            return extender.build(b, builder);
         }
 
         @Override
@@ -688,7 +703,7 @@ public class NotificationCompat {
 
     static class NotificationCompatImplApi20 extends NotificationCompatImplKitKat {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             NotificationCompatApi20.Builder builder = new NotificationCompatApi20.Builder(
                     b.mContext, b.mNotification, b.mContentTitle, b.mContentText, b.mContentInfo,
                     b.mTickerView, b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
@@ -697,7 +712,7 @@ public class NotificationCompat {
                     b.mGroupKey, b.mGroupSummary, b.mSortKey);
             addActionsToBuilder(builder, b.mActions);
             addStyleToBuilderJellybean(builder, b.mStyle);
-            return builder.build();
+            return extender.build(b, builder);
         }
 
         @Override
@@ -742,7 +757,7 @@ public class NotificationCompat {
 
     static class NotificationCompatImplApi21 extends NotificationCompatImplApi20 {
         @Override
-        public Notification build(Builder b) {
+        public Notification build(Builder b, BuilderExtender extender) {
             NotificationCompatApi21.Builder builder = new NotificationCompatApi21.Builder(
                     b.mContext, b.mNotification, b.mContentTitle, b.mContentText, b.mContentInfo,
                     b.mTickerView, b.mNumber, b.mContentIntent, b.mFullScreenIntent, b.mLargeIcon,
@@ -752,7 +767,7 @@ public class NotificationCompat {
                     b.mGroupKey, b.mGroupSummary, b.mSortKey);
             addActionsToBuilder(builder, b.mActions);
             addStyleToBuilderJellybean(builder, b.mStyle);
-            return builder.build();
+            return extender.build(b, builder);
         }
 
         @Override
@@ -860,28 +875,41 @@ public class NotificationCompat {
          */
         private static final int MAX_CHARSEQUENCE_LENGTH = 5 * 1024;
 
-        Context mContext;
+        // All these variables are declared public/hidden so they can be accessed by a builder
+        // extender.
 
-        CharSequence mContentTitle;
-        CharSequence mContentText;
+        /** @hide */
+        public Context mContext;
+
+        /** @hide */
+        public CharSequence mContentTitle;
+        /** @hide */
+        public CharSequence mContentText;
         PendingIntent mContentIntent;
         PendingIntent mFullScreenIntent;
         RemoteViews mTickerView;
-        Bitmap mLargeIcon;
-        CharSequence mContentInfo;
-        int mNumber;
+        /** @hide */
+        public Bitmap mLargeIcon;
+        /** @hide */
+        public CharSequence mContentInfo;
+        /** @hide */
+        public int mNumber;
         int mPriority;
         boolean mShowWhen = true;
-        boolean mUseChronometer;
-        Style mStyle;
-        CharSequence mSubText;
+        /** @hide */
+        public boolean mUseChronometer;
+        /** @hide */
+        public Style mStyle;
+        /** @hide */
+        public CharSequence mSubText;
         int mProgressMax;
         int mProgress;
         boolean mProgressIndeterminate;
         String mGroupKey;
         boolean mGroupSummary;
         String mSortKey;
-        ArrayList<Action> mActions = new ArrayList<Action>();
+        /** @hide */
+        public ArrayList<Action> mActions = new ArrayList<Action>();
         boolean mLocalOnly = false;
         String mCategory;
         Bundle mExtras;
@@ -889,7 +917,8 @@ public class NotificationCompat {
         int mVisibility = VISIBILITY_PRIVATE;
         Notification mPublicVersion;
 
-        Notification mNotification = new Notification();
+        /** @hide */
+        public Notification mNotification = new Notification();
         public ArrayList<String> mPeople;
 
         /**
@@ -1171,7 +1200,7 @@ public class NotificationCompat {
          * rate.  The rate is specified in terms of the number of milliseconds to be on
          * and then the number of milliseconds to be off.
          */
-        public Builder setLights(int argb, int onMs, int offMs) {
+        public Builder setLights(@ColorInt int argb, int onMs, int offMs) {
             mNotification.ledARGB = argb;
             mNotification.ledOnMS = onMs;
             mNotification.ledOffMS = offMs;
@@ -1477,7 +1506,7 @@ public class NotificationCompat {
          *
          * @return The same Builder.
          */
-        public Builder setColor(int argb) {
+        public Builder setColor(@ColorInt int argb) {
             mColor = argb;
             return this;
         }
@@ -1521,7 +1550,7 @@ public class NotificationCompat {
          */
         @Deprecated
         public Notification getNotification() {
-            return IMPL.build(this);
+            return build();
         }
 
         /**
@@ -1529,7 +1558,14 @@ public class NotificationCompat {
          * object.
          */
         public Notification build() {
-            return IMPL.build(this);
+            return IMPL.build(this, getExtender());
+        }
+
+        /**
+         * @hide
+         */
+        protected BuilderExtender getExtender() {
+            return new BuilderExtender();
         }
 
         protected static CharSequence limitCharSequenceLength(CharSequence cs) {
@@ -1801,17 +1837,17 @@ public class NotificationCompat {
         }
 
         @Override
-        protected int getIcon() {
+        public int getIcon() {
             return icon;
         }
 
         @Override
-        protected CharSequence getTitle() {
+        public CharSequence getTitle() {
             return title;
         }
 
         @Override
-        protected PendingIntent getActionIntent() {
+        public PendingIntent getActionIntent() {
             return actionIntent;
         }
 
@@ -2978,7 +3014,7 @@ public class NotificationCompat {
          * automotive setting. This method can be used to override the color provided in the
          * notification in such a situation.
          */
-        public CarExtender setColor(int color) {
+        public CarExtender setColor(@ColorInt int color) {
             mColor = color;
             return this;
         }
@@ -2988,6 +3024,7 @@ public class NotificationCompat {
          *
          * @see setColor
          */
+        @ColorInt
         public int getColor() {
             return mColor;
         }

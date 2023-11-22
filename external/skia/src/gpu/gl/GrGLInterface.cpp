@@ -39,57 +39,29 @@ const GrGLInterface* GrGLInterfaceRemoveNVPR(const GrGLInterface* interface) {
     GrGLInterface* newInterface = GrGLInterface::NewClone(interface);
 
     newInterface->fExtensions.remove("GL_NV_path_rendering");
-
     newInterface->fFunctions.fPathCommands = NULL;
     newInterface->fFunctions.fPathCoords = NULL;
-    newInterface->fFunctions.fPathSubCommands = NULL;
-    newInterface->fFunctions.fPathSubCoords = NULL;
-    newInterface->fFunctions.fPathString = NULL;
-    newInterface->fFunctions.fPathGlyphs = NULL;
-    newInterface->fFunctions.fPathGlyphRange = NULL;
-    newInterface->fFunctions.fWeightPaths = NULL;
-    newInterface->fFunctions.fCopyPath = NULL;
-    newInterface->fFunctions.fInterpolatePaths = NULL;
-    newInterface->fFunctions.fTransformPath = NULL;
-    newInterface->fFunctions.fPathParameteriv = NULL;
     newInterface->fFunctions.fPathParameteri = NULL;
-    newInterface->fFunctions.fPathParameterfv = NULL;
     newInterface->fFunctions.fPathParameterf = NULL;
-    newInterface->fFunctions.fPathDashArray = NULL;
     newInterface->fFunctions.fGenPaths = NULL;
     newInterface->fFunctions.fDeletePaths = NULL;
     newInterface->fFunctions.fIsPath = NULL;
     newInterface->fFunctions.fPathStencilFunc = NULL;
-    newInterface->fFunctions.fPathStencilDepthOffset = NULL;
     newInterface->fFunctions.fStencilFillPath = NULL;
     newInterface->fFunctions.fStencilStrokePath = NULL;
     newInterface->fFunctions.fStencilFillPathInstanced = NULL;
     newInterface->fFunctions.fStencilStrokePathInstanced = NULL;
-    newInterface->fFunctions.fPathCoverDepthFunc = NULL;
-    newInterface->fFunctions.fPathColorGen = NULL;
     newInterface->fFunctions.fPathTexGen = NULL;
-    newInterface->fFunctions.fPathFogGen = NULL;
     newInterface->fFunctions.fCoverFillPath = NULL;
     newInterface->fFunctions.fCoverStrokePath = NULL;
     newInterface->fFunctions.fCoverFillPathInstanced = NULL;
     newInterface->fFunctions.fCoverStrokePathInstanced = NULL;
-    newInterface->fFunctions.fGetPathParameteriv = NULL;
-    newInterface->fFunctions.fGetPathParameterfv = NULL;
-    newInterface->fFunctions.fGetPathCommands = NULL;
-    newInterface->fFunctions.fGetPathCoords = NULL;
-    newInterface->fFunctions.fGetPathDashArray = NULL;
-    newInterface->fFunctions.fGetPathMetrics = NULL;
-    newInterface->fFunctions.fGetPathMetricRange = NULL;
-    newInterface->fFunctions.fGetPathSpacing = NULL;
-    newInterface->fFunctions.fGetPathColorGeniv = NULL;
-    newInterface->fFunctions.fGetPathColorGenfv = NULL;
-    newInterface->fFunctions.fGetPathTexGeniv = NULL;
-    newInterface->fFunctions.fGetPathTexGenfv = NULL;
-    newInterface->fFunctions.fIsPointInFillPath = NULL;
-    newInterface->fFunctions.fIsPointInStrokePath = NULL;
-    newInterface->fFunctions.fGetPathLength = NULL;
-    newInterface->fFunctions.fPointAlongPath = NULL;
-
+    newInterface->fFunctions.fStencilThenCoverFillPath = NULL;
+    newInterface->fFunctions.fStencilThenCoverStrokePath = NULL;
+    newInterface->fFunctions.fStencilThenCoverFillPathInstanced = NULL;
+    newInterface->fFunctions.fStencilThenCoverStrokePathInstanced = NULL;
+    newInterface->fFunctions.fProgramPathFragmentInputGen = NULL;
+    newInterface->fFunctions.fPathMemoryGlyphIndexArray = NULL;
     return newInterface;
 }
 
@@ -103,7 +75,7 @@ GrGLInterface::GrGLInterface() {
 }
 
 GrGLInterface* GrGLInterface::NewClone(const GrGLInterface* interface) {
-    SkASSERT(NULL != interface);
+    SkASSERT(interface);
 
     GrGLInterface* clone = SkNEW(GrGLInterface);
     clone->fStandard = interface->fStandard;
@@ -142,8 +114,9 @@ bool GrGLInterface::validate() const {
         NULL == fFunctions.fBindAttribLocation ||
         NULL == fFunctions.fBindBuffer ||
         NULL == fFunctions.fBindTexture ||
+        NULL == fFunctions.fBlendColor ||      // -> GL >= 1.4 or extension, ES >= 2.0
+        NULL == fFunctions.fBlendEquation ||   // -> GL >= 1.4 or extension, ES >= 2.0
         NULL == fFunctions.fBlendFunc ||
-        NULL == fFunctions.fBlendColor ||      // -> GL >= 1.4, ES >= 2.0 or extension
         NULL == fFunctions.fBufferData ||
         NULL == fFunctions.fBufferSubData ||
         NULL == fFunctions.fClear ||
@@ -212,6 +185,9 @@ bool GrGLInterface::validate() const {
         NULL == fFunctions.fUniformMatrix3fv ||
         NULL == fFunctions.fUniformMatrix4fv ||
         NULL == fFunctions.fUseProgram ||
+        NULL == fFunctions.fVertexAttrib1f ||
+        NULL == fFunctions.fVertexAttrib2fv ||
+        NULL == fFunctions.fVertexAttrib3fv ||
         NULL == fFunctions.fVertexAttrib4fv ||
         NULL == fFunctions.fVertexAttribPointer ||
         NULL == fFunctions.fViewport ||
@@ -292,65 +268,6 @@ bool GrGLInterface::validate() const {
                 RETURN_FALSE_INTERFACE
             }
         }
-        if (fExtensions.has("GL_EXT_direct_state_access")) {
-            if (NULL == fFunctions.fMatrixLoadf ||
-                NULL == fFunctions.fMatrixLoadIdentity) {
-                RETURN_FALSE_INTERFACE
-            }
-        }
-        if (fExtensions.has("GL_NV_path_rendering")) {
-            if (NULL == fFunctions.fPathCommands ||
-                NULL == fFunctions.fPathCoords ||
-                NULL == fFunctions.fPathSubCommands ||
-                NULL == fFunctions.fPathSubCoords ||
-                NULL == fFunctions.fPathString ||
-                NULL == fFunctions.fPathGlyphs ||
-                NULL == fFunctions.fPathGlyphRange ||
-                NULL == fFunctions.fWeightPaths ||
-                NULL == fFunctions.fCopyPath ||
-                NULL == fFunctions.fInterpolatePaths ||
-                NULL == fFunctions.fTransformPath ||
-                NULL == fFunctions.fPathParameteriv ||
-                NULL == fFunctions.fPathParameteri ||
-                NULL == fFunctions.fPathParameterfv ||
-                NULL == fFunctions.fPathParameterf ||
-                NULL == fFunctions.fPathDashArray ||
-                NULL == fFunctions.fGenPaths ||
-                NULL == fFunctions.fDeletePaths ||
-                NULL == fFunctions.fIsPath ||
-                NULL == fFunctions.fPathStencilFunc ||
-                NULL == fFunctions.fPathStencilDepthOffset ||
-                NULL == fFunctions.fStencilFillPath ||
-                NULL == fFunctions.fStencilStrokePath ||
-                NULL == fFunctions.fStencilFillPathInstanced ||
-                NULL == fFunctions.fStencilStrokePathInstanced ||
-                NULL == fFunctions.fPathCoverDepthFunc ||
-                NULL == fFunctions.fPathColorGen ||
-                NULL == fFunctions.fPathTexGen ||
-                NULL == fFunctions.fPathFogGen ||
-                NULL == fFunctions.fCoverFillPath ||
-                NULL == fFunctions.fCoverStrokePath ||
-                NULL == fFunctions.fCoverFillPathInstanced ||
-                NULL == fFunctions.fCoverStrokePathInstanced ||
-                NULL == fFunctions.fGetPathParameteriv ||
-                NULL == fFunctions.fGetPathParameterfv ||
-                NULL == fFunctions.fGetPathCommands ||
-                NULL == fFunctions.fGetPathCoords ||
-                NULL == fFunctions.fGetPathDashArray ||
-                NULL == fFunctions.fGetPathMetrics ||
-                NULL == fFunctions.fGetPathMetricRange ||
-                NULL == fFunctions.fGetPathSpacing ||
-                NULL == fFunctions.fGetPathColorGeniv ||
-                NULL == fFunctions.fGetPathColorGenfv ||
-                NULL == fFunctions.fGetPathTexGeniv ||
-                NULL == fFunctions.fGetPathTexGenfv ||
-                NULL == fFunctions.fIsPointInFillPath ||
-                NULL == fFunctions.fIsPointInStrokePath ||
-                NULL == fFunctions.fGetPathLength ||
-                NULL == fFunctions.fPointAlongPath) {
-                RETURN_FALSE_INTERFACE
-            }
-        }
     }
 
     // optional function on desktop before 1.3
@@ -386,6 +303,28 @@ bool GrGLInterface::validate() const {
         }
     } else if (glVer >= GR_GL_VER(3,0) || fExtensions.has("GL_EXT_texture_storage")) {
         if (NULL == fFunctions.fTexStorage2D) {
+            RETURN_FALSE_INTERFACE
+        }
+    }
+
+    // glTextureBarrier is part of desktop 4.5. There are also ARB and NV extensions.
+    if (kGL_GrGLStandard == fStandard) {
+        if (glVer >= GR_GL_VER(4,5) ||
+            fExtensions.has("GL_ARB_texture_barrier") ||
+            fExtensions.has("GL_NV_texture_barrier")) {
+            if (NULL == fFunctions.fTextureBarrier) {
+                RETURN_FALSE_INTERFACE
+            }
+        }
+    } else if (fExtensions.has("GL_NV_texture_barrier")) {
+        if (NULL == fFunctions.fTextureBarrier) {
+            RETURN_FALSE_INTERFACE
+        }
+    }
+
+    if (fExtensions.has("GL_KHR_blend_equation_advanced") ||
+        fExtensions.has("GL_NV_blend_equation_advanced")) {
+        if (NULL == fFunctions.fBlendBarrier) {
             RETURN_FALSE_INTERFACE
         }
     }
@@ -526,5 +465,74 @@ bool GrGLInterface::validate() const {
             RETURN_FALSE_INTERFACE;
         }
     }
+
+    if ((kGL_GrGLStandard == fStandard && fExtensions.has("GL_EXT_direct_state_access")) ||
+        (kGLES_GrGLStandard == fStandard && fExtensions.has("GL_NV_path_rendering"))) {
+        if (NULL == fFunctions.fMatrixLoadf ||
+            NULL == fFunctions.fMatrixLoadIdentity) {
+            RETURN_FALSE_INTERFACE
+        }
+    }
+
+    if ((kGL_GrGLStandard == fStandard &&
+         (glVer >= GR_GL_VER(4,3) || fExtensions.has("GL_ARB_program_interface_query"))) ||
+        (kGLES_GrGLStandard == fStandard && glVer >= GR_GL_VER(3,1))) {
+        if (NULL == fFunctions.fGetProgramResourceLocation) {
+            RETURN_FALSE_INTERFACE
+        }
+    }
+
+    if (kGLES_GrGLStandard == fStandard || glVer >= GR_GL_VER(4,1) ||
+        fExtensions.has("GL_ARB_ES2_compatibility")) {
+#if 0 // Enable this once Chrome gives us the function ptr
+        if (NULL == fFunctions.fGetShaderPrecisionFormat) {
+            RETURN_FALSE_INTERFACE
+        }
+#endif
+    }
+
+    if (fExtensions.has("GL_NV_path_rendering")) {
+        if (NULL == fFunctions.fPathCommands ||
+            NULL == fFunctions.fPathCoords ||
+            NULL == fFunctions.fPathParameteri ||
+            NULL == fFunctions.fPathParameterf ||
+            NULL == fFunctions.fGenPaths ||
+            NULL == fFunctions.fDeletePaths ||
+            NULL == fFunctions.fIsPath ||
+            NULL == fFunctions.fPathStencilFunc ||
+            NULL == fFunctions.fStencilFillPath ||
+            NULL == fFunctions.fStencilStrokePath ||
+            NULL == fFunctions.fStencilFillPathInstanced ||
+            NULL == fFunctions.fStencilStrokePathInstanced ||
+            NULL == fFunctions.fCoverFillPath ||
+            NULL == fFunctions.fCoverStrokePath ||
+            NULL == fFunctions.fCoverFillPathInstanced ||
+            NULL == fFunctions.fCoverStrokePathInstanced) {
+            RETURN_FALSE_INTERFACE
+        }
+        if (kGL_GrGLStandard == fStandard) {
+            // Some methods only exist on desktop
+            if (NULL == fFunctions.fPathTexGen) {
+                RETURN_FALSE_INTERFACE
+            }
+        } else {
+            // All additions through v1.3 exist on GLES
+            if (NULL == fFunctions.fStencilThenCoverFillPath ||
+                NULL == fFunctions.fStencilThenCoverStrokePath ||
+                NULL == fFunctions.fStencilThenCoverFillPathInstanced ||
+                NULL == fFunctions.fStencilThenCoverStrokePathInstanced ||
+                NULL == fFunctions.fProgramPathFragmentInputGen ||
+                NULL == fFunctions.fPathMemoryGlyphIndexArray) {
+                RETURN_FALSE_INTERFACE
+            }
+        }
+    }
+
+    if (fExtensions.has("GL_NV_framebuffer_mixed_samples")) {
+        if (NULL == fFunctions.fCoverageModulation) {
+            RETURN_FALSE_INTERFACE
+        }
+    }
+
     return true;
 }

@@ -33,6 +33,8 @@ public class TimePicker extends Picker {
 
     private static final int HOURS_IN_HALF_DAY = 12;
 
+    private PickerConstants.Time mConstant;
+
     private boolean mIs24hFormat = false;
     private boolean mPendingTime = false;
     private int mInitHour;
@@ -40,12 +42,33 @@ public class TimePicker extends Picker {
     private boolean mInitIsPm;
 
     // Column order varies by locale
-    private static class ColumnOrder {
-        int mHours = 0;
-        int mMinutes = 1;
-        int mAmPm = 2;
+    public static class ColumnOrder {
+        public int hours = 0;
+        public int minutes = 1;
+        public int amPm = 2;
+
+        public ColumnOrder(boolean is24hFormat) {
+            Locale locale = Locale.getDefault();
+            String hmaPattern = DateFormat.getBestDateTimePattern(locale, "hma");
+            boolean isAmPmAtEnd = hmaPattern.indexOf("a") > hmaPattern.indexOf("m");
+            boolean isRtl = TextUtils.getLayoutDirectionFromLocale(locale) == View.LAYOUT_DIRECTION_RTL;
+            // Note ordering of calculation below is important
+
+            if (isRtl) {
+                // Hours and minutes are always shown with hours on the left
+                hours = 1;
+                minutes = 0;
+            }
+            if (!isAmPmAtEnd && !is24hFormat) {
+                // Rotate AM/PM indicator to front, if visible
+                amPm = 0;
+                hours++;
+                minutes++;
+            }
+        }
     }
-    private ColumnOrder mColumnOrder = new ColumnOrder();
+
+    private ColumnOrder mColumnOrder;
 
     public static TimePicker newInstance() {
         return newInstance(true, true);
@@ -64,8 +87,11 @@ public class TimePicker extends Picker {
     public void onCreate(Bundle savedInstanceState) {
         mIs24hFormat = getArguments().getBoolean(EXTRA_24H_FORMAT, false);
         boolean useCurrent = getArguments().getBoolean(EXTRA_DEFAULT_TO_CURRENT, false);
+        mColumnOrder = new ColumnOrder(mIs24hFormat);
 
         super.onCreate(savedInstanceState);
+
+        mConstant = PickerConstants.getTimeInstance(getResources());
 
         if (useCurrent) {
             mPendingTime = true;
@@ -89,23 +115,6 @@ public class TimePicker extends Picker {
             }
 
             mInitMinute = cal.get(Calendar.MINUTE);
-        }
-
-        Locale locale = Locale.getDefault();
-        String hmaPattern = DateFormat.getBestDateTimePattern(locale, "hma");
-        boolean isAmPmAtEnd = hmaPattern.indexOf("a") > hmaPattern.indexOf("m");
-        boolean isRtl = TextUtils.getLayoutDirectionFromLocale(locale) == View.LAYOUT_DIRECTION_RTL;
-        // Note ordering of calculation below is important
-        if (isRtl) {
-            // Hours and minutes are always shown with hours on the left
-            mColumnOrder.mHours = 1;
-            mColumnOrder.mMinutes = 0;
-        }
-        if (!isAmPmAtEnd && !mIs24hFormat) {
-            // Rotate AM/PM indicator to front, if visible
-            mColumnOrder.mAmPm = 0;
-            mColumnOrder.mHours++;
-            mColumnOrder.mMinutes++;
         }
     }
 
@@ -133,10 +142,10 @@ public class TimePicker extends Picker {
             }
         }
 
-        updateSelection(mColumnOrder.mHours, mIs24hFormat ? hour : (hour - 1));
-        updateSelection(mColumnOrder.mMinutes, minute);
+        updateSelection(mColumnOrder.hours, mIs24hFormat ? hour : (hour - 1));
+        updateSelection(mColumnOrder.minutes, minute);
         if (!mIs24hFormat) {
-            updateSelection(mColumnOrder.mAmPm, isPm ? 1 : 0);
+            updateSelection(mColumnOrder.amPm, isPm ? 1 : 0);
         }
 
         return true;
@@ -144,7 +153,7 @@ public class TimePicker extends Picker {
 
     @Override
     protected ArrayList<PickerColumn> getColumns() {
-        ArrayList<PickerColumn> ret = new ArrayList<PickerColumn>();
+        ArrayList<PickerColumn> ret = new ArrayList<>();
         // Fill output with nulls, then place actual columns according to order
         int capacity = mIs24hFormat ? 2 : 3;
         for (int i = 0; i < capacity; i++) {
@@ -152,12 +161,12 @@ public class TimePicker extends Picker {
         }
         PickerColumn hours = new PickerColumn(mIs24hFormat ? mConstant.hours24 : mConstant.hours12);
         PickerColumn minutes = new PickerColumn(mConstant.minutes);
-        ret.set(mColumnOrder.mHours, hours);
-        ret.set(mColumnOrder.mMinutes, minutes);
+        ret.set(mColumnOrder.hours, hours);
+        ret.set(mColumnOrder.minutes, minutes);
 
         if (!mIs24hFormat) {
             PickerColumn ampm = new PickerColumn(mConstant.ampm);
-            ret.set(mColumnOrder.mAmPm, ampm);
+            ret.set(mColumnOrder.amPm, ampm);
         }
         return ret;
     }

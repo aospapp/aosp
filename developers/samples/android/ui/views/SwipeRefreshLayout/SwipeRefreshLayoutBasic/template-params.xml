@@ -23,7 +23,7 @@
     <package>com.example.android.swiperefreshlayoutbasic</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>10</minSdk>
+    <minSdk>14</minSdk>
 
     <strings>
         <intro>

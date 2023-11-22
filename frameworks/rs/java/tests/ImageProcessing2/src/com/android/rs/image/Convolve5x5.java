@@ -33,11 +33,33 @@ public class Convolve5x5 extends TestBase {
         mUseIntrinsic = useIntrinsic;
     }
 
+    private float blend(float v1, float v2, float p) {
+        return (v2 * p) + (v1 * (1.f-p));
+    }
+
+    private float[] updateMatrix(float str) {
+        float f[] = new float[25];
+        final float f125 = 1.f / 25.f;
+        float cf1 = blend(f125, -1.f, str);
+        float cf2 = blend(f125, -3.f, str);
+        float cf3 = blend(f125, -4.f, str);
+        float cf4 = blend(f125, 6.f, str);
+        float cf5 = blend(f125, 20.f, str);
+        float cf6 = blend(f125, 0.f, str);
+        f[0] = cf1;  f[1] = cf2; f[2] = cf3; f[3] = cf2; f[4] = cf1;
+        f[5] = cf2;  f[6] = cf6; f[7] = cf4; f[8] = cf6; f[9] = cf2;
+        f[10]= cf3;  f[11]= cf4; f[12]= cf5; f[13]= cf4; f[14]= cf3;
+        f[15]= cf2;  f[16]= cf6; f[17]= cf4; f[18]= cf6; f[19]= cf2;
+        f[20]= cf1;  f[21]= cf2; f[22]= cf3; f[23]= cf2; f[24]= cf1;
+        return f;
+    }
+
+
     public void createTest(android.content.res.Resources res) {
         mWidth = mInPixelsAllocation.getType().getX();
         mHeight = mInPixelsAllocation.getType().getY();
 
-        float f[] = new float[25];
+        float f[] = updateMatrix(1.f);
         //f[0] = 0.012f; f[1] = 0.025f; f[2] = 0.031f; f[3] = 0.025f; f[4] = 0.012f;
         //f[5] = 0.025f; f[6] = 0.057f; f[7] = 0.075f; f[8] = 0.057f; f[9] = 0.025f;
         //f[10]= 0.031f; f[11]= 0.075f; f[12]= 0.095f; f[13]= 0.075f; f[14]= 0.031f;
@@ -50,12 +72,6 @@ public class Convolve5x5 extends TestBase {
         //f[15]= 4.f; f[16]= 8.f; f[17]= 0.f; f[18]= -8.f; f[19]= -4.f;
         //f[20]= 1.f; f[21]= 2.f; f[22]= 0.f; f[23]= -2.f; f[24]= -1.f;
 
-        f[0] = -1.f; f[1] = -3.f; f[2] = -4.f; f[3] = -3.f; f[4] = -1.f;
-        f[5] = -3.f; f[6] =  0.f; f[7] =  6.f; f[8] =  0.f; f[9] = -3.f;
-        f[10]= -4.f; f[11]=  6.f; f[12]= 20.f; f[13]=  6.f; f[14]= -4.f;
-        f[15]= -3.f; f[16]=  0.f; f[17]=  6.f; f[18]=  0.f; f[19]= -3.f;
-        f[20]= -1.f; f[21]= -3.f; f[22]= -4.f; f[23]= -3.f; f[24]= -1.f;
-
         if (mUseIntrinsic) {
             mIntrinsic = ScriptIntrinsicConvolve5x5.create(mRS, Element.U8_4(mRS));
             mIntrinsic.setCoefficients(f);
@@ -66,6 +82,15 @@ public class Convolve5x5 extends TestBase {
             mScript.set_gIn(mInPixelsAllocation);
             mScript.set_gWidth(mWidth);
             mScript.set_gHeight(mHeight);
+        }
+    }
+
+    public void animateBars(float time) {
+        float f[] = updateMatrix(time % 1.f);
+        if (mUseIntrinsic) {
+            mIntrinsic.setCoefficients(f);
+        } else {
+            mScript.set_gCoeffs(f);
         }
     }
 

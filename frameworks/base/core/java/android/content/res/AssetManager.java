@@ -627,7 +627,21 @@ public final class AssetManager implements AutoCloseable {
      *
      * {@hide}
      */
-    public native final int addOverlayPath(String idmapPath);
+
+    public final int addOverlayPath(String idmapPath) {
+        synchronized (this) {
+            int res = addOverlayPathNative(idmapPath);
+            makeStringBlocks(mStringBlocks);
+            return res;
+        }
+    }
+
+    /**
+     * See addOverlayPath.
+     *
+     * {@hide}
+     */
+    public native final int addOverlayPathNative(String idmapPath);
 
     /**
      * Add multiple sets of assets to the asset manager at once.  See
@@ -771,10 +785,12 @@ public final class AssetManager implements AutoCloseable {
     private native final void deleteTheme(long theme);
     /*package*/ native static final void applyThemeStyle(long theme, int styleRes, boolean force);
     /*package*/ native static final void copyTheme(long dest, long source);
+    /*package*/ native static final void clearTheme(long theme);
     /*package*/ native static final int loadThemeAttributeValue(long theme, int ident,
                                                                 TypedValue outValue,
                                                                 boolean resolve);
     /*package*/ native static final void dumpTheme(long theme, int priority, String tag, String prefix);
+    /*package*/ native static final int getThemeChangingConfigurations(long theme);
 
     private native final long openXmlAssetNative(int cookie, String fileName);
 

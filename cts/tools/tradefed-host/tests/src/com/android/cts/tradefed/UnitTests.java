@@ -25,6 +25,7 @@ import com.android.cts.tradefed.result.TestLogTest;
 import com.android.cts.tradefed.testtype.Abi;
 import com.android.cts.tradefed.testtype.CtsTestTest;
 import com.android.cts.tradefed.testtype.DeqpTestRunnerTest;
+import com.android.cts.tradefed.testtype.GeeTestTest;
 import com.android.cts.tradefed.testtype.JarHostTestTest;
 import com.android.cts.tradefed.testtype.TestFilterTest;
 import com.android.cts.tradefed.testtype.TestPackageDefTest;
@@ -60,13 +61,14 @@ public class UnitTests extends TestSuite {
 
         // testtype package
         addTestSuite(CtsTestTest.class);
+        addTestSuite(DeqpTestRunnerTest.class);
+        addTestSuite(GeeTestTest.class);
         addTestSuite(JarHostTestTest.class);
         addTestSuite(TestFilterTest.class);
         addTestSuite(TestPackageDefTest.class);
         addTestSuite(TestPackageXmlParserTest.class);
         addTestSuite(TestPlanTest.class);
         addTestSuite(WrappedGTestResultParserTest.class);
-        addTestSuite(DeqpTestRunnerTest.class);
     }
 
     public static Test suite() {

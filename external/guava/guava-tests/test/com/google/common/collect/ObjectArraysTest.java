@@ -16,7 +16,7 @@
 
 package com.google.common.collect;
 
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -37,7 +37,7 @@ import java.util.List;
 public class ObjectArraysTest extends TestCase {
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointerExceptions() throws Exception {
+  public void testNullPointerExceptions() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(ObjectArrays.class);
   }
@@ -98,7 +98,7 @@ public class ObjectArraysTest extends TestCase {
     String[] result = ObjectArrays.concat(
         new String[0], new String[] { "a", "b" }, String.class);
     assertEquals(String[].class, result.getClass());
-    ASSERT.that(result).hasContentsInOrder("a", "b");
+    ASSERT.that(result).has().exactly("a", "b").inOrder();
   }
 
   @GwtIncompatible("ObjectArrays.concat(Object[], Object[], Class)")
@@ -106,7 +106,7 @@ public class ObjectArraysTest extends TestCase {
     String[] result = ObjectArrays.concat(
         new String[] { "a", "b" }, new String[0], String.class);
     assertEquals(String[].class, result.getClass());
-    ASSERT.that(result).hasContentsInOrder("a", "b");
+    ASSERT.that(result).has().exactly("a", "b").inOrder();
   }
 
   @GwtIncompatible("ObjectArrays.concat(Object[], Object[], Class)")
@@ -114,7 +114,7 @@ public class ObjectArraysTest extends TestCase {
     String[] result = ObjectArrays.concat(
         new String[] { "a", "b" }, new String[] { "c", "d" }, String.class);
     assertEquals(String[].class, result.getClass());
-    ASSERT.that(result).hasContentsInOrder("a", "b", "c", "d");
+    ASSERT.that(result).has().exactly("a", "b", "c", "d").inOrder();
   }
 
   @GwtIncompatible("ObjectArrays.concat(Object[], Object[], Class)")
@@ -152,8 +152,8 @@ public class ObjectArraysTest extends TestCase {
 
   private void doTestToArrayImpl2(List<Integer> list, Integer[] array1,
       boolean expectModify) {
-    Integer[] starting = Platform.clone(array1);
-    Integer[] array2 = Platform.clone(array1);
+    Integer[] starting = ObjectArrays.arraysCopyOf(array1, array1.length);
+    Integer[] array2 = ObjectArrays.arraysCopyOf(array1, array1.length);
     Object[] reference = list.toArray(array1);
 
     Object[] target = ObjectArrays.toArrayImpl(list, array2);
@@ -170,31 +170,67 @@ public class ObjectArraysTest extends TestCase {
 
   public void testPrependZeroElements() {
     String[] result = ObjectArrays.concat("foo", new String[] {});
-    ASSERT.that(result).hasContentsInOrder("foo");
+    ASSERT.that(result).has().item("foo");
   }
 
   public void testPrependOneElement() {
-    String[] result = ObjectArrays.concat("foo", new String[]{ "bar" });
-    ASSERT.that(result).hasContentsInOrder("foo", "bar");
+    String[] result = ObjectArrays.concat("foo", new String[] { "bar" });
+    ASSERT.that(result).has().exactly("foo", "bar").inOrder();
   }
 
   public void testPrependTwoElements() {
-    String[] result = ObjectArrays.concat("foo", new String[]{ "bar", "baz" });
-    ASSERT.that(result).hasContentsInOrder("foo", "bar", "baz");
+    String[] result = ObjectArrays.concat("foo", new String[] { "bar", "baz" });
+    ASSERT.that(result).has().exactly("foo", "bar", "baz").inOrder();
   }
 
   public void testAppendZeroElements() {
     String[] result = ObjectArrays.concat(new String[] {}, "foo");
-    ASSERT.that(result).hasContentsInOrder("foo");
+    ASSERT.that(result).has().item("foo");
   }
 
   public void testAppendOneElement() {
-    String[] result = ObjectArrays.concat(new String[]{ "foo" }, "bar");
-    ASSERT.that(result).hasContentsInOrder("foo", "bar");
+    String[] result = ObjectArrays.concat(new String[] { "foo" }, "bar");
+    ASSERT.that(result).has().exactly("foo", "bar").inOrder();
   }
 
   public void testAppendTwoElements() {
-    String[] result = ObjectArrays.concat(new String[]{ "foo", "bar" }, "baz");
-    ASSERT.that(result).hasContentsInOrder("foo", "bar", "baz");
+    String[] result = ObjectArrays.concat(new String[] { "foo", "bar" }, "baz");
+    ASSERT.that(result).has().exactly("foo", "bar", "baz").inOrder();
+  }
+
+  public void testEmptyArrayToEmpty() {
+    doTestNewArrayEquals(new Object[0], 0);
+  }
+
+  public void testEmptyArrayToNonEmpty() {
+    checkArrayEquals(new Long[5], ObjectArrays.newArray(new Long[0], 5));
+  }
+
+  public void testNonEmptyToShorter() {
+    checkArrayEquals(new String[9], ObjectArrays.newArray(new String[10], 9));
+  }
+
+  public void testNonEmptyToSameLength() {
+    doTestNewArrayEquals(new String[10], 10);
+  }
+
+  public void testNonEmptyToLonger() {
+    checkArrayEquals(new String[10],
+        ObjectArrays.newArray(new String[] { "a", "b", "c", "d", "e" }, 10));
+  }
+
+  private static void checkArrayEquals(Object[] expected, Object[] actual) {
+    assertTrue("expected(" + expected.getClass() + "): " + Arrays.toString(expected)
+        + " actual(" + actual.getClass() + "): " + Arrays.toString(actual),
+        arrayEquals(expected, actual));
+  }
+
+  private static boolean arrayEquals(Object[] array1, Object[] array2) {
+    assertSame(array1.getClass(), array2.getClass());
+    return Arrays.equals(array1, array2);
+  }
+
+  private static void doTestNewArrayEquals(Object[] expected, int length) {
+    checkArrayEquals(expected, ObjectArrays.newArray(expected, length));
   }
 }

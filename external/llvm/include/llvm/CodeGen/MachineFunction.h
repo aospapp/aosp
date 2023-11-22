@@ -21,6 +21,7 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/ArrayRecycler.h"
 #include "llvm/Support/Recycler.h"
@@ -38,6 +39,7 @@ class MachineModuleInfo;
 class MCContext;
 class Pass;
 class TargetMachine;
+class TargetSubtargetInfo;
 class TargetRegisterClass;
 struct MachinePointerInfo;
 
@@ -70,15 +72,24 @@ private:
 /// MachineFunction is destroyed.
 struct MachineFunctionInfo {
   virtual ~MachineFunctionInfo();
+
+  /// \brief Factory function: default behavior is to call new using the
+  /// supplied allocator.
+  ///
+  /// This function can be overridden in a derive class.
+  template<typename Ty>
+  static Ty *create(BumpPtrAllocator &Allocator, MachineFunction &MF) {
+    return new (Allocator.Allocate<Ty>()) Ty(MF);
+  }
 };
 
 class MachineFunction {
   const Function *Fn;
   const TargetMachine &Target;
+  const TargetSubtargetInfo *STI;
   MCContext &Ctx;
   MachineModuleInfo &MMI;
-  GCModuleInfo *GMI;
-  
+
   // RegInfo - Information about each register in use in the function.
   MachineRegisterInfo *RegInfo;
 
@@ -134,16 +145,14 @@ class MachineFunction {
   /// True if the function includes any inline assembly.
   bool HasInlineAsm;
 
-  MachineFunction(const MachineFunction &) LLVM_DELETED_FUNCTION;
-  void operator=(const MachineFunction&) LLVM_DELETED_FUNCTION;
+  MachineFunction(const MachineFunction &) = delete;
+  void operator=(const MachineFunction&) = delete;
 public:
   MachineFunction(const Function *Fn, const TargetMachine &TM,
-                  unsigned FunctionNum, MachineModuleInfo &MMI,
-                  GCModuleInfo* GMI);
+                  unsigned FunctionNum, MachineModuleInfo &MMI);
   ~MachineFunction();
 
   MachineModuleInfo &getMMI() const { return MMI; }
-  GCModuleInfo *getGMI() const { return GMI; }
   MCContext &getContext() const { return Ctx; }
 
   /// getFunction - Return the LLVM function that this machine code represents
@@ -161,6 +170,18 @@ public:
   /// getTarget - Return the target machine this machine code is compiled with
   ///
   const TargetMachine &getTarget() const { return Target; }
+
+  /// getSubtarget - Return the subtarget for which this machine code is being
+  /// compiled.
+  const TargetSubtargetInfo &getSubtarget() const { return *STI; }
+  void setSubtarget(const TargetSubtargetInfo *ST) { STI = ST; }
+
+  /// getSubtarget - This method returns a pointer to the specified type of
+  /// TargetSubtargetInfo.  In debug builds, it verifies that the object being
+  /// returned is of the correct type.
+  template<typename STC> const STC &getSubtarget() const {
+    return *static_cast<const STC *>(STI);
+  }
 
   /// getRegInfo - Return information about the registers currently in use.
   ///
@@ -227,19 +248,14 @@ public:
   void setHasInlineAsm(bool B) {
     HasInlineAsm = B;
   }
-  
+
   /// getInfo - Keep track of various per-function pieces of information for
   /// backends that would like to do so.
   ///
   template<typename Ty>
   Ty *getInfo() {
-    if (!MFInfo) {
-        // This should be just `new (Allocator.Allocate<Ty>()) Ty(*this)', but
-        // that apparently breaks GCC 3.3.
-        Ty *Loc = static_cast<Ty*>(Allocator.Allocate(sizeof(Ty),
-                                                      AlignOf<Ty>::Alignment));
-        MFInfo = new (Loc) Ty(*this);
-    }
+    if (!MFInfo)
+      MFInfo = Ty::template create<Ty>(Allocator, *this);
     return static_cast<Ty*>(MFInfo);
   }
 
@@ -404,7 +420,7 @@ public:
   MachineMemOperand *getMachineMemOperand(MachinePointerInfo PtrInfo,
                                           unsigned f, uint64_t s,
                                           unsigned base_alignment,
-                                          const MDNode *TBAAInfo = nullptr,
+                                          const AAMDNodes &AAInfo = AAMDNodes(),
                                           const MDNode *Ranges = nullptr);
   
   /// getMachineMemOperand - Allocate a new MachineMemOperand by copying

@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "arm64_lir.h"
 #include "codegen_arm64.h"
+
+#include "arm64_lir.h"
+#include "base/logging.h"
 #include "dex/quick/mir_to_lir-inl.h"
 #include "dex/reg_storage_eq.h"
 
@@ -89,9 +91,9 @@ int32_t Arm64Mir2Lir::EncodeImmDouble(uint64_t bits) {
 
 size_t Arm64Mir2Lir::GetLoadStoreSize(LIR* lir) {
   bool opcode_is_wide = IS_WIDE(lir->opcode);
-  ArmOpcode opcode = UNWIDE(lir->opcode);
+  A64Opcode opcode = UNWIDE(lir->opcode);
   DCHECK(!IsPseudoLirOp(opcode));
-  const ArmEncodingMap *encoder = &EncodingMap[opcode];
+  const A64EncodingMap *encoder = &EncodingMap[opcode];
   uint32_t bits = opcode_is_wide ? encoder->xskeleton : encoder->wskeleton;
   return (bits >> 30);
 }
@@ -119,7 +121,7 @@ LIR* Arm64Mir2Lir::LoadFPConstantValue(RegStorage r_dest, int32_t value) {
   }
 
   LIR* data_target = ScanLiteralPool(literal_list_, value, 0);
-  if (data_target == NULL) {
+  if (data_target == nullptr) {
     // Wide, as we need 8B alignment.
     data_target = AddWideData(&literal_list_, value, 0);
   }
@@ -138,7 +140,7 @@ LIR* Arm64Mir2Lir::LoadFPConstantValueWide(RegStorage r_dest, int64_t value) {
   } else {
     int32_t encoded_imm = EncodeImmDouble(value);
     if (encoded_imm >= 0) {
-      return NewLIR2(FWIDE(kA64Fmov2fI), r_dest.GetReg(), encoded_imm);
+      return NewLIR2(WIDE(kA64Fmov2fI), r_dest.GetReg(), encoded_imm);
     }
   }
 
@@ -146,12 +148,12 @@ LIR* Arm64Mir2Lir::LoadFPConstantValueWide(RegStorage r_dest, int64_t value) {
   int32_t val_lo = Low32Bits(value);
   int32_t val_hi = High32Bits(value);
   LIR* data_target = ScanLiteralPoolWide(literal_list_, val_lo, val_hi);
-  if (data_target == NULL) {
+  if (data_target == nullptr) {
     data_target = AddWideData(&literal_list_, val_lo, val_hi);
   }
 
   ScopedMemRefType mem_ref_type(this, ResourceMask::kLiteral);
-  LIR* load_pc_rel = RawLIR(current_dalvik_offset_, FWIDE(kA64Ldr2fp),
+  LIR* load_pc_rel = RawLIR(current_dalvik_offset_, WIDE(kA64Ldr2fp),
                             r_dest.GetReg(), 0, 0, 0, 0, data_target);
   AppendLIR(load_pc_rel);
   return load_pc_rel;
@@ -306,7 +308,7 @@ static int GetNumFastHalfWords(uint64_t value) {
 // algorithm will give it a low priority for promotion, even when it is referenced many times in
 // the code.
 
-bool Arm64Mir2Lir::InexpensiveConstantInt(int32_t value) {
+bool Arm64Mir2Lir::InexpensiveConstantInt(int32_t value ATTRIBUTE_UNUSED) {
   // A 32-bit int can always be loaded with 2 instructions (and without using the literal pool).
   // We therefore return true and give it a low priority for promotion.
   return true;
@@ -415,7 +417,7 @@ LIR* Arm64Mir2Lir::LoadConstantNoClobber(RegStorage r_dest, int value) {
     // 1 instruction is enough to load the immediate.
     if (LIKELY(low_bits == high_bits)) {
       // Value is either 0 or -1: we can just use wzr.
-      ArmOpcode opcode = LIKELY(low_bits == 0) ? kA64Mov2rr : kA64Mvn2rr;
+      A64Opcode opcode = LIKELY(low_bits == 0) ? kA64Mov2rr : kA64Mvn2rr;
       res = NewLIR2(opcode, r_dest.GetReg(), rwzr);
     } else {
       uint16_t uniform_bits, useful_bits;
@@ -466,7 +468,7 @@ LIR* Arm64Mir2Lir::LoadConstantWide(RegStorage r_dest, int64_t value) {
 
   if (LIKELY(value == INT64_C(0) || value == INT64_C(-1))) {
     // value is either 0 or -1: we can just use xzr.
-    ArmOpcode opcode = LIKELY(value == 0) ? WIDE(kA64Mov2rr) : WIDE(kA64Mvn2rr);
+    A64Opcode opcode = LIKELY(value == 0) ? WIDE(kA64Mov2rr) : WIDE(kA64Mvn2rr);
     return NewLIR2(opcode, r_dest.GetReg(), rxzr);
   }
 
@@ -486,7 +488,7 @@ LIR* Arm64Mir2Lir::LoadConstantWide(RegStorage r_dest, int64_t value) {
 
   if (num_slow_halfwords <= max_num_ops_per_const_load) {
     // We can encode the number using a movz/movn followed by one or more movk.
-    ArmOpcode op;
+    A64Opcode op;
     uint16_t background;
     LIR* res = nullptr;
 
@@ -523,7 +525,7 @@ LIR* Arm64Mir2Lir::LoadConstantWide(RegStorage r_dest, int64_t value) {
   int32_t val_lo = Low32Bits(value);
   int32_t val_hi = High32Bits(value);
   LIR* data_target = ScanLiteralPoolWide(literal_list_, val_lo, val_hi);
-  if (data_target == NULL) {
+  if (data_target == nullptr) {
     data_target = AddWideData(&literal_list_, val_lo, val_hi);
   }
 
@@ -548,15 +550,11 @@ LIR* Arm64Mir2Lir::OpCondBranch(ConditionCode cc, LIR* target) {
 }
 
 LIR* Arm64Mir2Lir::OpReg(OpKind op, RegStorage r_dest_src) {
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
   switch (op) {
     case kOpBlx:
       opcode = kA64Blr1x;
       break;
-    // TODO(Arm64): port kThumbBx.
-    // case kOpBx:
-    //   opcode = kThumbBx;
-    //   break;
     default:
       LOG(FATAL) << "Bad opcode " << op;
   }
@@ -564,9 +562,9 @@ LIR* Arm64Mir2Lir::OpReg(OpKind op, RegStorage r_dest_src) {
 }
 
 LIR* Arm64Mir2Lir::OpRegRegShift(OpKind op, RegStorage r_dest_src1, RegStorage r_src2, int shift) {
-  ArmOpcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
+  A64Opcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
   CHECK_EQ(r_dest_src1.Is64Bit(), r_src2.Is64Bit());
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
 
   switch (op) {
     case kOpCmn:
@@ -591,13 +589,11 @@ LIR* Arm64Mir2Lir::OpRegRegShift(OpKind op, RegStorage r_dest_src1, RegStorage r
       DCHECK_EQ(shift, 0);
       // Binary, but rm is encoded twice.
       return NewLIR2(kA64Rev2rr | wide, r_dest_src1.GetReg(), r_src2.GetReg());
-      break;
     case kOpRevsh:
       // Binary, but rm is encoded twice.
       NewLIR2(kA64Rev162rr | wide, r_dest_src1.GetReg(), r_src2.GetReg());
       // "sxth r1, r2" is "sbfm r1, r2, #0, #15"
       return NewLIR4(kA64Sbfm4rrdd | wide, r_dest_src1.GetReg(), r_dest_src1.GetReg(), 0, 15);
-      break;
     case kOp2Byte:
       DCHECK_EQ(shift, ENCODE_NO_SHIFT);
       // "sbfx r1, r2, #imm1, #imm2" is "sbfm r1, r2, #imm1, #(imm1 + imm2 - 1)".
@@ -621,20 +617,20 @@ LIR* Arm64Mir2Lir::OpRegRegShift(OpKind op, RegStorage r_dest_src1, RegStorage r
     DCHECK_EQ(shift, ENCODE_NO_SHIFT);
     return NewLIR2(opcode | wide, r_dest_src1.GetReg(), r_src2.GetReg());
   } else if (EncodingMap[opcode].flags & IS_TERTIARY_OP) {
-    ArmEncodingKind kind = EncodingMap[opcode].field_loc[2].kind;
+    A64EncodingKind kind = EncodingMap[opcode].field_loc[2].kind;
     if (kind == kFmtShift) {
       return NewLIR3(opcode | wide, r_dest_src1.GetReg(), r_src2.GetReg(), shift);
     }
   }
 
   LOG(FATAL) << "Unexpected encoding operand count";
-  return NULL;
+  return nullptr;
 }
 
 LIR* Arm64Mir2Lir::OpRegRegExtend(OpKind op, RegStorage r_dest_src1, RegStorage r_src2,
                                   A64RegExtEncodings ext, uint8_t amount) {
-  ArmOpcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
+  A64Opcode opcode = kA64Brk1d;
 
   switch (op) {
     case kOpCmn:
@@ -647,15 +643,14 @@ LIR* Arm64Mir2Lir::OpRegRegExtend(OpKind op, RegStorage r_dest_src1, RegStorage 
       // Note: intentional fallthrough
     case kOpSub:
       return OpRegRegRegExtend(op, r_dest_src1, r_dest_src1, r_src2, ext, amount);
-      break;
     default:
       LOG(FATAL) << "Bad Opcode: " << opcode;
-      break;
+      UNREACHABLE();
   }
 
   DCHECK(!IsPseudoLirOp(opcode));
   if (EncodingMap[opcode].flags & IS_TERTIARY_OP) {
-    ArmEncodingKind kind = EncodingMap[opcode].field_loc[2].kind;
+    A64EncodingKind kind = EncodingMap[opcode].field_loc[2].kind;
     if (kind == kFmtExtend) {
       return NewLIR3(opcode | wide, r_dest_src1.GetReg(), r_src2.GetReg(),
                      EncodeExtend(ext, amount));
@@ -663,7 +658,7 @@ LIR* Arm64Mir2Lir::OpRegRegExtend(OpKind op, RegStorage r_dest_src1, RegStorage 
   }
 
   LOG(FATAL) << "Unexpected encoding operand count";
-  return NULL;
+  return nullptr;
 }
 
 LIR* Arm64Mir2Lir::OpRegReg(OpKind op, RegStorage r_dest_src1, RegStorage r_src2) {
@@ -677,24 +672,29 @@ LIR* Arm64Mir2Lir::OpRegReg(OpKind op, RegStorage r_dest_src1, RegStorage r_src2
   }
 }
 
-LIR* Arm64Mir2Lir::OpMovRegMem(RegStorage r_dest, RegStorage r_base, int offset, MoveType move_type) {
+LIR* Arm64Mir2Lir::OpMovRegMem(RegStorage r_dest, RegStorage r_base, int offset,
+                               MoveType move_type) {
+  UNUSED(r_dest, r_base, offset, move_type);
   UNIMPLEMENTED(FATAL);
-  return nullptr;
+  UNREACHABLE();
 }
 
-LIR* Arm64Mir2Lir::OpMovMemReg(RegStorage r_base, int offset, RegStorage r_src, MoveType move_type) {
+LIR* Arm64Mir2Lir::OpMovMemReg(RegStorage r_base, int offset, RegStorage r_src,
+                               MoveType move_type) {
+  UNUSED(r_base, offset, r_src, move_type);
   UNIMPLEMENTED(FATAL);
   return nullptr;
 }
 
 LIR* Arm64Mir2Lir::OpCondRegReg(OpKind op, ConditionCode cc, RegStorage r_dest, RegStorage r_src) {
+  UNUSED(op, cc, r_dest, r_src);
   LOG(FATAL) << "Unexpected use of OpCondRegReg for Arm64";
-  return NULL;
+  UNREACHABLE();
 }
 
 LIR* Arm64Mir2Lir::OpRegRegRegShift(OpKind op, RegStorage r_dest, RegStorage r_src1,
                                     RegStorage r_src2, int shift) {
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
 
   switch (op) {
     case kOpAdd:
@@ -747,7 +747,7 @@ LIR* Arm64Mir2Lir::OpRegRegRegShift(OpKind op, RegStorage r_dest, RegStorage r_s
   // The instructions above belong to two kinds:
   // - 4-operands instructions, where the last operand is a shift/extend immediate,
   // - 3-operands instructions with no shift/extend.
-  ArmOpcode widened_opcode = r_dest.Is64Bit() ? WIDE(opcode) : opcode;
+  A64Opcode widened_opcode = r_dest.Is64Bit() ? WIDE(opcode) : opcode;
   CHECK_EQ(r_dest.Is64Bit(), r_src1.Is64Bit());
   CHECK_EQ(r_dest.Is64Bit(), r_src2.Is64Bit());
   if (EncodingMap[opcode].flags & IS_QUAD_OP) {
@@ -762,7 +762,7 @@ LIR* Arm64Mir2Lir::OpRegRegRegShift(OpKind op, RegStorage r_dest, RegStorage r_s
 
 LIR* Arm64Mir2Lir::OpRegRegRegExtend(OpKind op, RegStorage r_dest, RegStorage r_src1,
                                      RegStorage r_src2, A64RegExtEncodings ext, uint8_t amount) {
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
 
   switch (op) {
     case kOpAdd:
@@ -772,10 +772,10 @@ LIR* Arm64Mir2Lir::OpRegRegRegExtend(OpKind op, RegStorage r_dest, RegStorage r_
       opcode = kA64Sub4RRre;
       break;
     default:
-      LOG(FATAL) << "Unimplemented opcode: " << op;
-      break;
+      UNIMPLEMENTED(FATAL) << "Unimplemented opcode: " << op;
+      UNREACHABLE();
   }
-  ArmOpcode widened_opcode = r_dest.Is64Bit() ? WIDE(opcode) : opcode;
+  A64Opcode widened_opcode = r_dest.Is64Bit() ? WIDE(opcode) : opcode;
 
   if (r_dest.Is64Bit()) {
     CHECK(r_src1.Is64Bit());
@@ -810,11 +810,11 @@ LIR* Arm64Mir2Lir::OpRegRegImm64(OpKind op, RegStorage r_dest, RegStorage r_src1
   LIR* res;
   bool neg = (value < 0);
   uint64_t abs_value = (neg & !(value == LLONG_MIN)) ? -value : value;
-  ArmOpcode opcode = kA64Brk1d;
-  ArmOpcode alt_opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
+  A64Opcode alt_opcode = kA64Brk1d;
   bool is_logical = false;
   bool is_wide = r_dest.Is64Bit();
-  ArmOpcode wide = (is_wide) ? WIDE(0) : UNWIDE(0);
+  A64Opcode wide = (is_wide) ? WIDE(0) : UNWIDE(0);
   int info = 0;
 
   switch (op) {
@@ -837,7 +837,7 @@ LIR* Arm64Mir2Lir::OpRegRegImm64(OpKind op, RegStorage r_dest, RegStorage r_src1
                      value);
     case kOpAdd:
       neg = !neg;
-      // Note: intentional fallthrough
+      FALLTHROUGH_INTENDED;
     case kOpSub:
       // Add and sub below read/write sp rather than xzr.
       if (abs_value < 0x1000) {
@@ -937,9 +937,9 @@ LIR* Arm64Mir2Lir::OpRegImm(OpKind op, RegStorage r_dest_src1, int value) {
 }
 
 LIR* Arm64Mir2Lir::OpRegImm64(OpKind op, RegStorage r_dest_src1, int64_t value) {
-  ArmOpcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
-  ArmOpcode opcode = kA64Brk1d;
-  ArmOpcode neg_opcode = kA64Brk1d;
+  A64Opcode wide = (r_dest_src1.Is64Bit()) ? WIDE(0) : UNWIDE(0);
+  A64Opcode opcode = kA64Brk1d;
+  A64Opcode neg_opcode = kA64Brk1d;
   bool shift;
   bool neg = (value < 0);
   uint64_t abs_value = (neg & !(value == LLONG_MIN)) ? -value : value;
@@ -1025,7 +1025,7 @@ LIR* Arm64Mir2Lir::LoadBaseIndexed(RegStorage r_base, RegStorage r_index, RegSto
                                    int scale, OpSize size) {
   LIR* load;
   int expected_scale = 0;
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
   r_base = Check64BitReg(r_base);
 
   // TODO(Arm64): The sign extension of r_index should be carried out by using an extended
@@ -1040,7 +1040,7 @@ LIR* Arm64Mir2Lir::LoadBaseIndexed(RegStorage r_base, RegStorage r_index, RegSto
     if (r_dest.IsDouble()) {
       DCHECK(size == k64 || size == kDouble);
       expected_scale = 3;
-      opcode = FWIDE(kA64Ldr4fXxG);
+      opcode = WIDE(kA64Ldr4fXxG);
     } else {
       DCHECK(r_dest.IsSingle());
       DCHECK(size == k32 || size == kSingle);
@@ -1061,9 +1061,11 @@ LIR* Arm64Mir2Lir::LoadBaseIndexed(RegStorage r_base, RegStorage r_index, RegSto
       opcode = WIDE(kA64Ldr4rXxG);
       expected_scale = 3;
       break;
-    case kSingle:     // Intentional fall-through.
-    case k32:         // Intentional fall-through.
     case kReference:
+      r_dest = As32BitReg(r_dest);
+      FALLTHROUGH_INTENDED;
+    case kSingle:     // Intentional fall-through.
+    case k32:
       r_dest = Check32BitReg(r_dest);
       opcode = kA64Ldr4rXxG;
       expected_scale = 2;
@@ -1104,16 +1106,11 @@ LIR* Arm64Mir2Lir::LoadBaseIndexed(RegStorage r_base, RegStorage r_index, RegSto
   return load;
 }
 
-LIR* Arm64Mir2Lir::LoadRefIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_dest,
-                                  int scale) {
-  return LoadBaseIndexed(r_base, r_index, As32BitReg(r_dest), scale, kReference);
-}
-
 LIR* Arm64Mir2Lir::StoreBaseIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_src,
                                     int scale, OpSize size) {
   LIR* store;
   int expected_scale = 0;
-  ArmOpcode opcode = kA64Brk1d;
+  A64Opcode opcode = kA64Brk1d;
   r_base = Check64BitReg(r_base);
 
   // TODO(Arm64): The sign extension of r_index should be carried out by using an extended
@@ -1128,7 +1125,7 @@ LIR* Arm64Mir2Lir::StoreBaseIndexed(RegStorage r_base, RegStorage r_index, RegSt
     if (r_src.IsDouble()) {
       DCHECK(size == k64 || size == kDouble);
       expected_scale = 3;
-      opcode = FWIDE(kA64Str4fXxG);
+      opcode = WIDE(kA64Str4fXxG);
     } else {
       DCHECK(r_src.IsSingle());
       DCHECK(size == k32 || size == kSingle);
@@ -1149,9 +1146,11 @@ LIR* Arm64Mir2Lir::StoreBaseIndexed(RegStorage r_base, RegStorage r_index, RegSt
       opcode = WIDE(kA64Str4rXxG);
       expected_scale = 3;
       break;
-    case kSingle:     // Intentional fall-trough.
-    case k32:         // Intentional fall-trough.
     case kReference:
+      r_src = As32BitReg(r_src);
+      FALLTHROUGH_INTENDED;
+    case kSingle:     // Intentional fall-trough.
+    case k32:
       r_src = Check32BitReg(r_src);
       opcode = kA64Str4rXxG;
       expected_scale = 2;
@@ -1184,11 +1183,6 @@ LIR* Arm64Mir2Lir::StoreBaseIndexed(RegStorage r_base, RegStorage r_index, RegSt
   return store;
 }
 
-LIR* Arm64Mir2Lir::StoreRefIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_src,
-                                   int scale) {
-  return StoreBaseIndexed(r_base, r_index, As32BitReg(r_src), scale, kReference);
-}
-
 /*
  * Load value from base + displacement.  Optionally perform null check
  * on base (which must have an associated s_reg and MIR).  If not
@@ -1196,9 +1190,9 @@ LIR* Arm64Mir2Lir::StoreRefIndexed(RegStorage r_base, RegStorage r_index, RegSto
  */
 LIR* Arm64Mir2Lir::LoadBaseDispBody(RegStorage r_base, int displacement, RegStorage r_dest,
                                     OpSize size) {
-  LIR* load = NULL;
-  ArmOpcode opcode = kA64Brk1d;
-  ArmOpcode alt_opcode = kA64Brk1d;
+  LIR* load = nullptr;
+  A64Opcode opcode = kA64Brk1d;
+  A64Opcode alt_opcode = kA64Brk1d;
   int scale = 0;
 
   switch (size) {
@@ -1209,16 +1203,18 @@ LIR* Arm64Mir2Lir::LoadBaseDispBody(RegStorage r_base, int displacement, RegStor
       scale = 3;
       if (r_dest.IsFloat()) {
         DCHECK(r_dest.IsDouble());
-        opcode = FWIDE(kA64Ldr3fXD);
-        alt_opcode = FWIDE(kA64Ldur3fXd);
+        opcode = WIDE(kA64Ldr3fXD);
+        alt_opcode = WIDE(kA64Ldur3fXd);
       } else {
         opcode = WIDE(kA64Ldr3rXD);
         alt_opcode = WIDE(kA64Ldur3rXd);
       }
       break;
-    case kSingle:     // Intentional fall-through.
-    case k32:         // Intentional fall-trough.
     case kReference:
+      r_dest = As32BitReg(r_dest);
+      FALLTHROUGH_INTENDED;
+    case kSingle:     // Intentional fall-through.
+    case k32:
       r_dest = Check32BitReg(r_dest);
       scale = 2;
       if (r_dest.IsFloat()) {
@@ -1259,13 +1255,15 @@ LIR* Arm64Mir2Lir::LoadBaseDispBody(RegStorage r_base, int displacement, RegStor
     // TODO: cleaner support for index/displacement registers?  Not a reference, but must match width.
     RegStorage r_scratch = AllocTempWide();
     LoadConstantWide(r_scratch, displacement);
-    load = LoadBaseIndexed(r_base, r_scratch, r_dest, 0, size);
+    load = LoadBaseIndexed(r_base, r_scratch,
+                           (size == kReference) ? As64BitReg(r_dest) : r_dest,
+                           0, size);
     FreeTemp(r_scratch);
   }
 
   // TODO: in future may need to differentiate Dalvik accesses w/ spills
   if (mem_ref_type_ == ResourceMask::kDalvikReg) {
-    DCHECK(r_base == rs_sp);
+    DCHECK_EQ(r_base, rs_sp);
     AnnotateDalvikRegAccess(load, displacement >> 2, true /* is_load */, r_dest.Is64Bit());
   }
   return load;
@@ -1286,16 +1284,11 @@ LIR* Arm64Mir2Lir::LoadBaseDisp(RegStorage r_base, int displacement, RegStorage 
   return load;
 }
 
-LIR* Arm64Mir2Lir::LoadRefDisp(RegStorage r_base, int displacement, RegStorage r_dest,
-                               VolatileKind is_volatile) {
-  return LoadBaseDisp(r_base, displacement, As32BitReg(r_dest), kReference, is_volatile);
-}
-
 LIR* Arm64Mir2Lir::StoreBaseDispBody(RegStorage r_base, int displacement, RegStorage r_src,
                                      OpSize size) {
-  LIR* store = NULL;
-  ArmOpcode opcode = kA64Brk1d;
-  ArmOpcode alt_opcode = kA64Brk1d;
+  LIR* store = nullptr;
+  A64Opcode opcode = kA64Brk1d;
+  A64Opcode alt_opcode = kA64Brk1d;
   int scale = 0;
 
   switch (size) {
@@ -1306,16 +1299,18 @@ LIR* Arm64Mir2Lir::StoreBaseDispBody(RegStorage r_base, int displacement, RegSto
       scale = 3;
       if (r_src.IsFloat()) {
         DCHECK(r_src.IsDouble());
-        opcode = FWIDE(kA64Str3fXD);
-        alt_opcode = FWIDE(kA64Stur3fXd);
+        opcode = WIDE(kA64Str3fXD);
+        alt_opcode = WIDE(kA64Stur3fXd);
       } else {
-        opcode = FWIDE(kA64Str3rXD);
-        alt_opcode = FWIDE(kA64Stur3rXd);
+        opcode = WIDE(kA64Str3rXD);
+        alt_opcode = WIDE(kA64Stur3rXd);
       }
       break;
-    case kSingle:     // Intentional fall-through.
-    case k32:         // Intentional fall-trough.
     case kReference:
+      r_src = As32BitReg(r_src);
+      FALLTHROUGH_INTENDED;
+    case kSingle:     // Intentional fall-through.
+    case k32:
       r_src = Check32BitReg(r_src);
       scale = 2;
       if (r_src.IsFloat()) {
@@ -1350,13 +1345,15 @@ LIR* Arm64Mir2Lir::StoreBaseDispBody(RegStorage r_base, int displacement, RegSto
     // Use long sequence.
     RegStorage r_scratch = AllocTempWide();
     LoadConstantWide(r_scratch, displacement);
-    store = StoreBaseIndexed(r_base, r_scratch, r_src, 0, size);
+    store = StoreBaseIndexed(r_base, r_scratch,
+                             (size == kReference) ? As64BitReg(r_src) : r_src,
+                             0, size);
     FreeTemp(r_scratch);
   }
 
   // TODO: In future, may need to differentiate Dalvik & spill accesses.
   if (mem_ref_type_ == ResourceMask::kDalvikReg) {
-    DCHECK(r_base == rs_sp);
+    DCHECK_EQ(r_base, rs_sp);
     AnnotateDalvikRegAccess(store, displacement >> 2, false /* is_load */, r_src.Is64Bit());
   }
   return store;
@@ -1384,22 +1381,21 @@ LIR* Arm64Mir2Lir::StoreBaseDisp(RegStorage r_base, int displacement, RegStorage
   return store;
 }
 
-LIR* Arm64Mir2Lir::StoreRefDisp(RegStorage r_base, int displacement, RegStorage r_src,
-                                VolatileKind is_volatile) {
-  return StoreBaseDisp(r_base, displacement, As32BitReg(r_src), kReference, is_volatile);
-}
-
 LIR* Arm64Mir2Lir::OpFpRegCopy(RegStorage r_dest, RegStorage r_src) {
+  UNUSED(r_dest, r_src);
   LOG(FATAL) << "Unexpected use of OpFpRegCopy for Arm64";
-  return NULL;
+  UNREACHABLE();
 }
 
 LIR* Arm64Mir2Lir::OpMem(OpKind op, RegStorage r_base, int disp) {
+  UNUSED(op, r_base, disp);
   LOG(FATAL) << "Unexpected use of OpMem for Arm64";
-  return NULL;
+  UNREACHABLE();
 }
 
-LIR* Arm64Mir2Lir::InvokeTrampoline(OpKind op, RegStorage r_tgt, QuickEntrypointEnum trampoline) {
+LIR* Arm64Mir2Lir::InvokeTrampoline(OpKind op, RegStorage r_tgt,
+                                    QuickEntrypointEnum trampoline ATTRIBUTE_UNUSED) {
+  // The address of the trampoline is already loaded into r_tgt.
   return OpReg(op, r_tgt);
 }
 

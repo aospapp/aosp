@@ -23,6 +23,7 @@ import org.bouncycastle.asn1.cms.SignerInfo;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.SignatureAlgorithmIdentifierFinder;
+import org.bouncycastle.util.Encodable;
 import org.bouncycastle.util.Store;
 
 /**
@@ -54,6 +55,7 @@ import org.bouncycastle.util.Store;
  * </pre>
  */
 public class CMSSignedData
+    implements Encodable
 {
     private static final CMSSignedHelper HELPER = CMSSignedHelper.INSTANCE;
     
@@ -347,7 +349,7 @@ public class CMSSignedData
     // {
     //     return verifySignatures(verifierProvider, false);
     // }
-    //
+    // 
     // /**
     //  * Verify all the SignerInformation objects and optionally their associated counter signatures attached
     //  * to this CMS SignedData object.
@@ -361,30 +363,27 @@ public class CMSSignedData
     //     throws CMSException
     // {
     //     Collection signers = this.getSignerInfos().getSigners();
-    //
+    // 
     //     for (Iterator it = signers.iterator(); it.hasNext();)
     //     {
     //         SignerInformation signer = (SignerInformation)it.next();
-    //
+    // 
     //         try
     //         {
     //             SignerInformationVerifier verifier = verifierProvider.get(signer.getSID());
-    //
+    // 
     //             if (!signer.verify(verifier))
     //             {
     //                 return false;
     //             }
-    //
+    // 
     //             if (!ignoreCounterSignatures)
     //             {
     //                 Collection counterSigners = signer.getCounterSignatures().getSigners();
-    //
+    // 
     //                 for  (Iterator cIt = counterSigners.iterator(); cIt.hasNext();)
     //                 {
-    //                     SignerInformation counterSigner = (SignerInformation)cIt.next();
-    //                     SignerInformationVerifier counterVerifier = verifierProvider.get(signer.getSID());
-    //
-    //                     if (!counterSigner.verify(counterVerifier))
+    //                     if (!verifyCounterSignature((SignerInformation)cIt.next(), verifierProvider))
     //                     {
     //                         return false;
     //                     }
@@ -396,7 +395,29 @@ public class CMSSignedData
     //             throw new CMSException("failure in verifier provider: " + e.getMessage(), e);
     //         }
     //     }
-    //
+    // 
+    //     return true;
+    // }
+    // 
+    // private boolean verifyCounterSignature(SignerInformation counterSigner, SignerInformationVerifierProvider verifierProvider)
+    //     throws OperatorCreationException, CMSException
+    // {
+    //     SignerInformationVerifier counterVerifier = verifierProvider.get(counterSigner.getSID());
+    // 
+    //     if (!counterSigner.verify(counterVerifier))
+    //     {
+    //         return false;
+    //     }
+    // 
+    //     Collection counterSigners = counterSigner.getCounterSignatures().getSigners();
+    //     for  (Iterator cIt = counterSigners.iterator(); cIt.hasNext();)
+    //     {
+    //         if (!verifyCounterSignature((SignerInformation)cIt.next(), verifierProvider))
+    //         {
+    //             return false;
+    //         }
+    //     }
+    // 
     //     return true;
     // }
     // END android-removed
@@ -475,7 +496,7 @@ public class CMSSignedData
      * @param signedData the signed data object to be used as a base.
      * @param certificates the new certificates to be used.
      * @param attrCerts the new attribute certificates to be used.
-     * @param crls the new CRLs to be used.
+     * @param revocations the new CRLs to be used - a collection of X509CRLHolder objects, OtherRevocationInfoFormat, or both.
      * @return a new signed data object.
      * @exception CMSException if there is an error processing the CertStore
      */
@@ -483,7 +504,7 @@ public class CMSSignedData
         CMSSignedData   signedData,
         Store           certificates,
         Store           attrCerts,
-        Store           crls)
+        Store           revocations)
         throws CMSException
     {
         //
@@ -492,7 +513,7 @@ public class CMSSignedData
         CMSSignedData   cms = new CMSSignedData(signedData);
 
         //
-        // replace the certs and crls in the SignedData object
+        // replace the certs and revocations in the SignedData object
         //
         ASN1Set certSet = null;
         ASN1Set crlSet = null;
@@ -518,9 +539,9 @@ public class CMSSignedData
             }
         }
 
-        if (crls != null)
+        if (revocations != null)
         {
-            ASN1Set set = CMSUtils.createBerSetFromList(CMSUtils.getCRLsFromStore(crls));
+            ASN1Set set = CMSUtils.createBerSetFromList(CMSUtils.getCRLsFromStore(revocations));
 
             if (set.size() != 0)
             {

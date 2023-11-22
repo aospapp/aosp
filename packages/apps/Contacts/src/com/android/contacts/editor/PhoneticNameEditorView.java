@@ -152,11 +152,7 @@ public class PhoneticNameEditorView extends TextFieldsEditorView {
                 || !TextUtils.isEmpty(given);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        // Remove padding below this view.
-        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), 0);
+    public String getPhoneticName() {
+        return getEntry().getAsString(DataKind.PSEUDO_COLUMN_PHONETIC_NAME);
     }
 }

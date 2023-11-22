@@ -27,14 +27,12 @@ libgtest_test_common_includes := \
     $(LOCAL_PATH)/../include \
     $(LOCAL_PATH)/..
 
-libgtest_test_includes := $(libgtest_test_common_includes) bionic external/stlport/stlport
+libgtest_test_includes := $(libgtest_test_common_includes)
 libgtest_test_static_lib := libgtest_main libgtest
-libgtest_test_shared_lib := libstlport
 libgtest_test_ldflags :=
 
 libgtest_test_host_includes := $(libgtest_test_common_includes)
 libgtest_test_host_static_lib := libgtest_main_host libgtest_host
-libgtest_test_host_shared_lib :=
 libgtest_test_host_ldflags := -lpthread
 
 # $(2) and $(4) must be set or cleared in sync. $(2) is used to
@@ -51,6 +49,7 @@ libgtest_test_host_ldflags := -lpthread
 define _define-test
 $(foreach file,$(1), \
   $(eval include $(CLEAR_VARS)) \
+  $(eval LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk) \
   $(eval LOCAL_CPP_EXTENSION := .cc) \
   $(eval LOCAL_SRC_FILES := $(file)) \
   $(eval LOCAL_C_INCLUDES := $(libgtest_test$(4)_includes)) \

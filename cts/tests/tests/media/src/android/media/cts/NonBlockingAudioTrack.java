@@ -21,6 +21,7 @@ import android.media.AudioTrack;
 import android.media.AudioAttributes;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 
 /**
@@ -32,20 +33,16 @@ import java.util.LinkedList;
 public class NonBlockingAudioTrack {
     private static final String TAG = NonBlockingAudioTrack.class.getSimpleName();
 
-    class QueueElem {
-        byte[] data;
-        int offset;
+    class QueueElement {
+        ByteBuffer data;
         int size;
+        long pts;
     }
 
     private AudioTrack mAudioTrack;
-    private boolean mWriteMorePending = false;
     private int mSampleRate;
-    private int mFrameSize;
-    private int mBufferSizeInFrames;
-    private int mNumFramesSubmitted = 0;
     private int mNumBytesQueued = 0;
-    private LinkedList<QueueElem> mQueue = new LinkedList<QueueElem>();
+    private LinkedList<QueueElement> mQueue = new LinkedList<QueueElement>();
 
     public NonBlockingAudioTrack(int sampleRate, int channelCount, boolean hwAvSync,
                     int audioSessionId) {
@@ -97,8 +94,6 @@ public class NonBlockingAudioTrack {
         }
 
         mSampleRate = sampleRate;
-        mFrameSize = 2 * channelCount;
-        mBufferSizeInFrames = bufferSize / mFrameSize;
     }
 
     public long getAudioTimeUs() {
@@ -116,18 +111,13 @@ public class NonBlockingAudioTrack {
     }
 
     public void stop() {
-        cancelWriteMore();
-
         mAudioTrack.stop();
 
-        mNumFramesSubmitted = 0;
         mQueue.clear();
         mNumBytesQueued = 0;
     }
 
     public void pause() {
-        cancelWriteMore();
-
         mAudioTrack.pause();
     }
 
@@ -136,95 +126,48 @@ public class NonBlockingAudioTrack {
             return;
         }
         mAudioTrack.flush();
-        mNumFramesSubmitted = 0;
         mQueue.clear();
         mNumBytesQueued = 0;
     }
 
     public void release() {
-        cancelWriteMore();
-
+        mQueue.clear();
+        mNumBytesQueued = 0;
         mAudioTrack.release();
         mAudioTrack = null;
     }
 
     public void process() {
-        mWriteMorePending = false;
-        writeMore();
+        while (!mQueue.isEmpty()) {
+            QueueElement element = mQueue.peekFirst();
+            int written = mAudioTrack.write(element.data, element.size,
+                                            AudioTrack.WRITE_NON_BLOCKING, element.pts);
+            if (written < 0) {
+                throw new RuntimeException("Audiotrack.write() failed.");
+            }
+
+            mNumBytesQueued -= written;
+            element.size -= written;
+            if (element.size != 0) {
+                break;
+            }
+            mQueue.removeFirst();
+        }
     }
 
     public int getPlayState() {
         return mAudioTrack.getPlayState();
     }
 
-    private void writeMore() {
-        if (mQueue.isEmpty()) {
-            return;
-        }
-
-        int numFramesPlayed = mAudioTrack.getPlaybackHeadPosition();
-        int numFramesPending = mNumFramesSubmitted - numFramesPlayed;
-        int numFramesAvailableToWrite = mBufferSizeInFrames - numFramesPending;
-        int numBytesAvailableToWrite = numFramesAvailableToWrite * mFrameSize;
-
-        while (numBytesAvailableToWrite > 0) {
-            QueueElem elem = mQueue.peekFirst();
-
-            int numBytes = elem.size;
-            if (numBytes > numBytesAvailableToWrite) {
-                numBytes = numBytesAvailableToWrite;
-            }
-
-            int written = mAudioTrack.write(elem.data, elem.offset, numBytes);
-            assert(written == numBytes);
-
-            mNumFramesSubmitted += written / mFrameSize;
-
-            elem.size -= numBytes;
-            numBytesAvailableToWrite -= numBytes;
-            mNumBytesQueued -= numBytes;
-
-            if (elem.size == 0) {
-                mQueue.removeFirst();
-
-                if (mQueue.isEmpty()) {
-                    break;
-                }
-            } else {
-                elem.offset += numBytes;
-            }
-        }
-
-        if (!mQueue.isEmpty()) {
-            scheduleWriteMore();
-        }
-    }
-
-    private void scheduleWriteMore() {
-        if (mWriteMorePending) {
-            return;
-        }
-
-        int numFramesPlayed = mAudioTrack.getPlaybackHeadPosition();
-        int numFramesPending = mNumFramesSubmitted - numFramesPlayed;
-        int pendingDurationMs = 1000 * numFramesPending / mSampleRate;
-
-        mWriteMorePending = true;
-    }
-
-    private void cancelWriteMore() {
-        mWriteMorePending = false;
-    }
-
-    public void write(byte[] data, int size) {
-        QueueElem elem = new QueueElem();
-        elem.data = data;
-        elem.offset = 0;
-        elem.size = size;
+    public void write(ByteBuffer data, int size, long pts) {
+        QueueElement element = new QueueElement();
+        element.data = data;
+        element.size = size;
+        element.pts  = pts;
 
         // accumulate size written to queue
         mNumBytesQueued += size;
-        mQueue.add(elem);
+        mQueue.add(element);
     }
 }
 

@@ -52,7 +52,6 @@ public class ZipEntry implements ZipConstants, Cloneable {
 
     byte[] extra;
 
-    int nameLength = -1;
     long localHeaderRelOffset = -1;
 
     long dataOffset = -1;
@@ -67,9 +66,10 @@ public class ZipEntry implements ZipConstants, Cloneable {
      */
     public static final int STORED = 0;
 
-    ZipEntry(String name, String comment, long crc, long compressedSize,
+    /** @hide - for testing only */
+    public ZipEntry(String name, String comment, long crc, long compressedSize,
             long size, int compressionMethod, int time, int modDate, byte[] extra,
-            int nameLength, long localHeaderRelOffset, long dataOffset) {
+            long localHeaderRelOffset, long dataOffset) {
         this.name = name;
         this.comment = comment;
         this.crc = crc;
@@ -79,7 +79,6 @@ public class ZipEntry implements ZipConstants, Cloneable {
         this.time = time;
         this.modDate = modDate;
         this.extra = extra;
-        this.nameLength = nameLength;
         this.localHeaderRelOffset = localHeaderRelOffset;
         this.dataOffset = dataOffset;
     }
@@ -148,6 +147,11 @@ public class ZipEntry implements ZipConstants, Cloneable {
 
     /**
      * Gets the name of this {@code ZipEntry}.
+     *
+     * <p><em>Security note:</em> Entry names can represent relative paths. {@code foo/../bar} or
+     * {@code ../bar/baz}, for example. If the entry name is being used to construct a filename
+     * or as a path component, it must be validated or sanitized to ensure that files are not
+     * written outside of the intended destination directory.
      *
      * @return the entry name.
      */
@@ -265,17 +269,15 @@ public class ZipEntry implements ZipConstants, Cloneable {
     /**
      * Sets the uncompressed size of this {@code ZipEntry}.
      *
-     * @param value
-     *            the uncompressed size for this entry.
-     * @throws IllegalArgumentException
-     *             if {@code value} < 0 or {@code value} > 0xFFFFFFFFL.
+     * @param value the uncompressed size for this entry.
+     * @throws IllegalArgumentException if {@code value < 0}.
      */
     public void setSize(long value) {
-        if (value >= 0 && value <= 0xFFFFFFFFL) {
-            size = value;
-        } else {
+        if (value < 0) {
             throw new IllegalArgumentException("Bad size: " + value);
         }
+
+        size = value;
     }
 
     /**
@@ -340,7 +342,6 @@ public class ZipEntry implements ZipConstants, Cloneable {
         compressionMethod = ze.compressionMethod;
         modDate = ze.modDate;
         extra = ze.extra;
-        nameLength = ze.nameLength;
         localHeaderRelOffset = ze.localHeaderRelOffset;
         dataOffset = ze.dataOffset;
     }
@@ -378,7 +379,7 @@ public class ZipEntry implements ZipConstants, Cloneable {
      * On exit, "in" will be positioned at the start of the next entry
      * in the Central Directory.
      */
-    ZipEntry(byte[] cdeHdrBuf, InputStream cdStream, Charset defaultCharset) throws IOException {
+    ZipEntry(byte[] cdeHdrBuf, InputStream cdStream, Charset defaultCharset, boolean isZip64) throws IOException {
         Streams.readFully(cdStream, cdeHdrBuf, 0, cdeHdrBuf.length);
 
         BufferIterator it = HeapBufferIterator.iterator(cdeHdrBuf, 0, cdeHdrBuf.length,
@@ -412,7 +413,7 @@ public class ZipEntry implements ZipConstants, Cloneable {
         compressedSize = ((long) it.readInt()) & 0xffffffffL;
         size = ((long) it.readInt()) & 0xffffffffL;
 
-        nameLength = it.readShort() & 0xffff;
+        int nameLength = it.readShort() & 0xffff;
         int extraLength = it.readShort() & 0xffff;
         int commentByteCount = it.readShort() & 0xffff;
 
@@ -436,6 +437,10 @@ public class ZipEntry implements ZipConstants, Cloneable {
             byte[] commentBytes = new byte[commentByteCount];
             Streams.readFully(cdStream, commentBytes, 0, commentByteCount);
             comment = new String(commentBytes, 0, commentBytes.length, charset);
+        }
+
+        if (isZip64) {
+            Zip64.parseZip64ExtendedInfo(this, true /* from central directory */);
         }
     }
 

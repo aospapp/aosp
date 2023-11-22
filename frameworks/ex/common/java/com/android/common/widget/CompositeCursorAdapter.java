@@ -233,7 +233,7 @@ public abstract class CompositeCursorAdapter extends BaseAdapter {
      */
     public boolean isPartitionEmpty(int partition) {
         Cursor cursor = mPartitions.get(partition).cursor;
-        return cursor == null || cursor.getCount() == 0;
+        return cursor == null || cursor.isClosed() || cursor.getCount() == 0;
     }
 
     /**

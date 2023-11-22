@@ -16,16 +16,11 @@
 
 SkImageDecoder::SkImageDecoder()
     : fPeeker(NULL)
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-    , fChooser(NULL)
-#endif
     , fAllocator(NULL)
     , fSampleSize(1)
     , fDefaultPref(kUnknown_SkColorType)
+    , fPreserveSrcDepth(false)
     , fDitherImage(true)
-#ifdef SK_SUPPORT_LEGACY_BITMAP_CONFIG
-    , fUsePrefTable(false)
-#endif
     , fSkipWritingZeroes(false)
     , fPreferQualityOverSpeed(false)
     , fRequireUnpremultipliedColors(false) {
@@ -33,9 +28,6 @@ SkImageDecoder::SkImageDecoder()
 
 SkImageDecoder::~SkImageDecoder() {
     SkSafeUnref(fPeeker);
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-    SkSafeUnref(fChooser);
-#endif
     SkSafeUnref(fAllocator);
 }
 
@@ -44,18 +36,9 @@ void SkImageDecoder::copyFieldsToOther(SkImageDecoder* other) {
         return;
     }
     other->setPeeker(fPeeker);
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-    other->setChooser(fChooser);
-#endif
     other->setAllocator(fAllocator);
     other->setSampleSize(fSampleSize);
-#ifdef SK_SUPPORT_LEGACY_BITMAP_CONFIG
-    if (fUsePrefTable) {
-        other->setPrefConfigTable(fPrefTable);
-    } else {
-        other->fDefaultPref = fDefaultPref;
-    }
-#endif
+    other->setPreserveSrcDepth(fPreserveSrcDepth);
     other->setDitherImage(fDitherImage);
     other->setSkipWritingZeroes(fSkipWritingZeroes);
     other->setPreferQualityOverSpeed(fPreferQualityOverSpeed);
@@ -84,6 +67,8 @@ const char* SkImageDecoder::GetFormatName(Format format) {
             return "PKM";
         case kKTX_Format:
             return "KTX";
+        case kASTC_Format:
+            return "ASTC";
         case kJPEG_Format:
             return "JPEG";
         case kPNG_Format:
@@ -103,13 +88,6 @@ SkImageDecoder::Peeker* SkImageDecoder::setPeeker(Peeker* peeker) {
     return peeker;
 }
 
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-SkImageDecoder::Chooser* SkImageDecoder::setChooser(Chooser* chooser) {
-    SkRefCnt_SafeAssign(fChooser, chooser);
-    return chooser;
-}
-#endif
-
 SkBitmap::Allocator* SkImageDecoder::setAllocator(SkBitmap::Allocator* alloc) {
     SkRefCnt_SafeAssign(fAllocator, alloc);
     return alloc;
@@ -122,61 +100,28 @@ void SkImageDecoder::setSampleSize(int size) {
     fSampleSize = size;
 }
 
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-// TODO: change Chooser virtual to take colorType, so we can stop calling SkColorTypeToBitmapConfig
-//
-bool SkImageDecoder::chooseFromOneChoice(SkColorType colorType, int width, int height) const {
-    Chooser* chooser = fChooser;
-    
-    if (NULL == chooser) {    // no chooser, we just say YES to decoding :)
-        return true;
-    }
-    chooser->begin(1);
-    chooser->inspect(0, SkColorTypeToBitmapConfig(colorType), width, height);
-    return chooser->choose() == 0;
-}
-#endif
-
 bool SkImageDecoder::allocPixelRef(SkBitmap* bitmap,
                                    SkColorTable* ctable) const {
-    return bitmap->allocPixels(fAllocator, ctable);
+    return bitmap->tryAllocPixels(fAllocator, ctable);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef SK_SUPPORT_LEGACY_BITMAP_CONFIG
-void SkImageDecoder::setPrefConfigTable(const PrefConfigTable& prefTable) {
-    fUsePrefTable = true;
-    fPrefTable = prefTable;
-}
-#endif
-
-// TODO: use colortype in fPrefTable, fDefaultPref so we can stop using SkBitmapConfigToColorType()
-//
 SkColorType SkImageDecoder::getPrefColorType(SrcDepth srcDepth, bool srcHasAlpha) const {
     SkColorType ct = fDefaultPref;
-#ifdef SK_SUPPORT_LEGACY_BITMAP_CONFIG
-
-    if (fUsePrefTable) {
-        // Until we kill or change the PrefTable, we have to go into Config land for a moment.
-        SkBitmap::Config config = SkBitmap::kNo_Config;
+    if (fPreserveSrcDepth) {
         switch (srcDepth) {
             case kIndex_SrcDepth:
-                config = srcHasAlpha ? fPrefTable.fPrefFor_8Index_YesAlpha_src
-                                     : fPrefTable.fPrefFor_8Index_NoAlpha_src;
+                ct = kIndex_8_SkColorType;
                 break;
             case k8BitGray_SrcDepth:
-                config = fPrefTable.fPrefFor_8Gray_src;
+                ct = kN32_SkColorType;
                 break;
             case k32Bit_SrcDepth:
-                config = srcHasAlpha ? fPrefTable.fPrefFor_8bpc_YesAlpha_src
-                                     : fPrefTable.fPrefFor_8bpc_NoAlpha_src;
+                ct = kN32_SkColorType;
                 break;
         }
-        // now return to SkColorType land
-        ct = SkBitmapConfigToColorType(config);
     }
-#endif
     return ct;
 }
 
@@ -212,6 +157,13 @@ bool SkImageDecoder::buildTileIndex(SkStreamRewindable* stream, int *width, int 
 
     return this->onBuildTileIndex(stream, width, height);
 }
+
+bool SkImageDecoder::onBuildTileIndex(SkStreamRewindable* stream, int* /*width*/,
+                                      int* /*height*/) {
+    SkDELETE(stream);
+    return false;
+}
+
 
 bool SkImageDecoder::cropBitmap(SkBitmap *dst, SkBitmap *src, int sampleSize,
                                 int dstX, int dstY, int width, int height,
@@ -267,10 +219,12 @@ bool SkImageDecoder::DecodeFile(const char file[], SkBitmap* bm, SkColorType pre
     SkASSERT(file);
     SkASSERT(bm);
 
-    SkAutoTUnref<SkStreamRewindable> stream(SkStream::NewFromFile(file));
+    SkAutoTDelete<SkStreamRewindable> stream(SkStream::NewFromFile(file));
     if (stream.get()) {
         if (SkImageDecoder::DecodeStream(stream, bm, pref, mode, format)) {
-            bm->pixelRef()->setURI(file);
+            if (SkPixelRef* pr = bm->pixelRef()) {
+                pr->setURI(file);
+            }
             return true;
         }
     }
@@ -296,8 +250,8 @@ bool SkImageDecoder::DecodeStream(SkStreamRewindable* stream, SkBitmap* bm, SkCo
     bool success = false;
     SkImageDecoder* codec = SkImageDecoder::Factory(stream);
 
-    if (NULL != codec) {
-        success = codec->decode(stream, bm, pref, mode);
+    if (codec) {
+        success = codec->decode(stream, bm, pref, mode) != kFailure;
         if (success && format) {
             *format = codec->getFormat();
             if (kUnknown_Format == *format) {
@@ -309,4 +263,12 @@ bool SkImageDecoder::DecodeStream(SkStreamRewindable* stream, SkBitmap* bm, SkCo
         delete codec;
     }
     return success;
+}
+
+bool SkImageDecoder::decodeYUV8Planes(SkStream* stream, SkISize componentSizes[3], void* planes[3],
+                                      size_t rowBytes[3], SkYUVColorSpace* colorSpace) {
+    // we reset this to false before calling onDecodeYUV8Planes
+    fShouldCancelDecode = false;
+
+    return this->onDecodeYUV8Planes(stream, componentSizes, planes, rowBytes, colorSpace);
 }

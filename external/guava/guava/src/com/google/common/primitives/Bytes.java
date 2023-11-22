@@ -38,6 +38,10 @@ import java.util.RandomAccess;
  * treat bytes as signed or unsigned are found in {@link SignedBytes} and {@link
  * UnsignedBytes}.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/PrimitivesExplained">
+ * primitive utilities</a>.
+ *
  * @author Kevin Bourrillion
  * @since 1.0
  */
@@ -210,20 +214,21 @@ public final class Bytes {
   }
 
   /**
-   * Copies a collection of {@code Byte} instances into a new array of
-   * primitive {@code byte} values.
+   * Returns an array containing each value of {@code collection}, converted to
+   * a {@code byte} value in the manner of {@link Number#byteValue}.
    *
    * <p>Elements are copied from the argument collection as if by {@code
    * collection.toArray()}.  Calling this method is as thread-safe as calling
    * that method.
    *
-   * @param collection a collection of {@code Byte} objects
+   * @param collection a collection of {@code Number} instances
    * @return an array containing the same values as {@code collection}, in the
    *     same order, converted to primitives
    * @throws NullPointerException if {@code collection} or any of its elements
    *     is null
+   * @since 1.0 (parameter was {@code Collection<Byte>} before 12.0)
    */
-  public static byte[] toArray(Collection<Byte> collection) {
+  public static byte[] toArray(Collection<? extends Number> collection) {
     if (collection instanceof ByteArrayAsList) {
       return ((ByteArrayAsList) collection).toByteArray();
     }
@@ -233,7 +238,7 @@ public final class Bytes {
     byte[] array = new byte[len];
     for (int i = 0; i < len; i++) {
       // checkNotNull for GWT (do not optimize)
-      array[i] = (Byte) checkNotNull(boxedArray[i]);
+      array[i] = ((Number) checkNotNull(boxedArray[i])).byteValue();
     }
     return array;
   }
@@ -320,7 +325,8 @@ public final class Bytes {
     @Override public Byte set(int index, Byte element) {
       checkElementIndex(index, size());
       byte oldValue = array[start + index];
-      array[start + index] = checkNotNull(element);  // checkNotNull for GWT (do not optimize)
+      // checkNotNull for GWT (do not optimize)
+      array[start + index] = checkNotNull(element);
       return oldValue;
     }
 
@@ -371,7 +377,7 @@ public final class Bytes {
     }
 
     byte[] toByteArray() {
-      // Arrays.copyOfRange() requires Java 6
+      // Arrays.copyOfRange() is not available under GWT
       int size = size();
       byte[] result = new byte[size];
       System.arraycopy(array, start, result, 0, size);

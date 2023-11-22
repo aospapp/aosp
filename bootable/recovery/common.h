@@ -17,6 +17,7 @@
 #ifndef RECOVERY_COMMON_H
 #define RECOVERY_COMMON_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -39,12 +40,15 @@ extern "C" {
 #define STRINGIFY(x) #x
 #define EXPAND(x) STRINGIFY(x)
 
+extern bool modified_flash;
 typedef struct fstab_rec Volume;
 
 // fopen a file, mounting volumes and making parent dirs as necessary.
 FILE* fopen_path(const char *path, const char *mode);
 
 void ui_print(const char* format, ...);
+
+bool is_ro_debuggable();
 
 #ifdef __cplusplus
 }

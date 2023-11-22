@@ -125,14 +125,14 @@ ihevc_inter_pred_luma_vert_w16inp_av8:
     subs        x7,x3,#0                    //x3->ht
     //ble          end_loops            //end loop jump
     sxtl        v0.8h, v0.8b
-    dup         v22.4h, v0.4h[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)//
-    dup         v23.4h, v0.4h[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)//
-    dup         v24.4h, v0.4h[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)//
-    dup         v25.4h, v0.4h[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)//
-    dup         v26.4h, v0.4h[4]            //coeffabs_4 = vdup_lane_u8(coeffabs, 4)//
-    dup         v27.4h, v0.4h[5]            //coeffabs_5 = vdup_lane_u8(coeffabs, 5)//
-    dup         v28.4h, v0.4h[6]            //coeffabs_6 = vdup_lane_u8(coeffabs, 6)//
-    dup         v29.4h, v0.4h[7]            //coeffabs_7 = vdup_lane_u8(coeffabs, 7)//
+    dup         v22.4h, v0.h[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)//
+    dup         v23.4h, v0.h[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)//
+    dup         v24.4h, v0.h[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)//
+    dup         v25.4h, v0.h[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)//
+    dup         v26.4h, v0.h[4]             //coeffabs_4 = vdup_lane_u8(coeffabs, 4)//
+    dup         v27.4h, v0.h[5]             //coeffabs_5 = vdup_lane_u8(coeffabs, 5)//
+    dup         v28.4h, v0.h[6]             //coeffabs_6 = vdup_lane_u8(coeffabs, 6)//
+    dup         v29.4h, v0.h[7]             //coeffabs_7 = vdup_lane_u8(coeffabs, 7)//
 
     sub         x20,x5,x6,lsl #2            //x6->dst_strd    x5    ->wd
     neg         x9, x20

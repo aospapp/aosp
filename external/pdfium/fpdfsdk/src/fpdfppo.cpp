@@ -4,7 +4,7 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#include "../include/fpdfppo.h"
+#include "../../public/fpdf_ppo.h"
 #include "../include/fsdk_define.h"
 
 class CPDF_PageOrganizer
@@ -49,12 +49,7 @@ FX_BOOL CPDF_PageOrganizer::PDFDocInit(CPDF_Document *pDestPDFDoc, CPDF_Document
 		return FALSE;
 	
 	CFX_ByteString producerstr;
-	
-#ifdef FOXIT_CHROME_BUILD
-	producerstr.Format("Google");
-#else
-	 producerstr.Format("Foxit PDF SDK %s - Foxit Corporation", "2.0");
-#endif
+	producerstr.Format("PDFium");
 	DInfoDict->SetAt("Producer", new CPDF_String(producerstr));
 
 	//Set type////////////////////////////////////////////////////////////////
@@ -64,7 +59,7 @@ FX_BOOL CPDF_PageOrganizer::PDFDocInit(CPDF_Document *pDestPDFDoc, CPDF_Document
 		pNewRoot->SetAt("Type", new CPDF_Name("Catalog"));
 	}
 	
-	CPDF_Dictionary* pNewPages = (CPDF_Dictionary*)pNewRoot->GetElement("Pages")->GetDirect();
+	CPDF_Dictionary* pNewPages = (CPDF_Dictionary*)(pNewRoot->GetElement("Pages")? pNewRoot->GetElement("Pages")->GetDirect() : NULL);
 	if(!pNewPages)
 	{
 		pNewPages = new CPDF_Dictionary;
@@ -183,7 +178,7 @@ FX_BOOL CPDF_PageOrganizer::ExportPage(CPDF_Document *pSrcPDFDoc, CFX_WordArray*
 		FX_DWORD dwOldPageObj = pSrcPageDict->GetObjNum();
 		FX_DWORD dwNewPageObj = pCurPageDict->GetObjNum();
 		
-		pMapPtrToPtr->SetAt((FX_LPVOID)(uintptr_t)dwOldPageObj, (FX_LPVOID)(uintptr_t)dwNewPageObj);
+		pMapPtrToPtr->SetAt((FX_LPVOID)(FX_UINTPTR)dwOldPageObj, (FX_LPVOID)(FX_UINTPTR)dwNewPageObj);
 
 		this->UpdateReference(pCurPageDict, pDestPDFDoc, pMapPtrToPtr);
 		curpage++;
@@ -215,8 +210,11 @@ CPDF_Object* CPDF_PageOrganizer::PageDictGetInheritableTag(CPDF_Dictionary *pDic
 	{
 		if(pp->KeyExist((const char*)nSrctag))	
 			return pp->GetElement((const char*)nSrctag);
-		else if(pp->KeyExist("Parent"))
+		else if (pp->KeyExist("Parent"))
+		{
 			pp = (CPDF_Dictionary*)pp->GetElement("Parent")->GetDirect();
+			if (pp->GetType() == PDFOBJ_NULL) break;
+		}
 		else break;
 	}
 	
@@ -303,15 +301,24 @@ int	CPDF_PageOrganizer::GetNewObjId(CPDF_Document *pDoc, CFX_MapPtrToPtr* pMapPt
 	
 	size_t dwNewObjNum = 0;
 	
-	pMapPtrToPtr->Lookup((FX_LPVOID)(uintptr_t)dwObjnum, (FX_LPVOID&)dwNewObjNum);
+	pMapPtrToPtr->Lookup((FX_LPVOID)dwObjnum, (FX_LPVOID&)dwNewObjNum);
 	if(dwNewObjNum)
 	{
 		return (int)dwNewObjNum;
 	}
 	else
 	{
-		CPDF_Object* pClone  = pRef->GetDirect()->Clone();
-		if(!pClone)			return 0;
+		CPDF_Object* pDirect = pRef->GetDirect();
+		if(!pDirect)
+		{
+			return 0;
+		}
+
+		CPDF_Object* pClone = pDirect->Clone();
+		if(!pClone)
+		{
+			return 0;
+		}
 		
 		if(pClone->GetType() == PDFOBJ_DICTIONARY)
 		{
@@ -332,7 +339,7 @@ int	CPDF_PageOrganizer::GetNewObjId(CPDF_Document *pDoc, CFX_MapPtrToPtr* pMapPt
 			}
 		}
 		dwNewObjNum = pDoc->AddIndirectObject(pClone);//, onum, gnum);
-		pMapPtrToPtr->SetAt((FX_LPVOID)(uintptr_t)dwObjnum, (FX_LPVOID)dwNewObjNum);
+		pMapPtrToPtr->SetAt((FX_LPVOID)dwObjnum, (FX_LPVOID)dwNewObjNum);
 		
 		if(!UpdateReference(pClone, pDoc, pMapPtrToPtr))
 		{

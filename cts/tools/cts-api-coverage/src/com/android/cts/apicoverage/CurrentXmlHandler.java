@@ -40,6 +40,12 @@ class CurrentXmlHandler extends DefaultHandler {
 
     private boolean mCurrentMethodIsAbstract;
 
+    private String mCurrentMethodVisibility;
+
+    private boolean mCurrentMethodStaticMethod;
+
+    private boolean mCurrentMethodFinalMethod;
+
     private boolean mDeprecated;
 
 
@@ -69,7 +75,9 @@ class CurrentXmlHandler extends DefaultHandler {
             mIgnoreCurrentClass = false;
             mCurrentClassName = getValue(attributes, "name");
             mDeprecated = isDeprecated(attributes);
-            ApiClass apiClass = new ApiClass(mCurrentClassName, mDeprecated, isAbstract(attributes));
+            String superClass = attributes.getValue("extends");
+            ApiClass apiClass = new ApiClass(
+                    mCurrentClassName, mDeprecated, is(attributes, "abstract"), superClass);
             ApiPackage apiPackage = mApiCoverage.getPackage(mCurrentPackageName);
             apiPackage.addClass(apiClass);
         } else if ("interface".equalsIgnoreCase(localName)) {
@@ -82,7 +90,10 @@ class CurrentXmlHandler extends DefaultHandler {
             mDeprecated = isDeprecated(attributes);
             mCurrentMethodName = getValue(attributes, "name");
             mCurrentMethodReturnType = getValue(attributes, "return");
-            mCurrentMethodIsAbstract = isAbstract(attributes);
+            mCurrentMethodIsAbstract = is(attributes, "abstract");
+            mCurrentMethodVisibility = getValue(attributes, "visibility");
+            mCurrentMethodStaticMethod = is(attributes, "static");
+            mCurrentMethodFinalMethod = is(attributes, "final");
             mCurrentParameterTypes.clear();
         } else if ("parameter".equalsIgnoreCase(localName)) {
             mCurrentParameterTypes.add(getValue(attributes, "type"));
@@ -107,11 +118,15 @@ class CurrentXmlHandler extends DefaultHandler {
             ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
             apiClass.addConstructor(apiConstructor);
         }  else if ("method".equalsIgnoreCase(localName)) {
-            if (mCurrentMethodIsAbstract) { // do not add abstract method
-                return;
-            }
-            ApiMethod apiMethod = new ApiMethod(mCurrentMethodName, mCurrentParameterTypes,
-                    mCurrentMethodReturnType, mDeprecated);
+            ApiMethod apiMethod = new ApiMethod(
+                    mCurrentMethodName,
+                    mCurrentParameterTypes,
+                    mCurrentMethodReturnType,
+                    mDeprecated,
+                    mCurrentMethodVisibility,
+                    mCurrentMethodStaticMethod,
+                    mCurrentMethodFinalMethod,
+                    mCurrentMethodIsAbstract);
             ApiPackage apiPackage = mApiCoverage.getPackage(mCurrentPackageName);
             ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
             apiClass.addMethod(apiMethod);
@@ -129,8 +144,8 @@ class CurrentXmlHandler extends DefaultHandler {
         return "deprecated".equals(attributes.getValue("deprecated"));
     }
 
-    private boolean isAbstract(Attributes attributes) {
-        return "true".equals(attributes.getValue("abstract"));
+    private static boolean is(Attributes attributes, String valueName) {
+        return "true".equals(attributes.getValue(valueName));
     }
 
     private boolean isEnum(Attributes attributes) {

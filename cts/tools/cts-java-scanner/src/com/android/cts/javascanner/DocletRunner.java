@@ -89,6 +89,7 @@ class DocletRunner {
         List<String> classPath = new ArrayList<String>();
         classPath.add("./prebuilts/misc/common/tradefed/tradefed-prebuilt.jar");
         classPath.add("./prebuilts/misc/common/ub-uiautomator/ub-uiautomator.jar");
+        classPath.add("./prebuilts/misc/common/ub-janktesthelper/ub-janktesthelper.jar");
         return join(classPath, ":");
     }
 

@@ -141,7 +141,7 @@ public abstract class TestListAdapter extends BaseAdapter {
             return new TestListItem(title, null, null, null, null, null);
         }
 
-        private TestListItem(String title, String testName, Intent intent,
+        protected TestListItem(String title, String testName, Intent intent,
                 String[] requiredFeatures, String[] excludedFeatures, String[] applicableFeatures) {
             this.title = title;
             this.testName = testName;

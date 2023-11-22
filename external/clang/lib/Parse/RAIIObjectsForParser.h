@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_PARSE_RAII_OBJECTS_FOR_PARSER_H
-#define LLVM_CLANG_PARSE_RAII_OBJECTS_FOR_PARSER_H
+#ifndef LLVM_CLANG_LIB_PARSE_RAIIOBJECTSFORPARSER_H
+#define LLVM_CLANG_LIB_PARSE_RAIIOBJECTSFORPARSER_H
 
 #include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
@@ -87,8 +87,8 @@ namespace clang {
     Sema::ParsingDeclState State;
     bool Popped;
 
-    ParsingDeclRAIIObject(const ParsingDeclRAIIObject &) LLVM_DELETED_FUNCTION;
-    void operator=(const ParsingDeclRAIIObject &) LLVM_DELETED_FUNCTION;
+    ParsingDeclRAIIObject(const ParsingDeclRAIIObject &) = delete;
+    void operator=(const ParsingDeclRAIIObject &) = delete;
 
   public:
     enum NoParent_t { NoParent };
@@ -244,8 +244,8 @@ namespace clang {
   /// the way they used to be.  This is used to handle __extension__ in the
   /// parser.
   class ExtensionRAIIObject {
-    ExtensionRAIIObject(const ExtensionRAIIObject &) LLVM_DELETED_FUNCTION;
-    void operator=(const ExtensionRAIIObject &) LLVM_DELETED_FUNCTION;
+    ExtensionRAIIObject(const ExtensionRAIIObject &) = delete;
+    void operator=(const ExtensionRAIIObject &) = delete;
 
     DiagnosticsEngine &Diags;
   public:

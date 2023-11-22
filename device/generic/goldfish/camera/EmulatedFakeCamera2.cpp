@@ -42,7 +42,7 @@ const int64_t MSEC = USEC * 1000LL;
 const int64_t SEC = MSEC * 1000LL;
 
 const uint32_t EmulatedFakeCamera2::kAvailableFormats[4] = {
-        HAL_PIXEL_FORMAT_RAW_SENSOR,
+        HAL_PIXEL_FORMAT_RAW16,
         HAL_PIXEL_FORMAT_BLOB,
         HAL_PIXEL_FORMAT_RGBA_8888,
         //        HAL_PIXEL_FORMAT_YV12,
@@ -55,7 +55,7 @@ const uint32_t EmulatedFakeCamera2::kAvailableRawSizes[2] = {
 };
 
 const uint64_t EmulatedFakeCamera2::kAvailableRawMinDurations[1] = {
-    Sensor::kFrameDurationRange[0]
+    static_cast<uint64_t>(Sensor::kFrameDurationRange[0])
 };
 
 const uint32_t EmulatedFakeCamera2::kAvailableProcessedSizesBack[4] = {
@@ -69,7 +69,7 @@ const uint32_t EmulatedFakeCamera2::kAvailableProcessedSizesFront[4] = {
 };
 
 const uint64_t EmulatedFakeCamera2::kAvailableProcessedMinDurations[1] = {
-    Sensor::kFrameDurationRange[0]
+    static_cast<uint64_t>(Sensor::kFrameDurationRange[0])
 };
 
 const uint32_t EmulatedFakeCamera2::kAvailableJpegSizesBack[2] = {
@@ -84,7 +84,7 @@ const uint32_t EmulatedFakeCamera2::kAvailableJpegSizesFront[2] = {
 
 
 const uint64_t EmulatedFakeCamera2::kAvailableJpegMinDurations[1] = {
-    Sensor::kFrameDurationRange[0]
+    static_cast<uint64_t>(Sensor::kFrameDurationRange[0])
 };
 
 
@@ -374,7 +374,7 @@ int EmulatedFakeCamera2::allocateStream(
     const uint32_t *availableSizes;
     size_t availableSizeCount;
     switch (format) {
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             availableSizes = kAvailableRawSizes;
             availableSizeCount = sizeof(kAvailableRawSizes)/sizeof(uint32_t);
             break;
@@ -412,7 +412,7 @@ int EmulatedFakeCamera2::allocateStream(
     }
 
     switch (format) {
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             if (mRawStreamCount >= kMaxRawStreamCount) {
                 ALOGE("%s: Cannot allocate another raw stream (%d already allocated)",
                         __FUNCTION__, mRawStreamCount);
@@ -523,7 +523,7 @@ int EmulatedFakeCamera2::releaseStream(uint32_t stream_id) {
     }
 
     switch(mStreams.valueAt(streamIndex).format) {
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             mRawStreamCount--;
             break;
         case HAL_PIXEL_FORMAT_BLOB:
@@ -1455,15 +1455,15 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     // the rectangles don't line up quite right.
     const size_t numFaces = 2;
     int32_t rects[numFaces * 4] = {
-            Sensor::kResolution[0] * 10 / 20,
-            Sensor::kResolution[1] * 15 / 20,
-            Sensor::kResolution[0] * 12 / 20,
-            Sensor::kResolution[1] * 17 / 20,
+        static_cast<int32_t>(Sensor::kResolution[0] * 10 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 15 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 12 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 17 / 20),
 
-            Sensor::kResolution[0] * 16 / 20,
-            Sensor::kResolution[1] * 15 / 20,
-            Sensor::kResolution[0] * 18 / 20,
-            Sensor::kResolution[1] * 17 / 20
+        static_cast<int32_t>(Sensor::kResolution[0] * 16 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 15 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 18 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 17 / 20)
     };
     // To simulate some kind of real detection going on, we jitter the rectangles on
     // each frame by a few pixels in each dimension.
@@ -1496,19 +1496,19 @@ status_t EmulatedFakeCamera2::ReadoutThread::collectStatisticsMetadata(
     // coordinates in order are (leftEyeX, leftEyeY, rightEyeX, rightEyeY,
     // mouthX, mouthY). The mapping is the same as the face rectangles.
     int32_t features[numFaces * 6] = {
-        Sensor::kResolution[0] * 10.5 / 20,
-        Sensor::kResolution[1] * 16 / 20,
-        Sensor::kResolution[0] * 11.5 / 20,
-        Sensor::kResolution[1] * 16 / 20,
-        Sensor::kResolution[0] * 11 / 20,
-        Sensor::kResolution[1] * 16.5 / 20,
+        static_cast<int32_t>(Sensor::kResolution[0] * 10.5 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 11.5 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 11 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16.5 / 20),
 
-        Sensor::kResolution[0] * 16.5 / 20,
-        Sensor::kResolution[1] * 16 / 20,
-        Sensor::kResolution[0] * 17.5 / 20,
-        Sensor::kResolution[1] * 16 / 20,
-        Sensor::kResolution[0] * 17 / 20,
-        Sensor::kResolution[1] * 16.5 / 20,
+        static_cast<int32_t>(Sensor::kResolution[0] * 16.5 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 17.5 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16 / 20),
+        static_cast<int32_t>(Sensor::kResolution[0] * 17 / 20),
+        static_cast<int32_t>(Sensor::kResolution[1] * 16.5 / 20),
     };
     // Jitter these a bit less than the rects
     for (size_t i = 0; i < numFaces * 6; i++) {
@@ -2104,21 +2104,6 @@ status_t EmulatedFakeCamera2::constructStaticInfo(
             ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
     ADD_OR_SIZE(ANDROID_LENS_FACING, &lensFacing, 1);
 
-    float lensPosition[3];
-    if (mFacingBack) {
-        // Back-facing camera is center-top on device
-        lensPosition[0] = 0;
-        lensPosition[1] = 20;
-        lensPosition[2] = -5;
-    } else {
-        // Front-facing camera is center-right on device
-        lensPosition[0] = 20;
-        lensPosition[1] = 20;
-        lensPosition[2] = 0;
-    }
-    ADD_OR_SIZE(ANDROID_LENS_POSITION, lensPosition, sizeof(lensPosition)/
-            sizeof(float));
-
     // android.sensor
 
     ADD_OR_SIZE(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE,
@@ -2149,8 +2134,10 @@ status_t EmulatedFakeCamera2::constructStaticInfo(
             &Sensor::kMaxRawValue, 1);
 
     static const int32_t blackLevelPattern[4] = {
-            Sensor::kBlackLevel, Sensor::kBlackLevel,
-            Sensor::kBlackLevel, Sensor::kBlackLevel
+        static_cast<int32_t>(Sensor::kBlackLevel),
+        static_cast<int32_t>(Sensor::kBlackLevel),
+        static_cast<int32_t>(Sensor::kBlackLevel),
+        static_cast<int32_t>(Sensor::kBlackLevel)
     };
     ADD_OR_SIZE(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
             blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
@@ -2511,7 +2498,7 @@ status_t EmulatedFakeCamera2::constructDefaultRequest(
 
     /** android.scaler */
     static const int32_t cropRegion[3] = {
-        0, 0, Sensor::kResolution[0]
+        0, 0, static_cast<int32_t>(Sensor::kResolution[0])
     };
     ADD_OR_SIZE(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
 
@@ -2598,7 +2585,10 @@ status_t EmulatedFakeCamera2::constructDefaultRequest(
     ADD_OR_SIZE(ANDROID_CONTROL_AE_LOCK, &aeLock, 1);
 
     static const int32_t controlRegions[5] = {
-        0, 0, Sensor::kResolution[0], Sensor::kResolution[1], 1000
+        0, 0,
+        static_cast<int32_t>(Sensor::kResolution[0]),
+        static_cast<int32_t>(Sensor::kResolution[1]),
+        1000
     };
     ADD_OR_SIZE(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);
 

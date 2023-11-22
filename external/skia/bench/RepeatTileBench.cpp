@@ -63,7 +63,7 @@ static void convert_to_index666(const SkBitmap& src, SkBitmap* dst) {
             }
         }
     }
-    SkColorTable* ctable = new SkColorTable(storage, 216, kOpaque_SkAlphaType);
+    SkColorTable* ctable = new SkColorTable(storage, 216);
     dst->allocPixels(SkImageInfo::Make(src.width(), src.height(),
                                        kIndex_8_SkColorType, kOpaque_SkAlphaType),
                      NULL, ctable);
@@ -104,11 +104,11 @@ public:
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return fName.c_str();
     }
 
-    virtual void onPreDraw() SK_OVERRIDE {
+    void onPreDraw() override {
         fBitmap.allocPixels();
         fBitmap.eraseColor(kOpaque_SkAlphaType == fAlphaType ? SK_ColorWHITE : 0);
 
@@ -127,7 +127,7 @@ protected:
     }
 
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         SkPaint paint(fPaint);
         this->setupPaint(&paint);
 

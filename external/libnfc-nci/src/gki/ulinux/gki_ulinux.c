@@ -15,6 +15,7 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+#include <malloc.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>

@@ -20,6 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Charsets;
+import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +41,7 @@ import java.util.List;
  *
  * @author Chris Nokleberg
  * @author Ben Yu
+ * @author Colin Decker
  * @since 1.0
  */
 @Beta
@@ -50,16 +54,43 @@ public final class Resources {
    *
    * @param url the URL to read from
    * @return the factory
+   * @deprecated Use {@link #asByteSource(URL)} instead. This method is
+   *     scheduled for removal in Guava 18.0.
    */
-  public static InputSupplier<InputStream> newInputStreamSupplier(
-      final URL url) {
-    checkNotNull(url);
-    return new InputSupplier<InputStream>() {
-      @Override
-      public InputStream getInput() throws IOException {
-        return url.openStream();
-      }
-    };
+  @Deprecated
+  public static InputSupplier<InputStream> newInputStreamSupplier(URL url) {
+    return ByteStreams.asInputSupplier(asByteSource(url));
+  }
+
+  /**
+   * Returns a {@link ByteSource} that reads from the given URL.
+   *
+   * @since 14.0
+   */
+  public static ByteSource asByteSource(URL url) {
+    return new UrlByteSource(url);
+  }
+
+  /**
+   * A byte source that reads from a URL using {@link URL#openStream()}.
+   */
+  private static final class UrlByteSource extends ByteSource {
+
+    private final URL url;
+
+    private UrlByteSource(URL url) {
+      this.url = checkNotNull(url);
+    }
+
+    @Override
+    public InputStream openStream() throws IOException {
+      return url.openStream();
+    }
+
+    @Override
+    public String toString() {
+      return "Resources.asByteSource(" + url + ")";
+    }
   }
 
   /**
@@ -67,12 +98,26 @@ public final class Resources {
    * {@link InputStreamReader} that read a URL using the given character set.
    *
    * @param url the URL to read from
-   * @param charset the character set used when reading the URL contents
+   * @param charset the charset used to decode the input stream; see {@link
+   *     Charsets} for helpful predefined constants
    * @return the factory
+   * @deprecated Use {@link #asCharSource(URL, Charset)} instead. This method
+   *     is scheduled for removal in Guava 18.0.
    */
+  @Deprecated
   public static InputSupplier<InputStreamReader> newReaderSupplier(
       URL url, Charset charset) {
-    return CharStreams.newReaderSupplier(newInputStreamSupplier(url), charset);
+    return CharStreams.asInputSupplier(asCharSource(url, charset));
+  }
+
+  /**
+   * Returns a {@link CharSource} that reads from the given URL using the given
+   * character set.
+   *
+   * @since 14.0
+   */
+  public static CharSource asCharSource(URL url, Charset charset) {
+    return asByteSource(url).asCharSource(charset);
   }
 
   /**
@@ -83,7 +128,7 @@ public final class Resources {
    * @throws IOException if an I/O error occurs
    */
   public static byte[] toByteArray(URL url) throws IOException {
-    return ByteStreams.toByteArray(newInputStreamSupplier(url));
+    return asByteSource(url).read();
   }
 
   /**
@@ -91,12 +136,13 @@ public final class Resources {
    * character set.
    *
    * @param url the URL to read from
-   * @param charset the character set used when reading the URL
+   * @param charset the charset used to decode the input stream; see {@link
+   *     Charsets} for helpful predefined constants
    * @return a string containing all the characters from the URL
    * @throws IOException if an I/O error occurs.
    */
   public static String toString(URL url, Charset charset) throws IOException {
-    return CharStreams.toString(newReaderSupplier(url, charset));
+    return asCharSource(url, charset).read();
   }
 
   /**
@@ -104,7 +150,8 @@ public final class Resources {
    * have read all of the lines.
    *
    * @param url the URL to read from
-   * @param charset the character set used when reading the URL
+   * @param charset the charset used to decode the input stream; see {@link
+   *     Charsets} for helpful predefined constants
    * @param callback the LineProcessor to use to handle the lines
    * @return the output of processing the lines
    * @throws IOException if an I/O error occurs
@@ -119,14 +166,34 @@ public final class Resources {
    * line-termination characters, but do include other leading and trailing
    * whitespace.
    *
+   * <p>This method returns a mutable {@code List}. For an
+   * {@code ImmutableList}, use
+   * {@code Resources.asCharSource(url, charset).readLines()}.
+   *
    * @param url the URL to read from
-   * @param charset the character set used when writing the file
+   * @param charset the charset used to decode the input stream; see {@link
+   *     Charsets} for helpful predefined constants
    * @return a mutable {@link List} containing all the lines
    * @throws IOException if an I/O error occurs
    */
   public static List<String> readLines(URL url, Charset charset)
       throws IOException {
-    return CharStreams.readLines(newReaderSupplier(url, charset));
+    // don't use asCharSource(url, charset).readLines() because that returns
+    // an immutable list, which would change the behavior of this method
+    return readLines(url, charset, new LineProcessor<List<String>>() {
+      final List<String> result = Lists.newArrayList();
+
+      @Override
+      public boolean processLine(String line) {
+        result.add(line);
+        return true;
+      }
+
+      @Override
+      public List<String> getResult() {
+        return result;
+      }
+    });
   }
 
   /**
@@ -137,27 +204,37 @@ public final class Resources {
    * @throws IOException if an I/O error occurs
    */
   public static void copy(URL from, OutputStream to) throws IOException {
-    ByteStreams.copy(newInputStreamSupplier(from), to);
+    asByteSource(from).copyTo(to);
   }
   
   /**
    * Returns a {@code URL} pointing to {@code resourceName} if the resource is
-   * found in the class path. {@code Resources.class.getClassLoader()} is used
-   * to locate the resource.
+   * found using the {@linkplain Thread#getContextClassLoader() context class
+   * loader}. In simple environments, the context class loader will find
+   * resources from the class path. In environments where different threads can
+   * have different class loaders, for example app servers, the context class
+   * loader will typically have been set to an appropriate loader for the
+   * current thread.
+   *
+   * <p>In the unusual case where the context class loader is null, the class
+   * loader that loaded this class ({@code Resources}) will be used instead.
    * 
-   * @throws IllegalArgumentException if resource is not found
+   * @throws IllegalArgumentException if the resource is not found
    */
   public static URL getResource(String resourceName) {
-    URL url = Resources.class.getClassLoader().getResource(resourceName);
+    ClassLoader loader = Objects.firstNonNull(
+        Thread.currentThread().getContextClassLoader(),
+        Resources.class.getClassLoader());
+    URL url = loader.getResource(resourceName);
     checkArgument(url != null, "resource %s not found.", resourceName);
     return url;
   }
 
   /**
-   * Returns a {@code URL} pointing to {@code resourceName} that is relative to
-   * {@code contextClass}, if the resource is found in the class path. 
+   * Given a {@code resourceName} that is relative to {@code contextClass},
+   * returns a {@code URL} pointing to the named resource.
    * 
-   * @throws IllegalArgumentException if resource is not found
+   * @throws IllegalArgumentException if the resource is not found
    */
   public static URL getResource(Class<?> contextClass, String resourceName) {
     URL url = contextClass.getResource(resourceName);

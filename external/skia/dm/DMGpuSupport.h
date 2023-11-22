@@ -1,3 +1,10 @@
+/*
+ * Copyright 2014 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
 #ifndef DMGpuSupport_DEFINED
 #define DMGpuSupport_DEFINED
 
@@ -19,9 +26,14 @@ static const bool kGPUDisabled = false;
 
 static inline SkSurface* NewGpuSurface(GrContextFactory* grFactory,
                                        GrContextFactory::GLContextType type,
+                                       GrGLStandard gpuAPI,
                                        SkImageInfo info,
-                                       int samples) {
-    return SkSurface::NewRenderTarget(grFactory->get(type), info, samples);
+                                       int samples,
+                                       bool useDFText) {
+    uint32_t flags = useDFText ? SkSurfaceProps::kUseDistanceFieldFonts_Flag : 0;
+    SkSurfaceProps props(flags, SkSurfaceProps::kLegacyFontHost_InitType);
+    return SkSurface::NewRenderTarget(grFactory->get(type, gpuAPI), SkSurface::kNo_Budgeted,
+                                      info, samples, &props);
 }
 
 }  // namespace DM
@@ -29,6 +41,19 @@ static inline SkSurface* NewGpuSurface(GrContextFactory* grFactory,
 #else// !SK_SUPPORT_GPU
 
 // Ganesh is not available.  Fake it.
+
+enum GrGLStandard {
+    kNone_GrGLStandard,
+    kGL_GrGLStandard,
+    kGLES_GrGLStandard
+};
+static const int kGrGLStandardCnt = 3;
+
+class GrContext {
+public:
+    void dumpCacheStats(SkString*) const {}
+    void dumpGpuStats(SkString*) const {}
+};
 
 class GrContextFactory {
 public:
@@ -40,6 +65,10 @@ public:
                                kNVPR_GLContextType   = 0,
                                kNative_GLContextType = 0,
                                kNull_GLContextType   = 0;
+    static const int kGLContextTypeCnt = 1;
+    void destroyContexts() {}
+
+    void abandonContexts() {}
 };
 
 namespace DM {
@@ -48,8 +77,10 @@ static const bool kGPUDisabled = true;
 
 static inline SkSurface* NewGpuSurface(GrContextFactory*,
                                        GrContextFactory::GLContextType,
+                                       GrGLStandard,
                                        SkImageInfo,
-                                       int) {
+                                       int,
+                                       bool) {
     return NULL;
 }
 

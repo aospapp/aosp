@@ -15,43 +15,14 @@
  */
 
 #include "post_opt_passes.h"
-#include "dataflow_iterator.h"
+
 #include "dataflow_iterator-inl.h"
 
 namespace art {
 
-/*
- * MethodUseCount pass implementation start.
- */
-bool MethodUseCount::Gate(const PassDataHolder* data) const {
+bool ClearPhiInstructions::Worker(PassDataHolder* data) const {
   DCHECK(data != nullptr);
-  CompilationUnit* c_unit = down_cast<const PassMEDataHolder*>(data)->c_unit;
-  DCHECK(c_unit != nullptr);
-  // First initialize the data.
-  c_unit->mir_graph->InitializeMethodUses();
-
-  // Now check if the pass is to be ignored.
-  bool res = ((c_unit->disable_opt & (1 << kPromoteRegs)) == 0);
-
-  return res;
-}
-
-bool MethodUseCount::Worker(const PassDataHolder* data) const {
-  DCHECK(data != nullptr);
-  const PassMEDataHolder* pass_me_data_holder = down_cast<const PassMEDataHolder*>(data);
-  CompilationUnit* c_unit = pass_me_data_holder->c_unit;
-  DCHECK(c_unit != nullptr);
-  BasicBlock* bb = pass_me_data_holder->bb;
-  DCHECK(bb != nullptr);
-  c_unit->mir_graph->CountUses(bb);
-  // No need of repeating, so just return false.
-  return false;
-}
-
-
-bool ClearPhiInstructions::Worker(const PassDataHolder* data) const {
-  DCHECK(data != nullptr);
-  const PassMEDataHolder* pass_me_data_holder = down_cast<const PassMEDataHolder*>(data);
+  PassMEDataHolder* pass_me_data_holder = down_cast<PassMEDataHolder*>(data);
   CompilationUnit* c_unit = pass_me_data_holder->c_unit;
   DCHECK(c_unit != nullptr);
   BasicBlock* bb = pass_me_data_holder->bb;
@@ -84,7 +55,7 @@ void CalculatePredecessors::Start(PassDataHolder* data) const {
   // First clear all predecessors.
   AllNodesIterator first(mir_graph);
   for (BasicBlock* bb = first.Next(); bb != nullptr; bb = first.Next()) {
-    bb->predecessors->Reset();
+    bb->predecessors.clear();
   }
 
   // Now calculate all predecessors.
@@ -100,7 +71,7 @@ void CalculatePredecessors::Start(PassDataHolder* data) const {
 
     // Now iterate through the children to set the predecessor bits.
     for (BasicBlock* child = child_iter.Next(); child != nullptr; child = child_iter.Next()) {
-      child->predecessors->Insert(bb->id);
+      child->predecessors.push_back(bb->id);
     }
   }
 }

@@ -28,12 +28,18 @@ LOCAL_PATH:= $(call my-dir)
 ifeq ($(ENABLE_IMG_GRAPHICS),true)
 
 LIBVA_DRIVERS_PATH = /system/lib
+
+# Clang does not like partially initialized structures
+# in va_fool.c, va.c and va_drm_utils.c.
+
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
 	va.c \
 	va_trace.c \
 	va_fool.c
+
+LOCAL_CLANG_CFLAGS += -Wno-missing-field-initializers
 
 LOCAL_CFLAGS := \
 	-DANDROID \
@@ -94,6 +100,8 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := \
 	-DANDROID -DLOG_TAG=\"libva-android\"
 
+LOCAL_CLANG_CFLAGS += -Wno-missing-field-initializers
+
 LOCAL_C_INCLUDES := \
 	$(TARGET_OUT_HEADERS)/libva \
 	$(TARGET_OUT_HEADERS)/libdrm \
@@ -142,6 +150,8 @@ include $(BUILD_SHARED_LIBRARY)
 # =====================================================
 
 include $(CLEAR_VARS)
+
+LOCAL_CLANG_CFLAGS += -Wno-missing-field-initializers
 
 LOCAL_SRC_FILES := va_tpi.c
 

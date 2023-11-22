@@ -14,16 +14,15 @@
 
 package com.google.common.hash;
 
-import com.google.common.base.Charsets;
-
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
 /**
  * An abstract hasher, implementing {@link #putBoolean(boolean)}, {@link #putDouble(double)},
- * {@link #putFloat(float)}, {@link #putString(CharSequence)}, and
+ * {@link #putFloat(float)}, {@link #putUnencodedChars(CharSequence)}, and
  * {@link #putString(CharSequence, Charset)} as prescribed by {@link Hasher}.
  *
- * @author andreou@google.com (Dimitris Andreou)
+ * @author Dimitris Andreou
  */
 abstract class AbstractHasher implements Hasher {
   @Override public final Hasher putBoolean(boolean b) {
@@ -38,16 +37,26 @@ abstract class AbstractHasher implements Hasher {
     return putInt(Float.floatToRawIntBits(f));
   }
 
+  /**
+   * @deprecated Use {@link AbstractHasher#putUnencodedChars} instead.
+   */
+  @Deprecated
   @Override public Hasher putString(CharSequence charSequence) {
-    // TODO(user): Should we instead loop over the CharSequence and call #putChar?
-    return putString(charSequence, Charsets.UTF_16LE);
+    return putUnencodedChars(charSequence);
+  }
+
+  @Override public Hasher putUnencodedChars(CharSequence charSequence) {
+    for (int i = 0, len = charSequence.length(); i < len; i++) {
+      putChar(charSequence.charAt(i));
+    }
+    return this;
   }
 
   @Override public Hasher putString(CharSequence charSequence, Charset charset) {
     try {
       return putBytes(charSequence.toString().getBytes(charset.name()));
-    } catch (java.io.UnsupportedEncodingException impossible) {
-      throw new AssertionError(impossible);
+    } catch (UnsupportedEncodingException e) {
+      throw new AssertionError(e);
     }
   }
 }

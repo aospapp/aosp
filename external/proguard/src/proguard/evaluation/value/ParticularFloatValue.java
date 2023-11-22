@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -182,9 +182,9 @@ final class ParticularFloatValue extends SpecificFloatValue
 
     public IntegerValue compare(ParticularFloatValue other)
     {
-        return this.value <  other.value ? SpecificValueFactory.INTEGER_VALUE_M1 :
-               this.value == other.value ? SpecificValueFactory.INTEGER_VALUE_0  :
-                                           SpecificValueFactory.INTEGER_VALUE_1;
+        return this.value <  other.value ? ParticularValueFactory.INTEGER_VALUE_M1 :
+               this.value == other.value ? ParticularValueFactory.INTEGER_VALUE_0  :
+                                           ParticularValueFactory.INTEGER_VALUE_1;
     }
 
 

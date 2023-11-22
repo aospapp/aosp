@@ -31,6 +31,7 @@
 #include <utils/Log.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <string.h>
 #include <cutils/properties.h>
 #include "bt_vendor_brcm.h"
 #include "upio.h"
@@ -194,6 +195,40 @@ static void proc_btwrite_timeout(union sigval arg)
 {
     UPIODBG("..%s..", __FUNCTION__);
     lpm_proc_cb.btwrite_active = FALSE;
+    /* drive LPM down; this timer should fire only when BT is awake; */
+    upio_set(UPIO_BT_WAKE, UPIO_DEASSERT, 1);
+}
+
+/******************************************************************************
+ **
+ ** Function      upio_start_stop_timer
+ **
+ ** Description   Arm user space timer in case lpm is left asserted
+ **
+ ** Returns       None
+ **
+ *****************************************************************************/
+void upio_start_stop_timer(int action) {
+    struct itimerspec ts;
+
+    if (action == UPIO_ASSERT) {
+        lpm_proc_cb.btwrite_active = TRUE;
+        if (lpm_proc_cb.timer_created == TRUE) {
+            ts.it_value.tv_sec = PROC_BTWRITE_TIMER_TIMEOUT_MS/1000;
+            ts.it_value.tv_nsec = 1000000*(PROC_BTWRITE_TIMER_TIMEOUT_MS%1000);
+            ts.it_interval.tv_sec = 0;
+            ts.it_interval.tv_nsec = 0;
+        }
+    } else {
+        /* unarm timer if writing 0 to lpm; reduce unnecessary user space wakeup */
+        memset(&ts, 0, sizeof(ts));
+    }
+
+    if (timer_settime(lpm_proc_cb.timer_id, 0, &ts, 0) == 0) {
+        UPIODBG("%s : timer_settime success", __FUNCTION__);
+    } else {
+        UPIODBG("%s : timer_settime failed", __FUNCTION__);
+    }
 }
 #endif
 
@@ -330,6 +365,8 @@ void upio_set(uint8_t pio, uint8_t action, uint8_t polarity)
     char buffer;
 #endif
 
+    UPIODBG("%s : pio %d action %d, polarity %d", __FUNCTION__, pio, action, polarity);
+
     switch (pio)
     {
         case UPIO_LPM_MODE:
@@ -419,8 +456,10 @@ void upio_set(uint8_t pio, uint8_t action, uint8_t polarity)
                      * a 10sec internal in-activity timeout timer before it
                      * attempts to deassert BT_WAKE line.
                      */
-#endif
+                    return;
+#else
                 return;
+#endif
             }
 
             upio_state[UPIO_BT_WAKE] = action;
@@ -463,23 +502,13 @@ void upio_set(uint8_t pio, uint8_t action, uint8_t polarity)
 #if (PROC_BTWRITE_TIMER_TIMEOUT_MS != 0)
             else
             {
-                lpm_proc_cb.btwrite_active = TRUE;
-
-                if (lpm_proc_cb.timer_created == TRUE)
-                {
-                    struct itimerspec ts;
-
-                    ts.it_value.tv_sec = PROC_BTWRITE_TIMER_TIMEOUT_MS/1000;
-                    ts.it_value.tv_nsec = 1000000*(PROC_BTWRITE_TIMER_TIMEOUT_MS%1000);
-                    ts.it_interval.tv_sec = 0;
-                    ts.it_interval.tv_nsec = 0;
-
-                    timer_settime(lpm_proc_cb.timer_id, 0, &ts, 0);
-                }
+                /* arm user space timer based on action */
+                upio_start_stop_timer(action);
             }
 #endif
 
-            UPIODBG("proc btwrite assertion");
+            UPIODBG("%s: proc btwrite assertion, buffer: %c, timer_armed %d %d",
+                    __FUNCTION__, buffer, lpm_proc_cb.btwrite_active, lpm_proc_cb.timer_created);
 
             if (fd >= 0)
                 close(fd);

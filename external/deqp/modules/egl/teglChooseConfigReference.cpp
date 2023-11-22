@@ -23,6 +23,12 @@
 
 #include "teglChooseConfigReference.hpp"
 
+#include "egluUtil.hpp"
+#include "egluConfigInfo.hpp"
+#include "egluStrUtil.hpp"
+#include "eglwLibrary.hpp"
+#include "eglwEnums.hpp"
+
 #include <algorithm>
 #include <vector>
 #include <map>
@@ -32,6 +38,7 @@ namespace deqp
 namespace egl
 {
 
+using namespace eglw;
 using eglu::ConfigInfo;
 
 enum Criteria
@@ -87,7 +94,8 @@ private:
 			case EGL_NONE:					return 0;
 			case EGL_SLOW_CONFIG:			return 1;
 			case EGL_NON_CONFORMANT_CONFIG:	return 2;
-			default: DE_ASSERT(DE_FALSE);	return 3;
+			default:
+				TCU_THROW(TestError, (std::string("Unknown config caveat: ") + eglu::getConfigCaveatStr(caveat).toString()).c_str());
 		}
 	}
 
@@ -97,7 +105,9 @@ private:
 		{
 			case EGL_RGB_BUFFER:			return 0;
 			case EGL_LUMINANCE_BUFFER:		return 1;
-			default: DE_ASSERT(DE_FALSE);	return 2;
+			case EGL_YUV_BUFFER_EXT:		return 2;
+			default:
+				TCU_THROW(TestError, (std::string("Unknown color buffer type: ") + eglu::getColorBufferTypeStr(type).toString()).c_str());
 		}
 	}
 
@@ -113,17 +123,29 @@ private:
 		return getColorBufferTypeRank((EGLenum)a.m_info.colorBufferType) < getColorBufferTypeRank((EGLenum)b.m_info.colorBufferType);
 	}
 
-	static bool compareColorBufferBits (const SurfaceConfig& a, const SurfaceConfig& b)
+	static bool compareColorBufferBits (const SurfaceConfig& a, const SurfaceConfig& b, const tcu::BVec4& specifiedRGBColors, const tcu::BVec2& specifiedLuminanceColors)
 	{
 		DE_ASSERT(a.m_info.colorBufferType == b.m_info.colorBufferType);
 		switch (a.m_info.colorBufferType)
 		{
 			case EGL_RGB_BUFFER:
-				return (a.m_info.redSize + a.m_info.greenSize + a.m_info.blueSize + a.m_info.alphaSize)
-						> (b.m_info.redSize + b.m_info.greenSize + b.m_info.blueSize + b.m_info.alphaSize);
+			{
+				const tcu::IVec4	mask	(specifiedRGBColors.cast<deInt32>());
+
+				return (a.m_info.redSize * mask[0] + a.m_info.greenSize * mask[1] + a.m_info.blueSize * mask[2] + a.m_info.alphaSize * mask[3])
+						> (b.m_info.redSize * mask[0] + b.m_info.greenSize * mask[1] + b.m_info.blueSize * mask[2] + b.m_info.alphaSize * mask[3]);
+			}
 
 			case EGL_LUMINANCE_BUFFER:
-				return (a.m_info.luminanceSize + a.m_info.alphaSize) > (b.m_info.luminanceSize + b.m_info.alphaSize);
+			{
+				const tcu::IVec2	mask	(specifiedLuminanceColors.cast<deInt32>());
+
+				return (a.m_info.luminanceSize * mask[0] + a.m_info.alphaSize * mask[1]) > (b.m_info.luminanceSize * mask[0] + b.m_info.alphaSize * mask[1]);
+			}
+
+			case EGL_YUV_BUFFER_EXT:
+				// \todo [mika 2015-05-05] Sort YUV configs correctly. Currently all YUV configs are non-conformant and ordering can be relaxed.
+				return true;
 
 			default:
 				DE_ASSERT(DE_FALSE);
@@ -164,13 +186,13 @@ public:
 		return true;
 	}
 
-	bool compareTo (const SurfaceConfig& b, bool skipColorBufferBits=false) const
+	bool compareTo (const SurfaceConfig& b, const tcu::BVec4& specifiedRGBColors, const tcu::BVec2& specifiedLuminanceColors) const
 	{
 		static const SurfaceConfig::CompareFunc compareFuncs[] =
 		{
 			SurfaceConfig::compareCaveat,
 			SurfaceConfig::compareColorBufferType,
-			SurfaceConfig::compareColorBufferBits,
+			DE_NULL, // SurfaceConfig::compareColorBufferBits,
 			SurfaceConfig::compareAttributeSmaller<EGL_BUFFER_SIZE>,
 			SurfaceConfig::compareAttributeSmaller<EGL_SAMPLE_BUFFERS>,
 			SurfaceConfig::compareAttributeSmaller<EGL_SAMPLES>,
@@ -185,8 +207,15 @@ public:
 
 		for (int ndx = 0; ndx < (int)DE_LENGTH_OF_ARRAY(compareFuncs); ndx++)
 		{
-			if (skipColorBufferBits && (compareFuncs[ndx] == SurfaceConfig::compareColorBufferBits))
+			if (!compareFuncs[ndx])
+			{
+				if (compareColorBufferBits(*this, b, specifiedRGBColors, specifiedLuminanceColors))
+					return true;
+				else if (compareColorBufferBits(b, *this, specifiedRGBColors, specifiedLuminanceColors))
+					return false;
+
 				continue;
+			}
 
 			if (compareFuncs[ndx](*this, b))
 				return true;
@@ -247,18 +276,20 @@ const std::map<EGLenum, AttribRule> SurfaceConfig::defaultRules = SurfaceConfig:
 class CompareConfigs
 {
 public:
-	CompareConfigs (bool skipColorBufferBits)
-		: m_skipColorBufferBits(skipColorBufferBits)
+	CompareConfigs (const tcu::BVec4& specifiedRGBColors, const tcu::BVec2& specifiedLuminanceColors)
+		: m_specifiedRGBColors			(specifiedRGBColors)
+		, m_specifiedLuminanceColors	(specifiedLuminanceColors)
 	{
 	}
 
 	bool operator() (const SurfaceConfig& a, const SurfaceConfig& b)
 	{
-		return a.compareTo(b, m_skipColorBufferBits);
+		return a.compareTo(b, m_specifiedRGBColors, m_specifiedLuminanceColors);
 	}
 
 private:
-	bool m_skipColorBufferBits;
+	const tcu::BVec4	m_specifiedRGBColors;
+	const tcu::BVec2	m_specifiedLuminanceColors;
 };
 
 class ConfigFilter
@@ -296,7 +327,6 @@ public:
 
 	bool isMatch (const SurfaceConfig& config)
 	{
-		bool result = true;
 		for (std::map<EGLenum, AttribRule>::const_iterator iter = m_rules.begin(); iter != m_rules.end(); iter++)
 		{
 			const AttribRule rule = iter->second;
@@ -313,32 +343,78 @@ public:
 
 				switch (rule.criteria)
 				{
-					case CRITERIA_EXACT:	result = rule.value == cfgValue;				break;
-					case CRITERIA_AT_LEAST:	result = rule.value <= cfgValue;				break;
-					case CRITERIA_MASK:		result = (rule.value & cfgValue) == rule.value;	break;
-					default:				TCU_FAIL("Unknown criteria");
+					case CRITERIA_EXACT:
+						if (rule.value != cfgValue)
+							return false;
+						break;
+
+					case CRITERIA_AT_LEAST:
+						if (rule.value > cfgValue)
+							return false;
+						break;
+
+					case CRITERIA_MASK:
+						if ((rule.value & cfgValue) != rule.value)
+							return false;
+						break;
+
+					default:
+						TCU_FAIL("Unknown criteria");
 				}
 			}
-
-			if (result == false) return false;
 		}
 
 		return true;
 	}
 
-	bool isColorBitsUnspecified (void)
+	tcu::BVec4 getSpecifiedRGBColors (void)
 	{
-		const EGLenum	bitAttribs[]	= { EGL_RED_SIZE, EGL_GREEN_SIZE, EGL_BLUE_SIZE, EGL_LUMINANCE_SIZE };
+		const EGLenum bitAttribs[] =
+		{
+			EGL_RED_SIZE,
+			EGL_GREEN_SIZE,
+			EGL_BLUE_SIZE,
+			EGL_ALPHA_SIZE
+		};
+
+		tcu::BVec4 result;
 
 		for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(bitAttribs); ndx++)
 		{
 			const EGLenum	attrib	= bitAttribs[ndx];
 			const EGLint	value	= getAttribute(attrib).value;
 
-			if (value != 0 && value != EGL_DONT_CARE) return false;
+			if (value != 0 && value != EGL_DONT_CARE)
+				result[ndx] = true;
+			else
+				result[ndx] = false;
 		}
 
-		return true;
+		return result;
+	}
+
+	tcu::BVec2 getSpecifiedLuminanceColors (void)
+	{
+		const EGLenum bitAttribs[] =
+		{
+			EGL_LUMINANCE_SIZE,
+			EGL_ALPHA_SIZE
+		};
+
+		tcu::BVec2 result;
+
+		for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(bitAttribs); ndx++)
+		{
+			const EGLenum	attrib	= bitAttribs[ndx];
+			const EGLint	value	= getAttribute(attrib).value;
+
+			if (value != 0 && value != EGL_DONT_CARE)
+				result[ndx] = true;
+			else
+				result[ndx] = false;
+		}
+
+		return result;
 	}
 
 	std::vector<SurfaceConfig> filter (const std::vector<SurfaceConfig>& configs)
@@ -354,19 +430,16 @@ public:
 	}
 };
 
-void chooseConfigReference (const tcu::egl::Display& display, std::vector<EGLConfig>& dst, const std::vector<std::pair<EGLenum, EGLint> >& attributes)
+void chooseConfigReference (const Library& egl, EGLDisplay display, std::vector<EGLConfig>& dst, const std::vector<std::pair<EGLenum, EGLint> >& attributes)
 {
 	// Get all configs
-	std::vector<EGLConfig> eglConfigs;
-	display.getConfigs(eglConfigs);
+	std::vector<EGLConfig> eglConfigs = eglu::getConfigs(egl, display);
 
 	// Config infos
 	std::vector<ConfigInfo> configInfos;
 	configInfos.resize(eglConfigs.size());
 	for (size_t ndx = 0; ndx < eglConfigs.size(); ndx++)
-		display.describeConfig(eglConfigs[ndx], configInfos[ndx]);
-
-	TCU_CHECK_EGL_MSG("Config query failed");
+		eglu::queryConfigInfo(egl, display, eglConfigs[ndx], &configInfos[ndx]);
 
 	// Pair configs with info
 	std::vector<SurfaceConfig> configs;
@@ -380,7 +453,7 @@ void chooseConfigReference (const tcu::egl::Display& display, std::vector<EGLCon
 	std::vector<SurfaceConfig> filteredConfigs = configFilter.filter(configs);
 
 	// Sort configs
-	std::sort(filteredConfigs.begin(), filteredConfigs.end(), CompareConfigs(configFilter.isColorBitsUnspecified()));
+	std::sort(filteredConfigs.begin(), filteredConfigs.end(), CompareConfigs(configFilter.getSpecifiedRGBColors(), configFilter.getSpecifiedLuminanceColors()));
 
 	// Write to dst list
 	dst.resize(filteredConfigs.size());

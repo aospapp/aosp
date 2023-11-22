@@ -16,7 +16,6 @@
 
 package android.location.cts;
 
-
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
@@ -27,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.GpsStatus;
 import android.location.GpsStatus.Listener;
+import android.location.GpsStatus.NmeaListener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -36,7 +36,6 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
 
 import java.util.List;
@@ -48,7 +47,7 @@ import java.util.List;
  * android.permission.ACCESS_FINE_LOCATION to access GPS provider
  * android.permission.ACCESS_LOCATION_EXTRA_COMMANDS to send extra commands to GPS provider
  */
-public class LocationManagerTest extends InstrumentationTestCase {
+public class LocationManagerTest extends BaseMockLocationTest {
     private static final long TEST_TIME_OUT = 5000;
 
     private static final String TEST_MOCK_PROVIDER_NAME = "test_provider";
@@ -71,13 +70,6 @@ public class LocationManagerTest extends InstrumentationTestCase {
         mContext = getInstrumentation().getTargetContext();
 
         mManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
-
-        // test that mock locations are allowed so a more descriptive error message can be logged
-        if (Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.ALLOW_MOCK_LOCATION, 0) == 0) {
-            fail("Mock locations are currently disabled in Settings - this test requires "
-                    + "mock locations");
-        }
 
         // remove test provider if left over from an aborted run
         LocationProvider lp = mManager.getProvider(TEST_MOCK_PROVIDER_NAME);
@@ -537,6 +529,358 @@ public class LocationManagerTest extends InstrumentationTestCase {
         }
     }
 
+    public void testSingleUpdateWithLocationListenerAndLooper() throws InterruptedException {
+        double latitude1 = 60;
+        double longitude1 = 20;
+        double latitude2 = 40;
+        double longitude2 = 30;
+        double latitude3 = 10;
+        double longitude3 = 50;
+        final MockLocationListener listener = new MockLocationListener();
+
+        // update location and notify listener
+        HandlerThread handlerThread = new HandlerThread("testLocationUpdates4");
+        handlerThread.start();
+        mManager.requestSingleUpdate(TEST_MOCK_PROVIDER_NAME, listener, handlerThread.getLooper());
+
+        updateLocation(latitude1, longitude1);
+        assertTrue(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+        Location location = listener.getLocation();
+        assertEquals(TEST_MOCK_PROVIDER_NAME, location.getProvider());
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertEquals(true, location.isFromMockProvider());
+
+        // Any further location change doesn't trigger an update.
+        updateLocation(latitude2, longitude2);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+
+        // update location without notifying listener
+        mManager.removeUpdates(listener);
+        listener.reset();
+        updateLocation(latitude3, longitude3);
+        assertFalse(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+
+        try {
+            mManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, (LocationListener) null,
+                    Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestSingleUpdate((String) null, listener, Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (LocationListener) null );
+            fail("Should throw IllegalArgumentException if listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    public void testLocationUpdatesWithCriteriaAndPendingIntent() throws InterruptedException {
+        double latitude1 = 10;
+        double longitude1 = 20;
+        double latitude2 = 30;
+        double longitude2 = 40;
+
+        registerIntentReceiver();
+        mockFusedLocation();
+
+        // Update location and receive broadcast.
+        Criteria criteria = createLocationCriteria();
+        mManager.requestLocationUpdates(0, 0 , criteria, mPendingIntent);
+        updateFusedLocation(latitude1, longitude1);
+        waitForReceiveBroadcast();
+
+        assertNotNull(mIntentReceiver.getLastReceivedIntent());
+        Location location = (Location) mIntentReceiver.getLastReceivedIntent().getExtras()
+                .get(LocationManager.KEY_LOCATION_CHANGED);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertTrue(location.hasAccuracy());
+        assertEquals(1.0f, location.getAccuracy());
+        assertEquals(true, location.isFromMockProvider());
+
+        // Update location without receiving broadcast.
+        mManager.removeUpdates(mPendingIntent);
+        mIntentReceiver.clearReceivedIntents();
+        updateFusedLocation(latitude2, longitude2);
+        waitForReceiveBroadcast();
+        assertNull(mIntentReceiver.getLastReceivedIntent());
+
+        // Missing arguments throw exceptions.
+        try {
+            mManager.requestLocationUpdates(0, 0, criteria, (PendingIntent) null);
+            fail("Should throw IllegalArgumentException if param intent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestLocationUpdates(0, 0, null, mPendingIntent);
+            fail("Should throw IllegalArgumentException if param criteria is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (PendingIntent) null );
+            fail("Should throw IllegalArgumentException if param PendingIntent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        unmockFusedLocation();
+    }
+
+    public void testSingleUpdateWithCriteriaAndPendingIntent() throws InterruptedException {
+        double latitude1 = 10;
+        double longitude1 = 20;
+        double latitude2 = 30;
+        double longitude2 = 40;
+        double latitude3 = 50;
+        double longitude3 = 60;
+
+        registerIntentReceiver();
+        mockFusedLocation();
+
+        // Update location and receive broadcast.
+        Criteria criteria = createLocationCriteria();
+        mManager.requestSingleUpdate(criteria, mPendingIntent);
+        updateFusedLocation(latitude1, longitude1);
+        waitForReceiveBroadcast();
+
+        assertNotNull(mIntentReceiver.getLastReceivedIntent());
+        Location location = (Location) mIntentReceiver.getLastReceivedIntent().getExtras()
+                .get(LocationManager.KEY_LOCATION_CHANGED);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertTrue(location.hasAccuracy());
+        assertEquals(1.0f, location.getAccuracy());
+        assertEquals(true, location.isFromMockProvider());
+
+        // Any further location change doesn't trigger an update.
+        updateFusedLocation(latitude2, longitude2);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+
+        // Update location without receiving broadcast.
+        mManager.removeUpdates(mPendingIntent);
+        mIntentReceiver.clearReceivedIntents();
+        updateFusedLocation(latitude3, longitude3);
+        waitForReceiveBroadcast();
+        assertNull(mIntentReceiver.getLastReceivedIntent());
+
+        // Missing arguments throw exceptions.
+        try {
+            mManager.requestSingleUpdate(criteria, (PendingIntent) null);
+            fail("Should throw IllegalArgumentException if param intent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestSingleUpdate((Criteria) null, mPendingIntent);
+            fail("Should throw IllegalArgumentException if param criteria is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (PendingIntent) null );
+            fail("Should throw IllegalArgumentException if param PendingIntent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        unmockFusedLocation();
+    }
+
+    public void testLocationUpdatesWithCriteriaAndLocationListenerAndLooper()
+            throws InterruptedException {
+        double latitude1 = 40;
+        double longitude1 = 10;
+        double latitude2 = 20;
+        double longitude2 = 30;
+       final MockLocationListener listener = new MockLocationListener();
+        mockFusedLocation();
+
+        // update location and notify listener
+        HandlerThread handlerThread = new HandlerThread("testLocationUpdates1");
+        handlerThread.start();
+        Criteria criteria = createLocationCriteria();
+        mManager.requestLocationUpdates(0, 0, criteria, listener, handlerThread.getLooper());
+
+        updateFusedLocation(latitude1, longitude1);
+        assertTrue(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+        Location location = listener.getLocation();
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertTrue(location.hasAccuracy());
+        assertEquals(1.0f, location.getAccuracy());
+        assertEquals(true, location.isFromMockProvider());
+
+        // update location without notifying listener
+        mManager.removeUpdates(listener);
+        listener.reset();
+        updateFusedLocation(latitude2, longitude2);
+        assertFalse(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+
+        // Missing arguments throw exceptions.
+        try {
+            mManager.requestLocationUpdates(0, 0, criteria, (LocationListener) null,
+                    Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestLocationUpdates(0, 0, null, listener, Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param criteria is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (LocationListener) null );
+            fail("Should throw IllegalArgumentException if listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        unmockFusedLocation();
+    }
+
+    public void testSingleUpdateWithCriteriaAndLocationListenerAndLooper()
+            throws InterruptedException {
+        double latitude1 = 40;
+        double longitude1 = 10;
+        double latitude2 = 20;
+        double longitude2 = 30;
+        double latitude3 = 60;
+        double longitude3 = 50;
+        final MockLocationListener listener = new MockLocationListener();
+        mockFusedLocation();
+
+        // update location and notify listener
+        HandlerThread handlerThread = new HandlerThread("testLocationUpdates2");
+        handlerThread.start();
+        Criteria criteria = createLocationCriteria();
+        mManager.requestSingleUpdate(criteria, listener, handlerThread.getLooper());
+
+        updateFusedLocation(latitude1, longitude1);
+        assertTrue(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+        Location location = listener.getLocation();
+        assertEquals(FUSED_PROVIDER_NAME, location.getProvider());
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertTrue(location.hasAccuracy());
+        assertEquals(1.0f, location.getAccuracy());
+        assertEquals(true, location.isFromMockProvider());
+
+        // Any further location change doesn't trigger an update.
+        updateFusedLocation(latitude2, longitude2);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+
+        // update location without notifying listener
+        mManager.removeUpdates(listener);
+        listener.reset();
+        updateFusedLocation(latitude3, longitude3);
+        assertFalse(listener.hasCalledOnLocationChanged(TEST_TIME_OUT));
+
+        // Missing arguments throw exceptions.
+        try {
+            mManager.requestLocationUpdates(0, 0, criteria, (LocationListener) null,
+                    Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestLocationUpdates(0, 0, null, listener, Looper.myLooper());
+            fail("Should throw IllegalArgumentException if param criteria is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (LocationListener) null );
+            fail("Should throw IllegalArgumentException if listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        unmockFusedLocation();
+    }
+
+    public void testSingleUpdateWithPendingIntent() throws InterruptedException {
+        double latitude1 = 20;
+        double longitude1 = 40;
+        double latitude2 = 30;
+        double longitude2 = 50;
+        double latitude3 = 10;
+        double longitude3 = 60;
+
+        // update location and receive broadcast.
+        registerIntentReceiver();
+        mManager.requestLocationUpdates(TEST_MOCK_PROVIDER_NAME, 0, 0, mPendingIntent);
+        updateLocation(latitude1, longitude1);
+        waitForReceiveBroadcast();
+
+        assertNotNull(mIntentReceiver.getLastReceivedIntent());
+        Location location = mManager.getLastKnownLocation(TEST_MOCK_PROVIDER_NAME);
+        assertEquals(TEST_MOCK_PROVIDER_NAME, location.getProvider());
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+        assertEquals(true, location.isFromMockProvider());
+
+        // Any further location change doesn't trigger an update.
+        updateLocation(latitude2, longitude2);
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+
+        // update location without receiving broadcast.
+        mManager.removeUpdates(mPendingIntent);
+        mIntentReceiver.clearReceivedIntents();
+        updateLocation(latitude3, longitude3);
+        waitForReceiveBroadcast();
+        assertEquals(latitude1, location.getLatitude());
+        assertEquals(longitude1, location.getLongitude());
+
+        try {
+            mManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0,
+                    (PendingIntent) null);
+            fail("Should throw IllegalArgumentException if param intent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.requestLocationUpdates(null, 0, 0, mPendingIntent);
+            fail("Should throw IllegalArgumentException if param provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try {
+            mManager.removeUpdates( (PendingIntent) null );
+            fail("Should throw IllegalArgumentException if intent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
     public void testAddProximityAlert() {
         Intent i = new Intent();
         i.setAction("android.location.cts.TEST_GET_GPS_STATUS_ACTION");
@@ -544,6 +888,17 @@ public class LocationManagerTest extends InstrumentationTestCase {
 
         mManager.addProximityAlert(0, 0, 1.0f, 5000, pi);
         mManager.removeProximityAlert(pi);
+    }
+
+
+    @UiThreadTest
+    public void testNmeaListener() {
+        MockNmeaListener listener = new MockNmeaListener();
+        mManager.addNmeaListener(listener);
+        mManager.removeNmeaListener(listener);
+
+        mManager.addNmeaListener(null);
+        mManager.removeNmeaListener(null);
     }
 
     public void testIsProviderEnabled() {
@@ -840,6 +1195,21 @@ public class LocationManagerTest extends InstrumentationTestCase {
         updateLocation(TEST_MOCK_PROVIDER_NAME, latitude, longitude);
     }
 
+    private void updateFusedLocation(final double latitude, final double longitude) {
+      updateLocation(FUSED_PROVIDER_NAME, latitude, longitude);
+ }
+
+    private Criteria createLocationCriteria() {
+        Criteria criteria = new Criteria();
+        criteria.setAccuracy(Criteria.ACCURACY_FINE);
+        criteria.setPowerRequirement(Criteria.POWER_MEDIUM);
+        criteria.setAltitudeRequired(false);
+        criteria.setBearingRequired(false);
+        criteria.setCostAllowed(false);
+        criteria.setSpeedRequired(false);
+        return criteria;
+     }
+
     private void mockFusedLocation() {
         addTestProvider(FUSED_PROVIDER_NAME);
     }
@@ -1000,6 +1370,23 @@ public class LocationManagerTest extends InstrumentationTestCase {
 
         public Location getLocation() {
             return mLocation;
+        }
+    }
+
+    private static class MockNmeaListener implements NmeaListener {
+        private boolean mIsNmeaReceived;
+
+        @Override
+        public void onNmeaReceived(long timestamp, String nmea) {
+            mIsNmeaReceived = true;
+        }
+
+        public boolean isNmeaRecevied() {
+            return mIsNmeaReceived;
+        }
+
+        public void reset() {
+            mIsNmeaReceived = false;
         }
     }
 

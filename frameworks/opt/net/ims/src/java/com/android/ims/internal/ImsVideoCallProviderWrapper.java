@@ -16,14 +16,15 @@
 
 package com.android.ims.internal;
 
+import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
-import android.telecom.CameraCapabilities;
 import android.telecom.Connection;
 import android.telecom.VideoProfile;
+import android.telecom.VideoProfile.CameraCapabilities;
 import android.view.Surface;
 
 import com.android.internal.os.SomeArgs;
@@ -46,6 +47,7 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
     private static final int MSG_CHANGE_PEER_DIMENSIONS = 4;
     private static final int MSG_CHANGE_CALL_DATA_USAGE = 5;
     private static final int MSG_CHANGE_CAMERA_CAPABILITIES = 6;
+    private static final int MSG_CHANGE_VIDEO_QUALITY = 7;
 
     private final IImsVideoCallProvider mVideoCallProvider;
     private final ImsVideoCallCallback mBinder;
@@ -91,12 +93,18 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
         }
 
         @Override
-        public void changeCallDataUsage(int dataUsage) {
+        public void changeVideoQuality(int videoQuality) {
+            mHandler.obtainMessage(MSG_CHANGE_VIDEO_QUALITY, videoQuality, 0).sendToTarget();
+        }
+
+        @Override
+        public void changeCallDataUsage(long dataUsage) {
             mHandler.obtainMessage(MSG_CHANGE_CALL_DATA_USAGE, dataUsage).sendToTarget();
         }
 
         @Override
-        public void changeCameraCapabilities(CameraCapabilities cameraCapabilities) {
+        public void changeCameraCapabilities(
+                VideoProfile.CameraCapabilities cameraCapabilities) {
             mHandler.obtainMessage(MSG_CHANGE_CAMERA_CAPABILITIES,
                     cameraCapabilities).sendToTarget();
         }
@@ -137,10 +145,13 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
                     }
                     break;
                 case MSG_CHANGE_CALL_DATA_USAGE:
-                    changeCallDataUsage(msg.arg1);
+                    changeCallDataUsage((long) msg.obj);
                     break;
                 case MSG_CHANGE_CAMERA_CAPABILITIES:
-                    changeCameraCapabilities((CameraCapabilities) msg.obj);
+                    changeCameraCapabilities((VideoProfile.CameraCapabilities) msg.obj);
+                    break;
+                case MSG_CHANGE_VIDEO_QUALITY:
+                    changeVideoQuality(msg.arg1);
                     break;
                 default:
                     break;
@@ -204,9 +215,9 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
     }
 
     /** @inheritDoc */
-    public void onSendSessionModifyRequest(VideoProfile requestProfile) {
+    public void onSendSessionModifyRequest(VideoProfile fromProfile, VideoProfile toProfile) {
         try {
-            mVideoCallProvider.sendSessionModifyRequest(requestProfile);
+            mVideoCallProvider.sendSessionModifyRequest(fromProfile, toProfile);
         } catch (RemoteException e) {
         }
     }
@@ -236,7 +247,7 @@ public class ImsVideoCallProviderWrapper extends Connection.VideoProvider {
     }
 
     /** @inheritDoc */
-    public void onSetPauseImage(String uri) {
+    public void onSetPauseImage(Uri uri) {
         try {
             mVideoCallProvider.setPauseImage(uri);
         } catch (RemoteException e) {

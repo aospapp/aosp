@@ -26,13 +26,15 @@ namespace renderscript {
  * CAUTION
  *
  * Any layout changes for this class may require a corresponding change to be
- * made to frameworks/compile/libbcc/lib/ScriptCRT/rs_core.c, which contains
+ * made to frameworks/rs/driver/runtime/rs_structs.h, which contains
  * a partial copy of the information below.
  *
  *****************************************************************************/
 
 class Type : public ObjectBase {
 public:
+    const static uint32_t mMaxArrays = 4;
+
     struct Hal {
         mutable void *drv;
 
@@ -47,9 +49,10 @@ public:
             uint32_t *lodDimX;
             uint32_t *lodDimY;
             uint32_t *lodDimZ;
-            uint32_t *_unused;
+            uint32_t *arrays;
             uint32_t lodCount;
             uint32_t dimYuv;
+            uint32_t arrayCount;
             bool faces;
         };
         State state;
@@ -71,6 +74,12 @@ public:
     bool getDimLOD() const {return mDimLOD;}
     bool getDimFaces() const {return mHal.state.faces;}
     uint32_t getDimYuv() const {return mHal.state.dimYuv;}
+    uint32_t getArray(uint32_t idx) const {
+        if (idx < mHal.state.arrayCount) {
+            return mHal.state.arrays[idx];
+        }
+        return 0;
+    }
 
     uint32_t getLODDimX(uint32_t lod) const {
         rsAssert(lod < mHal.state.lodCount);
@@ -100,15 +109,21 @@ public:
     ObjectBaseRef<Type> cloneAndResize2D(Context *rsc, uint32_t dimX, uint32_t dimY) const;
 
     static ObjectBaseRef<Type> getTypeRef(Context *rsc, const Element *e,
-                                          uint32_t dimX, uint32_t dimY, uint32_t dimZ,
-                                          bool dimLOD, bool dimFaces, uint32_t dimYuv);
+                                          const RsTypeCreateParams *params, size_t len);
 
     static Type* getType(Context *rsc, const Element *e,
-                         uint32_t dimX, uint32_t dimY, uint32_t dimZ,
-                         bool dimLOD, bool dimFaces, uint32_t yuv) {
-        ObjectBaseRef<Type> type = getTypeRef(rsc, e, dimX, dimY, dimZ, dimLOD, dimFaces, yuv);
+                         const RsTypeCreateParams *params, size_t len) {
+        ObjectBaseRef<Type> type = getTypeRef(rsc, e, params, len);
         type->incUserRef();
         return type.get();
+    }
+
+    static ObjectBaseRef<Type> getTypeRef(Context *rsc, const Element *e, uint32_t dimX, uint32_t dimY = 0) {
+        RsTypeCreateParams p;
+        memset(&p, 0, sizeof(p));
+        p.dimX = dimX;
+        p.dimY = dimY;
+        return getTypeRef(rsc, e, &p, sizeof(p));
     }
 
     void incRefs(const void *ptr, size_t ct, size_t startOff = 0) const;

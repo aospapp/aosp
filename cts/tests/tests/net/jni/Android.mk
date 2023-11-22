@@ -28,3 +28,12 @@ LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_SHARED_LIBRARIES := libnativehelper liblog
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libnativemultinetwork_jni
+# Don't include this package in any configuration by default.
+LOCAL_MODULE_TAGS := optional
+LOCAL_SRC_FILES := NativeMultinetworkJni.c
+LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
+LOCAL_SHARED_LIBRARIES := libandroid libnativehelper liblog
+include $(BUILD_SHARED_LIBRARY)

@@ -18,6 +18,8 @@
 
 #include <cstdlib>
 
+#include <llvm/InitializePasses.h>
+#include <llvm/PassRegistry.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/TargetSelect.h>
 
@@ -28,7 +30,7 @@ namespace {
 
 void llvm_error_handler(void *pUserData, const std::string &pMessage,
                         bool pGenCrashDiag) {
-  ALOGE("%s", pMessage.c_str());
+  ALOGE("bcc: Internal Error - %s", pMessage.c_str());
   ::exit(1);
 }
 
@@ -43,51 +45,27 @@ void bcc::init::Initialize() {
 
   // Setup error handler for LLVM.
   llvm::remove_fatal_error_handler();
-  llvm::install_fatal_error_handler(llvm_error_handler, NULL);
+  llvm::install_fatal_error_handler(llvm_error_handler, nullptr);
 
-#if defined(PROVIDE_ARM_CODEGEN)
-  LLVMInitializeARMAsmPrinter();
-  LLVMInitializeARMAsmParser();
-# if USE_DISASSEMBLER
-  LLVMInitializeARMDisassembler();
-# endif
-  LLVMInitializeARMTargetMC();
-  LLVMInitializeARMTargetInfo();
-  LLVMInitializeARMTarget();
-#endif
 
-#if defined(PROVIDE_MIPS_CODEGEN)
-  LLVMInitializeMipsAsmPrinter();
-  LLVMInitializeMipsAsmParser();
-# if USE_DISASSEMBLER
-  LLVMInitializeMipsDisassembler();
-# endif
-  LLVMInitializeMipsTargetMC();
-  LLVMInitializeMipsTargetInfo();
-  LLVMInitializeMipsTarget();
-#endif
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmPrinters();
 
-#if defined(PROVIDE_X86_CODEGEN)
-  LLVMInitializeX86AsmPrinter();
-  LLVMInitializeX86AsmParser();
-# if USE_DISASSEMBLER
-  LLVMInitializeX86Disassembler();
-# endif
-  LLVMInitializeX86TargetMC();
-  LLVMInitializeX86TargetInfo();
-  LLVMInitializeX86Target();
-#endif
-
-#if defined(PROVIDE_ARM64_CODEGEN)
-  LLVMInitializeAArch64AsmPrinter();
-  LLVMInitializeAArch64AsmParser();
-# if USE_DISASSEMBLER
-  LLVMInitializeAArch64Disassembler();
-# endif
-  LLVMInitializeAArch64TargetMC();
-  LLVMInitializeAArch64TargetInfo();
-  LLVMInitializeAArch64Target();
-#endif
+  llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
+  llvm::initializeCore(Registry);
+  llvm::initializeScalarOpts(Registry);
+  llvm::initializeVectorization(Registry);
+  llvm::initializeIPO(Registry);
+  llvm::initializeAnalysis(Registry);
+  llvm::initializeIPA(Registry);
+  llvm::initializeTransformUtils(Registry);
+  llvm::initializeInstCombine(Registry);
+  llvm::initializeInstrumentation(Registry);
+  llvm::initializeTarget(Registry);
+  llvm::initializeCodeGenPreparePass(Registry);
+  llvm::initializeAtomicExpandPass(Registry);
+  llvm::initializeRewriteSymbolsPass(Registry);
 
   is_initialized = true;
 

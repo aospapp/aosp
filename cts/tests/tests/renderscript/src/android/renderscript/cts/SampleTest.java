@@ -92,8 +92,8 @@ public class SampleTest extends RSBaseCompute {
     public void testNearest() {
         mScript.invoke_test_RGBA(mAlloc_RGBA_1D, mAlloc_RGBA_2D);
         mRS.finish();
-        checkForErrors();
         waitForMessage();
+        checkForErrors();
     }
 }
 

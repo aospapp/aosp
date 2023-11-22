@@ -18,14 +18,23 @@
 #define _FRAMEWORKS_COMPILE_SLANG_SLANG_H_
 
 #include <cstdio>
+#include <list>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "llvm/ADT/StringMap.h"
+
+#include "slang_rs_reflect_utils.h"
+#include "slang_version.h"
 
 // Terrible workaround for TargetOptions.h not using llvm::RefCountedBase!
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 using llvm::RefCountedBase;
 
+#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/TargetOptions.h"
+#include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Lex/ModuleLoader.h"
 
 #include "llvm/ADT/StringRef.h"
@@ -56,15 +65,11 @@ namespace clang {
 
 namespace slang {
 
+class RSCCOptions;
+class RSContext;
+class RSExportRecordType;
+
 class Slang : public clang::ModuleLoader {
-  static clang::LangOptions LangOpts;
-  static clang::CodeGenOptions CodeGenOpts;
-
-  static bool GlobalInitialized;
-
-  static void LLVMErrorHandler(void *UserData, const std::string &Message,
-                               bool GenCrashDialog);
-
  public:
   enum OutputType {
     OT_Dependency,
@@ -78,10 +83,13 @@ class Slang : public clang::ModuleLoader {
   };
 
  private:
-  bool mInitialized;
+  // Language options (define the language feature for compiler such as C99)
+  clang::LangOptions LangOpts;
+  // Code generation options for the compiler
+  clang::CodeGenOptions CodeGenOpts;
 
-  // Diagnostics Mediator (An interface for both Producer and Consumer)
-  std::unique_ptr<clang::Diagnostic> mDiag;
+  // Returns true if this is a Filterscript file.
+  static bool isFilterscript(const char *Filename);
 
   // Diagnostics Engine (Producer and Diagnostics Reporter)
   clang::DiagnosticsEngine *mDiagEngine;
@@ -95,31 +103,25 @@ class Slang : public clang::ModuleLoader {
   std::unique_ptr<clang::TargetInfo> mTarget;
   void createTarget(uint32_t BitWidth);
 
-
   // File manager (for prepocessor doing the job such as header file search)
   std::unique_ptr<clang::FileManager> mFileMgr;
   std::unique_ptr<clang::FileSystemOptions> mFileSysOpt;
   void createFileManager();
 
-
   // Source manager (responsible for the source code handling)
   std::unique_ptr<clang::SourceManager> mSourceMgr;
   void createSourceManager();
-
 
   // Preprocessor (source code preprocessor)
   std::unique_ptr<clang::Preprocessor> mPP;
   void createPreprocessor();
 
-
   // AST context (the context to hold long-lived AST nodes)
   std::unique_ptr<clang::ASTContext> mASTContext;
   void createASTContext();
 
-
   // AST consumer, responsible for code generation
   std::unique_ptr<clang::ASTConsumer> mBackend;
-
 
   // File names
   std::string mInputFileName;
@@ -129,7 +131,6 @@ class Slang : public clang::ModuleLoader {
   std::string mDepOutputFileName;
   std::string mDepTargetBCFileName;
   std::vector<std::string> mAdditionalDepTargets;
-  std::vector<std::string> mGeneratedFileNames;
 
   OutputType mOT;
 
@@ -141,8 +142,39 @@ class Slang : public clang::ModuleLoader {
 
   std::vector<std::string> mIncludePaths;
 
- protected:
+  // Context for Renderscript
+  RSContext *mRSContext;
+
+  bool mAllowRSPrefix;
+
+  unsigned int mTargetAPI;
+
+  bool mVerbose;
+
+  bool mIsFilterscript;
+
+  // Collect generated filenames (without the .java) for dependency generation
+  std::vector<std::string> mGeneratedFileNames;
+
   PragmaList mPragmas;
+
+  // FIXME: Should be std::list<RSExportable *> here. But currently we only
+  //        check ODR on record type.
+  //
+  // ReflectedDefinitions maps record type name to a pair:
+  //  <its RSExportRecordType instance,
+  //   the first file contains this record type definition>
+  typedef std::pair<RSExportRecordType*, const char*> ReflectedDefinitionTy;
+  typedef llvm::StringMap<ReflectedDefinitionTy> ReflectedDefinitionListTy;
+  ReflectedDefinitionListTy ReflectedDefinitions;
+
+  bool generateJavaBitcodeAccessor(const std::string &OutputPathBase,
+                                   const std::string &PackageName,
+                                   const std::string *LicenseNote);
+
+  // CurInputFile is the pointer to a char array holding the input filename
+  // and is valid before compile() ends.
+  bool checkODR(const char *CurInputFile);
 
   clang::DiagnosticsEngine &getDiagnostics() { return *mDiagEngine; }
   clang::TargetInfo const &getTargetInfo() const { return *mTarget; }
@@ -154,33 +186,29 @@ class Slang : public clang::ModuleLoader {
   inline clang::TargetOptions const &getTargetOptions() const
     { return *mTargetOpts.get(); }
 
-  virtual void initDiagnostic() {}
-  virtual void initPreprocessor() {}
-  virtual void initASTContext() {}
+  void initPreprocessor();
+  void initASTContext();
 
-  virtual clang::ASTConsumer *
-    createBackend(const clang::CodeGenOptions& CodeGenOpts,
-                  llvm::raw_ostream *OS,
-                  OutputType OT);
+  clang::ASTConsumer *createBackend(const clang::CodeGenOptions &CodeGenOpts,
+                                    llvm::raw_ostream *OS,
+                                    OutputType OT);
 
  public:
   static const llvm::StringRef PragmaMetadataName;
 
   static void GlobalInitialization();
 
-  Slang();
+  static bool IsRSHeaderFile(const char *File);
+  // FIXME: Determine whether a location is in RS header (i.e., one of the RS
+  //        built-in APIs) should only need its names (we need a "list" of RS
+  //        built-in APIs).
+  static bool IsLocInRSHeaderFile(const clang::SourceLocation &Loc,
+                                  const clang::SourceManager &SourceMgr);
 
-  void init(uint32_t BitWidth, clang::DiagnosticsEngine *DiagEngine,
-            DiagnosticBuffer *DiagClient);
+  Slang(uint32_t BitWidth, clang::DiagnosticsEngine *DiagEngine,
+        DiagnosticBuffer *DiagClient);
 
-  virtual clang::ModuleLoadResult loadModule(
-      clang::SourceLocation ImportLoc,
-      clang::ModuleIdPath Path,
-      clang::Module::NameVisibilityKind VK,
-      bool IsInclusionDirective);
-
-  bool setInputSource(llvm::StringRef InputFile, const char *Text,
-                      size_t TextLength);
+  virtual ~Slang();
 
   bool setInputSource(llvm::StringRef InputFile);
 
@@ -193,20 +221,6 @@ class Slang : public clang::ModuleLoader {
   void setOutputType(OutputType OT) { mOT = OT; }
 
   bool setOutput(const char *OutputFile);
-
-  // For use with 64-bit compilation/reflection. This only sets the filename of
-  // the 32-bit bitcode file, and doesn't actually verify it already exists.
-  void setOutput32(const char *OutputFile) {
-    mOutput32FileName = OutputFile;
-  }
-
-  std::string const &getOutputFileName() const {
-    return mOutputFileName;
-  }
-
-  std::string const &getOutput32FileName() const {
-    return mOutput32FileName;
-  }
 
   bool setDepOutput(const char *OutputFile);
 
@@ -233,13 +247,46 @@ class Slang : public clang::ModuleLoader {
 
   void setOptimizationLevel(llvm::CodeGenOpt::Level OptimizationLevel);
 
-  // Reset the slang compiler state such that it can be reused to compile
-  // another file
-  virtual void reset(bool SuppressWarnings = false);
+  // Compile bunch of RS files given in the llvm-rs-cc arguments. Return true if
+  // all given input files are successfully compiled without errors.
+  //
+  // @IOFiles - List of pairs of <input file path, output file path>.
+  //
+  // @DepFiles - List of pairs of <output dep. file path, dependent bitcode
+  //             target>. If @OutputDep is true, this parameter must be given
+  //             with the same number of pairs given in @IOFiles.
+  //
+  // @Opts - Selection of options defined from invoking llvm-rs-cc
+  bool
+  compile(const std::list<std::pair<const char *, const char *>> &IOFiles64,
+          const std::list<std::pair<const char *, const char *>> &IOFiles32,
+          const std::list<std::pair<const char *, const char *>> &DepFiles,
+          const RSCCOptions &Opts,
+          clang::DiagnosticOptions &DiagOpts);
 
-  virtual ~Slang();
+  clang::ModuleLoadResult loadModule(clang::SourceLocation ImportLoc,
+                                     clang::ModuleIdPath Path,
+                                     clang::Module::NameVisibilityKind VK,
+                                     bool IsInclusionDirective) override;
+
+  void makeModuleVisible(clang::Module *Mod,
+                         clang::Module::NameVisibilityKind Visibility,
+                         clang::SourceLocation ImportLoc,
+                         bool Complain = false) override {}
+
+  clang::GlobalModuleIndex *
+  loadGlobalModuleIndex(clang::SourceLocation TriggerLoc) override {
+    // We don't support C++ modules for RenderScript.
+    return nullptr;
+  }
+
+  bool lookupMissingImports(llvm::StringRef Name,
+                            clang::SourceLocation TriggerLoc) override {
+    // We don't support C++ modules for RenderScript.
+    return false;
+  }
 };
 
-}  // namespace slang
+} // namespace slang
 
 #endif  // _FRAMEWORKS_COMPILE_SLANG_SLANG_H_  NOLINT

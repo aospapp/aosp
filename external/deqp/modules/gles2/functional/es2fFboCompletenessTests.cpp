@@ -102,6 +102,38 @@ static const FormatKey s_extSrgbWriteControlFormats[] =
 	GL_SRGB8_ALPHA8
 };
 
+// DEQP_gles3_core_no_extension_features
+static const FormatKey s_es3NoExtRboFormats[] =
+{
+	GL_RGB10_A2,
+};
+static const FormatKey s_es3NoExtTextureFormats[] =
+{
+	GL_R16F,
+	GL_RG16F,
+	GL_RGB16F,
+	GL_RGBA16F,
+	GL_R11F_G11F_B10F,
+};
+static const FormatKey s_es3NoExtTextureColorRenderableFormats[] =
+{
+	GL_R8,
+	GL_RG8,
+};
+
+// with ES3 core and GL_EXT_color_buffer_float
+static const FormatKey s_es3NoExtExtColorBufferFloatFormats[] =
+{
+	// \note Only the GLES2+exts subset of formats
+	GL_R11F_G11F_B10F, GL_RGBA16F, GL_RG16F, GL_R16F,
+};
+
+// with ES3 core with OES_texture_stencil8
+static const FormatKey s_es3NoExtOesTextureStencil8Formats[] =
+{
+	GL_STENCIL_INDEX8,
+};
+
 static const FormatExtEntry s_es2ExtFormats[] =
 {
 	// The extension does not specify these to be color-renderable.
@@ -122,12 +154,47 @@ static const FormatExtEntry s_es2ExtFormats[] =
 		REQUIRED_RENDERABLE | TEXTURE_VALID | COLOR_RENDERABLE | RENDERBUFFER_VALID,
 		GLS_ARRAY_RANGE(s_extSrgbWriteControlFormats)
 	},
+
+	// Since GLES3 is "backwards compatible" to GLES2, we might actually be running on a GLES3
+	// context. Since GLES3 added some features to core with no corresponding GLES2 extension,
+	// some tests might produce wrong results (since they are using rules of GLES2 & extensions)
+	//
+	// To avoid this, require new features of GLES3 that have no matching GLES2 extension if
+	// context is GLES3. This can be done with a DEQP_* extensions.
+	//
+	// \note Not all feature changes are listed here but only those that alter GLES2 subset of
+	//       the formats
+	{
+		"DEQP_gles3_core_compatible",
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | RENDERBUFFER_VALID,
+		GLS_ARRAY_RANGE(s_es3NoExtRboFormats)
+	},
+	{
+		"DEQP_gles3_core_compatible",
+		TEXTURE_VALID,
+		GLS_ARRAY_RANGE(s_es3NoExtTextureFormats)
+	},
+	{
+		"DEQP_gles3_core_compatible",
+		REQUIRED_RENDERABLE | TEXTURE_VALID | COLOR_RENDERABLE,
+		GLS_ARRAY_RANGE(s_es3NoExtTextureColorRenderableFormats)
+	},
+	{
+		"DEQP_gles3_core_compatible GL_EXT_color_buffer_float",
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | RENDERBUFFER_VALID,
+		GLS_ARRAY_RANGE(s_es3NoExtExtColorBufferFloatFormats)
+	},
+	{
+		"DEQP_gles3_core_compatible GL_OES_texture_stencil8",
+		REQUIRED_RENDERABLE | STENCIL_RENDERABLE | TEXTURE_VALID,
+		GLS_ARRAY_RANGE(s_es3NoExtOesTextureStencil8Formats)
+	},
 };
 
 class ES2Checker : public Checker
 {
 public:
-			ES2Checker				(void) : m_width(-1), m_height(-1) {}
+			ES2Checker				(const glu::RenderContext& ctx);
 	void	check					(GLenum attPoint, const Attachment& att,
 									 const Image* image);
 private:
@@ -135,7 +202,14 @@ private:
 	GLsizei	m_height;	//< The common height of images
 };
 
-void ES2Checker::check(GLenum attPoint, const Attachment& att, const Image* image)
+ES2Checker::ES2Checker (const glu::RenderContext& ctx)\
+	: Checker		(ctx)
+	, m_width		(-1)
+	, m_height		(-1)
+{
+}
+
+void ES2Checker::check (GLenum attPoint, const Attachment& att, const Image* image)
 {
 	DE_UNREF(attPoint);
 	DE_UNREF(att);
@@ -145,10 +219,16 @@ void ES2Checker::check(GLenum attPoint, const Attachment& att, const Image* imag
 		m_width = image->width;
 		m_height = image->height;
 	}
-	else
+	else if (image->width != m_width || image->height != m_height)
 	{
-		require(image->width == m_width && image->height == m_height,
-				GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS);
+		// Since GLES3 is "backwards compatible" to GLES2, we might actually be running
+		// on a GLES3 context. On GLES3, FRAMEBUFFER_INCOMPLETE_DIMENSIONS is not generated
+		// if attachments have different sizes.
+		if (!gls::FboUtil::checkExtensionSupport(m_renderCtx, "DEQP_gles3_core_compatible"))
+		{
+			// running on GLES2
+			addFBOStatus(GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS, "Sizes of attachments differ");
+		}
 	}
 	// GLES2, 4.4.5: "some implementations may not support rendering to
 	// particular combinations of internal formats. If the combination of
@@ -157,7 +237,7 @@ void ES2Checker::check(GLenum attPoint, const Attachment& att, const Image* imag
 	// under the clause labeled FRAMEBUFFER_UNSUPPORTED."
 	//
 	// Hence it is _always_ allowed to report FRAMEBUFFER_UNSUPPORTED.
-	canRequire(false, GL_FRAMEBUFFER_UNSUPPORTED);
+	addPotentialFBOStatus(GL_FRAMEBUFFER_UNSUPPORTED, "Particular format combinations need not to be supported");
 }
 
 struct FormatCombination
@@ -204,7 +284,7 @@ GLenum SupportedCombinationTest::formatKind (ImageFormat fmt)
 	if (fmt.format == GL_NONE)
 		return GL_NONE;
 
-	const FormatFlags flags = m_ctx.getMinFormats().getFormatInfo(fmt, ANY_FORMAT);
+	const FormatFlags flags = m_ctx.getCoreFormats().getFormatInfo(fmt);
 	const bool rbo = (flags & RENDERBUFFER_VALID) != 0;
 	// exactly one of renderbuffer and texture is supported by vanilla GLES2 formats
 	DE_ASSERT(rbo != ((flags & TEXTURE_VALID) != 0));
@@ -214,7 +294,7 @@ GLenum SupportedCombinationTest::formatKind (ImageFormat fmt)
 
 IterateResult SupportedCombinationTest::iterate (void)
 {
-	const FormatDB& db		= m_ctx.getMinFormats();
+	const FormatDB& db		= m_ctx.getCoreFormats();
 	const ImageFormat none	= ImageFormat::none();
 	Formats colorFmts		= db.getFormats(COLOR_RENDERABLE);
 	Formats depthFmts		= db.getFormats(DEPTH_RENDERABLE);
@@ -254,9 +334,10 @@ IterateResult SupportedCombinationTest::iterate (void)
 	return STOP;
 }
 
-class ES2CheckerFactory : public CheckerFactory {
+class ES2CheckerFactory : public CheckerFactory
+{
 public:
-	Checker*			createChecker	(void) { return new ES2Checker(); }
+	Checker*			createChecker	(const glu::RenderContext& ctx) { return new ES2Checker(ctx); }
 };
 
 class TestGroup : public TestCaseGroup

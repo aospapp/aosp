@@ -1,3 +1,4 @@
+
 Android ActionBarCompat-ShareActionProvider Sample
 ===================================
 
@@ -21,8 +22,8 @@ necessary to display a compatible Action Bar on devices running Android v2.1+.
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Screenshots

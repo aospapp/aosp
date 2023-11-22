@@ -130,6 +130,7 @@ public class BaseDexClassLoader extends ClassLoader {
             }
             result.append(directory);
         }
+
         return result.toString();
     }
 

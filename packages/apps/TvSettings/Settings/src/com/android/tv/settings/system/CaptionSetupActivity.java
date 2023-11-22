@@ -16,32 +16,27 @@
 
 package com.android.tv.settings.system;
 
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-
-import com.android.tv.settings.BaseSettingsActivity;
-import com.android.tv.settings.ActionBehavior;
-import com.android.tv.settings.ActionKey;
-import com.android.tv.settings.R;
-import com.android.tv.settings.util.SettingsHelper;
-
-import android.view.accessibility.CaptioningManager;
-
-import android.provider.Settings;
-
-import android.os.Bundle;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
+import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Log;
+import android.view.accessibility.CaptioningManager;
 
+import com.android.tv.settings.ActionBehavior;
+import com.android.tv.settings.ActionKey;
+import com.android.tv.settings.BaseSettingsActivity;
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.old.ActionFragment;
+
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
-import java.text.Collator;
 
 public class CaptionSetupActivity extends BaseSettingsActivity implements ActionAdapter.Listener,
                                   ActionAdapter.OnFocusListener {
@@ -50,7 +45,6 @@ public class CaptionSetupActivity extends BaseSettingsActivity implements Action
     private static final boolean DEBUG = false;
 
     private Resources mResources;
-    private SettingsHelper mHelper;
     private boolean mDisplayEnabled;
     private String mNone;
 
@@ -112,8 +106,7 @@ public class CaptionSetupActivity extends BaseSettingsActivity implements Action
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         mResources = getResources();
-        mHelper = new SettingsHelper(this);
-        mActions = new ArrayList<Action>();
+        mActions = new ArrayList<>();
         mCaptioningManager = (CaptioningManager) getSystemService(Context.CAPTIONING_SERVICE);
 
         mStyles = getIntArrayAsStringArray(R.array.captioning_preset_selector_values);
@@ -540,7 +533,7 @@ public class CaptionSetupActivity extends BaseSettingsActivity implements Action
                 break;
             default:
                 ActionKey<ActionType, ActionBehavior> actionKey =
-                    new ActionKey<ActionType, ActionBehavior>(
+                    new ActionKey<>(
                         ActionType.class, ActionBehavior.class, action.getKey());
                 final ActionType type = actionKey.getType();
                 final ActionBehavior behavior = actionKey.getBehavior();
@@ -720,9 +713,9 @@ public class CaptionSetupActivity extends BaseSettingsActivity implements Action
         updateCaptioningBackgroundColor();
     }
 
-    private String getLanguageName(String mLanaguage) {
+    private String getLanguageName(String language) {
         for (int i = 0; i < mLanguageLocales.length; ++i) {
-            if (mLanguage.equals(mLanguageLocales [i])) {
+            if (language.equals(mLanguageLocales [i])) {
                 return mLanguageNames [i];
             }
         }
@@ -782,7 +775,7 @@ public class CaptionSetupActivity extends BaseSettingsActivity implements Action
         private static final Collator sCollator = Collator.getInstance();
 
         public String label;
-        public Locale locale;
+        public final Locale locale;
 
         public LocaleInfo(String label, Locale locale) {
             this.label = label;

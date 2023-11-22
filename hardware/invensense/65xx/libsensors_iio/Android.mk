@@ -15,16 +15,21 @@
 
 LOCAL_PATH := $(call my-dir)
 
-#ifneq ($(TARGET_SIMULATOR),true)
+# Too many benign warnings to be fixed later.
+my_ignored_clang_warnings := \
+    -Wno-unused-parameter \
+    -Wno-unused-private-field \
+    -Wno-gnu-designator
 
 # InvenSense fragment of the HAL
 include $(CLEAR_VARS)
 
+LOCAL_CLANG_CFLAGS += $(my_ignored_clang_warnings)
 LOCAL_MODULE := libinvensense_hal
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
-LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
+LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
 
 # ANDROID version check
 MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
@@ -82,19 +87,17 @@ LOCAL_SHARED_LIBRARIES += libmllite
 LOCAL_SHARED_LIBRARIES += libmplmpu
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mpl
 LOCAL_CPPFLAGS += -DLINUX=1
-LOCAL_PRELINK_MODULE := false
 
 LOCAL_SHARED_LIBRARIES += libmllite
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mllite
 LOCAL_CPPFLAGS += -DLINUX=1
-LOCAL_PRELINK_MODULE := false
 
 include $(BUILD_SHARED_LIBRARY)
 
-#endif # !TARGET_SIMULATOR
-
 # Build a temporary HAL that links the InvenSense .so
 include $(CLEAR_VARS)
+
+LOCAL_CLANG_CFLAGS += $(my_ignored_clang_warnings)
 ifneq ($(filter dory guppy guppypdk, $(TARGET_DEVICE)),)
 LOCAL_MODULE := sensors.invensense
 else
@@ -117,9 +120,8 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mpl
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/driver/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/driver/include/linux
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
+LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
 
 ifeq ($(VERSION_JB),true)
 LOCAL_CFLAGS += -DANDROID_JELLYBEAN
@@ -187,3 +189,4 @@ OVERRIDE_BUILT_MODULE_PATH := $(TARGET_OUT_INTERMEDIATE_LIBRARIES)
 LOCAL_STRIP_MODULE := true
 include $(BUILD_PREBUILT)
 
+my_ignored_clang_warnings :=

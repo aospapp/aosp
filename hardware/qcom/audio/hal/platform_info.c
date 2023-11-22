@@ -32,6 +32,7 @@ typedef enum {
     ACDB,
     PCM_ID,
     BACKEND_NAME,
+    CONFIG_PARAMS,
 } section_t;
 
 typedef void (* section_process_fn)(const XML_Char **attr);
@@ -39,6 +40,7 @@ typedef void (* section_process_fn)(const XML_Char **attr);
 static void process_acdb_id(const XML_Char **attr);
 static void process_pcm_id(const XML_Char **attr);
 static void process_backend_name(const XML_Char **attr);
+static void process_config_params(const XML_Char **attr);
 static void process_root(const XML_Char **attr);
 
 static section_process_fn section_table[] = {
@@ -46,9 +48,17 @@ static section_process_fn section_table[] = {
     [ACDB] = process_acdb_id,
     [PCM_ID] = process_pcm_id,
     [BACKEND_NAME] = process_backend_name,
+    [CONFIG_PARAMS] = process_config_params,
 };
 
 static section_t section;
+
+struct platform_info {
+    void             *platform;
+    struct str_parms *kvpairs;
+};
+
+static struct platform_info my_data;
 
 /*
  * <audio_platform_info>
@@ -67,6 +77,12 @@ static section_t section;
  * ...
  * ...
  * </pcm_ids>
+ * <config_params>
+ *      <param key="snd_card_name" value="msm8994-tomtom-mtp-snd-card"/>
+ *      ...
+ *      ...
+ * </config_params>
+ *
  * </audio_platform_info>
  */
 
@@ -80,7 +96,7 @@ static void process_pcm_id(const XML_Char **attr)
     int index;
 
     if (strcmp(attr[0], "name") != 0) {
-        ALOGE("%s: 'name' not found, no ACDB ID set!", __func__);
+        ALOGE("%s: 'name' not found, no pcm_id set!", __func__);
         goto done;
     }
 
@@ -128,6 +144,7 @@ done:
 static void process_backend_name(const XML_Char **attr)
 {
     int index;
+    char *hw_interface = NULL;
 
     if (strcmp(attr[0], "name") != 0) {
         ALOGE("%s: 'name' not found, no ACDB ID set!", __func__);
@@ -147,7 +164,15 @@ static void process_backend_name(const XML_Char **attr)
         goto done;
     }
 
-    if (platform_set_snd_device_backend(index, attr[3]) < 0) {
+    if (attr[4] != NULL) {
+        if (strcmp(attr[4], "interface") != 0) {
+            hw_interface = NULL;
+        } else {
+            hw_interface = (char *)attr[5];
+        }
+    }
+
+    if (platform_set_snd_device_backend(index, attr[3], hw_interface) < 0) {
         ALOGE("%s: Device %s in %s, backend %s was not set!",
               __func__, attr[1], PLATFORM_INFO_XML_PATH, attr[3]);
         goto done;
@@ -189,6 +214,24 @@ done:
     return;
 }
 
+/* platform specific configuration key-value pairs */
+static void process_config_params(const XML_Char **attr)
+{
+    if (strcmp(attr[0], "key") != 0) {
+        ALOGE("%s: 'key' not found", __func__);
+        goto done;
+    }
+
+    if (strcmp(attr[2], "value") != 0) {
+        ALOGE("%s: 'value' not found", __func__);
+        goto done;
+    }
+
+    str_parms_add_str(my_data.kvpairs, (char*)attr[1], (char*)attr[3]);
+done:
+    return;
+}
+
 static void start_tag(void *userdata __unused, const XML_Char *tag_name,
                       const XML_Char **attr)
 {
@@ -202,6 +245,8 @@ static void start_tag(void *userdata __unused, const XML_Char *tag_name,
         section = PCM_ID;
     } else if (strcmp(tag_name, "backend_names") == 0) {
         section = BACKEND_NAME;
+    } else if (strcmp(tag_name, "config_params") == 0) {
+        section = CONFIG_PARAMS;
     } else if (strcmp(tag_name, "device") == 0) {
         if ((section != ACDB) && (section != BACKEND_NAME)) {
             ALOGE("device tag only supported for acdb/backend names");
@@ -219,6 +264,14 @@ static void start_tag(void *userdata __unused, const XML_Char *tag_name,
 
         section_process_fn fn = section_table[PCM_ID];
         fn(attr);
+    } else if (strcmp(tag_name, "param") == 0) {
+        if (section != CONFIG_PARAMS) {
+            ALOGE("param tag only supported with CONFIG_PARAMS section");
+            return;
+        }
+
+        section_process_fn fn = section_table[section];
+        fn(attr);
     }
 
     return;
@@ -232,10 +285,13 @@ static void end_tag(void *userdata __unused, const XML_Char *tag_name)
         section = ROOT;
     } else if (strcmp(tag_name, "backend_names") == 0) {
         section = ROOT;
+    } else if (strcmp(tag_name, "config_params") == 0) {
+        section = ROOT;
+        platform_set_parameters(my_data.platform, my_data.kvpairs);
     }
 }
 
-int platform_info_init(void)
+int platform_info_init(void *platform)
 {
     XML_Parser      parser;
     FILE            *file;
@@ -260,6 +316,9 @@ int platform_info_init(void)
         ret = -ENODEV;
         goto err_close_file;
     }
+
+    my_data.platform = platform;
+    my_data.kvpairs = str_parms_create();
 
     XML_SetElementHandler(parser, start_tag, end_tag);
 

@@ -18,6 +18,7 @@ package com.android.tv.settings;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 
 import com.android.tv.settings.util.UriUtils;
 
@@ -75,8 +76,12 @@ public class MenuItem {
         }
 
         public Builder imageResourceId(Context context, int imageResourceId) {
+            return imageResourceId(context.getResources(), imageResourceId);
+        }
+
+        public Builder imageResourceId(Resources resources, int imageResourceId) {
             return imageUri(
-                    UriUtils.getAndroidResourceUri(context.getResources(), imageResourceId));
+                    UriUtils.getAndroidResourceUri(resources, imageResourceId));
         }
 
         public Builder imageUri(String uri) {

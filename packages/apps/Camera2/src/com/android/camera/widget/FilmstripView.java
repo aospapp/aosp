@@ -20,15 +20,12 @@ import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
-import android.annotation.TargetApi;
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -43,14 +40,13 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.Scroller;
 
 import com.android.camera.CameraActivity;
-import com.android.camera.data.LocalData.ActionCallback;
+import com.android.camera.data.FilmstripItem;
+import com.android.camera.data.FilmstripItem.VideoClickedCallback;
 import com.android.camera.debug.Log;
-import com.android.camera.filmstrip.DataAdapter;
 import com.android.camera.filmstrip.FilmstripController;
-import com.android.camera.filmstrip.ImageData;
+import com.android.camera.filmstrip.FilmstripDataAdapter;
 import com.android.camera.ui.FilmstripGestureRecognizer;
 import com.android.camera.ui.ZoomView;
-import com.android.camera.util.ApiHelper;
 import com.android.camera.util.CameraUtil;
 import com.android.camera2.R;
 
@@ -63,15 +59,15 @@ public class FilmstripView extends ViewGroup {
     /**
      * An action callback to be used for actions on the local media data items.
      */
-    public static class ActionCallbackImpl implements ActionCallback {
-        private final WeakReference<Activity> mActivity;
+    public static class PlayVideoIntent implements VideoClickedCallback {
+        private final WeakReference<CameraActivity> mActivity;
 
         /**
          * The given activity is used to start intents. It is wrapped in a weak
          * reference to prevent leaks.
          */
-        public ActionCallbackImpl(Activity activity) {
-            mActivity = new WeakReference<Activity>(activity);
+        public PlayVideoIntent(CameraActivity activity) {
+            mActivity = new WeakReference<CameraActivity>(activity);
         }
 
         /**
@@ -79,7 +75,7 @@ public class FilmstripView extends ViewGroup {
          */
         @Override
         public void playVideo(Uri uri, String title) {
-            Activity activity = mActivity.get();
+            CameraActivity activity = mActivity.get();
             if (activity != null) {
               CameraUtil.playVideo(activity, uri, title);
             }
@@ -90,6 +86,7 @@ public class FilmstripView extends ViewGroup {
     private static final Log.Tag TAG = new Log.Tag("FilmstripView");
 
     private static final int BUFFER_SIZE = 5;
+    private static final int BUFFER_CENTER = (BUFFER_SIZE - 1) / 2;
     private static final int GEOMETRY_ADJUST_TIME_MS = 400;
     private static final int SNAP_IN_CENTER_TIME_MS = 600;
     private static final float FLING_COASTING_DURATION_S = 0.05f;
@@ -115,20 +112,20 @@ public class FilmstripView extends ViewGroup {
     // Only check for intercepting touch events within first 500ms
     private static final int SWIPE_TIME_OUT = 500;
     private static final int DECELERATION_FACTOR = 4;
+    private static final float MOUSE_SCROLL_FACTOR = 128f;
 
     private CameraActivity mActivity;
-    private ActionCallback mActionCallback;
+    private VideoClickedCallback mVideoClickedCallback;
     private FilmstripGestureRecognizer mGestureRecognizer;
     private FilmstripGestureRecognizer.Listener mGestureListener;
-    private DataAdapter mDataAdapter;
+    private FilmstripDataAdapter mDataAdapter;
     private int mViewGapInPixel;
     private final Rect mDrawArea = new Rect();
 
-    private final int mCurrentItem = (BUFFER_SIZE - 1) / 2;
     private float mScale;
-    private MyController mController;
+    private FilmstripControllerImpl mController;
     private int mCenterX = -1;
-    private final ViewItem[] mViewItem = new ViewItem[BUFFER_SIZE];
+    private final ViewItem[] mViewItems = new ViewItem[BUFFER_SIZE];
 
     private FilmstripController.FilmstripListener mListener;
     private ZoomView mZoomView = null;
@@ -140,68 +137,122 @@ public class FilmstripView extends ViewGroup {
 
     // This is true if and only if the user is scrolling,
     private boolean mIsUserScrolling;
-    private int mDataIdOnUserScrolling;
+    private int mAdapterIndexUserIsScrollingOver;
     private float mOverScaleFactor = 1f;
 
     private boolean mFullScreenUIHidden = false;
-    private final SparseArray<Queue<View>> recycledViews = new SparseArray<Queue<View>>();
+    private final SparseArray<Queue<View>> recycledViews = new SparseArray<>();
 
     /**
      * A helper class to tract and calculate the view coordination.
      */
-    private class ViewItem {
-        private int mDataId;
+    private static class ViewItem {
+        private static enum RenderSize {
+            TINY,
+            THUMBNAIL,
+            FULL_RES
+        }
+
+        private final FilmstripView mFilmstrip;
+        private final View mView;
+        private final RectF mViewArea;
+
+        private int mIndex;
         /** The position of the left of the view in the whole filmstrip. */
         private int mLeftPosition;
-        private final View mView;
-        private final ImageData mData;
-        private final RectF mViewArea;
-        private boolean mMaximumBitmapRequested;
+        private FilmstripItem mData;
+        private RenderSize mRenderSize;
 
         private ValueAnimator mTranslationXAnimator;
         private ValueAnimator mTranslationYAnimator;
         private ValueAnimator mAlphaAnimator;
 
+        private boolean mLockAtFullOpacity;
+
         /**
          * Constructor.
          *
-         * @param id The id of the data from
-         *            {@link com.android.camera.filmstrip.DataAdapter}.
+         * @param index The index of the data from
+         *            {@link com.android.camera.filmstrip.FilmstripDataAdapter}.
          * @param v The {@code View} representing the data.
          */
-        public ViewItem(int id, View v, ImageData data) {
-            v.setPivotX(0f);
-            v.setPivotY(0f);
-            mDataId = id;
-            mData = data;
+        public ViewItem(int index, View v, FilmstripItem data, FilmstripView filmstrip) {
+            mFilmstrip = filmstrip;
             mView = v;
-            mMaximumBitmapRequested = false;
-            mLeftPosition = -1;
             mViewArea = new RectF();
+
+            mIndex = index;
+            mData = data;
+            mLeftPosition = -1;
+            mRenderSize = RenderSize.TINY;
+            mLockAtFullOpacity = false;
+
+            mView.setPivotX(0f);
+            mView.setPivotY(0f);
         }
 
-        public boolean isMaximumBitmapRequested() {
-            return mMaximumBitmapRequested;
+        public FilmstripItem getData() {
+            return mData;
         }
 
-        public void setMaximumBitmapRequested() {
-            mMaximumBitmapRequested = true;
+        public void setData(FilmstripItem item) {
+            mData = item;
+
+            renderTiny();
+        }
+
+        public void renderTiny() {
+            if (mRenderSize != RenderSize.TINY) {
+                mRenderSize = RenderSize.TINY;
+
+                Log.i(TAG, "[ViewItem:" + mIndex + "] mData.renderTiny()");
+                mData.renderTiny(mView);
+            }
+        }
+
+        public void renderThumbnail() {
+            if (mRenderSize != RenderSize.THUMBNAIL) {
+                mRenderSize = RenderSize.THUMBNAIL;
+
+                Log.i(TAG, "[ViewItem:" + mIndex + "] mData.renderThumbnail()");
+                mData.renderThumbnail(mView);
+            }
+        }
+
+        public void renderFullRes() {
+            if (mRenderSize != RenderSize.FULL_RES) {
+                mRenderSize = RenderSize.FULL_RES;
+
+                Log.i(TAG, "[ViewItem:" + mIndex + "] mData.renderFullRes()");
+                mData.renderFullRes(mView);
+            }
+        }
+
+        public void lockAtFullOpacity() {
+            if (!mLockAtFullOpacity) {
+                mLockAtFullOpacity = true;
+                mView.setAlpha(1.0f);
+            }
+        }
+
+        public void unlockOpacity() {
+            mLockAtFullOpacity = false;
         }
 
         /**
-         * Returns the data id from
-         * {@link com.android.camera.filmstrip.DataAdapter}.
+         * Returns the index from
+         * {@link com.android.camera.filmstrip.FilmstripDataAdapter}.
          */
-        public int getId() {
-            return mDataId;
+        public int getAdapterIndex() {
+            return mIndex;
         }
 
         /**
-         * Sets the data id from
-         * {@link com.android.camera.filmstrip.DataAdapter}.
+         * Sets the index used in the
+         * {@link com.android.camera.filmstrip.FilmstripDataAdapter}.
          */
-        public void setId(int id) {
-            mDataId = id;
+        public void setIndex(int index) {
+            mIndex = index;
         }
 
         /** Sets the left position of the view in the whole filmstrip. */
@@ -216,27 +267,29 @@ public class FilmstripView extends ViewGroup {
 
         /** Returns the translation of Y regarding the view scale. */
         public float getTranslationY() {
-            return mView.getTranslationY() / mScale;
+            return mView.getTranslationY() / mFilmstrip.mScale;
         }
 
         /** Returns the translation of X regarding the view scale. */
         public float getTranslationX() {
-            return mView.getTranslationX() / mScale;
+            return mView.getTranslationX() / mFilmstrip.mScale;
         }
 
         /** Sets the translation of Y regarding the view scale. */
         public void setTranslationY(float transY) {
-            mView.setTranslationY(transY * mScale);
+            mView.setTranslationY(transY * mFilmstrip.mScale);
         }
 
         /** Sets the translation of X regarding the view scale. */
         public void setTranslationX(float transX) {
-            mView.setTranslationX(transX * mScale);
+            mView.setTranslationX(transX * mFilmstrip.mScale);
         }
 
         /** Forwarding of {@link android.view.View#setAlpha(float)}. */
         public void setAlpha(float alpha) {
-            mView.setAlpha(alpha);
+            if (!mLockAtFullOpacity) {
+                mView.setAlpha(alpha);
+            }
         }
 
         /** Forwarding of {@link android.view.View#getAlpha()}. */
@@ -271,7 +324,7 @@ public class FilmstripView extends ViewGroup {
                         // translation X because the translation X of the view is
                         // touched in onLayout(). See the documentation of
                         // animateTranslationX().
-                        invalidate();
+                        mFilmstrip.invalidate();
                     }
                 });
             }
@@ -336,7 +389,7 @@ public class FilmstripView extends ViewGroup {
 
         /** Adjusts the translation of X regarding the view scale. */
         public void translateXScaledBy(float transX) {
-            setTranslationX(getTranslationX() + transX * mScale);
+            setTranslationX(getTranslationX() + transX * mFilmstrip.mScale);
         }
 
         /**
@@ -361,43 +414,28 @@ public class FilmstripView extends ViewGroup {
         }
 
         /**
-         * Notifies the {@link com.android.camera.filmstrip.DataAdapter} to
-         * resize the view.
-         */
-        public void resizeView(Context context, int w, int h) {
-            mDataAdapter.resizeView(context, mDataId, mView, w, h);
-        }
-
-        /**
          * Adds the view of the data to the view hierarchy if necessary.
          */
         public void addViewToHierarchy() {
-            if (indexOfChild(mView) < 0) {
-                mData.prepare();
-                addView(mView);
+            if (mFilmstrip.indexOfChild(mView) < 0) {
+                mFilmstrip.addView(mView);
             }
 
-            setVisibility(View.VISIBLE);
+            // all new views added should not display until layout positions
+            // them and sets them visible
+            setVisibility(View.INVISIBLE);
             setAlpha(1f);
             setTranslationX(0);
             setTranslationY(0);
         }
 
         /**
-         * Removes from the hierarchy. Keeps the view in the view hierarchy if
-         * view type is {@code VIEW_TYPE_STICKY} and set to invisible instead.
-         *
-         * @param force {@code true} to remove the view from the hierarchy
-         *                          regardless of the view type.
+         * Removes from the hierarchy.
          */
-        public void removeViewFromHierarchy(boolean force) {
-            if (force || mData.getViewType() != ImageData.VIEW_TYPE_STICKY) {
-                removeView(mView);
-                mData.recycle(mView);
-                recycleView(mView, mDataId);
-            } else {
-                setVisibility(View.INVISIBLE);
-            }
+        public void removeViewFromHierarchy() {
+            mFilmstrip.removeView(mView);
+            mData.recycle(mView);
+            mFilmstrip.recycleView(mView, mIndex);
         }
 
         /**
@@ -405,7 +443,7 @@ public class FilmstripView extends ViewGroup {
          * {@link #bringChildToFront(android.view.View)}
          */
         public void bringViewToFront() {
-            bringChildToFront(mView);
+            mFilmstrip.bringChildToFront(mView);
         }
 
         /**
@@ -497,50 +535,6 @@ public class FilmstripView extends ViewGroup {
             return Math.round(mViewArea.left);
         }
 
-        public void copyAttributes(ViewItem item) {
-            setLeftPosition(item.getLeftPosition());
-            // X
-            setTranslationX(item.getTranslationX());
-            if (item.mTranslationXAnimator != null) {
-                mTranslationXAnimator = item.mTranslationXAnimator;
-                mTranslationXAnimator.removeAllUpdateListeners();
-                mTranslationXAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        // We invalidate the filmstrip view instead of setting the
-                        // translation X because the translation X of the view is
-                        // touched in onLayout(). See the documentation of
-                        // animateTranslationX().
-                        invalidate();
-                    }
-                });
-            }
-            // Y
-            setTranslationY(item.getTranslationY());
-            if (item.mTranslationYAnimator != null) {
-                mTranslationYAnimator = item.mTranslationYAnimator;
-                mTranslationYAnimator.removeAllUpdateListeners();
-                mTranslationYAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        setTranslationY((Float) valueAnimator.getAnimatedValue());
-                    }
-                });
-            }
-            // Alpha
-            setAlpha(item.getAlpha());
-            if (item.mAlphaAnimator != null) {
-                mAlphaAnimator = item.mAlphaAnimator;
-                mAlphaAnimator.removeAllUpdateListeners();
-                mAlphaAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                        ViewItem.this.setAlpha((Float) valueAnimator.getAnimatedValue());
-                    }
-                });
-            }
-        }
-
         /**
          * Apply a scale factor (i.e. {@code postScale}) on top of current scale at
          * pivot point ({@code focusX}, {@code focusY}). Visually it should be the
@@ -585,7 +579,7 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public String toString() {
-            return "DataID = " + mDataId + "\n\t left = " + mLeftPosition
+            return "AdapterIndex = " + mIndex + "\n\t left = " + mLeftPosition
                     + "\n\t viewArea = " + mViewArea
                     + "\n\t centerX = " + getCenterX()
                     + "\n\t view MeasuredSize = "
@@ -616,16 +610,16 @@ public class FilmstripView extends ViewGroup {
     private void init(CameraActivity cameraActivity) {
         setWillNotDraw(false);
         mActivity = cameraActivity;
-        mActionCallback = new ActionCallbackImpl(mActivity);
+        mVideoClickedCallback = new PlayVideoIntent(mActivity);
         mScale = 1.0f;
-        mDataIdOnUserScrolling = 0;
-        mController = new MyController(cameraActivity);
+        mAdapterIndexUserIsScrollingOver = 0;
+        mController = new FilmstripControllerImpl();
         mViewAnimInterpolator = new DecelerateInterpolator();
         mZoomView = new ZoomView(cameraActivity);
         mZoomView.setVisibility(GONE);
         addView(mZoomView);
 
-        mGestureListener = new MyGestureReceiver();
+        mGestureListener = new FilmstripGestures();
         mGestureRecognizer =
                 new FilmstripGestureRecognizer(cameraActivity, mGestureListener);
         mSlop = (int) getContext().getResources().getDimension(R.dimen.pie_touch_slop);
@@ -670,7 +664,7 @@ public class FilmstripView extends ViewGroup {
                         case AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS: {
                             // Prevent the view group itself from being selected.
                             // Instead, select the item in the center
-                            final ViewItem currentItem = mViewItem[mCurrentItem];
+                            final ViewItem currentItem = mViewItems[BUFFER_CENTER];
                             currentItem.getView().performAccessibilityAction(action, args);
                             return true;
                         }
@@ -681,7 +675,8 @@ public class FilmstripView extends ViewGroup {
         });
     }
 
-    private void recycleView(View view, int dataId) {
+    private void recycleView(View view, int index) {
+        Log.v(TAG, "recycleView");
         final int viewType = (Integer) view.getTag(R.id.mediadata_tag_viewtype);
         if (viewType > 0) {
             Queue<View> recycledViewsForType = recycledViews.get(viewType);
@@ -693,14 +688,18 @@ public class FilmstripView extends ViewGroup {
         }
     }
 
-    private View getRecycledView(int dataId) {
-        final int viewType = mDataAdapter.getItemViewType(dataId);
+    private View getRecycledView(int index) {
+        final int viewType = mDataAdapter.getItemViewType(index);
         Queue<View> recycledViewsForType = recycledViews.get(viewType);
-        View result = null;
+        View view = null;
         if (recycledViewsForType != null) {
-            result = recycledViewsForType.poll();
+            view = recycledViewsForType.poll();
         }
-        return result;
+        if (view != null) {
+            view.setVisibility(View.GONE);
+        }
+        Log.v(TAG, "getRecycledView, recycled=" + (view != null));
+        return view;
     }
 
     /**
@@ -716,7 +715,7 @@ public class FilmstripView extends ViewGroup {
      * Returns the draw area width of the current item.
      */
     public int  getCurrentItemLeft() {
-        return mViewItem[mCurrentItem].getDrawAreaLeft();
+        return mViewItems[BUFFER_CENTER].getDrawAreaLeft();
     }
 
     private void setListener(FilmstripController.FilmstripListener l) {
@@ -731,24 +730,24 @@ public class FilmstripView extends ViewGroup {
      * Called after current item or zoom level has changed.
      */
     public void zoomAtIndexChanged() {
-        if (mViewItem[mCurrentItem] == null) {
+        if (mViewItems[BUFFER_CENTER] == null) {
             return;
         }
-        int id = mViewItem[mCurrentItem].getId();
-        mListener.onZoomAtIndexChanged(id, mScale);
+        int index = mViewItems[BUFFER_CENTER].getAdapterIndex();
+        mListener.onZoomAtIndexChanged(index, mScale);
     }
 
     /**
      * Checks if the data is at the center.
      *
-     * @param id The id of the data to check.
+     * @param index The index of the item in the data adapter to check.
      * @return {@code True} if the data is currently at the center.
      */
-    private boolean isDataAtCenter(int id) {
-        if (mViewItem[mCurrentItem] == null) {
+    private boolean isItemAtIndexCentered(int index) {
+        if (mViewItems[BUFFER_CENTER] == null) {
             return false;
         }
-        if (mViewItem[mCurrentItem].getId() == id
+        if (mViewItems[BUFFER_CENTER].getAdapterIndex() == index
                 && isCurrentItemCentered()) {
             return true;
         }
@@ -756,15 +755,19 @@ public class FilmstripView extends ViewGroup {
     }
 
     private void measureViewItem(ViewItem item, int boundWidth, int boundHeight) {
-        int id = item.getId();
-        ImageData imageData = mDataAdapter.getImageData(id);
+        int index = item.getAdapterIndex();
+        FilmstripItem imageData = mDataAdapter.getFilmstripItemAt(index);
         if (imageData == null) {
-            Log.e(TAG, "trying to measure a null item");
+            Log.w(TAG, "measureViewItem() - Trying to measure a null item!");
             return;
         }
 
-        Point dim = CameraUtil.resizeToFill(imageData.getWidth(), imageData.getHeight(),
-                imageData.getRotation(), boundWidth, boundHeight);
+        Point dim = CameraUtil.resizeToFill(
+              imageData.getDimensions().getWidth(),
+              imageData.getDimensions().getHeight(),
+              imageData.getOrientation(),
+              boundWidth,
+              boundHeight);
 
         item.measure(MeasureSpec.makeMeasureSpec(dim.x, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(dim.y, MeasureSpec.EXACTLY));
@@ -781,7 +784,7 @@ public class FilmstripView extends ViewGroup {
             return;
         }
 
-        for (ViewItem item : mViewItem) {
+        for (ViewItem item : mViewItems) {
             if (item != null) {
                 measureViewItem(item, boundWidth, boundHeight);
             }
@@ -792,12 +795,11 @@ public class FilmstripView extends ViewGroup {
                 MeasureSpec.makeMeasureSpec(heightMeasureSpec, MeasureSpec.EXACTLY));
     }
 
-    private int findTheNearestView(int pointX) {
-
+    private int findTheNearestView(int viewX) {
         int nearest = 0;
         // Find the first non-null ViewItem.
         while (nearest < BUFFER_SIZE
-                && (mViewItem[nearest] == null || mViewItem[nearest].getLeftPosition() == -1)) {
+                && (mViewItems[nearest] == null || mViewItems[nearest].getLeftPosition() == -1)) {
             nearest++;
         }
         // No existing available ViewItem
@@ -805,32 +807,32 @@ public class FilmstripView extends ViewGroup {
             return -1;
         }
 
-        int min = Math.abs(pointX - mViewItem[nearest].getCenterX());
+        int min = Math.abs(viewX - mViewItems[nearest].getCenterX());
 
-        for (int itemID = nearest + 1; itemID < BUFFER_SIZE && mViewItem[itemID] != null; itemID++) {
+        for (int i = nearest + 1; i < BUFFER_SIZE && mViewItems[i] != null; i++) {
             // Not measured yet.
-            if (mViewItem[itemID].getLeftPosition() == -1) {
+            if (mViewItems[i].getLeftPosition() == -1) {
                 continue;
             }
 
-            int c = mViewItem[itemID].getCenterX();
-            int dist = Math.abs(pointX - c);
+            int centerX = mViewItems[i].getCenterX();
+            int dist = Math.abs(viewX - centerX);
             if (dist < min) {
                 min = dist;
-                nearest = itemID;
+                nearest = i;
             }
         }
         return nearest;
     }
 
-    private ViewItem buildItemFromData(int dataID) {
+    private ViewItem buildViewItemAt(int index) {
         if (mActivity.isDestroyed()) {
             // Loading item data is call from multiple AsyncTasks and the
-            // activity may be finished when buildItemFromData is called.
+            // activity may be finished when buildViewItemAt is called.
             Log.d(TAG, "Activity destroyed, don't load data");
             return null;
         }
-        ImageData data = mDataAdapter.getImageData(dataID);
+        FilmstripItem data = mDataAdapter.getFilmstripItemAt(index);
         if (data == null) {
             return null;
         }
@@ -838,52 +840,63 @@ public class FilmstripView extends ViewGroup {
         // Always scale by fixed filmstrip scale, since we only show items when
         // in filmstrip. Preloading images with a different scale and bounds
         // interferes with caching.
-        int width = Math.round(FILM_STRIP_SCALE * getWidth());
-        int height = Math.round(FILM_STRIP_SCALE * getHeight());
+        int width = Math.round(FULL_SCREEN_SCALE * getWidth());
+        int height = Math.round(FULL_SCREEN_SCALE * getHeight());
+
         Log.v(TAG, "suggesting item bounds: " + width + "x" + height);
         mDataAdapter.suggestViewSizeBound(width, height);
 
-        data.prepare();
-        View recycled = getRecycledView(dataID);
-        View v = mDataAdapter.getView(mActivity.getAndroidContext(), recycled, dataID,
-                mActionCallback);
+        View recycled = getRecycledView(index);
+        View v = mDataAdapter.getView(recycled, index, mVideoClickedCallback);
         if (v == null) {
             return null;
         }
-        ViewItem item = new ViewItem(dataID, v, data);
+        ViewItem item = new ViewItem(index, v, data, this);
         item.addViewToHierarchy();
         return item;
     }
 
-    private void checkItemAtMaxSize() {
-        ViewItem item = mViewItem[mCurrentItem];
-        if (item.isMaximumBitmapRequested()) {
+    private void renderFullRes(int bufferIndex) {
+        ViewItem item = mViewItems[bufferIndex];
+        if (item == null) {
             return;
-        };
-        item.setMaximumBitmapRequested();
-        // Request full size bitmap, or max that DataAdapter will create.
-        int id = item.getId();
-        int h = mDataAdapter.getImageData(id).getHeight();
-        int w = mDataAdapter.getImageData(id).getWidth();
-        item.resizeView(mActivity, w, h);
+        }
+
+        item.renderFullRes();
     }
 
-    private void removeItem(int itemID) {
-        if (itemID >= mViewItem.length || mViewItem[itemID] == null) {
+    private void renderThumbnail(int bufferIndex) {
+        ViewItem item = mViewItems[bufferIndex];
+        if (item == null) {
             return;
         }
-        ImageData data = mDataAdapter.getImageData(mViewItem[itemID].getId());
+
+        item.renderThumbnail();
+    }
+
+    private void renderAllThumbnails() {
+        for(int i = 0; i < BUFFER_SIZE; i++) {
+            renderThumbnail(i);
+        }
+    }
+
+    private void removeItem(int bufferIndex) {
+        if (bufferIndex >= mViewItems.length || mViewItems[bufferIndex] == null) {
+            return;
+        }
+        FilmstripItem data = mDataAdapter.getFilmstripItemAt(
+              mViewItems[bufferIndex].getAdapterIndex());
         if (data == null) {
-            Log.e(TAG, "trying to remove a null item");
+            Log.w(TAG, "removeItem() - Trying to remove a null item!");
             return;
         }
-        mViewItem[itemID].removeViewFromHierarchy(false);
-        mViewItem[itemID] = null;
+        mViewItems[bufferIndex].removeViewFromHierarchy();
+        mViewItems[bufferIndex] = null;
     }
 
     /**
      * We try to keep the one closest to the center of the screen at position
-     * mCurrentItem.
+     * BUFFER_CENTER.
      */
     private void stepIfNeeded() {
         if (!inFilmstrip() && !inFullScreen()) {
@@ -891,45 +904,54 @@ public class FilmstripView extends ViewGroup {
             // not in transition.
             return;
         }
-        final int nearest = findTheNearestView(mCenterX);
-        // no change made.
-        if (nearest == -1 || nearest == mCurrentItem) {
+        final int nearestBufferIndex = findTheNearestView(mCenterX);
+        // if the nearest view is the current view, or there is no nearest
+        // view, then we do not need to adjust the view buffers.
+        if (nearestBufferIndex == -1 || nearestBufferIndex == BUFFER_CENTER) {
             return;
         }
-        int prevDataId = (mViewItem[mCurrentItem] == null ? -1 : mViewItem[mCurrentItem].getId());
-        final int adjust = nearest - mCurrentItem;
+        int prevIndex = (mViewItems[BUFFER_CENTER] == null ? -1 :
+              mViewItems[BUFFER_CENTER].getAdapterIndex());
+        final int adjust = nearestBufferIndex - BUFFER_CENTER;
         if (adjust > 0) {
+            // Remove from beginning of the buffer.
             for (int k = 0; k < adjust; k++) {
                 removeItem(k);
             }
+            // Shift items inside the buffer
             for (int k = 0; k + adjust < BUFFER_SIZE; k++) {
-                mViewItem[k] = mViewItem[k + adjust];
+                mViewItems[k] = mViewItems[k + adjust];
             }
+            // Fill the end with new items.
             for (int k = BUFFER_SIZE - adjust; k < BUFFER_SIZE; k++) {
-                mViewItem[k] = null;
-                if (mViewItem[k - 1] != null) {
-                    mViewItem[k] = buildItemFromData(mViewItem[k - 1].getId() + 1);
+                mViewItems[k] = null;
+                if (mViewItems[k - 1] != null) {
+                    mViewItems[k] = buildViewItemAt(mViewItems[k - 1].getAdapterIndex() + 1);
                 }
             }
             adjustChildZOrder();
         } else {
+            // Remove from the end of the buffer
             for (int k = BUFFER_SIZE - 1; k >= BUFFER_SIZE + adjust; k--) {
                 removeItem(k);
             }
+            // Shift items inside the buffer
             for (int k = BUFFER_SIZE - 1; k + adjust >= 0; k--) {
-                mViewItem[k] = mViewItem[k + adjust];
+                mViewItems[k] = mViewItems[k + adjust];
             }
+            // Fill the beginning with new items.
             for (int k = -1 - adjust; k >= 0; k--) {
-                mViewItem[k] = null;
-                if (mViewItem[k + 1] != null) {
-                    mViewItem[k] = buildItemFromData(mViewItem[k + 1].getId() - 1);
+                mViewItems[k] = null;
+                if (mViewItems[k + 1] != null) {
+                    mViewItems[k] = buildViewItemAt(mViewItems[k + 1].getAdapterIndex() - 1);
                 }
             }
         }
         invalidate();
         if (mListener != null) {
-            mListener.onDataFocusChanged(prevDataId, mViewItem[mCurrentItem].getId());
-            final int firstVisible = mViewItem[mCurrentItem].getId() - 2;
+            mListener.onDataFocusChanged(prevIndex, mViewItems[BUFFER_CENTER]
+                  .getAdapterIndex());
+            final int firstVisible = mViewItems[BUFFER_CENTER].getAdapterIndex() - 2;
             final int visibleItemCount = firstVisible + BUFFER_SIZE;
             final int totalItemCount = mDataAdapter.getTotalNumber();
             mListener.onScroll(firstVisible, visibleItemCount, totalItemCount);
@@ -944,94 +966,77 @@ public class FilmstripView extends ViewGroup {
      * @return Whether clamp happened.
      */
     private boolean clampCenterX() {
-        ViewItem curr = mViewItem[mCurrentItem];
-        if (curr == null) {
+        ViewItem currentItem = mViewItems[BUFFER_CENTER];
+        if (currentItem == null) {
             return false;
         }
 
         boolean stopScroll = false;
-        if (curr.getId() == 1 && mCenterX < curr.getCenterX() && mDataIdOnUserScrolling > 1 &&
-                mDataAdapter.getImageData(0).getViewType() == ImageData.VIEW_TYPE_STICKY &&
-                mController.isScrolling()) {
+        if (currentItem.getAdapterIndex() == 0 && mCenterX < currentItem.getCenterX()) {
+            // Stop at the first ViewItem.
             stopScroll = true;
-        } else {
-            if (curr.getId() == 0 && mCenterX < curr.getCenterX()) {
-                // Stop at the first ViewItem.
-                stopScroll = true;
-            }
-        }
-        if (curr.getId() == mDataAdapter.getTotalNumber() - 1
-                && mCenterX > curr.getCenterX()) {
+        } else if (currentItem.getAdapterIndex() == mDataAdapter.getTotalNumber() - 1
+                && mCenterX > currentItem.getCenterX()) {
             // Stop at the end.
             stopScroll = true;
         }
 
         if (stopScroll) {
-            mCenterX = curr.getCenterX();
+            mCenterX = currentItem.getCenterX();
         }
 
         return stopScroll;
     }
 
     /**
-     * Reorders the child views to be consistent with their data ID. This method
+     * Reorders the child views to be consistent with their index. This method
      * should be called after adding/removing views.
      */
     private void adjustChildZOrder() {
         for (int i = BUFFER_SIZE - 1; i >= 0; i--) {
-            if (mViewItem[i] == null) {
+            if (mViewItems[i] == null) {
                 continue;
             }
-            mViewItem[i].bringViewToFront();
+            mViewItems[i].bringViewToFront();
         }
-        // ZoomView is a special case to always be in the front. In L set to
-        // max elevation to make sure ZoomView is above other elevated views.
+        // ZoomView is a special case to always be in the front.
         bringChildToFront(mZoomView);
-        if (ApiHelper.isLOrHigher()) {
-            setMaxElevation(mZoomView);
-        }
-    }
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    private void setMaxElevation(View v) {
-        v.setElevation(Float.MAX_VALUE);
     }
 
     /**
-     * Returns the ID of the current item, or -1 if there is no data.
+     * Returns the index of the current item, or -1 if there is no data.
      */
-    private int getCurrentId() {
-        ViewItem current = mViewItem[mCurrentItem];
+    private int getCurrentItemAdapterIndex() {
+        ViewItem current = mViewItems[BUFFER_CENTER];
         if (current == null) {
             return -1;
         }
-        return current.getId();
+        return current.getAdapterIndex();
     }
 
     /**
      * Keep the current item in the center. This functions does not check if the
      * current item is null.
      */
-    private void snapInCenter() {
-        final ViewItem currItem = mViewItem[mCurrentItem];
+    private void scrollCurrentItemToCenter() {
+        final ViewItem currItem = mViewItems[BUFFER_CENTER];
         if (currItem == null) {
             return;
         }
         final int currentViewCenter = currItem.getCenterX();
         if (mController.isScrolling() || mIsUserScrolling
                 || isCurrentItemCentered()) {
+            Log.d(TAG, "[fling] mController.isScrolling() - " + mController.isScrolling());
             return;
         }
 
         int snapInTime = (int) (SNAP_IN_CENTER_TIME_MS
                 * ((float) Math.abs(mCenterX - currentViewCenter))
                 / mDrawArea.width());
+
+        Log.d(TAG, "[fling] Scroll to center.");
         mController.scrollToPosition(currentViewCenter,
-                snapInTime, false);
-        if (isViewTypeSticky(currItem) && !mController.isScaling() && mScale != FULL_SCREEN_SCALE) {
-            // Now going to full screen camera
-            mController.goToFullScreen();
-        }
+              snapInTime, false);
     }
 
     /**
@@ -1040,24 +1045,24 @@ public class FilmstripView extends ViewGroup {
      * which occupies the whole screen. The other left ones are put on the left
      * side in full scales. Does nothing if there's no next item.
      *
-     * @param currItem The item ID of the current one to be translated.
+     * @param index The index of the current one to be translated.
      * @param drawAreaWidth The width of the current draw area.
      * @param scaleFraction A {@code float} between 0 and 1. 0 if the current
      *            scale is {@code FILM_STRIP_SCALE}. 1 if the current scale is
      *            {@code FULL_SCREEN_SCALE}.
      */
     private void translateLeftViewItem(
-            int currItem, int drawAreaWidth, float scaleFraction) {
-        if (currItem < 0 || currItem > BUFFER_SIZE - 1) {
-            Log.e(TAG, "currItem id out of bound.");
+            int index, int drawAreaWidth, float scaleFraction) {
+        if (index < 0 || index > BUFFER_SIZE - 1) {
+            Log.w(TAG, "translateLeftViewItem() - Index out of bound!");
             return;
         }
 
-        final ViewItem curr = mViewItem[currItem];
-        final ViewItem next = mViewItem[currItem + 1];
+        final ViewItem curr = mViewItems[index];
+        final ViewItem next = mViewItems[index + 1];
         if (curr == null || next == null) {
-            Log.e(TAG, "Invalid view item (curr or next == null). curr = "
-                    + currItem);
+            Log.w(TAG, "translateLeftViewItem() - Invalid view item (curr or next == null). curr = "
+                    + index);
             return;
         }
 
@@ -1071,7 +1076,8 @@ public class FilmstripView extends ViewGroup {
         curr.setVisibility(VISIBLE);
 
         if (inFullScreen()) {
-            curr.setTranslationX(translate * (mCenterX - currCenterX) / (nextCenterX - currCenterX));
+            curr.setTranslationX(translate * (mCenterX - currCenterX) /
+                  (nextCenterX - currCenterX));
         } else {
             curr.setTranslationX(translate);
         }
@@ -1081,46 +1087,47 @@ public class FilmstripView extends ViewGroup {
      * Fade out the {@link ViewItem} on the right of the current one in
      * full-screen layout. Does nothing if there's no previous item.
      *
-     * @param currItemId The ID of the item to fade.
+     * @param bufferIndex The index of the item in the buffer to fade.
      */
-    private void fadeAndScaleRightViewItem(int currItemId) {
-        if (currItemId < 1 || currItemId > BUFFER_SIZE) {
-            Log.e(TAG, "currItem id out of bound.");
+    private void fadeAndScaleRightViewItem(int bufferIndex) {
+        if (bufferIndex < 1 || bufferIndex > BUFFER_SIZE) {
+            Log.w(TAG, "fadeAndScaleRightViewItem() - bufferIndex out of bound!");
             return;
         }
 
-        final ViewItem currItem = mViewItem[currItemId];
-        final ViewItem prevItem = mViewItem[currItemId - 1];
-        if (currItem == null || prevItem == null) {
-            Log.e(TAG, "Invalid view item (curr or prev == null). curr = "
-                    + currItemId);
+        final ViewItem item = mViewItems[bufferIndex];
+        final ViewItem previousItem = mViewItems[bufferIndex - 1];
+        if (item == null || previousItem == null) {
+            Log.w(TAG, "fadeAndScaleRightViewItem() - Invalid view item (curr or prev == null)."
+                  + "curr = " + bufferIndex);
             return;
         }
 
-        if (currItemId > mCurrentItem + 1) {
-            // Every item not right next to the mCurrentItem is invisible.
-            currItem.setVisibility(INVISIBLE);
+        if (bufferIndex > BUFFER_CENTER + 1) {
+            // Every item not right next to the BUFFER_CENTER is invisible.
+            item.setVisibility(INVISIBLE);
             return;
         }
-        final int prevCenterX = prevItem.getCenterX();
+        final int prevCenterX = previousItem.getCenterX();
         if (mCenterX <= prevCenterX) {
             // Shortcut. If the position is at the center of the previous one,
             // set to invisible too.
-            currItem.setVisibility(INVISIBLE);
+            item.setVisibility(INVISIBLE);
             return;
         }
-        final int currCenterX = currItem.getCenterX();
+        final int currCenterX = item.getCenterX();
         final float fadeDownFraction =
                 ((float) mCenterX - prevCenterX) / (currCenterX - prevCenterX);
-        currItem.layoutWithTranslationX(mDrawArea, currCenterX,
-                FILM_STRIP_SCALE + (1f - FILM_STRIP_SCALE) * fadeDownFraction);
-        currItem.setAlpha(fadeDownFraction);
-        currItem.setTranslationX(0);
-        currItem.setVisibility(VISIBLE);
+        item.layoutWithTranslationX(mDrawArea, currCenterX,
+              FILM_STRIP_SCALE + (1f - FILM_STRIP_SCALE) * fadeDownFraction);
+
+        item.setAlpha(fadeDownFraction);
+        item.setTranslationX(0);
+        item.setVisibility(VISIBLE);
     }
 
     private void layoutViewItems(boolean layoutChanged) {
-        if (mViewItem[mCurrentItem] == null ||
+        if (mViewItems[BUFFER_CENTER] == null ||
                 mDrawArea.width() == 0 ||
                 mDrawArea.height() == 0) {
             return;
@@ -1129,8 +1136,8 @@ public class FilmstripView extends ViewGroup {
         // If the layout changed, we need to adjust the current position so
         // that if an item is centered before the change, it's still centered.
         if (layoutChanged) {
-            mViewItem[mCurrentItem].setLeftPosition(
-                    mCenterX - mViewItem[mCurrentItem].getMeasuredWidth() / 2);
+            mViewItems[BUFFER_CENTER].setLeftPosition(
+                  mCenterX - mViewItems[BUFFER_CENTER].getMeasuredWidth() / 2);
         }
 
         if (inZoomView()) {
@@ -1149,75 +1156,60 @@ public class FilmstripView extends ViewGroup {
         // first.
 
         // Left items.
-        for (int itemID = mCurrentItem - 1; itemID >= 0; itemID--) {
-            final ViewItem curr = mViewItem[itemID];
+        for (int i = BUFFER_CENTER - 1; i >= 0; i--) {
+            final ViewItem curr = mViewItems[i];
             if (curr == null) {
                 break;
             }
 
             // First, layout relatively to the next one.
-            final int currLeft = mViewItem[itemID + 1].getLeftPosition()
+            final int currLeft = mViewItems[i + 1].getLeftPosition()
                     - curr.getMeasuredWidth() - mViewGapInPixel;
             curr.setLeftPosition(currLeft);
         }
         // Right items.
-        for (int itemID = mCurrentItem + 1; itemID < BUFFER_SIZE; itemID++) {
-            final ViewItem curr = mViewItem[itemID];
+        for (int i = BUFFER_CENTER + 1; i < BUFFER_SIZE; i++) {
+            final ViewItem curr = mViewItems[i];
             if (curr == null) {
                 break;
             }
 
             // First, layout relatively to the previous one.
-            final ViewItem prev = mViewItem[itemID - 1];
+            final ViewItem prev = mViewItems[i - 1];
             final int currLeft =
                     prev.getLeftPosition() + prev.getMeasuredWidth()
                             + mViewGapInPixel;
             curr.setLeftPosition(currLeft);
         }
 
-        // Special case for the one immediately on the right of the camera
-        // preview.
-        boolean immediateRight =
-                (mViewItem[mCurrentItem].getId() == 1 &&
-                mDataAdapter.getImageData(0).getViewType() == ImageData.VIEW_TYPE_STICKY);
-
-        // Layout the current ViewItem first.
-        if (immediateRight) {
-            // Just do a simple layout without any special translation or
-            // fading. The implementation in Gallery does not push the first
-            // photo to the bottom of the camera preview. Simply place the
-            // photo on the right of the preview.
-            final ViewItem currItem = mViewItem[mCurrentItem];
-            currItem.layoutWithTranslationX(mDrawArea, mCenterX, mScale);
-            currItem.setTranslationX(0f);
-            currItem.setAlpha(1f);
-        } else if (scaleFraction == 1f) {
-            final ViewItem currItem = mViewItem[mCurrentItem];
+        if (scaleFraction == 1f) {
+            final ViewItem currItem = mViewItems[BUFFER_CENTER];
             final int currCenterX = currItem.getCenterX();
             if (mCenterX < currCenterX) {
                 // In full-screen and mCenterX is on the left of the center,
                 // we draw the current one to "fade down".
-                fadeAndScaleRightViewItem(mCurrentItem);
+                fadeAndScaleRightViewItem(BUFFER_CENTER);
             } else if (mCenterX > currCenterX) {
                 // In full-screen and mCenterX is on the right of the center,
                 // we draw the current one translated.
-                translateLeftViewItem(mCurrentItem, fullScreenWidth, scaleFraction);
+                translateLeftViewItem(BUFFER_CENTER, fullScreenWidth, scaleFraction);
             } else {
                 currItem.layoutWithTranslationX(mDrawArea, mCenterX, mScale);
                 currItem.setTranslationX(0f);
                 currItem.setAlpha(1f);
             }
         } else {
-            final ViewItem currItem = mViewItem[mCurrentItem];
+            final ViewItem currItem = mViewItems[BUFFER_CENTER];
+            currItem.setVisibility(View.VISIBLE);
             // The normal filmstrip has no translation for the current item. If
             // it has translation before, gradually set it to zero.
             currItem.setTranslationX(currItem.getTranslationX() * scaleFraction);
             currItem.layoutWithTranslationX(mDrawArea, mCenterX, mScale);
-            if (mViewItem[mCurrentItem - 1] == null) {
+            if (mViewItems[BUFFER_CENTER - 1] == null) {
                 currItem.setAlpha(1f);
             } else {
                 final int currCenterX = currItem.getCenterX();
-                final int prevCenterX = mViewItem[mCurrentItem - 1].getCenterX();
+                final int prevCenterX = mViewItems[BUFFER_CENTER - 1].getCenterX();
                 final float fadeDownFraction =
                         ((float) mCenterX - prevCenterX) / (currCenterX - prevCenterX);
                 currItem.setAlpha(
@@ -1228,63 +1220,57 @@ public class FilmstripView extends ViewGroup {
         // Layout the rest dependent on the current scale.
 
         // Items on the left
-        for (int itemID = mCurrentItem - 1; itemID >= 0; itemID--) {
-            final ViewItem curr = mViewItem[itemID];
+        for (int i = BUFFER_CENTER - 1; i >= 0; i--) {
+            final ViewItem curr = mViewItems[i];
             if (curr == null) {
                 break;
             }
-            translateLeftViewItem(itemID, fullScreenWidth, scaleFraction);
+            translateLeftViewItem(i, fullScreenWidth, scaleFraction);
         }
 
         // Items on the right
-        for (int itemID = mCurrentItem + 1; itemID < BUFFER_SIZE; itemID++) {
-            final ViewItem curr = mViewItem[itemID];
+        for (int i = BUFFER_CENTER + 1; i < BUFFER_SIZE; i++) {
+            final ViewItem curr = mViewItems[i];
             if (curr == null) {
                 break;
             }
 
             curr.layoutWithTranslationX(mDrawArea, mCenterX, mScale);
-            if (curr.getId() == 1 && isViewTypeSticky(curr)) {
-                // Special case for the one next to the camera preview.
-                curr.setAlpha(1f);
-                continue;
-            }
 
             if (scaleFraction == 1) {
                 // It's in full-screen mode.
-                fadeAndScaleRightViewItem(itemID);
+                fadeAndScaleRightViewItem(i);
             } else {
-                boolean setToVisible = (curr.getVisibility() == INVISIBLE);
+                boolean isVisible = (curr.getVisibility() == VISIBLE);
+                boolean setToVisible = !isVisible;
 
-                if (itemID == mCurrentItem + 1) {
+                if (i == BUFFER_CENTER + 1) {
+                    // right hand neighbor needs to fade based on scale of
+                    // center
                     curr.setAlpha(1f - scaleFraction);
                 } else {
                     if (scaleFraction == 0f) {
                         curr.setAlpha(1f);
                     } else {
+                        // further right items should not display when center
+                        // is being scaled
                         setToVisible = false;
+                        if (isVisible) {
+                            curr.setVisibility(INVISIBLE);
+                        }
                     }
                 }
 
-                if (setToVisible) {
+                if (setToVisible && !isVisible) {
                     curr.setVisibility(VISIBLE);
                 }
 
-                curr.setTranslationX(
-                        (mViewItem[mCurrentItem].getLeftPosition() - curr.getLeftPosition()) *
-                                scaleFraction);
+                curr.setTranslationX((mViewItems[BUFFER_CENTER].getLeftPosition() -
+                      curr.getLeftPosition()) * scaleFraction);
             }
         }
 
         stepIfNeeded();
-    }
-
-    private boolean isViewTypeSticky(ViewItem item) {
-        if (item == null) {
-            return false;
-        }
-        return mDataAdapter.getImageData(item.getId()).getViewType() ==
-                ImageData.VIEW_TYPE_STICKY;
     }
 
     @Override
@@ -1320,7 +1306,7 @@ public class FilmstripView extends ViewGroup {
         if (!inZoomView()) {
             return;
         }
-        ViewItem current = mViewItem[mCurrentItem];
+        ViewItem current = mViewItems[BUFFER_CENTER];
         if (current == null) {
             return;
         }
@@ -1346,75 +1332,75 @@ public class FilmstripView extends ViewGroup {
         item.animateAlpha(1f, GEOMETRY_ADJUST_TIME_MS, mViewAnimInterpolator);
     }
 
-    private void animateItemRemoval(int dataID, final ImageData data) {
+    private void animateItemRemoval(int index) {
         if (mScale > FULL_SCREEN_SCALE) {
             resetZoomView();
         }
-        int removedItemId = findItemByDataID(dataID);
+        int removeAtBufferIndex = findItemInBufferByAdapterIndex(index);
 
-        // adjust the data id to be consistent
+        // adjust the buffer to be consistent
         for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (mViewItem[i] == null || mViewItem[i].getId() <= dataID) {
+            if (mViewItems[i] == null || mViewItems[i].getAdapterIndex() <= index) {
                 continue;
             }
-            mViewItem[i].setId(mViewItem[i].getId() - 1);
+            mViewItems[i].setIndex(mViewItems[i].getAdapterIndex() - 1);
         }
-        if (removedItemId == -1) {
+        if (removeAtBufferIndex == -1) {
             return;
         }
 
-        final ViewItem removedItem = mViewItem[removedItemId];
+        final ViewItem removedItem = mViewItems[removeAtBufferIndex];
         final int offsetX = removedItem.getMeasuredWidth() + mViewGapInPixel;
 
-        for (int i = removedItemId + 1; i < BUFFER_SIZE; i++) {
-            if (mViewItem[i] != null) {
-                mViewItem[i].setLeftPosition(mViewItem[i].getLeftPosition() - offsetX);
+        for (int i = removeAtBufferIndex + 1; i < BUFFER_SIZE; i++) {
+            if (mViewItems[i] != null) {
+                mViewItems[i].setLeftPosition(mViewItems[i].getLeftPosition() - offsetX);
             }
         }
 
-        if (removedItemId >= mCurrentItem
-                && mViewItem[removedItemId].getId() < mDataAdapter.getTotalNumber()) {
+        if (removeAtBufferIndex >= BUFFER_CENTER
+                && mViewItems[removeAtBufferIndex].getAdapterIndex() < mDataAdapter.getTotalNumber()) {
             // Fill the removed item by left shift when the current one or
             // anyone on the right is removed, and there's more data on the
             // right available.
-            for (int i = removedItemId; i < BUFFER_SIZE - 1; i++) {
-                mViewItem[i] = mViewItem[i + 1];
+            for (int i = removeAtBufferIndex; i < BUFFER_SIZE - 1; i++) {
+                mViewItems[i] = mViewItems[i + 1];
             }
 
             // pull data out from the DataAdapter for the last one.
             int curr = BUFFER_SIZE - 1;
             int prev = curr - 1;
-            if (mViewItem[prev] != null) {
-                mViewItem[curr] = buildItemFromData(mViewItem[prev].getId() + 1);
+            if (mViewItems[prev] != null) {
+                mViewItems[curr] = buildViewItemAt(mViewItems[prev].getAdapterIndex() + 1);
             }
 
             // The animation part.
             if (inFullScreen()) {
-                mViewItem[mCurrentItem].setVisibility(VISIBLE);
-                ViewItem nextItem = mViewItem[mCurrentItem + 1];
+                mViewItems[BUFFER_CENTER].setVisibility(VISIBLE);
+                ViewItem nextItem = mViewItems[BUFFER_CENTER + 1];
                 if (nextItem != null) {
                     nextItem.setVisibility(INVISIBLE);
                 }
             }
 
             // Translate the views to their original places.
-            for (int i = removedItemId; i < BUFFER_SIZE; i++) {
-                if (mViewItem[i] != null) {
-                    mViewItem[i].setTranslationX(offsetX);
+            for (int i = removeAtBufferIndex; i < BUFFER_SIZE; i++) {
+                if (mViewItems[i] != null) {
+                    mViewItems[i].setTranslationX(offsetX);
                 }
             }
 
             // The end of the filmstrip might have been changed.
             // The mCenterX might be out of the bound.
-            ViewItem currItem = mViewItem[mCurrentItem];
-            if(currItem!=null) {
-                if (currItem.getId() == mDataAdapter.getTotalNumber() - 1
+            ViewItem currItem = mViewItems[BUFFER_CENTER];
+            if (currItem!=null) {
+                if (currItem.getAdapterIndex() == mDataAdapter.getTotalNumber() - 1
                         && mCenterX > currItem.getCenterX()) {
                     int adjustDiff = currItem.getCenterX() - mCenterX;
                     mCenterX = currItem.getCenterX();
                     for (int i = 0; i < BUFFER_SIZE; i++) {
-                        if (mViewItem[i] != null) {
-                            mViewItem[i].translateXScaledBy(adjustDiff);
+                        if (mViewItems[i] != null) {
+                            mViewItems[i].translateXScaledBy(adjustDiff);
                         }
                     }
                 }
@@ -1426,21 +1412,22 @@ public class FilmstripView extends ViewGroup {
             // fill the removed place by right shift
             mCenterX -= offsetX;
 
-            for (int i = removedItemId; i > 0; i--) {
-                mViewItem[i] = mViewItem[i - 1];
+            for (int i = removeAtBufferIndex; i > 0; i--) {
+                mViewItems[i] = mViewItems[i - 1];
             }
 
             // pull data out from the DataAdapter for the first one.
             int curr = 0;
             int next = curr + 1;
-            if (mViewItem[next] != null) {
-                mViewItem[curr] = buildItemFromData(mViewItem[next].getId() - 1);
+            if (mViewItems[next] != null) {
+                mViewItems[curr] = buildViewItemAt(mViewItems[next].getAdapterIndex() - 1);
+
             }
 
             // Translate the views to their original places.
-            for (int i = removedItemId; i >= 0; i--) {
-                if (mViewItem[i] != null) {
-                    mViewItem[i].setTranslationX(-offsetX);
+            for (int i = removeAtBufferIndex; i >= 0; i--) {
+                if (mViewItems[i] != null) {
+                    mViewItems[i].setTranslationX(-offsetX);
                 }
             }
         }
@@ -1455,7 +1442,7 @@ public class FilmstripView extends ViewGroup {
         postDelayed(new Runnable() {
             @Override
             public void run() {
-                removedItem.removeViewFromHierarchy(false);
+                removedItem.removeViewFromHierarchy();
             }
         }, GEOMETRY_ADJUST_TIME_MS);
 
@@ -1463,142 +1450,148 @@ public class FilmstripView extends ViewGroup {
         invalidate();
 
         // Now, slide every one back.
-        if (mViewItem[mCurrentItem] == null) {
+        if (mViewItems[BUFFER_CENTER] == null) {
             return;
         }
         for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (mViewItem[i] != null
-                    && mViewItem[i].getTranslationX() != 0f) {
-                slideViewBack(mViewItem[i]);
+            if (mViewItems[i] != null
+                    && mViewItems[i].getTranslationX() != 0f) {
+                slideViewBack(mViewItems[i]);
             }
-        }
-        if (isCurrentItemCentered() && isViewTypeSticky(mViewItem[mCurrentItem])) {
-            // Special case for scrolling onto the camera preview after removal.
-            mController.goToFullScreen();
         }
     }
 
     // returns -1 on failure.
-    private int findItemByDataID(int dataID) {
+    private int findItemInBufferByAdapterIndex(int index) {
         for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (mViewItem[i] != null
-                    && mViewItem[i].getId() == dataID) {
+            if (mViewItems[i] != null
+                    && mViewItems[i].getAdapterIndex() == index) {
                 return i;
             }
         }
         return -1;
     }
 
-    private void updateInsertion(int dataID) {
-        int insertedItemId = findItemByDataID(dataID);
-        if (insertedItemId == -1) {
+    private void updateInsertion(int index) {
+        int bufferIndex = findItemInBufferByAdapterIndex(index);
+        if (bufferIndex == -1) {
             // Not in the current item buffers. Check if it's inserted
             // at the end.
-            if (dataID == mDataAdapter.getTotalNumber() - 1) {
-                int prev = findItemByDataID(dataID - 1);
+            if (index == mDataAdapter.getTotalNumber() - 1) {
+                int prev = findItemInBufferByAdapterIndex(index - 1);
                 if (prev >= 0 && prev < BUFFER_SIZE - 1) {
                     // The previous data is in the buffer and we still
                     // have room for the inserted data.
-                    insertedItemId = prev + 1;
+                    bufferIndex = prev + 1;
                 }
             }
         }
 
-        // adjust the data id to be consistent
+        // adjust the indexes to be consistent
         for (int i = 0; i < BUFFER_SIZE; i++) {
-            if (mViewItem[i] == null || mViewItem[i].getId() < dataID) {
+            if (mViewItems[i] == null || mViewItems[i].getAdapterIndex() < index) {
                 continue;
             }
-            mViewItem[i].setId(mViewItem[i].getId() + 1);
+            mViewItems[i].setIndex(mViewItems[i].getAdapterIndex() + 1);
         }
-        if (insertedItemId == -1) {
+        if (bufferIndex == -1) {
             return;
         }
 
-        final ImageData data = mDataAdapter.getImageData(dataID);
+        final FilmstripItem data = mDataAdapter.getFilmstripItemAt(index);
         Point dim = CameraUtil
-                .resizeToFill(data.getWidth(), data.getHeight(), data.getRotation(),
-                        getMeasuredWidth(), getMeasuredHeight());
+                .resizeToFill(
+                      data.getDimensions().getWidth(),
+                      data.getDimensions().getHeight(),
+                      data.getOrientation(),
+                      getMeasuredWidth(),
+                      getMeasuredHeight());
         final int offsetX = dim.x + mViewGapInPixel;
-        ViewItem viewItem = buildItemFromData(dataID);
+        ViewItem viewItem = buildViewItemAt(index);
         if (viewItem == null) {
             Log.w(TAG, "unable to build inserted item from data");
             return;
         }
 
-        if (insertedItemId >= mCurrentItem) {
-            if (insertedItemId == mCurrentItem) {
-                viewItem.setLeftPosition(mViewItem[mCurrentItem].getLeftPosition());
+        if (bufferIndex >= BUFFER_CENTER) {
+            if (bufferIndex == BUFFER_CENTER) {
+                viewItem.setLeftPosition(mViewItems[BUFFER_CENTER].getLeftPosition());
             }
             // Shift right to make rooms for newly inserted item.
             removeItem(BUFFER_SIZE - 1);
-            for (int i = BUFFER_SIZE - 1; i > insertedItemId; i--) {
-                mViewItem[i] = mViewItem[i - 1];
-                if (mViewItem[i] != null) {
-                    mViewItem[i].setTranslationX(-offsetX);
-                    slideViewBack(mViewItem[i]);
+            for (int i = BUFFER_SIZE - 1; i > bufferIndex; i--) {
+                mViewItems[i] = mViewItems[i - 1];
+                if (mViewItems[i] != null) {
+                    mViewItems[i].setTranslationX(-offsetX);
+                    slideViewBack(mViewItems[i]);
                 }
             }
         } else {
             // Shift left. Put the inserted data on the left instead of the
             // found position.
-            --insertedItemId;
-            if (insertedItemId < 0) {
+            --bufferIndex;
+            if (bufferIndex < 0) {
                 return;
             }
             removeItem(0);
-            for (int i = 1; i <= insertedItemId; i++) {
-                if (mViewItem[i] != null) {
-                    mViewItem[i].setTranslationX(offsetX);
-                    slideViewBack(mViewItem[i]);
-                    mViewItem[i - 1] = mViewItem[i];
+            for (int i = 1; i <= bufferIndex; i++) {
+                if (mViewItems[i] != null) {
+                    mViewItems[i].setTranslationX(offsetX);
+                    slideViewBack(mViewItems[i]);
+                    mViewItems[i - 1] = mViewItems[i];
                 }
             }
         }
 
-        mViewItem[insertedItemId] = viewItem;
+        mViewItems[bufferIndex] = viewItem;
+        renderThumbnail(bufferIndex);
         viewItem.setAlpha(0f);
         viewItem.setTranslationY(getHeight() / 8);
         slideViewBack(viewItem);
         adjustChildZOrder();
+
         invalidate();
     }
 
-    private void setDataAdapter(DataAdapter adapter) {
+    private void setDataAdapter(FilmstripDataAdapter adapter) {
         mDataAdapter = adapter;
         int maxEdge = (int) (Math.max(this.getHeight(), this.getWidth())
                 * FILM_STRIP_SCALE);
         mDataAdapter.suggestViewSizeBound(maxEdge, maxEdge);
-        mDataAdapter.setListener(new DataAdapter.Listener() {
+        mDataAdapter.setListener(new FilmstripDataAdapter.Listener() {
             @Override
-            public void onDataLoaded() {
+            public void onFilmstripItemLoaded() {
                 reload();
             }
 
             @Override
-            public void onDataUpdated(DataAdapter.UpdateReporter reporter) {
+            public void onFilmstripItemUpdated(FilmstripDataAdapter.UpdateReporter reporter) {
                 update(reporter);
             }
 
             @Override
-            public void onDataInserted(int dataId, ImageData data) {
-                if (mViewItem[mCurrentItem] == null) {
+            public void onFilmstripItemInserted(int index, FilmstripItem item) {
+                if (mViewItems[BUFFER_CENTER] == null) {
                     // empty now, simply do a reload.
                     reload();
                 } else {
-                    updateInsertion(dataId);
+                    updateInsertion(index);
                 }
                 if (mListener != null) {
-                    mListener.onDataFocusChanged(dataId, getCurrentId());
+                    mListener.onDataFocusChanged(index, getCurrentItemAdapterIndex());
                 }
+                Log.d(TAG, "onFilmstripItemInserted()");
+                renderAllThumbnails();
             }
 
             @Override
-            public void onDataRemoved(int dataId, ImageData data) {
-                animateItemRemoval(dataId, data);
+            public void onFilmstripItemRemoved(int index, FilmstripItem item) {
+                animateItemRemoval(index);
                 if (mListener != null) {
-                    mListener.onDataFocusChanged(dataId, getCurrentId());
+                    mListener.onDataFocusChanged(index, getCurrentItemAdapterIndex());
                 }
+                Log.d(TAG, "onFilmstripItemRemoved()");
+                renderAllThumbnails();
             }
         });
     }
@@ -1615,15 +1608,6 @@ public class FilmstripView extends ViewGroup {
         return (mScale > FULL_SCREEN_SCALE);
     }
 
-    private boolean isCameraPreview() {
-        return isViewTypeSticky(mViewItem[mCurrentItem]);
-    }
-
-    private boolean inCameraFullscreen() {
-        return isDataAtCenter(0) && inFullScreen()
-                && (isViewTypeSticky(mViewItem[mCurrentItem]));
-    }
-
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         if (mController.isScrolling()) {
@@ -1633,11 +1617,6 @@ public class FilmstripView extends ViewGroup {
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
             mCheckToIntercept = true;
             mDown = MotionEvent.obtain(ev);
-            ViewItem viewItem = mViewItem[mCurrentItem];
-            // Do not intercept touch if swipe is not enabled
-            if (viewItem != null && !mDataAdapter.canSwipeInFullScreen(viewItem.getId())) {
-                mCheckToIntercept = false;
-            }
             return false;
         } else if (ev.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
             // Do not intercept touch once child is in zoom mode
@@ -1668,102 +1647,142 @@ public class FilmstripView extends ViewGroup {
         return mGestureRecognizer.onTouchEvent(ev);
     }
 
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent ev) {
+        mGestureRecognizer.onGenericMotionEvent(ev);
+        return true;
+    }
+
     FilmstripGestureRecognizer.Listener getGestureListener() {
         return mGestureListener;
     }
 
-    private void updateViewItem(int itemID) {
-        ViewItem item = mViewItem[itemID];
+    private void updateViewItem(int bufferIndex) {
+        ViewItem item = mViewItems[bufferIndex];
         if (item == null) {
-            Log.e(TAG, "trying to update an null item");
+            Log.w(TAG, "updateViewItem() - Trying to update an null item!");
             return;
         }
-        item.removeViewFromHierarchy(true);
 
-        ViewItem newItem = buildItemFromData(item.getId());
-        if (newItem == null) {
-            Log.e(TAG, "new item is null");
-            // keep using the old data.
-            item.addViewToHierarchy();
+        int adapterIndex = item.getAdapterIndex();
+        FilmstripItem filmstripItem = mDataAdapter.getFilmstripItemAt(adapterIndex);
+        if (filmstripItem == null) {
+            Log.w(TAG, "updateViewItem() - Trying to update item with null FilmstripItem!");
             return;
         }
-        newItem.copyAttributes(item);
-        mViewItem[itemID] = newItem;
+
+        FilmstripItem oldFilmstripItem = item.getData();
+
+        // In case the underlying data item is changed (commonly from
+        // SessionItem to PhotoItem for an image requiring processing), set the
+        // new FilmstripItem on the ViewItem
+        if (!filmstripItem.equals(oldFilmstripItem)) {
+            oldFilmstripItem.recycle(item.getView());
+            item.setData(filmstripItem);
+            Log.v(TAG, "updateViewItem() - recycling old data item and setting new");
+        } else {
+            Log.v(TAG, "updateViewItem() - updating data with the same item");
+        }
+
+        // In case state changed from a new FilmStripItem or the existing one,
+        // redraw the View contents. We call getView here as it will refill the
+        // view contents, but it is not clear as we are not using the documented
+        // method intent to get a View, we know that this always uses the view
+        // passed in to populate it.
+        // TODO: refactor 'getView' to more explicitly just update view contents
+        mDataAdapter.getView(item.getView(), adapterIndex, mVideoClickedCallback);
+
         mZoomView.resetDecoder();
 
         boolean stopScroll = clampCenterX();
         if (stopScroll) {
             mController.stopScrolling(true);
         }
+
+        Log.d(TAG, "updateViewItem(bufferIndex: " + bufferIndex + ")");
+        Log.d(TAG, "updateViewItem() - mIsUserScrolling: " + mIsUserScrolling);
+        Log.d(TAG, "updateViewItem() - mController.isScrolling() - " + mController.isScrolling());
+
+        // Relying on only isScrolling or isUserScrolling independently
+        // is unreliable. Load the full resolution if either value
+        // reports that the item is not scrolling.
+        if (!mController.isScrolling() || !mIsUserScrolling) {
+            renderThumbnail(bufferIndex);
+        }
+
         adjustChildZOrder();
         invalidate();
         if (mListener != null) {
-            mListener.onDataUpdated(newItem.getId());
+            mListener.onDataUpdated(adapterIndex);
         }
     }
 
     /** Some of the data is changed. */
-    private void update(DataAdapter.UpdateReporter reporter) {
+    private void update(FilmstripDataAdapter.UpdateReporter reporter) {
         // No data yet.
-        if (mViewItem[mCurrentItem] == null) {
+        if (mViewItems[BUFFER_CENTER] == null) {
             reload();
             return;
         }
 
         // Check the current one.
-        ViewItem curr = mViewItem[mCurrentItem];
-        int dataId = curr.getId();
-        if (reporter.isDataRemoved(dataId)) {
+        ViewItem curr = mViewItems[BUFFER_CENTER];
+        int index = curr.getAdapterIndex();
+        if (reporter.isDataRemoved(index)) {
             reload();
             return;
         }
-        if (reporter.isDataUpdated(dataId)) {
-            updateViewItem(mCurrentItem);
-            final ImageData data = mDataAdapter.getImageData(dataId);
+        if (reporter.isDataUpdated(index)) {
+            updateViewItem(BUFFER_CENTER);
+            final FilmstripItem data = mDataAdapter.getFilmstripItemAt(index);
             if (!mIsUserScrolling && !mController.isScrolling()) {
                 // If there is no scrolling at all, adjust mCenterX to place
                 // the current item at the center.
-                Point dim = CameraUtil.resizeToFill(data.getWidth(), data.getHeight(),
-                        data.getRotation(), getMeasuredWidth(), getMeasuredHeight());
+                Point dim = CameraUtil.resizeToFill(
+                      data.getDimensions().getWidth(),
+                      data.getDimensions().getHeight(),
+                      data.getOrientation(),
+                      getMeasuredWidth(),
+                      getMeasuredHeight());
                 mCenterX = curr.getLeftPosition() + dim.x / 2;
             }
         }
 
         // Check left
-        for (int i = mCurrentItem - 1; i >= 0; i--) {
-            curr = mViewItem[i];
+        for (int i = BUFFER_CENTER - 1; i >= 0; i--) {
+            curr = mViewItems[i];
             if (curr != null) {
-                dataId = curr.getId();
-                if (reporter.isDataRemoved(dataId) || reporter.isDataUpdated(dataId)) {
+                index = curr.getAdapterIndex();
+                if (reporter.isDataRemoved(index) || reporter.isDataUpdated(index)) {
                     updateViewItem(i);
                 }
+
             } else {
-                ViewItem next = mViewItem[i + 1];
+                ViewItem next = mViewItems[i + 1];
                 if (next != null) {
-                    mViewItem[i] = buildItemFromData(next.getId() - 1);
+                    mViewItems[i] = buildViewItemAt(next.getAdapterIndex() - 1);
                 }
             }
         }
 
         // Check right
-        for (int i = mCurrentItem + 1; i < BUFFER_SIZE; i++) {
-            curr = mViewItem[i];
+        for (int i = BUFFER_CENTER + 1; i < BUFFER_SIZE; i++) {
+            curr = mViewItems[i];
             if (curr != null) {
-                dataId = curr.getId();
-                if (reporter.isDataRemoved(dataId) || reporter.isDataUpdated(dataId)) {
+                index = curr.getAdapterIndex();
+                if (reporter.isDataRemoved(index) || reporter.isDataUpdated(index)) {
                     updateViewItem(i);
                 }
             } else {
-                ViewItem prev = mViewItem[i - 1];
+                ViewItem prev = mViewItems[i - 1];
                 if (prev != null) {
-                    mViewItem[i] = buildItemFromData(prev.getId() + 1);
+                    mViewItems[i] = buildViewItemAt(prev.getAdapterIndex() + 1);
                 }
             }
         }
         adjustChildZOrder();
         // Request a layout to find the measured width/height of the view first.
         requestLayout();
-        // Update photo sphere visibility after metadata fully written.
     }
 
     /**
@@ -1774,108 +1793,112 @@ public class FilmstripView extends ViewGroup {
     private void reload() {
         mController.stopScrolling(true);
         mController.stopScale();
-        mDataIdOnUserScrolling = 0;
+        mAdapterIndexUserIsScrollingOver = 0;
 
         int prevId = -1;
-        if (mViewItem[mCurrentItem] != null) {
-            prevId = mViewItem[mCurrentItem].getId();
+        if (mViewItems[BUFFER_CENTER] != null) {
+            prevId = mViewItems[BUFFER_CENTER].getAdapterIndex();
         }
 
-        // Remove all views from the mViewItem buffer, except the camera view.
-        for (int i = 0; i < mViewItem.length; i++) {
-            if (mViewItem[i] == null) {
+        // Remove all views from the mViewItems buffer, except the camera view.
+        for (int i = 0; i < mViewItems.length; i++) {
+            if (mViewItems[i] == null) {
                 continue;
             }
-            mViewItem[i].removeViewFromHierarchy(false);
+            mViewItems[i].removeViewFromHierarchy();
         }
 
         // Clear out the mViewItems and rebuild with camera in the center.
-        Arrays.fill(mViewItem, null);
+        Arrays.fill(mViewItems, null);
         int dataNumber = mDataAdapter.getTotalNumber();
         if (dataNumber == 0) {
             return;
         }
 
-        mViewItem[mCurrentItem] = buildItemFromData(0);
-        if (mViewItem[mCurrentItem] == null) {
+        mViewItems[BUFFER_CENTER] = buildViewItemAt(0);
+        if (mViewItems[BUFFER_CENTER] == null) {
             return;
         }
-        mViewItem[mCurrentItem].setLeftPosition(0);
-        for (int i = mCurrentItem + 1; i < BUFFER_SIZE; i++) {
-            mViewItem[i] = buildItemFromData(mViewItem[i - 1].getId() + 1);
-            if (mViewItem[i] == null) {
+        mViewItems[BUFFER_CENTER].setLeftPosition(0);
+        for (int i = BUFFER_CENTER + 1; i < BUFFER_SIZE; i++) {
+            mViewItems[i] = buildViewItemAt(mViewItems[i - 1].getAdapterIndex() + 1);
+            if (mViewItems[i] == null) {
                 break;
             }
         }
 
-        // Ensure that the views in mViewItem will layout the first in the
+        // Ensure that the views in mViewItems will layout the first in the
         // center of the display upon a reload.
         mCenterX = -1;
         mScale = FILM_STRIP_SCALE;
 
         adjustChildZOrder();
+
+        Log.d(TAG, "reload() - Ensure all items are loaded at max size.");
+        renderAllThumbnails();
         invalidate();
 
         if (mListener != null) {
             mListener.onDataReloaded();
-            mListener.onDataFocusChanged(prevId, mViewItem[mCurrentItem].getId());
+            mListener.onDataFocusChanged(prevId, mViewItems[BUFFER_CENTER].getAdapterIndex());
         }
     }
 
-    private void promoteData(int itemID, int dataID) {
+    private void promoteData(int index) {
         if (mListener != null) {
-            mListener.onFocusedDataPromoted(dataID);
+            mListener.onFocusedDataPromoted(index);
         }
     }
 
-    private void demoteData(int itemID, int dataID) {
+    private void demoteData(int index) {
         if (mListener != null) {
-            mListener.onFocusedDataDemoted(dataID);
+            mListener.onFocusedDataDemoted(index);
         }
     }
 
     private void onEnterFilmstrip() {
+        Log.d(TAG, "onEnterFilmstrip()");
         if (mListener != null) {
-            mListener.onEnterFilmstrip(getCurrentId());
+            mListener.onEnterFilmstrip(getCurrentItemAdapterIndex());
         }
     }
 
     private void onLeaveFilmstrip() {
         if (mListener != null) {
-            mListener.onLeaveFilmstrip(getCurrentId());
+            mListener.onLeaveFilmstrip(getCurrentItemAdapterIndex());
         }
     }
 
     private void onEnterFullScreen() {
         mFullScreenUIHidden = false;
         if (mListener != null) {
-            mListener.onEnterFullScreenUiShown(getCurrentId());
+            mListener.onEnterFullScreenUiShown(getCurrentItemAdapterIndex());
         }
     }
 
     private void onLeaveFullScreen() {
         if (mListener != null) {
-            mListener.onLeaveFullScreenUiShown(getCurrentId());
+            mListener.onLeaveFullScreenUiShown(getCurrentItemAdapterIndex());
         }
     }
 
     private void onEnterFullScreenUiHidden() {
         mFullScreenUIHidden = true;
         if (mListener != null) {
-            mListener.onEnterFullScreenUiHidden(getCurrentId());
+            mListener.onEnterFullScreenUiHidden(getCurrentItemAdapterIndex());
         }
     }
 
     private void onLeaveFullScreenUiHidden() {
         mFullScreenUIHidden = false;
         if (mListener != null) {
-            mListener.onLeaveFullScreenUiHidden(getCurrentId());
+            mListener.onLeaveFullScreenUiHidden(getCurrentItemAdapterIndex());
         }
     }
 
     private void onEnterZoomView() {
         if (mListener != null) {
-            mListener.onEnterZoomView(getCurrentId());
+            mListener.onEnterZoomView(getCurrentItemAdapterIndex());
         }
     }
 
@@ -1887,23 +1910,24 @@ public class FilmstripView extends ViewGroup {
      * MyController controls all the geometry animations. It passively tells the
      * geometry information on demand.
      */
-    private class MyController implements FilmstripController {
+    private class FilmstripControllerImpl implements FilmstripController {
 
         private final ValueAnimator mScaleAnimator;
         private ValueAnimator mZoomAnimator;
         private AnimatorSet mFlingAnimator;
 
-        private final MyScroller mScroller;
+        private final FilmstripScrollGesture mScrollGesture;
         private boolean mCanStopScroll;
 
-        private final MyScroller.Listener mScrollerListener =
-                new MyScroller.Listener() {
+        private final FilmstripScrollGesture.Listener mScrollListener =
+                new FilmstripScrollGesture.Listener() {
                     @Override
                     public void onScrollUpdate(int currX, int currY) {
                         mCenterX = currX;
 
                         boolean stopScroll = clampCenterX();
                         if (stopScroll) {
+                            Log.d(TAG, "[fling] onScrollUpdate() - stopScrolling!");
                             mController.stopScrolling(true);
                         }
                         invalidate();
@@ -1912,15 +1936,28 @@ public class FilmstripView extends ViewGroup {
                     @Override
                     public void onScrollEnd() {
                         mCanStopScroll = true;
-                        if (mViewItem[mCurrentItem] == null) {
+                        Log.d(TAG, "[fling] onScrollEnd() - onScrollEnd");
+                        if (mViewItems[BUFFER_CENTER] == null) {
                             return;
                         }
-                        snapInCenter();
-                        if (isCurrentItemCentered()
-                                && isViewTypeSticky(mViewItem[mCurrentItem])) {
-                            // Special case for the scrolling end on the camera
-                            // preview.
-                            goToFullScreen();
+                        scrollCurrentItemToCenter();
+
+                        // onScrollEnd will get called twice, once when
+                        // the fling part ends, and once when the manual
+                        // scroll center animation finishes. Once everything
+                        // stops moving ensure that the items are loaded at
+                        // full resolution.
+                        if (isCurrentItemCentered()) {
+                            // Since these are getting pushed into a queue,
+                            // we want to ensure the item that is "most in view" is
+                            // the first one rendered at max size.
+
+                            Log.d(TAG, "[fling] onScrollEnd() - Ensuring that items are at"
+                                  + " full resolution.");
+                            renderThumbnail(BUFFER_CENTER);
+                            renderThumbnail(BUFFER_CENTER + 1);
+                            renderThumbnail(BUFFER_CENTER - 1);
+                            renderThumbnail(BUFFER_CENTER + 2);
                         }
                     }
                 };
@@ -1929,7 +1966,7 @@ public class FilmstripView extends ViewGroup {
                 new ValueAnimator.AnimatorUpdateListener() {
                     @Override
                     public void onAnimationUpdate(ValueAnimator animation) {
-                        if (mViewItem[mCurrentItem] == null) {
+                        if (mViewItems[BUFFER_CENTER] == null) {
                             return;
                         }
                         mScale = (Float) animation.getAnimatedValue();
@@ -1937,11 +1974,11 @@ public class FilmstripView extends ViewGroup {
                     }
                 };
 
-        MyController(Context context) {
+        FilmstripControllerImpl() {
             TimeInterpolator decelerateInterpolator = new DecelerateInterpolator(1.5f);
-            mScroller = new MyScroller(mActivity.getAndroidContext(),
+            mScrollGesture = new FilmstripScrollGesture(mActivity.getAndroidContext(),
                     new Handler(mActivity.getMainLooper()),
-                    mScrollerListener, decelerateInterpolator);
+                  mScrollListener, decelerateInterpolator);
             mCanStopScroll = true;
 
             mScaleAnimator = new ValueAnimator();
@@ -1989,12 +2026,12 @@ public class FilmstripView extends ViewGroup {
         }
 
         @Override
-        public int getCurrentId() {
-            return FilmstripView.this.getCurrentId();
+        public int getCurrentAdapterIndex() {
+            return FilmstripView.this.getCurrentItemAdapterIndex();
         }
 
         @Override
-        public void setDataAdapter(DataAdapter adapter) {
+        public void setDataAdapter(FilmstripDataAdapter adapter) {
             FilmstripView.this.setDataAdapter(adapter);
         }
 
@@ -2009,23 +2046,13 @@ public class FilmstripView extends ViewGroup {
         }
 
         @Override
-        public boolean isCameraPreview() {
-            return FilmstripView.this.isCameraPreview();
-        }
-
-        @Override
-        public boolean inCameraFullscreen() {
-            return FilmstripView.this.inCameraFullscreen();
-        }
-
-        @Override
-        public void setListener(FilmstripListener l) {
-            FilmstripView.this.setListener(l);
+        public void setListener(FilmstripListener listener) {
+            FilmstripView.this.setListener(listener);
         }
 
         @Override
         public boolean isScrolling() {
-            return !mScroller.isFinished();
+            return !mScrollGesture.isFinished();
         }
 
         @Override
@@ -2033,13 +2060,13 @@ public class FilmstripView extends ViewGroup {
             return mScaleAnimator.isRunning();
         }
 
-        private int estimateMinX(int dataID, int leftPos, int viewWidth) {
-            return leftPos - (dataID + 100) * (viewWidth + mViewGapInPixel);
+        private int estimateMinX(int index, int leftPos, int viewWidth) {
+            return leftPos - (index + 100) * (viewWidth + mViewGapInPixel);
         }
 
-        private int estimateMaxX(int dataID, int leftPos, int viewWidth) {
+        private int estimateMaxX(int index, int leftPos, int viewWidth) {
             return leftPos
-                    + (mDataAdapter.getTotalNumber() - dataID + 100)
+                    + (mDataAdapter.getTotalNumber() - index + 100)
                     * (viewWidth + mViewGapInPixel);
         }
 
@@ -2139,13 +2166,13 @@ public class FilmstripView extends ViewGroup {
             if (!stopScrolling(false)) {
                 return;
             }
-            final ViewItem item = mViewItem[mCurrentItem];
+            final ViewItem item = mViewItems[BUFFER_CENTER];
             if (item == null) {
                 return;
             }
 
             float scaledVelocityX = velocityX / mScale;
-            if (inFullScreen() && isViewTypeSticky(item) && scaledVelocityX < 0) {
+            if (inFullScreen() && scaledVelocityX < 0) {
                 // Swipe left in camera preview.
                 goToFilmstrip();
             }
@@ -2154,11 +2181,12 @@ public class FilmstripView extends ViewGroup {
             // Estimation of possible length on the left. To ensure the
             // velocity doesn't become too slow eventually, we add a huge number
             // to the estimated maximum.
-            int minX = estimateMinX(item.getId(), item.getLeftPosition(), w);
+            int minX = estimateMinX(item.getAdapterIndex(), item.getLeftPosition(), w);
             // Estimation of possible length on the right. Likewise, exaggerate
             // the possible maximum too.
-            int maxX = estimateMaxX(item.getId(), item.getLeftPosition(), w);
-            mScroller.fling(mCenterX, 0, (int) -velocityX, 0, minX, maxX, 0, 0);
+            int maxX = estimateMaxX(item.getAdapterIndex(), item.getLeftPosition(), w);
+
+            mScrollGesture.fling(mCenterX, 0, (int) -velocityX, 0, minX, maxX, 0, 0);
         }
 
         void flingInsideZoomView(float velocityX, float velocityY) {
@@ -2166,7 +2194,7 @@ public class FilmstripView extends ViewGroup {
                 return;
             }
 
-            final ViewItem current = mViewItem[mCurrentItem];
+            final ViewItem current = mViewItems[BUFFER_CENTER];
             if (current == null) {
                 return;
             }
@@ -2256,7 +2284,8 @@ public class FilmstripView extends ViewGroup {
             } else if (!mCanStopScroll && !forced) {
                 return false;
             }
-            mScroller.forceFinished(true);
+
+            mScrollGesture.forceFinished(true);
             return true;
         }
 
@@ -2266,40 +2295,36 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public void scrollToPosition(int position, int duration, boolean interruptible) {
-            if (mViewItem[mCurrentItem] == null) {
+            if (mViewItems[BUFFER_CENTER] == null) {
                 return;
             }
             mCanStopScroll = interruptible;
-            mScroller.startScroll(mCenterX, 0, position - mCenterX, 0, duration);
+            mScrollGesture.startScroll(mCenterX, position - mCenterX, duration);
         }
 
         @Override
         public boolean goToNextItem() {
-            return goToItem(mCurrentItem + 1);
+            return goToItem(BUFFER_CENTER + 1);
         }
 
         @Override
         public boolean goToPreviousItem() {
-            return goToItem(mCurrentItem - 1);
+            return goToItem(BUFFER_CENTER - 1);
         }
 
         private boolean goToItem(int itemIndex) {
-            final ViewItem nextItem = mViewItem[itemIndex];
+            final ViewItem nextItem = mViewItems[itemIndex];
             if (nextItem == null) {
                 return false;
             }
             stopScrolling(true);
             scrollToPosition(nextItem.getCenterX(), GEOMETRY_ADJUST_TIME_MS * 2, false);
 
-            if (isViewTypeSticky(mViewItem[mCurrentItem])) {
-                // Special case when moving from camera preview.
-                scaleTo(FILM_STRIP_SCALE, GEOMETRY_ADJUST_TIME_MS);
-            }
             return true;
         }
 
         private void scaleTo(float scale, int duration) {
-            if (mViewItem[mCurrentItem] == null) {
+            if (mViewItems[BUFFER_CENTER] == null) {
                 return;
             }
             stopScale();
@@ -2310,7 +2335,7 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public void goToFilmstrip() {
-            if (mViewItem[mCurrentItem] == null) {
+            if (mViewItems[BUFFER_CENTER] == null) {
                 return;
             }
             if (mScale == FILM_STRIP_SCALE) {
@@ -2318,12 +2343,8 @@ public class FilmstripView extends ViewGroup {
             }
             scaleTo(FILM_STRIP_SCALE, GEOMETRY_ADJUST_TIME_MS);
 
-            final ViewItem currItem = mViewItem[mCurrentItem];
-            final ViewItem nextItem = mViewItem[mCurrentItem + 1];
-            if (currItem.getId() == 0 && isViewTypeSticky(currItem) && nextItem != null) {
-                // Deal with the special case of swiping in camera preview.
-                scrollToPosition(nextItem.getCenterX(), GEOMETRY_ADJUST_TIME_MS, false);
-            }
+            final ViewItem currItem = mViewItems[BUFFER_CENTER];
+            final ViewItem nextItem = mViewItems[BUFFER_CENTER + 1];
 
             if (mScale == FILM_STRIP_SCALE) {
                 onLeaveFilmstrip();
@@ -2356,20 +2377,19 @@ public class FilmstripView extends ViewGroup {
             // Hide everything on the left
             // TODO: Need to find a better way to toggle the visibility of views
             // around the current view.
-            for (int i = 0; i < mCurrentItem; i++) {
-                if (i == mCurrentItem || mViewItem[i] == null) {
-                    continue;
+            for (int i = 0; i < BUFFER_CENTER; i++) {
+                if (mViewItems[i] != null) {
+                    mViewItems[i].setVisibility(visible ? VISIBLE : INVISIBLE);
                 }
-                mViewItem[i].setVisibility(visible ? VISIBLE : INVISIBLE);
             }
         }
 
         private Uri getCurrentUri() {
-            ViewItem curr = mViewItem[mCurrentItem];
+            ViewItem curr = mViewItems[BUFFER_CENTER];
             if (curr == null) {
                 return Uri.EMPTY;
             }
-            return mDataAdapter.getImageData(curr.getId()).getUri();
+            return mDataAdapter.getFilmstripItemAt(curr.getAdapterIndex()).getData().getUri();
         }
 
         /**
@@ -2378,18 +2398,18 @@ public class FilmstripView extends ViewGroup {
          * make the view same size as the image, in pixels.
          */
         private float getCurrentDataMaxScale(boolean allowOverScale) {
-            ViewItem curr = mViewItem[mCurrentItem];
+            ViewItem curr = mViewItems[BUFFER_CENTER];
             if (curr == null) {
                 return FULL_SCREEN_SCALE;
             }
-            ImageData imageData = mDataAdapter.getImageData(curr.getId());
-            if (imageData == null || !imageData.isUIActionSupported(ImageData.ACTION_ZOOM)) {
+            FilmstripItem imageData = mDataAdapter.getFilmstripItemAt(curr.getAdapterIndex());
+            if (imageData == null || !imageData.getAttributes().canZoomInPlace()) {
                 return FULL_SCREEN_SCALE;
             }
-            float imageWidth = imageData.getWidth();
-            if (imageData.getRotation() == 90
-                    || imageData.getRotation() == 270) {
-                imageWidth = imageData.getHeight();
+            float imageWidth = imageData.getDimensions().getWidth();
+            if (imageData.getOrientation() == 90
+                    || imageData.getOrientation() == 270) {
+                imageWidth = imageData.getDimensions().getHeight();
             }
             float scale = imageWidth / curr.getWidth();
             if (allowOverScale) {
@@ -2405,12 +2425,12 @@ public class FilmstripView extends ViewGroup {
             if (!inZoomView()) {
                 return;
             }
-            ViewItem curr = mViewItem[mCurrentItem];
+            ViewItem curr = mViewItems[BUFFER_CENTER];
             if (curr == null) {
                 return;
             }
-            ImageData imageData = mDataAdapter.getImageData(curr.getId());
-            if (!imageData.isUIActionSupported(ImageData.ACTION_ZOOM)) {
+            FilmstripItem imageData = mDataAdapter.getFilmstripItemAt(curr.getAdapterIndex());
+            if (!imageData.getAttributes().canZoomInPlace()) {
                 return;
             }
             Uri uri = getCurrentUri();
@@ -2418,7 +2438,7 @@ public class FilmstripView extends ViewGroup {
             if (uri == null || uri == Uri.EMPTY) {
                 return;
             }
-            int orientation = imageData.getRotation();
+            int orientation = imageData.getOrientation();
             mZoomView.loadBitmap(uri, orientation, viewRect);
         }
 
@@ -2428,11 +2448,11 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public void goToFirstItem() {
-            if (mViewItem[mCurrentItem] == null) {
+            if (mViewItems[BUFFER_CENTER] == null) {
                 return;
             }
             resetZoomView();
-            // TODO: animate to camera if it is still in the mViewItem buffer
+            // TODO: animate to camera if it is still in the mViewItems buffer
             // versus a full reload which will perform an immediate transition
             reload();
         }
@@ -2448,13 +2468,24 @@ public class FilmstripView extends ViewGroup {
         public boolean isZoomAnimationRunning() {
             return mZoomAnimator != null && mZoomAnimator.isRunning();
         }
+
+        @Override
+        public boolean isVisible(FilmstripItem data) {
+            for (ViewItem viewItem : mViewItems) {
+                if (data != null && viewItem != null && viewItem.getVisibility() == VISIBLE
+                        && data.equals(viewItem.mData)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     private boolean isCurrentItemCentered() {
-        return mViewItem[mCurrentItem].getCenterX() == mCenterX;
+        return mViewItems[BUFFER_CENTER].getCenterX() == mCenterX;
     }
 
-    private static class MyScroller {
+    private static class FilmstripScrollGesture {
         public interface Listener {
             public void onScrollUpdate(int currX, int currY);
 
@@ -2472,6 +2503,7 @@ public class FilmstripView extends ViewGroup {
             public void run() {
                 boolean newPosition = mScroller.computeScrollOffset();
                 if (!newPosition) {
+                    Log.d(TAG, "[fling] onScrollEnd from computeScrollOffset");
                     mListener.onScrollEnd();
                     return;
                 }
@@ -2493,27 +2525,31 @@ public class FilmstripView extends ViewGroup {
                 new Animator.AnimatorListener() {
                     @Override
                     public void onAnimationCancel(Animator animation) {
+                        Log.d(TAG, "[fling] mXScrollAnimatorListener.onAnimationCancel");
                         // Do nothing.
                     }
 
                     @Override
                     public void onAnimationEnd(Animator animation) {
+                        Log.d(TAG, "[fling] onScrollEnd from mXScrollAnimatorListener.onAnimationEnd");
                         mListener.onScrollEnd();
                     }
 
                     @Override
                     public void onAnimationRepeat(Animator animation) {
+                        Log.d(TAG, "[fling] mXScrollAnimatorListener.onAnimationRepeat");
                         // Do nothing.
                     }
 
                     @Override
                     public void onAnimationStart(Animator animation) {
+                        Log.d(TAG, "[fling] mXScrollAnimatorListener.onAnimationStart");
                         // Do nothing.
                     }
                 };
 
-        public MyScroller(Context ctx, Handler handler, Listener listener,
-                TimeInterpolator interpolator) {
+        public FilmstripScrollGesture(Context ctx, Handler handler, Listener listener,
+              TimeInterpolator interpolator) {
             mHandler = handler;
             mListener = listener;
             mScroller = new Scroller(ctx);
@@ -2538,7 +2574,7 @@ public class FilmstripView extends ViewGroup {
         }
 
         /** Only starts and updates scroll in x-axis. */
-        public void startScroll(int startX, int startY, int dx, int dy, int duration) {
+        public void startScroll(int startX, int dx, int duration) {
             mXScrollAnimator.cancel();
             mXScrollAnimator.setDuration(duration);
             mXScrollAnimator.setIntValues(startX, startX + dx);
@@ -2565,7 +2601,7 @@ public class FilmstripView extends ViewGroup {
         }
     }
 
-    private class MyGestureReceiver implements FilmstripGestureRecognizer.Listener {
+    private class FilmstripGestures implements FilmstripGestureRecognizer.Listener {
 
         private static final int SCROLL_DIR_NONE = 0;
         private static final int SCROLL_DIR_VERTICAL = 1;
@@ -2577,9 +2613,11 @@ public class FilmstripView extends ViewGroup {
         private long mLastDownTime;
         private float mLastDownY;
 
+        private ViewItem mCurrentlyScalingItem;
+
         @Override
         public boolean onSingleTapUp(float x, float y) {
-            ViewItem centerItem = mViewItem[mCurrentItem];
+            ViewItem centerItem = mViewItems[BUFFER_CENTER];
             if (inFilmstrip()) {
                 if (centerItem != null && centerItem.areaContains(x, y)) {
                     mController.goToFullScreen();
@@ -2600,14 +2638,14 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public boolean onDoubleTap(float x, float y) {
-            ViewItem current = mViewItem[mCurrentItem];
+            ViewItem current = mViewItems[BUFFER_CENTER];
             if (current == null) {
                 return false;
             }
             if (inFilmstrip()) {
                 mController.goToFullScreen();
                 return true;
-            } else if (mScale < FULL_SCREEN_SCALE || inCameraFullscreen()) {
+            } else if (mScale < FULL_SCREEN_SCALE) {
                 return false;
             }
             if (!mController.stopScrolling(false)) {
@@ -2615,7 +2653,7 @@ public class FilmstripView extends ViewGroup {
             }
             if (inFullScreen()) {
                 mController.zoomAt(current, x, y);
-                checkItemAtMaxSize();
+                renderFullRes(BUFFER_CENTER);
                 return true;
             } else if (mScale > FULL_SCREEN_SCALE) {
                 // In zoom view.
@@ -2638,7 +2676,7 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public boolean onUp(float x, float y) {
-            ViewItem currItem = mViewItem[mCurrentItem];
+            ViewItem currItem = mViewItems[BUFFER_CENTER];
             if (currItem == null) {
                 return false;
             }
@@ -2657,88 +2695,67 @@ public class FilmstripView extends ViewGroup {
             float speedY = Math.abs(y - mLastDownY)
                     / (SystemClock.uptimeMillis() - mLastDownTime);
             for (int i = 0; i < BUFFER_SIZE; i++) {
-                if (mViewItem[i] == null) {
+                if (mViewItems[i] == null) {
                     continue;
                 }
-                float transY = mViewItem[i].getTranslationY();
+                float transY = mViewItems[i].getTranslationY();
                 if (transY == 0) {
                     continue;
                 }
-                int id = mViewItem[i].getId();
+                int index = mViewItems[i].getAdapterIndex();
 
-                if (mDataAdapter.getImageData(id)
-                        .isUIActionSupported(ImageData.ACTION_DEMOTE)
+                if (mDataAdapter.getFilmstripItemAt(index).getAttributes().canSwipeAway()
                         && ((transY > promoteHeight)
                             || (transY > velocityPromoteHeight && speedY > PROMOTE_VELOCITY))) {
-                    demoteData(i, id);
-                } else if (mDataAdapter.getImageData(id)
-                        .isUIActionSupported(ImageData.ACTION_PROMOTE)
+                    demoteData(index);
+                } else if (mDataAdapter.getFilmstripItemAt(index).getAttributes().canSwipeAway()
                         && (transY < -promoteHeight
                             || (transY < -velocityPromoteHeight && speedY > PROMOTE_VELOCITY))) {
-                    promoteData(i, id);
+                    promoteData(index);
                 } else {
                     // put the view back.
-                    slideViewBack(mViewItem[i]);
+                    slideViewBack(mViewItems[i]);
                 }
             }
 
             // The data might be changed. Re-check.
-            currItem = mViewItem[mCurrentItem];
+            currItem = mViewItems[BUFFER_CENTER];
             if (currItem == null) {
                 return true;
             }
 
-            int currId = currItem.getId();
-            if (mCenterX > currItem.getCenterX() + CAMERA_PREVIEW_SWIPE_THRESHOLD && currId == 0 &&
-                    isViewTypeSticky(currItem) && mDataIdOnUserScrolling == 0) {
+            int currId = currItem.getAdapterIndex();
+            if (mAdapterIndexUserIsScrollingOver == 0 && currId != 0) {
+                // Special case to go to filmstrip when the user scroll away
+                // from the camera preview and the current one is not the
+                // preview anymore.
                 mController.goToFilmstrip();
-                // Special case to go from camera preview to the next photo.
-                if (mViewItem[mCurrentItem + 1] != null) {
-                    mController.scrollToPosition(
-                            mViewItem[mCurrentItem + 1].getCenterX(),
-                            GEOMETRY_ADJUST_TIME_MS, false);
-                } else {
-                    // No next photo.
-                    snapInCenter();
-                }
+                mAdapterIndexUserIsScrollingOver = currId;
             }
-            if (isCurrentItemCentered() && currId == 0 && isViewTypeSticky(currItem)) {
-                mController.goToFullScreen();
-            } else {
-                if (mDataIdOnUserScrolling == 0 && currId != 0) {
-                    // Special case to go to filmstrip when the user scroll away
-                    // from the camera preview and the current one is not the
-                    // preview anymore.
-                    mController.goToFilmstrip();
-                    mDataIdOnUserScrolling = currId;
-                }
-                snapInCenter();
-            }
+            scrollCurrentItemToCenter();
             return false;
         }
 
         @Override
         public void onLongPress(float x, float y) {
-            final int dataId = getCurrentId();
-            if (dataId == -1) {
+            final int index = getCurrentItemAdapterIndex();
+            if (index == -1) {
                 return;
             }
-            mListener.onFocusedDataLongPressed(dataId);
+            mListener.onFocusedDataLongPressed(index);
         }
 
         @Override
         public boolean onScroll(float x, float y, float dx, float dy) {
-            final ViewItem currItem = mViewItem[mCurrentItem];
+            final ViewItem currItem = mViewItems[BUFFER_CENTER];
             if (currItem == null) {
                 return false;
             }
-            if (inFullScreen() && !mDataAdapter.canSwipeInFullScreen(currItem.getId())) {
-                return false;
-            }
+
             hideZoomView();
             // When image is zoomed in to be bigger than the screen
             if (inZoomView()) {
-                ViewItem curr = mViewItem[mCurrentItem];
+                ViewItem curr = mViewItems[BUFFER_CENTER];
                 float transX = curr.getTranslationX() * mScale - dx;
                 float transY = curr.getTranslationY() * mScale - dy;
                 curr.updateTransform(transX, transY, mScale, mScale, mDrawArea.width(),
@@ -2750,7 +2767,8 @@ public class FilmstripView extends ViewGroup {
             mController.stopScrolling(true);
             if (!mIsUserScrolling) {
                 mIsUserScrolling = true;
-                mDataIdOnUserScrolling = mViewItem[mCurrentItem].getId();
+                mAdapterIndexUserIsScrollingOver =
+                      mViewItems[BUFFER_CENTER].getAdapterIndex();
             }
             if (inFilmstrip()) {
                 // Disambiguate horizontal/vertical first.
@@ -2759,7 +2777,8 @@ public class FilmstripView extends ViewGroup {
                             SCROLL_DIR_VERTICAL;
                 }
                 if (mScrollingDirection == SCROLL_DIR_HORIZONTAL) {
-                    if (mCenterX == currItem.getCenterX() && currItem.getId() == 0 && dx < 0) {
+                    if (mCenterX == currItem.getCenterX() && currItem.getAdapterIndex() == 0 &&
+                          dx < 0) {
                         // Already at the beginning, don't process the swipe.
                         mIsUserScrolling = false;
                         mScrollingDirection = SCROLL_DIR_NONE;
@@ -2771,10 +2790,10 @@ public class FilmstripView extends ViewGroup {
                     int hit = 0;
                     Rect hitRect = new Rect();
                     for (; hit < BUFFER_SIZE; hit++) {
-                        if (mViewItem[hit] == null) {
+                        if (mViewItems[hit] == null) {
                             continue;
                         }
-                        mViewItem[hit].getHitRect(hitRect);
+                        mViewItems[hit].getHitRect(hitRect);
                         if (hitRect.contains((int) x, (int) y)) {
                             break;
                         }
@@ -2784,21 +2803,22 @@ public class FilmstripView extends ViewGroup {
                         return true;
                     }
 
-                    ImageData data = mDataAdapter.getImageData(mViewItem[hit].getId());
-                    float transY = mViewItem[hit].getTranslationY() - dy / mScale;
-                    if (!data.isUIActionSupported(ImageData.ACTION_DEMOTE) &&
+                    FilmstripItem data = mDataAdapter.getFilmstripItemAt(
+                          mViewItems[hit].getAdapterIndex());
+                    float transY = mViewItems[hit].getTranslationY() - dy / mScale;
+                    if (!data.getAttributes().canSwipeAway() &&
                             transY > 0f) {
                         transY = 0f;
                     }
-                    if (!data.isUIActionSupported(ImageData.ACTION_PROMOTE) &&
+                    if (!data.getAttributes().canSwipeAway() &&
                             transY < 0f) {
                         transY = 0f;
                     }
-                    mViewItem[hit].setTranslationY(transY);
+                    mViewItems[hit].setTranslationY(transY);
                 }
             } else if (inFullScreen()) {
-                if (mViewItem[mCurrentItem] == null || (deltaX < 0 && mCenterX <=
-                        currItem.getCenterX() && currItem.getId() == 0)) {
+                if (mViewItems[BUFFER_CENTER] == null || (deltaX < 0 && mCenterX <=
+                        currItem.getCenterX() && currItem.getAdapterIndex() == 0)) {
                     return false;
                 }
                 // Multiplied by 1.2 to make it more easy to swipe.
@@ -2810,14 +2830,36 @@ public class FilmstripView extends ViewGroup {
         }
 
         @Override
+        public boolean onMouseScroll(float hscroll, float vscroll) {
+            final float scroll;
+
+            hscroll *= MOUSE_SCROLL_FACTOR;
+            vscroll *= MOUSE_SCROLL_FACTOR;
+
+            if (vscroll != 0f) {
+                scroll = vscroll;
+            } else {
+                scroll = hscroll;
+            }
+
+            if (inFullScreen()) {
+                onFling(-scroll, 0f);
+            } else if (inZoomView()) {
+                onScroll(0f, 0f, hscroll, vscroll);
+            } else {
+                onScroll(0f, 0f, scroll, 0f);
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean onFling(float velocityX, float velocityY) {
-            final ViewItem currItem = mViewItem[mCurrentItem];
+            final ViewItem currItem = mViewItems[BUFFER_CENTER];
             if (currItem == null) {
                 return false;
             }
-            if (!mDataAdapter.canSwipeInFullScreen(currItem.getId())) {
-                return false;
-            }
+
             if (inZoomView()) {
                 // Fling within the zoomed image
                 mController.flingInsideZoomView(velocityX, velocityY);
@@ -2841,7 +2883,7 @@ public class FilmstripView extends ViewGroup {
                                 currItemCenterX, GEOMETRY_ADJUST_TIME_MS, true);
                         return true;
                     }
-                    ViewItem prevItem = mViewItem[mCurrentItem - 1];
+                    ViewItem prevItem = mViewItems[BUFFER_CENTER - 1];
                     if (prevItem == null) {
                         return false;
                     }
@@ -2856,18 +2898,16 @@ public class FilmstripView extends ViewGroup {
                                     currItemCenterX, GEOMETRY_ADJUST_TIME_MS, true);
                             return true;
                         }
-                        final ViewItem nextItem = mViewItem[mCurrentItem + 1];
+                        final ViewItem nextItem = mViewItems[BUFFER_CENTER + 1];
                         if (nextItem == null) {
                             return false;
                         }
                         mController.scrollToPosition(
                                 nextItem.getCenterX(), GEOMETRY_ADJUST_TIME_MS, true);
-                        if (isViewTypeSticky(currItem)) {
-                            mController.goToFilmstrip();
-                        }
                     }
                 }
             }
+
 
             if (mScale == FILM_STRIP_SCALE) {
                 mController.fling(velocityX);
@@ -2877,11 +2917,15 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public boolean onScaleBegin(float focusX, float focusY) {
-            if (inCameraFullscreen()) {
-                return false;
+            hideZoomView();
+
+            // This ensures that the item currently being manipulated
+            // is locked at full opacity.
+            mCurrentlyScalingItem = mViewItems[BUFFER_CENTER];
+            if (mCurrentlyScalingItem != null) {
+                mCurrentlyScalingItem.lockAtFullOpacity();
             }
 
-            hideZoomView();
             mScaleTrend = 1f;
             // If the image is smaller than screen size, we should allow to zoom
             // in to full screen size
@@ -2891,10 +2935,6 @@ public class FilmstripView extends ViewGroup {
 
         @Override
         public boolean onScale(float focusX, float focusY, float scale) {
-            if (inCameraFullscreen()) {
-                return false;
-            }
-
             mScaleTrend = mScaleTrend * 0.3f + scale * 0.7f;
             float newScale = mScale * scale;
             if (mScale < FULL_SCREEN_SCALE && newScale < FULL_SCREEN_SCALE) {
@@ -2936,6 +2976,7 @@ public class FilmstripView extends ViewGroup {
                     onLeaveZoomView();
                 }
                 mScale = newScale;
+                renderThumbnail(BUFFER_CENTER);
                 onEnterFilmstrip();
                 invalidate();
             } else {
@@ -2944,7 +2985,7 @@ public class FilmstripView extends ViewGroup {
                 if (!inZoomView()) {
                     mController.setSurroundingViewsVisible(false);
                 }
-                ViewItem curr = mViewItem[mCurrentItem];
+                ViewItem curr = mViewItems[BUFFER_CENTER];
                 // Make sure the image is not overly scaled
                 newScale = Math.min(newScale, mMaxScale);
                 if (newScale == mScale) {
@@ -2958,13 +2999,19 @@ public class FilmstripView extends ViewGroup {
                 } else {
                     onEnterZoomView();
                 }
-                checkItemAtMaxSize();
+                renderFullRes(BUFFER_CENTER);
             }
             return true;
         }
 
         @Override
         public void onScaleEnd() {
+            // Once the item is no longer under direct manipulation, unlock
+            // the opacity so it can be set by other parts of the layout code.
+            if (mCurrentlyScalingItem != null) {
+                mCurrentlyScalingItem.unlockOpacity();
+            }
+
             zoomAtIndexChanged();
             if (mScale > FULL_SCREEN_SCALE + TOLERANCE) {
                 return;

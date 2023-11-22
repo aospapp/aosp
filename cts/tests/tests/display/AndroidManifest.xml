@@ -19,6 +19,8 @@
     package="com.android.cts.display">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <!-- For special presentation windows when testing mode switches. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
         <uses-library android:name="android.test.runner" />

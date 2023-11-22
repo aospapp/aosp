@@ -54,7 +54,9 @@
     <string name="unlock_success" msgid="6770085622238180152">"ביטול נעילת הרשת התבצע בהצלחה."</string>
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"הגדרות רשת סלולרית אינן זמינות עבור המשתמש הזה"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"‏הגדרות שיחה של GSM"</string>
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"‏הגדרות שיחת GSM ‏(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"‏הגדרות שיחה של CDMA"</string>
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"‏הגדרות שיחת CDMA ‏(<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"שמות של נקודות גישה"</string>
     <string name="settings_label" msgid="3876743539816984008">"הגדרות רשת"</string>
     <string name="phone_accounts" msgid="6376603393888116364">"חשבונות להתקשרות"</string>
@@ -66,18 +68,12 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"חשבונות טלפון"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"‏הוסף חשבון SIP"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"קבע את הגדרות החשבון"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"‏שיחת Wi-Fi"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"‏אל תשתמש בשיחות Wi-Fi"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"אל תשתמש באסיסטנט שיחות"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"ללא"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"אסיסטנט שיחות"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"השתמש באסיסטנט שיחות"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"בחר אסיסטנט שיחות"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"נהל את הרשתות שבהן נעשה שימוש לשיחות עם"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"אפשר לאפליקציות או לשירותים לנהל רשתות המשמשות לשיחות"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"הגדר"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"כל החשבונות לביצוע שיחות"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"בחר אילו חשבונות יכולים להתקשר"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"‏שיחות ב-Wi-Fi"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"שירות חיבור מובנה"</string>
     <string name="voicemail" msgid="8693759337917898954">"דואר קולי"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"דואר קולי (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"דואר קולי:"</string>
     <string name="networks" msgid="8873030692174541976">"מפעילי רשת"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"שידורי חירום"</string>
@@ -97,7 +93,7 @@
     <string name="sum_cw_enabled" msgid="8083061901633671397">"במהלך שיחה, שלח לי התראה על שיחות נכנסות"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"במהלך שיחה, שלח לי התראות על שיחות נכנסות"</string>
     <string name="call_forwarding_settings" msgid="3378927671091537173">"הגדרות של העברת שיחות"</string>
-    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"הגדרות העברת שיחות (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"הגדרות של העברת שיחות (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="2574386948026924737">"העברת שיחות"</string>
     <string name="labelCFU" msgid="8147177368148660600">"העבר תמיד"</string>
     <string name="messageCFU" msgid="3560082430662923687">"השתמש תמיד במספר זה"</string>
@@ -204,7 +200,8 @@
     <string name="roaming_enable" msgid="7331106985174381987">"התחבר לשירותי נתונים בעת נדידה"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"התחבר לשירותי נתונים בעת נדידה"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"איבדת את קישוריות הנתונים כיוון שעזבת את הרשת הביתית כשהנדידה כבויה."</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"האם לאפשר שימוש בנתונים בעת נדידה? ייתכנו חיובים משמעותיים."</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"ייתכנו שיעורי חיוב גבוהים."</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"האם לאפשר נדידה?"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"‏אפשרויות GSM/UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"‏אפשרויות CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"שימוש בנתונים"</string>
@@ -350,6 +347,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"‏הגדר מצב TTY"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"ניסיון חוזר אוטומטי"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"אפשר מצב \'ניסיון חוזר\'."</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"‏שינוי מצב TTY אינו מותר במהלך שיחת וידאו"</string>
     <string name="menu_add" msgid="1882023737425114762">"הוסף איש קשר"</string>
     <string name="menu_edit" msgid="7143003705504672374">"ערוך איש קשר"</string>
     <string name="menu_delete" msgid="3977150783449642851">"מחק איש קשר"</string>
@@ -372,8 +370,8 @@
     <string name="fdn_failed" msgid="540018079008319747">"‏פעולת FDN נכשלה."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"‏קורא מכרטיס SIM…"</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"‏אין אנשי קשר בכרטיס ה-SIM."</string>
-    <string name="simContacts_title" msgid="1861472842524839921">"בחר אנשי קשר ליבוא"</string>
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"‏כדי לייבא אנשי קשר מכרטיס ה-SIM, כבה תחילה את מצב טיסה."</string>
+    <string name="simContacts_title" msgid="1861472842524839921">"בחר אנשי קשר לייבוא"</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"‏בטל את מצב טיסה כדי לייבא אנשי קשר מכרטיס ה-SIM."</string>
     <string name="enable_pin" msgid="5422767284133234860">"‏הפוך לפעיל/השבת PIN של SIM"</string>
     <string name="change_pin" msgid="9174186126330785343">"‏שנה PIN של SIM"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"‏PIN של SIM:"</string>
@@ -407,6 +405,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"‏PUK2 נחסם לצמיתות."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"נותרו לך עוד <xliff:g id="NUMBER">%d</xliff:g> ניסיונות."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"‏PIN2 אינו חסום עוד"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"‏שגיאת רשת או כרטיס SIM"</string>
     <string name="doneButton" msgid="2859593360997984240">"סיום"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"המספר של הדואר הקולי"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"מחייג"</string>
@@ -417,26 +416,17 @@
     <string name="card_title_on_hold" msgid="821463117892339942">"בהמתנה"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"מנתק"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"בשיחה"</string>
-    <string name="notification_dialing" msgid="2107666444937350731">"מחייג"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"שיחה שלא נענתה"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"שיחות שלא נענו"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> שיחות שלא נענו"</string>
-    <string name="notification_missedCallTicker" msgid="504686252427747209">"שיחה שלא נענתה מאת <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"שיחה פעילה"</string>
-    <string name="notification_on_hold" msgid="3480694969511790465">"בהמתנה"</string>
-    <string name="notification_incoming_call" msgid="2820429205043529642">"שיחה נכנסת"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"דואר קולי חדש"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"דואר קולי חדש (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"‏חייג ‎<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>‎"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"המספר של הדואר הקולי אינו ידוע"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"אין שירות"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"הרשת שנבחרה (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) לא זמינה"</string>
-    <string name="notification_action_end_call" msgid="6069460915123531620">"נתק"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"התקשר חזרה"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"שלח הודעה"</string>
-    <string name="incall_error_power_off" msgid="6550191216405193368">"כדי להתקשר, כבה תחילה את מצב טיסה."</string>
+    <string name="incall_error_power_off" msgid="2947938060513306698">"בטל את מצב טיסה כדי לבצע שיחה."</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"בטל את מצב טיסה או התחבר לרשת אלחוטית כדי לבצע שיחה."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"לא רשום ברשת."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"רשת סלולרית אינה זמינה."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"רשת סלולרית אינה זמינה. התחבר לרשת אלחוטית כדי לבצע שיחה."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"כדי להתקשר, הזן מספר טלפון חוקי."</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"לא ניתן להתקשר."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"‏מתחיל רצף MMI…"</string>
@@ -447,6 +437,7 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"אין אפשרות לנהל שיחות ועידה."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"לא ניתן לדחות שיחה."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"לא ניתן לשחרר שיחות."</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"התחבר לרשת אלחוטית כדי לבצע שיחה."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"שיחת חירום"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"מפעיל את הרדיו…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"אין שירות. מנסה שוב..."</string>
@@ -508,18 +499,24 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"נכנס למצב חירום של התקשרות חזרה"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"מצב חירום של התקשרות חזרה"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"חיבור נתונים מושבת"</string>
-  <plurals name="phone_in_ecm_notification_time">
-    <item quantity="one" msgid="4866221796252472622">"אין חיבור נתונים במשך דקה <xliff:g id="COUNT">%s</xliff:g>"</item>
-    <item quantity="other" msgid="3122217344579273583">"אין חיבור נתונים במשך <xliff:g id="COUNT">%s</xliff:g> דקות"</item>
-  </plurals>
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"הטלפון יהיה במצב התקשרות חזרה בחירום למשך דקה <xliff:g id="COUNT">%s</xliff:g>. במצב זה לא ניתן להשתמש באפליקציות המשתמשות בחיבור נתונים. האם אתה רוצה לצאת כעת?"</item>
-    <item quantity="other" msgid="8617116564023933114">"הטלפון יהיה במצב התקשרות חזרה בחירום למשך <xliff:g id="COUNT">%s</xliff:g> דקות. במצב זה לא ניתן להשתמש באפליקציות המשתמשים בחיבור נתונים. האם אתה רוצה לצאת כעת?"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"הפעולה שנבחרה אינה זמינה במצב התקשרות חזרה בחירום. הטלפון יהיה במצב זה במשך <xliff:g id="COUNT">%s</xliff:g> דקות. האם אתה רוצה לצאת כעת?"</item>
-    <item quantity="other" msgid="6115622137771382224">"הפעולה שנבחרה אינה זמינה במצב התקשרות חזרה בחירום. הטלפון יהיה במצב זה במשך <xliff:g id="COUNT">%s</xliff:g> דקות. אתה רוצה לצאת כעת?"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="two">ללא חיבור נתונים למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות</item>
+      <item quantity="many">ללא חיבור נתונים למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות</item>
+      <item quantity="other">ללא חיבור נתונים למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות</item>
+      <item quantity="one">ללא חיבור נתונים למשך דקה <xliff:g id="COUNT_0">%s</xliff:g></item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="two">הטלפון יהיה במצב חירום של התקשרות חזרה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. בזמן שהטלפון במצב הזה, לא ניתן להשתמש באפליקציות הזקוקות לחיבור נתונים. האם ברצונך לצאת כעת?</item>
+      <item quantity="many">הטלפון יהיה במצב חירום של התקשרות חזרה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. בזמן שהטלפון במצב הזה, לא ניתן להשתמש באפליקציות הזקוקות לחיבור נתונים. האם ברצונך לצאת כעת?</item>
+      <item quantity="other">הטלפון יהיה במצב חירום של התקשרות חזרה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. בזמן שהטלפון במצב הזה, לא ניתן להשתמש באפליקציות הזקוקות לחיבור נתונים. האם ברצונך לצאת כעת?</item>
+      <item quantity="one">הטלפון יהיה במצב חירום של התקשרות חזרה למשך דקה <xliff:g id="COUNT_0">%s</xliff:g>. בזמן שהטלפון במצב הזה, לא ניתן להשתמש באפליקציות הזקוקות לחיבור נתונים. האם ברצונך לצאת כעת?</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="two">הפעולה הנבחרת אינה זמינה במצב חירום של התקשרות חזרה. הטלפון יהיה במצב זה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. האם ברצונך לצאת כעת?</item>
+      <item quantity="many">הפעולה הנבחרת אינה זמינה במצב חירום של התקשרות חזרה. הטלפון יהיה במצב זה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. האם ברצונך לצאת כעת?</item>
+      <item quantity="other">הפעולה הנבחרת אינה זמינה במצב חירום של התקשרות חזרה. הטלפון יהיה במצב זה למשך <xliff:g id="COUNT_1">%s</xliff:g> דקות. האם ברצונך לצאת כעת?</item>
+      <item quantity="one">הפעולה הנבחרת אינה זמינה במצב חירום של התקשרות חזרה. הטלפון יהיה במצב זה למשך דקה <xliff:g id="COUNT_0">%s</xliff:g>. האם ברצונך לצאת כעת?</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"הפעולה שנבחרה אינה זמינה במהלך שיחת חירום."</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"יציאה ממצב התקשרות חזרה בחירום"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"כן"</string>
@@ -537,8 +534,8 @@
     <string name="description_dial_button" msgid="7459705245418435351">"חייג"</string>
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"רטט"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"רטט"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"דואר קולי ויזואלי"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"צליל"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"השלמה אוטומטית בלוח חיוג"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"רינגטון ורטט"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"‏כרטיסי SIM מובנים"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"הפעל שיחות וידאו"</string>
@@ -548,4 +545,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"שיחות חירום"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"שיחות חירום בלבד"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"‏כרטיס SIM, חריץ: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"נגישות"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"‏שיחת Wi-Fi נכנסת"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"‏שיחת Wi-Fi"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"גע שוב כדי לפתוח"</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"אירעה שגיאה בעת פענוח ההודעה."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"‏כרטיס SIM הפעיל את השירות שלך ועדכן את יכולות הנדידה של הטלפון."</string>
 </resources>

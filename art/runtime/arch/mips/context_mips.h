@@ -19,6 +19,7 @@
 
 #include "arch/context.h"
 #include "base/logging.h"
+#include "base/macros.h"
 #include "registers_mips.h"
 
 namespace art {
@@ -36,13 +37,16 @@ class MipsContext : public Context {
   void FillCalleeSaves(const StackVisitor& fr) OVERRIDE SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   void SetSP(uintptr_t new_sp) OVERRIDE {
-    bool success = SetGPR(SP, new_sp);
-    CHECK(success) << "Failed to set SP register";
+    SetGPR(SP, new_sp);
   }
 
   void SetPC(uintptr_t new_pc) OVERRIDE {
-    bool success = SetGPR(RA, new_pc);
-    CHECK(success) << "Failed to set RA register";
+    SetGPR(RA, new_pc);
+  }
+
+  bool IsAccessibleGPR(uint32_t reg) OVERRIDE {
+    CHECK_LT(reg, static_cast<uint32_t>(kNumberOfCoreRegisters));
+    return gprs_[reg] != nullptr;
   }
 
   uintptr_t* GetGPRAddress(uint32_t reg) OVERRIDE {
@@ -50,37 +54,32 @@ class MipsContext : public Context {
     return gprs_[reg];
   }
 
-  bool GetGPR(uint32_t reg, uintptr_t* val) OVERRIDE {
+  uintptr_t GetGPR(uint32_t reg) OVERRIDE {
     CHECK_LT(reg, static_cast<uint32_t>(kNumberOfCoreRegisters));
-    if (gprs_[reg] == nullptr) {
-      return false;
-    } else {
-      DCHECK(val != nullptr);
-      *val = *gprs_[reg];
-      return true;
-    }
+    DCHECK(IsAccessibleGPR(reg));
+    return *gprs_[reg];
   }
 
-  bool SetGPR(uint32_t reg, uintptr_t value) OVERRIDE;
+  void SetGPR(uint32_t reg, uintptr_t value) OVERRIDE;
 
-  bool GetFPR(uint32_t reg, uintptr_t* val) OVERRIDE {
+  bool IsAccessibleFPR(uint32_t reg) OVERRIDE {
     CHECK_LT(reg, static_cast<uint32_t>(kNumberOfFRegisters));
-    if (fprs_[reg] == nullptr) {
-      return false;
-    } else {
-      DCHECK(val != nullptr);
-      *val = *fprs_[reg];
-      return true;
-    }
+    return fprs_[reg] != nullptr;
   }
 
-  bool SetFPR(uint32_t reg, uintptr_t value) OVERRIDE;
+  uintptr_t GetFPR(uint32_t reg) OVERRIDE {
+    CHECK_LT(reg, static_cast<uint32_t>(kNumberOfFRegisters));
+    DCHECK(IsAccessibleFPR(reg));
+    return *fprs_[reg];
+  }
+
+  void SetFPR(uint32_t reg, uintptr_t value) OVERRIDE;
 
   void SmashCallerSaves() OVERRIDE;
-  void DoLongJump() OVERRIDE;
+  NO_RETURN void DoLongJump() OVERRIDE;
 
  private:
-  // Pointers to registers in the stack, initialized to NULL except for the special cases below.
+  // Pointers to registers in the stack, initialized to null except for the special cases below.
   uintptr_t* gprs_[kNumberOfCoreRegisters];
   uint32_t* fprs_[kNumberOfFRegisters];
   // Hold values for sp and ra (return address) if they are not located within a stack frame.

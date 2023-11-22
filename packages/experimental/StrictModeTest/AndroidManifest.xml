@@ -14,6 +14,8 @@
   <application android:label="Strict Mode Tester"
                android:debuggable="true">
 
+    <uses-library android:name="org.apache.http.legacy" android:required="false" />
+
     <activity android:name="StrictModeActivity"
               android:label="Strict Mode Tester">
       <intent-filter>

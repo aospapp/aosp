@@ -29,6 +29,7 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.view.WindowManager;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
@@ -102,6 +103,7 @@ public class Camera2SurfaceViewTestCase extends
     protected List<Size> mOrderedStillSizes; // In descending order.
     protected HashMap<Size, Long> mMinPreviewFrameDurationMap;
 
+    protected WindowManager mWindowManager;
 
     public Camera2SurfaceViewTestCase() {
         super(Camera2SurfaceViewCtsActivity.class);
@@ -131,6 +133,8 @@ public class Camera2SurfaceViewTestCase extends
         mHandler = new Handler(mHandlerThread.getLooper());
         mCameraListener = new BlockingStateCallback();
         mCollector = new CameraErrorCollector();
+
+        mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
     }
 
     @Override
@@ -559,13 +563,16 @@ public class Camera2SurfaceViewTestCase extends
         mCollector.setCameraId(cameraId);
         mStaticInfo = new StaticMetadata(mCameraManager.getCameraCharacteristics(cameraId),
                 CheckLevel.ASSERT, /*collector*/null);
-        mOrderedPreviewSizes = getSupportedPreviewSizes(cameraId, mCameraManager, PREVIEW_SIZE_BOUND);
-        mOrderedVideoSizes = getSupportedVideoSizes(cameraId, mCameraManager, PREVIEW_SIZE_BOUND);
-        mOrderedStillSizes = getSupportedStillSizes(cameraId, mCameraManager, null);
-        // Use ImageFormat.YUV_420_888 for now. TODO: need figure out what's format for preview
-        // in public API side.
-        mMinPreviewFrameDurationMap =
+        if (mStaticInfo.isColorOutputSupported()) {
+            mOrderedPreviewSizes = getSupportedPreviewSizes(cameraId, mCameraManager,
+                    getPreviewSizeBound(mWindowManager, PREVIEW_SIZE_BOUND));
+            mOrderedVideoSizes = getSupportedVideoSizes(cameraId, mCameraManager, PREVIEW_SIZE_BOUND);
+            mOrderedStillSizes = getSupportedStillSizes(cameraId, mCameraManager, null);
+            // Use ImageFormat.YUV_420_888 for now. TODO: need figure out what's format for preview
+            // in public API side.
+            mMinPreviewFrameDurationMap =
                 mStaticInfo.getAvailableMinFrameDurationsForFormatChecked(ImageFormat.YUV_420_888);
+        }
     }
 
     /**
@@ -612,8 +619,8 @@ public class Camera2SurfaceViewTestCase extends
                 mPreviewSize.getHeight());
         assertTrue("wait for surface change to " + mPreviewSize.toString() + " timed out", res);
         mPreviewSurface = holder.getSurface();
-        assertTrue("Preview surface is invalid", mPreviewSurface.isValid());
         assertNotNull("Preview surface is null", mPreviewSurface);
+        assertTrue("Preview surface is invalid", mPreviewSurface.isValid());
     }
 
     /**
@@ -693,5 +700,22 @@ public class Camera2SurfaceViewTestCase extends
         }
 
         return null;
+    }
+
+    protected boolean isReprocessSupported(String cameraId, int format)
+            throws CameraAccessException {
+        if (format != ImageFormat.YUV_420_888 && format != ImageFormat.PRIVATE) {
+            throw new IllegalArgumentException(
+                    "format " + format + " is not supported for reprocessing");
+        }
+
+        StaticMetadata info =
+                new StaticMetadata(mCameraManager.getCameraCharacteristics(cameraId),
+                                   CheckLevel.ASSERT, /*collector*/ null);
+        int cap = CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING;
+        if (format == ImageFormat.PRIVATE) {
+            cap = CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING;
+        }
+        return info.isCapabilitySupported(cap);
     }
 }

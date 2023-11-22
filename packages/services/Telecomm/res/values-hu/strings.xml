@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Telefon"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Híváskezelés"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telefon"</string>
     <string name="unknown" msgid="6878797917991465859">"Ismeretlen"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Nem fogadott hívás"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Nem fogadott hívások"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Gyors válasz"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Üzenet elküldve ide: <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Az eszköz tulajdonosa csak a segélyhívásokat engedélyezte"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Telefonos fiókok"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Az eszköz tulajdonosa csak a segélyhívást engedélyezte."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Az alkalmazásból nem lehet kimenő hívást kezdeményezni a Telefon (Phone) engedély nélkül."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Hívásindításhoz adjon meg egy érvényes számot."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Jelenleg nem lehet videohívást hozzáadni."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Videohívások indításához kapcsolja ki a TTY módot."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Hiányzik a hangposta száma"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Nincs hangpostaszám a SIM kártyán."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Szám hozzáadása"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Módosítja az alapértelmezett tárcsázó alkalmazást?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Legyen a(z) <xliff:g id="NEW_APP">%1$s</xliff:g> az alapértelmezett tárcsázó alkalmazás a(z) <xliff:g id="CURRENT_APP">%2$s</xliff:g> helyett?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Legyen a(z) <xliff:g id="NEW_APP">%s</xliff:g> az alapértelmezett tárcsázó alkalmazás?"</string>
 </resources>

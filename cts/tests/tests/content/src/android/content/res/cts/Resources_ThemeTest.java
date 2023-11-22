@@ -18,6 +18,8 @@ package android.content.res.cts;
 
 import org.xmlpull.v1.XmlPullParser;
 
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.content.res.Resources.Theme;
@@ -25,8 +27,11 @@ import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.util.Xml;
+import android.view.View;
 
 import com.android.cts.content.R;
+
+import java.util.Locale;
 
 
 public class Resources_ThemeTest extends AndroidTestCase {
@@ -78,4 +83,51 @@ public class Resources_ThemeTest extends AndroidTestCase {
         assertFalse(mResTheme.resolveAttribute(R.raw.testmp3, value, false));
     }
 
+    public void testGetChangingConfigurations() {
+        Resources.Theme theme = getContext().getResources().newTheme();
+        assertEquals("Initial changing configuration mask is empty",
+                0, theme.getChangingConfigurations());
+
+        theme.applyStyle(R.style.Theme_OrientationDependent, true);
+        assertEquals("First call to Theme.applyStyle() sets changing configuration",
+                ActivityInfo.CONFIG_ORIENTATION, theme.getChangingConfigurations());
+
+        theme.applyStyle(R.style.Theme_LayoutDirectionDependent, true);
+        assertEquals("Multiple calls to Theme.applyStyle() update changing configuration",
+                ActivityInfo.CONFIG_ORIENTATION | ActivityInfo.CONFIG_LAYOUT_DIRECTION,
+                theme.getChangingConfigurations());
+
+        Resources.Theme other = getContext().getResources().newTheme();
+        other.setTo(theme);
+        assertEquals("Theme.setTheme() copies changing confguration",
+                ActivityInfo.CONFIG_ORIENTATION | ActivityInfo.CONFIG_LAYOUT_DIRECTION,
+                theme.getChangingConfigurations());
+    }
+
+    public void testRebase() {
+        Resources res = getContext().getResources();
+        Configuration config = res.getConfiguration();
+        config.setLocale(Locale.ENGLISH);
+        assertEquals("Theme will be created in LTR config",
+                View.LAYOUT_DIRECTION_LTR, config.getLayoutDirection());
+
+        Resources.Theme theme = res.newTheme();
+        theme.applyStyle(R.style.Theme_LayoutIsRTL, true);
+
+        TypedArray t = theme.obtainStyledAttributes(new int[] { R.attr.themeBoolean });
+        assertEquals("Theme was created in LTR config", false, t.getBoolean(0, true));
+        t.recycle();
+
+        config.setLocale(new Locale("iw"));
+        res.updateConfiguration(config, null);
+
+        assertEquals("Theme will be rebased in RTL config",
+                View.LAYOUT_DIRECTION_RTL, config.getLayoutDirection());
+
+        theme.rebase();
+
+        t = theme.obtainStyledAttributes(new int[] { R.attr.themeBoolean });
+        assertEquals("Theme was rebased in RTL config", true, t.getBoolean(0, false));
+        t.recycle();
+    }
 }

@@ -64,7 +64,6 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mTextureName(-1U),
         mPremultipliedAlpha(true),
         mName("unnamed"),
-        mDebug(false),
         mFormat(PIXEL_FORMAT_NONE),
         mTransactionFlags(0),
         mQueuedFrames(0),
@@ -77,11 +76,15 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         mFiltering(false),
         mNeedsFiltering(false),
         mMesh(Mesh::TRIANGLE_FAN, 4, 2, 2),
-        mSecure(false),
         mProtectedByApp(false),
         mHasSurface(false),
         mClientRef(client),
-        mPotentialCursor(false)
+        mPotentialCursor(false),
+        mQueueItemLock(),
+        mQueueItemCondition(),
+        mQueueItems(),
+        mLastFrameNumberReceived(0),
+        mUpdateTexImageFailed(false)
 {
     mCurrentCrop.makeInvalid();
     mFlinger->getRenderEngine().genTextures(1, &mTextureName);
@@ -92,6 +95,8 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
         layerFlags |= layer_state_t::eLayerHidden;
     if (flags & ISurfaceComposerClient::eOpaque)
         layerFlags |= layer_state_t::eLayerOpaque;
+    if (flags & ISurfaceComposerClient::eSecure)
+        layerFlags |= layer_state_t::eLayerSecure;
 
     if (flags & ISurfaceComposerClient::eNonPremultiplied)
         mPremultipliedAlpha = false;
@@ -164,20 +169,54 @@ void Layer::onFrameAvailable(const BufferItem& item) {
     // Add this buffer from our internal queue tracker
     { // Autolock scope
         Mutex::Autolock lock(mQueueItemLock);
+
+        // Reset the frame number tracker when we receive the first buffer after
+        // a frame number reset
+        if (item.mFrameNumber == 1) {
+            mLastFrameNumberReceived = 0;
+        }
+
+        // Ensure that callbacks are handled in order
+        while (item.mFrameNumber != mLastFrameNumberReceived + 1) {
+            status_t result = mQueueItemCondition.waitRelative(mQueueItemLock,
+                    ms2ns(500));
+            if (result != NO_ERROR) {
+                ALOGE("[%s] Timed out waiting on callback", mName.string());
+            }
+        }
+
         mQueueItems.push_back(item);
+        android_atomic_inc(&mQueuedFrames);
+
+        // Wake up any pending callbacks
+        mLastFrameNumberReceived = item.mFrameNumber;
+        mQueueItemCondition.broadcast();
     }
 
-    android_atomic_inc(&mQueuedFrames);
     mFlinger->signalLayerUpdate();
 }
 
 void Layer::onFrameReplaced(const BufferItem& item) {
     Mutex::Autolock lock(mQueueItemLock);
+
+    // Ensure that callbacks are handled in order
+    while (item.mFrameNumber != mLastFrameNumberReceived + 1) {
+        status_t result = mQueueItemCondition.waitRelative(mQueueItemLock,
+                ms2ns(500));
+        if (result != NO_ERROR) {
+            ALOGE("[%s] Timed out waiting on callback", mName.string());
+        }
+    }
+
     if (mQueueItems.empty()) {
         ALOGE("Can't replace a frame on an empty queue");
         return;
     }
     mQueueItems.editItemAt(0) = item;
+
+    // Wake up any pending callbacks
+    mLastFrameNumberReceived = item.mFrameNumber;
+    mQueueItemCondition.broadcast();
 }
 
 void Layer::onSidebandStreamChanged() {
@@ -218,7 +257,6 @@ status_t Layer::setBuffers( uint32_t w, uint32_t h,
     mFormat = format;
 
     mPotentialCursor = (flags & ISurfaceComposerClient::eCursorWindow) ? true : false;
-    mSecure = (flags & ISurfaceComposerClient::eSecure) ? true : false;
     mProtectedByApp = (flags & ISurfaceComposerClient::eProtectedByApp) ? true : false;
     mCurrentOpacity = getOpacityForFormat(format);
 
@@ -513,6 +551,7 @@ void Layer::setPerFrameData(const sp<const DisplayDevice>& hw,
     const Transform& tr = hw->getTransform();
     Region visible = tr.transform(visibleRegion.intersect(hw->getViewport()));
     layer.setVisibleRegionScreen(visible);
+    layer.setSurfaceDamage(surfaceDamageRegion);
 
     if (mSidebandStream.get()) {
         layer.setSidebandStream(mSidebandStream);
@@ -693,7 +732,6 @@ void Layer::clearWithOpenGL(
 
 void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
         const Region& /* clip */, bool useIdentityTransform) const {
-    const uint32_t fbHeight = hw->getHeight();
     const State& s(getDrawingState());
 
     computeGeometry(hw, mMesh, useIdentityTransform);
@@ -766,7 +804,6 @@ bool Layer::getOpacityForFormat(uint32_t format) {
     switch (format) {
         case HAL_PIXEL_FORMAT_RGBA_8888:
         case HAL_PIXEL_FORMAT_BGRA_8888:
-        case HAL_PIXEL_FORMAT_sRGB_A_8888:
             return false;
     }
     // in all other case, we have no blending (also for unknown formats)
@@ -812,6 +849,12 @@ bool Layer::isOpaque(const Layer::State& s) const
     // if the layer has the opaque flag, then we're always opaque,
     // otherwise we use the current buffer's format.
     return ((s.flags & layer_state_t::eLayerOpaque) != 0) || mCurrentOpacity;
+}
+
+bool Layer::isSecure() const
+{
+    const Layer::State& s(mDrawingState);
+    return (s.flags & layer_state_t::eLayerSecure);
 }
 
 bool Layer::isProtected() const
@@ -911,7 +954,7 @@ uint32_t Layer::doTransaction(uint32_t flags) {
         const bool resizePending = (c.requested.w != c.active.w) ||
                                    (c.requested.h != c.active.h);
 
-        if (resizePending) {
+        if (resizePending && mSidebandStream == NULL) {
             // don't let Layer::doTransaction update the drawing state
             // if we have a pending resize, unless we are in fixed-size mode.
             // the drawing state will be updated only once we receive a buffer
@@ -920,6 +963,10 @@ uint32_t Layer::doTransaction(uint32_t flags) {
             // in particular, we want to make sure the clip (which is part
             // of the geometry state) is latched together with the size but is
             // latched immediately when no resizing is involved.
+            //
+            // If a sideband stream is attached, however, we want to skip this
+            // optimization so that transactions aren't missed when a buffer
+            // never arrives
 
             flags |= eDontUpdateGeometryState;
         }
@@ -1037,16 +1084,43 @@ bool Layer::setLayerStack(uint32_t layerStack) {
     return true;
 }
 
+void Layer::useSurfaceDamage() {
+    if (mFlinger->mForceFullDamage) {
+        surfaceDamageRegion = Region::INVALID_REGION;
+    } else {
+        surfaceDamageRegion = mSurfaceFlingerConsumer->getSurfaceDamage();
+    }
+}
+
+void Layer::useEmptyDamage() {
+    surfaceDamageRegion.clear();
+}
+
 // ----------------------------------------------------------------------------
 // pageflip handling...
 // ----------------------------------------------------------------------------
 
 bool Layer::shouldPresentNow(const DispSync& dispSync) const {
+    if (mSidebandStreamChanged) {
+        return true;
+    }
+
     Mutex::Autolock lock(mQueueItemLock);
+    if (mQueueItems.empty()) {
+        return false;
+    }
+    auto timestamp = mQueueItems[0].mTimestamp;
     nsecs_t expectedPresent =
             mSurfaceFlingerConsumer->computeExpectedPresent(dispSync);
-    return mQueueItems.empty() ?
-            false : mQueueItems[0].mTimestamp < expectedPresent;
+
+    // Ignore timestamps more than a second in the future
+    bool isPlausible = timestamp < (expectedPresent + s2ns(1));
+    ALOGW_IF(!isPlausible, "[%s] Timestamp %" PRId64 " seems implausible "
+            "relative to expectedPresent %" PRId64, mName.string(), timestamp,
+            expectedPresent);
+
+    bool isDue = timestamp < expectedPresent;
+    return isDue || !isPlausible;
 }
 
 bool Layer::onPreComposition() {
@@ -1097,6 +1171,10 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
     if (android_atomic_acquire_cas(true, false, &mSidebandStreamChanged) == 0) {
         // mSidebandStreamChanged was true
         mSidebandStream = mSurfaceFlingerConsumer->getSidebandStream();
+        if (mSidebandStream != NULL) {
+            setTransactionFlags(eTransactionNeeded);
+            mFlinger->setTransactionFlags(eTraversalNeeded);
+        }
         recomputeVisibleRegions = true;
 
         const State& s(getDrawingState());
@@ -1133,7 +1211,7 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
             }
 
             virtual bool reject(const sp<GraphicBuffer>& buf,
-                    const IGraphicBufferConsumer::BufferItem& item) {
+                    const BufferItem& item) {
                 if (buf == NULL) {
                     return false;
                 }
@@ -1229,20 +1307,61 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
         Reject r(mDrawingState, getCurrentState(), recomputeVisibleRegions,
                 getProducerStickyTransform() != 0);
 
+        uint64_t maxFrameNumber = 0;
+        {
+            Mutex::Autolock lock(mQueueItemLock);
+            maxFrameNumber = mLastFrameNumberReceived;
+        }
+
         status_t updateResult = mSurfaceFlingerConsumer->updateTexImage(&r,
-                mFlinger->mPrimaryDispSync);
+                mFlinger->mPrimaryDispSync, maxFrameNumber);
         if (updateResult == BufferQueue::PRESENT_LATER) {
             // Producer doesn't want buffer to be displayed yet.  Signal a
             // layer update so we check again at the next opportunity.
             mFlinger->signalLayerUpdate();
             return outDirtyRegion;
-        }
-
-        // Remove this buffer from our internal queue tracker
-        { // Autolock scope
+        } else if (updateResult == SurfaceFlingerConsumer::BUFFER_REJECTED) {
+            // If the buffer has been rejected, remove it from the shadow queue
+            // and return early
             Mutex::Autolock lock(mQueueItemLock);
             mQueueItems.removeAt(0);
+            android_atomic_dec(&mQueuedFrames);
+            return outDirtyRegion;
+        } else if (updateResult != NO_ERROR || mUpdateTexImageFailed) {
+            // This can occur if something goes wrong when trying to create the
+            // EGLImage for this buffer. If this happens, the buffer has already
+            // been released, so we need to clean up the queue and bug out
+            // early.
+            {
+                Mutex::Autolock lock(mQueueItemLock);
+                mQueueItems.clear();
+                android_atomic_and(0, &mQueuedFrames);
+            }
+
+            // Once we have hit this state, the shadow queue may no longer
+            // correctly reflect the incoming BufferQueue's contents, so even if
+            // updateTexImage starts working, the only safe course of action is
+            // to continue to ignore updates.
+            mUpdateTexImageFailed = true;
+
+            return outDirtyRegion;
         }
+
+        { // Autolock scope
+            auto currentFrameNumber = mSurfaceFlingerConsumer->getFrameNumber();
+
+            Mutex::Autolock lock(mQueueItemLock);
+
+            // Remove any stale buffers that have been dropped during
+            // updateTexImage
+            while (mQueueItems[0].mFrameNumber != currentFrameNumber) {
+                mQueueItems.removeAt(0);
+                android_atomic_dec(&mQueuedFrames);
+            }
+
+            mQueueItems.removeAt(0);
+        }
+
 
         // Decrement the queued-frames count.  Signal another event if we
         // have more frames pending.
@@ -1352,6 +1471,7 @@ void Layer::dump(String8& result, Colorizer& colorizer) const
 
     s.activeTransparentRegion.dump(result, "transparentRegion");
     visibleRegion.dump(result, "visibleRegion");
+    surfaceDamageRegion.dump(result, "surfaceDamageRegion");
     sp<Client> client(mClientRef.promote());
 
     result.appendFormat(            "      "

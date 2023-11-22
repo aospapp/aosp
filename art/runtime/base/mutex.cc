@@ -19,13 +19,17 @@
 #include <errno.h>
 #include <sys/time.h>
 
+#define ATRACE_TAG ATRACE_TAG_DALVIK
+#include "cutils/trace.h"
+
 #include "atomic.h"
 #include "base/logging.h"
+#include "base/time_utils.h"
+#include "base/value_object.h"
 #include "mutex-inl.h"
 #include "runtime.h"
 #include "scoped_thread_state_change.h"
 #include "thread-inl.h"
-#include "utils.h"
 
 namespace art {
 
@@ -39,6 +43,7 @@ Mutex* Locks::deoptimization_lock_ = nullptr;
 ReaderWriterMutex* Locks::heap_bitmap_lock_ = nullptr;
 Mutex* Locks::instrument_entrypoints_lock_ = nullptr;
 Mutex* Locks::intern_table_lock_ = nullptr;
+Mutex* Locks::jni_libraries_lock_ = nullptr;
 Mutex* Locks::logging_lock_ = nullptr;
 Mutex* Locks::mem_maps_lock_ = nullptr;
 Mutex* Locks::modify_ldt_lock_ = nullptr;
@@ -52,7 +57,7 @@ Mutex* Locks::reference_queue_soft_references_lock_ = nullptr;
 Mutex* Locks::reference_queue_weak_references_lock_ = nullptr;
 Mutex* Locks::runtime_shutdown_lock_ = nullptr;
 Mutex* Locks::thread_list_lock_ = nullptr;
-Mutex* Locks::thread_list_suspend_thread_lock_ = nullptr;
+ConditionVariable* Locks::thread_exit_cond_ = nullptr;
 Mutex* Locks::thread_suspend_count_lock_ = nullptr;
 Mutex* Locks::trace_lock_ = nullptr;
 Mutex* Locks::unexpected_signal_lock_ = nullptr;
@@ -62,7 +67,7 @@ struct AllMutexData {
   Atomic<const BaseMutex*> all_mutexes_guard;
   // All created mutexes guarded by all_mutexes_guard_.
   std::set<BaseMutex*>* all_mutexes;
-  AllMutexData() : all_mutexes(NULL) {}
+  AllMutexData() : all_mutexes(nullptr) {}
 };
 static struct AllMutexData gAllMutexData[kAllMutexDataSize];
 
@@ -82,27 +87,64 @@ static bool ComputeRelativeTimeSpec(timespec* result_ts, const timespec& lhs, co
 }
 #endif
 
-class ScopedAllMutexesLock {
+class ScopedAllMutexesLock FINAL {
  public:
   explicit ScopedAllMutexesLock(const BaseMutex* mutex) : mutex_(mutex) {
     while (!gAllMutexData->all_mutexes_guard.CompareExchangeWeakAcquire(0, mutex)) {
       NanoSleep(100);
     }
   }
+
   ~ScopedAllMutexesLock() {
+#if !defined(__clang__)
+    // TODO: remove this workaround target GCC/libc++/bionic bug "invalid failure memory model".
+    while (!gAllMutexData->all_mutexes_guard.CompareExchangeWeakSequentiallyConsistent(mutex_, 0)) {
+#else
     while (!gAllMutexData->all_mutexes_guard.CompareExchangeWeakRelease(mutex_, 0)) {
+#endif
       NanoSleep(100);
     }
   }
+
  private:
   const BaseMutex* const mutex_;
+};
+
+// Scoped class that generates events at the beginning and end of lock contention.
+class ScopedContentionRecorder FINAL : public ValueObject {
+ public:
+  ScopedContentionRecorder(BaseMutex* mutex, uint64_t blocked_tid, uint64_t owner_tid)
+      : mutex_(kLogLockContentions ? mutex : nullptr),
+        blocked_tid_(kLogLockContentions ? blocked_tid : 0),
+        owner_tid_(kLogLockContentions ? owner_tid : 0),
+        start_nano_time_(kLogLockContentions ? NanoTime() : 0) {
+    if (ATRACE_ENABLED()) {
+      std::string msg = StringPrintf("Lock contention on %s (owner tid: %" PRIu64 ")",
+                                     mutex->GetName(), owner_tid);
+      ATRACE_BEGIN(msg.c_str());
+    }
+  }
+
+  ~ScopedContentionRecorder() {
+    ATRACE_END();
+    if (kLogLockContentions) {
+      uint64_t end_nano_time = NanoTime();
+      mutex_->RecordContention(blocked_tid_, owner_tid_, end_nano_time - start_nano_time_);
+    }
+  }
+
+ private:
+  BaseMutex* const mutex_;
+  const uint64_t blocked_tid_;
+  const uint64_t owner_tid_;
+  const uint64_t start_nano_time_;
 };
 
 BaseMutex::BaseMutex(const char* name, LockLevel level) : level_(level), name_(name) {
   if (kLogLockContentions) {
     ScopedAllMutexesLock mu(this);
     std::set<BaseMutex*>** all_mutexes_ptr = &gAllMutexData->all_mutexes;
-    if (*all_mutexes_ptr == NULL) {
+    if (*all_mutexes_ptr == nullptr) {
       // We leak the global set of all mutexes to avoid ordering issues in global variable
       // construction/destruction.
       *all_mutexes_ptr = new std::set<BaseMutex*>();
@@ -123,7 +165,7 @@ void BaseMutex::DumpAll(std::ostream& os) {
     os << "Mutex logging:\n";
     ScopedAllMutexesLock mu(reinterpret_cast<const BaseMutex*>(-1));
     std::set<BaseMutex*>* all_mutexes = gAllMutexData->all_mutexes;
-    if (all_mutexes == NULL) {
+    if (all_mutexes == nullptr) {
       // No mutexes have been created yet during at startup.
       return;
     }
@@ -148,7 +190,7 @@ void BaseMutex::DumpAll(std::ostream& os) {
 }
 
 void BaseMutex::CheckSafeToWait(Thread* self) {
-  if (self == NULL) {
+  if (self == nullptr) {
     CheckUnattachedThread(level_);
     return;
   }
@@ -160,7 +202,7 @@ void BaseMutex::CheckSafeToWait(Thread* self) {
       if (i != level_) {
         BaseMutex* held_mutex = self->GetHeldMutex(static_cast<LockLevel>(i));
         // We expect waits to happen while holding the thread list suspend thread lock.
-        if (held_mutex != NULL && i != kThreadListSuspendThreadLock) {
+        if (held_mutex != nullptr) {
           LOG(ERROR) << "Holding \"" << held_mutex->name_ << "\" "
                      << "(level " << LockLevel(i) << ") while performing wait on "
                      << "\"" << name_ << "\" (level " << level_ << ")";
@@ -168,7 +210,9 @@ void BaseMutex::CheckSafeToWait(Thread* self) {
         }
       }
     }
-    CHECK(!bad_mutexes_held);
+    if (gAborting == 0) {  // Avoid recursive aborts.
+      CHECK(!bad_mutexes_held);
+    }
   }
 }
 
@@ -286,8 +330,7 @@ Mutex::~Mutex() {
   bool shutting_down = IsShuttingDown();
 #if ART_USE_FUTEXES
   if (state_.LoadRelaxed() != 0) {
-    LOG(shutting_down ? WARNING : FATAL) << "destroying mutex with owner: "
-                                                 << exclusive_owner_;
+    LOG(shutting_down ? WARNING : FATAL) << "destroying mutex with owner: " << exclusive_owner_;
   } else {
     if (exclusive_owner_ != 0) {
       LOG(shutting_down ? WARNING : FATAL) << "unexpectedly found an owner on unlocked mutex "
@@ -311,7 +354,7 @@ Mutex::~Mutex() {
 }
 
 void Mutex::ExclusiveLock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   if (kDebugLocking && !recursive_) {
     AssertNotHeld(self);
   }
@@ -327,7 +370,7 @@ void Mutex::ExclusiveLock(Thread* self) {
         // Failed to acquire, hang up.
         ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
         num_contenders_++;
-        if (futex(state_.Address(), FUTEX_WAIT, 1, NULL, NULL, 0) != 0) {
+        if (futex(state_.Address(), FUTEX_WAIT, 1, nullptr, nullptr, 0) != 0) {
           // EAGAIN and EINTR both indicate a spurious failure, try again from the beginning.
           // We don't use TEMP_FAILURE_RETRY so we can intentionally retry to acquire the lock.
           if ((errno != EAGAIN) && (errno != EINTR)) {
@@ -354,7 +397,7 @@ void Mutex::ExclusiveLock(Thread* self) {
 }
 
 bool Mutex::ExclusiveTryLock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   if (kDebugLocking && !recursive_) {
     AssertNotHeld(self);
   }
@@ -395,7 +438,18 @@ bool Mutex::ExclusiveTryLock(Thread* self) {
 }
 
 void Mutex::ExclusiveUnlock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  if (kIsDebugBuild && self != nullptr && self != Thread::Current()) {
+    std::string name1 = "<null>";
+    std::string name2 = "<null>";
+    if (self != nullptr) {
+      self->GetThreadName(name1);
+    }
+    if (Thread::Current() != nullptr) {
+      Thread::Current()->GetThreadName(name2);
+    }
+    LOG(FATAL) << GetName() << " level=" << level_ << " self=" << name1
+               << " Thread::Current()=" << name2;
+  }
   AssertHeld(self);
   DCHECK_NE(exclusive_owner_, 0U);
   recursion_count_--;
@@ -420,7 +474,7 @@ void Mutex::ExclusiveUnlock(Thread* self) {
         if (LIKELY(done)) {  // Spurious fail?
           // Wake a contender.
           if (UNLIKELY(num_contenders_.LoadRelaxed() > 0)) {
-            futex(state_.Address(), FUTEX_WAKE, 1, NULL, NULL, 0);
+            futex(state_.Address(), FUTEX_WAKE, 1, nullptr, nullptr, 0);
           }
         }
       } else {
@@ -428,9 +482,9 @@ void Mutex::ExclusiveUnlock(Thread* self) {
         if (this != Locks::logging_lock_) {
           LOG(FATAL) << "Unexpected state_ in unlock " << cur_state << " for " << name_;
         } else {
-          LogMessageData data(__FILE__, __LINE__, INTERNAL_FATAL, -1);
-          LogMessage::LogLine(data, StringPrintf("Unexpected state_ %d in unlock for %s",
-                                                 cur_state, name_).c_str());
+          LogMessage::LogLine(__FILE__, __LINE__, INTERNAL_FATAL,
+                              StringPrintf("Unexpected state_ %d in unlock for %s",
+                                           cur_state, name_).c_str());
           _exit(1);
         }
       }
@@ -483,14 +537,14 @@ ReaderWriterMutex::~ReaderWriterMutex() {
     // TODO: should we just not log at all if shutting down? this could be the logging mutex!
     MutexLock mu(Thread::Current(), *Locks::runtime_shutdown_lock_);
     Runtime* runtime = Runtime::Current();
-    bool shutting_down = runtime == NULL || runtime->IsShuttingDownLocked();
+    bool shutting_down = runtime == nullptr || runtime->IsShuttingDownLocked();
     PLOG(shutting_down ? WARNING : FATAL) << "pthread_rwlock_destroy failed for " << name_;
   }
 #endif
 }
 
 void ReaderWriterMutex::ExclusiveLock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   AssertNotExclusiveHeld(self);
 #if ART_USE_FUTEXES
   bool done = false;
@@ -503,7 +557,7 @@ void ReaderWriterMutex::ExclusiveLock(Thread* self) {
       // Failed to acquire, hang up.
       ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
       ++num_pending_writers_;
-      if (futex(state_.Address(), FUTEX_WAIT, cur_state, NULL, NULL, 0) != 0) {
+      if (futex(state_.Address(), FUTEX_WAIT, cur_state, nullptr, nullptr, 0) != 0) {
         // EAGAIN and EINTR both indicate a spurious failure, try again from the beginning.
         // We don't use TEMP_FAILURE_RETRY so we can intentionally retry to acquire the lock.
         if ((errno != EAGAIN) && (errno != EINTR)) {
@@ -524,7 +578,7 @@ void ReaderWriterMutex::ExclusiveLock(Thread* self) {
 }
 
 void ReaderWriterMutex::ExclusiveUnlock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   AssertExclusiveHeld(self);
   RegisterAsUnlocked(self);
   DCHECK_NE(exclusive_owner_, 0U);
@@ -544,7 +598,7 @@ void ReaderWriterMutex::ExclusiveUnlock(Thread* self) {
         // Wake any waiters.
         if (UNLIKELY(num_pending_readers_.LoadRelaxed() > 0 ||
                      num_pending_writers_.LoadRelaxed() > 0)) {
-          futex(state_.Address(), FUTEX_WAKE, -1, NULL, NULL, 0);
+          futex(state_.Address(), FUTEX_WAKE, -1, nullptr, nullptr, 0);
         }
       }
     } else {
@@ -559,7 +613,7 @@ void ReaderWriterMutex::ExclusiveUnlock(Thread* self) {
 
 #if HAVE_TIMED_RWLOCK
 bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32_t ns) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
 #if ART_USE_FUTEXES
   bool done = false;
   timespec end_abs_ts;
@@ -579,7 +633,7 @@ bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32
       }
       ScopedContentionRecorder scr(this, SafeGetTid(self), GetExclusiveOwnerTid());
       ++num_pending_writers_;
-      if (futex(state_.Address(), FUTEX_WAIT, cur_state, &rel_ts, NULL, 0) != 0) {
+      if (futex(state_.Address(), FUTEX_WAIT, cur_state, &rel_ts, nullptr, 0) != 0) {
         if (errno == ETIMEDOUT) {
           --num_pending_writers_;
           return false;  // Timed out.
@@ -612,8 +666,22 @@ bool ReaderWriterMutex::ExclusiveLockWithTimeout(Thread* self, int64_t ms, int32
 }
 #endif
 
+#if ART_USE_FUTEXES
+void ReaderWriterMutex::HandleSharedLockContention(Thread* self, int32_t cur_state) {
+  // Owner holds it exclusively, hang up.
+  ScopedContentionRecorder scr(this, GetExclusiveOwnerTid(), SafeGetTid(self));
+  ++num_pending_readers_;
+  if (futex(state_.Address(), FUTEX_WAIT, cur_state, nullptr, nullptr, 0) != 0) {
+    if (errno != EAGAIN) {
+      PLOG(FATAL) << "futex wait failed for " << name_;
+    }
+  }
+  --num_pending_readers_;
+}
+#endif
+
 bool ReaderWriterMutex::SharedTryLock(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
 #if ART_USE_FUTEXES
   bool done = false;
   do {
@@ -642,9 +710,9 @@ bool ReaderWriterMutex::SharedTryLock(Thread* self) {
 }
 
 bool ReaderWriterMutex::IsSharedHeld(const Thread* self) const {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   bool result;
-  if (UNLIKELY(self == NULL)) {  // Handle unattached threads.
+  if (UNLIKELY(self == nullptr)) {  // Handle unattached threads.
     result = IsExclusiveHeld(self);  // TODO: a better best effort here.
   } else {
     result = (self->GetHeldMutex(level_) == this);
@@ -680,7 +748,7 @@ ConditionVariable::ConditionVariable(const char* name, Mutex& guard)
   CHECK_MUTEX_CALL(pthread_condattr_init, (&cond_attrs));
 #if !defined(__APPLE__)
   // Apple doesn't have CLOCK_MONOTONIC or pthread_condattr_setclock.
-  CHECK_MUTEX_CALL(pthread_condattr_setclock(&cond_attrs, CLOCK_MONOTONIC));
+  CHECK_MUTEX_CALL(pthread_condattr_setclock, (&cond_attrs, CLOCK_MONOTONIC));
 #endif
   CHECK_MUTEX_CALL(pthread_cond_init, (&cond_, &cond_attrs));
 #endif
@@ -702,14 +770,14 @@ ConditionVariable::~ConditionVariable() {
     errno = rc;
     MutexLock mu(Thread::Current(), *Locks::runtime_shutdown_lock_);
     Runtime* runtime = Runtime::Current();
-    bool shutting_down = (runtime == NULL) || runtime->IsShuttingDownLocked();
+    bool shutting_down = (runtime == nullptr) || runtime->IsShuttingDownLocked();
     PLOG(shutting_down ? WARNING : FATAL) << "pthread_cond_destroy failed for " << name_;
   }
 #endif
 }
 
 void ConditionVariable::Broadcast(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   // TODO: enable below, there's a race in thread creation that causes false failures currently.
   // guard_.AssertExclusiveHeld(self);
   DCHECK_EQ(guard_.GetExclusiveOwnerTid(), SafeGetTid(self));
@@ -737,14 +805,14 @@ void ConditionVariable::Broadcast(Thread* self) {
 }
 
 void ConditionVariable::Signal(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   guard_.AssertExclusiveHeld(self);
 #if ART_USE_FUTEXES
   if (num_waiters_ > 0) {
     sequence_++;  // Indicate a signal occurred.
     // Futex wake 1 waiter who will then come and in contend on mutex. It'd be nice to requeue them
     // to avoid this, however, requeueing can only move all waiters.
-    int num_woken = futex(sequence_.Address(), FUTEX_WAKE, 1, NULL, NULL, 0);
+    int num_woken = futex(sequence_.Address(), FUTEX_WAKE, 1, nullptr, nullptr, 0);
     // Check something was woken or else we changed sequence_ before they had chance to wait.
     CHECK((num_woken == 0) || (num_woken == 1));
   }
@@ -759,7 +827,7 @@ void ConditionVariable::Wait(Thread* self) {
 }
 
 void ConditionVariable::WaitHoldingLocks(Thread* self) {
-  DCHECK(self == NULL || self == Thread::Current());
+  DCHECK(self == nullptr || self == Thread::Current());
   guard_.AssertExclusiveHeld(self);
   unsigned int old_recursion_count = guard_.recursion_count_;
 #if ART_USE_FUTEXES
@@ -769,7 +837,7 @@ void ConditionVariable::WaitHoldingLocks(Thread* self) {
   guard_.recursion_count_ = 1;
   int32_t cur_sequence = sequence_.LoadRelaxed();
   guard_.ExclusiveUnlock(self);
-  if (futex(sequence_.Address(), FUTEX_WAIT, cur_sequence, NULL, NULL, 0) != 0) {
+  if (futex(sequence_.Address(), FUTEX_WAIT, cur_sequence, nullptr, nullptr, 0) != 0) {
     // Futex failed, check it is an expected error.
     // EAGAIN == EWOULDBLK, so we let the caller try again.
     // EINTR implies a signal was sent to this thread.
@@ -793,8 +861,9 @@ void ConditionVariable::WaitHoldingLocks(Thread* self) {
   guard_.recursion_count_ = old_recursion_count;
 }
 
-void ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
-  DCHECK(self == NULL || self == Thread::Current());
+bool ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
+  DCHECK(self == nullptr || self == Thread::Current());
+  bool timed_out = false;
   guard_.AssertExclusiveHeld(self);
   guard_.CheckSafeToWait(self);
   unsigned int old_recursion_count = guard_.recursion_count_;
@@ -807,9 +876,10 @@ void ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
   guard_.recursion_count_ = 1;
   int32_t cur_sequence = sequence_.LoadRelaxed();
   guard_.ExclusiveUnlock(self);
-  if (futex(sequence_.Address(), FUTEX_WAIT, cur_sequence, &rel_ts, NULL, 0) != 0) {
+  if (futex(sequence_.Address(), FUTEX_WAIT, cur_sequence, &rel_ts, nullptr, 0) != 0) {
     if (errno == ETIMEDOUT) {
       // Timed out we're done.
+      timed_out = true;
     } else if ((errno == EAGAIN) || (errno == EINTR)) {
       // A signal or ConditionVariable::Signal/Broadcast has come in.
     } else {
@@ -834,13 +904,16 @@ void ConditionVariable::TimedWait(Thread* self, int64_t ms, int32_t ns) {
   timespec ts;
   InitTimeSpec(true, clock, ms, ns, &ts);
   int rc = TEMP_FAILURE_RETRY(pthread_cond_timedwait(&cond_, &guard_.mutex_, &ts));
-  if (rc != 0 && rc != ETIMEDOUT) {
+  if (rc == ETIMEDOUT) {
+    timed_out = true;
+  } else if (rc != 0) {
     errno = rc;
     PLOG(FATAL) << "TimedWait failed for " << name_;
   }
   guard_.exclusive_owner_ = old_owner;
 #endif
   guard_.recursion_count_ = old_recursion_count;
+  return timed_out;
 }
 
 void Locks::Init() {
@@ -860,20 +933,19 @@ void Locks::Init() {
     DCHECK(deoptimization_lock_ != nullptr);
     DCHECK(heap_bitmap_lock_ != nullptr);
     DCHECK(intern_table_lock_ != nullptr);
+    DCHECK(jni_libraries_lock_ != nullptr);
     DCHECK(logging_lock_ != nullptr);
     DCHECK(mutator_lock_ != nullptr);
     DCHECK(profiler_lock_ != nullptr);
     DCHECK(thread_list_lock_ != nullptr);
-    DCHECK(thread_list_suspend_thread_lock_ != nullptr);
     DCHECK(thread_suspend_count_lock_ != nullptr);
     DCHECK(trace_lock_ != nullptr);
     DCHECK(unexpected_signal_lock_ != nullptr);
   } else {
     // Create global locks in level order from highest lock level to lowest.
-    LockLevel current_lock_level = kThreadListSuspendThreadLock;
-    DCHECK(thread_list_suspend_thread_lock_ == nullptr);
-    thread_list_suspend_thread_lock_ =
-        new Mutex("thread list suspend thread by .. lock", current_lock_level);
+    LockLevel current_lock_level = kInstrumentEntrypointsLock;
+    DCHECK(instrument_entrypoints_lock_ == nullptr);
+    instrument_entrypoints_lock_ = new Mutex("instrument entrypoint lock", current_lock_level);
 
     #define UPDATE_CURRENT_LOCK_LEVEL(new_level) \
       if (new_level >= current_lock_level) { \
@@ -883,10 +955,6 @@ void Locks::Init() {
         exit(1); \
       } \
       current_lock_level = new_level;
-
-    UPDATE_CURRENT_LOCK_LEVEL(kInstrumentEntrypointsLock);
-    DCHECK(instrument_entrypoints_lock_ == nullptr);
-    instrument_entrypoints_lock_ = new Mutex("instrument entrypoint lock", current_lock_level);
 
     UPDATE_CURRENT_LOCK_LEVEL(kMutatorLock);
     DCHECK(mutator_lock_ == nullptr);
@@ -919,6 +987,10 @@ void Locks::Init() {
     UPDATE_CURRENT_LOCK_LEVEL(kThreadListLock);
     DCHECK(thread_list_lock_ == nullptr);
     thread_list_lock_ = new Mutex("thread list lock", current_lock_level);
+
+    UPDATE_CURRENT_LOCK_LEVEL(kJniLoadLibraryLock);
+    DCHECK(jni_libraries_lock_ == nullptr);
+    jni_libraries_lock_ = new Mutex("JNI shared libraries map lock", current_lock_level);
 
     UPDATE_CURRENT_LOCK_LEVEL(kBreakpointLock);
     DCHECK(breakpoint_lock_ == nullptr);
@@ -992,8 +1064,13 @@ void Locks::Init() {
     logging_lock_ = new Mutex("logging lock", current_lock_level, true);
 
     #undef UPDATE_CURRENT_LOCK_LEVEL
+
+    InitConditions();
   }
 }
 
+void Locks::InitConditions() {
+  thread_exit_cond_ = new ConditionVariable("thread exit condition variable", *thread_list_lock_);
+}
 
 }  // namespace art

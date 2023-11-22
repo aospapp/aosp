@@ -16,16 +16,20 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
  * A container class for the five sample elements we need for testing.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
-public class SampleElements<E> {
+@GwtCompatible
+public class SampleElements<E> implements Iterable<E> {
   // TODO: rename e3, e4 => missing1, missing2
   public final E e0;
   public final E e1;
@@ -39,6 +43,15 @@ public class SampleElements<E> {
     this.e2 = e2;
     this.e3 = e3;
     this.e4 = e4;
+  }
+
+  @Override
+  public Iterator<E> iterator() {
+    return asList().iterator();
+  }
+  
+  public List<E> asList() {
+    return Arrays.asList(e0, e1, e2, e3, e4);
   }
 
   public static class Strings extends SampleElements<String> {
@@ -55,10 +68,24 @@ public class SampleElements<E> {
     public static final String AFTER_LAST_2 = "zz";
   }
 
+  public static class Chars extends SampleElements<Character> {
+    public Chars() {
+      // elements aren't sorted, to better test SortedSet iteration ordering
+      super('b', 'a', 'c', 'd', 'e');
+    }
+  }
+
   public static class Enums extends SampleElements<AnEnum> {
     public Enums() {
       // elements aren't sorted, to better test SortedSet iteration ordering
       super(AnEnum.B, AnEnum.A, AnEnum.C, AnEnum.D, AnEnum.E);
+    }
+  }
+
+  public static class Ints extends SampleElements<Integer> {
+    public Ints() {
+      // elements aren't sorted, to better test SortedSet iteration ordering
+      super(1, 0, 2, 3, 4);
     }
   }
 

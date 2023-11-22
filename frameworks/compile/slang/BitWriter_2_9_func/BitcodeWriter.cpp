@@ -18,6 +18,7 @@
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Bitcode/LLVMBitCodes.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
@@ -58,7 +59,6 @@ enum {
   FUNCTION_INST_RET_VAL_ABBREV,
   FUNCTION_INST_UNREACHABLE_ABBREV
 };
-
 
 static unsigned GetEncodedCastOpcode(unsigned Opcode) {
   switch (Opcode) {
@@ -187,11 +187,12 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
   Stream.EnterSubblock(bitc::TYPE_BLOCK_ID_NEW, 4 /*count from # abbrevs */);
   SmallVector<uint64_t, 64> TypeVals;
 
+  uint64_t NumBits = Log2_32_Ceil(VE.getTypes().size()+1);
+
   // Abbrev for TYPE_CODE_POINTER.
   BitCodeAbbrev *Abbv = new BitCodeAbbrev();
   Abbv->Add(BitCodeAbbrevOp(bitc::TYPE_CODE_POINTER));
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
-                            Log2_32_Ceil(VE.getTypes().size()+1)));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, NumBits));
   Abbv->Add(BitCodeAbbrevOp(0));  // Addrspace = 0
   unsigned PtrAbbrev = Stream.EmitAbbrev(Abbv);
 
@@ -201,8 +202,7 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));  // isvararg
   Abbv->Add(BitCodeAbbrevOp(0));  // FIXME: DEAD value, remove in LLVM 3.0
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
-                            Log2_32_Ceil(VE.getTypes().size()+1)));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, NumBits));
   unsigned FunctionAbbrev = Stream.EmitAbbrev(Abbv);
 
   // Abbrev for TYPE_CODE_STRUCT_ANON.
@@ -210,8 +210,7 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
   Abbv->Add(BitCodeAbbrevOp(bitc::TYPE_CODE_STRUCT_ANON));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));  // ispacked
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
-                            Log2_32_Ceil(VE.getTypes().size()+1)));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, NumBits));
   unsigned StructAnonAbbrev = Stream.EmitAbbrev(Abbv);
 
   // Abbrev for TYPE_CODE_STRUCT_NAME.
@@ -226,16 +225,15 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
   Abbv->Add(BitCodeAbbrevOp(bitc::TYPE_CODE_STRUCT_NAMED));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));  // ispacked
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
-                            Log2_32_Ceil(VE.getTypes().size()+1)));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, NumBits));
   unsigned StructNamedAbbrev = Stream.EmitAbbrev(Abbv);
 
   // Abbrev for TYPE_CODE_ARRAY.
   Abbv = new BitCodeAbbrev();
   Abbv->Add(BitCodeAbbrevOp(bitc::TYPE_CODE_ARRAY));
   Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));   // size
-  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed,
-                            Log2_32_Ceil(VE.getTypes().size()+1)));
+  Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, NumBits));
+
   unsigned ArrayAbbrev = Stream.EmitAbbrev(Abbv);
 
   // Emit an entry count so the reader can reserve space.
@@ -295,7 +293,7 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
       for (StructType::element_iterator I = ST->element_begin(),
            E = ST->element_end(); I != E; ++I)
         TypeVals.push_back(VE.getTypeID(*I));
-      
+
       if (ST->isLiteral()) {
         Code = bitc::TYPE_CODE_STRUCT_ANON;
         AbbrevToUse = StructAnonAbbrev;
@@ -341,30 +339,41 @@ static void WriteTypeTable(const llvm_2_9_func::ValueEnumerator &VE,
   Stream.ExitBlock();
 }
 
-static unsigned getEncodedLinkage(const GlobalValue *GV) {
-  switch (GV->getLinkage()) {
-  case GlobalValue::ExternalLinkage:                 return 0;
-  case GlobalValue::WeakAnyLinkage:                  return 1;
-  case GlobalValue::AppendingLinkage:                return 2;
-  case GlobalValue::InternalLinkage:                 return 3;
-  case GlobalValue::LinkOnceAnyLinkage:              return 4;
-  case GlobalValue::ExternalWeakLinkage:             return 7;
-  case GlobalValue::CommonLinkage:                   return 8;
-  case GlobalValue::PrivateLinkage:                  return 9;
-  case GlobalValue::WeakODRLinkage:                  return 10;
-  case GlobalValue::LinkOnceODRLinkage:              return 11;
-  case GlobalValue::AvailableExternallyLinkage:      return 12;
+static unsigned getEncodedLinkage(const GlobalValue &GV) {
+  switch (GV.getLinkage()) {
+  case GlobalValue::ExternalLinkage:
+    return 0;
+  case GlobalValue::WeakAnyLinkage:
+    return 1;
+  case GlobalValue::AppendingLinkage:
+    return 2;
+  case GlobalValue::InternalLinkage:
+    return 3;
+  case GlobalValue::LinkOnceAnyLinkage:
+    return 4;
+  case GlobalValue::ExternalWeakLinkage:
+    return 7;
+  case GlobalValue::CommonLinkage:
+    return 8;
+  case GlobalValue::PrivateLinkage:
+    return 9;
+  case GlobalValue::WeakODRLinkage:
+    return 10;
+  case GlobalValue::LinkOnceODRLinkage:
+    return 11;
+  case GlobalValue::AvailableExternallyLinkage:
+    return 12;
   }
   llvm_unreachable("Invalid linkage");
 }
 
-static unsigned getEncodedVisibility(const GlobalValue *GV) {
-  switch (GV->getVisibility()) {
-  default: llvm_unreachable("Invalid visibility!");
+static unsigned getEncodedVisibility(const GlobalValue &GV) {
+  switch (GV.getVisibility()) {
   case GlobalValue::DefaultVisibility:   return 0;
   case GlobalValue::HiddenVisibility:    return 1;
   case GlobalValue::ProtectedVisibility: return 2;
   }
+  llvm_unreachable("Invalid visibility");
 }
 
 // Emit top-level description of module, including target triple, inline asm,
@@ -376,9 +385,9 @@ static void WriteModuleInfo(const Module *M,
   if (!M->getTargetTriple().empty())
     WriteStringRecord(bitc::MODULE_CODE_TRIPLE, M->getTargetTriple(),
                       0/*TODO*/, Stream);
-  if (M->getDataLayout() != nullptr)
-    WriteStringRecord(bitc::MODULE_CODE_DATALAYOUT, M->getDataLayout()->getStringRepresentation(),
-                      0/*TODO*/, Stream);
+  const std::string &DL = M->getDataLayoutStr();
+  if (!DL.empty())
+    WriteStringRecord(bitc::MODULE_CODE_DATALAYOUT, DL, 0 /*TODO*/, Stream);
   if (!M->getModuleInlineAsm().empty())
     WriteStringRecord(bitc::MODULE_CODE_ASM, M->getModuleInlineAsm(),
                       0/*TODO*/, Stream);
@@ -389,35 +398,35 @@ static void WriteModuleInfo(const Module *M,
   std::map<std::string, unsigned> GCMap;
   unsigned MaxAlignment = 0;
   unsigned MaxGlobalType = 0;
-  for (Module::const_global_iterator GV = M->global_begin(),E = M->global_end();
-       GV != E; ++GV) {
-    MaxAlignment = std::max(MaxAlignment, GV->getAlignment());
-    MaxGlobalType = std::max(MaxGlobalType, VE.getTypeID(GV->getType()));
-
-    if (!GV->hasSection()) continue;
-    // Give section names unique ID's.
-    unsigned &Entry = SectionMap[GV->getSection()];
-    if (Entry != 0) continue;
-    WriteStringRecord(bitc::MODULE_CODE_SECTIONNAME, GV->getSection(),
-                      0/*TODO*/, Stream);
-    Entry = SectionMap.size();
-  }
-  for (Module::const_iterator F = M->begin(), E = M->end(); F != E; ++F) {
-    MaxAlignment = std::max(MaxAlignment, F->getAlignment());
-    if (F->hasSection()) {
+  for (const GlobalValue &GV : M->globals()) {
+    MaxAlignment = std::max(MaxAlignment, GV.getAlignment());
+    MaxGlobalType = std::max(MaxGlobalType, VE.getTypeID(GV.getType()));
+    if (GV.hasSection()) {
       // Give section names unique ID's.
-      unsigned &Entry = SectionMap[F->getSection()];
+      unsigned &Entry = SectionMap[GV.getSection()];
       if (!Entry) {
-        WriteStringRecord(bitc::MODULE_CODE_SECTIONNAME, F->getSection(),
+        WriteStringRecord(bitc::MODULE_CODE_SECTIONNAME, GV.getSection(),
                           0/*TODO*/, Stream);
         Entry = SectionMap.size();
       }
     }
-    if (F->hasGC()) {
-      // Same for GC names.
-      unsigned &Entry = GCMap[F->getGC()];
+  }
+  for (const Function &F : *M) {
+    MaxAlignment = std::max(MaxAlignment, F.getAlignment());
+    if (F.hasSection()) {
+      // Give section names unique ID's.
+      unsigned &Entry = SectionMap[F.getSection()];
       if (!Entry) {
-        WriteStringRecord(bitc::MODULE_CODE_GCNAME, F->getGC(),
+        WriteStringRecord(bitc::MODULE_CODE_SECTIONNAME, F.getSection(),
+                          0/*TODO*/, Stream);
+        Entry = SectionMap.size();
+      }
+    }
+    if (F.hasGC()) {
+      // Same for GC names.
+      unsigned &Entry = GCMap[F.getGC()];
+      if (!Entry) {
+        WriteStringRecord(bitc::MODULE_CODE_GCNAME, F.getGC(),
                           0/*TODO*/, Stream);
         Entry = GCMap.size();
       }
@@ -453,26 +462,25 @@ static void WriteModuleInfo(const Module *M,
 
   // Emit the global variable information.
   SmallVector<unsigned, 64> Vals;
-  for (Module::const_global_iterator GV = M->global_begin(),E = M->global_end();
-       GV != E; ++GV) {
+  for (const GlobalVariable &GV : M->globals()) {
     unsigned AbbrevToUse = 0;
 
     // GLOBALVAR: [type, isconst, initid,
     //             linkage, alignment, section, visibility, threadlocal,
     //             unnamed_addr]
-    Vals.push_back(VE.getTypeID(GV->getType()));
-    Vals.push_back(GV->isConstant());
-    Vals.push_back(GV->isDeclaration() ? 0 :
-                   (VE.getValueID(GV->getInitializer()) + 1));
+    Vals.push_back(VE.getTypeID(GV.getType()));
+    Vals.push_back(GV.isConstant());
+    Vals.push_back(GV.isDeclaration() ? 0 :
+                   (VE.getValueID(GV.getInitializer()) + 1));
     Vals.push_back(getEncodedLinkage(GV));
-    Vals.push_back(Log2_32(GV->getAlignment())+1);
-    Vals.push_back(GV->hasSection() ? SectionMap[GV->getSection()] : 0);
-    if (GV->isThreadLocal() ||
-        GV->getVisibility() != GlobalValue::DefaultVisibility ||
-        GV->hasUnnamedAddr()) {
+    Vals.push_back(Log2_32(GV.getAlignment())+1);
+    Vals.push_back(GV.hasSection() ? SectionMap[GV.getSection()] : 0);
+    if (GV.isThreadLocal() ||
+        GV.getVisibility() != GlobalValue::DefaultVisibility ||
+        GV.hasUnnamedAddr()) {
       Vals.push_back(getEncodedVisibility(GV));
-      Vals.push_back(GV->isThreadLocal());
-      Vals.push_back(GV->hasUnnamedAddr());
+      Vals.push_back(GV.isThreadLocal());
+      Vals.push_back(GV.hasUnnamedAddr());
     } else {
       AbbrevToUse = SimpleGVarAbbrev;
     }
@@ -482,19 +490,19 @@ static void WriteModuleInfo(const Module *M,
   }
 
   // Emit the function proto information.
-  for (Module::const_iterator F = M->begin(), E = M->end(); F != E; ++F) {
+  for (const Function &F : *M) {
     // FUNCTION:  [type, callingconv, isproto, paramattr,
     //             linkage, alignment, section, visibility, gc, unnamed_addr]
-    Vals.push_back(VE.getTypeID(F->getType()));
-    Vals.push_back(F->getCallingConv());
-    Vals.push_back(F->isDeclaration());
+    Vals.push_back(VE.getTypeID(F.getType()));
+    Vals.push_back(F.getCallingConv());
+    Vals.push_back(F.isDeclaration());
     Vals.push_back(getEncodedLinkage(F));
-    Vals.push_back(VE.getAttributeID(F->getAttributes()));
-    Vals.push_back(Log2_32(F->getAlignment())+1);
-    Vals.push_back(F->hasSection() ? SectionMap[F->getSection()] : 0);
+    Vals.push_back(VE.getAttributeID(F.getAttributes()));
+    Vals.push_back(Log2_32(F.getAlignment())+1);
+    Vals.push_back(F.hasSection() ? SectionMap[F.getSection()] : 0);
     Vals.push_back(getEncodedVisibility(F));
-    Vals.push_back(F->hasGC() ? GCMap[F->getGC()] : 0);
-    Vals.push_back(F->hasUnnamedAddr());
+    Vals.push_back(F.hasGC() ? GCMap[F.getGC()] : 0);
+    Vals.push_back(F.hasUnnamedAddr());
 
     unsigned AbbrevToUse = 0;
     Stream.EmitRecord(bitc::MODULE_CODE_FUNCTION, Vals, AbbrevToUse);
@@ -502,12 +510,11 @@ static void WriteModuleInfo(const Module *M,
   }
 
   // Emit the alias information.
-  for (Module::const_alias_iterator AI = M->alias_begin(), E = M->alias_end();
-       AI != E; ++AI) {
-    Vals.push_back(VE.getTypeID(AI->getType()));
-    Vals.push_back(VE.getValueID(AI->getAliasee()));
-    Vals.push_back(getEncodedLinkage(AI));
-    Vals.push_back(getEncodedVisibility(AI));
+  for (const GlobalAlias &A : M->aliases()) {
+    Vals.push_back(VE.getTypeID(A.getType()));
+    Vals.push_back(VE.getValueID(A.getAliasee()));
+    Vals.push_back(getEncodedLinkage(A));
+    Vals.push_back(getEncodedVisibility(A));
     unsigned AbbrevToUse = 0;
     Stream.EmitRecord(bitc::MODULE_CODE_ALIAS, Vals, AbbrevToUse);
     Vals.clear();
@@ -517,14 +524,12 @@ static void WriteModuleInfo(const Module *M,
 static uint64_t GetOptimizationFlags(const Value *V) {
   uint64_t Flags = 0;
 
-  if (const OverflowingBinaryOperator *OBO =
-        dyn_cast<OverflowingBinaryOperator>(V)) {
+  if (const auto *OBO = dyn_cast<OverflowingBinaryOperator>(V)) {
     if (OBO->hasNoSignedWrap())
       Flags |= 1 << bitc::OBO_NO_SIGNED_WRAP;
     if (OBO->hasNoUnsignedWrap())
       Flags |= 1 << bitc::OBO_NO_UNSIGNED_WRAP;
-  } else if (const PossiblyExactOperator *PEO =
-               dyn_cast<PossiblyExactOperator>(V)) {
+  } else if (const auto *PEO = dyn_cast<PossiblyExactOperator>(V)) {
     if (PEO->isExact())
       Flags |= 1 << bitc::PEO_EXACT;
   }
@@ -532,89 +537,154 @@ static uint64_t GetOptimizationFlags(const Value *V) {
   return Flags;
 }
 
-static void WriteMDNode(const MDNode *N,
-                        const llvm_2_9_func::ValueEnumerator &VE,
-                        BitstreamWriter &Stream,
-                        SmallVector<uint64_t, 64> &Record) {
-  for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
-    if (N->getOperand(i)) {
-      Record.push_back(VE.getTypeID(N->getOperand(i)->getType()));
-      Record.push_back(VE.getValueID(N->getOperand(i)));
-    } else {
-      Record.push_back(VE.getTypeID(Type::getVoidTy(N->getContext())));
-      Record.push_back(0);
-    }
-  }
-  unsigned MDCode = N->isFunctionLocal() ? bitc::METADATA_FN_NODE :
-                                           bitc::METADATA_NODE;
-  Stream.EmitRecord(MDCode, Record, 0);
+static void WriteValueAsMetadata(const ValueAsMetadata *MD,
+                                 const llvm_2_9_func::ValueEnumerator &VE,
+                                 BitstreamWriter &Stream,
+                                 SmallVectorImpl<uint64_t> &Record) {
+  // Mimic an MDNode with a value as one operand.
+  Value *V = MD->getValue();
+  Record.push_back(VE.getTypeID(V->getType()));
+  Record.push_back(VE.getValueID(V));
+  Stream.EmitRecord(bitc::METADATA_OLD_NODE, Record, 0);
   Record.clear();
 }
+
+static void WriteMDTuple(const MDTuple *N, const llvm_2_9_func::ValueEnumerator &VE,
+                         BitstreamWriter &Stream,
+                         SmallVectorImpl<uint64_t> &Record, unsigned Abbrev) {
+  for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
+    Metadata *MD = N->getOperand(i);
+    assert(!(MD && isa<LocalAsMetadata>(MD)) &&
+           "Unexpected function-local metadata");
+    if (!MD) {
+      // TODO(srhines): I don't believe this case can exist for RS.
+      Record.push_back(VE.getTypeID(llvm::Type::getVoidTy(N->getContext())));
+      Record.push_back(0);
+    } else if (const auto *MDC = dyn_cast<ConstantAsMetadata>(MD)) {
+      Record.push_back(VE.getTypeID(MDC->getType()));
+      Record.push_back(VE.getValueID(MDC->getValue()));
+    } else {
+      Record.push_back(VE.getTypeID(
+          llvm::Type::getMetadataTy(N->getContext())));
+      Record.push_back(VE.getMetadataID(MD));
+    }
+  }
+  Stream.EmitRecord(bitc::METADATA_OLD_NODE, Record, Abbrev);
+  Record.clear();
+}
+
+/*static void WriteMDLocation(const MDLocation *N, const llvm_2_9_func::ValueEnumerator &VE,
+                            BitstreamWriter &Stream,
+                            SmallVectorImpl<uint64_t> &Record,
+                            unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getLine());
+  Record.push_back(N->getColumn());
+  Record.push_back(VE.getMetadataID(N->getScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getInlinedAt()));
+
+  Stream.EmitRecord(bitc::METADATA_LOCATION, Record, Abbrev);
+  Record.clear();
+}
+
+static void WriteGenericDebugNode(const GenericDebugNode *,
+                                  const llvm_2_9_func::ValueEnumerator &, BitstreamWriter &,
+                                  SmallVectorImpl<uint64_t> &, unsigned) {
+  llvm_unreachable("unimplemented");
+}*/
 
 static void WriteModuleMetadata(const Module *M,
                                 const llvm_2_9_func::ValueEnumerator &VE,
                                 BitstreamWriter &Stream) {
-  const llvm_2_9_func::ValueEnumerator::ValueList &Vals = VE.getMDValues();
-  bool StartedMetadataBlock = false;
+  const auto &MDs = VE.getMDs();
+  if (MDs.empty() && M->named_metadata_empty())
+    return;
+
+  // RenderScript files *ALWAYS* have metadata!
+  Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
+
   unsigned MDSAbbrev = 0;
+  if (VE.hasMDString()) {
+    // Abbrev for METADATA_STRING.
+    BitCodeAbbrev *Abbv = new BitCodeAbbrev();
+    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_STRING));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8));
+    MDSAbbrev = Stream.EmitAbbrev(Abbv);
+  }
+
+  unsigned MDLocationAbbrev = 0;
+  if (VE.hasMDLocation()) {
+    // TODO(srhines): Should be unreachable for RenderScript.
+    // Abbrev for METADATA_LOCATION.
+    //
+    // Assume the column is usually under 128, and always output the inlined-at
+    // location (it's never more expensive than building an array size 1).
+    BitCodeAbbrev *Abbv = new BitCodeAbbrev();
+    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_LOCATION));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    MDLocationAbbrev = Stream.EmitAbbrev(Abbv);
+  }
+
+  unsigned NameAbbrev = 0;
+  if (!M->named_metadata_empty()) {
+    // Abbrev for METADATA_NAME.
+    BitCodeAbbrev *Abbv = new BitCodeAbbrev();
+    Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_NAME));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8));
+    NameAbbrev = Stream.EmitAbbrev(Abbv);
+  }
+
+  unsigned MDTupleAbbrev = 0;
+  //unsigned GenericDebugNodeAbbrev = 0;
   SmallVector<uint64_t, 64> Record;
-  for (unsigned i = 0, e = Vals.size(); i != e; ++i) {
-
-    if (const MDNode *N = dyn_cast<MDNode>(Vals[i].first)) {
-      if (!N->isFunctionLocal() || !N->getFunction()) {
-        if (!StartedMetadataBlock) {
-          Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
-          StartedMetadataBlock = true;
-        }
-        WriteMDNode(N, VE, Stream, Record);
+  for (const Metadata *MD : MDs) {
+    if (const MDNode *N = dyn_cast<MDNode>(MD)) {
+      switch (N->getMetadataID()) {
+      default:
+        llvm_unreachable("Invalid MDNode subclass");
+#define HANDLE_SPECIALIZED_MDNODE_LEAF(CLASS)
+#define HANDLE_MDNODE_LEAF(CLASS)                                              \
+  case Metadata::CLASS##Kind:                                                  \
+    Write##CLASS(cast<CLASS>(N), VE, Stream, Record, CLASS##Abbrev);           \
+    continue;
+#include "llvm/IR/Metadata.def"
       }
-    } else if (const MDString *MDS = dyn_cast<MDString>(Vals[i].first)) {
-      if (!StartedMetadataBlock)  {
-        Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
-
-        // Abbrev for METADATA_STRING.
-        BitCodeAbbrev *Abbv = new BitCodeAbbrev();
-        Abbv->Add(BitCodeAbbrevOp(bitc::METADATA_STRING));
-        Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
-        Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 8));
-        MDSAbbrev = Stream.EmitAbbrev(Abbv);
-        StartedMetadataBlock = true;
-      }
-
-      // Code: [strchar x N]
-      Record.append(MDS->begin(), MDS->end());
-
-      // Emit the finished record.
-      Stream.EmitRecord(bitc::METADATA_STRING, Record, MDSAbbrev);
-      Record.clear();
     }
+    if (const auto *MDC = dyn_cast<ConstantAsMetadata>(MD)) {
+      WriteValueAsMetadata(MDC, VE, Stream, Record);
+      continue;
+    }
+    const MDString *MDS = cast<MDString>(MD);
+    // Code: [strchar x N]
+    Record.append(MDS->bytes_begin(), MDS->bytes_end());
+
+    // Emit the finished record.
+    Stream.EmitRecord(bitc::METADATA_STRING, Record, MDSAbbrev);
+    Record.clear();
   }
 
   // Write named metadata.
-  for (Module::const_named_metadata_iterator I = M->named_metadata_begin(),
-       E = M->named_metadata_end(); I != E; ++I) {
-    const NamedMDNode *NMD = I;
-    if (!StartedMetadataBlock)  {
-      Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
-      StartedMetadataBlock = true;
-    }
-
+  for (const NamedMDNode &NMD : M->named_metadata()) {
     // Write name.
-    StringRef Str = NMD->getName();
-    for (unsigned i = 0, e = Str.size(); i != e; ++i)
-      Record.push_back(Str[i]);
-    Stream.EmitRecord(bitc::METADATA_NAME, Record, 0/*TODO*/);
+    StringRef Str = NMD.getName();
+    Record.append(Str.bytes_begin(), Str.bytes_end());
+    Stream.EmitRecord(bitc::METADATA_NAME, Record, NameAbbrev);
     Record.clear();
 
     // Write named metadata operands.
-    for (unsigned i = 0, e = NMD->getNumOperands(); i != e; ++i)
-      Record.push_back(VE.getValueID(NMD->getOperand(i)));
+    for (const MDNode *N : NMD.operands())
+      Record.push_back(VE.getMetadataID(N));
     Stream.EmitRecord(bitc::METADATA_NAMED_NODE, Record, 0);
     Record.clear();
   }
 
-  if (StartedMetadataBlock)
-    Stream.ExitBlock();
+  Stream.ExitBlock();
 }
 
 static void WriteFunctionLocalMetadata(const Function &F,
@@ -622,16 +692,16 @@ static void WriteFunctionLocalMetadata(const Function &F,
                                        BitstreamWriter &Stream) {
   bool StartedMetadataBlock = false;
   SmallVector<uint64_t, 64> Record;
-  const SmallVector<const MDNode *, 8> &Vals = VE.getFunctionLocalMDValues();
-  for (unsigned i = 0, e = Vals.size(); i != e; ++i)
-    if (const MDNode *N = Vals[i])
-      if (N->isFunctionLocal() && N->getFunction() == &F) {
-        if (!StartedMetadataBlock) {
-          Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
-          StartedMetadataBlock = true;
-        }
-        WriteMDNode(N, VE, Stream, Record);
-      }
+  const SmallVectorImpl<const LocalAsMetadata *> &MDs =
+      VE.getFunctionLocalMDs();
+  for (unsigned i = 0, e = MDs.size(); i != e; ++i) {
+    assert(MDs[i] && "Expected valid function-local metadata");
+    if (!StartedMetadataBlock) {
+      Stream.EnterSubblock(bitc::METADATA_BLOCK_ID, 3);
+      StartedMetadataBlock = true;
+    }
+    WriteValueAsMetadata(MDs[i], VE, Stream, Record);
+  }
 
   if (StartedMetadataBlock)
     Stream.ExitBlock();
@@ -646,7 +716,7 @@ static void WriteMetadataAttachment(const Function &F,
 
   // Write metadata attachments
   // METADATA_ATTACHMENT - [m x [value, [n x [id, mdnode]]]
-  SmallVector<std::pair<unsigned, MDNode*>, 4> MDs;
+  SmallVector<std::pair<unsigned, MDNode *>, 4> MDs;
 
   for (Function::const_iterator BB = F.begin(), E = F.end(); BB != E; ++BB)
     for (BasicBlock::const_iterator I = BB->begin(), E = BB->end();
@@ -661,7 +731,7 @@ static void WriteMetadataAttachment(const Function &F,
 
       for (unsigned i = 0, e = MDs.size(); i != e; ++i) {
         Record.push_back(MDs[i].first);
-        Record.push_back(VE.getValueID(MDs[i].second));
+        Record.push_back(VE.getMetadataID(MDs[i].second));
       }
       Stream.EmitRecord(bitc::METADATA_ATTACHMENT, Record, 0);
       Record.clear();
@@ -737,7 +807,7 @@ static void WriteConstants(unsigned FirstVal, unsigned LastVal,
   SmallVector<uint64_t, 64> Record;
 
   const llvm_2_9_func::ValueEnumerator::ValueList &Vals = VE.getValues();
-  Type *LastTy = 0;
+  Type *LastTy = nullptr;
   for (unsigned i = FirstVal; i != LastVal; ++i) {
     const Value *V = Vals[i].first;
     // If we need to switch types, do so now.
@@ -1019,9 +1089,9 @@ static void WriteInstruction(const Instruction &I, unsigned InstID,
     break;
 
   case Instruction::GetElementPtr:
-    Code = bitc::FUNC_CODE_INST_GEP;
+    Code = bitc::FUNC_CODE_INST_GEP_OLD;
     if (cast<GEPOperator>(&I)->isInBounds())
-      Code = bitc::FUNC_CODE_INST_INBOUNDS_GEP;
+      Code = bitc::FUNC_CODE_INST_INBOUNDS_GEP_OLD;
     for (unsigned i = 0, e = I.getNumOperands(); i != e; ++i)
       PushValueAndType(I.getOperand(i), InstID, Vals, VE);
     break;
@@ -1104,14 +1174,13 @@ static void WriteInstruction(const Instruction &I, unsigned InstID,
     {
       Code = bitc::FUNC_CODE_INST_SWITCH;
       const SwitchInst &SI = cast<SwitchInst>(I);
-
       Vals.push_back(VE.getTypeID(SI.getCondition()->getType()));
       Vals.push_back(VE.getValueID(SI.getCondition()));
       Vals.push_back(VE.getValueID(SI.getDefaultDest()));
       for (SwitchInst::ConstCaseIt i = SI.case_begin(), e = SI.case_end();
            i != e; ++i) {
-          Vals.push_back(VE.getValueID(i.getCaseValue()));
-          Vals.push_back(VE.getValueID(i.getCaseSuccessor()));
+        Vals.push_back(VE.getValueID(i.getCaseValue()));
+        Vals.push_back(VE.getValueID(i.getCaseSuccessor()));
       }
     }
     break;
@@ -1369,7 +1438,7 @@ static void WriteFunction(const Function &F, llvm_2_9_func::ValueEnumerator &VE,
 
   bool NeedsMetadataAttachment = false;
 
-  DebugLoc LastDL;
+  MDLocation *LastDL = nullptr;
 
   // Finally, emit all the instructions, in order.
   for (Function::const_iterator BB = F.begin(), E = F.end(); BB != E; ++BB)
@@ -1384,25 +1453,26 @@ static void WriteFunction(const Function &F, llvm_2_9_func::ValueEnumerator &VE,
       NeedsMetadataAttachment |= I->hasMetadataOtherThanDebugLoc();
 
       // If the instruction has a debug location, emit it.
-      DebugLoc DL = I->getDebugLoc();
-      if (DL.isUnknown()) {
-        // nothing todo.
-      } else if (DL == LastDL) {
+      MDLocation *DL = I->getDebugLoc();
+      if (!DL)
+        continue;
+
+      if (DL == LastDL) {
         // Just repeat the same debug loc as last time.
         Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC_AGAIN, Vals);
-      } else {
-        MDNode *Scope, *IA;
-        DL.getScopeAndInlinedAt(Scope, IA, I->getContext());
-
-        Vals.push_back(DL.getLine());
-        Vals.push_back(DL.getCol());
-        Vals.push_back(Scope ? VE.getValueID(Scope)+1 : 0);
-        Vals.push_back(IA ? VE.getValueID(IA)+1 : 0);
-        Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC, Vals);
-        Vals.clear();
-
-        LastDL = DL;
+        continue;
       }
+
+      Vals.push_back(DL->getLine());
+      Vals.push_back(DL->getColumn());
+      Vals.push_back(VE.getMetadataOrNullID(DL->getScope()));
+      Vals.push_back(VE.getMetadataOrNullID(DL->getInlinedAt()));
+      Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC, Vals);
+      Vals.clear();
+
+      // Fixme(pirama): The following line is missing from upstream
+      // https://llvm.org/bugs/show_bug.cgi?id=23436
+      LastDL = DL;
     }
 
   // Emit names for all the instructions etc.
@@ -1576,7 +1646,6 @@ static void WriteBlockInfo(const llvm_2_9_func::ValueEnumerator &VE,
   Stream.ExitBlock();
 }
 
-
 /// WriteModule - Emit the specified module to the bitstream.
 static void WriteModule(const Module *M, BitstreamWriter &Stream) {
   Stream.EnterSubblock(bitc::MODULE_BLOCK_ID, 3);
@@ -1589,7 +1658,7 @@ static void WriteModule(const Module *M, BitstreamWriter &Stream) {
   }
 
   // Analyze the module, enumerating globals, functions, etc.
-  llvm_2_9_func::ValueEnumerator VE(M);
+  llvm_2_9_func::ValueEnumerator VE(*M);
 
   // Emit blockinfo, which defines the standard abbreviations etc.
   WriteBlockInfo(VE, Stream);

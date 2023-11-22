@@ -30,10 +30,10 @@
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"Ștergeţi difuzarea?"</string>
     <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"Ștergeţi toate mesajele difuzate primite?"</string>
     <string name="button_delete" msgid="4672451757925194350">"Ștergeţi"</string>
-    <string name="button_cancel" msgid="7479958360523246140">"Anulaţi"</string>
+    <string name="button_cancel" msgid="7479958360523246140">"Anulați"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"Avertizare de cutremur"</string>
     <string name="etws_tsunami_warning" msgid="6173964105145900312">"Avertizare de tsunami"</string>
-    <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"Avertizare de cutremur şi tsunami"</string>
+    <string name="etws_earthquake_and_tsunami_warning" msgid="662449983177407681">"Avertizare de cutremur și tsunami"</string>
     <string name="etws_test_message" msgid="8447820262584381894">"Mesaj de testare ETWS"</string>
     <string name="etws_other_emergency_type" msgid="5233080551309721499">"Avertizare de urgenţă"</string>
     <string name="cmas_presidential_level_alert" msgid="1209234030582361001">"Alertă prezidenţială"</string>
@@ -54,11 +54,11 @@
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utilizaţi funcţia de transformare a textului în vorbire pt. a comunica mesajele alertelor de urgenţă"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Setări ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Afişaţi alerte de test ETWS"</string>
-    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Afişaţi difuzările de testare pentru sistemul de avertizare în caz de cutremur şi tsunami"</string>
+    <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Afişaţi difuzările de testare pentru sistemul de avertizare în caz de cutremur și tsunami"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Afişaţi ameninţările extreme"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Afişaţi alertele pentru ameninţările extreme în ceea ce priveşte viaţa şi bunurile"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Afişaţi alertele pentru ameninţările extreme în ceea ce priveşte viaţa și bunurile"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Afişaţi ameninţările grave"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Afişaţi alertele pentru ameninţările grave în ceea ce priveşte viaţa şi bunurile"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Afişaţi alertele pentru ameninţările grave în ceea ce priveşte viaţa și bunurile"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"Afişaţi alertele AMBER"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Afişaţi buletinele privind urgenţele în cazuri de răpire de copii (alertă AMBER)"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"Afişaţi alerte de test CMAS"</string>

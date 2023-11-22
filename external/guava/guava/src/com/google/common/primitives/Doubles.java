@@ -23,7 +23,10 @@ import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Converter;
 
 import java.io.Serializable;
 import java.util.AbstractList;
@@ -33,15 +36,22 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.RandomAccess;
+import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
 
 /**
  * Static utility methods pertaining to {@code double} primitives, that are not
  * already found in either {@link Double} or {@link Arrays}.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/PrimitivesExplained">
+ * primitive utilities</a>.
+ *
  * @author Kevin Bourrillion
  * @since 1.0
  */
-@GwtCompatible
+@GwtCompatible(emulated = true)
 public final class Doubles {
   private Doubles() {}
 
@@ -64,7 +74,7 @@ public final class Doubles {
     return ((Double) value).hashCode();
     // TODO(kevinb): do it this way when we can (GWT problem):
     // long bits = Double.doubleToLongBits(value);
-    // return (int)(bits ^ (bits >>> 32));
+    // return (int) (bits ^ (bits >>> 32));
   }
 
   /**
@@ -72,6 +82,10 @@ public final class Doubles {
    * returned is the same as that of <code>((Double) a).{@linkplain
    * Double#compareTo compareTo}(b)</code>. As with that method, {@code NaN} is
    * treated as greater than all other values, and {@code 0.0 > -0.0}.
+   *
+   * <p><b>Note:</b> this method simply delegates to the JDK method {@link
+   * Double#compare}. It is provided for consistency with the other primitive
+   * types, whose compare methods were not added to the JDK until JDK 7.
    *
    * @param a the first {@code double} to compare
    * @param b the second {@code double} to compare
@@ -254,6 +268,42 @@ public final class Doubles {
     return result;
   }
 
+  private static final class DoubleConverter
+      extends Converter<String, Double> implements Serializable {
+    static final DoubleConverter INSTANCE = new DoubleConverter();
+
+    @Override
+    protected Double doForward(String value) {
+      return Double.valueOf(value);
+    }
+
+    @Override
+    protected String doBackward(Double value) {
+      return value.toString();
+    }
+
+    @Override
+    public String toString() {
+      return "Doubles.stringConverter()";
+    }
+
+    private Object readResolve() {
+      return INSTANCE;
+    }
+    private static final long serialVersionUID = 1;
+  }
+
+  /**
+   * Returns a serializable converter object that converts between strings and
+   * doubles using {@link Double#valueOf} and {@link Double#toString()}.
+   *
+   * @since 16.0
+   */
+  @Beta
+  public static Converter<String, Double> stringConverter() {
+    return DoubleConverter.INSTANCE;
+  }
+
   /**
    * Returns an array containing the same values as {@code array}, but
    * guaranteed to be of a specified minimum length. If {@code array} already
@@ -293,8 +343,8 @@ public final class Doubles {
    * the string {@code "1.0-2.0-3.0"}.
    *
    * <p>Note that {@link Double#toString(double)} formats {@code double}
-   * differently in GWT sometimes.  In the previous example, it returns the string
-   * {@code "1-2-3"}.
+   * differently in GWT sometimes.  In the previous example, it returns the
+   * string {@code "1-2-3"}.
    *
    * @param separator the text that should appear between consecutive values in
    *     the resulting string (but not at the start or end)
@@ -352,20 +402,21 @@ public final class Doubles {
   }
 
   /**
-   * Copies a collection of {@code Double} instances into a new array of
-   * primitive {@code double} values.
+   * Returns an array containing each value of {@code collection}, converted to
+   * a {@code double} value in the manner of {@link Number#doubleValue}.
    *
    * <p>Elements are copied from the argument collection as if by {@code
    * collection.toArray()}.  Calling this method is as thread-safe as calling
    * that method.
    *
-   * @param collection a collection of {@code Double} objects
+   * @param collection a collection of {@code Number} instances
    * @return an array containing the same values as {@code collection}, in the
    *     same order, converted to primitives
    * @throws NullPointerException if {@code collection} or any of its elements
    *     is null
+   * @since 1.0 (parameter was {@code Collection<Double>} before 12.0)
    */
-  public static double[] toArray(Collection<Double> collection) {
+  public static double[] toArray(Collection<? extends Number> collection) {
     if (collection instanceof DoubleArrayAsList) {
       return ((DoubleArrayAsList) collection).toDoubleArray();
     }
@@ -375,7 +426,7 @@ public final class Doubles {
     double[] array = new double[len];
     for (int i = 0; i < len; i++) {
       // checkNotNull for GWT (do not optimize)
-      array[i] = (Double) checkNotNull(boxedArray[i]);
+      array[i] = ((Number) checkNotNull(boxedArray[i])).doubleValue();
     }
     return array;
   }
@@ -465,7 +516,8 @@ public final class Doubles {
     @Override public Double set(int index, Double element) {
       checkElementIndex(index, size());
       double oldValue = array[start + index];
-      array[start + index] = checkNotNull(element);  // checkNotNull for GWT (do not optimize)
+      // checkNotNull for GWT (do not optimize)
+      array[start + index] = checkNotNull(element);
       return oldValue;
     }
 
@@ -516,7 +568,7 @@ public final class Doubles {
     }
 
     double[] toDoubleArray() {
-      // Arrays.copyOfRange() requires Java 6
+      // Arrays.copyOfRange() is not available under GWT
       int size = size();
       double[] result = new double[size];
       System.arraycopy(array, start, result, 0, size);
@@ -524,5 +576,60 @@ public final class Doubles {
     }
 
     private static final long serialVersionUID = 0;
+  }
+
+  /**
+   * This is adapted from the regex suggested by {@link Double#valueOf(String)}
+   * for prevalidating inputs.  All valid inputs must pass this regex, but it's
+   * semantically fine if not all inputs that pass this regex are valid --
+   * only a performance hit is incurred, not a semantics bug.
+   */
+  @GwtIncompatible("regular expressions")
+  static final Pattern FLOATING_POINT_PATTERN = fpPattern();
+
+  @GwtIncompatible("regular expressions")
+  private static Pattern fpPattern() {
+    String decimal = "(?:\\d++(?:\\.\\d*+)?|\\.\\d++)";
+    String completeDec = decimal + "(?:[eE][+-]?\\d++)?[fFdD]?";
+    String hex = "(?:\\p{XDigit}++(?:\\.\\p{XDigit}*+)?|\\.\\p{XDigit}++)";
+    String completeHex = "0[xX]" + hex + "[pP][+-]?\\d++[fFdD]?";
+    String fpPattern = "[+-]?(?:NaN|Infinity|" + completeDec + "|" + completeHex + ")";
+    return Pattern.compile(fpPattern);
+  }
+
+  /**
+   * Parses the specified string as a double-precision floating point value.
+   * The ASCII character {@code '-'} (<code>'&#92;u002D'</code>) is recognized
+   * as the minus sign.
+   *
+   * <p>Unlike {@link Double#parseDouble(String)}, this method returns
+   * {@code null} instead of throwing an exception if parsing fails.
+   * Valid inputs are exactly those accepted by {@link Double#valueOf(String)},
+   * except that leading and trailing whitespace is not permitted.
+   *
+   * <p>This implementation is likely to be faster than {@code
+   * Double.parseDouble} if many failures are expected.
+   *
+   * @param string the string representation of a {@code double} value
+   * @return the floating point value represented by {@code string}, or
+   *     {@code null} if {@code string} has a length of zero or cannot be
+   *     parsed as a {@code double} value
+   * @since 14.0
+   */
+  @GwtIncompatible("regular expressions")
+  @Nullable
+  @Beta
+  public static Double tryParse(String string) {
+    if (FLOATING_POINT_PATTERN.matcher(string).matches()) {
+      // TODO(user): could be potentially optimized, but only with
+      // extensive testing
+      try {
+        return Double.parseDouble(string);
+      } catch (NumberFormatException e) {
+        // Double.parseDouble has changed specs several times, so fall through
+        // gracefully
+      }
+    }
+    return null;
   }
 }

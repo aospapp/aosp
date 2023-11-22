@@ -49,7 +49,7 @@
 #define sockaddr_storage sockaddr_in6
 #else
 #define sockaddr_storage sockaddr
-#endif // HAVE_IPV6	
+#endif // HAVE_IPV6
 #endif // !defined(_SS_MAXSIZE) && !defined(__ANDROID__)
 
 #ifndef NOT_HAVE_SA_LEN

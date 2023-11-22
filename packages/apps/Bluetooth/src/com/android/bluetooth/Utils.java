@@ -18,12 +18,15 @@ package com.android.bluetooth;
 
 import android.app.ActivityManager;
 import android.app.ActivityThread;
+import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.os.Binder;
+import android.os.Build;
 import android.os.ParcelUuid;
 import android.os.Process;
 import android.os.UserHandle;
@@ -35,6 +38,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -264,6 +268,69 @@ final public class Utils {
     public static void enforceAdminPermission(ContextWrapper context) {
         context.enforceCallingOrSelfPermission(android.Manifest.permission.BLUETOOTH_ADMIN,
                 "Need BLUETOOTH_ADMIN permission");
+    }
+
+    /**
+     * Checks that calling process has android.Manifest.permission.ACCESS_COARSE_LOCATION or
+     * android.Manifest.permission.ACCESS_FINE_LOCATION and a corresponding app op is allowed
+     */
+    public static boolean checkCallerHasLocationPermission(Context context, AppOpsManager appOps,
+            String callingPackage) {
+        if (context.checkCallingOrSelfPermission(android.Manifest.permission.
+                ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+            return true;
+        }
+
+        if (context.checkCallingOrSelfPermission(android.Manifest.permission.
+                ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                && isAppOppAllowed(appOps, AppOpsManager.OP_COARSE_LOCATION, callingPackage)) {
+            return true;
+        }
+        // Enforce location permission for apps targeting M and later versions
+        boolean enforceLocationPermission = true;
+        try {
+            enforceLocationPermission = context.getPackageManager().getApplicationInfo(
+                    callingPackage, 0).targetSdkVersion >= Build.VERSION_CODES.M;
+        } catch (PackageManager.NameNotFoundException e) {
+            // In case of exception, enforce permission anyway
+        }
+        if (enforceLocationPermission) {
+            throw new SecurityException("Need ACCESS_COARSE_LOCATION or "
+                    + "ACCESS_FINE_LOCATION permission to get scan results");
+        } else {
+            // Pre-M apps running in the foreground should continue getting scan results
+            if (isForegroundApp(context, callingPackage)) {
+                return true;
+            }
+            Log.e(TAG, "Permission denial: Need ACCESS_COARSE_LOCATION or ACCESS_FINE_LOCATION "
+                    + "permission to get scan results");
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the caller holds PEERS_MAC_ADDRESS.
+     */
+    public static boolean checkCallerHasPeersMacAddressPermission(Context context) {
+        return context.checkCallingOrSelfPermission(
+                android.Manifest.permission.PEERS_MAC_ADDRESS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /**
+     * Return true if the specified package name is a foreground app.
+     *
+     * @param pkgName application package name.
+     */
+    private static boolean isForegroundApp(Context context, String pkgName) {
+        ActivityManager am = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
+        return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
+    }
+
+    private static boolean isAppOppAllowed(AppOpsManager appOps, int op, String callingPackage) {
+        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage)
+                == AppOpsManager.MODE_ALLOWED;
     }
 
     /**

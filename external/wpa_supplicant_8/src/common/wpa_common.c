@@ -1,6 +1,6 @@
 /*
  * WPA/RSN - Shared functions for supplicant and authenticator
- * Copyright (c) 2002-2013, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2015, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -12,17 +12,43 @@
 #include "crypto/md5.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
+#include "crypto/sha384.h"
 #include "crypto/aes_wrap.h"
 #include "crypto/crypto.h"
-#include "drivers/driver.h"
 #include "ieee802_11_defs.h"
 #include "defs.h"
 #include "wpa_common.h"
 
 
+static unsigned int wpa_kck_len(int akmp)
+{
+	if (akmp == WPA_KEY_MGMT_IEEE8021X_SUITE_B_192)
+		return 24;
+	return 16;
+}
+
+
+static unsigned int wpa_kek_len(int akmp)
+{
+	if (akmp == WPA_KEY_MGMT_IEEE8021X_SUITE_B_192)
+		return 32;
+	return 16;
+}
+
+
+unsigned int wpa_mic_len(int akmp)
+{
+	if (akmp == WPA_KEY_MGMT_IEEE8021X_SUITE_B_192)
+		return 24;
+	return 16;
+}
+
+
 /**
  * wpa_eapol_key_mic - Calculate EAPOL-Key MIC
  * @key: EAPOL-Key Key Confirmation Key (KCK)
+ * @key_len: KCK length in octets
+ * @akmp: WPA_KEY_MGMT_* used in key derivation
  * @ver: Key descriptor version (WPA_KEY_INFO_TYPE_*)
  * @buf: Pointer to the beginning of the EAPOL header (version field)
  * @len: Length of the EAPOL frame (from EAPOL header to the end of the frame)
@@ -38,18 +64,18 @@
  * happened during final editing of the standard and the correct behavior is
  * defined in the last draft (IEEE 802.11i/D10).
  */
-int wpa_eapol_key_mic(const u8 *key, int ver, const u8 *buf, size_t len,
-		      u8 *mic)
+int wpa_eapol_key_mic(const u8 *key, size_t key_len, int akmp, int ver,
+		      const u8 *buf, size_t len, u8 *mic)
 {
-	u8 hash[SHA1_MAC_LEN];
+	u8 hash[SHA384_MAC_LEN];
 
 	switch (ver) {
 #ifndef CONFIG_FIPS
 	case WPA_KEY_INFO_TYPE_HMAC_MD5_RC4:
-		return hmac_md5(key, 16, buf, len, mic);
+		return hmac_md5(key, key_len, buf, len, mic);
 #endif /* CONFIG_FIPS */
 	case WPA_KEY_INFO_TYPE_HMAC_SHA1_AES:
-		if (hmac_sha1(key, 16, buf, len, hash))
+		if (hmac_sha1(key, key_len, buf, len, hash))
 			return -1;
 		os_memcpy(mic, hash, MD5_MAC_LEN);
 		break;
@@ -57,11 +83,30 @@ int wpa_eapol_key_mic(const u8 *key, int ver, const u8 *buf, size_t len,
 	case WPA_KEY_INFO_TYPE_AES_128_CMAC:
 		return omac1_aes_128(key, buf, len, mic);
 #endif /* CONFIG_IEEE80211R || CONFIG_IEEE80211W */
-#ifdef CONFIG_HS20
 	case WPA_KEY_INFO_TYPE_AKM_DEFINED:
-		/* FIX: This should be based on negotiated AKM */
-		return omac1_aes_128(key, buf, len, mic);
+		switch (akmp) {
+#ifdef CONFIG_HS20
+		case WPA_KEY_MGMT_OSEN:
+			return omac1_aes_128(key, buf, len, mic);
 #endif /* CONFIG_HS20 */
+#ifdef CONFIG_SUITEB
+		case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
+			if (hmac_sha256(key, key_len, buf, len, hash))
+				return -1;
+			os_memcpy(mic, hash, MD5_MAC_LEN);
+			break;
+#endif /* CONFIG_SUITEB */
+#ifdef CONFIG_SUITEB192
+		case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:
+			if (hmac_sha384(key, key_len, buf, len, hash))
+				return -1;
+			os_memcpy(mic, hash, 24);
+			break;
+#endif /* CONFIG_SUITEB192 */
+		default:
+			return -1;
+		}
+		break;
 	default:
 		return -1;
 	}
@@ -80,8 +125,9 @@ int wpa_eapol_key_mic(const u8 *key, int ver, const u8 *buf, size_t len,
  * @nonce1: ANonce or SNonce
  * @nonce2: SNonce or ANonce
  * @ptk: Buffer for pairwise transient key
- * @ptk_len: Length of PTK
- * @use_sha256: Whether to use SHA256-based KDF
+ * @akmp: Negotiated AKM
+ * @cipher: Negotiated pairwise cipher
+ * Returns: 0 on success, -1 on failure
  *
  * IEEE Std 802.11i-2004 - 8.5.1.2 Pairwise key hierarchy
  * PTK = PRF-X(PMK, "Pairwise key expansion",
@@ -92,12 +138,14 @@ int wpa_eapol_key_mic(const u8 *key, int ver, const u8 *buf, size_t len,
  *             Min(MAC_I, MAC_P) || Max(MAC_I, MAC_P) ||
  *             Min(INonce, PNonce) || Max(INonce, PNonce))
  */
-void wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
-		    const u8 *addr1, const u8 *addr2,
-		    const u8 *nonce1, const u8 *nonce2,
-		    u8 *ptk, size_t ptk_len, int use_sha256)
+int wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
+		   const u8 *addr1, const u8 *addr2,
+		   const u8 *nonce1, const u8 *nonce2,
+		   struct wpa_ptk *ptk, int akmp, int cipher)
 {
 	u8 data[2 * ETH_ALEN + 2 * WPA_NONCE_LEN];
+	u8 tmp[WPA_KCK_MAX_LEN + WPA_KEK_MAX_LEN + WPA_TK_MAX_LEN];
+	size_t ptk_len;
 
 	if (os_memcmp(addr1, addr2, ETH_ALEN) < 0) {
 		os_memcpy(data, addr1, ETH_ALEN);
@@ -117,76 +165,111 @@ void wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 			  WPA_NONCE_LEN);
 	}
 
+	ptk->kck_len = wpa_kck_len(akmp);
+	ptk->kek_len = wpa_kek_len(akmp);
+	ptk->tk_len = wpa_cipher_key_len(cipher);
+	ptk_len = ptk->kck_len + ptk->kek_len + ptk->tk_len;
+
 #ifdef CONFIG_IEEE80211W
-	if (use_sha256)
+	if (wpa_key_mgmt_sha256(akmp))
 		sha256_prf(pmk, pmk_len, label, data, sizeof(data),
-			   ptk, ptk_len);
+			   tmp, ptk_len);
 	else
 #endif /* CONFIG_IEEE80211W */
-		sha1_prf(pmk, pmk_len, label, data, sizeof(data), ptk,
-			 ptk_len);
+		sha1_prf(pmk, pmk_len, label, data, sizeof(data), tmp, ptk_len);
 
 	wpa_printf(MSG_DEBUG, "WPA: PTK derivation - A1=" MACSTR " A2=" MACSTR,
 		   MAC2STR(addr1), MAC2STR(addr2));
 	wpa_hexdump(MSG_DEBUG, "WPA: Nonce1", nonce1, WPA_NONCE_LEN);
 	wpa_hexdump(MSG_DEBUG, "WPA: Nonce2", nonce2, WPA_NONCE_LEN);
 	wpa_hexdump_key(MSG_DEBUG, "WPA: PMK", pmk, pmk_len);
-	wpa_hexdump_key(MSG_DEBUG, "WPA: PTK", ptk, ptk_len);
+	wpa_hexdump_key(MSG_DEBUG, "WPA: PTK", tmp, ptk_len);
+
+	os_memcpy(ptk->kck, tmp, ptk->kck_len);
+	wpa_hexdump_key(MSG_DEBUG, "WPA: KCK", ptk->kck, ptk->kck_len);
+
+	os_memcpy(ptk->kek, tmp + ptk->kck_len, ptk->kek_len);
+	wpa_hexdump_key(MSG_DEBUG, "WPA: KEK", ptk->kek, ptk->kek_len);
+
+	os_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
+	wpa_hexdump_key(MSG_DEBUG, "WPA: TK", ptk->tk, ptk->tk_len);
+
+	os_memset(tmp, 0, sizeof(tmp));
+	return 0;
 }
 
 
 #ifdef CONFIG_IEEE80211R
-int wpa_ft_mic(const u8 *kck, const u8 *sta_addr, const u8 *ap_addr,
-	       u8 transaction_seqnum, const u8 *mdie, size_t mdie_len,
+int wpa_ft_mic(const u8 *kck, size_t kck_len, const u8 *sta_addr,
+	       const u8 *ap_addr, u8 transaction_seqnum,
+	       const u8 *mdie, size_t mdie_len,
 	       const u8 *ftie, size_t ftie_len,
 	       const u8 *rsnie, size_t rsnie_len,
 	       const u8 *ric, size_t ric_len, u8 *mic)
 {
-	u8 *buf, *pos;
-	size_t buf_len;
+	const u8 *addr[9];
+	size_t len[9];
+	size_t i, num_elem = 0;
+	u8 zero_mic[16];
 
-	buf_len = 2 * ETH_ALEN + 1 + mdie_len + ftie_len + rsnie_len + ric_len;
-	buf = os_malloc(buf_len);
-	if (buf == NULL)
+	if (kck_len != 16) {
+		wpa_printf(MSG_WARNING, "FT: Unsupported KCK length %u",
+			   (unsigned int) kck_len);
 		return -1;
+	}
 
-	pos = buf;
-	os_memcpy(pos, sta_addr, ETH_ALEN);
-	pos += ETH_ALEN;
-	os_memcpy(pos, ap_addr, ETH_ALEN);
-	pos += ETH_ALEN;
-	*pos++ = transaction_seqnum;
+	addr[num_elem] = sta_addr;
+	len[num_elem] = ETH_ALEN;
+	num_elem++;
+
+	addr[num_elem] = ap_addr;
+	len[num_elem] = ETH_ALEN;
+	num_elem++;
+
+	addr[num_elem] = &transaction_seqnum;
+	len[num_elem] = 1;
+	num_elem++;
+
 	if (rsnie) {
-		os_memcpy(pos, rsnie, rsnie_len);
-		pos += rsnie_len;
+		addr[num_elem] = rsnie;
+		len[num_elem] = rsnie_len;
+		num_elem++;
 	}
 	if (mdie) {
-		os_memcpy(pos, mdie, mdie_len);
-		pos += mdie_len;
+		addr[num_elem] = mdie;
+		len[num_elem] = mdie_len;
+		num_elem++;
 	}
 	if (ftie) {
-		struct rsn_ftie *_ftie;
-		os_memcpy(pos, ftie, ftie_len);
-		if (ftie_len < 2 + sizeof(*_ftie)) {
-			os_free(buf);
+		if (ftie_len < 2 + sizeof(struct rsn_ftie))
 			return -1;
-		}
-		_ftie = (struct rsn_ftie *) (pos + 2);
-		os_memset(_ftie->mic, 0, sizeof(_ftie->mic));
-		pos += ftie_len;
+
+		/* IE hdr and mic_control */
+		addr[num_elem] = ftie;
+		len[num_elem] = 2 + 2;
+		num_elem++;
+
+		/* MIC field with all zeros */
+		os_memset(zero_mic, 0, sizeof(zero_mic));
+		addr[num_elem] = zero_mic;
+		len[num_elem] = sizeof(zero_mic);
+		num_elem++;
+
+		/* Rest of FTIE */
+		addr[num_elem] = ftie + 2 + 2 + 16;
+		len[num_elem] = ftie_len - (2 + 2 + 16);
+		num_elem++;
 	}
 	if (ric) {
-		os_memcpy(pos, ric, ric_len);
-		pos += ric_len;
+		addr[num_elem] = ric;
+		len[num_elem] = ric_len;
+		num_elem++;
 	}
 
-	wpa_hexdump(MSG_MSGDUMP, "FT: MIC data", buf, pos - buf);
-	if (omac1_aes_128(kck, buf, pos - buf, mic)) {
-		os_free(buf);
+	for (i = 0; i < num_elem; i++)
+		wpa_hexdump(MSG_MSGDUMP, "FT: MIC data", addr[i], len[i]);
+	if (omac1_aes_128_vector(kck, num_elem, addr, len, mic))
 		return -1;
-	}
-
-	os_free(buf);
 
 	return 0;
 }
@@ -273,6 +356,8 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len,
 				parse->rsn_pmkid = data.pmkid;
 			break;
 		case WLAN_EID_MOBILITY_DOMAIN:
+			if (pos[1] < sizeof(struct rsn_mdie))
+				return -1;
 			parse->mdie = pos + 2;
 			parse->mdie_len = pos[1];
 			break;
@@ -285,6 +370,8 @@ int wpa_ft_parse_ies(const u8 *ies, size_t ies_len,
 				return -1;
 			break;
 		case WLAN_EID_TIMEOUT_INTERVAL:
+			if (pos[1] != 5)
+				break;
 			parse->tie = pos + 2;
 			parse->tie_len = pos[1];
 			break;
@@ -345,14 +432,10 @@ static int rsn_selector_to_bitfield(const u8 *s)
 {
 	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_NONE)
 		return WPA_CIPHER_NONE;
-	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_WEP40)
-		return WPA_CIPHER_WEP40;
 	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_TKIP)
 		return WPA_CIPHER_TKIP;
 	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_CCMP)
 		return WPA_CIPHER_CCMP;
-	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_WEP104)
-		return WPA_CIPHER_WEP104;
 #ifdef CONFIG_IEEE80211W
 	if (RSN_SELECTOR_GET(s) == RSN_CIPHER_SUITE_AES_128_CMAC)
 		return WPA_CIPHER_AES_128_CMAC;
@@ -399,6 +482,12 @@ static int rsn_key_mgmt_to_bitfield(const u8 *s)
 	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_FT_SAE)
 		return WPA_KEY_MGMT_FT_SAE;
 #endif /* CONFIG_SAE */
+	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_802_1X_SUITE_B)
+		return WPA_KEY_MGMT_IEEE8021X_SUITE_B;
+	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_802_1X_SUITE_B_192)
+		return WPA_KEY_MGMT_IEEE8021X_SUITE_B_192;
+	if (RSN_SELECTOR_GET(s) == RSN_AUTH_KEY_MGMT_OSEN)
+		return WPA_KEY_MGMT_OSEN;
 	return 0;
 }
 
@@ -406,8 +495,6 @@ static int rsn_key_mgmt_to_bitfield(const u8 *s)
 static int wpa_cipher_valid_group(int cipher)
 {
 	return wpa_cipher_valid_pairwise(cipher) ||
-		cipher == WPA_CIPHER_WEP104 ||
-		cipher == WPA_CIPHER_WEP40 ||
 		cipher == WPA_CIPHER_GTK_NOT_USED;
 }
 
@@ -433,7 +520,6 @@ int wpa_cipher_valid_mgmt_group(int cipher)
 int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 			 struct wpa_ie_data *data)
 {
-	const struct rsn_ie_hdr *hdr;
 	const u8 *pos;
 	int left;
 	int i, count;
@@ -463,18 +549,29 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 		return -1;
 	}
 
-	hdr = (const struct rsn_ie_hdr *) rsn_ie;
+	if (rsn_ie_len >= 6 && rsn_ie[1] >= 4 &&
+	    rsn_ie[1] == rsn_ie_len - 2 &&
+	    WPA_GET_BE32(&rsn_ie[2]) == OSEN_IE_VENDOR_TYPE) {
+		pos = rsn_ie + 6;
+		left = rsn_ie_len - 6;
 
-	if (hdr->elem_id != WLAN_EID_RSN ||
-	    hdr->len != rsn_ie_len - 2 ||
-	    WPA_GET_LE16(hdr->version) != RSN_VERSION) {
-		wpa_printf(MSG_DEBUG, "%s: malformed ie or unknown version",
-			   __func__);
-		return -2;
+		data->proto = WPA_PROTO_OSEN;
+	} else {
+		const struct rsn_ie_hdr *hdr;
+
+		hdr = (const struct rsn_ie_hdr *) rsn_ie;
+
+		if (hdr->elem_id != WLAN_EID_RSN ||
+		    hdr->len != rsn_ie_len - 2 ||
+		    WPA_GET_LE16(hdr->version) != RSN_VERSION) {
+			wpa_printf(MSG_DEBUG, "%s: malformed ie or unknown version",
+				   __func__);
+			return -2;
+		}
+
+		pos = (const u8 *) (hdr + 1);
+		left = rsn_ie_len - sizeof(*hdr);
 	}
-
-	pos = (const u8 *) (hdr + 1);
-	left = rsn_ie_len - sizeof(*hdr);
 
 	if (left >= RSN_SELECTOR_LEN) {
 		data->group_cipher = rsn_selector_to_bitfield(pos);
@@ -496,7 +593,7 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 		count = WPA_GET_LE16(pos);
 		pos += 2;
 		left -= 2;
-		if (count == 0 || left < count * RSN_SELECTOR_LEN) {
+		if (count == 0 || count > left / RSN_SELECTOR_LEN) {
 			wpa_printf(MSG_DEBUG, "%s: ie count botch (pairwise), "
 				   "count %u left %u", __func__, count, left);
 			return -4;
@@ -524,7 +621,7 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 		count = WPA_GET_LE16(pos);
 		pos += 2;
 		left -= 2;
-		if (count == 0 || left < count * RSN_SELECTOR_LEN) {
+		if (count == 0 || count > left / RSN_SELECTOR_LEN) {
 			wpa_printf(MSG_DEBUG, "%s: ie count botch (key mgmt), "
 				   "count %u left %u", __func__, count, left);
 			return -6;
@@ -547,17 +644,17 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 	}
 
 	if (left >= 2) {
-		data->num_pmkid = WPA_GET_LE16(pos);
+		u16 num_pmkid = WPA_GET_LE16(pos);
 		pos += 2;
 		left -= 2;
-		if (left < (int) data->num_pmkid * PMKID_LEN) {
+		if (num_pmkid > (unsigned int) left / PMKID_LEN) {
 			wpa_printf(MSG_DEBUG, "%s: PMKID underflow "
-				   "(num_pmkid=%lu left=%d)",
-				   __func__, (unsigned long) data->num_pmkid,
-				   left);
+				   "(num_pmkid=%u left=%d)",
+				   __func__, num_pmkid, left);
 			data->num_pmkid = 0;
 			return -9;
 		} else {
+			data->num_pmkid = num_pmkid;
 			data->pmkid = pos;
 			pos += data->num_pmkid * PMKID_LEN;
 			left -= data->num_pmkid * PMKID_LEN;
@@ -592,14 +689,10 @@ static int wpa_selector_to_bitfield(const u8 *s)
 {
 	if (RSN_SELECTOR_GET(s) == WPA_CIPHER_SUITE_NONE)
 		return WPA_CIPHER_NONE;
-	if (RSN_SELECTOR_GET(s) == WPA_CIPHER_SUITE_WEP40)
-		return WPA_CIPHER_WEP40;
 	if (RSN_SELECTOR_GET(s) == WPA_CIPHER_SUITE_TKIP)
 		return WPA_CIPHER_TKIP;
 	if (RSN_SELECTOR_GET(s) == WPA_CIPHER_SUITE_CCMP)
 		return WPA_CIPHER_CCMP;
-	if (RSN_SELECTOR_GET(s) == WPA_CIPHER_SUITE_WEP104)
-		return WPA_CIPHER_WEP104;
 	return 0;
 }
 
@@ -633,11 +726,6 @@ int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
 	data->pmkid = NULL;
 	data->num_pmkid = 0;
 	data->mgmt_group_cipher = 0;
-
-	if (wpa_ie_len == 0) {
-		/* No WPA IE - fail silently */
-		return -1;
-	}
 
 	if (wpa_ie_len < sizeof(struct wpa_ie_hdr)) {
 		wpa_printf(MSG_DEBUG, "%s: ie len too short %lu",
@@ -674,7 +762,7 @@ int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
 		count = WPA_GET_LE16(pos);
 		pos += 2;
 		left -= 2;
-		if (count == 0 || left < count * WPA_SELECTOR_LEN) {
+		if (count == 0 || count > left / WPA_SELECTOR_LEN) {
 			wpa_printf(MSG_DEBUG, "%s: ie count botch (pairwise), "
 				   "count %u left %u", __func__, count, left);
 			return -4;
@@ -695,7 +783,7 @@ int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
 		count = WPA_GET_LE16(pos);
 		pos += 2;
 		left -= 2;
-		if (count == 0 || left < count * WPA_SELECTOR_LEN) {
+		if (count == 0 || count > left / WPA_SELECTOR_LEN) {
 			wpa_printf(MSG_DEBUG, "%s: ie count botch (key mgmt), "
 				   "count %u left %u", __func__, count, left);
 			return -6;
@@ -739,7 +827,7 @@ void wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
 		       const u8 *mdid, const u8 *r0kh_id, size_t r0kh_id_len,
 		       const u8 *s0kh_id, u8 *pmk_r0, u8 *pmk_r0_name)
 {
-	u8 buf[1 + WPA_MAX_SSID_LEN + MOBILITY_DOMAIN_ID_LEN + 1 +
+	u8 buf[1 + SSID_MAX_LEN + MOBILITY_DOMAIN_ID_LEN + 1 +
 	       FT_R0KH_ID_MAX_LEN + ETH_ALEN];
 	u8 *pos, r0_key_data[48], hash[32];
 	const u8 *addr[2];
@@ -753,7 +841,7 @@ void wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
 	 * PMK-R0 = L(R0-Key-Data, 0, 256)
 	 * PMK-R0Name-Salt = L(R0-Key-Data, 256, 128)
 	 */
-	if (ssid_len > WPA_MAX_SSID_LEN || r0kh_id_len > FT_R0KH_ID_MAX_LEN)
+	if (ssid_len > SSID_MAX_LEN || r0kh_id_len > FT_R0KH_ID_MAX_LEN)
 		return;
 	pos = buf;
 	*pos++ = ssid_len;
@@ -844,15 +932,17 @@ void wpa_derive_pmk_r1(const u8 *pmk_r0, const u8 *pmk_r0_name,
  *
  * IEEE Std 802.11r-2008 - 8.5.1.5.5
  */
-void wpa_pmk_r1_to_ptk(const u8 *pmk_r1, const u8 *snonce, const u8 *anonce,
-		       const u8 *sta_addr, const u8 *bssid,
-		       const u8 *pmk_r1_name,
-		       u8 *ptk, size_t ptk_len, u8 *ptk_name)
+int wpa_pmk_r1_to_ptk(const u8 *pmk_r1, const u8 *snonce, const u8 *anonce,
+		      const u8 *sta_addr, const u8 *bssid,
+		      const u8 *pmk_r1_name,
+		      struct wpa_ptk *ptk, u8 *ptk_name, int akmp, int cipher)
 {
 	u8 buf[2 * WPA_NONCE_LEN + 2 * ETH_ALEN];
 	u8 *pos, hash[32];
 	const u8 *addr[6];
 	size_t len[6];
+	u8 tmp[WPA_KCK_MAX_LEN + WPA_KEK_MAX_LEN + WPA_TK_MAX_LEN];
+	size_t ptk_len;
 
 	/*
 	 * PTK = KDF-PTKLen(PMK-R1, "FT-PTK", SNonce || ANonce ||
@@ -868,7 +958,12 @@ void wpa_pmk_r1_to_ptk(const u8 *pmk_r1, const u8 *snonce, const u8 *anonce,
 	os_memcpy(pos, sta_addr, ETH_ALEN);
 	pos += ETH_ALEN;
 
-	sha256_prf(pmk_r1, PMK_LEN, "FT-PTK", buf, pos - buf, ptk, ptk_len);
+	ptk->kck_len = wpa_kck_len(akmp);
+	ptk->kek_len = wpa_kek_len(akmp);
+	ptk->tk_len = wpa_cipher_key_len(cipher);
+	ptk_len = ptk->kck_len + ptk->kek_len + ptk->tk_len;
+
+	sha256_prf(pmk_r1, PMK_LEN, "FT-PTK", buf, pos - buf, tmp, ptk_len);
 
 	/*
 	 * PTKName = Truncate-128(SHA-256(PMKR1Name || "FT-PTKN" || SNonce ||
@@ -889,6 +984,19 @@ void wpa_pmk_r1_to_ptk(const u8 *pmk_r1, const u8 *snonce, const u8 *anonce,
 
 	sha256_vector(6, addr, len, hash);
 	os_memcpy(ptk_name, hash, WPA_PMK_NAME_LEN);
+
+	os_memcpy(ptk->kck, tmp, ptk->kck_len);
+	os_memcpy(ptk->kek, tmp + ptk->kck_len, ptk->kek_len);
+	os_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
+
+	wpa_hexdump_key(MSG_DEBUG, "FT: KCK", ptk->kck, ptk->kck_len);
+	wpa_hexdump_key(MSG_DEBUG, "FT: KEK", ptk->kek, ptk->kek_len);
+	wpa_hexdump_key(MSG_DEBUG, "FT: TK", ptk->tk, ptk->tk_len);
+	wpa_hexdump(MSG_DEBUG, "FT: PTKName", ptk_name, WPA_PMK_NAME_LEN);
+
+	os_memset(tmp, 0, sizeof(tmp));
+
+	return 0;
 }
 
 #endif /* CONFIG_IEEE80211R */
@@ -926,6 +1034,72 @@ void rsn_pmkid(const u8 *pmk, size_t pmk_len, const u8 *aa, const u8 *spa,
 		hmac_sha1_vector(pmk, pmk_len, 3, addr, len, hash);
 	os_memcpy(pmkid, hash, PMKID_LEN);
 }
+
+
+#ifdef CONFIG_SUITEB
+/**
+ * rsn_pmkid_suite_b - Calculate PMK identifier for Suite B AKM
+ * @kck: Key confirmation key
+ * @kck_len: Length of kck in bytes
+ * @aa: Authenticator address
+ * @spa: Supplicant address
+ * @pmkid: Buffer for PMKID
+ * Returns: 0 on success, -1 on failure
+ *
+ * IEEE Std 802.11ac-2013 - 11.6.1.3 Pairwise key hierarchy
+ * PMKID = Truncate(HMAC-SHA-256(KCK, "PMK Name" || AA || SPA))
+ */
+int rsn_pmkid_suite_b(const u8 *kck, size_t kck_len, const u8 *aa,
+		      const u8 *spa, u8 *pmkid)
+{
+	char *title = "PMK Name";
+	const u8 *addr[3];
+	const size_t len[3] = { 8, ETH_ALEN, ETH_ALEN };
+	unsigned char hash[SHA256_MAC_LEN];
+
+	addr[0] = (u8 *) title;
+	addr[1] = aa;
+	addr[2] = spa;
+
+	if (hmac_sha256_vector(kck, kck_len, 3, addr, len, hash) < 0)
+		return -1;
+	os_memcpy(pmkid, hash, PMKID_LEN);
+	return 0;
+}
+#endif /* CONFIG_SUITEB */
+
+
+#ifdef CONFIG_SUITEB192
+/**
+ * rsn_pmkid_suite_b_192 - Calculate PMK identifier for Suite B AKM
+ * @kck: Key confirmation key
+ * @kck_len: Length of kck in bytes
+ * @aa: Authenticator address
+ * @spa: Supplicant address
+ * @pmkid: Buffer for PMKID
+ * Returns: 0 on success, -1 on failure
+ *
+ * IEEE Std 802.11ac-2013 - 11.6.1.3 Pairwise key hierarchy
+ * PMKID = Truncate(HMAC-SHA-384(KCK, "PMK Name" || AA || SPA))
+ */
+int rsn_pmkid_suite_b_192(const u8 *kck, size_t kck_len, const u8 *aa,
+			  const u8 *spa, u8 *pmkid)
+{
+	char *title = "PMK Name";
+	const u8 *addr[3];
+	const size_t len[3] = { 8, ETH_ALEN, ETH_ALEN };
+	unsigned char hash[SHA384_MAC_LEN];
+
+	addr[0] = (u8 *) title;
+	addr[1] = aa;
+	addr[2] = spa;
+
+	if (hmac_sha384_vector(kck, kck_len, 3, addr, len, hash) < 0)
+		return -1;
+	os_memcpy(pmkid, hash, PMKID_LEN);
+	return 0;
+}
+#endif /* CONFIG_SUITEB192 */
 
 
 /**
@@ -997,6 +1171,18 @@ const char * wpa_key_mgmt_txt(int key_mgmt, int proto)
 	case WPA_KEY_MGMT_PSK_SHA256:
 		return "WPA2-PSK-SHA256";
 #endif /* CONFIG_IEEE80211W */
+	case WPA_KEY_MGMT_WPS:
+		return "WPS";
+	case WPA_KEY_MGMT_SAE:
+		return "SAE";
+	case WPA_KEY_MGMT_FT_SAE:
+		return "FT-SAE";
+	case WPA_KEY_MGMT_OSEN:
+		return "OSEN";
+	case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
+		return "WPA2-EAP-SUITE-B";
+	case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:
+		return "WPA2-EAP-SUITE-B-192";
 	default:
 		return "UNKNOWN";
 	}
@@ -1023,6 +1209,10 @@ u32 wpa_akm_to_suite(int akm)
 		return WLAN_AKM_SUITE_CCKM;
 	if (akm & WPA_KEY_MGMT_OSEN)
 		return WLAN_AKM_SUITE_OSEN;
+	if (akm & WPA_KEY_MGMT_IEEE8021X_SUITE_B)
+		return WLAN_AKM_SUITE_8021X_SUITE_B;
+	if (akm & WPA_KEY_MGMT_IEEE8021X_SUITE_B_192)
+		return WLAN_AKM_SUITE_8021X_SUITE_B_192;
 	return 0;
 }
 
@@ -1158,10 +1348,6 @@ int wpa_cipher_key_len(int cipher)
 		return 16;
 	case WPA_CIPHER_TKIP:
 		return 32;
-	case WPA_CIPHER_WEP104:
-		return 13;
-	case WPA_CIPHER_WEP40:
-		return 5;
 	}
 
 	return 0;
@@ -1177,9 +1363,6 @@ int wpa_cipher_rsc_len(int cipher)
 	case WPA_CIPHER_GCMP:
 	case WPA_CIPHER_TKIP:
 		return 6;
-	case WPA_CIPHER_WEP104:
-	case WPA_CIPHER_WEP40:
-		return 0;
 	}
 
 	return 0;
@@ -1199,9 +1382,6 @@ int wpa_cipher_to_alg(int cipher)
 		return WPA_ALG_GCMP;
 	case WPA_CIPHER_TKIP:
 		return WPA_ALG_TKIP;
-	case WPA_CIPHER_WEP104:
-	case WPA_CIPHER_WEP40:
-		return WPA_ALG_WEP;
 	case WPA_CIPHER_AES_128_CMAC:
 		return WPA_ALG_IGTK;
 	case WPA_CIPHER_BIP_GMAC_128:
@@ -1239,12 +1419,6 @@ u32 wpa_cipher_to_suite(int proto, int cipher)
 	if (cipher & WPA_CIPHER_TKIP)
 		return (proto == WPA_PROTO_RSN ?
 			RSN_CIPHER_SUITE_TKIP : WPA_CIPHER_SUITE_TKIP);
-	if (cipher & WPA_CIPHER_WEP104)
-		return (proto == WPA_PROTO_RSN ?
-			RSN_CIPHER_SUITE_WEP104 : WPA_CIPHER_SUITE_WEP104);
-	if (cipher & WPA_CIPHER_WEP40)
-		return (proto == WPA_PROTO_RSN ?
-			RSN_CIPHER_SUITE_WEP40 : WPA_CIPHER_SUITE_WEP40);
 	if (cipher & WPA_CIPHER_NONE)
 		return (proto == WPA_PROTO_RSN ?
 			RSN_CIPHER_SUITE_NONE : WPA_CIPHER_SUITE_NONE);
@@ -1348,10 +1522,6 @@ int wpa_pick_group_cipher(int ciphers)
 		return WPA_CIPHER_GTK_NOT_USED;
 	if (ciphers & WPA_CIPHER_TKIP)
 		return WPA_CIPHER_TKIP;
-	if (ciphers & WPA_CIPHER_WEP104)
-		return WPA_CIPHER_WEP104;
-	if (ciphers & WPA_CIPHER_WEP40)
-		return WPA_CIPHER_WEP40;
 	return -1;
 }
 
@@ -1417,56 +1587,42 @@ int wpa_write_ciphers(char *start, char *end, int ciphers, const char *delim)
 	if (ciphers & WPA_CIPHER_CCMP_256) {
 		ret = os_snprintf(pos, end - pos, "%sCCMP-256",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 	if (ciphers & WPA_CIPHER_GCMP_256) {
 		ret = os_snprintf(pos, end - pos, "%sGCMP-256",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 	if (ciphers & WPA_CIPHER_CCMP) {
 		ret = os_snprintf(pos, end - pos, "%sCCMP",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 	if (ciphers & WPA_CIPHER_GCMP) {
 		ret = os_snprintf(pos, end - pos, "%sGCMP",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 	if (ciphers & WPA_CIPHER_TKIP) {
 		ret = os_snprintf(pos, end - pos, "%sTKIP",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
-			return -1;
-		pos += ret;
-	}
-	if (ciphers & WPA_CIPHER_WEP104) {
-		ret = os_snprintf(pos, end - pos, "%sWEP104",
-				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
-			return -1;
-		pos += ret;
-	}
-	if (ciphers & WPA_CIPHER_WEP40) {
-		ret = os_snprintf(pos, end - pos, "%sWEP40",
-				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
 	if (ciphers & WPA_CIPHER_NONE) {
 		ret = os_snprintf(pos, end - pos, "%sNONE",
 				  pos == start ? "" : delim);
-		if (ret < 0 || ret >= end - pos)
+		if (os_snprintf_error(end - pos, ret))
 			return -1;
 		pos += ret;
 	}
@@ -1496,79 +1652,4 @@ int wpa_select_ap_group_cipher(int wpa, int wpa_pairwise, int rsn_pairwise)
 			 WPA_CIPHER_GCMP)) == WPA_CIPHER_CCMP_256)
 		return WPA_CIPHER_CCMP_256;
 	return WPA_CIPHER_CCMP;
-}
-
-
-static int wpa_check_wowlan_trigger(const char *start, const char *trigger,
-				    int capa_trigger, u8 *param_trigger)
-{
-	if (os_strcmp(start, trigger) != 0)
-		return 0;
-	if (!capa_trigger)
-		return 0;
-
-	*param_trigger = 1;
-	return 1;
-}
-
-
-struct wowlan_triggers *wpa_get_wowlan_triggers(const char *wowlan_triggers,
-						struct wpa_driver_capa *capa)
-{
-	struct wowlan_triggers *triggers;
-	char *start, *end, *buf;
-	int last;
-
-	if (!wowlan_triggers)
-		return NULL;
-
-	buf = os_strdup(wowlan_triggers);
-	if (buf == NULL)
-		return NULL;
-
-	triggers = os_zalloc(sizeof(*triggers));
-	if (triggers == NULL)
-		goto out;
-
-#define CHECK_TRIGGER(trigger) \
-	wpa_check_wowlan_trigger(start, #trigger,			\
-				  capa->wowlan_triggers.trigger,	\
-				  &triggers->trigger)
-
-	start = buf;
-	while (*start != '\0') {
-		while (isblank(*start))
-			start++;
-		if (*start == '\0')
-			break;
-		end = start;
-		while (!isblank(*end) && *end != '\0')
-			end++;
-		last = *end == '\0';
-		*end = '\0';
-
-		if (!CHECK_TRIGGER(any) &&
-		    !CHECK_TRIGGER(disconnect) &&
-		    !CHECK_TRIGGER(magic_pkt) &&
-		    !CHECK_TRIGGER(gtk_rekey_failure) &&
-		    !CHECK_TRIGGER(eap_identity_req) &&
-		    !CHECK_TRIGGER(four_way_handshake) &&
-		    !CHECK_TRIGGER(rfkill_release)) {
-			wpa_printf(MSG_DEBUG,
-				   "Unknown/unsupported wowlan trigger '%s'",
-				   start);
-			os_free(triggers);
-			triggers = NULL;
-			goto out;
-		}
-
-		if (last)
-			break;
-		start = end + 1;
-	}
-#undef CHECK_TRIGGER
-
-out:
-	os_free(buf);
-	return triggers;
 }

@@ -24,6 +24,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.Event_METHOD_EXIT;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.Event_METHOD_EXIT_WITH_RETURN_VALUE;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
@@ -185,6 +186,10 @@ public class MethodExitWithReturnValueTest extends JDWPEventTestCase {
                         .getName(JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE),
                 JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
         logWriter.println("==> CHECK: received event's type is " + JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE);
+
+        long eventThreadID = ((EventThread) parsedEvents[0]).getThreadID();
+        checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+                JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
 
         // Check return value according to it's type
         Value value = ((Event_METHOD_EXIT_WITH_RETURN_VALUE) parsedEvents[0])

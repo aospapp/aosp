@@ -16,11 +16,17 @@
 
 package com.google.common.eventbus;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+
+import junit.framework.TestCase;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import junit.framework.TestCase;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Test case for {@link EventBus}.
@@ -41,11 +47,6 @@ public class EventBusTest extends TestCase {
   public void testBasicCatcherDistribution() {
     StringCatcher catcher = new StringCatcher();
     bus.register(catcher);
-
-    Set<EventHandler> wrappers = bus.getHandlersForEventType(String.class);
-    assertNotNull("Should have at least one method registered.", wrappers);
-    assertEquals("One method should be registered.", 1, wrappers.size());
-
     bus.post(EVENT);
 
     List<String> events = catcher.getEvents();
@@ -117,6 +118,57 @@ public class EventBusTest extends TestCase {
         EVENT, compEvents.get(0));
     assertEquals("Comparable fixture must be second comparable delivered.",
         COMP_EVENT, compEvents.get(1));
+  }
+
+  public void testSubscriberThrowsException() throws Exception{
+    final RecordingSubscriberExceptionHandler handler =
+        new RecordingSubscriberExceptionHandler();
+    final EventBus eventBus = new EventBus(handler);
+    final RuntimeException exception =
+        new RuntimeException("but culottes have a tendancy to ride up!");
+    final Object subscriber = new Object() {
+      @Subscribe
+      public void throwExceptionOn(String message) {
+        throw exception;
+      }
+    };
+    eventBus.register(subscriber);
+    eventBus.post(EVENT);
+
+    assertEquals("Cause should be available.",
+        exception, handler.exception);
+    assertEquals("EventBus should be available.",
+        eventBus, handler.context.getEventBus());
+    assertEquals("Event should be available.",
+        EVENT,
+        handler.context.getEvent());
+    assertEquals("Subscriber should be available.",
+        subscriber, handler.context.getSubscriber());
+    assertEquals("Method should be available.",
+        subscriber.getClass().getMethod("throwExceptionOn", String.class),
+        handler.context.getSubscriberMethod());
+  }
+
+  public void testSubscriberThrowsExceptionHandlerThrowsException() throws Exception{
+    final EventBus eventBus = new EventBus(new SubscriberExceptionHandler() {
+      @Override
+      public void handleException(Throwable exception,
+          SubscriberExceptionContext context) {
+        throw new RuntimeException();
+      }
+    });
+    final Object subscriber = new Object() {
+      @Subscribe
+      public void throwExceptionOn(String message) {
+        throw new RuntimeException();
+      }
+    };
+    eventBus.register(subscriber);
+    try {
+      eventBus.post(EVENT);
+    } catch (RuntimeException e) {
+      fail("Exception should not be thrown.");
+    }
   }
 
   public void testDeadEventForwarding() {
@@ -209,9 +261,72 @@ public class EventBusTest extends TestCase {
                  expectedEvents, catcher2.getEvents());
   }
 
+  // NOTE: This test will always pass if register() is thread-safe but may also
+  // pass if it isn't, though this is unlikely.
+
+  public void testRegisterThreadSafety() throws Exception {
+    List<StringCatcher> catchers = Lists.newCopyOnWriteArrayList();
+    List<Future<?>> futures = Lists.newArrayList();
+    ExecutorService executor = Executors.newFixedThreadPool(10);
+    int numberOfCatchers = 10000;
+    for (int i = 0; i < numberOfCatchers; i++) {
+      futures.add(executor.submit(new Registrator(bus, catchers)));
+    }
+    for (int i = 0; i < numberOfCatchers; i++) {
+      futures.get(i).get();
+    }
+    assertEquals("Unexpected number of catchers in the list",
+        numberOfCatchers, catchers.size());
+    bus.post(EVENT);
+    List<String> expectedEvents = ImmutableList.of(EVENT);
+    for (StringCatcher catcher : catchers) {
+      assertEquals("One of the registered catchers did not receive an event.",
+          expectedEvents, catcher.getEvents());
+    }
+  }
+
   private <T> void assertContains(T element, Collection<T> collection) {
     assertTrue("Collection must contain " + element,
         collection.contains(element));
+  }
+
+  /**
+   * Records a thrown exception information.
+   */
+  private static final class RecordingSubscriberExceptionHandler
+      implements SubscriberExceptionHandler {
+
+    public SubscriberExceptionContext context;
+    public Throwable exception;
+
+    @Override
+    public void handleException(Throwable exception,
+        SubscriberExceptionContext context) {
+      this.exception = exception;
+      this.context = context;
+
+    }
+  }
+
+  /**
+   * Runnable which registers a StringCatcher on an event bus and adds it to a
+   * list.
+   */
+  private static class Registrator implements Runnable {
+    private final EventBus bus;
+    private final List<StringCatcher> catchers;
+
+    Registrator(EventBus bus, List<StringCatcher> catchers) {
+      this.bus = bus;
+      this.catchers = catchers;
+    }
+
+    @Override
+    public void run() {
+      StringCatcher catcher = new StringCatcher();
+      bus.register(catcher);
+      catchers.add(catcher);
+    }
   }
 
   /**

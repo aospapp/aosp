@@ -82,9 +82,11 @@ public class PixelPerfectLoupeView extends ViewPart implements IImageChangeListe
                 new PixelPerfectPixelPanel(pixelPerfectLoupeBorder);
         pixelPerfectPixelPanel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
-        PixelPerfectControls pixelPerfectControls =
-                new PixelPerfectControls(parent);
-        pixelPerfectControls.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+        // https://code.google.com/p/android/issues/detail?id=69199
+        // Disabled until accessibility issues are fixed
+        // PixelPerfectControls pixelPerfectControls =
+        //         new PixelPerfectControls(parent);
+        // pixelPerfectControls.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
 
         placeActions();
     }

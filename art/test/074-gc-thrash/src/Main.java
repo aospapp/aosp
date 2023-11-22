@@ -183,7 +183,11 @@ class Robin extends Thread {
     }
 
     private String makeString(int val) {
-        return new String("Robin" + val);
+        try {
+            return new String("Robin" + val);
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
     }
 }
 
@@ -214,17 +218,7 @@ class Deep extends Thread {
             return;
         }
 
-        /*
-         * Check the results of the last trip through.  Everything in
-         * "weak" should be matched in "strong", and the two should be
-         * equivalent (object-wise, not just string-equality-wise).
-         */
-        for (int i = 0; i < MAX_DEPTH; i++) {
-            if (strong[i] != weak[i].get()) {
-                System.err.println("Deep: " + i + " strong=" + strong[i] +
-                    ", weak=" + weak[i].get());
-            }
-        }
+        checkStringReferences();
 
         /*
          * Wipe "strong", do a GC, see if "weak" got collected.
@@ -244,6 +238,26 @@ class Deep extends Thread {
             System.out.println("Deep: iters=" + iter / MAX_DEPTH);
     }
 
+
+    /**
+     * Check the results of the last trip through.  Everything in
+     * "weak" should be matched in "strong", and the two should be
+     * equivalent (object-wise, not just string-equality-wise).
+     *
+     * We do that check in a separate method to avoid retaining these
+     * String references in local DEX registers. In interpreter mode,
+     * they would retain these references until the end of the method
+     * or until they are updated to another value.
+     */
+    private static void checkStringReferences() {
+      for (int i = 0; i < MAX_DEPTH; i++) {
+          if (strong[i] != weak[i].get()) {
+              System.err.println("Deep: " + i + " strong=" + strong[i] +
+                  ", weak=" + weak[i].get());
+          }
+      }
+    }
+
     /**
      * Recursively dive down, setting one or more local variables.
      *
@@ -251,58 +265,63 @@ class Deep extends Thread {
      * valid and invalid references on the stack.
      */
     private String dive(int depth, int iteration) {
-        String str0;
-        String str1;
-        String str2;
-        String str3;
-        String str4;
-        String str5;
-        String str6;
-        String str7;
-        String funStr;
+        try {
+            String str0;
+            String str1;
+            String str2;
+            String str3;
+            String str4;
+            String str5;
+            String str6;
+            String str7;
+            String funStr = "";
+            switch (iteration % 8) {
+                case 0:
+                    funStr = str0 = makeString(iteration);
+                    break;
+                case 1:
+                    funStr = str1 = makeString(iteration);
+                    break;
+                case 2:
+                    funStr = str2 = makeString(iteration);
+                    break;
+                case 3:
+                    funStr = str3 = makeString(iteration);
+                    break;
+                case 4:
+                    funStr = str4 = makeString(iteration);
+                    break;
+                case 5:
+                    funStr = str5 = makeString(iteration);
+                    break;
+                case 6:
+                    funStr = str6 = makeString(iteration);
+                    break;
+                case 7:
+                    funStr = str7 = makeString(iteration);
+                    break;
+            }
 
-        funStr = "";
-
-        switch (iteration % 8) {
-            case 0:
-                funStr = str0 = makeString(iteration);
-                break;
-            case 1:
-                funStr = str1 = makeString(iteration);
-                break;
-            case 2:
-                funStr = str2 = makeString(iteration);
-                break;
-            case 3:
-                funStr = str3 = makeString(iteration);
-                break;
-            case 4:
-                funStr = str4 = makeString(iteration);
-                break;
-            case 5:
-                funStr = str5 = makeString(iteration);
-                break;
-            case 6:
-                funStr = str6 = makeString(iteration);
-                break;
-            case 7:
-                funStr = str7 = makeString(iteration);
-                break;
+            weak[depth] = new WeakReference(funStr);
+            strong[depth] = funStr;
+            if (depth+1 < MAX_DEPTH)
+                dive(depth+1, iteration+1);
+            else
+                Main.sleep(100);
+            return funStr;
+        } catch (OutOfMemoryError e) {
+            // Silently ignore OOME since gc stress mode causes them to occur but shouldn't be a
+            // test failure.
         }
-
-        strong[depth] = funStr;
-        weak[depth] = new WeakReference(funStr);
-
-        if (depth+1 < MAX_DEPTH)
-            dive(depth+1, iteration+1);
-        else
-            Main.sleep(100);
-
-        return funStr;
+        return "";
     }
 
     private String makeString(int val) {
-        return new String("Deep" + val);
+        try {
+            return new String("Deep" + val);
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
     }
 }
 
@@ -319,13 +338,16 @@ class Large extends Thread {
         Main.startupDelay();
 
         while (!Main.quit) {
-            chunk = new byte[100000];
-            pretendToUse(chunk);
+            try {
+                chunk = new byte[100000];
+                pretendToUse(chunk);
 
-            count++;
-            if ((count % 500) == 0) {
-                Main.sleep(400);
-                sleepCount++;
+                count++;
+                if ((count % 500) == 0) {
+                    Main.sleep(400);
+                    sleepCount++;
+                }
+            } catch (OutOfMemoryError e) {
             }
         }
 

@@ -104,6 +104,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
 
         // Throws exception b/c 2 video tracks were added.
@@ -115,6 +117,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
 
         // Throws exception b/c 2 audio tracks were added.
@@ -125,6 +129,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
 
         // Throws exception b/c 3 tracks were added.
@@ -137,6 +143,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
 
         // Throws exception b/c no tracks was added.
@@ -146,6 +154,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
 
         // Throws exception b/c a wrong format.
@@ -155,6 +165,8 @@ public class MediaMuxerTest extends AndroidTestCase {
             fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
             // expected
+        } finally {
+            muxer.release();
         }
         new File(outputFile).delete();
     }

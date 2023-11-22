@@ -19,9 +19,8 @@ package com.android.dialer.calllog;
 import android.content.AsyncQueryHandler;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
-import android.database.MatrixCursor;
-import android.database.MergeCursor;
 import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.database.sqlite.SQLiteDiskIOException;
 import android.database.sqlite.SQLiteException;
@@ -32,11 +31,14 @@ import android.os.Looper;
 import android.os.Message;
 import android.provider.CallLog.Calls;
 import android.provider.VoicemailContract.Status;
+import android.provider.VoicemailContract.Voicemails;
 import android.util.Log;
 
-import com.android.common.io.MoreCloseables;
 import com.android.contacts.common.database.NoNullCursorAsyncQueryHandler;
+import com.android.contacts.common.util.PermissionsUtil;
+import com.android.dialer.util.TelecomUtil;
 import com.android.dialer.voicemail.VoicemailStatusHelperImpl;
+
 import com.google.common.collect.Lists;
 
 import java.lang.ref.WeakReference;
@@ -53,22 +55,22 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
     private static final int QUERY_CALLLOG_TOKEN = 54;
     /** The token for the query to mark all missed calls as old after seeing the call log. */
     private static final int UPDATE_MARK_AS_OLD_TOKEN = 55;
-    /** The token for the query to mark all new voicemails as old. */
-    private static final int UPDATE_MARK_VOICEMAILS_AS_OLD_TOKEN = 56;
     /** The token for the query to mark all missed calls as read after seeing the call log. */
-    private static final int UPDATE_MARK_MISSED_CALL_AS_READ_TOKEN = 57;
+    private static final int UPDATE_MARK_MISSED_CALL_AS_READ_TOKEN = 56;
     /** The token for the query to fetch voicemail status messages. */
-    private static final int QUERY_VOICEMAIL_STATUS_TOKEN = 58;
+    private static final int QUERY_VOICEMAIL_STATUS_TOKEN = 57;
 
     private final int mLogLimit;
 
     /**
      * Call type similar to Calls.INCOMING_TYPE used to specify all types instead of one particular
-     * type.
+     * type. Exception: excludes Calls.VOICEMAIL_TYPE.
      */
     public static final int CALL_TYPE_ALL = -1;
 
     private final WeakReference<Listener> mListener;
+
+    private final Context mContext;
 
     /**
      * Simple handler that wraps background calls to catch
@@ -92,6 +94,10 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
                 Log.w(TAG, "Exception on background worker thread", e);
             } catch (IllegalArgumentException e) {
                 Log.w(TAG, "ContactsProvider not present on device", e);
+            } catch (SecurityException e) {
+                // Shouldn't happen if we are protecting the entry points correctly,
+                // but just in case.
+                Log.w(TAG, "No permission to access ContactsProvider.", e);
             }
         }
     }
@@ -102,12 +108,15 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
         return new CatchingWorkerHandler(looper);
     }
 
-    public CallLogQueryHandler(ContentResolver contentResolver, Listener listener) {
-        this(contentResolver, listener, -1);
+    public CallLogQueryHandler(Context context, ContentResolver contentResolver,
+            Listener listener) {
+        this(context, contentResolver, listener, -1);
     }
 
-    public CallLogQueryHandler(ContentResolver contentResolver, Listener listener, int limit) {
+    public CallLogQueryHandler(Context context, ContentResolver contentResolver, Listener listener,
+            int limit) {
         super(contentResolver);
+        mContext = context.getApplicationContext();
         mListener = new WeakReference<Listener>(listener);
         mLogLimit = limit;
     }
@@ -120,7 +129,11 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
      */
     public void fetchCalls(int callType, long newerThan) {
         cancelFetch();
-        fetchCalls(QUERY_CALLLOG_TOKEN, callType, false /* newOnly */, newerThan);
+        if (PermissionsUtil.hasPhonePermissions(mContext)) {
+            fetchCalls(QUERY_CALLLOG_TOKEN, callType, false /* newOnly */, newerThan);
+        } else {
+            updateAdapterData(null);
+        }
     }
 
     public void fetchCalls(int callType) {
@@ -128,8 +141,10 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
     }
 
     public void fetchVoicemailStatus() {
-        startQuery(QUERY_VOICEMAIL_STATUS_TOKEN, null, Status.CONTENT_URI,
-                VoicemailStatusHelperImpl.PROJECTION, null, null, null);
+        if (TelecomUtil.hasReadWriteVoicemailPermissions(mContext)) {
+            startQuery(QUERY_VOICEMAIL_STATUS_TOKEN, null, Status.CONTENT_URI,
+                    VoicemailStatusHelperImpl.PROJECTION, null, null, null);
+        }
     }
 
     /** Fetches the list of calls in the call log. */
@@ -140,32 +155,34 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
         StringBuilder where = new StringBuilder();
         List<String> selectionArgs = Lists.newArrayList();
 
+        // Ignore voicemails marked as deleted
+        where.append(Voicemails.DELETED);
+        where.append(" = 0");
+
         if (newOnly) {
+            where.append(" AND ");
             where.append(Calls.NEW);
             where.append(" = 1");
         }
 
         if (callType > CALL_TYPE_ALL) {
-            if (where.length() > 0) {
-                where.append(" AND ");
-            }
-            // Add a clause to fetch only items of type voicemail.
+            where.append(" AND ");
             where.append(String.format("(%s = ?)", Calls.TYPE));
-            // Add a clause to fetch only items newer than the requested date
             selectionArgs.add(Integer.toString(callType));
+        } else {
+            where.append(" AND NOT ");
+            where.append("(" + Calls.TYPE + " = " + Calls.VOICEMAIL_TYPE + ")");
         }
 
         if (newerThan > 0) {
-            if (where.length() > 0) {
-                where.append(" AND ");
-            }
+            where.append(" AND ");
             where.append(String.format("(%s > ?)", Calls.DATE));
             selectionArgs.add(Long.toString(newerThan));
         }
 
         final int limit = (mLogLimit == -1) ? NUM_LOGS_TO_DISPLAY : mLogLimit;
         final String selection = where.length() > 0 ? where.toString() : null;
-        Uri uri = Calls.CONTENT_URI_WITH_VOICEMAIL.buildUpon()
+        Uri uri = TelecomUtil.getCallLogUri(mContext).buildUpon()
                 .appendQueryParameter(Calls.LIMIT_PARAM_KEY, Integer.toString(limit))
                 .build();
         startQuery(token, null, uri,
@@ -180,6 +197,9 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
 
     /** Updates all new calls to mark them as old. */
     public void markNewCallsAsOld() {
+        if (!PermissionsUtil.hasPhonePermissions(mContext)) {
+            return;
+        }
         // Mark all "new" calls as not new anymore.
         StringBuilder where = new StringBuilder();
         where.append(Calls.NEW);
@@ -188,28 +208,15 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
         ContentValues values = new ContentValues(1);
         values.put(Calls.NEW, "0");
 
-        startUpdate(UPDATE_MARK_AS_OLD_TOKEN, null, Calls.CONTENT_URI_WITH_VOICEMAIL,
+        startUpdate(UPDATE_MARK_AS_OLD_TOKEN, null, TelecomUtil.getCallLogUri(mContext),
                 values, where.toString(), null);
-    }
-
-    /** Updates all new voicemails to mark them as old. */
-    public void markNewVoicemailsAsOld() {
-        // Mark all "new" voicemails as not new anymore.
-        StringBuilder where = new StringBuilder();
-        where.append(Calls.NEW);
-        where.append(" = 1 AND ");
-        where.append(Calls.TYPE);
-        where.append(" = ?");
-
-        ContentValues values = new ContentValues(1);
-        values.put(Calls.NEW, "0");
-
-        startUpdate(UPDATE_MARK_VOICEMAILS_AS_OLD_TOKEN, null, Calls.CONTENT_URI_WITH_VOICEMAIL,
-                values, where.toString(), new String[]{ Integer.toString(Calls.VOICEMAIL_TYPE) });
     }
 
     /** Updates all missed calls to mark them as read. */
     public void markMissedCallsAsRead() {
+        if (!PermissionsUtil.hasPhonePermissions(mContext)) {
+            return;
+        }
         // Mark all "new" calls as not new anymore.
         StringBuilder where = new StringBuilder();
         where.append(Calls.IS_READ).append(" = 0");
@@ -224,7 +231,8 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
     }
 
     @Override
-    protected synchronized void onNotNullableQueryComplete(int token, Object cookie, Cursor cursor) {
+    protected synchronized void onNotNullableQueryComplete(int token, Object cookie,
+            Cursor cursor) {
         if (cursor == null) {
             return;
         }
@@ -271,7 +279,7 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
         void onVoicemailStatusFetched(Cursor statusCursor);
 
         /**
-         * Called when {@link CallLogQueryHandler#fetchCalls(int)}complete.
+         * Called when {@link CallLogQueryHandler#fetchCalls(int)} complete.
          * Returns true if takes ownership of cursor.
          */
         boolean onCallsFetched(Cursor combinedCursor);

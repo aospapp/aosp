@@ -16,10 +16,11 @@
 
 package android.widget.cts;
 
-import com.android.internal.R;
+import android.R;
 
 
 import android.content.Context;
+import android.content.res.Resources.Theme;
 import android.cts.util.WidgetTestUtils;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
@@ -258,6 +259,12 @@ public class SimpleAdapterTest extends InstrumentationTestCase {
             fail("Should throw IndexOutOfBoundsException if index is beyond the list's size");
         } catch (IndexOutOfBoundsException e) {
         }
+    }
+
+    public void testAccessDropDownViewTheme() {
+        Theme theme = mContext.getResources().newTheme();
+        mSimpleAdapter.setDropDownViewTheme(theme);
+        assertSame(theme, mSimpleAdapter.getDropDownViewTheme());
     }
 
     public void testAccessViewBinder() {

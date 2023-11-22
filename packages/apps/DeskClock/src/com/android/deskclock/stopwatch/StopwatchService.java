@@ -1,8 +1,6 @@
-
 package com.android.deskclock.stopwatch;
 
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
@@ -10,11 +8,14 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.view.View;
 import android.widget.RemoteViews;
 
 import com.android.deskclock.CircleTimerView;
 import com.android.deskclock.DeskClock;
+import com.android.deskclock.HandleDeskClockApiCalls;
 import com.android.deskclock.R;
 import com.android.deskclock.Utils;
 
@@ -27,7 +28,7 @@ public class StopwatchService extends Service {
     private long mElapsedTime;
     private long mStartTime;
     private boolean mLoadApp;
-    private NotificationManager mNotificationManager;
+    private NotificationManagerCompat mNotificationManager;
 
     // Constants for intent information
     // Make this a large number to avoid the alarm ID's which seem to be 1, 2, ...
@@ -45,7 +46,7 @@ public class StopwatchService extends Service {
         mElapsedTime = 0;
         mStartTime = 0;
         mLoadApp = false;
-        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager = NotificationManagerCompat.from(this);
     }
 
     @Override
@@ -62,62 +63,82 @@ public class StopwatchService extends Service {
         String actionType = intent.getAction();
         long actionTime = intent.getLongExtra(Stopwatches.MESSAGE_TIME, Utils.getTimeNow());
         boolean showNotif = intent.getBooleanExtra(Stopwatches.SHOW_NOTIF, true);
-        boolean updateCircle = showNotif; // Don't save updates to the cirle if we're in the app.
-        if (actionType.equals(Stopwatches.START_STOPWATCH)) {
-            mStartTime = actionTime;
-            writeSharedPrefsStarted(mStartTime, updateCircle);
-            if (showNotif) {
-                setNotification(mStartTime - mElapsedTime, true, mNumLaps);
-            } else {
-                saveNotification(mStartTime - mElapsedTime, true, mNumLaps);
-            }
-        } else if (actionType.equals(Stopwatches.LAP_STOPWATCH)) {
-            mNumLaps++;
-            long lapTimeElapsed = actionTime - mStartTime + mElapsedTime;
-            writeSharedPrefsLap(lapTimeElapsed, updateCircle);
-            if (showNotif) {
-                setNotification(mStartTime - mElapsedTime, true, mNumLaps);
-            } else {
-                saveNotification(mStartTime - mElapsedTime, true, mNumLaps);
-            }
-        } else if (actionType.equals(Stopwatches.STOP_STOPWATCH)) {
-            mElapsedTime = mElapsedTime + (actionTime - mStartTime);
-            writeSharedPrefsStopped(mElapsedTime, updateCircle);
-            if (showNotif) {
-                setNotification(actionTime - mElapsedTime, false, mNumLaps);
-            } else {
-                saveNotification(mElapsedTime, false, mNumLaps);
-            }
-        } else if (actionType.equals(Stopwatches.RESET_STOPWATCH)) {
-            mLoadApp = false;
-            writeSharedPrefsReset(updateCircle);
-            clearSavedNotification();
-            stopSelf();
-        } else if (actionType.equals(Stopwatches.RESET_AND_LAUNCH_STOPWATCH)) {
-            mLoadApp = true;
-            writeSharedPrefsReset(updateCircle);
-            clearSavedNotification();
-            closeNotificationShade();
-            stopSelf();
-        } else if (actionType.equals(Stopwatches.SHARE_STOPWATCH)) {
-            closeNotificationShade();
-            Intent shareIntent = new Intent(android.content.Intent.ACTION_SEND);
-            shareIntent.setType("text/plain");
-            shareIntent.putExtra(
-                    Intent.EXTRA_SUBJECT, Stopwatches.getShareTitle(getApplicationContext()));
-            shareIntent.putExtra(Intent.EXTRA_TEXT, Stopwatches.buildShareResults(
-                    getApplicationContext(), mElapsedTime, readLapsFromPrefs()));
-            Intent chooserIntent = Intent.createChooser(shareIntent, null);
-            chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getApplication().startActivity(chooserIntent);
-        } else if (actionType.equals(Stopwatches.SHOW_NOTIF)) {
-            // SHOW_NOTIF sent from the DeskClock.onPause
-            // If a notification is not displayed, this service's work is over
-            if (!showSavedNotification()) {
+        // Update the stopwatch circle when the app is open or is being opened.
+        boolean updateCircle = !showNotif
+                || intent.getAction().equals(Stopwatches.RESET_AND_LAUNCH_STOPWATCH);
+        switch(actionType) {
+            case HandleDeskClockApiCalls.ACTION_START_STOPWATCH:
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this) ;
+                prefs.edit().putBoolean(Stopwatches.NOTIF_CLOCK_RUNNING, true).apply();
+
+                mStartTime = actionTime;
+                writeSharedPrefsStarted(mStartTime, updateCircle);
+                if (showNotif) {
+                    setNotification(mStartTime - mElapsedTime, true, mNumLaps);
+                } else {
+                    saveNotification(mStartTime - mElapsedTime, true, mNumLaps);
+                }
+                break;
+            case HandleDeskClockApiCalls.ACTION_LAP_STOPWATCH:
+                mNumLaps++;
+                long lapTimeElapsed = actionTime - mStartTime + mElapsedTime;
+                writeSharedPrefsLap(lapTimeElapsed, updateCircle);
+                if (showNotif) {
+                    setNotification(mStartTime - mElapsedTime, true, mNumLaps);
+                } else {
+                    saveNotification(mStartTime - mElapsedTime, true, mNumLaps);
+                }
+                break;
+            case HandleDeskClockApiCalls.ACTION_STOP_STOPWATCH:
+                prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                prefs.edit().putBoolean(Stopwatches.NOTIF_CLOCK_RUNNING, false).apply();
+
+                mElapsedTime = mElapsedTime + (actionTime - mStartTime);
+                writeSharedPrefsStopped(mElapsedTime, updateCircle);
+                if (showNotif) {
+                    setNotification(actionTime - mElapsedTime, false, mNumLaps);
+                } else {
+                    saveNotification(mElapsedTime, false, mNumLaps);
+                }
+                break;
+            case HandleDeskClockApiCalls.ACTION_RESET_STOPWATCH:
+                mLoadApp = false;
+                writeSharedPrefsReset(updateCircle);
+                clearSavedNotification();
                 stopSelf();
-            }
-        } else if (actionType.equals(Stopwatches.KILL_NOTIF)) {
-            mNotificationManager.cancel(NOTIFICATION_ID);
+                break;
+            case Stopwatches.RESET_AND_LAUNCH_STOPWATCH:
+                mLoadApp = true;
+                writeSharedPrefsReset(updateCircle);
+                clearSavedNotification();
+                closeNotificationShade();
+                stopSelf();
+                break;
+            case Stopwatches.SHARE_STOPWATCH:
+                if  (mElapsedTime > 0) {
+                    closeNotificationShade();
+                    Intent shareIntent = new Intent(android.content.Intent.ACTION_SEND);
+                    shareIntent.setType("text/plain");
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, Stopwatches.getShareTitle(
+                            getApplicationContext()));
+                    shareIntent.putExtra(Intent.EXTRA_TEXT, Stopwatches.buildShareResults(
+                            getApplicationContext(), mElapsedTime, readLapsFromPrefs()));
+                    Intent chooserIntent = Intent.createChooser(shareIntent, null);
+                    chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getApplication().startActivity(chooserIntent);
+                }
+                break;
+            case Stopwatches.SHOW_NOTIF:
+                // SHOW_NOTIF sent from the DeskClock.onPause
+                // If a notification is not displayed, this service's work is over
+                if (!showSavedNotification()) {
+                    stopSelf();
+                }
+                break;
+            case Stopwatches.KILL_NOTIF:
+                mNotificationManager.cancel(NOTIFICATION_ID);
+                break;
+
         }
 
         // We want this service to continue running until it is explicitly
@@ -174,23 +195,23 @@ public class StopwatchService extends Service {
             remoteViewsExpanded.setTextViewText(
                     R.id.swn_left_button, getResources().getText(R.string.sw_lap_button));
             Intent leftButtonIntent = new Intent(context, StopwatchService.class);
-            leftButtonIntent.setAction(Stopwatches.LAP_STOPWATCH);
+            leftButtonIntent.setAction(HandleDeskClockApiCalls.ACTION_LAP_STOPWATCH);
             remoteViewsExpanded.setOnClickPendingIntent(R.id.swn_left_button,
                     PendingIntent.getService(context, 0, leftButtonIntent, 0));
             remoteViewsExpanded.
                     setTextViewCompoundDrawablesRelative(R.id.swn_left_button,
-                            R.drawable.ic_notify_lap, 0, 0, 0);
+                            R.drawable.ic_lap_24dp, 0, 0, 0);
 
             // Right button: stop clock
             remoteViewsExpanded.setTextViewText(
                     R.id.swn_right_button, getResources().getText(R.string.sw_stop_button));
             Intent rightButtonIntent = new Intent(context, StopwatchService.class);
-            rightButtonIntent.setAction(Stopwatches.STOP_STOPWATCH);
+            rightButtonIntent.setAction(HandleDeskClockApiCalls.ACTION_STOP_STOPWATCH);
             remoteViewsExpanded.setOnClickPendingIntent(R.id.swn_right_button,
                     PendingIntent.getService(context, 0, rightButtonIntent, 0));
             remoteViewsExpanded.
                     setTextViewCompoundDrawablesRelative(R.id.swn_right_button,
-                            R.drawable.ic_notify_stop, 0, 0, 0);
+                            R.drawable.ic_stop_24dp, 0, 0, 0);
 
             // Show the laps if applicable.
             if (numLaps > 0) {
@@ -214,18 +235,18 @@ public class StopwatchService extends Service {
                     PendingIntent.getService(context, 0, leftButtonIntent, 0));
             remoteViewsExpanded.
                     setTextViewCompoundDrawablesRelative(R.id.swn_left_button,
-                            R.drawable.ic_notify_reset, 0, 0, 0);
+                            R.drawable.ic_reset_24dp, 0, 0, 0);
 
             // Right button: start clock
             remoteViewsExpanded.setTextViewText(
                     R.id.swn_right_button, getResources().getText(R.string.sw_start_button));
             Intent rightButtonIntent = new Intent(context, StopwatchService.class);
-            rightButtonIntent.setAction(Stopwatches.START_STOPWATCH);
+            rightButtonIntent.setAction(HandleDeskClockApiCalls.ACTION_START_STOPWATCH);
             remoteViewsExpanded.setOnClickPendingIntent(R.id.swn_right_button,
                     PendingIntent.getService(context, 0, rightButtonIntent, 0));
             remoteViewsExpanded.
                     setTextViewCompoundDrawablesRelative(R.id.swn_right_button,
-                            R.drawable.ic_notify_start, 0, 0, 0);
+                            R.drawable.ic_start_24dp, 0, 0, 0);
 
             // Show stopped string.
             remoteViewsCollapsed.
@@ -237,9 +258,9 @@ public class StopwatchService extends Service {
         }
 
         Intent dismissIntent = new Intent(context, StopwatchService.class);
-        dismissIntent.setAction(Stopwatches.RESET_STOPWATCH);
+        dismissIntent.setAction(HandleDeskClockApiCalls.ACTION_RESET_STOPWATCH);
 
-        Notification notification = new Notification.Builder(context)
+        Notification notification = new NotificationCompat.Builder(context)
                 .setAutoCancel(!clockRunning)
                 .setContent(remoteViewsCollapsed)
                 .setOngoing(clockRunning)

@@ -165,14 +165,16 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
     protected void onSaveInstanceState (Bundle outState) {
         final int stateIndex = mTestList.indexOf(mCurrentTest);
         outState.putInt(STATE, stateIndex);
-        outState.putInt(STATUS, mCurrentTest.status);
-        Log.i(TAG, "saved state(" + stateIndex + "}, status(" + (mCurrentTest.status) + ")");
+        final int status = mCurrentTest == null ? SETUP : mCurrentTest.status;
+        outState.putInt(STATUS, status);
+        Log.i(TAG, "saved state(" + stateIndex + "}, status(" + status + ")");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (mCurrentTest.autoStart()) {
+        //To avoid NPE during onResume,before start to iterate next test order
+        if (mCurrentTest!= null && mCurrentTest.autoStart()) {
             mCurrentTest.status = READY;
         }
         next();
@@ -382,6 +384,7 @@ public abstract class InteractiveVerifierActivity extends PassFailButtons.Activi
 
         @Override
         void test() {
+            mNm.cancelAll();
             Intent settings = new Intent(NOTIFICATION_LISTENER_SETTINGS);
             if (settings.resolveActivity(mPackageManager) == null) {
                 logFail("no settings activity");

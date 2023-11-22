@@ -22,7 +22,6 @@
 
 #include "../arch/arch.h"
 #include "axmap.h"
-#include "../smalloc.h"
 #include "../minmax.h"
 
 #if BITS_PER_LONG == 64
@@ -33,7 +32,7 @@
 #error "Number of arch bits unknown"
 #endif
 
-#define BLOCKS_PER_UNIT		(1UL << UNIT_SHIFT)
+#define BLOCKS_PER_UNIT		(1U << UNIT_SHIFT)
 #define BLOCKS_PER_UNIT_MASK	(BLOCKS_PER_UNIT - 1)
 
 #define firstfree_valid(b)	((b)->first_free != (uint64_t) -1)
@@ -80,10 +79,10 @@ void axmap_free(struct axmap *axmap)
 		return;
 
 	for (i = 0; i < axmap->nr_levels; i++)
-		sfree(axmap->levels[i].map);
+		free(axmap->levels[i].map);
 
-	sfree(axmap->levels);
-	sfree(axmap);
+	free(axmap->levels);
+	free(axmap);
 }
 
 struct axmap *axmap_new(unsigned long nr_bits)
@@ -91,7 +90,7 @@ struct axmap *axmap_new(unsigned long nr_bits)
 	struct axmap *axmap;
 	unsigned int i, levels;
 
-	axmap = smalloc(sizeof(*axmap));
+	axmap = malloc(sizeof(*axmap));
 	if (!axmap)
 		return NULL;
 
@@ -103,7 +102,7 @@ struct axmap *axmap_new(unsigned long nr_bits)
 	}
 
 	axmap->nr_levels = levels;
-	axmap->levels = smalloc(axmap->nr_levels * sizeof(struct axmap_level));
+	axmap->levels = malloc(axmap->nr_levels * sizeof(struct axmap_level));
 	axmap->nr_bits = nr_bits;
 
 	for (i = 0; i < axmap->nr_levels; i++) {
@@ -111,7 +110,7 @@ struct axmap *axmap_new(unsigned long nr_bits)
 
 		al->level = i;
 		al->map_size = (nr_bits + BLOCKS_PER_UNIT - 1) >> UNIT_SHIFT;
-		al->map = smalloc(al->map_size * sizeof(unsigned long));
+		al->map = malloc(al->map_size * sizeof(unsigned long));
 		if (!al->map)
 			goto err;
 
@@ -123,9 +122,10 @@ struct axmap *axmap_new(unsigned long nr_bits)
 err:
 	for (i = 0; i < axmap->nr_levels; i++)
 		if (axmap->levels[i].map)
-			sfree(axmap->levels[i].map);
+			free(axmap->levels[i].map);
 
-	sfree(axmap->levels);
+	free(axmap->levels);
+	free(axmap);
 	return NULL;
 }
 
@@ -369,7 +369,7 @@ static uint64_t axmap_find_first_free(struct axmap *axmap, unsigned int level,
 	return (uint64_t) -1ULL;
 }
 
-uint64_t axmap_first_free(struct axmap *axmap)
+static uint64_t axmap_first_free(struct axmap *axmap)
 {
 	if (firstfree_valid(axmap))
 		return axmap->first_free;

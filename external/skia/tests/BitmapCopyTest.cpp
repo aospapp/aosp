@@ -61,11 +61,11 @@ static void init_src(const SkBitmap& bitmap) {
     }
 }
 
-static SkColorTable* init_ctable(SkAlphaType alphaType) {
+static SkColorTable* init_ctable() {
     static const SkColor colors[] = {
         SK_ColorBLACK, SK_ColorRED, SK_ColorGREEN, SK_ColorBLUE, SK_ColorWHITE
     };
-    return new SkColorTable(colors, SK_ARRAY_COUNT(colors), alphaType);
+    return new SkColorTable(colors, SK_ARRAY_COUNT(colors));
 }
 
 struct Pair {
@@ -185,7 +185,7 @@ static void writeCoordPixels(SkBitmap& bm, const Coordinates& coords) {
 static const Pair gPairs[] = {
     { kUnknown_SkColorType,     "000000"  },
     { kAlpha_8_SkColorType,     "010101"  },
-    { kIndex_8_SkColorType,     "011101"  },
+    { kIndex_8_SkColorType,     "011111"  },
     { kRGB_565_SkColorType,     "010101"  },
     { kARGB_4444_SkColorType,   "010111"  },
     { kN32_SkColorType,         "010111"  },
@@ -196,19 +196,16 @@ static const int H = 33;
 
 static void setup_src_bitmaps(SkBitmap* srcOpaque, SkBitmap* srcPremul,
                               SkColorType ct) {
-    SkColorTable* ctOpaque = NULL;
-    SkColorTable* ctPremul = NULL;
+    SkColorTable* ctable = NULL;
     if (kIndex_8_SkColorType == ct) {
-        ctOpaque = init_ctable(kOpaque_SkAlphaType);
-        ctPremul = init_ctable(kPremul_SkAlphaType);
+        ctable = init_ctable();
     }
 
     srcOpaque->allocPixels(SkImageInfo::Make(W, H, ct, kOpaque_SkAlphaType),
-                           NULL, ctOpaque);
+                           NULL, ctable);
     srcPremul->allocPixels(SkImageInfo::Make(W, H, ct, kPremul_SkAlphaType),
-                           NULL, ctPremul);
-    SkSafeUnref(ctOpaque);
-    SkSafeUnref(ctPremul);
+                           NULL, ctable);
+    SkSafeUnref(ctable);
     init_src(*srcOpaque);
     init_src(*srcPremul);
 }
@@ -384,17 +381,19 @@ DEF_TEST(BitmapCopy, reporter) {
             SkBitmap src, subset;
             SkColorTable* ct = NULL;
             if (kIndex_8_SkColorType == src.colorType()) {
-                ct = init_ctable(kPremul_SkAlphaType);
+                ct = init_ctable();
             }
 
+            int localSubW;
             if (isExtracted[copyCase]) { // A larger image to extract from.
-                src.allocPixels(SkImageInfo::Make(2 * subW + 1, subH,
-                                                  gPairs[i].fColorType,
-                                                  kPremul_SkAlphaType));
+                localSubW = 2 * subW + 1;
             } else { // Tests expect a 2x2 bitmap, so make smaller.
-                src.allocPixels(SkImageInfo::Make(subW, subH,
-                                                  gPairs[i].fColorType,
-                                                  kPremul_SkAlphaType));
+                localSubW = subW;
+            }
+            // could fail if we pass kIndex_8 for the colortype
+            if (src.tryAllocPixels(SkImageInfo::Make(localSubW, subH, gPairs[i].fColorType,
+                                                     kPremul_SkAlphaType))) {
+                // failure is fine, as we will notice later on
             }
             SkSafeUnref(ct);
 
@@ -542,3 +541,96 @@ DEF_TEST(BitmapCopy, reporter) {
         } // for (size_t copyCase ...
     }
 }
+
+#include "SkColorPriv.h"
+#include "SkUtils.h"
+
+/**
+ *  Construct 4x4 pixels where we can look at a color and determine where it should be in the grid.
+ *  alpha = 0xFF, blue = 0x80, red = x, green = y
+ */
+static void fill_4x4_pixels(SkPMColor colors[16]) {
+    for (int y = 0; y < 4; ++y) {
+        for (int x = 0; x < 4; ++x) {
+            colors[y*4+x] = SkPackARGB32(0xFF, x, y, 0x80);
+        }
+    }
+}
+
+static bool check_4x4_pixel(SkPMColor color, unsigned x, unsigned y) {
+    SkASSERT(x < 4 && y < 4);
+    return  0xFF == SkGetPackedA32(color) &&
+            x    == SkGetPackedR32(color) &&
+            y    == SkGetPackedG32(color) &&
+            0x80 == SkGetPackedB32(color);
+}
+
+/**
+ *  Fill with all zeros, which will never match any value from fill_4x4_pixels
+ */
+static void clear_4x4_pixels(SkPMColor colors[16]) {
+    sk_memset32(colors, 0, 16);
+}
+
+// Much of readPixels is exercised by copyTo testing, since readPixels is the backend for that
+// method. Here we explicitly test subset copies.
+//
+DEF_TEST(BitmapReadPixels, reporter) {
+    const int W = 4;
+    const int H = 4;
+    const size_t rowBytes = W * sizeof(SkPMColor);
+    const SkImageInfo srcInfo = SkImageInfo::MakeN32Premul(W, H);
+    SkPMColor srcPixels[16];
+    fill_4x4_pixels(srcPixels);
+    SkBitmap srcBM;
+    srcBM.installPixels(srcInfo, srcPixels, rowBytes);
+
+    SkImageInfo dstInfo = SkImageInfo::MakeN32Premul(W, H);
+    SkPMColor dstPixels[16];
+
+    const struct {
+        bool     fExpectedSuccess;
+        SkIPoint fRequestedSrcLoc;
+        SkISize  fRequestedDstSize;
+        // If fExpectedSuccess, check these, otherwise ignore
+        SkIPoint fExpectedDstLoc;
+        SkIRect  fExpectedSrcR;
+    } gRec[] = {
+        { true,  { 0, 0 }, { 4, 4 }, { 0, 0 }, { 0, 0, 4, 4 } },
+        { true,  { 1, 1 }, { 2, 2 }, { 0, 0 }, { 1, 1, 3, 3 } },
+        { true,  { 2, 2 }, { 4, 4 }, { 0, 0 }, { 2, 2, 4, 4 } },
+        { true,  {-1,-1 }, { 2, 2 }, { 1, 1 }, { 0, 0, 1, 1 } },
+        { false, {-1,-1 }, { 1, 1 }, { 0, 0 }, { 0, 0, 0, 0 } },
+    };
+
+    for (size_t i = 0; i < SK_ARRAY_COUNT(gRec); ++i) {
+        clear_4x4_pixels(dstPixels);
+
+        dstInfo = dstInfo.makeWH(gRec[i].fRequestedDstSize.width(),
+                                 gRec[i].fRequestedDstSize.height());
+        bool success = srcBM.readPixels(dstInfo, dstPixels, rowBytes,
+                                        gRec[i].fRequestedSrcLoc.x(), gRec[i].fRequestedSrcLoc.y());
+        
+        REPORTER_ASSERT(reporter, gRec[i].fExpectedSuccess == success);
+        if (success) {
+            const SkIRect srcR = gRec[i].fExpectedSrcR;
+            const int dstX = gRec[i].fExpectedDstLoc.x();
+            const int dstY = gRec[i].fExpectedDstLoc.y();
+            // Walk the dst pixels, and check if we got what we expected
+            for (int y = 0; y < H; ++y) {
+                for (int x = 0; x < W; ++x) {
+                    SkPMColor dstC = dstPixels[y*4+x];
+                    // get into src coordinates
+                    int sx = x - dstX + srcR.x();
+                    int sy = y - dstY + srcR.y();
+                    if (srcR.contains(sx, sy)) {
+                        REPORTER_ASSERT(reporter, check_4x4_pixel(dstC, sx, sy));
+                    } else {
+                        REPORTER_ASSERT(reporter, 0 == dstC);
+                    }
+                }
+            }
+        }
+    }
+}
+

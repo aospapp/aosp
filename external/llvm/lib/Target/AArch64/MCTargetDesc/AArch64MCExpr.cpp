@@ -16,6 +16,7 @@
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELF.h"
+#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Object/ELF.h"
@@ -90,8 +91,9 @@ const MCSection *AArch64MCExpr::FindAssociatedSection() const {
 }
 
 bool AArch64MCExpr::EvaluateAsRelocatableImpl(MCValue &Res,
-                                            const MCAsmLayout *Layout) const {
-  if (!getSubExpr()->EvaluateAsRelocatable(Res, Layout))
+                                            const MCAsmLayout *Layout,
+					    const MCFixup *Fixup) const {
+  if (!getSubExpr()->EvaluateAsRelocatable(Res, Layout, Fixup))
     return false;
 
   Res =

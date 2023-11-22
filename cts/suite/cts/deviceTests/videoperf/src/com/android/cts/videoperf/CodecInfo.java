@@ -16,6 +16,7 @@
 
 package com.android.cts.videoperf;
 
+import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
@@ -23,7 +24,9 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.util.Log;
+import android.util.Range;
 
+import java.io.IOException;
 
 /**
  * Utility class for getting codec information like bit rate, fps, and etc.
@@ -43,32 +46,25 @@ public class CodecInfo {
     private static final String VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
     /**
      * Check if given codec with given (w,h) is supported.
+     * @param codecName codec name
      * @param mimeType codec type in mime format like MediaFormat.MIMETYPE_VIDEO_AVC
      * @param w video width
      * @param h video height
-     * @param isEncoder whether the codec is encoder or decoder
      * @return null if the configuration is not supported.
      */
     public static CodecInfo getSupportedFormatInfo(
-            String mimeType, int w, int h, boolean isEncoder) {
-        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
-        MediaFormat format = MediaFormat.createVideoFormat(mimeType, w, h);
-        String codec = isEncoder
-                ? mcl.findEncoderForFormat(format)
-                : mcl.findDecoderForFormat(format);
-        if (codec == null) { // not supported
+            String codecName, String mimeType, int w, int h) {
+        MediaCodec codec;
+        try {
+            codec = MediaCodec.createByCodecName(codecName);
+        } catch (IOException e) {
             return null;
         }
-        CodecCapabilities cap = null;
-        for (MediaCodecInfo info : mcl.getCodecInfos()) {
-            if (info.getName().equals(codec)) {
-                cap = info.getCapabilitiesForType(mimeType);
-                break;
-            }
-        }
 
+        CodecCapabilities cap = codec.getCodecInfo().getCapabilitiesForType(mimeType);
         if (cap.colorFormats.length == 0) {
             Log.w(TAG, "no supported color format");
+            codec.release();
             return null;
         }
 
@@ -84,11 +80,16 @@ public class CodecInfo {
         printIntArray("supported colors", cap.colorFormats);
 
         VideoCapabilities vidCap = cap.getVideoCapabilities();
-        if (mimeType.equals(VIDEO_AVC)) {
+        try {
             info.mFps = vidCap.getSupportedFrameRatesFor(w, h).getUpper().intValue();
-            info.mBitRate = vidCap.getBitrateRange().getUpper();
-            Log.i(TAG, "AVC bit rate " + info.mBitRate + " fps " + info.mFps);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "unsupported size");
+            codec.release();
+            return null;
         }
+        info.mBitRate = vidCap.getBitrateRange().getUpper();
+        Log.i(TAG, "test bit rate " + info.mBitRate + " fps " + info.mFps);
+        codec.release();
         return info;
     }
 

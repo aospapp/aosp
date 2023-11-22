@@ -16,17 +16,18 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.Iterator;
 
 /**
  * Adapts a test iterable generator to give a TestIteratorGenerator.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public final class DerivedTestIteratorGenerator<E>
-    implements TestIteratorGenerator<E> {
+    implements TestIteratorGenerator<E>, DerivedGenerator {
   private final TestSubjectGenerator<? extends Iterable<E>>
       collectionGenerator;
 
@@ -35,7 +36,8 @@ public final class DerivedTestIteratorGenerator<E>
     this.collectionGenerator = collectionGenerator;
   }
 
-  public TestSubjectGenerator<? extends Iterable<E>> getCollectionGenerator() {
+  @Override
+  public TestSubjectGenerator<? extends Iterable<E>> getInnerGenerator() {
     return collectionGenerator;
   }
 

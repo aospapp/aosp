@@ -21,12 +21,17 @@
 
 #include "base/logging.h"
 #include "base/macros.h"
-#include "mirror/object_reference.h"
 
 namespace art {
-namespace mirror {
-class Object;
-}  // namespace mirror
+
+static constexpr size_t kObjectReferenceSize = 4;
+
+constexpr size_t ComponentSizeShiftWidth(size_t component_size) {
+  return component_size == 1u ? 0u :
+      component_size == 2u ? 1u :
+          component_size == 4u ? 2u :
+              component_size == 8u ? 3u : 0u;
+}
 
 class Primitive {
  public:
@@ -68,6 +73,24 @@ class Primitive {
     }
   }
 
+  static size_t ComponentSizeShift(Type type) {
+    switch (type) {
+      case kPrimVoid:
+      case kPrimBoolean:
+      case kPrimByte:    return 0;
+      case kPrimChar:
+      case kPrimShort:   return 1;
+      case kPrimInt:
+      case kPrimFloat:   return 2;
+      case kPrimLong:
+      case kPrimDouble:  return 3;
+      case kPrimNot:     return ComponentSizeShiftWidth(kObjectReferenceSize);
+      default:
+        LOG(FATAL) << "Invalid type " << static_cast<int>(type);
+        return 0;
+    }
+  }
+
   static size_t ComponentSize(Type type) {
     switch (type) {
       case kPrimVoid:    return 0;
@@ -79,15 +102,11 @@ class Primitive {
       case kPrimFloat:   return 4;
       case kPrimLong:
       case kPrimDouble:  return 8;
-      case kPrimNot:     return sizeof(mirror::HeapReference<mirror::Object>);
+      case kPrimNot:     return kObjectReferenceSize;
       default:
         LOG(FATAL) << "Invalid type " << static_cast<int>(type);
         return 0;
     }
-  }
-
-  static size_t FieldSize(Type type) {
-    return ComponentSize(type) <= 4 ? 4 : 8;
   }
 
   static const char* Descriptor(Type type) {
@@ -112,8 +131,38 @@ class Primitive {
         return "V";
       default:
         LOG(FATAL) << "Primitive char conversion on invalid type " << static_cast<int>(type);
-        return NULL;
+        return nullptr;
     }
+  }
+
+  static const char* PrettyDescriptor(Type type);
+
+  static bool IsFloatingPointType(Type type) {
+    return type == kPrimFloat || type == kPrimDouble;
+  }
+
+  static bool IsIntegralType(Type type) {
+    // The Java language does not allow treating boolean as an integral type but
+    // our bit representation makes it safe.
+    switch (type) {
+      case kPrimBoolean:
+      case kPrimByte:
+      case kPrimChar:
+      case kPrimShort:
+      case kPrimInt:
+      case kPrimLong:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  static bool IsIntOrLongType(Type type) {
+    return type == kPrimInt || type == kPrimLong;
+  }
+
+  static bool Is64BitType(Type type) {
+    return type == kPrimLong || type == kPrimDouble;
   }
 
  private:

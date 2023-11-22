@@ -23,6 +23,7 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.annotation.StyleRes;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -282,7 +283,7 @@ public class DialogFragment extends Fragment
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         mShowsDialog = mContainerId == 0;
@@ -305,22 +306,29 @@ public class DialogFragment extends Fragment
         }
 
         mDialog = onCreateDialog(savedInstanceState);
-        switch (mStyle) {
-            case STYLE_NO_INPUT:
-                mDialog.getWindow().addFlags(
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-                // fall through...
-            case STYLE_NO_FRAME:
-            case STYLE_NO_TITLE:
-                mDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        }
+
         if (mDialog != null) {
+            setupDialog(mDialog, mStyle);
+
             return (LayoutInflater) mDialog.getContext().getSystemService(
                     Context.LAYOUT_INFLATER_SERVICE);
         }
-        return (LayoutInflater) mActivity.getSystemService(
+        return (LayoutInflater) mHost.getContext().getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
+    }
+
+    /** @hide */
+    public void setupDialog(Dialog dialog, int style) {
+        switch (style) {
+            case STYLE_NO_INPUT:
+                dialog.getWindow().addFlags(
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+                // fall through...
+            case STYLE_NO_FRAME:
+            case STYLE_NO_TITLE:
+                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        }
     }
     
     /**

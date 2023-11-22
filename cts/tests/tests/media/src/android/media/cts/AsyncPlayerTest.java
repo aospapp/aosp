@@ -18,6 +18,7 @@ package android.media.cts;
 
 import android.content.Context;
 import android.media.AsyncPlayer;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.provider.Settings;
@@ -34,4 +35,13 @@ public class AsyncPlayerTest extends AndroidTestCase {
         asyncPlayer.stop();
     }
 
+    public void testAsyncPlayerAudioAttributes() throws Exception {
+        final Uri PLAY_URI = Settings.System.DEFAULT_NOTIFICATION_URI;
+        AsyncPlayer asyncPlayer = new AsyncPlayer(null);
+        asyncPlayer.play(getContext(), PLAY_URI, true,
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
+        final int PLAY_TIME = 3000;
+        Thread.sleep(PLAY_TIME);
+        asyncPlayer.stop();
+    }
 }

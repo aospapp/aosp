@@ -24,6 +24,7 @@
 #include <cutils/compiler.h>
 #include <utils/Log.h>
 #include "rsGrallocConsumer.h"
+#include <gui/BufferItem.h>
 #include <ui/GraphicBuffer.h>
 
 
@@ -69,7 +70,7 @@ status_t GrallocConsumer::lockNextBuffer() {
         }
     }
 
-    BufferQueue::BufferItem b;
+    BufferItem b;
 
     err = acquireBufferLocked(&b, 0);
     if (err != OK) {
@@ -92,7 +93,7 @@ status_t GrallocConsumer::lockNextBuffer() {
         }
     }
 
-    void *bufferPointer = NULL;
+    void *bufferPointer = nullptr;
     android_ycbcr ycbcr = android_ycbcr();
 
     if (mSlots[buf].mGraphicBuffer->getPixelFormat() ==
@@ -146,7 +147,7 @@ status_t GrallocConsumer::lockNextBuffer() {
     //mAlloc->scalingMode = b.mScalingMode;
     //mAlloc->frameNumber = b.mFrameNumber;
 
-    if (mAlloc->mHal.state.yuv) {
+    if (mAlloc->mHal.state.yuv == HAL_PIXEL_FORMAT_YCbCr_420_888) {
         mAlloc->mHal.drvState.lod[1].mallocPtr = ycbcr.cb;
         mAlloc->mHal.drvState.lod[2].mallocPtr = ycbcr.cr;
 
@@ -187,7 +188,7 @@ status_t GrallocConsumer::releaseAcquiredBufferLocked() {
     }
 
     mAcquiredBuffer.mSlot = BufferQueue::INVALID_BUFFER_SLOT;
-    mAcquiredBuffer.mBufferPointer = NULL;
+    mAcquiredBuffer.mBufferPointer = nullptr;
     mAcquiredBuffer.mGraphicBuffer.clear();
     return OK;
 }

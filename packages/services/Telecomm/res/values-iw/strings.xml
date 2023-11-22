@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"טלפון"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"ניהול שיחות טלפון"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"טלפון"</string>
     <string name="unknown" msgid="6878797917991465859">"לא ידוע"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"שיחה שלא נענתה"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"שיחות שלא נענו"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"תגובה מהירה"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"הודעה נשלחה אל <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"בעלי המכשיר מתיר לבצע שיחות חירום בלבד"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"חשבונות לביצוע שיחות"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"בעל המכשיר מתיר לבצע שיחות חירום בלבד."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"לא ניתן לבצע שיחות יוצאות באמצעות האפליקציה הזו ללא ההרשאה \'טלפון\'."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"כדי להתקשר, הזן מספר טלפון חוקי."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"לא ניתן כעת להוסיף את השיחה."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"‏השבת את מצב TTY כדי לבצע שיחות וידאו."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"חסר מספר של דואר קולי"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"‏בכרטיס ה-SIM לא מאוחסן מספר של דואר קולי."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"הוסף מספר"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"האם לשנות את אפליקציית החייגן שבברירת מחדל?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"האם להשתמש ב-<xliff:g id="NEW_APP">%1$s</xliff:g> במקום ב-<xliff:g id="CURRENT_APP">%2$s</xliff:g> כאפליקציית החייגן שבברירת מחדל?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"האם להשתמש ב-<xliff:g id="NEW_APP">%s</xliff:g> כאפליקציית החייגן שבברירת מחדל?"</string>
 </resources>

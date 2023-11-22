@@ -63,12 +63,12 @@ public class BitmapWorkerTask extends AsyncTask<BitmapWorkerOptions, Void, Bitma
     private static final int SOCKET_TIMEOUT = 10000;
     private static final int READ_TIMEOUT = 10000;
 
-    private WeakReference<ImageView> mImageView;
+    private final WeakReference<ImageView> mImageView;
     // a flag for if the bitmap is scaled from original source
     protected boolean mScaled;
 
     public BitmapWorkerTask(ImageView imageView) {
-        mImageView = new WeakReference<ImageView>(imageView);
+        mImageView = new WeakReference<>(imageView);
         mScaled = false;
     }
 
@@ -117,11 +117,9 @@ public class BitmapWorkerTask extends AsyncTask<BitmapWorkerOptions, Void, Bitma
 
     @Override
     protected void onPostExecute(Bitmap bitmap) {
-        if (mImageView != null) {
-            final ImageView imageView = mImageView.get();
-            if (imageView != null) {
-                imageView.setImageBitmap(bitmap);
-            }
+        final ImageView imageView = mImageView.get();
+        if (imageView != null) {
+            imageView.setImageBitmap(bitmap);
         }
     }
 
@@ -130,8 +128,6 @@ public class BitmapWorkerTask extends AsyncTask<BitmapWorkerOptions, Void, Bitma
         if (DEBUG) {
             Log.d(TAG, "Loading " + iconResource.toString());
         }
-        String packageName = iconResource.packageName;
-        String resourceName = iconResource.resourceName;
         try {
             Object drawable = loadDrawable(context, iconResource);
             if (drawable instanceof InputStream) {

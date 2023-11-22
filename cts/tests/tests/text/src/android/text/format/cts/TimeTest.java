@@ -36,16 +36,20 @@ public class TimeTest extends AndroidTestCase {
 
     private Locale originalLocale;
 
+    private static List<Locale> sSystemLocales;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         originalLocale = Locale.getDefault();
+
+        maybeInitializeSystemLocales();
     }
 
     @Override
     public void tearDown() throws Exception {
         // The Locale may be changed by tests. Revert to the original.
-        changeJavaAndAndroidLocale(originalLocale);
+        changeJavaAndAndroidLocale(originalLocale, true /* force */);
         super.tearDown();
     }
 
@@ -771,7 +775,10 @@ public class TimeTest extends AndroidTestCase {
     }
 
     public void testFormat_tokensUkLocale() throws Exception {
-        changeJavaAndAndroidLocale(Locale.UK);
+        if (!changeJavaAndAndroidLocale(Locale.UK, false /* force */)) {
+            Log.w(TAG, "Skipping testFormat_tokensUkLocale: no assets found");
+            return;
+        }
 
         Time t = new Time("Europe/London");
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
@@ -806,10 +813,10 @@ public class TimeTest extends AndroidTestCase {
         assertFormatEquals(t, "%m", "06");
         assertFormatEquals(t, "%n", "\n");
         assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "pm");
-        assertFormatEquals(t, "%P", "pm");
+        assertFormatEquals(t, "%p", "p.m.");
+        assertFormatEquals(t, "%P", "p.m.");
         assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 pm");
+        assertFormatEquals(t, "%r", "12:30:15 p.m.");
         assertFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's
@@ -863,7 +870,10 @@ public class TimeTest extends AndroidTestCase {
     }
 
     public void testFormat_tokensUsLocale() throws Exception {
-        changeJavaAndAndroidLocale(Locale.US);
+        if (!changeJavaAndAndroidLocale(Locale.US, false /* force */)) {
+            Log.w(TAG, "Skipping testFormat_tokensUSLocale: no assets found");
+            return;
+        }
 
         Time t = new Time("America/New_York");
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
@@ -955,7 +965,10 @@ public class TimeTest extends AndroidTestCase {
     }
 
     public void testFormat_tokensFranceLocale() throws Exception {
-        changeJavaAndAndroidLocale(Locale.FRANCE);
+        if (!changeJavaAndAndroidLocale(Locale.FRANCE, false /* force */)) {
+            Log.w(TAG, "Skipping testFormat_tokensFranceLocale: no assets found");
+            return;
+        }
 
         Time t = new Time("Europe/Paris");
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
@@ -1047,7 +1060,10 @@ public class TimeTest extends AndroidTestCase {
     }
 
     public void testFormat_tokensJapanLocale() throws Exception {
-        changeJavaAndAndroidLocale(Locale.JAPAN);
+        if (!changeJavaAndAndroidLocale(Locale.JAPAN, false /* force */)) {
+            Log.w(TAG, "Skipping testFormat_tokensJapanLocale: no assets found");
+            return;
+        }
 
         Time t = new Time("Asia/Tokyo");
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
@@ -2843,7 +2859,19 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
-    private static void changeJavaAndAndroidLocale(Locale locale) {
+    private static void maybeInitializeSystemLocales() {
+        if (sSystemLocales == null) {
+            String[] locales = Resources.getSystem().getAssets().getLocales();
+            List<Locale> systemLocales = new ArrayList<Locale>(locales.length);
+            for (String localeStr : locales) {
+                systemLocales.add(Locale.forLanguageTag(localeStr));
+            }
+
+            sSystemLocales = systemLocales;
+        }
+    }
+
+    private static boolean changeJavaAndAndroidLocale(Locale locale, boolean force) {
         // The Time class uses the Android-managed locale for string resources containing format
         // patterns and the Java-managed locale for other things (e.g. month names, week days names)
         // that are placed into those patterns. For example the format "%c" expands to include
@@ -2856,6 +2884,10 @@ public class TimeTest extends AndroidTestCase {
         // locales agree), when the Java-managed locale is changed during this test the locale in
         // the runtime-local copy of the system resources is modified as well.
 
+        if (!force && !sSystemLocales.contains(locale)) {
+            return false;
+        }
+
         // Change the Java-managed locale.
         Locale.setDefault(locale);
 
@@ -2864,5 +2896,6 @@ public class TimeTest extends AndroidTestCase {
         Configuration configuration = Resources.getSystem().getConfiguration();
         configuration.locale = locale;
         Resources.getSystem().updateConfiguration(configuration, null);
+        return true;
     }
 }

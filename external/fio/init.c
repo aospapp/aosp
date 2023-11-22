@@ -64,7 +64,10 @@ int write_bw_log = 0;
 int read_only = 0;
 int status_interval = 0;
 
-static int write_lat_log;
+char *trigger_file = NULL;
+long long trigger_timeout = 0;
+char *trigger_cmd = NULL;
+char *trigger_remote_cmd = NULL;
 
 static int prev_group_jobs;
 
@@ -172,6 +175,13 @@ static struct option l_opts[FIO_NR_OPTIONS] = {
 		.has_arg	= required_argument,
 		.val		= 'x' | FIO_CLIENT_FLAG,
 	},
+#ifdef CONFIG_ZLIB
+	{
+		.name		= (char *) "inflate-log",
+		.has_arg	= required_argument,
+		.val		= 'X' | FIO_CLIENT_FLAG,
+	},
+#endif
 	{
 		.name		= (char *) "alloc-size",
 		.has_arg	= required_argument,
@@ -212,6 +222,11 @@ static struct option l_opts[FIO_NR_OPTIONS] = {
 		.val		= 'C',
 	},
 	{
+		.name		= (char *) "remote-config",
+		.has_arg	= required_argument,
+		.val		= 'R',
+	},
+	{
 		.name		= (char *) "cpuclock-test",
 		.has_arg	= no_argument,
 		.val		= 'T',
@@ -232,21 +247,45 @@ static struct option l_opts[FIO_NR_OPTIONS] = {
 		.val		= 'L',
 	},
 	{
+		.name		= (char *) "trigger-file",
+		.has_arg	= required_argument,
+		.val		= 'W',
+	},
+	{
+		.name		= (char *) "trigger-timeout",
+		.has_arg	= required_argument,
+		.val		= 'B',
+	},
+	{
+		.name		= (char *) "trigger",
+		.has_arg	= required_argument,
+		.val		= 'H',
+	},
+	{
+		.name		= (char *) "trigger-remote",
+		.has_arg	= required_argument,
+		.val		= 'J',
+	},
+	{
 		.name		= NULL,
 	},
 };
 
 void free_threads_shm(void)
 {
-	struct shmid_ds sbuf;
-
 	if (threads) {
 		void *tp = threads;
+#ifndef CONFIG_NO_SHM
+		struct shmid_ds sbuf;
 
 		threads = NULL;
 		shmdt(tp);
 		shmctl(shm_id, IPC_RMID, &sbuf);
 		shm_id = -1;
+#else
+		threads = NULL;
+		free(tp);
+#endif
 	}
 }
 
@@ -258,6 +297,11 @@ static void free_shm(void)
 		fio_debug_jobp = NULL;
 		free_threads_shm();
 	}
+
+	free(trigger_file);
+	free(trigger_cmd);
+	free(trigger_remote_cmd);
+	trigger_file = trigger_cmd = trigger_remote_cmd = NULL;
 
 	options_free(fio_options, &def_thread);
 	fio_filelock_exit();
@@ -287,6 +331,7 @@ static int setup_thread_area(void)
 		size += file_hash_size;
 		size += sizeof(unsigned int);
 
+#ifndef CONFIG_NO_SHM
 		shm_id = shmget(0, size, IPC_CREAT | 0600);
 		if (shm_id != -1)
 			break;
@@ -294,10 +339,16 @@ static int setup_thread_area(void)
 			perror("shmget");
 			break;
 		}
+#else
+		threads = malloc(size);
+		if (threads)
+			break;
+#endif
 
 		max_jobs >>= 1;
 	} while (max_jobs);
 
+#ifndef CONFIG_NO_SHM
 	if (shm_id == -1)
 		return 1;
 
@@ -306,6 +357,7 @@ static int setup_thread_area(void)
 		perror("shmat");
 		return 1;
 	}
+#endif
 
 	memset(threads, 0, max_jobs * sizeof(struct thread_data));
 	hash = (void *) threads + max_jobs * sizeof(struct thread_data);
@@ -330,7 +382,7 @@ static void set_cmd_options(struct thread_data *td)
  * Return a free job structure.
  */
 static struct thread_data *get_new_job(int global, struct thread_data *parent,
-				       int preserve_eo)
+				       int preserve_eo, const char *jobname)
 {
 	struct thread_data *td;
 
@@ -363,6 +415,10 @@ static struct thread_data *get_new_job(int global, struct thread_data *parent,
 	profile_add_hooks(td);
 
 	td->thread_number = thread_number;
+	td->subjob_number = 0;
+
+	if (jobname)
+		td->o.name = strdup(jobname);
 
 	if (!parent->o.group_reporting)
 		stat_number++;
@@ -385,6 +441,9 @@ static void put_job(struct thread_data *td)
 	fio_options_free(td);
 	if (td->io_ops)
 		free_ioengine(td);
+
+	if (td->o.name)
+		free(td->o.name);
 
 	memset(&threads[td->thread_number - 1], 0, sizeof(*td));
 	thread_number--;
@@ -441,13 +500,8 @@ static unsigned long long get_rand_start_delay(struct thread_data *td)
 
 	delayrange = td->o.start_delay_high - td->o.start_delay;
 
-	if (td->o.use_os_rand) {
-		r = os_random_long(&td->delay_state);
-		delayrange = (unsigned long long) ((double) delayrange * (r / (OS_RAND_MAX + 1.0)));
-	} else {
-		r = __rand(&td->__delay_state);
-		delayrange = (unsigned long long) ((double) delayrange * (r / (FRAND_MAX + 1.0)));
-	}
+	r = __rand(&td->delay_state);
+	delayrange = (unsigned long long) ((double) delayrange * (r / (FRAND_MAX + 1.0)));
 
 	delayrange += td->o.start_delay;
 	return delayrange;
@@ -511,7 +565,6 @@ static int fixup_options(struct thread_data *td)
 	if (!o->max_bs[DDIR_TRIM])
 		o->max_bs[DDIR_TRIM] = o->bs[DDIR_TRIM];
 
-
 	o->rw_min_bs = min(o->min_bs[DDIR_READ], o->min_bs[DDIR_WRITE]);
 	o->rw_min_bs = min(o->min_bs[DDIR_TRIM], o->rw_min_bs);
 
@@ -543,8 +596,7 @@ static int fixup_options(struct thread_data *td)
 	if (o->norandommap && o->verify != VERIFY_NONE
 	    && !fixed_block_size(o))  {
 		log_err("fio: norandommap given for variable block sizes, "
-			"verify disabled\n");
-		o->verify = VERIFY_NONE;
+			"verify limited\n");
 		ret = warnings_fatal;
 	}
 	if (o->bs_unaligned && (o->odirect || td->io_ops->flags & FIO_RAWIO))
@@ -612,6 +664,15 @@ static int fixup_options(struct thread_data *td)
 		if (o->max_bs[DDIR_WRITE] != o->min_bs[DDIR_WRITE] &&
 		    !o->verify_interval)
 			o->verify_interval = o->min_bs[DDIR_WRITE];
+
+		/*
+		 * Verify interval must be smaller or equal to the
+		 * write size.
+		 */
+		if (o->verify_interval > o->min_bs[DDIR_WRITE])
+			o->verify_interval = o->min_bs[DDIR_WRITE];
+		else if (td_read(td) && o->verify_interval > o->min_bs[DDIR_READ])
+			o->verify_interval = o->min_bs[DDIR_READ];
 	}
 
 	if (o->pre_read) {
@@ -696,6 +757,16 @@ static int fixup_options(struct thread_data *td)
 		ret = 1;
 	}
 
+	if (fio_option_is_set(o, gtod_cpu)) {
+		fio_gtod_init();
+		fio_gtod_set_cpu(o->gtod_cpu);
+		fio_gtod_offload = 1;
+	}
+
+	td->loops = o->loops;
+	if (!td->loops)
+		td->loops = 1;
+
 	return ret;
 }
 
@@ -749,44 +820,18 @@ static int exists_and_not_file(const char *filename)
 	return 1;
 }
 
-static void td_fill_rand_seeds_os(struct thread_data *td)
-{
-	os_random_seed(td->rand_seeds[FIO_RAND_BS_OFF], &td->bsrange_state);
-	os_random_seed(td->rand_seeds[FIO_RAND_VER_OFF], &td->verify_state);
-	os_random_seed(td->rand_seeds[FIO_RAND_MIX_OFF], &td->rwmix_state);
-
-	if (td->o.file_service_type == FIO_FSERVICE_RANDOM)
-		os_random_seed(td->rand_seeds[FIO_RAND_FILE_OFF], &td->next_file_state);
-
-	os_random_seed(td->rand_seeds[FIO_RAND_FILE_SIZE_OFF], &td->file_size_state);
-	os_random_seed(td->rand_seeds[FIO_RAND_TRIM_OFF], &td->trim_state);
-	os_random_seed(td->rand_seeds[FIO_RAND_START_DELAY], &td->delay_state);
-
-	if (!td_random(td))
-		return;
-
-	if (td->o.rand_repeatable)
-		td->rand_seeds[FIO_RAND_BLOCK_OFF] = FIO_RANDSEED * td->thread_number;
-
-	os_random_seed(td->rand_seeds[FIO_RAND_BLOCK_OFF], &td->random_state);
-
-	os_random_seed(td->rand_seeds[FIO_RAND_SEQ_RAND_READ_OFF], &td->seq_rand_state[DDIR_READ]);
-	os_random_seed(td->rand_seeds[FIO_RAND_SEQ_RAND_WRITE_OFF], &td->seq_rand_state[DDIR_WRITE]);
-	os_random_seed(td->rand_seeds[FIO_RAND_SEQ_RAND_TRIM_OFF], &td->seq_rand_state[DDIR_TRIM]);
-}
-
 static void td_fill_rand_seeds_internal(struct thread_data *td)
 {
-	init_rand_seed(&td->__bsrange_state, td->rand_seeds[FIO_RAND_BS_OFF]);
-	init_rand_seed(&td->__verify_state, td->rand_seeds[FIO_RAND_VER_OFF]);
-	init_rand_seed(&td->__rwmix_state, td->rand_seeds[FIO_RAND_MIX_OFF]);
+	init_rand_seed(&td->bsrange_state, td->rand_seeds[FIO_RAND_BS_OFF]);
+	init_rand_seed(&td->verify_state, td->rand_seeds[FIO_RAND_VER_OFF]);
+	init_rand_seed(&td->rwmix_state, td->rand_seeds[FIO_RAND_MIX_OFF]);
 
 	if (td->o.file_service_type == FIO_FSERVICE_RANDOM)
-		init_rand_seed(&td->__next_file_state, td->rand_seeds[FIO_RAND_FILE_OFF]);
+		init_rand_seed(&td->next_file_state, td->rand_seeds[FIO_RAND_FILE_OFF]);
 
-	init_rand_seed(&td->__file_size_state, td->rand_seeds[FIO_RAND_FILE_SIZE_OFF]);
-	init_rand_seed(&td->__trim_state, td->rand_seeds[FIO_RAND_TRIM_OFF]);
-	init_rand_seed(&td->__delay_state, td->rand_seeds[FIO_RAND_START_DELAY]);
+	init_rand_seed(&td->file_size_state, td->rand_seeds[FIO_RAND_FILE_SIZE_OFF]);
+	init_rand_seed(&td->trim_state, td->rand_seeds[FIO_RAND_TRIM_OFF]);
+	init_rand_seed(&td->delay_state, td->rand_seeds[FIO_RAND_START_DELAY]);
 
 	if (!td_random(td))
 		return;
@@ -794,26 +839,28 @@ static void td_fill_rand_seeds_internal(struct thread_data *td)
 	if (td->o.rand_repeatable)
 		td->rand_seeds[FIO_RAND_BLOCK_OFF] = FIO_RANDSEED * td->thread_number;
 
-	init_rand_seed(&td->__random_state, td->rand_seeds[FIO_RAND_BLOCK_OFF]);
-	init_rand_seed(&td->__seq_rand_state[DDIR_READ], td->rand_seeds[FIO_RAND_SEQ_RAND_READ_OFF]);
-	init_rand_seed(&td->__seq_rand_state[DDIR_WRITE], td->rand_seeds[FIO_RAND_SEQ_RAND_WRITE_OFF]);
-	init_rand_seed(&td->__seq_rand_state[DDIR_TRIM], td->rand_seeds[FIO_RAND_SEQ_RAND_TRIM_OFF]);
+	init_rand_seed(&td->random_state, td->rand_seeds[FIO_RAND_BLOCK_OFF]);
+	init_rand_seed(&td->seq_rand_state[DDIR_READ], td->rand_seeds[FIO_RAND_SEQ_RAND_READ_OFF]);
+	init_rand_seed(&td->seq_rand_state[DDIR_WRITE], td->rand_seeds[FIO_RAND_SEQ_RAND_WRITE_OFF]);
+	init_rand_seed(&td->seq_rand_state[DDIR_TRIM], td->rand_seeds[FIO_RAND_SEQ_RAND_TRIM_OFF]);
 }
 
 void td_fill_rand_seeds(struct thread_data *td)
 {
 	if (td->o.allrand_repeatable) {
-		for (int i = 0; i < FIO_RAND_NR_OFFS; i++)
+		unsigned int i;
+
+		for (i = 0; i < FIO_RAND_NR_OFFS; i++)
 			td->rand_seeds[i] = FIO_RANDSEED * td->thread_number
 			       	+ i;
 	}
 
-	if (td->o.use_os_rand)
-		td_fill_rand_seeds_os(td);
-	else
-		td_fill_rand_seeds_internal(td);
+	td_fill_rand_seeds_internal(td);
 
 	init_rand_seed(&td->buf_state, td->rand_seeds[FIO_RAND_BUF_OFF]);
+	frand_copy(&td->buf_state_prev, &td->buf_state);
+
+	init_rand_seed(&td->dedupe_state, td->rand_seeds[FIO_DEDUPE_OFF]);
 }
 
 /*
@@ -888,7 +935,17 @@ static void init_flags(struct thread_data *td)
 		td->flags |= TD_F_READ_IOLOG;
 	if (o->refill_buffers)
 		td->flags |= TD_F_REFILL_BUFFERS;
-	if (o->scramble_buffers)
+	/*
+	 * Always scramble buffers if asked to
+	 */
+	if (o->scramble_buffers && fio_option_is_set(o, scramble_buffers))
+		td->flags |= TD_F_SCRAMBLE_BUFFERS;
+	/*
+	 * But also scramble buffers, unless we were explicitly asked
+	 * to zero them.
+	 */
+	if (o->scramble_buffers && !(o->zero_buffers &&
+	    fio_option_is_set(o, zero_buffers)))
 		td->flags |= TD_F_SCRAMBLE_BUFFERS;
 	if (o->verify != VERIFY_NONE)
 		td->flags |= TD_F_VER_NONE;
@@ -982,8 +1039,14 @@ static char *make_filename(char *buf, size_t buf_size,struct thread_options *o,
 				ret = snprintf(dst, dst_left, "%s", jobname);
 				if (ret < 0)
 					break;
-				dst += ret;
-				dst_left -= ret;
+				else if (ret > dst_left) {
+					log_err("fio: truncated filename\n");
+					dst += dst_left;
+					dst_left = 0;
+				} else {
+					dst += ret;
+					dst_left -= ret;
+				}
 				break;
 				}
 			case FPRE_JOBNUM: {
@@ -992,8 +1055,14 @@ static char *make_filename(char *buf, size_t buf_size,struct thread_options *o,
 				ret = snprintf(dst, dst_left, "%d", jobnum);
 				if (ret < 0)
 					break;
-				dst += ret;
-				dst_left -= ret;
+				else if (ret > dst_left) {
+					log_err("fio: truncated filename\n");
+					dst += dst_left;
+					dst_left = 0;
+				} else {
+					dst += ret;
+					dst_left -= ret;
+				}
 				break;
 				}
 			case FPRE_FILENUM: {
@@ -1002,8 +1071,14 @@ static char *make_filename(char *buf, size_t buf_size,struct thread_options *o,
 				ret = snprintf(dst, dst_left, "%d", filenum);
 				if (ret < 0)
 					break;
-				dst += ret;
-				dst_left -= ret;
+				else if (ret > dst_left) {
+					log_err("fio: truncated filename\n");
+					dst += dst_left;
+					dst_left = 0;
+				} else {
+					dst += ret;
+					dst_left -= ret;
+				}
 				break;
 				}
 			default:
@@ -1038,6 +1113,7 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 	char fname[PATH_MAX];
 	int numjobs, file_alloced;
 	struct thread_options *o = &td->o;
+	char logname[PATH_MAX + 32];
 
 	/*
 	 * the def_thread is just for options, it's not a real job
@@ -1127,15 +1203,72 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 	if (setup_rate(td))
 		goto err;
 
-	if (o->lat_log_file || write_lat_log) {
-		setup_log(&td->lat_log, o->log_avg_msec, IO_LOG_TYPE_LAT);
-		setup_log(&td->slat_log, o->log_avg_msec, IO_LOG_TYPE_SLAT);
-		setup_log(&td->clat_log, o->log_avg_msec, IO_LOG_TYPE_CLAT);
+	if (o->lat_log_file) {
+		struct log_params p = {
+			.td = td,
+			.avg_msec = o->log_avg_msec,
+			.log_type = IO_LOG_TYPE_LAT,
+			.log_offset = o->log_offset,
+			.log_gz = o->log_gz,
+			.log_gz_store = o->log_gz_store,
+		};
+		const char *suf;
+
+		if (p.log_gz_store)
+			suf = "log.fz";
+		else
+			suf = "log";
+
+		snprintf(logname, sizeof(logname), "%s_lat.%d.%s",
+				o->lat_log_file, td->thread_number, suf);
+		setup_log(&td->lat_log, &p, logname);
+		snprintf(logname, sizeof(logname), "%s_slat.%d.%s",
+				o->lat_log_file, td->thread_number, suf);
+		setup_log(&td->slat_log, &p, logname);
+		snprintf(logname, sizeof(logname), "%s_clat.%d.%s",
+				o->lat_log_file, td->thread_number, suf);
+		setup_log(&td->clat_log, &p, logname);
 	}
-	if (o->bw_log_file || write_bw_log)
-		setup_log(&td->bw_log, o->log_avg_msec, IO_LOG_TYPE_BW);
-	if (o->iops_log_file)
-		setup_log(&td->iops_log, o->log_avg_msec, IO_LOG_TYPE_IOPS);
+	if (o->bw_log_file) {
+		struct log_params p = {
+			.td = td,
+			.avg_msec = o->log_avg_msec,
+			.log_type = IO_LOG_TYPE_BW,
+			.log_offset = o->log_offset,
+			.log_gz = o->log_gz,
+			.log_gz_store = o->log_gz_store,
+		};
+		const char *suf;
+
+		if (p.log_gz_store)
+			suf = "log.fz";
+		else
+			suf = "log";
+
+		snprintf(logname, sizeof(logname), "%s_bw.%d.%s",
+				o->bw_log_file, td->thread_number, suf);
+		setup_log(&td->bw_log, &p, logname);
+	}
+	if (o->iops_log_file) {
+		struct log_params p = {
+			.td = td,
+			.avg_msec = o->log_avg_msec,
+			.log_type = IO_LOG_TYPE_IOPS,
+			.log_offset = o->log_offset,
+			.log_gz = o->log_gz,
+			.log_gz_store = o->log_gz_store,
+		};
+		const char *suf;
+
+		if (p.log_gz_store)
+			suf = "log.fz";
+		else
+			suf = "log";
+
+		snprintf(logname, sizeof(logname), "%s_iops.%d.%s",
+				o->iops_log_file, td->thread_number, suf);
+		setup_log(&td->iops_log, &p, logname);
+	}
 
 	if (!o->name)
 		o->name = strdup(jobname);
@@ -1190,7 +1323,7 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 	 */
 	numjobs = o->numjobs;
 	while (--numjobs) {
-		struct thread_data *td_new = get_new_job(0, td, 1);
+		struct thread_data *td_new = get_new_job(0, td, 1, jobname);
 
 		if (!td_new)
 			goto err;
@@ -1198,6 +1331,7 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 		td_new->o.numjobs = 1;
 		td_new->o.stonewall = 0;
 		td_new->o.new_group = 0;
+		td_new->subjob_number = numjobs;
 
 		if (file_alloced) {
 			if (td_new->files) {
@@ -1248,11 +1382,11 @@ void add_job_opts(const char **o, int client_type)
 			sprintf(jobname, "%s", o[i] + 5);
 		}
 		if (in_global && !td_parent)
-			td_parent = get_new_job(1, &def_thread, 0);
+			td_parent = get_new_job(1, &def_thread, 0, jobname);
 		else if (!in_global && !td) {
 			if (!td_parent)
 				td_parent = &def_thread;
-			td = get_new_job(0, td_parent, 0);
+			td = get_new_job(0, td_parent, 0, jobname);
 		}
 		if (in_global)
 			fio_options_parse(td_parent, (char **) &o[i], 1, 0);
@@ -1300,11 +1434,12 @@ static int is_empty_or_comment(char *line)
 /*
  * This is our [ini] type file parser.
  */
-int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
+int __parse_jobs_ini(struct thread_data *td,
+		char *file, int is_buf, int stonewall_flag, int type,
+		int nested, char *name, char ***popts, int *aopts, int *nopts)
 {
-	unsigned int global;
-	struct thread_data *td;
-	char *string, *name;
+	unsigned int global = 0;
+	char *string;
 	FILE *f;
 	char *p;
 	int ret = 0, stonewall;
@@ -1313,6 +1448,9 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 	int inside_skip = 0;
 	char **opts;
 	int i, alloc_opts, num_opts;
+
+	dprint(FD_PARSE, "Parsing ini file %s\n", file);
+	assert(td || !nested);
 
 	if (is_buf)
 		f = NULL;
@@ -1323,7 +1461,11 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 			f = fopen(file, "r");
 
 		if (!f) {
-			perror("fopen job file");
+			int __err = errno;
+
+			log_err("fio: unable to open '%s' job file\n", file);
+			if (td)
+				td_verror(td, __err, "job file open");
 			return 1;
 		}
 	}
@@ -1333,12 +1475,23 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 	/*
 	 * it's really 256 + small bit, 280 should suffice
 	 */
-	name = malloc(280);
-	memset(name, 0, 280);
+	if (!nested) {
+		name = malloc(280);
+		memset(name, 0, 280);
+	}
 
-	alloc_opts = 8;
-	opts = malloc(sizeof(char *) * alloc_opts);
-	num_opts = 0;
+	opts = NULL;
+	if (nested && popts) {
+		opts = *popts;
+		alloc_opts = *aopts;
+		num_opts = *nopts;
+	}
+
+	if (!opts) {
+		alloc_opts = 8;
+		opts = malloc(sizeof(char *) * alloc_opts);
+		num_opts = 0;
+	}
 
 	stonewall = stonewall_flag;
 	do {
@@ -1359,58 +1512,73 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 		strip_blank_front(&p);
 		strip_blank_end(p);
 
+		dprint(FD_PARSE, "%s\n", p);
 		if (is_empty_or_comment(p))
 			continue;
-		if (sscanf(p, "[%255[^\n]]", name) != 1) {
-			if (inside_skip)
+
+		if (!nested) {
+			if (sscanf(p, "[%255[^\n]]", name) != 1) {
+				if (inside_skip)
+					continue;
+
+				log_err("fio: option <%s> outside of "
+					"[] job section\n", p);
+				ret = 1;
+				break;
+			}
+
+			name[strlen(name) - 1] = '\0';
+
+			if (skip_this_section(name)) {
+				inside_skip = 1;
 				continue;
-			log_err("fio: option <%s> outside of [] job section\n",
-									p);
-			break;
+			} else
+				inside_skip = 0;
+
+			dprint(FD_PARSE, "Parsing section [%s]\n", name);
+
+			global = !strncmp(name, "global", 6);
+
+			if (dump_cmdline) {
+				if (first_sect)
+					log_info("fio ");
+				if (!global)
+					log_info("--name=%s ", name);
+				first_sect = 0;
+			}
+
+			td = get_new_job(global, &def_thread, 0, name);
+			if (!td) {
+				ret = 1;
+				break;
+			}
+
+			/*
+			 * Separate multiple job files by a stonewall
+			 */
+			if (!global && stonewall) {
+				td->o.stonewall = stonewall;
+				stonewall = 0;
+			}
+
+			num_opts = 0;
+			memset(opts, 0, alloc_opts * sizeof(char *));
 		}
-
-		name[strlen(name) - 1] = '\0';
-
-		if (skip_this_section(name)) {
-			inside_skip = 1;
-			continue;
-		} else
-			inside_skip = 0;
-
-		global = !strncmp(name, "global", 6);
-
-		if (dump_cmdline) {
-			if (first_sect)
-				log_info("fio ");
-			if (!global)
-				log_info("--name=%s ", name);
-			first_sect = 0;
-		}
-
-		td = get_new_job(global, &def_thread, 0);
-		if (!td) {
-			ret = 1;
-			break;
-		}
-
-		/*
-		 * Separate multiple job files by a stonewall
-		 */
-		if (!global && stonewall) {
-			td->o.stonewall = stonewall;
-			stonewall = 0;
-		}
-
-		num_opts = 0;
-		memset(opts, 0, alloc_opts * sizeof(char *));
+		else
+			skip_fgets = 1;
 
 		while (1) {
-			if (is_buf)
-				p = strsep(&file, "\n");
+			if (!skip_fgets) {
+				if (is_buf)
+					p = strsep(&file, "\n");
+				else
+					p = fgets(string, 4096, f);
+				if (!p)
+					break;
+				dprint(FD_PARSE, "%s", p);
+			}
 			else
-				p = fgets(string, 4096, f);
-			if (!p)
-				break;
+				skip_fgets = 0;
 
 			if (is_empty_or_comment(p))
 				continue;
@@ -1422,11 +1590,29 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 			 * fgets() a new line at the top.
 			 */
 			if (p[0] == '[') {
+				if (nested) {
+					log_err("No new sections in included files\n");
+					return 1;
+				}
+
 				skip_fgets = 1;
 				break;
 			}
 
 			strip_blank_end(p);
+
+			if (!strncmp(p, "include", strlen("include"))) {
+				char *filename = p + strlen("include") + 1;
+
+				if ((ret = __parse_jobs_ini(td, filename,
+						is_buf, stonewall_flag, type, 1,
+						name, &opts, &alloc_opts, &num_opts))) {
+					log_err("Error %d while parsing include file %s\n",
+						ret, filename);
+					break;
+				}
+				continue;
+			}
 
 			if (num_opts == alloc_opts) {
 				alloc_opts <<= 1;
@@ -1436,6 +1622,13 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 
 			opts[num_opts] = strdup(p);
 			num_opts++;
+		}
+
+		if (nested) {
+			*popts = opts;
+			*aopts = alloc_opts;
+			*nopts = num_opts;
+			goto out;
 		}
 
 		ret = fio_options_parse(td, opts, num_opts, dump_cmdline);
@@ -1460,12 +1653,20 @@ int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
 		i++;
 	}
 
-	free(string);
-	free(name);
 	free(opts);
+out:
+	free(string);
+	if (!nested)
+		free(name);
 	if (!is_buf && f != stdin)
 		fclose(f);
 	return ret;
+}
+
+int parse_jobs_ini(char *file, int is_buf, int stonewall_flag, int type)
+{
+	return __parse_jobs_ini(NULL, file, is_buf, stonewall_flag, type,
+			0, NULL, NULL, NULL, NULL);
 }
 
 static int fill_def_thread(void)
@@ -1488,11 +1689,10 @@ static void usage(const char *name)
 	printf("%s [options] [job options] <job file(s)>\n", name);
 	printf("  --debug=options\tEnable debug logging. May be one/more of:\n"
 		"\t\t\tprocess,file,io,mem,blktrace,verify,random,parse,\n"
-		"\t\t\tdiskutil,job,mutex,profile,time,net,rate\n");
+		"\t\t\tdiskutil,job,mutex,profile,time,net,rate,compress\n");
 	printf("  --parse-only\t\tParse options only, don't start any IO\n");
 	printf("  --output\t\tWrite output to file\n");
 	printf("  --runtime\t\tRuntime in seconds\n");
-	printf("  --latency-log\t\tGenerate per-job latency logs\n");
 	printf("  --bandwidth-log\tGenerate per-job bandwidth logs\n");
 	printf("  --minimal\t\tMinimal (terse) output\n");
 	printf("  --output-format=x\tOutput format (terse,json,normal)\n");
@@ -1524,9 +1724,17 @@ static void usage(const char *name)
 	printf("  --server=args\t\tStart a backend fio server\n");
 	printf("  --daemonize=pidfile\tBackground fio server, write pid to file\n");
 	printf("  --client=hostname\tTalk to remote backend fio server at hostname\n");
+	printf("  --remote-config=file\tTell fio server to load this local job file\n");
 	printf("  --idle-prof=option\tReport cpu idleness on a system or percpu basis\n"
 		"\t\t\t(option=system,percpu) or run unit work\n"
 		"\t\t\tcalibration only (option=calibrate)\n");
+#ifdef CONFIG_ZLIB
+	printf("  --inflate-log=log\tInflate and output compressed log\n");
+#endif
+	printf("  --trigger-file=file\tExecute trigger cmd when file exists\n");
+	printf("  --trigger-timeout=t\tExecute trigger af this time\n");
+	printf("  --trigger=cmd\t\tSet this command as local trigger\n");
+	printf("  --trigger-remote=cmd\tSet this command as remote trigger\n");
 	printf("\nFio was written by Jens Axboe <jens.axboe@oracle.com>");
 	printf("\n                   Jens Axboe <jaxboe@fusionio.com>");
 	printf("\n                   Jens Axboe <axboe@fb.com>\n");
@@ -1593,6 +1801,10 @@ struct debug_level debug_levels[] = {
 	{ .name = "rate",
 	  .help = "Rate logging",
 	  .shift = FD_RATE,
+	},
+	{ .name = "compress",
+	  .help = "Log compression logging",
+	  .shift = FD_COMPRESS,
 	},
 	{ .name = NULL, },
 };
@@ -1700,6 +1912,30 @@ static void parse_cmd_client(void *client, char *opt)
 	fio_client_add_cmd_option(client, opt);
 }
 
+static void show_closest_option(const char *name)
+{
+	int best_option, best_distance;
+	int i, distance;
+
+	while (*name == '-')
+		name++;
+
+	best_option = -1;
+	best_distance = INT_MAX;
+	i = 0;
+	while (l_opts[i].name) {
+		distance = string_distance(name, l_opts[i].name);
+		if (distance < best_distance) {
+			best_distance = distance;
+			best_option = i;
+		}
+		i++;
+	}
+
+	if (best_option != -1)
+		log_err("Did you mean %s?\n", l_opts[best_option].name);
+}
+
 int parse_cmd_line(int argc, char *argv[], int client_type)
 {
 	struct thread_data *td = NULL;
@@ -1733,13 +1969,15 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 			}
 			break;
 		case 'l':
-			write_lat_log = 1;
+			log_err("fio: --latency-log is deprecated. Use per-job latency log options.\n");
+			do_exit++;
+			exit_val = 1;
 			break;
 		case 'b':
 			write_bw_log = 1;
 			break;
 		case 'o':
-			if (f_out)
+			if (f_out && f_out != stdout)
 				fclose(f_out);
 
 			f_out = fopen(optarg, "w+");
@@ -1824,12 +2062,12 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 		case 'E': {
 			long long t = 0;
 
-			if (str_to_decimal(optarg, &t, 0, NULL, 1)) {
+			if (check_str_time(optarg, &t, 1)) {
 				log_err("fio: failed parsing eta time %s\n", optarg);
 				exit_val = 1;
 				do_exit++;
 			}
-			eta_new_line = t;
+			eta_new_line = t / 1000;
 			break;
 			}
 		case 'd':
@@ -1856,6 +2094,13 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 			nr_job_sections++;
 			break;
 			}
+#ifdef CONFIG_ZLIB
+		case 'X':
+			exit_val = iolog_file_inflate(optarg);
+			did_arg++;
+			do_exit++;
+			break;
+#endif
 		case 'p':
 			did_arg = 1;
 			if (exec_profile)
@@ -1883,9 +2128,15 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 				if (is_section && skip_this_section(val))
 					continue;
 
-				td = get_new_job(global, &def_thread, 1);
-				if (!td || ioengine_load(td))
-					goto out_free;
+				td = get_new_job(global, &def_thread, 1, NULL);
+				if (!td || ioengine_load(td)) {
+					if (td) {
+						put_job(td);
+						td = NULL;
+					}
+					do_exit++;
+					break;
+				}
 				fio_options_set_ioengine_opts(l_opts, td);
 			}
 
@@ -1906,8 +2157,12 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 
 			if (!ret && !strcmp(opt, "ioengine")) {
 				free_ioengine(td);
-				if (ioengine_load(td))
-					goto out_free;
+				if (ioengine_load(td)) {
+					put_job(td);
+					td = NULL;
+					do_exit++;
+					break;
+				}
 				fio_options_set_ioengine_opts(l_opts, td);
 			}
 			break;
@@ -1935,6 +2190,7 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 			break;
 		case 'S':
 			did_arg = 1;
+#ifndef CONFIG_NO_SHM
 			if (nr_clients) {
 				log_err("fio: can't be both client and server\n");
 				do_exit++;
@@ -1945,6 +2201,11 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 				fio_server_set_arg(optarg);
 			is_backend = 1;
 			backend = 1;
+#else
+			log_err("fio: client/server requires SHM support\n");
+			do_exit++;
+			exit_val = 1;
+#endif
 			break;
 		case 'D':
 			if (pid_file)
@@ -1983,14 +2244,22 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 				    !strncmp(argv[optind], "-", 1))
 					break;
 
-				fio_client_add_ini_file(cur_client, argv[optind]);
+				if (fio_client_add_ini_file(cur_client, argv[optind], 0))
+					break;
 				optind++;
+			}
+			break;
+		case 'R':
+			did_arg = 1;
+			if (fio_client_add_ini_file(cur_client, optarg, 1)) {
+				do_exit++;
+				exit_val = 1;
 			}
 			break;
 		case 'T':
 			did_arg = 1;
 			do_exit++;
-			exit_val = fio_monotonic_clocktest();
+			exit_val = fio_monotonic_clocktest(1);
 			break;
 		case 'G':
 			did_arg = 1;
@@ -2000,18 +2269,42 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 		case 'L': {
 			long long val;
 
-			if (check_str_time(optarg, &val, 0)) {
+			if (check_str_time(optarg, &val, 1)) {
 				log_err("fio: failed parsing time %s\n", optarg);
 				do_exit++;
 				exit_val = 1;
 				break;
 			}
-			status_interval = val * 1000;
+			status_interval = val / 1000;
 			break;
 			}
+		case 'W':
+			if (trigger_file)
+				free(trigger_file);
+			trigger_file = strdup(optarg);
+			break;
+		case 'H':
+			if (trigger_cmd)
+				free(trigger_cmd);
+			trigger_cmd = strdup(optarg);
+			break;
+		case 'J':
+			if (trigger_remote_cmd)
+				free(trigger_remote_cmd);
+			trigger_remote_cmd = strdup(optarg);
+			break;
+		case 'B':
+			if (check_str_time(optarg, &trigger_timeout, 1)) {
+				log_err("fio: failed parsing time %s\n", optarg);
+				do_exit++;
+				exit_val = 1;
+			}
+			trigger_timeout /= 1000000;
+			break;
 		case '?':
 			log_err("%s: unrecognized option '%s'\n", argv[0],
 							argv[optind - 1]);
+			show_closest_option(argv[optind - 1]);
 		default:
 			do_exit++;
 			exit_val = 1;
@@ -2127,12 +2420,6 @@ int parse_options(int argc, char *argv[])
 		}
 
 		return 0;
-	}
-
-	if (def_thread.o.gtod_offload) {
-		fio_gtod_init();
-		fio_gtod_offload = 1;
-		fio_gtod_cpu = def_thread.o.gtod_cpu;
 	}
 
 	if (output_format == FIO_OUTPUT_NORMAL)

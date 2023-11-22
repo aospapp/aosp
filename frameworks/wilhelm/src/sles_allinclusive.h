@@ -81,7 +81,6 @@ typedef struct COutputMix_struct COutputMix;
  */
 #define UNKNOWN_NUMCHANNELS 0
 #define UNKNOWN_SAMPLERATE  0
-#define UNKNOWN_CHANNELMASK 0
 
 #ifdef ANDROID
 #include <utils/Log.h>

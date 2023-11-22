@@ -55,6 +55,14 @@ typedef enum {
     ANDROID_NL80211_SUBCMD_LSTATS_RANGE_START = 0x1200,
     ANDROID_NL80211_SUBCMD_LSTATS_RANGE_END   = 0x12FF,
 
+    /* define all Logger related commands between 0x1400 and 0x14FF */
+    ANDROID_NL80211_SUBCMD_DEBUG_RANGE_START = 0x1400,
+    ANDROID_NL80211_SUBCMD_DEBUG_RANGE_END   = 0x14FF,
+
+    /* define all wifi offload related commands between 0x1600 and 0x16FF */
+    ANDROID_NL80211_SUBCMD_WIFI_OFFLOAD_RANGE_START = 0x1600,
+    ANDROID_NL80211_SUBCMD_WIFI_OFFLOAD_RANGE_END   = 0x16FF,
+
     /* This is reserved for future usage */
 
 } ANDROID_VENDOR_SUB_COMMAND;
@@ -80,10 +88,21 @@ typedef enum {
     WIFI_SUBCMD_GET_FEATURE_SET_MATRIX,                  /* 0x100B */
     WIFI_SUBCMD_SET_PNO_RANDOM_MAC_OUI,                  /* 0x100C */
     WIFI_SUBCMD_NODFS_SET,                               /* 0x100D */
+    WIFI_SUBCMD_SET_COUNTRY_CODE,                             /* 0x100E */
+    /* Add more sub commands here */
+    GSCAN_SUBCMD_SET_EPNO_SSID,                          /* 0x100F */
 
+    WIFI_SUBCMD_SET_SSID_WHITE_LIST,                    /* 0x1010 */
+    WIFI_SUBCMD_SET_ROAM_PARAMS,                        /* 0x1011 */
+    WIFI_SUBCMD_ENABLE_LAZY_ROAM,                       /* 0x1012 */
+    WIFI_SUBCMD_SET_BSSID_PREF,                         /* 0x1013 */
+    WIFI_SUBCMD_SET_BSSID_BLACKLIST,                     /* 0x1014 */
+
+    GSCAN_SUBCMD_ANQPO_CONFIG,                          /* 0x1015 */
+    WIFI_SUBCMD_SET_RSSI_MONITOR,                       /* 0x1016 */
     /* Add more sub commands here */
 
-    GSCAN_SUBCMD_MAX                                    /* 0x100D */
+    GSCAN_SUBCMD_MAX
 
 } WIFI_SUB_COMMAND;
 
@@ -96,7 +115,12 @@ typedef enum {
     GSCAN_EVENT_FULL_SCAN_RESULTS,
     RTT_EVENT_COMPLETE,
     GSCAN_EVENT_COMPLETE_SCAN,
-    GSCAN_EVENT_HOTLIST_RESULTS_LOST
+    GSCAN_EVENT_HOTLIST_RESULTS_LOST,
+    GSCAN_EVENT_EPNO_EVENT,
+    GOOGLE_DEBUG_RING_EVENT,
+    GOOGLE_DEBUG_MEM_DUMP_EVENT,
+    GSCAN_EVENT_ANQPO_HOTSPOT_MATCH,
+    GOOGLE_RSSI_MONITOR_EVENT
 } WIFI_EVENT;
 
 typedef void (*wifi_internal_event_handler) (wifi_handle handle, int events);
@@ -127,6 +151,7 @@ typedef struct {
     struct nl_sock *cmd_sock;                       // command socket object
     struct nl_sock *event_sock;                     // event socket object
     int nl80211_family_id;                          // family id for 80211 driver
+    int cleanup_socks[2];                           // sockets used to implement wifi_cleanup
 
     bool in_event_loop;                             // Indicates that event loop is active
     bool clean_up;                                  // Indication to clean up the socket
@@ -150,6 +175,18 @@ typedef struct {
     // add other details
 } hal_info;
 
+#define PNO_SSID_FOUND  0x1
+#define PNO_SSID_LOST    0x2
+
+typedef struct wifi_pno_result {
+    unsigned char ssid[32];
+    unsigned char ssid_len;
+    signed char rssi;
+    u16 channel;
+    u16 flags;
+    mac_addr  bssid;
+} wifi_pno_result_t;
+
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
 wifi_error wifi_register_vendor_handler(wifi_handle handle,
             uint32_t id, int subcmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -168,7 +205,7 @@ hal_info *getHalInfo(wifi_handle handle);
 hal_info *getHalInfo(wifi_interface_handle handle);
 wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
-
+wifi_error wifi_cancel_cmd(wifi_request_id id, wifi_interface_handle iface);
 
 // some common macros
 

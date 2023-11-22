@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.android.tv.dialog;
+package com.android.tv.settings.dialog;
 
 import android.app.Activity;
 import android.app.DialogFragment;

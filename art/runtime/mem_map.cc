@@ -15,11 +15,12 @@
  */
 
 #include "mem_map.h"
-#include "thread-inl.h"
 
-#include <inttypes.h>
 #include <backtrace/BacktraceMap.h>
+#include <inttypes.h>
+
 #include <memory>
+#include <sstream>
 
 // See CreateStartPos below.
 #ifdef __BIONIC__
@@ -27,7 +28,13 @@
 #endif
 
 #include "base/stringprintf.h"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
 #include "ScopedFd.h"
+#pragma GCC diagnostic pop
+
+#include "thread-inl.h"
 #include "utils.h"
 
 #define USE_ASHMEM 1
@@ -130,11 +137,11 @@ static uintptr_t GenerateNextMemPos() {
 uintptr_t MemMap::next_mem_pos_ = GenerateNextMemPos();
 #endif
 
-#if !defined(__APPLE__)  // TODO: Reanable after b/16861075 BacktraceMap issue is addressed.
 // Return true if the address range is contained in a single /proc/self/map entry.
-static bool ContainedWithinExistingMap(uintptr_t begin,
-                                       uintptr_t end,
+static bool ContainedWithinExistingMap(uint8_t* ptr, size_t size,
                                        std::string* error_msg) {
+  uintptr_t begin = reinterpret_cast<uintptr_t>(ptr);
+  uintptr_t end = begin + size;
   std::unique_ptr<BacktraceMap> map(BacktraceMap::Create(getpid(), true));
   if (map.get() == nullptr) {
     *error_msg = StringPrintf("Failed to build process map");
@@ -146,14 +153,11 @@ static bool ContainedWithinExistingMap(uintptr_t begin,
       return true;
     }
   }
-  std::string maps;
-  ReadFileToString("/proc/self/maps", &maps);
+  PrintFileToLog("/proc/self/maps", LogSeverity::ERROR);
   *error_msg = StringPrintf("Requested region 0x%08" PRIxPTR "-0x%08" PRIxPTR " does not overlap "
-                            "any existing map:\n%s\n",
-                            begin, end, maps.c_str());
+                            "any existing map. See process maps in the log.", begin, end);
   return false;
 }
-#endif
 
 // Return true if the address range does not conflict with any /proc/self/maps entry.
 static bool CheckNonOverlapping(uintptr_t begin,
@@ -186,12 +190,12 @@ static bool CheckNonOverlapping(uintptr_t begin,
 // the expected value, calling munmap if validation fails, giving the
 // reason in error_msg.
 //
-// If the expected_ptr is nullptr, nothing is checked beyond the fact
+// If the expected_ptr is null, nothing is checked beyond the fact
 // that the actual_ptr is not MAP_FAILED. However, if expected_ptr is
 // non-null, we check that pointer is the actual_ptr == expected_ptr,
 // and if not, report in error_msg what the conflict mapping was if
 // found, or a generic error in other cases.
-static bool CheckMapRequest(byte* expected_ptr, void* actual_ptr, size_t byte_count,
+static bool CheckMapRequest(uint8_t* expected_ptr, void* actual_ptr, size_t byte_count,
                             std::string* error_msg) {
   // Handled first by caller for more specific error messages.
   CHECK(actual_ptr != MAP_FAILED);
@@ -236,14 +240,42 @@ static bool CheckMapRequest(byte* expected_ptr, void* actual_ptr, size_t byte_co
   return false;
 }
 
-MemMap* MemMap::MapAnonymous(const char* name, byte* expected_ptr, size_t byte_count, int prot,
-                             bool low_4gb, std::string* error_msg) {
+#if USE_ART_LOW_4G_ALLOCATOR
+static inline void* TryMemMapLow4GB(void* ptr, size_t page_aligned_byte_count, int prot, int flags,
+                                    int fd) {
+  void* actual = mmap(ptr, page_aligned_byte_count, prot, flags, fd, 0);
+  if (actual != MAP_FAILED) {
+    // Since we didn't use MAP_FIXED the kernel may have mapped it somewhere not in the low
+    // 4GB. If this is the case, unmap and retry.
+    if (reinterpret_cast<uintptr_t>(actual) + page_aligned_byte_count >= 4 * GB) {
+      munmap(actual, page_aligned_byte_count);
+      actual = MAP_FAILED;
+    }
+  }
+  return actual;
+}
+#endif
+
+MemMap* MemMap::MapAnonymous(const char* name, uint8_t* expected_ptr, size_t byte_count, int prot,
+                             bool low_4gb, bool reuse, std::string* error_msg) {
+#ifndef __LP64__
+  UNUSED(low_4gb);
+#endif
   if (byte_count == 0) {
     return new MemMap(name, nullptr, 0, nullptr, 0, prot, false);
   }
   size_t page_aligned_byte_count = RoundUp(byte_count, kPageSize);
 
   int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+  if (reuse) {
+    // reuse means it is okay that it overlaps an existing page mapping.
+    // Only use this if you actually made the page reservation yourself.
+    CHECK(expected_ptr != nullptr);
+
+    DCHECK(ContainedWithinExistingMap(expected_ptr, byte_count, error_msg)) << *error_msg;
+    flags |= MAP_FIXED;
+  }
+
   ScopedFd fd(-1);
 
 #ifdef USE_ASHMEM
@@ -267,7 +299,7 @@ MemMap* MemMap::MapAnonymous(const char* name, byte* expected_ptr, size_t byte_c
       *error_msg = StringPrintf("ashmem_create_region failed for '%s': %s", name, strerror(errno));
       return nullptr;
     }
-    flags = MAP_PRIVATE;
+    flags &= ~MAP_ANONYMOUS;
   }
 #endif
 
@@ -298,7 +330,39 @@ MemMap* MemMap::MapAnonymous(const char* name, byte* expected_ptr, size_t byte_c
   if (low_4gb && expected_ptr == nullptr) {
     bool first_run = true;
 
+    MutexLock mu(Thread::Current(), *Locks::mem_maps_lock_);
     for (uintptr_t ptr = next_mem_pos_; ptr < 4 * GB; ptr += kPageSize) {
+      // Use maps_ as an optimization to skip over large maps.
+      // Find the first map which is address > ptr.
+      auto it = maps_->upper_bound(reinterpret_cast<void*>(ptr));
+      if (it != maps_->begin()) {
+        auto before_it = it;
+        --before_it;
+        // Start at the end of the map before the upper bound.
+        ptr = std::max(ptr, reinterpret_cast<uintptr_t>(before_it->second->BaseEnd()));
+        CHECK_ALIGNED(ptr, kPageSize);
+      }
+      while (it != maps_->end()) {
+        // How much space do we have until the next map?
+        size_t delta = reinterpret_cast<uintptr_t>(it->first) - ptr;
+        // If the space may be sufficient, break out of the loop.
+        if (delta >= page_aligned_byte_count) {
+          break;
+        }
+        // Otherwise, skip to the end of the map.
+        ptr = reinterpret_cast<uintptr_t>(it->second->BaseEnd());
+        CHECK_ALIGNED(ptr, kPageSize);
+        ++it;
+      }
+
+      // Try to see if we get lucky with this address since none of the ART maps overlap.
+      actual = TryMemMapLow4GB(reinterpret_cast<void*>(ptr), page_aligned_byte_count, prot, flags,
+                               fd.get());
+      if (actual != MAP_FAILED) {
+        next_mem_pos_ = reinterpret_cast<uintptr_t>(actual) + page_aligned_byte_count;
+        break;
+      }
+
       if (4U * GB - ptr < page_aligned_byte_count) {
         // Not enough memory until 4GB.
         if (first_run) {
@@ -328,17 +392,10 @@ MemMap* MemMap::MapAnonymous(const char* name, byte* expected_ptr, size_t byte_c
       next_mem_pos_ = tail_ptr;  // update early, as we break out when we found and mapped a region
 
       if (safe == true) {
-        actual = mmap(reinterpret_cast<void*>(ptr), page_aligned_byte_count, prot, flags, fd.get(),
-                      0);
+        actual = TryMemMapLow4GB(reinterpret_cast<void*>(ptr), page_aligned_byte_count, prot, flags,
+                                 fd.get());
         if (actual != MAP_FAILED) {
-          // Since we didn't use MAP_FIXED the kernel may have mapped it somewhere not in the low
-          // 4GB. If this is the case, unmap and retry.
-          if (reinterpret_cast<uintptr_t>(actual) + page_aligned_byte_count < 4 * GB) {
             break;
-          } else {
-            munmap(actual, page_aligned_byte_count);
-            actual = MAP_FAILED;
-          }
         }
       } else {
         // Skip over last page.
@@ -367,24 +424,31 @@ MemMap* MemMap::MapAnonymous(const char* name, byte* expected_ptr, size_t byte_c
 #endif
 
   if (actual == MAP_FAILED) {
-    std::string maps;
-    ReadFileToString("/proc/self/maps", &maps);
+    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
 
-    *error_msg = StringPrintf("Failed anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0): %s\n%s",
-                              expected_ptr, page_aligned_byte_count, prot, flags, fd.get(),
-                              strerror(saved_errno), maps.c_str());
+    *error_msg = StringPrintf("Failed anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0): %s. See process "
+                              "maps in the log.", expected_ptr, page_aligned_byte_count, prot,
+                              flags, fd.get(), strerror(saved_errno));
     return nullptr;
   }
   std::ostringstream check_map_request_error_msg;
   if (!CheckMapRequest(expected_ptr, actual, page_aligned_byte_count, error_msg)) {
     return nullptr;
   }
-  return new MemMap(name, reinterpret_cast<byte*>(actual), byte_count, actual,
+  return new MemMap(name, reinterpret_cast<uint8_t*>(actual), byte_count, actual,
                     page_aligned_byte_count, prot, false);
 }
 
-MemMap* MemMap::MapFileAtAddress(byte* expected_ptr, size_t byte_count, int prot, int flags, int fd,
-                                 off_t start, bool reuse, const char* filename,
+MemMap* MemMap::MapDummy(const char* name, uint8_t* addr, size_t byte_count) {
+  if (byte_count == 0) {
+    return new MemMap(name, nullptr, 0, nullptr, 0, 0, false);
+  }
+  const size_t page_aligned_byte_count = RoundUp(byte_count, kPageSize);
+  return new MemMap(name, addr, byte_count, addr, page_aligned_byte_count, 0, true /* reuse */);
+}
+
+MemMap* MemMap::MapFileAtAddress(uint8_t* expected_ptr, size_t byte_count, int prot, int flags,
+                                 int fd, off_t start, bool reuse, const char* filename,
                                  std::string* error_msg) {
   CHECK_NE(0, prot);
   CHECK_NE(0, flags & (MAP_SHARED | MAP_PRIVATE));
@@ -396,11 +460,7 @@ MemMap* MemMap::MapFileAtAddress(byte* expected_ptr, size_t byte_count, int prot
     // Only use this if you actually made the page reservation yourself.
     CHECK(expected_ptr != nullptr);
 
-#if !defined(__APPLE__)  // TODO: Reanable after b/16861075 BacktraceMap issue is addressed.
-    uintptr_t expected = reinterpret_cast<uintptr_t>(expected_ptr);
-    uintptr_t limit = expected + byte_count;
-    DCHECK(ContainedWithinExistingMap(expected, limit, error_msg));
-#endif
+    DCHECK(ContainedWithinExistingMap(expected_ptr, byte_count, error_msg)) << *error_msg;
     flags |= MAP_FIXED;
   } else {
     CHECK_EQ(0, flags & MAP_FIXED);
@@ -418,9 +478,10 @@ MemMap* MemMap::MapFileAtAddress(byte* expected_ptr, size_t byte_count, int prot
   size_t page_aligned_byte_count = RoundUp(byte_count + page_offset, kPageSize);
   // The 'expected_ptr' is modified (if specified, ie non-null) to be page aligned to the file but
   // not necessarily to virtual memory. mmap will page align 'expected' for us.
-  byte* page_aligned_expected = (expected_ptr == nullptr) ? nullptr : (expected_ptr - page_offset);
+  uint8_t* page_aligned_expected =
+      (expected_ptr == nullptr) ? nullptr : (expected_ptr - page_offset);
 
-  byte* actual = reinterpret_cast<byte*>(mmap(page_aligned_expected,
+  uint8_t* actual = reinterpret_cast<uint8_t*>(mmap(page_aligned_expected,
                                               page_aligned_byte_count,
                                               prot,
                                               flags,
@@ -429,14 +490,13 @@ MemMap* MemMap::MapFileAtAddress(byte* expected_ptr, size_t byte_count, int prot
   if (actual == MAP_FAILED) {
     auto saved_errno = errno;
 
-    std::string maps;
-    ReadFileToString("/proc/self/maps", &maps);
+    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
 
     *error_msg = StringPrintf("mmap(%p, %zd, 0x%x, 0x%x, %d, %" PRId64
-                              ") of file '%s' failed: %s\n%s",
+                              ") of file '%s' failed: %s. See process maps in the log.",
                               page_aligned_expected, page_aligned_byte_count, prot, flags, fd,
                               static_cast<int64_t>(page_aligned_offset), filename,
-                              strerror(saved_errno), maps.c_str());
+                              strerror(saved_errno));
     return nullptr;
   }
   std::ostringstream check_map_request_error_msg;
@@ -473,7 +533,7 @@ MemMap::~MemMap() {
   CHECK(found) << "MemMap not found";
 }
 
-MemMap::MemMap(const std::string& name, byte* begin, size_t size, void* base_begin,
+MemMap::MemMap(const std::string& name, uint8_t* begin, size_t size, void* base_begin,
                size_t base_size, int prot, bool reuse)
     : name_(name), begin_(begin), size_(size), base_begin_(base_begin), base_size_(base_size),
       prot_(prot), reuse_(reuse) {
@@ -491,29 +551,29 @@ MemMap::MemMap(const std::string& name, byte* begin, size_t size, void* base_beg
     DCHECK(maps_ != nullptr);
     maps_->insert(std::make_pair(base_begin_, this));
   }
-};
+}
 
-MemMap* MemMap::RemapAtEnd(byte* new_end, const char* tail_name, int tail_prot,
+MemMap* MemMap::RemapAtEnd(uint8_t* new_end, const char* tail_name, int tail_prot,
                            std::string* error_msg) {
   DCHECK_GE(new_end, Begin());
   DCHECK_LE(new_end, End());
-  DCHECK_LE(begin_ + size_, reinterpret_cast<byte*>(base_begin_) + base_size_);
+  DCHECK_LE(begin_ + size_, reinterpret_cast<uint8_t*>(base_begin_) + base_size_);
   DCHECK(IsAligned<kPageSize>(begin_));
   DCHECK(IsAligned<kPageSize>(base_begin_));
-  DCHECK(IsAligned<kPageSize>(reinterpret_cast<byte*>(base_begin_) + base_size_));
+  DCHECK(IsAligned<kPageSize>(reinterpret_cast<uint8_t*>(base_begin_) + base_size_));
   DCHECK(IsAligned<kPageSize>(new_end));
-  byte* old_end = begin_ + size_;
-  byte* old_base_end = reinterpret_cast<byte*>(base_begin_) + base_size_;
-  byte* new_base_end = new_end;
+  uint8_t* old_end = begin_ + size_;
+  uint8_t* old_base_end = reinterpret_cast<uint8_t*>(base_begin_) + base_size_;
+  uint8_t* new_base_end = new_end;
   DCHECK_LE(new_base_end, old_base_end);
   if (new_base_end == old_base_end) {
     return new MemMap(tail_name, nullptr, 0, nullptr, 0, tail_prot, false);
   }
-  size_ = new_end - reinterpret_cast<byte*>(begin_);
-  base_size_ = new_base_end - reinterpret_cast<byte*>(base_begin_);
-  DCHECK_LE(begin_ + size_, reinterpret_cast<byte*>(base_begin_) + base_size_);
+  size_ = new_end - reinterpret_cast<uint8_t*>(begin_);
+  base_size_ = new_base_end - reinterpret_cast<uint8_t*>(base_begin_);
+  DCHECK_LE(begin_ + size_, reinterpret_cast<uint8_t*>(base_begin_) + base_size_);
   size_t tail_size = old_end - new_end;
-  byte* tail_base_begin = new_base_end;
+  uint8_t* tail_base_begin = new_base_end;
   size_t tail_base_size = old_base_end - new_base_end;
   DCHECK_EQ(tail_base_begin + tail_base_size, old_base_end);
   DCHECK(IsAligned<kPageSize>(tail_base_size));
@@ -538,25 +598,22 @@ MemMap* MemMap::RemapAtEnd(byte* new_end, const char* tail_name, int tail_prot,
   // Unmap/map the tail region.
   int result = munmap(tail_base_begin, tail_base_size);
   if (result == -1) {
-    std::string maps;
-    ReadFileToString("/proc/self/maps", &maps);
-    *error_msg = StringPrintf("munmap(%p, %zd) failed for '%s'\n%s",
-                              tail_base_begin, tail_base_size, name_.c_str(),
-                              maps.c_str());
+    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
+    *error_msg = StringPrintf("munmap(%p, %zd) failed for '%s'. See process maps in the log.",
+                              tail_base_begin, tail_base_size, name_.c_str());
     return nullptr;
   }
   // Don't cause memory allocation between the munmap and the mmap
   // calls. Otherwise, libc (or something else) might take this memory
   // region. Note this isn't perfect as there's no way to prevent
   // other threads to try to take this memory region here.
-  byte* actual = reinterpret_cast<byte*>(mmap(tail_base_begin, tail_base_size, tail_prot,
+  uint8_t* actual = reinterpret_cast<uint8_t*>(mmap(tail_base_begin, tail_base_size, tail_prot,
                                               flags, fd.get(), 0));
   if (actual == MAP_FAILED) {
-    std::string maps;
-    ReadFileToString("/proc/self/maps", &maps);
-    *error_msg = StringPrintf("anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0) failed\n%s",
-                              tail_base_begin, tail_base_size, tail_prot, flags, fd.get(),
-                              maps.c_str());
+    PrintFileToLog("/proc/self/maps", LogSeverity::WARNING);
+    *error_msg = StringPrintf("anonymous mmap(%p, %zd, 0x%x, 0x%x, %d, 0) failed. See process "
+                              "maps in the log.", tail_base_begin, tail_base_size, tail_prot, flags,
+                              fd.get());
     return nullptr;
   }
   return new MemMap(tail_name, actual, tail_size, actual, tail_base_size, tail_prot, false);
@@ -609,13 +666,68 @@ bool MemMap::CheckNoGaps(MemMap* begin_map, MemMap* end_map) {
   return true;
 }
 
-void MemMap::DumpMaps(std::ostream& os) {
+void MemMap::DumpMaps(std::ostream& os, bool terse) {
   MutexLock mu(Thread::Current(), *Locks::mem_maps_lock_);
-  DumpMapsLocked(os);
+  DumpMapsLocked(os, terse);
 }
 
-void MemMap::DumpMapsLocked(std::ostream& os) {
-  os << maps_;
+void MemMap::DumpMapsLocked(std::ostream& os, bool terse) {
+  const auto& mem_maps = *maps_;
+  if (!terse) {
+    os << mem_maps;
+    return;
+  }
+
+  // Terse output example:
+  //   [MemMap: 0x409be000+0x20P~0x11dP+0x20P~0x61cP+0x20P prot=0x3 LinearAlloc]
+  //   [MemMap: 0x451d6000+0x6bP(3) prot=0x3 large object space allocation]
+  // The details:
+  //   "+0x20P" means 0x20 pages taken by a single mapping,
+  //   "~0x11dP" means a gap of 0x11d pages,
+  //   "+0x6bP(3)" means 3 mappings one after another, together taking 0x6b pages.
+  os << "MemMap:" << std::endl;
+  for (auto it = mem_maps.begin(), maps_end = mem_maps.end(); it != maps_end;) {
+    MemMap* map = it->second;
+    void* base = it->first;
+    CHECK_EQ(base, map->BaseBegin());
+    os << "[MemMap: " << base;
+    ++it;
+    // Merge consecutive maps with the same protect flags and name.
+    constexpr size_t kMaxGaps = 9;
+    size_t num_gaps = 0;
+    size_t num = 1u;
+    size_t size = map->BaseSize();
+    CHECK(IsAligned<kPageSize>(size));
+    void* end = map->BaseEnd();
+    while (it != maps_end &&
+        it->second->GetProtect() == map->GetProtect() &&
+        it->second->GetName() == map->GetName() &&
+        (it->second->BaseBegin() == end || num_gaps < kMaxGaps)) {
+      if (it->second->BaseBegin() != end) {
+        ++num_gaps;
+        os << "+0x" << std::hex << (size / kPageSize) << "P";
+        if (num != 1u) {
+          os << "(" << std::dec << num << ")";
+        }
+        size_t gap =
+            reinterpret_cast<uintptr_t>(it->second->BaseBegin()) - reinterpret_cast<uintptr_t>(end);
+        CHECK(IsAligned<kPageSize>(gap));
+        os << "~0x" << std::hex << (gap / kPageSize) << "P";
+        num = 0u;
+        size = 0u;
+      }
+      CHECK(IsAligned<kPageSize>(it->second->BaseSize()));
+      ++num;
+      size += it->second->BaseSize();
+      end = it->second->BaseEnd();
+      ++it;
+    }
+    os << "+0x" << std::hex << (size / kPageSize) << "P";
+    if (num != 1u) {
+      os << "(" << std::dec << num << ")";
+    }
+    os << " prot=0x" << std::hex << map->GetProtect() << " " << map->GetName() << "]" << std::endl;
+  }
 }
 
 bool MemMap::HasMemMap(MemMap* map) {
@@ -657,6 +769,19 @@ void MemMap::Shutdown() {
   MutexLock mu(Thread::Current(), *Locks::mem_maps_lock_);
   delete maps_;
   maps_ = nullptr;
+}
+
+void MemMap::SetSize(size_t new_size) {
+  if (new_size == base_size_) {
+    return;
+  }
+  CHECK_ALIGNED(new_size, kPageSize);
+  CHECK_EQ(base_size_, size_) << "Unsupported";
+  CHECK_LE(new_size, base_size_);
+  CHECK_EQ(munmap(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(BaseBegin()) + new_size),
+                  base_size_ - new_size), 0) << new_size << " " << base_size_;
+  base_size_ = new_size;
+  size_ = new_size;
 }
 
 std::ostream& operator<<(std::ostream& os, const MemMap& mem_map) {

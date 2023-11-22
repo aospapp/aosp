@@ -9,8 +9,6 @@ libc_bionic_src_files_x86_64 += \
     bionic/__memset_chk.cpp \
     bionic/__strcpy_chk.cpp \
     bionic/__strcat_chk.cpp \
-    bionic/memchr.c \
-    bionic/memrchr.c \
     bionic/strchr.cpp \
     bionic/strnlen.c \
     bionic/strrchr.cpp \
@@ -26,8 +24,8 @@ libc_freebsd_src_files_x86_64 += \
     upstream-freebsd/lib/libc/string/wmemmove.c \
 
 libc_openbsd_src_files_x86_64 += \
-    upstream-openbsd/lib/libc/string/strlcat.c \
-    upstream-openbsd/lib/libc/string/strlcpy.c \
+    upstream-openbsd/lib/libc/string/memchr.c \
+    upstream-openbsd/lib/libc/string/memrchr.c \
 
 #
 # Inherently architecture-specific code.
@@ -37,10 +35,8 @@ libc_bionic_src_files_x86_64 += \
     arch-x86_64/bionic/__bionic_clone.S \
     arch-x86_64/bionic/_exit_with_stack_teardown.S \
     arch-x86_64/bionic/__restore_rt.S \
-    arch-x86_64/bionic/_setjmp.S \
     arch-x86_64/bionic/setjmp.S \
     arch-x86_64/bionic/__set_tls.c \
-    arch-x86_64/bionic/sigsetjmp.S \
     arch-x86_64/bionic/syscall.S \
     arch-x86_64/bionic/vfork.S \
 
@@ -56,6 +52,8 @@ libc_bionic_src_files_x86_64 += \
     arch-x86_64/string/sse2-stpncpy-slm.S \
     arch-x86_64/string/sse2-strcat-slm.S \
     arch-x86_64/string/sse2-strcpy-slm.S \
+    arch-x86_64/string/sse2-strlcat-slm.S \
+    arch-x86_64/string/sse2-strlcpy-slm.S \
     arch-x86_64/string/sse2-strlen-slm.S \
     arch-x86_64/string/sse2-strncat-slm.S \
     arch-x86_64/string/sse2-strncpy-slm.S \

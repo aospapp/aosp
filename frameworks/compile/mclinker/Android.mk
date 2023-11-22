@@ -9,7 +9,6 @@ include $(CLEAR_VARS)
 # MCLinker Libraries
 subdirs := \
   lib/ADT \
-  lib/CodeGen \
   lib/Core \
   lib/Fragment \
   lib/LD \
@@ -38,6 +37,9 @@ subdirs += \
 subdirs += \
   lib/Target/X86 \
   lib/Target/X86/TargetInfo
+
+# mcld executable
+subdirs += tools/mcld
 
 include $(MCLD_ROOT_PATH)/mcld.mk
 include $(addprefix $(LOCAL_PATH)/,$(addsuffix /Android.mk, $(subdirs)))

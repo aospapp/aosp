@@ -345,17 +345,6 @@ public class SweepTests extends ActivityTestBase {
                 null, bitmapVerifiers);
     }
 
-    /*
-    @SmallTest
-    public void testShaderSweeps() {
-        int mask = DisplayModifier.Accessor.AA_MASK
-                | DisplayModifier.Accessor.SHADER_MASK
-                | DisplayModifier.Accessor.XFERMODE_MASK
-                | DisplayModifier.Accessor.SHAPES_MASK;
-        sweepModifiersForMask(mask, null, DEFAULT_MSSIM_COMPARER, null);
-    }
-    */
-
     protected void sweepModifiersForMask(int mask, final DisplayModifier drawOp,
             BitmapComparer[] bitmapComparers, BitmapVerifier[] bitmapVerifiers) {
         if ((mask & DisplayModifier.Accessor.ALL_OPTIONS_MASK) == 0) {

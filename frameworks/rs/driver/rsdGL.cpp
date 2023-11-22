@@ -152,7 +152,7 @@ static void DumpDebug(RsdHal *dc) {
 void rsdGLShutdown(const Context *rsc) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
-    rsdGLSetSurface(rsc, 0, 0, NULL);
+    rsdGLSetSurface(rsc, 0, 0, nullptr);
     dc->gl.shaderCache->cleanupAll();
     delete dc->gl.shaderCache;
     delete dc->gl.vertexArrayState;
@@ -182,7 +182,7 @@ void getConfigData(const Context *rsc,
     EGLint *configAttribsPtr = configAttribs;
 
     configAttribsPtr[0] = EGL_SURFACE_TYPE;
-    configAttribsPtr[1] = EGL_WINDOW_BIT;
+    configAttribsPtr[1] = EGL_PBUFFER_BIT;
     configAttribsPtr += 2;
 
     configAttribsPtr[0] = EGL_RENDERABLE_TYPE;
@@ -319,7 +319,7 @@ bool rsdGLInit(const Context *rsc) {
     checkEglError("eglCreateContext");
     if (dc->gl.egl.context == EGL_NO_CONTEXT) {
         ALOGE("%p, eglCreateContext returned EGL_NO_CONTEXT", rsc);
-        rsc->setWatchdogGL(NULL, 0, NULL);
+        rsc->setWatchdogGL(nullptr, 0, nullptr);
         return false;
     }
     gGLContextCount++;
@@ -332,7 +332,7 @@ bool rsdGLInit(const Context *rsc) {
     if (dc->gl.egl.surfaceDefault == EGL_NO_SURFACE) {
         ALOGE("eglCreatePbufferSurface returned EGL_NO_SURFACE");
         rsdGLShutdown(rsc);
-        rsc->setWatchdogGL(NULL, 0, NULL);
+        rsc->setWatchdogGL(nullptr, 0, nullptr);
         return false;
     }
 
@@ -343,7 +343,7 @@ bool rsdGLInit(const Context *rsc) {
         ALOGE("eglMakeCurrent returned EGL_FALSE");
         checkEglError("eglMakeCurrent", ret);
         rsdGLShutdown(rsc);
-        rsc->setWatchdogGL(NULL, 0, NULL);
+        rsc->setWatchdogGL(nullptr, 0, nullptr);
         return false;
     }
 
@@ -358,7 +358,7 @@ bool rsdGLInit(const Context *rsc) {
     //ALOGV("GL Renderer %s", mGL.mRenderer);
     //ALOGV("GL Extensions %s", mGL.mExtensions);
 
-    const char *verptr = NULL;
+    const char *verptr = nullptr;
     if (strlen((const char *)dc->gl.gl.version) > 9) {
         if (!memcmp(dc->gl.gl.version, "OpenGL ES-CM", 12)) {
             verptr = (const char *)dc->gl.gl.version + 12;
@@ -371,7 +371,7 @@ bool rsdGLInit(const Context *rsc) {
     if (!verptr) {
         ALOGE("Error, OpenGL ES Lite not supported");
         rsdGLShutdown(rsc);
-        rsc->setWatchdogGL(NULL, 0, NULL);
+        rsc->setWatchdogGL(nullptr, 0, nullptr);
         return false;
     } else {
         sscanf(verptr, " %i.%i", &dc->gl.gl.majorVersion, &dc->gl.gl.minorVersion);
@@ -387,14 +387,14 @@ bool rsdGLInit(const Context *rsc) {
     glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &dc->gl.gl.maxFragmentTextureImageUnits);
     glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_VECTORS, &dc->gl.gl.maxFragmentUniformVectors);
 
-    dc->gl.gl.OES_texture_npot = NULL != strstr((const char *)dc->gl.gl.extensions,
+    dc->gl.gl.OES_texture_npot = nullptr != strstr((const char *)dc->gl.gl.extensions,
                                                 "GL_OES_texture_npot");
-    dc->gl.gl.IMG_texture_npot = NULL != strstr((const char *)dc->gl.gl.extensions,
+    dc->gl.gl.IMG_texture_npot = nullptr != strstr((const char *)dc->gl.gl.extensions,
                                                    "GL_IMG_texture_npot");
-    dc->gl.gl.NV_texture_npot_2D_mipmap = NULL != strstr((const char *)dc->gl.gl.extensions,
+    dc->gl.gl.NV_texture_npot_2D_mipmap = nullptr != strstr((const char *)dc->gl.gl.extensions,
                                                             "GL_NV_texture_npot_2D_mipmap");
     dc->gl.gl.EXT_texture_max_aniso = 1.0f;
-    bool hasAniso = NULL != strstr((const char *)dc->gl.gl.extensions,
+    bool hasAniso = nullptr != strstr((const char *)dc->gl.gl.extensions,
                                    "GL_EXT_texture_filter_anisotropic");
     if (hasAniso) {
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &dc->gl.gl.EXT_texture_max_aniso);
@@ -407,11 +407,11 @@ bool rsdGLInit(const Context *rsc) {
     dc->gl.shaderCache = new RsdShaderCache();
     dc->gl.vertexArrayState = new RsdVertexArrayState();
     dc->gl.vertexArrayState->init(dc->gl.gl.maxVertexAttribs);
-    dc->gl.currentFrameBuffer = NULL;
+    dc->gl.currentFrameBuffer = nullptr;
     dc->mHasGraphics = true;
 
     ALOGV("%p initGLThread end", rsc);
-    rsc->setWatchdogGL(NULL, 0, NULL);
+    rsc->setWatchdogGL(nullptr, 0, nullptr);
     return true;
 }
 
@@ -420,7 +420,7 @@ bool rsdGLSetInternalSurface(const Context *rsc, RsNativeWindow sur) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
     EGLBoolean ret;
-    if (dc->gl.egl.surface != NULL) {
+    if (dc->gl.egl.surface != nullptr) {
         rsc->setWatchdogGL("eglMakeCurrent", __LINE__, __FILE__);
         ret = eglMakeCurrent(dc->gl.egl.display, dc->gl.egl.surfaceDefault,
                              dc->gl.egl.surfaceDefault, dc->gl.egl.context);
@@ -430,20 +430,20 @@ bool rsdGLSetInternalSurface(const Context *rsc, RsNativeWindow sur) {
         ret = eglDestroySurface(dc->gl.egl.display, dc->gl.egl.surface);
         checkEglError("eglDestroySurface", ret);
 
-        dc->gl.egl.surface = NULL;
+        dc->gl.egl.surface = nullptr;
     }
 
-    if (dc->gl.currentWndSurface != NULL) {
-        dc->gl.currentWndSurface->decStrong(NULL);
+    if (dc->gl.currentWndSurface != nullptr) {
+        dc->gl.currentWndSurface->decStrong(nullptr);
     }
 
     dc->gl.currentWndSurface = (ANativeWindow *)sur;
-    if (dc->gl.currentWndSurface != NULL) {
-        dc->gl.currentWndSurface->incStrong(NULL);
+    if (dc->gl.currentWndSurface != nullptr) {
+        dc->gl.currentWndSurface->incStrong(nullptr);
 
         rsc->setWatchdogGL("eglCreateWindowSurface", __LINE__, __FILE__);
         dc->gl.egl.surface = eglCreateWindowSurface(dc->gl.egl.display, dc->gl.egl.config,
-                                                    dc->gl.currentWndSurface, NULL);
+                                                    dc->gl.currentWndSurface, nullptr);
         checkEglError("eglCreateWindowSurface");
         if (dc->gl.egl.surface == EGL_NO_SURFACE) {
             ALOGE("eglCreateWindowSurface returned EGL_NO_SURFACE");
@@ -454,23 +454,23 @@ bool rsdGLSetInternalSurface(const Context *rsc, RsNativeWindow sur) {
                              dc->gl.egl.surface, dc->gl.egl.context);
         checkEglError("eglMakeCurrent", ret);
     }
-    rsc->setWatchdogGL(NULL, 0, NULL);
+    rsc->setWatchdogGL(nullptr, 0, nullptr);
     return true;
 }
 
 bool rsdGLSetSurface(const Context *rsc, uint32_t w, uint32_t h, RsNativeWindow sur) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
-    if (dc->gl.wndSurface != NULL) {
-        dc->gl.wndSurface->decStrong(NULL);
-        dc->gl.wndSurface = NULL;
+    if (dc->gl.wndSurface != nullptr) {
+        dc->gl.wndSurface->decStrong(nullptr);
+        dc->gl.wndSurface = nullptr;
     }
     if(w && h) {
         // WAR: Some drivers fail to handle 0 size surfaces correctly. Use the
         // pbuffer to avoid this pitfall.
         dc->gl.wndSurface = (ANativeWindow *)sur;
-        if (dc->gl.wndSurface != NULL) {
-            dc->gl.wndSurface->incStrong(NULL);
+        if (dc->gl.wndSurface != nullptr) {
+            dc->gl.wndSurface->incStrong(nullptr);
         }
     }
 

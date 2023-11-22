@@ -40,7 +40,8 @@ import java.nio.charset.Charset;
  *     represents a hash code as an instance of {@link HashCode}.
  *
  * <li><b>pure function:</b> the value produced must depend only on the input bytes, in
- *     the order they appear. Input data is never modified.
+ *     the order they appear. Input data is never modified. {@link HashFunction} instances
+ *     should always be stateless, and therefore thread-safe.
  *
  * <li><b>collision-averse:</b> while it can't be helped that a hash function will
  *     sometimes produce the same hash code for distinct inputs (a "collision"), every
@@ -136,18 +137,27 @@ public interface HashFunction {
    *   HashFunction hf = Hashing.md5();
    *   HashCode hc = hf.newHasher()
    *       .putLong(id)
-   *       .putString(name)
+   *       .putBoolean(isActive)
    *       .hash();}</pre>
    */
   Hasher newHasher();
 
   /**
-   * Begins a new hash code computation as {@link #newHasher()}, but provides a hint of the 
+   * Begins a new hash code computation as {@link #newHasher()}, but provides a hint of the
    * expected size of the input (in bytes). This is only important for non-streaming hash
-   * functions (hash functions that need to buffer their whole input before processing any 
-   * of it).  
+   * functions (hash functions that need to buffer their whole input before processing any
+   * of it).
    */
-  Hasher newHasher(int expectedInputSize); 
+  Hasher newHasher(int expectedInputSize);
+
+  /**
+   * Shortcut for {@code newHasher().putInt(input).hash()}; returns the hash code for the given
+   * {@code int} value, interpreted in little-endian byte order. The implementation <i>might</i>
+   * perform better than its longhand equivalent, but should not perform worse.
+   *
+   * @since 12.0
+   */
+  HashCode hashInt(int input);
 
   /**
    * Shortcut for {@code newHasher().putLong(input).hash()}; returns the hash code for the
@@ -165,21 +175,34 @@ public interface HashFunction {
 
   /**
    * Shortcut for {@code newHasher().putBytes(input, off, len).hash()}. The implementation
-   * <i>might</i> perform better than its longhand equivalent, but should not perform 
-   * worse. 
-   * 
+   * <i>might</i> perform better than its longhand equivalent, but should not perform
+   * worse.
+   *
    * @throws IndexOutOfBoundsException if {@code off < 0} or {@code off + len > bytes.length}
    *   or {@code len < 0}
    */
   HashCode hashBytes(byte[] input, int off, int len);
 
   /**
-   * Shortcut for {@code newHasher().putString(input).hash()}. The implementation <i>might</i>
-   * perform better than its longhand equivalent, but should not perform worse. Note that no
-   * character encoding is performed; the low byte and high byte of each character are hashed
-   * directly (in that order). This is equivalent to using
-   * {@code hashString(input, Charsets.UTF_16LE)}.
+   * Shortcut for {@code newHasher().putUnencodedChars(input).hash()}. The implementation
+   * <i>might</i> perform better than its longhand equivalent, but should not perform worse.
+   * Note that no character encoding is performed; the low byte and high byte of each {@code char}
+   * are hashed directly (in that order).
+   *
+   * @since 15.0 (since 11.0 as hashString(CharSequence)).
    */
+  HashCode hashUnencodedChars(CharSequence input);
+
+  /**
+   * Shortcut for {@code newHasher().putUnencodedChars(input).hash()}. The implementation
+   * <i>might</i> perform better than its longhand equivalent, but should not perform worse.
+   * Note that no character encoding is performed; the low byte and high byte of each {@code char}
+   * are hashed directly (in that order).
+   *
+   * @deprecated Use {@link HashFunction#hashUnencodedChars} instead. This method is scheduled for
+   *     removal in Guava 16.0.
+   */
+  @Deprecated
   HashCode hashString(CharSequence input);
 
   /**
@@ -188,6 +211,14 @@ public interface HashFunction {
    * longhand equivalent, but should not perform worse.
    */
   HashCode hashString(CharSequence input, Charset charset);
+
+  /**
+   * Shortcut for {@code newHasher().putObject(instance, funnel).hash()}. The implementation
+   * <i>might</i> perform better than its longhand equivalent, but should not perform worse.
+   *
+   * @since 14.0
+   */
+  <T> HashCode hashObject(T instance, Funnel<? super T> funnel);
 
   /**
    * Returns the number of bits (a multiple of 32) that each hash code produced by this

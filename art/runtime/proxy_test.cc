@@ -17,9 +17,11 @@
 #include <jni.h>
 #include <vector>
 
+#include "art_field-inl.h"
+#include "class_linker-inl.h"
 #include "common_compiler_test.h"
-#include "field_helper.h"
-#include "mirror/art_field-inl.h"
+#include "mirror/field-inl.h"
+#include "mirror/method.h"
 #include "scoped_thread_state_change.h"
 
 namespace art {
@@ -50,44 +52,37 @@ class ProxyTest : public CommonCompilerTest {
     // Builds the method array.
     jsize methods_count = 3;  // Object.equals, Object.hashCode and Object.toString.
     for (mirror::Class* interface : interfaces) {
-      mirror::ObjectArray<mirror::ArtMethod>* virtual_methods = interface->GetVirtualMethods();
-      methods_count += (virtual_methods == nullptr) ? 0 : virtual_methods->GetLength();
+      methods_count += interface->NumVirtualMethods();
     }
-    jclass javaLangReflectArtMethod =
-        soa.AddLocalReference<jclass>(mirror::ArtMethod::GetJavaLangReflectArtMethod());
-    jobjectArray proxyClassMethods = soa.Env()->NewObjectArray(methods_count,
-                                                               javaLangReflectArtMethod, nullptr);
+    jobjectArray proxyClassMethods = soa.Env()->NewObjectArray(
+        methods_count, soa.AddLocalReference<jclass>(mirror::Method::StaticClass()), nullptr);
     soa.Self()->AssertNoPendingException();
 
-    // Fill the method array
-    mirror::ArtMethod* equalsMethod = javaLangObject->FindDeclaredVirtualMethod("equals",
-                                                                                "(Ljava/lang/Object;)Z");
-    mirror::ArtMethod* hashCodeMethod = javaLangObject->FindDeclaredVirtualMethod("hashCode",
-                                                                                  "()I");
-    mirror::ArtMethod* toStringMethod = javaLangObject->FindDeclaredVirtualMethod("toString",
-                                                                                  "()Ljava/lang/String;");
-    CHECK(equalsMethod != nullptr);
-    CHECK(hashCodeMethod != nullptr);
-    CHECK(toStringMethod != nullptr);
-
     jsize array_index = 0;
-    // Adds Object methods.
-    soa.Env()->SetObjectArrayElement(proxyClassMethods, array_index++,
-                                     soa.AddLocalReference<jobject>(equalsMethod));
-    soa.Env()->SetObjectArrayElement(proxyClassMethods, array_index++,
-                                     soa.AddLocalReference<jobject>(hashCodeMethod));
-    soa.Env()->SetObjectArrayElement(proxyClassMethods, array_index++,
-                                     soa.AddLocalReference<jobject>(toStringMethod));
-
+    // Fill the method array
+    ArtMethod* method = javaLangObject->FindDeclaredVirtualMethod(
+        "equals", "(Ljava/lang/Object;)Z", sizeof(void*));
+    CHECK(method != nullptr);
+    soa.Env()->SetObjectArrayElement(
+        proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
+            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
+    method = javaLangObject->FindDeclaredVirtualMethod("hashCode", "()I", sizeof(void*));
+    CHECK(method != nullptr);
+    soa.Env()->SetObjectArrayElement(
+        proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
+            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
+    method = javaLangObject->FindDeclaredVirtualMethod(
+        "toString", "()Ljava/lang/String;", sizeof(void*));
+    CHECK(method != nullptr);
+    soa.Env()->SetObjectArrayElement(
+        proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
+            mirror::Method::CreateFromArtMethod(soa.Self(), method)));
     // Now adds all interfaces virtual methods.
     for (mirror::Class* interface : interfaces) {
-      mirror::ObjectArray<mirror::ArtMethod>* virtual_methods = interface->GetVirtualMethods();
-      if (virtual_methods != nullptr) {
-        for (int32_t mth_index = 0; mth_index < virtual_methods->GetLength(); ++mth_index) {
-          mirror::ArtMethod* method = virtual_methods->Get(mth_index);
-          soa.Env()->SetObjectArrayElement(proxyClassMethods, array_index++,
-                                           soa.AddLocalReference<jobject>(method));
-        }
+      for (auto& m : interface->GetVirtualMethods(sizeof(void*))) {
+        soa.Env()->SetObjectArrayElement(
+            proxyClassMethods, array_index++, soa.AddLocalReference<jobject>(
+                mirror::Method::CreateFromArtMethod(soa.Self(), &m)));
       }
     }
     CHECK_EQ(array_index, methods_count);
@@ -96,10 +91,9 @@ class ProxyTest : public CommonCompilerTest {
     jobjectArray proxyClassThrows = soa.Env()->NewObjectArray(0, javaLangClass, nullptr);
     soa.Self()->AssertNoPendingException();
 
-    mirror::Class* proxyClass = class_linker_->CreateProxyClass(soa,
-                                                                soa.Env()->NewStringUTF(className),
-                                                                proxyClassInterfaces, jclass_loader,
-                                                                proxyClassMethods, proxyClassThrows);
+    mirror::Class* proxyClass = class_linker_->CreateProxyClass(
+        soa, soa.Env()->NewStringUTF(className), proxyClassInterfaces, jclass_loader,
+        proxyClassMethods, proxyClassThrows);
     soa.Self()->AssertNoPendingException();
     return proxyClass;
   }
@@ -166,14 +160,12 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
   ASSERT_TRUE(proxyClass->IsProxyClass());
   ASSERT_TRUE(proxyClass->IsInitialized());
 
-  Handle<mirror::ObjectArray<mirror::ArtField>> instance_fields(
-      hs.NewHandle(proxyClass->GetIFields()));
-  EXPECT_TRUE(instance_fields.Get() == nullptr);
+  ArtField* instance_fields = proxyClass->GetIFields();
+  EXPECT_TRUE(instance_fields == nullptr);
 
-  Handle<mirror::ObjectArray<mirror::ArtField>> static_fields(
-      hs.NewHandle(proxyClass->GetSFields()));
-  ASSERT_TRUE(static_fields.Get() != nullptr);
-  ASSERT_EQ(2, static_fields->GetLength());
+  ArtField* static_fields = proxyClass->GetSFields();
+  ASSERT_TRUE(static_fields != nullptr);
+  ASSERT_EQ(2u, proxyClass->NumStaticFields());
 
   Handle<mirror::Class> interfacesFieldClass(
       hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Class;")));
@@ -183,20 +175,70 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
   ASSERT_TRUE(throwsFieldClass.Get() != nullptr);
 
   // Test "Class[] interfaces" field.
-  FieldHelper fh(hs.NewHandle(static_fields->Get(0)));
-  EXPECT_EQ("interfaces", std::string(fh.GetField()->GetName()));
-  EXPECT_EQ("[Ljava/lang/Class;", std::string(fh.GetField()->GetTypeDescriptor()));
-  EXPECT_EQ(interfacesFieldClass.Get(), fh.GetType());
-  EXPECT_EQ("L$Proxy1234;", std::string(fh.GetDeclaringClassDescriptor()));
-  EXPECT_FALSE(fh.GetField()->IsPrimitiveType());
+  ArtField* field = &static_fields[0];
+  EXPECT_STREQ("interfaces", field->GetName());
+  EXPECT_STREQ("[Ljava/lang/Class;", field->GetTypeDescriptor());
+  EXPECT_EQ(interfacesFieldClass.Get(), field->GetType<true>());
+  std::string temp;
+  EXPECT_STREQ("L$Proxy1234;", field->GetDeclaringClass()->GetDescriptor(&temp));
+  EXPECT_FALSE(field->IsPrimitiveType());
 
   // Test "Class[][] throws" field.
-  fh.ChangeField(static_fields->Get(1));
-  EXPECT_EQ("throws", std::string(fh.GetField()->GetName()));
-  EXPECT_EQ("[[Ljava/lang/Class;", std::string(fh.GetField()->GetTypeDescriptor()));
-  EXPECT_EQ(throwsFieldClass.Get(), fh.GetType());
-  EXPECT_EQ("L$Proxy1234;", std::string(fh.GetDeclaringClassDescriptor()));
-  EXPECT_FALSE(fh.GetField()->IsPrimitiveType());
+  field = &static_fields[1];
+  EXPECT_STREQ("throws", field->GetName());
+  EXPECT_STREQ("[[Ljava/lang/Class;", field->GetTypeDescriptor());
+  EXPECT_EQ(throwsFieldClass.Get(), field->GetType<true>());
+  EXPECT_STREQ("L$Proxy1234;", field->GetDeclaringClass()->GetDescriptor(&temp));
+  EXPECT_FALSE(field->IsPrimitiveType());
+}
+
+// Creates two proxy classes and check the art/mirror fields of their static fields.
+TEST_F(ProxyTest, CheckArtMirrorFieldsOfProxyStaticFields) {
+  ScopedObjectAccess soa(Thread::Current());
+  jobject jclass_loader = LoadDex("Interfaces");
+  StackHandleScope<7> hs(soa.Self());
+  Handle<mirror::ClassLoader> class_loader(
+      hs.NewHandle(soa.Decode<mirror::ClassLoader*>(jclass_loader)));
+
+  Handle<mirror::Class> proxyClass0;
+  Handle<mirror::Class> proxyClass1;
+  {
+    std::vector<mirror::Class*> interfaces;
+    proxyClass0 = hs.NewHandle(GenerateProxyClass(soa, jclass_loader, "$Proxy0", interfaces));
+    proxyClass1 = hs.NewHandle(GenerateProxyClass(soa, jclass_loader, "$Proxy1", interfaces));
+  }
+
+  ASSERT_TRUE(proxyClass0.Get() != nullptr);
+  ASSERT_TRUE(proxyClass0->IsProxyClass());
+  ASSERT_TRUE(proxyClass0->IsInitialized());
+  ASSERT_TRUE(proxyClass1.Get() != nullptr);
+  ASSERT_TRUE(proxyClass1->IsProxyClass());
+  ASSERT_TRUE(proxyClass1->IsInitialized());
+
+  ArtField* static_fields0 = proxyClass0->GetSFields();
+  ASSERT_TRUE(static_fields0 != nullptr);
+  ASSERT_EQ(2u, proxyClass0->NumStaticFields());
+  ArtField* static_fields1 = proxyClass1->GetSFields();
+  ASSERT_TRUE(static_fields1 != nullptr);
+  ASSERT_EQ(2u, proxyClass1->NumStaticFields());
+
+  EXPECT_EQ(static_fields0[0].GetDeclaringClass(), proxyClass0.Get());
+  EXPECT_EQ(static_fields0[1].GetDeclaringClass(), proxyClass0.Get());
+  EXPECT_EQ(static_fields1[0].GetDeclaringClass(), proxyClass1.Get());
+  EXPECT_EQ(static_fields1[1].GetDeclaringClass(), proxyClass1.Get());
+
+  Handle<mirror::Field> field00 =
+      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields0[0], true));
+  Handle<mirror::Field> field01 =
+      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields0[1], true));
+  Handle<mirror::Field> field10 =
+      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields1[0], true));
+  Handle<mirror::Field> field11 =
+      hs.NewHandle(mirror::Field::CreateFromArtField(soa.Self(), &static_fields1[1], true));
+  EXPECT_EQ(field00->GetArtField(), &static_fields0[0]);
+  EXPECT_EQ(field01->GetArtField(), &static_fields0[1]);
+  EXPECT_EQ(field10->GetArtField(), &static_fields1[0]);
+  EXPECT_EQ(field11->GetArtField(), &static_fields1[1]);
 }
 
 }  // namespace art

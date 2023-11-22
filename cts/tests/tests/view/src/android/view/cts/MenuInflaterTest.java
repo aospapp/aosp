@@ -17,10 +17,8 @@
 package android.view.cts;
 
 import com.android.cts.view.R;
-import com.android.internal.view.menu.MenuBuilder;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.res.Resources;
 import android.cts.util.WidgetTestUtils;
 import android.graphics.Bitmap;
@@ -31,6 +29,7 @@ import android.test.UiThreadTest;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.SubMenu;
+import android.widget.PopupMenu;
 
 /**
  * Test {@link MenuInflater}.
@@ -50,6 +49,10 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
         mActivity = getActivity();
     }
 
+    private Menu createMenu(Activity context) {
+        return new PopupMenu(context, null).getMenu();
+    }
+
     @UiThreadTest
     public void testConstructor() {
         new MenuInflater(mActivity);
@@ -57,7 +60,7 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
 
     @UiThreadTest
     public void testInflate() {
-        Menu menu = new MenuBuilder(mActivity);
+        Menu menu = createMenu(mActivity);
         assertEquals(0, menu.size());
 
         if (mMenuInflater == null) {
@@ -89,7 +92,7 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
         }
 
         // the visibility and shortcut
-        Menu menu = new MenuBuilder(mActivity);
+        Menu menu = createMenu(mActivity);
         mMenuInflater.inflate(R.menu.visible_shortcut, menu);
 
         assertTrue(menu.findItem(R.id.visible_item).isVisible());
@@ -103,7 +106,7 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
         assertEquals('c', menu.findItem(R.id.hidden_by_group).getAlphabeticShortcut());
 
         // the titles and icons
-        menu = new MenuBuilder(mActivity);
+        menu = createMenu(mActivity);
         mMenuInflater.inflate(com.android.cts.view.R.menu.title_icon, menu);
 
         assertEquals("Start", menu.findItem(R.id.start).getTitle());
@@ -119,7 +122,7 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
                 R.drawable.failed);
 
         // the orders and categories
-        menu = new MenuBuilder(mActivity);
+        menu = createMenu(mActivity);
         mMenuInflater.inflate(com.android.cts.view.R.menu.category_order, menu);
         // default category
         assertEquals(R.id.most_used_items, menu.findItem(R.id.first_most_item).getGroupId());
@@ -143,7 +146,7 @@ public class MenuInflaterTest extends ActivityInstrumentationTestCase2<MenuInfla
         assertEquals(Menu.CATEGORY_SECONDARY + 4, menu.findItem(R.id.last_least_item).getOrder());
 
         // the checkables
-        menu = new MenuBuilder(mActivity);
+        menu = createMenu(mActivity);
         mMenuInflater.inflate(com.android.cts.view.R.menu.checkable, menu);
         // noncheckables
         assertEquals(R.id.noncheckable_group,

@@ -188,6 +188,7 @@ public class CompoundButtonTest extends AndroidTestCase {
         // set null drawable
         compoundButton = new MockCompoundButton(mContext);
         compoundButton.setButtonDrawable(null);
+        assertNull(compoundButton.getButtonDrawable());
 
         // set drawable when checkedTextView is GONE
         compoundButton = new MockCompoundButton(mContext);
@@ -197,6 +198,7 @@ public class CompoundButtonTest extends AndroidTestCase {
         assertEquals(StateSet.WILD_CARD, firstDrawable.getState());
 
         compoundButton.setButtonDrawable(firstDrawable);
+        assertSame(firstDrawable, compoundButton.getButtonDrawable());
         assertFalse(firstDrawable.isVisible());
 
         // update drawable when checkedTextView is VISIBLE
@@ -206,6 +208,7 @@ public class CompoundButtonTest extends AndroidTestCase {
         assertEquals(StateSet.WILD_CARD, secondDrawable.getState());
 
         compoundButton.setButtonDrawable(secondDrawable);
+        assertSame(secondDrawable, compoundButton.getButtonDrawable());
         assertTrue(secondDrawable.isVisible());
         // the firstDrawable is not active.
         assertFalse(firstDrawable.isVisible());
@@ -240,7 +243,7 @@ public class CompoundButtonTest extends AndroidTestCase {
         compoundButton.setChecked(true);
         int[] checkedState = compoundButton.onCreateDrawableState(0);
         assertEquals(state[0], checkedState[0]);
-        assertEquals(com.android.internal.R.attr.state_checked,
+        assertEquals(android.R.attr.state_checked,
                 checkedState[checkedState.length - 1]);
 
         // compoundButton is not checked again.

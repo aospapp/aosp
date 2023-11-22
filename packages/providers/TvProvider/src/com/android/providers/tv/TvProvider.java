@@ -55,12 +55,10 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.SomeArgs;
 import com.android.providers.tv.util.SqlParams;
-import com.google.android.collect.Sets;
 
 import libcore.io.IoUtils;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -82,7 +80,7 @@ public class TvProvider extends ContentProvider {
     private static final String OP_UPDATE = "update";
     private static final String OP_DELETE = "delete";
 
-    private static final int DATABASE_VERSION = 23;
+    private static final int DATABASE_VERSION = 26;
     private static final String DATABASE_NAME = "tv.db";
     private static final String CHANNELS_TABLE = "channels";
     private static final String PROGRAMS_TABLE = "programs";
@@ -94,8 +92,6 @@ public class TvProvider extends ContentProvider {
     private static final String PROGRAMS_TABLE_END_TIME_INDEX = "programs_end_time_index";
     private static final String WATCHED_PROGRAMS_TABLE_CHANNEL_ID_INDEX =
             "watched_programs_channel_id_index";
-    private static final String DEFAULT_CHANNELS_SORT_ORDER = Channels.COLUMN_DISPLAY_NUMBER
-            + " ASC";
     private static final String DEFAULT_PROGRAMS_SORT_ORDER = Programs.COLUMN_START_TIME_UTC_MILLIS
             + " ASC";
     private static final String DEFAULT_WATCHED_PROGRAMS_SORT_ORDER =
@@ -124,9 +120,9 @@ public class TvProvider extends ContentProvider {
 
     private static final long MAX_PROGRAM_DATA_DELAY_IN_MILLIS = 10 * 1000; // 10 seconds
 
-    private static Map<String, String> sChannelProjectionMap;
-    private static Map<String, String> sProgramProjectionMap;
-    private static Map<String, String> sWatchedProgramProjectionMap;
+    private static final Map<String, String> sChannelProjectionMap;
+    private static final Map<String, String> sProgramProjectionMap;
+    private static final Map<String, String> sWatchedProgramProjectionMap;
 
     static {
         sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
@@ -139,7 +135,7 @@ public class TvProvider extends ContentProvider {
         sUriMatcher.addURI(TvContract.AUTHORITY, "watched_program", MATCH_WATCHED_PROGRAM);
         sUriMatcher.addURI(TvContract.AUTHORITY, "watched_program/#", MATCH_WATCHED_PROGRAM_ID);
 
-        sChannelProjectionMap = new HashMap<String, String>();
+        sChannelProjectionMap = new HashMap<>();
         sChannelProjectionMap.put(Channels._ID, CHANNELS_TABLE + "." + Channels._ID);
         sChannelProjectionMap.put(Channels.COLUMN_PACKAGE_NAME,
                 CHANNELS_TABLE + "." + Channels.COLUMN_PACKAGE_NAME);
@@ -171,12 +167,30 @@ public class TvProvider extends ContentProvider {
                 CHANNELS_TABLE + "." + Channels.COLUMN_SEARCHABLE);
         sChannelProjectionMap.put(Channels.COLUMN_LOCKED,
                 CHANNELS_TABLE + "." + Channels.COLUMN_LOCKED);
+        sChannelProjectionMap.put(Channels.COLUMN_APP_LINK_ICON_URI,
+                CHANNELS_TABLE + "." + Channels.COLUMN_APP_LINK_ICON_URI);
+        sChannelProjectionMap.put(Channels.COLUMN_APP_LINK_POSTER_ART_URI,
+                CHANNELS_TABLE + "." + Channels.COLUMN_APP_LINK_POSTER_ART_URI);
+        sChannelProjectionMap.put(Channels.COLUMN_APP_LINK_TEXT,
+                CHANNELS_TABLE + "." + Channels.COLUMN_APP_LINK_TEXT);
+        sChannelProjectionMap.put(Channels.COLUMN_APP_LINK_COLOR,
+                CHANNELS_TABLE + "." + Channels.COLUMN_APP_LINK_COLOR);
+        sChannelProjectionMap.put(Channels.COLUMN_APP_LINK_INTENT_URI,
+                CHANNELS_TABLE + "." + Channels.COLUMN_APP_LINK_INTENT_URI);
         sChannelProjectionMap.put(Channels.COLUMN_INTERNAL_PROVIDER_DATA,
                 CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_DATA);
+        sChannelProjectionMap.put(Channels.COLUMN_INTERNAL_PROVIDER_FLAG1,
+                CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_FLAG1);
+        sChannelProjectionMap.put(Channels.COLUMN_INTERNAL_PROVIDER_FLAG2,
+                CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_FLAG2);
+        sChannelProjectionMap.put(Channels.COLUMN_INTERNAL_PROVIDER_FLAG3,
+                CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_FLAG3);
+        sChannelProjectionMap.put(Channels.COLUMN_INTERNAL_PROVIDER_FLAG4,
+                CHANNELS_TABLE + "." + Channels.COLUMN_INTERNAL_PROVIDER_FLAG4);
         sChannelProjectionMap.put(Channels.COLUMN_VERSION_NUMBER,
                 CHANNELS_TABLE + "." + Channels.COLUMN_VERSION_NUMBER);
 
-        sProgramProjectionMap = new HashMap<String, String>();
+        sProgramProjectionMap = new HashMap<>();
         sProgramProjectionMap.put(Programs._ID, Programs._ID);
         sProgramProjectionMap.put(Programs.COLUMN_PACKAGE_NAME, Programs.COLUMN_PACKAGE_NAME);
         sProgramProjectionMap.put(Programs.COLUMN_CHANNEL_ID, Programs.COLUMN_CHANNEL_ID);
@@ -200,11 +214,20 @@ public class TvProvider extends ContentProvider {
         sProgramProjectionMap.put(Programs.COLUMN_CONTENT_RATING, Programs.COLUMN_CONTENT_RATING);
         sProgramProjectionMap.put(Programs.COLUMN_POSTER_ART_URI, Programs.COLUMN_POSTER_ART_URI);
         sProgramProjectionMap.put(Programs.COLUMN_THUMBNAIL_URI, Programs.COLUMN_THUMBNAIL_URI);
+        sProgramProjectionMap.put(Programs.COLUMN_SEARCHABLE, Programs.COLUMN_SEARCHABLE);
         sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_DATA,
                 Programs.COLUMN_INTERNAL_PROVIDER_DATA);
+        sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_FLAG1,
+                Programs.COLUMN_INTERNAL_PROVIDER_FLAG1);
+        sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_FLAG2,
+                Programs.COLUMN_INTERNAL_PROVIDER_FLAG2);
+        sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_FLAG3,
+                Programs.COLUMN_INTERNAL_PROVIDER_FLAG3);
+        sProgramProjectionMap.put(Programs.COLUMN_INTERNAL_PROVIDER_FLAG4,
+                Programs.COLUMN_INTERNAL_PROVIDER_FLAG4);
         sProgramProjectionMap.put(Programs.COLUMN_VERSION_NUMBER, Programs.COLUMN_VERSION_NUMBER);
 
-        sWatchedProgramProjectionMap = new HashMap<String, String>();
+        sWatchedProgramProjectionMap = new HashMap<>();
         sWatchedProgramProjectionMap.put(WatchedPrograms._ID, WatchedPrograms._ID);
         sWatchedProgramProjectionMap.put(WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS,
                 WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS);
@@ -231,6 +254,8 @@ public class TvProvider extends ContentProvider {
     // Mapping from broadcast genre to canonical genre.
     private static Map<String, String> sGenreMap;
 
+    private static final String PERMISSION_READ_TV_LISTINGS = "android.permission.READ_TV_LISTINGS";
+
     private static final String PERMISSION_ACCESS_ALL_EPG_DATA =
             "com.android.providers.tv.permission.ACCESS_ALL_EPG_DATA";
 
@@ -238,11 +263,8 @@ public class TvProvider extends ContentProvider {
             "com.android.providers.tv.permission.ACCESS_WATCHED_PROGRAMS";
 
     private static class DatabaseHelper extends SQLiteOpenHelper {
-        private final Context mContext;
-
         DatabaseHelper(Context context) {
             super(context, DATABASE_NAME, null, DATABASE_VERSION);
-            mContext = context;
         }
 
         @Override
@@ -274,7 +296,16 @@ public class TvProvider extends ContentProvider {
                     + Channels.COLUMN_BROWSABLE + " INTEGER NOT NULL DEFAULT 0,"
                     + Channels.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1,"
                     + Channels.COLUMN_LOCKED + " INTEGER NOT NULL DEFAULT 0,"
+                    + Channels.COLUMN_APP_LINK_ICON_URI + " TEXT,"
+                    + Channels.COLUMN_APP_LINK_POSTER_ART_URI + " TEXT,"
+                    + Channels.COLUMN_APP_LINK_TEXT + " TEXT,"
+                    + Channels.COLUMN_APP_LINK_COLOR + " INTEGER,"
+                    + Channels.COLUMN_APP_LINK_INTENT_URI + " TEXT,"
                     + Channels.COLUMN_INTERNAL_PROVIDER_DATA + " BLOB,"
+                    + Channels.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER,"
+                    + Channels.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER,"
+                    + Channels.COLUMN_INTERNAL_PROVIDER_FLAG3 + " INTEGER,"
+                    + Channels.COLUMN_INTERNAL_PROVIDER_FLAG4 + " INTEGER,"
                     + CHANNELS_COLUMN_LOGO + " BLOB,"
                     + Channels.COLUMN_VERSION_NUMBER + " INTEGER,"
                     // Needed for foreign keys in other tables.
@@ -300,7 +331,12 @@ public class TvProvider extends ContentProvider {
                     + Programs.COLUMN_CONTENT_RATING + " TEXT,"
                     + Programs.COLUMN_POSTER_ART_URI + " TEXT,"
                     + Programs.COLUMN_THUMBNAIL_URI + " TEXT,"
+                    + Programs.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1,"
                     + Programs.COLUMN_INTERNAL_PROVIDER_DATA + " BLOB,"
+                    + Programs.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER,"
+                    + Programs.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER,"
+                    + Programs.COLUMN_INTERNAL_PROVIDER_FLAG3 + " INTEGER,"
+                    + Programs.COLUMN_INTERNAL_PROVIDER_FLAG4 + " INTEGER,"
                     + Programs.COLUMN_VERSION_NUMBER + " INTEGER,"
                     + "FOREIGN KEY("
                             + Programs.COLUMN_CHANNEL_ID + "," + Programs.COLUMN_PACKAGE_NAME
@@ -344,14 +380,55 @@ public class TvProvider extends ContentProvider {
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion
-                    + ", data will be lost!");
-            db.execSQL("DROP TABLE IF EXISTS " + DELETED_CHANNELS_TABLE);
-            db.execSQL("DROP TABLE IF EXISTS " + WATCHED_PROGRAMS_TABLE);
-            db.execSQL("DROP TABLE IF EXISTS " + PROGRAMS_TABLE);
-            db.execSQL("DROP TABLE IF EXISTS " + CHANNELS_TABLE);
+            if (oldVersion < 23) {
+                Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion
+                        + ", data will be lost!");
+                db.execSQL("DROP TABLE IF EXISTS " + DELETED_CHANNELS_TABLE);
+                db.execSQL("DROP TABLE IF EXISTS " + WATCHED_PROGRAMS_TABLE);
+                db.execSQL("DROP TABLE IF EXISTS " + PROGRAMS_TABLE);
+                db.execSQL("DROP TABLE IF EXISTS " + CHANNELS_TABLE);
 
-            onCreate(db);
+                onCreate(db);
+                return;
+            }
+
+            Log.i(TAG, "Upgrading from version " + oldVersion + " to " + newVersion + ".");
+            if (oldVersion == 23) {
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_INTERNAL_PROVIDER_FLAG3 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_INTERNAL_PROVIDER_FLAG4 + " INTEGER;");
+                oldVersion++;
+            }
+            if (oldVersion == 24) {
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_INTERNAL_PROVIDER_FLAG1 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_INTERNAL_PROVIDER_FLAG2 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_INTERNAL_PROVIDER_FLAG3 + " INTEGER;");
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_INTERNAL_PROVIDER_FLAG4 + " INTEGER;");
+                oldVersion++;
+            }
+            if (oldVersion == 25) {
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_APP_LINK_ICON_URI + " TEXT;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_APP_LINK_POSTER_ART_URI + " TEXT;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_APP_LINK_TEXT + " TEXT;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_APP_LINK_COLOR + " INTEGER;");
+                db.execSQL("ALTER TABLE " + CHANNELS_TABLE + " ADD "
+                        + Channels.COLUMN_APP_LINK_INTENT_URI + " TEXT;");
+                db.execSQL("ALTER TABLE " + PROGRAMS_TABLE + " ADD "
+                        + Programs.COLUMN_SEARCHABLE + " INTEGER NOT NULL DEFAULT 1;");
+            }
         }
     }
 
@@ -388,7 +465,7 @@ public class TvProvider extends ContentProvider {
             return;
         }
 
-        sGenreMap = new HashMap<String, String>();
+        sGenreMap = new HashMap<>();
         buildGenreMap(R.array.genre_mapping_atsc);
         buildGenreMap(R.array.genre_mapping_dvb);
         buildGenreMap(R.array.genre_mapping_isdb);
@@ -439,23 +516,30 @@ public class TvProvider extends ContentProvider {
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
             String sortOrder) {
-        if (needsToLimitPackage(uri) && !TextUtils.isEmpty(sortOrder)) {
-            throw new SecurityException("Sort order not allowed for " + uri);
-        }
+        boolean needsToValidateSortOrder = !callerHasAccessAllEpgDataPermission();
         SqlParams params = createSqlParams(OP_QUERY, uri, selection, selectionArgs);
 
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
+        queryBuilder.setStrict(needsToValidateSortOrder);
         queryBuilder.setTables(params.getTables());
-        String orderBy;
-        if (params.getTables().equals(PROGRAMS_TABLE)) {
-            queryBuilder.setProjectionMap(sProgramProjectionMap);
-            orderBy = DEFAULT_PROGRAMS_SORT_ORDER;
-        } else if (params.getTables().equals(WATCHED_PROGRAMS_TABLE)) {
-            queryBuilder.setProjectionMap(sWatchedProgramProjectionMap);
-            orderBy = DEFAULT_WATCHED_PROGRAMS_SORT_ORDER;
-        } else {
-            queryBuilder.setProjectionMap(sChannelProjectionMap);
-            orderBy = DEFAULT_CHANNELS_SORT_ORDER;
+        String orderBy = null;
+        Map<String, String> projectionMap;
+        switch (params.getTables()) {
+            case PROGRAMS_TABLE:
+                projectionMap = sProgramProjectionMap;
+                orderBy = DEFAULT_PROGRAMS_SORT_ORDER;
+                break;
+            case WATCHED_PROGRAMS_TABLE:
+                projectionMap = sWatchedProgramProjectionMap;
+                orderBy = DEFAULT_WATCHED_PROGRAMS_SORT_ORDER;
+                break;
+            default:
+                projectionMap = sChannelProjectionMap;
+                break;
+        }
+        queryBuilder.setProjectionMap(projectionMap);
+        if (needsToValidateSortOrder) {
+            validateSortOrder(sortOrder, projectionMap.keySet());
         }
 
         // Use the default sort order only if no sort order is specified.
@@ -543,7 +627,8 @@ public class TvProvider extends ContentProvider {
                         MAX_PROGRAM_DATA_DELAY_IN_MILLIS);
                 return TvContract.buildWatchedProgramUri(rowId);
             }
-            throw new SQLException("Failed to insert row into " + uri);
+            Log.w(TAG, "Failed to insert row for " + values + ". Channel does not exist.");
+            return null;
         } else if (watchStartTime == null && watchEndTime != null) {
             SomeArgs args = SomeArgs.obtain();
             args.arg1 = values.getAsString(WatchedPrograms.COLUMN_INTERNAL_SESSION_TOKEN);
@@ -561,7 +646,7 @@ public class TvProvider extends ContentProvider {
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         SqlParams params = createSqlParams(OP_DELETE, uri, selection, selectionArgs);
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-        int count = 0;
+        int count;
         switch (sUriMatcher.match(uri)) {
             case MATCH_CHANNEL_ID_LOGO:
                 ContentValues values = new ContentValues();
@@ -610,14 +695,28 @@ public class TvProvider extends ContentProvider {
 
     private SqlParams createSqlParams(String operation, Uri uri, String selection,
             String[] selectionArgs) {
+        int match = sUriMatcher.match(uri);
         SqlParams params = new SqlParams(null, selection, selectionArgs);
-        if (needsToLimitPackage(uri)) {
+
+        // Control access to EPG data (excluding watched programs) when the caller doesn't have all
+        // access.
+        if (!callerHasAccessAllEpgDataPermission()
+                && match != MATCH_WATCHED_PROGRAM && match != MATCH_WATCHED_PROGRAM_ID) {
             if (!TextUtils.isEmpty(selection)) {
                 throw new SecurityException("Selection not allowed for " + uri);
             }
-            params.setWhere(BaseTvColumns.COLUMN_PACKAGE_NAME + "=?", getCallingPackage_());
+            // Limit the operation only to the data that the calling package owns except for when
+            // the caller tries to read TV listings and has the appropriate permission.
+            if (operation.equals(OP_QUERY) && callerHasReadTvListingsPermission()) {
+                params.setWhere(BaseTvColumns.COLUMN_PACKAGE_NAME + "=? OR "
+                        + Channels.COLUMN_SEARCHABLE + "=?", getCallingPackage_(), "1");
+
+            } else {
+                params.setWhere(BaseTvColumns.COLUMN_PACKAGE_NAME + "=?", getCallingPackage_());
+            }
         }
-        switch (sUriMatcher.match(uri)) {
+
+        switch (match) {
             case MATCH_CHANNEL:
                 String genre = uri.getQueryParameter(TvContract.PARAM_CANONICAL_GENRE);
                 if (genre == null) {
@@ -672,10 +771,16 @@ public class TvProvider extends ContentProvider {
                 params.appendWhere(Programs._ID + "=?", uri.getLastPathSegment());
                 break;
             case MATCH_WATCHED_PROGRAM:
+                if (!callerHasAccessWatchedProgramsPermission()) {
+                    throw new SecurityException("Access not allowed for " + uri);
+                }
                 params.setTables(WATCHED_PROGRAMS_TABLE);
                 params.appendWhere(WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=?", "1");
                 break;
             case MATCH_WATCHED_PROGRAM_ID:
+                if (!callerHasAccessWatchedProgramsPermission()) {
+                    throw new SecurityException("Access not allowed for " + uri);
+                }
                 params.setTables(WATCHED_PROGRAMS_TABLE);
                 params.appendWhere(WatchedPrograms._ID + "=?", uri.getLastPathSegment());
                 params.appendWhere(WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=?", "1");
@@ -688,8 +793,7 @@ public class TvProvider extends ContentProvider {
                 }
                 // fall-through
             case MATCH_PASSTHROUGH_ID:
-                throw new UnsupportedOperationException("Cannot " + operation + " that URI: "
-                        + uri);
+                throw new UnsupportedOperationException(operation + " not permmitted on " + uri);
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
         }
@@ -721,7 +825,7 @@ public class TvProvider extends ContentProvider {
             // genre.
             String broadcastGenres = values.getAsString(Programs.COLUMN_BROADCAST_GENRE);
             if (!TextUtils.isEmpty(broadcastGenres)) {
-                Set<String> genreSet = new HashSet<String>();
+                Set<String> genreSet = new HashSet<>();
                 String[] genres = Genres.decode(broadcastGenres);
                 for (String genre : genres) {
                     String canonicalGenre = sGenreMap.get(genre.toUpperCase());
@@ -731,7 +835,7 @@ public class TvProvider extends ContentProvider {
                 }
                 if (genreSet.size() > 0) {
                     values.put(Programs.COLUMN_CANONICAL_GENRE,
-                            Genres.encode(genreSet.toArray(new String[0])));
+                            Genres.encode(genreSet.toArray(new String[genreSet.size()])));
                 }
             }
         }
@@ -739,8 +843,7 @@ public class TvProvider extends ContentProvider {
 
     // We might have more than one thread trying to make its way through applyBatch() so the
     // notification coalescing needs to be thread-local to work correctly.
-    private final ThreadLocal<Set<Uri>> mTLBatchNotifications =
-            new ThreadLocal<Set<Uri>>();
+    private final ThreadLocal<Set<Uri>> mTLBatchNotifications = new ThreadLocal<>();
 
     private Set<Uri> getBatchNotificationsSet() {
         return mTLBatchNotifications.get();
@@ -753,7 +856,7 @@ public class TvProvider extends ContentProvider {
     @Override
     public ContentProviderResult[] applyBatch(ArrayList<ContentProviderOperation> operations)
             throws OperationApplicationException {
-        setBatchNotificationsSet(Sets.<Uri>newHashSet());
+        setBatchNotificationsSet(new HashSet<Uri>());
         Context context = getContext();
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         db.beginTransaction();
@@ -773,7 +876,7 @@ public class TvProvider extends ContentProvider {
 
     @Override
     public int bulkInsert(Uri uri, ContentValues[] values) {
-        setBatchNotificationsSet(Sets.<Uri>newHashSet());
+        setBatchNotificationsSet(new HashSet<Uri>());
         Context context = getContext();
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         db.beginTransaction();
@@ -800,19 +903,9 @@ public class TvProvider extends ContentProvider {
         }
     }
 
-    // When an application tries to create/read/update/delete channel or program data, we need to
-    // ensure that such an access is limited to the data entries it owns, unless it has the full
-    // access permission.
-    // Note that the user's watch log is treated with more caution and we should block any access
-    // from an application that doesn't have the proper permission.
-    private boolean needsToLimitPackage(Uri uri) {
-        int match = sUriMatcher.match(uri);
-        if (match == MATCH_WATCHED_PROGRAM || match == MATCH_WATCHED_PROGRAM_ID) {
-            if (!callerHasAccessWatchedProgramsPermission()) {
-                throw new SecurityException("Access not allowed for " + uri);
-            }
-        }
-        return !callerHasAccessAllEpgDataPermission();
+    private boolean callerHasReadTvListingsPermission() {
+        return getContext().checkCallingOrSelfPermission(PERMISSION_READ_TV_LISTINGS)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private boolean callerHasAccessAllEpgDataPermission() {
@@ -847,7 +940,12 @@ public class TvProvider extends ContentProvider {
         SqlParams params = new SqlParams(CHANNELS_TABLE, Channels._ID + "=?",
                 String.valueOf(channelId));
         if (!callerHasAccessAllEpgDataPermission()) {
-            params.appendWhere(Channels.COLUMN_PACKAGE_NAME + "=?", getCallingPackage_());
+            if (callerHasReadTvListingsPermission()) {
+                params.appendWhere(Channels.COLUMN_PACKAGE_NAME + "=? OR "
+                        + Channels.COLUMN_SEARCHABLE + "=?", getCallingPackage_(), "1");
+            } else {
+                params.appendWhere(Channels.COLUMN_PACKAGE_NAME + "=?", getCallingPackage_());
+            }
         }
 
         SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
@@ -858,7 +956,8 @@ public class TvProvider extends ContentProvider {
         if (mode.equals("r")) {
             String sql = queryBuilder.buildQuery(new String[] { CHANNELS_COLUMN_LOGO },
                     params.getSelection(), null, null, null, null);
-            ParcelFileDescriptor fd = DatabaseUtils.blobFileDescriptorForQuery(db, sql, params.getSelectionArgs());
+            ParcelFileDescriptor fd = DatabaseUtils.blobFileDescriptorForQuery(
+                    db, sql, params.getSelectionArgs());
             if (fd == null) {
                 throw new FileNotFoundException(uri.toString());
             }
@@ -882,6 +981,26 @@ public class TvProvider extends ContentProvider {
                 FileNotFoundException fne = new FileNotFoundException(uri.toString());
                 fne.initCause(ioe);
                 throw fne;
+            }
+        }
+    }
+
+    /**
+     * Validates the sort order based on the given field set.
+     *
+     * @throws IllegalArgumentException if there is any unknown field.
+     */
+    @SuppressLint("DefaultLocale")
+    private static void validateSortOrder(String sortOrder, Set<String> possibleFields) {
+        if (TextUtils.isEmpty(sortOrder) || possibleFields.isEmpty()) {
+            return;
+        }
+        String[] orders = sortOrder.split(",");
+        for (String order : orders) {
+            String field = order.replaceAll("\\s+", " ").trim().toLowerCase().replace(" asc", "")
+                    .replace(" desc", "");
+            if (!possibleFields.contains(field)) {
+                throw new IllegalArgumentException("Illegal field in sort order " + order);
             }
         }
     }
@@ -946,11 +1065,12 @@ public class TvProvider extends ContentProvider {
         }
     }
 
-    private final void deleteUnconsolidatedWatchedProgramsRows() {
+    private void deleteUnconsolidatedWatchedProgramsRows() {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         db.delete(WATCHED_PROGRAMS_TABLE, WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=0", null);
     }
 
+    @SuppressLint("HandlerLeak")
     private final class WatchLogHandler extends Handler {
         private static final int MSG_CONSOLIDATE = 1;
         private static final int MSG_TRY_CONSOLIDATE_ALL = 2;
@@ -980,7 +1100,7 @@ public class TvProvider extends ContentProvider {
         // Consolidates all WatchedPrograms rows for a given session with watch end time information
         // of the most recent log entry. After this method is called, it is guaranteed that there
         // remain consolidated rows only for that session.
-        private final void onConsolidate(String sessionToken, long watchEndTime) {
+        private void onConsolidate(String sessionToken, long watchEndTime) {
             if (DEBUG) {
                 Log.d(TAG, "onConsolidate(sessionToken=" + sessionToken + ", watchEndTime="
                         + watchEndTime + ")");
@@ -1027,7 +1147,7 @@ public class TvProvider extends ContentProvider {
         // session that represents the user's ongoing watch activity.
         // Also, this method automatically schedules the next consolidation if there still remains
         // an unconsolidated entry.
-        private final void onTryConsolidateAll() {
+        private void onTryConsolidateAll() {
             if (DEBUG) {
                 Log.d(TAG, "onTryConsolidateAll()");
             }
@@ -1096,8 +1216,8 @@ public class TvProvider extends ContentProvider {
         // consolidating the most recent row because the user stayed on the same channel for a very
         // long time.
         // This method returns the number of consolidated rows, which can be 0 or more.
-        private final int consolidateRow(long id, long watchStartTime, long watchEndTime,
-                long channelId, boolean dryRun) {
+        private int consolidateRow(
+                long id, long watchStartTime, long watchEndTime, long channelId, boolean dryRun) {
             if (DEBUG) {
                 Log.d(TAG, "consolidateRow(id=" + id + ", watchStartTime=" + watchStartTime
                         + ", watchEndTime=" + watchEndTime + ", channelId=" + channelId
@@ -1148,7 +1268,7 @@ public class TvProvider extends ContentProvider {
 
         // Deletes the log entries from unsearchable channels. Note that only consolidated log
         // entries are safe to delete.
-        private final void deleteUnsearchable() {
+        private void deleteUnsearchable() {
             SQLiteDatabase db = mOpenHelper.getWritableDatabase();
             String deleteWhere = WATCHED_PROGRAMS_COLUMN_CONSOLIDATED + "=1 AND "
                     + WatchedPrograms.COLUMN_CHANNEL_ID + " IN (SELECT " + Channels._ID
@@ -1156,7 +1276,7 @@ public class TvProvider extends ContentProvider {
             db.delete(WATCHED_PROGRAMS_TABLE, deleteWhere, null);
         }
 
-        private final void scheduleConsolidationIfNeeded() {
+        private void scheduleConsolidationIfNeeded() {
             if (DEBUG) {
                 Log.d(TAG, "scheduleConsolidationIfNeeded()");
             }
@@ -1200,7 +1320,7 @@ public class TvProvider extends ContentProvider {
 
         // Returns non-null ContentValues of the program data that the user watched on the channel
         // {@code channelId} at the time {@code time}.
-        private final ContentValues getProgramValues(long channelId, long time) {
+        private ContentValues getProgramValues(long channelId, long time) {
             SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
             queryBuilder.setTables(PROGRAMS_TABLE);
             SQLiteDatabase db = mOpenHelper.getReadableDatabase();
@@ -1236,7 +1356,7 @@ public class TvProvider extends ContentProvider {
 
         // Duplicates the WatchedPrograms row with a given ID and returns the ID of the duplicated
         // row. Returns -1 if failed.
-        private final long duplicateRow(long id) {
+        private long duplicateRow(long id) {
             if (DEBUG) {
                 Log.d(TAG, "duplicateRow(" + id + ")");
             }

@@ -222,6 +222,10 @@ function untar() {
   echo "Removing $unneeded_sources"
   (cd $bouncycastle_dir_orig && rm -rf $unneeded_sources)
   (cd $bouncycastle_dir      && rm -r  $unneeded_sources)
+
+  echo "Removing package.html files"
+  find $bouncycastle_dir_orig -name package.html -print0 | xargs -0 rm
+  find $bouncycastle_dir -name package.html -print0 | xargs -0 rm
 }
 
 function cleantar() {

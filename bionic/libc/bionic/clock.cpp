@@ -30,7 +30,7 @@
 #include <sys/sysconf.h>
 #include <sys/times.h>
 
-#define NS_PER_S 1000000000 // No "private/bionic_constants.h" in lmp-dev.
+#include "private/bionic_constants.h"
 
 // http://pubs.opengroup.org/onlinepubs/9699919799/functions/clock.html
 clock_t clock() {

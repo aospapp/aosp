@@ -42,7 +42,7 @@ import android.widget.Toast;
 public class BleAdvertiserService extends Service {
 
     public static final boolean DEBUG = true;
-    public static final String TAG = "BleAdvertiseService";
+    public static final String TAG = "BleAdvertiserService";
 
     public static final int COMMAND_START_ADVERTISE = 0;
     public static final int COMMAND_STOP_ADVERTISE = 1;
@@ -89,8 +89,11 @@ public class BleAdvertiserService extends Service {
     public static final byte MANUFACTURER_TEST_ID = (byte)0x07;
     public static final byte[] PRIVACY_MAC_DATA = new byte[]{3, 1, 4};
     public static final byte[] PRIVACY_RESPONSE = new byte[]{9, 2, 6};
-    public static final byte[] POWER_LEVEL_DATA = new byte[]{1, 5, 0};
-    public static final byte[] POWER_LEVEL_MASK = new byte[]{1, 1, 0};
+    public static final byte[] POWER_LEVEL_DATA = new byte[]{1, 5, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0};  // 15 bytes
+    public static final byte[] POWER_LEVEL_MASK = new byte[]{1, 1, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0};  // 15 bytes
+    public static final int POWER_LEVEL_DATA_LENGTH = 15;
     public static final byte[] SCANNABLE_DATA = new byte[]{5, 3, 5};
     public static final byte[] UNSCANNABLE_DATA = new byte[]{8, 9, 7};
 
@@ -221,8 +224,26 @@ public class BleAdvertiserService extends Service {
                 break;
             case COMMAND_START_POWER_LEVEL:
                 for (int t : mPowerLevel) {
-                    AdvertiseData d =
-                            generateAdvertiseData(POWER_LEVEL_UUID, new byte[]{1, 5, (byte)t});
+                    // Service data:
+                    //    field overhead = 2 bytes
+                    //    uuid = 2 bytes
+                    //    data = 15 bytes
+                    // Manufacturer data:
+                    //    field overhead = 2 bytes
+                    //    Specific data length = 2 bytes
+                    //    data length = 2 bytes
+                    // Include power level:
+                    //    field overhead = 2 bytes
+                    //    1 byte
+                    // Connectable flag: 3 bytes (0 byte for Android 5.1+)
+                    // SUM = 31 bytes
+                    byte[] dataBytes = new byte[POWER_LEVEL_DATA_LENGTH];
+                    dataBytes[0] = 0x01;
+                    dataBytes[1] = 0x05;
+                    for (int i = 2; i < POWER_LEVEL_DATA_LENGTH; i++) {
+                        dataBytes[i] = (byte)t;
+                    }
+                    AdvertiseData d = generateAdvertiseData(POWER_LEVEL_UUID, dataBytes);
                     AdvertiseSettings settings = generateSetting(t);
                     mAdvertiser.startAdvertising(settings, d, mPowerCallback.get(t));
                 }

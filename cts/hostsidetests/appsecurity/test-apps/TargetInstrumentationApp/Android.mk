@@ -30,4 +30,4 @@ LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)

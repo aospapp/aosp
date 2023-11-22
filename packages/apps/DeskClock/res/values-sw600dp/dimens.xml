@@ -35,13 +35,12 @@
     <dimen name="bottom_text_spacing_digital">-18dp</dimen>
     <dimen name="bottom_text_spacing_analog">18dp</dimen>
     <dimen name="bottom_text_spacing_analog_small">10dp</dimen>
-    <dimen name="digital_screensaver_clock_text_size">104sp</dimen>
 
     <dimen name="alarm_side_padding">48dip</dimen>
     <dimen name="clock_side_padding">48dip</dimen>
     <dimen name="clock_side_padding_reduced">36dip</dimen>
 
-    <dimen name="big_font_size">160sp</dimen>
+    <dimen name="big_font_size">115sp</dimen>
     <dimen name="medium_font_size">96sp</dimen>
     <dimen name="label_font_size">18sp</dimen>
     <dimen name="alarm_label_size">18sp</dimen>
@@ -50,7 +49,8 @@
     <dimen name="alarm_time_font_size">64sp</dimen>
     <dimen name="alarm_info_font_size">48sp</dimen>
     <dimen name="no_alarm_font_size">20sp</dimen>
-    <dimen name="widget_label_font_size">16sp</dimen>
+    <!-- Use dp on purpose to ensure consistency across multiple screen sizes -->
+    <dimen name="widget_label_font_size">16dp</dimen>
 
     <dimen name="body_font_padding">8dp</dimen>
     <dimen name="medium_font_padding">24dp</dimen>
@@ -89,7 +89,8 @@
 
     <!-- Digital Widget settings (keyguard|home_screen) -->
     <!-- Use larger fonts -->
-    <dimen name="widget_big_font_size">120sp</dimen>
+    <!-- Use dp on purpose to ensure consistency across multiple screen sizes -->
+    <dimen name="widget_big_font_size">120dp</dimen>
     <dimen name="widget_medium_font_size">52sp</dimen>
     <dimen name="widget_24_medium_font_size">65sp</dimen>
     <dimen name="widget_big_time_margin_right">12dip</dimen>

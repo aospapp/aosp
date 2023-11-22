@@ -42,39 +42,18 @@ typedef struct{
 } GScanGetValidChannelsRspParams;
 
 typedef struct{
-    u32 status;
     wifi_gscan_capabilities capabilities;
 } GScanGetCapabilitiesRspParams;
 
 typedef struct{
-    u32 status;
-} GScanStartRspParams;
-
-typedef struct{
-    u32 status;
-} GScanStopRspParams;
-
-typedef struct{
-    u32 status;
-} GScanSetBssidHotlistRspParams;
-
-typedef struct{
-    u32 status;
-} GScanResetBssidHotlistRspParams;
-
-typedef struct{
     u8  more_data;
-    u32 num_results;
-    wifi_scan_result *results;
+    u32 num_cached_results;
+    u32 cachedResultsStartingIndex; /* Used in filling cached scan results */
+    int lastProcessedScanId; /* Last scan id in gscan cached results block */
+    u32 wifiScanResultsStartingIndex; /* For the lastProcessedScanId */
+    u32 max;                /* max num of cached results specified by caller */
+    wifi_cached_scan_results *cached_results;
 } GScanGetCachedResultsRspParams;
-
-typedef struct{
-    u32 status;
-} GScanSetSignificantChangeRspParams;
-
-typedef struct{
-    u32 status;
-} GScanResetSignificantChangeRspParams;
 
 typedef struct {
     int max_channels;
@@ -87,27 +66,15 @@ typedef enum{
     eGScanGetValidChannelsRspParams,
     eGScanGetCapabilitiesRspParams,
     eGScanGetCachedResultsRspParams,
-    eGScanStartRspParams,
-    eGScanStopRspParams,
-    eGScanSetBssidHotlistRspParams,
-    eGScanResetBssidHotlistRspParams,
-    eGScanSetSignificantChangeRspParams,
-    eGScanResetSignificantChangeRspParams,
 } eGScanRspRarams;
 
 /* Response and Event Callbacks */
 typedef struct {
     /* Various Events Callback */
-    void (*get_capabilities)(int status, wifi_gscan_capabilities capabilities);
-    void (*start)(int status);
-    void (*stop)(int status);
-    void (*set_bssid_hotlist)(int status);
-    void (*reset_bssid_hotlist)(int status);
-    void (*set_significant_change)(int status);
-    void (*reset_significant_change)(int status);
     void (*on_hotlist_ap_found)(wifi_request_id id,
         unsigned num_results, wifi_scan_result *results);
-    void (*get_cached_results)(u8 more_data, u32 num_results);
+    void (*on_hotlist_ap_lost)(wifi_request_id id,
+        unsigned num_results, wifi_scan_result *results);
     void (*on_significant_change)(wifi_request_id id,
                 unsigned num_results,
                 wifi_significant_change_result **results);
@@ -120,26 +87,30 @@ typedef struct {
     void (*on_full_scan_result) (wifi_request_id id, wifi_scan_result *result);
     /* Optional event - indicates progress of scanning statemachine */
     void (*on_scan_event) (wifi_scan_event event, unsigned status);
+    void (*on_hotlist_ssid_found)(wifi_request_id id,
+            unsigned num_results, wifi_scan_result *results);
+    void (*on_hotlist_ssid_lost)(wifi_request_id id,
+            unsigned num_results, wifi_scan_result *results);
+    void (*on_pno_network_found)(wifi_request_id id,
+            unsigned num_results, wifi_scan_result *results);
+    void (*on_passpoint_network_found)(wifi_request_id id,
+                                       int net_id,
+                                       wifi_scan_result *result,
+                                       int anqp_len,
+                                       byte *anqp
+                                       );
 } GScanCallbackHandler;
 
 class GScanCommand: public WifiVendorCommand
 {
 private:
-    GScanStopRspParams                  *mStopGScanRspParams;
-    GScanStartRspParams                 *mStartGScanRspParams;
-    GScanSetBssidHotlistRspParams       *mSetBssidHotlistRspParams;
-    GScanResetBssidHotlistRspParams     *mResetBssidHotlistRspParams;
-    GScanSetSignificantChangeRspParams  *mSetSignificantChangeRspParams;
-    GScanResetSignificantChangeRspParams*mResetSignificantChangeRspParams;
     GScanGetCapabilitiesRspParams       *mGetCapabilitiesRspParams;
     GScanGetCachedResultsRspParams      *mGetCachedResultsRspParams;
-    u32                                 mGetCachedResultsNumResults;
     GScanCallbackHandler                mHandler;
     int                                 mRequestId;
     int                                 *mChannels;
     int                                 mMaxChannels;
     int                                 *mNumChannelsPtr;
-    bool                                mWaitforRsp;
 
 public:
     GScanCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
@@ -149,10 +120,8 @@ public:
      * based on  the request type.
      */
     virtual int create();
-    virtual int requestEvent();
     virtual int requestResponse();
     virtual int handleResponse(WifiEvent &reply);
-    virtual int handleEvent(WifiEvent &event);
     virtual int setCallbackHandler(GScanCallbackHandler nHandler);
     virtual void setMaxChannels(int max_channels);
     virtual void setChannels(int *channels);
@@ -160,21 +129,14 @@ public:
     virtual int allocRspParams(eGScanRspRarams cmd);
     virtual void freeRspParams(eGScanRspRarams cmd);
     virtual void getGetCapabilitiesRspParams(
-                    wifi_gscan_capabilities *capabilities,
-                    u32 *status);
-    virtual void getStartGScanRspParams(u32 *status);
-    virtual void getStopGScanRspParams(u32 *status);
-    virtual void getSetBssidHotlistRspParams(u32 *status);
-    virtual void getResetBssidHotlistRspParams(u32 *status);
-    virtual void getSetSignificantChangeRspParams(u32 *status);
-    virtual void getResetSignificantChangeRspParams(u32 *status);
-    virtual wifi_error getGetCachedResultsRspParams(int max,
-                                                    u8 *moreData,
-                                                    int *numResults,
-                                                    wifi_scan_result *results);
-    /* Takes wait time in seconds. */
-    virtual int timed_wait(u16 wait_time);
-    virtual void waitForRsp(bool wait);
+                    wifi_gscan_capabilities *capabilities);
+    virtual wifi_error copyCachedScanResults(int *numResults,
+                                             wifi_cached_scan_results *cached_results);
+    virtual int gscan_get_cached_results(wifi_cached_scan_results *results,
+                                         struct nlattr **tb_vendor);
+    virtual int allocCachedResultsTemp(int max,
+                                       wifi_cached_scan_results *results);
+    virtual int gscan_parse_capabilities(struct nlattr **tbVendor);
 };
 
 #ifdef __cplusplus

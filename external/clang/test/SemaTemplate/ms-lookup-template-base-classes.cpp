@@ -220,7 +220,8 @@ template <typename T> struct C : T {
   int    *bar() { return &b; }     // expected-error {{no member named 'b' in 'PR16014::C<PR16014::A>'}} expected-warning {{lookup into dependent bases}}
   int     baz() { return T::b; }   // expected-error {{no member named 'b' in 'PR16014::A'}}
   int T::*qux() { return &T::b; }  // expected-error {{no member named 'b' in 'PR16014::A'}}
-  int T::*fuz() { return &U::a; }  // expected-error {{use of undeclared identifier 'U'}}
+  int T::*fuz() { return &U::a; }  // expected-error {{use of undeclared identifier 'U'}} \
+  // expected-warning {{unqualified lookup into dependent bases of class template 'C'}}
 };
 
 template struct B<A>;
@@ -249,7 +250,8 @@ struct A : T {
     ::UndefClass::undef(); // expected-error {{no member named 'UndefClass' in the global namespace}}
   }
   void baz() {
-    B::qux(); // expected-error {{use of undeclared identifier 'B'}}
+    B::qux(); // expected-error {{use of undeclared identifier 'B'}} \
+    // expected-warning {{unqualified lookup into dependent bases of class template 'A'}}
   }
 };
 
@@ -301,12 +303,12 @@ static_assert(sizeof(B<int>) == sizeof(A<int>::NameFromBase), "");
 }
 
 namespace two_types_in_base {
-template <typename T> struct A { typedef T NameFromBase; };
-template <typename T> struct B { struct NameFromBase { T m; }; };
+template <typename T> struct A { typedef T NameFromBase; }; // expected-note {{member found by ambiguous name lookup}}
+template <typename T> struct B { struct NameFromBase { T m; }; }; // expected-note {{member found by ambiguous name lookup}}
 template <typename T> struct C : A<T>, B<T> {
-  NameFromBase m; // expected-error {{unknown type name 'NameFromBase'}}
+  NameFromBase m; // expected-error {{member 'NameFromBase' found in multiple base classes of different types}} expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
 };
-static_assert(sizeof(C<int>) == 4, "");
+static_assert(sizeof(C<int>) == 4, ""); // expected-note {{in instantiation of template class 'two_types_in_base::C<int>' requested here}}
 }
 
 namespace type_and_decl_in_base {
@@ -384,9 +386,66 @@ namespace type_in_base_of_dependent_base {
 struct A { typedef int NameFromBase; };
 template <typename T>
 struct B : A {};
-// FIXME: MSVC accepts this.
 template <typename T>
-struct C : B<T> { NameFromBase m; }; // expected-error {{unknown type name 'NameFromBase'}}
+struct C : B<T> { NameFromBase m; }; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+}
+
+namespace type_in_second_dependent_base {
+template <typename T>
+struct A {};
+template<typename T>
+struct B { typedef T NameFromBase; };
+template <typename T>
+struct D : A<T>, B<T> { NameFromBase m; }; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+}
+
+namespace type_in_second_non_dependent_base {
+struct A {};
+struct B { typedef int NameFromBase; };
+template<typename T>
+struct C : A, B {};
+template <typename T>
+struct D : C<T> { NameFromBase m; }; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+}
+
+namespace type_in_virtual_base_of_dependent_base {
+template <typename T>
+struct A { typedef T NameFromBase; };
+template <typename T>
+struct B : virtual A<T> {};
+template <typename T>
+struct C : B<T>, virtual A<T> { NameFromBase m; }; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+C<int> c;
+}
+
+namespace type_in_base_of_multiple_dependent_bases {
+template <typename T>
+struct A { typedef T NameFromBase; };
+template <typename T>
+struct B : public A<T> {};
+template <typename T>
+struct C : B<T>, public A<T> { NameFromBase m; }; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}} expected-warning {{direct base 'A<int>' is inaccessible due to ambiguity:}}
+C<int> c; // expected-note {{in instantiation of template class 'type_in_base_of_multiple_dependent_bases::C<int>' requested here}}
+}
+
+namespace type_in_dependent_base_of_non_dependent_type {
+template<typename T> struct A { typedef int NameFromBase; };
+template<typename T> struct B : A<T> {
+  struct C;
+  template<typename TT>
+  struct D : C {
+    NameFromBase m; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+  };
+  struct E : C {
+    NameFromBase m; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+  };
+};
+template<typename T> struct B<T>::C : B {
+  NameFromBase m; // expected-warning {{use of identifier 'NameFromBase' found via unqualified lookup into dependent bases of class templates is a Microsoft extension}}
+};
+template<typename T> struct F : B<T>::C {
+  NameFromBase m; // expected-error {{unknown type name 'NameFromBase'}}
+};
 }
 
 namespace lookup_in_function_contexts {
@@ -458,5 +517,33 @@ template <typename T> struct C { enum { NameFromBase = 4 }; };
 template <typename T> struct D : C<T> {
   // expected-warning@+1 {{use of undeclared identifier 'NameFromBase'; unqualified lookup into dependent bases}}
   int x = f<NameFromBase>();
+};
+}
+
+namespace function_template_undef_impl {
+template<class T>
+void f() {
+  Undef::staticMethod(); // expected-error {{use of undeclared identifier 'Undef'}}
+  UndefVar.method(); // expected-error {{use of undeclared identifier 'UndefVar'}}
+}
+}
+
+namespace PR20716 {
+template <template <typename T> class A>
+struct B : A<int>
+{
+  XXX x; // expected-error {{unknown type name}}
+};
+
+template <typename T>
+struct C {};
+
+template <typename T>
+using D = C<T>;
+
+template <typename T>
+struct E : D<T>
+{
+  XXX x; // expected-error {{unknown type name}}
 };
 }

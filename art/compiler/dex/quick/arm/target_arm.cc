@@ -19,8 +19,11 @@
 #include <inttypes.h>
 
 #include <string>
+#include <sstream>
 
-#include "dex/compiler_internals.h"
+#include "backend_arm.h"
+#include "base/logging.h"
+#include "dex/mir_graph.h"
 #include "dex/quick/mir_to_lir-inl.h"
 
 namespace art {
@@ -88,7 +91,7 @@ RegLocation ArmMir2Lir::LocCReturnDouble() {
 
 // Return a target-dependent special register.
 RegStorage ArmMir2Lir::TargetReg(SpecialTargetRegister reg) {
-  RegStorage res_reg = RegStorage::InvalidReg();
+  RegStorage res_reg;
   switch (reg) {
     case kSelf: res_reg = rs_rARM_SELF; break;
 #ifdef ARM_R4_SUSPEND_FLAG
@@ -103,10 +106,22 @@ RegStorage ArmMir2Lir::TargetReg(SpecialTargetRegister reg) {
     case kArg1: res_reg = rs_r1; break;
     case kArg2: res_reg = rs_r2; break;
     case kArg3: res_reg = rs_r3; break;
-    case kFArg0: res_reg = rs_r0; break;
-    case kFArg1: res_reg = rs_r1; break;
-    case kFArg2: res_reg = rs_r2; break;
-    case kFArg3: res_reg = rs_r3; break;
+    case kFArg0: res_reg = kArm32QuickCodeUseSoftFloat ? rs_r0 : rs_fr0; break;
+    case kFArg1: res_reg = kArm32QuickCodeUseSoftFloat ? rs_r1 : rs_fr1; break;
+    case kFArg2: res_reg = kArm32QuickCodeUseSoftFloat ? rs_r2 : rs_fr2; break;
+    case kFArg3: res_reg = kArm32QuickCodeUseSoftFloat ? rs_r3 : rs_fr3; break;
+    case kFArg4: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr4; break;
+    case kFArg5: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr5; break;
+    case kFArg6: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr6; break;
+    case kFArg7: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr7; break;
+    case kFArg8: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr8; break;
+    case kFArg9: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr9; break;
+    case kFArg10: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr10; break;
+    case kFArg11: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr11; break;
+    case kFArg12: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr12; break;
+    case kFArg13: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr13; break;
+    case kFArg14: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr14; break;
+    case kFArg15: res_reg = kArm32QuickCodeUseSoftFloat ? RegStorage::InvalidReg() : rs_fr15; break;
     case kRet0: res_reg = rs_r0; break;
     case kRet1: res_reg = rs_r1; break;
     case kInvokeTgt: res_reg = rs_rARM_LR; break;
@@ -116,20 +131,6 @@ RegStorage ArmMir2Lir::TargetReg(SpecialTargetRegister reg) {
     default: res_reg = RegStorage::InvalidReg();
   }
   return res_reg;
-}
-
-RegStorage ArmMir2Lir::GetArgMappingToPhysicalReg(int arg_num) {
-  // For the 32-bit internal ABI, the first 3 arguments are passed in registers.
-  switch (arg_num) {
-    case 0:
-      return rs_r1;
-    case 1:
-      return rs_r2;
-    case 2:
-      return rs_r3;
-    default:
-      return RegStorage::InvalidReg();
-  }
 }
 
 /*
@@ -451,6 +452,11 @@ std::string ArmMir2Lir::BuildInsnString(const char* fmt, LIR* lir, unsigned char
                  reinterpret_cast<uintptr_t>(base_addr) + lir->offset + 4 + (operand << 1),
                  lir->target);
              break;
+           case 'T':
+             snprintf(tbuf, arraysize(tbuf), "%s", PrettyMethod(
+                 static_cast<uint32_t>(lir->operands[1]),
+                 *UnwrapPointer<DexFile>(lir->operands[2])).c_str());
+             break;
            case 'u': {
              int offset_1 = lir->operands[0];
              int offset_2 = NEXT_LIR(lir)->operands[0];
@@ -484,6 +490,24 @@ std::string ArmMir2Lir::BuildInsnString(const char* fmt, LIR* lir, unsigned char
     } else {
        buf += *fmt++;
     }
+  }
+  // Dump thread offset.
+  std::string fmt_str = GetTargetInstFmt(lir->opcode);
+  if (std::string::npos != fmt_str.find(", [!1C, #!2") && rARM_SELF == lir->operands[1] &&
+      std::string::npos != buf.find(", [")) {
+    int offset = lir->operands[2];
+    if (std::string::npos != fmt_str.find("#!2d")) {
+    } else if (std::string::npos != fmt_str.find("#!2E")) {
+      offset *= 4;
+    } else if (std::string::npos != fmt_str.find("#!2F")) {
+      offset *= 2;
+    } else {
+      LOG(FATAL) << "Should not reach here";
+    }
+    std::ostringstream tmp_stream;
+    Thread::DumpThreadOffset<4>(tmp_stream, offset);
+    buf += "  ; ";
+    buf += tmp_stream.str();
   }
   return buf;
 }
@@ -550,14 +574,17 @@ RegisterClass ArmMir2Lir::RegClassForFieldLoadStore(OpSize size, bool is_volatil
 }
 
 ArmMir2Lir::ArmMir2Lir(CompilationUnit* cu, MIRGraph* mir_graph, ArenaAllocator* arena)
-    : Mir2Lir(cu, mir_graph, arena) {
+    : Mir2Lir(cu, mir_graph, arena),
+      call_method_insns_(arena->Adapter()),
+      dex_cache_access_insns_(arena->Adapter()),
+      dex_cache_arrays_base_reg_(RegStorage::InvalidReg()) {
+  call_method_insns_.reserve(100);
   // Sanity check - make sure encoding map lines up.
   for (int i = 0; i < kArmLast; i++) {
-    if (ArmMir2Lir::EncodingMap[i].opcode != i) {
-      LOG(FATAL) << "Encoding order for " << ArmMir2Lir::EncodingMap[i].name
-                 << " is wrong: expecting " << i << ", seeing "
-                 << static_cast<int>(ArmMir2Lir::EncodingMap[i].opcode);
-    }
+    DCHECK_EQ(ArmMir2Lir::EncodingMap[i].opcode, i)
+        << "Encoding order for " << ArmMir2Lir::EncodingMap[i].name
+        << " is wrong: expecting " << i << ", seeing "
+        << static_cast<int>(ArmMir2Lir::EncodingMap[i].opcode);
   }
 }
 
@@ -567,16 +594,16 @@ Mir2Lir* ArmCodeGenerator(CompilationUnit* const cu, MIRGraph* const mir_graph,
 }
 
 void ArmMir2Lir::CompilerInitializeRegAlloc() {
-  reg_pool_ = new (arena_) RegisterPool(this, arena_, core_regs, empty_pool /* core64 */, sp_regs,
-                                        dp_regs, reserved_regs, empty_pool /* reserved64 */,
-                                        core_temps, empty_pool /* core64_temps */, sp_temps,
-                                        dp_temps);
+  reg_pool_.reset(new (arena_) RegisterPool(this, arena_, core_regs, empty_pool /* core64 */,
+                                            sp_regs, dp_regs,
+                                            reserved_regs, empty_pool /* reserved64 */,
+                                            core_temps, empty_pool /* core64_temps */,
+                                            sp_temps, dp_temps));
 
   // Target-specific adjustments.
 
   // Alias single precision floats to appropriate half of overlapping double.
-  GrowableArray<RegisterInfo*>::Iterator it(&reg_pool_->sp_regs_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : reg_pool_->sp_regs_) {
     int sp_reg_num = info->GetReg().GetRegNum();
     int dp_reg_num = sp_reg_num >> 1;
     RegStorage dp_reg = RegStorage::Solo64(RegStorage::kFloatingPoint | dp_reg_num);
@@ -710,6 +737,32 @@ void ArmMir2Lir::LockCallTemps() {
   LockTemp(rs_r1);
   LockTemp(rs_r2);
   LockTemp(rs_r3);
+  if (!kArm32QuickCodeUseSoftFloat) {
+    LockTemp(rs_fr0);
+    LockTemp(rs_fr1);
+    LockTemp(rs_fr2);
+    LockTemp(rs_fr3);
+    LockTemp(rs_fr4);
+    LockTemp(rs_fr5);
+    LockTemp(rs_fr6);
+    LockTemp(rs_fr7);
+    LockTemp(rs_fr8);
+    LockTemp(rs_fr9);
+    LockTemp(rs_fr10);
+    LockTemp(rs_fr11);
+    LockTemp(rs_fr12);
+    LockTemp(rs_fr13);
+    LockTemp(rs_fr14);
+    LockTemp(rs_fr15);
+    LockTemp(rs_dr0);
+    LockTemp(rs_dr1);
+    LockTemp(rs_dr2);
+    LockTemp(rs_dr3);
+    LockTemp(rs_dr4);
+    LockTemp(rs_dr5);
+    LockTemp(rs_dr6);
+    LockTemp(rs_dr7);
+  }
 }
 
 /* To be used when explicitly managing register use */
@@ -719,6 +772,32 @@ void ArmMir2Lir::FreeCallTemps() {
   FreeTemp(rs_r2);
   FreeTemp(rs_r3);
   FreeTemp(TargetReg(kHiddenArg));
+  if (!kArm32QuickCodeUseSoftFloat) {
+    FreeTemp(rs_fr0);
+    FreeTemp(rs_fr1);
+    FreeTemp(rs_fr2);
+    FreeTemp(rs_fr3);
+    FreeTemp(rs_fr4);
+    FreeTemp(rs_fr5);
+    FreeTemp(rs_fr6);
+    FreeTemp(rs_fr7);
+    FreeTemp(rs_fr8);
+    FreeTemp(rs_fr9);
+    FreeTemp(rs_fr10);
+    FreeTemp(rs_fr11);
+    FreeTemp(rs_fr12);
+    FreeTemp(rs_fr13);
+    FreeTemp(rs_fr14);
+    FreeTemp(rs_fr15);
+    FreeTemp(rs_dr0);
+    FreeTemp(rs_dr1);
+    FreeTemp(rs_dr2);
+    FreeTemp(rs_dr3);
+    FreeTemp(rs_dr4);
+    FreeTemp(rs_dr5);
+    FreeTemp(rs_dr6);
+    FreeTemp(rs_dr7);
+  }
 }
 
 RegStorage ArmMir2Lir::LoadHelper(QuickEntrypointEnum trampoline) {
@@ -784,8 +863,7 @@ RegStorage ArmMir2Lir::AllocPreservedDouble(int s_reg) {
      * TODO: until runtime support is in, make sure we avoid promoting the same vreg to
      * different underlying physical registers.
      */
-    GrowableArray<RegisterInfo*>::Iterator it(&reg_pool_->dp_regs_);
-    for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+    for (RegisterInfo* info : reg_pool_->dp_regs_) {
       if (!info->IsTemp() && !info->InUse()) {
         res = info->GetReg();
         info->MarkInUse();
@@ -809,8 +887,7 @@ RegStorage ArmMir2Lir::AllocPreservedDouble(int s_reg) {
 // Reserve a callee-save sp single register.
 RegStorage ArmMir2Lir::AllocPreservedSingle(int s_reg) {
   RegStorage res;
-  GrowableArray<RegisterInfo*>::Iterator it(&reg_pool_->sp_regs_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : reg_pool_->sp_regs_) {
     if (!info->IsTemp() && !info->InUse()) {
       res = info->GetReg();
       int p_map_idx = SRegToPMap(s_reg);
@@ -823,6 +900,117 @@ RegStorage ArmMir2Lir::AllocPreservedSingle(int s_reg) {
     }
   }
   return res;
+}
+
+void ArmMir2Lir::InstallLiteralPools() {
+  patches_.reserve(call_method_insns_.size() + dex_cache_access_insns_.size());
+
+  // PC-relative calls to methods.
+  for (LIR* p : call_method_insns_) {
+    DCHECK_EQ(p->opcode, kThumb2Bl);
+    uint32_t target_method_idx = p->operands[1];
+    const DexFile* target_dex_file = UnwrapPointer<DexFile>(p->operands[2]);
+    patches_.push_back(LinkerPatch::RelativeCodePatch(p->offset,
+                                                      target_dex_file, target_method_idx));
+  }
+
+  // PC-relative dex cache array accesses.
+  for (LIR* p : dex_cache_access_insns_) {
+    DCHECK(p->opcode = kThumb2MovImm16 || p->opcode == kThumb2MovImm16H);
+    const LIR* add_pc = UnwrapPointer<LIR>(p->operands[4]);
+    DCHECK(add_pc->opcode == kThumbAddRRLH || add_pc->opcode == kThumbAddRRHH);
+    const DexFile* dex_file = UnwrapPointer<DexFile>(p->operands[2]);
+    uint32_t offset = p->operands[3];
+    DCHECK(!p->flags.is_nop);
+    DCHECK(!add_pc->flags.is_nop);
+    patches_.push_back(LinkerPatch::DexCacheArrayPatch(p->offset,
+                                                       dex_file, add_pc->offset, offset));
+  }
+
+  // And do the normal processing.
+  Mir2Lir::InstallLiteralPools();
+}
+
+RegStorage ArmMir2Lir::InToRegStorageArmMapper::GetNextReg(ShortyArg arg) {
+  const RegStorage coreArgMappingToPhysicalReg[] =
+      {rs_r1, rs_r2, rs_r3};
+  const int coreArgMappingToPhysicalRegSize = arraysize(coreArgMappingToPhysicalReg);
+  const RegStorage fpArgMappingToPhysicalReg[] =
+      {rs_fr0, rs_fr1, rs_fr2, rs_fr3, rs_fr4, rs_fr5, rs_fr6, rs_fr7,
+       rs_fr8, rs_fr9, rs_fr10, rs_fr11, rs_fr12, rs_fr13, rs_fr14, rs_fr15};
+  constexpr uint32_t fpArgMappingToPhysicalRegSize = arraysize(fpArgMappingToPhysicalReg);
+  static_assert(fpArgMappingToPhysicalRegSize % 2 == 0, "Number of FP Arg regs is not even");
+
+  RegStorage result = RegStorage::InvalidReg();
+  // Regard double as long, float as int for kArm32QuickCodeUseSoftFloat.
+  if (arg.IsFP() && !kArm32QuickCodeUseSoftFloat) {
+    if (arg.IsWide()) {
+      cur_fp_double_reg_ = std::max(cur_fp_double_reg_, RoundUp(cur_fp_reg_, 2));
+      if (cur_fp_double_reg_ < fpArgMappingToPhysicalRegSize) {
+        result = RegStorage::MakeRegPair(fpArgMappingToPhysicalReg[cur_fp_double_reg_],
+                                         fpArgMappingToPhysicalReg[cur_fp_double_reg_ + 1]);
+        result = As64BitFloatReg(result);
+        cur_fp_double_reg_ += 2;
+      }
+    } else {
+      if (cur_fp_reg_ % 2 == 0) {
+        cur_fp_reg_ = std::max(cur_fp_double_reg_, cur_fp_reg_);
+      }
+      if (cur_fp_reg_ < fpArgMappingToPhysicalRegSize) {
+        result = fpArgMappingToPhysicalReg[cur_fp_reg_];
+        cur_fp_reg_++;
+      }
+    }
+  } else {
+    if (cur_core_reg_ < coreArgMappingToPhysicalRegSize) {
+      if (!kArm32QuickCodeUseSoftFloat && arg.IsWide() && cur_core_reg_ == 0) {
+        // Skip r1, and use r2-r3 for the register pair.
+        cur_core_reg_++;
+      }
+      result = coreArgMappingToPhysicalReg[cur_core_reg_++];
+      if (arg.IsWide() && cur_core_reg_ < coreArgMappingToPhysicalRegSize) {
+        result = RegStorage::MakeRegPair(result, coreArgMappingToPhysicalReg[cur_core_reg_++]);
+      }
+    }
+  }
+  return result;
+}
+
+int ArmMir2Lir::GenDalvikArgsBulkCopy(CallInfo* info, int first, int count) {
+  if (kArm32QuickCodeUseSoftFloat) {
+    return Mir2Lir::GenDalvikArgsBulkCopy(info, first, count);
+  }
+  /*
+   * TODO: Improve by adding block copy for large number of arguments.  For now, just
+   * copy a Dalvik vreg at a time.
+   */
+  return count;
+}
+
+void ArmMir2Lir::GenMachineSpecificExtendedMethodMIR(BasicBlock* bb, MIR* mir) {
+  UNUSED(bb);
+  DCHECK(MIR::DecodedInstruction::IsPseudoMirOp(mir->dalvikInsn.opcode));
+  RegLocation rl_src[3];
+  RegLocation rl_dest = mir_graph_->GetBadLoc();
+  rl_src[0] = rl_src[1] = rl_src[2] = mir_graph_->GetBadLoc();
+  switch (static_cast<ExtendedMIROpcode>(mir->dalvikInsn.opcode)) {
+    case kMirOpMaddInt:
+      rl_dest = mir_graph_->GetDest(mir);
+      rl_src[0] = mir_graph_->GetSrc(mir, 0);
+      rl_src[1] = mir_graph_->GetSrc(mir, 1);
+      rl_src[2]= mir_graph_->GetSrc(mir, 2);
+      GenMaddMsubInt(rl_dest, rl_src[0], rl_src[1], rl_src[2], false);
+      break;
+    case kMirOpMsubInt:
+      rl_dest = mir_graph_->GetDest(mir);
+      rl_src[0] = mir_graph_->GetSrc(mir, 0);
+      rl_src[1] = mir_graph_->GetSrc(mir, 1);
+      rl_src[2]= mir_graph_->GetSrc(mir, 2);
+      GenMaddMsubInt(rl_dest, rl_src[0], rl_src[1], rl_src[2], true);
+      break;
+    default:
+      LOG(FATAL) << "Unexpected opcode: " << mir->dalvikInsn.opcode;
+  }
 }
 
 }  // namespace art

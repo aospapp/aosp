@@ -20,6 +20,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <poll.h>
 
@@ -34,10 +35,9 @@
 #include "cutils/misc.h"
 #include "cutils/properties.h"
 #include "private/android_filesystem_config.h"
-#ifdef HAVE_LIBC_SYSTEM_PROPERTIES
+
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
-#endif
 
 extern int do_dhcp();
 extern int ifc_init();
@@ -190,6 +190,30 @@ const char *get_dhcp_error_string() {
     return dhcp_lasterror();
 }
 
+#ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+int wifi_change_driver_state(const char *state)
+{
+    int len;
+    int fd;
+    int ret = 0;
+
+    if (!state)
+        return -1;
+    fd = TEMP_FAILURE_RETRY(open(WIFI_DRIVER_STATE_CTRL_PARAM, O_WRONLY));
+    if (fd < 0) {
+        ALOGE("Failed to open driver state control param (%s)", strerror(errno));
+        return -1;
+    }
+    len = strlen(state) + 1;
+    if (TEMP_FAILURE_RETRY(write(fd, state, len)) != len) {
+        ALOGE("Failed to write driver state control param (%s)", strerror(errno));
+        ret = -1;
+    }
+    close(fd);
+    return ret;
+}
+#endif
+
 int is_wifi_driver_loaded() {
     char driver_status[PROPERTY_VALUE_MAX];
 #ifdef WIFI_DRIVER_MODULE_PATH
@@ -252,7 +276,7 @@ int wifi_load_driver()
         if (property_get(DRIVER_PROP_NAME, driver_status, NULL)) {
             if (strcmp(driver_status, "ok") == 0)
                 return 0;
-            else if (strcmp(DRIVER_PROP_NAME, "failed") == 0) {
+            else if (strcmp(driver_status, "failed") == 0) {
                 wifi_unload_driver();
                 return -1;
             }
@@ -263,6 +287,14 @@ int wifi_load_driver()
     wifi_unload_driver();
     return -1;
 #else
+#ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+    if (is_wifi_driver_loaded()) {
+        return 0;
+    }
+
+    if (wifi_change_driver_state(WIFI_DRIVER_STATE_ON) < 0)
+        return -1;
+#endif
     property_set(DRIVER_PROP_NAME, "ok");
     return 0;
 #endif
@@ -287,6 +319,12 @@ int wifi_unload_driver()
     } else
         return -1;
 #else
+#ifdef WIFI_DRIVER_STATE_CTRL_PARAM
+    if (is_wifi_driver_loaded()) {
+        if (wifi_change_driver_state(WIFI_DRIVER_STATE_OFF) < 0)
+            return -1;
+    }
+#endif
     property_set(DRIVER_PROP_NAME, "unloaded");
     return 0;
 #endif
@@ -405,10 +443,8 @@ int wifi_start_supplicant(int p2p_supported)
 {
     char supp_status[PROPERTY_VALUE_MAX] = {'\0'};
     int count = 200; /* wait at most 20 seconds for completion */
-#ifdef HAVE_LIBC_SYSTEM_PROPERTIES
     const prop_info *pi;
     unsigned serial = 0, i;
-#endif
 
     if (p2p_supported) {
         strcpy(supplicant_name, P2P_SUPPLICANT_NAME);
@@ -447,7 +483,6 @@ int wifi_start_supplicant(int p2p_supported)
     /* Reset sockets used for exiting from hung state */
     exit_sockets[0] = exit_sockets[1] = -1;
 
-#ifdef HAVE_LIBC_SYSTEM_PROPERTIES
     /*
      * Get a reference to the status property, so we can distinguish
      * the case where it goes stopped => running => stopped (i.e.,
@@ -459,14 +494,12 @@ int wifi_start_supplicant(int p2p_supported)
     if (pi != NULL) {
         serial = __system_property_serial(pi);
     }
-#endif
     property_get("wifi.interface", primary_iface, WIFI_TEST_INTERFACE);
 
     property_set("ctl.start", supplicant_name);
     sched_yield();
 
     while (count-- > 0) {
-#ifdef HAVE_LIBC_SYSTEM_PROPERTIES
         if (pi == NULL) {
             pi = __system_property_find(supplicant_prop_name);
         }
@@ -483,12 +516,6 @@ int wifi_start_supplicant(int p2p_supported)
                 }
             }
         }
-#else
-        if (property_get(supplicant_prop_name, supp_status, NULL)) {
-            if (strcmp(supp_status, "running") == 0)
-                return 0;
-        }
-#endif
         usleep(100000);
     }
     return -1;

@@ -33,26 +33,9 @@ namespace egl
 namespace Image
 {
 
-class SimpleCreationTests : public TestCaseGroup
-{
-public:
-			SimpleCreationTests		(EglTestContext& eglTestCtx);
-	void	init						(void);
-};
-
-class ModifyTests : public TestCaseGroup
-{
-public:
-			ModifyTests		(EglTestContext& eglTestCtx);
-	void	init			(void);
-};
-
-class MultiContextRenderTests : public TestCaseGroup
-{
-public:
-			MultiContextRenderTests		(EglTestContext& eglTestCtx);
-	void	init						(void);
-};
+TestCaseGroup* createSimpleCreationTests 		(EglTestContext& eglTestCtx, const std::string& name, const std::string& desc);
+TestCaseGroup* createModifyTests				(EglTestContext& eglTestCtx, const std::string& name, const std::string& desc);
+TestCaseGroup* createMultiContextRenderTests	(EglTestContext& eglTestCtx, const std::string& name, const std::string& desc);
 
 } // Image
 } // egl

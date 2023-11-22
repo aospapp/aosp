@@ -20,9 +20,9 @@
 #include "jni/quick/arm/calling_convention_arm.h"
 #include "jni/quick/arm64/calling_convention_arm64.h"
 #include "jni/quick/mips/calling_convention_mips.h"
+#include "jni/quick/mips64/calling_convention_mips64.h"
 #include "jni/quick/x86/calling_convention_x86.h"
 #include "jni/quick/x86_64/calling_convention_x86_64.h"
-#include "utils.h"
 
 namespace art {
 
@@ -38,13 +38,15 @@ ManagedRuntimeCallingConvention* ManagedRuntimeCallingConvention::Create(
       return new arm64::Arm64ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty);
     case kMips:
       return new mips::MipsManagedRuntimeCallingConvention(is_static, is_synchronized, shorty);
+    case kMips64:
+      return new mips64::Mips64ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty);
     case kX86:
       return new x86::X86ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty);
     case kX86_64:
       return new x86_64::X86_64ManagedRuntimeCallingConvention(is_static, is_synchronized, shorty);
     default:
       LOG(FATAL) << "Unknown InstructionSet: " << instruction_set;
-      return NULL;
+      return nullptr;
   }
 }
 
@@ -111,13 +113,15 @@ JniCallingConvention* JniCallingConvention::Create(bool is_static, bool is_synch
       return new arm64::Arm64JniCallingConvention(is_static, is_synchronized, shorty);
     case kMips:
       return new mips::MipsJniCallingConvention(is_static, is_synchronized, shorty);
+    case kMips64:
+      return new mips64::Mips64JniCallingConvention(is_static, is_synchronized, shorty);
     case kX86:
       return new x86::X86JniCallingConvention(is_static, is_synchronized, shorty);
     case kX86_64:
       return new x86_64::X86_64JniCallingConvention(is_static, is_synchronized, shorty);
     default:
       LOG(FATAL) << "Unknown InstructionSet: " << instruction_set;
-      return NULL;
+      return nullptr;
   }
 }
 
@@ -127,7 +131,7 @@ size_t JniCallingConvention::ReferenceCount() const {
 
 FrameOffset JniCallingConvention::SavedLocalReferenceCookieOffset() const {
   size_t references_size = handle_scope_pointer_size_ * ReferenceCount();  // size excluding header
-  return FrameOffset(HandleerencesOffset().Int32Value() + references_size);
+  return FrameOffset(HandleReferencesOffset().Int32Value() + references_size);
 }
 
 FrameOffset JniCallingConvention::ReturnValueSaveLocation() const {
@@ -224,7 +228,7 @@ bool JniCallingConvention::IsCurrentParamALong() {
 FrameOffset JniCallingConvention::CurrentParamHandleScopeEntryOffset() {
   CHECK(IsCurrentParamAReference());
   CHECK_LT(HandleScopeLinkOffset(), HandleScopeNumRefsOffset());
-  int result = HandleerencesOffset().Int32Value() + itr_refs_ * handle_scope_pointer_size_;
+  int result = HandleReferencesOffset().Int32Value() + itr_refs_ * handle_scope_pointer_size_;
   CHECK_GT(result, HandleScopeNumRefsOffset().Int32Value());
   return FrameOffset(result);
 }

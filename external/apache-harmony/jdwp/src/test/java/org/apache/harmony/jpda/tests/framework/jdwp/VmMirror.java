@@ -217,9 +217,20 @@ public class VmMirror {
      *            name of required method
      * @return requestID id of request
      */
-    public long setBreakpointAtMethodBegin(long classID, String methodName) {
-        long requestID;
+    public int setBreakpointAtMethodBegin(long classID, String methodName) {
+        return setBreakpointAtMethodBegin(classID, methodName, JDWPConstants.SuspendPolicy.ALL);
+    }
 
+    /**
+     * Sets breakpoint at the beginning of method with name <i>methodName</i>.
+     *
+     * @param classID
+     *            id of class with required method
+     * @param methodName
+     *            name of required method
+     * @return requestID id of request
+     */
+    public int setBreakpointAtMethodBegin(long classID, String methodName, byte suspendPolicy) {
         long methodID = getMethodID(classID, methodName);
 
         ReplyPacket lineTableReply = getLineTable(classID, methodID);
@@ -247,12 +258,10 @@ public class VmMirror {
         Location breakpointLocation = new Location(JDWPConstants.TypeTag.CLASS,
                 classID, methodID, lineCodeIndex);
 
-        ReplyPacket reply = setBreakpoint(breakpointLocation);
+        ReplyPacket reply = setBreakpoint(breakpointLocation, suspendPolicy);
         checkReply(reply);
 
-        requestID = reply.getNextValueAsInt();
-
-        return requestID;
+        return reply.getNextValueAsInt();
     }
 
     /**
@@ -262,7 +271,7 @@ public class VmMirror {
      *            id of request for breakpoint
      * @return threadID id of thread, where we stop on breakpoint
      */
-    public long waitForBreakpoint(long requestID) {
+    public long waitForBreakpoint(int requestID) {
         // receive event
         CommandPacket event = null;
         event = receiveEvent();
@@ -731,6 +740,22 @@ public class VmMirror {
         CommandPacket commandPacket = new CommandPacket(
                 JDWPCommands.ThreadReferenceCommandSet.CommandSetID,
                 JDWPCommands.ThreadReferenceCommandSet.StatusCommand);
+        commandPacket.setNextValueAsThreadID(threadID);
+        ReplyPacket replyPacket = checkReply(performCommand(commandPacket));
+        return replyPacket.getNextValueAsInt();
+    }
+
+    /**
+     * Returns suspend count for specified <code>threadID</code>.
+     *
+     * @param threadID
+     *            thread ID
+     * @return thread's suspend count
+     */
+    public int getThreadSuspendCount(long threadID) {
+        CommandPacket commandPacket = new CommandPacket(
+                JDWPCommands.ThreadReferenceCommandSet.CommandSetID,
+                JDWPCommands.ThreadReferenceCommandSet.SuspendCountCommand);
         commandPacket.setNextValueAsThreadID(threadID);
         ReplyPacket replyPacket = checkReply(performCommand(commandPacket));
         return replyPacket.getNextValueAsInt();
@@ -2350,6 +2375,20 @@ public class VmMirror {
         }
 
         return values;
+    }
+
+    /**
+     * Returns the value of one static field of the reference type
+     *
+     * @param refTypeID
+     *            The reference type ID.
+     * @param fieldID
+     *            ID of field to get
+     * @return A Value object representing the field's value
+     */
+    public final Value getReferenceTypeValue(long refTypeID, long fieldID) {
+        Value[] values = getReferenceTypeValues(refTypeID, new long[]{fieldID});
+        return values[0];
     }
 
     /**

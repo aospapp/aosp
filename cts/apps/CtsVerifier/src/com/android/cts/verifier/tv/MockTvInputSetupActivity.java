@@ -21,17 +21,25 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.media.tv.TvContract;
+import android.media.tv.TvContract.Programs;
 import android.media.tv.TvInputInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Pair;
 import android.view.View;
 
+import java.util.ArrayList;
+
 public class MockTvInputSetupActivity extends Activity {
     private static final String TAG = "MockTvInputSetupActivity";
 
-    private static final String CHANNEL_NUMBER = "999-0";
-    private static final String CHANNEL_NAME = "Dummy";
+    /* package-private */ static final String CHANNEL_NUMBER = "999-0";
+    /* package-private */ static final String CHANNEL_NAME = "Dummy";
+
+    /* package-private */ static final String PROGRAM_TITLE = "Dummy Program";
+    /* package-private */ static final String PROGRAM_DESCRIPTION = "Dummy Program Description";
+    private static final long PROGRAM_LENGTH_MILLIS = 60 * 60 * 1000;
+    private static final int PROGRAM_COUNT = 24;
 
     private static Object sLock = new Object();
     private static Pair<View, Runnable> sLaunchCallback = null;
@@ -55,6 +63,8 @@ public class MockTvInputSetupActivity extends Activity {
                     return;
                 }
             }
+
+            // Add a channel.
             ContentValues values = new ContentValues();
             values.put(TvContract.Channels.COLUMN_INPUT_ID, inputId);
             values.put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, CHANNEL_NUMBER);
@@ -62,9 +72,27 @@ public class MockTvInputSetupActivity extends Activity {
             Uri channelUri = getContentResolver().insert(uri, values);
             // If the channel's ID happens to be zero, we add another and delete the one.
             if (ContentUris.parseId(channelUri) == 0) {
-                getContentResolver().insert(uri, values);
                 getContentResolver().delete(channelUri, null, null);
+                channelUri = getContentResolver().insert(uri, values);
             }
+
+            // Add Programs.
+            values = new ContentValues();
+            values.put(Programs.COLUMN_CHANNEL_ID, ContentUris.parseId(channelUri));
+            values.put(Programs.COLUMN_TITLE, PROGRAM_TITLE);
+            values.put(Programs.COLUMN_SHORT_DESCRIPTION, PROGRAM_DESCRIPTION);
+            long nowMs = System.currentTimeMillis();
+            long startTimeMs = nowMs - nowMs % PROGRAM_LENGTH_MILLIS;
+            ArrayList<ContentValues> list = new ArrayList<>();
+            for (int i = 0; i < PROGRAM_COUNT; ++i) {
+                values.put(Programs.COLUMN_START_TIME_UTC_MILLIS, startTimeMs);
+                values.put(Programs.COLUMN_END_TIME_UTC_MILLIS,
+                        startTimeMs + PROGRAM_LENGTH_MILLIS);
+                startTimeMs += PROGRAM_LENGTH_MILLIS;
+                list.add(new ContentValues(values));
+            }
+            getContentResolver().bulkInsert(Programs.CONTENT_URI, list.toArray(
+                    new ContentValues[0]));
         } finally {
             Pair<View, Runnable> launchCallback = null;
             synchronized (sLock) {

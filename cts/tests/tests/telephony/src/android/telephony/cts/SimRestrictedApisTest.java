@@ -22,8 +22,7 @@ import android.telephony.TelephonyManager;
 import android.test.AndroidTestCase;
 
 public class SimRestrictedApisTest extends AndroidTestCase {
-    private static final byte[] TEST_PDU = {
-            0, 0 };
+    private static final byte[] TEST_PDU = { 0, 0 };
     private TelephonyManager mTelephonyManager;
 
     @Override
@@ -34,7 +33,8 @@ public class SimRestrictedApisTest extends AndroidTestCase {
     }
 
     private boolean isSimCardPresent() {
-        return mTelephonyManager.getSimState() != TelephonyManager.SIM_STATE_ABSENT;
+        return mTelephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_NONE &&
+                mTelephonyManager.getSimState() != TelephonyManager.SIM_STATE_ABSENT;
     }
 
     /**
@@ -220,7 +220,7 @@ public class SimRestrictedApisTest extends AndroidTestCase {
     public void testGetPreferredNetworkType() {
         try {
             if (isSimCardPresent()) {
-                TelephonyManager.getDefault().getPreferredNetworkType();
+                TelephonyManager.getDefault().getPreferredNetworkType(0);
                 fail("Expected SecurityException. App doesn't have carrier privileges.");
             }
         } catch (SecurityException expected) {

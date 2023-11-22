@@ -934,8 +934,8 @@ void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bu
 	IOStream *stream = ctx->m_stream;
 
 	const unsigned int __size_length = ((length != NULL) ?  (sizeof(GLsizei)) : 0);
-	const unsigned int __size_size =  (sizeof(GLint));
-	const unsigned int __size_type =  (sizeof(GLenum));
+	const unsigned int __size_size = ((size != NULL) ?  (sizeof(GLint)) : 0);
+	const unsigned int __size_type = ((type != NULL) ?  (sizeof(GLenum)) : 0);
 	const unsigned int __size_name = ((name != NULL) ?  bufsize : 0);
 	 unsigned char *ptr;
 	 const size_t packetSize = 8 + 4 + 4 + 4 + __size_length + __size_size + __size_type + __size_name + 4*4;
@@ -951,8 +951,8 @@ void glGetActiveAttrib_enc(void *self , GLuint program, GLuint index, GLsizei bu
 	*(unsigned int *)(ptr) = __size_type; ptr += 4;
 	*(unsigned int *)(ptr) = __size_name; ptr += 4;
 	if (length != NULL) stream->readback(length, __size_length);
-	stream->readback(size, __size_size);
-	stream->readback(type, __size_type);
+	if (size != NULL) stream->readback(size, __size_size);
+	if (type != NULL) stream->readback(type, __size_type);
 	if (name != NULL) stream->readback(name, __size_name);
 }
 
@@ -963,8 +963,8 @@ void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei b
 	IOStream *stream = ctx->m_stream;
 
 	const unsigned int __size_length = ((length != NULL) ?  (sizeof(GLsizei)) : 0);
-	const unsigned int __size_size =  (sizeof(GLint));
-	const unsigned int __size_type =  (sizeof(GLenum));
+	const unsigned int __size_size = ((size != NULL) ?  (sizeof(GLint)) : 0);
+	const unsigned int __size_type = ((type != NULL) ?  (sizeof(GLenum)) : 0);
 	const unsigned int __size_name = ((name != NULL) ?  bufsize : 0);
 	 unsigned char *ptr;
 	 const size_t packetSize = 8 + 4 + 4 + 4 + __size_length + __size_size + __size_type + __size_name + 4*4;
@@ -980,8 +980,8 @@ void glGetActiveUniform_enc(void *self , GLuint program, GLuint index, GLsizei b
 	*(unsigned int *)(ptr) = __size_type; ptr += 4;
 	*(unsigned int *)(ptr) = __size_name; ptr += 4;
 	if (length != NULL) stream->readback(length, __size_length);
-	stream->readback(size, __size_size);
-	stream->readback(type, __size_type);
+	if (size != NULL) stream->readback(size, __size_size);
+	if (type != NULL) stream->readback(type, __size_type);
 	if (name != NULL) stream->readback(name, __size_name);
 }
 

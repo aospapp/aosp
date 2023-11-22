@@ -35,9 +35,9 @@ public class KeyChainServiceTestSupport extends Service {
             Log.d(TAG, "keystoreReset");
             return mKeyStore.reset();
         }
-        @Override public boolean keystorePassword(String password) {
-            Log.d(TAG, "keystorePassword");
-            return mKeyStore.password(password);
+        @Override public boolean keystoreSetPassword(String password) {
+            Log.d(TAG, "keystoreSetPassword");
+            return mKeyStore.onUserPasswordChanged(password);
         }
         @Override public boolean keystorePut(String key, byte[] value) {
             Log.d(TAG, "keystorePut");

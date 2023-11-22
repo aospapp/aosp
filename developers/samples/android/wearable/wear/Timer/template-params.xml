@@ -22,11 +22,8 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.timer</package>
 
-
-
-    <!-- change minSdk if needed-->
     <minSdk>18</minSdk>
-
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>
@@ -37,7 +34,7 @@
         </intro>
     </strings>
 
-    <template src="base"/>
+    <template src="base-build"/>
     <template src="Wear"/>
 
 </sample>

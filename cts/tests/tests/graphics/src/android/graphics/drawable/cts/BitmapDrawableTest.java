@@ -21,7 +21,6 @@ import com.android.cts.graphics.R;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
@@ -133,6 +132,22 @@ public class BitmapDrawableTest extends InstrumentationTestCase {
 
         bitmapDrawable.setFilterBitmap(true);
         assertTrue(bitmapDrawable.getPaint().isFilterBitmap());
+    }
+
+    public void testIsFilterBitmap() {
+        InputStream source = mContext.getResources().openRawResource(R.raw.testimage);
+        BitmapDrawable bitmapDrawable = new BitmapDrawable(source);
+
+        assertTrue(bitmapDrawable.isFilterBitmap());
+
+        bitmapDrawable.setFilterBitmap(false);
+        assertFalse(bitmapDrawable.isFilterBitmap());
+        assertEquals(bitmapDrawable.isFilterBitmap(), bitmapDrawable.getPaint().isFilterBitmap());
+
+
+        bitmapDrawable.setFilterBitmap(true);
+        assertTrue(bitmapDrawable.isFilterBitmap());
+        assertEquals(bitmapDrawable.isFilterBitmap(), bitmapDrawable.getPaint().isFilterBitmap());
     }
 
     public void testSetDither() {

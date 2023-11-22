@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/macros.h"
 #include "base/mutex.h"
 
 namespace art {
@@ -49,30 +50,36 @@ class Context {
   // Sets the program counter value.
   virtual void SetPC(uintptr_t new_pc) = 0;
 
+  // Returns whether the given GPR is accessible (read or write).
+  virtual bool IsAccessibleGPR(uint32_t reg) = 0;
+
   // Gets the given GPRs address.
   virtual uintptr_t* GetGPRAddress(uint32_t reg) = 0;
 
-  // Reads the given GPR. Returns true if we successfully read the register and
-  // set its value into 'val', returns false otherwise.
-  virtual bool GetGPR(uint32_t reg, uintptr_t* val) = 0;
+  // Reads the given GPR. The caller is responsible for checking the register
+  // is accessible with IsAccessibleGPR.
+  virtual uintptr_t GetGPR(uint32_t reg) = 0;
 
-  // Sets the given GPR. Returns true if we successfully write the given value
-  // into the register, returns false otherwise.
-  virtual bool SetGPR(uint32_t reg, uintptr_t value) = 0;
+  // Sets the given GPR. The caller is responsible for checking the register
+  // is accessible with IsAccessibleGPR.
+  virtual void SetGPR(uint32_t reg, uintptr_t value) = 0;
 
-  // Reads the given FPR. Returns true if we successfully read the register and
-  // set its value into 'val', returns false otherwise.
-  virtual bool GetFPR(uint32_t reg, uintptr_t* val) = 0;
+  // Returns whether the given FPR is accessible (read or write).
+  virtual bool IsAccessibleFPR(uint32_t reg) = 0;
 
-  // Sets the given FPR. Returns true if we successfully write the given value
-  // into the register, returns false otherwise.
-  virtual bool SetFPR(uint32_t reg, uintptr_t value) = 0;
+  // Reads the given FPR. The caller is responsible for checking the register
+  // is accessible with IsAccessibleFPR.
+  virtual uintptr_t GetFPR(uint32_t reg) = 0;
+
+  // Sets the given FPR. The caller is responsible for checking the register
+  // is accessible with IsAccessibleFPR.
+  virtual void SetFPR(uint32_t reg, uintptr_t value) = 0;
 
   // Smashes the caller save registers. If we're throwing, we don't want to return bogus values.
   virtual void SmashCallerSaves() = 0;
 
   // Switches execution of the executing context to this context
-  virtual void DoLongJump() = 0;
+  NO_RETURN virtual void DoLongJump() = 0;
 
  protected:
   enum {

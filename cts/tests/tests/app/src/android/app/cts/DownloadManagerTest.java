@@ -32,13 +32,9 @@ import android.test.AndroidTestCase;
 import android.text.format.DateUtils;
 import android.webkit.cts.CtsTestServer;
 
-import com.google.android.collect.Sets;
-
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class DownloadManagerTest extends AndroidTestCase {
 
@@ -91,6 +87,82 @@ public class DownloadManagerTest extends AndroidTestCase {
 
             assertRemoveDownload(goodId, allDownloads - 1);
             assertRemoveDownload(badId, allDownloads - 2);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    public void testDownloadManagerSupportsHttp() throws Exception {
+        final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
+        try {
+            IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            mContext.registerReceiver(receiver, intentFilter);
+
+            long id = mDownloadManager.enqueue(new Request(getGoodUrl()));
+
+            assertEquals(1, getTotalNumberDownloads());
+
+            assertDownloadQueryableById(id);
+
+            receiver.waitForDownloadComplete(SHORT_TIMEOUT, id);
+
+            assertDownloadQueryableByStatus(DownloadManager.STATUS_SUCCESSFUL);
+
+            assertRemoveDownload(id, 0);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    public void testDownloadManagerSupportsHttpWithExternalWebServer() throws Exception {
+        // As a result of testDownloadManagerSupportsHttpsWithExternalWebServer relying on an
+        // external resource https://www.example.com this test uses http://www.example.com to help
+        // disambiguate errors from testDownloadManagerSupportsHttpsWithExternalWebServer.
+
+        final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
+        try {
+            IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            mContext.registerReceiver(receiver, intentFilter);
+
+            long id = mDownloadManager.enqueue(new Request(Uri.parse("http://www.example.com")));
+
+            assertEquals(1, getTotalNumberDownloads());
+
+            assertDownloadQueryableById(id);
+
+            receiver.waitForDownloadComplete(LONG_TIMEOUT, id);
+
+            assertDownloadQueryableByStatus(DownloadManager.STATUS_SUCCESSFUL);
+
+            assertRemoveDownload(id, 0);
+        } finally {
+            mContext.unregisterReceiver(receiver);
+        }
+    }
+
+    public void testDownloadManagerSupportsHttpsWithExternalWebServer() throws Exception {
+        // For HTTPS, DownloadManager trusts only SSL server certs issued by CAs trusted by the
+        // system. Unfortunately, this means that it cannot trust the mock web server's SSL cert.
+        // Until this is resolved (e.g., by making it possible to specify additional CA certs to
+        // trust for a particular download), this test relies on https://www.example.com being
+        // operational and reachable from the Android under test.
+
+        final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
+        try {
+            IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            mContext.registerReceiver(receiver, intentFilter);
+
+            long id = mDownloadManager.enqueue(new Request(Uri.parse("https://www.example.com")));
+
+            assertEquals(1, getTotalNumberDownloads());
+
+            assertDownloadQueryableById(id);
+
+            receiver.waitForDownloadComplete(LONG_TIMEOUT, id);
+
+            assertDownloadQueryableByStatus(DownloadManager.STATUS_SUCCESSFUL);
+
+            assertRemoveDownload(id, 0);
         } finally {
             mContext.unregisterReceiver(receiver);
         }
@@ -233,7 +305,7 @@ public class DownloadManagerTest extends AndroidTestCase {
     }
 
     private class DownloadCompleteReceiver extends BroadcastReceiver {
-        private HashSet<Long> mCompleteIds = Sets.newHashSet();
+        private HashSet<Long> mCompleteIds = new HashSet<>();
 
         public DownloadCompleteReceiver() {
         }

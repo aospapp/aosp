@@ -20,10 +20,10 @@
 #include <sys/xattr.h>
 #include <errno.h>
 
-static jboolean android_security_cts_KernelSettingsTest_supportsXattr(JNIEnv* env, jobject thiz)
+static jboolean android_security_cts_KernelSettingsTest_supportsXattr(JNIEnv* /* env */, jobject /* thiz */)
 {
-    int result = getxattr("/system/bin/toolbox", "security.capability", NULL, 0);
-    return ((result >= 0) || (errno == ENODATA));
+    int result = getxattr("/system/bin/cat", "security.capability", NULL, 0);
+    return ((result != -1) || (errno == ENODATA));
 }
 
 static JNINativeMethod gMethods[] = {

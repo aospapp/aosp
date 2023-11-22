@@ -4,16 +4,18 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#define _FPDF_AP_H_
+#ifndef CORE_INCLUDE_FPDFDOC_FPDF_AP_H_
+#define CORE_INCLUDE_FPDFDOC_FPDF_AP_H_
+
 #include "../fxcrt/fx_basic.h"
 #include "../fpdfapi/fpdf_parser.h"
 #include "fpdf_vt.h"
+
 class IPVT_FontMap
 {
 public:
-
+    virtual ~IPVT_FontMap() { }
     virtual CPDF_Font*						GetPDFFont(FX_INT32 nFontIndex) = 0;
-
     virtual CFX_ByteString					GetPDFFontAlias(FX_INT32 nFontIndex) = 0;
 };
 struct CPVT_Dash {
@@ -90,3 +92,5 @@ public:
 
     static CFX_ByteString					GenerateColorAP(const CPVT_Color & color, const FX_BOOL & bFillOrStroke);
 };
+
+#endif  // CORE_INCLUDE_FPDFDOC_FPDF_AP_H_

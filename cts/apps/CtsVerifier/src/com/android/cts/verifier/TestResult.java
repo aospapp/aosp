@@ -71,11 +71,16 @@ public class TestResult {
     private static Intent createResult(Activity activity, int testResult, String testName,
             String testDetails, ReportLog reportLog) {
         Intent data = new Intent(activity, activity.getClass());
-        data.putExtra(TEST_NAME, testName);
-        data.putExtra(TEST_RESULT, testResult);
-        data.putExtra(TEST_DETAILS, testDetails);
-        data.putExtra(TEST_METRICS, reportLog);
+        addResultData(data, testResult, testName, testDetails, reportLog);
         return data;
+    }
+
+    public static void addResultData(Intent intent, int testResult, String testName,
+            String testDetails, ReportLog reportLog) {
+        intent.putExtra(TEST_NAME, testName);
+        intent.putExtra(TEST_RESULT, testResult);
+        intent.putExtra(TEST_DETAILS, testDetails);
+        intent.putExtra(TEST_METRICS, reportLog);
     }
 
     /**

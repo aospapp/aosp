@@ -4,16 +4,23 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _IJAVASCRIPT_H_
-#define _IJAVASCRIPT_H_
+#ifndef FPDFSDK_INCLUDE_JAVASCRIPT_IJAVASCRIPT_H_
+#define FPDFSDK_INCLUDE_JAVASCRIPT_IJAVASCRIPT_H_
 
-class IFXJS_Context  
+#include "../../../core/include/fxcrt/fx_basic.h"
+
+class CPDF_Bookmark;
+class CPDF_FormField;
+class CPDFSDK_Annot;
+class CPDFSDK_Document;
+
+class IFXJS_Context
 {
 public:
+        virtual ~IFXJS_Context() { }
 	virtual FX_BOOL				Compile(const CFX_WideString& script, CFX_WideString& info) = 0;
 	virtual FX_BOOL				RunScript(const CFX_WideString& script, CFX_WideString& info) = 0;
 
-public:
 	virtual void				OnApp_Init() = 0;
 
 	virtual void				OnDoc_Open(CPDFSDK_Document* pDoc, const CFX_WideString& strTargetName) = 0;
@@ -27,7 +34,7 @@ public:
 	virtual void				OnPage_Close(CPDFSDK_Document* pTarget) = 0;
 	virtual void				OnPage_InView(CPDFSDK_Document* pTarget) = 0;
 	virtual void				OnPage_OutView(CPDFSDK_Document* pTarget) = 0;
-	
+
 	virtual void				OnField_MouseDown(FX_BOOL bModifier, FX_BOOL bShift, CPDF_FormField* pTarget) = 0;
 	virtual void				OnField_MouseEnter(FX_BOOL bModifier, FX_BOOL bShift, CPDF_FormField* pTarget) = 0;
 	virtual void				OnField_MouseExit(FX_BOOL bModifier, FX_BOOL bShift, CPDF_FormField* pTarget) = 0;
@@ -74,16 +81,10 @@ public:
 	virtual IFXJS_Context*		GetCurrentContext() = 0;
 
 	virtual void				SetReaderDocument(CPDFSDK_Document* pReaderDoc) = 0;
-	virtual	CPDFSDK_Document*	GetReaderDocument() = 0;	
+	virtual	CPDFSDK_Document*	GetReaderDocument() = 0;
 
-	virtual void				GetObjectNames(CFX_WideStringArray& array) = 0;
-	virtual void				GetObjectConsts(const CFX_WideString& swObjName, CFX_WideStringArray& array) = 0;
-	virtual void				GetObjectProps(const CFX_WideString& swObjName, CFX_WideStringArray& array) = 0;
-	virtual void				GetObjectMethods(const CFX_WideString& swObjName, CFX_WideStringArray& array) = 0;
-
-	virtual void				Exit() = 0;
-	virtual void				Enter() = 0;
-	virtual FX_BOOL				IsEntered() = 0;
+protected:
+         ~IFXJS_Runtime() { }
 };
 
 class CPDFDoc_Environment;
@@ -108,5 +109,4 @@ private:
 	FX_INT32						m_nGlobalDataCount;
 };
 
-#endif //_IJAVASCRIPT_H_
-
+#endif  // FPDFSDK_INCLUDE_JAVASCRIPT_IJAVASCRIPT_H_

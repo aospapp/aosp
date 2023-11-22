@@ -339,7 +339,7 @@ public class MyPrintService extends PrintService {
         private final List<PrinterInfo> mFakePrinters = new ArrayList<PrinterInfo>();
 
         public FakePrinterDiscoverySession() {
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 2; i++) {
                 String name = "Printer " + i;
                 PrinterInfo printer = new PrinterInfo
                         .Builder(generatePrinterId(name), name, (i % 2 == 1)
@@ -365,7 +365,7 @@ public class MyPrintService extends PrintService {
 
             Message message2 = mSesionHandler.obtainMessage(
                     SessionHandler.MSG_ADD_SECOND_BATCH_FAKE_PRINTERS, this);
-            mSesionHandler.sendMessageDelayed(message2, 10000);
+//            mSesionHandler.sendMessageDelayed(message2, 10000);
         }
 
         @Override
@@ -405,7 +405,7 @@ public class MyPrintService extends PrintService {
 
         @Override
         public void onValidatePrinters(List<PrinterId> printerIds) {
-            Log.i(LOG_TAG, "FakePrinterDiscoverySession#onValidatePrinters()");
+            Log.i(LOG_TAG, "FakePrinterDiscoverySession#onValidatePrinters() " + printerIds);
         }
 
         @Override

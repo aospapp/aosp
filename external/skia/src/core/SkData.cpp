@@ -9,13 +9,25 @@
 #include "SkLazyPtr.h"
 #include "SkOSFile.h"
 #include "SkReadBuffer.h"
+#include "SkStream.h"
 #include "SkWriteBuffer.h"
 
 SkData::SkData(const void* ptr, size_t size, ReleaseProc proc, void* context) {
-    fPtr = ptr;
+    fPtr = const_cast<void*>(ptr);
     fSize = size;
     fReleaseProc = proc;
     fReleaseProcContext = context;
+}
+
+// This constructor means we are inline with our fPtr's contents. Thus we set fPtr
+// to point right after this. We also set our releaseproc to sk_inplace_sentinel_releaseproc,
+// since we need to handle "delete" ourselves. See internal_displose().
+//
+SkData::SkData(size_t size) {
+    fPtr = (char*)(this + 1);   // contents are immediately after this
+    fSize = size;
+    fReleaseProc = NULL;
+    fReleaseProcContext = NULL;
 }
 
 SkData::~SkData() {
@@ -47,15 +59,27 @@ size_t SkData::copyRange(size_t offset, size_t length, void* buffer) const {
     return length;
 }
 
+SkData* SkData::PrivateNewWithCopy(const void* srcOrNull, size_t length) {
+    if (0 == length) {
+        return SkData::NewEmpty();
+    }
+    char* storage = (char*)sk_malloc_throw(sizeof(SkData) + length);
+    SkData* data = new (storage) SkData(length);
+    if (srcOrNull) {
+        memcpy(data->writable_data(), srcOrNull, length);
+    }
+    return data;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
-SkData* SkData::NewEmptyImpl() {
-    return new SkData(NULL, 0, NULL, NULL);
-}
-void SkData::DeleteEmpty(SkData* ptr) { SkDELETE(ptr); }
+// As a template argument these must have external linkage.
+SkData* sk_new_empty_data() { return new SkData(NULL, 0, NULL, NULL); }
+namespace { void sk_unref_data(SkData* ptr) { return SkSafeUnref(ptr); } }
+
+SK_DECLARE_STATIC_LAZY_PTR(SkData, empty, sk_new_empty_data, sk_unref_data);
 
 SkData* SkData::NewEmpty() {
-    SK_DECLARE_STATIC_LAZY_PTR(SkData, empty, NewEmptyImpl, DeleteEmpty);
     return SkRef(empty.get());
 }
 
@@ -68,14 +92,13 @@ SkData* SkData::NewFromMalloc(const void* data, size_t length) {
     return new SkData(data, length, sk_free_releaseproc, NULL);
 }
 
-SkData* SkData::NewWithCopy(const void* data, size_t length) {
-    if (0 == length) {
-        return SkData::NewEmpty();
-    }
+SkData* SkData::NewWithCopy(const void* src, size_t length) {
+    SkASSERT(src);
+    return PrivateNewWithCopy(src, length);
+}
 
-    void* copy = sk_malloc_throw(length); // balanced in sk_free_releaseproc
-    memcpy(copy, data, length);
-    return new SkData(copy, length, sk_free_releaseproc, NULL);
+SkData* SkData::NewUninitialized(size_t length) {
+    return PrivateNewWithCopy(NULL, length);
 }
 
 SkData* SkData::NewWithProc(const void* data, size_t length,
@@ -156,3 +179,14 @@ SkData* SkData::NewWithCString(const char cstr[]) {
     }
     return NewWithCopy(cstr, size);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+SkData* SkData::NewFromStream(SkStream* stream, size_t size) {
+    SkAutoDataUnref data(SkData::NewUninitialized(size));
+    if (stream->read(data->writable_data(), size) != size) {
+        return NULL;
+    }
+    return data.detach();
+}
+

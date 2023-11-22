@@ -22,14 +22,14 @@ if [ -z "$ANDROID_SERIAL" ]; then
 fi
 
 if [ -z "$1" ]; then
-  echo "Usage runtest.sh test-name"
+  echo "Usage runtest.sh test-name [64]"
   exit -1;
 fi
 
 test_name=$1
 product_out=$(cd $ANDROID_BUILD_TOP;get_build_var PRODUCT_OUT 2>/dev/null)
-test_local=$product_out/data/nativetest/$test_name/$test_name
-test_target=/data/nativetest/$test_name/$test_name
+test_local=$product_out/data/nativetest$2/$test_name/$test_name
+test_target=/data/nativetest$2/$test_name/$test_name
 
 cd $root_dir
 adb push $test_local $test_target
@@ -45,7 +45,10 @@ echo "Running test under valgrind..."
 adb shell valgrind $test_target > $logfile_valgrind
 
 echo "Checking results..."
-diff $logfile_native $logfile_valgrind | grep -v "^> ==" | grep -v -e "^[0-9]" > $test_name.diff.log
+dos2unix $logfile_native
+dos2unix $logfile_valgrind
+# TODO: remove last 3 grep -v; they are added to work around linker warning about unsupported DT_FLAGS_1
+diff $logfile_native $logfile_valgrind | grep -v "^> ==" | grep -v -e "^[0-9]" | grep -v "WARNING: linker: Unsupported flags" | grep -v "^> $" | grep -v "^> 0x421==" > $test_name.diff.log
 
 if [ -s $test_name.diff.log ]; then
   echo "Test $test_name FAILED, please check the diff below"

@@ -20,15 +20,12 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.ContactsContract;
-import android.provider.ContactsContract.CommonDataKinds.Callable;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.contacts.common.CallUtil;
 import com.android.contacts.common.list.ContactListItemView;
-import com.android.contacts.common.list.PhoneNumberListAdapter;
-import com.android.contacts.common.list.PhoneNumberListAdapter.PhoneQuery;
 import com.android.dialer.dialpad.SmartDialCursorLoader;
 import com.android.dialer.dialpad.SmartDialNameMatcher;
 import com.android.dialer.dialpad.SmartDialPrefix;
@@ -49,6 +46,7 @@ public class SmartDialNumberListAdapter extends DialerPhoneNumberListAdapter {
     public SmartDialNumberListAdapter(Context context) {
         super(context);
         mNameMatcher = new SmartDialNameMatcher("", SmartDialPrefix.getMap());
+        setShortcutEnabled(SmartDialNumberListAdapter.SHORTCUT_DIRECT_CALL, false);
 
         if (DEBUG) {
             Log.v(TAG, "Constructing List Adapter");
@@ -119,7 +117,9 @@ public class SmartDialNumberListAdapter extends DialerPhoneNumberListAdapter {
     public void setQueryString(String queryString) {
         final boolean showNumberShortcuts = !TextUtils.isEmpty(getFormattedQueryString());
         boolean changed = false;
-        changed |= setShortcutEnabled(SHORTCUT_ADD_NUMBER_TO_CONTACTS, showNumberShortcuts);
+        changed |= setShortcutEnabled(SHORTCUT_CREATE_NEW_CONTACT, showNumberShortcuts);
+        changed |= setShortcutEnabled(SHORTCUT_ADD_TO_EXISTING_CONTACT, showNumberShortcuts);
+        changed |= setShortcutEnabled(SHORTCUT_SEND_SMS_MESSAGE, showNumberShortcuts);
         changed |= setShortcutEnabled(SHORTCUT_MAKE_VIDEO_CALL,
                 showNumberShortcuts && CallUtil.isVideoEnabled(getContext()));
         if (changed) {

@@ -17,15 +17,8 @@
 package android.app.cts;
 
 import android.app.Fragment;
-import android.content.Context;
 import android.test.AndroidTestCase;
-import dalvik.annotation.TestLevel;
-import dalvik.annotation.TestTargetClass;
-import dalvik.annotation.TestTargetNew;
-import dalvik.annotation.TestTargets;
-import dalvik.annotation.ToBeFixed;
 
-@TestTargetClass(Fragment.class)
 public class FragmentTest extends AndroidTestCase {
 
     public static class TestFragment extends Fragment {

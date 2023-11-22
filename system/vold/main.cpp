@@ -14,42 +14,67 @@
  * limitations under the License.
  */
 
+#include "Disk.h"
+#include "VolumeManager.h"
+#include "CommandListener.h"
+#include "CryptCommandListener.h"
+#include "NetlinkManager.h"
+#include "cryptfs.h"
+#include "sehandle.h"
+
+#include <base/logging.h>
+#include <base/stringprintf.h>
+#include <cutils/klog.h>
+#include <cutils/properties.h>
+#include <cutils/sockets.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
+#include <getopt.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <fs_mgr.h>
 
-#define LOG_TAG "Vold"
-
-#include "cutils/klog.h"
-#include "cutils/log.h"
-#include "cutils/properties.h"
-
-#include "VolumeManager.h"
-#include "CommandListener.h"
-#include "NetlinkManager.h"
-#include "DirectVolume.h"
-#include "cryptfs.h"
-
 static int process_config(VolumeManager *vm);
 static void coldboot(const char *path);
+static void parse_args(int argc, char** argv);
 
-#define FSTAB_PREFIX "/fstab."
 struct fstab *fstab;
 
-int main() {
+struct selabel_handle *sehandle;
+
+using android::base::StringPrintf;
+
+int main(int argc, char** argv) {
+    setenv("ANDROID_LOG_TAGS", "*:v", 1);
+    android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
+
+    LOG(INFO) << "Vold 3.0 (the awakening) firing up";
+
+    LOG(VERBOSE) << "Detected support for:"
+            << (android::vold::IsFilesystemSupported("ext4") ? " ext4" : "")
+            << (android::vold::IsFilesystemSupported("f2fs") ? " f2fs" : "")
+            << (android::vold::IsFilesystemSupported("vfat") ? " vfat" : "");
 
     VolumeManager *vm;
     CommandListener *cl;
+    CryptCommandListener *ccl;
     NetlinkManager *nm;
 
-    SLOGI("Vold 2.1 (the revenge) firing up");
+    parse_args(argc, argv);
+
+    sehandle = selinux_android_file_context_handle();
+    if (sehandle) {
+        selinux_android_set_sehandle(sehandle);
+    }
+
+    // Quickly throw a CLOEXEC on the socket we just inherited from init
+    fcntl(android_get_control_socket("vold"), F_SETFD, FD_CLOEXEC);
+    fcntl(android_get_control_socket("cryptd"), F_SETFD, FD_CLOEXEC);
 
     mkdir("/dev/block/vold", 0755);
 
@@ -58,31 +83,35 @@ int main() {
 
     /* Create our singleton managers */
     if (!(vm = VolumeManager::Instance())) {
-        SLOGE("Unable to create VolumeManager");
+        LOG(ERROR) << "Unable to create VolumeManager";
         exit(1);
-    };
+    }
 
     if (!(nm = NetlinkManager::Instance())) {
-        SLOGE("Unable to create NetlinkManager");
+        LOG(ERROR) << "Unable to create NetlinkManager";
         exit(1);
-    };
+    }
 
+    if (property_get_bool("vold.debug", false)) {
+        vm->setDebug(true);
+    }
 
     cl = new CommandListener();
+    ccl = new CryptCommandListener();
     vm->setBroadcaster((SocketListener *) cl);
     nm->setBroadcaster((SocketListener *) cl);
 
     if (vm->start()) {
-        SLOGE("Unable to start VolumeManager (%s)", strerror(errno));
+        PLOG(ERROR) << "Unable to start VolumeManager";
         exit(1);
     }
 
     if (process_config(vm)) {
-        SLOGE("Error reading configuration (%s)... continuing anyways", strerror(errno));
+        PLOG(ERROR) << "Error reading configuration... continuing anyways";
     }
 
     if (nm->start()) {
-        SLOGE("Unable to start NetlinkManager (%s)", strerror(errno));
+        PLOG(ERROR) << "Unable to start NetlinkManager";
         exit(1);
     }
 
@@ -93,7 +122,12 @@ int main() {
      * Now that we're up, we can respond to commands
      */
     if (cl->startListener()) {
-        SLOGE("Unable to start CommandListener (%s)", strerror(errno));
+        PLOG(ERROR) << "Unable to start CommandListener";
+        exit(1);
+    }
+
+    if (ccl->startListener()) {
+        PLOG(ERROR) << "Unable to start CryptCommandListener";
         exit(1);
     }
 
@@ -102,18 +136,41 @@ int main() {
         sleep(1000);
     }
 
-    SLOGI("Vold exiting");
+    LOG(ERROR) << "Vold exiting";
     exit(0);
 }
 
-static void do_coldboot(DIR *d, int lvl)
-{
+static void parse_args(int argc, char** argv) {
+    static struct option opts[] = {
+        {"blkid_context", required_argument, 0, 'b' },
+        {"blkid_untrusted_context", required_argument, 0, 'B' },
+        {"fsck_context", required_argument, 0, 'f' },
+        {"fsck_untrusted_context", required_argument, 0, 'F' },
+    };
+
+    int c;
+    while ((c = getopt_long(argc, argv, "", opts, nullptr)) != -1) {
+        switch (c) {
+        case 'b': android::vold::sBlkidContext = optarg; break;
+        case 'B': android::vold::sBlkidUntrustedContext = optarg; break;
+        case 'f': android::vold::sFsckContext = optarg; break;
+        case 'F': android::vold::sFsckUntrustedContext = optarg; break;
+        }
+    }
+
+    CHECK(android::vold::sBlkidContext != nullptr);
+    CHECK(android::vold::sBlkidUntrustedContext != nullptr);
+    CHECK(android::vold::sFsckContext != nullptr);
+    CHECK(android::vold::sFsckUntrustedContext != nullptr);
+}
+
+static void do_coldboot(DIR *d, int lvl) {
     struct dirent *de;
     int dfd, fd;
 
     dfd = dirfd(d);
 
-    fd = openat(dfd, "uevent", O_WRONLY);
+    fd = openat(dfd, "uevent", O_WRONLY | O_CLOEXEC);
     if(fd >= 0) {
         write(fd, "add\n", 4);
         close(fd);
@@ -142,8 +199,7 @@ static void do_coldboot(DIR *d, int lvl)
     }
 }
 
-static void coldboot(const char *path)
-{
+static void coldboot(const char *path) {
     DIR *d = opendir(path);
     if(d) {
         do_coldboot(d, 0);
@@ -151,55 +207,40 @@ static void coldboot(const char *path)
     }
 }
 
-static int process_config(VolumeManager *vm)
-{
-    char fstab_filename[PROPERTY_VALUE_MAX + sizeof(FSTAB_PREFIX)];
-    char propbuf[PROPERTY_VALUE_MAX];
-    int i;
-    int ret = -1;
-    int flags;
-
-    property_get("ro.hardware", propbuf, "");
-    snprintf(fstab_filename, sizeof(fstab_filename), FSTAB_PREFIX"%s", propbuf);
-
-    fstab = fs_mgr_read_fstab(fstab_filename);
+static int process_config(VolumeManager *vm) {
+    std::string path(android::vold::DefaultFstabPath());
+    fstab = fs_mgr_read_fstab(path.c_str());
     if (!fstab) {
-        SLOGE("failed to open %s\n", fstab_filename);
+        PLOG(ERROR) << "Failed to open default fstab " << path;
         return -1;
     }
 
     /* Loop through entries looking for ones that vold manages */
-    for (i = 0; i < fstab->num_entries; i++) {
+    bool has_adoptable = false;
+    for (int i = 0; i < fstab->num_entries; i++) {
         if (fs_mgr_is_voldmanaged(&fstab->recs[i])) {
-            DirectVolume *dv = NULL;
-            flags = 0;
-
-            /* Set any flags that might be set for this volume */
             if (fs_mgr_is_nonremovable(&fstab->recs[i])) {
-                flags |= VOL_NONREMOVABLE;
+                LOG(WARNING) << "nonremovable no longer supported; ignoring volume";
+                continue;
             }
+
+            std::string sysPattern(fstab->recs[i].blk_device);
+            std::string nickname(fstab->recs[i].label);
+            int flags = 0;
+
             if (fs_mgr_is_encryptable(&fstab->recs[i])) {
-                flags |= VOL_ENCRYPTABLE;
+                flags |= android::vold::Disk::Flags::kAdoptable;
+                has_adoptable = true;
             }
-            /* Only set this flag if there is not an emulated sd card */
-            if (fs_mgr_is_noemulatedsd(&fstab->recs[i]) &&
-                !strcmp(fstab->recs[i].fs_type, "vfat")) {
-                flags |= VOL_PROVIDES_ASEC;
-            }
-            dv = new DirectVolume(vm, &(fstab->recs[i]), flags);
-
-            if (dv->addPath(fstab->recs[i].blk_device)) {
-                SLOGE("Failed to add devpath %s to volume %s",
-                      fstab->recs[i].blk_device, fstab->recs[i].label);
-                goto out_fail;
+            if (fs_mgr_is_noemulatedsd(&fstab->recs[i])
+                    || property_get_bool("vold.debug.default_primary", false)) {
+                flags |= android::vold::Disk::Flags::kDefaultPrimary;
             }
 
-            vm->addVolume(dv);
+            vm->addDiskSource(std::shared_ptr<VolumeManager::DiskSource>(
+                    new VolumeManager::DiskSource(sysPattern, nickname, flags)));
         }
     }
-
-    ret = 0;
-
-out_fail:
-    return ret;
+    property_set("vold.has_adoptable", has_adoptable ? "1" : "0");
+    return 0;
 }

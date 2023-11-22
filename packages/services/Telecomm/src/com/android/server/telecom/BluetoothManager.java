@@ -42,11 +42,14 @@ public class BluetoothManager {
                 public void onServiceConnected(int profile, BluetoothProfile proxy) {
                     mBluetoothHeadset = (BluetoothHeadset) proxy;
                     Log.v(this, "- Got BluetoothHeadset: " + mBluetoothHeadset);
+                    updateBluetoothState();
                 }
 
                 @Override
                 public void onServiceDisconnected(int profile) {
                     mBluetoothHeadset = null;
+                    Log.v(this, "Lost BluetoothHeadset: " + mBluetoothHeadset);
+                    updateBluetoothState();
                 }
            };
 

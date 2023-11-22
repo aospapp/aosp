@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2015, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -81,8 +81,7 @@ public:
 
    /* Test getting the locale base name */
    void TestGetBaseName(void);
-    void TestTrailingNull(void);  /* Google Patch */
-
+    
 #if !UCONFIG_NO_FORMATTING
     void Test4105828(void) ;
 #endif
@@ -102,6 +101,8 @@ public:
     void TestCurrencyByDate(void);
 
     void TestGetVariantWithKeywords(void);
+    void TestIsRightToLeft();
+    void TestBug11421();
 
 private:
     void _checklocs(const char* label,
@@ -169,8 +170,12 @@ private:
         DVAR_NO,
         DNAME_NO
     };
+
+#if !UCONFIG_NO_COLLATION
+    /**
+     * Check on registered collators.
+     * @param expectExtra if non-null, the locale ID of an 'extra' locale that is registered.
+     */
+    void checkRegisteredCollators(const char *expectExtra = NULL);
+#endif
 };
-
-
-
-

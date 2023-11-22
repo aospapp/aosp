@@ -2,25 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
-#include <cstdio>
-#include <string>
-
-#include <utils/String16.h>
-
 #include "proxy_resolver_v8.h"
 
-#include "proxy_resolver_script.h"
-#include "net_util.h"
-#include <include/v8.h>
 #include <algorithm>
+#include <cstdio>
+#include <iostream>
+#include <string>
+#include <utils/String8.h>
+#include <v8.h>
 #include <vector>
 
-#include <iostream>
-
-#include <string.h>
-#include <utils/String8.h>
-#include <utils/String16.h>
+#include "net_util.h"
+#include "proxy_resolver_script.h"
 
 // Notes on the javascript environment:
 //
@@ -103,7 +96,7 @@ class V8ExternalStringFromScriptData
       : script_data_(script_data) {}
 
   virtual const uint16_t* data() const {
-    return script_data_.string();
+    return reinterpret_cast<const uint16_t*>(script_data_.string());
   }
 
   virtual size_t length() const {
@@ -116,7 +109,8 @@ class V8ExternalStringFromScriptData
 };
 
 // External string wrapper so V8 can access a string literal.
-class V8ExternalASCIILiteral : public v8::String::ExternalAsciiStringResource {
+class V8ExternalASCIILiteral
+    : public v8::String::ExternalOneByteStringResource {
  public:
   // |ascii| must be a NULL-terminated C string, and must remain valid
   // throughout this object's lifetime.
@@ -163,7 +157,7 @@ std::string V8StringToUTF8(v8::Handle<v8::String> s) {
 android::String16 V8StringToUTF16(v8::Handle<v8::String> s) {
   int len = s->Length();
   char16_t* buf = new char16_t[len + 1];
-  s->Write(buf, 0, len);
+  s->Write(reinterpret_cast<uint16_t*>(buf), 0, len);
   android::String16 ret(buf, len);
   delete buf;
   return ret;
@@ -180,7 +174,9 @@ v8::Local<v8::String> ASCIIStringToV8String(v8::Isolate* isolate, const std::str
 }
 
 v8::Local<v8::String> UTF16StringToV8String(v8::Isolate* isolate, const android::String16& s) {
-  return v8::String::NewFromTwoByte(isolate, s.string(), v8::String::kNormalString, s.size());
+  return v8::String::NewFromTwoByte(
+      isolate, reinterpret_cast<const uint16_t*>(s.string()),
+      v8::String::kNormalString, s.size());
 }
 
 // Converts an ASCII string literal to a V8 string.

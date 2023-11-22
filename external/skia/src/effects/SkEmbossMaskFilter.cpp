@@ -61,7 +61,7 @@ static void normalize(SkScalar v[3]) {
     mag = SkScalarSqrt(mag);
 
     for (int i = 0; i < 3; i++) {
-        v[i] = SkScalarDiv(v[i], mag);
+        v[i] /= mag;
     }
 }
 
@@ -124,17 +124,17 @@ bool SkEmbossMaskFilter::filterMask(SkMask* dst, const SkMask& src,
     return true;
 }
 
-SkEmbossMaskFilter::SkEmbossMaskFilter(SkReadBuffer& buffer)
-        : SkMaskFilter(buffer) {
-    SkASSERT(buffer.getArrayCount() == sizeof(Light));
-    buffer.readByteArray(&fLight, sizeof(Light));
-    SkASSERT(fLight.fPad == 0); // for the font-cache lookup to be clean
-    fBlurSigma = buffer.readScalar();
+SkFlattenable* SkEmbossMaskFilter::CreateProc(SkReadBuffer& buffer) {
+    Light light;
+    if (buffer.readByteArray(&light, sizeof(Light))) {
+        light.fPad = 0; // for the font-cache lookup to be clean
+        const SkScalar sigma = buffer.readScalar();
+        return Create(sigma, light);
+    }
+    return NULL;
 }
 
 void SkEmbossMaskFilter::flatten(SkWriteBuffer& buffer) const {
-    this->INHERITED::flatten(buffer);
-
     Light tmpLight = fLight;
     tmpLight.fPad = 0;    // for the font-cache lookup to be clean
     buffer.writeByteArray(&tmpLight, sizeof(tmpLight));

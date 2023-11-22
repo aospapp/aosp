@@ -28,11 +28,10 @@ void CWeightTable::Calc(int dest_len, int dest_min, int dest_max, int src_len, i
     if ((dest_max - dest_min) > (int)((1U << 30) - 4) / m_ItemSize) {
         return;
     }
-    m_pWeightTables = FX_AllocNL(FX_BYTE, (dest_max - dest_min) * m_ItemSize + 4);
+    m_pWeightTables = FX_TryAlloc(FX_BYTE, (dest_max - dest_min) * m_ItemSize + 4);
     if (m_pWeightTables == NULL) {
         return;
     }
-    FXSYS_memset32(m_pWeightTables, 0, sizeof(FX_BYTE) * ((dest_max - dest_min)*m_ItemSize + 4));
     if ((flags & FXDIB_NOSMOOTH) != 0 || FXSYS_fabs((FX_FLOAT)scale) < 1.0f) {
         for (int dest_pixel = dest_min; dest_pixel < dest_max; dest_pixel ++) {
             PixelWeight& pixel_weights = *GetPixelWeight(dest_pixel);
@@ -203,11 +202,10 @@ CStretchEngine::CStretchEngine(IFX_ScanlineComposer* pDestBitmap, FXDIB_Format d
     }
     size += 31;
     size = size / 32 * 4;
-    m_pDestScanline = FX_AllocNL(FX_BYTE, size);
+    m_pDestScanline = FX_TryAlloc(FX_BYTE, size);
     if (m_pDestScanline == NULL) {
         return;
     }
-    FXSYS_memset32(m_pDestScanline, 0, sizeof(FX_BYTE) * size);
     if (dest_format == FXDIB_Rgb32) {
         FXSYS_memset8(m_pDestScanline, 255, size);
     }
@@ -313,21 +311,14 @@ FX_BOOL CStretchEngine::StartStretchHorz()
     if (m_DestWidth == 0 || m_pDestScanline == NULL || m_SrcClip.Height() > (int)((1U << 29) / m_InterPitch) || m_SrcClip.Height() == 0) {
         return FALSE;
     }
-#ifndef _FPDFAPI_MINI_
-    m_pInterBuf = FX_AllocNL(unsigned char, m_SrcClip.Height() * m_InterPitch);
-#else
-    m_pInterBuf = FX_Alloc(unsigned char, m_SrcClip.Height() * m_InterPitch);
-#endif
+    m_pInterBuf = FX_TryAlloc(unsigned char, m_SrcClip.Height() * m_InterPitch);
     if (m_pInterBuf == NULL) {
         return FALSE;
     }
     if (m_pSource && m_bHasAlpha && m_pSource->m_pAlphaMask) {
-        m_pExtraAlphaBuf = FX_Alloc(unsigned char, m_SrcClip.Height() * m_ExtraMaskPitch);
-        if (!m_pExtraAlphaBuf) {
-            return FALSE;
-        }
+        m_pExtraAlphaBuf = FX_Alloc2D(unsigned char, m_SrcClip.Height(), m_ExtraMaskPitch);
         FX_DWORD size = (m_DestClip.Width() * 8 + 31) / 32 * 4;
-        m_pDestMaskScanline = FX_AllocNL(unsigned char, size);
+        m_pDestMaskScanline = FX_TryAlloc(unsigned char, size);
         if (!m_pDestMaskScanline) {
             return FALSE;
         }
@@ -423,7 +414,7 @@ FX_BOOL CStretchEngine::ContinueStretchHorz(IFX_Pause* pPause)
             case 5: {
                     for (int col = m_DestClip.left; col < m_DestClip.right; col ++) {
                         PixelWeight* pPixelWeights = m_WeightTable.GetPixelWeight(col);
-                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0, dest_k = 0;
+                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             unsigned long argb_cmyk = m_pSrcPalette[src_scan[j]];
@@ -451,7 +442,7 @@ FX_BOOL CStretchEngine::ContinueStretchHorz(IFX_Pause* pPause)
             case 6: {
                     for (int col = m_DestClip.left; col < m_DestClip.right; col ++) {
                         PixelWeight* pPixelWeights = m_WeightTable.GetPixelWeight(col);
-                        int dest_a = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0, dest_k = 0;
+                        int dest_a = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             pixel_weight = pixel_weight * src_scan_mask[j] / 255;
@@ -468,7 +459,6 @@ FX_BOOL CStretchEngine::ContinueStretchHorz(IFX_Pause* pPause)
                             dest_a += pixel_weight;
                         }
                         if (m_Flags & FXDIB_BICUBIC_INTERPOL) {
-                            dest_k = dest_k < 0 ? 0 : dest_k > 16711680 ? 16711680 : dest_k;
                             dest_b_c = dest_b_c < 0 ? 0 : dest_b_c > 16711680 ? 16711680 : dest_b_c;
                             dest_g_m = dest_g_m < 0 ? 0 : dest_g_m > 16711680 ? 16711680 : dest_g_m;
                             dest_r_y = dest_r_y < 0 ? 0 : dest_r_y > 16711680 ? 16711680 : dest_r_y;
@@ -484,7 +474,7 @@ FX_BOOL CStretchEngine::ContinueStretchHorz(IFX_Pause* pPause)
             case 7: {
                     for (int col = m_DestClip.left; col < m_DestClip.right; col ++) {
                         PixelWeight* pPixelWeights = m_WeightTable.GetPixelWeight(col);
-                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0, dest_k = 0;
+                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             FX_LPCBYTE src_pixel = src_scan + j * Bpp;
@@ -507,7 +497,7 @@ FX_BOOL CStretchEngine::ContinueStretchHorz(IFX_Pause* pPause)
             case 8: {
                     for (int col = m_DestClip.left; col < m_DestClip.right; col ++) {
                         PixelWeight* pPixelWeights = m_WeightTable.GetPixelWeight(col);
-                        int dest_a = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0, dest_k = 0;
+                        int dest_a = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             FX_LPCBYTE src_pixel = src_scan + j * Bpp;
@@ -603,7 +593,7 @@ void CStretchEngine::StretchVert()
             case 7: {
                     for (int col = m_DestClip.left; col < m_DestClip.right; col ++) {
                         unsigned char* src_scan = m_pInterBuf + (col - m_DestClip.left) * DestBpp;
-                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0, dest_k = 0;
+                        int dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             FX_LPCBYTE src_pixel = src_scan + (j - m_SrcClip.top) * m_InterPitch;
@@ -631,7 +621,7 @@ void CStretchEngine::StretchVert()
                         if (m_DestFormat != FXDIB_Argb) {
                             src_scan_mask = m_pExtraAlphaBuf + (col - m_DestClip.left);
                         }
-                        int dest_a = 0, dest_k = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
+                        int dest_a = 0, dest_r_y = 0, dest_g_m = 0, dest_b_c = 0;
                         for (int j = pPixelWeights->m_SrcStart; j <= pPixelWeights->m_SrcEnd; j ++) {
                             int pixel_weight = pPixelWeights->m_Weights[j - pPixelWeights->m_SrcStart];
                             FX_LPCBYTE src_pixel = src_scan + (j - m_SrcClip.top) * m_InterPitch;
@@ -769,17 +759,10 @@ FX_BOOL CFX_ImageStretcher::Continue(IFX_Pause* pPause)
         return ContinueStretch(pPause);
     }
 }
-#ifndef _FPDFAPI_MINI_
 #define MAX_PROGRESSIVE_STRETCH_PIXELS	1000000
-#else
-#define MAX_PROGRESSIVE_STRETCH_PIXELS	100000
-#endif
 FX_BOOL CFX_ImageStretcher::StartStretch()
 {
-    m_pStretchEngine = FX_NEW CStretchEngine(m_pDest, m_DestFormat, m_DestWidth, m_DestHeight, m_ClipRect, m_pSource, m_Flags);
-    if (!m_pStretchEngine) {
-        return FALSE;
-    }
+    m_pStretchEngine = new CStretchEngine(m_pDest, m_DestFormat, m_DestWidth, m_DestHeight, m_ClipRect, m_pSource, m_Flags);
     m_pStretchEngine->StartStretchHorz();
     if (m_pSource->GetWidth() * m_pSource->GetHeight() < MAX_PROGRESSIVE_STRETCH_PIXELS) {
         m_pStretchEngine->Continue(NULL);
@@ -796,9 +779,6 @@ FX_BOOL CFX_ImageStretcher::ContinueStretch(IFX_Pause* pPause)
 }
 FX_BOOL CFX_ImageStretcher::StartQuickStretch()
 {
-#ifdef _FPDFAPI_MINI_
-    m_pSource->SetDownSampleSize(m_DestWidth, m_DestHeight);
-#endif
     m_bFlipX = FALSE;
     m_bFlipY = FALSE;
     if (m_DestWidth < 0) {
@@ -816,14 +796,8 @@ FX_BOOL CFX_ImageStretcher::StartQuickStretch()
     }
     size *= m_DestBPP;
     m_pScanline = FX_Alloc(FX_BYTE, (size / 8 + 3) / 4 * 4);
-    if (!m_pScanline) {
-        return FALSE;
-    }
     if (m_pSource->m_pAlphaMask) {
         m_pMaskScanline = FX_Alloc(FX_BYTE, (m_ClipRect.Width() + 3) / 4 * 4);
-        if (!m_pMaskScanline) {
-            return FALSE;
-        }
     }
     if (m_pSource->GetWidth() * m_pSource->GetHeight() < MAX_PROGRESSIVE_STRETCH_PIXELS) {
         ContinueQuickStretch(NULL);
@@ -837,7 +811,7 @@ FX_BOOL CFX_ImageStretcher::ContinueQuickStretch(IFX_Pause* pPause)
         return FALSE;
     }
     int result_width = m_ClipRect.Width(), result_height = m_ClipRect.Height();
-    int src_width = m_pSource->GetWidth(), src_height = m_pSource->GetHeight();
+    int src_height = m_pSource->GetHeight();
     for (; m_LineIndex < result_height; m_LineIndex ++) {
         int dest_y, src_y;
         if (m_bFlipY) {
@@ -857,7 +831,6 @@ FX_BOOL CFX_ImageStretcher::ContinueQuickStretch(IFX_Pause* pPause)
             return TRUE;
         }
         m_pSource->DownSampleScanline(src_y, m_pScanline, m_DestBPP, m_DestWidth, m_bFlipX, m_ClipRect.left, result_width);
-        FX_LPBYTE scan_extra_alpha = NULL;
         if (m_pMaskScanline) {
             m_pSource->m_pAlphaMask->DownSampleScanline(src_y, m_pMaskScanline, 1, m_DestWidth, m_bFlipX, m_ClipRect.left, result_width);
         }

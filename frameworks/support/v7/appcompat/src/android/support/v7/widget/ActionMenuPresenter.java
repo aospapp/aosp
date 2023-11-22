@@ -55,7 +55,9 @@ public class ActionMenuPresenter extends BaseMenuPresenter
 
     private static final String TAG = "ActionMenuPresenter";
 
-    private View mOverflowButton;
+    private OverflowMenuButton mOverflowButton;
+    private Drawable mPendingOverflowIcon;
+    private boolean mPendingOverflowIconSet;
     private boolean mReserveOverflow;
     private boolean mReserveOverflowSet;
     private int mWidthLimit;
@@ -110,6 +112,11 @@ public class ActionMenuPresenter extends BaseMenuPresenter
         if (mReserveOverflow) {
             if (mOverflowButton == null) {
                 mOverflowButton = new OverflowMenuButton(mSystemContext);
+                if (mPendingOverflowIconSet) {
+                    mOverflowButton.setImageDrawable(mPendingOverflowIcon);
+                    mPendingOverflowIcon = null;
+                    mPendingOverflowIconSet = false;
+                }
                 final int spec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
                 mOverflowButton.measure(spec, spec);
             }
@@ -154,6 +161,24 @@ public class ActionMenuPresenter extends BaseMenuPresenter
 
     public void setExpandedActionViewsExclusive(boolean isExclusive) {
         mExpandedActionViewsExclusive = isExclusive;
+    }
+
+    public void setOverflowIcon(Drawable icon) {
+        if (mOverflowButton != null) {
+            mOverflowButton.setImageDrawable(icon);
+        } else {
+            mPendingOverflowIconSet = true;
+            mPendingOverflowIcon = icon;
+        }
+    }
+
+    public Drawable getOverflowIcon() {
+        if (mOverflowButton != null) {
+            return mOverflowButton.getDrawable();
+        } else if (mPendingOverflowIconSet) {
+            return mPendingOverflowIcon;
+        }
+        return null;
     }
 
     @Override
@@ -652,11 +677,15 @@ public class ActionMenuPresenter extends BaseMenuPresenter
             final Drawable d = getDrawable();
             final Drawable bg = getBackground();
             if (d != null && bg != null) {
-                final float[] pts = mTempPts;
-                pts[0] = d.getBounds().centerX();
-                getImageMatrix().mapPoints(pts);
-                final int offset =  (int) pts[0] - getWidth() / 2;
-                DrawableCompat.setHotspotBounds(bg, offset, 0, getWidth() + offset, getHeight());
+                final int width = getWidth();
+                final int height = getHeight();
+                final int halfEdge = Math.max(width, height) / 2;
+                final int offsetX = getPaddingLeft() - getPaddingRight();
+                final int offsetY = getPaddingTop() - getPaddingBottom();
+                final int centerX = (width + offsetX) / 2;
+                final int centerY = (height + offsetY) / 2;
+                DrawableCompat.setHotspotBounds(bg, centerX - halfEdge, centerY - halfEdge,
+                        centerX + halfEdge, centerY + halfEdge);
             }
 
             return changed;

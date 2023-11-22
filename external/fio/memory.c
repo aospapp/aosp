@@ -63,6 +63,7 @@ int fio_pin_memory(struct thread_data *td)
 
 static int alloc_mem_shm(struct thread_data *td, unsigned int total_mem)
 {
+#ifndef CONFIG_NO_SHM
 	int flags = IPC_CREAT | S_IRUSR | S_IWUSR;
 
 	if (td->o.mem_type == MEM_SHMHUGE) {
@@ -104,22 +105,28 @@ static int alloc_mem_shm(struct thread_data *td, unsigned int total_mem)
 	}
 
 	return 0;
+#else
+	log_err("fio: shm not supported\n");
+	return 1;
+#endif
 }
 
 static void free_mem_shm(struct thread_data *td)
 {
+#ifndef CONFIG_NO_SHM
 	struct shmid_ds sbuf;
 
 	dprint(FD_MEM, "shmdt/ctl %d %p\n", td->shm_id, td->orig_buffer);
 	shmdt(td->orig_buffer);
 	shmctl(td->shm_id, IPC_RMID, &sbuf);
+#endif
 }
 
 static int alloc_mem_mmap(struct thread_data *td, size_t total_mem)
 {
 	int flags = 0;
 
-	td->mmapfd = 1;
+	td->mmapfd = -1;
 
 	if (td->o.mem_type == MEM_MMAPHUGE) {
 		unsigned long mask = td->o.hugepage_size - 1;
@@ -158,7 +165,7 @@ static int alloc_mem_mmap(struct thread_data *td, size_t total_mem)
 	if (td->orig_buffer == MAP_FAILED) {
 		td_verror(td, errno, "mmap");
 		td->orig_buffer = NULL;
-		if (td->mmapfd != 1) {
+		if (td->mmapfd != 1 && td->mmapfd != -1) {
 			close(td->mmapfd);
 			if (td->o.mmapfile)
 				unlink(td->o.mmapfile);
@@ -176,7 +183,8 @@ static void free_mem_mmap(struct thread_data *td, size_t total_mem)
 						td->orig_buffer);
 	munmap(td->orig_buffer, td->orig_buffer_size);
 	if (td->o.mmapfile) {
-		close(td->mmapfd);
+		if (td->mmapfd != -1)
+			close(td->mmapfd);
 		unlink(td->o.mmapfile);
 		free(td->o.mmapfile);
 	}

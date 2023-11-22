@@ -11,6 +11,7 @@
 #undef je_xallocx
 #undef je_sallocx
 #undef je_dallocx
+#undef je_sdallocx
 #undef je_nallocx
 #undef je_mallctl
 #undef je_mallctlnametomib

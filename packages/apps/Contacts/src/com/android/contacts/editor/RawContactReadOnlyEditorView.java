@@ -28,6 +28,7 @@ import android.provider.ContactsContract.RawContacts;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -114,31 +115,19 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
         mAccountType = state.getAccountType();
         mDataSet = state.getDataSet();
 
-        if (isProfile) {
-            if (TextUtils.isEmpty(mAccountName)) {
-                mAccountHeaderNameTextView.setVisibility(View.GONE);
-                mAccountHeaderTypeTextView.setText(R.string.local_profile_title);
-            } else {
-                CharSequence accountType = type.getDisplayLabel(mContext);
-                mAccountHeaderTypeTextView.setText(mContext.getString(R.string.external_profile_title,
-                        accountType));
-                mAccountHeaderNameTextView.setText(mAccountName);
-            }
+        final Pair<String,String> accountInfo = EditorUiUtils.getAccountInfo(getContext(),
+                isProfile, state.getAccountName(), type);
+        if (accountInfo == null) {
+            // Hide this view so the other text view will be centered vertically
+            mAccountHeaderNameTextView.setVisibility(View.GONE);
         } else {
-            CharSequence accountType = type.getDisplayLabel(mContext);
-            if (TextUtils.isEmpty(accountType)) {
-                accountType = mContext.getString(R.string.account_phone);
-            }
-            if (!TextUtils.isEmpty(mAccountName)) {
-                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
-                mAccountHeaderNameTextView.setText(
-                        mContext.getString(R.string.from_account_format, mAccountName));
-            } else {
-                // Hide this view so the other text view will be centered vertically
+            if (accountInfo.first == null) {
                 mAccountHeaderNameTextView.setVisibility(View.GONE);
+            } else {
+                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
+                mAccountHeaderNameTextView.setText(accountInfo.first);
             }
-            mAccountHeaderTypeTextView.setText(mContext.getString(R.string.account_type_format,
-                    accountType));
+            mAccountHeaderTypeTextView.setText(accountInfo.second);
         }
         updateAccountHeaderContentDescription();
 
@@ -161,7 +150,7 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
         // Name
         primary = state.getPrimaryEntry(StructuredName.CONTENT_ITEM_TYPE);
         mName.setText(primary != null ? primary.getAsString(StructuredName.DISPLAY_NAME) :
-                mContext.getString(R.string.missing_name));
+                getContext().getString(R.string.missing_name));
 
         if (type.getEditContactActivityClassName() != null) {
             mEditExternallyButton.setVisibility(View.VISIBLE);
@@ -169,7 +158,7 @@ public class RawContactReadOnlyEditorView extends BaseRawContactEditorView
             mEditExternallyButton.setVisibility(View.GONE);
         }
 
-        final Resources res = mContext.getResources();
+        final Resources res = getContext().getResources();
         // Phones
         final ArrayList<ValuesDelta> phones = state.getMimeEntries(Phone.CONTENT_ITEM_TYPE);
         final Drawable phoneDrawable = getResources().getDrawable(R.drawable.ic_phone_24dp);

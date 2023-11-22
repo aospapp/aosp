@@ -21,7 +21,6 @@ import com.android.cts.graphics.R;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
@@ -37,9 +36,7 @@ import android.graphics.Region;
 import android.graphics.Bitmap.Config;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.drawable.NinePatchDrawable;
-import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.graphics.drawable.shapes.RectShape;
 import android.test.InstrumentationTestCase;
 import android.util.AttributeSet;
 import android.util.Xml;
@@ -198,6 +195,27 @@ public class NinePatchDrawableTest extends InstrumentationTestCase {
 
         mNinePatchDrawable.setDither(true);
         assertTrue(mNinePatchDrawable.getPaint().isDither());
+    }
+
+    public void testSetFilterBitmap() {
+        mNinePatchDrawable.setFilterBitmap(false);
+        assertFalse(mNinePatchDrawable.getPaint().isFilterBitmap());
+
+        mNinePatchDrawable.setFilterBitmap(true);
+        assertTrue(mNinePatchDrawable.getPaint().isFilterBitmap());
+    }
+
+    public void testIsFilterBitmap() {
+        mNinePatchDrawable.setFilterBitmap(false);
+        assertFalse(mNinePatchDrawable.isFilterBitmap());
+        assertEquals(mNinePatchDrawable.isFilterBitmap(),
+                mNinePatchDrawable.getPaint().isFilterBitmap());
+
+
+        mNinePatchDrawable.setFilterBitmap(true);
+        assertTrue(mNinePatchDrawable.isFilterBitmap());
+        assertEquals(mNinePatchDrawable.isFilterBitmap(),
+                mNinePatchDrawable.getPaint().isFilterBitmap());
     }
 
     public void testGetPaint() {

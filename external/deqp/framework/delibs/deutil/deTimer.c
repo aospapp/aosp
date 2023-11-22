@@ -131,7 +131,9 @@ void deTimer_disable (deTimer* timer)
 			if (success)
 			{
 				/* Wait for all callbacks to complete. */
-				DE_VERIFY(WaitForSingleObject(waitEvent, INFINITE) == WAIT_OBJECT_0);
+				DWORD res = WaitForSingleObject(waitEvent, INFINITE);
+				DE_ASSERT(res == WAIT_OBJECT_0);
+				DE_UNREF(res);
 				break;
 			}
 			else
@@ -318,7 +320,7 @@ static void timerThread (void* arg)
 		int sleepTime = 0;
 
 		deMutex_lock(thread->lock);
-		
+
 		if (thread->state == TIMERSTATE_SINGLE && numCallbacks > 0)
 		{
 			destroy = DE_FALSE; /* Will be destroyed by deTimer_disable(). */
@@ -327,7 +329,7 @@ static void timerThread (void* arg)
 		}
 		else if (thread->state == TIMERSTATE_DISABLED)
 			break;
-		
+
 		deMutex_unlock(thread->lock);
 
 		sleepTime = thread->interval - (int)(((deInt64)deGetMicroseconds()-lastCallback)/1000);

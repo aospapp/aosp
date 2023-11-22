@@ -36,7 +36,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/xattr.h>
 #include <unistd.h>
+
+#include <net/if_arp.h>
+#include <linux/if_ether.h>
 
 // After the others because these are not necessarily self-contained in glibc.
 #ifndef __APPLE__
@@ -58,6 +62,8 @@ static void initConstant(JNIEnv* env, jclass c, const char* fieldName, int value
 static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "AF_INET", AF_INET);
     initConstant(env, c, "AF_INET6", AF_INET6);
+    initConstant(env, c, "AF_PACKET", AF_PACKET);
+    initConstant(env, c, "AF_NETLINK", AF_NETLINK);
     initConstant(env, c, "AF_UNIX", AF_UNIX);
     initConstant(env, c, "AF_UNSPEC", AF_UNSPEC);
     initConstant(env, c, "AI_ADDRCONFIG", AI_ADDRCONFIG);
@@ -69,6 +75,8 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #endif
     initConstant(env, c, "AI_PASSIVE", AI_PASSIVE);
     initConstant(env, c, "AI_V4MAPPED", AI_V4MAPPED);
+    initConstant(env, c, "ARPHRD_ETHER", ARPHRD_ETHER);
+    initConstant(env, c, "ARPHRD_LOOPBACK", ARPHRD_LOOPBACK);
 #if defined(CAP_LAST_CAP)
     initConstant(env, c, "CAP_AUDIT_CONTROL", CAP_AUDIT_CONTROL);
     initConstant(env, c, "CAP_AUDIT_WRITE", CAP_AUDIT_WRITE);
@@ -172,6 +180,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "ENOLINK", ENOLINK);
     initConstant(env, c, "ENOMEM", ENOMEM);
     initConstant(env, c, "ENOMSG", ENOMSG);
+    initConstant(env, c, "ENONET", ENONET);
     initConstant(env, c, "ENOPROTOOPT", ENOPROTOOPT);
     initConstant(env, c, "ENOSPC", ENOSPC);
     initConstant(env, c, "ENOSR", ENOSR);
@@ -196,6 +205,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "ESPIPE", ESPIPE);
     initConstant(env, c, "ESRCH", ESRCH);
     initConstant(env, c, "ESTALE", ESTALE);
+    initConstant(env, c, "ETH_P_ARP", ETH_P_ARP);
+    initConstant(env, c, "ETH_P_IP", ETH_P_IP);
+    initConstant(env, c, "ETH_P_IPV6", ETH_P_IPV6);
     initConstant(env, c, "ETIME", ETIME);
     initConstant(env, c, "ETIMEDOUT", ETIMEDOUT);
     initConstant(env, c, "ETXTBSY", ETXTBSY);
@@ -355,6 +367,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "MS_ASYNC", MS_ASYNC);
     initConstant(env, c, "MS_INVALIDATE", MS_INVALIDATE);
     initConstant(env, c, "MS_SYNC", MS_SYNC);
+    initConstant(env, c, "NETLINK_ROUTE", NETLINK_ROUTE);
     initConstant(env, c, "NI_DGRAM", NI_DGRAM);
     initConstant(env, c, "NI_NAMEREQD", NI_NAMEREQD);
     initConstant(env, c, "NI_NOFQDN", NI_NOFQDN);
@@ -362,6 +375,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "NI_NUMERICSERV", NI_NUMERICSERV);
     initConstant(env, c, "O_ACCMODE", O_ACCMODE);
     initConstant(env, c, "O_APPEND", O_APPEND);
+    initConstant(env, c, "O_CLOEXEC", O_CLOEXEC);
     initConstant(env, c, "O_CREAT", O_CREAT);
     initConstant(env, c, "O_EXCL", O_EXCL);
     initConstant(env, c, "O_NOCTTY", O_NOCTTY);
@@ -406,6 +420,19 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "RT_SCOPE_NOWHERE", RT_SCOPE_NOWHERE);
     initConstant(env, c, "RT_SCOPE_SITE", RT_SCOPE_SITE);
     initConstant(env, c, "RT_SCOPE_UNIVERSE", RT_SCOPE_UNIVERSE);
+    initConstant(env, c, "RTMGRP_IPV4_IFADDR", RTMGRP_IPV4_IFADDR);
+    initConstant(env, c, "RTMGRP_IPV4_MROUTE", RTMGRP_IPV4_MROUTE);
+    initConstant(env, c, "RTMGRP_IPV4_ROUTE", RTMGRP_IPV4_ROUTE);
+    initConstant(env, c, "RTMGRP_IPV4_RULE", RTMGRP_IPV4_RULE);
+    initConstant(env, c, "RTMGRP_IPV6_IFADDR", RTMGRP_IPV6_IFADDR);
+    initConstant(env, c, "RTMGRP_IPV6_IFINFO", RTMGRP_IPV6_IFINFO);
+    initConstant(env, c, "RTMGRP_IPV6_MROUTE", RTMGRP_IPV6_MROUTE);
+    initConstant(env, c, "RTMGRP_IPV6_PREFIX", RTMGRP_IPV6_PREFIX);
+    initConstant(env, c, "RTMGRP_IPV6_ROUTE", RTMGRP_IPV6_ROUTE);
+    initConstant(env, c, "RTMGRP_LINK", RTMGRP_LINK);
+    initConstant(env, c, "RTMGRP_NEIGH", RTMGRP_NEIGH);
+    initConstant(env, c, "RTMGRP_NOTIFY", RTMGRP_NOTIFY);
+    initConstant(env, c, "RTMGRP_TC", RTMGRP_TC);
 #endif
     initConstant(env, c, "SEEK_CUR", SEEK_CUR);
     initConstant(env, c, "SEEK_END", SEEK_END);
@@ -490,6 +517,15 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "STDERR_FILENO", STDERR_FILENO);
     initConstant(env, c, "STDIN_FILENO", STDIN_FILENO);
     initConstant(env, c, "STDOUT_FILENO", STDOUT_FILENO);
+    initConstant(env, c, "ST_MANDLOCK", ST_MANDLOCK);
+    initConstant(env, c, "ST_NOATIME", ST_NOATIME);
+    initConstant(env, c, "ST_NODEV", ST_NODEV);
+    initConstant(env, c, "ST_NODIRATIME", ST_NODIRATIME);
+    initConstant(env, c, "ST_NOEXEC", ST_NOEXEC);
+    initConstant(env, c, "ST_NOSUID", ST_NOSUID);
+    initConstant(env, c, "ST_RDONLY", ST_RDONLY);
+    initConstant(env, c, "ST_RELATIME", ST_RELATIME);
+    initConstant(env, c, "ST_SYNCHRONOUS", ST_SYNCHRONOUS);
     initConstant(env, c, "S_IFBLK", S_IFBLK);
     initConstant(env, c, "S_IFCHR", S_IFCHR);
     initConstant(env, c, "S_IFDIR", S_IFDIR);
@@ -521,6 +557,8 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "WSTOPPED", WSTOPPED);
     initConstant(env, c, "WUNTRACED", WUNTRACED);
     initConstant(env, c, "W_OK", W_OK);
+    initConstant(env, c, "XATTR_CREATE", XATTR_CREATE);
+    initConstant(env, c, "XATTR_REPLACE", XATTR_REPLACE);
     initConstant(env, c, "X_OK", X_OK);
     initConstant(env, c, "_SC_2_CHAR_TERM", _SC_2_CHAR_TERM);
     initConstant(env, c, "_SC_2_C_BIND", _SC_2_C_BIND);

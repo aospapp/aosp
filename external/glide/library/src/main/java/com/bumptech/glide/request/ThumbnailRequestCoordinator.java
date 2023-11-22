@@ -22,66 +22,116 @@ public class ThumbnailRequestCoordinator implements RequestCoordinator, Request 
         this.thumb = thumb;
     }
 
+    /**
+     *
+     * Returns true if the request is either the request loading the fullsize image or if the request loading the
+     * full size image has not yet completed.
+     *
+     * @param request {@inheritDoc}
+     */
     @Override
     public boolean canSetImage(Request request) {
-        return parentCanSetImage() && (request == full || !full.isComplete());
+        return parentCanSetImage() && (request.equals(full) || !full.isResourceSet());
     }
 
     private boolean parentCanSetImage() {
         return coordinator == null || coordinator.canSetImage(this);
     }
 
+    /**
+     * Returns true if the request is the request loading the fullsize image and if neither the full nor the thumbnail
+     * image have completed sucessfully.
+     *
+     * @param request {@inheritDoc}.
+     */
     @Override
-    public boolean canSetPlaceholder(Request request) {
-        return parentCanSetPlaceholder() && (request == full && !isAnyRequestComplete());
+    public boolean canNotifyStatusChanged(Request request) {
+        return parentCanNotifyStatusChanged() && request.equals(full) && !isAnyResourceSet();
     }
 
-    private boolean parentCanSetPlaceholder() {
-        return coordinator == null || coordinator.canSetPlaceholder(this);
-    }
-
-    @Override
-    public boolean isAnyRequestComplete() {
-        return parentIsAnyRequestComplete() || full.isComplete() || thumb.isComplete();
-    }
-
-    private boolean parentIsAnyRequestComplete() {
-        return coordinator != null && coordinator.isAnyRequestComplete();
+    private boolean parentCanNotifyStatusChanged() {
+        return coordinator == null || coordinator.canNotifyStatusChanged(this);
     }
 
     @Override
-    public void run() {
+    public boolean isAnyResourceSet() {
+        return parentIsAnyResourceSet() || isResourceSet();
+    }
+
+    private boolean parentIsAnyResourceSet() {
+        return coordinator != null && coordinator.isAnyResourceSet();
+    }
+
+    /**
+     * Starts first the thumb request and then the full request.
+     */
+    @Override
+    public void begin() {
         if (!thumb.isRunning()) {
-            thumb.run();
+            thumb.begin();
         }
         if (!full.isRunning()) {
-            full.run();
+            full.begin();
         }
     }
 
     @Override
-    public void clear() {
-        full.clear();
-        thumb.clear();
+    public void pause() {
+        full.pause();
+        thumb.pause();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clear() {
+        thumb.clear();
+        full.clear();
+    }
+
+    @Override
+    public boolean isPaused() {
+        return full.isPaused();
+    }
+
+    /**
+     * Returns true if the full request is still running.
+     */
     @Override
     public boolean isRunning() {
         return full.isRunning();
     }
 
+    /**
+     * Returns true if the full request is complete.
+     */
     @Override
     public boolean isComplete() {
-        // TODO: this is a little strange, but we often want to avoid restarting the request or
-        // setting placeholders even if only the thumb is complete.
         return full.isComplete() || thumb.isComplete();
     }
 
+    @Override
+    public boolean isResourceSet() {
+        return full.isResourceSet() || thumb.isResourceSet();
+    }
+
+    @Override
+    public boolean isCancelled() {
+        return full.isCancelled();
+    }
+
+    /**
+     * Returns true if the full request has failed.
+     */
     @Override
     public boolean isFailed() {
         return full.isFailed();
     }
 
+    /**
+     * {@inheritDoc}.
+     */
     @Override
     public void recycle() {
         full.recycle();

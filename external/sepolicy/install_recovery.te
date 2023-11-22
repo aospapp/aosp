@@ -13,17 +13,14 @@ allow install_recovery shell_exec:file rx_file_perms;
 # Execute /system/bin/applypatch
 allow install_recovery system_file:file rx_file_perms;
 
-# Update the recovery block device
-# TODO: Limit this to only recovery block device when we
-# create an appropriate label for it.
+# Update the recovery block device based off a diff of the boot block device
 allow install_recovery block_device:dir search;
-allow install_recovery block_device:blk_file rw_file_perms;
+allow install_recovery boot_block_device:blk_file r_file_perms;
+allow install_recovery recovery_block_device:blk_file rw_file_perms;
 
 # Create and delete /cache/saved.file
 allow install_recovery cache_file:dir rw_dir_perms;
 allow install_recovery cache_file:file create_file_perms;
 
 # Write to /proc/sys/vm/drop_caches
-# TODO: create a specific label for this file instead of allowing
-# write for all /proc files.
-allow install_recovery proc:file w_file_perms;
+allow install_recovery proc_drop_caches:file w_file_perms;

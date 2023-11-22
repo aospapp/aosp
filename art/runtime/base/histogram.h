@@ -20,7 +20,6 @@
 #include <string>
 
 #include "base/logging.h"
-#include "utils.h"
 
 namespace art {
 
@@ -46,6 +45,7 @@ template <class Value> class Histogram {
   // This is the expected constructor when creating new Histograms.
   Histogram(const char* name, Value initial_bucket_width, size_t max_buckets = 100);
   void AddValue(Value);
+  void AdjustAndAddValue(Value);  // Add a value after dividing it by kAdjust.
   // Builds the cumulative distribution function from the frequency data.
   // Accumulative summation of frequencies.
   // cumulative_freq[i] = sum(frequency[j] : 0 < j < i )
@@ -60,6 +60,7 @@ template <class Value> class Histogram {
   void PrintConfidenceIntervals(std::ostream& os, double interval,
                                 const CumulativeData& data) const;
   void PrintBins(std::ostream& os, const CumulativeData& data) const;
+  void DumpBins(std::ostream& os) const;
   Value GetRange(size_t bucket_idx) const;
   size_t GetBucketCount() const;
 

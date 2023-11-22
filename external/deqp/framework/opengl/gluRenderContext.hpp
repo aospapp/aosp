@@ -80,6 +80,8 @@ public:
 	bool				operator==		(ApiType other) const	{ return m_bits == other.m_bits;						}
 	bool				operator!=		(ApiType other) const	{ return m_bits != other.m_bits;						}
 
+	deUint32			getPacked		(void) const	{ return m_bits;												}
+
 	// Shorthands
 	static ApiType		es				(int major, int minor)	{ return ApiType(major, minor, PROFILE_ES);				}
 	static ApiType		core			(int major, int minor)	{ return ApiType(major, minor, PROFILE_CORE);			}
@@ -104,7 +106,7 @@ protected:
 		MINOR_SHIFT		= MAJOR_SHIFT+MAJOR_BITS,
 		PROFILE_SHIFT	= MINOR_SHIFT+MINOR_BITS
 	};
-};
+} DE_WARN_UNUSED_TYPE;
 
 inline deUint32 ApiType::pack (int major, int minor, Profile profile)
 {
@@ -156,7 +158,7 @@ protected:
 		TOTAL_CONTEXT_BITS	= TOTAL_API_BITS+FLAGS_BITS,
 		FLAGS_SHIFT			= TOTAL_API_BITS
 	};
-};
+} DE_WARN_UNUSED_TYPE;
 
 inline ContextType::ContextType (int major, int minor, Profile profile, ContextFlags flags)
 	: ApiType(major, minor, profile)

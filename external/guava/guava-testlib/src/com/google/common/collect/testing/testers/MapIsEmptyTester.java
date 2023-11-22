@@ -18,6 +18,7 @@ package com.google.common.collect.testing.testers;
 
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractMapTester;
 import com.google.common.collect.testing.features.CollectionSize;
 
@@ -26,10 +27,9 @@ import com.google.common.collect.testing.features.CollectionSize;
  * map. Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.MapTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public class MapIsEmptyTester<K, V> extends AbstractMapTester<K, V> {
   @CollectionSize.Require(ZERO)
   public void testIsEmpty_yes() {

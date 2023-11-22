@@ -55,11 +55,6 @@ inline tcu::Format::ArrayPointer<T> getPointerStr (const T* arr, int size)
 	return tcu::formatArray(arr, de::max(size, 0));
 }
 
-inline detail::EnumPointerFmt getEnumPointerStr (const deUint32* value, glw::GLsizei size, detail::EnumPointerFmt::GetEnumNameFunc getName)
-{
-	return detail::EnumPointerFmt(value, (deUint32)de::max(0, size), getName);
-}
-
 // String formatter.
 
 class StringFmt
@@ -95,19 +90,19 @@ std::ostream& operator<< (std::ostream& str, FboParamPtrFmt fmt)
 		switch (fmt.param)
 		{
 			case GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
-				return str << tcu::Format::Enum(getFramebufferAttachmentTypeName, *fmt.value);
+				return str << tcu::Format::Enum<int, 2>(getFramebufferAttachmentTypeName, *fmt.value);
 
 			case GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
-				return str << tcu::Format::Enum(getCubeMapFaceName, *fmt.value);
+				return str << tcu::Format::Enum<int, 2>(getCubeMapFaceName, *fmt.value);
 
 			case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
-				return str << tcu::Format::Enum(getTypeName, *fmt.value);
+				return str << tcu::Format::Enum<int, 2>(getTypeName, *fmt.value);
 
 			case GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING:
-				return str << tcu::Format::Enum(getFramebufferColorEncodingName, *fmt.value);
+				return str << tcu::Format::Enum<int, 2>(getFramebufferColorEncodingName, *fmt.value);
 
 			case GL_FRAMEBUFFER_ATTACHMENT_LAYERED:
-				return str << tcu::Format::Enum(getBooleanName, *fmt.value);
+				return str << tcu::Format::Enum<int, 2>(getBooleanName, *fmt.value);
 
 			case GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
 			case GL_FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER:
@@ -132,6 +127,9 @@ inline FboParamPtrFmt getFramebufferAttachmentParameterValueStr (deUint32 param,
 {
 	return FboParamPtrFmt(param, value);
 }
+
+#include "gluQueryUtil.inl"
+#include "gluCallLogUtil.inl"
 
 // API entry-point implementations are auto-generated
 #include "gluCallLogWrapper.inl"

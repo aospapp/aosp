@@ -26,8 +26,8 @@ public:
         paint.setAntiAlias(true);
         paint.setShader(s)->unref();
 
-        SkTypeface* orig = SkTypeface::CreateFromName("Times",
-                                                      SkTypeface::kBold);
+        SkTypeface* orig = sk_tool_utils::create_portable_typeface("Times",
+                                                            SkTypeface::kBold);
         if (NULL == orig) {
             orig = SkTypeface::RefDefault();
         }
@@ -40,15 +40,15 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("colortype");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkPaint paint;
         paint.setAntiAlias(true);
         paint.setTypeface(fColorType);
@@ -58,10 +58,6 @@ protected:
             canvas->translate(0, paint.getFontMetrics(NULL));
             canvas->drawText("Hamburgefons", 12, 10, 10, paint);
         }
-    }
-
-    virtual uint32_t onGetFlags() const {
-        return kSkipPipe_Flag | kSkipPicture_Flag;
     }
 
 private:

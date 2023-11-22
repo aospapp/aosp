@@ -19,6 +19,8 @@ package com.android.ide.eclipse.adt.internal.wizards.exportgradle;
 import static com.android.SdkConstants.GRADLE_LATEST_VERSION;
 import static com.android.SdkConstants.GRADLE_PLUGIN_LATEST_VERSION;
 import static com.android.SdkConstants.GRADLE_PLUGIN_NAME;
+import static com.android.tools.lint.checks.GradleDetector.APP_PLUGIN_ID;
+import static com.android.tools.lint.checks.GradleDetector.LIB_PLUGIN_ID;
 
 import com.android.SdkConstants;
 import com.android.annotations.NonNull;
@@ -79,7 +81,7 @@ public class BuildFileCreator {
             "tools/templates/gradle/wrapper"; //$NON-NLS-1$
     static final String PLUGIN_CLASSPATH =
             "classpath '" + GRADLE_PLUGIN_NAME + GRADLE_PLUGIN_LATEST_VERSION + "'"; //$NON-NLS-1$
-    static final String MAVEN_REPOSITORY = "mavenCentral()"; //$NON-NLS-1$
+    static final String MAVEN_REPOSITORY = "jcenter()"; //$NON-NLS-1$
 
     private static final String[] GRADLE_WRAPPER_FILES = new String[] {
         "gradlew", //$NON-NLS-1$
@@ -358,9 +360,9 @@ public class BuildFileCreator {
      */
     private void appendHeader(boolean isLibrary) {
         if (isLibrary) {
-            mBuildFile.append("apply plugin: 'android-library'\n"); //$NON-NLS-1$
+            mBuildFile.append("apply plugin: '").append(LIB_PLUGIN_ID).append("'\n"); //$NON-NLS-1$  //$NON-NLS-2$
         } else {
-            mBuildFile.append("apply plugin: 'android'\n"); //$NON-NLS-1$
+            mBuildFile.append("apply plugin: '").append(APP_PLUGIN_ID).append("'\n"); //$NON-NLS-1$  //$NON-NLS-2$
         }
         mBuildFile.append("\n"); //$NON-NLS-1$
     }
@@ -634,7 +636,7 @@ public class BuildFileCreator {
     private static String getGradleDistributionUrl(@NonNull String gradleVersion,
             boolean binOnly) {
         String suffix = binOnly ? "bin" : "all";
-        return String.format("http://services.gradle.org/distributions/gradle-%1$s-" + suffix
+        return String.format("https://services.gradle.org/distributions/gradle-%1$s-" + suffix
                 + ".zip", gradleVersion);
     }
 }

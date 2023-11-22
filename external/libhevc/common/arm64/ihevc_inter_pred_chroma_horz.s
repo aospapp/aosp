@@ -128,16 +128,16 @@ ihevc_inter_pred_chroma_horz_av8:
     mov         x11,#2
     ble         end_loops
 
-    dup         v24.8b, v2.8b[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
+    dup         v24.8b, v2.b[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
     sub         x12,x0,#2                   //pu1_src - 2
-    dup         v25.8b, v2.8b[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
+    dup         v25.8b, v2.b[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
     add         x4,x12,x2                   //pu1_src_tmp2_8 = pu1_src + src_strd
-    dup         v26.8b, v2.8b[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
+    dup         v26.8b, v2.b[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
 
     tst         x10,#3                      //checks wd for multiples
     lsl         x5, x10, #1
 
-    dup         v27.8b, v2.8b[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
+    dup         v27.8b, v2.b[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
 
     bne         outer_loop_4
     cmp         x10,#12

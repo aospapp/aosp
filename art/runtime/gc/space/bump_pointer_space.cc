@@ -25,11 +25,12 @@ namespace gc {
 namespace space {
 
 BumpPointerSpace* BumpPointerSpace::Create(const std::string& name, size_t capacity,
-                                           byte* requested_begin) {
+                                           uint8_t* requested_begin) {
   capacity = RoundUp(capacity, kPageSize);
   std::string error_msg;
   std::unique_ptr<MemMap> mem_map(MemMap::MapAnonymous(name.c_str(), requested_begin, capacity,
-                                                 PROT_READ | PROT_WRITE, true, &error_msg));
+                                                       PROT_READ | PROT_WRITE, true, false,
+                                                       &error_msg));
   if (mem_map.get() == nullptr) {
     LOG(ERROR) << "Failed to allocate pages for alloc space (" << name << ") of size "
         << PrettySize(capacity) << " with message " << error_msg;
@@ -42,7 +43,7 @@ BumpPointerSpace* BumpPointerSpace::CreateFromMemMap(const std::string& name, Me
   return new BumpPointerSpace(name, mem_map);
 }
 
-BumpPointerSpace::BumpPointerSpace(const std::string& name, byte* begin, byte* limit)
+BumpPointerSpace::BumpPointerSpace(const std::string& name, uint8_t* begin, uint8_t* limit)
     : ContinuousMemMapAllocSpace(name, nullptr, begin, begin, limit,
                                  kGcRetentionPolicyAlwaysCollect),
       growth_end_(limit),
@@ -57,7 +58,7 @@ BumpPointerSpace::BumpPointerSpace(const std::string& name, MemMap* mem_map)
                                  kGcRetentionPolicyAlwaysCollect),
       growth_end_(mem_map->End()),
       objects_allocated_(0), bytes_allocated_(0),
-      block_lock_("Block lock"),
+      block_lock_("Block lock", kBumpPointerSpaceBlockLock),
       main_block_size_(0),
       num_blocks_(0) {
 }
@@ -92,12 +93,13 @@ mirror::Object* BumpPointerSpace::GetNextObject(mirror::Object* obj) {
   return reinterpret_cast<mirror::Object*>(RoundUp(position, kAlignment));
 }
 
-void BumpPointerSpace::RevokeThreadLocalBuffers(Thread* thread) {
+size_t BumpPointerSpace::RevokeThreadLocalBuffers(Thread* thread) {
   MutexLock mu(Thread::Current(), block_lock_);
   RevokeThreadLocalBuffersLocked(thread);
+  return 0U;
 }
 
-void BumpPointerSpace::RevokeAllThreadLocalBuffers() {
+size_t BumpPointerSpace::RevokeAllThreadLocalBuffers() {
   Thread* self = Thread::Current();
   MutexLock mu(self, *Locks::runtime_shutdown_lock_);
   MutexLock mu2(self, *Locks::thread_list_lock_);
@@ -106,6 +108,7 @@ void BumpPointerSpace::RevokeAllThreadLocalBuffers() {
   for (Thread* thread : thread_list) {
     RevokeThreadLocalBuffers(thread);
   }
+  return 0U;
 }
 
 void BumpPointerSpace::AssertThreadLocalBuffersAreRevoked(Thread* thread) {
@@ -134,12 +137,12 @@ void BumpPointerSpace::UpdateMainBlock() {
 }
 
 // Returns the start of the storage.
-byte* BumpPointerSpace::AllocBlock(size_t bytes) {
+uint8_t* BumpPointerSpace::AllocBlock(size_t bytes) {
   bytes = RoundUp(bytes, kAlignment);
   if (!num_blocks_) {
     UpdateMainBlock();
   }
-  byte* storage = reinterpret_cast<byte*>(
+  uint8_t* storage = reinterpret_cast<uint8_t*>(
       AllocNonvirtualWithoutAccounting(bytes + sizeof(BlockHeader)));
   if (LIKELY(storage != nullptr)) {
     BlockHeader* header = reinterpret_cast<BlockHeader*>(storage);
@@ -151,9 +154,9 @@ byte* BumpPointerSpace::AllocBlock(size_t bytes) {
 }
 
 void BumpPointerSpace::Walk(ObjectCallback* callback, void* arg) {
-  byte* pos = Begin();
-  byte* end = End();
-  byte* main_end = pos;
+  uint8_t* pos = Begin();
+  uint8_t* end = End();
+  uint8_t* main_end = pos;
   {
     MutexLock mu(Thread::Current(), block_lock_);
     // If we have 0 blocks then we need to update the main header since we have bump pointer style
@@ -172,14 +175,15 @@ void BumpPointerSpace::Walk(ObjectCallback* callback, void* arg) {
   // Walk all of the objects in the main block first.
   while (pos < main_end) {
     mirror::Object* obj = reinterpret_cast<mirror::Object*>(pos);
-    if (obj->GetClass() == nullptr) {
+    // No read barrier because obj may not be a valid object.
+    if (obj->GetClass<kDefaultVerifyFlags, kWithoutReadBarrier>() == nullptr) {
       // There is a race condition where a thread has just allocated an object but not set the
       // class. We can't know the size of this object, so we don't visit it and exit the function
       // since there is guaranteed to be not other blocks.
       return;
     } else {
       callback(obj, arg);
-      pos = reinterpret_cast<byte*>(GetNextObject(obj));
+      pos = reinterpret_cast<uint8_t*>(GetNextObject(obj));
     }
   }
   // Walk the other blocks (currently only TLABs).
@@ -188,11 +192,12 @@ void BumpPointerSpace::Walk(ObjectCallback* callback, void* arg) {
     size_t block_size = header->size_;
     pos += sizeof(BlockHeader);  // Skip the header so that we know where the objects
     mirror::Object* obj = reinterpret_cast<mirror::Object*>(pos);
-    const mirror::Object* end = reinterpret_cast<const mirror::Object*>(pos + block_size);
-    CHECK_LE(reinterpret_cast<const byte*>(end), End());
+    const mirror::Object* end_obj = reinterpret_cast<const mirror::Object*>(pos + block_size);
+    CHECK_LE(reinterpret_cast<const uint8_t*>(end_obj), End());
     // We don't know how many objects are allocated in the current block. When we hit a null class
     // assume its the end. TODO: Have a thread update the header when it flushes the block?
-    while (obj < end && obj->GetClass() != nullptr) {
+    // No read barrier because obj may not be a valid object.
+    while (obj < end_obj && obj->GetClass<kDefaultVerifyFlags, kWithoutReadBarrier>() != nullptr) {
       callback(obj, arg);
       obj = GetNextObject(obj);
     }
@@ -201,8 +206,8 @@ void BumpPointerSpace::Walk(ObjectCallback* callback, void* arg) {
 }
 
 accounting::ContinuousSpaceBitmap::SweepCallback* BumpPointerSpace::GetSweepCallback() {
-  LOG(FATAL) << "Unimplemented";
-  return nullptr;
+  UNIMPLEMENTED(FATAL);
+  UNREACHABLE();
 }
 
 uint64_t BumpPointerSpace::GetBytesAllocated() {
@@ -250,7 +255,7 @@ void BumpPointerSpace::RevokeThreadLocalBuffersLocked(Thread* thread) {
 bool BumpPointerSpace::AllocNewTlab(Thread* self, size_t bytes) {
   MutexLock mu(Thread::Current(), block_lock_);
   RevokeThreadLocalBuffersLocked(self);
-  byte* start = AllocBlock(bytes);
+  uint8_t* start = AllocBlock(bytes);
   if (start == nullptr) {
     return false;
   }

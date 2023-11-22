@@ -22,12 +22,12 @@ bool RSExportable::keep() {
   if (isKeep())
     return false;
   // Invalidate associated Context.
-  mContext = NULL;
+  mContext = nullptr;
   return true;
 }
 
 bool RSExportable::equals(const RSExportable *E) const {
-  return ((E == NULL) ? false : (mK == E->mK));
+  return ((E == nullptr) ? false : (mK == E->mK));
 }
 
 }  // namespace slang

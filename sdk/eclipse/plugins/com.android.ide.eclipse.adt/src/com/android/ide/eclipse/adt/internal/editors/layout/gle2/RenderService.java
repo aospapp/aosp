@@ -24,6 +24,7 @@ import com.android.ide.common.api.Rect;
 import com.android.ide.common.rendering.HardwareConfigHelper;
 import com.android.ide.common.rendering.LayoutLibrary;
 import com.android.ide.common.rendering.RenderSecurityManager;
+import com.android.ide.common.rendering.api.AssetRepository;
 import com.android.ide.common.rendering.api.Capability;
 import com.android.ide.common.rendering.api.DrawableParams;
 import com.android.ide.common.rendering.api.HardwareConfig;
@@ -471,6 +472,7 @@ public class RenderService {
         params.setExtendedViewInfoMode(true);
 
         params.setLocale(mLocale.toLocaleId());
+        params.setAssetRepository(new AssetRepository());
 
         ManifestInfo manifestInfo = ManifestInfo.get(mProject);
         try {
@@ -546,6 +548,7 @@ public class RenderService {
         DrawableParams params = new DrawableParams(drawableResourceValue, mProject, hardwareConfig,
                 mResourceResolver, mProjectCallback, mMinSdkVersion,
                 mTargetSdkVersion, mLogger);
+        params.setAssetRepository(new AssetRepository());
         params.setForceNoDecor();
         Result result = mLayoutLib.renderDrawable(params);
         if (result != null && result.isSuccess()) {
@@ -619,6 +622,7 @@ public class RenderService {
                 mLogger);
         params.setLayoutOnly();
         params.setForceNoDecor();
+        params.setAssetRepository(new AssetRepository());
 
         RenderSession session = null;
         mProjectCallback.setLogger(mLogger);

@@ -1,20 +1,41 @@
+
 Android BasicSyncAdapter Sample
-==============================
+===================================
 
-This sample demonstrates using SyncAdapter to fetch background data for an app that
-doesn\'t require a user-visible account type or 2-way synchronization.
+This sample demonstrates using SyncAdapter to fetch background
+data for an app. It covers the creation of the required Service
+that the OS uses to initiate the background data sync as well as
+scheduling syncs with background data.
 
+Introduction
+------------
 
-This sample periodically downloads the feed from the Android Developer Blog and
-caches the data in a content provider. At runtime, the cached feed data is displayed
-inside a ListView.
+This sample demonstrates using SyncAdapter to fetch background data
+for an app. SyncAdapters can be used to execute your data transfer
+code at configurable intervals, while efficiently using battery and
+other system resources.
+
+This sample implements all the required elements of a sync adapter.
+- Creates a sync adapter class.
+- Creates a bound Service which the OS uses to initiate a sync.
+- Defines the sync adapter properties in an XML resource file.
+- Declares the bound Service in the app manifest.
+
+For more on SyncAdapters refer to [Transferring Data Using Sync Adapters][1]
+
+[1]: http://developer.android.com/training/sync-adapters/index.html
 
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/main.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -46,7 +67,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

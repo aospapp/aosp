@@ -16,9 +16,10 @@
 
 package com.android.layoutlib.bridge.bars;
 
+import com.android.layoutlib.bridge.android.BridgeContext;
+
 import org.xmlpull.v1.XmlPullParserException;
 
-import android.content.Context;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -26,8 +27,7 @@ public class TitleBar extends CustomBar {
 
     private TextView mTextView;
 
-    public TitleBar(Context context, String label, int simulatedPlatformVersion)
-            throws XmlPullParserException {
+    public TitleBar(BridgeContext context, String label, int simulatedPlatformVersion) {
         super(context, LinearLayout.HORIZONTAL, "/bars/title_bar.xml", "title_bar.xml",
                 simulatedPlatformVersion);
 

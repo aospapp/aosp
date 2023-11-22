@@ -22,15 +22,15 @@ LOCAL_SHARED_LIBRARIES += libsqlite
 LOCAL_MODULE_TAGS := optional
 # This name is dictated by the fact that the SQLite code calls loadLibrary("sqlite_jni").
 LOCAL_MODULE := libsqlite_jni
-LOCAL_PRELINK_MODULE := false
 include $(BUILD_SHARED_LIBRARY)
 
+ifeq ($(HOST_OS),linux)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under,src/main/java)
-LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := sqlite-jdbc-host
 include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
+endif  # HOST_OS == linux.
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(sqlite_jdbc_src_files)
@@ -38,5 +38,4 @@ LOCAL_C_INCLUDES += $(sqlite_jdbc_local_c_includes)
 LOCAL_SHARED_LIBRARIES += libsqlite
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libsqlite_jni
-LOCAL_PRELINK_MODULE := false
 include $(BUILD_HOST_SHARED_LIBRARY)

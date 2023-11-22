@@ -95,7 +95,17 @@ public class AppWidgetTest extends InstrumentationTestCase {
     private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
             "appwidget revokebind --package android.cts.appwidget --user 0";
 
+
+    private boolean hasAppWidgets() {
+        return getInstrumentation().getTargetContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_APP_WIDGETS);
+    }
+
     public void testGetAppInstalledProvidersForCurrentUserLegacy() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // By default we should get only providers for the current user.
         List<AppWidgetProviderInfo> providers = getAppWidgetManager().getInstalledProviders();
 
@@ -104,6 +114,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testGetAppInstalledProvidersForCurrentUserNewCurrentProfile() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We ask only for providers for the current user.
         List<AppWidgetProviderInfo> providers = getAppWidgetManager()
                 .getInstalledProvidersForProfile(Process.myUserHandle());
@@ -113,6 +127,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testGetAppInstalledProvidersForCurrentUserNewAllProfiles() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We ask only for providers for all current user's profiles
         UserManager userManager = (UserManager) getInstrumentation()
                 .getTargetContext().getSystemService(Context.USER_SERVICE);
@@ -133,6 +151,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testBindAppWidget() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // Create a host and start listening.
         AppWidgetHost host = new AppWidgetHost(getInstrumentation().getTargetContext(), 0);
         host.deleteHost();
@@ -170,6 +192,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testAppWidgetProviderCallbacks() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         AtomicInteger invocationCounter = new AtomicInteger();
 
         // Set a mock to intercept provider callbacks.
@@ -277,6 +303,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testTwoAppWidgetProviderCallbacks() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         AtomicInteger invocationCounter = new AtomicInteger();
 
         // Set a mock to intercept first provider callbacks.
@@ -368,6 +398,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testGetAppWidgetIds() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -415,6 +449,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testGetAppWidgetInfo() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -467,6 +505,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testGetAppWidgetOptions() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -512,6 +554,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testDeleteHost() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -553,6 +599,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testDeleteHosts() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -609,6 +659,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testOnProvidersChanged() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -671,6 +725,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testUpdateAppWidgetViaComponentName() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -761,6 +819,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testUpdateAppWidgetViaWidgetId() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -831,6 +893,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testUpdateAppWidgetViaWidgetIds() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -923,6 +989,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testPartiallyUpdateAppWidgetViaWidgetId() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -997,6 +1067,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testPartiallyUpdateAppWidgetViaWidgetIds() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 
@@ -1107,6 +1181,10 @@ public class AppWidgetTest extends InstrumentationTestCase {
     }
 
     public void testCollectionWidgets() throws Exception {
+        if (!hasAppWidgets()) {
+            return;
+        }
+
         // We want to bind widgets.
         grantBindAppWidgetPermission();
 

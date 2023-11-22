@@ -21,14 +21,18 @@
 #include <sys/un.h>
 
 #include "../fio.h"
+#include "../verify.h"
 
 struct netio_data {
 	int listenfd;
 	int use_splice;
+	int seq_off;
 	int pipes[2];
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
 	struct sockaddr_un addr_un;
+	uint64_t udp_send_seq;
+	uint64_t udp_recv_seq;
 };
 
 struct netio_options {
@@ -39,6 +43,8 @@ struct netio_options {
 	unsigned int pingpong;
 	unsigned int nodelay;
 	unsigned int ttl;
+	unsigned int window_size;
+	unsigned int mss;
 	char *intfc;
 };
 
@@ -47,10 +53,17 @@ struct udp_close_msg {
 	uint32_t cmd;
 };
 
+struct udp_seq {
+	uint64_t magic;
+	uint64_t seq;
+	uint64_t bs;
+};
+
 enum {
 	FIO_LINK_CLOSE = 0x89,
 	FIO_LINK_OPEN_CLOSE_MAGIC = 0x6c696e6b,
 	FIO_LINK_OPEN = 0x98,
+	FIO_UDP_SEQ_MAGIC = 0x657375716e556563ULL,
 
 	FIO_TYPE_TCP	= 1,
 	FIO_TYPE_UDP	= 2,
@@ -165,6 +178,30 @@ static struct fio_option options[] = {
 		.category = FIO_OPT_C_ENGINE,
 		.group	= FIO_OPT_G_NETIO,
 	},
+#ifdef CONFIG_NET_WINDOWSIZE
+	{
+		.name	= "window_size",
+		.lname	= "Window Size",
+		.type	= FIO_OPT_INT,
+		.off1	= offsetof(struct netio_options, window_size),
+		.minval	= 0,
+		.help	= "Set socket buffer window size",
+		.category = FIO_OPT_C_ENGINE,
+		.group	= FIO_OPT_G_NETIO,
+	},
+#endif
+#ifdef CONFIG_NET_MSS
+	{
+		.name	= "mss",
+		.lname	= "Maximum segment size",
+		.type	= FIO_OPT_INT,
+		.off1	= offsetof(struct netio_options, mss),
+		.minval	= 0,
+		.help	= "Set TCP maximum segment size",
+		.category = FIO_OPT_C_ENGINE,
+		.group	= FIO_OPT_G_NETIO,
+	},
+#endif
 	{
 		.name	= NULL,
 	},
@@ -184,6 +221,65 @@ static inline int is_ipv6(struct netio_options *o)
 {
 	return o->proto == FIO_TYPE_UDP_V6 || o->proto == FIO_TYPE_TCP_V6;
 }
+
+static int set_window_size(struct thread_data *td, int fd)
+{
+#ifdef CONFIG_NET_WINDOWSIZE
+	struct netio_options *o = td->eo;
+	unsigned int wss;
+	int snd, rcv, ret;
+
+	if (!o->window_size)
+		return 0;
+
+	rcv = o->listen || o->pingpong;
+	snd = !o->listen || o->pingpong;
+	wss = o->window_size;
+	ret = 0;
+
+	if (rcv) {
+		ret = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &wss,
+					sizeof(wss));
+		if (ret < 0)
+			td_verror(td, errno, "rcvbuf window size");
+	}
+	if (snd && !ret) {
+		ret = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &wss,
+					sizeof(wss));
+		if (ret < 0)
+			td_verror(td, errno, "sndbuf window size");
+	}
+
+	return ret;
+#else
+	td_verror(td, -EINVAL, "setsockopt window size");
+	return -1;
+#endif
+}
+
+static int set_mss(struct thread_data *td, int fd)
+{
+#ifdef CONFIG_NET_MSS
+	struct netio_options *o = td->eo;
+	unsigned int mss;
+	int ret;
+
+	if (!o->mss || !is_tcp(o))
+		return 0;
+
+	mss = o->mss;
+	ret = setsockopt(fd, IPPROTO_TCP, TCP_MAXSEG, (void *) &mss,
+				sizeof(mss));
+	if (ret < 0)
+		td_verror(td, errno, "setsockopt TCP_MAXSEG");
+
+	return ret;
+#else
+	td_verror(td, -EINVAL, "setsockopt TCP_MAXSEG");
+	return -1;
+#endif
+}
+
 
 /*
  * Return -1 for error and 'nr events' for a positive number
@@ -384,6 +480,47 @@ static int fio_netio_splice_out(struct thread_data *td, struct io_u *io_u)
 }
 #endif
 
+static void store_udp_seq(struct netio_data *nd, struct io_u *io_u)
+{
+	struct udp_seq *us;
+
+	if (io_u->xfer_buflen < sizeof(*us))
+		return;
+
+	us = io_u->xfer_buf + io_u->xfer_buflen - sizeof(*us);
+	us->magic = cpu_to_le64((uint64_t) FIO_UDP_SEQ_MAGIC);
+	us->bs = cpu_to_le64((uint64_t) io_u->xfer_buflen);
+	us->seq = cpu_to_le64(nd->udp_send_seq++);
+}
+
+static void verify_udp_seq(struct thread_data *td, struct netio_data *nd,
+			   struct io_u *io_u)
+{
+	struct udp_seq *us;
+	uint64_t seq;
+
+	if (io_u->xfer_buflen < sizeof(*us))
+		return;
+
+	if (nd->seq_off)
+		return;
+
+	us = io_u->xfer_buf + io_u->xfer_buflen - sizeof(*us);
+	if (le64_to_cpu(us->magic) != FIO_UDP_SEQ_MAGIC)
+		return;
+	if (le64_to_cpu(us->bs) != io_u->xfer_buflen) {
+		nd->seq_off = 1;
+		return;
+	}
+
+	seq = le64_to_cpu(us->seq);
+
+	if (seq != nd->udp_recv_seq)
+		td->ts.drop_io_u[io_u->ddir] += seq - nd->udp_recv_seq;
+
+	nd->udp_recv_seq = seq + 1;
+}
+
 static int fio_netio_send(struct thread_data *td, struct io_u *io_u)
 {
 	struct netio_data *nd = td->io_ops->data;
@@ -402,6 +539,9 @@ static int fio_netio_send(struct thread_data *td, struct io_u *io_u)
 				to = (struct sockaddr *) &nd->addr;
 				len = sizeof(nd->addr);
 			}
+
+			if (td->o.verify == VERIFY_NONE)
+				store_udp_seq(nd, io_u);
 
 			ret = sendto(io_u->file->fd, io_u->xfer_buf,
 					io_u->xfer_buflen, flags, to, len);
@@ -428,7 +568,7 @@ static int fio_netio_send(struct thread_data *td, struct io_u *io_u)
 	return ret;
 }
 
-static int is_udp_close(struct io_u *io_u, int len)
+static int is_close_msg(struct io_u *io_u, int len)
 {
 	struct udp_close_msg *msg;
 
@@ -436,9 +576,9 @@ static int is_udp_close(struct io_u *io_u, int len)
 		return 0;
 
 	msg = io_u->xfer_buf;
-	if (ntohl(msg->magic) != FIO_LINK_OPEN_CLOSE_MAGIC)
+	if (le32_to_cpu(msg->magic) != FIO_LINK_OPEN_CLOSE_MAGIC)
 		return 0;
-	if (ntohl(msg->cmd) != FIO_LINK_CLOSE)
+	if (le32_to_cpu(msg->cmd) != FIO_LINK_CLOSE)
 		return 0;
 
 	return 1;
@@ -470,13 +610,19 @@ static int fio_netio_recv(struct thread_data *td, struct io_u *io_u)
 
 			ret = recvfrom(io_u->file->fd, io_u->xfer_buf,
 					io_u->xfer_buflen, flags, from, len);
-			if (is_udp_close(io_u, ret)) {
+
+			if (is_close_msg(io_u, ret)) {
 				td->done = 1;
 				return 0;
 			}
 		} else {
 			ret = recv(io_u->file->fd, io_u->xfer_buf,
 					io_u->xfer_buflen, flags);
+
+			if (is_close_msg(io_u, ret)) {
+				td->done = 1;
+				return 0;
+			}
 		}
 		if (ret > 0)
 			break;
@@ -488,6 +634,9 @@ static int fio_netio_recv(struct thread_data *td, struct io_u *io_u)
 			break;
 		flags |= MSG_WAITALL;
 	} while (1);
+
+	if (is_udp(o) && td->o.verify == VERIFY_NONE)
+		verify_udp_seq(td, nd, io_u);
 
 	return ret;
 }
@@ -515,11 +664,13 @@ static int __fio_netio_queue(struct thread_data *td, struct io_u *io_u,
 		ret = 0;	/* must be a SYNC */
 
 	if (ret != (int) io_u->xfer_buflen) {
-		if (ret >= 0) {
+		if (ret > 0) {
 			io_u->resid = io_u->xfer_buflen - ret;
 			io_u->error = 0;
 			return FIO_Q_COMPLETED;
-		} else {
+		} else if (!ret)
+			return FIO_Q_BUSY;
+		else {
 			int err = errno;
 
 			if (ddir == DDIR_WRITE && err == EMSGSIZE)
@@ -600,6 +751,15 @@ static int fio_netio_connect(struct thread_data *td, struct fio_file *f)
 		}
 	}
 #endif
+
+	if (set_window_size(td, f->fd)) {
+		close(f->fd);
+		return 1;
+	}
+	if (set_mss(td, f->fd)) {
+		close(f->fd);
+		return 1;
+	}
 
 	if (is_udp(o)) {
 		if (!fio_netio_is_multicast(td->o.filename))
@@ -715,7 +875,7 @@ err:
 	return 1;
 }
 
-static void fio_netio_udp_close(struct thread_data *td, struct fio_file *f)
+static void fio_netio_send_close(struct thread_data *td, struct fio_file *f)
 {
 	struct netio_data *nd = td->io_ops->data;
 	struct netio_options *o = td->eo;
@@ -732,8 +892,8 @@ static void fio_netio_udp_close(struct thread_data *td, struct fio_file *f)
 		len = sizeof(nd->addr);
 	}
 
-	msg.magic = htonl(FIO_LINK_OPEN_CLOSE_MAGIC);
-	msg.cmd = htonl(FIO_LINK_CLOSE);
+	msg.magic = cpu_to_le32((uint32_t) FIO_LINK_OPEN_CLOSE_MAGIC);
+	msg.cmd = cpu_to_le32((uint32_t) FIO_LINK_CLOSE);
 
 	ret = sendto(f->fd, (void *) &msg, sizeof(msg), MSG_WAITALL, to, len);
 	if (ret < 0)
@@ -742,14 +902,10 @@ static void fio_netio_udp_close(struct thread_data *td, struct fio_file *f)
 
 static int fio_netio_close_file(struct thread_data *td, struct fio_file *f)
 {
-	struct netio_options *o = td->eo;
-
 	/*
-	 * If this is an UDP connection, notify the receiver that we are
-	 * closing down the link
+	 * Notify the receiver that we are closing down the link
 	 */
-	if (is_udp(o))
-		fio_netio_udp_close(td, f);
+	fio_netio_send_close(td, f);
 
 	return generic_close_file(td, f);
 }
@@ -784,10 +940,11 @@ static int fio_netio_udp_recv_open(struct thread_data *td, struct fio_file *f)
 		return -1;
 	}
 
+	fio_gettime(&td->start, NULL);
 	return 0;
 }
 
-static int fio_netio_udp_send_open(struct thread_data *td, struct fio_file *f)
+static int fio_netio_send_open(struct thread_data *td, struct fio_file *f)
 {
 	struct netio_data *nd = td->io_ops->data;
 	struct netio_options *o = td->eo;
@@ -833,7 +990,7 @@ static int fio_netio_open_file(struct thread_data *td, struct fio_file *f)
 
 	if (is_udp(o)) {
 		if (td_write(td))
-			ret = fio_netio_udp_send_open(td, f);
+			ret = fio_netio_send_open(td, f);
 		else {
 			int state;
 
@@ -1042,6 +1199,15 @@ static int fio_netio_setup_listen_inet(struct thread_data *td, short port)
 	}
 #endif
 
+	if (set_window_size(td, fd)) {
+		close(fd);
+		return 1;
+	}
+	if (set_mss(td, fd)) {
+		close(fd);
+		return 1;
+	}
+
 	if (td->o.filename) {
 		if (!is_udp(o) || !fio_netio_is_multicast(td->o.filename)) {
 			log_err("fio: hostname not valid for non-multicast inbound network IO\n");
@@ -1148,6 +1314,8 @@ static int fio_netio_init(struct thread_data *td)
 		return 1;
 	}
 
+	o->port += td->subjob_number;
+
 	if (!is_tcp(o)) {
 		if (o->listen) {
 			log_err("fio: listen only valid for TCP proto IO\n");
@@ -1213,7 +1381,7 @@ static int fio_netio_setup(struct thread_data *td)
 
 static void fio_netio_terminate(struct thread_data *td)
 {
-	kill(td->pid, SIGUSR2);
+	kill(td->pid, SIGTERM);
 }
 
 #ifdef CONFIG_LINUX_SPLICE

@@ -43,6 +43,7 @@ abstract class BluetoothMasRequest {
     protected static final byte OAP_TAGID_NEW_MESSAGE = 0x0d;
     protected static final byte OAP_TAGID_NOTIFICATION_STATUS = 0x0e;
     protected static final byte OAP_TAGID_MAS_INSTANCE_ID = 0x0f;
+    protected static final byte OAP_TAGID_PARAMETER_MASK = 0x10;
     protected static final byte OAP_TAGID_FOLDER_LISTING_SIZE = 0x11;
     protected static final byte OAP_TAGID_MESSAGES_LISTING_SIZE = 0x12;
     protected static final byte OAP_TAGID_SUBJECT_LENGTH = 0x13;

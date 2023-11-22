@@ -35,7 +35,7 @@ RsdFrameBufferObj::RsdFrameBufferObj() {
     for (uint32_t i = 0; i < mColorTargetsCount; i ++) {
         mColorTargets[i] = 0;
     }
-    mDepthTarget = NULL;
+    mDepthTarget = nullptr;
     mDirty = true;
 }
 
@@ -73,7 +73,7 @@ void RsdFrameBufferObj::checkError(const Context *rsc) {
 
 
 void RsdFrameBufferObj::setDepthAttachment() {
-    if (mDepthTarget != NULL) {
+    if (mDepthTarget != nullptr) {
         if (mDepthTarget->textureID) {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                                    GL_TEXTURE_2D, mDepthTarget->textureID, 0);
@@ -91,7 +91,7 @@ void RsdFrameBufferObj::setDepthAttachment() {
 void RsdFrameBufferObj::setColorAttachment() {
     // Now attach color targets
     for (uint32_t i = 0; i < mColorTargetsCount; i ++) {
-        if (mColorTargets[i] != NULL) {
+        if (mColorTargets[i] != nullptr) {
             if (mColorTargets[i]->textureID) {
                 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
                                        GL_TEXTURE_2D, mColorTargets[i]->textureID, 0);
@@ -110,12 +110,12 @@ void RsdFrameBufferObj::setColorAttachment() {
 }
 
 bool RsdFrameBufferObj::renderToFramebuffer() {
-    if (mDepthTarget != NULL) {
+    if (mDepthTarget != nullptr) {
         return false;
     }
 
     for (uint32_t i = 0; i < mColorTargetsCount; i ++) {
-        if (mColorTargets[i] != NULL) {
+        if (mColorTargets[i] != nullptr) {
             return false;
         }
     }

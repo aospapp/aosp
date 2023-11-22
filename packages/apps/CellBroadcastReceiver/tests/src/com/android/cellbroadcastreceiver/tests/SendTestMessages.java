@@ -25,6 +25,7 @@ import android.provider.Telephony.Sms.Intents;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
 import android.util.Log;
+import com.android.internal.telephony.PhoneConstants;
 
 import com.android.internal.telephony.EncodeException;
 import com.android.internal.telephony.GsmAlphabet;
@@ -425,140 +426,161 @@ public class SendTestMessages {
         }
     }
 
-    public static void testSendMessage7bit(Activity activity, int serialNumber, int category) {
+    public static void testSendMessage7bit(Activity activity, int serialNumber,
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTest, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendMessage7bitUmts(Activity activity, int serialNumber, int category) {
+    public static void testSendMessage7bitUmts(Activity activity, int serialNumber,
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestUmts, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitNoPadding(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestNoPadding, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitNoPaddingUmts(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestNoPaddingUmts, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitMultipageGsm(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         byte[][] pdus = new byte[2][];
         pdus[0] = gsm7BitTestMultipage1;
         pdus[1] = gsm7BitTestMultipage2;
         intent.putExtra("message", createFromPdus(pdus, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitMultipageUmts(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestMultipageUmts, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitWithLanguage(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestWithLanguage, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitWithLanguageInBody(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestWithLanguageInBody, serialNumber,
                 category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessage7bitWithLanguageInBodyUmts(Activity activity,
-            int serialNumber, int category) {
+            int serialNumber, int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsm7BitTestWithLanguageInBodyUmts, serialNumber,
                 category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendMessageUcs2(Activity activity, int serialNumber, int category) {
+    public static void testSendMessageUcs2(Activity activity, int serialNumber,
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsmUcs2Test, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendMessageUcs2Umts(Activity activity, int serialNumber, int category) {
+    public static void testSendMessageUcs2Umts(Activity activity, int serialNumber,
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsmUcs2TestUmts, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessageUcs2MultipageUmts(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsmUcs2TestMultipageUmts, serialNumber, category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessageUcs2WithLanguageInBody(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsmUcs2TestWithLanguageInBody, serialNumber,
                 category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
     public static void testSendMessageUcs2WithLanguageUmts(Activity activity, int serialNumber,
-            int category) {
+            int category, int subId) {
         Intent intent = new Intent(Intents.SMS_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(gsmUcs2TestWithLanguageInBodyUmts, serialNumber,
                 category));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL, Manifest.permission.RECEIVE_SMS,
                 AppOpsManager.OP_RECEIVE_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendEtwsMessageNormal(Activity activity, int serialNumber) {
+    public static void testSendEtwsMessageNormal(Activity activity, int serialNumber, int subId) {
         Intent intent = new Intent(Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(etwsMessageNormal, serialNumber, 0));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendEtwsMessageCancel(Activity activity, int serialNumber) {
+    public static void testSendEtwsMessageCancel(Activity activity, int serialNumber, int subId) {
         Intent intent = new Intent(Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(etwsMessageCancel, serialNumber, 0));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendEtwsMessageTest(Activity activity, int serialNumber) {
+    public static void testSendEtwsMessageTest(Activity activity, int serialNumber, int subId) {
         Intent intent = new Intent(Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", createFromPdu(etwsMessageTest, serialNumber, 0));
+        intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, subId);
         activity.sendOrderedBroadcastAsUser(intent, UserHandle.ALL,
                 Manifest.permission.RECEIVE_EMERGENCY_BROADCAST,
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);

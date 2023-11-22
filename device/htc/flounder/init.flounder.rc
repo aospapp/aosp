@@ -2,21 +2,14 @@ import init.flounder.usb.rc
 import init.flounder_svelte.rc
 
 on init
+    # Load persistent dm-verity state
+    verity_load_state
+
     start watchdogd
 
-    # See storage config details at http://source.android.com/tech/storage/
-    mkdir /mnt/shell/emulated 0700 shell shell
-    mkdir /storage/emulated 0555 root root
-
-    export EXTERNAL_STORAGE /storage/emulated/legacy
-    export EMULATED_STORAGE_SOURCE /mnt/shell/emulated
-    export EMULATED_STORAGE_TARGET /storage/emulated
-
     # Support legacy paths
-    symlink /storage/emulated/legacy /sdcard
-    symlink /storage/emulated/legacy /mnt/sdcard
-    symlink /storage/emulated/legacy /storage/sdcard0
-    symlink /mnt/shell/emulated/0 /storage/emulated/legacy
+    symlink /sdcard /mnt/sdcard
+    symlink /sdcard /storage/sdcard0
 
 on post-fs
     write /sys/power/gpu_power_on 1
@@ -34,7 +27,6 @@ on post-fs-data
     # For a remount only the flags and the target mount point are relevant.
     mount dummy dummy /data remount nosuid nodev noatime rw seclabel,background_gc=on,user_xattr,acl,errors=panic
 
-    mkdir /data/media 0770 media_rw media_rw
     mkdir /data/nvcam 0700 media camera
 
     # NFC: create data/nfc for nv storage
@@ -120,11 +112,17 @@ on boot
 
 on fs
     mount_all /fstab.flounder
-    setprop ro.crypto.fuse_sdcard true
 
-# virtual sdcard daemon running as media_rw (1023)
-service sdcard /system/bin/sdcard -u 1023 -g 1023 -l /data/media /mnt/shell/emulated
-    class late_start
+    # Adjust parameters for dm-verity devices
+    write /sys/block/dm-0/queue/read_ahead_kb 2048
+    write /sys/block/dm-1/queue/read_ahead_kb 2048
+    write /sys/module/dm_verity/parameters/prefetch_cluster 524288
+
+    # Update dm-verity state and set partition.*.verified properties
+    verity_update_state
+
+on verity-logging
+    exec u:r:slideshow:s0 -- /sbin/slideshow warning/verity_red_1 warning/verity_red_2
 
 service battery_charger /charger
     class charger
@@ -189,6 +187,9 @@ on property:ro.boot.baseband=US
     setprop rild.libpath /vendor/lib64/libril-qc-qmi-1.so
     setprop rild.libargs "-e wwan0"
     setprop persist.radio.snapshot_enabled 1
+
+on property:audio_hal.period_size=128
+    write /sys/devices/system/cpu/cpufreq/interactive/rt_priority 1
 
 # bugreport is triggered by holding down volume down, volume up and power
 service bugreport /system/bin/dumpstate -d -p -B \

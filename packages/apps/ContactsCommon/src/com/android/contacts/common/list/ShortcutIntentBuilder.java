@@ -265,6 +265,9 @@ public class ShortcutIntentBuilder {
             String lookupKey, byte[] bitmapData) {
         Drawable drawable = getPhotoDrawable(bitmapData, displayName, lookupKey);
 
+        // Use an implicit intent without a package name set. It is reasonable for a disambiguation
+        // dialog to appear when opening QuickContacts from the launcher. Plus, this will be more
+        // resistant to future package name changes done to Contacts.
         Intent shortcutIntent = new Intent(ContactsContract.QuickContact.ACTION_QUICK_CONTACT);
 
         // When starting from the launcher, start in a new, cleared task.
@@ -309,11 +312,11 @@ public class ShortcutIntentBuilder {
             // Make the URI a direct tel: URI so that it will always continue to work
             phoneUri = Uri.fromParts(PhoneAccount.SCHEME_TEL, phoneNumber, null);
             bitmap = generatePhoneNumberIcon(drawable, phoneType, phoneLabel,
-                    R.drawable.badge_action_call);
+                    R.drawable.ic_call);
         } else {
             phoneUri = Uri.fromParts(ContactsUtils.SCHEME_SMSTO, phoneNumber, null);
             bitmap = generatePhoneNumberIcon(drawable, phoneType, phoneLabel,
-                    R.drawable.badge_action_sms);
+                    R.drawable.ic_message_24dp);
         }
 
         Intent shortcutIntent = new Intent(shortcutAction, phoneUri);

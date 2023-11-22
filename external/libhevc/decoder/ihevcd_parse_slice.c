@@ -2202,9 +2202,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
     {
         if(!ps_slice_hdr->i1_dependent_slice_flag)
         {
-            ps_codec->s_parse.i4_cur_independent_slice_idx++;
-            if(MAX_SLICE_HDR_CNT == ps_codec->s_parse.i4_cur_independent_slice_idx)
-                ps_codec->s_parse.i4_cur_independent_slice_idx = 0;
+            ps_codec->s_parse.i4_cur_independent_slice_idx =
+                    ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1);
         }
     }
 
@@ -2281,8 +2280,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
         {
             for(i = 0; i < ps_slice_hdr->i1_num_ref_idx_l1_active; i++)
             {
-                ps_mv_buf->l1_collocated_poc[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list1[i].pv_pic_buf)->i4_abs_poc;
-                ps_mv_buf->u1_l1_collocated_poc_lt[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list1[i].pv_pic_buf)->u1_used_as_ref;
+                ps_mv_buf->ai4_l1_collocated_poc[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list1[i].pv_pic_buf)->i4_abs_poc;
+                ps_mv_buf->ai1_l1_collocated_poc_lt[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list1[i].pv_pic_buf)->u1_used_as_ref;
             }
         }
 
@@ -2290,8 +2289,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
         {
             for(i = 0; i < ps_slice_hdr->i1_num_ref_idx_l0_active; i++)
             {
-                ps_mv_buf->l0_collocated_poc[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list0[i].pv_pic_buf)->i4_abs_poc;
-                ps_mv_buf->u1_l0_collocated_poc_lt[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list0[i].pv_pic_buf)->u1_used_as_ref;
+                ps_mv_buf->ai4_l0_collocated_poc[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list0[i].pv_pic_buf)->i4_abs_poc;
+                ps_mv_buf->ai1_l0_collocated_poc_lt[(ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1))][i] = ((pic_buf_t *)ps_slice_hdr->as_ref_pic_list0[i].pv_pic_buf)->u1_used_as_ref;
             }
         }
     }
@@ -2447,7 +2446,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
                 }*/
             }
 
-            if(!ps_slice_hdr->i1_dependent_slice_flag)
+            /* Cabac init is done unconditionally at the start of the tile irrespective
+             * of whether it is a dependent or an independent slice */
             {
                 ihevcd_cabac_init(&ps_codec->s_parse.s_cabac,
                                   &ps_codec->s_parse.s_bitstrm,
@@ -2752,6 +2752,80 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
             ps_codec->s_parse.pu1_tu_map += num_min4x4_in_ctb;
         }
 
+        /* QP array population has to be done if deblocking is enabled in the picture
+         * but some of the slices in the pic have it disabled */
+        if((0 != ps_codec->i4_disable_deblk_pic) &&
+                (1 == ps_slice_hdr->i1_slice_disable_deblocking_filter_flag))
+        {
+            bs_ctxt_t *ps_bs_ctxt = &ps_codec->s_parse.s_bs_ctxt;
+            WORD32 log2_ctb_size = ps_sps->i1_log2_ctb_size;
+            UWORD8 *pu1_qp;
+            WORD32 qp_strd;
+            WORD32 u4_qp_const_in_ctb;
+            WORD32 cur_ctb_idx;
+            WORD32 next_ctb_idx;
+            WORD32 cur_tu_idx;
+            WORD32 i4_ctb_tu_cnt;
+            tu_t *ps_tu;
+
+            cur_ctb_idx = ps_codec->s_parse.i4_ctb_x + ps_sps->i2_pic_wd_in_ctb * ps_codec->s_parse.i4_ctb_y;
+            /* ctb_size/8 elements per CTB */
+            qp_strd = ps_sps->i2_pic_wd_in_ctb << (log2_ctb_size - 3);
+            pu1_qp = ps_bs_ctxt->pu1_pic_qp + ((ps_codec->s_parse.i4_ctb_x + ps_codec->s_parse.i4_ctb_y * qp_strd) << (log2_ctb_size - 3));
+
+            u4_qp_const_in_ctb = ps_bs_ctxt->pu1_pic_qp_const_in_ctb[cur_ctb_idx >> 3] & (1 << (cur_ctb_idx & 7));
+
+            next_ctb_idx = ps_codec->s_parse.i4_next_tu_ctb_cnt;
+            if(1 == ps_codec->i4_num_cores)
+            {
+                i4_ctb_tu_cnt = ps_codec->s_parse.pu4_pic_tu_idx[next_ctb_idx] -
+                                ps_codec->s_parse.pu4_pic_tu_idx[cur_ctb_idx % RESET_TU_BUF_NCTB];
+
+                cur_tu_idx = ps_codec->s_parse.pu4_pic_tu_idx[cur_ctb_idx % RESET_TU_BUF_NCTB];
+            }
+            else
+            {
+                i4_ctb_tu_cnt = ps_codec->s_parse.pu4_pic_tu_idx[next_ctb_idx] -
+                                ps_codec->s_parse.pu4_pic_tu_idx[cur_ctb_idx];
+
+                cur_tu_idx = ps_codec->s_parse.pu4_pic_tu_idx[cur_ctb_idx];
+            }
+
+            ps_tu = &ps_codec->s_parse.ps_pic_tu[cur_tu_idx];
+
+            if(u4_qp_const_in_ctb)
+            {
+                pu1_qp[0] = ps_tu->b7_qp;
+            }
+            else
+            {
+                for(i = 0; i < i4_ctb_tu_cnt; i++, ps_tu++)
+                {
+                    WORD32 start_pos_x;
+                    WORD32 start_pos_y;
+                    WORD32 tu_size;
+
+                    /* start_pos_x and start_pos_y are in units of min TU size (4x4) */
+                    start_pos_x = ps_tu->b4_pos_x;
+                    start_pos_y = ps_tu->b4_pos_y;
+
+                    tu_size = 1 << (ps_tu->b3_size + 2);
+                    tu_size >>= 2; /* TU size divided by 4 */
+
+                    if(0 == (start_pos_x & 1) && 0 == (start_pos_y & 1))
+                    {
+                        WORD32 row, col;
+                        for(row = start_pos_y; row < start_pos_y + tu_size; row += 2)
+                        {
+                            for(col = start_pos_x; col < start_pos_x + tu_size; col += 2)
+                            {
+                                pu1_qp[(row >> 1) * qp_strd + (col >> 1)] = ps_tu->b7_qp;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         if(ps_codec->i4_num_cores <= MV_PRED_NUM_CORES_THRESHOLD)
         {
@@ -2962,8 +3036,9 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
              */
             if(0 == ps_codec->i4_disable_deblk_pic)
             {
-                if((0 == ps_slice_hdr->i1_slice_disable_deblocking_filter_flag) &&
-                                (0 == ps_codec->i4_slice_error))
+                /* Boundary strength calculation is done irrespective of whether deblocking is disabled
+                 * in the slice or not, to handle deblocking slice boundaries */
+                if((0 == ps_codec->i4_slice_error))
                 {
                     WORD32 i4_ctb_tu_cnt;
                     WORD32 cur_ctb_idx, next_ctb_idx;
@@ -3020,7 +3095,9 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
                         ihevcd_ctb_boundary_strength_pbslice(&ps_codec->s_parse.s_bs_ctxt);
                     }
                 }
-                else
+
+                /* Boundary strength is set to zero if deblocking is disabled for the current slice */
+                if(0 != ps_slice_hdr->i1_slice_disable_deblocking_filter_flag)
                 {
                     WORD32 bs_strd = (ps_sps->i2_pic_wd_in_ctb + 1) * (ctb_size * ctb_size / 8 / 16);
 
@@ -3031,9 +3108,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_data(codec_t *ps_codec)
                                     ps_codec->s_parse.i4_ctb_x * (ctb_size * ctb_size / 8 / 16) +
                                     ps_codec->s_parse.i4_ctb_y * bs_strd);
 
-                    memset(pu4_vert_bs, 0, (ctb_size / 8 + 1) * (ctb_size / 4) / 8 * 2);
+                    memset(pu4_vert_bs, 0, (ctb_size / 8) * (ctb_size / 4) / 8 * 2);
                     memset(pu4_horz_bs, 0, (ctb_size / 8) * (ctb_size / 4) / 8 * 2);
-
                 }
             }
 

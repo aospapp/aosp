@@ -17,14 +17,33 @@
 package com.android.tv.settings.device.apps;
 
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
+
 import com.android.tv.settings.BrowseInfoFactory;
-import com.android.tv.settings.R;
 import com.android.tv.settings.MenuActivity;
+import com.android.tv.settings.R;
 
 /**
  * Activity allowing the management of apps settings.
  */
 public class AppsActivity extends MenuActivity {
+
+    // Used for storage only.
+    public static final String EXTRA_VOLUME_UUID = "volumeUuid";
+    public static final String EXTRA_VOLUME_NAME = "volumeName";
+
+    private String mVolumeUuid;
+    private String mVolumeName; // TODO: surface this to the user somewhere
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        final Bundle args = getIntent().getExtras();
+        if (args != null && args.containsKey(EXTRA_VOLUME_UUID)) {
+            mVolumeUuid = args.getString(EXTRA_VOLUME_UUID);
+            mVolumeName = args.getString(EXTRA_VOLUME_NAME);
+        }
+        super.onCreate(savedInstanceState);
+    }
 
     @Override
     protected String getBrowseTitle() {
@@ -33,12 +52,12 @@ public class AppsActivity extends MenuActivity {
     
     @Override
     protected Drawable getBadgeImage() {
-        return getResources().getDrawable(R.drawable.ic_settings_apps);
+        return getDrawable(R.drawable.ic_settings_apps);
     }
     
     @Override
     protected BrowseInfoFactory getBrowseInfoFactory() {
-        AppsBrowseInfo appsBrowseInfo = new AppsBrowseInfo(this);
+        AppsBrowseInfo appsBrowseInfo = new AppsBrowseInfo(this, mVolumeUuid, mVolumeName);
         appsBrowseInfo.init();
         return appsBrowseInfo;
     }

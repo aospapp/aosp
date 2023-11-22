@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,7 @@ void GenerateAdd4Double(MacroAssembler* masm) {
 
 
 #ifndef TEST_EXAMPLES
+#ifdef USE_SIMULATOR
 int main(void) {
   // Create and initialize the assembler and the simulator.
   byte assm_buf[BUF_SIZE];
@@ -74,9 +75,13 @@ int main(void) {
   simulator.set_dreg(0, b);
   simulator.set_xreg(1, c);
   simulator.set_dreg(1, d);
-  simulator.RunFrom(add4_double.target());
+  simulator.RunFrom(masm.GetLabelAddress<Instruction*>(&add4_double));
   printf("%ld + %f + %ld + %f = %f\n", a, b, c, d, simulator.dreg(0));
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

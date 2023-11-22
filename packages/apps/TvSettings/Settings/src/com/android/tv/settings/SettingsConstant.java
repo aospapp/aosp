@@ -21,5 +21,5 @@ package com.android.tv.settings;
  */
 public class SettingsConstant {
 
-    public static String PACKAGE = "com.android.tv.settings";
+    public static final String PACKAGE = "com.android.tv.settings";
 }

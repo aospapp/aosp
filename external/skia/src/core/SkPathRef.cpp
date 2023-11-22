@@ -29,14 +29,16 @@ SkPathRef::Editor::Editor(SkAutoTUnref<SkPathRef>* pathRef,
 
 //////////////////////////////////////////////////////////////////////////////
 
-SkPathRef* SkPathRef::CreateEmptyImpl() {
-    SkPathRef* p = SkNEW(SkPathRef);
-    p->computeBounds();   // Preemptively avoid a race to clear fBoundsIsDirty.
-    return p;
+// As a template argument, this must have external linkage.
+SkPathRef* sk_create_empty_pathref() {
+    SkPathRef* empty = SkNEW(SkPathRef);
+    empty->computeBounds();   // Avoids races later to be the first to do this.
+    return empty;
 }
 
+SK_DECLARE_STATIC_LAZY_PTR(SkPathRef, empty, sk_create_empty_pathref);
+
 SkPathRef* SkPathRef::CreateEmpty() {
-    SK_DECLARE_STATIC_LAZY_PTR(SkPathRef, empty, CreateEmptyImpl);
     return SkRef(empty.get());
 }
 
@@ -191,12 +193,18 @@ bool SkPathRef::operator== (const SkPathRef& ref) const {
         SkASSERT(!genIDMatch);
         return false;
     }
+    if (0 == ref.fVerbCnt) {
+        SkASSERT(0 == ref.fPointCnt);
+        return true;
+    }
+    SkASSERT(this->verbsMemBegin() && ref.verbsMemBegin());
     if (0 != memcmp(this->verbsMemBegin(),
                     ref.verbsMemBegin(),
                     ref.fVerbCnt * sizeof(uint8_t))) {
         SkASSERT(!genIDMatch);
         return false;
     }
+    SkASSERT(this->points() && ref.points());
     if (0 != memcmp(this->points(),
                     ref.points(),
                     ref.fPointCnt * sizeof(SkPoint))) {
@@ -345,7 +353,7 @@ SkPoint* SkPathRef::growForRepeatedVerb(int /*SkPath::Verb*/ verb,
     }
 
     if (SkPath::kConic_Verb == verb) {
-        SkASSERT(NULL != weights);
+        SkASSERT(weights);
         *weights = fConicWeights.append(numVbs);
     }
 
@@ -444,11 +452,24 @@ void SkPathRef::validate() const {
     if (!fBoundsIsDirty && !fBounds.isEmpty()) {
         bool isFinite = true;
         for (int i = 0; i < fPointCnt; ++i) {
-            SkASSERT(!fPoints[i].isFinite() || (
-                     fBounds.fLeft - fPoints[i].fX   < SK_ScalarNearlyZero &&
-                     fPoints[i].fX - fBounds.fRight  < SK_ScalarNearlyZero &&
-                     fBounds.fTop  - fPoints[i].fY   < SK_ScalarNearlyZero &&
-                     fPoints[i].fY - fBounds.fBottom < SK_ScalarNearlyZero));
+#ifdef SK_DEBUG
+            if (fPoints[i].isFinite() &&
+                (fPoints[i].fX < fBounds.fLeft || fPoints[i].fX > fBounds.fRight ||
+                 fPoints[i].fY < fBounds.fTop || fPoints[i].fY > fBounds.fBottom)) {
+                SkDebugf("bounds: %f %f %f %f\n",
+                         fBounds.fLeft, fBounds.fTop, fBounds.fRight, fBounds.fBottom);
+                for (int j = 0; j < fPointCnt; ++j) {
+                    if (i == j) {
+                        SkDebugf("*");
+                    }
+                    SkDebugf("%f %f\n", fPoints[j].fX, fPoints[j].fY);
+                }
+            }
+#endif
+
+            SkASSERT(!fPoints[i].isFinite() ||
+		     (fPoints[i].fX >= fBounds.fLeft && fPoints[i].fX <= fBounds.fRight &&
+		      fPoints[i].fY >= fBounds.fTop && fPoints[i].fY <= fBounds.fBottom));
             if (!fPoints[i].isFinite()) {
                 isFinite = false;
             }

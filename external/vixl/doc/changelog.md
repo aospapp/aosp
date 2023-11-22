@@ -1,6 +1,61 @@
 VIXL Change Log
 ===============
 
+* 1.9
+    + Improved compatibility with Android build system.
+    + Improved compatibility with Clang toolchain.
+    + Added support for `umulh` instruction.
+    + Added support for `fcmpe` and `fccmpe` instructions.
+    + Other small bug fixes and improvements.
+
+* 1.8
+    + Complete NEON instruction set support.
+    + Support long branches using veneers.
+    + Improved handling of literal pools.
+    + Support some `ic` and `dc` cache op instructions.
+    + Support CRC32 instructions.
+    + Support half-precision floating point instructions.
+    + MacroAssembler support for `bfm`, `ubfm` and `sbfm`.
+    + Other small bug fixes and improvements.
+
+* 1.7
+    + Added support for `prfm` prefetch instructions.
+    + Added support for all `frint` instruction variants.
+    + Add support for disassembling as an offset from a given address.
+    + Fixed the disassembly of `movz` and `movn`.
+    + Provide static helpers for immediate generation.
+    + Provide helpers to create CPURegList from list unions or intersections.
+    + Improved register value tracing.
+    + Multithreading test fixes.
+    + Other small bug fixes and build system improvements.
+
+* 1.6
+    + Make literal pool management the responsibility of the macro assembler.
+    + Move code buffer management out of the Assembler.
+    + Support `ldrsw` for literals.
+    + Support binding a label to a specific offset.
+    + Add macro assembler support for load/store pair with arbitrary offset.
+    + Support Peek and Poke for CPURegLists.
+    + Fix disassembly of branch targets.
+    + Fix Decoder visitor insertion order.
+    + Separate Decoder visitors into const and non-const variants.
+    + Fix simulator for branches to tagged addresses.
+    + Add a VIM YouCompleteMe configuration file.
+    + Other small bug fixes and build system improvements.
+
+* 1.5
+    + Tagged pointer support.
+    + Implement support for exclusive access instructions.
+    + Implement support for `adrp` instruction.
+    + Faster code for logical immediate identification.
+    + Generate better code for immediates passed to shift-capable instructions.
+    + Allow explicit use of unscaled-offset loads and stores.
+    + Build and test infrastructure improvements.
+    + Corrected computation of cache line size.
+    + Fix simulation of `extr` instruction.
+    + Fixed a bug when moving kWMinInt to a register.
+    + Other small bug fixes.
+
 * 1.4
     + Added support for `frintm`.
     + Fixed simulation of `frintn` and `frinta` for corner cases.

@@ -15,8 +15,8 @@
 // size in bytes; MipsLongBranch only expects it to be the correct upper bound.
 //===----------------------------------------------------------------------===//
 
-#ifndef MIPSINSTRUCTIONINFO_H
-#define MIPSINSTRUCTIONINFO_H
+#ifndef LLVM_LIB_TARGET_MIPS_MIPSINSTRINFO_H
+#define LLVM_LIB_TARGET_MIPS_MIPSINSTRINFO_H
 
 #include "Mips.h"
 #include "MipsAnalyzeImmediate.h"
@@ -29,11 +29,11 @@
 #include "MipsGenInstrInfo.inc"
 
 namespace llvm {
-
+class MipsSubtarget;
 class MipsInstrInfo : public MipsGenInstrInfo {
   virtual void anchor();
 protected:
-  MipsTargetMachine &TM;
+  const MipsSubtarget &Subtarget;
   unsigned UncondBrOpc;
 
 public:
@@ -46,9 +46,9 @@ public:
     BT_Indirect    // One indirct branch.
   };
 
-  explicit MipsInstrInfo(MipsTargetMachine &TM, unsigned UncondBrOpc);
+  explicit MipsInstrInfo(const MipsSubtarget &STI, unsigned UncondBrOpc);
 
-  static const MipsInstrInfo *create(MipsTargetMachine &TM);
+  static const MipsInstrInfo *create(MipsSubtarget &STI);
 
   /// Branch Analysis
   bool AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
@@ -117,6 +117,10 @@ public:
                                 const TargetRegisterInfo *TRI,
                                 int64_t Offset) const = 0;
 
+  virtual void adjustStackPtr(unsigned SP, int64_t Amount,
+                              MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator I) const = 0;
+
   /// Create an instruction which has the same operands and memory operands
   /// as MI but has a new opcode.
   MachineInstrBuilder genInstrWithNewOpc(unsigned NewOpc,
@@ -140,8 +144,8 @@ private:
 };
 
 /// Create MipsInstrInfo objects.
-const MipsInstrInfo *createMips16InstrInfo(MipsTargetMachine &TM);
-const MipsInstrInfo *createMipsSEInstrInfo(MipsTargetMachine &TM);
+const MipsInstrInfo *createMips16InstrInfo(const MipsSubtarget &STI);
+const MipsInstrInfo *createMipsSEInstrInfo(const MipsSubtarget &STI);
 
 }
 

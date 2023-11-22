@@ -27,7 +27,7 @@
     <string name="add_file_attachment" msgid="2604880054248593993">"Datei anhängen"</string>
     <string name="add_photo_attachment" msgid="7163589794940909528">"Bild anhängen"</string>
     <string name="save_draft" msgid="2669523480789672118">"Entwurf speichern"</string>
-    <string name="discard" msgid="4905982179911608430">"Löschen"</string>
+    <string name="discard" msgid="4905982179911608430">"Verwerfen"</string>
     <string name="compose" msgid="2602861958391035523">"Schreiben"</string>
     <string name="compose_title" msgid="5673376086133995913">"Schreiben"</string>
   <string-array name="compose_modes">
@@ -65,7 +65,7 @@
     <string name="mark_not_spam" msgid="8617774236231366651">"Kein Spam"</string>
     <string name="report_phishing" msgid="8454666464488413739">"Phishing melden"</string>
     <string name="delete" msgid="6784262386780496958">"Löschen"</string>
-    <string name="discard_drafts" msgid="5881484193628472105">"Entwürfe löschen"</string>
+    <string name="discard_drafts" msgid="5881484193628472105">"Entwürfe verwerfen"</string>
     <string name="discard_failed" msgid="7520780769812210279">"Fehler beim Verwerfen"</string>
     <string name="refresh" msgid="1533748989749277511">"Aktualisieren"</string>
     <string name="reply" msgid="8337757482824207118">"Antworten"</string>
@@ -154,10 +154,10 @@
     <item quantity="other" msgid="2001972798185641108">"Diese <xliff:g id="COUNT">%1$d</xliff:g> Konversationen archivieren?"</item>
   </plurals>
   <plurals name="confirm_discard_drafts_conversation">
-    <item quantity="one" msgid="2030421499893210789">"Nachricht löschen?"</item>
-    <item quantity="other" msgid="782234447471532005">"<xliff:g id="COUNT">%1$d</xliff:g> Nachrichten löschen?"</item>
+    <item quantity="one" msgid="2030421499893210789">"Nachricht verwerfen?"</item>
+    <item quantity="other" msgid="782234447471532005">"<xliff:g id="COUNT">%1$d</xliff:g> Nachrichten verwerfen?"</item>
   </plurals>
-    <string name="confirm_discard_text" msgid="5172680524418848519">"Nachricht löschen?"</string>
+    <string name="confirm_discard_text" msgid="5172680524418848519">"Nachricht verwerfen?"</string>
     <string name="loading_conversations" msgid="7255732786298655246">"Wird geladen…"</string>
     <string name="empty_inbox" msgid="5901734942362315228">"Der Posteingang ist leer."</string>
     <string name="empty_search" msgid="8564899353449880818">"Keine Ergebnisse für Ihre Suche nach \"<xliff:g id="SEARCH_QUERY">%1$s</xliff:g>\""</string>

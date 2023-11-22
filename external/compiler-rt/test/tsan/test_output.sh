@@ -12,8 +12,8 @@ TSAN_DIR=$(dirname $0)/../../lib/tsan
 : ${FILECHECK:=FileCheck}
 
 # TODO: add testing for all of -O0...-O3
-CFLAGS="-fsanitize=thread -fPIE -O1 -g -Wall"
-LDFLAGS="-pie -pthread -ldl -lrt -lm -Wl,--whole-archive $TSAN_DIR/rtl/libtsan.a -Wl,--no-whole-archive"
+CFLAGS="-fsanitize=thread -O2 -g -Wall"
+LDFLAGS="-pthread -ldl -lrt -lm -Wl,--whole-archive $TSAN_DIR/rtl/libtsan.a -Wl,--no-whole-archive"
 
 test_file() {
   SRC=$1
@@ -46,6 +46,10 @@ if [ "$1" == "" ]; then
     fi
     if [ "`grep "TSAN_OPTIONS" $c`" ]; then
       echo SKIPPING $c -- requires TSAN_OPTIONS
+      continue
+    fi
+    if [ "`grep "XFAIL" $c`" ]; then
+      echo SKIPPING $c -- has XFAIL
       continue
     fi
     COMPILER=$CXX

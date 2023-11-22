@@ -34,12 +34,15 @@
 #include "tcuPixelFormat.hpp"
 #include "tcuRenderTarget.hpp"
 #include "tcuTestContext.hpp"
-#include "deMath.h"
-#include "deInt32.h"
-#include "gluShaderProgram.hpp"
 #include "tcuTestLog.hpp"
 #include "tcuCompressedTexture.hpp"
+#include "tcuTextureUtil.hpp"
+
+#include "gluShaderProgram.hpp"
 #include "gluShaderUtil.hpp"
+
+#include "deMath.h"
+#include "deInt32.h"
 
 #include <map>
 
@@ -189,7 +192,7 @@ enum Program
 class ProgramLibrary
 {
 public:
-											ProgramLibrary			(const glu::RenderContext& context, tcu::TestContext& testCtx, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision);
+											ProgramLibrary			(const glu::RenderContext& context, tcu::TestLog& log, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision);
 											~ProgramLibrary			(void);
 
 	glu::ShaderProgram*						getProgram				(Program program);
@@ -200,7 +203,7 @@ private:
 	ProgramLibrary&							operator=				(const ProgramLibrary& other);
 
 	const glu::RenderContext&				m_context;
-	tcu::TestContext&						m_testCtx;
+	tcu::TestLog&							m_log;
 	glu::GLSLVersion						m_glslVersion;
 	glu::Precision							m_texCoordPrecision;
 	std::map<Program, glu::ShaderProgram*>	m_programs;
@@ -209,7 +212,7 @@ private:
 class TextureRenderer
 {
 public:
-								TextureRenderer			(const glu::RenderContext& context, tcu::TestContext& testCtx, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision);
+								TextureRenderer			(const glu::RenderContext& context, tcu::TestLog& log, glu::GLSLVersion glslVersion, glu::Precision texCoordPrecision);
 								~TextureRenderer		(void);
 
 	void						clear					(void); //!< Frees allocated resources. Destructor will call clear() as well.
@@ -222,7 +225,7 @@ private:
 	TextureRenderer&			operator=				(const TextureRenderer& other);
 
 	const glu::RenderContext&	m_renderCtx;
-	tcu::TestContext&			m_testCtx;
+	tcu::TestLog&				m_log;
 	ProgramLibrary				m_programLibrary;
 };
 
@@ -239,20 +242,18 @@ public:
 
 inline tcu::RGBA toRGBA (const tcu::Vec4& v)
 {
-	// \todo [2011-10-24 pyry] Rounding mode?
-	return tcu::RGBA(deClamp32(deRoundFloatToInt32(v.x()*255.0f), 0, 255),
-					 deClamp32(deRoundFloatToInt32(v.y()*255.0f), 0, 255),
-					 deClamp32(deRoundFloatToInt32(v.z()*255.0f), 0, 255),
-					 deClamp32(deRoundFloatToInt32(v.w()*255.0f), 0, 255));
+	return tcu::RGBA(tcu::floatToU8(v.x()),
+					 tcu::floatToU8(v.y()),
+					 tcu::floatToU8(v.z()),
+					 tcu::floatToU8(v.w()));
 }
 
 inline tcu::RGBA toRGBAMasked (const tcu::Vec4& v, deUint8 mask)
 {
-	// \todo [2011-10-24 pyry] Rounding mode?
-	return tcu::RGBA((mask&tcu::RGBA::RED_MASK)		? deClamp32(deRoundFloatToInt32(v.x()*255.0f), 0, 255) : 0,
-					 (mask&tcu::RGBA::GREEN_MASK)	? deClamp32(deRoundFloatToInt32(v.y()*255.0f), 0, 255) : 0,
-					 (mask&tcu::RGBA::BLUE_MASK)	? deClamp32(deRoundFloatToInt32(v.z()*255.0f), 0, 255) : 0,
-					 (mask&tcu::RGBA::ALPHA_MASK)	? deClamp32(deRoundFloatToInt32(v.w()*255.0f), 0, 255) : 0xff);
+	return tcu::RGBA((mask&tcu::RGBA::RED_MASK)		? tcu::floatToU8(v.x()) : 0,
+					 (mask&tcu::RGBA::GREEN_MASK)	? tcu::floatToU8(v.y()) : 0,
+					 (mask&tcu::RGBA::BLUE_MASK)	? tcu::floatToU8(v.z()) : 0,
+					 (mask&tcu::RGBA::ALPHA_MASK)	? tcu::floatToU8(v.w()) : 0xFF); //!< \note Alpha defaults to full saturation when reading masked format
 }
 
 inline tcu::Vec4 toVec4 (const tcu::RGBA& c)
@@ -360,7 +361,6 @@ void			fetchTexture				(const SurfaceAccess& dst, const tcu::ConstPixelBufferAcc
 
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture2DView&		src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::TextureCubeView&		src, const float* texCoord, const ReferenceParams& params);
-void			sampleTextureMultiFace		(const SurfaceAccess& dst, const tcu::TextureCubeView&		src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture2DArrayView&	src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::Texture3DView&		src, const float* texCoord, const ReferenceParams& params);
 void			sampleTexture				(const SurfaceAccess& dst, const tcu::TextureCubeArrayView&	src, const float* texCoord, const ReferenceParams& params);

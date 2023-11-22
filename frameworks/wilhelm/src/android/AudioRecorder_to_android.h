@@ -17,7 +17,7 @@
 /**************************************************************************************************
  * AudioRecorder lifecycle
  ****************************/
-extern SLresult android_audioRecorder_checkSourceSinkSupport(CAudioRecorder* ar);
+extern SLresult android_audioRecorder_checkSourceSink(CAudioRecorder* ar);
 
 extern SLresult android_audioRecorder_create(CAudioRecorder* ar);
 

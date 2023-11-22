@@ -1,11 +1,12 @@
-
 /*
  * Copyright 2011 Google Inc.
  *
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
+
 #include "SampleCode.h"
+#include "SkAnimTimer.h"
 #include "SkView.h"
 #include "SkCanvas.h"
 #include "SkGradientShader.h"
@@ -206,26 +207,29 @@ void Patch::draw(SkCanvas* canvas, const SkPaint& paint, int nu, int nv,
 
 static void drawpatches(SkCanvas* canvas, const SkPaint& paint, int nu, int nv,
                         Patch* patch) {
-
     SkAutoCanvasRestore ar(canvas, true);
 
-    patch->draw(canvas, paint, 10, 10, false, false);
+    patch->draw(canvas, paint, nu, nv, false, false);
     canvas->translate(SkIntToScalar(180), 0);
-    patch->draw(canvas, paint, 10, 10, true, false);
+    patch->draw(canvas, paint, nu, nv, true, false);
     canvas->translate(SkIntToScalar(180), 0);
-    patch->draw(canvas, paint, 10, 10, false, true);
+    patch->draw(canvas, paint, nu, nv, false, true);
     canvas->translate(SkIntToScalar(180), 0);
-    patch->draw(canvas, paint, 10, 10, true, true);
+    patch->draw(canvas, paint, nu, nv, true, true);
 }
 
+const SkScalar DX = 20;
+const SkScalar DY = 0;
+
 class PatchView : public SampleView {
+    SkScalar    fAngle;
     SkShader*   fShader0;
     SkShader*   fShader1;
     SkIPoint    fSize0, fSize1;
     SkPoint     fPts[12];
 
 public:
-    PatchView() {
+    PatchView() : fAngle(0) {
         fShader0 = make_shader0(&fSize0);
         fSize1 = fSize0;
         if (fSize0.fX == 0 || fSize0.fY == 0) {
@@ -267,11 +271,14 @@ protected:
     }
 
     virtual void onDrawContent(SkCanvas* canvas) {
+        const int nu = 10;
+        const int nv = 10;
+
         SkPaint paint;
         paint.setDither(true);
-        paint.setFilterLevel(SkPaint::kLow_FilterLevel);
+        paint.setFilterQuality(kLow_SkFilterQuality);
 
-        canvas->translate(SkIntToScalar(20), 0);
+        canvas->translate(DX, DY);
 
         Patch   patch;
 
@@ -285,7 +292,7 @@ protected:
         patch.setBounds(fSize0.fX, fSize0.fY);
 
         patch.setPatch(fPts);
-        drawpatches(canvas, paint, 10, 10, &patch);
+        drawpatches(canvas, paint, nu, nv, &patch);
 
         paint.setShader(NULL);
         paint.setAntiAlias(true);
@@ -296,23 +303,25 @@ protected:
 
         paint.setAntiAlias(false);
         paint.setShader(fShader1);
-        {
+        if (true) {
             SkMatrix m;
             m.setSkew(1, 0);
             SkShader* s = SkShader::CreateLocalMatrixShader(paint.getShader(), m);
             paint.setShader(s)->unref();
         }
-        {
-            static int gAngle;
+        if (true) {
             SkMatrix m;
-            m.setRotate(SkIntToScalar(gAngle++));
+            m.setRotate(fAngle);
             SkShader* s = SkShader::CreateLocalMatrixShader(paint.getShader(), m);
             paint.setShader(s)->unref();
         }
         patch.setBounds(fSize1.fX, fSize1.fY);
-        drawpatches(canvas, paint, 10, 10, &patch);
+        drawpatches(canvas, paint, nu, nv, &patch);
+    }
 
-        this->inval(NULL);
+    bool onAnimate(const SkAnimTimer& timer) override {
+        fAngle = timer.scaled(60, 360);
+        return true;
     }
 
     class PtClick : public Click {
@@ -326,7 +335,9 @@ protected:
     }
 
     virtual SkView::Click* onFindClickHandler(SkScalar x, SkScalar y,
-                                              unsigned modi) SK_OVERRIDE {
+                                              unsigned modi) override {
+        x -= DX;
+        y -= DY;
         for (size_t i = 0; i < SK_ARRAY_COUNT(fPts); i++) {
             if (hittest(fPts[i], x, y)) {
                 return new PtClick(this, (int)i);
@@ -336,7 +347,7 @@ protected:
     }
 
     virtual bool onClick(Click* click) {
-        fPts[((PtClick*)click)->fIndex].set(click->fCurr.fX, click->fCurr.fY);
+        fPts[((PtClick*)click)->fIndex].set(click->fCurr.fX - DX, click->fCurr.fY - DY);
         this->inval(NULL);
         return true;
     }

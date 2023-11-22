@@ -15,9 +15,11 @@
 package com.google.common.collect.testing.google;
 
 import static com.google.common.collect.testing.features.CollectionFeature.KNOWN_ORDER;
-import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_REMOVE;
+import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_ITERATOR_REMOVE;
 
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.IteratorFeature;
 import com.google.common.collect.testing.IteratorTester;
 import com.google.common.collect.testing.features.CollectionFeature;
@@ -33,10 +35,10 @@ import java.util.List;
  * 
  * @author Louis Wasserman
  */
-@GwtCompatible
+@GwtCompatible(emulated = true)
 public class MultisetIteratorTester<E> extends AbstractMultisetTester<E> {
   @SuppressWarnings("unchecked")
-  @CollectionFeature.Require({SUPPORTS_REMOVE, KNOWN_ORDER})
+  @CollectionFeature.Require({SUPPORTS_ITERATOR_REMOVE, KNOWN_ORDER})
   public void testRemovingIteratorKnownOrder() {
     new IteratorTester<E>(4, IteratorFeature.MODIFIABLE, getSubjectGenerator().order(
         Arrays.asList(samples.e0, samples.e1, samples.e1, samples.e2)),
@@ -50,7 +52,7 @@ public class MultisetIteratorTester<E> extends AbstractMultisetTester<E> {
   }
 
   @SuppressWarnings("unchecked")
-  @CollectionFeature.Require(value = SUPPORTS_REMOVE, absent = KNOWN_ORDER)
+  @CollectionFeature.Require(value = SUPPORTS_ITERATOR_REMOVE, absent = KNOWN_ORDER)
   public void testRemovingIteratorUnknownOrder() {
     new IteratorTester<E>(4, IteratorFeature.MODIFIABLE, Arrays.asList(samples.e0, samples.e1,
         samples.e1, samples.e2), IteratorTester.KnownOrder.UNKNOWN_ORDER) {
@@ -63,7 +65,7 @@ public class MultisetIteratorTester<E> extends AbstractMultisetTester<E> {
   }
 
   @SuppressWarnings("unchecked")
-  @CollectionFeature.Require(value = KNOWN_ORDER, absent = SUPPORTS_REMOVE)
+  @CollectionFeature.Require(value = KNOWN_ORDER, absent = SUPPORTS_ITERATOR_REMOVE)
   public void testIteratorKnownOrder() {
     new IteratorTester<E>(4, IteratorFeature.UNMODIFIABLE, getSubjectGenerator().order(
         Arrays.asList(samples.e0, samples.e1, samples.e1, samples.e2)),
@@ -77,7 +79,7 @@ public class MultisetIteratorTester<E> extends AbstractMultisetTester<E> {
   }
 
   @SuppressWarnings("unchecked")
-  @CollectionFeature.Require(absent = {SUPPORTS_REMOVE, KNOWN_ORDER})
+  @CollectionFeature.Require(absent = {SUPPORTS_ITERATOR_REMOVE, KNOWN_ORDER})
   public void testIteratorUnknownOrder() {
     new IteratorTester<E>(4, IteratorFeature.UNMODIFIABLE, Arrays.asList(samples.e0, samples.e1,
         samples.e1, samples.e2), IteratorTester.KnownOrder.UNKNOWN_ORDER) {
@@ -93,11 +95,12 @@ public class MultisetIteratorTester<E> extends AbstractMultisetTester<E> {
    * Returns {@link Method} instances for the tests that assume multisets support duplicates so that
    * the test of {@code Multisets.forSet()} can suppress them.
    */
+  @GwtIncompatible("reflection")
   public static List<Method> getIteratorDuplicateInitializingMethods() {
     return Arrays.asList(
-        Platform.getMethod(MultisetIteratorTester.class, "testIteratorKnownOrder"),
-        Platform.getMethod(MultisetIteratorTester.class, "testIteratorUnknownOrder"),
-        Platform.getMethod(MultisetIteratorTester.class, "testRemovingIteratorKnownOrder"),
-        Platform.getMethod(MultisetIteratorTester.class, "testRemovingIteratorUnknownOrder"));
+        Helpers.getMethod(MultisetIteratorTester.class, "testIteratorKnownOrder"),
+        Helpers.getMethod(MultisetIteratorTester.class, "testIteratorUnknownOrder"),
+        Helpers.getMethod(MultisetIteratorTester.class, "testRemovingIteratorKnownOrder"),
+        Helpers.getMethod(MultisetIteratorTester.class, "testRemovingIteratorUnknownOrder"));
   }
 }

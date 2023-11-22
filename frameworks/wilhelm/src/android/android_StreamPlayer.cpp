@@ -329,7 +329,7 @@ void StreamPlayer::onMessageReceived(const sp<AMessage> &msg) {
 
 void StreamPlayer::preDestroy() {
     // FIXME NuPlayerDriver is currently not thread-safe, so stop() must be called by looper
-    (new AMessage(kWhatStopForDestroy, id()))->post();
+    (new AMessage(kWhatStopForDestroy, this))->post();
     {
         Mutex::Autolock _l(mStopForDestroyLock);
         while (!mStopForDestroyCompleted) {
@@ -369,7 +369,7 @@ void StreamPlayer::onStopForDestroy() {
 void StreamPlayer::queueRefilled() {
     // async notification that the ABQ was refilled: the player should pull from the ABQ, and
     //    and push to shared memory (to the media server)
-    (new AMessage(kWhatPullFromAbq, id()))->post();
+    (new AMessage(kWhatPullFromAbq, this))->post();
 }
 
 
@@ -389,7 +389,8 @@ void StreamPlayer::onPrepare() {
                     mPlaybackParams.sessionId);
             if (mPlayer == NULL) {
                 SL_LOGE("media player service failed to create player by app proxy");
-            } else if (mPlayer->setDataSource(mAppProxy /*IStreamSource*/) != NO_ERROR) {
+            } else if (mPlayer->setDataSource(static_cast<sp<IStreamSource>>(mAppProxy)) !=
+                    NO_ERROR) {
                 SL_LOGE("setDataSource failed");
                 mPlayer.clear();
             }

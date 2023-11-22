@@ -98,17 +98,33 @@ Decode_Status VideoDecoderMPEG4::decode(VideoDecodeBuffer *buffer) {
         data->codec_data.video_object_layer_width &&
         data->codec_data.video_object_layer_height) {
         // update  encoded image size
-        ITRACE("Video size is changed. from %dx%d to %dx%d\n",mVideoFormatInfo.width,mVideoFormatInfo.height,
-                data->codec_data.video_object_layer_width,data->codec_data.video_object_layer_height);
-        bool noNeedFlush = false;
+        ITRACE("Video size is changed. from %dx%d to %dx%d\n", mVideoFormatInfo.width, mVideoFormatInfo.height,
+        data->codec_data.video_object_layer_width,data->codec_data.video_object_layer_height);
+
+        if (useGraphicbuffer && mStoreMetaData) {
+            pthread_mutex_lock(&mFormatLock);
+        }
         mVideoFormatInfo.width = data->codec_data.video_object_layer_width;
         mVideoFormatInfo.height = data->codec_data.video_object_layer_height;
+        bool needFlush = false;
         if (useGraphicbuffer) {
-            noNeedFlush = (mVideoFormatInfo.width <= mVideoFormatInfo.surfaceWidth)
-                    && (mVideoFormatInfo.height <= mVideoFormatInfo.surfaceHeight);
+            if (mStoreMetaData) {
+                needFlush = true;
+
+                mVideoFormatInfo.valid = false;
+                pthread_mutex_unlock(&mFormatLock);
+            } else {
+                needFlush = (mVideoFormatInfo.width > mVideoFormatInfo.surfaceWidth)
+                         || (mVideoFormatInfo.height > mVideoFormatInfo.surfaceHeight);
+            }
         }
-        if (!noNeedFlush) {
-            flushSurfaceBuffers();
+        if (needFlush) {
+            if (mStoreMetaData) {
+                status = endDecodingFrame(false);
+                CHECK_STATUS("endDecodingFrame");
+            } else {
+                flushSurfaceBuffers();
+            }
             mSizeChanged = false;
             return DECODE_FORMAT_CHANGE;
         } else {
@@ -116,6 +132,10 @@ Decode_Status VideoDecoderMPEG4::decode(VideoDecodeBuffer *buffer) {
         }
 
         setRenderRect();
+    } else {
+        if (useGraphicbuffer && mStoreMetaData) {
+            mVideoFormatInfo.valid = true;
+        }
     }
 
     status = decodeFrame(buffer, data);
@@ -139,12 +159,14 @@ Decode_Status VideoDecoderMPEG4::decodeFrame(VideoDecodeBuffer *buffer, vbp_data
         WTRACE("number_picture_data == 0");
         return DECODE_SUCCESS;
     }
-
-    // When the MPEG4 parser gets the invaild parameters, add the check
-    // and return error to OMX to avoid mediaserver crash.
-    if (data->picture_data && (data->picture_data->picture_param.vop_width == 0
-        || data->picture_data->picture_param.vop_height == 0)) {
-        return DECODE_PARSER_FAIL;
+    if (data->picture_data && (data->picture_data->picture_param.vop_width == 0 || data->picture_data->picture_param.vop_height == 0)) {
+        if (!data->codec_data.got_vol && data->codec_data.got_vop) {
+            // error enhancement if vol is missing
+            data->picture_data->picture_param.vop_width = mVideoFormatInfo.width;
+            data->picture_data->picture_param.vop_height = mVideoFormatInfo.height;
+        } else {
+            return DECODE_PARSER_FAIL;
+        }
     }
 
     uint64_t lastPTS = mCurrentPTS;
@@ -580,6 +602,11 @@ void VideoDecoderMPEG4::updateFormatInfo(vbp_data_mp42 *data) {
         mVideoFormatInfo.width, mVideoFormatInfo.height,
         data->codec_data.video_object_layer_width,
         data->codec_data.video_object_layer_height);
+    // error enhancement if vol is missing
+    if (!data->codec_data.got_vol && data->codec_data.got_vop) {
+        data->codec_data.video_object_layer_width = mVideoFormatInfo.width;
+        data->codec_data.video_object_layer_height = mVideoFormatInfo.height;
+    }
 
     mVideoFormatInfo.cropBottom = data->codec_data.video_object_layer_height > mVideoFormatInfo.height ?
                                                                           data->codec_data.video_object_layer_height - mVideoFormatInfo.height : 0;
@@ -624,6 +651,7 @@ void VideoDecoderMPEG4::updateFormatInfo(vbp_data_mp42 *data) {
     mVideoFormatInfo.valid = true;
 
     setRenderRect();
+    setColorSpaceInfo(mVideoFormatInfo.colorMatrix, mVideoFormatInfo.videoRange);
 }
 
 Decode_Status VideoDecoderMPEG4::checkHardwareCapability() {

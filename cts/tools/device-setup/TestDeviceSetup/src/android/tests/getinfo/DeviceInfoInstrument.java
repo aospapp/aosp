@@ -80,6 +80,8 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
 
         addResult(VERSION_RELEASE, Build.VERSION.RELEASE);
         addResult(VERSION_SDK, Build.VERSION.SDK);
+        addResult(VERSION_BASE_OS, Build.VERSION.BASE_OS);
+        addResult(VERSION_SECURITY_PATCH, Build.VERSION.SECURITY_PATCH);
 
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) getContext().getSystemService(
@@ -96,6 +98,9 @@ public class DeviceInfoInstrument extends Instrumentation implements DeviceInfoC
 
         String screenSize = getScreenSize();
         addResult(SCREEN_SIZE, screenSize);
+
+        Configuration configuration = getContext().getResources().getConfiguration();
+        addResult(SMALLEST_SCREEN_WIDTH_DP, configuration.smallestScreenWidthDp);
 
         Intent intent = new Intent();
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

@@ -91,7 +91,6 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     private static final int ALARM_STATE_INDEX = 10;
 
     private static final int COLUMN_COUNT = ALARM_STATE_INDEX + 1;
-    private Calendar mTimeout;
 
     public static ContentValues createContentValues(AlarmInstance instance) {
         ContentValues values = new ContentValues(COLUMN_COUNT);
@@ -172,6 +171,44 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
     }
 
     /**
+     * Get the next instance of an alarm given its alarmId
+     * @param contentResolver to perform query on
+     * @param alarmId of instance desired
+     * @return the next instance of an alarm by alarmId.
+     */
+    public static AlarmInstance getNextUpcomingInstanceByAlarmId(ContentResolver contentResolver,
+                                                                 long alarmId) {
+        final List<AlarmInstance> alarmInstances = getInstancesByAlarmId(contentResolver, alarmId);
+        if (alarmInstances.isEmpty()) {
+            return null;
+        }
+        AlarmInstance nextAlarmInstance = alarmInstances.get(0);
+        for (AlarmInstance instance : alarmInstances) {
+            if (instance.getAlarmTime().before(nextAlarmInstance.getAlarmTime())) {
+                nextAlarmInstance = instance;
+            }
+        }
+        return nextAlarmInstance;
+    }
+
+    /**
+     * Get alarm instance by id and state.
+     */
+    public static List<AlarmInstance> getInstancesByInstanceIdAndState(
+            ContentResolver contentResolver, long alarmInstanceId, int state) {
+        return getInstances(contentResolver, _ID + "=" + alarmInstanceId + " AND " + ALARM_STATE +
+                "=" + state);
+    }
+
+    /**
+     * Get alarm instances in the specified state.
+     */
+    public static List<AlarmInstance> getInstancesByState(
+            ContentResolver contentResolver, int state) {
+        return getInstances(contentResolver, ALARM_STATE + "=" + state);
+    }
+
+    /**
      * Get a list of instances given selection.
      *
      * @param contentResolver to perform the query on.
@@ -187,7 +224,7 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
             String selection, String ... selectionArgs) {
         Cursor cursor  = contentResolver.query(CONTENT_URI, QUERY_COLUMNS,
                 selection, selectionArgs, null);
-        List<AlarmInstance> result = new LinkedList<AlarmInstance>();
+        List<AlarmInstance> result = new LinkedList<>();
         if (cursor == null) {
             return result;
         }
@@ -239,6 +276,21 @@ public final class AlarmInstance implements ClockContract.InstancesColumns {
         if (instanceId == INVALID_ID) return false;
         int deletedRows = contentResolver.delete(getUri(instanceId), "", null);
         return deletedRows == 1;
+    }
+
+    /**
+     * @param contentResolver to access the content provider
+     * @param alarmId identifies the alarm in question
+     * @param instanceId identifies the instance to keep; all other instances will be removed
+     */
+    public static void deleteOtherInstances(ContentResolver contentResolver, long alarmId,
+            long instanceId) {
+        final List<AlarmInstance> instances = getInstancesByAlarmId(contentResolver, alarmId);
+        for (AlarmInstance instance : instances) {
+            if (instance.mId != instanceId) {
+                deleteInstance(contentResolver, instance.mId);
+            }
+        }
     }
 
     // Public fields

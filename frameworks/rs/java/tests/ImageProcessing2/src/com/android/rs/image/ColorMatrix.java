@@ -51,6 +51,22 @@ public class ColorMatrix extends TestBase {
         }
     }
 
+    public void animateBars(float time) {
+        Matrix4f m = new Matrix4f();
+        m.set(1, 0, (time + 0.2f) % 1.0f);
+        m.set(1, 1, (time + 0.9f) % 1.0f);
+        m.set(1, 2, (time + 0.4f) % 1.0f);
+        if (mUseIntrinsic) {
+            if (mUseGrey) {
+                return;
+            } else {
+                mIntrinsic.setColorMatrix(m);
+            }
+        } else {
+            mScript.invoke_setMatrix(m);
+        }
+    }
+
     public void runTest() {
         if (mUseIntrinsic) {
             mIntrinsic.forEach(mInPixelsAllocation, mOutPixelsAllocation);

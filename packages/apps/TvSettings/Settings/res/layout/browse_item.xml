@@ -32,7 +32,7 @@
         android:scaleType="fitCenter"
         tools:ignore="ContentDescription" />
 
-    <com.android.tv.settings.widget.ResizingTextView
+    <TextView
         android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -42,7 +42,8 @@
         android:layout_alignParentBottom="true"
         android:ellipsize="end"
         android:fontFamily="sans-serif-condensed"
-        android:includeFontPadding="false"
+        android:includeFontPadding="true"
+        android:lineSpacingExtra="4sp"
         android:gravity="center_horizontal|top"
         android:lines="1"
         android:singleLine="true"
@@ -59,7 +60,7 @@
         android:layout_alignParentBottom="true"
         android:ellipsize="end"
         android:fontFamily="sans-serif-condensed"
-        android:includeFontPadding="false"
+        android:includeFontPadding="true"
         android:gravity="center_horizontal|bottom"
         android:lines="1"
         android:singleLine="true"

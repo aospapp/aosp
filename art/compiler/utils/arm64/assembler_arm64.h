@@ -26,36 +26,20 @@
 #include "utils/arm64/managed_register_arm64.h"
 #include "utils/assembler.h"
 #include "offsets.h"
-#include "utils.h"
-#include "a64/macro-assembler-a64.h"
-#include "a64/disasm-a64.h"
+
+// TODO: make vixl clean wrt -Wshadow.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wshadow"
+#pragma GCC diagnostic ignored "-Wmissing-noreturn"
+#include "vixl/a64/macro-assembler-a64.h"
+#include "vixl/a64/disasm-a64.h"
+#pragma GCC diagnostic pop
 
 namespace art {
 namespace arm64 {
 
-#define MEM_OP(x...)      vixl::MemOperand(x)
-#define COND_OP(x)        static_cast<vixl::Condition>(x)
-
-enum Condition {
-  kNoCondition = -1,
-  EQ = 0,
-  NE = 1,
-  HS = 2,
-  LO = 3,
-  MI = 4,
-  PL = 5,
-  VS = 6,
-  VC = 7,
-  HI = 8,
-  LS = 9,
-  GE = 10,
-  LT = 11,
-  GT = 12,
-  LE = 13,
-  AL = 14,    // Always.
-  NV = 15,    // Behaves as always/al.
-  kMaxCondition = 16,
-};
+#define MEM_OP(...)      vixl::MemOperand(__VA_ARGS__)
 
 enum LoadOperandType {
   kLoadSignedByte,
@@ -81,12 +65,12 @@ class Arm64Exception;
 
 class Arm64Assembler FINAL : public Assembler {
  public:
-  Arm64Assembler() : vixl_buf_(new byte[kBufferSizeArm64]),
-  vixl_masm_(new vixl::MacroAssembler(vixl_buf_, kBufferSizeArm64)) {}
+  // We indicate the size of the initial code generation buffer to the VIXL
+  // assembler. From there we it will automatically manage the buffer.
+  Arm64Assembler() : vixl_masm_(new vixl::MacroAssembler(kArm64BaseBufferSize)) {}
 
   virtual ~Arm64Assembler() {
     delete vixl_masm_;
-    delete[] vixl_buf_;
   }
 
   // Emit slow paths queued during assembly.
@@ -97,6 +81,9 @@ class Arm64Assembler FINAL : public Assembler {
 
   // Copy instructions out of assembly buffer into the given region of memory.
   void FinalizeInstructions(const MemoryRegion& region);
+
+  void SpillRegisters(vixl::CPURegList registers, int offset);
+  void UnspillRegisters(vixl::CPURegList registers, int offset);
 
   // Emit code that will create an activation on the stack.
   void BuildFrame(size_t frame_size, ManagedRegister method_reg,
@@ -126,8 +113,9 @@ class Arm64Assembler FINAL : public Assembler {
   // Load routines.
   void Load(ManagedRegister dest, FrameOffset src, size_t size) OVERRIDE;
   void LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size) OVERRIDE;
-  void LoadRef(ManagedRegister dest, FrameOffset  src) OVERRIDE;
-  void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs) OVERRIDE;
+  void LoadRef(ManagedRegister dest, FrameOffset src) OVERRIDE;
+  void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
+               bool poison_reference) OVERRIDE;
   void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) OVERRIDE;
   void LoadRawPtrFromThread64(ManagedRegister dest, ThreadOffset<8> offs) OVERRIDE;
 
@@ -161,14 +149,14 @@ class Arm64Assembler FINAL : public Assembler {
   void GetCurrentThread(ManagedRegister tr) OVERRIDE;
   void GetCurrentThread(FrameOffset dest_offset, ManagedRegister scratch) OVERRIDE;
 
-  // Set up out_reg to hold a Object** into the handle scope, or to be NULL if the
+  // Set up out_reg to hold a Object** into the handle scope, or to be null if the
   // value is null and null_allowed. in_reg holds a possibly stale reference
   // that can be used to avoid loading the handle scope entry to see if the value is
-  // NULL.
+  // null.
   void CreateHandleScopeEntry(ManagedRegister out_reg, FrameOffset handlescope_offset,
                        ManagedRegister in_reg, bool null_allowed) OVERRIDE;
 
-  // Set up out_off to hold a Object** into the handle scope, or to be NULL if the
+  // Set up out_off to hold a Object** into the handle scope, or to be null if the
   // value is null and null_allowed.
   void CreateHandleScopeEntry(FrameOffset out_off, FrameOffset handlescope_offset,
                        ManagedRegister scratch, bool null_allowed) OVERRIDE;
@@ -195,7 +183,7 @@ class Arm64Assembler FINAL : public Assembler {
 
  private:
   static vixl::Register reg_x(int code) {
-    CHECK(code < kNumberOfCoreRegisters) << code;
+    CHECK(code < kNumberOfXRegisters) << code;
     if (code == SP) {
       return vixl::sp;
     } else if (code == XZR) {
@@ -205,6 +193,12 @@ class Arm64Assembler FINAL : public Assembler {
   }
 
   static vixl::Register reg_w(int code) {
+    CHECK(code < kNumberOfWRegisters) << code;
+    if (code == WSP) {
+      return vixl::wsp;
+    } else if (code == WZR) {
+      return vixl::wzr;
+    }
     return vixl::Register::WRegFromCode(code);
   }
 
@@ -220,29 +214,27 @@ class Arm64Assembler FINAL : public Assembler {
   void EmitExceptionPoll(Arm64Exception *exception);
 
   void StoreWToOffset(StoreOperandType type, WRegister source,
-                      Register base, int32_t offset);
-  void StoreToOffset(Register source, Register base, int32_t offset);
-  void StoreSToOffset(SRegister source, Register base, int32_t offset);
-  void StoreDToOffset(DRegister source, Register base, int32_t offset);
+                      XRegister base, int32_t offset);
+  void StoreToOffset(XRegister source, XRegister base, int32_t offset);
+  void StoreSToOffset(SRegister source, XRegister base, int32_t offset);
+  void StoreDToOffset(DRegister source, XRegister base, int32_t offset);
 
-  void LoadImmediate(Register dest, int32_t value, Condition cond = AL);
-  void Load(Arm64ManagedRegister dst, Register src, int32_t src_offset, size_t size);
+  void LoadImmediate(XRegister dest, int32_t value, vixl::Condition cond = vixl::al);
+  void Load(Arm64ManagedRegister dst, XRegister src, int32_t src_offset, size_t size);
   void LoadWFromOffset(LoadOperandType type, WRegister dest,
-                      Register base, int32_t offset);
-  void LoadFromOffset(Register dest, Register base, int32_t offset);
-  void LoadSFromOffset(SRegister dest, Register base, int32_t offset);
-  void LoadDFromOffset(DRegister dest, Register base, int32_t offset);
-  void AddConstant(Register rd, int32_t value, Condition cond = AL);
-  void AddConstant(Register rd, Register rn, int32_t value, Condition cond = AL);
-
-  // Vixl buffer.
-  byte* vixl_buf_;
-
-  // Vixl assembler.
-  vixl::MacroAssembler* vixl_masm_;
+                      XRegister base, int32_t offset);
+  void LoadFromOffset(XRegister dest, XRegister base, int32_t offset);
+  void LoadSFromOffset(SRegister dest, XRegister base, int32_t offset);
+  void LoadDFromOffset(DRegister dest, XRegister base, int32_t offset);
+  void AddConstant(XRegister rd, int32_t value, vixl::Condition cond = vixl::al);
+  void AddConstant(XRegister rd, XRegister rn, int32_t value, vixl::Condition cond = vixl::al);
 
   // List of exception blocks to generate at the end of the code cache.
   std::vector<Arm64Exception*> exception_blocks_;
+
+ public:
+  // Vixl assembler.
+  vixl::MacroAssembler* const vixl_masm_;
 
   // Used for testing.
   friend class Arm64ManagedRegister_VixlRegisters_Test;

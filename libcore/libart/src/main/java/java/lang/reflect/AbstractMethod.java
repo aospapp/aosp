@@ -39,28 +39,39 @@ import libcore.reflect.AnnotationAccess;
 import libcore.reflect.GenericSignatureParser;
 import libcore.reflect.ListOfTypes;
 import libcore.reflect.Types;
+import libcore.util.EmptyArray;
 
 /**
  * This class represents an abstract method. Abstract methods are either methods or constructors.
  * @hide
  */
 public abstract class AbstractMethod extends AccessibleObject {
+    /** Bits encoding access (e.g. public, private) as well as other runtime specific flags */
+    protected int accessFlags;
+
+    /**
+     * The ArtMethod associated with this Method, requried for dispatching due to entrypoints
+     * Classloader is held live by the declaring class.
+     * Hidden to workaround b/16828157.
+     * @hide
+     */
+    protected long artMethod;
+
+    /** Method's declaring class */
+    protected Class<?> declaringClass;
+
+    /** Overriden method's declaring class (same as declaringClass unless declaringClass
+     * is a proxy class) */
+    protected Class<?> declaringClassOfOverriddenMethod;
+
+    /** The method index of this method within its defining dex file */
+    protected int dexMethodIndex;
 
     /**
      * Hidden to workaround b/16828157.
      * @hide
      */
-    protected final ArtMethod artMethod;
-
-    /**
-     * Hidden to workaround b/16828157.
-     * @hide
-     */
-    protected AbstractMethod(ArtMethod artMethod) {
-        if (artMethod == null) {
-            throw new NullPointerException("artMethod == null");
-        }
-        this.artMethod = artMethod;
+    protected AbstractMethod() {
     }
 
     public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
@@ -90,33 +101,33 @@ public abstract class AbstractMethod extends AccessibleObject {
     }
 
     int getModifiers() {
-        return fixMethodFlags(artMethod.getAccessFlags());
+        return fixMethodFlags(accessFlags);
     }
 
     boolean isVarArgs() {
-        return (artMethod.getAccessFlags() & Modifier.VARARGS) != 0;
+        return (accessFlags & Modifier.VARARGS) != 0;
     }
 
     boolean isBridge() {
-        return (artMethod.getAccessFlags() & Modifier.BRIDGE) != 0;
+        return (accessFlags & Modifier.BRIDGE) != 0;
     }
 
     boolean isSynthetic() {
-        return (artMethod.getAccessFlags() & Modifier.SYNTHETIC) != 0;
+        return (accessFlags & Modifier.SYNTHETIC) != 0;
     }
 
     /**
      * @hide
      */
     public final int getAccessFlags() {
-        return artMethod.getAccessFlags();
+        return accessFlags;
     }
 
     /**
      * Returns the class that declares this constructor or method.
      */
     Class<?> getDeclaringClass() {
-        return artMethod.getDeclaringClass();
+        return declaringClass;
     }
 
     /**
@@ -125,7 +136,7 @@ public abstract class AbstractMethod extends AccessibleObject {
      * @hide
      */
     public final int getDexMethodIndex() {
-        return artMethod.getDexMethodIndex();
+        return dexMethodIndex;
     }
 
     /**
@@ -144,7 +155,17 @@ public abstract class AbstractMethod extends AccessibleObject {
      * @return the parameter types
      */
     Class<?>[] getParameterTypes() {
-        return artMethod.getParameterTypes();
+        Dex dex = declaringClassOfOverriddenMethod.getDex();
+        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
+        if (types.length == 0) {
+            return EmptyArray.CLASS;
+        }
+        Class<?>[] parametersArray = new Class[types.length];
+        for (int i = 0; i < types.length; i++) {
+            // Note, in the case of a Proxy the dex cache types are equal.
+            parametersArray[i] = declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]);
+        }
+        return parametersArray;
     }
 
     /**
@@ -155,8 +176,10 @@ public abstract class AbstractMethod extends AccessibleObject {
         if (!(other instanceof AbstractMethod)) {
             return false;
         }
-        // exactly one instance of each member in this runtime
-        return this.artMethod == ((AbstractMethod) other).artMethod;
+        // Exactly one instance of each member in this runtime, todo, does this work for proxies?
+        AbstractMethod otherMethod = (AbstractMethod) other;
+        return this.declaringClass == otherMethod.declaringClass &&
+            this.dexMethodIndex == otherMethod.dexMethodIndex;
     }
 
     String toGenericString() {
@@ -250,6 +273,37 @@ public abstract class AbstractMethod extends AccessibleObject {
         }
         return new GenericInfo(parser.exceptionTypes, parser.parameterTypes,
                                parser.returnType, parser.formalTypeParameters);
+    }
+
+    protected boolean equalMethodParameters(Class<?>[] params) {
+        Dex dex = declaringClassOfOverriddenMethod.getDex();
+        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
+        if (types.length != params.length) {
+            return false;
+        }
+        for (int i = 0; i < types.length; i++) {
+            if (declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]) != params[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected int compareParameters(Class<?>[] params) {
+        Dex dex = declaringClassOfOverriddenMethod.getDex();
+        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
+        int length = Math.min(types.length, params.length);
+        for (int i = 0; i < length; i++) {
+            Class<?> aType = declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]);
+            Class<?> bType = params[i];
+            if (aType != bType) {
+                int comparison = aType.getName().compareTo(bType.getName());
+                if (comparison != 0) {
+                    return comparison;
+                }
+            }
+        }
+        return types.length - params.length;
     }
 
     /**

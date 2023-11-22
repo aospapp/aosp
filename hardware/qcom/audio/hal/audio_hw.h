@@ -57,6 +57,7 @@ enum {
     USECASE_AUDIO_PLAYBACK_LOW_LATENCY,
     USECASE_AUDIO_PLAYBACK_MULTI_CH,
     USECASE_AUDIO_PLAYBACK_OFFLOAD,
+    USECASE_AUDIO_PLAYBACK_TTS,
 
     /* HFP Use case*/
     USECASE_AUDIO_HFP_SCO,
@@ -77,8 +78,12 @@ enum {
     USECASE_INCALL_REC_DOWNLINK,
     USECASE_INCALL_REC_UPLINK_AND_DOWNLINK,
 
+    USECASE_AUDIO_SPKR_CALIB_RX,
+    USECASE_AUDIO_SPKR_CALIB_TX,
+
     USECASE_AUDIO_PLAYBACK_AFE_PROXY,
     USECASE_AUDIO_RECORD_AFE_PROXY,
+    USECASE_AUDIO_DSM_FEEDBACK,
 
     AUDIO_USECASE_MAX
 };
@@ -167,6 +172,10 @@ struct stream_in {
     bool enable_aec;
     bool enable_ns;
 
+    audio_io_handle_t capture_handle;
+    bool is_st_session;
+    bool is_st_session_active;
+
     struct audio_device *dev;
 };
 
@@ -207,7 +216,6 @@ struct audio_device {
     struct listnode usecase_list;
     struct audio_route *audio_route;
     int acdb_settings;
-    bool speaker_lr_swap;
     struct voice voice;
     unsigned int cur_hdmi_channels;
     bool bt_wb_speech_enabled;

@@ -18,6 +18,7 @@ package android.hardware.cts;
 
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
@@ -287,6 +288,7 @@ public class SensorBatchingTests extends SensorTestCase {
             TestSensorEnvironment environment,
             TestSensorOperation operation,
             boolean flushExpected) throws Throwable {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         operation.addDefaultVerifications();
 
         try {

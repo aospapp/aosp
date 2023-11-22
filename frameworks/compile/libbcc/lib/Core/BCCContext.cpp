@@ -25,12 +25,12 @@
 
 using namespace bcc;
 
-static BCCContext *GlobalContext = NULL;
+static BCCContext *GlobalContext = nullptr;
 
 BCCContext *BCCContext::GetOrCreateGlobalContext() {
-  if (GlobalContext == NULL) {
+  if (GlobalContext == nullptr) {
     GlobalContext = new (std::nothrow) BCCContext();
-    if (GlobalContext == NULL) {
+    if (GlobalContext == nullptr) {
       ALOGE("Out of memory when allocating global BCCContext!");
     }
   }
@@ -39,7 +39,7 @@ BCCContext *BCCContext::GetOrCreateGlobalContext() {
 
 void BCCContext::DestroyGlobalContext() {
   delete GlobalContext;
-  GlobalContext = NULL;
+  GlobalContext = nullptr;
 }
 
 BCCContext::BCCContext() : mImpl(new BCCContextImpl(*this)) { }
@@ -49,7 +49,7 @@ BCCContext::~BCCContext() {
   if (this == GlobalContext) {
     // We're deleting the context returned from GetOrCreateGlobalContext().
     // Reset the GlobalContext.
-    GlobalContext = NULL;
+    GlobalContext = nullptr;
   }
 }
 

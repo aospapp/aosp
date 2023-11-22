@@ -43,6 +43,7 @@ import com.android.sdklib.internal.build.DebugKeyProvider.KeytoolException;
 import com.android.utils.GrabProcessOutput;
 import com.android.utils.GrabProcessOutput.IProcessOutput;
 import com.android.utils.GrabProcessOutput.Wait;
+import com.google.common.base.Charsets;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
@@ -848,7 +849,7 @@ public class BuildHelper {
 
         // add a hash of the original file path
         HashFunction hashFunction = Hashing.md5();
-        HashCode hashCode = hashFunction.hashString(inputFile.getAbsolutePath());
+        HashCode hashCode = hashFunction.hashString(inputFile.getAbsolutePath(), Charsets.UTF_8);
 
         return name + "-" + hashCode.toString() + ".jar";
     }
@@ -913,6 +914,10 @@ public class BuildHelper {
                 commandArray.add("-c"); //$NON-NLS-1$
                 commandArray.add(configFilter);
             }
+
+            // never compress apks.
+            commandArray.add("-0");
+            commandArray.add("apk");
 
             commandArray.add("-M"); //$NON-NLS-1$
             commandArray.add(osManifestPath);

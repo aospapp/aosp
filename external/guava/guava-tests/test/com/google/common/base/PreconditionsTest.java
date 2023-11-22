@@ -20,6 +20,7 @@ import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.testing.NullPointerTester;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
 /**
@@ -340,15 +341,14 @@ public class PreconditionsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointers() throws Exception {
+  public void testNullPointers() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(Preconditions.class);
   }
 
   private static final Object IGNORE_ME = new Object() {
     @Override public String toString() {
-      fail();
-      return null;
+      throw new AssertionFailedError();
     }
   };
 

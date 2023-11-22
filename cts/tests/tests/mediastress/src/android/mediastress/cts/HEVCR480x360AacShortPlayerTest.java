@@ -16,10 +16,6 @@
 
 package android.mediastress.cts;
 
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder.AudioEncoder;
-import android.media.MediaRecorder.VideoEncoder;
-
 public class HEVCR480x360AacShortPlayerTest extends MediaPlayerStressTest {
     private static final String VIDEO_PATH_MIDDLE = "bbb_short/480x360/mp4_libx265_libfaac/";
     private final String[] mMedias = {
@@ -30,10 +26,6 @@ public class HEVCR480x360AacShortPlayerTest extends MediaPlayerStressTest {
         "bbb_short.fmpeg.480x360.mp4.libx265_325kbps_24fps.libfaac_stereo_128kbps_48000hz.mp4",
         "bbb_short.fmpeg.480x360.mp4.libx265_325kbps_30fps.libfaac_stereo_128kbps_48000hz.mp4"
     };
-
-    public HEVCR480x360AacShortPlayerTest() {
-        super(CamcorderProfile.QUALITY_480P, VideoEncoder.H264, AudioEncoder.AAC);
-    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackShort(0);

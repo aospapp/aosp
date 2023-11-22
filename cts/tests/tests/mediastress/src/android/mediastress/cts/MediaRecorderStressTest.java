@@ -32,12 +32,13 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.Writer;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<MediaFrameworkTest> {
 
-    private static String TAG = "MediaRecorderStressTest";
+    private static final String TAG = "MediaRecorderStressTest";
     private static final int NUMBER_OF_CAMERA_STRESS_LOOPS = 50;
     private static final int NUMBER_OF_RECORDER_STRESS_LOOPS = 50;
     private static final int NUMBER_OF_RECORDERANDPLAY_STRESS_LOOPS = 25;
@@ -50,6 +51,8 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
     private final CameraErrorCallback mCameraErrorCallback = new CameraErrorCallback();
     private final RecorderErrorCallback mRecorderErrorCallback = new RecorderErrorCallback();
     private final static int WAIT_TIMEOUT = 10000;
+    private static final int VIDEO_WIDTH = 176;
+    private static final int VIDEO_HEIGHT = 144;
 
     private MediaRecorder mRecorder;
     private Camera mCamera;
@@ -215,11 +218,35 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
         mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
         File stressOutFile = new File(WorkDir.getTopDir(), MEDIA_STRESS_OUTPUT);
         Writer output = new BufferedWriter(new FileWriter(stressOutFile, true));
+        int width;
+        int height;
+        Camera camera = null;
 
         if (!mHasRearCamera && !mHasFrontCamera) {
                 output.write("No camera found. Skipping recorder stress test\n");
                 return;
         }
+        // Try to get camera smallest supported resolution.
+        // If we fail for any reason, set the video size to default value.
+        try {
+            camera = Camera.open(0);
+            List<Camera.Size> previewSizes = camera.getParameters().getSupportedPreviewSizes();
+            width = previewSizes.get(0).width;
+            height = previewSizes.get(0).height;
+            for (Camera.Size size : previewSizes) {
+                if (size.width < width || size.height < height) {
+                    width = size.width;
+                    height = size.height;
+                }
+            }
+        } catch (Exception e) {
+            width = VIDEO_WIDTH;
+            height = VIDEO_HEIGHT;
+        }
+        if (camera != null) {
+            camera.release();
+        }
+        Log.v(TAG, String.format("Camera video size used for test %dx%d", width, height));
         output.write("H263 video record- reset after prepare Stress test\n");
         output.write("Total number of loops:" +
                 NUMBER_OF_RECORDER_STRESS_LOOPS + "\n");
@@ -241,7 +268,7 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
             mRecorder.setOutputFile(filename);
             mRecorder.setVideoFrameRate(mFrameRate);
-            mRecorder.setVideoSize(176,144);
+            mRecorder.setVideoSize(width, height);
             Log.v(TAG, "setEncoder");
             mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
             mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
@@ -268,6 +295,8 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
         }
 
         String filename;
+        int width;
+        int height;
         SurfaceHolder mSurfaceHolder;
         mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
         File stressOutFile = new File(WorkDir.getTopDir(), MEDIA_STRESS_OUTPUT);
@@ -294,6 +323,19 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             if (mCamera == null) {
                 break;
             }
+            // Try to get camera smallest supported resolution.
+            // If we fail for any reason, set the video size to default value.
+            List<Camera.Size> previewSizes = mCamera.getParameters().getSupportedPreviewSizes();
+            width = previewSizes.get(0).width;
+            height = previewSizes.get(0).height;
+            for (Camera.Size size : previewSizes) {
+                if (size.width < width || size.height < height) {
+                    width = size.width;
+                    height = size.height;
+                }
+            }
+            Log.v(TAG, String.format("Camera video size used for test %dx%d", width, height));
+
             mCamera.setErrorCallback(mCameraErrorCallback);
             mCamera.setPreviewDisplay(mSurfaceHolder);
             mCamera.startPreview();
@@ -315,7 +357,7 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
             mRecorder.setOutputFile(filename);
             mRecorder.setVideoFrameRate(mFrameRate);
-            mRecorder.setVideoSize(176,144);
+            mRecorder.setVideoSize(width, height);
             Log.v(TAG, "Media recorder setEncoder");
             mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
             Log.v(TAG, "mediaRecorder setPreview");

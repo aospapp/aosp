@@ -15,7 +15,7 @@
  * the License.
  */
 
-package tests.api.javax.net.ssl;
+package org.apache.harmony.tests.javax.net.ssl;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -107,7 +107,7 @@ public class HostnameVerifierTest extends TestCase implements
         in = new ByteArrayInputStream(X509_WILD_FOO);
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
-        assertTrue(verifier.verify("foo.com", session));
+        assertFalse(verifier.verify("foo.com", session));
         assertTrue(verifier.verify("www.foo.com", session));
         assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
         assertFalse(verifier.verify("a.b.foo.com", session));
@@ -122,7 +122,7 @@ public class HostnameVerifierTest extends TestCase implements
         x509 = (X509Certificate) cf.generateCertificate(in);
         session = new mySSLSession(new X509Certificate[] {x509});
         // try the foo.com variations
-        assertTrue(verifier.verify("foo.com", session));
+        assertFalse(verifier.verify("foo.com", session));
         assertTrue(verifier.verify("www.foo.com", session));
         assertTrue(verifier.verify("\u82b1\u5b50.foo.com", session));
         assertFalse(verifier.verify("a.b.foo.com", session));
@@ -282,7 +282,7 @@ public class HostnameVerifierTest extends TestCase implements
         assertFalse(verifier.verify("foo.com", session));
         assertTrue(verifier.verify("bar.com", session));
         assertTrue(verifier.verify("a.baz.com", session));
-        assertTrue(verifier.verify("baz.com", session));
+        assertFalse(verifier.verify("baz.com", session));
         assertFalse(verifier.verify("a.foo.com", session));
         assertFalse(verifier.verify("a.bar.com", session));
         assertFalse(verifier.verify("quux.com", session));

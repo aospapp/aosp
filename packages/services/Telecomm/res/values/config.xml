@@ -38,9 +38,4 @@
 
     <!-- Flag indicating if the tty is enabled -->
     <bool name="tty_enabled">false</bool>
-
-    <!-- ComponentName for the default connection manager component. If this cannot be resolved, or
-         if this package has not registered any accounts, then it will be ignored.
-         [DO NOT TRANSLATE] -->
-    <string name="default_connection_manager_component" translatable="false"></string>
 </resources>

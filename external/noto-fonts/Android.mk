@@ -12,138 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# We have to use BUILD_PREBUILT instead of PRODUCT_COPY_FIES,
-# to copy over the NOTICE file.
+NOTO_DIR := $(call my-dir)
 
-LOCAL_PATH := $(call my-dir)
-font_src_files :=
-
-#############################################################################
-# The following fonts are included in all builds
-#############################################################################
-font_src_files += \
-    NotoSerif-Regular.ttf \
-    NotoSerif-Bold.ttf \
-    NotoSerif-Italic.ttf \
-    NotoSerif-BoldItalic.ttf
-
-#############################################################################
-# The following fonts are only included in EXTENDED_FONT_FOOTPRINT builds
-#############################################################################
-ifeq ($(EXTENDED_FONT_FOOTPRINT),true)
-font_src_files += \
-    NotoSansBalinese-Regular.ttf \
-    NotoSansBatak-Regular.ttf \
-    NotoSansBuginese-Regular.ttf \
-    NotoSansBuhid-Regular.ttf \
-    NotoSansCanadianAboriginal-Regular.ttf \
-    NotoSansCham-Regular.ttf \
-    NotoSansCham-Bold.ttf \
-    NotoSansCherokee-Regular.ttf \
-    NotoSansCoptic-Regular.ttf \
-    NotoSansGlagolitic-Regular.ttf \
-    NotoSansGujarati-Regular.ttf \
-    NotoSansGujarati-Bold.ttf \
-    NotoSansGujaratiUI-Regular.ttf \
-    NotoSansGujaratiUI-Bold.ttf \
-    NotoSansGurmukhi-Regular.ttf \
-    NotoSansGurmukhi-Bold.ttf \
-    NotoSansGurmukhiUI-Regular.ttf \
-    NotoSansGurmukhiUI-Bold.ttf \
-    NotoSansHans-Regular.otf \
-    NotoSansHant-Regular.otf \
-    NotoSansHanunoo-Regular.ttf \
-    NotoSansJavanese-Regular.ttf \
-    NotoSansKayahLi-Regular.ttf \
-    NotoSansKR-Regular.otf \
-    NotoSansLepcha-Regular.ttf \
-    NotoSansLimbu-Regular.ttf \
-    NotoSansMeeteiMayek-Regular.ttf \
-    NotoSansOlChiki-Regular.ttf \
-    NotoSansRejang-Regular.ttf \
-    NotoSansSaurashtra-Regular.ttf \
-    NotoSansSundanese-Regular.ttf \
-    NotoSansSinhala-Regular.ttf \
-    NotoSansSinhala-Bold.ttf \
-    NotoSansSylotiNagri-Regular.ttf \
-    NotoSansTagbanwa-Regular.ttf \
-    NotoSansTaiLe-Regular.ttf \
-    NotoSansTaiTham-Regular.ttf \
-    NotoSansTaiViet-Regular.ttf \
-    NotoSansThaana-Regular.ttf \
-    NotoSansThaana-Bold.ttf \
-    NotoSansTifinagh-Regular.ttf \
-    NotoSansYi-Regular.ttf
-endif # EXTENDED_FONT_FOOTPRINT
-
-
-
-#############################################################################
-# The following fonts are excluded from SMALLER_FONT_FOOTPRINT builds
-#############################################################################
+# Use full Noto Sans Japanese font on non-smaller footprints
 ifneq ($(SMALLER_FONT_FOOTPRINT),true)
-font_src_files += \
-    NotoSansBengali-Regular.ttf \
-    NotoSansBengali-Bold.ttf \
-    NotoSansBengaliUI-Regular.ttf \
-    NotoSansBengaliUI-Bold.ttf \
-    NotoSansDevanagari-Regular.ttf \
-    NotoSansDevanagari-Bold.ttf \
-    NotoSansDevanagariUI-Regular.ttf \
-    NotoSansDevanagariUI-Bold.ttf \
-    NotoSansEthiopic-Regular.ttf \
-    NotoSansEthiopic-Bold.ttf \
-    NotoSansKannada-Regular.ttf \
-    NotoSansKannada-Bold.ttf \
-    NotoSansKannadaUI-Regular.ttf \
-    NotoSansKannadaUI-Bold.ttf \
-    NotoSansKhmer-Regular.ttf \
-    NotoSansKhmer-Bold.ttf \
-    NotoSansKhmerUI-Regular.ttf \
-    NotoSansKhmerUI-Bold.ttf \
-    NotoSansLao-Regular.ttf \
-    NotoSansLao-Bold.ttf \
-    NotoSansLaoUI-Regular.ttf \
-    NotoSansLaoUI-Bold.ttf \
-    NotoSansMalayalam-Regular.ttf \
-    NotoSansMalayalam-Bold.ttf \
-    NotoSansMalayalamUI-Regular.ttf \
-    NotoSansMalayalamUI-Bold.ttf \
-    NotoSansMyanmar-Regular.ttf \
-    NotoSansMyanmar-Bold.ttf \
-    NotoSansMyanmarUI-Regular.ttf \
-    NotoSansMyanmarUI-Bold.ttf \
-    NotoSansTamil-Regular.ttf \
-    NotoSansTamil-Bold.ttf \
-    NotoSansTamilUI-Regular.ttf \
-    NotoSansTamilUI-Bold.ttf \
-    NotoSansTelugu-Regular.ttf \
-    NotoSansTelugu-Bold.ttf \
-    NotoSansTeluguUI-Regular.ttf \
-    NotoSansTeluguUI-Bold.ttf \
-    NotoSansThai-Regular.ttf \
-    NotoSansThai-Bold.ttf \
-    NotoSansThaiUI-Regular.ttf \
-    NotoSansThaiUI-Bold.ttf
-endif # !SMALLER_FONT_FOOTPRINT
+FONT_NOTOSANS_JP_FULL := true
+endif
 
-#############################################################################
-# The following fonts are excluded from MINIMAL_FONT_FOOTPRINT builds
-#############################################################################
-ifneq ($(MINIMAL_FONT_FOOTPRINT),true)
-font_src_files += \
-    NotoNaskh-Regular.ttf \
-    NotoNaskh-Bold.ttf \
-    NotoNaskhUI-Regular.ttf \
-    NotoNaskhUI-Bold.ttf \
-    NotoSansArmenian-Regular.ttf \
-    NotoSansArmenian-Bold.ttf \
-    NotoSansGeorgian-Regular.ttf \
-    NotoSansGeorgian-Bold.ttf \
-    NotoSansHebrew-Regular.ttf \
-    NotoSansHebrew-Bold.ttf
-endif # !MINIMAL_FONT_FOOTPRINT
-
+# We have to use BUILD_PREBUILT instead of PRODUCT_COPY_FILES,
+# to copy over the NOTICE file.
 #############################################################################
 # $(1): The source file name in LOCAL_PATH.
 #       It also serves as the module name and the dest file name.
@@ -158,64 +35,31 @@ $(eval LOCAL_MODULE_PATH := $(TARGET_OUT)/fonts)\
 $(eval include $(BUILD_PREBUILT))
 endef
 
+
+#############################################################################
+# First "build" the Noto CJK fonts, which have their own directory and
+# license. These are not included in SMALLER_FONT_FOOTPRINT builds.
+#############################################################################
+ifneq ($(SMALLER_FONT_FOOTPRINT),true)
+LOCAL_PATH := $(NOTO_DIR)/cjk
+
+font_src_files := \
+    NotoSansKR-Regular.otf \
+    NotoSansSC-Regular.otf \
+    NotoSansTC-Regular.otf
+
 $(foreach f, $(font_src_files), $(call build-one-font-module, $(f)))
-build-one-font-module :=
 font_src_files :=
 
 #############################################################################
-# Use a larger subset of Noto Sans Symbols on EXTENDED_FONT_FOOTPRINT
-# builds, but a smaller subset on other devices.
+# Include NotoSansJP, or a subset.
 #############################################################################
 
-ifeq ($(EXTENDED_FONT_FOOTPRINT),true)
-noto_symbols_src := NotoSansSymbols-Regular-Subsetted-Extended.ttf
-else  # !EXTENDED_FONT_FOOTPRINT
-noto_symbols_src := NotoSansSymbols-Regular-Subsetted.ttf
-endif # EXTENDED_FONT_FOOTPRINT
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := NotoSansSymbols-Regular-Subsetted.ttf
-LOCAL_SRC_FILES := $(noto_symbols_src)
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(TARGET_OUT)/fonts
-include $(BUILD_PREBUILT)
-
-noto_symbols_src :=
-
-#############################################################################
-# Use Noto Color Emoji with all the flags on EXTENDED_FONT_FOOTPRINT builds,
-# but without it on other builds. On SMALLER_FONT_FOOTPRINT devices, no
-# color emoji font is included.
-#############################################################################
-
-ifneq ($(SMALLER_FONT_FOOTPRINT),true)
-
-ifeq ($(EXTENDED_FONT_FOOTPRINT),true)
-color_emoji_src := NotoColorEmoji.ttf
-else  # !EXTENDED_FONT_FOOTPRINT
-color_emoji_src := NotoColorEmoji-Subsetted.ttf
-endif # EXTENDED_FONT_FOOTPRINT
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := NotoColorEmoji.ttf
-LOCAL_SRC_FILES := $(color_emoji_src)
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(TARGET_OUT)/fonts
-include $(BUILD_PREBUILT)
-
-color_emoji_src :=
-
-endif # !SMALLER_FONT_FOOTPRINT
-
-#############################################################################
-# Include a subset of NotoSansJP in EXTENDED_FONT_FOOTPRINT builds.
-#############################################################################
-
-ifeq ($(EXTENDED_FONT_FOOTPRINT),true)
-
+ifeq ($(FONT_NOTOSANS_JP_FULL),true)
+noto_sans_jp_src := NotoSansJP-Regular.otf
+else
 noto_sans_jp_src := NotoSansJP-Regular-Subsetted.otf
+endif # FONT_NOTOSANS_JP_FULL
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := NotoSansJP-Regular.otf
@@ -226,5 +70,144 @@ LOCAL_MODULE_PATH := $(TARGET_OUT)/fonts
 include $(BUILD_PREBUILT)
 
 noto_sans_jp_src :=
+endif # !SMALLER_FONT_FOOTPRINT
 
-endif # EXTENDED_FONT_FOOTPRINT
+
+#############################################################################
+# Now "build" the rest of the fonts, which live in a separate subdirectory.
+#############################################################################
+LOCAL_PATH := $(NOTO_DIR)/other
+NOTO_DIR :=
+
+#############################################################################
+# The following fonts are included in all builds.
+#############################################################################
+font_src_files := \
+    NotoSerif-Regular.ttf \
+    NotoSerif-Bold.ttf \
+    NotoSerif-Italic.ttf \
+    NotoSerif-BoldItalic.ttf
+
+#############################################################################
+# The following fonts are excluded from SMALLER_FONT_FOOTPRINT builds.
+#############################################################################
+ifneq ($(SMALLER_FONT_FOOTPRINT),true)
+font_src_files += \
+    NotoColorEmoji.ttf \
+    NotoSansBalinese-Regular.ttf \
+    NotoSansBamum-Regular.ttf \
+    NotoSansBatak-Regular.ttf \
+    NotoSansBengali-Regular.ttf \
+    NotoSansBengali-Bold.ttf \
+    NotoSansBengaliUI-Regular.ttf \
+    NotoSansBengaliUI-Bold.ttf \
+    NotoSansBuginese-Regular.ttf \
+    NotoSansBuhid-Regular.ttf \
+    NotoSansCanadianAboriginal-Regular.ttf \
+    NotoSansCham-Regular.ttf \
+    NotoSansCham-Bold.ttf \
+    NotoSansCherokee-Regular.ttf \
+    NotoSansCoptic-Regular.ttf \
+    NotoSansDevanagari-Regular.ttf \
+    NotoSansDevanagari-Bold.ttf \
+    NotoSansDevanagariUI-Regular.ttf \
+    NotoSansDevanagariUI-Bold.ttf \
+    NotoSansEthiopic-Regular.ttf \
+    NotoSansEthiopic-Bold.ttf \
+    NotoSansGlagolitic-Regular.ttf \
+    NotoSansGujarati-Regular.ttf \
+    NotoSansGujarati-Bold.ttf \
+    NotoSansGujaratiUI-Regular.ttf \
+    NotoSansGujaratiUI-Bold.ttf \
+    NotoSansGurmukhi-Regular.ttf \
+    NotoSansGurmukhi-Bold.ttf \
+    NotoSansGurmukhiUI-Regular.ttf \
+    NotoSansGurmukhiUI-Bold.ttf \
+    NotoSansHanunoo-Regular.ttf \
+    NotoSansJavanese-Regular.ttf \
+    NotoSansKannada-Regular.ttf \
+    NotoSansKannada-Bold.ttf \
+    NotoSansKannadaUI-Regular.ttf \
+    NotoSansKannadaUI-Bold.ttf \
+    NotoSansKayahLi-Regular.ttf \
+    NotoSansKhmer-Regular.ttf \
+    NotoSansKhmer-Bold.ttf \
+    NotoSansKhmerUI-Regular.ttf \
+    NotoSansKhmerUI-Bold.ttf \
+    NotoSansLao-Regular.ttf \
+    NotoSansLao-Bold.ttf \
+    NotoSansLaoUI-Regular.ttf \
+    NotoSansLaoUI-Bold.ttf \
+    NotoSansLepcha-Regular.ttf \
+    NotoSansLimbu-Regular.ttf \
+    NotoSansLisu-Regular.ttf \
+    NotoSansMalayalam-Regular.ttf \
+    NotoSansMalayalam-Bold.ttf \
+    NotoSansMalayalamUI-Regular.ttf \
+    NotoSansMalayalamUI-Bold.ttf \
+    NotoSansMandaic-Regular.ttf \
+    NotoSansMeeteiMayek-Regular.ttf \
+    NotoSansMongolian-Regular.ttf \
+    NotoSansMyanmar-Regular.ttf \
+    NotoSansMyanmar-Bold.ttf \
+    NotoSansMyanmarUI-Regular.ttf \
+    NotoSansMyanmarUI-Bold.ttf \
+    NotoSansNewTaiLue-Regular.ttf \
+    NotoSansNKo-Regular.ttf \
+    NotoSansOlChiki-Regular.ttf \
+    NotoSansOriya-Regular.ttf \
+    NotoSansOriya-Bold.ttf \
+    NotoSansOriyaUI-Regular.ttf \
+    NotoSansOriyaUI-Bold.ttf \
+    NotoSansRejang-Regular.ttf \
+    NotoSansSaurashtra-Regular.ttf \
+    NotoSansSinhala-Regular.ttf \
+    NotoSansSinhala-Bold.ttf \
+    NotoSansSundanese-Regular.ttf \
+    NotoSansSylotiNagri-Regular.ttf \
+    NotoSansSyriacEstrangela-Regular.ttf \
+    NotoSansTagbanwa-Regular.ttf \
+    NotoSansTaiLe-Regular.ttf \
+    NotoSansTaiTham-Regular.ttf \
+    NotoSansTaiViet-Regular.ttf \
+    NotoSansTamil-Regular.ttf \
+    NotoSansTamil-Bold.ttf \
+    NotoSansTamilUI-Regular.ttf \
+    NotoSansTamilUI-Bold.ttf \
+    NotoSansTelugu-Regular.ttf \
+    NotoSansTelugu-Bold.ttf \
+    NotoSansTeluguUI-Regular.ttf \
+    NotoSansTeluguUI-Bold.ttf \
+    NotoSansThaana-Regular.ttf \
+    NotoSansThaana-Bold.ttf \
+    NotoSansThai-Regular.ttf \
+    NotoSansThai-Bold.ttf \
+    NotoSansThaiUI-Regular.ttf \
+    NotoSansThaiUI-Bold.ttf \
+    NotoSansTibetan-Regular.ttf \
+    NotoSansTifinagh-Regular.ttf \
+    NotoSansVai-Regular.ttf \
+    NotoSansYi-Regular.ttf
+endif # !SMALLER_FONT_FOOTPRINT
+
+#############################################################################
+# The following fonts are excluded from MINIMAL_FONT_FOOTPRINT builds.
+#############################################################################
+ifneq ($(MINIMAL_FONT_FOOTPRINT),true)
+font_src_files += \
+    NotoNaskhArabic-Regular.ttf \
+    NotoNaskhArabic-Bold.ttf \
+    NotoNaskhArabicUI-Regular.ttf \
+    NotoNaskhArabicUI-Bold.ttf \
+    NotoSansArmenian-Regular.ttf \
+    NotoSansArmenian-Bold.ttf \
+    NotoSansGeorgian-Regular.ttf \
+    NotoSansGeorgian-Bold.ttf \
+    NotoSansHebrew-Regular.ttf \
+    NotoSansHebrew-Bold.ttf \
+    NotoSansSymbols-Regular-Subsetted.ttf
+endif # !MINIMAL_FONT_FOOTPRINT
+
+$(foreach f, $(font_src_files), $(call build-one-font-module, $(f)))
+build-one-font-module :=
+font_src_files :=

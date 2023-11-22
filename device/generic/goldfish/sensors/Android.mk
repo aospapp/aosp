@@ -28,3 +28,13 @@ else
 LOCAL_MODULE := sensors.goldfish
 endif
 include $(BUILD_SHARED_LIBRARY)
+
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+LOCAL_SRC_FILES := sensors_qemu.c
+LOCAL_MODULE := sensors.ranchu
+
+include $(BUILD_SHARED_LIBRARY)

@@ -22,8 +22,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 src_files := \
-	ucln_in.c  decContext.c \
-	ulocdata.c  utmscale.c decNumber.c
+	ucln_in.cpp decContext.c \
+	ulocdata.c utmscale.c decNumber.c
 
 src_files += \
         indiancal.cpp   dtptngen.cpp dtrule.cpp   \
@@ -34,7 +34,7 @@ src_files += \
 	basictz.cpp     calendar.cpp casetrn.cpp  \
 	choicfmt.cpp    coleitr.cpp  coll.cpp     \
 	collation.cpp \
-	collationbasedatabuilder.cpp collationbuilder.cpp \
+	collationbuilder.cpp \
 	collationcompare.cpp collationdata.cpp \
 	collationdatabuilder.cpp collationdatareader.cpp \
 	collationdatawriter.cpp collationfastlatin.cpp \
@@ -68,6 +68,7 @@ src_files += \
 	rbt_data.cpp    rbt_pars.cpp rbt_rule.cpp \
 	rbt_set.cpp     regexcmp.cpp regexst.cpp  \
 	regeximp.cpp 	region.cpp \
+	reldatefmt.cpp \
 	rematch.cpp     remtrans.cpp repattrn.cpp \
 	rulebasedcollator.cpp \
 	scriptset.cpp \
@@ -84,6 +85,7 @@ src_files += \
 	umsg.cpp        unesctrn.cpp uni2name.cpp \
 	unum.cpp        uregexc.cpp  uregex.cpp   \
 	usearch.cpp     \
+	ufieldpositer.cpp \
 	utf16collationiterator.cpp \
 	utf8collationiterator.cpp \
 	utrans.cpp   windtfmt.cpp \
@@ -102,7 +104,9 @@ src_files += \
         alphaindex.cpp  bocsu.cpp    decfmtst.cpp \
         smpdtfst.cpp    smpdtfst.h   tzfmt.cpp \
         tzgnames.cpp    tznames.cpp  tznames_impl.cpp \
-        udateintervalformat.cpp  upluralrules.cpp
+        udateintervalformat.cpp  upluralrules.cpp \
+        sharedbreakiterator.cpp \
+        scientificnumberformatter.cpp
 
 
 c_includes = \
@@ -122,13 +126,12 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES += $(src_files)
 LOCAL_C_INCLUDES += $(c_includes) $(optional_android_logging_includes)
 LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC
+LOCAL_RTTI_FLAG := -frtti
 LOCAL_SHARED_LIBRARIES += libicuuc $(optional_android_logging_libraries)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicui18n
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
-# Use "-include" to not fail apps_only build.
--include abi/cpp/use_rtti.mk
--include external/stlport/libstlport.mk
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -146,6 +149,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := libicui18n-host
 LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 include $(BUILD_HOST_SHARED_LIBRARY)
 
 #
@@ -160,8 +164,8 @@ LOCAL_C_INCLUDES += $(c_includes) $(optional_android_logging_includes)
 LOCAL_SHARED_LIBRARIES += $(optional_android_logging_libraries)
 LOCAL_STATIC_LIBRARIES += libicuuc_static
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_PATH)
-LOCAL_CPP_FEATURES := rtti
-LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC -frtti
+LOCAL_RTTI_FLAG := -frtti
+LOCAL_CFLAGS += $(local_cflags) -DPIC -fPIC
 # Using -Os over -O3 actually cuts down the final executable size by a few dozen kilobytes
 LOCAL_CFLAGS += -Os
 LOCAL_EXPORT_CFLAGS += -DU_STATIC_IMPLEMENTATION=1

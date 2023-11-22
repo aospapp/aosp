@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 # Gyp for utils.
 {
   'targets': [
@@ -8,6 +12,7 @@
       'standalone_static_library': 1,
       'dependencies': [
         'core.gyp:*',
+        'etc1.gyp:libetc1',
       ],
       'includes': [
         'utils.gypi',
@@ -21,8 +26,8 @@
         '../include/utils/mac',
         '../include/utils/unix',
         '../include/utils/win',
-        '../include/xml',
         '../src/core',
+        '../src/opts',
         '../src/utils',
       ],
       'sources': [
@@ -102,14 +107,6 @@
             '../src/utils/win/SkIStream.cpp',
           ],
         }],
-        [ 'skia_os == "nacl"', {
-          'sources': [
-            '../src/utils/SkThreadUtils_pthread_other.cpp',
-          ],
-          'sources!': [
-            '../src/utils/SkThreadUtils_pthread_linux.cpp',
-          ],
-        }],
         ['skia_run_pdfviewer_in_gm', {
           'defines': [
             'SK_BUILD_NATIVE_PDF_RENDERER',
@@ -120,6 +117,26 @@
         'include_dirs': [
           '../include/utils',
           '../src/utils',
+        ],
+      },
+    },
+    {
+      'target_name': 'android_utils',
+      'product_name': 'skia_android_utils',
+      'type': 'static_library',
+      'standalone_static_library': 1,
+      'dependencies': [
+        'core.gyp:*',
+      ],
+      'sources': [
+        '../src/utils/android/SkAndroidSDKCanvas.h',
+        '../src/utils/android/SkAndroidSDKCanvas.cpp',
+        '../src/utils/android/SkHwuiRenderer.h',
+        '../src/utils/android/SkHwuiRenderer.cpp',
+      ],
+      'direct_dependent_settings': {
+        'include_dirs': [
+          '../src/utils/android',
         ],
       },
     },

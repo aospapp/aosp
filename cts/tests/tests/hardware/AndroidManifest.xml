@@ -24,6 +24,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <uses-permission android:name="android.permission.TRANSMIT_IR" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -48,6 +51,30 @@
 
         <activity android:name="android.hardware.cts.GLSurfaceViewCtsActivity"
             android:label="GLSurfaceViewCtsActivity"/>
+
+        <service android:name="android.hardware.multiprocess.ErrorLoggingService"
+            android:label="ErrorLoggingService"
+            android:process=":errorLoggingServiceProcess"
+            android:exported="false">
+        </service>
+
+        <activity android:name="android.hardware.multiprocess.camera.cts.Camera1Activity"
+            android:label="RemoteCamera1Activity"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:process=":camera1ActivityProcess">
+        </activity>
+
+        <activity android:name="android.hardware.multiprocess.camera.cts.Camera2Activity"
+            android:label="RemoteCamera2Activity"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:process=":camera2ActivityProcess">
+        </activity>
+
+        <activity android:name="android.hardware.cts.FingerprintTestActivity"
+            android:label="FingerprintTestActivity">
+        </activity>
 
     </application>
 

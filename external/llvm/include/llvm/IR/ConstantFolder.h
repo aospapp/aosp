@@ -118,34 +118,35 @@ public:
   // Memory Instructions
   //===--------------------------------------------------------------------===//
 
-  Constant *CreateGetElementPtr(Constant *C,
+  Constant *CreateGetElementPtr(Type *Ty, Constant *C,
                                 ArrayRef<Constant *> IdxList) const {
-    return ConstantExpr::getGetElementPtr(C, IdxList);
+    return ConstantExpr::getGetElementPtr(Ty, C, IdxList);
   }
-  Constant *CreateGetElementPtr(Constant *C, Constant *Idx) const {
+  Constant *CreateGetElementPtr(Type *Ty, Constant *C, Constant *Idx) const {
     // This form of the function only exists to avoid ambiguous overload
     // warnings about whether to convert Idx to ArrayRef<Constant *> or
     // ArrayRef<Value *>.
-    return ConstantExpr::getGetElementPtr(C, Idx);
+    return ConstantExpr::getGetElementPtr(Ty, C, Idx);
   }
-  Constant *CreateGetElementPtr(Constant *C,
+  Constant *CreateGetElementPtr(Type *Ty, Constant *C,
                                 ArrayRef<Value *> IdxList) const {
-    return ConstantExpr::getGetElementPtr(C, IdxList);
+    return ConstantExpr::getGetElementPtr(Ty, C, IdxList);
   }
 
-  Constant *CreateInBoundsGetElementPtr(Constant *C,
+  Constant *CreateInBoundsGetElementPtr(Type *Ty, Constant *C,
                                         ArrayRef<Constant *> IdxList) const {
-    return ConstantExpr::getInBoundsGetElementPtr(C, IdxList);
+    return ConstantExpr::getInBoundsGetElementPtr(Ty, C, IdxList);
   }
-  Constant *CreateInBoundsGetElementPtr(Constant *C, Constant *Idx) const {
+  Constant *CreateInBoundsGetElementPtr(Type *Ty, Constant *C,
+                                        Constant *Idx) const {
     // This form of the function only exists to avoid ambiguous overload
     // warnings about whether to convert Idx to ArrayRef<Constant *> or
     // ArrayRef<Value *>.
-    return ConstantExpr::getInBoundsGetElementPtr(C, Idx);
+    return ConstantExpr::getInBoundsGetElementPtr(Ty, C, Idx);
   }
-  Constant *CreateInBoundsGetElementPtr(Constant *C,
+  Constant *CreateInBoundsGetElementPtr(Type *Ty, Constant *C,
                                         ArrayRef<Value *> IdxList) const {
-    return ConstantExpr::getInBoundsGetElementPtr(C, IdxList);
+    return ConstantExpr::getInBoundsGetElementPtr(Ty, C, IdxList);
   }
 
   //===--------------------------------------------------------------------===//
@@ -159,6 +160,12 @@ public:
   Constant *CreatePointerCast(Constant *C, Type *DestTy) const {
     return ConstantExpr::getPointerCast(C, DestTy);
   }
+
+  Constant *CreatePointerBitCastOrAddrSpaceCast(Constant *C,
+                                                Type *DestTy) const {
+    return ConstantExpr::getPointerBitCastOrAddrSpaceCast(C, DestTy);
+  }
+
   Constant *CreateIntCast(Constant *C, Type *DestTy,
                           bool isSigned) const {
     return ConstantExpr::getIntegerCast(C, DestTy, isSigned);

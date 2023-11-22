@@ -20,13 +20,15 @@
 #include "android/android_StreamPlayer.h"
 #include "android/android_LocAVPlayer.h"
 #include "android/include/AacBqToPcmCbRenderer.h"
+#include "android/channels.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>
 
 #include <system/audio.h>
 
-template class android::KeyedVector<SLuint32, android::AudioEffect* > ;
+template class android::KeyedVector<SLuint32,
+                                    android::sp<android::AudioEffect> > ;
 
 #define KEY_STREAM_TYPE_PARAMSIZE  sizeof(SLint32)
 
@@ -51,7 +53,7 @@ SLresult aplayer_setPlayState(const android::sp<android::GenericPlayer> &ap, SLu
          break;
      case SL_PLAYSTATE_PAUSED:
          SL_LOGV("setting GenericPlayer to SL_PLAYSTATE_PAUSED");
-         switch(objState) {
+         switch (objState) {
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              ap->prepare();
@@ -69,7 +71,7 @@ SLresult aplayer_setPlayState(const android::sp<android::GenericPlayer> &ap, SLu
          break;
      case SL_PLAYSTATE_PLAYING: {
          SL_LOGV("setting GenericPlayer to SL_PLAYSTATE_PLAYING");
-         switch(objState) {
+         switch (objState) {
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              ap->prepare();
@@ -124,7 +126,7 @@ static size_t adecoder_writeToBufferQueue(const uint8_t *data, size_t size, CAud
             // room to consume the whole or rest of the decoded data in one shot
             ap->mBufferQueue.mSizeConsumed += size;
             // consume data but no callback to the BufferQueue interface here
-            memcpy (pDest, data, size);
+            memcpy(pDest, data, size);
             sizeConsumed = size;
         } else {
             // push as much as possible of the decoded data into the buffer queue
@@ -140,7 +142,7 @@ static size_t adecoder_writeToBufferQueue(const uint8_t *data, size_t size, CAud
             ap->mBufferQueue.mState.count--;
             ap->mBufferQueue.mState.playIndex++;
             // consume data
-            memcpy (pDest, data, sizeConsumed);
+            memcpy(pDest, data, sizeConsumed);
             // data has been copied to the buffer, and the buffer queue state has been updated
             // we will notify the client if applicable
             callback = ap->mBufferQueue.mCallback;
@@ -165,8 +167,8 @@ static size_t adecoder_writeToBufferQueue(const uint8_t *data, size_t size, CAud
 
 
 //-----------------------------------------------------------------------------
-#define LEFT_CHANNEL_MASK  0x1 << 0
-#define RIGHT_CHANNEL_MASK 0x1 << 1
+#define LEFT_CHANNEL_MASK  AUDIO_CHANNEL_OUT_FRONT_LEFT
+#define RIGHT_CHANNEL_MASK AUDIO_CHANNEL_OUT_FRONT_RIGHT
 
 void android_audioPlayer_volumeUpdate(CAudioPlayer* ap)
 {
@@ -442,7 +444,7 @@ SLresult audioPlayer_setStreamType(CAudioPlayer* ap, SLint32 type) {
     SL_LOGV("type %d", type);
 
     audio_stream_type_t newStreamType = ANDROID_DEFAULT_OUTPUT_STREAM_TYPE;
-    switch(type) {
+    switch (type) {
     case SL_ANDROID_STREAM_VOICE:
         newStreamType = AUDIO_STREAM_VOICE_CALL;
         break;
@@ -484,7 +486,7 @@ SLresult audioPlayer_setStreamType(CAudioPlayer* ap, SLint32 type) {
 SLresult audioPlayer_getStreamType(CAudioPlayer* ap, SLint32 *pType) {
     SLresult result = SL_RESULT_SUCCESS;
 
-    switch(ap->mStreamType) {
+    switch (ap->mStreamType) {
     case AUDIO_STREAM_VOICE_CALL:
         *pType = SL_ANDROID_STREAM_VOICE;
         break;
@@ -562,7 +564,8 @@ bool audioPlayer_isSupportedNonOutputMixSink(const SLDataSink* pAudioSink) {
  * returns the Android object type if the locator type combinations for the source and sinks
  *   are supported by this implementation, INVALID_TYPE otherwise
  */
-AndroidObjectType audioPlayer_getAndroidObjectTypeForSourceSink(CAudioPlayer *ap) {
+static
+AndroidObjectType audioPlayer_getAndroidObjectTypeForSourceSink(const CAudioPlayer *ap) {
 
     const SLDataSource *pAudioSrc = &ap->mDataSource.u.mSource;
     const SLDataSink *pAudioSnk = &ap->mDataSink.u.mSink;
@@ -669,7 +672,7 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
     u.i = event;
     SL_LOGV("sfplayer_handlePrefetchEvent(event='%c%c%c%c' (%d), data1=%d, data2=%d, user=%p) from "
             "SfAudioPlayer", u.c[3], u.c[2], u.c[1], u.c[0], event, data1, data2, user);
-    switch(event) {
+    switch (event) {
 
     case android::GenericPlayer::kEventPrepared: {
         SL_LOGV("Received GenericPlayer::kEventPrepared for CAudioPlayer %p", ap);
@@ -694,7 +697,7 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
             //  - SL_PREFETCHEVENT_FILLLEVELCHANGE with a level of 0
             //  - SL_PREFETCHEVENT_STATUSCHANGE with a status of SL_PREFETCHSTATUS_UNDERFLOW
             SL_LOGE(ERROR_PLAYER_PREFETCH_d, data1);
-            if (IsInterfaceInitialized(&(ap->mObject), MPH_PREFETCHSTATUS)) {
+            if (IsInterfaceInitialized(&ap->mObject, MPH_PREFETCHSTATUS)) {
                 ap->mPrefetchStatus.mLevel = 0;
                 ap->mPrefetchStatus.mStatus = SL_PREFETCHSTATUS_UNDERFLOW;
                 if (!(~ap->mPrefetchStatus.mCallbackEventsMask &
@@ -717,7 +720,7 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
     break;
 
     case android::GenericPlayer::kEventPrefetchFillLevelUpdate : {
-        if (!IsInterfaceInitialized(&(ap->mObject), MPH_PREFETCHSTATUS)) {
+        if (!IsInterfaceInitialized(&ap->mObject, MPH_PREFETCHSTATUS)) {
             break;
         }
         slPrefetchCallback callback = NULL;
@@ -741,7 +744,7 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
     break;
 
     case android::GenericPlayer::kEventPrefetchStatusChange: {
-        if (!IsInterfaceInitialized(&(ap->mObject), MPH_PREFETCHSTATUS)) {
+        if (!IsInterfaceInitialized(&ap->mObject, MPH_PREFETCHSTATUS)) {
             break;
         }
         slPrefetchCallback callback = NULL;
@@ -855,8 +858,11 @@ static void sfplayer_handlePrefetchEvent(int event, int data1, int data2, void* 
 }
 
 // From EffectDownmix.h
+static
 const uint32_t kSides = AUDIO_CHANNEL_OUT_SIDE_LEFT | AUDIO_CHANNEL_OUT_SIDE_RIGHT;
+static
 const uint32_t kBacks = AUDIO_CHANNEL_OUT_BACK_LEFT | AUDIO_CHANNEL_OUT_BACK_RIGHT;
+static
 const uint32_t kUnsupported =
         AUDIO_CHANNEL_OUT_FRONT_LEFT_OF_CENTER | AUDIO_CHANNEL_OUT_FRONT_RIGHT_OF_CENTER |
         AUDIO_CHANNEL_OUT_TOP_CENTER |
@@ -868,9 +874,10 @@ const uint32_t kUnsupported =
         AUDIO_CHANNEL_OUT_TOP_BACK_RIGHT;
 
 //TODO(pmclean) This will need to be revisited when arbitrary N-channel support is added.
-SLresult android_audioPlayer_validateChannelMask(uint32_t mask, int numChans) {
+static
+SLresult android_audioPlayer_validateChannelMask(uint32_t mask, uint32_t numChans) {
     // Check that the number of channels falls within bounds.
-    if (numChans < 0 || numChans > 8) {
+    if (numChans == 0 || numChans > FCC_8) {
         return SL_RESULT_CONTENT_UNSUPPORTED;
     }
     // Are there the right number of channels in the mask?
@@ -941,22 +948,14 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
         switch (sourceFormatType) {
         //     currently only PCM buffer queues are supported,
         case SL_ANDROID_DATAFORMAT_PCM_EX: {
-            SLAndroidDataFormat_PCM_EX *df_pcm =
-                    (SLAndroidDataFormat_PCM_EX *) pAudioSrc->pFormat;
-            switch (df_pcm->representation) {
-            case SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT:
-            case SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT:
-            case SL_ANDROID_PCM_REPRESENTATION_FLOAT:
-                df_representation = &df_pcm->representation;
-                break;
-            default:
-                SL_LOGE("Cannot create audio player: unsupported representation: %d",
-                        df_pcm->representation);
-                return SL_RESULT_CONTENT_UNSUPPORTED;
-            }
-            }; // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
+            const SLAndroidDataFormat_PCM_EX *df_pcm =
+                    (const SLAndroidDataFormat_PCM_EX *) pAudioSrc->pFormat;
+            // checkDataFormat() already checked representation
+            df_representation = &df_pcm->representation;
+            } // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
         case SL_DATAFORMAT_PCM: {
-            SLDataFormat_PCM *df_pcm = (SLDataFormat_PCM *) pAudioSrc->pFormat;
+            // checkDataFormat() already did generic checks, now do the Android-specific checks
+            const SLDataFormat_PCM *df_pcm = (const SLDataFormat_PCM *) pAudioSrc->pFormat;
             SLresult result = android_audioPlayer_validateChannelMask(df_pcm->channelMask,
                                                                       df_pcm->numChannels);
             if (result != SL_RESULT_SUCCESS) {
@@ -965,81 +964,28 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
                 return result;
             }
 
-            switch (df_pcm->samplesPerSec) {
-            case SL_SAMPLINGRATE_8:
-            case SL_SAMPLINGRATE_11_025:
-            case SL_SAMPLINGRATE_12:
-            case SL_SAMPLINGRATE_16:
-            case SL_SAMPLINGRATE_22_05:
-            case SL_SAMPLINGRATE_24:
-            case SL_SAMPLINGRATE_32:
-            case SL_SAMPLINGRATE_44_1:
-            case SL_SAMPLINGRATE_48:
-                break;
-            case SL_SAMPLINGRATE_64:
-            case SL_SAMPLINGRATE_88_2:
-            case SL_SAMPLINGRATE_96:
-            case SL_SAMPLINGRATE_192:
-            default:
-                SL_LOGE("Cannot create audio player: unsupported sample rate %u milliHz",
-                    (unsigned) df_pcm->samplesPerSec);
-                return SL_RESULT_CONTENT_UNSUPPORTED;
-            }
-            switch (df_pcm->bitsPerSample) {
-            case SL_PCMSAMPLEFORMAT_FIXED_8:
-                if (df_representation &&
-                        *df_representation != SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT) {
-                    goto default_err;
-                }
-                break;
-            case SL_PCMSAMPLEFORMAT_FIXED_16:
-            case SL_PCMSAMPLEFORMAT_FIXED_24:
-                if (df_representation &&
-                        *df_representation != SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT) {
-                    goto default_err;
-                }
-                break;
-            case SL_PCMSAMPLEFORMAT_FIXED_32:
-                if (df_representation
-                        && *df_representation != SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT
-                        && *df_representation != SL_ANDROID_PCM_REPRESENTATION_FLOAT) {
-                    goto default_err;
-                }
-                break;
-                // others
-            default:
-            default_err:
-                // this should have already been rejected by checkDataFormat
-                SL_LOGE("Cannot create audio player: unsupported sample bit depth %u",
-                        (SLuint32)df_pcm->bitsPerSample);
-                return SL_RESULT_CONTENT_UNSUPPORTED;
-            }
-            switch (df_pcm->containerSize) {
-            case 8:
-            case 16:
-            case 24:
-            case 32:
-                break;
-                // others
-            default:
-                SL_LOGE("Cannot create audio player: unsupported container size %u",
-                    (unsigned) df_pcm->containerSize);
-                return SL_RESULT_CONTENT_UNSUPPORTED;
-            }
+            // checkDataFormat() already checked sample rate
+
+            // checkDataFormat() already checked bits per sample, container size, and representation
+
+            // FIXME confirm the following
             // df_pcm->channelMask: the earlier platform-independent check and the
             //     upcoming check by sles_to_android_channelMaskOut are sufficient
-            switch (df_pcm->endianness) {
-            case SL_BYTEORDER_LITTLEENDIAN:
-                break;
-            case SL_BYTEORDER_BIGENDIAN:
-                SL_LOGE("Cannot create audio player: unsupported big-endian byte order");
-                return SL_RESULT_CONTENT_UNSUPPORTED;
-                // native is proposed but not yet in spec
-            default:
+
+            if (df_pcm->endianness != pAudioPlayer->mObject.mEngine->mEngine.mNativeEndianness) {
                 SL_LOGE("Cannot create audio player: unsupported byte order %u",
-                    (unsigned) df_pcm->endianness);
+                        df_pcm->endianness);
                 return SL_RESULT_CONTENT_UNSUPPORTED;
             }
+
+            // we don't support container size != sample depth
+            if (df_pcm->containerSize != df_pcm->bitsPerSample) {
+                SL_LOGE("Cannot create audio player: unsupported container size %u bits for "
+                        "sample depth %u bits",
+                        df_pcm->containerSize, (SLuint32)df_pcm->bitsPerSample);
+                return SL_RESULT_CONTENT_UNSUPPORTED;
+            }
+
             } //case SL_DATAFORMAT_PCM
             break;
         case SL_DATAFORMAT_MIME:
@@ -1066,8 +1012,7 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
         switch (sourceFormatType) {
         case SL_DATAFORMAT_MIME:
             break;
-        case SL_DATAFORMAT_PCM:
-        case XA_DATAFORMAT_RAWIMAGE:
+        default:
             SL_LOGE("Cannot create audio player with SL_DATALOCATOR_URI data source without "
                 "SL_DATAFORMAT_MIME format");
             return SL_RESULT_CONTENT_UNSUPPORTED;
@@ -1087,18 +1032,10 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
         switch (sourceFormatType) {
         case SL_DATAFORMAT_MIME:
             break;
-        case SL_DATAFORMAT_PCM:
-            // FIXME implement
-            SL_LOGD("[ FIXME implement PCM FD data sources ]");
-            break;
-        case XA_DATAFORMAT_RAWIMAGE:
-            SL_LOGE("Cannot create audio player with SL_DATALOCATOR_ANDROIDFD data source "
-                "without SL_DATAFORMAT_MIME or SL_DATAFORMAT_PCM format");
-            return SL_RESULT_CONTENT_UNSUPPORTED;
         default:
-            // invalid data format is detected earlier
-            assert(false);
-            return SL_RESULT_INTERNAL_ERROR;
+            SL_LOGE("Cannot create audio player with SL_DATALOCATOR_ANDROIDFD data source "
+                "without SL_DATAFORMAT_MIME format");
+            return SL_RESULT_CONTENT_UNSUPPORTED;
         } // switch (sourceFormatType)
         if ((sinkLocatorType != SL_DATALOCATOR_OUTPUTMIX) &&
                 !audioPlayer_isSupportedNonOutputMixSink(pAudioSnk)) {
@@ -1119,12 +1056,16 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
                 return SL_RESULT_CONTENT_UNSUPPORTED;
             }
             SL_LOGD("source MIME is %s", (char*)df_mime->mimeType);
-            switch(df_mime->containerType) {
+            switch (df_mime->containerType) {
             case SL_CONTAINERTYPE_MPEG_TS:
                 if (strcasecmp((char*)df_mime->mimeType, (const char *)XA_ANDROID_MIME_MP2TS)) {
                     SL_LOGE("Invalid MIME (%s) for container SL_CONTAINERTYPE_MPEG_TS, expects %s",
                             (char*)df_mime->mimeType, XA_ANDROID_MIME_MP2TS);
                     return SL_RESULT_CONTENT_UNSUPPORTED;
+                }
+                if (pAudioPlayer->mAndroidObjType != AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE) {
+                    SL_LOGE("Invalid sink for container SL_CONTAINERTYPE_MPEG_TS");
+                    return SL_RESULT_PARAMETER_INVALID;
                 }
                 break;
             case SL_CONTAINERTYPE_RAW:
@@ -1136,6 +1077,10 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
                             (char*)df_mime->mimeType, df_mime->containerType,
                             SL_ANDROID_MIME_AACADTS);
                     return SL_RESULT_CONTENT_UNSUPPORTED;
+                }
+                if (pAudioPlayer->mAndroidObjType != AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE) {
+                    SL_LOGE("Invalid sink for container SL_CONTAINERTYPE_AAC");
+                    return SL_RESULT_PARAMETER_INVALID;
                 }
                 break;
             default:
@@ -1184,7 +1129,7 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
     }
 
     void * callbackPContext = NULL;
-    switch(event) {
+    switch (event) {
 
     case android::AudioTrack::EVENT_MORE_DATA: {
         //SL_LOGV("received event EVENT_MORE_DATA from AudioTrack TID=%d", gettid());
@@ -1248,7 +1193,7 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
             audioPlayer_dispatch_headAtEnd_lockPlay(ap, false /*set state to paused?*/, false);
 
             // signal underflow to prefetch status itf
-            if (IsInterfaceInitialized(&(ap->mObject), MPH_PREFETCHSTATUS)) {
+            if (IsInterfaceInitialized(&ap->mObject, MPH_PREFETCHSTATUS)) {
                 ap->mPrefetchStatus.mStatus = SL_PREFETCHSTATUS_UNDERFLOW;
                 ap->mPrefetchStatus.mLevel = 0;
                 // callback or no callback?
@@ -1296,8 +1241,13 @@ static void audioTrack_callBack_pullFromBuffQueue(int event, void* user, void *i
         audioTrack_handleUnderrun_lockPlay(ap);
         break;
 
+    case android::AudioTrack::EVENT_NEW_IAUDIOTRACK:
+        // ignore for now
+        break;
+
     case android::AudioTrack::EVENT_BUFFER_END:
     case android::AudioTrack::EVENT_LOOP_END:
+    case android::AudioTrack::EVENT_STREAM_END:
         // These are unexpected so fall through
     default:
         // FIXME where does the notification of SL_PLAYEVENT_HEADMOVING fit?
@@ -1523,7 +1473,8 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
                 pAudioPlayer->mStreamType,                           // streamType
                 sampleRate,                                          // sampleRate
                 sles_to_android_sampleFormat(df_pcm),                // format
-                sles_to_android_channelMaskOut(df_pcm->numChannels, df_pcm->channelMask),
+                // FIXME ignores df_pcm->channelMask and assumes positional
+                audio_channel_out_mask_from_count(df_pcm->numChannels),
                                                                      // channel mask
                 0,                                                   // frameCount
                 policy,                                              // flags
@@ -1534,6 +1485,7 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         android::status_t status = pAudioPlayer->mAudioTrack->initCheck();
         if (status != android::NO_ERROR) {
             SL_LOGE("AudioTrack::initCheck status %u", status);
+            // FIXME should return a more specific result depending on status
             result = SL_RESULT_CONTENT_UNSUPPORTED;
             pAudioPlayer->mAudioTrack.clear();
             return result;
@@ -1795,7 +1747,7 @@ SLresult android_audioPlayer_destroy(CAudioPlayer *pAudioPlayer) {
 SLresult android_audioPlayer_setPlaybackRateAndConstraints(CAudioPlayer *ap, SLpermille rate,
         SLuint32 constraints) {
     SLresult result = SL_RESULT_SUCCESS;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
     case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE: {
         // these asserts were already checked by the platform-independent layer
         assert((AUDIOTRACK_MIN_PLAYBACKRATE_PERMILLE <= rate) &&
@@ -1838,7 +1790,7 @@ SLresult android_audioPlayer_metadata_getItemCount(CAudioPlayer *ap, SLuint32 *p
     if (ap->mAPlayer == 0) {
         return SL_RESULT_PARAMETER_INVALID;
     }
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
       case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         {
@@ -1866,7 +1818,7 @@ SLresult android_audioPlayer_metadata_getKeySize(CAudioPlayer *ap,
         return SL_RESULT_PARAMETER_INVALID;
     }
     SLresult res = SL_RESULT_SUCCESS;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
       case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         {
@@ -1902,7 +1854,7 @@ SLresult android_audioPlayer_metadata_getKey(CAudioPlayer *ap,
         return SL_RESULT_PARAMETER_INVALID;
     }
     SLresult res = SL_RESULT_SUCCESS;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
       case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         {
@@ -1939,7 +1891,7 @@ SLresult android_audioPlayer_metadata_getValueSize(CAudioPlayer *ap,
         return SL_RESULT_PARAMETER_INVALID;
     }
     SLresult res = SL_RESULT_SUCCESS;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
       case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         {
@@ -1975,7 +1927,7 @@ SLresult android_audioPlayer_metadata_getValue(CAudioPlayer *ap,
         return SL_RESULT_PARAMETER_INVALID;
     }
     SLresult res = SL_RESULT_SUCCESS;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE:
       case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         {
@@ -2011,7 +1963,7 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
     SLuint32 playState = ap->mPlay.mState;
     AndroidObjectState objState = ap->mAndroidObjState;
 
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
     case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
         switch (playState) {
         case SL_PLAYSTATE_STOPPED:
@@ -2045,7 +1997,7 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
     case AUDIOPLAYER_FROM_ADTS_ABQ_TO_PCM_BUFFERQUEUE:
         // FIXME report and use the return code to the lock mechanism, which is where play state
         //   changes are updated (see object_unlock_exclusive_attributes())
-        aplayer_setPlayState(ap->mAPlayer, playState, &(ap->mAndroidObjState));
+        aplayer_setPlayState(ap->mAPlayer, playState, &ap->mAndroidObjState);
         break;
     default:
         SL_LOGE(ERROR_PLAYERSETPLAYSTATE_UNEXPECTED_OBJECT_TYPE_D, ap->mAndroidObjType);
@@ -2059,7 +2011,7 @@ void android_audioPlayer_setPlayState(CAudioPlayer *ap) {
 void android_audioPlayer_usePlayEventMask(CAudioPlayer *ap) {
     IPlay *pPlayItf = &ap->mPlay;
     SLuint32 eventFlags = pPlayItf->mEventFlags;
-    /*switch(ap->mAndroidObjType) {
+    /*switch (ap->mAndroidObjType) {
     case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:*/
 
     if (ap->mAPlayer != 0) {
@@ -2109,7 +2061,7 @@ void android_audioPlayer_usePlayEventMask(CAudioPlayer *ap) {
 //-----------------------------------------------------------------------------
 SLresult android_audioPlayer_getDuration(IPlay *pPlayItf, SLmillisecond *pDurMsec) {
     CAudioPlayer *ap = (CAudioPlayer *)pPlayItf->mThis;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
 
       case AUDIOPLAYER_FROM_URIFD:  // intended fall-through
       case AUDIOPLAYER_FROM_URIFD_TO_PCM_BUFFERQUEUE: {
@@ -2135,7 +2087,7 @@ SLresult android_audioPlayer_getDuration(IPlay *pPlayItf, SLmillisecond *pDurMse
 //-----------------------------------------------------------------------------
 void android_audioPlayer_getPosition(IPlay *pPlayItf, SLmillisecond *pPosMsec) {
     CAudioPlayer *ap = (CAudioPlayer *)pPlayItf->mThis;
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
 
       case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:
         if ((ap->mSampleRateMilliHz == UNKNOWN_SAMPLERATE) || (ap->mAudioTrack == 0)) {
@@ -2170,7 +2122,7 @@ void android_audioPlayer_getPosition(IPlay *pPlayItf, SLmillisecond *pPosMsec) {
 SLresult android_audioPlayer_seek(CAudioPlayer *ap, SLmillisecond posMsec) {
     SLresult result = SL_RESULT_SUCCESS;
 
-    switch(ap->mAndroidObjType) {
+    switch (ap->mAndroidObjType) {
 
       case AUDIOPLAYER_FROM_PCM_BUFFERQUEUE:      // intended fall-through
       case AUDIOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE:
@@ -2243,7 +2195,7 @@ void android_audioPlayer_bufferQueue_onRefilled_l(CAudioPlayer *ap) {
 
     // when the queue became empty, an underflow on the prefetch status itf was sent. Now the queue
     // has received new data, signal it has sufficient data
-    if (IsInterfaceInitialized(&(ap->mObject), MPH_PREFETCHSTATUS)) {
+    if (IsInterfaceInitialized(&ap->mObject, MPH_PREFETCHSTATUS)) {
         // we wouldn't have been called unless we were previously in the underflow state
         assert(SL_PREFETCHSTATUS_UNDERFLOW == ap->mPrefetchStatus.mStatus);
         assert(0 == ap->mPrefetchStatus.mLevel);

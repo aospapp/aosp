@@ -310,6 +310,7 @@ void vp8_mbpost_proc_down_c(unsigned char *dst, int pitch, int rows, int cols, i
     }
 }
 
+#if CONFIG_POSTPROC
 static void vp8_de_mblock(YV12_BUFFER_CONFIG         *post,
                           int                         q)
 {
@@ -382,6 +383,7 @@ void vp8_deblock(VP8_COMMON                 *cm,
         vp8_yv12_copy_frame(source, post);
     }
 }
+#endif
 
 #if !(CONFIG_TEMPORAL_DENOISING)
 void vp8_de_noise(VP8_COMMON                 *cm,
@@ -391,12 +393,12 @@ void vp8_de_noise(VP8_COMMON                 *cm,
                   int                         low_var_thresh,
                   int                         flag)
 {
+    int mbr;
     double level = 6.0e-05 * q * q * q - .0067 * q * q + .306 * q + .0065;
     int ppl = (int)(level + .5);
-    int mb_rows = source->y_width >> 4;
-    int mb_cols = source->y_height >> 4;
+    int mb_rows = cm->mb_rows;
+    int mb_cols = cm->mb_cols;
     unsigned char *limits = cm->pp_limits_buffer;;
-    int mbr, mbc;
     (void) post;
     (void) low_var_thresh;
     (void) flag;

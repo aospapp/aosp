@@ -32,6 +32,7 @@
 #include "deRandom.hpp"
 #include "deMath.h"
 #include "deString.h"
+#include "deStringUtil.hpp"
 
 #include "gluDefs.hpp"
 #include "gluShaderProgram.hpp"
@@ -62,7 +63,7 @@ private:
 	int				m_alignment;
 	int				m_seed;
 
-	void			getFormatInfo	(tcu::TextureFormat& format, GLint& glFormat, GLint& glType, int& pixelSize, bool& align);
+	void			getFormatInfo	(tcu::TextureFormat& format, GLint& glFormat, GLint& glType, int& pixelSize);
 };
 
 ReadPixelsTest::ReadPixelsTest	(Context& context, const char* name, const char* description, bool chooseFormat, int alignment)
@@ -140,51 +141,25 @@ void ReadPixelsTest::render (tcu::Texture2D& reference)
 	}
 }
 
-void ReadPixelsTest::getFormatInfo (tcu::TextureFormat& format, GLint& glFormat, GLint& glType, int& pixelSize, bool& align)
+void ReadPixelsTest::getFormatInfo (tcu::TextureFormat& format, GLint& glFormat, GLint& glType, int& pixelSize)
 {
 	if (m_chooseFormat)
 	{
 		GLU_CHECK_CALL(glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &glFormat));
 		GLU_CHECK_CALL(glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &glType));
 
+		if (glFormat != GL_RGBA && glFormat != GL_BGRA && glFormat != GL_RGB)
+			TCU_THROW(NotSupportedError, ("Unsupported IMPLEMENTATION_COLOR_READ_FORMAT: " + de::toString(glu::getPixelFormatStr(glFormat))).c_str());
+		if (glu::getTypeName(glType) == DE_NULL)
+			TCU_THROW(NotSupportedError, ("Unsupported GL_IMPLEMENTATION_COLOR_READ_TYPE: " + de::toString(tcu::Format::Hex<4>(glType))).c_str());
+
 		format = glu::mapGLTransferFormat(glFormat, glType);
-
-		// Check if aligment is allowed
-		switch (glType)
-		{
-			case GL_BYTE:
-			case GL_UNSIGNED_BYTE:
-			case GL_SHORT:
-			case GL_UNSIGNED_SHORT:
-			case GL_INT:
-			case GL_UNSIGNED_INT:
-			case GL_FLOAT:
-			case GL_HALF_FLOAT:
-				align = true;
-				break;
-
-			case GL_UNSIGNED_SHORT_5_6_5:
-			case GL_UNSIGNED_SHORT_4_4_4_4:
-			case GL_UNSIGNED_SHORT_5_5_5_1:
-			case GL_UNSIGNED_INT_2_10_10_10_REV:
-			case GL_UNSIGNED_INT_10F_11F_11F_REV:
-			case GL_UNSIGNED_INT_24_8:
-			case GL_FLOAT_32_UNSIGNED_INT_24_8_REV:
-			case GL_UNSIGNED_INT_5_9_9_9_REV:
-				align = false;
-				break;
-
-			default:
-				throw tcu::InternalError("Unsupported format", "", __FILE__, __LINE__);
-		}
-
-		pixelSize	= format.getPixelSize();
+		pixelSize = format.getPixelSize();
 	}
 	else
 	{
 		format		= tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8);
 		pixelSize	= 1 * 4;
-		align		= true;
 		glFormat	= GL_RGBA;
 		glType		= GL_UNSIGNED_BYTE;
 	}
@@ -202,9 +177,8 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 	int							pixelSize;
 	GLint						glFormat;
 	GLint						glType;
-	bool						align;
 
-	getFormatInfo(format, glFormat, glType, pixelSize, align);
+	getFormatInfo(format, glFormat, glType, pixelSize);
 	m_testCtx.getLog() << tcu::TestLog::Message << "Format: " << glu::getPixelFormatStr(glFormat) << ", Type: " << glu::getTypeStr(glType) << tcu::TestLog::EndMessage;
 
 	tcu::Texture2D reference(format, width, height);
@@ -225,16 +199,13 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 		GLU_CHECK_CALL(glClearColor(red, green, blue, alpha));
 		GLU_CHECK_CALL(glClear(GL_COLOR_BUFFER_BIT));
 
-		// Clear reference
-		for (int x = 0; x < reference.getWidth(); x++)
-			for (int y = 0; y < reference.getHeight(); y++)
-					reference.getLevel(0).setPixel(tcu::Vec4(red, green, blue, alpha), x, y);
+		tcu::clear(reference.getLevel(0), tcu::Vec4(red, green, blue, alpha));
 	}
 
 	render(reference);
 
 	std::vector<deUint8> pixelData;
-	const int rowPitch = (align ? m_alignment * deCeilFloatToInt32(pixelSize * width / (float)m_alignment) : width * pixelSize);
+	const int rowPitch = m_alignment * deCeilFloatToInt32(pixelSize * width / (float)m_alignment);
 
 	pixelData.resize(rowPitch * height, 0);
 
@@ -249,7 +220,17 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 		const deUint8		blueThreshold	= (deUint8)deCeilFloatToInt32(256.0f * (2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().blueBits,		formatBitDepths.z()))));
 		const deUint8		alphaThreshold	= (deUint8)deCeilFloatToInt32(256.0f * (2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().alphaBits,	formatBitDepths.w()))));
 
-		if (tcu::bilinearCompare(m_testCtx.getLog(), "Result", "Result", reference.getLevel(0), tcu::PixelBufferAccess(format, width, height, 1, rowPitch, 0, &(pixelData[0])), tcu::RGBA(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
+		// bilinearCompare only accepts RGBA, UINT8
+		tcu::Texture2D		referenceRGBA8	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), width, height);
+		tcu::Texture2D		resultRGBA8		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), width, height);
+
+		referenceRGBA8.allocLevel(0);
+		resultRGBA8.allocLevel(0);
+
+		tcu::copy(referenceRGBA8.getLevel(0), reference.getLevel(0));
+		tcu::copy(resultRGBA8.getLevel(0), tcu::PixelBufferAccess(format, width, height, 1, rowPitch, 0, &(pixelData[0])));
+
+		if (tcu::bilinearCompare(m_testCtx.getLog(), "Result", "Result", referenceRGBA8.getLevel(0), resultRGBA8.getLevel(0), tcu::RGBA(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
 			m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
 		else
 			m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");

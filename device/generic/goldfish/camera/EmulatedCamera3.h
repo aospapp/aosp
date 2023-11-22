@@ -54,6 +54,27 @@ public:
     /* Destructs EmulatedCamera2 instance. */
     virtual ~EmulatedCamera3();
 
+    /* List of all defined capabilities plus useful HW levels */
+    enum AvailableCapabilities {
+        BACKWARD_COMPATIBLE,
+        MANUAL_SENSOR,
+        MANUAL_POST_PROCESSING,
+        RAW,
+        PRIVATE_REPROCESSING,
+        READ_SENSOR_SETTINGS,
+        BURST_CAPTURE,
+        YUV_REPROCESSING,
+        DEPTH_OUTPUT,
+        CONSTRAINED_HIGH_SPEED_VIDEO,
+        // Levels
+        FULL_LEVEL,
+
+        NUM_CAPABILITIES
+    };
+
+    // Char strings for above enum, with size NUM_CAPABILITIES
+    static const char *sAvailableCapabilitiesStrings[];
+
     /****************************************************************************
      * Abstract API
      ***************************************************************************/
@@ -99,16 +120,11 @@ protected:
 
     virtual status_t processCaptureRequest(camera3_capture_request *request);
 
+    virtual status_t flush();
+
     /** Debug methods */
 
     virtual void dump(int fd);
-
-    /** Tag query methods */
-    virtual const char *getVendorSectionName(uint32_t tag);
-
-    virtual const char *getVendorTagName(uint32_t tag);
-
-    virtual int getVendorTagType(uint32_t tag);
 
     /****************************************************************************
      * Camera API callbacks as defined by camera3_device_ops structure.  See
@@ -142,21 +158,9 @@ private:
     static int process_capture_request(const struct camera3_device *,
             camera3_capture_request_t *request);
 
-    /** Vendor metadata registration */
-    static void get_metadata_vendor_tag_ops(const camera3_device_t *,
-            vendor_tag_query_ops_t *ops);
-    // for get_metadata_vendor_tag_ops
-    static const char* get_camera_vendor_section_name(
-            const vendor_tag_query_ops_t *,
-            uint32_t tag);
-    static const char* get_camera_vendor_tag_name(
-            const vendor_tag_query_ops_t *,
-            uint32_t tag);
-    static int get_camera_vendor_tag_type(
-            const vendor_tag_query_ops_t *,
-            uint32_t tag);
-
     static void dump(const camera3_device_t *, int fd);
+
+    static int flush(const camera3_device_t *);
 
     /** For hw_device_t ops */
     static int close(struct hw_device_t* device);
@@ -165,11 +169,6 @@ private:
      * Data members shared with implementations
      ***************************************************************************/
   protected:
-
-    struct TagOps : public vendor_tag_query_ops {
-        EmulatedCamera3 *parent;
-    };
-    TagOps      mVendorTagOps;
 
     enum {
         // State at construction time, and after a device operation error

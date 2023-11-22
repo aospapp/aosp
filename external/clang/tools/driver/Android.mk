@@ -31,7 +31,7 @@ LOCAL_STATIC_LIBRARIES := \
   libclangSerialization \
   libclangCodeGen \
   libclangRewriteFrontend \
-  libclangRewriteCore \
+  libclangRewrite \
   libclangParse \
   libclangSema \
   libclangStaticAnalyzerFrontend \
@@ -90,10 +90,11 @@ LOCAL_STATIC_LIBRARIES := \
   libLLVMAnalysis \
   libLLVMCore \
   libLLVMOption \
-  libLLVMSupport \
   libLLVMTarget \
   libLLVMProfileData \
-  libLLVMObject
+  libLLVMObject \
+  libLLVMMCDisassembler \
+  libLLVMSupport
 
 LOCAL_LDLIBS += -lm
 ifdef USE_MINGW
@@ -102,22 +103,13 @@ else
 LOCAL_LDLIBS += -lpthread -ldl
 endif
 
+# remove when we can use PIE binaries in all places again
+LOCAL_NO_FPIE := true
+
+# Create symlink clang++ pointing to clang.
+# Use "=" (instead of ":=") to defer the evaluation.
+LOCAL_POST_INSTALL_CMD = $(hide) ln -sf clang $(dir $(LOCAL_INSTALLED_MODULE))clang++
+
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(BUILD_HOST_EXECUTABLE)
-
-ifeq (true,$(FORCE_BUILD_LLVM_COMPONENTS))
-# Make sure if clang (i.e. $(LOCAL_MODULE)) get installed,
-# clang++ will get installed as well.
-ALL_MODULES.$(LOCAL_MODULE).INSTALLED := \
-    $(ALL_MODULES.$(LOCAL_MODULE).INSTALLED) $(CLANG_CXX)
-# the additional dependency is needed when you run mm/mmm.
-$(LOCAL_MODULE) : $(CLANG_CXX)
-CLANG_ARM_NEON_H := $(TARGET_OUT_HEADERS)/clang/arm_neon.h
-$(LOCAL_MODULE) : $(CLANG_ARM_NEON_H)
-
-# Symlink for clang++
-$(CLANG_CXX) : $(LOCAL_INSTALLED_MODULE)
-	@echo "Symlink $@ -> $<"
-	$(hide) ln -sf $(notdir $<) $@
-endif

@@ -1523,6 +1523,8 @@ WORD32 ihevcd_init(codec_t *ps_codec)
     ps_codec->s_parse.i4_first_pic_init = 0;
     ps_codec->i4_error_code = 0;
     ps_codec->i4_reset_flag = 0;
+    ps_codec->i4_cra_as_first_pic = 1;
+    ps_codec->i4_rasl_output_flag = 0;
 
     ps_codec->i4_prev_poc_msb = 0;
     ps_codec->i4_prev_poc_lsb = -1;
@@ -1550,6 +1552,7 @@ WORD32 ihevcd_init(codec_t *ps_codec)
     ps_codec->i4_disable_sao_pic    = 0;
     ps_codec->i4_fullpel_inter_pred = 0;
     ps_codec->u4_enable_fmt_conv_ahead = 0;
+    ps_codec->i4_share_disp_buf_cnt = 0;
 
     {
         sps_t *ps_sps = ps_codec->ps_sps_base;
@@ -1925,9 +1928,9 @@ WORD32 ihevcd_fill_num_mem_rec(void *pv_api_ip, void *pv_api_op)
      *
      * One extra MV Bank is needed to hold current pics MV bank.
      * Since this is only a structure allocation and not actual buffer allocation,
-     * it is allocated for BUF_MGR_MAX_CNT entries
+     * it is allocated for (MAX_DPB_SIZE + 1) entries
      */
-    ps_mem_rec->u4_mem_size += BUF_MGR_MAX_CNT * sizeof(mv_buf_t);
+    ps_mem_rec->u4_mem_size += (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
 
     {
         /* Allocate for pu_map, pu_t and pic_pu_idx for each MV bank */
@@ -2333,9 +2336,27 @@ WORD32 ihevcd_fill_num_mem_rec(void *pv_api_ip, void *pv_api_op)
     ps_mem_rec->u4_mem_size += BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
 
     /* In case of non-shared mode allocate for reference picture buffers */
-    if(0 == share_disp_buf)
+    /* In case of shared and 420p output, allocate for chroma samples */
+    if((0 == share_disp_buf) || (chroma_format == IV_YUV_420P))
     {
-        UWORD32 num_reorder_frames_local = num_reorder_frames;
+        UWORD32 init_num_bufs;
+        UWORD32 init_extra_bufs;
+        WORD32 chroma_only;
+
+        chroma_only = 0;
+        init_extra_bufs = 0;
+        init_num_bufs = num_reorder_frames + num_ref_frames + 1;
+
+        /* In case of shared display buffers and chroma format 420P
+         * Allocate for chroma in reference buffers, luma buffer will be display buffer
+         */
+
+        if((1 == share_disp_buf) && (chroma_format == IV_YUV_420P))
+        {
+            chroma_only = 1;
+            init_extra_bufs = num_extra_disp_bufs;
+        }
+
         /* Note: Number of luma samples is not max_wd * max_ht here, instead it is
          * set to maximum number of luma samples allowed at the given level.
          * This is done to ensure that any stream with width and height lesser
@@ -2350,7 +2371,7 @@ WORD32 ihevcd_fill_num_mem_rec(void *pv_api_ip, void *pv_api_op)
          */
         ps_mem_rec->u4_mem_size +=
                         ihevcd_get_total_pic_buf_size(max_wd_luma * max_ht_luma, level,  PAD_WD,  PAD_HT,
-                                                      num_ref_frames, num_reorder_frames_local);
+                                                      init_num_bufs, init_extra_bufs, chroma_only);
     }
     DEBUG("\nMemory record Id %d = %d \n", MEM_REC_REF_PIC,
                     ps_mem_rec->u4_mem_size);
@@ -2960,7 +2981,8 @@ WORD32 ihevcd_init_mem_rec(iv_obj_t *ps_codec_obj,
     ps_codec->pv_pic_buf_mgr = ps_mem_rec->pv_base;
     ps_codec->pv_pic_buf_base = (UWORD8 *)ps_codec->pv_pic_buf_mgr + sizeof(buf_mgr_t);
     ps_codec->i4_total_pic_buf_size = ps_mem_rec->u4_mem_size - sizeof(buf_mgr_t);
-
+    ps_codec->pu1_cur_chroma_ref_buf = (UWORD8 *)ps_codec->pv_pic_buf_base + BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
+    ps_codec->i4_remaining_pic_buf_size = ps_codec->i4_total_pic_buf_size - BUF_MGR_MAX_CNT * sizeof(pic_buf_t);
 
 
 
@@ -3146,7 +3168,25 @@ WORD32 ihevcd_set_display_frame(iv_obj_t *ps_codec_obj,
             pu1_buf =  ps_dec_disp_ip->s_disp_buffer[i].pu1_bufs[0];
             ps_pic_buf->pu1_luma = pu1_buf + strd * PAD_TOP + PAD_LEFT;
 
-            pu1_buf =  ps_dec_disp_ip->s_disp_buffer[i].pu1_bufs[1];
+            if(ps_codec->e_chroma_fmt == IV_YUV_420P)
+            {
+                pu1_buf =  ps_codec->pu1_cur_chroma_ref_buf;
+                ps_codec->pu1_cur_chroma_ref_buf += strd * (ps_codec->i4_ht / 2 + PAD_HT / 2);
+                ps_codec->i4_remaining_pic_buf_size -= strd * (ps_codec->i4_ht / 2 + PAD_HT / 2);
+
+                if(0 > ps_codec->i4_remaining_pic_buf_size)
+                {
+                    ps_codec->i4_error_code = IHEVCD_BUF_MGR_ERROR;
+                    return IHEVCD_BUF_MGR_ERROR;
+                }
+
+            }
+            else
+            {
+                /* For YUV 420SP case use display buffer itself as chroma ref buffer */
+                pu1_buf =  ps_dec_disp_ip->s_disp_buffer[i].pu1_bufs[1];
+            }
+
             ps_pic_buf->pu1_chroma = pu1_buf + strd * (PAD_TOP / 2) + PAD_LEFT;
 
             buf_ret = ihevc_buf_mgr_add((buf_mgr_t *)ps_codec->pv_pic_buf_mgr, ps_pic_buf, i);
@@ -3165,6 +3205,13 @@ WORD32 ihevcd_set_display_frame(iv_obj_t *ps_codec_obj,
             ihevc_buf_mgr_set_status((buf_mgr_t *)ps_codec->pv_pic_buf_mgr, i, BUF_MGR_DISP);
 
             ps_pic_buf++;
+
+            /* Store display buffers in codec context. Needed for 420p output */
+            memcpy(&ps_codec->s_disp_buffer[ps_codec->i4_share_disp_buf_cnt],
+                   &ps_dec_disp_ip->s_disp_buffer[i],
+                   sizeof(ps_dec_disp_ip->s_disp_buffer[i]));
+
+            ps_codec->i4_share_disp_buf_cnt++;
 
         }
     }
@@ -3658,8 +3705,7 @@ WORD32 ihevcd_set_params(iv_obj_t *ps_codec_obj,
         {
             strd = s_ctl_dynparams_ip->u4_disp_wd;
         }
-        else if(0 == ps_codec->i4_sps_done ||
-                        0 == ps_codec->i4_pps_done)
+        else if(0 == ps_codec->i4_sps_done)
         {
             strd = s_ctl_dynparams_ip->u4_disp_wd;
         }

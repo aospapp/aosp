@@ -261,9 +261,9 @@ public class ScrollController {
 
         private int mPaddingHigh;
 
-        private Lerper mLerper;
+        private final Lerper mLerper;
 
-        private String mName; // for debugging
+        private final String mName; // for debugging
 
         public Axis(Lerper lerper, String name) {
             mScrollCenterStrategy = SCROLL_CENTER_IN_MIDDLE;
@@ -592,14 +592,14 @@ public class ScrollController {
 
     }
 
-    private Context mContext;
+    private final Context mContext;
 
     // we separate Scrollers for scroll animation and fling animation; this is because we want a
     // flywheel feature for fling animation, ScrollAdapterView inserts scroll animation between
     // fling animations, the fling animation will mistakenly continue the old velocity of scroll
     // animation: that's wrong, we want fling animation pickup the old velocity of last fling.
-    private Scroller mScrollScroller;
-    private Scroller mFlingScroller;
+    private final Scroller mScrollScroller;
+    private final Scroller mFlingScroller;
 
     private final static int STATE_NONE = 0;
 
@@ -616,7 +616,7 @@ public class ScrollController {
 
     private int mOrientation = ScrollAdapterView.HORIZONTAL;
 
-    private Lerper mLerper = new Lerper();
+    private final Lerper mLerper = new Lerper();
 
     final public Axis vertical = new Axis(mLerper, "vertical");
 

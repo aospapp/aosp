@@ -24,7 +24,7 @@
 
     <!-- Official label of the phone app, as seen in "Manage Applications"
          and other settings UIs. -->
-    <string name="phoneAppLabel" product="default">Phone</string>
+    <string name="phoneAppLabel" product="default">Phone Services</string>
 
     <!-- Screen title for Emergency Dialer UI -->
     <string name="emergencyDialerIconLabel">Emergency Dialer</string>
@@ -116,10 +116,16 @@
 
     <!-- Error message for users that aren't allowed to modify Mobile Network settings [CHAR LIMIT=none] -->
     <string name="mobile_network_settings_not_available">Cellular network settings are not available for this user</string>
-    <!-- GSM Call settings screen, setting option name -->
+    <!-- GSM Call settings screen, setting option name. [CHAR LIMIT=40] -->
     <string name="labelGSMMore">GSM call settings</string>
-    <!-- CDM Call settings screen, setting option name -->
+    <!-- GSM Call settings screen, setting option name with label indicating the SIM the settings
+         are applied to. [CHAR LIMIT=40] -->
+    <string name="labelGsmMore_with_label">GSM call settings (<xliff:g id="subscriptionlabel" example="T-Mobile">%s</xliff:g>)</string>
+    <!-- CDMA Call settings screen, setting option name -->
     <string name="labelCDMAMore">CDMA call settings</string>
+    <!-- CDMA Call settings screen, setting option name with label indicating the SIM the settings
+         are applied to. [CHAR LIMIT=40] -->
+    <string name="labelCdmaMore_with_label">CDMA call settings (<xliff:g id="subscriptionlabel" example="Verizon">%s</xliff:g>)</string>
     <!-- Mobile network settings screen, setting option name -->
     <string name="apn_settings">Access Point Names</string>
     <!-- Label for the "Network settings" screen in the Settings UI -->
@@ -145,32 +151,21 @@
     <string name="phone_accounts_add_sip_account">Add SIP account</string>
     <!-- Description label for icon to configure a phone account's settings. -->
     <string name="phone_accounts_configure_account_settings">Configure account settings</string>
+    <!-- Label for heading that takes user to the list of calling accounts where they can enable
+         and disable all accounts. -->
+    <string name="phone_accounts_all_calling_accounts">All calling accounts</string>
+    <!-- Summary for all-calling-account setting indicating that is where the user goes to enable
+         and disable phone accounts. -->
+    <string name="phone_accounts_all_calling_accounts_summary">Select which accounts can make calls</string>
 
     <!-- Title for setting to select Wi-Fi call manager account -->
-    <string name="phone_account_wifi_calling">Wi-Fi calling</string>
-    <!-- Indication for option to not use a Wi-Fi call manager -->
-    <string name="wifi_calling_do_not_use">Do not use Wi-Fi calling</string>
-    <!-- Indication for option to not use a call assistant. -->
-    <string name="wifi_calling_do_not_use_call_assistant">Do not use call assistant</string>
-    <!-- Indication for option to not use a call assistant. -->
-    <string name="wifi_calling_call_assistant_none">None</string>
-    <!-- Label for selected Wi-Fi call manager -->
-    <string name="wifi_calling_call_assistant">Call assistant</string>
-    <!-- Label for switch setting to enable/disable the use of SIM call managers. -->
-    <string name="wifi_calling_use_call_assistant">Use call assistant</string>
-    <!-- Label for selectecting a Wi-Fi call manager -->
-    <string name="wifi_calling_select_call_assistant">Choose call assistant</string>
-    <!-- Summary for the label of a setting to select the SIM call managers to use.-->
-    <string name="wifi_calling_select_call_assistant_summary">Manage the networks used for calls with</string>
-    <!-- Summary for the label of a switch setting to enable/disable the use of SIM call managers. -->
-    <string name="wifi_calling_use_call_assistant_summary">Let apps or services manage networks used for calls</string>
-    <!-- Label for setting to configure the selected call assistant. -->
-    <string name="wifi_calling_call_assistant_configure">Configure</string>
-
+    <string name="wifi_calling">Wi-Fi calling</string>
     <!-- Built-in label for the default connection service setting. -->
     <string name="connection_service_default_label">Built-in connection service</string>
     <!-- Call settings screen, setting option name -->
     <string name="voicemail">Voicemail</string>
+    <!-- Title of the "Voicemail" settings screen, with a text label identifying which SIM the settings are for. -->
+    <string name="voicemail_settings_with_label">Voicemail (<xliff:g id="subscriptionlabel" example="Mock Carrier">%s</xliff:g>)</string>
     <!-- Call forwarding dialog box, voicemail number prefix -->
     <string name="voicemail_abbreviated">VM:</string>
     <!-- Mobile network settings screen, setting option name -->
@@ -427,6 +422,7 @@
     <string name="enhanced_4g_lte_mode_title">Enhanced 4G LTE Mode</string>
     <!-- Cellular network 4G summary [CHAR LIMIT=80] -->
     <string name="enhanced_4g_lte_mode_summary">Use LTE services to improve voice and other communications (recommended)</string>
+
     <!-- Mobile network settings screen, data enabling checkbox name -->
     <string name="data_enabled">Data enabled</string>
     <!-- Mobile network settings screen, setting summary text when check box is not selected (explains what selecting it would do) [CHAR LIMITS=40] -->
@@ -442,7 +438,9 @@
          "data roaming" feature turned off. -->
     <string name="roaming_reenable_message">You\'ve lost data connectivity because you left your home network with data roaming turned off.</string>
     <!-- Mobile network settings screen, dialog message when user selects the Data roaming check box -->
-    <string name="roaming_warning">Allow data usage when roaming? Significant charges may apply.</string>
+    <string name="roaming_warning">You may incur significant charges.</string>
+    <!-- Mobile network settings screen, dialog message title when user selects the Data roaming check box -->
+    <string name="roaming_alert_title">Allow data roaming?</string>
 
     <!-- USSD aggregation dialog box: separator strings between messages (new-lines will be added before and after) -->
     <string name="ussd_dialog_sep" translatable="false">----------</string>
@@ -752,7 +750,8 @@
     <string name="tty_mode_option_summary">Set TTY mode</string>
     <string name="auto_retry_mode_title">Auto-retry</string>
     <string name="auto_retry_mode_summary">Enable Auto-retry mode</string>
-
+    <!-- TTY Mode change is NOT allowed during a video call -->
+    <string name="tty_mode_not_allowed_video_call">TTY Mode change is not allowed during a video call</string>
     <!-- FDN list screen: menu item label -->
     <string name="menu_add">Add contact</string>
     <!-- FDN list screen: menu item label -->
@@ -807,9 +806,8 @@
     <string name="simContacts_empty">No contacts on your SIM card.</string>
     <!-- Call settings: title of the dialog that lets you select contacts from the SIM. -->
     <string name="simContacts_title">Select contacts to import</string>
-    <!-- Appears when user tries to import contacts in SIM during Airplane mode
-      [CHAR LIMIT=NONE] -->
-    <string name="simContacts_airplaneMode">To import contacts from the SIM card, first turn off Airplane mode.</string>
+    <!-- Appears when user tries to import contacts in SIM during airplane mode [CHAR LIMIT=NONE] -->
+    <string name="simContacts_airplaneMode">Turn off airplane mode to import contacts from the SIM card.</string>
 
     <!-- SIM PIN strings -->
     <!-- Title of "Enable/disable SIM PIN" screen -->
@@ -880,6 +878,9 @@
     <string name="pin2_attempts">\nYou have <xliff:g id="number">%d</xliff:g> remaining attempts.</string>
     <!-- SIM PIN screen: status message displayed in a popup (toast) -->
     <string name="pin2_unblocked">PIN2 no longer blocked</string>
+    <!-- SIM PIN screen: error message shown in dialog when there is a network or sim error.
+         [CHAR LIMIT=NONE] -->
+    <string name="pin2_error_exception">Network or SIM card error</string>
 
     <!-- SIM PIN screen: button label -->
     <string name="doneButton">Done</string>
@@ -913,25 +914,6 @@
     <string name="card_title_in_call">In call</string>
 
     <!-- Notification strings -->
-    <!-- The "label" of the in-call Notification for a dialing call, used
-         as the format string for a Chronometer widget. [CHAR LIMIT=60] -->
-    <string name="notification_dialing">Dialing</string>
-    <!-- Missed call notification label, used when there's exactly one missed call -->
-    <string name="notification_missedCallTitle">Missed call</string>
-    <!-- Missed call notification label, used when there are two or more missed calls -->
-    <string name="notification_missedCallsTitle">Missed calls</string>
-    <!-- Missed call notification message used when there are multiple missed calls -->
-    <string name="notification_missedCallsMsg"><xliff:g id="num_missed_calls">%s</xliff:g> missed calls</string>
-    <!-- Missed call notification message used for a single missed call, including
-         the caller-id info from the missed call -->
-    <string name="notification_missedCallTicker">Missed call from <xliff:g id="missed_call_from">%s</xliff:g></string>
-    <!-- The "label" of the in-call Notification for an ongoing call, used
-         as the format string for a Chronometer widget. [CHAR LIMIT=60] -->
-    <string name="notification_ongoing_call">Ongoing call</string>
-    <!-- The "label" of the in-call Notification for a call that's on hold -->
-    <string name="notification_on_hold">On hold</string>
-    <!-- The "label" of the in-call Notification for an incoming ringing call -->
-    <string name="notification_incoming_call">Incoming call</string>
     <!-- Label for the "Voicemail" notification item, when expanded. -->
     <string name="notification_voicemail_title">New voicemail</string>
     <!-- Label for the expanded "Voicemail" notification item,
@@ -948,27 +930,18 @@
     <!-- Label for the expanded "No service" notification item, including the
          operator name set by user -->
     <string name="notification_network_selection_text">Selected network (<xliff:g id="operator_name">%s</xliff:g>) unavailable</string>
-    <!-- Message for "end call" Action.
-         It is displayed in the "Ongoing call" notification, which is shown
-         when the user is outside the in-call screen while the phone call is still
-         active. [CHAR LIMIT=40] -->
-    <string name="notification_action_end_call">Hang up</string>
-    <!-- Message for "call back" Action, which is displayed in the missed call notificaiton.
-         The user will be able to call back to the person or the phone number.
-         [CHAR LIMIT=60] -->
-    <string name="notification_missedCall_call_back">Call back</string>
-    <!-- Message for "reply via sms" action, which is displayed in the missed call notification.
-         The user will be able to send text messages using the phone number.
-         [CHAR LIMIT=60] -->
-    <string name="notification_missedCall_message">Message</string>
 
-    <!-- In-call screen: call failure message displayed in an error dialog -->
-    <string name="incall_error_power_off">To place a call, first turn off Airplane mode.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_power_off">Turn off airplane mode to make a call.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog when in airplane mode, WFC is enabled, not wifi-only, and not connected to wireless networks. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_power_off_wfc">Turn off airplane mode or connect to a wireless network to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog.
          This string is currently unused (see comments in InCallScreen.java.) -->
     <string name="incall_error_emergency_only">Not registered on network.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_out_of_service">Cellular network not available.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog -->
+    <string name="incall_error_out_of_service_wfc">Cellular network is not available. Connect to a wireless network to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="incall_error_no_phone_number_supplied">To place a call, enter a valid number.</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
@@ -989,6 +962,8 @@
     <string name="incall_error_supp_service_reject">Can\'t reject call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_hangup">Can\'t release call(s).</string>
+    <!-- In-call screen: call failure message displayed in an error dialog when WFC is enabled, is wifi-only, and not connected to a wireless network. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_wfc_only_no_wireless_network">Connect to a wireless network to make a call.</string>
 
     <!-- Dialog title for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_title">Emergency call</string>
@@ -1218,10 +1193,13 @@
     -->
     <string name="description_dial_button">dial</string>
 
-    <!-- Dialog title for the vibration settings for voicemail notifications [CHAR LIMIT=40] -->
+    <!-- Title for the vibration settings for voicemail notifications [CHAR LIMIT=40] -->
     <string name="voicemail_notification_vibrate_when_title" msgid="8731372580674292759">Vibrate</string>
     <!-- Dialog title for the vibration settings for voice mail notifications [CHAR LIMIT=40]-->
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="8995274609647451109">Vibrate</string>
+
+    <!-- Visual voicemail on/off title [CHAR LIMIT=40] -->
+    <string name="voicemail_visual_voicemail_switch_title">Visual Voicemail</string>
 
     <!-- Voicemail ringtone title. The user clicks on this preference to select
          which sound to play when a voicemail notification is received.
@@ -1237,10 +1215,6 @@
         <item>silent</item>
         <item>never</item>
     </string-array>
-
-    <!--  Setting option name to enable or disable dialpad autocomplete functionality
-         [CHAR LIMIT=30] -->
-    <string name="dial_pad_autocomplete">Dialpad autocomplete</string>
 
     <!-- Title for the category "ringtone", which is shown above ringtone and vibration
          related settings.
@@ -1274,13 +1248,43 @@
     <string name="sim_label_emergency_calls">Emergency calls</string>
     <string name="sim_description_emergency_calls">Emergency calling only</string>
     <string name="sim_description_default">SIM card, slot: <xliff:g id="slot_id">%s</xliff:g></string>
+
+    <!-- Title for activity to control accessibility settings such as TTY mode and hearing aid
+         compatability. [CHAR LIMIT=40] -->
+    <string name="accessibility_settings_activity_title">Accessibility</string>
+
     <!-- Configuration setting for world mode Format is <true;GID if any to be checked>-->
     <string translatable="false" name="config_world_mode"/>
+
+    <!-- Status hint label for an incoming call over a wifi network which has not been accepted yet.
+         [CHAR LIMIT=25] -->
+    <string name="status_hint_label_incoming_wifi_call">Incoming Wi-Fi call</string>
+    <!-- Status hint label for a call being made over a wifi network. [CHAR LIMIT=25] -->
+    <string name="status_hint_label_wifi_call">Wi-Fi call</string>
 
     <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
     <string name="voicemail_notification_ringtone_key">voicemail_notification_ringtone_key</string>
     <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
     <string name="voicemail_notification_vibrate_key">voicemail_notification_vibrate_key</string>
+    <!-- DO NOT TRANSLATE. Internal key for a visual voicemail preference. -->
+    <string name="voicemail_visual_voicemail_key">voicemail_visual_voicemail_key</string>
     <!-- DO NOT TRANSLATE. Internal key for tty mode preference. -->
     <string name="tty_mode_key">button_tty_mode_key</string>
+    <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
+    <string name="wifi_calling_settings_key">button_wifi_calling_settings_key</string>
+
+    <!-- Hint appearing below a selected action on the emergency dialer telling user to tap again to execute the action [CHAR LIMIT=NONE] -->
+    <string name="emergency_action_launch_hint">Touch again to open</string>
+
+    <!-- Strings for IMAP -->
+
+    <!-- String used in place of a message that could not be properly decoded (e.g. bad base64
+       data was received.) [CHAR LIMIT=none] -->
+    <string name="message_decode_error">There was an error while decoding the message.</string>
+
+    <!-- Call failure reason: SIM card and roaming capabilities have already been activated. [CHAR LIMIT=NONE]-->
+    <string name="callFailed_cdma_activation">
+        A SIM card has activated your service and updated your phone\'s roaming capabilities.
+    </string>
+
 </resources>

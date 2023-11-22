@@ -21,7 +21,7 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.test.InjectContext;
+import android.support.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -49,8 +49,7 @@ public class Camera2DeviceTester {
         sThread.join();
     }
 
-    @InjectContext
-    public Context mContext;
+    public Context mContext = InstrumentationRegistry.getTargetContext();
 
     private class DeviceCapturer extends CameraDevice.StateCallback {
         private CameraDevice mCamera;

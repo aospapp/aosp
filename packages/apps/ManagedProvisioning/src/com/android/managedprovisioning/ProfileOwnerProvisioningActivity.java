@@ -17,6 +17,7 @@
 package com.android.managedprovisioning;
 
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_NAME;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -24,34 +25,31 @@ import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
-import android.app.ActivityManagerNative;
 import android.app.AlertDialog;
-import android.app.IActivityManager;
 import android.app.ProgressDialog;
+import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.ConditionVariable;
 import android.os.Handler;
-import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
 import android.support.v4.content.LocalBroadcastManager;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Profile owner provisioning sets up a separate profile on a device whose primary user is already
- * set up.
+ * set up or being set up.
  *
  * <p>
  * The typical example is setting up a corporate profile that is controlled by their employer on a
@@ -62,11 +60,13 @@ import java.io.IOException;
  * {@link ProfileOwnerProvisioningService}, which runs through the setup steps in an
  * async task.
  */
-public class ProfileOwnerProvisioningActivity extends Activity {
+public class ProfileOwnerProvisioningActivity extends SetupLayoutActivity {
     protected static final String ACTION_CANCEL_PROVISIONING =
             "com.android.managedprovisioning.CANCEL_PROVISIONING";
 
     private BroadcastReceiver mServiceMessageReceiver;
+
+    private static final int BROADCAST_TIMEOUT = 2 * 60 * 1000;
 
     // Provisioning service started
     private static final int CANCELSTATUS_PROVISIONING = 1;
@@ -74,7 +74,7 @@ public class ProfileOwnerProvisioningActivity extends Activity {
     private static final int CANCELSTATUS_CONFIRMING = 2;
     // Cancel confirmed, waiting for the provisioning service to complete.
     private static final int CANCELSTATUS_CANCELLING = 3;
-    // Cancelling not possible anymore, provisioning already finished succesfully.
+    // Cancelling not possible anymore, provisioning already finished successfully.
     private static final int CANCELSTATUS_FINALIZING = 4;
 
     private static final String KEY_CANCELSTATUS= "cancelstatus";
@@ -96,12 +96,12 @@ public class ProfileOwnerProvisioningActivity extends Activity {
             mPendingProvisioningResult = savedInstanceState.getParcelable(KEY_PENDING_INTENT);
         }
 
-        final LayoutInflater inflater = getLayoutInflater();
-        View contentView = inflater.inflate(R.layout.progress, null);
-        setContentView(contentView);
-        TextView textView = (TextView) findViewById(R.id.prog_text);
-        if (textView != null) textView.setText(getString(R.string.setting_up_workspace));
+        initializeLayoutParams(R.layout.progress, R.string.setup_work_profile, true);
+        configureNavigationButtons(NEXT_BUTTON_EMPTY_LABEL, View.INVISIBLE, View.VISIBLE);
+        setTitle(R.string.setup_profile_progress);
 
+        TextView textView = (TextView) findViewById(R.id.prog_text);
+        if (textView != null) textView.setText(R.string.setting_up_workspace);
 
         if (mCancelStatus == CANCELSTATUS_CONFIRMING) {
             showCancelProvisioningDialog();
@@ -109,7 +109,6 @@ public class ProfileOwnerProvisioningActivity extends Activity {
             showCancelProgressDialog();
         }
     }
-
 
     @Override
     protected void onResume() {
@@ -126,14 +125,14 @@ public class ProfileOwnerProvisioningActivity extends Activity {
         // Start service async to make sure the UI is loaded first.
         final Handler handler = new Handler(getMainLooper());
         handler.post(new Runnable() {
-                @Override
-                public void run() {
-                    Intent intent = new Intent(ProfileOwnerProvisioningActivity.this,
-                            ProfileOwnerProvisioningService.class);
-                    intent.putExtras(getIntent());
-                    startService(intent);
-                }
-            });
+            @Override
+            public void run() {
+                Intent intent = new Intent(ProfileOwnerProvisioningActivity.this,
+                        ProfileOwnerProvisioningService.class);
+                intent.putExtras(getIntent());
+                startService(intent);
+            }
+        });
     }
 
     class ServiceMessageReceiver extends BroadcastReceiver {
@@ -159,14 +158,7 @@ public class ProfileOwnerProvisioningActivity extends Activity {
             ProvisionLogger.logd("Successfully provisioned."
                     + "Finishing ProfileOwnerProvisioningActivity");
 
-            Intent pendingIntent = (Intent) intent.getParcelableExtra(
-                    ProfileOwnerProvisioningService.EXTRA_PENDING_SUCCESS_INTENT);
-            int serialNumber = intent.getIntExtra(
-                    ProfileOwnerProvisioningService.EXTRA_PROFILE_USER_SERIAL_NUMBER, -1);
-
-            int userId = intent.getIntExtra(ProfileOwnerProvisioningService.EXTRA_PROFILE_USER_ID,
-                    -1);
-            onProvisioningSuccess(pendingIntent, userId, serialNumber);
+            onProvisioningSuccess();
         } else if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_ERROR.equals(action)) {
             if (mCancelStatus == CANCELSTATUS_CANCELLING){
                 return;
@@ -175,49 +167,53 @@ public class ProfileOwnerProvisioningActivity extends Activity {
                     ProfileOwnerProvisioningService.EXTRA_LOG_MESSAGE_KEY);
             ProvisionLogger.logd("Error reported: " + errorLogMessage);
             error(R.string.managed_provisioning_error_text, errorLogMessage);
-        } if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_CANCELLED.equals(action)) {
+            // Note that this will be reported as a canceled action
+            mCancelStatus = CANCELSTATUS_FINALIZING;
+        } else if (ProfileOwnerProvisioningService.ACTION_PROVISIONING_CANCELLED.equals(action)) {
             if (mCancelStatus != CANCELSTATUS_CANCELLING) {
                 return;
             }
             mCancelProgressDialog.dismiss();
-            ProfileOwnerProvisioningActivity.this.setResult(Activity.RESULT_CANCELED);
-            stopService(new Intent(ProfileOwnerProvisioningActivity.this,
-                            ProfileOwnerProvisioningService.class));
-            ProfileOwnerProvisioningActivity.this.finish();
+            onProvisioningAborted();
         }
+    }
+
+    private void onProvisioningAborted() {
+        stopService(new Intent(this, ProfileOwnerProvisioningService.class));
+        setResult(Activity.RESULT_CANCELED);
+        finish();
     }
 
     @Override
     public void onBackPressed() {
-        if (mCancelStatus == CANCELSTATUS_PROVISIONING) {
+        if (mCancelStatus != CANCELSTATUS_PROVISIONING) {
+            mCancelStatus = CANCELSTATUS_CONFIRMING;
             showCancelProvisioningDialog();
         }
     }
 
     private void showCancelProvisioningDialog() {
-        mCancelStatus = CANCELSTATUS_CONFIRMING;
         AlertDialog alertDialog = new AlertDialog.Builder(this)
-                        .setCancelable(false)
-                        .setTitle(R.string.profile_owner_cancel_title)
-                        .setMessage(R.string.profile_owner_cancel_message)
-                        .setNegativeButton(R.string.profile_owner_cancel_cancel,
-                                new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog,int id) {
-                                        mCancelStatus = CANCELSTATUS_PROVISIONING;
-                                        if (mPendingProvisioningResult != null) {
-                                            handleProvisioningResult(mPendingProvisioningResult);
-                                        }
-                                    }
+                .setCancelable(false)
+                .setMessage(R.string.profile_owner_cancel_message)
+                .setNegativeButton(R.string.profile_owner_cancel_cancel,
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog,int id) {
+                                mCancelStatus = CANCELSTATUS_PROVISIONING;
+                                if (mPendingProvisioningResult != null) {
+                                    handleProvisioningResult(mPendingProvisioningResult);
+                                }
+                            }
                         })
-                        .setPositiveButton(R.string.profile_owner_cancel_ok,
-                                new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog,int id) {
-                                        confirmCancel();
-                                    }
+                .setPositiveButton(R.string.profile_owner_cancel_ok,
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog,int id) {
+                                confirmCancel();
+                            }
                         })
-                        .create();
+                .create();
         alertDialog.show();
     }
 
@@ -233,17 +229,23 @@ public class ProfileOwnerProvisioningActivity extends Activity {
         ProvisionLogger.loge(logText);
         new AlertDialog.Builder(this)
                 .setTitle(R.string.provisioning_error_title)
-                .setMessage(getString(resourceId))
+                .setMessage(resourceId)
                 .setCancelable(false)
-                .setPositiveButton(R.string.device_owner_error_ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog,int id) {
-                            confirmCancel();
-                        }
-                    }).show();
+                .setPositiveButton(R.string.device_owner_error_ok,
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog,int id) {
+                                onProvisioningAborted();
+                            }
+                        })
+                .show();
     }
 
     private void confirmCancel() {
+        if (mCancelStatus != CANCELSTATUS_CONFIRMING) {
+            // Can only cancel if provisioning hasn't finished at this point.
+            return;
+        }
         mCancelStatus = CANCELSTATUS_CANCELLING;
         Intent intent = new Intent(ProfileOwnerProvisioningActivity.this,
                 ProfileOwnerProvisioningService.class);
@@ -253,64 +255,21 @@ public class ProfileOwnerProvisioningActivity extends Activity {
     }
 
     /**
-     * Notify the mdm that provisioning has completed. When the mdm has received the intent, stop
-     * the service and notify the {@link ProfileOwnerProvisioningActivity} so that it can finish itself.
+     * Finish activity and stop service.
      */
-    private void onProvisioningSuccess(Intent pendingSuccessIntent, int userId, int serialNumber) {
-        mCancelStatus = CANCELSTATUS_FINALIZING;
-        Settings.Secure.putIntForUser(getContentResolver(), Settings.Secure.USER_SETUP_COMPLETE,
-                1 /* true- > setup complete */, userId);
+    private void onProvisioningSuccess() {
+        mBackButton.setVisibility(View.INVISIBLE);
 
-        UserManager userManager = (UserManager) getSystemService(Context.USER_SERVICE);
-        UserHandle userHandle = userManager.getUserForSerialNumber(serialNumber);
-
-        // Use an ordered broadcast, so that we only finish when the mdm has received it.
-        // Avoids a lag in the transition between provisioning and the mdm.
-        BroadcastReceiver mdmReceivedSuccessReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                ProvisionLogger.logd("ACTION_PROFILE_PROVISIONING_COMPLETE broadcast received by"
-                        + " mdm");
-                ProfileOwnerProvisioningActivity.this.setResult(Activity.RESULT_OK);
-
-                // Now cleanup the primary profile if necessary
-                if (getIntent().hasExtra(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE)) {
-                    ProvisionLogger.logd("Cleaning up account from the primary user.");
-                    final Account account = (Account) getIntent().getParcelableExtra(
-                            EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE);
-                    new AsyncTask<Void, Void, Void>() {
-                        @Override
-                        protected Void doInBackground(Void... params) {
-                            removeAccount(account);
-                            return null;
-                        }
-                    }.execute();
-                }
-
-                ProfileOwnerProvisioningActivity.this.finish();
-                stopService(new Intent(ProfileOwnerProvisioningActivity.this,
-                                ProfileOwnerProvisioningService.class));
-            }
-        };
-
-        sendOrderedBroadcastAsUser(pendingSuccessIntent, userHandle, null,
-                mdmReceivedSuccessReceiver, null, Activity.RESULT_OK, null, null);
-        ProvisionLogger.logd("Provisioning complete broadcast has been sent to user "
-            + userHandle.getIdentifier());
-    }
-
-    private void removeAccount(Account account) {
-        try {
-            AccountManagerFuture<Bundle> bundle = mAccountManager.removeAccount(account,
-                    this, null /* callback */, null /* handler */);
-            if (bundle.getResult().getBoolean(AccountManager.KEY_BOOLEAN_RESULT, false)) {
-                ProvisionLogger.logw("Account removed from the primary user.");
-            } else {
-                ProvisionLogger.logw("Could not remove account from the primary user.");
-            }
-        } catch (OperationCanceledException | AuthenticatorException | IOException e) {
-            ProvisionLogger.logw("Exception removing account from the primary user.", e);
+        if (!Utils.isUserSetupCompleted(this)) {
+            // Since provisioning could have started from Setup wizard, we should set
+            // USER_SETUP_COMPLETE to true in order to shut down the Setup wizard.
+            Utils.markDeviceProvisioned(ProfileOwnerProvisioningActivity.this);
         }
+
+        mCancelStatus = CANCELSTATUS_FINALIZING;
+        stopService(new Intent(this, ProfileOwnerProvisioningService.class));
+        setResult(Activity.RESULT_OK);
+        finish();
     }
 
     @Override
@@ -325,4 +284,3 @@ public class ProfileOwnerProvisioningActivity extends Activity {
         super.onPause();
     }
 }
-

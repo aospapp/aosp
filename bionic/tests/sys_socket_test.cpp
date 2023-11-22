@@ -22,28 +22,16 @@
 #include <sys/un.h>
 #include <fcntl.h>
 
-#if defined(__BIONIC__)
-  #define ACCEPT4_SUPPORTED 1
-  #define RECVMMSG_SUPPORTED 1
-  #define SENDMMSG_SUPPORTED 1
-#elif defined(__GLIBC_PREREQ)
-  #if __GLIBC_PREREQ(2, 9)
-    #define ACCEPT4_SUPPORTED 1
-  #endif
-  #if __GLIBC_PREREQ(2, 12)
-    #define RECVMMSG_SUPPORTED 1
-  #endif
-  #if __GLIBC_PREREQ(2, 14)
-    #define SENDMMSG_SUPPORTED 1
-  #endif
-#endif
-
-#if defined(ACCEPT4_SUPPORTED) || defined(RECVMMSG_SUPPORTED) || defined(SENDMMSG_SUPPORTED)
-
-#define SOCK_PATH "test"
+struct ConnectData {
+  bool (*callback_fn)(int);
+  const char* sock_path;
+  ConnectData(bool (*callback_func)(int), const char* socket_path)
+   : callback_fn(callback_func), sock_path(socket_path) {}
+};
 
 static void* ConnectFn(void* data) {
-  bool (*callback_fn)(int) = reinterpret_cast<bool (*)(int)>(data);
+  ConnectData* pdata = reinterpret_cast<ConnectData*>(data);
+  bool (*callback_fn)(int) = pdata->callback_fn;
   void* return_value = NULL;
 
   int fd = socket(PF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
@@ -56,7 +44,7 @@ static void* ConnectFn(void* data) {
   memset(&addr, 0, sizeof(addr));
   addr.sun_family = AF_UNIX;
   addr.sun_path[0] = '\0';
-  strcpy(addr.sun_path + 1, SOCK_PATH);
+  strcpy(addr.sun_path + 1, pdata->sock_path);
 
   if (connect(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
     GTEST_LOG_(ERROR) << "connect call failed: " << strerror(errno);
@@ -72,7 +60,7 @@ static void* ConnectFn(void* data) {
 }
 
 static void RunTest(void (*test_fn)(struct sockaddr_un*, int),
-                    bool (*callback_fn)(int fd)) {
+                    bool (*callback_fn)(int fd), const char* sock_path) {
   int fd = socket(PF_UNIX, SOCK_SEQPACKET, 0);
   ASSERT_NE(fd, -1) << strerror(errno);
 
@@ -80,14 +68,16 @@ static void RunTest(void (*test_fn)(struct sockaddr_un*, int),
   memset(&addr, 0, sizeof(addr));
   addr.sun_family = AF_UNIX;
   addr.sun_path[0] = '\0';
-  strcpy(addr.sun_path + 1, SOCK_PATH);
+  strcpy(addr.sun_path + 1, sock_path);
 
   ASSERT_NE(-1, bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr))) << strerror(errno);
 
   ASSERT_NE(-1, listen(fd, 1)) << strerror(errno);
 
+  ConnectData connect_data(callback_fn, sock_path);
+
   pthread_t thread;
-  ASSERT_EQ(0, pthread_create(&thread, NULL, ConnectFn, reinterpret_cast<void*>(callback_fn)));
+  ASSERT_EQ(0, pthread_create(&thread, NULL, ConnectFn, &connect_data));
 
   fd_set read_set;
   FD_ZERO(&read_set);
@@ -105,18 +95,12 @@ static void RunTest(void (*test_fn)(struct sockaddr_un*, int),
 
   close(fd);
 }
-#endif
 
 TEST(sys_socket, accept4_error) {
-#if defined(ACCEPT4_SUPPORTED)
   ASSERT_EQ(-1, accept4(-1, NULL, NULL, 0));
   ASSERT_EQ(EBADF, errno);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
 }
 
-#if defined(ACCEPT4_SUPPORTED)
 static void TestAccept4(struct sockaddr_un* addr, int fd) {
   socklen_t len = sizeof(*addr);
   int fd_acc = accept4(fd, reinterpret_cast<struct sockaddr*>(addr), &len, SOCK_CLOEXEC);
@@ -127,17 +111,11 @@ static void TestAccept4(struct sockaddr_un* addr, int fd) {
 
   close(fd_acc);
 }
-#endif
 
 TEST(sys_socket, accept4_smoke) {
-#if defined(ACCEPT4_SUPPORTED)
-  RunTest(TestAccept4, NULL);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
+  RunTest(TestAccept4, NULL, "test_accept");
 }
 
-#if defined(RECVMMSG_SUPPORTED)
 const char* g_RecvMsgs[] = {
   "RECVMMSG_ONE",
   "RECVMMSG_TWO",
@@ -188,26 +166,16 @@ static void TestRecvMMsg(struct sockaddr_un *addr, int fd) {
 
   close(fd_acc);
 }
-#endif
 
 TEST(sys_socket, recvmmsg_smoke) {
-#if defined(RECVMMSG_SUPPORTED)
-  RunTest(TestRecvMMsg, SendMultiple);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
+  RunTest(TestRecvMMsg, SendMultiple, "test_revmmsg");
 }
 
 TEST(sys_socket, recvmmsg_error) {
-#if defined(RECVMMSG_SUPPORTED)
   ASSERT_EQ(-1, recvmmsg(-1, NULL, 0, 0, NULL));
   ASSERT_EQ(EBADF, errno);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
 }
 
-#if defined(SENDMMSG_SUPPORTED)
 const char* g_SendMsgs[] = {
   "MSG_ONE",
   "MSG_TWO",
@@ -256,21 +224,12 @@ static void TestSendMMsg(struct sockaddr_un *addr, int fd) {
 
   close(fd_acc);
 }
-#endif
 
 TEST(sys_socket, sendmmsg_smoke) {
-#if defined(SENDMMSG_SUPPORTED)
-  RunTest(TestSendMMsg, SendMMsg);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
+  RunTest(TestSendMMsg, SendMMsg, "test_sendmmsg");
 }
 
 TEST(sys_socket, sendmmsg_error) {
-#if defined(SENDMMSG_SUPPORTED)
   ASSERT_EQ(-1, sendmmsg(-1, NULL, 0, 0));
   ASSERT_EQ(EBADF, errno);
-#else
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
-#endif
 }

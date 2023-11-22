@@ -22,7 +22,7 @@ mips_codegen_SRC_FILES := \
   Mips16RegisterInfo.cpp \
   MipsAnalyzeImmediate.cpp \
   MipsAsmPrinter.cpp \
-  MipsCodeEmitter.cpp \
+  MipsCCState.cpp \
   MipsConstantIslandPass.cpp \
   MipsDelaySlotFiller.cpp \
   MipsFastISel.cpp \
@@ -30,7 +30,6 @@ mips_codegen_SRC_FILES := \
   MipsInstrInfo.cpp \
   MipsISelDAGToDAG.cpp \
   MipsISelLowering.cpp \
-  MipsJITInfo.cpp \
   MipsLongBranch.cpp \
   MipsMachineFunction.cpp \
   MipsMCInstLower.cpp \

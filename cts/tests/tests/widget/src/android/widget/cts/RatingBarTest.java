@@ -18,7 +18,6 @@ package android.widget.cts;
 
 import com.android.cts.widget.R;
 
-
 import android.content.Context;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
@@ -45,7 +44,7 @@ public class RatingBarTest extends ActivityInstrumentationTestCase2<RatingBarCts
     }
 
     public void testConstructor() {
-        new RatingBar(mContext, null, com.android.internal.R.attr.ratingBarStyle);
+        new RatingBar(mContext, null, android.R.attr.ratingBarStyle);
 
         new RatingBar(mContext, null);
 

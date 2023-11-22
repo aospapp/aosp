@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "base/time_utils.h"
 #include "space_test.h"
 #include "large_object_space.h"
 
@@ -33,6 +34,7 @@ class LargeObjectSpaceTest : public SpaceTest {
 
 void LargeObjectSpaceTest::LargeObjectTest() {
   size_t rand_seed = 0;
+  Thread* const self = Thread::Current();
   for (size_t i = 0; i < 2; ++i) {
     LargeObjectSpace* los = nullptr;
     if (i == 0) {
@@ -49,13 +51,15 @@ void LargeObjectSpaceTest::LargeObjectTest() {
       while (requests.size() < num_allocations) {
         size_t request_size = test_rand(&rand_seed) % max_allocation_size;
         size_t allocation_size = 0;
-        mirror::Object* obj = los->Alloc(Thread::Current(), request_size, &allocation_size,
-                                         nullptr);
+        size_t bytes_tl_bulk_allocated;
+        mirror::Object* obj = los->Alloc(self, request_size, &allocation_size, nullptr,
+                                         &bytes_tl_bulk_allocated);
         ASSERT_TRUE(obj != nullptr);
         ASSERT_EQ(allocation_size, los->AllocationSize(obj, nullptr));
         ASSERT_GE(allocation_size, request_size);
+        ASSERT_EQ(allocation_size, bytes_tl_bulk_allocated);
         // Fill in our magic value.
-        byte magic = (request_size & 0xFF) | 1;
+        uint8_t magic = (request_size & 0xFF) | 1;
         memset(obj, magic, request_size);
         requests.push_back(std::make_pair(obj, request_size));
       }
@@ -67,15 +71,28 @@ void LargeObjectSpaceTest::LargeObjectTest() {
         }
       }
 
+      // Check the zygote flag for the first phase.
+      if (phase == 0) {
+        for (const auto& pair : requests) {
+          mirror::Object* obj = pair.first;
+          ASSERT_FALSE(los->IsZygoteLargeObject(self, obj));
+        }
+        los->SetAllLargeObjectsAsZygoteObjects(self);
+        for (const auto& pair : requests) {
+          mirror::Object* obj = pair.first;
+          ASSERT_TRUE(los->IsZygoteLargeObject(self, obj));
+        }
+      }
+
       // Free 1 / 2 the allocations the first phase, and all the second phase.
-      size_t limit = !phase ? requests.size() / 2 : 0;
+      size_t limit = phase == 0 ? requests.size() / 2 : 0;
       while (requests.size() > limit) {
         mirror::Object* obj = requests.back().first;
         size_t request_size = requests.back().second;
         requests.pop_back();
-        byte magic = (request_size & 0xFF) | 1;
+        uint8_t magic = (request_size & 0xFF) | 1;
         for (size_t k = 0; k < request_size; ++k) {
-          ASSERT_EQ(reinterpret_cast<const byte*>(obj)[k], magic);
+          ASSERT_EQ(reinterpret_cast<const uint8_t*>(obj)[k], magic);
         }
         ASSERT_GE(los->Free(Thread::Current(), obj), request_size);
       }
@@ -83,9 +100,10 @@ void LargeObjectSpaceTest::LargeObjectTest() {
     // Test that dump doesn't crash.
     los->Dump(LOG(INFO));
 
-    size_t bytes_allocated = 0;
+    size_t bytes_allocated = 0, bytes_tl_bulk_allocated;
     // Checks that the coalescing works.
-    mirror::Object* obj = los->Alloc(Thread::Current(), 100 * MB, &bytes_allocated, nullptr);
+    mirror::Object* obj = los->Alloc(self, 100 * MB, &bytes_allocated, nullptr,
+                                     &bytes_tl_bulk_allocated);
     EXPECT_TRUE(obj != nullptr);
     los->Free(Thread::Current(), obj);
 
@@ -102,8 +120,9 @@ class AllocRaceTask : public Task {
 
   void Run(Thread* self) {
     for (size_t i = 0; i < iterations_ ; ++i) {
-      size_t alloc_size;
-      mirror::Object* ptr = los_->Alloc(self, size_, &alloc_size, nullptr);
+      size_t alloc_size, bytes_tl_bulk_allocated;
+      mirror::Object* ptr = los_->Alloc(self, size_, &alloc_size, nullptr,
+                                        &bytes_tl_bulk_allocated);
 
       NanoSleep((id_ + 3) * 1000);  // (3+id) mu s
 

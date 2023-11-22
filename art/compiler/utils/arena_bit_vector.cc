@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-#include "arena_allocator.h"
 #include "arena_bit_vector.h"
+
+#include "base/allocator.h"
+#include "base/arena_allocator.h"
 
 namespace art {
 
 template <typename ArenaAlloc>
-class ArenaBitVectorAllocator : public Allocator {
+class ArenaBitVectorAllocator FINAL : public Allocator,
+    public ArenaObject<kArenaAllocGrowableBitMap> {
  public:
   explicit ArenaBitVectorAllocator(ArenaAlloc* arena) : arena_(arena) {}
   ~ArenaBitVectorAllocator() {}
@@ -31,13 +34,8 @@ class ArenaBitVectorAllocator : public Allocator {
 
   virtual void Free(void*) {}  // Nop.
 
-  static void* operator new(size_t size, ArenaAlloc* arena) {
-    return arena->Alloc(sizeof(ArenaBitVectorAllocator), kArenaAllocGrowableBitMap);
-  }
-  static void operator delete(void* p) {}  // Nop.
-
  private:
-  ArenaAlloc* arena_;
+  ArenaAlloc* const arena_;
   DISALLOW_COPY_AND_ASSIGN(ArenaBitVectorAllocator);
 };
 

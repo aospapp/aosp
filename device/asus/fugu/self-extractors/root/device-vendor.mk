@@ -15,8 +15,7 @@
 
 PRODUCT_PACKAGES += \
     AtvRemoteService \
-    LeanbackLauncher \
-    TV
+    LeanbackLauncher
 
 LOCAL_STEM := fugu/device-partial.mk
 

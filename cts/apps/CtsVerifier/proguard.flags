@@ -16,6 +16,14 @@
 
 -keepclasseswithmembers class * extends com.android.cts.verifier.location.LocationModeTestActivity
 
+# keep mockito methods
+-keep class org.mockito.** { *; }
+-keep interface org.mockito.** { *; }
+-keep class com.google.dexmaker.** { *; }
+-keep interface com.google.dexmaker.** { *; }
+
 -dontwarn android.hardware.Sensor
 -dontwarn android.test.AndroidTestRunner
 -dontwarn java.util.concurrent.ConcurrentLinkedDeque
+-dontwarn android.cts.util.**
+-dontwarn junit.**

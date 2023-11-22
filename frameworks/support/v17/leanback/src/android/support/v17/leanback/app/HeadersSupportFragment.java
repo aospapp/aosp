@@ -25,11 +25,12 @@ import android.support.v17.leanback.R;
 import android.support.v17.leanback.widget.FocusHighlightHelper;
 import android.support.v17.leanback.widget.ItemBridgeAdapter;
 import android.support.v17.leanback.widget.PresenterSelector;
-import android.support.v17.leanback.widget.OnItemSelectedListener;
+import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.RowHeaderPresenter;
 import android.support.v17.leanback.widget.SinglePresenterSelector;
 import android.support.v17.leanback.widget.VerticalGridView;
+import android.support.v7.widget.RecyclerView;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -45,7 +46,11 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         void onHeaderClicked();
     }
 
-    private OnItemSelectedListener mOnItemSelectedListener;
+    interface OnHeaderViewSelectedListener {
+        void onHeaderSelected(RowHeaderPresenter.ViewHolder viewHolder, Row row);
+    }
+
+    private OnHeaderViewSelectedListener mOnHeaderViewSelectedListener;
     private OnHeaderClickedListener mOnHeaderClickedListener;
     private boolean mHeadersEnabled = true;
     private boolean mHeadersGone = false;
@@ -63,8 +68,8 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         mOnHeaderClickedListener = listener;
     }
 
-    public void setOnItemSelectedListener(OnItemSelectedListener listener) {
-        mOnItemSelectedListener = listener;
+    public void setOnHeaderViewSelectedListener(OnHeaderViewSelectedListener listener) {
+        mOnHeaderViewSelectedListener = listener;
     }
 
     @Override
@@ -73,13 +78,16 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
     }
 
     @Override
-    void onRowSelected(ViewGroup parent, View view, int position, long id) {
-        if (mOnItemSelectedListener != null) {
-            if (position >= 0) {
+    void onRowSelected(RecyclerView parent, RecyclerView.ViewHolder viewHolder,
+            int position, int subposition) {
+        if (mOnHeaderViewSelectedListener != null) {
+            if (viewHolder != null && position >= 0) {
                 Row row = (Row) getAdapter().get(position);
-                mOnItemSelectedListener.onItemSelected(null, row);
+                ItemBridgeAdapter.ViewHolder vh = (ItemBridgeAdapter.ViewHolder) viewHolder;
+                mOnHeaderViewSelectedListener.onHeaderSelected(
+                        (RowHeaderPresenter.ViewHolder) vh.getViewHolder(), row);
             } else {
-                mOnItemSelectedListener.onItemSelected(null, null);
+                mOnHeaderViewSelectedListener.onHeaderSelected(null, null);
             }
         }
     }
@@ -232,8 +240,10 @@ public class HeadersSupportFragment extends BaseRowSupportFragment {
         }
 
         TypedValue outValue = new TypedValue();
-        getActivity().getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true);
-        return getResources().getColor(outValue.resourceId);
+        if (getActivity().getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true)) {
+            return getResources().getColor(outValue.resourceId);
+        }
+        return getResources().getColor(R.color.lb_default_brand_color);
     }
 
     @Override

@@ -11,21 +11,16 @@ LOCAL_SRC_FILES := \
     jdinput.c jdmainct.c jdmarker.c jdmaster.c jdmerge.c jdphuff.c \
     jdpostct.c jdsample.c jdtrans.c jerror.c jfdctflt.c jfdctfst.c \
     jfdctint.c jidctflt.c jidctfst.c jidctint.c jidctred.c jquant1.c \
-    jquant2.c jutils.c jmemmgr.c armv6_idct.S
+    jquant2.c jutils.c jmemmgr.c jmemnobs.c
 
-ifeq (,$(TARGET_BUILD_APPS))
-# building against master
-# use ashmem as libjpeg decoder's backing store
-LOCAL_CFLAGS += -DUSE_ANDROID_ASHMEM
-LOCAL_SRC_FILES += \
-    jmem-ashmem.c
-else
+LOCAL_SRC_FILES_arm += armv6_idct.S
+
+# jsimd_arm_neon.S does not compile with clang.
+LOCAL_CLANG_ASFLAGS_arm += -no-integrated-as
+
+ifneq (,$(TARGET_BUILD_APPS))
 # unbundled branch, built against NDK.
 LOCAL_SDK_VERSION := 17
-# the original android memory manager.
-# use sdcard as libjpeg decoder's backing store
-LOCAL_SRC_FILES += \
-    jmem-android.c
 endif
 
 LOCAL_CFLAGS += -DAVOID_TABLES
@@ -43,7 +38,7 @@ endif
 ifeq ($(strip $(TARGET_ARCH)),arm)
   ifeq ($(ARCH_ARM_HAVE_NEON),true)
     #use NEON accelerations
-    LOCAL_CFLAGS += -DNV_ARM_NEON
+    LOCAL_CFLAGS += -DNV_ARM_NEON -D__ARM_HAVE_NEON
     LOCAL_SRC_FILES += \
         jsimd_arm_neon.S \
         jsimd_neon.c

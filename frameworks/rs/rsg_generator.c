@@ -294,7 +294,9 @@ void printApiCpp(FILE *f) {
                 const VarType *vt = &api->params[ct2];
                 needFlush += vt->ptrLevel;
                 if (vt->ptrLevel && hasInlineDataPointers(api)) {
-                    fprintf(f, "    if (dataSize < io->getMaxInlineSize()) {\n");
+                    fprintf(f, "    if (%s_length == 0) {\n", vt->name);
+                    fprintf(f, "        cmd->%s = NULL;\n", vt->name);
+                    fprintf(f, "    } else if (dataSize < io->getMaxInlineSize()) {\n");
                     fprintf(f, "        memcpy(payload, %s, %s_length);\n", vt->name, vt->name);
                     fprintf(f, "        cmd->%s = (", vt->name);
                     printVarType(f, vt);
@@ -489,7 +491,8 @@ void printPlaybackCpp(FILE *f) {
             needFlush += vt->ptrLevel;
 
             if (hasInlineDataPointers(api) && vt->ptrLevel) {
-                fprintf(f, ",\n           (const %s *)&baseData[(intptr_t)cmd->%s]", vt->typeName, vt->name);
+                fprintf(f, ",\n           cmd->%s_length == 0 ? NULL : (const %s *)&baseData[(intptr_t)cmd->%s]",
+                        vt->name, vt->typeName, vt->name);
             } else {
                 fprintf(f, ",\n           cmd->%s", vt->name);
             }

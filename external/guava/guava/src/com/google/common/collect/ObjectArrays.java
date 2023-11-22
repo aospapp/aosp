@@ -16,9 +16,12 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkPositionIndexes;
+
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 
+import java.lang.reflect.Array;
 import java.util.Collection;
 
 import javax.annotation.Nullable;
@@ -31,6 +34,8 @@ import javax.annotation.Nullable;
  */
 @GwtCompatible(emulated = true)
 public final class ObjectArrays {
+  static final Object[] EMPTY_ARRAY = new Object[0];
+
   private ObjectArrays() {}
 
   /**
@@ -40,8 +45,9 @@ public final class ObjectArrays {
    * @param length the length of the new array
    */
   @GwtIncompatible("Array.newInstance(Class, int)")
+  @SuppressWarnings("unchecked")
   public static <T> T[] newArray(Class<T> type, int length) {
-    return Platform.newArray(type, length);
+    return (T[]) Array.newInstance(type, length);
   }
 
   /**
@@ -65,8 +71,8 @@ public final class ObjectArrays {
   @GwtIncompatible("Array.newInstance(Class, int)")
   public static <T> T[] concat(T[] first, T[] second, Class<T> type) {
     T[] result = newArray(type, first.length + second.length);
-    Platform.unsafeArrayCopy(first, 0, result, 0, first.length);
-    Platform.unsafeArrayCopy(second, 0, result, first.length, second.length);
+    System.arraycopy(first, 0, result, 0, first.length);
+    System.arraycopy(second, 0, result, first.length, second.length);
     return result;
   }
 
@@ -82,7 +88,7 @@ public final class ObjectArrays {
   public static <T> T[] concat(@Nullable T element, T[] array) {
     T[] result = newArray(array, array.length + 1);
     result[0] = element;
-    Platform.unsafeArrayCopy(array, 0, result, 1, array.length);
+    System.arraycopy(array, 0, result, 1, array.length);
     return result;
   }
 
@@ -104,7 +110,7 @@ public final class ObjectArrays {
   /** GWT safe version of Arrays.copyOf. */
   static <T> T[] arraysCopyOf(T[] original, int newLength) {
     T[] copy = newArray(original, newLength);
-    Platform.unsafeArrayCopy(
+    System.arraycopy(
         original, 0, copy, 0, Math.min(original.length, newLength));
     return copy;
   }
@@ -144,6 +150,28 @@ public final class ObjectArrays {
     }
     return array;
   }
+  
+  /**
+   * Implementation of {@link Collection#toArray(Object[])} for collections backed by an object
+   * array. the runtime type of the returned array is that of the specified array. If the collection
+   * fits in the specified array, it is returned therein. Otherwise, a new array is allocated with
+   * the runtime type of the specified array and the size of the specified collection.
+   *
+   * <p>If the collection fits in the specified array with room to spare (i.e., the array has more
+   * elements than the collection), the element in the array immediately following the end of the
+   * collection is set to {@code null}. This is useful in determining the length of the collection
+   * <i>only</i> if the caller knows that the collection does not contain any null elements.
+   */
+  static <T> T[] toArrayImpl(Object[] src, int offset, int len, T[] dst) {
+    checkPositionIndexes(offset, offset + len, src.length);
+    if (dst.length < len) {
+      dst = newArray(dst, len);
+    } else if (dst.length > len) {
+      dst[len] = null;
+    }
+    System.arraycopy(src, offset, dst, 0, len);
+    return dst;
+  }
 
   /**
    * Returns an array containing all of the elements in the specified
@@ -163,6 +191,20 @@ public final class ObjectArrays {
     return fillArray(c, new Object[c.size()]);
   }
 
+  /**
+   * Returns a copy of the specified subrange of the specified array that is literally an Object[],
+   * and not e.g. a {@code String[]}.
+   */
+  static Object[] copyAsObjectArray(Object[] elements, int offset, int length) {
+    checkPositionIndexes(offset, offset + length, elements.length);
+    if (length == 0) {
+      return EMPTY_ARRAY;
+    }
+    Object[] result = new Object[length];
+    System.arraycopy(elements, offset, result, 0, length);
+    return result;
+  }
+
   private static Object[] fillArray(Iterable<?> elements, Object[] array) {
     int i = 0;
     for (Object element : elements) {
@@ -178,5 +220,25 @@ public final class ObjectArrays {
     Object temp = array[i];
     array[i] = array[j];
     array[j] = temp;
+  }
+
+  static Object[] checkElementsNotNull(Object... array) {
+    return checkElementsNotNull(array, array.length);
+  }
+  
+  static Object[] checkElementsNotNull(Object[] array, int length) {
+    for (int i = 0; i < length; i++) {
+      checkElementNotNull(array[i], i);
+    }
+    return array;
+  }
+
+  // We do this instead of Preconditions.checkNotNull to save boxing and array
+  // creation cost.
+  static Object checkElementNotNull(Object element, int index) {
+    if (element == null) {
+      throw new NullPointerException("at index " + index);
+    }
+    return element;
   }
 }

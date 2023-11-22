@@ -66,8 +66,12 @@ public class IntentSenderActivity extends Activity {
     }
 
     public Intent getResult(Intent intent) throws Exception {
+        Log.d(TAG, "Sending intent " + intent);
         startActivityForResult(intent, 42);
         final Result result = mResult.poll(30, TimeUnit.SECONDS);
+        if (result != null) {
+            Log.d(TAG, "Result intent: " + result.data);
+        }
         return (result != null) ? result.data : null;
     }
 

@@ -154,6 +154,8 @@ public class VCardComposer {
      */
     private boolean mTerminateCalled = true;
 
+    private RawContactEntitlesInfoCallback mRawContactEntitlesInfoCallback;
+
     private static final String[] sContactsProjection = new String[] {
         Contacts._ID,
     };
@@ -372,11 +374,24 @@ public class VCardComposer {
      * @hide
      */
     public boolean init(Cursor cursor) {
+        return initWithCallback(cursor, null);
+    }
+
+    /**
+    * @param cursor Cursor that used to get contact id
+    * @param rawContactEntitlesInfoCallback Callback that return RawContactEntitlesInfo
+    * Note that this is an unstable interface, may be deleted in the future.
+    *
+    * @return true when successful
+    */
+    public boolean initWithCallback(Cursor cursor,
+            RawContactEntitlesInfoCallback rawContactEntitlesInfoCallback) {
         if (!initInterFirstPart(null)) {
             return false;
         }
         mCursorSuppliedFromOutside = true;
         mCursor = cursor;
+        mRawContactEntitlesInfoCallback = rawContactEntitlesInfoCallback;
         if (!initInterMainPart()) {
             return false;
         }
@@ -417,7 +432,10 @@ public class VCardComposer {
             closeCursorIfAppropriate();
             return false;
         }
-        mIdColumn = mCursor.getColumnIndex(Contacts._ID);
+        mIdColumn = mCursor.getColumnIndex(Data.CONTACT_ID);
+        if (mIdColumn < 0) {
+            mIdColumn = mCursor.getColumnIndex(Contacts._ID);
+        }
         return mIdColumn >= 0;
     }
 
@@ -447,7 +465,7 @@ public class VCardComposer {
             // return createOneEntryInternal("-1", getEntityIteratorMethod);
         }
 
-        final String vcard = createOneEntryInternal(mCursor.getString(mIdColumn),
+        final String vcard = createOneEntryInternal(mCursor.getLong(mIdColumn),
                 getEntityIteratorMethod);
         if (!mCursor.moveToNext()) {
             Log.e(LOG_TAG, "Cursor#moveToNext() returned false");
@@ -455,7 +473,32 @@ public class VCardComposer {
         return vcard;
     }
 
-    private String createOneEntryInternal(final String contactId,
+    /**
+     *  Class that store rawContactEntitlesUri and contactId
+     */
+    public static class RawContactEntitlesInfo {
+        public final Uri rawContactEntitlesUri;
+        public final long contactId;
+        public RawContactEntitlesInfo(Uri rawContactEntitlesUri, long contactId) {
+            this.rawContactEntitlesUri = rawContactEntitlesUri;
+            this.contactId = contactId;
+        }
+    }
+
+    /**
+    * Listener for getting raw contact entitles info
+    */
+    public interface RawContactEntitlesInfoCallback {
+        /**
+        * Callback to get RawContactEntitlesInfo from contact id
+        *
+        * @param contactId Contact id that you want to process.
+        * @return RawContactEntitlesInfo that ready to process.
+        */
+        RawContactEntitlesInfo getRawContactEntitlesInfo(long contactId);
+    }
+
+    private String createOneEntryInternal(long contactId,
             final Method getEntityIteratorMethod) {
         final Map<String, List<ContentValues>> contentValuesListMap =
                 new HashMap<String, List<ContentValues>>();
@@ -464,9 +507,15 @@ public class VCardComposer {
         //      they are hidden from the view of this method, though contact id itself exists.
         EntityIterator entityIterator = null;
         try {
-            final Uri uri = mContentUriForRawContactsEntity;
+            Uri uri = mContentUriForRawContactsEntity;
+            if (mRawContactEntitlesInfoCallback != null) {
+                RawContactEntitlesInfo rawContactEntitlesInfo =
+                        mRawContactEntitlesInfoCallback.getRawContactEntitlesInfo(contactId);
+                uri = rawContactEntitlesInfo.rawContactEntitlesUri;
+                contactId = rawContactEntitlesInfo.contactId;
+            }
             final String selection = Data.CONTACT_ID + "=?";
-            final String[] selectionArgs = new String[] {contactId};
+            final String[] selectionArgs = new String[] {String.valueOf(contactId)};
             if (getEntityIteratorMethod != null) {
                 // Please note that this branch is executed by unit tests only
                 try {

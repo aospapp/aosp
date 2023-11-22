@@ -13,6 +13,7 @@ llvm_c_test_SRC_FILES := \
   helpers.c              \
   include-all.c          \
   main.c                 \
+  metadata.c             \
   module.c               \
   object.c               \
   targets.c              \

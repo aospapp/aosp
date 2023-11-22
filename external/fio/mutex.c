@@ -18,10 +18,15 @@
 #include "fio_time.h"
 #include "gettime.h"
 
-void fio_mutex_remove(struct fio_mutex *mutex)
+void __fio_mutex_remove(struct fio_mutex *mutex)
 {
 	assert(mutex->magic == FIO_MUTEX_MAGIC);
 	pthread_cond_destroy(&mutex->cond);
+}
+
+void fio_mutex_remove(struct fio_mutex *mutex)
+{
+	__fio_mutex_remove(mutex);
 	munmap((void *) mutex, sizeof(*mutex));
 }
 
@@ -162,14 +167,19 @@ void fio_mutex_down(struct fio_mutex *mutex)
 
 void fio_mutex_up(struct fio_mutex *mutex)
 {
+	int do_wake = 0;
+
 	assert(mutex->magic == FIO_MUTEX_MAGIC);
 
 	pthread_mutex_lock(&mutex->lock);
 	read_barrier();
 	if (!mutex->value && mutex->waiters)
-		pthread_cond_signal(&mutex->cond);
+		do_wake = 1;
 	mutex->value++;
 	pthread_mutex_unlock(&mutex->lock);
+
+	if (do_wake)
+		pthread_cond_signal(&mutex->cond);
 }
 
 void fio_rwlock_write(struct fio_rwlock *lock)

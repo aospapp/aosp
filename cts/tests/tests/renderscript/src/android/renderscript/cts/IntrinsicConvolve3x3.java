@@ -247,4 +247,17 @@ public class IntrinsicConvolve3x3 extends IntrinsicBase {
         checkError();
     }
 
+    public void test_ID() {
+        ScriptIntrinsicConvolve3x3 s = ScriptIntrinsicConvolve3x3.create(mRS, Element.U8_4(mRS));
+        Script.KernelID kid = s.getKernelID();
+        if (kid == null) {
+            throw new IllegalStateException("kid must be valid");
+        }
+
+        Script.FieldID fid = s.getFieldID_Input();
+        if (fid == null) {
+            throw new IllegalStateException("fid must be valid");
+        }
+    }
+
 }

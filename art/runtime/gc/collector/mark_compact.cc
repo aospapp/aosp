@@ -35,8 +35,6 @@
 #include "jni_internal.h"
 #include "mark_sweep-inl.h"
 #include "monitor.h"
-#include "mirror/art_field.h"
-#include "mirror/art_field-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/dex_cache.h"
@@ -91,7 +89,7 @@ void MarkCompact::ForwardObject(mirror::Object* obj) {
   const size_t alloc_size = RoundUp(obj->SizeOf(), space::BumpPointerSpace::kAlignment);
   LockWord lock_word = obj->GetLockWord(false);
   // If we have a non empty lock word, store it and restore it later.
-  if (lock_word.GetValue() != LockWord().GetValue()) {
+  if (!LockWord::IsDefault(lock_word)) {
     // Set the bit in the bitmap so that we know to restore it later.
     objects_with_lockword_->Set(obj);
     lock_words_to_restore_.push_back(lock_word);
@@ -120,7 +118,7 @@ class CalculateObjectForwardingAddressVisitor {
 void MarkCompact::CalculateObjectForwardingAddresses() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   // The bump pointer in the space where the next forwarding address will be.
-  bump_pointer_ = reinterpret_cast<byte*>(space_->Begin());
+  bump_pointer_ = reinterpret_cast<uint8_t*>(space_->Begin());
   // Visit all the marked objects in the bitmap.
   CalculateObjectForwardingAddressVisitor visitor(this);
   objects_before_forwarding_->VisitMarkedRange(reinterpret_cast<uintptr_t>(space_->Begin()),
@@ -197,7 +195,7 @@ void MarkCompact::MarkingPhase() {
   BindBitmaps();
   t.NewTiming("ProcessCards");
   // Process dirty cards and add dirty cards to mod-union tables.
-  heap_->ProcessCards(GetTimings(), false);
+  heap_->ProcessCards(GetTimings(), false, false, true);
   // Clear the whole card table since we can not Get any additional dirty cards during the
   // paused GC. This saves memory but only works for pause the world collectors.
   t.NewTiming("ClearCardTable");
@@ -239,7 +237,7 @@ void MarkCompact::UpdateAndMarkModUnion() {
       accounting::ModUnionTable* table = heap_->FindModUnionTableFromSpace(space);
       if (table != nullptr) {
         // TODO: Improve naming.
-        TimingLogger::ScopedTiming t(
+        TimingLogger::ScopedTiming t2(
             space->IsZygoteSpace() ? "UpdateAndMarkZygoteModUnionTable" :
                                      "UpdateAndMarkImageModUnionTable", GetTimings());
         table->UpdateAndMarkReferences(MarkHeapReferenceCallback, this);
@@ -274,11 +272,11 @@ void MarkCompact::ReclaimPhase() {
 }
 
 void MarkCompact::ResizeMarkStack(size_t new_size) {
-  std::vector<Object*> temp(mark_stack_->Begin(), mark_stack_->End());
+  std::vector<StackReference<Object>> temp(mark_stack_->Begin(), mark_stack_->End());
   CHECK_LE(mark_stack_->Size(), new_size);
   mark_stack_->Resize(new_size);
-  for (const auto& obj : temp) {
-    mark_stack_->PushBack(obj);
+  for (auto& obj : temp) {
+    mark_stack_->PushBack(obj.AsMirrorPtr());
   }
 }
 
@@ -309,18 +307,56 @@ void MarkCompact::DelayReferenceReferentCallback(mirror::Class* klass, mirror::R
   reinterpret_cast<MarkCompact*>(arg)->DelayReferenceReferent(klass, ref);
 }
 
-void MarkCompact::MarkRootCallback(Object** root, void* arg, const RootInfo& /*root_info*/) {
-  reinterpret_cast<MarkCompact*>(arg)->MarkObject(*root);
-}
-
-void MarkCompact::UpdateRootCallback(Object** root, void* arg, const RootInfo& /*root_info*/) {
-  mirror::Object* obj = *root;
-  mirror::Object* new_obj = reinterpret_cast<MarkCompact*>(arg)->GetMarkedForwardAddress(obj);
-  if (obj != new_obj) {
-    *root = new_obj;
-    DCHECK(new_obj != nullptr);
+void MarkCompact::VisitRoots(
+    mirror::Object*** roots, size_t count, const RootInfo& info ATTRIBUTE_UNUSED) {
+  for (size_t i = 0; i < count; ++i) {
+    MarkObject(*roots[i]);
   }
 }
+
+void MarkCompact::VisitRoots(
+    mirror::CompressedReference<mirror::Object>** roots, size_t count,
+    const RootInfo& info ATTRIBUTE_UNUSED) {
+  for (size_t i = 0; i < count; ++i) {
+    MarkObject(roots[i]->AsMirrorPtr());
+  }
+}
+
+class UpdateRootVisitor : public RootVisitor {
+ public:
+  explicit UpdateRootVisitor(MarkCompact* collector) : collector_(collector) {
+  }
+
+  void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info ATTRIBUTE_UNUSED)
+      OVERRIDE EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_)
+      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_) {
+    for (size_t i = 0; i < count; ++i) {
+      mirror::Object* obj = *roots[i];
+      mirror::Object* new_obj = collector_->GetMarkedForwardAddress(obj);
+      if (obj != new_obj) {
+        *roots[i] = new_obj;
+        DCHECK(new_obj != nullptr);
+      }
+    }
+  }
+
+  void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
+                  const RootInfo& info ATTRIBUTE_UNUSED)
+      OVERRIDE EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_)
+      SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_) {
+    for (size_t i = 0; i < count; ++i) {
+      mirror::Object* obj = roots[i]->AsMirrorPtr();
+      mirror::Object* new_obj = collector_->GetMarkedForwardAddress(obj);
+      if (obj != new_obj) {
+        roots[i]->Assign(new_obj);
+        DCHECK(new_obj != nullptr);
+      }
+    }
+  }
+
+ private:
+  MarkCompact* const collector_;
+};
 
 class UpdateObjectReferencesVisitor {
  public:
@@ -339,14 +375,15 @@ void MarkCompact::UpdateReferences() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   Runtime* runtime = Runtime::Current();
   // Update roots.
-  runtime->VisitRoots(UpdateRootCallback, this);
+  UpdateRootVisitor update_root_visitor(this);
+  runtime->VisitRoots(&update_root_visitor);
   // Update object references in mod union tables and spaces.
   for (const auto& space : heap_->GetContinuousSpaces()) {
     // If the space is immune then we need to mark the references to other spaces.
     accounting::ModUnionTable* table = heap_->FindModUnionTableFromSpace(space);
     if (table != nullptr) {
       // TODO: Improve naming.
-      TimingLogger::ScopedTiming t(
+      TimingLogger::ScopedTiming t2(
           space->IsZygoteSpace() ? "UpdateZygoteModUnionTableReferences" :
                                    "UpdateImageModUnionTableReferences",
                                    GetTimings());
@@ -396,7 +433,7 @@ void MarkCompact::Compact() {
 // Marks all objects in the root set.
 void MarkCompact::MarkRoots() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
-  Runtime::Current()->VisitRoots(MarkRootCallback, this);
+  Runtime::Current()->VisitRoots(this);
 }
 
 mirror::Object* MarkCompact::MarkedForwardingAddressCallback(mirror::Object* obj, void* arg) {
@@ -509,7 +546,7 @@ void MarkCompact::MoveObject(mirror::Object* obj, size_t len) {
   // Use memmove since there may be overlap.
   memmove(reinterpret_cast<void*>(dest_addr), reinterpret_cast<const void*>(obj), len);
   // Restore the saved lock word if needed.
-  LockWord lock_word;
+  LockWord lock_word = LockWord::Default();
   if (UNLIKELY(objects_with_lockword_->Test(obj))) {
     lock_word = lock_words_to_restore_.front();
     lock_words_to_restore_.pop_front();
@@ -536,7 +573,7 @@ void MarkCompact::Sweep(bool swap_bitmaps) {
       if (!ShouldSweepSpace(alloc_space)) {
         continue;
       }
-      TimingLogger::ScopedTiming t(
+      TimingLogger::ScopedTiming t2(
           alloc_space->IsZygoteSpace() ? "SweepZygoteSpace" : "SweepAllocSpace", GetTimings());
       RecordFree(alloc_space->Sweep(swap_bitmaps));
     }
@@ -545,8 +582,11 @@ void MarkCompact::Sweep(bool swap_bitmaps) {
 }
 
 void MarkCompact::SweepLargeObjects(bool swap_bitmaps) {
-  TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
-  RecordFreeLOS(heap_->GetLargeObjectsSpace()->Sweep(swap_bitmaps));
+  space::LargeObjectSpace* los = heap_->GetLargeObjectsSpace();
+  if (los != nullptr) {
+    TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());\
+    RecordFreeLOS(los->Sweep(swap_bitmaps));
+  }
 }
 
 // Process the "referent" field in a java.lang.ref.Reference.  If the referent has not yet been

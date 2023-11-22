@@ -62,14 +62,14 @@ static int pollin_events(struct pollfd *pfds, int fds)
 static unsigned int binject_read_commands(struct thread_data *td, void *p,
 					  int left, int *err)
 {
-	struct binject_file *bf;
 	struct fio_file *f;
 	int i, ret, events;
 
 one_more:
 	events = 0;
 	for_each_file(td, f, i) {
-		bf = (struct binject_file *) (uintptr_t) f->engine_data;
+		struct binject_file *bf = FILE_ENG_DATA(f);
+
 		ret = read(bf->fd, p, left * sizeof(struct b_user_cmd));
 		if (ret < 0) {
 			if (errno == EAGAIN)
@@ -91,20 +91,20 @@ one_more:
 }
 
 static int fio_binject_getevents(struct thread_data *td, unsigned int min,
-			      unsigned int max, struct timespec fio_unused *t)
+				 unsigned int max,
+				 const struct timespec fio_unused *t)
 {
 	struct binject_data *bd = td->io_ops->data;
 	int left = max, ret, r = 0, ev_index = 0;
 	void *buf = bd->cmds;
 	unsigned int i, events;
 	struct fio_file *f;
-	struct binject_file *bf;
 
 	/*
 	 * Fill in the file descriptors
 	 */
 	for_each_file(td, f, i) {
-		bf = (struct binject_file *) (uintptr_t) f->engine_data;
+		struct binject_file *bf = FILE_ENG_DATA(f);
 
 		/*
 		 * don't block for min events == 0
@@ -154,7 +154,7 @@ static int fio_binject_getevents(struct thread_data *td, unsigned int min,
 
 	if (!min) {
 		for_each_file(td, f, i) {
-			bf = (struct binject_file *) (uintptr_t) f->engine_data;
+			struct binject_file *bf = FILE_ENG_DATA(f);
 
 			if (bd->fd_flags[i] == -1)
 				continue;
@@ -173,7 +173,7 @@ static int fio_binject_getevents(struct thread_data *td, unsigned int min,
 static int fio_binject_doio(struct thread_data *td, struct io_u *io_u)
 {
 	struct b_user_cmd *buc = &io_u->buc;
-	struct binject_file *bf = (struct binject_file *) (uintptr_t) io_u->file->engine_data;
+	struct binject_file *bf = FILE_ENG_DATA(io_u->file);
 	int ret;
 
 	ret = write(bf->fd, buc, sizeof(*buc));
@@ -187,7 +187,7 @@ static int fio_binject_prep(struct thread_data *td, struct io_u *io_u)
 {
 	struct binject_data *bd = td->io_ops->data;
 	struct b_user_cmd *buc = &io_u->buc;
-	struct binject_file *bf = (struct binject_file *) (uintptr_t) io_u->file->engine_data;
+	struct binject_file *bf = FILE_ENG_DATA(io_u->file);
 
 	if (io_u->xfer_buflen & (bf->bs - 1)) {
 		log_err("read/write not sector aligned\n");
@@ -329,12 +329,12 @@ err_unmap:
 
 static int fio_binject_close_file(struct thread_data *td, struct fio_file *f)
 {
-	struct binject_file *bf = (struct binject_file *) (uintptr_t) f->engine_data;
+	struct binject_file *bf = FILE_ENG_DATA(f);
 
 	if (bf) {
 		binject_unmap_dev(td, bf);
 		free(bf);
-		f->engine_data = 0;
+		FILE_SET_ENG_DATA(f, NULL);
 		return generic_close_file(td, f);
 	}
 
@@ -363,7 +363,7 @@ static int fio_binject_open_file(struct thread_data *td, struct fio_file *f)
 	bf = malloc(sizeof(*bf));
 	bf->bs = bs;
 	bf->minor = bf->fd = -1;
-	f->engine_data = (uintptr_t) bf;
+	FILE_SET_ENG_DATA(f, bf);
 
 	if (binject_map_dev(td, bf, f->fd)) {
 err_close:

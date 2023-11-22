@@ -119,19 +119,11 @@ MACRO0(ALIGN_FUNCTION_ENTRY)
     .balign 16
 END_MACRO
 
+// TODO: we might need to use SYMBOL() here to add the underscore prefix
+// for mac builds.
 MACRO1(DEFINE_FUNCTION, c_name)
     FUNCTION_TYPE(\c_name, 0)
     ASM_HIDDEN VAR(c_name, 0)
-    .globl VAR(c_name, 0)
-    ALIGN_FUNCTION_ENTRY
-VAR(c_name, 0):
-    CFI_STARTPROC
-    // Ensure we get a sane starting CFA.
-    CFI_DEF_CFA(rsp, 8)
-END_MACRO
-
-MACRO1(DEFINE_FUNCTION_NO_HIDE, c_name)
-    FUNCTION_TYPE(\c_name, 0)
     .globl VAR(c_name, 0)
     ALIGN_FUNCTION_ENTRY
 VAR(c_name, 0):
@@ -160,18 +152,6 @@ END_MACRO
 MACRO1(UNIMPLEMENTED,name)
     FUNCTION_TYPE(\name, 0)
     ASM_HIDDEN VAR(c_name, 0)
-    .globl VAR(name, 0)
-    ALIGN_FUNCTION_ENTRY
-VAR(name, 0):
-    CFI_STARTPROC
-    int3
-    int3
-    CFI_ENDPROC
-    SIZE(\name, 0)
-END_MACRO
-
-MACRO1(UNIMPLEMENTED_NO_HIDE,name)
-    FUNCTION_TYPE(\name, 0)
     .globl VAR(name, 0)
     ALIGN_FUNCTION_ENTRY
 VAR(name, 0):

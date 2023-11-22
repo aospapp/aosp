@@ -1,5 +1,5 @@
 # network manager
-type netd, domain;
+type netd, domain, mlstrustedsubject;
 type netd_exec, exec_type, file_type;
 
 init_daemon_domain(netd)
@@ -11,13 +11,13 @@ allow netd self:capability { net_admin net_raw kill };
 # than one of the groups assigned to the current process to see if
 # the setgid bit should be cleared, regardless of whether the setgid
 # bit was even set.  We do not appear to truly need this capability
-# for netd to operate.  Uncomment the dontaudit rule below after
-# sufficient testing of the fsetid removal.
-# dontaudit netd self:capability fsetid;
+# for netd to operate.
+dontaudit netd self:capability fsetid;
 
 allow netd self:netlink_kobject_uevent_socket create_socket_perms;
 allow netd self:netlink_route_socket nlmsg_write;
 allow netd self:netlink_nflog_socket create_socket_perms;
+allow netd self:netlink_socket create_socket_perms;
 allow netd shell_exec:file rx_file_perms;
 allow netd system_file:file x_file_perms;
 allow netd devpts:chr_file rw_file_perms;
@@ -30,9 +30,8 @@ allow netd proc_net:file write;
 allow netd sysfs:file write;
 
 # Set dhcp lease for PAN connection
-unix_socket_connect(netd, property, init)
-allow netd dhcp_prop:property_service set;
-allow netd system_prop:property_service set;
+set_prop(netd, dhcp_prop)
+set_prop(netd, system_prop)
 auditallow netd system_prop:property_service set;
 
 # Connect to PAN
@@ -62,7 +61,7 @@ allow netd dnsmasq:process signal;
 domain_auto_trans(netd, clatd_exec, clatd)
 allow netd clatd:process signal;
 
-allow netd ctl_mdnsd_prop:property_service set;
+set_prop(netd, ctl_mdnsd_prop)
 
 # Allow netd to operate on sockets that are passed to it.
 allow netd netdomain:{tcp_socket udp_socket rawip_socket dccp_socket tun_socket} {read write getattr setattr getopt setopt};

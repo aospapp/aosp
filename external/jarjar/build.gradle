@@ -22,7 +22,7 @@ sourceSets {
 		resources.srcDirs = ['res']
 	}
 }
-manifest.from file('manifest.txt')
+jar.manifest.from file('manifest.txt')
 
 dependencies {
 	compile files('lib/apache-ant-1.9.4.jar')

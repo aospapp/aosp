@@ -22,7 +22,7 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
-#if defined ANDROID_JELLYBEAN || defined ANDROID_KITKAT
+#if defined ANDROID_JELLYBEAN || defined ANDROID_KITKAT || defined ANDROID_LOLLIPOP
 //build for Jellybean or KitKat
 #define LOGV_IF ALOGV_IF
 #define LOGE_IF ALOGE_IF
@@ -46,7 +46,7 @@
 #define CALL_MEMBER_FN(pobject, ptrToMember) ((pobject)->*(ptrToMember))
 
 #define MAX_SYSFS_NAME_LEN  (100)
-#define IIO_BUFFER_LENGTH   (480)
+#define IIO_BUFFER_LENGTH   (960)
 
 /*****************************************************************************/
 

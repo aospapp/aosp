@@ -94,6 +94,25 @@ public class TextToSpeechTest extends AndroidTestCase {
         return false;
     }
 
+    private void assertContainsEngine(String engine, List<TextToSpeech.EngineInfo> engines) {
+        for (TextToSpeech.EngineInfo engineInfo : engines) {
+            if (engineInfo.name.equals(engine)) {
+                return;
+            }
+        }
+        fail("Engine " + engine + " not found");
+    }
+
+    private HashMap<String, String> createParams() {
+        HashMap<String, String> params = new HashMap<String,String>();
+        params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, UTTERANCE_ID);
+        return params;
+    }
+
+    private boolean waitForUtterance() throws InterruptedException {
+        return mTts.waitForComplete(UTTERANCE_ID);
+    }
+
     public void testSynthesizeToFile() throws Exception {
         if (mTts == null) {
             return;
@@ -124,6 +143,21 @@ public class TextToSpeechTest extends AndroidTestCase {
         assertTrue("speak() completion timeout", waitForUtterance());
     }
 
+    public void testSpeakStop() throws Exception {
+        getTts().stop();
+        final int iterations = 20;
+        for (int i = 0; i < iterations; i++) {
+            int result = getTts().speak(SAMPLE_TEXT, TextToSpeech.QUEUE_ADD, null,
+                    UTTERANCE_ID + Integer.toString(i));
+            assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
+        }
+        getTts().stop();
+        for (int i = 0; i < iterations; i++) {
+            assertTrue("speak() stop callback timeout", mTts.waitForStop(
+                    UTTERANCE_ID + Integer.toString(i)));
+        }
+    }
+
     public void testGetEnginesIncludesDefault() throws Exception {
         if (mTts == null) {
             return;
@@ -141,24 +175,4 @@ public class TextToSpeechTest extends AndroidTestCase {
         assertNotNull("getEngines() returned null", engines);
         assertContainsEngine(TextToSpeechWrapper.MOCK_TTS_ENGINE, engines);
     }
-
-    private void assertContainsEngine(String engine, List<TextToSpeech.EngineInfo> engines) {
-        for (TextToSpeech.EngineInfo engineInfo : engines) {
-            if (engineInfo.name.equals(engine)) {
-                return;
-            }
-        }
-        fail("Engine " + engine + " not found");
-    }
-
-    private HashMap<String, String> createParams() {
-        HashMap<String, String> params = new HashMap<String,String>();
-        params.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, UTTERANCE_ID);
-        return params;
-    }
-
-    private boolean waitForUtterance() throws InterruptedException {
-        return mTts.waitForComplete(UTTERANCE_ID);
-    }
-
 }

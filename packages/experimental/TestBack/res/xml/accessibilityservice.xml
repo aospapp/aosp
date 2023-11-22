@@ -2,4 +2,5 @@
      android:accessibilityFeedbackType="feedbackHaptic"
      android:accessibilityEventTypes="typeAllMask"
      android:canRetrieveWindowContent="true"
+     android:canRequestTouchExplorationMode="true"
 />

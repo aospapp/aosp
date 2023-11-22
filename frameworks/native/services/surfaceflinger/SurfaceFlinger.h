@@ -144,6 +144,8 @@ private:
     // every half hour.
     enum { LOG_FRAME_STATS_PERIOD =  30*60*60 };
 
+    static const size_t MAX_LAYERS = 4096;
+
     // We're reference counted, never destroy SurfaceFlinger directly
     virtual ~SurfaceFlinger();
 
@@ -305,7 +307,7 @@ private:
     status_t removeLayer(const sp<Layer>& layer);
 
     // add a layer to SurfaceFlinger
-    void addClientLayer(const sp<Client>& client,
+    status_t addClientLayer(const sp<Client>& client,
             const sp<IBinder>& handle,
             const sp<IGraphicBufferProducer>& gbc,
             const sp<Layer>& lbc);
@@ -416,6 +418,8 @@ private:
 
     void logFrameStats();
 
+    void dumpStaticScreenStats(String8& result) const;
+
     /* ------------------------------------------------------------------------
      * Attributes
      */
@@ -469,6 +473,7 @@ private:
     volatile nsecs_t mDebugInTransaction;
     nsecs_t mLastTransactionTime;
     bool mBootFinished;
+    bool mForceFullDamage;
 
     // these are thread safe
     mutable MessageQueue mEventQueue;
@@ -493,6 +498,13 @@ private:
 
     mat4 mColorMatrix;
     bool mHasColorMatrix;
+
+    // Static screen stats
+    bool mHasPoweredOff;
+    static const size_t NUM_BUCKETS = 8; // < 1-7, 7+
+    nsecs_t mFrameBuckets[NUM_BUCKETS];
+    nsecs_t mTotalTime;
+    nsecs_t mLastSwapTime;
 };
 
 }; // namespace android

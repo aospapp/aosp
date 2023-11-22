@@ -32,7 +32,7 @@ static struct io_u *fio_null_event(struct thread_data *td, int event)
 
 static int fio_null_getevents(struct thread_data *td, unsigned int min_events,
 			      unsigned int fio_unused max,
-			      struct timespec fio_unused *t)
+			      const struct timespec fio_unused *t)
 {
 	struct null_data *nd = (struct null_data *) td->io_ops->data;
 	int ret = 0;
@@ -119,7 +119,7 @@ static struct ioengine_ops ioengine = {
 	.init		= fio_null_init,
 	.cleanup	= fio_null_cleanup,
 	.open_file	= fio_null_open,
-	.flags		= FIO_DISKLESSIO,
+	.flags		= FIO_DISKLESSIO | FIO_FAKEIO,
 };
 
 static void fio_init fio_null_register(void)
@@ -152,7 +152,7 @@ void get_ioengine(struct ioengine_ops **ioengine_ptr)
 	ioengine->init           = fio_null_init;
 	ioengine->cleanup        = fio_null_cleanup;
 	ioengine->open_file      = fio_null_open;
-	ioengine->flags	         = FIO_DISKLESSIO;
+	ioengine->flags	         = FIO_DISKLESSIO | FIO_FAKEIO;
 }
 }
 #endif /* FIO_EXTERNAL_ENGINE */

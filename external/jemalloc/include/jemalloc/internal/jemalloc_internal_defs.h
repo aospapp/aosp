@@ -27,6 +27,10 @@
 #define CPU_SPINWAIT 
 #endif
 
+/* Defined if C11 atomics are available. */
+/* TODO: Fix compile issues with the atomics. */
+#undef JEMALLOC_C11ATOMICS
+
 /* Defined if the equivalent of FreeBSD's atomic(9) functions are available. */
 /* #undef JEMALLOC_ATOMIC9 */
 
@@ -40,7 +44,7 @@
  * Defined if __sync_add_and_fetch(uint32_t *, uint32_t) and
  * __sync_sub_and_fetch(uint32_t *, uint32_t) are available, despite
  * __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4 not being defined (which means the
- * functions are defined in libgcc instead of being inlines)
+ * functions are defined in libgcc instead of being inlines).
  */
 /* #undef JE_FORCE_SYNC_COMPARE_AND_SWAP_4 */
 
@@ -48,7 +52,7 @@
  * Defined if __sync_add_and_fetch(uint64_t *, uint64_t) and
  * __sync_sub_and_fetch(uint64_t *, uint64_t) are available, despite
  * __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 not being defined (which means the
- * functions are defined in libgcc instead of being inlines)
+ * functions are defined in libgcc instead of being inlines).
  */
 /* #undef JE_FORCE_SYNC_COMPARE_AND_SWAP_8 */
 
@@ -67,6 +71,16 @@
  * documented in the spinlock(3) manual page.
  */
 /* #undef JEMALLOC_OSSPIN */
+
+/*
+ * Defined if secure_getenv(3) is available.
+ */
+/* #undef JEMALLOC_HAVE_SECURE_GETENV */
+
+/*
+ * Defined if issetugid(2) is available.
+ */
+/* #undef JEMALLOC_HAVE_ISSETUGID */
 
 /*
  * Defined if _malloc_thread_cleanup() exists.  At least in the case of
@@ -149,8 +163,17 @@
 /* Support lazy locking (avoid locking unless a second thread is launched). */
 /* #undef JEMALLOC_LAZY_LOCK */
 
-/* One page is 2^STATIC_PAGE_SHIFT bytes. */
-#define STATIC_PAGE_SHIFT 12
+/* Minimum size class to support is 2^LG_TINY_MIN bytes. */
+#define LG_TINY_MIN 3
+
+/*
+ * Minimum allocation alignment is 2^LG_QUANTUM bytes (ignoring tiny size
+ * classes).
+ */
+/* #undef LG_QUANTUM */
+
+/* One page is 2^LG_PAGE bytes. */
+#define LG_PAGE 12
 
 /*
  * If defined, use munmap() to unmap freed chunks, rather than storing them for
@@ -176,6 +199,12 @@
 /* #undef JEMALLOC_IVSALLOC */
 
 /*
+ * If defined, explicitly attempt to more uniformly distribute large allocation
+ * pointer alignments across all cache indices.
+ */
+/* #undef JEMALLOC_CACHE_OBLIVIOUS */
+
+/*
  * Darwin (OS X) uses zones to work around Mach-O symbol override shortcomings.
  */
 /* #undef JEMALLOC_ZONE */
@@ -194,9 +223,7 @@
 #define JEMALLOC_PURGE_MADVISE_DONTNEED 
 /* #undef JEMALLOC_PURGE_MADVISE_FREE */
 
-/*
- * Define if operating system has alloca.h header.
- */
+/* Define if operating system has alloca.h header. */
 #define JEMALLOC_HAS_ALLOCA_H 1
 
 /* C99 restrict keyword supported. */
@@ -217,5 +244,20 @@
 
 /* sizeof(intmax_t) == 2^LG_SIZEOF_INTMAX_T. */
 #define LG_SIZEOF_INTMAX_T 3
+
+/* glibc malloc hooks (__malloc_hook, __realloc_hook, __free_hook). */
+/* #undef JEMALLOC_GLIBC_MALLOC_HOOK */
+
+/* glibc memalign hook. */
+/* #undef JEMALLOC_GLIBC_MEMALIGN_HOOK */
+
+/* Adaptive mutex support in pthreads. */
+/* #undef JEMALLOC_HAVE_PTHREAD_MUTEX_ADAPTIVE_NP */
+
+/*
+ * If defined, jemalloc symbols are not exported (doesn't work when
+ * JEMALLOC_PREFIX is not defined).
+ */
+#define JEMALLOC_EXPORT 
 
 #endif /* JEMALLOC_INTERNAL_DEFS_H_ */

@@ -22,6 +22,7 @@
 
 #include "atomic.h"
 #include "base/logging.h"
+#include "base/time_utils.h"
 #include "debugger.h"
 #include "jdwp/jdwp_priv.h"
 #include "scoped_thread_state_change.h"
@@ -126,6 +127,7 @@ void JdwpNetStateBase::Close() {
  */
 ssize_t JdwpNetStateBase::WritePacket(ExpandBuf* pReply, size_t length) {
   MutexLock mu(Thread::Current(), socket_lock_);
+  DCHECK(IsConnected()) << "Connection with debugger is closed";
   DCHECK_LE(length, expandBufGetLength(pReply));
   return TEMP_FAILURE_RETRY(write(clientSock, expandBufGetBuffer(pReply), length));
 }
@@ -135,11 +137,17 @@ ssize_t JdwpNetStateBase::WritePacket(ExpandBuf* pReply, size_t length) {
  */
 ssize_t JdwpNetStateBase::WriteBufferedPacket(const std::vector<iovec>& iov) {
   MutexLock mu(Thread::Current(), socket_lock_);
+  return WriteBufferedPacketLocked(iov);
+}
+
+ssize_t JdwpNetStateBase::WriteBufferedPacketLocked(const std::vector<iovec>& iov) {
+  socket_lock_.AssertHeld(Thread::Current());
+  DCHECK(IsConnected()) << "Connection with debugger is closed";
   return TEMP_FAILURE_RETRY(writev(clientSock, &iov[0], iov.size()));
 }
 
 bool JdwpState::IsConnected() {
-  return netState != NULL && netState->IsConnected();
+  return netState != nullptr && netState->IsConnected();
 }
 
 void JdwpState::SendBufferedRequest(uint32_t type, const std::vector<iovec>& iov) {
@@ -202,28 +210,28 @@ JdwpState::JdwpState(const JdwpOptions* options)
       thread_start_lock_("JDWP thread start lock", kJdwpStartLock),
       thread_start_cond_("JDWP thread start condition variable", thread_start_lock_),
       pthread_(0),
-      thread_(NULL),
+      thread_(nullptr),
       debug_thread_started_(false),
       debug_thread_id_(0),
       run(false),
-      netState(NULL),
+      netState(nullptr),
       attach_lock_("JDWP attach lock", kJdwpAttachLock),
       attach_cond_("JDWP attach condition variable", attach_lock_),
       last_activity_time_ms_(0),
       request_serial_(0x10000000),
       event_serial_(0x20000000),
       event_list_lock_("JDWP event list lock", kJdwpEventListLock),
-      event_list_(NULL),
+      event_list_(nullptr),
       event_list_size_(0),
-      event_thread_lock_("JDWP event thread lock"),
-      event_thread_cond_("JDWP event thread condition variable", event_thread_lock_),
-      event_thread_id_(0),
-      process_request_lock_("JDWP process request lock"),
-      process_request_cond_("JDWP process request condition variable", process_request_lock_),
-      processing_request_(false),
+      jdwp_token_lock_("JDWP token lock"),
+      jdwp_token_cond_("JDWP token condition variable", jdwp_token_lock_),
+      jdwp_token_owner_thread_id_(0),
       ddm_is_active_(false),
       should_exit_(false),
-      exit_status_(0) {
+      exit_status_(0),
+      shutdown_lock_("JDWP shutdown lock", kJdwpShutdownLock),
+      shutdown_cond_("JDWP shutdown condition variable", shutdown_lock_),
+      processing_request_(false) {
 }
 
 /*
@@ -289,7 +297,7 @@ JdwpState* JdwpState::Create(const JdwpOptions* options) {
     }
     if (!state->IsActive()) {
       LOG(ERROR) << "JDWP connection failed";
-      return NULL;
+      return nullptr;
     }
 
     LOG(INFO) << "JDWP connected";
@@ -317,16 +325,14 @@ void JdwpState::ResetState() {
   UnregisterAll();
   {
     MutexLock mu(Thread::Current(), event_list_lock_);
-    CHECK(event_list_ == NULL);
+    CHECK(event_list_ == nullptr);
   }
-
-  Dbg::ProcessDelayedFullUndeoptimizations();
 
   /*
    * Should not have one of these in progress.  If the debugger went away
    * mid-request, though, we could see this.
    */
-  if (event_thread_id_ != 0) {
+  if (jdwp_token_owner_thread_id_ != 0) {
     LOG(WARNING) << "Resetting state while event in progress";
     DCHECK(false);
   }
@@ -336,12 +342,22 @@ void JdwpState::ResetState() {
  * Tell the JDWP thread to shut down.  Frees "state".
  */
 JdwpState::~JdwpState() {
-  if (netState != NULL) {
+  if (netState != nullptr) {
     /*
-     * Close down the network to inspire the thread to halt.
+     * Close down the network to inspire the thread to halt. If a request is being processed,
+     * we need to wait for it to finish first.
      */
-    VLOG(jdwp) << "JDWP shutting down net...";
-    netState->Shutdown();
+    {
+      Thread* self = Thread::Current();
+      MutexLock mu(self, shutdown_lock_);
+      while (processing_request_) {
+        VLOG(jdwp) << "JDWP command in progress: wait for it to finish ...";
+        shutdown_cond_.Wait(self);
+      }
+
+      VLOG(jdwp) << "JDWP shutting down net...";
+      netState->Shutdown();
+    }
 
     if (debug_thread_started_) {
       run = false;
@@ -353,9 +369,9 @@ JdwpState::~JdwpState() {
 
     VLOG(jdwp) << "JDWP freeing netstate...";
     delete netState;
-    netState = NULL;
+    netState = nullptr;
   }
-  CHECK(netState == NULL);
+  CHECK(netState == nullptr);
 
   ResetState();
 }
@@ -369,26 +385,41 @@ bool JdwpState::IsActive() {
 
 // Returns "false" if we encounter a connection-fatal error.
 bool JdwpState::HandlePacket() {
-  JdwpNetStateBase* netStateBase = reinterpret_cast<JdwpNetStateBase*>(netState);
+  Thread* const self = Thread::Current();
+  {
+    MutexLock mu(self, shutdown_lock_);
+    processing_request_ = true;
+  }
+  JdwpNetStateBase* netStateBase = netState;
+  CHECK(netStateBase != nullptr) << "Connection has been closed";
   JDWP::Request request(netStateBase->input_buffer_, netStateBase->input_count_);
 
   ExpandBuf* pReply = expandBufAlloc();
-  size_t replyLength = ProcessRequest(request, pReply);
-  ssize_t cc = netStateBase->WritePacket(pReply, replyLength);
+  bool skip_reply = false;
+  size_t replyLength = ProcessRequest(&request, pReply, &skip_reply);
+  ssize_t cc = 0;
+  if (!skip_reply) {
+    cc = netStateBase->WritePacket(pReply, replyLength);
+  } else {
+    DCHECK_EQ(replyLength, 0U);
+  }
+  expandBufFree(pReply);
 
   /*
-   * We processed this request and sent its reply. Notify other threads waiting for us they can now
-   * send events.
+   * We processed this request and sent its reply so we can release the JDWP token.
    */
-  EndProcessingRequest();
+  ReleaseJdwpTokenForCommand();
 
   if (cc != static_cast<ssize_t>(replyLength)) {
     PLOG(ERROR) << "Failed sending reply to debugger";
-    expandBufFree(pReply);
     return false;
   }
-  expandBufFree(pReply);
   netStateBase->ConsumeBytes(request.GetLength());
+  {
+    MutexLock mu(self, shutdown_lock_);
+    processing_request_ = false;
+    shutdown_cond_.Broadcast(self);
+  }
   return true;
 }
 
@@ -398,16 +429,16 @@ bool JdwpState::HandlePacket() {
  */
 static void* StartJdwpThread(void* arg) {
   JdwpState* state = reinterpret_cast<JdwpState*>(arg);
-  CHECK(state != NULL);
+  CHECK(state != nullptr);
 
   state->Run();
-  return NULL;
+  return nullptr;
 }
 
 void JdwpState::Run() {
   Runtime* runtime = Runtime::Current();
   CHECK(runtime->AttachCurrentThread("JDWP", true, runtime->GetSystemThreadGroup(),
-                                     !runtime->IsCompiler()));
+                                     !runtime->IsAotCompiler()));
 
   VLOG(jdwp) << "JDWP: thread running";
 
@@ -612,6 +643,18 @@ bool operator==(const JdwpLocation& lhs, const JdwpLocation& rhs) {
 
 bool operator!=(const JdwpLocation& lhs, const JdwpLocation& rhs) {
   return !(lhs == rhs);
+}
+
+bool operator==(const JdwpOptions& lhs, const JdwpOptions& rhs) {
+  if (&lhs == &rhs) {
+    return true;
+  }
+
+  return lhs.transport == rhs.transport &&
+      lhs.server == rhs.server &&
+      lhs.suspend == rhs.suspend &&
+      lhs.host == rhs.host &&
+      lhs.port == rhs.port;
 }
 
 }  // namespace JDWP

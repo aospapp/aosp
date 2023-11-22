@@ -6,7 +6,6 @@ typeattribute mediaserver mlstrustedsubject;
 
 net_domain(mediaserver)
 init_daemon_domain(mediaserver)
-unix_socket_connect(mediaserver, property, init)
 
 r_dir_file(mediaserver, sdcard_type)
 
@@ -27,7 +26,8 @@ allow mediaserver video_device:dir r_dir_perms;
 allow mediaserver video_device:chr_file rw_file_perms;
 allow mediaserver audio_device:dir r_dir_perms;
 allow mediaserver tee_device:chr_file rw_file_perms;
-allow mediaserver audio_prop:property_service set;
+
+set_prop(mediaserver, audio_prop)
 
 # Access audio devices at all.
 allow mediaserver audio_device:chr_file rw_file_perms;
@@ -78,8 +78,30 @@ unix_socket_connect(mediaserver, bluetooth, bluetooth)
 # Connect to tee service.
 allow mediaserver tee:unix_stream_socket connectto;
 
-allow mediaserver mediaserver_service:service_manager add;
+allow mediaserver activity_service:service_manager find;
+allow mediaserver appops_service:service_manager find;
+allow mediaserver cameraproxy_service:service_manager find;
+allow mediaserver batterystats_service:service_manager find;
+allow mediaserver drmserver_service:service_manager find;
+allow mediaserver mediaserver_service:service_manager { add find };
+allow mediaserver permission_service:service_manager find;
+allow mediaserver power_service:service_manager find;
+allow mediaserver processinfo_service:service_manager find;
+allow mediaserver scheduling_policy_service:service_manager find;
+allow mediaserver surfaceflinger_service:service_manager find;
 
 # /oem access
 allow mediaserver oemfs:dir search;
 allow mediaserver oemfs:file r_file_perms;
+
+use_drmservice(mediaserver)
+allow mediaserver drmserver:drmservice {
+    consumeRights
+    setPlaybackStatus
+    openDecryptSession
+    closeDecryptSession
+    initializeDecryptUnit
+    decrypt
+    finalizeDecryptUnit
+    pread
+};

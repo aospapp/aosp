@@ -34,13 +34,6 @@ public interface ModuleController extends ShutterButton.OnShutterButtonListener 
     /** Preview is fully hidden, e.g. by the filmstrip. */
     public static final int VISIBILITY_HIDDEN = 2;
 
-    /**
-     * Returns a unique string which identifies this module.
-     * This string is used by the SettingsManager to scope settings
-     * specific to each module.
-     */
-    public String getModuleStringIdentifier();
-
     /********************** Life cycle management **********************/
 
     /**
@@ -87,14 +80,6 @@ public interface ModuleController extends ShutterButton.OnShutterButtonListener 
      * @param isLandscape Whether the new orientation is landscape or portrait.
      */
     public void onLayoutOrientationChanged(boolean isLandscape);
-
-    /**
-     * Called when the UI orientation is changed.
-     *
-     * @param orientation The new orientation, valid values are 0, 90, 180 and
-     *                    270.
-     */
-    public void onOrientationChanged(int orientation);
 
     /**
      * Called when back key is pressed.

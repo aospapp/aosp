@@ -24,6 +24,9 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
+import java.util.UUID;
+import android.media.audiofx.Visualizer;
+import android.media.audiofx.Visualizer.MeasurementPeakRms;
 import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.Log;
@@ -43,9 +46,6 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
 
     //Test case 0.0: test constructor and release
     public void test0_0ConstructorAndRelease() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         assertNotNull("null AudioManager", am);
         getLoudnessEnhancer(0);
@@ -63,9 +63,6 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
 
     //Test case 1.0: test set/get target gain
     public void test1_0TargetGain() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         getLoudnessEnhancer(0);
         try {
             mLE.setTargetGain(0);
@@ -79,6 +76,113 @@ public class LoudnessEnhancerTest extends PostProcTestBase {
         } catch (IllegalStateException e) {
             fail("target gain operation called in wrong state");
         } finally {
+            releaseLoudnessEnhancer();
+        }
+    }
+
+  //Test case 2.0: test loudness gain change in audio
+    public void test2_0MeasureGainChange() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        AudioEffect vc = null;
+        Visualizer visualizer = null;
+        MediaPlayer mp = null;
+        try {
+            // this test will play a 1kHz sine wave with peaks at -40dB, and apply 6 db gain
+            // using loudness enhancement
+            mp = MediaPlayer.create(getContext(), R.raw.sine1khzm40db);
+            final int LOUDNESS_GAIN = 600;
+            final int MAX_MEASUREMENT_ERROR_MB = 200;
+            assertNotNull("null MediaPlayer", mp);
+
+            // creating a volume controller on output mix ensures that ro.audio.silent mutes
+            // audio after the effects and not before
+            vc = new AudioEffect(
+                    AudioEffect.EFFECT_TYPE_NULL,
+                    UUID.fromString(BUNDLE_VOLUME_EFFECT_UUID),
+                    0,
+                    mp.getAudioSessionId());
+            vc.setEnabled(true);
+
+            AudioManager am = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            assertNotNull("null AudioManager", am);
+            int originalVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+            am.setStreamVolume(AudioManager.STREAM_MUSIC,
+                    am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+            int sessionId = mp.getAudioSessionId();
+
+            getLoudnessEnhancer(sessionId);
+            visualizer = new Visualizer(sessionId);
+
+            mp.setLooping(true);
+            mp.start();
+
+            visualizer.setEnabled(true);
+            assertTrue("visualizer not enabled", visualizer.getEnabled());
+            Thread.sleep(100);
+            int status = visualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            assertEquals("setMeasurementMode() for PEAK_RMS doesn't report success",
+                    Visualizer.SUCCESS, status);
+            // make sure we're playing long enough so the measurement is valid
+            int currentPosition = mp.getCurrentPosition();
+            int maxTry = 100;
+            int tryCount = 0;
+            while (currentPosition < 200 && tryCount < maxTry) {
+                Thread.sleep(50);
+                currentPosition = mp.getCurrentPosition();
+                tryCount++;
+            }
+            assertTrue("MediaPlayer not ready", tryCount < maxTry);
+
+            MeasurementPeakRms measurement = new MeasurementPeakRms();
+            status = visualizer.getMeasurementPeakRms(measurement);
+
+            //run for a new set of 3 seconds, get new measurement
+            mLE.setTargetGain(LOUDNESS_GAIN);
+            assertEquals("target gain differs from value set", (float)LOUDNESS_GAIN,
+                    mLE.getTargetGain());
+
+            mLE.setEnabled(true);
+
+            visualizer.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS);
+            currentPosition = mp.getCurrentPosition();
+            maxTry = 5;
+            tryCount = 0;
+            while (tryCount < maxTry) {
+                Thread.sleep(50);
+                tryCount++;
+            }
+
+            MeasurementPeakRms measurement2 = new MeasurementPeakRms();
+            status = visualizer.getMeasurementPeakRms(measurement2);
+
+            //compare both measurements
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
+            assertEquals("getMeasurementPeakRms() reports failure",
+                    Visualizer.SUCCESS, status);
+            Log.i("VisTest", "peak="+measurement.mPeak+"  rms="+measurement.mRms);
+            Log.i("VisTest", "peak2="+measurement2.mPeak+"  rms2="+measurement2.mRms);
+
+            int deltaPeak = Math.abs(measurement2.mPeak - (measurement.mPeak + LOUDNESS_GAIN) );
+            assertTrue("peak deviation in mB = "+deltaPeak, deltaPeak < MAX_MEASUREMENT_ERROR_MB);
+
+        } catch (IllegalStateException e) {
+            fail("method called in wrong state");
+        } catch (InterruptedException e) {
+            fail("sleep() interrupted");
+        } finally {
+            if (mp != null) {
+                mp.stop();
+                mp.release();
+            }
+
+            if (vc != null)
+                vc.release();
+
+            if (visualizer != null)
+                visualizer.release();
+
             releaseLoudnessEnhancer();
         }
     }

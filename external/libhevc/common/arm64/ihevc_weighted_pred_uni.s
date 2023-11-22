@@ -151,7 +151,7 @@ ihevc_weighted_pred_uni_av8:
     add         x10,x10,x22                 //lvl_shift * wgt0 + (off0 << shift)
     mov         x9,x21                      //load wt
     sub         x12,x6,#1
-    mov         v0.4h[0], w4                //moved for scalar multiplication
+    mov         v0.h[0], w4                 //moved for scalar multiplication
     lsl         x2,x2,#1
     dup         v28.4s,w6                   //vmovq_n_s32(tmp_shift)
     lsl         x22,x11,x12
@@ -172,19 +172,19 @@ core_loop:
     add         x6,x1,x3                    //pu1_dst_tmp = pu1_dst + dst_strd
     ld1         {v1.4h},[x0],#8             //load and increment the pi2_src
     ld1         {v2.4h},[x5],x2             //load and increment the pi2_src_tmp ii iteration
-    smull       v4.4s, v1.4h, v0.4h[0]      //vmull_n_s16(pi2_src_val1, (int16_t) wgt0)
+    smull       v4.4s, v1.4h, v0.h[0]       //vmull_n_s16(pi2_src_val1, (int16_t) wgt0)
 
     add         v4.4s,  v4.4s ,  v30.4s     //vaddq_s32(i4_tmp1_t, tmp_lvl_shift_t)
     ld1         {v3.4h},[x5],x2             //load and increment the pi2_src iii iteration
 
-    smull       v6.4s, v2.4h, v0.4h[0]      //vmull_n_s16(pi2_src_val2, (int16_t) wgt0) ii iteration
+    smull       v6.4s, v2.4h, v0.h[0]       //vmull_n_s16(pi2_src_val2, (int16_t) wgt0) ii iteration
     ld1         {v5.4h},[x5],x2             //load and increment the pi2_src_tmp iv iteration
 
     sshl        v4.4s,v4.4s,v28.4s
     //vshl.s32    q2,q2,q14                    //vshlq_s32(i4_tmp1_t, tmp_shift_t)
     add         v6.4s,  v6.4s ,  v30.4s     //vaddq_s32(i4_tmp2_t, tmp_lvl_shift_t) ii iteration
 
-    smull       v7.4s, v3.4h, v0.4h[0]      //vmull_n_s16(pi2_src_val1, (int16_t) wgt0) iii iteration
+    smull       v7.4s, v3.4h, v0.h[0]       //vmull_n_s16(pi2_src_val1, (int16_t) wgt0) iii iteration
     sqxtun      v4.4h, v4.4s                //vqmovun_s32(sto_res_tmp1)
 
     add         v7.4s,  v7.4s ,  v30.4s     //vaddq_s32(i4_tmp1_t, tmp_lvl_shift_t) iii iteration
@@ -193,7 +193,7 @@ core_loop:
     sshl        v6.4s,v6.4s,v28.4s
     //vshl.s32    q3,q3,q14                    //vshlq_s32(i4_tmp2_t, tmp_shift_t) ii iteration
 
-    smull       v16.4s, v5.4h, v0.4h[0]     //vmull_n_s16(pi2_src_val2, (int16_t) wgt0) iv iteration
+    smull       v16.4s, v5.4h, v0.h[0]      //vmull_n_s16(pi2_src_val2, (int16_t) wgt0) iv iteration
     uqxtn       v4.8b,  v4.8h               //vqmovn_u16(sto_res_tmp3)
 
     sshl        v7.4s,v7.4s,v28.4s

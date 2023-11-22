@@ -24,4 +24,4 @@ LOCAL_PACKAGE_NAME := CtsKeySetSigningAUpgradeNone
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-a
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)

@@ -46,7 +46,7 @@ void RsdVertexArray::Attrib::clear() {
     type = 0;
     size = 0;
     stride = 0;
-    ptr = NULL;
+    ptr = nullptr;
     normalized = false;
     name.setTo("");
 }
@@ -118,14 +118,14 @@ void RsdVertexArray::setup(const Context *rsc) const {
 }
 ////////////////////////////////////////////
 RsdVertexArrayState::RsdVertexArrayState() {
-    mAttrsEnabled = NULL;
+    mAttrsEnabled = nullptr;
     mAttrsEnabledSize = 0;
 }
 
 RsdVertexArrayState::~RsdVertexArrayState() {
     if (mAttrsEnabled) {
         delete[] mAttrsEnabled;
-        mAttrsEnabled = NULL;
+        mAttrsEnabled = nullptr;
     }
 }
 void RsdVertexArrayState::init(uint32_t maxAttrs) {

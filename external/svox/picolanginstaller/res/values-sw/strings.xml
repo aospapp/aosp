@@ -22,7 +22,7 @@
     <string name="app_name" msgid="3853942104135735825">"Kiwekaji cha Kiundaji cha Data ya Usemi"</string>
     <string name="installing_message" product="nosdcard" msgid="737236126329813405">"Inasakinisha data ya sauti kwenye hifadhi ya USB."</string>
     <string name="installing_message" product="default" msgid="8792926973732354514">"Inasakinisha data ya sauti kwenye kadi ya SD."</string>
-    <string name="uninstall_message" msgid="174096141356529599">"Data ya sauti imewekwa kwa mafanikio. Sasa unaweza kuondoa kiwekaji hiki kwa usalama."</string>
+    <string name="uninstall_message" msgid="174096141356529599">"Data ya sauti imewekwa. Sasa unaweza kuondoa kipengele hiki cha kusakinisha."</string>
     <string name="uninstall" msgid="6195983436684617741">"Ondoa"</string>
     <string name="retry_message" product="nosdcard" msgid="8048316007107408391">"Data ya sauti haikuweza kusakinishwa. Hakikisha hifadhi yako ya USB  kwa ina angalau nafasi wazi ya 6MB."</string>
     <string name="retry_message" product="default" msgid="4262829785604216441">"Data ya sauti haikuweza kusakinisha. Hakikisha kadi yako ya SD ipo kwenye kifaa chako na ina angalau nafasi tupu ya 6MB. Ikiwa kadi yako ipo tayari katika kifaa chako, jaribu kuiondoa kadi hiyo na kuiingiza upya."</string>

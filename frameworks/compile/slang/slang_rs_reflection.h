@@ -247,7 +247,7 @@ public:
 
   inline const char *getLastError() const {
     if (mLastError.empty())
-      return NULL;
+      return nullptr;
     else
       return mLastError.c_str();
   }

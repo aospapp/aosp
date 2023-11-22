@@ -17,8 +17,10 @@
 #include <gtest/gtest.h>
 
 #include <dlfcn.h>
+#include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -29,6 +31,7 @@
 
 #include <pagemap/pagemap.h>
 
+#include "TemporaryFile.h"
 
 #define ASSERT_DL_NOTNULL(ptr) \
     ASSERT_TRUE(ptr != nullptr) << "dlerror: " << dlerror()
@@ -39,6 +42,9 @@
 #define ASSERT_NOERROR(i) \
     ASSERT_NE(-1, i) << "errno: " << strerror(errno)
 
+#define ASSERT_SUBSTR(needle, haystack) \
+    ASSERT_PRED_FORMAT2(::testing::IsSubstring, needle, haystack)
+
 
 typedef int (*fn)(void);
 #define LIBNAME "libdlext_test.so"
@@ -46,9 +52,9 @@ typedef int (*fn)(void);
 #define LIBSIZE 1024*1024 // how much address space to reserve for it
 
 #if defined(__LP64__)
-#define LIBPATH_PREFIX "%s/nativetest64/libdlext_test_fd/"
+#define LIBPATH_PREFIX "/nativetest64/libdlext_test_fd/"
 #else
-#define LIBPATH_PREFIX "%s/nativetest/libdlext_test_fd/"
+#define LIBPATH_PREFIX "/nativetest/libdlext_test_fd/"
 #endif
 
 #define LIBPATH LIBPATH_PREFIX "libdlext_test_fd.so"
@@ -97,16 +103,13 @@ TEST_F(DlExtTest, ExtInfoNoFlags) {
 }
 
 TEST_F(DlExtTest, ExtInfoUseFd) {
-  const char* android_data = getenv("ANDROID_DATA");
-  ASSERT_TRUE(android_data != nullptr);
-  char lib_path[PATH_MAX];
-  snprintf(lib_path, sizeof(lib_path), LIBPATH, android_data);
+  const std::string lib_path = std::string(getenv("ANDROID_DATA")) + LIBPATH;
 
   android_dlextinfo extinfo;
   extinfo.flags = ANDROID_DLEXT_USE_LIBRARY_FD;
-  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path, O_RDONLY | O_CLOEXEC));
+  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path.c_str(), O_RDONLY | O_CLOEXEC));
   ASSERT_TRUE(extinfo.library_fd != -1);
-  handle_ = android_dlopen_ext(lib_path, RTLD_NOW, &extinfo);
+  handle_ = android_dlopen_ext(lib_path.c_str(), RTLD_NOW, &extinfo);
   ASSERT_DL_NOTNULL(handle_);
   fn f = reinterpret_cast<fn>(dlsym(handle_, "getRandomNumber"));
   ASSERT_DL_NOTNULL(f);
@@ -114,18 +117,14 @@ TEST_F(DlExtTest, ExtInfoUseFd) {
 }
 
 TEST_F(DlExtTest, ExtInfoUseFdWithOffset) {
-  const char* android_data = getenv("ANDROID_DATA");
-  ASSERT_TRUE(android_data != nullptr);
-
-  char lib_path[PATH_MAX];
-  snprintf(lib_path, sizeof(lib_path), LIBZIPPATH, android_data);
+  const std::string lib_path = std::string(getenv("ANDROID_DATA")) + LIBZIPPATH;
 
   android_dlextinfo extinfo;
   extinfo.flags = ANDROID_DLEXT_USE_LIBRARY_FD | ANDROID_DLEXT_USE_LIBRARY_FD_OFFSET;
-  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path, O_RDONLY | O_CLOEXEC));
+  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path.c_str(), O_RDONLY | O_CLOEXEC));
   extinfo.library_fd_offset = LIBZIP_OFFSET;
 
-  handle_ = android_dlopen_ext(lib_path, RTLD_NOW, &extinfo);
+  handle_ = android_dlopen_ext(lib_path.c_str(), RTLD_NOW, &extinfo);
   ASSERT_DL_NOTNULL(handle_);
 
   fn f = reinterpret_cast<fn>(dlsym(handle_, "getRandomNumber"));
@@ -134,27 +133,36 @@ TEST_F(DlExtTest, ExtInfoUseFdWithOffset) {
 }
 
 TEST_F(DlExtTest, ExtInfoUseFdWithInvalidOffset) {
-  const char* android_data = getenv("ANDROID_DATA");
-  ASSERT_TRUE(android_data != nullptr);
-
-  char lib_path[PATH_MAX];
-  snprintf(lib_path, sizeof(lib_path), LIBZIPPATH, android_data);
+  const std::string lib_path = std::string(getenv("ANDROID_DATA")) + LIBZIPPATH;
+  // lib_path is relative when $ANDROID_DATA is relative
+  char lib_realpath_buf[PATH_MAX];
+  ASSERT_TRUE(realpath(lib_path.c_str(), lib_realpath_buf) == lib_realpath_buf);
+  const std::string lib_realpath = std::string(lib_realpath_buf);
 
   android_dlextinfo extinfo;
   extinfo.flags = ANDROID_DLEXT_USE_LIBRARY_FD | ANDROID_DLEXT_USE_LIBRARY_FD_OFFSET;
-  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path, O_RDONLY | O_CLOEXEC));
+  extinfo.library_fd = TEMP_FAILURE_RETRY(open(lib_path.c_str(), O_RDONLY | O_CLOEXEC));
   extinfo.library_fd_offset = 17;
 
   handle_ = android_dlopen_ext("libname_placeholder", RTLD_NOW, &extinfo);
   ASSERT_TRUE(handle_ == nullptr);
   ASSERT_STREQ("dlopen failed: file offset for the library \"libname_placeholder\" is not page-aligned: 17", dlerror());
 
-  extinfo.library_fd_offset = (5LL<<58) + PAGE_SIZE;
+  // Test an address above 2^44, for http://b/18178121 .
+  extinfo.library_fd_offset = (5LL<<48) + PAGE_SIZE;
   handle_ = android_dlopen_ext("libname_placeholder", RTLD_NOW, &extinfo);
-
   ASSERT_TRUE(handle_ == nullptr);
-  // TODO: Better error message when reading with offset > file_size
-  ASSERT_STREQ("dlopen failed: \"libname_placeholder\" has bad ELF magic", dlerror());
+  ASSERT_SUBSTR("dlopen failed: file offset for the library \"libname_placeholder\" >= file size", dlerror());
+
+  extinfo.library_fd_offset = 0LL - PAGE_SIZE;
+  handle_ = android_dlopen_ext("libname_placeholder", RTLD_NOW, &extinfo);
+  ASSERT_TRUE(handle_ == nullptr);
+  ASSERT_SUBSTR("dlopen failed: file offset for the library \"libname_placeholder\" is negative", dlerror());
+
+  extinfo.library_fd_offset = PAGE_SIZE;
+  handle_ = android_dlopen_ext("libname_ignored", RTLD_NOW, &extinfo);
+  ASSERT_TRUE(handle_ == nullptr);
+  ASSERT_EQ("dlopen failed: \"" + lib_realpath + "\" has bad ELF magic", dlerror());
 
   close(extinfo.library_fd);
 }
@@ -169,6 +177,80 @@ TEST_F(DlExtTest, ExtInfoUseOffsetWihtoutFd) {
   ASSERT_STREQ("dlopen failed: invalid extended flag combination (ANDROID_DLEXT_USE_LIBRARY_FD_OFFSET without ANDROID_DLEXT_USE_LIBRARY_FD): 0x20", dlerror());
 }
 
+TEST(dlext, android_dlopen_ext_force_load_smoke) {
+  // 1. Open actual file
+  void* handle = dlopen("libdlext_test.so", RTLD_NOW);
+  ASSERT_DL_NOTNULL(handle);
+  // 2. Open link with force_load flag set
+  android_dlextinfo extinfo;
+  extinfo.flags = ANDROID_DLEXT_FORCE_LOAD;
+  void* handle2 = android_dlopen_ext("libdlext_test_v2.so", RTLD_NOW, &extinfo);
+  ASSERT_DL_NOTNULL(handle2);
+  ASSERT_TRUE(handle != handle2);
+
+  dlclose(handle2);
+  dlclose(handle);
+}
+
+TEST(dlext, android_dlopen_ext_force_load_soname_exception) {
+  // Check if soname lookup still returns already loaded library
+  // when ANDROID_DLEXT_FORCE_LOAD flag is specified.
+  void* handle = dlopen("libdlext_test_v2.so", RTLD_NOW);
+  ASSERT_DL_NOTNULL(handle);
+
+  android_dlextinfo extinfo;
+  extinfo.flags = ANDROID_DLEXT_FORCE_LOAD;
+
+  // Note that 'libdlext_test.so' is dt_soname for libdlext_test_v2.so
+  void* handle2 = android_dlopen_ext("libdlext_test.so", RTLD_NOW, &extinfo);
+
+  ASSERT_DL_NOTNULL(handle2);
+  ASSERT_TRUE(handle == handle2);
+
+  dlclose(handle2);
+  dlclose(handle);
+}
+
+TEST(dlfcn, dlopen_from_zip_absolute_path) {
+  const std::string lib_path = std::string(getenv("ANDROID_DATA")) + LIBZIPPATH;
+
+  void* handle = dlopen((lib_path + "!/libdir/libdlext_test_fd.so").c_str(), RTLD_NOW);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+
+  int (*fn)(void);
+  fn = reinterpret_cast<int (*)(void)>(dlsym(handle, "getRandomNumber"));
+  ASSERT_TRUE(fn != nullptr);
+  EXPECT_EQ(4, fn());
+
+  dlclose(handle);
+}
+
+TEST(dlfcn, dlopen_from_zip_ld_library_path) {
+  const std::string lib_path = std::string(getenv("ANDROID_DATA")) + LIBZIPPATH + "!/libdir";
+
+  typedef void (*fn_t)(const char*);
+  fn_t android_update_LD_LIBRARY_PATH =
+      reinterpret_cast<fn_t>(dlsym(RTLD_DEFAULT, "android_update_LD_LIBRARY_PATH"));
+
+  ASSERT_TRUE(android_update_LD_LIBRARY_PATH != nullptr) << dlerror();
+
+  void* handle = dlopen("libdlext_test_fd.so", RTLD_NOW);
+  ASSERT_TRUE(handle == nullptr);
+
+  android_update_LD_LIBRARY_PATH(lib_path.c_str());
+
+  handle = dlopen("libdlext_test_fd.so", RTLD_NOW);
+  ASSERT_TRUE(handle != nullptr) << dlerror();
+
+  int (*fn)(void);
+  fn = reinterpret_cast<int (*)(void)>(dlsym(handle, "getRandomNumber"));
+  ASSERT_TRUE(fn != nullptr);
+  EXPECT_EQ(4, fn());
+
+  dlclose(handle);
+}
+
+
 TEST_F(DlExtTest, Reserved) {
   void* start = mmap(nullptr, LIBSIZE, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS,
                      -1, 0);
@@ -181,7 +263,7 @@ TEST_F(DlExtTest, Reserved) {
   ASSERT_DL_NOTNULL(handle_);
   fn f = reinterpret_cast<fn>(dlsym(handle_, "getRandomNumber"));
   ASSERT_DL_NOTNULL(f);
-  EXPECT_GE(f, start);
+  EXPECT_GE(reinterpret_cast<void*>(f), start);
   EXPECT_LT(reinterpret_cast<void*>(f),
             reinterpret_cast<char*>(start) + LIBSIZE);
   EXPECT_EQ(4, f());
@@ -211,7 +293,7 @@ TEST_F(DlExtTest, ReservedHint) {
   ASSERT_DL_NOTNULL(handle_);
   fn f = reinterpret_cast<fn>(dlsym(handle_, "getRandomNumber"));
   ASSERT_DL_NOTNULL(f);
-  EXPECT_GE(f, start);
+  EXPECT_GE(reinterpret_cast<void*>(f), start);
   EXPECT_LT(reinterpret_cast<void*>(f),
             reinterpret_cast<char*>(start) + LIBSIZE);
   EXPECT_EQ(4, f());
@@ -229,8 +311,9 @@ TEST_F(DlExtTest, ReservedHintTooSmall) {
   ASSERT_DL_NOTNULL(handle_);
   fn f = reinterpret_cast<fn>(dlsym(handle_, "getRandomNumber"));
   ASSERT_DL_NOTNULL(f);
-  EXPECT_TRUE(f < start || (reinterpret_cast<void*>(f) >=
-                            reinterpret_cast<char*>(start) + PAGE_SIZE));
+  EXPECT_TRUE(reinterpret_cast<void*>(f) < start ||
+              (reinterpret_cast<void*>(f) >=
+               reinterpret_cast<char*>(start) + PAGE_SIZE));
   EXPECT_EQ(4, f());
 }
 
@@ -245,21 +328,14 @@ protected:
     extinfo_.reserved_addr = start;
     extinfo_.reserved_size = LIBSIZE;
     extinfo_.relro_fd = -1;
-
-    const char* android_data = getenv("ANDROID_DATA");
-    ASSERT_TRUE(android_data != nullptr);
-    snprintf(relro_file_, sizeof(relro_file_), "%s/local/tmp/libdlext_test.relro", android_data);
   }
 
   virtual void TearDown() {
     DlExtTest::TearDown();
-    if (extinfo_.relro_fd != -1) {
-      ASSERT_NOERROR(close(extinfo_.relro_fd));
-    }
   }
 
-  void CreateRelroFile(const char* lib) {
-    int relro_fd = open(relro_file_, O_CREAT | O_RDWR | O_TRUNC, 0644);
+  void CreateRelroFile(const char* lib, const char* relro_file) {
+    int relro_fd = open(relro_file, O_RDWR | O_TRUNC);
     ASSERT_NOERROR(relro_fd);
 
     pid_t pid = fork();
@@ -284,7 +360,7 @@ protected:
     ASSERT_EQ(0, WEXITSTATUS(status));
 
     // reopen file for reading so it can be used
-    relro_fd = open(relro_file_, O_RDONLY);
+    relro_fd = open(relro_file, O_RDONLY);
     ASSERT_NOERROR(relro_fd);
     extinfo_.flags |= ANDROID_DLEXT_USE_RELRO;
     extinfo_.relro_fd = relro_fd;
@@ -301,33 +377,45 @@ protected:
   void SpawnChildrenAndMeasurePss(const char* lib, bool share_relro, size_t* pss_out);
 
   android_dlextinfo extinfo_;
-  char relro_file_[PATH_MAX];
 };
 
 TEST_F(DlExtRelroSharingTest, ChildWritesGoodData) {
-  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME));
+  TemporaryFile tf; // Use tf to get an unique filename.
+  ASSERT_NOERROR(close(tf.fd));
+
+  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME, tf.filename));
   ASSERT_NO_FATAL_FAILURE(TryUsingRelro(LIBNAME));
+
+  // Use destructor of tf to close and unlink the file.
+  tf.fd = extinfo_.relro_fd;
 }
 
 TEST_F(DlExtRelroSharingTest, ChildWritesNoRelro) {
-  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME_NORELRO));
+  TemporaryFile tf; // // Use tf to get an unique filename.
+  ASSERT_NOERROR(close(tf.fd));
+
+  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME_NORELRO, tf.filename));
   ASSERT_NO_FATAL_FAILURE(TryUsingRelro(LIBNAME_NORELRO));
+
+  // Use destructor of tf to close and unlink the file.
+  tf.fd = extinfo_.relro_fd;
 }
 
 TEST_F(DlExtRelroSharingTest, RelroFileEmpty) {
-  int relro_fd = open(relro_file_, O_CREAT | O_RDWR | O_TRUNC, 0644);
-  ASSERT_NOERROR(relro_fd);
-  ASSERT_NOERROR(close(relro_fd));
-
   ASSERT_NO_FATAL_FAILURE(TryUsingRelro(LIBNAME));
 }
 
 TEST_F(DlExtRelroSharingTest, VerifyMemorySaving) {
-  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME));
-  int relro_fd = open(relro_file_, O_RDONLY);
-  ASSERT_NOERROR(relro_fd);
-  extinfo_.flags |= ANDROID_DLEXT_USE_RELRO;
-  extinfo_.relro_fd = relro_fd;
+  if (geteuid() != 0) {
+    GTEST_LOG_(INFO) << "This test must be run as root.\n";
+    return;
+  }
+
+  TemporaryFile tf; // Use tf to get an unique filename.
+  ASSERT_NOERROR(close(tf.fd));
+
+  ASSERT_NO_FATAL_FAILURE(CreateRelroFile(LIBNAME, tf.filename));
+
   int pipefd[2];
   ASSERT_NOERROR(pipe(pipefd));
 
@@ -339,6 +427,9 @@ TEST_F(DlExtRelroSharingTest, VerifyMemorySaving) {
   // it saves 40%+ for this test.
   size_t expected_size = without_sharing - (without_sharing/10);
   EXPECT_LT(with_sharing, expected_size);
+
+  // Use destructor of tf to close and unlink the file.
+  tf.fd = extinfo_.relro_fd;
 }
 
 void getPss(pid_t pid, size_t* pss_out) {

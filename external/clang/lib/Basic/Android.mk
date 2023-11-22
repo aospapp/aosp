@@ -1,8 +1,5 @@
 LOCAL_PATH:= $(call my-dir)
 
-# For the host only
-# =====================================================
-include $(CLEAR_VARS)
 include $(CLEAR_TBLGEN_VARS)
 
 TBLGEN_TABLES := \
@@ -19,6 +16,7 @@ TBLGEN_TABLES := \
   DiagnosticParseKinds.inc \
   DiagnosticSemaKinds.inc \
   DiagnosticSerializationKinds.inc \
+  arm_neon.h \
   arm_neon.inc
 
 clang_basic_SRC_FILES := \
@@ -35,6 +33,8 @@ clang_basic_SRC_FILES := \
   ObjCRuntime.cpp \
   OpenMPKinds.cpp \
   OperatorPrecedence.cpp \
+  SanitizerBlacklist.cpp \
+  Sanitizers.cpp \
   SourceLocation.cpp \
   SourceManager.cpp \
   TargetInfo.cpp \
@@ -45,14 +45,28 @@ clang_basic_SRC_FILES := \
   VirtualFileSystem.cpp \
   Warnings.cpp
 
+# For the host
+# =====================================================
+include $(CLEAR_VARS)
+
 LOCAL_SRC_FILES := $(clang_basic_SRC_FILES)
-
 LOCAL_MODULE:= libclangBasic
-LOCAL_MODULE_TAGS := optional
-
 LOCAL_MODULE_TAGS := optional
 
 include $(CLANG_HOST_BUILD_MK)
 include $(CLANG_VERSION_INC_MK)
 include $(CLANG_TBLGEN_RULES_MK)
 include $(BUILD_HOST_STATIC_LIBRARY)
+
+# For the target
+# =====================================================
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := $(clang_basic_SRC_FILES)
+LOCAL_MODULE:= libclangBasic
+LOCAL_MODULE_TAGS := optional
+
+include $(CLANG_DEVICE_BUILD_MK)
+include $(CLANG_VERSION_INC_MK)
+include $(CLANG_TBLGEN_RULES_MK)
+include $(BUILD_STATIC_LIBRARY)

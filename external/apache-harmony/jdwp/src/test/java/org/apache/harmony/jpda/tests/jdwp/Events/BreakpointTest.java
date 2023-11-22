@@ -27,8 +27,10 @@ package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.Breakpoint;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -52,10 +54,9 @@ public class BreakpointTest extends JDWPEventTestCase {
 
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        Breakpoint breakpoint = new Breakpoint("Lorg/apache/harmony/jpda/tests/jdwp/Events/BreakpointDebuggee;", "breakpointTest", 2);
-        ReplyPacket reply;
-        reply = debuggeeWrapper.vmMirror.setBreakpoint(JDWPConstants.TypeTag.CLASS, breakpoint);
-        checkReplyPacket(reply, "Set BREAKPOINT event");
+        long classID = getClassIDBySignature(getDebuggeeClassSignature());
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(classID,
+                "breakpointTest");
 
         logWriter.println("starting thread");
 
@@ -72,6 +73,11 @@ public class BreakpointTest extends JDWPEventTestCase {
                 parsedEvents[0].getEventKind(),
                 JDWPConstants.EventKind.getName(JDWPConstants.EventKind.BREAKPOINT),
                 JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
+        assertEquals("Invalid request ID", requestID, parsedEvents[0].getRequestID());
+
+        long eventThreadID = ((EventThread) parsedEvents[0]).getThreadID();
+        checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+                JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
 
         logWriter.println("BreakpointTest done");
     }

@@ -43,9 +43,10 @@ bool rsdScriptInit(const Context *rsc,
                      size_t bitcodeSize,
                      uint32_t flags) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
-    RsdCpuReference::CpuScript * cs = dc->mCpuRef->createScript(script, resName, cacheDir,
-                                                                bitcode, bitcodeSize, flags);
-    if (cs == NULL) {
+    RsdCpuReference::CpuScript * cs =
+        dc->mCpuRef->createScript(script, resName, cacheDir, bitcode,
+                                  bitcodeSize, flags);
+    if (cs == nullptr) {
         return false;
     }
     script->mHal.drv = cs;
@@ -53,10 +54,11 @@ bool rsdScriptInit(const Context *rsc,
     return true;
 }
 
-bool rsdInitIntrinsic(const Context *rsc, Script *s, RsScriptIntrinsicID iid, Element *e) {
+bool rsdInitIntrinsic(const Context *rsc, Script *s, RsScriptIntrinsicID iid,
+                      Element *e) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
     RsdCpuReference::CpuScript * cs = dc->mCpuRef->createIntrinsic(s, iid, e);
-    if (cs == NULL) {
+    if (cs == nullptr) {
         return false;
     }
     s->mHal.drv = cs;
@@ -73,8 +75,15 @@ void rsdScriptInvokeForEach(const Context *rsc,
                             size_t usrLen,
                             const RsScriptCall *sc) {
 
-    RsdCpuReference::CpuScript *cs = (RsdCpuReference::CpuScript *)s->mHal.drv;
-    cs->invokeForEach(slot, ain, aout, usr, usrLen, sc);
+    if (ain == nullptr) {
+        rsdScriptInvokeForEachMulti(rsc, s, slot, nullptr, 0, aout, usr, usrLen,
+                                    sc);
+    } else {
+        const Allocation *ains[1] = {ain};
+
+        rsdScriptInvokeForEachMulti(rsc, s, slot, ains, 1, aout, usr, usrLen,
+                                    sc);
+    }
 }
 
 void rsdScriptInvokeForEachMulti(const Context *rsc,
@@ -88,7 +97,7 @@ void rsdScriptInvokeForEachMulti(const Context *rsc,
                                  const RsScriptCall *sc) {
 
     RsdCpuReference::CpuScript *cs = (RsdCpuReference::CpuScript *)s->mHal.drv;
-    cs->invokeForEachMulti(slot, ains, inLen, aout, usr, usrLen, sc);
+    cs->invokeForEach(slot, ains, inLen, aout, usr, usrLen, sc);
 }
 
 
@@ -149,7 +158,7 @@ void rsdScriptSetGlobalObj(const Context *dc, const Script *s, uint32_t slot, Ob
 void rsdScriptDestroy(const Context *dc, Script *s) {
     RsdCpuReference::CpuScript *cs = (RsdCpuReference::CpuScript *)s->mHal.drv;
     delete cs;
-    s->mHal.drv = NULL;
+    s->mHal.drv = nullptr;
 }
 
 
@@ -166,12 +175,12 @@ void rsdScriptUpdateCachedObject(const Context *rsc,
 {
     obj->p = script;
 #ifdef __LP64__
-    obj->r = NULL;
-    if (script != NULL) {
+    obj->r = nullptr;
+    if (script != nullptr) {
         obj->v1 = script->mHal.drv;
     } else {
-        obj->v1 = NULL;
+        obj->v1 = nullptr;
     }
-    obj->v2 = NULL;
+    obj->v2 = nullptr;
 #endif
 }

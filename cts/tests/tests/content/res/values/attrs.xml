@@ -125,6 +125,9 @@
         <attr name="textColorHint"/>
         <attr name="textColorLink"/>
     </declare-styleable>
+    <!-- colors referred by theme. -->
+    <attr name="testcolor3" format="color"/>
+    <attr name="testcolor4" format="color"/>
     <!-- Integer used to uniquely identify theme overrides. -->
     <attr name="themeType" format="integer"/>
     <!-- Theme reference used to override parent theme. -->

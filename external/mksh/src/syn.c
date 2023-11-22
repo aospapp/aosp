@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- *		 2011, 2012, 2013, 2014
+ *		 2011, 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.94 2014/01/05 21:57:29 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/syn.c,v 1.94.2.3 2015/04/12 22:32:35 tg Exp $");
 
 struct nesting_state {
 	int start_token;	/* token than began nesting (eg, FOR) */
@@ -58,7 +58,6 @@ static struct op *newtp(int);
 static void syntaxerr(const char *) MKSH_A_NORETURN;
 static void nesting_push(struct nesting_state *, int);
 static void nesting_pop(struct nesting_state *);
-static int assign_command(const char *);
 static int inalias(struct source *) MKSH_A_PURE;
 static Test_op dbtestp_isa(Test_env *, Test_meta);
 static const char *dbtestp_getopnd(Test_env *, Test_op, bool);
@@ -190,23 +189,24 @@ synio(int cf)
 		return (NULL);
 	ACCEPT;
 	iop = yylval.iop;
-	if (iop->flag & IONDELIM)
+	if (iop->ioflag & IONDELIM)
 		goto gotnulldelim;
-	ishere = (iop->flag & IOTYPE) == IOHERE;
+	ishere = (iop->ioflag & IOTYPE) == IOHERE;
 	musthave(LWORD, ishere ? HEREDELIM : 0);
 	if (ishere) {
 		iop->delim = yylval.cp;
-		if (*ident != 0)
+		if (*ident != 0) {
 			/* unquoted */
  gotnulldelim:
-			iop->flag |= IOEVAL;
+			iop->ioflag |= IOEVAL;
+		}
 		if (herep > &heres[HERES - 1])
 			yyerror("too many %ss\n", "<<");
 		*herep++ = iop;
 	} else
 		iop->name = yylval.cp;
 
-	if (iop->flag & IOBASH) {
+	if (iop->ioflag & IOBASH) {
 		char *cp;
 
 		nextiop = alloc(sizeof(*iop), ATEMP);
@@ -220,9 +220,9 @@ synio(int cf)
 		*cp++ = '0' + (iop->unit % 10);
 		*cp = EOS;
 
-		iop->flag &= ~IOBASH;
+		iop->ioflag &= ~IOBASH;
 		nextiop->unit = 2;
-		nextiop->flag = IODUP;
+		nextiop->ioflag = IODUP;
 		nextiop->delim = NULL;
 		nextiop->heredoc = NULL;
 	}
@@ -288,7 +288,7 @@ get_command(int cf)
 		t->lineno = source->line;
 		while (/* CONSTCOND */ 1) {
 			cf = (t->u.evalflags ? ARRAYVAR : 0) |
-			    (XPsize(args) == 0 ? sALIAS|VARASN : CMDWORD);
+			    (XPsize(args) == 0 ? sALIAS|VARASN : 0);
 			switch (tpeek(cf)) {
 			case REDIR:
 				while ((iop = synio(cf)) != NULL) {
@@ -926,7 +926,7 @@ compile(Source *s, bool skiputf8bom)
  *	a=a
  *	$
  */
-static int
+int
 assign_command(const char *s)
 {
 	if (!*s)
@@ -996,9 +996,10 @@ dbtestp_isa(Test_env *te, Test_meta meta)
 		ret = c == /*(*/ ')' ? TO_NONNULL : TO_NONOP;
 	else if (meta == TM_UNOP || meta == TM_BINOP) {
 		if (meta == TM_BINOP && c == REDIR &&
-		    (yylval.iop->flag == IOREAD || yylval.iop->flag == IOWRITE)) {
+		    (yylval.iop->ioflag == IOREAD ||
+		    yylval.iop->ioflag == IOWRITE)) {
 			ret = TO_NONNULL;
-			save = wdcopy(yylval.iop->flag == IOREAD ?
+			save = wdcopy(yylval.iop->ioflag == IOREAD ?
 			    db_lthan : db_gthan, ATEMP);
 		} else if (uqword && (ret = test_isop(meta, ident)))
 			save = yylval.cp;

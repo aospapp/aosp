@@ -49,11 +49,7 @@ public final class Constructor<T> extends AbstractMethod implements GenericDecla
 
     private static final Comparator<Method> ORDER_BY_SIGNATURE = null; // Unused; must match Method.
 
-    /**
-     * @hide
-     */
-    public Constructor(ArtMethod artMethod) {
-        super(artMethod);
+    private Constructor() {
     }
 
     public Annotation[] getAnnotations() {
@@ -213,7 +209,8 @@ public final class Constructor<T> extends AbstractMethod implements GenericDecla
      * @return an array of arrays of {@code Annotation} instances
      */
     public Annotation[][] getParameterAnnotations() {
-        return artMethod.getParameterAnnotations();
+        return AnnotationAccess.getParameterAnnotations(
+            declaringClassOfOverriddenMethod, dexMethodIndex);
     }
 
     /**
@@ -283,13 +280,7 @@ public final class Constructor<T> extends AbstractMethod implements GenericDecla
      *
      * @see AccessibleObject
      */
-    public T newInstance(Object... args) throws InstantiationException,
-            IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-      return newInstance(args, isAccessible());
-    }
-
-    /** @hide */
-    public native T newInstance(Object[] args, boolean accessible) throws InstantiationException,
+    public native T newInstance(Object... args) throws InstantiationException,
             IllegalAccessException, IllegalArgumentException, InvocationTargetException;
 
     /**
@@ -329,5 +320,21 @@ public final class Constructor<T> extends AbstractMethod implements GenericDecla
         }
 
         return result.toString();
+    }
+
+    /**
+     * Attempts to set the accessible flag. Setting this to true prevents {@code
+     * IllegalAccessExceptions}.
+     */
+    public void setAccessible(boolean flag) {
+        Class<?> declaringClass = getDeclaringClass();
+        if (declaringClass == Class.class) {
+            throw new SecurityException("Can't make class constructor accessible");
+        } else if (declaringClass == Field.class) {
+            throw new SecurityException("Can't make field constructor accessible");
+        } else if (declaringClass == Method.class) {
+            throw new SecurityException("Can't make method constructor accessible");
+        }
+        super.setAccessible(flag);
     }
 }

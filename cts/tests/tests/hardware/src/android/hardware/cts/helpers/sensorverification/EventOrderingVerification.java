@@ -49,10 +49,8 @@ public class EventOrderingVerification extends AbstractSensorVerification {
     @SuppressWarnings("deprecation")
     public static EventOrderingVerification getDefault(TestSensorEnvironment environment) {
         int reportingMode = environment.getSensor().getReportingMode();
-        if (reportingMode != Sensor.REPORTING_MODE_CONTINUOUS
-                && reportingMode != Sensor.REPORTING_MODE_ON_CHANGE) {
+        if (reportingMode == Sensor.REPORTING_MODE_ONE_SHOT)
             return null;
-        }
         return new EventOrderingVerification();
     }
 
@@ -84,8 +82,9 @@ public class EventOrderingVerification extends AbstractSensorVerification {
             sb.append(count).append(" events out of order: ");
             for (int i = 0; i < Math.min(count, TRUNCATE_MESSAGE_LENGTH); i++) {
                 IndexedEventPair info = mOutOfOrderEvents.get(i);
-                sb.append(String.format("position=%d, previous=%d, timestamp=%d; ", info.index,
-                        info.previousEvent.timestamp, info.event.timestamp));
+                sb.append(String.format("position=%d, previous_ts=%.2fms, current_ts=%.2fms",
+                            info.index, nanosToMillis(info.previousEvent.timestamp),
+                            nanosToMillis(info.event.timestamp)));
             }
             if (count > TRUNCATE_MESSAGE_LENGTH) {
                 sb.append(count - TRUNCATE_MESSAGE_LENGTH).append(" more");
@@ -114,9 +113,9 @@ public class EventOrderingVerification extends AbstractSensorVerification {
         if (mPreviousEvent == null) {
             mMaxTimestamp = event.timestamp;
         } else {
-            if (event.timestamp < mMaxTimestamp) {
+            if (event.timestamp <= mMaxTimestamp) {
                 mOutOfOrderEvents.add(new IndexedEventPair(mIndex, event, mPreviousEvent));
-            } else if (event.timestamp > mMaxTimestamp) {
+            } else {
                 mMaxTimestamp = event.timestamp;
             }
         }

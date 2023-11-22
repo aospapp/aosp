@@ -17,11 +17,7 @@
 #include "policy.h"
 #include "mapping.h"
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
 #define MAXVECTORS 8*sizeof(access_vector_t)
-
-static pthread_once_t once = PTHREAD_ONCE_INIT;
 
 struct discover_class_node {
 	char *name;
@@ -109,17 +105,20 @@ static struct discover_class_node * discover_class(const char *s)
 		struct stat m;
 
 		snprintf(path, sizeof path, "%s/class/%s/perms/%s", selinux_mnt,s,dentry->d_name);
-		if (stat(path,&m) < 0)
+		fd = open(path, O_RDONLY | O_CLOEXEC);
+		if (fd < 0)
 			goto err4;
 
+		if (fstat(fd, &m) < 0) {
+			close(fd);
+			goto err4;
+		}
+
 		if (m.st_mode & S_IFDIR) {
+			close(fd);
 			dentry = readdir(dir);
 			continue;
 		}
-
-		fd = open(path, O_RDONLY);
-		if (fd < 0)
-			goto err4;
 
 		memset(buf, 0, sizeof(buf));
 		ret = read(fd, buf, sizeof(buf) - 1);
@@ -128,6 +127,9 @@ static struct discover_class_node * discover_class(const char *s)
 			goto err4;
 
 		if (sscanf(buf, "%u", &value) != 1)
+			goto err4;
+
+		if (value == 0 || value > MAXVECTORS)
 			goto err4;
 
 		node->perms[value-1] = strdup(dentry->d_name);
@@ -154,28 +156,6 @@ err2:
 err1:
 	free(node);
 	return NULL;
-}
-
-void flush_class_cache(void)
-{
-	struct discover_class_node *cur = discover_class_cache, *prev = NULL;
-	size_t i;
-
-	while (cur != NULL) {
-		free(cur->name);
-
-		for (i=0 ; i<MAXVECTORS ; i++)
-			free(cur->perms[i]);
-
-		free(cur->perms);
-
-		prev = cur;
-		cur = cur->next;
-
-		free(prev);
-	}
-
-	discover_class_cache = NULL;
 }
 
 security_class_t string_to_security_class(const char *s)

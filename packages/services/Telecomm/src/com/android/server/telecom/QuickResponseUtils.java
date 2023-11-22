@@ -64,18 +64,15 @@ public class QuickResponseUtils {
                 SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
         final Resources res = context.getResources();
 
-        final boolean responsesExist = prefs.contains(KEY_CANNED_RESPONSE_PREF_1);
+        final boolean responsesExist = prefs.contains(KEY_CANNED_RESPONSE_PREF_1)
+                || prefs.contains(KEY_CANNED_RESPONSE_PREF_2)
+                || prefs.contains(KEY_CANNED_RESPONSE_PREF_3)
+                || prefs.contains(KEY_CANNED_RESPONSE_PREF_4);
         if (responsesExist) {
-            // If one QuickResponse exists, they all exist.
+            // Skip if the user has set any canned responses.
             Log.d(LOG_TAG, "maybeMigrateLegacyQuickResponses() - Telecom QuickResponses exist");
             return;
         }
-
-        // Grab the all the default QuickResponses from our resources.
-        String cannedResponse1 = res.getString(R.string.respond_via_sms_canned_response_1);
-        String cannedResponse2 = res.getString(R.string.respond_via_sms_canned_response_2);
-        String cannedResponse3 = res.getString(R.string.respond_via_sms_canned_response_3);
-        String cannedResponse4 = res.getString(R.string.respond_via_sms_canned_response_4);
 
         Log.d(LOG_TAG, "maybeMigrateLegacyQuickResponses() - No local QuickResponses");
 
@@ -90,24 +87,31 @@ public class QuickResponseUtils {
 
         // Read the old canned responses from the Telephony SharedPreference if possible.
         if (telephonyContext != null) {
-            // Note that if any one QuickResponse does not exist, we'll use the default
-            // value to populate it.
             Log.d(LOG_TAG, "maybeMigrateLegacyQuickResponses() - Using Telephony QuickResponses.");
             final SharedPreferences oldPrefs = telephonyContext.getSharedPreferences(
                     SHARED_PREFERENCES_NAME, Context.MODE_PRIVATE);
-            cannedResponse1 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_1, cannedResponse1);
-            cannedResponse2 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_2, cannedResponse2);
-            cannedResponse3 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_3, cannedResponse3);
-            cannedResponse4 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_4, cannedResponse4);
-        }
+            if (!oldPrefs.contains(KEY_CANNED_RESPONSE_PREF_1)) {
+                // Skip migration if old responses don't exist.
+                // If they exist, the first canned response should be present.
+                return;
+            }
+            String cannedResponse1 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_1,
+                    res.getString(R.string.respond_via_sms_canned_response_1));
+            String cannedResponse2 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_2,
+                    res.getString(R.string.respond_via_sms_canned_response_2));
+            String cannedResponse3 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_3,
+                    res.getString(R.string.respond_via_sms_canned_response_3));
+            String cannedResponse4 = oldPrefs.getString(KEY_CANNED_RESPONSE_PREF_4,
+                    res.getString(R.string.respond_via_sms_canned_response_4));
 
-        // Either way, write them back into Telecom SharedPreferences.
-        final SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(KEY_CANNED_RESPONSE_PREF_1, cannedResponse1);
-        editor.putString(KEY_CANNED_RESPONSE_PREF_2, cannedResponse2);
-        editor.putString(KEY_CANNED_RESPONSE_PREF_3, cannedResponse3);
-        editor.putString(KEY_CANNED_RESPONSE_PREF_4, cannedResponse4);
-        editor.commit();
+            // Write them into Telecom SharedPreferences.
+            final SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(KEY_CANNED_RESPONSE_PREF_1, cannedResponse1);
+            editor.putString(KEY_CANNED_RESPONSE_PREF_2, cannedResponse2);
+            editor.putString(KEY_CANNED_RESPONSE_PREF_3, cannedResponse3);
+            editor.putString(KEY_CANNED_RESPONSE_PREF_4, cannedResponse4);
+            editor.commit();
+        }
 
         Log.d(LOG_TAG, "maybeMigrateLegacyQuickResponses() - Done.");
         return;

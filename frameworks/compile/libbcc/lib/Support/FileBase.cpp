@@ -225,19 +225,19 @@ void FileBase::unlock() {
 android::FileMap *FileBase::createMap(off_t pOffset, size_t pLength,
                                       bool pIsReadOnly) {
   if (mFD < 0 || hasError()) {
-    return NULL;
+    return nullptr;
   }
 
   android::FileMap *map = new (std::nothrow) android::FileMap();
-  if (map == NULL) {
+  if (map == nullptr) {
     mError = make_error_code(std::errc::not_enough_memory);
-    return NULL;
+    return nullptr;
   }
 
-  if (!map->create(NULL, mFD, pOffset, pLength, pIsReadOnly)) {
+  if (!map->create(nullptr, mFD, pOffset, pLength, pIsReadOnly)) {
     detectError();
-    map->release();
-    return NULL;
+    delete map;
+    return nullptr;
   }
 
   return map;

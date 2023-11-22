@@ -7,6 +7,7 @@ mcld_script_SRC_FILES := \
   EntryCmd.cpp \
   FileToken.cpp \
   GroupCmd.cpp \
+  InputCmd.cpp \
   InputSectDesc.cpp \
   InputToken.cpp \
   NameSpec.cpp \

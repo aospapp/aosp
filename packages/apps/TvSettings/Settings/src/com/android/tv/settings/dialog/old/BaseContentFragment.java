@@ -52,14 +52,6 @@ public class BaseContentFragment {
     private static final String EXTRA_ICON_BITMAP = "iconBitmap";
     private static final String EXTRA_ICON_BACKGROUND = "iconBackground";
 
-    public static Bundle buildArgs(String title) {
-        return buildArgs(title, null, null, 0, null, null, Color.TRANSPARENT);
-    }
-
-    public static Bundle buildArgs(String title, String breadcrumb, String description) {
-        return buildArgs(title, breadcrumb, description, 0, null, null, Color.TRANSPARENT);
-    }
-
     public static Bundle buildArgs(
             String title, String breadcrumb, String description, int iconResourceId,
             int backgroundColor) {

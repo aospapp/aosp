@@ -83,5 +83,12 @@ public class IntrinsicLut extends IntrinsicBase {
     }
 
 
+    public void test_ID() {
+        ScriptIntrinsicLUT s = ScriptIntrinsicLUT.create(mRS, Element.U8_4(mRS));
+        Script.KernelID kid = s.getKernelID();
+        if (kid == null) {
+            throw new IllegalStateException("kid must be valid");
+        }
+    }
 
 }

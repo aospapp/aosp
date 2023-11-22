@@ -312,7 +312,7 @@
     <string name="show" msgid="2874876876336599985">"കാണിക്കുക"</string>
     <string name="sync_error" msgid="1795794969006241678">"സമന്വയിപ്പിക്കാനായില്ല."</string>
     <string name="sync_error_message" msgid="4182644657243736635">"നിങ്ങളുടെ ഉപകരണത്തിൽ സമന്വയിപ്പിക്കുന്നതിനാവശ്യമായ സംഭരണമില്ല."</string>
-    <string name="storage" msgid="4783683938444150638">"സംഭരണം"</string>
+    <string name="storage" msgid="4783683938444150638">"സ്റ്റോറേജ്"</string>
     <string name="senders_split_token" msgid="6549228851819460081">", "</string>
     <string name="draft_count_format" msgid="9122583199850209286">" (<xliff:g id="COUNT">%1$s</xliff:g>)"</string>
     <string name="all_folders_heading" msgid="9023770187629170967">"എല്ലാ ഫോള്‍ഡറുകളും"</string>
@@ -441,7 +441,7 @@
     <string name="print_dialog" msgid="8895536548487605661">"പ്രിന്റുചെയ്യുക…"</string>
     <string name="copyright_information" msgid="971422874488783312">"പകർപ്പവകാശ വിവരം"</string>
     <string name="privacy_policy" msgid="212094623396418302">"സ്വകാര്യതാ നയം"</string>
-    <string name="open_source_licenses" msgid="8643615555920977752">"ഓപ്പൺ സോഴ്‌സ് ലൈസൻസുകൾ"</string>
+    <string name="open_source_licenses" msgid="8643615555920977752">"ഓപ്പൺ സോഴ്‌സ് ലൈസൻസ്"</string>
     <string name="reply_choice_yes" msgid="3327633032975373220">"അതെ"</string>
     <string name="reply_choice_no" msgid="7068775605915475207">"ഇല്ല"</string>
     <string name="reply_choice_ok" msgid="7881073621845053152">"ശരി"</string>

@@ -16,8 +16,8 @@
 
 package com.google.common.collect;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,12 +36,15 @@ import javax.annotation.Nullable;
  * @author Hayward Chan
  */
 public abstract class ImmutableSortedSet<E>
-    extends ImmutableSet<E> implements SortedSet<E>, SortedIterable<E> {
+    extends ForwardingImmutableSet<E> implements SortedSet<E>, SortedIterable<E> {
+  // TODO(cpovirk): split into ImmutableSortedSet/ForwardingImmutableSortedSet?
 
   // In the non-emulated source, this is in ImmutableSortedSetFauxverideShim,
   // which overrides ImmutableSet & which ImmutableSortedSet extends.
   // It is necessary here because otherwise the builder() method
   // would be inherited from the emulated ImmutableSet.
+  // TODO(cpovirk): should we be including other methods from the shim here and
+  // in ImmutableSortedMap?
   @Deprecated public static <E> ImmutableSortedSet.Builder<E> builder() {
     throw new UnsupportedOperationException();
   }
@@ -113,13 +116,6 @@ public abstract class ImmutableSortedSet<E>
     return ofInternal(Ordering.natural(), (E[]) all.toArray(new Comparable[0]));
   }
 
-  @Deprecated
-  public
-  static <E extends Comparable<? super E>> ImmutableSortedSet<E> of(
-      E[] elements) {
-    return copyOf(elements);
-  }
-
   private static <E> ImmutableSortedSet<E> ofInternal(
       Comparator<? super E> comparator, E... elements) {
     checkNotNull(elements);
@@ -136,19 +132,16 @@ public abstract class ImmutableSortedSet<E>
     }
   }
 
-  public static <E extends Comparable<? super E>> ImmutableSortedSet<E> copyOf(
-      Collection<? extends E> elements) {
-    return copyOfInternal(Ordering.natural(), elements, false);
+  public static <E> ImmutableSortedSet<E> copyOf(Collection<? extends E> elements) {
+    return copyOfInternal((Ordering<E>) Ordering.natural(), (Collection) elements, false);
   }
 
-  public static <E extends Comparable<? super E>> ImmutableSortedSet<E> copyOf(
-      Iterable<? extends E> elements) {
-    return copyOfInternal(Ordering.natural(), elements, false);
+  public static <E> ImmutableSortedSet<E> copyOf(Iterable<? extends E> elements) {
+    return copyOfInternal((Ordering<E>) Ordering.natural(), (Iterable) elements, false);
   }
 
-  public static <E extends Comparable<? super E>> ImmutableSortedSet<E> copyOf(
-      Iterator<? extends E> elements) {
-    return copyOfInternal(Ordering.natural(), elements);
+  public static <E> ImmutableSortedSet<E> copyOf(Iterator<? extends E> elements) {
+    return copyOfInternal((Ordering<E>) Ordering.natural(), (Iterator) elements);
   }
 
   public static <E extends Comparable<? super E>> ImmutableSortedSet<E> copyOf(
@@ -246,6 +239,19 @@ public abstract class ImmutableSortedSet<E>
 
   private transient final SortedSet<E> sortedDelegate;
 
+  /**
+   * Scary constructor for ContiguousSet. This constructor (in this file, the
+   * GWT emulation of ImmutableSortedSet) creates an empty sortedDelegate,
+   * which, in a vacuum, sets this object's contents to empty.  By contrast,
+   * the non-GWT constructor with the same signature uses the comparator only
+   * as a comparator. It does NOT assume empty contents. (It requires an
+   * implementation of iterator() to define its contents, and methods like
+   * contains() are implemented in terms of that method (though they will
+   * likely be overridden by subclasses for performance reasons).) This means
+   * that a call to this method have can different behavior in GWT and non-GWT
+   * environments UNLESS subclasses are careful to always override all methods
+   * implemented in terms of sortedDelegate (except comparator()).
+   */
   ImmutableSortedSet(Comparator<? super E> comparator) {
     this(Sets.newTreeSet(comparator));
   }
@@ -262,6 +268,16 @@ public abstract class ImmutableSortedSet<E>
   @Override // needed to unify SortedIterable and Collection iterator() methods
   public UnmodifiableIterator<E> iterator() {
     return super.iterator();
+  }
+
+  @Override
+  public Object[] toArray() {
+    return ObjectArrays.toArrayImpl(this);
+  }
+
+  @Override
+  public <T> T[] toArray(T[] other) {
+    return ObjectArrays.toArrayImpl(this, other);
   }
 
   @Override public boolean contains(@Nullable Object object) {
@@ -371,11 +387,11 @@ public abstract class ImmutableSortedSet<E>
     return new Builder<E>(comparator);
   }
 
-  public static <E extends Comparable<E>> Builder<E> reverseOrder() {
+  public static <E extends Comparable<?>> Builder<E> reverseOrder() {
     return new Builder<E>(Ordering.natural().reverse());
   }
 
-  public static <E extends Comparable<E>> Builder<E> naturalOrder() {
+  public static <E extends Comparable<?>> Builder<E> naturalOrder() {
     return new Builder<E>(Ordering.natural());
   }
 

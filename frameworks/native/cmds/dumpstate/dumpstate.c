@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -64,7 +65,8 @@ static void get_tombstone_fds(tombstone_data_t data[NUM_TOMBSTONES]) {
     time_t thirty_minutes_ago = time(NULL) - 60*30;
     for (size_t i = 0; i < NUM_TOMBSTONES; i++) {
         snprintf(data[i].name, sizeof(data[i].name), "%s%02zu", TOMBSTONE_FILE_PREFIX, i);
-        int fd = open(data[i].name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        int fd = TEMP_FAILURE_RETRY(open(data[i].name,
+                                         O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
         struct stat st;
         if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) &&
                 (time_t) st.st_mtime >= thirty_minutes_ago) {
@@ -98,8 +100,170 @@ static void dump_dev_files(const char *title, const char *driverpath, const char
     closedir(d);
 }
 
+static bool skip_not_stat(const char *path) {
+    static const char stat[] = "/stat";
+    size_t len = strlen(path);
+    if (path[len - 1] == '/') { /* Directory? */
+        return false;
+    }
+    return strcmp(path + len - sizeof(stat) + 1, stat); /* .../stat? */
+}
+
+static const char mmcblk0[] = "/sys/block/mmcblk0/";
+unsigned long worst_write_perf = 20000; /* in KB/s */
+
+static int dump_stat_from_fd(const char *title __unused, const char *path, int fd) {
+    unsigned long fields[11], read_perf, write_perf;
+    bool z;
+    char *cp, *buffer = NULL;
+    size_t i = 0;
+    FILE *fp = fdopen(fd, "rb");
+    getline(&buffer, &i, fp);
+    fclose(fp);
+    if (!buffer) {
+        return -errno;
+    }
+    i = strlen(buffer);
+    while ((i > 0) && (buffer[i - 1] == '\n')) {
+        buffer[--i] = '\0';
+    }
+    if (!*buffer) {
+        free(buffer);
+        return 0;
+    }
+    z = true;
+    for (cp = buffer, i = 0; i < (sizeof(fields) / sizeof(fields[0])); ++i) {
+        fields[i] = strtol(cp, &cp, 0);
+        if (fields[i] != 0) {
+            z = false;
+        }
+    }
+    if (z) { /* never accessed */
+        free(buffer);
+        return 0;
+    }
+
+    if (!strncmp(path, mmcblk0, sizeof(mmcblk0) - 1)) {
+        path += sizeof(mmcblk0) - 1;
+    }
+
+    printf("%s: %s\n", path, buffer);
+    free(buffer);
+
+    read_perf = 0;
+    if (fields[3]) {
+        read_perf = 512 * fields[2] / fields[3];
+    }
+    write_perf = 0;
+    if (fields[7]) {
+        write_perf = 512 * fields[6] / fields[7];
+    }
+    printf("%s: read: %luKB/s write: %luKB/s\n", path, read_perf, write_perf);
+    if ((write_perf > 1) && (write_perf < worst_write_perf)) {
+        worst_write_perf = write_perf;
+    }
+    return 0;
+}
+
+/* Copied policy from system/core/logd/LogBuffer.cpp */
+
+#define LOG_BUFFER_SIZE (256 * 1024)
+#define LOG_BUFFER_MIN_SIZE (64 * 1024UL)
+#define LOG_BUFFER_MAX_SIZE (256 * 1024 * 1024UL)
+
+static bool valid_size(unsigned long value) {
+    if ((value < LOG_BUFFER_MIN_SIZE) || (LOG_BUFFER_MAX_SIZE < value)) {
+        return false;
+    }
+
+    long pages = sysconf(_SC_PHYS_PAGES);
+    if (pages < 1) {
+        return true;
+    }
+
+    long pagesize = sysconf(_SC_PAGESIZE);
+    if (pagesize <= 1) {
+        pagesize = PAGE_SIZE;
+    }
+
+    // maximum memory impact a somewhat arbitrary ~3%
+    pages = (pages + 31) / 32;
+    unsigned long maximum = pages * pagesize;
+
+    if ((maximum < LOG_BUFFER_MIN_SIZE) || (LOG_BUFFER_MAX_SIZE < maximum)) {
+        return true;
+    }
+
+    return value <= maximum;
+}
+
+static unsigned long property_get_size(const char *key) {
+    unsigned long value;
+    char *cp, property[PROPERTY_VALUE_MAX];
+
+    property_get(key, property, "");
+    value = strtoul(property, &cp, 10);
+
+    switch(*cp) {
+    case 'm':
+    case 'M':
+        value *= 1024;
+    /* FALLTHRU */
+    case 'k':
+    case 'K':
+        value *= 1024;
+    /* FALLTHRU */
+    case '\0':
+        break;
+
+    default:
+        value = 0;
+    }
+
+    if (!valid_size(value)) {
+        value = 0;
+    }
+
+    return value;
+}
+
+/* timeout in ms */
+static unsigned long logcat_timeout(char *name) {
+    static const char global_tuneable[] = "persist.logd.size"; // Settings App
+    static const char global_default[] = "ro.logd.size";       // BoardConfig.mk
+    char key[PROP_NAME_MAX];
+    unsigned long property_size, default_size;
+
+    default_size = property_get_size(global_tuneable);
+    if (!default_size) {
+        default_size = property_get_size(global_default);
+    }
+
+    snprintf(key, sizeof(key), "%s.%s", global_tuneable, name);
+    property_size = property_get_size(key);
+
+    if (!property_size) {
+        snprintf(key, sizeof(key), "%s.%s", global_default, name);
+        property_size = property_get_size(key);
+    }
+
+    if (!property_size) {
+        property_size = default_size;
+    }
+
+    if (!property_size) {
+        property_size = LOG_BUFFER_SIZE;
+    }
+
+    /* Engineering margin is ten-fold our guess */
+    return 10 * (property_size + worst_write_perf) / worst_write_perf;
+}
+
+/* End copy from system/core/logd/LogBuffer.cpp */
+
 /* dumps the current system state to stdout */
 static void dumpstate() {
+    unsigned long timeout;
     time_t now = time(NULL);
     char build[PROPERTY_VALUE_MAX], fingerprint[PROPERTY_VALUE_MAX];
     char radio[PROPERTY_VALUE_MAX], bootloader[PROPERTY_VALUE_MAX];
@@ -132,7 +296,7 @@ static void dumpstate() {
 
     dump_dev_files("TRUSTY VERSION", "/sys/bus/platform/drivers/trusty", "trusty_version");
     run_command("UPTIME", 10, "uptime", NULL);
-    dump_file("MMC PERF", "/sys/block/mmcblk0/stat");
+    dump_files("UPTIME MMC PERF", mmcblk0, skip_not_stat, dump_stat_from_fd);
     dump_file("MEMORY INFO", "/proc/meminfo");
     run_command("CPU INFO", 10, "top", "-n", "1", "-d", "1", "-m", "30", "-t", NULL);
     run_command("PROCRANK", 20, "procrank", NULL);
@@ -148,7 +312,6 @@ static void dumpstate() {
     dump_file("KERNEL WAKE SOURCES", "/d/wakeup_sources");
     dump_file("KERNEL CPUFREQ", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
     dump_file("KERNEL SYNC", "/d/sync");
-    dump_file("KERNEL BLUEDROID", "/d/bluedroid");
 
     run_command("PROCESSES", 10, "ps", "-P", NULL);
     run_command("PROCESSES AND THREADS", 10, "ps", "-t", "-p", "-P", NULL);
@@ -168,9 +331,24 @@ static void dumpstate() {
     }
 
     // dump_file("EVENT LOG TAGS", "/etc/event-log-tags");
-    run_command("SYSTEM LOG", 20, "logcat", "-v", "threadtime", "-d", "*:v", NULL);
-    run_command("EVENT LOG", 20, "logcat", "-b", "events", "-v", "threadtime", "-d", "*:v", NULL);
-    run_command("RADIO LOG", 20, "logcat", "-b", "radio", "-v", "threadtime", "-d", "*:v", NULL);
+    // calculate timeout
+    timeout = logcat_timeout("main") + logcat_timeout("system") + logcat_timeout("crash");
+    if (timeout < 20000) {
+        timeout = 20000;
+    }
+    run_command("SYSTEM LOG", timeout / 1000, "logcat", "-v", "threadtime", "-d", "*:v", NULL);
+    timeout = logcat_timeout("events");
+    if (timeout < 20000) {
+        timeout = 20000;
+    }
+    run_command("EVENT LOG", timeout / 1000, "logcat", "-b", "events", "-v", "threadtime", "-d", "*:v", NULL);
+    timeout = logcat_timeout("radio");
+    if (timeout < 20000) {
+        timeout = 20000;
+    }
+    run_command("RADIO LOG", timeout / 1000, "logcat", "-b", "radio", "-v", "threadtime", "-d", "*:v", NULL);
+
+    run_command("LOG STATISTICS", 10, "logcat", "-b", "all", "-S", NULL);
 
     /* show the traces we collected in main(), if that was done */
     if (dump_traces_path != NULL) {
@@ -184,7 +362,8 @@ static void dumpstate() {
     if (!anr_traces_path[0]) {
         printf("*** NO VM TRACES FILE DEFINED (dalvik.vm.stack-trace-file)\n\n");
     } else {
-      int fd = open(anr_traces_path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+      int fd = TEMP_FAILURE_RETRY(open(anr_traces_path,
+                                       O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
       if (fd < 0) {
           printf("*** NO ANR VM TRACES FILE (%s): %s\n\n", anr_traces_path, strerror(errno));
       } else {
@@ -236,13 +415,13 @@ static void dumpstate() {
         dump_file("LAST KMSG", "/proc/last_kmsg");
     }
 
-    dump_file("LAST PANIC CONSOLE", "/data/dontpanic/apanic_console");
-    dump_file("LAST PANIC THREADS", "/data/dontpanic/apanic_threads");
-
-    for_each_userid(do_dump_settings, NULL);
+    /* kernels must set CONFIG_PSTORE_PMSG, slice up pstore with device tree */
+    run_command("LAST LOGCAT", 10, "logcat", "-L", "-v", "threadtime",
+                                             "-b", "all", "-d", "*:v", NULL);
 
     /* The following have a tendency to get wedged when wifi drivers/fw goes belly-up. */
-    run_command("NETWORK INTERFACES", 10, SU_PATH, "root", "netcfg", NULL);
+
+    run_command("NETWORK INTERFACES", 10, "ip", "link", NULL);
 
     run_command("IPv4 ADDRESSES", 10, "ip", "-4", "addr", "show", NULL);
     run_command("IPv6 ADDRESSES", 10, "ip", "-6", "addr", "show", NULL);
@@ -254,6 +433,8 @@ static void dumpstate() {
 
     run_command("ARP CACHE", 10, "ip", "-4", "neigh", "show", NULL);
     run_command("IPv6 ND CACHE", 10, "ip", "-6", "neigh", "show", NULL);
+
+    run_command("NETWORK DIAGNOSTICS", 10, "dumpsys", "connectivity", "--diag", NULL);
 
     run_command("IPTABLES", 10, SU_PATH, "root", "iptables", "-L", "-nvx", NULL);
     run_command("IP6TABLES", 10, SU_PATH, "root", "ip6tables", "-L", "-nvx", NULL);
@@ -358,6 +539,7 @@ static void dumpstate() {
     run_command("CHECKIN NETSTATS", 30, "dumpsys", "netstats", "--checkin", NULL);
     run_command("CHECKIN PROCSTATS", 30, "dumpsys", "procstats", "-c", NULL);
     run_command("CHECKIN USAGESTATS", 30, "dumpsys", "usagestats", "-c", NULL);
+    run_command("CHECKIN PACKAGE", 30, "dumpsys", "package", "--checkin", NULL);
 
     printf("========================================================\n");
     printf("== Running Application Activities\n");
@@ -387,7 +569,6 @@ static void usage() {
     fprintf(stderr, "usage: dumpstate [-b soundfile] [-e soundfile] [-o file [-d] [-p] [-z]] [-s] [-q]\n"
             "  -o: write to file (instead of stdout)\n"
             "  -d: append date to filename (requires -o)\n"
-            "  -z: gzip output (requires -o)\n"
             "  -p: capture screenshot to filename.png (requires -o)\n"
             "  -s: write output to control socket (for init)\n"
             "  -b: play sound file instead of vibrate, at beginning of job\n"
@@ -410,7 +591,6 @@ static void vibrate(FILE* vibrator, int ms) {
 int main(int argc, char *argv[]) {
     struct sigaction sigact;
     int do_add_date = 0;
-    int do_compress = 0;
     int do_vibrate = 1;
     char* use_outfile = 0;
     int use_socket = 0;
@@ -435,7 +615,7 @@ int main(int argc, char *argv[]) {
 
     /* set as high priority, and protect from OOM killer */
     setpriority(PRIO_PROCESS, 0, -20);
-    FILE *oom_adj = fopen("/proc/self/oom_adj", "w");
+    FILE *oom_adj = fopen("/proc/self/oom_adj", "we");
     if (oom_adj) {
         fputs("-17", oom_adj);
         fclose(oom_adj);
@@ -450,7 +630,6 @@ int main(int argc, char *argv[]) {
             case 's': use_socket = 1;        break;
             case 'v': break;  // compatibility no-op
             case 'q': do_vibrate = 0;        break;
-            case 'z': do_compress = 6;       break;
             case 'p': do_fb = 1;             break;
             case 'B': do_broadcast = 1;      break;
             case '?': printf("\n");
@@ -469,15 +648,14 @@ int main(int argc, char *argv[]) {
     /* open the vibrator before dropping root */
     FILE *vibrator = 0;
     if (do_vibrate) {
-        vibrator = fopen("/sys/class/timed_output/vibrator/enable", "w");
+        vibrator = fopen("/sys/class/timed_output/vibrator/enable", "we");
         if (vibrator) {
-            fcntl(fileno(vibrator), F_SETFD, FD_CLOEXEC);
             vibrate(vibrator, 150);
         }
     }
 
     /* read /proc/cmdline before dropping root */
-    FILE *cmdline = fopen("/proc/cmdline", "r");
+    FILE *cmdline = fopen("/proc/cmdline", "re");
     if (cmdline != NULL) {
         fgets(cmdline_buf, sizeof(cmdline_buf), cmdline);
         fclose(cmdline);
@@ -545,10 +723,9 @@ int main(int argc, char *argv[]) {
             strlcat(screenshot_path, ".png", sizeof(screenshot_path));
         }
         strlcat(path, ".txt", sizeof(path));
-        if (do_compress) strlcat(path, ".gz", sizeof(path));
         strlcpy(tmp_path, path, sizeof(tmp_path));
         strlcat(tmp_path, ".tmp", sizeof(tmp_path));
-        gzip_pid = redirect_to_file(stdout, tmp_path, do_compress);
+        redirect_to_file(stdout, tmp_path);
     }
 
     dumpstate();

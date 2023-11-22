@@ -194,10 +194,51 @@ public class AbsListViewTest extends ActivityInstrumentationTestCase2<ListViewCt
         assertSame(mListView, onScrollListener.getView());
         assertEquals(mListView.getChildCount(), onScrollListener.getVisibleItemCount());
         assertEquals(mCountryList.length, onScrollListener.getTotalItemCount());
-        assertEquals(OnScrollListener.SCROLL_STATE_IDLE, onScrollListener.getScrollState());
 
         assertTrue(onScrollListener.isOnScrollCalled());
         assertTrue(onScrollListener.isOnScrollStateChangedCalled());
+    }
+
+    public void testFling() throws Throwable {
+        MockOnScrollListener onScrollListener = new MockOnScrollListener();
+        mListView.setOnScrollListener(onScrollListener);
+
+        setAdapter();
+
+        // Fling down from top, expect a scroll.
+        fling(10000, onScrollListener);
+        assertTrue(onScrollListener.isOnScrollCalled());
+        assertTrue(0 < onScrollListener.getFirstVisibleItem());
+
+        // Fling up the same amount, expect a scroll to the original position.
+        fling(-10000, onScrollListener);
+        assertTrue(onScrollListener.isOnScrollCalled());
+        assertEquals(0, onScrollListener.getFirstVisibleItem());
+
+        // Fling up again, expect no scroll, as the viewport is already at top.
+        fling(-10000, onScrollListener);
+        assertFalse(onScrollListener.isOnScrollCalled());
+        assertEquals(0, onScrollListener.getFirstVisibleItem());
+
+        // Fling up again with a huge velocity, expect no scroll.
+        fling(-50000, onScrollListener);
+        assertFalse(onScrollListener.isOnScrollCalled());
+        assertEquals(0, onScrollListener.getFirstVisibleItem());
+    }
+
+    private void fling(int velocityY, MockOnScrollListener onScrollListener) throws Throwable {
+        onScrollListener.reset();
+
+        final int v = velocityY;
+        runTestOnUiThread(new Runnable() {
+            public void run() {
+                mListView.fling(v);
+            }
+        });
+
+        do {
+            mInstrumentation.waitForIdleSync();
+        } while (onScrollListener.getScrollState() != OnScrollListener.SCROLL_STATE_IDLE);
     }
 
     public void testGetFocusedRect() throws Throwable {

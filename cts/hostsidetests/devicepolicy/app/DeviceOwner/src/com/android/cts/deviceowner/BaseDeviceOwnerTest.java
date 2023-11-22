@@ -19,6 +19,9 @@ import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Process;
 import android.test.AndroidTestCase;
 
 /**
@@ -32,6 +35,14 @@ import android.test.AndroidTestCase;
 public class BaseDeviceOwnerTest extends AndroidTestCase {
 
     public static class BasicAdminReceiver extends DeviceAdminReceiver {
+        @Override
+        public String onChoosePrivateKeyAlias(Context context, Intent intent, int uid, Uri uri,
+                String suggestedAlias) {
+            if (uid != Process.myUid() || uri == null) {
+                return null;
+            }
+            return uri.getQueryParameter("alias");
+        }
     }
 
     public static final String PACKAGE_NAME = BaseDeviceOwnerTest.class.getPackage().getName();
@@ -44,11 +55,16 @@ public class BaseDeviceOwnerTest extends AndroidTestCase {
 
         mDevicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        assertTrue(mDevicePolicyManager.isAdminActive(getWho()));
-        assertTrue(mDevicePolicyManager.isDeviceOwnerApp(PACKAGE_NAME));
+        assertDeviceOwner(mDevicePolicyManager);
     }
 
-    public static ComponentName getWho() {
+    static void assertDeviceOwner(DevicePolicyManager dpm) {
+        assertNotNull(dpm);
+        assertTrue(dpm.isAdminActive(getWho()));
+        assertTrue(dpm.isDeviceOwnerApp(PACKAGE_NAME));
+    }
+
+    protected static ComponentName getWho() {
         return new ComponentName(PACKAGE_NAME, BasicAdminReceiver.class.getName());
     }
 }

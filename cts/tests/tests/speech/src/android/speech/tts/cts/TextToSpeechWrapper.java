@@ -19,9 +19,10 @@ import android.content.Context;
 import android.media.MediaPlayer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TextToSpeech.OnInitListener;
-import android.speech.tts.TextToSpeech.OnUtteranceCompletedListener;
+import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -65,12 +66,16 @@ public class TextToSpeechWrapper {
         if (!mInitListener.waitForInit()) {
             return false;
         }
-        mTts.setOnUtteranceCompletedListener(mUtteranceListener);
+        mTts.setOnUtteranceProgressListener(mUtteranceListener);
         return true;
     }
 
     public boolean waitForComplete(String utteranceId) throws InterruptedException {
         return mUtteranceListener.waitForComplete(utteranceId);
+    }
+
+    public boolean waitForStop(String utteranceId) throws InterruptedException {
+        return mUtteranceListener.waitForStop(utteranceId);
     }
 
     public TextToSpeech getTts() {
@@ -139,15 +144,62 @@ public class TextToSpeechWrapper {
     /**
      * Listener for waiting for utterance completion.
      */
-    private static class UtteranceWaitListener implements OnUtteranceCompletedListener {
+    private static class UtteranceWaitListener extends UtteranceProgressListener {
         private final Lock mLock = new ReentrantLock();
         private final Condition mDone  = mLock.newCondition();
+        private final HashSet<String> mStartedUtterances = new HashSet<String>();
+        private final HashSet<String> mStoppedUtterances = new HashSet<String>();
+        private final HashMap<String, Integer> mErredUtterances = new HashMap<String, Integer>();
         private final HashSet<String> mCompletedUtterances = new HashSet<String>();
 
-        public void onUtteranceCompleted(String utteranceId) {
+        @Override
+        public void onDone(String utteranceId) {
             mLock.lock();
             try {
                 mCompletedUtterances.add(utteranceId);
+                mDone.signal();
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onError(String utteranceId) {
+            mLock.lock();
+            try {
+                mErredUtterances.put(utteranceId, -1);
+                mDone.signal();
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onError(String utteranceId, int errorCode) {
+            mLock.lock();
+            try {
+                mErredUtterances.put(utteranceId, errorCode);
+                mDone.signal();
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onStart(String utteranceId) {
+            mLock.lock();
+            try {
+                mStartedUtterances.add(utteranceId);
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        @Override
+        public void onStop(String utteranceId, boolean isStarted) {
+            mLock.lock();
+            try {
+                mStoppedUtterances.add(utteranceId);
                 mDone.signal();
             } finally {
                 mLock.unlock();
@@ -160,6 +212,23 @@ public class TextToSpeechWrapper {
             mLock.lock();
             try {
                 while (!mCompletedUtterances.remove(utteranceId)) {
+                    if (timeOutNanos <= 0) {
+                        return false;
+                    }
+                    timeOutNanos = mDone.awaitNanos(timeOutNanos);
+                }
+                return true;
+            } finally {
+                mLock.unlock();
+            }
+        }
+
+        public boolean waitForStop(String utteranceId)
+                throws InterruptedException {
+            long timeOutNanos = TimeUnit.MILLISECONDS.toNanos(TTS_INIT_MAX_WAIT_TIME);
+            mLock.lock();
+            try {
+                while (!mStoppedUtterances.remove(utteranceId)) {
                     if (timeOutNanos <= 0) {
                         return false;
                     }

@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -40,7 +42,7 @@ import java.util.Iterator;
  * <li>next();
  * </ol>
  *
- * This particular order of operations may be unrealistic, and testing all 3^5
+ * <p>This particular order of operations may be unrealistic, and testing all 3^5
  * of them may be thought of as overkill; however, it's difficult to determine
  * which proper subset of this massive set would be sufficient to expose any
  * possible bug. Brute force is simpler.
@@ -55,11 +57,10 @@ import java.util.Iterator;
  * each sequence and is guaranteed to be called using the latest values
  * obtained from {@link IteratorTester#newTargetIterator()}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  * @author Chris Povirk
  */
+@GwtCompatible
 public abstract class IteratorTester<E> extends
     AbstractIteratorTester<E, Iterator<E>> {
   /**

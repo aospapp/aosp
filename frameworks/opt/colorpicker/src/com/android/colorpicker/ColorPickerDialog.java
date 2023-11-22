@@ -40,12 +40,14 @@ public class ColorPickerDialog extends DialogFragment implements OnColorSelected
 
     protected static final String KEY_TITLE_ID = "title_id";
     protected static final String KEY_COLORS = "colors";
+    protected static final String KEY_COLOR_CONTENT_DESCRIPTIONS = "color_content_descriptions";
     protected static final String KEY_SELECTED_COLOR = "selected_color";
     protected static final String KEY_COLUMNS = "columns";
     protected static final String KEY_SIZE = "size";
 
     protected int mTitleResId = R.string.color_picker_default_title;
     protected int[] mColors = null;
+    protected String[] mColorContentDescriptions = null;
     protected int mSelectedColor;
     protected int mColumns;
     protected int mSize;
@@ -96,6 +98,8 @@ public class ColorPickerDialog extends DialogFragment implements OnColorSelected
         if (savedInstanceState != null) {
             mColors = savedInstanceState.getIntArray(KEY_COLORS);
             mSelectedColor = (Integer) savedInstanceState.getSerializable(KEY_SELECTED_COLOR);
+            mColorContentDescriptions = savedInstanceState.getStringArray(
+                    KEY_COLOR_CONTENT_DESCRIPTIONS);
         }
     }
 
@@ -178,9 +182,16 @@ public class ColorPickerDialog extends DialogFragment implements OnColorSelected
         }
     }
 
+    public void setColorContentDescriptions(String[] colorContentDescriptions) {
+        if (mColorContentDescriptions != colorContentDescriptions) {
+            mColorContentDescriptions = colorContentDescriptions;
+            refreshPalette();
+        }
+    }
+
     private void refreshPalette() {
         if (mPalette != null && mColors != null) {
-            mPalette.drawPalette(mColors, mSelectedColor);
+            mPalette.drawPalette(mColors, mSelectedColor, mColorContentDescriptions);
         }
     }
 
@@ -197,5 +208,6 @@ public class ColorPickerDialog extends DialogFragment implements OnColorSelected
         super.onSaveInstanceState(outState);
         outState.putIntArray(KEY_COLORS, mColors);
         outState.putSerializable(KEY_SELECTED_COLOR, mSelectedColor);
+        outState.putStringArray(KEY_COLOR_CONTENT_DESCRIPTIONS, mColorContentDescriptions);
     }
 }

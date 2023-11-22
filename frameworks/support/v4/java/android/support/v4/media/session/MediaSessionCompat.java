@@ -23,6 +23,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -34,6 +35,7 @@ import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.os.SystemClock;
+import android.support.annotation.IntDef;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
@@ -42,6 +44,8 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +83,13 @@ public class MediaSessionCompat {
             mActiveListeners = new ArrayList<OnActiveChangeListener>();
 
     /**
+     * @hide
+     */
+    @IntDef(flag=true, value={FLAG_HANDLES_MEDIA_BUTTONS, FLAG_HANDLES_TRANSPORT_CONTROLS})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface SessionFlags {}
+
+    /**
      * Set this flag on the session to indicate that it can handle media button
      * events.
      */
@@ -112,6 +123,14 @@ public class MediaSessionCompat {
             throw new IllegalArgumentException("tag must not be null or empty");
         }
 
+        if (mediaButtonEventReceiver != null && mbrIntent == null) {
+            // construct a PendingIntent for the media button
+            Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+            // the associated intent will be handled by the component being registered
+            mediaButtonIntent.setComponent(mediaButtonEventReceiver);
+            mbrIntent = PendingIntent.getBroadcast(context,
+                    0/* requestCode, ignored */, mediaButtonIntent, 0/* flags */);
+        }
         if (android.os.Build.VERSION.SDK_INT >= 21) {
             mImpl = new MediaSessionImplApi21(context, tag);
             mImpl.setMediaButtonReceiver(mbrIntent);
@@ -183,7 +202,7 @@ public class MediaSessionCompat {
      *
      * @param flags The flags to set for this session.
      */
-    public void setFlags(int flags) {
+    public void setFlags(@SessionFlags int flags) {
         mImpl.setFlags(flags);
     }
 
@@ -362,7 +381,7 @@ public class MediaSessionCompat {
      * <li>{@link RatingCompat#RATING_THUMB_UP_DOWN}</li>
      * </ul>
      */
-    public void setRatingType(int type) {
+    public void setRatingType(@RatingCompat.Style int type) {
         mImpl.setRatingType(type);
     }
 
@@ -452,7 +471,9 @@ public class MediaSessionCompat {
         final Object mCallbackObj;
 
         public Callback() {
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                mCallbackObj = MediaSessionCompatApi23.createCallback(new StubApi23());
+            } else if (android.os.Build.VERSION.SDK_INT >= 21) {
                 mCallbackObj = MediaSessionCompatApi21.createCallback(new StubApi21());
             } else {
                 mCallbackObj = null;
@@ -501,6 +522,12 @@ public class MediaSessionCompat {
          * play.
          */
         public void onPlayFromSearch(String query, Bundle extras) {
+        }
+
+        /**
+         * Override to handle requests to play a specific media item represented by a URI.
+         */
+        public void onPlayFromUri(Uri uri, Bundle extras) {
         }
 
         /**
@@ -649,6 +676,14 @@ public class MediaSessionCompat {
             @Override
             public void onCustomAction(String action, Bundle extras) {
                 Callback.this.onCustomAction(action, extras);
+            }
+        }
+
+        private class StubApi23 extends StubApi21 implements MediaSessionCompatApi23.Callback {
+
+            @Override
+            public void onPlayFromUri(Uri uri, Bundle extras) {
+                Callback.this.onPlayFromUri(uri, extras);
             }
         }
     }
@@ -900,7 +935,7 @@ public class MediaSessionCompat {
 
     interface MediaSessionImpl {
         void setCallback(Callback callback, Handler handler);
-        void setFlags(int flags);
+        void setFlags(@SessionFlags int flags);
         void setPlaybackToLocal(int stream);
         void setPlaybackToRemote(VolumeProviderCompat volumeProvider);
         void setActive(boolean active);
@@ -917,7 +952,7 @@ public class MediaSessionCompat {
         void setQueue(List<QueueItem> queue);
         void setQueueTitle(CharSequence title);
 
-        void setRatingType(int type);
+        void setRatingType(@RatingCompat.Style int type);
         void setExtras(Bundle extras);
 
         Object getMediaSession();
@@ -925,7 +960,6 @@ public class MediaSessionCompat {
         Object getRemoteControlClient();
     }
 
-    // TODO: compatibility implementation
     static class MediaSessionImplBase implements MediaSessionImpl {
         private final Context mContext;
         private final ComponentName mComponentName;
@@ -948,14 +982,14 @@ public class MediaSessionCompat {
         private boolean mIsMbrRegistered = false;
         private Callback mCallback;
 
-        private int mFlags;
+        private @SessionFlags int mFlags;
 
         private MediaMetadataCompat mMetadata;
         private PlaybackStateCompat mState;
         private PendingIntent mSessionActivity;
         private List<QueueItem> mQueue;
         private CharSequence mQueueTitle;
-        private int mRatingType;
+        private @RatingCompat.Style int mRatingType;
         private Bundle mExtras;
 
         private int mVolumeType;
@@ -981,15 +1015,6 @@ public class MediaSessionCompat {
             if (mbrComponent == null) {
                 throw new IllegalArgumentException(
                         "MediaButtonReceiver component may not be null.");
-            }
-            if (mbr == null) {
-                // construct a PendingIntent for the media button
-                Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-                // the associated intent will be handled by the component being
-                // registered
-                mediaButtonIntent.setComponent(mbrComponent);
-                mbr = PendingIntent.getBroadcast(context,
-                        0/* requestCode, ignored */, mediaButtonIntent, 0/* flags */);
             }
             mContext = context;
             mPackageName = context.getPackageName();
@@ -1102,7 +1127,7 @@ public class MediaSessionCompat {
         }
 
         @Override
-        public void setFlags(int flags) {
+        public void setFlags(@SessionFlags int flags) {
             synchronized (mLock) {
                 mFlags = flags;
             }
@@ -1188,13 +1213,24 @@ public class MediaSessionCompat {
             if (state == null) {
                 if (android.os.Build.VERSION.SDK_INT >= 14) {
                     MediaSessionCompatApi14.setState(mRccObj, PlaybackStateCompat.STATE_NONE);
+                    MediaSessionCompatApi14.setTransportControlFlags(mRccObj, 0);
                 }
             } else {
+                // Set state
                 if (android.os.Build.VERSION.SDK_INT >= 18) {
                     MediaSessionCompatApi18.setState(mRccObj, state.getState(), state.getPosition(),
                             state.getPlaybackSpeed(), state.getLastPositionUpdateTime());
                 } else if (android.os.Build.VERSION.SDK_INT >= 14) {
                     MediaSessionCompatApi14.setState(mRccObj, state.getState());
+                }
+
+                // Set transport control flags
+                if (android.os.Build.VERSION.SDK_INT >= 19) {
+                    MediaSessionCompatApi19.setTransportControlFlags(mRccObj, state.getActions());
+                } else if (android.os.Build.VERSION.SDK_INT >= 18) {
+                    MediaSessionCompatApi18.setTransportControlFlags(mRccObj, state.getActions());
+                } else if (android.os.Build.VERSION.SDK_INT >= 14) {
+                    MediaSessionCompatApi14.setTransportControlFlags(mRccObj, state.getActions());
                 }
             }
         }
@@ -1210,10 +1246,9 @@ public class MediaSessionCompat {
                 return;
             }
             if (android.os.Build.VERSION.SDK_INT >= 19) {
-                boolean canRate = mState != null
-                        && (mState.getActions() & PlaybackStateCompat.ACTION_SET_RATING) != 0;
                 MediaSessionCompatApi19.setMetadata(mRccObj,
-                        metadata == null ? null : metadata.getBundle(), canRate);
+                        metadata == null ? null : metadata.getBundle(),
+                        mState == null ? 0 : mState.getActions());
             } else if (android.os.Build.VERSION.SDK_INT >= 14) {
                 MediaSessionCompatApi14.setMetadata(mRccObj,
                         metadata == null ? null : metadata.getBundle());
@@ -1255,7 +1290,7 @@ public class MediaSessionCompat {
         }
 
         @Override
-        public void setRatingType(int type) {
+        public void setRatingType(@RatingCompat.Style int type) {
             mRatingType = type;
         }
 
@@ -1300,6 +1335,10 @@ public class MediaSessionCompat {
                         registeredRcc = true;
                     } else if (mIsRccRegistered
                             && (mFlags & FLAG_HANDLES_TRANSPORT_CONTROLS) == 0) {
+                        // RCC keeps the state while the system resets its state internally when
+                        // we register RCC. Reset the state so that the states in RCC and the system
+                        // are in sync when we re-register the RCC.
+                        MediaSessionCompatApi14.setState(mRccObj, PlaybackStateCompat.STATE_NONE);
                         MediaSessionCompatApi14.unregisterRemoteControlClient(mContext, mRccObj);
                         mIsRccRegistered = false;
                     }
@@ -1317,6 +1356,10 @@ public class MediaSessionCompat {
                     mIsMbrRegistered = false;
                 }
                 if (mIsRccRegistered) {
+                    // RCC keeps the state while the system resets its state internally when
+                    // we register RCC. Reset the state so that the states in RCC and the system
+                    // are in sync when we re-register the RCC.
+                    MediaSessionCompatApi14.setState(mRccObj, PlaybackStateCompat.STATE_NONE);
                     MediaSessionCompatApi14.unregisterRemoteControlClient(mContext, mRccObj);
                     mIsRccRegistered = false;
                 }
@@ -1523,6 +1566,7 @@ public class MediaSessionCompat {
             }
 
             @Override
+            @SessionFlags
             public long getFlags() {
                 synchronized (mLock) {
                     return mFlags;
@@ -1576,6 +1620,11 @@ public class MediaSessionCompat {
             @Override
             public void playFromSearch(String query, Bundle extras) throws RemoteException {
                 mHandler.post(MessageHandler.MSG_PLAY_SEARCH, query, extras);
+            }
+
+            @Override
+            public void playFromUri(Uri uri, Bundle extras) throws RemoteException {
+                mHandler.post(MessageHandler.MSG_PLAY_URI, uri, extras);
             }
 
             @Override
@@ -1659,6 +1708,7 @@ public class MediaSessionCompat {
             }
 
             @Override
+            @RatingCompat.Style
             public int getRatingType() {
                 return mRatingType;
             }
@@ -1700,6 +1750,11 @@ public class MediaSessionCompat {
             private static final int MSG_COMMAND = 15;
             private static final int MSG_ADJUST_VOLUME = 16;
             private static final int MSG_SET_VOLUME = 17;
+            private static final int MSG_PLAY_URI = 18;
+
+            // KeyEvent constants only available on API 11+
+            private static final int KEYCODE_MEDIA_PAUSE = 127;
+            private static final int KEYCODE_MEDIA_PLAY = 126;
 
             public MessageHandler(Looper looper) {
                 super(looper);
@@ -1738,6 +1793,9 @@ public class MediaSessionCompat {
                     case MSG_PLAY_SEARCH:
                         mCallback.onPlayFromSearch((String) msg.obj, msg.getData());
                         break;
+                    case MSG_PLAY_URI:
+                        mCallback.onPlayFromUri((Uri) msg.obj, msg.getData());
+                        break;
                     case MSG_SKIP_TO_ITEM:
                         mCallback.onSkipToQueueItem((Long) msg.obj);
                         break;
@@ -1769,7 +1827,13 @@ public class MediaSessionCompat {
                         mCallback.onCustomAction((String) msg.obj, msg.getData());
                         break;
                     case MSG_MEDIA_BUTTON:
-                        mCallback.onMediaButtonEvent((Intent) msg.obj);
+                        KeyEvent keyEvent = (KeyEvent) msg.obj;
+                        Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+                        intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+                        // Let the Callback handle events first before using the default behavior
+                        if (!mCallback.onMediaButtonEvent(intent)) {
+                            onMediaButtonEvent(keyEvent);
+                        }
                         break;
                     case MSG_COMMAND:
                         Command cmd = (Command) msg.obj;
@@ -1780,6 +1844,66 @@ public class MediaSessionCompat {
                         break;
                     case MSG_SET_VOLUME:
                         setVolumeTo((int) msg.obj, 0);
+                        break;
+                }
+            }
+
+            private void onMediaButtonEvent(KeyEvent ke) {
+                if (ke == null || ke.getAction() != KeyEvent.ACTION_DOWN) {
+                    return;
+                }
+                long validActions = mState == null ? 0 : mState.getActions();
+                switch (ke.getKeyCode()) {
+                    // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
+                    case KEYCODE_MEDIA_PLAY:
+                        if ((validActions & PlaybackStateCompat.ACTION_PLAY) != 0) {
+                            mCallback.onPlay();
+                        }
+                        break;
+                    // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
+                    case KEYCODE_MEDIA_PAUSE:
+                        if ((validActions & PlaybackStateCompat.ACTION_PAUSE) != 0) {
+                            mCallback.onPause();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_NEXT:
+                        if ((validActions & PlaybackStateCompat.ACTION_SKIP_TO_NEXT) != 0) {
+                            mCallback.onSkipToNext();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                        if ((validActions & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS) != 0) {
+                            mCallback.onSkipToPrevious();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_STOP:
+                        if ((validActions & PlaybackStateCompat.ACTION_STOP) != 0) {
+                            mCallback.onStop();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+                        if ((validActions & PlaybackStateCompat.ACTION_FAST_FORWARD) != 0) {
+                            mCallback.onFastForward();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_REWIND:
+                        if ((validActions & PlaybackStateCompat.ACTION_REWIND) != 0) {
+                            mCallback.onRewind();
+                        }
+                        break;
+                    case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                    case KeyEvent.KEYCODE_HEADSETHOOK:
+                        boolean isPlaying = mState != null
+                                && mState.getState() == PlaybackStateCompat.STATE_PLAYING;
+                        boolean canPlay = (validActions & (PlaybackStateCompat.ACTION_PLAY_PAUSE
+                                | PlaybackStateCompat.ACTION_PLAY)) != 0;
+                        boolean canPause = (validActions & (PlaybackStateCompat.ACTION_PLAY_PAUSE
+                                | PlaybackStateCompat.ACTION_PAUSE)) != 0;
+                        if (isPlaying && canPause) {
+                            mCallback.onPause();
+                        } else if (!isPlaying && canPlay) {
+                            mCallback.onPlay();
+                        }
                         break;
                 }
             }
@@ -1808,7 +1932,7 @@ public class MediaSessionCompat {
         }
 
         @Override
-        public void setFlags(int flags) {
+        public void setFlags(@SessionFlags int flags) {
             MediaSessionCompatApi21.setFlags(mSessionObj, flags);
         }
 
@@ -1887,7 +2011,7 @@ public class MediaSessionCompat {
         }
 
         @Override
-        public void setRatingType(int type) {
+        public void setRatingType(@RatingCompat.Style int type) {
             if (android.os.Build.VERSION.SDK_INT < 22) {
                 // TODO figure out 21 implementation
             } else {

@@ -17,6 +17,12 @@
 package com.google.doclava;
 
 public class TextTagInfo extends TagInfo {
+  public static final TextTagInfo[] EMPTY_ARRAY = new TextTagInfo[0];
+
+  public static TextTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new TextTagInfo[size];
+  }
+
   TextTagInfo(String n, String k, String t, SourcePositionInfo p) {
     super(n, k, Doclava.escape(t), p);
   }

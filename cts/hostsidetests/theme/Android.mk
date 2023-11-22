@@ -29,6 +29,8 @@ LOCAL_JAVA_LIBRARIES := cts-tradefed tradefed-prebuilt
 
 LOCAL_CTS_TEST_PACKAGE := android.host.theme
 
+LOCAL_SDK_VERSION := current
+
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

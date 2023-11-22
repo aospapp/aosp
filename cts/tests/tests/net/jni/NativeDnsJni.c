@@ -18,6 +18,7 @@
 #include <jni.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <string.h>
 #include <utils/Log.h>
 
 const char *GoogleDNSIpV4Address="8.8.8.8";

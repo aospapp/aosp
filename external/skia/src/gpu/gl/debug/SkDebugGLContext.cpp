@@ -6,8 +6,12 @@
  * found in the LICENSE file.
  */
 
-#include "gl/SkDebugGLContext.h"
+#include "gl/debug/SkDebugGLContext.h"
 
-const GrGLInterface* SkDebugGLContext::createGLContext() {
-    return GrGLCreateDebugInterface();
-};
+SkDebugGLContext::SkDebugGLContext() {
+    fGL.reset(GrGLCreateDebugInterface());
+}
+
+SkDebugGLContext::~SkDebugGLContext() {
+    fGL.reset(NULL);
+}

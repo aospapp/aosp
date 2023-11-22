@@ -3,7 +3,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="8309373558371161520">"Volantis-Tastatur"</string>
     <string name="keyboard_layouts_label" msgid="771692943642467584">"Kompakte Nexus-Tastatur"</string>
-    <string name="keyboard_layout_volantis_english_uk_label" msgid="1425137404576186880">"Englisch (Großbritannien)"</string>
+    <string name="keyboard_layout_volantis_english_uk_label" msgid="1425137404576186880">"Englisch (Vereinigtes Königreich)"</string>
     <string name="keyboard_layout_volantis_english_us_label" msgid="953130059365065614">"Englisch (US)"</string>
     <string name="keyboard_layout_volantis_english_us_intl_label" msgid="8444053619141689693">"Englisch (US – International)"</string>
     <string name="keyboard_layout_volantis_german_label" msgid="1115175249339065508">"Deutsch"</string>

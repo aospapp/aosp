@@ -16,17 +16,16 @@
 
 package android.view.cts;
 
+import com.android.cts.view.R;
+
 import android.content.Context;
 import android.content.res.XmlResourceParser;
 import android.test.InstrumentationTestCase;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
-
+import android.view.cts.util.XmlUtils;
 import android.widget.LinearLayout;
-import com.android.internal.util.XmlUtils;
-import com.android.cts.view.R;
-
 
 public class ViewGroup_MarginLayoutParamsTest extends InstrumentationTestCase {
 
@@ -90,7 +89,9 @@ public class ViewGroup_MarginLayoutParamsTest extends InstrumentationTestCase {
     public void testSetMarginsRelative() {
         // create a new MarginLayoutParams instance
         mMarginLayoutParams = new ViewGroup.MarginLayoutParams(320, 480);
-        mMarginLayoutParams.setMarginsRelative(20, 30, 120, 140);
+        mMarginLayoutParams.setMargins(0, 30, 0, 140);
+        mMarginLayoutParams.setMarginStart(20);
+        mMarginLayoutParams.setMarginEnd(120);
         assertEquals(20, mMarginLayoutParams.getMarginStart());
         assertEquals(30, mMarginLayoutParams.topMargin);
         assertEquals(120, mMarginLayoutParams.getMarginEnd());
@@ -121,7 +122,9 @@ public class ViewGroup_MarginLayoutParamsTest extends InstrumentationTestCase {
         assertEquals(false, mMarginLayoutParams.isMarginRelative());
 
         // LTR / relative margin case
-        mMarginLayoutParams.setMarginsRelative(20, 30, 120, 140);
+        mMarginLayoutParams.setMargins(0, 30, 0, 140);
+        mMarginLayoutParams.setMarginStart(20);
+        mMarginLayoutParams.setMarginEnd(120);
         vg.setLayoutParams(mMarginLayoutParams);
 
         assertEquals(20, mMarginLayoutParams.getMarginStart());
@@ -152,7 +155,9 @@ public class ViewGroup_MarginLayoutParamsTest extends InstrumentationTestCase {
         assertEquals(false, mMarginLayoutParams.isMarginRelative());
 
         // RTL / relative margin case
-        mMarginLayoutParams.setMarginsRelative(20, 30, 120, 140);
+        mMarginLayoutParams.setMargins(0, 30, 0, 140);
+        mMarginLayoutParams.setMarginStart(20);
+        mMarginLayoutParams.setMarginEnd(120);
         vg.setLayoutParams(mMarginLayoutParams);
 
         assertEquals(20, mMarginLayoutParams.getMarginStart());

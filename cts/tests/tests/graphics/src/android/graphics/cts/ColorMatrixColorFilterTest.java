@@ -70,7 +70,10 @@ public class ColorMatrixColorFilterTest extends TestCase {
         paint.setColor(Color.RED);
         bitmap.eraseColor(Color.TRANSPARENT);
         canvas.drawPoint(0, 0, paint);
-        assertColor(Color.argb(128, 255, 0, 64), bitmap.getPixel(0, 0));
+        // the bitmap stores the result in premul colors and we read out an
+        // unpremultiplied result, which causes us to need a bigger tolerance in
+        // this case (due to the fact that scaling by 1/255 is not exact).
+        assertColor(Color.argb(128, 255, 0, 64), bitmap.getPixel(0, 0), 2);
         paint.setColor(Color.CYAN);
         canvas.drawPoint(0, 0, paint);
         // blue gets clipped
@@ -89,9 +92,13 @@ public class ColorMatrixColorFilterTest extends TestCase {
     }
 
     private void assertColor(int expected, int actual) {
-        assertEquals(Color.red(expected), Color.red(actual), TOLERANCE);
-        assertEquals(Color.green(expected), Color.green(actual), TOLERANCE);
-        assertEquals(Color.blue(expected), Color.blue(actual), TOLERANCE);
-        assertEquals(Color.alpha(expected), Color.alpha(actual), TOLERANCE);
+        assertColor(expected, actual, TOLERANCE);
+    }
+    
+    private void assertColor(int expected, int actual, int tolerance) {
+        assertEquals(Color.red(expected), Color.red(actual), tolerance);
+        assertEquals(Color.green(expected), Color.green(actual), tolerance);
+        assertEquals(Color.blue(expected), Color.blue(actual), tolerance);
+        assertEquals(Color.alpha(expected), Color.alpha(actual), tolerance);
     }
 }

@@ -183,6 +183,13 @@ public class ElementTest extends RSBaseCompute {
         // A_8 is in U8
         Element[] BOOLEAN = { Element.BOOLEAN(mRS) };
         Element[] ELEMENT = { Element.ELEMENT(mRS) };
+        Element[] F16 = { Element.F16(mRS) };
+        Element[] F16_2 = { Element.F16_2(mRS),
+            Element.createVector(mRS, Element.DataType.FLOAT_16, 2) };
+        Element[] F16_3 = { Element.F16_3(mRS),
+            Element.createVector(mRS, Element.DataType.FLOAT_16, 3) };
+        Element[] F16_4 = { Element.F16_4(mRS),
+            Element.createVector(mRS, Element.DataType.FLOAT_16, 4) };
         Element[] F32 = { Element.F32(mRS) };
         Element[] F32_2 = { Element.F32_2(mRS),
             Element.createVector(mRS, Element.DataType.FLOAT_32, 2) };
@@ -236,8 +243,10 @@ public class ElementTest extends RSBaseCompute {
             Element.createPixel(mRS, Element.DataType.UNSIGNED_8,
                                 Element.DataKind.PIXEL_RGBA) };
 
-        Element[][] ElementArrs = { ALLOCATION, BOOLEAN, ELEMENT, F32, F32_2,
-                                    F32_3, F32_4, F64, I16, I32, I64, I8,
+        Element[][] ElementArrs = { ALLOCATION, BOOLEAN, ELEMENT,
+                                    F16, F16_2, F16_3, F16_4,
+                                    F32, F32_2, F32_3, F32_4,
+                                    F64, I16, I32, I64, I8,
                                     MATRIX_2X2, MATRIX_3X3, MATRIX_4X4, MESH,
                                     PROGRAM_FRAGMENT, PROGRAM_RASTER,
                                     PROGRAM_STORE, PROGRAM_VERTEX, RGBA_4444,
@@ -272,6 +281,10 @@ public class ElementTest extends RSBaseCompute {
             eb.add(Element.RGB_565(mRS), "RGB_565", arraySize);
             eb.add(Element.RGB_888(mRS), "RGB_888", arraySize);
             eb.add(Element.RGBA_8888(mRS), "RGBA_8888", arraySize);
+            eb.add(Element.F16(mRS), "F16", arraySize);
+            eb.add(Element.F16_2(mRS), "F16_2", arraySize);
+            eb.add(Element.F16_3(mRS), "F16_3", arraySize);
+            eb.add(Element.F16_4(mRS), "F16_4", arraySize);
             eb.add(Element.F32(mRS), "F32", arraySize);
             eb.add(Element.F32_2(mRS), "F32_2", arraySize);
             eb.add(Element.F32_3(mRS), "F32_3", arraySize);
@@ -338,6 +351,10 @@ public class ElementTest extends RSBaseCompute {
         assertFalse(Element.RGB_565(mRS).isComplex());
         assertFalse(Element.RGB_888(mRS).isComplex());
         assertFalse(Element.RGBA_8888(mRS).isComplex());
+        assertFalse(Element.F16(mRS).isComplex());
+        assertFalse(Element.F16_2(mRS).isComplex());
+        assertFalse(Element.F16_3(mRS).isComplex());
+        assertFalse(Element.F16_4(mRS).isComplex());
         assertFalse(Element.F32(mRS).isComplex());
         assertFalse(Element.F32_2(mRS).isComplex());
         assertFalse(Element.F32_3(mRS).isComplex());
@@ -416,6 +433,7 @@ public class ElementTest extends RSBaseCompute {
         // Uncomment when NONE is no longer hidden.
         //assertEquals(DataType.NONE, DataType.valueOf("NONE"));
 
+        assertEquals(DataType.FLOAT_16, DataType.valueOf("FLOAT_16"));
         assertEquals(DataType.FLOAT_32, DataType.valueOf("FLOAT_32"));
         assertEquals(DataType.FLOAT_64, DataType.valueOf("FLOAT_64"));
         assertEquals(DataType.SIGNED_8, DataType.valueOf("SIGNED_8"));
@@ -448,10 +466,11 @@ public class ElementTest extends RSBaseCompute {
         assertEquals(DataType.RS_PROGRAM_RASTER, DataType.valueOf("RS_PROGRAM_RASTER"));
         assertEquals(DataType.RS_PROGRAM_STORE, DataType.valueOf("RS_PROGRAM_STORE"));
         // Make sure no new enums are added
-        assertEquals(29, DataType.values().length);
+        assertEquals(30, DataType.values().length);
 
         for (DataType dt : DataType.values()) {
             switch (dt) {
+            case FLOAT_16:
             case FLOAT_32:
             case FLOAT_64:
             case SIGNED_8:

@@ -120,13 +120,27 @@ public class AnnotationInstanceInfo implements Resolvable {
       return allResolved;
   }
 
+  /**
+   * Convert the specified list of {@code AnnotationInstanceInfo} into an HDF-formatted list, and
+   * add the HDF list into the specified {@code Data}.
+   */
   public static void makeLinkListHDF(Data data, String base, AnnotationInstanceInfo[] annotations) {
     if (annotations == null) return;
 
     final int N = annotations.length;
     for (int i = 0; i < N; i++) {
       AnnotationInstanceInfo aii = annotations[i];
-      aii.type().makeShortDescrHDF(data, base + "." + i);
+      final String aiiBase = base + "." + i;
+
+      // Serialize data about the annotation element values
+      for (int elemIdx = 0; elemIdx < aii.elementValues().size(); ++elemIdx) {
+        final String elemBase = aiiBase + ".elementValues." + elemIdx;
+        final AnnotationValueInfo value = aii.elementValues().get(elemIdx);
+        data.setValue(elemBase + ".name", value.element().name());
+        data.setValue(elemBase + ".value", value.valueString());
+      }
+
+      aii.type().makeShortDescrHDF(data, aiiBase);
     }
   }
 

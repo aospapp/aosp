@@ -16,28 +16,26 @@
 
 package android.view.cts;
 
-import android.content.res.ColorStateList;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.ColorFilter;
-import android.graphics.PorterDuff;
-
-import android.os.Bundle;
 import com.android.cts.view.R;
 import com.android.internal.view.menu.ContextMenuBuilder;
-import com.google.android.collect.Lists;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.cts.util.PollingCheck;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
 import android.graphics.Point;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
+import android.os.Bundle;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.os.Vibrator;
@@ -56,12 +54,15 @@ import android.view.Display;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MotionEvent;
 import android.view.SoundEffectConstants;
 import android.view.TouchDelegate;
 import android.view.View;
 import android.view.View.BaseSavedState;
 import android.view.View.OnClickListener;
+import android.view.View.OnContextClickListener;
 import android.view.View.OnCreateContextMenuListener;
 import android.view.View.OnFocusChangeListener;
 import android.view.View.OnKeyListener;
@@ -248,6 +249,31 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertSame(parent, view.getParent());
     }
 
+    public void testAccessScrollIndicators() {
+        View view = mActivity.findViewById(R.id.viewlayout_root);
+
+        assertEquals(View.SCROLL_INDICATOR_LEFT | View.SCROLL_INDICATOR_RIGHT,
+                view.getScrollIndicators());
+    }
+
+    public void testSetScrollIndicators() {
+        View view = new View(mActivity);
+
+        view.setScrollIndicators(0);
+        assertEquals(0, view.getScrollIndicators());
+
+        view.setScrollIndicators(View.SCROLL_INDICATOR_LEFT | View.SCROLL_INDICATOR_RIGHT);
+        assertEquals(View.SCROLL_INDICATOR_LEFT | View.SCROLL_INDICATOR_RIGHT,
+                view.getScrollIndicators());
+
+        view.setScrollIndicators(View.SCROLL_INDICATOR_TOP, View.SCROLL_INDICATOR_TOP);
+        assertEquals(View.SCROLL_INDICATOR_LEFT | View.SCROLL_INDICATOR_RIGHT
+                        | View.SCROLL_INDICATOR_TOP, view.getScrollIndicators());
+
+        view.setScrollIndicators(0, view.getScrollIndicators());
+        assertEquals(0, view.getScrollIndicators());
+    }
+
     public void testFindViewById() {
         View parent = mActivity.findViewById(R.id.viewlayout_root);
         assertSame(parent, parent.findViewById(R.id.viewlayout_root));
@@ -398,7 +424,9 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertTrue(view.isLayoutRequested());
 
         view.setParent(mMockParent);
-        assertFalse(mMockParent.hasRequestLayout());
+        assertTrue(mMockParent.hasRequestLayout());
+
+        mMockParent.reset();
         view.requestLayout();
         assertTrue(view.isLayoutRequested());
         assertTrue(mMockParent.hasRequestLayout());
@@ -856,6 +884,18 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertFalse(view.isClickable());
     }
 
+    public void testAccessContextClickable() {
+        View view = new View(mActivity);
+
+        assertFalse(view.isContextClickable());
+
+        view.setContextClickable(true);
+        assertTrue(view.isContextClickable());
+
+        view.setContextClickable(false);
+        assertFalse(view.isContextClickable());
+    }
+
     public void testGetContextMenuInfo() {
         MockView view = new MockView(mActivity);
 
@@ -1104,8 +1144,8 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         mockView2.setParent(mMockParent);
 
         mMockParent.dispatchSetSelected(true);
-        assertFalse(mockView1.isSelected());
-        assertFalse(mockView2.isSelected());
+        assertTrue(mockView1.isSelected());
+        assertTrue(mockView2.isSelected());
 
         mMockParent.dispatchSetSelected(false);
         assertFalse(mockView1.isSelected());
@@ -1128,8 +1168,8 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         mockView2.setParent(mMockParent);
 
         mMockParent.dispatchSetPressed(true);
-        assertFalse(mockView1.isPressed());
-        assertFalse(mockView2.isPressed());
+        assertTrue(mockView1.isPressed());
+        assertTrue(mockView2.isPressed());
 
         mMockParent.dispatchSetPressed(false);
         assertFalse(mockView1.isPressed());
@@ -1216,7 +1256,7 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertFalse(view.fitSystemWindows(insets));
         assertFalse(view.fitSystemWindows(null));
 
-        view = new MockView(mActivity, attrs, com.android.internal.R.attr.fitsSystemWindows);
+        view = new MockView(mActivity, attrs, android.R.attr.fitsSystemWindows);
         assertFalse(view.fitSystemWindows(insets));
         assertFalse(view.fitSystemWindows(null));
     }
@@ -1288,6 +1328,31 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         view.setOnLongClickListener(new OnLongClickListenerImpl());
         assertTrue(view.performLongClick());
         assertTrue(view.isLongClickable());
+    }
+
+    public void testPerformContextClick() {
+        MockView view = new MockView(mActivity);
+        view.setParent(mMockParent);
+        OnContextClickListenerImpl listener = new OnContextClickListenerImpl();
+
+        view.setOnContextClickListener(listener);
+        assertFalse(listener.hasOnContextClick());
+
+        assertTrue(view.performContextClick());
+        assertTrue(listener.hasOnContextClick());
+        assertSame(view, listener.getLastViewContextClicked());
+    }
+
+    public void testSetOnContextClickListener() {
+        MockView view = new MockView(mActivity);
+        view.setParent(mMockParent);
+
+        assertFalse(view.performContextClick());
+        assertFalse(view.isContextClickable());
+
+        view.setOnContextClickListener(new OnContextClickListenerImpl());
+        assertTrue(view.performContextClick());
+        assertTrue(view.isContextClickable());
     }
 
     public void testAccessOnFocusChangeListener() {
@@ -2077,24 +2142,24 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertEquals(viewId, container.keyAt(0));
 
         container.clear();
-        container.put(viewId, new BaseSavedState(BaseSavedState.EMPTY_STATE));
+        container.put(viewId, new android.graphics.Rect());
         try {
             view.restoreHierarchyState(container);
-            fail("should throw IllegalArgumentException");
+            fail("Parcelable state must be an AbsSaveState, should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // expected
         }
 
         try {
             view.restoreHierarchyState(null);
-            fail("should throw NullPointerException");
+            fail("Cannot pass null to restoreHierarchyState(), should throw NullPointerException");
         } catch (NullPointerException e) {
             // expected
         }
 
         try {
             view.saveHierarchyState(null);
-            fail("should throw NullPointerException");
+            fail("Cannot pass null to saveHierarchyState(), should throw NullPointerException");
         } catch (NullPointerException e) {
             // expected
         }
@@ -2434,7 +2499,6 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertFalse(view.hasCalledDrawableStateChanged());
         view.setPressed(true);
         assertTrue(view.hasCalledDrawableStateChanged());
-        assertFalse(view.hasCalledOnCreateDrawableState());
         assertTrue(Arrays.equals(MockView.getPressedEnabledStateSet(), view.getDrawableState()));
         assertTrue(view.hasCalledOnCreateDrawableState());
 
@@ -2445,7 +2509,6 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         view.refreshDrawableState();
         assertTrue(view.hasCalledDrawableStateChanged());
         assertTrue(mMockParent.hasChildDrawableStateChanged());
-        assertFalse(view.hasCalledOnCreateDrawableState());
         assertTrue(Arrays.equals(MockView.getPressedEnabledStateSet(), view.getDrawableState()));
         assertTrue(view.hasCalledOnCreateDrawableState());
     }
@@ -2992,16 +3055,13 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
 
     @UiThreadTest
     public void testScrollbarStyle() {
-        MockView view = (MockView) mActivity.findViewById(R.id.mock_view);
+        MockView view = (MockView) mActivity.findViewById(R.id.scroll_view);
         Bitmap bitmap = Bitmap.createBitmap(200, 300, Bitmap.Config.RGB_565);
         BitmapDrawable d = new BitmapDrawable(bitmap);
         view.setBackgroundDrawable(d);
         view.setHorizontalFadingEdgeEnabled(true);
         view.setVerticalFadingEdgeEnabled(true);
 
-        view.setHorizontalScrollBarEnabled(true);
-        view.setVerticalScrollBarEnabled(true);
-        view.initializeScrollbars(mActivity.obtainStyledAttributes(android.R.styleable.View));
         assertTrue(view.isHorizontalScrollBarEnabled());
         assertTrue(view.isVerticalScrollBarEnabled());
         int verticalScrollBarWidth = view.getVerticalScrollbarWidth();
@@ -3111,9 +3171,30 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         assertEquals(fadingEdgeLength, view.getVerticalFadingEdgeLength());
     }
 
+    @UiThreadTest
+    public void testScrollIndicators() {
+        MockView view = (MockView) mActivity.findViewById(R.id.scroll_view);
+
+        assertEquals("Set indicators match those specified in XML",
+                View.SCROLL_INDICATOR_TOP | View.SCROLL_INDICATOR_BOTTOM,
+                view.getScrollIndicators());
+
+        view.setScrollIndicators(0);
+        assertEquals("Cleared indicators", 0, view.getScrollIndicators());
+
+        view.setScrollIndicators(View.SCROLL_INDICATOR_START | View.SCROLL_INDICATOR_RIGHT);
+        assertEquals("Set start and right indicators",
+                View.SCROLL_INDICATOR_START | View.SCROLL_INDICATOR_RIGHT,
+                view.getScrollIndicators());
+
+    }
+
     public void testOnStartAndFinishTemporaryDetach() throws Throwable {
         final MockListView listView = new MockListView(mActivity);
-        List<String> items = Lists.newArrayList("1", "2", "3");
+        List<String> items = new ArrayList<>();
+        items.add("1");
+        items.add("2");
+        items.add("3");
         final Adapter<String> adapter = new Adapter<String>(mActivity, 0, items);
 
         runTestOnUiThread(new Runnable() {
@@ -3367,6 +3448,156 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
                 bg.hasCalledSetTint());
     }
 
+    public void testStartActionModeWithParent() {
+        View view = new View(mActivity);
+        MockViewGroup parent = new MockViewGroup(mActivity);
+        parent.addView(view);
+
+        ActionMode mode = view.startActionMode(null);
+
+        assertNotNull(mode);
+        assertEquals(NO_OP_ACTION_MODE, mode);
+        assertTrue(parent.isStartActionModeForChildCalled);
+        assertEquals(ActionMode.TYPE_PRIMARY, parent.startActionModeForChildType);
+    }
+
+    public void testStartActionModeWithoutParent() {
+        View view = new View(mActivity);
+
+        ActionMode mode = view.startActionMode(null);
+
+        assertNull(mode);
+    }
+
+    public void testStartActionModeTypedWithParent() {
+        View view = new View(mActivity);
+        MockViewGroup parent = new MockViewGroup(mActivity);
+        parent.addView(view);
+
+        ActionMode mode = view.startActionMode(null, ActionMode.TYPE_FLOATING);
+
+        assertNotNull(mode);
+        assertEquals(NO_OP_ACTION_MODE, mode);
+        assertTrue(parent.isStartActionModeForChildCalled);
+        assertEquals(ActionMode.TYPE_FLOATING, parent.startActionModeForChildType);
+    }
+
+    public void testStartActionModeTypedWithoutParent() {
+        View view = new View(mActivity);
+
+        ActionMode mode = view.startActionMode(null, ActionMode.TYPE_FLOATING);
+
+        assertNull(mode);
+    }
+
+    private static class MockViewGroup extends ViewGroup {
+        boolean isStartActionModeForChildCalled = false;
+        int startActionModeForChildType = ActionMode.TYPE_PRIMARY;
+
+        public MockViewGroup(Context context) {
+            super(context);
+        }
+
+        @Override
+        public ActionMode startActionModeForChild(View originalView, ActionMode.Callback callback) {
+            isStartActionModeForChildCalled = true;
+            startActionModeForChildType = ActionMode.TYPE_PRIMARY;
+            return NO_OP_ACTION_MODE;
+        }
+
+        @Override
+        public ActionMode startActionModeForChild(
+                View originalView, ActionMode.Callback callback, int type) {
+            isStartActionModeForChildCalled = true;
+            startActionModeForChildType = type;
+            return NO_OP_ACTION_MODE;
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            // no-op
+        }
+    }
+
+    private static final ActionMode NO_OP_ACTION_MODE =
+            new ActionMode() {
+                @Override
+                public void setTitle(CharSequence title) {}
+
+                @Override
+                public void setTitle(int resId) {}
+
+                @Override
+                public void setSubtitle(CharSequence subtitle) {}
+
+                @Override
+                public void setSubtitle(int resId) {}
+
+                @Override
+                public void setCustomView(View view) {}
+
+                @Override
+                public void invalidate() {}
+
+                @Override
+                public void finish() {}
+
+                @Override
+                public Menu getMenu() {
+                    return null;
+                }
+
+                @Override
+                public CharSequence getTitle() {
+                    return null;
+                }
+
+                @Override
+                public CharSequence getSubtitle() {
+                    return null;
+                }
+
+                @Override
+                public View getCustomView() {
+                    return null;
+                }
+
+                @Override
+                public MenuInflater getMenuInflater() {
+                    return null;
+                }
+            };
+
+    public void testTranslationSetter() {
+        View view = new View(mActivity);
+        float offset = 10.0f;
+        view.setTranslationX(offset);
+        view.setTranslationY(offset);
+        view.setTranslationZ(offset);
+        view.setElevation(offset);
+
+        assertEquals("Incorrect translationX", offset, view.getTranslationX());
+        assertEquals("Incorrect translationY", offset, view.getTranslationY());
+        assertEquals("Incorrect translationZ", offset, view.getTranslationZ());
+        assertEquals("Incorrect elevation", offset, view.getElevation());
+    }
+
+    public void testXYZ() {
+        View view = new View(mActivity);
+        float offset = 10.0f;
+        float start = 15.0f;
+        view.setTranslationX(offset);
+        view.setLeft((int) start);
+        view.setTranslationY(offset);
+        view.setTop((int) start);
+        view.setTranslationZ(offset);
+        view.setElevation(start);
+
+        assertEquals("Incorrect X value", offset + start, view.getX());
+        assertEquals("Incorrect Y value", offset + start, view.getY());
+        assertEquals("Incorrect Z value", offset + start, view.getZ());
+    }
+
     private static class MockDrawable extends Drawable {
         private boolean mCalledSetTint = false;
 
@@ -3445,7 +3676,7 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         }
     }
 
-    private final static class MockViewParent extends View implements ViewParent {
+    private final static class MockViewParent extends ViewGroup {
         private boolean mHasClearChildFocus = false;
         private boolean mHasRequestLayout = false;
         private boolean mHasCreateContextMenu = false;
@@ -3485,12 +3716,12 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         }
 
         @Override
-        protected void dispatchSetPressed(boolean pressed) {
+        public void dispatchSetPressed(boolean pressed) {
             super.dispatchSetPressed(pressed);
         }
 
         @Override
-        protected void dispatchSetSelected(boolean selected) {
+        public void dispatchSetSelected(boolean selected) {
             super.dispatchSetSelected(selected);
         }
 
@@ -3523,21 +3754,13 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
             return false;
         }
 
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+
+        }
+
         public boolean hasGetChildVisibleRect() {
             return mHasGetChildVisibleRect;
-        }
-
-        public void invalidateChild(View child, Rect r) {
-            mTempRect = new Rect(r);
-            mHasInvalidateChild = true;
-        }
-
-        public Rect getTempRect() {
-            return mTempRect;
-        }
-
-        public boolean hasInvalidateChild() {
-            return mHasInvalidateChild;
         }
 
         public ViewParent invalidateChildInParent(int[] location, Rect r) {
@@ -3560,6 +3783,7 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
 
         }
 
+        @Override
         public void requestLayout() {
             mHasRequestLayout = true;
         }
@@ -3579,6 +3803,11 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
 
         public ActionMode startActionModeForChild(View originalView,
                 ActionMode.Callback callback) {
+            return null;
+        }
+
+        public ActionMode startActionModeForChild(View originalView,
+                ActionMode.Callback callback, int type) {
             return null;
         }
 
@@ -3754,6 +3983,30 @@ public class ViewTest extends ActivityInstrumentationTestCase2<ViewTestCtsActivi
         public boolean onLongClick(View v) {
             mHasOnLongClick = true;
             return true;
+        }
+    }
+
+    private static final class OnContextClickListenerImpl implements OnContextClickListener {
+        private boolean mHasContextClick = false;
+        private View mLastViewContextClicked;
+
+        public boolean hasOnContextClick() {
+            return mHasContextClick;
+        }
+
+        public void reset() {
+            mHasContextClick = false;
+            mLastViewContextClicked = null;
+        }
+
+        public boolean onContextClick(View v) {
+            mHasContextClick = true;
+            mLastViewContextClicked = v;
+            return true;
+        }
+
+        public View getLastViewContextClicked() {
+            return mLastViewContextClicked;
         }
     }
 

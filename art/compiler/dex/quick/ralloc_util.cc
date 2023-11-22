@@ -16,9 +16,14 @@
 
 /* This file contains register alloction support. */
 
-#include "dex/compiler_ir.h"
-#include "dex/compiler_internals.h"
 #include "mir_to_lir-inl.h"
+
+#include "dex/compiler_ir.h"
+#include "dex/dataflow_iterator-inl.h"
+#include "dex/mir_graph.h"
+#include "driver/compiler_driver.h"
+#include "driver/dex_compilation_unit.h"
+#include "utils/dex_cache_arrays_layout-inl.h"
 
 namespace art {
 
@@ -28,8 +33,7 @@ namespace art {
  * live until it is either explicitly killed or reallocated.
  */
 void Mir2Lir::ResetRegPool() {
-  GrowableArray<RegisterInfo*>::Iterator iter(&tempreg_info_);
-  for (RegisterInfo* info = iter.Next(); info != NULL; info = iter.Next()) {
+  for (RegisterInfo* info : tempreg_info_) {
     info->MarkFree();
   }
   // Reset temp tracking sanity check.
@@ -66,41 +70,38 @@ Mir2Lir::RegisterPool::RegisterPool(Mir2Lir* m2l, ArenaAllocator* arena,
                                     const ArrayRef<const RegStorage>& core64_temps,
                                     const ArrayRef<const RegStorage>& sp_temps,
                                     const ArrayRef<const RegStorage>& dp_temps) :
-    core_regs_(arena, core_regs.size()), next_core_reg_(0),
-    core64_regs_(arena, core64_regs.size()), next_core64_reg_(0),
-    sp_regs_(arena, sp_regs.size()), next_sp_reg_(0),
-    dp_regs_(arena, dp_regs.size()), next_dp_reg_(0), m2l_(m2l)  {
+    core_regs_(arena->Adapter()), next_core_reg_(0),
+    core64_regs_(arena->Adapter()), next_core64_reg_(0),
+    sp_regs_(arena->Adapter()), next_sp_reg_(0),
+    dp_regs_(arena->Adapter()), next_dp_reg_(0), m2l_(m2l)  {
   // Initialize the fast lookup map.
-  m2l_->reginfo_map_.Reset();
-  if (kIsDebugBuild) {
-    m2l_->reginfo_map_.Resize(RegStorage::kMaxRegs);
-    for (unsigned i = 0; i < RegStorage::kMaxRegs; i++) {
-      m2l_->reginfo_map_.Insert(nullptr);
-    }
-  } else {
-    m2l_->reginfo_map_.SetSize(RegStorage::kMaxRegs);
-  }
+  m2l_->reginfo_map_.clear();
+  m2l_->reginfo_map_.resize(RegStorage::kMaxRegs, nullptr);
 
   // Construct the register pool.
+  core_regs_.reserve(core_regs.size());
   for (const RegStorage& reg : core_regs) {
     RegisterInfo* info = new (arena) RegisterInfo(reg, m2l_->GetRegMaskCommon(reg));
-    m2l_->reginfo_map_.Put(reg.GetReg(), info);
-    core_regs_.Insert(info);
+    m2l_->reginfo_map_[reg.GetReg()] = info;
+    core_regs_.push_back(info);
   }
+  core64_regs_.reserve(core64_regs.size());
   for (const RegStorage& reg : core64_regs) {
     RegisterInfo* info = new (arena) RegisterInfo(reg, m2l_->GetRegMaskCommon(reg));
-    m2l_->reginfo_map_.Put(reg.GetReg(), info);
-    core64_regs_.Insert(info);
+    m2l_->reginfo_map_[reg.GetReg()] = info;
+    core64_regs_.push_back(info);
   }
+  sp_regs_.reserve(sp_regs.size());
   for (const RegStorage& reg : sp_regs) {
     RegisterInfo* info = new (arena) RegisterInfo(reg, m2l_->GetRegMaskCommon(reg));
-    m2l_->reginfo_map_.Put(reg.GetReg(), info);
-    sp_regs_.Insert(info);
+    m2l_->reginfo_map_[reg.GetReg()] = info;
+    sp_regs_.push_back(info);
   }
+  dp_regs_.reserve(dp_regs.size());
   for (const RegStorage& reg : dp_regs) {
     RegisterInfo* info = new (arena) RegisterInfo(reg, m2l_->GetRegMaskCommon(reg));
-    m2l_->reginfo_map_.Put(reg.GetReg(), info);
-    dp_regs_.Insert(info);
+    m2l_->reginfo_map_[reg.GetReg()] = info;
+    dp_regs_.push_back(info);
   }
 
   // Keep special registers from being allocated.
@@ -127,10 +128,10 @@ Mir2Lir::RegisterPool::RegisterPool(Mir2Lir* m2l, ArenaAllocator* arena,
 
   // Add an entry for InvalidReg with zero'd mask.
   RegisterInfo* invalid_reg = new (arena) RegisterInfo(RegStorage::InvalidReg(), kEncodeNone);
-  m2l_->reginfo_map_.Put(RegStorage::InvalidReg().GetReg(), invalid_reg);
+  m2l_->reginfo_map_[RegStorage::InvalidReg().GetReg()] = invalid_reg;
 
   // Existence of core64 registers implies wide references.
-  if (core64_regs_.Size() != 0) {
+  if (core64_regs_.size() != 0) {
     ref_regs_ = &core64_regs_;
     next_ref_reg_ = &next_core64_reg_;
   } else {
@@ -139,10 +140,9 @@ Mir2Lir::RegisterPool::RegisterPool(Mir2Lir* m2l, ArenaAllocator* arena,
   }
 }
 
-void Mir2Lir::DumpRegPool(GrowableArray<RegisterInfo*>* regs) {
+void Mir2Lir::DumpRegPool(ArenaVector<RegisterInfo*>* regs) {
   LOG(INFO) << "================================================";
-  GrowableArray<RegisterInfo*>::Iterator it(regs);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : *regs) {
     LOG(INFO) << StringPrintf(
         "R[%d:%d:%c]: T:%d, U:%d, W:%d, p:%d, LV:%d, D:%d, SR:%d, DEF:%d",
         info->GetReg().GetReg(), info->GetReg().GetRegNum(), info->GetReg().IsFloat() ?  'f' : 'c',
@@ -222,8 +222,7 @@ void Mir2Lir::ClobberSReg(int s_reg) {
     if (kIsDebugBuild && s_reg == live_sreg_) {
       live_sreg_ = INVALID_SREG;
     }
-    GrowableArray<RegisterInfo*>::Iterator iter(&tempreg_info_);
-    for (RegisterInfo* info = iter.Next(); info != NULL; info = iter.Next()) {
+    for (RegisterInfo* info : tempreg_info_) {
       if (info->SReg() == s_reg) {
         if (info->GetReg().NotExactlyEquals(info->Partner())) {
           // Dealing with a pair - clobber the other half.
@@ -252,20 +251,7 @@ int Mir2Lir::SRegToPMap(int s_reg) {
   DCHECK_LT(s_reg, mir_graph_->GetNumSSARegs());
   DCHECK_GE(s_reg, 0);
   int v_reg = mir_graph_->SRegToVReg(s_reg);
-  if (v_reg >= 0) {
-    DCHECK_LT(v_reg, cu_->num_dalvik_registers);
-    return v_reg;
-  } else {
-    /*
-     * It must be the case that the v_reg for temporary is less than or equal to the
-     * base reg for temps. For that reason, "position" must be zero or positive.
-     */
-    unsigned int position = std::abs(v_reg) - std::abs(static_cast<int>(kVRegTempBaseReg));
-
-    // The temporaries are placed after dalvik registers in the promotion map
-    DCHECK_LT(position, mir_graph_->GetNumUsedCompilerTemps());
-    return cu_->num_dalvik_registers + position;
-  }
+  return v_reg;
 }
 
 // TODO: refactor following Alloc/Record routines - much commonality.
@@ -291,8 +277,7 @@ RegStorage Mir2Lir::AllocPreservedCoreReg(int s_reg) {
    * happens from the single or double pool.  This entire section of code could stand
    * a good refactoring.
    */
-  GrowableArray<RegisterInfo*>::Iterator it(&reg_pool_->core_regs_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : reg_pool_->core_regs_) {
     if (!info->IsTemp() && !info->InUse()) {
       res = info->GetReg();
       RecordCorePromotion(res, s_reg);
@@ -324,8 +309,7 @@ RegStorage Mir2Lir::AllocPreservedFpReg(int s_reg) {
    */
   DCHECK_NE(cu_->instruction_set, kThumb2);
   RegStorage res;
-  GrowableArray<RegisterInfo*>::Iterator it(&reg_pool_->sp_regs_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : reg_pool_->sp_regs_) {
     if (!info->IsTemp() && !info->InUse()) {
       res = info->GetReg();
       RecordFpPromotion(res, s_reg);
@@ -337,26 +321,27 @@ RegStorage Mir2Lir::AllocPreservedFpReg(int s_reg) {
 
 // TODO: this is Thumb2 only.  Remove when DoPromotion refactored.
 RegStorage Mir2Lir::AllocPreservedDouble(int s_reg) {
-  RegStorage res;
+  UNUSED(s_reg);
   UNIMPLEMENTED(FATAL) << "Unexpected use of AllocPreservedDouble";
-  return res;
+  UNREACHABLE();
 }
 
 // TODO: this is Thumb2 only.  Remove when DoPromotion refactored.
 RegStorage Mir2Lir::AllocPreservedSingle(int s_reg) {
-  RegStorage res;
+  UNUSED(s_reg);
   UNIMPLEMENTED(FATAL) << "Unexpected use of AllocPreservedSingle";
-  return res;
+  UNREACHABLE();
 }
 
 
-RegStorage Mir2Lir::AllocTempBody(GrowableArray<RegisterInfo*> &regs, int* next_temp, bool required) {
-  int num_regs = regs.Size();
+RegStorage Mir2Lir::AllocTempBody(ArenaVector<RegisterInfo*>& regs, int* next_temp, bool required) {
+  int num_regs = regs.size();
   int next = *next_temp;
   for (int i = 0; i< num_regs; i++) {
-    if (next >= num_regs)
+    if (next >= num_regs) {
       next = 0;
-    RegisterInfo* info = regs.Get(next);
+    }
+    RegisterInfo* info = regs[next];
     // Try to allocate a register that doesn't hold a live value.
     if (info->IsTemp() && !info->InUse() && info->IsDead()) {
       // If it's wide, split it up.
@@ -380,9 +365,10 @@ RegStorage Mir2Lir::AllocTempBody(GrowableArray<RegisterInfo*> &regs, int* next_
   next = *next_temp;
   // No free non-live regs.  Anything we can kill?
   for (int i = 0; i< num_regs; i++) {
-    if (next >= num_regs)
+    if (next >= num_regs) {
       next = 0;
-    RegisterInfo* info = regs.Get(next);
+    }
+    RegisterInfo* info = regs[next];
     if (info->IsTemp() && !info->InUse()) {
       // Got one.  Kill it.
       ClobberSReg(info->SReg());
@@ -414,7 +400,7 @@ RegStorage Mir2Lir::AllocTemp(bool required) {
 
 RegStorage Mir2Lir::AllocTempWide(bool required) {
   RegStorage res;
-  if (reg_pool_->core64_regs_.Size() != 0) {
+  if (reg_pool_->core64_regs_.size() != 0) {
     res = AllocTempBody(reg_pool_->core64_regs_, &reg_pool_->next_core64_reg_, required);
   } else {
     RegStorage low_reg = AllocTemp();
@@ -471,10 +457,9 @@ RegStorage Mir2Lir::AllocTypedTemp(bool fp_hint, int reg_class, bool required) {
   return AllocTemp(required);
 }
 
-RegStorage Mir2Lir::FindLiveReg(GrowableArray<RegisterInfo*> &regs, int s_reg) {
+RegStorage Mir2Lir::FindLiveReg(ArenaVector<RegisterInfo*>& regs, int s_reg) {
   RegStorage res;
-  GrowableArray<RegisterInfo*>::Iterator it(&regs);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : regs) {
     if ((info->SReg() == s_reg) && info->IsLive()) {
       res = info->GetReg();
       break;
@@ -727,15 +712,13 @@ void Mir2Lir::ResetDefLocWide(RegLocation rl) {
 }
 
 void Mir2Lir::ResetDefTracking() {
-  GrowableArray<RegisterInfo*>::Iterator iter(&tempreg_info_);
-  for (RegisterInfo* info = iter.Next(); info != NULL; info = iter.Next()) {
+  for (RegisterInfo* info : tempreg_info_) {
     info->ResetDefBody();
   }
 }
 
 void Mir2Lir::ClobberAllTemps() {
-  GrowableArray<RegisterInfo*>::Iterator iter(&tempreg_info_);
-  for (RegisterInfo* info = iter.Next(); info != NULL; info = iter.Next()) {
+  for (RegisterInfo* info : tempreg_info_) {
     ClobberBody(info);
   }
 }
@@ -793,8 +776,7 @@ void Mir2Lir::FlushSpecificReg(RegisterInfo* info) {
 }
 
 void Mir2Lir::FlushAllRegs() {
-  GrowableArray<RegisterInfo*>::Iterator it(&tempreg_info_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : tempreg_info_) {
     if (info->IsDirty() && info->IsLive()) {
       FlushSpecificReg(info);
     }
@@ -866,14 +848,16 @@ void Mir2Lir::MarkLive(RegLocation loc) {
 void Mir2Lir::MarkTemp(RegStorage reg) {
   DCHECK(!reg.IsPair());
   RegisterInfo* info = GetRegInfo(reg);
-  tempreg_info_.Insert(info);
+  tempreg_info_.push_back(info);
   info->SetIsTemp(true);
 }
 
 void Mir2Lir::UnmarkTemp(RegStorage reg) {
   DCHECK(!reg.IsPair());
   RegisterInfo* info = GetRegInfo(reg);
-  tempreg_info_.Delete(info);
+  auto pos = std::find(tempreg_info_.begin(), tempreg_info_.end(), info);
+  DCHECK(pos != tempreg_info_.end());
+  tempreg_info_.erase(pos);
   info->SetIsTemp(false);
 }
 
@@ -945,14 +929,13 @@ void Mir2Lir::MarkInUse(RegStorage reg) {
 }
 
 bool Mir2Lir::CheckCorePoolSanity() {
-  GrowableArray<RegisterInfo*>::Iterator it(&tempreg_info_);
-  for (RegisterInfo* info = it.Next(); info != nullptr; info = it.Next()) {
+  for (RegisterInfo* info : tempreg_info_) {
     int my_sreg = info->SReg();
     if (info->IsTemp() && info->IsLive() && info->IsWide() && my_sreg != INVALID_SREG) {
       RegStorage my_reg = info->GetReg();
       RegStorage partner_reg = info->Partner();
       RegisterInfo* partner = GetRegInfo(partner_reg);
-      DCHECK(partner != NULL);
+      DCHECK(partner != nullptr);
       DCHECK(partner->IsWide());
       DCHECK_EQ(my_reg.GetReg(), partner->Partner().GetReg());
       DCHECK(partner->IsLive());
@@ -1147,6 +1130,152 @@ RegLocation Mir2Lir::EvalLoc(RegLocation loc, int reg_class, bool update) {
   return loc;
 }
 
+void Mir2Lir::AnalyzeMIR(RefCounts* core_counts, MIR* mir, uint32_t weight) {
+  // NOTE: This should be in sync with functions that actually generate code for
+  // the opcodes below. However, if we get this wrong, the generated code will
+  // still be correct even if it may be sub-optimal.
+  int opcode = mir->dalvikInsn.opcode;
+  bool uses_method = false;
+  bool uses_pc_rel_load = false;
+  uint32_t dex_cache_array_offset = std::numeric_limits<uint32_t>::max();
+  switch (opcode) {
+    case Instruction::CHECK_CAST:
+    case Instruction::INSTANCE_OF: {
+      if ((opcode == Instruction::CHECK_CAST) &&
+          (mir->optimization_flags & MIR_IGNORE_CHECK_CAST) != 0) {
+        break;  // No code generated.
+      }
+      uint32_t type_idx =
+          (opcode == Instruction::CHECK_CAST) ? mir->dalvikInsn.vB : mir->dalvikInsn.vC;
+      bool type_known_final, type_known_abstract, use_declaring_class;
+      bool needs_access_check = !cu_->compiler_driver->CanAccessTypeWithoutChecks(
+          cu_->method_idx, *cu_->dex_file, type_idx,
+          &type_known_final, &type_known_abstract, &use_declaring_class);
+      if (opcode == Instruction::CHECK_CAST && !needs_access_check &&
+          cu_->compiler_driver->IsSafeCast(
+              mir_graph_->GetCurrentDexCompilationUnit(), mir->offset)) {
+        break;  // No code generated.
+      }
+      if (!needs_access_check && !use_declaring_class && CanUseOpPcRelDexCacheArrayLoad()) {
+        uses_pc_rel_load = true;  // And ignore method use in slow path.
+        dex_cache_array_offset = dex_cache_arrays_layout_.TypeOffset(type_idx);
+      } else {
+        uses_method = true;
+      }
+      break;
+    }
+
+    case Instruction::CONST_CLASS:
+      if (CanUseOpPcRelDexCacheArrayLoad() &&
+          cu_->compiler_driver->CanAccessTypeWithoutChecks(cu_->method_idx, *cu_->dex_file,
+                                                           mir->dalvikInsn.vB)) {
+        uses_pc_rel_load = true;  // And ignore method use in slow path.
+        dex_cache_array_offset = dex_cache_arrays_layout_.TypeOffset(mir->dalvikInsn.vB);
+      } else {
+        uses_method = true;
+      }
+      break;
+
+    case Instruction::CONST_STRING:
+    case Instruction::CONST_STRING_JUMBO:
+      if (CanUseOpPcRelDexCacheArrayLoad()) {
+        uses_pc_rel_load = true;  // And ignore method use in slow path.
+        dex_cache_array_offset = dex_cache_arrays_layout_.StringOffset(mir->dalvikInsn.vB);
+      } else {
+        uses_method = true;
+      }
+      break;
+
+    case Instruction::INVOKE_VIRTUAL:
+    case Instruction::INVOKE_SUPER:
+    case Instruction::INVOKE_DIRECT:
+    case Instruction::INVOKE_STATIC:
+    case Instruction::INVOKE_INTERFACE:
+    case Instruction::INVOKE_VIRTUAL_RANGE:
+    case Instruction::INVOKE_SUPER_RANGE:
+    case Instruction::INVOKE_DIRECT_RANGE:
+    case Instruction::INVOKE_STATIC_RANGE:
+    case Instruction::INVOKE_INTERFACE_RANGE:
+    case Instruction::INVOKE_VIRTUAL_QUICK:
+    case Instruction::INVOKE_VIRTUAL_RANGE_QUICK: {
+      const MirMethodLoweringInfo& info = mir_graph_->GetMethodLoweringInfo(mir);
+      InvokeType sharp_type = info.GetSharpType();
+      if (info.IsIntrinsic()) {
+        // Nothing to do, if an intrinsic uses ArtMethod* it's in the slow-path - don't count it.
+      } else if (!info.FastPath() || (sharp_type != kStatic && sharp_type != kDirect)) {
+        // Nothing to do, the generated code or entrypoint uses method from the stack.
+      } else if (info.DirectCode() != 0 && info.DirectMethod() != 0) {
+        // Nothing to do, the generated code uses method from the stack.
+      } else if (CanUseOpPcRelDexCacheArrayLoad()) {
+        uses_pc_rel_load = true;
+        dex_cache_array_offset = dex_cache_arrays_layout_.MethodOffset(mir->dalvikInsn.vB);
+      } else {
+        uses_method = true;
+      }
+      break;
+    }
+
+    case Instruction::NEW_INSTANCE:
+    case Instruction::NEW_ARRAY:
+    case Instruction::FILLED_NEW_ARRAY:
+    case Instruction::FILLED_NEW_ARRAY_RANGE:
+      uses_method = true;
+      break;
+    case Instruction::FILL_ARRAY_DATA:
+      // Nothing to do, the entrypoint uses method from the stack.
+      break;
+    case Instruction::THROW:
+      // Nothing to do, the entrypoint uses method from the stack.
+      break;
+
+    case Instruction::SGET:
+    case Instruction::SGET_WIDE:
+    case Instruction::SGET_OBJECT:
+    case Instruction::SGET_BOOLEAN:
+    case Instruction::SGET_BYTE:
+    case Instruction::SGET_CHAR:
+    case Instruction::SGET_SHORT:
+    case Instruction::SPUT:
+    case Instruction::SPUT_WIDE:
+    case Instruction::SPUT_OBJECT:
+    case Instruction::SPUT_BOOLEAN:
+    case Instruction::SPUT_BYTE:
+    case Instruction::SPUT_CHAR:
+    case Instruction::SPUT_SHORT: {
+      const MirSFieldLoweringInfo& field_info = mir_graph_->GetSFieldLoweringInfo(mir);
+      bool fast = IsInstructionSGet(static_cast<Instruction::Code>(opcode))
+          ? field_info.FastGet()
+          : field_info.FastPut();
+      if (fast && (cu_->enable_debug & (1 << kDebugSlowFieldPath)) == 0) {
+        if (!field_info.IsReferrersClass() && CanUseOpPcRelDexCacheArrayLoad()) {
+          uses_pc_rel_load = true;  // And ignore method use in slow path.
+          dex_cache_array_offset = dex_cache_arrays_layout_.TypeOffset(field_info.StorageIndex());
+        } else {
+          uses_method = true;
+        }
+      } else {
+        // Nothing to do, the entrypoint uses method from the stack.
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+  if (uses_method) {
+    core_counts[SRegToPMap(mir_graph_->GetMethodLoc().s_reg_low)].count += weight;
+  }
+  if (uses_pc_rel_load) {
+    if (pc_rel_temp_ != nullptr) {
+      core_counts[SRegToPMap(pc_rel_temp_->s_reg_low)].count += weight;
+      DCHECK_NE(dex_cache_array_offset, std::numeric_limits<uint32_t>::max());
+      dex_cache_arrays_min_offset_ = std::min(dex_cache_arrays_min_offset_, dex_cache_array_offset);
+    } else {
+      // Nothing to do, using PC-relative addressing without promoting base PC to register.
+    }
+  }
+}
+
 /* USE SSA names to count references of base Dalvik v_regs. */
 void Mir2Lir::CountRefs(RefCounts* core_counts, RefCounts* fp_counts, size_t num_regs) {
   for (int i = 0; i < mir_graph_->GetNumSSARegs(); i++) {
@@ -1174,6 +1303,22 @@ void Mir2Lir::CountRefs(RefCounts* core_counts, RefCounts* fp_counts, size_t num
       if (!IsInexpensiveConstant(loc)) {
         counts[p_map_idx].count += use_count;
       }
+    }
+  }
+
+  // Now analyze the ArtMethod* and pc_rel_temp_ uses.
+  DCHECK_EQ(core_counts[SRegToPMap(mir_graph_->GetMethodLoc().s_reg_low)].count, 0);
+  if (pc_rel_temp_ != nullptr) {
+    DCHECK_EQ(core_counts[SRegToPMap(pc_rel_temp_->s_reg_low)].count, 0);
+  }
+  PreOrderDfsIterator iter(mir_graph_);
+  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
+    if (bb->block_type == kDead) {
+      continue;
+    }
+    uint32_t weight = mir_graph_->GetUseCountWeight(bb);
+    for (MIR* mir = bb->first_mir_insn; mir != nullptr; mir = mir->next) {
+      AnalyzeMIR(core_counts, mir, weight);
     }
   }
 }
@@ -1207,12 +1352,10 @@ void Mir2Lir::DumpCounts(const RefCounts* arr, int size, const char* msg) {
  * optimization is disabled.
  */
 void Mir2Lir::DoPromotion() {
-  int dalvik_regs = cu_->num_dalvik_registers;
-  int num_regs = dalvik_regs + mir_graph_->GetNumUsedCompilerTemps();
+  int num_regs = mir_graph_->GetNumOfCodeAndTempVRs();
   const int promotion_threshold = 1;
   // Allocate the promotion map - one entry for each Dalvik vReg or compiler temp
-  promotion_map_ = static_cast<PromotionMap*>
-      (arena_->Alloc(num_regs * sizeof(promotion_map_[0]), kArenaAllocRegAlloc));
+  promotion_map_ = arena_->AllocArray<PromotionMap>(num_regs, kArenaAllocRegAlloc);
 
   // Allow target code to add any special registers
   AdjustSpillMask();
@@ -1230,22 +1373,11 @@ void Mir2Lir::DoPromotion() {
    */
   size_t core_reg_count_size = WideGPRsAreAliases() ? num_regs : num_regs * 2;
   size_t fp_reg_count_size = WideFPRsAreAliases() ? num_regs : num_regs * 2;
-  RefCounts *core_regs =
-      static_cast<RefCounts*>(arena_->Alloc(sizeof(RefCounts) * core_reg_count_size,
-                                            kArenaAllocRegAlloc));
-  RefCounts *fp_regs =
-      static_cast<RefCounts *>(arena_->Alloc(sizeof(RefCounts) * fp_reg_count_size,
-                                             kArenaAllocRegAlloc));
+  RefCounts *core_regs = arena_->AllocArray<RefCounts>(core_reg_count_size, kArenaAllocRegAlloc);
+  RefCounts *fp_regs = arena_->AllocArray<RefCounts>(fp_reg_count_size, kArenaAllocRegAlloc);
   // Set ssa names for original Dalvik registers
-  for (int i = 0; i < dalvik_regs; i++) {
+  for (int i = 0; i < num_regs; i++) {
     core_regs[i].s_reg = fp_regs[i].s_reg = i;
-  }
-
-  // Set ssa names for compiler temporaries
-  for (unsigned int ct_idx = 0; ct_idx < mir_graph_->GetNumUsedCompilerTemps(); ct_idx++) {
-    CompilerTemp* ct = mir_graph_->GetCompilerTemp(ct_idx);
-    core_regs[dalvik_regs + ct_idx].s_reg = ct->s_reg_low;
-    fp_regs[dalvik_regs + ct_idx].s_reg = ct->s_reg_low;
   }
 
   // Duplicate in upper half to represent possible wide starting sregs.
@@ -1353,9 +1485,10 @@ void Mir2Lir::DoPromotion() {
 
 /* Returns sp-relative offset in bytes for a VReg */
 int Mir2Lir::VRegOffset(int v_reg) {
-  return StackVisitor::GetVRegOffset(cu_->code_item, core_spill_mask_,
-                                     fp_spill_mask_, frame_size_, v_reg,
-                                     cu_->instruction_set);
+  const DexFile::CodeItem* code_item = mir_graph_->GetCurrentDexCompilationUnit()->GetCodeItem();
+  return StackVisitor::GetVRegOffsetFromQuickCode(code_item, core_spill_mask_,
+                                                  fp_spill_mask_, frame_size_, v_reg,
+                                                  cu_->instruction_set);
 }
 
 /* Returns sp-relative offset in bytes for a SReg */
@@ -1386,7 +1519,7 @@ RegLocation Mir2Lir::GetReturn(RegisterClass reg_class) {
     default: res = LocCReturn(); break;
   }
   Clobber(res.reg);
-  if (cu_->instruction_set == kMips) {
+  if (cu_->instruction_set == kMips || cu_->instruction_set == kMips64) {
     MarkInUse(res.reg);
   } else {
     LockTemp(res.reg);
@@ -1421,6 +1554,7 @@ int Mir2Lir::GetSRegHi(int lowSreg) {
 }
 
 bool Mir2Lir::LiveOut(int s_reg) {
+  UNUSED(s_reg);
   // For now.
   return true;
 }

@@ -19,23 +19,19 @@ package com.google.common.cache;
 import static com.google.common.cache.CacheBuilder.EMPTY_STATS;
 import static com.google.common.cache.LocalCacheTest.SMALL_MAX_SIZE;
 import static com.google.common.cache.TestingCacheLoaders.identityLoader;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.cache.LocalCache.LocalLoadingCache;
 import com.google.common.cache.LocalCache.Segment;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.testing.NullPointerTester;
-import com.google.common.util.concurrent.Callables;
 
 import junit.framework.TestCase;
 
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +48,7 @@ public class LocalLoadingCacheTest extends TestCase {
   }
 
   private CacheBuilder<Object, Object> createCacheBuilder() {
-    return new CacheBuilder<Object, Object>();
+    return CacheBuilder.newBuilder().recordStats();
   }
 
   // constructor tests
@@ -72,7 +68,6 @@ public class LocalLoadingCacheTest extends TestCase {
 
   public void testNullParameters() throws Exception {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(Callable.class, Callables.returning(null));
     CacheLoader<Object, Object> loader = identityLoader();
     tester.testAllPublicInstanceMethods(makeCache(createCacheBuilder(), loader));
   }
@@ -96,8 +91,8 @@ public class LocalLoadingCacheTest extends TestCase {
     assertEquals(1.0, stats.missRate());
     assertEquals(1, stats.loadCount());
     long totalLoadTime = stats.totalLoadTime();
-    assertTrue(totalLoadTime > 0);
-    assertTrue(stats.averageLoadPenalty() > 0.0);
+    assertTrue(totalLoadTime >= 0);
+    assertTrue(stats.averageLoadPenalty() >= 0.0);
     assertEquals(0, stats.evictionCount());
 
     cache.getUnchecked(one);
@@ -119,9 +114,9 @@ public class LocalLoadingCacheTest extends TestCase {
     assertEquals(2, stats.missCount());
     assertEquals(2.0/3, stats.missRate());
     assertEquals(2, stats.loadCount());
-    assertTrue(stats.totalLoadTime() > totalLoadTime);
+    assertTrue(stats.totalLoadTime() >= totalLoadTime);
     totalLoadTime = stats.totalLoadTime();
-    assertTrue(stats.averageLoadPenalty() > 0.0);
+    assertTrue(stats.averageLoadPenalty() >= 0.0);
     assertEquals(0, stats.evictionCount());
 
     Object three = new Object();
@@ -133,9 +128,9 @@ public class LocalLoadingCacheTest extends TestCase {
     assertEquals(3, stats.missCount());
     assertEquals(3.0/4, stats.missRate());
     assertEquals(3, stats.loadCount());
-    assertTrue(stats.totalLoadTime() > totalLoadTime);
+    assertTrue(stats.totalLoadTime() >= totalLoadTime);
     totalLoadTime = stats.totalLoadTime();
-    assertTrue(stats.averageLoadPenalty() > 0.0);
+    assertTrue(stats.averageLoadPenalty() >= 0.0);
     assertEquals(1, stats.evictionCount());
   }
 
@@ -165,24 +160,27 @@ public class LocalLoadingCacheTest extends TestCase {
     assertNull(map.put(three, one));
     assertNull(map.put(one, two));
 
-    Set<Map.Entry<Object, Object>> entries = map.entrySet();
-    ASSERT.that(entries).hasContentsAnyOrder(
-        Maps.immutableEntry(three, one), Maps.immutableEntry(one, two));
-    Set<Object> keys = map.keySet();
-    ASSERT.that(keys).hasContentsAnyOrder(one, three);
-    Collection<Object> values = map.values();
-    ASSERT.that(values).hasContentsAnyOrder(one, two);
+    ASSERT.that(map).hasKey(three).withValue(one);
+    ASSERT.that(map).hasKey(one).withValue(two);
+
+    //TODO(user): Confirm with fry@ that this is a reasonable substitute.
+    //Set<Map.Entry<Object, Object>> entries = map.entrySet();
+    //ASSERT.that(entries).has().exactly(
+    //    Maps.immutableEntry(three, one), Maps.immutableEntry(one, two));
+    //Set<Object> keys = map.keySet();
+    //ASSERT.that(keys).has().exactly(one, three);
+    //Collection<Object> values = map.values();
+    //ASSERT.that(values).has().exactly(one, two);
 
     map.clear();
 
     assertEquals(EMPTY_STATS, cache.stats());
   }
 
-  public void testDisableStats() {
-    CacheBuilder<Object, Object> builder = createCacheBuilder()
+  public void testNoStats() {
+    CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder()
         .concurrencyLevel(1)
-        .maximumSize(2)
-        .disableStats();
+        .maximumSize(2);
     LocalLoadingCache<Object, Object> cache = makeCache(builder, identityLoader());
     assertEquals(EMPTY_STATS, cache.stats());
 
@@ -200,6 +198,35 @@ public class LocalLoadingCacheTest extends TestCase {
     Object three = new Object();
     cache.getUnchecked(three);
     assertEquals(EMPTY_STATS, cache.stats());
+  }
+
+  public void testRecordStats() {
+    CacheBuilder<Object, Object> builder = createCacheBuilder()
+        .recordStats()
+        .concurrencyLevel(1)
+        .maximumSize(2);
+    LocalLoadingCache<Object, Object> cache = makeCache(builder, identityLoader());
+    assertEquals(0, cache.stats().hitCount());
+    assertEquals(0, cache.stats().missCount());
+
+    Object one = new Object();
+    cache.getUnchecked(one);
+    assertEquals(0, cache.stats().hitCount());
+    assertEquals(1, cache.stats().missCount());
+
+    cache.getUnchecked(one);
+    assertEquals(1, cache.stats().hitCount());
+    assertEquals(1, cache.stats().missCount());
+
+    Object two = new Object();
+    cache.getUnchecked(two);
+    assertEquals(1, cache.stats().hitCount());
+    assertEquals(2, cache.stats().missCount());
+
+    Object three = new Object();
+    cache.getUnchecked(three);
+    assertEquals(1, cache.stats().hitCount());
+    assertEquals(3, cache.stats().missCount());
   }
 
   // asMap tests

@@ -16,9 +16,11 @@
 
 #define LOG_TAG "Sensors"
 
+#include <algorithm>
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <linux/errno.h>
 
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -30,6 +32,8 @@
 #include <gui/ISensorEventConnection.h>
 
 #include <android/sensor.h>
+
+using std::min;
 
 // ----------------------------------------------------------------------------
 namespace android {
@@ -68,14 +72,14 @@ ssize_t SensorEventQueue::read(ASensorEvent* events, size_t numEvents) {
         if (err < 0) {
             return err;
         }
-        mAvailable = err;
+        mAvailable = static_cast<size_t>(err);
         mConsumed = 0;
     }
-    size_t count = numEvents < mAvailable ? numEvents : mAvailable;
-    memcpy(events, mRecBuffer + mConsumed, count*sizeof(ASensorEvent));
+    size_t count = min(numEvents, mAvailable);
+    memcpy(events, mRecBuffer + mConsumed, count * sizeof(ASensorEvent));
     mAvailable -= count;
     mConsumed += count;
-    return count;
+    return static_cast<ssize_t>(count);
 }
 
 sp<Looper> SensorEventQueue::getLooper() const
@@ -146,6 +150,23 @@ status_t SensorEventQueue::setEventRate(Sensor const* sensor, nsecs_t ns) const 
     return mSensorEventConnection->setEventRate(sensor->getHandle(), ns);
 }
 
+status_t SensorEventQueue::injectSensorEvent(const ASensorEvent& event) {
+    do {
+        // Blocking call.
+        ssize_t size = ::send(mSensorChannel->getFd(), &event, sizeof(event), MSG_NOSIGNAL);
+        if (size >= 0) {
+            return NO_ERROR;
+        } else if (size < 0 && errno == EAGAIN) {
+            // If send is returning a "Try again" error, sleep for 100ms and try again. In all
+            // other cases log a failure and exit.
+            usleep(100000);
+        } else {
+            ALOGE("injectSensorEvent failure %s %zd", strerror(errno), size);
+            return INVALID_OPERATION;
+        }
+    } while (true);
+}
+
 void SensorEventQueue::sendAck(const ASensorEvent* events, int count) {
     for (int i = 0; i < count; ++i) {
         if (events[i].flags & WAKE_UP_SENSOR_EVENT_NEEDS_ACK) {
@@ -157,7 +178,7 @@ void SensorEventQueue::sendAck(const ASensorEvent* events, int count) {
         ssize_t size = ::send(mSensorChannel->getFd(), &mNumAcksToSend, sizeof(mNumAcksToSend),
                 MSG_DONTWAIT | MSG_NOSIGNAL);
         if (size < 0) {
-            ALOGE("sendAck failure %d %d", size, mNumAcksToSend);
+            ALOGE("sendAck failure %zd %d", size, mNumAcksToSend);
         } else {
             mNumAcksToSend = 0;
         }

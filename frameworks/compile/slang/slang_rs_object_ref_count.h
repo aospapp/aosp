@@ -118,7 +118,7 @@ class RSObjectRefCount : public clang::StmtVisitor<RSObjectRefCount> {
       return RSSetObjectFD[DT];
     } else {
       slangAssert(false && "incorrect type");
-      return NULL;
+      return nullptr;
     }
   }
 
@@ -132,7 +132,7 @@ class RSObjectRefCount : public clang::StmtVisitor<RSObjectRefCount> {
       return RSClearObjectFD[DT];
     } else {
       slangAssert(false && "incorrect type");
-      return NULL;
+      return nullptr;
     }
   }
 

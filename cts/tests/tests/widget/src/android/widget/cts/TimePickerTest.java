@@ -167,6 +167,37 @@ public class TimePickerTest extends ActivityInstrumentationTestCase2<CtsActivity
         assertEquals(Integer.valueOf(23), mTimePicker.getCurrentHour());
     }
 
+    public void testAccessHour() {
+        mTimePicker = new TimePicker(mContext);
+
+        // AM/PM mode
+        mTimePicker.setIs24HourView(false);
+
+        mTimePicker.setHour(0);
+        assertEquals(0, mTimePicker.getHour());
+
+        mTimePicker.setHour(12);
+        assertEquals(12, mTimePicker.getHour());
+
+        mTimePicker.setHour(13);
+        assertEquals(13, mTimePicker.getHour());
+
+        mTimePicker.setHour(23);
+        assertEquals(23, mTimePicker.getHour());
+
+        // for 24 hour mode
+        mTimePicker.setIs24HourView(true);
+
+        mTimePicker.setHour(0);
+        assertEquals(0, mTimePicker.getHour());
+
+        mTimePicker.setHour(13);
+        assertEquals(13, mTimePicker.getHour());
+
+        mTimePicker.setHour(23);
+        assertEquals(23, mTimePicker.getHour());
+    }
+
     public void testAccessIs24HourView() {
         mTimePicker = new TimePicker(mContext);
         assertFalse(mTimePicker.is24HourView());
@@ -192,6 +223,22 @@ public class TimePickerTest extends ActivityInstrumentationTestCase2<CtsActivity
 
         mTimePicker.setCurrentMinute(59);
         assertEquals(Integer.valueOf(59), mTimePicker.getCurrentMinute());
+    }
+
+    public void testAccessMinute() {
+        mTimePicker = new TimePicker(mContext);
+
+        mTimePicker.setMinute(0);
+        assertEquals(0, mTimePicker.getMinute());
+
+        mTimePicker.setMinute(12);
+        assertEquals(12, mTimePicker.getMinute());
+
+        mTimePicker.setMinute(33);
+        assertEquals(33, mTimePicker.getMinute());
+
+        mTimePicker.setMinute(59);
+        assertEquals(59, mTimePicker.getMinute());
     }
 
     public void testGetBaseline() {

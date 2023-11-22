@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -24,13 +24,12 @@ import proguard.classfile.*;
 import proguard.classfile.attribute.CodeAttribute;
 import proguard.classfile.attribute.annotation.*;
 import proguard.classfile.attribute.annotation.visitor.ElementValueVisitor;
-import proguard.classfile.attribute.visitor.*;
+import proguard.classfile.attribute.visitor.AllAttributeVisitor;
 import proguard.classfile.constant.*;
 import proguard.classfile.constant.visitor.ConstantVisitor;
 import proguard.classfile.instruction.*;
 import proguard.classfile.instruction.visitor.*;
-import proguard.classfile.visitor.*;
-import proguard.util.StringMatcher;
+import proguard.classfile.visitor.MemberVisitor;
 
 /**
  * This ElementValueVisitor initializes the field references of the
@@ -44,10 +43,10 @@ implements   ElementValueVisitor,
              InstructionVisitor,
              ConstantVisitor
 {
-    /*
-    private static       boolean DEBUG = true;
-    /*/
+    //*
     private static final boolean DEBUG = false;
+    /*/
+    private static       boolean DEBUG = true;
     //*/
 
     private MemberVisitor enumFieldFinder = new AllAttributeVisitor(
@@ -80,8 +79,8 @@ implements   ElementValueVisitor,
                 enumTypeName        = enumConstantElementValue.getTypeName(clazz);
                 enumConstantName    = enumConstantElementValue.getConstantName(clazz);
                 referencedEnumField = null;
-                referencedEnumClass.methodAccept(ClassConstants.INTERNAL_METHOD_NAME_CLINIT,
-                                                 ClassConstants.INTERNAL_METHOD_TYPE_CLINIT,
+                referencedEnumClass.methodAccept(ClassConstants.METHOD_NAME_CLINIT,
+                                                 ClassConstants.METHOD_TYPE_CLINIT,
                                                  enumFieldFinder);
 
                 // Otherwise try to find the enum field through its name.

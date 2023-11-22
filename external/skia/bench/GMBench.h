@@ -4,6 +4,8 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
+#ifndef GMBench_DEFINED
+#define GMBench_DEFINED
 
 #include "Benchmark.h"
 #include "SkCanvas.h"
@@ -19,13 +21,15 @@ public:
     virtual ~GMBench();
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE;
-    virtual bool isSuitableFor(Backend backend) SK_OVERRIDE;
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE;
-    virtual SkIPoint onGetSize() SK_OVERRIDE;
+    const char* onGetName() override;
+    bool isSuitableFor(Backend backend) override;
+    void onDraw(const int loops, SkCanvas* canvas) override;
+    SkIPoint onGetSize() override;
 
 private:
     skiagm::GM* fGM;
     SkString    fName;
     typedef Benchmark INHERITED;
 };
+
+#endif

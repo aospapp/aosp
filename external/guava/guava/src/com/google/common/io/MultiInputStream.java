@@ -16,9 +16,13 @@
 
 package com.google.common.io;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+
+import javax.annotation.Nullable;
 
 /**
  * An {@link InputStream} that concatenates multiple substreams. At most
@@ -29,7 +33,7 @@ import java.util.Iterator;
  */
 final class MultiInputStream extends InputStream {
 
-  private Iterator<? extends InputSupplier<? extends InputStream>> it;
+  private Iterator<? extends ByteSource> it;
   private InputStream in;
 
   /**
@@ -38,9 +42,8 @@ final class MultiInputStream extends InputStream {
    * @param it an iterator of I/O suppliers that will provide each substream
    */
   public MultiInputStream(
-      Iterator<? extends InputSupplier<? extends InputStream>> it)
-      throws IOException {
-    this.it = it;
+      Iterator<? extends ByteSource> it) throws IOException {
+    this.it = checkNotNull(it);
     advance();
   }
 
@@ -60,7 +63,7 @@ final class MultiInputStream extends InputStream {
   private void advance() throws IOException {
     close();
     if (it.hasNext()) {
-      in = it.next().getInput();
+      in = it.next().openStream();
     }
   }
 
@@ -87,7 +90,7 @@ final class MultiInputStream extends InputStream {
     return result;
   }
 
-  @Override public int read(byte[] b, int off, int len) throws IOException {
+  @Override public int read(@Nullable byte[] b, int off, int len) throws IOException {
     if (in == null) {
       return -1;
     }

@@ -76,7 +76,8 @@ enum SurfaceType
  *//*--------------------------------------------------------------------*/
 enum ScreenRotation
 {
-	SCREENROTATION_0,
+	SCREENROTATION_UNSPECIFIED,		//!< Use default / current orientation.
+	SCREENROTATION_0,				//!< Set rotation to 0 degrees from baseline.
 	SCREENROTATION_90,
 	SCREENROTATION_180,
 	SCREENROTATION_270,
@@ -180,11 +181,16 @@ public:
 	//! Check if test case is in supplied test case list.
 	bool							checkTestCaseName			(const char* caseName) const;
 
+protected:
+	const de::cmdline::CommandLine&	getCommandLine				(void) const;
+
 private:
 									CommandLine					(const CommandLine&);	// not allowed!
 	CommandLine&					operator=					(const CommandLine&);	// not allowed!
 
 	void							clear						(void);
+
+	virtual void					registerExtendedOptions		(de::cmdline::Parser& parser);
 
 	de::cmdline::CommandLine		m_cmdLine;
 	deUint32						m_logFlags;

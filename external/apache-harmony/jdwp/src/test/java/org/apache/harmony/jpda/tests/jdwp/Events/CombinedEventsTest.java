@@ -226,7 +226,7 @@ public class CombinedEventsTest extends CombinedEventsTestCase {
         logWriter.println("");
         logWriter.println("=> Set breakpoint at the beginning of "
                 + methodForEvents);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 debuggeeClassID, methodForEvents);
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 
@@ -480,7 +480,7 @@ public class CombinedEventsTest extends CombinedEventsTestCase {
         logWriter.println("");
         logWriter.println("=> Set breakpoint at the beginning of "
                 + methodForEvents);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 debuggeeClassID, methodForEvents);
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 

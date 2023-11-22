@@ -45,7 +45,7 @@ void Adapter1D::serialize(Context *rsc, OStream *stream) const {
 }
 
 Adapter1D *Adapter1D::createFromStream(Context *rsc, IStream *stream) {
-    return NULL;
+    return nullptr;
 }
 
 namespace android {
@@ -118,7 +118,7 @@ void Adapter2D::serialize(Context *rsc, OStream *stream) const {
 }
 
 Adapter2D *Adapter2D::createFromStream(Context *rsc, IStream *stream) {
-    return NULL;
+    return nullptr;
 }
 
 

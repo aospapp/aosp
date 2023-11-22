@@ -366,6 +366,7 @@ typedef struct
     UINT8               remote_lsc;     /* Link Service Class of peer       */
     UINT16              remote_link_miu;/* Link MIU of peer                 */
     UINT16              local_link_miu; /* Link MIU of local                */
+    UINT8               remote_version; /* LLCP version of remote           */
 } tNFA_LLCP_ACTIVATED;
 
 /* Data for NFA_LLCP_DEACTIVATED_EVT */

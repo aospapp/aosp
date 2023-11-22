@@ -50,16 +50,6 @@ Allocate an uninitialized memory block
 @param size Bytes to allocate
 @return Returns a void pointer to the allocated space, or NULL if there is insufficient memory available
 */
-#define _FOXIT_MEM_MANAGER_
-#ifdef _FOXIT_MEM_MANAGER_
-void* opj_malloc(size_t size);
-void* opj_calloc(size_t _NumOfElements, size_t _SizeOfElements);
-void* opj_realloc(void * m, size_t s);
-void opj_free(void * m);
-
-#define opj_aligned_malloc(size) opj_malloc(size)
-#define opj_aligned_free(m) opj_free(m)
-#else
 #ifdef ALLOC_PERF_OPT
 void * OPJ_CALLCONV opj_malloc(size_t size);
 #else
@@ -185,10 +175,11 @@ void OPJ_CALLCONV opj_free(void * m);
 #ifdef __GNUC__
 #pragma GCC poison malloc calloc realloc free
 #endif
-#endif
+
 /* ----------------------------------------------------------------------- */
 /*@}*/
 
 /*@}*/
 
 #endif /* __OPJ_MALLOC_H */
+

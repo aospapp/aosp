@@ -55,7 +55,8 @@
                    android:icon="@mipmap/ic_launcher_browser"
                    android:backupAgent=".BrowserBackupAgent"
                    android:hardwareAccelerated="true"
-                   android:taskAffinity="android.task.browser" >
+                   android:taskAffinity="android.task.browser"
+                   android:usesCleartextTraffic="true" >
 
         <provider android:name=".provider.BrowserProvider2"
                   android:authorities="com.android.browser;browser"
@@ -86,7 +87,6 @@
                 <data android:scheme="http" />
                 <data android:scheme="https" />
                 <data android:scheme="about" />
-                <data android:scheme="javascript" />
             </intent-filter>
             <!--  For these schemes where any of these particular MIME types
                   have been supplied, we are a good candidate. -->
@@ -96,21 +96,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="http" />
                 <data android:scheme="https" />
-                <data android:scheme="inline" />
                 <data android:mimeType="text/html"/>
                 <data android:mimeType="text/plain"/>
                 <data android:mimeType="application/xhtml+xml"/>
                 <data android:mimeType="application/vnd.wap.xhtml+xml"/>
-            </intent-filter>
-            <!-- For viewing saved web archives. -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-                <data android:scheme="file" />
-                <data android:mimeType="application/x-webarchive-xml"/>
             </intent-filter>
             <!-- Accept inbound NFC URLs at a low priority -->
             <intent-filter android:priority="-101">

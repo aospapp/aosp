@@ -35,4 +35,42 @@
     <template src="base"/>
     <common src="logger"/>
 
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>UI</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/main.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.widget.TextSwitcher</android>
+        </api_refs>
+
+        <description>
+                <![CDATA[
+This sample illustrates the use of a TextSwitcher to display animations for text changes.
+                ]]>
+        </description>
+
+        <intro>
+                <![CDATA[
+This sample shows the use of the [android.widget.TextSwitcher][1] View with animations. A
+TextSwitcher is a special type of [android.widget.ViewSwitcher][2] that animates
+the current text out and new text in when
+[android.widget.TextSwitcher#setText(CharSequence)][3] is called.
+
+Click the "Next" button to set new text in the TextSwitcher and observe the
+in and out fade animations.
+
+[1]: http://developer.android.com/reference/android/widget/TextSwitcher.html
+[2]: http://developer.android.com/reference/android/widget/ViewSwitcher.html
+[3]: http://developer.android.com/reference/android/widget/TextSwitcher.html#setText(java.lang.CharSequence)
+                ]]>
+        </intro>
+    </metadata>
+
 </sample>

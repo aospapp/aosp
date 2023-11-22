@@ -75,9 +75,9 @@ public class BluetoothOppUtility {
                 info.mStatus = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare.STATUS));
                 info.mDirection = cursor.getInt(cursor
                         .getColumnIndexOrThrow(BluetoothShare.DIRECTION));
-                info.mTotalBytes = cursor.getInt(cursor
+                info.mTotalBytes = cursor.getLong(cursor
                         .getColumnIndexOrThrow(BluetoothShare.TOTAL_BYTES));
-                info.mCurrentBytes = cursor.getInt(cursor
+                info.mCurrentBytes = cursor.getLong(cursor
                         .getColumnIndexOrThrow(BluetoothShare.CURRENT_BYTES));
                 info.mTimeStamp = cursor.getLong(cursor
                         .getColumnIndexOrThrow(BluetoothShare.TIMESTAMP));
@@ -97,7 +97,7 @@ public class BluetoothOppUtility {
                 info.mFileUri = cursor.getString(cursor.getColumnIndexOrThrow(BluetoothShare.URI));
 
                 if (info.mFileUri != null) {
-                    Uri u = originalUri(Uri.parse(info.mFileUri));
+                    Uri u = Uri.parse(info.mFileUri);
                     info.mFileType = context.getContentResolver().getType(u);
                 } else {
                     Uri u = Uri.parse(info.mFileName);
@@ -306,26 +306,6 @@ public class BluetoothOppUtility {
                 values);
         if (V) Log.v(TAG, "Insert contentUri: " + contentUri + "  to device: " +
                 transInfo.mDeviceName);
-    }
-
-    static Uri originalUri(Uri uri) {
-        String mUri = uri.toString();
-        int atIndex = mUri.lastIndexOf("@");
-        if (atIndex != -1) {
-            mUri = mUri.substring(0, atIndex);
-            uri = Uri.parse(mUri);
-        }
-        if (V) Log.v(TAG, "originalUri: " + uri);
-        return uri;
-    }
-
-    static Uri generateUri(Uri uri, BluetoothOppSendFileInfo sendFileInfo) {
-        String fileInfo = sendFileInfo.toString();
-        int atIndex = fileInfo.lastIndexOf("@");
-        fileInfo = fileInfo.substring(atIndex);
-        uri = Uri.parse(uri + fileInfo);
-        if (V) Log.v(TAG, "generateUri: " + uri);
-        return uri;
     }
 
     static void putSendFileInfo(Uri uri, BluetoothOppSendFileInfo sendFileInfo) {

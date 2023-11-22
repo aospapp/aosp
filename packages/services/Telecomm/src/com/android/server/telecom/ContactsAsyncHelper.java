@@ -60,35 +60,13 @@ public final class ContactsAsyncHelper {
     // constants
     private static final int EVENT_LOAD_IMAGE = 1;
 
-    private static final Handler sResultHandler = new Handler(Looper.getMainLooper()) {
-        /** Called when loading is done. */
-        @Override
-        public void handleMessage(Message msg) {
-            WorkerArgs args = (WorkerArgs) msg.obj;
-            switch (msg.arg1) {
-                case EVENT_LOAD_IMAGE:
-                    if (args.listener != null) {
-                        Log.d(this, "Notifying listener: " + args.listener.toString() +
-                                " image: " + args.displayPhotoUri + " completed");
-                        args.listener.onImageLoadComplete(msg.what, args.photo, args.photoIcon,
-                                args.cookie);
-                    }
-                    break;
-                default:
-            }
-        }
-    };
-
     /** Handler run on a worker thread to load photo asynchronously. */
-    private static final Handler sThreadHandler;
+    private Handler mThreadHandler;
+    private final TelecomSystem.SyncRoot mLock;
 
-    static {
-        HandlerThread thread = new HandlerThread("ContactsAsyncWorker");
-        thread.start();
-        sThreadHandler = new WorkerHandler(thread.getLooper());
+    public ContactsAsyncHelper(TelecomSystem.SyncRoot lock) {
+        mLock = lock;
     }
-
-    private ContactsAsyncHelper() {}
 
     private static final class WorkerArgs {
         public Context context;
@@ -103,7 +81,7 @@ public final class ContactsAsyncHelper {
      * Thread worker class that handles the task of opening the stream and loading
      * the images.
      */
-    private static class WorkerHandler extends Handler {
+    private class WorkerHandler extends Handler {
         public WorkerHandler(Looper looper) {
             super(looper);
         }
@@ -149,15 +127,16 @@ public final class ContactsAsyncHelper {
                             }
                         }
                     }
+
+                    // Listener will synchronize as needed
+                    Log.d(this, "Notifying listener: " + args.listener.toString() +
+                            " image: " + args.displayPhotoUri + " completed");
+                    args.listener.onImageLoadComplete(msg.what, args.photo, args.photoIcon,
+                                args.cookie);
                     break;
                 default:
+                    break;
             }
-
-            // send the reply to the enclosing class.
-            Message reply = sResultHandler.obtainMessage(msg.what);
-            reply.arg1 = msg.arg1;
-            reply.obj = msg.obj;
-            reply.sendToTarget();
         }
 
         /**
@@ -212,9 +191,9 @@ public final class ContactsAsyncHelper {
      * fourth argument of {@link OnImageLoadCompleteListener#onImageLoadComplete(int, Drawable,
      * Bitmap, Object)}. Can be null, at which the callback will also has null for the argument.
      */
-    public static final void startObtainPhotoAsync(int token, Context context, Uri displayPhotoUri,
+    public final void startObtainPhotoAsync(int token, Context context, Uri displayPhotoUri,
             OnImageLoadCompleteListener listener, Object cookie) {
-        ThreadUtil.checkOnMainThread();
+        ensureAsyncHandlerStarted();
 
         // in case the source caller info is null, the URI will be null as well.
         // just update using the placeholder image in this case.
@@ -234,7 +213,7 @@ public final class ContactsAsyncHelper {
         args.listener = listener;
 
         // setup message arguments
-        Message msg = sThreadHandler.obtainMessage(token);
+        Message msg = mThreadHandler.obtainMessage(token);
         msg.arg1 = EVENT_LOAD_IMAGE;
         msg.obj = args;
 
@@ -242,8 +221,14 @@ public final class ContactsAsyncHelper {
                 ", displaying default image for now.");
 
         // notify the thread to begin working
-        sThreadHandler.sendMessage(msg);
+        mThreadHandler.sendMessage(msg);
     }
 
-
+    private void ensureAsyncHandlerStarted() {
+        if (mThreadHandler == null) {
+            HandlerThread thread = new HandlerThread("ContactsAsyncWorker");
+            thread.start();
+            mThreadHandler = new WorkerHandler(thread.getLooper());
+        }
+    }
 }

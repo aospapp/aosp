@@ -23,7 +23,7 @@
     <string name="unknown_album_name" msgid="2135521368192091267">"Nomlanmagan albom"</string>
     <string name="stock_photo_album_name" msgid="3150527596227525460">"Ilovadagi rasmlar"</string>
     <string name="local_source_name" msgid="6487253091085518505">"Qurilmadagi rasmlar"</string>
-    <string name="need_to_configure" msgid="1269102638159389032">"Hech qanday rasm tanlanmadi."</string>
+    <string name="need_to_configure" msgid="1269102638159389032">"Hech narsa tanlanmadi."</string>
     <string name="photodream_select_all" msgid="6364858563337927827">"Hammasini tanlash"</string>
     <string name="photodream_select_none" msgid="8816452124894525861">"Barcha tanlovlarni bekor qilish"</string>
     <string name="no_photos" msgid="4262083523147564199">"Qurilmada rasmlar yo‘q."</string>

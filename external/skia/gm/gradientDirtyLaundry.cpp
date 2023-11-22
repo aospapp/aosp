@@ -70,14 +70,10 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
+    SkString onShortName() override { return SkString("gradient_dirty_laundry"); }
+    SkISize onISize() override { return SkISize::Make(640, 615); }
 
-    SkString onShortName() SK_OVERRIDE { return SkString("gradient_dirty_laundry"); }
-    virtual SkISize onISize() SK_OVERRIDE { return SkISize::Make(640, 615); }
-
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkPoint pts[2] = { { 0, 0 },
                            { SkIntToScalar(100), SkIntToScalar(100) }
         };

@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/nd.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/nd.xml
- */
 nd{
     Currencies{
         AED{
@@ -96,7 +93,7 @@ nd{
             "Fulenki yase Gine",
         }
         INR{
-            "Rs.",
+            "₹",
             "Rupi yase Indiya",
         }
         JPY{
@@ -236,5 +233,5 @@ nd{
             "Dola yase Zimbabwe",
         }
     }
-    Version{"2.0.92.87"}
+    Version{"2.1.6.69"}
 }

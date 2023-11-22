@@ -16,6 +16,7 @@
 
 #include "rsObjectBase.h"
 #include "rsContext.h"
+#include "rsDebugHelper.h"
 
 using namespace android;
 using namespace android::renderscript;
@@ -26,27 +27,35 @@ ObjectBase::ObjectBase(Context *rsc) {
     mUserRefCount = 0;
     mSysRefCount = 0;
     mRSC = rsc;
-    mNext = NULL;
-    mPrev = NULL;
-    mDH = NULL;
-    mName = NULL;
+    mNext = nullptr;
+    mPrev = nullptr;
+    mDH = nullptr;
+    mName = nullptr;
 
-#if RS_OBJECT_DEBUG
-    mDH = new DebugHelper();
-#endif
+    if (gDebugStacks || gDebugReferences || gDebugLeaks) {
+        mDH = new DebugHelper();
+    }
 
     rsAssert(rsc);
     add();
-    //ALOGV("ObjectBase %p con", this);
+
+    if (gDebugLifetime || gDebugReferences) {
+        ALOGV("ObjectBase constructed %p", this);
+    }
 }
 
 ObjectBase::~ObjectBase() {
-    //ALOGE("~ObjectBase %p  ref %i,%i", this, mUserRefCount, mSysRefCount);
-#if RS_OBJECT_DEBUG
-    mDH->dump();
-    delete mDH;
-    mDH = NULL;
-#endif
+    if (gDebugLifetime || gDebugReferences) {
+        ALOGV("ObjectBase destroyed %p   refs %i %i", this, mUserRefCount, mSysRefCount);
+    }
+
+    if (gDebugStacks || gDebugReferences || gDebugLeaks) {
+        if (gDebugStacks || gDebugReferences) {
+            mDH->dump();
+        }
+        delete mDH;
+        mDH = nullptr;
+    }
 
     free(const_cast<char *>(mName));
 
@@ -76,12 +85,16 @@ void ObjectBase::dumpLOGV(const char *op) const {
 
 void ObjectBase::incUserRef() const {
     __sync_fetch_and_add(&mUserRefCount, 1);
-    //ALOGV("ObjectBase %p incU ref %i, %i", this, mUserRefCount, mSysRefCount);
+    if (gDebugReferences) {
+        ALOGV("ObjectBase %p incU ref %i, %i", this, mUserRefCount, mSysRefCount);
+    }
 }
 
 void ObjectBase::incSysRef() const {
     __sync_fetch_and_add(&mSysRefCount, 1);
-    //ALOGV("ObjectBase %p incS ref %i, %i", this, mUserRefCount, mSysRefCount);
+    if (gDebugReferences) {
+        ALOGV("ObjectBase %p incS ref %i, %i", this, mUserRefCount, mSysRefCount);
+    }
 }
 
 void ObjectBase::preDestroy() const {
@@ -116,12 +129,12 @@ bool ObjectBase::checkDelete(const ObjectBase *ref) {
 
 bool ObjectBase::decUserRef() const {
     rsAssert(mUserRefCount > 0);
-#if RS_OBJECT_DEBUG
-    //ALOGV("ObjectBase %p decU ref %i, %i", this, mUserRefCount, mSysRefCount);
-    if (mUserRefCount <= 0) {
-        mDH->dump();
+    if (gDebugReferences) {
+        ALOGV("ObjectBase %p decU ref %i, %i", this, mUserRefCount, mSysRefCount);
+        if (mUserRefCount <= 0) {
+            mDH->dump();
+        }
     }
-#endif
 
 
     if ((__sync_fetch_and_sub(&mUserRefCount, 1) <= 1)) {
@@ -134,7 +147,10 @@ bool ObjectBase::decUserRef() const {
 }
 
 bool ObjectBase::zeroUserRef() const {
-    //ALOGV("ObjectBase %p zeroU ref %i, %i", this, mUserRefCount, mSysRefCount);
+    if (gDebugReferences) {
+        ALOGV("ObjectBase %p zeroU ref %i, %i", this, mUserRefCount, mSysRefCount);
+    }
+
     __sync_and_and_fetch(&mUserRefCount, 0);
     if (mSysRefCount <= 0) {
         return checkDelete(this);
@@ -143,7 +159,10 @@ bool ObjectBase::zeroUserRef() const {
 }
 
 bool ObjectBase::decSysRef() const {
-    //ALOGV("ObjectBase %p decS ref %i, %i", this, mUserRefCount, mSysRefCount);
+    if (gDebugReferences) {
+        ALOGV("ObjectBase %p decS ref %i, %i", this, mUserRefCount, mSysRefCount);
+    }
+
     rsAssert(mSysRefCount > 0);
     if ((__sync_fetch_and_sub(&mSysRefCount, 1) <= 1)) {
         __sync_synchronize();
@@ -203,12 +222,12 @@ void ObjectBase::remove() const {
     if (mNext) {
         mNext->mPrev = mPrev;
     }
-    mPrev = NULL;
-    mNext = NULL;
+    mPrev = nullptr;
+    mNext = nullptr;
 }
 
 void ObjectBase::zeroAllUserRef(Context *rsc) {
-    if (rsc->props.mLogObjects) {
+    if (gDebugReferences || gDebugLeaks) {
         ALOGV("Forcing release of all outstanding user refs.");
     }
 
@@ -226,14 +245,14 @@ void ObjectBase::zeroAllUserRef(Context *rsc) {
         }
     }
 
-    if (rsc->props.mLogObjects) {
+    if (gDebugReferences || gDebugLeaks) {
         ALOGV("Objects remaining.");
         dumpAll(rsc);
     }
 }
 
 void ObjectBase::freeAllChildren(Context *rsc) {
-    if (rsc->props.mLogObjects) {
+    if (gDebugReferences) {
         ALOGV("Forcing release of all child objects.");
     }
 
@@ -248,7 +267,7 @@ void ObjectBase::freeAllChildren(Context *rsc) {
         }
     }
 
-    if (rsc->props.mLogObjects) {
+    if (gDebugReferences) {
         ALOGV("Objects remaining.");
         dumpAll(rsc);
     }
@@ -262,6 +281,9 @@ void ObjectBase::dumpAll(Context *rsc) {
     while (o) {
         ALOGV(" Object %p", o);
         o->dumpLOGV("  ");
+        if (o->mDH != nullptr) {
+            o->mDH->dump();
+        }
         o = o->mNext;
     }
 

@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include "gc/accounting/heap_bitmap-inl.h"
 #include "gc/accounting/space_bitmap-inl.h"
 #include "base/logging.h"
 #include "base/mutex-inl.h"
@@ -26,7 +27,6 @@
 #include "os.h"
 #include "space-inl.h"
 #include "thread-inl.h"
-#include "utils.h"
 
 namespace art {
 namespace gc {
@@ -37,15 +37,25 @@ class ValgrindLargeObjectMapSpace FINAL : public LargeObjectMapSpace {
   explicit ValgrindLargeObjectMapSpace(const std::string& name) : LargeObjectMapSpace(name) {
   }
 
-  virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                size_t* usable_size) OVERRIDE {
+  ~ValgrindLargeObjectMapSpace() OVERRIDE {
+    // Keep valgrind happy if there is any large objects such as dex cache arrays which aren't
+    // freed since they are held live by the class linker.
+    MutexLock mu(Thread::Current(), lock_);
+    for (auto& m : large_objects_) {
+      delete m.second.mem_map;
+    }
+  }
+
+  mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
+                        size_t* usable_size, size_t* bytes_tl_bulk_allocated)
+      OVERRIDE {
     mirror::Object* obj =
         LargeObjectMapSpace::Alloc(self, num_bytes + kValgrindRedZoneBytes * 2, bytes_allocated,
-                                   usable_size);
+                                   usable_size, bytes_tl_bulk_allocated);
     mirror::Object* object_without_rdz = reinterpret_cast<mirror::Object*>(
         reinterpret_cast<uintptr_t>(obj) + kValgrindRedZoneBytes);
     VALGRIND_MAKE_MEM_NOACCESS(reinterpret_cast<void*>(obj), kValgrindRedZoneBytes);
-    VALGRIND_MAKE_MEM_NOACCESS(reinterpret_cast<byte*>(object_without_rdz) + num_bytes,
+    VALGRIND_MAKE_MEM_NOACCESS(reinterpret_cast<uint8_t*>(object_without_rdz) + num_bytes,
                                kValgrindRedZoneBytes);
     if (usable_size != nullptr) {
       *usable_size = num_bytes;  // Since we have redzones, shrink the usable size.
@@ -53,26 +63,35 @@ class ValgrindLargeObjectMapSpace FINAL : public LargeObjectMapSpace {
     return object_without_rdz;
   }
 
-  virtual size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
-    mirror::Object* object_with_rdz = reinterpret_cast<mirror::Object*>(
-        reinterpret_cast<uintptr_t>(obj) - kValgrindRedZoneBytes);
-    return LargeObjectMapSpace::AllocationSize(object_with_rdz, usable_size);
+  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
+    return LargeObjectMapSpace::AllocationSize(ObjectWithRedzone(obj), usable_size);
   }
 
-  virtual size_t Free(Thread* self, mirror::Object* obj) OVERRIDE {
-    mirror::Object* object_with_rdz = reinterpret_cast<mirror::Object*>(
-        reinterpret_cast<uintptr_t>(obj) - kValgrindRedZoneBytes);
+  bool IsZygoteLargeObject(Thread* self, mirror::Object* obj) const OVERRIDE {
+    return LargeObjectMapSpace::IsZygoteLargeObject(self, ObjectWithRedzone(obj));
+  }
+
+  size_t Free(Thread* self, mirror::Object* obj) OVERRIDE {
+    mirror::Object* object_with_rdz = ObjectWithRedzone(obj);
     VALGRIND_MAKE_MEM_UNDEFINED(object_with_rdz, AllocationSize(obj, nullptr));
     return LargeObjectMapSpace::Free(self, object_with_rdz);
   }
 
   bool Contains(const mirror::Object* obj) const OVERRIDE {
-    mirror::Object* object_with_rdz = reinterpret_cast<mirror::Object*>(
-        reinterpret_cast<uintptr_t>(obj) - kValgrindRedZoneBytes);
-    return LargeObjectMapSpace::Contains(object_with_rdz);
+    return LargeObjectMapSpace::Contains(ObjectWithRedzone(obj));
   }
 
  private:
+  static const mirror::Object* ObjectWithRedzone(const mirror::Object* obj) {
+    return reinterpret_cast<const mirror::Object*>(
+        reinterpret_cast<uintptr_t>(obj) - kValgrindRedZoneBytes);
+  }
+
+  static mirror::Object* ObjectWithRedzone(mirror::Object* obj) {
+    return reinterpret_cast<mirror::Object*>(
+        reinterpret_cast<uintptr_t>(obj) - kValgrindRedZoneBytes);
+  }
+
   static constexpr size_t kValgrindRedZoneBytes = kPageSize;
 };
 
@@ -84,7 +103,7 @@ void LargeObjectSpace::SwapBitmaps() {
   mark_bitmap_->SetName(temp_name);
 }
 
-LargeObjectSpace::LargeObjectSpace(const std::string& name, byte* begin, byte* end)
+LargeObjectSpace::LargeObjectSpace(const std::string& name, uint8_t* begin, uint8_t* end)
     : DiscontinuousSpace(name, kGcRetentionPolicyAlwaysCollect),
       num_bytes_allocated_(0), num_objects_allocated_(0), total_bytes_allocated_(0),
       total_objects_allocated_(0), begin_(begin), end_(end) {
@@ -108,22 +127,32 @@ LargeObjectMapSpace* LargeObjectMapSpace::Create(const std::string& name) {
 }
 
 mirror::Object* LargeObjectMapSpace::Alloc(Thread* self, size_t num_bytes,
-                                           size_t* bytes_allocated, size_t* usable_size) {
+                                           size_t* bytes_allocated, size_t* usable_size,
+                                           size_t* bytes_tl_bulk_allocated) {
   std::string error_msg;
-  MemMap* mem_map = MemMap::MapAnonymous("large object space allocation", NULL, num_bytes,
-                                         PROT_READ | PROT_WRITE, true, &error_msg);
-  if (UNLIKELY(mem_map == NULL)) {
+  MemMap* mem_map = MemMap::MapAnonymous("large object space allocation", nullptr, num_bytes,
+                                         PROT_READ | PROT_WRITE, true, false, &error_msg);
+  if (UNLIKELY(mem_map == nullptr)) {
     LOG(WARNING) << "Large object allocation failed: " << error_msg;
-    return NULL;
+    return nullptr;
+  }
+  mirror::Object* const obj = reinterpret_cast<mirror::Object*>(mem_map->Begin());
+  if (kIsDebugBuild) {
+    ReaderMutexLock mu2(Thread::Current(), *Locks::heap_bitmap_lock_);
+    auto* heap = Runtime::Current()->GetHeap();
+    auto* live_bitmap = heap->GetLiveBitmap();
+    auto* space_bitmap = live_bitmap->GetContinuousSpaceBitmap(obj);
+    CHECK(space_bitmap == nullptr) << obj << " overlaps with bitmap " << *space_bitmap;
+    auto* obj_end = reinterpret_cast<mirror::Object*>(mem_map->End());
+    space_bitmap = live_bitmap->GetContinuousSpaceBitmap(obj_end - 1);
+    CHECK(space_bitmap == nullptr) << obj_end << " overlaps with bitmap " << *space_bitmap;
   }
   MutexLock mu(self, lock_);
-  mirror::Object* obj = reinterpret_cast<mirror::Object*>(mem_map->Begin());
-  large_objects_.push_back(obj);
-  mem_maps_.Put(obj, mem_map);
-  size_t allocation_size = mem_map->Size();
+  large_objects_.Put(obj, LargeObject {mem_map, false /* not zygote */});
+  const size_t allocation_size = mem_map->BaseSize();
   DCHECK(bytes_allocated != nullptr);
-  begin_ = std::min(begin_, reinterpret_cast<byte*>(obj));
-  byte* obj_end = reinterpret_cast<byte*>(obj) + allocation_size;
+  begin_ = std::min(begin_, reinterpret_cast<uint8_t*>(obj));
+  uint8_t* obj_end = reinterpret_cast<uint8_t*>(obj) + allocation_size;
   if (end_ == nullptr || obj_end > end_) {
     end_ = obj_end;
   }
@@ -131,6 +160,8 @@ mirror::Object* LargeObjectMapSpace::Alloc(Thread* self, size_t num_bytes,
   if (usable_size != nullptr) {
     *usable_size = allocation_size;
   }
+  DCHECK(bytes_tl_bulk_allocated != nullptr);
+  *bytes_tl_bulk_allocated = allocation_size;
   num_bytes_allocated_ += allocation_size;
   total_bytes_allocated_ += allocation_size;
   ++num_objects_allocated_;
@@ -138,27 +169,47 @@ mirror::Object* LargeObjectMapSpace::Alloc(Thread* self, size_t num_bytes,
   return obj;
 }
 
+bool LargeObjectMapSpace::IsZygoteLargeObject(Thread* self, mirror::Object* obj) const {
+  MutexLock mu(self, lock_);
+  auto it = large_objects_.find(obj);
+  CHECK(it != large_objects_.end());
+  return it->second.is_zygote;
+}
+
+void LargeObjectMapSpace::SetAllLargeObjectsAsZygoteObjects(Thread* self) {
+  MutexLock mu(self, lock_);
+  for (auto& pair : large_objects_) {
+    pair.second.is_zygote = true;
+  }
+}
+
 size_t LargeObjectMapSpace::Free(Thread* self, mirror::Object* ptr) {
   MutexLock mu(self, lock_);
-  MemMaps::iterator found = mem_maps_.find(ptr);
-  if (UNLIKELY(found == mem_maps_.end())) {
-    Runtime::Current()->GetHeap()->DumpSpaces(LOG(ERROR));
+  auto it = large_objects_.find(ptr);
+  if (UNLIKELY(it == large_objects_.end())) {
+    Runtime::Current()->GetHeap()->DumpSpaces(LOG(INTERNAL_FATAL));
     LOG(FATAL) << "Attempted to free large object " << ptr << " which was not live";
   }
-  DCHECK_GE(num_bytes_allocated_, found->second->Size());
-  size_t allocation_size = found->second->Size();
+  MemMap* mem_map = it->second.mem_map;
+  const size_t map_size = mem_map->BaseSize();
+  DCHECK_GE(num_bytes_allocated_, map_size);
+  size_t allocation_size = map_size;
   num_bytes_allocated_ -= allocation_size;
   --num_objects_allocated_;
-  delete found->second;
-  mem_maps_.erase(found);
+  delete mem_map;
+  large_objects_.erase(it);
   return allocation_size;
 }
 
 size_t LargeObjectMapSpace::AllocationSize(mirror::Object* obj, size_t* usable_size) {
   MutexLock mu(Thread::Current(), lock_);
-  auto found = mem_maps_.find(obj);
-  CHECK(found != mem_maps_.end()) << "Attempted to get size of a large object which is not live";
-  return found->second->Size();
+  auto it = large_objects_.find(obj);
+  CHECK(it != large_objects_.end()) << "Attempted to get size of a large object which is not live";
+  size_t alloc_size = it->second.mem_map->BaseSize();
+  if (usable_size != nullptr) {
+    *usable_size = alloc_size;
+  }
+  return alloc_size;
 }
 
 size_t LargeObjectSpace::FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) {
@@ -174,10 +225,10 @@ size_t LargeObjectSpace::FreeList(Thread* self, size_t num_ptrs, mirror::Object*
 
 void LargeObjectMapSpace::Walk(DlMallocSpace::WalkCallback callback, void* arg) {
   MutexLock mu(Thread::Current(), lock_);
-  for (auto it = mem_maps_.begin(); it != mem_maps_.end(); ++it) {
-    MemMap* mem_map = it->second;
+  for (auto& pair : large_objects_) {
+    MemMap* mem_map = pair.second.mem_map;
     callback(mem_map->Begin(), mem_map->End(), mem_map->Size(), arg);
-    callback(NULL, NULL, 0, arg);
+    callback(nullptr, nullptr, 0, arg);
   }
 }
 
@@ -185,22 +236,25 @@ bool LargeObjectMapSpace::Contains(const mirror::Object* obj) const {
   Thread* self = Thread::Current();
   if (lock_.IsExclusiveHeld(self)) {
     // We hold lock_ so do the check.
-    return mem_maps_.find(const_cast<mirror::Object*>(obj)) != mem_maps_.end();
+    return large_objects_.find(const_cast<mirror::Object*>(obj)) != large_objects_.end();
   } else {
     MutexLock mu(self, lock_);
-    return mem_maps_.find(const_cast<mirror::Object*>(obj)) != mem_maps_.end();
+    return large_objects_.find(const_cast<mirror::Object*>(obj)) != large_objects_.end();
   }
 }
 
 // Keeps track of allocation sizes + whether or not the previous allocation is free.
-// Used to coalesce free blocks and find the best fit block for an allocation.
+// Used to coalesce free blocks and find the best fit block for an allocation for best fit object
+// allocation. Each allocation has an AllocationInfo which contains the size of the previous free
+// block preceding it. Implemented in such a way that we can also find the iterator for any
+// allocation info pointer.
 class AllocationInfo {
  public:
   AllocationInfo() : prev_free_(0), alloc_size_(0) {
   }
   // Return the number of pages that the allocation info covers.
   size_t AlignSize() const {
-    return alloc_size_ & ~kFlagFree;
+    return alloc_size_ & kFlagsMask;
   }
   // Returns the allocation size in bytes.
   size_t ByteSize() const {
@@ -208,12 +262,23 @@ class AllocationInfo {
   }
   // Updates the allocation size and whether or not it is free.
   void SetByteSize(size_t size, bool free) {
+    DCHECK_EQ(size & ~kFlagsMask, 0u);
     DCHECK_ALIGNED(size, FreeListSpace::kAlignment);
-    alloc_size_ = (size / FreeListSpace::kAlignment) | (free ? kFlagFree : 0U);
+    alloc_size_ = (size / FreeListSpace::kAlignment) | (free ? kFlagFree : 0u);
   }
+  // Returns true if the block is free.
   bool IsFree() const {
     return (alloc_size_ & kFlagFree) != 0;
   }
+  // Return true if the large object is a zygote object.
+  bool IsZygoteObject() const {
+    return (alloc_size_ & kFlagZygote) != 0;
+  }
+  // Change the object to be a zygote object.
+  void SetZygoteObject() {
+    alloc_size_ |= kFlagZygote;
+  }
+  // Return true if this is a zygote large object.
   // Finds and returns the next non free allocation info after ourself.
   AllocationInfo* GetNextInfo() {
     return this + AlignSize();
@@ -247,10 +312,9 @@ class AllocationInfo {
   }
 
  private:
-  // Used to implement best fit object allocation. Each allocation has an AllocationInfo which
-  // contains the size of the previous free block preceding it. Implemented in such a way that we
-  // can also find the iterator for any allocation info pointer.
-  static constexpr uint32_t kFlagFree = 0x8000000;
+  static constexpr uint32_t kFlagFree = 0x80000000;  // If block is free.
+  static constexpr uint32_t kFlagZygote = 0x40000000;  // If the large object is a zygote object.
+  static constexpr uint32_t kFlagsMask = ~(kFlagFree | kFlagZygote);  // Combined flags for masking.
   // Contains the size of the previous free block with kAlignment as the unit. If 0 then the
   // allocation before us is not free.
   // These variables are undefined in the middle of allocations / free blocks.
@@ -282,16 +346,16 @@ inline bool FreeListSpace::SortByPrevFree::operator()(const AllocationInfo* a,
   return reinterpret_cast<uintptr_t>(a) < reinterpret_cast<uintptr_t>(b);
 }
 
-FreeListSpace* FreeListSpace::Create(const std::string& name, byte* requested_begin, size_t size) {
+FreeListSpace* FreeListSpace::Create(const std::string& name, uint8_t* requested_begin, size_t size) {
   CHECK_EQ(size % kAlignment, 0U);
   std::string error_msg;
   MemMap* mem_map = MemMap::MapAnonymous(name.c_str(), requested_begin, size,
-                                         PROT_READ | PROT_WRITE, true, &error_msg);
-  CHECK(mem_map != NULL) << "Failed to allocate large object space mem map: " << error_msg;
+                                         PROT_READ | PROT_WRITE, true, false, &error_msg);
+  CHECK(mem_map != nullptr) << "Failed to allocate large object space mem map: " << error_msg;
   return new FreeListSpace(name, mem_map, mem_map->Begin(), mem_map->End());
 }
 
-FreeListSpace::FreeListSpace(const std::string& name, MemMap* mem_map, byte* begin, byte* end)
+FreeListSpace::FreeListSpace(const std::string& name, MemMap* mem_map, uint8_t* begin, uint8_t* end)
     : LargeObjectSpace(name, begin, end),
       mem_map_(mem_map),
       lock_("free list space lock", kAllocSpaceLock) {
@@ -300,9 +364,10 @@ FreeListSpace::FreeListSpace(const std::string& name, MemMap* mem_map, byte* beg
   CHECK_ALIGNED(space_capacity, kAlignment);
   const size_t alloc_info_size = sizeof(AllocationInfo) * (space_capacity / kAlignment);
   std::string error_msg;
-  allocation_info_map_.reset(MemMap::MapAnonymous("large object free list space allocation info map",
-                                                  nullptr, alloc_info_size, PROT_READ | PROT_WRITE,
-                                                  false, &error_msg));
+  allocation_info_map_.reset(
+      MemMap::MapAnonymous("large object free list space allocation info map",
+                           nullptr, alloc_info_size, PROT_READ | PROT_WRITE,
+                           false, false, &error_msg));
   CHECK(allocation_info_map_.get() != nullptr) << "Failed to allocate allocation info map"
       << error_msg;
   allocation_info_ = reinterpret_cast<AllocationInfo*>(allocation_info_map_->Begin());
@@ -318,8 +383,8 @@ void FreeListSpace::Walk(DlMallocSpace::WalkCallback callback, void* arg) {
   while (cur_info < end_info) {
     if (!cur_info->IsFree()) {
       size_t alloc_size = cur_info->ByteSize();
-      byte* byte_start = reinterpret_cast<byte*>(GetAddressForAllocationInfo(cur_info));
-      byte* byte_end = byte_start + alloc_size;
+      uint8_t* byte_start = reinterpret_cast<uint8_t*>(GetAddressForAllocationInfo(cur_info));
+      uint8_t* byte_end = byte_start + alloc_size;
       callback(byte_start, byte_end, alloc_size, arg);
       callback(nullptr, nullptr, 0, arg);
     }
@@ -407,7 +472,7 @@ size_t FreeListSpace::AllocationSize(mirror::Object* obj, size_t* usable_size) {
 }
 
 mirror::Object* FreeListSpace::Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                     size_t* usable_size) {
+                                     size_t* usable_size, size_t* bytes_tl_bulk_allocated) {
   MutexLock mu(self, lock_);
   const size_t allocation_size = RoundUp(num_bytes, kAlignment);
   AllocationInfo temp_info;
@@ -445,6 +510,8 @@ mirror::Object* FreeListSpace::Alloc(Thread* self, size_t num_bytes, size_t* byt
   if (usable_size != nullptr) {
     *usable_size = allocation_size;
   }
+  DCHECK(bytes_tl_bulk_allocated != nullptr);
+  *bytes_tl_bulk_allocated = allocation_size;
   // Need to do these inside of the lock.
   ++num_objects_allocated_;
   ++total_objects_allocated_;
@@ -462,7 +529,7 @@ mirror::Object* FreeListSpace::Alloc(Thread* self, size_t num_bytes, size_t* byt
 }
 
 void FreeListSpace::Dump(std::ostream& os) const {
-  MutexLock mu(Thread::Current(), const_cast<Mutex&>(lock_));
+  MutexLock mu(Thread::Current(), lock_);
   os << GetName() << " -"
      << " begin: " << reinterpret_cast<void*>(Begin())
      << " end: " << reinterpret_cast<void*>(End()) << "\n";
@@ -485,6 +552,24 @@ void FreeListSpace::Dump(std::ostream& os) const {
   if (free_end_) {
     os << "Free block at address: " << reinterpret_cast<const void*>(free_end_start)
        << " of length " << free_end_ << " bytes\n";
+  }
+}
+
+bool FreeListSpace::IsZygoteLargeObject(Thread* self ATTRIBUTE_UNUSED, mirror::Object* obj) const {
+  const AllocationInfo* info = GetAllocationInfoForAddress(reinterpret_cast<uintptr_t>(obj));
+  DCHECK(info != nullptr);
+  return info->IsZygoteObject();
+}
+
+void FreeListSpace::SetAllLargeObjectsAsZygoteObjects(Thread* self) {
+  MutexLock mu(self, lock_);
+  uintptr_t free_end_start = reinterpret_cast<uintptr_t>(end_) - free_end_;
+  for (AllocationInfo* cur_info = GetAllocationInfoForAddress(reinterpret_cast<uintptr_t>(Begin())),
+      *end_info = GetAllocationInfoForAddress(free_end_start); cur_info < end_info;
+      cur_info = cur_info->GetNextInfo()) {
+    if (!cur_info->IsFree()) {
+      cur_info->SetZygoteObject();
+    }
   }
 }
 

@@ -126,6 +126,17 @@ static const bool config_ivsalloc =
     false
 #endif
     ;
+static const bool config_cache_oblivious =
+#ifdef JEMALLOC_CACHE_OBLIVIOUS
+    true
+#else
+    false
+#endif
+    ;
+
+#ifdef JEMALLOC_C11ATOMICS
+#include <stdatomic.h>
+#endif
 
 #ifdef JEMALLOC_ATOMIC9
 #include <machine/atomic.h>
@@ -165,14 +176,43 @@ static const bool config_ivsalloc =
 
 #include "jemalloc/internal/jemalloc_internal_macros.h"
 
+/* Size class index type. */
+typedef unsigned index_t;
+
+/*
+ * Flags bits:
+ *
+ * a: arena
+ * t: tcache
+ * 0: unused
+ * z: zero
+ * n: alignment
+ *
+ * aaaaaaaa aaaatttt tttttttt 0znnnnnn
+ */
+#define	MALLOCX_ARENA_MASK	((int)~0xfffff)
+#define	MALLOCX_ARENA_MAX	0xffe
+#define	MALLOCX_TCACHE_MASK	((int)~0xfff000ffU)
+#define	MALLOCX_TCACHE_MAX	0xffd
 #define	MALLOCX_LG_ALIGN_MASK	((int)0x3f)
+/* Use MALLOCX_ALIGN_GET() if alignment may not be specified in flags. */
+#define	MALLOCX_ALIGN_GET_SPECIFIED(flags)				\
+    (ZU(1) << (flags & MALLOCX_LG_ALIGN_MASK))
+#define	MALLOCX_ALIGN_GET(flags)					\
+    (MALLOCX_ALIGN_GET_SPECIFIED(flags) & (SIZE_T_MAX-1))
+#define	MALLOCX_ZERO_GET(flags)						\
+    ((bool)(flags & MALLOCX_ZERO))
+
+#define	MALLOCX_TCACHE_GET(flags)					\
+    (((unsigned)((flags & MALLOCX_TCACHE_MASK) >> 8)) - 2)
+#define	MALLOCX_ARENA_GET(flags)					\
+    (((unsigned)(((unsigned)flags) >> 20)) - 1)
 
 /* Smallest size class to support. */
-#define	LG_TINY_MIN		3
 #define	TINY_MIN		(1U << LG_TINY_MIN)
 
 /*
- * Minimum alignment of allocations is 2^LG_QUANTUM bytes (ignoring tiny size
+ * Minimum allocation alignment is 2^LG_QUANTUM bytes (ignoring tiny size
  * classes).
  */
 #ifndef LG_QUANTUM
@@ -203,6 +243,9 @@ static const bool config_ivsalloc =
 #  ifdef __mips__
 #    define LG_QUANTUM		3
 #  endif
+#  ifdef __or1k__
+#    define LG_QUANTUM		3
+#  endif
 #  ifdef __powerpc__
 #    define LG_QUANTUM		4
 #  endif
@@ -219,7 +262,8 @@ static const bool config_ivsalloc =
 #    define LG_QUANTUM		4
 #  endif
 #  ifndef LG_QUANTUM
-#    error "No LG_QUANTUM definition for architecture; specify via CPPFLAGS"
+#    error "Unknown minimum alignment for architecture; specify via "
+	 "--with-lg-quantum"
 #  endif
 #endif
 
@@ -259,12 +303,11 @@ static const bool config_ivsalloc =
 #define	CACHELINE_CEILING(s)						\
 	(((s) + CACHELINE_MASK) & ~CACHELINE_MASK)
 
-/* Page size.  STATIC_PAGE_SHIFT is determined by the configure script. */
+/* Page size.  LG_PAGE is determined by the configure script. */
 #ifdef PAGE_MASK
 #  undef PAGE_MASK
 #endif
-#define	LG_PAGE		STATIC_PAGE_SHIFT
-#define	PAGE		((size_t)(1U << STATIC_PAGE_SHIFT))
+#define	PAGE		((size_t)(1U << LG_PAGE))
 #define	PAGE_MASK	((size_t)(PAGE - 1))
 
 /* Return the smallest pagesize multiple that is >= s. */
@@ -283,7 +326,7 @@ static const bool config_ivsalloc =
 #define	ALIGNMENT_CEILING(s, alignment)					\
 	(((s) + (alignment - 1)) & (-(alignment)))
 
-/* Declare a variable length array */
+/* Declare a variable-length array. */
 #if __STDC_VERSION__ < 199901L
 #  ifdef _MSC_VER
 #    include <malloc.h>
@@ -316,9 +359,9 @@ static const bool config_ivsalloc =
 #include "jemalloc/internal/arena.h"
 #include "jemalloc/internal/bitmap.h"
 #include "jemalloc/internal/base.h"
+#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/chunk.h"
 #include "jemalloc/internal/huge.h"
-#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/tcache.h"
 #include "jemalloc/internal/hash.h"
 #include "jemalloc/internal/quarantine.h"
@@ -337,36 +380,34 @@ static const bool config_ivsalloc =
 #include "jemalloc/internal/stats.h"
 #include "jemalloc/internal/ctl.h"
 #include "jemalloc/internal/mutex.h"
-#include "jemalloc/internal/tsd.h"
 #include "jemalloc/internal/mb.h"
 #include "jemalloc/internal/bitmap.h"
-#include "jemalloc/internal/extent.h"
+#define	JEMALLOC_ARENA_STRUCTS_A
 #include "jemalloc/internal/arena.h"
+#undef JEMALLOC_ARENA_STRUCTS_A
+#include "jemalloc/internal/extent.h"
+#define	JEMALLOC_ARENA_STRUCTS_B
+#include "jemalloc/internal/arena.h"
+#undef JEMALLOC_ARENA_STRUCTS_B
 #include "jemalloc/internal/base.h"
+#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/chunk.h"
 #include "jemalloc/internal/huge.h"
-#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/tcache.h"
 #include "jemalloc/internal/hash.h"
 #include "jemalloc/internal/quarantine.h"
 #include "jemalloc/internal/prof.h"
 
-typedef struct {
-	uint64_t	allocated;
-	uint64_t	deallocated;
-} thread_allocated_t;
-/*
- * The JEMALLOC_ARG_CONCAT() wrapper is necessary to pass {0, 0} via a cpp macro
- * argument.
- */
-#define	THREAD_ALLOCATED_INITIALIZER	JEMALLOC_ARG_CONCAT({0, 0})
+#include "jemalloc/internal/tsd.h"
 
 #undef JEMALLOC_H_STRUCTS
 /******************************************************************************/
 #define	JEMALLOC_H_EXTERNS
 
 extern bool	opt_abort;
-extern bool	opt_junk;
+extern const char	*opt_junk;
+extern bool	opt_junk_alloc;
+extern bool	opt_junk_free;
 extern size_t	opt_quarantine;
 extern bool	opt_redzone;
 extern bool	opt_utrace;
@@ -379,23 +420,37 @@ extern bool	in_valgrind;
 /* Number of CPUs. */
 extern unsigned		ncpus;
 
-/* Protects arenas initialization (arenas, arenas_total). */
-extern malloc_mutex_t	arenas_lock;
 /*
- * Arenas that are used to service external requests.  Not all elements of the
- * arenas array are necessarily used; arenas are created lazily as needed.
- *
- * arenas[0..narenas_auto) are used for automatic multiplexing of threads and
- * arenas.  arenas[narenas_auto..narenas_total) are only used if the application
- * takes some action to create them and allocate from them.
+ * index2size_tab encodes the same information as could be computed (at
+ * unacceptable cost in some code paths) by index2size_compute().
  */
-extern arena_t		**arenas;
-extern unsigned		narenas_total;
-extern unsigned		narenas_auto; /* Read-only after initialization. */
+extern size_t const	index2size_tab[NSIZES];
+/*
+ * size2index_tab is a compact lookup table that rounds request sizes up to
+ * size classes.  In order to reduce cache footprint, the table is compressed,
+ * and all accesses are via size2index().
+ */
+extern uint8_t const	size2index_tab[];
 
+arena_t	*a0get(void);
+void	*a0malloc(size_t size);
+void	a0dalloc(void *ptr);
+void	*bootstrap_malloc(size_t size);
+void	*bootstrap_calloc(size_t num, size_t size);
+void	bootstrap_free(void *ptr);
 arena_t	*arenas_extend(unsigned ind);
-void	arenas_cleanup(void *arg);
-arena_t	*choose_arena_hard(void);
+arena_t	*arena_init(unsigned ind);
+unsigned	narenas_total_get(void);
+arena_t	*arena_get_hard(tsd_t *tsd, unsigned ind, bool init_if_missing);
+arena_t	*arena_choose_hard(tsd_t *tsd);
+void	arena_migrate(tsd_t *tsd, unsigned oldind, unsigned newind);
+unsigned	arena_nbound(unsigned ind);
+void	thread_allocated_cleanup(tsd_t *tsd);
+void	thread_deallocated_cleanup(tsd_t *tsd);
+void	arena_cleanup(tsd_t *tsd);
+void	arenas_cache_cleanup(tsd_t *tsd);
+void	narenas_cache_cleanup(tsd_t *tsd);
+void	arenas_cache_bypass_cleanup(tsd_t *tsd);
 void	jemalloc_prefork(void);
 void	jemalloc_postfork_parent(void);
 void	jemalloc_postfork_child(void);
@@ -409,19 +464,19 @@ void	jemalloc_postfork_child(void);
 #include "jemalloc/internal/stats.h"
 #include "jemalloc/internal/ctl.h"
 #include "jemalloc/internal/mutex.h"
-#include "jemalloc/internal/tsd.h"
 #include "jemalloc/internal/mb.h"
 #include "jemalloc/internal/bitmap.h"
 #include "jemalloc/internal/extent.h"
 #include "jemalloc/internal/arena.h"
 #include "jemalloc/internal/base.h"
+#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/chunk.h"
 #include "jemalloc/internal/huge.h"
-#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/tcache.h"
 #include "jemalloc/internal/hash.h"
 #include "jemalloc/internal/quarantine.h"
 #include "jemalloc/internal/prof.h"
+#include "jemalloc/internal/tsd.h"
 
 #undef JEMALLOC_H_EXTERNS
 /******************************************************************************/
@@ -440,34 +495,159 @@ void	jemalloc_postfork_child(void);
 #include "jemalloc/internal/mb.h"
 #include "jemalloc/internal/extent.h"
 #include "jemalloc/internal/base.h"
+#include "jemalloc/internal/rtree.h"
 #include "jemalloc/internal/chunk.h"
 #include "jemalloc/internal/huge.h"
 
-/*
- * Include arena.h the first time in order to provide inline functions for this
- * header's inlines.
- */
-#define	JEMALLOC_ARENA_INLINE_A
-#include "jemalloc/internal/arena.h"
-#undef JEMALLOC_ARENA_INLINE_A
-
 #ifndef JEMALLOC_ENABLE_INLINE
-malloc_tsd_protos(JEMALLOC_ATTR(unused), arenas, arena_t *)
-
+index_t	size2index_compute(size_t size);
+index_t	size2index_lookup(size_t size);
+index_t	size2index(size_t size);
+size_t	index2size_compute(index_t index);
+size_t	index2size_lookup(index_t index);
+size_t	index2size(index_t index);
+size_t	s2u_compute(size_t size);
+size_t	s2u_lookup(size_t size);
 size_t	s2u(size_t size);
 size_t	sa2u(size_t size, size_t alignment);
-unsigned	narenas_total_get(void);
-arena_t	*choose_arena(arena_t *arena);
+arena_t	*arena_choose(tsd_t *tsd, arena_t *arena);
+arena_t	*arena_get(tsd_t *tsd, unsigned ind, bool init_if_missing,
+    bool refresh_if_missing);
 #endif
 
 #if (defined(JEMALLOC_ENABLE_INLINE) || defined(JEMALLOC_C_))
-/*
- * Map of pthread_self() --> arenas[???], used for selecting an arena to use
- * for allocations.
- */
-malloc_tsd_externs(arenas, arena_t *)
-malloc_tsd_funcs(JEMALLOC_ALWAYS_INLINE, arenas, arena_t *, NULL,
-    arenas_cleanup)
+JEMALLOC_INLINE index_t
+size2index_compute(size_t size)
+{
+
+#if (NTBINS != 0)
+	if (size <= (ZU(1) << LG_TINY_MAXCLASS)) {
+		size_t lg_tmin = LG_TINY_MAXCLASS - NTBINS + 1;
+		size_t lg_ceil = lg_floor(pow2_ceil(size));
+		return (lg_ceil < lg_tmin ? 0 : lg_ceil - lg_tmin);
+	} else
+#endif
+	{
+		size_t x = unlikely(ZI(size) < 0) ? ((size<<1) ?
+		    (ZU(1)<<(LG_SIZEOF_PTR+3)) : ((ZU(1)<<(LG_SIZEOF_PTR+3))-1))
+		    : lg_floor((size<<1)-1);
+		size_t shift = (x < LG_SIZE_CLASS_GROUP + LG_QUANTUM) ? 0 :
+		    x - (LG_SIZE_CLASS_GROUP + LG_QUANTUM);
+		size_t grp = shift << LG_SIZE_CLASS_GROUP;
+
+		size_t lg_delta = (x < LG_SIZE_CLASS_GROUP + LG_QUANTUM + 1)
+		    ? LG_QUANTUM : x - LG_SIZE_CLASS_GROUP - 1;
+
+		size_t delta_inverse_mask = ZI(-1) << lg_delta;
+		size_t mod = ((((size-1) & delta_inverse_mask) >> lg_delta)) &
+		    ((ZU(1) << LG_SIZE_CLASS_GROUP) - 1);
+
+		size_t index = NTBINS + grp + mod;
+		return (index);
+	}
+}
+
+JEMALLOC_ALWAYS_INLINE index_t
+size2index_lookup(size_t size)
+{
+
+	assert(size <= LOOKUP_MAXCLASS);
+	{
+		size_t ret = ((size_t)(size2index_tab[(size-1) >>
+		    LG_TINY_MIN]));
+		assert(ret == size2index_compute(size));
+		return (ret);
+	}
+}
+
+JEMALLOC_ALWAYS_INLINE index_t
+size2index(size_t size)
+{
+
+	assert(size > 0);
+	if (likely(size <= LOOKUP_MAXCLASS))
+		return (size2index_lookup(size));
+	else
+		return (size2index_compute(size));
+}
+
+JEMALLOC_INLINE size_t
+index2size_compute(index_t index)
+{
+
+#if (NTBINS > 0)
+	if (index < NTBINS)
+		return (ZU(1) << (LG_TINY_MAXCLASS - NTBINS + 1 + index));
+	else
+#endif
+	{
+		size_t reduced_index = index - NTBINS;
+		size_t grp = reduced_index >> LG_SIZE_CLASS_GROUP;
+		size_t mod = reduced_index & ((ZU(1) << LG_SIZE_CLASS_GROUP) -
+		    1);
+
+		size_t grp_size_mask = ~((!!grp)-1);
+		size_t grp_size = ((ZU(1) << (LG_QUANTUM +
+		    (LG_SIZE_CLASS_GROUP-1))) << grp) & grp_size_mask;
+
+		size_t shift = (grp == 0) ? 1 : grp;
+		size_t lg_delta = shift + (LG_QUANTUM-1);
+		size_t mod_size = (mod+1) << lg_delta;
+
+		size_t usize = grp_size + mod_size;
+		return (usize);
+	}
+}
+
+JEMALLOC_ALWAYS_INLINE size_t
+index2size_lookup(index_t index)
+{
+	size_t ret = (size_t)index2size_tab[index];
+	assert(ret == index2size_compute(index));
+	return (ret);
+}
+
+JEMALLOC_ALWAYS_INLINE size_t
+index2size(index_t index)
+{
+
+	assert(index < NSIZES);
+	return (index2size_lookup(index));
+}
+
+JEMALLOC_ALWAYS_INLINE size_t
+s2u_compute(size_t size)
+{
+
+#if (NTBINS > 0)
+	if (size <= (ZU(1) << LG_TINY_MAXCLASS)) {
+		size_t lg_tmin = LG_TINY_MAXCLASS - NTBINS + 1;
+		size_t lg_ceil = lg_floor(pow2_ceil(size));
+		return (lg_ceil < lg_tmin ? (ZU(1) << lg_tmin) :
+		    (ZU(1) << lg_ceil));
+	} else
+#endif
+	{
+		size_t x = unlikely(ZI(size) < 0) ? ((size<<1) ?
+		    (ZU(1)<<(LG_SIZEOF_PTR+3)) : ((ZU(1)<<(LG_SIZEOF_PTR+3))-1))
+		    : lg_floor((size<<1)-1);
+		size_t lg_delta = (x < LG_SIZE_CLASS_GROUP + LG_QUANTUM + 1)
+		    ?  LG_QUANTUM : x - LG_SIZE_CLASS_GROUP - 1;
+		size_t delta = ZU(1) << lg_delta;
+		size_t delta_mask = delta - 1;
+		size_t usize = (size + delta_mask) & ~delta_mask;
+		return (usize);
+	}
+}
+
+JEMALLOC_ALWAYS_INLINE size_t
+s2u_lookup(size_t size)
+{
+	size_t ret = index2size_lookup(size2index_lookup(size));
+
+	assert(ret == s2u_compute(size));
+	return (ret);
+}
 
 /*
  * Compute usable size that would result from allocating an object with the
@@ -477,11 +657,11 @@ JEMALLOC_ALWAYS_INLINE size_t
 s2u(size_t size)
 {
 
-	if (size <= SMALL_MAXCLASS)
-		return (small_s2u(size));
-	if (size <= arena_maxclass)
-		return (PAGE_CEILING(size));
-	return (CHUNK_CEILING(size));
+	assert(size > 0);
+	if (likely(size <= LOOKUP_MAXCLASS))
+		return (s2u_lookup(size));
+	else
+		return (s2u_compute(size));
 }
 
 /*
@@ -495,214 +675,181 @@ sa2u(size_t size, size_t alignment)
 
 	assert(alignment != 0 && ((alignment - 1) & alignment) == 0);
 
-	/*
-	 * Round size up to the nearest multiple of alignment.
-	 *
-	 * This done, we can take advantage of the fact that for each small
-	 * size class, every object is aligned at the smallest power of two
-	 * that is non-zero in the base two representation of the size.  For
-	 * example:
-	 *
-	 *   Size |   Base 2 | Minimum alignment
-	 *   -----+----------+------------------
-	 *     96 |  1100000 |  32
-	 *    144 | 10100000 |  32
-	 *    192 | 11000000 |  64
-	 */
-	usize = ALIGNMENT_CEILING(size, alignment);
-	/*
-	 * (usize < size) protects against the combination of maximal
-	 * alignment and size greater than maximal alignment.
-	 */
-	if (usize < size) {
-		/* size_t overflow. */
-		return (0);
+	/* Try for a small size class. */
+	if (size <= SMALL_MAXCLASS && alignment < PAGE) {
+		/*
+		 * Round size up to the nearest multiple of alignment.
+		 *
+		 * This done, we can take advantage of the fact that for each
+		 * small size class, every object is aligned at the smallest
+		 * power of two that is non-zero in the base two representation
+		 * of the size.  For example:
+		 *
+		 *   Size |   Base 2 | Minimum alignment
+		 *   -----+----------+------------------
+		 *     96 |  1100000 |  32
+		 *    144 | 10100000 |  32
+		 *    192 | 11000000 |  64
+		 */
+		usize = s2u(ALIGNMENT_CEILING(size, alignment));
+		if (usize < LARGE_MINCLASS)
+			return (usize);
 	}
 
-	if (usize <= arena_maxclass && alignment <= PAGE) {
-		if (usize <= SMALL_MAXCLASS)
-			return (small_s2u(usize));
-		return (PAGE_CEILING(usize));
-	} else {
-		size_t run_size;
-
+	/* Try for a large size class. */
+	if (likely(size <= arena_maxclass) && likely(alignment < chunksize)) {
 		/*
 		 * We can't achieve subpage alignment, so round up alignment
-		 * permanently; it makes later calculations simpler.
+		 * to the minimum that can actually be supported.
 		 */
 		alignment = PAGE_CEILING(alignment);
-		usize = PAGE_CEILING(size);
-		/*
-		 * (usize < size) protects against very large sizes within
-		 * PAGE of SIZE_T_MAX.
-		 *
-		 * (usize + alignment < usize) protects against the
-		 * combination of maximal alignment and usize large enough
-		 * to cause overflow.  This is similar to the first overflow
-		 * check above, but it needs to be repeated due to the new
-		 * usize value, which may now be *equal* to maximal
-		 * alignment, whereas before we only detected overflow if the
-		 * original size was *greater* than maximal alignment.
-		 */
-		if (usize < size || usize + alignment < usize) {
-			/* size_t overflow. */
-			return (0);
-		}
+
+		/* Make sure result is a large size class. */
+		usize = (size <= LARGE_MINCLASS) ? LARGE_MINCLASS : s2u(size);
 
 		/*
 		 * Calculate the size of the over-size run that arena_palloc()
 		 * would need to allocate in order to guarantee the alignment.
-		 * If the run wouldn't fit within a chunk, round up to a huge
-		 * allocation size.
 		 */
-		run_size = usize + alignment - PAGE;
-		if (run_size <= arena_maxclass)
-			return (PAGE_CEILING(usize));
-		return (CHUNK_CEILING(usize));
+		if (usize + alignment - PAGE <= arena_maxrun)
+			return (usize);
 	}
-}
 
-JEMALLOC_INLINE unsigned
-narenas_total_get(void)
-{
-	unsigned narenas;
+	/* Huge size class.  Beware of size_t overflow. */
 
-	malloc_mutex_lock(&arenas_lock);
-	narenas = narenas_total;
-	malloc_mutex_unlock(&arenas_lock);
+	/*
+	 * We can't achieve subchunk alignment, so round up alignment to the
+	 * minimum that can actually be supported.
+	 */
+	alignment = CHUNK_CEILING(alignment);
+	if (alignment == 0) {
+		/* size_t overflow. */
+		return (0);
+	}
 
-	return (narenas);
+	/* Make sure result is a huge size class. */
+	if (size <= chunksize)
+		usize = chunksize;
+	else {
+		usize = s2u(size);
+		if (usize < size) {
+			/* size_t overflow. */
+			return (0);
+		}
+	}
+
+	/*
+	 * Calculate the multi-chunk mapping that huge_palloc() would need in
+	 * order to guarantee the alignment.
+	 */
+	if (usize + alignment - PAGE < usize) {
+		/* size_t overflow. */
+		return (0);
+	}
+	return (usize);
 }
 
 /* Choose an arena based on a per-thread value. */
 JEMALLOC_INLINE arena_t *
-choose_arena(arena_t *arena)
+arena_choose(tsd_t *tsd, arena_t *arena)
 {
 	arena_t *ret;
 
 	if (arena != NULL)
 		return (arena);
 
-	if ((ret = *arenas_tsd_get()) == NULL) {
-		ret = choose_arena_hard();
-		assert(ret != NULL);
-	}
+	if (unlikely((ret = tsd_arena_get(tsd)) == NULL))
+		ret = arena_choose_hard(tsd);
 
 	return (ret);
+}
+
+JEMALLOC_INLINE arena_t *
+arena_get(tsd_t *tsd, unsigned ind, bool init_if_missing,
+    bool refresh_if_missing)
+{
+	arena_t *arena;
+	arena_t **arenas_cache = tsd_arenas_cache_get(tsd);
+
+	/* init_if_missing requires refresh_if_missing. */
+	assert(!init_if_missing || refresh_if_missing);
+
+	if (unlikely(arenas_cache == NULL)) {
+		/* arenas_cache hasn't been initialized yet. */
+		return (arena_get_hard(tsd, ind, init_if_missing));
+	}
+	if (unlikely(ind >= tsd_narenas_cache_get(tsd))) {
+		/*
+		 * ind is invalid, cache is old (too small), or arena to be
+		 * initialized.
+		 */
+		return (refresh_if_missing ? arena_get_hard(tsd, ind,
+		    init_if_missing) : NULL);
+	}
+	arena = arenas_cache[ind];
+	if (likely(arena != NULL) || !refresh_if_missing)
+		return (arena);
+	return (arena_get_hard(tsd, ind, init_if_missing));
 }
 #endif
 
 #include "jemalloc/internal/bitmap.h"
-#include "jemalloc/internal/rtree.h"
 /*
- * Include arena.h the second and third times in order to resolve circular
- * dependencies with tcache.h.
+ * Include portions of arena.h interleaved with tcache.h in order to resolve
+ * circular dependencies.
  */
+#define	JEMALLOC_ARENA_INLINE_A
+#include "jemalloc/internal/arena.h"
+#undef JEMALLOC_ARENA_INLINE_A
+#include "jemalloc/internal/tcache.h"
 #define	JEMALLOC_ARENA_INLINE_B
 #include "jemalloc/internal/arena.h"
 #undef JEMALLOC_ARENA_INLINE_B
-#include "jemalloc/internal/tcache.h"
-#define	JEMALLOC_ARENA_INLINE_C
-#include "jemalloc/internal/arena.h"
-#undef JEMALLOC_ARENA_INLINE_C
 #include "jemalloc/internal/hash.h"
 #include "jemalloc/internal/quarantine.h"
 
 #ifndef JEMALLOC_ENABLE_INLINE
-void	*imalloct(size_t size, bool try_tcache, arena_t *arena);
-void	*imalloc(size_t size);
-void	*icalloct(size_t size, bool try_tcache, arena_t *arena);
-void	*icalloc(size_t size);
-void	*ipalloct(size_t usize, size_t alignment, bool zero, bool try_tcache,
-    arena_t *arena);
-void	*ipalloc(size_t usize, size_t alignment, bool zero);
+arena_t	*iaalloc(const void *ptr);
 size_t	isalloc(const void *ptr, bool demote);
+void	*iallocztm(tsd_t *tsd, size_t size, bool zero, tcache_t *tcache,
+    bool is_metadata, arena_t *arena);
+void	*imalloct(tsd_t *tsd, size_t size, tcache_t *tcache, arena_t *arena);
+void	*imalloc(tsd_t *tsd, size_t size);
+void	*icalloct(tsd_t *tsd, size_t size, tcache_t *tcache, arena_t *arena);
+void	*icalloc(tsd_t *tsd, size_t size);
+void	*ipallocztm(tsd_t *tsd, size_t usize, size_t alignment, bool zero,
+    tcache_t *tcache, bool is_metadata, arena_t *arena);
+void	*ipalloct(tsd_t *tsd, size_t usize, size_t alignment, bool zero,
+    tcache_t *tcache, arena_t *arena);
+void	*ipalloc(tsd_t *tsd, size_t usize, size_t alignment, bool zero);
 size_t	ivsalloc(const void *ptr, bool demote);
 size_t	u2rz(size_t usize);
 size_t	p2rz(const void *ptr);
-void	idalloct(void *ptr, bool try_tcache);
-void	idalloc(void *ptr);
-void	iqalloct(void *ptr, bool try_tcache);
-void	iqalloc(void *ptr);
-void	*iralloct_realign(void *ptr, size_t oldsize, size_t size, size_t extra,
-    size_t alignment, bool zero, bool try_tcache_alloc, bool try_tcache_dalloc,
+void	idalloctm(tsd_t *tsd, void *ptr, tcache_t *tcache, bool is_metadata);
+void	idalloct(tsd_t *tsd, void *ptr, tcache_t *tcache);
+void	idalloc(tsd_t *tsd, void *ptr);
+void	iqalloc(tsd_t *tsd, void *ptr, tcache_t *tcache);
+void	isdalloct(tsd_t *tsd, void *ptr, size_t size, tcache_t *tcache);
+void	isqalloc(tsd_t *tsd, void *ptr, size_t size, tcache_t *tcache);
+void	*iralloct_realign(tsd_t *tsd, void *ptr, size_t oldsize, size_t size,
+    size_t extra, size_t alignment, bool zero, tcache_t *tcache,
     arena_t *arena);
-void	*iralloct(void *ptr, size_t size, size_t extra, size_t alignment,
-    bool zero, bool try_tcache_alloc, bool try_tcache_dalloc, arena_t *arena);
-void	*iralloc(void *ptr, size_t size, size_t extra, size_t alignment,
-    bool zero);
-bool	ixalloc(void *ptr, size_t size, size_t extra, size_t alignment,
-    bool zero);
-malloc_tsd_protos(JEMALLOC_ATTR(unused), thread_allocated, thread_allocated_t)
+void	*iralloct(tsd_t *tsd, void *ptr, size_t oldsize, size_t size,
+    size_t alignment, bool zero, tcache_t *tcache, arena_t *arena);
+void	*iralloc(tsd_t *tsd, void *ptr, size_t oldsize, size_t size,
+    size_t alignment, bool zero);
+bool	ixalloc(void *ptr, size_t oldsize, size_t size, size_t extra,
+    size_t alignment, bool zero);
 #endif
 
 #if (defined(JEMALLOC_ENABLE_INLINE) || defined(JEMALLOC_C_))
-JEMALLOC_ALWAYS_INLINE void *
-imalloct(size_t size, bool try_tcache, arena_t *arena)
+JEMALLOC_ALWAYS_INLINE arena_t *
+iaalloc(const void *ptr)
 {
 
-	assert(size != 0);
+	assert(ptr != NULL);
 
-	if (size <= arena_maxclass)
-		return (arena_malloc(arena, size, false, try_tcache));
-	else
-		return (huge_malloc(arena, size, false));
-}
-
-JEMALLOC_ALWAYS_INLINE void *
-imalloc(size_t size)
-{
-
-	return (imalloct(size, true, NULL));
-}
-
-JEMALLOC_ALWAYS_INLINE void *
-icalloct(size_t size, bool try_tcache, arena_t *arena)
-{
-
-	if (size <= arena_maxclass)
-		return (arena_malloc(arena, size, true, try_tcache));
-	else
-		return (huge_malloc(arena, size, true));
-}
-
-JEMALLOC_ALWAYS_INLINE void *
-icalloc(size_t size)
-{
-
-	return (icalloct(size, true, NULL));
-}
-
-JEMALLOC_ALWAYS_INLINE void *
-ipalloct(size_t usize, size_t alignment, bool zero, bool try_tcache,
-    arena_t *arena)
-{
-	void *ret;
-
-	assert(usize != 0);
-	assert(usize == sa2u(usize, alignment));
-
-	if (usize <= arena_maxclass && alignment <= PAGE)
-		ret = arena_malloc(arena, usize, zero, try_tcache);
-	else {
-		if (usize <= arena_maxclass) {
-			ret = arena_palloc(choose_arena(arena), usize,
-			    alignment, zero);
-		} else if (alignment <= chunksize)
-			ret = huge_malloc(arena, usize, zero);
-		else
-			ret = huge_palloc(arena, usize, alignment, zero);
-	}
-
-	assert(ALIGNMENT_ADDR2BASE(ret, alignment) == ret);
-	return (ret);
-}
-
-JEMALLOC_ALWAYS_INLINE void *
-ipalloc(size_t usize, size_t alignment, bool zero)
-{
-
-	return (ipalloct(usize, alignment, zero, true, NULL));
+	return (arena_aalloc(ptr));
 }
 
 /*
@@ -713,29 +860,104 @@ ipalloc(size_t usize, size_t alignment, bool zero)
 JEMALLOC_ALWAYS_INLINE size_t
 isalloc(const void *ptr, bool demote)
 {
-	size_t ret;
-	arena_chunk_t *chunk;
 
 	assert(ptr != NULL);
 	/* Demotion only makes sense if config_prof is true. */
-	assert(config_prof || demote == false);
+	assert(config_prof || !demote);
 
-	chunk = (arena_chunk_t *)CHUNK_ADDR2BASE(ptr);
-	if (chunk != ptr)
-		ret = arena_salloc(ptr, demote);
-	else
-		ret = huge_salloc(ptr);
+	return (arena_salloc(ptr, demote));
+}
 
+JEMALLOC_ALWAYS_INLINE void *
+iallocztm(tsd_t *tsd, size_t size, bool zero, tcache_t *tcache, bool is_metadata,
+    arena_t *arena)
+{
+	void *ret;
+
+	assert(size != 0);
+
+	ret = arena_malloc(tsd, arena, size, zero, tcache);
+	if (config_stats && is_metadata && likely(ret != NULL)) {
+		arena_metadata_allocated_add(iaalloc(ret), isalloc(ret,
+		    config_prof));
+	}
 	return (ret);
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+imalloct(tsd_t *tsd, size_t size, tcache_t *tcache, arena_t *arena)
+{
+
+	return (iallocztm(tsd, size, false, tcache, false, arena));
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+imalloc(tsd_t *tsd, size_t size)
+{
+
+	return (iallocztm(tsd, size, false, tcache_get(tsd, true), false, NULL));
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+icalloct(tsd_t *tsd, size_t size, tcache_t *tcache, arena_t *arena)
+{
+
+	return (iallocztm(tsd, size, true, tcache, false, arena));
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+icalloc(tsd_t *tsd, size_t size)
+{
+
+	return (iallocztm(tsd, size, true, tcache_get(tsd, true), false, NULL));
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+ipallocztm(tsd_t *tsd, size_t usize, size_t alignment, bool zero,
+    tcache_t *tcache, bool is_metadata, arena_t *arena)
+{
+	void *ret;
+
+	assert(usize != 0);
+	assert(usize == sa2u(usize, alignment));
+
+	ret = arena_palloc(tsd, arena, usize, alignment, zero, tcache);
+	assert(ALIGNMENT_ADDR2BASE(ret, alignment) == ret);
+	if (config_stats && is_metadata && likely(ret != NULL)) {
+		arena_metadata_allocated_add(iaalloc(ret), isalloc(ret,
+		    config_prof));
+	}
+	return (ret);
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+ipalloct(tsd_t *tsd, size_t usize, size_t alignment, bool zero,
+    tcache_t *tcache, arena_t *arena)
+{
+
+	return (ipallocztm(tsd, usize, alignment, zero, tcache, false, arena));
+}
+
+JEMALLOC_ALWAYS_INLINE void *
+ipalloc(tsd_t *tsd, size_t usize, size_t alignment, bool zero)
+{
+
+	return (ipallocztm(tsd, usize, alignment, zero, tcache_get(tsd,
+	    NULL), false, NULL));
 }
 
 JEMALLOC_ALWAYS_INLINE size_t
 ivsalloc(const void *ptr, bool demote)
 {
+	extent_node_t *node;
 
 	/* Return 0 if ptr is not within a chunk managed by jemalloc. */
-	if (rtree_get(chunks_rtree, (uintptr_t)CHUNK_ADDR2BASE(ptr)) == 0)
+	node = chunk_lookup(ptr, false);
+	if (node == NULL)
 		return (0);
+	/* Only arena chunks should be looked up via interior pointers. */
+	assert(extent_node_addr_get(node) == ptr ||
+	    extent_node_achunk_get(node));
 
 	return (isalloc(ptr, demote));
 }
@@ -746,7 +968,7 @@ u2rz(size_t usize)
 	size_t ret;
 
 	if (usize <= SMALL_MAXCLASS) {
-		size_t binind = small_size2bin(usize);
+		index_t binind = size2index(usize);
 		ret = arena_bin_info[binind].redzone_size;
 	} else
 		ret = 0;
@@ -763,47 +985,62 @@ p2rz(const void *ptr)
 }
 
 JEMALLOC_ALWAYS_INLINE void
-idalloct(void *ptr, bool try_tcache)
+idalloctm(tsd_t *tsd, void *ptr, tcache_t *tcache, bool is_metadata)
 {
-	arena_chunk_t *chunk;
 
 	assert(ptr != NULL);
+	if (config_stats && is_metadata) {
+		arena_metadata_allocated_sub(iaalloc(ptr), isalloc(ptr,
+		    config_prof));
+	}
 
-	chunk = (arena_chunk_t *)CHUNK_ADDR2BASE(ptr);
-	if (chunk != ptr)
-		arena_dalloc(chunk, ptr, try_tcache);
+	arena_dalloc(tsd, ptr, tcache);
+}
+
+JEMALLOC_ALWAYS_INLINE void
+idalloct(tsd_t *tsd, void *ptr, tcache_t *tcache)
+{
+
+	idalloctm(tsd, ptr, tcache, false);
+}
+
+JEMALLOC_ALWAYS_INLINE void
+idalloc(tsd_t *tsd, void *ptr)
+{
+
+	idalloctm(tsd, ptr, tcache_get(tsd, false), false);
+}
+
+JEMALLOC_ALWAYS_INLINE void
+iqalloc(tsd_t *tsd, void *ptr, tcache_t *tcache)
+{
+
+	if (config_fill && unlikely(opt_quarantine))
+		quarantine(tsd, ptr);
 	else
-		huge_dalloc(ptr);
+		idalloctm(tsd, ptr, tcache, false);
 }
 
 JEMALLOC_ALWAYS_INLINE void
-idalloc(void *ptr)
+isdalloct(tsd_t *tsd, void *ptr, size_t size, tcache_t *tcache)
 {
 
-	idalloct(ptr, true);
+	arena_sdalloc(tsd, ptr, size, tcache);
 }
 
 JEMALLOC_ALWAYS_INLINE void
-iqalloct(void *ptr, bool try_tcache)
+isqalloc(tsd_t *tsd, void *ptr, size_t size, tcache_t *tcache)
 {
 
-	if (config_fill && opt_quarantine)
-		quarantine(ptr);
+	if (config_fill && unlikely(opt_quarantine))
+		quarantine(tsd, ptr);
 	else
-		idalloct(ptr, try_tcache);
-}
-
-JEMALLOC_ALWAYS_INLINE void
-iqalloc(void *ptr)
-{
-
-	iqalloct(ptr, true);
+		isdalloct(tsd, ptr, size, tcache);
 }
 
 JEMALLOC_ALWAYS_INLINE void *
-iralloct_realign(void *ptr, size_t oldsize, size_t size, size_t extra,
-    size_t alignment, bool zero, bool try_tcache_alloc, bool try_tcache_dalloc,
-    arena_t *arena)
+iralloct_realign(tsd_t *tsd, void *ptr, size_t oldsize, size_t size,
+    size_t extra, size_t alignment, bool zero, tcache_t *tcache, arena_t *arena)
 {
 	void *p;
 	size_t usize, copysize;
@@ -811,7 +1048,7 @@ iralloct_realign(void *ptr, size_t oldsize, size_t size, size_t extra,
 	usize = sa2u(size + extra, alignment);
 	if (usize == 0)
 		return (NULL);
-	p = ipalloct(usize, alignment, zero, try_tcache_alloc, arena);
+	p = ipalloct(tsd, usize, alignment, zero, tcache, arena);
 	if (p == NULL) {
 		if (extra == 0)
 			return (NULL);
@@ -819,7 +1056,7 @@ iralloct_realign(void *ptr, size_t oldsize, size_t size, size_t extra,
 		usize = sa2u(size, alignment);
 		if (usize == 0)
 			return (NULL);
-		p = ipalloct(usize, alignment, zero, try_tcache_alloc, arena);
+		p = ipalloct(tsd, usize, alignment, zero, tcache, arena);
 		if (p == NULL)
 			return (NULL);
 	}
@@ -829,20 +1066,17 @@ iralloct_realign(void *ptr, size_t oldsize, size_t size, size_t extra,
 	 */
 	copysize = (size < oldsize) ? size : oldsize;
 	memcpy(p, ptr, copysize);
-	iqalloct(ptr, try_tcache_dalloc);
+	isqalloc(tsd, ptr, oldsize, tcache);
 	return (p);
 }
 
 JEMALLOC_ALWAYS_INLINE void *
-iralloct(void *ptr, size_t size, size_t extra, size_t alignment, bool zero,
-    bool try_tcache_alloc, bool try_tcache_dalloc, arena_t *arena)
+iralloct(tsd_t *tsd, void *ptr, size_t oldsize, size_t size, size_t alignment,
+    bool zero, tcache_t *tcache, arena_t *arena)
 {
-	size_t oldsize;
 
 	assert(ptr != NULL);
 	assert(size != 0);
-
-	oldsize = isalloc(ptr, config_prof);
 
 	if (alignment != 0 && ((uintptr_t)ptr & ((uintptr_t)alignment-1))
 	    != 0) {
@@ -850,51 +1084,39 @@ iralloct(void *ptr, size_t size, size_t extra, size_t alignment, bool zero,
 		 * Existing object alignment is inadequate; allocate new space
 		 * and copy.
 		 */
-		return (iralloct_realign(ptr, oldsize, size, extra, alignment,
-		    zero, try_tcache_alloc, try_tcache_dalloc, arena));
+		return (iralloct_realign(tsd, ptr, oldsize, size, 0, alignment,
+		    zero, tcache, arena));
 	}
 
-	if (size + extra <= arena_maxclass) {
-		return (arena_ralloc(arena, ptr, oldsize, size, extra,
-		    alignment, zero, try_tcache_alloc,
-		    try_tcache_dalloc));
-	} else {
-		return (huge_ralloc(arena, ptr, oldsize, size, extra,
-		    alignment, zero, try_tcache_dalloc));
-	}
+	return (arena_ralloc(tsd, arena, ptr, oldsize, size, 0, alignment, zero,
+	    tcache));
 }
 
 JEMALLOC_ALWAYS_INLINE void *
-iralloc(void *ptr, size_t size, size_t extra, size_t alignment, bool zero)
+iralloc(tsd_t *tsd, void *ptr, size_t oldsize, size_t size, size_t alignment,
+    bool zero)
 {
 
-	return (iralloct(ptr, size, extra, alignment, zero, true, true, NULL));
+	return (iralloct(tsd, ptr, oldsize, size, alignment, zero,
+	    tcache_get(tsd, true), NULL));
 }
 
 JEMALLOC_ALWAYS_INLINE bool
-ixalloc(void *ptr, size_t size, size_t extra, size_t alignment, bool zero)
+ixalloc(void *ptr, size_t oldsize, size_t size, size_t extra, size_t alignment,
+    bool zero)
 {
-	size_t oldsize;
 
 	assert(ptr != NULL);
 	assert(size != 0);
 
-	oldsize = isalloc(ptr, config_prof);
 	if (alignment != 0 && ((uintptr_t)ptr & ((uintptr_t)alignment-1))
 	    != 0) {
 		/* Existing object alignment is inadequate. */
 		return (true);
 	}
 
-	if (size <= arena_maxclass)
-		return (arena_ralloc_no_move(ptr, oldsize, size, extra, zero));
-	else
-		return (huge_ralloc_no_move(ptr, oldsize, size, extra));
+	return (arena_ralloc_no_move(ptr, oldsize, size, extra, zero));
 }
-
-malloc_tsd_externs(thread_allocated, thread_allocated_t)
-malloc_tsd_funcs(JEMALLOC_ALWAYS_INLINE, thread_allocated, thread_allocated_t,
-    THREAD_ALLOCATED_INITIALIZER, malloc_tsd_no_cleanup)
 #endif
 
 #include "jemalloc/internal/prof.h"

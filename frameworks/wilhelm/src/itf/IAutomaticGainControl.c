@@ -28,7 +28,8 @@ static inline bool NO_AUTOGAIN(IAndroidAutomaticGainControl* v) {
     return (v->mAGCEffect == 0);
 }
 
-SLresult IAndroidAutomaticGainControl_SetEnabled(SLAndroidAutomaticGainControlItf self, SLboolean enabled)
+SLresult IAndroidAutomaticGainControl_SetEnabled(SLAndroidAutomaticGainControlItf self,
+                                                 SLboolean enabled)
 {
     SL_ENTER_INTERFACE
 
@@ -46,7 +47,8 @@ SLresult IAndroidAutomaticGainControl_SetEnabled(SLAndroidAutomaticGainControlIt
     SL_LEAVE_INTERFACE
 }
 
-SLresult IAndroidAutomaticGainControl_IsEnabled(SLAndroidAutomaticGainControlItf self, SLboolean *pEnabled)
+SLresult IAndroidAutomaticGainControl_IsEnabled(SLAndroidAutomaticGainControlItf self,
+                                                SLboolean *pEnabled)
 {
     SL_ENTER_INTERFACE
 

@@ -20,6 +20,9 @@ import static com.google.common.collect.testing.features.CollectionFeature.ALLOW
 import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_ADD;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
@@ -30,10 +33,9 @@ import java.lang.reflect.Method;
  * invoked directly; please see
  * {@link com.google.common.collect.testing.SetTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible(emulated = true)
 public class SetAddTester<E> extends AbstractSetTester<E> {
   @CollectionFeature.Require(SUPPORTS_ADD)
   @CollectionSize.Require(absent = ZERO)
@@ -56,7 +58,8 @@ public class SetAddTester<E> extends AbstractSetTester<E> {
    * {@link #testAdd_supportedNullPresent()} so that tests can suppress it. See
    * {@link CollectionAddTester#getAddNullSupportedMethod()} for details.
    */
+  @GwtIncompatible("reflection")
   public static Method getAddSupportedNullPresentMethod() {
-    return Platform.getMethod(SetAddTester.class, "testAdd_supportedNullPresent");
+    return Helpers.getMethod(SetAddTester.class, "testAdd_supportedNullPresent");
   }
 }

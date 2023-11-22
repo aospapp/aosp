@@ -43,8 +43,6 @@
 
 #include "glw.h"
 
-#include <cstdlib>
-
 namespace deqp
 {
 namespace gles2
@@ -151,7 +149,7 @@ Tex2DCompletenessCase::IterateResult Tex2DCompletenessCase::iterate (void)
 	int					viewportWidth	= de::min(64, m_renderCtx.getRenderTarget().getWidth());
 	int					viewportHeight	= de::min(64, m_renderCtx.getRenderTarget().getHeight());
 	TestLog&			log				= m_testCtx.getLog();
-	TextureRenderer		renderer		(m_renderCtx, m_testCtx, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP);
+	TextureRenderer		renderer		(m_renderCtx, log, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP);
 	tcu::Surface		renderedFrame	(viewportWidth, viewportHeight);
 	vector<float>		texCoord;
 
@@ -204,7 +202,7 @@ TexCubeCompletenessCase::IterateResult TexCubeCompletenessCase::iterate (void)
 	int					viewportHeight	= de::min(64, m_renderCtx.getRenderTarget().getHeight());
 	bool				allFacesOk		= true;
 	TestLog&			log				= m_testCtx.getLog();
-	TextureRenderer		renderer		(m_renderCtx, m_testCtx, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP);
+	TextureRenderer		renderer		(m_renderCtx, log, glu::GLSL_VERSION_100_ES, glu::PRECISION_MEDIUMP);
 	tcu::Surface		renderedFrame	(viewportWidth, viewportHeight);
 	vector<float>		texCoord;
 
@@ -262,6 +260,12 @@ Incomplete2DSizeCase::Incomplete2DSizeCase (tcu::TestContext& testCtx, glu::Rend
 
 void Incomplete2DSizeCase::createTexture (void)
 {
+	static const char* const s_relaxingExtensions[] =
+	{
+		"GL_OES_texture_npot",
+		"GL_NV_texture_npot_2D_mipmap",
+	};
+
 	tcu::TextureFormat		fmt				= glu::mapGLTransferFormat(GL_RGBA, GL_UNSIGNED_BYTE);
 	tcu::TextureLevel		levelData		(fmt);
 	TestLog&				log				= m_testCtx.getLog();
@@ -291,11 +295,18 @@ void Incomplete2DSizeCase::createTexture (void)
 
 	GLU_CHECK_MSG("Set texturing state");
 
-	const char* extension = "GL_NV_texture_npot_2D_mipmap";
-	if (isExtensionSupported(m_ctxInfo, extension) && !deIsPowerOfTwo32(m_size.x()) && !deIsPowerOfTwo32(m_size.y()))
+	// If size not allowed in core, search for relaxing extensions
+	if (!deIsPowerOfTwo32(m_size.x()) && !deIsPowerOfTwo32(m_size.y()))
 	{
-		log << TestLog::Message << extension << " supported, assuming completeness test to pass." << TestLog::EndMessage;
-		m_compareColor = RGBA(0,0,255,255);
+		for (int ndx = 0; ndx < DE_LENGTH_OF_ARRAY(s_relaxingExtensions); ++ndx)
+		{
+			if (isExtensionSupported(m_ctxInfo, s_relaxingExtensions[ndx]))
+			{
+				log << TestLog::Message << s_relaxingExtensions[ndx] << " supported, assuming completeness test to pass." << TestLog::EndMessage;
+				m_compareColor = RGBA(0,0,255,255);
+				break;
+			}
+		}
 	}
 }
 
@@ -537,9 +548,6 @@ Incomplete2DEmptyObjectCase::Incomplete2DEmptyObjectCase (tcu::TestContext& test
 
 void Incomplete2DEmptyObjectCase::createTexture (void)
 {
-	tcu::TextureFormat	fmt			= glu::mapGLTransferFormat(GL_RGBA, GL_UNSIGNED_BYTE);
-	tcu::TextureLevel	levelData	(fmt);
-
 	GLuint texture;
 	glGenTextures	(1, &texture);
 	glPixelStorei	(GL_UNPACK_ALIGNMENT, 1);
@@ -901,9 +909,6 @@ IncompleteCubeEmptyObjectCase::IncompleteCubeEmptyObjectCase (tcu::TestContext& 
 
 void IncompleteCubeEmptyObjectCase::createTexture (void)
 {
-	tcu::TextureFormat		fmt				= glu::mapGLTransferFormat(GL_RGBA, GL_UNSIGNED_BYTE);
-	tcu::TextureLevel		levelData		(fmt);
-
 	GLuint texture;
 	glGenTextures	(1, &texture);
 	glPixelStorei	(GL_UNPACK_ALIGNMENT, 1);

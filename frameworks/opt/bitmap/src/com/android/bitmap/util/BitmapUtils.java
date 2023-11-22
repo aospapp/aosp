@@ -21,8 +21,8 @@ import android.graphics.Rect;
 public abstract class BitmapUtils {
 
     /**
-     * Calculate a center-crop rectangle for the given input and output
-     * parameters. The output rectangle to use is written in the given outRect.
+     * Calculate a rectangle for the given input and output parameters. The output
+     * rectangle to use is written in the given outRect.
      *
      * @param srcW the source width
      * @param srcH the source height
@@ -34,6 +34,9 @@ public abstract class BitmapUtils {
      *            vertical crop range.
      * @param sampleSize a scaling factor that rect calculation will only use if
      *            it's more aggressive than regular scaling
+     * @param horizSliceFrac horizontal slice fraction determines the horizontal
+     *            center point for the crop rect. Range is from [0.0, 1.0]. To
+     *            perform a horizontally centered crop, use 0.5.
      * @param vertSliceFrac vertical slice fraction determines the vertical
      *            center point for the crop rect. Range is from [0.0, 1.0]. To
      *            perform a vertically centered crop, use 0.5. Otherwise, see
@@ -52,8 +55,9 @@ public abstract class BitmapUtils {
      * @param outRect a Rect to write the resulting crop coordinates into
      */
     public static void calculateCroppedSrcRect(final int srcW, final int srcH, final int dstW,
-            final int dstH, final int dstSliceH, int sampleSize, final float vertSliceFrac,
-            final boolean absoluteFrac, final float verticalMultiplier, final Rect outRect) {
+            final int dstH, final int dstSliceH, int sampleSize, final float horizSliceFrac,
+            final float vertSliceFrac, final boolean absoluteFrac, final float verticalMultiplier,
+            final Rect outRect) {
         if (sampleSize < 1) {
             sampleSize = 1;
         }
@@ -73,7 +77,7 @@ public abstract class BitmapUtils {
         final int srcCroppedSliceH = Math.round(dstSliceH * scale);
         final int srcHalfSliceH = Math.min(srcCroppedSliceH, srcH) / 2;
 
-        outRect.left = (srcW - srcCroppedW) / 2;
+        outRect.left = (int) (horizSliceFrac * (srcW - srcCroppedW));
         outRect.right = outRect.left + srcCroppedW;
 
         final int centerV;

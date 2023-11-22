@@ -1,3 +1,4 @@
+
 Android WatchViewStub Sample
 ===================================
 
@@ -15,8 +16,8 @@ this programatically by using a `WatchViewStub.OnLayoutInflateListener`.
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Screenshots

@@ -86,11 +86,7 @@ public class ConfigAwareConnectionPool {
               // If the network config has changed then existing pooled connections should not be
               // re-used. By setting connectionPool to null it ensures that the next time
               // getConnectionPool() is called a new pool will be created.
-              ConnectionPool oldConnectionPool = connectionPool;
               connectionPool = null;
-              if (oldConnectionPool != null) {
-                oldConnectionPool.enterDrainMode();
-              }
             }
           }
         });

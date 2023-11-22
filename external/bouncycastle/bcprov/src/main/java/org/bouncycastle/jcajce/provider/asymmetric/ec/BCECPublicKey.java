@@ -34,6 +34,8 @@ import org.bouncycastle.jce.interfaces.ECPointEncoder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.math.ec.custom.sec.SecP256K1Point;
+import org.bouncycastle.math.ec.custom.sec.SecP256R1Point;
 
 public class BCECPublicKey
     implements ECPublicKey, org.bouncycastle.jce.interfaces.ECPublicKey, ECPointEncoder
@@ -82,6 +84,8 @@ public class BCECPublicKey
             ECCurve curve = spec.getParams().getCurve();
             EllipticCurve ellipticCurve = EC5Util.convertCurve(curve, spec.getParams().getSeed());
 
+            // this may seem a little long-winded but it's how we pick up the custom curve.
+            this.q = EC5Util.convertCurve(ellipticCurve).createPoint(spec.getQ().getAffineXCoord().toBigInteger(), spec.getQ().getAffineYCoord().toBigInteger());
             this.ecSpec = EC5Util.convertSpec(ellipticCurve, spec.getParams());
         }
         else
@@ -132,7 +136,6 @@ public class BCECPublicKey
         ECDomainParameters      dp = params.getParameters();
 
         this.algorithm = algorithm;
-        this.q = params.getQ();
 
         if (spec == null)
         {
@@ -146,6 +149,8 @@ public class BCECPublicKey
 
             this.ecSpec = EC5Util.convertSpec(ellipticCurve, spec);
         }
+
+        this.q = EC5Util.convertCurve(ecSpec.getCurve()).createPoint(params.getQ().getAffineXCoord().toBigInteger(), params.getQ().getAffineYCoord().toBigInteger());
 
         this.configuration = configuration;
     }
@@ -369,14 +374,7 @@ public class BCECPublicKey
     {
         if (ecSpec == null)
         {
-            if (q instanceof org.bouncycastle.math.ec.ECPoint.Fp)
-            {
-                return new org.bouncycastle.math.ec.ECPoint.Fp(null, q.getAffineXCoord(), q.getAffineYCoord());
-            }
-            else
-            {
-                return new org.bouncycastle.math.ec.ECPoint.F2m(null, q.getAffineXCoord(), q.getAffineYCoord());
-            }
+            return q.getDetachedPoint();
         }
 
         return q;

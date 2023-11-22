@@ -31,13 +31,13 @@ import javax.annotation.Nullable;
  * may have duplicate elements. A multiset is also sometimes called a
  * <i>bag</i>.
  *
- * <p>Elements of a multiset that are equal to one another (see "Note on
- * element equivalence", below) are referred to as <i>occurrences</i> of the
- * same single element. The total number of occurrences of an element in a
- * multiset is called the <i>count</i> of that element (the terms "frequency"
- * and "multiplicity" are equivalent, but not used in this API). Since the count
- * of an element is represented as an {@code int}, a multiset may never contain
- * more than {@link Integer#MAX_VALUE} occurrences of any one element.
+ * <p>Elements of a multiset that are equal to one another are referred to as
+ * <i>occurrences</i> of the same single element. The total number of
+ * occurrences of an element in a multiset is called the <i>count</i> of that
+ * element (the terms "frequency" and "multiplicity" are equivalent, but not
+ * used in this API). Since the count of an element is represented as an {@code
+ * int}, a multiset may never contain more than {@link Integer#MAX_VALUE}
+ * occurrences of any one element.
  *
  * <p>{@code Multiset} refines the specifications of several methods from
  * {@code Collection}. It also defines an additional query operation, {@link
@@ -77,6 +77,10 @@ import javax.annotation.Nullable;
  * may wish to use {@link com.google.common.util.concurrent.AtomicLongMap}
  * instead. Note, however, that unlike {@code Multiset}, {@code AtomicLongMap}
  * does not automatically remove zeros.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multiset">
+ * {@code Multiset}</a>.
  *
  * @author Kevin Bourrillion
  * @since 2.0 (imported from Google Collections Library)
@@ -303,7 +307,7 @@ public interface Multiset<E> extends Collection<E> {
    *
    *   ((element == null) ? 0 : element.hashCode()) ^ count(element)}</pre>
    *
-   * over all distinct elements in the multiset. It follows that a multiset and
+   * <p>over all distinct elements in the multiset. It follows that a multiset and
    * its entry set always have the same hash code.
    */
   @Override

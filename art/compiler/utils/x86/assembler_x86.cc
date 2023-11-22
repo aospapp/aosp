@@ -50,7 +50,8 @@ void X86Assembler::call(Label* label) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xE8);
   static const int kSize = 5;
-  EmitLabel(label, kSize);
+  // Offset by one because we already have emitted the opcode.
+  EmitLabel(label, kSize - 1);
 }
 
 
@@ -142,6 +143,12 @@ void X86Assembler::movl(const Address& dst, Label* lbl) {
   EmitUint8(0xC7);
   EmitOperand(0, dst);
   EmitLabel(lbl, dst.length_ + 5);
+}
+
+void X86Assembler::bswapl(Register dst) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xC8 + dst);
 }
 
 void X86Assembler::movzxb(Register dst, ByteRegister src) {
@@ -242,6 +249,17 @@ void X86Assembler::movw(const Address& dst, Register src) {
 }
 
 
+void X86Assembler::movw(const Address& dst, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOperandSizeOverride();
+  EmitUint8(0xC7);
+  EmitOperand(0, dst);
+  CHECK(imm.is_uint16() || imm.is_int16());
+  EmitUint8(imm.value() & 0xFF);
+  EmitUint8(imm.value() >> 8);
+}
+
+
 void X86Assembler::leal(Register dst, const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x8D);
@@ -262,6 +280,14 @@ void X86Assembler::setb(Condition condition, Register dst) {
   EmitUint8(0x0F);
   EmitUint8(0x90 + condition);
   EmitOperand(0, Operand(dst));
+}
+
+
+void X86Assembler::movaps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x28);
+  EmitXmmRegisterOperand(dst, src);
 }
 
 
@@ -389,6 +415,13 @@ void X86Assembler::flds(const Address& src) {
 }
 
 
+void X86Assembler::fsts(const Address& dst) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xD9);
+  EmitOperand(2, dst);
+}
+
+
 void X86Assembler::fstps(const Address& dst) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xD9);
@@ -420,6 +453,57 @@ void X86Assembler::movsd(XmmRegister dst, XmmRegister src) {
   EmitUint8(0x0F);
   EmitUint8(0x11);
   EmitXmmRegisterOperand(src, dst);
+}
+
+
+void X86Assembler::movhpd(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x16);
+  EmitOperand(dst, src);
+}
+
+
+void X86Assembler::movhpd(const Address& dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x17);
+  EmitOperand(src, dst);
+}
+
+
+void X86Assembler::psrldq(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x73);
+  EmitXmmRegisterOperand(3, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86Assembler::psrlq(XmmRegister reg, const Immediate& shift_count) {
+  DCHECK(shift_count.is_uint8());
+
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x73);
+  EmitXmmRegisterOperand(2, reg);
+  EmitUint8(shift_count.value());
+}
+
+
+void X86Assembler::punpckldq(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x62);
+  EmitXmmRegisterOperand(dst, src);
 }
 
 
@@ -593,6 +677,45 @@ void X86Assembler::comisd(XmmRegister a, XmmRegister b) {
 }
 
 
+void X86Assembler::ucomiss(XmmRegister a, XmmRegister b) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x2E);
+  EmitXmmRegisterOperand(a, b);
+}
+
+
+void X86Assembler::ucomisd(XmmRegister a, XmmRegister b) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x2E);
+  EmitXmmRegisterOperand(a, b);
+}
+
+
+void X86Assembler::roundsd(XmmRegister dst, XmmRegister src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x3A);
+  EmitUint8(0x0B);
+  EmitXmmRegisterOperand(dst, src);
+  EmitUint8(imm.value());
+}
+
+
+void X86Assembler::roundss(XmmRegister dst, XmmRegister src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x3A);
+  EmitUint8(0x0A);
+  EmitXmmRegisterOperand(dst, src);
+  EmitUint8(imm.value());
+}
+
+
 void X86Assembler::sqrtsd(XmmRegister dst, XmmRegister src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xF2);
@@ -629,6 +752,32 @@ void X86Assembler::xorpd(XmmRegister dst, XmmRegister src) {
 }
 
 
+void X86Assembler::andps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x54);
+  EmitXmmRegisterOperand(dst, src);
+}
+
+
+void X86Assembler::andpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x54);
+  EmitXmmRegisterOperand(dst, src);
+}
+
+
+void X86Assembler::orpd(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0x0F);
+  EmitUint8(0x56);
+  EmitXmmRegisterOperand(dst, src);
+}
+
+
 void X86Assembler::xorps(XmmRegister dst, const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0F);
@@ -637,11 +786,27 @@ void X86Assembler::xorps(XmmRegister dst, const Address& src) {
 }
 
 
+void X86Assembler::orps(XmmRegister dst, XmmRegister src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x56);
+  EmitXmmRegisterOperand(dst, src);
+}
+
+
 void X86Assembler::xorps(XmmRegister dst, XmmRegister src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0F);
   EmitUint8(0x57);
   EmitXmmRegisterOperand(dst, src);
+}
+
+
+void X86Assembler::andps(XmmRegister dst, const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0x54);
+  EmitOperand(dst, src);
 }
 
 
@@ -661,10 +826,25 @@ void X86Assembler::fldl(const Address& src) {
 }
 
 
+void X86Assembler::fstl(const Address& dst) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xDD);
+  EmitOperand(2, dst);
+}
+
+
 void X86Assembler::fstpl(const Address& dst) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xDD);
   EmitOperand(3, dst);
+}
+
+
+void X86Assembler::fstsw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x9B);
+  EmitUint8(0xDF);
+  EmitUint8(0xE0);
 }
 
 
@@ -700,6 +880,13 @@ void X86Assembler::fildl(const Address& src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xDF);
   EmitOperand(5, src);
+}
+
+
+void X86Assembler::filds(const Address& src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xDB);
+  EmitOperand(0, src);
 }
 
 
@@ -739,16 +926,38 @@ void X86Assembler::fptan() {
 }
 
 
+void X86Assembler::fucompp() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xDA);
+  EmitUint8(0xE9);
+}
+
+
+void X86Assembler::fprem() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xD9);
+  EmitUint8(0xF8);
+}
+
+
 void X86Assembler::xchgl(Register dst, Register src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x87);
   EmitRegisterOperand(dst, src);
 }
 
+
 void X86Assembler::xchgl(Register reg, const Address& address) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x87);
   EmitOperand(reg, address);
+}
+
+
+void X86Assembler::cmpw(const Address& address, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitComplex(7, address, imm);
 }
 
 
@@ -845,6 +1054,13 @@ void X86Assembler::andl(Register dst, Register src) {
 }
 
 
+void X86Assembler::andl(Register reg, const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x23);
+  EmitOperand(reg, address);
+}
+
+
 void X86Assembler::andl(Register dst, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitComplex(4, Operand(dst), imm);
@@ -855,6 +1071,13 @@ void X86Assembler::orl(Register dst, Register src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0B);
   EmitOperand(dst, Operand(src));
+}
+
+
+void X86Assembler::orl(Register reg, const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0B);
+  EmitOperand(reg, address);
 }
 
 
@@ -870,10 +1093,19 @@ void X86Assembler::xorl(Register dst, Register src) {
   EmitOperand(dst, Operand(src));
 }
 
+
+void X86Assembler::xorl(Register reg, const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x33);
+  EmitOperand(reg, address);
+}
+
+
 void X86Assembler::xorl(Register dst, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitComplex(6, Operand(dst), imm);
 }
+
 
 void X86Assembler::addl(Register reg, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
@@ -930,6 +1162,13 @@ void X86Assembler::subl(Register reg, const Immediate& imm) {
 void X86Assembler::subl(Register reg, const Address& address) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x2B);
+  EmitOperand(reg, address);
+}
+
+
+void X86Assembler::subl(const Address& address, Register reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x29);
   EmitOperand(reg, address);
 }
 
@@ -1019,6 +1258,13 @@ void X86Assembler::sbbl(Register dst, const Address& address) {
 }
 
 
+void X86Assembler::sbbl(const Address& address, Register src) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x19);
+  EmitOperand(src, address);
+}
+
+
 void X86Assembler::incl(Register reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x40 + reg);
@@ -1046,40 +1292,98 @@ void X86Assembler::decl(const Address& address) {
 
 
 void X86Assembler::shll(Register reg, const Immediate& imm) {
-  EmitGenericShift(4, reg, imm);
+  EmitGenericShift(4, Operand(reg), imm);
 }
 
 
 void X86Assembler::shll(Register operand, Register shifter) {
-  EmitGenericShift(4, operand, shifter);
+  EmitGenericShift(4, Operand(operand), shifter);
+}
+
+
+void X86Assembler::shll(const Address& address, const Immediate& imm) {
+  EmitGenericShift(4, address, imm);
+}
+
+
+void X86Assembler::shll(const Address& address, Register shifter) {
+  EmitGenericShift(4, address, shifter);
 }
 
 
 void X86Assembler::shrl(Register reg, const Immediate& imm) {
-  EmitGenericShift(5, reg, imm);
+  EmitGenericShift(5, Operand(reg), imm);
 }
 
 
 void X86Assembler::shrl(Register operand, Register shifter) {
-  EmitGenericShift(5, operand, shifter);
+  EmitGenericShift(5, Operand(operand), shifter);
+}
+
+
+void X86Assembler::shrl(const Address& address, const Immediate& imm) {
+  EmitGenericShift(5, address, imm);
+}
+
+
+void X86Assembler::shrl(const Address& address, Register shifter) {
+  EmitGenericShift(5, address, shifter);
 }
 
 
 void X86Assembler::sarl(Register reg, const Immediate& imm) {
-  EmitGenericShift(7, reg, imm);
+  EmitGenericShift(7, Operand(reg), imm);
 }
 
 
 void X86Assembler::sarl(Register operand, Register shifter) {
-  EmitGenericShift(7, operand, shifter);
+  EmitGenericShift(7, Operand(operand), shifter);
 }
 
 
-void X86Assembler::shld(Register dst, Register src) {
+void X86Assembler::sarl(const Address& address, const Immediate& imm) {
+  EmitGenericShift(7, address, imm);
+}
+
+
+void X86Assembler::sarl(const Address& address, Register shifter) {
+  EmitGenericShift(7, address, shifter);
+}
+
+
+void X86Assembler::shld(Register dst, Register src, Register shifter) {
+  DCHECK_EQ(ECX, shifter);
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0F);
   EmitUint8(0xA5);
   EmitRegisterOperand(src, dst);
+}
+
+
+void X86Assembler::shld(Register dst, Register src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xA4);
+  EmitRegisterOperand(src, dst);
+  EmitUint8(imm.value() & 0xFF);
+}
+
+
+void X86Assembler::shrd(Register dst, Register src, Register shifter) {
+  DCHECK_EQ(ECX, shifter);
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xAD);
+  EmitRegisterOperand(src, dst);
+}
+
+
+void X86Assembler::shrd(Register dst, Register src, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xAC);
+  EmitRegisterOperand(src, dst);
+  EmitUint8(imm.value() & 0xFF);
 }
 
 
@@ -1154,7 +1458,7 @@ void X86Assembler::j(Condition condition, Label* label) {
     static const int kLongSize = 6;
     int offset = label->Position() - buffer_.Size();
     CHECK_LE(offset, 0);
-    if (IsInt(8, offset - kShortSize)) {
+    if (IsInt<8>(offset - kShortSize)) {
       EmitUint8(0x70 + condition);
       EmitUint8((offset - kShortSize) & 0xFF);
     } else {
@@ -1189,7 +1493,7 @@ void X86Assembler::jmp(Label* label) {
     static const int kLongSize = 5;
     int offset = label->Position() - buffer_.Size();
     CHECK_LE(offset, 0);
-    if (IsInt(8, offset - kShortSize)) {
+    if (IsInt<8>(offset - kShortSize)) {
       EmitUint8(0xEB);
       EmitUint8((offset - kShortSize) & 0xFF);
     } else {
@@ -1200,6 +1504,14 @@ void X86Assembler::jmp(Label* label) {
     EmitUint8(0xE9);
     EmitLabelLink(label);
   }
+}
+
+
+void X86Assembler::repne_scasw() {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x66);
+  EmitUint8(0xF2);
+  EmitUint8(0xAF);
 }
 
 
@@ -1216,6 +1528,15 @@ void X86Assembler::cmpxchgl(const Address& address, Register reg) {
   EmitUint8(0xB1);
   EmitOperand(reg, address);
 }
+
+
+void X86Assembler::cmpxchg8b(const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xC7);
+  EmitOperand(1, address);
+}
+
 
 void X86Assembler::mfence() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
@@ -1257,45 +1578,19 @@ void X86Assembler::AddImmediate(Register reg, const Immediate& imm) {
 }
 
 
+void X86Assembler::LoadLongConstant(XmmRegister dst, int64_t value) {
+  // TODO: Need to have a code constants table.
+  pushl(Immediate(High32Bits(value)));
+  pushl(Immediate(Low32Bits(value)));
+  movsd(dst, Address(ESP, 0));
+  addl(ESP, Immediate(2 * sizeof(int32_t)));
+}
+
+
 void X86Assembler::LoadDoubleConstant(XmmRegister dst, double value) {
   // TODO: Need to have a code constants table.
   int64_t constant = bit_cast<int64_t, double>(value);
-  pushl(Immediate(High32Bits(constant)));
-  pushl(Immediate(Low32Bits(constant)));
-  movsd(dst, Address(ESP, 0));
-  addl(ESP, Immediate(2 * kWordSize));
-}
-
-
-void X86Assembler::FloatNegate(XmmRegister f) {
-  static const struct {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
-  } float_negate_constant __attribute__((aligned(16))) =
-      { 0x80000000, 0x00000000, 0x80000000, 0x00000000 };
-  xorps(f, Address::Absolute(reinterpret_cast<uword>(&float_negate_constant)));
-}
-
-
-void X86Assembler::DoubleNegate(XmmRegister d) {
-  static const struct {
-    uint64_t a;
-    uint64_t b;
-  } double_negate_constant __attribute__((aligned(16))) =
-      {0x8000000000000000LL, 0x8000000000000000LL};
-  xorpd(d, Address::Absolute(reinterpret_cast<uword>(&double_negate_constant)));
-}
-
-
-void X86Assembler::DoubleAbs(XmmRegister reg) {
-  static const struct {
-    uint64_t a;
-    uint64_t b;
-  } double_abs_constant __attribute__((aligned(16))) =
-      {0x7FFFFFFFFFFFFFFFLL, 0x7FFFFFFFFFFFFFFFLL};
-  andpd(reg, Address::Absolute(reinterpret_cast<uword>(&double_abs_constant)));
+  LoadLongConstant(dst, constant);
 }
 
 
@@ -1383,28 +1678,32 @@ void X86Assembler::EmitLabelLink(Label* label) {
 
 
 void X86Assembler::EmitGenericShift(int reg_or_opcode,
-                                    Register reg,
+                                    const Operand& operand,
                                     const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   CHECK(imm.is_int8());
   if (imm.value() == 1) {
     EmitUint8(0xD1);
-    EmitOperand(reg_or_opcode, Operand(reg));
+    EmitOperand(reg_or_opcode, operand);
   } else {
     EmitUint8(0xC1);
-    EmitOperand(reg_or_opcode, Operand(reg));
+    EmitOperand(reg_or_opcode, operand);
     EmitUint8(imm.value() & 0xFF);
   }
 }
 
 
 void X86Assembler::EmitGenericShift(int reg_or_opcode,
-                                    Register operand,
+                                    const Operand& operand,
                                     Register shifter) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   CHECK_EQ(shifter, ECX);
   EmitUint8(0xD3);
-  EmitOperand(reg_or_opcode, Operand(operand));
+  EmitOperand(reg_or_opcode, operand);
+}
+
+static dwarf::Reg DWARFReg(Register reg) {
+  return dwarf::Reg::X86Core(static_cast<int>(reg));
 }
 
 constexpr size_t kFramePointerSize = 4;
@@ -1412,41 +1711,74 @@ constexpr size_t kFramePointerSize = 4;
 void X86Assembler::BuildFrame(size_t frame_size, ManagedRegister method_reg,
                               const std::vector<ManagedRegister>& spill_regs,
                               const ManagedRegisterEntrySpills& entry_spills) {
+  DCHECK_EQ(buffer_.Size(), 0U);  // Nothing emitted yet.
+  cfi_.SetCurrentCFAOffset(4);  // Return address on stack.
   CHECK_ALIGNED(frame_size, kStackAlignment);
+  int gpr_count = 0;
   for (int i = spill_regs.size() - 1; i >= 0; --i) {
-    pushl(spill_regs.at(i).AsX86().AsCpuRegister());
+    Register spill = spill_regs.at(i).AsX86().AsCpuRegister();
+    pushl(spill);
+    gpr_count++;
+    cfi_.AdjustCFAOffset(kFramePointerSize);
+    cfi_.RelOffset(DWARFReg(spill), 0);
   }
-  // return address then method on stack
-  addl(ESP, Immediate(-frame_size + (spill_regs.size() * kFramePointerSize) +
-                      sizeof(StackReference<mirror::ArtMethod>) /*method*/ +
-                      kFramePointerSize /*return address*/));
+
+  // return address then method on stack.
+  int32_t adjust = frame_size - gpr_count * kFramePointerSize -
+      kFramePointerSize /*method*/ -
+      kFramePointerSize /*return address*/;
+  addl(ESP, Immediate(-adjust));
+  cfi_.AdjustCFAOffset(adjust);
   pushl(method_reg.AsX86().AsCpuRegister());
+  cfi_.AdjustCFAOffset(kFramePointerSize);
+  DCHECK_EQ(static_cast<size_t>(cfi_.GetCurrentCFAOffset()), frame_size);
+
   for (size_t i = 0; i < entry_spills.size(); ++i) {
-    movl(Address(ESP, frame_size + sizeof(StackReference<mirror::ArtMethod>) +
-                 (i * kFramePointerSize)),
-         entry_spills.at(i).AsX86().AsCpuRegister());
+    ManagedRegisterSpill spill = entry_spills.at(i);
+    if (spill.AsX86().IsCpuRegister()) {
+      int offset = frame_size + spill.getSpillOffset();
+      movl(Address(ESP, offset), spill.AsX86().AsCpuRegister());
+    } else {
+      DCHECK(spill.AsX86().IsXmmRegister());
+      if (spill.getSize() == 8) {
+        movsd(Address(ESP, frame_size + spill.getSpillOffset()), spill.AsX86().AsXmmRegister());
+      } else {
+        CHECK_EQ(spill.getSize(), 4);
+        movss(Address(ESP, frame_size + spill.getSpillOffset()), spill.AsX86().AsXmmRegister());
+      }
+    }
   }
 }
 
-void X86Assembler::RemoveFrame(size_t frame_size,
-                            const std::vector<ManagedRegister>& spill_regs) {
+void X86Assembler::RemoveFrame(size_t frame_size, const std::vector<ManagedRegister>& spill_regs) {
   CHECK_ALIGNED(frame_size, kStackAlignment);
-  addl(ESP, Immediate(frame_size - (spill_regs.size() * kFramePointerSize) -
-                      sizeof(StackReference<mirror::ArtMethod>)));
+  cfi_.RememberState();
+  // -kFramePointerSize for ArtMethod*.
+  int adjust = frame_size - spill_regs.size() * kFramePointerSize - kFramePointerSize;
+  addl(ESP, Immediate(adjust));
+  cfi_.AdjustCFAOffset(-adjust);
   for (size_t i = 0; i < spill_regs.size(); ++i) {
-    popl(spill_regs.at(i).AsX86().AsCpuRegister());
+    Register spill = spill_regs.at(i).AsX86().AsCpuRegister();
+    popl(spill);
+    cfi_.AdjustCFAOffset(-static_cast<int>(kFramePointerSize));
+    cfi_.Restore(DWARFReg(spill));
   }
   ret();
+  // The CFI should be restored for any code that follows the exit block.
+  cfi_.RestoreState();
+  cfi_.DefCFAOffset(frame_size);
 }
 
 void X86Assembler::IncreaseFrameSize(size_t adjust) {
   CHECK_ALIGNED(adjust, kStackAlignment);
   addl(ESP, Immediate(-adjust));
+  cfi_.AdjustCFAOffset(adjust);
 }
 
 void X86Assembler::DecreaseFrameSize(size_t adjust) {
   CHECK_ALIGNED(adjust, kStackAlignment);
   addl(ESP, Immediate(adjust));
+  cfi_.AdjustCFAOffset(-adjust);
 }
 
 void X86Assembler::Store(FrameOffset offs, ManagedRegister msrc, size_t size) {
@@ -1571,18 +1903,18 @@ void X86Assembler::LoadFromThread32(ManagedRegister mdest, ThreadOffset<4> src, 
   }
 }
 
-void X86Assembler::LoadRef(ManagedRegister mdest, FrameOffset  src) {
+void X86Assembler::LoadRef(ManagedRegister mdest, FrameOffset src) {
   X86ManagedRegister dest = mdest.AsX86();
   CHECK(dest.IsCpuRegister());
   movl(dest.AsCpuRegister(), Address(ESP, src));
 }
 
-void X86Assembler::LoadRef(ManagedRegister mdest, ManagedRegister base,
-                           MemberOffset offs) {
+void X86Assembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
+                           bool poison_reference) {
   X86ManagedRegister dest = mdest.AsX86();
   CHECK(dest.IsCpuRegister() && dest.IsCpuRegister());
   movl(dest.AsCpuRegister(), Address(base.AsX86().AsCpuRegister(), offs));
-  if (kPoisonHeapReferences) {
+  if (kPoisonHeapReferences && poison_reference) {
     negl(dest.AsCpuRegister());
   }
 }
@@ -1732,9 +2064,7 @@ void X86Assembler::Copy(FrameOffset dest, Offset dest_offset, FrameOffset src, O
 }
 
 void X86Assembler::MemoryBarrier(ManagedRegister) {
-#if ANDROID_SMP != 0
   mfence();
-#endif
 }
 
 void X86Assembler::CreateHandleScopeEntry(ManagedRegister mout_reg,

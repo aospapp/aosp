@@ -22,7 +22,7 @@ import android.graphics.drawable.BitmapDrawable;
 
 public class RefcountBitmapDrawable extends BitmapDrawable {
 
-    private RefcountObject<Bitmap> mRefcountObject;
+    private final RefcountObject<Bitmap> mRefcountObject;
 
     /**
      *  create initial drawable,  this will not increase the refcount

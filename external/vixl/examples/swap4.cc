@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ void GenerateSwap4(MacroAssembler* masm) {
 
 
 #ifndef TEST_EXAMPLES
+#ifdef USE_SIMULATOR
 int main(void) {
   // Create and initialize the assembler and the simulator.
   byte assm_buf[BUF_SIZE];
@@ -74,7 +75,7 @@ int main(void) {
          simulator.xreg(0), simulator.xreg(1),
          simulator.xreg(2), simulator.xreg(3));
 
-  simulator.RunFrom(swap4.target());
+  simulator.RunFrom(masm.GetLabelAddress<Instruction*>(&swap4));
 
   printf("After swap4:\n"
          "x0 = 0x%" PRIx64 "\n"
@@ -86,4 +87,8 @@ int main(void) {
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

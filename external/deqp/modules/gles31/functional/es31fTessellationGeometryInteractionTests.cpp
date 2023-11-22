@@ -362,6 +362,7 @@ std::string IdentityGeometryShaderCase::getTessellationEvaluationSource (bool ge
 			"in highp vec4 v_patch_color[];\n"
 			"out highp vec4 " << colorOutputName << ";\n"
 			"\n"
+			"// note: No need to use precise gl_Position since we do not require gapless geometry\n"
 			"void main (void)\n"
 			"{\n";
 
@@ -665,6 +666,7 @@ std::string IdentityTessellationShaderCase::getTessellationEvaluationSource (voi
 			"in highp vec4 v_control_color[];\n"
 			"out highp vec4 v_evaluated_color;\n"
 			"\n"
+			"// note: No need to use precise gl_Position since we do not require gapless geometry\n"
 			"void main (void)\n"
 			"{\n";
 
@@ -1449,6 +1451,7 @@ std::string FeedbackPrimitiveTypeCase::getTessellationEvaluationSource (void) co
 			"\n"
 			"out highp vec4 v_tessellationCoords;\n"
 			"\n"
+			"// note: No need to use precise gl_Position since we do not require gapless geometry\n"
 			"void main (void)\n"
 			"{\n"
 			"	if (gl_PatchVerticesIn != 9)\n"
@@ -2580,6 +2583,7 @@ std::string GridRenderCase::getTessellationEvaluationSource (int tessLevel)
 			"\n"
 			"out mediump ivec2 v_tessellationGridPosition;\n"
 			"\n"
+			"// note: No need to use precise gl_Position since position does not depend on order\n"
 			"void main (void)\n"
 			"{\n";
 
@@ -2866,7 +2870,7 @@ FeedbackRecordVariableSelectionCase::IterateResult FeedbackRecordVariableSelecti
 
 	m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
 
-	m_testCtx.getLog() << tcu::TestLog::Message << "Rendering a patch of size 1." << tcu::TestLog::EndMessage;
+	m_testCtx.getLog() << tcu::TestLog::Message << "Rendering a patch of size 3." << tcu::TestLog::EndMessage;
 
 	// Render and feed back
 
@@ -2884,7 +2888,7 @@ FeedbackRecordVariableSelectionCase::IterateResult FeedbackRecordVariableSelecti
 	gl.useProgram(m_program->getProgram());
 	GLU_EXPECT_NO_ERROR(gl.getError(), "use program");
 
-	gl.patchParameteri(GL_PATCH_VERTICES, 1);
+	gl.patchParameteri(GL_PATCH_VERTICES, 3);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "set patch param");
 
 	gl.bindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, m_xfbBuf);
@@ -2893,7 +2897,7 @@ FeedbackRecordVariableSelectionCase::IterateResult FeedbackRecordVariableSelecti
 	gl.beginTransformFeedback(GL_TRIANGLES);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "beginTransformFeedback");
 
-	gl.drawArrays(GL_PATCHES, 0, 1);
+	gl.drawArrays(GL_PATCHES, 0, 3);
 	GLU_EXPECT_NO_ERROR(gl.getError(), "drawArrays");
 
 	gl.endTransformFeedback();

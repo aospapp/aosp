@@ -34,9 +34,10 @@ page.title=HAL subsystem
   output and processing. Multiple requests can be in flight at once, and 
   submitting requests is non-blocking. And the requests are always processed in 
   the order they are received.<br/>
-  <img src="images/camera_model.png" alt="Camera request model"/>
-  <br/>
-  <strong>Figure 3.</strong> Camera model</p>
+  <img src="images/camera_model.png" alt="Camera request model" id="figure1" />
+  <p class="img-caption">
+  <strong>Figure 1.</strong> Camera model
+</p>
 <h2 id="hal-subsystem">The HAL and camera subsystem</h2>
 <p> The camera subsystem includes the implementations for components in the camera 
   pipeline such as the 3A algorithm and processing controls. The camera HAL 
@@ -51,9 +52,10 @@ page.title=HAL subsystem
   The camera pipeline also supports triggers that the app framework can initiate 
   to turn on things such as auto-focus. It also sends notifications back to the 
   app framework, notifying apps of events such as an auto-focus lock or errors.<br/>
-  <img src="images/camera_hal.png" alt="Camera hardware abstraction layer"/>
-  <br/>
-  <strong>Figure 4.</strong> Camera pipeline<br/>
+  <img src="images/camera_hal.png" alt="Camera hardware abstraction layer" id="figure2" />
+  <p class="img-caption">
+  <strong>Figure 2.</strong> Camera pipeline
+  </p>
   Please note, some image processing blocks shown in the diagram above are not 
   well-defined in the initial release.<br/>
   The camera pipeline makes the following assumptions:</p>
@@ -92,9 +94,10 @@ page.title=HAL subsystem
   <li>All capture configuration and state (except for the 3A routines) is 
     encapsulated in the requests and results.</li>
 </ul>
-<p><img src="images/camera-hal-overview.png" alt="Camera HAL overview"/>
-  <br/>
-  <strong>Figure 5.</strong> Camera HAL overview</p>
+<img src="images/camera-hal-overview.png" alt="Camera HAL overview" id="figure3" />
+<p class="img-caption">
+  <strong>Figure 3.</strong> Camera HAL overview
+</p>
 <h2 id="startup">Startup and expected operation sequence</h2>
 <p>This section contains a detailed explanation of the steps expected when using 
   the camera API. Please see <a href="https://android.googlesource.com/platform/hardware/libhardware/+/master/include/hardware/camera3.h">platform/hardware/libhardware/include/hardware/camera3.h</a> for definitions of these structures and methods.</p>
@@ -162,9 +165,10 @@ page.title=HAL subsystem
     -ENODEV or NULL after the notify() method returns from a fatal error 
     message.</li>
 </ol>
-<p><img src="images/camera-ops-flow.png" width="600" height="434" alt="Camera operations flow" />
+<img src="images/camera-ops-flow.png" width="600" height="434" alt="Camera operations flow" id="figure4" />
+<p class="img-caption">
+  <strong>Figure 4.</strong> Camera operational flow
 </p>
-<p><strong>Figure 6.</strong> Camera operational flow</p>
 <h2 id="ops-modes">Operational modes</h2>
 <p>The camera 3 HAL device can implement one of two possible operational modes: 
   limited and full. Full support is expected from new higher-end devices. Limited 

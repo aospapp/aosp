@@ -22,7 +22,14 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public class ThrowsTagInfo extends ParsedTagInfo {
+  public static final ThrowsTagInfo[] EMPTY_ARRAY = new ThrowsTagInfo[0];
+
+  public static ThrowsTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new ThrowsTagInfo[size];
+  }
+
   static final Pattern PATTERN = Pattern.compile("(\\S+)\\s+(.*)", Pattern.DOTALL);
+
   private ClassInfo mException;
 
   public ThrowsTagInfo(String name, String kind, String text, ContainerInfo base,

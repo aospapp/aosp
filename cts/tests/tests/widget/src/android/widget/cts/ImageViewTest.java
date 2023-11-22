@@ -38,6 +38,7 @@ import android.graphics.Matrix;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.graphics.drawable.PaintDrawable;
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase;
@@ -173,6 +174,23 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
     }
 
     @UiThreadTest
+    public void testSetImageIcon() {
+        mImageView = findImageViewById(R.id.imageview);
+        mImageView.setImageIcon(null);
+        assertNull(mImageView.getDrawable());
+
+        Icon icon = Icon.createWithResource(mActivity, R.drawable.testimage);
+        mImageView.setImageIcon(icon);
+        assertTrue(mImageView.isLayoutRequested());
+        assertNotNull(mImageView.getDrawable());
+        Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
+        Drawable imageViewDrawable = mImageView.getDrawable();
+        BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;
+        WidgetTestUtils.assertEquals(testimageBitmap.getBitmap(), imageViewBitmap.getBitmap());
+    }
+
+    @UiThreadTest
     public void testSetImageResource() {
         mImageView = findImageViewById(R.id.imageview);
         mImageView.setImageResource(-1);
@@ -181,7 +199,7 @@ public class ImageViewTest extends ActivityInstrumentationTestCase<ImageViewCtsA
         mImageView.setImageResource(R.drawable.testimage);
         assertTrue(mImageView.isLayoutRequested());
         assertNotNull(mImageView.getDrawable());
-        Drawable drawable = mActivity.getResources().getDrawable(R.drawable.testimage);
+        Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
         BitmapDrawable testimageBitmap = (BitmapDrawable) drawable;
         Drawable imageViewDrawable = mImageView.getDrawable();
         BitmapDrawable imageViewBitmap = (BitmapDrawable) imageViewDrawable;

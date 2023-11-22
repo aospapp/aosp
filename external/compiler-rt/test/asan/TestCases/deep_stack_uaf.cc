@@ -3,6 +3,7 @@
 // RUN: %clangxx_asan -O0 %s -o %t 2>&1
 // RUN: env ASAN_OPTIONS=malloc_context_size=120:redzone=512 not %run %t 2>&1 | FileCheck %s
 // XFAIL: arm-linux-gnueabi
+// XFAIL: armv7l-unknown-linux-gnueabihf
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -26,7 +27,10 @@ int main() {
   DeepFree<200>::free(x);
   return x[5];
   // CHECK: {{.*ERROR: AddressSanitizer: heap-use-after-free on address}}
-  // CHECK: DeepFree<36>
-  // CHECK: DeepFree<98>
-  // CHECK: DeepFree<115>
+  // The libcxxrt demangling procedure on FreeBSD 9.2 incorrectly appends
+  // extra 'E' characters to the end of template arguments; see:
+  // https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=192115
+  // CHECK: {{DeepFree<36>|DeepFree<36E>}}
+  // CHECK: {{DeepFree<98>|DeepFree<98E>}}
+  // CHECK: {{DeepFree<115>|DeepFree<115E>}}
 }

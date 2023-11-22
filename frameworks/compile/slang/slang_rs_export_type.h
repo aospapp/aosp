@@ -35,8 +35,8 @@
 
 
 inline const clang::Type* GetCanonicalType(const clang::Type* T) {
-  if (T == NULL) {
-    return  NULL;
+  if (T == nullptr) {
+    return  nullptr;
   }
   return T->getCanonicalTypeInternal().getTypePtr();
 }
@@ -46,22 +46,22 @@ inline const clang::Type* GetCanonicalType(clang::QualType QT) {
 }
 
 inline const clang::Type* GetExtVectorElementType(const clang::ExtVectorType *T) {
-  if (T == NULL) {
-    return NULL;
+  if (T == nullptr) {
+    return nullptr;
   }
   return GetCanonicalType(T->getElementType());
 }
 
 inline const clang::Type* GetPointeeType(const clang::PointerType *T) {
-  if (T == NULL) {
-    return NULL;
+  if (T == nullptr) {
+    return nullptr;
   }
   return GetCanonicalType(T->getPointeeType());
 }
 
 inline const clang::Type* GetConstantArrayElementType(const clang::ConstantArrayType *T) {
-  if (T == NULL) {
-    return NULL;
+  if (T == nullptr) {
+    return nullptr;
   }
   return GetCanonicalType(T->getElementType());
 }
@@ -237,7 +237,7 @@ class RSExportType : public RSExportable {
   static bool ValidateType(slang::RSContext *Context, clang::ASTContext &C,
                            clang::QualType QT, clang::NamedDecl *ND,
                            clang::SourceLocation Loc, unsigned int TargetAPI,
-                           bool IsFilterscript);
+                           bool IsFilterscript, bool IsExtern);
 
   // This function ensures that the VarDecl can be properly handled by RS.
   // If it cannot, this function returns false. Otherwise it returns true.
@@ -257,7 +257,7 @@ class RSExportType : public RSExportable {
   virtual unsigned getSize() const { return 1; }
 
   inline llvm::Type *getLLVMType() const {
-    if (mLLVMType == NULL)
+    if (mLLVMType == nullptr)
       mLLVMType = convertToLLVMType();
     return mLLVMType;
   }
@@ -591,7 +591,7 @@ class RSExportRecordType : public RSExportType {
              E = mFields.end();
          I != E;
          I++)
-      if (*I != NULL)
+      if (*I != nullptr)
         delete *I;
   }
 };  // RSExportRecordType

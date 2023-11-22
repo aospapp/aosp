@@ -13,24 +13,33 @@
  */
 package android.support.v17.leanback.widget;
 
+import android.graphics.drawable.Drawable;
+import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.widget.ControlBarPresenter.OnControlClickedListener;
 import android.support.v17.leanback.widget.ControlBarPresenter.OnControlSelectedListener;
 import android.content.Context;
 import android.graphics.Color;
 import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 
 /**
  * A PlaybackControlsRowPresenter renders a {@link PlaybackControlsRow} to display a
  * series of playback control buttons. Typically this row will be the first row in a fragment
- * such as the {@link android.support.v17.leanback.app.PlaybackOverlayFragment
- * PlaybackControlsFragment}.
+ * such as the {@link android.support.v17.leanback.app.PlaybackOverlayFragment}.
+ *
+ * <p>The detailed description is rendered using a {@link Presenter} passed in
+ * {@link #PlaybackControlsRowPresenter(Presenter)}.  Typically this will be an instance of
+ * {@link AbstractDetailsDescriptionPresenter}.  The application can access the
+ * detailed description ViewHolder from {@link ViewHolder#mDescriptionViewHolder}.
+ * </p>
  */
 public class PlaybackControlsRowPresenter extends RowPresenter {
 
@@ -44,6 +53,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
     public class ViewHolder extends RowPresenter.ViewHolder {
         public final Presenter.ViewHolder mDescriptionViewHolder;
         final ViewGroup mCard;
+        final ViewGroup mCardRightPanel;
         final ImageView mImageView;
         final ViewGroup mDescriptionDock;
         final ViewGroup mControlsDock;
@@ -51,7 +61,6 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         final View mSpacer;
         final View mBottomSpacer;
         View mBgView;
-        int mCardHeight;
         int mControlsDockMarginStart;
         int mControlsDockMarginEnd;
         PlaybackControlsPresenter.ViewHolder mControlsVh;
@@ -75,6 +84,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         ViewHolder(View rootView, Presenter descriptionPresenter) {
             super(rootView);
             mCard = (ViewGroup) rootView.findViewById(R.id.controls_card);
+            mCardRightPanel = (ViewGroup) rootView.findViewById(R.id.controls_card_right_panel);
             mImageView = (ImageView) rootView.findViewById(R.id.image);
             mDescriptionDock = (ViewGroup) rootView.findViewById(R.id.description_dock);
             mControlsDock = (ViewGroup) rootView.findViewById(R.id.controls_dock);
@@ -94,17 +104,11 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
                 return;
             }
             if (mSelectedViewHolder == null) {
-                if (getOnItemSelectedListener() != null) {
-                    getOnItemSelectedListener().onItemSelected(null, getRow());
-                }
                 if (getOnItemViewSelectedListener() != null) {
                     getOnItemViewSelectedListener().onItemSelected(null, null,
                             ViewHolder.this, getRow());
                 }
             } else {
-                if (getOnItemSelectedListener() != null) {
-                    getOnItemSelectedListener().onItemSelected(mSelectedItem, getRow());
-                }
                 if (getOnItemViewSelectedListener() != null) {
                     getOnItemViewSelectedListener().onItemSelected(mSelectedViewHolder, mSelectedItem,
                             ViewHolder.this, getRow());
@@ -128,14 +132,13 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
             return adapter.getPresenter(adapter.size() > 0 ? adapter.get(0) : null);
         }
 
-        void setBackground(View view) {
+        void setOutline(View view) {
             if (mBgView != null) {
-                RoundedRectHelper.getInstance().clearBackground(mBgView);
+                RoundedRectHelper.getInstance().setClipToRoundedOutline(mBgView, false);
                 ShadowHelper.getInstance().setZ(mBgView, 0);
             }
             mBgView = view;
-            RoundedRectHelper.getInstance().setRoundedRectBackground(view, mBackgroundColorSet ?
-                    mBackgroundColor : getDefaultBackgroundColor(view.getContext()));
+            RoundedRectHelper.getInstance().setClipToRoundedOutline(view, true);
 
             if (sShadowZ == 0) {
                 sShadowZ = view.getResources().getDimensionPixelSize(
@@ -176,11 +179,8 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         public void onControlClicked(Presenter.ViewHolder itemViewHolder, Object item,
                 ControlBarPresenter.BoundData data) {
             ViewHolder vh = ((BoundData) data).mRowViewHolder;
-            if (getOnItemClickedListener() != null) {
-                getOnItemClickedListener().onItemClicked(item, vh.getRow());
-            }
-            if (getOnItemViewClickedListener() != null) {
-                getOnItemViewClickedListener().onItemClicked(itemViewHolder, item,
+            if (vh.getOnItemViewClickedListener() != null) {
+                vh.getOnItemViewClickedListener().onItemClicked(itemViewHolder, item,
                         vh, vh.getRow());
             }
             if (mOnActionClickedListener != null && item instanceof Action) {
@@ -223,7 +223,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
     }
 
     /**
-     * Gets the listener for {@link Action} click events.
+     * Returns the listener for {@link Action} click events.
      */
     public OnActionClickedListener getOnActionClickedListener() {
         return mOnActionClickedListener;
@@ -232,7 +232,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
     /**
      * Sets the background color.  If not set, a default from the theme will be used.
      */
-    public void setBackgroundColor(int color) {
+    public void setBackgroundColor(@ColorInt int color) {
         mBackgroundColor = color;
         mBackgroundColorSet = true;
     }
@@ -241,6 +241,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
      * Returns the background color.  If no background color was set, transparent
      * is returned.
      */
+    @ColorInt
     public int getBackgroundColor() {
         return mBackgroundColor;
     }
@@ -249,7 +250,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
      * Sets the primary color for the progress bar.  If not set, a default from
      * the theme will be used.
      */
-    public void setProgressColor(int color) {
+    public void setProgressColor(@ColorInt int color) {
         mProgressColor = color;
         mProgressColorSet = true;
     }
@@ -258,6 +259,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
      * Returns the primary color for the progress bar.  If no color was set, transparent
      * is returned.
      */
+    @ColorInt
     public int getProgressColor() {
         return mProgressColor;
     }
@@ -288,22 +290,29 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
     }
 
     /**
-     * Display the primary actions.
+     * Displays the primary actions.  This will override the user having selected "more actions"
+     * to display the secondary actions; see {@link #setSecondaryActionsHidden(boolean)}.
      */
     public void showPrimaryActions(ViewHolder vh) {
         mPlaybackControlsPresenter.showPrimaryActions(vh.mControlsVh);
+        mPlaybackControlsPresenter.resetFocus(vh.mControlsVh);
     }
 
     private int getDefaultBackgroundColor(Context context) {
         TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true);
-        return context.getResources().getColor(outValue.resourceId);
+        if (context.getTheme().resolveAttribute(R.attr.defaultBrandColor, outValue, true)) {
+            return context.getResources().getColor(outValue.resourceId);
+        }
+        return context.getResources().getColor(R.color.lb_default_brand_color);
     }
 
     private int getDefaultProgressColor(Context context) {
         TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(R.attr.playbackProgressPrimaryColor, outValue, true);
-        return context.getResources().getColor(outValue.resourceId);
+        if (context.getTheme()
+                .resolveAttribute(R.attr.playbackProgressPrimaryColor, outValue, true)) {
+            return context.getResources().getColor(outValue.resourceId);
+        }
+        return context.getResources().getColor(R.color.lb_playback_progress_color_no_theme);
     }
 
     @Override
@@ -315,18 +324,17 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         return vh;
     }
 
-    private void initRow(ViewHolder vh) {
-        vh.mCardHeight = vh.mCard.getLayoutParams().height;
-
+    private void initRow(final ViewHolder vh) {
         MarginLayoutParams lp = (MarginLayoutParams) vh.mControlsDock.getLayoutParams();
         vh.mControlsDockMarginStart = lp.getMarginStart();
         vh.mControlsDockMarginEnd = lp.getMarginEnd();
 
         vh.mControlsVh = (PlaybackControlsPresenter.ViewHolder)
                 mPlaybackControlsPresenter.onCreateViewHolder(vh.mControlsDock);
-        mPlaybackControlsPresenter.setProgressColor(vh.mControlsVh,
-                mProgressColorSet ? mProgressColor :
-                        getDefaultProgressColor(vh.mControlsDock.getContext()));
+        mPlaybackControlsPresenter.setProgressColor(vh.mControlsVh, mProgressColorSet ?
+                mProgressColor : getDefaultProgressColor(vh.mControlsDock.getContext()));
+        mPlaybackControlsPresenter.setBackgroundColor(vh.mControlsVh, mBackgroundColorSet ?
+                mBackgroundColor : getDefaultBackgroundColor(vh.view.getContext()));
         vh.mControlsDock.addView(vh.mControlsVh.view);
 
         vh.mSecondaryControlsVh =
@@ -334,6 +342,18 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         if (!mSecondaryActionsHidden) {
             vh.mSecondaryControlsDock.addView(vh.mSecondaryControlsVh.view);
         }
+        ((PlaybackControlsRowView) vh.view).setOnUnhandledKeyListener(
+                new PlaybackControlsRowView.OnUnhandledKeyListener() {
+            @Override
+            public boolean onUnhandledKey(KeyEvent event) {
+                if (vh.getOnKeyListener() != null) {
+                    if (vh.getOnKeyListener().onKey(vh.view, event.getKeyCode(), event)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     @Override
@@ -346,15 +366,9 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         mPlaybackControlsPresenter.enableSecondaryActions(mSecondaryActionsHidden);
 
         if (row.getItem() == null) {
-            LayoutParams lp = vh.mCard.getLayoutParams();
-            lp.height = LayoutParams.WRAP_CONTENT;
-            vh.mCard.setLayoutParams(lp);
             vh.mDescriptionDock.setVisibility(View.GONE);
             vh.mSpacer.setVisibility(View.GONE);
         } else {
-            LayoutParams lp = vh.mCard.getLayoutParams();
-            lp.height = vh.mCardHeight;
-            vh.mCard.setLayoutParams(lp);
             vh.mDescriptionDock.setVisibility(View.VISIBLE);
             if (vh.mDescriptionViewHolder != null) {
                 mDescriptionPresenter.onBindViewHolder(vh.mDescriptionViewHolder, row.getItem());
@@ -362,21 +376,13 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
             vh.mSpacer.setVisibility(View.VISIBLE);
         }
 
-        MarginLayoutParams lp = (MarginLayoutParams) vh.mControlsDock.getLayoutParams();
         if (row.getImageDrawable() == null || row.getItem() == null) {
             vh.mImageView.setImageDrawable(null);
-            vh.setBackground(vh.mControlsDock);
-            lp.setMarginStart(0);
-            lp.setMarginEnd(0);
-            mPlaybackControlsPresenter.enableTimeMargins(vh.mControlsVh, true);
+            updateCardLayout(vh, LayoutParams.WRAP_CONTENT);
         } else {
             vh.mImageView.setImageDrawable(row.getImageDrawable());
-            vh.setBackground(vh.mCard);
-            lp.setMarginStart(vh.mControlsDockMarginStart);
-            lp.setMarginEnd(vh.mControlsDockMarginEnd);
-            mPlaybackControlsPresenter.enableTimeMargins(vh.mControlsVh, false);
+            updateCardLayout(vh, vh.mImageView.getLayoutParams().height);
         }
-        vh.mControlsDock.setLayoutParams(lp);
 
         vh.mControlsBoundData.adapter = row.getPrimaryActionsAdapter();
         vh.mControlsBoundData.secondaryActionsAdapter = row.getSecondaryActionsAdapter();
@@ -396,6 +402,36 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         row.setOnPlaybackStateChangedListener(vh.mListener);
     }
 
+    private void updateCardLayout(ViewHolder vh, int height) {
+        LayoutParams lp = vh.mCardRightPanel.getLayoutParams();
+        lp.height = height;
+        vh.mCardRightPanel.setLayoutParams(lp);
+
+        MarginLayoutParams mlp = (MarginLayoutParams) vh.mControlsDock.getLayoutParams();
+        LinearLayout.LayoutParams llp =
+                (LinearLayout.LayoutParams) vh.mDescriptionDock.getLayoutParams();
+
+        if (height == LayoutParams.WRAP_CONTENT) {
+            llp.height = LayoutParams.WRAP_CONTENT;
+            mlp.setMarginStart(0);
+            mlp.setMarginEnd(0);
+            vh.mCard.setBackground(null);
+            vh.setOutline(vh.mControlsDock);
+            mPlaybackControlsPresenter.enableTimeMargins(vh.mControlsVh, true);
+        } else {
+            llp.height = 0;
+            llp.weight = 1;
+            mlp.setMarginStart(vh.mControlsDockMarginStart);
+            mlp.setMarginEnd(vh.mControlsDockMarginEnd);
+            vh.mCard.setBackgroundColor(mBackgroundColorSet ? mBackgroundColor :
+                    getDefaultBackgroundColor(vh.mCard.getContext()));
+            vh.setOutline(vh.mCard);
+            mPlaybackControlsPresenter.enableTimeMargins(vh.mControlsVh, false);
+        }
+        vh.mDescriptionDock.setLayoutParams(llp);
+        vh.mControlsDock.setLayoutParams(mlp);
+    }
+
     @Override
     protected void onUnbindRowViewHolder(RowPresenter.ViewHolder holder) {
         ViewHolder vh = (ViewHolder) holder;
@@ -411,6 +447,7 @@ public class PlaybackControlsRowPresenter extends RowPresenter {
         super.onUnbindRowViewHolder(holder);
     }
 
+    @Override
     protected void onRowViewSelected(RowPresenter.ViewHolder vh, boolean selected) {
         super.onRowViewSelected(vh, selected);
         if (selected) {

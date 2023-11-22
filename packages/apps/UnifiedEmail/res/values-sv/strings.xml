@@ -88,7 +88,7 @@
     <string name="add_bcc_label" msgid="963745641238037813">"Lägg t. hemlig kopia"</string>
     <string name="quoted_text" msgid="977782904293216533">"Inkludera citerad text"</string>
     <string name="quoted_text_label" msgid="2296807722849923934">"Citerad text"</string>
-    <string name="respond_inline" msgid="6609746292081928078">"Svara inbäddade"</string>
+    <string name="respond_inline" msgid="6609746292081928078">"Svara inbäddat"</string>
     <string name="bytes" msgid="651011686747499628">"<xliff:g id="COUNT">%s</xliff:g> B"</string>
     <string name="kilobytes" msgid="1523463964465770347">"<xliff:g id="COUNT">%s</xliff:g> kB"</string>
     <string name="megabytes" msgid="4309397368708773323">"<xliff:g id="COUNT">%s</xliff:g> MB"</string>
@@ -215,7 +215,7 @@
     <item quantity="other" msgid="4085982174357328926">"<xliff:g id="COUNT">%1$d</xliff:g> nya meddelanden"</item>
   </plurals>
     <string name="date_and_view_details" msgid="2952994746916149969">"<xliff:g id="DATE">%1$s</xliff:g> &lt;a href=\'http://www.example.com\'&gt;Visa information&lt;/a&gt;"</string>
-    <string name="hide_details" msgid="8018801050702453314">"Dölj detaljer"</string>
+    <string name="hide_details" msgid="8018801050702453314">"Dölj information"</string>
     <string name="to_message_header" msgid="3954385178027011919">"till <xliff:g id="RECIPIENTS">%1$s</xliff:g>"</string>
     <string name="bcc_header_for_recipient_summary" msgid="1834716758549842454">"Hemlig kopia: "</string>
     <string name="contact_info_string" msgid="6484930184867405276">"Visa kontaktuppgifter för <xliff:g id="NAME">%1$s</xliff:g>"</string>
@@ -267,7 +267,7 @@
     <item msgid="5442620760791553027">"Serverfel"</item>
   </string-array>
     <string name="tap_to_configure" msgid="137172348280050643">"Tryck om du vill konfigurera"</string>
-    <string name="non_synced_folder_description" msgid="3044618511909304701">"Synka för att visa konversationer."</string>
+    <string name="non_synced_folder_description" msgid="3044618511909304701">"Synkronisera för att visa konversationer."</string>
     <string name="tap_to_configure_folder_sync" msgid="3280434399275638071">"Synkronisera mappen"</string>
     <string name="widget_large_unread_count" msgid="8699435859096455837">"%d+"</string>
     <string name="large_unseen_count" msgid="3055042669246912518">"<xliff:g id="COUNT">%d</xliff:g>+ nya"</string>
@@ -296,7 +296,7 @@
     <skip />
     <string name="shortcut_name_title" msgid="1562534040126088628">"Kortkommando för att namnge mapp"</string>
     <string name="wait_for_sync_title" msgid="4577632826912823075">"Väntar på synk"</string>
-    <string name="not_synced_title" msgid="3600180500934086346">"Kontot är inte synkat"</string>
+    <string name="not_synced_title" msgid="3600180500934086346">"Kontot är inte synkroniserat"</string>
     <string name="wait_for_manual_sync_body" msgid="2823149409451003378">"Det här kontot har inte konfigurerats så att det synkroniseras automatiskt.\nTryck på "<b>"Synka nu"</b>" om du vill synkronisera e-post en gång eller "<b>"Ändra synkroniseringsinställn."</b>" om du vill konfigurera kontot så att e-post synkroniseras automatiskt."</string>
     <string name="manual_sync" msgid="2271479734895537848">"Synka nu"</string>
     <string name="change_sync_settings" msgid="3615852118397055361">"Ändra synkroniseringsinställn."</string>

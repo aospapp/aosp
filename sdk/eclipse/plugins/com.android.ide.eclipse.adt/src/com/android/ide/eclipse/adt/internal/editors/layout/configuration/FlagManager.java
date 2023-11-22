@@ -18,10 +18,9 @@ package com.android.ide.eclipse.adt.internal.editors.layout.configuration;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.android.ide.common.resources.LocaleManager;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
+import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.eclipse.adt.internal.editors.IconFactory;
-import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
 
 import org.eclipse.swt.graphics.Image;
@@ -62,7 +61,7 @@ public class FlagManager {
     }
 
     /** Map from region to flag icon */
-    private Map<String, Image> mImageMap = Maps.newHashMap();
+    private final Map<String, Image> mImageMap = Maps.newHashMap();
 
     /**
      * Returns the empty flag icon used to indicate an unknown country
@@ -98,6 +97,17 @@ public class FlagManager {
             // Look up the region for a given language
             assert language != null;
 
+            // Special cases where we have a dedicated flag available:
+            if (language.equals("ca")) {        //$NON-NLS-1$
+              return getIcon("catalonia");      //$NON-NLS-1$
+            }
+            else if (language.equals("gd")) { //$NON-NLS-1$
+              return getIcon("scotland");     //$NON-NLS-1$
+            }
+            else if (language.equals("cy")) { //$NON-NLS-1$
+              return getIcon("wales");        //$NON-NLS-1$
+            }
+
             // Prefer the local registration of the current locale; even if
             // for example the default locale for English is the US, if the current
             // default locale is English, then use its associated country, which could
@@ -110,17 +120,7 @@ public class FlagManager {
                 }
             }
 
-            // Special cases where we have a dedicated flag available:
-            if (language.equals("ca")) {        //$NON-NLS-1$
-                region = "catalonia";           //$NON-NLS-1$
-            } else if (language.equals("gd")) { //$NON-NLS-1$
-                region = "scotland";            //$NON-NLS-1$
-            } else if (language.equals("cy")) { //$NON-NLS-1$
-                region = "wales";               //$NON-NLS-1$
-            } else {
-                // Attempt to look up the country from the language
-                region = LocaleManager.getLanguageRegion(language);
-            }
+            region = LocaleManager.getLanguageRegion(language);
         }
 
         if (region == null || region.isEmpty()) {
@@ -139,16 +139,16 @@ public class FlagManager {
      * @param region the region, or null (if null, language must not be null),
      * @return a suitable flag icon, or null
      */
-    public Image getFlag(LanguageQualifier language, RegionQualifier region) {
-        String languageCode = language != null ? language.getValue() : null;
-        String regionCode = region != null ? region.getValue() : null;
-        if (LanguageQualifier.FAKE_LANG_VALUE.equals(languageCode)) {
+    public Image getFlag(@Nullable LocaleQualifier locale) {
+        if (locale == null) {
+            return null;
+          }
+          String languageCode = locale.getLanguage();
+          String regionCode = locale.getRegion();
+          if (LocaleQualifier.FAKE_VALUE.equals(languageCode)) {
             languageCode = null;
-        }
-        if (RegionQualifier.FAKE_REGION_VALUE.equals(regionCode)) {
-            regionCode = null;
-        }
-        return getFlag(languageCode, regionCode);
+          }
+          return getFlag(languageCode, regionCode);
     }
 
     /**
@@ -160,24 +160,26 @@ public class FlagManager {
      */
     @Nullable
     public Image getFlagForFolderName(@NonNull String folder) {
-        RegionQualifier region = null;
-        LanguageQualifier language = null;
-        for (String qualifier : Splitter.on('-').split(folder)) {
-            if (qualifier.length() == 3) {
-                region = RegionQualifier.getQualifier(qualifier);
-                if (region != null) {
-                    break;
-                }
-            } else if (qualifier.length() == 2 && language == null) {
-                language = LanguageQualifier.getQualifier(qualifier);
-            }
-        }
-        if (region != null || language != null) {
-            return FlagManager.get().getFlag(language, region);
+        FolderConfiguration configuration = FolderConfiguration.getConfigForFolder(folder);
+        if (configuration != null) {
+          return get().getFlag(configuration);
         }
 
         return null;
     }
+
+    /**
+     * Returns the flag for the given folder
+     *
+     * @param configuration the folder configuration
+     * @return a suitable flag icon, or null
+     */
+    @Nullable
+    public Image getFlag(@NonNull FolderConfiguration configuration) {
+        return getFlag(configuration.getLocaleQualifier());
+    }
+
+
 
     /**
      * Returns the flag for the given region.

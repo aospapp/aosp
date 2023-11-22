@@ -32,11 +32,11 @@ using namespace android;
 using namespace android::renderscript;
 
 FileA3D::FileA3D(Context *rsc) : ObjectBase(rsc) {
-    mAlloc = NULL;
-    mData = NULL;
-    mWriteStream = NULL;
-    mReadStream = NULL;
-    mAsset = NULL;
+    mAlloc = nullptr;
+    mData = nullptr;
+    mWriteStream = nullptr;
+    mReadStream = nullptr;
+    mAsset = nullptr;
 
     mMajorVersion = 0;
     mMinorVersion = 1;
@@ -54,7 +54,7 @@ FileA3D::~FileA3D() {
         delete mWriteStream;
     }
     if (mReadStream) {
-        delete mWriteStream;
+        delete mReadStream;
     }
     if (mAlloc) {
         free(mAlloc);
@@ -86,7 +86,7 @@ void FileA3D::parseHeader(IStream *headerStream) {
             entry->mOffset = headerStream->loadU32();
             entry->mLength = headerStream->loadU32();
         }
-        entry->mRsObj = NULL;
+        entry->mRsObj = nullptr;
         mIndex.push(entry);
     }
 }
@@ -225,17 +225,17 @@ const FileA3D::A3DIndexEntry *FileA3D::getIndexEntry(size_t index) const {
     if (index < mIndex.size()) {
         return mIndex[index];
     }
-    return NULL;
+    return nullptr;
 }
 
 ObjectBase *FileA3D::initializeFromEntry(size_t index) {
     if (index >= mIndex.size()) {
-        return NULL;
+        return nullptr;
     }
 
     FileA3D::A3DIndexEntry *entry = mIndex[index];
     if (!entry) {
-        return NULL;
+        return nullptr;
     }
 
     if (entry->mRsObj) {
@@ -247,7 +247,7 @@ ObjectBase *FileA3D::initializeFromEntry(size_t index) {
     mReadStream->reset(entry->mOffset);
     switch (entry->mType) {
         case RS_A3D_CLASS_ID_UNKNOWN:
-            return NULL;
+            return nullptr;
         case RS_A3D_CLASS_ID_MESH:
             entry->mRsObj = Mesh::createFromStream(mRSC, mReadStream);
             break;
@@ -288,11 +288,17 @@ ObjectBase *FileA3D::initializeFromEntry(size_t index) {
             break;
         case RS_A3D_CLASS_ID_SCRIPT_KERNEL_ID:
             break;
+        case RS_A3D_CLASS_ID_SCRIPT_INVOKE_ID:
+            break;
         case RS_A3D_CLASS_ID_SCRIPT_FIELD_ID:
             break;
         case RS_A3D_CLASS_ID_SCRIPT_METHOD_ID:
             break;
         case RS_A3D_CLASS_ID_SCRIPT_GROUP:
+            break;
+        case RS_A3D_CLASS_ID_CLOSURE:
+            break;
+        case RS_A3D_CLASS_ID_SCRIPT_GROUP2:
             break;
     }
     if (entry->mRsObj) {
@@ -389,7 +395,7 @@ RsObjectBase rsaFileA3DGetEntryByIndex(RsContext con, uint32_t index, RsFile fil
     FileA3D *fa3d = static_cast<FileA3D *>(file);
     if (!fa3d) {
         ALOGE("Can't load entry. No valid file");
-        return NULL;
+        return nullptr;
     }
 
     ObjectBase *obj = fa3d->initializeFromEntry(index);
@@ -418,7 +424,7 @@ void rsaFileA3DGetIndexEntries(RsContext con, RsFileIndexEntry *fileEntries, uin
     }
 
     uint32_t numFileEntries = fa3d->getNumIndexEntries();
-    if (numFileEntries != numEntries || numEntries == 0 || fileEntries == NULL) {
+    if (numFileEntries != numEntries || numEntries == 0 || fileEntries == nullptr) {
         ALOGE("Can't load index entries. Invalid number requested");
         return;
     }
@@ -431,9 +437,9 @@ void rsaFileA3DGetIndexEntries(RsContext con, RsFileIndexEntry *fileEntries, uin
 }
 
 RsFile rsaFileA3DCreateFromMemory(RsContext con, const void *data, uint32_t len) {
-    if (data == NULL) {
-        ALOGE("File load failed. Asset stream is NULL");
-        return NULL;
+    if (data == nullptr) {
+        ALOGE("File load failed. Asset stream is nullptr");
+        return nullptr;
     }
 
     Context *rsc = static_cast<Context *>(con);
@@ -454,18 +460,18 @@ RsFile rsaFileA3DCreateFromAsset(RsContext con, void *_asset) {
     fa3d->load(asset);
     return fa3d;
 #else
-    return NULL;
+    return nullptr;
 #endif
 }
 
 RsFile rsaFileA3DCreateFromFile(RsContext con, const char *path) {
-    if (path == NULL) {
-        ALOGE("File load failed. Path is NULL");
-        return NULL;
+    if (path == nullptr) {
+        ALOGE("File load failed. Path is nullptr");
+        return nullptr;
     }
 
     Context *rsc = static_cast<Context *>(con);
-    FileA3D *fa3d = NULL;
+    FileA3D *fa3d = nullptr;
 
     FILE *f = fopen(path, "rb");
     if (f) {

@@ -29,6 +29,7 @@ import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ContextMenu.ContextMenuInfo;
 
@@ -104,8 +105,8 @@ public class MockView extends View {
         return mCalledInvalidate;
     }
 
-    public void setParent(ViewParent parent) {
-        mParent = parent;
+    public void setParent(ViewGroup parent) {
+        parent.addView(this);
     }
 
     public static int[] getEnabledStateSet() {
@@ -159,16 +160,6 @@ public class MockView extends View {
 
     public boolean hasCalledOnAnimationEnd() {
         return mCalledOnAnimationEnd;
-    }
-
-    @Override
-    protected void initializeFadingEdge(TypedArray a) {
-        super.initializeFadingEdge(a);
-    }
-
-    @Override
-    protected void initializeScrollbars(TypedArray a) {
-        super.initializeScrollbars(a);
     }
 
     @Override

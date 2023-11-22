@@ -24,19 +24,29 @@ import android.accounts.NetworkErrorException;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A simple Mock Account Authenticator
  */
 public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
+    private static String TAG = "AccountManagerTest";
 
     public static String KEY_ACCOUNT_INFO = "key_account_info";
     public static String KEY_ACCOUNT_AUTHENTICATOR_RESPONSE = "key_account_authenticator_response";
     public static String ACCOUNT_NAME_FOR_NEW_REMOVE_API = "call new removeAccount api";
+    // Key for triggering return intent flow
+    public static String KEY_RETURN_INTENT = "return an intent";
+    public static String ACCOUNT_NAME_FOR_NEW_REMOVE_API1 = "call new removeAccount api";
 
     private final Context mContext;
+    private final AtomicInteger mTokenCounter  = new AtomicInteger(0);
+    private final AtomicBoolean mIsRecentlyCalled = new AtomicBoolean(false);
+
     AccountAuthenticatorResponse mResponse;
     String mAccountType;
     String mAuthTokenType;
@@ -49,6 +59,7 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     String[] mFeatures;
 
     final ArrayList<String> mockFeatureList = new ArrayList<String>();
+    private final long mTokenDurationMillis = 1000; // 1 second
 
     public MockAccountAuthenticator(Context context) {
         super(context);
@@ -57,6 +68,18 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
         // Create some mock features
         mockFeatureList.add(AccountManagerTest.FEATURE_1);
         mockFeatureList.add(AccountManagerTest.FEATURE_2);
+    }
+
+    public long getTokenDurationMillis() {
+        return mTokenDurationMillis;
+    }
+
+    public boolean isRecentlyCalled() {
+        return mIsRecentlyCalled.getAndSet(false);
+    }
+
+    public String getLastTokenServed() {
+        return Integer.toString(mTokenCounter.get());
     }
 
     public AccountAuthenticatorResponse getResponse() {
@@ -96,12 +119,23 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
         mFeatures = null;
     }
 
+    public void callAccountAuthenticated() {
+        AccountManager am = AccountManager.get(mContext);
+        am.notifyAccountAuthenticated(mAccount);
+    }
+
+    public void callSetPassword() {
+        AccountManager am = AccountManager.get(mContext);
+        am.setPassword(mAccount, "password");
+    }
+
     private Bundle createResultBundle() {
         Bundle result = new Bundle();
         result.putString(AccountManager.KEY_ACCOUNT_NAME, AccountManagerTest.ACCOUNT_NAME);
         result.putString(AccountManager.KEY_ACCOUNT_TYPE, AccountManagerTest.ACCOUNT_TYPE);
-        result.putString(AccountManager.KEY_AUTHTOKEN, AccountManagerTest.AUTH_TOKEN);
-
+        result.putString(
+                AccountManager.KEY_AUTHTOKEN,
+                Integer.toString(mTokenCounter.incrementAndGet()));
         return result;
     }
 
@@ -112,13 +146,13 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     public Bundle addAccount(AccountAuthenticatorResponse response, String accountType,
             String authTokenType, String[] requiredFeatures, Bundle options)
             throws NetworkErrorException {
-
         this.mResponse = response;
         this.mAccountType = accountType;
         this.mAuthTokenType = authTokenType;
         this.mRequiredFeatures = requiredFeatures;
         this.mOptionsAddAccount = options;
-
+        AccountManager am = AccountManager.get(mContext);
+        am.addAccountExplicitly(AccountManagerTest.ACCOUNT, "fakePassword", null);
         return createResultBundle();
     }
 
@@ -128,12 +162,10 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     @Override
     public Bundle updateCredentials(AccountAuthenticatorResponse response, Account account,
             String authTokenType, Bundle options) throws NetworkErrorException {
-
         this.mResponse = response;
         this.mAccount = account;
         this.mAuthTokenType = authTokenType;
         this.mOptionsUpdateCredentials = options;
-
         return createResultBundle();
     }
 
@@ -144,10 +176,8 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
      */
     @Override
     public Bundle editProperties(AccountAuthenticatorResponse response, String accountType) {
-
         this.mResponse = response;
         this.mAccountType = accountType;
-
         return createResultBundle();
     }
 
@@ -157,13 +187,17 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     @Override
     public Bundle confirmCredentials(AccountAuthenticatorResponse response, Account account,
             Bundle options) throws NetworkErrorException {
-
         this.mResponse = response;
         this.mAccount = account;
         this.mOptionsConfirmCredentials = options;
-
         Bundle result = new Bundle();
-        result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+        if (options.containsKey(KEY_RETURN_INTENT)) {
+            Intent intent = new Intent();
+            intent.setClassName("android.accounts.cts", "android.accounts.cts.AccountDummyActivity");
+            result.putParcelable(AccountManager.KEY_INTENT, intent);
+        } else {
+            result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+        }
 
         return result;
     }
@@ -172,15 +206,35 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
      * Gets the authtoken for an account.
      */
     @Override
-    public Bundle getAuthToken(AccountAuthenticatorResponse response, Account account,
-            String authTokenType, Bundle options) throws NetworkErrorException {
-
+    public Bundle getAuthToken(
+            AccountAuthenticatorResponse response,
+            Account account,
+            String authTokenType,
+            Bundle options) throws NetworkErrorException {
+        Log.w(TAG, "MockAuth - getAuthToken@" + System.currentTimeMillis());
+        mIsRecentlyCalled.set(true);
         this.mResponse = response;
         this.mAccount = account;
         this.mAuthTokenType = authTokenType;
         this.mOptionsGetAuthToken = options;
+        Bundle result = new Bundle();
 
-        return createResultBundle();
+        result.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
+        result.putString(AccountManager.KEY_ACCOUNT_TYPE, account.type);
+        String token;
+        if (AccountManagerTest.AUTH_EXPIRING_TOKEN_TYPE.equals(authTokenType)) {
+            /*
+             * The resultant token should simply be the expiration timestamp. E.g. the time after
+             * which getting a new AUTH_EXPIRING_TOKEN_TYPE typed token will return a different
+             * value.
+             */
+            long expiry = System.currentTimeMillis() + mTokenDurationMillis;
+            result.putLong(AbstractAccountAuthenticator.KEY_CUSTOM_TOKEN_EXPIRY, expiry);
+        }
+        result.putString(
+                AccountManager.KEY_AUTHTOKEN,
+                Integer.toString(mTokenCounter.incrementAndGet()));
+        return result;
     }
 
     /**
@@ -189,7 +243,6 @@ public class MockAccountAuthenticator extends AbstractAccountAuthenticator {
     @Override
     public String getAuthTokenLabel(String authTokenType) {
         this.mAuthTokenType = authTokenType;
-
         return AccountManagerTest.AUTH_TOKEN_LABEL;
     }
 

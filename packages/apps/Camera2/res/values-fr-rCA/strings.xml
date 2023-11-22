@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Cet élément est stocké localement et accessible hors ligne."</string>
     <string name="please_wait" msgid="1416313324505140068">"Veuillez patienter..."</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Erreur de l\'appareil photo."</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Impossible d\'établir une connexion avec l\'appareil photo."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"L\'appareil photo a été désactivé en raison des politiques de sécurité."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Impossible d\'établir une connexion avec l\'appareil photo."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"L\'appareil photo a été désactivé en raison des politiques de sécurité."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"Un problème est survenu lors de l\'enregistrement de la photo ou de la vidéo."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"L\'application ne dispose pas de certaines autorisations nécessaires à son exécution. Veuillez vérifier vos paramètres relatifs aux autorisations."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Échec du stockage de la photo."</string>
     <string name="wait" msgid="765601745709933047">"Veuillez patienter…"</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Veuillez insérer une carte SD avant d\'utiliser l\'appareil photo."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"Préparation de la carte SD en cours…"</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"Impossible d\'accéder à la carte SD."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Enregistr. mode Intervalle temps"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Impossible d\'établir une connexion entre l\'application et l\'appareil photo."</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"La photo ou la vidéo n\'a pas été enregistrée sur l\'appareil."</string>
     <string name="capturing" msgid="5255164204641920893">"Photo en cours…"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Sélectionner appareil"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Précédent"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"APPAREIL PHOTO ARRIÈRE"</string>
     <string name="dialog_ok" msgid="774141340500181131">"OK"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Annuler"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Rapport"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Supprimer"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Votre carte SD est presque pleine. Modifiez les paramètres de qualité, ou supprimez des images ou des fichiers."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Taille maximale atteinte."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Trop rapide"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Liste de modes"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Activer/désactiver la pellicule"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Pellicule"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Zoom avant"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Z+"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Zoom arrière"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Z-"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Valeur de zoom de %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"ACTIVÉ"</string>
     <string name="capital_off" msgid="3020696135020167263">"DÉSACTIVÉ"</string>
     <string name="video_control_play" msgid="6895236811408921715">"Lire la vidéo"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Définir la durée en secondes"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Compte à rebours avant la photo"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Mémoriser le lieu des photos?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Ajoutez des balises à vos photos et à vos vidéos pour identifier l\'endroit de la prise de vue.\n\nD\'autres applications peuvent accéder à ces données et aux images enregistrées."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Ajoutez des balises à vos photos et à vos vidéos pour marquer l\'endroit où vous les avez prises."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"Non, merci"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Oui"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"PLUS D\'OPTIONS"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Annuler"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Terminé"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Reprendre"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Avis"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Partager"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Afficher"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Modifier"</string>
@@ -365,4 +378,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"Capteur rogné\n(16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Enregistrement en cours..."</string>
 </resources>

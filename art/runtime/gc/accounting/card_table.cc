@@ -21,6 +21,7 @@
 #include "gc/heap.h"
 #include "gc/space/space.h"
 #include "heap_bitmap.h"
+#include "mem_map.h"
 #include "runtime.h"
 #include "utils.h"
 
@@ -35,7 +36,7 @@ constexpr uint8_t CardTable::kCardDirty;
 
 /*
  * Maintain a card table from the write barrier. All writes of
- * non-NULL values to heap addresses should go through an entry in
+ * non-null values to heap addresses should go through an entry in
  * WriteBarrier, and from there to here.
  *
  * The heap is divided into "cards" of GC_CARD_SIZE bytes, as
@@ -43,7 +44,7 @@ constexpr uint8_t CardTable::kCardDirty;
  * data per card, to be used by the GC. The value of the byte will be
  * one of GC_CARD_CLEAN or GC_CARD_DIRTY.
  *
- * After any store of a non-NULL object pointer into a heap object,
+ * After any store of a non-null object pointer into a heap object,
  * code is obliged to mark the card dirty. The setters in
  * object.h [such as SetFieldObject] do this for you. The
  * compiler also contains code to mark cards as dirty.
@@ -55,26 +56,26 @@ constexpr uint8_t CardTable::kCardDirty;
  * byte is equal to GC_DIRTY_CARD. See CardTable::Create for details.
  */
 
-CardTable* CardTable::Create(const byte* heap_begin, size_t heap_capacity) {
+CardTable* CardTable::Create(const uint8_t* heap_begin, size_t heap_capacity) {
   /* Set up the card table */
   size_t capacity = heap_capacity / kCardSize;
   /* Allocate an extra 256 bytes to allow fixed low-byte of base */
   std::string error_msg;
   std::unique_ptr<MemMap> mem_map(
       MemMap::MapAnonymous("card table", nullptr, capacity + 256, PROT_READ | PROT_WRITE,
-                           false, &error_msg));
-  CHECK(mem_map.get() != NULL) << "couldn't allocate card table: " << error_msg;
+                           false, false, &error_msg));
+  CHECK(mem_map.get() != nullptr) << "couldn't allocate card table: " << error_msg;
   // All zeros is the correct initial value; all clean. Anonymous mmaps are initialized to zero, we
   // don't clear the card table to avoid unnecessary pages being allocated
-  COMPILE_ASSERT(kCardClean == 0, card_clean_must_be_0);
+  static_assert(kCardClean == 0, "kCardClean must be 0");
 
-  byte* cardtable_begin = mem_map->Begin();
-  CHECK(cardtable_begin != NULL);
+  uint8_t* cardtable_begin = mem_map->Begin();
+  CHECK(cardtable_begin != nullptr);
 
   // We allocated up to a bytes worth of extra space to allow biased_begin's byte value to equal
   // kCardDirty, compute a offset value to make this the case
   size_t offset = 0;
-  byte* biased_begin = reinterpret_cast<byte*>(reinterpret_cast<uintptr_t>(cardtable_begin) -
+  uint8_t* biased_begin = reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(cardtable_begin) -
       (reinterpret_cast<uintptr_t>(heap_begin) >> kCardShift));
   uintptr_t biased_byte = reinterpret_cast<uintptr_t>(biased_begin) & 0xff;
   if (biased_byte != kCardDirty) {
@@ -86,30 +87,54 @@ CardTable* CardTable::Create(const byte* heap_begin, size_t heap_capacity) {
   return new CardTable(mem_map.release(), biased_begin, offset);
 }
 
-CardTable::CardTable(MemMap* mem_map, byte* biased_begin, size_t offset)
+CardTable::CardTable(MemMap* mem_map, uint8_t* biased_begin, size_t offset)
     : mem_map_(mem_map), biased_begin_(biased_begin), offset_(offset) {
+}
+
+CardTable::~CardTable() {
+  // Destroys MemMap via std::unique_ptr<>.
 }
 
 void CardTable::ClearSpaceCards(space::ContinuousSpace* space) {
   // TODO: clear just the range of the table that has been modified
-  byte* card_start = CardFromAddr(space->Begin());
-  byte* card_end = CardFromAddr(space->End());  // Make sure to round up.
+  uint8_t* card_start = CardFromAddr(space->Begin());
+  uint8_t* card_end = CardFromAddr(space->End());  // Make sure to round up.
   memset(reinterpret_cast<void*>(card_start), kCardClean, card_end - card_start);
 }
 
 void CardTable::ClearCardTable() {
-  COMPILE_ASSERT(kCardClean == 0, clean_card_must_be_0);
+  static_assert(kCardClean == 0, "kCardClean must be 0");
   mem_map_->MadviseDontNeedAndZero();
+}
+
+void CardTable::ClearCardRange(uint8_t* start, uint8_t* end) {
+  if (!kMadviseZeroes) {
+    memset(start, 0, end - start);
+    return;
+  }
+  CHECK_ALIGNED(reinterpret_cast<uintptr_t>(start), kCardSize);
+  CHECK_ALIGNED(reinterpret_cast<uintptr_t>(end), kCardSize);
+  static_assert(kCardClean == 0, "kCardClean must be 0");
+  uint8_t* start_card = CardFromAddr(start);
+  uint8_t* end_card = CardFromAddr(end);
+  uint8_t* round_start = AlignUp(start_card, kPageSize);
+  uint8_t* round_end = AlignDown(end_card, kPageSize);
+  if (round_start < round_end) {
+    madvise(round_start, round_end - round_start, MADV_DONTNEED);
+  }
+  // Handle unaligned regions at start / end.
+  memset(start_card, 0, std::min(round_start, end_card) - start_card);
+  memset(std::max(round_end, start_card), 0, end_card - std::max(round_end, start_card));
 }
 
 bool CardTable::AddrIsInCardTable(const void* addr) const {
   return IsValidCard(biased_begin_ + ((uintptr_t)addr >> kCardShift));
 }
 
-void CardTable::CheckAddrIsInCardTable(const byte* addr) const {
-  byte* card_addr = biased_begin_ + ((uintptr_t)addr >> kCardShift);
-  byte* begin = mem_map_->Begin() + offset_;
-  byte* end = mem_map_->End();
+void CardTable::CheckAddrIsInCardTable(const uint8_t* addr) const {
+  uint8_t* card_addr = biased_begin_ + ((uintptr_t)addr >> kCardShift);
+  uint8_t* begin = mem_map_->Begin() + offset_;
+  uint8_t* end = mem_map_->End();
   CHECK(AddrIsInCardTable(addr))
       << "Card table " << this
       << " begin: " << reinterpret_cast<void*>(begin)

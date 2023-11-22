@@ -25,6 +25,7 @@ import android.renderscript.RSRuntimeException;
 import android.renderscript.RenderScript;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
+import android.renderscript.Type;
 import android.util.Log;
 
 public class RSCppTest extends AndroidTestCase {
@@ -72,6 +73,29 @@ public class RSCppTest extends AndroidTestCase {
                                          " message " + mErrorMessage);
         }
     };
+
+    protected Element makeElement(Element.DataType dt, int vecSize) {
+        Element e;
+        if (vecSize > 1) {
+            e = Element.createVector(mRS, dt, vecSize);
+        } else {
+            if (dt == Element.DataType.UNSIGNED_8) {
+                e = Element.U8(mRS);
+            } else {
+                e = Element.F32(mRS);
+            }
+        }
+        return e;
+    }
+
+    protected Allocation makeAllocation(int w, int h, Element e) {
+        Type.Builder tb = new Type.Builder(mRS, e);
+        tb.setX(w);
+        tb.setY(h);
+        Type t = tb.create();
+        Allocation a = Allocation.createTyped(mRS, t);
+        return a;
+    }
 
     protected void checkForErrors() {
         mRS.finish();

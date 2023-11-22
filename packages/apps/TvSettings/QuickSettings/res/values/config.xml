@@ -17,8 +17,6 @@
 
 <resources>
 
-    <string name="setting_preset_name">Preset mode</string>
-    <string name="setting_reset_defaults_name">Reset to defaults</string>
 
     <string-array name="setting_names">
         <item>Backlight</item>
@@ -28,6 +26,16 @@
         <item>Color</item>
         <item>Tint</item>
     </string-array>
+
+    <string-array name="setting_keys">
+        <item>backlight</item>
+        <item>contrast</item>
+        <item>brightness</item>
+        <item>sharpness</item>
+        <item>color</item>
+        <item>tint</item>
+    </string-array>
+
     <string-array name="setting_preset_choices">
         <item>Standard</item>
         <item>Cinema</item>
@@ -36,19 +44,34 @@
         <item>Custom</item>
     </string-array>
 
+    <string-array name="setting_preset_values" translatable="false">
+        <item>standard</item>
+        <item>cinema</item>
+        <item>vivid</item>
+        <item>game</item>
+        <item>custom</item>
+    </string-array>
+
     <integer name="standard_setting_index">0</integer>
     <integer name="cinema_setting_index">1</integer>
     <integer name="vivid_setting_index">2</integer>
     <integer name="game_setting_index">3</integer>
     <integer name="custom_setting_index">4</integer>
 
+    <integer name="standard_setting_backlight">50</integer>
+    <integer name="standard_setting_contrast">40</integer>
+    <integer name="standard_setting_brightness">50</integer>
+    <integer name="standard_setting_sharpness">100</integer>
+    <integer name="standard_setting_color">50</integer>
+    <integer name="standard_setting_tint">50</integer>
+
     <integer-array name="standard_setting_values">
-        <item>50</item>
-        <item>40</item>
-        <item>50</item>
-        <item>100</item>
-        <item>50</item>
-        <item>50</item>
+        <item>@integer/standard_setting_backlight</item>
+        <item>@integer/standard_setting_contrast</item>
+        <item>@integer/standard_setting_brightness</item>
+        <item>@integer/standard_setting_sharpness</item>
+        <item>@integer/standard_setting_color</item>
+        <item>@integer/standard_setting_tint</item>
     </integer-array>
     <integer-array name="cinema_setting_values">
         <item>10</item>

@@ -32,6 +32,7 @@
 #include "tng_vld_dec.h"
 #include "psb_def.h"
 #include "psb_drv_debug.h"
+#include "pnw_rotate.h"
 
 #include "hwdefs/reg_io2.h"
 #include "hwdefs/msvdx_offsets.h"
@@ -62,6 +63,15 @@
 /* A special syntax is defined for D-pictures (picture_coding_type = 4). D-pictures are like I-pictures with only Intra-DC coefficients,
    no End of Block, and a special end_of_macroblock code '1'. PICTURE_CODING_D is not allowed in MPEG2 */
 #define PICTURE_CODING_D    0x04
+
+#define HW_SUPPORTED_MAX_PICTURE_WIDTH_MPEG2_MP 1920
+#define HW_SUPPORTED_MAX_PICTURE_HEIGHT_MPEG2_MP 1088
+
+#define HW_SUPPORTED_MAX_PICTURE_WIDTH_MPEG2_SP 352
+#define HW_SUPPORTED_MAX_PICTURE_HEIGHT_MPEG2_SP 288
+
+#define CACHE_REF_OFFSET        72
+#define CACHE_ROW_OFFSET        4
 
 /************************************************************************************/
 /*                Variable length codes in 'packed' format                            */
@@ -501,6 +511,8 @@ struct context_MPEG2_s {
     uint32_t FE_PPS0;
     uint32_t FE_PPS1;
 
+    uint32_t slice_count;
+
     /* IQ Matrix */
     uint32_t qmatrix_data[MAX_QUANT_TABLES][16];
     int got_iq_matrix;
@@ -525,7 +537,38 @@ static void pnw_MPEG2_QueryConfigAttributes(
     VAConfigAttrib __maybe_unused * attrib_list,
     int __maybe_unused num_attribs)
 {
-    /* No MPEG2 specific attributes */
+    int i;
+    drv_debug_msg(VIDEO_DEBUG_GENERAL, "pnw_MPEG2_QueryConfigAttributes\n");
+
+    for (i = 0; i < num_attribs; i++) {
+        switch (attrib_list[i].type) {
+        case VAConfigAttribMaxPictureWidth:
+            if (entrypoint == VAEntrypointVLD) {
+                if (profile == VAProfileMPEG2Simple)
+                    attrib_list[i].value = HW_SUPPORTED_MAX_PICTURE_WIDTH_MPEG2_SP;
+                else if(profile == VAProfileMPEG2Main)
+                    attrib_list[i].value = HW_SUPPORTED_MAX_PICTURE_WIDTH_MPEG2_MP;
+                else
+                    attrib_list[i].value = VA_ATTRIB_NOT_SUPPORTED;
+            }
+            else
+                attrib_list[i].value = VA_ATTRIB_NOT_SUPPORTED;
+            break;
+        case VAConfigAttribMaxPictureHeight:
+            if (entrypoint == VAEntrypointVLD) {
+                if (profile == VAProfileMPEG2Simple)
+                    attrib_list[i].value = HW_SUPPORTED_MAX_PICTURE_HEIGHT_MPEG2_SP;
+                else if(profile == VAProfileMPEG2Main)
+                    attrib_list[i].value = HW_SUPPORTED_MAX_PICTURE_HEIGHT_MPEG2_MP;
+            }
+            else
+                attrib_list[i].value = VA_ATTRIB_NOT_SUPPORTED;
+            break;
+        default:
+            break;
+        }
+    }
+
 }
 
 static VAStatus pnw_MPEG2_ValidateConfig(
@@ -803,6 +846,7 @@ static VAStatus psb__MPEG2_process_picture_param(context_MPEG2_p ctx, object_buf
     REGIO_WRITE_FIELD_LITE(ctx->obj_context->operating_mode, MSVDX_CMDS, OPERATING_MODE, ASYNC_MODE, 1);                                 /* VDMC only                */
     REGIO_WRITE_FIELD_LITE(ctx->obj_context->operating_mode, MSVDX_CMDS, OPERATING_MODE, CHROMA_FORMAT, 1);
 
+    psb_CheckInterlaceRotate(ctx->obj_context, (unsigned char*)ctx->pic_params);
     return VA_STATUS_SUCCESS;
 }
 
@@ -880,8 +924,6 @@ static void psb__MPEG2_set_operating_mode(context_MPEG2_p ctx)
     psb_cmdbuf_p cmdbuf = ctx->obj_context->cmdbuf;
     psb_surface_p target_surface = ctx->obj_context->current_render_target->psb_surface;
 
-    vld_dec_setup_alternative_frame(ctx->obj_context);
-
     psb_cmdbuf_rendec_start(cmdbuf, RENDEC_REGISTER_OFFSET(MSVDX_CMDS, DISPLAY_PICTURE_SIZE));
     psb_cmdbuf_rendec_write(cmdbuf, ctx->display_picture_size);
     psb_cmdbuf_rendec_write(cmdbuf, ctx->coded_picture_size);
@@ -894,6 +936,9 @@ static void psb__MPEG2_set_operating_mode(context_MPEG2_p ctx)
     psb_cmdbuf_rendec_write_address(cmdbuf, &target_surface->buf, target_surface->buf.buffer_ofs + target_surface->chroma_offset);
 
     psb_cmdbuf_rendec_end(cmdbuf);
+
+    vld_dec_setup_alternative_frame(ctx->obj_context);
+
 }
 
 static void psb__MPEG2_set_reference_pictures(context_MPEG2_p ctx)
@@ -901,6 +946,9 @@ static void psb__MPEG2_set_reference_pictures(context_MPEG2_p ctx)
     psb_cmdbuf_p cmdbuf = ctx->obj_context->cmdbuf;
     psb_surface_p target_surface = ctx->obj_context->current_render_target->psb_surface;
 
+    if (ctx->slice_count != 0) {
+        psb_cmdbuf_skip_start_block(cmdbuf, SKIP_ON_CONTEXT_SWITCH);
+    }
     psb_cmdbuf_rendec_start(cmdbuf, RENDEC_REGISTER_OFFSET(MSVDX_CMDS, REFERENCE_PICTURE_BASE_ADDRESSES));
 
     /* In MPEG2, the registers at N=0 are always used to store the base address of the luma and chroma buffers
@@ -971,6 +1019,10 @@ static void psb__MPEG2_set_reference_pictures(context_MPEG2_p ctx)
     }
 
     psb_cmdbuf_rendec_end(cmdbuf);
+
+    if (ctx->slice_count != 0) {
+        psb_cmdbuf_skip_end_block(cmdbuf);
+    }
 }
 
 static void psb__MPEG2_set_picture_header(context_MPEG2_p ctx, VASliceParameterBufferMPEG2 *slice_param)
@@ -1009,6 +1061,15 @@ static void psb__MPEG2_set_picture_header(context_MPEG2_p ctx, VASliceParameterB
                       slice_param->quantiser_scale_code);
 
     psb_cmdbuf_reg_set(cmdbuf, REGISTER_OFFSET(MSVDX_VEC_MPEG2, CR_VEC_MPEG2_FE_SLICE) , FE_slice);
+
+    FE_slice = 0;
+    REGIO_WRITE_FIELD_LITE(FE_slice,
+                      MSVDX_VEC_MPEG2,
+                      CR_VEC_MPEG2_FE_SPS0,
+                      FE_HORIZONTAL_SIZE_MINUS1,
+                      ctx->picture_width_mb - 1);
+
+    psb_cmdbuf_reg_set(cmdbuf, REGISTER_OFFSET(MSVDX_VEC_MPEG2, CR_VEC_MPEG2_FE_SPS0) , FE_slice);
 
     psb_cmdbuf_reg_end_block(cmdbuf);
 
@@ -1169,6 +1230,14 @@ static void psb__MPEG2_set_ent_dec(context_MPEG2_p ctx)
     psb_cmdbuf_rendec_write(cmdbuf, cmd_data);
 
     psb_cmdbuf_rendec_end(cmdbuf);
+
+    psb_cmdbuf_rendec_start(cmdbuf, RENDEC_REGISTER_OFFSET(MSVDX_CMDS, MC_CACHE_CONFIGURATION));
+    cmd_data = 0;
+    REGIO_WRITE_FIELD_LITE(cmd_data, MSVDX_CMDS, MC_CACHE_CONFIGURATION, CONFIG_REF_OFFSET, CACHE_REF_OFFSET);
+    REGIO_WRITE_FIELD_LITE(cmd_data, MSVDX_CMDS, MC_CACHE_CONFIGURATION, CONFIG_ROW_OFFSET, CACHE_ROW_OFFSET);
+    psb_cmdbuf_rendec_write(cmdbuf, cmd_data);
+    psb_cmdbuf_rendec_end(cmdbuf);
+
 }
 
 static void psb__MPEG2_begin_slice(context_DEC_p dec_ctx, VASliceParameterBufferBase *vld_slice_param)
@@ -1176,13 +1245,18 @@ static void psb__MPEG2_begin_slice(context_DEC_p dec_ctx, VASliceParameterBuffer
     VASliceParameterBufferMPEG2 *slice_param = (VASliceParameterBufferMPEG2 *) vld_slice_param;
     context_MPEG2_p ctx = (context_MPEG2_p)dec_ctx;
 
+    psb__MPEG2_write_VLC_tables(ctx);
+
     dec_ctx->bits_offset = slice_param->macroblock_offset;
-    /* dec_ctx->SR_flags = 0; */
+    dec_ctx->SR_flags = CMD_SR_VERIFY_STARTCODE;
 }
 static void psb__MPEG2_process_slice_data(context_DEC_p dec_ctx, VASliceParameterBufferBase *vld_slice_param)
 {
     VASliceParameterBufferMPEG2 *slice_param = (VASliceParameterBufferMPEG2 *) vld_slice_param;
     context_MPEG2_p ctx = (context_MPEG2_p)dec_ctx;
+
+    ctx->obj_context->first_mb = 0;
+    ctx->obj_context->first_mb = slice_param->slice_vertical_position << 8;
 
     psb__MPEG2_set_operating_mode(ctx);
     psb__MPEG2_set_reference_pictures(ctx);
@@ -1203,6 +1277,8 @@ static void psb__MPEG2_end_slice(context_DEC_p dec_ctx)
         ctx->obj_context->last_mb = ((ctx->picture_height_mb / 2 - 1) << 8) | (ctx->picture_width_mb - 1);
 
     *(ctx->dec_ctx.slice_first_pic_last) = (ctx->obj_context->first_mb << 16) | (ctx->obj_context->last_mb);
+
+    ctx->slice_count++;
 }
 
 static void psb__MEPG2_send_highlevel_cmd(context_MPEG2_p ctx)
@@ -1327,6 +1403,7 @@ static VAStatus pnw_MPEG2_BeginPicture(
         ctx->pic_params = NULL;
     }
     ctx->previous_slice_vertical_position = ~1;
+    ctx->slice_count = 0;
 
     return VA_STATUS_SUCCESS;
 }
@@ -1382,6 +1459,8 @@ static VAStatus pnw_MPEG2_EndPicture(
         free(ctx->pic_params);
         ctx->pic_params = NULL;
     }
+
+    ctx->slice_count = 0;
 
     return vaStatus;
 }

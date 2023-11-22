@@ -22,10 +22,11 @@
 #include <iomanip>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #include "os_sep.h"
 #include "slang_assert.h"
-#include "slang_utils.h"
 
 namespace slang {
 
@@ -169,7 +170,7 @@ static bool GenerateJavaCodeAccessorMethodForBitwidth(
   }
 
   FILE *pfin = fopen(filename.c_str(), "rb");
-  if (pfin == NULL) {
+  if (pfin == nullptr) {
     fprintf(stderr, "Error: could not read file %s\n", filename.c_str());
     return false;
   }
@@ -261,9 +262,10 @@ bool RSSlangReflectUtils::GenerateJavaBitCodeAccessor(
     const BitCodeAccessorContext &context) {
   string output_path =
       ComputePackagedPath(context.reflectPath, context.packageName);
-  if (!SlangUtils::CreateDirectoryWithParents(llvm::StringRef(output_path),
-                                              NULL)) {
-    fprintf(stderr, "Error: could not create dir %s\n", output_path.c_str());
+  if (std::error_code EC = llvm::sys::fs::create_directories(
+          llvm::sys::path::parent_path(output_path))) {
+    fprintf(stderr, "Error: could not create dir %s: %s\n",
+            output_path.c_str(), EC.message().c_str());
     return false;
   }
 
@@ -348,9 +350,9 @@ bool GeneratedFile::startFile(const string &outDirectory,
 
   // Create the parent directories.
   if (!outDirectory.empty()) {
-    std::string errorMsg;
-    if (!SlangUtils::CreateDirectoryWithParents(outDirectory, &errorMsg)) {
-      fprintf(stderr, "Error: %s\n", errorMsg.c_str());
+    if (std::error_code EC = llvm::sys::fs::create_directories(
+            llvm::sys::path::parent_path(outDirectory))) {
+      fprintf(stderr, "Error: %s\n", EC.message().c_str());
       return false;
     }
   }
@@ -365,7 +367,7 @@ bool GeneratedFile::startFile(const string &outDirectory,
   }
 
   // Write the license.
-  if (optionalLicense != NULL) {
+  if (optionalLicense != nullptr) {
     *this << *optionalLicense;
   } else {
     *this << gApacheLicenseNote;

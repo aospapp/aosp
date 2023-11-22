@@ -18,19 +18,21 @@ package com.android.deskclock.timer;
 
 import android.app.AlarmManager;
 import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 
 import com.android.deskclock.DeskClock;
 import com.android.deskclock.R;
 import com.android.deskclock.TimerRingService;
 import com.android.deskclock.Utils;
+import com.android.deskclock.events.Events;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -58,7 +60,7 @@ public class TimerReceiver extends BroadcastReceiver {
 
         // Get the updated timers data.
         if (mTimers == null) {
-            mTimers = new ArrayList<TimerObj> ();
+            mTimers = new ArrayList<>();
         }
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         TimerObj.getTimersFromSharedPrefs(prefs, mTimers);
@@ -97,8 +99,10 @@ public class TimerReceiver extends BroadcastReceiver {
                 return;
             }
 
-            t.mState = TimerObj.STATE_TIMESUP;
+            t.setState(TimerObj.STATE_TIMESUP);
             t.writeToSharedPref(prefs);
+            Events.sendEvent(R.string.category_timer, R.string.action_fire, 0);
+
             // Play ringtone by using TimerRingService service with a default alarm.
             Log.d(TAG, "playing ringtone");
             Intent si = new Intent();
@@ -118,11 +122,15 @@ public class TimerReceiver extends BroadcastReceiver {
             timersAlert.setFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
             context.startActivity(timersAlert);
-        } else if (Timers.TIMER_RESET.equals(actionType)
+        } else if (Timers.RESET_TIMER.equals(actionType)
                 || Timers.DELETE_TIMER.equals(actionType)
                 || Timers.TIMER_DONE.equals(actionType)) {
             // Stop Ringtone if all timers are not in times-up status
             stopRingtoneIfNoTimesup(context);
+
+            if (t != null) {
+                cancelTimesUpNotification(context, t);
+            }
         } else if (Timers.NOTIF_TIMES_UP_STOP.equals(actionType)) {
             // Find the timer (if it doesn't exists, it was probably deleted).
             if (t == null) {
@@ -134,12 +142,12 @@ public class TimerReceiver extends BroadcastReceiver {
             }
 
             // Update timer state
-            t.mState = t.getDeleteAfterUse() ? TimerObj.STATE_DELETED : TimerObj.STATE_RESTART;
+            t.setState(t.getDeleteAfterUse() ? TimerObj.STATE_DELETED : TimerObj.STATE_RESTART);
             t.mTimeLeft = t.mOriginalLength = t.mSetupLength;
             t.writeToSharedPref(prefs);
 
             // Flag to tell DeskClock to re-sync with the database
-            prefs.edit().putBoolean(Timers.FROM_NOTIFICATION, true).apply();
+            prefs.edit().putBoolean(Timers.REFRESH_UI_WITH_LATEST_DATA, true).apply();
 
             cancelTimesUpNotification(context, t);
 
@@ -161,13 +169,13 @@ public class TimerReceiver extends BroadcastReceiver {
             }
 
             // Restarting the timer with 1 minute left.
-            t.mState = TimerObj.STATE_RUNNING;
+            t.setState(TimerObj.STATE_RUNNING);
             t.mStartTime = Utils.getTimeNow();
             t.mTimeLeft = t. mOriginalLength = TimerObj.MINUTE_IN_MILLIS;
             t.writeToSharedPref(prefs);
 
             // Flag to tell DeskClock to re-sync with the database
-            prefs.edit().putBoolean(Timers.FROM_NOTIFICATION, true).apply();
+            prefs.edit().putBoolean(Timers.REFRESH_UI_WITH_LATEST_DATA, true).apply();
 
             cancelTimesUpNotification(context, t);
 
@@ -192,8 +200,10 @@ public class TimerReceiver extends BroadcastReceiver {
                 showTimesUpNotification(context, t);
             }
         }
-        // Update the next "Times up" alarm
-        updateNextTimesup(context);
+        if (intent.getBooleanExtra(Timers.UPDATE_NEXT_TIMESUP, true)) {
+            // Update the next "Times up" alarm unless explicitly told not to.
+            updateNextTimesup(context);
+        }
     }
 
     private void stopRingtoneIfNoTimesup(final Context context) {
@@ -235,7 +245,10 @@ public class TimerReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Setting times up to " + nextTimesup);
             }
         } else {
+            // if no timer is found Pending Intents should be canceled
+            // to keep the internal state consistent with the UI
             mngr.cancel(p);
+            p.cancel();
             if (Timers.LOGGING) {
                 Log.v(TAG, "no next times up");
             }
@@ -308,7 +321,7 @@ public class TimerReceiver extends BroadcastReceiver {
         activityIntent.putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.TIMER_TAB_INDEX);
         PendingIntent pendingActivityIntent = PendingIntent.getActivity(context, 0, activityIntent,
                 PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
-        showCollapsedNotification(context, title, text, Notification.PRIORITY_HIGH,
+        showCollapsedNotification(context, title, text, NotificationCompat.PRIORITY_HIGH,
                 pendingActivityIntent, IN_USE_NOTIFICATION_ID, false);
 
         if (nextBroadcastTime == null) {
@@ -329,7 +342,7 @@ public class TimerReceiver extends BroadcastReceiver {
 
     private static void showCollapsedNotification(final Context context, String title, String text,
             int priority, PendingIntent pendingIntent, int notificationId, boolean showTicker) {
-        Notification.Builder builder = new Notification.Builder(context)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                 .setAutoCancel(false)
                 .setContentTitle(title)
                 .setContentText(text)
@@ -338,18 +351,16 @@ public class TimerReceiver extends BroadcastReceiver {
                 .setPriority(priority)
                 .setShowWhen(false)
                 .setSmallIcon(R.drawable.stat_notify_timer)
-                .setCategory(Notification.CATEGORY_ALARM)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setLocalOnly(true);
         if (showTicker) {
             builder.setTicker(text);
         }
 
-        Notification notification = builder.build();
+        final Notification notification = builder.build();
         notification.contentIntent = pendingIntent;
-        NotificationManager notificationManager =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.notify(notificationId, notification);
+        NotificationManagerCompat.from(context).notify(notificationId, notification);
     }
 
     private String buildTimeRemaining(Context context, long timeLeft) {
@@ -359,22 +370,20 @@ public class TimerReceiver extends BroadcastReceiver {
             return null;
         }
 
-        long hundreds, seconds, minutes, hours;
+        long seconds, minutes, hours;
         seconds = timeLeft / 1000;
         minutes = seconds / 60;
-        seconds = seconds - minutes * 60;
         hours = minutes / 60;
         minutes = minutes - hours * 60;
         if (hours > 99) {
             hours = 0;
         }
 
-        String hourSeq = (hours == 0) ? "" :
-            ( (hours == 1) ? context.getString(R.string.hour) :
-                context.getString(R.string.hours, Long.toString(hours)) );
-        String minSeq = (minutes == 0) ? "" :
-            ( (minutes == 1) ? context.getString(R.string.minute) :
-                context.getString(R.string.minutes, Long.toString(minutes)) );
+        String minSeq = Utils.getNumberFormattedQuantityString(context, R.plurals.minutes,
+                (int) minutes);
+
+        String hourSeq = Utils.getNumberFormattedQuantityString(context, R.plurals.hours,
+                (int) hours);
 
         boolean dispHour = hours > 0;
         boolean dispMinute = minutes > 0;
@@ -408,10 +417,8 @@ public class TimerReceiver extends BroadcastReceiver {
         }
     }
 
-    private void cancelInUseNotification(final Context context) {
-        NotificationManager notificationManager =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.cancel(IN_USE_NOTIFICATION_ID);
+    public static void cancelInUseNotification(final Context context) {
+        NotificationManagerCompat.from(context).cancel(IN_USE_NOTIFICATION_ID);
     }
 
     private void showTimesUpNotification(final Context context) {
@@ -440,15 +447,15 @@ public class TimerReceiver extends BroadcastReceiver {
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
         // Notification creation
-        Notification notification = new Notification.Builder(context)
+        final NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                 .setContentIntent(contentIntent)
-                .addAction(R.drawable.ic_menu_add,
+                .addAction(R.drawable.ic_add_24dp,
                         context.getResources().getString(R.string.timer_plus_1_min),
                         addOneMinuteAction)
                 .addAction(
                         timerObj.getDeleteAfterUse()
                                 ? android.R.drawable.ic_menu_close_clear_cancel
-                                : R.drawable.ic_notify_stop,
+                                : R.drawable.ic_stop_24dp,
                         timerObj.getDeleteAfterUse()
                                 ? context.getResources().getString(R.string.timer_done)
                                 : context.getResources().getString(R.string.timer_stop),
@@ -458,18 +465,13 @@ public class TimerReceiver extends BroadcastReceiver {
                 .setSmallIcon(R.drawable.stat_notify_timer)
                 .setOngoing(true)
                 .setAutoCancel(false)
-                .setPriority(Notification.PRIORITY_MAX)
-                .setDefaults(Notification.DEFAULT_LIGHTS)
-                .setWhen(0)
-                .setCategory(Notification.CATEGORY_ALARM)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setLocalOnly(true)
-                .build();
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
+                .setWhen(0);
 
         // Send the notification using the timer's id to identify the
         // correct notification
-        ((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE)).notify(
-                timerObj.mTimerId, notification);
+        NotificationManagerCompat.from(context).notify(timerObj.mTimerId, builder.build());
         if (Timers.LOGGING) {
             Log.v(TAG, "Setting times-up notification for "
                     + timerObj.getLabelOrDefault(context) + " #" + timerObj.mTimerId);
@@ -483,9 +485,7 @@ public class TimerReceiver extends BroadcastReceiver {
     }
 
     private void cancelTimesUpNotification(final Context context, TimerObj timerObj) {
-        NotificationManager notificationManager =
-                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.cancel(timerObj.mTimerId);
+        NotificationManagerCompat.from(context).cancel(timerObj.mTimerId);
         if (Timers.LOGGING) {
             Log.v(TAG, "Canceling times-up notification for "
                     + timerObj.getLabelOrDefault(context) + " #" + timerObj.mTimerId);

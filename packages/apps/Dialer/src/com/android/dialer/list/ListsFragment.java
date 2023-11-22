@@ -8,6 +8,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.os.Trace;
+import android.preference.PreferenceManager;
+import android.provider.CallLog.Calls;
 import android.support.v13.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v4.view.ViewPager.OnPageChangeListener;
@@ -23,16 +26,13 @@ import com.android.contacts.common.list.ViewPagerTabs;
 import com.android.contacts.commonbind.analytics.AnalyticsUtil;
 import com.android.dialer.DialtactsActivity;
 import com.android.dialer.R;
-import com.android.dialer.calllog.CallLogAdapter;
 import com.android.dialer.calllog.CallLogFragment;
-import com.android.dialer.calllog.CallLogQuery;
 import com.android.dialer.calllog.CallLogQueryHandler;
 import com.android.dialer.calllog.ContactInfoHelper;
-import com.android.dialer.list.ShortcutCardsAdapter.SwipeableShortcutCard;
 import com.android.dialer.util.DialerUtils;
+import com.android.dialer.voicemail.VoicemailStatusHelper;
+import com.android.dialer.voicemail.VoicemailStatusHelperImpl;
 import com.android.dialer.widget.ActionBarController;
-import com.android.dialer.widget.OverlappingPaneLayout;
-import com.android.dialer.widget.OverlappingPaneLayout.PanelSlideCallbacks;
 import com.android.dialerbind.ObjectFactory;
 
 import java.util.ArrayList;
@@ -42,11 +42,11 @@ import java.util.ArrayList;
  *
  * Contains a ViewPager that contains various contact lists like the Speed Dial list and the
  * All Contacts list. This will also eventually contain the logic that allows sliding the
- * ViewPager containing the lists up above the shortcut cards and pin it against the top of the
+ * ViewPager containing the lists up above the search bar and pin it against the top of the
  * screen.
  */
-public class ListsFragment extends Fragment implements CallLogQueryHandler.Listener,
-        CallLogAdapter.CallFetcher, ViewPager.OnPageChangeListener {
+public class ListsFragment extends Fragment
+        implements ViewPager.OnPageChangeListener, CallLogQueryHandler.Listener {
 
     private static final boolean DEBUG = DialtactsActivity.DEBUG;
     private static final String TAG = "ListsFragment";
@@ -54,21 +54,19 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
     public static final int TAB_INDEX_SPEED_DIAL = 0;
     public static final int TAB_INDEX_RECENTS = 1;
     public static final int TAB_INDEX_ALL_CONTACTS = 2;
+    public static final int TAB_INDEX_VOICEMAIL = 3;
 
-    public static final int TAB_INDEX_COUNT = 3;
+    public static final int TAB_COUNT_DEFAULT = 3;
+    public static final int TAB_COUNT_WITH_VOICEMAIL = 4;
 
     private static final int MAX_RECENTS_ENTRIES = 20;
     // Oldest recents entry to display is 2 weeks old.
     private static final long OLDEST_RECENTS_DATE = 1000L * 60 * 60 * 24 * 14;
 
-    private static final String KEY_LAST_DISMISSED_CALL_SHORTCUT_DATE =
-            "key_last_dismissed_call_shortcut_date";
-
-    public static final float REMOVE_VIEW_SHOWN_ALPHA = 0.5f;
-    public static final float REMOVE_VIEW_HIDDEN_ALPHA = 1;
+    private static final String PREF_KEY_HAS_ACTIVE_VOICEMAIL_PROVIDER =
+            "has_active_voicemail_provider";
 
     public interface HostInterface {
-        public void showCallHistory();
         public ActionBarController getActionBarController();
     }
 
@@ -76,108 +74,30 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
     private ViewPager mViewPager;
     private ViewPagerTabs mViewPagerTabs;
     private ViewPagerAdapter mViewPagerAdapter;
-    private ListView mShortcutCardsListView;
     private RemoveView mRemoveView;
     private View mRemoveViewContent;
+
     private SpeedDialFragment mSpeedDialFragment;
     private CallLogFragment mRecentsFragment;
     private AllContactsFragment mAllContactsFragment;
+    private CallLogFragment mVoicemailFragment;
+
+    private SharedPreferences mPrefs;
+    private boolean mHasActiveVoicemailProvider;
+    private boolean mHasFetchedVoicemailStatus;
+    private boolean mShowVoicemailTabAfterVoicemailStatusIsFetched;
+
+    private VoicemailStatusHelper mVoicemailStatusHelper;
     private ArrayList<OnPageChangeListener> mOnPageChangeListeners =
             new ArrayList<OnPageChangeListener>();
 
     private String[] mTabTitles;
-
-    private ShortcutCardsAdapter mMergedAdapter;
-    private CallLogAdapter mCallLogAdapter;
-    private CallLogQueryHandler mCallLogQueryHandler;
-    private OverlappingPaneLayout mOverlappingPaneLayout;
-
-    private boolean mIsPanelOpen = true;
+    private int[] mTabIcons;
 
     /**
-     * Call shortcuts older than this date (persisted in shared preferences) will not show up in
-     * at the top of the screen
+     * The position of the currently selected tab.
      */
-    private long mLastCallShortcutDate = 0;
-
-    /**
-     * The date of the current call shortcut that is showing on screen.
-     */
-    private long mCurrentCallShortcutDate = 0;
-
-    private PanelSlideCallbacks mPanelSlideCallbacks = new PanelSlideCallbacks() {
-        @Override
-        public void onPanelSlide(View panel, float slideOffset) {
-            // For every 1 percent that the panel is slid upwards, clip 1 percent off the top
-            // edge of the shortcut card, to achieve the animated effect of the shortcut card
-            // being pushed out of view when the panel is slid upwards. slideOffset is 1 when
-            // the shortcut card is fully exposed, and 0 when completely hidden.
-            float ratioCardHidden = (1 - slideOffset);
-            if (mShortcutCardsListView.getChildCount() > 0) {
-                final SwipeableShortcutCard v =
-                        (SwipeableShortcutCard) mShortcutCardsListView.getChildAt(0);
-                v.clipCard(ratioCardHidden);
-            }
-
-            if (mActionBar != null) {
-                // Amount of available space that is not being hidden by the bottom pane
-                final int topPaneHeight = (int) (slideOffset * mShortcutCardsListView.getHeight());
-
-                final int availableActionBarHeight =
-                        Math.min(mActionBar.getHeight(), topPaneHeight);
-                final ActionBarController controller =
-                        ((HostInterface) getActivity()).getActionBarController();
-                controller.setHideOffset(mActionBar.getHeight() - availableActionBarHeight);
-
-                if (!mActionBar.isShowing()) {
-                    mActionBar.show();
-                }
-            }
-        }
-
-        @Override
-        public void onPanelOpened(View panel) {
-            if (DEBUG) {
-                Log.d(TAG, "onPanelOpened");
-            }
-            mIsPanelOpen = true;
-        }
-
-        @Override
-        public void onPanelClosed(View panel) {
-            if (DEBUG) {
-                Log.d(TAG, "onPanelClosed");
-            }
-            mIsPanelOpen = false;
-        }
-
-        @Override
-        public void onPanelFlingReachesEdge(int velocityY) {
-            if (getCurrentListView() != null) {
-                getCurrentListView().fling(velocityY);
-            }
-        }
-
-        @Override
-        public boolean isScrollableChildUnscrolled() {
-            final AbsListView listView = getCurrentListView();
-            return listView != null && (listView.getChildCount() == 0
-                    || listView.getChildAt(0).getTop() == listView.getPaddingTop());
-        }
-    };
-
-    private AbsListView getCurrentListView() {
-        final int position = mViewPager.getCurrentItem();
-        switch (getRtlPosition(position)) {
-            case TAB_INDEX_SPEED_DIAL:
-                return mSpeedDialFragment == null ? null : mSpeedDialFragment.getListView();
-            case TAB_INDEX_RECENTS:
-                return mRecentsFragment == null ? null : mRecentsFragment.getListView();
-            case TAB_INDEX_ALL_CONTACTS:
-                return mAllContactsFragment == null ? null : mAllContactsFragment.getListView();
-        }
-        throw new IllegalStateException("No fragment at position " + position);
-    }
+    private int mTabIndex = TAB_INDEX_SPEED_DIAL;
 
     public class ViewPagerAdapter extends FragmentPagerAdapter {
         public ViewPagerAdapter(FragmentManager fm) {
@@ -198,11 +118,13 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
                 case TAB_INDEX_RECENTS:
                     mRecentsFragment = new CallLogFragment(CallLogQueryHandler.CALL_TYPE_ALL,
                             MAX_RECENTS_ENTRIES, System.currentTimeMillis() - OLDEST_RECENTS_DATE);
-                    mRecentsFragment.setHasFooterView(true);
                     return mRecentsFragment;
                 case TAB_INDEX_ALL_CONTACTS:
                     mAllContactsFragment = new AllContactsFragment();
                     return mAllContactsFragment;
+                case TAB_INDEX_VOICEMAIL:
+                    mVoicemailFragment = new CallLogFragment(Calls.VOICEMAIL_TYPE);
+                    return mVoicemailFragment;
             }
             throw new IllegalStateException("No fragment at position " + position);
         }
@@ -216,17 +138,19 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
                     (Fragment) super.instantiateItem(container, position);
             if (fragment instanceof SpeedDialFragment) {
                 mSpeedDialFragment = (SpeedDialFragment) fragment;
-            } else if (fragment instanceof CallLogFragment) {
+            } else if (fragment instanceof CallLogFragment && position == TAB_INDEX_RECENTS) {
                 mRecentsFragment = (CallLogFragment) fragment;
             } else if (fragment instanceof AllContactsFragment) {
                 mAllContactsFragment = (AllContactsFragment) fragment;
+            } else if (fragment instanceof CallLogFragment && position == TAB_INDEX_VOICEMAIL) {
+                mVoicemailFragment = (CallLogFragment) fragment;
             }
             return fragment;
         }
 
         @Override
         public int getCount() {
-            return TAB_INDEX_COUNT;
+            return mHasActiveVoicemailProvider ? TAB_COUNT_WITH_VOICEMAIL : TAB_COUNT_DEFAULT;
         }
 
         @Override
@@ -237,114 +161,77 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Trace.beginSection(TAG + " onCreate");
         super.onCreate(savedInstanceState);
 
-        mCallLogQueryHandler = new CallLogQueryHandler(getActivity().getContentResolver(),
-                this, 1);
+        Trace.beginSection(TAG + " getCurrentCountryIso");
         final String currentCountryIso = GeoUtil.getCurrentCountryIso(getActivity());
-        mCallLogAdapter = ObjectFactory.newCallLogAdapter(getActivity(), this,
-                new ContactInfoHelper(getActivity(), currentCountryIso), null, null, false);
+        Trace.endSection();
 
-        mMergedAdapter = new ShortcutCardsAdapter(getActivity(), this, mCallLogAdapter);
+        mVoicemailStatusHelper = new VoicemailStatusHelperImpl();
+        mHasFetchedVoicemailStatus = false;
+
+        mPrefs = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        mHasActiveVoicemailProvider = mPrefs.getBoolean(
+                PREF_KEY_HAS_ACTIVE_VOICEMAIL_PROVIDER, false);
+
+        Trace.endSection();
     }
 
     @Override
     public void onResume() {
+        Trace.beginSection(TAG + " onResume");
         super.onResume();
-        final SharedPreferences prefs = getActivity().getSharedPreferences(
-                DialtactsActivity.SHARED_PREFS_NAME, Context.MODE_PRIVATE);
-        mLastCallShortcutDate = prefs.getLong(KEY_LAST_DISMISSED_CALL_SHORTCUT_DATE, 0);
         mActionBar = getActivity().getActionBar();
-        fetchCalls();
-        mCallLogAdapter.setLoading(true);
         if (getUserVisibleHint()) {
-            sendScreenViewForPosition(mViewPager.getCurrentItem());
+            sendScreenViewForCurrentPosition();
         }
-    }
 
-    @Override
-    public void onPause() {
-        // Wipe the cache to refresh the call shortcut item. This is not that expensive because
-        // it only contains one item.
-        mCallLogAdapter.invalidateCache();
-        super.onPause();
-    }
-
-    @Override
-    public void onDestroy() {
-        mCallLogAdapter.stopRequestProcessing();
-        super.onDestroy();
+        // Fetch voicemail status to determine if we should show the voicemail tab.
+        CallLogQueryHandler callLogQueryHandler =
+                new CallLogQueryHandler(getActivity(), getActivity().getContentResolver(), this);
+        callLogQueryHandler.fetchVoicemailStatus();
+        Trace.endSection();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        Trace.beginSection(TAG + " onCreateView");
+        Trace.beginSection(TAG + " inflate view");
         final View parentView = inflater.inflate(R.layout.lists_fragment, container, false);
+        Trace.endSection();
+        Trace.beginSection(TAG + " setup views");
         mViewPager = (ViewPager) parentView.findViewById(R.id.lists_pager);
         mViewPagerAdapter = new ViewPagerAdapter(getChildFragmentManager());
         mViewPager.setAdapter(mViewPagerAdapter);
-        mViewPager.setOffscreenPageLimit(2);
+        mViewPager.setOffscreenPageLimit(TAB_COUNT_WITH_VOICEMAIL - 1);
         mViewPager.setOnPageChangeListener(this);
-        mViewPager.setCurrentItem(getRtlPosition(TAB_INDEX_SPEED_DIAL));
+        showTab(TAB_INDEX_SPEED_DIAL);
 
-        mTabTitles = new String[TAB_INDEX_COUNT];
+        mTabTitles = new String[TAB_COUNT_WITH_VOICEMAIL];
         mTabTitles[TAB_INDEX_SPEED_DIAL] = getResources().getString(R.string.tab_speed_dial);
         mTabTitles[TAB_INDEX_RECENTS] = getResources().getString(R.string.tab_recents);
         mTabTitles[TAB_INDEX_ALL_CONTACTS] = getResources().getString(R.string.tab_all_contacts);
+        mTabTitles[TAB_INDEX_VOICEMAIL] = getResources().getString(R.string.tab_voicemail);
+
+        mTabIcons = new int[TAB_COUNT_WITH_VOICEMAIL];
+        mTabIcons[TAB_INDEX_SPEED_DIAL] = R.drawable.tab_speed_dial;
+        mTabIcons[TAB_INDEX_RECENTS] = R.drawable.tab_recents;
+        mTabIcons[TAB_INDEX_ALL_CONTACTS] = R.drawable.tab_contacts;
+        mTabIcons[TAB_INDEX_VOICEMAIL] = R.drawable.tab_voicemail;
 
         mViewPagerTabs = (ViewPagerTabs) parentView.findViewById(R.id.lists_pager_header);
+        mViewPagerTabs.setTabIcons(mTabIcons);
         mViewPagerTabs.setViewPager(mViewPager);
         addOnPageChangeListener(mViewPagerTabs);
-
-        mShortcutCardsListView = (ListView) parentView.findViewById(R.id.shortcut_card_list);
-        mShortcutCardsListView.setAdapter(mMergedAdapter);
 
         mRemoveView = (RemoveView) parentView.findViewById(R.id.remove_view);
         mRemoveViewContent = parentView.findViewById(R.id.remove_view_content);
 
-        setupPaneLayout((OverlappingPaneLayout) parentView);
-        mOverlappingPaneLayout = (OverlappingPaneLayout) parentView;
-
+        Trace.endSection();
+        Trace.endSection();
         return parentView;
-    }
-
-    @Override
-    public void onVoicemailStatusFetched(Cursor statusCursor) {
-        // no-op
-    }
-
-    @Override
-    public boolean onCallsFetched(Cursor cursor) {
-        mCallLogAdapter.setLoading(false);
-
-        // Save the date of the most recent call log item
-        if (cursor != null && cursor.moveToFirst()) {
-            mCurrentCallShortcutDate = cursor.getLong(CallLogQuery.DATE);
-        }
-
-        mCallLogAdapter.changeCursor(cursor);
-        mMergedAdapter.notifyDataSetChanged();
-
-        // Refresh the overlapping pane to ensure that any changes in the shortcut card height
-        // are appropriately reflected in the overlap position.
-        mOverlappingPaneLayout.refresh();
-
-        // Return true; took ownership of cursor
-        return true;
-    }
-
-    @Override
-    public void fetchCalls() {
-        mCallLogQueryHandler.fetchCalls(CallLogQueryHandler.CALL_TYPE_ALL, mLastCallShortcutDate);
-    }
-
-    public void dismissShortcut(View view) {
-        mLastCallShortcutDate = mCurrentCallShortcutDate;
-        final SharedPreferences prefs = view.getContext().getSharedPreferences(
-                DialtactsActivity.SHARED_PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putLong(KEY_LAST_DISMISSED_CALL_SHORTCUT_DATE, mLastCallShortcutDate)
-                .apply();
-        fetchCalls();
     }
 
     public void addOnPageChangeListener(OnPageChangeListener onPageChangeListener) {
@@ -353,8 +240,28 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
         }
     }
 
+    /**
+     * Shows the tab with the specified index. If the voicemail tab index is specified, but the
+     * voicemail status hasn't been fetched, it will try to show the tab after the voicemail status
+     * has been fetched.
+     */
+    public void showTab(int index) {
+        if (index == TAB_INDEX_VOICEMAIL) {
+            if (mHasActiveVoicemailProvider) {
+                mViewPager.setCurrentItem(getRtlPosition(TAB_INDEX_VOICEMAIL));
+            } else if (!mHasFetchedVoicemailStatus) {
+                // Try to show the voicemail tab after the voicemail status returns.
+                mShowVoicemailTabAfterVoicemailStatusIsFetched = true;
+            }
+        } else {
+            mViewPager.setCurrentItem(getRtlPosition(index));
+        }
+    }
+
     @Override
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+        mTabIndex = getRtlPosition(position);
+
         final int count = mOnPageChangeListeners.size();
         for (int i = 0; i < count; i++) {
             mOnPageChangeListeners.get(i).onPageScrolled(position, positionOffset,
@@ -364,11 +271,16 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
 
     @Override
     public void onPageSelected(int position) {
+        mTabIndex = getRtlPosition(position);
+
+        // Show the tab which has been selected instead.
+        mShowVoicemailTabAfterVoicemailStatusIsFetched = false;
+
         final int count = mOnPageChangeListeners.size();
         for (int i = 0; i < count; i++) {
             mOnPageChangeListeners.get(i).onPageSelected(position);
         }
-        sendScreenViewForPosition(position);
+        sendScreenViewForCurrentPosition();
     }
 
     @Override
@@ -379,40 +291,52 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
         }
     }
 
+    @Override
+    public void onVoicemailStatusFetched(Cursor statusCursor) {
+        mHasFetchedVoicemailStatus = true;
+
+        if (getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
+
+        // Update mHasActiveVoicemailProvider, which controls the number of tabs displayed.
+        boolean hasActiveVoicemailProvider =
+                mVoicemailStatusHelper.getNumberActivityVoicemailSources(statusCursor) > 0;
+        if (hasActiveVoicemailProvider != mHasActiveVoicemailProvider) {
+            mHasActiveVoicemailProvider = hasActiveVoicemailProvider;
+            mViewPagerAdapter.notifyDataSetChanged();
+            mViewPagerTabs.setViewPager(mViewPager);
+
+            mPrefs.edit()
+                    .putBoolean(PREF_KEY_HAS_ACTIVE_VOICEMAIL_PROVIDER, hasActiveVoicemailProvider)
+                    .commit();
+        }
+
+        if (mHasActiveVoicemailProvider && mShowVoicemailTabAfterVoicemailStatusIsFetched) {
+            mShowVoicemailTabAfterVoicemailStatusIsFetched = false;
+            showTab(TAB_INDEX_VOICEMAIL);
+        }
+    }
+
+    @Override
+    public boolean onCallsFetched(Cursor statusCursor) {
+        // Return false; did not take ownership of cursor
+        return false;
+    }
+
+    public int getCurrentTabIndex() {
+        return mTabIndex;
+    }
+
     public void showRemoveView(boolean show) {
         mRemoveViewContent.setVisibility(show ? View.VISIBLE : View.GONE);
         mRemoveView.setAlpha(show ? 0 : 1);
         mRemoveView.animate().alpha(show ? 1 : 0).start();
-
-        if (mShortcutCardsListView.getChildCount() > 0) {
-            View v = mShortcutCardsListView.getChildAt(0);
-            v.animate().withLayer()
-                    .alpha(show ? REMOVE_VIEW_SHOWN_ALPHA : REMOVE_VIEW_HIDDEN_ALPHA)
-                    .start();
-        }
     }
 
     public boolean shouldShowActionBar() {
-        return mIsPanelOpen && mActionBar != null;
-    }
-
-    public boolean isPaneOpen() {
-        return mIsPanelOpen;
-    }
-
-    private void setupPaneLayout(OverlappingPaneLayout paneLayout) {
-        // TODO: Remove the notion of a capturable view. The entire view be slideable, once
-        // the framework better supports nested scrolling.
-        paneLayout.setCapturableView(mViewPagerTabs);
-        paneLayout.openPane();
-        paneLayout.setPanelSlideCallbacks(mPanelSlideCallbacks);
-        paneLayout.setIntermediatePinnedOffset(
-                ((HostInterface) getActivity()).getActionBarController().getActionBarHeight());
-
-        LayoutTransition transition = paneLayout.getLayoutTransition();
-        // Turns on animations for all types of layout changes so that they occur for
-        // height changes.
-        transition.enableTransitionType(LayoutTransition.CHANGING);
+        // TODO: Update this based on scroll state.
+        return mActionBar != null;
     }
 
     public SpeedDialFragment getSpeedDialFragment() {
@@ -423,32 +347,35 @@ public class ListsFragment extends Fragment implements CallLogQueryHandler.Liste
         return mRemoveView;
     }
 
-    public int getRtlPosition(int position) {
+    public int getTabCount() {
+        return mViewPagerAdapter.getCount();
+    }
+
+    private int getRtlPosition(int position) {
         if (DialerUtils.isRtl()) {
-            return TAB_INDEX_COUNT - 1 - position;
+            return mViewPagerAdapter.getCount() - 1 - position;
         }
         return position;
     }
 
     public void sendScreenViewForCurrentPosition() {
-        sendScreenViewForPosition(mViewPager.getCurrentItem());
-    }
-
-    private void sendScreenViewForPosition(int position) {
         if (!isResumed()) {
             return;
         }
+
         String fragmentName;
-        switch (getRtlPosition(position)) {
+        switch (getCurrentTabIndex()) {
             case TAB_INDEX_SPEED_DIAL:
                 fragmentName = SpeedDialFragment.class.getSimpleName();
                 break;
             case TAB_INDEX_RECENTS:
-                fragmentName = CallLogFragment.class.getSimpleName();
+                fragmentName = CallLogFragment.class.getSimpleName() + "#Recents";
                 break;
             case TAB_INDEX_ALL_CONTACTS:
                 fragmentName = AllContactsFragment.class.getSimpleName();
                 break;
+            case TAB_INDEX_VOICEMAIL:
+                fragmentName = CallLogFragment.class.getSimpleName() + "#Voicemail";
             default:
                 return;
         }

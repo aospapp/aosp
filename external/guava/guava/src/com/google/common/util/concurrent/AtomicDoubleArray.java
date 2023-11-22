@@ -13,10 +13,9 @@
 
 package com.google.common.util.concurrent;
 
-import com.google.common.annotations.Beta;
-
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.longBitsToDouble;
+
 import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
@@ -40,7 +39,6 @@ import java.util.concurrent.atomic.AtomicLongArray;
  * @author Martin Buchholz
  * @since 11.0
  */
-@Beta
 public class AtomicDoubleArray implements java.io.Serializable {
   private static final long serialVersionUID = 0L;
 

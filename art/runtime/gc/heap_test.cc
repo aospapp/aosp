@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "class_linker-inl.h"
 #include "common_runtime_test.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/accounting/space_bitmap-inl.h"
@@ -48,8 +49,8 @@ TEST_F(HeapTest, GarbageCollectClassLinkerInit) {
     Handle<mirror::Class> c(
         hs.NewHandle(class_linker_->FindSystemClass(soa.Self(), "[Ljava/lang/Object;")));
     for (size_t i = 0; i < 1024; ++i) {
-      StackHandleScope<1> hs(soa.Self());
-      Handle<mirror::ObjectArray<mirror::Object>> array(hs.NewHandle(
+      StackHandleScope<1> hs2(soa.Self());
+      Handle<mirror::ObjectArray<mirror::Object>> array(hs2.NewHandle(
           mirror::ObjectArray<mirror::Object>::Alloc(soa.Self(), c.Get(), 2048)));
       for (size_t j = 0; j < 2048; ++j) {
         mirror::String* string = mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello, world!");
@@ -62,13 +63,25 @@ TEST_F(HeapTest, GarbageCollectClassLinkerInit) {
 }
 
 TEST_F(HeapTest, HeapBitmapCapacityTest) {
-  byte* heap_begin = reinterpret_cast<byte*>(0x1000);
+  uint8_t* heap_begin = reinterpret_cast<uint8_t*>(0x1000);
   const size_t heap_capacity = kObjectAlignment * (sizeof(intptr_t) * 8 + 1);
   std::unique_ptr<accounting::ContinuousSpaceBitmap> bitmap(
       accounting::ContinuousSpaceBitmap::Create("test bitmap", heap_begin, heap_capacity));
   mirror::Object* fake_end_of_heap_object =
       reinterpret_cast<mirror::Object*>(&heap_begin[heap_capacity - kObjectAlignment]);
   bitmap->Set(fake_end_of_heap_object);
+}
+
+class ZygoteHeapTest : public CommonRuntimeTest {
+  void SetUpRuntimeOptions(RuntimeOptions* options) {
+    CommonRuntimeTest::SetUpRuntimeOptions(options);
+    options->push_back(std::make_pair("-Xzygote", nullptr));
+  }
+};
+
+TEST_F(ZygoteHeapTest, PreZygoteFork) {
+  // Exercise Heap::PreZygoteFork() to check it does not crash.
+  Runtime::Current()->GetHeap()->PreZygoteFork();
 }
 
 }  // namespace gc

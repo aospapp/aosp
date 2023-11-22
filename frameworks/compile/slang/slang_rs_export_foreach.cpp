@@ -25,10 +25,71 @@
 
 #include "llvm/IR/DerivedTypes.h"
 
+#include "bcinfo/MetadataExtractor.h"
+
 #include "slang_assert.h"
 #include "slang_rs_context.h"
 #include "slang_rs_export_type.h"
 #include "slang_version.h"
+
+namespace {
+
+const size_t RS_KERNEL_INPUT_LIMIT = 8; // see frameworks/base/libs/rs/cpu_ref/rsCpuCoreRuntime.h
+
+enum SpecialParameterKind {
+  SPK_LOCATION, // 'int' or 'unsigned int'
+  SPK_CONTEXT,  // rs_kernel_context
+};
+
+struct SpecialParameter {
+  const char *name;
+  bcinfo::MetadataSignatureBitval bitval;
+  SpecialParameterKind kind;
+  SlangTargetAPI minAPI;
+};
+
+// Table entries are in the order parameters must occur in a kernel parameter list.
+const SpecialParameter specialParameterTable[] = {
+  { "context", bcinfo::MD_SIG_Ctxt, SPK_CONTEXT, SLANG_M_TARGET_API },
+  { "x", bcinfo::MD_SIG_X, SPK_LOCATION, SLANG_MINIMUM_TARGET_API },
+  { "y", bcinfo::MD_SIG_Y, SPK_LOCATION, SLANG_MINIMUM_TARGET_API },
+  { "z", bcinfo::MD_SIG_Z, SPK_LOCATION, SLANG_M_TARGET_API },
+  { nullptr, bcinfo::MD_SIG_None, SPK_LOCATION, SLANG_MINIMUM_TARGET_API }, // marks end of table
+};
+
+// If the specified name matches the name of an entry in
+// specialParameterTable, return the corresponding table index.
+// Return -1 if not found.
+int lookupSpecialParameter(const llvm::StringRef name) {
+  for (int i = 0; specialParameterTable[i].name != nullptr; ++i) {
+    if (name.equals(specialParameterTable[i].name)) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+// Return a comma-separated list of names in specialParameterTable
+// that are available at the specified API level.
+std::string listSpecialParameters(unsigned int api) {
+  std::string ret;
+  bool first = true;
+  for (int i = 0; specialParameterTable[i].name != nullptr; ++i) {
+    if (specialParameterTable[i].minAPI > api)
+      continue;
+    if (first)
+      first = false;
+    else
+      ret += ", ";
+    ret += "'";
+    ret += specialParameterTable[i].name;
+    ret += "'";
+  }
+  return ret;
+}
+
+}
 
 namespace slang {
 
@@ -85,30 +146,30 @@ bool RSExportForEach::validateAndConstructOldStyleParams(
   }
 
   // Validate remaining parameter types
-  // TODO(all): Add support for LOD/face when we have them
 
-  size_t IndexOfFirstIterator = numParams;
-  valid |= validateIterationParameters(Context, FD, &IndexOfFirstIterator);
+  size_t IndexOfFirstSpecialParameter = numParams;
+  valid |= processSpecialParameters(Context, FD, &IndexOfFirstSpecialParameter);
 
-  // Validate the non-iterator parameters, which should all be found before the
-  // first iterator.
-  for (size_t i = 0; i < IndexOfFirstIterator; i++) {
+  // Validate the non-special parameters, which should all be found before the
+  // first special parameter.
+  for (size_t i = 0; i < IndexOfFirstSpecialParameter; i++) {
     const clang::ParmVarDecl *PVD = FD->getParamDecl(i);
     clang::QualType QT = PVD->getType().getCanonicalType();
 
     if (!QT->isPointerType()) {
       Context->ReportError(PVD->getLocation(),
                            "Compute kernel %0() cannot have non-pointer "
-                           "parameters besides 'x' and 'y'. Parameter '%1' is "
-                           "of type: '%2'")
-          << FD->getName() << PVD->getName() << PVD->getType().getAsString();
+                           "parameters besides special parameters (%1). Parameter '%2' is "
+                           "of type: '%3'")
+          << FD->getName() << listSpecialParameters(Context->getTargetAPI())
+          << PVD->getName() << PVD->getType().getAsString();
       valid = false;
       continue;
     }
 
     // The only non-const pointer should be out.
     if (!QT->getPointeeType().isConstQualified()) {
-      if (mOut == NULL) {
+      if (mOut == nullptr) {
         mOut = PVD;
       } else {
         Context->ReportError(PVD->getLocation(),
@@ -119,9 +180,9 @@ bool RSExportForEach::validateAndConstructOldStyleParams(
         valid = false;
       }
     } else {
-      if (mIns.empty() && mOut == NULL) {
+      if (mIns.empty() && mOut == nullptr) {
         mIns.push_back(PVD);
-      } else if (mUsrData == NULL) {
+      } else if (mUsrData == nullptr) {
         mUsrData = PVD;
       } else {
         Context->ReportError(
@@ -173,29 +234,34 @@ bool RSExportForEach::validateAndConstructKernelParams(
   }
 
   // Validate remaining parameter types
-  // TODO(all): Add support for LOD/face when we have them
 
-  size_t IndexOfFirstIterator = numParams;
-  valid |= validateIterationParameters(Context, FD, &IndexOfFirstIterator);
+  size_t IndexOfFirstSpecialParameter = numParams;
+  valid |= processSpecialParameters(Context, FD, &IndexOfFirstSpecialParameter);
 
-  // Validate the non-iterator parameters, which should all be found before the
-  // first iterator.
-  for (size_t i = 0; i < IndexOfFirstIterator; i++) {
+  // Validate the non-special parameters, which should all be found before the
+  // first special.
+  for (size_t i = 0; i < IndexOfFirstSpecialParameter; i++) {
     const clang::ParmVarDecl *PVD = FD->getParamDecl(i);
 
-    /*
-     * FIXME: Change this to a test against an actual API version when the
-     *        multi-input feature is officially supported.
-     */
-    if (Context->getTargetAPI() == SLANG_DEVELOPMENT_TARGET_API || i == 0) {
-      mIns.push_back(PVD);
+    if (Context->getTargetAPI() >= SLANG_M_TARGET_API || i == 0) {
+      if (i >= RS_KERNEL_INPUT_LIMIT) {
+        Context->ReportError(PVD->getLocation(),
+                             "Invalid parameter '%0' for compute kernel %1(). "
+                             "Kernels targeting SDK levels %2+ may not use "
+                             "more than %3 input parameters.") << PVD->getName() <<
+                             FD->getName() << SLANG_M_TARGET_API <<
+                             int(RS_KERNEL_INPUT_LIMIT);
+
+      } else {
+        mIns.push_back(PVD);
+      }
     } else {
       Context->ReportError(PVD->getLocation(),
                            "Invalid parameter '%0' for compute kernel %1(). "
                            "Kernels targeting SDK levels %2-%3 may not use "
                            "multiple input parameters.") << PVD->getName() <<
                            FD->getName() << SLANG_MINIMUM_TARGET_API <<
-                           SLANG_MAXIMUM_TARGET_API;
+                           (SLANG_M_TARGET_API - 1);
       valid = false;
     }
     clang::QualType QT = PVD->getType().getCanonicalType();
@@ -209,85 +275,150 @@ bool RSExportForEach::validateAndConstructKernelParams(
   }
 
   // Check that we have at least one allocation to use for dimensions.
-  if (valid && mIns.empty() && !mHasReturnType) {
+  if (valid && mIns.empty() && !mHasReturnType && Context->getTargetAPI() < SLANG_M_TARGET_API) {
     Context->ReportError(FD->getLocation(),
-                         "Compute kernel %0() must have at least one "
+                         "Compute kernel %0() targeting SDK levels "
+                         "%1-%2 must have at least one "
                          "input parameter or a non-void return "
                          "type")
-        << FD->getName();
+        << FD->getName() << SLANG_MINIMUM_TARGET_API
+        << (SLANG_M_TARGET_API - 1);
     valid = false;
   }
 
   return valid;
 }
 
-// Search for the optional x and y parameters.  Returns true if valid.   Also
-// sets *IndexOfFirstIterator to the index of the first iterator parameter, or
-// FD->getNumParams() if none are found.
-bool RSExportForEach::validateIterationParameters(
+// Process the optional special parameters:
+// - Sets *IndexOfFirstSpecialParameter to the index of the first special parameter, or
+//     FD->getNumParams() if none are found.
+// - Sets mSpecialParameterSignatureMetadata for the found special parameters.
+// Returns true if no errors.
+bool RSExportForEach::processSpecialParameters(
     RSContext *Context, const clang::FunctionDecl *FD,
-    size_t *IndexOfFirstIterator) {
-  slangAssert(IndexOfFirstIterator != NULL);
-  slangAssert(mX == NULL && mY == NULL);
+    size_t *IndexOfFirstSpecialParameter) {
+  slangAssert(IndexOfFirstSpecialParameter != nullptr);
+  slangAssert(mSpecialParameterSignatureMetadata == 0);
   clang::ASTContext &C = Context->getASTContext();
 
-  // Find the x and y parameters if present.
+  // Find all special parameters if present.
+  int LastSpecialParameterIdx = -1;     // index into specialParameterTable
+  int FirstLocationSpecialParameterIdx = -1; // index into specialParameterTable
+  clang::QualType FirstLocationSpecialParameterType;
   size_t NumParams = FD->getNumParams();
-  *IndexOfFirstIterator = NumParams;
+  *IndexOfFirstSpecialParameter = NumParams;
   bool valid = true;
   for (size_t i = 0; i < NumParams; i++) {
     const clang::ParmVarDecl *PVD = FD->getParamDecl(i);
-    llvm::StringRef ParamName = PVD->getName();
-    if (ParamName.equals("x")) {
-      slangAssert(mX == NULL);  // We won't be invoked if two 'x' are present.
-      mX = PVD;
-      if (mY != NULL) {
-        Context->ReportError(PVD->getLocation(),
-                             "In compute kernel %0(), parameter 'x' should "
-                             "be defined before parameter 'y'")
-            << FD->getName();
-        valid = false;
-      }
-    } else if (ParamName.equals("y")) {
-      slangAssert(mY == NULL);  // We won't be invoked if two 'y' are present.
-      mY = PVD;
-    } else {
-      // It's neither x nor y.
-      if (*IndexOfFirstIterator < NumParams) {
+    const llvm::StringRef ParamName = PVD->getName();
+    const clang::QualType Type = PVD->getType();
+    const clang::QualType QT = Type.getCanonicalType();
+    const clang::QualType UT = QT.getUnqualifiedType();
+    int SpecialParameterIdx = lookupSpecialParameter(ParamName);
+
+    static const char KernelContextUnqualifiedTypeName[] =
+        "const struct rs_kernel_context_t *";
+    static const char KernelContextTypeName[] = "rs_kernel_context";
+
+    // If the type is rs_context, it should have been named "context" and classified
+    // as a special parameter.
+    if (SpecialParameterIdx < 0 && UT.getAsString() == KernelContextUnqualifiedTypeName) {
+      Context->ReportError(
+          PVD->getLocation(),
+          "The special parameter of type '%0' must be called "
+          "'context' instead of '%1'.")
+          << KernelContextTypeName << ParamName;
+      SpecialParameterIdx = lookupSpecialParameter("context");
+    }
+
+    // If it's not a special parameter, check that it appears before any special
+    // parameter.
+    if (SpecialParameterIdx < 0) {
+      if (*IndexOfFirstSpecialParameter < NumParams) {
         Context->ReportError(PVD->getLocation(),
                              "In compute kernel %0(), parameter '%1' cannot "
-                             "appear after the 'x' and 'y' parameters")
-            << FD->getName() << ParamName;
+                             "appear after any of the special parameters (%2).")
+            << FD->getName() << ParamName << listSpecialParameters(Context->getTargetAPI());
         valid = false;
       }
       continue;
     }
-    // Validate the data type of x and y.
-    clang::QualType QT = PVD->getType().getCanonicalType();
-    clang::QualType UT = QT.getUnqualifiedType();
-    if (UT != C.UnsignedIntTy && UT != C.IntTy) {
-      Context->ReportError(PVD->getLocation(),
-                           "Parameter '%0' must be of type 'int' or "
-                           "'unsigned int'. It is of type '%1'")
-          << ParamName << PVD->getType().getAsString();
-      valid = false;
-    }
-    // If this is the first time we find an iterator, save it.
-    if (*IndexOfFirstIterator >= NumParams) {
-      *IndexOfFirstIterator = i;
-    }
-  }
-  // Check that x and y have the same type.
-  if (mX != NULL and mY != NULL) {
-    clang::QualType XType = mX->getType();
-    clang::QualType YType = mY->getType();
 
-    if (XType != YType) {
-      Context->ReportError(mY->getLocation(),
-                           "Parameter 'x' and 'y' must be of the same type. "
-                           "'x' is of type '%0' while 'y' is of type '%1'")
-          << XType.getAsString() << YType.getAsString();
+    const SpecialParameter &SP = specialParameterTable[SpecialParameterIdx];
+
+    // Verify that this special parameter is OK for the current API level.
+    if (Context->getTargetAPI() < SP.minAPI) {
+      Context->ReportError(PVD->getLocation(),
+                           "Compute kernel %0() targeting SDK levels "
+                           "%1-%2 may not use special parameter '%3'.")
+          << FD->getName() << SLANG_MINIMUM_TARGET_API << (SP.minAPI - 1)
+          << SP.name;
       valid = false;
+    }
+
+    // Check that the order of the special parameters is correct.
+    if (SpecialParameterIdx < LastSpecialParameterIdx) {
+      Context->ReportError(
+          PVD->getLocation(),
+          "In compute kernel %0(), special parameter '%1' must "
+          "be defined before special parameter '%2'.")
+          << FD->getName() << SP.name
+          << specialParameterTable[LastSpecialParameterIdx].name;
+      valid = false;
+    }
+
+    // Validate the data type of the special parameter.
+    switch (SP.kind) {
+    case SPK_LOCATION: {
+      // Location special parameters can only be int or uint.
+      if (UT != C.UnsignedIntTy && UT != C.IntTy) {
+        Context->ReportError(PVD->getLocation(),
+                             "Special parameter '%0' must be of type 'int' or "
+                             "'unsigned int'. It is of type '%1'.")
+            << ParamName << Type.getAsString();
+        valid = false;
+      }
+
+      // Ensure that all location special parameters have the same type.
+      if (FirstLocationSpecialParameterIdx >= 0) {
+        if (Type != FirstLocationSpecialParameterType) {
+          Context->ReportError(
+              PVD->getLocation(),
+              "Special parameters '%0' and '%1' must be of the same type. "
+              "'%0' is of type '%2' while '%1' is of type '%3'.")
+              << specialParameterTable[FirstLocationSpecialParameterIdx].name
+              << SP.name << FirstLocationSpecialParameterType.getAsString()
+              << Type.getAsString();
+          valid = false;
+        }
+      } else {
+        FirstLocationSpecialParameterIdx = SpecialParameterIdx;
+        FirstLocationSpecialParameterType = Type;
+      }
+    } break;
+    case SPK_CONTEXT: {
+      // Check that variables named "context" are of type rs_context.
+      if (UT.getAsString() != KernelContextUnqualifiedTypeName) {
+        Context->ReportError(PVD->getLocation(),
+                             "Special parameter '%0' must be of type '%1'. "
+                             "It is of type '%2'.")
+            << ParamName << KernelContextTypeName
+            << Type.getAsString();
+        valid = false;
+      }
+    } break;
+    default:
+      slangAssert(!"Unexpected special parameter type");
+    }
+
+    // We should not be invoked if two parameters of the same name are present.
+    slangAssert(!(mSpecialParameterSignatureMetadata & SP.bitval));
+    mSpecialParameterSignatureMetadata |= SP.bitval;
+
+    LastSpecialParameterIdx = SpecialParameterIdx;
+    // If this is the first time we find a special parameter, save it.
+    if (*IndexOfFirstSpecialParameter >= NumParams) {
+      *IndexOfFirstSpecialParameter = i;
     }
   }
   return valid;
@@ -299,30 +430,30 @@ bool RSExportForEach::setSignatureMetadata(RSContext *Context,
   bool valid = true;
 
   if (mIsKernelStyle) {
-    slangAssert(mOut == NULL);
-    slangAssert(mUsrData == NULL);
+    slangAssert(mOut == nullptr);
+    slangAssert(mUsrData == nullptr);
   } else {
     slangAssert(!mHasReturnType);
   }
 
   // Set up the bitwise metadata encoding for runtime argument passing.
-  // TODO: If this bit field is re-used from C++ code, define the values in a header.
   const bool HasOut = mOut || mHasReturnType;
-  mSignatureMetadata |= (hasIns() ?       0x01 : 0);
-  mSignatureMetadata |= (HasOut ?         0x02 : 0);
-  mSignatureMetadata |= (mUsrData ?       0x04 : 0);
-  mSignatureMetadata |= (mX ?             0x08 : 0);
-  mSignatureMetadata |= (mY ?             0x10 : 0);
-  mSignatureMetadata |= (mIsKernelStyle ? 0x20 : 0);  // pass-by-value
+  mSignatureMetadata |= (hasIns() ?       bcinfo::MD_SIG_In     : 0);
+  mSignatureMetadata |= (HasOut ?         bcinfo::MD_SIG_Out    : 0);
+  mSignatureMetadata |= (mUsrData ?       bcinfo::MD_SIG_Usr    : 0);
+  mSignatureMetadata |= (mIsKernelStyle ? bcinfo::MD_SIG_Kernel : 0);  // pass-by-value
+  mSignatureMetadata |= mSpecialParameterSignatureMetadata;
 
   if (Context->getTargetAPI() < SLANG_ICS_TARGET_API) {
     // APIs before ICS cannot skip between parameters. It is ok, however, for
     // them to omit further parameters (i.e. skipping X is ok if you skip Y).
-    if (mSignatureMetadata != 0x1f &&  // In, Out, UsrData, X, Y
-        mSignatureMetadata != 0x0f &&  // In, Out, UsrData, X
-        mSignatureMetadata != 0x07 &&  // In, Out, UsrData
-        mSignatureMetadata != 0x03 &&  // In, Out
-        mSignatureMetadata != 0x01) {  // In
+    if (mSignatureMetadata != (bcinfo::MD_SIG_In | bcinfo::MD_SIG_Out | bcinfo::MD_SIG_Usr |
+                               bcinfo::MD_SIG_X | bcinfo::MD_SIG_Y) &&
+        mSignatureMetadata != (bcinfo::MD_SIG_In | bcinfo::MD_SIG_Out | bcinfo::MD_SIG_Usr |
+                               bcinfo::MD_SIG_X) &&
+        mSignatureMetadata != (bcinfo::MD_SIG_In | bcinfo::MD_SIG_Out | bcinfo::MD_SIG_Usr) &&
+        mSignatureMetadata != (bcinfo::MD_SIG_In | bcinfo::MD_SIG_Out) &&
+        mSignatureMetadata != (bcinfo::MD_SIG_In)) {
       Context->ReportError(FD->getLocation(),
                            "Compute kernel %0() targeting SDK levels "
                            "%1-%2 may not skip parameters")
@@ -345,7 +476,7 @@ RSExportForEach *RSExportForEach::Create(RSContext *Context,
   FE = new RSExportForEach(Context, Name);
 
   if (!FE->validateAndConstructParams(Context, FD)) {
-    return NULL;
+    return nullptr;
   }
 
   clang::ASTContext &Ctx = Context->getASTContext();
@@ -364,7 +495,7 @@ RSExportForEach *RSExportForEach::Create(RSContext *Context,
         C.VoidTy) {
       // In the case of using const void*, we can't reflect an appopriate
       // Java type, so we fall back to just reflecting the ain/aout parameters
-      FE->mUsrData = NULL;
+      FE->mUsrData = nullptr;
     } else {
       clang::RecordDecl *RD =
           clang::RecordDecl::Create(Ctx, clang::TTK_Struct,
@@ -380,8 +511,8 @@ RSExportForEach *RSExportForEach::Create(RSContext *Context,
                                    clang::SourceLocation(),
                                    PVD->getIdentifier(),
                                    QT->getPointeeType(),
-                                   NULL,
-                                   /* BitWidth = */ NULL,
+                                   nullptr,
+                                   /* BitWidth = */ nullptr,
                                    /* Mutable = */ false,
                                    /* HasInit = */ clang::ICIS_NoInit);
       RD->addDecl(FD);
@@ -393,12 +524,7 @@ RSExportForEach *RSExportForEach::Create(RSContext *Context,
 
       RSExportType *ET = RSExportType::Create(Context, T.getTypePtr());
 
-      if (ET == NULL) {
-        fprintf(stderr, "Failed to export the function %s. There's at least "
-                        "one parameter whose type is not supported by the "
-                        "reflection\n", FE->getName().c_str());
-        return NULL;
-      }
+      slangAssert(ET && "Failed to export a kernel");
 
       slangAssert((ET->getClass() == RSExportType::ExportClassRecord) &&
                   "Parameter packet must be a record");
@@ -414,7 +540,7 @@ RSExportForEach *RSExportForEach::Create(RSContext *Context,
       RSExportType *InExportType = RSExportType::Create(Context, T);
 
       if (FE->mIsKernelStyle) {
-        slangAssert(InExportType != NULL);
+        slangAssert(InExportType != nullptr);
       }
 
       FE->mInTypes.push_back(InExportType);

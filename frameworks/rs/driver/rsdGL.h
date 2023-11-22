@@ -20,14 +20,11 @@
 #include <rs_hal.h>
 #include <EGL/egl.h>
 
-#define RSD_CALL_GL(x, ...) rsc->setWatchdogGL(#x, __LINE__, __FILE__); x(__VA_ARGS__); rsc->setWatchdogGL(NULL, 0, NULL)
+#define RSD_CALL_GL(x, ...) rsc->setWatchdogGL(#x, __LINE__, __FILE__); x(__VA_ARGS__); rsc->setWatchdogGL(nullptr, 0, nullptr)
 
 class RsdShaderCache;
 class RsdVertexArrayState;
 class RsdFrameBufferObj;
-
-typedef void (* InvokeFunc_t)(void);
-typedef void (*WorkerCallback_t)(void *usr, uint32_t idx);
 
 typedef struct RsdGLRec {
     struct {
@@ -96,4 +93,3 @@ void rsdGLDrawQuadTexCoords(const android::renderscript::Context *rsc,
                             float x4, float y4, float z4, float u4, float v4);
 
 #endif
-

@@ -13,11 +13,14 @@
 // limitations under the License.
 
 #include "ip.rsh"
+#pragma rs_fp_relaxed
 
 uchar alpha = 0x0;
 
-void setImageAlpha(uchar4 *v_out, uint32_t x, uint32_t y) {
-  v_out->rgba = convert_uchar4((convert_uint4(v_out->rgba) * alpha) >> (uint4)8);
-  v_out->a = alpha;
+uchar4 RS_KERNEL setImageAlpha(uchar4 in, uint32_t x, uint32_t y) {
+    uchar4 out;
+    out.rgba = convert_uchar4((convert_uint4(in.rgba) * alpha) >> (uint4)8);
+    out.a = alpha;
+    return out;
 }
 

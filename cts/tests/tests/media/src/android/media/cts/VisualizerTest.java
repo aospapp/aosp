@@ -55,9 +55,6 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 0.0: test constructor and release
     public void test0_0ConstructorAndRelease() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         Visualizer visualizer = null;
         try {
             visualizer = new Visualizer(0);
@@ -79,9 +76,6 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 1.0: capture rates
     public void test1_0CaptureRates() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         getVisualizer(0);
         try {
             int captureRate = mVisualizer.getMaxCaptureRate();
@@ -101,9 +95,6 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 1.1: test capture size
     public void test1_1CaptureSize() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         getVisualizer(0);
         try {
             int[] range = mVisualizer.getCaptureSizeRange();
@@ -135,6 +126,8 @@ public class VisualizerTest extends PostProcTestBase {
     //Test case 2.0: test capture in polling mode
     public void test2_0PollingCapture() throws Exception {
         if (!hasAudioOutput()) {
+            Log.w(TAG,"AUDIO_OUTPUT feature not found. This system might not have a valid "
+                    + "audio output HAL");
             return;
         }
         try {
@@ -165,6 +158,8 @@ public class VisualizerTest extends PostProcTestBase {
     //Test case 2.1: test capture with listener
     public void test2_1ListenerCapture() throws Exception {
         if (!hasAudioOutput()) {
+            Log.w(TAG,"AUDIO_OUTPUT feature not found. This system might not have a valid "
+                    + "audio output HAL");
             return;
         }
         try {
@@ -228,6 +223,9 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 3.0: test setting NONE measurement mode
     public void test3_0MeasurementModeNone() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         try {
             getVisualizer(0);
             mVisualizer.setEnabled(true);
@@ -257,6 +255,9 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 4.0: test setting peak / RMS measurement mode
     public void test4_0MeasurementModePeakRms() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         try {
             getVisualizer(0);
             mVisualizer.setEnabled(true);
@@ -282,6 +283,9 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 4.1: test measurement of peak / RMS
     public void test4_1MeasurePeakRms() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         AudioEffect vc = null;
         try {
             // this test will play a 1kHz sine wave with peaks at -40dB
@@ -352,6 +356,9 @@ public class VisualizerTest extends PostProcTestBase {
 
     //Test case 4.2: test measurement of peak / RMS in Long MP3
     public void test4_2MeasurePeakRmsLongMP3() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
         AudioEffect vc = null;
         try {
             // this test will play a 1kHz sine wave with peaks at -40dB

@@ -16,57 +16,58 @@
 package com.squareup.okhttp;
 
 import com.squareup.okhttp.internal.Platform;
-import com.squareup.okhttp.internal.Util;
-import java.io.File;
-import java.io.FileInputStream;
+import com.squareup.okhttp.internal.http.HttpMethod;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
-import okio.BufferedSink;
 
 /**
  * An HTTP request. Instances of this class are immutable if their {@link #body}
  * is null or itself immutable.
  */
 public final class Request {
-  private final URL url;
+  private final String urlString;
   private final String method;
   private final Headers headers;
-  private final Body body;
+  private final RequestBody body;
   private final Object tag;
 
-  private volatile ParsedHeaders parsedHeaders; // Lazily initialized.
+  private volatile URL url; // Lazily initialized.
   private volatile URI uri; // Lazily initialized.
   private volatile CacheControl cacheControl; // Lazily initialized.
 
   private Request(Builder builder) {
-    this.url = builder.url;
+    this.urlString = builder.urlString;
     this.method = builder.method;
     this.headers = builder.headers.build();
     this.body = builder.body;
     this.tag = builder.tag != null ? builder.tag : this;
+    this.url = builder.url;
   }
 
   public URL url() {
-    return url;
+    try {
+      URL result = url;
+      return result != null ? result : (url = new URL(urlString));
+    } catch (MalformedURLException e) {
+      throw new RuntimeException("Malformed URL: " + urlString, e);
+    }
   }
 
   public URI uri() throws IOException {
     try {
       URI result = uri;
-      return result != null ? result : (uri = Platform.get().toUriLenient(url));
+      return result != null ? result : (uri = Platform.get().toUriLenient(url()));
     } catch (URISyntaxException e) {
       throw new IOException(e.getMessage());
     }
   }
 
   public String urlString() {
-    return url.toString();
+    return urlString;
   }
 
   public String method() {
@@ -85,7 +86,7 @@ public final class Request {
     return headers.values(name);
   }
 
-  public Body body() {
+  public RequestBody body() {
     return body;
   }
 
@@ -95,23 +96,6 @@ public final class Request {
 
   public Builder newBuilder() {
     return new Builder(this);
-  }
-
-  public Headers getHeaders() {
-    return headers;
-  }
-
-  public String getUserAgent() {
-    return parsedHeaders().userAgent;
-  }
-
-  public String getProxyAuthorization() {
-    return parsedHeaders().proxyAuthorization;
-  }
-
-  private ParsedHeaders parsedHeaders() {
-    ParsedHeaders result = parsedHeaders;
-    return result != null ? result : (parsedHeaders = new ParsedHeaders(headers));
   }
 
   /**
@@ -127,113 +111,22 @@ public final class Request {
     return url().getProtocol().equals("https");
   }
 
-  /** Parsed request headers, computed on-demand and cached. */
-  private static class ParsedHeaders {
-    private String userAgent;
-    private String proxyAuthorization;
-
-    public ParsedHeaders(Headers headers) {
-      for (int i = 0; i < headers.size(); i++) {
-        String fieldName = headers.name(i);
-        String value = headers.value(i);
-        if ("User-Agent".equalsIgnoreCase(fieldName)) {
-          userAgent = value;
-        } else if ("Proxy-Authorization".equalsIgnoreCase(fieldName)) {
-          proxyAuthorization = value;
-        }
-      }
-    }
-  }
-
-  public abstract static class Body {
-    /** Returns the Content-Type header for this body. */
-    public abstract MediaType contentType();
-
-    /**
-     * Returns the number of bytes that will be written to {@code out} in a call
-     * to {@link #writeTo}, or -1 if that count is unknown.
-     */
-    public long contentLength() {
-      return -1;
-    }
-
-    /** Writes the content of this request to {@code out}. */
-    public abstract void writeTo(BufferedSink sink) throws IOException;
-
-    /**
-     * Returns a new request body that transmits {@code content}. If {@code
-     * contentType} lacks a charset, this will use UTF-8.
-     */
-    public static Body create(MediaType contentType, String content) {
-      contentType = contentType.charset() != null
-          ? contentType
-          : MediaType.parse(contentType + "; charset=utf-8");
-      try {
-        byte[] bytes = content.getBytes(contentType.charset().name());
-        return create(contentType, bytes);
-      } catch (UnsupportedEncodingException e) {
-        throw new AssertionError();
-      }
-    }
-
-    /** Returns a new request body that transmits {@code content}. */
-    public static Body create(final MediaType contentType, final byte[] content) {
-      if (contentType == null) throw new NullPointerException("contentType == null");
-      if (content == null) throw new NullPointerException("content == null");
-
-      return new Body() {
-        @Override public MediaType contentType() {
-          return contentType;
-        }
-
-        @Override public long contentLength() {
-          return content.length;
-        }
-
-        @Override public void writeTo(BufferedSink sink) throws IOException {
-          sink.write(content);
-        }
-      };
-    }
-
-    /** Returns a new request body that transmits the content of {@code file}. */
-    public static Body create(final MediaType contentType, final File file) {
-      if (contentType == null) throw new NullPointerException("contentType == null");
-      if (file == null) throw new NullPointerException("content == null");
-
-      return new Body() {
-        @Override public MediaType contentType() {
-          return contentType;
-        }
-
-        @Override public long contentLength() {
-          return file.length();
-        }
-
-        @Override public void writeTo(BufferedSink sink) throws IOException {
-          long length = contentLength();
-          if (length == 0) return;
-
-          InputStream in = null;
-          try {
-            in = new FileInputStream(file);
-            byte[] buffer = new byte[(int) Math.min(8192, length)];
-            for (int c; (c = in.read(buffer)) != -1; ) {
-              sink.write(buffer, 0, c);
-            }
-          } finally {
-            Util.closeQuietly(in);
-          }
-        }
-      };
-    }
+  @Override public String toString() {
+    return "Request{method="
+        + method
+        + ", url="
+        + urlString
+        + ", tag="
+        + (tag != this ? tag : null)
+        + '}';
   }
 
   public static class Builder {
+    private String urlString;
     private URL url;
     private String method;
     private Headers.Builder headers;
-    private Body body;
+    private RequestBody body;
     private Object tag;
 
     public Builder() {
@@ -242,6 +135,7 @@ public final class Request {
     }
 
     private Builder(Request request) {
+      this.urlString = request.urlString;
       this.url = request.url;
       this.method = request.method;
       this.body = request.body;
@@ -250,16 +144,16 @@ public final class Request {
     }
 
     public Builder url(String url) {
-      try {
-        return url(new URL(url));
-      } catch (MalformedURLException e) {
-        throw new IllegalArgumentException("Malformed URL: " + url);
-      }
+      if (url == null) throw new IllegalArgumentException("url == null");
+      this.urlString = url;
+      this.url = null;
+      return this;
     }
 
     public Builder url(URL url) {
       if (url == null) throw new IllegalArgumentException("url == null");
       this.url = url;
+      this.urlString = url.toString();
       return this;
     }
 
@@ -292,8 +186,15 @@ public final class Request {
       return this;
     }
 
-    public Builder setUserAgent(String userAgent) {
-      return header("User-Agent", userAgent);
+    /**
+     * Sets this request's {@code Cache-Control} header, replacing any cache
+     * control headers already present. If {@code cacheControl} doesn't define
+     * any directives, this clears this request's cache-control headers.
+     */
+    public Builder cacheControl(CacheControl cacheControl) {
+      String value = cacheControl.toString();
+      if (value.isEmpty()) return removeHeader("Cache-Control");
+      return header("Cache-Control", value);
     }
 
     public Builder get() {
@@ -304,17 +205,35 @@ public final class Request {
       return method("HEAD", null);
     }
 
-    public Builder post(Body body) {
+    public Builder post(RequestBody body) {
       return method("POST", body);
     }
 
-    public Builder put(Body body) {
+    public Builder delete(RequestBody body) {
+      return method("DELETE", body);
+    }
+
+    public Builder delete() {
+      return delete(RequestBody.create(null, new byte[0]));
+    }
+
+    public Builder put(RequestBody body) {
       return method("PUT", body);
     }
 
-    public Builder method(String method, Body body) {
+    public Builder patch(RequestBody body) {
+      return method("PATCH", body);
+    }
+
+    public Builder method(String method, RequestBody body) {
       if (method == null || method.length() == 0) {
         throw new IllegalArgumentException("method == null || method.length() == 0");
+      }
+      if (body != null && !HttpMethod.permitsRequestBody(method)) {
+        throw new IllegalArgumentException("method " + method + " must not have a request body.");
+      }
+      if (body == null && HttpMethod.requiresRequestBody(method)) {
+        throw new IllegalArgumentException("method " + method + " must have a request body.");
       }
       this.method = method;
       this.body = body;
@@ -332,7 +251,7 @@ public final class Request {
     }
 
     public Request build() {
-      if (url == null) throw new IllegalStateException("url == null");
+      if (urlString == null) throw new IllegalStateException("url == null");
       return new Request(this);
     }
   }

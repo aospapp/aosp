@@ -15,6 +15,7 @@
  */
 package android.support.v17.leanback.app;
 
+import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.transition.LeanbackTransitionHelper;
 import android.support.v17.leanback.transition.TransitionHelper;
@@ -26,13 +27,12 @@ import android.support.v17.leanback.widget.OnItemViewClickedListener;
 import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Presenter;
 import android.support.v17.leanback.widget.PresenterSelector;
+import android.support.v17.leanback.widget.RowHeaderPresenter;
 import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.TitleView;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.ObjectAdapter;
-import android.support.v17.leanback.widget.OnItemSelectedListener;
-import android.support.v17.leanback.widget.OnItemClickedListener;
 import android.support.v17.leanback.widget.SearchOrbView;
 import android.support.v4.view.ViewCompat;
 import android.util.Log;
@@ -52,7 +52,6 @@ import android.view.ViewTreeObserver;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-
 import static android.support.v7.widget.RecyclerView.NO_POSITION;
 
 /**
@@ -72,6 +71,10 @@ import static android.support.v7.widget.RecyclerView.NO_POSITION;
  * calling {@link #setHeadersTransitionOnBackEnabled(boolean)} with false and
  * use {@link BrowseSupportFragment.BrowseTransitionListener} and
  * {@link #startHeadersTransition(boolean)}.
+ * <p>
+ * The recommended theme to use with a BrowseSupportFragment is
+ * {@link android.support.v17.leanback.R.style#Theme_Leanback_Browse}.
+ * </p>
  */
 public class BrowseSupportFragment extends BaseSupportFragment {
 
@@ -79,8 +82,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     static final String HEADER_STACK_INDEX = "headerStackIndex";
     // BUNDLE attribute for saving header show/hide status when backstack is not used:
     static final String HEADER_SHOW = "headerShow";
-    // BUNDLE attribute for title is showing
-    static final String TITLE_SHOW = "titleShow";
+
 
     final class BackStackListener implements FragmentManager.OnBackStackChangedListener {
         int mLastEntryCount;
@@ -157,6 +159,47 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         }
     }
 
+    private class SetSelectionRunnable implements Runnable {
+        static final int TYPE_INVALID = -1;
+        static final int TYPE_INTERNAL_SYNC = 0;
+        static final int TYPE_USER_REQUEST = 1;
+
+        private int mPosition;
+        private int mType;
+        private boolean mSmooth;
+
+        SetSelectionRunnable() {
+            reset();
+        }
+
+        void post(int position, int type, boolean smooth) {
+            // Posting the set selection, rather than calling it immediately, prevents an issue
+            // with adapter changes.  Example: a row is added before the current selected row;
+            // first the fast lane view updates its selection, then the rows fragment has that
+            // new selection propagated immediately; THEN the rows view processes the same adapter
+            // change and moves the selection again.
+            if (type >= mType) {
+                mPosition = position;
+                mType = type;
+                mSmooth = smooth;
+                mBrowseFrame.removeCallbacks(this);
+                mBrowseFrame.post(this);
+            }
+        }
+
+        @Override
+        public void run() {
+            setSelection(mPosition, mSmooth);
+            reset();
+        }
+
+        private void reset() {
+            mPosition = -1;
+            mType = TYPE_INVALID;
+            mSmooth = false;
+        }
+    }
+
     private static final String TAG = "BrowseSupportFragment";
 
     private static final String LB_HEADERS_BACKSTACK = "lbHeadersBackStack_";
@@ -172,22 +215,16 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     /** The headers fragment is disabled and will never be shown. */
     public static final int HEADERS_DISABLED = 3;
 
-    private static final float SLIDE_DISTANCE_FACTOR = 2;
-
     private RowsSupportFragment mRowsSupportFragment;
     private HeadersSupportFragment mHeadersSupportFragment;
 
     private ObjectAdapter mAdapter;
 
-    private String mTitle;
-    private Drawable mBadgeDrawable;
     private int mHeadersState = HEADERS_ENABLED;
     private int mBrandColor = Color.TRANSPARENT;
     private boolean mBrandColorSet;
 
     private BrowseFrameLayout mBrowseFrame;
-    private TitleView mTitleView;
-    private boolean mShowingTitle = true;
     private boolean mHeadersBackStackEnabled = true;
     private String mWithHeadersBackStackName;
     private boolean mShowingHeaders = true;
@@ -195,25 +232,17 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     private int mContainerListMarginStart;
     private int mContainerListAlignTop;
     private boolean mRowScaleEnabled = true;
-    private SearchOrbView.Colors mSearchAffordanceColors;
-    private boolean mSearchAffordanceColorSet;
-    private OnItemSelectedListener mExternalOnItemSelectedListener;
-    private OnClickListener mExternalOnSearchClickedListener;
-    private OnItemClickedListener mOnItemClickedListener;
     private OnItemViewSelectedListener mExternalOnItemViewSelectedListener;
     private OnItemViewClickedListener mOnItemViewClickedListener;
     private int mSelectedPosition = -1;
 
     private PresenterSelector mHeaderPresenterSelector;
+    private final SetSelectionRunnable mSetSelectionRunnable = new SetSelectionRunnable();
 
     // transition related:
-    private Object mSceneWithTitle;
-    private Object mSceneWithoutTitle;
     private Object mSceneWithHeaders;
     private Object mSceneWithoutHeaders;
     private Object mSceneAfterEntranceTransition;
-    private Object mTitleUpTransition;
-    private Object mTitleDownTransition;
     private Object mHeadersTransition;
     private BackStackListener mBackStackChangedListener;
     private BrowseTransitionListener mBrowseTransitionListener;
@@ -224,7 +253,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         BrowseSupportFragment.class.getCanonicalName() + ".headersState";
 
     /**
-     * Create arguments for a browse fragment.
+     * Creates arguments for a browse fragment.
      *
      * @param args The Bundle to place arguments into, or null if the method
      *        should return a new Bundle.
@@ -250,7 +279,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
      *
      * @param color The color to use as the brand color of the fragment.
      */
-    public void setBrandColor(int color) {
+    public void setBrandColor(@ColorInt int color) {
         mBrandColor = color;
         mBrandColorSet = true;
 
@@ -263,6 +292,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
      * Returns the brand color for the browse fragment.
      * The default is transparent.
      */
+    @ColorInt
     public int getBrandColor() {
         return mBrandColor;
     }
@@ -293,17 +323,6 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     }
 
     /**
-     * Sets an item selection listener. This listener will be called when an
-     * item or row is selected by a user.
-     *
-     * @param listener The listener to call when an item or row is selected.
-     * @deprecated Use {@link #setOnItemViewSelectedListener(OnItemViewSelectedListener)}
-     */
-    public void setOnItemSelectedListener(OnItemSelectedListener listener) {
-        mExternalOnItemSelectedListener = listener;
-    }
-
-    /**
      * Sets an item selection listener.
      */
     public void setOnItemViewSelectedListener(OnItemViewSelectedListener listener) {
@@ -315,33 +334,6 @@ public class BrowseSupportFragment extends BaseSupportFragment {
      */
     public OnItemViewSelectedListener getOnItemViewSelectedListener() {
         return mExternalOnItemViewSelectedListener;
-    }
-
-    /**
-     * Sets an item clicked listener on the fragment.
-     *
-     * <p>OnItemClickedListener will override {@link View.OnClickListener} that
-     * an item presenter may set during
-     * {@link Presenter#onCreateViewHolder(ViewGroup)}. So in general, you
-     * should choose to use an {@link OnItemClickedListener} or a
-     * {@link View.OnClickListener} on your item views, but not both.
-     *
-     * @param listener The listener to call when an item is clicked.
-     * @deprecated Use {@link #setOnItemViewClickedListener(OnItemViewClickedListener)}
-     */
-    public void setOnItemClickedListener(OnItemClickedListener listener) {
-        mOnItemClickedListener = listener;
-        if (mRowsSupportFragment != null) {
-            mRowsSupportFragment.setOnItemClickedListener(listener);
-        }
-    }
-
-    /**
-     * Returns the item clicked listener.
-     * @deprecated Use {@link #getOnItemViewClickedListener()}
-     */
-    public OnItemClickedListener getOnItemClickedListener() {
-        return mOnItemClickedListener;
     }
 
     /**
@@ -365,67 +357,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     }
 
     /**
-     * Sets a click listener for the search affordance.
-     *
-     * <p>The presence of a listener will change the visibility of the search
-     * affordance in the fragment title. When set to non-null, the title will
-     * contain an element that a user may click to begin a search.
-     *
-     * <p>The listener's {@link View.OnClickListener#onClick onClick} method
-     * will be invoked when the user clicks on the search element.
-     *
-     * @param listener The listener to call when the search element is clicked.
-     */
-    public void setOnSearchClickedListener(View.OnClickListener listener) {
-        mExternalOnSearchClickedListener = listener;
-        if (mTitleView != null) {
-            mTitleView.setOnSearchClickedListener(listener);
-        }
-    }
-
-    /**
-     * Sets the {@link SearchOrbView.Colors} used to draw the search affordance.
-     */
-    public void setSearchAffordanceColors(SearchOrbView.Colors colors) {
-        mSearchAffordanceColors = colors;
-        mSearchAffordanceColorSet = true;
-        if (mTitleView != null) {
-            mTitleView.setSearchAffordanceColors(mSearchAffordanceColors);
-        }
-    }
-
-    /**
-     * Returns the {@link SearchOrbView.Colors} used to draw the search affordance.
-     */
-    public SearchOrbView.Colors getSearchAffordanceColors() {
-        if (mSearchAffordanceColorSet) {
-            return mSearchAffordanceColors;
-        }
-        if (mTitleView == null) {
-            throw new IllegalStateException("Fragment views not yet created");
-        }
-        return mTitleView.getSearchAffordanceColors();
-    }
-
-    /**
-     * Sets the color used to draw the search affordance.
-     * A default brighter color will be set by the framework.
-     *
-     * @param color The color to use for the search affordance.
-     */
-    public void setSearchAffordanceColor(int color) {
-        setSearchAffordanceColors(new SearchOrbView.Colors(color));
-    }
-
-    /**
-     * Returns the color used to draw the search affordance.
-     */
-    public int getSearchAffordanceColor() {
-        return getSearchAffordanceColors().color;
-    }
-
-    /**
-     * Start a headers transition.
+     * Starts a headers transition.
      *
      * <p>This method will begin a transition to either show or hide the
      * headers, depending on the value of withHeaders. If headers are disabled
@@ -459,7 +391,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     }
 
     /**
-     * Set a listener for browse fragment transitions.
+     * Sets a listener for browse fragment transitions.
      *
      * @param listener The listener to call when a browse headers transition
      *        begins or ends.
@@ -489,6 +421,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         mRowsSupportFragment.onExpandTransitionStart(!withHeaders, new Runnable() {
             @Override
             public void run() {
+                mHeadersSupportFragment.onTransitionPrepare();
                 mHeadersSupportFragment.onTransitionStart();
                 createHeadersTransition();
                 if (mBrowseTransitionListener != null) {
@@ -521,6 +454,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
                 != HorizontalGridView.SCROLL_STATE_IDLE;
     }
 
+
     private final BrowseFrameLayout.OnFocusSearchListener mOnFocusSearchListener =
             new BrowseFrameLayout.OnFocusSearchListener() {
         @Override
@@ -531,30 +465,27 @@ public class BrowseSupportFragment extends BaseSupportFragment {
             }
             if (DEBUG) Log.v(TAG, "onFocusSearch focused " + focused + " + direction " + direction);
 
-            final View searchOrbView = mTitleView.getSearchAffordanceView();
-            if (focused == searchOrbView && direction == View.FOCUS_DOWN) {
+            if (getTitleView() != null && focused != getTitleView() &&
+                    direction == View.FOCUS_UP) {
+                return getTitleView();
+            }
+            if (getTitleView() != null && getTitleView().hasFocus() &&
+                    direction == View.FOCUS_DOWN) {
                 return mCanShowHeaders && mShowingHeaders ?
                         mHeadersSupportFragment.getVerticalGridView() :
                         mRowsSupportFragment.getVerticalGridView();
-            } else if (focused != searchOrbView && searchOrbView.getVisibility() == View.VISIBLE
-                    && direction == View.FOCUS_UP) {
-                return searchOrbView;
             }
 
-            // If headers fragment is disabled, just return null.
-            if (!mCanShowHeaders) {
-                return null;
-            }
             boolean isRtl = ViewCompat.getLayoutDirection(focused) == View.LAYOUT_DIRECTION_RTL;
             int towardStart = isRtl ? View.FOCUS_RIGHT : View.FOCUS_LEFT;
             int towardEnd = isRtl ? View.FOCUS_LEFT : View.FOCUS_RIGHT;
-            if (direction == towardStart) {
+            if (mCanShowHeaders && direction == towardStart) {
                 if (isVerticalScrolling() || mShowingHeaders) {
                     return focused;
                 }
                 return mHeadersSupportFragment.getVerticalGridView();
             } else if (direction == towardEnd) {
-                if (isVerticalScrolling() || !mShowingHeaders) {
+                if (isVerticalScrolling()) {
                     return focused;
                 }
                 return mRowsSupportFragment.getVerticalGridView();
@@ -583,8 +514,8 @@ public class BrowseSupportFragment extends BaseSupportFragment {
                     mRowsSupportFragment.getView().requestFocus(direction, previouslyFocusedRect)) {
                 return true;
             }
-            if (mTitleView != null &&
-                    mTitleView.requestFocus(direction, previouslyFocusedRect)) {
+            if (getTitleView() != null &&
+                    getTitleView().requestFocus(direction, previouslyFocusedRect)) {
                 return true;
             }
             return false;
@@ -607,12 +538,12 @@ public class BrowseSupportFragment extends BaseSupportFragment {
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
         if (mBackStackChangedListener != null) {
             mBackStackChangedListener.save(outState);
         } else {
             outState.putBoolean(HEADER_SHOW, mShowingHeaders);
         }
-        outState.putBoolean(TITLE_SHOW, mShowingTitle);
     }
 
     @Override
@@ -620,9 +551,11 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         super.onCreate(savedInstanceState);
         TypedArray ta = getActivity().obtainStyledAttributes(R.styleable.LeanbackTheme);
         mContainerListMarginStart = (int) ta.getDimension(
-                R.styleable.LeanbackTheme_browseRowsMarginStart, 0);
+                R.styleable.LeanbackTheme_browseRowsMarginStart, getActivity().getResources()
+                .getDimensionPixelSize(R.dimen.lb_browse_rows_margin_start));
         mContainerListAlignTop = (int) ta.getDimension(
-                R.styleable.LeanbackTheme_browseRowsMarginTop, 0);
+                R.styleable.LeanbackTheme_browseRowsMarginTop, getActivity().getResources()
+                .getDimensionPixelSize(R.dimen.lb_browse_rows_margin_top));
         ta.recycle();
 
         readArguments(getArguments());
@@ -639,7 +572,6 @@ public class BrowseSupportFragment extends BaseSupportFragment {
                 }
             }
         }
-
     }
 
     @Override
@@ -675,45 +607,23 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         mHeadersSupportFragment.setAdapter(mAdapter);
 
         mRowsSupportFragment.enableRowScaling(mRowScaleEnabled);
-        mRowsSupportFragment.setOnItemSelectedListener(mRowSelectedListener);
         mRowsSupportFragment.setOnItemViewSelectedListener(mRowViewSelectedListener);
-        mHeadersSupportFragment.setOnItemSelectedListener(mHeaderSelectedListener);
+        mHeadersSupportFragment.setOnHeaderViewSelectedListener(mHeaderViewSelectedListener);
         mHeadersSupportFragment.setOnHeaderClickedListener(mHeaderClickedListener);
-        mRowsSupportFragment.setOnItemClickedListener(mOnItemClickedListener);
         mRowsSupportFragment.setOnItemViewClickedListener(mOnItemViewClickedListener);
 
         View root = inflater.inflate(R.layout.lb_browse_fragment, container, false);
 
-        mBrowseFrame = (BrowseFrameLayout) root.findViewById(R.id.browse_frame);
-        mBrowseFrame.setOnFocusSearchListener(mOnFocusSearchListener);
-        mBrowseFrame.setOnChildFocusListener(mOnChildFocusListener);
+        setTitleView((TitleView) root.findViewById(R.id.browse_title_group));
 
-        mTitleView = (TitleView) root.findViewById(R.id.browse_title_group);
-        mTitleView.setTitle(mTitle);
-        mTitleView.setBadgeDrawable(mBadgeDrawable);
-        if (mSearchAffordanceColorSet) {
-            mTitleView.setSearchAffordanceColors(mSearchAffordanceColors);
-        }
-        if (mExternalOnSearchClickedListener != null) {
-            mTitleView.setOnSearchClickedListener(mExternalOnSearchClickedListener);
-        }
+        mBrowseFrame = (BrowseFrameLayout) root.findViewById(R.id.browse_frame);
+        mBrowseFrame.setOnChildFocusListener(mOnChildFocusListener);
+        mBrowseFrame.setOnFocusSearchListener(mOnFocusSearchListener);
 
         if (mBrandColorSet) {
             mHeadersSupportFragment.setBackgroundColor(mBrandColor);
         }
 
-        mSceneWithTitle = sTransitionHelper.createScene(mBrowseFrame, new Runnable() {
-            @Override
-            public void run() {
-                mTitleView.setVisibility(View.VISIBLE);
-            }
-        });
-        mSceneWithoutTitle = sTransitionHelper.createScene(mBrowseFrame, new Runnable() {
-            @Override
-            public void run() {
-                mTitleView.setVisibility(View.INVISIBLE);
-            }
-        });
         mSceneWithHeaders = sTransitionHelper.createScene(mBrowseFrame, new Runnable() {
             @Override
             public void run() {
@@ -732,17 +642,6 @@ public class BrowseSupportFragment extends BaseSupportFragment {
                 setEntranceTransitionEndState();
             }
         });
-        Context context = getActivity();
-        mTitleUpTransition = LeanbackTransitionHelper.loadTitleOutTransition(context,
-                sTransitionHelper);
-        mTitleDownTransition = LeanbackTransitionHelper.loadTitleInTransition(context,
-                sTransitionHelper);
-
-        if (savedInstanceState != null) {
-            mShowingTitle = savedInstanceState.getBoolean(TITLE_SHOW);
-        }
-        mTitleView.setVisibility(mShowingTitle ? View.VISIBLE: View.INVISIBLE);
-
         return root;
     }
 
@@ -843,18 +742,10 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         }
     };
 
-    private OnItemSelectedListener mRowSelectedListener = new OnItemSelectedListener() {
+    private HeadersSupportFragment.OnHeaderViewSelectedListener mHeaderViewSelectedListener =
+            new HeadersSupportFragment.OnHeaderViewSelectedListener() {
         @Override
-        public void onItemSelected(Object item, Row row) {
-            if (mExternalOnItemSelectedListener != null) {
-                mExternalOnItemSelectedListener.onItemSelected(item, row);
-            }
-        }
-    };
-
-    private OnItemSelectedListener mHeaderSelectedListener = new OnItemSelectedListener() {
-        @Override
-        public void onItemSelected(Object item, Row row) {
+        public void onHeaderSelected(RowHeaderPresenter.ViewHolder viewHolder, Row row) {
             int position = mHeadersSupportFragment.getVerticalGridView().getSelectedPosition();
             if (DEBUG) Log.v(TAG, "header selected position " + position);
             onRowSelected(position);
@@ -863,31 +754,16 @@ public class BrowseSupportFragment extends BaseSupportFragment {
 
     private void onRowSelected(int position) {
         if (position != mSelectedPosition) {
-            mSetSelectionRunnable.mPosition = position;
-            mBrowseFrame.getHandler().post(mSetSelectionRunnable);
+            mSetSelectionRunnable.post(
+                    position, SetSelectionRunnable.TYPE_INTERNAL_SYNC, true);
 
             if (getAdapter() == null || getAdapter().size() == 0 || position == 0) {
-                if (!mShowingTitle) {
-                    sTransitionHelper.runTransition(mSceneWithTitle, mTitleDownTransition);
-                    mShowingTitle = true;
-                }
-            } else if (mShowingTitle) {
-                sTransitionHelper.runTransition(mSceneWithoutTitle, mTitleUpTransition);
-                mShowingTitle = false;
+                showTitle(true);
+            } else {
+                showTitle(false);
             }
         }
     }
-
-    private class SetSelectionRunnable implements Runnable {
-        int mPosition;
-        boolean mSmooth = true;
-        @Override
-        public void run() {
-            setSelection(mPosition, mSmooth);
-        }
-    }
-
-    private final SetSelectionRunnable mSetSelectionRunnable = new SetSelectionRunnable();
 
     private void setSelection(int position, boolean smooth) {
         if (position != NO_POSITION) {
@@ -908,9 +784,8 @@ public class BrowseSupportFragment extends BaseSupportFragment {
      * Sets the selected row position.
      */
     public void setSelectedPosition(int position, boolean smooth) {
-        mSetSelectionRunnable.mPosition = position;
-        mSetSelectionRunnable.mSmooth = smooth;
-        mBrowseFrame.getHandler().post(mSetSelectionRunnable);
+        mSetSelectionRunnable.post(
+                position, SetSelectionRunnable.TYPE_USER_REQUEST, smooth);
     }
 
     @Override
@@ -937,20 +812,8 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         }
     }
 
-    @Override
-    public void onPause() {
-        mTitleView.enableAnimation(false);
-        super.onPause();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mTitleView.enableAnimation(true);
-    }
-
     /**
-     * Enable/disable headers transition on back key support. This is enabled by
+     * Enables/disables headers transition on back key support. This is enabled by
      * default. The BrowseSupportFragment will add a back stack entry when headers are
      * showing. Running a headers transition when the back key is pressed only
      * works when the headers state is {@link #HEADERS_ENABLED} or
@@ -981,46 +844,6 @@ public class BrowseSupportFragment extends BaseSupportFragment {
         if (args.containsKey(ARG_HEADERS_STATE)) {
             setHeadersState(args.getInt(ARG_HEADERS_STATE));
         }
-    }
-
-    /**
-     * Sets the drawable displayed in the browse fragment title.
-     *
-     * @param drawable The Drawable to display in the browse fragment title.
-     */
-    public void setBadgeDrawable(Drawable drawable) {
-        if (mBadgeDrawable != drawable) {
-            mBadgeDrawable = drawable;
-            if (mTitleView != null) {
-                mTitleView.setBadgeDrawable(drawable);
-            }
-        }
-    }
-
-    /**
-     * Returns the badge drawable used in the fragment title.
-     */
-    public Drawable getBadgeDrawable() {
-        return mBadgeDrawable;
-    }
-
-    /**
-     * Sets a title for the browse fragment.
-     *
-     * @param title The title of the browse fragment.
-     */
-    public void setTitle(String title) {
-        mTitle = title;
-        if (mTitleView != null) {
-            mTitleView.setTitle(title);
-        }
-    }
-
-    /**
-     * Returns the title for the browse fragment.
-     */
-    public String getTitle() {
-        return mTitle;
     }
 
     /**
@@ -1081,6 +904,12 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     }
 
     @Override
+    protected void onEntranceTransitionPrepare() {
+        mHeadersSupportFragment.onTransitionPrepare();
+        mRowsSupportFragment.onTransitionPrepare();
+    }
+
+    @Override
     protected void onEntranceTransitionStart() {
         mHeadersSupportFragment.onTransitionStart();
         mRowsSupportFragment.onTransitionStart();
@@ -1093,7 +922,7 @@ public class BrowseSupportFragment extends BaseSupportFragment {
     }
 
     void setSearchOrbViewOnScreen(boolean onScreen) {
-        View searchOrbView = mTitleView.getSearchAffordanceView();
+        View searchOrbView = getTitleView().getSearchAffordanceView();
         MarginLayoutParams lp = (MarginLayoutParams) searchOrbView.getLayoutParams();
         lp.setMarginStart(onScreen ? 0 : -mContainerListMarginStart);
         searchOrbView.setLayoutParams(lp);

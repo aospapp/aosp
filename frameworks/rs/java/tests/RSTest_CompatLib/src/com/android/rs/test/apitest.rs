@@ -1119,9 +1119,6 @@ void check_api_presence() {
     rsSendToClientBlocking(0);
     rsSendToClientBlocking(0, NULL, 0);
 
-    rs_script_call_t sc;
-    rsForEach(scriptNonNull, allocNonNull, allocNonNull, NULL, 0, &sc);
-    rsForEach(scriptNonNull, allocNonNull, allocNonNull, NULL, 0);
     rsForEach(scriptNonNull, allocNonNull, allocNonNull);
 
     // rs_debug.rsh
@@ -1190,13 +1187,13 @@ void check_api_presence() {
     i = rsRand(i);
     i = rsRand(i, i);
     f = rsRand(f);
-    f = rsFrac(f);
-    ui = rsClamp(ui, ui, ui);
-    i = rsClamp(i, i, i);
-    us = rsClamp(us, us, us);
-    s = rsClamp(s, s, s);
-    uc = rsClamp(uc, uc, uc);
-    c = rsClamp(c, c, c);
+    f = fract(f);
+    ui = clamp(ui, ui, ui);
+    i = clamp(i, i, i);
+    us = clamp(us, us, us);
+    s = clamp(s, s, s);
+    uc = clamp(uc, uc, uc);
+    c = clamp(c, c, c);
 
     // skip always-inlined rsExtractFrustumPlanes
     // skip always-inlined rsIsSphereInFrustum
@@ -1343,7 +1340,7 @@ static bool test_obj_api() {
 
 static bool test_rs_alloc_api() {
     bool failed = false;
-    rs_allocation a = rsGetAllocation(allocPtr);
+    rs_allocation a = allocDst;
     _RS_ASSERT(rsIsObject(a));
     _RS_ASSERT(rsAllocationGetDimX(a) == x);
     _RS_ASSERT(rsAllocationGetDimY(a) == y);

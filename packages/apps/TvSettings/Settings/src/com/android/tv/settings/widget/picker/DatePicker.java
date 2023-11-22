@@ -18,12 +18,12 @@ package com.android.tv.settings.widget.picker;
 
 import android.os.Bundle;
 import android.view.View;
+import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.GregorianCalendar;
-import android.widget.TextView;
 
 public class DatePicker extends Picker {
 
@@ -32,11 +32,15 @@ public class DatePicker extends Picker {
     private static final String EXTRA_DEFAULT_TO_CURRENT = "default_to_current";
     private static final String EXTRA_FORMAT = "date_format";
     private static final int DEFAULT_YEAR_RANGE = 24;
-    private static final int DEFAULT_START_YEAR = Calendar.getInstance().get(Calendar.YEAR);
+    private static final int DEFAULT_START_YEAR = Calendar.getInstance().get(Calendar.YEAR)
+            - DEFAULT_YEAR_RANGE / 2;
+
+    private PickerConstants.Date mConstant;
+
     private String[] mYears;
     private int mStartYear;
     private int mYearRange;
-    private String[] mDayString = null;
+    private String[] mDayStrings = null;
     private int mColMonthIndex = 0;
     private int mColDayIndex = 1;
     private int mColYearIndex = 2;
@@ -46,9 +50,8 @@ public class DatePicker extends Picker {
     private int mInitMonth;
     private int mInitDay;
 
-
-    private int mSelectedYear = DEFAULT_START_YEAR;
-    private String mSelectedMonth;
+    private int mSelectedYear;
+    private int mSelectedMonth;
 
     public static DatePicker newInstance() {
         return newInstance("");
@@ -112,13 +115,14 @@ public class DatePicker extends Picker {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mConstant = PickerConstants.getDateInstance(getResources());
+
         mStartYear = getArguments().getInt(EXTRA_START_YEAR, DEFAULT_START_YEAR);
         mYearRange = getArguments().getInt(EXTRA_YEAR_RANGE, DEFAULT_YEAR_RANGE);
         boolean startOnToday = getArguments().getBoolean(EXTRA_DEFAULT_TO_CURRENT, false);
-        mSelectedMonth = mConstant.months[0];
         initYearsArray(mStartYear, mYearRange);
 
-        mDayString = mConstant.days30;
+        mDayStrings = mConstant.days31;
 
         String format = getArguments().getString(EXTRA_FORMAT);
         if (format != null && !format.isEmpty()) {
@@ -159,10 +163,9 @@ public class DatePicker extends Picker {
 
     @Override
     protected ArrayList<PickerColumn> getColumns() {
-        ArrayList<PickerColumn> ret = new ArrayList<PickerColumn>();
-        // TODO orders of these columns might need to be localized
+        ArrayList<PickerColumn> ret = new ArrayList<>();
         PickerColumn months = new PickerColumn(mConstant.months);
-        PickerColumn days = new PickerColumn(mDayString);
+        PickerColumn days = new PickerColumn(mDayStrings);
         PickerColumn years = new PickerColumn(mYears);
 
         for (int i = 0; i < 3; i++) {
@@ -184,8 +187,6 @@ public class DatePicker extends Picker {
     }
 
     protected boolean setDate(int year, int month, int day) {
-        boolean isLeapYear = false;
-
         if (year < mStartYear || year > (mStartYear + mYearRange)) {
             return false;
         }
@@ -194,88 +195,44 @@ public class DatePicker extends Picker {
         try {
             GregorianCalendar cal = new GregorianCalendar(year, month, day);
             cal.setLenient(false);
-            Date test = cal.getTime();
+            cal.getTime();
         } catch (IllegalArgumentException e) {
             return false;
         }
 
         mSelectedYear = year;
-        mSelectedMonth = mConstant.months[month];
+        mSelectedMonth = month;
+        updateDayStrings(year, month);
 
         updateSelection(mColYearIndex, year - mStartYear);
         updateSelection(mColMonthIndex, month);
-
-        String[] dayString = null;
-        // This is according to http://en.wikipedia.org/wiki/Leap_year#Algorithm
-        if (year % 400 == 0) {
-            isLeapYear = true;
-        } else if (year % 100 == 0) {
-            isLeapYear = false;
-        } else if (year % 4 == 0) {
-            isLeapYear = true;
-        }
-
-        if (month == 1) {
-            if (isLeapYear) {
-                dayString = mConstant.days29;
-            } else {
-                dayString = mConstant.days28;
-            }
-        } else if ((month == 3) || (month == 5) || (month == 8) || (month == 10)) {
-            dayString = mConstant.days30;
-        } else {
-            dayString = mConstant.days31;
-        }
-
-        if (mDayString != dayString) {
-            mDayString = dayString;
-            updateAdapter(mColDayIndex, new PickerColumn(mDayString));
-        }
-
         updateSelection(mColDayIndex, day - 1);
+
         return true;
     }
 
     @Override
-    public void onScroll(View v) {
-        int column = (Integer) v.getTag();
-        String text = ((TextView) v).getText().toString();
+    public void onScroll(int column, View v, int position) {
         if (column == mColMonthIndex) {
-            mSelectedMonth = text;
+            mSelectedMonth = position;
         } else if (column == mColYearIndex) {
+            final String text = ((TextView) v).getText().toString();
             mSelectedYear = Integer.parseInt(text);
         } else {
             return;
         }
+        updateDayStrings(mSelectedYear, mSelectedMonth);
+    }
 
-        String[] dayString = null;
+    private void updateDayStrings(int year, int month) {
+        final String[] dayStrings;
 
-        boolean isLeapYear = false;
-        // This is according to http://en.wikipedia.org/wiki/Leap_year#Algorithm
-        if (mSelectedYear % 400 == 0) {
-            isLeapYear = true;
-        } else if (mSelectedYear % 100 == 0) {
-            isLeapYear = false;
-        } else if (mSelectedYear % 4 == 0) {
-            isLeapYear = true;
-        }
-        if (mSelectedMonth.equals(mConstant.months[1])) {
-            if (isLeapYear) {
-                dayString = mConstant.days29;
-            } else {
-                dayString = mConstant.days28;
-            }
-        } else if (mSelectedMonth.equals(mConstant.months[3])
-                || mSelectedMonth.equals(mConstant.months[5])
-                || mSelectedMonth.equals(mConstant.months[8])
-                || mSelectedMonth.equals(mConstant.months[10])) {
-            dayString = mConstant.days30;
-        } else {
-            dayString = mConstant.days31;
-        }
-        if (!mDayString.equals(dayString)) {
-            mDayString = dayString;
-            updateAdapter(mColDayIndex, new PickerColumn(mDayString));
+        final GregorianCalendar calendar = new GregorianCalendar(year, month, 1);
+        int numDays = calendar.getActualMaximum(GregorianCalendar.DAY_OF_MONTH);
+        dayStrings = Arrays.copyOfRange(mConstant.days31, 0, numDays);
+        if (!Arrays.equals(mDayStrings, dayStrings)) {
+            mDayStrings = dayStrings;
+            updateAdapter(mColDayIndex, new PickerColumn(mDayStrings));
         }
     }
 }

@@ -91,3 +91,10 @@ libhevcd_cflags_arm64 += -DDEFAULT_ARCH=D_ARCH_ARMV8_GENERIC
 LOCAL_SRC_FILES_arm64 += $(libhevcd_srcs_c_arm64) $(libhevcd_srcs_asm_arm64)
 LOCAL_C_INCLUDES_arm64 += $(libhevcd_inc_dir_arm64)
 LOCAL_CFLAGS_arm64 += $(libhevcd_cflags_arm64)
+
+# Clang doesn't pass -I flags to the assembler when building a .s file.
+# We need to tell it to pass them to the assembler specifically (doesn't hurt
+# with gcc either, and may actually help future gcc versions if they decide
+# to start making a difference between assembly and C includes).
+comma := ,
+LOCAL_ASFLAGS_arm64 += $(addprefix -Wa$(comma)-I,$(libhevcd_inc_dir_arm64))

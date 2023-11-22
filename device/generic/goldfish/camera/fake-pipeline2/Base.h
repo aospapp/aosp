@@ -37,6 +37,7 @@ struct StreamBuffer {
     int streamId;
     uint32_t width, height;
     uint32_t format;
+    uint32_t dataSpace;
     uint32_t stride;
     buffer_handle_t *buffer;
     uint8_t *img;

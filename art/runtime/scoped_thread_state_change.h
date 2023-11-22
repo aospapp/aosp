@@ -18,7 +18,9 @@
 #define ART_RUNTIME_SCOPED_THREAD_STATE_CHANGE_H_
 
 #include "base/casts.h"
-#include "jni_internal-inl.h"
+#include "java_vm_ext.h"
+#include "jni_env_ext-inl.h"
+#include "art_field.h"
 #include "read_barrier.h"
 #include "thread-inl.h"
 #include "verify_object.h"
@@ -34,11 +36,11 @@ class ScopedThreadStateChange {
   ScopedThreadStateChange(Thread* self, ThreadState new_thread_state)
       LOCKS_EXCLUDED(Locks::thread_suspend_count_lock_) ALWAYS_INLINE
       : self_(self), thread_state_(new_thread_state), expected_has_no_thread_(false) {
-    if (UNLIKELY(self_ == NULL)) {
-      // Value chosen arbitrarily and won't be used in the destructor since thread_ == NULL.
+    if (UNLIKELY(self_ == nullptr)) {
+      // Value chosen arbitrarily and won't be used in the destructor since thread_ == null.
       old_thread_state_ = kTerminated;
       Runtime* runtime = Runtime::Current();
-      CHECK(runtime == NULL || !runtime->IsStarted() || runtime->IsShuttingDown(self_));
+      CHECK(runtime == nullptr || !runtime->IsStarted() || runtime->IsShuttingDown(self_));
     } else {
       DCHECK_EQ(self, Thread::Current());
       // Read state without locks, ok as state is effectively thread local and we're not interested
@@ -58,10 +60,10 @@ class ScopedThreadStateChange {
   }
 
   ~ScopedThreadStateChange() LOCKS_EXCLUDED(Locks::thread_suspend_count_lock_) ALWAYS_INLINE {
-    if (UNLIKELY(self_ == NULL)) {
+    if (UNLIKELY(self_ == nullptr)) {
       if (!expected_has_no_thread_) {
         Runtime* runtime = Runtime::Current();
-        bool shutting_down = (runtime == NULL) || runtime->IsShuttingDown(nullptr);
+        bool shutting_down = (runtime == nullptr) || runtime->IsShuttingDown(nullptr);
         CHECK(shutting_down);
       }
     } else {
@@ -85,7 +87,7 @@ class ScopedThreadStateChange {
  protected:
   // Constructor used by ScopedJniThreadState for an unattached thread that has access to the VM*.
   ScopedThreadStateChange()
-      : self_(NULL), thread_state_(kTerminated), old_thread_state_(kTerminated),
+      : self_(nullptr), thread_state_(kTerminated), old_thread_state_(kTerminated),
         expected_has_no_thread_(true) {}
 
   Thread* const self_;
@@ -114,11 +116,15 @@ class ScopedObjectAccessAlreadyRunnable {
     return vm_;
   }
 
+  bool ForceCopy() const {
+    return vm_->ForceCopy();
+  }
+
   /*
    * Add a local reference for an object to the indirect reference table associated with the
    * current stack frame.  When the native function returns, the reference will be discarded.
    *
-   * We need to allow the same reference to be added multiple times, and cope with NULL.
+   * We need to allow the same reference to be added multiple times, and cope with nullptr.
    *
    * This will be called on otherwise unreferenced objects. We cannot do GC allocations here, and
    * it's best if we don't grab a mutex.
@@ -127,11 +133,8 @@ class ScopedObjectAccessAlreadyRunnable {
   T AddLocalReference(mirror::Object* obj) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(Self());
     DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    if (obj == NULL) {
-      return NULL;
-    }
-    DCHECK_NE((reinterpret_cast<uintptr_t>(obj) & 0xffff0000), 0xebad0000);
-    return Env()->AddLocalReference<T>(obj);
+    DCHECK_NE(obj, Runtime::Current()->GetClearedJniWeakGlobal());
+    return obj == nullptr ? nullptr : Env()->AddLocalReference<T>(obj);
   }
 
   template<typename T>
@@ -142,37 +145,28 @@ class ScopedObjectAccessAlreadyRunnable {
     return down_cast<T>(Self()->DecodeJObject(obj));
   }
 
-  mirror::ArtField* DecodeField(jfieldID fid) const
+  ArtField* DecodeField(jfieldID fid) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(Self());
     DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    CHECK(!kMovingFields);
-    mirror::ArtField* field = reinterpret_cast<mirror::ArtField*>(fid);
-    return ReadBarrier::BarrierForRoot<mirror::ArtField, kWithReadBarrier>(&field);
+    return reinterpret_cast<ArtField*>(fid);
   }
 
-  jfieldID EncodeField(mirror::ArtField* field) const
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  jfieldID EncodeField(ArtField* field) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(Self());
     DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    CHECK(!kMovingFields);
     return reinterpret_cast<jfieldID>(field);
   }
 
-  mirror::ArtMethod* DecodeMethod(jmethodID mid) const
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  ArtMethod* DecodeMethod(jmethodID mid) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(Self());
     DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    CHECK(!kMovingMethods);
-    mirror::ArtMethod* method = reinterpret_cast<mirror::ArtMethod*>(mid);
-    return ReadBarrier::BarrierForRoot<mirror::ArtMethod, kWithReadBarrier>(&method);
+    return reinterpret_cast<ArtMethod*>(mid);
   }
 
-  jmethodID EncodeMethod(mirror::ArtMethod* method) const
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  jmethodID EncodeMethod(ArtMethod* method) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     Locks::mutator_lock_->AssertSharedHeld(Self());
     DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    CHECK(!kMovingMethods);
     return reinterpret_cast<jmethodID>(method);
   }
 

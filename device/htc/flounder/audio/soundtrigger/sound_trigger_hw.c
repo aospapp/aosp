@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <malloc.h>
 #include <poll.h>
 #include <pthread.h>
 #include <sys/ioctl.h>

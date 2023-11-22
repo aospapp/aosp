@@ -547,6 +547,37 @@ public abstract class JDWPTestCase extends JDWPRawTestCase {
     }
 
     /**
+     * Checks thread status and suspend status of a thread
+     *
+     * @param eventThreadID
+     *          the thread ID to check
+     * @param expectedThreadStatus
+     *          the expected thread status
+     * @param expectedSuspendStatus
+     *          the expected suspend status
+     */
+    protected void checkThreadState(long eventThreadID, byte expectedThreadStatus,
+            byte expectedSuspendStatus) {
+        CommandPacket commandPacket = new CommandPacket(
+                JDWPCommands.ThreadReferenceCommandSet.CommandSetID,
+                JDWPCommands.ThreadReferenceCommandSet.StatusCommand);
+        commandPacket.setNextValueAsThreadID(eventThreadID);
+        ReplyPacket replyPacket = debuggeeWrapper.vmMirror.performCommand(commandPacket);
+        debuggeeWrapper.vmMirror.checkReply(replyPacket);
+
+        int threadStatus = replyPacket.getNextValueAsInt();
+        int suspendStatus = replyPacket.getNextValueAsInt();
+        assertAllDataRead(replyPacket);
+
+        assertEquals("Invalid thread status", threadStatus, expectedThreadStatus,
+                JDWPConstants.ThreadStatus.getName(expectedThreadStatus),
+                JDWPConstants.ThreadStatus.getName(threadStatus));
+        assertEquals("Invalid suspend status", suspendStatus, expectedSuspendStatus,
+                JDWPConstants.SuspendStatus.getName(expectedSuspendStatus),
+                JDWPConstants.SuspendStatus.getName(suspendStatus));
+    }
+
+    /**
      * Helper for checking reply packet error code. Calls junit fail if packet
      * error code does not equal to expected error code.
      * 

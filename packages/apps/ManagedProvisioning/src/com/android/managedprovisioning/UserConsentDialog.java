@@ -16,7 +16,6 @@
 
 package com.android.managedprovisioning;
 
-import android.app.Activity;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.DialogInterface;
@@ -25,8 +24,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Button;
 
@@ -74,6 +71,13 @@ public class UserConsentDialog extends DialogFragment {
             text1.setText(R.string.admin_has_ability_to_monitor_profile);
         } else if (ownerType == DEVICE_OWNER) {
             text1.setText(R.string.admin_has_ability_to_monitor_device);
+        }
+
+        TextView textFrpWarning = (TextView) dialog.findViewById(R.id.learn_more_frp_warning);
+        if (ownerType == DEVICE_OWNER && Utils.isFrpSupported(getActivity())) {
+            textFrpWarning.setVisibility(View.VISIBLE);
+        } else {
+            textFrpWarning.setVisibility(View.GONE);
         }
 
         TextView linkText = (TextView) dialog.findViewById(R.id.learn_more_link);

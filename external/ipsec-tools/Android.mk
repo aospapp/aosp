@@ -55,16 +55,35 @@ LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/src/include-glibc \
 	$(LOCAL_PATH)/src/libipsec \
 	$(LOCAL_PATH)/src/racoon \
-	$(LOCAL_PATH)/src/racoon/missing \
-	external/openssl/include
+	$(LOCAL_PATH)/src/racoon/missing
 
 LOCAL_STATIC_LIBRARIES := libipsec
 
 LOCAL_SHARED_LIBRARIES := libcutils liblog libcrypto
 
-LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H
+ifneq (,$(wildcard $(TOP)/external/boringssl/flavor.mk))
+	include $(TOP)/external/boringssl/flavor.mk
+else
+	include $(TOP)/external/openssl/flavor.mk
+endif
+ifeq ($(OPENSSL_FLAVOR),BoringSSL)
+	LOCAL_SHARED_LIBRARIES += libkeystore-engine
+endif
 
-LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
+LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H -D_BSD_SOURCE=1
+
+LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-pointer-sign -Werror
+
+# Turn off unused XXX warnings. Should be removed/fixed when syncing with upstream. b/18523687, b/18632512
+LOCAL_CFLAGS += -Wno-unused-variable \
+                -Wno-unused-but-set-variable \
+                -Wno-unused-function \
+                -Wno-unused-label \
+                -Wno-unused-value
+
+# pfkey.c, isakmp.c, remoteconf.c have some K&R warnings,
+# to be ignored until they are fixed from upstream.
+LOCAL_CLANG_CFLAGS += -Wno-knr-promoted-parameter
 
 LOCAL_MODULE := racoon
 
@@ -78,9 +97,13 @@ LOCAL_SRC_FILES := \
 	src/libipsec/pfkey.c \
 	src/libipsec/ipsec_strerror.c
 
-LOCAL_CFLAGS := -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H
+LOCAL_CFLAGS := -DANDROID_CHANGES -DHAVE_CONFIG_H -DHAVE_OPENSSL_ENGINE_H
 
-LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers
+LOCAL_CFLAGS += -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-parameter -Wno-pointer-sign -Werror
+
+# pfkey.c has some K&R warnings,
+# to be ignored until they are fixed from upstream.
+LOCAL_CLANG_CFLAGS += -Wno-knr-promoted-parameter
 
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH) \

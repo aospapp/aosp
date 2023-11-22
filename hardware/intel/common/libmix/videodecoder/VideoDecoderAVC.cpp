@@ -699,15 +699,6 @@ Decode_Status VideoDecoderAVC::startVA(vbp_data_h264 *data) {
         DPBSize = 19 - AVC_EXTRA_SURFACE_NUMBER;
     }
 
-    if (mConfigBuffer.flag & WANT_ADAPTIVE_PLAYBACK) {
-        // When Adaptive playback is enabled, turn off low delay mode.
-        // Otherwise there may be a 240ms stuttering if the output mode is changed from LowDelay to Delay.
-        enableLowDelayMode(false);
-    } else {
-        // for baseline profile, enable low delay mode automatically
-        enableLowDelayMode(data->codec_data->profile_idc == 66);
-    }
-
     return VideoDecoderBase::setupVA(DPBSize + AVC_EXTRA_SURFACE_NUMBER, vaProfile);
 }
 
@@ -717,6 +708,19 @@ void VideoDecoderAVC::updateFormatInfo(vbp_data_h264 *data) {
     uint32_t height = (data->pic_data[0].pic_parms->picture_height_in_mbs_minus1 + 1) * 16;
     ITRACE("updateFormatInfo: current size: %d x %d, new size: %d x %d",
         mVideoFormatInfo.width, mVideoFormatInfo.height, width, height);
+
+    if (mConfigBuffer.flag & WANT_ADAPTIVE_PLAYBACK) {
+        // When Adaptive playback is enabled, turn off low delay mode.
+        // Otherwise there may be a 240ms stuttering if the output mode is changed from LowDelay to Delay.
+        enableLowDelayMode(false);
+    } else {
+        // for baseline profile or constrained high profile, enable low delay mode automatically
+        enableLowDelayMode((data->codec_data->profile_idc == 66) || (data->codec_data->profile_idc == 100 && data->codec_data->constraint_set4_flag == 1 && data->codec_data->constraint_set5_flag == 1));
+    }
+
+    if ((mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER) && mStoreMetaData) {
+        pthread_mutex_lock(&mFormatLock);
+    }
 
     if ((mVideoFormatInfo.width != width ||
         mVideoFormatInfo.height != height) &&
@@ -781,9 +785,22 @@ void VideoDecoderAVC::updateFormatInfo(vbp_data_h264 *data) {
 
     ITRACE("actualBufferNeeded =%d", mVideoFormatInfo.actualBufferNeeded);
 
-    mVideoFormatInfo.valid = true;
+    if ((mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER) && mStoreMetaData) {
+        if (mSizeChanged
+            || isWiDiStatusChanged()
+            || (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber)) {
+            mVideoFormatInfo.valid = false;
+        } else {
+            mVideoFormatInfo.valid = true;
+        }
+
+        pthread_mutex_unlock(&mFormatLock);
+    } else {
+        mVideoFormatInfo.valid = true;
+    }
 
     setRenderRect();
+    setColorSpaceInfo(mVideoFormatInfo.colorMatrix, mVideoFormatInfo.videoRange);
 }
 
 bool VideoDecoderAVC::isWiDiStatusChanged() {
@@ -813,20 +830,38 @@ bool VideoDecoderAVC::isWiDiStatusChanged() {
 }
 
 Decode_Status VideoDecoderAVC::handleNewSequence(vbp_data_h264 *data) {
+    Decode_Status status;
     updateFormatInfo(data);
-    bool needFlush = false;
-    bool rawDataMode = !(mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER);
 
-    if (!rawDataMode) {
-        needFlush = (mVideoFormatInfo.width > mVideoFormatInfo.surfaceWidth)
-                || (mVideoFormatInfo.height > mVideoFormatInfo.surfaceHeight)
-                || isWiDiStatusChanged()
-                || (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber);
+    bool rawDataMode = !(mConfigBuffer.flag & USE_NATIVE_GRAPHIC_BUFFER);
+    if (rawDataMode && mSizeChanged) {
+        flushSurfaceBuffers();
+        mSizeChanged = false;
+        return DECODE_FORMAT_CHANGE;
     }
 
-    if (needFlush || (rawDataMode && mSizeChanged)) {
+    bool needFlush = false;
+    if (!rawDataMode) {
+        if (mStoreMetaData) {
+            needFlush = mSizeChanged
+                    || isWiDiStatusChanged()
+                    || (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber);
+        } else {
+            needFlush = (mVideoFormatInfo.width > mVideoFormatInfo.surfaceWidth)
+                    || (mVideoFormatInfo.height > mVideoFormatInfo.surfaceHeight)
+                    || isWiDiStatusChanged()
+                    || (mVideoFormatInfo.actualBufferNeeded > mConfigBuffer.surfaceNumber);
+        }
+    }
+
+    if (needFlush) {
+        if (mStoreMetaData) {
+            status = endDecodingFrame(false);
+            CHECK_STATUS("endDecodingFrame");
+        } else {
+            flushSurfaceBuffers();
+        }
         mSizeChanged = false;
-        flushSurfaceBuffers();
         return DECODE_FORMAT_CHANGE;
     } else
         return DECODE_SUCCESS;

@@ -52,11 +52,9 @@
             android:title="@string/snooze_duration_title"
             android:defaultValue="10"/>
 
-        <VolumePreference
+        <Preference
             android:key="volume_setting"
-            android:title="@string/alarm_volume_title"
-            android:dialogTitle="@string/alarm_volume_title"
-            android:streamType="alarm" />
+            android:title="@string/alarm_volume_title" />
 
         <ListPreference
             android:key="volume_button_setting"
@@ -65,5 +63,12 @@
             android:entries="@array/volume_button_setting_entries"
             android:entryValues="@array/volume_button_setting_values"
             android:defaultValue="0" />
+
+        <ListPreference
+            android:key="week_start"
+            android:title="@string/week_start_title"
+            android:dialogTitle="@string/week_start_title"
+            android:entries="@array/week_start_entries"
+            android:entryValues="@array/week_start_values" />
     </PreferenceCategory>
 </PreferenceScreen>

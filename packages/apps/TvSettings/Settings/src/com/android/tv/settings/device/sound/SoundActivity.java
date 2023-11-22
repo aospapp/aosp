@@ -20,14 +20,12 @@ import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.media.AudioManager;
-import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+
+import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.DialogFragment;
 import com.android.tv.settings.dialog.DialogFragment.Action;
-
-import com.android.tv.settings.BrowseInfo;
-import com.android.tv.settings.R;
 
 import java.util.ArrayList;
 
@@ -91,8 +89,8 @@ public class SoundActivity extends Activity implements Action.Listener {
     }
 
     public static int getIconResource(ContentResolver contentResolver) {
-        return getSoundEffectsEnabled(contentResolver) ? R.drawable.ic_settings_sound_on
-                : R.drawable.ic_settings_sound_off;
+        return getSoundEffectsEnabled(contentResolver) ? R.drawable.settings_sound_on_icon
+                : R.drawable.settings_sound_off_icon;
     }
 
     private void setSoundEffectsEnabled(int value) {

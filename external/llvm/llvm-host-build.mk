@@ -1,7 +1,6 @@
 # Windows can't use Clang to build yet
 ifneq ($(HOST_OS),windows)
 LOCAL_CLANG := true
-include external/libcxx/libcxx.mk
 endif
 
 LOCAL_CFLAGS +=	\
@@ -49,9 +48,21 @@ LOCAL_C_INCLUDES :=	\
 	$(LLVM_ROOT_PATH)/host/include	\
 	$(LOCAL_C_INCLUDES)
 
+# Add on ncurses to have support for terminfo
+ifneq ($(HOST_OS),windows)
+LOCAL_LDLIBS += -lncurses
+ifneq ($(HOST_OS),darwin)
+LOCAL_LDLIBS += -lgcc_s
+endif
+endif
+
 LOCAL_IS_HOST_MODULE := true
 
-LOCAL_32_BIT_ONLY := true
+ifeq ($(HOST_PREFER_32_BIT),true)
+LOCAL_MULTILIB := 32
+else
+LOCAL_MULTILIB := first
+endif
 
 ###########################################################
 ## Commands for running tblgen to compile a td file

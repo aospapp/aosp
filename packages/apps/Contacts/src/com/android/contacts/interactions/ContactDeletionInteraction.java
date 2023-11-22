@@ -32,6 +32,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Contacts.Entity;
+import android.text.TextUtils;
+import android.util.Log;
 
 import com.android.contacts.ContactSaveService;
 import com.android.contacts.R;
@@ -48,6 +50,7 @@ import java.util.HashSet;
 public class ContactDeletionInteraction extends Fragment
         implements LoaderCallbacks<Cursor>, OnDismissListener {
 
+    private static final String TAG = "ContactDeletionInteraction";
     private static final String FRAGMENT_TAG = "deleteContact";
 
     private static final String KEY_ACTIVE = "active";
@@ -77,7 +80,7 @@ public class ContactDeletionInteraction extends Fragment
     private AlertDialog mDialog;
 
     /** This is a wrapper around the fragment's loader manager to be used only during testing. */
-    private TestLoaderManager mTestLoaderManager;
+    private TestLoaderManagerBase mTestLoaderManager;
 
     @VisibleForTesting
     int mMessageId;
@@ -97,20 +100,20 @@ public class ContactDeletionInteraction extends Fragment
     }
 
     /**
-     * Starts the interaction and optionally set up a {@link TestLoaderManager}.
+     * Starts the interaction and optionally set up a {@link TestLoaderManagerBase}.
      *
      * @param activity the activity within which to start the interaction
      * @param contactUri the URI of the contact to delete
      * @param finishActivityWhenDone whether to finish the activity upon completion of the
      *        interaction
-     * @param testLoaderManager the {@link TestLoaderManager} to use to load the data, may be null
+     * @param testLoaderManager the {@link TestLoaderManagerBase} to use to load the data, may be null
      *        in which case the default {@link LoaderManager} is used
      * @return the newly created interaction
      */
     @VisibleForTesting
     static ContactDeletionInteraction startWithTestLoaderManager(
             Activity activity, Uri contactUri, boolean finishActivityWhenDone,
-            TestLoaderManager testLoaderManager) {
+            TestLoaderManagerBase testLoaderManager) {
         if (contactUri == null) {
             return null;
         }
@@ -147,7 +150,7 @@ public class ContactDeletionInteraction extends Fragment
     }
 
     /** Sets the TestLoaderManager that is used to wrap the actual LoaderManager in tests. */
-    private void setTestLoaderManager(TestLoaderManager mockLoaderManager) {
+    private void setTestLoaderManager(TestLoaderManagerBase mockLoaderManager) {
         mTestLoaderManager = mockLoaderManager;
     }
 
@@ -224,6 +227,11 @@ public class ContactDeletionInteraction extends Fragment
             return;
         }
 
+        if (cursor == null || cursor.isClosed()) {
+            Log.e(TAG, "Failed to load contacts");
+            return;
+        }
+
         long contactId = 0;
         String lookupKey = null;
 
@@ -246,6 +254,11 @@ public class ContactDeletionInteraction extends Fragment
             } else {
                 readOnlyRawContacts.add(rawContactId);
             }
+        }
+        if (TextUtils.isEmpty(lookupKey)) {
+            Log.e(TAG, "Failed to find contact lookup key");
+            getActivity().finish();
+            return;
         }
 
         int readOnlyCount = readOnlyRawContacts.size();

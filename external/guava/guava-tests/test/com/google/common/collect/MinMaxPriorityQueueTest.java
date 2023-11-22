@@ -16,7 +16,7 @@
 
 package com.google.common.collect;
 
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.collect.testing.IteratorFeature;
 import com.google.common.collect.testing.IteratorTester;
@@ -26,6 +26,7 @@ import junit.framework.TestCase;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
@@ -354,7 +355,7 @@ public class MinMaxPriorityQueueTest extends TestCase {
       }
     }
     assertTrue(q.isIntact());
-    ASSERT.that(result).hasContentsAnyOrder(1, 15, 13, 8, 14);
+    ASSERT.that(result).has().exactly(1, 15, 13, 8, 14);
   }
 
   /**
@@ -522,11 +523,9 @@ public class MinMaxPriorityQueueTest extends TestCase {
           @Override protected void verify(List<T> elements) {
             assertEquals(Sets.newHashSet(elements),
                 Sets.newHashSet(mmHeap.iterator()));
-            assertTrue("Invalid MinMaxHeap: " + mmHeap.toString(),
-                mmHeap.isIntact());
+            assertTrue("Invalid MinMaxHeap: " + mmHeap, mmHeap.isIntact());
           }
         };
-    tester.ignoreSunJavaBug6529795();
     tester.test();
   }
 
@@ -558,6 +557,18 @@ public class MinMaxPriorityQueueTest extends TestCase {
       assertTrue("Modification " + i + " of seed " + seed, mmHeap.isIntact());
       mmHeap.add(random.nextInt());
       assertTrue("Modification " + i + " of seed " + seed, mmHeap.isIntact());
+    }
+  }
+
+  public void testRemoveAt_exhaustive() {
+    int size = 8;
+    List<Integer> expected = createOrderedList(size);
+    for (Collection<Integer> perm : Collections2.permutations(expected)) {
+      for (int i = 0; i < perm.size(); i++) {
+        MinMaxPriorityQueue<Integer> q = MinMaxPriorityQueue.create(perm);
+        q.removeAt(i);
+        assertTrue("Remove at " + i + " perm " + perm, q.isIntact());
+      }
     }
   }
 
@@ -677,6 +688,26 @@ public class MinMaxPriorityQueueTest extends TestCase {
     assertTrue(q.isEmpty());
   }
 
+  public void testExhaustive_pollAndPush() {
+    int size = 8;
+    List<Integer> expected = createOrderedList(size);
+    for (Collection<Integer> perm : Collections2.permutations(expected)) {
+      MinMaxPriorityQueue<Integer> q = MinMaxPriorityQueue.create(perm);
+      List<Integer> elements = Lists.newArrayListWithCapacity(size);
+      while (!q.isEmpty()) {
+        Integer next = q.pollFirst();
+        for (int i = 0; i <= size; i++) {
+          assertTrue(q.add(i));
+          assertTrue(q.add(next));
+          assertTrue(q.remove(i));
+          assertEquals(next, q.poll());
+        }
+        elements.add(next);
+      }
+      assertEquals("Started with " + perm, expected, elements);
+    }
+  }
+
   /**
    * Regression test for b/4124577
    */
@@ -687,23 +718,23 @@ public class MinMaxPriorityQueueTest extends TestCase {
     List<Integer> contents = Lists.newArrayList(expected);
     List<Integer> elements = Lists.newArrayListWithCapacity(size);
     while (!q.isEmpty()) {
-      ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+      ASSERT.that(q).has().exactlyAs(contents);
       Integer next = q.pollFirst();
       contents.remove(next);
-      ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+      ASSERT.that(q).has().exactlyAs(contents);
       for (int i = 0; i <= size; i++) {
         q.add(i);
         contents.add(i);
-        ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+        ASSERT.that(q).has().exactlyAs(contents);
         q.add(next);
         contents.add(next);
-        ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+        ASSERT.that(q).has().exactlyAs(contents);
         q.remove(i);
         assertTrue(contents.remove(Integer.valueOf(i)));
-        ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+        ASSERT.that(q).has().exactlyAs(contents);
         assertEquals(next, q.poll());
         contents.remove(next);
-        ASSERT.that(q).hasContentsAnyOrder(contents.toArray(new Integer[0]));
+        ASSERT.that(q).has().exactlyAs(contents);
       }
       elements.add(next);
     }
@@ -786,7 +817,7 @@ public class MinMaxPriorityQueueTest extends TestCase {
     }
   }
 
-  public void testNullPointers() throws Exception {
+  public void testNullPointers() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicConstructors(MinMaxPriorityQueue.class);
     tester.testAllPublicStaticMethods(MinMaxPriorityQueue.class);

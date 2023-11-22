@@ -36,7 +36,7 @@ using namespace android::renderscript;
 Font::Font(Context *rsc) : ObjectBase(rsc), mCachedGlyphs(NULL) {
     mInitialized = false;
     mHasKerning = false;
-    mFace = NULL;
+    mFace = nullptr;
 }
 
 bool Font::init(const char *name, float fontSize, uint32_t dpi, const void *data, uint32_t dataLen) {
@@ -47,7 +47,7 @@ bool Font::init(const char *name, float fontSize, uint32_t dpi, const void *data
     }
 
     FT_Error error = 0;
-    if (data != NULL && dataLen > 0) {
+    if (data != nullptr && dataLen > 0) {
         error = FT_New_Memory_Face(mRSC->mStateFont.getLib(), (const FT_Byte*)data, dataLen, 0, &mFace);
     } else {
         error = FT_New_Face(mRSC->mStateFont.getLib(), name, 0, &mFace);
@@ -162,12 +162,12 @@ void Font::renderUTF(const char *text, uint32_t len, int32_t x, int32_t y,
                      uint32_t start, int32_t numGlyphs,
                      RenderMode mode, Rect *bounds,
                      uint8_t *bitmap, uint32_t bitmapW, uint32_t bitmapH) {
-    if (!mInitialized || numGlyphs == 0 || text == NULL || len == 0) {
+    if (!mInitialized || numGlyphs == 0 || text == nullptr || len == 0) {
         return;
     }
 
     if (mode == Font::MEASURE) {
-        if (bounds == NULL) {
+        if (bounds == nullptr) {
             ALOGE("No return rectangle provided to measure text");
             return;
         }
@@ -225,7 +225,7 @@ void Font::renderUTF(const char *text, uint32_t len, int32_t x, int32_t y,
 Font::CachedGlyphInfo* Font::getCachedUTFChar(int32_t utfChar) {
 
     CachedGlyphInfo *cachedGlyph = mCachedGlyphs.valueFor((uint32_t)utfChar);
-    if (cachedGlyph == NULL) {
+    if (cachedGlyph == nullptr) {
         cachedGlyph = cacheGlyph((uint32_t)utfChar);
     }
     // Is the glyph still in texture cache?
@@ -314,7 +314,7 @@ Font * Font::create(Context *rsc, const char *name, float fontSize, uint32_t dpi
     }
 
     ObjectBase::checkDelete(newFont);
-    return NULL;
+    return nullptr;
 }
 
 Font::~Font() {
@@ -334,9 +334,9 @@ FontState::FontState() {
     mInitialized = false;
     mMaxNumberOfQuads = 1024;
     mCurrentQuadIndex = 0;
-    mRSC = NULL;
+    mRSC = nullptr;
 #ifndef ANDROID_RS_SERIALIZE
-    mLibrary = NULL;
+    mLibrary = nullptr;
 #endif //ANDROID_RS_SERIALIZE
 
     float gamma = DEFAULT_TEXT_GAMMA;
@@ -348,17 +348,17 @@ FontState::FontState() {
     char property[PROPERTY_VALUE_MAX];
 
     // Get the gamma
-    if (property_get(PROPERTY_TEXT_GAMMA, property, NULL) > 0) {
+    if (property_get(PROPERTY_TEXT_GAMMA, property, nullptr) > 0) {
         gamma = atof(property);
     }
 
     // Get the black gamma threshold
-    if (property_get(PROPERTY_TEXT_BLACK_GAMMA_THRESHOLD, property, NULL) > 0) {
+    if (property_get(PROPERTY_TEXT_BLACK_GAMMA_THRESHOLD, property, nullptr) > 0) {
         blackThreshold = atoi(property);
     }
 
     // Get the white gamma threshold
-    if (property_get(PROPERTY_TEXT_WHITE_GAMMA_THRESHOLD, property, NULL) > 0) {
+    if (property_get(PROPERTY_TEXT_WHITE_GAMMA_THRESHOLD, property, nullptr) > 0) {
         whiteThreshold = atoi(property);
     }
 #endif
@@ -386,7 +386,7 @@ FT_Library FontState::getLib() {
         FT_Error error = FT_Init_FreeType(&mLibrary);
         if (error) {
             ALOGE("Unable to initialize freetype");
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -512,8 +512,7 @@ void FontState::initRenderState() {
     const char *ebn1[] = { "Color", "Gamma" };
     const Element *ebe1[] = {colorElem.get(), gammaElem.get()};
     ObjectBaseRef<const Element> constInput = Element::create(mRSC, 2, ebe1, ebn1);
-
-    ObjectBaseRef<Type> inputType = Type::getTypeRef(mRSC, constInput.get(), 1, 0, 0, false, false, 0);
+    ObjectBaseRef<Type> inputType = Type::getTypeRef(mRSC, constInput.get(), 1);
 
     uintptr_t tmp[4];
     tmp[0] = RS_PROGRAM_PARAM_CONSTANT;
@@ -550,8 +549,8 @@ void FontState::initTextTexture() {
     // We will allocate a texture to initially hold 32 character bitmaps
     mCacheHeight = 256;
     mCacheWidth = 1024;
-    ObjectBaseRef<Type> texType = Type::getTypeRef(mRSC, alphaElem.get(),
-                                                   mCacheWidth, mCacheHeight, 0, false, false, 0);
+    ObjectBaseRef<Type> texType = Type::getTypeRef(mRSC, alphaElem.get(), mCacheWidth, mCacheHeight);
+
     mCacheBuffer = new uint8_t[mCacheWidth * mCacheHeight];
 
 
@@ -580,8 +579,7 @@ void FontState::initTextTexture() {
 void FontState::initVertexArrayBuffers() {
     // Now lets write index data
     ObjectBaseRef<const Element> indexElem = Element::createRef(mRSC, RS_TYPE_UNSIGNED_16, RS_KIND_USER, false, 1);
-    uint32_t numIndicies = mMaxNumberOfQuads * 6;
-    ObjectBaseRef<Type> indexType = Type::getTypeRef(mRSC, indexElem.get(), numIndicies, 0, 0, false, false, 0);
+    ObjectBaseRef<Type> indexType = Type::getTypeRef(mRSC, indexElem.get(), mMaxNumberOfQuads * 6);
 
     Allocation *indexAlloc = Allocation::createAllocation(mRSC, indexType.get(),
                                                           RS_ALLOCATION_USAGE_SCRIPT |
@@ -611,9 +609,7 @@ void FontState::initVertexArrayBuffers() {
     const Element *ebe1[] = {posElem.get(), texElem.get()};
     ObjectBaseRef<const Element> vertexDataElem = Element::create(mRSC, 2, ebe1, ebn1);
 
-    ObjectBaseRef<Type> vertexDataType = Type::getTypeRef(mRSC, vertexDataElem.get(),
-                                                          mMaxNumberOfQuads * 4,
-                                                          0, 0, false, false, 0);
+    ObjectBaseRef<Type> vertexDataType = Type::getTypeRef(mRSC, vertexDataElem.get(), mMaxNumberOfQuads * 4);
 
     Allocation *vertexAlloc = Allocation::createAllocation(mRSC, vertexDataType.get(),
                                                            RS_ALLOCATION_USAGE_SCRIPT);
@@ -835,7 +831,7 @@ void FontState::deinit(Context *rsc) {
 #ifndef ANDROID_RS_SERIALIZE
     if (mLibrary) {
         FT_Done_FreeType( mLibrary );
-        mLibrary = NULL;
+        mLibrary = nullptr;
     }
 #endif //ANDROID_RS_SERIALIZE
 }

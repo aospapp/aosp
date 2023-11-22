@@ -16,49 +16,43 @@
 
 #include "bcc/Renderscript/RSCompilerDriver.h"
 
+#include "llvm/IR/AssemblyAnnotationWriter.h"
 #include <llvm/IR/Module.h>
+#include "llvm/Linker/Linker.h"
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include "bcinfo/BitcodeWrapper.h"
-
+#include "bcc/Assert.h"
+#include "bcinfo/MetadataExtractor.h"
+#include "bcc/BCCContext.h"
 #include "bcc/Compiler.h"
 #include "bcc/Config/Config.h"
-#include "bcc/Renderscript/RSExecutable.h"
-#include "bcc/Renderscript/RSInfo.h"
 #include "bcc/Renderscript/RSScript.h"
+#include "bcc/Renderscript/RSScriptGroupFusion.h"
 #include "bcc/Support/CompilerConfig.h"
 #include "bcc/Source.h"
 #include "bcc/Support/FileMutex.h"
 #include "bcc/Support/Log.h"
 #include "bcc/Support/InputFile.h"
 #include "bcc/Support/Initialization.h"
-#include "bcc/Support/Sha1Util.h"
 #include "bcc/Support/OutputFile.h"
+
+#include <sstream>
+#include <string>
 
 #ifdef HAVE_ANDROID_OS
 #include <cutils/properties.h>
 #endif
-#include <utils/String8.h>
 #include <utils/StopWatch.h>
 
 using namespace bcc;
 
-// Get the build fingerprint of the Android device we are running on.
-static std::string getBuildFingerPrint() {
-#ifdef HAVE_ANDROID_OS
-    char fingerprint[PROPERTY_VALUE_MAX];
-    property_get("ro.build.fingerprint", fingerprint, "");
-    return fingerprint;
-#else
-    return "HostBuild";
-#endif
-}
-
 RSCompilerDriver::RSCompilerDriver(bool pUseCompilerRT) :
-    mConfig(NULL), mCompiler(), mDebugContext(false),
-    mLinkRuntimeCallback(NULL), mEnableGlobalMerge(true) {
+    mConfig(nullptr), mCompiler(), mDebugContext(false),
+    mLinkRuntimeCallback(nullptr), mEnableGlobalMerge(true),
+    mEmbedGlobalInfo(false), mEmbedGlobalInfoSkipConstant(false) {
   init::Initialize();
 }
 
@@ -66,109 +60,6 @@ RSCompilerDriver::~RSCompilerDriver() {
   delete mConfig;
 }
 
-RSExecutable* RSCompilerDriver::loadScript(const char* pCacheDir, const char* pResName,
-                                           const char* pBitcode, size_t pBitcodeSize,
-                                           const char* expectedCompileCommandLine,
-                                           SymbolResolverProxy& pResolver) {
-  // android::StopWatch load_time("bcc: RSCompilerDriver::loadScript time");
-  if ((pCacheDir == NULL) || (pResName == NULL)) {
-    ALOGE("Missing pCacheDir and/or pResName");
-    return NULL;
-  }
-
-  if ((pBitcode == NULL) || (pBitcodeSize <= 0)) {
-    ALOGE("No bitcode supplied! (bitcode: %p, size of bitcode: %zu)",
-          pBitcode, pBitcodeSize);
-    return NULL;
-  }
-
-  // {pCacheDir}/{pResName}.o
-  llvm::SmallString<80> output_path(pCacheDir);
-  llvm::sys::path::append(output_path, pResName);
-  llvm::sys::path::replace_extension(output_path, ".o");
-
-  //===--------------------------------------------------------------------===//
-  // Acquire the read lock for reading the Script object file.
-  //===--------------------------------------------------------------------===//
-  FileMutex<FileBase::kReadLock> read_output_mutex(output_path.c_str());
-
-  if (read_output_mutex.hasError() || !read_output_mutex.lock()) {
-    ALOGE("Unable to acquire the read lock for %s! (%s)", output_path.c_str(),
-          read_output_mutex.getErrorMessage().c_str());
-    return NULL;
-  }
-
-  //===--------------------------------------------------------------------===//
-  // Read the output object file.
-  //===--------------------------------------------------------------------===//
-  InputFile *object_file = new (std::nothrow) InputFile(output_path.c_str());
-
-  if ((object_file == NULL) || object_file->hasError()) {
-      //      ALOGE("Unable to open the %s for read! (%s)", output_path.c_str(),
-      //            object_file->getErrorMessage().c_str());
-    delete object_file;
-    return NULL;
-  }
-
-  //===--------------------------------------------------------------------===//
-  // Acquire the read lock on object_file for reading its RS info file.
-  //===--------------------------------------------------------------------===//
-  android::String8 info_path = RSInfo::GetPath(output_path.c_str());
-
-  if (!object_file->lock()) {
-    ALOGE("Unable to acquire the read lock on %s for reading %s! (%s)",
-          output_path.c_str(), info_path.string(),
-          object_file->getErrorMessage().c_str());
-    delete object_file;
-    return NULL;
-  }
-
-  //===---------------------------------------------------------------------===//
-  // Open and load the RS info file.
-  //===--------------------------------------------------------------------===//
-  InputFile info_file(info_path.string());
-  RSInfo *info = RSInfo::ReadFromFile(info_file);
-
-  // Release the lock on object_file.
-  object_file->unlock();
-
-  if (info == NULL) {
-    delete object_file;
-    return NULL;
-  }
-
-  //===---------------------------------------------------------------------===//
-  // Check that the info in the RS info file is consistent we what we want.
-  //===--------------------------------------------------------------------===//
-
-  uint8_t expectedSourceHash[SHA1_DIGEST_LENGTH];
-  Sha1Util::GetSHA1DigestFromBuffer(expectedSourceHash, pBitcode, pBitcodeSize);
-
-  std::string expectedBuildFingerprint = getBuildFingerPrint();
-
-  // If the info file contains different hash for the source than what we are
-  // looking for, bail.  Do the same if the command line used when compiling or the
-  // build fingerprint of Android has changed.  The compiled code found on disk is
-  // out of date and needs to be recompiled first.
-  if (!info->IsConsistent(output_path.c_str(), expectedSourceHash, expectedCompileCommandLine,
-                          expectedBuildFingerprint.c_str())) {
-      delete object_file;
-      delete info;
-      return NULL;
-  }
-
-  //===--------------------------------------------------------------------===//
-  // Create the RSExecutable.
-  //===--------------------------------------------------------------------===//
-  RSExecutable *executable = RSExecutable::Create(*info, *object_file, pResolver);
-  if (executable == NULL) {
-    delete object_file;
-    delete info;
-    return NULL;
-  }
-
-  return executable;
-}
 
 #if defined(PROVIDE_ARM_CODEGEN)
 extern llvm::cl::opt<bool> EnableGlobalMerge;
@@ -184,7 +75,7 @@ bool RSCompilerDriver::setupConfig(const RSScript &pScript) {
   EnableGlobalMerge = mEnableGlobalMerge;
 #endif
 
-  if (mConfig != NULL) {
+  if (mConfig != nullptr) {
     // Renderscript bitcode may have their optimization flag configuration
     // different than the previous run of RS compilation.
     if (mConfig->getOptimizationLevel() != script_opt_level) {
@@ -194,7 +85,7 @@ bool RSCompilerDriver::setupConfig(const RSScript &pScript) {
   } else {
     // Haven't run the compiler ever.
     mConfig = new (std::nothrow) CompilerConfig(DEFAULT_TARGET_TRIPLE_STRING);
-    if (mConfig == NULL) {
+    if (mConfig == nullptr) {
       // Return false since mConfig remains NULL and out-of-memory.
       return false;
     }
@@ -203,9 +94,12 @@ bool RSCompilerDriver::setupConfig(const RSScript &pScript) {
   }
 
 #if defined(PROVIDE_ARM_CODEGEN)
-  assert((pScript.getInfo() != NULL) && "NULL RS info!");
-  bool script_full_prec = (pScript.getInfo()->getFloatPrecisionRequirement() ==
-                           RSInfo::FP_Full);
+  bcinfo::MetadataExtractor me(&pScript.getSource().getModule());
+  if (!me.extract()) {
+    assert("Could not extract RS pragma metadata for module!");
+  }
+
+  bool script_full_prec = (me.getRSFloatPrecision() == bcinfo::RS_FP_Full);
   if (mConfig->getFullPrecision() != script_full_prec) {
     mConfig->setFullPrecision(script_full_prec);
     changed = true;
@@ -218,35 +112,25 @@ bool RSCompilerDriver::setupConfig(const RSScript &pScript) {
 Compiler::ErrorCode RSCompilerDriver::compileScript(RSScript& pScript, const char* pScriptName,
                                                     const char* pOutputPath,
                                                     const char* pRuntimePath,
-                                                    const RSInfo::DependencyHashTy& pSourceHash,
-                                                    const char* compileCommandLineToEmbed,
-                                                    bool saveInfoFile, bool pDumpIR) {
-  // android::StopWatch compile_time("bcc: RSCompilerDriver::compileScript time");
-  RSInfo *info = NULL;
-
-  //===--------------------------------------------------------------------===//
-  // Extract RS-specific information from source bitcode.
-  //===--------------------------------------------------------------------===//
-  // RS info may contains configuration (such as #optimization_level) to the
-  // compiler therefore it should be extracted before compilation.
-  info = RSInfo::ExtractFromSource(pScript.getSource(), pSourceHash, compileCommandLineToEmbed,
-                                   getBuildFingerPrint().c_str());
-  if (info == NULL) {
-    return Compiler::kErrInvalidSource;
+                                                    const char* pBuildChecksum,
+                                                    bool pDumpIR) {
+  // embed build checksum metadata into the source
+  if (pBuildChecksum != nullptr && strlen(pBuildChecksum) > 0) {
+    pScript.getSource().addBuildChecksumMetadata(pBuildChecksum);
   }
 
-  //===--------------------------------------------------------------------===//
-  // Associate script with its info
-  //===--------------------------------------------------------------------===//
-  // This is required since RS compiler may need information in the info file
-  // to do some transformation (e.g., expand foreach-able function.)
-  pScript.setInfo(info);
+  // Verify that the only external functions in pScript are Renderscript
+  // functions.  Fail if verification returns an error.
+  if (mCompiler.screenGlobalFunctions(pScript) != Compiler::kSuccess) {
+    return Compiler::kErrInvalidSource;
+  }
 
   //===--------------------------------------------------------------------===//
   // Link RS script with Renderscript runtime.
   //===--------------------------------------------------------------------===//
   if (!RSScript::LinkRuntime(pScript, pRuntimePath)) {
-    ALOGE("Failed to link script '%s' with Renderscript runtime!", pScriptName);
+    ALOGE("Failed to link script '%s' with Renderscript runtime %s!",
+          pScriptName, pRuntimePath);
     return Compiler::kErrInvalidSource;
   }
 
@@ -279,7 +163,7 @@ Compiler::ErrorCode RSCompilerDriver::compileScript(RSScript& pScript, const cha
     // Setup the config to the compiler.
     bool compiler_need_reconfigure = setupConfig(pScript);
 
-    if (mConfig == NULL) {
+    if (mConfig == nullptr) {
       ALOGE("Failed to setup config for RS compiler to compile %s!",
             pOutputPath);
       return Compiler::kErrInvalidSource;
@@ -294,18 +178,18 @@ Compiler::ErrorCode RSCompilerDriver::compileScript(RSScript& pScript, const cha
       }
     }
 
-    OutputFile *ir_file = NULL;
-    llvm::raw_fd_ostream *IRStream = NULL;
+    OutputFile *ir_file = nullptr;
+    llvm::raw_fd_ostream *IRStream = nullptr;
     if (pDumpIR) {
-      android::String8 path(pOutputPath);
+      std::string path(pOutputPath);
       path.append(".ll");
-      ir_file = new OutputFile(path.string(), FileBase::kTruncate);
+      ir_file = new OutputFile(path.c_str(), FileBase::kTruncate);
       IRStream = ir_file->dup();
     }
 
     // Run the compiler.
-    Compiler::ErrorCode compile_result = mCompiler.compile(pScript,
-                                                           output_file, IRStream);
+    Compiler::ErrorCode compile_result =
+        mCompiler.compile(pScript, output_file, IRStream);
 
     if (ir_file) {
       ir_file->close();
@@ -319,30 +203,6 @@ Compiler::ErrorCode RSCompilerDriver::compileScript(RSScript& pScript, const cha
     }
   }
 
-  if (saveInfoFile) {
-    android::String8 info_path = RSInfo::GetPath(pOutputPath);
-    OutputFile info_file(info_path.string(), FileBase::kTruncate);
-
-    if (info_file.hasError()) {
-      ALOGE("Failed to open the info file %s for write! (%s)",
-            info_path.string(), info_file.getErrorMessage().c_str());
-      return Compiler::kErrInvalidSource;
-    }
-
-    FileMutex<FileBase::kWriteLock> write_info_mutex(info_path.string());
-    if (write_info_mutex.hasError() || !write_info_mutex.lock()) {
-      ALOGE("Unable to acquire the lock for writing %s! (%s)",
-            info_path.string(), write_info_mutex.getErrorMessage().c_str());
-      return Compiler::kErrInvalidSource;
-    }
-
-    // Perform the write.
-    if (!info->write(info_file)) {
-      ALOGE("Failed to sync the RS info file %s!", info_path.string());
-      return Compiler::kErrInvalidSource;
-    }
-  }
-
   return Compiler::kSuccess;
 }
 
@@ -351,7 +211,7 @@ bool RSCompilerDriver::build(BCCContext &pContext,
                              const char *pResName,
                              const char *pBitcode,
                              size_t pBitcodeSize,
-                             const char *commandLine,
+                             const char *pBuildChecksum,
                              const char *pRuntimePath,
                              RSLinkRuntimeCallback pLinkRuntimeCallback,
                              bool pDumpIR) {
@@ -359,24 +219,18 @@ bool RSCompilerDriver::build(BCCContext &pContext,
   //===--------------------------------------------------------------------===//
   // Check parameters.
   //===--------------------------------------------------------------------===//
-  if ((pCacheDir == NULL) || (pResName == NULL)) {
+  if ((pCacheDir == nullptr) || (pResName == nullptr)) {
     ALOGE("Invalid parameter passed to RSCompilerDriver::build()! (cache dir: "
           "%s, resource name: %s)", ((pCacheDir) ? pCacheDir : "(null)"),
                                     ((pResName) ? pResName : "(null)"));
     return false;
   }
 
-  if ((pBitcode == NULL) || (pBitcodeSize <= 0)) {
+  if ((pBitcode == nullptr) || (pBitcodeSize <= 0)) {
     ALOGE("No bitcode supplied! (bitcode: %p, size of bitcode: %u)",
           pBitcode, static_cast<unsigned>(pBitcodeSize));
     return false;
   }
-
-  //===--------------------------------------------------------------------===//
-  // Prepare dependency information.
-  //===--------------------------------------------------------------------===//
-  uint8_t bitcode_sha1[SHA1_DIGEST_LENGTH];
-  Sha1Util::GetSHA1DigestFromBuffer(bitcode_sha1, pBitcode, pBitcodeSize);
 
   //===--------------------------------------------------------------------===//
   // Construct output path.
@@ -391,7 +245,7 @@ bool RSCompilerDriver::build(BCCContext &pContext,
   //===--------------------------------------------------------------------===//
   Source *source = Source::CreateFromBuffer(pContext, pResName,
                                             pBitcode, pBitcodeSize);
-  if (source == NULL) {
+  if (source == nullptr) {
     return false;
   }
 
@@ -401,6 +255,9 @@ bool RSCompilerDriver::build(BCCContext &pContext,
   }
 
   script.setLinkRuntimeCallback(getLinkRuntimeCallback());
+
+  script.setEmbedGlobalInfo(mEmbedGlobalInfo);
+  script.setEmbedGlobalInfoSkipConstant(mEmbedGlobalInfoSkipConstant);
 
   // Read information from bitcode wrapper.
   bcinfo::BitcodeWrapper wrapper(pBitcode, pBitcodeSize);
@@ -413,39 +270,122 @@ bool RSCompilerDriver::build(BCCContext &pContext,
   //===--------------------------------------------------------------------===//
   Compiler::ErrorCode status = compileScript(script, pResName,
                                              output_path.c_str(),
-                                             pRuntimePath, bitcode_sha1, commandLine,
-                                             true, pDumpIR);
+                                             pRuntimePath,
+                                             pBuildChecksum,
+                                             pDumpIR);
 
   return status == Compiler::kSuccess;
 }
 
+bool RSCompilerDriver::buildScriptGroup(
+    BCCContext& Context, const char* pOutputFilepath, const char* pRuntimePath,
+    const char* pRuntimeRelaxedPath, bool dumpIR, const char* buildChecksum,
+    const std::vector<Source*>& sources,
+    const std::list<std::list<std::pair<int, int>>>& toFuse,
+    const std::list<std::string>& fused,
+    const std::list<std::list<std::pair<int, int>>>& invokes,
+    const std::list<std::string>& invokeBatchNames) {
+  // ---------------------------------------------------------------------------
+  // Link all input modules into a single module
+  // ---------------------------------------------------------------------------
+
+  llvm::LLVMContext& context = Context.getLLVMContext();
+  llvm::Module module("Merged Script Group", context);
+
+  llvm::Linker linker(&module);
+  for (Source* source : sources) {
+    if (linker.linkInModule(&source->getModule())) {
+      ALOGE("Linking for module in source failed.");
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Create fused kernels
+  // ---------------------------------------------------------------------------
+
+  auto inputIter = toFuse.begin();
+  for (const std::string& nameOfFused : fused) {
+    auto inputKernels = *inputIter++;
+    std::vector<Source*> sourcesToFuse;
+    std::vector<int> slots;
+
+    for (auto p : inputKernels) {
+      sourcesToFuse.push_back(sources[p.first]);
+      slots.push_back(p.second);
+    }
+
+    if (!fuseKernels(Context, sourcesToFuse, slots, nameOfFused, &module)) {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rename invokes
+  // ---------------------------------------------------------------------------
+
+  auto invokeIter = invokes.begin();
+  for (const std::string& newName : invokeBatchNames) {
+    auto inputInvoke = *invokeIter++;
+    auto p = inputInvoke.front();
+    Source* source = sources[p.first];
+    int slot = p.second;
+
+    if (!renameInvoke(Context, source, slot, newName, &module)) {
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compile the new module with fused kernels
+  // ---------------------------------------------------------------------------
+
+  const std::unique_ptr<Source> source(
+      Source::CreateFromModule(Context, pOutputFilepath, module, true));
+  RSScript script(*source);
+
+  // Embed the info string directly in the ELF
+  script.setEmbedInfo(true);
+  script.setOptimizationLevel(RSScript::kOptLvl3);
+  script.setEmbedGlobalInfo(mEmbedGlobalInfo);
+  script.setEmbedGlobalInfoSkipConstant(mEmbedGlobalInfoSkipConstant);
+
+  llvm::SmallString<80> output_path(pOutputFilepath);
+  llvm::sys::path::replace_extension(output_path, ".o");
+
+  // Pick the right runtime lib
+  const char* coreLibPath = pRuntimePath;
+  if (strcmp(pRuntimeRelaxedPath, "")) {
+      bcinfo::MetadataExtractor me(&module);
+      me.extract();
+      if (me.getRSFloatPrecision() == bcinfo::RS_FP_Relaxed) {
+          coreLibPath = pRuntimeRelaxedPath;
+      }
+  }
+
+  compileScript(script, pOutputFilepath, output_path.c_str(), coreLibPath,
+                buildChecksum, dumpIR);
+
+  return true;
+}
 
 bool RSCompilerDriver::buildForCompatLib(RSScript &pScript, const char *pOut,
-                                         const char *pRuntimePath) {
-  // For compat lib, we don't check the RS info file so we don't need the source hash,
-  // compile command, and build fingerprint.
-  // TODO We may want to make them optional or embed real values.
-  uint8_t bitcode_sha1[SHA1_DIGEST_LENGTH] = {0};
-  const char* compileCommandLineToEmbed = "";
-  const char* buildFingerprintToEmbed = "";
-
-  RSInfo* info = RSInfo::ExtractFromSource(pScript.getSource(), bitcode_sha1,
-                                           compileCommandLineToEmbed, buildFingerprintToEmbed);
-  if (info == NULL) {
-    return false;
-  }
-  pScript.setInfo(info);
-
+                                         const char *pBuildChecksum,
+                                         const char *pRuntimePath,
+                                         bool pDumpIR) {
   // Embed the info string directly in the ELF, since this path is for an
   // offline (host) compilation.
   pScript.setEmbedInfo(true);
 
-  Compiler::ErrorCode status = compileScript(pScript, pOut, pOut, pRuntimePath, bitcode_sha1,
-                                             compileCommandLineToEmbed, false, false);
+  pScript.setEmbedGlobalInfo(mEmbedGlobalInfo);
+  pScript.setEmbedGlobalInfoSkipConstant(mEmbedGlobalInfoSkipConstant);
+  pScript.setLinkRuntimeCallback(getLinkRuntimeCallback());
+
+  Compiler::ErrorCode status = compileScript(pScript, pOut, pOut, pRuntimePath,
+                                             pBuildChecksum, pDumpIR);
   if (status != Compiler::kSuccess) {
     return false;
   }
 
   return true;
 }
-

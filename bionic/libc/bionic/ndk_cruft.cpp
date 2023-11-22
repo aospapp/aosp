@@ -26,11 +26,11 @@
  * SUCH DAMAGE.
  */
 
-// This file perpetuates the mistakes of the past, but only for 32-bit targets.
-#if !defined(__LP64__)
+// This file perpetuates the mistakes of the past.
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <signal.h>
@@ -44,6 +44,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wchar.h>
+
+#include "private/libc_logging.h"
+
+// The part is only for 32-bit targets.
+#if !defined(__LP64__)
 
 // These were accidentally declared in <unistd.h> because we stupidly used to inline
 // getpagesize() and __getpageshift(). Needed for backwards compatibility with old NDK apps.
@@ -235,6 +240,16 @@ extern "C" sighandler_t bsd_signal(int signum, sighandler_t handler) {
   return signal(signum, handler);
 }
 
+#if !defined(__i386__)
+// This was removed from POSIX 2008.
+#undef bcopy
+extern "C" void bcopy(const void* src, void* dst, size_t n) {
+  memcpy(dst, src, n);
+}
+#else
+// x86 has an assembler implementation.
+#endif
+
 // sysv_signal() was never in POSIX.
 extern sighandler_t _signal(int signum, sighandler_t handler, int flags);
 extern "C" sighandler_t sysv_signal(int signum, sighandler_t handler) {
@@ -320,10 +335,60 @@ extern "C" size_t dlmalloc_usable_size(void* ptr) {
   return malloc_usable_size(ptr);
 }
 
-// Older versions of appportable used dlmalloc directly instead of malloc,
+// In L we added a public pthread_gettid_np, but some apps were using the private API.
+extern "C" pid_t __pthread_gettid(pthread_t t) {
+  return pthread_gettid_np(t);
+}
+
+// Older versions of apportable used dlmalloc directly instead of malloc,
 // so export this compatibility shim that simply calls malloc.
 extern "C" void* dlmalloc(size_t size) {
   return malloc(size);
 }
 
+#define __get_thread __real_get_thread
+#include "pthread_internal.h"
+#undef __get_thread
+// Various third-party apps contain a backport of our pthread_rwlock implementation that uses this.
+extern "C" pthread_internal_t* __get_thread() {
+  return __real_get_thread();
+}
+
+#endif // !defined(__LP64__)
+
+// This is never implemented in bionic, only needed for ABI compatibility with the NDK.
+extern "C" char* getusershell() {
+  return NULL;
+}
+
+// This is never implemented in bionic, only needed for ABI compatibility with the NDK.
+extern "C" void setusershell() { }
+
+// This is never implemented in bionic, only needed for ABI compatibility with the NDK.
+extern "C" void endusershell() { }
+
+// This is never implemented in bionic, only needed for ABI compatibility with the NDK.
+extern "C" void endpwent() { }
+
+// Since dlmalloc_inspect_all and dlmalloc_trim are exported for systems
+// that use dlmalloc, be consistent and export them everywhere.
+#if defined(USE_JEMALLOC)
+extern "C" void dlmalloc_inspect_all(void (*)(void*, void*, size_t, void*), void*) {
+}
+#else
+extern "C" void dlmalloc_inspect_all_real(void (*)(void*, void*, size_t, void*), void*);
+extern "C" void dlmalloc_inspect_all(void (*handler)(void*, void*, size_t, void*), void* arg) {
+  dlmalloc_inspect_all_real(handler, arg);
+}
+#endif
+
+#if defined(USE_JEMALLOC)
+extern "C" int dlmalloc_trim(size_t) {
+  return 0;
+}
+#else
+extern "C" int dlmalloc_trim_real(size_t);
+extern "C" int dlmalloc_trim(size_t pad) {
+  return dlmalloc_trim_real(pad);
+}
 #endif

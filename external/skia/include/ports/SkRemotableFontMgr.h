@@ -46,7 +46,8 @@ public:
 
 private:
     SkRemotableFontIdentitySet() : fCount(0), fData() { }
-    static SkRemotableFontIdentitySet* NewEmptyImpl();
+
+    friend SkRemotableFontIdentitySet* sk_remotable_font_identity_set_new();
 
     int fCount;
     SkAutoTMalloc<SkFontIdentity> fData;
@@ -134,7 +135,8 @@ public:
      *  so it is fine to just pass a ISO 639 here.
      */
     virtual SkFontIdentity matchNameStyleCharacter(const char familyName[], const SkFontStyle&,
-                                                   const char bpc47[], SkUnichar character) const=0;
+                                                   const char* bcp47[], int bcp47Count,
+                                                   SkUnichar character) const=0;
 
     /**
      *  Returns the data for the given data id.

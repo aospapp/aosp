@@ -24,6 +24,20 @@ package android.jni.cts;
  */
 public class JniStaticTest extends JniTestCase {
 
+    static {
+        if (!JniTestCase.isCpuAbiNone()) {
+            System.loadLibrary("jnitest");
+        }
+    }
+
+    /**
+     * Test that accessing classes true JNI works as expected. b/19382130
+     */
+    public void test_classload() {
+        // Use an independent class to do this.
+        assertEquals(true, ClassLoaderHelper.run());
+    }
+
     /**
      * Test a simple no-op and void-returning method call.
      */

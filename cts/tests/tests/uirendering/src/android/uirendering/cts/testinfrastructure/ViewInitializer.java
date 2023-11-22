@@ -21,5 +21,5 @@ import android.view.View;
  * Called after a view is created to set various properties on the view
  */
 public abstract class ViewInitializer {
-    public abstract void intializeView(View view);
+    public abstract void initializeView(View view);
 }

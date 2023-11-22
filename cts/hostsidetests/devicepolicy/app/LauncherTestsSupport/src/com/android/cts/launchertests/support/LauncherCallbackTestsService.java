@@ -22,6 +22,7 @@ import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
@@ -31,6 +32,9 @@ import android.util.Log;
 import android.util.Pair;
 
 import java.util.ArrayList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 
 /**
@@ -49,23 +53,28 @@ public class LauncherCallbackTestsService extends Service {
     public static final int MSG_CHECK_PACKAGE_ADDED = 1;
     public static final int MSG_CHECK_PACKAGE_REMOVED = 2;
     public static final int MSG_CHECK_PACKAGE_CHANGED = 3;
-    public static final int MSG_CHECK_NO_CALLBACK = 4;
+    public static final int MSG_CHECK_NO_PACKAGE_ADDED = 4;
 
     public static final int RESULT_PASS = 1;
     public static final int RESULT_FAIL = 2;
 
     private static final String TAG = "LauncherCallbackTests";
 
-    private static List<Pair<String, UserHandle>> mPackagesAdded
-            = new ArrayList<Pair<String, UserHandle>>();
-    private static List<Pair<String, UserHandle>> mPackagesRemoved
-            = new ArrayList<Pair<String, UserHandle>>();
-    private static List<Pair<String, UserHandle>> mPackagesChanged
-            = new ArrayList<Pair<String, UserHandle>>();
-    private static Object mPackagesLock = new Object();
+    private static BlockingQueue<Pair<String, UserHandle>> mPackagesAdded
+            = new LinkedBlockingQueue();
+    private static BlockingQueue<Pair<String, UserHandle>> mPackagesRemoved
+            = new LinkedBlockingQueue();
+    private static BlockingQueue<Pair<String, UserHandle>> mPackagesChanged
+            = new LinkedBlockingQueue();
 
     private TestCallback mCallback;
+    private Object mCallbackLock = new Object();
     private final Messenger mMessenger = new Messenger(new CheckHandler());
+    private final HandlerThread mCallbackThread = new HandlerThread("callback");
+
+    public LauncherCallbackTestsService() {
+        mCallbackThread.start();
+    }
 
     class CheckHandler extends Handler {
         @Override
@@ -77,6 +86,7 @@ public class LauncherCallbackTestsService extends Service {
             try {
                 switch (msg.what) {
                     case MSG_CHECK_PACKAGE_ADDED: {
+                        Log.i(TAG, "MSG_CHECK_PACKAGE_ADDED");
                         boolean exists = eventExists(params, mPackagesAdded);
                         teardown();
                         msg.replyTo.send(Message.obtain(null, MSG_RESULT,
@@ -84,6 +94,7 @@ public class LauncherCallbackTestsService extends Service {
                         break;
                     }
                     case MSG_CHECK_PACKAGE_REMOVED: {
+                        Log.i(TAG, "MSG_CHECK_PACKAGE_REMOVED");
                         boolean exists = eventExists(params, mPackagesRemoved);
                         teardown();
                         msg.replyTo.send(Message.obtain(null, MSG_RESULT,
@@ -91,16 +102,16 @@ public class LauncherCallbackTestsService extends Service {
                         break;
                     }
                     case MSG_CHECK_PACKAGE_CHANGED: {
+                        Log.i(TAG, "MSG_CHECK_PACKAGE_CHANGED");
                         boolean exists = eventExists(params, mPackagesChanged);
                         teardown();
                         msg.replyTo.send(Message.obtain(null, MSG_RESULT,
                                         exists ? RESULT_PASS : RESULT_FAIL, 0));
                         break;
                     }
-                    case MSG_CHECK_NO_CALLBACK: {
-                        boolean exists = eventExists(params, mPackagesAdded)
-                                || eventExists(params, mPackagesRemoved)
-                                || eventExists(params, mPackagesChanged);
+                    case MSG_CHECK_NO_PACKAGE_ADDED: {
+                        Log.i(TAG, "MSG_CHECK_NO_PACKAGE_ADDED");
+                        boolean exists = eventExists(params, mPackagesAdded);
                         teardown();
                         msg.replyTo.send(Message.obtain(null, MSG_RESULT,
                                         exists ? RESULT_FAIL : RESULT_PASS, 0));
@@ -129,24 +140,26 @@ public class LauncherCallbackTestsService extends Service {
     private void setup() {
         LauncherApps launcherApps = (LauncherApps) getSystemService(
                 Context.LAUNCHER_APPS_SERVICE);
-        synchronized (mPackagesLock) {
-            mPackagesAdded.clear();
-            mPackagesRemoved.clear();
-            mPackagesChanged.clear();
+        synchronized (mCallbackLock) {
             if (mCallback != null) {
                 launcherApps.unregisterCallback(mCallback);
             }
+            mPackagesAdded.clear();
+            mPackagesRemoved.clear();
+            mPackagesChanged.clear();
             mCallback = new TestCallback();
-            launcherApps.registerCallback(mCallback);
+            launcherApps.registerCallback(mCallback, new Handler(mCallbackThread.getLooper()));
+            Log.i(TAG, "started listening for events");
         }
     }
 
     private void teardown() {
         LauncherApps launcherApps = (LauncherApps) getSystemService(
                 Context.LAUNCHER_APPS_SERVICE);
-        synchronized (mPackagesLock) {
+        synchronized (mCallbackLock) {
             if (mCallback != null) {
                 launcherApps.unregisterCallback(mCallback);
+                Log.i(TAG, "stopped listening for events");
                 mCallback = null;
             }
             mPackagesAdded.clear();
@@ -155,20 +168,23 @@ public class LauncherCallbackTestsService extends Service {
         }
     }
 
-    private boolean eventExists(Bundle params, List<Pair<String, UserHandle>> events) {
+    private boolean eventExists(Bundle params, BlockingQueue<Pair<String, UserHandle>> events) {
         UserHandle user = params.getParcelable(USER_EXTRA);
         String packageName = params.getString(PACKAGE_EXTRA);
-        synchronized (mPackagesLock) {
-            if (events != null) {
-                for (Pair<String, UserHandle> added : events) {
-                    if (added.first.equals(packageName) && added.second.equals(user)) {
-                        Log.i(TAG, "Event exists " + packageName + " for user " + user);
-                        return true;
-                    }
+        Log.i(TAG, "checking for " + packageName + " " + user);
+        try {
+            Pair<String, UserHandle> event = events.poll(60, TimeUnit.SECONDS);
+            while (event != null) {
+                if (event.first.equals(packageName) && event.second.equals(user)) {
+                    Log.i(TAG, "Event exists " + packageName + " for user " + user);
+                    return true;
                 }
+                event = events.poll(20, TimeUnit.SECONDS);
             }
-            return false;
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Failed checking for event", e);
         }
+        return false;
     }
 
     @Override
@@ -178,20 +194,29 @@ public class LauncherCallbackTestsService extends Service {
 
     private class TestCallback extends LauncherApps.Callback {
         public void onPackageRemoved(String packageName, UserHandle user) {
-            synchronized (mPackagesLock) {
-                mPackagesRemoved.add(new Pair<String, UserHandle>(packageName, user));
+            Log.i(TAG, "package removed event " + packageName + " " + user);
+            try {
+                mPackagesRemoved.put(new Pair(packageName, user));
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed saving event", e);
             }
         }
 
         public void onPackageAdded(String packageName, UserHandle user) {
-            synchronized (mPackagesLock) {
-                mPackagesAdded.add(new Pair<String, UserHandle>(packageName, user));
+            Log.i(TAG, "package added event " + packageName + " " + user);
+            try {
+                mPackagesAdded.put(new Pair(packageName, user));
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed saving event", e);
             }
         }
 
         public void onPackageChanged(String packageName, UserHandle user) {
-            synchronized (mPackagesLock) {
-                mPackagesChanged.add(new Pair<String, UserHandle>(packageName, user));
+            Log.i(TAG, "package changed event " + packageName + " " + user);
+            try {
+                mPackagesChanged.put(new Pair(packageName, user));
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Failed saving event", e);
             }
         }
 

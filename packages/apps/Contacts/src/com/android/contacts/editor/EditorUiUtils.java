@@ -21,7 +21,12 @@ import static android.provider.ContactsContract.CommonDataKinds.GroupMembership;
 import static android.provider.ContactsContract.CommonDataKinds.Photo;
 import static android.provider.ContactsContract.CommonDataKinds.StructuredName;
 
+import android.content.Context;
+import android.text.TextUtils;
+import android.util.Pair;
 import com.android.contacts.R;
+import com.android.contacts.common.model.account.AccountType;
+import com.android.contacts.common.model.account.GoogleAccountType;
 import com.android.contacts.common.model.dataitem.DataKind;
 import com.google.common.collect.Maps;
 
@@ -75,5 +80,61 @@ public class EditorUiUtils {
             return R.layout.text_fields_editor_view;
         }
         return id;
+    }
+
+    /**
+     * Returns a Pair of the account name and type to display for the given arguments or null
+     * in no account information should be displayed. The account name may also be null.
+     */
+    public static Pair<String,String> getAccountInfo(Context context, boolean isProfile,
+            String accountName, AccountType accountType) {
+        CharSequence accountTypeDisplayLabel = accountType.getDisplayLabel(context);
+
+        if (isProfile) {
+            if (TextUtils.isEmpty(accountName)) {
+                return new Pair<>(
+                        /* accountName =*/ null,
+                        context.getString(R.string.local_profile_title));
+            }
+            return new Pair<>(
+                    accountName,
+                    context.getString(R.string.external_profile_title, accountTypeDisplayLabel));
+        }
+        if (!TextUtils.isEmpty(accountName)) {
+            final String accountNameDisplayLabel =
+                    context.getString(R.string.from_account_format, accountName);
+
+            if (TextUtils.isEmpty(accountTypeDisplayLabel)) {
+                accountTypeDisplayLabel = context.getString(R.string.account_phone);
+            }
+
+            if (GoogleAccountType.ACCOUNT_TYPE.equals(accountType.accountType)
+                    && accountType.dataSet == null) {
+                return new Pair<>(
+                        accountNameDisplayLabel,
+                        context.getString(R.string.google_account_type_format,
+                                accountTypeDisplayLabel));
+            }
+            return new Pair<>(
+                    accountNameDisplayLabel,
+                    context.getString(R.string.account_type_format, accountTypeDisplayLabel));
+        }
+        return null;
+    }
+
+    /**
+     * Returns a content description String for the container of the account information
+     * returned by {@link #getAccountInfo}.
+     */
+    public static String getAccountInfoContentDescription(CharSequence accountName,
+            CharSequence accountType) {
+        final StringBuilder builder = new StringBuilder();
+        if (!TextUtils.isEmpty(accountType)) {
+            builder.append(accountType).append('\n');
+        }
+        if (!TextUtils.isEmpty(accountName)) {
+            builder.append(accountName).append('\n');
+        }
+        return builder.toString();
     }
 }

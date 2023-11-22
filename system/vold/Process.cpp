@@ -66,7 +66,7 @@ int Process::pathMatchesMountPoint(const char* path, const char* mountPoint) {
 void Process::getProcessName(int pid, char *buffer, size_t max) {
     int fd;
     snprintf(buffer, max, "/proc/%d/cmdline", pid);
-    fd = open(buffer, O_RDONLY);
+    fd = open(buffer, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         strcpy(buffer, "???");
     } else {
@@ -110,7 +110,7 @@ int Process::checkFileDescriptorSymLinks(int pid, const char *mountPoint, char *
         if (readSymLink(path, link, sizeof(link)) && pathMatchesMountPoint(link, mountPoint)) {
             if (openFilename) {
                 memset(openFilename, 0, max);
-                strncpy(openFilename, link, max-1);
+                strlcpy(openFilename, link, max);
             }
             closedir(dir);
             return 1;
@@ -140,7 +140,7 @@ int Process::checkFileMaps(int pid, const char *mountPoint, char *openFilename, 
         if (path && pathMatchesMountPoint(path, mountPoint)) {
             if (openFilename) {
                 memset(openFilename, 0, max);
-                strncpy(openFilename, path, max-1);
+                strlcpy(openFilename, path, max);
             }
             fclose(file);
             return 1;
@@ -170,18 +170,14 @@ int Process::getPid(const char *s) {
     return result;
 }
 
-extern "C" void vold_killProcessesWithOpenFiles(const char *path, int action) {
-	Process::killProcessesWithOpenFiles(path, action);
+extern "C" void vold_killProcessesWithOpenFiles(const char *path, int signal) {
+	Process::killProcessesWithOpenFiles(path, signal);
 }
 
 /*
  * Hunt down processes that have files open at the given mount point.
- * action = 0 to just warn,
- * action = 1 to SIGHUP,
- * action = 2 to SIGKILL
  */
-// hunt down and kill processes that have files open on the given mount point
-void Process::killProcessesWithOpenFiles(const char *path, int action) {
+void Process::killProcessesWithOpenFiles(const char *path, int signal) {
     DIR*    dir;
     struct dirent* de;
 
@@ -191,7 +187,6 @@ void Process::killProcessesWithOpenFiles(const char *path, int action) {
     }
 
     while ((de = readdir(dir))) {
-        int killed = 0;
         int pid = getPid(de->d_name);
         char name[PATH_MAX];
 
@@ -214,12 +209,10 @@ void Process::killProcessesWithOpenFiles(const char *path, int action) {
         } else {
             continue;
         }
-        if (action == 1) {
-            SLOGW("Sending SIGHUP to process %d", pid);
-            kill(pid, SIGTERM);
-        } else if (action == 2) {
-            SLOGE("Sending SIGKILL to process %d", pid);
-            kill(pid, SIGKILL);
+
+        if (signal != 0) {
+            SLOGW("Sending %s to process %d", strsignal(signal), pid);
+            kill(pid, signal);
         }
     }
     closedir(dir);

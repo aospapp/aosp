@@ -4,9 +4,10 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FXET_EDIT_H_
-#define _FXET_EDIT_H_
+#ifndef FPDFSDK_INCLUDE_FXEDIT_FXET_EDIT_H_
+#define FPDFSDK_INCLUDE_FXEDIT_FXET_EDIT_H_
 
+#include "../../../core/include/fpdfdoc/fpdf_vt.h"
 #include "fx_edit.h"
 
 class CFX_Edit_Page;
@@ -324,12 +325,9 @@ class CFX_Edit_UndoItem : public IFX_Edit_UndoItem
 {
 public:
 	CFX_Edit_UndoItem() : m_bFirst(TRUE), m_bLast(TRUE) {}
-	virtual ~CFX_Edit_UndoItem(){}
 
-	virtual CFX_WideString					GetUndoTitle() {return L"";}
-	virtual void							Release(){delete this;}
+	CFX_WideString GetUndoTitle() override { return L""; }
 
-public:
 	void									SetFirst(FX_BOOL bFirst){m_bFirst = bFirst;}
 	FX_BOOL									IsFirst(){return m_bFirst;}
 	void									SetLast(FX_BOOL bLast){m_bLast = bLast;}
@@ -344,16 +342,14 @@ class CFX_Edit_GroupUndoItem : public IFX_Edit_UndoItem
 {
 public:
 	CFX_Edit_GroupUndoItem(const CFX_WideString& sTitle);
-	virtual ~CFX_Edit_GroupUndoItem();
+	~CFX_Edit_GroupUndoItem() override;
+
+	void							Undo() override;
+	void							Redo() override;
+	CFX_WideString					GetUndoTitle() override;
 
 	void									AddUndoItem(CFX_Edit_UndoItem* pUndoItem);
 	void									UpdateItems();
-
-public:
-	virtual void							Undo();
-	virtual void							Redo();
-	virtual CFX_WideString					GetUndoTitle();
-	virtual void							Release();
 
 private:
 	CFX_WideString							m_sTitle;
@@ -762,7 +758,6 @@ private:
 	CFX_Edit_Undo							m_Undo;
 	FX_INT32								m_nAlignment;
 	FX_BOOL									m_bNotifyFlag;
-	FX_BOOL									m_bTextFullFlag;
 	FX_BOOL									m_bEnableOverflow;
 	FX_BOOL									m_bEnableRefresh;
 	CPDF_Rect								m_rcOldContent;
@@ -819,5 +814,4 @@ private:
 	IFX_Edit_FontMap*			m_pFontMap;
 };
 
-#endif //_FXET_EDIT_H_
-
+#endif  // FPDFSDK_INCLUDE_FXEDIT_FXET_EDIT_H_

@@ -30,6 +30,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <malloc.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -39,12 +41,19 @@
 
 extern "C" int __getdents64(unsigned int, dirent*, unsigned int);
 
+// Apportable decided to copy the data structure from this file
+// and use it in their own code, but they also call into readdir.
+// In order to avoid a lockup, the structure must be maintained in
+// the exact same order as in L and below. New structure members
+// need to be added to the end of this structure.
+// See b/21037208 for more details.
 struct DIR {
   int fd_;
   size_t available_bytes_;
   dirent* next_;
   pthread_mutex_t mutex_;
   dirent buff_[15];
+  long current_pos_;
 };
 
 static DIR* __allocate_DIR(int fd) {
@@ -55,6 +64,7 @@ static DIR* __allocate_DIR(int fd) {
   d->fd_ = fd;
   d->available_bytes_ = 0;
   d->next_ = NULL;
+  d->current_pos_ = 0L;
   pthread_mutex_init(&d->mutex_, NULL);
   return d;
 }
@@ -78,7 +88,7 @@ DIR* fdopendir(int fd) {
 }
 
 DIR* opendir(const char* path) {
-  int fd = open(path, O_RDONLY | O_DIRECTORY);
+  int fd = open(path, O_CLOEXEC | O_DIRECTORY | O_RDONLY);
   return (fd != -1) ? __allocate_DIR(fd) : NULL;
 }
 
@@ -100,6 +110,9 @@ static dirent* __readdir_locked(DIR* d) {
   dirent* entry = d->next_;
   d->next_ = reinterpret_cast<dirent*>(reinterpret_cast<char*>(entry) + entry->d_reclen);
   d->available_bytes_ -= entry->d_reclen;
+  // The directory entry offset uses 0, 1, 2 instead of real file offset,
+  // so the value range of long type is enough.
+  d->current_pos_ = static_cast<long>(entry->d_off);
   return entry;
 }
 
@@ -146,6 +159,20 @@ void rewinddir(DIR* d) {
   ScopedPthreadMutexLocker locker(&d->mutex_);
   lseek(d->fd_, 0, SEEK_SET);
   d->available_bytes_ = 0;
+  d->current_pos_ = 0L;
+}
+
+void seekdir(DIR* d, long offset) {
+  ScopedPthreadMutexLocker locker(&d->mutex_);
+  off_t ret = lseek(d->fd_, offset, SEEK_SET);
+  if (ret != -1L) {
+    d->available_bytes_ = 0;
+    d->current_pos_ = ret;
+  }
+}
+
+long telldir(DIR* d) {
+  return d->current_pos_;
 }
 
 int alphasort(const dirent** a, const dirent** b) {

@@ -10,6 +10,7 @@
 #ifndef LLVM_CLANG_FRONTEND_COMPILERINSTANCE_H_
 #define LLVM_CLANG_FRONTEND_COMPILERINSTANCE_H_
 
+#include "clang/AST/ASTConsumer.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CompilerInvocation.h"
@@ -116,7 +117,14 @@ class CompilerInstance : public ModuleLoader {
   /// \brief The set of top-level modules that has already been loaded,
   /// along with the module map
   llvm::DenseMap<const IdentifierInfo *, Module *> KnownModules;
-  
+
+  /// \brief Module names that have an override for the target file.
+  llvm::StringMap<std::string> ModuleFileOverrides;
+
+  /// \brief Module files that we've explicitly loaded via \ref loadModuleFile,
+  /// and their dependencies.
+  llvm::StringSet<> ExplicitlyLoadedModuleFiles;
+
   /// \brief The location of the module-import keyword for the last module
   /// import. 
   SourceLocation LastModuleImportLoc;
@@ -143,21 +151,29 @@ class CompilerInstance : public ModuleLoader {
   struct OutputFile {
     std::string Filename;
     std::string TempFilename;
-    raw_ostream *OS;
+    std::unique_ptr<raw_ostream> OS;
 
     OutputFile(const std::string &filename, const std::string &tempFilename,
-               raw_ostream *os)
-      : Filename(filename), TempFilename(tempFilename), OS(os) { }
+               std::unique_ptr<raw_ostream> OS)
+        : Filename(filename), TempFilename(tempFilename), OS(std::move(OS)) {}
+    OutputFile(OutputFile &&O)
+        : Filename(std::move(O.Filename)),
+          TempFilename(std::move(O.TempFilename)), OS(std::move(O.OS)) {}
   };
+
+  /// If the output doesn't support seeking (terminal, pipe). we switch
+  /// the stream to a buffer_ostream. These are the buffer and the original
+  /// stream.
+  std::unique_ptr<llvm::raw_fd_ostream> NonSeekStream;
 
   /// The list of active output files.
   std::list<OutputFile> OutputFiles;
 
-  CompilerInstance(const CompilerInstance &) LLVM_DELETED_FUNCTION;
-  void operator=(const CompilerInstance &) LLVM_DELETED_FUNCTION;
+  CompilerInstance(const CompilerInstance &) = delete;
+  void operator=(const CompilerInstance &) = delete;
 public:
   explicit CompilerInstance(bool BuildingModule = false);
-  ~CompilerInstance();
+  ~CompilerInstance() override;
 
   /// @name High-Level Operations
   /// {
@@ -246,6 +262,9 @@ public:
     return Invocation->getDiagnosticOpts();
   }
 
+  FileSystemOptions &getFileSystemOpts() {
+    return Invocation->getFileSystemOpts();
+  }
   const FileSystemOptions &getFileSystemOpts() const {
     return Invocation->getFileSystemOpts();
   }
@@ -443,11 +462,11 @@ public:
 
   /// takeASTConsumer - Remove the current AST consumer and give ownership to
   /// the caller.
-  ASTConsumer *takeASTConsumer() { return Consumer.release(); }
+  std::unique_ptr<ASTConsumer> takeASTConsumer() { return std::move(Consumer); }
 
   /// setASTConsumer - Replace the current AST consumer; the compiler instance
   /// takes ownership of \p Value.
-  void setASTConsumer(ASTConsumer *Value);
+  void setASTConsumer(std::unique_ptr<ASTConsumer> Value);
 
   /// }
   /// @name Semantic analysis
@@ -459,8 +478,8 @@ public:
     return *TheSema;
   }
 
-  Sema *takeSema() { return TheSema.release(); }
-  void resetAndLeakSema() { BuryPointer(TheSema.release()); }
+  std::unique_ptr<Sema> takeSema();
+  void resetAndLeakSema();
 
   /// }
   /// @name Module Management
@@ -485,12 +504,6 @@ public:
     return *CompletionConsumer;
   }
 
-  /// takeCodeCompletionConsumer - Remove the current code completion consumer
-  /// and give ownership to the caller.
-  CodeCompleteConsumer *takeCodeCompletionConsumer() {
-    return CompletionConsumer.release();
-  }
-
   /// setCodeCompletionConsumer - Replace the current code completion consumer;
   /// the compiler instance takes ownership of \p Value.
   void setCodeCompletionConsumer(CodeCompleteConsumer *Value);
@@ -513,7 +526,7 @@ public:
   /// addOutputFile - Add an output file onto the list of tracked output files.
   ///
   /// \param OutFile - The output file info.
-  void addOutputFile(const OutputFile &OutFile);
+  void addOutputFile(OutputFile &&OutFile);
 
   /// clearOutputFiles - Clear the output file list, destroying the contained
   /// output streams.
@@ -574,6 +587,8 @@ public:
   /// and replace any existing one with it.
   void createPreprocessor(TranslationUnitKind TUKind);
 
+  std::string getSpecificModuleCachePath();
+
   /// Create the AST context.
   void createASTContext();
 
@@ -587,7 +602,7 @@ public:
   /// Create an external AST source to read a PCH file.
   ///
   /// \return - The new object on success, or null on failure.
-  static ExternalASTSource *createPCHExternalASTSource(
+  static IntrusiveRefCntPtr<ASTReader> createPCHExternalASTSource(
       StringRef Path, const std::string &Sysroot, bool DisablePCHValidation,
       bool AllowPCHWithCompilerErrors, Preprocessor &PP, ASTContext &Context,
       void *DeserializationListener, bool OwnDeserializationListener,
@@ -621,21 +636,19 @@ public:
   /// atomically replace the target output on success).
   ///
   /// \return - Null on error.
-  llvm::raw_fd_ostream *
-  createDefaultOutputFile(bool Binary = true, StringRef BaseInput = "",
-                          StringRef Extension = "");
+  raw_pwrite_stream *createDefaultOutputFile(bool Binary = true,
+                                             StringRef BaseInput = "",
+                                             StringRef Extension = "");
 
   /// Create a new output file and add it to the list of tracked output files,
   /// optionally deriving the output path name.
   ///
   /// \return - Null on error.
-  llvm::raw_fd_ostream *
-  createOutputFile(StringRef OutputPath,
-                   bool Binary, bool RemoveFileOnSignal,
-                   StringRef BaseInput,
-                   StringRef Extension,
-                   bool UseTemporary,
-                   bool CreateMissingDirectories = false);
+  raw_pwrite_stream *createOutputFile(StringRef OutputPath, bool Binary,
+                                      bool RemoveFileOnSignal,
+                                      StringRef BaseInput, StringRef Extension,
+                                      bool UseTemporary,
+                                      bool CreateMissingDirectories = false);
 
   /// Create a new output file, optionally deriving the output path name.
   ///
@@ -646,7 +659,7 @@ public:
   /// renamed to \p OutputPath in the end.
   ///
   /// \param OutputPath - If given, the path to the output file.
-  /// \param Error [out] - On failure, the error message.
+  /// \param Error [out] - On failure, the error.
   /// \param BaseInput - If \p OutputPath is empty, the input path name to use
   /// for deriving the output path.
   /// \param Extension - The extension to use for derived output names.
@@ -662,14 +675,11 @@ public:
   /// stored here on success.
   /// \param TempPathName [out] - If given, the temporary file path name
   /// will be stored here on success.
-  static llvm::raw_fd_ostream *
-  createOutputFile(StringRef OutputPath, std::string &Error,
-                   bool Binary, bool RemoveFileOnSignal,
-                   StringRef BaseInput,
-                   StringRef Extension,
-                   bool UseTemporary,
-                   bool CreateMissingDirectories,
-                   std::string *ResultPathName,
+  std::unique_ptr<raw_pwrite_stream>
+  createOutputFile(StringRef OutputPath, std::error_code &Error, bool Binary,
+                   bool RemoveFileOnSignal, StringRef BaseInput,
+                   StringRef Extension, bool UseTemporary,
+                   bool CreateMissingDirectories, std::string *ResultPathName,
                    std::string *TempPathName);
 
   llvm::raw_null_ostream *createNullOutputFile();
@@ -698,6 +708,8 @@ public:
 
   // Create module manager.
   void createModuleManager();
+
+  bool loadModuleFile(StringRef FileName);
 
   ModuleLoadResult loadModule(SourceLocation ImportLoc, ModuleIdPath Path,
                               Module::NameVisibilityKind Visibility,

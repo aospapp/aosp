@@ -49,7 +49,7 @@ class GroupedLinkedMap<K extends Poolable, V> {
     public V removeLast() {
         LinkedEntry<K, V> last = head.prev;
 
-        while (last != head) {
+        while (!last.equals(head)) {
             V removed = last.removeLast();
             if (removed != null) {
                 return removed;
@@ -71,18 +71,18 @@ class GroupedLinkedMap<K extends Poolable, V> {
 
     @Override
     public String toString() {
-        String result = "GroupedLinkedMap( ";
+        StringBuilder sb = new StringBuilder("GroupedLinkedMap( ");
         LinkedEntry<K, V> current = head.next;
         boolean hadAtLeastOneItem = false;
-        while (current != head) {
+        while (!current.equals(head)) {
             hadAtLeastOneItem = true;
-            result += "{" + current.key + ":" + current.size() + "}, ";
+            sb.append('{').append(current.key).append(':').append(current.size()).append("}, ");
             current = current.next;
         }
         if (hadAtLeastOneItem) {
-            result = result.substring(0, result.length() - 2);
+            sb.delete(sb.length() - 2, sb.length());
         }
-        return result + " )";
+        return sb.append(" )").toString();
     }
 
     // Make the entry the most recently used item.
@@ -101,12 +101,12 @@ class GroupedLinkedMap<K extends Poolable, V> {
         updateEntry(entry);
     }
 
-    private static void updateEntry(LinkedEntry entry) {
+    private static <K, V> void updateEntry(LinkedEntry<K, V> entry) {
         entry.next.prev = entry;
         entry.prev.next = entry;
     }
 
-    private static void removeEntry(LinkedEntry entry) {
+    private static <K, V> void removeEntry(LinkedEntry<K, V> entry) {
         entry.prev.next = entry.next;
         entry.next.prev = entry.prev;
     }

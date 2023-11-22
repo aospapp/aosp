@@ -19,26 +19,27 @@ package com.squareup.okhttp.internal.http;
 import com.squareup.okhttp.Connection;
 import com.squareup.okhttp.ConnectionPool;
 import com.squareup.okhttp.Headers;
-import com.squareup.okhttp.Protocol;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.internal.Internal;
 import com.squareup.okhttp.internal.Util;
+import java.io.EOFException;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.CacheRequest;
 import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import okio.Buffer;
 import okio.BufferedSink;
 import okio.BufferedSource;
-import okio.Deadline;
-import okio.OkBuffer;
+import okio.ForwardingTimeout;
 import okio.Okio;
 import okio.Sink;
 import okio.Source;
+import okio.Timeout;
 
 import static com.squareup.okhttp.internal.Util.checkOffsetAndCount;
 import static com.squareup.okhttp.internal.http.StatusLine.HTTP_CONTINUE;
 import static com.squareup.okhttp.internal.http.Transport.DISCARD_STREAM_TIMEOUT_MILLIS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * A socket connection that can be used to send HTTP/1.1 messages. This class
@@ -47,16 +48,17 @@ import static com.squareup.okhttp.internal.http.Transport.DISCARD_STREAM_TIMEOUT
  *   <li>{@link #writeRequest Send request headers}.
  *   <li>Open a sink to write the request body. Either {@link
  *       #newFixedLengthSink fixed-length} or {@link #newChunkedSink chunked}.
- *   <li>Write to and then close that stream.
+ *   <li>Write to and then close that sink.
  *   <li>{@link #readResponse Read response headers}.
- *   <li>Open the HTTP response body input stream. Either {@link
+ *   <li>Open a source to read the response body. Either {@link
  *       #newFixedLengthSource fixed-length}, {@link #newChunkedSource chunked}
  *       or {@link #newUnknownLengthSource unknown length}.
- *   <li>Read from and close that stream.
+ *   <li>Read from and close that source.
  * </ol>
  * <p>Exchanges that do not have a request body may skip creating and closing
- * the request body. Exchanges that do not have a response body must call {@link
- * #emptyResponseBody}.
+ * the request body. Exchanges that do not have a response body can call {@link
+ * #newFixedLengthSource(long) newFixedLengthSource(0)} and may skip reading and
+ * closing that source.
  */
 public final class HttpConnection {
   private static final int STATE_IDLE = 0; // Idle connections are ready to write request headers.
@@ -85,8 +87,17 @@ public final class HttpConnection {
     this.pool = pool;
     this.connection = connection;
     this.socket = socket;
-    this.source = Okio.buffer(Okio.source(socket.getInputStream()));
-    this.sink = Okio.buffer(Okio.sink(socket.getOutputStream()));
+    this.source = Okio.buffer(Okio.source(socket));
+    this.sink = Okio.buffer(Okio.sink(socket));
+  }
+
+  public void setTimeouts(int readTimeoutMillis, int writeTimeoutMillis) {
+    if (readTimeoutMillis != 0) {
+      source.timeout().timeout(readTimeoutMillis, MILLISECONDS);
+    }
+    if (writeTimeoutMillis != 0) {
+      sink.timeout().timeout(writeTimeoutMillis, MILLISECONDS);
+    }
   }
 
   /**
@@ -99,7 +110,7 @@ public final class HttpConnection {
     // If we're already idle, go to the pool immediately.
     if (state == STATE_IDLE) {
       onIdle = ON_IDLE_HOLD; // Set the on idle policy back to the default.
-      pool.recycle(connection);
+      Internal.instance.recycle(pool, connection);
     }
   }
 
@@ -113,7 +124,7 @@ public final class HttpConnection {
     // If we're already idle, close immediately.
     if (state == STATE_IDLE) {
       state = STATE_CLOSED;
-      connection.close();
+      connection.getSocket().close();
     }
   }
 
@@ -123,7 +134,7 @@ public final class HttpConnection {
   }
 
   public void closeIfOwnedBy(Object owner) throws IOException {
-    connection.closeIfOwnedBy(owner);
+    Internal.instance.closeIfOwnedBy(connection, owner);
   }
 
   public void flush() throws IOException {
@@ -159,7 +170,7 @@ public final class HttpConnection {
   public void writeRequest(Headers headers, String requestLine) throws IOException {
     if (state != STATE_IDLE) throw new IllegalStateException("state: " + state);
     sink.writeUtf8(requestLine).writeUtf8("\r\n");
-    for (int i = 0; i < headers.size(); i ++) {
+    for (int i = 0, size = headers.size(); i < size; i ++) {
       sink.writeUtf8(headers.name(i))
           .writeUtf8(": ")
           .writeUtf8(headers.value(i))
@@ -175,22 +186,31 @@ public final class HttpConnection {
       throw new IllegalStateException("state: " + state);
     }
 
-    while (true) {
-      String statusLineString = source.readUtf8LineStrict();
-      StatusLine statusLine = new StatusLine(statusLineString);
+    try {
+      while (true) {
+        StatusLine statusLine = StatusLine.parse(source.readUtf8LineStrict());
 
-      Response.Builder responseBuilder = new Response.Builder()
-          .statusLine(statusLine)
-          .header(OkHeaders.SELECTED_PROTOCOL, Protocol.HTTP_11.name.utf8());
+        Response.Builder responseBuilder = new Response.Builder()
+            .protocol(statusLine.protocol)
+            .code(statusLine.code)
+            .message(statusLine.message);
 
-      Headers.Builder headersBuilder = new Headers.Builder();
-      readHeaders(headersBuilder);
-      responseBuilder.headers(headersBuilder.build());
+        Headers.Builder headersBuilder = new Headers.Builder();
+        readHeaders(headersBuilder);
+        headersBuilder.add(OkHeaders.SELECTED_PROTOCOL, statusLine.protocol.toString());
+        responseBuilder.headers(headersBuilder.build());
 
-      if (statusLine.code() != HTTP_CONTINUE) {
-        state = STATE_OPEN_RESPONSE_BODY;
-        return responseBuilder;
+        if (statusLine.code != HTTP_CONTINUE) {
+          state = STATE_OPEN_RESPONSE_BODY;
+          return responseBuilder;
+        }
       }
+    } catch (EOFException e) {
+      // Provide more context if the server ends the stream before sending a response.
+      IOException exception = new IOException("unexpected end of stream on " + connection
+          + " (recycle count=" + Internal.instance.recycleCount(connection) + ")");
+      exception.initCause(e);
+      throw exception;
     }
   }
 
@@ -198,27 +218,7 @@ public final class HttpConnection {
   public void readHeaders(Headers.Builder builder) throws IOException {
     // parse the result headers until the first blank line
     for (String line; (line = source.readUtf8LineStrict()).length() != 0; ) {
-      builder.addLine(line);
-    }
-  }
-
-  /**
-   * Discards the response body so that the connection can be reused and the
-   * cache entry can be completed. This needs to be done judiciously, since it
-   * delays the current request in order to speed up a potential future request
-   * that may never occur.
-   */
-  public boolean discard(Source in, int timeoutMillis) {
-    try {
-      int socketTimeout = socket.getSoTimeout();
-      socket.setSoTimeout(timeoutMillis);
-      try {
-        return Util.skipAll(in, timeoutMillis);
-      } finally {
-        socket.setSoTimeout(socketTimeout);
-      }
-    } catch (IOException e) {
-      return false;
+      Internal.instance.addLenient(builder, line);
     }
   }
 
@@ -240,36 +240,47 @@ public final class HttpConnection {
     requestBody.writeToSocket(sink);
   }
 
-  public Source newFixedLengthSource(CacheRequest cacheRequest, long length)
-      throws IOException {
+  public Source newFixedLengthSource(long length) throws IOException {
     if (state != STATE_OPEN_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
     state = STATE_READING_RESPONSE_BODY;
-    return new FixedLengthSource(cacheRequest, length);
+    return new FixedLengthSource(length);
+  }
+
+  public Source newChunkedSource(HttpEngine httpEngine) throws IOException {
+    if (state != STATE_OPEN_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
+    state = STATE_READING_RESPONSE_BODY;
+    return new ChunkedSource(httpEngine);
+  }
+
+  public Source newUnknownLengthSource() throws IOException {
+    if (state != STATE_OPEN_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
+    state = STATE_READING_RESPONSE_BODY;
+    return new UnknownLengthSource();
+  }
+
+  public BufferedSink rawSink() {
+    return sink;
+  }
+
+  public BufferedSource rawSource() {
+    return source;
   }
 
   /**
-   * Call this to advance past a response body for HTTP responses that do not
-   * have a response body.
+   * Sets the delegate of {@code timeout} to {@link Timeout#NONE} and resets its underlying timeout
+   * to the default configuration. Use this to avoid unexpected sharing of timeouts between pooled
+   * connections.
    */
-  public void emptyResponseBody() throws IOException {
-    newFixedLengthSource(null, 0L); // Transition to STATE_IDLE.
-  }
-
-  public Source newChunkedSource(CacheRequest cacheRequest, HttpEngine httpEngine)
-      throws IOException {
-    if (state != STATE_OPEN_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
-    state = STATE_READING_RESPONSE_BODY;
-    return new ChunkedSource(cacheRequest, httpEngine);
-  }
-
-  public Source newUnknownLengthSource(CacheRequest cacheRequest) throws IOException {
-    if (state != STATE_OPEN_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
-    state = STATE_READING_RESPONSE_BODY;
-    return new UnknownLengthSource(cacheRequest);
+  private void detachTimeout(ForwardingTimeout timeout) {
+    Timeout oldDelegate = timeout.delegate();
+    timeout.setDelegate(Timeout.NONE);
+    oldDelegate.clearDeadline();
+    oldDelegate.clearTimeout();
   }
 
   /** An HTTP body with a fixed length known in advance. */
   private final class FixedLengthSink implements Sink {
+    private final ForwardingTimeout timeout = new ForwardingTimeout(sink.timeout());
     private boolean closed;
     private long bytesRemaining;
 
@@ -277,11 +288,11 @@ public final class HttpConnection {
       this.bytesRemaining = bytesRemaining;
     }
 
-    @Override public Sink deadline(Deadline deadline) {
-      return this; // TODO: honor deadline.
+    @Override public Timeout timeout() {
+      return timeout;
     }
 
-    @Override public void write(OkBuffer source, long byteCount) throws IOException {
+    @Override public void write(Buffer source, long byteCount) throws IOException {
       if (closed) throw new IllegalStateException("closed");
       checkOffsetAndCount(source.size(), 0, byteCount);
       if (byteCount > bytesRemaining) {
@@ -301,15 +312,10 @@ public final class HttpConnection {
       if (closed) return;
       closed = true;
       if (bytesRemaining > 0) throw new ProtocolException("unexpected end of stream");
+      detachTimeout(timeout);
       state = STATE_READ_RESPONSE_HEADERS;
     }
   }
-
-  private static final String CRLF = "\r\n";
-  private static final byte[] HEX_DIGITS = {
-      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-  };
-  private static final byte[] FINAL_CHUNK = new byte[] { '0', '\r', '\n', '\r', '\n' };
 
   /**
    * An HTTP body with alternating chunk sizes and chunk bodies. It is the
@@ -317,22 +323,21 @@ public final class HttpConnection {
    * sink with this sink.
    */
   private final class ChunkedSink implements Sink {
-    /** Scratch space for up to 16 hex digits, and then a constant CRLF. */
-    private final byte[] hex = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '\r', '\n' };
-
+    private final ForwardingTimeout timeout = new ForwardingTimeout(sink.timeout());
     private boolean closed;
 
-    @Override public Sink deadline(Deadline deadline) {
-      return this; // TODO: honor deadline.
+    @Override public Timeout timeout() {
+      return timeout;
     }
 
-    @Override public void write(OkBuffer source, long byteCount) throws IOException {
+    @Override public void write(Buffer source, long byteCount) throws IOException {
       if (closed) throw new IllegalStateException("closed");
       if (byteCount == 0) return;
 
-      writeHex(byteCount);
+      sink.writeHexadecimalUnsignedLong(byteCount);
+      sink.writeUtf8("\r\n");
       sink.write(source, byteCount);
-      sink.writeUtf8(CRLF);
+      sink.writeUtf8("\r\n");
     }
 
     @Override public synchronized void flush() throws IOException {
@@ -343,44 +348,18 @@ public final class HttpConnection {
     @Override public synchronized void close() throws IOException {
       if (closed) return;
       closed = true;
-      sink.write(FINAL_CHUNK);
+      sink.writeUtf8("0\r\n\r\n");
+      detachTimeout(timeout);
       state = STATE_READ_RESPONSE_HEADERS;
-    }
-
-    /**
-     * Equivalent to, but cheaper than writing Long.toHexString().getBytes()
-     * followed by CRLF.
-     */
-    private void writeHex(long i) throws IOException {
-      int cursor = 16;
-      do {
-        hex[--cursor] = HEX_DIGITS[((int) (i & 0xf))];
-      } while ((i >>>= 4) != 0);
-      sink.write(hex, cursor, hex.length - cursor);
     }
   }
 
-  private class AbstractSource {
-    private final CacheRequest cacheRequest;
-    protected final OutputStream cacheBody;
+  private abstract class AbstractSource implements Source {
+    protected final ForwardingTimeout timeout = new ForwardingTimeout(source.timeout());
     protected boolean closed;
 
-    AbstractSource(CacheRequest cacheRequest) throws IOException {
-      // Some apps return a null body; for compatibility we treat that like a null cache request.
-      OutputStream cacheBody = cacheRequest != null ? cacheRequest.getBody() : null;
-      if (cacheBody == null) {
-        cacheRequest = null;
-      }
-
-      this.cacheBody = cacheBody;
-      this.cacheRequest = cacheRequest;
-    }
-
-    /** Copy the last {@code byteCount} bytes of {@code source} to the cache body. */
-    protected final void cacheWrite(OkBuffer source, long byteCount) throws IOException {
-      if (cacheBody != null) {
-        Okio.copy(source, source.size() - byteCount, byteCount, cacheBody);
-      }
+    @Override public Timeout timeout() {
+      return timeout;
     }
 
     /**
@@ -390,17 +369,15 @@ public final class HttpConnection {
     protected final void endOfInput(boolean recyclable) throws IOException {
       if (state != STATE_READING_RESPONSE_BODY) throw new IllegalStateException("state: " + state);
 
-      if (cacheRequest != null) {
-        cacheBody.close();
-      }
+      detachTimeout(timeout);
 
       state = STATE_IDLE;
       if (recyclable && onIdle == ON_IDLE_POOL) {
         onIdle = ON_IDLE_HOLD; // Set the on idle policy back to the default.
-        pool.recycle(connection);
+        Internal.instance.recycle(pool, connection);
       } else if (onIdle == ON_IDLE_CLOSE) {
         state = STATE_CLOSED;
-        connection.close();
+        connection.getSocket().close();
       }
     }
 
@@ -417,55 +394,45 @@ public final class HttpConnection {
      * to cancel the transfer, closing the connection is the only solution.
      */
     protected final void unexpectedEndOfInput() {
-      if (cacheRequest != null) {
-        cacheRequest.abort();
-      }
-      Util.closeQuietly(connection);
+      Util.closeQuietly(connection.getSocket());
       state = STATE_CLOSED;
     }
   }
 
   /** An HTTP body with a fixed length specified in advance. */
-  private class FixedLengthSource extends AbstractSource implements Source {
+  private class FixedLengthSource extends AbstractSource {
     private long bytesRemaining;
 
-    public FixedLengthSource(CacheRequest cacheRequest, long length) throws IOException {
-      super(cacheRequest);
+    public FixedLengthSource(long length) throws IOException {
       bytesRemaining = length;
       if (bytesRemaining == 0) {
         endOfInput(true);
       }
     }
 
-    @Override public long read(OkBuffer sink, long byteCount)
-        throws IOException {
+    @Override public long read(Buffer sink, long byteCount) throws IOException {
       if (byteCount < 0) throw new IllegalArgumentException("byteCount < 0: " + byteCount);
       if (closed) throw new IllegalStateException("closed");
       if (bytesRemaining == 0) return -1;
 
       long read = source.read(sink, Math.min(bytesRemaining, byteCount));
       if (read == -1) {
-        unexpectedEndOfInput(); // the server didn't supply the promised content length
+        unexpectedEndOfInput(); // The server didn't supply the promised content length.
         throw new ProtocolException("unexpected end of stream");
       }
 
       bytesRemaining -= read;
-      cacheWrite(sink, read);
       if (bytesRemaining == 0) {
         endOfInput(true);
       }
       return read;
     }
 
-    @Override public Source deadline(Deadline deadline) {
-      source.deadline(deadline);
-      return this;
-    }
-
     @Override public void close() throws IOException {
       if (closed) return;
 
-      if (bytesRemaining != 0 && !discard(this, DISCARD_STREAM_TIMEOUT_MILLIS)) {
+      if (bytesRemaining != 0
+          && !Util.discard(this, DISCARD_STREAM_TIMEOUT_MILLIS, MILLISECONDS)) {
         unexpectedEndOfInput();
       }
 
@@ -474,19 +441,17 @@ public final class HttpConnection {
   }
 
   /** An HTTP body with alternating chunk sizes and chunk bodies. */
-  private class ChunkedSource extends AbstractSource implements Source {
-    private static final int NO_CHUNK_YET = -1;
-    private int bytesRemainingInChunk = NO_CHUNK_YET;
+  private class ChunkedSource extends AbstractSource {
+    private static final long NO_CHUNK_YET = -1L;
+    private long bytesRemainingInChunk = NO_CHUNK_YET;
     private boolean hasMoreChunks = true;
     private final HttpEngine httpEngine;
 
-    ChunkedSource(CacheRequest cacheRequest, HttpEngine httpEngine) throws IOException {
-      super(cacheRequest);
+    ChunkedSource(HttpEngine httpEngine) throws IOException {
       this.httpEngine = httpEngine;
     }
 
-    @Override public long read(
-        OkBuffer sink, long byteCount) throws IOException {
+    @Override public long read(Buffer sink, long byteCount) throws IOException {
       if (byteCount < 0) throw new IllegalArgumentException("byteCount < 0: " + byteCount);
       if (closed) throw new IllegalStateException("closed");
       if (!hasMoreChunks) return -1;
@@ -498,30 +463,29 @@ public final class HttpConnection {
 
       long read = source.read(sink, Math.min(byteCount, bytesRemainingInChunk));
       if (read == -1) {
-        unexpectedEndOfInput(); // the server didn't supply the promised chunk length
+        unexpectedEndOfInput(); // The server didn't supply the promised chunk length.
         throw new IOException("unexpected end of stream");
       }
       bytesRemainingInChunk -= read;
-      cacheWrite(sink, read);
       return read;
     }
 
     private void readChunkSize() throws IOException {
-      // read the suffix of the previous chunk
+      // Read the suffix of the previous chunk.
       if (bytesRemainingInChunk != NO_CHUNK_YET) {
         source.readUtf8LineStrict();
       }
-      String chunkSizeString = source.readUtf8LineStrict();
-      int index = chunkSizeString.indexOf(";");
-      if (index != -1) {
-        chunkSizeString = chunkSizeString.substring(0, index);
-      }
       try {
-        bytesRemainingInChunk = Integer.parseInt(chunkSizeString.trim(), 16);
+        bytesRemainingInChunk = source.readHexadecimalUnsignedLong();
+        String extensions = source.readUtf8LineStrict().trim();
+        if (bytesRemainingInChunk < 0 || (!extensions.isEmpty() && !extensions.startsWith(";"))) {
+          throw new ProtocolException("expected chunk size and optional extensions but was \""
+              + bytesRemainingInChunk + extensions + "\"");
+        }
       } catch (NumberFormatException e) {
-        throw new ProtocolException("Expected a hex chunk size but was " + chunkSizeString);
+        throw new ProtocolException(e.getMessage());
       }
-      if (bytesRemainingInChunk == 0) {
+      if (bytesRemainingInChunk == 0L) {
         hasMoreChunks = false;
         Headers.Builder trailersBuilder = new Headers.Builder();
         readHeaders(trailersBuilder);
@@ -530,14 +494,9 @@ public final class HttpConnection {
       }
     }
 
-    @Override public Source deadline(Deadline deadline) {
-      source.deadline(deadline);
-      return this;
-    }
-
     @Override public void close() throws IOException {
       if (closed) return;
-      if (hasMoreChunks && !discard(this, DISCARD_STREAM_TIMEOUT_MILLIS)) {
+      if (hasMoreChunks && !Util.discard(this, DISCARD_STREAM_TIMEOUT_MILLIS, MILLISECONDS)) {
         unexpectedEndOfInput();
       }
       closed = true;
@@ -545,14 +504,10 @@ public final class HttpConnection {
   }
 
   /** An HTTP message body terminated by the end of the underlying stream. */
-  class UnknownLengthSource extends AbstractSource implements Source {
+  private class UnknownLengthSource extends AbstractSource {
     private boolean inputExhausted;
 
-    UnknownLengthSource(CacheRequest cacheRequest) throws IOException {
-      super(cacheRequest);
-    }
-
-    @Override public long read(OkBuffer sink, long byteCount)
+    @Override public long read(Buffer sink, long byteCount)
         throws IOException {
       if (byteCount < 0) throw new IllegalArgumentException("byteCount < 0: " + byteCount);
       if (closed) throw new IllegalStateException("closed");
@@ -564,18 +519,11 @@ public final class HttpConnection {
         endOfInput(false);
         return -1;
       }
-      cacheWrite(sink, read);
       return read;
-    }
-
-    @Override public Source deadline(Deadline deadline) {
-      source.deadline(deadline);
-      return this;
     }
 
     @Override public void close() throws IOException {
       if (closed) return;
-      // TODO: discard unknown length streams for best caching?
       if (!inputExhausted) {
         unexpectedEndOfInput();
       }

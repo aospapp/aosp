@@ -26,13 +26,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
 import javax.net.ssl.SSLSocket;
 
 import com.squareup.okhttp.Protocol;
 
-import okio.ByteString;
+import okio.Buffer;
 
 /**
  * Access to proprietary Android APIs. Doesn't use reflection.
@@ -56,12 +54,6 @@ public final class Platform {
     /** setAlpnSelectedProtocol(byte[]) */
     private static final OptionalMethod<Socket> SET_ALPN_PROTOCOLS =
             new OptionalMethod<Socket>(null, "setAlpnProtocols", byte[].class );
-    /** byte[] getNpnSelectedProtocol() */
-    private static final OptionalMethod<Socket> GET_NPN_SELECTED_PROTOCOL =
-            new OptionalMethod<Socket>(byte[].class, "getNpnSelectedProtocol");
-    /** setNpnSelectedProtocol(byte[]) */
-    private static final OptionalMethod<Socket> SET_NPN_PROTOCOLS =
-            new OptionalMethod<Socket>(null, "setNpnProtocols", byte[].class);
 
     public void logW(String warning) {
         System.logW(warning);
@@ -79,94 +71,45 @@ public final class Platform {
         return url.toURILenient();
     }
 
-    public void enableTlsExtensions(SSLSocket socket, String uriHost) {
-        SET_USE_SESSION_TICKETS.invokeOptionalWithoutCheckedException(socket, true);
-        SET_HOSTNAME.invokeOptionalWithoutCheckedException(socket, uriHost);
-    }
-
-    public void supportTlsIntolerantServer(SSLSocket socket) {
-        // In accordance with https://tools.ietf.org/html/draft-ietf-tls-downgrade-scsv-00
-        // the SCSV cipher is added to signal that a protocol fallback has taken place.
-        final String fallbackScsv = "TLS_FALLBACK_SCSV";
-        boolean socketSupportsFallbackScsv = false;
-        String[] supportedCipherSuites = socket.getSupportedCipherSuites();
-        for (int i = supportedCipherSuites.length - 1; i >= 0; i--) {
-            String supportedCipherSuite = supportedCipherSuites[i];
-            if (fallbackScsv.equals(supportedCipherSuite)) {
-                socketSupportsFallbackScsv = true;
-                break;
-            }
-        }
-        if (socketSupportsFallbackScsv) {
-            // Add the SCSV cipher to the set of enabled ciphers.
-            String[] enabledCipherSuites = socket.getEnabledCipherSuites();
-            String[] newEnabledCipherSuites = new String[enabledCipherSuites.length + 1];
-            System.arraycopy(enabledCipherSuites, 0,
-                    newEnabledCipherSuites, 0, enabledCipherSuites.length);
-            newEnabledCipherSuites[newEnabledCipherSuites.length - 1] = fallbackScsv;
-            socket.setEnabledCipherSuites(newEnabledCipherSuites);
-        }
-        socket.setEnabledProtocols(new String[]{"SSLv3"});
-    }
-
-    /**
-     * Returns the negotiated protocol, or null if no protocol was negotiated.
-     */
-    public ByteString getNpnSelectedProtocol(SSLSocket socket) {
-        boolean alpnSupported = GET_ALPN_SELECTED_PROTOCOL.isSupported(socket);
-        boolean npnSupported = GET_NPN_SELECTED_PROTOCOL.isSupported(socket);
-        if (!(alpnSupported || npnSupported)) {
-            return null;
+    public void configureTlsExtensions(
+            SSLSocket sslSocket, String hostname, List<Protocol> protocols) {
+        // Enable SNI and session tickets.
+        if (hostname != null) {
+            SET_USE_SESSION_TICKETS.invokeOptionalWithoutCheckedException(sslSocket, true);
+            SET_HOSTNAME.invokeOptionalWithoutCheckedException(sslSocket, hostname);
         }
 
-        // Prefer ALPN's result if it is present.
-        if (alpnSupported) {
-            byte[] alpnResult =
-                (byte[]) GET_ALPN_SELECTED_PROTOCOL.invokeWithoutCheckedException(socket);
-            if (alpnResult != null) {
-                return ByteString.of(alpnResult);
-            }
-        }
-        if (npnSupported) {
-            byte[] npnResult =
-                (byte[]) GET_NPN_SELECTED_PROTOCOL.invokeWithoutCheckedException(socket);
-            if (npnResult != null) {
-                return ByteString.of(npnResult);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Sets client-supported protocols on a socket to send to a server. The
-     * protocols are only sent if the socket implementation supports NPN.
-     */
-    public void setNpnProtocols(SSLSocket socket, List<Protocol> npnProtocols) {
-        boolean alpnSupported = SET_ALPN_PROTOCOLS.isSupported(socket);
-        boolean npnSupported = SET_NPN_PROTOCOLS.isSupported(socket);
-        if (!(alpnSupported || npnSupported)) {
+        // Enable ALPN.
+        boolean alpnSupported = SET_ALPN_PROTOCOLS.isSupported(sslSocket);
+        if (!alpnSupported) {
             return;
         }
 
-        byte[] protocols = concatLengthPrefixed(npnProtocols);
+        Object[] parameters = { concatLengthPrefixed(protocols) };
         if (alpnSupported) {
-            SET_ALPN_PROTOCOLS.invokeWithoutCheckedException(
-                socket, new Object[] { protocols });
-        }
-        if (npnSupported) {
-            SET_NPN_PROTOCOLS.invokeWithoutCheckedException(
-                socket, new Object[] { protocols });
+            SET_ALPN_PROTOCOLS.invokeWithoutCheckedException(sslSocket, parameters);
         }
     }
 
     /**
-     * Returns a deflater output stream that supports SYNC_FLUSH for SPDY name
-     * value blocks. This throws an {@link UnsupportedOperationException} on
-     * Java 6 and earlier where there is no built-in API to do SYNC_FLUSH.
+     * Called after the TLS handshake to release resources allocated by {@link
+     * #configureTlsExtensions}.
      */
-    public OutputStream newDeflaterOutputStream(
-            OutputStream out, Deflater deflater, boolean syncFlush) {
-        return new DeflaterOutputStream(out, deflater, syncFlush);
+    public void afterHandshake(SSLSocket sslSocket) {
+    }
+
+    public String getSelectedProtocol(SSLSocket socket) {
+        boolean alpnSupported = GET_ALPN_SELECTED_PROTOCOL.isSupported(socket);
+        if (!alpnSupported) {
+            return null;
+        }
+
+        byte[] alpnResult =
+                (byte[]) GET_ALPN_SELECTED_PROTOCOL.invokeWithoutCheckedException(socket);
+        if (alpnResult != null) {
+            return new String(alpnResult, Util.UTF_8);
+        }
+        return null;
     }
 
     public void connectSocket(Socket socket, InetSocketAddress address,
@@ -180,24 +123,17 @@ public final class Platform {
     }
 
     /**
-     * Concatenation of 8-bit, length prefixed protocol names.
-     *
+     * Returns the concatenation of 8-bit, length prefixed protocol names.
      * http://tools.ietf.org/html/draft-agl-tls-nextprotoneg-04#page-4
      */
     static byte[] concatLengthPrefixed(List<Protocol> protocols) {
-        int size = 0;
-        for (Protocol protocol : protocols) {
-            size += protocol.name.size() + 1; // add a byte for 8-bit length prefix.
+        Buffer result = new Buffer();
+        for (int i = 0, size = protocols.size(); i < size; i++) {
+            Protocol protocol = protocols.get(i);
+            if (protocol == Protocol.HTTP_1_0) continue; // No HTTP/1.0 for ALPN.
+            result.writeByte(protocol.toString().length());
+            result.writeUtf8(protocol.toString());
         }
-        byte[] result = new byte[size];
-        int pos = 0;
-        for (Protocol protocol : protocols) {
-            int nameSize = protocol.name.size();
-            result[pos++] = (byte) nameSize;
-            // toByteArray allocates an array, but this is only called on new connections.
-            System.arraycopy(protocol.name.toByteArray(), 0, result, pos, nameSize);
-            pos += nameSize;
-        }
-        return result;
+        return result.readByteArray();
     }
 }

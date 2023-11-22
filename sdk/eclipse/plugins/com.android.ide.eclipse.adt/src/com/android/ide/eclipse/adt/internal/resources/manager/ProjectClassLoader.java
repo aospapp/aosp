@@ -177,7 +177,7 @@ public final class ProjectClassLoader extends ClassLoader {
     public static byte[] rewriteClass(byte[] classData, final int maxVersion, final int minVersion) {
         assert maxVersion >= minVersion;
         ClassWriter classWriter = new ClassWriter(0);
-        ClassVisitor classVisitor = new ClassVisitor(Opcodes.ASM4, classWriter) {
+        ClassVisitor classVisitor = new ClassVisitor(Opcodes.ASM5, classWriter) {
             @Override
             public void visit(int version, int access, String name, String signature,
                     String superName, String[] interfaces) {

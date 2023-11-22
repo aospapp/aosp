@@ -7,9 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mcld/Config/Config.h"
-#include <mcld/Support/SystemUtils.h>
-
-using namespace mcld::sys;
+#include "mcld/Support/SystemUtils.h"
 
 //===----------------------------------------------------------------------===//
 // Non-member functions

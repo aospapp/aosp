@@ -16,6 +16,7 @@
 
 package com.android.systemui.qs.tiles;
 
+import com.android.internal.logging.MetricsLogger;
 import com.android.systemui.R;
 import com.android.systemui.qs.QSTile;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
@@ -59,6 +60,7 @@ public class LocationTile extends QSTile<QSTile.BooleanState> {
     @Override
     protected void handleClick() {
         final boolean wasEnabled = (Boolean) mState.value;
+        MetricsLogger.action(mContext, getMetricsCategory(), !wasEnabled);
         mController.setLocationEnabled(!wasEnabled);
         mEnable.setAllowAnimation(true);
         mDisable.setAllowAnimation(true);
@@ -84,6 +86,11 @@ public class LocationTile extends QSTile<QSTile.BooleanState> {
             state.contentDescription = mContext.getString(
                     R.string.accessibility_quick_settings_location_off);
         }
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsLogger.QS_LOCATION;
     }
 
     @Override

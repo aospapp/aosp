@@ -80,7 +80,7 @@
     <string name="menu_show_original" msgid="2330398228979616661">"Przywróć automatyczne wymiary"</string>
     <string name="menu_settings" msgid="7993485401501778040">"Ustawienia"</string>
     <string name="menu_search" msgid="1949652467806052768">"Szukaj"</string>
-    <string name="menu_toggle_drawer" msgid="8653049392208282481">"Włącz/wyłącz szufladę"</string>
+    <string name="menu_toggle_drawer" msgid="8653049392208282481">"Włącz/wyłącz panel"</string>
     <string name="drawer_title" msgid="3766219846644975778">"Nawigacja"</string>
     <string name="mark_important" msgid="8781680450177768820">"Oznacz jako ważne"</string>
     <string name="mark_not_important" msgid="3342258155408116917">"Oznacz jako mało ważne"</string>
@@ -143,7 +143,7 @@
     <string name="message_retrying" msgid="5335188121407261331">"Próbuję ponownie…"</string>
     <string name="message_failed" msgid="7887650587384601790">"Niepowodzenie"</string>
     <string name="send_failed" msgid="2186285547449865010">"Wiadomość nie została wysłana."</string>
-    <string name="me_object_pronoun" msgid="4674452244417913816">"ja"</string>
+    <string name="me_object_pronoun" msgid="4674452244417913816">"mnie"</string>
     <string name="me_subject_pronoun" msgid="7479328865714008288">"ja"</string>
   <plurals name="confirm_delete_conversation">
     <item quantity="one" msgid="7605755011865575440">"Usunąć wątek?"</item>
@@ -163,7 +163,7 @@
     <string name="empty_search" msgid="8564899353449880818">"Brak wyników dla zapytania „<xliff:g id="SEARCH_QUERY">%1$s</xliff:g>”."</string>
     <string name="empty_spam_folder" msgid="3288985543286122800">"Hurra! Brak spamu!"</string>
     <string name="empty_trash_folder" msgid="378119063015945020">"Kosz jest pusty. Miło, że dbasz o porządek."</string>
-    <string name="empty_folder" msgid="3227552635613553855">"Brak wiadomości."</string>
+    <string name="empty_folder" msgid="3227552635613553855">"Brak wiadomości"</string>
     <string name="getting_messages" msgid="8403333791332403244">"Wczytuję wiadomości"</string>
     <string name="undo" msgid="8256285267701059609">"Cofnij"</string>
   <plurals name="conversation_unstarred">
@@ -281,7 +281,7 @@
     <string name="activity_folder_selection" msgid="8375243281001234750">"Wybierz folder"</string>
     <string name="folder_shortcut_widget_label" msgid="6466292659577092915">"Folder Poczta"</string>
     <string name="change_folders_selection_dialog_title" msgid="9174464298613273814">"Zmień foldery"</string>
-    <string name="move_to_selection_dialog_title" msgid="4052506464467083621">"Przenieś do"</string>
+    <string name="move_to_selection_dialog_title" msgid="4052506464467083621">"Przenieś do:"</string>
     <string name="search_hint" msgid="7060626585689391003">"Szukaj"</string>
     <!-- no translation found for search_results_loaded (1784879343458807514) -->
     <skip />
@@ -371,7 +371,7 @@
     <string name="preference_swipe_title" msgid="2073613840893904205">"Działania przesuwania"</string>
     <string name="preference_swipe_description" msgid="3036560323237015010">"Na liście wątków"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"Zdjęcie nadawcy"</string>
-    <string name="preference_sender_image_description" msgid="3586817690132199889">"Pokaż obok imienia i nazwiska na liście wątków"</string>
+    <string name="preference_sender_image_description" msgid="3586817690132199889">"Pokazuj obok imienia i nazwiska na liście wątków"</string>
     <string name="empty_trash" msgid="3385937024924728399">"Opróżnij kosz"</string>
     <string name="empty_spam" msgid="2911988289997281371">"Opróżnij spam"</string>
     <string name="empty_trash_dialog_title" msgid="2104898489663621508">"Opróżnić kosz?"</string>
@@ -380,8 +380,8 @@
     <item quantity="one" msgid="3315412388217832914">"<xliff:g id="COUNT">%1$d</xliff:g> wiadomość zostanie trwale usunięta."</item>
     <item quantity="other" msgid="263840304486020101">"Liczba wiadomości, które zostaną trwale usunięte: <xliff:g id="COUNT">%1$d</xliff:g>."</item>
   </plurals>
-    <string name="drawer_open" msgid="2285557278907103851">"Otwórz szufladę nawigacji"</string>
-    <string name="drawer_close" msgid="2065829742127544297">"Zamknij szufladę nawigacji"</string>
+    <string name="drawer_open" msgid="2285557278907103851">"Otwórz panel nawigacji"</string>
+    <string name="drawer_close" msgid="2065829742127544297">"Zamknij panel nawigacji"</string>
     <string name="conversation_photo_welcome_text" msgid="836483155429003787">"Kliknij zdjęcie nadawcy, by wybrać wątek."</string>
     <string name="long_press_to_select_tip" msgid="1660881999120625177">"Kliknij i przytrzymaj, by zaznaczyć jeden wątek, a następnie kliknij, by zaznaczyć więcej."</string>
     <string name="folder_icon_desc" msgid="6272938864914794739">"Ikona folderu"</string>
@@ -421,7 +421,7 @@
     <string name="pick_end_date_title" msgid="733396083649496600">"Zakończenie (opcjonalnie)"</string>
     <string name="date_not_set" msgid="3251555782945051904">"Nie ustawiono"</string>
     <string name="set_end_date_dialog_title" msgid="7543009262788808443">"Data zakończenia (opcjonalna)"</string>
-    <string name="custom_date" msgid="5794846334232367838">"Niestandardowa"</string>
+    <string name="custom_date" msgid="5794846334232367838">"Niestandardowa data"</string>
     <string name="date_none" msgid="1061426502665431412">"Brak"</string>
     <string name="discard_changes" msgid="5699760550972324746">"Odrzucić zmiany?"</string>
     <string name="vacation_responder_changes_saved" msgid="91448817268121249">"Zmiany w wiadomości o nieobecności zostały zapisane"</string>
@@ -454,9 +454,9 @@
     <string name="reply_choice_smiling_face" msgid="1772253938506548631">":)"</string>
     <string name="reply_choice_frowning_face" msgid="6260338807944002651">":("</string>
     <string name="preference_header_action_confirmations" msgid="3922674681156121948">"Potwierdzenia czynności"</string>
-    <string name="preference_confirm_before_delete_title" msgid="7563587174619033835">"Potwierdź przed usunięciem"</string>
-    <string name="preference_confirm_before_archive_title" msgid="7318645995655875718">"Potwierdź przed zarchiwizowaniem"</string>
-    <string name="preference_confirm_before_send_title" msgid="4136585783513077039">"Potwierdź przed wysłaniem"</string>
+    <string name="preference_confirm_before_delete_title" msgid="7563587174619033835">"Potwierdź usuwanie"</string>
+    <string name="preference_confirm_before_archive_title" msgid="7318645995655875718">"Potwierdź archiwizowanie"</string>
+    <string name="preference_confirm_before_send_title" msgid="4136585783513077039">"Potwierdź wysyłanie"</string>
     <string name="preferences_conversation_mode_title" msgid="389352009651720838">"Autodopasowanie wiadomości"</string>
     <string name="preferences_conversation_mode_summary" msgid="5730999743867653106">"Zmniejsz wiadomości, by zmieścić je na ekranie"</string>
     <string name="preferences_disable_snap_headers_title" msgid="7257824136988429629">"Pasek opcji"</string>

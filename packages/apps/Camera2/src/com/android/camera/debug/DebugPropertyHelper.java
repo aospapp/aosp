@@ -19,16 +19,11 @@ package com.android.camera.debug;
 import com.android.camera.util.SystemProperties;
 
 public class DebugPropertyHelper {
-    /** Make app start with CaptureModule + ZSL. */
-    private static final boolean FORCE_ZSL_APP = false;
-
     private static final String OFF_VALUE = "0";
     private static final String ON_VALUE = "1";
 
     private static final String PREFIX = "persist.camera";
 
-    /** Switch between PhotoModule and the new CaptureModule. */
-    private static final String PROP_ENABLE_CAPTURE_MODULE = PREFIX + ".newcapture";
     /** Enable frame-by-frame focus logging. */
     private static final String PROP_FRAME_LOG = PREFIX + ".frame_log";
     /**
@@ -38,20 +33,14 @@ public class DebugPropertyHelper {
      */
     private static final String PROP_CAPTURE_DEBUG_UI = PREFIX + ".debug_ui";
     /** Switch between OneCameraImpl and OneCameraZslImpl. */
-    private static final String PROP_ENABLE_ZSL = PREFIX + ".zsl";
+    private static final String PROP_FORCE_LEGACY_ONE_CAMERA = PREFIX + ".legacy";
     /** Write data about each capture request to disk. */
     private static final String PROP_WRITE_CAPTURE_DATA = PREFIX + ".capture_write";
+    /** Is RAW support enabled. */
+    private static final String PROP_CAPTURE_DNG = PREFIX + ".capture_dng";
 
     private static boolean isPropertyOn(String property) {
         return ON_VALUE.equals(SystemProperties.get(property, OFF_VALUE));
-    }
-
-    public static boolean isCaptureModuleEnabled() {
-        return isPropertyOn(PROP_ENABLE_CAPTURE_MODULE) || FORCE_ZSL_APP;
-    }
-
-    public static boolean isZslEnabled() {
-        return isPropertyOn(PROP_ENABLE_ZSL) || FORCE_ZSL_APP;
     }
 
     public static boolean showFrameDebugLog() {
@@ -64,5 +53,9 @@ public class DebugPropertyHelper {
 
     public static boolean writeCaptureData() {
         return isPropertyOn(PROP_WRITE_CAPTURE_DATA);
+    }
+
+    public static boolean isCaptureDngEnabled() {
+        return isPropertyOn(PROP_CAPTURE_DNG);
     }
 }

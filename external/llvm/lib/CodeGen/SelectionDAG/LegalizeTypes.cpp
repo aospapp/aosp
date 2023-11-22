@@ -259,6 +259,10 @@ bool DAGTypeLegalizer::run() {
         WidenVectorResult(N, i);
         Changed = true;
         goto NodeDone;
+      case TargetLowering::TypePromoteFloat:
+        PromoteFloatResult(N, i);
+        Changed = true;
+        goto NodeDone;
       }
     }
 
@@ -306,6 +310,10 @@ ScanOperands:
         break;
       case TargetLowering::TypeWidenVector:
         NeedsReanalyzing = WidenVectorOperand(N, i);
+        Changed = true;
+        break;
+      case TargetLowering::TypePromoteFloat:
+        NeedsReanalyzing = PromoteFloatOperand(N, i);
         Changed = true;
         break;
       }
@@ -753,6 +761,17 @@ void DAGTypeLegalizer::SetSoftenedFloat(SDValue Op, SDValue Result) {
   OpEntry = Result;
 }
 
+void DAGTypeLegalizer::SetPromotedFloat(SDValue Op, SDValue Result) {
+  assert(Result.getValueType() ==
+         TLI.getTypeToTransformTo(*DAG.getContext(), Op.getValueType()) &&
+         "Invalid type for promoted float");
+  AnalyzeNewValue(Result);
+
+  SDValue &OpEntry = PromotedFloats[Op];
+  assert(!OpEntry.getNode() && "Node is already promoted!");
+  OpEntry = Result;
+}
+
 void DAGTypeLegalizer::SetScalarizedVector(SDValue Op, SDValue Result) {
   // Note that in some cases vector operation operands may be greater than
   // the vector element type. For example BUILD_VECTOR of type <1 x i1> with
@@ -920,6 +939,17 @@ bool DAGTypeLegalizer::CustomLowerNode(SDNode *N, EVT VT, bool LegalizeResult) {
   if (Results.empty())
     // The target didn't want to custom lower it after all.
     return false;
+
+  // When called from DAGTypeLegalizer::ExpandIntegerResult, we might need to
+  // provide the same kind of custom splitting behavior.
+  if (Results.size() == N->getNumValues() + 1 && LegalizeResult) {
+    // We've legalized a return type by splitting it. If there is a chain,
+    // replace that too.
+    SetExpandedInteger(SDValue(N, 0), Results[0], Results[1]);
+    if (N->getNumValues() > 1)
+      ReplaceValueWith(SDValue(N, 1), Results[2]);
+    return true;
+  }
 
   // Make everything that once used N's values now use those in Results instead.
   assert(Results.size() == N->getNumValues() &&

@@ -45,7 +45,7 @@ void ProgramFragment::setConstantColor(Context *rsc, float r, float g, float b, 
         rsc->setError(RS_ERROR_BAD_SHADER, "Cannot  set fixed function emulation color on user program");
         return;
     }
-    if (mHal.state.constants[0] == NULL) {
+    if (mHal.state.constants[0] == nullptr) {
         ALOGE("Unable to set fixed function emulation color because allocation is missing");
         rsc->setError(RS_ERROR_BAD_SHADER, "Unable to set fixed function emulation color because allocation is missing");
         return;
@@ -81,16 +81,16 @@ void ProgramFragment::serialize(Context *rsc, OStream *stream) const {
 }
 
 ProgramFragment *ProgramFragment::createFromStream(Context *rsc, IStream *stream) {
-    return NULL;
+    return nullptr;
 }
 
 ProgramFragmentState::ProgramFragmentState() {
-    mPF = NULL;
+    mPF = nullptr;
 }
 
 ProgramFragmentState::~ProgramFragmentState() {
     ObjectBase::checkDelete(mPF);
-    mPF = NULL;
+    mPF = nullptr;
 }
 
 void ProgramFragmentState::init(Context *rsc) {
@@ -109,7 +109,7 @@ void ProgramFragmentState::init(Context *rsc) {
     const Element *eins[] = {colorElem.get()};
     ObjectBaseRef<const Element> constInput = Element::create(rsc, 1, eins, enames);
 
-    ObjectBaseRef<Type> inputType = Type::getTypeRef(rsc, constInput.get(), 1, 0, 0, false, false, 0);
+    ObjectBaseRef<Type> inputType = Type::getTypeRef(rsc, constInput.get(), 1);
 
     uintptr_t tmp[2];
     tmp[0] = RS_PROGRAM_PARAM_CONSTANT;
@@ -118,7 +118,7 @@ void ProgramFragmentState::init(Context *rsc) {
     Allocation *constAlloc = Allocation::createAllocation(rsc, inputType.get(),
                               RS_ALLOCATION_USAGE_SCRIPT | RS_ALLOCATION_USAGE_GRAPHICS_CONSTANTS);
     ProgramFragment *pf = new ProgramFragment(rsc, shaderString, strlen(shaderString),
-                                              NULL, 0, NULL, tmp, 2);
+                                              nullptr, 0, nullptr, tmp, 2);
     pf->bindAllocation(rsc, constAlloc, 0);
     pf->setConstantColor(rsc, 1.0f, 1.0f, 1.0f, 1.0f);
 

@@ -21,7 +21,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="application_name" msgid="4119979710394894209">"Opções de plano de fundo interativo"</string>
     <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Selecionar Plano de fundo interativo"</string>
-    <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Planos de fundo interativo"</string>
+    <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Planos de fundo interativos"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Visualização do p. de fundo interativo"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Configurações…"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"Definir plano de fundo"</string>

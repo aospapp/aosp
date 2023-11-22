@@ -31,7 +31,7 @@
 
 apply plugin: 'idea'
 
-version = '2.0.3'
+version = '2.0.5'
 
 def jarVersion = version
 
@@ -64,21 +64,30 @@ if (!('release' in gradle.startParameter.taskNames)) {
 task release() {
 }
 
+// The projects that get pushed to maven
+def maven_release_projects = ['smali', 'baksmali', 'dexlib2', 'util']
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
-    apply plugin: 'maven'
-    apply plugin: 'signing'
 
-    group = 'org.smali'
+    if (JavaVersion.current().isJava8Compatible()) {
+        allprojects {
+            tasks.withType(Javadoc) {
+                options.addStringOption('Xdoclint:none', '-quiet')
+            }
+        }
+    }
+
     version = parent.version
 
     ext {
-        depends = [guava: 'com.google.guava:guava:14.0',
+        depends = [guava: 'com.google.guava:guava:18.0',
                    findbugs: 'com.google.code.findbugs:jsr305:1.3.9',
                    junit: 'junit:junit:4.6',
-                   antlr_runtime: 'org.antlr:antlr-runtime:3.5',
-                   antlr: 'org.antlr:antlr:3.5',
+                   antlr_runtime: 'org.antlr:antlr-runtime:3.5.2',
+                   antlr: 'org.antlr:antlr:3.5.2',
+                   stringtemplate: 'org.antlr:stringtemplate:3.2.1',
                    commons_cli: 'commons-cli:commons-cli:1.2',
                    jflex: 'de.jflex:jflex:1.4.3',
                    proguard: 'net.sf.proguard:proguard-base:4.8'
@@ -93,50 +102,74 @@ subprojects {
         mavenCentral()
     }
 
-    signing {
-        required { gradle.taskGraph.hasTask("uploadArchives") }
-        sign configurations.archives
-    }
+    if (project.name in maven_release_projects) {
+        apply plugin: 'maven'
+        apply plugin: 'signing'
 
-    uploadArchives {
-        repositories.mavenDeployer {
-            configuration = configurations.archives
+        group = 'org.smali'
 
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+        task javadocJar(type: Jar, dependsOn: javadoc) {
+            classifier = 'javadoc'
+            from 'build/docs/javadoc'
+        }
 
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: sonatypeUsername, password: sonatypePassword)
-            }
+        task sourcesJar(type: Jar) {
+            classifier = 'sources'
+            from sourceSets.main.allJava
+        }
 
-            pom.artifactId = project.name
+        artifacts {
+            archives javadocJar
+            archives sourcesJar
+        }
 
-            pom.project {
-                name project.name
-                url 'http://smali.org'
-                packaging 'jar'
-                licenses {
-                    license {
-                        name 'The BSD 3-Clause License'
-                        url 'http://opensource.org/licenses/BSD-3-Clause'
-                        distribution 'repo'
+        signing {
+            required { gradle.taskGraph.hasTask("uploadArchives") }
+            sign configurations.archives
+        }
+
+        uploadArchives {
+            repositories.mavenDeployer {
+                configuration = configurations.archives
+
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                if (rootProject.hasProperty('sonatypeUsername') && rootProject.hasProperty('sonatypePassword')) {
+                    repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                        authentication(userName: sonatypeUsername, password: sonatypePassword)
                     }
                 }
-                scm {
-                    connection 'scm:git:git://github.com/JesusFreke/smali.git'
-                    developerConnection 'scm:git:git@github.com:JesusFreke/smali.git'
-                }
-                developers {
-                    developer {
-                        id 'jesusfreke'
-                        name 'Ben Gruver'
-                        email 'jesusfreke@jesusfreke.com'
+
+                pom.artifactId = project.name
+
+                pom.project {
+                    name project.name
+                    url 'http://smali.org'
+                    packaging 'jar'
+                    licenses {
+                        license {
+                            name 'The BSD 3-Clause License'
+                            url 'http://opensource.org/licenses/BSD-3-Clause'
+                            distribution 'repo'
+                        }
+                    }
+                    scm {
+                        connection 'scm:git:git://github.com/JesusFreke/smali.git'
+                        developerConnection 'scm:git:git@github.com:JesusFreke/smali.git'
+                    }
+                    developers {
+                        developer {
+                            id 'jesusfreke'
+                            name 'Ben Gruver'
+                            email 'jesusfreke@jesusfreke.com'
+                        }
                     }
                 }
             }
         }
-    }
 
-    tasks.getByPath(':release').dependsOn(uploadArchives)
+        tasks.getByPath(':release').dependsOn(uploadArchives)
+    }
 }
 
 buildscript {
@@ -149,5 +182,5 @@ buildscript {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '1.8'
+    gradleVersion = '1.10'
 }

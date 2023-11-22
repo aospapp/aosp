@@ -34,6 +34,7 @@ static char *chip_name[] = {
     "MPU3050",
     "MPU6500",
     "MPU9250",
+    "MPU9255",
     "MPU6XXX",
     "MPU9350",
     "MPU6515",

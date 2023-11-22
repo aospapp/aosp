@@ -32,9 +32,16 @@ public class ImsConnectionStateListener {
     }
 
     /**
+     * Called when the device is trying to connect to the IMS network.
+     */
+    public void onImsProgressing() {
+        // no-op
+    }
+
+    /**
      * Called when the device is disconnected from the IMS network.
      */
-    public void onImsDisconnected() {
+    public void onImsDisconnected(ImsReasonInfo imsReasonInfo) {
         // no-op
     }
 

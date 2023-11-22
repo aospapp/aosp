@@ -59,8 +59,7 @@ android {
     buildTypes {
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), \
-            'proguard-rules.txt'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -187,8 +186,7 @@ android {
     buildTypes {
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), \
-                          'proguard-rules.txt'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -197,8 +195,77 @@ android {
 
 <p><code>getDefaultProguardFile('proguard-android.txt')</code> obtains the default ProGuard
 settings from the Android SDK installation. Android Studio adds the module-specific rules file
-<code>proguard-rules.txt</code> at the root of the module, where you can add custom ProGuard
+<code>proguard-rules.pro</code> at the root of the module, where you can add custom ProGuard
 rules.</p>
+
+
+
+<h3>Application ID for package identification </h3>
+<p>With the Android build system, the <em>applicationId</em> attribute is used to
+uniquely identify application packages for publishing. The application ID is set in the
+<em>android</em> section of the <code>build.gradle</code> file.
+</p>
+
+    <pre>
+    apply plugin: 'com.android.application'
+
+    android {
+        compileSdkVersion 19
+        buildToolsVersion "19.1"
+
+    defaultConfig {
+        <strong>applicationId "com.example.my.app"</strong>
+        minSdkVersion 15
+        targetSdkVersion 19
+        versionCode 1
+        versionName "1.0"
+    }
+    ...
+    </pre>
+
+<p class="note"><strong>Note:</strong> The <em>applicationId</em> is specified only in your
+{@code build.gradle} file, and not in the AndroidManifest.xml file.</p>
+
+<p>When using build variants, the build system enables you to uniquely identify different
+packages for each product flavors and build types. The application ID in the build type is added as
+a suffix to those specified for the product flavors. </p>
+
+   <pre>
+   productFlavors {
+        pro {
+            applicationId = "com.example.my.pkg.pro"
+        }
+        free {
+            applicationId = "com.example.my.pkg.free"
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+        }
+    }
+    ....
+   </pre>
+
+<p>The package name must still be specified in the manifest file. It is used in your source code
+to refer to your R class and to resolve any relative activity/service registrations. </p>
+
+   <pre>
+   <?xml version="1.0" encoding="utf-8"?>
+   <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+   <strong>package="com.example.app"</strong>>
+   </pre>
+
+<p class="note"><strong>Note:</strong> If you have multiple manifests (for example, a product
+flavor specific manifest and a build type manifest), the package name is optional in those manifests.
+If it is specified in those manifests, the package name must be identical to the package name
+specified in the manifest in the <code>src/main/</code> folder. </p>
+
+<p>For more information about the build files and process, see
+<a href="{@docRoot}sdk/installing/studio-build.html">Build System Overview</a>.</p>
+
+
 
 <h3 id="configureSigning">Configure signing settings</h3>
 
@@ -472,7 +539,11 @@ applied to each build. </p>
 <li>fullRelease</li>
 </ul>
 
-<p>To build this example, invoke the <code>assemble</code> task from Android Studio or from the
-command line.</p>
+<p>To build this example, click the <strong>Build</strong> menu option in Android Studio or invoke
+the <code>assemble</code> task from the command line. </p>
+
+<p class="note"><strong>Note:</strong> The <strong>Build &gt; Make Project</strong> option compiles
+all the source files in the entire project that have been modified since the last compilation. The
+<strong>Build &gt; Rebuild Project</strong> option recomplies all the source files in the project.</p>
 
 <p>Separate output folders are created for each build variant. </p>

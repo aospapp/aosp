@@ -25,12 +25,12 @@ public:
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return fName.c_str();
     }
 
-    virtual void onPreDraw() {
-        SkImageInfo info = SkImageInfo::Make(W, H, fColorType, kPremul_SkAlphaType);
+    void onPreDraw() override {
+        SkImageInfo info = SkImageInfo::Make(W, H, fColorType, kUnpremul_SkAlphaType);
         fBmp1.allocPixels(info);   // used in writePixels
 
         for (int h = 0; h < H; ++h) {
@@ -43,7 +43,7 @@ protected:
         fBmp2.allocPixels(info);    // used in readPixels()
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         canvas->clear(SK_ColorBLACK);
 
         for (int loop = 0; loop < loops; ++loop) {

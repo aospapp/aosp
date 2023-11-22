@@ -19,18 +19,15 @@
  */
 
 #include <gtest/gtest.h>
+#include "BionicDeathTest.h"
 
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <set>
 
-#if defined(__GLIBC__)
-// glibc doesn't expose gettid(2).
-pid_t gettid() { return syscall(__NR_gettid); }
-#endif // __GLIBC__
+extern "C" pid_t gettid();
 
 // For x86, bionic and glibc have per-thread stack guard values (all identical).
 #if defined(__i386__)
@@ -105,10 +102,16 @@ extern "C" uintptr_t __stack_chk_guard;
  * This must be marked with "__attribute__ ((noinline))", to ensure the
  * compiler generates the proper stack guards around this function.
  */
+static char* dummy_buf;
+
 __attribute__ ((noinline))
 static void do_modify_stack_chk_guard() {
+  char buf[128];
+  // Store local array's address to global variable to force compiler to generate stack guards.
+  dummy_buf = buf;
   __stack_chk_guard = 0x12345678;
 }
+
 #endif
 
 TEST(stack_protector, global_guard) {
@@ -120,9 +123,10 @@ TEST(stack_protector, global_guard) {
 #endif // TEST_STACK_CHK_GUARD
 }
 
-TEST(stack_protector_DeathTest, modify_stack_protector) {
+class stack_protector_DeathTest : public BionicDeathTest {};
+
+TEST_F(stack_protector_DeathTest, modify_stack_protector) {
 #if defined(TEST_STACK_CHK_GUARD)
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
   ASSERT_EXIT(do_modify_stack_chk_guard(), testing::KilledBySignal(SIGABRT), "");
 #else // TEST_STACK_CHK_GUARD
   GTEST_LOG_(INFO) << "This test does nothing.\n";

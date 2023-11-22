@@ -57,25 +57,25 @@ MACRO0(SETUP_SAVE_ALL_CALLEE_SAVE_FRAME)
     PUSH r12  // Callee save.
     PUSH rbp  // Callee save.
     PUSH rbx  // Callee save.
-    // Create space for FPR args, plus padding for alignment
-    subq LITERAL(4 * 8), %rsp
-    CFI_ADJUST_CFA_OFFSET(4 * 8)
+    // Create space for FPR args, plus space for ArtMethod*.
+    subq MACRO_LITERAL(4 * 8 + 8), %rsp
+    CFI_ADJUST_CFA_OFFSET(4 * 8 + 8)
     // Save FPRs.
-    movq %xmm12, 0(%rsp)
-    movq %xmm13, 8(%rsp)
-    movq %xmm14, 16(%rsp)
-    movq %xmm15, 24(%rsp)
-    subq MACRO_LITERAL(8), %rsp  // Space for Method* (also aligns the frame).
-    CFI_ADJUST_CFA_OFFSET(8)
+    movq %xmm12, 8(%rsp)
+    movq %xmm13, 16(%rsp)
+    movq %xmm14, 24(%rsp)
+    movq %xmm15, 32(%rsp)
     // R10 := ArtMethod* for save all callee save frame method.
     THIS_LOAD_REQUIRES_READ_BARRIER
     movq RUNTIME_SAVE_ALL_CALLEE_SAVE_FRAME_OFFSET(%r10), %r10
     // Store ArtMethod* to bottom of stack.
     movq %r10, 0(%rsp)
+    // Store rsp as the top quick frame.
+    movq %rsp, %gs:THREAD_TOP_QUICK_FRAME_OFFSET
 
     // Ugly compile-time check, but we only have the preprocessor.
     // Last +8: implicit return address pushed on stack when caller made call.
-#if (FRAME_SIZE_SAVE_ALL_CALLEE_SAVE != 6*8 + 4*8 + 8 + 8)
+#if (FRAME_SIZE_SAVE_ALL_CALLEE_SAVE != 6 * 8 + 4 * 8 + 8 + 8)
 #error "SAVE_ALL_CALLEE_SAVE_FRAME(X86_64) size not as expected."
 #endif
 #endif  // __APPLE__
@@ -85,7 +85,7 @@ END_MACRO
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kRefsOnly)
      */
-MACRO0(SETUP_REF_ONLY_CALLEE_SAVE_FRAME)
+MACRO0(SETUP_REFS_ONLY_CALLEE_SAVE_FRAME)
 #if defined(__APPLE__)
     int3
     int3
@@ -100,9 +100,9 @@ MACRO0(SETUP_REF_ONLY_CALLEE_SAVE_FRAME)
     PUSH r12  // Callee save.
     PUSH rbp  // Callee save.
     PUSH rbx  // Callee save.
-    // Create space for FPR args, plus padding for alignment
-    subq LITERAL(8 + 4*8), %rsp
-    CFI_ADJUST_CFA_OFFSET(8 + 4*8)
+    // Create space for FPR args, plus space for ArtMethod*.
+    subq LITERAL(8 + 4 * 8), %rsp
+    CFI_ADJUST_CFA_OFFSET(8 + 4 * 8)
     // Save FPRs.
     movq %xmm12, 8(%rsp)
     movq %xmm13, 16(%rsp)
@@ -113,16 +113,18 @@ MACRO0(SETUP_REF_ONLY_CALLEE_SAVE_FRAME)
     movq RUNTIME_REFS_ONLY_CALLEE_SAVE_FRAME_OFFSET(%r10), %r10
     // Store ArtMethod* to bottom of stack.
     movq %r10, 0(%rsp)
+    // Store rsp as the stop quick frame.
+    movq %rsp, %gs:THREAD_TOP_QUICK_FRAME_OFFSET
 
     // Ugly compile-time check, but we only have the preprocessor.
     // Last +8: implicit return address pushed on stack when caller made call.
-#if (FRAME_SIZE_REFS_ONLY_CALLEE_SAVE != 6*8 + 4*8 + 8 + 8)
+#if (FRAME_SIZE_REFS_ONLY_CALLEE_SAVE != 6 * 8 + 4 * 8 + 8 + 8)
 #error "REFS_ONLY_CALLEE_SAVE_FRAME(X86_64) size not as expected."
 #endif
 #endif  // __APPLE__
 END_MACRO
 
-MACRO0(RESTORE_REF_ONLY_CALLEE_SAVE_FRAME)
+MACRO0(RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME)
     movq 8(%rsp), %xmm12
     movq 16(%rsp), %xmm13
     movq 24(%rsp), %xmm14
@@ -142,7 +144,7 @@ END_MACRO
      * Macro that sets up the callee save frame to conform with
      * Runtime::CreateCalleeSaveMethod(kRefsAndArgs)
      */
-MACRO0(SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME)
+MACRO0(SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME)
 #if defined(__APPLE__)
     int3
     int3
@@ -162,12 +164,12 @@ MACRO0(SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME)
     PUSH rbx  // Callee save.
     PUSH rdx  // Quick arg 2.
     PUSH rcx  // Quick arg 3.
-    // Create space for FPR args and create 2 slots, 1 of padding and 1 for the ArtMethod*.
+    // Create space for FPR args and create 2 slots for ArtMethod*.
     subq MACRO_LITERAL(80 + 4 * 8), %rsp
     CFI_ADJUST_CFA_OFFSET(80 + 4 * 8)
     // R10 := ArtMethod* for ref and args callee save frame method.
     THIS_LOAD_REQUIRES_READ_BARRIER
-    movq RUNTIME_REF_AND_ARGS_CALLEE_SAVE_FRAME_OFFSET(%r10), %r10
+    movq RUNTIME_REFS_AND_ARGS_CALLEE_SAVE_FRAME_OFFSET(%r10), %r10
     // Save FPRs.
     movq %xmm0, 16(%rsp)
     movq %xmm1, 24(%rsp)
@@ -183,16 +185,53 @@ MACRO0(SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME)
     movq %xmm15, 104(%rsp)
     // Store ArtMethod* to bottom of stack.
     movq %r10, 0(%rsp)
+    // Store rsp as the top quick frame.
+    movq %rsp, %gs:THREAD_TOP_QUICK_FRAME_OFFSET
 
     // Ugly compile-time check, but we only have the preprocessor.
     // Last +8: implicit return address pushed on stack when caller made call.
-#if (FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE != 11*8 + 4*8 + 80 + 8)
+#if (FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE != 11 * 8 + 4 * 8 + 80 + 8)
 #error "REFS_AND_ARGS_CALLEE_SAVE_FRAME(X86_64) size not as expected."
 #endif
 #endif  // __APPLE__
 END_MACRO
 
-MACRO0(RESTORE_REF_AND_ARGS_CALLEE_SAVE_FRAME)
+MACRO0(SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_RDI)
+    // Save callee and GPR args, mixed together to agree with core spills bitmap.
+    PUSH r15  // Callee save.
+    PUSH r14  // Callee save.
+    PUSH r13  // Callee save.
+    PUSH r12  // Callee save.
+    PUSH r9   // Quick arg 5.
+    PUSH r8   // Quick arg 4.
+    PUSH rsi  // Quick arg 1.
+    PUSH rbp  // Callee save.
+    PUSH rbx  // Callee save.
+    PUSH rdx  // Quick arg 2.
+    PUSH rcx  // Quick arg 3.
+    // Create space for FPR args and create 2 slots for ArtMethod*.
+    subq LITERAL(80 + 4 * 8), %rsp
+    CFI_ADJUST_CFA_OFFSET(80 + 4 * 8)
+    // Save FPRs.
+    movq %xmm0, 16(%rsp)
+    movq %xmm1, 24(%rsp)
+    movq %xmm2, 32(%rsp)
+    movq %xmm3, 40(%rsp)
+    movq %xmm4, 48(%rsp)
+    movq %xmm5, 56(%rsp)
+    movq %xmm6, 64(%rsp)
+    movq %xmm7, 72(%rsp)
+    movq %xmm12, 80(%rsp)
+    movq %xmm13, 88(%rsp)
+    movq %xmm14, 96(%rsp)
+    movq %xmm15, 104(%rsp)
+    // Store ArtMethod to bottom of stack.
+    movq %rdi, 0(%rsp)
+    // Store rsp as the stop quick frame.
+    movq %rsp, %gs:THREAD_TOP_QUICK_FRAME_OFFSET
+END_MACRO
+
+MACRO0(RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME)
     // Restore FPRs.
     movq 16(%rsp), %xmm0
     movq 24(%rsp), %xmm1
@@ -229,10 +268,9 @@ END_MACRO
      */
 MACRO0(DELIVER_PENDING_EXCEPTION)
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME         // save callee saves for throw
-    // (Thread*, SP) setup
+    // (Thread*) setup
     movq %gs:THREAD_SELF_OFFSET, %rdi
-    movq %rsp, %rsi
-    call SYMBOL(artDeliverPendingExceptionFromCode)  // artDeliverPendingExceptionFromCode(Thread*, SP)
+    call SYMBOL(artDeliverPendingExceptionFromCode)  // artDeliverPendingExceptionFromCode(Thread*)
     UNREACHABLE
 END_MACRO
 
@@ -240,9 +278,8 @@ MACRO2(NO_ARG_RUNTIME_EXCEPTION, c_name, cxx_name)
     DEFINE_FUNCTION VAR(c_name, 0)
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
     // Outgoing argument set up
-    movq %rsp, %rsi                    // pass SP
     movq %gs:THREAD_SELF_OFFSET, %rdi  // pass Thread::Current()
-    call VAR(cxx_name, 1)     // cxx_name(Thread*, SP)
+    call VAR(cxx_name, 1)     // cxx_name(Thread*)
     UNREACHABLE
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
@@ -251,9 +288,8 @@ MACRO2(ONE_ARG_RUNTIME_EXCEPTION, c_name, cxx_name)
     DEFINE_FUNCTION VAR(c_name, 0)
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
     // Outgoing argument set up
-    movq %rsp, %rdx                    // pass SP
     movq %gs:THREAD_SELF_OFFSET, %rsi  // pass Thread::Current()
-    call VAR(cxx_name, 1)     // cxx_name(arg1, Thread*, SP)
+    call VAR(cxx_name, 1)     // cxx_name(arg1, Thread*)
     UNREACHABLE
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
@@ -262,9 +298,8 @@ MACRO2(TWO_ARG_RUNTIME_EXCEPTION, c_name, cxx_name)
     DEFINE_FUNCTION VAR(c_name, 0)
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
     // Outgoing argument set up
-    movq %rsp, %rcx                    // pass SP
     movq %gs:THREAD_SELF_OFFSET, %rdx  // pass Thread::Current()
-    call VAR(cxx_name, 1)     // cxx_name(Thread*, SP)
+    call VAR(cxx_name, 1)     // cxx_name(Thread*)
     UNREACHABLE
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
@@ -311,7 +346,7 @@ TWO_ARG_RUNTIME_EXCEPTION art_quick_throw_array_bounds, artThrowArrayBoundsFromC
      * The helper will attempt to locate the target and return a 128-bit result in rax/rdx consisting
      * of the target Method* in rax and method->code_ in rdx.
      *
-     * If unsuccessful, the helper will return NULL/????. There will be a pending exception in the
+     * If unsuccessful, the helper will return null/????. There will be a pending exception in the
      * thread and we branch to another stub to deliver it.
      *
      * On success this wrapper will restore arguments and *jump* to the target, leaving the return
@@ -321,11 +356,11 @@ TWO_ARG_RUNTIME_EXCEPTION art_quick_throw_array_bounds, artThrowArrayBoundsFromC
      */
 MACRO2(INVOKE_TRAMPOLINE, c_name, cxx_name)
     DEFINE_FUNCTION VAR(c_name, 0)
-    SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME  // save callee saves in case allocation triggers GC
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME  // save callee saves in case allocation triggers GC
     // Helper signature is always
     // (method_idx, *this_object, *caller_method, *self, sp)
 
-    movl FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE(%rsp), %edx  // pass caller Method*
+    movq FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE(%rsp), %rdx  // pass caller Method*
     movq %gs:THREAD_SELF_OFFSET, %rcx                      // pass Thread
     movq %rsp, %r8                                         // pass SP
 
@@ -333,7 +368,7 @@ MACRO2(INVOKE_TRAMPOLINE, c_name, cxx_name)
                                                            // save the code pointer
     movq %rax, %rdi
     movq %rdx, %rax
-    RESTORE_REF_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
 
     testq %rdi, %rdi
     jz 1f
@@ -450,41 +485,51 @@ DEFINE_FUNCTION art_quick_invoke_stub
     PUSH rbp                      // Save rbp.
     PUSH r8                       // Save r8/result*.
     PUSH r9                       // Save r9/shorty*.
+    PUSH rbx                      // Save native callee save rbx
+    PUSH r12                      // Save native callee save r12
+    PUSH r13                      // Save native callee save r13
+    PUSH r14                      // Save native callee save r14
+    PUSH r15                      // Save native callee save r15
     movq %rsp, %rbp               // Copy value of stack pointer into base pointer.
     CFI_DEF_CFA_REGISTER(rbp)
 
     movl %edx, %r10d
-    addl LITERAL(60), %edx        // Reserve space for return addr, StackReference<method>, rbp,
-                                  // r8 and r9 in frame.
-    andl LITERAL(0xFFFFFFF0), %edx    // Align frame size to 16 bytes.
-    subl LITERAL(32), %edx        // Remove space for return address, rbp, r8 and r9.
-    subq %rdx, %rsp               // Reserve stack space for argument array.
+    addl LITERAL(100), %edx        // Reserve space for return addr, StackReference<method>, rbp,
+                                   // r8, r9, rbx, r12, r13, r14, and r15 in frame.
+    andl LITERAL(0xFFFFFFF0), %edx // Align frame size to 16 bytes.
+    subl LITERAL(72), %edx         // Remove space for return address, rbp, r8, r9, rbx, r12,
+                                   // r13, r14, and r15
+    subq %rdx, %rsp                // Reserve stack space for argument array.
 
 #if (STACK_REFERENCE_SIZE != 4)
 #error "STACK_REFERENCE_SIZE(X86_64) size not as expected."
 #endif
-    movl LITERAL(0), (%rsp)       // Store NULL for method*
+    movq LITERAL(0), (%rsp)       // Store null for method*
 
     movl %r10d, %ecx              // Place size of args in rcx.
-    movq %rdi, %rax               // RAX := method to be called
-    movq %rsi, %r11               // R11 := arg_array
-    leaq 4(%rsp), %rdi            // Rdi is pointing just above the StackReference<method> in the
-                                  // stack arguments.
+    movq %rdi, %rax               // rax := method to be called
+    movq %rsi, %r11               // r11 := arg_array
+    leaq 8(%rsp), %rdi            // rdi is pointing just above the ArtMethod* in the stack
+                                  // arguments.
     // Copy arg array into stack.
     rep movsb                     // while (rcx--) { *rdi++ = *rsi++ }
-    leaq 1(%r9), %r10             // R10 := shorty + 1  ; ie skip return arg character
-    movq %rax, %rdi               // RDI := method to be called
-    movl (%r11), %esi             // RSI := this pointer
+    leaq 1(%r9), %r10             // r10 := shorty + 1  ; ie skip return arg character
+    movq %rax, %rdi               // rdi := method to be called
+    movl (%r11), %esi             // rsi := this pointer
     addq LITERAL(4), %r11         // arg_array++
     LOOP_OVER_SHORTY_LOADING_GPRS rdx, edx, .Lgpr_setup_finished
     LOOP_OVER_SHORTY_LOADING_GPRS rcx, ecx, .Lgpr_setup_finished
     LOOP_OVER_SHORTY_LOADING_GPRS r8, r8d, .Lgpr_setup_finished
     LOOP_OVER_SHORTY_LOADING_GPRS r9, r9d, .Lgpr_setup_finished
 .Lgpr_setup_finished:
-    call *METHOD_QUICK_CODE_OFFSET_64(%rdi) // Call the method.
+    call *ART_METHOD_QUICK_CODE_OFFSET_64(%rdi) // Call the method.
     movq %rbp, %rsp               // Restore stack pointer.
-    CFI_DEF_CFA_REGISTER(rsp)
-    POP r9                        // Pop r9 - shorty*.
+    POP r15                       // Pop r15
+    POP r14                       // Pop r14
+    POP r13                       // Pop r13
+    POP r12                       // Pop r12
+    POP rbx                       // Pop rbx
+    POP r9                        // Pop r9 - shorty*
     POP r8                        // Pop r8 - result*.
     POP rbp                       // Pop rbp
     cmpb LITERAL(68), (%r9)       // Test if result type char == 'D'.
@@ -494,10 +539,10 @@ DEFINE_FUNCTION art_quick_invoke_stub
     movq %rax, (%r8)              // Store the result assuming its a long, int or Object*
     ret
 .Lreturn_double_quick:
-    movsd %xmm0, (%r8)           // Store the double floating point result.
+    movsd %xmm0, (%r8)            // Store the double floating point result.
     ret
 .Lreturn_float_quick:
-    movss %xmm0, (%r8)           // Store the floating point result.
+    movss %xmm0, (%r8)            // Store the floating point result.
     ret
 #endif  // __APPLE__
 END_FUNCTION art_quick_invoke_stub
@@ -507,7 +552,7 @@ END_FUNCTION art_quick_invoke_stub
      * On entry:
      *   [sp] = return address
      *   rdi = method pointer
-     *   rsi = argument array or NULL if no arguments.
+     *   rsi = argument array or null if no arguments.
      *   rdx = size of argument array in bytes
      *   rcx = (managed) thread pointer
      *   r8 = JValue* result
@@ -534,53 +579,63 @@ DEFINE_FUNCTION art_quick_invoke_static_stub
     PUSH rbp                      // Save rbp.
     PUSH r8                       // Save r8/result*.
     PUSH r9                       // Save r9/shorty*.
+    PUSH rbx                      // Save rbx
+    PUSH r12                      // Save r12
+    PUSH r13                      // Save r13
+    PUSH r14                      // Save r14
+    PUSH r15                      // Save r15
     movq %rsp, %rbp               // Copy value of stack pointer into base pointer.
     CFI_DEF_CFA_REGISTER(rbp)
 
     movl %edx, %r10d
-    addl LITERAL(60), %edx        // Reserve space for return addr, StackReference<method>, rbp,
-                                  // r8 and r9 in frame.
-    andl LITERAL(0xFFFFFFF0), %edx    // Align frame size to 16 bytes.
-    subl LITERAL(32), %edx        // Remove space for return address, rbp, r8 and r9.
-    subq %rdx, %rsp               // Reserve stack space for argument array.
+    addl LITERAL(100), %edx        // Reserve space for return addr, StackReference<method>, rbp,
+                                   // r8, r9, r12, r13, r14, and r15 in frame.
+    andl LITERAL(0xFFFFFFF0), %edx // Align frame size to 16 bytes.
+    subl LITERAL(72), %edx         // Remove space for return address, rbp, r8, r9, rbx, r12,
+                                   // r13, r14, and r15.
+    subq %rdx, %rsp                // Reserve stack space for argument array.
 
 #if (STACK_REFERENCE_SIZE != 4)
 #error "STACK_REFERENCE_SIZE(X86_64) size not as expected."
 #endif
-    movl LITERAL(0), (%rsp)       // Store NULL for method*
+    movq LITERAL(0), (%rsp)        // Store null for method*
 
-    movl %r10d, %ecx              // Place size of args in rcx.
-    movq %rdi, %rax               // RAX := method to be called
-    movq %rsi, %r11               // R11 := arg_array
-    leaq 4(%rsp), %rdi            // Rdi is pointing just above the StackReference<method> in the
-                                  // stack arguments.
+    movl %r10d, %ecx               // Place size of args in rcx.
+    movq %rdi, %rax                // rax := method to be called
+    movq %rsi, %r11                // r11 := arg_array
+    leaq 8(%rsp), %rdi             // rdi is pointing just above the ArtMethod* in the
+                                   // stack arguments.
     // Copy arg array into stack.
-    rep movsb                     // while (rcx--) { *rdi++ = *rsi++ }
-    leaq 1(%r9), %r10             // R10 := shorty + 1  ; ie skip return arg character
-    movq %rax, %rdi               // RDI := method to be called
+    rep movsb                      // while (rcx--) { *rdi++ = *rsi++ }
+    leaq 1(%r9), %r10              // r10 := shorty + 1  ; ie skip return arg character
+    movq %rax, %rdi                // rdi := method to be called
     LOOP_OVER_SHORTY_LOADING_GPRS rsi, esi, .Lgpr_setup_finished2
     LOOP_OVER_SHORTY_LOADING_GPRS rdx, edx, .Lgpr_setup_finished2
     LOOP_OVER_SHORTY_LOADING_GPRS rcx, ecx, .Lgpr_setup_finished2
     LOOP_OVER_SHORTY_LOADING_GPRS r8, r8d, .Lgpr_setup_finished2
     LOOP_OVER_SHORTY_LOADING_GPRS r9, r9d, .Lgpr_setup_finished2
 .Lgpr_setup_finished2:
-    call *METHOD_QUICK_CODE_OFFSET_64(%rdi) // Call the method.
-    movq %rbp, %rsp               // Restore stack pointer.
-    CFI_DEF_CFA_REGISTER(rsp)
-    POP r9                        // Pop r9 - shorty*.
-    POP r8                        // Pop r8 - result*.
-    POP rbp                       // Pop rbp
-    cmpb LITERAL(68), (%r9)       // Test if result type char == 'D'.
+    call *ART_METHOD_QUICK_CODE_OFFSET_64(%rdi) // Call the method.
+    movq %rbp, %rsp                // Restore stack pointer.
+    POP r15                        // Pop r15
+    POP r14                        // Pop r14
+    POP r13                        // Pop r13
+    POP r12                        // Pop r12
+    POP rbx                        // Pop rbx
+    POP r9                         // Pop r9 - shorty*.
+    POP r8                         // Pop r8 - result*.
+    POP rbp                        // Pop rbp
+    cmpb LITERAL(68), (%r9)        // Test if result type char == 'D'.
     je .Lreturn_double_quick2
-    cmpb LITERAL(70), (%r9)       // Test if result type char == 'F'.
+    cmpb LITERAL(70), (%r9)        // Test if result type char == 'F'.
     je .Lreturn_float_quick2
-    movq %rax, (%r8)              // Store the result assuming its a long, int or Object*
+    movq %rax, (%r8)               // Store the result assuming its a long, int or Object*
     ret
 .Lreturn_double_quick2:
-    movsd %xmm0, (%r8)           // Store the double floating point result.
+    movsd %xmm0, (%r8)             // Store the double floating point result.
     ret
 .Lreturn_float_quick2:
-    movss %xmm0, (%r8)           // Store the floating point result.
+    movss %xmm0, (%r8)             // Store the floating point result.
     ret
 #endif  // __APPLE__
 END_FUNCTION art_quick_invoke_static_stub
@@ -639,88 +694,92 @@ END_FUNCTION art_quick_do_long_jump
 
 MACRO3(NO_ARG_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME  // save ref containing registers for GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    // save ref containing registers for GC
     // Outgoing argument set up
-    movq %rsp, %rsi                   // pass SP
-    movq %gs:THREAD_SELF_OFFSET, %rdi // pass Thread::Current()
-    call VAR(cxx_name, 1)         // cxx_name(Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
-    CALL_MACRO(return_macro, 2)       // return or deliver exception
+    movq %gs:THREAD_SELF_OFFSET, %rdi    // pass Thread::Current()
+    call VAR(cxx_name, 1)                // cxx_name(Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
+    CALL_MACRO(return_macro, 2)          // return or deliver exception
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(ONE_ARG_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME   // save ref containing registers for GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    // save ref containing registers for GC
     // Outgoing argument set up
-    movq %rsp, %rdx                    // pass SP
-    movq %gs:THREAD_SELF_OFFSET, %rsi  // pass Thread::Current()
-    call VAR(cxx_name, 1)          // cxx_name(arg0, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
-    CALL_MACRO(return_macro, 2)        // return or deliver exception
+    movq %gs:THREAD_SELF_OFFSET, %rsi    // pass Thread::Current()
+    call VAR(cxx_name, 1)                // cxx_name(arg0, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
+    CALL_MACRO(return_macro, 2)          // return or deliver exception
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(TWO_ARG_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME   // save ref containing registers for GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    // save ref containing registers for GC
     // Outgoing argument set up
-    movq %rsp, %rcx                    // pass SP
-    movq %gs:THREAD_SELF_OFFSET, %rdx  // pass Thread::Current()
-    call VAR(cxx_name, 1)          // cxx_name(arg0, arg1, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
-    CALL_MACRO(return_macro, 2)       // return or deliver exception
+    movq %gs:THREAD_SELF_OFFSET, %rdx    // pass Thread::Current()
+    call VAR(cxx_name, 1)                // cxx_name(arg0, arg1, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
+    CALL_MACRO(return_macro, 2)          // return or deliver exception
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(THREE_ARG_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME   // save ref containing registers for GC
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME   // save ref containing registers for GC
     // Outgoing argument set up
-    movq %rsp, %r8                     // pass SP
-    movq %gs:THREAD_SELF_OFFSET, %rcx  // pass Thread::Current()
-    call VAR(cxx_name, 1)          // cxx_name(arg0, arg1, arg2, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
-    CALL_MACRO(return_macro, 2)        // return or deliver exception
+    movq %gs:THREAD_SELF_OFFSET, %rcx   // pass Thread::Current()
+    call VAR(cxx_name, 1)               // cxx_name(arg0, arg1, arg2, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
+    CALL_MACRO(return_macro, 2)         // return or deliver exception
+    END_FUNCTION VAR(c_name, 0)
+END_MACRO
+
+MACRO3(FOUR_ARG_DOWNCALL, c_name, cxx_name, return_macro)
+    DEFINE_FUNCTION VAR(c_name, 0)
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME   // save ref containing registers for GC
+    // Outgoing argument set up
+    movq %gs:THREAD_SELF_OFFSET, %r8    // pass Thread::Current()
+    call VAR(cxx_name, 1)               // cxx_name(arg1, arg2, arg3, arg4, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
+    CALL_MACRO(return_macro, 2)         // return or deliver exception
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(ONE_ARG_REF_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    movl 8(%rsp), %esi                 // pass referrer
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
-                                       // arg0 is in rdi
-    movq %gs:THREAD_SELF_OFFSET, %rdx  // pass Thread::Current()
-    movq %rsp, %rcx                    // pass SP
-    call VAR(cxx_name, 1)          // cxx_name(arg0, referrer, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
+    movq 8(%rsp), %rsi                  // pass referrer
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+                                        // arg0 is in rdi
+    movq %gs:THREAD_SELF_OFFSET, %rdx   // pass Thread::Current()
+    call VAR(cxx_name, 1)               // cxx_name(arg0, referrer, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
     CALL_MACRO(return_macro, 2)
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(TWO_ARG_REF_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    movl 8(%rsp), %edx                 // pass referrer
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
-                                       // arg0 and arg1 are in rdi/rsi
-    movq %gs:THREAD_SELF_OFFSET, %rcx  // pass Thread::Current()
-    movq %rsp, %r8                     // pass SP
-    call VAR(cxx_name, 1)          // (arg0, arg1, referrer, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
+    movq 8(%rsp), %rdx                  // pass referrer
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+                                        // arg0 and arg1 are in rdi/rsi
+    movq %gs:THREAD_SELF_OFFSET, %rcx   // pass Thread::Current()
+    call VAR(cxx_name, 1)               // (arg0, arg1, referrer, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
     CALL_MACRO(return_macro, 2)
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
 MACRO3(THREE_ARG_REF_DOWNCALL, c_name, cxx_name, return_macro)
     DEFINE_FUNCTION VAR(c_name, 0)
-    movl 8(%rsp), %ecx                 // pass referrer
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
-                                       // arg0, arg1, and arg2 are in rdi/rsi/rdx
+    movq 8(%rsp), %rcx                  // pass referrer
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+                                        // arg0, arg1, and arg2 are in rdi/rsi/rdx
     movq %gs:THREAD_SELF_OFFSET, %r8    // pass Thread::Current()
-    movq %rsp, %r9                     // pass SP
-    call VAR(cxx_name, 1)          // cxx_name(arg0, arg1, arg2, referrer, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
-    CALL_MACRO(return_macro, 2)        // return or deliver exception
+    call VAR(cxx_name, 1)               // cxx_name(arg0, arg1, arg2, referrer, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
+    CALL_MACRO(return_macro, 2)         // return or deliver exception
     END_FUNCTION VAR(c_name, 0)
 END_MACRO
 
@@ -772,6 +831,12 @@ END_MACRO
   THREE_ARG_DOWNCALL art_quick_check_and_alloc_array ## c_suffix, artCheckAndAllocArrayFromCode ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO
 #define GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(c_suffix, cxx_suffix) \
   THREE_ARG_DOWNCALL art_quick_check_and_alloc_array_with_access_check ## c_suffix, artCheckAndAllocArrayFromCodeWithAccessCheck ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO
+#define GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(c_suffix, cxx_suffix) \
+  FOUR_ARG_DOWNCALL art_quick_alloc_string_from_bytes ## c_suffix, artAllocStringFromBytesFromCode ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO
+#define GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(c_suffix, cxx_suffix) \
+  THREE_ARG_DOWNCALL art_quick_alloc_string_from_chars ## c_suffix, artAllocStringFromCharsFromCode ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO
+#define GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(c_suffix, cxx_suffix) \
+  ONE_ARG_DOWNCALL art_quick_alloc_string_from_string ## c_suffix, artAllocStringFromStringFromCode ## cxx_suffix, RETURN_IF_RESULT_IS_NON_ZERO
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_dlmalloc, DlMalloc)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_dlmalloc, DlMalloc)
@@ -782,6 +847,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_dlmalloc, DlMalloc)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_dlmalloc, DlMalloc)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_dlmalloc, DlMalloc)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_dlmalloc, DlMalloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_dlmalloc, DlMalloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_dlmalloc, DlMalloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_dlmalloc, DlMalloc)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_dlmalloc_instrumented, DlMallocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_dlmalloc_instrumented, DlMallocInstrumented)
@@ -792,6 +860,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_dlmalloc_instrumented, DlMalloc
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_dlmalloc_instrumented, DlMallocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_dlmalloc_instrumented, DlMallocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_dlmalloc_instrumented, DlMallocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_dlmalloc_instrumented, DlMallocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_dlmalloc_instrumented, DlMallocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_dlmalloc_instrumented, DlMallocInstrumented)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_rosalloc, RosAlloc)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_rosalloc, RosAlloc)
@@ -802,6 +873,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_rosalloc, RosAlloc)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_rosalloc, RosAlloc)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_rosalloc, RosAlloc)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_rosalloc, RosAlloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_rosalloc, RosAlloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_rosalloc, RosAlloc)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_rosalloc, RosAlloc)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_rosalloc_instrumented, RosAllocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_rosalloc_instrumented, RosAllocInstrumented)
@@ -812,6 +886,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_rosalloc_instrumented, RosAlloc
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_rosalloc_instrumented, RosAllocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_rosalloc_instrumented, RosAllocInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_rosalloc_instrumented, RosAllocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_rosalloc_instrumented, RosAllocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_rosalloc_instrumented, RosAllocInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_rosalloc_instrumented, RosAllocInstrumented)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_bump_pointer, BumpPointer)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_bump_pointer, BumpPointer)
@@ -822,6 +899,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_bump_pointer, BumpPointer)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_bump_pointer, BumpPointer)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_bump_pointer, BumpPointer)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_bump_pointer, BumpPointer)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_bump_pointer, BumpPointer)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_bump_pointer, BumpPointer)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_bump_pointer, BumpPointer)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_bump_pointer_instrumented, BumpPointerInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_bump_pointer_instrumented, BumpPointerInstrumented)
@@ -832,8 +912,48 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_bump_pointer_instrumented, Bump
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_bump_pointer_instrumented, BumpPointerInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_bump_pointer_instrumented, BumpPointerInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_bump_pointer_instrumented, BumpPointerInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_bump_pointer_instrumented, BumpPointerInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_bump_pointer_instrumented, BumpPointerInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_bump_pointer_instrumented, BumpPointerInstrumented)
 
-GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_tlab, TLAB)
+DEFINE_FUNCTION art_quick_alloc_object_tlab
+    // Fast path tlab allocation.
+    // RDI: uint32_t type_idx, RSI: ArtMethod*
+    // RDX, RCX, R8, R9: free. RAX: return val.
+    movl ART_METHOD_DEX_CACHE_TYPES_OFFSET(%rsi), %edx  // Load dex cache resolved types array
+                                                               // Load the class
+    movl MIRROR_OBJECT_ARRAY_DATA_OFFSET(%rdx, %rdi, MIRROR_OBJECT_ARRAY_COMPONENT_SIZE), %edx
+    testl %edx, %edx                                           // Check null class
+    jz   .Lart_quick_alloc_object_tlab_slow_path
+                                                               // Check class status.
+    cmpl LITERAL(MIRROR_CLASS_STATUS_INITIALIZED), MIRROR_CLASS_STATUS_OFFSET(%rdx)
+    jne  .Lart_quick_alloc_object_tlab_slow_path
+                                                               // Check access flags has kAccClassIsFinalizable
+    testl LITERAL(ACCESS_FLAGS_CLASS_IS_FINALIZABLE), MIRROR_CLASS_ACCESS_FLAGS_OFFSET(%rdx)
+    jnz  .Lart_quick_alloc_object_tlab_slow_path
+    movl MIRROR_CLASS_OBJECT_SIZE_OFFSET(%rdx), %ecx           // Load the object size.
+    addl LITERAL(OBJECT_ALIGNMENT_MASK), %ecx                  // Align the size by 8. (addr + 7) & ~7.
+    andl LITERAL(OBJECT_ALIGNMENT_MASK_TOGGLED), %ecx
+    movq %gs:THREAD_SELF_OFFSET, %r8                           // r8 = thread
+    movq THREAD_LOCAL_POS_OFFSET(%r8), %rax                    // Load thread_local_pos.
+    addq %rax, %rcx                                            // Add the object size.
+    cmpq THREAD_LOCAL_END_OFFSET(%r8), %rcx                    // Check if it fits.
+    ja   .Lart_quick_alloc_object_tlab_slow_path
+    movq %rcx, THREAD_LOCAL_POS_OFFSET(%r8)                    // Update thread_local_pos.
+    addq LITERAL(1), THREAD_LOCAL_OBJECTS_OFFSET(%r8)          // Increment thread_local_objects.
+                                                               // Store the class pointer in the header.
+                                                               // No fence needed for x86.
+    movl %edx, MIRROR_OBJECT_CLASS_OFFSET(%rax)
+    ret                                                        // Fast path succeeded.
+.Lart_quick_alloc_object_tlab_slow_path:
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME    // save ref containing registers for GC
+    // Outgoing argument set up
+    movq %gs:THREAD_SELF_OFFSET, %rdx    // pass Thread::Current()
+    call SYMBOL(artAllocObjectFromCodeTLAB)      // cxx_name(arg0, arg1, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
+    RETURN_IF_RESULT_IS_NON_ZERO         // return or deliver exception
+END_FUNCTION art_quick_alloc_object_tlab
+
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_tlab, TLAB)
@@ -842,6 +962,9 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_tlab, TLAB)
 
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_tlab_instrumented, TLABInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab_instrumented, TLABInstrumented)
@@ -852,69 +975,150 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab_instrumented, TLABInstrume
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_tlab_instrumented, TLABInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_tlab_instrumented, TLABInstrumented)
 GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_tlab_instrumented, TLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_tlab_instrumented, TLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_tlab_instrumented, TLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_tlab_instrumented, TLABInstrumented)
 
-TWO_ARG_DOWNCALL art_quick_resolve_string, artResolveStringFromCode, RETURN_IF_RESULT_IS_NON_ZERO
-TWO_ARG_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode, RETURN_IF_RESULT_IS_NON_ZERO
-TWO_ARG_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode, RETURN_IF_RESULT_IS_NON_ZERO
-TWO_ARG_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode, RETURN_IF_RESULT_IS_NON_ZERO
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region, Region)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region, Region)
 
-TWO_ARG_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_EAX_ZERO
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region_instrumented, RegionInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_instrumented, RegionInstrumented)
+
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab, RegionTLAB)
+
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_CHECK_AND_ALLOC_ARRAY_WITH_ACCESS_CHECK(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_BYTES(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_CHARS(_region_tlab_instrumented, RegionTLABInstrumented)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab_instrumented, RegionTLABInstrumented)
+
+ONE_ARG_DOWNCALL art_quick_resolve_string, artResolveStringFromCode, RETURN_IF_RESULT_IS_NON_ZERO
+ONE_ARG_DOWNCALL art_quick_initialize_static_storage, artInitializeStaticStorageFromCode, RETURN_IF_RESULT_IS_NON_ZERO
+ONE_ARG_DOWNCALL art_quick_initialize_type, artInitializeTypeFromCode, RETURN_IF_RESULT_IS_NON_ZERO
+ONE_ARG_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode, RETURN_IF_RESULT_IS_NON_ZERO
+
+TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_EAX_ZERO
 
 DEFINE_FUNCTION art_quick_lock_object
     testl %edi, %edi                      // Null check object/rdi.
     jz   .Lslow_lock
 .Lretry_lock:
-    movl LOCK_WORD_OFFSET(%edi), %ecx     // ecx := lock word.
-    test LITERAL(0xC0000000), %ecx        // Test the 2 high bits.
+    movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word.
+    test LITERAL(LOCK_WORD_STATE_MASK), %ecx         // Test the 2 high bits.
     jne  .Lslow_lock                      // Slow path if either of the two high bits are set.
-    movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
+    movl %ecx, %edx                       // save lock word (edx) to keep read barrier bits.
+    andl LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED), %ecx  // zero the read barrier bits.
     test %ecx, %ecx
     jnz  .Lalready_thin                   // Lock word contains a thin lock.
-    // unlocked case - %edx holds thread id with count of 0
-    xor  %eax, %eax                       // eax == 0 for comparison with lock word in cmpxchg
-    lock cmpxchg  %edx, LOCK_WORD_OFFSET(%edi)
+    // unlocked case - edx: original lock word, edi: obj.
+    movl %edx, %eax                       // eax: lock word zero except for read barrier bits.
+    movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
+    or   %eax, %edx                       // edx: thread id with count of 0 + read barrier bits.
+    lock cmpxchg  %edx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
     jnz  .Lretry_lock                     // cmpxchg failed retry
     ret
-.Lalready_thin:
+.Lalready_thin:  // edx: lock word (with high 2 bits zero and original rb bits), edi: obj.
+    movl %gs:THREAD_ID_OFFSET, %ecx       // ecx := thread id
     cmpw %cx, %dx                         // do we hold the lock already?
     jne  .Lslow_lock
-    addl LITERAL(65536), %ecx             // increment recursion count
-    test LITERAL(0xC0000000), %ecx        // overflowed if either of top two bits are set
+    movl %edx, %ecx                       // copy the lock word to check count overflow.
+    andl LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED), %ecx  // zero the read barrier bits.
+    addl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %ecx  // increment recursion count
+    test LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK), %ecx  // overflowed if either of the upper two bits (28-29) are set
     jne  .Lslow_lock                      // count overflowed so go slow
-    movl %ecx, LOCK_WORD_OFFSET(%edi)     // update lockword, cmpxchg not necessary as we hold lock
+    movl %edx, %eax                       // copy the lock word as the old val for cmpxchg.
+    addl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %edx   // increment recursion count again for real.
+    // update lockword, cmpxchg necessary for read barrier bits.
+    lock cmpxchg  %edx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, edx: new val.
+    jnz  .Lretry_lock                     // cmpxchg failed retry
     ret
 .Lslow_lock:
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
     movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
-    movq %rsp, %rdx                       // pass SP
-    call SYMBOL(artLockObjectFromCode)  // artLockObjectFromCode(object, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME    // restore frame up to return address
+    call SYMBOL(artLockObjectFromCode)    // artLockObjectFromCode(object, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME   // restore frame up to return address
     RETURN_IF_EAX_ZERO
 END_FUNCTION art_quick_lock_object
 
 DEFINE_FUNCTION art_quick_unlock_object
     testl %edi, %edi                      // null check object/edi
     jz   .Lslow_unlock
-    movl LOCK_WORD_OFFSET(%edi), %ecx     // ecx := lock word
+.Lretry_unlock:
+    movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word
     movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
-    test LITERAL(0xC0000000), %ecx
+    test LITERAL(LOCK_WORD_STATE_MASK), %ecx
     jnz  .Lslow_unlock                    // lock word contains a monitor
     cmpw %cx, %dx                         // does the thread id match?
     jne  .Lslow_unlock
-    cmpl LITERAL(65536), %ecx
+    movl %ecx, %edx                       // copy the lock word to detect new count of 0.
+    andl LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK_TOGGLED), %edx  // zero the read barrier bits.
+    cmpl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %edx
     jae  .Lrecursive_thin_unlock
-    movl LITERAL(0), LOCK_WORD_OFFSET(%edi)
+    // update lockword, cmpxchg necessary for read barrier bits.
+    movl %ecx, %eax                       // eax: old lock word.
+    andl LITERAL(LOCK_WORD_READ_BARRIER_STATE_MASK), %ecx  // ecx: new lock word zero except original rb bits.
+#ifndef USE_READ_BARRIER
+    movl %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
+#else
+    lock cmpxchg  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, ecx: new val.
+    jnz  .Lretry_unlock                   // cmpxchg failed retry
+#endif
     ret
-.Lrecursive_thin_unlock:
-    subl LITERAL(65536), %ecx
-    mov  %ecx, LOCK_WORD_OFFSET(%edi)
+.Lrecursive_thin_unlock:  // ecx: original lock word, edi: obj
+    // update lockword, cmpxchg necessary for read barrier bits.
+    movl %ecx, %eax                       // eax: old lock word.
+    subl LITERAL(LOCK_WORD_THIN_LOCK_COUNT_ONE), %ecx
+#ifndef USE_READ_BARRIER
+    mov  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)
+#else
+    lock cmpxchg  %ecx, MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi)  // eax: old val, ecx: new val.
+    jnz  .Lretry_unlock                   // cmpxchg failed retry
+#endif
     ret
 .Lslow_unlock:
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
     movq %gs:THREAD_SELF_OFFSET, %rsi     // pass Thread::Current()
-    movq %rsp, %rdx                       // pass SP
-    call SYMBOL(artUnlockObjectFromCode)  // artUnlockObjectFromCode(object, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME    // restore frame up to return address
+    call SYMBOL(artUnlockObjectFromCode)  // artUnlockObjectFromCode(object, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME   // restore frame up to return address
     RETURN_IF_EAX_ZERO
 END_FUNCTION art_quick_unlock_object
 
@@ -935,9 +1139,8 @@ DEFINE_FUNCTION art_quick_check_cast
     POP rsi                           // Pop arguments
     POP rdi
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // save all registers as basis for long jump context
-    mov %rsp, %rcx                    // pass SP
     mov %gs:THREAD_SELF_OFFSET, %rdx  // pass Thread::Current()
-    call SYMBOL(artThrowClassCastException) // (Class* a, Class* b, Thread*, SP)
+    call SYMBOL(artThrowClassCastException) // (Class* a, Class* b, Thread*)
     int3                              // unreached
 END_FUNCTION art_quick_check_cast
 
@@ -969,8 +1172,8 @@ DEFINE_FUNCTION art_quick_aput_obj_with_bound_check
     int3
     int3
 #else
-    movl ARRAY_LENGTH_OFFSET(%edi), %ecx
-//  movl ARRAY_LENGTH_OFFSET(%rdi), %ecx      // This zero-extends, so value(%rcx)=value(%ecx)
+    movl MIRROR_ARRAY_LENGTH_OFFSET(%edi), %ecx
+//  movl MIRROR_ARRAY_LENGTH_OFFSET(%rdi), %ecx  // This zero-extends, so value(%rcx)=value(%ecx)
     cmpl %ecx, %esi
     jb art_quick_aput_obj
     mov %esi, %edi
@@ -986,24 +1189,24 @@ DEFINE_FUNCTION art_quick_aput_obj
     testl %edx, %edx                // store of null
 //  test %rdx, %rdx
     jz .Ldo_aput_null
-    movl CLASS_OFFSET(%edi), %ecx
-//  movq CLASS_OFFSET(%rdi), %rcx
-    movl CLASS_COMPONENT_TYPE_OFFSET(%ecx), %ecx
-//  movq CLASS_COMPONENT_TYPE_OFFSET(%rcx), %rcx
-    cmpl CLASS_OFFSET(%edx), %ecx // value's type == array's component type - trivial assignability
-//  cmpq CLASS_OFFSET(%rdx), %rcx
+    movl MIRROR_OBJECT_CLASS_OFFSET(%edi), %ecx
+//  movq MIRROR_OBJECT_CLASS_OFFSET(%rdi), %rcx
+    movl MIRROR_CLASS_COMPONENT_TYPE_OFFSET(%ecx), %ecx
+//  movq MIRROR_CLASS_COMPONENT_TYPE_OFFSET(%rcx), %rcx
+    cmpl MIRROR_OBJECT_CLASS_OFFSET(%edx), %ecx // value's type == array's component type - trivial assignability
+//  cmpq MIRROR_CLASS_OFFSET(%rdx), %rcx
     jne .Lcheck_assignability
 .Ldo_aput:
-    movl %edx, OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
-//  movq %rdx, OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
+    movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
+//  movq %rdx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
     movq %gs:THREAD_CARD_TABLE_OFFSET, %rdx
     shrl LITERAL(7), %edi
 //  shrl LITERAL(7), %rdi
     movb %dl, (%rdx, %rdi)                       // Note: this assumes that top 32b of %rdi are zero
     ret
 .Ldo_aput_null:
-    movl %edx, OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
-//  movq %rdx, OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
+    movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
+//  movq %rdx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
     ret
 .Lcheck_assignability:
     // Save arguments.
@@ -1015,7 +1218,7 @@ DEFINE_FUNCTION art_quick_aput_obj
     SETUP_FP_CALLEE_SAVE_FRAME
 
                                   // "Uncompress" = do nothing, as already zero-extended on load.
-    movl CLASS_OFFSET(%edx), %esi // Pass arg2 = value's class.
+    movl MIRROR_OBJECT_CLASS_OFFSET(%edx), %esi // Pass arg2 = value's class.
     movq %rcx, %rdi               // Pass arg1 = array's component type.
 
     call SYMBOL(artIsAssignableFromCode)  // (Class* a, Class* b)
@@ -1032,14 +1235,15 @@ DEFINE_FUNCTION art_quick_aput_obj
     POP  rsi
     POP  rdi
 
-    movl %edx, OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
-//  movq %rdx, OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
+    movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%edi, %esi, 4)
+//  movq %rdx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%rdi, %rsi, 4)
     movq %gs:THREAD_CARD_TABLE_OFFSET, %rdx
     shrl LITERAL(7), %edi
 //  shrl LITERAL(7), %rdi
     movb %dl, (%rdx, %rdi)                       // Note: this assumes that top 32b of %rdi are zero
 //  movb %dl, (%rdx, %rdi)
     ret
+    CFI_ADJUST_CFA_OFFSET(32 + 4 * 8)  // Reset unwind info so following code unwinds.
 .Lthrow_array_store_exception:
     RESTORE_FP_CALLEE_SAVE_FRAME
     // Restore arguments.
@@ -1052,12 +1256,10 @@ DEFINE_FUNCTION art_quick_aput_obj
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME  // Save all registers as basis for long jump context.
 
     // Outgoing argument set up.
-    movq %rsp, %rcx                         // Pass arg 4 = SP.
     movq %rdx, %rsi                         // Pass arg 2 = value.
-    movq %gs:THREAD_SELF_OFFSET, %rdx // Pass arg 3 = Thread::Current().
+    movq %gs:THREAD_SELF_OFFSET, %rdx       // Pass arg 3 = Thread::Current().
                                             // Pass arg 1 = array.
-
-    call SYMBOL(artThrowArrayStoreException) // (array, value, Thread*, SP)
+    call SYMBOL(artThrowArrayStoreException) // (array, value, Thread*)
     int3                          // unreached
 END_FUNCTION art_quick_aput_obj
 
@@ -1076,73 +1278,54 @@ UNIMPLEMENTED art_quick_lshl
 UNIMPLEMENTED art_quick_lshr
 UNIMPLEMENTED art_quick_lushr
 
+THREE_ARG_REF_DOWNCALL art_quick_set8_instance, artSet8InstanceFromCode, RETURN_IF_EAX_ZERO
+THREE_ARG_REF_DOWNCALL art_quick_set16_instance, artSet16InstanceFromCode, RETURN_IF_EAX_ZERO
 THREE_ARG_REF_DOWNCALL art_quick_set32_instance, artSet32InstanceFromCode, RETURN_IF_EAX_ZERO
-THREE_ARG_DOWNCALL art_quick_set64_instance, artSet64InstanceFromCode, RETURN_IF_EAX_ZERO
+THREE_ARG_REF_DOWNCALL art_quick_set64_instance, artSet64InstanceFromCode, RETURN_IF_EAX_ZERO
 THREE_ARG_REF_DOWNCALL art_quick_set_obj_instance, artSetObjInstanceFromCode, RETURN_IF_EAX_ZERO
 
+TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 
+TWO_ARG_REF_DOWNCALL art_quick_set8_static, artSet8StaticFromCode, RETURN_IF_EAX_ZERO
+TWO_ARG_REF_DOWNCALL art_quick_set16_static, artSet16StaticFromCode, RETURN_IF_EAX_ZERO
 TWO_ARG_REF_DOWNCALL art_quick_set32_static, artSet32StaticFromCode, RETURN_IF_EAX_ZERO
 TWO_ARG_REF_DOWNCALL art_quick_set_obj_static, artSetObjStaticFromCode, RETURN_IF_EAX_ZERO
 
+ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
 
 // This is singled out as the argument order is different.
 DEFINE_FUNCTION art_quick_set64_static
-    movq %rsi, %rdx                    // pass new_val
-    movl 8(%rsp), %esi                 // pass referrer
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
-                                       // field_idx is in rdi
-    movq %gs:THREAD_SELF_OFFSET, %rcx  // pass Thread::Current()
-    movq %rsp, %r8                     // pass SP
-    call SYMBOL(artSet64StaticFromCode)  // (field_idx, referrer, new_val, Thread*, SP)
-    RESTORE_REF_ONLY_CALLEE_SAVE_FRAME // restore frame up to return address
-    RETURN_IF_EAX_ZERO                 // return or deliver exception
+    movq %rsi, %rdx                      // pass new_val
+    movq 8(%rsp), %rsi                   // pass referrer
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
+                                         // field_idx is in rdi
+    movq %gs:THREAD_SELF_OFFSET, %rcx    // pass Thread::Current()
+    call SYMBOL(artSet64StaticFromCode)  // (field_idx, referrer, new_val, Thread*)
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME  // restore frame up to return address
+    RETURN_IF_EAX_ZERO                   // return or deliver exception
 END_FUNCTION art_quick_set64_static
 
 
 DEFINE_FUNCTION art_quick_proxy_invoke_handler
-    // Save callee and GPR args, mixed together to agree with core spills bitmap of ref. and args
-    // callee save frame.
-    PUSH r15  // Callee save.
-    PUSH r14  // Callee save.
-    PUSH r13  // Callee save.
-    PUSH r12  // Callee save.
-    PUSH r9   // Quick arg 5.
-    PUSH r8   // Quick arg 4.
-    PUSH rsi  // Quick arg 1.
-    PUSH rbp  // Callee save.
-    PUSH rbx  // Callee save.
-    PUSH rdx  // Quick arg 2.
-    PUSH rcx  // Quick arg 3.
-    // Create space for FPR args and create 2 slots, 1 of padding and 1 for the ArtMethod*.
-    subq LITERAL(80 + 4*8), %rsp
-    CFI_ADJUST_CFA_OFFSET(80 + 4*8)
-    // Save FPRs.
-    movq %xmm0, 16(%rsp)
-    movq %xmm1, 24(%rsp)
-    movq %xmm2, 32(%rsp)
-    movq %xmm3, 40(%rsp)
-    movq %xmm4, 48(%rsp)
-    movq %xmm5, 56(%rsp)
-    movq %xmm6, 64(%rsp)
-    movq %xmm7, 72(%rsp)
-    movq %xmm12, 80(%rsp)
-    movq %xmm13, 88(%rsp)
-    movq %xmm14, 96(%rsp)
-    movq %xmm15, 104(%rsp)
-    // Store proxy method to bottom of stack.
-    movq %rdi, 0(%rsp)
-    movq %gs:THREAD_SELF_OFFSET, %rdx  // Pass Thread::Current().
-    movq %rsp, %rcx                    // Pass SP.
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_RDI
+
+    movq %gs:THREAD_SELF_OFFSET, %rdx       // Pass Thread::Current().
+    movq %rsp, %rcx                         // Pass SP.
     call SYMBOL(artQuickProxyInvokeHandler) // (proxy method, receiver, Thread*, SP)
-    movq %rax, %xmm0                   // Copy return value in case of float returns.
-    addq LITERAL(168 + 4*8), %rsp            // Pop arguments.
-    CFI_ADJUST_CFA_OFFSET(-168 - 4*8)
+    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    movq %rax, %xmm0                        // Copy return value in case of float returns.
     RETURN_OR_DELIVER_PENDING_EXCEPTION
 END_FUNCTION art_quick_proxy_invoke_handler
 
@@ -1155,22 +1338,22 @@ DEFINE_FUNCTION art_quick_imt_conflict_trampoline
     int3
     int3
 #else
-    movl 8(%rsp), %edi            // load caller Method*
-    movl METHOD_DEX_CACHE_METHODS_OFFSET(%rdi), %edi  // load dex_cache_resolved_methods
-    movl OBJECT_ARRAY_DATA_OFFSET(%rdi, %rax, 4), %edi  // load the target method
+    movq 8(%rsp), %rdi            // load caller Method*
+    movl ART_METHOD_DEX_CACHE_METHODS_OFFSET(%rdi), %edi     // load dex_cache_resolved_methods
+    movq MIRROR_LONG_ARRAY_DATA_OFFSET(%rdi, %rax, 8), %rdi  // load the target method
     jmp art_quick_invoke_interface_trampoline
 #endif  // __APPLE__
 END_FUNCTION art_quick_imt_conflict_trampoline
 
 DEFINE_FUNCTION art_quick_resolution_trampoline
-    SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
     movq %gs:THREAD_SELF_OFFSET, %rdx
     movq %rsp, %rcx
     call SYMBOL(artQuickResolutionTrampoline) // (called, receiver, Thread*, SP)
     movq %rax, %r10               // Remember returned code pointer in R10.
     movq (%rsp), %rdi             // Load called method into RDI.
-    RESTORE_REF_AND_ARGS_CALLEE_SAVE_FRAME
-    testq %r10, %r10              // If code pointer is NULL goto deliver pending exception.
+    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
+    testq %r10, %r10              // If code pointer is null goto deliver pending exception.
     jz 1f
     jmp *%r10                     // Tail call into method.
 1:
@@ -1210,7 +1393,6 @@ END_FUNCTION art_quick_resolution_trampoline
  * | XMM2              |    float arg 3
  * | XMM1              |    float arg 2
  * | XMM0              |    float arg 1
- * | Padding           |
  * | RDI/Method*       |  <- sp
  * #-------------------#
  * | Scratch Alloca    |    5K scratch space
@@ -1254,38 +1436,12 @@ END_FUNCTION art_quick_resolution_trampoline
     /*
      * Called to do a generic JNI down-call
      */
-DEFINE_FUNCTION_NO_HIDE art_quick_generic_jni_trampoline
-    // Save callee and GPR args, mixed together to agree with core spills bitmap.
-    PUSH r15  // Callee save.
-    PUSH r14  // Callee save.
-    PUSH r13  // Callee save.
-    PUSH r12  // Callee save.
-    PUSH r9   // Quick arg 5.
-    PUSH r8   // Quick arg 4.
-    PUSH rsi  // Quick arg 1.
-    PUSH rbp  // Callee save.
-    PUSH rbx  // Callee save.
-    PUSH rdx  // Quick arg 2.
-    PUSH rcx  // Quick arg 3.
-    // Create space for FPR args and create 2 slots, 1 of padding and 1 for the ArtMethod*.
-    subq LITERAL(80 + 4*8), %rsp
-    CFI_ADJUST_CFA_OFFSET(80 + 4*8)
-    // Save FPRs.
-    movq %xmm0, 16(%rsp)
-    movq %xmm1, 24(%rsp)
-    movq %xmm2, 32(%rsp)
-    movq %xmm3, 40(%rsp)
-    movq %xmm4, 48(%rsp)
-    movq %xmm5, 56(%rsp)
-    movq %xmm6, 64(%rsp)
-    movq %xmm7, 72(%rsp)
-    movq %xmm12, 80(%rsp)
-    movq %xmm13, 88(%rsp)
-    movq %xmm14, 96(%rsp)
-    movq %xmm15, 104(%rsp)
-    movq %rdi, 0(%rsp)              // Store native ArtMethod* to bottom of stack.
+DEFINE_FUNCTION art_quick_generic_jni_trampoline
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME_WITH_METHOD_IN_RDI
+
     movq %rsp, %rbp                 // save SP at (old) callee-save frame
     CFI_DEF_CFA_REGISTER(rbp)
+
     //
     // reserve a lot of space
     //
@@ -1319,7 +1475,7 @@ DEFINE_FUNCTION_NO_HIDE art_quick_generic_jni_trampoline
 
     // Check for error = 0.
     test %rax, %rax
-    jz .Lentry_error
+    jz .Lexception_in_native
 
     // Release part of the alloca.
     movq %rdx, %rsp
@@ -1356,15 +1512,15 @@ DEFINE_FUNCTION_NO_HIDE art_quick_generic_jni_trampoline
     movq %xmm0, %rdx
     call SYMBOL(artQuickGenericJniEndTrampoline)
 
-    // Tear down the alloca.
-    movq %rbp, %rsp
-    CFI_DEF_CFA_REGISTER(rsp)
-
     // Pending exceptions possible.
     // TODO: use cmpq, needs direct encoding because of gas bug
     movq %gs:THREAD_EXCEPTION_OFFSET, %rcx
     test %rcx, %rcx
     jnz .Lexception_in_native
+
+    // Tear down the alloca.
+    movq %rbp, %rsp
+    CFI_DEF_CFA_REGISTER(rsp)
 
     // Tear down the callee-save frame.
     // Load FPRs.
@@ -1398,40 +1554,12 @@ DEFINE_FUNCTION_NO_HIDE art_quick_generic_jni_trampoline
     // store into fpr, for when it's a fpr return...
     movq %rax, %xmm0
     ret
-.Lentry_error:
-    movq %rbp, %rsp
-    CFI_DEF_CFA_REGISTER(rsp)
 .Lexception_in_native:
-    // TODO: the handle scope contains the this pointer which is used by the debugger for exception
-    //       delivery.
-    movq %xmm0, 16(%rsp)         // doesn't make sense!!!
-    movq 24(%rsp), %xmm1            // neither does this!!!
-    movq 32(%rsp), %xmm2
-    movq 40(%rsp), %xmm3
-    movq 48(%rsp), %xmm4
-    movq 56(%rsp), %xmm5
-    movq 64(%rsp), %xmm6
-    movq 72(%rsp), %xmm7
-    movq 80(%rsp), %xmm12
-    movq 88(%rsp), %xmm13
-    movq 96(%rsp), %xmm14
-    movq 104(%rsp), %xmm15
-    // was 80 + 32 bytes
-    addq LITERAL(80 + 4*8), %rsp
-    CFI_ADJUST_CFA_OFFSET(-80 - 4*8)
-    // Save callee and GPR args, mixed together to agree with core spills bitmap.
-    POP rcx  // Arg.
-    POP rdx  // Arg.
-    POP rbx  // Callee save.
-    POP rbp  // Callee save.
-    POP rsi  // Arg.
-    POP r8   // Arg.
-    POP r9   // Arg.
-    POP r12  // Callee save.
-    POP r13  // Callee save.
-    POP r14  // Callee save.
-    POP r15  // Callee save.
-
+    movq %gs:THREAD_TOP_QUICK_FRAME_OFFSET, %rsp
+    CFI_DEF_CFA_REGISTER(rsp)
+    // Do a call to push a new save-all frame required by the runtime.
+    call .Lexception_call
+.Lexception_call:
     DELIVER_PENDING_EXCEPTION
 END_FUNCTION art_quick_generic_jni_trampoline
 
@@ -1441,12 +1569,12 @@ END_FUNCTION art_quick_generic_jni_trampoline
      * RDI = method being called / to bridge to.
      * RSI, RDX, RCX, R8, R9 are arguments to that method.
      */
-DEFINE_FUNCTION_NO_HIDE art_quick_to_interpreter_bridge
-    SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME   // Set up frame and save arguments.
+DEFINE_FUNCTION art_quick_to_interpreter_bridge
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME   // Set up frame and save arguments.
     movq %gs:THREAD_SELF_OFFSET, %rsi      // RSI := Thread::Current()
     movq %rsp, %rdx                        // RDX := sp
     call SYMBOL(artQuickToInterpreterBridge)  // (method, Thread*, SP)
-    RESTORE_REF_AND_ARGS_CALLEE_SAVE_FRAME  // TODO: no need to restore arguments in this case.
+    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME  // TODO: no need to restore arguments in this case.
     movq %rax, %xmm0                   // Place return value also into floating point return value.
     RETURN_OR_DELIVER_PENDING_EXCEPTION    // return or deliver exception
 END_FUNCTION art_quick_to_interpreter_bridge
@@ -1459,15 +1587,14 @@ DEFINE_FUNCTION art_quick_instrumentation_entry
     int3
     int3
 #else
-    SETUP_REF_AND_ARGS_CALLEE_SAVE_FRAME
+    SETUP_REFS_AND_ARGS_CALLEE_SAVE_FRAME
 
     movq %rdi, %r12               // Preserve method pointer in a callee-save.
 
     movq %gs:THREAD_SELF_OFFSET, %rdx   // Pass thread.
-    movq %rsp, %rcx                     // Pass SP.
-    movq FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE-8(%rsp), %r8   // Pass return PC.
+    movq FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE-8(%rsp), %rcx   // Pass return PC.
 
-    call SYMBOL(artInstrumentationMethodEntryFromCode) // (Method*, Object*, Thread*, SP, LR)
+    call SYMBOL(artInstrumentationMethodEntryFromCode) // (Method*, Object*, Thread*, LR)
 
                                   // %rax = result of call.
     movq %r12, %rdi               // Reload method pointer.
@@ -1475,7 +1602,7 @@ DEFINE_FUNCTION art_quick_instrumentation_entry
     leaq art_quick_instrumentation_exit(%rip), %r12   // Set up return through instrumentation
     movq %r12, FRAME_SIZE_REFS_AND_ARGS_CALLEE_SAVE-8(%rsp) // exit.
 
-    RESTORE_REF_AND_ARGS_CALLEE_SAVE_FRAME
+    RESTORE_REFS_AND_ARGS_CALLEE_SAVE_FRAME
 
     jmp *%rax                     // Tail call to intended method.
 #endif  // __APPLE__
@@ -1484,7 +1611,7 @@ END_FUNCTION art_quick_instrumentation_entry
 DEFINE_FUNCTION art_quick_instrumentation_exit
     pushq LITERAL(0)          // Push a fake return PC as there will be none on the stack.
 
-    SETUP_REF_ONLY_CALLEE_SAVE_FRAME
+    SETUP_REFS_ONLY_CALLEE_SAVE_FRAME
 
     // We need to save rax and xmm0. We could use a callee-save from SETUP_REF_ONLY, but then
     // we would need to fully restore it. As there are a good number of callee-save registers, it
@@ -1511,7 +1638,9 @@ DEFINE_FUNCTION art_quick_instrumentation_exit
     CFI_ADJUST_CFA_OFFSET(-8)
     POP rax                   // Restore integer result.
 
-    addq LITERAL(FRAME_SIZE_REFS_ONLY_CALLEE_SAVE), %rsp   // Drop save frame and fake return pc.
+    RESTORE_REFS_ONLY_CALLEE_SAVE_FRAME
+
+    addq LITERAL(8), %rsp     // Drop fake return pc.
 
     jmp   *%rdi               // Return.
 END_FUNCTION art_quick_instrumentation_exit
@@ -1521,15 +1650,17 @@ END_FUNCTION art_quick_instrumentation_exit
      * will long jump to the upcall with a special exception of -1.
      */
 DEFINE_FUNCTION art_quick_deoptimize
-    pushq %rsi                     // Fake that we were called. Use hidden arg.
+    pushq %rsi                     // Entry point for a jump. Fake that we were called.
+                                   // Use hidden arg.
+.globl SYMBOL(art_quick_deoptimize_from_compiled_slow_path)  // Entry point for real calls
+                                                             // from compiled slow paths.
+SYMBOL(art_quick_deoptimize_from_compiled_slow_path):
     SETUP_SAVE_ALL_CALLEE_SAVE_FRAME
                                    // Stack should be aligned now.
-    movq %rsp, %rsi                           // Pass SP.
     movq %gs:THREAD_SELF_OFFSET, %rdi         // Pass Thread.
-    call SYMBOL(artDeoptimize) // artDeoptimize(Thread*, SP)
+    call SYMBOL(artDeoptimize) // artDeoptimize(Thread*)
     int3                           // Unreachable.
 END_FUNCTION art_quick_deoptimize
-
 
     /*
      * String's compareTo.
@@ -1539,15 +1670,11 @@ END_FUNCTION art_quick_deoptimize
      *    rsi:   comp string object (known non-null)
      */
 DEFINE_FUNCTION art_quick_string_compareto
-    movl STRING_COUNT_OFFSET(%edi), %r8d
-    movl STRING_COUNT_OFFSET(%esi), %r9d
-    movl STRING_VALUE_OFFSET(%edi), %r10d
-    movl STRING_VALUE_OFFSET(%esi), %r11d
-    movl STRING_OFFSET_OFFSET(%edi), %eax
-    movl STRING_OFFSET_OFFSET(%esi), %ecx
+    movl MIRROR_STRING_COUNT_OFFSET(%edi), %r8d
+    movl MIRROR_STRING_COUNT_OFFSET(%esi), %r9d
     /* Build pointers to the start of string data */
-    leal STRING_DATA_OFFSET(%r10d, %eax, 2), %esi
-    leal STRING_DATA_OFFSET(%r11d, %ecx, 2), %edi
+    leal MIRROR_STRING_VALUE_OFFSET(%edi), %edi
+    leal MIRROR_STRING_VALUE_OFFSET(%esi), %esi
     /* Calculate min length and count diff */
     movl  %r8d, %ecx
     movl  %r8d, %eax
@@ -1557,8 +1684,8 @@ DEFINE_FUNCTION art_quick_string_compareto
      * At this point we have:
      *   eax: value to return if first part of strings are equal
      *   ecx: minimum among the lengths of the two strings
-     *   esi: pointer to this string data
-     *   edi: pointer to comp string data
+     *   esi: pointer to comp string data
+     *   edi: pointer to this string data
      */
     jecxz .Lkeep_length
     repe cmpsw                    // find nonmatching chars in [%esi] and [%edi], up to length %ecx
@@ -1567,8 +1694,8 @@ DEFINE_FUNCTION art_quick_string_compareto
     ret
     .balign 16
 .Lnot_equal:
-    movzwl  -2(%esi), %eax        // get last compared char from this string
-    movzwl  -2(%edi), %ecx        // get last compared char from comp string
+    movzwl  -2(%edi), %eax        // get last compared char from this string
+    movzwl  -2(%esi), %ecx        // get last compared char from comp string
     subl  %ecx, %eax              // return the difference
     ret
 END_FUNCTION art_quick_string_compareto
@@ -1593,5 +1720,3 @@ DEFINE_FUNCTION art_nested_signal_return
     call PLT_SYMBOL(longjmp)
     int3                            // won't get here
 END_FUNCTION art_nested_signal_return
-
-

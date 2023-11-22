@@ -21,9 +21,7 @@
     <string name="title_select_cert" msgid="3588447616418041699">"Choisir un certificat"</string>
     <string name="requesting_application" msgid="1589142627467598421">"L\'application %s a demandé un certificat. Choisissez un certificat pour permettre à l\'application d\'utiliser cette identité auprès des serveurs à compter d\'aujourd\'hui."</string>
     <string name="requesting_server" msgid="5832565605998634370">"L\'application a identifié le serveur demandeur comme %s, mais vous ne devez permettre à l\'application d\'accéder au certificat que si vous faites confiance à celle-ci."</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for install_new_cert_message (4451971501142085495) -->
-    <skip />
+    <string name="install_new_cert_message" msgid="4451971501142085495">"Vous pouvez installer des certificats à partir d\'un fichier PKCS#12 doté d\'une extension %1$s ou %2$s conservée dans la mémoire de stockage externe."</string>
     <string name="install_new_cert_button_label" msgid="510732745267546907">"Installer"</string>
     <string name="allow_button" msgid="5340501035618157678">"Autoriser"</string>
     <string name="deny_button" msgid="3766539809121892584">"Refuser"</string>

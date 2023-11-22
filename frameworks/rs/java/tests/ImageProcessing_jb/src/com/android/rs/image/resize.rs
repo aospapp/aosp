@@ -41,11 +41,11 @@ static float4 cubicInterpolate (float4 p0,float4 p1,float4 p2,float4 p3 , float 
 }
 
 uchar4 __attribute__((kernel)) bicubic(uint32_t x, uint32_t y) {
-    float xf = x * scale;
-    float yf = y * scale;
+    float xf = (x + 0.5f) * scale - 0.5f;
+    float yf = (y + 0.5f) * scale - 0.5f;
 
-    int startx = (int) floor(xf - 2);
-    int starty = (int) floor(yf - 2);
+    int startx = (int) floor(xf - 1);
+    int starty = (int) floor(yf - 1);
     xf = xf - floor(xf);
     yf = yf - floor(yf);
     int maxx = gWidthIn - 1;
@@ -86,7 +86,7 @@ uchar4 __attribute__((kernel)) bicubic(uint32_t x, uint32_t y) {
     float4 p3  = cubicInterpolate(p30, p31, p32, p33, xf);
 
     float4 p  = cubicInterpolate(p0, p1, p2, p3, yf);
-    p = clamp(p, 0.f, 255.f);
+    p = clamp(p + 0.5f, 0.f, 255.f);
     return convert_uchar4(p);
 }
 

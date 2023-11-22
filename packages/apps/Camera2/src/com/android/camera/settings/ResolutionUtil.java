@@ -16,8 +16,16 @@
 
 package com.android.camera.settings;
 
+import android.content.Context;
+import android.util.DisplayMetrics;
+import android.view.WindowManager;
+
+import com.android.camera.exif.Rational;
+import com.android.camera.util.AndroidServices;
 import com.android.camera.util.ApiHelper;
-import com.android.ex.camera2.portability.Size;
+import com.android.camera.util.Size;
+
+import com.google.common.collect.Lists;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -25,8 +33,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
+
 
 /**
  * This class is used to help manage the many different resolutions available on
@@ -36,14 +50,20 @@ import java.util.List;
  * user with so many options.
  */
 public class ResolutionUtil {
+    /**
+     * Different aspect ratio constants.
+     */
+    public static final Rational ASPECT_RATIO_16x9 = new Rational(16, 9);
+    public static final Rational ASPECT_RATIO_4x3 = new Rational(4, 3);
+    private static final double ASPECT_RATIO_TOLERANCE = 0.05;
 
     public static final String NEXUS_5_LARGE_16_BY_9 = "1836x3264";
     public static final float NEXUS_5_LARGE_16_BY_9_ASPECT_RATIO = 16f / 9f;
-    public static Size NEXUS_5_LARGE_16_BY_9_SIZE = new Size(1836, 3264);
+    public static Size NEXUS_5_LARGE_16_BY_9_SIZE = new Size(3264, 1836);
 
     /**
      * These are the preferred aspect ratios for the settings. We will take HAL
-     * supported aspect ratios that are within RATIO_TOLERANCE of these values.
+     * supported aspect ratios that are within ASPECT_RATIO_TOLERANCE of these values.
      * We will also take the maximum supported resolution for full sensor image.
      */
     private static Float[] sDesiredAspectRatios = {
@@ -53,8 +73,6 @@ public class ResolutionUtil {
     private static Size[] sDesiredAspectRatioSizes = {
             new Size(16, 9), new Size(4, 3)
     };
-
-    private static final float RATIO_TOLERANCE = .05f;
 
     /**
      * A resolution bucket holds a list of sizes that are of a given aspect
@@ -131,7 +149,7 @@ public class ResolutionUtil {
         for (Float targetRatio : sortedDesiredAspectRatios) {
             for (ResolutionBucket bucket : buckets) {
                 Number aspectRatio = bucket.aspectRatio;
-                if (Math.abs(aspectRatio.floatValue() - targetRatio) <= RATIO_TOLERANCE) {
+                if (Math.abs(aspectRatio.floatValue() - targetRatio) <= ASPECT_RATIO_TOLERANCE) {
                     result.addAll(pickUpToThree(bucket.sizes));
                 }
             }
@@ -197,12 +215,12 @@ public class ResolutionUtil {
      * possible.
      *
      * @param aspectRatio the aspect ratio to fuzz
-     * @return the closest desiredAspectRatio within RATIO_TOLERANCE, or the
+     * @return the closest desiredAspectRatio within ASPECT_RATIO_TOLERANCE, or the
      *         original ratio
      */
     private static float fuzzAspectRatio(float aspectRatio) {
         for (float desiredAspectRatio : sDesiredAspectRatios) {
-            if ((Math.abs(aspectRatio - desiredAspectRatio)) < RATIO_TOLERANCE) {
+            if ((Math.abs(aspectRatio - desiredAspectRatio)) < ASPECT_RATIO_TOLERANCE) {
                 return desiredAspectRatio;
             }
         }
@@ -223,7 +241,7 @@ public class ResolutionUtil {
         HashMap<Float, ResolutionBucket> aspectRatioToBuckets = new HashMap<Float, ResolutionBucket>();
 
         for (Size size : sizes) {
-            Float aspectRatio = size.width() / (float) size.height();
+            Float aspectRatio = (float) size.getWidth() / (float) size.getHeight();
             // If this aspect ratio is close to a desired Aspect Ratio,
             // fuzz it so that they are bucketed together
             aspectRatio = fuzzAspectRatio(aspectRatio);
@@ -300,20 +318,9 @@ public class ResolutionUtil {
         float fuzzy = fuzzAspectRatio(size.width() / (float) size.height());
         int index = Arrays.asList(sDesiredAspectRatios).indexOf(fuzzy);
         if (index != -1) {
-            aspectRatio = new Size(sDesiredAspectRatioSizes[index]);
+            aspectRatio = sDesiredAspectRatioSizes[index];
         }
         return aspectRatio;
-    }
-
-    /**
-     * See {@link #getApproximateSize(Size)}.
-     * <p>
-     * TODO: Move this whole util to {@link android.util.Size}
-     */
-    public static com.android.camera.util.Size getApproximateSize(
-            com.android.camera.util.Size size) {
-        Size result = getApproximateSize(new Size(size.getWidth(), size.getHeight()));
-        return new com.android.camera.util.Size(result.width(), result.height());
     }
 
     /**
@@ -330,4 +337,128 @@ public class ResolutionUtil {
         return denominator;
     }
 
+    /**
+     * Returns the aspect ratio for the given size.
+     *
+     * @param size The given size.
+     * @return A {@link Rational} which represents the aspect ratio.
+     */
+    public static Rational getAspectRatio(Size size) {
+        int width = size.getWidth();
+        int height = size.getHeight();
+        int numerator = width;
+        int denominator = height;
+        if (height > width) {
+            numerator = height;
+            denominator = width;
+        }
+        return new Rational(numerator, denominator);
+    }
+
+    public static boolean hasSameAspectRatio(Rational ar1, Rational ar2) {
+        return Math.abs(ar1.toDouble() - ar2.toDouble()) < ASPECT_RATIO_TOLERANCE;
+    }
+
+    /**
+     * Selects the maximal resolution for the given desired aspect ratio from all available
+     * resolutions.  If no resolution exists for the desired aspect ratio, return a resolution
+     * with the maximum number of pixels.
+     *
+     * @param desiredAspectRatio The desired aspect ratio.
+     * @param sizes All available resolutions.
+     * @return The maximal resolution for desired aspect ratio ; if no sizes are found, then
+     *      return size of (0,0)
+     */
+    public static Size getLargestPictureSize(Rational desiredAspectRatio, List<Size> sizes) {
+        int maxPixelNumNoAspect = 0;
+        Size maxSize = new Size(0, 0);
+
+        // Fix for b/21758681
+        // Do first pass with the candidate with closest size, regardless of aspect ratio,
+        // to loosen the requirement of valid preview sizes.  As long as one size exists
+        // in the list, we should pass back a valid size.
+        for (Size size : sizes) {
+            int pixelNum = size.getWidth() * size.getHeight();
+            if (pixelNum > maxPixelNumNoAspect) {
+                maxPixelNumNoAspect = pixelNum;
+                maxSize = size;
+            }
+        }
+
+        // With second pass, override first pass with the candidate with closest
+        // size AND similar aspect ratio.  If there are no valid candidates are found
+        // in the second pass, take the candidate from the first pass.
+        int maxPixelNumWithAspect = 0;
+        for (Size size : sizes) {
+            Rational aspectRatio = getAspectRatio(size);
+            // Skip if the aspect ratio is not desired.
+            if (!hasSameAspectRatio(aspectRatio, desiredAspectRatio)) {
+                continue;
+            }
+            int pixelNum = size.getWidth() * size.getHeight();
+            if (pixelNum > maxPixelNumWithAspect) {
+                maxPixelNumWithAspect = pixelNum;
+                maxSize = size;
+            }
+        }
+
+        return maxSize;
+    }
+
+    public static DisplayMetrics getDisplayMetrics(Context context) {
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        WindowManager wm = AndroidServices.instance().provideWindowManager();
+        if (wm != null) {
+            wm.getDefaultDisplay().getMetrics(displayMetrics);
+        }
+        return displayMetrics;
+    }
+
+    /**
+     * Takes selected sizes and a list of blacklisted sizes. All the blacklistes
+     * sizes will be removed from the 'sizes' list.
+     *
+     * @param sizes the sizes to be filtered.
+     * @param blacklistString a String containing a comma-separated list of
+     *            sizes that should be removed from the original list.
+     * @return A list that contains the filtered items.
+     */
+    @ParametersAreNonnullByDefault
+    public static List<Size> filterBlackListedSizes(List<Size> sizes, String blacklistString) {
+        String[] blacklistStringArray = blacklistString.split(",");
+        if (blacklistStringArray.length == 0) {
+            return sizes;
+        }
+
+        Set<String> blacklistedSizes = new HashSet(Lists.newArrayList(blacklistStringArray));
+        List<Size> newSizeList = new ArrayList<>();
+        for (Size size : sizes) {
+            if (!isBlackListed(size, blacklistedSizes)) {
+                newSizeList.add(size);
+            }
+        }
+        return newSizeList;
+    }
+
+    /**
+     * Returns whether the given size is within the blacklist string.
+     *
+     * @param size the size to check
+     * @param blacklistString a String containing a comma-separated list of
+     *            sizes that should not be available on the device.
+     * @return Whether the given size is blacklisted.
+     */
+    public static boolean isBlackListed(@Nonnull Size size, @Nonnull String blacklistString) {
+        String[] blacklistStringArray = blacklistString.split(",");
+        if (blacklistStringArray.length == 0) {
+            return false;
+        }
+        Set<String> blacklistedSizes = new HashSet(Lists.newArrayList(blacklistStringArray));
+        return isBlackListed(size, blacklistedSizes);
+    }
+
+    private static boolean isBlackListed(@Nonnull Size size, @Nonnull Set<String> blacklistedSizes) {
+        String sizeStr = size.getWidth() + "x" + size.getHeight();
+        return blacklistedSizes.contains(sizeStr);
+    }
 }

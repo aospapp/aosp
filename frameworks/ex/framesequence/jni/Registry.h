@@ -17,6 +17,9 @@
 #ifndef RASTERMILL_REGISTRY_H
 #define RASTERMILL_REGISTRY_H
 
+#include "jni.h"
+#include <stdint.h>
+
 class FrameSequence;
 class Decoder;
 class Stream;
@@ -26,6 +29,7 @@ struct RegistryEntry {
     bool (*checkHeader)(void* header, int header_size);
     FrameSequence* (*createFrameSequence)(Stream* stream);
     Decoder* (*createDecoder)(Stream* stream);
+    bool (*acceptsBuffer)();
 };
 
 /**

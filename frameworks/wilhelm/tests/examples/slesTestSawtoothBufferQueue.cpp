@@ -272,7 +272,7 @@ void TestPlaySawtoothBufferQueue( SLObjectItf sl )
 
 
 
-int main(int argc, char* const argv[])
+int main(int argc __unused, char* const argv[] __unused)
 {
     SLresult    res;
     SLObjectItf sl;

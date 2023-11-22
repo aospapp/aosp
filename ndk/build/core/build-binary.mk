@@ -78,6 +78,7 @@ system_libs := \
     RS \
     ui \
     utils \
+    mediandk \
     atomic
 
 libs_in_ldflags := $(filter-out $(addprefix -l,$(system_libs)), $(libs_in_ldflags))
@@ -300,6 +301,14 @@ ifeq ($(LOCAL_ARM_MODE),arm)
     ifneq (,$(LOCAL_PCH))
         $(call tag-src-files,$(LOCAL_PCH),arm)
     endif
+else
+# For arm, all sources are compiled in thumb mode by default in release mode.
+# Linker should behave similarly
+ifneq ($(filter armeabi%, $(TARGET_ARCH_ABI)),)
+ifneq ($(APP_OPTIM),debug)
+    LOCAL_LDFLAGS += -mthumb
+endif
+endif
 endif
 ifeq ($(LOCAL_ARM_MODE),thumb)
     arm_sources := $(empty)
@@ -338,7 +347,7 @@ LOCAL_DEPENDENCY_DIRS :=
 
 # all_source_patterns contains the list of filename patterns that correspond
 # to source files recognized by our build system
-ifeq ($(TARGET_ARCH_ABI),x86)
+ifneq ($(filter x86 x86_64, $(TARGET_ARCH_ABI)),)
 all_source_extensions := .c .s .S .asm $(LOCAL_CPP_EXTENSION) $(LOCAL_RS_EXTENSION)
 else
 all_source_extensions := .c .s .S $(LOCAL_CPP_EXTENSION) $(LOCAL_RS_EXTENSION)
@@ -432,7 +441,7 @@ ifneq (,$(LOCAL_PCH))
     )
 
     # Files from now on build with PCH
-    LOCAL_CPPFLAGS += -Winvalid-pch -include $(LOCAL_BUILT_PCH)
+    LOCAL_CPPFLAGS += -Winvalid-pch -include $(LOCAL_OBJS_DIR)/$(LOCAL_BUILT_PCH)
 
     # Insert PCH dir at beginning of include search path
     LOCAL_C_INCLUDES := \
@@ -453,7 +462,7 @@ $(foreach src,$(filter $(all_rs_patterns),$(LOCAL_SRC_FILES)),\
     $(call compile-rs-source,$(src),$(call get-rs-scriptc-name,$(src)),$(call get-rs-bc-name,$(src)),$(call get-rs-so-name,$(src)),$(call get-object-name,$(src)),$(RS_COMPAT))\
 )
 
-ifeq ($(TARGET_ARCH_ABI),x86)
+ifneq ($(filter x86 x86_64, $(TARGET_ARCH_ABI)),)
 $(foreach src,$(filter %.asm,$(LOCAL_SRC_FILES)), $(call compile-asm-source,$(src),$(call get-object-name,$(src))))
 endif
 
@@ -632,8 +641,8 @@ $(LOCAL_BUILT_MODULE): $(shared_libs) $(static_libs) $(whole_static_libs)
 $(LOCAL_BUILT_MODULE): PRIVATE_ABI := $(TARGET_ARCH_ABI)
 $(LOCAL_BUILT_MODULE): PRIVATE_LINKER_OBJECTS_AND_LIBRARIES := $(linker_objects_and_libraries)
 $(LOCAL_BUILT_MODULE): PRIVATE_STATIC_LIBRARIES := $(static_libs)
-$(LOCAL_BUILT_MODULE): PRIVATE_WHOLE_STATIC_LIBRARIES := $(whole_static_libs))
-$(LOCAL_BUILT_MODULE): PRIVATE_SHARED_LIBRARIES := $(shared_libs))
+$(LOCAL_BUILT_MODULE): PRIVATE_WHOLE_STATIC_LIBRARIES := $(whole_static_libs)
+$(LOCAL_BUILT_MODULE): PRIVATE_SHARED_LIBRARIES := $(shared_libs)
 
 endif
 

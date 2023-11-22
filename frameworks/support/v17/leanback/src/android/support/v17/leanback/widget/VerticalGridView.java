@@ -21,8 +21,21 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 
 /**
- * A view that shows items in a vertically scrolling list. The items come from
- * the {@link RecyclerView.Adapter} associated with this view.
+ * A {@link android.view.ViewGroup} that shows items in a vertically scrolling list. The items
+ * come from the {@link RecyclerView.Adapter} associated with this view.
+ * <p>
+ * {@link RecyclerView.Adapter} can optionally implement {@link FacetProviderAdapter} which
+ * provides {@link FacetProvider} for a given view type;  {@link RecyclerView.ViewHolder}
+ * can also implement {@link FacetProvider}.  Facet from ViewHolder
+ * has a higher priority than the one from FacetProiderAdapter associated with viewType.
+ * Supported optional facets are:
+ * <ol>
+ * <li> {@link ItemAlignmentFacet}
+ * When this facet is provided by ViewHolder or FacetProviderAdapter,  it will
+ * override the item alignment settings set on VerticalGridView.  This facet also allows multiple
+ * alignment positions within one ViewHolder.
+ * </li>
+ * </ol>
  */
 public class VerticalGridView extends BaseGridView {
 
@@ -50,17 +63,14 @@ public class VerticalGridView extends BaseGridView {
 
     void setColumnWidth(TypedArray array) {
         TypedValue typedValue = array.peekValue(R.styleable.lbVerticalGridView_columnWidth);
-        int size;
-        if (typedValue != null && typedValue.type == TypedValue.TYPE_DIMENSION) {
-            size = array.getDimensionPixelSize(R.styleable.lbVerticalGridView_columnWidth, 0);
-        } else {
-            size = array.getInt(R.styleable.lbVerticalGridView_columnWidth, 0);
+        if (typedValue != null) {
+            int size = array.getLayoutDimension(R.styleable.lbVerticalGridView_columnWidth, 0);
+            setColumnWidth(size);
         }
-        setColumnWidth(size);
     }
 
     /**
-     * Set the number of columns.  Defaults to one.
+     * Sets the number of columns.  Defaults to one.
      */
     public void setNumColumns(int numColumns) {
         mLayoutManager.setNumRows(numColumns);
@@ -68,10 +78,11 @@ public class VerticalGridView extends BaseGridView {
     }
 
     /**
-     * Set the column width.
+     * Sets the column width.
      *
-     * @param width May be WRAP_CONTENT, or a size in pixels. If zero,
-     * column width will be fixed based on number of columns and view width.
+     * @param width May be {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT}, or a size
+     *              in pixels. If zero, column width will be fixed based on number of columns
+     *              and view width.
      */
     public void setColumnWidth(int width) {
         mLayoutManager.setRowHeight(width);

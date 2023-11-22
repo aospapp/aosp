@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.Log;
@@ -36,10 +35,11 @@ import android.widget.RemoteViews;
 import com.android.deskclock.DeskClock;
 import com.android.deskclock.R;
 import com.android.deskclock.Utils;
-import com.android.deskclock.alarms.AlarmNotifications;
+import com.android.deskclock.alarms.AlarmStateManager;
 import com.android.deskclock.worldclock.Cities;
 import com.android.deskclock.worldclock.CitiesActivity;
 
+import java.text.SimpleDateFormat;
 import java.util.Locale;
 
 public class DigitalAppWidgetProvider extends AppWidgetProvider {
@@ -94,7 +94,7 @@ public class DigitalAppWidgetProvider extends AppWidgetProvider {
                     RemoteViews widget = new RemoteViews(context.getPackageName(),
                             R.layout.digital_appwidget);
                     float ratio = WidgetUtils.getScaleRatio(context, null, appWidgetId);
-                    WidgetUtils.setTimeFormat(widget, 0/*no am/pm*/, R.id.the_clock);
+                    WidgetUtils.setTimeFormat(context, widget, 0/*no am/pm*/, R.id.the_clock);
                     WidgetUtils.setClockSize(context, widget, ratio);
                     refreshAlarm(context, widget);
                     appWidgetManager.partiallyUpdateAppWidget(appWidgetId, widget);
@@ -104,8 +104,7 @@ public class DigitalAppWidgetProvider extends AppWidgetProvider {
                 cancelAlarmOnQuarterHour(context);
             }
             startAlarmOnQuarterHour(context);
-        } else if (AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED.equals(action)
-                || Intent.ACTION_SCREEN_ON.equals(action)) {
+        } else if (isNextAlarmChangedAction(action) || Intent.ACTION_SCREEN_ON.equals(action)) {
             // Refresh the next alarm
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
             if (appWidgetManager != null) {
@@ -153,6 +152,20 @@ public class DigitalAppWidgetProvider extends AppWidgetProvider {
         updateClock(context, widgetManager, appWidgetId, ratio);
     }
 
+    /**
+     * Determine whether action received corresponds to a "next alarm" changed action depending
+     * on the SDK version.
+     */
+    private boolean isNextAlarmChangedAction(String action) {
+        final String nextAlarmIntentAction;
+        if (Utils.isLOrLater()) {
+            nextAlarmIntentAction = AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED;
+        } else {
+            nextAlarmIntentAction = AlarmStateManager.SYSTEM_ALARM_CHANGE_ACTION;
+        }
+        return nextAlarmIntentAction.equals(action);
+    }
+
     private void updateClock(
             Context context, AppWidgetManager appWidgetManager, int appWidgetId, float ratio) {
         RemoteViews widget = new RemoteViews(context.getPackageName(), R.layout.digital_appwidget);
@@ -168,12 +181,15 @@ public class DigitalAppWidgetProvider extends AppWidgetProvider {
 
         // Setup alarm text clock's format and font sizes
         refreshAlarm(context, widget);
-        WidgetUtils.setTimeFormat(widget, 0/*no am/pm*/, R.id.the_clock);
+        WidgetUtils.setTimeFormat(context, widget, 0/*no am/pm*/, R.id.the_clock);
         WidgetUtils.setClockSize(context, widget, ratio);
 
         // Set today's date format
-        CharSequence dateFormat = DateFormat.getBestDateTimePattern(Locale.getDefault(),
-                context.getString(R.string.abbrev_wday_month_day_no_year));
+        final CharSequence dateFormat = Utils.isJBMR2OrLater()
+                ? DateFormat.getBestDateTimePattern(Locale.getDefault(),
+                        context.getString(R.string.abbrev_wday_month_day_no_year))
+                : ((SimpleDateFormat) SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT))
+                        .toPattern();
         widget.setCharSequence(R.id.date, "setFormat12Hour", dateFormat);
         widget.setCharSequence(R.id.date, "setFormat24Hour", dateFormat);
 

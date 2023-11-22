@@ -24,6 +24,9 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := \
     $(MY_WEBRTC_COMMON_DEFS)
 
+LOCAL_CLANG_CFLAGS := \
+    -Wno-tautological-pointer-compare
+
 LOCAL_CFLAGS_arm := $(MY_WEBRTC_COMMON_DEFS_arm)
 LOCAL_CFLAGS_x86 := $(MY_WEBRTC_COMMON_DEFS_x86)
 LOCAL_CFLAGS_mips := $(MY_WEBRTC_COMMON_DEFS_mips)
@@ -40,10 +43,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl
 
-ifndef WEBRTC_STL
-LOCAL_SHARED_LIBRARIES += libstlport
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)

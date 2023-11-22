@@ -16,14 +16,25 @@
 
 package android.keystore.cts;
 
+import android.security.KeyPairGeneratorSpec;
 import android.security.KeyStoreParameter;
+import android.security.keystore.KeyProperties;
+import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
+import android.test.MoreAsserts;
+import android.test.suitebuilder.annotation.LargeTest;
+import android.util.Log;
+
+import com.android.cts.keystore.R;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
+import java.security.AlgorithmParameters;
 import java.security.Key;
 import java.security.KeyFactory;
+import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStore.Entry;
 import java.security.KeyStore.PrivateKeyEntry;
@@ -31,16 +42,15 @@ import java.security.KeyStore.TrustedCertificateEntry;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
-import java.security.interfaces.DSAPrivateKey;
-import java.security.interfaces.DSAPublicKey;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
-import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.ECKey;
+import java.security.interfaces.RSAKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Enumeration;
@@ -48,11 +58,15 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
+import javax.security.auth.x500.X500Principal;
 
 public class AndroidKeyStoreTest extends AndroidTestCase {
+    private static final String TAG = AndroidKeyStoreTest.class.getSimpleName();
+
     private KeyStore mKeyStore;
 
     private static final String TEST_ALIAS_1 = "test1";
@@ -694,368 +708,6 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
             (byte) 0x7e, (byte) 0xde, (byte) 0xb2
     };
 
-    /*
-     * The keys and certificates below are generated with:
-     *
-     * openssl req -new -x509 -days 3650 -extensions v3_ca -keyout cakey.pem -out cacert.pem
-     * openssl dsaparam -out dsaparam.pem 1024
-     * openssl req -newkey dsa:dsaparam.pem -keyout userkey.pem -nodes -days 3650 -out userkey.req
-     * mkdir -p demoCA/newcerts
-     * touch demoCA/index.txt
-     * echo "01" > demoCA/serial
-     * openssl ca -out usercert.pem -in userkey.req -cert cacert.pem -keyfile cakey.pem -days 3650
-     */
-
-    /**
-     * Generated from above and converted with:
-     *
-     * openssl x509 -outform d -in cacert.pem | xxd -i | sed 's/0x/(byte) 0x/g'
-     */
-    private static final byte[] FAKE_DSA_CA_1 = new byte[] {
-            (byte) 0x30, (byte) 0x82, (byte) 0x02, (byte) 0x8a, (byte) 0x30, (byte) 0x82,
-            (byte) 0x01, (byte) 0xf3, (byte) 0xa0, (byte) 0x03, (byte) 0x02, (byte) 0x01,
-            (byte) 0x02, (byte) 0x02, (byte) 0x09, (byte) 0x00, (byte) 0x87, (byte) 0xc0,
-            (byte) 0x68, (byte) 0x7f, (byte) 0x42, (byte) 0x92, (byte) 0x0b, (byte) 0x7a,
-            (byte) 0x30, (byte) 0x0d, (byte) 0x06, (byte) 0x09, (byte) 0x2a, (byte) 0x86,
-            (byte) 0x48, (byte) 0x86, (byte) 0xf7, (byte) 0x0d, (byte) 0x01, (byte) 0x01,
-            (byte) 0x05, (byte) 0x05, (byte) 0x00, (byte) 0x30, (byte) 0x5e, (byte) 0x31,
-            (byte) 0x0b, (byte) 0x30, (byte) 0x09, (byte) 0x06, (byte) 0x03, (byte) 0x55,
-            (byte) 0x04, (byte) 0x06, (byte) 0x13, (byte) 0x02, (byte) 0x41, (byte) 0x55,
-            (byte) 0x31, (byte) 0x13, (byte) 0x30, (byte) 0x11, (byte) 0x06, (byte) 0x03,
-            (byte) 0x55, (byte) 0x04, (byte) 0x08, (byte) 0x0c, (byte) 0x0a, (byte) 0x53,
-            (byte) 0x6f, (byte) 0x6d, (byte) 0x65, (byte) 0x2d, (byte) 0x53, (byte) 0x74,
-            (byte) 0x61, (byte) 0x74, (byte) 0x65, (byte) 0x31, (byte) 0x21, (byte) 0x30,
-            (byte) 0x1f, (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x0a,
-            (byte) 0x0c, (byte) 0x18, (byte) 0x49, (byte) 0x6e, (byte) 0x74, (byte) 0x65,
-            (byte) 0x72, (byte) 0x6e, (byte) 0x65, (byte) 0x74, (byte) 0x20, (byte) 0x57,
-            (byte) 0x69, (byte) 0x64, (byte) 0x67, (byte) 0x69, (byte) 0x74, (byte) 0x73,
-            (byte) 0x20, (byte) 0x50, (byte) 0x74, (byte) 0x79, (byte) 0x20, (byte) 0x4c,
-            (byte) 0x74, (byte) 0x64, (byte) 0x31, (byte) 0x17, (byte) 0x30, (byte) 0x15,
-            (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x03, (byte) 0x0c,
-            (byte) 0x0e, (byte) 0x63, (byte) 0x61, (byte) 0x2e, (byte) 0x65, (byte) 0x78,
-            (byte) 0x61, (byte) 0x6d, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x2e,
-            (byte) 0x63, (byte) 0x6f, (byte) 0x6d, (byte) 0x30, (byte) 0x1e, (byte) 0x17,
-            (byte) 0x0d, (byte) 0x31, (byte) 0x33, (byte) 0x30, (byte) 0x38, (byte) 0x32,
-            (byte) 0x37, (byte) 0x32, (byte) 0x33, (byte) 0x33, (byte) 0x31, (byte) 0x32,
-            (byte) 0x39, (byte) 0x5a, (byte) 0x17, (byte) 0x0d, (byte) 0x32, (byte) 0x33,
-            (byte) 0x30, (byte) 0x38, (byte) 0x32, (byte) 0x35, (byte) 0x32, (byte) 0x33,
-            (byte) 0x33, (byte) 0x31, (byte) 0x32, (byte) 0x39, (byte) 0x5a, (byte) 0x30,
-            (byte) 0x5e, (byte) 0x31, (byte) 0x0b, (byte) 0x30, (byte) 0x09, (byte) 0x06,
-            (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x06, (byte) 0x13, (byte) 0x02,
-            (byte) 0x41, (byte) 0x55, (byte) 0x31, (byte) 0x13, (byte) 0x30, (byte) 0x11,
-            (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x08, (byte) 0x0c,
-            (byte) 0x0a, (byte) 0x53, (byte) 0x6f, (byte) 0x6d, (byte) 0x65, (byte) 0x2d,
-            (byte) 0x53, (byte) 0x74, (byte) 0x61, (byte) 0x74, (byte) 0x65, (byte) 0x31,
-            (byte) 0x21, (byte) 0x30, (byte) 0x1f, (byte) 0x06, (byte) 0x03, (byte) 0x55,
-            (byte) 0x04, (byte) 0x0a, (byte) 0x0c, (byte) 0x18, (byte) 0x49, (byte) 0x6e,
-            (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x6e, (byte) 0x65, (byte) 0x74,
-            (byte) 0x20, (byte) 0x57, (byte) 0x69, (byte) 0x64, (byte) 0x67, (byte) 0x69,
-            (byte) 0x74, (byte) 0x73, (byte) 0x20, (byte) 0x50, (byte) 0x74, (byte) 0x79,
-            (byte) 0x20, (byte) 0x4c, (byte) 0x74, (byte) 0x64, (byte) 0x31, (byte) 0x17,
-            (byte) 0x30, (byte) 0x15, (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04,
-            (byte) 0x03, (byte) 0x0c, (byte) 0x0e, (byte) 0x63, (byte) 0x61, (byte) 0x2e,
-            (byte) 0x65, (byte) 0x78, (byte) 0x61, (byte) 0x6d, (byte) 0x70, (byte) 0x6c,
-            (byte) 0x65, (byte) 0x2e, (byte) 0x63, (byte) 0x6f, (byte) 0x6d, (byte) 0x30,
-            (byte) 0x81, (byte) 0x9f, (byte) 0x30, (byte) 0x0d, (byte) 0x06, (byte) 0x09,
-            (byte) 0x2a, (byte) 0x86, (byte) 0x48, (byte) 0x86, (byte) 0xf7, (byte) 0x0d,
-            (byte) 0x01, (byte) 0x01, (byte) 0x01, (byte) 0x05, (byte) 0x00, (byte) 0x03,
-            (byte) 0x81, (byte) 0x8d, (byte) 0x00, (byte) 0x30, (byte) 0x81, (byte) 0x89,
-            (byte) 0x02, (byte) 0x81, (byte) 0x81, (byte) 0x00, (byte) 0xa4, (byte) 0xc7,
-            (byte) 0x06, (byte) 0xba, (byte) 0xdf, (byte) 0x2b, (byte) 0xee, (byte) 0xd2,
-            (byte) 0xb9, (byte) 0xe4, (byte) 0x52, (byte) 0x21, (byte) 0x68, (byte) 0x2b,
-            (byte) 0x83, (byte) 0xdf, (byte) 0xe3, (byte) 0x9c, (byte) 0x08, (byte) 0x73,
-            (byte) 0xdd, (byte) 0x90, (byte) 0xea, (byte) 0x97, (byte) 0x0c, (byte) 0x96,
-            (byte) 0x20, (byte) 0xb1, (byte) 0xee, (byte) 0x11, (byte) 0xd5, (byte) 0xd4,
-            (byte) 0x7c, (byte) 0x44, (byte) 0x96, (byte) 0x2e, (byte) 0x6e, (byte) 0xa2,
-            (byte) 0xb2, (byte) 0xa3, (byte) 0x4b, (byte) 0x0f, (byte) 0x32, (byte) 0x90,
-            (byte) 0xaf, (byte) 0x5c, (byte) 0x6f, (byte) 0x00, (byte) 0x88, (byte) 0x45,
-            (byte) 0x4e, (byte) 0x9b, (byte) 0x26, (byte) 0xc1, (byte) 0x94, (byte) 0x3c,
-            (byte) 0xfe, (byte) 0x10, (byte) 0xbd, (byte) 0xda, (byte) 0xf2, (byte) 0x8d,
-            (byte) 0x03, (byte) 0x52, (byte) 0x32, (byte) 0x11, (byte) 0xff, (byte) 0xf6,
-            (byte) 0xf9, (byte) 0x6e, (byte) 0x8f, (byte) 0x0f, (byte) 0xc8, (byte) 0x0a,
-            (byte) 0x48, (byte) 0x39, (byte) 0x33, (byte) 0xb9, (byte) 0x0c, (byte) 0xb3,
-            (byte) 0x2b, (byte) 0xab, (byte) 0x7d, (byte) 0x79, (byte) 0x6f, (byte) 0x57,
-            (byte) 0x5b, (byte) 0xb8, (byte) 0x84, (byte) 0xb6, (byte) 0xcc, (byte) 0xe8,
-            (byte) 0x30, (byte) 0x78, (byte) 0xff, (byte) 0x92, (byte) 0xe5, (byte) 0x43,
-            (byte) 0x2e, (byte) 0xef, (byte) 0x66, (byte) 0x98, (byte) 0xb4, (byte) 0xfe,
-            (byte) 0xa2, (byte) 0x40, (byte) 0xf2, (byte) 0x1f, (byte) 0xd0, (byte) 0x86,
-            (byte) 0x16, (byte) 0xc8, (byte) 0x45, (byte) 0xc4, (byte) 0x52, (byte) 0xcb,
-            (byte) 0x31, (byte) 0x5c, (byte) 0x9f, (byte) 0x32, (byte) 0x3b, (byte) 0xf7,
-            (byte) 0x19, (byte) 0x08, (byte) 0xc7, (byte) 0x00, (byte) 0x21, (byte) 0x7d,
-            (byte) 0x02, (byte) 0x03, (byte) 0x01, (byte) 0x00, (byte) 0x01, (byte) 0xa3,
-            (byte) 0x50, (byte) 0x30, (byte) 0x4e, (byte) 0x30, (byte) 0x1d, (byte) 0x06,
-            (byte) 0x03, (byte) 0x55, (byte) 0x1d, (byte) 0x0e, (byte) 0x04, (byte) 0x16,
-            (byte) 0x04, (byte) 0x14, (byte) 0x47, (byte) 0x82, (byte) 0xa3, (byte) 0xf1,
-            (byte) 0xc2, (byte) 0x7e, (byte) 0x3a, (byte) 0xde, (byte) 0x4f, (byte) 0x30,
-            (byte) 0x4c, (byte) 0x7f, (byte) 0x72, (byte) 0x81, (byte) 0x15, (byte) 0x32,
-            (byte) 0xda, (byte) 0x7f, (byte) 0x58, (byte) 0x18, (byte) 0x30, (byte) 0x1f,
-            (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x1d, (byte) 0x23, (byte) 0x04,
-            (byte) 0x18, (byte) 0x30, (byte) 0x16, (byte) 0x80, (byte) 0x14, (byte) 0x47,
-            (byte) 0x82, (byte) 0xa3, (byte) 0xf1, (byte) 0xc2, (byte) 0x7e, (byte) 0x3a,
-            (byte) 0xde, (byte) 0x4f, (byte) 0x30, (byte) 0x4c, (byte) 0x7f, (byte) 0x72,
-            (byte) 0x81, (byte) 0x15, (byte) 0x32, (byte) 0xda, (byte) 0x7f, (byte) 0x58,
-            (byte) 0x18, (byte) 0x30, (byte) 0x0c, (byte) 0x06, (byte) 0x03, (byte) 0x55,
-            (byte) 0x1d, (byte) 0x13, (byte) 0x04, (byte) 0x05, (byte) 0x30, (byte) 0x03,
-            (byte) 0x01, (byte) 0x01, (byte) 0xff, (byte) 0x30, (byte) 0x0d, (byte) 0x06,
-            (byte) 0x09, (byte) 0x2a, (byte) 0x86, (byte) 0x48, (byte) 0x86, (byte) 0xf7,
-            (byte) 0x0d, (byte) 0x01, (byte) 0x01, (byte) 0x05, (byte) 0x05, (byte) 0x00,
-            (byte) 0x03, (byte) 0x81, (byte) 0x81, (byte) 0x00, (byte) 0x08, (byte) 0x7f,
-            (byte) 0x6a, (byte) 0x48, (byte) 0x90, (byte) 0x7b, (byte) 0x9b, (byte) 0x72,
-            (byte) 0x13, (byte) 0xa7, (byte) 0xef, (byte) 0x6b, (byte) 0x0b, (byte) 0x59,
-            (byte) 0xe5, (byte) 0x49, (byte) 0x72, (byte) 0x3a, (byte) 0xc8, (byte) 0x84,
-            (byte) 0xcc, (byte) 0x23, (byte) 0x18, (byte) 0x4c, (byte) 0xec, (byte) 0xc7,
-            (byte) 0xef, (byte) 0xcb, (byte) 0xa7, (byte) 0xbe, (byte) 0xe4, (byte) 0xef,
-            (byte) 0x8f, (byte) 0xc6, (byte) 0x06, (byte) 0x8c, (byte) 0xc0, (byte) 0xe4,
-            (byte) 0x2f, (byte) 0x2a, (byte) 0xc0, (byte) 0x35, (byte) 0x7d, (byte) 0x5e,
-            (byte) 0x19, (byte) 0x29, (byte) 0x8c, (byte) 0xb9, (byte) 0xf1, (byte) 0x1e,
-            (byte) 0xaf, (byte) 0x82, (byte) 0xd8, (byte) 0xe3, (byte) 0x88, (byte) 0xe1,
-            (byte) 0x31, (byte) 0xc8, (byte) 0x82, (byte) 0x1f, (byte) 0x83, (byte) 0xa9,
-            (byte) 0xde, (byte) 0xfe, (byte) 0x4b, (byte) 0xe2, (byte) 0x78, (byte) 0x64,
-            (byte) 0xed, (byte) 0xa4, (byte) 0x7b, (byte) 0xee, (byte) 0x8d, (byte) 0x71,
-            (byte) 0x1b, (byte) 0x44, (byte) 0xe6, (byte) 0xb7, (byte) 0xe8, (byte) 0xc5,
-            (byte) 0x9a, (byte) 0x93, (byte) 0x92, (byte) 0x6f, (byte) 0x6f, (byte) 0xdb,
-            (byte) 0xbd, (byte) 0xd7, (byte) 0x03, (byte) 0x85, (byte) 0xa9, (byte) 0x5f,
-            (byte) 0x53, (byte) 0x5f, (byte) 0x5d, (byte) 0x30, (byte) 0xc6, (byte) 0xd9,
-            (byte) 0xce, (byte) 0x34, (byte) 0xa8, (byte) 0xbe, (byte) 0x31, (byte) 0x47,
-            (byte) 0x1c, (byte) 0xa4, (byte) 0x7f, (byte) 0xc0, (byte) 0x2c, (byte) 0xbc,
-            (byte) 0xfe, (byte) 0x1a, (byte) 0x31, (byte) 0xd8, (byte) 0x77, (byte) 0x4d,
-            (byte) 0xfc, (byte) 0x45, (byte) 0x84, (byte) 0xfc, (byte) 0x45, (byte) 0x12,
-            (byte) 0xab, (byte) 0x50, (byte) 0xe4, (byte) 0x45, (byte) 0xe5, (byte) 0x11
-    };
-
-    /**
-     * Generated from above and converted with: openssl pkcs8 -topk8 -outform d
-     * -in userkey.pem -nocrypt | xxd -i | sed 's/0x/(byte) 0x/g'
-     */
-    private static final byte[] FAKE_DSA_KEY_1 = new byte[] {
-            (byte) 0x30, (byte) 0x82, (byte) 0x01, (byte) 0x4c, (byte) 0x02, (byte) 0x01,
-            (byte) 0x00, (byte) 0x30, (byte) 0x82, (byte) 0x01, (byte) 0x2c, (byte) 0x06,
-            (byte) 0x07, (byte) 0x2a, (byte) 0x86, (byte) 0x48, (byte) 0xce, (byte) 0x38,
-            (byte) 0x04, (byte) 0x01, (byte) 0x30, (byte) 0x82, (byte) 0x01, (byte) 0x1f,
-            (byte) 0x02, (byte) 0x81, (byte) 0x81, (byte) 0x00, (byte) 0xb3, (byte) 0x23,
-            (byte) 0xf7, (byte) 0x86, (byte) 0xbd, (byte) 0x3b, (byte) 0x86, (byte) 0xcc,
-            (byte) 0xc3, (byte) 0x91, (byte) 0xc0, (byte) 0x30, (byte) 0x32, (byte) 0x02,
-            (byte) 0x47, (byte) 0x35, (byte) 0x01, (byte) 0xef, (byte) 0xee, (byte) 0x98,
-            (byte) 0x13, (byte) 0x56, (byte) 0x49, (byte) 0x47, (byte) 0xb5, (byte) 0x20,
-            (byte) 0xa8, (byte) 0x60, (byte) 0xcb, (byte) 0xc0, (byte) 0xd5, (byte) 0x77,
-            (byte) 0xc1, (byte) 0x69, (byte) 0xcd, (byte) 0x18, (byte) 0x34, (byte) 0x92,
-            (byte) 0xf2, (byte) 0x6a, (byte) 0x2a, (byte) 0x10, (byte) 0x59, (byte) 0x1c,
-            (byte) 0x91, (byte) 0x20, (byte) 0x51, (byte) 0xca, (byte) 0x37, (byte) 0xb2,
-            (byte) 0x87, (byte) 0xa6, (byte) 0x8a, (byte) 0x02, (byte) 0xfd, (byte) 0x45,
-            (byte) 0x46, (byte) 0xf9, (byte) 0x76, (byte) 0xb1, (byte) 0x35, (byte) 0x38,
-            (byte) 0x8d, (byte) 0xff, (byte) 0x4c, (byte) 0x5d, (byte) 0x75, (byte) 0x8f,
-            (byte) 0x66, (byte) 0x15, (byte) 0x7d, (byte) 0x7b, (byte) 0xda, (byte) 0xdb,
-            (byte) 0x57, (byte) 0x39, (byte) 0xff, (byte) 0x91, (byte) 0x3f, (byte) 0xdd,
-            (byte) 0xe2, (byte) 0xb4, (byte) 0x22, (byte) 0x60, (byte) 0x4c, (byte) 0x32,
-            (byte) 0x3b, (byte) 0x9d, (byte) 0x34, (byte) 0x9f, (byte) 0xb9, (byte) 0x5d,
-            (byte) 0x75, (byte) 0xb9, (byte) 0xd3, (byte) 0x7f, (byte) 0x11, (byte) 0xba,
-            (byte) 0xb7, (byte) 0xc8, (byte) 0x32, (byte) 0xc6, (byte) 0xce, (byte) 0x71,
-            (byte) 0x91, (byte) 0xd3, (byte) 0x32, (byte) 0xaf, (byte) 0x4d, (byte) 0x7e,
-            (byte) 0x7c, (byte) 0x15, (byte) 0xf7, (byte) 0x71, (byte) 0x2c, (byte) 0x52,
-            (byte) 0x65, (byte) 0x4d, (byte) 0xa9, (byte) 0x81, (byte) 0x25, (byte) 0x35,
-            (byte) 0xce, (byte) 0x0b, (byte) 0x5b, (byte) 0x56, (byte) 0xfe, (byte) 0xf1,
-            (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0xeb, (byte) 0x4e, (byte) 0x7f,
-            (byte) 0x7a, (byte) 0x31, (byte) 0xb3, (byte) 0x7d, (byte) 0x8d, (byte) 0xb2,
-            (byte) 0xf7, (byte) 0xaf, (byte) 0xad, (byte) 0xb1, (byte) 0x42, (byte) 0x92,
-            (byte) 0xf3, (byte) 0x6c, (byte) 0xe4, (byte) 0xed, (byte) 0x8b, (byte) 0x02,
-            (byte) 0x81, (byte) 0x81, (byte) 0x00, (byte) 0x81, (byte) 0xc8, (byte) 0x36,
-            (byte) 0x48, (byte) 0xdb, (byte) 0x71, (byte) 0x2b, (byte) 0x91, (byte) 0xce,
-            (byte) 0x6d, (byte) 0xbc, (byte) 0xb8, (byte) 0xf9, (byte) 0xcb, (byte) 0x50,
-            (byte) 0x91, (byte) 0x10, (byte) 0x8a, (byte) 0xf8, (byte) 0x37, (byte) 0x50,
-            (byte) 0xda, (byte) 0x4f, (byte) 0xc8, (byte) 0x4d, (byte) 0x73, (byte) 0xcb,
-            (byte) 0x4d, (byte) 0xb0, (byte) 0x19, (byte) 0x54, (byte) 0x5a, (byte) 0xf3,
-            (byte) 0x6c, (byte) 0xc9, (byte) 0xd8, (byte) 0x96, (byte) 0xd9, (byte) 0xb0,
-            (byte) 0x54, (byte) 0x7e, (byte) 0x7d, (byte) 0xe2, (byte) 0x58, (byte) 0x0e,
-            (byte) 0x5f, (byte) 0xc0, (byte) 0xce, (byte) 0xb9, (byte) 0x5c, (byte) 0xe3,
-            (byte) 0xd3, (byte) 0xdf, (byte) 0xcf, (byte) 0x45, (byte) 0x74, (byte) 0xfb,
-            (byte) 0xe6, (byte) 0x20, (byte) 0xe7, (byte) 0xfc, (byte) 0x0f, (byte) 0xca,
-            (byte) 0xdb, (byte) 0xc0, (byte) 0x0b, (byte) 0xe1, (byte) 0x5a, (byte) 0x16,
-            (byte) 0x1d, (byte) 0xb3, (byte) 0x2e, (byte) 0xe5, (byte) 0x5f, (byte) 0x89,
-            (byte) 0x17, (byte) 0x73, (byte) 0x50, (byte) 0xd1, (byte) 0x4a, (byte) 0x60,
-            (byte) 0xb7, (byte) 0xaa, (byte) 0xf0, (byte) 0xc7, (byte) 0xc5, (byte) 0x03,
-            (byte) 0x4e, (byte) 0x36, (byte) 0x51, (byte) 0x9e, (byte) 0x2f, (byte) 0xfa,
-            (byte) 0xf3, (byte) 0xd6, (byte) 0x58, (byte) 0x14, (byte) 0x02, (byte) 0xb4,
-            (byte) 0x41, (byte) 0xd6, (byte) 0x72, (byte) 0x6f, (byte) 0x58, (byte) 0x5b,
-            (byte) 0x2d, (byte) 0x23, (byte) 0xc0, (byte) 0x75, (byte) 0x4f, (byte) 0x39,
-            (byte) 0xa8, (byte) 0x6a, (byte) 0xdf, (byte) 0x79, (byte) 0x21, (byte) 0xf2,
-            (byte) 0x77, (byte) 0x91, (byte) 0x3f, (byte) 0x1c, (byte) 0x4d, (byte) 0x48,
-            (byte) 0x78, (byte) 0xcd, (byte) 0xed, (byte) 0x79, (byte) 0x23, (byte) 0x04,
-            (byte) 0x17, (byte) 0x02, (byte) 0x15, (byte) 0x00, (byte) 0xc7, (byte) 0xe7,
-            (byte) 0xe2, (byte) 0x6b, (byte) 0x14, (byte) 0xe6, (byte) 0x31, (byte) 0x12,
-            (byte) 0xb2, (byte) 0x1e, (byte) 0xd4, (byte) 0xf2, (byte) 0x9b, (byte) 0x2c,
-            (byte) 0xf6, (byte) 0x54, (byte) 0x4c, (byte) 0x12, (byte) 0xe8, (byte) 0x22
-    };
-
-    /**
-     * Generated from above and converted with: openssl x509 -outform d -in
-     * usercert.pem | xxd -i | sed 's/0x/(byte) 0x/g'
-     */
-    private static final byte[] FAKE_DSA_USER_1 = new byte[] {
-            (byte) 0x30, (byte) 0x82, (byte) 0x03, (byte) 0xca, (byte) 0x30, (byte) 0x82,
-            (byte) 0x03, (byte) 0x33, (byte) 0xa0, (byte) 0x03, (byte) 0x02, (byte) 0x01,
-            (byte) 0x02, (byte) 0x02, (byte) 0x01, (byte) 0x01, (byte) 0x30, (byte) 0x0d,
-            (byte) 0x06, (byte) 0x09, (byte) 0x2a, (byte) 0x86, (byte) 0x48, (byte) 0x86,
-            (byte) 0xf7, (byte) 0x0d, (byte) 0x01, (byte) 0x01, (byte) 0x05, (byte) 0x05,
-            (byte) 0x00, (byte) 0x30, (byte) 0x5e, (byte) 0x31, (byte) 0x0b, (byte) 0x30,
-            (byte) 0x09, (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x06,
-            (byte) 0x13, (byte) 0x02, (byte) 0x41, (byte) 0x55, (byte) 0x31, (byte) 0x13,
-            (byte) 0x30, (byte) 0x11, (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04,
-            (byte) 0x08, (byte) 0x0c, (byte) 0x0a, (byte) 0x53, (byte) 0x6f, (byte) 0x6d,
-            (byte) 0x65, (byte) 0x2d, (byte) 0x53, (byte) 0x74, (byte) 0x61, (byte) 0x74,
-            (byte) 0x65, (byte) 0x31, (byte) 0x21, (byte) 0x30, (byte) 0x1f, (byte) 0x06,
-            (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x0a, (byte) 0x0c, (byte) 0x18,
-            (byte) 0x49, (byte) 0x6e, (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x6e,
-            (byte) 0x65, (byte) 0x74, (byte) 0x20, (byte) 0x57, (byte) 0x69, (byte) 0x64,
-            (byte) 0x67, (byte) 0x69, (byte) 0x74, (byte) 0x73, (byte) 0x20, (byte) 0x50,
-            (byte) 0x74, (byte) 0x79, (byte) 0x20, (byte) 0x4c, (byte) 0x74, (byte) 0x64,
-            (byte) 0x31, (byte) 0x17, (byte) 0x30, (byte) 0x15, (byte) 0x06, (byte) 0x03,
-            (byte) 0x55, (byte) 0x04, (byte) 0x03, (byte) 0x0c, (byte) 0x0e, (byte) 0x63,
-            (byte) 0x61, (byte) 0x2e, (byte) 0x65, (byte) 0x78, (byte) 0x61, (byte) 0x6d,
-            (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x2e, (byte) 0x63, (byte) 0x6f,
-            (byte) 0x6d, (byte) 0x30, (byte) 0x1e, (byte) 0x17, (byte) 0x0d, (byte) 0x31,
-            (byte) 0x33, (byte) 0x30, (byte) 0x38, (byte) 0x32, (byte) 0x37, (byte) 0x32,
-            (byte) 0x33, (byte) 0x33, (byte) 0x34, (byte) 0x32, (byte) 0x32, (byte) 0x5a,
-            (byte) 0x17, (byte) 0x0d, (byte) 0x32, (byte) 0x33, (byte) 0x30, (byte) 0x38,
-            (byte) 0x32, (byte) 0x35, (byte) 0x32, (byte) 0x33, (byte) 0x33, (byte) 0x34,
-            (byte) 0x32, (byte) 0x32, (byte) 0x5a, (byte) 0x30, (byte) 0x62, (byte) 0x31,
-            (byte) 0x0b, (byte) 0x30, (byte) 0x09, (byte) 0x06, (byte) 0x03, (byte) 0x55,
-            (byte) 0x04, (byte) 0x06, (byte) 0x13, (byte) 0x02, (byte) 0x41, (byte) 0x55,
-            (byte) 0x31, (byte) 0x13, (byte) 0x30, (byte) 0x11, (byte) 0x06, (byte) 0x03,
-            (byte) 0x55, (byte) 0x04, (byte) 0x08, (byte) 0x0c, (byte) 0x0a, (byte) 0x53,
-            (byte) 0x6f, (byte) 0x6d, (byte) 0x65, (byte) 0x2d, (byte) 0x53, (byte) 0x74,
-            (byte) 0x61, (byte) 0x74, (byte) 0x65, (byte) 0x31, (byte) 0x21, (byte) 0x30,
-            (byte) 0x1f, (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x0a,
-            (byte) 0x0c, (byte) 0x18, (byte) 0x49, (byte) 0x6e, (byte) 0x74, (byte) 0x65,
-            (byte) 0x72, (byte) 0x6e, (byte) 0x65, (byte) 0x74, (byte) 0x20, (byte) 0x57,
-            (byte) 0x69, (byte) 0x64, (byte) 0x67, (byte) 0x69, (byte) 0x74, (byte) 0x73,
-            (byte) 0x20, (byte) 0x50, (byte) 0x74, (byte) 0x79, (byte) 0x20, (byte) 0x4c,
-            (byte) 0x74, (byte) 0x64, (byte) 0x31, (byte) 0x1b, (byte) 0x30, (byte) 0x19,
-            (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x04, (byte) 0x03, (byte) 0x0c,
-            (byte) 0x12, (byte) 0x73, (byte) 0x65, (byte) 0x72, (byte) 0x76, (byte) 0x65,
-            (byte) 0x72, (byte) 0x2e, (byte) 0x65, (byte) 0x78, (byte) 0x61, (byte) 0x6d,
-            (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x2e, (byte) 0x63, (byte) 0x6f,
-            (byte) 0x6d, (byte) 0x30, (byte) 0x82, (byte) 0x01, (byte) 0xb7, (byte) 0x30,
-            (byte) 0x82, (byte) 0x01, (byte) 0x2c, (byte) 0x06, (byte) 0x07, (byte) 0x2a,
-            (byte) 0x86, (byte) 0x48, (byte) 0xce, (byte) 0x38, (byte) 0x04, (byte) 0x01,
-            (byte) 0x30, (byte) 0x82, (byte) 0x01, (byte) 0x1f, (byte) 0x02, (byte) 0x81,
-            (byte) 0x81, (byte) 0x00, (byte) 0xb3, (byte) 0x23, (byte) 0xf7, (byte) 0x86,
-            (byte) 0xbd, (byte) 0x3b, (byte) 0x86, (byte) 0xcc, (byte) 0xc3, (byte) 0x91,
-            (byte) 0xc0, (byte) 0x30, (byte) 0x32, (byte) 0x02, (byte) 0x47, (byte) 0x35,
-            (byte) 0x01, (byte) 0xef, (byte) 0xee, (byte) 0x98, (byte) 0x13, (byte) 0x56,
-            (byte) 0x49, (byte) 0x47, (byte) 0xb5, (byte) 0x20, (byte) 0xa8, (byte) 0x60,
-            (byte) 0xcb, (byte) 0xc0, (byte) 0xd5, (byte) 0x77, (byte) 0xc1, (byte) 0x69,
-            (byte) 0xcd, (byte) 0x18, (byte) 0x34, (byte) 0x92, (byte) 0xf2, (byte) 0x6a,
-            (byte) 0x2a, (byte) 0x10, (byte) 0x59, (byte) 0x1c, (byte) 0x91, (byte) 0x20,
-            (byte) 0x51, (byte) 0xca, (byte) 0x37, (byte) 0xb2, (byte) 0x87, (byte) 0xa6,
-            (byte) 0x8a, (byte) 0x02, (byte) 0xfd, (byte) 0x45, (byte) 0x46, (byte) 0xf9,
-            (byte) 0x76, (byte) 0xb1, (byte) 0x35, (byte) 0x38, (byte) 0x8d, (byte) 0xff,
-            (byte) 0x4c, (byte) 0x5d, (byte) 0x75, (byte) 0x8f, (byte) 0x66, (byte) 0x15,
-            (byte) 0x7d, (byte) 0x7b, (byte) 0xda, (byte) 0xdb, (byte) 0x57, (byte) 0x39,
-            (byte) 0xff, (byte) 0x91, (byte) 0x3f, (byte) 0xdd, (byte) 0xe2, (byte) 0xb4,
-            (byte) 0x22, (byte) 0x60, (byte) 0x4c, (byte) 0x32, (byte) 0x3b, (byte) 0x9d,
-            (byte) 0x34, (byte) 0x9f, (byte) 0xb9, (byte) 0x5d, (byte) 0x75, (byte) 0xb9,
-            (byte) 0xd3, (byte) 0x7f, (byte) 0x11, (byte) 0xba, (byte) 0xb7, (byte) 0xc8,
-            (byte) 0x32, (byte) 0xc6, (byte) 0xce, (byte) 0x71, (byte) 0x91, (byte) 0xd3,
-            (byte) 0x32, (byte) 0xaf, (byte) 0x4d, (byte) 0x7e, (byte) 0x7c, (byte) 0x15,
-            (byte) 0xf7, (byte) 0x71, (byte) 0x2c, (byte) 0x52, (byte) 0x65, (byte) 0x4d,
-            (byte) 0xa9, (byte) 0x81, (byte) 0x25, (byte) 0x35, (byte) 0xce, (byte) 0x0b,
-            (byte) 0x5b, (byte) 0x56, (byte) 0xfe, (byte) 0xf1, (byte) 0x02, (byte) 0x15,
-            (byte) 0x00, (byte) 0xeb, (byte) 0x4e, (byte) 0x7f, (byte) 0x7a, (byte) 0x31,
-            (byte) 0xb3, (byte) 0x7d, (byte) 0x8d, (byte) 0xb2, (byte) 0xf7, (byte) 0xaf,
-            (byte) 0xad, (byte) 0xb1, (byte) 0x42, (byte) 0x92, (byte) 0xf3, (byte) 0x6c,
-            (byte) 0xe4, (byte) 0xed, (byte) 0x8b, (byte) 0x02, (byte) 0x81, (byte) 0x81,
-            (byte) 0x00, (byte) 0x81, (byte) 0xc8, (byte) 0x36, (byte) 0x48, (byte) 0xdb,
-            (byte) 0x71, (byte) 0x2b, (byte) 0x91, (byte) 0xce, (byte) 0x6d, (byte) 0xbc,
-            (byte) 0xb8, (byte) 0xf9, (byte) 0xcb, (byte) 0x50, (byte) 0x91, (byte) 0x10,
-            (byte) 0x8a, (byte) 0xf8, (byte) 0x37, (byte) 0x50, (byte) 0xda, (byte) 0x4f,
-            (byte) 0xc8, (byte) 0x4d, (byte) 0x73, (byte) 0xcb, (byte) 0x4d, (byte) 0xb0,
-            (byte) 0x19, (byte) 0x54, (byte) 0x5a, (byte) 0xf3, (byte) 0x6c, (byte) 0xc9,
-            (byte) 0xd8, (byte) 0x96, (byte) 0xd9, (byte) 0xb0, (byte) 0x54, (byte) 0x7e,
-            (byte) 0x7d, (byte) 0xe2, (byte) 0x58, (byte) 0x0e, (byte) 0x5f, (byte) 0xc0,
-            (byte) 0xce, (byte) 0xb9, (byte) 0x5c, (byte) 0xe3, (byte) 0xd3, (byte) 0xdf,
-            (byte) 0xcf, (byte) 0x45, (byte) 0x74, (byte) 0xfb, (byte) 0xe6, (byte) 0x20,
-            (byte) 0xe7, (byte) 0xfc, (byte) 0x0f, (byte) 0xca, (byte) 0xdb, (byte) 0xc0,
-            (byte) 0x0b, (byte) 0xe1, (byte) 0x5a, (byte) 0x16, (byte) 0x1d, (byte) 0xb3,
-            (byte) 0x2e, (byte) 0xe5, (byte) 0x5f, (byte) 0x89, (byte) 0x17, (byte) 0x73,
-            (byte) 0x50, (byte) 0xd1, (byte) 0x4a, (byte) 0x60, (byte) 0xb7, (byte) 0xaa,
-            (byte) 0xf0, (byte) 0xc7, (byte) 0xc5, (byte) 0x03, (byte) 0x4e, (byte) 0x36,
-            (byte) 0x51, (byte) 0x9e, (byte) 0x2f, (byte) 0xfa, (byte) 0xf3, (byte) 0xd6,
-            (byte) 0x58, (byte) 0x14, (byte) 0x02, (byte) 0xb4, (byte) 0x41, (byte) 0xd6,
-            (byte) 0x72, (byte) 0x6f, (byte) 0x58, (byte) 0x5b, (byte) 0x2d, (byte) 0x23,
-            (byte) 0xc0, (byte) 0x75, (byte) 0x4f, (byte) 0x39, (byte) 0xa8, (byte) 0x6a,
-            (byte) 0xdf, (byte) 0x79, (byte) 0x21, (byte) 0xf2, (byte) 0x77, (byte) 0x91,
-            (byte) 0x3f, (byte) 0x1c, (byte) 0x4d, (byte) 0x48, (byte) 0x78, (byte) 0xcd,
-            (byte) 0xed, (byte) 0x79, (byte) 0x23, (byte) 0x03, (byte) 0x81, (byte) 0x84,
-            (byte) 0x00, (byte) 0x02, (byte) 0x81, (byte) 0x80, (byte) 0x1a, (byte) 0x50,
-            (byte) 0x9d, (byte) 0x3e, (byte) 0xa1, (byte) 0x6c, (byte) 0x99, (byte) 0x35,
-            (byte) 0x36, (byte) 0x26, (byte) 0x22, (byte) 0x6b, (byte) 0x47, (byte) 0x45,
-            (byte) 0x80, (byte) 0x5b, (byte) 0xd5, (byte) 0xc1, (byte) 0xc5, (byte) 0x70,
-            (byte) 0x75, (byte) 0x55, (byte) 0x66, (byte) 0x33, (byte) 0x1d, (byte) 0xae,
-            (byte) 0xd0, (byte) 0x01, (byte) 0x64, (byte) 0x8b, (byte) 0xae, (byte) 0x9d,
-            (byte) 0x66, (byte) 0x58, (byte) 0xf9, (byte) 0x42, (byte) 0x74, (byte) 0x3a,
-            (byte) 0x32, (byte) 0xc7, (byte) 0x7f, (byte) 0x25, (byte) 0x64, (byte) 0x7d,
-            (byte) 0x08, (byte) 0x26, (byte) 0xbf, (byte) 0x21, (byte) 0x3a, (byte) 0x84,
-            (byte) 0xcc, (byte) 0x2c, (byte) 0x66, (byte) 0x7d, (byte) 0xc7, (byte) 0xd6,
-            (byte) 0xb1, (byte) 0x69, (byte) 0x57, (byte) 0x67, (byte) 0x52, (byte) 0x73,
-            (byte) 0x3f, (byte) 0x79, (byte) 0x60, (byte) 0xaa, (byte) 0xf4, (byte) 0x8a,
-            (byte) 0x48, (byte) 0x42, (byte) 0x46, (byte) 0x41, (byte) 0xd0, (byte) 0x50,
-            (byte) 0x9b, (byte) 0xa2, (byte) 0x4e, (byte) 0xa5, (byte) 0x88, (byte) 0x10,
-            (byte) 0xf7, (byte) 0x61, (byte) 0xa2, (byte) 0xfa, (byte) 0x8d, (byte) 0xa6,
-            (byte) 0x13, (byte) 0x9e, (byte) 0x36, (byte) 0x86, (byte) 0x62, (byte) 0xf0,
-            (byte) 0x97, (byte) 0xef, (byte) 0x11, (byte) 0xc6, (byte) 0x35, (byte) 0xd3,
-            (byte) 0x79, (byte) 0x30, (byte) 0xde, (byte) 0xf2, (byte) 0x7f, (byte) 0x7a,
-            (byte) 0x3c, (byte) 0x03, (byte) 0xa3, (byte) 0xc5, (byte) 0xbc, (byte) 0xb1,
-            (byte) 0xbc, (byte) 0x2f, (byte) 0x10, (byte) 0xf4, (byte) 0x51, (byte) 0x89,
-            (byte) 0xe2, (byte) 0xaf, (byte) 0xf7, (byte) 0x61, (byte) 0x1a, (byte) 0xf0,
-            (byte) 0x87, (byte) 0x5e, (byte) 0xa5, (byte) 0x02, (byte) 0xd2, (byte) 0xe4,
-            (byte) 0xa3, (byte) 0x7b, (byte) 0x30, (byte) 0x79, (byte) 0x30, (byte) 0x09,
-            (byte) 0x06, (byte) 0x03, (byte) 0x55, (byte) 0x1d, (byte) 0x13, (byte) 0x04,
-            (byte) 0x02, (byte) 0x30, (byte) 0x00, (byte) 0x30, (byte) 0x2c, (byte) 0x06,
-            (byte) 0x09, (byte) 0x60, (byte) 0x86, (byte) 0x48, (byte) 0x01, (byte) 0x86,
-            (byte) 0xf8, (byte) 0x42, (byte) 0x01, (byte) 0x0d, (byte) 0x04, (byte) 0x1f,
-            (byte) 0x16, (byte) 0x1d, (byte) 0x4f, (byte) 0x70, (byte) 0x65, (byte) 0x6e,
-            (byte) 0x53, (byte) 0x53, (byte) 0x4c, (byte) 0x20, (byte) 0x47, (byte) 0x65,
-            (byte) 0x6e, (byte) 0x65, (byte) 0x72, (byte) 0x61, (byte) 0x74, (byte) 0x65,
-            (byte) 0x64, (byte) 0x20, (byte) 0x43, (byte) 0x65, (byte) 0x72, (byte) 0x74,
-            (byte) 0x69, (byte) 0x66, (byte) 0x69, (byte) 0x63, (byte) 0x61, (byte) 0x74,
-            (byte) 0x65, (byte) 0x30, (byte) 0x1d, (byte) 0x06, (byte) 0x03, (byte) 0x55,
-            (byte) 0x1d, (byte) 0x0e, (byte) 0x04, (byte) 0x16, (byte) 0x04, (byte) 0x14,
-            (byte) 0xd1, (byte) 0x6c, (byte) 0x36, (byte) 0x36, (byte) 0x61, (byte) 0x6c,
-            (byte) 0xf6, (byte) 0x90, (byte) 0x82, (byte) 0x82, (byte) 0x87, (byte) 0x93,
-            (byte) 0xbe, (byte) 0x99, (byte) 0x60, (byte) 0x1b, (byte) 0x03, (byte) 0x58,
-            (byte) 0x36, (byte) 0x63, (byte) 0x30, (byte) 0x1f, (byte) 0x06, (byte) 0x03,
-            (byte) 0x55, (byte) 0x1d, (byte) 0x23, (byte) 0x04, (byte) 0x18, (byte) 0x30,
-            (byte) 0x16, (byte) 0x80, (byte) 0x14, (byte) 0x47, (byte) 0x82, (byte) 0xa3,
-            (byte) 0xf1, (byte) 0xc2, (byte) 0x7e, (byte) 0x3a, (byte) 0xde, (byte) 0x4f,
-            (byte) 0x30, (byte) 0x4c, (byte) 0x7f, (byte) 0x72, (byte) 0x81, (byte) 0x15,
-            (byte) 0x32, (byte) 0xda, (byte) 0x7f, (byte) 0x58, (byte) 0x18, (byte) 0x30,
-            (byte) 0x0d, (byte) 0x06, (byte) 0x09, (byte) 0x2a, (byte) 0x86, (byte) 0x48,
-            (byte) 0x86, (byte) 0xf7, (byte) 0x0d, (byte) 0x01, (byte) 0x01, (byte) 0x05,
-            (byte) 0x05, (byte) 0x00, (byte) 0x03, (byte) 0x81, (byte) 0x81, (byte) 0x00,
-            (byte) 0x81, (byte) 0xde, (byte) 0x20, (byte) 0xa1, (byte) 0xb2, (byte) 0x50,
-            (byte) 0x03, (byte) 0xcd, (byte) 0x90, (byte) 0x4f, (byte) 0x2b, (byte) 0x47,
-            (byte) 0x1d, (byte) 0xac, (byte) 0x6e, (byte) 0xb4, (byte) 0xc7, (byte) 0x14,
-            (byte) 0xc6, (byte) 0x4f, (byte) 0x45, (byte) 0xaf, (byte) 0x81, (byte) 0x5d,
-            (byte) 0x5a, (byte) 0x31, (byte) 0xff, (byte) 0x9c, (byte) 0x4d, (byte) 0xdc,
-            (byte) 0x9e, (byte) 0x36, (byte) 0x9f, (byte) 0x9b, (byte) 0xb1, (byte) 0xc9,
-            (byte) 0x50, (byte) 0xa3, (byte) 0xf6, (byte) 0x9c, (byte) 0x68, (byte) 0x6f,
-            (byte) 0x68, (byte) 0xd9, (byte) 0x56, (byte) 0x1b, (byte) 0xe5, (byte) 0x1b,
-            (byte) 0x41, (byte) 0xd4, (byte) 0xcc, (byte) 0xb6, (byte) 0x37, (byte) 0xd5,
-            (byte) 0x69, (byte) 0x6b, (byte) 0x39, (byte) 0xaf, (byte) 0xc6, (byte) 0xb8,
-            (byte) 0x39, (byte) 0x76, (byte) 0xe3, (byte) 0xf7, (byte) 0x97, (byte) 0x74,
-            (byte) 0x31, (byte) 0xc4, (byte) 0x2d, (byte) 0xb7, (byte) 0x9a, (byte) 0xa4,
-            (byte) 0xfa, (byte) 0x9f, (byte) 0xa8, (byte) 0xe3, (byte) 0x41, (byte) 0xda,
-            (byte) 0x2f, (byte) 0x0c, (byte) 0x9d, (byte) 0x83, (byte) 0xdc, (byte) 0x86,
-            (byte) 0x1f, (byte) 0x5c, (byte) 0x0f, (byte) 0x87, (byte) 0x05, (byte) 0xc9,
-            (byte) 0xb0, (byte) 0x63, (byte) 0xca, (byte) 0x9b, (byte) 0xdb, (byte) 0xe6,
-            (byte) 0x3c, (byte) 0xe9, (byte) 0x23, (byte) 0x9e, (byte) 0x23, (byte) 0x44,
-            (byte) 0x1d, (byte) 0x5b, (byte) 0x60, (byte) 0x66, (byte) 0xb6, (byte) 0x72,
-            (byte) 0x8c, (byte) 0x87, (byte) 0x86, (byte) 0xe8, (byte) 0xdb, (byte) 0x29,
-            (byte) 0x67, (byte) 0x9c, (byte) 0x33, (byte) 0x5c, (byte) 0x39, (byte) 0xf1,
-            (byte) 0xb5, (byte) 0x9b, (byte) 0xb8, (byte) 0xe1, (byte) 0x42, (byte) 0x51,
-            (byte) 0xed, (byte) 0x2c
-    };
-
     /**
      * The amount of time to allow before and after expected time for variance
      * in timing tests.
@@ -1064,6 +716,8 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
 
     @Override
     protected void setUp() throws Exception {
+        super.setUp();
+
         // Wipe any existing entries in the KeyStore
         KeyStore ksTemp = KeyStore.getInstance("AndroidKeyStore");
         ksTemp.load(null, null);
@@ -1077,6 +731,21 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         mKeyStore = KeyStore.getInstance("AndroidKeyStore");
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        try {
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null, null);
+            Enumeration<String> aliases = keyStore.aliases();
+            while (aliases.hasMoreElements()) {
+                String alias = aliases.nextElement();
+                keyStore.deleteEntry(alias);
+            }
+        } finally {
+            super.tearDown();
+        }
+    }
+
     private PrivateKey generatePrivateKey(String keyType, byte[] fakeKey1) throws Exception {
         KeyFactory kf = KeyFactory.getInstance(keyType);
         return kf.generatePrivate(new PKCS8EncodedKeySpec(fakeKey1));
@@ -1085,13 +754,6 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
     private Certificate generateCertificate(byte[] fakeUser1) throws Exception {
         CertificateFactory cf = CertificateFactory.getInstance("X.509");
         return cf.generateCertificate(new ByteArrayInputStream(fakeUser1));
-    }
-
-    private PrivateKeyEntry makeUserDsaKey1() throws Exception {
-        return new KeyStore.PrivateKeyEntry(generatePrivateKey("DSA", FAKE_DSA_KEY_1),
-                new Certificate[] {
-                generateCertificate(FAKE_DSA_USER_1), generateCertificate(FAKE_DSA_CA_1)
-        });
     }
 
     private PrivateKeyEntry makeUserEcKey1() throws Exception {
@@ -1397,22 +1059,6 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         assertPrivateKeyEntryEquals(keyEntry, "RSA", FAKE_RSA_KEY_1, FAKE_RSA_USER_1, FAKE_RSA_CA_1);
     }
 
-    public void testKeyStore_GetEntry_DSA_NullParams_Unencrypted_Success() throws Exception {
-        mKeyStore.load(null, null);
-
-        // TEST_ALIAS_1
-        mKeyStore.setEntry(TEST_ALIAS_1, makeUserDsaKey1(), null);
-
-        Entry entry = mKeyStore.getEntry(TEST_ALIAS_1, null);
-        assertNotNull("Entry should exist", entry);
-
-        assertTrue("Should be a PrivateKeyEntry", entry instanceof PrivateKeyEntry);
-
-        PrivateKeyEntry keyEntry = (PrivateKeyEntry) entry;
-
-        assertPrivateKeyEntryEquals(keyEntry, "DSA", FAKE_DSA_KEY_1, FAKE_DSA_USER_1, FAKE_DSA_CA_1);
-    }
-
     public void testKeyStore_GetEntry_EC_NullParams_Unencrypted_Success() throws Exception {
         mKeyStore.load(null, null);
 
@@ -1471,18 +1117,18 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         final PrivateKey privKey = keyEntry.getPrivateKey();
         final PublicKey pubKey = keyEntry.getCertificate().getPublicKey();
 
-        if (expectedKey instanceof DSAPrivateKey) {
+        if (expectedKey instanceof ECKey) {
+            assertTrue("Returned PrivateKey " + privKey.getClass() + " should be instanceof ECKey",
+                    privKey instanceof ECKey);
             assertEquals("Returned PrivateKey should be what we inserted",
-                    ((DSAPrivateKey) expectedKey).getParams(),
-                    ((DSAPublicKey) pubKey).getParams());
-        } else if (expectedKey instanceof ECPrivateKey) {
+                    ((ECKey) expectedKey).getParams().getCurve(),
+                    ((ECKey) privKey).getParams().getCurve());
+        } else if (expectedKey instanceof RSAKey) {
+            assertTrue("Returned PrivateKey " + privKey.getClass() + " should be instanceof RSAKey",
+                    privKey instanceof RSAKey);
             assertEquals("Returned PrivateKey should be what we inserted",
-                    ((ECPrivateKey) expectedKey).getParams().getCurve(),
-                    ((ECPublicKey) pubKey).getParams().getCurve());
-        } else if (expectedKey instanceof RSAPrivateKey) {
-            assertEquals("Returned PrivateKey should be what we inserted",
-                    ((RSAPrivateKey) expectedKey).getModulus(),
-                    ((RSAPrivateKey) privKey).getModulus());
+                    ((RSAKey) expectedKey).getModulus(),
+                    ((RSAKey) privKey).getModulus());
         }
 
         assertNull("getFormat() should return null", privKey.getFormat());
@@ -1528,15 +1174,16 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         Key key = mKeyStore.getKey(TEST_ALIAS_1, null);
         assertNotNull("Key should exist", key);
 
-        assertTrue("Should be a RSAPrivateKey", key instanceof RSAPrivateKey);
+        assertTrue("Should be a PrivateKey", key instanceof PrivateKey);
+        assertTrue("Should be a RSAKey", key instanceof RSAKey);
 
-        RSAPrivateKey actualKey = (RSAPrivateKey) key;
+        RSAKey actualKey = (RSAKey) key;
 
         KeyFactory keyFact = KeyFactory.getInstance("RSA");
         PrivateKey expectedKey = keyFact.generatePrivate(new PKCS8EncodedKeySpec(FAKE_RSA_KEY_1));
 
         assertEquals("Inserted key should be same as retrieved key",
-                ((RSAPrivateKey) expectedKey).getModulus(), actualKey.getModulus());
+                ((RSAKey) expectedKey).getModulus(), actualKey.getModulus());
     }
 
     public void testKeyStore_GetKey_Certificate_Unencrypted_Failure() throws Exception {
@@ -2240,7 +1887,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                 0x00, 0x05, (byte) 0xAA, (byte) 0x0A5, (byte) 0xFF, 0x55, 0x0A
         };
 
-        SecretKey expectedSecret = new SecretKeySpec(expectedKey, "AES");
+        SecretKey expectedSecret = new TransparentSecretKey(expectedKey, "AES");
 
         byte[] wrappedExpected = c.wrap(expectedSecret);
 
@@ -2249,5 +1896,681 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
 
         assertEquals(Arrays.toString(expectedSecret.getEncoded()),
                 Arrays.toString(actualSecret.getEncoded()));
+    }
+
+    public void testKeyStore_Encrypting_RSA_NONE_NOPADDING() throws Exception {
+
+        String alias = "MyKey";
+        KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+        assertNotNull(ks);
+        ks.load(null);
+
+        Calendar cal = Calendar.getInstance();
+        cal.set(1944, 5, 6);
+        Date now = cal.getTime();
+        cal.clear();
+
+        cal.set(1945, 8, 2);
+        Date end = cal.getTime();
+
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", "AndroidKeyStore");
+        assertNotNull(kpg);
+        kpg.initialize(new KeyPairGeneratorSpec.Builder(mContext)
+                .setAlias(alias)
+                .setStartDate(now)
+                .setEndDate(end)
+                .setSerialNumber(BigInteger.valueOf(1))
+                .setSubject(new X500Principal("CN=test1"))
+                .build());
+
+        kpg.generateKeyPair();
+
+        PrivateKey privateKey = (PrivateKey) ks.getKey(alias, null);
+        assertNotNull(privateKey);
+        PublicKey publicKey = ks.getCertificate(alias).getPublicKey();
+        assertNotNull(publicKey);
+        String cipher = privateKey.getAlgorithm() + "/NONE/NOPADDING";
+        Cipher encrypt = Cipher.getInstance(cipher);
+        assertNotNull(encrypt);
+        encrypt.init(Cipher.ENCRYPT_MODE, privateKey);
+
+        int modulusSizeBytes = (((RSAKey) publicKey).getModulus().bitLength() + 7) / 8;
+        byte[] plainText = new byte[modulusSizeBytes];
+        Arrays.fill(plainText, (byte) 0xFF);
+
+        // We expect a BadPaddingException here as the message size (plaintext)
+        // is bigger than the modulus.
+        try {
+            encrypt.doFinal(plainText);
+            fail("Expected BadPaddingException");
+        } catch (BadPaddingException e) {
+            // pass on exception as it is expected
+        }
+    }
+
+    public void testKeyStore_PrivateKeyEntry_RSA_PublicKeyWorksWithCrypto()
+            throws Exception {
+        mKeyStore.load(null, null);
+        mKeyStore.setKeyEntry(TEST_ALIAS_2,
+                KeyFactory.getInstance("RSA").generatePrivate(
+                        new PKCS8EncodedKeySpec(FAKE_RSA_KEY_1)),
+                null, // no password (it's not even supported)
+                new Certificate[] {generateCertificate(FAKE_RSA_USER_1)});
+        PublicKey publicKey = mKeyStore.getCertificate(TEST_ALIAS_2).getPublicKey();
+        assertNotNull(publicKey);
+
+        Signature.getInstance("SHA256withRSA").initVerify(publicKey);
+        Signature.getInstance("NONEwithRSA").initVerify(publicKey);
+        Signature.getInstance("SHA256withRSA/PSS").initVerify(publicKey);
+
+        Cipher.getInstance("RSA/ECB/PKCS1Padding").init(Cipher.ENCRYPT_MODE, publicKey);
+        Cipher.getInstance("RSA/ECB/NoPadding").init(Cipher.ENCRYPT_MODE, publicKey);
+        Cipher.getInstance("RSA/ECB/OAEPPadding").init(Cipher.ENCRYPT_MODE, publicKey);
+    }
+
+    public void testKeyStore_PrivateKeyEntry_EC_PublicKeyWorksWithCrypto()
+            throws Exception {
+        mKeyStore.load(null, null);
+        mKeyStore.setKeyEntry(TEST_ALIAS_1,
+                KeyFactory.getInstance("EC").generatePrivate(
+                        new PKCS8EncodedKeySpec(FAKE_EC_KEY_1)),
+                null, // no password (it's not even supported)
+                new Certificate[] {generateCertificate(FAKE_EC_USER_1)});
+        PublicKey publicKey = mKeyStore.getCertificate(TEST_ALIAS_1).getPublicKey();
+        assertNotNull(publicKey);
+
+        Signature.getInstance("SHA256withECDSA").initVerify(publicKey);
+        Signature.getInstance("NONEwithECDSA").initVerify(publicKey);
+    }
+
+    public void testKeyStore_TrustedCertificateEntry_RSA_PublicKeyWorksWithCrypto()
+            throws Exception {
+        mKeyStore.load(null, null);
+        mKeyStore.setCertificateEntry(TEST_ALIAS_2, generateCertificate(FAKE_RSA_USER_1));
+        PublicKey publicKey = mKeyStore.getCertificate(TEST_ALIAS_2).getPublicKey();
+        assertNotNull(publicKey);
+
+        Signature.getInstance("SHA256withRSA").initVerify(publicKey);
+        Signature.getInstance("NONEwithRSA").initVerify(publicKey);
+
+        Cipher.getInstance("RSA/ECB/PKCS1Padding").init(Cipher.ENCRYPT_MODE, publicKey);
+        Cipher.getInstance("RSA/ECB/NoPadding").init(Cipher.ENCRYPT_MODE, publicKey);
+    }
+
+    public void testKeyStore_TrustedCertificateEntry_EC_PublicKeyWorksWithCrypto()
+            throws Exception {
+        mKeyStore.load(null, null);
+        mKeyStore.setCertificateEntry(TEST_ALIAS_1, generateCertificate(FAKE_EC_USER_1));
+        PublicKey publicKey = mKeyStore.getCertificate(TEST_ALIAS_1).getPublicKey();
+        assertNotNull(publicKey);
+
+        Signature.getInstance("SHA256withECDSA").initVerify(publicKey);
+        Signature.getInstance("NONEwithECDSA").initVerify(publicKey);
+    }
+
+    private static final int MIN_SUPPORTED_KEY_COUNT = 1500;
+    private static final long MINUTE_IN_MILLIS = 1000 * 60;
+    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS = 2 * MINUTE_IN_MILLIS;
+
+    private static boolean isDeadlineReached(long startTimeMillis, long durationMillis) {
+        long nowMillis = System.currentTimeMillis();
+        if (nowMillis < startTimeMillis) {
+            return true;
+        }
+        return nowMillis - startTimeMillis > durationMillis;
+    }
+
+    @LargeTest
+    public void testKeyStore_LargeNumberOfKeysSupported_RSA() throws Exception {
+        // This test imports key1, then lots of other keys, then key2, and then confirms that
+        // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
+        // underlying implementation has a limit on the number of keys, it'll either delete the
+        // oldest key (key1), or will refuse to add keys (key2).
+        // The test imports as many keys as it can in a fixed amount of time instead of stopping
+        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
+        // with the constraints on how long the test can run and performance differences of hardware
+        // under test.
+
+        long testStartTimeMillis = System.currentTimeMillis();
+
+        Certificate cert1 = TestUtils.getRawResX509Certificate(getContext(), R.raw.rsa_key1_cert);
+        PrivateKey privateKey1 = TestUtils.getRawResPrivateKey(getContext(), R.raw.rsa_key1_pkcs8);
+        String entryName1 = "test0";
+
+        Certificate cert2 = TestUtils.getRawResX509Certificate(getContext(), R.raw.rsa_key2_cert);
+        PrivateKey privateKey2 = TestUtils.getRawResPrivateKey(getContext(), R.raw.rsa_key2_pkcs8);
+
+        Certificate cert3 = generateCertificate(FAKE_RSA_USER_1);
+        PrivateKey privateKey3 = generatePrivateKey("RSA", FAKE_RSA_KEY_1);
+
+        mKeyStore.load(null);
+        int latestImportedEntryNumber = 0;
+        try {
+            KeyProtection protectionParams = new KeyProtection.Builder(
+                    KeyProperties.PURPOSE_SIGN)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                    .build();
+            mKeyStore.setEntry(entryName1,
+                    new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
+                    protectionParams);
+
+            // Import key3 lots of times, under different aliases.
+            while (!isDeadlineReached(
+                    testStartTimeMillis, LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS)) {
+                latestImportedEntryNumber++;
+                if ((latestImportedEntryNumber % 1000) == 0) {
+                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+                }
+                String entryAlias = "test" + latestImportedEntryNumber;
+                try {
+                    mKeyStore.setEntry(entryAlias,
+                            new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
+                            protectionParams);
+                } catch (Throwable e) {
+                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
+                }
+            }
+            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
+                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
+                        + (System.currentTimeMillis() - testStartTimeMillis)
+                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
+            }
+
+            latestImportedEntryNumber++;
+            String entryName2 = "test" + latestImportedEntryNumber;
+            mKeyStore.setEntry(entryName2,
+                    new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
+                    protectionParams);
+            PrivateKey keystorePrivateKey2 = (PrivateKey) mKeyStore.getKey(entryName2, null);
+            PrivateKey keystorePrivateKey1 = (PrivateKey) mKeyStore.getKey(entryName1, null);
+
+            byte[] message = "This is a test".getBytes("UTF-8");
+
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initSign(keystorePrivateKey1);
+            sig.update(message);
+            byte[] signature = sig.sign();
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initVerify(cert1.getPublicKey());
+            sig.update(message);
+            assertTrue(sig.verify(signature));
+
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initSign(keystorePrivateKey2);
+            sig.update(message);
+            signature = sig.sign();
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initVerify(cert2.getPublicKey());
+            sig.update(message);
+            assertTrue(sig.verify(signature));
+        } finally {
+            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
+            // entries.
+            Log.i(TAG, "Deleting imported keys");
+            for (int i = 0; i <= latestImportedEntryNumber; i++) {
+                if ((i > 0) && ((i % 1000) == 0)) {
+                    Log.i(TAG, "Deleted " + i + " keys");
+                }
+                mKeyStore.deleteEntry("test" + i);
+            }
+            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+        }
+    }
+
+    @LargeTest
+    public void testKeyStore_LargeNumberOfKeysSupported_EC() throws Exception {
+        // This test imports key1, then lots of other keys, then key2, and then confirms that
+        // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
+        // underlying implementation has a limit on the number of keys, it'll either delete the
+        // oldest key (key1), or will refuse to add keys (key2).
+        // The test imports as many keys as it can in a fixed amount of time instead of stopping
+        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
+        // with the constraints on how long the test can run and performance differences of hardware
+        // under test.
+
+        long testStartTimeMillis = System.currentTimeMillis();
+
+        Certificate cert1 = TestUtils.getRawResX509Certificate(getContext(), R.raw.ec_key1_cert);
+        PrivateKey privateKey1 = TestUtils.getRawResPrivateKey(getContext(), R.raw.ec_key1_pkcs8);
+        String entryName1 = "test0";
+
+        Certificate cert2 = TestUtils.getRawResX509Certificate(getContext(), R.raw.ec_key2_cert);
+        PrivateKey privateKey2 = TestUtils.getRawResPrivateKey(getContext(), R.raw.ec_key2_pkcs8);
+
+        Certificate cert3 = generateCertificate(FAKE_EC_USER_1);
+        PrivateKey privateKey3 = generatePrivateKey("EC", FAKE_EC_KEY_1);
+
+        mKeyStore.load(null);
+        int latestImportedEntryNumber = 0;
+        try {
+            KeyProtection protectionParams = new KeyProtection.Builder(
+                    KeyProperties.PURPOSE_SIGN)
+                    .setDigests(KeyProperties.DIGEST_SHA256)
+                    .build();
+            mKeyStore.setEntry(entryName1,
+                    new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
+                    protectionParams);
+
+            // Import key3 lots of times, under different aliases.
+            while (!isDeadlineReached(
+                    testStartTimeMillis, LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS)) {
+                latestImportedEntryNumber++;
+                if ((latestImportedEntryNumber % 1000) == 0) {
+                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+                }
+                String entryAlias = "test" + latestImportedEntryNumber;
+                try {
+                    mKeyStore.setEntry(entryAlias,
+                            new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
+                            protectionParams);
+                } catch (Throwable e) {
+                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
+                }
+            }
+            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
+                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
+                        + (System.currentTimeMillis() - testStartTimeMillis)
+                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
+            }
+
+            latestImportedEntryNumber++;
+            String entryName2 = "test" + latestImportedEntryNumber;
+            mKeyStore.setEntry(entryName2,
+                    new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
+                    protectionParams);
+            PrivateKey keystorePrivateKey2 = (PrivateKey) mKeyStore.getKey(entryName2, null);
+            PrivateKey keystorePrivateKey1 = (PrivateKey) mKeyStore.getKey(entryName1, null);
+
+            byte[] message = "This is a test".getBytes("UTF-8");
+
+            Signature sig = Signature.getInstance("SHA256withECDSA");
+            sig.initSign(keystorePrivateKey1);
+            sig.update(message);
+            byte[] signature = sig.sign();
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initVerify(cert1.getPublicKey());
+            sig.update(message);
+            assertTrue(sig.verify(signature));
+
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initSign(keystorePrivateKey2);
+            sig.update(message);
+            signature = sig.sign();
+            sig = Signature.getInstance(sig.getAlgorithm());
+            sig.initVerify(cert2.getPublicKey());
+            sig.update(message);
+            assertTrue(sig.verify(signature));
+        } finally {
+            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
+            // entries.
+            Log.i(TAG, "Deleting imported keys");
+            for (int i = 0; i <= latestImportedEntryNumber; i++) {
+                if ((i > 0) && ((i % 1000) == 0)) {
+                    Log.i(TAG, "Deleted " + i + " keys");
+                }
+                mKeyStore.deleteEntry("test" + i);
+            }
+            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+        }
+    }
+
+    @LargeTest
+    public void testKeyStore_LargeNumberOfKeysSupported_AES() throws Exception {
+        // This test imports key1, then lots of other keys, then key2, and then confirms that
+        // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
+        // underlying implementation has a limit on the number of keys, it'll either delete the
+        // oldest key (key1), or will refuse to add keys (key2).
+        // The test imports as many keys as it can in a fixed amount of time instead of stopping
+        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
+        // with the constraints on how long the test can run and performance differences of hardware
+        // under test.
+
+        long testStartTimeMillis = System.currentTimeMillis();
+
+        SecretKey key1 = new TransparentSecretKey(
+                HexEncoding.decode("010203040506070809fafbfcfdfeffcc"), "AES");
+        String entryName1 = "test0";
+
+        SecretKey key2 = new TransparentSecretKey(
+                HexEncoding.decode("808182838485868788897a7b7c7d7e7f"), "AES");
+
+        SecretKey key3 = new TransparentSecretKey(
+                HexEncoding.decode("33333333333333333333777777777777"), "AES");
+
+        mKeyStore.load(null);
+        int latestImportedEntryNumber = 0;
+        try {
+            KeyProtection protectionParams = new KeyProtection.Builder(
+                    KeyProperties.PURPOSE_ENCRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .build();
+            mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
+
+            // Import key3 lots of times, under different aliases.
+            while (!isDeadlineReached(
+                    testStartTimeMillis, LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS)) {
+                latestImportedEntryNumber++;
+                if ((latestImportedEntryNumber % 1000) == 0) {
+                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+                }
+                String entryAlias = "test" + latestImportedEntryNumber;
+                try {
+                    mKeyStore.setEntry(entryAlias,
+                            new KeyStore.SecretKeyEntry(key3), protectionParams);
+                } catch (Throwable e) {
+                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
+                }
+            }
+            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
+                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
+                        + (System.currentTimeMillis() - testStartTimeMillis)
+                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
+            }
+
+            latestImportedEntryNumber++;
+            String entryName2 = "test" + latestImportedEntryNumber;
+            mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
+            SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
+            SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
+
+            byte[] plaintext = "This is a test".getBytes("UTF-8");
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey1);
+            byte[] ciphertext = cipher.doFinal(plaintext);
+            AlgorithmParameters cipherParams = cipher.getParameters();
+            cipher = Cipher.getInstance(cipher.getAlgorithm());
+            cipher.init(Cipher.DECRYPT_MODE, key1, cipherParams);
+            MoreAsserts.assertEquals(plaintext, cipher.doFinal(ciphertext));
+
+            cipher = Cipher.getInstance(cipher.getAlgorithm());
+            cipher.init(Cipher.ENCRYPT_MODE, keystoreKey2);
+            ciphertext = cipher.doFinal(plaintext);
+            cipherParams = cipher.getParameters();
+            cipher = Cipher.getInstance(cipher.getAlgorithm());
+            cipher.init(Cipher.DECRYPT_MODE, key2, cipherParams);
+            MoreAsserts.assertEquals(plaintext, cipher.doFinal(ciphertext));
+        } finally {
+            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
+            // entries.
+            Log.i(TAG, "Deleting imported keys");
+            for (int i = 0; i <= latestImportedEntryNumber; i++) {
+                if ((i > 0) && ((i % 1000) == 0)) {
+                    Log.i(TAG, "Deleted " + i + " keys");
+                }
+                mKeyStore.deleteEntry("test" + i);
+            }
+            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+        }
+    }
+
+    @LargeTest
+    public void testKeyStore_LargeNumberOfKeysSupported_HMAC() throws Exception {
+        // This test imports key1, then lots of other keys, then key2, and then confirms that
+        // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
+        // underlying implementation has a limit on the number of keys, it'll either delete the
+        // oldest key (key1), or will refuse to add keys (key2).
+        // The test imports as many keys as it can in a fixed amount of time instead of stopping
+        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
+        // with the constraints on how long the test can run and performance differences of hardware
+        // under test.
+
+        long testStartTimeMillis = System.currentTimeMillis();
+
+        SecretKey key1 = new TransparentSecretKey(
+                HexEncoding.decode("010203040506070809fafbfcfdfeffcc"), "HmacSHA256");
+        String entryName1 = "test0";
+
+        SecretKey key2 = new TransparentSecretKey(
+                HexEncoding.decode("808182838485868788897a7b7c7d7e7f"), "HmacSHA256");
+
+        SecretKey key3 = new TransparentSecretKey(
+                HexEncoding.decode("33333333333333333333777777777777"), "HmacSHA256");
+
+        mKeyStore.load(null);
+        int latestImportedEntryNumber = 0;
+        try {
+            KeyProtection protectionParams = new KeyProtection.Builder(
+                    KeyProperties.PURPOSE_SIGN)
+                    .build();
+            mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
+
+            // Import key3 lots of times, under different aliases.
+            while (!isDeadlineReached(
+                    testStartTimeMillis, LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS)) {
+                latestImportedEntryNumber++;
+                if ((latestImportedEntryNumber % 1000) == 0) {
+                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+                }
+                String entryAlias = "test" + latestImportedEntryNumber;
+                try {
+                    mKeyStore.setEntry(entryAlias,
+                            new KeyStore.SecretKeyEntry(key3), protectionParams);
+                } catch (Throwable e) {
+                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
+                }
+            }
+            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
+            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
+                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
+                        + (System.currentTimeMillis() - testStartTimeMillis)
+                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
+            }
+
+            latestImportedEntryNumber++;
+            String entryName2 = "test" + latestImportedEntryNumber;
+            mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
+            SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
+            SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
+
+            byte[] message = "This is a test".getBytes("UTF-8");
+            Mac mac = Mac.getInstance(key1.getAlgorithm());
+            mac.init(keystoreKey1);
+            MoreAsserts.assertEquals(
+                    HexEncoding.decode(
+                            "905e36f5a175f4ca54ad56b860b46f6502f883a90628dca2d33a953fb7224eaf"),
+                    mac.doFinal(message));
+
+            mac = Mac.getInstance(key2.getAlgorithm());
+            mac.init(keystoreKey2);
+            MoreAsserts.assertEquals(
+                    HexEncoding.decode(
+                            "59b57e77e4e2cb36b5c7b84af198ac004327bc549de6931a1b5505372dd8c957"),
+                    mac.doFinal(message));
+        } finally {
+            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
+            // entries.
+            Log.i(TAG, "Deleting imported keys");
+            for (int i = 0; i <= latestImportedEntryNumber; i++) {
+                if ((i > 0) && ((i % 1000) == 0)) {
+                    Log.i(TAG, "Deleted " + i + " keys");
+                }
+                mKeyStore.deleteEntry("test" + i);
+            }
+            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+        }
+    }
+
+    public void testKeyStore_OnlyOneDigestCanBeAuthorized_HMAC() throws Exception {
+        mKeyStore.load(null);
+
+        for (String algorithm : KeyGeneratorTest.EXPECTED_ALGORITHMS) {
+            if (!TestUtils.isHmacAlgorithm(algorithm)) {
+                continue;
+            }
+            try {
+                String digest = TestUtils.getHmacAlgorithmDigest(algorithm);
+                assertNotNull(digest);
+                SecretKey keyBeingImported = new TransparentSecretKey(new byte[16], algorithm);
+
+                KeyProtection.Builder goodSpec =
+                        new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN);
+
+                // Digests authorization not specified in import parameters
+                assertFalse(goodSpec.build().isDigestsSpecified());
+                mKeyStore.setEntry(TEST_ALIAS_1,
+                        new KeyStore.SecretKeyEntry(keyBeingImported),
+                        goodSpec.build());
+                SecretKey key = (SecretKey) mKeyStore.getKey(TEST_ALIAS_1, null);
+                TestUtils.assertContentsInAnyOrder(
+                        Arrays.asList(TestUtils.getKeyInfo(key).getDigests()), digest);
+
+                // The same digest is specified in import parameters
+                mKeyStore.setEntry(TEST_ALIAS_1,
+                        new KeyStore.SecretKeyEntry(keyBeingImported),
+                        TestUtils.buildUpon(goodSpec).setDigests(digest).build());
+                key = (SecretKey) mKeyStore.getKey(TEST_ALIAS_1, null);
+                TestUtils.assertContentsInAnyOrder(
+                        Arrays.asList(TestUtils.getKeyInfo(key).getDigests()), digest);
+
+                // Empty set of digests specified in import parameters
+                try {
+                    mKeyStore.setEntry(TEST_ALIAS_1,
+                            new KeyStore.SecretKeyEntry(keyBeingImported),
+                            TestUtils.buildUpon(goodSpec).setDigests().build());
+                    fail();
+                } catch (KeyStoreException expected) {}
+
+                // A different digest specified in import parameters
+                String anotherDigest = "SHA-256".equalsIgnoreCase(digest) ? "SHA-384" : "SHA-256";
+                try {
+                    mKeyStore.setEntry(TEST_ALIAS_1,
+                            new KeyStore.SecretKeyEntry(keyBeingImported),
+                            TestUtils.buildUpon(goodSpec).setDigests(anotherDigest).build());
+                    fail();
+                } catch (KeyStoreException expected) {}
+                try {
+                    mKeyStore.setEntry(TEST_ALIAS_1,
+                            new KeyStore.SecretKeyEntry(keyBeingImported),
+                            TestUtils.buildUpon(goodSpec)
+                                    .setDigests(digest, anotherDigest)
+                                    .build());
+                    fail();
+                } catch (KeyStoreException expected) {}
+            } catch (Throwable e) {
+                throw new RuntimeException("Failed for " + algorithm, e);
+            }
+        }
+    }
+
+    public void testKeyStore_ImportSupportedSizes_AES() throws Exception {
+        mKeyStore.load(null);
+
+        KeyProtection params = new KeyProtection.Builder(
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .build();
+        String alias = "test1";
+        mKeyStore.deleteEntry(alias);
+        assertFalse(mKeyStore.containsAlias(alias));
+        for (int keySizeBytes = 0; keySizeBytes <= 512 / 8; keySizeBytes++) {
+            int keySizeBits = keySizeBytes * 8;
+            try {
+                KeyStore.SecretKeyEntry entry = new KeyStore.SecretKeyEntry(
+                        new TransparentSecretKey(new byte[keySizeBytes], "AES"));
+                if (TestUtils.contains(KeyGeneratorTest.AES_SUPPORTED_KEY_SIZES, keySizeBits)) {
+                    mKeyStore.setEntry(alias, entry, params);
+                    SecretKey key = (SecretKey) mKeyStore.getKey(alias, null);
+                    assertEquals("AES", key.getAlgorithm());
+                    assertEquals(keySizeBits, TestUtils.getKeyInfo(key).getKeySize());
+                } else {
+                    mKeyStore.deleteEntry(alias);
+                    assertFalse(mKeyStore.containsAlias(alias));
+                    try {
+                        mKeyStore.setEntry(alias, entry, params);
+                        fail();
+                    } catch (KeyStoreException expected) {}
+                    assertFalse(mKeyStore.containsAlias(alias));
+                }
+            } catch (Throwable e) {
+                throw new RuntimeException("Failed for key size " + keySizeBits, e);
+            }
+        }
+    }
+
+    public void testKeyStore_ImportSupportedSizes_HMAC() throws Exception {
+        mKeyStore.load(null);
+
+        KeyProtection params = new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN).build();
+        String alias = "test1";
+        mKeyStore.deleteEntry(alias);
+        assertFalse(mKeyStore.containsAlias(alias));
+        for (String algorithm : KeyGeneratorTest.EXPECTED_ALGORITHMS) {
+            if (!TestUtils.isHmacAlgorithm(algorithm)) {
+                continue;
+            }
+            for (int keySizeBytes = 0; keySizeBytes <= 1024 / 8; keySizeBytes++) {
+                try {
+                    KeyStore.SecretKeyEntry entry = new KeyStore.SecretKeyEntry(
+                            new TransparentSecretKey(new byte[keySizeBytes], algorithm));
+                    if (keySizeBytes > 0) {
+                        mKeyStore.setEntry(alias, entry, params);
+                        SecretKey key = (SecretKey) mKeyStore.getKey(alias, null);
+                        assertEquals(algorithm, key.getAlgorithm());
+                        assertEquals(keySizeBytes * 8, TestUtils.getKeyInfo(key).getKeySize());
+                    } else {
+                        mKeyStore.deleteEntry(alias);
+                        assertFalse(mKeyStore.containsAlias(alias));
+                        try {
+                            mKeyStore.setEntry(alias, entry, params);
+                            fail();
+                        } catch (KeyStoreException expected) {}
+                    }
+                } catch (Throwable e) {
+                    throw new RuntimeException(
+                            "Failed for " + algorithm + " with key size " + (keySizeBytes * 8), e);
+                }
+            }
+        }
+    }
+
+    public void testKeyStore_ImportSupportedSizes_EC() throws Exception {
+        mKeyStore.load(null);
+        KeyProtection params =
+                TestUtils.getMinimalWorkingImportParametersForSigningingWith("SHA256withECDSA");
+        checkKeyPairImportSucceeds(
+                "secp224r1", R.raw.ec_key3_secp224r1_pkcs8, R.raw.ec_key3_secp224r1_cert, params);
+        checkKeyPairImportSucceeds(
+                "secp256r1", R.raw.ec_key4_secp256r1_pkcs8, R.raw.ec_key4_secp256r1_cert, params);
+        checkKeyPairImportSucceeds(
+                "secp384r1", R.raw.ec_key5_secp384r1_pkcs8, R.raw.ec_key5_secp384r1_cert, params);
+        checkKeyPairImportSucceeds(
+                "secp512r1", R.raw.ec_key6_secp521r1_pkcs8, R.raw.ec_key6_secp521r1_cert, params);
+    }
+
+    public void testKeyStore_ImportSupportedSizes_RSA() throws Exception {
+        mKeyStore.load(null);
+        KeyProtection params =
+                TestUtils.getMinimalWorkingImportParametersForSigningingWith("SHA256withRSA");
+        checkKeyPairImportSucceeds(
+                "512", R.raw.rsa_key5_512_pkcs8, R.raw.rsa_key5_512_cert, params);
+        checkKeyPairImportSucceeds(
+                "768", R.raw.rsa_key6_768_pkcs8, R.raw.rsa_key6_768_cert, params);
+        checkKeyPairImportSucceeds(
+                "1024", R.raw.rsa_key3_1024_pkcs8, R.raw.rsa_key3_1024_cert, params);
+        checkKeyPairImportSucceeds(
+                "2048", R.raw.rsa_key8_2048_pkcs8, R.raw.rsa_key8_2048_cert, params);
+        checkKeyPairImportSucceeds(
+                "3072", R.raw.rsa_key7_3072_pksc8, R.raw.rsa_key7_3072_cert, params);
+        checkKeyPairImportSucceeds(
+                "4096", R.raw.rsa_key4_4096_pkcs8, R.raw.rsa_key4_4096_cert, params);
+    }
+
+    private void checkKeyPairImportSucceeds(
+            String alias, int privateResId, int certResId, KeyProtection params) throws Exception {
+        try {
+            mKeyStore.deleteEntry(alias);
+            TestUtils.importIntoAndroidKeyStore(
+                    alias, getContext(), privateResId, certResId, params);
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed for " + alias, e);
+        } finally {
+            try {
+                mKeyStore.deleteEntry(alias);
+            } catch (Exception ignored) {}
+        }
     }
 }

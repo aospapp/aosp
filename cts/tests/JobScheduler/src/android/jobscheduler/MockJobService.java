@@ -46,7 +46,7 @@ public class MockJobService extends JobService {
     public boolean onStartJob(JobParameters params) {
         Log.i(TAG, "Test job executing: " + params.getJobId());
 
-        TestEnvironment.getTestEnvironment().notifyExecution(params.getJobId());
+        TestEnvironment.getTestEnvironment().notifyExecution(params);
         return false;  // No work to do.
     }
 
@@ -63,16 +63,20 @@ public class MockJobService extends JobService {
     public static final class TestEnvironment {
 
         private static TestEnvironment kTestEnvironment;
-        public static final int INVALID_JOB_ID = -1;
+        //public static final int INVALID_JOB_ID = -1;
 
         private CountDownLatch mLatch;
-        private int mExecutedJobId;
+        private JobParameters mExecutedJobParameters;
 
         public static TestEnvironment getTestEnvironment() {
             if (kTestEnvironment == null) {
                 kTestEnvironment = new TestEnvironment();
             }
             return kTestEnvironment;
+        }
+
+        public JobParameters getLastJobParameters() {
+            return mExecutedJobParameters;
         }
 
         /**
@@ -93,9 +97,9 @@ public class MockJobService extends JobService {
             return !mLatch.await(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         }
 
-        private void notifyExecution(int jobId) {
-            Log.d(TAG, "Job executed:" + jobId);
-            mExecutedJobId = jobId;
+        private void notifyExecution(JobParameters params) {
+            Log.d(TAG, "Job executed:" + params.getJobId());
+            mExecutedJobParameters = params;
             mLatch.countDown();
         }
 
@@ -111,7 +115,7 @@ public class MockJobService extends JobService {
         /** Called in each testCase#setup */
         public void setUp() {
             mLatch = null;
-            mExecutedJobId = INVALID_JOB_ID;
+            mExecutedJobParameters = null;
         }
 
     }

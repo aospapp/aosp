@@ -5,7 +5,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE:= libpdfiumcore
 
 LOCAL_ARM_MODE := arm
-LOCAL_SDK_VERSION := 19
 LOCAL_NDK_STL_VARIANT := gnustl_static
 
 LOCAL_CFLAGS += -O3 -fstrict-aliasing -fprefetch-loop-arrays -fexceptions
@@ -16,6 +15,8 @@ LOCAL_CFLAGS += -Wno-non-virtual-dtor -Wall
 LOCAL_CFLAGS_arm64 += -O2
 
 LOCAL_CFLAGS_arm64 += -D_FX_CPU_=_FX_X64_ -fPIC
+
+LOCAL_SHARED_LIBRARIES := libft2
 
 LOCAL_SRC_FILES := \
     src/fdrm/crypto/fx_crypt.cpp \
@@ -37,7 +38,17 @@ LOCAL_SRC_FILES := \
     src/fpdfdoc/doc_viewerPreferences.cpp \
     src/fpdfdoc/doc_vt.cpp \
     src/fpdfdoc/doc_vtmodule.cpp \
+    include/fpdfapi/fpdfapi.h \
+    include/fpdfapi/fpdf_module.h \
+    include/fpdfapi/fpdf_objects.h \
+    include/fpdfapi/fpdf_page.h \
+    include/fpdfapi/fpdf_pageobj.h \
+    include/fpdfapi/fpdf_parser.h \
+    include/fpdfapi/fpdf_render.h \
+    include/fpdfapi/fpdf_resource.h \
+    include/fpdfapi/fpdf_serial.h \
     src/fpdfapi/fpdf_basic_module.cpp \
+    src/fpdfapi/fpdf_cmaps/cmap_int.h \
     src/fpdfapi/fpdf_cmaps/CNS1/Adobe-CNS1-UCS2_5.cpp \
     src/fpdfapi/fpdf_cmaps/CNS1/B5pc-H_0.cpp \
     src/fpdfapi/fpdf_cmaps/CNS1/B5pc-V_0.cpp \
@@ -102,15 +113,18 @@ LOCAL_SRC_FILES := \
     src/fpdfapi/fpdf_cmaps/Korea1/UniKS-UCS2-H_1.cpp \
     src/fpdfapi/fpdf_cmaps/Korea1/UniKS-UCS2-V_1.cpp \
     src/fpdfapi/fpdf_cmaps/Korea1/UniKS-UTF16-H_0.cpp \
+    src/fpdfapi/fpdf_edit/editint.h \
     src/fpdfapi/fpdf_edit/fpdf_edit_content.cpp \
     src/fpdfapi/fpdf_edit/fpdf_edit_create.cpp \
     src/fpdfapi/fpdf_edit/fpdf_edit_doc.cpp \
     src/fpdfapi/fpdf_edit/fpdf_edit_image.cpp \
+    src/fpdfapi/fpdf_font/common.h \
+    src/fpdfapi/fpdf_font/font_int.h \
     src/fpdfapi/fpdf_font/fpdf_font.cpp \
     src/fpdfapi/fpdf_font/fpdf_font_charset.cpp \
     src/fpdfapi/fpdf_font/fpdf_font_cid.cpp \
-    src/fpdfapi/fpdf_font/fpdf_font_utility.cpp \
     src/fpdfapi/fpdf_font/ttgsubtable.cpp \
+    src/fpdfapi/fpdf_font/ttgsubtable.h \
     src/fpdfapi/fpdf_page/fpdf_page.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_colors.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_doc.cpp \
@@ -118,10 +132,11 @@ LOCAL_SRC_FILES := \
     src/fpdfapi/fpdf_page/fpdf_page_graph_state.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_image.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_parser.cpp \
-    src/fpdfapi/fpdf_page/fpdf_page_parser_new.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_parser_old.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_path.cpp \
     src/fpdfapi/fpdf_page/fpdf_page_pattern.cpp \
+    src/fpdfapi/fpdf_page/pageint.h \
+    src/fpdfapi/fpdf_parser/filters_int.h \
     src/fpdfapi/fpdf_parser/fpdf_parser_decode.cpp \
     src/fpdfapi/fpdf_parser/fpdf_parser_document.cpp \
     src/fpdfapi/fpdf_parser/fpdf_parser_encrypt.cpp \
@@ -136,6 +151,7 @@ LOCAL_SRC_FILES := \
     src/fpdfapi/fpdf_render/fpdf_render_loadimage.cpp \
     src/fpdfapi/fpdf_render/fpdf_render_pattern.cpp \
     src/fpdfapi/fpdf_render/fpdf_render_text.cpp \
+    src/fpdfapi/fpdf_render/render_int.h \
     src/fpdftext/fpdf_text.cpp \
     src/fpdftext/fpdf_text_int.cpp \
     src/fpdftext/fpdf_text_search.cpp \
@@ -261,9 +277,6 @@ LOCAL_SRC_FILES := \
     src/fxcodec/libjpeg/fpdfapi_jmemmgr.c \
     src/fxcodec/libjpeg/fpdfapi_jmemnobs.c \
     src/fxcodec/libjpeg/fpdfapi_jutils.c \
-    src/fxcrt/fxcrt_platforms.cpp \
-    src/fxcrt/fxcrt_posix.cpp \
-    src/fxcrt/fxcrt_windows.cpp \
     src/fxcrt/fx_arabic.cpp \
     src/fxcrt/fx_basic_array.cpp \
     src/fxcrt/fx_basic_bstring.cpp \
@@ -273,7 +286,6 @@ LOCAL_SRC_FILES := \
     src/fxcrt/fx_basic_list.cpp \
     src/fxcrt/fx_basic_maps.cpp \
     src/fxcrt/fx_basic_memmgr.cpp \
-    src/fxcrt/fx_basic_memmgr_mini.cpp \
     src/fxcrt/fx_basic_plex.cpp \
     src/fxcrt/fx_basic_utf.cpp \
     src/fxcrt/fx_basic_util.cpp \
@@ -283,6 +295,27 @@ LOCAL_SRC_FILES := \
     src/fxcrt/fx_unicode.cpp \
     src/fxcrt/fx_xml_composer.cpp \
     src/fxcrt/fx_xml_parser.cpp \
+    src/fxcrt/fxcrt_platforms.cpp \
+    src/fxcrt/fxcrt_posix.cpp \
+    src/fxcrt/fxcrt_windows.cpp \
+    include/fxge/fpf.h \
+    include/fxge/fx_dib.h \
+    include/fxge/fx_font.h \
+    include/fxge/fx_freetype.h \
+    include/fxge/fx_ge.h \
+    include/fxge/fx_ge_apple.h \
+    include/fxge/fx_ge_win32.h' \
+    src/fxge/agg/include/fxfx_agg_basics.h \
+    src/fxge/agg/include/fxfx_agg_clip_liang_barsky.h \
+    src/fxge/agg/include/fxfx_agg_conv_dash.h     \
+    src/fxge/agg/include/fxfx_agg_conv_stroke.h \
+    src/fxge/agg/include/fxfx_agg_curves.h \
+    src/fxge/agg/include/fxfx_agg_path_storage.h \
+    src/fxge/agg/include/fxfx_agg_rasterizer_scanline_aa.h \
+    src/fxge/agg/include/fxfx_agg_renderer_scanline.h \
+    src/fxge/agg/include/fxfx_agg_rendering_buffer.h \
+    src/fxge/agg/include/fxfx_agg_scanline_u.h \
+    src/fxge/agg/include/fx_agg_driver.h \
     src/fxge/agg/src/fxfx_agg_curves.cpp \
     src/fxge/agg/src/fxfx_agg_driver.cpp \
     src/fxge/agg/src/fxfx_agg_path_storage.cpp \
@@ -290,13 +323,20 @@ LOCAL_SRC_FILES := \
     src/fxge/agg/src/fxfx_agg_vcgen_dash.cpp \
     src/fxge/agg/src/fxfx_agg_vcgen_stroke.cpp \
     src/fxge/android/fpf_skiafont.cpp \
+    src/fxge/android/fpf_skiafont.h \
     src/fxge/android/fpf_skiafontmgr.cpp \
+    src/fxge/android/fpf_skiafontmgr.h \
     src/fxge/android/fpf_skiamodule.cpp \
+    src/fxge/android/fpf_skiamodule.h \
     src/fxge/android/fx_android_font.cpp \
+    src/fxge/android/fx_android_font.h \
     src/fxge/android/fx_android_imp.cpp \
+    src/fxge/android/fx_fpf.h \
+    src/fxge/apple/apple_int.h \
     src/fxge/apple/fx_apple_platform.cpp \
     src/fxge/apple/fx_mac_imp.cpp \
     src/fxge/apple/fx_quartz_device.cpp \
+    src/fxge/dib/dib_int.h \
     src/fxge/dib/fx_dib_composite.cpp \
     src/fxge/dib/fx_dib_convert.cpp \
     src/fxge/dib/fx_dib_engine.cpp \
@@ -318,23 +358,7 @@ LOCAL_SRC_FILES := \
     src/fxge/fontdata/chromefontdata/FoxitSerifItalic.c \
     src/fxge/fontdata/chromefontdata/FoxitSerifMM.c \
     src/fxge/fontdata/chromefontdata/FoxitSymbol.c \
-    src/fxge/fx_freetype/src/fxft_cff.c \
-    src/fxge/fx_freetype/src/fxft_ftbase.c \
-    src/fxge/fx_freetype/src/fxft_ftbitmap.c \
-    src/fxge/fx_freetype/src/fxft_ftglyph.c \
-    src/fxge/fx_freetype/src/fxft_ftinit.c \
-    src/fxge/fx_freetype/src/fxft_ftlcdfil.c \
-    src/fxge/fx_freetype/src/fxft_ftmm.c \
-    src/fxge/fx_freetype/src/fxft_ftsystem.c \
-    src/fxge/fx_freetype/src/fxft_psaux.c \
-    src/fxge/fx_freetype/src/fxft_pshinter.c \
-    src/fxge/fx_freetype/src/fxft_psmodule.c \
-    src/fxge/fx_freetype/src/fxft_raster.c \
-    src/fxge/fx_freetype/src/fxft_sfnt.c \
-    src/fxge/fx_freetype/src/fxft_smooth.c \
-    src/fxge/fx_freetype/src/fxft_truetype.c \
-    src/fxge/fx_freetype/src/fxft_type1.c \
-    src/fxge/fx_freetype/src/fxft_type1cid.c \
+    src/fxge/freetype/fx_freetype.c \
     src/fxge/ge/fx_ge.cpp \
     src/fxge/ge/fx_ge_device.cpp \
     src/fxge/ge/fx_ge_font.cpp \
@@ -343,5 +367,9 @@ LOCAL_SRC_FILES := \
     src/fxge/ge/fx_ge_path.cpp \
     src/fxge/ge/fx_ge_ps.cpp \
     src/fxge/ge/fx_ge_text.cpp \
+    src/fxge/ge/text_int.h
+
+LOCAL_C_INCLUDES := \
+    external/freetype/include
 
 include $(BUILD_STATIC_LIBRARY)

@@ -123,14 +123,14 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "1.2.1"
+#define VERSION "1.3.1"
 
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
 /* #undef WORDS_BIGENDIAN */
 
 /* Number of bits in a file offset, on hosts where this is settable. */
-#define _FILE_OFFSET_BITS 64
+/* #define _FILE_OFFSET_BITS 64 */
 
 /* Define to 1 to make fseeko visible on some hosts (e.g. glibc 2.2). */
 /* #undef _LARGEFILE_SOURCE */

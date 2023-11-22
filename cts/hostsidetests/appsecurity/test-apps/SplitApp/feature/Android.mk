@@ -35,4 +35,4 @@ $(localRStamp): $(featureOfApk)
 
 LOCAL_AAPT_FLAGS += --feature-of $(featureOfApk)
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)

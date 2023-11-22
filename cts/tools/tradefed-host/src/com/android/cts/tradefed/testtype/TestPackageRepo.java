@@ -17,6 +17,9 @@ package com.android.cts.tradefed.testtype;
 
 import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.Log;
+import com.android.tradefed.config.ConfigurationException;
+import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
 import java.io.BufferedInputStream;
@@ -27,8 +30,8 @@ import java.io.FilenameFilter;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,22 +66,68 @@ public class TestPackageRepo implements ITestPackageRepo {
     private void parse(File dir) {
         File[] xmlFiles = dir.listFiles(new XmlFilter());
         for (File xmlFile : xmlFiles) {
-            parseTestFromXml(xmlFile);
+            parseModuleTestConfigs(xmlFile);
         }
     }
 
-    private void parseTestFromXml(File xmlFile)  {
+    /**
+     * Infer package preparer config from package XML definition file and return if exists
+     * @param pkgXml {@link File} instance referencing the package XML definition
+     * @return the matching package preparer if exists, <code>null</code> otherwise
+     */
+    private File getPreparerDefForPackage(File pkgXml) {
+        String fullPath = pkgXml.getAbsolutePath();
+        int lastDot = fullPath.lastIndexOf('.');
+        if (lastDot == -1) {
+            // huh?
+            return null;
+        }
+        File preparer = new File(fullPath.substring(0, lastDot) + ".config");
+        if (preparer.exists()) {
+            return preparer;
+        }
+        return null;
+    }
+
+    /**
+     * Processes test module definition XML file, and stores parsed data structure in class member
+     * variable. Parsed config objects will be associated with each applicable ABI type so multiple
+     * {@link TestPackageDef}s will be generated accordingly. In addition, based on
+     * &lt;module name&gt;.config file naming convention, this method also looks for the optional
+     * module test config, and attaches defined configuration objects to the {@link TestPackageDef}
+     * representing the module accordingly.
+     * @param xmlFile the module definition XML
+     */
+    private void parseModuleTestConfigs(File xmlFile)  {
         TestPackageXmlParser parser = new TestPackageXmlParser(mIncludeKnownFailures);
         try {
             parser.parse(createStreamFromFile(xmlFile));
+            // based on test module XML file path, and the <module name>.config naming convention,
+            // infers the module test config file, and parses it
+            File preparer = getPreparerDefForPackage(xmlFile);
+            IConfiguration config = null;
+            if (preparer != null) {
+                try {
+                    // invokes parser to process the test module config file
+                    config = ConfigurationFactory.getInstance().createConfigurationFromArgs(
+                            new String[]{preparer.getAbsolutePath()});
+                } catch (ConfigurationException e) {
+                    throw new RuntimeException(
+                            String.format("error parsing config file: %s", xmlFile.getName()), e);
+                }
+            }
             Set<TestPackageDef> defs = parser.getTestPackageDefs();
             if (defs.isEmpty()) {
                 Log.w(LOG_TAG, String.format("Could not find test package info in xml file %s",
                         xmlFile.getAbsolutePath()));
             }
+            // loops over multiple package defs defined for each ABI type
             for (TestPackageDef def : defs) {
                 String name = def.getAppPackageName();
                 String abi = def.getAbi().getName();
+                if (config != null) {
+                    def.setPackagePreparers(config.getTargetPreparers());
+                }
                 if (!mTestMap.containsKey(abi)) {
                     mTestMap.put(abi, new HashMap<String, TestPackageDef>());
                 }

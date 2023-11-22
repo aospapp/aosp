@@ -68,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Nastavenia pre Brazíliu"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Zobraziť vysielanie kanála 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"Kanál 50 sa v Brazílii používa pre aktuálne informácie o oblasti"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Možnosti pre vývojárov"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Pre vývojárov"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Kategória upozornenia:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofyzikálne"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologické"</string>

@@ -70,7 +70,7 @@
 #include "ihevc_inter_pred.h"
 #include "ihevcd_profile.h"
 
-WORD8 luma_filter[4][NTAPS_LUMA] =
+static WORD8 gai1_luma_filter[4][NTAPS_LUMA] =
 {
     { 0, 0, 0, 64, 0, 0, 0, 0 },
     { -1, 4, -10, 58, 17, -5, 1, 0 },
@@ -78,7 +78,7 @@ WORD8 luma_filter[4][NTAPS_LUMA] =
     { 0, 1, -5, 17, 58, -10, 4, -1 } };
 
 /* The filter uses only the first four elements in each array */
-WORD8 chroma_filter[8][NTAPS_LUMA] =
+static WORD8 gai1_chroma_filter[8][NTAPS_LUMA] =
 {
     { 0, 64, 0, 0, 0, 0, 0, 0 },
     { -2, 58, 10, -2, 0, 0, 0, 0 },
@@ -308,7 +308,7 @@ void ihevcd_inter_pred_ctb(process_ctxt_t *ps_proc)
                 pu1_dst = pu1_dst_luma + pu_y * ref_strd + pu_x;
 
                 ntaps = NTAPS_LUMA;
-                coeff = luma_filter;
+                coeff = gai1_luma_filter;
             }
 
             else
@@ -354,7 +354,7 @@ void ihevcd_inter_pred_ctb(process_ctxt_t *ps_proc)
                 pu1_dst = pu1_dst_chroma + pu_y * ref_strd / 2 + pu_x;
 
                 ntaps = NTAPS_CHROMA;
-                coeff = chroma_filter;
+                coeff = gai1_chroma_filter;
             }
 
             if(ps_pu->b2_pred_mode != PRED_L1)

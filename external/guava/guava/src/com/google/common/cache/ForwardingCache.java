@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ForwardingObject;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -49,7 +50,7 @@ public abstract class ForwardingCache<K, V> extends ForwardingObject implements 
    */
   @Override
   @Nullable
-  public V getIfPresent(K key) {
+  public V getIfPresent(Object key) {
     return delegate().getIfPresent(key);
   }
 
@@ -65,7 +66,7 @@ public abstract class ForwardingCache<K, V> extends ForwardingObject implements 
    * @since 11.0
    */
   @Override
-  public ImmutableMap<K, V> getAllPresent(Iterable<? extends K> keys) {
+  public ImmutableMap<K, V> getAllPresent(Iterable<?> keys) {
     return delegate().getAllPresent(keys);
   }
 
@@ -75,6 +76,14 @@ public abstract class ForwardingCache<K, V> extends ForwardingObject implements 
   @Override
   public void put(K key, V value) {
     delegate().put(key, value);
+  }
+
+  /**
+   * @since 12.0
+   */
+  @Override
+  public void putAll(Map<? extends K,? extends V> m) {
+    delegate().putAll(m);
   }
 
   @Override
@@ -113,24 +122,6 @@ public abstract class ForwardingCache<K, V> extends ForwardingObject implements 
   @Override
   public void cleanUp() {
     delegate().cleanUp();
-  }
-
-  @Deprecated
-  @Override
-  public V get(K key) throws ExecutionException {
-    return delegate().get(key);
-  }
-
-  @Deprecated
-  @Override
-  public V getUnchecked(K key) {
-    return delegate().getUnchecked(key);
-  }
-
-  @Deprecated
-  @Override
-  public V apply(K key) {
-    return delegate().apply(key);
   }
 
   /**

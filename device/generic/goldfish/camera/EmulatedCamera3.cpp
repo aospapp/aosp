@@ -41,7 +41,7 @@ namespace android {
 EmulatedCamera3::EmulatedCamera3(int cameraId,
         struct hw_module_t* module):
         EmulatedBaseCamera(cameraId,
-                CAMERA_DEVICE_API_VERSION_3_0,
+                CAMERA_DEVICE_API_VERSION_3_3,
                 &common,
                 module),
         mStatus(STATUS_ERROR)
@@ -51,13 +51,6 @@ EmulatedCamera3::EmulatedCamera3(int cameraId,
 
     mCallbackOps = NULL;
 
-    mVendorTagOps.get_camera_vendor_section_name =
-            EmulatedCamera3::get_camera_vendor_section_name;
-    mVendorTagOps.get_camera_vendor_tag_name =
-            EmulatedCamera3::get_camera_vendor_tag_name;
-    mVendorTagOps.get_camera_vendor_tag_type =
-            EmulatedCamera3::get_camera_vendor_tag_type;
-    mVendorTagOps.parent = this;
 }
 
 /* Destructs EmulatedCamera3 instance. */
@@ -156,21 +149,9 @@ status_t EmulatedCamera3::processCaptureRequest(
     return INVALID_OPERATION;
 }
 
-/** Custom tag query methods */
-
-const char* EmulatedCamera3::getVendorSectionName(uint32_t tag) {
+status_t EmulatedCamera3::flush() {
     ALOGE("%s: Not implemented", __FUNCTION__);
-    return NULL;
-}
-
-const char* EmulatedCamera3::getVendorTagName(uint32_t tag) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
-    return NULL;
-}
-
-int EmulatedCamera3::getVendorTagType(uint32_t tag) {
-    ALOGE("%s: Not implemented", __FUNCTION__);
-    return -1;
+    return INVALID_OPERATION;
 }
 
 /** Debug methods */
@@ -241,37 +222,14 @@ const camera_metadata_t* EmulatedCamera3::construct_default_request_settings(
     return ec->constructDefaultRequestSettings(type);
 }
 
-void EmulatedCamera3::get_metadata_vendor_tag_ops(const camera3_device_t *d,
-        vendor_tag_query_ops_t *ops) {
-    ops->get_camera_vendor_section_name = get_camera_vendor_section_name;
-    ops->get_camera_vendor_tag_name = get_camera_vendor_tag_name;
-    ops->get_camera_vendor_tag_type = get_camera_vendor_tag_type;
-}
-
-const char* EmulatedCamera3::get_camera_vendor_section_name(
-        const vendor_tag_query_ops_t *v,
-        uint32_t tag) {
-    EmulatedCamera3* ec = static_cast<const TagOps*>(v)->parent;
-    return ec->getVendorSectionName(tag);
-}
-
-const char* EmulatedCamera3::get_camera_vendor_tag_name(
-        const vendor_tag_query_ops_t *v,
-        uint32_t tag) {
-    EmulatedCamera3* ec = static_cast<const TagOps*>(v)->parent;
-    return ec->getVendorTagName(tag);
-}
-
-int EmulatedCamera3::get_camera_vendor_tag_type(
-        const vendor_tag_query_ops_t *v,
-        uint32_t tag)  {
-    EmulatedCamera3* ec = static_cast<const TagOps*>(v)->parent;
-    return ec->getVendorTagType(tag);
-}
-
 void EmulatedCamera3::dump(const camera3_device_t *d, int fd) {
     EmulatedCamera3* ec = getInstance(d);
     ec->dump(fd);
+}
+
+int EmulatedCamera3::flush(const camera3_device_t *d) {
+    EmulatedCamera3* ec = getInstance(d);
+    return ec->flush();
 }
 
 int EmulatedCamera3::close(struct hw_device_t* device) {
@@ -288,11 +246,26 @@ int EmulatedCamera3::close(struct hw_device_t* device) {
 camera3_device_ops_t EmulatedCamera3::sDeviceOps = {
     EmulatedCamera3::initialize,
     EmulatedCamera3::configure_streams,
-    EmulatedCamera3::register_stream_buffers,
+    /* DEPRECATED: register_stream_buffers */ nullptr,
     EmulatedCamera3::construct_default_request_settings,
     EmulatedCamera3::process_capture_request,
-    EmulatedCamera3::get_metadata_vendor_tag_ops,
-    EmulatedCamera3::dump
+    /* DEPRECATED: get_metadata_vendor_tag_ops */ nullptr,
+    EmulatedCamera3::dump,
+    EmulatedCamera3::flush
+};
+
+const char* EmulatedCamera3::sAvailableCapabilitiesStrings[NUM_CAPABILITIES] = {
+    "BACKWARD_COMPATIBLE",
+    "MANUAL_SENSOR",
+    "MANUAL_POST_PROCESSING",
+    "RAW",
+    "PRIVATE_REPROCESSING",
+    "READ_SENSOR_SETTINGS",
+    "BURST_CAPTURE",
+    "YUV_REPROCESSING",
+    "DEPTH_OUTPUT",
+    "CONSTRAINED_HIGH_SPEED_VIDEO",
+    "FULL_LEVEL"
 };
 
 }; /* namespace android */

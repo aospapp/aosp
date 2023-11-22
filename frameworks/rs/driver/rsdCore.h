@@ -28,11 +28,6 @@
 #include "rsdGL.h"
 #endif
 
-typedef void (* InvokeFunc_t)(void);
-typedef void (* ForEachFunc_t)(void);
-typedef int (* RootFunc_t)(void);
-typedef void (*WorkerCallback_t)(void *usr, uint32_t idx);
-
 typedef struct ScriptTLSStructRec {
     android::renderscript::Context * mContext;
     android::renderscript::Script * mScript;
@@ -51,9 +46,7 @@ typedef struct RsdHalRec {
 #endif
 } RsdHal;
 
-void rsdLaunchThreads(android::renderscript::Context *rsc, WorkerCallback_t cbk, void *data);
 void* rsdAllocRuntimeMem(size_t size, uint32_t flags);
 void rsdFreeRuntimeMem(void* ptr);
 
 #endif
-

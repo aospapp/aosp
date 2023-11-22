@@ -103,7 +103,7 @@ bool SkDWriteFontFileStream::move(long offset) {
 }
 
 SkDWriteFontFileStream* SkDWriteFontFileStream::fork() const {
-    SkAutoTUnref<SkDWriteFontFileStream> that(this->duplicate());
+    SkAutoTDelete<SkDWriteFontFileStream> that(this->duplicate());
     that->seek(fPos);
     return that.detach();
 }
@@ -133,7 +133,9 @@ const void* SkDWriteFontFileStream::getMemoryBase() {
 ///////////////////////////////////////////////////////////////////////////////
 //  SkIDWriteFontFileStreamWrapper
 
-HRESULT SkDWriteFontFileStreamWrapper::Create(SkStream* stream, SkDWriteFontFileStreamWrapper** streamFontFileStream) {
+HRESULT SkDWriteFontFileStreamWrapper::Create(SkStreamAsset* stream,
+                                              SkDWriteFontFileStreamWrapper** streamFontFileStream)
+{
     *streamFontFileStream = new SkDWriteFontFileStreamWrapper(stream);
     if (NULL == streamFontFileStream) {
         return E_OUTOFMEMORY;
@@ -141,8 +143,8 @@ HRESULT SkDWriteFontFileStreamWrapper::Create(SkStream* stream, SkDWriteFontFile
     return S_OK;
 }
 
-SkDWriteFontFileStreamWrapper::SkDWriteFontFileStreamWrapper(SkStream* stream)
-    : fRefCount(1), fStream(SkRef(stream)) {
+SkDWriteFontFileStreamWrapper::SkDWriteFontFileStreamWrapper(SkStreamAsset* stream)
+    : fRefCount(1), fStream(stream) {
 }
 
 HRESULT STDMETHODCALLTYPE SkDWriteFontFileStreamWrapper::QueryInterface(REFIID iid, void** ppvObject) {
@@ -188,21 +190,18 @@ HRESULT STDMETHODCALLTYPE SkDWriteFontFileStreamWrapper::ReadFileFragment(
     }
 
     const void* data = fStream->getMemoryBase();
-    if (NULL != data) {
+    if (data) {
         *fragmentStart = static_cast<BYTE const*>(data) + static_cast<size_t>(fileOffset);
         *fragmentContext = NULL;
 
     } else {
-        //May be called from multiple threads.
+        // May be called from multiple threads.
         SkAutoMutexAcquire ama(fStreamMutex);
 
         *fragmentStart = NULL;
         *fragmentContext = NULL;
 
-        if (!fStream->rewind()) {
-            return E_FAIL;
-        }
-        if (fStream->skip(static_cast<size_t>(fileOffset)) != fileOffset) {
+        if (!fStream->seek(static_cast<size_t>(fileOffset))) {
             return E_FAIL;
         }
         SkAutoTMalloc<uint8_t> streamData(static_cast<size_t>(fragmentSize));

@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int main(int argc, char **argv)
+int main(int argc __unused, char **argv __unused)
 {
     printf("Get number of available engine interfaces\n");
     SLresult result;

@@ -52,6 +52,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include <libunwind.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -325,8 +326,26 @@ extern unw_word_t _U_dyn_info_list_addr (void);
 
 struct elf_image
   {
-    void *image;		/* pointer to mmap'd image */
-    size_t size;		/* (file-) size of the image */
+    bool valid;			/* true if the image is a valid elf image */
+    bool load_attempted;	/* true if we've already attempted to load the elf */
+    bool mapped;		/* true if the elf image was mmap'd in */
+    union
+      {
+        struct
+          {
+            void *image;		/* pointer to mmap'd image */
+            size_t size;		/* (file-) size of the image */
+          }
+        mapped;
+        struct
+          {
+            unw_addr_space_t as;	/* address space containing the access_mem function */
+            void *as_arg;		/* arg used with access_mem */
+            struct map_info *map;	/* map data associated with the elf data */
+          }
+        memory;
+      }
+    u;
   };
 
 struct elf_dyn_info

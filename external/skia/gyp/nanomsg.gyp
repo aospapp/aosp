@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 {
   'variables': {
     'skia_warnings_as_errors': 0,
@@ -114,10 +118,13 @@
     # To refresh: cd third_party/externals/nanomsg; ./autogen.sh; ./configure; copy from Makefile.
     'conditions': [
       ['skia_os == "linux"', {
-        'cflags': [ '-Wno-missing-field-initializers' ],
-        'libraries': [ '-lanl' ],       # Provides getaddrinfo_a and co.
+        'cflags': [ '-w' ],
+        'libraries': [
+            '-lpthread',
+            '-lanl',  # Provides getaddrinfo_a and co.
+        ],
         'direct_dependent_settings': {
-            'libraries': [ '-lanl' ],
+            'libraries': [ '-lpthread', '-lanl' ],
         },
         'defines=': [             # equals sign throws away most Skia defines (just noise)
           'HAVE_ACCEPT4',
@@ -164,6 +171,9 @@
         ],
       }],
       ['skia_os == "mac"', {
+        'xcode_settings': {
+            'WARNING_CFLAGS': [ '-w' ],
+        },
         'defines=': [             # equals sign throws away most Skia defines (just noise)
           'HAVE_ARPA_INET_H',
           'HAVE_DLFCN_H',

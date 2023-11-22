@@ -16,6 +16,7 @@ package android.support.v17.leanback.widget;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
+import android.support.annotation.ColorInt;
 import android.support.v17.leanback.R;
 import android.text.TextUtils;
 import android.util.AttributeSet;
@@ -27,7 +28,7 @@ import android.widget.ImageView.ScaleType;
 import android.widget.TextView;
 
 /**
- * A card view with an {@link ImageView} as its main region.
+ * A subclass of {@link BaseCardView} with an {@link ImageView} as its main region.
  */
 public class ImageCardView extends BaseCardView {
 
@@ -36,7 +37,6 @@ public class ImageCardView extends BaseCardView {
     private TextView mTitleView;
     private TextView mContentView;
     private ImageView mBadgeImage;
-    private ImageView mBadgeFadeMask;
     private boolean mAttachedToWindow;
 
     public ImageCardView(Context context) {
@@ -59,7 +59,6 @@ public class ImageCardView extends BaseCardView {
         mTitleView = (TextView) v.findViewById(R.id.title_text);
         mContentView = (TextView) v.findViewById(R.id.content_text);
         mBadgeImage = (ImageView) v.findViewById(R.id.extra_badge);
-        mBadgeFadeMask = (ImageView) v.findViewById(R.id.fade_mask);
 
         if (mInfoArea != null) {
             TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.lbImageCardView,
@@ -73,16 +72,25 @@ public class ImageCardView extends BaseCardView {
         }
     }
 
+    /**
+     * Returns the main image view.
+     */
     public final ImageView getMainImageView() {
         return mImageView;
     }
 
+    /**
+     * Enables or disables adjustment of view bounds on the main image.
+     */
     public void setMainImageAdjustViewBounds(boolean adjustViewBounds) {
         if (mImageView != null) {
             mImageView.setAdjustViewBounds(adjustViewBounds);
         }
     }
 
+    /**
+     * Sets the ScaleType of the main image.
+     */
     public void setMainImageScaleType(ScaleType scaleType) {
         if (mImageView != null) {
             mImageView.setScaleType(scaleType);
@@ -90,14 +98,14 @@ public class ImageCardView extends BaseCardView {
     }
 
     /**
-     * Set drawable with fade-in animation.
+     * Sets the image drawable with fade-in animation.
      */
     public void setMainImage(Drawable drawable) {
         setMainImage(drawable, true);
     }
 
     /**
-     * Set drawable with optional fade-in animation.
+     * Sets the image drawable with optional fade-in animation.
      */
     public void setMainImage(Drawable drawable, boolean fade) {
         if (mImageView == null) {
@@ -120,6 +128,9 @@ public class ImageCardView extends BaseCardView {
         }
     }
 
+    /**
+     * Sets the layout dimensions of the ImageView.
+     */
     public void setMainImageDimensions(int width, int height) {
         ViewGroup.LayoutParams lp = mImageView.getLayoutParams();
         lp.width = width;
@@ -127,6 +138,9 @@ public class ImageCardView extends BaseCardView {
         mImageView.setLayoutParams(lp);
     }
 
+    /**
+     * Returns the ImageView drawable.
+     */
     public Drawable getMainImage() {
         if (mImageView == null) {
             return null;
@@ -135,6 +149,9 @@ public class ImageCardView extends BaseCardView {
         return mImageView.getDrawable();
     }
 
+    /**
+     * Returns the info area background drawable.
+     */
     public Drawable getInfoAreaBackground() {
         if (mInfoArea != null) {
             return mInfoArea.getBackground();
@@ -142,33 +159,38 @@ public class ImageCardView extends BaseCardView {
         return null;
     }
 
+    /**
+     * Sets the info area background drawable.
+     */
     public void setInfoAreaBackground(Drawable drawable) {
         if (mInfoArea != null) {
             mInfoArea.setBackground(drawable);
-            if (mBadgeImage != null) {
-                mBadgeImage.setBackground(drawable);
-            }
         }
     }
 
-    public void setInfoAreaBackgroundColor(int color) {
+    /**
+     * Sets the info area background color.
+     */    
+    public void setInfoAreaBackgroundColor(@ColorInt int color) {
         if (mInfoArea != null) {
             mInfoArea.setBackgroundColor(color);
-            if (mBadgeImage != null) {
-                mBadgeImage.setBackgroundColor(color);
-            }
         }
     }
 
+    /**
+     * Sets the title text.
+     */
     public void setTitleText(CharSequence text) {
         if (mTitleView == null) {
             return;
         }
 
         mTitleView.setText(text);
-        setTextMaxLines();
     }
 
+    /**
+     * Returns the title text.
+     */
     public CharSequence getTitleText() {
         if (mTitleView == null) {
             return null;
@@ -177,15 +199,20 @@ public class ImageCardView extends BaseCardView {
         return mTitleView.getText();
     }
 
+    /**
+     * Sets the content text.
+     */
     public void setContentText(CharSequence text) {
         if (mContentView == null) {
             return;
         }
 
         mContentView.setText(text);
-        setTextMaxLines();
     }
 
+    /**
+     * Returns the content text.
+     */
     public CharSequence getContentText() {
         if (mContentView == null) {
             return null;
@@ -194,21 +221,24 @@ public class ImageCardView extends BaseCardView {
         return mContentView.getText();
     }
 
+    /**
+     * Sets the badge image drawable.
+     */
     public void setBadgeImage(Drawable drawable) {
         if (mBadgeImage == null) {
             return;
         }
-
-        if (drawable != null) {
-            mBadgeImage.setImageDrawable(drawable);
+        mBadgeImage.setImageDrawable(drawable);
+        if (drawable != null && mContentView!= null && mContentView.getVisibility() != GONE) {
             mBadgeImage.setVisibility(View.VISIBLE);
-            mBadgeFadeMask.setVisibility(View.VISIBLE);
         } else {
             mBadgeImage.setVisibility(View.GONE);
-            mBadgeFadeMask.setVisibility(View.GONE);
         }
     }
 
+    /**
+     * Returns the badge image drawable.
+     */
     public Drawable getBadgeImage() {
         if (mBadgeImage == null) {
             return null;
@@ -228,19 +258,6 @@ public class ImageCardView extends BaseCardView {
     @Override
     public boolean hasOverlappingRendering() {
         return false;
-    }
-
-    private void setTextMaxLines() {
-        if (TextUtils.isEmpty(getTitleText())) {
-            mContentView.setMaxLines(2);
-        } else {
-            mContentView.setMaxLines(1);
-        }
-        if (TextUtils.isEmpty(getContentText())) {
-            mTitleView.setMaxLines(2);
-        } else {
-            mTitleView.setMaxLines(1);
-        }
     }
 
     @Override

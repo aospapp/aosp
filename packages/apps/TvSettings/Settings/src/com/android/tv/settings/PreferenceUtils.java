@@ -18,7 +18,6 @@ package com.android.tv.settings;
 
 import android.content.Context;
 import android.provider.Settings;
-import android.provider.Settings.Global;
 
 /**
  * Utilities for saving and loading shared prefs.

@@ -137,6 +137,24 @@
 /* Some funtions aren't used but we'd like to keep them as reference code in future */
 #define PSB_MFLD_DUMMY_CODE     0
 
+/*
+ * ITU-R BT.601 and BT.709 transfer matrices from VA 2.0
+ * Video Color Field definitions Design Spec(Version 0.03).
+ * [R', G', B'] values are in the range [0, 1], Y' is in the range [0,1]
+ * and [Pb, Pr] components are in the range [-0.5, 0.5].
+ */
+static float s601[9] = {
+    1, -0.000001, 1.402,
+    1, -0.344136, -0.714136,
+    1, 1.772, 0
+};
+
+static float s709[9] = {
+    1, 0, 1.5748,
+    1, -0.187324, -0.468124,
+    1, 1.8556, 0
+};
+
 typedef struct object_config_s *object_config_p;
 typedef struct object_context_s *object_context_p;
 typedef struct object_surface_s *object_surface_p;
@@ -266,7 +284,11 @@ struct psb_driver_data_s {
     int  is_oold;
 
     unsigned int load_csc_matrix;
-    signed int   csc_matrix[CSC_MATRIX_X][CSC_MATRIX_Y];
+    float   csc_matrix[CSC_MATRIX_X][CSC_MATRIX_Y];
+    int  is_BT601;
+
+    unsigned int set_video_range;
+    unsigned int video_range;
 
     /* subpic number current buffers support */
     unsigned int max_subpic;
@@ -504,6 +526,10 @@ struct psb_surface_share_info_s {
     unsigned int coded_width;
     unsigned int coded_height;
     unsigned int initialized;
+
+    unsigned int csc_mode;
+    unsigned int video_range;
+
 };
 
 struct object_surface_s {

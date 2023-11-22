@@ -147,13 +147,13 @@ prologue:
     xtn         v4.8b,  v4.8h
     shrn        v5.8b, v2.8h,#5             //idx = pos >> 5
 
-    dup         v31.8b, v4.8b[0]
+    dup         v31.8b, v4.b[0]
     add         x0,x2,x3
 
-    umov        w14, v5.2s[0]               //(i row)extract idx to the r register
+    umov        w14, v5.s[0]                //(i row)extract idx to the r register
     sxtw        x14,w14
 
-    dup         v29.8b, v4.8b[1]            //(ii)
+    dup         v29.8b, v4.b[1]             //(ii)
     and         x9,x14,#0xff                //(i row) get the last byte
 
     add         x10,x8,x9                   //(i row)*pu1_ref[ref_main_idx]
@@ -177,11 +177,11 @@ prologue:
     umlal       v10.8h, v9.8b, v31.8b       //(i row)vmull_u8(ref_main_idx_1, dup_const_fract)
     asr         x14,x14,#8                  //(iv)
 
-    dup         v27.8b, v4.8b[2]            //(iii)
+    dup         v27.8b, v4.b[2]             //(iii)
     sub         v28.8b,  v1.8b ,  v29.8b    //(ii)32-fract(dup_const_32_fract)
     and         x9,x14,#0xff                //(iv)
 
-    dup         v25.8b, v4.8b[3]            //(iv)
+    dup         v25.8b, v4.b[3]             //(iv)
     umull       v14.8h, v12.8b, v28.8b      //(ii)vmull_u8(ref_main_idx, dup_const_32_fract)
     add         x12,x8,x9                   //(iv)*pu1_ref[ref_main_idx]
 
@@ -196,10 +196,10 @@ prologue:
 
     ld1         {v21.8b},[x12]              //(iv)ref_main_idx_1
 
-    dup         v31.8b, v4.8b[4]            //(v)
+    dup         v31.8b, v4.b[4]             //(v)
     umull       v18.8h, v16.8b, v26.8b      //(iii)vmull_u8(ref_main_idx, dup_const_32_fract)
 
-    umov        w14, v5.2s[1]               //extract idx to the r register
+    umov        w14, v5.s[1]                //extract idx to the r register
     sxtw        x14,w14
     umlal       v18.8h, v17.8b, v27.8b      //(iii)vmull_u8(ref_main_idx_1, dup_const_fract)
 
@@ -207,7 +207,7 @@ prologue:
     rshrn       v14.8b, v14.8h,#5           //(ii)shift_res = vrshrn_n_u16(add_res, 5)
 
     and         x9,x14,#0xff                //(v)
-    dup         v29.8b, v4.8b[5]            //(vi)
+    dup         v29.8b, v4.b[5]             //(vi)
     add         x10,x8,x9                   //(v)*pu1_ref[ref_main_idx]
 
     ld1         {v23.8b},[x10],x11          //(v)ref_main_idx
@@ -224,7 +224,7 @@ prologue:
     rshrn       v18.8b, v18.8h,#5           //(iii)shift_res = vrshrn_n_u16(add_res, 5)
 
     add         x12,x8,x9                   //(vi)*pu1_ref[ref_main_idx]
-    dup         v27.8b, v4.8b[6]            //(vii)
+    dup         v27.8b, v4.b[6]             //(vii)
     asr         x14,x14,#8                  //(vii)
 
     and         x9,x14,#0xff                //(vii)
@@ -241,7 +241,7 @@ prologue:
     rshrn       v22.8b, v22.8h,#5           //(iv)shift_res = vrshrn_n_u16(add_res, 5)
 
     asr         x14,x14,#8                  //(viii)
-    dup         v25.8b, v4.8b[7]            //(viii)
+    dup         v25.8b, v4.b[7]             //(viii)
     and         x9,x14,#0xff                //(viii)
 
     ld1         {v16.8b},[x10],x11          //(vii)ref_main_idx
@@ -279,14 +279,14 @@ prologue:
     and         v4.16b,  v2.16b ,  v6.16b   //dup_const_fract(fract = pos & (31))
     xtn         v4.8b,  v4.8h
     shrn        v3.8b, v2.8h,#5             //idx = pos >> 5
-    umov        w14, v3.2s[0]               //(i)extract idx to the r register
+    umov        w14, v3.s[0]                //(i)extract idx to the r register
     sxtw        x14,w14
     and         x9,x14,#0xff                //(i)
     add         x10,x8,x9                   //(i)*pu1_ref[ref_main_idx]
 
 kernel_8_rows:
     asr         x14,x14,#8                  //(ii)
-    dup         v31.8b, v4.8b[0]
+    dup         v31.8b, v4.b[0]
     subs        x4,x4,#8
 
     ld1         {v23.8b},[x10],x11          //(i)ref_main_idx
@@ -303,7 +303,7 @@ kernel_8_rows:
     umlal       v22.8h, v21.8b, v25.8b      //(viii)vmull_u8(ref_main_idx_1, dup_const_fract)
     asr         x14,x14,#8                  //(iii)
 
-    dup         v29.8b, v4.8b[1]            //(ii)
+    dup         v29.8b, v4.b[1]             //(ii)
     rshrn       v18.8b, v18.8h,#5           //(vii)shift_res = vrshrn_n_u16(add_res, 5)
     and         x9,x14,#0xff                //(iii)
 
@@ -319,11 +319,11 @@ kernel_8_rows:
     umlal       v10.8h, v9.8b, v31.8b       //(i)vmull_u8(ref_main_idx_1, dup_const_fract)
     and         x9,x14,#0xff                //(iv)
 
-    umov        w14, v3.2s[1]               //extract idx to the r register
+    umov        w14, v3.s[1]                //extract idx to the r register
     sxtw        x14,w14
     rshrn       v22.8b, v22.8h,#5           //(viii)shift_res = vrshrn_n_u16(add_res, 5)
 
-    dup         v27.8b, v4.8b[2]            //(iii)
+    dup         v27.8b, v4.b[2]             //(iii)
     sub         v28.8b,  v1.8b ,  v29.8b    //(ii)32-fract(dup_const_32_fract)
     csel        x4, x5, x4,le               //reload nt
 
@@ -337,7 +337,7 @@ kernel_8_rows:
     ld1         {v17.8b},[x10]              //(iii)ref_main_idx_1
     rshrn       v10.8b, v10.8h,#5           //(i)shift_res = vrshrn_n_u16(add_res, 5)
 
-    dup         v25.8b, v4.8b[3]            //(iv)
+    dup         v25.8b, v4.b[3]             //(iv)
     umull       v2.8h, v5.8b, v0.8b         //pos = ((row + 1) * intra_pred_ang)
 
     st1         {v22.8b},[x0]               //(viii)
@@ -351,7 +351,7 @@ kernel_8_rows:
     umlal       v18.8h, v17.8b, v27.8b      //(iii)vmull_u8(ref_main_idx_1, dup_const_fract)
     and         x9,x14,#0xff                //(v)
 
-    dup         v31.8b, v4.8b[4]            //(v)
+    dup         v31.8b, v4.b[4]             //(v)
     rshrn       v14.8b, v14.8h,#5           //(ii)shift_res = vrshrn_n_u16(add_res, 5)
     add         x10,x8,x9                   //(v)*pu1_ref[ref_main_idx]
 
@@ -359,15 +359,15 @@ kernel_8_rows:
     sub         v24.8b,  v1.8b ,  v25.8b    //(iv)32-fract(dup_const_32_fract)
     asr         x14,x14,#8                  //(vi)
 
-    dup         v29.8b, v4.8b[5]            //(vi)
+    dup         v29.8b, v4.b[5]             //(vi)
     umull       v22.8h, v20.8b, v24.8b      //(iv)vmull_u8(ref_main_idx, dup_const_32_fract)
     and         x9,x14,#0xff                //(vi)
 
-    dup         v27.8b, v4.8b[6]            //(vii)
+    dup         v27.8b, v4.b[6]             //(vii)
     umlal       v22.8h, v21.8b, v25.8b      //(iv)vmull_u8(ref_main_idx_1, dup_const_fract)
     add         x12,x8,x9                   //(vi)*pu1_ref[ref_main_idx]
 
-    dup         v25.8b, v4.8b[7]            //(viii)
+    dup         v25.8b, v4.b[7]             //(viii)
     rshrn       v18.8b, v18.8h,#5           //(iii)shift_res = vrshrn_n_u16(add_res, 5)
     asr         x14,x14,#8                  //(vii)
 
@@ -390,7 +390,7 @@ kernel_8_rows:
     ld1         {v13.8b},[x12]              //(vi)ref_main_idx_1
     umull       v10.8h, v23.8b, v30.8b      //(v)vmull_u8(ref_main_idx, dup_const_32_fract)
 
-    umov        w14, v3.2s[0]               //(i)extract idx to the r register
+    umov        w14, v3.s[0]                //(i)extract idx to the r register
     sxtw        x14,w14
     umlal       v10.8h, v9.8b, v31.8b       //(v)vmull_u8(ref_main_idx_1, dup_const_fract)
     add         x12,x8,x9                   //(viii)*pu1_ref[ref_main_idx]

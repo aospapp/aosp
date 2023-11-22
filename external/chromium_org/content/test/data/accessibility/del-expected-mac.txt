@@ -1,4 +1,0 @@
-AXWebArea
-    AXGroup
-        AXStaticText AXValue='I am '
-        AXStaticText AXValue='vegetarian'

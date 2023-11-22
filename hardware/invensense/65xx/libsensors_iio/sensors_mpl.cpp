@@ -80,6 +80,7 @@ struct sensors_module_t HAL_MODULE_INFO_SYM = {
                 reserved: {0}
         },
         get_sensors_list: sensors__get_sensors_list,
+        set_operation_mode: NULL
 };
 
 struct sensors_poll_context_t {
@@ -360,13 +361,6 @@ static int poll__poll(struct sensors_poll_device_t *dev,
 {
     sensors_poll_context_t *ctx = (sensors_poll_context_t *)dev;
     return ctx->pollEvents(data, count);
-}
-
-static int poll__query(struct sensors_poll_device_1 *dev,
-                      int what, int *value)
-{
-    sensors_poll_context_t *ctx = (sensors_poll_context_t *)dev;
-    return ctx->query(what, value);
 }
 
 static int poll__batch(struct sensors_poll_device_1 *dev,

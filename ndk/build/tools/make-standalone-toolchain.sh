@@ -61,7 +61,13 @@ register_var_option "--install-dir=<path>" INSTALL_DIR "Don't create package, in
 
 PLATFORM=
 register_option "--platform=<name>" do_platform "Specify target Android platform/API level." "android-3"
-do_platform () { PLATFORM=$1; }
+do_platform () {
+    PLATFORM=$1;
+    if [ "$PLATFORM" = "android-L" ]; then
+        echo "WARNING: android-L is renamed as android-21"
+        PLATFORM=android-21
+    fi
+}
 
 extract_parameters "$@"
 
@@ -99,7 +105,9 @@ if [ -z "$ARCH" ]; then
             ARCH=mips64
             ;;
         *)
-            ARCH=arm
+            ARCH=null
+            echo "Unable to auto-config arch from toolchain $TOOLCHAIN_NAME"
+            exit 1
             ;;
     esac
     ARCH_INC=$ARCH
@@ -126,7 +134,10 @@ else
             ARCH=mips64
             ;;
         *)
-            ARCH=arm
+            echo "Invalid --arch $ARCH"
+            echo "Please use one of arm, x86, mips, arm64, x86_64 or mips64"
+            ARCH=null
+            exit 1
             ;;
     esac
 
@@ -175,7 +186,8 @@ fi
 # Detect LLVM version from toolchain name with *clang*
 LLVM_VERSION_EXTRACT=$(echo "$TOOLCHAIN_NAME" | grep 'clang[0-9]\.[0-9]$' | sed -e 's/.*-clang//')
 if [ -n "$LLVM_VERSION_EXTRACT" ]; then
-    NEW_TOOLCHAIN_NAME=${TOOLCHAIN_NAME%-clang${LLVM_VERSION_EXTRACT}}
+    DEFAULT_GCC_VERSION=$(get_default_gcc_version_for_arch $ARCH)
+    NEW_TOOLCHAIN_NAME=${TOOLCHAIN_NAME%-clang${LLVM_VERSION_EXTRACT}}-${DEFAULT_GCC_VERSION}
     if [ -z "$LLVM_VERSION" ]; then
         LLVM_VERSION=$LLVM_VERSION_EXTRACT
         echo "Auto-config: --toolchain=$NEW_TOOLCHAIN_NAME, --llvm-version=$LLVM_VERSION"
@@ -291,7 +303,7 @@ if [ -n "$LLVM_VERSION" ]; then
 fi
 
 # Get GCC_BASE_VERSION.  Note that GCC_BASE_VERSION may be slightly different from GCC_VERSION.
-# eg. In gcc4.6 GCC_BASE_VERSION is "4.6.x-google"
+# eg. In gcc4.9 GCC_BASE_VERSION is "4.9.x-google"
 LIBGCC_PATH=`$TOOLCHAIN_GCC -print-libgcc-file-name`
 LIBGCC_BASE_PATH=${LIBGCC_PATH%/*}         # base path of libgcc.a
 GCC_BASE_VERSION=${LIBGCC_BASE_PATH##*/}   # stuff after the last /
@@ -301,7 +313,7 @@ TMPDIR=$NDK_TMPDIR/standalone/$TOOLCHAIN_NAME
 
 dump "Copying prebuilt binaries..."
 # Now copy the GCC toolchain prebuilt binaries
-run copy_directory "$TOOLCHAIN_PATH" "$TMPDIR"
+copy_directory "$TOOLCHAIN_PATH" "$TMPDIR"
 
 # Replace soft-link mcld by real file
 ALL_LDS=`find $TMPDIR -name "*mcld"`
@@ -313,7 +325,7 @@ done
 # Copy python-related to for gdb.exe
 PYTHON=python
 PYTHON_x=python$(echo "$DEFAULT_PYTHON_VERSION" | cut -d . -f 1)
-PYTHON_xdotx=python$(echo "$DEFAULT_PYTHON_VERSION" | cut -d . -f 1).$(echo "$DEFAULT_PYTHON_VERSION" | cut -d . -f 2)
+PYTHON_xdotx=python$(echo "$DEFAULT_PYTHON_VERSION" | cut -d . -f 1-2)
 copy_directory "$NDK_DIR/prebuilt/$SYSTEM/include/$PYTHON_xdotx" "$TMPDIR/include/$PYTHON_xdotx"
 copy_directory "$NDK_DIR/prebuilt/$SYSTEM/lib/$PYTHON_xdotx" "$TMPDIR/lib/$PYTHON_xdotx"
 copy_file_list "$NDK_DIR/prebuilt/$SYSTEM/bin" "$TMPDIR/bin" "$PYTHON$HOST_EXE" "$PYTHON_x$HOST_EXE" "$PYTHON_xdotx$HOST_EXE"
@@ -383,7 +395,7 @@ dump_extra_compile_commands () {
 
 if [ -n "$LLVM_VERSION" ]; then
   # Copy the clang/llvm toolchain prebuilt binaries
-  run copy_directory "$LLVM_TOOLCHAIN_PATH" "$TMPDIR"
+  copy_directory "$LLVM_TOOLCHAIN_PATH" "$TMPDIR"
 
   # Move clang and clang++ to clang${LLVM_VERSION} and clang${LLVM_VERSION}++,
   # then create scripts linking them with predefined -target flag.  This is to
@@ -499,17 +511,28 @@ fi
 dump "Copying sysroot headers and libraries..."
 # Copy the sysroot under $TMPDIR/sysroot. The toolchain was built to
 # expect the sysroot files to be placed there!
-run copy_directory_nolinks "$SRC_SYSROOT_INC" "$TMPDIR/sysroot/usr/include"
-run copy_directory_nolinks "$SRC_SYSROOT_LIB" "$TMPDIR/sysroot/usr/lib"
-# x86_64 and mips64el toolchain are built multilib.
-if [ "$ARCH" = "x86_64" -o "$ARCH" = "mips64" ]; then
-    run copy_directory_nolinks "$SRC_SYSROOT_LIB/../lib64" "$TMPDIR/sysroot/usr/lib64"
-    if [ "$ARCH" = "x86_64" ]; then
-        run copy_directory_nolinks "$SRC_SYSROOT_LIB/../libx32" "$TMPDIR/sysroot/usr/libx32"
-    else
-        run copy_directory_nolinks "$SRC_SYSROOT_LIB/../lib32" "$TMPDIR/sysroot/usr/lib32"
-    fi
-fi
+copy_directory_nolinks "$SRC_SYSROOT_INC" "$TMPDIR/sysroot/usr/include"
+copy_directory_nolinks "$SRC_SYSROOT_LIB" "$TMPDIR/sysroot/usr/lib"
+case "$ARCH" in
+# x86_64 and mips* toolchain are built multilib.
+    x86_64)
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../lib64" "$TMPDIR/sysroot/usr/lib64"
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../libx32" "$TMPDIR/sysroot/usr/libx32"
+        ;;
+    mips64)
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../libr2" "$TMPDIR/sysroot/usr/libr2"
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../libr6" "$TMPDIR/sysroot/usr/libr6"
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../lib64" "$TMPDIR/sysroot/usr/lib64"
+        copy_directory_nolinks "$SRC_SYSROOT_LIB/../lib64r2" "$TMPDIR/sysroot/usr/lib64r2"
+        ;;
+    mips)
+        if [ "$GCC_VERSION" = "4.9" ]; then
+            copy_directory_nolinks "$SRC_SYSROOT_LIB/../libr2" "$TMPDIR/sysroot/usr/libr2"
+            copy_directory_nolinks "$SRC_SYSROOT_LIB/../libr6" "$TMPDIR/sysroot/usr/libr6"
+	fi
+        ;;
+esac
+
 if [ "$ARCH_INC" != "$ARCH" ]; then
     cp -a $NDK_DIR/$GABIXX_SUBDIR/libs/$ABI/* $TMPDIR/sysroot/usr/lib
     cp -a $NDK_DIR/$LIBPORTABLE_SUBDIR/libs/$ABI/* $TMPDIR/sysroot/usr/lib
@@ -682,11 +705,22 @@ copy_stl_libs_for_abi () {
             ;;
         mips64)
             if [ "$STL" = "gnustl" ]; then
-                copy_stl_libs mips64       "32/bits"             "32/bits"    ""                   "lib"
-                copy_stl_libs mips64       "bits"                "bits"       "../lib64"           "lib64"
-                copy_stl_libs mips64       "n32/bits"            "n32/bits"   "../lib32"           "lib32"
+                copy_stl_libs mips64       "32/mips-r1/bits"     "32/mips-r1/bits"  ""             "lib"
+                copy_stl_libs mips64       "32/mips-r2/bits"     "32/mips-r2/bits"  "../libr2"     "libr2"
+                copy_stl_libs mips64       "32/mips-r6/bits"     "32/mips-r6/bits"  "../libr6"     "libr6"
+                copy_stl_libs mips64       "bits"                "bits"             "../lib64"     "lib64"
+                copy_stl_libs mips64       "mips64-r2/bits"      "mips64-r2/bits"   "../lib64r2"   "lib64r2"
             else
                 copy_stl_libs "$ABI"
+            fi
+            ;;
+        mips|mips32r6)
+            if [ "$STL" = "gnustl" -a "$GCC_VERSION" = "4.9" ]; then
+                copy_stl_libs mips         "bits"                "bits"             "../lib"       "lib"
+                copy_stl_libs mips         "mips-r2/bits"        "mips-r2/bits"     "../libr2"     "libr2"
+                copy_stl_libs mips         "mips-r6/bits"        "mips-r6/bits"     "../libr6"     "libr6"
+            else
+                copy_stl_libs mips         "bits"                "bits"
             fi
             ;;
         *)
@@ -698,7 +732,7 @@ copy_stl_libs_for_abi () {
 mkdir -p "$ABI_STL_INCLUDE_TARGET"
 fail_panic "Can't create directory: $ABI_STL_INCLUDE_TARGET"
 copy_stl_common_headers
-for ABI in $(tr ',' ' ' <<< $ABIS); do
+for ABI in $(echo "$ABIS" | tr ',' ' '); do
   copy_stl_libs_for_abi "$ABI"
 done
 
@@ -706,9 +740,9 @@ done
 if [ -n "$INSTALL_DIR" ] ; then
     dump "Copying files to: $INSTALL_DIR"
     if [ ! -d "$INSTALL_DIR" ]; then
-        run move_directory "$TMPDIR" "$INSTALL_DIR"
+        move_directory "$TMPDIR" "$INSTALL_DIR"
     else
-        run copy_directory "$TMPDIR" "$INSTALL_DIR"
+        copy_directory "$TMPDIR" "$INSTALL_DIR"
     fi
 else
     PACKAGE_FILE="$PACKAGE_DIR/$TOOLCHAIN_NAME.tar.bz2"
@@ -717,6 +751,6 @@ else
     fail_panic "Could not create tarball from $TMPDIR"
 fi
 dump "Cleaning up..."
-run rm -rf $TMPDIR
+rm -rf $TMPDIR
 
 dump "Done."

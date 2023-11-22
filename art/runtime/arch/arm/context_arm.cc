@@ -16,11 +16,9 @@
 
 #include "context_arm.h"
 
-#include "mirror/art_method-inl.h"
-#include "mirror/object-inl.h"
+#include "art_method-inl.h"
+#include "base/bit_utils.h"
 #include "quick/quick_method_frame_info.h"
-#include "stack.h"
-#include "thread.h"
 
 namespace art {
 namespace arm {
@@ -28,12 +26,8 @@ namespace arm {
 static constexpr uint32_t gZero = 0;
 
 void ArmContext::Reset() {
-  for (size_t i = 0; i < kNumberOfCoreRegisters; i++) {
-    gprs_[i] = nullptr;
-  }
-  for (size_t i = 0; i < kNumberOfSRegisters; i++) {
-    fprs_[i] = nullptr;
-  }
+  std::fill_n(gprs_, arraysize(gprs_), nullptr);
+  std::fill_n(fprs_, arraysize(fprs_), nullptr);
   gprs_[SP] = &sp_;
   gprs_[PC] = &pc_;
   // Initialize registers with easy to spot debug values.
@@ -42,53 +36,39 @@ void ArmContext::Reset() {
 }
 
 void ArmContext::FillCalleeSaves(const StackVisitor& fr) {
-  mirror::ArtMethod* method = fr.GetMethod();
+  ArtMethod* method = fr.GetMethod();
   const QuickMethodFrameInfo frame_info = method->GetQuickFrameInfo();
-  size_t spill_count = POPCOUNT(frame_info.CoreSpillMask());
-  size_t fp_spill_count = POPCOUNT(frame_info.FpSpillMask());
-  if (spill_count > 0) {
-    // Lowest number spill is farthest away, walk registers and fill into context
-    int j = 1;
-    for (size_t i = 0; i < kNumberOfCoreRegisters; i++) {
-      if (((frame_info.CoreSpillMask() >> i) & 1) != 0) {
-        gprs_[i] = fr.CalleeSaveAddress(spill_count - j, frame_info.FrameSizeInBytes());
-        j++;
-      }
-    }
+  int spill_pos = 0;
+
+  // Core registers come first, from the highest down to the lowest.
+  uint32_t core_regs = frame_info.CoreSpillMask();
+  DCHECK_EQ(0u, core_regs & (static_cast<uint32_t>(-1) << kNumberOfCoreRegisters));
+  for (uint32_t core_reg : HighToLowBits(core_regs)) {
+    gprs_[core_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    ++spill_pos;
   }
-  if (fp_spill_count > 0) {
-    // Lowest number spill is farthest away, walk registers and fill into context
-    int j = 1;
-    for (size_t i = 0; i < kNumberOfSRegisters; i++) {
-      if (((frame_info.FpSpillMask() >> i) & 1) != 0) {
-        fprs_[i] = fr.CalleeSaveAddress(spill_count + fp_spill_count - j,
-                                        frame_info.FrameSizeInBytes());
-        j++;
-      }
-    }
+  DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()));
+
+  // FP registers come second, from the highest down to the lowest.
+  for (uint32_t fp_reg : HighToLowBits(frame_info.FpSpillMask())) {
+    fprs_[fp_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    ++spill_pos;
   }
+  DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()) + POPCOUNT(frame_info.FpSpillMask()));
 }
 
-bool ArmContext::SetGPR(uint32_t reg, uintptr_t value) {
+void ArmContext::SetGPR(uint32_t reg, uintptr_t value) {
   DCHECK_LT(reg, static_cast<uint32_t>(kNumberOfCoreRegisters));
+  DCHECK(IsAccessibleGPR(reg));
   DCHECK_NE(gprs_[reg], &gZero);  // Can't overwrite this static value since they are never reset.
-  if (gprs_[reg] != nullptr) {
-    *gprs_[reg] = value;
-    return true;
-  } else {
-    return false;
-  }
+  *gprs_[reg] = value;
 }
 
-bool ArmContext::SetFPR(uint32_t reg, uintptr_t value) {
+void ArmContext::SetFPR(uint32_t reg, uintptr_t value) {
   DCHECK_LT(reg, static_cast<uint32_t>(kNumberOfSRegisters));
+  DCHECK(IsAccessibleFPR(reg));
   DCHECK_NE(fprs_[reg], &gZero);  // Can't overwrite this static value since they are never reset.
-  if (fprs_[reg] != nullptr) {
-    *fprs_[reg] = value;
-    return true;
-  } else {
-    return false;
-  }
+  *fprs_[reg] = value;
 }
 
 void ArmContext::SmashCallerSaves() {
@@ -97,9 +77,26 @@ void ArmContext::SmashCallerSaves() {
   gprs_[R1] = const_cast<uint32_t*>(&gZero);
   gprs_[R2] = nullptr;
   gprs_[R3] = nullptr;
+
+  fprs_[S0] = nullptr;
+  fprs_[S1] = nullptr;
+  fprs_[S2] = nullptr;
+  fprs_[S3] = nullptr;
+  fprs_[S4] = nullptr;
+  fprs_[S5] = nullptr;
+  fprs_[S6] = nullptr;
+  fprs_[S7] = nullptr;
+  fprs_[S8] = nullptr;
+  fprs_[S9] = nullptr;
+  fprs_[S10] = nullptr;
+  fprs_[S11] = nullptr;
+  fprs_[S12] = nullptr;
+  fprs_[S13] = nullptr;
+  fprs_[S14] = nullptr;
+  fprs_[S15] = nullptr;
 }
 
-extern "C" void art_quick_do_long_jump(uint32_t*, uint32_t*);
+extern "C" NO_RETURN void art_quick_do_long_jump(uint32_t*, uint32_t*);
 
 void ArmContext::DoLongJump() {
   uintptr_t gprs[kNumberOfCoreRegisters];

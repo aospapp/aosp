@@ -16,6 +16,7 @@
 
 package android.content.cts;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.UriMatcher;
 import android.content.ContentProvider.PipeDataWriter;
 import android.content.res.AssetFileDescriptor;
@@ -122,15 +124,7 @@ public class MockContentProvider extends ContentProvider
     @Override
     public boolean onCreate() {
         mOpenHelper = new DatabaseHelper(getContext(), mDbName);
-        if (android.provider.Settings.System.getInt(getContext().getContentResolver(),
-                "__cts_crash_on_launch", 0) != 0) {
-            // The test case wants us to crash our process on first launch.
-            // Well, okay then!
-            Log.i("MockContentProvider", "TEST IS CRASHING SELF, CROSS FINGERS!");
-            android.provider.Settings.System.putInt(getContext().getContentResolver(),
-                    "__cts_crash_on_launch", 0);
-            android.os.Process.killProcess(android.os.Process.myPid());
-        }
+        crashOnLaunchIfNeeded();
         return true;
     }
 
@@ -277,15 +271,7 @@ public class MockContentProvider extends ContentProvider
             break;
 
         case CRASH_ID:
-            if (android.provider.Settings.System.getInt(getContext().getContentResolver(),
-                    "__cts_crash_on_launch", 0) != 0) {
-                // The test case wants us to crash while querying.
-                // Well, okay then!
-                Log.i("MockContentProvider", "TEST IS CRASHING SELF, CROSS FINGERS!");
-                android.provider.Settings.System.putInt(getContext().getContentResolver(),
-                        "__cts_crash_on_launch", 0);
-                android.os.Process.killProcess(android.os.Process.myPid());
-            }
+            crashOnLaunchIfNeeded();
             qb.setTables("TestTable1");
             qb.setProjectionMap(CTSDBTABLE1_LIST_PROJECTION_MAP);
             break;
@@ -351,15 +337,7 @@ public class MockContentProvider extends ContentProvider
     public AssetFileDescriptor openAssetFile(Uri uri, String mode) throws FileNotFoundException {
         switch (URL_MATCHER.match(uri)) {
             case CRASH_ID:
-                if (android.provider.Settings.System.getInt(getContext().getContentResolver(),
-                        "__cts_crash_on_launch", 0) != 0) {
-                    // The test case wants us to crash while querying.
-                    // Well, okay then!
-                    Log.i("MockContentProvider", "TEST IS CRASHING SELF, CROSS FINGERS!");
-                    android.provider.Settings.System.putInt(getContext().getContentResolver(),
-                            "__cts_crash_on_launch", 0);
-                    android.os.Process.killProcess(android.os.Process.myPid());
-                }
+                crashOnLaunchIfNeeded();
                 return new AssetFileDescriptor(
                         openPipeHelper(uri, null, null,
                                 "This is the openAssetFile test data!", this), 0,
@@ -375,15 +353,7 @@ public class MockContentProvider extends ContentProvider
             throws FileNotFoundException {
         switch (URL_MATCHER.match(uri)) {
             case CRASH_ID:
-                if (android.provider.Settings.System.getInt(getContext().getContentResolver(),
-                        "__cts_crash_on_launch", 0) != 0) {
-                    // The test case wants us to crash while querying.
-                    // Well, okay then!
-                    Log.i("MockContentProvider", "TEST IS CRASHING SELF, CROSS FINGERS!");
-                    android.provider.Settings.System.putInt(getContext().getContentResolver(),
-                            "__cts_crash_on_launch", 0);
-                    android.os.Process.killProcess(android.os.Process.myPid());
-                }
+                crashOnLaunchIfNeeded();
                 return new AssetFileDescriptor(
                         openPipeHelper(uri, null, null,
                                 "This is the openTypedAssetFile test data!", this), 0,
@@ -413,5 +383,37 @@ public class MockContentProvider extends ContentProvider
             } catch (IOException e) {
             }
         }
+    }
+
+    private void crashOnLaunchIfNeeded() {
+        if (getCrashOnLaunch(getContext())) {
+            // The test case wants us to crash our process on first launch.
+            // Well, okay then!
+            Log.i("MockContentProvider", "TEST IS CRASHING SELF, CROSS FINGERS!");
+            setCrashOnLaunch(getContext(), false);
+            android.os.Process.killProcess(android.os.Process.myPid());
+        }
+    }
+
+    public static boolean getCrashOnLaunch(Context context) {
+        File file = getCrashOnLaunchFile(context);
+        return file.exists();
+    }
+
+    public static void setCrashOnLaunch(Context context, boolean value) {
+        File file = getCrashOnLaunchFile(context);
+        if (value) {
+            try {
+                file.createNewFile();
+            } catch (IOException ex) {
+                throw new RuntimeException("Could not create crash on launch file.", ex);
+            }
+        } else {
+            file.delete();
+        }
+    }
+
+    private static File getCrashOnLaunchFile(Context context) {
+        return context.getFileStreamPath("MockContentProvider.crashonlaunch");
     }
 }

@@ -1,5 +1,5 @@
 /*
- * bootstub 32 bit entry setting routings 
+ * bootstub 32 bit entry setting routings
  *
  * Copyright (C) 2008-2010 Intel Corporation.
  * Author: Alek Du <alek.du@intel.com>
@@ -14,7 +14,7 @@
  * more details.
  *
  * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc., 
+ * this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
@@ -26,7 +26,7 @@
 #include "ssp-uart.h"
 #include "mb.h"
 #include "sfi.h"
-#include "bootimg.h"
+#include <bootimg.h>
 
 #include <stdint.h>
 #include <stddef.h>
@@ -84,14 +84,14 @@ static void *memset(void *s, unsigned char c, size_t count)
         char *xs = s;
 	size_t _count = count / 4;
 	unsigned long  _c = c << 24 | c << 16 | c << 8 | c;
- 
+
 	while (_count--) {
 		*(long *)xs = _c;
 		xs += 4;
 	}
 	count %= 4;
         while (count--)
-                *xs++ = c; 
+                *xs++ = c;
         return s;
 }
 
@@ -150,19 +150,21 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 {
 	void *cmdline = (void *)BOOT_CMDLINE_OFFSET;
 	struct boot_img_hdr *aosp = (struct boot_img_hdr *)AOSP_HEADER_ADDRESS;
-	size_t cmdline_len;
+	size_t cmdline_len, extra_cmdline_len;
 	u8 *initramfs, *ptr;
 
 	if (is_image_aosp(aosp->magic)) {
 		ptr = (u8*)aosp->kernel_addr;
 		cmdline_len = strnlen((const char *)aosp->cmdline, sizeof(aosp->cmdline));
+		extra_cmdline_len = strnlen((const char *)aosp->extra_cmdline, sizeof(aosp->extra_cmdline));
 
 		/*
-		* Copy the command line to be after bootparams so that it won't be
-		* overwritten by the kernel executable.
+		* Copy the command + extra command line to be after bootparams
+		* so that it won't be overwritten by the kernel executable.
 		*/
-		memset(cmdline, 0, sizeof(aosp->cmdline));
+		memset(cmdline, 0, sizeof(aosp->cmdline) + sizeof(aosp->extra_cmdline));
 		memcpy(cmdline, (const void *)aosp->cmdline, cmdline_len);
+		memcpy(cmdline + cmdline_len, (const void *)aosp->extra_cmdline, extra_cmdline_len);
 
 		bp->hdr.ramdisk_size = aosp->ramdisk_size;
 
@@ -184,6 +186,7 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 
 	bp->hdr.cmd_line_ptr = BOOT_CMDLINE_OFFSET;
 	bp->hdr.cmdline_size = cmdline_len;
+#ifndef BUILD_RAMDUMP
 	bp->hdr.ramdisk_image = (bp->alt_mem_k*1024 - bp->hdr.ramdisk_size) & 0xFFFFF000;
 
 	if (*initramfs) {
@@ -192,6 +195,9 @@ static u32 bzImage_setup(struct boot_params *bp, struct setup_header *sh)
 	} else {
 		bs_printk("Won't relocate initramfs, are you in SLE?\n");
 	}
+#else
+	bp->hdr.ramdisk_image = (u32) initramfs;
+#endif
 
 	while (1){
 		if (*(u32 *)ptr == SETUP_SIGNATURE && *(u32 *)(ptr+4) == 0)
@@ -468,7 +474,8 @@ int bootstub(void)
 	int nr_entries;
 
 	if (is_image_aosp(aosp->magic)) {
-		sh = (struct setup_header *)((unsigned  int)aosp->kernel_addr + 0x1F1);
+		sh = (struct setup_header *)((unsigned  int)aosp->kernel_addr + \
+		                             (unsigned  int)offsetof(struct boot_params,hdr));
 		/* disable the bs_printk through SPI/UART */
 		*(int *)SPI_UART_SUPPRESSION = 1;
 		*(int *)SPI_TYPE = SPI_2;

@@ -18,14 +18,13 @@ package com.google.common.collect;
 
 import com.google.common.annotations.GwtCompatible;
 
-import java.util.Iterator;
 import java.util.Map;
 
 import javax.annotation.Nullable;
 
 /**
- * Implementation of {@link ImmutableMultiset} with one or more elements.
- * 
+ * Implementation of {@link ImmutableMultiset} with zero or more elements.
+ *
  * @author Jared Levy
  * @author Louis Wasserman
  */
@@ -68,30 +67,13 @@ class RegularImmutableMultiset<E> extends ImmutableMultiset<E> {
   }
 
   @Override
-  UnmodifiableIterator<Entry<E>> entryIterator() {
-    final Iterator<Map.Entry<E, Integer>> mapIterator =
-        map.entrySet().iterator();
-    return new UnmodifiableIterator<Entry<E>>() {
-      @Override
-      public boolean hasNext() {
-        return mapIterator.hasNext();
-      }
-
-      @Override
-      public Entry<E> next() {
-        Map.Entry<E, Integer> mapEntry = mapIterator.next();
-        return Multisets.immutableEntry(mapEntry.getKey(), mapEntry.getValue());
-      }
-    };
+  Entry<E> getEntry(int index) {
+    Map.Entry<E, Integer> mapEntry = map.entrySet().asList().get(index);
+    return Multisets.immutableEntry(mapEntry.getKey(), mapEntry.getValue());
   }
 
   @Override
   public int hashCode() {
     return map.hashCode();
-  }
-
-  @Override
-  int distinctElements() {
-    return map.size();
   }
 }

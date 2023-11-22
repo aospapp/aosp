@@ -16,10 +16,9 @@
 
 #include "context_mips.h"
 
-#include "mirror/art_method-inl.h"
-#include "mirror/object-inl.h"
+#include "art_method-inl.h"
+#include "base/bit_utils.h"
 #include "quick/quick_method_frame_info.h"
-#include "stack.h"
 
 namespace art {
 namespace mips {
@@ -27,12 +26,8 @@ namespace mips {
 static constexpr uint32_t gZero = 0;
 
 void MipsContext::Reset() {
-  for (size_t i = 0; i < kNumberOfCoreRegisters; i++) {
-    gprs_[i] = nullptr;
-  }
-  for (size_t i = 0; i < kNumberOfFRegisters; i++) {
-    fprs_[i] = nullptr;
-  }
+  std::fill_n(gprs_, arraysize(gprs_), nullptr);
+  std::fill_n(fprs_, arraysize(fprs_), nullptr);
   gprs_[SP] = &sp_;
   gprs_[RA] = &ra_;
   // Initialize registers with easy to spot debug values.
@@ -41,53 +36,37 @@ void MipsContext::Reset() {
 }
 
 void MipsContext::FillCalleeSaves(const StackVisitor& fr) {
-  mirror::ArtMethod* method = fr.GetMethod();
+  ArtMethod* method = fr.GetMethod();
   const QuickMethodFrameInfo frame_info = method->GetQuickFrameInfo();
-  size_t spill_count = POPCOUNT(frame_info.CoreSpillMask());
-  size_t fp_spill_count = POPCOUNT(frame_info.FpSpillMask());
-  if (spill_count > 0) {
-    // Lowest number spill is farthest away, walk registers and fill into context.
-    int j = 1;
-    for (size_t i = 0; i < kNumberOfCoreRegisters; i++) {
-      if (((frame_info.CoreSpillMask() >> i) & 1) != 0) {
-        gprs_[i] = fr.CalleeSaveAddress(spill_count - j, frame_info.FrameSizeInBytes());
-        j++;
-      }
-    }
+  int spill_pos = 0;
+
+  // Core registers come first, from the highest down to the lowest.
+  for (uint32_t core_reg : HighToLowBits(frame_info.CoreSpillMask())) {
+    gprs_[core_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    ++spill_pos;
   }
-  if (fp_spill_count > 0) {
-    // Lowest number spill is farthest away, walk registers and fill into context.
-    int j = 1;
-    for (size_t i = 0; i < kNumberOfFRegisters; i++) {
-      if (((frame_info.FpSpillMask() >> i) & 1) != 0) {
-        fprs_[i] = fr.CalleeSaveAddress(spill_count + fp_spill_count - j,
-                                        frame_info.FrameSizeInBytes());
-        j++;
-      }
-    }
+  DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()));
+
+  // FP registers come second, from the highest down to the lowest.
+  for (uint32_t fp_reg : HighToLowBits(frame_info.FpSpillMask())) {
+    fprs_[fp_reg] = fr.CalleeSaveAddress(spill_pos, frame_info.FrameSizeInBytes());
+    ++spill_pos;
   }
+  DCHECK_EQ(spill_pos, POPCOUNT(frame_info.CoreSpillMask()) + POPCOUNT(frame_info.FpSpillMask()));
 }
 
-bool MipsContext::SetGPR(uint32_t reg, uintptr_t value) {
+void MipsContext::SetGPR(uint32_t reg, uintptr_t value) {
   CHECK_LT(reg, static_cast<uint32_t>(kNumberOfCoreRegisters));
+  DCHECK(IsAccessibleGPR(reg));
   CHECK_NE(gprs_[reg], &gZero);  // Can't overwrite this static value since they are never reset.
-  if (gprs_[reg] != nullptr) {
-    *gprs_[reg] = value;
-    return true;
-  } else {
-    return false;
-  }
+  *gprs_[reg] = value;
 }
 
-bool MipsContext::SetFPR(uint32_t reg, uintptr_t value) {
+void MipsContext::SetFPR(uint32_t reg, uintptr_t value) {
   CHECK_LT(reg, static_cast<uint32_t>(kNumberOfFRegisters));
+  DCHECK(IsAccessibleFPR(reg));
   CHECK_NE(fprs_[reg], &gZero);  // Can't overwrite this static value since they are never reset.
-  if (fprs_[reg] != nullptr) {
-    *fprs_[reg] = value;
-    return true;
-  } else {
-    return false;
-  }
+  *fprs_[reg] = value;
 }
 
 void MipsContext::SmashCallerSaves() {
@@ -99,7 +78,7 @@ void MipsContext::SmashCallerSaves() {
   gprs_[A3] = nullptr;
 }
 
-extern "C" void art_quick_do_long_jump(uint32_t*, uint32_t*);
+extern "C" NO_RETURN void art_quick_do_long_jump(uint32_t*, uint32_t*);
 
 void MipsContext::DoLongJump() {
   uintptr_t gprs[kNumberOfCoreRegisters];
@@ -108,7 +87,7 @@ void MipsContext::DoLongJump() {
     gprs[i] = gprs_[i] != nullptr ? *gprs_[i] : MipsContext::kBadGprBase + i;
   }
   for (size_t i = 0; i < kNumberOfFRegisters; ++i) {
-    fprs[i] = fprs_[i] != nullptr ? *fprs_[i] : MipsContext::kBadGprBase + i;
+    fprs[i] = fprs_[i] != nullptr ? *fprs_[i] : MipsContext::kBadFprBase + i;
   }
   art_quick_do_long_jump(gprs, fprs);
 }

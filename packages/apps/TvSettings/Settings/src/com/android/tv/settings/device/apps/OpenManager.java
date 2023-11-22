@@ -26,7 +26,7 @@ import android.content.pm.PackageManager;
 class OpenManager {
 
     private final Context mContext;
-    private AppInfo mAppInfo;
+    private final AppInfo mAppInfo;
     private Intent mLaunchIntent;
 
     OpenManager(Context context, AppInfo appInfo) {
@@ -35,17 +35,18 @@ class OpenManager {
     }
 
     public boolean canOpen() {
+        return getLaunchIntent() != null;
+    }
+
+    public Intent getLaunchIntent() {
+        if (mLaunchIntent != null) {
+            return mLaunchIntent;
+        }
         PackageManager pm = mContext.getPackageManager();
         mLaunchIntent = pm.getLeanbackLaunchIntentForPackage(mAppInfo.getPackageName());
         if (mLaunchIntent == null) {
             mLaunchIntent = pm.getLaunchIntentForPackage(mAppInfo.getPackageName());
         }
-        return mLaunchIntent != null;
-    }
-
-    public void open(ApplicationsState state) {
-        if (canOpen()) {
-            mContext.startActivity(mLaunchIntent);
-        }
+        return mLaunchIntent;
     }
 }

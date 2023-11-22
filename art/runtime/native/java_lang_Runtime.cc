@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
+#include "java_lang_Runtime.h"
+
 #include <dlfcn.h>
 #include <limits.h>
 #include <unistd.h>
 
+#include "base/macros.h"
 #include "gc/heap.h"
 #include "handle_scope-inl.h"
 #include "jni_internal.h"
@@ -26,6 +29,12 @@
 #include "scoped_thread_state_change.h"
 #include "ScopedUtfChars.h"
 #include "verify_object-inl.h"
+
+#include <sstream>
+#ifdef HAVE_ANDROID_OS
+// This function is provided by android linker.
+extern "C" void android_update_LD_LIBRARY_PATH(const char* ld_library_path);
+#endif  // HAVE_ANDROID_OS
 
 namespace art {
 
@@ -37,41 +46,40 @@ static void Runtime_gc(JNIEnv*, jclass) {
   Runtime::Current()->GetHeap()->CollectGarbage(false);
 }
 
-static void Runtime_nativeExit(JNIEnv*, jclass, jint status) {
+NO_RETURN static void Runtime_nativeExit(JNIEnv*, jclass, jint status) {
   LOG(INFO) << "System.exit called, status: " << status;
   Runtime::Current()->CallExitHook(status);
   exit(status);
 }
 
-static jstring Runtime_nativeLoad(JNIEnv* env, jclass, jstring javaFilename, jobject javaLoader, jstring javaLdLibraryPath) {
+static void SetLdLibraryPath(JNIEnv* env, jstring javaLdLibraryPathJstr) {
+#ifdef HAVE_ANDROID_OS
+  if (javaLdLibraryPathJstr != nullptr) {
+    ScopedUtfChars ldLibraryPath(env, javaLdLibraryPathJstr);
+    if (ldLibraryPath.c_str() != nullptr) {
+      android_update_LD_LIBRARY_PATH(ldLibraryPath.c_str());
+    }
+  }
+
+#else
+  LOG(WARNING) << "android_update_LD_LIBRARY_PATH not found; .so dependencies will not work!";
+  UNUSED(javaLdLibraryPathJstr, env);
+#endif
+}
+
+static jstring Runtime_nativeLoad(JNIEnv* env, jclass, jstring javaFilename, jobject javaLoader,
+                                  jstring javaLdLibraryPathJstr) {
   ScopedUtfChars filename(env, javaFilename);
-  if (filename.c_str() == NULL) {
-    return NULL;
+  if (filename.c_str() == nullptr) {
+    return nullptr;
   }
 
-  if (javaLdLibraryPath != NULL) {
-    ScopedUtfChars ldLibraryPath(env, javaLdLibraryPath);
-    if (ldLibraryPath.c_str() == NULL) {
-      return NULL;
-    }
-    void* sym = dlsym(RTLD_DEFAULT, "android_update_LD_LIBRARY_PATH");
-    if (sym != NULL) {
-      typedef void (*Fn)(const char*);
-      Fn android_update_LD_LIBRARY_PATH = reinterpret_cast<Fn>(sym);
-      (*android_update_LD_LIBRARY_PATH)(ldLibraryPath.c_str());
-    } else {
-      LOG(ERROR) << "android_update_LD_LIBRARY_PATH not found; .so dependencies will not work!";
-    }
-  }
+  SetLdLibraryPath(env, javaLdLibraryPathJstr);
 
-  std::string detail;
+  std::string error_msg;
   {
-    ScopedObjectAccess soa(env);
-    StackHandleScope<1> hs(soa.Self());
-    Handle<mirror::ClassLoader> classLoader(
-        hs.NewHandle(soa.Decode<mirror::ClassLoader*>(javaLoader)));
     JavaVMExt* vm = Runtime::Current()->GetJavaVM();
-    bool success = vm->LoadNativeLibrary(filename.c_str(), classLoader, &detail);
+    bool success = vm->LoadNativeLibrary(env, filename.c_str(), javaLoader, &error_msg);
     if (success) {
       return nullptr;
     }
@@ -79,7 +87,7 @@ static jstring Runtime_nativeLoad(JNIEnv* env, jclass, jstring javaFilename, job
 
   // Don't let a pending exception from JNI_OnLoad cause a CheckJNI issue with NewStringUTF.
   env->ExceptionClear();
-  return env->NewStringUTF(detail.c_str());
+  return env->NewStringUTF(error_msg.c_str());
 }
 
 static jlong Runtime_maxMemory(JNIEnv*, jclass) {

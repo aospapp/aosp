@@ -120,7 +120,7 @@ public final class AccelerometerListener {
         if (x == 0.0 || y == 0.0 || z == 0.0) return;
 
         // magnitude of the acceleration vector projected onto XY plane
-        final double xy = Math.sqrt(x*x + y*y);
+        final double xy = Math.hypot(x, y);
         // compute the vertical angle
         double angle = Math.atan2(xy, z);
         // convert to degrees
@@ -131,16 +131,19 @@ public final class AccelerometerListener {
     }
 
     SensorEventListener mSensorListener = new SensorEventListener() {
+        @Override
         public void onSensorChanged(SensorEvent event) {
             onSensorEvent(event.values[0], event.values[1], event.values[2]);
         }
 
+        @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {
             // ignore
         }
     };
 
     Handler mHandler = new Handler() {
+        @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case ORIENTATION_CHANGED:

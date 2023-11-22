@@ -119,63 +119,63 @@ ihevc_intra_pred_luma_horz_av8:
 core_loop_32:
     ld1         { v0.16b},[x12]             //load 16 values. d1[7] will have the 1st value.
 
-    dup         v2.16b, v0.16b[15]          //duplicate the i value.
+    dup         v2.16b, v0.b[15]            //duplicate the i value.
 
-    dup         v4.16b, v0.16b[14]          //duplicate the ii value.
-    dup         v6.16b, v0.16b[13]          //duplicate the iii value.
+    dup         v4.16b, v0.b[14]            //duplicate the ii value.
+    dup         v6.16b, v0.b[13]            //duplicate the iii value.
     st1         { v2.16b},[x2],x3           //store in 1st row 0-16 columns
     st1         { v2.16b},[x9],x3           //store in 1st row 16-32 columns
 
-    dup         v1.16b, v0.16b[12]
+    dup         v1.16b, v0.b[12]
     st1         { v4.16b},[x2],x3
     st1         { v4.16b},[x9],x3
 
-    dup         v2.16b, v0.16b[11]
+    dup         v2.16b, v0.b[11]
     st1         { v6.16b},[x2],x3
     st1         { v6.16b},[x9],x3
 
-    dup         v4.16b, v0.16b[10]
+    dup         v4.16b, v0.b[10]
     st1         { v1.16b},[x2],x3
     st1         { v1.16b},[x9],x3
 
-    dup         v6.16b, v0.16b[9]
+    dup         v6.16b, v0.b[9]
     st1         { v2.16b},[x2],x3
     st1         { v2.16b},[x9],x3
 
-    dup         v1.16b, v0.16b[8]
+    dup         v1.16b, v0.b[8]
     st1         { v4.16b},[x2],x3
     st1         { v4.16b},[x9],x3
 
-    dup         v2.16b, v0.8b[7]
+    dup         v2.16b, v0.b[7]
     st1         { v6.16b},[x2],x3
     st1         { v6.16b},[x9],x3
 
-    dup         v4.16b, v0.8b[6]
+    dup         v4.16b, v0.b[6]
     st1         { v1.16b},[x2],x3
     st1         { v1.16b},[x9],x3
 
-    dup         v6.16b, v0.8b[5]
+    dup         v6.16b, v0.b[5]
     st1         { v2.16b},[x2],x3
     st1         { v2.16b},[x9],x3
 
-    dup         v1.16b, v0.8b[4]
+    dup         v1.16b, v0.b[4]
     st1         { v4.16b},[x2],x3
     st1         { v4.16b},[x9],x3
 
-    dup         v2.16b, v0.8b[3]
+    dup         v2.16b, v0.b[3]
     st1         { v6.16b},[x2],x3
     st1         { v6.16b},[x9],x3
 
-    dup         v4.16b, v0.8b[2]
+    dup         v4.16b, v0.b[2]
     st1         { v1.16b},[x2],x3
     st1         { v1.16b},[x9],x3
 
-    dup         v6.16b, v0.8b[1]
+    dup         v6.16b, v0.b[1]
     st1         { v2.16b},[x2],x3
     st1         { v2.16b},[x9],x3
     sub         x12,x12,#16                 //move to 16th value pointer
 
-    dup         v1.16b, v0.8b[0]
+    dup         v1.16b, v0.b[0]
     st1         { v4.16b},[x2],x3
     st1         { v4.16b},[x9],x3
 
@@ -202,33 +202,33 @@ core_loop_16:
     dup         v28.8b,w14
     sub         x12,x12,#17
     ld1         { v0.16b},[x12]
-    dup         v26.8b, v0.16b[15]
+    dup         v26.8b, v0.b[15]
     uxtl        v26.8h, v26.8b
 
-    dup         v2.16b, v0.16b[14]
+    dup         v2.16b, v0.b[14]
     usubl       v24.8h, v30.8b, v28.8b
 
-    dup         v4.16b, v0.16b[13]
+    dup         v4.16b, v0.b[13]
     sshr        v24.8h, v24.8h,#1
 
-    dup         v6.16b, v0.16b[12]
+    dup         v6.16b, v0.b[12]
     sqadd       v22.8h,  v26.8h ,  v24.8h
 
-    dup         v1.16b, v0.16b[11]
+    dup         v1.16b, v0.b[11]
     sqxtun      v22.8b, v22.8h
 
     st1         {v22.8b},[x2],#8
 
-    dup         v18.16b, v0.16b[10]
+    dup         v18.16b, v0.b[10]
     usubl       v24.8h, v31.8b, v28.8b
 
-    dup         v19.16b, v0.16b[9]
+    dup         v19.16b, v0.b[9]
     sshr        v24.8h, v24.8h,#1
 
-    dup         v20.16b, v0.16b[8]
+    dup         v20.16b, v0.b[8]
     sqadd       v22.8h,  v26.8h ,  v24.8h
 
-    dup         v16.16b, v0.8b[7]
+    dup         v16.16b, v0.b[7]
     sqxtun      v22.8b, v22.8h
 
     st1         {v22.8b},[x2],x3
@@ -240,25 +240,25 @@ core_loop_16:
     st1         { v6.16b},[x2],x3
     st1         { v1.16b},[x2],x3
 
-    dup         v2.16b, v0.8b[6]
+    dup         v2.16b, v0.b[6]
     st1         { v18.16b},[x2],x3
 
-    dup         v4.16b, v0.8b[5]
+    dup         v4.16b, v0.b[5]
     st1         { v19.16b},[x2],x3
 
-    dup         v6.16b, v0.8b[4]
+    dup         v6.16b, v0.b[4]
     st1         { v20.16b},[x2],x3
 
-    dup         v1.16b, v0.8b[3]
+    dup         v1.16b, v0.b[3]
     st1         { v16.16b},[x2],x3
 
-    dup         v18.16b, v0.8b[2]
+    dup         v18.16b, v0.b[2]
     st1         { v2.16b},[x2],x3
 
-    dup         v19.16b, v0.8b[1]
+    dup         v19.16b, v0.b[1]
     st1         { v4.16b},[x2],x3
 
-    dup         v20.16b, v0.8b[0]
+    dup         v20.16b, v0.b[0]
     st1         { v6.16b},[x2],x3
 
     st1         { v1.16b},[x2],x3
@@ -281,32 +281,32 @@ core_loop_8:
 
     sub         x12,x12,#9
     ld1         {v0.8b},[x12]
-    dup         v26.8b, v0.8b[7]
+    dup         v26.8b, v0.b[7]
     dup         v28.8b,w14
 
-    dup         v3.8b, v0.8b[6]
+    dup         v3.8b, v0.b[6]
     uxtl        v26.8h, v26.8b
 
-    dup         v4.8b, v0.8b[5]
+    dup         v4.8b, v0.b[5]
     usubl       v24.8h, v30.8b, v28.8b
 
-    dup         v5.8b, v0.8b[4]
+    dup         v5.8b, v0.b[4]
     sshr        v24.8h, v24.8h,#1
 
-    dup         v6.8b, v0.8b[3]
+    dup         v6.8b, v0.b[3]
     sqadd       v22.8h,  v26.8h ,  v24.8h
 
-    dup         v7.8b, v0.8b[2]
+    dup         v7.8b, v0.b[2]
     sqxtun      v22.8b, v22.8h
 
     st1         {v22.8b},[x2],x3
     st1         {v3.8b},[x2],x3
 
-    dup         v1.8b, v0.8b[1]
+    dup         v1.8b, v0.b[1]
     st1         {v4.8b},[x2],x3
     st1         {v5.8b},[x2],x3
 
-    dup         v17.8b, v0.8b[0]
+    dup         v17.8b, v0.b[0]
     st1         {v6.8b},[x2],x3
     st1         {v7.8b},[x2],x3
 
@@ -328,16 +328,16 @@ core_loop_4:
     sub         x12,x12,#5
     ld1         {v0.8b},[x12]
     dup         v28.8b,w14
-    dup         v26.8b, v0.8b[3]
+    dup         v26.8b, v0.b[3]
     uxtl        v26.8h, v26.8b
 
-    dup         v3.8b, v0.8b[2]
+    dup         v3.8b, v0.b[2]
     usubl       v24.8h, v30.8b, v28.8b
 
-    dup         v4.8b, v0.8b[1]
+    dup         v4.8b, v0.b[1]
     sshr        v24.8h, v24.8h,#1
 
-    dup         v5.8b, v0.8b[0]
+    dup         v5.8b, v0.b[0]
     sqadd       v22.8h,  v26.8h ,  v24.8h
 
     sqxtun      v22.8b, v22.8h

@@ -26,6 +26,11 @@ public class SensorNotSupportedException extends SensorTestStateNotSupportedExce
         super("Sensor '%s' of type %d is not supported.", getSensorName(sensorType), sensorType);
     }
 
+    public SensorNotSupportedException(int sensorType, boolean wakeup) {
+        super("Sensor '%s' of type %d and %s is not supported.", getSensorName(sensorType),
+               sensorType, wakeup ? "wake-up" : "non wake-up");
+    }
+
     private static String getSensorName(int sensorType) {
         return String.format("%s (%d)", getSimpleSensorName(sensorType), sensorType);
     }

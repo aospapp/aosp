@@ -26,8 +26,7 @@ import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
- * A utility for performing a "lazy" chained comparison statement, which 
- * performs comparisons only until it finds a nonzero result. For example:
+ * A utility for performing a chained comparison statement. For example:
  * <pre>   {@code
  *
  *   public int compareTo(Foo that) {
@@ -38,12 +37,21 @@ import javax.annotation.Nullable;
  *         .result();
  *   }}</pre>
  *
- * The value of this expression will have the same sign as the <i>first
+ * <p>The value of this expression will have the same sign as the <i>first
  * nonzero</i> comparison result in the chain, or will be zero if every
  * comparison result was zero.
  *
- * <p>Once any comparison returns a nonzero value, remaining comparisons are
- * "short-circuited".
+ * <p>Performance note: Even though the {@code ComparisonChain} caller always
+ * invokes its {@code compare} methods unconditionally, the {@code
+ * ComparisonChain} implementation stops calling its inputs' {@link
+ * Comparable#compareTo compareTo} and {@link Comparator#compare compare}
+ * methods as soon as one of them returns a nonzero result. This optimization is
+ * typically important only in the presence of expensive {@code compareTo} and
+ * {@code compare} implementations.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/CommonObjectUtilitiesExplained#compare/compareTo">
+ * {@code ComparisonChain}</a>.
  *
  * @author Mark Davis
  * @author Kevin Bourrillion
@@ -83,7 +91,10 @@ public abstract class ComparisonChain {
     @Override public ComparisonChain compare(double left, double right) {
       return classify(Double.compare(left, right));
     }
-    @Override public ComparisonChain compare(boolean left, boolean right) {
+    @Override public ComparisonChain compareTrueFirst(boolean left, boolean right) {
+      return classify(Booleans.compare(right, left)); // reversed
+    }
+    @Override public ComparisonChain compareFalseFirst(boolean left, boolean right) {
       return classify(Booleans.compare(left, right));
     }
     ComparisonChain classify(int result) {
@@ -124,7 +135,10 @@ public abstract class ComparisonChain {
     @Override public ComparisonChain compare(double left, double right) {
       return this;
     }
-    @Override public ComparisonChain compare(boolean left, boolean right) {
+    @Override public ComparisonChain compareTrueFirst(boolean left, boolean right) {
+      return this;
+    }
+    @Override public ComparisonChain compareFalseFirst(boolean left, boolean right) {
       return this;
     }
     @Override public int result() {
@@ -176,11 +190,22 @@ public abstract class ComparisonChain {
   public abstract ComparisonChain compare(double left, double right);
 
   /**
-   * Compares two {@code boolean} values as specified by {@link
-   * Booleans#compare}, <i>if</i> the result of this comparison chain has not
+   * Compares two {@code boolean} values, considering {@code true} to be less
+   * than {@code false}, <i>if</i> the result of this comparison chain has not
    * already been determined.
+   *
+   * @since 12.0
    */
-  public abstract ComparisonChain compare(boolean left, boolean right);
+  public abstract ComparisonChain compareTrueFirst(boolean left, boolean right);
+
+  /**
+   * Compares two {@code boolean} values, considering {@code false} to be less
+   * than {@code true}, <i>if</i> the result of this comparison chain has not
+   * already been determined.
+   *
+   * @since 12.0 (present as {@code compare} since 2.0)
+   */
+  public abstract ComparisonChain compareFalseFirst(boolean left, boolean right);
 
   /**
    * Ends this comparison chain and returns its result: a value having the

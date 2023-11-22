@@ -19,7 +19,9 @@ package com.android.cts.verifier.managedprovisioning;
 import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
 import com.android.cts.verifier.R;
@@ -30,26 +32,37 @@ import com.android.cts.verifier.R;
 public class WorkNotificationTestActivity extends Activity {
     public static final String ACTION_WORK_NOTIFICATION =
             "com.android.cts.verifier.managedprovisioning.WORK_NOTIFICATION";
+    public static final String ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN =
+            "com.android.cts.verifier.managedprovisioning.LOCKSCREEN_NOTIFICATION";
     public static final String ACTION_CLEAR_WORK_NOTIFICATION =
             "com.android.cts.verifier.managedprovisioning.CLEAR_WORK_NOTIFICATION";
     private static final int NOTIFICATION_ID = 7;
+    private NotificationManager mNotificationManager;
+
+    private void showWorkNotification(int visibility) {
+        final Notification notification = new Notification.Builder(this)
+                .setSmallIcon(R.drawable.icon)
+                .setContentTitle(getString(R.string.provisioning_byod_work_notification_title))
+                .setVisibility(visibility)
+                .setAutoCancel(true)
+                .build();
+        mNotificationManager.notify(NOTIFICATION_ID, notification);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         final String action = getIntent().getAction();
-        final NotificationManager notificationManager = (NotificationManager)
-                getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (ACTION_WORK_NOTIFICATION.equals(action)) {
-            final Notification notification = new Notification.Builder(this)
-                .setSmallIcon(R.drawable.icon)
-                .setContentTitle(getString(R.string.provisioning_byod_work_notification_title))
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setAutoCancel(true)
-                .build();
-            notificationManager.notify(NOTIFICATION_ID, notification);
+            showWorkNotification(Notification.VISIBILITY_PUBLIC);
+        } else if (ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN.equals(action)) {
+            DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(
+                    Context.DEVICE_POLICY_SERVICE);
+            dpm.lockNow();
+            showWorkNotification(Notification.VISIBILITY_PRIVATE);
         } else if (ACTION_CLEAR_WORK_NOTIFICATION.equals(action)) {
-            notificationManager.cancel(NOTIFICATION_ID);
+            mNotificationManager.cancel(NOTIFICATION_ID);
         }
         finish();
     }

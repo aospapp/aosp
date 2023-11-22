@@ -21,8 +21,9 @@
     <name>Camera2Basic</name>
     <group>Media</group>
     <package>com.example.android.camera2basic</package>
+
+    <dependency>com.android.support:appcompat-v7:23.0.0</dependency>
     <minSdk>21</minSdk>
-    <compileSdkVersion>21</compileSdkVersion>
     <strings>
         <intro>
             <![CDATA[

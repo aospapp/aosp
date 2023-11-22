@@ -8,14 +8,14 @@
 //===----------------------------------------------------------------------===//
 #include "mcld/LD/ArchiveReader.h"
 
-using namespace mcld;
+namespace mcld {
 
 //==========================
 // MCELFArchiveReader
-ArchiveReader::ArchiveReader()
-{
+ArchiveReader::ArchiveReader() {
 }
 
-ArchiveReader::~ArchiveReader()
-{
+ArchiveReader::~ArchiveReader() {
 }
+
+}  // namespace mcld

@@ -26,14 +26,25 @@
 #if (DE_OS == DE_OS_UNIX || DE_OS == DE_OS_OSX || DE_OS == DE_OS_ANDROID || DE_OS == DE_OS_SYMBIAN || DE_OS == DE_OS_IOS)
 
 #include "deMemory.h"
+#include "deInt32.h"
 
 #if !defined(_XOPEN_SOURCE) || (_XOPEN_SOURCE < 500)
-#	error You are using too old posix API!
+#	error "You are using too old posix API!"
 #endif
 
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/syscall.h>
+
+#if (DE_OS == DE_OS_OSX) || (DE_OS == DE_OS_IOS)
+#	if !defined(_SC_NPROCESSORS_CONF)
+#		define _SC_NPROCESSORS_CONF 57
+#	endif
+#	if !defined(_SC_NPROCESSORS_ONLN)
+#		define _SC_NPROCESSORS_ONLN 58
+#	endif
+#endif
 
 typedef struct Thread_s
 {
@@ -49,10 +60,10 @@ static void* startThread (void* entryPtr)
 	Thread*			thread	= (Thread*)entryPtr;
 	deThreadFunc	func	= thread->func;
 	void*			arg		= thread->arg;
-	
+
 	/* Start actual thread. */
 	func(arg);
-	
+
 	return DE_NULL;
 }
 
@@ -60,10 +71,10 @@ deThread deThread_create (deThreadFunc func, void* arg, const deThreadAttributes
 {
 	pthread_attr_t	attr;
 	Thread*			thread	= (Thread*)deCalloc(sizeof(Thread));
-	
+
 	if (!thread)
 		return 0;
-	
+
 	thread->func	= func;
 	thread->arg		= arg;
 
@@ -90,7 +101,7 @@ deThread deThread_create (deThreadFunc func, void* arg, const deThreadAttributes
 		return 0;
 	}
 	DE_ASSERT(thread->thread);
-	
+
 	pthread_attr_destroy(&attr);
 
 	return (deThread)thread;
@@ -133,18 +144,87 @@ void deSleep (deUint32 milliseconds)
 {
 	/* Maximum value for usleep is 10^6. */
 	deUint32 seconds = milliseconds / 1000;
-	
+
 	milliseconds = milliseconds - seconds * 1000;
-	
+
 	if (seconds > 0)
 		sleep(seconds);
-	
+
 	usleep((useconds_t)milliseconds * (useconds_t)1000);
 }
 
 void deYield (void)
 {
 	sched_yield();
+}
+
+#if (DE_OS == DE_OS_UNIX) || (DE_OS == DE_OS_ANDROID)
+
+deUint32 deGetNumAvailableLogicalCores (void)
+{
+	unsigned long		mask		= 0;
+	const unsigned int	maskSize	= sizeof(mask);
+	long				ret;
+
+	deMemset(&mask, 0, sizeof(mask));
+
+	ret = syscall(__NR_sched_getaffinity, 0, maskSize, &mask);
+
+	if (ret > 0)
+	{
+		return dePop64(mask);
+	}
+	else
+	{
+#if defined(_SC_NPROCESSORS_ONLN)
+		const int count = sysconf(_SC_NPROCESSORS_ONLN);
+
+		if (count <= 0)
+			return 1;
+		else
+			return (deUint32)count;
+#else
+		return 1;
+#endif
+	}
+}
+
+#else
+
+deUint32 deGetNumAvailableLogicalCores (void)
+{
+#if defined(_SC_NPROCESSORS_ONLN)
+	const int count = sysconf(_SC_NPROCESSORS_ONLN);
+
+	if (count <= 0)
+		return 1;
+	else
+		return (deUint32)count;
+#else
+	return 1;
+#endif
+}
+
+#endif
+
+deUint32 deGetNumTotalLogicalCores (void)
+{
+#if defined(_SC_NPROCESSORS_CONF)
+	const int count = sysconf(_SC_NPROCESSORS_CONF);
+
+	if (count <= 0)
+		return 1;
+	else
+		return (deUint32)count;
+#else
+	return 1;
+#endif
+}
+
+deUint32 deGetNumTotalPhysicalCores (void)
+{
+	/* \todo [2015-04-09 pyry] Parse /proc/cpuinfo perhaps? */
+	return deGetNumTotalLogicalCores();
 }
 
 #endif /* DE_OS */

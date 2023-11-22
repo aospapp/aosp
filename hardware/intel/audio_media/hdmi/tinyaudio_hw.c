@@ -180,30 +180,15 @@ static enum pcm_format Get_SinkSupported_format()
    return PCM_FORMAT_S24_LE;
 }
 
-static int format_to_bits(enum pcm_format pcmformat)
-{
-  switch (pcmformat) {
-    case PCM_FORMAT_S32_LE:
-         return 32;
-    case PCM_FORMAT_S24_LE:
-         return 24;
-    default:
-    case PCM_FORMAT_S16_LE:
-         return 16;
-  };
-}
-
 static int make_sinkcompliant_buffers(void* input, void *output, int ipbytes)
 {
   int i = 0,outbytes = 0;
-  enum pcm_format in_pcmformat;
   enum pcm_format out_pcmformat;
   int *src = (int*)input;
   int *dst = (int*)output;
 
   /*by default android currently support only
     16 bit signed PCM*/
-  in_pcmformat = PCM_FORMAT_S16_LE;
   out_pcmformat = Get_SinkSupported_format();
 
   switch (out_pcmformat) {
@@ -239,7 +224,6 @@ static int make_sinkcompliant_buffers(void* input, void *output, int ipbytes)
 static int start_output_stream(struct stream_out *out)
 {
     struct audio_device *adev = out->dev;
-    int hdmicard = 0;
 
     ALOGV("%s enter",__func__);
 
@@ -396,7 +380,6 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret;
-    int routing = 0;
     ALOGV("%s enter",__func__);
 
     parms = str_parms_create_str(kvpairs);
@@ -923,8 +906,6 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
 static int adev_close(hw_device_t *device)
 {
-    struct audio_device *adev = (struct audio_device *)device;
-
     free(device);
     return 0;
 }
@@ -933,7 +914,6 @@ static int adev_open(const hw_module_t* module, const char* name,
                      hw_device_t** device)
 {
     struct audio_device *adev;
-    int ret;
 
     ALOGV("%s enter",__func__);
 

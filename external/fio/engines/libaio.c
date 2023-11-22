@@ -13,16 +13,31 @@
 
 #include "../fio.h"
 
+static int fio_libaio_commit(struct thread_data *td);
+
 struct libaio_data {
 	io_context_t aio_ctx;
 	struct io_event *aio_events;
 	struct iocb **iocbs;
 	struct io_u **io_us;
-	int iocbs_nr;
+
+	/*
+	 * Basic ring buffer. 'head' is incremented in _queue(), and
+	 * 'tail' is incremented in _commit(). We keep 'queued' so
+	 * that we know if the ring is full or empty, when
+	 * 'head' == 'tail'. 'entries' is the ring size, and
+	 * 'is_pow2' is just an optimization to use AND instead of
+	 * modulus to get the remainder on ring increment.
+	 */
+	int is_pow2;
+	unsigned int entries;
+	unsigned int queued;
+	unsigned int head;
+	unsigned int tail;
 };
 
 struct libaio_options {
-	struct thread_data *td;
+	void *pad;
 	unsigned int userspace_reap;
 };
 
@@ -40,6 +55,15 @@ static struct fio_option options[] = {
 		.name	= NULL,
 	},
 };
+
+static inline void ring_inc(struct libaio_data *ld, unsigned int *val,
+			    unsigned int add)
+{
+	if (ld->is_pow2)
+		*val = (*val + add) & (ld->entries - 1);
+	else
+		*val = (*val + add) % ld->entries;
+}
 
 static int fio_libaio_prep(struct thread_data fio_unused *td, struct io_u *io_u)
 {
@@ -117,12 +141,18 @@ static int user_io_getevents(io_context_t aio_ctx, unsigned int max,
 }
 
 static int fio_libaio_getevents(struct thread_data *td, unsigned int min,
-				unsigned int max, struct timespec *t)
+				unsigned int max, const struct timespec *t)
 {
 	struct libaio_data *ld = td->io_ops->data;
 	struct libaio_options *o = td->eo;
 	unsigned actual_min = td->o.iodepth_batch_complete == 0 ? 0 : min;
+	struct timespec __lt, *lt = NULL;
 	int r, events = 0;
+
+	if (t) {
+		__lt = *t;
+		lt = &__lt;
+	}
 
 	do {
 		if (o->userspace_reap == 1
@@ -133,12 +163,15 @@ static int fio_libaio_getevents(struct thread_data *td, unsigned int min,
 				ld->aio_events + events);
 		} else {
 			r = io_getevents(ld->aio_ctx, actual_min,
-				max, ld->aio_events + events, t);
+				max, ld->aio_events + events, lt);
 		}
-		if (r >= 0)
+		if (r > 0)
 			events += r;
-		else if (r == -EAGAIN)
+		else if ((min && r == 0) || r == -EAGAIN) {
+			fio_libaio_commit(td);
 			usleep(100);
+		} else if (r != -EINTR)
+			break;
 	} while (events < min);
 
 	return r < 0 ? r : events;
@@ -150,7 +183,7 @@ static int fio_libaio_queue(struct thread_data *td, struct io_u *io_u)
 
 	fio_ro_check(td, io_u);
 
-	if (ld->iocbs_nr == (int) td->o.iodepth)
+	if (ld->queued == td->o.iodepth)
 		return FIO_Q_BUSY;
 
 	/*
@@ -160,7 +193,7 @@ static int fio_libaio_queue(struct thread_data *td, struct io_u *io_u)
 	 * have pending io, to let fio complete those first.
 	 */
 	if (ddir_sync(io_u->ddir)) {
-		if (ld->iocbs_nr)
+		if (ld->queued)
 			return FIO_Q_BUSY;
 
 		do_io_u_sync(td, io_u);
@@ -168,16 +201,17 @@ static int fio_libaio_queue(struct thread_data *td, struct io_u *io_u)
 	}
 
 	if (io_u->ddir == DDIR_TRIM) {
-		if (ld->iocbs_nr)
+		if (ld->queued)
 			return FIO_Q_BUSY;
 
 		do_io_u_trim(td, io_u);
 		return FIO_Q_COMPLETED;
 	}
 
-	ld->iocbs[ld->iocbs_nr] = &io_u->iocb;
-	ld->io_us[ld->iocbs_nr] = io_u;
-	ld->iocbs_nr++;
+	ld->iocbs[ld->head] = &io_u->iocb;
+	ld->io_us[ld->head] = io_u;
+	ring_inc(ld, &ld->head, 1);
+	ld->queued++;
 	return FIO_Q_QUEUED;
 }
 
@@ -205,29 +239,67 @@ static int fio_libaio_commit(struct thread_data *td)
 	struct libaio_data *ld = td->io_ops->data;
 	struct iocb **iocbs;
 	struct io_u **io_us;
-	int ret;
+	struct timeval tv;
+	int ret, wait_start = 0;
 
-	if (!ld->iocbs_nr)
+	if (!ld->queued)
 		return 0;
 
-	io_us = ld->io_us;
-	iocbs = ld->iocbs;
 	do {
-		ret = io_submit(ld->aio_ctx, ld->iocbs_nr, iocbs);
+		long nr = ld->queued;
+
+		nr = min((unsigned int) nr, ld->entries - ld->tail);
+		io_us = ld->io_us + ld->tail;
+		iocbs = ld->iocbs + ld->tail;
+
+		ret = io_submit(ld->aio_ctx, nr, iocbs);
 		if (ret > 0) {
 			fio_libaio_queued(td, io_us, ret);
 			io_u_mark_submit(td, ret);
-			ld->iocbs_nr -= ret;
-			io_us += ret;
-			iocbs += ret;
+
+			ld->queued -= ret;
+			ring_inc(ld, &ld->tail, ret);
 			ret = 0;
-		} else if (!ret || ret == -EAGAIN || ret == -EINTR) {
+			wait_start = 0;
+		} else if (ret == -EINTR || !ret) {
 			if (!ret)
 				io_u_mark_submit(td, ret);
+			wait_start = 0;
 			continue;
+		} else if (ret == -EAGAIN) {
+			/*
+			 * If we get EAGAIN, we should break out without
+			 * error and let the upper layer reap some
+			 * events for us. If we have no queued IO, we
+			 * must loop here. If we loop for more than 30s,
+			 * just error out, something must be buggy in the
+			 * IO path.
+			 */
+			if (ld->queued) {
+				ret = 0;
+				break;
+			}
+			if (!wait_start) {
+				fio_gettime(&tv, NULL);
+				wait_start = 1;
+			} else if (mtime_since_now(&tv) > 30000) {
+				log_err("fio: aio appears to be stalled, giving up\n");
+				break;
+			}
+			usleep(1);
+			continue;
+		} else if (ret == -ENOMEM) {
+			/*
+			 * If we get -ENOMEM, reap events if we can. If
+			 * we cannot, treat it as a fatal event since there's
+			 * nothing we can do about it.
+			 */
+			if (ld->queued)
+				ret = 0;
+			break;
 		} else
 			break;
-	} while (ld->iocbs_nr);
+	} while (ld->queued);
 
 	return ret;
 }
@@ -254,11 +326,11 @@ static void fio_libaio_cleanup(struct thread_data *td)
 
 static int fio_libaio_init(struct thread_data *td)
 {
-	struct libaio_data *ld = malloc(sizeof(*ld));
 	struct libaio_options *o = td->eo;
+	struct libaio_data *ld;
 	int err = 0;
 
-	memset(ld, 0, sizeof(*ld));
+	ld = calloc(1, sizeof(*ld));
 
 	/*
 	 * First try passing in 0 for queue depth, since we don't
@@ -276,13 +348,11 @@ static int fio_libaio_init(struct thread_data *td)
 		return 1;
 	}
 
-	ld->aio_events = malloc(td->o.iodepth * sizeof(struct io_event));
-	memset(ld->aio_events, 0, td->o.iodepth * sizeof(struct io_event));
-	ld->iocbs = malloc(td->o.iodepth * sizeof(struct iocb *));
-	memset(ld->iocbs, 0, sizeof(struct iocb *));
-	ld->io_us = malloc(td->o.iodepth * sizeof(struct io_u *));
-	memset(ld->io_us, 0, td->o.iodepth * sizeof(struct io_u *));
-	ld->iocbs_nr = 0;
+	ld->entries = td->o.iodepth;
+	ld->is_pow2 = is_power_of_2(ld->entries);
+	ld->aio_events = calloc(ld->entries, sizeof(struct io_event));
+	ld->iocbs = calloc(ld->entries, sizeof(struct iocb *));
+	ld->io_us = calloc(ld->entries, sizeof(struct io_u *));
 
 	td->io_ops->data = ld;
 	return 0;

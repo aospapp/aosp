@@ -24,16 +24,21 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.ComponentInfo;
 import android.content.pm.IPackageDeleteObserver;
 import android.content.pm.IPackageManager;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Xml;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
 
 import com.android.internal.util.FastXmlSerializer;
 import com.android.managedprovisioning.ProvisionLogger;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,6 +47,7 @@ import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,48 +58,164 @@ import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
 
 /**
- * Removes all system apps with a launcher that are not required.
- * Also disables sharing via Bluetooth, and components that listen to
- * ACTION_INSTALL_SHORTCUT.
- * This class is called a first time when a user is created, but also after a system update.
- * In this case, it checks if the system apps that have been added need to be disabled.
+ * Deletes all system apps with a launcher that are not in the required set of packages.
+ * Furthermore deletes all disallowed apps.
+ *
+ * Note: If an app is mistakenly listed as both required and disallowed, it will be treated as
+ * required.
+ *
+ * This task may be run when a profile (both for managed device and managed profile) is created.
+ * In that case the newProfile flag should be true.
+ *
+ * It should also be run after a system update with newProfile false, if
+ * {@link #shouldDeleteNonRequiredApps} returns true. Note that only newly installed system apps
+ * will be deleted.
  */
 public class DeleteNonRequiredAppsTask {
     private final Callback mCallback;
     private final Context mContext;
-    private final IPackageManager mIpm;
     private final String mMdmPackageName;
+    private final IPackageManager mIpm;
     private final PackageManager mPm;
-    private final int mReqAppsList;
-    private final int mVendorReqAppsList;
+    private final List<String> mRequiredAppsList;
+    private final List<String> mDisallowedAppsList;
+    private final List<String> mVendorRequiredAppsList;
+    private final List<String> mVendorDisallowedAppsList;
     private final int mUserId;
+    private final int mProvisioningType;
     private final boolean mNewProfile; // If we are provisioning a new managed profile/device.
-    private final boolean mDisableInstallShortcutListenersAndTelecom;
+    private final boolean mLeaveAllSystemAppsEnabled;
 
     private static final String TAG_SYSTEM_APPS = "system-apps";
     private static final String TAG_PACKAGE_LIST_ITEM = "item";
     private static final String ATTR_VALUE = "value";
 
-    public DeleteNonRequiredAppsTask(Context context, String mdmPackageName, int userId,
-            int requiredAppsList, int vendorRequiredAppsList, boolean newProfile,
-            boolean disableInstallShortcutListenersAndTelecom, Callback callback) {
+    public static final int DEVICE_OWNER = 0;
+    public static final int PROFILE_OWNER = 1;
+
+    /**
+     * Provisioning type should be either {@link #DEVICE_OWNER} or {@link #PROFILE_OWNER}.
+     **/
+    public DeleteNonRequiredAppsTask(Context context, String mdmPackageName, int provisioningType,
+            boolean newProfile, int userId, boolean leaveAllSystemAppsEnabled, Callback callback) {
+
         mCallback = callback;
         mContext = context;
         mMdmPackageName = mdmPackageName;
+        mProvisioningType = provisioningType;
         mUserId = userId;
+        mNewProfile = newProfile;
+        mLeaveAllSystemAppsEnabled = leaveAllSystemAppsEnabled;
         mIpm = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
         mPm = context.getPackageManager();
-        mReqAppsList = requiredAppsList;
-        mVendorReqAppsList = vendorRequiredAppsList;
-        mNewProfile = newProfile;
-        mDisableInstallShortcutListenersAndTelecom = disableInstallShortcutListenersAndTelecom;
+
+        int requiredAppsListArray;
+        int vendorRequiredAppsListArray;
+        int disallowedAppsListArray;
+        int vendorDisallowedAppsListArray;
+        if (mProvisioningType == DEVICE_OWNER) {
+            requiredAppsListArray = R.array.required_apps_managed_device;
+            disallowedAppsListArray = R.array.disallowed_apps_managed_device;
+            vendorRequiredAppsListArray = R.array.vendor_required_apps_managed_device;
+            vendorDisallowedAppsListArray = R.array.vendor_disallowed_apps_managed_device;
+        } else if (mProvisioningType == PROFILE_OWNER) {
+            requiredAppsListArray = R.array.required_apps_managed_profile;
+            disallowedAppsListArray = R.array.disallowed_apps_managed_profile;
+            vendorRequiredAppsListArray = R.array.vendor_required_apps_managed_profile;
+            vendorDisallowedAppsListArray = R.array.vendor_disallowed_apps_managed_profile;
+        } else {
+            throw new IllegalArgumentException("Provisioning type " + mProvisioningType +
+                    " not supported.");
+        }
+
+        Resources resources = mContext.getResources();
+        mRequiredAppsList = Arrays.asList(resources.getStringArray(requiredAppsListArray));
+        mDisallowedAppsList = Arrays.asList(resources.getStringArray(disallowedAppsListArray));
+        mVendorRequiredAppsList = Arrays.asList(
+                resources.getStringArray(vendorRequiredAppsListArray));
+        mVendorDisallowedAppsList = Arrays.asList(
+                resources.getStringArray(vendorDisallowedAppsListArray));
     }
 
     public void run() {
-        if (mNewProfile) {
-            disableBluetoothSharing();
+        if (mLeaveAllSystemAppsEnabled) {
+            ProvisionLogger.logd("Not deleting non-required apps.");
+            mCallback.onSuccess();
+            return;
         }
-        deleteNonRequiredApps();
+        ProvisionLogger.logd("Deleting non required apps.");
+
+        File systemAppsFile = getSystemAppsFile(mContext, mUserId);
+        systemAppsFile.getParentFile().mkdirs(); // Creating the folder if it does not exist
+
+        Set<String> currentApps = Utils.getCurrentSystemApps(mUserId);
+        Set<String> previousApps;
+        if (mNewProfile) {
+            // Provisioning case.
+            previousApps = new HashSet<String>();
+        } else {
+            // OTA case.
+            if (!systemAppsFile.exists()) {
+                ProvisionLogger.loge("Could not find the system apps file " +
+                        systemAppsFile.getAbsolutePath());
+                mCallback.onError();
+                return;
+            }
+            previousApps = readSystemApps(systemAppsFile);
+        }
+
+        writeSystemApps(currentApps, systemAppsFile);
+        Set<String> newApps = currentApps;
+        newApps.removeAll(previousApps);
+
+        // Newly installed system apps are uninstalled when they are not required and are either
+        // disallowed or have a launcher icon.
+        Set<String> packagesToDelete = newApps;
+        packagesToDelete.removeAll(getRequiredApps());
+        Set<String> packagesToRetain = getCurrentAppsWithLauncher();
+        // Don't delete the system input method packages in case of Device owner provisioning.
+        if (mProvisioningType == DEVICE_OWNER) {
+            packagesToRetain.removeAll(getSystemInputMethods());
+        }
+        packagesToRetain.addAll(getDisallowedApps());
+        packagesToDelete.retainAll(packagesToRetain);
+
+        if (packagesToDelete.isEmpty()) {
+            mCallback.onSuccess();
+            return;
+        }
+        removeNonInstalledPackages(packagesToDelete);
+
+        PackageDeleteObserver packageDeleteObserver =
+                new PackageDeleteObserver(packagesToDelete.size());
+        for (String packageName : packagesToDelete) {
+            try {
+                mIpm.deletePackageAsUser(packageName, packageDeleteObserver, mUserId,
+                        PackageManager.DELETE_SYSTEM_APP);
+            } catch (RemoteException neverThrown) {
+                // Never thrown, as we are making local calls.
+                ProvisionLogger.loge("This should not happen.", neverThrown);
+            }
+        }
+    }
+
+    /**
+     * Remove all packages from the set that are not installed.
+     */
+    private void removeNonInstalledPackages(Set<String> packages) {
+        Set<String> toBeRemoved = new HashSet<String>();
+        for (String packageName : packages) {
+            try {
+                PackageInfo info = mIpm.getPackageInfo(packageName, 0 /* default flags */, mUserId);
+                if (info == null) {
+                    toBeRemoved.add(packageName);
+                }
+            } catch (RemoteException neverThrown) {
+                // Never thrown, as we are making local calls.
+                ProvisionLogger.loge("This should not happen.", neverThrown);
+            }
+        }
+        packages.removeAll(toBeRemoved);
     }
 
     /**
@@ -104,151 +226,36 @@ public class DeleteNonRequiredAppsTask {
         return getSystemAppsFile(context, userId).exists();
     }
 
-    private void disableBluetoothSharing() {
-        ProvisionLogger.logd("Disabling Bluetooth sharing.");
-        disableComponent(new ComponentName("com.android.bluetooth",
-                "com.android.bluetooth.opp.BluetoothOppLauncherActivity"));
-    }
-
-    private void deleteNonRequiredApps() {
-        ProvisionLogger.logd("Deleting non required apps.");
-
-        File systemAppsFile = getSystemAppsFile(mContext, mUserId);
-        systemAppsFile.getParentFile().mkdirs(); // Creating the folder if it does not exist
-
-        Set<String> currentApps = getCurrentSystemApps();
-        Set<String> previousApps;
-        if (mNewProfile) {
-            // Provisioning case.
-
-            // If this userId was a managed profile before, file may exist. In this case, we ignore
-            // what is in this file.
-            previousApps = new HashSet<String>();
-        } else {
-            // OTA case.
-
-            if (!systemAppsFile.exists()) {
-                // Error, this task should not have been run.
-                ProvisionLogger.loge("No system apps list found for user " + mUserId);
-                mCallback.onError();
-                return;
-            }
-
-            previousApps = readSystemApps(systemAppsFile);
-        }
-        writeSystemApps(currentApps, systemAppsFile);
-        Set<String> newApps = currentApps;
-        newApps.removeAll(previousApps);
-
-        if (mDisableInstallShortcutListenersAndTelecom) {
-            Intent actionShortcut = new Intent("com.android.launcher.action.INSTALL_SHORTCUT");
-            if (previousApps.isEmpty()) {
-                // Here, all the apps are in newApps.
-                // It is faster to do it this way than to go through all the apps one by one.
-                disableReceivers(actionShortcut);
-            } else {
-                // Here, all the apps are not in newApps. So we have to go through all the new
-                // apps one by one.
-                for (String newApp : newApps) {
-                    actionShortcut.setPackage(newApp);
-                    disableReceivers(actionShortcut);
-                }
-            }
-        }
-        Set<String> packagesToDelete = newApps;
-        packagesToDelete.removeAll(getRequiredApps());
-        packagesToDelete.retainAll(getCurrentAppsWithLauncher());
-        // com.android.server.telecom should not handle CALL intents in the managed profile.
-        if (mDisableInstallShortcutListenersAndTelecom && mNewProfile) {
-            packagesToDelete.add("com.android.server.telecom");
-        }
-        if (packagesToDelete.isEmpty()) {
-            mCallback.onSuccess();
-            return;
-        }
-        PackageDeleteObserver packageDeleteObserver =
-                new PackageDeleteObserver(packagesToDelete.size());
-        for (String packageName : packagesToDelete) {
-            try {
-                mIpm.deletePackageAsUser(packageName, packageDeleteObserver, mUserId,
-                        PackageManager.DELETE_SYSTEM_APP);
-            } catch (RemoteException neverThrown) {
-                    // Never thrown, as we are making local calls.
-                ProvisionLogger.loge("This should not happen.", neverThrown);
-            }
-        }
-    }
-
     static File getSystemAppsFile(Context context, int userId) {
         return new File(context.getFilesDir() + File.separator + "system_apps"
                 + File.separator + "user" + userId + ".xml");
-    }
-
-    /**
-     * Disable all components that can handle the specified broadcast intent.
-     */
-    private void disableReceivers(Intent intent) {
-        List<ResolveInfo> receivers = mPm.queryBroadcastReceivers(intent, 0, mUserId);
-        for (ResolveInfo ri : receivers) {
-            // One of ri.activityInfo, ri.serviceInfo, ri.providerInfo is not null. Let's find which
-            // one.
-            ComponentInfo ci;
-            if (ri.activityInfo != null) {
-                ci = ri.activityInfo;
-            } else if (ri.serviceInfo != null) {
-                ci = ri.serviceInfo;
-            } else {
-                ci = ri.providerInfo;
-            }
-            disableComponent(new ComponentName(ci.packageName, ci.name));
-        }
-    }
-
-    private void disableComponent(ComponentName toDisable) {
-        try {
-            mIpm.setComponentEnabledSetting(toDisable,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP,
-                    mUserId);
-        } catch (RemoteException neverThrown) {
-            ProvisionLogger.loge("This should not happen.", neverThrown);
-        } catch (Exception e) {
-            ProvisionLogger.logw("Component not found, not disabling it: "
-                + toDisable.toShortString());
-        }
-    }
-
-    /**
-     * Returns the set of package names of apps that are in the system image,
-     * whether they have been deleted or not.
-     */
-    private Set<String> getCurrentSystemApps() {
-        Set<String> apps = new HashSet<String>();
-        List<ApplicationInfo> aInfos = null;
-        try {
-            aInfos = mIpm.getInstalledApplications(
-                    PackageManager.GET_UNINSTALLED_PACKAGES, mUserId).getList();
-        } catch (RemoteException neverThrown) {
-            // Never thrown, as we are making local calls.
-            ProvisionLogger.loge("This should not happen.", neverThrown);
-        }
-        for (ApplicationInfo aInfo : aInfos) {
-            if ((aInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
-                apps.add(aInfo.packageName);
-            }
-        }
-        return apps;
     }
 
     private Set<String> getCurrentAppsWithLauncher() {
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         List<ResolveInfo> resolveInfos = mPm.queryIntentActivitiesAsUser(launcherIntent,
-                PackageManager.GET_UNINSTALLED_PACKAGES, mUserId);
+                PackageManager.GET_UNINSTALLED_PACKAGES | PackageManager.GET_DISABLED_COMPONENTS,
+                mUserId);
         Set<String> apps = new HashSet<String>();
         for (ResolveInfo resolveInfo : resolveInfos) {
             apps.add(resolveInfo.activityInfo.packageName);
         }
         return apps;
+    }
+
+    private Set<String> getSystemInputMethods() {
+        final InputMethodManager inputMethodManager =
+                (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+        List<InputMethodInfo> inputMethods = inputMethodManager.getInputMethodList();
+        Set<String> systemInputMethods = new HashSet<String>();
+        for (InputMethodInfo inputMethodInfo : inputMethods) {
+            ApplicationInfo applicationInfo = inputMethodInfo.getServiceInfo().applicationInfo;
+            if ((applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
+                systemInputMethods.add(inputMethodInfo.getPackageName());
+            }
+        }
+        return systemInputMethods;
     }
 
     private void writeSystemApps(Set<String> packageNames, File systemAppsFile) {
@@ -306,12 +313,18 @@ public class DeleteNonRequiredAppsTask {
     }
 
     protected Set<String> getRequiredApps() {
-        HashSet<String> requiredApps = new HashSet<String> (Arrays.asList(
-                        mContext.getResources().getStringArray(mReqAppsList)));
-        requiredApps.addAll(Arrays.asList(
-                        mContext.getResources().getStringArray(mVendorReqAppsList)));
+        HashSet<String> requiredApps = new HashSet<String>();
+        requiredApps.addAll(mRequiredAppsList);
+        requiredApps.addAll(mVendorRequiredAppsList);
         requiredApps.add(mMdmPackageName);
         return requiredApps;
+    }
+
+    private Set<String> getDisallowedApps() {
+        HashSet<String> disallowedApps = new HashSet<String>();
+        disallowedApps.addAll(mDisallowedAppsList);
+        disallowedApps.addAll(mVendorDisallowedAppsList);
+        return disallowedApps;
     }
 
     /**
@@ -331,10 +344,12 @@ public class DeleteNonRequiredAppsTask {
                 ProvisionLogger.logw(
                         "Could not finish the provisioning: package deletion failed");
                 mCallback.onError();
+                return;
             }
             int currentPackageCount = mPackageCount.decrementAndGet();
             if (currentPackageCount == 0) {
-                ProvisionLogger.logi("All non-required system apps have been uninstalled.");
+                ProvisionLogger.logi("All non-required system apps with launcher icon, "
+                        + "and all disallowed apps have been uninstalled.");
                 mCallback.onSuccess();
             }
         }

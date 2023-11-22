@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN konexioa eta aplikazioak"</item>
     <item msgid="692322974985472861">"Wi-Fi konexioa"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi profila"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"%s sarearen xehetasunak"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"Xehetasunak"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"Instalatu"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"Instalatzen"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"Utzi"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Baztertu"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Bat ere ez"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"Izena: %1$s\nFQDN: %2$s\nIbiltaritza-bazkidetzak: %3$s\nDomeinua: %4$s\nAutentifikazio-metodoa: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Erabiltzaile-izena: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"Bezeroaren ziurtagiria:\n%1$s\nGakoa: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM txartela: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"Fidatu ziurtagiri honetan:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"Instalatu dira kredentzialak"</string>
+    <string name="install_done" msgid="1522718684172097080">"Gehitu dira <xliff:g id="NAME">%1$s</xliff:g> kredentzialak gordetako Wi-Fi sareetan."</string>
+    <string name="done_label" msgid="5597425930652904250">"EGINDA"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Instalatu Wi-Fi kredentzialak <xliff:g id="NAME">%1$s</xliff:g> bidez erabilgarri dauden sareetara konektatzeko."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Deskargatutako fitxategiak arazoak ditu eta ezin da instalatu. Ziurtatu iturburu zuzenetik deskargatu duzula fitxategia."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Ezin dira instalatu Wi-Fi kredentzialak. Saiatu fitxategia berriro deskargatzen."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Instalazioa bertan behera utzi da"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Ezin da instalatu"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Aktibatu Wi-Fi konexioa eta saiatu berriro."</string>
 </resources>

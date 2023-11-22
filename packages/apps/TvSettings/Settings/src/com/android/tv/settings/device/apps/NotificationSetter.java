@@ -16,17 +16,9 @@
 
 package com.android.tv.settings.device.apps;
 
-import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.INotificationManager;
-import android.app.admin.DevicePolicyManager;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.net.Uri;
 import android.os.ServiceManager;
-import android.os.UserHandle;
 
 /**
  * Handles notifications for an application.

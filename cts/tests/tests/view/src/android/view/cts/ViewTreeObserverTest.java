@@ -25,8 +25,6 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.test.TouchUtils;
 import android.view.View;
 import android.view.ViewTreeObserver;
-import android.view.ViewTreeObserver.InternalInsetsInfo;
-import android.view.ViewTreeObserver.OnComputeInternalInsetsListener;
 import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.view.ViewTreeObserver.OnPreDrawListener;
@@ -153,22 +151,6 @@ public class ViewTreeObserverTest extends ActivityInstrumentationTestCase2<MockA
                 return listener.hasCalledOnTouchModeChanged();
             }
         }.run();
-    }
-
-    public void testAddOnComputeInternalInsetsListener() {
-        final View view1 = mActivity.findViewById(R.id.view1);
-        mViewTreeObserver = view1.getViewTreeObserver();
-
-        MockOnComputeInternalInsetsListener listener = new MockOnComputeInternalInsetsListener();
-        mViewTreeObserver.addOnComputeInternalInsetsListener(listener);
-    }
-
-    public void testRemoveOnComputeInternalInsetsListener() {
-        final View view1 = mActivity.findViewById(R.id.view1);
-        mViewTreeObserver = view1.getViewTreeObserver();
-
-        MockOnComputeInternalInsetsListener listener = new MockOnComputeInternalInsetsListener();
-        mViewTreeObserver.removeOnComputeInternalInsetsListener(listener);
     }
 
     public void testDispatchOnGlobalLayout() {
@@ -431,12 +413,6 @@ public class ViewTreeObserverTest extends ActivityInstrumentationTestCase2<MockA
 
         public boolean hasCalledOnTouchModeChanged() {
             return mCalledOnTouchModeChanged;
-        }
-    }
-
-    private class MockOnComputeInternalInsetsListener implements OnComputeInternalInsetsListener {
-        @Override
-        public void onComputeInternalInsets(InternalInsetsInfo inoutInfo) {
         }
     }
 

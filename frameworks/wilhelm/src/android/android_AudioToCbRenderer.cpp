@@ -77,7 +77,7 @@ void AudioToCbRenderer::onRender() {
                 }
             }
         }
-        (new AMessage(kWhatDecode, id()))->post();
+        (new AMessage(kWhatDecode, this))->post();
     }
 
     mDecodeBuffer->release();

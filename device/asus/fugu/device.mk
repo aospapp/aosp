@@ -76,7 +76,13 @@ PRODUCT_COPY_FILES += \
 # Audio
 PRODUCT_PACKAGES += \
     libtinyalsa \
-    audio.primary.fugu
+    audio.primary.fugu \
+    audio.usb.default \
+    audio.a2dp.default
+
+# http://b/15193147
+# TODO(danalbert): Remove this once stlport is dead and gone.
+PRODUCT_PACKAGES +=  libstlport
 
 USE_CUSTOM_AUDIO_POLICY := 1
 
@@ -89,7 +95,7 @@ PRODUCT_PROPERTY_OVERRIDES += ro.hdmi.device_type=4
 
 # Boot Animation
 PRODUCT_COPY_FILES += \
-    device/asus/fugu/bootanimation.zip:system/media/bootanimation.zip
+    device/asus/fugu/bootanimation-580-256col.zip:system/media/bootanimation.zip
 
 # Bluetooth
 PRODUCT_PACKAGES += \
@@ -110,9 +116,11 @@ PRODUCT_COPY_FILES += \
     frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:system/etc/media_codecs_google_audio.xml \
     frameworks/av/media/libstagefright/data/media_codecs_google_video.xml:system/etc/media_codecs_google_video.xml \
     device/asus/fugu/media_codecs.xml:system/etc/media_codecs.xml \
+    device/asus/fugu/media_codecs_performance.xml:system/etc/media_codecs_performance.xml \
     device/asus/fugu/vp9_interpredict.binary:system/etc/vp9_interpredict.binary \
     device/asus/fugu/mfx_omxil_core.conf:system/etc/mfx_omxil_core.conf \
-    device/asus/fugu/video_isv_profile.xml:system/etc/video_isv_profile.xml
+    device/asus/fugu/video_isv_profile.xml:system/etc/video_isv_profile.xml \
+    device/asus/fugu/codec_resources_limitation.xml:system/etc/codec_resources_limitation.xml
 
 
 # psb video
@@ -162,6 +170,7 @@ PRODUCT_PACKAGES += \
     libmixvbp_h264secure \
     libmixvbp_vc1 \
     libmixvbp_vp8 \
+    libmixvbp_mpeg2 \
     libmixvbp \
     libva_videodecoder \
     libva_videoencoder
@@ -174,6 +183,7 @@ PRODUCT_PACKAGES += \
     libOMXVideoDecoderMPEG4 \
     libOMXVideoDecoderWMV \
     libOMXVideoDecoderVP8 \
+    libOMXVideoDecoderMPEG2 \
     libOMXVideoDecoderVP9HWR \
     libOMXVideoDecoderVP9Hybrid \
     libOMXVideoEncoderAVC \
@@ -212,13 +222,14 @@ PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.wifi.direct.xml:system/etc/permissions/android.hardware.wifi.direct.xml \
     frameworks/native/data/etc/android.hardware.bluetooth_le.xml:system/etc/permissions/android.hardware.bluetooth_le.xml \
     frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
-    frameworks/native/data/etc/android.hardware.ethernet.xml:system/etc/permissions/android.hardware.ethernet.xml \
     frameworks/native/data/etc/android.hardware.usb.accessory.xml:system/etc/permissions/android.hardware.usb.accessory.xml \
     frameworks/native/data/etc/android.hardware.usb.host.xml:system/etc/permissions/android.hardware.usb.host.xml \
-    frameworks/native/data/etc/android.hardware.hdmi.cec.xml:system/etc/permissions/android.hardware.hdmi.cec.xml
+    frameworks/native/data/etc/android.hardware.hdmi.cec.xml:system/etc/permissions/android.hardware.hdmi.cec.xml \
+    frameworks/native/data/etc/android.software.midi.xml:system/etc/permissions/android.software.midi.xml
 
 # Key layout files
 PRODUCT_COPY_FILES += \
+    device/asus/fugu/Nexus_Remote.idc:system/usr/idc/Nexus_Remote.idc \
     device/asus/fugu/gpio-keys.idc:system/usr/idc/gpio-keys.idc \
     device/asus/fugu/gpio-keys.kl:system/usr/keylayout/gpio-keys.kl \
     device/asus/fugu/gpio-keys.kcm:system/usr/keychars/gpio-keys.kcm \
@@ -254,5 +265,8 @@ $(call inherit-product-if-exists, hardware/broadcom/wlan/bcmdhd/firmware/bcm4354
 # specific management of sep_policy.conf
 PRODUCT_COPY_FILES += \
     device/asus/fugu/sep_policy.conf:system/etc/security/sep_policy.conf
+
+# Without this filter, we get very close to the limit.
+PRODUCT_DEX_PREOPT_DEFAULT_FLAGS += --compiler-filter=space
 
 #PRODUCT_CHARACTERISTICS := tablet

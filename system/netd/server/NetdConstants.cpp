@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <ctype.h>
-#include <net/if.h>
 
 #define LOG_TAG "Netd"
 
@@ -72,6 +73,10 @@ static int execIptables(IptablesTarget target, bool silent, va_list args) {
     std::list<const char*> argsList;
     argsList.push_back(NULL);
     const char* arg;
+
+    // Wait to avoid failure due to another process holding the lock
+    argsList.push_back("-w");
+
     do {
         arg = va_arg(args, const char *);
         argsList.push_back(arg);
@@ -110,43 +115,6 @@ int execIptablesSilently(IptablesTarget target, ...) {
     int res = execIptables(target, true, args);
     va_end(args);
     return res;
-}
-
-int writeFile(const char *path, const char *value, int size) {
-    int fd = open(path, O_WRONLY);
-    if (fd < 0) {
-        ALOGE("Failed to open %s: %s", path, strerror(errno));
-        return -1;
-    }
-
-    if (write(fd, value, size) != size) {
-        ALOGE("Failed to write %s: %s", path, strerror(errno));
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    return 0;
-}
-
-int readFile(const char *path, char *buf, int *sizep)
-{
-    int fd = open(path, O_RDONLY);
-    int size;
-
-    if (fd < 0) {
-        ALOGE("Failed to open %s: %s", path, strerror(errno));
-        return -1;
-    }
-
-    size = read(fd, buf, *sizep);
-    if (size < 0) {
-        ALOGE("Failed to write %s: %s", path, strerror(errno));
-        close(fd);
-        return -1;
-    }
-    *sizep = size;
-    close(fd);
-    return 0;
 }
 
 /*

@@ -19,17 +19,19 @@
 
 #include <UniquePtr.h>
 
-#include <keymaster/keymaster_defs.h>
+#include <hardware/keymaster_defs.h>
 #include <keymaster/keymaster_tags.h>
 #include <keymaster/serializable.h>
 
 namespace keymaster {
 
+class AuthorizationSetBuilder;
+
 /**
- * A container that manages a set of keymaster_key_param_t objects, providing serialization,
- * de-serialization and accessors.
+ * An extension of the keymaster_key_param_set_t struct, which provides serialization memory
+ * management and methods for easy manipulation and construction.
  */
-class AuthorizationSet : public Serializable {
+class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
   public:
     /**
      * Construct an empty, dynamically-allocated, growable AuthorizationSet.  Does not actually
@@ -38,8 +40,11 @@ class AuthorizationSet : public Serializable {
      * buffers, with \p Reinitialize.
      */
     AuthorizationSet()
-        : elems_(NULL), elems_size_(0), elems_capacity_(0), indirect_data_(NULL),
-          indirect_data_size_(0), indirect_data_capacity_(0), error_(OK) {}
+        : elems_capacity_(0), indirect_data_(NULL), indirect_data_size_(0),
+          indirect_data_capacity_(0), error_(OK) {
+        elems_ = nullptr;
+        elems_size_ = 0;
+    }
 
     /**
      * Construct an AuthorizationSet from the provided array.  The AuthorizationSet copies the data
@@ -48,18 +53,38 @@ class AuthorizationSet : public Serializable {
      * return ALLOCATION_FAILURE. It is the responsibility of the caller to check before using the
      * set, if allocations might fail.
      */
-    AuthorizationSet(const keymaster_key_param_t* elems, size_t count)
-        : elems_(NULL), indirect_data_(NULL) {
+    AuthorizationSet(const keymaster_key_param_t* elems, size_t count) : indirect_data_(nullptr) {
+        elems_ = nullptr;
         Reinitialize(elems, count);
     }
 
-    AuthorizationSet(const uint8_t* serialized_set, size_t serialized_size)
-        : elems_(NULL), indirect_data_(NULL) {
+    explicit AuthorizationSet(const keymaster_key_param_set_t& set) : indirect_data_(nullptr) {
+        elems_ = nullptr;
+        Reinitialize(set.params, set.length);
+    }
+
+    explicit AuthorizationSet(const uint8_t* serialized_set, size_t serialized_size)
+        : indirect_data_(nullptr) {
+        elems_ = nullptr;
         Deserialize(&serialized_set, serialized_set + serialized_size);
     }
 
+    /**
+     * Construct an AuthorizationSet from the provided builder.  This extracts the data from the
+     * builder, rather than copying it, so after this call the builder is empty.
+     */
+    explicit AuthorizationSet(/* NOT const */ AuthorizationSetBuilder& builder);
+
     // Copy constructor.
-    AuthorizationSet(const AuthorizationSet&);
+    AuthorizationSet(const AuthorizationSet& set) : Serializable(), indirect_data_(nullptr) {
+        elems_ = nullptr;
+        Reinitialize(set.elems_, set.elems_size_);
+    }
+
+    /**
+     * Clear existing authorization set data
+     */
+    void Clear();
 
     /**
      * Reinitialize an AuthorizationSet as a dynamically-allocated, growable copy of the data in the
@@ -71,6 +96,10 @@ class AuthorizationSet : public Serializable {
 
     bool Reinitialize(const AuthorizationSet& set) {
         return Reinitialize(set.elems_, set.elems_size_);
+    }
+
+    bool Reinitialize(const keymaster_key_param_set_t& set) {
+        return Reinitialize(set.params, set.length);
     }
 
     ~AuthorizationSet();
@@ -96,7 +125,20 @@ class AuthorizationSet : public Serializable {
     /**
      * Returns the data in the set, directly. Be careful with this.
      */
-    const keymaster_key_param_t* data() const;
+    const keymaster_key_param_t* data() const { return elems_; }
+
+    /**
+     * Sorts the set and removes duplicates (inadvertently duplicating tags is easy to do with the
+     * AuthorizationSetBuilder).
+     */
+    void Deduplicate();
+
+    /**
+     * Returns the data in a keymaster_key_param_set_t, suitable for returning to C code.  For C
+     * compatibility, the contents are malloced, not new'ed, and so must be freed with free(), or
+     * better yet with keymaster_free_param_set, not delete.  The caller takes ownership.
+     */
+    void CopyToParamSet(keymaster_key_param_set_t* set) const;
 
     /**
      * Returns the offset of the next entry that matches \p tag, starting from the element after \p
@@ -105,16 +147,47 @@ class AuthorizationSet : public Serializable {
     int find(keymaster_tag_t tag, int begin = -1) const;
 
     /**
+     * Returns iterator (pointer) to beginning of elems array, to enable STL-style iteration
+     */
+    const keymaster_key_param_t* begin() const { return elems_; }
+
+    /**
+     * Returns iterator (pointer) one past end of elems array, to enable STL-style iteration
+     */
+    const keymaster_key_param_t* end() const { return elems_ + elems_size_; }
+
+    /**
      * Returns the nth element of the set.
      */
     keymaster_key_param_t operator[](int n) const;
+
+    /**
+     * Returns the number of \p tag entries.
+     */
+    size_t GetTagCount(keymaster_tag_t tag) const;
+
+    /**
+     * Returns true if the set contains the specified tag and value.
+     */
+    template <keymaster_tag_t Tag, typename T>
+    bool Contains(TypedEnumTag<KM_ENUM_REP, Tag, T> tag, T val) const {
+        return ContainsEnumValue(tag, val);
+    }
+
+    /**
+     * Returns true if the set contains the specified tag and value.
+     */
+    template <keymaster_tag_t Tag, typename T>
+    bool Contains(TypedEnumTag<KM_ENUM, Tag, T> tag, T val) const {
+        return ContainsEnumValue(tag, val);
+    }
 
     /**
      * If the specified integer-typed \p tag exists, places its value in \p val and returns true.
      * If \p tag is not present, leaves \p val unmodified and returns false.
      */
     template <keymaster_tag_t T>
-    inline bool GetTagValue(TypedTag<KM_INT, T> tag, uint32_t* val) const {
+    inline bool GetTagValue(TypedTag<KM_UINT, T> tag, uint32_t* val) const {
         return GetTagValueInt(tag, val);
     }
 
@@ -124,7 +197,7 @@ class AuthorizationSet : public Serializable {
      * false.
      */
     template <keymaster_tag_t Tag>
-    bool GetTagValue(TypedTag<KM_INT_REP, Tag> tag, size_t instance, uint32_t* val) const {
+    bool GetTagValue(TypedTag<KM_UINT_REP, Tag> tag, size_t instance, uint32_t* val) const {
         return GetTagValueIntRep(tag, instance, val);
     }
 
@@ -133,8 +206,18 @@ class AuthorizationSet : public Serializable {
      * If \p tag is not present, leaves \p val unmodified and returns false.
      */
     template <keymaster_tag_t T>
-    inline bool GetTagValue(TypedTag<KM_LONG, T> tag, uint64_t* val) const {
+    inline bool GetTagValue(TypedTag<KM_ULONG, T> tag, uint64_t* val) const {
         return GetTagValueLong(tag, val);
+    }
+
+    /**
+     * If the specified instance of the specified integer-typed \p tag exists, places its value
+     * in \p val and returns true.  If \p tag is not present, leaves \p val unmodified and returns
+     * false.
+     */
+    template <keymaster_tag_t Tag>
+    bool GetTagValue(TypedTag<KM_ULONG_REP, Tag> tag, size_t instance, uint64_t* val) const {
+        return GetTagValueLongRep(tag, instance, val);
     }
 
     /**
@@ -157,12 +240,24 @@ class AuthorizationSet : public Serializable {
     }
 
     /**
+     * If exactly one instance of the specified enumeration-typed \p tag exists, places its value in
+     * \p val and returns true.  If \p tag is not present or if multiple copies are present, leaves
+     * \p val unmodified and returns false.
+     */
+    template <keymaster_tag_t Tag, typename T>
+    bool GetTagValue(TypedEnumTag<KM_ENUM_REP, Tag, T> tag, T* val) const {
+        if (GetTagCount(tag) != 1)
+            return false;
+        return GetTagValueEnumRep(tag, 0, reinterpret_cast<uint32_t*>(val));
+    }
+
+    /**
      * If the specified date-typed \p tag exists, places its value in \p val and returns
      * true.  If \p tag is not present, leaves \p val unmodified and returns false.
      */
     template <keymaster_tag_t Tag>
-    bool GetTagValue(TypedTag<KM_INT_REP, Tag> tag, size_t instance,
-                     typename TypedTag<KM_INT_REP, Tag>::value_type* val) const {
+    bool GetTagValue(TypedTag<KM_UINT_REP, Tag> tag, size_t instance,
+                     typename TypedTag<KM_UINT_REP, Tag>::value_type* val) const {
         return GetTagValueIntRep(tag, instance, val);
     }
 
@@ -182,6 +277,13 @@ class AuthorizationSet : public Serializable {
     template <keymaster_tag_t Tag>
     bool GetTagValue(TypedTag<KM_BIGNUM, Tag> tag, keymaster_blob_t* val) const {
         return GetTagValueBlob(tag, val);
+    }
+
+    /**
+     * Returns true if the specified tag is present, and therefore has the value 'true'.
+     */
+    template <keymaster_tag_t Tag> bool GetTagValue(TypedTag<KM_BOOL, Tag> tag) const {
+        return GetTagValueBool(tag);
     }
 
     /**
@@ -207,22 +309,45 @@ class AuthorizationSet : public Serializable {
      */
     bool reserve_indirect(size_t length);
 
-    bool push_back(const AuthorizationSet& set);
+    bool push_back(const keymaster_key_param_set_t& set);
 
+    /**
+     * Append the tag and enumerated value to the set.
+     */
     template <keymaster_tag_t Tag, keymaster_tag_type_t Type, typename KeymasterEnum>
     bool push_back(TypedEnumTag<Type, Tag, KeymasterEnum> tag, KeymasterEnum val) {
         return push_back(Authorization(tag, val));
     }
 
+    /**
+     * Append the boolean tag (value "true") to the set.
+     */
     template <keymaster_tag_t Tag> bool push_back(TypedTag<KM_BOOL, Tag> tag) {
         return push_back(Authorization(tag));
     }
 
+    /**
+     * Append the tag and byte array to the set.  Copies the array into internal storage; does not
+     * take ownership of the passed-in array.
+     */
     template <keymaster_tag_t Tag>
     bool push_back(TypedTag<KM_BYTES, Tag> tag, const void* bytes, size_t bytes_len) {
         return push_back(keymaster_param_blob(tag, static_cast<const uint8_t*>(bytes), bytes_len));
     }
 
+    /**
+     * Append the tag and blob to the set.  Copies the blob contents into internal storage; does not
+     * take ownership of the blob's data.
+     */
+    template <keymaster_tag_t Tag>
+    bool push_back(TypedTag<KM_BYTES, Tag> tag, const keymaster_blob_t& blob) {
+        return push_back(tag, blob.data, blob.data_length);
+    }
+
+    /**
+     * Append the tag and bignum array to the set.  Copies the array into internal storage; does not
+     * take ownership of the passed-in array.
+     */
     template <keymaster_tag_t Tag>
     bool push_back(TypedTag<KM_BIGNUM, Tag> tag, const void* bytes, size_t bytes_len) {
         return push_back(keymaster_param_blob(tag, static_cast<const uint8_t*>(bytes), bytes_len));
@@ -264,17 +389,160 @@ class AuthorizationSet : public Serializable {
     bool GetTagValueInt(keymaster_tag_t tag, uint32_t* val) const;
     bool GetTagValueIntRep(keymaster_tag_t tag, size_t instance, uint32_t* val) const;
     bool GetTagValueLong(keymaster_tag_t tag, uint64_t* val) const;
+    bool GetTagValueLongRep(keymaster_tag_t tag, size_t instance, uint64_t* val) const;
     bool GetTagValueDate(keymaster_tag_t tag, uint64_t* val) const;
     bool GetTagValueBlob(keymaster_tag_t tag, keymaster_blob_t* val) const;
+    bool GetTagValueBool(keymaster_tag_t tag) const;
 
-    keymaster_key_param_t* elems_;
-    size_t elems_size_;
+    bool ContainsEnumValue(keymaster_tag_t tag, uint32_t val) const;
+
+    // Define elems_ and elems_size_ as aliases to params and length, respectivley.  This is to
+    // avoid using the variables without the trailing underscore in the implementation.
+    keymaster_key_param_t*& elems_ = keymaster_key_param_set_t::params;
+    size_t& elems_size_ = keymaster_key_param_set_t::length;
+
     size_t elems_capacity_;
     uint8_t* indirect_data_;
     size_t indirect_data_size_;
     size_t indirect_data_capacity_;
     Error error_;
 };
+
+class AuthorizationSetBuilder {
+  public:
+    template <typename TagType, typename ValueType>
+    AuthorizationSetBuilder& Authorization(TagType tag, ValueType value) {
+        set.push_back(tag, value);
+        return *this;
+    }
+
+    template <keymaster_tag_t Tag>
+    AuthorizationSetBuilder& Authorization(TypedTag<KM_BOOL, Tag> tag) {
+        set.push_back(tag);
+        return *this;
+    }
+
+    template <keymaster_tag_t Tag>
+    AuthorizationSetBuilder& Authorization(TypedTag<KM_INVALID, Tag> tag) {
+        keymaster_key_param_t param;
+        param.tag = tag;
+        set.push_back(param);
+        return *this;
+    }
+
+    template <keymaster_tag_t Tag>
+    AuthorizationSetBuilder& Authorization(TypedTag<KM_BYTES, Tag> tag, const uint8_t* data,
+                                           size_t data_length) {
+        set.push_back(tag, data, data_length);
+        return *this;
+    }
+
+    template <keymaster_tag_t Tag>
+    AuthorizationSetBuilder& Authorization(TypedTag<KM_BYTES, Tag> tag, const char* data,
+                                           size_t data_length) {
+        return Authorization(tag, reinterpret_cast<const uint8_t*>(data), data_length);
+    }
+
+    AuthorizationSetBuilder& RsaKey(uint32_t key_size, uint64_t public_exponent);
+    AuthorizationSetBuilder& EcdsaKey(uint32_t key_size);
+    AuthorizationSetBuilder& AesKey(uint32_t key_size);
+    AuthorizationSetBuilder& HmacKey(uint32_t key_size);
+
+    AuthorizationSetBuilder& RsaSigningKey(uint32_t key_size, uint64_t public_exponent);
+    AuthorizationSetBuilder& RsaEncryptionKey(uint32_t key_size, uint64_t public_exponent);
+    AuthorizationSetBuilder& EcdsaSigningKey(uint32_t key_size);
+    AuthorizationSetBuilder& AesEncryptionKey(uint32_t key_size);
+
+    AuthorizationSetBuilder& SigningKey();
+    AuthorizationSetBuilder& EncryptionKey();
+    AuthorizationSetBuilder& NoDigestOrPadding();
+    AuthorizationSetBuilder& EcbMode();
+
+    AuthorizationSetBuilder& Digest(keymaster_digest_t digest) {
+        return Authorization(TAG_DIGEST, digest);
+    }
+
+    AuthorizationSetBuilder& Padding(keymaster_padding_t padding) {
+        return Authorization(TAG_PADDING, padding);
+    }
+
+    AuthorizationSetBuilder& Deduplicate() {
+        set.Deduplicate();
+        return *this;
+    }
+
+    AuthorizationSet build() const { return set; }
+
+  private:
+    friend AuthorizationSet;
+    AuthorizationSet set;
+};
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::RsaKey(uint32_t key_size,
+                                                                uint64_t public_exponent) {
+    Authorization(TAG_ALGORITHM, KM_ALGORITHM_RSA);
+    Authorization(TAG_KEY_SIZE, key_size);
+    Authorization(TAG_RSA_PUBLIC_EXPONENT, public_exponent);
+    return *this;
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcdsaKey(uint32_t key_size) {
+    Authorization(TAG_ALGORITHM, KM_ALGORITHM_EC);
+    Authorization(TAG_KEY_SIZE, key_size);
+    return *this;
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::AesKey(uint32_t key_size) {
+    Authorization(TAG_ALGORITHM, KM_ALGORITHM_AES);
+    return Authorization(TAG_KEY_SIZE, key_size);
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::HmacKey(uint32_t key_size) {
+    Authorization(TAG_ALGORITHM, KM_ALGORITHM_HMAC);
+    Authorization(TAG_KEY_SIZE, key_size);
+    return SigningKey();
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::RsaSigningKey(uint32_t key_size,
+                                                                       uint64_t public_exponent) {
+    RsaKey(key_size, public_exponent);
+    return SigningKey();
+}
+
+inline AuthorizationSetBuilder&
+AuthorizationSetBuilder::RsaEncryptionKey(uint32_t key_size, uint64_t public_exponent) {
+    RsaKey(key_size, public_exponent);
+    return EncryptionKey();
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcdsaSigningKey(uint32_t key_size) {
+    EcdsaKey(key_size);
+    return SigningKey();
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::AesEncryptionKey(uint32_t key_size) {
+    AesKey(key_size);
+    return EncryptionKey();
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::SigningKey() {
+    Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN);
+    return Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY);
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::EncryptionKey() {
+    Authorization(TAG_PURPOSE, KM_PURPOSE_ENCRYPT);
+    return Authorization(TAG_PURPOSE, KM_PURPOSE_DECRYPT);
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::NoDigestOrPadding() {
+    Authorization(TAG_DIGEST, KM_DIGEST_NONE);
+    return Authorization(TAG_PADDING, KM_PAD_NONE);
+}
+
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcbMode() {
+    return Authorization(TAG_BLOCK_MODE, KM_MODE_ECB);
+}
 
 }  // namespace keymaster
 

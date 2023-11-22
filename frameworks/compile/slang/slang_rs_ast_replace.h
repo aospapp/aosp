@@ -58,11 +58,11 @@ class RSASTReplace : public clang::StmtVisitor<RSASTReplace> {
  public:
   explicit RSASTReplace(clang::ASTContext &Con)
       : C(Con),
-        mOuterStmt(NULL),
-        mOldStmt(NULL),
-        mNewStmt(NULL),
-        mOldExpr(NULL),
-        mNewExpr(NULL) {
+        mOuterStmt(nullptr),
+        mOldStmt(nullptr),
+        mNewStmt(nullptr),
+        mOldExpr(nullptr),
+        mNewExpr(nullptr) {
   }
 
   void VisitStmt(clang::Stmt *S);

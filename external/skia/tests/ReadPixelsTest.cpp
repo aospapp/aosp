@@ -10,6 +10,7 @@
 #include "SkColorPriv.h"
 #include "SkMathPriv.h"
 #include "SkRegion.h"
+#include "SkSurface.h"
 #include "Test.h"
 
 #if SK_SUPPORT_GPU
@@ -95,9 +96,7 @@ static SkPMColor convertToPMColor(SkColorType ct, SkAlphaType at, const uint32_t
 static void fillCanvas(SkCanvas* canvas) {
     static SkBitmap bmp;
     if (bmp.isNull()) {
-        SkDEBUGCODE(bool alloc =) bmp.allocN32Pixels(DEV_W, DEV_H);
-        SkASSERT(alloc);
-        SkAutoLockPixels alp(bmp);
+        bmp.allocN32Pixels(DEV_W, DEV_H);
         intptr_t pixels = reinterpret_cast<intptr_t>(bmp.getPixels());
         for (int y = 0; y < DEV_H; ++y) {
             for (int x = 0; x < DEV_W; ++x) {
@@ -297,11 +296,11 @@ DEF_GPUTEST(ReadPixels, reporter, factory) {
             glCtxTypeCnt = GrContextFactory::kGLContextTypeCnt;
         }
 #endif
+        const SkImageInfo info = SkImageInfo::MakeN32Premul(DEV_W, DEV_H);
         for (int glCtxType = 0; glCtxType < glCtxTypeCnt; ++glCtxType) {
-            SkAutoTUnref<SkBaseDevice> device;
+            SkAutoTUnref<SkSurface> surface;
             if (0 == dtype) {
-                SkImageInfo info = SkImageInfo::MakeN32Premul(DEV_W, DEV_H);
-                device.reset(SkBitmapDevice::Create(info));
+                surface.reset(SkSurface::NewRaster(info));
             } else {
 #if SK_SUPPORT_GPU
                 GrContextFactory::GLContextType type =
@@ -313,21 +312,20 @@ DEF_GPUTEST(ReadPixels, reporter, factory) {
                 if (NULL == context) {
                     continue;
                 }
-                GrTextureDesc desc;
-                desc.fFlags = kRenderTarget_GrTextureFlagBit | kNoStencil_GrTextureFlagBit;
+                GrSurfaceDesc desc;
+                desc.fFlags = kRenderTarget_GrSurfaceFlag;
                 desc.fWidth = DEV_W;
                 desc.fHeight = DEV_H;
                 desc.fConfig = kSkia8888_GrPixelConfig;
-                desc.fOrigin = 1 == dtype ? kBottomLeft_GrSurfaceOrigin
-                                          : kTopLeft_GrSurfaceOrigin;
-                GrAutoScratchTexture ast(context, desc, GrContext::kExact_ScratchTexMatch);
-                SkAutoTUnref<GrTexture> tex(ast.detach());
-                device.reset(new SkGpuDevice(context, tex));
+                desc.fOrigin = 1 == dtype ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
+                SkAutoTUnref<GrTexture> texture(
+                    context->textureProvider()->createTexture(desc, false));
+                surface.reset(SkSurface::NewRenderTargetDirect(texture->asRenderTarget()));
 #else
                 continue;
 #endif
             }
-            SkCanvas canvas(device);
+            SkCanvas& canvas = *surface->getCanvas();
             fillCanvas(&canvas);
 
             static const struct {
@@ -353,9 +351,9 @@ DEF_GPUTEST(ReadPixels, reporter, factory) {
                         if (startsWithPixels) {
                             fillBitmap(&bmp);
                         }
-                        uint32_t idBefore = canvas.getDevice()->accessBitmap(false).getGenerationID();
+                        uint32_t idBefore = surface->generationID();
                         bool success = canvas.readPixels(&bmp, srcRect.fLeft, srcRect.fTop);
-                        uint32_t idAfter = canvas.getDevice()->accessBitmap(false).getGenerationID();
+                        uint32_t idAfter = surface->generationID();
 
                         // we expect to succeed when the read isn't fully clipped
                         // out.

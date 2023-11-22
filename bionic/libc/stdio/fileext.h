@@ -33,6 +33,7 @@
 #define _FILEEXT_H_
 
 #include <pthread.h>
+#include <stdbool.h>
 
 __BEGIN_DECLS
 
@@ -40,14 +41,18 @@ __BEGIN_DECLS
  * file extension
  */
 struct __sfileext {
-	struct	__sbuf _ub; /* ungetc buffer */
+	struct	__sbuf _ub;		/* ungetc buffer */
 	struct wchar_io_data _wcio;	/* wide char io status */
-	pthread_mutex_t _lock; /* file lock */
+	pthread_mutex_t _lock;		/* file lock */
+	bool _stdio_handles_locking;	/* __fsetlocking support */
 };
 
-#define _FILEEXT_INITIALIZER  {{NULL,0},{0},PTHREAD_RECURSIVE_MUTEX_INITIALIZER}
-
+#if defined(__cplusplus)
+#define _EXT(fp) reinterpret_cast<__sfileext*>((fp)->_ext._base)
+#else
 #define _EXT(fp) ((struct __sfileext *)((fp)->_ext._base))
+#endif
+
 #define _UB(fp) _EXT(fp)->_ub
 #define _FLOCK(fp)  _EXT(fp)->_lock
 
@@ -56,7 +61,12 @@ do { \
 	_UB(fp)._base = NULL; \
 	_UB(fp)._size = 0; \
 	WCIO_INIT(fp); \
-        _FLOCK(fp).value = __PTHREAD_RECURSIVE_MUTEX_INIT_VALUE; \
+	pthread_mutexattr_t attr; \
+	pthread_mutexattr_init(&attr); \
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE); \
+	pthread_mutex_init(&_FLOCK(fp), &attr); \
+	pthread_mutexattr_destroy(&attr); \
+	_EXT(fp)->_stdio_handles_locking = true; \
 } while (0)
 
 #define _FILEEXT_SETUP(f, fext) \

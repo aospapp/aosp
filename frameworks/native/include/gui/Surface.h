@@ -101,6 +101,14 @@ public:
      */
     void allocateBuffers();
 
+    /* Sets the generation number on the IGraphicBufferProducer and updates the
+     * generation number on any buffers attached to the Surface after this call.
+     * See IGBP::setGenerationNumber for more information. */
+    status_t setGenerationNumber(uint32_t generationNumber);
+
+    // See IGraphicBufferProducer::getConsumerName
+    String8 getConsumerName() const;
+
 protected:
     virtual ~Surface();
 
@@ -146,6 +154,8 @@ private:
     int dispatchLock(va_list args);
     int dispatchUnlockAndPost(va_list args);
     int dispatchSetSidebandStream(va_list args);
+    int dispatchSetBuffersDataSpace(va_list args);
+    int dispatchSetSurfaceDamage(va_list args);
 
 protected:
     virtual int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
@@ -160,19 +170,26 @@ protected:
     virtual int connect(int api);
     virtual int disconnect(int api);
     virtual int setBufferCount(int bufferCount);
-    virtual int setBuffersDimensions(int w, int h);
-    virtual int setBuffersUserDimensions(int w, int h);
-    virtual int setBuffersFormat(int format);
+    virtual int setBuffersDimensions(uint32_t width, uint32_t height);
+    virtual int setBuffersUserDimensions(uint32_t width, uint32_t height);
+    virtual int setBuffersFormat(PixelFormat format);
     virtual int setScalingMode(int mode);
-    virtual int setBuffersTransform(int transform);
-    virtual int setBuffersStickyTransform(int transform);
+    virtual int setBuffersTransform(uint32_t transform);
+    virtual int setBuffersStickyTransform(uint32_t transform);
     virtual int setBuffersTimestamp(int64_t timestamp);
+    virtual int setBuffersDataSpace(android_dataspace dataSpace);
     virtual int setCrop(Rect const* rect);
     virtual int setUsage(uint32_t reqUsage);
+    virtual void setSurfaceDamage(android_native_rect_t* rects, size_t numRects);
 
 public:
     virtual int lock(ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds);
     virtual int unlockAndPost();
+
+    virtual int connect(int api, const sp<IProducerListener>& listener);
+    virtual int detachNextBuffer(sp<GraphicBuffer>* outBuffer,
+            sp<Fence>* outFence);
+    virtual int attachBuffer(ANativeWindowBuffer*);
 
 protected:
     enum { NUM_BUFFER_SLOTS = BufferQueue::NUM_BUFFER_SLOTS };
@@ -211,7 +228,7 @@ private:
 
     // mReqFormat is the buffer pixel format that will be requested at the next
     // deuque operation. It is initialized to PIXEL_FORMAT_RGBA_8888.
-    uint32_t mReqFormat;
+    PixelFormat mReqFormat;
 
     // mReqUsage is the set of buffer usage flags that will be requested
     // at the next deuque operation. It is initialized to 0.
@@ -221,6 +238,11 @@ private:
     // operation. It defaults to NATIVE_WINDOW_TIMESTAMP_AUTO, which means that
     // a timestamp is auto-generated when queueBuffer is called.
     int64_t mTimestamp;
+
+    // mDataSpace is the buffer dataSpace that will be used for the next buffer
+    // queue operation. It defaults to HAL_DATASPACE_UNKNOWN, which
+    // means that the buffer contains some type of color data.
+    android_dataspace mDataSpace;
 
     // mCrop is the crop rectangle that will be used for the next buffer
     // that gets queued. It is set by calling setCrop.
@@ -240,23 +262,23 @@ private:
     // from being set by the compositor.
     uint32_t mStickyTransform;
 
-     // mDefaultWidth is default width of the buffers, regardless of the
-     // native_window_set_buffers_dimensions call.
-     uint32_t mDefaultWidth;
+    // mDefaultWidth is default width of the buffers, regardless of the
+    // native_window_set_buffers_dimensions call.
+    uint32_t mDefaultWidth;
 
-     // mDefaultHeight is default height of the buffers, regardless of the
-     // native_window_set_buffers_dimensions call.
-     uint32_t mDefaultHeight;
+    // mDefaultHeight is default height of the buffers, regardless of the
+    // native_window_set_buffers_dimensions call.
+    uint32_t mDefaultHeight;
 
-     // mUserWidth, if non-zero, is an application-specified override
-     // of mDefaultWidth.  This is lower priority than the width set by
-     // native_window_set_buffers_dimensions.
-     uint32_t mUserWidth;
+    // mUserWidth, if non-zero, is an application-specified override
+    // of mDefaultWidth.  This is lower priority than the width set by
+    // native_window_set_buffers_dimensions.
+    uint32_t mUserWidth;
 
-     // mUserHeight, if non-zero, is an application-specified override
-     // of mDefaultHeight.  This is lower priority than the height set
-     // by native_window_set_buffers_dimensions.
-     uint32_t mUserHeight;
+    // mUserHeight, if non-zero, is an application-specified override
+    // of mDefaultHeight.  This is lower priority than the height set
+    // by native_window_set_buffers_dimensions.
+    uint32_t mUserHeight;
 
     // mTransformHint is the transform probably applied to buffers of this
     // window. this is only a hint, actual transform may differ.
@@ -284,8 +306,17 @@ private:
     sp<GraphicBuffer>           mPostedBuffer;
     bool                        mConnectedToCpu;
 
-    // must be accessed from lock/unlock thread only
+    // When a CPU producer is attached, this reflects the region that the
+    // producer wished to update as well as whether the Surface was able to copy
+    // the previous buffer back to allow a partial update.
+    //
+    // When a non-CPU producer is attached, this reflects the surface damage
+    // (the change since the previous frame) passed in by the producer.
     Region mDirtyRegion;
+
+    // Stores the current generation number. See setGenerationNumber and
+    // IGraphicBufferProducer::setGenerationNumber for more information.
+    uint32_t mGenerationNumber;
 };
 
 }; // namespace android

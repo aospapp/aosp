@@ -116,7 +116,7 @@ ihevc_intra_pred_luma_mode2_av8:
     add         x0,x0,x4,lsl #1
 
     sub         x0,x0,#9                    //src[1]
-    add         x10,x0,#-1
+    sub         x10,x0,#1
 
 prologue_cpy_32:
 
@@ -215,7 +215,7 @@ kernel_mode2:
     add         x9, x7, x3
 
     rev64       v20.8b,  v4.8b
-    add         x10,x0,#-1
+    sub         x10,x0,#1
 
     rev64       v21.8b,  v5.8b
     subs        x1, x1, #8
@@ -244,7 +244,7 @@ mode2_4:
 
     mov         x8,#-2
     sub         x0,x0,#1
-    add         x10,x0,#-1
+    sub         x10,x0,#1
 
     ld1         {v0.8b},[x0],x8
     add         x5,x2,x3

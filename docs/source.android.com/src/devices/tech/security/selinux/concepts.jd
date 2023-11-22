@@ -110,7 +110,7 @@ for each class are represented by permissions. </p>
 <p>The policy rules come in the form: allow <em>domains</em> <em>types</em>:<em>classes</em> <em>permissions</em>;, where:</p>
 
 <ul>
-  <li><em>Domain</em> - A label for the process or set of processes.
+  <li><em>Domain</em> - A label for the process or set of processes.  Also called a domain type as it is just a type for a process.
   <li><em>Type</em> - A label for the object (e.g. file, socket) or set of objects.
   <li><em>Class</em> - The kind of object (e.g. file, socket) being accessed.
   <li><em>Permission</em> - The operation (e.g. read, write) being performed.
@@ -119,23 +119,22 @@ for each class are represented by permissions. </p>
 <p>And so an example use of this would follow the structure:</p>
 <code>allow appdomain app_data_file:file rw_file_perms;</code>
 
-<p>This says an application is allowed to read and write files labeled
+<p>This says that all application domains are allowed to read and write files labeled
 app_data_file. Note that this rule relies upon macros defined in the
 global_macros file, and other helpful macros can also be found in the te_macros
-file. Macros are provided for common groupings of classes, permissions and
+file, both of which can be found in the <a href="https://android.googlesource.com/platform/external/sepolicy/">external/sepolicy</a> directory in the AOSP source tree. Macros are provided for common groupings of classes, permissions and
 rules, and should be used whenever possible to help reduce the likelihood of
-failures due to denials on related permissions. During compilation, those
-overrides are concatenated to the existing SELinux settings and into a single
-security policy. These overrides add to the base security policy rather than
-subtract from existing settings.</p>
+failures due to denials on related permissions.</p>
+
+<p>In addition to individually listing domains or types in a rule, one can also refer to a set of domains or types via an <em>attribute</em>.  An attribute is simply a name for a set of domains or types.  Each domain or type can be associated with any number of attributes.  When a rule is written that specifies an attribute name, that name is automatically expanded to the list of domains or types associated with the attribute.  For example, the <em>domain</em> attribute is associated with all process domains, and the <em>file_type</em> attribute is associated with all file types.</p>
 
 <p>Use the syntax above to create avc rules that comprise the essence of an
 SELinux policy.  A rule takes the form:
 <pre>
-&lt;rule variant&gt; &lt;source_type&gt; &lt;target_type&gt; : &lt;class&gt; &lt;permission&gt;
+&lt;rule variant&gt; &lt;source_types&gt; &lt;target_types&gt; : &lt;classes&gt; &lt;permissions&gt;
 </pre>
 
-<p>The rule indicates what should happen when an object labeled with the <em>source_type </em>attempts an action corresponding to <em>permission </em>on an object of class <em>class </em>which has the <em>target_type </em>label.  The most common example of one of these rules is an allow rule, e.g.:</p>
+<p>The rule indicates what should happen when a subject labeled with any of the <em>source_types</em> attempts an action corresponding to any of the <em>permissions</em> on an object with any of the class <em>classes</em> which has any of the <em>target_types</em> label.  The most common example of one of these rules is an allow rule, e.g.:</p>
 
 <pre>
 allow domain null_device:chr_file { open };
@@ -143,32 +142,33 @@ allow domain null_device:chr_file { open };
 
 
 <p>
-This rule allows a process with <em>source_type</em> of ‘domain’to take the action described by the <em>permission</em> ‘open’ on an object of <em>class</em> ‘chr_file’ that has the <em>target_type</em> label of ‘null_device.’  In practice, this rule may be extended to include other permissions: </p>
+This rule allows a process with any <em>domain</em> associated with the ‘domain’ attribute to take the action described by the <em>permission</em> ‘open’ on an object of <em>class</em> ‘chr_file’ (character device file) that has the <em>target_type</em> label of ‘null_device.’  In practice, this rule may be extended to include other permissions: </p>
 
 <pre>
-allow domain null_device:chr_file { getattr open read ioctl lock append write}; 
+allow domain null_device:chr_file { getattr open read ioctl lock append write};
 </pre>
 
-<p>When combined with the knowledge that ‘domain’ is a label for all processes and
-that null_device is the label for the ‘chr_file’ /dev/null, this rule basically
+<p>When combined with the knowledge that ‘domain’ is an attribute assigned to
+all process domains and
+that null_device is the label for the character device /dev/null, this rule basically
 permits reading and writing to <code>/dev/null</code>.</p>
 
 <p>A <em>domain</em> generally corresponds to a process and will have a label associated with it.</p>
 
-<p>For example, a typical Android app is running it its own process and has the
+<p>For example, a typical Android app is running in its own process and has the
 label of untrusted_app that grants it certain restricted permissions.</p>
 
 <p>Platform apps built into the system run under a separate label and are granted
-a distinct set of permissions. System apps that are part of the core Android
+a distinct set of permissions. System UID apps that are part of the core Android
 system run under the system_app label for yet another set of privileges.</p>
 
-<p>These generic labels require further specification:</p>
+<p>Access to the following generic labels should never be directly allowed to domains; instead, a more specific type should be created for the object or objects:</p>
 
 <ul>
   <li> socket_device
   <li> device
   <li> block_device
   <li> default_service
-  <li> system_data_type
+  <li> system_data_file
   <li> tmpfs
 </ul>

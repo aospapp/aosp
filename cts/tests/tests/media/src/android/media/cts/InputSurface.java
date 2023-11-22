@@ -41,8 +41,11 @@ class InputSurface {
     private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
     private EGLContext mEGLContext = EGL14.EGL_NO_CONTEXT;
     private EGLSurface mEGLSurface = EGL14.EGL_NO_SURFACE;
+    private EGLConfig[] mConfigs = new EGLConfig[1];
 
     private Surface mSurface;
+    private int mWidth;
+    private int mHeight;
 
     /**
      * Creates an InputSurface from a Surface.
@@ -80,9 +83,8 @@ class InputSurface {
                 EGL_RECORDABLE_ANDROID, 1,
                 EGL14.EGL_NONE
         };
-        EGLConfig[] configs = new EGLConfig[1];
         int[] numConfigs = new int[1];
-        if (!EGL14.eglChooseConfig(mEGLDisplay, attribList, 0, configs, 0, configs.length,
+        if (!EGL14.eglChooseConfig(mEGLDisplay, attribList, 0, mConfigs, 0, mConfigs.length,
                 numConfigs, 0)) {
             throw new RuntimeException("unable to find RGB888+recordable ES2 EGL config");
         }
@@ -92,7 +94,7 @@ class InputSurface {
                 EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,
                 EGL14.EGL_NONE
         };
-        mEGLContext = EGL14.eglCreateContext(mEGLDisplay, configs[0], EGL14.EGL_NO_CONTEXT,
+        mEGLContext = EGL14.eglCreateContext(mEGLDisplay, mConfigs[0], EGL14.EGL_NO_CONTEXT,
                 attrib_list, 0);
         checkEglError("eglCreateContext");
         if (mEGLContext == null) {
@@ -100,17 +102,40 @@ class InputSurface {
         }
 
         // Create a window surface, and attach it to the Surface we received.
+        createEGLSurface();
+
+        mWidth = getWidth();
+        mHeight = getHeight();
+    }
+
+    public void updateSize(int width, int height) {
+        if (width != mWidth || height != mHeight) {
+            Log.d(TAG, "re-create EGLSurface");
+            releaseEGLSurface();
+            createEGLSurface();
+            mWidth = getWidth();
+            mHeight = getHeight();
+        }
+    }
+
+    private void createEGLSurface() {
+        //EGLConfig[] configs = new EGLConfig[1];
         int[] surfaceAttribs = {
                 EGL14.EGL_NONE
         };
-        mEGLSurface = EGL14.eglCreateWindowSurface(mEGLDisplay, configs[0], mSurface,
+        mEGLSurface = EGL14.eglCreateWindowSurface(mEGLDisplay, mConfigs[0], mSurface,
                 surfaceAttribs, 0);
         checkEglError("eglCreateWindowSurface");
         if (mEGLSurface == null) {
             throw new RuntimeException("surface was null");
         }
     }
-
+    private void releaseEGLSurface() {
+        if (mEGLDisplay != EGL14.EGL_NO_DISPLAY) {
+            EGL14.eglDestroySurface(mEGLDisplay, mEGLSurface);
+            mEGLSurface = EGL14.EGL_NO_SURFACE;
+        }
+    }
     /**
      * Discard all resources held by this class, notably the EGL context.  Also releases the
      * Surface that was passed to our constructor.

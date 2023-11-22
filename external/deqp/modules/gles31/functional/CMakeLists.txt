@@ -1,6 +1,8 @@
 # dEQP-GLES31.functional
 
 set(DEQP_GLES31_FUNCTIONAL_SRCS
+	es31fAndroidExtensionPackES31ATests.cpp
+	es31fAndroidExtensionPackES31ATests.hpp
 	es31fBasicComputeShaderTests.cpp
 	es31fBasicComputeShaderTests.hpp
 	es31fBuiltinPrecisionTests.cpp
@@ -9,6 +11,10 @@ set(DEQP_GLES31_FUNCTIONAL_SRCS
 	es31fComputeShaderBuiltinVarTests.hpp
 	es31fFunctionalTests.cpp
 	es31fFunctionalTests.hpp
+	es31fDebugTests.cpp
+	es31fDebugTests.hpp
+	es31fDefaultVertexArrayObjectTests.cpp
+	es31fDefaultVertexArrayObjectTests.hpp
 	es31fDrawTests.cpp
 	es31fDrawTests.hpp
 	es31fGeometryShaderTests.cpp
@@ -19,6 +25,8 @@ set(DEQP_GLES31_FUNCTIONAL_SRCS
 	es31fTessellationTests.hpp
 	es31fAtomicCounterTests.hpp
 	es31fAtomicCounterTests.cpp
+	es31fSamplerStateQueryTests.cpp
+	es31fSamplerStateQueryTests.hpp
 	es31fSampleShadingTests.cpp
 	es31fSampleShadingTests.hpp
 	es31fSampleVariableTests.cpp
@@ -69,10 +77,26 @@ set(DEQP_GLES31_FUNCTIONAL_SRCS
 	es31fTextureLevelStateQueryTests.cpp
 	es31fTextureSpecificationTests.hpp
 	es31fTextureSpecificationTests.cpp
+	es31fTextureBorderClampTests.hpp
+	es31fTextureBorderClampTests.cpp
 	es31fIntegerStateQueryTests.cpp
 	es31fIntegerStateQueryTests.hpp
+	es31fBooleanStateQueryTests.cpp
+	es31fBooleanStateQueryTests.hpp
+	es31fIndexedStateQueryTests.cpp
+	es31fIndexedStateQueryTests.hpp
 	es31fInternalFormatQueryTests.cpp
 	es31fInternalFormatQueryTests.hpp
+	es31fTextureStateQueryTests.cpp
+	es31fTextureStateQueryTests.hpp
+	es31fFramebufferDefaultStateQueryTests.cpp
+	es31fFramebufferDefaultStateQueryTests.hpp
+	es31fProgramPipelineStateQueryTests.cpp
+	es31fProgramPipelineStateQueryTests.hpp
+	es31fProgramStateQueryTests.cpp
+	es31fProgramStateQueryTests.hpp
+	es31fInfoLogQueryShared.cpp
+	es31fInfoLogQueryShared.hpp
 	es31fTextureMultisampleTests.cpp
 	es31fTextureMultisampleTests.hpp
 	es31fUniformLocationTests.cpp
@@ -105,8 +129,6 @@ set(DEQP_GLES31_FUNCTIONAL_SRCS
 	es31fTessellationGeometryInteractionTests.hpp
 	es31fUniformBlockTests.cpp
 	es31fUniformBlockTests.hpp
-	es31fDebugTests.cpp
-	es31fDebugTests.hpp
 	es31fFboNoAttachmentTests.cpp
 	es31fFboNoAttachmentTests.hpp
 	es31fNegativeTestShared.cpp
@@ -133,6 +155,12 @@ set(DEQP_GLES31_FUNCTIONAL_SRCS
 	es31fShaderBuiltinConstantTests.hpp
 	es31fShaderHelperInvocationTests.cpp
 	es31fShaderHelperInvocationTests.hpp
+	es31fPrimitiveBoundingBoxTests.cpp
+	es31fPrimitiveBoundingBoxTests.hpp
+	es31fCopyImageTests.hpp
+	es31fCopyImageTests.cpp
+	es31fDrawBuffersIndexedTests.hpp
+	es31fDrawBuffersIndexedTests.cpp
 	)
 
 add_library(deqp-gles31-functional STATIC ${DEQP_GLES31_FUNCTIONAL_SRCS})

@@ -25,6 +25,7 @@
     <string name="spoken_no_text_entered" msgid="1711276837961785646">"نوشتاری وارد نشده است"</string>
     <string name="spoken_auto_correct" msgid="8989324692167993804">"<xliff:g id="KEY_NAME">%1$s</xliff:g>، ‏<xliff:g id="ORIGINAL_WORD">%2$s</xliff:g> را به <xliff:g id="CORRECTED_WORD">%3$s</xliff:g> تصحیح می‌کند"</string>
     <string name="spoken_auto_correct_obscured" msgid="7769449372355268412">"<xliff:g id="KEY_NAME">%1$s</xliff:g> تصحیح خودکار را انجام می‌دهد"</string>
+    <string name="spoken_empty_suggestion" msgid="4250215619373459752">"هیچ پیشنهادی وجود ندارد"</string>
     <string name="spoken_description_unknown" msgid="5139930082759824442">"نویسه نامشخص"</string>
     <string name="spoken_description_shift" msgid="7209798151676638728">"Shift"</string>
     <string name="spoken_description_symbols_shift" msgid="3483198879916435717">"نمادهای بیشتر"</string>
@@ -38,7 +39,7 @@
     <string name="spoken_description_settings" msgid="7281251004003143204">"تنظیمات"</string>
     <string name="spoken_description_tab" msgid="8210782459446866716">"Tab"</string>
     <string name="spoken_description_space" msgid="5908716896642059145">"فاصله"</string>
-    <string name="spoken_description_mic" msgid="6153138783813452464">"ورودی صدا"</string>
+    <string name="spoken_description_mic" msgid="6153138783813452464">"ورودی گفتاری"</string>
     <string name="spoken_description_emoji" msgid="7990051553008088470">"‏شکلک Emoji"</string>
     <string name="spoken_description_return" msgid="3183692287397645708">"بازگشت"</string>
     <string name="spoken_description_search" msgid="5099937658231911288">"جستجو"</string>
@@ -76,6 +77,12 @@
     <string name="spoken_letter_0130" msgid="4766619646231612274">"‏I بزرگ با نقطه بالایی"</string>
     <string name="spoken_symbol_unknown" msgid="717298227061173706">"نماد نامشخص"</string>
     <string name="spoken_emoji_unknown" msgid="5981009928135394306">"‏شکلک emoji نامشخص"</string>
+    <string name="spoken_emoticon_3A_2D_21_20" msgid="2410905667389534573">"صورتک بی‌حوصله"</string>
+    <string name="spoken_emoticon_3A_2D_24_20" msgid="2481260475945560438">"صورتک شرمنده"</string>
+    <string name="spoken_emoticon_42_2D_29_20" msgid="1063205250387128068">"صورتک با عینک آفتابی"</string>
+    <string name="spoken_emoticon_3A_4F_20" msgid="532695091593447238">"صورتک شگفت‌زده"</string>
+    <string name="spoken_emoticon_3A_2D_2A_20" msgid="5612342617244114291">"صورتک بوسه‌زن"</string>
+    <string name="spoken_emoticon_3A_2D_5B_20" msgid="2223507987759905920">"صورتک اخمو"</string>
     <string name="spoken_open_more_keys_keyboard" msgid="6832897688371903747">"نویسه‌های جایگزین در دسترس هستند"</string>
     <string name="spoken_close_more_keys_keyboard" msgid="3524914657934712026">"از نویسه‌های جایگزین صرفنظر می‌شود"</string>
     <string name="spoken_open_more_suggestions" msgid="4231720702882969760">"پیشنهادهای جایگزین در دسترس هستند"</string>

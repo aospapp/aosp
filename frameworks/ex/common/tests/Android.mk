@@ -19,7 +19,7 @@ LOCAL_CERTIFICATE := platform
 LOCAL_JAVA_LIBRARIES := android.test.runner
 LOCAL_MODULE_TAGS := tests
 LOCAL_PACKAGE_NAME := AndroidCommonTests
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := 8
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_STATIC_JAVA_LIBRARIES := android-common
 

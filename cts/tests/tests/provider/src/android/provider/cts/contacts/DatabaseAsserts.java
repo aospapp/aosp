@@ -21,6 +21,8 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
+import android.provider.BaseColumns;
+import android.provider.ContactsContract.Contacts;
 import android.provider.cts.contacts.account.StaticAccountAuthenticator;
 import android.test.MoreAsserts;
 
@@ -260,5 +262,77 @@ public class DatabaseAsserts {
             }
         }
         return true;
+    }
+
+    public static String buildIdSelection(long[] ids) {
+        StringBuilder selection = new StringBuilder();
+        selection.append(BaseColumns._ID + " in ");
+        selection.append("(");
+        for (int i = 0; i < ids.length; i++) {
+            if (i != 0) selection.append(",");
+            selection.append(ids[i]);
+        }
+        selection.append(")");
+        return selection.toString();
+    }
+
+    /**
+     * Check if a query accepts all columns in the projection, and a resulting cursor contains
+     * all expected columns.  This also checks the number of resulting rows, but don't check
+     * actual content in a returned cursor.
+     */
+    public static void checkProjection(ContentResolver resolver,
+            Uri uri, String[] allColumns, long[] ids) {
+        final String selection = buildIdSelection(ids);
+
+        // First, check the null projection (i.e. all columns).
+        checkProjectionInner(resolver, uri, null, allColumns, selection, ids.length,
+                /* keepPosition =*/ false);
+
+        // All columns.
+        checkProjectionInner(resolver, uri, allColumns, allColumns, selection, ids.length,
+                /* keepPosition =*/ true);
+
+        // Select each column one by one.
+        for (int i = 0; i < allColumns.length; i++) {
+            final String[] columns = new String[] {allColumns[i]};
+            checkProjectionInner(resolver, uri, columns, columns, selection, ids.length,
+                        /* keepPosition =*/ true);
+        }
+
+        // Select two columns.
+        for (int i = 0; i < allColumns.length; i++) {
+            for (int j = 0; j < allColumns.length; j++) {
+                // Requesting the same column multiple times is okay, but it'd make the column
+                // order check harder.
+                if (i == j) continue;
+                final String[] columns = new String[] {allColumns[i], allColumns[j]};
+                checkProjectionInner(resolver, uri, columns, columns, selection, ids.length,
+                        /* keepPosition =*/ true);
+            }
+        }
+    }
+
+    private static void checkProjectionInner(ContentResolver resolver,
+            Uri uri, String[] projection, String[] expectedColumns,
+            String selection, int expectedRowCount, boolean keepPosition) {
+        final Cursor c = resolver.query(uri, projection, selection,
+                /* args =*/ null, /* sort =*/ null);
+        Assert.assertNotNull(c);
+        try {
+            Assert.assertEquals("# of rows", expectedRowCount, c.getCount());
+
+            // Make sure expected columns exist.
+            for (int i = 0; i < expectedColumns.length; i++) {
+                final String column = expectedColumns[i];
+                if (keepPosition) {
+                    Assert.assertEquals(column, c.getColumnName(i));
+                } else {
+                    Assert.assertTrue(column, c.getColumnIndex(column) >= 0);
+                }
+            }
+        } finally {
+            c.close();
+        }
     }
 }

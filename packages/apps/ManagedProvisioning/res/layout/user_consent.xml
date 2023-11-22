@@ -16,9 +16,11 @@
  * limitations under the License.
  */
 -->
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    style="@style/Container" >
-    <include layout="@layout/header_and_title"/>
-    <include layout="@layout/user_consent_main_text"/>
-</LinearLayout>
+<com.android.setupwizardlib.SetupWizardLayout
+       xmlns:android="http://schemas.android.com/apk/res/android"
+       xmlns:app="http://schemas.android.com/apk/res-auto"
+       android:id="@+id/setup_wizard_layout"
+       android:layout_width="match_parent"
+       android:layout_height="match_parent">
+       <include layout="@layout/user_consent_main_text" />
+</com.android.setupwizardlib.SetupWizardLayout>

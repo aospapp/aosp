@@ -32,7 +32,7 @@ ssize_t OutputFile::write(const void *pBuf, size_t count) {
     return -1;
   }
 
-  if ((count <= 0) || (pBuf == NULL)) {
+  if ((count <= 0) || (pBuf == nullptr)) {
     // Keep safe and issue a warning.
     ALOGW("OutputFile::write: count = %zu, buffer = %p", count, pBuf);
     return 0;
@@ -79,7 +79,7 @@ llvm::raw_fd_ostream *OutputFile::dup() {
     if (newfd < 0) {
       if (errno != EINTR) {
         detectError();
-        return NULL;
+        return nullptr;
       }
       // EINTR
       continue;
@@ -91,7 +91,7 @@ llvm::raw_fd_ostream *OutputFile::dup() {
   llvm::raw_fd_ostream *result =
       new (std::nothrow) llvm::raw_fd_ostream(newfd, /* shouldClose */true);
 
-  if (result == NULL) {
+  if (result == nullptr) {
     mError = std::make_error_code(std::errc::not_enough_memory);
   }
 

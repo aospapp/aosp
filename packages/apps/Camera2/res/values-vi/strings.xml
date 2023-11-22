@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Mục này được lưu cục bộ và khả dụng ngoại tuyến."</string>
     <string name="please_wait" msgid="1416313324505140068">"Vui lòng chờ"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Lỗi máy ảnh"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Không thể kết nối với máy ảnh."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"Máy ảnh đã bị tắt do chính sách bảo mật."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Không thể kết nối với máy ảnh."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"Máy ảnh đã bị tắt do chính sách bảo mật."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"Đã xảy ra sự cố khi lưu ảnh hoặc video của bạn."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"Ứng dụng không có quyền quan trọng cần thiết để chạy. Hãy kiểm tra cài đặt quyền của bạn."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Lỗi lưu trữ ảnh."</string>
     <string name="wait" msgid="765601745709933047">"Vui lòng đợi..."</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Lắp thẻ SD trước khi sử dụng máy ảnh."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"Đang chuẩn bị thẻ SD…"</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"Không thể truy cập thẻ SD."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Đang quay ở chế độ khoảng thời gian"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Ứng dụng không thể kết nối với máy ảnh"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"Ảnh hoặc video không lưu vào thiết bị."</string>
     <string name="capturing" msgid="5255164204641920893">"Đang chụp"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Chọn máy ảnh"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Quay lại"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"MÁY ẢNH MẶT SAU"</string>
     <string name="dialog_ok" msgid="774141340500181131">"OK"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Hủy"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Báo cáo"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Loại bỏ"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Thẻ SD của bạn sắp hết dung lượng. Thay đổi cài đặt chất lượng hoặc xóa một số ảnh hoặc tệp khác."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Đã đạt tới giới hạn kích thước."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Quá nhanh"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Danh sách chế độ"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Chuyển đổi cuộn phim"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Cuộn phim"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Phóng to"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Phóng to"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Thu nhỏ"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Thu nhỏ"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Giá trị thu phóng là %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"BẬT"</string>
     <string name="capital_off" msgid="3020696135020167263">"TẮT"</string>
     <string name="video_control_play" msgid="6895236811408921715">"Phát video"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Đặt thời gian trong vài giây"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Đếm ngược để chụp ảnh"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Nhớ vị trí chụp ảnh?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Gắn thẻ cho ảnh và video của bạn với những địa điểm mà ảnh đó được chụp và video đó được quay.\n\nCác ứng dụng khác có thể truy cập vào thông tin này cùng với các hình ảnh đã lưu của bạn."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Gắn thẻ cho ảnh và video của bạn với những địa điểm bạn đã chụp/quay chúng."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"Không, cảm ơn"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Có"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"TÙY CHỌN KHÁC"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Hủy"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Xong"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Chụp lại"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Đánh giá"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Chia sẻ"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Xem"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Chỉnh sửa"</string>
@@ -365,4 +378,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"Cảm biến cỡ nhỏ \n(16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Đang lưu…"</string>
 </resources>

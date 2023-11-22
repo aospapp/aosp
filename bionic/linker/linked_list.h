@@ -36,6 +36,12 @@ class LinkedList {
     clear();
   }
 
+  LinkedList(LinkedList&& that) {
+    this->head_ = that.head_;
+    this->tail_ = that.tail_;
+    that.head_ = that.tail_ = nullptr;
+  }
+
   void push_front(T* const element) {
     LinkedListEntry<T>* new_entry = Allocator::alloc();
     new_entry->next = head_;
@@ -75,6 +81,14 @@ class LinkedList {
     return element;
   }
 
+  T* front() const {
+    if (head_ == nullptr) {
+      return nullptr;
+    }
+
+    return head_->element;
+  }
+
   void clear() {
     while (head_ != nullptr) {
       LinkedListEntry<T>* p = head_;
@@ -86,7 +100,7 @@ class LinkedList {
   }
 
   template<typename F>
-  void for_each(F action) {
+  void for_each(F action) const {
     visit([&] (T* si) {
       action(si);
       return true;
@@ -94,7 +108,7 @@ class LinkedList {
   }
 
   template<typename F>
-  bool visit(F action) {
+  bool visit(F action) const {
     for (LinkedListEntry<T>* e = head_; e != nullptr; e = e->next) {
       if (!action(e->element)) {
         return false;
@@ -122,6 +136,17 @@ class LinkedList {
     }
   }
 
+  template<typename F>
+  T* find_if(F predicate) const {
+    for (LinkedListEntry<T>* e = head_; e != nullptr; e = e->next) {
+      if (predicate(e->element)) {
+        return e->element;
+      }
+    }
+
+    return nullptr;
+  }
+
   size_t copy_to_array(T* array[], size_t array_length) const {
     size_t sz = 0;
     for (LinkedListEntry<T>* e = head_; sz < array_length && e != nullptr; e = e->next) {
@@ -138,6 +163,12 @@ class LinkedList {
       }
     }
     return false;
+  }
+
+  static LinkedList make_list(T* const element) {
+    LinkedList<T, Allocator> one_element_list;
+    one_element_list.push_back(element);
+    return one_element_list;
   }
 
  private:

@@ -20,13 +20,33 @@ import java.util.Comparator;
 
 interface HasCoverage {
     float getCoveragePercentage();
+    int getMemberSize();
     String getName();
 }
 
 class CoverageComparator implements Comparator<HasCoverage> {
     public int compare(HasCoverage entity, HasCoverage otherEntity) {
-        int diff = Math.round(entity.getCoveragePercentage())
-                - Math.round(otherEntity.getCoveragePercentage());
-        return diff != 0 ? diff : entity.getName().compareTo(otherEntity.getName());
+        int lhsPct = Math.round(entity.getCoveragePercentage());
+        int rhsPct = Math.round(otherEntity.getCoveragePercentage());
+        int diff = Integer.compare(getCoveragePercentageSegment(lhsPct),
+                getCoveragePercentageSegment(rhsPct));
+        return diff != 0 ? diff :
+            Integer.compare(otherEntity.getMemberSize(), entity.getMemberSize());
+    }
+
+    /**
+     * Distill coverage percentage down to 3 major segments
+     * @param coveragePercentage
+     * @return
+     */
+    private int getCoveragePercentageSegment(int coveragePercentage) {
+        // note that this segmentation logic is duplicated in api-coverage.xsl
+        if (coveragePercentage <= 50) {
+            return 0;
+        } else if (coveragePercentage <= 80) {
+            return 1;
+        } else {
+            return 2;
+        }
     }
 }

@@ -16,17 +16,19 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.testing.Helpers.nefariousMapEntry;
 import static com.google.common.collect.testing.IteratorFeature.MODIFIABLE;
 import static java.util.Arrays.asList;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.common.collect.testing.IteratorTester;
@@ -34,11 +36,14 @@ import com.google.common.collect.testing.google.UnmodifiableCollectionTests;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
 
+import junit.framework.TestCase;
+
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -60,7 +65,8 @@ import javax.annotation.Nullable;
  * @author Jared Levy
  */
 @GwtCompatible(emulated = true)
-public class MultimapsTest extends AbstractMultimapTest {
+public class MultimapsTest extends TestCase {
+
   private static final Comparator<Integer> INT_COMPARATOR =
       Ordering.<Integer>natural().reverse().nullsFirst();
 
@@ -72,13 +78,8 @@ public class MultimapsTest extends AbstractMultimapTest {
         }
       };
 
-  @Override protected Multimap<String, Integer> create() {
-    return Multimaps.synchronizedSetMultimap(
-        HashMultimap.<String, Integer>create());
-  }
-
   @SuppressWarnings("deprecation")
-  public void testUnmodifiableListMultimapShortCircuit(){
+  public void testUnmodifiableListMultimapShortCircuit() {
     ListMultimap<String, Integer> mod = ArrayListMultimap.create();
     ListMultimap<String, Integer> unmod = Multimaps.unmodifiableListMultimap(mod);
     assertNotSame(mod, unmod);
@@ -91,7 +92,7 @@ public class MultimapsTest extends AbstractMultimapTest {
   }
 
   @SuppressWarnings("deprecation")
-  public void testUnmodifiableSetMultimapShortCircuit(){
+  public void testUnmodifiableSetMultimapShortCircuit() {
     SetMultimap<String, Integer> mod = HashMultimap.create();
     SetMultimap<String, Integer> unmod = Multimaps.unmodifiableSetMultimap(mod);
     assertNotSame(mod, unmod);
@@ -104,7 +105,7 @@ public class MultimapsTest extends AbstractMultimapTest {
   }
 
   @SuppressWarnings("deprecation")
-  public void testUnmodifiableMultimapShortCircuit(){
+  public void testUnmodifiableMultimapShortCircuit() {
     Multimap<String, Integer> mod = HashMultimap.create();
     Multimap<String, Integer> unmod = Multimaps.unmodifiableMultimap(mod);
     assertNotSame(mod, unmod);
@@ -230,7 +231,7 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertTrue(unmod.containsEntry("foo", 1));
     assertEquals(mod, unmod);
   }
-  
+
   @SuppressWarnings("unchecked")
   public void testUnmodifiableMultimapEntries() {
     Multimap<String, Integer> mod = HashMultimap.create();
@@ -296,11 +297,10 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertEquals(multimap.hashCode(), unmodifiable.hashCode());
     assertEquals(multimap, unmodifiable);
 
-    ASSERT.that(unmodifiable.asMap().get("bar")).hasContentsAnyOrder(5, -1);
+    ASSERT.that(unmodifiable.asMap().get("bar")).has().exactly(5, -1);
     assertNull(unmodifiable.asMap().get("missing"));
 
     assertFalse(unmodifiable.entries() instanceof Serializable);
-    assertFalse(unmodifiable.asMap().values() instanceof Serializable);
   }
 
   /**
@@ -377,6 +377,32 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertEquals(expected, multimap);
   }
 
+  public void testAsMap_multimap() {
+    Multimap<String, Integer> multimap = Multimaps.newMultimap(
+        new HashMap<String, Collection<Integer>>(), new QueueSupplier());
+    Map<String, Collection<Integer>> map = Multimaps.asMap(multimap);
+    assertSame(multimap.asMap(), map);
+  }
+
+  public void testAsMap_listMultimap() {
+    ListMultimap<String, Integer> listMultimap = ArrayListMultimap.create();
+    Map<String, List<Integer>> map = Multimaps.asMap(listMultimap);
+    assertSame(listMultimap.asMap(), map);
+  }
+
+  public void testAsMap_setMultimap() {
+    SetMultimap<String, Integer> setMultimap = LinkedHashMultimap.create();
+    Map<String, Set<Integer>> map = Multimaps.asMap(setMultimap);
+    assertSame(setMultimap.asMap(), map);
+  }
+
+  public void testAsMap_sortedSetMultimap() {
+    SortedSetMultimap<String, Integer> sortedSetMultimap =
+        TreeMultimap.create();
+    Map<String, SortedSet<Integer>> map = Multimaps.asMap(sortedSetMultimap);
+    assertSame(sortedSetMultimap.asMap(), map);
+  }
+
   public void testForMap() {
     Map<String, Integer> map = Maps.newHashMap();
     map.put("foo", 1);
@@ -428,11 +454,11 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertFalse(map.containsKey("bar"));
     assertEquals(map.keySet(), multimapView.keySet());
     assertEquals(map.keySet(), multimapView.keys().elementSet());
-    ASSERT.that(multimapView.keys()).hasContentsAnyOrder("foo");
-    ASSERT.that(multimapView.values()).hasContentsAnyOrder(1);
-    ASSERT.that(multimapView.entries()).hasContentsAnyOrder(
+    ASSERT.that(multimapView.keys()).has().item("foo");
+    ASSERT.that(multimapView.values()).has().item(1);
+    ASSERT.that(multimapView.entries()).has().item(
         Maps.immutableEntry("foo", 1));
-    ASSERT.that(multimapView.asMap().entrySet()).hasContentsAnyOrder(
+    ASSERT.that(multimapView.asMap().entrySet()).has().item(
         Maps.immutableEntry(
             "foo", (Collection<Integer>) Collections.singleton(1)));
     multimapView.clear();
@@ -523,13 +549,12 @@ public class MultimapsTest extends AbstractMultimapTest {
           }
         };
 
-    tester.ignoreSunJavaBug6529795();
     tester.test();
   }
 
   private enum Color {BLUE, RED, YELLOW, GREEN}
 
-  private static abstract class CountingSupplier<E>
+  private abstract static class CountingSupplier<E>
       implements Supplier<E>, Serializable {
     int count;
 
@@ -547,6 +572,52 @@ public class MultimapsTest extends AbstractMultimapTest {
       return new LinkedList<Integer>();
     }
     private static final long serialVersionUID = 0;
+  }
+
+  public void testNewMultimapWithCollectionRejectingNegativeElements() {
+    CountingSupplier<Set<Integer>> factory = new SetSupplier() {
+      @Override
+      public Set<Integer> getImpl() {
+        final Set<Integer> backing = super.getImpl();
+        return new ForwardingSet<Integer>() {
+          @Override
+          protected Set<Integer> delegate() {
+            return backing;
+          }
+
+          @Override
+          public boolean add(Integer element) {
+            checkArgument(element >= 0);
+            return super.add(element);
+          }
+
+          @Override
+          public boolean addAll(Collection<? extends Integer> collection) {
+            return standardAddAll(collection);
+          }
+        };
+      }
+    };
+
+    Map<Color, Collection<Integer>> map = Maps.newEnumMap(Color.class);
+    Multimap<Color, Integer> multimap = Multimaps.newMultimap(map, factory);
+    try {
+      multimap.put(Color.BLUE, -1);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+    multimap.put(Color.RED, 1);
+    multimap.put(Color.BLUE, 2);
+    try {
+      multimap.put(Color.GREEN, -1);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+      // expected
+    }
+    ASSERT.that(multimap.entries()).has().exactly(
+        Maps.immutableEntry(Color.RED, 1),
+        Maps.immutableEntry(Color.BLUE, 2));
   }
 
   public void testNewMultimap() {
@@ -618,15 +689,15 @@ public class MultimapsTest extends AbstractMultimapTest {
     SerializableTester.reserializeAndAssert(multimap);
   }
 
-  private static class SetSupplier extends CountingSupplier<HashSet<Integer>> {
-    @Override public HashSet<Integer> getImpl() {
+  private static class SetSupplier extends CountingSupplier<Set<Integer>> {
+    @Override public Set<Integer> getImpl() {
       return new HashSet<Integer>(4);
     }
     private static final long serialVersionUID = 0;
   }
 
   public void testNewSetMultimap() {
-    CountingSupplier<HashSet<Integer>> factory = new SetSupplier();
+    CountingSupplier<Set<Integer>> factory = new SetSupplier();
     Map<Color, Collection<Integer>> map = Maps.newHashMap();
     SetMultimap<Color, Integer> multimap =
         Multimaps.newSetMultimap(map, factory);
@@ -640,7 +711,7 @@ public class MultimapsTest extends AbstractMultimapTest {
 
   @GwtIncompatible("SerializableTester")
   public void testNewSetMultimapSerialization() {
-    CountingSupplier<HashSet<Integer>> factory = new SetSupplier();
+    CountingSupplier<Set<Integer>> factory = new SetSupplier();
     Map<Color, Collection<Integer>> map = Maps.newHashMap();
     SetMultimap<Color, Integer> multimap = Multimaps.newSetMultimap(map, factory);
     multimap.putAll(Color.BLUE, asList(3, 1, 4));
@@ -714,39 +785,6 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertEquals(stringToObject, outputMap);
   }
 
-  // NOTE: evil, never do this
-  private abstract static class IterableIterator<T>
-      extends ForwardingIterator<T> implements Iterable<T> {
-    @Override
-    public Iterator<T> iterator() {
-      return this;
-    }
-  }
-
-  @SuppressWarnings("deprecation") // that is the purpose of this test
-  public void testIndexIterableIterator() {
-    final Multimap<String, Object> stringToObject =
-        new ImmutableMultimap.Builder<String, Object>()
-            .put("1", 1)
-            .put("1", 1L)
-            .put("1", "1")
-            .put("2", 2)
-            .put("2", 2L)
-            .build();
-
-    IterableIterator<Object> iterIter = new IterableIterator<Object>() {
-      private final Iterator<Object> iterator = stringToObject.values().iterator();
-
-      public Iterator<Object> delegate() {
-        return iterator;
-      }
-    };
-
-    ImmutableMultimap<String, Object> outputMap =
-        Multimaps.index(iterIter, Functions.toStringFunction());
-    assertEquals(stringToObject, outputMap);
-  }
-
   public void testIndex_ordering() {
     final Multimap<Integer, String> expectedIndex =
         new ImmutableListMultimap.Builder<Integer, String>()
@@ -799,11 +837,10 @@ public class MultimapsTest extends AbstractMultimapTest {
         return in * in;
       }
     };
-    Multimap<String, Integer> transformed =
-        Multimaps.transformValues(multimap, square);
-    ASSERT.that(transformed.entries()).hasContentsInOrder(immutableEntry("a", 4),
+    Multimap<String, Integer> transformed = Multimaps.transformValues(multimap, square);
+    ASSERT.that(transformed.entries()).has().exactly(immutableEntry("a", 4),
         immutableEntry("a", 16), immutableEntry("b", 9), immutableEntry("b", 9),
-        immutableEntry("c", 36));
+        immutableEntry("c", 36)).inOrder();
   }
 
   @GwtIncompatible(value = "untested")
@@ -819,7 +856,7 @@ public class MultimapsTest extends AbstractMultimapTest {
         });
     Entry<String, String> entry = multimap.entries().iterator().next();
     entry.setValue("bbb");
-    ASSERT.that(transformed.entries()).hasContentsInOrder(immutableEntry("a", 3));
+    ASSERT.that(transformed.entries()).has().exactly(immutableEntry("a", 3)).inOrder();
   }
 
   @GwtIncompatible(value = "untested")
@@ -834,9 +871,9 @@ public class MultimapsTest extends AbstractMultimapTest {
     };
     ListMultimap<String, Integer> transformed =
         Multimaps.transformValues(multimap, square);
-    ASSERT.that(transformed.entries()).hasContentsInOrder(immutableEntry("a", 4),
+    ASSERT.that(transformed.entries()).has().exactly(immutableEntry("a", 4),
         immutableEntry("a", 16), immutableEntry("b", 9), immutableEntry("b", 9),
-        immutableEntry("c", 36));
+        immutableEntry("c", 36)).inOrder();
   }
 
   @GwtIncompatible(value = "untested")
@@ -852,8 +889,8 @@ public class MultimapsTest extends AbstractMultimapTest {
         };
     Multimap<String, String> transformed =
         Multimaps.transformEntries(multimap, transformer);
-    ASSERT.that(transformed.entries()).hasContentsInOrder(immutableEntry("a", "a"),
-        immutableEntry("a", "a"), immutableEntry("b", "nob"));
+    ASSERT.that(transformed.entries()).has().exactly(immutableEntry("a", "a"),
+        immutableEntry("a", "a"), immutableEntry("b", "nob")).inOrder();
   }
 
   @GwtIncompatible(value = "untested")
@@ -875,13 +912,101 @@ public class MultimapsTest extends AbstractMultimapTest {
     assertEquals("{a=[a1, a4, a4], b=[b6]}", transformed.toString());
   }
 
+  public <K, V> void testSynchronizedMultimapSampleCodeCompilation() {
+    K key = null;
+
+    Multimap<K, V> multimap = Multimaps.synchronizedMultimap(
+        HashMultimap.<K, V>create());
+    Collection<V> values = multimap.get(key);  // Needn't be in synchronized block
+    synchronized (multimap) {  // Synchronizing on multimap, not values!
+      Iterator<V> i = values.iterator(); // Must be in synchronized block
+      while (i.hasNext()) {
+        foo(i.next());
+      }
+    }
+  }
+
+  private static void foo(Object o) {}
+  
+  public void testFilteredKeysSetMultimapReplaceValues() {
+    SetMultimap<String, Integer> multimap = LinkedHashMultimap.create();
+    multimap.put("foo", 1);
+    multimap.put("bar", 2);
+    multimap.put("baz", 3);
+    multimap.put("bar", 4);
+    
+    SetMultimap<String, Integer> filtered = Multimaps.filterKeys(
+        multimap, Predicates.in(ImmutableSet.of("foo", "bar")));
+    
+    assertEquals(
+        ImmutableSet.of(),
+        filtered.replaceValues("baz", ImmutableSet.<Integer>of()));
+    
+    try {
+      filtered.replaceValues("baz", ImmutableSet.of(5));
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+  
+  public void testFilteredKeysSetMultimapGetBadValue() {
+    SetMultimap<String, Integer> multimap = LinkedHashMultimap.create();
+    multimap.put("foo", 1);
+    multimap.put("bar", 2);
+    multimap.put("baz", 3);
+    multimap.put("bar", 4);
+    
+    SetMultimap<String, Integer> filtered = Multimaps.filterKeys(
+        multimap, Predicates.in(ImmutableSet.of("foo", "bar")));
+    Set<Integer> bazSet = filtered.get("baz");
+    ASSERT.that(bazSet).isEmpty();
+    try {
+      bazSet.add(5);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+    try {
+      bazSet.addAll(ImmutableSet.of(6, 7));
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+  
+  public void testFilteredKeysListMultimapGetBadValue() {
+    ListMultimap<String, Integer> multimap = ArrayListMultimap.create();
+    multimap.put("foo", 1);
+    multimap.put("bar", 2);
+    multimap.put("baz", 3);
+    multimap.put("bar", 4);
+    
+    ListMultimap<String, Integer> filtered = Multimaps.filterKeys(
+        multimap, Predicates.in(ImmutableSet.of("foo", "bar")));
+    List<Integer> bazList = filtered.get("baz");
+    ASSERT.that(bazList).isEmpty();
+    try {
+      bazList.add(5);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+    try {
+      bazList.add(0, 6);
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+    try {
+      bazList.addAll(ImmutableList.of(7, 8));
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+    try {
+      bazList.addAll(0, ImmutableList.of(9, 10));
+      fail("Expected IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
+  }
+
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointers() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(Multimap.class, ImmutableMultimap.of());
-    tester.setDefault(ListMultimap.class, ImmutableListMultimap.of());
-    tester.setDefault(EntryTransformer.class, ALWAYS_NULL);
-    tester.ignore(Multimaps.class.getDeclaredMethod("index", Object.class, Function.class));
-    tester.testAllPublicStaticMethods(Multimaps.class);
+  public void testNullPointers() {
+    new NullPointerTester().testAllPublicStaticMethods(Multimaps.class);
   }
 }

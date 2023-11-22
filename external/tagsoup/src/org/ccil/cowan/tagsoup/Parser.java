@@ -17,6 +17,7 @@
 package org.ccil.cowan.tagsoup;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
@@ -535,7 +536,7 @@ public class Parser extends DefaultHandler implements ScanHandler, XMLReader, Le
 		if (theNewElement == null) return;
 		// Currently we don't rely on Schema to canonicalize
 		// attribute names.
-		theAttributeName = makeName(buff, offset, length).toLowerCase();
+		theAttributeName = makeName(buff, offset, length).toLowerCase(Locale.ROOT);
 //		System.err.println("%% Attribute name " + theAttributeName);
 		}
 

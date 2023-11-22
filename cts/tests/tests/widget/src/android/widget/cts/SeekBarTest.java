@@ -54,7 +54,7 @@ public class SeekBarTest extends ActivityInstrumentationTestCase2<SeekBarCtsActi
 
         new SeekBar(mActivity, null);
 
-        new SeekBar(mActivity, null, com.android.internal.R.attr.seekBarStyle);
+        new SeekBar(mActivity, null, android.R.attr.seekBarStyle);
     }
 
     public void testSetOnSeekBarChangeListener() {

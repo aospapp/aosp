@@ -18,15 +18,22 @@ package com.android.deskclock;
 
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Looper;
+import android.os.Parcelable;
 import android.preference.PreferenceManager;
+import android.provider.AlarmClock;
 import android.text.TextUtils;
+import android.text.format.DateFormat;
 
 import com.android.deskclock.alarms.AlarmStateManager;
+import com.android.deskclock.events.Events;
 import com.android.deskclock.provider.Alarm;
 import com.android.deskclock.provider.AlarmInstance;
 import com.android.deskclock.provider.DaysOfWeek;
@@ -36,57 +43,230 @@ import com.android.deskclock.timer.Timers;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Iterator;
 import java.util.List;
-
-import static android.provider.AlarmClock.ACTION_SET_ALARM;
-import static android.provider.AlarmClock.ACTION_SET_TIMER;
-import static android.provider.AlarmClock.ACTION_SHOW_ALARMS;
-import static android.provider.AlarmClock.EXTRA_DAYS;
-import static android.provider.AlarmClock.EXTRA_HOUR;
-import static android.provider.AlarmClock.EXTRA_LENGTH;
-import static android.provider.AlarmClock.EXTRA_MESSAGE;
-import static android.provider.AlarmClock.EXTRA_MINUTES;
-import static android.provider.AlarmClock.EXTRA_RINGTONE;
-import static android.provider.AlarmClock.EXTRA_SKIP_UI;
-import static android.provider.AlarmClock.EXTRA_VIBRATE;
-import static android.provider.AlarmClock.VALUE_RINGTONE_SILENT;
 
 public class HandleApiCalls extends Activity {
 
     public static final long TIMER_MIN_LENGTH = 1000;
     public static final long TIMER_MAX_LENGTH = 24 * 60 * 60 * 1000;
 
+    private Context mAppContext;
+
     @Override
     protected void onCreate(Bundle icicle) {
         try {
             super.onCreate(icicle);
-            Intent intent = getIntent();
-            if (intent != null) {
-                if (ACTION_SET_ALARM.equals(intent.getAction())) {
+            mAppContext = getApplicationContext();
+            final Intent intent = getIntent();
+            final String action = intent == null ? null : intent.getAction();
+            if (action == null) {
+                return;
+            }
+            switch (action) {
+                case AlarmClock.ACTION_SET_ALARM:
                     handleSetAlarm(intent);
-                } else if (ACTION_SHOW_ALARMS.equals(intent.getAction())) {
+                    break;
+                case AlarmClock.ACTION_SHOW_ALARMS:
                     handleShowAlarms();
-                } else if (ACTION_SET_TIMER.equals(intent.getAction())) {
+                    break;
+                case AlarmClock.ACTION_SET_TIMER:
                     handleSetTimer(intent);
-                }
+                    break;
+                case AlarmClock.ACTION_DISMISS_ALARM:
+                    handleDismissAlarm(intent.getAction());
+                    break;
+                case AlarmClock.ACTION_SNOOZE_ALARM:
+                    handleSnoozeAlarm();
             }
         } finally {
             finish();
         }
     }
 
+    private void handleDismissAlarm(final String action) {
+        // Opens the UI for Alarms
+        final Intent alarmIntent =
+                Alarm.createIntent(mAppContext, DeskClock.class, Alarm.INVALID_ID)
+                        .setAction(action)
+                        .putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.ALARM_TAB_INDEX);
+        startActivity(alarmIntent);
+
+        final Intent intent = getIntent();
+
+        new DismissAlarmAsync(mAppContext, intent, this).execute();
+    }
+
+    public static void dismissAlarm(Alarm alarm, Context context, Activity activity) {
+        // only allow on background thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("dismissAlarm must be called on a " +
+                    "background thread");
+        }
+
+        final AlarmInstance alarmInstance = AlarmInstance.getNextUpcomingInstanceByAlarmId(
+                context.getContentResolver(), alarm.id);
+        if (alarmInstance == null) {
+            final String reason = context.getString(R.string.no_alarm_scheduled_for_this_time);
+            Voice.notifyFailure(activity, reason);
+            LogUtils.i(reason);
+            return;
+        }
+
+        final String time = DateFormat.getTimeFormat(context).format(
+                alarmInstance.getAlarmTime().getTime());
+        if (Utils.isAlarmWithin24Hours(alarmInstance)) {
+            AlarmStateManager.setPreDismissState(context, alarmInstance);
+            final String reason = context.getString(R.string.alarm_is_dismissed, time);
+            LogUtils.i(reason);
+            Voice.notifySuccess(activity, reason);
+            Events.sendAlarmEvent(R.string.action_dismiss, R.string.label_intent);
+        } else {
+            final String reason = context.getString(
+                    R.string.alarm_cant_be_dismissed_still_more_than_24_hours_away, time);
+            Voice.notifyFailure(activity, reason);
+            LogUtils.i(reason);
+        }
+    }
+
+    private static class DismissAlarmAsync extends AsyncTask<Void, Void, Void> {
+
+        private final Context mContext;
+        private final Intent mIntent;
+        private final Activity mActivity;
+
+        public DismissAlarmAsync(Context context, Intent intent, Activity activity) {
+            mContext = context;
+            mIntent = intent;
+            mActivity = activity;
+        }
+
+        @Override
+        protected Void doInBackground(Void... parameters) {
+            final List<Alarm> alarms = getEnabledAlarms(mContext);
+            if (alarms.isEmpty()) {
+                final String reason = mContext.getString(R.string.no_scheduled_alarms);
+                LogUtils.i(reason);
+                Voice.notifyFailure(mActivity, reason);
+                return null;
+            }
+
+            // remove Alarms in MISSED, DISMISSED, and PREDISMISSED states
+            for (Iterator<Alarm> i = alarms.iterator(); i.hasNext();) {
+                final AlarmInstance alarmInstance = AlarmInstance.getNextUpcomingInstanceByAlarmId(
+                        mContext.getContentResolver(), i.next().id);
+                if (alarmInstance == null ||
+                        alarmInstance.mAlarmState > AlarmInstance.FIRED_STATE) {
+                    i.remove();
+                }
+            }
+
+            final String searchMode = mIntent.getStringExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE);
+            if (searchMode == null && alarms.size() > 1) {
+                // shows the UI where user picks which alarm they want to DISMISS
+                final Intent pickSelectionIntent = new Intent(mContext,
+                        AlarmSelectionActivity.class)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(AlarmSelectionActivity.EXTRA_ALARMS,
+                                alarms.toArray(new Parcelable[alarms.size()]));
+                mContext.startActivity(pickSelectionIntent);
+                Voice.notifySuccess(mActivity, mContext.getString(R.string.pick_alarm_to_dismiss));
+                return null;
+            }
+
+            // fetch the alarms that are specified by the intent
+            final FetchMatchingAlarmsAction fmaa =
+                    new FetchMatchingAlarmsAction(mContext, alarms, mIntent, mActivity);
+            fmaa.run();
+            final List<Alarm> matchingAlarms = fmaa.getMatchingAlarms();
+
+            // If there are multiple matching alarms and it wasn't expected
+            // disambiguate what the user meant
+            if (!AlarmClock.ALARM_SEARCH_MODE_ALL.equals(searchMode) && matchingAlarms.size() > 1) {
+              final Intent pickSelectionIntent = new Intent(mContext, AlarmSelectionActivity.class)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(AlarmSelectionActivity.EXTRA_ALARMS,
+                                matchingAlarms.toArray(new Parcelable[matchingAlarms.size()]));
+                mContext.startActivity(pickSelectionIntent);
+                Voice.notifySuccess(mActivity, mContext.getString(R.string.pick_alarm_to_dismiss));
+                return null;
+            }
+
+            // Apply the action to the matching alarms
+            for (Alarm alarm : matchingAlarms) {
+                dismissAlarm(alarm, mContext, mActivity);
+                LogUtils.i("Alarm %s is dismissed", alarm);
+            }
+            return null;
+        }
+
+        private static List<Alarm> getEnabledAlarms(Context context) {
+            final String selection = String.format("%s=?", Alarm.ENABLED);
+            final String[] args = { "1" };
+            return Alarm.getAlarms(context.getContentResolver(), selection, args);
+        }
+    }
+
+    private void handleSnoozeAlarm() {
+        new SnoozeAlarmAsync(mAppContext, this).execute();
+    }
+
+    private static class SnoozeAlarmAsync extends AsyncTask<Void, Void, Void> {
+
+        private final Context mContext;
+        private final Activity mActivity;
+
+        public SnoozeAlarmAsync(Context context, Activity activity) {
+            mContext = context;
+            mActivity = activity;
+        }
+
+        @Override
+        protected Void doInBackground(Void... parameters) {
+            final List<AlarmInstance> alarmInstances = AlarmInstance.getInstancesByState(
+                    mContext.getContentResolver(), AlarmInstance.FIRED_STATE);
+            if (alarmInstances.isEmpty()) {
+                final String reason = mContext.getString(R.string.no_firing_alarms);
+                LogUtils.i(reason);
+                Voice.notifyFailure(mActivity, reason);
+                return null;
+            }
+
+            for (AlarmInstance firingAlarmInstance : alarmInstances) {
+                snoozeAlarm(firingAlarmInstance, mContext, mActivity);
+            }
+            return null;
+        }
+    }
+
+    static void snoozeAlarm(AlarmInstance alarmInstance, Context context, Activity activity) {
+        // only allow on background thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new IllegalStateException("snoozeAlarm must be called on a " +
+                    "background thread");
+        }
+        final String time = DateFormat.getTimeFormat(context).format(
+                alarmInstance.getAlarmTime().getTime());
+        final String reason = context.getString(R.string.alarm_is_snoozed, time);
+        LogUtils.i(reason);
+        Voice.notifySuccess(activity, reason);
+        AlarmStateManager.setSnoozeState(context, alarmInstance, true);
+        LogUtils.i("Snooze %d:%d", alarmInstance.mHour, alarmInstance.mMinute);
+        Events.sendAlarmEvent(R.string.action_snooze, R.string.label_intent);
+    }
+
     /***
      * Processes the SET_ALARM intent
-     * @param intent
+     * @param intent Intent passed to the app
      */
     private void handleSetAlarm(Intent intent) {
         // If not provided or invalid, show UI
-        final int hour = intent.getIntExtra(EXTRA_HOUR, -1);
+        final int hour = intent.getIntExtra(AlarmClock.EXTRA_HOUR, -1);
 
         // If not provided, use zero. If it is provided, make sure it's valid, otherwise, show UI
         final int minutes;
-        if (intent.hasExtra(EXTRA_MINUTES)) {
-            minutes = intent.getIntExtra(EXTRA_MINUTES, -1);
+        if (intent.hasExtra(AlarmClock.EXTRA_MINUTES)) {
+            minutes = intent.getIntExtra(AlarmClock.EXTRA_MINUTES, -1);
         } else {
             minutes = 0;
         }
@@ -97,40 +277,22 @@ public class HandleApiCalls extends Activity {
             createAlarm.putExtra(AlarmClockFragment.ALARM_CREATE_NEW_INTENT_EXTRA, true);
             createAlarm.putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.ALARM_TAB_INDEX);
             startActivity(createAlarm);
-            finish();
+            Voice.notifyFailure(this, getString(R.string.invalid_time, hour, minutes, " "));
             LogUtils.i("HandleApiCalls no/invalid time; opening UI");
             return;
         }
 
-        final boolean skipUi = intent.getBooleanExtra(EXTRA_SKIP_UI, false);
+        Events.sendAlarmEvent(R.string.action_create, R.string.label_intent);
+        final boolean skipUi = intent.getBooleanExtra(AlarmClock.EXTRA_SKIP_UI, false);
 
         final StringBuilder selection = new StringBuilder();
-        final List<String> args = new ArrayList<String>();
+        final List<String> args = new ArrayList<>();
         setSelectionFromIntent(intent, hour, minutes, selection, args);
 
-        // Check if the alarm already exists and handle it
-        final ContentResolver cr = getContentResolver();
-        final List<Alarm> alarms = Alarm.getAlarms(cr,
-                selection.toString(),
-                args.toArray(new String[args.size()]));
-        if (!alarms.isEmpty()) {
-            Alarm alarm = alarms.get(0);
-            alarm.enabled = true;
-            Alarm.updateAlarm(cr, alarm);
-
-            // Delete all old instances and create a new one with updated values
-            AlarmStateManager.deleteAllInstances(this, alarm.id);
-            setupInstance(alarm.createInstanceAfter(Calendar.getInstance()), skipUi);
-            LogUtils.i("HandleApiCalls deleted old, created new alarm: %s", alarm);
-            finish();
-            return;
-        }
-
-        // Otherwise insert it and handle it
         final String message = getMessageFromIntent(intent);
         final DaysOfWeek daysOfWeek = getDaysFromIntent(intent);
-        final boolean vibrate = intent.getBooleanExtra(EXTRA_VIBRATE, false);
-        final String alert = intent.getStringExtra(EXTRA_RINGTONE);
+        final boolean vibrate = intent.getBooleanExtra(AlarmClock.EXTRA_VIBRATE, false);
+        final String alert = intent.getStringExtra(AlarmClock.EXTRA_RINGTONE);
 
         Alarm alarm = new Alarm(hour, minutes);
         alarm.enabled = true;
@@ -140,29 +302,34 @@ public class HandleApiCalls extends Activity {
 
         if (alert == null) {
             alarm.alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-        } else if (VALUE_RINGTONE_SILENT.equals(alert) || alert.isEmpty()) {
+        } else if (AlarmClock.VALUE_RINGTONE_SILENT.equals(alert) || alert.isEmpty()) {
             alarm.alert = Alarm.NO_RINGTONE_URI;
         } else {
             alarm.alert = Uri.parse(alert);
         }
         alarm.deleteAfterUse = !daysOfWeek.isRepeating() && skipUi;
 
+        final ContentResolver cr = getContentResolver();
         alarm = Alarm.addAlarm(cr, alarm);
-        setupInstance(alarm.createInstanceAfter(Calendar.getInstance()), skipUi);
+        final AlarmInstance alarmInstance = alarm.createInstanceAfter(Calendar.getInstance());
+        setupInstance(alarmInstance, skipUi);
+        final String time = DateFormat.getTimeFormat(mAppContext).format(
+                alarmInstance.getAlarmTime().getTime());
+        Voice.notifySuccess(this, getString(R.string.alarm_is_set, time));
         LogUtils.i("HandleApiCalls set up alarm: %s", alarm);
-        finish();
     }
 
     private void handleShowAlarms() {
         startActivity(new Intent(this, DeskClock.class)
                 .putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.ALARM_TAB_INDEX));
+        Events.sendAlarmEvent(R.string.action_show, R.string.label_intent);
         LogUtils.i("HandleApiCalls show alarms");
     }
 
     private void handleSetTimer(Intent intent) {
         final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        // If no length is supplied , show the timer setup view
-        if (!intent.hasExtra(EXTRA_LENGTH)) {
+        // If no length is supplied, show the timer setup view
+        if (!intent.hasExtra(AlarmClock.EXTRA_LENGTH)) {
             startActivity(new Intent(this, DeskClock.class)
                   .putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.TIMER_TAB_INDEX)
                   .putExtra(TimerFullScreenFragment.GOTO_SETUP_VIEW, true));
@@ -170,8 +337,9 @@ public class HandleApiCalls extends Activity {
             return;
         }
 
-        final long length = 1000l * intent.getIntExtra(EXTRA_LENGTH, 0);
+        final long length = 1000l * intent.getIntExtra(AlarmClock.EXTRA_LENGTH, 0);
         if (length < TIMER_MIN_LENGTH || length > TIMER_MAX_LENGTH) {
+            Voice.notifyFailure(this, getString(R.string.invalid_timer_length));
             LogUtils.i("Invalid timer length requested: " + length);
             return;
         }
@@ -179,7 +347,7 @@ public class HandleApiCalls extends Activity {
 
         TimerObj timer = null;
         // Find an existing matching time
-        final ArrayList<TimerObj> timers = new ArrayList<TimerObj>();
+        final List<TimerObj> timers = new ArrayList<>();
         TimerObj.getTimersFromSharedPrefs(prefs, timers);
         for (TimerObj t : timers) {
             if (t.mSetupLength == length && (TextUtils.equals(label, t.mLabel))
@@ -189,17 +357,21 @@ public class HandleApiCalls extends Activity {
             }
         }
 
-        boolean skipUi = intent.getBooleanExtra(EXTRA_SKIP_UI, false);
+        boolean skipUi = intent.getBooleanExtra(AlarmClock.EXTRA_SKIP_UI, false);
         if (timer == null) {
             // Use a new timer
             timer = new TimerObj(length, label, this /* context */);
             // Timers set without presenting UI to the user will be deleted after use
             timer.mDeleteAfterUse = skipUi;
+
+            Events.sendTimerEvent(R.string.action_create, R.string.label_intent);
         }
 
-        timer.mState = TimerObj.STATE_RUNNING;
+        timer.setState(TimerObj.STATE_RUNNING);
         timer.mStartTime = Utils.getTimeNow();
         timer.writeToSharedPref(prefs);
+
+        Events.sendTimerEvent(R.string.action_start, R.string.label_intent);
 
         // Tell TimerReceiver that the timer was started
         sendBroadcast(new Intent().setAction(Timers.START_TIMER)
@@ -210,8 +382,10 @@ public class HandleApiCalls extends Activity {
         } else {
             startActivity(new Intent(this, DeskClock.class)
                     .putExtra(DeskClock.SELECT_TAB_INTENT_EXTRA, DeskClock.TIMER_TAB_INDEX)
-                    .putExtra(Timers.FIRST_LAUNCH_FROM_API_CALL, true));
+                    .putExtra(Timers.FIRST_LAUNCH_FROM_API_CALL, true)
+                    .putExtra(Timers.SCROLL_TO_TIMER_ID, timer.mTimerId));
         }
+        Voice.notifySuccess(this, getString(R.string.timer_created));
         LogUtils.i("HandleApiCalls timer created: %s", timer);
     }
 
@@ -229,13 +403,13 @@ public class HandleApiCalls extends Activity {
     }
 
     private String getMessageFromIntent(Intent intent) {
-        final String message = intent.getStringExtra(EXTRA_MESSAGE);
+        final String message = intent.getStringExtra(AlarmClock.EXTRA_MESSAGE);
         return message == null ? "" : message;
     }
 
     private DaysOfWeek getDaysFromIntent(Intent intent) {
         final DaysOfWeek daysOfWeek = new DaysOfWeek(0);
-        final ArrayList<Integer> days = intent.getIntegerArrayListExtra(EXTRA_DAYS);
+        final ArrayList<Integer> days = intent.getIntegerArrayListExtra(AlarmClock.EXTRA_DAYS);
         if (days != null) {
             final int[] daysArray = new int[days.size()];
             for (int i = 0; i < days.size(); i++) {
@@ -244,7 +418,7 @@ public class HandleApiCalls extends Activity {
             daysOfWeek.setDaysOfWeek(true, daysArray);
         } else {
             // API says to use an ArrayList<Integer> but we allow the user to use a int[] too.
-            final int[] daysArray = intent.getIntArrayExtra(EXTRA_DAYS);
+            final int[] daysArray = intent.getIntArrayExtra(AlarmClock.EXTRA_DAYS);
             if (daysArray != null) {
                 daysOfWeek.setDaysOfWeek(true, daysArray);
             }
@@ -263,7 +437,7 @@ public class HandleApiCalls extends Activity {
         selection.append(" AND ").append(Alarm.MINUTES).append("=?");
         args.add(String.valueOf(minutes));
 
-        if (intent.hasExtra(EXTRA_MESSAGE)) {
+        if (intent.hasExtra(AlarmClock.EXTRA_MESSAGE)) {
             selection.append(" AND ").append(Alarm.LABEL).append("=?");
             args.add(getMessageFromIntent(intent));
         }
@@ -271,23 +445,23 @@ public class HandleApiCalls extends Activity {
         // Days is treated differently that other fields because if days is not specified, it
         // explicitly means "not recurring".
         selection.append(" AND ").append(Alarm.DAYS_OF_WEEK).append("=?");
-        args.add(String.valueOf(intent.hasExtra(EXTRA_DAYS)
+        args.add(String.valueOf(intent.hasExtra(AlarmClock.EXTRA_DAYS)
                 ? getDaysFromIntent(intent).getBitSet() : DaysOfWeek.NO_DAYS_SET));
 
-        if (intent.hasExtra(EXTRA_VIBRATE)) {
+        if (intent.hasExtra(AlarmClock.EXTRA_VIBRATE)) {
             selection.append(" AND ").append(Alarm.VIBRATE).append("=?");
-            args.add(intent.getBooleanExtra(EXTRA_VIBRATE, false) ? "1" : "0");
+            args.add(intent.getBooleanExtra(AlarmClock.EXTRA_VIBRATE, false) ? "1" : "0");
         }
 
-        if (intent.hasExtra(EXTRA_RINGTONE)) {
+        if (intent.hasExtra(AlarmClock.EXTRA_RINGTONE)) {
             selection.append(" AND ").append(Alarm.RINGTONE).append("=?");
 
-            String ringTone = intent.getStringExtra(EXTRA_RINGTONE);
+            String ringTone = intent.getStringExtra(AlarmClock.EXTRA_RINGTONE);
             if (ringTone == null) {
                 // If the intent explicitly specified a NULL ringtone, treat it as the default
                 // ringtone.
                 ringTone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM).toString();
-            } else if (VALUE_RINGTONE_SILENT.equals(ringTone) || ringTone.isEmpty()) {
+            } else if (AlarmClock.VALUE_RINGTONE_SILENT.equals(ringTone) || ringTone.isEmpty()) {
                     ringTone = Alarm.NO_RINGTONE;
             }
             args.add(ringTone);

@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"صوت عند الضغط على مفتاح"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"انبثاق عند ضغط مفتاح"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"التفضيلات"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"المظهر والتنسيقات"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"خيارات اللغات المتعددة"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"الحسابات والخصوصية"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"المظهر والتنسيقات"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"الكتابة بالإشارة"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"تصحيح النص"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"الإعدادات المتقدمة"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"المظهر"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"هل تريد تمكين لوحة المفاتيح المقسمة"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"‏مزامنة لوحة مفاتيح Google"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"تم تشغيل المزامنة"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"يمكنك مزامنة قاموسك الشخصي على جميع الأجهزة"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"المزامنة الآن"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"حذف البيانات من السحاب"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"‏لحذف بياناتك التي تمت مزامنتها من Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"سيتم حذف بياناتك المتزامنة من السحاب. هل تريد ذلك بالتأكيد؟"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"حذف"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"إلغاء"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"‏ستتم مزامنة قاموسك الشخصي والاحتفاظ بنسخة احتياطية منه على خوادم Google، وقد يتم جمع المعلومات الإحصائية لتكرار الكلمات للمساعدة في تحسين منتجاتنا هذا وسيتوافق جمع كل المعلومات واستخدامها مع "<a href="https://www.google.com/policies/privacy">"سياسة خصوصية Google"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"‏الرجاء إضافة حساب Google إلى هذا الجهاز لتمكين هذه الميزة."</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"‏لا تتوفر إمكانية المزامنة للأجهزة التي تتضمن حسابات Google Apps للأنشطة التجارية"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"التبديل إلى أسلوب إدخال آخر"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"يغطي مفتاح تبديل اللغات أساليب الإدخال الأخرى أيضًا"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"مفتاح تبديل اللغة"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"المس هنا للحفظ"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"القاموس متاح"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"مظهر لوحة المفاتيح"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"تبديل الحسابات"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"لم يتم تحديد أي حساب"</string>
+    <string name="account_selected" msgid="2846876462199625974">"يتم حاليًا استخدام <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"موافق"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"إلغاء"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"الخروج"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"تحديد حساب لاستخدامه"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"الإنجليزية (المملكة المتحدة)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"الإنجليزية (الولايات المتحدة)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"الإسبانية (الأميركية)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"هنجليزية"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"الصربية (اللاتينية)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"الإنجليزية (المملكة المتحدة) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"الإنجليزية (الولايات المتحدة) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"الإسبانية (الولايات المتحدة) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"هنجليزية (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"الصربية (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (التقليدية)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (السريلية)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (اللاتينية)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (مكثفة)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"بدون لغة (أبجدية)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"‏الأبجدية (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"‏الأبجدية (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"نمط الإدخال ذاته موجود من قبل: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"مدة اهتزاز الضغط على المفاتيح"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"مستوى صوت الضغط على المفاتيح"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"تأخير الضغط الطويل للمفاتيح"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"الرموز التعبيرية للوحة مفاتيح فعلية"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"‏مفتاح Alt الفعلي يعرض لوحة الرموز التعبيرية"</string>
     <string name="button_default" msgid="3988017840431881491">"الافتراضية"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"مرحبا بكم في <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"مع الكتابة بالإشارة"</string>

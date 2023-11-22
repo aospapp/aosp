@@ -10,24 +10,23 @@
 #define MCLD_ELFREADER_TEST_H
 
 #include <gtest.h>
-#include <mcld/LinkerConfig.h>
-#include <mcld/LinkerScript.h>
-#include <mcld/LD/ELFReaderIf.h>
-#include <mcld/LD/ELFReader.h>
-#include <mcld/LD/ELFObjectReader.h>
-#include <mcld/Target/GNULDBackend.h>
-#include <mcld/MC/InputBuilder.h>
+#include "mcld/LinkerConfig.h"
+#include "mcld/LinkerScript.h"
+#include "mcld/LD/ELFReaderIf.h"
+#include "mcld/LD/ELFReader.h"
+#include "mcld/LD/ELFObjectReader.h"
+#include "mcld/Target/GNULDBackend.h"
+#include "mcld/MC/InputBuilder.h"
 
 namespace mcld {
-  template<> class ELFReader<64, true>;
-} // namespace for mcld
+template <>
+class ELFReader<64, true>;
+}  // namespace for mcld
 
-namespace mcldtest
-{
+namespace mcldtest {
 
-class ELFReaderTest : public ::testing::Test
-{
-public:
+class ELFReaderTest : public ::testing::Test {
+ public:
   // Constructor can do set-up work for all test here.
   ELFReaderTest();
 
@@ -40,7 +39,7 @@ public:
   // TearDown() will be called immediately after each test.
   virtual void TearDown();
 
-protected:
+ protected:
   mcld::Input* m_pInput;
   mcld::LinkerConfig* m_pConfig;
   mcld::LinkerScript* m_pScript;
@@ -52,7 +51,6 @@ protected:
   mcld::ELFObjectReader* m_pELFObjReader;
 };
 
-} // namespace of mcldtest
+}  // namespace of mcldtest
 
 #endif
-

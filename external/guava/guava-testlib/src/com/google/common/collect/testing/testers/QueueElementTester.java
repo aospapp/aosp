@@ -21,6 +21,7 @@ import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
@@ -31,10 +32,9 @@ import java.util.NoSuchElementException;
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Jared Levy
  */
+@GwtCompatible
 public class QueueElementTester<E> extends AbstractQueueTester<E> {
   @CollectionSize.Require(ZERO)
   public void testElement_empty() {

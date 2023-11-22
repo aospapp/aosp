@@ -19,6 +19,7 @@ package com.android.deskclock.timer;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.text.TextUtils;
@@ -26,7 +27,6 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityManager;
-import android.widget.TextView;
 
 import com.android.deskclock.LogUtils;
 import com.android.deskclock.R;
@@ -266,10 +266,9 @@ public class CountingTimerView extends View {
         mAccessibilityManager =
                 (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
         Resources r = context.getResources();
-        mWhiteColor = r.getColor(R.color.clock_white);
-        mDefaultColor = mWhiteColor;
-        mPressedColor = r.getColor(R.color.hot_pink);
-        mAccentColor = r.getColor(R.color.hot_pink);
+        mDefaultColor = mWhiteColor = r.getColor(R.color.clock_white);
+        mPressedColor = mAccentColor = Utils.obtainStyledColor(
+                context, R.attr.colorAccent, Color.RED);
         mBigFontSize = r.getDimension(R.dimen.big_font_size);
         mSmallFontSize = r.getDimension(R.dimen.small_font_size);
 
@@ -406,7 +405,7 @@ public class CountingTimerView extends View {
         if (update) {
             setContentDescription(getTimeStringForAccessibility((int) hours, (int) minutes,
                     (int) seconds, showNeg, getResources()));
-            invalidate();
+            postInvalidateOnAnimation();
         }
     }
 

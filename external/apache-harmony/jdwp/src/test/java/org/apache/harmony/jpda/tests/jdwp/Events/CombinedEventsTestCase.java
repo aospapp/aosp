@@ -195,80 +195,91 @@ public abstract class CombinedEventsTestCase extends JDWPSyncTestCase {
         return location;
     }
 
+    protected boolean checkEventLocation(ParsedEvent parsedEvent, Location expectedLocation) {
+        byte eventKind = parsedEvent.getEventKind();
+        long eventThreadID = 0;
+        Location eventLocation = null;
+        switch ( eventKind ) {
+        case JDWPConstants.EventKind.METHOD_ENTRY:
+            eventLocation = ((ParsedEvent.Event_METHOD_ENTRY)parsedEvent).getLocation();
+            eventThreadID = ((ParsedEvent.EventThread)parsedEvent).getThreadID();
+            break;
+        case JDWPConstants.EventKind.SINGLE_STEP:
+            eventLocation = ((ParsedEvent.Event_SINGLE_STEP)parsedEvent).getLocation();
+            eventThreadID = ((ParsedEvent.EventThread)parsedEvent).getThreadID();
+            break;
+        case JDWPConstants.EventKind.BREAKPOINT:
+            eventLocation = ((ParsedEvent.Event_BREAKPOINT)parsedEvent).getLocation();
+            eventThreadID = ((ParsedEvent.EventThread)parsedEvent).getThreadID();
+            break;
+        case JDWPConstants.EventKind.METHOD_EXIT:
+            eventLocation = ((ParsedEvent.Event_METHOD_EXIT)parsedEvent).getLocation();
+            eventThreadID = ((ParsedEvent.EventThread)parsedEvent).getThreadID();
+            break;
+        case JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE:
+            eventLocation =
+                ((ParsedEvent.Event_METHOD_EXIT_WITH_RETURN_VALUE)parsedEvent).getLocation();
+            eventThreadID = ((ParsedEvent.EventThread)parsedEvent).getThreadID();
+            break;
+        default:
+            logWriter.println("");
+            logWriter.println("=> Check location for event "
+                + ": Event kind = " + eventKind + "("
+                + JDWPConstants.EventKind.getName(eventKind) +")");
+            logWriter.println("=> WARNING: This event is not suitable to check location!");
+            return true;
+        }
+        boolean success = true;
+        logWriter.println("");
+        logWriter.println("=> Check location for event "
+            + ": Event kind = " + eventKind + "("
+            + JDWPConstants.EventKind.getName(eventKind) +"); eventThreadID = "
+            + eventThreadID);
+        long eventClassID = eventLocation.classID;
+        logWriter.println("=> ClassID in event = " + eventClassID);
+        if ( expectedLocation != null ) {
+            if ( expectedLocation.classID != eventClassID ) {
+                logWriter.println("## FAILURE: Unexpected ClassID in event!");
+                logWriter.println("##          Expected ClassID  = " + expectedLocation.classID );
+                success = false;
+            } else {
+                logWriter.println("=> OK - it is expected ClassID");
+            }
+        }
+        long eventMethodID = eventLocation.methodID;
+        logWriter.println("=> MethodID in event = " + eventMethodID);
+        if ( expectedLocation != null ) {
+            if ( expectedLocation.methodID != eventMethodID ) {
+                logWriter.println("## FAILURE: Unexpected MethodID in event!");
+                logWriter.println("##          Expected MethodID = " + expectedLocation.methodID);
+                success = false;
+            } else {
+                logWriter.println("=> OK - it is expected MethodID");
+            }
+        }
+        long eventCodeIndex = eventLocation.index;
+        logWriter.println("=> CodeIndex in event = " + eventCodeIndex);
+        if ( expectedLocation != null ) {
+            if ( expectedLocation.index != eventCodeIndex ) {
+                logWriter.println("## FAILURE: Unexpected CodeIndex in event!");
+                logWriter.println("##          Expected CodeIndex = "
+                    + expectedLocation.index);
+                success = false;
+            } else {
+                logWriter.println("=> OK - it is expected CodeIndex)");
+            }
+        }
+        return success;
+    }
+
     protected boolean checkEventsLocation(ParsedEvent[] parsedEvents, Location expectedLocation) {
         boolean success = true;
         for (int i = 0; i < parsedEvents.length; i++) {
-            byte eventKind = parsedEvents[i].getEventKind();
-            long eventThreadID = 0;
-            Location eventLocation = null;
-            switch ( eventKind ) {
-            case JDWPConstants.EventKind.METHOD_ENTRY:
-                eventLocation = ((ParsedEvent.Event_METHOD_ENTRY)parsedEvents[i]).getLocation();
-                eventThreadID = ((ParsedEvent.EventThread)parsedEvents[i]).getThreadID();
-                break;
-            case JDWPConstants.EventKind.SINGLE_STEP:
-                eventLocation = ((ParsedEvent.Event_SINGLE_STEP)parsedEvents[i]).getLocation();
-                eventThreadID = ((ParsedEvent.EventThread)parsedEvents[i]).getThreadID();
-                break;
-            case JDWPConstants.EventKind.BREAKPOINT:
-                eventLocation = ((ParsedEvent.Event_BREAKPOINT)parsedEvents[i]).getLocation();
-                eventThreadID = ((ParsedEvent.EventThread)parsedEvents[i]).getThreadID();
-                break;
-            case JDWPConstants.EventKind.METHOD_EXIT:
-                eventLocation = ((ParsedEvent.Event_METHOD_EXIT)parsedEvents[i]).getLocation();
-                eventThreadID = ((ParsedEvent.EventThread)parsedEvents[i]).getThreadID();
-                break;
-            default:
-                logWriter.println("");
-                logWriter.println("=> Chcek location for event " 
-                    + ": Event kind = " + eventKind + "(" 
-                    + JDWPConstants.EventKind.getName(eventKind) +")");
-                logWriter.println("=> WARNING: This event is not suitable to check location!");
-                continue;
-            }
-            logWriter.println("");
-            logWriter.println("=> Chcek location for event " 
-                + ": Event kind = " + eventKind + "(" 
-                + JDWPConstants.EventKind.getName(eventKind) +"); eventThreadID = "
-                + eventThreadID);
-            long eventClassID = eventLocation.classID;
-            logWriter.println("=> ClassID in event = " + eventClassID);
-            if ( expectedLocation != null ) {
-                if ( expectedLocation.classID != eventClassID ) {
-                    logWriter.println("## FAILURE: Unexpected ClassID in event!");
-                    logWriter.println("##          Expected ClassID  = " + expectedLocation.classID );
-                    success = false;
-                } else {
-                    logWriter.println("=> OK - it is expected ClassID");
-                }
-            }
-            long eventMethodID = eventLocation.methodID;
-            logWriter.println("=> MethodID in event = " + eventMethodID);
-            if ( expectedLocation != null ) {
-                if ( expectedLocation.methodID != eventMethodID ) {
-                    logWriter.println("## FAILURE: Unexpected MethodID in event!");
-                    logWriter.println("##          Expected MethodID = " + expectedLocation.methodID);
-                    success = false;
-                } else {
-                    logWriter.println("=> OK - it is expected MethodID");
-                }
-            }
-            long eventCodeIndex = eventLocation.index;
-            logWriter.println("=> CodeIndex in event = " + eventCodeIndex);
-            if ( expectedLocation != null ) {
-                if ( expectedLocation.index != eventCodeIndex ) {
-                    logWriter.println("## FAILURE: Unexpected CodeIndex in event!");
-                    logWriter.println("##          Expected CodeIndex = " 
-                        + expectedLocation.index);
-                    success = false;
-                } else {
-                    logWriter.println("=> OK - it is expected CodeIndex)");
-                }
-            }
+            success &= checkEventLocation(parsedEvents[i], expectedLocation);
         }
         logWriter.println("");
-        if ( expectedLocation != null ) {
-            if ( ! success ) {
+        if (expectedLocation != null) {
+            if (!success) {
                 String failureMessage = "## FAILURE: Unexpected events' locations are found out!";
                 logWriter.println(failureMessage);
             } else {

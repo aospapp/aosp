@@ -33,7 +33,7 @@ public class AddAccountWithTypeActivity extends Activity {
     // Must match com.google.android.gms.common.AccountPicker.
     public static final String EXTRA_ALLOWABLE_ACCOUNT_TYPES_STRING_ARRAY = "allowableAccountTypes";
 
-    private static final String TAG = "AddAccountWithTypeActivity";
+    private static final String TAG = "AddAccountWithType";
 
     private static final int REQUEST_CHOOSE_ACCOUNT_TYPE = 0;
     private static final int REQUEST_ADD_ACCOUNT = 1;
@@ -52,14 +52,8 @@ public class AddAccountWithTypeActivity extends Activity {
                 } else {
                     startActivityForResult(addAccountIntent, REQUEST_ADD_ACCOUNT);
                 }
-            } catch (OperationCanceledException e) {
-                Log.e(TAG, "Failed to get add account intent: " + e);
-                setResultAndFinish(Activity.RESULT_CANCELED);
-            } catch (IOException e) {
-                Log.e(TAG, "Failed to get add account intent: " + e);
-                setResultAndFinish(Activity.RESULT_CANCELED);
-            } catch (AuthenticatorException e) {
-                Log.e(TAG, "Failed to get add account intent: " + e);
+            } catch (IOException|AuthenticatorException|OperationCanceledException e) {
+                Log.e(TAG, "Failed to get add account intent: ", e);
                 setResultAndFinish(Activity.RESULT_CANCELED);
             }
         }

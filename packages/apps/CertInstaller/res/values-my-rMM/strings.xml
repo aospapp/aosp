@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN နဲ့ apps"</item>
     <item msgid="692322974985472861">"ဝိုင်ဖိုင်"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"ဝိုင်ဖိုင် ပရိုဖိုင်"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"%s အတွက်သေးစိတ်"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"အသေးစိတ်"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"တပ်ဆင်ရန်"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"တပ်ဆင်နေ"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"ဖျက်သိမ်းရန်"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ပယ်ရန်"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"မရှိ"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"အမည်: %1$s\nFQDN: %2$s\nRoaming Consortiums: %3$s\nRealm: %4$s\nAuth method: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"အသုံးပြုသူ အမည်: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"အသုံးပြုသူ လက်မှတ်:\n%1$s\nသော့: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"ယုံကြည်ခြင်း လက်မှတ်:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"အထောက်အထားများ သွင်းယူပြီး၏"</string>
+    <string name="install_done" msgid="1522718684172097080">"သိမ်းဆည်းထားသော ဝိုင်ဖိုင်ကွန်ယက်များသို့ <xliff:g id="NAME">%1$s</xliff:g> အထောက်အထားများ ထည့်ပြီး၏။"</string>
+    <string name="done_label" msgid="5597425930652904250">"လုပ်ပြီး"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> မှတဆင့် ရနိုင်သော ကွန်ယက်များအား ချိတ်ဆက်ရန် ဝိုင်ဖိုင်အထောက်အထားများ သွင်းယူပါ"</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"ဒေါင်းလုပ်ရယူထားသော ဖိုင်များတွင် ပြဿနာရှိပြီး သွင်းယူမရနိုင်ပါ။ ဖိုင်အား မှန်ကန်သောနေရာမှ ဒေါင်းလုပ်ရယူထားကြောင်း သေချာပါစေ။"</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"ဝိုင်ဖိုင် အထောက်အထားများအား သွင်းယွင်းနိုင်ခြင်းမရှိပါ။ ဖိုင်အား ထပ်မံ၍ ဒေါင်းလုပ်ရယူပါ။"</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"ထည့်သွင်းခြင်း ပယ်ဖျက်လိုက်ပါပြီ"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"မထည့်သွင်းနိုင်ပါ"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"ဝိုင်ဖိုင်ကို ဖွင့်ကာ ထပ်မံကြိုးစားပါ။"</string>
 </resources>

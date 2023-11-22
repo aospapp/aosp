@@ -20,9 +20,10 @@
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 
-#include <gui/IGraphicBufferConsumer.h>
-
 #include <ui/Rect.h>
+#include <ui/Region.h>
+
+#include <system/graphics.h>
 
 #include <utils/Flattenable.h>
 #include <utils/StrongPointer.h>
@@ -45,7 +46,6 @@ class BufferItem : public Flattenable<BufferItem> {
     enum { INVALID_BUFFER_SLOT = -1 };
     BufferItem();
     ~BufferItem();
-    operator IGraphicBufferConsumer::BufferItem() const;
 
     static const char* scalingModeName(uint32_t scalingMode);
 
@@ -72,17 +72,39 @@ class BufferItem : public Flattenable<BufferItem> {
     // to set by queueBuffer each time this slot is queued. This value
     // is guaranteed to be monotonically increasing for each newly
     // acquired buffer.
-    int64_t mTimestamp;
+    union {
+        int64_t mTimestamp;
+        struct {
+            uint32_t mTimestampLo;
+            uint32_t mTimestampHi;
+        };
+    };
 
     // mIsAutoTimestamp indicates whether mTimestamp was generated
     // automatically when the buffer was queued.
     bool mIsAutoTimestamp;
 
-    // mFrameNumber is the number of the queued frame for this slot.
-    uint64_t mFrameNumber;
+    // mDataSpace is the current dataSpace value for this buffer slot. This gets
+    // set by queueBuffer each time this slot is queued. The meaning of the
+    // dataSpace is format-dependent.
+    android_dataspace mDataSpace;
 
-    // mSlot is the slot index of this buffer (default INVALID_BUFFER_SLOT).
-    int mSlot;
+    // mFrameNumber is the number of the queued frame for this slot.
+    union {
+        uint64_t mFrameNumber;
+        struct {
+            uint32_t mFrameNumberLo;
+            uint32_t mFrameNumberHi;
+        };
+    };
+
+    union {
+        // mSlot is the slot index of this buffer (default INVALID_BUFFER_SLOT).
+        int mSlot;
+
+        // mBuf is the former name for mSlot
+        int mBuf;
+    };
 
     // mIsDroppable whether this buffer was queued with the
     // property that it can be replaced by a new buffer for the purpose of
@@ -97,6 +119,10 @@ class BufferItem : public Flattenable<BufferItem> {
     // Indicates this buffer must be transformed by the inverse transform of the screen
     // it is displayed onto. This is applied after mTransform.
     bool mTransformToDisplayInverse;
+
+    // Describes the portion of the surface that has been modified since the
+    // previous frame
+    Region mSurfaceDamage;
 };
 
 } // namespace android

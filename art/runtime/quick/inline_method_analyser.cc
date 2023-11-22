@@ -15,17 +15,15 @@
  */
 
 #include "inline_method_analyser.h"
+
+#include "art_field-inl.h"
+#include "art_method-inl.h"
+#include "class_linker-inl.h"
+#include "dex_file-inl.h"
 #include "dex_instruction.h"
 #include "dex_instruction-inl.h"
-#include "mirror/art_field.h"
-#include "mirror/art_field-inl.h"
-#include "mirror/art_method.h"
-#include "mirror/art_method-inl.h"
-#include "mirror/class.h"
 #include "mirror/class-inl.h"
-#include "mirror/dex_cache.h"
 #include "mirror/dex_cache-inl.h"
-#include "verifier/method_verifier.h"
 #include "verifier/method_verifier-inl.h"
 
 /*
@@ -35,50 +33,38 @@
 
 namespace art {
 
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET),
-               check_iget_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_WIDE),
-               check_iget_wide_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_OBJECT),
-               check_iget_object_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_BOOLEAN),
-               check_iget_boolean_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_BYTE),
-               check_iget_byte_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_CHAR),
-               check_iget_char_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_SHORT),
-               check_iget_short_type);
-
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT),
-               check_iput_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_WIDE),
-               check_iput_wide_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_OBJECT),
-               check_iput_object_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_BOOLEAN),
-               check_iput_boolean_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_BYTE),
-               check_iput_byte_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_CHAR),
-               check_iput_char_type);
-COMPILE_ASSERT(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_SHORT),
-               check_iput_short_type);
-
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT), check_iget_iput_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_WIDE) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_WIDE), check_iget_iput_wide_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_OBJECT) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_OBJECT), check_iget_iput_object_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_BOOLEAN) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_BOOLEAN), check_iget_iput_boolean_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_BYTE) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_BYTE), check_iget_iput_byte_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_CHAR) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_CHAR), check_iget_iput_char_variant);
-COMPILE_ASSERT(InlineMethodAnalyser::IGetVariant(Instruction::IGET_SHORT) ==
-    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_SHORT), check_iget_iput_short_variant);
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET), "iget type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_WIDE), "iget_wide type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_OBJECT),
+              "iget_object type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_BOOLEAN),
+              "iget_boolean type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_BYTE), "iget_byte type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_CHAR), "iget_char type");
+static_assert(InlineMethodAnalyser::IsInstructionIGet(Instruction::IGET_SHORT), "iget_short type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT), "iput type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_WIDE), "iput_wide type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_OBJECT),
+              "iput_object type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_BOOLEAN),
+              "iput_boolean type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_BYTE), "iput_byte type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_CHAR), "iput_char type");
+static_assert(InlineMethodAnalyser::IsInstructionIPut(Instruction::IPUT_SHORT), "iput_short type");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT), "iget/iput variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_WIDE) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_WIDE), "iget/iput_wide variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_OBJECT) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_OBJECT), "iget/iput_object variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_BOOLEAN) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_BOOLEAN), "iget/iput_boolean variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_BYTE) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_BYTE), "iget/iput_byte variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_CHAR) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_CHAR), "iget/iput_char variant");
+static_assert(InlineMethodAnalyser::IGetVariant(Instruction::IGET_SHORT) ==
+    InlineMethodAnalyser::IPutVariant(Instruction::IPUT_SHORT), "iget/iput_short variant");
 
 // This is used by compiler and debugger. We look into the dex cache for resolved methods and
 // fields. However, in the context of the debugger, not all methods and fields are resolved. Since
@@ -88,7 +74,9 @@ bool InlineMethodAnalyser::AnalyseMethodCode(verifier::MethodVerifier* verifier,
                                              InlineMethod* method) {
   DCHECK(verifier != nullptr);
   DCHECK_EQ(Runtime::Current()->IsCompiler(), method != nullptr);
-  DCHECK_EQ(verifier->CanLoadClasses(), method != nullptr);
+  if (!Runtime::Current()->UseJit()) {
+    DCHECK_EQ(verifier->CanLoadClasses(), method != nullptr);
+  }
   // We currently support only plain return or 2-instruction methods.
 
   const DexFile::CodeItem* code_item = verifier->CodeItem();
@@ -121,6 +109,10 @@ bool InlineMethodAnalyser::AnalyseMethodCode(verifier::MethodVerifier* verifier,
     case Instruction::IGET_CHAR:
     case Instruction::IGET_SHORT:
     case Instruction::IGET_WIDE:
+    // TODO: Add handling for JIT.
+    // case Instruction::IGET_QUICK:
+    // case Instruction::IGET_WIDE_QUICK:
+    // case Instruction::IGET_OBJECT_QUICK:
       return AnalyseIGetMethod(verifier, method);
     case Instruction::IPUT:
     case Instruction::IPUT_OBJECT:
@@ -129,6 +121,10 @@ bool InlineMethodAnalyser::AnalyseMethodCode(verifier::MethodVerifier* verifier,
     case Instruction::IPUT_CHAR:
     case Instruction::IPUT_SHORT:
     case Instruction::IPUT_WIDE:
+      // TODO: Add handling for JIT.
+    // case Instruction::IPUT_QUICK:
+    // case Instruction::IPUT_WIDE_QUICK:
+    // case Instruction::IPUT_OBJECT_QUICK:
       return AnalyseIPutMethod(verifier, method);
     default:
       return false;
@@ -138,7 +134,10 @@ bool InlineMethodAnalyser::AnalyseMethodCode(verifier::MethodVerifier* verifier,
 bool InlineMethodAnalyser::IsSyntheticAccessor(MethodReference ref) {
   const DexFile::MethodId& method_id = ref.dex_file->GetMethodId(ref.dex_method_index);
   const char* method_name = ref.dex_file->GetMethodName(method_id);
-  return strncmp(method_name, "access$", strlen("access$")) == 0;
+  // javac names synthetic accessors "access$nnn",
+  // jack names them "-getN", "-putN", "-wrapN".
+  return strncmp(method_name, "access$", strlen("access$")) == 0 ||
+      strncmp(method_name, "-", strlen("-")) == 0;
 }
 
 bool InlineMethodAnalyser::AnalyseReturnMethod(const DexFile::CodeItem* code_item,
@@ -331,8 +330,9 @@ bool InlineMethodAnalyser::ComputeSpecialAccessorInfo(uint32_t field_idx, bool i
                                                       InlineIGetIPutData* result) {
   mirror::DexCache* dex_cache = verifier->GetDexCache();
   uint32_t method_idx = verifier->GetMethodReference().dex_method_index;
-  mirror::ArtMethod* method = dex_cache->GetResolvedMethod(method_idx);
-  mirror::ArtField* field = dex_cache->GetResolvedField(field_idx);
+  auto* cl = Runtime::Current()->GetClassLinker();
+  ArtMethod* method = dex_cache->GetResolvedMethod(method_idx, cl->GetImagePointerSize());
+  ArtField* field = cl->GetResolvedField(field_idx, dex_cache);
   if (method == nullptr || field == nullptr || field->IsStatic()) {
     return false;
   }

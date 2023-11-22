@@ -1,7 +1,0 @@
-include_rules = [
-  "+media/audio",
-  "+media/base",
-  "+media/cast",
-  "+third_party/libyuv",
-  "+third_party/webrtc",
-]

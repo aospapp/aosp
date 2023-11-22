@@ -44,6 +44,9 @@ int gralloc_unlock(buffer_handle_t handle);
 int gralloc_init(void);
 
 int gralloc_getdisplaystatus(buffer_handle_t handle,  int* status);
+
+int gralloc_getbuffd(buffer_handle_t handle);
+
 #ifdef __cplusplus
 }
 #endif

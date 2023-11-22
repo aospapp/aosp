@@ -42,6 +42,14 @@ libvpx_codec_srcs := $(shell cat $(libvpx_config_dir)/libvpx_srcs.txt)
 LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_LDLIBS := -L$(SYSROOT)/usr/lib -llog
 LOCAL_CFLAGS := -DHAVE_CONFIG_H=vpx_config.h
+
+# Static functions declared in headers. b/18632512
+LOCAL_CFLAGS += -Wno-unused-function
+
+# Clang complains about every partial initialized structure,
+# in vp[89]_[cd]x_iface.c
+LOCAL_CLANG_CFLAGS += -Wno-missing-field-initializers
+
 LOCAL_CFLAGS += -Werror
 LOCAL_MODULE := libvpx_internal
 

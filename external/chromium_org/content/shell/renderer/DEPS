@@ -1,4 +1,0 @@
-include_rules = [
-  "+gin",
-  "+components/web_cache/renderer",
-]

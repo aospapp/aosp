@@ -21,5 +21,5 @@
     <string name="add_cc_label" msgid="5504248178750252553">"+ گیرندهٔ کپی/گیرنده مخفی"</string>
     <string name="add_bcc_label" msgid="2464329024392383408">"+ گیرنده مخفی"</string>
     <string name="menu_manage_folders" msgid="2575462565700103317">"مدیریت پوشه‌ها"</string>
-    <string name="preferences_default_reply_all_summary" msgid="6407854387225415499">"به عنوان پیش‌فرض برای پاسخ به اعلان‌های پیام استفاده شود"</string>
+    <string name="preferences_default_reply_all_summary" msgid="6407854387225415499">"به عنوان پیش‌فرض برای پاسخ به اعلان پیام استفاده شود"</string>
 </resources>

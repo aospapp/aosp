@@ -16,7 +16,6 @@
 
 package com.google.common.collect;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.Objects;
 
@@ -44,6 +43,10 @@ import javax.annotation.Nullable;
  * <p>All methods that modify the table are optional, and the views returned by
  * the table may or may not be modifiable. When modification isn't supported,
  * those methods will throw an {@link UnsupportedOperationException}.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Table">
+ * {@code Table}</a>.
  *
  * @author Jared Levy
  * @param <R> the type of the table row keys
@@ -52,7 +55,6 @@ import javax.annotation.Nullable;
  * @since 7.0
  */
 @GwtCompatible
-@Beta
 public interface Table<R, C, V> {
   // TODO(jlevy): Consider adding methods similar to ConcurrentMap methods.
 
@@ -259,7 +261,6 @@ public interface Table<R, C, V> {
    *
    * @since 7.0
    */
-  @Beta
   interface Cell<R, C, V> {
     /**
      * Returns the row key of this cell.

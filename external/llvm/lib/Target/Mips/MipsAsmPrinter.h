@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MIPSASMPRINTER_H
-#define MIPSASMPRINTER_H
+#ifndef LLVM_LIB_TARGET_MIPS_MIPSASMPRINTER_H
+#define LLVM_LIB_TARGET_MIPS_MIPSASMPRINTER_H
 
 #include "Mips16HardFloatInfo.h"
 #include "MipsMCInstLower.h"
@@ -31,7 +31,7 @@ class Module;
 class raw_ostream;
 
 class LLVM_LIBRARY_VISIBILITY MipsAsmPrinter : public AsmPrinter {
-  MipsTargetStreamer &getTargetStreamer();
+  MipsTargetStreamer &getTargetStreamer() const;
 
   void EmitInstrWithMacroNoAT(const MachineInstr *MI);
 
@@ -60,22 +60,31 @@ private:
   std::map<const char *, const llvm::Mips16HardFloatInfo::FuncSignature *>
   StubsNeeded;
 
-  void EmitJal(MCSymbol *Symbol);
+  void emitInlineAsmStart() const override;
 
-  void EmitInstrReg(unsigned Opcode, unsigned Reg);
+  void emitInlineAsmEnd(const MCSubtargetInfo &StartInfo,
+                        const MCSubtargetInfo *EndInfo) const override;
 
-  void EmitInstrRegReg(unsigned Opcode, unsigned Reg1, unsigned Reg2);
+  void EmitJal(const MCSubtargetInfo &STI, MCSymbol *Symbol);
 
-  void EmitInstrRegRegReg(unsigned Opcode, unsigned Reg1, unsigned Reg2,
-                          unsigned Reg3);
+  void EmitInstrReg(const MCSubtargetInfo &STI, unsigned Opcode, unsigned Reg);
 
-  void EmitMovFPIntPair(unsigned MovOpc, unsigned Reg1, unsigned Reg2,
-                        unsigned FPReg1, unsigned FPReg2, bool LE);
+  void EmitInstrRegReg(const MCSubtargetInfo &STI, unsigned Opcode,
+                       unsigned Reg1, unsigned Reg2);
 
-  void EmitSwapFPIntParams(Mips16HardFloatInfo::FPParamVariant, bool LE,
+  void EmitInstrRegRegReg(const MCSubtargetInfo &STI, unsigned Opcode,
+                          unsigned Reg1, unsigned Reg2, unsigned Reg3);
+
+  void EmitMovFPIntPair(const MCSubtargetInfo &STI, unsigned MovOpc,
+                        unsigned Reg1, unsigned Reg2, unsigned FPReg1,
+                        unsigned FPReg2, bool LE);
+
+  void EmitSwapFPIntParams(const MCSubtargetInfo &STI,
+                           Mips16HardFloatInfo::FPParamVariant, bool LE,
                            bool ToFP);
 
-  void EmitSwapFPIntRetval(Mips16HardFloatInfo::FPReturnVariant, bool LE);
+  void EmitSwapFPIntRetval(const MCSubtargetInfo &STI,
+                           Mips16HardFloatInfo::FPReturnVariant, bool LE);
 
   void EmitFPCallStub(const char *, const Mips16HardFloatInfo::FuncSignature *);
 
@@ -89,11 +98,10 @@ public:
   const MipsFunctionInfo *MipsFI;
   MipsMCInstLower MCInstLowering;
 
-  explicit MipsAsmPrinter(TargetMachine &TM,  MCStreamer &Streamer)
-    : AsmPrinter(TM, Streamer), MCP(nullptr), InConstantPool(false),
-      MCInstLowering(*this) {
-    Subtarget = &TM.getSubtarget<MipsSubtarget>();
-  }
+  explicit MipsAsmPrinter(TargetMachine &TM,
+                          std::unique_ptr<MCStreamer> Streamer)
+      : AsmPrinter(TM, std::move(Streamer)), MCP(nullptr),
+        InConstantPool(false), MCInstLowering(*this) {}
 
   const char *getPassName() const override {
     return "Mips Assembly Printer";
@@ -131,6 +139,7 @@ public:
   void printMemOperandEA(const MachineInstr *MI, int opNum, raw_ostream &O);
   void printFCCOperand(const MachineInstr *MI, int opNum, raw_ostream &O,
                        const char *Modifier = nullptr);
+  void printRegisterList(const MachineInstr *MI, int opNum, raw_ostream &O);
   void EmitStartOfAsmFile(Module &M) override;
   void EmitEndOfAsmFile(Module &M) override;
   void PrintDebugValueComment(const MachineInstr *MI, raw_ostream &OS);

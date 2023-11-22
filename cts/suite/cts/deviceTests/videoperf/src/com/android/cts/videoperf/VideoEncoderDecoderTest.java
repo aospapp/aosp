@@ -16,6 +16,8 @@
 
 package com.android.cts.videoperf;
 
+import android.cts.util.MediaUtils;
+import android.cts.util.DeviceReportLog;
 import android.graphics.ImageFormat;
 import android.graphics.Point;
 import android.media.cts.CodecImage;
@@ -23,19 +25,28 @@ import android.media.cts.CodecUtils;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.MediaCodec;
-import android.media.MediaCodecList;
+import android.media.MediaCodec.BufferInfo;
+import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.util.Log;
+import android.util.Pair;
+import android.util.Range;
+import android.util.Size;
 
 import android.cts.util.CtsAndroidTestCase;
 import com.android.cts.util.ResultType;
 import com.android.cts.util.ResultUnit;
 import com.android.cts.util.Stat;
+import com.android.cts.util.TimeoutReq;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.lang.System;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.Random;
 import java.util.Vector;
 
@@ -57,10 +68,15 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
     private static final long VIDEO_CODEC_WAIT_TIME_US = 5000;
     private static final boolean VERBOSE = false;
     private static final String VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
-    private static final int TOTAL_FRAMES = 300;
-    private static final int NUMBER_OF_REPEAT = 10;
+    private static final String VIDEO_VP8 = MediaFormat.MIMETYPE_VIDEO_VP8;
+    private static final String VIDEO_H263 = MediaFormat.MIMETYPE_VIDEO_H263;
+    private static final String VIDEO_MPEG4 = MediaFormat.MIMETYPE_VIDEO_MPEG4;
+    private int mCurrentTestRound = 0;
+    private double[][] mEncoderFrameTimeDiff = null;
+    private double[][] mDecoderFrameTimeDiff = null;
     // i frame interval for encoder
     private static final int KEY_I_FRAME_INTERVAL = 5;
+    private static final int MOVING_AVERAGE_NUM = 10;
 
     private static final int Y_CLAMP_MIN = 16;
     private static final int Y_CLAMP_MAX = 235;
@@ -75,20 +91,40 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
     private int mVideoHeight;
     private int mFrameRate;
 
-    private Vector<ByteBuffer> mEncodedOutputBuffer;
+    private MediaFormat mEncInputFormat;
+    private MediaFormat mEncOutputFormat;
+    private MediaFormat mDecOutputFormat;
+
+    private LinkedList<Pair<ByteBuffer, BufferInfo>> mEncodedOutputBuffer;
     // check this many pixels per each decoded frame
     // checking too many points decreases decoder frame rates a lot.
     private static final int PIXEL_CHECK_PER_FRAME = 1000;
     // RMS error in pixel values above this will be treated as error.
     private static final double PIXEL_RMS_ERROR_MARGAIN = 20.0;
+    private double mRmsErrorMargain = PIXEL_RMS_ERROR_MARGAIN;
     private Random mRandom;
+
+    private class TestConfig {
+        public boolean mTestPixels = true;
+        public boolean mTestResult = false;
+        public boolean mReportFrameTime = false;
+        public int mTotalFrames = 300;
+        public int mMaxTimeMs = 120000;  // 2 minutes
+        public int mNumberOfRepeat = 10;
+    }
+
+    private TestConfig mTestConfig;
+
+    private DeviceReportLog mReportLog;
 
     @Override
     protected void setUp() throws Exception {
-        mEncodedOutputBuffer = new Vector<ByteBuffer>(TOTAL_FRAMES * 2);
+        mEncodedOutputBuffer = new LinkedList<Pair<ByteBuffer, BufferInfo>>();
         // Use time as a seed, hoping to prevent checking pixels in the same pattern
         long now = System.currentTimeMillis();
         mRandom = new Random(now);
+        mTestConfig = new TestConfig();
+        mReportLog = new DeviceReportLog();
         super.setUp();
     }
 
@@ -101,23 +137,77 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         mYDirectBuffer = null;
         mUVDirectBuffer = null;
         mRandom = null;
+        mTestConfig = null;
+        mReportLog.deliverReportToHost(getInstrumentation());
         super.tearDown();
     }
 
+    private String getEncoderName(String mime) {
+        return getCodecName(mime, true /* isEncoder */);
+    }
+
+    private String getDecoderName(String mime) {
+        return getCodecName(mime, false /* isEncoder */);
+    }
+
+    private String getCodecName(String mime, boolean isEncoder) {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (info.isEncoder() != isEncoder) {
+                continue;
+            }
+            CodecCapabilities caps = null;
+            try {
+                caps = info.getCapabilitiesForType(mime);
+            } catch (IllegalArgumentException e) {  // mime is not supported
+                continue;
+            }
+            return info.getName();
+        }
+        return null;
+    }
+
+    private String[] getEncoderName(String mime, boolean isGoog) {
+        return getCodecName(mime, isGoog, true /* isEncoder */);
+    }
+
+    private String[] getDecoderName(String mime, boolean isGoog) {
+        return getCodecName(mime, isGoog, false /* isEncoder */);
+    }
+
+    private String[] getCodecName(String mime, boolean isGoog, boolean isEncoder) {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        ArrayList<String> result = new ArrayList<String>();
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (info.isEncoder() != isEncoder
+                    || info.getName().toLowerCase().startsWith("omx.google.") != isGoog) {
+                continue;
+            }
+            CodecCapabilities caps = null;
+            try {
+                caps = info.getCapabilitiesForType(mime);
+            } catch (IllegalArgumentException e) {  // mime is not supported
+                continue;
+            }
+            result.add(info.getName());
+        }
+        return result.toArray(new String[result.size()]);
+    }
+
     public void testAvc0176x0144() throws Exception {
-        doTest(VIDEO_AVC, 176, 144, NUMBER_OF_REPEAT);
+        doTestDefault(VIDEO_AVC, 176, 144);
     }
 
     public void testAvc0352x0288() throws Exception {
-        doTest(VIDEO_AVC, 352, 288, NUMBER_OF_REPEAT);
+        doTestDefault(VIDEO_AVC, 352, 288);
     }
 
     public void testAvc0720x0480() throws Exception {
-        doTest(VIDEO_AVC, 720, 480, NUMBER_OF_REPEAT);
+        doTestDefault(VIDEO_AVC, 720, 480);
     }
 
     public void testAvc1280x0720() throws Exception {
-        doTest(VIDEO_AVC, 1280, 720, NUMBER_OF_REPEAT);
+        doTestDefault(VIDEO_AVC, 1280, 720);
     }
 
     /**
@@ -126,7 +216,133 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
      * which is not specified in API documentation.
      */
     public void testAvc1920x1072() throws Exception {
-        doTest(VIDEO_AVC, 1920, 1072, NUMBER_OF_REPEAT);
+        doTestDefault(VIDEO_AVC, 1920, 1072);
+    }
+
+    // Avc tests
+    public void testAvc0320x0240Other() throws Exception {
+        doTestOther(VIDEO_AVC, 320, 240);
+    }
+
+    public void testAvc0320x0240Goog() throws Exception {
+        doTestGoog(VIDEO_AVC, 320, 240);
+    }
+
+    public void testAvc0720x0480Other() throws Exception {
+        doTestOther(VIDEO_AVC, 720, 480);
+    }
+
+    public void testAvc0720x0480Goog() throws Exception {
+        doTestGoog(VIDEO_AVC, 720, 480);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testAvc1280x0720Other() throws Exception {
+        doTestOther(VIDEO_AVC, 1280, 720);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testAvc1280x0720Goog() throws Exception {
+        doTestGoog(VIDEO_AVC, 1280, 720);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testAvc1920x1080Other() throws Exception {
+        doTestOther(VIDEO_AVC, 1920, 1080);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testAvc1920x1080Goog() throws Exception {
+        doTestGoog(VIDEO_AVC, 1920, 1080);
+    }
+
+    // Vp8 tests
+    public void testVp80320x0180Other() throws Exception {
+        doTestOther(VIDEO_VP8, 320, 180);
+    }
+
+    public void testVp80320x0180Goog() throws Exception {
+        doTestGoog(VIDEO_VP8, 320, 180);
+    }
+
+    public void testVp80640x0360Other() throws Exception {
+        doTestOther(VIDEO_VP8, 640, 360);
+    }
+
+    public void testVp80640x0360Goog() throws Exception {
+        doTestGoog(VIDEO_VP8, 640, 360);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testVp81280x0720Other() throws Exception {
+        doTestOther(VIDEO_VP8, 1280, 720);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testVp81280x0720Goog() throws Exception {
+        doTestGoog(VIDEO_VP8, 1280, 720);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testVp81920x1080Other() throws Exception {
+        doTestOther(VIDEO_VP8, 1920, 1080);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testVp81920x1080Goog() throws Exception {
+        doTestGoog(VIDEO_VP8, 1920, 1080);
+    }
+
+    // H263 tests
+    public void testH2630176x0144Other() throws Exception {
+        doTestOther(VIDEO_H263, 176, 144);
+    }
+
+    public void testH2630176x0144Goog() throws Exception {
+        doTestGoog(VIDEO_H263, 176, 144);
+    }
+
+    public void testH2630352x0288Other() throws Exception {
+        doTestOther(VIDEO_H263, 352, 288);
+    }
+
+    public void testH2630352x0288Goog() throws Exception {
+        doTestGoog(VIDEO_H263, 352, 288);
+    }
+
+    // Mpeg4 tests
+    public void testMpeg40176x0144Other() throws Exception {
+        doTestOther(VIDEO_MPEG4, 176, 144);
+    }
+
+    public void testMpeg40176x0144Goog() throws Exception {
+        doTestGoog(VIDEO_MPEG4, 176, 144);
+    }
+
+    public void testMpeg40352x0288Other() throws Exception {
+        doTestOther(VIDEO_MPEG4, 352, 288);
+    }
+
+    public void testMpeg40352x0288Goog() throws Exception {
+        doTestGoog(VIDEO_MPEG4, 352, 288);
+    }
+
+    public void testMpeg40640x0480Other() throws Exception {
+        doTestOther(VIDEO_MPEG4, 640, 480);
+    }
+
+    public void testMpeg40640x0480Goog() throws Exception {
+        doTestGoog(VIDEO_MPEG4, 640, 480);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testMpeg41280x0720Other() throws Exception {
+        doTestOther(VIDEO_MPEG4, 1280, 720);
+    }
+
+    @TimeoutReq(minutes = 10)
+    public void testMpeg41280x0720Goog() throws Exception {
+        doTestGoog(VIDEO_MPEG4, 1280, 720);
     }
 
     private boolean isSrcSemiPlanar() {
@@ -156,20 +372,77 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         }
     }
 
+    private void doTestGoog(String mimeType, int w, int h) throws Exception {
+        mTestConfig.mTestPixels = false;
+        mTestConfig.mTestResult = true;
+        mTestConfig.mTotalFrames = 3000;
+        mTestConfig.mNumberOfRepeat = 2;
+        doTest(true /* isGoog */, mimeType, w, h);
+    }
+
+    private void doTestOther(String mimeType, int w, int h) throws Exception {
+        mTestConfig.mTestPixels = false;
+        mTestConfig.mTestResult = true;
+        mTestConfig.mTotalFrames = 3000;
+        mTestConfig.mNumberOfRepeat = 2;
+        doTest(false /* isGoog */, mimeType, w, h);
+    }
+
+    private void doTestDefault(String mimeType, int w, int h) throws Exception {
+        String encoderName = getEncoderName(mimeType);
+        if (encoderName == null) {
+            Log.i(TAG, "Encoder for " + mimeType + " not found");
+            return;
+        }
+
+        String decoderName = getDecoderName(mimeType);
+        if (decoderName == null) {
+            Log.i(TAG, "Encoder for " + mimeType + " not found");
+            return;
+        }
+
+        doTestByName(encoderName, decoderName, mimeType, w, h);
+    }
+
     /**
      * Run encoding / decoding test for given mimeType of codec
+     * @param isGoog test google or non-google codec.
      * @param mimeType like video/avc
      * @param w video width
      * @param h video height
-     * @param numberRepeat how many times to repeat the encoding / decoding process
      */
-    private void doTest(String mimeType, int w, int h, int numberRepeat) throws Exception {
-        CodecInfo infoEnc = CodecInfo.getSupportedFormatInfo(mimeType, w, h, true /* encoder */);
+    private void doTest(boolean isGoog, String mimeType, int w, int h)
+            throws Exception {
+        String[] encoderNames = getEncoderName(mimeType, isGoog);
+        if (encoderNames.length == 0) {
+            Log.i(TAG, isGoog ? "Google " : "Non-google "
+                    + "encoder for " + mimeType + " not found");
+            return;
+        }
+
+        String[] decoderNames = getDecoderName(mimeType, isGoog);
+        if (decoderNames.length == 0) {
+            Log.i(TAG, isGoog ? "Google " : "Non-google "
+                    + "decoder for " + mimeType + " not found");
+            return;
+        }
+
+        for (String encoderName: encoderNames) {
+            for (String decoderName: decoderNames) {
+                doTestByName(encoderName, decoderName, mimeType, w, h);
+            }
+        }
+    }
+
+    private void doTestByName(
+            String encoderName, String decoderName, String mimeType, int w, int h)
+            throws Exception {
+        CodecInfo infoEnc = CodecInfo.getSupportedFormatInfo(encoderName, mimeType, w, h);
         if (infoEnc == null) {
             Log.i(TAG, "Encoder " + mimeType + " with " + w + "," + h + " not supported");
             return;
         }
-        CodecInfo infoDec = CodecInfo.getSupportedFormatInfo(mimeType, w, h, false /* encoder */);
+        CodecInfo infoDec = CodecInfo.getSupportedFormatInfo(decoderName, mimeType, w, h);
         assertNotNull(infoDec);
         mVideoWidth = w;
         mVideoHeight = h;
@@ -181,12 +454,17 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                    ", dec format " + mDstColorFormat);
 
         initYUVPlane(w + YUV_PLANE_ADDITIONAL_LENGTH, h + YUV_PLANE_ADDITIONAL_LENGTH);
-        double[] encoderFpsResults = new double[numberRepeat];
-        double[] decoderFpsResults = new double[numberRepeat];
-        double[] totalFpsResults = new double[numberRepeat];
-        double[] decoderRmsErrorResults = new double[numberRepeat];
+        mEncoderFrameTimeDiff =
+                new double[mTestConfig.mNumberOfRepeat][mTestConfig.mTotalFrames - 1];
+        mDecoderFrameTimeDiff =
+                new double[mTestConfig.mNumberOfRepeat][mTestConfig.mTotalFrames - 1];
+        double[] encoderFpsResults = new double[mTestConfig.mNumberOfRepeat];
+        double[] decoderFpsResults = new double[mTestConfig.mNumberOfRepeat];
+        double[] totalFpsResults = new double[mTestConfig.mNumberOfRepeat];
+        double[] decoderRmsErrorResults = new double[mTestConfig.mNumberOfRepeat];
         boolean success = true;
-        for (int i = 0; i < numberRepeat && success; i++) {
+        for (int i = 0; i < mTestConfig.mNumberOfRepeat && success; i++) {
+            mCurrentTestRound = i;
             MediaFormat format = new MediaFormat();
             format.setString(MediaFormat.KEY_MIME, mimeType);
             format.setInteger(MediaFormat.KEY_BIT_RATE, infoEnc.mBitRate);
@@ -196,22 +474,24 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             format.setInteger(MediaFormat.KEY_FRAME_RATE, infoEnc.mFps);
             mFrameRate = infoEnc.mFps;
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, KEY_I_FRAME_INTERVAL);
-            double encodingTime = runEncoder(VIDEO_AVC, format, TOTAL_FRAMES);
+
+            double encodingTime = runEncoder(encoderName, format, mTestConfig.mTotalFrames);
             // re-initialize format for decoder
             format = new MediaFormat();
             format.setString(MediaFormat.KEY_MIME, mimeType);
             format.setInteger(MediaFormat.KEY_WIDTH, w);
             format.setInteger(MediaFormat.KEY_HEIGHT, h);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, mDstColorFormat);
-            double[] decoderResult = runDecoder(VIDEO_AVC, format);
+            double[] decoderResult = runDecoder(decoderName, format);
             if (decoderResult == null) {
                 success = false;
             } else {
                 double decodingTime = decoderResult[0];
                 decoderRmsErrorResults[i] = decoderResult[1];
-                encoderFpsResults[i] = (double)TOTAL_FRAMES / encodingTime * 1000.0;
-                decoderFpsResults[i] = (double)TOTAL_FRAMES / decodingTime * 1000.0;
-                totalFpsResults[i] = (double)TOTAL_FRAMES / (encodingTime + decodingTime) * 1000.0;
+                encoderFpsResults[i] = (double)mTestConfig.mTotalFrames / encodingTime * 1000.0;
+                decoderFpsResults[i] = (double)mTestConfig.mTotalFrames / decodingTime * 1000.0;
+                totalFpsResults[i] =
+                        (double)mTestConfig.mTotalFrames / (encodingTime + decodingTime) * 1000.0;
             }
 
             // clear things for re-start
@@ -219,34 +499,106 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             // it will be good to clean everything to make every run the same.
             System.gc();
         }
-        getReportLog().printArray("encoder", encoderFpsResults, ResultType.HIGHER_BETTER,
+        mReportLog.printArray("encoder", encoderFpsResults, ResultType.HIGHER_BETTER,
                 ResultUnit.FPS);
-        getReportLog().printArray("rms error", decoderRmsErrorResults, ResultType.LOWER_BETTER,
+        mReportLog.printArray("rms error", decoderRmsErrorResults, ResultType.LOWER_BETTER,
                 ResultUnit.NONE);
-        getReportLog().printArray("decoder", decoderFpsResults, ResultType.HIGHER_BETTER,
+        mReportLog.printArray("decoder", decoderFpsResults, ResultType.HIGHER_BETTER,
                 ResultUnit.FPS);
-        getReportLog().printArray("encoder decoder", totalFpsResults, ResultType.HIGHER_BETTER,
+        mReportLog.printArray("encoder decoder", totalFpsResults, ResultType.HIGHER_BETTER,
                 ResultUnit.FPS);
-        getReportLog().printSummary("encoder decoder", Stat.getAverage(totalFpsResults),
+        mReportLog.printValue(mimeType + " encoder average fps for " + w + "x" + h,
+                Stat.getAverage(encoderFpsResults), ResultType.HIGHER_BETTER, ResultUnit.FPS);
+        mReportLog.printValue(mimeType + " decoder average fps for " + w + "x" + h,
+                Stat.getAverage(decoderFpsResults), ResultType.HIGHER_BETTER, ResultUnit.FPS);
+        mReportLog.printSummary("encoder decoder", Stat.getAverage(totalFpsResults),
                 ResultType.HIGHER_BETTER, ResultUnit.FPS);
-        // make sure that rms error is not too big.
-        for (int i = 0; i < numberRepeat; i++) {
-            assertTrue(decoderRmsErrorResults[i] < PIXEL_RMS_ERROR_MARGAIN);
+
+        boolean encTestPassed = false;
+        boolean decTestPassed = false;
+        double[] measuredFps = new double[mTestConfig.mNumberOfRepeat];
+        String[] resultRawData = new String[mTestConfig.mNumberOfRepeat];
+        for (int i = 0; i < mTestConfig.mNumberOfRepeat; i++) {
+            // make sure that rms error is not too big.
+            if (decoderRmsErrorResults[i] >= mRmsErrorMargain) {
+                fail("rms error is bigger than the limit "
+                        + decoderRmsErrorResults[i] + " vs " + mRmsErrorMargain);
+            }
+
+            if (mTestConfig.mReportFrameTime) {
+                mReportLog.printValue(
+                        "encodertest#" + i + ": " + Arrays.toString(mEncoderFrameTimeDiff[i]),
+                        0, ResultType.NEUTRAL, ResultUnit.NONE);
+                mReportLog.printValue(
+                        "decodertest#" + i + ": " + Arrays.toString(mDecoderFrameTimeDiff[i]),
+                        0, ResultType.NEUTRAL, ResultUnit.NONE);
+            }
+
+            if (mTestConfig.mTestResult) {
+                double[] avgs = MediaUtils.calculateMovingAverage(
+                        mEncoderFrameTimeDiff[i], MOVING_AVERAGE_NUM);
+                double encMin = Stat.getMin(avgs);
+                double encMax = Stat.getMax(avgs);
+                double encAvg = MediaUtils.getAverage(mEncoderFrameTimeDiff[i]);
+                double encStdev = MediaUtils.getStdev(avgs);
+                String prefix = "codec=" + encoderName + " round=" + i +
+                        " EncInputFormat=" + mEncInputFormat +
+                        " EncOutputFormat=" + mEncOutputFormat;
+                String result =
+                        MediaUtils.logResults(mReportLog, prefix, encMin, encMax, encAvg, encStdev);
+                double measuredEncFps = 1000000000 / encMin;
+                resultRawData[i] = result;
+                measuredFps[i] = measuredEncFps;
+                if (!encTestPassed) {
+                    encTestPassed = MediaUtils.verifyResults(
+                            encoderName, mimeType, w, h, measuredEncFps);
+                }
+
+                avgs = MediaUtils.calculateMovingAverage(
+                        mDecoderFrameTimeDiff[i], MOVING_AVERAGE_NUM);
+                double decMin = Stat.getMin(avgs);
+                double decMax = Stat.getMax(avgs);
+                double decAvg = MediaUtils.getAverage(mDecoderFrameTimeDiff[i]);
+                double decStdev = MediaUtils.getStdev(avgs);
+                prefix = "codec=" + decoderName + " size=" + w + "x" + h + " round=" + i +
+                        " DecOutputFormat=" + mDecOutputFormat;
+                MediaUtils.logResults(mReportLog, prefix, decMin, decMax, decAvg, decStdev);
+                double measuredDecFps = 1000000000 / decMin;
+                if (!decTestPassed) {
+                    decTestPassed = MediaUtils.verifyResults(
+                            decoderName, mimeType, w, h, measuredDecFps);
+                }
+            }
         }
+
+        if (mTestConfig.mTestResult) {
+            if (!encTestPassed) {
+                Range<Double> reportedRange =
+                    MediaUtils.getAchievableFrameRatesFor(encoderName, mimeType, w, h);
+                String failMessage =
+                    MediaUtils.getErrorMessage(reportedRange, measuredFps, resultRawData);
+                fail(failMessage);
+            }
+            // Decoder result will be verified in VideoDecoderPerfTest
+            // if (!decTestPassed) {
+            //     fail("Measured fps for " + decoderName +
+            //             " doesn't match with reported achievable frame rates.");
+            // }
+        }
+        measuredFps = null;
+        resultRawData = null;
     }
 
     /**
      * run encoder benchmarking
-     * @param mimeType encoder type like video/avc
+     * @param encoderName encoder name
      * @param format format of media to encode
      * @param totalFrames total number of frames to encode
      * @return time taken in ms to encode the frames. This does not include initialization time.
      */
-    private double runEncoder(String mimeType, MediaFormat format, int totalFrames) {
+    private double runEncoder(String encoderName, MediaFormat format, int totalFrames) {
         MediaCodec codec = null;
         try {
-            MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
-            String encoderName = mcl.findEncoderForFormat(format);
             codec = MediaCodec.createByCodecName(encoderName);
             codec.configure(
                     format,
@@ -254,19 +606,21 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                     null /* crypto */,
                     MediaCodec.CONFIGURE_FLAG_ENCODE);
         } catch (IllegalStateException e) {
-            Log.e(TAG, "codec '" + mimeType + "' failed configuration.");
+            Log.e(TAG, "codec '" + encoderName + "' failed configuration.");
             codec.release();
-            assertTrue("codec '" + mimeType + "' failed configuration.", false);
+            assertTrue("codec '" + encoderName + "' failed configuration.", false);
         } catch (IOException | NullPointerException e) {
             Log.i(TAG, "could not find codec for " + format);
             return Double.NaN;
         }
         codec.start();
+        mEncInputFormat = codec.getInputFormat();
         ByteBuffer[] codecOutputBuffers = codec.getOutputBuffers();
 
         int numBytesSubmitted = 0;
         int numBytesDequeued = 0;
         int inFramesCount = 0;
+        long lastOutputTimeNs = 0;
         long start = System.currentTimeMillis();
         while (true) {
             int index;
@@ -275,6 +629,10 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                 index = codec.dequeueInputBuffer(VIDEO_CODEC_WAIT_TIME_US /* timeoutUs */);
                 if (index != MediaCodec.INFO_TRY_AGAIN_LATER) {
                     int size;
+                    boolean eos = (inFramesCount == (totalFrames - 1));
+                    if (!eos && ((System.currentTimeMillis() - start) > mTestConfig.mMaxTimeMs)) {
+                        eos = true;
+                    }
                     // when encoder only supports flexYUV, use Image only; otherwise,
                     // use ByteBuffer & Image each on half of the frames to test both
                     if (isSrcFlexYUV() || inFramesCount % 2 == 0) {
@@ -283,14 +641,12 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                         assertTrue(image != null);
                         size = queueInputImageEncoder(
                                 codec, image, index, inFramesCount,
-                                (inFramesCount == (totalFrames - 1)) ?
-                                        MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                                eos ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
                     } else {
                         ByteBuffer buffer = codec.getInputBuffer(index);
                         size = queueInputBufferEncoder(
                                 codec, buffer, index, inFramesCount,
-                                (inFramesCount == (totalFrames - 1)) ?
-                                        MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                                eos ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
                     }
                     inFramesCount++;
                     numBytesSubmitted += size;
@@ -305,9 +661,19 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             index = codec.dequeueOutputBuffer(info, VIDEO_CODEC_WAIT_TIME_US /* timeoutUs */);
             if (index == MediaCodec.INFO_TRY_AGAIN_LATER) {
             } else if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                mEncOutputFormat = codec.getOutputFormat();
             } else if (index == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
                 codecOutputBuffers = codec.getOutputBuffers();
             } else if (index >= 0) {
+                if (lastOutputTimeNs > 0) {
+                    int pos = mEncodedOutputBuffer.size() - 1;
+                    if (pos < mEncoderFrameTimeDiff[mCurrentTestRound].length) {
+                        long diff = System.nanoTime() - lastOutputTimeNs;
+                        mEncoderFrameTimeDiff[mCurrentTestRound][pos] = diff;
+                    }
+                }
+                lastOutputTimeNs = System.nanoTime();
+
                 dequeueOutputBufferEncoder(codec, codecOutputBuffers, index, info);
                 numBytesDequeued += info.size;
                 if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -322,6 +688,10 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             }
         }
         long finish = System.currentTimeMillis();
+        int validDataNum = Math.min(mEncodedOutputBuffer.size() - 1,
+                mEncoderFrameTimeDiff[mCurrentTestRound].length);
+        mEncoderFrameTimeDiff[mCurrentTestRound] =
+                Arrays.copyOf(mEncoderFrameTimeDiff[mCurrentTestRound], validDataNum);
         if (VERBOSE) {
             Log.d(TAG, "queued a total of " + numBytesSubmitted + "bytes, "
                     + "dequeued " + numBytesDequeued + " bytes.");
@@ -532,28 +902,27 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             MediaCodec codec, ByteBuffer[] outputBuffers,
             int index, MediaCodec.BufferInfo info) {
         ByteBuffer output = outputBuffers[index];
-        output.clear();
         int l = info.size;
         ByteBuffer copied = ByteBuffer.allocate(l);
         output.get(copied.array(), 0, l);
-        mEncodedOutputBuffer.add(copied);
+        BufferInfo savedInfo = new BufferInfo();
+        savedInfo.set(0, l, info.presentationTimeUs, info.flags);
+        mEncodedOutputBuffer.addLast(Pair.create(copied, savedInfo));
         codec.releaseOutputBuffer(index, false /* render */);
     }
 
     /**
      * run encoder benchmarking with encoded stream stored from encoding phase
-     * @param mimeType encoder type like video/avc
+     * @param decoderName decoder name
      * @param format format of media to decode
      * @return returns length-2 array with 0: time for decoding, 1 : rms error of pixels
      */
-    private double[] runDecoder(String mimeType, MediaFormat format) {
-        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
-        String decoderName = mcl.findDecoderForFormat(format);
+    private double[] runDecoder(String decoderName, MediaFormat format) {
         MediaCodec codec = null;
         try {
             codec = MediaCodec.createByCodecName(decoderName);
         } catch (IOException | NullPointerException e) {
-            Log.i(TAG, "could not find codec for " + format);
+            Log.i(TAG, "could not find decoder for " + format);
             return null;
         }
         codec.configure(format, null /* surface */, null /* crypto */, 0 /* flags */);
@@ -569,6 +938,7 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         int outFrameCount = 0;
         YUVValue expected = new YUVValue();
         YUVValue decoded = new YUVValue();
+        long lastOutputTimeNs = 0;
         long start = System.currentTimeMillis();
         while (!sawOutputEOS) {
             if (inputLeft > 0) {
@@ -577,15 +947,22 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                 if (inputBufIndex >= 0) {
                     ByteBuffer dstBuf = codecInputBuffers[inputBufIndex];
                     dstBuf.clear();
-                    ByteBuffer src = mEncodedOutputBuffer.get(inputBufferCount);
+                    ByteBuffer src = mEncodedOutputBuffer.get(inputBufferCount).first;
+                    BufferInfo srcInfo = mEncodedOutputBuffer.get(inputBufferCount).second;
                     int writeSize = src.capacity();
                     dstBuf.put(src.array(), 0, writeSize);
+
+                    int flags = srcInfo.flags;
+                    if ((System.currentTimeMillis() - start) > mTestConfig.mMaxTimeMs) {
+                        flags |= MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+                    }
+
                     codec.queueInputBuffer(
                             inputBufIndex,
                             0 /* offset */,
                             writeSize,
-                            0,
-                            (inputLeft == 1) ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0);
+                            srcInfo.presentationTimeUs,
+                            flags);
                     inputLeft --;
                     inputBufferCount ++;
                 }
@@ -597,52 +974,63 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
 
                 // only do YUV compare on EOS frame if the buffer size is none-zero
                 if (info.size > 0) {
-                    Point origin = getOrigin(outFrameCount);
-                    int i;
-
-                    // if decoder supports planar or semiplanar, check output with
-                    // ByteBuffer & Image each on half of the points
-                    int pixelCheckPerFrame = PIXEL_CHECK_PER_FRAME;
-                    if (!isDstFlexYUV()) {
-                        pixelCheckPerFrame /= 2;
-                        ByteBuffer buf = codec.getOutputBuffer(outputBufIndex);
-                        if (VERBOSE && (outFrameCount == 0)) {
-                            printByteBuffer("Y ", buf, 0, 20);
-                            printByteBuffer("UV ", buf, mVideoWidth * mVideoHeight, 20);
-                            printByteBuffer("UV ", buf,
-                                    mVideoWidth * mVideoHeight + mVideoWidth * 60, 20);
+                    if (lastOutputTimeNs > 0) {
+                        int pos = outFrameCount - 1;
+                        if (pos < mDecoderFrameTimeDiff[mCurrentTestRound].length) {
+                            long diff = System.nanoTime() - lastOutputTimeNs;
+                            mDecoderFrameTimeDiff[mCurrentTestRound][pos] = diff;
                         }
+                    }
+                    lastOutputTimeNs = System.nanoTime();
+
+                    if (mTestConfig.mTestPixels) {
+                        Point origin = getOrigin(outFrameCount);
+                        int i;
+
+                        // if decoder supports planar or semiplanar, check output with
+                        // ByteBuffer & Image each on half of the points
+                        int pixelCheckPerFrame = PIXEL_CHECK_PER_FRAME;
+                        if (!isDstFlexYUV()) {
+                            pixelCheckPerFrame /= 2;
+                            ByteBuffer buf = codec.getOutputBuffer(outputBufIndex);
+                            if (VERBOSE && (outFrameCount == 0)) {
+                                printByteBuffer("Y ", buf, 0, 20);
+                                printByteBuffer("UV ", buf, mVideoWidth * mVideoHeight, 20);
+                                printByteBuffer("UV ", buf,
+                                        mVideoWidth * mVideoHeight + mVideoWidth * 60, 20);
+                            }
+                            for (i = 0; i < pixelCheckPerFrame; i++) {
+                                int w = mRandom.nextInt(mVideoWidth);
+                                int h = mRandom.nextInt(mVideoHeight);
+                                getPixelValuesFromYUVBuffers(origin.x, origin.y, w, h, expected);
+                                getPixelValuesFromOutputBuffer(buf, w, h, decoded);
+                                if (VERBOSE) {
+                                    Log.i(TAG, outFrameCount + "-" + i + "- th round: ByteBuffer:"
+                                            + " expected "
+                                            + expected.mY + "," + expected.mU + "," + expected.mV
+                                            + " decoded "
+                                            + decoded.mY + "," + decoded.mU + "," + decoded.mV);
+                                }
+                                totalErrorSquared += expected.calcErrorSquared(decoded);
+                            }
+                        }
+
+                        Image image = codec.getOutputImage(outputBufIndex);
+                        assertTrue(image != null);
                         for (i = 0; i < pixelCheckPerFrame; i++) {
                             int w = mRandom.nextInt(mVideoWidth);
                             int h = mRandom.nextInt(mVideoHeight);
                             getPixelValuesFromYUVBuffers(origin.x, origin.y, w, h, expected);
-                            getPixelValuesFromOutputBuffer(buf, w, h, decoded);
+                            getPixelValuesFromImage(image, w, h, decoded);
                             if (VERBOSE) {
-                                Log.i(TAG, outFrameCount + "-" + i + "- th round: ByteBuffer:"
-                                        + " expected "
+                                Log.i(TAG, outFrameCount + "-" + i + "- th round: FlexYUV:"
+                                        + " expcted "
                                         + expected.mY + "," + expected.mU + "," + expected.mV
                                         + " decoded "
                                         + decoded.mY + "," + decoded.mU + "," + decoded.mV);
                             }
                             totalErrorSquared += expected.calcErrorSquared(decoded);
                         }
-                    }
-
-                    Image image = codec.getOutputImage(outputBufIndex);
-                    assertTrue(image != null);
-                    for (i = 0; i < pixelCheckPerFrame; i++) {
-                        int w = mRandom.nextInt(mVideoWidth);
-                        int h = mRandom.nextInt(mVideoHeight);
-                        getPixelValuesFromYUVBuffers(origin.x, origin.y, w, h, expected);
-                        getPixelValuesFromImage(image, w, h, decoded);
-                        if (VERBOSE) {
-                            Log.i(TAG, outFrameCount + "-" + i + "- th round: FlexYUV:"
-                                    + " expcted "
-                                    + expected.mY + "," + expected.mU + "," + expected.mV
-                                    + " decoded "
-                                    + decoded.mY + "," + decoded.mU + "," + decoded.mV);
-                        }
-                        totalErrorSquared += expected.calcErrorSquared(decoded);
                     }
                     outFrameCount++;
                 }
@@ -652,9 +1040,9 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                     sawOutputEOS = true;
                 }
             } else if (res == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                MediaFormat oformat = codec.getOutputFormat();
-                Log.d(TAG, "output format has changed to " + oformat);
-                int colorFormat = oformat.getInteger(MediaFormat.KEY_COLOR_FORMAT);
+                mDecOutputFormat = codec.getOutputFormat();
+                Log.d(TAG, "output format has changed to " + mDecOutputFormat);
+                int colorFormat = mDecOutputFormat.getInteger(MediaFormat.KEY_COLOR_FORMAT);
                 if (colorFormat == CodecCapabilities.COLOR_FormatYUV420SemiPlanar
                         || colorFormat == CodecCapabilities.COLOR_FormatYUV420Planar) {
                     mDstColorFormat = colorFormat;
@@ -666,10 +1054,14 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
             }
         }
         long finish = System.currentTimeMillis();
+        int validDataNum = Math.min(outFrameCount - 1,
+                mDecoderFrameTimeDiff[mCurrentTestRound].length);
+        mDecoderFrameTimeDiff[mCurrentTestRound] =
+                Arrays.copyOf(mDecoderFrameTimeDiff[mCurrentTestRound], validDataNum);
         codec.stop();
         codec.release();
         codec = null;
-        assertTrue(outFrameCount >= TOTAL_FRAMES);
+
         // divide by 3 as sum is done for Y, U, V.
         double errorRms = Math.sqrt(totalErrorSquared / PIXEL_CHECK_PER_FRAME / outFrameCount / 3);
         double[] result = { (double) finish - start, errorRms };

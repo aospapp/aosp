@@ -46,9 +46,12 @@ public interface DeviceInfoConstants {
     public static final String SCREEN_SIZE = "screen_size";
     public static final String SCREEN_DENSITY_BUCKET = "screen_density_bucket";
     public static final String SCREEN_DENSITY = "screen_density";
+    public static final String SMALLEST_SCREEN_WIDTH_DP = "smallest_screen_width_dp";
     public static final String RESOLUTION = "resolution";
     public static final String VERSION_SDK = "androidPlatformVersion";
     public static final String VERSION_RELEASE = "buildVersion";
+    public static final String VERSION_BASE_OS = "base_os";
+    public static final String VERSION_SECURITY_PATCH = "security_patch";
     public static final String BUILD_ABI = "build_abi";
     public static final String BUILD_ABI2 = "build_abi2";
     public static final String BUILD_ABIS = "build_abis";

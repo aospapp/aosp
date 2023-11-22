@@ -27,6 +27,11 @@ allow appdomain zygote_tmpfs:file read;
 # Notify zygote of death;
 allow appdomain zygote:process sigchld;
 
+# Notify zygote of the wrapped process PID when using --invoke-with.
+userdebug_or_eng(`
+  allow appdomain zygote:fifo_file write;
+')
+
 # Notify shell and adbd of death when spawned via runas for ndk-gdb.
 allow appdomain shell:process sigchld;
 allow appdomain adbd:process sigchld;
@@ -46,12 +51,15 @@ allow appdomain appdomain:fifo_file rw_file_perms;
 allow appdomain surfaceflinger:unix_stream_socket { read write setopt getattr getopt shutdown };
 
 # App sandbox file accesses.
-allow appdomain app_data_file:dir create_dir_perms;
-allow appdomain app_data_file:notdevfile_class_set create_file_perms;
+allow { appdomain -isolated_app } app_data_file:dir create_dir_perms;
+allow { appdomain -isolated_app } app_data_file:notdevfile_class_set create_file_perms;
 
 # lib subdirectory of /data/data dir is system-owned.
 allow appdomain system_data_file:dir r_dir_perms;
 allow appdomain system_data_file:file { execute execute_no_trans open execmod };
+
+# Traverse into expanded storage
+allow appdomain mnt_expand_file:dir r_dir_perms;
 
 # Keychain and user-trusted credentials
 allow appdomain keychain_data_file:dir r_dir_perms;
@@ -82,6 +90,14 @@ allow appdomain dumpstate:fd use;
 allow appdomain dumpstate:unix_stream_socket { read write getopt getattr shutdown };
 allow appdomain shell_data_file:file { write getattr };
 
+# Send heap dumps to system_server via an already open file descriptor
+# % adb shell am set-watch-heap com.android.systemui 1048576
+# % adb shell dumpsys procstats --start-testing
+# debuggable builds only.
+userdebug_or_eng(`
+  allow appdomain heapdump_data_file:file append;
+')
+
 # Write to /proc/net/xt_qtaguid/ctrl file.
 allow appdomain qtaguid_proc:file rw_file_perms;
 # Everybody can read the xt_qtaguid resource tracking misc dev.
@@ -90,7 +106,7 @@ allow appdomain qtaguid_device:chr_file r_file_perms;
 
 # Grant GPU access to all processes started by Zygote.
 # They need that to render the standard UI.
-allow appdomain gpu_device:chr_file { rw_file_perms execute };
+allow { appdomain -isolated_app } gpu_device:chr_file { rw_file_perms execute };
 
 # Use the Binder.
 binder_use(appdomain)
@@ -119,18 +135,21 @@ allow appdomain media_rw_data_file:file { read getattr };
 # Read and write /data/data/com.android.providers.telephony files passed over Binder.
 allow appdomain radio_data_file:file { read write getattr };
 
-# Read and write system app data files passed over Binder.
-# Motivating case was /data/data/com.android.settings/cache/*.jpg for
-# cropping or taking user photos.
-allow untrusted_app system_app_data_file:file { read write getattr };
+# Allow access to external storage; we have several visible mount points under /storage
+# and symlinks to primary storage at places like /storage/sdcard0 and /mnt/user/0/primary
+allow appdomain storage_file:dir r_dir_perms;
+allow appdomain storage_file:lnk_file r_file_perms;
+allow appdomain mnt_user_file:dir r_dir_perms;
+allow appdomain mnt_user_file:lnk_file r_file_perms;
 
-# Access SDcard via the fuse mount.
+# Read/write visible storage
 allow appdomain fuse:dir create_dir_perms;
 allow appdomain fuse:file create_file_perms;
 
 # Access OBBs (vfat images) mounted by vold (b/17633509)
+# File write access allowed for FDs returned through Storage Access Framework
 allow appdomain vfat:dir r_dir_perms;
-allow appdomain vfat:file r_file_perms;
+allow appdomain vfat:file rw_file_perms;
 
 # Allow apps to use the USB Accessory interface.
 # http://developer.android.com/guide/topics/connectivity/usb/accessory.html
@@ -160,17 +179,21 @@ allow appdomain apk_data_file:file { rx_file_perms execmod };
 allow appdomain resourcecache_data_file:file r_file_perms;
 allow appdomain resourcecache_data_file:dir r_dir_perms;
 
+# logd access
+read_logd(appdomain)
+control_logd(appdomain)
+# application inherit logd write socket (urge is to deprecate this long term)
+allow appdomain zygote:unix_dgram_socket write;
+
+allow { appdomain -isolated_app } keystore:keystore_key { get_state get insert delete exist list sign verify };
+
+use_keystore({ appdomain -isolated_app })
+
+allow appdomain console_device:chr_file { read write };
+
 ###
 ### CTS-specific rules
 ###
-
-# For cts/tools/device-setup/TestDeviceSetup/src/android/tests/getinfo/RootProcessScanner.java.
-# Reads /proc/pid/status and statm entries to check that
-# no unexpected root processes are running.
-# Also for cts/tests/tests/security/src/android/security/cts/VoldExploitTest.java
-# Reads /proc/pid/cmdline of vold.
-allow appdomain domain:dir { open read search getattr };
-allow appdomain domain:{ file lnk_file } { open read getattr };
 
 # For cts/tests/tests/permission/src/android/permission/cts/FileSystemPermissionTest.java.
 # testRunAsHasCorrectCapabilities
@@ -181,18 +204,6 @@ allow appdomain runas_exec:file getattr;
 # Check SELinux policy and contexts.
 selinux_check_access(appdomain)
 selinux_check_context(appdomain)
-# Validate that each process is running in the correct security context.
-allow appdomain domain:process getattr;
-
-# logd access
-read_logd(appdomain)
-control_logd(appdomain)
-# application inherit logd write socket (urge is to deprecate this long term)
-allow appdomain zygote:unix_dgram_socket write;
-
-allow appdomain keystore:keystore_key { test get insert delete exist saw sign verify };
-
-use_keystore(appdomain)
 
 ###
 ### Neverallow rules
@@ -270,8 +281,9 @@ neverallow appdomain { domain -appdomain }:process
     { sigkill sigstop signal };
 
 # Transition to a non-app domain.
-# Exception for the shell domain, can transition to runas, etc.
-neverallow { appdomain -shell } { domain -appdomain }:process
+# Exception for the shell domain and the su domain, can transition to runas,
+# etc.
+neverallow { appdomain -shell userdebug_or_eng(`-su') } { domain -appdomain }:process
     { transition dyntransition };
 
 # Write to rootfs.

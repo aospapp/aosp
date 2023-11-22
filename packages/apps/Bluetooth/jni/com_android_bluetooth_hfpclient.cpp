@@ -475,15 +475,19 @@ static jboolean setVolumeNative(JNIEnv *env, jobject object, jint volume_type, j
 
 static jboolean dialNative(JNIEnv *env, jobject object, jstring number_str) {
     bt_status_t status;
-    const char *number;
+    const char *number = NULL;
     if (!sBluetoothHfpClientInterface) return JNI_FALSE;
 
-    number = env->GetStringUTFChars(number_str, NULL);
+    if (number_str != NULL) {
+        number = env->GetStringUTFChars(number_str, NULL);
+    }
 
     if ( (status = sBluetoothHfpClientInterface->dial(number)) != BT_STATUS_SUCCESS) {
         ALOGE("Failed to dial, status: %d", status);
     }
-    env->ReleaseStringUTFChars(number_str, number);
+    if (number != NULL) {
+        env->ReleaseStringUTFChars(number_str, number);
+    }
     return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -567,18 +571,22 @@ static jboolean requestLastVoiceTagNumberNative(JNIEnv *env, jobject object) {
 static jboolean sendATCmdNative(JNIEnv *env, jobject object, jint cmd,
                                 jint val1, jint val2, jstring arg_str) {
     bt_status_t status;
-    const char *arg;
+    const char *arg = NULL;
 
     if (!sBluetoothHfpClientInterface) return JNI_FALSE;
 
-    arg = env->GetStringUTFChars(arg_str, NULL);
+    if (arg_str != NULL) {
+        arg = env->GetStringUTFChars(arg_str, NULL);
+    }
 
     if ((status = sBluetoothHfpClientInterface->send_at_cmd(cmd,val1,val2,arg)) !=
             BT_STATUS_SUCCESS) {
         ALOGE("Failed to send cmd, status: %d", status);
     }
 
-    env->ReleaseStringUTFChars(arg_str, arg);
+    if (arg != NULL) {
+        env->ReleaseStringUTFChars(arg_str, arg);
+    }
     return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 

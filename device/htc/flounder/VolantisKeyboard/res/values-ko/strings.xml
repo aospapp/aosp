@@ -4,7 +4,7 @@
     <string name="app_label" msgid="8309373558371161520">"볼란티스 키보드"</string>
     <string name="keyboard_layouts_label" msgid="771692943642467584">"Nexus 콤팩트 키보드"</string>
     <string name="keyboard_layout_volantis_english_uk_label" msgid="1425137404576186880">"영어(영국)"</string>
-    <string name="keyboard_layout_volantis_english_us_label" msgid="953130059365065614">"영어(미국)"</string>
+    <string name="keyboard_layout_volantis_english_us_label" msgid="953130059365065614">"영어 (미국)"</string>
     <string name="keyboard_layout_volantis_english_us_intl_label" msgid="8444053619141689693">"영어(미국 국제어)"</string>
     <string name="keyboard_layout_volantis_german_label" msgid="1115175249339065508">"독일어"</string>
     <string name="keyboard_layout_volantis_french_label" msgid="7039437279465504539">"프랑스어"</string>

@@ -18,116 +18,116 @@ package com.android.tv.settings.device.apps;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.graphics.drawable.Drawable;
 import android.text.format.Formatter;
+
+import com.android.settingslib.applications.ApplicationsState;
 
 /**
  * Contains all the info necessary to manage an application.
  */
-class AppInfo {
+public class AppInfo {
 
     private final Object mLock = new Object();
     private final Context mContext;
     private ApplicationsState.AppEntry mEntry;
 
-    AppInfo(Context context, ApplicationsState.AppEntry entry) {
+    public AppInfo(Context context, ApplicationsState.AppEntry entry) {
         mContext = context;
         mEntry = entry;
     }
 
-    void setEntry(ApplicationsState.AppEntry entry) {
+    public void setEntry(ApplicationsState.AppEntry entry) {
         synchronized (mLock) {
             mEntry = entry;
         }
     }
 
-    String getName() {
+    public String getName() {
         synchronized (mLock) {
             mEntry.ensureLabel(mContext);
             return mEntry.label;
         }
     }
 
-    String getSize() {
+    public String getSize() {
         synchronized (mLock) {
             return mEntry.sizeStr;
         }
     }
 
-    int getIconResource() {
+    public int getIconResource() {
         synchronized (mLock) {
             return mEntry.info.icon;
         }
     }
 
-    String getPackageName() {
+    public String getPackageName() {
         synchronized (mLock) {
             return mEntry.info.packageName;
         }
     }
 
-    ApplicationInfo getApplicationInfo() {
+    public ApplicationInfo getApplicationInfo() {
         synchronized (mLock) {
             return mEntry.info;
         }
     }
 
-    boolean isStopped() {
+    public boolean isStopped() {
         synchronized (mLock) {
             return (mEntry.info.flags & ApplicationInfo.FLAG_STOPPED) != 0;
         }
     }
 
-    boolean isInstalled() {
+    public boolean isInstalled() {
         synchronized (mLock) {
             return (mEntry.info.flags & ApplicationInfo.FLAG_INSTALLED) != 0;
         }
     }
 
-    boolean isUpdatedSystemApp() {
+    public boolean isUpdatedSystemApp() {
         synchronized (mLock) {
             return (mEntry.info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
         }
     }
 
-    boolean isEnabled() {
+    public boolean isEnabled() {
         synchronized (mLock) {
             return mEntry.info.enabled;
         }
     }
 
-    boolean isSystemApp() {
+    public boolean isSystemApp() {
         synchronized (mLock) {
             return (mEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
         }
     }
 
-    String getCacheSize() {
+    public String getCacheSize() {
         synchronized (mLock) {
             return Formatter.formatFileSize(mContext, mEntry.cacheSize + mEntry.externalCacheSize);
         }
     }
 
-    String getDataSize() {
+    public String getDataSize() {
         synchronized (mLock) {
             return Formatter.formatFileSize(mContext, mEntry.dataSize + mEntry.externalDataSize);
         }
     }
 
-    String getSpaceManagerActivityName() {
+    public String getSpaceManagerActivityName() {
         synchronized (mLock) {
             return mEntry.info.manageSpaceActivityName;
         }
     }
 
-    int getUid() {
+    public int getUid() {
         synchronized (mLock) {
             return mEntry.info.uid;
         }
     }
 
-    String getVersion() {
+    public String getVersion() {
         synchronized (mLock) {
             return mEntry.getVersion(mContext);
         }

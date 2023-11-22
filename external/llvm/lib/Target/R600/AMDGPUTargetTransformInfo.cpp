@@ -15,11 +15,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPU.h"
-#include "AMDGPUTargetMachine.h"
+#include "AMDGPUTargetTransformInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/CodeGen/BasicTTIImpl.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/CostTable.h"
 #include "llvm/Target/TargetLowering.h"
@@ -27,84 +28,24 @@ using namespace llvm;
 
 #define DEBUG_TYPE "AMDGPUtti"
 
-// Declare the pass initialization routine locally as target-specific passes
-// don't have a target-wide initialization entry point, and so we rely on the
-// pass constructor initialization.
-namespace llvm {
-void initializeAMDGPUTTIPass(PassRegistry &);
-}
+void AMDGPUTTIImpl::getUnrollingPreferences(Loop *L,
+                                            TTI::UnrollingPreferences &UP) {
+  UP.Threshold = 300; // Twice the default.
+  UP.MaxCount = UINT_MAX;
+  UP.Partial = true;
 
-namespace {
+  // TODO: Do we want runtime unrolling?
 
-class AMDGPUTTI final : public ImmutablePass, public TargetTransformInfo {
-  const AMDGPUTargetMachine *TM;
-  const AMDGPUSubtarget *ST;
-  const AMDGPUTargetLowering *TLI;
-
-  /// Estimate the overhead of scalarizing an instruction. Insert and Extract
-  /// are set if the result needs to be inserted and/or extracted from vectors.
-  unsigned getScalarizationOverhead(Type *Ty, bool Insert, bool Extract) const;
-
-public:
-  AMDGPUTTI() : ImmutablePass(ID), TM(nullptr), ST(nullptr), TLI(nullptr) {
-    llvm_unreachable("This pass cannot be directly constructed");
-  }
-
-  AMDGPUTTI(const AMDGPUTargetMachine *TM)
-      : ImmutablePass(ID), TM(TM), ST(TM->getSubtargetImpl()),
-        TLI(TM->getTargetLowering()) {
-    initializeAMDGPUTTIPass(*PassRegistry::getPassRegistry());
-  }
-
-  void initializePass() override { pushTTIStack(this); }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    TargetTransformInfo::getAnalysisUsage(AU);
-  }
-
-  /// Pass identification.
-  static char ID;
-
-  /// Provide necessary pointer adjustments for the two base classes.
-  void *getAdjustedAnalysisPointer(const void *ID) override {
-    if (ID == &TargetTransformInfo::ID)
-      return (TargetTransformInfo *)this;
-    return this;
-  }
-
-  bool hasBranchDivergence() const override;
-
-  void getUnrollingPreferences(Loop *L,
-                               UnrollingPreferences &UP) const override;
-
-  /// @}
-};
-
-} // end anonymous namespace
-
-INITIALIZE_AG_PASS(AMDGPUTTI, TargetTransformInfo, "AMDGPUtti",
-                   "AMDGPU Target Transform Info", true, true, false)
-char AMDGPUTTI::ID = 0;
-
-ImmutablePass *
-llvm::createAMDGPUTargetTransformInfoPass(const AMDGPUTargetMachine *TM) {
-  return new AMDGPUTTI(TM);
-}
-
-bool AMDGPUTTI::hasBranchDivergence() const { return true; }
-
-void AMDGPUTTI::getUnrollingPreferences(Loop *L,
-                                        UnrollingPreferences &UP) const {
-  for (Loop::block_iterator BI = L->block_begin(), BE = L->block_end();
-                                                  BI != BE; ++BI) {
-    BasicBlock *BB = *BI;
-    for (BasicBlock::const_iterator I = BB->begin(), E = BB->end();
-                                                      I != E; ++I) {
-      const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I);
-      if (!GEP)
+  for (const BasicBlock *BB : L->getBlocks()) {
+    const DataLayout &DL = BB->getModule()->getDataLayout();
+    for (const Instruction &I : *BB) {
+      const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&I);
+      if (!GEP || GEP->getAddressSpace() != AMDGPUAS::PRIVATE_ADDRESS)
         continue;
+
       const Value *Ptr = GEP->getPointerOperand();
-      const AllocaInst *Alloca = dyn_cast<AllocaInst>(GetUnderlyingObject(Ptr));
+      const AllocaInst *Alloca =
+          dyn_cast<AllocaInst>(GetUnderlyingObject(Ptr, DL));
       if (Alloca) {
         // We want to do whatever we can to limit the number of alloca
         // instructions that make it through to the code generator.  allocas
@@ -116,8 +57,26 @@ void AMDGPUTTI::getUnrollingPreferences(Loop *L,
         //
         // Don't use the maximum allowed value here as it will make some
         // programs way too big.
-        UP.Threshold = 500;
+        UP.Threshold = 800;
       }
     }
   }
+}
+
+unsigned AMDGPUTTIImpl::getNumberOfRegisters(bool Vec) {
+  if (Vec)
+    return 0;
+
+  // Number of VGPRs on SI.
+  if (ST->getGeneration() >= AMDGPUSubtarget::SOUTHERN_ISLANDS)
+    return 256;
+
+  return 4 * 128; // XXX - 4 channels. Should these count as vector instead?
+}
+
+unsigned AMDGPUTTIImpl::getRegisterBitWidth(bool) { return 32; }
+
+unsigned AMDGPUTTIImpl::getMaxInterleaveFactor() {
+  // Semi-arbitrary large amount.
+  return 64;
 }

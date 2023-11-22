@@ -19,6 +19,7 @@ package com.android.camera.session;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.net.Uri;
@@ -28,6 +29,10 @@ import com.android.camera.Storage;
 import com.android.camera.debug.Log;
 import com.android.camera.exif.ExifInterface;
 import com.android.camera.util.CameraUtil;
+import com.android.camera.util.Size;
+import com.google.common.base.Optional;
+
+import java.io.IOException;
 
 /**
  * Handles placeholders in filmstrip that show up temporarily while a final
@@ -38,12 +43,12 @@ public class PlaceholderManager {
 
     private final Context mContext;
 
-    public static class Session {
+    public static class Placeholder {
         final String outputTitle;
         final Uri outputUri;
         final long time;
 
-        Session(String title, Uri uri, long timestamp) {
+        Placeholder(String title, Uri uri, long timestamp) {
             outputTitle = title;
             outputUri = uri;
             time = timestamp;
@@ -54,28 +59,53 @@ public class PlaceholderManager {
         mContext = context;
     }
 
-    public Session insertPlaceholder(String title, byte[] placeholder, long timestamp) {
+    /**
+     * Adds an empty placeholder.
+     *
+     * @param title the title of the item
+     * @param size the size of the placeholder in pixels.
+     * @param timestamp the timestamp of the placeholder (used for ordering
+     *            within the filmstrip). Millis since epoch.
+     * @return A session instance representing the new placeholder.
+     */
+    public Placeholder insertEmptyPlaceholder(String title, Size size, long timestamp) {
+        Uri uri =  Storage.addEmptyPlaceholder(size);
+        return new Placeholder(title, uri, timestamp);
+    }
+
+    /**
+     * Inserts a new placeholder into the filmstrip.
+     *
+     * @param title the title of the item
+     * @param placeholder the initial thumbnail to show for this placeholder
+     * @param timestamp the timestamp of the placeholder (used for ordering
+     *            within the filmstrip). Millis since epoch.
+     * @return A session instance representing the new placeholder.
+     */
+    public Placeholder insertPlaceholder(String title, Bitmap placeholder, long timestamp) {
         if (title == null || placeholder == null) {
             throw new IllegalArgumentException("Null argument passed to insertPlaceholder");
         }
 
-        // Decode bounds
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inJustDecodeBounds = true;
-        BitmapFactory.decodeByteArray(placeholder, 0, placeholder.length, options);
-        int width = options.outWidth;
-        int height = options.outHeight;
-
-        if (width <= 0 || height <= 0) {
+        if (placeholder.getWidth() <= 0 || placeholder.getHeight() <= 0) {
             throw new IllegalArgumentException("Image had bad height/width");
         }
 
-        Uri uri =
-                Storage.addPlaceholder(placeholder, width, height);
+        Uri uri =  Storage.addPlaceholder(placeholder);
         if (uri == null) {
             return null;
         }
-        return new Session(title, uri, timestamp);
+        return new Placeholder(title, uri, timestamp);
+    }
+
+    public Placeholder insertPlaceholder(String title, byte[] placeholder, long timestamp) {
+        if (title == null || placeholder == null) {
+            throw new IllegalArgumentException("Null argument passed to insertPlaceholder");
+        }
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        Bitmap bitmap = BitmapFactory.decodeByteArray(placeholder, 0, placeholder.length, options);
+        return insertPlaceholder(title, bitmap, timestamp);
     }
 
     /**
@@ -85,14 +115,14 @@ public class PlaceholderManager {
      * @return A session that can be used to update the progress of the new
      *         session.
      */
-    public Session convertToPlaceholder(Uri uri) {
+    public Placeholder convertToPlaceholder(Uri uri) {
         return createSessionFromUri(uri);
     }
 
     /**
      * This converts the placeholder in to a real media item
      *
-     * @param session the session that is being finished.
+     * @param placeholder the session that is being finished.
      * @param location the location of the image
      * @param orientation the orientation of the image
      * @param exif the exif of the image
@@ -102,11 +132,11 @@ public class PlaceholderManager {
      * @param mimeType the mime type of the image
      * @return The content URI of the new media item.
      */
-    public Uri finishPlaceholder(Session session, Location location, int orientation,
-                                 ExifInterface exif, byte[] jpeg, int width, int height, String mimeType) {
-
-        Uri resultUri = Storage.updateImage(session.outputUri, mContext.getContentResolver(), session.outputTitle,
-                session.time, location, orientation, exif, jpeg, width, height, mimeType);
+    public Uri finishPlaceholder(Placeholder placeholder, Location location, int orientation,
+            ExifInterface exif, byte[] jpeg, int width, int height, String mimeType) throws IOException {
+        Uri resultUri = Storage.updateImage(placeholder.outputUri, mContext.getContentResolver(),
+                placeholder.outputTitle, placeholder.time, location, orientation, exif, jpeg, width,
+                height, mimeType);
         CameraUtil.broadcastNewPicture(mContext, resultUri);
         return resultUri;
     }
@@ -115,16 +145,30 @@ public class PlaceholderManager {
      * This changes the temporary placeholder jpeg without writing it to the media store
      *
      * @param session the session to update
-     * @param jpeg the new placeholder bytes
-     * @param width the width of the image
-     * @param height the height of the image
+     * @param placeholder the placeholder bitmap
      */
-    public void replacePlaceholder(Session session,
-                                   byte[] jpeg, int width, int height) {
-
-        Storage.replacePlaceholder(session.outputUri,
-                jpeg, width, height);
+    public void replacePlaceholder(Placeholder session, Bitmap placeholder) {
+        Storage.replacePlaceholder(session.outputUri, placeholder);
         CameraUtil.broadcastNewPicture(mContext, session.outputUri);
+    }
+
+    /**
+     * Retrieve the placeholder for a given session.
+     *
+     * @param placeholder the session for which to retrieve bitmap placeholder
+     */
+    public Optional<Bitmap> getPlaceholder(Placeholder placeholder) {
+        return Storage.getPlaceholderForSession(placeholder.outputUri);
+    }
+
+
+    /**
+     * Remove the placeholder for a given session.
+     *
+     * @param placeholder the session for which to remove the bitmap placeholder.
+     */
+    public void removePlaceholder(Placeholder placeholder) {
+        Storage.removePlaceholder(placeholder.outputUri);
     }
 
     /**
@@ -133,7 +177,7 @@ public class PlaceholderManager {
      * <p>
      * TODO: Make sure this works with types other than images when needed.
      */
-    private Session createSessionFromUri(Uri uri) {
+    private Placeholder createSessionFromUri(Uri uri) {
         ContentResolver resolver = mContext.getContentResolver();
 
         Cursor cursor = resolver.query(uri,
@@ -156,6 +200,6 @@ public class PlaceholderManager {
             name = name.substring(0, name.length() - Storage.JPEG_POSTFIX.length());
         }
 
-        return new Session(name, uri, date);
+        return new Placeholder(name, uri, date);
     }
 }

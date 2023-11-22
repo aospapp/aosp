@@ -29,6 +29,7 @@ import com.android.tools.lint.detector.api.Issue;
 import com.android.tools.lint.detector.api.Location;
 import com.android.tools.lint.detector.api.Project;
 import com.android.tools.lint.detector.api.Severity;
+import com.android.tools.lint.detector.api.TextFormat;
 
 import org.eclipse.core.resources.IProject;
 
@@ -191,7 +192,7 @@ public class ProjectLintConfigurationTest extends AdtProjectTest {
         @Override
         public void report(@NonNull Context context, @NonNull Issue issue,
                 @NonNull Severity severity, @Nullable Location location,
-                @NonNull String message, @Nullable Object data) {
+                @NonNull String message, @NonNull TextFormat format) {
         }
 
         @Override

@@ -4,8 +4,19 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_EDITCTRL_H_
-#define _PWL_EDITCTRL_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDITCTRL_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDITCTRL_H_
+
+#include "../../../core/include/fxcrt/fx_string.h"
+#include "../fxedit/fx_edit.h"
+#include "PWL_Wnd.h"
+
+class CPWL_Caret;
+class CPWL_Edit;
+class CPWL_EditCtrl;
+class IFX_Edit;
+class IPWL_Edit_Notify;
+struct CPVT_WordPlace;
 
 enum PWL_EDIT_ALIGNFORMAT_H
 {
@@ -16,20 +27,15 @@ enum PWL_EDIT_ALIGNFORMAT_H
 
 enum PWL_EDIT_ALIGNFORMAT_V
 {
-	PEAV_TOP = 0,	
+	PEAV_TOP = 0,
 	PEAV_CENTER,
 	PEAV_BOTTOM
 };
 
-class IPWL_Edit_Notify;
-class CPWL_EditCtrl;
-class CPWL_Caret;
-class IFX_Edit;
-class CPWL_Edit;
-
 class IPWL_Edit_Notify
 {
 public:
+        virtual ~IPWL_Edit_Notify() { }
 	//when the position of caret is changed in edit
 	virtual void					OnCaretMove(FX_INT32 x1, FX_INT32 y1, FX_INT32 x2, FX_INT32 y2) {}
 	virtual void					OnContentChange(const CPDF_Rect& rcContent){}
@@ -167,5 +173,4 @@ private:
 	FX_INT32						m_nCodePage;
 };
 
-#endif
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_EDITCTRL_H_

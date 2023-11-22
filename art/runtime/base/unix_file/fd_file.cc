@@ -42,16 +42,16 @@ FdFile::FdFile(int fd, const std::string& path, bool check_usage)
 FdFile::~FdFile() {
   if (kCheckSafeUsage && (guard_state_ < GuardState::kNoCheck)) {
     if (guard_state_ < GuardState::kFlushed) {
-      LOG(ERROR) << "File " << file_path_ << " wasn't explicitly flushed before destruction.";
+      LOG(::art::ERROR) << "File " << file_path_ << " wasn't explicitly flushed before destruction.";
     }
     if (guard_state_ < GuardState::kClosed) {
-      LOG(ERROR) << "File " << file_path_ << " wasn't explicitly closed before destruction.";
+      LOG(::art::ERROR) << "File " << file_path_ << " wasn't explicitly closed before destruction.";
     }
     CHECK_GE(guard_state_, GuardState::kClosed);
   }
   if (auto_close_ && fd_ != -1) {
     if (Close() != 0) {
-      PLOG(WARNING) << "Failed to close file " << file_path_;
+      PLOG(::art::WARNING) << "Failed to close file " << file_path_;
     }
   }
 }
@@ -60,7 +60,7 @@ void FdFile::moveTo(GuardState target, GuardState warn_threshold, const char* wa
   if (kCheckSafeUsage) {
     if (guard_state_ < GuardState::kNoCheck) {
       if (warn_threshold < GuardState::kNoCheck && guard_state_ >= warn_threshold) {
-        LOG(ERROR) << warning;
+        LOG(::art::ERROR) << warning;
       }
       guard_state_ = target;
     }
@@ -73,7 +73,7 @@ void FdFile::moveUp(GuardState target, const char* warning) {
       if (guard_state_ < target) {
         guard_state_ = target;
       } else if (target < guard_state_) {
-        LOG(ERROR) << warning;
+        LOG(::art::ERROR) << warning;
       }
     }
   }
@@ -107,7 +107,7 @@ bool FdFile::Open(const std::string& path, int flags, mode_t mode) {
 }
 
 int FdFile::Close() {
-  int result = TEMP_FAILURE_RETRY(close(fd_));
+  int result = close(fd_);
 
   // Test here, so the file is closed and not leaked.
   if (kCheckSafeUsage) {
@@ -178,10 +178,16 @@ bool FdFile::IsOpened() const {
   return fd_ >= 0;
 }
 
-bool FdFile::ReadFully(void* buffer, size_t byte_count) {
+static ssize_t ReadIgnoreOffset(int fd, void *buf, size_t count, off_t offset) {
+  DCHECK_EQ(offset, 0);
+  return read(fd, buf, count);
+}
+
+template <ssize_t (*read_func)(int, void*, size_t, off_t)>
+static bool ReadFullyGeneric(int fd, void* buffer, size_t byte_count, size_t offset) {
   char* ptr = static_cast<char*>(buffer);
   while (byte_count > 0) {
-    ssize_t bytes_read = TEMP_FAILURE_RETRY(read(fd_, ptr, byte_count));
+    ssize_t bytes_read = TEMP_FAILURE_RETRY(read_func(fd, ptr, byte_count, offset));
     if (bytes_read <= 0) {
       // 0: end of file
       // -1: error
@@ -189,8 +195,17 @@ bool FdFile::ReadFully(void* buffer, size_t byte_count) {
     }
     byte_count -= bytes_read;  // Reduce the number of remaining bytes.
     ptr += bytes_read;  // Move the buffer forward.
+    offset += static_cast<size_t>(bytes_read);  // Move the offset forward.
   }
   return true;
+}
+
+bool FdFile::ReadFully(void* buffer, size_t byte_count) {
+  return ReadFullyGeneric<ReadIgnoreOffset>(fd_, buffer, byte_count, 0);
+}
+
+bool FdFile::PreadFully(void* buffer, size_t byte_count, size_t offset) {
+  return ReadFullyGeneric<pread>(fd_, buffer, byte_count, offset);
 }
 
 bool FdFile::WriteFully(const void* buffer, size_t byte_count) {
@@ -216,13 +231,13 @@ void FdFile::Erase() {
 int FdFile::FlushCloseOrErase() {
   int flush_result = TEMP_FAILURE_RETRY(Flush());
   if (flush_result != 0) {
-    LOG(ERROR) << "CloseOrErase failed while flushing a file.";
+    LOG(::art::ERROR) << "CloseOrErase failed while flushing a file.";
     Erase();
     return flush_result;
   }
   int close_result = TEMP_FAILURE_RETRY(Close());
   if (close_result != 0) {
-    LOG(ERROR) << "CloseOrErase failed while closing a file.";
+    LOG(::art::ERROR) << "CloseOrErase failed while closing a file.";
     Erase();
     return close_result;
   }
@@ -232,11 +247,11 @@ int FdFile::FlushCloseOrErase() {
 int FdFile::FlushClose() {
   int flush_result = TEMP_FAILURE_RETRY(Flush());
   if (flush_result != 0) {
-    LOG(ERROR) << "FlushClose failed while flushing a file.";
+    LOG(::art::ERROR) << "FlushClose failed while flushing a file.";
   }
   int close_result = TEMP_FAILURE_RETRY(Close());
   if (close_result != 0) {
-    LOG(ERROR) << "FlushClose failed while closing a file.";
+    LOG(::art::ERROR) << "FlushClose failed while closing a file.";
   }
   return (flush_result != 0) ? flush_result : close_result;
 }

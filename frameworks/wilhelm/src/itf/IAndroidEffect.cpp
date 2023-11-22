@@ -108,7 +108,8 @@ void IAndroidEffect_init(void *self)
 {
     IAndroidEffect *thiz = (IAndroidEffect *) self;
     thiz->mItf = &IAndroidEffect_Itf;
-    thiz->mEffects = new android::KeyedVector<SLuint32, android::AudioEffect* >();
+    thiz->mEffects =
+      new android::KeyedVector<SLuint32, android::sp<android::AudioEffect> >();
 }
 
 void IAndroidEffect_deinit(void *self)
@@ -116,9 +117,6 @@ void IAndroidEffect_deinit(void *self)
     IAndroidEffect *thiz = (IAndroidEffect *) self;
     if (NULL != thiz->mEffects) {
         if (!thiz->mEffects->isEmpty()) {
-            for (size_t i = 0 ; i < thiz->mEffects->size() ; i++) {
-                delete thiz->mEffects->valueAt(i);
-            }
             thiz->mEffects->clear();
         }
         delete thiz->mEffects;

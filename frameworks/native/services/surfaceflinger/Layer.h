@@ -76,6 +76,7 @@ public:
     Region visibleRegion;
     Region coveredRegion;
     Region visibleNonTransparentRegion;
+    Region surfaceDamageRegion;
 
     // Layer serial number.  This gives layers an explicit ordering, so we
     // have a stable sort order when their layer stack and Z-order are
@@ -137,6 +138,12 @@ public:
     bool setCrop(const Rect& crop);
     bool setLayerStack(uint32_t layerStack);
 
+    // If we have received a new buffer this frame, we will pass its surface
+    // damage down to hardware composer. Otherwise, we must send a region with
+    // one empty rect.
+    void useSurfaceDamage();
+    void useEmptyDamage();
+
     uint32_t getTransactionFlags(uint32_t flags);
     uint32_t setTransactionFlags(uint32_t flags);
 
@@ -167,7 +174,7 @@ public:
      * isSecure - true if this surface is secure, that is if it prevents
      * screenshots or VNC servers.
      */
-    virtual bool isSecure() const           { return mSecure; }
+    virtual bool isSecure() const;
 
     /*
      * isProtected - true if the layer may contain protected content in the
@@ -332,9 +339,9 @@ protected:
 
 private:
     // Interface implementation for SurfaceFlingerConsumer::ContentsChangedListener
-    virtual void onFrameAvailable(const BufferItem& item);
-    virtual void onFrameReplaced(const BufferItem& item);
-    virtual void onSidebandStreamChanged();
+    virtual void onFrameAvailable(const BufferItem& item) override;
+    virtual void onFrameReplaced(const BufferItem& item) override;
+    virtual void onSidebandStreamChanged() override;
 
     void commitTransaction();
 
@@ -364,7 +371,6 @@ private:
     uint32_t mTextureName;      // from GLES
     bool mPremultipliedAlpha;
     String8 mName;
-    mutable bool mDebug;
     PixelFormat mFormat;
 
     // these are protected by an external lock
@@ -396,7 +402,6 @@ private:
     mutable Texture mTexture;
 
     // page-flip thread (currently main thread)
-    bool mSecure; // no screenshots
     bool mProtectedByApp; // application requires protected path to external sink
 
     // protected by mLock
@@ -410,7 +415,10 @@ private:
 
     // Local copy of the queued contents of the incoming BufferQueue
     mutable Mutex mQueueItemLock;
+    Condition mQueueItemCondition;
     Vector<BufferItem> mQueueItems;
+    uint64_t mLastFrameNumberReceived;
+    bool mUpdateTexImageFailed; // This is only modified from the main thread
 };
 
 // ---------------------------------------------------------------------------

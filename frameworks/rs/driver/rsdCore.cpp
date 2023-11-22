@@ -22,15 +22,15 @@
 #include "rsdElement.h"
 #include "rsdType.h"
 #ifndef RS_COMPATIBILITY_LIB
-    #include "MemChunk.h"
     #include "rsdGL.h"
-    #include "rsdPath.h"
     #include "rsdProgramStore.h"
     #include "rsdProgramRaster.h"
     #include "rsdProgramVertex.h"
     #include "rsdProgramFragment.h"
     #include "rsdMesh.h"
     #include "rsdFrameBuffer.h"
+#else
+    #include <dlfcn.h>
 #endif
 #include "rsdSampler.h"
 #include "rsdScriptGroup.h"
@@ -53,139 +53,216 @@ static void SetPriority(const Context *rsc, int32_t priority);
 #ifndef RS_COMPATIBILITY_LIB
     #define NATIVE_FUNC(a) a
 #else
-    #define NATIVE_FUNC(a) NULL
+    #define NATIVE_FUNC(a) nullptr
 #endif
 
+extern "C" bool rsdHalQueryHal(RsHalInitEnums entry, void **fnPtr) {
+    switch(entry) {
+    case RS_HAL_CORE_SHUTDOWN:
+        fnPtr[0] = (void *)Shutdown; break;
+    case RS_HAL_CORE_SET_PRIORITY:
+        fnPtr[0] = (void *)SetPriority; break;
+    case RS_HAL_CORE_ALLOC_RUNTIME_MEM:
+        fnPtr[0] = (void *)rsdAllocRuntimeMem; break;
+    case RS_HAL_CORE_FREE_RUNTIME_MEM:
+        fnPtr[0] = (void *)rsdFreeRuntimeMem; break;
+    case RS_HAL_CORE_FINISH:
+        fnPtr[0] = (void *)nullptr; break;
 
-static RsdHalFunctions FunctionTable = {
-    NATIVE_FUNC(rsdGLInit),
-    NATIVE_FUNC(rsdGLShutdown),
-    NATIVE_FUNC(rsdGLSetSurface),
-    NATIVE_FUNC(rsdGLSwap),
+    case RS_HAL_SCRIPT_INIT:
+        fnPtr[0] = (void *)rsdScriptInit; break;
+    case RS_HAL_SCRIPT_INIT_INTRINSIC:
+        fnPtr[0] = (void *)rsdInitIntrinsic; break;
+    case RS_HAL_SCRIPT_INVOKE_FUNCTION:
+        fnPtr[0] = (void *)rsdScriptInvokeFunction; break;
+    case RS_HAL_SCRIPT_INVOKE_ROOT:
+        fnPtr[0] = (void *)rsdScriptInvokeRoot; break;
+    case RS_HAL_SCRIPT_INVOKE_FOR_EACH:
+        fnPtr[0] = (void *)rsdScriptInvokeForEach; break;
+    case RS_HAL_SCRIPT_INVOKE_INIT:
+        fnPtr[0] = (void *)rsdScriptInvokeInit; break;
+    case RS_HAL_SCRIPT_INVOKE_FREE_CHILDREN:
+        fnPtr[0] = (void *)rsdScriptInvokeFreeChildren; break;
+    case RS_HAL_SCRIPT_SET_GLOBAL_VAR:
+        fnPtr[0] = (void *)rsdScriptSetGlobalVar; break;
+    case RS_HAL_SCRIPT_GET_GLOBAL_VAR:
+        fnPtr[0] = (void *)rsdScriptGetGlobalVar; break;
+    case RS_HAL_SCRIPT_SET_GLOBAL_VAR_WITH_ELEMENT_DIM:
+        fnPtr[0] = (void *)rsdScriptSetGlobalVarWithElemDims; break;
+    case RS_HAL_SCRIPT_SET_GLOBAL_BIND:
+        fnPtr[0] = (void *)rsdScriptSetGlobalBind; break;
+    case RS_HAL_SCRIPT_SET_GLOBAL_OBJECT:
+        fnPtr[0] = (void *)rsdScriptSetGlobalObj; break;
+    case RS_HAL_SCRIPT_DESTROY:
+        fnPtr[0] = (void *)rsdScriptDestroy; break;
+    case RS_HAL_SCRIPT_INVOKE_FOR_EACH_MULTI:
+        fnPtr[0] = (void *)rsdScriptInvokeForEachMulti; break;
+    case RS_HAL_SCRIPT_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)rsdScriptUpdateCachedObject; break;
 
-    Shutdown,
-    NULL,
-    SetPriority,
-    rsdAllocRuntimeMem,
-    rsdFreeRuntimeMem,
-    {
-        rsdScriptInit,
-        rsdInitIntrinsic,
-        rsdScriptInvokeFunction,
-        rsdScriptInvokeRoot,
-        rsdScriptInvokeForEach,
-        rsdScriptInvokeInit,
-        rsdScriptInvokeFreeChildren,
-        rsdScriptSetGlobalVar,
-        rsdScriptGetGlobalVar,
-        rsdScriptSetGlobalVarWithElemDims,
-        rsdScriptSetGlobalBind,
-        rsdScriptSetGlobalObj,
-        rsdScriptDestroy,
-        rsdScriptInvokeForEachMulti,
-        rsdScriptUpdateCachedObject
-    },
+    case RS_HAL_ALLOCATION_INIT:
+        fnPtr[0] = (void *)rsdAllocationInit; break;
+    case RS_HAL_ALLOCATION_INIT_OEM:
+        fnPtr[0] = (void *)nullptr; break;
+    case RS_HAL_ALLOCATION_INIT_ADAPTER:
+        fnPtr[0] = (void *)rsdAllocationAdapterInit; break;
+    case RS_HAL_ALLOCATION_DESTROY:
+        fnPtr[0] = (void *)rsdAllocationDestroy; break;
+    case RS_HAL_ALLOCATION_GET_GRALLOC_BITS:
+        fnPtr[0] = (void *)rsdAllocationGrallocBits; break;
+    case RS_HAL_ALLOCATION_RESIZE:
+        fnPtr[0] = (void *)rsdAllocationResize; break;
+    case RS_HAL_ALLOCATION_SYNC_ALL:
+        fnPtr[0] = (void *)rsdAllocationSyncAll; break;
+    case RS_HAL_ALLOCATION_MARK_DIRTY:
+        fnPtr[0] = (void *)rsdAllocationMarkDirty; break;
+    case RS_HAL_ALLOCATION_SET_SURFACE:
+        fnPtr[0] = (void *)NATIVE_FUNC(rsdAllocationSetSurface); break;
+    case RS_HAL_ALLOCATION_IO_SEND:
+        fnPtr[0] = (void *)NATIVE_FUNC(rsdAllocationIoSend); break;
+    case RS_HAL_ALLOCATION_IO_RECEIVE:
+        fnPtr[0] = (void *)NATIVE_FUNC(rsdAllocationIoReceive); break;
+    case RS_HAL_ALLOCATION_DATA_1D:
+        fnPtr[0] = (void *)rsdAllocationData1D; break;
+    case RS_HAL_ALLOCATION_DATA_2D:
+        fnPtr[0] = (void *)rsdAllocationData2D; break;
+    case RS_HAL_ALLOCATION_DATA_3D:
+        fnPtr[0] = (void *)rsdAllocationData3D; break;
+    case RS_HAL_ALLOCATION_READ_1D:
+        fnPtr[0] = (void *)rsdAllocationRead1D; break;
+    case RS_HAL_ALLOCATION_READ_2D:
+        fnPtr[0] = (void *)rsdAllocationRead2D; break;
+    case RS_HAL_ALLOCATION_READ_3D:
+        fnPtr[0] = (void *)rsdAllocationRead3D; break;
+    case RS_HAL_ALLOCATION_LOCK_1D:
+        fnPtr[0] = (void *)rsdAllocationLock1D; break;
+    case RS_HAL_ALLOCATION_UNLOCK_1D:
+        fnPtr[0] = (void *)rsdAllocationUnlock1D; break;
+    case RS_HAL_ALLOCATION_COPY_1D:
+        fnPtr[0] = (void *)rsdAllocationData1D_alloc; break;
+    case RS_HAL_ALLOCATION_COPY_2D:
+        fnPtr[0] = (void *)rsdAllocationData2D_alloc; break;
+    case RS_HAL_ALLOCATION_COPY_3D:
+        fnPtr[0] = (void *)rsdAllocationData3D_alloc; break;
+    case RS_HAL_ALLOCATION_ELEMENT_DATA:
+        fnPtr[0] = (void *)rsdAllocationElementData; break;
+    case RS_HAL_ALLOCATION_ELEMENT_READ:
+        fnPtr[0] = (void *)rsdAllocationElementRead; break;
+    case RS_HAL_ALLOCATION_GENERATE_MIPMAPS:
+        fnPtr[0] = (void *)rsdAllocationGenerateMipmaps; break;
+    case RS_HAL_ALLOCATION_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)rsdAllocationUpdateCachedObject; break;
+    case RS_HAL_ALLOCATION_ADAPTER_OFFSET:
+        fnPtr[0] = (void *)rsdAllocationAdapterOffset; break;
+    case RS_HAL_ALLOCATION_GET_POINTER:
+        fnPtr[0] = (void *)nullptr; break;
 
-    {
-        rsdAllocationInit,
-        rsdAllocationDestroy,
-        rsdAllocationGrallocBits,
-        rsdAllocationResize,
-        rsdAllocationSyncAll,
-        rsdAllocationMarkDirty,
-        NATIVE_FUNC(rsdAllocationSetSurface),
-        NATIVE_FUNC(rsdAllocationIoSend),
-        NATIVE_FUNC(rsdAllocationIoReceive),
-        rsdAllocationData1D,
-        rsdAllocationData2D,
-        rsdAllocationData3D,
-        rsdAllocationRead1D,
-        rsdAllocationRead2D,
-        rsdAllocationRead3D,
-        rsdAllocationLock1D,
-        rsdAllocationUnlock1D,
-        rsdAllocationData1D_alloc,
-        rsdAllocationData2D_alloc,
-        rsdAllocationData3D_alloc,
-        rsdAllocationElementData1D,
-        rsdAllocationElementData2D,
-        rsdAllocationGenerateMipmaps,
-        rsdAllocationUpdateCachedObject
-    },
+    case RS_HAL_SAMPLER_INIT:
+        fnPtr[0] = (void *)rsdSamplerInit; break;
+    case RS_HAL_SAMPLER_DESTROY:
+        fnPtr[0] = (void *)rsdSamplerDestroy; break;
+    case RS_HAL_SAMPLER_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)rsdSamplerUpdateCachedObject; break;
+
+    case RS_HAL_TYPE_INIT:
+        fnPtr[0] = (void *)rsdTypeInit; break;
+    case RS_HAL_TYPE_DESTROY:
+        fnPtr[0] = (void *)rsdTypeDestroy; break;
+    case RS_HAL_TYPE_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)rsdTypeUpdateCachedObject; break;
+
+    case RS_HAL_ELEMENT_INIT:
+        fnPtr[0] = (void *)rsdElementInit; break;
+    case RS_HAL_ELEMENT_DESTROY:
+        fnPtr[0] = (void *)rsdElementDestroy; break;
+    case RS_HAL_ELEMENT_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)rsdElementUpdateCachedObject; break;
+
+    case RS_HAL_SCRIPT_GROUP_INIT:
+        fnPtr[0] = (void *)rsdScriptGroupInit; break;
+    case RS_HAL_SCRIPT_GROUP_DESTROY:
+        fnPtr[0] = (void *)rsdScriptGroupDestroy; break;
+    case RS_HAL_SCRIPT_GROUP_UPDATE_CACHED_OBJECT:
+        fnPtr[0] = (void *)nullptr; break;
+    case RS_HAL_SCRIPT_GROUP_SET_INPUT:
+        fnPtr[0] = (void *)rsdScriptGroupSetInput; break;
+    case RS_HAL_SCRIPT_GROUP_SET_OUTPUT:
+        fnPtr[0] = (void *)rsdScriptGroupSetOutput; break;
+    case RS_HAL_SCRIPT_GROUP_EXECUTE:
+        fnPtr[0] = (void *)rsdScriptGroupExecute; break;
 
 
-    {
-        NATIVE_FUNC(rsdProgramStoreInit),
-        NATIVE_FUNC(rsdProgramStoreSetActive),
-        NATIVE_FUNC(rsdProgramStoreDestroy)
-    },
 
-    {
-        NATIVE_FUNC(rsdProgramRasterInit),
-        NATIVE_FUNC(rsdProgramRasterSetActive),
-        NATIVE_FUNC(rsdProgramRasterDestroy)
-    },
+    // Functions below this point are for the legacy graphics api,
+    // vendor drivers are NOT expected to implement these.  They will never be called
+    // for an external driver.
+#ifndef RS_COMPATIBILITY_LIB
+    case RS_HAL_GRAPHICS_INIT:
+        fnPtr[0] = (void *)rsdGLInit; break;
+    case RS_HAL_GRAPHICS_SHUTDOWN:
+        fnPtr[0] = (void *)rsdGLShutdown; break;
+    case RS_HAL_GRAPHICS_SWAP:
+        fnPtr[0] = (void *)rsdGLSwap; break;
+    case RS_HAL_GRAPHICS_SET_SURFACE:
+        fnPtr[0] = (void *)rsdGLSetSurface; break;
+    case RS_HAL_GRAPHICS_RASTER_INIT:
+        fnPtr[0] = (void *)rsdProgramRasterInit; break;
+    case RS_HAL_GRAPHICS_RASTER_SET_ACTIVE:
+        fnPtr[0] = (void *)rsdProgramRasterSetActive; break;
+    case RS_HAL_GRAPHICS_RASTER_DESTROY:
+        fnPtr[0] = (void *)rsdProgramRasterDestroy; break;
+    case RS_HAL_GRAPHICS_VERTEX_INIT:
+        fnPtr[0] = (void *)rsdProgramVertexInit; break;
+    case RS_HAL_GRAPHICS_VERTEX_SET_ACTIVE:
+        fnPtr[0] = (void *)rsdProgramVertexSetActive; break;
+    case RS_HAL_GRAPHICS_VERTEX_DESTROY:
+        fnPtr[0] = (void *)rsdProgramVertexDestroy; break;
+    case RS_HAL_GRAPHICS_FRAGMENT_INIT:
+        fnPtr[0] = (void *)rsdProgramFragmentInit; break;
+    case RS_HAL_GRAPHICS_FRAGMENT_SET_ACTIVE:
+        fnPtr[0] = (void *)rsdProgramFragmentSetActive; break;
+    case RS_HAL_GRAPHICS_FRAGMENT_DESTROY:
+        fnPtr[0] = (void *)rsdProgramFragmentDestroy; break;
+    case RS_HAL_GRAPHICS_MESH_INIT:
+        fnPtr[0] = (void *)rsdMeshInit; break;
+    case RS_HAL_GRAPHICS_MESH_DRAW:
+        fnPtr[0] = (void *)rsdMeshDraw; break;
+    case RS_HAL_GRAPHICS_MESH_DESTROY:
+        fnPtr[0] = (void *)rsdMeshDestroy; break;
+    case RS_HAL_GRAPHICS_FB_INIT:
+        fnPtr[0] = (void *)rsdFrameBufferInit; break;
+    case RS_HAL_GRAPHICS_FB_SET_ACTIVE:
+        fnPtr[0] = (void *)rsdFrameBufferSetActive; break;
+    case RS_HAL_GRAPHICS_FB_DESTROY:
+        fnPtr[0] = (void *)rsdFrameBufferDestroy; break;
+    case RS_HAL_GRAPHICS_STORE_INIT:
+        fnPtr[0] = (void *)rsdProgramStoreInit; break;
+    case RS_HAL_GRAPHICS_STORE_SET_ACTIVE:
+        fnPtr[0] = (void *)rsdProgramStoreSetActive; break;
+    case RS_HAL_GRAPHICS_STORE_DESTROY:
+        fnPtr[0] = (void *)rsdProgramStoreDestroy; break;
+#endif
 
-    {
-        NATIVE_FUNC(rsdProgramVertexInit),
-        NATIVE_FUNC(rsdProgramVertexSetActive),
-        NATIVE_FUNC(rsdProgramVertexDestroy)
-    },
+    default:
+        ALOGE("ERROR: unknown RenderScript HAL API query, %i", entry);
+        return false;
+    }
 
-    {
-        NATIVE_FUNC(rsdProgramFragmentInit),
-        NATIVE_FUNC(rsdProgramFragmentSetActive),
-        NATIVE_FUNC(rsdProgramFragmentDestroy)
-    },
+    return true;
+}
 
-    {
-        NATIVE_FUNC(rsdMeshInit),
-        NATIVE_FUNC(rsdMeshDraw),
-        NATIVE_FUNC(rsdMeshDestroy)
-    },
+extern "C" void rsdHalAbort(RsContext) {
 
-    {
-        NATIVE_FUNC(rsdPathInitStatic),
-        NATIVE_FUNC(rsdPathInitDynamic),
-        NATIVE_FUNC(rsdPathDraw),
-        NATIVE_FUNC(rsdPathDestroy)
-    },
+}
 
-    {
-        rsdSamplerInit,
-        rsdSamplerDestroy,
-        rsdSamplerUpdateCachedObject
-    },
 
-    {
-        NATIVE_FUNC(rsdFrameBufferInit),
-        NATIVE_FUNC(rsdFrameBufferSetActive),
-        NATIVE_FUNC(rsdFrameBufferDestroy)
-    },
+extern "C" bool rsdHalQueryVersion(uint32_t *major, uint32_t *minor) {
+    *major = 23;
+    *minor = 0;
+    return true;
+}
 
-    {
-        rsdScriptGroupInit,
-        rsdScriptGroupSetInput,
-        rsdScriptGroupSetOutput,
-        rsdScriptGroupExecute,
-        rsdScriptGroupDestroy,
-        NULL
-    },
 
-    {
-        rsdTypeInit,
-        rsdTypeDestroy,
-        rsdTypeUpdateCachedObject
-    },
-
-    {
-        rsdElementInit,
-        rsdElementDestroy,
-        rsdElementUpdateCachedObject
-    },
-
-    NULL // finish
-};
 
 extern const RsdCpuReference::CpuSymbol * rsdLookupRuntimeStub(Context * pContext, char const* name);
 
@@ -193,10 +270,50 @@ static RsdCpuReference::CpuScript * LookupScript(Context *, const Script *s) {
     return (RsdCpuReference::CpuScript *)s->mHal.drv;
 }
 
+#ifdef RS_COMPATIBILITY_LIB
+typedef void (*sAllocationDestroyFnPtr) (const Context *rsc, Allocation *alloc);
+typedef void (*sAllocationIoSendFnPtr) (const Context *rsc, Allocation *alloc);
+typedef void (*sAllocationSetSurfaceFnPtr) (const Context *rsc, Allocation *alloc, ANativeWindow *nw);
+static sAllocationDestroyFnPtr sAllocationDestroy;
+static sAllocationIoSendFnPtr sAllocationIoSend;
+static sAllocationSetSurfaceFnPtr sAllocationSetSurface;
+
+static bool loadIOSuppLibSyms() {
+    void* handleIO = nullptr;
+    handleIO = dlopen("libRSSupportIO.so", RTLD_LAZY | RTLD_LOCAL);
+    if (handleIO == nullptr) {
+        ALOGE("Couldn't load libRSSupportIO.so");
+        return false;
+    }
+    sAllocationDestroy = (sAllocationDestroyFnPtr)dlsym(handleIO, "rscAllocationDestroy");
+    if (sAllocationDestroy==nullptr) {
+        ALOGE("Failed to initialize sAllocationDestroy");
+        return false;
+    }
+    sAllocationIoSend = (sAllocationIoSendFnPtr)dlsym(handleIO, "rscAllocationIoSend");
+    if (sAllocationIoSend==nullptr) {
+        ALOGE("Failed to initialize sAllocationIoSend");
+        return false;
+    }
+    sAllocationSetSurface = (sAllocationSetSurfaceFnPtr)dlsym(handleIO, "rscAllocationSetSurface");
+    if (sAllocationSetSurface==nullptr) {
+        ALOGE("Failed to initialize sAllocationIoSend");
+        return false;
+    }
+    return true;
+}
+#endif
+
 extern "C" bool rsdHalInit(RsContext c, uint32_t version_major,
                            uint32_t version_minor) {
     Context *rsc = (Context*) c;
-    rsc->mHal.funcs = FunctionTable;
+#ifdef RS_COMPATIBILITY_LIB
+    if (loadIOSuppLibSyms()) {
+        rsc->mHal.funcs.allocation.destroy = sAllocationDestroy;
+        rsc->mHal.funcs.allocation.ioSend = sAllocationIoSend;
+        rsc->mHal.funcs.allocation.setSurface = sAllocationSetSurface;
+    }
+#endif
 
     RsdHal *dc = (RsdHal *)calloc(1, sizeof(RsdHal));
     if (!dc) {
@@ -209,7 +326,7 @@ extern "C" bool rsdHalInit(RsContext c, uint32_t version_major,
                                           &rsdLookupRuntimeStub, &LookupScript);
     if (!dc->mCpuRef) {
         ALOGE("RsdCpuReference::create for driver hal failed.");
-        rsc->mHal.drv = NULL;
+        rsc->mHal.drv = nullptr;
         free(dc);
         return false;
     }
@@ -217,17 +334,7 @@ extern "C" bool rsdHalInit(RsContext c, uint32_t version_major,
 #ifndef RS_COMPATIBILITY_LIB
     // Set a callback for compiler setup here.
     if (false) {
-        dc->mCpuRef->setSetupCompilerCallback(NULL);
-    }
-
-    // Set a callback for switching MemChunk's allocator here.
-    // Note that the allocation function must return page-aligned memory, so
-    // that it can be mprotected properly (i.e. code should be written and
-    // later switched to read+execute only).
-    if (false) {
-        MemChunk::registerAllocFreeCallbacks(
-                rsc->mHal.funcs.allocRuntimeMem,
-                rsc->mHal.funcs.freeRuntimeMem);
+        dc->mCpuRef->setSetupCompilerCallback(nullptr);
     }
 #endif
 
@@ -251,7 +358,7 @@ void Shutdown(Context *rsc) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
     delete dc->mCpuRef;
     free(dc);
-    rsc->mHal.drv = NULL;
+    rsc->mHal.drv = nullptr;
 }
 
 void* rsdAllocRuntimeMem(size_t size, uint32_t flags) {

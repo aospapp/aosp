@@ -305,13 +305,16 @@ void HWComposer::vsync(int disp, int64_t timestamp) {
 }
 
 void HWComposer::hotplug(int disp, int connected) {
-    if (disp == HWC_DISPLAY_PRIMARY || disp >= VIRTUAL_DISPLAY_ID_BASE) {
+    if (disp >= VIRTUAL_DISPLAY_ID_BASE) {
         ALOGE("hotplug event received for invalid display: disp=%d connected=%d",
                 disp, connected);
         return;
     }
     queryDisplayProperties(disp);
-    mEventHandler.onHotplugReceived(disp, bool(connected));
+    // Do not teardown or recreate the primary display
+    if (disp != HWC_DISPLAY_PRIMARY) {
+        mEventHandler.onHotplugReceived(disp, bool(connected));
+    }
 }
 
 static float getDefaultDensity(uint32_t width, uint32_t height) {
@@ -461,7 +464,7 @@ sp<Fence> HWComposer::getDisplayFence(int disp) const {
 }
 
 uint32_t HWComposer::getFormat(int disp) const {
-    if (uint32_t(disp)>31 || !mAllocatedDisplayIDs.hasBit(disp)) {
+    if (static_cast<uint32_t>(disp) >= MAX_HWC_DISPLAYS || !mAllocatedDisplayIDs.hasBit(disp)) {
         return HAL_PIXEL_FORMAT_RGBA_8888;
     } else {
         return mDisplayData[disp].format;
@@ -632,6 +635,7 @@ status_t HWComposer::setFramebufferTarget(int32_t id,
 }
 
 status_t HWComposer::prepare() {
+    Mutex::Autolock _l(mDisplayLock);
     for (size_t i=0 ; i<mNumDisplays ; i++) {
         DisplayData& disp(mDisplayData[i]);
         if (disp.framebufferTarget) {
@@ -1020,6 +1024,21 @@ public:
         SharedBuffer const* sb = reg.getSharedBuffer(&visibleRegion.numRects);
         visibleRegion.rects = reinterpret_cast<hwc_rect_t const *>(sb->data());
     }
+    virtual void setSurfaceDamage(const Region& reg) {
+        if (!hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_5)) {
+            return;
+        }
+        hwc_region_t& surfaceDamage = getLayer()->surfaceDamage;
+        // We encode default full-screen damage as INVALID_RECT upstream, but as
+        // 0 rects for HWComposer
+        if (reg.isRect() && reg.getBounds() == Rect::INVALID_RECT) {
+            surfaceDamage.numRects = 0;
+            surfaceDamage.rects = NULL;
+            return;
+        }
+        SharedBuffer const* sb = reg.getSharedBuffer(&surfaceDamage.numRects);
+        surfaceDamage.rects = reinterpret_cast<hwc_rect_t const *>(sb->data());
+    }
     virtual void setSidebandStream(const sp<NativeHandle>& stream) {
         ALOG_ASSERT(stream->handle() != NULL);
         getLayer()->compositionType = HWC_SIDEBAND;
@@ -1050,6 +1069,18 @@ public:
         }
 
         getLayer()->acquireFenceFd = -1;
+
+        if (!hwcHasApiVersion(mHwc, HWC_DEVICE_API_VERSION_1_5)) {
+            return;
+        }
+
+        hwc_region_t& surfaceDamage = getLayer()->surfaceDamage;
+        sb = SharedBuffer::bufferFromData(surfaceDamage.rects);
+        if (sb) {
+            sb->release();
+            surfaceDamage.numRects = 0;
+            surfaceDamage.rects = NULL;
+        }
     }
 };
 
@@ -1105,8 +1136,6 @@ static String8 getFormatStr(PixelFormat format) {
     case PIXEL_FORMAT_RGB_888:      return String8("RGB_888");
     case PIXEL_FORMAT_RGB_565:      return String8("RGB_565");
     case PIXEL_FORMAT_BGRA_8888:    return String8("BGRA_8888");
-    case PIXEL_FORMAT_sRGB_A_8888:  return String8("sRGB_A_8888");
-    case PIXEL_FORMAT_sRGB_X_8888:  return String8("sRGB_x_8888");
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
                                     return String8("ImplDef");
     default:
@@ -1117,6 +1146,7 @@ static String8 getFormatStr(PixelFormat format) {
 }
 
 void HWComposer::dump(String8& result) const {
+    Mutex::Autolock _l(mDisplayLock);
     if (mHwc) {
         result.appendFormat("Hardware Composer state (version %08x):\n", hwcApiVersion(mHwc));
         result.appendFormat("  mDebugForceFakeVSync=%d\n", mDebugForceFakeVSync);

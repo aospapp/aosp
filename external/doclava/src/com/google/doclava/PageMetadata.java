@@ -282,7 +282,8 @@ public class PageMetadata {
     }
     if (!tagList.equals("")) {
       tagList = tagList.replaceAll("\"", "");
-      String[] tagParts = tagList.split(",");
+
+      String[] tagParts = tagList.split("[,\u3001]");
       for (int iter = 0; iter < tagParts.length; iter++) {
         tags.append("\"");
         if (tag.equals("meta.tags") && sLowercaseTags) {
@@ -724,20 +725,17 @@ public class PageMetadata {
           final int L = tagval.length();
           for (int t = 0; t < L; t++) {
             char c = tagval.charAt(t);
-            if (c >= ' ' && c <= '~' && c != '\\') {
+            if (c >= Character.MIN_HIGH_SURROGATE && c <= Character.MAX_HIGH_SURROGATE ) {
+              // we have a UTF-16 multi-byte character
+              int codePoint = tagval.codePointAt(t);
+              int charSize = Character.charCount(codePoint);
+              t += charSize - 1;
+              buf.append(String.format("\\u%04x",codePoint));
+            } else if (c >= ' ' && c <= '~' && c != '\\') {
               buf.append(c);
-            } else {
-              buf.append("\\u");
-              for (int m = 0; m < 4; m++) {
-                char x = (char) (c & 0x000f);
-                if (x > 10) {
-                  x = (char) (x - 10 + 'a');
-                } else {
-                  x = (char) (x + '0');
-                }
-                buf.append(x);
-                c >>= 4;
-              }
+            } else { 
+              // we are encoding a two byte character
+              buf.append(String.format("\\u%04x", (int) c));
             }
           }
           if (i != n - 1) {

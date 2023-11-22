@@ -19,7 +19,7 @@ LOCAL_PATH := $(call my-dir)
 # This is to allow the library to be loaded dynamically in a context where
 # the required libraries already exist. You should only use this library
 # if you're certain that you need it; see go/extradex-design for more context.
-appcompat_res_dirs := appcompat/res res ../../../prebuilts/sdk/current/support/v7/appcompat/res
+appcompat_res_dirs := appcompat/res res ../../../$(SUPPORT_LIBRARY_ROOT)/v7/appcompat/res
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libphotoviewer_appcompat_dynamic

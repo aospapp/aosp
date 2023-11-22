@@ -15,7 +15,7 @@
         limitations under the License.
 -->
 repositories {
-    mavenCentral()
+    jcenter()
 }
 dependencies {
     compile 'org.freemarker:freemarker:2.3.20'

@@ -27,10 +27,11 @@ import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pProvDiscEvent;
 import android.net.wifi.p2p.nsd.WifiP2pServiceResponse;
 import android.os.Message;
-import android.os.SystemClock;
 import android.text.TextUtils;
+import android.util.LocalLog;
 import android.util.Log;
 
+import com.android.server.wifi.hotspot2.Utils;
 import com.android.server.wifi.p2p.WifiP2pServiceImpl.P2pStatus;
 
 import com.android.internal.util.Protocol;
@@ -66,9 +67,10 @@ public class WifiMonitor {
     private static final int ASSOC_REJECT = 9;
     private static final int SSID_TEMP_DISABLE = 10;
     private static final int SSID_REENABLE = 11;
-    private static final int BSS_ADDED = 12;
-    private static final int BSS_REMOVED = 13;
+    private static final int BSS_ADDED    = 12;
+    private static final int BSS_REMOVED  = 13;
     private static final int UNKNOWN      = 14;
+    private static final int SCAN_FAILED  = 15;
 
     /** All events coming from the supplicant start with this prefix */
     private static final String EVENT_PREFIX_STR = "CTRL-EVENT-";
@@ -158,6 +160,13 @@ public class WifiMonitor {
 
     /**
      * <pre>
+     * CTRL-EVENT-SCAN-FAILED ret=code[ retry=1]
+     * </pre>
+     */
+    private static final String SCAN_FAILED_STR =  "SCAN-FAILED";
+
+    /**
+     * <pre>
      * CTRL-EVENT-LINK-SPEED x Mb/s
      * </pre>
      * {@code x} is the link speed in Mb/sec.
@@ -188,6 +197,10 @@ public class WifiMonitor {
      * This indicates an authentication failure on EAP FAILURE event
      */
     private static final String EAP_AUTH_FAILURE_STR = "EAP authentication failed";
+
+    /* EAP authentication timeout events */
+    private static final String AUTH_EVENT_PREFIX_STR = "Authentication with";
+    private static final String AUTH_TIMEOUT_STR = "timed out.";
 
     /**
      * This indicates an assoc reject event
@@ -263,7 +276,7 @@ public class WifiMonitor {
             Pattern.compile("Associated with ((?:[0-9a-f]{2}:){5}[0-9a-f]{2}).*");
 
     /**
-     * Regex pattern for extracting SSIDs from request identity string.
+     * Regex pattern for extracting an external GSM sim authentication request from a string.
      * Matches a strings like the following:<pre>
      * CTRL-REQ-SIM-<network id>:GSM-AUTH:<RAND1>:<RAND2>[:<RAND3>] needed for SSID <SSID>
      * This pattern should find
@@ -275,6 +288,19 @@ public class WifiMonitor {
      */
     private static Pattern mRequestGsmAuthPattern =
             Pattern.compile("SIM-([0-9]*):GSM-AUTH((:[0-9a-f]+)+) needed for SSID (.+)");
+
+    /**
+     * Regex pattern for extracting an external 3G sim authentication request from a string.
+     * Matches a strings like the following:<pre>
+     * CTRL-REQ-SIM-<network id>:UMTS-AUTH:<RAND>:<AUTN> needed for SSID <SSID>
+     * This pattern should find
+     *    1 - id
+     *    2 - Rand
+     *    3 - Autn
+     *    4 - SSID
+     */
+    private static Pattern mRequestUmtsAuthPattern =
+            Pattern.compile("SIM-([0-9]*):UMTS-AUTH:([0-9a-f]+):([0-9a-f]+) needed for SSID (.+)");
 
     /**
      * Regex pattern for extracting SSIDs from request identity string.
@@ -396,6 +422,7 @@ public class WifiMonitor {
     private static final String AP_STA_CONNECTED_STR = "AP-STA-CONNECTED";
     /* AP-STA-DISCONNECTED 42:fc:89:a8:96:09 */
     private static final String AP_STA_DISCONNECTED_STR = "AP-STA-DISCONNECTED";
+    private static final String ANQP_DONE_STR = "ANQP-QUERY-DONE";
 
     /* Supplicant events reported to a state machine */
     private static final int BASE = Protocol.BASE_WIFI_MONITOR;
@@ -436,6 +463,8 @@ public class WifiMonitor {
     /* Request SIM Auth */
     public static final int SUP_REQUEST_SIM_AUTH                 = BASE + 16;
 
+    public static final int SCAN_FAILED_EVENT                    = BASE + 17;
+
     /* P2P events */
     public static final int P2P_DEVICE_FOUND_EVENT               = BASE + 21;
     public static final int P2P_DEVICE_LOST_EVENT                = BASE + 22;
@@ -462,6 +491,7 @@ public class WifiMonitor {
 
     /* Indicates assoc reject event */
     public static final int ASSOCIATION_REJECTION_EVENT          = BASE + 43;
+    public static final int ANQP_DONE_EVENT                      = BASE + 44;
 
     /* hotspot 2.0 ANQP events */
     public static final int GAS_QUERY_START_EVENT                = BASE + 51;
@@ -569,8 +599,8 @@ public class WifiMonitor {
                     if (mWifiNative.connectToSupplicant()) {
                         m.mMonitoring = true;
                         m.mStateMachine.sendMessage(SUP_CONNECTION_EVENT);
-                        new MonitorThread(mWifiNative, this).start();
                         mConnected = true;
+                        new MonitorThread(mWifiNative, this).start();
                         break;
                     }
                     if (connectTries++ < 5) {
@@ -579,7 +609,6 @@ public class WifiMonitor {
                         } catch (InterruptedException ignore) {
                         }
                     } else {
-                        mIfaceMap.remove(iface);
                         m.mStateMachine.sendMessage(SUP_DISCONNECTION_EVENT);
                         Log.e(TAG, "startMonitoring(" + iface + ") failed!");
                         break;
@@ -633,6 +662,7 @@ public class WifiMonitor {
 
         private synchronized boolean dispatchEvent(String eventStr) {
             String iface;
+            // IFNAME=wlan0 ANQP-QUERY-DONE addr=18:cf:5e:26:a4:88 result=SUCCESS
             if (eventStr.startsWith("IFNAME=")) {
                 int space = eventStr.indexOf(' ');
                 if (space != -1) {
@@ -705,6 +735,7 @@ public class WifiMonitor {
     private static class MonitorThread extends Thread {
         private final WifiNative mWifiNative;
         private final WifiMonitorSingleton mWifiMonitorSingleton;
+        private final LocalLog mLocalLog = WifiNative.getLocalLog();
 
         public MonitorThread(WifiNative wifiNative, WifiMonitorSingleton wifiMonitorSingleton) {
             super("WifiMonitor");
@@ -713,13 +744,23 @@ public class WifiMonitor {
         }
 
         public void run() {
+            if (DBG) {
+                Log.d(TAG, "MonitorThread start with mConnected=" +
+                     mWifiMonitorSingleton.mConnected);
+            }
             //noinspection InfiniteLoopStatement
             for (;;) {
+                if (!mWifiMonitorSingleton.mConnected) {
+                    if (DBG) Log.d(TAG, "MonitorThread exit because mConnected is false");
+                    break;
+                }
                 String eventStr = mWifiNative.waitForEvent();
 
-                // Skip logging the common but mostly uninteresting scan-results event
-                if (DBG && eventStr.indexOf(SCAN_RESULTS_STR) == -1) {
-                    Log.d(TAG, "Event [" + eventStr + "]");
+                // Skip logging the common but mostly uninteresting events
+                if (eventStr.indexOf(BSS_ADDED_STR) == -1
+                        && eventStr.indexOf(BSS_REMOVED_STR) == -1) {
+                    if (DBG) Log.d(TAG, "Event [" + eventStr + "]");
+                    mLocalLog.log("Event [" + eventStr + "]");
                 }
 
                 if (mWifiMonitorSingleton.dispatchEvent(eventStr)) {
@@ -764,13 +805,20 @@ public class WifiMonitor {
                 handleP2pEvents(eventStr);
             } else if (eventStr.startsWith(HOST_AP_EVENT_PREFIX_STR)) {
                 handleHostApEvents(eventStr);
-            } else if (eventStr.startsWith(GAS_QUERY_PREFIX_STR)) {
+            } else if (eventStr.startsWith(ANQP_DONE_STR)) {
+                try {
+                    handleAnqpResult(eventStr);
+                }
+                catch (IllegalArgumentException iae) {
+                    Log.e(TAG, "Bad ANQP event string: '" + eventStr + "': " + iae);
+                }
+            } else if (eventStr.startsWith(GAS_QUERY_PREFIX_STR)) {        // !!! clean >>End
                 handleGasQueryEvents(eventStr);
             } else if (eventStr.startsWith(RX_HS20_ANQP_ICON_STR)) {
                 if (mStateMachine2 != null)
                     mStateMachine2.sendMessage(RX_HS20_ANQP_ICON_EVENT,
                             eventStr.substring(RX_HS20_ANQP_ICON_STR_LEN + 1));
-            } else if (eventStr.startsWith(HS20_PREFIX_STR)) {
+            } else if (eventStr.startsWith(HS20_PREFIX_STR)) {                  // !!! <<End
                 handleHs20Events(eventStr);
             } else if (eventStr.startsWith(REQUEST_PREFIX_STR)) {
                 handleRequests(eventStr);
@@ -778,6 +826,9 @@ public class WifiMonitor {
                 handleTargetBSSIDEvent(eventStr);
             } else if (eventStr.startsWith(ASSOCIATED_WITH_STR)) {
                 handleAssociatedBSSIDEvent(eventStr);
+            } else if (eventStr.startsWith(AUTH_EVENT_PREFIX_STR) &&
+                    eventStr.endsWith(AUTH_TIMEOUT_STR)) {
+                mStateMachine.sendMessage(AUTHENTICATION_FAILURE_EVENT);
             } else {
                 if (DBG) Log.w(TAG, "couldn't identify event type - " + eventStr);
             }
@@ -806,6 +857,8 @@ public class WifiMonitor {
             event = STATE_CHANGE;
         else if (eventName.equals(SCAN_RESULTS_STR))
             event = SCAN_RESULTS;
+        else if (eventName.equals(SCAN_FAILED_STR))
+            event = SCAN_FAILED;
         else if (eventName.equals(LINK_SPEED_STR))
             event = LINK_SPEED;
         else if (eventName.equals(TERMINATING_STR))
@@ -824,8 +877,7 @@ public class WifiMonitor {
             event = BSS_ADDED;
         } else if (eventName.equals(BSS_REMOVED_STR)) {
             event = BSS_REMOVED;
-        }
-        else
+        } else
             event = UNKNOWN;
 
         String eventData = eventStr;
@@ -958,6 +1010,10 @@ public class WifiMonitor {
                 mStateMachine.sendMessage(SCAN_RESULTS_EVENT);
                 break;
 
+            case SCAN_FAILED:
+                mStateMachine.sendMessage(SCAN_FAILED_EVENT);
+                break;
+
             case UNKNOWN:
                 if (DBG) {
                     logDbg("handleEvent unknown: " + Integer.toString(event) + "  " + remainder);
@@ -1053,14 +1109,34 @@ public class WifiMonitor {
         return err;
     }
 
+    WifiP2pDevice getWifiP2pDevice(String dataString) {
+        try {
+            WifiP2pDevice device = new WifiP2pDevice(dataString);
+            return device;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    WifiP2pGroup getWifiP2pGroup(String dataString) {
+        try {
+            WifiP2pGroup group = new WifiP2pGroup(dataString);
+            return group;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     /**
      * Handle p2p events
      */
     private void handleP2pEvents(String dataString) {
         if (dataString.startsWith(P2P_DEVICE_FOUND_STR)) {
-            mStateMachine.sendMessage(P2P_DEVICE_FOUND_EVENT, new WifiP2pDevice(dataString));
+            WifiP2pDevice device = getWifiP2pDevice(dataString);
+            if (device != null) mStateMachine.sendMessage(P2P_DEVICE_FOUND_EVENT, device);
         } else if (dataString.startsWith(P2P_DEVICE_LOST_STR)) {
-            mStateMachine.sendMessage(P2P_DEVICE_LOST_EVENT, new WifiP2pDevice(dataString));
+            WifiP2pDevice device = getWifiP2pDevice(dataString);
+            if (device != null) mStateMachine.sendMessage(P2P_DEVICE_LOST_EVENT, device);
         } else if (dataString.startsWith(P2P_FIND_STOPPED_STR)) {
             mStateMachine.sendMessage(P2P_FIND_STOPPED_EVENT);
         } else if (dataString.startsWith(P2P_GO_NEG_REQUEST_STR)) {
@@ -1075,9 +1151,11 @@ public class WifiMonitor {
         } else if (dataString.startsWith(P2P_GROUP_FORMATION_FAILURE_STR)) {
             mStateMachine.sendMessage(P2P_GROUP_FORMATION_FAILURE_EVENT, p2pError(dataString));
         } else if (dataString.startsWith(P2P_GROUP_STARTED_STR)) {
-            mStateMachine.sendMessage(P2P_GROUP_STARTED_EVENT, new WifiP2pGroup(dataString));
+            WifiP2pGroup group = getWifiP2pGroup(dataString);
+            if (group != null) mStateMachine.sendMessage(P2P_GROUP_STARTED_EVENT, group);
         } else if (dataString.startsWith(P2P_GROUP_REMOVED_STR)) {
-            mStateMachine.sendMessage(P2P_GROUP_REMOVED_EVENT, new WifiP2pGroup(dataString));
+            WifiP2pGroup group = getWifiP2pGroup(dataString);
+            if (group != null) mStateMachine.sendMessage(P2P_GROUP_REMOVED_EVENT, group);
         } else if (dataString.startsWith(P2P_INVITATION_RECEIVED_STR)) {
             mStateMachine.sendMessage(P2P_INVITATION_RECEIVED_EVENT,
                     new WifiP2pGroup(dataString));
@@ -1118,6 +1196,38 @@ public class WifiMonitor {
             /* AP-STA-DISCONNECTED 42:fc:89:a8:96:09 p2p_dev_addr=02:90:4c:a0:92:54 */
         } else if (tokens[0].equals(AP_STA_DISCONNECTED_STR)) {
             mStateMachine.sendMessage(AP_STA_DISCONNECTED_EVENT, new WifiP2pDevice(dataString));
+        }
+    }
+
+    private static final String ADDR_STRING = "addr=";
+    private static final String RESULT_STRING = "result=";
+
+    // ANQP-QUERY-DONE addr=18:cf:5e:26:a4:88 result=SUCCESS
+
+    private void handleAnqpResult(String eventStr) {
+        int addrPos = eventStr.indexOf(ADDR_STRING);
+        int resPos = eventStr.indexOf(RESULT_STRING);
+        if (addrPos < 0 || resPos < 0) {
+            throw new IllegalArgumentException("Unexpected ANQP result notification");
+        }
+        int eoaddr = eventStr.indexOf(' ', addrPos + ADDR_STRING.length());
+        if (eoaddr < 0) {
+            eoaddr = eventStr.length();
+        }
+        int eoresult = eventStr.indexOf(' ', resPos + RESULT_STRING.length());
+        if (eoresult < 0) {
+            eoresult = eventStr.length();
+        }
+
+        try {
+            long bssid = Utils.parseMac(eventStr.substring(addrPos + ADDR_STRING.length(), eoaddr));
+            int result = eventStr.substring(
+                    resPos + RESULT_STRING.length(), eoresult).equalsIgnoreCase("success") ? 1 : 0;
+
+            mStateMachine.sendMessage(ANQP_DONE_EVENT, result, 0, bssid);
+        }
+        catch (IllegalArgumentException iae) {
+            Log.e(TAG, "Bad MAC address in ANQP response: " + iae.getMessage());
         }
     }
 
@@ -1208,15 +1318,24 @@ public class WifiMonitor {
                 Log.e(TAG, "didn't find SSID " + requestName);
             }
             mStateMachine.sendMessage(SUP_REQUEST_IDENTITY, eventLogCounter, reason, SSID);
-        } if (requestName.startsWith(SIM_STR)) {
-            Matcher match = mRequestGsmAuthPattern.matcher(requestName);
-            if (match.find()) {
-                WifiStateMachine.SimAuthRequestData data =
-                        new WifiStateMachine.SimAuthRequestData();
-                data.networkId = Integer.parseInt(match.group(1));
+        } else if (requestName.startsWith(SIM_STR)) {
+            Matcher matchGsm = mRequestGsmAuthPattern.matcher(requestName);
+            Matcher matchUmts = mRequestUmtsAuthPattern.matcher(requestName);
+            WifiStateMachine.SimAuthRequestData data =
+                    new WifiStateMachine.SimAuthRequestData();
+            if (matchGsm.find()) {
+                data.networkId = Integer.parseInt(matchGsm.group(1));
                 data.protocol = WifiEnterpriseConfig.Eap.SIM;
-                data.ssid = match.group(4);
-                data.challenges = match.group(2).split(":");
+                data.ssid = matchGsm.group(4);
+                data.data = matchGsm.group(2).split(":");
+                mStateMachine.sendMessage(SUP_REQUEST_SIM_AUTH, data);
+            } else if (matchUmts.find()) {
+                data.networkId = Integer.parseInt(matchUmts.group(1));
+                data.protocol = WifiEnterpriseConfig.Eap.AKA;
+                data.ssid = matchUmts.group(4);
+                data.data = new String[2];
+                data.data[0] = matchUmts.group(2);
+                data.data[1] = matchUmts.group(3);
                 mStateMachine.sendMessage(SUP_REQUEST_SIM_AUTH, data);
             } else {
                 Log.e(TAG, "couldn't parse SIM auth request - " + requestName);

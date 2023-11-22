@@ -36,14 +36,13 @@ List<String> samples = [
 "renderScript/RenderScriptIntrinsic",
 "ui/views/SlidingTabs/SlidingTabsBasic",
 "ui/views/SlidingTabs/SlidingTabsColors",
+"connectivity/nfc/BeamLargeFiles",
 "connectivity/nfc/CardEmulation",
 "connectivity/nfc/CardReader",
 "sensors/BatchStepSensor",
 "ui/graphics/DisplayingBitmaps",
-"ui/transition/AdapterTransition",
 "ui/transition/BasicTransition",
 "ui/transition/CustomTransition",
-"ui/transition/FragmentTransition",
 "ui/views/SwipeRefreshLayout/SwipeRefreshLayoutBasic",
 "ui/views/SwipeRefreshLayout/SwipeRefreshListFragment",
 "ui/views/SwipeRefreshLayout/SwipeRefreshMultipleViews",
@@ -77,7 +76,6 @@ List<String> samples = [
 "wearable/wear/DataLayer",
 "wearable/wear/DelayedConfirmation",
 "wearable/wear/ElizaChat",
-"wearable/wear/EmbeddedApp",
 "wearable/wear/FindMyPhone",
 "wearable/wear/Flashlight",
 "wearable/wear/Geofencing",
@@ -96,6 +94,18 @@ List<String> samples = [
 "content/documentsUi/DirectorySelection",
 "system/AppUsageStatistics",
 "media/ScreenCapture",
+"admin/NfcProvisioning",
+"admin/DeviceOwner",
+"wearable/wear/XYZTouristAttractions",
+"connectivity/bluetooth/BluetoothAdvertisements",
+"wearable/wear/AlwaysOn",
+"security/ConfirmCredential",
+"security/FingerprintDialog",
+"system/RuntimePermissions",
+"system/RuntimePermissionsBasic",
+"notification/ActiveNotifications",
+"media/Camera2Raw",
+"content/AutoBackupForApps",
 ]
 
 List<String> taskNames = [
@@ -120,4 +130,3 @@ taskNames.each { taskName ->
         })
     }
 }
-

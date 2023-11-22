@@ -16,8 +16,7 @@
 
 package com.android.providers.userdictionary;
 
-
-import java.util.HashMap;
+import java.util.List;
 
 import android.app.backup.BackupManager;
 import android.content.ContentProvider;
@@ -26,15 +25,23 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.net.Uri;
+import android.os.Binder;
+import android.os.Process;
 import android.provider.UserDictionary;
 import android.provider.UserDictionary.Words;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.view.textservice.SpellCheckerInfo;
+import android.view.textservice.TextServicesManager;
 
 /**
  * Provides access to a database of user defined words. Each item has a word and a frequency.
@@ -58,22 +65,36 @@ public class UserDictionaryProvider extends ContentProvider {
 
     private static final String TAG = "UserDictionaryProvider";
 
-    private static final Uri CONTENT_URI = UserDictionary.CONTENT_URI;
-
     private static final String DATABASE_NAME = "user_dict.db";
     private static final int DATABASE_VERSION = 2;
 
     private static final String USERDICT_TABLE_NAME = "words";
 
-    private static HashMap<String, String> sDictProjectionMap;
-        
+    private static ArrayMap<String, String> sDictProjectionMap;
+
     private static final UriMatcher sUriMatcher;
 
     private static final int WORDS = 1;
-    
+
     private static final int WORD_ID = 2;
 
+    static {
+        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        sUriMatcher.addURI(AUTHORITY, "words", WORDS);
+        sUriMatcher.addURI(AUTHORITY, "words/#", WORD_ID);
+
+        sDictProjectionMap = new ArrayMap<>();
+        sDictProjectionMap.put(Words._ID, Words._ID);
+        sDictProjectionMap.put(Words.WORD, Words.WORD);
+        sDictProjectionMap.put(Words.FREQUENCY, Words.FREQUENCY);
+        sDictProjectionMap.put(Words.LOCALE, Words.LOCALE);
+        sDictProjectionMap.put(Words.APP_ID, Words.APP_ID);
+        sDictProjectionMap.put(Words.SHORTCUT, Words.SHORTCUT);
+    }
+
     private BackupManager mBackupManager;
+    private InputMethodManager mImeManager;
+    private TextServicesManager mTextServiceManager;
 
     /**
      * This class helps open, create, and upgrade the database file.
@@ -118,6 +139,8 @@ public class UserDictionaryProvider extends ContentProvider {
     public boolean onCreate() {
         mOpenHelper = new DatabaseHelper(getContext());
         mBackupManager = new BackupManager(getContext());
+        mImeManager = getContext().getSystemService(InputMethodManager.class);
+        mTextServiceManager = getContext().getSystemService(TextServicesManager.class);
         return true;
     }
 
@@ -127,19 +150,24 @@ public class UserDictionaryProvider extends ContentProvider {
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
 
         switch (sUriMatcher.match(uri)) {
-        case WORDS:
-            qb.setTables(USERDICT_TABLE_NAME);
-            qb.setProjectionMap(sDictProjectionMap);
-            break;
+            case WORDS:
+                qb.setTables(USERDICT_TABLE_NAME);
+                qb.setProjectionMap(sDictProjectionMap);
+                break;
 
-        case WORD_ID:
-            qb.setTables(USERDICT_TABLE_NAME);
-            qb.setProjectionMap(sDictProjectionMap);
-            qb.appendWhere("_id" + "=" + uri.getPathSegments().get(1));
-            break;
+            case WORD_ID:
+                qb.setTables(USERDICT_TABLE_NAME);
+                qb.setProjectionMap(sDictProjectionMap);
+                qb.appendWhere("_id" + "=" + uri.getPathSegments().get(1));
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        // Only the enabled IMEs and spell checkers can access this provider.
+        if (!canCallerAccessUserDictionary()) {
+            return getEmptyCursorOrThrow(projection);
         }
 
         // If no sort order is specified use the default
@@ -162,14 +190,14 @@ public class UserDictionaryProvider extends ContentProvider {
     @Override
     public String getType(Uri uri) {
         switch (sUriMatcher.match(uri)) {
-        case WORDS:
-            return Words.CONTENT_TYPE;
+            case WORDS:
+                return Words.CONTENT_TYPE;
 
-        case WORD_ID:
-            return Words.CONTENT_ITEM_TYPE;
+            case WORD_ID:
+                return Words.CONTENT_ITEM_TYPE;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
         }
     }
 
@@ -180,6 +208,11 @@ public class UserDictionaryProvider extends ContentProvider {
             throw new IllegalArgumentException("Unknown URI " + uri);
         }
 
+        // Only the enabled IMEs and spell checkers can access this provider.
+        if (!canCallerAccessUserDictionary()) {
+            return null;
+        }
+
         ContentValues values;
         if (initialValues != null) {
             values = new ContentValues(initialValues);
@@ -187,19 +220,19 @@ public class UserDictionaryProvider extends ContentProvider {
             values = new ContentValues();
         }
 
-        if (values.containsKey(Words.WORD) == false) {
+        if (!values.containsKey(Words.WORD)) {
             throw new SQLException("Word must be specified");
         }
 
-        if (values.containsKey(Words.FREQUENCY) == false) {
+        if (!values.containsKey(Words.FREQUENCY)) {
             values.put(Words.FREQUENCY, "1");
         }
 
-        if (values.containsKey(Words.LOCALE) == false) {
+        if (!values.containsKey(Words.LOCALE)) {
             values.put(Words.LOCALE, (String) null);
         }
 
-        if (values.containsKey(Words.SHORTCUT) == false) {
+        if (!values.containsKey(Words.SHORTCUT)) {
             values.put(Words.SHORTCUT, (String) null);
         }
 
@@ -222,18 +255,23 @@ public class UserDictionaryProvider extends ContentProvider {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
         switch (sUriMatcher.match(uri)) {
-        case WORDS:
-            count = db.delete(USERDICT_TABLE_NAME, where, whereArgs);
-            break;
+            case WORDS:
+                count = db.delete(USERDICT_TABLE_NAME, where, whereArgs);
+                break;
 
-        case WORD_ID:
-            String wordId = uri.getPathSegments().get(1);
-            count = db.delete(USERDICT_TABLE_NAME, Words._ID + "=" + wordId
-                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-            break;
+            case WORD_ID:
+                String wordId = uri.getPathSegments().get(1);
+                count = db.delete(USERDICT_TABLE_NAME, Words._ID + "=" + wordId
+                        + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        // Only the enabled IMEs and spell checkers can access this provider.
+        if (!canCallerAccessUserDictionary()) {
+            return 0;
         }
 
         getContext().getContentResolver().notifyChange(uri, null);
@@ -246,18 +284,23 @@ public class UserDictionaryProvider extends ContentProvider {
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
         switch (sUriMatcher.match(uri)) {
-        case WORDS:
-            count = db.update(USERDICT_TABLE_NAME, values, where, whereArgs);
-            break;
+            case WORDS:
+                count = db.update(USERDICT_TABLE_NAME, values, where, whereArgs);
+                break;
 
-        case WORD_ID:
-            String wordId = uri.getPathSegments().get(1);
-            count = db.update(USERDICT_TABLE_NAME, values, Words._ID + "=" + wordId
-                    + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
-            break;
+            case WORD_ID:
+                String wordId = uri.getPathSegments().get(1);
+                count = db.update(USERDICT_TABLE_NAME, values, Words._ID + "=" + wordId
+                        + (!TextUtils.isEmpty(where) ? " AND (" + where + ')' : ""), whereArgs);
+                break;
 
-        default:
-            throw new IllegalArgumentException("Unknown URI " + uri);
+            default:
+                throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        // Only the enabled IMEs and spell checkers can access this provider.
+        if (!canCallerAccessUserDictionary()) {
+            return 0;
         }
 
         getContext().getContentResolver().notifyChange(uri, null);
@@ -265,17 +308,57 @@ public class UserDictionaryProvider extends ContentProvider {
         return count;
     }
 
-    static {
-        sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-        sUriMatcher.addURI(AUTHORITY, "words", WORDS);
-        sUriMatcher.addURI(AUTHORITY, "words/#", WORD_ID);
+    private boolean canCallerAccessUserDictionary() {
+        final int callingUid = Binder.getCallingUid();
 
-        sDictProjectionMap = new HashMap<String, String>();
-        sDictProjectionMap.put(Words._ID, Words._ID);
-        sDictProjectionMap.put(Words.WORD, Words.WORD);
-        sDictProjectionMap.put(Words.FREQUENCY, Words.FREQUENCY);
-        sDictProjectionMap.put(Words.LOCALE, Words.LOCALE);
-        sDictProjectionMap.put(Words.APP_ID, Words.APP_ID);
-        sDictProjectionMap.put(Words.SHORTCUT, Words.SHORTCUT);
+        if (callingUid == Process.SYSTEM_UID
+                || callingUid == Process.ROOT_UID
+                || callingUid == Process.myUid()) {
+            return true;
+        }
+
+        String callingPackage = getCallingPackage();
+
+        List<InputMethodInfo> imeInfos = mImeManager.getEnabledInputMethodList();
+        if (imeInfos != null) {
+            final int imeInfoCount = imeInfos.size();
+            for (int i = 0; i < imeInfoCount; i++) {
+                InputMethodInfo imeInfo = imeInfos.get(i);
+                if (imeInfo.getServiceInfo().applicationInfo.uid == callingUid
+                        && imeInfo.getPackageName().equals(callingPackage)) {
+                    return true;
+                }
+            }
+        }
+
+        SpellCheckerInfo[] scInfos = mTextServiceManager.getEnabledSpellCheckers();
+        if (scInfos != null) {
+            for (SpellCheckerInfo scInfo : scInfos) {
+                if (scInfo.getServiceInfo().applicationInfo.uid == callingUid
+                        && scInfo.getPackageName().equals(callingPackage)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static Cursor getEmptyCursorOrThrow(String[] projection) {
+        if (projection != null) {
+            for (String column : projection) {
+                if (sDictProjectionMap.get(column) == null) {
+                    throw new IllegalArgumentException("Unknown column: " + column);
+                }
+            }
+        } else {
+            final int columnCount = sDictProjectionMap.size();
+            projection = new String[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                projection[i] = sDictProjectionMap.keyAt(i);
+            }
+        }
+
+        return new MatrixCursor(projection, 0);
     }
 }

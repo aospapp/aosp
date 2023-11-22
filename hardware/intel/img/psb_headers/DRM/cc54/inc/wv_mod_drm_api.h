@@ -1,18 +1,18 @@
-/*
- * Copyright (C) 2014 Intel Corporation. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/**********************************************************************
+* Copyright (C) 2014 Intel Corporation. All rights reserved.
+
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+
+* http://www.apache.org/licenses/LICENSE-2.0
+
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**********************************************************************/
 
 #ifndef __WV_MOD_DRM_API_H_
 #define __WV_MOD_DRM_API_H_
@@ -27,6 +27,18 @@
 #define DRM_WV_MOD_CLEAR_CONTENT_FLAG  (1)
 #define DRM_WV_MOD_AUDIO_CONTENT_FLAG  (1 << 1)
 #define DRM_WV_MOD_SECURE_CONTENT_FLAG (1 << 2)
+
+// HDCP version values
+enum hdcp_version_type
+{
+    DRM_WV_MOD_HDCP_VERSION_ANY = 0,
+    DRM_WV_MOD_HDCP_VERSION_1_0,
+    DRM_WV_MOD_HDCP_VERSION_2_0,
+    DRM_WV_MOD_HDCP_VERSION_2_1,
+    DRM_WV_MOD_HDCP_VERSION_2_2,
+    DRM_WV_MOD_HDCP_VERSION_NONE = 0xFF
+};
+
 
 /*!
  * APIs
@@ -175,9 +187,12 @@ uint32_t drm_wv_mod_v9_generate_rsa_signature(uint32_t session_id,
  * @param[in,out] data_size
  *    Size of the passed-in usage_table_data, in bytes. This
  *    will always be updated to the required table size.
+ * @param[in] system_time
+ *    current system time. Time in seconds since 1970.
  */
 uint32_t drm_wv_mod_load_usage_table(const uint8_t *const usage_table_data,
-                                     uint32_t *const data_size);
+                                     uint32_t *const data_size,
+                                     uint64_t system_time);
 
 /* @brief Update usage table and return it
  *
@@ -271,6 +286,7 @@ uint32_t drm_wv_mod_delete_usage_entry(uint32_t session_id,
 // TODO: Documentation
 uint32_t drm_wv_mod_delete_usage_table(void);
 
+
 /**
  * brief Clear session context
  *
@@ -278,5 +294,41 @@ uint32_t drm_wv_mod_delete_usage_table(void);
  * Typically called to cleanup sessions resulting from a application crash.
  */
 uint32_t drm_wv_mod_reset_session_context(void);
+
+/**
+ * @brief Returns the maximum and current HDCP version supported by the device
+ *
+ * @param[out] current_ver
+ *   Current HDCP version supported by the device
+ * @param[out] maximum_ver
+ *   Maximum HDCP version supported by the device
+ *
+ */
+uint32_t drm_wv_mod_get_hdcp_capability(enum hdcp_version_type *const current_ver,
+                                        enum hdcp_version_type *const maximum_ver);
+
+/*! Version 10 specific APIs. */
+
+/**
+ * @brief Get current number of open sessions along with maximum number of
+ * supported sessions.
+ */
+uint32_t drm_wv_mod_get_num_sessions(uint32_t *open_sessions, uint32_t *max_sessions);
+
+/**
+ * @brief Deletes an entry from session usage table.
+ *
+ * This API is used to delete stale entries without a signed request from server.
+ */
+uint32_t drm_wv_mod_force_delete_usage_entry(const uint8_t *pst, uint32_t pst_length);
+
+/**
+ * @brief Returns the decrypted key control block for the given key_id.
+ */
+uint32_t drm_wv_mod_query_key_control(const uint32_t session_id,
+                                      const uint8_t *key_id,
+                                      uint32_t key_id_length,
+                                      uint8_t *key_control_block,
+                                      uint32_t *key_control_block_length);
 
 #endif /* __WV_MOD_DRM_API_H_ */

@@ -6,34 +6,29 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/LD/SymbolTable.h>
+#include "mcld/LD/SymbolTable.h"
 #include "SymbolTableTest.h"
 
 using namespace mcld;
 using namespace mcldtest;
 
-
 // Constructor can do set-up work for all test here.
-SymbolTableTest::SymbolTableTest()
-{
+SymbolTableTest::SymbolTableTest() {
   // create testee. modify it if need
   m_pTestee = new SymbolTable<>(m_StrTable);
 }
 
 // Destructor can do clean-up work that doesn't throw exceptions here.
-SymbolTableTest::~SymbolTableTest()
-{
+SymbolTableTest::~SymbolTableTest() {
   delete m_pTestee;
 }
 
 // SetUp() will be called immediately before each test.
-void SymbolTableTest::SetUp()
-{
+void SymbolTableTest::SetUp() {
 }
 
 // TearDown() will be called immediately after each test.
-void SymbolTableTest::TearDown()
-{
+void SymbolTableTest::TearDown() {
 }
 
 //==========================================================================//

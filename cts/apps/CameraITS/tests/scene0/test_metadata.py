@@ -48,16 +48,19 @@ def main():
     check('props["android.info.supportedHardwareLevel"] is not None')
     check('props["android.info.supportedHardwareLevel"] in [0,1,2]')
     full = getval('props["android.info.supportedHardwareLevel"]') == 1
+    manual_sensor = its.caps.manual_sensor(props)
 
     # Test: rollingShutterSkew, and frameDuration tags must all be present,
     # and rollingShutterSkew must be greater than zero and smaller than all
     # of the possible frame durations.
-    check('md.has_key("android.sensor.frameDuration")')
-    check('md["android.sensor.frameDuration"] is not None')
+    if manual_sensor:
+        check('md.has_key("android.sensor.frameDuration")')
+        check('md["android.sensor.frameDuration"] is not None')
     check('md.has_key("android.sensor.rollingShutterSkew")')
     check('md["android.sensor.rollingShutterSkew"] is not None')
-    check('md["android.sensor.frameDuration"] > '
-          'md["android.sensor.rollingShutterSkew"] > 0')
+    if manual_sensor:
+        check('md["android.sensor.frameDuration"] > '
+              'md["android.sensor.rollingShutterSkew"] > 0')
 
     # Test: timestampSource must be a valid value.
     check('props.has_key("android.sensor.info.timestampSource")')

@@ -1,4 +1,6 @@
 LOCAL_PATH:= $(call my-dir)
+LLVM_ROOT_PATH := $(LOCAL_PATH)/../..
+include $(LLVM_ROOT_PATH)/llvm.mk
 
 libtablegen_SRC_FILES := \
   Error.cpp \
@@ -13,6 +15,7 @@ libtablegen_SRC_FILES := \
 # For the host
 # =====================================================
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_SRC_FILES := $(libtablegen_SRC_FILES)
 LOCAL_MODULE:= libLLVMTableGen

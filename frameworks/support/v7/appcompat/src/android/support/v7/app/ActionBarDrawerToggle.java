@@ -15,8 +15,8 @@
  */
 package android.support.v7.app;
 
-import android.app.Activity;
 import android.app.ActionBar;
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
@@ -25,13 +25,12 @@ import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.view.GravityCompat;
-import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.DrawerLayout;
+import android.support.v7.graphics.drawable.DrawerArrowDrawable;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.support.v7.appcompat.R;
 
 /**
  * This class provides a handy way to tie together the functionality of
@@ -76,15 +75,6 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
          */
         @Nullable
         Delegate getDrawerToggleDelegate();
-    }
-
-    /**
-     * @deprecated Temporary class for the transition from old drawer toggle to new drawer toggle.
-     */
-    interface TmpDelegateProvider {
-
-        @Nullable
-        Delegate getV7DrawerToggleDelegate();
     }
 
     public interface Delegate {
@@ -215,8 +205,6 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
             });
         } else if (activity instanceof DelegateProvider) { // Allow the Activity to provide an impl
             mActivityImpl = ((DelegateProvider) activity).getDrawerToggleDelegate();
-        } else if (activity instanceof TmpDelegateProvider) {// tmp interface for transition
-            mActivityImpl = ((TmpDelegateProvider) activity).getV7DrawerToggleDelegate();
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             mActivityImpl = new JellybeanMr2Delegate(activity);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -476,9 +464,7 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
         return mActivityImpl.getThemeUpIndicator();
     }
 
-    static class DrawerArrowDrawableToggle extends DrawerArrowDrawable
-            implements DrawerToggle {
-
+    static class DrawerArrowDrawableToggle extends DrawerArrowDrawable implements DrawerToggle {
         private final Activity mActivity;
 
         public DrawerArrowDrawableToggle(Activity activity, Context themedContext) {
@@ -492,17 +478,11 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
             } else if (position == 0f) {
                 setVerticalMirror(false);
             }
-            super.setProgress(position);
-        }
-
-        @Override
-        boolean isLayoutRtl() {
-            return ViewCompat.getLayoutDirection(mActivity.getWindow().getDecorView())
-                    == ViewCompat.LAYOUT_DIRECTION_RTL;
+            setProgress(position);
         }
 
         public float getPosition() {
-            return super.getProgress();
+            return getProgress();
         }
     }
 

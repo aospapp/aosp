@@ -18,6 +18,7 @@ package com.google.common.primitives;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Converter;
 import com.google.common.collect.testing.Helpers;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
@@ -76,7 +77,7 @@ public class IntsTest extends TestCase {
     assertEquals(LEAST, Ints.saturatedCast(Long.MIN_VALUE));
   }
 
-  private void assertCastFails(long value) {
+  private static void assertCastFails(long value) {
     try {
       Ints.checkedCast(value);
       fail("Cast to int should have failed: " + value);
@@ -315,6 +316,11 @@ public class IntsTest extends TestCase {
     assertSame(comparator, SerializableTester.reserialize(comparator));
   }
 
+  @GwtIncompatible("SerializableTester")
+  public void testStringConverterSerialization() {
+    SerializableTester.reserializeAndAssert(Ints.stringConverter());
+  }
+
   public void testToArray() {
     // need explicit type parameter to avoid javac warning!?
     List<Integer> none = Arrays.<Integer>asList();
@@ -356,6 +362,24 @@ public class IntsTest extends TestCase {
     }
   }
 
+  public void testToArray_withConversion() {
+    int[] array = {0, 1, 2};
+
+    List<Byte> bytes = Arrays.asList((byte) 0, (byte) 1, (byte) 2);
+    List<Short> shorts = Arrays.asList((short) 0, (short) 1, (short) 2);
+    List<Integer> ints = Arrays.asList(0, 1, 2);
+    List<Float> floats = Arrays.asList((float) 0, (float) 1, (float) 2);
+    List<Long> longs = Arrays.asList((long) 0, (long) 1, (long) 2);
+    List<Double> doubles = Arrays.asList((double) 0, (double) 1, (double) 2);
+
+    assertTrue(Arrays.equals(array, Ints.toArray(bytes)));
+    assertTrue(Arrays.equals(array, Ints.toArray(shorts)));
+    assertTrue(Arrays.equals(array, Ints.toArray(ints)));
+    assertTrue(Arrays.equals(array, Ints.toArray(floats)));
+    assertTrue(Arrays.equals(array, Ints.toArray(longs)));
+    assertTrue(Arrays.equals(array, Ints.toArray(doubles)));
+  }
+
   public void testAsList_isAView() {
     int[] array = {(int) 0, (int) 1};
     List<Integer> list = Ints.asList(array);
@@ -393,10 +417,50 @@ public class IntsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(Ints.class);
+  }
+
+  public void testStringConverter_convert() {
+    Converter<String, Integer> converter = Ints.stringConverter();
+    assertEquals((Integer) 1, converter.convert("1"));
+    assertEquals((Integer) 0, converter.convert("0"));
+    assertEquals((Integer) (-1), converter.convert("-1"));
+    assertEquals((Integer) 255, converter.convert("0xff"));
+    assertEquals((Integer) 255, converter.convert("0xFF"));
+    assertEquals((Integer) (-255), converter.convert("-0xFF"));
+    assertEquals((Integer) 255, converter.convert("#0000FF"));
+    assertEquals((Integer) 438, converter.convert("0666"));
+  }
+
+  public void testStringConverter_convertError() {
+    try {
+      Ints.stringConverter().convert("notanumber");
+      fail();
+    } catch (NumberFormatException expected) {
+    }
+  }
+
+  public void testStringConverter_nullConversions() {
+    assertNull(Ints.stringConverter().convert(null));
+    assertNull(Ints.stringConverter().reverse().convert(null));
+  }
+
+  public void testStringConverter_reverse() {
+    Converter<String, Integer> converter = Ints.stringConverter();
+    assertEquals("1", converter.reverse().convert(1));
+    assertEquals("0", converter.reverse().convert(0));
+    assertEquals("-1", converter.reverse().convert(-1));
+    assertEquals("255", converter.reverse().convert(0xff));
+    assertEquals("255", converter.reverse().convert(0xFF));
+    assertEquals("-255", converter.reverse().convert(-0xFF));
+    assertEquals("438", converter.reverse().convert(0666));
+  }
+
+  @GwtIncompatible("NullPointerTester")
+  public void testStringConverter_nullPointerTester() throws Exception {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(int[].class, new int[0]);
-    tester.testAllPublicStaticMethods(Ints.class);
+    tester.testAllPublicInstanceMethods(Ints.stringConverter());
   }
 
   @GwtIncompatible("AndroidInteger")
@@ -417,6 +481,7 @@ public class IntsTest extends TestCase {
         Ints.tryParse(Long.toString(((long) GREATEST) + 1)));
     assertNull("Min integer - 1",
         Ints.tryParse(Long.toString(((long) LEAST) - 1)));
+    assertNull(Ints.tryParse("\u0662\u06f3"));
   }
 
   /**

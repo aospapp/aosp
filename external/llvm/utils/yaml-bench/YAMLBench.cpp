@@ -117,7 +117,7 @@ static void dumpNode( yaml::Node *n
     outs() << indent(Indent) << "}";
   } else if (yaml::AliasNode *an = dyn_cast<yaml::AliasNode>(n)){
     outs() << "*" << an->getName();
-  } else if (dyn_cast<yaml::NullNode>(n)) {
+  } else if (isa<yaml::NullNode>(n)) {
     outs() << prettyTag(n) << " null";
   }
 }
@@ -192,15 +192,15 @@ int main(int argc, char **argv) {
         MemoryBuffer::getFileOrSTDIN(Input);
     if (!BufOrErr)
       return 1;
-    std::unique_ptr<MemoryBuffer> Buf = std::move(BufOrErr.get());
+    MemoryBuffer &Buf = *BufOrErr.get();
 
     llvm::SourceMgr sm;
     if (DumpTokens) {
-      yaml::dumpTokens(Buf->getBuffer(), outs());
+      yaml::dumpTokens(Buf.getBuffer(), outs());
     }
 
     if (DumpCanonical) {
-      yaml::Stream stream(Buf->getBuffer(), sm);
+      yaml::Stream stream(Buf.getBuffer(), sm);
       dumpStream(stream);
     }
   }

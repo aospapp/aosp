@@ -25,12 +25,44 @@ LOCAL_SRC_FILES := \
 		CtsOsJniOnLoad.cpp \
 		android_os_cts_CpuInstructions.cpp.arm \
 		android_os_cts_TaggedPointer.cpp \
+		android_os_cts_HardwareName.cpp \
 		android_os_cts_OSFeatures.cpp \
-		android_os_cts_NoExecutePermissionTest.cpp
+		android_os_cts_NoExecutePermissionTest.cpp \
+		android_os_cts_SeccompTest.cpp
+
+# Select the architectures on which seccomp-bpf are supported. This is used to
+# include extra test files that will not compile on architectures where it is
+# not supported.
+ARCH_SUPPORTS_SECCOMP := 0
+ifeq ($(strip $(TARGET_ARCH)),arm)
+	ARCH_SUPPORTS_SECCOMP = 1
+endif
+
+ifeq ($(strip $(TARGET_ARCH)),arm64)
+	ARCH_SUPPORTS_SECCOMP = 1
+	# Required for __NR_poll definition.
+	LOCAL_CFLAGS += -D__ARCH_WANT_SYSCALL_DEPRECATED
+endif
+
+ifeq ($(strip $(TARGET_ARCH)),x86)
+	ARCH_SUPPORTS_SECCOMP = 1
+endif
+
+ifeq ($(strip $(TARGET_ARCH)),x86_64)
+	ARCH_SUPPORTS_SECCOMP = 1
+endif
+
+ifeq ($(ARCH_SUPPORTS_SECCOMP),1)
+	LOCAL_SRC_FILES += seccomp-tests/tests/seccomp_bpf_tests.c \
+			seccomp_sample_program.cpp
+
+	# This define controls the behavior of OSFeatures.needsSeccompSupport().
+	LOCAL_CFLAGS += -DARCH_SUPPORTS_SECCOMP
+endif
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
-LOCAL_SHARED_LIBRARIES := libnativehelper liblog libdl
+LOCAL_SHARED_LIBRARIES := libnativehelper liblog libdl libcutils
 
 LOCAL_SRC_FILES += android_os_cts_CpuFeatures.cpp
 LOCAL_C_INCLUDES += ndk/sources/cpufeatures

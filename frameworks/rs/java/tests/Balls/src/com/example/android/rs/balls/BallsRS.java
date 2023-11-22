@@ -16,9 +16,12 @@
 
 package com.example.android.rs.balls;
 
+
 import android.content.res.Resources;
 import android.renderscript.*;
 import android.util.Log;
+import android.graphics.BitmapFactory;
+import android.graphics.Bitmap;
 
 
 public class BallsRS {
@@ -70,9 +73,12 @@ public class BallsRS {
     }
 
     private Allocation loadTexture(int id) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inScaled = false;
+        Bitmap bp = BitmapFactory.decodeResource(mRes, id, options);
         final Allocation allocation =
-            Allocation.createFromBitmapResource(mRS, mRes,
-                id, Allocation.MipmapControl.MIPMAP_NONE,
+            Allocation.createFromBitmap(mRS, bp,
+                Allocation.MipmapControl.MIPMAP_NONE,
                 Allocation.USAGE_GRAPHICS_TEXTURE);
         return allocation;
     }

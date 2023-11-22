@@ -18,21 +18,24 @@
 #define ART_COMPILER_IMAGE_WRITER_H_
 
 #include <stdint.h>
+#include <valgrind.h>
 
 #include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
+#include <ostream>
 
+#include "base/bit_utils.h"
 #include "base/macros.h"
 #include "driver/compiler_driver.h"
 #include "gc/space/space.h"
+#include "lock_word.h"
 #include "mem_map.h"
 #include "oat_file.h"
 #include "mirror/dex_cache.h"
 #include "os.h"
 #include "safe_map.h"
-#include "gc/space/space.h"
 #include "utils.h"
 
 namespace art {
@@ -40,22 +43,51 @@ namespace art {
 // Write a Space built during compilation for use during execution.
 class ImageWriter FINAL {
  public:
-  explicit ImageWriter(const CompilerDriver& compiler_driver)
-      : compiler_driver_(compiler_driver), oat_file_(NULL), image_end_(0),
-        image_objects_offset_begin_(0), image_begin_(NULL),
-        oat_data_begin_(NULL), interpreter_to_interpreter_bridge_offset_(0),
-        interpreter_to_compiled_code_bridge_offset_(0), portable_imt_conflict_trampoline_offset_(0),
-        portable_resolution_trampoline_offset_(0), quick_generic_jni_trampoline_offset_(0),
+  ImageWriter(const CompilerDriver& compiler_driver, uintptr_t image_begin,
+              bool compile_pic)
+      : compiler_driver_(compiler_driver), image_begin_(reinterpret_cast<uint8_t*>(image_begin)),
+        image_end_(0), image_objects_offset_begin_(0), image_roots_address_(0), oat_file_(nullptr),
+        oat_data_begin_(nullptr), interpreter_to_interpreter_bridge_offset_(0),
+        interpreter_to_compiled_code_bridge_offset_(0), jni_dlsym_lookup_offset_(0),
+        quick_generic_jni_trampoline_offset_(0),
         quick_imt_conflict_trampoline_offset_(0), quick_resolution_trampoline_offset_(0),
-        compile_pic_(false), target_ptr_size_(0), bin_slot_sizes_(), bin_slot_count_() {}
+        quick_to_interpreter_bridge_offset_(0), compile_pic_(compile_pic),
+        target_ptr_size_(InstructionSetPointerSize(compiler_driver_.GetInstructionSet())),
+        bin_slot_sizes_(), bin_slot_previous_sizes_(), bin_slot_count_(),
+        intern_table_bytes_(0u), dirty_methods_(0u), clean_methods_(0u) {
+    CHECK_NE(image_begin, 0U);
+    std::fill(image_methods_, image_methods_ + arraysize(image_methods_), nullptr);
+  }
 
-  ~ImageWriter() {}
+  ~ImageWriter() {
+  }
 
-  bool Write(const std::string& image_filename,
-             uintptr_t image_begin,
-             const std::string& oat_filename,
-             const std::string& oat_location,
-             bool compile_pic)
+  bool PrepareImageAddressSpace();
+
+  bool IsImageAddressSpaceReady() const {
+    return image_roots_address_ != 0u;
+  }
+
+  template <typename T>
+  T* GetImageAddress(T* object) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    return object == nullptr ? nullptr :
+        reinterpret_cast<T*>(image_begin_ + GetImageOffset(object));
+  }
+
+  ArtMethod* GetImageMethodAddress(ArtMethod* method) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
+  mirror::HeapReference<mirror::Object>* GetDexCacheArrayElementImageAddress(
+      const DexFile* dex_file, uint32_t offset) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+    auto it = dex_cache_array_starts_.find(dex_file);
+    DCHECK(it != dex_cache_array_starts_.end());
+    return reinterpret_cast<mirror::HeapReference<mirror::Object>*>(
+        image_begin_ + RoundUp(sizeof(ImageHeader), kObjectAlignment) + it->second + offset);
+  }
+
+  uint8_t* GetOatFileBegin() const;
+
+  bool Write(const std::string& image_filename, const std::string& oat_filename,
+             const std::string& oat_location)
       LOCKS_EXCLUDED(Locks::mutator_lock_);
 
   uintptr_t GetOatDataBegin() {
@@ -70,6 +102,10 @@ class ImageWriter FINAL {
 
   // Classify different kinds of bins that objects end up getting packed into during image writing.
   enum Bin {
+    // Dex cache arrays have a special slot for PC-relative addressing. Since they are
+    // huge, and as such their dirtiness is not important for the clean/dirty separation,
+    // we arbitrarily keep them at the beginning.
+    kBinDexCacheArray,            // Object arrays belonging to dex cache.
     // Likely-clean:
     kBinString,                        // [String] Almost always immutable (except for obj header).
     kBinArtMethodsManagedInitialized,  // [ArtMethod] Not-native, and initialized. Unlikely to dirty
@@ -80,18 +116,30 @@ class ImageWriter FINAL {
     kBinClassInitializedFinalStatics,  // Class initializers have been run, no non-final statics
     kBinClassInitialized,         // Class initializers have been run
     kBinClassVerified,            // Class verified, but initializers haven't been run
-    kBinArtMethodNative,          // Art method that is actually native
-    kBinArtMethodNotInitialized,  // Art method with a declaring class that wasn't initialized
-    // Don't care about other art methods since they don't dirty
     // Add more bins here if we add more segregation code.
+    // Non mirror fields must be below.
+    // ArtFields should be always clean.
+    kBinArtField,
+    // If the class is initialized, then the ArtMethods are probably clean.
+    kBinArtMethodClean,
+    // ArtMethods may be dirty if the class has native methods or a declaring class that isn't
+    // initialized.
+    kBinArtMethodDirty,
     kBinSize,
+    // Number of bins which are for mirror objects.
+    kBinMirrorCount = kBinArtField,
   };
 
-  static constexpr size_t kBinBits = MinimumBitsToStore(kBinSize - 1);
+  friend std::ostream& operator<<(std::ostream& stream, const Bin& bin);
+
+  static constexpr size_t kBinBits = MinimumBitsToStore<uint32_t>(kBinMirrorCount - 1);
   // uint32 = typeof(lockword_)
-  static constexpr size_t kBinShift = BitSizeOf<uint32_t>() - kBinBits;
+  // Subtract read barrier bits since we want these to remain 0, or else it may result in DCHECK
+  // failures due to invalid read barrier bits during object field reads.
+  static const size_t kBinShift = BitSizeOf<uint32_t>() - kBinBits -
+      LockWord::kReadBarrierStateSize;
   // 111000.....0
-  static constexpr size_t kBinMask = ((static_cast<size_t>(1) << kBinBits) - 1) << kBinShift;
+  static const size_t kBinMask = ((static_cast<size_t>(1) << kBinBits) - 1) << kBinShift;
 
   // We use the lock word to store the bin # and bin index of the object in the image.
   //
@@ -106,7 +154,7 @@ class ImageWriter FINAL {
     // The offset in bytes from the beginning of the bin. Aligned to object size.
     uint32_t GetIndex() const;
     // Pack into a single uint32_t, for storing into a lock word.
-    explicit operator uint32_t() const { return lockword_; }
+    uint32_t Uint32Value() const { return lockword_; }
     // Comparison operator for map support
     bool operator<(const BinSlot& other) const  { return lockword_ < other.lockword_; }
 
@@ -118,12 +166,15 @@ class ImageWriter FINAL {
   // We use the lock word to store the offset of the object in the image.
   void AssignImageOffset(mirror::Object* object, BinSlot bin_slot)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void SetImageOffset(mirror::Object* object, BinSlot bin_slot, size_t offset)
+  void SetImageOffset(mirror::Object* object, size_t offset)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   bool IsImageOffsetAssigned(mirror::Object* object) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   size_t GetImageOffset(mirror::Object* object) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void UpdateImageOffset(mirror::Object* obj, uintptr_t offset)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
+  void PrepareDexCacheArraySlots() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void AssignImageBinSlot(mirror::Object* object) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void SetImageBinSlot(mirror::Object* object, BinSlot bin_slot)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
@@ -131,37 +182,30 @@ class ImageWriter FINAL {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   BinSlot GetImageBinSlot(mirror::Object* object) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
+  void AddMethodPointerArray(mirror::PointerArray* arr) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
   static void* GetImageAddressCallback(void* writer, mirror::Object* obj)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     return reinterpret_cast<ImageWriter*>(writer)->GetImageAddress(obj);
   }
 
-  mirror::Object* GetImageAddress(mirror::Object* object) const
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    if (object == NULL) {
-      return NULL;
-    }
-    return reinterpret_cast<mirror::Object*>(image_begin_ + GetImageOffset(object));
-  }
-
   mirror::Object* GetLocalAddress(mirror::Object* object) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     size_t offset = GetImageOffset(object);
-    byte* dst = image_->Begin() + offset;
+    uint8_t* dst = image_->Begin() + offset;
     return reinterpret_cast<mirror::Object*>(dst);
   }
 
-  const byte* GetOatAddress(uint32_t offset) const {
-#if !defined(ART_USE_PORTABLE_COMPILER)
+  const uint8_t* GetOatAddress(uint32_t offset) const {
     // With Quick, code is within the OatFile, as there are all in one
-    // .o ELF object. However with Portable, the code is always in
-    // different .o ELF objects.
+    // .o ELF object.
     DCHECK_LT(offset, oat_file_->Size());
-#endif
-    if (offset == 0u) {
-      return nullptr;
-    }
-    return oat_data_begin_ + offset;
+    DCHECK(oat_data_begin_ != nullptr);
+    return offset == 0u ? nullptr : oat_data_begin_ + offset;
+  }
+
+  static bool IsArtMethodBin(Bin bin) {
+    return bin == kBinArtMethodClean || bin == kBinArtMethodDirty;
   }
 
   // Returns true if the class was in the original requested image classes list.
@@ -181,9 +225,6 @@ class ImageWriter FINAL {
   static void ComputeEagerResolvedStringsCallback(mirror::Object* obj, void* arg)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  // Combine string char arrays.
-  void ProcessStrings() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-
   // Remove unwanted classes from various roots.
   void PruneNonImageClasses() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   static bool NonImageClassesVisitor(mirror::Class* c, void* arg)
@@ -195,7 +236,9 @@ class ImageWriter FINAL {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Lays out where the image objects will be at runtime.
-  void CalculateNewObjectOffsets(size_t oat_loaded_size, size_t oat_data_offset)
+  void CalculateNewObjectOffsets()
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void CreateHeader(size_t oat_loaded_size, size_t oat_data_offset)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   mirror::ObjectArray<mirror::Object>* CreateImageRoots() const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
@@ -214,35 +257,43 @@ class ImageWriter FINAL {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Creates the contiguous image in memory and adjusts pointers.
+  void CopyAndFixupNativeData() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void CopyAndFixupObjects() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   static void CopyAndFixupObjectsCallback(mirror::Object* obj, void* arg)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void FixupMethod(mirror::ArtMethod* orig, mirror::ArtMethod* copy)
+  void CopyAndFixupObject(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void CopyAndFixupMethod(ArtMethod* orig, ArtMethod* copy)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void FixupClass(mirror::Class* orig, mirror::Class* copy)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
   void FixupObject(mirror::Object* orig, mirror::Object* copy)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void FixupPointerArray(mirror::Object* dst, mirror::PointerArray* arr, mirror::Class* klass,
+                         Bin array_type) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Get quick code for non-resolution/imt_conflict/abstract method.
-  const byte* GetQuickCode(mirror::ArtMethod* method, bool* quick_is_interpreted)
+  const uint8_t* GetQuickCode(ArtMethod* method, bool* quick_is_interpreted)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  const byte* GetQuickEntryPoint(mirror::ArtMethod* method)
+  const uint8_t* GetQuickEntryPoint(ArtMethod* method)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Patches references in OatFile to expect runtime addresses.
-  void PatchOatCodeAndMethods(File* elf_file)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void SetOatChecksumFromElfFile(File* elf_file);
 
   // Calculate the sum total of the bin slot sizes in [0, up_to). Defaults to all bins.
   size_t GetBinSizeSum(Bin up_to = kBinSize) const;
 
+  // Return true if a method is likely to be dirtied at runtime.
+  bool WillMethodBeDirty(ArtMethod* m) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
+  // Assign the offset for an ArtMethod.
+  void AssignMethodOffset(ArtMethod* method, Bin bin) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
   const CompilerDriver& compiler_driver_;
 
-  // oat file with code for this image
-  OatFile* oat_file_;
-
-  // Memory mapped for generating the image.
-  std::unique_ptr<MemMap> image_;
+  // Beginning target image address for the output image.
+  uint8_t* image_begin_;
 
   // Offset to the free space in image_.
   size_t image_end_;
@@ -250,17 +301,37 @@ class ImageWriter FINAL {
   // Offset from image_begin_ to where the first object is in image_.
   size_t image_objects_offset_begin_;
 
-  // Beginning target image address for the output image.
-  byte* image_begin_;
+  // The image roots address in the image.
+  uint32_t image_roots_address_;
 
-  // Saved hashes (objects are inside of the image so that they don't move).
-  std::vector<std::pair<mirror::Object*, uint32_t>> saved_hashes_;
+  // oat file with code for this image
+  OatFile* oat_file_;
 
-  // Saved hashes (objects are bin slots to inside of the image, not yet allocated an address).
-  std::map<BinSlot, uint32_t> saved_hashes_map_;
+  // Memory mapped for generating the image.
+  std::unique_ptr<MemMap> image_;
+
+  // Indexes, lengths for dex cache arrays (objects are inside of the image so that they don't
+  // move).
+  struct DexCacheArrayLocation {
+    size_t offset_;
+    size_t length_;
+    Bin bin_type_;
+  };
+  SafeMap<mirror::Object*, DexCacheArrayLocation> dex_cache_array_indexes_;
+
+  // Pointer arrays that need to be updated. Since these are only some int and long arrays, we need
+  // to keep track. These include vtable arrays, iftable arrays, and dex caches.
+  std::unordered_map<mirror::PointerArray*, Bin> pointer_arrays_;
+
+  // The start offsets of the dex cache arrays.
+  SafeMap<const DexFile*, size_t> dex_cache_array_starts_;
+
+  // Saved hash codes. We use these to restore lockwords which were temporarily used to have
+  // forwarding addresses as well as copying over hash codes.
+  std::unordered_map<mirror::Object*, uint32_t> saved_hashcode_map_;
 
   // Beginning target oat address for the pointers from the output image to its oat file.
-  const byte* oat_data_begin_;
+  const uint8_t* oat_data_begin_;
 
   // Image bitmap which lets us know where the objects inside of the image reside.
   std::unique_ptr<gc::accounting::ContinuousSpaceBitmap> image_bitmap_;
@@ -269,24 +340,42 @@ class ImageWriter FINAL {
   uint32_t interpreter_to_interpreter_bridge_offset_;
   uint32_t interpreter_to_compiled_code_bridge_offset_;
   uint32_t jni_dlsym_lookup_offset_;
-  uint32_t portable_imt_conflict_trampoline_offset_;
-  uint32_t portable_resolution_trampoline_offset_;
-  uint32_t portable_to_interpreter_bridge_offset_;
   uint32_t quick_generic_jni_trampoline_offset_;
   uint32_t quick_imt_conflict_trampoline_offset_;
   uint32_t quick_resolution_trampoline_offset_;
   uint32_t quick_to_interpreter_bridge_offset_;
-  bool compile_pic_;
+  const bool compile_pic_;
 
   // Size of pointers on the target architecture.
   size_t target_ptr_size_;
 
   // Bin slot tracking for dirty object packing
   size_t bin_slot_sizes_[kBinSize];  // Number of bytes in a bin
+  size_t bin_slot_previous_sizes_[kBinSize];  // Number of bytes in previous bins.
   size_t bin_slot_count_[kBinSize];  // Number of objects in a bin
 
-  friend class FixupVisitor;
+  // Cached size of the intern table for when we allocate memory.
+  size_t intern_table_bytes_;
+
+  // ArtField, ArtMethod relocating map. These are allocated as array of structs but we want to
+  // have one entry per art field for convenience. ArtFields are placed right after the end of the
+  // image objects (aka sum of bin_slot_sizes_). ArtMethods are placed right after the ArtFields.
+  struct NativeObjectReloc {
+    uintptr_t offset;
+    Bin bin_type;
+  };
+  std::unordered_map<void*, NativeObjectReloc> native_object_reloc_;
+
+  // Runtime ArtMethods which aren't reachable from any Class but need to be copied into the image.
+  ArtMethod* image_methods_[ImageHeader::kImageMethodsCount];
+
+  // Counters for measurements, used for logging only.
+  uint64_t dirty_methods_;
+  uint64_t clean_methods_;
+
   friend class FixupClassVisitor;
+  friend class FixupRootVisitor;
+  friend class FixupVisitor;
   DISALLOW_COPY_AND_ASSIGN(ImageWriter);
 };
 

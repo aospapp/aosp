@@ -258,22 +258,30 @@ void reference_16x16_dct_2d(int16_t input[256], double output[256]) {
   }
 }
 
-typedef void (*fdct_t)(const int16_t *in, int16_t *out, int stride);
-typedef void (*idct_t)(const int16_t *in, uint8_t *out, int stride);
-typedef void (*fht_t) (const int16_t *in, int16_t *out, int stride,
-                       int tx_type);
-typedef void (*iht_t) (const int16_t *in, uint8_t *out, int stride,
-                       int tx_type);
+typedef void (*FdctFunc)(const int16_t *in, int16_t *out, int stride);
+typedef void (*IdctFunc)(const int16_t *in, uint8_t *out, int stride);
+typedef void (*FhtFunc)(const int16_t *in, int16_t *out, int stride,
+                        int tx_type);
+typedef void (*IhtFunc)(const int16_t *in, uint8_t *out, int stride,
+                        int tx_type);
 
-typedef std::tr1::tuple<fdct_t, idct_t, int> dct_16x16_param_t;
-typedef std::tr1::tuple<fht_t, iht_t, int> ht_16x16_param_t;
+typedef std::tr1::tuple<FdctFunc, IdctFunc, int> Dct16x16Param;
+typedef std::tr1::tuple<FhtFunc, IhtFunc, int> Ht16x16Param;
 
 void fdct16x16_ref(const int16_t *in, int16_t *out, int stride, int tx_type) {
   vp9_fdct16x16_c(in, out, stride);
 }
 
+void idct16x16_ref(const int16_t *in, uint8_t *dest, int stride, int tx_type) {
+  vp9_idct16x16_256_add_c(in, dest, stride);
+}
+
 void fht16x16_ref(const int16_t *in, int16_t *out, int stride, int tx_type) {
   vp9_fht16x16_c(in, out, stride, tx_type);
+}
+
+void iht16x16_ref(const int16_t *in, uint8_t *dest, int stride, int tx_type) {
+  vp9_iht16x16_256_add_c(in, dest, stride, tx_type);
 }
 
 class Trans16x16TestBase {
@@ -303,9 +311,9 @@ class Trans16x16TestBase {
         test_input_block[j] = src[j] - dst[j];
       }
 
-      REGISTER_STATE_CHECK(RunFwdTxfm(test_input_block,
-                                      test_temp_block, pitch_));
-      REGISTER_STATE_CHECK(RunInvTxfm(test_temp_block, dst, pitch_));
+      ASM_REGISTER_STATE_CHECK(RunFwdTxfm(test_input_block,
+                                          test_temp_block, pitch_));
+      ASM_REGISTER_STATE_CHECK(RunInvTxfm(test_temp_block, dst, pitch_));
 
       for (int j = 0; j < kNumCoeffs; ++j) {
         const uint32_t diff = dst[j] - src[j];
@@ -336,7 +344,7 @@ class Trans16x16TestBase {
         input_block[j] = rnd.Rand8() - rnd.Rand8();
 
       fwd_txfm_ref(input_block, output_ref_block, pitch_, tx_type_);
-      REGISTER_STATE_CHECK(RunFwdTxfm(input_block, output_block, pitch_));
+      ASM_REGISTER_STATE_CHECK(RunFwdTxfm(input_block, output_block, pitch_));
 
       // The minimum quant value is 4.
       for (int j = 0; j < kNumCoeffs; ++j)
@@ -358,6 +366,43 @@ class Trans16x16TestBase {
         input_block[j] = rnd.Rand8() - rnd.Rand8();
         input_extreme_block[j] = rnd.Rand8() % 2 ? 255 : -255;
       }
+      if (i == 0) {
+        for (int j = 0; j < kNumCoeffs; ++j)
+          input_extreme_block[j] = 255;
+      } else if (i == 1) {
+        for (int j = 0; j < kNumCoeffs; ++j)
+          input_extreme_block[j] = -255;
+      }
+
+      fwd_txfm_ref(input_extreme_block, output_ref_block, pitch_, tx_type_);
+      ASM_REGISTER_STATE_CHECK(RunFwdTxfm(input_extreme_block,
+                                          output_block, pitch_));
+
+      // The minimum quant value is 4.
+      for (int j = 0; j < kNumCoeffs; ++j) {
+        EXPECT_EQ(output_block[j], output_ref_block[j]);
+        EXPECT_GE(4 * DCT_MAX_VALUE, abs(output_block[j]))
+            << "Error: 16x16 FDCT has coefficient larger than 4*DCT_MAX_VALUE";
+      }
+    }
+  }
+
+  void RunQuantCheck(int dc_thred, int ac_thred) {
+    ACMRandom rnd(ACMRandom::DeterministicSeed());
+    const int count_test_block = 1000;
+    DECLARE_ALIGNED_ARRAY(16, int16_t, input_block, kNumCoeffs);
+    DECLARE_ALIGNED_ARRAY(16, int16_t, input_extreme_block, kNumCoeffs);
+    DECLARE_ALIGNED_ARRAY(16, int16_t, output_ref_block, kNumCoeffs);
+
+    DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, kNumCoeffs);
+    DECLARE_ALIGNED_ARRAY(16, uint8_t, ref, kNumCoeffs);
+
+    for (int i = 0; i < count_test_block; ++i) {
+      // Initialize a test block with input range [-255, 255].
+      for (int j = 0; j < kNumCoeffs; ++j) {
+        input_block[j] = rnd.Rand8() - rnd.Rand8();
+        input_extreme_block[j] = rnd.Rand8() % 2 ? 255 : -255;
+      }
       if (i == 0)
         for (int j = 0; j < kNumCoeffs; ++j)
           input_extreme_block[j] = 255;
@@ -366,15 +411,20 @@ class Trans16x16TestBase {
           input_extreme_block[j] = -255;
 
       fwd_txfm_ref(input_extreme_block, output_ref_block, pitch_, tx_type_);
-      REGISTER_STATE_CHECK(RunFwdTxfm(input_extreme_block,
-                                      output_block, pitch_));
 
-      // The minimum quant value is 4.
-      for (int j = 0; j < kNumCoeffs; ++j) {
-        EXPECT_EQ(output_block[j], output_ref_block[j]);
-        EXPECT_GE(4 * DCT_MAX_VALUE, abs(output_block[j]))
-            << "Error: 16x16 FDCT has coefficient larger than 4*DCT_MAX_VALUE";
-      }
+      // clear reconstructed pixel buffers
+      vpx_memset(dst, 0, kNumCoeffs * sizeof(uint8_t));
+      vpx_memset(ref, 0, kNumCoeffs * sizeof(uint8_t));
+
+      // quantization with maximum allowed step sizes
+      output_ref_block[0] = (output_ref_block[0] / dc_thred) * dc_thred;
+      for (int j = 1; j < kNumCoeffs; ++j)
+        output_ref_block[j] = (output_ref_block[j] / ac_thred) * ac_thred;
+      inv_txfm_ref(output_ref_block, ref, pitch_, tx_type_);
+      ASM_REGISTER_STATE_CHECK(RunInvTxfm(output_ref_block, dst, pitch_));
+
+      for (int j = 0; j < kNumCoeffs; ++j)
+        EXPECT_EQ(ref[j], dst[j]);
     }
   }
 
@@ -400,7 +450,7 @@ class Trans16x16TestBase {
       for (int j = 0; j < kNumCoeffs; ++j)
         coeff[j] = round(out_r[j]);
 
-      REGISTER_STATE_CHECK(RunInvTxfm(coeff, dst, 16));
+      ASM_REGISTER_STATE_CHECK(RunInvTxfm(coeff, dst, 16));
 
       for (int j = 0; j < kNumCoeffs; ++j) {
         const uint32_t diff = dst[j] - src[j];
@@ -413,12 +463,13 @@ class Trans16x16TestBase {
   }
   int pitch_;
   int tx_type_;
-  fht_t fwd_txfm_ref;
+  FhtFunc fwd_txfm_ref;
+  IhtFunc inv_txfm_ref;
 };
 
 class Trans16x16DCT
     : public Trans16x16TestBase,
-      public ::testing::TestWithParam<dct_16x16_param_t> {
+      public ::testing::TestWithParam<Dct16x16Param> {
  public:
   virtual ~Trans16x16DCT() {}
 
@@ -428,6 +479,7 @@ class Trans16x16DCT
     tx_type_  = GET_PARAM(2);
     pitch_    = 16;
     fwd_txfm_ref = fdct16x16_ref;
+    inv_txfm_ref = idct16x16_ref;
   }
   virtual void TearDown() { libvpx_test::ClearSystemState(); }
 
@@ -439,8 +491,8 @@ class Trans16x16DCT
     inv_txfm_(out, dst, stride);
   }
 
-  fdct_t fwd_txfm_;
-  idct_t inv_txfm_;
+  FdctFunc fwd_txfm_;
+  IdctFunc inv_txfm_;
 };
 
 TEST_P(Trans16x16DCT, AccuracyCheck) {
@@ -455,13 +507,19 @@ TEST_P(Trans16x16DCT, MemCheck) {
   RunMemCheck();
 }
 
+TEST_P(Trans16x16DCT, QuantCheck) {
+  // Use maximally allowed quantization step sizes for DC and AC
+  // coefficients respectively.
+  RunQuantCheck(1336, 1828);
+}
+
 TEST_P(Trans16x16DCT, InvAccuracyCheck) {
   RunInvAccuracyCheck();
 }
 
 class Trans16x16HT
     : public Trans16x16TestBase,
-      public ::testing::TestWithParam<ht_16x16_param_t> {
+      public ::testing::TestWithParam<Ht16x16Param> {
  public:
   virtual ~Trans16x16HT() {}
 
@@ -471,6 +529,7 @@ class Trans16x16HT
     tx_type_  = GET_PARAM(2);
     pitch_    = 16;
     fwd_txfm_ref = fht16x16_ref;
+    inv_txfm_ref = iht16x16_ref;
   }
   virtual void TearDown() { libvpx_test::ClearSystemState(); }
 
@@ -482,8 +541,8 @@ class Trans16x16HT
     inv_txfm_(out, dst, stride, tx_type_);
   }
 
-  fht_t fwd_txfm_;
-  iht_t inv_txfm_;
+  FhtFunc fwd_txfm_;
+  IhtFunc inv_txfm_;
 };
 
 TEST_P(Trans16x16HT, AccuracyCheck) {
@@ -496,6 +555,12 @@ TEST_P(Trans16x16HT, CoeffCheck) {
 
 TEST_P(Trans16x16HT, MemCheck) {
   RunMemCheck();
+}
+
+TEST_P(Trans16x16HT, QuantCheck) {
+  // The encoder skips any non-DC intra prediction modes,
+  // when the quantization step size goes beyond 988.
+  RunQuantCheck(549, 988);
 }
 
 using std::tr1::make_tuple;
@@ -512,7 +577,7 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht16x16_c, &vp9_iht16x16_256_add_c, 2),
         make_tuple(&vp9_fht16x16_c, &vp9_iht16x16_256_add_c, 3)));
 
-#if HAVE_NEON
+#if HAVE_NEON_ASM
 INSTANTIATE_TEST_CASE_P(
     NEON, Trans16x16DCT,
     ::testing::Values(
@@ -533,5 +598,12 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht16x16_sse2, &vp9_iht16x16_256_add_sse2, 1),
         make_tuple(&vp9_fht16x16_sse2, &vp9_iht16x16_256_add_sse2, 2),
         make_tuple(&vp9_fht16x16_sse2, &vp9_iht16x16_256_add_sse2, 3)));
+#endif
+
+#if HAVE_SSSE3
+INSTANTIATE_TEST_CASE_P(
+    SSSE3, Trans16x16DCT,
+    ::testing::Values(
+        make_tuple(&vp9_fdct16x16_c, &vp9_idct16x16_256_add_ssse3, 0)));
 #endif
 }  // namespace

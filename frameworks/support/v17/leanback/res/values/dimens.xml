@@ -58,6 +58,7 @@
     <dimen name="lb_browse_expanded_selected_row_top_padding">16dp</dimen>
     <dimen name="lb_browse_expanded_row_no_hovercard_bottom_padding">28dp</dimen>
 
+    <item name="lb_focus_zoom_factor_xsmall" type="fraction">106%</item>
     <item name="lb_focus_zoom_factor_small" type="fraction">110%</item>
     <item name="lb_focus_zoom_factor_medium" type="fraction">114%</item>
     <item name="lb_focus_zoom_factor_large" type="fraction">118%</item>
@@ -98,6 +99,19 @@
     <integer name="lb_details_description_subtitle_max_lines">1</integer>
     <integer name="lb_details_description_body_max_lines">5</integer>
     <integer name="lb_details_description_body_min_lines">3</integer>
+
+    <dimen name="lb_details_v2_logo_max_width">150dp</dimen>
+    <dimen name="lb_details_v2_logo_max_height">210dp</dimen>
+    <dimen name="lb_details_v2_blank_height">160dp</dimen>
+    <dimen name="lb_details_v2_card_height">540dp</dimen>
+    <dimen name="lb_details_v2_left">270dip</dimen>
+    <dimen name="lb_details_v2_logo_margin_start">128dp</dimen>
+    <dimen name="lb_details_v2_actions_height">56dip</dimen>
+    <dimen name="lb_details_v2_description_margin_start">24dp</dimen>
+    <dimen name="lb_details_v2_description_margin_end">54dp</dimen>
+    <dimen name="lb_details_v2_description_margin_top">24dp</dimen>
+    <dimen name="lb_details_v2_align_pos_for_actions">270dp</dimen>
+    <dimen name="lb_details_v2_align_pos_for_description">0dp</dimen>
 
     <dimen name="lb_action_1_line_height">36dp</dimen>
     <dimen name="lb_action_2_lines_height">56dp</dimen>
@@ -187,11 +201,14 @@
     <dimen name="lb_basic_card_main_width">140dp</dimen>
     <dimen name="lb_basic_card_main_height">188dp</dimen>
     <dimen name="lb_basic_card_info_height">52dp</dimen>
-    <dimen name="lb_basic_card_info_padding">6dp</dimen>
-    <dimen name="lb_basic_card_info_text_margin">2dp</dimen>
-    <dimen name="lb_basic_card_title_text_size">16sp</dimen>
+    <dimen name="lb_basic_card_info_height_no_content">34dp</dimen>
+    <dimen name="lb_basic_card_info_padding_top">7dp</dimen>
+    <dimen name="lb_basic_card_info_padding_horizontal">11dp</dimen>
+    <dimen name="lb_basic_card_info_text_margin">1dp</dimen>
+    <dimen name="lb_basic_card_title_text_size">14sp</dimen>
     <dimen name="lb_basic_card_content_text_size">12sp</dimen>
     <dimen name="lb_basic_card_info_badge_size">16dp</dimen>
+    <dimen name="lb_basic_card_info_badge_margin">4dp</dimen>
 
     <!-- z based shadow -->
     <dimen name="lb_material_shadow_normal_z">6dp</dimen>
@@ -204,5 +221,46 @@
     <dimen name="lb_browse_headers_z">@dimen/lb_material_shadow_focused_z</dimen>
 
     <dimen name="lb_rounded_rect_corner_radius">2dp</dimen>
+
+    <!-- GuidedStepFragment -->
+    <dimen name="lb_guidedstep_guidance_section_width">576dp</dimen>
+    <dimen name="lb_guidedstep_slide_start_distance">-200dp</dimen>
+    <dimen name="lb_guidedstep_slide_end_distance">200dp</dimen>
+
+    <dimen name="lb_guidance_entry_translationX">-120dp</dimen>
+
+    <dimen name="lb_guidedactions_entry_translationX">384dp</dimen>
+    <dimen name="lb_guidedactions_section_width">384dp</dimen>
+    <dimen name="lb_guidedactions_section_width_with_shadow">400dp</dimen>
+    <dimen name="lb_guidedactions_elevation">12dp</dimen>
+    <dimen name="lb_guidedactions_selector_min_height">8dp</dimen>
+    <dimen name="lb_guidedactions_vertical_padding">12dp</dimen>
+
+    <item name="lb_guidedactions_item_unselected_text_alpha" format="float" type="string">1.00</item>
+    <item name="lb_guidedactions_item_unselected_description_text_alpha" format="float" type="string">0.50</item>
+    <item name="lb_guidedactions_item_enabled_chevron_alpha" format="float" type="string">1.00</item>
+    <item name="lb_guidedactions_item_disabled_chevron_alpha" format="float" type="string">0.50</item>
+
+    <dimen name="lb_guidedactions_item_text_width">248dp</dimen>
+    <dimen name="lb_guidedactions_item_text_width_no_icon">284dp</dimen>
+    <dimen name="lb_guidedactions_item_min_height">64dp</dimen>
+    <dimen name="lb_guidedactions_item_start_padding">20dp</dimen>
+    <dimen name="lb_guidedactions_item_end_padding">28dp</dimen>
+    <dimen name="lb_guidedactions_item_delimiter_padding">4dp</dimen>
+    <dimen name="lb_guidedactions_item_checkmark_diameter">8dp</dimen>
+    <dimen name="lb_guidedactions_item_icon_width">32dp</dimen>
+    <dimen name="lb_guidedactions_item_icon_height">32dp</dimen>
+    <dimen name="lb_guidedactions_item_title_font_size">18sp</dimen>
+    <dimen name="lb_guidedactions_item_description_font_size">12sp</dimen>
+
+    <integer name="lb_guidedstep_entry_animation_delay">550</integer>
+    <integer name="lb_guidedstep_entry_animation_duration">250</integer>
+
+    <integer name="lb_guidedactions_item_animation_duration">100</integer>
+    <integer name="lb_guidedactions_animation_duration">150</integer>
+    <integer name="lb_guidedactions_item_title_min_lines">1</integer>
+    <integer name="lb_guidedactions_item_title_max_lines">3</integer>
+    <integer name="lb_guidedactions_item_description_min_lines">2</integer>
+    <!-- end GuidedStepFragment -->
 
 </resources>

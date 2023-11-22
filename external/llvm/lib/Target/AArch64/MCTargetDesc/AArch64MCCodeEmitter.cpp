@@ -15,13 +15,13 @@
 #include "MCTargetDesc/AArch64FixupKinds.h"
 #include "MCTargetDesc/AArch64MCExpr.h"
 #include "Utils/AArch64BaseInfo.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
@@ -38,11 +38,9 @@ class AArch64MCCodeEmitter : public MCCodeEmitter {
   AArch64MCCodeEmitter(const AArch64MCCodeEmitter &); // DO NOT IMPLEMENT
   void operator=(const AArch64MCCodeEmitter &);     // DO NOT IMPLEMENT
 public:
-  AArch64MCCodeEmitter(const MCInstrInfo &mcii, const MCSubtargetInfo &sti,
-                     MCContext &ctx)
-      : Ctx(ctx) {}
+  AArch64MCCodeEmitter(const MCInstrInfo &mcii, MCContext &ctx) : Ctx(ctx) {}
 
-  ~AArch64MCCodeEmitter() {}
+  ~AArch64MCCodeEmitter() override {}
 
   // getBinaryCodeForInstr - TableGen'erated function for getting the
   // binary encoding for an instruction.
@@ -205,9 +203,8 @@ public:
 
 MCCodeEmitter *llvm::createAArch64MCCodeEmitter(const MCInstrInfo &MCII,
                                                 const MCRegisterInfo &MRI,
-                                                const MCSubtargetInfo &STI,
                                                 MCContext &Ctx) {
-  return new AArch64MCCodeEmitter(MCII, STI, Ctx);
+  return new AArch64MCCodeEmitter(MCII, Ctx);
 }
 
 /// getMachineOpValue - Return binary encoding of operand. If the machine
@@ -437,8 +434,7 @@ AArch64MCCodeEmitter::getVecShifterOpValue(const MCInst &MI, unsigned OpIdx,
     return 3;
   }
 
-  assert(false && "Invalid value for vector shift amount!");
-  return 0;
+  llvm_unreachable("Invalid value for vector shift amount!");
 }
 
 uint32_t

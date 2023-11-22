@@ -16,12 +16,6 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.WifiSecurity;
-import com.android.tv.settings.util.AccessibilityHelper;
-import com.android.tv.settings.widget.ScrollAdapterView;
-import com.android.tv.settings.widget.ScrollArrayAdapter;
-
 import android.app.Activity;
 import android.app.Fragment;
 import android.content.Context;
@@ -31,18 +25,21 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.text.TextUtils;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
-import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.WifiSecurity;
+import com.android.tv.settings.util.AccessibilityHelper;
+import com.android.tv.settings.widget.ScrollAdapterView;
+import com.android.tv.settings.widget.ScrollArrayAdapter;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -233,11 +230,15 @@ public class SelectFromListWizardFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
         mHandler = new Handler();
         mMainView = inflater.inflate(R.layout.account_content_area, container, false);
-        View content = inflater.inflate(R.layout.wifi_content, null);
+
+        final ViewGroup descriptionArea = (ViewGroup) mMainView.findViewById(R.id.description);
+        final View content = inflater.inflate(R.layout.wifi_content, descriptionArea, false);
+        descriptionArea.addView(content);
+
+        final ViewGroup actionArea = (ViewGroup) mMainView.findViewById(R.id.action);
         mScrollAdapterView = (ScrollAdapterView) inflater.inflate(
-                R.layout.setup_scroll_adapter_view, null);
-        ((ViewGroup) mMainView.findViewById(R.id.description)).addView(content);
-        ((ViewGroup) mMainView.findViewById(R.id.action)).addView(mScrollAdapterView);
+                R.layout.setup_scroll_adapter_view, actionArea, false);
+        actionArea.addView(mScrollAdapterView);
 
         TextView titleText = (TextView) content.findViewById(R.id.title_text);
         TextView descriptionText = (TextView) content.findViewById(R.id.description_text);

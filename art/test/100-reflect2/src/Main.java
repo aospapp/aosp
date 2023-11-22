@@ -20,7 +20,7 @@ import java.util.*;
 class Main {
   private static boolean z = true;
   private static byte b = 8;
-  private static char c = 'x';
+  private static char c = '\u2714';
   private static double d = Math.PI;
   private static float f = 3.14f;
   private static int i = 32;
@@ -144,7 +144,7 @@ class Main {
     /*
     private static boolean z = true;
     private static byte b = 8;
-    private static char c = 'x';
+    private static char c = '\u2714';
     private static double d = Math.PI;
     private static float f = 3.14f;
     private static int i = 32;
@@ -263,12 +263,40 @@ class Main {
     show(ctor.newInstance((Object[]) null));
 
     ctor = String.class.getConstructor(char[].class, int.class, int.class);
-    show(ctor.newInstance(new char[] { 'x', 'y', 'z', '!' }, 1, 2));
+    show(ctor.newInstance(new char[] { '\u2714', 'y', 'z', '!' }, 1, 2));
+  }
+
+  private static void testPackagePrivateConstructor() {
+    try {
+      Class<?> c = Class.forName("sub.PPClass");
+      Constructor cons = c.getConstructor();
+      cons.newInstance();
+      throw new RuntimeException("Expected IllegalAccessException.");
+    } catch (IllegalAccessException e) {
+      // Expected.
+    } catch (Exception e) {
+      // Error.
+      e.printStackTrace();
+    }
+  }
+
+  private static void testPackagePrivateAccessibleConstructor() {
+    try {
+      Class<?> c = Class.forName("sub.PPClass");
+      Constructor cons = c.getConstructor();
+      cons.setAccessible(true);  // ensure we prevent IllegalAccessException
+      cons.newInstance();
+    } catch (Exception e) {
+      // Error.
+      e.printStackTrace();
+    }
   }
 
   public static void main(String[] args) throws Exception {
     testFieldReflection();
     testMethodReflection();
     testConstructorReflection();
+    testPackagePrivateConstructor();
+    testPackagePrivateAccessibleConstructor();
   }
 }

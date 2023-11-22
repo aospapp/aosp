@@ -57,14 +57,6 @@ static uint32_t subElemArraySizes[] = {
     1,
 };
 
-static void resetStruct() {
-    uint8_t *bytePtr = (uint8_t*)complexStruct;
-    uint32_t sizeOfStruct = sizeof(*complexStruct);
-    for(uint32_t i = 0; i < sizeOfStruct; i ++) {
-        bytePtr[i] = 0;
-    }
-}
-
 static bool equals(const char *name0, const char * name1, uint32_t len) {
     for (uint32_t i = 0; i < len; i ++) {
         if (name0[i] != name1[i]) {

@@ -23,9 +23,7 @@ import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.contacts.common.CallUtil;
 import com.android.dialer.PhoneCallDetails;
-import com.android.dialer.PhoneCallDetailsHelper;
 import com.android.dialer.R;
 
 /**
@@ -36,10 +34,9 @@ import com.android.dialer.R;
 
     /** Helper for populating the details of a phone call. */
     private final PhoneCallDetailsHelper mPhoneCallDetailsHelper;
-    /** Helper for handling phone numbers. */
-    private final PhoneNumberDisplayHelper mPhoneNumberHelper;
     /** Resources to look up strings. */
     private final Resources mResources;
+    private final TelecomCallLogCache mTelecomCallLogCache;
 
     /**
      * Creates a new helper instance.
@@ -47,11 +44,13 @@ import com.android.dialer.R;
      * @param phoneCallDetailsHelper used to set the details of a phone call
      * @param phoneNumberHelper used to process phone number
      */
-    public CallLogListItemHelper(PhoneCallDetailsHelper phoneCallDetailsHelper,
-            PhoneNumberDisplayHelper phoneNumberHelper, Resources resources) {
+    public CallLogListItemHelper(
+            PhoneCallDetailsHelper phoneCallDetailsHelper,
+            Resources resources,
+            TelecomCallLogCache telecomCallLogCache) {
         mPhoneCallDetailsHelper = phoneCallDetailsHelper;
-        mPhoneNumberHelper = phoneNumberHelper;
         mResources = resources;
+        mTelecomCallLogCache = telecomCallLogCache;
     }
 
     /**
@@ -62,18 +61,19 @@ import com.android.dialer.R;
      * @param details the details of a phone call needed to fill in the data
      */
     public void setPhoneCallDetails(
-            Context context, CallLogListItemViews views, PhoneCallDetails details) {
+            CallLogListItemViewHolder views,
+            PhoneCallDetails details) {
         mPhoneCallDetailsHelper.setPhoneCallDetails(views.phoneCallDetailsViews, details);
 
         // Set the accessibility text for the contact badge
         views.quickContactView.setContentDescription(getContactBadgeDescription(details));
 
         // Set the primary action accessibility description
-        views.primaryActionView.setContentDescription(getCallDescription(context, details));
+        views.primaryActionView.setContentDescription(getCallDescription(details));
 
         // Cache name or number of caller.  Used when setting the content descriptions of buttons
         // when the actions ViewStub is inflated.
-        views.nameOrNumber = this.getNameOrNumber(details);
+        views.nameOrNumber = getNameOrNumber(details);
     }
 
     /**
@@ -81,7 +81,7 @@ import com.android.dialer.R;
      *
      * @param views The views associated with the current call log entry.
      */
-    public void setActionContentDescriptions(CallLogListItemViews views) {
+    public void setActionContentDescriptions(CallLogListItemViewHolder views) {
         if (views.nameOrNumber == null) {
             Log.e(TAG, "setActionContentDescriptions; name or number is null.");
         }
@@ -90,18 +90,20 @@ import com.android.dialer.R;
         // Although we don't expect a null name or number, it is best to protect against it.
         CharSequence nameOrNumber = views.nameOrNumber == null ? "" : views.nameOrNumber;
 
-        views.callBackButtonView.setContentDescription(
-                TextUtils.expandTemplate(
-                        mResources.getString(R.string.description_call_back_action), nameOrNumber));
-
         views.videoCallButtonView.setContentDescription(
                 TextUtils.expandTemplate(
                         mResources.getString(R.string.description_video_call_action),
                         nameOrNumber));
 
-        views.voicemailButtonView.setContentDescription(
+        views.createNewContactButtonView.setContentDescription(
                 TextUtils.expandTemplate(
-                        mResources.getString(R.string.description_voicemail_action), nameOrNumber));
+                        mResources.getString(R.string.description_create_new_contact_action),
+                        nameOrNumber));
+
+        views.addToExistingContactButtonView.setContentDescription(
+                TextUtils.expandTemplate(
+                        mResources.getString(R.string.description_add_to_existing_contact_action),
+                        nameOrNumber));
 
         views.detailsButtonView.setContentDescription(
                 TextUtils.expandTemplate(
@@ -153,7 +155,7 @@ import com.android.dialer.R;
      * @param details Details of call.
      * @return Return call action description.
      */
-    public CharSequence getCallDescription(Context context, PhoneCallDetails details) {
+    public CharSequence getCallDescription(PhoneCallDetails details) {
         int lastCallType = getLastCallType(details.callTypes);
         boolean isVoiceMail = lastCallType == Calls.VOICEMAIL_TYPE;
 
@@ -180,13 +182,12 @@ import com.android.dialer.R;
         }
 
         // If call had video capabilities, add the "Video Call" string.
-        if ((details.features & Calls.FEATURES_VIDEO) == Calls.FEATURES_VIDEO &&
-                CallUtil.isVideoEnabled(context)) {
+        if ((details.features & Calls.FEATURES_VIDEO) == Calls.FEATURES_VIDEO) {
             callDescription.append(mResources.getString(R.string.description_video_call));
         }
 
-        int stringID = getCallDescriptionStringID(details);
-        String accountLabel = PhoneAccountUtils.getAccountLabel(context, details.accountHandle);
+        int stringID = getCallDescriptionStringID(details.callTypes);
+        String accountLabel = mTelecomCallLogCache.getAccountLabel(details.accountHandle);
 
         // Use chosen string resource to build up the message.
         CharSequence onAccountLabel = accountLabel == null
@@ -212,8 +213,8 @@ import com.android.dialer.R;
      * @param details Call details.
      * @return String resource ID to use.
      */
-    public int getCallDescriptionStringID(PhoneCallDetails details) {
-        int lastCallType = getLastCallType(details.callTypes);
+    public int getCallDescriptionStringID(int[] callTypes) {
+        int lastCallType = getLastCallType(callTypes);
         int stringID;
 
         if (lastCallType == Calls.VOICEMAIL_TYPE || lastCallType == Calls.MISSED_TYPE) {
@@ -254,8 +255,7 @@ import com.android.dialer.R;
         if (!TextUtils.isEmpty(details.name)) {
             recipient = details.name;
         } else {
-            recipient = mPhoneNumberHelper.getDisplayNumber(details.accountHandle,
-                    details.number, details.numberPresentation, details.formattedNumber);
+            recipient = details.displayNumber;
         }
         return recipient;
     }

@@ -183,7 +183,7 @@ public class ForwardingMultisetTest extends ForwardingTestCase {
           @Override public Set<String> elementSet() {
             return new StandardElementSet();
           }
-          
+
           @Override public int add(String element, int occurrences) {
             throw new UnsupportedOperationException();
           }

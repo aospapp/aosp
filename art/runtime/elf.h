@@ -1411,6 +1411,7 @@ struct Elf32_Sym {
 
 // BEGIN android-added for <elf.h> compat
 static inline unsigned char ELF32_ST_TYPE(unsigned char st_info) { return st_info & 0x0f; }
+static inline unsigned char ELF64_ST_TYPE(unsigned char st_info) { return st_info & 0x0f; }
 // END android-added for <elf.h> compat
 
 // Symbol table entries for ELF64.
@@ -1849,6 +1850,38 @@ enum {
 enum {
   VER_NEED_NONE = 0,
   VER_NEED_CURRENT = 1
+};
+
+struct ElfTypes32 {
+  typedef Elf32_Addr Addr;
+  typedef Elf32_Off Off;
+  typedef Elf32_Half Half;
+  typedef Elf32_Word Word;
+  typedef Elf32_Sword Sword;
+  typedef Elf32_Ehdr Ehdr;
+  typedef Elf32_Shdr Shdr;
+  typedef Elf32_Sym Sym;
+  typedef Elf32_Rel Rel;
+  typedef Elf32_Rela Rela;
+  typedef Elf32_Phdr Phdr;
+  typedef Elf32_Dyn Dyn;
+};
+
+struct ElfTypes64 {
+  typedef Elf64_Addr Addr;
+  typedef Elf64_Off Off;
+  typedef Elf64_Half Half;
+  typedef Elf64_Word Word;
+  typedef Elf64_Sword Sword;
+  typedef Elf64_Xword Xword;
+  typedef Elf64_Sxword Sxword;
+  typedef Elf64_Ehdr Ehdr;
+  typedef Elf64_Shdr Shdr;
+  typedef Elf64_Sym Sym;
+  typedef Elf64_Rel Rel;
+  typedef Elf64_Rela Rela;
+  typedef Elf64_Phdr Phdr;
+  typedef Elf64_Dyn Dyn;
 };
 
 // BEGIN android-changed

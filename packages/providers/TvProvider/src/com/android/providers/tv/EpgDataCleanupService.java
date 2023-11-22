@@ -21,7 +21,6 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.media.tv.TvContract.Programs;
 import android.media.tv.TvContract.WatchedPrograms;
-import android.os.SystemClock;
 import android.text.format.DateUtils;
 import android.util.Log;
 

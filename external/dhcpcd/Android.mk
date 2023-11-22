@@ -11,6 +11,9 @@ LOCAL_SRC_FILES := arp.c bind.c common.c control.c dhcp.c dhcpcd.c duid.c \
 	if-linux.c if-linux-wireless.c lpf.c \
 	platform-linux.c compat/closefrom.c ifaddrs.c ipv6rs.c
 
+# Clang complains about configure.c's comparing array with null.
+LOCAL_CFLAGS += -Wno-tautological-pointer-compare
+LOCAL_CLANG_CFLAGS := -Wno-error=duplicate-decl-specifier
 LOCAL_SHARED_LIBRARIES := libc libcutils libnetutils
 LOCAL_MODULE = dhcpcd
 include $(BUILD_EXECUTABLE)
@@ -55,5 +58,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := dhcpcd_test
 LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
 LOCAL_SRC_FILES := dhcpcd_test.cpp dhcp.c common.c
+LOCAL_CLANG_CFLAGS := -Wno-error=duplicate-decl-specifier
 LOCAL_MODULE_TAGS := eng tests
 include $(BUILD_NATIVE_TEST)

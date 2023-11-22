@@ -20,9 +20,9 @@ import okio.BufferedSink;
 import okio.BufferedSource;
 
 /** A version and dialect of the framed socket protocol. */
-interface Variant {
+public interface Variant {
 
-  /** The protocol as selected using NPN or ALPN. */
+  /** The protocol as selected using ALPN. */
   Protocol getProtocol();
 
   /**
@@ -34,6 +34,4 @@ interface Variant {
    * @param client true if this is the HTTP client's writer, writing frames to a server.
    */
   FrameWriter newWriter(BufferedSink sink, boolean client);
-
-  int maxFrameSize();
 }

@@ -16,7 +16,6 @@
  * translate.c - CLAT functions / partial implementation of rfc6145
  */
 #include <string.h>
-#include <sys/uio.h>
 
 #include "icmp.h"
 #include "translate.h"
@@ -25,6 +24,7 @@
 #include "config.h"
 #include "logging.h"
 #include "debug.h"
+#include "tun.h"
 
 /* function: packet_checksum
  * calculates the checksum over all the packet components starting from pos
@@ -463,10 +463,6 @@ int tcp_translate(clat_packet out, clat_packet_index pos, const struct tcphdr *t
   tcp_targ->check = ip_checksum_adjust(tcp->check, old_sum, new_sum);
 
   return CLAT_POS_PAYLOAD + 1;
-}
-
-void send_tun(int fd, clat_packet out, int iov_len) {
-  writev(fd, out, iov_len);
 }
 
 // Weak symbol so we can override it in the unit test.

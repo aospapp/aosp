@@ -313,16 +313,16 @@ void ihevcd_collocated_mvp(mv_ctxt_t *ps_mv_ctxt,
             if(au4_list_col[0] == 0)
             {
                 col_ref_poc_l0 =
-                                ps_mv_buf_col->l0_collocated_poc[slice_idx][au4_ref_idx_col[0]];
+                                ps_mv_buf_col->ai4_l0_collocated_poc[slice_idx][au4_ref_idx_col[0]];
                 col_ref_poc_l0_lt =
-                                (ps_mv_buf_col->u1_l0_collocated_poc_lt[slice_idx][au4_ref_idx_col[0]] == LONG_TERM_REF);
+                                (ps_mv_buf_col->ai1_l0_collocated_poc_lt[slice_idx][au4_ref_idx_col[0]] == LONG_TERM_REF);
             }
             else
             {
                 col_ref_poc_l0 =
-                                ps_mv_buf_col->l1_collocated_poc[slice_idx][au4_ref_idx_col[0]];
+                                ps_mv_buf_col->ai4_l1_collocated_poc[slice_idx][au4_ref_idx_col[0]];
                 col_ref_poc_l0_lt =
-                                (ps_mv_buf_col->u1_l1_collocated_poc_lt[slice_idx][au4_ref_idx_col[0]] == LONG_TERM_REF);
+                                (ps_mv_buf_col->ai1_l1_collocated_poc_lt[slice_idx][au4_ref_idx_col[0]] == LONG_TERM_REF);
             }
             /* L0 collocated mv */
             ps_pic_buf = (pic_buf_t *)((ps_ref_list[0][ref_idx_l0].pv_pic_buf));
@@ -358,16 +358,16 @@ void ihevcd_collocated_mvp(mv_ctxt_t *ps_mv_ctxt,
                 if(au4_list_col[1] == 0)
                 {
                     col_ref_poc_l1 =
-                                    ps_mv_buf_col->l0_collocated_poc[slice_idx][au4_ref_idx_col[1]];
+                                    ps_mv_buf_col->ai4_l0_collocated_poc[slice_idx][au4_ref_idx_col[1]];
                     col_ref_poc_l1_lt =
-                                    (ps_mv_buf_col->u1_l0_collocated_poc_lt[slice_idx][au4_ref_idx_col[1]] == LONG_TERM_REF);
+                                    (ps_mv_buf_col->ai1_l0_collocated_poc_lt[slice_idx][au4_ref_idx_col[1]] == LONG_TERM_REF);
                 }
                 else
                 {
                     col_ref_poc_l1 =
-                                    ps_mv_buf_col->l1_collocated_poc[slice_idx][au4_ref_idx_col[1]];
+                                    ps_mv_buf_col->ai4_l1_collocated_poc[slice_idx][au4_ref_idx_col[1]];
                     col_ref_poc_l1_lt =
-                                    (ps_mv_buf_col->u1_l1_collocated_poc_lt[slice_idx][au4_ref_idx_col[1]] == LONG_TERM_REF);
+                                    (ps_mv_buf_col->ai1_l1_collocated_poc_lt[slice_idx][au4_ref_idx_col[1]] == LONG_TERM_REF);
                 }
 
                 /* L1 collocated mv */

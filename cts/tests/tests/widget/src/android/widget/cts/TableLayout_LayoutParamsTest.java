@@ -16,6 +16,10 @@
 
 package android.widget.cts;
 
+import com.android.cts.widget.R;
+
+import org.xmlpull.v1.XmlPullParser;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
@@ -23,12 +27,7 @@ import android.test.InstrumentationTestCase;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.TableLayout;
-
-import com.android.internal.R;
-import com.android.internal.util.XmlUtils;
-
-
-import org.xmlpull.v1.XmlPullParser;
+import android.widget.cts.util.XmlUtils;
 
 /**
  * Test {@link TableLayout.LayoutParams}.
@@ -74,56 +73,59 @@ public class TableLayout_LayoutParamsTest extends InstrumentationTestCase {
 
         // base_attr_pixel: layout_width = 400px, layout_height = 600px
         AttributeSet attrs = getAttrs("base_attr_pixel");
-        TypedArray a = mTargetContext.obtainStyledAttributes(attrs, R.styleable.ViewGroup_Layout);
+        TypedArray a = mTargetContext.obtainStyledAttributes(attrs,
+                android.R.styleable.ViewGroup_Layout);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_width,
-                R.styleable.ViewGroup_Layout_layout_height);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
+                android.R.styleable.ViewGroup_Layout_layout_height);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(600, mockLayoutParams.height);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_height,
-                R.styleable.ViewGroup_Layout_layout_width);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_height,
+                android.R.styleable.ViewGroup_Layout_layout_width);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(400, mockLayoutParams.height);
 
         a.recycle();
         // base_attr_fillwrap: layout_width = "match_parent", layout_height = "wrap_content"
         attrs = getAttrs("base_attr_fillwrap");
-        a = mTargetContext.obtainStyledAttributes(attrs, R.styleable.ViewGroup_Layout);
+        a = mTargetContext.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_width,
-                R.styleable.ViewGroup_Layout_layout_height);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
+                android.R.styleable.ViewGroup_Layout_layout_height);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(TableLayout.LayoutParams.WRAP_CONTENT, mockLayoutParams.height);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_height,
-                R.styleable.ViewGroup_Layout_layout_width);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_height,
+                android.R.styleable.ViewGroup_Layout_layout_width);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.height);
 
         a.recycle();
         // base_attr_noheight: layout_width = 600px, no layout_height.
         attrs = getAttrs("base_attr_noheight");
-        a = mTargetContext.obtainStyledAttributes(attrs, R.styleable.ViewGroup_Layout);
+        a = mTargetContext.obtainStyledAttributes(attrs, android.R.styleable.ViewGroup_Layout);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_width,
-                R.styleable.ViewGroup_Layout_layout_height);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_width,
+                android.R.styleable.ViewGroup_Layout_layout_height);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(TableLayout.LayoutParams.WRAP_CONTENT, mockLayoutParams.height);
 
-        mockLayoutParams.setBaseAttributes(a, R.styleable.ViewGroup_Layout_layout_height,
-                R.styleable.ViewGroup_Layout_layout_width);
+        mockLayoutParams.setBaseAttributes(a, android.R.styleable.ViewGroup_Layout_layout_height,
+                android.R.styleable.ViewGroup_Layout_layout_width);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(600, mockLayoutParams.height);
 
         try {
-            mockLayoutParams.setBaseAttributes(null, R.styleable.ViewGroup_Layout_layout_width,
-                    R.styleable.ViewGroup_Layout_layout_height);
+            mockLayoutParams.setBaseAttributes(null,
+                    android.R.styleable.ViewGroup_Layout_layout_width,
+                    android.R.styleable.ViewGroup_Layout_layout_height);
             fail("Should throw NullPointerException");
         } catch (NullPointerException e) {
         }
 
-        mockLayoutParams.setBaseAttributes(a, -1, R.styleable.ViewGroup_Layout_layout_height);
+        mockLayoutParams.setBaseAttributes(a, -1,
+                android.R.styleable.ViewGroup_Layout_layout_height);
         assertEquals(TableLayout.LayoutParams.MATCH_PARENT, mockLayoutParams.width);
         assertEquals(TableLayout.LayoutParams.WRAP_CONTENT, mockLayoutParams.height);
 
@@ -138,8 +140,7 @@ public class TableLayout_LayoutParamsTest extends InstrumentationTestCase {
         XmlResourceParser parser = null;
         AttributeSet attrs = null;
         try {
-            parser = mTargetContext.getResources()
-                    .getXml(com.android.cts.widget.R.xml.base_attributes);
+            parser = mTargetContext.getResources().getXml(R.xml.base_attributes);
 
             int type;
             while ((type = parser.next()) != XmlPullParser.END_DOCUMENT

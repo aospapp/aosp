@@ -25,6 +25,7 @@
 #include "OverrideLog.h"
 #include "CondVar.h"
 #include <errno.h>
+#include <string.h>
 
 
 /*******************************************************************************

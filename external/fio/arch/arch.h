@@ -14,6 +14,7 @@ enum {
 	arch_sh,
 	arch_hppa,
 	arch_mips,
+	arch_aarch64,
 
 	arch_generic,
 
@@ -28,6 +29,8 @@ enum {
 };
 
 extern unsigned long arch_flags;
+
+#define ARCH_CPU_CLOCK_WRAPS
 
 #if defined(__i386__)
 #include "arch-x86.h"
@@ -53,6 +56,8 @@ extern unsigned long arch_flags;
 #include "arch-sh.h"
 #elif defined(__hppa__)
 #include "arch-hppa.h"
+#elif defined(__aarch64__)
+#include "arch-aarch64.h"
 #else
 #warning "Unknown architecture, attempting to use generic model."
 #include "arch-generic.h"

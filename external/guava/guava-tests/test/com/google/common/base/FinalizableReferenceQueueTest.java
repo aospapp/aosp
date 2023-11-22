@@ -17,6 +17,7 @@
 package com.google.common.base;
 
 import com.google.common.base.internal.Finalizer;
+import com.google.common.testing.GcFinalization;
 
 import junit.framework.TestCase;
 
@@ -24,6 +25,8 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Unit test for {@link FinalizableReferenceQueue}.
@@ -40,19 +43,14 @@ public class FinalizableReferenceQueueTest extends TestCase {
   }
 
   public void testFinalizeReferentCalled() {
-    MockReference reference = new MockReference(
+    final MockReference reference = new MockReference(
         frq = new FinalizableReferenceQueue());
-    // wait up to 5s
-    for (int i = 0; i < 500; i++) {
-      if (reference.finalizeReferentCalled) {
-        return;
-      }
-      try {
-        System.gc();
-        Thread.sleep(10);
-      } catch (InterruptedException e) { /* ignore */ }
-    }
-    fail();
+
+    GcFinalization.awaitDone(new GcFinalization.FinalizationPredicate() {
+        public boolean isDone() {
+          return reference.finalizeReferentCalled;
+        }
+      });
   }
 
   static class MockReference extends FinalizableWeakReference<Object> {
@@ -78,18 +76,7 @@ public class FinalizableReferenceQueueTest extends TestCase {
 
   public void testThatFinalizerStops() {
     weaklyReferenceQueue();
-
-    // wait up to 5s
-    for (int i = 0; i < 500; i++) {
-      if (queueReference.get() == null) {
-        return;
-      }
-      try {
-        System.gc();
-        Thread.sleep(10);
-      } catch (InterruptedException e) { /* ignore */ }
-    }
-    fail();
+    GcFinalization.awaitClear(queueReference);
   }
 
   /**
@@ -161,5 +148,11 @@ public class FinalizableReferenceQueueTest extends TestCase {
 
   public void testGetFinalizerUrl() {
     assertNotNull(getClass().getResource("internal/Finalizer.class"));
+  }
+
+  public void testFinalizeClassHasNoNestedClases() throws Exception {
+    // Ensure that the Finalizer class has no nested classes.
+    // See https://code.google.com/p/guava-libraries/issues/detail?id=1505
+    assertEquals(Collections.emptyList(), Arrays.asList(Finalizer.class.getDeclaredClasses()));
   }
 }

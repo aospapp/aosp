@@ -45,7 +45,9 @@ class MonitorPool {
   static Monitor* CreateMonitor(Thread* self, Thread* owner, mirror::Object* obj, int32_t hash_code)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
 #ifndef __LP64__
-    return new Monitor(self, owner, obj, hash_code);
+    Monitor* mon = new Monitor(self, owner, obj, hash_code);
+    DCHECK_ALIGNED(mon, LockWord::kMonitorIdAlignment);
+    return mon;
 #else
     return GetMonitorPool()->CreateMonitorInPool(self, owner, obj, hash_code);
 #endif
@@ -53,6 +55,7 @@ class MonitorPool {
 
   static void ReleaseMonitor(Thread* self, Monitor* monitor) {
 #ifndef __LP64__
+    UNUSED(self);
     delete monitor;
 #else
     GetMonitorPool()->ReleaseMonitorToPool(self, monitor);
@@ -61,6 +64,7 @@ class MonitorPool {
 
   static void ReleaseMonitors(Thread* self, MonitorList::Monitors* monitors) {
 #ifndef __LP64__
+    UNUSED(self);
     STLDeleteElements(monitors);
 #else
     GetMonitorPool()->ReleaseMonitorsToPool(self, monitors);
@@ -69,7 +73,7 @@ class MonitorPool {
 
   static Monitor* MonitorFromMonitorId(MonitorId mon_id) {
 #ifndef __LP64__
-    return reinterpret_cast<Monitor*>(mon_id << 3);
+    return reinterpret_cast<Monitor*>(mon_id << LockWord::kMonitorIdAlignmentShift);
 #else
     return GetMonitorPool()->LookupMonitor(mon_id);
 #endif
@@ -77,7 +81,7 @@ class MonitorPool {
 
   static MonitorId MonitorIdFromMonitor(Monitor* mon) {
 #ifndef __LP64__
-    return reinterpret_cast<MonitorId>(mon) >> 3;
+    return reinterpret_cast<MonitorId>(mon) >> LockWord::kMonitorIdAlignmentShift;
 #else
     return mon->GetMonitorId();
 #endif
@@ -85,6 +89,7 @@ class MonitorPool {
 
   static MonitorId ComputeMonitorId(Monitor* mon, Thread* self) {
 #ifndef __LP64__
+    UNUSED(self);
     return MonitorIdFromMonitor(mon);
 #else
     return GetMonitorPool()->ComputeMonitorIdInPool(mon, self);
@@ -133,7 +138,8 @@ class MonitorPool {
     for (size_t index = 0; index < num_chunks_; ++index) {
       uintptr_t chunk_addr = *(monitor_chunks_.LoadRelaxed() + index);
       if (IsInChunk(chunk_addr, mon)) {
-        return OffsetToMonitorId(reinterpret_cast<uintptr_t>(mon) - chunk_addr + index * kChunkSize);
+        return OffsetToMonitorId(
+            reinterpret_cast<uintptr_t>(mon) - chunk_addr + index * kChunkSize);
       }
     }
     LOG(FATAL) << "Did not find chunk that contains monitor.";
@@ -172,7 +178,7 @@ class MonitorPool {
   // To avoid race issues when resizing, we keep all the previous arrays.
   std::vector<uintptr_t*> old_chunk_arrays_ GUARDED_BY(Locks::allocated_monitor_ids_lock_);
 
-  typedef TrackingAllocator<byte, kAllocatorTagMonitorPool> Allocator;
+  typedef TrackingAllocator<uint8_t, kAllocatorTagMonitorPool> Allocator;
   Allocator allocator_;
 
   // Start of free list of monitors.

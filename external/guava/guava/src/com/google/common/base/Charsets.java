@@ -16,47 +16,68 @@
 
 package com.google.common.base;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+
 import java.nio.charset.Charset;
 
 /**
  * Contains constant definitions for the six standard {@link Charset} instances, which are
  * guaranteed to be supported by all Java platform implementations.
  *
+ * <p>Assuming you're free to choose, note that <b>{@link #UTF_8} is widely preferred</b>.
+ *
+ * <p>See the Guava User Guide article on <a
+ * href="http://code.google.com/p/guava-libraries/wiki/StringsExplained#Charsets">
+ * {@code Charsets}</a>.
+ *
  * @author Mike Bostock
  * @since 1.0
  */
+@GwtCompatible(emulated = true)
 public final class Charsets {
   private Charsets() {}
 
   /**
    * US-ASCII: seven-bit ASCII, the Basic Latin block of the Unicode character set (ISO646-US).
+   *
    */
+  @GwtIncompatible("Non-UTF-8 Charset")
   public static final Charset US_ASCII = Charset.forName("US-ASCII");
 
   /**
    * ISO-8859-1: ISO Latin Alphabet Number 1 (ISO-LATIN-1).
+   *
    */
+  @GwtIncompatible("Non-UTF-8 Charset")
   public static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
 
   /**
    * UTF-8: eight-bit UCS Transformation Format.
+   *
    */
   public static final Charset UTF_8 = Charset.forName("UTF-8");
 
   /**
    * UTF-16BE: sixteen-bit UCS Transformation Format, big-endian byte order.
+   *
    */
+  @GwtIncompatible("Non-UTF-8 Charset")
   public static final Charset UTF_16BE = Charset.forName("UTF-16BE");
 
   /**
    * UTF-16LE: sixteen-bit UCS Transformation Format, little-endian byte order.
+   *
    */
+  @GwtIncompatible("Non-UTF-8 Charset")
   public static final Charset UTF_16LE = Charset.forName("UTF-16LE");
 
   /**
    * UTF-16: sixteen-bit UCS Transformation Format, byte order identified by an optional byte-order
    * mark.
+   *
    */
+  @GwtIncompatible("Non-UTF-8 Charset")
   public static final Charset UTF_16 = Charset.forName("UTF-16");
 
   /*

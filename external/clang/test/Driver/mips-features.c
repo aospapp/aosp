@@ -1,5 +1,15 @@
 // Check handling MIPS specific features options.
 //
+// -mabicalls
+// RUN: %clang -target mips-linux-gnu -### -c %s -mno-abicalls -mabicalls 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-MABICALLS %s
+// CHECK-MABICALLS: "-target-feature" "-noabicalls"
+//
+// -mno-abicalls
+// RUN: %clang -target mips-linux-gnu -### -c %s -mabicalls -mno-abicalls 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-MNOABICALLS %s
+// CHECK-MNOABICALLS: "-target-feature" "+noabicalls"
+//
 // -mips16
 // RUN: %clang -target mips-linux-gnu -### -c %s \
 // RUN:     -mno-mips16 -mips16 2>&1 \
@@ -70,6 +80,18 @@
 // RUN:   | FileCheck --check-prefix=CHECK-NOMODDSPREG %s
 // CHECK-NOMODDSPREG: "-target-feature" "+nooddspreg"
 //
+// -mfpxx
+// RUN: %clang -target mips-linux-gnu -### -c %s -mfpxx 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-MFPXX %s
+// CHECK-MFPXX: "-target-feature" "+fpxx"
+// CHECK-MFPXX: "-target-feature" "+nooddspreg"
+//
+// -mfpxx -modd-spreg
+// RUN: %clang -target mips-linux-gnu -### -c %s -mfpxx -modd-spreg 2>&1 \
+// RUN:   | FileCheck --check-prefix=CHECK-MFPXX-ODDSPREG %s
+// CHECK-MFPXX-ODDSPREG: "-target-feature" "+fpxx"
+// CHECK-MFPXX-ODDSPREG: "-target-feature" "-nooddspreg"
+//
 // -mfp64
 // RUN: %clang -target mips-linux-gnu -### -c %s \
 // RUN:     -mfp32 -mfp64 2>&1 \
@@ -83,13 +105,13 @@
 // CHECK-NOMFP64: "-target-feature" "-fp64"
 //
 // -mnan=2008
-// RUN: %clang -target mips-linux-gnu -### -c %s \
+// RUN: %clang -target mips-linux-gnu -march=mips32r3 -### -c %s \
 // RUN:     -mnan=legacy -mnan=2008 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NAN2008 %s
 // CHECK-NAN2008: "-target-feature" "+nan2008"
 //
 // -mnan=legacy
-// RUN: %clang -target mips-linux-gnu -### -c %s \
+// RUN: %clang -target mips-linux-gnu -march=mips32r3 -### -c %s \
 // RUN:     -mnan=2008 -mnan=legacy 2>&1 \
 // RUN:   | FileCheck --check-prefix=CHECK-NANLEGACY %s
 // CHECK-NANLEGACY: "-target-feature" "-nan2008"

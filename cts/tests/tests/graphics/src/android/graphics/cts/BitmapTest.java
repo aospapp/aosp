@@ -359,8 +359,10 @@ public class BitmapTest extends AndroidTestCase {
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.start, mOptions);
         Bitmap ret = mBitmap.extractAlpha();
         assertNotNull(ret);
-        int color = ret.getPixel(10, 20);
-        assertEquals(0x00, Color.alpha(color));
+        int source = mBitmap.getPixel(10, 20);
+        int result = ret.getPixel(10, 20);
+        assertEquals(Color.alpha(source), Color.alpha(result));
+        assertEquals(0xFF, Color.alpha(result));
     }
 
     public void testExtractAlpha2(){
@@ -377,8 +379,10 @@ public class BitmapTest extends AndroidTestCase {
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.start, mOptions);
         Bitmap ret = mBitmap.extractAlpha(new Paint(), new int[]{0, 1});
         assertNotNull(ret);
-        int color = ret.getPixel(10, 20);
-        assertEquals(0x00, Color.alpha(color));
+        int source = mBitmap.getPixel(10, 20);
+        int result = ret.getPixel(10, 20);
+        assertEquals(Color.alpha(source), Color.alpha(result));
+        assertEquals(0xFF, Color.alpha(result));
     }
 
     public void testGetAllocationByteCount() {
@@ -446,9 +450,22 @@ public class BitmapTest extends AndroidTestCase {
         }catch(IllegalArgumentException e){
         }
 
-        // normal case
+        // normal case 565
         mBitmap.setPixel(10, 16, 0xFF << 24);
         assertEquals(0xFF << 24, mBitmap.getPixel(10, 16));
+
+        // normal case A_8
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ALPHA_8);
+        mBitmap.setPixel(5, 5, 0xFFFFFFFF);
+        assertEquals(0xFFFFFFFF, mBitmap.getPixel(5, 5));
+        mBitmap.setPixel(5, 5, 0xA8A8A8A8);
+        assertEquals(0xA8A8A8A8, mBitmap.getPixel(5, 5));
+        mBitmap.setPixel(5, 5, 0x00000000);
+        assertEquals(0x00000000, mBitmap.getPixel(5, 5));
+
+        // test reconstructing color channels
+        mBitmap.setPixel(5, 5, 0x1F000000);
+        assertEquals(0x1F1F1F1F, mBitmap.getPixel(5, 5));
     }
 
     public void testGetRowBytes(){

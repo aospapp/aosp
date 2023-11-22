@@ -50,10 +50,10 @@
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Afficher les diffusions d\'alerte d\'urgence"</string>
     <string name="alert_sound_duration_title" msgid="4712853569849108005">"Durée de l\'alarme"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Rappel d\'alerte"</string>
-    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Énoncer le message d\'alerte"</string>
+    <string name="enable_alert_speech_title" msgid="8052104771053526941">"Énoncer un message d\'alerte"</string>
     <string name="enable_alert_speech_summary" msgid="356086178962268831">"Utiliser la synthèse vocale pour énoncer des messages d\'alerte d\'urgence"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Paramètres ETWS"</string>
-    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Afficher diffusions test ETWS"</string>
+    <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Afficher les diffusions test ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Afficher les diffusions test du système d\'avertissement pour tremblements de terre et tsunamis"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Afficher les menaces extrêmes"</string>
     <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Afficher les alertes relatives aux menaces extrêmes à la vie et aux biens"</string>
@@ -103,7 +103,7 @@
     <string name="delivery_time_heading" msgid="5980836543433619329">"Reçu :"</string>
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> alertes non lues"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Nouvelles alertes"</string>
-    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Afficher boîte de dialogue de désactivation après première alerte CMAS (sauf alerte présidentielle)"</string>
+    <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"Afficher une boîte de dialogue de désactivation après la 1e alerte CMAS, sauf alerte présidentielle"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Afficher boîte dialogue de désactivation"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Vous recevez actuellement les alertes d\'urgence. Voulez-vous continuer à les recevoir ?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Oui"</string>

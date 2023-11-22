@@ -27,4 +27,7 @@ LOCAL_SDK_VERSION := 17
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.cfg
 
+# Renderscript and sdk version < 21, 32bit only.
+LOCAL_MULTILIB := 32
+
 include $(BUILD_PACKAGE)

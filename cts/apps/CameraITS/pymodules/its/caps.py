@@ -133,6 +133,17 @@ def raw10(props):
     """
     return len(its.objects.get_available_output_sizes("raw10", props)) > 0
 
+def raw12(props):
+    """Returns whether a device supports RAW12 output.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return len(its.objects.get_available_output_sizes("raw12", props)) > 0
+
 def sensor_fusion(props):
     """Returns whether the camera and motion sensor timestamps for the device
     are in the same time domain and can be compared directly.
@@ -221,6 +232,109 @@ def ev_compensation(props):
     """
     return props.has_key("android.control.aeCompensationRange") and \
            props["android.control.aeCompensationRange"] != [0, 0]
+
+def ae_lock(props):
+    """Returns whether a device supports AE lock
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key("android.control.aeLockAvailable") and \
+           props["android.control.aeLockAvailable"] == 1
+
+def awb_lock(props):
+    """Returns whether a device supports AWB lock
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key("android.control.awbLockAvailable") and \
+           props["android.control.awbLockAvailable"] == 1
+
+def lsc_map(props):
+    """Returns whether a device supports lens shading map output
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key(
+            "android.statistics.info.availableLensShadingMapModes") and \
+        1 in props["android.statistics.info.availableLensShadingMapModes"]
+
+def lsc_off(props):
+    """Returns whether a device supports disabling lens shading correction
+
+    Args:
+        props: Camera properties object.
+
+    Return:
+        Boolean.
+    """
+    return props.has_key(
+            "android.shading.availableModes") and \
+        0 in props["android.shading.availableModes"]
+
+def yuv_reprocess(props):
+    """Returns whether a device supports YUV reprocessing.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.request.availableCapabilities") and \
+           7 in props["android.request.availableCapabilities"]
+
+def private_reprocess(props):
+    """Returns whether a device supports PRIVATE reprocessing.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.request.availableCapabilities") and \
+           4 in props["android.request.availableCapabilities"]
+
+def noise_reduction_mode(props, mode):
+    """Returns whether a device supports the noise reduction mode.
+
+    Args:
+        props: Camera properties objects.
+        mode: Integer, indicating the noise reduction mode to check for
+              availability.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key(
+            "android.noiseReduction.availableNoiseReductionModes") and mode \
+            in props["android.noiseReduction.availableNoiseReductionModes"];
+
+def edge_mode(props, mode):
+    """Returns whether a device supports the edge mode.
+
+    Args:
+        props: Camera properties objects.
+        mode: Integer, indicating the edge mode to check for availability.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key(
+            "android.edge.availableEdgeModes") and mode \
+            in props["android.edge.availableEdgeModes"];
 
 class __UnitTest(unittest.TestCase):
     """Run a suite of unit tests on this module.

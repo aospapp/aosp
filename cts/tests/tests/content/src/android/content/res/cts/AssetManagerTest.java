@@ -15,14 +15,12 @@
  */
 package android.content.res.cts;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import com.android.cts.content.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
+import android.content.cts.util.XmlUtils;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
@@ -30,8 +28,10 @@ import android.content.res.XmlResourceParser;
 import android.test.AndroidTestCase;
 import android.util.TypedValue;
 
-import com.android.cts.content.R;
-import com.android.internal.util.XmlUtils;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 
 public class AssetManagerTest extends AndroidTestCase{

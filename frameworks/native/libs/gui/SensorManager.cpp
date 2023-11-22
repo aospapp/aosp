@@ -36,10 +36,8 @@
 namespace android {
 // ----------------------------------------------------------------------------
 
-ANDROID_SINGLETON_STATIC_INSTANCE(SensorManager)
-
-SensorManager::SensorManager()
-    : mSensorList(0)
+SensorManager::SensorManager(const String16& opPackageName)
+    : mSensorList(0), mOpPackageName(opPackageName)
 {
     // okay we're not locked here, but it's not needed during construction
     assertStateLocked();
@@ -86,11 +84,12 @@ status_t SensorManager::assertStateLocked() const {
         };
 
         mDeathObserver = new DeathObserver(*const_cast<SensorManager *>(this));
-        mSensorServer->asBinder()->linkToDeath(mDeathObserver);
+        IInterface::asBinder(mSensorServer)->linkToDeath(mDeathObserver);
 
-        mSensors = mSensorServer->getSensorList();
+        mSensors = mSensorServer->getSensorList(mOpPackageName);
         size_t count = mSensors.size();
-        mSensorList = (Sensor const**)malloc(count * sizeof(Sensor*));
+        mSensorList =
+                static_cast<Sensor const**>(malloc(count * sizeof(Sensor*)));
         for (size_t i=0 ; i<count ; i++) {
             mSensorList[i] = mSensors.array() + i;
         }
@@ -99,17 +98,15 @@ status_t SensorManager::assertStateLocked() const {
     return NO_ERROR;
 }
 
-
-
 ssize_t SensorManager::getSensorList(Sensor const* const** list) const
 {
     Mutex::Autolock _l(mLock);
     status_t err = assertStateLocked();
     if (err < 0) {
-        return ssize_t(err);
+        return static_cast<ssize_t>(err);
     }
     *list = mSensorList;
-    return mSensors.size();
+    return static_cast<ssize_t>(mSensors.size());
 }
 
 Sensor const* SensorManager::getDefaultSensor(int type)
@@ -138,23 +135,30 @@ Sensor const* SensorManager::getDefaultSensor(int type)
     return NULL;
 }
 
-sp<SensorEventQueue> SensorManager::createEventQueue()
-{
+sp<SensorEventQueue> SensorManager::createEventQueue(String8 packageName, int mode) {
     sp<SensorEventQueue> queue;
 
     Mutex::Autolock _l(mLock);
     while (assertStateLocked() == NO_ERROR) {
         sp<ISensorEventConnection> connection =
-                mSensorServer->createSensorEventConnection();
+                mSensorServer->createSensorEventConnection(packageName, mode, mOpPackageName);
         if (connection == NULL) {
-            // SensorService just died.
-            ALOGE("createEventQueue: connection is NULL. SensorService died.");
-            continue;
+            // SensorService just died or the app doesn't have required permissions.
+            ALOGE("createEventQueue: connection is NULL.");
+            return NULL;
         }
         queue = new SensorEventQueue(connection);
         break;
     }
     return queue;
+}
+
+bool SensorManager::isDataInjectionEnabled() {
+    Mutex::Autolock _l(mLock);
+    if (assertStateLocked() == NO_ERROR) {
+        return mSensorServer->isDataInjectionEnabled();
+    }
+    return false;
 }
 
 // ----------------------------------------------------------------------------

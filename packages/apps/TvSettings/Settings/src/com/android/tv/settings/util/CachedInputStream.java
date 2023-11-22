@@ -33,13 +33,13 @@ public class CachedInputStream extends FilterInputStream {
 
     private static final int CHUNK_SIZE = ByteArrayPool.CHUNK16K;
 
-    private ArrayList<byte[]> mBufs = new ArrayList<byte[]>();
+    private final ArrayList<byte[]> mBufs = new ArrayList<>();
     private int mPos = 0;  // current read position inside the chunk buffers
     private int mCount = 0; // total validate bytes in chunk buffers
     private int mMarkPos = -1; // marked read position in chunk buffers
     private int mOverrideMarkLimit; // to override readlimit of mark() call
     private int mMarkLimit; // effective marklimit
-    private byte[] tmp = new byte[1]; // tmp buffer used in read()
+    private final byte[] tmp = new byte[1]; // tmp buffer used in read()
 
     public CachedInputStream(InputStream in) {
         super(in);

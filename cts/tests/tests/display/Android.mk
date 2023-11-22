@@ -29,7 +29,4 @@ LOCAL_PACKAGE_NAME := CtsDisplayTestCases
 
 LOCAL_SDK_VERSION := current
 
-# This test runner sets up/cleans up the device before/after running the tests.
-LOCAL_CTS_TEST_RUNNER := com.android.cts.tradefed.testtype.DisplayTestRunner
-
 include $(BUILD_CTS_PACKAGE)

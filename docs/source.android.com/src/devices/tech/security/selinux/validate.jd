@@ -41,7 +41,7 @@ files or run the latest version of <code>sepolicy-analyze</code> with the approp
 <p>Then check for errors. Errors are routed as event logs to dmesg and <code>logcat</code> and are viewable locally on the device. Manufacturers should examine the
 SELinux output to dmesg on these devices and refine settings prior to public
 release in permissive mode and eventual switch to enforcing mode. SELinux log
-messages contain "AVC" and so may easily be found with <code>grep</code>. It is
+messages contain "avc:" and so may easily be found with <code>grep</code>. It is
 possible to capture the ongoing denial logs by running <code>cat /proc/kmsg</code>
 or to capture denial logs from the previous boot by running cat <code>/proc/last_kmsg</code>.</p>
 
@@ -53,7 +53,7 @@ this bad behavior, either by changes to the software, SELinux policy, or both.</
 enforcing mode and why. Here is an example:</p>
 
 <pre>
-denied  { connectto } for  pid=2671 comm="ping" path="/dev/socket/dnsproxyd"
+avc: denied  { connectto } for  pid=2671 comm="ping" path="/dev/socket/dnsproxyd"
 scontext=u:r:shell:s0 tcontext=u:r:netd:s0 tclass=unix_stream_socket
 </pre>
 
@@ -121,10 +121,16 @@ such, it can greatly speed SELinux development. To install it, run:</p>
 $ sudo apt-get install policycoreutils
 </pre>
 
-<p>To use it:</p>
+<p>To use it on Ubuntu 12.04, run:</p>
 
 <pre>
 $ adb shell su -c dmesg | audit2allow
+</pre>
+
+<p>On Ubuntu 14.04 and newer, audit2allow requires you to specify the Android policy
+using the -p option, e.g.
+<pre>
+$ adb shell su -c dmesg | audit2allow -p out/target/product/&lt;device&gt;/root/sepolicy
 </pre>
 
 <p>Nevertheless, care must be taken to examine each potential addition for

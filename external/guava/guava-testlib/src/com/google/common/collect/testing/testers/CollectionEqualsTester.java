@@ -16,15 +16,15 @@
 
 package com.google.common.collect.testing.testers;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 
 /**
  * Tests {@link java.util.Collection#equals}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public class CollectionEqualsTester<E> extends AbstractCollectionTester<E> {
   public void testEquals_self() {
     assertTrue("An Object should be equal to itself.",

@@ -17,7 +17,6 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.google.android.collect.Lists;
 
 import org.xmlpull.v1.XmlPullParser;
 
@@ -32,12 +31,14 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.AttributeSet;
+import android.util.Pair;
 import android.util.SparseBooleanArray;
 import android.util.Xml;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LayoutAnimationController;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
@@ -46,7 +47,6 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import junit.framework.Assert;
@@ -361,6 +361,53 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         assertEquals(2, mListView.getHeaderViewsCount());
     }
 
+    public void testHeaderFooterType() throws Throwable {
+        final TextView headerView = new TextView(getActivity());
+        final List<Pair<View, View>> mismatch = new ArrayList<Pair<View, View>>();
+        final ArrayAdapter adapter = new ArrayAdapter<String>(mActivity,
+                android.R.layout.simple_list_item_1, mNameList) {
+            @Override
+            public int getItemViewType(int position) {
+                return position == 0 ? AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER :
+                        super.getItemViewType(position - 1);
+            }
+
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                if (position == 0) {
+                    if (convertView != null && convertView != headerView) {
+                        mismatch.add(new Pair<View, View>(headerView, convertView));
+                    }
+                    return headerView;
+                } else {
+                    return super.getView(position - 1, convertView, parent);
+                }
+            }
+
+            @Override
+            public int getCount() {
+                return super.getCount() + 1;
+            }
+        };
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mListView.setAdapter(adapter);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                adapter.notifyDataSetChanged();
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        assertEquals(0, mismatch.size());
+    }
+
     public void testAccessDivider() {
         mInstrumentation.runOnMainSync(new Runnable() {
             public void run() {
@@ -380,7 +427,6 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
 
         final Drawable d = mActivity.getResources().getDrawable(R.drawable.scenery);
 
-        Rect r2 = d.getBounds();
         mInstrumentation.runOnMainSync(new Runnable() {
             public void run() {
                 mListView.setDivider(d);
@@ -388,7 +434,7 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         });
         mInstrumentation.waitForIdleSync();
         assertSame(d, mListView.getDivider());
-        assertEquals(r2.bottom - r2.top, mListView.getDividerHeight());
+        assertEquals(d.getBounds().height(), mListView.getDividerHeight());
 
         mInstrumentation.runOnMainSync(new Runnable() {
             public void run() {
@@ -397,7 +443,7 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(10, mListView.getDividerHeight());
-        assertEquals(10, r2.bottom - r2.top);
+        assertEquals(10, d.getBounds().height());
     }
 
     public void testSetSelection() {
@@ -679,7 +725,8 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
     @MediumTest
     public void testRequestLayout() throws Exception {
         ListView listView = new ListView(mActivity);
-        List<String> items = Lists.newArrayList("hello");
+        List<String> items = new ArrayList<>();
+        items.add("hello");
         Adapter<String> adapter = new Adapter<String>(mActivity, 0, items);
         listView.setAdapter(adapter);
 
@@ -703,7 +750,8 @@ public class ListViewTest extends ActivityInstrumentationTestCase2<ListViewCtsAc
         ListView listView = new ListView(mActivity);
         // We use a header as the unselectable item to remain after the selectable one is removed.
         listView.addHeaderView(new View(mActivity), null, false);
-        List<String> items = Lists.newArrayList("hello");
+        List<String> items = new ArrayList<>();
+        items.add("hello");
         Adapter<String> adapter = new Adapter<String>(mActivity, 0, items);
         listView.setAdapter(adapter);
 

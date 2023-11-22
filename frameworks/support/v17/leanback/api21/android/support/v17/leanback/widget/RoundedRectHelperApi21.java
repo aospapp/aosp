@@ -36,20 +36,8 @@ class RoundedRectHelperApi21 {
         }
     };
 
-    public static void setRoundedRectBackground(View view, int color) {
-        if (color == Color.TRANSPARENT) {
-            view.setOutlineProvider(sOutlineProvider);
-        } else {
-            view.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
-            view.setBackgroundResource(R.drawable.lb_rounded_rect_bg);
-            ((GradientDrawable) view.getBackground().mutate()).setColor(color);
-        }
-        view.setClipToOutline(true);
-    }
-
-    public static void clearBackground(View view) {
-        view.setBackground(null);
-        view.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
-        view.setClipToOutline(false);
+    public static void setClipToRoundedOutline(View view, boolean clip) {
+        view.setOutlineProvider(clip ? sOutlineProvider : ViewOutlineProvider.BACKGROUND);
+        view.setClipToOutline(clip);
     }
 }

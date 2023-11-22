@@ -17,7 +17,6 @@
 package com.android.phone;
 
 import com.android.ims.ImsManager;
-import com.android.ims.ImsException;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
@@ -35,22 +34,22 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -59,12 +58,10 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ListView;
-import android.widget.TabHost;
 import android.widget.TabHost.OnTabChangeListener;
 import android.widget.TabHost.TabContentFactory;
 import android.widget.TabHost.TabSpec;
-import android.widget.TabWidget;
+import android.widget.TabHost;
 
 /**
  * "Mobile network settings" screen.  This preference screen lets you
@@ -147,11 +144,10 @@ public class MobileNetworkSettings extends PreferenceActivity
         @Override
         public void onCallStateChanged(int state, String incomingNumber) {
             if (DBG) log("PhoneStateListener.onCallStateChanged: state=" + state);
+            boolean enabled = (state == TelephonyManager.CALL_STATE_IDLE) &&
+                    ImsManager.isNonTtyOrTtyOnVolteEnabled(getApplicationContext());
             Preference pref = getPreferenceScreen().findPreference(BUTTON_4G_LTE_KEY);
-            if (pref != null) {
-                pref.setEnabled((state == TelephonyManager.CALL_STATE_IDLE) &&
-                        ImsManager.isNonTtyOrTtyOnVolteEnabled(getApplicationContext()));
-            }
+            if (pref != null) pref.setEnabled(enabled && hasActiveSubscriptions());
         }
     };
 
@@ -241,7 +237,7 @@ public class MobileNetworkSettings extends PreferenceActivity
             return true;
         }  else if (preference == mButtonEnabledNetworks) {
             int settingsNetworkMode = android.provider.Settings.Global.getInt(mPhone.getContext().
-                    getContentResolver(),
+                            getContentResolver(),
                     android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
                     preferredNetworkMode);
             mButtonEnabledNetworks.setValue(Integer.toString(settingsNetworkMode));
@@ -292,7 +288,7 @@ public class MobileNetworkSettings extends PreferenceActivity
                 if (DBG) log("initializeSubscriptions: UPDATE");
                 currentTab = mTabHost != null ? mTabHost.getCurrentTab() : 0;
 
-                setContentView(R.layout.network_settings);
+                setContentView(com.android.internal.R.layout.common_tab_settings);
 
                 mTabHost = (TabHost) findViewById(android.R.id.tabhost);
                 mTabHost.setup();
@@ -331,7 +327,7 @@ public class MobileNetworkSettings extends PreferenceActivity
                     mTabHost.clearAllTabs();
                     mTabHost = null;
                 }
-                setContentView(R.layout.network_settings);
+                setContentView(com.android.internal.R.layout.common_tab_settings);
                 break;
             }
             case DO_NOTHING: {
@@ -393,7 +389,8 @@ public class MobileNetworkSettings extends PreferenceActivity
     };
 
     private void updatePhone(int slotId) {
-        final SubscriptionInfo sir = findRecordBySlotId(slotId);
+        final SubscriptionInfo sir = mSubscriptionManager
+                .getActiveSubscriptionInfoForSimSlotIndex(slotId);
         if (sir != null) {
             mPhone = PhoneFactory.getPhone(
                     SubscriptionManager.getPhoneId(sir.getSubscriptionId()));
@@ -436,7 +433,6 @@ public class MobileNetworkSettings extends PreferenceActivity
         addPreferencesFromResource(R.xml.network_setting);
 
         mButton4glte = (SwitchPreference)findPreference(BUTTON_4G_LTE_KEY);
-
         mButton4glte.setOnPreferenceChangeListener(this);
 
         try {
@@ -474,6 +470,12 @@ public class MobileNetworkSettings extends PreferenceActivity
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mPhoneChangeReceiver);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         if (DBG) log("onResume:+");
@@ -492,14 +494,9 @@ public class MobileNetworkSettings extends PreferenceActivity
         // and the UI state would be inconsistent with actual state
         mButtonDataRoam.setChecked(mPhone.getDataRoamingEnabled());
 
-        if (getPreferenceScreen().findPreference(BUTTON_PREFERED_NETWORK_MODE) != null)  {
-            mPhone.getPreferredNetworkType(mHandler.obtainMessage(
-                    MyHandler.MESSAGE_GET_PREFERRED_NETWORK_TYPE));
-        }
-
-        if (getPreferenceScreen().findPreference(BUTTON_ENABLED_NETWORKS_KEY) != null)  {
-            mPhone.getPreferredNetworkType(mHandler.obtainMessage(
-                    MyHandler.MESSAGE_GET_PREFERRED_NETWORK_TYPE));
+        if (getPreferenceScreen().findPreference(BUTTON_PREFERED_NETWORK_MODE) != null
+                || getPreferenceScreen().findPreference(BUTTON_ENABLED_NETWORKS_KEY) != null)  {
+            updatePreferredNetworkUIFromDb();
         }
 
         if (ImsManager.isVolteEnabledByPlatform(this)
@@ -508,14 +505,19 @@ public class MobileNetworkSettings extends PreferenceActivity
             tm.listen(mPhoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
         }
 
-        mButton4glte.setChecked(ImsManager.isEnhanced4gLteModeSettingEnabledByUser(this)
-                && ImsManager.isNonTtyOrTtyOnVolteEnabled(this));
-        // NOTE: The button will be enabled/disabled in mPhoneStateListener
+        // NOTE: Buttons will be enabled/disabled in mPhoneStateListener
+        boolean enh4glteMode = ImsManager.isEnhanced4gLteModeSettingEnabledByUser(this)
+                && ImsManager.isNonTtyOrTtyOnVolteEnabled(this);
+        mButton4glte.setChecked(enh4glteMode);
 
         mSubscriptionManager.addOnSubscriptionsChangedListener(mOnSubscriptionsChangeListener);
 
         if (DBG) log("onResume:-");
 
+    }
+
+    private boolean hasActiveSubscriptions() {
+        return mActiveSubInfos.size() > 0;
     }
 
     private void updateBody() {
@@ -541,15 +543,15 @@ public class MobileNetworkSettings extends PreferenceActivity
                 android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
                 preferredNetworkMode);
 
-        mIsGlobalCdma = isLteOnCdma && getResources().getBoolean(R.bool.config_show_cdma);
-        int shouldHideCarrierSettings = android.provider.Settings.Global.getInt(
-                mPhone.getContext().getContentResolver(),
-                android.provider.Settings.Global.HIDE_CARRIER_NETWORK_SETTINGS, 0);
-        if (shouldHideCarrierSettings == 1 ) {
+        PersistableBundle carrierConfig =
+                PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+        mIsGlobalCdma = isLteOnCdma
+                && carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_CDMA_CHOICES_BOOL);
+        if (carrierConfig.getBoolean(CarrierConfigManager.KEY_HIDE_CARRIER_NETWORK_SETTINGS_BOOL)) {
             prefSet.removePreference(mButtonPreferredNetworkMode);
             prefSet.removePreference(mButtonEnabledNetworks);
             prefSet.removePreference(mLteDataServicePref);
-        } else if (getResources().getBoolean(R.bool.world_phone) == true) {
+        } else if (carrierConfig.getBoolean(CarrierConfigManager.KEY_WORLD_PHONE_BOOL) == true) {
             prefSet.removePreference(mButtonEnabledNetworks);
             // set the listener for the mButtonPreferredNetworkMode list preference so we can issue
             // change Preferred Network Mode.
@@ -607,16 +609,16 @@ public class MobileNetworkSettings extends PreferenceActivity
                     mGsmUmtsOptions = null;
                 }
             } else if (phoneType == PhoneConstants.PHONE_TYPE_GSM) {
-                if (!getResources().getBoolean(R.bool.config_prefer_2g)
+                if (!carrierConfig.getBoolean(CarrierConfigManager.KEY_PREFER_2G_BOOL)
                         && !getResources().getBoolean(R.bool.config_enabled_lte)) {
                     mButtonEnabledNetworks.setEntries(
                             R.array.enabled_networks_except_gsm_lte_choices);
                     mButtonEnabledNetworks.setEntryValues(
                             R.array.enabled_networks_except_gsm_lte_values);
-                } else if (!getResources().getBoolean(R.bool.config_prefer_2g)) {
+                } else if (!carrierConfig.getBoolean(CarrierConfigManager.KEY_PREFER_2G_BOOL)) {
                     int select = (mShow4GForLTE == true) ?
-                        R.array.enabled_networks_except_gsm_4g_choices
-                        : R.array.enabled_networks_except_gsm_choices;
+                            R.array.enabled_networks_except_gsm_4g_choices
+                            : R.array.enabled_networks_except_gsm_choices;
                     mButtonEnabledNetworks.setEntries(select);
                     mButtonEnabledNetworks.setEntryValues(
                             R.array.enabled_networks_except_gsm_values);
@@ -632,7 +634,7 @@ public class MobileNetworkSettings extends PreferenceActivity
                             R.array.enabled_networks_cdma_values);
                 } else {
                     int select = (mShow4GForLTE == true) ? R.array.enabled_networks_4g_choices
-                        : R.array.enabled_networks_choices;
+                            : R.array.enabled_networks_choices;
                     mButtonEnabledNetworks.setEntries(select);
                     mButtonEnabledNetworks.setEntryValues(
                             R.array.enabled_networks_values);
@@ -707,11 +709,15 @@ public class MobileNetworkSettings extends PreferenceActivity
          * but you do need to remember that this all needs to work when subscriptions
          * change dynamically such as when hot swapping sims.
          */
-        boolean hasActiveSubscriptions = mActiveSubInfos.size() > 0;
+        boolean hasActiveSubscriptions = hasActiveSubscriptions();
+        TelephonyManager tm = (TelephonyManager) getSystemService(
+                Context.TELEPHONY_SERVICE);
+        boolean canChange4glte = (tm.getCallState() == TelephonyManager.CALL_STATE_IDLE) &&
+                ImsManager.isNonTtyOrTtyOnVolteEnabled(getApplicationContext());
         mButtonDataRoam.setEnabled(hasActiveSubscriptions);
         mButtonPreferredNetworkMode.setEnabled(hasActiveSubscriptions);
         mButtonEnabledNetworks.setEnabled(hasActiveSubscriptions);
-        mButton4glte.setEnabled(hasActiveSubscriptions);
+        mButton4glte.setEnabled(hasActiveSubscriptions && canChange4glte);
         mLteDataServicePref.setEnabled(hasActiveSubscriptions);
         Preference ps;
         PreferenceScreen root = getPreferenceScreen();
@@ -843,9 +849,10 @@ public class MobileNetworkSettings extends PreferenceActivity
                         .obtainMessage(MyHandler.MESSAGE_SET_PREFERRED_NETWORK_TYPE));
             }
         } else if (preference == mButton4glte) {
-            SwitchPreference ltePref = (SwitchPreference)preference;
-            ltePref.setChecked(!ltePref.isChecked());
-            ImsManager.setEnhanced4gLteModeSetting(this, ltePref.isChecked());
+            SwitchPreference enhanced4gModePref = (SwitchPreference) preference;
+            boolean enhanced4gMode = !enhanced4gModePref.isChecked();
+            enhanced4gModePref.setChecked(enhanced4gMode);
+            ImsManager.setEnhanced4gLteModeSetting(this, enhanced4gModePref.isChecked());
         } else if (preference == mButtonDataRoam) {
             if (DBG) log("onPreferenceTreeClick: preference == mButtonDataRoam.");
 
@@ -855,7 +862,7 @@ public class MobileNetworkSettings extends PreferenceActivity
                 mOkClicked = false;
                 new AlertDialog.Builder(this).setMessage(
                         getResources().getString(R.string.roaming_warning))
-                        .setTitle(android.R.string.dialog_alert_title)
+                        .setTitle(R.string.roaming_alert_title)
                         .setIconAttribute(android.R.attr.alertDialogIcon)
                         .setPositiveButton(android.R.string.yes, this)
                         .setNegativeButton(android.R.string.no, this)
@@ -874,85 +881,14 @@ public class MobileNetworkSettings extends PreferenceActivity
 
     private class MyHandler extends Handler {
 
-        static final int MESSAGE_GET_PREFERRED_NETWORK_TYPE = 0;
-        static final int MESSAGE_SET_PREFERRED_NETWORK_TYPE = 1;
+        static final int MESSAGE_SET_PREFERRED_NETWORK_TYPE = 0;
 
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case MESSAGE_GET_PREFERRED_NETWORK_TYPE:
-                    handleGetPreferredNetworkTypeResponse(msg);
-                    break;
-
                 case MESSAGE_SET_PREFERRED_NETWORK_TYPE:
                     handleSetPreferredNetworkTypeResponse(msg);
                     break;
-            }
-        }
-
-        private void handleGetPreferredNetworkTypeResponse(Message msg) {
-            final int phoneSubId = mPhone.getSubId();
-            AsyncResult ar = (AsyncResult) msg.obj;
-
-            if (ar.exception == null) {
-                int modemNetworkMode = ((int[])ar.result)[0];
-
-                if (DBG) {
-                    log ("handleGetPreferredNetworkTypeResponse: modemNetworkMode = " +
-                            modemNetworkMode);
-                }
-
-                int settingsNetworkMode = android.provider.Settings.Global.getInt(
-                        mPhone.getContext().getContentResolver(),
-                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
-                        preferredNetworkMode);
-
-                if (DBG) {
-                    log("handleGetPreferredNetworkTypeReponse: settingsNetworkMode = " +
-                            settingsNetworkMode);
-                }
-
-                //check that modemNetworkMode is from an accepted value
-                if (modemNetworkMode == Phone.NT_MODE_WCDMA_PREF ||
-                        modemNetworkMode == Phone.NT_MODE_GSM_ONLY ||
-                        modemNetworkMode == Phone.NT_MODE_WCDMA_ONLY ||
-                        modemNetworkMode == Phone.NT_MODE_GSM_UMTS ||
-                        modemNetworkMode == Phone.NT_MODE_CDMA ||
-                        modemNetworkMode == Phone.NT_MODE_CDMA_NO_EVDO ||
-                        modemNetworkMode == Phone.NT_MODE_EVDO_NO_CDMA ||
-                        modemNetworkMode == Phone.NT_MODE_GLOBAL ||
-                        modemNetworkMode == Phone.NT_MODE_LTE_CDMA_AND_EVDO ||
-                        modemNetworkMode == Phone.NT_MODE_LTE_GSM_WCDMA ||
-                        modemNetworkMode == Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA ||
-                        modemNetworkMode == Phone.NT_MODE_LTE_ONLY ||
-                        modemNetworkMode == Phone.NT_MODE_LTE_WCDMA) {
-                    if (DBG) {
-                        log("handleGetPreferredNetworkTypeResponse: if 1: modemNetworkMode = " +
-                                modemNetworkMode);
-                    }
-
-                    //check changes in modemNetworkMode
-                    if (modemNetworkMode != settingsNetworkMode) {
-                        if (DBG) {
-                            log("handleGetPreferredNetworkTypeResponse: if 2: " +
-                                    "modemNetworkMode != settingsNetworkMode");
-                        }
-
-                        settingsNetworkMode = modemNetworkMode;
-
-                        if (DBG) { log("handleGetPreferredNetworkTypeResponse: if 2: " +
-                                "settingsNetworkMode = " + settingsNetworkMode);
-                        }
-                    }
-
-                    UpdatePreferredNetworkModeSummary(modemNetworkMode);
-                    UpdateEnabledNetworksValueAndSummary(modemNetworkMode);
-                    // changes the mButtonPreferredNetworkMode accordingly to modemNetworkMode
-                    mButtonPreferredNetworkMode.setValue(Integer.toString(modemNetworkMode));
-                } else {
-                    if (DBG) log("handleGetPreferredNetworkTypeResponse: else: reset to default");
-                    resetNetworkModeToDefault();
-                }
             }
         }
 
@@ -961,34 +897,47 @@ public class MobileNetworkSettings extends PreferenceActivity
             final int phoneSubId = mPhone.getSubId();
 
             if (ar.exception == null) {
-                int networkMode = Integer.valueOf(
-                        mButtonPreferredNetworkMode.getValue()).intValue();
-                android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
-                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
-                        networkMode );
-                networkMode = Integer.valueOf(
-                        mButtonEnabledNetworks.getValue()).intValue();
-                android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
-                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
-                        networkMode );
+                int networkMode;
+                if (getPreferenceScreen().findPreference(BUTTON_PREFERED_NETWORK_MODE) != null)  {
+                    networkMode =  Integer.valueOf(
+                            mButtonPreferredNetworkMode.getValue()).intValue();
+                    android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
+                            networkMode );
+                }
+                if (getPreferenceScreen().findPreference(BUTTON_ENABLED_NETWORKS_KEY) != null)  {
+                    networkMode = Integer.valueOf(
+                            mButtonEnabledNetworks.getValue()).intValue();
+                    android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
+                            android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
+                            networkMode );
+                }
             } else {
-                mPhone.getPreferredNetworkType(obtainMessage(MESSAGE_GET_PREFERRED_NETWORK_TYPE));
+                if (DBG) {
+                    log("handleSetPreferredNetworkTypeResponse: exception in setting network mode.");
+                }
+                updatePreferredNetworkUIFromDb();
             }
         }
+    }
 
-        private void resetNetworkModeToDefault() {
-            final int phoneSubId = mPhone.getSubId();
-            //set the mButtonPreferredNetworkMode
-            mButtonPreferredNetworkMode.setValue(Integer.toString(preferredNetworkMode));
-            mButtonEnabledNetworks.setValue(Integer.toString(preferredNetworkMode));
-            //set the Settings.System
-            android.provider.Settings.Global.putInt(mPhone.getContext().getContentResolver(),
-                        android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
-                        preferredNetworkMode );
-            //Set the Modem
-            mPhone.setPreferredNetworkType(preferredNetworkMode,
-                    this.obtainMessage(MyHandler.MESSAGE_SET_PREFERRED_NETWORK_TYPE));
+    private void updatePreferredNetworkUIFromDb() {
+        final int phoneSubId = mPhone.getSubId();
+
+        int settingsNetworkMode = android.provider.Settings.Global.getInt(
+                mPhone.getContext().getContentResolver(),
+                android.provider.Settings.Global.PREFERRED_NETWORK_MODE + phoneSubId,
+                preferredNetworkMode);
+
+        if (DBG) {
+            log("updatePreferredNetworkUIFromDb: settingsNetworkMode = " +
+                    settingsNetworkMode);
         }
+
+        UpdatePreferredNetworkModeSummary(settingsNetworkMode);
+        UpdateEnabledNetworksValueAndSummary(settingsNetworkMode);
+        // changes the mButtonPreferredNetworkMode accordingly to settingsNetworkMode
+        mButtonPreferredNetworkMode.setValue(Integer.toString(settingsNetworkMode));
     }
 
     private void UpdatePreferredNetworkModeSummary(int NetworkMode) {
@@ -1043,7 +992,9 @@ public class MobileNetworkSettings extends PreferenceActivity
                         R.string.preferred_network_mode_lte_cdma_evdo_summary);
                 break;
             case Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA:
-                if (mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
+                if (mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA ||
+                        mIsGlobalCdma ||
+                        isWorldMode()) {
                     mButtonPreferredNetworkMode.setSummary(
                             R.string.preferred_network_mode_global_summary);
                 } else {
@@ -1143,7 +1094,9 @@ public class MobileNetworkSettings extends PreferenceActivity
                 }
                 mButtonEnabledNetworks.setValue(
                         Integer.toString(Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA));
-                if (mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
+                if (mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA ||
+                        mIsGlobalCdma ||
+                        isWorldMode()) {
                     mButtonEnabledNetworks.setSummary(R.string.network_global);
                 } else {
                     mButtonEnabledNetworks.setSummary((mShow4GForLTE == true)
@@ -1271,23 +1224,4 @@ public class MobileNetworkSettings extends PreferenceActivity
         }
     }
 
-    /**
-     * finds a record with slotId.
-     * Since the number of SIMs are few, an array is fine.
-     */
-    public SubscriptionInfo findRecordBySlotId(final int slotId) {
-        if (mActiveSubInfos != null) {
-            final int subInfoLength = mActiveSubInfos.size();
-
-            for (int i = 0; i < subInfoLength; ++i) {
-                final SubscriptionInfo sir = mActiveSubInfos.get(i);
-                if (sir.getSimSlotIndex() == slotId) {
-                    //Right now we take the first subscription on a SIM.
-                    return sir;
-                }
-            }
-        }
-
-        return null;
-    }
 }

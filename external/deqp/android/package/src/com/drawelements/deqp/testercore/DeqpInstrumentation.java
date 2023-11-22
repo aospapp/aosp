@@ -23,23 +23,11 @@
 
 package com.drawelements.deqp.testercore;
 
-import android.app.ActivityManager;
 import android.app.Instrumentation;
-import android.app.Activity;
-import android.app.NativeActivity;
-
-import android.content.Context;
-import android.content.Intent;
-import android.content.ComponentName;
-
 import android.os.Bundle;
 
-import java.util.List;
 import java.lang.Thread;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 
 public class DeqpInstrumentation extends Instrumentation
 {
@@ -47,6 +35,7 @@ public class DeqpInstrumentation extends Instrumentation
 	private static final long	LAUNCH_TIMEOUT_MS		= 10000;
 	private static final long	NO_DATA_TIMEOUT_MS		= 1000;
 	private static final long	NO_ACTIVITY_SLEEP_MS	= 100;
+	private static final long	REMOTE_DEAD_SLEEP_MS	= 100;
 
 	private String				m_cmdLine;
 	private String				m_logFileName;
@@ -55,7 +44,6 @@ public class DeqpInstrumentation extends Instrumentation
 	@Override
 	public void onCreate (Bundle arguments) {
 		super.onCreate(arguments);
-		start();
 
 		m_cmdLine		= arguments.getString("deqpCmdLine");
 		m_logFileName	= arguments.getString("deqpLogFilename");
@@ -75,6 +63,8 @@ public class DeqpInstrumentation extends Instrumentation
 		}
 		else
 			m_logData = false;
+
+		start();
 	}
 
 	@Override
@@ -117,6 +107,20 @@ public class DeqpInstrumentation extends Instrumentation
 
 			parser.init(this, m_logFileName, m_logData);
 
+			// parse until tester dies
+			{
+				while (true)
+				{
+					if (!parser.parse())
+					{
+						Thread.sleep(NO_ACTIVITY_SLEEP_MS);
+						if (!remoteApi.isRunning())
+							break;
+					}
+				}
+			}
+
+			// parse remaining messages
 			{
 				long lastDataMs = System.currentTimeMillis();
 
@@ -124,15 +128,16 @@ public class DeqpInstrumentation extends Instrumentation
 				{
 					if (parser.parse())
 						lastDataMs = System.currentTimeMillis();
-					else if (!remoteApi.isRunning())
+					else
 					{
 						final long timeSinceLastDataMs = System.currentTimeMillis()-lastDataMs;
 
 						if (timeSinceLastDataMs > NO_DATA_TIMEOUT_MS)
 							break; // Assume no data is available for reading any more
+
+						// Remote is dead, wait a bit until trying to read again
+						Thread.sleep(REMOTE_DEAD_SLEEP_MS);
 					}
-					else
-						Thread.sleep(NO_ACTIVITY_SLEEP_MS);
 				}
 			}
 
@@ -143,9 +148,8 @@ public class DeqpInstrumentation extends Instrumentation
 			Log.e(LOG_TAG, "Exception", e);
 
 			Bundle info = new Bundle();
-
 			info.putString("Exception", e.getMessage());
-			finish(1, new Bundle());
+			finish(1, info);
 		}
 		finally
 		{

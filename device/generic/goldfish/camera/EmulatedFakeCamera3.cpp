@@ -24,6 +24,7 @@
 //#define LOG_NDEBUG 0
 //#define LOG_NNDEBUG 0
 #define LOG_TAG "EmulatedCamera_FakeCamera3"
+#include <cutils/properties.h>
 #include <utils/Log.h>
 
 #include "EmulatedFakeCamera3.h"
@@ -36,6 +37,8 @@
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <cmath>
+
+#include <vector>
 
 #if defined(LOG_NNDEBUG) && LOG_NNDEBUG == 0
 #define ALOGVV ALOGV
@@ -53,53 +56,16 @@ const int64_t USEC = 1000LL;
 const int64_t MSEC = USEC * 1000LL;
 const int64_t SEC = MSEC * 1000LL;
 
-const int32_t EmulatedFakeCamera3::kAvailableFormats[5] = {
-        HAL_PIXEL_FORMAT_RAW_SENSOR,
+const int32_t EmulatedFakeCamera3::kAvailableFormats[] = {
+        HAL_PIXEL_FORMAT_RAW16,
         HAL_PIXEL_FORMAT_BLOB,
         HAL_PIXEL_FORMAT_RGBA_8888,
         HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,
         // These are handled by YCbCr_420_888
         //        HAL_PIXEL_FORMAT_YV12,
         //        HAL_PIXEL_FORMAT_YCrCb_420_SP,
-        HAL_PIXEL_FORMAT_YCbCr_420_888
-};
-
-const uint32_t EmulatedFakeCamera3::kAvailableRawSizes[2] = {
-    640, 480
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
-const uint64_t EmulatedFakeCamera3::kAvailableRawMinDurations[1] = {
-    (const uint64_t)Sensor::kFrameDurationRange[0]
-};
-
-const uint32_t EmulatedFakeCamera3::kAvailableProcessedSizesBack[4] = {
-    640, 480, 320, 240
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
-const uint32_t EmulatedFakeCamera3::kAvailableProcessedSizesFront[4] = {
-    320, 240, 160, 120
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
-const uint64_t EmulatedFakeCamera3::kAvailableProcessedMinDurations[1] = {
-    (const uint64_t)Sensor::kFrameDurationRange[0]
-};
-
-const uint32_t EmulatedFakeCamera3::kAvailableJpegSizesBack[2] = {
-    640, 480
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
-const uint32_t EmulatedFakeCamera3::kAvailableJpegSizesFront[2] = {
-    320, 240
-    //    Sensor::kResolution[0], Sensor::kResolution[1]
-};
-
-
-const uint64_t EmulatedFakeCamera3::kAvailableJpegMinDurations[1] = {
-    (const uint64_t)Sensor::kFrameDurationRange[0]
+        HAL_PIXEL_FORMAT_YCbCr_420_888,
+        HAL_PIXEL_FORMAT_Y16
 };
 
 /**
@@ -125,18 +91,13 @@ EmulatedFakeCamera3::EmulatedFakeCamera3(int cameraId, bool facingBack,
         struct hw_module_t* module) :
         EmulatedCamera3(cameraId, module),
         mFacingBack(facingBack) {
-    ALOGI("Constructing emulated fake camera 3 facing %s",
-            facingBack ? "back" : "front");
+    ALOGI("Constructing emulated fake camera 3: ID %d, facing %s",
+            mCameraID, facingBack ? "back" : "front");
 
     for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; i++) {
         mDefaultTemplates[i] = NULL;
     }
 
-    /**
-     * Front cameras = limited mode
-     * Back cameras = full mode
-     */
-    mFullMode = facingBack;
 }
 
 EmulatedFakeCamera3::~EmulatedFakeCamera3() {
@@ -154,6 +115,13 @@ status_t EmulatedFakeCamera3::Initialize() {
     if (mStatus != STATUS_ERROR) {
         ALOGE("%s: Already initialized!", __FUNCTION__);
         return INVALID_OPERATION;
+    }
+
+    res = getCameraCapabilities();
+    if (res != OK) {
+        ALOGE("%s: Unable to get camera capabilities: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
     }
 
     res = constructStaticInfo();
@@ -198,8 +166,8 @@ status_t EmulatedFakeCamera3::connectCamera(hw_device_t** device) {
     mAeState      = ANDROID_CONTROL_AE_STATE_INACTIVE;
     mAfState      = ANDROID_CONTROL_AF_STATE_INACTIVE;
     mAwbState     = ANDROID_CONTROL_AWB_STATE_INACTIVE;
-    mAfTriggerId  = 0;
-    mAeTriggerId  = 0;
+    mAeCounter    = 0;
+    mAeTargetExposureTime = kNormalExposureTime;
     mAeCurrentExposureTime = kNormalExposureTime;
     mAeCurrentSensitivity  = kNormalSensitivity;
 
@@ -341,20 +309,7 @@ status_t EmulatedFakeCamera3::configureStreams(
             // New stream, construct info
             PrivateStreamInfo *privStream = new PrivateStreamInfo();
             privStream->alive = true;
-            privStream->registered = false;
 
-            switch (newStream->stream_type) {
-                case CAMERA3_STREAM_OUTPUT:
-                    newStream->usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
-                    break;
-                case CAMERA3_STREAM_INPUT:
-                    newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ;
-                    break;
-                case CAMERA3_STREAM_BIDIRECTIONAL:
-                    newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ |
-                            GRALLOC_USAGE_HW_CAMERA_WRITE;
-                    break;
-            }
             newStream->max_buffers = kMaxBufferCount;
             newStream->priv = privStream;
             mStreams.push_back(newStream);
@@ -363,6 +318,20 @@ status_t EmulatedFakeCamera3::configureStreams(
             PrivateStreamInfo *privStream =
                     static_cast<PrivateStreamInfo*>(newStream->priv);
             privStream->alive = true;
+        }
+        // Always update usage and max buffers
+        newStream->max_buffers = kMaxBufferCount;
+        switch (newStream->stream_type) {
+            case CAMERA3_STREAM_OUTPUT:
+                newStream->usage = GRALLOC_USAGE_HW_CAMERA_WRITE;
+                break;
+            case CAMERA3_STREAM_INPUT:
+                newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ;
+                break;
+            case CAMERA3_STREAM_BIDIRECTIONAL:
+                newStream->usage = GRALLOC_USAGE_HW_CAMERA_READ |
+                        GRALLOC_USAGE_HW_CAMERA_WRITE;
+                break;
         }
     }
 
@@ -394,49 +363,11 @@ status_t EmulatedFakeCamera3::registerStreamBuffers(
     ALOGV("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
 
-    /**
-     * Sanity checks
-     */
+    // Should not be called in HAL versions >= 3.2
 
-    // OK: register streams at any time during configure
-    // (but only once per stream)
-    if (mStatus != STATUS_READY && mStatus != STATUS_ACTIVE) {
-        ALOGE("%s: Cannot register buffers in state %d",
-                __FUNCTION__, mStatus);
-        return NO_INIT;
-    }
-
-    if (bufferSet == NULL) {
-        ALOGE("%s: NULL buffer set!", __FUNCTION__);
-        return BAD_VALUE;
-    }
-
-    StreamIterator s = mStreams.begin();
-    for (; s != mStreams.end(); ++s) {
-        if (bufferSet->stream == *s) break;
-    }
-    if (s == mStreams.end()) {
-        ALOGE("%s: Trying to register buffers for a non-configured stream!",
-                __FUNCTION__);
-        return BAD_VALUE;
-    }
-
-    /**
-     * Register the buffers. This doesn't mean anything to the emulator besides
-     * marking them off as registered.
-     */
-
-    PrivateStreamInfo *privStream =
-            static_cast<PrivateStreamInfo*>((*s)->priv);
-
-    if (privStream->registered) {
-        ALOGE("%s: Illegal to register buffer more than once", __FUNCTION__);
-        return BAD_VALUE;
-    }
-
-    privStream->registered = true;
-
-    return OK;
+    ALOGE("%s: Should not be invoked on new HALs!",
+            __FUNCTION__);
+    return NO_INIT;
 }
 
 const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
@@ -444,8 +375,14 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     ALOGV("%s: E", __FUNCTION__);
     Mutex::Autolock l(mLock);
 
-    if (type < 0 || type >= CAMERA2_TEMPLATE_COUNT) {
+    if (type < 0 || type >= CAMERA3_TEMPLATE_COUNT) {
         ALOGE("%s: Unknown request settings template: %d",
+                __FUNCTION__, type);
+        return NULL;
+    }
+
+    if (!hasCapability(BACKWARD_COMPATIBLE) && type != CAMERA3_TEMPLATE_PREVIEW) {
+        ALOGE("%s: Template %d not supported w/o BACKWARD_COMPATIBLE capability",
                 __FUNCTION__, type);
         return NULL;
     }
@@ -462,9 +399,6 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
     /** android.request */
 
-    static const uint8_t requestType = ANDROID_REQUEST_TYPE_CAPTURE;
-    settings.update(ANDROID_REQUEST_TYPE, &requestType, 1);
-
     static const uint8_t metadataMode = ANDROID_REQUEST_METADATA_MODE_FULL;
     settings.update(ANDROID_REQUEST_METADATA_MODE, &metadataMode, 1);
 
@@ -476,162 +410,176 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
     /** android.lens */
 
-    static const float focusDistance = 0;
-    settings.update(ANDROID_LENS_FOCUS_DISTANCE, &focusDistance, 1);
-
-    static const float aperture = 2.8f;
-    settings.update(ANDROID_LENS_APERTURE, &aperture, 1);
-
     static const float focalLength = 5.0f;
     settings.update(ANDROID_LENS_FOCAL_LENGTH, &focalLength, 1);
 
-    static const float filterDensity = 0;
-    settings.update(ANDROID_LENS_FILTER_DENSITY, &filterDensity, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const float focusDistance = 0;
+        settings.update(ANDROID_LENS_FOCUS_DISTANCE, &focusDistance, 1);
 
-    static const uint8_t opticalStabilizationMode =
-            ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
-    settings.update(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
-            &opticalStabilizationMode, 1);
+        static const float aperture = 2.8f;
+        settings.update(ANDROID_LENS_APERTURE, &aperture, 1);
 
-    // FOCUS_RANGE set only in frame
+        static const float filterDensity = 0;
+        settings.update(ANDROID_LENS_FILTER_DENSITY, &filterDensity, 1);
+
+        static const uint8_t opticalStabilizationMode =
+                ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
+        settings.update(ANDROID_LENS_OPTICAL_STABILIZATION_MODE,
+                &opticalStabilizationMode, 1);
+
+        // FOCUS_RANGE set only in frame
+    }
 
     /** android.sensor */
 
-    static const int64_t exposureTime = 10 * MSEC;
-    settings.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
+    if (hasCapability(MANUAL_SENSOR)) {
+        static const int64_t exposureTime = 10 * MSEC;
+        settings.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposureTime, 1);
 
-    static const int64_t frameDuration = 33333333L; // 1/30 s
-    settings.update(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
+        static const int64_t frameDuration = 33333333L; // 1/30 s
+        settings.update(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
 
-    static const int32_t sensitivity = 100;
-    settings.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
+        static const int32_t sensitivity = 100;
+        settings.update(ANDROID_SENSOR_SENSITIVITY, &sensitivity, 1);
+    }
 
     // TIMESTAMP set only in frame
 
     /** android.flash */
 
-    static const uint8_t flashMode = ANDROID_FLASH_MODE_OFF;
-    settings.update(ANDROID_FLASH_MODE, &flashMode, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t flashMode = ANDROID_FLASH_MODE_OFF;
+        settings.update(ANDROID_FLASH_MODE, &flashMode, 1);
 
-    static const uint8_t flashPower = 10;
-    settings.update(ANDROID_FLASH_FIRING_POWER, &flashPower, 1);
+        static const uint8_t flashPower = 10;
+        settings.update(ANDROID_FLASH_FIRING_POWER, &flashPower, 1);
 
-    static const int64_t firingTime = 0;
-    settings.update(ANDROID_FLASH_FIRING_TIME, &firingTime, 1);
+        static const int64_t firingTime = 0;
+        settings.update(ANDROID_FLASH_FIRING_TIME, &firingTime, 1);
+    }
 
     /** Processing block modes */
-    uint8_t hotPixelMode = 0;
-    uint8_t demosaicMode = 0;
-    uint8_t noiseMode = 0;
-    uint8_t shadingMode = 0;
-    uint8_t colorMode = 0;
-    uint8_t tonemapMode = 0;
-    uint8_t edgeMode = 0;
-    switch (type) {
-      case CAMERA2_TEMPLATE_STILL_CAPTURE:
-        // fall-through
-      case CAMERA2_TEMPLATE_VIDEO_SNAPSHOT:
-        // fall-through
-      case CAMERA2_TEMPLATE_ZERO_SHUTTER_LAG:
-        hotPixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
-        demosaicMode = ANDROID_DEMOSAIC_MODE_HIGH_QUALITY;
-        noiseMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-        shadingMode = ANDROID_SHADING_MODE_HIGH_QUALITY;
-        colorMode = ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY;
-        tonemapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
-        edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
-        break;
-      case CAMERA2_TEMPLATE_PREVIEW:
-        // fall-through
-      case CAMERA2_TEMPLATE_VIDEO_RECORD:
-        // fall-through
-      default:
-        hotPixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
-        demosaicMode = ANDROID_DEMOSAIC_MODE_FAST;
-        noiseMode = ANDROID_NOISE_REDUCTION_MODE_FAST;
-        shadingMode = ANDROID_SHADING_MODE_FAST;
-        colorMode = ANDROID_COLOR_CORRECTION_MODE_FAST;
-        tonemapMode = ANDROID_TONEMAP_MODE_FAST;
-        edgeMode = ANDROID_EDGE_MODE_FAST;
-        break;
+    if (hasCapability(MANUAL_POST_PROCESSING)) {
+        uint8_t hotPixelMode = 0;
+        uint8_t demosaicMode = 0;
+        uint8_t noiseMode = 0;
+        uint8_t shadingMode = 0;
+        uint8_t colorMode = 0;
+        uint8_t tonemapMode = 0;
+        uint8_t edgeMode = 0;
+        switch (type) {
+            case CAMERA3_TEMPLATE_STILL_CAPTURE:
+                // fall-through
+            case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
+                // fall-through
+            case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
+                hotPixelMode = ANDROID_HOT_PIXEL_MODE_HIGH_QUALITY;
+                demosaicMode = ANDROID_DEMOSAIC_MODE_HIGH_QUALITY;
+                noiseMode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+                shadingMode = ANDROID_SHADING_MODE_HIGH_QUALITY;
+                colorMode = ANDROID_COLOR_CORRECTION_MODE_HIGH_QUALITY;
+                tonemapMode = ANDROID_TONEMAP_MODE_HIGH_QUALITY;
+                edgeMode = ANDROID_EDGE_MODE_HIGH_QUALITY;
+                break;
+            case CAMERA3_TEMPLATE_PREVIEW:
+                // fall-through
+            case CAMERA3_TEMPLATE_VIDEO_RECORD:
+                // fall-through
+            default:
+                hotPixelMode = ANDROID_HOT_PIXEL_MODE_FAST;
+                demosaicMode = ANDROID_DEMOSAIC_MODE_FAST;
+                noiseMode = ANDROID_NOISE_REDUCTION_MODE_FAST;
+                shadingMode = ANDROID_SHADING_MODE_FAST;
+                colorMode = ANDROID_COLOR_CORRECTION_MODE_FAST;
+                tonemapMode = ANDROID_TONEMAP_MODE_FAST;
+                edgeMode = ANDROID_EDGE_MODE_FAST;
+                break;
+        }
+        settings.update(ANDROID_HOT_PIXEL_MODE, &hotPixelMode, 1);
+        settings.update(ANDROID_DEMOSAIC_MODE, &demosaicMode, 1);
+        settings.update(ANDROID_NOISE_REDUCTION_MODE, &noiseMode, 1);
+        settings.update(ANDROID_SHADING_MODE, &shadingMode, 1);
+        settings.update(ANDROID_COLOR_CORRECTION_MODE, &colorMode, 1);
+        settings.update(ANDROID_TONEMAP_MODE, &tonemapMode, 1);
+        settings.update(ANDROID_EDGE_MODE, &edgeMode, 1);
     }
-    settings.update(ANDROID_HOT_PIXEL_MODE, &hotPixelMode, 1);
-    settings.update(ANDROID_DEMOSAIC_MODE, &demosaicMode, 1);
-    settings.update(ANDROID_NOISE_REDUCTION_MODE, &noiseMode, 1);
-    settings.update(ANDROID_SHADING_MODE, &shadingMode, 1);
-    settings.update(ANDROID_COLOR_CORRECTION_MODE, &colorMode, 1);
-    settings.update(ANDROID_TONEMAP_MODE, &tonemapMode, 1);
-    settings.update(ANDROID_EDGE_MODE, &edgeMode, 1);
 
-    /** android.noise */
-    static const uint8_t noiseStrength = 5;
-    settings.update(ANDROID_NOISE_REDUCTION_STRENGTH, &noiseStrength, 1);
+    /** android.colorCorrection */
 
-    /** android.color */
-    static const float colorTransform[9] = {
-        1.0f, 0.f, 0.f,
-        0.f, 1.f, 0.f,
-        0.f, 0.f, 1.f
-    };
-    settings.update(ANDROID_COLOR_CORRECTION_TRANSFORM, colorTransform, 9);
+    if (hasCapability(MANUAL_POST_PROCESSING)) {
+        static const camera_metadata_rational colorTransform[9] = {
+            {1,1}, {0,1}, {0,1},
+            {0,1}, {1,1}, {0,1},
+            {0,1}, {0,1}, {1,1}
+        };
+        settings.update(ANDROID_COLOR_CORRECTION_TRANSFORM, colorTransform, 9);
+
+        static const float colorGains[4] = {
+            1.0f, 1.0f, 1.0f, 1.0f
+        };
+        settings.update(ANDROID_COLOR_CORRECTION_GAINS, colorGains, 4);
+    }
 
     /** android.tonemap */
-    static const float tonemapCurve[4] = {
-        0.f, 0.f,
-        1.f, 1.f
-    };
-    settings.update(ANDROID_TONEMAP_CURVE_RED, tonemapCurve, 4);
-    settings.update(ANDROID_TONEMAP_CURVE_GREEN, tonemapCurve, 4);
-    settings.update(ANDROID_TONEMAP_CURVE_BLUE, tonemapCurve, 4);
 
-    /** android.edge */
-    static const uint8_t edgeStrength = 5;
-    settings.update(ANDROID_EDGE_STRENGTH, &edgeStrength, 1);
+    if (hasCapability(MANUAL_POST_PROCESSING)) {
+        static const float tonemapCurve[4] = {
+            0.f, 0.f,
+            1.f, 1.f
+        };
+        settings.update(ANDROID_TONEMAP_CURVE_RED, tonemapCurve, 4);
+        settings.update(ANDROID_TONEMAP_CURVE_GREEN, tonemapCurve, 4);
+        settings.update(ANDROID_TONEMAP_CURVE_BLUE, tonemapCurve, 4);
+    }
 
     /** android.scaler */
-    static const int32_t cropRegion[3] = {
-        0, 0, (int32_t)Sensor::kResolution[0]
-    };
-    settings.update(ANDROID_SCALER_CROP_REGION, cropRegion, 3);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const int32_t cropRegion[4] = {
+            0, 0, (int32_t)Sensor::kResolution[0], (int32_t)Sensor::kResolution[1]
+        };
+        settings.update(ANDROID_SCALER_CROP_REGION, cropRegion, 4);
+    }
 
     /** android.jpeg */
-    static const uint8_t jpegQuality = 80;
-    settings.update(ANDROID_JPEG_QUALITY, &jpegQuality, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t jpegQuality = 80;
+        settings.update(ANDROID_JPEG_QUALITY, &jpegQuality, 1);
 
-    static const int32_t thumbnailSize[2] = {
-        640, 480
-    };
-    settings.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumbnailSize, 2);
+        static const int32_t thumbnailSize[2] = {
+            640, 480
+        };
+        settings.update(ANDROID_JPEG_THUMBNAIL_SIZE, thumbnailSize, 2);
 
-    static const uint8_t thumbnailQuality = 80;
-    settings.update(ANDROID_JPEG_THUMBNAIL_QUALITY, &thumbnailQuality, 1);
+        static const uint8_t thumbnailQuality = 80;
+        settings.update(ANDROID_JPEG_THUMBNAIL_QUALITY, &thumbnailQuality, 1);
 
-    static const double gpsCoordinates[2] = {
-        0, 0
-    };
-    settings.update(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 2);
+        static const double gpsCoordinates[2] = {
+            0, 0
+        };
+        settings.update(ANDROID_JPEG_GPS_COORDINATES, gpsCoordinates, 2);
 
-    static const uint8_t gpsProcessingMethod[32] = "None";
-    settings.update(ANDROID_JPEG_GPS_PROCESSING_METHOD, gpsProcessingMethod, 32);
+        static const uint8_t gpsProcessingMethod[32] = "None";
+        settings.update(ANDROID_JPEG_GPS_PROCESSING_METHOD, gpsProcessingMethod, 32);
 
-    static const int64_t gpsTimestamp = 0;
-    settings.update(ANDROID_JPEG_GPS_TIMESTAMP, &gpsTimestamp, 1);
+        static const int64_t gpsTimestamp = 0;
+        settings.update(ANDROID_JPEG_GPS_TIMESTAMP, &gpsTimestamp, 1);
 
-    static const int32_t jpegOrientation = 0;
-    settings.update(ANDROID_JPEG_ORIENTATION, &jpegOrientation, 1);
+        static const int32_t jpegOrientation = 0;
+        settings.update(ANDROID_JPEG_ORIENTATION, &jpegOrientation, 1);
+    }
 
     /** android.stats */
 
-    static const uint8_t faceDetectMode =
-        ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
-    settings.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &faceDetectMode, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t faceDetectMode =
+                ANDROID_STATISTICS_FACE_DETECT_MODE_OFF;
+        settings.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &faceDetectMode, 1);
 
-    static const uint8_t histogramMode = ANDROID_STATISTICS_HISTOGRAM_MODE_OFF;
-    settings.update(ANDROID_STATISTICS_HISTOGRAM_MODE, &histogramMode, 1);
-
-    static const uint8_t sharpnessMapMode =
-        ANDROID_STATISTICS_SHARPNESS_MAP_MODE_OFF;
-    settings.update(ANDROID_STATISTICS_SHARPNESS_MAP_MODE, &sharpnessMapMode, 1);
+        static const uint8_t hotPixelMapMode =
+                ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE_OFF;
+        settings.update(ANDROID_STATISTICS_HOT_PIXEL_MAP_MODE, &hotPixelMapMode, 1);
+    }
 
     // faceRectangles, faceScores, faceLandmarks, faceIds, histogram,
     // sharpnessMap only in frames
@@ -640,20 +588,23 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
 
     uint8_t controlIntent = 0;
     switch (type) {
-      case CAMERA2_TEMPLATE_PREVIEW:
+      case CAMERA3_TEMPLATE_PREVIEW:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
         break;
-      case CAMERA2_TEMPLATE_STILL_CAPTURE:
+      case CAMERA3_TEMPLATE_STILL_CAPTURE:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
         break;
-      case CAMERA2_TEMPLATE_VIDEO_RECORD:
+      case CAMERA3_TEMPLATE_VIDEO_RECORD:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_RECORD;
         break;
-      case CAMERA2_TEMPLATE_VIDEO_SNAPSHOT:
+      case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT;
         break;
-      case CAMERA2_TEMPLATE_ZERO_SHUTTER_LAG:
+      case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG;
+        break;
+      case CAMERA3_TEMPLATE_MANUAL:
+        controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_MANUAL;
         break;
       default:
         controlIntent = ANDROID_CONTROL_CAPTURE_INTENT_CUSTOM;
@@ -661,78 +612,106 @@ const camera_metadata_t* EmulatedFakeCamera3::constructDefaultRequestSettings(
     }
     settings.update(ANDROID_CONTROL_CAPTURE_INTENT, &controlIntent, 1);
 
-    static const uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
+    const uint8_t controlMode = (type == CAMERA3_TEMPLATE_MANUAL) ?
+            ANDROID_CONTROL_MODE_OFF :
+            ANDROID_CONTROL_MODE_AUTO;
     settings.update(ANDROID_CONTROL_MODE, &controlMode, 1);
 
-    static const uint8_t effectMode = ANDROID_CONTROL_EFFECT_MODE_OFF;
-    settings.update(ANDROID_CONTROL_EFFECT_MODE, &effectMode, 1);
-
-    static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY;
-    settings.update(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
-
-    static const uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
-    settings.update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
-
-    static const uint8_t aeLock = ANDROID_CONTROL_AE_LOCK_OFF;
-    settings.update(ANDROID_CONTROL_AE_LOCK, &aeLock, 1);
-
-    static const int32_t controlRegions[5] = {
-        0, 0, (int32_t)Sensor::kResolution[0], (int32_t)Sensor::kResolution[1],
-        1000
+    int32_t aeTargetFpsRange[2] = {
+        5, 30
     };
-    settings.update(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);
-
-    static const int32_t aeExpCompensation = 0;
-    settings.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &aeExpCompensation, 1);
-
-    static const int32_t aeTargetFpsRange[2] = {
-        10, 30
-    };
+    if (type == CAMERA3_TEMPLATE_VIDEO_RECORD || type == CAMERA3_TEMPLATE_VIDEO_SNAPSHOT) {
+        aeTargetFpsRange[0] = 30;
+    }
     settings.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE, aeTargetFpsRange, 2);
 
-    static const uint8_t aeAntibandingMode =
-            ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
-    settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
 
-    static const uint8_t awbMode =
-            ANDROID_CONTROL_AWB_MODE_AUTO;
-    settings.update(ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
+        static const uint8_t effectMode = ANDROID_CONTROL_EFFECT_MODE_OFF;
+        settings.update(ANDROID_CONTROL_EFFECT_MODE, &effectMode, 1);
 
-    static const uint8_t awbLock = ANDROID_CONTROL_AWB_LOCK_OFF;
-    settings.update(ANDROID_CONTROL_AWB_LOCK, &awbLock, 1);
+        static const uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY;
+        settings.update(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
 
-    settings.update(ANDROID_CONTROL_AWB_REGIONS, controlRegions, 5);
+        const uint8_t aeMode = (type == CAMERA3_TEMPLATE_MANUAL) ?
+                ANDROID_CONTROL_AE_MODE_OFF :
+                ANDROID_CONTROL_AE_MODE_ON;
+        settings.update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
 
-    uint8_t afMode = 0;
-    switch (type) {
-      case CAMERA2_TEMPLATE_PREVIEW:
-        afMode = ANDROID_CONTROL_AF_MODE_AUTO;
-        break;
-      case CAMERA2_TEMPLATE_STILL_CAPTURE:
-        afMode = ANDROID_CONTROL_AF_MODE_AUTO;
-        break;
-      case CAMERA2_TEMPLATE_VIDEO_RECORD:
-        afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
-        break;
-      case CAMERA2_TEMPLATE_VIDEO_SNAPSHOT:
-        afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
-        break;
-      case CAMERA2_TEMPLATE_ZERO_SHUTTER_LAG:
-        afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
-        break;
-      default:
-        afMode = ANDROID_CONTROL_AF_MODE_AUTO;
-        break;
+        static const uint8_t aeLock = ANDROID_CONTROL_AE_LOCK_OFF;
+        settings.update(ANDROID_CONTROL_AE_LOCK, &aeLock, 1);
+
+        static const int32_t controlRegions[5] = {
+            0, 0, 0, 0, 0
+        };
+        settings.update(ANDROID_CONTROL_AE_REGIONS, controlRegions, 5);
+
+        static const int32_t aeExpCompensation = 0;
+        settings.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION, &aeExpCompensation, 1);
+
+
+        static const uint8_t aeAntibandingMode =
+                ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO;
+        settings.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &aeAntibandingMode, 1);
+
+        static const uint8_t aePrecaptureTrigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+        settings.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER, &aePrecaptureTrigger, 1);
+
+        const uint8_t awbMode = (type == CAMERA3_TEMPLATE_MANUAL) ?
+                ANDROID_CONTROL_AWB_MODE_OFF :
+                ANDROID_CONTROL_AWB_MODE_AUTO;
+        settings.update(ANDROID_CONTROL_AWB_MODE, &awbMode, 1);
+
+        static const uint8_t awbLock = ANDROID_CONTROL_AWB_LOCK_OFF;
+        settings.update(ANDROID_CONTROL_AWB_LOCK, &awbLock, 1);
+
+        uint8_t afMode = 0;
+        switch (type) {
+            case CAMERA3_TEMPLATE_PREVIEW:
+                afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+                break;
+            case CAMERA3_TEMPLATE_STILL_CAPTURE:
+                afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+                break;
+            case CAMERA3_TEMPLATE_VIDEO_RECORD:
+                afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+                break;
+            case CAMERA3_TEMPLATE_VIDEO_SNAPSHOT:
+                afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+                break;
+            case CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG:
+                afMode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+                break;
+            case CAMERA3_TEMPLATE_MANUAL:
+                afMode = ANDROID_CONTROL_AF_MODE_OFF;
+                break;
+            default:
+                afMode = ANDROID_CONTROL_AF_MODE_AUTO;
+                break;
+        }
+        settings.update(ANDROID_CONTROL_AF_MODE, &afMode, 1);
+
+        settings.update(ANDROID_CONTROL_AF_REGIONS, controlRegions, 5);
+
+        static const uint8_t afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
+        settings.update(ANDROID_CONTROL_AF_TRIGGER, &afTrigger, 1);
+
+        static const uint8_t vstabMode =
+                ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
+        settings.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
+
+        static const uint8_t blackLevelLock = ANDROID_BLACK_LEVEL_LOCK_OFF;
+        settings.update(ANDROID_BLACK_LEVEL_LOCK, &blackLevelLock, 1);
+
+        static const uint8_t lensShadingMapMode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
+        settings.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &lensShadingMapMode, 1);
+
+        static const uint8_t aberrationMode = ANDROID_COLOR_CORRECTION_ABERRATION_MODE_FAST;
+        settings.update(ANDROID_COLOR_CORRECTION_ABERRATION_MODE, &aberrationMode, 1);
+
+        static const int32_t testPatternMode = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
+        settings.update(ANDROID_SENSOR_TEST_PATTERN_MODE, &testPatternMode, 1);
     }
-    settings.update(ANDROID_CONTROL_AF_MODE, &afMode, 1);
-
-    settings.update(ANDROID_CONTROL_AF_REGIONS, controlRegions, 5);
-
-    static const uint8_t vstabMode =
-        ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
-    settings.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstabMode, 1);
-
-    // aeState, awbState, afState only in frame
 
     mDefaultTemplates[type] = settings.release();
 
@@ -805,8 +784,8 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                     __FUNCTION__, frameNumber, idx);
             return BAD_VALUE;
         }
-        if (!priv->alive || !priv->registered) {
-            ALOGE("%s: Request %d: Buffer %zu: Unregistered or dead stream!",
+        if (!priv->alive) {
+            ALOGE("%s: Request %d: Buffer %zu: Dead stream!",
                     __FUNCTION__, frameNumber, idx);
             return BAD_VALUE;
         }
@@ -860,10 +839,19 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     nsecs_t  frameDuration;
     uint32_t sensitivity;
     bool     needJpeg = false;
+    camera_metadata_entry_t entry;
 
-    exposureTime = settings.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
-    frameDuration = settings.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
-    sensitivity = settings.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
+    entry = settings.find(ANDROID_SENSOR_EXPOSURE_TIME);
+    exposureTime = (entry.count > 0) ? entry.data.i64[0] : Sensor::kExposureTimeRange[0];
+    entry = settings.find(ANDROID_SENSOR_FRAME_DURATION);
+    frameDuration = (entry.count > 0)? entry.data.i64[0] : Sensor::kFrameDurationRange[0];
+    entry = settings.find(ANDROID_SENSOR_SENSITIVITY);
+    sensitivity = (entry.count > 0) ? entry.data.i32[0] : Sensor::kSensitivityRange[0];
+
+    if (exposureTime > frameDuration) {
+        frameDuration = exposureTime + Sensor::kMinVerticalBlank;
+        settings.update(ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
+    }
 
     Buffers *sensorBuffers = new Buffers();
     HalBufferVector *buffers = new HalBufferVector();
@@ -883,6 +871,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         destBuf.height   = srcBuf.stream->height;
         destBuf.format   = privBuffer->format; // Use real private format
         destBuf.stride   = srcBuf.stream->width; // TODO: query from gralloc
+        destBuf.dataSpace = srcBuf.stream->data_space;
         destBuf.buffer   = srcBuf.buffer;
 
         if (destBuf.format == HAL_PIXEL_FORMAT_BLOB) {
@@ -1004,285 +993,530 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
     return OK;
 }
 
+status_t EmulatedFakeCamera3::flush() {
+    ALOGW("%s: Not implemented; ignored", __FUNCTION__);
+    return OK;
+}
+
 /** Debug methods */
 
 void EmulatedFakeCamera3::dump(int fd) {
 
 }
 
-/** Tag query methods */
-const char* EmulatedFakeCamera3::getVendorSectionName(uint32_t tag) {
-    return NULL;
-}
-
-const char* EmulatedFakeCamera3::getVendorTagName(uint32_t tag) {
-    return NULL;
-}
-
-int EmulatedFakeCamera3::getVendorTagType(uint32_t tag) {
-    return 0;
-}
-
 /**
  * Private methods
  */
 
+status_t EmulatedFakeCamera3::getCameraCapabilities() {
+
+    const char *key = mFacingBack ? "qemu.sf.back_camera_caps" : "qemu.sf.front_camera_caps";
+
+    /* Defined by 'qemu.sf.*_camera_caps' boot property: if the
+     * property doesn't exist, it is assumed to list FULL. */
+    char prop[PROPERTY_VALUE_MAX];
+    if (property_get(key, prop, NULL) > 0) {
+        char *saveptr = nullptr;
+        char *cap = strtok_r(prop, " ,", &saveptr);
+        while (cap != NULL) {
+            for (int i = 0; i < NUM_CAPABILITIES; i++) {
+                if (!strcasecmp(cap, sAvailableCapabilitiesStrings[i])) {
+                    mCapabilities.add(static_cast<AvailableCapabilities>(i));
+                    break;
+                }
+            }
+            cap = strtok_r(NULL, " ,", &saveptr);
+        }
+        if (mCapabilities.size() == 0) {
+            ALOGE("qemu.sf.back_camera_caps had no valid capabilities: %s", prop);
+        }
+    }
+    // Default to FULL_LEVEL plus RAW if nothing is defined
+    if (mCapabilities.size() == 0) {
+        mCapabilities.add(FULL_LEVEL);
+        mCapabilities.add(RAW);
+    }
+
+    // Add level-based caps
+    if (hasCapability(FULL_LEVEL)) {
+        mCapabilities.add(BURST_CAPTURE);
+        mCapabilities.add(READ_SENSOR_SETTINGS);
+        mCapabilities.add(MANUAL_SENSOR);
+        mCapabilities.add(MANUAL_POST_PROCESSING);
+    };
+
+    // Backwards-compatible is required for most other caps
+    // Not required for DEPTH_OUTPUT, though.
+    if (hasCapability(BURST_CAPTURE) ||
+            hasCapability(READ_SENSOR_SETTINGS) ||
+            hasCapability(RAW) ||
+            hasCapability(MANUAL_SENSOR) ||
+            hasCapability(MANUAL_POST_PROCESSING) ||
+            hasCapability(PRIVATE_REPROCESSING) ||
+            hasCapability(YUV_REPROCESSING) ||
+            hasCapability(CONSTRAINED_HIGH_SPEED_VIDEO)) {
+        mCapabilities.add(BACKWARD_COMPATIBLE);
+    }
+
+    ALOGI("Camera %d capabilities:", mCameraID);
+    for (size_t i = 0; i < mCapabilities.size(); i++) {
+        ALOGI("  %s", sAvailableCapabilitiesStrings[mCapabilities[i]]);
+    }
+
+    return OK;
+}
+
+bool EmulatedFakeCamera3::hasCapability(AvailableCapabilities cap) {
+    ssize_t idx = mCapabilities.indexOf(cap);
+    return idx >= 0;
+}
+
 status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     CameraMetadata info;
-    // android.lens
+    Vector<int32_t> availableCharacteristicsKeys;
+    status_t res;
 
-    // 5 cm min focus distance for back camera, infinity (fixed focus) for front
-    const float minFocusDistance = mFacingBack ? 1.0/0.05 : 0.0;
-    info.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-            &minFocusDistance, 1);
-
-    // 5 m hyperfocal distance for back camera, infinity (fixed focus) for front
-    const float hyperFocalDistance = mFacingBack ? 1.0/5.0 : 0.0;
-    info.update(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
-            &minFocusDistance, 1);
-
-    static const float focalLength = 3.30f; // mm
-    info.update(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
-            &focalLength, 1);
-    static const float aperture = 2.8f;
-    info.update(ANDROID_LENS_INFO_AVAILABLE_APERTURES,
-            &aperture, 1);
-    static const float filterDensity = 0;
-    info.update(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES,
-            &filterDensity, 1);
-    static const uint8_t availableOpticalStabilization =
-            ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
-    info.update(ANDROID_LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION,
-            &availableOpticalStabilization, 1);
-
-    static const int32_t lensShadingMapSize[] = {1, 1};
-    info.update(ANDROID_LENS_INFO_SHADING_MAP_SIZE, lensShadingMapSize,
-            sizeof(lensShadingMapSize)/sizeof(int32_t));
-
-    uint8_t lensFacing = mFacingBack ?
-            ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
-    info.update(ANDROID_LENS_FACING, &lensFacing, 1);
-
-    float lensPosition[3];
-    if (mFacingBack) {
-        // Back-facing camera is center-top on device
-        lensPosition[0] = 0;
-        lensPosition[1] = 20;
-        lensPosition[2] = -5;
-    } else {
-        // Front-facing camera is center-right on device
-        lensPosition[0] = 20;
-        lensPosition[1] = 20;
-        lensPosition[2] = 0;
-    }
-    info.update(ANDROID_LENS_POSITION, lensPosition, sizeof(lensPosition)/
-            sizeof(float));
+#define ADD_STATIC_ENTRY(name, varptr, count) \
+        availableCharacteristicsKeys.add(name);   \
+        res = info.update(name, varptr, count); \
+        if (res != OK) return res
 
     // android.sensor
 
-    info.update(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE,
-            Sensor::kExposureTimeRange, 2);
+    if (hasCapability(MANUAL_SENSOR)) {
 
-    info.update(ANDROID_SENSOR_INFO_MAX_FRAME_DURATION,
-            &Sensor::kFrameDurationRange[1], 1);
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_EXPOSURE_TIME_RANGE,
+                Sensor::kExposureTimeRange, 2);
 
-    info.update(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
-            Sensor::kSensitivityRange,
-            sizeof(Sensor::kSensitivityRange)
-            /sizeof(int32_t));
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_MAX_FRAME_DURATION,
+                &Sensor::kFrameDurationRange[1], 1);
 
-    info.update(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
-            &Sensor::kColorFilterArrangement, 1);
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_SENSITIVITY_RANGE,
+                Sensor::kSensitivityRange,
+                sizeof(Sensor::kSensitivityRange)
+                /sizeof(int32_t));
+
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_MAX_ANALOG_SENSITIVITY,
+                &Sensor::kSensitivityRange[1], 1);
+    }
 
     static const float sensorPhysicalSize[2] = {3.20f, 2.40f}; // mm
-    info.update(ANDROID_SENSOR_INFO_PHYSICAL_SIZE,
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_PHYSICAL_SIZE,
             sensorPhysicalSize, 2);
 
-    info.update(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,
             (int32_t*)Sensor::kResolution, 2);
 
-    info.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
-            (int32_t*)Sensor::kResolution, 2);
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
+            (int32_t*)Sensor::kActiveArray, 4);
 
-    info.update(ANDROID_SENSOR_INFO_WHITE_LEVEL,
-            (int32_t*)&Sensor::kMaxRawValue, 1);
+    static const int32_t orientation = 90; // Aligned with 'long edge'
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
 
-    static const int32_t blackLevelPattern[4] = {
+    static const uint8_t timestampSource = ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME;
+    ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE, &timestampSource, 1);
+
+    if (hasCapability(RAW)) {
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT,
+                &Sensor::kColorFilterArrangement, 1);
+
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_INFO_WHITE_LEVEL,
+                (int32_t*)&Sensor::kMaxRawValue, 1);
+
+        static const int32_t blackLevelPattern[4] = {
             (int32_t)Sensor::kBlackLevel, (int32_t)Sensor::kBlackLevel,
             (int32_t)Sensor::kBlackLevel, (int32_t)Sensor::kBlackLevel
-    };
-    info.update(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
-            blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
+        };
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_BLACK_LEVEL_PATTERN,
+                blackLevelPattern, sizeof(blackLevelPattern)/sizeof(int32_t));
+    }
 
-    static const int32_t orientation = 0; // unrotated (0 degrees)
-    info.update(ANDROID_SENSOR_ORIENTATION, &orientation, 1);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const int32_t availableTestPatternModes[] = {
+            ANDROID_SENSOR_TEST_PATTERN_MODE_OFF
+        };
+        ADD_STATIC_ENTRY(ANDROID_SENSOR_AVAILABLE_TEST_PATTERN_MODES,
+                availableTestPatternModes, sizeof(availableTestPatternModes)/sizeof(int32_t));
+    }
 
-    //TODO: sensor color calibration fields
+    // android.lens
+
+    static const float focalLength = 3.30f; // mm
+    ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS,
+            &focalLength, 1);
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        // 5 cm min focus distance for back camera, infinity (fixed focus) for front
+        const float minFocusDistance = mFacingBack ? 1.0/0.05 : 0.0;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+                &minFocusDistance, 1);
+
+        // 5 m hyperfocal distance for back camera, infinity (fixed focus) for front
+        const float hyperFocalDistance = mFacingBack ? 1.0/5.0 : 0.0;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
+                &minFocusDistance, 1);
+
+        static const float aperture = 2.8f;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_APERTURES,
+                &aperture, 1);
+        static const float filterDensity = 0;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_FILTER_DENSITIES,
+                &filterDensity, 1);
+        static const uint8_t availableOpticalStabilization =
+                ANDROID_LENS_OPTICAL_STABILIZATION_MODE_OFF;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION,
+                &availableOpticalStabilization, 1);
+
+        static const int32_t lensShadingMapSize[] = {1, 1};
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_SHADING_MAP_SIZE, lensShadingMapSize,
+                sizeof(lensShadingMapSize)/sizeof(int32_t));
+
+        static const uint8_t lensFocusCalibration =
+                ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION_APPROXIMATE;
+        ADD_STATIC_ENTRY(ANDROID_LENS_INFO_FOCUS_DISTANCE_CALIBRATION, &lensFocusCalibration, 1);
+    }
+
+    if (hasCapability(DEPTH_OUTPUT)) {
+        // These could be included for non-DEPTH capability as well, but making this variable for
+        // testing coverage
+
+        // 90 degree rotation to align with long edge of a phone device that's by default portrait
+        static const float qO[] = { 0.707107f, 0.f, 0.f, 0.707107f};
+
+        // Either a 180-degree rotation for back-facing, or no rotation for front-facing
+        const float qF[] = {0, (mFacingBack ? 1.f : 0.f), 0, (mFacingBack ? 0.f : 1.f)};
+
+        // Quarternion product, orientation change then facing
+        const float lensPoseRotation[] = {qO[0]*qF[0] - qO[1]*qF[1] - qO[2]*qF[2] - qO[3]*qF[3],
+                                          qO[0]*qF[1] + qO[1]*qF[0] + qO[2]*qF[3] - qO[3]*qF[2],
+                                          qO[0]*qF[2] + qO[2]*qF[0] + qO[1]*qF[3] - qO[3]*qF[1],
+                                          qO[0]*qF[3] + qO[3]*qF[0] + qO[1]*qF[2] - qO[2]*qF[1]};
+
+        ADD_STATIC_ENTRY(ANDROID_LENS_POSE_ROTATION, lensPoseRotation,
+                sizeof(lensPoseRotation)/sizeof(float));
+
+        // Only one camera facing each way, so 0 translation needed to the center of the 'main'
+        // camera
+        static const float lensPoseTranslation[] = {0.f, 0.f, 0.f};
+
+        ADD_STATIC_ENTRY(ANDROID_LENS_POSE_TRANSLATION, lensPoseTranslation,
+                sizeof(lensPoseTranslation)/sizeof(float));
+
+        // Intrinsics are 'ideal' (f_x, f_y, c_x, c_y, s) match focal length and active array size
+        float f_x = focalLength * Sensor::kActiveArray[2] / sensorPhysicalSize[0];
+        float f_y = focalLength * Sensor::kActiveArray[3] / sensorPhysicalSize[1];
+        float c_x = Sensor::kActiveArray[2] / 2.f;
+        float c_y = Sensor::kActiveArray[3] / 2.f;
+        float s = 0.f;
+        const float lensIntrinsics[] = { f_x, f_y, c_x, c_y, s };
+
+        ADD_STATIC_ENTRY(ANDROID_LENS_INTRINSIC_CALIBRATION, lensIntrinsics,
+                sizeof(lensIntrinsics)/sizeof(float));
+
+        // No radial or tangential distortion
+
+        float lensRadialDistortion[] = {1.0f, 0.f, 0.f, 0.f, 0.f, 0.f};
+
+        ADD_STATIC_ENTRY(ANDROID_LENS_RADIAL_DISTORTION, lensRadialDistortion,
+                sizeof(lensRadialDistortion)/sizeof(float));
+
+    }
+
+
+    static const uint8_t lensFacing = mFacingBack ?
+            ANDROID_LENS_FACING_BACK : ANDROID_LENS_FACING_FRONT;
+    ADD_STATIC_ENTRY(ANDROID_LENS_FACING, &lensFacing, 1);
 
     // android.flash
-    static const uint8_t flashAvailable = 0;
-    info.update(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
 
-    static const int64_t flashChargeDuration = 0;
-    info.update(ANDROID_FLASH_INFO_CHARGE_DURATION, &flashChargeDuration, 1);
+    static const uint8_t flashAvailable = 0;
+    ADD_STATIC_ENTRY(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
 
     // android.tonemap
 
-    static const int32_t tonemapCurvePoints = 128;
-    info.update(ANDROID_TONEMAP_MAX_CURVE_POINTS, &tonemapCurvePoints, 1);
+    if (hasCapability(MANUAL_POST_PROCESSING)) {
+        static const int32_t tonemapCurvePoints = 128;
+        ADD_STATIC_ENTRY(ANDROID_TONEMAP_MAX_CURVE_POINTS, &tonemapCurvePoints, 1);
+
+        static const uint8_t availableToneMapModes[] = {
+            ANDROID_TONEMAP_MODE_CONTRAST_CURVE,  ANDROID_TONEMAP_MODE_FAST,
+            ANDROID_TONEMAP_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_TONEMAP_AVAILABLE_TONE_MAP_MODES, availableToneMapModes,
+                sizeof(availableToneMapModes));
+    }
 
     // android.scaler
 
-    info.update(ANDROID_SCALER_AVAILABLE_FORMATS,
-            kAvailableFormats,
-            sizeof(kAvailableFormats)/sizeof(int32_t));
+    const std::vector<int32_t> availableStreamConfigurationsBasic = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_RGBA_8888, 320, 240, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
+    };
+    const std::vector<int32_t> availableStreamConfigurationsRaw = {
+        HAL_PIXEL_FORMAT_RAW16, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
+    };
+    const std::vector<int32_t> availableStreamConfigurationsBurst = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT,
+        HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT
+    };
 
-    info.update(ANDROID_SCALER_AVAILABLE_RAW_SIZES,
-            (int32_t*)kAvailableRawSizes,
-            sizeof(kAvailableRawSizes)/sizeof(uint32_t));
+    std::vector<int32_t> availableStreamConfigurations;
 
-    info.update(ANDROID_SCALER_AVAILABLE_RAW_MIN_DURATIONS,
-            (int64_t*)kAvailableRawMinDurations,
-            sizeof(kAvailableRawMinDurations)/sizeof(uint64_t));
-
-    if (mFacingBack) {
-        info.update(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
-                (int32_t*)kAvailableProcessedSizesBack,
-                sizeof(kAvailableProcessedSizesBack)/sizeof(uint32_t));
-    } else {
-        info.update(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
-                (int32_t*)kAvailableProcessedSizesFront,
-                sizeof(kAvailableProcessedSizesFront)/sizeof(uint32_t));
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        availableStreamConfigurations.insert(availableStreamConfigurations.end(),
+                availableStreamConfigurationsBasic.begin(),
+                availableStreamConfigurationsBasic.end());
+    }
+    if (hasCapability(RAW)) {
+        availableStreamConfigurations.insert(availableStreamConfigurations.end(),
+                availableStreamConfigurationsRaw.begin(),
+                availableStreamConfigurationsRaw.end());
+    }
+    if (hasCapability(BURST_CAPTURE)) {
+        availableStreamConfigurations.insert(availableStreamConfigurations.end(),
+                availableStreamConfigurationsBurst.begin(),
+                availableStreamConfigurationsBurst.end());
     }
 
-    info.update(ANDROID_SCALER_AVAILABLE_PROCESSED_MIN_DURATIONS,
-            (int64_t*)kAvailableProcessedMinDurations,
-            sizeof(kAvailableProcessedMinDurations)/sizeof(uint64_t));
-
-    if (mFacingBack) {
-        info.update(ANDROID_SCALER_AVAILABLE_JPEG_SIZES,
-                (int32_t*)kAvailableJpegSizesBack,
-                sizeof(kAvailableJpegSizesBack)/sizeof(uint32_t));
-    } else {
-        info.update(ANDROID_SCALER_AVAILABLE_JPEG_SIZES,
-                (int32_t*)kAvailableJpegSizesFront,
-                sizeof(kAvailableJpegSizesFront)/sizeof(uint32_t));
+    if (availableStreamConfigurations.size() > 0) {
+        ADD_STATIC_ENTRY(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
+                &availableStreamConfigurations[0],
+                availableStreamConfigurations.size());
     }
 
-    info.update(ANDROID_SCALER_AVAILABLE_JPEG_MIN_DURATIONS,
-            (int64_t*)kAvailableJpegMinDurations,
-            sizeof(kAvailableJpegMinDurations)/sizeof(uint64_t));
+    const std::vector<int64_t> availableMinFrameDurationsBasic = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_RGBA_8888, 320, 240, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0]
+    };
+    const std::vector<int64_t> availableMinFrameDurationsRaw = {
+        HAL_PIXEL_FORMAT_RAW16, 640, 480, Sensor::kFrameDurationRange[0]
+    };
+    const std::vector<int64_t> availableMinFrameDurationsBurst = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, Sensor::kFrameDurationRange[0],
+        HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, Sensor::kFrameDurationRange[0],
+    };
 
-    static const float maxZoom = 10;
-    info.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
-            &maxZoom, 1);
+    std::vector<int64_t> availableMinFrameDurations;
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        availableMinFrameDurations.insert(availableMinFrameDurations.end(),
+                availableMinFrameDurationsBasic.begin(),
+                availableMinFrameDurationsBasic.end());
+    }
+    if (hasCapability(RAW)) {
+        availableMinFrameDurations.insert(availableMinFrameDurations.end(),
+                availableMinFrameDurationsRaw.begin(),
+                availableMinFrameDurationsRaw.end());
+    }
+    if (hasCapability(BURST_CAPTURE)) {
+        availableMinFrameDurations.insert(availableMinFrameDurations.end(),
+                availableMinFrameDurationsBurst.begin(),
+                availableMinFrameDurationsBurst.end());
+    }
+
+    if (availableMinFrameDurations.size() > 0) {
+        ADD_STATIC_ENTRY(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
+                &availableMinFrameDurations[0],
+                availableMinFrameDurations.size());
+    }
+
+    const std::vector<int64_t> availableStallDurationsBasic = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 320, 240, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 320, 240, 0,
+        HAL_PIXEL_FORMAT_RGBA_8888, 320, 240, 0,
+        HAL_PIXEL_FORMAT_BLOB, 640, 480, Sensor::kFrameDurationRange[0]
+    };
+    const std::vector<int64_t> availableStallDurationsRaw = {
+        HAL_PIXEL_FORMAT_RAW16, 640, 480, Sensor::kFrameDurationRange[0]
+    };
+    const std::vector<int64_t> availableStallDurationsBurst = {
+        HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 640, 480, 0,
+        HAL_PIXEL_FORMAT_YCbCr_420_888, 640, 480, 0,
+        HAL_PIXEL_FORMAT_RGBA_8888, 640, 480, 0
+    };
+
+    std::vector<int64_t> availableStallDurations;
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        availableStallDurations.insert(availableStallDurations.end(),
+                availableStallDurationsBasic.begin(),
+                availableStallDurationsBasic.end());
+    }
+    if (hasCapability(RAW)) {
+        availableStallDurations.insert(availableStallDurations.end(),
+                availableStallDurationsRaw.begin(),
+                availableStallDurationsRaw.end());
+    }
+    if (hasCapability(BURST_CAPTURE)) {
+        availableStallDurations.insert(availableStallDurations.end(),
+                availableStallDurationsBurst.begin(),
+                availableStallDurationsBurst.end());
+    }
+
+    if (availableStallDurations.size() > 0) {
+        ADD_STATIC_ENTRY(ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,
+                &availableStallDurations[0],
+                availableStallDurations.size());
+    }
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t croppingType = ANDROID_SCALER_CROPPING_TYPE_FREEFORM;
+        ADD_STATIC_ENTRY(ANDROID_SCALER_CROPPING_TYPE,
+                &croppingType, 1);
+
+        static const float maxZoom = 10;
+        ADD_STATIC_ENTRY(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
+                &maxZoom, 1);
+    }
 
     // android.jpeg
 
-    static const int32_t jpegThumbnailSizes[] = {
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const int32_t jpegThumbnailSizes[] = {
             0, 0,
             160, 120,
             320, 240
-     };
-    info.update(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
-            jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));
+        };
+        ADD_STATIC_ENTRY(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES,
+                jpegThumbnailSizes, sizeof(jpegThumbnailSizes)/sizeof(int32_t));
 
-    static const int32_t jpegMaxSize = JpegCompressor::kMaxJpegSize;
-    info.update(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
+        static const int32_t jpegMaxSize = JpegCompressor::kMaxJpegSize;
+        ADD_STATIC_ENTRY(ANDROID_JPEG_MAX_SIZE, &jpegMaxSize, 1);
+    }
 
     // android.stats
 
-    static const uint8_t availableFaceDetectModes[] = {
-        ANDROID_STATISTICS_FACE_DETECT_MODE_OFF,
-        ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE,
-        ANDROID_STATISTICS_FACE_DETECT_MODE_FULL
-    };
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableFaceDetectModes[] = {
+            ANDROID_STATISTICS_FACE_DETECT_MODE_OFF,
+            ANDROID_STATISTICS_FACE_DETECT_MODE_SIMPLE,
+            ANDROID_STATISTICS_FACE_DETECT_MODE_FULL
+        };
+        ADD_STATIC_ENTRY(ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
+                availableFaceDetectModes,
+                sizeof(availableFaceDetectModes));
 
-    info.update(ANDROID_STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES,
-            availableFaceDetectModes,
-            sizeof(availableFaceDetectModes));
+        static const int32_t maxFaceCount = 8;
+        ADD_STATIC_ENTRY(ANDROID_STATISTICS_INFO_MAX_FACE_COUNT,
+                &maxFaceCount, 1);
 
-    static const int32_t maxFaceCount = 8;
-    info.update(ANDROID_STATISTICS_INFO_MAX_FACE_COUNT,
-            &maxFaceCount, 1);
 
-    static const int32_t histogramSize = 64;
-    info.update(ANDROID_STATISTICS_INFO_HISTOGRAM_BUCKET_COUNT,
-            &histogramSize, 1);
+        static const uint8_t availableShadingMapModes[] = {
+            ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF
+        };
+        ADD_STATIC_ENTRY(ANDROID_STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES,
+                availableShadingMapModes, sizeof(availableShadingMapModes));
+    }
 
-    static const int32_t maxHistogramCount = 1000;
-    info.update(ANDROID_STATISTICS_INFO_MAX_HISTOGRAM_COUNT,
-            &maxHistogramCount, 1);
+    // android.sync
 
-    static const int32_t sharpnessMapSize[2] = {64, 64};
-    info.update(ANDROID_STATISTICS_INFO_SHARPNESS_MAP_SIZE,
-            sharpnessMapSize, sizeof(sharpnessMapSize)/sizeof(int32_t));
-
-    static const int32_t maxSharpnessMapValue = 1000;
-    info.update(ANDROID_STATISTICS_INFO_MAX_SHARPNESS_MAP_VALUE,
-            &maxSharpnessMapValue, 1);
+    static const int32_t maxLatency =
+            hasCapability(FULL_LEVEL) ? ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL : 3;
+    ADD_STATIC_ENTRY(ANDROID_SYNC_MAX_LATENCY, &maxLatency, 1);
 
     // android.control
 
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableControlModes[] = {
+            ANDROID_CONTROL_MODE_OFF, ANDROID_CONTROL_MODE_AUTO, ANDROID_CONTROL_MODE_USE_SCENE_MODE
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_MODES,
+                availableControlModes, sizeof(availableControlModes));
+    } else {
+        static const uint8_t availableControlModes[] = {
+            ANDROID_CONTROL_MODE_AUTO
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_MODES,
+                availableControlModes, sizeof(availableControlModes));
+    }
+
     static const uint8_t availableSceneModes[] = {
+        hasCapability(BACKWARD_COMPATIBLE) ?
+            ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY :
             ANDROID_CONTROL_SCENE_MODE_DISABLED
     };
-    info.update(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
+    ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_SCENE_MODES,
             availableSceneModes, sizeof(availableSceneModes));
 
-    static const uint8_t availableEffects[] = {
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableEffects[] = {
             ANDROID_CONTROL_EFFECT_MODE_OFF
-    };
-    info.update(ANDROID_CONTROL_AVAILABLE_EFFECTS,
-            availableEffects, sizeof(availableEffects));
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_EFFECTS,
+                availableEffects, sizeof(availableEffects));
+    }
 
-    static const int32_t max3aRegions[] = {/*AE*/ 0,/*AWB*/ 0,/*AF*/ 0};
-    info.update(ANDROID_CONTROL_MAX_REGIONS,
-            max3aRegions, sizeof(max3aRegions)/sizeof(max3aRegions[0]));
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const int32_t max3aRegions[] = {/*AE*/ 1,/*AWB*/ 0,/*AF*/ 1};
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_MAX_REGIONS,
+                max3aRegions, sizeof(max3aRegions)/sizeof(max3aRegions[0]));
 
-    static const uint8_t availableAeModes[] = {
+        static const uint8_t availableAeModes[] = {
             ANDROID_CONTROL_AE_MODE_OFF,
             ANDROID_CONTROL_AE_MODE_ON
-    };
-    info.update(ANDROID_CONTROL_AE_AVAILABLE_MODES,
-            availableAeModes, sizeof(availableAeModes));
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_AVAILABLE_MODES,
+                availableAeModes, sizeof(availableAeModes));
 
-    static const camera_metadata_rational exposureCompensationStep = {
+        static const camera_metadata_rational exposureCompensationStep = {
             1, 3
-    };
-    info.update(ANDROID_CONTROL_AE_COMPENSATION_STEP,
-            &exposureCompensationStep, 1);
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_STEP,
+                &exposureCompensationStep, 1);
 
-    int32_t exposureCompensationRange[] = {-9, 9};
-    info.update(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
-            exposureCompensationRange,
-            sizeof(exposureCompensationRange)/sizeof(int32_t));
+        int32_t exposureCompensationRange[] = {-9, 9};
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_COMPENSATION_RANGE,
+                exposureCompensationRange,
+                sizeof(exposureCompensationRange)/sizeof(int32_t));
+    }
 
     static const int32_t availableTargetFpsRanges[] = {
-            5, 30, 15, 30
+            5, 30, 15, 30, 15, 15, 30, 30
     };
-    info.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
+    ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             availableTargetFpsRanges,
             sizeof(availableTargetFpsRanges)/sizeof(int32_t));
 
-    static const uint8_t availableAntibandingModes[] = {
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableAntibandingModes[] = {
             ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF,
             ANDROID_CONTROL_AE_ANTIBANDING_MODE_AUTO
-    };
-    info.update(ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES,
-            availableAntibandingModes, sizeof(availableAntibandingModes));
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_AVAILABLE_ANTIBANDING_MODES,
+                availableAntibandingModes, sizeof(availableAntibandingModes));
+    }
 
-    static const uint8_t availableAwbModes[] = {
+    static const uint8_t aeLockAvailable = hasCapability(BACKWARD_COMPATIBLE) ?
+            ANDROID_CONTROL_AE_LOCK_AVAILABLE_TRUE : ANDROID_CONTROL_AE_LOCK_AVAILABLE_FALSE;
+
+    ADD_STATIC_ENTRY(ANDROID_CONTROL_AE_LOCK_AVAILABLE,
+            &aeLockAvailable, 1);
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableAwbModes[] = {
             ANDROID_CONTROL_AWB_MODE_OFF,
             ANDROID_CONTROL_AWB_MODE_AUTO,
             ANDROID_CONTROL_AWB_MODE_INCANDESCENT,
             ANDROID_CONTROL_AWB_MODE_FLUORESCENT,
             ANDROID_CONTROL_AWB_MODE_DAYLIGHT,
             ANDROID_CONTROL_AWB_MODE_SHADE
-    };
-    info.update(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
-            availableAwbModes, sizeof(availableAwbModes));
+        };
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AWB_AVAILABLE_MODES,
+                availableAwbModes, sizeof(availableAwbModes));
+    }
+
+    static const uint8_t awbLockAvailable = hasCapability(BACKWARD_COMPATIBLE) ?
+            ANDROID_CONTROL_AWB_LOCK_AVAILABLE_TRUE : ANDROID_CONTROL_AWB_LOCK_AVAILABLE_FALSE;
+
+    ADD_STATIC_ENTRY(ANDROID_CONTROL_AWB_LOCK_AVAILABLE,
+            &awbLockAvailable, 1);
 
     static const uint8_t availableAfModesBack[] = {
             ANDROID_CONTROL_AF_MODE_OFF,
@@ -1296,30 +1530,235 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
             ANDROID_CONTROL_AF_MODE_OFF
     };
 
-    if (mFacingBack) {
-        info.update(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-                    availableAfModesBack, sizeof(availableAfModesBack));
+    if (mFacingBack && hasCapability(BACKWARD_COMPATIBLE)) {
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+                availableAfModesBack, sizeof(availableAfModesBack));
     } else {
-        info.update(ANDROID_CONTROL_AF_AVAILABLE_MODES,
-                    availableAfModesFront, sizeof(availableAfModesFront));
+        ADD_STATIC_ENTRY(ANDROID_CONTROL_AF_AVAILABLE_MODES,
+                availableAfModesFront, sizeof(availableAfModesFront));
     }
 
     static const uint8_t availableVstabModes[] = {
-            ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF
+        ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF
     };
-    info.update(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
+    ADD_STATIC_ENTRY(ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES,
             availableVstabModes, sizeof(availableVstabModes));
 
+    // android.colorCorrection
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableAberrationModes[] = {
+            ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF,
+            ANDROID_COLOR_CORRECTION_ABERRATION_MODE_FAST,
+            ANDROID_COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_COLOR_CORRECTION_AVAILABLE_ABERRATION_MODES,
+                availableAberrationModes, sizeof(availableAberrationModes));
+    } else {
+        static const uint8_t availableAberrationModes[] = {
+            ANDROID_COLOR_CORRECTION_ABERRATION_MODE_OFF,
+        };
+        ADD_STATIC_ENTRY(ANDROID_COLOR_CORRECTION_AVAILABLE_ABERRATION_MODES,
+                availableAberrationModes, sizeof(availableAberrationModes));
+    }
+    // android.edge
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableEdgeModes[] = {
+            ANDROID_EDGE_MODE_OFF, ANDROID_EDGE_MODE_FAST, ANDROID_EDGE_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_EDGE_AVAILABLE_EDGE_MODES,
+                availableEdgeModes, sizeof(availableEdgeModes));
+    } else {
+        static const uint8_t availableEdgeModes[] = {
+            ANDROID_EDGE_MODE_OFF
+        };
+        ADD_STATIC_ENTRY(ANDROID_EDGE_AVAILABLE_EDGE_MODES,
+                availableEdgeModes, sizeof(availableEdgeModes));
+    }
+
     // android.info
-    const uint8_t supportedHardwareLevel =
-        mFullMode ? ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL :
+
+    static const uint8_t supportedHardwareLevel =
+            hasCapability(FULL_LEVEL) ? ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_FULL :
                     ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED;
-    info.update(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
+    ADD_STATIC_ENTRY(ANDROID_INFO_SUPPORTED_HARDWARE_LEVEL,
                 &supportedHardwareLevel,
                 /*count*/1);
 
+    // android.noiseReduction
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableNoiseReductionModes[] = {
+            ANDROID_NOISE_REDUCTION_MODE_OFF,
+            ANDROID_NOISE_REDUCTION_MODE_FAST,
+            ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES,
+                availableNoiseReductionModes, sizeof(availableNoiseReductionModes));
+    } else {
+        static const uint8_t availableNoiseReductionModes[] = {
+            ANDROID_NOISE_REDUCTION_MODE_OFF,
+        };
+        ADD_STATIC_ENTRY(ANDROID_NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES,
+                availableNoiseReductionModes, sizeof(availableNoiseReductionModes));
+    }
+
+    // android.depth
+
+    if (hasCapability(DEPTH_OUTPUT)) {
+
+        static const int32_t maxDepthSamples = 100;
+        ADD_STATIC_ENTRY(ANDROID_DEPTH_MAX_DEPTH_SAMPLES,
+                &maxDepthSamples, 1);
+
+        static const int32_t availableDepthStreamConfigurations[] = {
+            HAL_PIXEL_FORMAT_Y16, 160, 120, ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT,
+            HAL_PIXEL_FORMAT_BLOB, maxDepthSamples,1, ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS_OUTPUT
+        };
+        ADD_STATIC_ENTRY(ANDROID_DEPTH_AVAILABLE_DEPTH_STREAM_CONFIGURATIONS,
+                availableDepthStreamConfigurations,
+                sizeof(availableDepthStreamConfigurations)/sizeof(int32_t));
+
+        static const int64_t availableDepthMinFrameDurations[] = {
+            HAL_PIXEL_FORMAT_Y16, 160, 120, Sensor::kFrameDurationRange[0],
+            HAL_PIXEL_FORMAT_BLOB, maxDepthSamples,1, Sensor::kFrameDurationRange[0]
+        };
+        ADD_STATIC_ENTRY(ANDROID_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS,
+                availableDepthMinFrameDurations,
+                sizeof(availableDepthMinFrameDurations)/sizeof(int64_t));
+
+        static const int64_t availableDepthStallDurations[] = {
+            HAL_PIXEL_FORMAT_Y16, 160, 120, Sensor::kFrameDurationRange[0],
+            HAL_PIXEL_FORMAT_BLOB, maxDepthSamples,1, Sensor::kFrameDurationRange[0]
+        };
+        ADD_STATIC_ENTRY(ANDROID_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS,
+                availableDepthStallDurations,
+                sizeof(availableDepthStallDurations)/sizeof(int64_t));
+
+        uint8_t depthIsExclusive = ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE_FALSE;
+        ADD_STATIC_ENTRY(ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE,
+                &depthIsExclusive, 1);
+    }
+
+    // android.shading
+
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t availableShadingModes[] = {
+            ANDROID_SHADING_MODE_OFF, ANDROID_SHADING_MODE_FAST, ANDROID_SHADING_MODE_HIGH_QUALITY
+        };
+        ADD_STATIC_ENTRY(ANDROID_SHADING_AVAILABLE_MODES, availableShadingModes,
+                sizeof(availableShadingModes));
+    } else {
+        static const uint8_t availableShadingModes[] = {
+            ANDROID_SHADING_MODE_OFF
+        };
+        ADD_STATIC_ENTRY(ANDROID_SHADING_AVAILABLE_MODES, availableShadingModes,
+                sizeof(availableShadingModes));
+    }
+
+    // android.request
+
+    static const int32_t maxNumOutputStreams[] = {
+            kMaxRawStreamCount, kMaxProcessedStreamCount, kMaxJpegStreamCount
+    };
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_MAX_NUM_OUTPUT_STREAMS, maxNumOutputStreams, 3);
+
+    static const uint8_t maxPipelineDepth = kMaxBufferCount;
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_PIPELINE_MAX_DEPTH, &maxPipelineDepth, 1);
+
+    static const int32_t partialResultCount = 1;
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
+            &partialResultCount, /*count*/1);
+
+    SortedVector<uint8_t> caps;
+    for (size_t i = 0; i < mCapabilities.size(); i++) {
+        switch(mCapabilities[i]) {
+            case BACKWARD_COMPATIBLE:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE);
+                break;
+            case MANUAL_SENSOR:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR);
+                break;
+            case MANUAL_POST_PROCESSING:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING);
+                break;
+            case RAW:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_RAW);
+                break;
+            case PRIVATE_REPROCESSING:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
+                break;
+            case READ_SENSOR_SETTINGS:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS);
+                break;
+            case BURST_CAPTURE:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
+                break;
+            case YUV_REPROCESSING:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING);
+                break;
+            case DEPTH_OUTPUT:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT);
+                break;
+            case CONSTRAINED_HIGH_SPEED_VIDEO:
+                caps.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO);
+                break;
+            default:
+                // Ignore LEVELs
+                break;
+        }
+    }
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_AVAILABLE_CAPABILITIES, caps.array(), caps.size());
+
+    // Scan a default request template for included request keys
+    Vector<int32_t> availableRequestKeys;
+    const camera_metadata_t *previewRequest =
+        constructDefaultRequestSettings(CAMERA3_TEMPLATE_PREVIEW);
+    for (size_t i = 0; i < get_camera_metadata_entry_count(previewRequest); i++) {
+        camera_metadata_ro_entry_t entry;
+        get_camera_metadata_ro_entry(previewRequest, i, &entry);
+        availableRequestKeys.add(entry.tag);
+    }
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS, availableRequestKeys.array(),
+            availableRequestKeys.size());
+
+    // Add a few more result keys. Must be kept up to date with the various places that add these
+
+    Vector<int32_t> availableResultKeys(availableRequestKeys);
+    if (hasCapability(BACKWARD_COMPATIBLE)) {
+        availableResultKeys.add(ANDROID_CONTROL_AE_STATE);
+        availableResultKeys.add(ANDROID_CONTROL_AF_STATE);
+        availableResultKeys.add(ANDROID_CONTROL_AWB_STATE);
+        availableResultKeys.add(ANDROID_FLASH_STATE);
+        availableResultKeys.add(ANDROID_LENS_STATE);
+        availableResultKeys.add(ANDROID_LENS_FOCUS_RANGE);
+        availableResultKeys.add(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW);
+        availableResultKeys.add(ANDROID_STATISTICS_SCENE_FLICKER);
+    }
+
+    if (hasCapability(DEPTH_OUTPUT)) {
+        availableResultKeys.add(ANDROID_LENS_POSE_ROTATION);
+        availableResultKeys.add(ANDROID_LENS_POSE_TRANSLATION);
+        availableResultKeys.add(ANDROID_LENS_INTRINSIC_CALIBRATION);
+        availableResultKeys.add(ANDROID_LENS_RADIAL_DISTORTION);
+    }
+
+    availableResultKeys.add(ANDROID_REQUEST_PIPELINE_DEPTH);
+    availableResultKeys.add(ANDROID_SENSOR_TIMESTAMP);
+
+    ADD_STATIC_ENTRY(ANDROID_REQUEST_AVAILABLE_RESULT_KEYS, availableResultKeys.array(),
+            availableResultKeys.size());
+
+    // Needs to be last, to collect all the keys set
+
+    availableCharacteristicsKeys.add(ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS);
+    info.update(ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS,
+            availableCharacteristicsKeys);
+
     mCameraInfo = info.release();
 
+#undef ADD_STATIC_ENTRY
     return OK;
 }
 
@@ -1340,13 +1779,6 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
     }
     uint8_t controlMode = e.data.u8[0];
 
-    e = settings.find(ANDROID_CONTROL_SCENE_MODE);
-    if (e.count == 0) {
-        ALOGE("%s: No scene mode entry!", __FUNCTION__);
-        return BAD_VALUE;
-    }
-    uint8_t sceneMode = e.data.u8[0];
-
     if (controlMode == ANDROID_CONTROL_MODE_OFF) {
         mAeState  = ANDROID_CONTROL_AE_STATE_INACTIVE;
         mAfState  = ANDROID_CONTROL_AF_STATE_INACTIVE;
@@ -1354,6 +1786,19 @@ status_t EmulatedFakeCamera3::process3A(CameraMetadata &settings) {
         update3A(settings);
         return OK;
     } else if (controlMode == ANDROID_CONTROL_MODE_USE_SCENE_MODE) {
+        if (!hasCapability(BACKWARD_COMPATIBLE)) {
+            ALOGE("%s: Can't use scene mode when BACKWARD_COMPATIBLE not supported!",
+                  __FUNCTION__);
+            return BAD_VALUE;
+        }
+
+        e = settings.find(ANDROID_CONTROL_SCENE_MODE);
+        if (e.count == 0) {
+            ALOGE("%s: No scene mode entry!", __FUNCTION__);
+            return BAD_VALUE;
+        }
+        uint8_t sceneMode = e.data.u8[0];
+
         switch(sceneMode) {
             case ANDROID_CONTROL_SCENE_MODE_FACE_PRIORITY:
                 mFacePriority = true;
@@ -1387,11 +1832,11 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
     camera_metadata_entry e;
 
     e = settings.find(ANDROID_CONTROL_AE_MODE);
-    if (e.count == 0) {
+    if (e.count == 0 && hasCapability(BACKWARD_COMPATIBLE)) {
         ALOGE("%s: No AE mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
-    uint8_t aeMode = e.data.u8[0];
+    uint8_t aeMode = (e.count > 0) ? e.data.u8[0] : (uint8_t)ANDROID_CONTROL_AE_MODE_ON;
 
     switch (aeMode) {
         case ANDROID_CONTROL_AE_MODE_OFF:
@@ -1402,17 +1847,14 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
             // OK for AUTO modes
             break;
         default:
-            ALOGE("%s: Emulator doesn't support AE mode %d",
+            // Mostly silently ignore unsupported modes
+            ALOGV("%s: Emulator doesn't support AE mode %d, assuming ON",
                     __FUNCTION__, aeMode);
-            return BAD_VALUE;
+            break;
     }
 
     e = settings.find(ANDROID_CONTROL_AE_LOCK);
-    if (e.count == 0) {
-        ALOGE("%s: No AE lock entry!", __FUNCTION__);
-        return BAD_VALUE;
-    }
-    bool aeLocked = (e.data.u8[0] == ANDROID_CONTROL_AE_LOCK_ON);
+    bool aeLocked = (e.count > 0) ? (e.data.u8[0] == ANDROID_CONTROL_AE_LOCK_ON) : false;
 
     e = settings.find(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER);
     bool precaptureTrigger = false;
@@ -1427,20 +1869,6 @@ status_t EmulatedFakeCamera3::doFakeAE(CameraMetadata &settings) {
         ALOGV("%s: Pre capture trigger was present? %zu",
               __FUNCTION__,
               e.count);
-    }
-
-    // If we have an aePrecaptureTrigger, aePrecaptureId should be set too
-    if (e.count != 0) {
-        e = settings.find(ANDROID_CONTROL_AE_PRECAPTURE_ID);
-
-        if (e.count == 0) {
-            ALOGE("%s: When android.control.aePrecaptureTrigger is set "
-                  " in the request, aePrecaptureId needs to be set as well",
-                  __FUNCTION__);
-            return BAD_VALUE;
-        }
-
-        mAeTriggerId = e.data.i32[0];
     }
 
     if (precaptureTrigger || mAeState == ANDROID_CONTROL_AE_STATE_PRECAPTURE) {
@@ -1520,32 +1948,19 @@ status_t EmulatedFakeCamera3::doFakeAF(CameraMetadata &settings) {
     camera_metadata_entry e;
 
     e = settings.find(ANDROID_CONTROL_AF_MODE);
-    if (e.count == 0) {
+    if (e.count == 0 && hasCapability(BACKWARD_COMPATIBLE)) {
         ALOGE("%s: No AF mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
-    uint8_t afMode = e.data.u8[0];
+    uint8_t afMode = (e.count > 0) ? e.data.u8[0] : (uint8_t)ANDROID_CONTROL_AF_MODE_OFF;
 
     e = settings.find(ANDROID_CONTROL_AF_TRIGGER);
     typedef camera_metadata_enum_android_control_af_trigger af_trigger_t;
     af_trigger_t afTrigger;
-    // If we have an afTrigger, afTriggerId should be set too
     if (e.count != 0) {
         afTrigger = static_cast<af_trigger_t>(e.data.u8[0]);
 
-        e = settings.find(ANDROID_CONTROL_AF_TRIGGER_ID);
-
-        if (e.count == 0) {
-            ALOGE("%s: When android.control.afTrigger is set "
-                  " in the request, afTriggerId needs to be set as well",
-                  __FUNCTION__);
-            return BAD_VALUE;
-        }
-
-        mAfTriggerId = e.data.i32[0];
-
         ALOGV("%s: AF trigger set to 0x%x", __FUNCTION__, afTrigger);
-        ALOGV("%s: AF trigger ID set to 0x%x", __FUNCTION__, mAfTriggerId);
         ALOGV("%s: AF mode is 0x%x", __FUNCTION__, afMode);
     } else {
         afTrigger = ANDROID_CONTROL_AF_TRIGGER_IDLE;
@@ -1742,11 +2157,11 @@ status_t EmulatedFakeCamera3::doFakeAWB(CameraMetadata &settings) {
     camera_metadata_entry e;
 
     e = settings.find(ANDROID_CONTROL_AWB_MODE);
-    if (e.count == 0) {
+    if (e.count == 0 && hasCapability(BACKWARD_COMPATIBLE)) {
         ALOGE("%s: No AWB mode entry!", __FUNCTION__);
         return BAD_VALUE;
     }
-    uint8_t awbMode = e.data.u8[0];
+    uint8_t awbMode = (e.count > 0) ? e.data.u8[0] : (uint8_t)ANDROID_CONTROL_AWB_MODE_AUTO;
 
     // TODO: Add white balance simulation
 
@@ -1772,7 +2187,7 @@ status_t EmulatedFakeCamera3::doFakeAWB(CameraMetadata &settings) {
 
 
 void EmulatedFakeCamera3::update3A(CameraMetadata &settings) {
-    if (mAeState != ANDROID_CONTROL_AE_STATE_INACTIVE) {
+    if (mAeMode != ANDROID_CONTROL_AE_MODE_OFF) {
         settings.update(ANDROID_SENSOR_EXPOSURE_TIME,
                 &mAeCurrentExposureTime, 1);
         settings.update(ANDROID_SENSOR_SENSITIVITY,
@@ -1785,13 +2200,24 @@ void EmulatedFakeCamera3::update3A(CameraMetadata &settings) {
             &mAfState, 1);
     settings.update(ANDROID_CONTROL_AWB_STATE,
             &mAwbState, 1);
-    /**
-     * TODO: Trigger IDs need a think-through
-     */
-    settings.update(ANDROID_CONTROL_AE_PRECAPTURE_ID,
-            &mAeTriggerId, 1);
-    settings.update(ANDROID_CONTROL_AF_TRIGGER_ID,
-            &mAfTriggerId, 1);
+
+    uint8_t lensState;
+    switch (mAfState) {
+        case ANDROID_CONTROL_AF_STATE_PASSIVE_SCAN:
+        case ANDROID_CONTROL_AF_STATE_ACTIVE_SCAN:
+            lensState = ANDROID_LENS_STATE_MOVING;
+            break;
+        case ANDROID_CONTROL_AF_STATE_INACTIVE:
+        case ANDROID_CONTROL_AF_STATE_PASSIVE_FOCUSED:
+        case ANDROID_CONTROL_AF_STATE_FOCUSED_LOCKED:
+        case ANDROID_CONTROL_AF_STATE_NOT_FOCUSED_LOCKED:
+        case ANDROID_CONTROL_AF_STATE_PASSIVE_UNFOCUSED:
+        default:
+            lensState = ANDROID_LENS_STATE_STATIONARY;
+            break;
+    }
+    settings.update(ANDROID_LENS_STATE, &lensState, 1);
+
 }
 
 void EmulatedFakeCamera3::signalReadoutIdle() {
@@ -1925,7 +2351,7 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
     while(buf != mCurrentRequest.buffers->end()) {
         bool goodBuffer = true;
         if ( buf->stream->format ==
-                HAL_PIXEL_FORMAT_BLOB) {
+                HAL_PIXEL_FORMAT_BLOB && buf->stream->data_space != HAL_DATASPACE_DEPTH) {
             Mutex::Autolock jl(mJpegLock);
             if (mJpegWaiting) {
                 // This shouldn't happen, because processCaptureRequest should
@@ -1969,13 +2395,59 @@ bool EmulatedFakeCamera3::ReadoutThread::threadLoop() {
 
     camera3_capture_result result;
 
+    if (mParent->hasCapability(BACKWARD_COMPATIBLE)) {
+        static const uint8_t sceneFlicker = ANDROID_STATISTICS_SCENE_FLICKER_NONE;
+        mCurrentRequest.settings.update(ANDROID_STATISTICS_SCENE_FLICKER,
+                &sceneFlicker, 1);
+
+        static const uint8_t flashState = ANDROID_FLASH_STATE_UNAVAILABLE;
+        mCurrentRequest.settings.update(ANDROID_FLASH_STATE,
+                &flashState, 1);
+
+        nsecs_t rollingShutterSkew = Sensor::kFrameDurationRange[0];
+        mCurrentRequest.settings.update(ANDROID_SENSOR_ROLLING_SHUTTER_SKEW,
+                &rollingShutterSkew, 1);
+
+        float focusRange[] = { 1.0f/5.0f, 0 }; // 5 m to infinity in focus
+        mCurrentRequest.settings.update(ANDROID_LENS_FOCUS_RANGE,
+                focusRange, sizeof(focusRange)/sizeof(float));
+    }
+
+    if (mParent->hasCapability(DEPTH_OUTPUT)) {
+        camera_metadata_entry_t entry;
+
+        find_camera_metadata_entry(mParent->mCameraInfo, ANDROID_LENS_POSE_TRANSLATION, &entry);
+        mCurrentRequest.settings.update(ANDROID_LENS_POSE_TRANSLATION,
+                entry.data.f, entry.count);
+
+        find_camera_metadata_entry(mParent->mCameraInfo, ANDROID_LENS_POSE_ROTATION, &entry);
+        mCurrentRequest.settings.update(ANDROID_LENS_POSE_ROTATION,
+                entry.data.f, entry.count);
+
+        find_camera_metadata_entry(mParent->mCameraInfo, ANDROID_LENS_INTRINSIC_CALIBRATION, &entry);
+        mCurrentRequest.settings.update(ANDROID_LENS_INTRINSIC_CALIBRATION,
+                entry.data.f, entry.count);
+
+        find_camera_metadata_entry(mParent->mCameraInfo, ANDROID_LENS_RADIAL_DISTORTION, &entry);
+        mCurrentRequest.settings.update(ANDROID_LENS_RADIAL_DISTORTION,
+                entry.data.f, entry.count);
+    }
+
     mCurrentRequest.settings.update(ANDROID_SENSOR_TIMESTAMP,
             &captureTime, 1);
+
+
+    // JPEGs take a stage longer
+    const uint8_t pipelineDepth = needJpeg ? kMaxBufferCount : kMaxBufferCount - 1;
+    mCurrentRequest.settings.update(ANDROID_REQUEST_PIPELINE_DEPTH,
+            &pipelineDepth, 1);
 
     result.frame_number = mCurrentRequest.frameNumber;
     result.result = mCurrentRequest.settings.getAndLock();
     result.num_output_buffers = mCurrentRequest.buffers->size();
     result.output_buffers = mCurrentRequest.buffers->array();
+    result.input_buffer = nullptr;
+    result.partial_result = 1;
 
     // Go idle if queue is empty, before sending result
     bool signalIdle = false;

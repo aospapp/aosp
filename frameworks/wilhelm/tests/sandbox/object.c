@@ -21,7 +21,7 @@
 #include <SLES/OpenSLES.h>
 #include "OpenSLESUT.h"
 
-int main(int arg, char **argv)
+int main(int arg __unused, char **argv __unused)
 {
     SLresult result;
 

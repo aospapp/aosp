@@ -16,16 +16,19 @@
 
 package com.android.incallui;
 
-import com.google.common.collect.Maps;
-import com.google.common.base.Preconditions;
-
 import android.os.Handler;
 import android.os.Message;
+import android.os.Trace;
 import android.telecom.DisconnectCause;
-import android.telecom.Phone;
+import android.telecom.PhoneAccount;
+
+import com.android.contacts.common.testing.NeededForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,7 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * as they are received from the telephony stack. Primary listener of changes to this class is
  * InCallPresenter.
  */
-public class CallList implements InCallPhoneListener {
+public class CallList {
 
     private static final int DISCONNECTED_CALL_SHORT_TIMEOUT_MS = 200;
     private static final int DISCONNECTED_CALL_MEDIUM_TIMEOUT_MS = 2000;
@@ -58,8 +61,8 @@ public class CallList implements InCallPhoneListener {
             new ConcurrentHashMap<Listener, Boolean>(8, 0.9f, 1));
     private final HashMap<String, List<CallUpdateListener>> mCallUpdateListenerMap = Maps
             .newHashMap();
-
-    private Phone mPhone;
+    private final Set<Call> mPendingDisconnectCalls = Collections.newSetFromMap(
+            new ConcurrentHashMap<Call, Boolean>(8, 0.9f, 1));
 
     /**
      * Static singleton accessor method.
@@ -68,44 +71,35 @@ public class CallList implements InCallPhoneListener {
         return sInstance;
     }
 
-    private Phone.Listener mPhoneListener = new Phone.Listener() {
-        @Override
-        public void onCallAdded(Phone phone, android.telecom.Call telecommCall) {
-            Call call = new Call(telecommCall);
-            if (call.getState() == Call.State.INCOMING) {
-                onIncoming(call, call.getCannedSmsResponses());
-            } else {
-                onUpdate(call);
-            }
-        }
-        @Override
-        public void onCallRemoved(Phone phone, android.telecom.Call telecommCall) {
-            if (mCallByTelecommCall.containsKey(telecommCall)) {
-                Call call = mCallByTelecommCall.get(telecommCall);
-                if (updateCallInMap(call)) {
-                    Log.w(this, "Removing call not previously disconnected " + call.getId());
-                }
-                updateCallTextMap(call, null);
-            }
-        }
-    };
-
     /**
-     * Private constructor.  Instance should only be acquired through getInstance().
+     * USED ONLY FOR TESTING
+     * Testing-only constructor.  Instance should only be acquired through getInstance().
      */
-    private CallList() {
+    @NeededForTesting
+    CallList() {
     }
 
-    @Override
-    public void setPhone(Phone phone) {
-        mPhone = phone;
-        mPhone.addListener(mPhoneListener);
+    public void onCallAdded(android.telecom.Call telecommCall) {
+        Trace.beginSection("onCallAdded");
+        Call call = new Call(telecommCall);
+        Log.d(this, "onCallAdded: callState=" + call.getState());
+        if (call.getState() == Call.State.INCOMING ||
+                call.getState() == Call.State.CALL_WAITING) {
+            onIncoming(call, call.getCannedSmsResponses());
+        } else {
+            onUpdate(call);
+        }
+        Trace.endSection();
     }
 
-    @Override
-    public void clearPhone() {
-        mPhone.removeListener(mPhoneListener);
-        mPhone = null;
+    public void onCallRemoved(android.telecom.Call telecommCall) {
+        if (mCallByTelecommCall.containsKey(telecommCall)) {
+            Call call = mCallByTelecommCall.get(telecommCall);
+            if (updateCallInMap(call)) {
+                Log.w(this, "Removing call not previously disconnected " + call.getId());
+            }
+            updateCallTextMap(call, null);
+        }
     }
 
     /**
@@ -135,12 +129,35 @@ public class CallList implements InCallPhoneListener {
         }
     }
 
+    public void onUpgradeToVideo(Call call){
+        Log.d(this, "onUpgradeToVideo call=" + call);
+        for (Listener listener : mListeners) {
+            listener.onUpgradeToVideo(call);
+        }
+    }
     /**
      * Called when a single call has changed.
      */
     public void onUpdate(Call call) {
+        Trace.beginSection("onUpdate");
         onUpdateCall(call);
         notifyGenericListeners();
+        Trace.endSection();
+    }
+
+    /**
+     * Called when a single call has changed session modification state.
+     *
+     * @param call The call.
+     * @param sessionModificationState The new session modification state.
+     */
+    public void onSessionModificationStateChange(Call call, int sessionModificationState) {
+        final List<CallUpdateListener> listeners = mCallUpdateListenerMap.get(call.getId());
+        if (listeners != null) {
+            for (CallUpdateListener listener : listeners) {
+                listener.onSessionModificationStateChange(sessionModificationState);
+            }
+        }
     }
 
     public void notifyCallUpdateListeners(Call call) {
@@ -220,7 +237,7 @@ public class CallList implements InCallPhoneListener {
      * A call that is waiting for {@link PhoneAccount} selection
      */
     public Call getWaitingForAccountCall() {
-        return getFirstCallWithState(Call.State.PRE_DIAL_WAIT);
+        return getFirstCallWithState(Call.State.SELECT_PHONE_ACCOUNT);
     }
 
     public Call getPendingOutgoingCall() {
@@ -377,6 +394,19 @@ public class CallList implements InCallPhoneListener {
     }
 
     /**
+     * Called when the user has dismissed an error dialog. This indicates acknowledgement of
+     * the disconnect cause, and that any pending disconnects should immediately occur.
+     */
+    public void onErrorDialogDismissed() {
+        final Iterator<Call> iterator = mPendingDisconnectCalls.iterator();
+        while (iterator.hasNext()) {
+            Call call = iterator.next();
+            iterator.remove();
+            finishDisconnectedCall(call);
+        }
+    }
+
+    /**
      * Processes an update for a single call.
      *
      * @param call The call to update.
@@ -424,6 +454,7 @@ public class CallList implements InCallPhoneListener {
                 // Set up a timer to destroy the call after X seconds.
                 final Message msg = mHandler.obtainMessage(EVENT_DISCONNECTED_TIMEOUT, call);
                 mHandler.sendMessageDelayed(msg, getDelayForDisconnect(call));
+                mPendingDisconnectCalls.add(call);
 
                 mCallById.put(call.getId(), call);
                 mCallByTelecommCall.put(call.getTelecommCall(), call);
@@ -453,6 +484,7 @@ public class CallList implements InCallPhoneListener {
                 delay = DISCONNECTED_CALL_SHORT_TIMEOUT_MS;
                 break;
             case DisconnectCause.REMOTE:
+            case DisconnectCause.ERROR:
                 delay = DISCONNECTED_CALL_MEDIUM_TIMEOUT_MS;
                 break;
             case DisconnectCause.REJECTED:
@@ -490,6 +522,9 @@ public class CallList implements InCallPhoneListener {
      * Sets up a call for deletion and notifies listeners of change.
      */
     private void finishDisconnectedCall(Call call) {
+        if (mPendingDisconnectCalls.contains(call)) {
+            mPendingDisconnectCalls.remove(call);
+        }
         call.setState(Call.State.IDLE);
         updateCallInMap(call);
         notifyGenericListeners();
@@ -502,7 +537,12 @@ public class CallList implements InCallPhoneListener {
      */
     public void notifyCallsOfDeviceRotation(int rotation) {
         for (Call call : mCallById.values()) {
-            if (call.getVideoCall() != null) {
+            // First, ensure a VideoCall is set on the call so that the change can be sent to the
+            // provider (a VideoCall can be present for a call that does not currently have video,
+            // but can be upgraded to video).
+            // Second, ensure that the call videoState has video enabled (there is no need to set
+            // device orientation on a voice call which has not yet been upgraded to video).
+            if (call.getVideoCall() != null && CallUtils.isVideoCall(call)) {
                 call.getVideoCall().setDeviceOrientation(rotation);
             }
         }
@@ -539,7 +579,11 @@ public class CallList implements InCallPhoneListener {
          * incoming calls.
          */
         public void onIncomingCall(Call call);
-
+        /**
+         * Called when a new modify call request comes in
+         * This is the only method that gets called for modify requests.
+         */
+        public void onUpgradeToVideo(Call call);
         /**
          * Called anytime there are changes to the call list.  The change can be switching call
          * states, updating information, etc. This method will NOT be called for new incoming
@@ -553,10 +597,19 @@ public class CallList implements InCallPhoneListener {
          * that will get called upon disconnection.
          */
         public void onDisconnect(Call call);
+
+
     }
 
     public interface CallUpdateListener {
         // TODO: refactor and limit arg to be call state.  Caller info is not needed.
         public void onCallChanged(Call call);
+
+        /**
+         * Notifies of a change to the session modification state for a call.
+         *
+         * @param sessionModificationState The new session modification state.
+         */
+        public void onSessionModificationStateChange(int sessionModificationState);
     }
 }

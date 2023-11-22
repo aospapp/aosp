@@ -17,7 +17,7 @@
 #include "./vp8li.h"
 #include "../utils/quant_levels_dec.h"
 #include "../utils/utils.h"
-#include "webp/format_constants.h"
+#include "../webp/format_constants.h"
 
 //------------------------------------------------------------------------------
 // ALPHDecoder object.

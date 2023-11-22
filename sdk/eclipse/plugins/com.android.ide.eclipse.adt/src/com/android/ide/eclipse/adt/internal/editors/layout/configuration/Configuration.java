@@ -29,10 +29,9 @@ import com.android.ide.common.resources.ResourceRepository;
 import com.android.ide.common.resources.configuration.DensityQualifier;
 import com.android.ide.common.resources.configuration.DeviceConfigHelper;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
 import com.android.ide.common.resources.configuration.LayoutDirectionQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.common.resources.configuration.NightModeQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
 import com.android.ide.common.resources.configuration.ScreenSizeQualifier;
 import com.android.ide.common.resources.configuration.UiModeQualifier;
 import com.android.ide.common.resources.configuration.VersionQualifier;
@@ -374,7 +373,7 @@ public class Configuration {
      * @return if this configuration represents a locale-specific layout
      */
     public boolean isLocaleSpecificLayout() {
-        return mEditedConfig == null || mEditedConfig.getLanguageQualifier() != null;
+        return mEditedConfig == null || mEditedConfig.getLocaleQualifier() != null;
     }
 
     /**
@@ -563,8 +562,7 @@ public class Configuration {
 
         // sync the selected locale
         Locale locale = getLocale();
-        mFullConfig.setLanguageQualifier(locale.language);
-        mFullConfig.setRegionQualifier(locale.region);
+        mFullConfig.setLocaleQualifier(locale.qualifier);
         if (!locale.hasLanguage()) {
             // Avoid getting the layout library if the locale doesn't have any language.
             mFullConfig.setLayoutDirectionQualifier(
@@ -630,11 +628,13 @@ public class Configuration {
             }
             sb.append(SEP);
             Locale locale = getLocale();
-            if (isLocaleSpecificLayout() && locale != null) {
+            if (isLocaleSpecificLayout() && locale != null && locale.qualifier.hasLanguage()) {
                 // locale[0]/[1] can be null sometimes when starting Eclipse
-                sb.append(locale.language.getValue());
+                sb.append(locale.qualifier.getLanguage());
                 sb.append(SEP_LOCALE);
-                sb.append(locale.region.getValue());
+                if (locale.qualifier.hasRegion()) {
+                    sb.append(locale.qualifier.getRegion());
+                }
             }
             sb.append(SEP);
             // Need to escape the theme: if we write the full theme style, then
@@ -747,7 +747,7 @@ public class Configuration {
     boolean initialize(String data) {
         String[] values = data.split(SEP);
         if (values.length >= 6 && values.length <= 8) {
-            for (Device d : mConfigChooser.getDeviceList()) {
+            for (Device d : mConfigChooser.getDevices()) {
                 if (d.getName().equals(values[0])) {
                     mDevice = d;
                     String stateName = null;
@@ -764,17 +764,18 @@ public class Configuration {
                     if (config != null) {
                         // Load locale. Note that this can get overwritten by the
                         // project-wide settings read below.
-                        LanguageQualifier language = Locale.ANY_LANGUAGE;
-                        RegionQualifier region = Locale.ANY_REGION;
+                        LocaleQualifier locale = Locale.ANY_QUALIFIER;
                         String locales[] = values[2].split(SEP_LOCALE);
-                        if (locales.length >= 2) {
-                            if (locales[0].length() > 0) {
-                                language = new LanguageQualifier(locales[0]);
+                        if (locales.length >= 2 && locales[0].length() > 0
+                                && !LocaleQualifier.FAKE_VALUE.equals(locales[0])) {
+                            String language = locales[0];
+                            String region = locales[1];
+                            if (region.length() > 0 && !LocaleQualifier.FAKE_VALUE.equals(region)) {
+                                locale = LocaleQualifier.getQualifier(language + "-r" + region);
+                            } else {
+                                locale = new LocaleQualifier(language);
                             }
-                            if (locales[1].length() > 0) {
-                                region = new RegionQualifier(locales[1]);
-                            }
-                            mLocale = Locale.create(language, region);
+                            mLocale = Locale.create(locale);
                         }
 
                         // Decode the theme name: See {@link #getData}
@@ -848,19 +849,21 @@ public class Configuration {
 
                 String[] values = data.split(SEP);
                 if (values.length == 2) {
-                    LanguageQualifier language = Locale.ANY_LANGUAGE;
-                    RegionQualifier region = Locale.ANY_REGION;
-                    String locales[] = values[0].split(SEP_LOCALE);
-                    if (locales.length >= 2) {
-                        if (locales[0].length() > 0) {
-                            language = new LanguageQualifier(locales[0]);
-                        }
-                        if (locales[1].length() > 0) {
-                            region = new RegionQualifier(locales[1]);
-                        }
-                    }
-                    locale = Locale.create(language, region);
 
+                    LocaleQualifier qualifier = Locale.ANY_QUALIFIER;
+                    String locales[] = values[0].split(SEP_LOCALE);
+                    if (locales.length >= 2 && locales[0].length() > 0
+                            && !LocaleQualifier.FAKE_VALUE.equals(locales[0])) {
+                        String language = locales[0];
+                        String region = locales[1];
+                        if (region.length() > 0 && !LocaleQualifier.FAKE_VALUE.equals(region)) {
+                            locale = Locale.create(LocaleQualifier.getQualifier(language + "-r" + region));
+                        } else {
+                            locale = Locale.create(new LocaleQualifier(language));
+                        }
+                    } else {
+                        locale = Locale.ANY;
+                    }
                     if (AdtPrefs.getPrefs().isAutoPickRenderTarget()) {
                         target = ConfigurationMatcher.findDefaultRenderTarget(chooser);
                     } else {
@@ -916,9 +919,11 @@ public class Configuration {
             Locale locale = getLocale();
             if (locale != null) {
                 // locale[0]/[1] can be null sometimes when starting Eclipse
-                sb.append(locale.language.getValue());
+                sb.append(locale.qualifier.getLanguage());
                 sb.append(SEP_LOCALE);
-                sb.append(locale.region.getValue());
+                if (locale.qualifier.hasRegion()) {
+                    sb.append(locale.qualifier.getRegion());
+                }
             }
             sb.append(SEP);
             IAndroidTarget target = getTarget();

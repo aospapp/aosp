@@ -10,6 +10,9 @@
 #ifndef TEST_VIDEO_SOURCE_H_
 #define TEST_VIDEO_SOURCE_H_
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -49,6 +52,58 @@ static FILE *OpenTestDataFile(const std::string& file_name) {
   const std::string path_to_source = GetDataPath() + "/" + file_name;
   return fopen(path_to_source.c_str(), "rb");
 }
+
+static FILE *GetTempOutFile(std::string *file_name) {
+  file_name->clear();
+#if defined(_WIN32)
+  char fname[MAX_PATH];
+  char tmppath[MAX_PATH];
+  if (GetTempPathA(MAX_PATH, tmppath)) {
+    // Assume for now that the filename generated is unique per process
+    if (GetTempFileNameA(tmppath, "lvx", 0, fname)) {
+      file_name->assign(fname);
+      return fopen(fname, "wb+");
+    }
+  }
+  return NULL;
+#else
+  return tmpfile();
+#endif
+}
+
+class TempOutFile {
+ public:
+  TempOutFile() {
+    file_ = GetTempOutFile(&file_name_);
+  }
+  ~TempOutFile() {
+    CloseFile();
+    if (!file_name_.empty()) {
+      EXPECT_EQ(0, remove(file_name_.c_str()));
+    }
+  }
+  FILE *file() {
+    return file_;
+  }
+  const std::string& file_name() {
+    return file_name_;
+  }
+
+ protected:
+  void CloseFile() {
+    if (file_) {
+      // Close if file pointer is associated with an open file
+#if defined(_WIN32)
+      if (file_->_ptr != NULL) fclose(file_);
+#else
+      if (fileno(file_) != -1) fclose(file_);
+#endif
+      file_ = NULL;
+    }
+  }
+  FILE *file_;
+  std::string file_name_;
+};
 
 // Abstract base class for test video sources, which provide a stream of
 // vpx_image_t images with associated timestamps and duration.
@@ -118,6 +173,10 @@ class DummyVideoSource : public VideoSource {
 
   virtual unsigned int limit() const { return limit_; }
 
+  void set_limit(unsigned int limit) {
+    limit_ = limit;
+  }
+
   void SetSize(unsigned int width, unsigned int height) {
     if (width != width_ || height != height_) {
       vpx_img_free(img_);
@@ -129,7 +188,7 @@ class DummyVideoSource : public VideoSource {
   }
 
  protected:
-  virtual void FillFrame() { memset(img_->img_data, 0, raw_sz_); }
+  virtual void FillFrame() { if (img_) memset(img_->img_data, 0, raw_sz_); }
 
   vpx_image_t *img_;
   size_t       raw_sz_;
@@ -157,11 +216,13 @@ class RandomVideoSource : public DummyVideoSource {
   // 15 frames of noise, followed by 15 static frames. Reset to 0 rather
   // than holding previous frames to encourage keyframes to be thrown.
   virtual void FillFrame() {
-    if (frame_ % 30 < 15)
-      for (size_t i = 0; i < raw_sz_; ++i)
-        img_->img_data[i] = rnd_.Rand8();
-    else
-      memset(img_->img_data, 0, raw_sz_);
+    if (img_) {
+      if (frame_ % 30 < 15)
+        for (size_t i = 0; i < raw_sz_; ++i)
+          img_->img_data[i] = rnd_.Rand8();
+      else
+        memset(img_->img_data, 0, raw_sz_);
+    }
   }
 
   ACMRandom rnd_;

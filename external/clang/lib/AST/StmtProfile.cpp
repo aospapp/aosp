@@ -273,6 +273,11 @@ void OMPClauseProfiler::VisitOMPIfClause(const OMPIfClause *C) {
     Profiler->VisitStmt(C->getCondition());
 }
 
+void OMPClauseProfiler::VisitOMPFinalClause(const OMPFinalClause *C) {
+  if (C->getCondition())
+    Profiler->VisitStmt(C->getCondition());
+}
+
 void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
   if (C->getNumThreads())
     Profiler->VisitStmt(C->getNumThreads());
@@ -301,22 +306,55 @@ void OMPClauseProfiler::VisitOMPOrderedClause(const OMPOrderedClause *) {}
 
 void OMPClauseProfiler::VisitOMPNowaitClause(const OMPNowaitClause *) {}
 
+void OMPClauseProfiler::VisitOMPUntiedClause(const OMPUntiedClause *) {}
+
+void OMPClauseProfiler::VisitOMPMergeableClause(const OMPMergeableClause *) {}
+
+void OMPClauseProfiler::VisitOMPReadClause(const OMPReadClause *) {}
+
+void OMPClauseProfiler::VisitOMPWriteClause(const OMPWriteClause *) {}
+
+void OMPClauseProfiler::VisitOMPUpdateClause(const OMPUpdateClause *) {}
+
+void OMPClauseProfiler::VisitOMPCaptureClause(const OMPCaptureClause *) {}
+
+void OMPClauseProfiler::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
+
 template<typename T>
 void OMPClauseProfiler::VisitOMPClauseList(T *Node) {
-  for (auto *I : Node->varlists())
-    Profiler->VisitStmt(I);
+  for (auto *E : Node->varlists()) {
+    Profiler->VisitStmt(E);
+  }
 }
 
 void OMPClauseProfiler::VisitOMPPrivateClause(const OMPPrivateClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->private_copies()) {
+    Profiler->VisitStmt(E);
+  }
 }
-void OMPClauseProfiler::VisitOMPFirstprivateClause(
-                                         const OMPFirstprivateClause *C) {
+void
+OMPClauseProfiler::VisitOMPFirstprivateClause(const OMPFirstprivateClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->private_copies()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->inits()) {
+    Profiler->VisitStmt(E);
+  }
 }
 void
 OMPClauseProfiler::VisitOMPLastprivateClause(const OMPLastprivateClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->source_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Profiler->VisitStmt(E);
+  }
 }
 void OMPClauseProfiler::VisitOMPSharedClause(const OMPSharedClause *C) {
   VisitOMPClauseList(C);
@@ -327,10 +365,29 @@ void OMPClauseProfiler::VisitOMPReductionClause(
       C->getQualifierLoc().getNestedNameSpecifier());
   Profiler->VisitName(C->getNameInfo().getName());
   VisitOMPClauseList(C);
+  for (auto *E : C->lhs_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->rhs_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->reduction_ops()) {
+    Profiler->VisitStmt(E);
+  }
 }
 void OMPClauseProfiler::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->inits()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->updates()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->finals()) {
+    Profiler->VisitStmt(E);
+  }
   Profiler->VisitStmt(C->getStep());
+  Profiler->VisitStmt(C->getCalcStep());
 }
 void OMPClauseProfiler::VisitOMPAlignedClause(const OMPAlignedClause *C) {
   VisitOMPClauseList(C);
@@ -338,9 +395,30 @@ void OMPClauseProfiler::VisitOMPAlignedClause(const OMPAlignedClause *C) {
 }
 void OMPClauseProfiler::VisitOMPCopyinClause(const OMPCopyinClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->source_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Profiler->VisitStmt(E);
+  }
 }
 void
 OMPClauseProfiler::VisitOMPCopyprivateClause(const OMPCopyprivateClause *C) {
+  VisitOMPClauseList(C);
+  for (auto *E : C->source_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->destination_exprs()) {
+    Profiler->VisitStmt(E);
+  }
+  for (auto *E : C->assignment_ops()) {
+    Profiler->VisitStmt(E);
+  }
+}
+void OMPClauseProfiler::VisitOMPFlushClause(const OMPFlushClause *C) {
   VisitOMPClauseList(C);
 }
 }
@@ -356,16 +434,24 @@ StmtProfiler::VisitOMPExecutableDirective(const OMPExecutableDirective *S) {
       P.Visit(*I);
 }
 
+void StmtProfiler::VisitOMPLoopDirective(const OMPLoopDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
 void StmtProfiler::VisitOMPParallelDirective(const OMPParallelDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
 void StmtProfiler::VisitOMPSimdDirective(const OMPSimdDirective *S) {
-  VisitOMPExecutableDirective(S);
+  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitOMPForDirective(const OMPForDirective *S) {
-  VisitOMPExecutableDirective(S);
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPForSimdDirective(const OMPForSimdDirective *S) {
+  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitOMPSectionsDirective(const OMPSectionsDirective *S) {
@@ -380,13 +466,63 @@ void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
+void StmtProfiler::VisitOMPMasterDirective(const OMPMasterDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPCriticalDirective(const OMPCriticalDirective *S) {
+  VisitOMPExecutableDirective(S);
+  VisitName(S->getDirectiveName().getName());
+}
+
 void
 StmtProfiler::VisitOMPParallelForDirective(const OMPParallelForDirective *S) {
-  VisitOMPExecutableDirective(S);
+  VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPParallelForSimdDirective(
+    const OMPParallelForSimdDirective *S) {
+  VisitOMPLoopDirective(S);
 }
 
 void StmtProfiler::VisitOMPParallelSectionsDirective(
     const OMPParallelSectionsDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPTaskDirective(const OMPTaskDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPTaskyieldDirective(const OMPTaskyieldDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPBarrierDirective(const OMPBarrierDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPTaskwaitDirective(const OMPTaskwaitDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPOrderedDirective(const OMPOrderedDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPAtomicDirective(const OMPAtomicDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPTargetDirective(const OMPTargetDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPTeamsDirective(const OMPTeamsDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
@@ -411,6 +547,7 @@ void StmtProfiler::VisitPredefinedExpr(const PredefinedExpr *S) {
 void StmtProfiler::VisitIntegerLiteral(const IntegerLiteral *S) {
   VisitExpr(S);
   S->getValue().Profile(ID);
+  ID.AddInteger(S->getType()->castAs<BuiltinType>()->getKind());
 }
 
 void StmtProfiler::VisitCharacterLiteral(const CharacterLiteral *S) {
@@ -423,6 +560,7 @@ void StmtProfiler::VisitFloatingLiteral(const FloatingLiteral *S) {
   VisitExpr(S);
   S->getValue().Profile(ID);
   ID.AddBoolean(S->isExact());
+  ID.AddInteger(S->getType()->castAs<BuiltinType>()->getKind());
 }
 
 void StmtProfiler::VisitImaginaryLiteral(const ImaginaryLiteral *S) {
@@ -977,6 +1115,8 @@ StmtProfiler::VisitLambdaExpr(const LambdaExpr *S) {
       VisitDecl(C->getCapturedVar());
       ID.AddBoolean(C->isPackExpansion());
       break;
+    case LCK_VLAType:
+      llvm_unreachable("VLA type in explicit captures.");
     }
   }
   // Note: If we actually needed to be able to match lambda
@@ -1146,8 +1286,17 @@ void StmtProfiler::VisitMaterializeTemporaryExpr(
   VisitExpr(S);
 }
 
+void StmtProfiler::VisitCXXFoldExpr(const CXXFoldExpr *S) {
+  VisitExpr(S);
+  ID.AddInteger(S->getOperator());
+}
+
 void StmtProfiler::VisitOpaqueValueExpr(const OpaqueValueExpr *E) {
   VisitExpr(E);  
+}
+
+void StmtProfiler::VisitTypoExpr(const TypoExpr *E) {
+  VisitExpr(E);
 }
 
 void StmtProfiler::VisitObjCStringLiteral(const ObjCStringLiteral *S) {
@@ -1347,9 +1496,8 @@ void StmtProfiler::VisitTemplateArgument(const TemplateArgument &Arg) {
     break;
 
   case TemplateArgument::Pack:
-    const TemplateArgument *Pack = Arg.pack_begin();
-    for (unsigned i = 0, e = Arg.pack_size(); i != e; ++i)
-      VisitTemplateArgument(Pack[i]);
+    for (const auto &P : Arg.pack_elements())
+      VisitTemplateArgument(P);
     break;
   }
 }

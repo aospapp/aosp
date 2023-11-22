@@ -115,7 +115,10 @@ class AudioHardwareOutput {
     // may obtain the routing lock are...
     // 1) ~AudioStreamOut (calls releaseAllOutputs)
     // 2) standby (calls releaseAllOutputs)
-    // 3) setTgtDevices
+    // 3) pause (calls releaseAllOutputs)
+    // 4) setTgtDevices
+    // 5) getPresentationPosition
+    // 6) write
     //
     // mSettingsLock is held while reading settings and while writing/applying
     // settings to existing outputs.  Lock ordering is important when applying

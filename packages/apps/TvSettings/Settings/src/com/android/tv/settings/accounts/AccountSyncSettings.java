@@ -16,13 +16,6 @@
 
 package com.android.tv.settings.accounts;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.ContentFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.OnAccountsUpdateListener;
@@ -37,10 +30,16 @@ import android.content.pm.ProviderInfo;
 import android.net.ConnectivityManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.preference.Preference;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.old.ActionFragment;
+import com.android.tv.settings.dialog.old.ContentFragment;
+import com.android.tv.settings.dialog.old.DialogActivity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,7 +78,7 @@ public class AccountSyncSettings extends DialogActivity implements OnAccountsUpd
 
     private ActionFragment mActionFragment;
 
-    private SyncStatusObserver mSyncStatusObserver = new SyncStatusObserver() {
+    private final SyncStatusObserver mSyncStatusObserver = new SyncStatusObserver() {
 
         @Override
         public void onStatusChanged(int which) {

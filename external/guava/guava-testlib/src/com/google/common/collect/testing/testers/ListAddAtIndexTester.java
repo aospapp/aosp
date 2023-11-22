@@ -17,26 +17,31 @@
 package com.google.common.collect.testing.testers;
 
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
+import static com.google.common.collect.testing.features.CollectionFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
 import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 import static com.google.common.collect.testing.features.ListFeature.SUPPORTS_ADD_WITH_INDEX;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.ListFeature;
 
 import java.lang.reflect.Method;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 
 /**
  * A generic JUnit test which tests {@code add(int, Object)} operations on a
  * list. Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.ListTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible(emulated = true)
 public class ListAddAtIndexTester<E> extends AbstractListTester<E> {
   @ListFeature.Require(SUPPORTS_ADD_WITH_INDEX)
   @CollectionSize.Require(absent = ZERO)
@@ -64,6 +69,19 @@ public class ListAddAtIndexTester<E> extends AbstractListTester<E> {
   public void testAddAtIndex_supportedNotPresent() {
     getList().add(0, samples.e3);
     expectAdded(0, samples.e3);
+  }
+
+  @CollectionFeature.Require(FAILS_FAST_ON_CONCURRENT_MODIFICATION)
+  @ListFeature.Require(SUPPORTS_ADD_WITH_INDEX)
+  public void testAddAtIndexConcurrentWithIteration() {
+    try {
+      Iterator<E> iterator = collection.iterator();
+      getList().add(0, samples.e3);
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
   }
 
   @ListFeature.Require(absent = SUPPORTS_ADD_WITH_INDEX)
@@ -138,8 +156,9 @@ public class ListAddAtIndexTester<E> extends AbstractListTester<E> {
    * {@link #testAddAtIndex_nullSupported()} so that tests can suppress it. See
    * {@link CollectionAddTester#getAddNullSupportedMethod()} for details.
    */
+  @GwtIncompatible("reflection")
   public static Method getAddNullSupportedMethod() {
-    return Platform.getMethod(
+    return Helpers.getMethod(
         ListAddAtIndexTester.class, "testAddAtIndex_nullSupported");
   }
 }

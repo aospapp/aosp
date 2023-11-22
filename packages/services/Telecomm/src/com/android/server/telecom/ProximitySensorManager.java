@@ -26,8 +26,9 @@ public class ProximitySensorManager extends CallsManagerListenerBase {
     private static final String TAG = ProximitySensorManager.class.getSimpleName();
 
     private final PowerManager.WakeLock mProximityWakeLock;
+    private final CallsManager mCallsManager;
 
-    public ProximitySensorManager(Context context) {
+    public ProximitySensorManager(Context context, CallsManager callsManager) {
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
         if (pm.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
@@ -36,12 +37,14 @@ public class ProximitySensorManager extends CallsManagerListenerBase {
         } else {
             mProximityWakeLock = null;
         }
+
+        mCallsManager = callsManager;
         Log.d(this, "onCreate: mProximityWakeLock: ", mProximityWakeLock);
     }
 
     @Override
     public void onCallRemoved(Call call) {
-        if (CallsManager.getInstance().getCalls().isEmpty()) {
+        if (mCallsManager.getCalls().isEmpty()) {
             Log.i(this, "All calls removed, resetting proximity sensor to default state");
             turnOff(true);
         }
@@ -52,7 +55,7 @@ public class ProximitySensorManager extends CallsManagerListenerBase {
      * Turn the proximity sensor on.
      */
     void turnOn() {
-        if (CallsManager.getInstance().getCalls().isEmpty()) {
+        if (mCallsManager.getCalls().isEmpty()) {
             Log.w(this, "Asking to turn on prox sensor without a call? I don't think so.");
             return;
         }

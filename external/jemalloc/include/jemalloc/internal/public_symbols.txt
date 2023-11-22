@@ -11,6 +11,7 @@ rallocx:je_rallocx
 xallocx:je_xallocx
 sallocx:je_sallocx
 dallocx:je_dallocx
+sdallocx:je_sdallocx
 nallocx:je_nallocx
 mallctl:je_mallctl
 mallctlnametomib:je_mallctlnametomib

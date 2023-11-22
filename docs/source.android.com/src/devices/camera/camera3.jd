@@ -2,7 +2,7 @@ page.title=Camera HAL v3 overview
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -67,9 +67,11 @@ controls. Roughly speaking, the old subsystem has three operating modes:</p>
 
 <p>Each mode has slightly different and overlapping capabilities. This made it hard 
 to implement new types of features, such as burst mode, since it would fall 
-between two of these modes.<br/>
-<img src="images/camera_block.png" alt="Camera block diagram"/><br/>
-<strong>Figure 1.</strong> Camera components</p>
+between two of these modes.</p>
+<img src="images/camera_block.png" alt="Camera block diagram" id="figure1" />
+<p class="img-caption">
+  <strong>Figure 1.</strong> Camera components
+</p>
 
 <h2 id="v3-enhance">Version 3 enhancements</h2>
 
@@ -122,8 +124,10 @@ to push image buffers into for this request (out of the total configured set). A
 request can be one-shot ( with capture() ), or it may be repeated indefinitely 
 (with setRepeatingRequest() ). Captures have priority over repeating
 requests.</p>
-<img src="images/camera_simple_model.png" alt="Camera data model"/>
-<p><strong>Figure 2.</strong> Camera core operation model</p>
+<img src="images/camera_simple_model.png" alt="Camera data model" id="figure2" />
+<p class="img-caption">
+  <strong>Figure 2.</strong> Camera core operation model
+</p>
 
 <h2 id="supported-version">Supported version</h2>
 
@@ -134,52 +138,3 @@ Camera modules that may contain version 3.1 devices must implement at least
 version 2.0 of the camera module interface (as defined by 
 camera_module_t.common.module_api_version).<br/>
 See camera_common.h for more versioning details.</p>
-
-<h2 id="version-history">Version history</h2>
-
-<h4><strong>1.0</strong></h4>
-
-<p>Initial Android camera HAL (Android 4.0) [camera.h]:</p>
-
-<ul>
-<li>Converted from C++ CameraHardwareInterface abstraction layer.</li>
-<li>Supports android.hardware.Camera API.</li>
-</ul>
-
-<h4><strong>2.0</strong></h4>
-
-<p>Initial release of expanded-capability HAL (Android 4.2) [camera2.h]:</p>
-
-<ul>
-<li>Sufficient for implementing existing android.hardware.Camera API.</li>
-<li>Allows for ZSL queue in camera service layer</li>
-<li>Not tested for any new features such manual capture control, Bayer RAW 
-capture, reprocessing of RAW data.</li>
-</ul>
-
-<h4><strong>3.0</strong></h4>
-
-<p>First revision of expanded-capability HAL:</p>
-
-<ul>
-<li>Major version change since the ABI is completely different. No change to the 
-required hardware capabilities or operational model from 2.0.</li>
-<li>Reworked input request and stream queue interfaces: Framework calls into HAL 
-with next request and stream buffers already dequeued. Sync framework support 
-is included, necessary for efficient implementations.</li>
-<li>Moved triggers into requests, most notifications into results.</li>
-<li>Consolidated all callbacks into framework into one structure, and all setup 
-methods into a single initialize() call.</li>
-<li>Made stream configuration into a single call to simplify stream management. 
-Bidirectional streams replace STREAM_FROM_STREAM construct.</li>
-<li>Limited mode semantics for older/limited hardware devices.</li>
-</ul>
-
-<h4><strong>3.1</strong></h4>
-
-<p>Minor revision of expanded-capability HAL:</p>
-
-<ul>
-<li>configure_streams passes consumer usage flags to the HAL.</li>
-<li>flush call to drop all in-flight requests/buffers as fast as possible.</li>
-</ul>

@@ -25,8 +25,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
+import java.nio.FloatBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.text.SimpleDateFormat;
@@ -36,6 +38,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.ColorMatrixColorFilter;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.DngCreator;
 import android.hardware.camera2.TotalCaptureResult;
@@ -69,7 +72,9 @@ public class ImageReaderSubPane extends TargetSubPane {
         JPEG(ImageFormat.JPEG),
         RAW16(ImageFormat.RAW_SENSOR),
         RAW10(ImageFormat.RAW10),
-        YUV_420_888(ImageFormat.YUV_420_888);
+        YUV_420_888(ImageFormat.YUV_420_888),
+        DEPTH16(ImageFormat.DEPTH16),
+        DEPTH_POINT_CLOUD(ImageFormat.DEPTH_POINT_CLOUD);
 
         public final int imageFormat;
 
@@ -108,6 +113,15 @@ public class ImageReaderSubPane extends TargetSubPane {
     private int mRawShiftFactor = 0;
     private int mRawShiftRow = 0;
     private int mRawShiftCol = 0;
+
+    // 5x4 color matrix for YUV->RGB conversion
+    private static final ColorMatrixColorFilter sJFIF_YUVToRGB_Filter =
+            new ColorMatrixColorFilter(new float[] {
+                        1f,        0f,    1.402f, 0f, -179.456f,
+                        1f, -0.34414f, -0.71414f, 0f,   135.46f,
+                        1f,    1.772f,        0f, 0f, -226.816f,
+                        0f,        0f,        0f, 1f,        0f
+                    });
 
     public ImageReaderSubPane(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -182,8 +196,15 @@ public class ImageReaderSubPane extends TargetSubPane {
 
         mFormats.clear();
         for (OutputFormat format : OutputFormat.values()) {
-            if (streamConfigMap.isOutputSupportedFor(format.imageFormat)) {
-                mFormats.add(format);
+            try {
+                if (streamConfigMap.isOutputSupportedFor(format.imageFormat)) {
+                    mFormats.add(format);
+                    TLog.i("Format " + format + " supported");
+                } else {
+                    TLog.i("Format " + format + " not supported");
+                }
+            } catch(IllegalArgumentException e) {
+                TLog.i("Format " + format + " unknown to framework");
             }
         }
 
@@ -311,17 +332,40 @@ public class ImageReaderSubPane extends TargetSubPane {
             }
             case ImageFormat.YUV_420_888: {
                 ByteBuffer yBuffer = img.getPlanes()[0].getBuffer();
+                ByteBuffer uBuffer = img.getPlanes()[1].getBuffer();
+                ByteBuffer vBuffer = img.getPlanes()[2].getBuffer();
                 yBuffer.rewind();
+                uBuffer.rewind();
+                vBuffer.rewind();
                 int w = mConfiguredSize.getWidth() / SCALE_FACTOR;
                 int h = mConfiguredSize.getHeight() / SCALE_FACTOR;
+                int stride = img.getPlanes()[0].getRowStride();
+                int uStride = img.getPlanes()[1].getRowStride();
+                int vStride = img.getPlanes()[2].getRowStride();
+                int uPStride = img.getPlanes()[1].getPixelStride();
+                int vPStride = img.getPlanes()[2].getPixelStride();
                 byte[] row = new byte[mConfiguredSize.getWidth()];
+                byte[] uRow = new byte[(mConfiguredSize.getWidth()/2-1)*uPStride + 1];
+                byte[] vRow = new byte[(mConfiguredSize.getWidth()/2-1)*vPStride + 1];
                 int[] imgArray = new int[w * h];
-                for (int y = 0, j = 0; y < h; y++) {
-                    yBuffer.position(y * SCALE_FACTOR * mConfiguredSize.getWidth());
+                for (int y = 0, j = 0, rowStart = 0, uRowStart = 0, vRowStart = 0; y < h;
+                     y++, rowStart += stride*SCALE_FACTOR) {
+                    yBuffer.position(rowStart);
                     yBuffer.get(row);
+                    if (y * SCALE_FACTOR % 2 == 0) {
+                        uBuffer.position(uRowStart);
+                        uBuffer.get(uRow);
+                        vBuffer.position(vRowStart);
+                        vBuffer.get(vRow);
+                        uRowStart += uStride*SCALE_FACTOR/2;
+                        vRowStart += vStride*SCALE_FACTOR/2;
+                    }
                     for (int x = 0, i = 0; x < w; x++) {
                         int yval = row[i] & 0xFF;
-                        imgArray[j] = Color.rgb(yval, yval, yval);
+                        int uval = uRow[i/2 * uPStride] & 0xFF;
+                        int vval = vRow[i/2 * vPStride] & 0xFF;
+                        // Write YUV directly; the ImageView color filter will convert to RGB for us.
+                        imgArray[j] = Color.rgb(yval, uval, vval);
                         i += SCALE_FACTOR;
                         j++;
                     }
@@ -361,10 +405,49 @@ public class ImageReaderSubPane extends TargetSubPane {
                 TLog.e("RAW10 viewing not implemented");
                 break;
             }
+            case ImageFormat.DEPTH16: {
+                ShortBuffer y16Buffer = img.getPlanes()[0].getBuffer().asShortBuffer();
+                y16Buffer.rewind();
+                // Very rough nearest-neighbor downsample for display
+                int w = img.getWidth();
+                int h = img.getHeight();
+                // rowStride is in bytes, accessing array as shorts
+                int stride = img.getPlanes()[0].getRowStride() / 2;
+
+                imgBitmap = convertDepthToFalseColor(y16Buffer, w, h, stride, SCALE_FACTOR);
+
+                break;
+
+            }
         }
         if (imgBitmap != null) {
             mImageView.setImageBitmap(imgBitmap);
         }
+    }
+
+    /**
+     * Convert depth16 buffer into a false-color RGBA Bitmap, scaling down
+     * by factor of scale
+     */
+    private Bitmap convertDepthToFalseColor(ShortBuffer depthBuffer, int w, int h,
+            int stride, int scale) {
+        short[] yRow = new short[w];
+        int[] imgArray = new int[w * h];
+        w = w / scale;
+        h = h / scale;
+        stride = stride * scale;
+        for (int y = 0, j = 0, rowStart = 0; y < h; y++, rowStart += stride) {
+            // Align to start of nearest-neighbor row
+            depthBuffer.position(rowStart);
+            depthBuffer.get(yRow);
+            for (int x = 0, i = 0; x < w; x++, i += scale, j++) {
+                short y16 = yRow[i];
+                int r = y16 & 0x00FF;
+                int g = (y16 >> 8) & 0x00FF;
+                imgArray[j] = Color.rgb(r, g, 0);
+            }
+        }
+        return Bitmap.createBitmap(imgArray, w, h, Bitmap.Config.ARGB_8888);
     }
 
     @Override
@@ -391,6 +474,15 @@ public class ImageReaderSubPane extends TargetSubPane {
             mConfiguredSize = s;
             mConfiguredFormat = f;
             mConfiguredCount = c;
+
+            // We use ImageView's color filter to do YUV->RGB conversion for us for YUV outputs
+            if (mConfiguredFormat == OutputFormat.YUV_420_888) {
+                mImageView.setColorFilter(sJFIF_YUVToRGB_Filter);
+            } else {
+                mImageView.setColorFilter(null);
+            }
+            // Clear output now that we're actually changing to a new target
+            mImageView.setImageBitmap(null);
         }
         return mReader.getSurface();
     }
@@ -502,6 +594,14 @@ public class ImageReaderSubPane extends TargetSubPane {
                     TLog.e("RAW10 saving not implemented");
                     break;
                 }
+                case ImageFormat.DEPTH16: {
+                    writeDepth16Image(img, out);
+                    break;
+                }
+                case ImageFormat.DEPTH_POINT_CLOUD: {
+                    writeDepthPointImage(img, out);
+                    break;
+                }
             }
         }
         return output.getName();
@@ -569,7 +669,7 @@ public class ImageReaderSubPane extends TargetSubPane {
                 }
             } else {
                 // Need to pack rows
-                byte[] row = new byte[colorW * colorPlane.getPixelStride()];
+                byte[] row = new byte[(colorW - 1) * colorPlane.getPixelStride() + 1];
                 byte[] packedRow = new byte[colorW];
                 ByteBuffer packedRowBuffer = ByteBuffer.wrap(packedRow);
                 for (int y = 0, rowStart = 0; y < colorH;
@@ -584,6 +684,42 @@ public class ImageReaderSubPane extends TargetSubPane {
                     outChannel.write(packedRowBuffer);
                 }
             }
+        }
+    }
+
+    /**
+     * Save a 16-bpp depth image as a false-color PNG
+     */
+    private void writeDepth16Image(Image img, OutputStream out) throws IOException {
+        if (img.getFormat() != ImageFormat.DEPTH16) {
+            throw new IOException(
+                    String.format("Unexpected Image format: %d, expected ImageFormat.DEPTH16",
+                            img.getFormat()));
+        }
+        int w = img.getWidth();
+        int h = img.getHeight();
+        int rowStride = img.getPlanes()[0].getRowStride() / 2; // in shorts
+        ShortBuffer y16Data = img.getPlanes()[0].getBuffer().asShortBuffer();
+
+        Bitmap rgbImage = convertDepthToFalseColor(y16Data, w, h, rowStride, /*scale*/ 1);
+        rgbImage.compress(Bitmap.CompressFormat.PNG, 100, out);
+        rgbImage.recycle();
+    }
+
+    // This saves a text file of float values for a point cloud
+    private void writeDepthPointImage(Image img, OutputStream out) throws IOException {
+        if (img.getFormat() != ImageFormat.DEPTH_POINT_CLOUD) {
+            throw new IOException(
+                    String.format("Unexpected Image format: %d, expected ImageFormat.DEPTH16",
+                            img.getFormat()));
+        }
+        FloatBuffer pointList = img.getPlanes()[0].getBuffer().asFloatBuffer();
+        int pointCount = pointList.limit() / 3;
+        OutputStreamWriter writer = new OutputStreamWriter(out);
+        for (int i = 0; i < pointCount; i++) {
+            String pt = String.format("%f, %f, %f\n",
+                    pointList.get(), pointList.get(),pointList.get());
+            writer.write(pt, 0, pt.length());
         }
     }
 
@@ -639,6 +775,19 @@ public class ImageReaderSubPane extends TargetSubPane {
             case ImageFormat.RAW10:
                 mediaFile = new File(mediaStorageDir.getPath() + File.separator +
                         "IMG_"+ timeStamp + ".raw10");
+                break;
+            case ImageFormat.DEPTH16:
+                mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                        "IMG_"+ timeStamp + "_depth.png");
+                break;
+            case ImageFormat.DEPTH_POINT_CLOUD:
+                mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                        "IMG_"+ timeStamp + "_depth_points.txt");
+                break;
+            default:
+                mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                        "IMG_"+ timeStamp + ".unknown");
+                TLog.e("Unknown image format for saving, using .unknown extension: " + type);
                 break;
         }
 

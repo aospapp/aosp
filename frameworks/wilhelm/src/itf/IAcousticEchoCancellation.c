@@ -28,7 +28,8 @@ static inline bool NO_ECHOCANCEL(IAndroidAcousticEchoCancellation* v) {
     return (v->mAECEffect == 0);
 }
 
-static SLresult IAndroidAcousticEchoCancellation_SetEnabled(SLAndroidAcousticEchoCancellationItf self,
+static SLresult IAndroidAcousticEchoCancellation_SetEnabled(
+                                                     SLAndroidAcousticEchoCancellationItf self,
                                                      SLboolean enabled)
 {
     SL_ENTER_INTERFACE
@@ -47,7 +48,8 @@ static SLresult IAndroidAcousticEchoCancellation_SetEnabled(SLAndroidAcousticEch
     SL_LEAVE_INTERFACE
 }
 
-static SLresult IAndroidAcousticEchoCancellation_IsEnabled(SLAndroidAcousticEchoCancellationItf self,
+static SLresult IAndroidAcousticEchoCancellation_IsEnabled(
+                                                    SLAndroidAcousticEchoCancellationItf self,
                                                     SLboolean *pEnabled)
 {
     SL_ENTER_INTERFACE

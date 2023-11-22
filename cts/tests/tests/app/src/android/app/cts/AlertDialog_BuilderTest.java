@@ -577,26 +577,6 @@ public class AlertDialog_BuilderTest extends ActivityInstrumentationTestCase2<Di
         assertEquals(view, mView);
     }
 
-    public void testSetViewCustom() throws Throwable {
-        final int viewSpacingLeft = 10;
-        final int viewSpacingTop = 20;
-        final int viewSpacingRight = 30;
-        final int viewSpacingBottom = 40;
-        final View view = new View(mContext);
-        view.setId(100);
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setView(view, viewSpacingLeft, viewSpacingTop, viewSpacingRight,
-                        viewSpacingBottom);
-                mDialog = mBuilder.show();
-                mView = mDialog.getWindow().findViewById(100);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-        assertEquals(view, mView);
-    }
-
     public void testSetInverseBackgroundForced() throws Throwable {
         runTestOnUiThread(new Runnable() {
             public void run() {

@@ -15,10 +15,13 @@
 #include "SkMask.h"
 #include "SkPaint.h"
 
+class GrClip;
 class GrContext;
 class GrPaint;
+class GrRenderTarget;
 class SkBitmap;
 class SkBlitter;
+class SkCachedData;
 class SkMatrix;
 class SkPath;
 class SkRasterClip;
@@ -63,24 +66,22 @@ public:
 
 #if SK_SUPPORT_GPU
     /**
-     *  Returns true if the filter can be expressed a single-pass GrEffect without requiring an
+     *  Returns true if the filter can be expressed a single-pass GrProcessor without requiring an
      *  explicit input mask. Per-pixel, the effect receives the incoming mask's coverage as
      *  the input color and outputs the filtered covereage value. This means that each pixel's
      *  filtered coverage must only depend on the unfiltered mask value for that pixel and not on
      *  surrounding values.
      *
-     * If effect is non-NULL, a new GrEffect instance is stored in it. The caller assumes ownership
-     * of the effect and must unref it.
+     * If effect is non-NULL, a new GrProcessor instance is stored in it. The caller assumes
+     * ownership of the effect and must unref it.
      */
-    virtual bool asNewEffect(GrEffectRef** effect,
-                             GrTexture*,
-                             const SkMatrix& ctm) const;
+    virtual bool asFragmentProcessor(GrFragmentProcessor**, GrTexture*, const SkMatrix& ctm) const;
 
     /**
-     *  If asNewEffect() fails the filter may be implemented on the GPU by a subclass overriding
-     *  filterMaskGPU (declared below). That code path requires constructing a src mask as input.
-     *  Since that is a potentially expensive operation, the subclass must also override this
-     *  function to indicate whether filterTextureMaskGPU would succeeed if the mask were to be
+     *  If asFragmentProcessor() fails the filter may be implemented on the GPU by a subclass
+     *  overriding filterMaskGPU (declared below). That code path requires constructing a src mask
+     *  as input. Since that is a potentially expensive operation, the subclass must also override
+     *  this function to indicate whether filterTextureMaskGPU would succeeed if the mask were to be
      *  created.
      *
      *  'maskRect' returns the device space portion of the mask that the filter needs. The mask
@@ -98,7 +99,10 @@ public:
      *  true if drawing was successful.
      */
     virtual bool directFilterMaskGPU(GrContext* context,
+                                     GrRenderTarget* rt,
                                      GrPaint* grp,
+                                     const GrClip&,
+                                     const SkMatrix& viewMatrix,
                                      const SkStrokeRec& strokeRec,
                                      const SkPath& path) const;
     /**
@@ -106,7 +110,10 @@ public:
      *  true if drawing was successful.
      */
     virtual bool directFilterRRectMaskGPU(GrContext* context,
+                                          GrRenderTarget* rt,
                                           GrPaint* grp,
+                                          const GrClip&,
+                                          const SkMatrix& viewMatrix,
                                           const SkStrokeRec& strokeRec,
                                           const SkRRect& rrect) const;
 
@@ -155,8 +162,6 @@ public:
 
 protected:
     SkMaskFilter() {}
-    // empty for now, but lets get our subclass to remember to init us for the future
-    SkMaskFilter(SkReadBuffer& buffer) : INHERITED(buffer) {}
 
     enum FilterReturn {
         kFalse_FilterReturn,
@@ -164,10 +169,17 @@ protected:
         kUnimplemented_FilterReturn
     };
 
-    struct NinePatch {
+    class NinePatch : ::SkNoncopyable {
+    public:
+        NinePatch() : fCache(NULL) {
+            fMask.fImage = NULL;
+        }
+        ~NinePatch();
+
         SkMask      fMask;      // fBounds must have [0,0] in its top-left
         SkIRect     fOuterRect; // width/height must be >= fMask.fBounds'
         SkIPoint    fCenter;    // identifies center row/col for stretching
+        SkCachedData* fCache;
     };
 
     /**

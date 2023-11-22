@@ -18,7 +18,6 @@ package android.widget.cts;
 
 import com.android.cts.widget.R;
 
-
 import android.content.Context;
 import android.content.res.XmlResourceParser;
 import android.test.ActivityInstrumentationTestCase2;

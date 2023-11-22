@@ -35,6 +35,8 @@
 #include <sysutils/SocketClient.h>
 #include "Loop.h"
 #include "Asec.h"
+#include "VoldUtil.h"
+#include "sehandle.h"
 
 int Loop::dumpState(SocketClient *c) {
     int i;
@@ -47,7 +49,7 @@ int Loop::dumpState(SocketClient *c) {
 
         sprintf(filename, "/dev/block/loop%d", i);
 
-        if ((fd = open(filename, O_RDWR)) < 0) {
+        if ((fd = open(filename, O_RDWR | O_CLOEXEC)) < 0) {
             if (errno != ENOENT) {
                 SLOGE("Unable to open %s (%s)", filename, strerror(errno));
             } else {
@@ -91,7 +93,7 @@ int Loop::lookupActive(const char *id, char *buffer, size_t len) {
 
         sprintf(filename, "/dev/block/loop%d", i);
 
-        if ((fd = open(filename, O_RDWR)) < 0) {
+        if ((fd = open(filename, O_RDWR | O_CLOEXEC)) < 0) {
             if (errno != ENOENT) {
                 SLOGE("Unable to open %s (%s)", filename, strerror(errno));
             } else {
@@ -120,7 +122,7 @@ int Loop::lookupActive(const char *id, char *buffer, size_t len) {
         errno = ENOENT;
         return -1;
     }
-    strncpy(buffer, filename, len -1);
+    strlcpy(buffer, filename, len);
     return 0;
 }
 
@@ -132,6 +134,7 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
     for (i = 0; i < LOOP_MAX; i++) {
         struct loop_info64 li;
         int rc;
+        char *secontext = NULL;
 
         sprintf(filename, "/dev/block/loop%d", i);
 
@@ -141,14 +144,31 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
          */
         mode_t mode = 0660 | S_IFBLK;
         unsigned int dev = (0xff & i) | ((i << 12) & 0xfff00000) | (7 << 8);
+
+        if (sehandle) {
+            rc = selabel_lookup(sehandle, &secontext, filename, S_IFBLK);
+            if (rc == 0)
+                setfscreatecon(secontext);
+        }
+
         if (mknod(filename, mode, dev) < 0) {
             if (errno != EEXIST) {
+                int sverrno = errno;
                 SLOGE("Error creating loop device node (%s)", strerror(errno));
+                if (secontext) {
+                    freecon(secontext);
+                    setfscreatecon(NULL);
+                }
+                errno = sverrno;
                 return -1;
             }
         }
+        if (secontext) {
+            freecon(secontext);
+            setfscreatecon(NULL);
+        }
 
-        if ((fd = open(filename, O_RDWR)) < 0) {
+        if ((fd = open(filename, O_RDWR | O_CLOEXEC)) < 0) {
             SLOGE("Unable to open %s (%s)", filename, strerror(errno));
             return -1;
         }
@@ -172,11 +192,11 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
         return -1;
     }
 
-    strncpy(loopDeviceBuffer, filename, len -1);
+    strlcpy(loopDeviceBuffer, filename, len);
 
     int file_fd;
 
-    if ((file_fd = open(loopFile, O_RDWR)) < 0) {
+    if ((file_fd = open(loopFile, O_RDWR | O_CLOEXEC)) < 0) {
         SLOGE("Unable to open %s (%s)", loopFile, strerror(errno));
         close(fd);
         return -1;
@@ -211,7 +231,7 @@ int Loop::create(const char *id, const char *loopFile, char *loopDeviceBuffer, s
 int Loop::destroyByDevice(const char *loopDevice) {
     int device_fd;
 
-    device_fd = open(loopDevice, O_RDONLY);
+    device_fd = open(loopDevice, O_RDONLY | O_CLOEXEC);
     if (device_fd < 0) {
         SLOGE("Failed to open loop (%d)", errno);
         return -1;
@@ -252,7 +272,7 @@ int Loop::createImageFile(const char *file, unsigned int numSectors) {
 int Loop::resizeImageFile(const char *file, unsigned int numSectors) {
     int fd;
 
-    if ((fd = open(file, O_RDWR)) < 0) {
+    if ((fd = open(file, O_RDWR | O_CLOEXEC)) < 0) {
         SLOGE("Error opening imagefile (%s)", strerror(errno));
         return -1;
     }
@@ -277,17 +297,18 @@ int Loop::resizeImageFile(const char *file, unsigned int numSectors) {
     return 0;
 }
 
-int Loop::lookupInfo(const char *loopDevice, struct asec_superblock *sb, unsigned int *nr_sec) {
+int Loop::lookupInfo(const char *loopDevice, struct asec_superblock *sb, unsigned long *nr_sec) {
     int fd;
     struct asec_superblock buffer;
 
-    if ((fd = open(loopDevice, O_RDONLY)) < 0) {
+    if ((fd = open(loopDevice, O_RDONLY | O_CLOEXEC)) < 0) {
         SLOGE("Failed to open loopdevice (%s)", strerror(errno));
         destroyByDevice(loopDevice);
         return -1;
     }
 
-    if (ioctl(fd, BLKGETSIZE, nr_sec)) {
+    get_blkdev_size(fd, nr_sec);
+    if (*nr_sec == 0) {
         SLOGE("Failed to get loop size (%s)", strerror(errno));
         destroyByDevice(loopDevice);
         close(fd);

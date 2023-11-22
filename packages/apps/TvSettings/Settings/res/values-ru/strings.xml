@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"Добавить аккаунт"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"Синхронизация"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Удаление аккаунта"</string>
-    <string name="search_title" msgid="5474988613144349415">"Поиск"</string>
     <string name="account_sync" msgid="773808124331714965">"Выбрать приложения"</string>
     <string name="sync_now" msgid="8732244492880016471">"Синхронизировать"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"Отмена"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"Синхронизация временно не работает. Повторите попытку позже."</string>
     <string name="account_remove" msgid="4313580520737295272">"Удалить аккаунт"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Не удалось удалить аккаунт"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"Имя"</item>
-    <item msgid="6466271488216028049">"Фотография"</item>
-    <item msgid="5763918836533170723">"Безопасность"</item>
-    <item msgid="5219275476980441834">"Google Кошелек"</item>
-    <item msgid="5333563881963545303">"История покупок"</item>
-    <item msgid="6174147587962184914">"Удалить аккаунт"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"Сеть"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Всегда искать сети"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Разрешить службе геопозиционирования Google и другим приложениям искать сети, даже когда модуль Wi‑Fi отключен"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"Заставка"</string>
     <string name="device_display" msgid="101455384386372747">"Экран"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Системные звуки"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Резервное копирование и восстановление"</string>
     <string name="device_reset" msgid="2827002349560023125">"Заводские настройки"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Калибровка"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Очистить кеш?"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Будут удалены данные всех приложений."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"Скачанные приложения"</string>
     <string name="apps_system" msgid="2499191125802829425">"Системные приложения"</string>
     <string name="apps_running" msgid="6430310491739956228">"Выполняющиеся приложения"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"Пульт"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"Камера"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Добавить устройство"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Проектор Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Подключение…"</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"Устройство"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"Переименовать"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Отключить"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"Батарея: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Отключение…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Подключено"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Поиск устройств…"</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"Дата и время"</string>
     <string name="system_language" msgid="2337138146114609247">"Язык"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Клавиатура"</string>
+    <string name="system_home" msgid="2858989138172296012">"Главный экран"</string>
     <string name="system_search" msgid="2837264654143247611">"Поиск"</string>
     <string name="system_security" msgid="8230080273993484407">"Безопасность и ограничения"</string>
     <string name="system_speech" msgid="8128688499687306982">"Речь"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"Название устройства"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Перезапустить"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Юридическая информация"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"Гарантия"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Лицензии открытого ПО"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Правовая информация Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Нет данных о лицензии"</string>
@@ -118,23 +109,15 @@
     <string name="about_version" msgid="1177287676732287266">"Версия"</string>
     <string name="about_serial" msgid="2723560490027171187">"Серийный номер"</string>
     <string name="about_build" msgid="9148789767199785676">"Сборка"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"Почти все готово! Осталось несколько шагов (<xliff:g id="STEP_COUNT">%1$d</xliff:g>)"</item>
-    <item quantity="other" msgid="6907126743472136795">"Почти все готово! Осталось несколько шагов (<xliff:g id="STEP_COUNT">%1$d</xliff:g>)"</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="one">Почти готово! Остался <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шаг.</item>
+      <item quantity="few">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
+      <item quantity="many">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шагов.</item>
+      <item quantity="other">Почти готово! Осталось <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> шага.</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Реклама"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Вы стали разработчиком!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"У вас уже есть статус разработчика"</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"Вручную"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"Сохранено"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"Отключенные"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"Соединение не установлено из-за низкого качества"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"Ошибка аутентификации"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"Вне диапазона"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"WPS поддерживается"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" (WPS поддерживается)"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"Защищено с помощью <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">"(защищено с помощью <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>)"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Слабый"</item>
     <item msgid="5986166866411161790">"Средний"</item>
@@ -154,10 +137,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"ДОСТУПНЫЕ СЕТИ"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Подключение через WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Добавить сеть"</string>
-    <string name="add_network" msgid="2074883912462075625">"Добавить сеть"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"Имя сети (SSID)"</string>
     <string name="security_type" msgid="524443802004143058">"Тип защиты"</string>
-    <string name="password" msgid="1322790875762726719">"Пароль"</string>
     <string name="wps_network" msgid="1052148085426051873">"Подключение через WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Другие сети"</string>
     <string name="skip_network" msgid="6380260543776712357">"Пропустить"</string>
@@ -200,11 +180,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Не использовать прокси-сервер"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Настроить вручную"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"Использовать DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"Сохранить"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Статический"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Статус"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Расширенные настройки"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>, <xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Укажите допустимый IP-адрес"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Укажите допустимый адрес шлюза"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Укажите допустимый адрес DNS-сервера"</string>
@@ -227,19 +205,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Сеть не подключена"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Устройство подключено к сети <xliff:g id="SSID">%1$s</xliff:g>. Сменить ее?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"неизвестная сеть"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"Расширенные настройки"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>, <xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"Настройки IP-адреса"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"Проверка подключения"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"Статический"</string>
-    <string name="gateway" msgid="2467496590891949814">"Шлюз"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"Длина префикса сети"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"ОК"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Отмена"</string>
-    <string name="rename_device" msgid="8221482127562510757">"Переименовать устройство"</string>
     <string name="storage_title" msgid="2132026108559493394">"Хранилище"</string>
     <string name="storage_available" msgid="1241005580092138871">"Доступно"</string>
     <string name="storage_size" msgid="8958530823208352781">"Всего места: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +217,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"Аудио"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Прочее"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Данные кеша"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"Отмена"</string>
+    <string name="storage_eject" msgid="113476702798691558">"Извлечь"</string>
+    <string name="storage_format" msgid="3759273736493279595">"Очистить и форматировать"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"Форматировать как память устройства"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"Нет подключения"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"Перенести данные"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"Удалить данные из внутренней памяти"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Подключите диск заново, чтобы получить доступ к приложениям и другим данным на нем. Если это невозможно и диск недоступен, выберите \"Удалить данные\".\n\nПосле этого все данные, хранившиеся на диске, будут утеряны.\n\nВы сможете скачать приложения снова, однако их данные восстановить не удастся."</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"Память устройства"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"Съемный накопитель"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Сброс настроек"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"Подключено: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"Ошибка подключения: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"Безопасно извлечено: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"Не удалось безопасно извлечь устройство: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Диск не обнаружен"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"Отформатировано: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"Ошибка форматирования: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Форматирование в качестве внутренней памяти"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Чтобы защитить данные, USB-накопитель надо отформатировать. После этого он будет работать только с текущим устройством. При форматировании будут удалены все данные на накопителе. Чтобы не потерять информацию, предварительно скопируйте ее в другое место."</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Очистка и форматирование"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"После форматирования вы сможете использовать USB-накопитель с другими устройствами. Все данные будут удалены. Чтобы не потерять приложения, сохраните их на другом устройстве внутренней памяти."</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Форматирование USB-накопителя…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Возможно, вам придется подождать. Не отключайте накопитель."</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Перенос данных на карту \"<xliff:g id="NAME">%1$s</xliff:g>\""</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Вы можете перенести фотографии, файлы и данные приложений на карту \"<xliff:g id="NAME">%1$s</xliff:g>\". На это уйдет всего несколько минут. Возможно, некоторые приложения будут работать некорректно во время переноса."</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Перенести сейчас"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Перенести позже"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Данные перенесены на карту \"<xliff:g id="NAME">%1$s</xliff:g>\""</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Не удалось перенести данные на карту \"<xliff:g id="NAME">%1$s</xliff:g>\""</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Перенос данных на карту \"<xliff:g id="NAME">%1$s</xliff:g>\"…"</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"На это уйдет всего несколько минут. Не извлекайте карту во время переноса данных.\nВозможно, некоторые приложения будут работать некорректно."</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"USB-накопитель работает медленно"</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Если вы продолжите, в перемещенных приложениях могут происходить сбои, а обмен данными может занимать много времени. Чтобы повысить производительность, используйте более быстрый накопитель."</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"Форматировать"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Сохранить приложения"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Хранилище приложений: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Хранилище приложений и данных: <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Доступно <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Извлечение внутренней памяти"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Когда вы извлечете USB-накопитель, приложения перестанут работать. Он отформатирован для работы только с этим устройством, и не будет работать с другими."</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"<xliff:g id="NAME">%1$s</xliff:g>: извлечение…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Размер в памяти"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Перенос приложения \"<xliff:g id="NAME">%1$s</xliff:g>\""</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Не извлекайте диск во время переноса.\nПока он не завершится, приложение \"<xliff:g id="APPNAME">%1$s</xliff:g>\" будет недоступно на этом устройстве."</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Удалить данные?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Все данные на диске будут утеряны. Продолжить?"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Удалить"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"USB-накопитель подключен"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"Поиск"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Настроить как внутреннюю память"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"Настроить как съемный накопитель"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"Извлечь"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"Устройство \"<xliff:g id="NAME">%1$s</xliff:g>\" извлечено"</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"Пока вы снова не подключите диск, некоторые приложения могут быть недоступны либо работать с ошибками."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"Недостаточно места."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"Приложение не установлено."</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"Приложение защищено от копирования."</string>
+    <string name="invalid_location" msgid="5269044848535157307">"Недопустимое место установки."</string>
+    <string name="system_package" msgid="9200255718634512790">"Системные обновления нельзя установить на внешнем носителе."</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"Подробнее…"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Повторить"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Поиск маршрутизатора WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Нажмите кнопку безопасной настройки Wi-Fi на маршрутизаторе.\nОна может называться WPS или содержать символ, указанный слева."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Введите PIN-код <xliff:g id="NUMBER">%1$s</xliff:g> на маршрутизаторе Wi-Fi"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"После ввода PIN-кода завершение настройки займет не более двух минут"</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"Выполняется настройка WPS. Она будет завершена в течение двух минут."</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Не удалось обнаружить маршрутизатор Wi-Fi"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Безопасная настройка маршрутизатора Wi-Fi (WEP) не поддерживается"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Безопасная настройка маршрутизатора Wi-Fi (TKIP) не поддерживается"</string>
@@ -266,17 +291,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"Установить дату"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Установить время"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Выбрать часовой пояс"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"24-часовой формат"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Автонастройка даты и времени"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"Использовать время сети"</string>
     <string name="system_location" msgid="502463575930545806">"Страна"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Разрешить приложениям использовать данные о вашем местоположении"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"По координатам сети Wi-Fi"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"Отправка анонимных геоданных в Google (даже когда все приложения выключены) поможет приложениям более точно определять ваше местоположение."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Сбор геоданных"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"Разрешить Google собирать анонимные геоданные. Некоторые из них могут быть сохранены на вашем устройстве. Сбор сведений выполняется, даже если не запущено ни одно приложение."</string>
-    <string name="location_title" msgid="7600163182794860262">"Мое местоположение"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"Система"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Режим"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Последние геозапросы"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"В последнее время приложения не запрашивали геоданные"</string>
@@ -318,9 +340,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"Прозрачность текста"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Цвет окна"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Прозрачность окна"</string>
-    <string name="color_none" msgid="5281446963475996688">"Нет"</string>
     <string name="color_white" msgid="65537523012024751">"Белый"</string>
-    <string name="color_gray" msgid="5637299846460438696">"Серый"</string>
     <string name="color_black" msgid="8804213372565106403">"Черный"</string>
     <string name="color_red" msgid="5630553203246525989">"Красный"</string>
     <string name="color_green" msgid="3745551274773976763">"Зеленый"</string>
@@ -346,8 +366,6 @@
     <string name="system_drawing" msgid="6573389872154957039">"Рисование"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Отслеживание"</string>
     <string name="system_apps" msgid="6293850468968494924">"Приложения"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"Создание отчета об ошибке"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"Пароль для резервного копирования"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"Оставить включенным"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"Проверка HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI-оптимизация"</string>
@@ -375,7 +393,7 @@
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Показывать обновления поверхности"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Окно: масштаб"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Переход: масштаб"</string>
-    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Скорость анимации"</string>
+    <string name="system_animator_duration_scale" msgid="7413512458963984521">"Длительность анимации"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Включен строгий режим"</string>
     <string name="system_show_cpu_usage" msgid="4797599582027671138">"Показывать загрузку ЦП"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Запись времени работы графического процессора"</string>
@@ -383,8 +401,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Не сохранять действия"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"Лимит фоновых процессов"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"Все ANR"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"Отправить отчет на адрес электронной почты"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"Защита полных резервных копий компьютера"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Отключить спящий режим"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Использование только содержания DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Оптимизируйте экран, настроив максимальное разрешение или максимальную частоту кадров. Этот параметр применяется только к экранам Ultra HD. После его изменения устройство будет перезагружено."</string>
@@ -399,7 +415,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Подсвечивать экран во время длительных операций"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Экран, показывающий текущую загрузку ЦП"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Измерение времени для adb shell dumpsys gfxinfo"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"Местный (<xliff:g id="DATE">%s</xliff:g>)"</string>
     <string name="action_on_title" msgid="6852389884236870765">"ВКЛ"</string>
     <string name="action_off_title" msgid="3157728958166559966">"ВЫКЛ"</string>
     <string name="action_on_description" msgid="4559342592998850852">"ВКЛ"</string>
@@ -411,68 +426,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Приложения, скачанные из неизвестных источников, могут нанести вред вашим личным данным и данным устройства. Вы несете полную ответственность за любые возможные повреждения и потерю данных."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Проверка приложений"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Запрещать установку приложений, которые могут нанести вред устройству, или предупреждать о них"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"Никогда"</item>
-    <item msgid="5583820743908145007">"Только DRM-контент"</item>
-    <item msgid="6148080515126921450">"Всегда"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Никогда"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Только DRM-контент"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Всегда"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"Лучшее разрешение"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"Лучшая частота кадров"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"Выкл."</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Показывать области наложения"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Показывать число объектов"</string>
     <string name="no_application" msgid="1746564297589309465">"Ничего"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"Вручную"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace (графика)"</item>
-    <item msgid="6650537879885155020">"Список вызовов в glGetError"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Нет"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"Без анимации"</item>
+    <item msgid="8327257151534006014">"Анимация (0,5x)"</item>
+    <item msgid="2105786719544636780">"Анимация (1x)"</item>
+    <item msgid="5290554136790336403">"Анимация (1,5x)"</item>
+    <item msgid="1232929590838082483">"Анимация (2x)"</item>
+    <item msgid="1889239009419613796">"Анимация (5x)"</item>
+    <item msgid="7268894934484547297">"Анимация (10x)"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"Без анимации"</item>
-    <item msgid="5618283113978106483">"Анимация (0,5x)"</item>
-    <item msgid="397451685490290179">"Анимация (1x)"</item>
-    <item msgid="6331600473492644688">"Анимация (1,5x)"</item>
-    <item msgid="7004952449777104295">"Анимация (2x)"</item>
-    <item msgid="1063528777234221038">"Анимация (5x)"</item>
-    <item msgid="6926378938392529339">"Анимация (10x)"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"Без анимации"</item>
-    <item msgid="5578331490208019526">"Анимация (0,5x)"</item>
-    <item msgid="5338802612080069593">"Анимация (1x)"</item>
-    <item msgid="1309704285131661878">"Анимация (1,5x)"</item>
-    <item msgid="5654221040036850960">"Анимация (2x)"</item>
-    <item msgid="6092484055733043622">"Анимация (5x)"</item>
-    <item msgid="4049359393103906268">"Анимация (10x)"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"Без анимации"</item>
-    <item msgid="1302400121783768928">"Анимация (0,5x)"</item>
-    <item msgid="9088460595137551270">"Анимация (1x)"</item>
-    <item msgid="5640745580399155880">"Анимация (1,5x)"</item>
-    <item msgid="3320199023884342141">"Анимация (2x)"</item>
-    <item msgid="5620232666163371843">"Анимация (5x)"</item>
-    <item msgid="8580701701183364590">"Анимация (10x)"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"Выкл."</item>
-    <item msgid="6446688182396957172">"На экране в виде полос"</item>
-    <item msgid="9080500692341488612">"В adb shell dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"Стандартное ограничение"</item>
-    <item msgid="6534728802931195545">"Без фоновых процессов"</item>
-    <item msgid="290172167371846384">"Не более одного процесса"</item>
-    <item msgid="4818593824413771192">"Не более 2 процессов"</item>
-    <item msgid="8337569181800165433">"Не более 3 процессов"</item>
-    <item msgid="8261219565766202947">"Не более 4 процессов"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"Очень медленная"</item>
-    <item msgid="3458529225374884970">"Медленная"</item>
-    <item msgid="4131204219571166311">"Обычная"</item>
-    <item msgid="786682416218616624">"Быстрая"</item>
-    <item msgid="1708844147149066133">"Очень быстрая"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"Выберите тип аккаунта"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"Выберите аккаунт"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"Добавить аккаунт"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"Выкл."</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"Диаграмма на экране"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"Стандартное ограничение"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"Без фоновых процессов"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"Не более 1 процесса"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"Не более 2 процессов"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"Не более 3 процессов"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"Не более 4 процессов"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Очень медленная"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"Медленная"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"Обычная"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"Быстрая"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Очень быстрая"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Текущая клавиатура"</string>
     <string name="title_configure" msgid="6929522003149212388">"Настроить"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Настройки клавиатуры"</string>
@@ -481,9 +466,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Переименовать"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Беспроводной проектор"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Требуется PIN-код"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"Пульт ДУ: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"Сбор информации об ошибке…\nКогда отчет будет готов, мы зададим вам дополнительные вопросы."</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"Не удалось создать отчет об ошибке.\nПовторите попытку позже."</string>
     <string name="whichApplication" msgid="8382179653567099571">"Выберите приложение"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Использовать настройки всегда для этого действия?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Да"</string>
@@ -508,48 +490,47 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Отключать HDMI-устройства вместе с телевизором"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Автомат. включать телевизор"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Автом. включать телевизор с HDMI-устройством"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"ПОДКЛЮЧЕННЫЙ ВХОД"</item>
-    <item quantity="other" msgid="280747600882155182">"ПОДКЛЮЧЕННЫЕ ВХОДЫ"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"РЕЗЕРВНЫЙ ВХОД"</item>
-    <item quantity="other" msgid="1673538341842385592">"РЕЗЕРВНЫЕ ВХОДЫ"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"ОТКЛЮЧЕННЫЙ ВХОД"</item>
-    <item quantity="other" msgid="4526893384805247472">"ОТКЛЮЧЕННЫЕ ВХОДЫ"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"Подключен"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"Режим ожидания"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"Отключен"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="one">ПОДКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="few">ПОДКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="many">ПОДКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="other">ПОДКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="one">УСТРОЙСТВА В РЕЖИМЕ ОЖИДАНИЯ</item>
+      <item quantity="few">УСТРОЙСТВА В РЕЖИМЕ ОЖИДАНИЯ</item>
+      <item quantity="many">УСТРОЙСТВА В РЕЖИМЕ ОЖИДАНИЯ</item>
+      <item quantity="other">УСТРОЙСТВА В РЕЖИМЕ ОЖИДАНИЯ</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="one">ОТКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="few">ОТКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="many">ОТКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+      <item quantity="other">ОТКЛЮЧЕННЫЕ УСТРОЙСТВА</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Ограничить доступ к приложениям и другому контенту в аккаунте"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Профиль с ограничен. доступом"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"Доступ к контенту и приложениям"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Под управлением приложения \"<xliff:g id="APP">%1$s</xliff:g>\""</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Приложение не поддерживается в профилях с ограниченным доступом"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Приложению разрешен доступ к вашим аккаунтам"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Местоположение"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Разрешить приложениям использовать данные о вашем местоположении"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"Создать профиль с ограниченным доступом"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Перейти в профиль с ограниченным доступом"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Выйти из профиля"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Удалить профиль"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Настройки"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Разрешенные приложения"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"Разрешено 1 приложение"</item>
-    <item quantity="other" msgid="5242661864373721262">"Разрешено приложений: %d"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="one">Разрешено %d приложение</item>
+      <item quantity="few">Разрешены %d приложения</item>
+      <item quantity="many">Разрешено %d приложений</item>
+      <item quantity="other">Разрешены %d приложения</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"Разрешено"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"Запрещено"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"Установить ограничения"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Подождите…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Изменить PIN-код"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"Введите новый PIN-код"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"Подтвердите PIN-код"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"Чтобы выйти из профиля, введите PIN-код"</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"Удалить профиль с ограниченным доступом?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Введите PIN-код, чтобы включить канал"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Введите PIN-код, чтобы посмотреть программу"</string>
@@ -557,9 +538,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Задайте новый PIN-код"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Повторно введите новый PIN-код"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Введите прежний PIN-код"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"Вы ввели неверный PIN-код 5 раз.\nПовторите попытку <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
-    <string name="pin_button_done" msgid="939191809977197451">"Готово"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"Отмена"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Вы ввели неправильный PIN-код 5 раз.\nПовторите попытку через <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> сек."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Неверный PIN-код. Повторите попытку."</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"PIN-коды не совпадают. Повторите попытку."</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Укажите пароль для сети <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Подключено"</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Настройки сохранены"</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"версия <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"Открыть"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Остановить"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Принудительная остановка приложения может привести к ошибкам."</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Удалить"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Удалить приложение?"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Удалить обновления"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Все обновления для этого приложения будут удалены."</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Отключить"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Отключить это приложение?"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Включить"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Включить это приложение?"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Размер в памяти"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> (<xliff:g id="VOLUME">%2$s</xliff:g>)"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Удалить данные"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Все данные приложения будут удалены.\nВы не сможете восстановить файлы, настройки, аккаунты, базы данных и т. д."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Удалить настройки по умолчанию"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Открывать при некоторых действиях"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Настройки по умолчанию не установлены"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Очистить кеш"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Уведомления"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Разрешения"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"ОК"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"Отмена"</string>
+    <string name="settings_on" msgid="6892236264945435013">"Вкл."</string>
+    <string name="settings_off" msgid="449272161738237637">"Выкл."</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"Нет"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"Заставка"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"Включить"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Когда включать заставку"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Если в течение этого времени устройство не будет использоваться, на экране появится заставка. Если заставка не выбрана, экран отключится."</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"После <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> бездействия"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Когда отключать экран"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Экран отключится, если будет неактивен в течение этого периода"</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Нет аккаунтов c резервными копиями данных"</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Отключить резервное копирование закладок, паролей сетей Wi-Fi, а также других настроек и данных приложений? Все копии на серверах Google будут удалены."</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Резервное копирование данных"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Резервный аккаунт"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"Автоматическое восстановление"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"Сбросить настройки"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Из памяти устройства будет удалена вся информация, включая данные вашего аккаунта Google и приложений, а также настройки, системные данные и загруженные программы."</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Удалить всю личную информацию и загруженные приложения без возможности восстановления?"</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Удалить всё"</string>
+    <string name="select_title" msgid="3905067953686121845">"Укажите название для устройства ^1"</string>
+    <string name="select_description" msgid="4070142015460337658">"Укажите название для устройства ^1, чтобы вам было удобнее подключаться к нему со смартфона, планшетного ПК или компьютера."</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"Гостиная"</item>
+    <item msgid="3722089849939477581">"Комната отдыха"</item>
+    <item msgid="6108590585438763574">"Семейная комната"</item>
+    <item msgid="2581035245390468625">"Столовая"</item>
+    <item msgid="3127487827308695324">"Кабинет"</item>
+    <item msgid="6172018430592195063">"Спальня"</item>
+    <item msgid="8120010459866284578">"Кухня"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"Другое помещение…"</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"Устройству ^1 присвоено название"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" – это название устройства ^2. Изменить его?"</string>
+    <string name="change_setting" msgid="2047402388786162246">"Изменить"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"Не изменять"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"Разрешения"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Разрешения приложений"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Приложения с разрешением: <xliff:g id="COUNT_0">%d</xliff:g> из <xliff:g id="COUNT_1">%d</xliff:g>"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Уровень обновления для системы безопасности Android"</string>
 </resources>

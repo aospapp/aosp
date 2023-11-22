@@ -32,13 +32,13 @@ struct dwarf_cursor;	/* forward-declaration */
 struct elf_dyn_info;
 /* ANDROID support update. */
 struct elf_image;
-/* End of ANDROID update. */
-
-#include "dwarf-config.h"
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
+
+#include "dwarf-config.h"
+/* End of ANDROID update. */
 
 #ifndef UNW_REMOTE_ONLY
   #if defined(HAVE_LINK_H)

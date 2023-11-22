@@ -19,7 +19,10 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := cts-sensors-tests
+
 LOCAL_MODULE_TAGS := tests
+
+LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil
 
 LOCAL_SDK_VERSION := current
 
@@ -31,6 +34,7 @@ LOCAL_SRC_FILES += \
     src/android/hardware/cts/SensorIntegrationTests.java \
     src/android/hardware/cts/SensorBatchingTests.java \
     src/android/hardware/cts/SensorTest.java \
+    src/android/hardware/cts/SensorManagerStaticTest.java
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil
 
@@ -49,11 +53,8 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 
 LOCAL_PACKAGE_NAME := CtsHardwareTestCases
 
-# uncomment when b/13281332 is fixed
-# please also uncomment the equivalent code in
-# cts/apps/CtsVerifiers/Android.mk
-#
-# LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := current
+
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
 include $(BUILD_CTS_PACKAGE)

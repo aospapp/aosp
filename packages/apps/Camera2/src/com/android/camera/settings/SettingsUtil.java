@@ -26,10 +26,10 @@ import android.util.SparseArray;
 import com.android.camera.debug.Log;
 import com.android.camera.util.ApiHelper;
 import com.android.camera.util.Callback;
+import com.android.camera.util.Size;
 import com.android.camera2.R;
 import com.android.ex.camera2.portability.CameraDeviceInfo;
 import com.android.ex.camera2.portability.CameraSettings;
-import com.android.ex.camera2.portability.Size;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,7 +79,7 @@ public class SettingsUtil {
             } else if (SIZE_SMALL.equals(sizeSetting)) {
                 return small;
             } else if (sizeSetting != null && sizeSetting.split("x").length == 2) {
-                Size desiredSize = sizeFromString(sizeSetting);
+                Size desiredSize = sizeFromSettingString(sizeSetting);
                 if (supportedSizes.contains(desiredSize)) {
                     return desiredSize;
                 }
@@ -146,26 +146,6 @@ public class SettingsUtil {
             new SparseArray<SelectedPictureSizes>(2);
     public static SparseArray<SelectedVideoQualities> sCachedSelectedVideoQualities =
             new SparseArray<SelectedVideoQualities>(2);
-
-    /**
-     * Based on the selected size, this method selects the matching concrete
-     * resolution and sets it as the picture size.
-     *
-     * @param sizeSetting The setting selected by the user. One of "large",
-     *            "medium, "small" or two integers separated by "x".
-     * @param supported The list of supported resolutions.
-     * @param settings The Camera settings to set the selected picture
-     *            resolution on.
-     * @param cameraId This is used for caching the results for finding the
-     *            different sizes.
-     */
-    public static void setCameraPictureSize(String sizeSetting, List<Size> supported,
-            CameraSettings settings, int cameraId) {
-        Size selectedSize = getCameraPictureSize(sizeSetting, supported, cameraId);
-        Log.d(TAG, "Selected " + sizeSetting + " resolution: " + selectedSize.width() + "x" +
-                selectedSize.height());
-        settings.setPhotoSize(selectedSize);
-    }
 
     /**
      * Based on the selected size, this method returns the matching concrete
@@ -404,27 +384,38 @@ public class SettingsUtil {
         return closestMatchIndex;
     }
 
+    private static final String SIZE_SETTING_STRING_DIMENSION_DELIMITER = "x";
+
     /**
      * This is used to serialize a size to a string for storage in settings
      *
      * @param size The size to serialize.
      * @return the string to be saved in preferences
      */
-    public static String sizeToSetting(Size size) {
-        return ((Integer) size.width()).toString() + "x" + ((Integer) size.height()).toString();
+    public static String sizeToSettingString(Size size) {
+        return size.width() + SIZE_SETTING_STRING_DIMENSION_DELIMITER + size.height();
     }
 
     /**
      * This parses a setting string and returns the representative size.
      *
-     * @param sizeSetting The string to parse.
+     * @param sizeSettingString The string that stored in settings to represent a size.
      * @return the represented Size.
      */
-    static public Size sizeFromString(String sizeSetting) {
-        String[] parts = sizeSetting.split("x");
-        if (parts.length == 2) {
-            return new Size(Integer.valueOf(parts[0]), Integer.valueOf(parts[1]));
-        } else {
+    public static Size sizeFromSettingString(String sizeSettingString) {
+        if (sizeSettingString == null) {
+            return null;
+        }
+        String[] parts = sizeSettingString.split(SIZE_SETTING_STRING_DIMENSION_DELIMITER);
+        if (parts.length != 2) {
+            return null;
+        }
+
+        try {
+            int width = Integer.parseInt(parts[0]);
+            int height = Integer.parseInt(parts[1]);
+            return new Size(width, height);
+        } catch (NumberFormatException ex) {
             return null;
         }
     }
@@ -483,6 +474,9 @@ public class SettingsUtil {
      *         -1, if no camera meeting the specification was found.
      */
     public static int getCameraId(CameraDeviceInfo info, CameraDeviceSelector chooser) {
+        if (info == null) {
+            return -1;
+        }
         int numCameras = info.getNumberOfCameras();
         for (int i = 0; i < numCameras; ++i) {
             CameraDeviceInfo.Characteristics props = info.getCharacteristics(i);

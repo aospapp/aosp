@@ -16,9 +16,11 @@
 
 package com.android.camera.one.v2;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -26,12 +28,15 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.DngCreator;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.location.Location;
 import android.media.Image;
 import android.media.ImageReader;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
@@ -39,7 +44,7 @@ import android.view.Surface;
 
 import com.android.camera.CaptureModuleUtil;
 import com.android.camera.Exif;
-import com.android.camera.app.MediaSaver.OnMediaSavedListener;
+import com.android.camera.Storage;
 import com.android.camera.debug.DebugPropertyHelper;
 import com.android.camera.debug.Log;
 import com.android.camera.debug.Log.Tag;
@@ -47,15 +52,28 @@ import com.android.camera.exif.ExifInterface;
 import com.android.camera.exif.ExifTag;
 import com.android.camera.exif.Rational;
 import com.android.camera.one.AbstractOneCamera;
+import com.android.camera.one.CameraDirectionProvider;
 import com.android.camera.one.OneCamera;
 import com.android.camera.one.Settings3A;
+import com.android.camera.one.v2.camera2proxy.AndroidCaptureResultProxy;
+import com.android.camera.one.v2.camera2proxy.AndroidImageProxy;
+import com.android.camera.one.v2.camera2proxy.CaptureResultProxy;
+import com.android.camera.processing.imagebackend.TaskImageContainer;
 import com.android.camera.session.CaptureSession;
+import com.android.camera.ui.focus.LensRangeCalculator;
+import com.android.camera.ui.motion.LinearScale;
 import com.android.camera.util.CameraUtil;
 import com.android.camera.util.CaptureDataSerializer;
+import com.android.camera.util.ExifUtil;
 import com.android.camera.util.JpegUtilNative;
 import com.android.camera.util.Size;
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -63,19 +81,42 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * {@link OneCamera} implementation directly on top of the Camera2 API.
+ * {@link OneCamera} implementation directly on top of the Camera2 API for
+ * cameras without API 2 FULL support (limited or legacy).
  */
+@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class OneCameraImpl extends AbstractOneCamera {
-
     /** Captures that are requested but haven't completed yet. */
     private static class InFlightCapture {
         final PhotoCaptureParameters parameters;
         final CaptureSession session;
+        Image image;
+        TotalCaptureResult totalCaptureResult;
 
         public InFlightCapture(PhotoCaptureParameters parameters,
                 CaptureSession session) {
             this.parameters = parameters;
             this.session = session;
+        }
+
+        /** Set the image once it's been received. */
+        public InFlightCapture setImage(Image capturedImage) {
+            image = capturedImage;
+            return this;
+        }
+
+        /** Set the total capture result once it's been received. */
+        public InFlightCapture setCaptureResult(TotalCaptureResult result) {
+            totalCaptureResult = result;
+            return this;
+        }
+
+        /**
+         * Returns whether the capture is complete (which is the case once the
+         * image and capture result are both present.
+         */
+        boolean isCaptureComplete() {
+            return image != null && totalCaptureResult != null;
         }
     }
 
@@ -91,15 +132,17 @@ public class OneCameraImpl extends AbstractOneCamera {
 
     /**
      * Set to ImageFormat.JPEG, to use the hardware encoder, or
-     * ImageFormat.YUV_420_888 to use the software encoder. No other image
-     * formats are supported.
+     * ImageFormat.YUV_420_888 to use the software encoder. You can also try
+     * RAW_SENSOR experimentally.
      */
-    private static final int sCaptureImageFormat = ImageFormat.YUV_420_888;
+    private static final int sCaptureImageFormat = DebugPropertyHelper.isCaptureDngEnabled() ?
+            ImageFormat.RAW_SENSOR : ImageFormat.JPEG;
 
     /** Duration to hold after manual focus tap. */
     private static final int FOCUS_HOLD_MILLIS = Settings3A.getFocusHoldMillis();
     /** Zero weight 3A region, to reset regions per API. */
-    MeteringRectangle[] ZERO_WEIGHT_3A_REGION = AutoFocusHelper.getZeroWeightRegion();
+    private static final MeteringRectangle[] ZERO_WEIGHT_3A_REGION = AutoFocusHelper
+            .getZeroWeightRegion();
 
     /**
      * CaptureRequest tags.
@@ -116,6 +159,9 @@ public class OneCameraImpl extends AbstractOneCamera {
         /** Tap to focus (purely for logging). */
         TAP_TO_FOCUS
     }
+
+    /** Directory to store raw DNG files in. */
+    private static final File RAW_DIRECTORY = new File(Storage.DIRECTORY, "DNG");
 
     /** Current CONTROL_AF_MODE request to Camera2 API. */
     private int mControlAFMode = CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
@@ -153,12 +199,14 @@ public class OneCameraImpl extends AbstractOneCamera {
     /**
      * Common listener for preview frame metadata.
      */
-    private final CameraCaptureSession.CaptureCallback mAutoFocusStateListener = new
-            CameraCaptureSession.CaptureCallback() {
+    private final CameraCaptureSession.CaptureCallback mCaptureCallback =
+            new CameraCaptureSession.CaptureCallback() {
                 @Override
-                public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request,
-                                             long timestamp, long frameNumber) {
-                    if (request.getTag() == RequestTag.CAPTURE && mLastPictureCallback != null) {
+                public void onCaptureStarted(CameraCaptureSession session,
+                        CaptureRequest request, long timestamp,
+                        long frameNumber) {
+                    if (request.getTag() == RequestTag.CAPTURE
+                            && mLastPictureCallback != null) {
                         mLastPictureCallback.onQuickExpose();
                     }
                 }
@@ -167,24 +215,44 @@ public class OneCameraImpl extends AbstractOneCamera {
                 // onCaptureCompleted(), so we take advantage of that.
                 @Override
                 public void onCaptureProgressed(CameraCaptureSession session,
-                        CaptureRequest request,
-                        CaptureResult partialResult) {
+                        CaptureRequest request, CaptureResult partialResult) {
                     autofocusStateChangeDispatcher(partialResult);
                     super.onCaptureProgressed(session, request, partialResult);
                 }
 
                 @Override
                 public void onCaptureCompleted(CameraCaptureSession session,
-                        CaptureRequest request,
-                        TotalCaptureResult result) {
+                        CaptureRequest request, TotalCaptureResult result) {
                     autofocusStateChangeDispatcher(result);
-                    // This checks for a HAL implementation error where TotalCaptureResult
-                    // is missing CONTROL_AF_STATE.  This should not happen.
+                    // This checks for a HAL implementation error where
+                    // TotalCaptureResult
+                    // is missing CONTROL_AF_STATE. This should not happen.
                     if (result.get(CaptureResult.CONTROL_AF_STATE) == null) {
                         AutoFocusHelper.checkControlAfState(result);
                     }
                     if (DEBUG_FOCUS_LOG) {
                         AutoFocusHelper.logExtraFocusInfo(result);
+                    }
+
+                    Float diopter = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
+                    if (diopter != null && mFocusDistanceListener != null) {
+                        mFocusDistanceListener.onFocusDistance(diopter, mLensRange);
+                    }
+
+                    if (request.getTag() == RequestTag.CAPTURE) {
+                        // Add the capture result to the latest in-flight
+                        // capture. If all the data for that capture is
+                        // complete, store the image on disk.
+                        InFlightCapture capture = null;
+                        synchronized (mCaptureQueue) {
+                            if (mCaptureQueue.getFirst().setCaptureResult(result)
+                                    .isCaptureComplete()) {
+                                capture = mCaptureQueue.removeFirst();
+                            }
+                        }
+                        if (capture != null) {
+                            OneCameraImpl.this.onCaptureCompleted(capture);
+                        }
                     }
                     super.onCaptureCompleted(session, request, result);
                 }
@@ -195,8 +263,10 @@ public class OneCameraImpl extends AbstractOneCamera {
     private final Handler mCameraHandler;
     /** The characteristics of this camera. */
     private final CameraCharacteristics mCharacteristics;
+    private final LinearScale mLensRange;
     /** The underlying Camera2 API camera device. */
     private final CameraDevice mDevice;
+    private final CameraDirectionProvider mDirectionProvider;
 
     /**
      * The aspect ratio (width/height) of the full resolution for this camera.
@@ -215,8 +285,6 @@ public class OneCameraImpl extends AbstractOneCamera {
             new LinkedList<InFlightCapture>();
     /** Whether closing of this device has been requested. */
     private volatile boolean mIsClosed = false;
-    /** A callback that is called when the device is fully closed. */
-    private CloseCallback mCloseCallback = null;
 
     /** Receives the normal captured images. */
     private final ImageReader mCaptureImageReader;
@@ -224,16 +292,19 @@ public class OneCameraImpl extends AbstractOneCamera {
             new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
-                    InFlightCapture capture = mCaptureQueue.remove();
-
-                    // Since this is not an HDR+ session, we will just save the
-                    // result.
-                    capture.session.startEmpty();
-                    byte[] imageBytes = acquireJpegBytesAndClose(reader);
-                    // TODO: The savePicture call here seems to block UI thread.
-                    savePicture(imageBytes, capture.parameters, capture.session);
-                    broadcastReadyState(true);
-                    capture.parameters.callback.onPictureTaken(capture.session);
+                    // Add the image data to the latest in-flight capture.
+                    // If all the data for that capture is complete, store the
+                    // image data.
+                    InFlightCapture capture = null;
+                    synchronized (mCaptureQueue) {
+                        if (mCaptureQueue.getFirst().setImage(reader.acquireLatestImage())
+                                .isCaptureComplete()) {
+                            capture = mCaptureQueue.removeFirst();
+                        }
+                    }
+                    if (capture != null) {
+                        onCaptureCompleted(capture);
+                    }
                 }
             };
 
@@ -247,7 +318,19 @@ public class OneCameraImpl extends AbstractOneCamera {
     OneCameraImpl(CameraDevice device, CameraCharacteristics characteristics, Size pictureSize) {
         mDevice = device;
         mCharacteristics = characteristics;
+        mLensRange = LensRangeCalculator.getDiopterToRatioCalculator(characteristics);
+        mDirectionProvider = new CameraDirectionProvider(characteristics);
         mFullSizeAspectRatio = calculateFullSizeAspectRatio(characteristics);
+
+        // Override pictureSize for RAW (our picture size settings don't include
+        // RAW, which typically only supports one size (sensor size). This also
+        // typically differs from the larges JPEG or YUV size.
+        // TODO: If we ever want to support RAW properly, it should be one entry
+        // in the picture quality list, which should then lead to the right
+        // pictureSize being passes into here.
+        if (sCaptureImageFormat == ImageFormat.RAW_SENSOR) {
+            pictureSize = getDefaultPictureSize();
+        }
 
         mCameraThread = new HandlerThread("OneCamera2");
         mCameraThread.start();
@@ -300,8 +383,6 @@ public class OneCameraImpl extends AbstractOneCamera {
     public void takePictureNow(PhotoCaptureParameters params, CaptureSession session) {
         long dt = SystemClock.uptimeMillis() - mTakePictureStartMillis;
         Log.v(TAG, "Taking shot with extra AF delay of " + dt + " ms.");
-        // This will throw a RuntimeException, if parameters are not sane.
-        params.checkSanity();
         try {
             // JPEG capture.
             CaptureRequest.Builder builder = mDevice
@@ -309,7 +390,11 @@ public class OneCameraImpl extends AbstractOneCamera {
             builder.setTag(RequestTag.CAPTURE);
             addBaselineCaptureKeysToRequest(builder);
 
-            if (sCaptureImageFormat == ImageFormat.JPEG) {
+            // Enable lens-shading correction for even better DNGs.
+            if (sCaptureImageFormat == ImageFormat.RAW_SENSOR) {
+                builder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE,
+                        CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE_ON);
+            } else if (sCaptureImageFormat == ImageFormat.JPEG) {
                 builder.set(CaptureRequest.JPEG_QUALITY, JPEG_QUALITY);
                 builder.set(CaptureRequest.JPEG_ORIENTATION,
                         CameraUtil.getJpegRotation(params.orientation, mCharacteristics));
@@ -327,14 +412,16 @@ public class OneCameraImpl extends AbstractOneCamera {
                         "capture.txt"));
             }
 
-            mCaptureSession.capture(request, mAutoFocusStateListener, mCameraHandler);
+            mCaptureSession.capture(request, mCaptureCallback, mCameraHandler);
         } catch (CameraAccessException e) {
             Log.e(TAG, "Could not access camera for still image capture.");
             broadcastReadyState(true);
-            params.callback.onPictureTakenFailed();
+            params.callback.onPictureTakingFailed();
             return;
         }
-        mCaptureQueue.add(new InFlightCapture(params, session));
+        synchronized (mCaptureQueue) {
+            mCaptureQueue.add(new InFlightCapture(params, session));
+        }
     }
 
     @Override
@@ -344,63 +431,40 @@ public class OneCameraImpl extends AbstractOneCamera {
     }
 
     @Override
-    public void setViewfinderSize(int width, int height) {
-        throw new RuntimeException("Not implemented yet.");
-    }
-
-    @Override
-    public boolean isFlashSupported(boolean enhanced) {
-        throw new RuntimeException("Not implemented yet.");
-    }
-
-    @Override
-    public boolean isSupportingEnhancedMode() {
-        throw new RuntimeException("Not implemented yet.");
-    }
-
-    @Override
-    public void close(CloseCallback closeCallback) {
+    public void close() {
         if (mIsClosed) {
             Log.w(TAG, "Camera is already closed.");
             return;
         }
         try {
-            mCaptureSession.abortCaptures();
+            if (mCaptureSession != null) {
+                mCaptureSession.abortCaptures();
+            }
         } catch (CameraAccessException e) {
             Log.e(TAG, "Could not abort captures in progress.");
         }
         mIsClosed = true;
-        mCloseCallback = closeCallback;
         mCameraThread.quitSafely();
         mDevice.close();
     }
 
-    @Override
-    public Size[] getSupportedSizes() {
+    public Size[] getSupportedPreviewSizes() {
         StreamConfigurationMap config = mCharacteristics
                 .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-        return Size.convert(config.getOutputSizes(sCaptureImageFormat));
+        return Size.convert(config.getOutputSizes(SurfaceTexture.class));
     }
 
-    @Override
     public float getFullSizeAspectRatio() {
         return mFullSizeAspectRatio;
     }
 
     @Override
-    public boolean isFrontFacing() {
-        return mCharacteristics.get(CameraCharacteristics.LENS_FACING)
-                == CameraMetadata.LENS_FACING_FRONT;
+    public Facing getDirection() {
+        return mDirectionProvider.getDirection();
     }
 
-    @Override
-    public boolean isBackFacing() {
-        return mCharacteristics.get(CameraCharacteristics.LENS_FACING)
-                == CameraMetadata.LENS_FACING_BACK;
-    }
-
-    private void savePicture(byte[] jpegData, final PhotoCaptureParameters captureParams,
-            CaptureSession session) {
+    private void saveJpegPicture(byte[] jpegData, final PhotoCaptureParameters captureParams,
+            CaptureSession session, CaptureResult result) {
         int heading = captureParams.heading;
         int width = 0;
         int height = 0;
@@ -429,14 +493,24 @@ public class OneCameraImpl extends AbstractOneCamera {
                 exif.setTag(directionRefTag);
                 exif.setTag(directionTag);
             }
+            new ExifUtil(exif).populateExif(Optional.<TaskImageContainer.TaskImage> absent(),
+                    Optional.of((CaptureResultProxy) new AndroidCaptureResultProxy(result)),
+                    Optional.<Location> absent());
         } catch (IOException e) {
             Log.w(TAG, "Could not read exif from gcam jpeg", e);
             exif = null;
         }
-        session.saveAndFinish(jpegData, width, height, rotation, exif, new OnMediaSavedListener() {
+        ListenableFuture<Optional<Uri>> futureUri = session.saveAndFinish(jpegData, width, height,
+                rotation, exif);
+        Futures.addCallback(futureUri, new FutureCallback<Optional<Uri>>() {
             @Override
-            public void onMediaSaved(Uri uri) {
-                captureParams.callback.onPictureSaved(uri);
+            public void onSuccess(Optional<Uri> uriOptional) {
+                captureParams.callback.onPictureSaved(uriOptional.orNull());
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                captureParams.callback.onPictureSaved(null);
             }
         });
     }
@@ -499,9 +573,6 @@ public class OneCameraImpl extends AbstractOneCamera {
                 @Override
                 public void onClosed(CameraCaptureSession session) {
                     super.onClosed(session);
-                    if (mCloseCallback != null) {
-                        mCloseCallback.onCameraClosed();
-                    }
                 }
             }, mCameraHandler);
         } catch (CameraAccessException ex) {
@@ -511,7 +582,8 @@ public class OneCameraImpl extends AbstractOneCamera {
     }
 
     /**
-     * Adds current regions to CaptureRequest and base AF mode + AF_TRIGGER_IDLE.
+     * Adds current regions to CaptureRequest and base AF mode +
+     * AF_TRIGGER_IDLE.
      *
      * @param builder Build for the CaptureRequest
      */
@@ -541,7 +613,7 @@ public class OneCameraImpl extends AbstractOneCamera {
             builder.addTarget(mPreviewSurface);
             builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
             addBaselineCaptureKeysToRequest(builder);
-            mCaptureSession.setRepeatingRequest(builder.build(), mAutoFocusStateListener,
+            mCaptureSession.setRepeatingRequest(builder.build(), mCaptureCallback,
                     mCameraHandler);
             Log.v(TAG, String.format("Sent repeating Preview request, zoom = %.2f", mZoomValue));
             return true;
@@ -565,7 +637,7 @@ public class OneCameraImpl extends AbstractOneCamera {
             addBaselineCaptureKeysToRequest(builder);
             builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
             builder.setTag(tag);
-            mCaptureSession.capture(builder.build(), mAutoFocusStateListener, mCameraHandler);
+            mCaptureSession.capture(builder.build(), mCaptureCallback, mCameraHandler);
 
             // Step 2: Call repeatingPreview to update mControlAFMode.
             repeatingPreview(tag);
@@ -623,9 +695,11 @@ public class OneCameraImpl extends AbstractOneCamera {
     @Override
     public void triggerFocusAndMeterAtPoint(float nx, float ny) {
         int sensorOrientation = mCharacteristics.get(
-            CameraCharacteristics.SENSOR_ORIENTATION);
-        mAERegions = AutoFocusHelper.aeRegionsForNormalizedCoord(nx, ny, mCropRegion, sensorOrientation);
-        mAFRegions = AutoFocusHelper.afRegionsForNormalizedCoord(nx, ny, mCropRegion, sensorOrientation);
+                CameraCharacteristics.SENSOR_ORIENTATION);
+        mAERegions = AutoFocusHelper.aeRegionsForNormalizedCoord(nx, ny, mCropRegion,
+                sensorOrientation);
+        mAFRegions = AutoFocusHelper.afRegionsForNormalizedCoord(nx, ny, mCropRegion,
+                sensorOrientation);
 
         sendAutoFocusTriggerCaptureRequest(RequestTag.TAP_TO_FOCUS);
     }
@@ -644,9 +718,21 @@ public class OneCameraImpl extends AbstractOneCamera {
 
     @Override
     public Size pickPreviewSize(Size pictureSize, Context context) {
+        if (pictureSize == null) {
+            // TODO The default should be selected by the caller, and
+            // pictureSize should never be null.
+            pictureSize = getDefaultPictureSize();
+        }
         float pictureAspectRatio = pictureSize.getWidth() / (float) pictureSize.getHeight();
-        return CaptureModuleUtil.getOptimalPreviewSize(context, getSupportedSizes(),
-                pictureAspectRatio);
+        Size[] supportedSizes = getSupportedPreviewSizes();
+
+        // Since devices only have one raw resolution we need to be more
+        // flexible for selecting a matching preview resolution.
+        Double aspectRatioTolerance = sCaptureImageFormat == ImageFormat.RAW_SENSOR ? 10d : null;
+        Size size = CaptureModuleUtil.getOptimalPreviewSize(supportedSizes,
+                pictureAspectRatio, aspectRatioTolerance);
+        Log.d(TAG, "Selected preview size: " + size);
+        return size;
     }
 
     private Rect cropRegionForZoom(float zoom) {
@@ -663,34 +749,91 @@ public class OneCameraImpl extends AbstractOneCamera {
     private static float calculateFullSizeAspectRatio(CameraCharacteristics characteristics) {
         Rect activeArraySize =
                 characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-        return ((float)(activeArraySize.width())) / activeArraySize.height();
+        return ((float) (activeArraySize.width())) / activeArraySize.height();
+    }
+
+    /*
+     * Called when a capture that is in flight is completed.
+     * @param capture the in-flight capture which needs to contain the received
+     * image and capture data
+     */
+    private void onCaptureCompleted(InFlightCapture capture) {
+
+        // Experimental support for writing RAW. We do not have a usable JPEG
+        // here, so we don't use the usual capture session mechanism and instead
+        // just store the RAW file in its own directory.
+        // TODO: If we make this a real feature we should probably put the DNGs
+        // into the Camera directly.
+        if (sCaptureImageFormat == ImageFormat.RAW_SENSOR) {
+            if (!RAW_DIRECTORY.exists()) {
+                if (!RAW_DIRECTORY.mkdirs()) {
+                    throw new RuntimeException("Could not create RAW directory.");
+                }
+            }
+            File dngFile = new File(RAW_DIRECTORY, capture.session.getTitle() + ".dng");
+            writeDngBytesAndClose(capture.image, capture.totalCaptureResult,
+                    mCharacteristics, dngFile);
+        } else {
+            // Since this is not an HDR+ session, we will just save the
+            // result.
+            byte[] imageBytes = acquireJpegBytesAndClose(capture.image);
+            saveJpegPicture(imageBytes, capture.parameters, capture.session,
+                    capture.totalCaptureResult);
+        }
+        broadcastReadyState(true);
+        capture.parameters.callback.onPictureTaken(capture.session);
     }
 
     /**
-     * Given an image reader, extracts the JPEG image bytes and then closes the
-     * reader.
+     * Take the given RAW image and capture result, convert it to a DNG and
+     * write it to disk.
      *
-     * @param reader the reader to read the JPEG data from.
-     * @return The bytes of the JPEG image. Newly allocated.
+     * @param image the image containing the 16-bit RAW data (RAW_SENSOR)
+     * @param captureResult the capture result for the image
+     * @param characteristics the camera characteristics of the camera that took
+     *            the RAW image
+     * @param dngFile the destination to where the resulting DNG data is written
+     *            to
      */
-    private static byte[] acquireJpegBytesAndClose(ImageReader reader) {
-        Image img = reader.acquireLatestImage();
+    private static void writeDngBytesAndClose(Image image, TotalCaptureResult captureResult,
+            CameraCharacteristics characteristics, File dngFile) {
+        try (DngCreator dngCreator = new DngCreator(characteristics, captureResult);
+                FileOutputStream outputStream = new FileOutputStream(dngFile)) {
+            // TODO: Add DngCreator#setThumbnail and add the DNG to the normal
+            // filmstrip.
+            dngCreator.writeImage(outputStream, image);
+            outputStream.close();
+            image.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Could not store DNG file", e);
+            return;
+        }
+        Log.i(TAG, "Successfully stored DNG file: " + dngFile.getAbsolutePath());
+    }
 
+    /**
+     * Given an image reader, this extracts the final image. If the image in the
+     * reader is JPEG, we extract and return it as is. If the image is YUV, we
+     * convert it to JPEG and return the result.
+     *
+     * @param image the image we got from the image reader.
+     * @return A valid JPEG image.
+     */
+    private static byte[] acquireJpegBytesAndClose(Image image) {
         ByteBuffer buffer;
-
-        if (img.getFormat() == ImageFormat.JPEG) {
-            Image.Plane plane0 = img.getPlanes()[0];
+        if (image.getFormat() == ImageFormat.JPEG) {
+            Image.Plane plane0 = image.getPlanes()[0];
             buffer = plane0.getBuffer();
-        } else if (img.getFormat() == ImageFormat.YUV_420_888) {
-            buffer = ByteBuffer.allocateDirect(img.getWidth() * img.getHeight() * 3);
+        } else if (image.getFormat() == ImageFormat.YUV_420_888) {
+            buffer = ByteBuffer.allocateDirect(image.getWidth() * image.getHeight() * 3);
 
             Log.v(TAG, "Compressing JPEG with software encoder.");
-            int numBytes = JpegUtilNative.compressJpegFromYUV420Image(img, buffer, JPEG_QUALITY);
+            int numBytes = JpegUtilNative.compressJpegFromYUV420Image(
+                    new AndroidImageProxy(image), buffer, JPEG_QUALITY);
 
             if (numBytes < 0) {
                 throw new RuntimeException("Error compressing jpeg.");
             }
-
             buffer.limit(numBytes);
         } else {
             throw new RuntimeException("Unsupported image format.");
@@ -699,7 +842,29 @@ public class OneCameraImpl extends AbstractOneCamera {
         byte[] imageBytes = new byte[buffer.remaining()];
         buffer.get(imageBytes);
         buffer.rewind();
-        img.close();
+        image.close();
         return imageBytes;
+    }
+
+    /**
+     * @return The largest supported picture size.
+     */
+    public Size getDefaultPictureSize() {
+        StreamConfigurationMap configs =
+                mCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        android.util.Size[] supportedSizes = configs.getOutputSizes(sCaptureImageFormat);
+
+        // Find the largest supported size.
+        android.util.Size largestSupportedSize = supportedSizes[0];
+        long largestSupportedSizePixels =
+                largestSupportedSize.getWidth() * largestSupportedSize.getHeight();
+        for (int i = 1; i < supportedSizes.length; i++) {
+            long numPixels = supportedSizes[i].getWidth() * supportedSizes[i].getHeight();
+            if (numPixels > largestSupportedSizePixels) {
+                largestSupportedSize = supportedSizes[i];
+                largestSupportedSizePixels = numPixels;
+            }
+        }
+        return new Size(largestSupportedSize.getWidth(), largestSupportedSize.getHeight());
     }
 }

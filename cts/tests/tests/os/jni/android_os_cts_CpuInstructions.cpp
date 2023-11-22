@@ -19,6 +19,7 @@
 #if defined(__arm__) || defined(__aarch64__)
 #include <setjmp.h>
 #include <signal.h>
+#include <string.h>
 
 static sigjmp_buf jmpenv;
 

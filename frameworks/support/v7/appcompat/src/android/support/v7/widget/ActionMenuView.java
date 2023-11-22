@@ -17,7 +17,10 @@ package android.support.v7.widget;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.support.annotation.Nullable;
+import android.support.annotation.StyleRes;
 import android.support.v7.internal.view.menu.ActionMenuItemView;
 import android.support.v7.internal.view.menu.MenuBuilder;
 import android.support.v7.internal.view.menu.MenuItemImpl;
@@ -50,8 +53,6 @@ public class ActionMenuView extends LinearLayoutCompat implements MenuBuilder.It
 
     private MenuBuilder mMenu;
 
-    private Context mContext;
-
     /** Context against which to inflate popup menus. */
     private Context mPopupContext;
 
@@ -75,7 +76,6 @@ public class ActionMenuView extends LinearLayoutCompat implements MenuBuilder.It
 
     public ActionMenuView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mContext = context;
         setBaselineAligned(false);
         final float density = context.getResources().getDisplayMetrics().density;
         mMinCellSize = (int) (MIN_CELL_SIZE * density);
@@ -91,13 +91,13 @@ public class ActionMenuView extends LinearLayoutCompat implements MenuBuilder.It
      * @param resId theme used to inflate popup menus
      * @see #getPopupTheme()
      */
-    public void setPopupTheme(int resId) {
+    public void setPopupTheme(@StyleRes int resId) {
         if (mPopupTheme != resId) {
             mPopupTheme = resId;
             if (resId == 0) {
-                mPopupContext = mContext;
+                mPopupContext = getContext();
             } else {
-                mPopupContext = new ContextThemeWrapper(mContext, resId);
+                mPopupContext = new ContextThemeWrapper(getContext(), resId);
             }
         }
     }
@@ -126,11 +126,13 @@ public class ActionMenuView extends LinearLayoutCompat implements MenuBuilder.It
             super.onConfigurationChanged(newConfig);
         }
 
-        mPresenter.updateMenuView(false);
+        if (mPresenter != null) {
+            mPresenter.updateMenuView(false);
 
-        if (mPresenter != null && mPresenter.isOverflowMenuShowing()) {
-            mPresenter.hideOverflowMenu();
-            mPresenter.showOverflowMenu();
+            if (mPresenter.isOverflowMenuShowing()) {
+                mPresenter.hideOverflowMenu();
+                mPresenter.showOverflowMenu();
+            }
         }
     }
 
@@ -540,6 +542,27 @@ public class ActionMenuView extends LinearLayoutCompat implements MenuBuilder.It
     public void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         dismissPopupMenus();
+    }
+
+    /**
+     * Set the icon to use for the overflow button.
+     *
+     * @param icon Drawable to set, may be null to clear the icon
+     */
+    public void setOverflowIcon(@Nullable Drawable icon) {
+        getMenu();
+        mPresenter.setOverflowIcon(icon);
+    }
+
+    /**
+     * Return the current drawable used as the overflow icon.
+     *
+     * @return The overflow icon drawable
+     */
+    @Nullable
+    public Drawable getOverflowIcon() {
+        getMenu();
+        return mPresenter.getOverflowIcon();
     }
 
     /** @hide */

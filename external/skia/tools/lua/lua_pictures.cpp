@@ -39,23 +39,12 @@ DEFINE_string2(tailFunc, s, "", "Optional lua function to call at end");
 DEFINE_bool2(quiet, q, false, "Silence all non-error related output");
 
 static SkPicture* load_picture(const char path[]) {
-    SkAutoTUnref<SkStream> stream(SkStream::NewFromFile(path));
+    SkAutoTDelete<SkStream> stream(SkStream::NewFromFile(path));
     SkPicture* pic = NULL;
     if (stream.get()) {
         pic = SkPicture::CreateFromStream(stream.get(), &sk_tools::LazyDecodeBitmap);
     }
     return pic;
-}
-
-static SkData* read_into_data(const char file[]) {
-    SkAutoTUnref<SkStream> stream(SkStream::NewFromFile(file));
-    if (!stream.get()) {
-        return SkData::NewEmpty();
-    }
-    size_t len = stream->getLength();
-    void* buffer = sk_malloc_throw(len);
-    stream->read(buffer, len);
-    return SkData::NewFromMalloc(buffer, len);
 }
 
 static void call_canvas(lua_State* L, SkLuaCanvas* canvas,
@@ -97,7 +86,10 @@ int tool_main(int argc, char** argv) {
     SkLua L(summary);
 
     for (int i = 0; i < FLAGS_luaFile.count(); ++i) {
-        SkAutoDataUnref data(read_into_data(FLAGS_luaFile[i]));
+        SkAutoDataUnref data(SkData::NewFromFileName(FLAGS_luaFile[i]));
+        if (NULL == data.get()) {
+            data.reset(SkData::NewEmpty());
+        }
         if (!FLAGS_quiet) {
             SkDebugf("loading %s...\n", FLAGS_luaFile[i]);
         }
@@ -132,7 +124,7 @@ int tool_main(int argc, char** argv) {
             SkString filename;
             SkOSFile::Iter iter(FLAGS_skpPath[i], "skp");
             while(iter.next(&filename)) {
-                paths.push_back() = SkOSPath::SkPathJoin(directory.c_str(), filename.c_str());
+                paths.push_back() = SkOSPath::Join(directory.c_str(), filename.c_str());
             }
         } else {
             // Add this as an .skp itself.
@@ -154,7 +146,8 @@ int tool_main(int argc, char** argv) {
             SkAutoTUnref<SkPicture> pic(load_picture(path));
             if (pic.get()) {
                 SkAutoTUnref<SkLuaCanvas> canvas(
-                                    new SkLuaCanvas(pic->width(), pic->height(),
+                                    new SkLuaCanvas(SkScalarCeilToInt(pic->cullRect().width()), 
+                                                    SkScalarCeilToInt(pic->cullRect().height()),
                                                     L.get(), gAccumulateFunc));
 
                 call_canvas(L.get(), canvas.get(), path, gStartCanvasFunc);

@@ -239,13 +239,16 @@ public class MyDocumentsProvider extends DocumentsProvider {
             new AsyncTask<Void, Void, Void>() {
                 @Override
                 protected Void doInBackground(Void... params) {
-                    try {
-                        final InputStream is = new ParcelFileDescriptor.AutoCloseInputStream(
-                                pipe[0]);
-                        doc.contents = readFullyNoClose(is);
-                        is.close();
-                    } catch (IOException e) {
-                        Log.w(TAG, "Failed to stream", e);
+                    synchronized (doc) {
+                        try {
+                            final InputStream is = new ParcelFileDescriptor.AutoCloseInputStream(
+                                    pipe[0]);
+                            doc.contents = readFullyNoClose(is);
+                            is.close();
+                            doc.notifyAll();
+                        } catch (IOException e) {
+                            Log.w(TAG, "Failed to stream", e);
+                        }
                     }
                     return null;
                 }
@@ -255,13 +258,20 @@ public class MyDocumentsProvider extends DocumentsProvider {
             new AsyncTask<Void, Void, Void>() {
                 @Override
                 protected Void doInBackground(Void... params) {
-                    try {
-                        final OutputStream os = new ParcelFileDescriptor.AutoCloseOutputStream(
-                                pipe[1]);
-                        os.write(doc.contents);
-                        os.close();
-                    } catch (IOException e) {
-                        Log.w(TAG, "Failed to stream", e);
+                    synchronized (doc) {
+                        try {
+                            final OutputStream os = new ParcelFileDescriptor.AutoCloseOutputStream(
+                                    pipe[1]);
+                            while (doc.contents == null) {
+                                doc.wait();
+                            }
+                            os.write(doc.contents);
+                            os.close();
+                        } catch (IOException e) {
+                            Log.w(TAG, "Failed to stream", e);
+                        } catch (InterruptedException e) {
+                            Log.w(TAG, "Interuppted", e);
+                        }
                     }
                     return null;
                 }

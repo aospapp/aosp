@@ -24,9 +24,9 @@
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Jonli fon rasmlari"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Jonli fon rasmlarini oldindan ko‘rish"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Sozlamalar"</string>
-    <string name="wallpaper_instructions" msgid="4215640646180727542">"Fon rasmini o‘rnatish"</string>
+    <string name="wallpaper_instructions" msgid="4215640646180727542">"Fonga rasm o‘rnatish"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"Jonli fon rasmlari yo‘q."</string>
-    <string name="set_live_wallpaper" msgid="2381437614949033266">"Fon rasmini o‘rnatish"</string>
+    <string name="set_live_wallpaper" msgid="2381437614949033266">"Fonga rasm o‘rnatish"</string>
     <string name="wallpaper_title_and_author" msgid="8891734217843935304">"<xliff:g id="TITLE">%1$s</xliff:g> ga <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"Jonli fon rasmlari yuklanmoqda…"</string>
     <string name="wallpaper_cancel" msgid="7340240618834119228">"Bekor qilish"</string>

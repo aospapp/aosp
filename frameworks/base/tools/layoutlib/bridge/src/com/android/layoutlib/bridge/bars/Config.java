@@ -16,6 +16,8 @@
 
 package com.android.layoutlib.bridge.bars;
 
+import android.os.Build.VERSION_CODES;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,12 +42,12 @@ public class Config {
     private static final int BLACK = 0xFF000000;
 
     public static boolean showOnScreenNavBar(int platformVersion) {
-        return platformVersion == 0 || platformVersion >= ICE_CREAM_SANDWICH;
+        return isGreaterOrEqual(platformVersion, ICE_CREAM_SANDWICH);
     }
 
     public static int getStatusBarColor(int platformVersion) {
         // return white for froyo and earlier; black otherwise.
-        return platformVersion == 0 || platformVersion >= GINGERBREAD ? BLACK : WHITE;
+        return isGreaterOrEqual(platformVersion, GINGERBREAD) ? BLACK : WHITE;
     }
 
     public static List<String> getResourceDirs(int platformVersion) {
@@ -72,8 +74,8 @@ public class Config {
     }
 
     public static String getTime(int platformVersion) {
-        if (platformVersion == 0) {
-            return "5:00";
+        if (isGreaterOrEqual(platformVersion, M)) {
+            return "6:00";
         }
         if (platformVersion < GINGERBREAD) {
             return "2:20";
@@ -87,15 +89,21 @@ public class Config {
         if (platformVersion < KITKAT) {
             return "4:30";
         }
-        if (platformVersion <= KITKAT_WATCH) {
+        if (platformVersion < LOLLIPOP) {
             return "4:40";
+        }
+        if (platformVersion < LOLLIPOP_MR1) {
+            return "5:00";
+        }
+        if (platformVersion < M) {
+            return "5:10";
         }
         // Should never happen.
         return "4:04";
     }
 
     public static int getTimeColor(int platformVersion) {
-        if (platformVersion == 0 || platformVersion >= KITKAT ||
+        if (isGreaterOrEqual(platformVersion, KITKAT) ||
                 platformVersion > FROYO && platformVersion < HONEYCOMB) {
             // Gingerbread and KitKat onwards.
             return WHITE;
@@ -112,6 +120,15 @@ public class Config {
     }
 
     public static String getWifiIconType(int platformVersion) {
-        return platformVersion == 0 ? "xml" : "png";
+        return isGreaterOrEqual(platformVersion, LOLLIPOP) ? "xml" : "png";
+    }
+
+    /**
+     * Compare simulated platform version and code from {@link VERSION_CODES} to check if
+     * the simulated platform is greater than or equal to the version code.
+     */
+    public static boolean isGreaterOrEqual(int platformVersion, int code) {
+        // simulated platform version = 0 means that we use the latest.
+        return platformVersion == 0 || platformVersion >= code;
     }
 }

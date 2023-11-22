@@ -19,6 +19,7 @@
 
 #include <cutils/log.h>
 
+#include <malloc.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
@@ -142,8 +143,7 @@ static int
 set_speaker_light_locked(struct light_device_t* dev,
         struct light_state_t const* state)
 {
-    int len;
-    int alpha, rgb;
+    int rgb;
     int blink, freq, pwm;
     int onMS, offMS;
     unsigned int colorRGB;

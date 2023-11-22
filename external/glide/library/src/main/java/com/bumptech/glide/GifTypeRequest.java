@@ -1,52 +1,69 @@
 package com.bumptech.glide;
 
-import android.content.Context;
 import com.bumptech.glide.load.model.ModelLoader;
-import com.bumptech.glide.load.resource.gif.GifData;
 import com.bumptech.glide.load.resource.gif.GifDrawable;
-import com.bumptech.glide.load.resource.transcode.GifDataBytesTranscoder;
+import com.bumptech.glide.load.resource.transcode.GifDrawableBytesTranscoder;
 import com.bumptech.glide.load.resource.transcode.ResourceTranscoder;
-import com.bumptech.glide.manager.RequestTracker;
+import com.bumptech.glide.provider.DataLoadProvider;
 import com.bumptech.glide.provider.FixedLoadProvider;
 
 import java.io.InputStream;
 
-public class GifTypeRequest<A> extends GifRequestBuilder<A, GifDrawable> {
-    private final Context context;
-    private final A model;
-    private final ModelLoader<A, InputStream> streamModelLoader;
-    private final Glide glide;
-    private final RequestTracker requestTracker;
-    private RequestManager.OptionsApplier optionsApplier;
+/**
+ * A class for creating a load request that either loads an {@link com.bumptech.glide.load.resource.gif.GifDrawable}
+ * directly or that adds an {@link com.bumptech.glide.load.resource.transcode.ResourceTranscoder} to transcode
+ * {@link com.bumptech.glide.load.resource.gif.GifDrawable} into another resource type.
+ *
+ * @param <ModelType> The type of model to load the {@link com.bumptech.glide.load.resource.gif.GifDrawable} or other
+ *           transcoded class from.
+ */
+public class GifTypeRequest<ModelType> extends GifRequestBuilder<ModelType> {
+    private final ModelLoader<ModelType, InputStream> streamModelLoader;
+    private final RequestManager.OptionsApplier optionsApplier;
 
-    private static <A, R> FixedLoadProvider<A, InputStream, GifData, R> buildProvider(Glide glide,
+    private static <A, R> FixedLoadProvider<A, InputStream, GifDrawable, R> buildProvider(Glide glide,
             ModelLoader<A, InputStream> streamModelLoader, Class<R> transcodeClass,
-            ResourceTranscoder<GifData, R> transcoder) {
-        if (transcoder == null) {
-            transcoder = glide.buildTranscoder(GifData.class, transcodeClass);
+            ResourceTranscoder<GifDrawable, R> transcoder) {
+        if (streamModelLoader == null) {
+            return null;
         }
-        return streamModelLoader == null ? null :
-                new FixedLoadProvider<A, InputStream, GifData, R>(streamModelLoader, transcoder,
-                        glide.buildDataProvider(InputStream.class, GifData.class));
 
+        if (transcoder == null) {
+            transcoder = glide.buildTranscoder(GifDrawable.class, transcodeClass);
+        }
+        DataLoadProvider<InputStream, GifDrawable> dataLoadProvider = glide.buildDataProvider(InputStream.class,
+                GifDrawable.class);
+        return new FixedLoadProvider<A, InputStream, GifDrawable, R>(streamModelLoader, transcoder, dataLoadProvider);
     }
 
-    GifTypeRequest(Context context, A model, ModelLoader<A, InputStream> streamModelLoader, Glide glide,
-            RequestTracker requestTracker, RequestManager.OptionsApplier optionsApplier){
-        super(context, model, buildProvider(glide, streamModelLoader, GifDrawable.class, null), GifDrawable.class,
-                glide, requestTracker);
-        this.context = context;
-        this.model = model;
+    GifTypeRequest(GenericRequestBuilder<ModelType, ?, ?, ?> other,
+            ModelLoader<ModelType, InputStream> streamModelLoader, RequestManager.OptionsApplier optionsApplier) {
+        super(buildProvider(other.glide, streamModelLoader, GifDrawable.class, null), GifDrawable.class, other);
         this.streamModelLoader = streamModelLoader;
-        this.glide = glide;
-        this.requestTracker = requestTracker;
         this.optionsApplier = optionsApplier;
+
+        // Default to animating.
+        crossFade();
     }
 
-    public <R> GifRequestBuilder<A, R> transcode(ResourceTranscoder<GifData, R> transcoder, Class<R> transcodeClass) {
-        return optionsApplier.apply(model, new GifRequestBuilder<A, R>(context, model,
-                buildProvider(glide, streamModelLoader, transcodeClass, transcoder), transcodeClass, glide,
-                requestTracker));
+    /**
+     * Sets a transcoder to transcode the decoded {@link com.bumptech.glide.load.resource.gif.GifDrawable} into another
+     * resource type.
+     *
+     * @param transcoder The transcoder to use.
+     * @param transcodeClass The {@link Class} of the resource the
+     * {@link com.bumptech.glide.load.resource.gif.GifDrawable} will be transcoded to.
+     *
+     * @param <R> The type of the resource the {@link com.bumptech.glide.load.resource.gif.GifDrawable} will be
+     *           trasncoded to.
+     * @return This request builder.
+     */
+    public <R> GenericRequestBuilder<ModelType, InputStream, GifDrawable, R> transcode(
+            ResourceTranscoder<GifDrawable, R> transcoder, Class<R> transcodeClass) {
+        FixedLoadProvider<ModelType, InputStream, GifDrawable, R> provider = buildProvider(glide, streamModelLoader,
+                transcodeClass, transcoder);
+        return optionsApplier.apply(new GenericRequestBuilder<ModelType, InputStream, GifDrawable, R>(provider,
+                transcodeClass, this));
     }
 
     /**
@@ -58,7 +75,7 @@ public class GifTypeRequest<A> extends GifRequestBuilder<A, GifDrawable> {
      *
      * @return A new Builder object to build a request to transform the given model into the bytes of an animated gif.
      */
-    public GifRequestBuilder<A, byte[]> toBytes() {
-        return transcode(new GifDataBytesTranscoder(), byte[].class);
+    public GenericRequestBuilder<ModelType, InputStream, GifDrawable, byte[]> toBytes() {
+        return transcode(new GifDrawableBytesTranscoder(), byte[].class);
     }
 }

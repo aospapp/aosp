@@ -504,6 +504,7 @@ private:
         int32_t deviceId;
         uint32_t source;
         int32_t action;
+        int32_t actionButton;
         int32_t flags;
         int32_t metaState;
         int32_t buttonState;
@@ -518,10 +519,10 @@ private:
 
         MotionEntry(nsecs_t eventTime,
                 int32_t deviceId, uint32_t source, uint32_t policyFlags,
-                int32_t action, int32_t flags,
+                int32_t action, int32_t actionButton, int32_t flags,
                 int32_t metaState, int32_t buttonState, int32_t edgeFlags,
-                float xPrecision, float yPrecision,
-                nsecs_t downTime, int32_t displayId, uint32_t pointerCount,
+                float xPrecision, float yPrecision, nsecs_t downTime,
+                int32_t displayId, uint32_t pointerCount,
                 const PointerProperties* pointerProperties, const PointerCoords* pointerCoords,
                 float xOffset, float yOffset);
         virtual void appendDescription(String8& msg) const;
@@ -606,8 +607,9 @@ private:
     struct Queue {
         T* head;
         T* tail;
+        uint32_t entryCount;
 
-        inline Queue() : head(NULL), tail(NULL) {
+        inline Queue() : head(NULL), tail(NULL), entryCount(0) {
         }
 
         inline bool isEmpty() const {
@@ -615,6 +617,7 @@ private:
         }
 
         inline void enqueueAtTail(T* entry) {
+            entryCount++;
             entry->prev = tail;
             if (tail) {
                 tail->next = entry;
@@ -626,6 +629,7 @@ private:
         }
 
         inline void enqueueAtHead(T* entry) {
+            entryCount++;
             entry->next = head;
             if (head) {
                 head->prev = entry;
@@ -637,6 +641,7 @@ private:
         }
 
         inline void dequeue(T* entry) {
+            entryCount--;
             if (entry->prev) {
                 entry->prev->next = entry->next;
             } else {
@@ -650,6 +655,7 @@ private:
         }
 
         inline T* dequeueAtHead() {
+            entryCount--;
             T* entry = head;
             head = entry->next;
             if (head) {
@@ -660,7 +666,9 @@ private:
             return entry;
         }
 
-        uint32_t count() const;
+        uint32_t count() const {
+            return entryCount;
+        }
     };
 
     /* Specifies which events are to be canceled and why. */
@@ -848,6 +856,8 @@ private:
     Queue<EventEntry> mInboundQueue;
     Queue<EventEntry> mRecentQueue;
     Queue<CommandEntry> mCommandQueue;
+
+    DropReason mLastDropReason;
 
     void dispatchOnceInnerLocked(nsecs_t* nextWakeupTime);
 
@@ -1066,6 +1076,7 @@ private:
 
     void synthesizeCancelationEventsForAllConnectionsLocked(
             const CancelationOptions& options);
+    void synthesizeCancelationEventsForMonitorsLocked(const CancelationOptions& options);
     void synthesizeCancelationEventsForInputChannelLocked(const sp<InputChannel>& channel,
             const CancelationOptions& options);
     void synthesizeCancelationEventsForConnectionLocked(const sp<Connection>& connection,

@@ -78,6 +78,7 @@ public class BuildDalvikSuite {
 
     private int testClassCnt = 0;
     private int testMethodsCnt = 0;
+    private boolean useJack;
 
     /*
      * using a linked hashmap to keep the insertion order for iterators.
@@ -101,37 +102,45 @@ public class BuildDalvikSuite {
      */
     public static void main(String[] args) throws IOException {
 
-        if (args.length > 5) {
-            JAVASRC_FOLDER = args[0];
-            OUTPUT_FOLDER = args[1];
-            CLASS_PATH = args[2];
-            MAIN_SRC_OUTPUT_FOLDER = args[3];
-            CLASSES_OUTPUT_FOLDER = MAIN_SRC_OUTPUT_FOLDER + "/classes";
-
-            COMPILED_CLASSES_FOLDER = args[4];
-
-            HOSTJUNIT_SRC_OUTPUT_FOLDER = args[5];
-            HOSTJUNIT_CLASSES_OUTPUT_FOLDER = HOSTJUNIT_SRC_OUTPUT_FOLDER + "/classes";
-
-            if (args.length > 6) {
-                // optional: restrict to e.g. "opcodes.add_double"
-                restrictTo = args[6];
-                System.out.println("restricting build to: " + restrictTo);
-            }
-
-        } else {
-            System.out.println("usage: java-src-folder output-folder classpath " +
-                    "generated-main-files compiled_output generated-main-files " +
-            "[restrict-to-opcode]");
-            System.exit(-1);
-        }
+        parseArgs(args);
 
         long start = System.currentTimeMillis();
-        BuildDalvikSuite cat = new BuildDalvikSuite();
+        BuildDalvikSuite cat = new BuildDalvikSuite(false);
         cat.compose();
         long end = System.currentTimeMillis();
 
         System.out.println("elapsed seconds: " + (end - start) / 1000);
+    }
+
+    public static void parseArgs(String[] args) {
+      if (args.length > 5) {
+          JAVASRC_FOLDER = args[0];
+          OUTPUT_FOLDER = args[1];
+          CLASS_PATH = args[2];
+          MAIN_SRC_OUTPUT_FOLDER = args[3];
+          CLASSES_OUTPUT_FOLDER = MAIN_SRC_OUTPUT_FOLDER + "/classes";
+
+          COMPILED_CLASSES_FOLDER = args[4];
+
+          HOSTJUNIT_SRC_OUTPUT_FOLDER = args[5];
+          HOSTJUNIT_CLASSES_OUTPUT_FOLDER = HOSTJUNIT_SRC_OUTPUT_FOLDER + "/classes";
+
+          if (args.length > 6) {
+              // optional: restrict to e.g. "opcodes.add_double"
+              restrictTo = args[6];
+              System.out.println("restricting build to: " + restrictTo);
+          }
+
+      } else {
+          System.out.println("usage: java-src-folder output-folder classpath " +
+                  "generated-main-files compiled_output generated-main-files " +
+          "[restrict-to-opcode]");
+          System.exit(-1);
+      }
+    }
+
+    public BuildDalvikSuite(boolean useJack) {
+      this.useJack = useJack;
     }
 
     public void compose() throws IOException {
@@ -182,19 +191,21 @@ public class BuildDalvikSuite {
         li.add(method);
     }
     private String curJunitFileName = null;
+    private String curJunitName = null;
     private String curJunitFileData = "";
 
-    private JavacBuildStep javacHostJunitBuildStep;
+    private SourceBuildStep hostJunitBuildStep;
 
     private void flushHostJunitFile() {
         if (curJunitFileName != null) {
             File toWrite = new File(curJunitFileName);
             String absPath = toWrite.getAbsolutePath();
             // add to java source files for later compilation
-            javacHostJunitBuildStep.addSourceFile(absPath);
+            hostJunitBuildStep.addSourceFile(absPath);
             // write file
             curJunitFileData += "\n}\n";
             writeToFileMkdir(toWrite, curJunitFileData);
+
             curJunitFileName = null;
             curJunitFileData = "";
         }
@@ -211,6 +222,8 @@ public class BuildDalvikSuite {
         curJunitFileData = getWarningMessage() +
         "package " + pName + ";\n" +
         "import java.io.IOException;\n" +
+        "import java.util.concurrent.TimeUnit;\n\n" +
+        "import com.android.tradefed.device.CollectingOutputReceiver;\n" +
         "import com.android.tradefed.testtype.IAbi;\n" +
         "import com.android.tradefed.testtype.IAbiReceiver;\n" +
         "import com.android.tradefed.testtype.DeviceTestCase;\n" +
@@ -223,10 +236,15 @@ public class BuildDalvikSuite {
       String cmd = String.format("ANDROID_DATA=%s dalvikvm|#ABI#| -Xmx512M -Xss32K " +
               "-Djava.io.tmpdir=%s -classpath %s %s", TARGET_JAR_ROOT_PATH, TARGET_JAR_ROOT_PATH,
               classpath, mainclass);
-      return "    String cmd = AbiFormatter.formatCmdForAbi(\"" + cmd + "\", mAbi.getBitness());\n" +
-              "    String res = getDevice().executeShellCommand(cmd);\n" +
-              "    // A sucessful adb shell command returns an empty string.\n" +
-              "    assertEquals(cmd, \"\", res);";
+      StringBuilder code = new StringBuilder();
+      code.append("    String cmd = AbiFormatter.formatCmdForAbi(\"")
+          .append(cmd)
+          .append("\", mAbi.getBitness());\n")
+          .append("    CollectingOutputReceiver receiver = new CollectingOutputReceiver();\n")
+          .append("    getDevice().executeShellCommand(cmd, receiver, 6, TimeUnit.MINUTES, 1);\n")
+          .append("    // A sucessful adb shell command returns an empty string.\n")
+          .append("    assertEquals(cmd, \"\", receiver.getOutput());");
+      return code.toString();
     }
 
     private String getWarningMessage() {
@@ -267,11 +285,11 @@ public class BuildDalvikSuite {
         String datafileContent = "";
         Set<BuildStep> targets = new TreeSet<BuildStep>();
 
-        javacHostJunitBuildStep = new JavacBuildStep(HOSTJUNIT_CLASSES_OUTPUT_FOLDER, CLASS_PATH);
+        SourceBuildStep srcBuildStep;
+        hostJunitBuildStep = new JavacBuildStep(
+            HOSTJUNIT_CLASSES_OUTPUT_FOLDER, CLASS_PATH);
 
-
-        JavacBuildStep javacBuildStep = new JavacBuildStep(
-                CLASSES_OUTPUT_FOLDER, CLASS_PATH);
+        srcBuildStep = new JavacBuildStep(CLASSES_OUTPUT_FOLDER, CLASS_PATH);
 
         for (Entry<String, List<String>> entry : map.entrySet()) {
 
@@ -334,19 +352,25 @@ public class BuildDalvikSuite {
                 "    public static void main(String[] args) throws Exception {" +
                 methodContent + "\n}\n";
 
-                String fileName = getFileName(pName, method, ".java");
                 File sourceFile = getFileFromPackage(pName, method);
 
-                File classFile = new File(CLASSES_OUTPUT_FOLDER + "/" +
-                        getFileName(pName, method, ".class"));
-                // if (sourceFile.lastModified() > classFile.lastModified()) {
                 writeToFile(sourceFile, content);
-                javacBuildStep.addSourceFile(sourceFile.getAbsolutePath());
+                if (useJack) {
+                    File jackFile = new File(CLASSES_OUTPUT_FOLDER + "/" +
+                            getFileName(pName, method, ".jack"));
+                    JackBuildStep step = new JackBuildStep(jackFile.getAbsolutePath(), CLASS_PATH);
+                    step.addSourceFile(sourceFile.getAbsolutePath());
+                    if (!step.build()) {
+                        System.out.println("main src dalvik-cts-buildutil build step failed");
+                        System.exit(1);
+                    }
+                } else {
+                    srcBuildStep.addSourceFile(sourceFile.getAbsolutePath());
+                }
 
                 BuildStep dexBuildStep = generateDexBuildStep(
-                        CLASSES_OUTPUT_FOLDER, getFileName(pName, method, ""));
+                        CLASSES_OUTPUT_FOLDER, getFileName(pName, method, ""), null);
                 targets.add(dexBuildStep);
-                // }
 
 
                 // prepare the entry in the data file for the bash script.
@@ -442,22 +466,23 @@ public class BuildDalvikSuite {
         scriptDataDir.mkdirs();
         writeToFile(new File(scriptDataDir, "scriptdata"), datafileContent);
 
-        if (!javacHostJunitBuildStep.build()) {
+        if (!hostJunitBuildStep.build()) {
             System.out.println("main javac cts-host-hostjunit-classes build step failed");
             System.exit(1);
         }
 
-        if (javacBuildStep.build()) {
-            for (BuildStep buildStep : targets) {
-                if (!buildStep.build()) {
-                    System.out.println("building failed. buildStep: " +
-                            buildStep.getClass().getName() + ", " + buildStep);
-                    System.exit(1);
-                }
+        if (!useJack) {
+            if (!srcBuildStep.build()) {
+                System.out.println("main src dalvik-cts-buildutil build step failed");
+                System.exit(1);
             }
-        } else {
-            System.out.println("main javac dalvik-cts-buildutil build step failed");
-            System.exit(1);
+        }
+        for (BuildStep buildStep : targets) {
+            if (!buildStep.build()) {
+                System.out.println("building failed. buildStep: " +
+                        buildStep.getClass().getName() + ", " + buildStep);
+                System.exit(1);
+            }
         }
     }
 
@@ -514,19 +539,37 @@ public class BuildDalvikSuite {
             return;
         }
 
-        if (new File(sourceFolder, fileName + ".java").exists()) {
-
+        File srcFile = new File(sourceFolder, fileName + ".java");
+        if (srcFile.exists()) {
+            JackBuildStep jackBuildStep = null;
+            if (useJack) {
+                jackBuildStep = new JackBuildStep(
+                        COMPILED_CLASSES_FOLDER + File.separator + fileName + ".jack",
+                        CLASS_PATH);
+                jackBuildStep.addSourceFile(srcFile.getAbsolutePath());
+            }
             BuildStep dexBuildStep = generateDexBuildStep(
-                    COMPILED_CLASSES_FOLDER, fileName);
+                COMPILED_CLASSES_FOLDER, fileName, jackBuildStep);
             targets.add(dexBuildStep);
             return;
         }
 
         try {
             if (Class.forName(dependentTestClassName) != null) {
+                JillBuildStep jillBuildStep = null;
+                if (useJack) {
+                    BuildStep.BuildFile classFile = new BuildStep.BuildFile(
+                        COMPILED_CLASSES_FOLDER, fileName + ".class");
 
+                    BuildStep.BuildFile jackFile = new BuildStep.BuildFile(
+                        COMPILED_CLASSES_FOLDER,
+                        fileName + ".jack");
+
+                    jillBuildStep = new JillBuildStep(classFile,
+                        jackFile);
+                }
                 BuildStep dexBuildStep = generateDexBuildStep(
-                        COMPILED_CLASSES_FOLDER, fileName);
+                    COMPILED_CLASSES_FOLDER, fileName, jillBuildStep);
                 targets.add(dexBuildStep);
                 return;
             }
@@ -539,24 +582,50 @@ public class BuildDalvikSuite {
     }
 
     private BuildStep generateDexBuildStep(String classFileFolder,
-            String classFileName) {
-        BuildStep.BuildFile classFile = new BuildStep.BuildFile(
-                classFileFolder, classFileName + ".class");
+            String classFileName, BuildStep dependency) {
+        if (!useJack) {
+            BuildStep.BuildFile classFile = new BuildStep.BuildFile(
+                    classFileFolder, classFileName + ".class");
 
-        BuildStep.BuildFile tmpJarFile = new BuildStep.BuildFile(OUTPUT_FOLDER,
-                classFileName + "_tmp.jar");
+            BuildStep.BuildFile tmpJarFile = new BuildStep.BuildFile(
+                    OUTPUT_FOLDER,
+                    classFileName + "_tmp.jar");
 
-        JarBuildStep jarBuildStep = new JarBuildStep(classFile, classFileName +
-                ".class", tmpJarFile, false);
+            JarBuildStep jarBuildStep = new JarBuildStep(classFile,
+                    classFileName + ".class", tmpJarFile, false);
 
-        BuildStep.BuildFile outputFile = new BuildStep.BuildFile(OUTPUT_FOLDER,
-                classFileName + ".jar");
+            if (dependency != null) {
+                jarBuildStep.addChild(dependency);
+            }
 
-        DexBuildStep dexBuildStep = new DexBuildStep(tmpJarFile, outputFile,
-                true);
+            BuildStep.BuildFile outputFile = new BuildStep.BuildFile(
+                    OUTPUT_FOLDER,
+                    classFileName + ".jar");
 
-        dexBuildStep.addChild(jarBuildStep);
-        return dexBuildStep;
+            DxBuildStep dexBuildStep = new DxBuildStep(tmpJarFile,
+                    outputFile,
+                    true);
+
+            dexBuildStep.addChild(jarBuildStep);
+            return dexBuildStep;
+        } else {
+          BuildStep.BuildFile jackFile = new BuildStep.BuildFile(
+              classFileFolder, classFileName + ".jack");
+
+          BuildStep.BuildFile outputFile = new BuildStep.BuildFile(
+                  OUTPUT_FOLDER,
+                  classFileName + ".jar");
+
+          JackDexBuildStep dexBuildStep = new JackDexBuildStep(jackFile,
+                  outputFile,
+                  true);
+
+          if (dependency != null) {
+              dexBuildStep.addChild(dependency);
+          }
+          return dexBuildStep;
+
+        }
 
     }
 
@@ -747,7 +816,7 @@ public class BuildDalvikSuite {
 
     private void writeToFile(File file, String content) {
         try {
-            if (file.length() == content.length()) {
+            if (file.exists() && file.length() == content.length()) {
                 FileReader reader = new FileReader(file);
                 char[] charContents = new char[(int) file.length()];
                 reader.read(charContents);

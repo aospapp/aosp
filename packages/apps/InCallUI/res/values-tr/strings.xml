@@ -49,6 +49,7 @@
     <string name="card_title_video_call" msgid="5898636679563320218">"Video görüşmesi"</string>
     <string name="card_title_video_call_requesting" msgid="4587504939739340937">"Video isteniyor"</string>
     <string name="card_title_video_call_error" msgid="9000555878389539225">"Video görüşmesi bağlantısı yapılamıyor"</string>
+    <string name="card_title_video_call_rejected" msgid="462358296694719787">"Video isteği reddedildi"</string>
     <string name="card_title_callback_number" msgid="7307938207564217293">"Geri arama numaranız\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="card_title_callback_number_emergency" msgid="8634765419223426754">"Acil durum geri arama numaranız\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="notification_dialing" msgid="2107666444937350731">"Çevriliyor"</string>
@@ -57,8 +58,10 @@
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> cevapsız çağrı"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"Cevapsız çağrı: <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
     <string name="notification_ongoing_call" msgid="7068688957273482989">"Devam eden çağrılar"</string>
+    <string name="notification_ongoing_call_wifi" msgid="8521553590606569379">"Giden kablosuz çağrı"</string>
     <string name="notification_on_hold" msgid="3480694969511790465">"Beklemede"</string>
     <string name="notification_incoming_call" msgid="2820429205043529642">"Gelen çağrı"</string>
+    <string name="notification_incoming_call_wifi" msgid="9210706506594546627">"Gelen kablosuz çağrı"</string>
     <string name="notification_incoming_video_call" msgid="7356836933934464805">"Gelen video görüşmesi isteği"</string>
     <string name="notification_requesting_video_call" msgid="1405576812892369451">"Gelen video isteği"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"Yeni sesli mesaj"</string>
@@ -95,13 +98,9 @@
     <string name="dial_emergency_error" msgid="1509085166367420355">"Aranamıyor. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> bir acil durum numarası değil."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Aranamıyor. Bir acil durum numarasını arayın."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Çevirmek için klavyeyi kullan"</string>
-    <string name="overflowHoldMenuItemText" msgid="7382457697092158039">"Çağrıyı beklet"</string>
-    <string name="overflowResumeMenuItemText" msgid="8826360006222366843">"Çağrıya devam et"</string>
-    <string name="overflowAddMenuItemText" msgid="5605615101930811453">"Çağrı ekle"</string>
-    <string name="overflowMergeMenuItemText" msgid="6305762210377655389">"Çağrıları birleştir"</string>
-    <string name="overflowSwapMenuItemText" msgid="6603717809137071603">"Çağrılar arasında geçiş yap"</string>
-    <string name="onscreenHoldText" msgid="2285258239691145872">"Beklet"</string>
-    <string name="onscreenEndCallText" msgid="4403855834875398585">"Sonlandır"</string>
+    <string name="onscreenHoldText_unselected" msgid="7092499303393171276">"Çağrıyı Beklet"</string>
+    <string name="onscreenHoldText_selected" msgid="7127901498507384249">"Çağrıyı Devam Ettir"</string>
+    <string name="onscreenEndCallText" msgid="9039601192595655846">"Çağrıyı Sonlandır"</string>
     <string name="onscreenShowDialpadText" msgid="8561805492659639893">"Tuş takımı"</string>
     <string name="onscreenMuteText" msgid="5011369181754261374">"Sesi Kapat"</string>
     <string name="onscreenAddCallText" msgid="5140385634712287403">"Çağrı ekle"</string>
@@ -115,6 +114,11 @@
     <string name="onscreenSwitchCameraText" msgid="5324543493442787798">"Kamerayı değiştir"</string>
     <string name="onscreenPauseVideoText" msgid="5663965924921429203">"Videoyu duraklat"</string>
     <string name="onscreenOverflowText" msgid="2702376562345723132">"Diğer seçenekler"</string>
+    <string name="player_started" msgid="6046262510243983589">"Oynatıcı Başlatıldı"</string>
+    <string name="player_stopped" msgid="8856926759436364963">"Oynatıcı Durduruldu"</string>
+    <string name="camera_not_ready" msgid="4955261496193316240">"Kamera hazır değil"</string>
+    <string name="camera_ready" msgid="1903335385405807324">"Kamera hazır"</string>
+    <string name="unknown_call_session_event" msgid="2431061946920253582">"Bilinmeyen çağrı oturumu etkinliği"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"Hizmet"</string>
     <string name="voicemail_settings" msgid="72448049107749316">"Kurulum"</string>
     <string name="voicemail_number_not_set" msgid="6724904736891087856">"&lt;Ayarlanmadı&gt;"</string>
@@ -134,6 +138,10 @@
     <string name="description_target_answer_audio_call" msgid="8396296303320994450">"Sesli görüşme olarak yanıtla"</string>
     <string name="description_target_accept_upgrade_to_video_request" msgid="2894072808324604062">"Video isteğini kabul et"</string>
     <string name="description_target_decline_upgrade_to_video_request" msgid="4093888612888538776">"Video isteğini reddet"</string>
+    <string name="description_target_accept_upgrade_to_video_transmit_request" msgid="5311037889642077468">"Video aktarma isteğini kabul et"</string>
+    <string name="description_target_decline_upgrade_to_video_transmit_request" msgid="3636108065510415975">"Video aktarma isteğini reddet"</string>
+    <string name="description_target_accept_upgrade_to_video_receive_request" msgid="8668058323593087912">"Video alma isteğini kabul et"</string>
+    <string name="description_target_decline_upgrade_to_video_receive_request" msgid="2355776509656298367">"Video alma isteğini reddet"</string>
     <string name="description_direction_up" msgid="4441409581444516690">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> için yukarı kaydırın."</string>
     <string name="description_direction_left" msgid="7129873384376533287">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> için sola kaydırın."</string>
     <string name="description_direction_right" msgid="2122584234531957308">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> için sağa kaydırın."</string>
@@ -144,8 +152,21 @@
     <string name="default_notification_description" msgid="78174796906240970">"Varsayılan ses (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="ringtone_title" msgid="6374978286202084684">"Telefon zil sesi"</string>
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Çalarken titret"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Tuş takımı otomatik tamamlama"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Zil Sesi ve Titreşim"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Konferans görüşmesini yönet"</string>
     <string name="emergency_call_dialog_number_for_display" msgid="8373041754188879871">"Acil durum numarası"</string>
+    <plurals name="duration_seconds" formatted="false" msgid="59971978269163609">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> saniye</item>
+      <item quantity="one">1 saniye</item>
+    </plurals>
+    <plurals name="duration_minutes" formatted="false" msgid="1103289948818175408">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> dakika</item>
+      <item quantity="one">1 dakika</item>
+    </plurals>
+    <plurals name="duration_hours" formatted="false" msgid="7560637459014865969">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> saat</item>
+      <item quantity="one">1 saat</item>
+    </plurals>
+    <string name="profile_photo_description" msgid="5609894336203315400">"Profil fotoğrafı"</string>
+    <string name="camera_off_description" msgid="5689494614359429889">"Kamera kapalı"</string>
 </resources>

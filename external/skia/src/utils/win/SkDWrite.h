@@ -9,13 +9,23 @@
 #define SkDWrite_DEFINED
 
 #include "SkTemplates.h"
+#include "SkFontStyle.h"
 
 #include <dwrite.h>
+#include <winsdkver.h>
 
 class SkString;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Factory
+
+#ifndef SK_HAS_DWRITE_1_H
+#define SK_HAS_DWRITE_1_H (WINVER_MAXVER >= 0x0602)
+#endif
+
+#ifndef SK_HAS_DWRITE_2_H
+#define SK_HAS_DWRITE_2_H (WINVER_MAXVER >= 0x0603)
+#endif
 
 IDWriteFactory* sk_get_dwrite_factory();
 
@@ -28,8 +38,10 @@ typedef SkAutoSTMalloc<16, WCHAR> SkSMallocWCHAR;
 /** Converts a utf8 string to a WCHAR string. */
 HRESULT sk_cstring_to_wchar(const char* skname, SkSMallocWCHAR* name);
 
-/** Converts a WCHAR string to a utf8 string. */
-HRESULT sk_wchar_to_skstring(WCHAR* name, SkString* skname);
+/** Converts a WCHAR string to a utf8 string.
+ *  @param nameLen the number of WCHARs in the name.
+ */
+HRESULT sk_wchar_to_skstring(WCHAR* name, int nameLen, SkString* skname);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Locale
@@ -37,7 +49,7 @@ HRESULT sk_wchar_to_skstring(WCHAR* name, SkString* skname);
 void sk_get_locale_string(IDWriteLocalizedStrings* names, const WCHAR* preferedLocale,
                        SkString* skname);
 
-typedef decltype(GetUserDefaultLocaleName)* SkGetUserDefaultLocaleNameProc;
+typedef int (WINAPI *SkGetUserDefaultLocaleNameProc)(LPWSTR, int);
 HRESULT SkGetGetUserDefaultLocaleNameProc(SkGetUserDefaultLocaleNameProc* proc);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +83,30 @@ public:
 
     const T* get() const { return reinterpret_cast<const T*>(fData); }
     const T* operator->() const { return reinterpret_cast<const T*>(fData); }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Style conversion
+
+struct DWriteStyle {
+    explicit DWriteStyle(const SkFontStyle& pattern) {
+        switch (pattern.slant()) {
+        case SkFontStyle::kUpright_Slant:
+            fSlant = DWRITE_FONT_STYLE_NORMAL;
+            break;
+        case SkFontStyle::kItalic_Slant:
+            fSlant = DWRITE_FONT_STYLE_ITALIC;
+            break;
+        default:
+            SkASSERT(false);
+        }
+
+        fWeight = (DWRITE_FONT_WEIGHT)pattern.weight();
+        fWidth = (DWRITE_FONT_STRETCH)pattern.width();
+    }
+    DWRITE_FONT_STYLE fSlant;
+    DWRITE_FONT_WEIGHT fWeight;
+    DWRITE_FONT_STRETCH fWidth;
 };
 
 #endif

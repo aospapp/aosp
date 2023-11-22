@@ -21,7 +21,7 @@
 FileWrapperOutput::FileWrapperOutput(const char* name)
     : _name(name) {
   _file = fopen(name, "wb");
-  if (NULL == _file) {
+  if (nullptr == _file) {
     fprintf(stderr, "Unable to open: %s\n", name);
     exit(1);
   }

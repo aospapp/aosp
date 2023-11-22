@@ -16,18 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="playback_rate">
-    <item msgid="2256013827330361362">"-32x"</item>
-    <item msgid="8015022487770548480">"-16x"</item>
-    <item msgid="6059574568244647874">"-8x"</item>
-    <item msgid="2843793773083341043">"-4x"</item>
-    <item msgid="9116032734624497341">"-2x"</item>
-    <item msgid="8985811210531660085">"2x"</item>
-    <item msgid="8446986380658461054">"4X"</item>
-    <item msgid="8690234526777393881">"8X"</item>
-    <item msgid="5018600639704774041">"16x"</item>
-    <item msgid="1207415094508824492">"32x"</item>
-  </string-array>
   <string-array name="ampm">
     <item msgid="4375405926289364989">"​ກ່ອນ​ທ່ຽງ"</item>
     <item msgid="4802437431289555052">"ຫຼັງທ່ຽງ"</item>

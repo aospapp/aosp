@@ -16,14 +16,19 @@
 
 package com.google.common.primitives;
 
+import static java.lang.Long.MAX_VALUE;
+import static java.lang.Long.MIN_VALUE;
+
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Converter;
 import com.google.common.collect.testing.Helpers;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
 
 import junit.framework.TestCase;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,11 +49,8 @@ public class LongsTest extends TestCase {
   private static final long[] ARRAY234
       = {(long) 2, (long) 3, (long) 4};
 
-  private static final long LEAST = Long.MIN_VALUE;
-  private static final long GREATEST = Long.MAX_VALUE;
-
   private static final long[] VALUES =
-      { LEAST, (long) -1, (long) 0, (long) 1, GREATEST };
+      { MIN_VALUE, (long) -1, (long) 0, (long) 1, MAX_VALUE };
 
   @GwtIncompatible("Long.hashCode returns different values in GWT.")
   public void testHashCode() {
@@ -150,8 +152,8 @@ public class LongsTest extends TestCase {
   }
 
   public void testMax() {
-    assertEquals(LEAST, Longs.max(LEAST));
-    assertEquals(GREATEST, Longs.max(GREATEST));
+    assertEquals(MIN_VALUE, Longs.max(MIN_VALUE));
+    assertEquals(MAX_VALUE, Longs.max(MAX_VALUE));
     assertEquals((long) 9, Longs.max(
         (long) 8, (long) 6, (long) 7,
         (long) 5, (long) 3, (long) 0, (long) 9));
@@ -166,8 +168,8 @@ public class LongsTest extends TestCase {
   }
 
   public void testMin() {
-    assertEquals(LEAST, Longs.min(LEAST));
-    assertEquals(GREATEST, Longs.min(GREATEST));
+    assertEquals(MIN_VALUE, Longs.min(MIN_VALUE));
+    assertEquals(MAX_VALUE, Longs.min(MAX_VALUE));
     assertEquals((long) 0, Longs.min(
         (long) 8, (long) 6, (long) 7,
         (long) 5, (long) 3, (long) 0, (long) 9));
@@ -188,19 +190,23 @@ public class LongsTest extends TestCase {
         Longs.concat(ARRAY1, ARRAY234)));
   }
 
-  @GwtIncompatible("Longs.toByteArray")
+  private static void assertByteArrayEquals(byte[] expected, byte[] actual) {
+    assertTrue(
+        "Expected: " + Arrays.toString(expected) + ", but got: " + Arrays.toString(actual),
+        Arrays.equals(expected, actual));
+  }
+
   public void testToByteArray() {
-    assertTrue(Arrays.equals(
+    assertByteArrayEquals(
         new byte[] {0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19},
-        Longs.toByteArray(0x1213141516171819L)));
-    assertTrue(Arrays.equals(
+        Longs.toByteArray(0x1213141516171819L));
+    assertByteArrayEquals(
         new byte[] {
             (byte) 0xFF, (byte) 0xEE, (byte) 0xDD, (byte) 0xCC,
             (byte) 0xBB, (byte) 0xAA, (byte) 0x99, (byte) 0x88},
-        Longs.toByteArray(0xFFEEDDCCBBAA9988L)));
+        Longs.toByteArray(0xFFEEDDCCBBAA9988L));
   }
 
-  @GwtIncompatible("Longs.fromByteArray")
   public void testFromByteArray() {
     assertEquals(0x1213141516171819L, Longs.fromByteArray(
         new byte[] {0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x33}));
@@ -216,7 +222,6 @@ public class LongsTest extends TestCase {
     }
   }
 
-  @GwtIncompatible("Longs.fromBytes")
   public void testFromBytes() {
     assertEquals(0x1213141516171819L, Longs.fromBytes(
         (byte) 0x12, (byte) 0x13, (byte) 0x14, (byte) 0x15,
@@ -226,7 +231,6 @@ public class LongsTest extends TestCase {
         (byte) 0xBB, (byte) 0xAA, (byte) 0x99, (byte) 0x88));
   }
 
-  @GwtIncompatible("Longs.fromByteArray, Longs.toByteArray")
   public void testByteArrayRoundTrips() {
     Random r = new Random(5);
     byte[] b = new byte[Longs.BYTES];
@@ -276,14 +280,14 @@ public class LongsTest extends TestCase {
   public void testLexicographicalComparator() {
     List<long[]> ordered = Arrays.asList(
         new long[] {},
-        new long[] {LEAST},
-        new long[] {LEAST, LEAST},
-        new long[] {LEAST, (long) 1},
+        new long[] {MIN_VALUE},
+        new long[] {MIN_VALUE, MIN_VALUE},
+        new long[] {MIN_VALUE, (long) 1},
         new long[] {(long) 1},
-        new long[] {(long) 1, LEAST},
-        new long[] {GREATEST, GREATEST - (long) 1},
-        new long[] {GREATEST, GREATEST},
-        new long[] {GREATEST, GREATEST, GREATEST});
+        new long[] {(long) 1, MIN_VALUE},
+        new long[] {MAX_VALUE, MAX_VALUE - (long) 1},
+        new long[] {MAX_VALUE, MAX_VALUE},
+        new long[] {MAX_VALUE, MAX_VALUE, MAX_VALUE});
 
     Comparator<long[]> comparator = Longs.lexicographicalComparator();
     Helpers.testComparator(comparator, ordered);
@@ -293,6 +297,11 @@ public class LongsTest extends TestCase {
   public void testLexicographicalComparatorSerializable() {
     Comparator<long[]> comparator = Longs.lexicographicalComparator();
     assertSame(comparator, SerializableTester.reserialize(comparator));
+  }
+
+  @GwtIncompatible("SerializableTester")
+  public void testStringConverterSerialization() {
+    SerializableTester.reserializeAndAssert(Longs.stringConverter());
   }
 
   public void testToArray() {
@@ -336,6 +345,24 @@ public class LongsTest extends TestCase {
     }
   }
 
+  public void testToArray_withConversion() {
+    long[] array = {(long) 0, (long) 1, (long) 2};
+
+    List<Byte> bytes = Arrays.asList((byte) 0, (byte) 1, (byte) 2);
+    List<Short> shorts = Arrays.asList((short) 0, (short) 1, (short) 2);
+    List<Integer> ints = Arrays.asList(0, 1, 2);
+    List<Float> floats = Arrays.asList((float) 0, (float) 1, (float) 2);
+    List<Long> longs = Arrays.asList((long) 0, (long) 1, (long) 2);
+    List<Double> doubles = Arrays.asList((double) 0, (double) 1, (double) 2);
+
+    assertTrue(Arrays.equals(array, Longs.toArray(bytes)));
+    assertTrue(Arrays.equals(array, Longs.toArray(shorts)));
+    assertTrue(Arrays.equals(array, Longs.toArray(ints)));
+    assertTrue(Arrays.equals(array, Longs.toArray(floats)));
+    assertTrue(Arrays.equals(array, Longs.toArray(longs)));
+    assertTrue(Arrays.equals(array, Longs.toArray(doubles)));
+  }
+
   public void testAsList_isAView() {
     long[] array = {(long) 0, (long) 1};
     List<Long> list = Longs.asList(array);
@@ -373,9 +400,78 @@ public class LongsTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(Longs.class);
+  }
+
+  public void testStringConverter_convert() {
+    Converter<String, Long> converter = Longs.stringConverter();
+    assertEquals((Long) 1L, converter.convert("1"));
+    assertEquals((Long) 0L, converter.convert("0"));
+    assertEquals((Long) (-1L), converter.convert("-1"));
+    assertEquals((Long) 255L, converter.convert("0xff"));
+    assertEquals((Long) 255L, converter.convert("0xFF"));
+    assertEquals((Long) (-255L), converter.convert("-0xFF"));
+    assertEquals((Long) 255L, converter.convert("#0000FF"));
+    assertEquals((Long) 438L, converter.convert("0666"));
+  }
+
+  public void testStringConverter_convertError() {
+    try {
+      Longs.stringConverter().convert("notanumber");
+      fail();
+    } catch (NumberFormatException expected) {
+    }
+  }
+
+  public void testStringConverter_nullConversions() {
+    assertNull(Longs.stringConverter().convert(null));
+    assertNull(Longs.stringConverter().reverse().convert(null));
+  }
+
+  public void testStringConverter_reverse() {
+    Converter<String, Long> converter = Longs.stringConverter();
+    assertEquals("1", converter.reverse().convert(1L));
+    assertEquals("0", converter.reverse().convert(0L));
+    assertEquals("-1", converter.reverse().convert(-1L));
+    assertEquals("255", converter.reverse().convert(0xffL));
+    assertEquals("255", converter.reverse().convert(0xFFL));
+    assertEquals("-255", converter.reverse().convert(-0xFFL));
+    assertEquals("438", converter.reverse().convert(0666L));
+  }
+
+  @GwtIncompatible("NullPointerTester")
+  public void testStringConverter_nullPointerTester() throws Exception {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(long[].class, new long[0]);
-    tester.testAllPublicStaticMethods(Longs.class);
+    tester.testAllPublicInstanceMethods(Longs.stringConverter());
+  }
+
+  @GwtIncompatible("AndroidInteger")
+  public void testTryParse() {
+    tryParseAndAssertEquals(0L, "0");
+    tryParseAndAssertEquals(0L, "-0");
+    tryParseAndAssertEquals(1L, "1");
+    tryParseAndAssertEquals(-1L, "-1");
+    tryParseAndAssertEquals(8900L, "8900");
+    tryParseAndAssertEquals(-8900L, "-8900");
+    tryParseAndAssertEquals(MAX_VALUE, Long.toString(MAX_VALUE));
+    tryParseAndAssertEquals(MIN_VALUE, Long.toString(MIN_VALUE));
+    assertNull(Longs.tryParse(""));
+    assertNull(Longs.tryParse("-"));
+    assertNull(Longs.tryParse("+1"));
+    assertNull(Longs.tryParse("999999999999999999999999"));
+    assertNull("Max integer + 1",
+        Longs.tryParse(BigInteger.valueOf(MAX_VALUE).add(BigInteger.ONE).toString()));
+    assertNull("Min integer - 1",
+        Longs.tryParse(BigInteger.valueOf(MIN_VALUE).subtract(BigInteger.ONE).toString()));
+    assertNull(Longs.tryParse("\u0662\u06f3"));
+  }
+
+  /**
+   * Applies {@link Longs#tryParse(String)} to the given string and asserts that
+   * the result is as expected.
+   */
+  private static void tryParseAndAssertEquals(Long expected, String value) {
+    assertEquals(expected, Longs.tryParse(value));
   }
 }

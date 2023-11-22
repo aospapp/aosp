@@ -65,9 +65,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 0.0: test queryEffects() and platfrom at least provides an Equalizer
     public void test0_0QueryEffects() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
 
         AudioEffect.Descriptor[] desc = AudioEffect.queryEffects();
 
@@ -125,9 +122,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 1.3: test getEnabled() failure when called on released effect
     public void test1_3GetEnabledAfterRelease() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         try {
             AudioEffect effect = new AudioEffect(AudioEffect.EFFECT_TYPE_EQUALIZER,
                     AudioEffect.EFFECT_TYPE_NULL,
@@ -150,9 +144,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 1.4: test contructor on mediaPlayer audio session
     public void test1_4InsertOnMediaPlayer() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         MediaPlayer mp = new MediaPlayer();
         assertNotNull("could not create mediaplayer", mp);
         AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(R.raw.testmp3);
@@ -285,9 +276,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 2.0: test setEnabled() and getEnabled() in valid state
     public void test2_0SetEnabledGetEnabled() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         try {
             AudioEffect effect = new AudioEffect(AudioEffect.EFFECT_TYPE_EQUALIZER,
                     AudioEffect.EFFECT_TYPE_NULL,
@@ -315,9 +303,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 2.1: test setEnabled() throws exception after release
     public void test2_1SetEnabledAfterRelease() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         try {
             AudioEffect effect = new AudioEffect(AudioEffect.EFFECT_TYPE_EQUALIZER,
                     AudioEffect.EFFECT_TYPE_NULL,
@@ -649,9 +634,6 @@ public class AudioEffectTest extends PostProcTestBase {
 
     //Test case 4.0: test control passed to higher priority client
     public void test4_0setEnabledLowerPriority() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
         AudioEffect effect1 = null;
         AudioEffect effect2 = null;
         try {

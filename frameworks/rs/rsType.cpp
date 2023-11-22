@@ -58,6 +58,9 @@ void Type::clear() {
         delete [] mHal.state.lodDimY;
         delete [] mHal.state.lodDimZ;
     }
+    if (mHal.state.arrayCount > 0) {
+        delete [] mHal.state.arrays;
+    }
     mElement.clear();
     memset(&mHal, 0, sizeof(mHal));
 }
@@ -178,22 +181,24 @@ Type *Type::createFromStream(Context *rsc, IStream *stream) {
     RsA3DClassID classID = (RsA3DClassID)stream->loadU32();
     if (classID != RS_A3D_CLASS_ID_TYPE) {
         ALOGE("type loading skipped due to invalid class id\n");
-        return NULL;
+        return nullptr;
     }
 
     const char *name = stream->loadString();
 
     Element *elem = Element::createFromStream(rsc, stream);
     if (!elem) {
-        return NULL;
+        return nullptr;
     }
 
-    uint32_t x = stream->loadU32();
-    uint32_t y = stream->loadU32();
-    uint32_t z = stream->loadU32();
-    uint8_t lod = stream->loadU8();
-    uint8_t faces = stream->loadU8();
-    Type *type = Type::getType(rsc, elem, x, y, z, lod != 0, faces !=0, 0);
+    RsTypeCreateParams p;
+    memset(&p, 0, sizeof(p));
+    p.dimX = stream->loadU32();
+    p.dimY = stream->loadU32();
+    p.dimZ = stream->loadU32();
+    p.mipmaps = stream->loadU8();
+    p.faces = stream->loadU8();
+    Type *type = Type::getType(rsc, elem, &p, sizeof(p));
     elem->decUserRef();
 
     delete [] name;
@@ -218,8 +223,7 @@ bool Type::getIsNp2() const {
 }
 
 ObjectBaseRef<Type> Type::getTypeRef(Context *rsc, const Element *e,
-                                     uint32_t dimX, uint32_t dimY, uint32_t dimZ,
-                                     bool dimLOD, bool dimFaces, uint32_t dimYuv) {
+                                     const RsTypeCreateParams *params, size_t len) {
     ObjectBaseRef<Type> returnRef;
 
     TypeState * stc = &rsc->mStateType;
@@ -228,12 +232,16 @@ ObjectBaseRef<Type> Type::getTypeRef(Context *rsc, const Element *e,
     for (uint32_t ct=0; ct < stc->mTypes.size(); ct++) {
         Type *t = stc->mTypes[ct];
         if (t->getElement() != e) continue;
-        if (t->getDimX() != dimX) continue;
-        if (t->getDimY() != dimY) continue;
-        if (t->getDimZ() != dimZ) continue;
-        if (t->getDimLOD() != dimLOD) continue;
-        if (t->getDimFaces() != dimFaces) continue;
-        if (t->getDimYuv() != dimYuv) continue;
+        if (t->getDimX() != params->dimX) continue;
+        if (t->getDimY() != params->dimY) continue;
+        if (t->getDimZ() != params->dimZ) continue;
+        if (t->getDimLOD() != params->mipmaps) continue;
+        if (t->getDimFaces() != params->faces) continue;
+        if (t->getDimYuv() != params->yuv) continue;
+        if (t->getArray(0) != params->array0) continue;
+        if (t->getArray(1) != params->array1) continue;
+        if (t->getArray(2) != params->array2) continue;
+        if (t->getArray(3) != params->array3) continue;
         returnRef.set(t);
         ObjectBase::asyncUnlock();
         return returnRef;
@@ -244,7 +252,7 @@ ObjectBaseRef<Type> Type::getTypeRef(Context *rsc, const Element *e,
     void* allocMem = rsc->mHal.funcs.allocRuntimeMem(sizeof(Type), 0);
     if (!allocMem) {
         rsc->setError(RS_ERROR_FATAL_DRIVER, "Couldn't allocate memory for Type");
-        return NULL;
+        return nullptr;
     }
 
     Type *nt = new (allocMem) Type(rsc);
@@ -254,14 +262,28 @@ ObjectBaseRef<Type> Type::getTypeRef(Context *rsc, const Element *e,
     ALOGE("pointer for type.drv: %p", &nt->mHal.drv);
 #endif
 
-    nt->mDimLOD = dimLOD;
+    nt->mDimLOD = params->mipmaps;
     returnRef.set(nt);
     nt->mElement.set(e);
-    nt->mHal.state.dimX = dimX;
-    nt->mHal.state.dimY = dimY;
-    nt->mHal.state.dimZ = dimZ;
-    nt->mHal.state.faces = dimFaces;
-    nt->mHal.state.dimYuv = dimYuv;
+    nt->mHal.state.dimX = params->dimX;
+    nt->mHal.state.dimY = params->dimY;
+    nt->mHal.state.dimZ = params->dimZ;
+    nt->mHal.state.faces = params->faces;
+    nt->mHal.state.dimYuv = params->yuv;
+
+    nt->mHal.state.arrayCount = 0;
+    if (params->array0 > 0) nt->mHal.state.arrayCount ++;
+    if (params->array1 > 0) nt->mHal.state.arrayCount ++;
+    if (params->array2 > 0) nt->mHal.state.arrayCount ++;
+    if (params->array3 > 0) nt->mHal.state.arrayCount ++;
+    if (nt->mHal.state.arrayCount > 0) {
+        nt->mHal.state.arrays = new uint32_t[nt->mHal.state.arrayCount];
+        if (params->array0 > 0) nt->mHal.state.arrays[0] = params->array0;
+        if (params->array1 > 1) nt->mHal.state.arrays[1] = params->array1;
+        if (params->array2 > 2) nt->mHal.state.arrays[2] = params->array2;
+        if (params->array3 > 3) nt->mHal.state.arrays[3] = params->array3;
+    }
+
     nt->compute();
 
     ObjectBase::asyncLock();
@@ -272,15 +294,27 @@ ObjectBaseRef<Type> Type::getTypeRef(Context *rsc, const Element *e,
 }
 
 ObjectBaseRef<Type> Type::cloneAndResize1D(Context *rsc, uint32_t dimX) const {
-    return getTypeRef(rsc, mElement.get(), dimX,
-                      getDimY(), getDimZ(), getDimLOD(), getDimFaces(), getDimYuv());
+    RsTypeCreateParams p;
+    memset(&p, 0, sizeof(p));
+    p.dimX = dimX;
+    p.dimY = getDimY();
+    p.dimZ = getDimZ();
+    p.mipmaps = getDimLOD();
+    return getTypeRef(rsc, mElement.get(), &p, sizeof(p));
 }
 
 ObjectBaseRef<Type> Type::cloneAndResize2D(Context *rsc,
                               uint32_t dimX,
                               uint32_t dimY) const {
-    return getTypeRef(rsc, mElement.get(), dimX, dimY,
-                      getDimZ(), getDimLOD(), getDimFaces(), getDimYuv());
+    RsTypeCreateParams p;
+    memset(&p, 0, sizeof(p));
+    p.dimX = dimX;
+    p.dimY = dimY;
+    p.dimZ = getDimZ();
+    p.mipmaps = getDimLOD();
+    p.faces = getDimFaces();
+    p.yuv = getDimYuv();
+    return getTypeRef(rsc, mElement.get(), &p, sizeof(p));
 }
 
 
@@ -315,7 +349,7 @@ void Type::decRefs(const void *ptr, size_t ct, size_t startOff) const {
 }
 
 void Type::callUpdateCacheObject(const Context *rsc, void *dstObj) const {
-    if (rsc->mHal.funcs.type.updateCachedObject != NULL) {
+    if (rsc->mHal.funcs.type.updateCachedObject != nullptr) {
         rsc->mHal.funcs.type.updateCachedObject(rsc, this, (rs_type *)dstObj);
     } else {
         *((const void **)dstObj) = this;
@@ -331,7 +365,20 @@ RsType rsi_TypeCreate(Context *rsc, RsElement _e, uint32_t dimX,
                      uint32_t dimY, uint32_t dimZ, bool mipmaps, bool faces, uint32_t yuv) {
     Element *e = static_cast<Element *>(_e);
 
-    return Type::getType(rsc, e, dimX, dimY, dimZ, mipmaps, faces, yuv);
+    RsTypeCreateParams p;
+    memset(&p, 0, sizeof(p));
+    p.dimX = dimX;
+    p.dimY = dimY;
+    p.dimZ = dimZ;
+    p.mipmaps = mipmaps;
+    p.faces = faces;
+    p.yuv = yuv;
+    return Type::getType(rsc, e, &p, sizeof(p));
+}
+
+RsType rsi_TypeCreate2(Context *rsc, const RsTypeCreateParams *p, size_t len) {
+    Element *e = static_cast<Element *>(p->e);
+    return Type::getType(rsc, e, p, len);
 }
 
 }

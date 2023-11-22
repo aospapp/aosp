@@ -16,24 +16,17 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
-
 import android.app.Fragment;
 import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.text.TextUtils;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
+import com.android.tv.settings.R;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
 
 /**
  * Add a wifi network where we already know the ssid/security; normal post-install settings.

@@ -11,7 +11,8 @@ llvm_dwarfdump_SRC_FILES := \
   llvm-dwarfdump.cpp
 
 llvm_dwarfdump_STATIC_LIBRARIES := \
-  libLLVMDebugInfo                 \
+  libLLVMDebugInfoDWARF            \
+  libLLVMDebugInfoPDB              \
   libLLVMObject                    \
   libLLVMBitReader                 \
   libLLVMMC                        \

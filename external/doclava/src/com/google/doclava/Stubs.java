@@ -27,8 +27,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public class Stubs {
   public static void writeStubsAndApi(String stubsDir, String apiFile, String keepListFile,
@@ -94,18 +96,36 @@ public class Stubs {
                 + m.name() + " is deprecated");
           }
 
-          ClassInfo returnClass = m.returnType().asClassInfo();
-          if (returnClass != null && returnClass.isHiddenOrRemoved()) {
-            Errors.error(Errors.UNAVAILABLE_SYMBOL, m.position(), "Method " + cl.qualifiedName()
-                + "." + m.name() + " returns unavailable type " + returnClass.name());
+          ClassInfo hiddenClass = findHiddenClasses(m.returnType());
+          if (null != hiddenClass) {
+            if (hiddenClass.qualifiedName() == m.returnType().asClassInfo().qualifiedName()) {
+              // Return type is hidden
+              Errors.error(Errors.UNAVAILABLE_SYMBOL, m.position(), "Method " + cl.qualifiedName()
+                  + "." + m.name() + " returns unavailable type " + hiddenClass.name());
+            } else {
+              // Return type contains a generic parameter
+              Errors.error(Errors.HIDDEN_TYPE_PARAMETER, m.position(), "Method " + cl.qualifiedName()
+                  + "." + m.name() + " returns unavailable type " + hiddenClass.name()
+                  + " as a type parameter");
+            }
           }
 
           for (ParameterInfo p :  m.parameters()) {
             TypeInfo t = p.type();
             if (!t.isPrimitive()) {
-              if (t.asClassInfo().isHiddenOrRemoved()) {
-                Errors.error(Errors.UNAVAILABLE_SYMBOL, m.position(), "Parameter of unavailable type "
-                    + t.fullName() + " in " + cl.qualifiedName() + "." + m.name() + "()");
+              hiddenClass = findHiddenClasses(t);
+              if (null != hiddenClass) {
+                if (hiddenClass.qualifiedName() == t.asClassInfo().qualifiedName()) {
+                  // Parameter type is hidden
+                  Errors.error(Errors.UNAVAILABLE_SYMBOL, m.position(),
+                      "Parameter of unavailable type " + t.fullName() + " in " + cl.qualifiedName()
+                      + "." + m.name() + "()");
+                } else {
+                  // Parameter type contains a generic parameter
+                  Errors.error(Errors.HIDDEN_TYPE_PARAMETER, m.position(),
+                      "Parameter uses type parameter of unavailable type " + t.fullName() + " in "
+                      + cl.qualifiedName() + "." + m.name() + "()");
+                }
               }
             }
           }
@@ -143,9 +163,10 @@ public class Stubs {
 
     // packages contains all the notStrippable classes mapped by their containing packages
     HashMap<PackageInfo, List<ClassInfo>> packages = new HashMap<PackageInfo, List<ClassInfo>>();
+    final HashSet<Pattern> stubPackageWildcards = extractWildcards(stubPackages);
     for (ClassInfo cl : notStrippable) {
       if (!cl.isDocOnly()) {
-        if (stubPackages == null || stubPackages.contains(cl.containingPackage().name())) {
+        if (shouldWriteStub(cl.containingPackage().name(), stubPackages, stubPackageWildcards)) {
           // write out the stubs
           if (stubsDir != null) {
             writeClassFile(stubsDir, notStrippable, cl);
@@ -191,6 +212,62 @@ public class Stubs {
       writeRemovedApi(removedApiWriter, allPackageClassMap, notStrippable);
       removedApiWriter.close();
     }
+  }
+
+  private static boolean shouldWriteStub(final String packageName,
+          final HashSet<String> stubPackages, final HashSet<Pattern> stubPackageWildcards) {
+    if (stubPackages == null) {
+      // There aren't any stub packages set, write all stubs
+      return true;
+    }
+    if (stubPackages.contains(packageName)) {
+      // Stub packages contains package, return true
+      return true;
+    }
+    if (stubPackageWildcards != null) {
+      // Else, we will iterate through the wildcards to see if there's a match
+      for (Pattern wildcard : stubPackageWildcards) {
+        if (wildcard.matcher(packageName).matches()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static HashSet<Pattern> extractWildcards(HashSet<String> stubPackages) {
+    HashSet<Pattern> wildcards = null;
+    if (stubPackages != null) {
+      for (Iterator<String> i = stubPackages.iterator(); i.hasNext();) {
+        final String pkg = i.next();
+        if (pkg.indexOf('*') != -1) {
+          if (wildcards == null) {
+            wildcards = new HashSet<Pattern>();
+          }
+          // Add the compiled wildcard, replacing * with the regex equivalent
+          wildcards.add(Pattern.compile(pkg.replace("*", ".*?")));
+          // And remove the raw wildcard from the packages
+          i.remove();
+        }
+      }
+    }
+    return wildcards;
+  }
+
+  private static ClassInfo findHiddenClasses(TypeInfo ti) {
+    ClassInfo ci = ti.asClassInfo();
+    if (ci == null) return null;
+    if (ci.isHiddenOrRemoved()) return ci;
+    if (ti.typeArguments() != null) {
+      for (TypeInfo tii : ti.typeArguments()) {
+        // Avoid infinite recursion in the case of Foo<T extends Foo>
+        if (tii.qualifiedTypeName() != ti.qualifiedTypeName()) {
+          ClassInfo hiddenClass = findHiddenClasses(tii);
+          if (hiddenClass != null) return hiddenClass;
+        }
+      }
+    }
+    return null;
   }
 
   public static void cantStripThis(ClassInfo cl, HashSet<ClassInfo> notStrippable, String why) {
@@ -260,6 +337,10 @@ public class Stubs {
             + " stripped of unavailable superclass " + supr.qualifiedName());
       } else {
         cantStripThis(supr, notStrippable, "6:" + cl.realSuperclass().name() + cl.qualifiedName());
+        if (supr.isPrivate()) {
+          Errors.error(Errors.PRIVATE_SUPERCLASS, cl.position(), "Public class "
+              + cl.qualifiedName() + " extends private class " + supr.qualifiedName());
+        }
       }
     }
   }
@@ -1023,7 +1104,7 @@ public class Stubs {
     returnString = returnString.replaceAll("<", "&lt;");
     returnString = returnString.replaceAll(">", "&gt;");
     returnString = returnString.replaceAll("\"", "&quot;");
-    returnString = returnString.replaceAll("'", "&pos;");
+    returnString = returnString.replaceAll("'", "&apos;");
     return returnString;
   }
 

@@ -47,10 +47,29 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
     public void testTextureViewPreview() throws Exception {
         for (String cameraId : mCameraIds) {
-            openCamera(cameraId);
-            List<TextureView> views = Arrays.asList(mTextureView[0]);
-            textureViewPreview(cameraId, views, /*ImageReader*/null);
-            closeCamera(cameraId);
+            Exception prior = null;
+
+            try {
+                openCamera(cameraId);
+                if (!getStaticInfo(cameraId).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + cameraId + " does not support color outputs, skipping");
+                    continue;
+                }
+                List<TextureView> views = Arrays.asList(mTextureView[0]);
+                textureViewPreview(cameraId, views, /*ImageReader*/null);
+            } catch (Exception e) {
+                prior = e;
+            } finally {
+                try {
+                    closeCamera(cameraId);
+                } catch (Exception e) {
+                    if (prior != null) {
+                        Log.e(TAG, "Prior exception received: " + prior);
+                    }
+                    prior = e;
+                }
+                if (prior != null) throw prior; // Rethrow last exception.
+            }
         }
     }
 
@@ -63,6 +82,10 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
             try {
                 openCamera(cameraId);
+                if (!getStaticInfo(cameraId).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + cameraId + " does not support color outputs, skipping");
+                    continue;
+                }
                 Size previewSize = getOrderedPreviewSizes(cameraId).get(0);
                 yuvListener =
                         new ImageVerifierListener(previewSize, ImageFormat.YUV_420_888);
@@ -96,6 +119,10 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
             Exception prior = null;
             try {
                 openCamera(cameraId);
+                if (!getStaticInfo(cameraId).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + cameraId + " does not support color outputs, skipping");
+                    continue;
+                }
                 int maxNumStreamsProc =
                         getStaticInfo(cameraId).getMaxNumOutputStreamsProcessedChecked();
                 if (maxNumStreamsProc < 2) {
@@ -128,6 +155,10 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
 
             try {
                 openCamera(cameraId);
+                if (!getStaticInfo(cameraId).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + cameraId + " does not support color outputs, skipping");
+                    continue;
+                }
                 Size previewSize = getOrderedPreviewSizes(cameraId).get(0);
                 yuvListener =
                         new ImageVerifierListener(previewSize, ImageFormat.YUV_420_888);
@@ -165,6 +196,11 @@ public class MultiViewTest extends Camera2MultiViewTestCase {
         try {
             for (int i = 0; i < NUM_CAMERAS_TESTED; i++) {
                 openCamera(mCameraIds[i]);
+                if (!getStaticInfo(mCameraIds[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 List<TextureView> views = Arrays.asList(mTextureView[i]);
 
                 startTextureViewPreview(mCameraIds[i], views, /*ImageReader*/null);

@@ -71,6 +71,9 @@ if [ ! -f $ANDROID_NDK_ROOT/build/tools/ndk-common.sh ] ; then
     exit 1
 fi
 
+## Use DRYRUN to find out top-level commands.
+DRYRUN=${DRYRUN-no}
+
 ## Logging support
 ##
 VERBOSE=${VERBOSE-yes}
@@ -155,7 +158,9 @@ log2 ()
 
 run ()
 {
-    if [ "$VERBOSE" = "yes" ] ; then
+    if [ "$DRYRUN" = "yes" ] ; then
+        echo "## SKIP COMMAND: $@"
+    elif [ "$VERBOSE" = "yes" ] ; then
         echo "## COMMAND: $@"
         "$@" 2>&1
     else
@@ -170,7 +175,9 @@ run ()
 
 run2 ()
 {
-    if [ "$VERBOSE2" = "yes" ] ; then
+    if [ "$DRYRUN" = "yes" ] ; then
+        echo "## SKIP COMMAND: $@"
+    elif [ "$VERBOSE2" = "yes" ] ; then
         echo "## COMMAND: $@"
         "$@" 2>&1
     elif [ "$VERBOSE" = "yes" ]; then
@@ -936,5 +943,38 @@ rotate_log ()
         fi
 
         ver=$prev
+    done
+}
+
+# Dereference symlink
+# $1+: directories
+dereference_symlink ()
+{
+    local DIRECTORY SYMLINKS DIR FILE LINK
+    for DIRECTORY in "$@"; do
+        if [ -d "$DIRECTORY" ]; then
+            while true; do
+                # Find all symlinks in this directory.
+                SYMLINKS=`find $DIRECTORY -type l`
+                if [ -z "$SYMLINKS" ]; then
+                    break;
+                fi
+                # Iterate symlinks
+                for SYMLINK in $SYMLINKS; do
+                    if [ -L "$SYMLINK" ]; then
+                        DIR=`dirname "$SYMLINK"`
+                        FILE=`basename "$SYMLINK"`
+                        # Note that if `readlink $FILE` is also a link, we want to deal
+                        # with it in the next iteration.  There is potential infinite-loop
+                        # situation for cicular link doesn't exist in our case, though.
+                        (cd "$DIR" && \
+                         LINK=`readlink "$FILE"` && \
+                         test ! -L "$LINK" && \
+                         rm -f "$FILE" && \
+                         cp -a "$LINK" "$FILE")
+                    fi
+                done
+            done
+        fi
     done
 }

@@ -35,7 +35,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 
 #################################################
@@ -59,7 +59,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundredRevisionTwelve -
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 
 ################################################
@@ -82,7 +82,7 @@ LOCAL_AAPT_FLAGS := --version-code 101 --version-name OneHundredOne --replace-ve
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 
 ################################################
@@ -105,7 +105,7 @@ LOCAL_AAPT_FLAGS := --version-code 100 --version-name OneHundred --replace-versi
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 
 ifeq (,$(ONE_SHOT_MAKEFILE))

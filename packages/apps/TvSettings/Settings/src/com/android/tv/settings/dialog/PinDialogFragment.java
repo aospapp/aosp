@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package com.android.tv.dialog;
+package com.android.tv.settings.dialog;
 
 import android.animation.Animator;
 import android.animation.AnimatorInflater;
 import android.app.Dialog;
+import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
-import android.preference.PreferenceManager;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.TypedValue;
@@ -44,7 +42,9 @@ import com.android.tv.settings.R;
 
 public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     private static final String TAG = "PinDialogFragment";
-    private static boolean DEBUG = false;
+    private static final boolean DEBUG = false;
+
+    protected static final String ARG_TYPE = "type";
 
     /**
      * PIN code dialog for unlock channel
@@ -77,7 +77,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     private static final int DISABLE_PIN_DURATION_MILLIS = 60 * 1000; // 1 minute
 
     public interface ResultListener {
-        void done(boolean success);
+        void pinFragmentDone(boolean success);
     }
 
     public static final String DIALOG_TAG = PinDialogFragment.class.getName();
@@ -86,7 +86,6 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
             R.id.first, R.id.second, R.id.third, R.id.fourth };
 
     private int mType;
-    private final ResultListener mListener;
     private int mRetCode;
 
     private TextView mWrongPinView;
@@ -104,9 +103,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     public abstract boolean isPinCorrect(String pin);
     public abstract boolean isPinSet();
 
-    public PinDialogFragment(int type, ResultListener listener) {
-        mType = type;
-        mListener = listener;
+    public PinDialogFragment() {
         mRetCode = PIN_DIALOG_RESULT_FAIL;
     }
 
@@ -115,6 +112,11 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
         super.onCreate(savedInstanceState);
         setStyle(STYLE_NO_TITLE, 0);
         mDisablePinUntil = getPinDisabledUntil();
+        final Bundle args = getArguments();
+        if (!args.containsKey(ARG_TYPE)) {
+            throw new IllegalStateException("Fragment arguments must specify type");
+        }
+        mType = getArguments().getInt(ARG_TYPE);
     }
 
     @Override
@@ -188,7 +190,8 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
             return;
         }
 
-        boolean enabled = (mDisablePinUntil - System.currentTimeMillis()) / 1000 < 1;
+        final long secondsLeft = (mDisablePinUntil - System.currentTimeMillis()) / 1000;
+        final boolean enabled = secondsLeft < 1;
         if (enabled) {
             mWrongPinView.setVisibility(View.INVISIBLE);
             mEnterPinView.setVisibility(View.VISIBLE);
@@ -196,9 +199,8 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
         } else {
             mEnterPinView.setVisibility(View.INVISIBLE);
             mWrongPinView.setVisibility(View.VISIBLE);
-            mWrongPinView.setText(getResources().getString(R.string.pin_enter_wrong,
-                    DateUtils.getRelativeTimeSpanString(mDisablePinUntil,
-                            System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS)));
+            mWrongPinView.setText(getResources().getString(R.string.pin_enter_wrong_seconds,
+                    secondsLeft));
             mHandler.postDelayed(mUpdateEnterPinRunnable, 1000);
         }
     }
@@ -212,8 +214,14 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
     public void onDismiss(DialogInterface dialog) {
         super.onDismiss(dialog);
         if (DEBUG) Log.d(TAG, "onDismiss: mRetCode=" + mRetCode);
-        if (mListener != null) {
-            mListener.done(mRetCode == PIN_DIALOG_RESULT_SUCCESS);
+
+        boolean result = mRetCode == PIN_DIALOG_RESULT_SUCCESS;
+        Fragment f = getTargetFragment();
+        if (f instanceof ResultListener) {
+            ((ResultListener) f).pinFragmentDone(result);
+        } else if (getActivity() instanceof ResultListener) {
+            final ResultListener listener = (ResultListener) getActivity();
+            listener.pinFragmentDone(result);
         }
     }
 
@@ -318,7 +326,7 @@ public abstract class PinDialogFragment extends SafeDismissDialogFragment {
         private int mMaxValue;
         private int mCurrentValue;
         private int mNextValue;
-        private int mNumberViewHeight;
+        private final int mNumberViewHeight;
         private PinDialogFragment mDialog;
         private PinNumberPicker mNextNumberPicker;
         private boolean mCancelAnimation;

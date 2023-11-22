@@ -739,6 +739,12 @@ def javadoc(metadata, indent = 4):
     # render with markdown => HTML
     javatext = md(text, JAVADOC_IMAGE_SRC_METADATA)
 
+    # Identity transform for javadoc links
+    def javadoc_link_filter(target, shortname):
+      return '{@link %s %s}' % (target, shortname)
+
+    javatext = filter_links(javatext, javadoc_link_filter)
+
     # Crossref tag names
     kind_mapping = {
         'static': 'CameraCharacteristics',
@@ -757,7 +763,7 @@ def javadoc(metadata, indent = 4):
 
     # For each public tag "android.x.y.z" referenced, add a
     # "@see CaptureRequest#X_Y_Z"
-    def javadoc_see_filter(node_set):
+    def javadoc_crossref_see_filter(node_set):
       node_set = (x for x in node_set if x.applied_visibility == 'public')
 
       text = '\n'
@@ -767,7 +773,7 @@ def javadoc(metadata, indent = 4):
 
       return text if text != '\n' else ''
 
-    javatext = filter_tags(javatext, metadata, javadoc_crossref_filter, javadoc_see_filter)
+    javatext = filter_tags(javatext, metadata, javadoc_crossref_filter, javadoc_crossref_see_filter)
 
     def line_filter(line):
       # Indent each line
@@ -883,10 +889,11 @@ def filter_tags(text, metadata, filter_function, summary_function = None):
 
     # Match outer_namespace.x.y or outer_namespace.x.y.z, making sure
     # to grab .z and not just outer_namespace.x.y.  (sloppy, but since we
-    # check for validity, a few false positives don't hurt)
+    # check for validity, a few false positives don't hurt).
+    # Try to ignore items of the form {@link <outer_namespace>...
     for outer_namespace in metadata.outer_namespaces:
 
-      tag_match = outer_namespace.name + \
+      tag_match = r"(?<!\{@link\s)" + outer_namespace.name + \
         r"\.([a-zA-Z0-9\n]+)\.([a-zA-Z0-9\n]+)(\.[a-zA-Z0-9\n]+)?([/]?)"
 
       def filter_sub(match):
@@ -950,6 +957,50 @@ def filter_tags(text, metadata, filter_function, summary_function = None):
 
     if summary_function is not None:
       return text + summary_function(sorted(tag_set, key=lambda x: x.name))
+    else:
+      return text
+
+def filter_links(text, filter_function, summary_function = None):
+    """
+    Find all references to tags in the form {@link xxx#yyy [zzz]} in the
+    provided text, and pass them through filter_function and
+    summary_function.
+
+    Used to linkify documentation cross-references in HMTL, javadoc output.
+
+    Args:
+      text: A string representing a block of text destined for output
+      metadata: A Metadata instance, the root of the metadata properties tree
+      filter_function: A (string, string)->string function to apply to each 'xxx#yyy',
+        zzz pair when found in text; the string returned replaces the tag name in text.
+      summary_function: A string list->string function that is provided the list of
+        unique targets found in text, and which must return a string that is
+        then appended to the end of the text. The list is sorted alphabetically
+        by node name.
+
+    """
+
+    target_set = set()
+    def name_match(name):
+      return lambda node: node.name == name
+
+    tag_match = r"\{@link\s+([^\s\}]+)([^\}]*)\}"
+
+    def filter_sub(match):
+      whole_match = match.group(0)
+      target = match.group(1)
+      shortname = match.group(2).strip()
+
+      #print "Found link '%s' as '%s' -> '%s'" % (target, shortname, filter_function(target, shortname))
+
+      # Replace match with crossref
+      target_set.add(target)
+      return filter_function(target, shortname)
+
+    text = re.sub(tag_match, filter_sub, text)
+
+    if summary_function is not None:
+      return text + summary_function(sorted(target_set))
     else:
       return text
 

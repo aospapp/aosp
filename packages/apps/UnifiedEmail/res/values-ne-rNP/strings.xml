@@ -57,7 +57,7 @@
     <string name="mark_unread" msgid="6245060538061533191">"नपढिएकोलाई चिन्ह लगाउनुहोस्"</string>
     <string name="toggle_read_unread" msgid="1006469736520919028">"टगल पठित अपठित"</string>
     <string name="mute" msgid="9164839998562321569">"आवाज बन्द गर्नुहोस्"</string>
-    <string name="add_star" msgid="3275117671153616270">"स्टार थप गर्नुहोस्"</string>
+    <string name="add_star" msgid="3275117671153616270">"तारा थप गर्नुहोस्"</string>
     <string name="remove_star" msgid="9126690774161840733">"तारा हटाउनुहोस्"</string>
     <string name="remove_folder" msgid="2379905457788576297">"<xliff:g id="FOLDERNAME">%1$s</xliff:g> बाट हटाउनुहोस्"</string>
     <string name="archive" msgid="5978663590021719939">"अभिलेख"</string>
@@ -104,10 +104,10 @@
     <string name="preview_attachment" msgid="6265457626086113833">"पूर्वावलोकन"</string>
     <string name="save_attachment" msgid="375685179032130033">"सुरक्षित गर्नुहोस्"</string>
     <string name="download_again" msgid="8195787340878328119">"पुन: डाउनलोड गर्नुहोस्"</string>
-    <string name="remove_attachment_desc" msgid="1478445871170879140">"संलग्नक <xliff:g id="ATTACHMENTNAME">%s</xliff:g> हटाउनुहोस्"</string>
+    <string name="remove_attachment_desc" msgid="1478445871170879140">"संलग्न <xliff:g id="ATTACHMENTNAME">%s</xliff:g> हटाउनुहोस्"</string>
     <string name="more_info_attachment" msgid="2899691682394864507">"जानकारी"</string>
     <string name="no_application_found" msgid="7309485680354949680">"कुनै अनुप्रयोगले हेर्नको लागि यो संलग्नकलाई खोल्न सक्दैन।"</string>
-    <string name="fetching_attachment" msgid="2286628490159574159">"संलग्नक ल्याइँदै"</string>
+    <string name="fetching_attachment" msgid="2286628490159574159">"संलग्न ल्याइँदै"</string>
     <string name="please_wait" msgid="3953824147776128899">"कृपया प्रतीक्षा गर्नुहोला..."</string>
     <string name="saved" msgid="161536102236967534">"<xliff:g id="SIZE">%s</xliff:g>, सुरक्षित भयो"</string>
     <string name="download_failed" msgid="3878373998269062395">"डाउनलोड गर्न सकिएन। पुन: प्रयास गर्नको लागि छुनुहोस्।"</string>

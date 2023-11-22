@@ -68,29 +68,28 @@ class ArrayRef {
 
   template <typename U, size_t size>
   constexpr ArrayRef(U (&array)[size],
-                     typename std::enable_if<std::is_same<T, const U>::value, tag>::type t = tag())
+                     typename std::enable_if<std::is_same<T, const U>::value, tag>::type
+                         t ATTRIBUTE_UNUSED = tag())
     : array_(array), size_(size) {
   }
 
-  constexpr ArrayRef(T* array, size_t size)
-      : array_(array), size_(size) {
+  constexpr ArrayRef(T* array_in, size_t size_in)
+      : array_(array_in), size_(size_in) {
   }
 
-  template <typename U>
-  constexpr ArrayRef(U* array, size_t size,
-                     typename std::enable_if<std::is_same<T, const U>::value, tag>::type t = tag())
-      : array_(array), size_(size) {
-  }
-
-  explicit ArrayRef(std::vector<T>& v)
+  template <typename Alloc>
+  explicit ArrayRef(std::vector<T, Alloc>& v)
       : array_(v.data()), size_(v.size()) {
   }
 
-  template <typename U>
-  ArrayRef(const std::vector<U>& v,
-           typename std::enable_if<std::is_same<T, const U>::value, tag>::type t = tag())
+  template <typename U, typename Alloc>
+  ArrayRef(const std::vector<U, Alloc>& v,
+           typename std::enable_if<std::is_same<T, const U>::value, tag>::type
+               t ATTRIBUTE_UNUSED = tag())
       : array_(v.data()), size_(v.size()) {
   }
+
+  ArrayRef(const ArrayRef&) = default;
 
   // Assignment operators.
 
@@ -166,6 +165,16 @@ class ArrayRef {
   T* array_;
   size_t size_;
 };
+
+template <typename T>
+bool operator==(const ArrayRef<T>& lhs, const ArrayRef<T>& rhs) {
+  return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
+}
+
+template <typename T>
+bool operator!=(const ArrayRef<T>& lhs, const ArrayRef<T>& rhs) {
+  return !(lhs == rhs);
+}
 
 }  // namespace art
 

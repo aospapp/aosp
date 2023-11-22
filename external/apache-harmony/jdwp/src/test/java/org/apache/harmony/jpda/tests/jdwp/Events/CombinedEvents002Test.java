@@ -27,10 +27,16 @@ package org.apache.harmony.jpda.tests.jdwp.Events;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
+import org.apache.harmony.jpda.tests.framework.jdwp.Location;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.Location;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -43,6 +49,13 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
         CombinedEvents002Debuggee.TESTED_CLASS_SIGNATURE;
     static final String TESTED_METHOD_NAME = CombinedEvents002Debuggee.TESTED_METHOD_NAME;
 
+    private long testedClassID = -1;
+    private long testedMethodID = -1;
+    private long testedMethodStartCodeIndex = -1;
+    private long testedMethodEndCodeIndex = -1;
+    private Map<Byte, Integer> requestsMap = new HashMap<>();
+
+    @Override
     protected String getDebuggeeClassName() {
         return CombinedEvents002Debuggee.class.getName();
     }
@@ -54,13 +67,49 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
      * for empty method.
      */
     public void testCombinedEvents002_01() {
-        logWriter.println("==> testCombinedEvents002_01: Start...");
+        byte[] expectedEventKinds = {
+                JDWPConstants.EventKind.METHOD_ENTRY,
+                JDWPConstants.EventKind.METHOD_EXIT
+        };
+        runTest(expectedEventKinds);
+    }
 
+    /**
+     * This testcase is for METHOD_ENTRY, METHOD_EXIT_WITH_RETURN_VALUE events for empty method.
+     * <BR>It runs CombinedEvents002Debuggee that executed its own empty method
+     * and verify that requested METHOD_ENTRY, METHOD_EXIT_WITH_RETURN_VALUE events occur
+     * for empty method.
+     */
+    public void testCombinedEvents002_02() {
+        byte[] expectedEventKinds = {
+                JDWPConstants.EventKind.METHOD_ENTRY,
+                JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE
+        };
+        runTest(expectedEventKinds);
+    }
+
+    private void runTest(byte[] expectedEventKinds) {
+        logWriter.println("==> " + getName() + ": Start...");
+
+        prepareDebuggee(expectedEventKinds);
+        List<ParsedEvent> receivedEvents = receiveEvents();
+        checkEvents(receivedEvents, expectedEventKinds);
+        clearEvents();
+
+        logWriter.println("==> Resume debuggee VM...");
+        debuggeeWrapper.vmMirror.resume();
+        logWriter.println("==> " + getName() + ": PASSED! ");
+    }
+
+    /**
+     * Computes JDWP ids and requests events.
+     */
+    private void prepareDebuggee(byte[] expectedEventKinds) {
         logWriter.println("==> Wait for SGNL_READY signal from debuggee...");
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("==> OK - SGNL_READY signal received!");
 
-        long testedClassID =
+        testedClassID =
             debuggeeWrapper.vmMirror.getClassID(TESTED_CLASS_SIGNATURE);
         if ( testedClassID == -1 ) {
             String failureMessage = "## FAILURE: Can NOT get ClassID for '"
@@ -72,7 +121,7 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
 
         logWriter.println("==> ");
         logWriter.println("==> Info for tested method '" + TESTED_METHOD_NAME + "':");
-        long testedMethodID = debuggeeWrapper.vmMirror.getMethodID(testedClassID, TESTED_METHOD_NAME);
+        testedMethodID = debuggeeWrapper.vmMirror.getMethodID(testedClassID, TESTED_METHOD_NAME);
         if (testedMethodID == -1 ) {
             String failureMessage = "## FAILURE: Can NOT get MethodID for class '"
                 + TESTED_CLASS_NAME + "'; Method name = " + TESTED_METHOD_NAME;
@@ -80,97 +129,75 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
         }
         logWriter.println("==> testedMethodID = " + testedMethodID);
         printMethodLineTable(testedClassID, null, TESTED_METHOD_NAME);
-        long testedMethodStartCodeIndex = getMethodStartCodeIndex(testedClassID, TESTED_METHOD_NAME);
+        testedMethodStartCodeIndex = getMethodStartCodeIndex(testedClassID, TESTED_METHOD_NAME);
         if ( testedMethodStartCodeIndex == -1 ) {
             String failureMessage = "## FAILURE: Can NOT get MethodStartCodeIndex for method '"
                 + TESTED_METHOD_NAME + "' ";
             printErrorAndFail(failureMessage);
         }
-        long testedMethodEndCodeIndex = getMethodEndCodeIndex(testedClassID, TESTED_METHOD_NAME);
+        testedMethodEndCodeIndex = getMethodEndCodeIndex(testedClassID, TESTED_METHOD_NAME);
         if ( testedMethodEndCodeIndex == -1 ) {
             String failureMessage = "## FAILURE: Can NOT get MethodEndCodeIndex for method '"
                 + TESTED_METHOD_NAME + "' ";
             printErrorAndFail(failureMessage);
         }
 
-        logWriter.println("==> ");
-        logWriter.println("==> Set request for METHOD_ENTRY event for '" + TESTED_CLASS_NAME + "'... ");
-        ReplyPacket reply = debuggeeWrapper.vmMirror.setMethodEntry(TESTED_CLASS_NAME);
-        checkReplyPacket(reply, "Set METHOD_ENTRY event.");  //DBG needless ?
-        logWriter.println("==> OK - request for METHOD_ENTRY event is set!");
-
-        logWriter.println("==> Set request for METHOD_EXIT event for '" + TESTED_CLASS_NAME + "'... ");
-        reply = debuggeeWrapper.vmMirror.setMethodExit(TESTED_CLASS_NAME);
-        checkReplyPacket(reply, "Set METHOD_EXIT event.");  //DBG needless ?
-        logWriter.println("==> OK - request for METHOD_EXIT event is set!");
+        // Request events.
+        for (byte eventKind : expectedEventKinds) {
+            String eventKindName = JDWPConstants.EventKind.getName(eventKind);
+            logWriter.println("==> ");
+            logWriter.println("==> Set request for " + eventKindName +
+                    " event for '" + TESTED_CLASS_NAME + "'... ");
+            ReplyPacket reply = null;
+            switch (eventKind) {
+            case JDWPConstants.EventKind.METHOD_ENTRY:
+                reply = debuggeeWrapper.vmMirror.setMethodEntry(TESTED_CLASS_NAME);
+                break;
+            case JDWPConstants.EventKind.METHOD_EXIT:
+                reply = debuggeeWrapper.vmMirror.setMethodExit(TESTED_CLASS_NAME);
+                break;
+            case JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE:
+                reply = debuggeeWrapper.vmMirror.setMethodExitWithReturnValue(TESTED_CLASS_NAME);
+                break;
+            }
+            checkReplyPacket(reply, "Set " + eventKindName + " event.");  //DBG needless ?
+            int requestId = reply.getNextValueAsInt();
+            requestsMap.put(Byte.valueOf(eventKind), Integer.valueOf(requestId));
+            logWriter.println("==> OK - request " + requestId + " for " + eventKind +
+                    " event is set!");
+        }
 
         logWriter.println("==> Send SGNL_CONTINUE signal to debuggee...");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
+    }
 
+    /**
+     * Receives events from the debuggee
+     */
+    private List<ParsedEvent> receiveEvents() {
+        List<ParsedEvent> receivedEvents = new ArrayList<ParsedEvent>();
         logWriter.println("==> ");
         logWriter.println("==> Receiving events... ");
         CommandPacket event = debuggeeWrapper.vmMirror.receiveEvent();
         ParsedEvent[] parsedEvents = ParsedEvent.parseEventPacket(event);
-        byte[] expectedEventKinds
-            = {JDWPConstants.EventKind.METHOD_ENTRY, JDWPConstants.EventKind.METHOD_EXIT};
 
         int receivedEventsNumber = parsedEvents.length;
-        byte[] receivedEventKinds = new byte[(receivedEventsNumber==1)? 2 : receivedEventsNumber];
         logWriter.println("==> Number of received events in event packet = " + receivedEventsNumber);
-        for (int i=0; i < receivedEventsNumber; i++) {
-            receivedEventKinds[i] = parsedEvents[i].getEventKind();
+        for (int i = 0; i < receivedEventsNumber; ++i) {
+            receivedEvents.add(parsedEvents[i]);
+
+            byte eventKind = parsedEvents[i].getEventKind();
+            eventKind = parsedEvents[i].getEventKind();
             logWriter.println("==> Received event[" + i + "] kind = "
-                +  receivedEventKinds[i]
-                + "(" + JDWPConstants.EventKind.getName(receivedEventKinds[i]) + ")");
+                +  eventKind
+                + "(" + JDWPConstants.EventKind.getName(eventKind) + ")");
         }
-        if ( receivedEventsNumber > 2 ) {
+        if (receivedEventsNumber > 2) {
             String failureMessage = "## FAILURE: Unexpected number of received events in packet = "
                 + receivedEventsNumber + "\n## Expected number of received events in packet = 1 or 2";
             printErrorAndFail(failureMessage);
         }
-
-        logWriter.println("==> ");
-        logWriter.println("==> Check received event #1...");
-        if ( receivedEventKinds[0] != expectedEventKinds[0] ) {
-            String failureMessage = "## FAILURE: Unexpected event is received: event kind = "
-                + receivedEventKinds[0] + "("
-                + JDWPConstants.EventKind.getName(receivedEventKinds[0]) + ")"
-                + "\n## Expected event kind = " + expectedEventKinds[0] + "("
-                + JDWPConstants.EventKind.getName(expectedEventKinds[0]) + ")";
-            printErrorAndFail(failureMessage);
-        }
-        boolean testCaseIsOk = true;
-        Location location = ((ParsedEvent.Event_METHOD_ENTRY)parsedEvents[0]).getLocation();
-        long eventClassID = location.classID;
-        logWriter.println("==> ClassID in event = " + eventClassID);
-        if ( testedClassID != eventClassID ) {
-            logWriter.println("## FAILURE: Unexpected ClassID in event!");
-            logWriter.println("##          Expected ClassID (testedClassID) = " + testedClassID );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected ClassID (testedClassID)");
-        }
-        long eventMethodID = location.methodID;
-        logWriter.println("==> MethodID in event = " + eventMethodID);
-        if ( testedMethodID != eventMethodID ) {
-            logWriter.println("## FAILURE: Unexpected MethodID in event!");
-            logWriter.println("##          Expected MethodID (testedMethodID) = " + testedMethodID );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected MethodID (testedMethodID)");
-        }
-        long eventCodeIndex = location.index;
-        logWriter.println("==> CodeIndex in event = " + eventCodeIndex);
-        if ( testedMethodStartCodeIndex != eventCodeIndex ) {
-            logWriter.println("## FAILURE: Unexpected CodeIndex in event!");
-            logWriter.println("##          Expected CodeIndex (testedMethodStartCodeIndex) = "
-                + testedMethodStartCodeIndex );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected CodeIndex (testedMethodStartCodeIndex)");
-        }
-
-        if ( receivedEventsNumber == 1 ) {
+        if (receivedEventsNumber == 1) {
             logWriter.println("==> ");
             logWriter.println("==> Resume debuggee VM...");
             debuggeeWrapper.vmMirror.resume();
@@ -180,64 +207,106 @@ public class CombinedEvents002Test extends CombinedEventsTestCase {
 
             receivedEventsNumber = parsedEvents.length;
             logWriter.println("==> Number of received events in event packet = " + receivedEventsNumber);
-            receivedEventKinds[1] = parsedEvents[0].getEventKind();
-            for (int i=0; i < receivedEventsNumber; i++) {
+            for (int i = 0; i < receivedEventsNumber; ++i) {
+                receivedEvents.add(parsedEvents[i]);
+
+                byte eventKind = parsedEvents[i].getEventKind();
                 logWriter.println("==> Received event[" + i + "] kind = "
-                    +  parsedEvents[i].getEventKind()
-                    + "(" + JDWPConstants.EventKind.getName(parsedEvents[i].getEventKind()) + ")");
+                    +  eventKind
+                    + "(" + JDWPConstants.EventKind.getName(eventKind) + ")");
             }
-            if ( receivedEventsNumber != 1 ) {
+            if (receivedEventsNumber != 1) {
                 String failureMessage = "## FAILURE: Unexpected number of received events in packet = "
                     + receivedEventsNumber + "\n## Expected number of received events in packet = 1";
                 printErrorAndFail(failureMessage);
             }
         }
-        logWriter.println("==> ");
-        logWriter.println("==> Check received event #2...");
-        if ( receivedEventKinds[1] != expectedEventKinds[1] ) {
-            String failureMessage = "## FAILURE: Unexpected event is received: event kind = "
-                + receivedEventKinds[1] + "("
-                + JDWPConstants.EventKind.getName(receivedEventKinds[1]) + ")"
-                + "\n## Expected event kind = " + expectedEventKinds[1] + "("
-                + JDWPConstants.EventKind.getName(expectedEventKinds[1]) + ")";
-            printErrorAndFail(failureMessage);
+        return receivedEvents;
+    }
+
+    /**
+     * Checks we received expected events from the debuggee.
+     */
+    private void checkEvents(List<ParsedEvent> receivedEvents,
+            byte[] expectedEventKinds) {
+        boolean testCaseIsOk = true;
+        byte[] receivedEventKinds = new byte[receivedEvents.size()];
+        for (int i = 0, e = receivedEvents.size(); i < e; ++i) {
+            logWriter.println("==> ");
+            logWriter.println("==> Check received event #" + i + "...");
+            ParsedEvent parsedEvent = receivedEvents.get(i);
+            byte eventKind = parsedEvent.getEventKind();
+            receivedEventKinds[i] = eventKind;
+            switch (eventKind) {
+            case JDWPConstants.EventKind.METHOD_ENTRY:
+                testCaseIsOk &= checkMethodEntryEvent(parsedEvent);
+                break;
+            case JDWPConstants.EventKind.METHOD_EXIT:
+                testCaseIsOk &= checkMethodExitEvent(parsedEvent);
+                break;
+            case JDWPConstants.EventKind.METHOD_EXIT_WITH_RETURN_VALUE:
+                testCaseIsOk &= checkMethodExitWithReturnValueEvent(parsedEvent);
+                break;
+            }
         }
-        location = ((ParsedEvent.Event_METHOD_EXIT)parsedEvents[0]).getLocation();
-        eventClassID = location.classID;
-        logWriter.println("==> ClassID in event = " + eventClassID);
-        if ( testedClassID != eventClassID ) {
-            logWriter.println("## FAILURE: Unexpected ClassID in event!");
-            logWriter.println("##          Expected ClassID (testedClassID) = " + testedClassID );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected ClassID (testedClassID)");
-        }
-        eventMethodID = location.methodID;
-        logWriter.println("==> MethodID in event = " + eventMethodID);
-        if ( testedMethodID != eventMethodID ) {
-            logWriter.println("## FAILURE: Unexpected MethodID in event!");
-            logWriter.println("##          Expected MethodID (testedMethodID) = " + testedMethodID );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected MethodID (testedMethodID)");
-        }
-        eventCodeIndex = location.index;
-        logWriter.println("==> CodeIndex in event = " + eventCodeIndex);
-        if ( testedMethodEndCodeIndex != eventCodeIndex ) {
-            logWriter.println("## FAILURE: Unexpected CodeIndex in event!");
-            logWriter.println("##          Expected CodeIndex (testedMethodEndCodeIndex) = "
-                + testedMethodEndCodeIndex );
-            testCaseIsOk = false;
-        } else {
-            logWriter.println("==> OK - it is expected CodeIndex (testedMethodEndCodeIndex)");
-        }
-        if ( ! testCaseIsOk ) {
+        if (!testCaseIsOk) {
             String failureMessage = "## FAILURE: Unexpected events attributes are found out!";
             printErrorAndFail(failureMessage);
         }
 
-        logWriter.println("==> Resume debuggee VM...");
-        debuggeeWrapper.vmMirror.resume();
-        logWriter.println("==> testCombinedEvents002_01: PASSED! ");
+        // Check that we received all expected events.
+        Arrays.sort(expectedEventKinds);
+        Arrays.sort(receivedEventKinds);
+        if (!Arrays.equals(expectedEventKinds, receivedEventKinds)) {
+            String failureMessage = "## FAILURE: Did not receive all expected events!";
+            printErrorAndFail(failureMessage);
+        }
+    }
+
+    private boolean checkMethodEntryEvent(ParsedEvent parsedEvent) {
+        ParsedEvent.Event_METHOD_ENTRY methodEntryEvent =
+                (ParsedEvent.Event_METHOD_ENTRY) parsedEvent;
+        Location expectedLocation = new Location(JDWPConstants.TypeTag.CLASS, testedClassID,
+                testedMethodID, testedMethodStartCodeIndex);
+        return checkEventLocation(methodEntryEvent, expectedLocation);
+    }
+
+    private boolean checkMethodExitEvent(ParsedEvent parsedEvent) {
+        ParsedEvent.Event_METHOD_EXIT methodExitEvent =
+                (ParsedEvent.Event_METHOD_EXIT) parsedEvent;
+        Location expectedLocation = new Location(JDWPConstants.TypeTag.CLASS, testedClassID,
+                testedMethodID, testedMethodEndCodeIndex);
+        return checkEventLocation(methodExitEvent, expectedLocation);
+    }
+
+    private boolean checkMethodExitWithReturnValueEvent(ParsedEvent parsedEvent) {
+        ParsedEvent.Event_METHOD_EXIT_WITH_RETURN_VALUE methodExitWithReturnValueEvent =
+                (ParsedEvent.Event_METHOD_EXIT_WITH_RETURN_VALUE) parsedEvent;
+        Location expectedLocation = new Location(JDWPConstants.TypeTag.CLASS, testedClassID,
+                testedMethodID, testedMethodEndCodeIndex);
+        boolean result = checkEventLocation(methodExitWithReturnValueEvent, expectedLocation);
+        // Expect null return value because method is 'void'.
+        if (methodExitWithReturnValueEvent.getReturnValue() != null) {
+            logWriter.println("## FAILURE: Unexpected return value in event!");
+            logWriter.println("##          Expected null");
+            result = false;
+        } else {
+            logWriter.println("==> OK - it is expected return value tag");
+        }
+        return result;
+    }
+
+    /**
+     * Clear event requests.
+     */
+    private void clearEvents() {
+        for (Byte eventKind : requestsMap.keySet()) {
+            Integer requestId = requestsMap.get(eventKind);
+            logWriter.println("==> ");
+            logWriter.println("==> Clear request " + requestId.intValue() + " for " +
+                    JDWPConstants.EventKind.getName(eventKind.byteValue()));
+            debuggeeWrapper.vmMirror.clearEvent(eventKind.byteValue(), requestId.intValue());
+        }
+        requestsMap.clear();
     }
 }

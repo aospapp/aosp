@@ -34,15 +34,24 @@ public class Main {
             e.printStackTrace(System.out);
         }
 
+        boolean haveOatFile = hasOat();
+        boolean gotError = false;
         try {
             Class<?> bClass = getClass().getClassLoader().loadClass("B");
-            System.out.println("Should not reach here.");
         } catch (IncompatibleClassChangeError icce) {
-            System.out.println("Got expected error.");
+            gotError = true;
         } catch (Exception e) {
             e.printStackTrace(System.out);
         }
-
+        if (haveOatFile ^ gotError) {
+            System.out.println("Did not get expected error.");
+        }
+        System.out.println("Done.");
     }
 
+    static {
+        System.loadLibrary("arttest");
+    }
+
+    private native static boolean hasOat();
 }

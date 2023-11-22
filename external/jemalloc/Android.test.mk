@@ -16,19 +16,23 @@
 
 include $(CLEAR_VARS)
 
+LOCAL_CLANG_arm64 := false
+LOCAL_CLANG_mips := false
+
 LOCAL_MODULE := $(test_name)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/$(test_path)
 
 LOCAL_ADDITIONAL_DEPENDENCIES := \
-	$(LOCAL_PATH)/Android.mk \
+	$(LOCAL_PATH)/Android.test.mk \
 
 LOCAL_CFLAGS := \
-	$(common_cflags) \
+	$(jemalloc_common_cflags) \
 	$(test_cflags) \
+	-include $(LOCAL_PATH)/android/include/libc_logging.h \
 
 LOCAL_C_INCLUDES := \
-	$(common_c_includes) \
+	$(jemalloc_common_c_includes) \
 	$(LOCAL_PATH)/test/src \
 	$(LOCAL_PATH)/test/include \
 
@@ -37,11 +41,11 @@ LOCAL_SRC_FILES := \
 
 LOCAL_STATIC_LIBRARIES := \
 	$(test_libs) \
+
+LOCAL_SHARED_LIBRARIES := \
 	libc \
 	liblog \
 	libm \
-
-LOCAL_FORCE_STATIC_EXECUTABLE := true
 
 include $(BUILD_EXECUTABLE)
 test_name :=

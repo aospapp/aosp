@@ -18,6 +18,7 @@
 /*#define LOG_NDEBUG 0*/
 #define LOG_NDDEBUG 0
 
+#include <stdlib.h>
 #include <errno.h>
 #include <math.h>
 #include <cutils/log.h>
@@ -328,6 +329,9 @@ int voice_start_call(struct audio_device *adev)
     int ret = 0;
 
     adev->voice.in_call = true;
+
+    voice_set_mic_mute(adev, adev->voice.mic_mute);
+
     ret = voice_extn_start_call(adev);
     if (ret == -ENOSYS) {
         ret = voice_start_usecase(adev, USECASE_VOICE_CALL);

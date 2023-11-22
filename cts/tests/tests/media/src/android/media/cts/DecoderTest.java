@@ -149,18 +149,27 @@ public class DecoderTest extends MediaPlayerTestBase {
     }
 
     public void testDecodeMonoMp3() throws Exception {
-        monoTest(R.raw.monotestmp3);
+        monoTest(R.raw.monotestmp3, 44100);
         testTimeStampOrdering(R.raw.monotestmp3);
     }
 
     public void testDecodeMonoM4a() throws Exception {
-        monoTest(R.raw.monotestm4a);
+        monoTest(R.raw.monotestm4a, 44100);
         testTimeStampOrdering(R.raw.monotestm4a);
     }
 
     public void testDecodeMonoOgg() throws Exception {
-        monoTest(R.raw.monotestogg);
+        monoTest(R.raw.monotestogg, 44100);
         testTimeStampOrdering(R.raw.monotestogg);
+    }
+
+    public void testDecodeMonoGsm() throws Exception {
+        if (MediaUtils.hasCodecsForResource(mContext, R.raw.monotestgsm)) {
+            monoTest(R.raw.monotestgsm, 8000);
+            testTimeStampOrdering(R.raw.monotestgsm);
+        } else {
+            MediaUtils.skipTest("not mandatory");
+        }
     }
 
     public void testDecodeAacTs() throws Exception {
@@ -498,11 +507,11 @@ public class DecoderTest extends MediaPlayerTestBase {
     }
 
 
-    private void monoTest(int res) throws Exception {
+    private void monoTest(int res, int expectedLength) throws Exception {
         short [] mono = decodeToMemory(res, RESET_MODE_NONE, CONFIG_MODE_NONE, -1, null);
-        if (mono.length == 44100) {
+        if (mono.length == expectedLength) {
             // expected
-        } else if (mono.length == 88200) {
+        } else if (mono.length == expectedLength * 2) {
             // the decoder output 2 channels instead of 1, check that the left and right channel
             // are identical
             for (int i = 0; i < mono.length; i += 2) {
@@ -513,10 +522,18 @@ public class DecoderTest extends MediaPlayerTestBase {
         }
 
         short [] mono2 = decodeToMemory(res, RESET_MODE_RECONFIGURE, CONFIG_MODE_NONE, -1, null);
-        assertTrue(Arrays.equals(mono, mono2));
+
+        assertEquals("count different after reconfigure: ", mono.length, mono2.length);
+        for (int i = 0; i < mono.length; i++) {
+            assertEquals("samples at " + i + " don't match", mono[i], mono2[i]);
+        }
 
         short [] mono3 = decodeToMemory(res, RESET_MODE_FLUSH, CONFIG_MODE_NONE, -1, null);
-        assertTrue(Arrays.equals(mono, mono3));
+
+        assertEquals("count different after flush: ", mono.length, mono3.length);
+        for (int i = 0; i < mono.length; i++) {
+            assertEquals("samples at " + i + " don't match", mono[i], mono3[i]);
+        }
     }
 
     /**
@@ -1043,7 +1060,7 @@ public class DecoderTest extends MediaPlayerTestBase {
     }
 
     public void testVP9Decode640x360() throws Exception {
-        testDecode(R.raw.video_640x360_webm_vp9_1638kbps_30fps_vorbis_stereo_128kbps_48000hz, 249);
+        testDecode(R.raw.video_640x360_webm_vp9_1600kbps_30fps_vorbis_stereo_128kbps_48000hz, 249);
     }
 
     public void testVP9Decode30fps1280x720Tv() throws Exception {
@@ -1121,7 +1138,7 @@ public class DecoderTest extends MediaPlayerTestBase {
 
     public void testCodecEarlyEOSHEVC() throws Exception {
         testCodecEarlyEOS(
-                R.raw.video_1280x720_mp4_hevc_1150kbps_30fps_aac_stereo_128kbps_48000hz,
+                R.raw.video_480x360_mp4_hevc_650kbps_30fps_aac_stereo_128kbps_48000hz,
                 120 /* eosframe */);
     }
 
@@ -1284,6 +1301,10 @@ public class DecoderTest extends MediaPlayerTestBase {
         }
     }
 
+    private static MediaCodec createDecoder(MediaFormat format) {
+        return MediaUtils.getDecoder(format);
+    }
+
     // for video
     private int countFrames(int video, int resetMode, int eosframe, Surface s)
             throws Exception {
@@ -1396,7 +1417,7 @@ public class DecoderTest extends MediaPlayerTestBase {
         ByteBuffer[] codecInputBuffers;
         ByteBuffer[] codecOutputBuffers;
 
-        MediaCodec codec = createDecoder(mime);
+        MediaCodec codec = createDecoder(format);
         Log.i("@@@@", "using codec: " + codec.getName());
         codec.configure(format, surface, null /* crypto */, 0 /* flags */);
         codec.start();

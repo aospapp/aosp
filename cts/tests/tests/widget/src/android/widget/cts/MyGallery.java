@@ -49,10 +49,6 @@ public class MyGallery extends Gallery {
         return super.getChildStaticTransformation(child, t);
     }
 
-    protected void setParent(ViewParent v) {
-        mParent = v;
-    }
-
     @Override
     protected boolean checkLayoutParams(ViewGroup.LayoutParams p) {
         return super.checkLayoutParams(p);

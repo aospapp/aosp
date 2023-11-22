@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -40,6 +41,9 @@ public class SendTestBroadcastActivity extends Activity {
 
     /** Delay time before sending test message (when box is checked). */
     private static final int DELAY_BEFORE_SENDING_MSEC = 5000;
+
+    /** Subscription index for multi SIM support */
+    private int mSubId = 0;
 
     private final Handler mDelayHandler = new Handler() {
         @Override
@@ -91,6 +95,9 @@ public class SendTestBroadcastActivity extends Activity {
 
         setContentView(R.layout.test_buttons);
 
+        /* Retrieve the default sub id */
+        mSubId = SubscriptionManager.getDefaultSubId();
+
         /* Set message ID to a random value from 1-65535. */
         EditText messageIdField = (EditText) findViewById(R.id.message_id);
         messageIdField.setText(String.valueOf(new Random().nextInt(65535) + 1));
@@ -108,7 +115,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendEtwsMessageNormal(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -122,7 +129,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendEtwsMessageCancel(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -136,7 +143,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendEtwsMessageTest(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -150,7 +157,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendCdmaCmasMessages.testSendCmasPresAlert(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -164,7 +171,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendCdmaCmasMessages.testSendCmasExtremeAlert(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -178,7 +185,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendCdmaCmasMessages.testSendCmasSevereAlert(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -192,7 +199,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendCdmaCmasMessages.testSendCmasAmberAlert(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -206,7 +213,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendCdmaCmasMessages.testSendCmasMonthlyTest(SendTestBroadcastActivity.this,
-                            getMessageId());
+                            getMessageId(), mSubId);
                 }
             }
         });
@@ -220,7 +227,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bit(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -234,7 +241,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitUmts(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -248,7 +255,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitNoPadding(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -263,7 +270,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitNoPaddingUmts(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -278,7 +285,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitMultipageGsm(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -293,7 +300,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitMultipageUmts(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -308,7 +315,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitWithLanguage(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -323,7 +330,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitWithLanguageInBody(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -338,7 +345,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessage7bitWithLanguageInBodyUmts(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -352,7 +359,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessageUcs2(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -366,7 +373,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessageUcs2Umts(SendTestBroadcastActivity.this,
-                            getMessageId(), getCategory());
+                            getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -381,7 +388,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessageUcs2MultipageUmts(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -396,7 +403,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessageUcs2WithLanguageInBody(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });
@@ -411,7 +418,7 @@ public class SendTestBroadcastActivity extends Activity {
                     mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
                 } else {
                     SendTestMessages.testSendMessageUcs2WithLanguageUmts(
-                            SendTestBroadcastActivity.this, getMessageId(), getCategory());
+                            SendTestBroadcastActivity.this, getMessageId(), getCategory(), mSubId);
                 }
             }
         });

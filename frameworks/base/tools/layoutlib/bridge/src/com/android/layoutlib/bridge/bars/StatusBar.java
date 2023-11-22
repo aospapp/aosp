@@ -26,7 +26,9 @@ import com.android.resources.Density;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.graphics.drawable.Drawable;
+import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
@@ -38,20 +40,39 @@ import java.io.InputStream;
 
 public class StatusBar extends CustomBar {
 
-    private final Context mContext;
     private final int mSimulatedPlatformVersion;
+    /** Status bar background color attribute name. */
+    private static final String ATTR_COLOR = "statusBarColor";
+    /** Attribute for translucency property. */
+    public static final String ATTR_TRANSLUCENT = "windowTranslucentStatus";
 
-    public StatusBar(Context context, Density density, int direction, boolean RtlEnabled,
-            int simulatedPlatformVersion) throws XmlPullParserException {
+    /**
+     * Constructor to be used when creating the {@link StatusBar} as a regular control. This
+     * is currently used by the theme editor.
+     */
+    @SuppressWarnings("UnusedParameters")
+    public StatusBar(Context context, AttributeSet attrs) {
+        this((BridgeContext) context,
+                Density.getEnum(((BridgeContext) context).getMetrics().densityDpi),
+                ((BridgeContext) context).getConfiguration().getLayoutDirection() ==
+                        View.LAYOUT_DIRECTION_RTL,
+                (context.getApplicationInfo().flags & ApplicationInfo.FLAG_SUPPORTS_RTL) != 0,
+                context.getApplicationInfo().targetSdkVersion);
+    }
+
+    @SuppressWarnings("UnusedParameters")
+    public StatusBar(BridgeContext context, Density density, boolean isRtl, boolean rtlEnabled,
+            int simulatedPlatformVersion) {
         // FIXME: if direction is RTL but it's not enabled in application manifest, mirror this bar.
         super(context, LinearLayout.HORIZONTAL, "/bars/status_bar.xml", "status_bar.xml",
                 simulatedPlatformVersion);
-        mContext = context;
         mSimulatedPlatformVersion = simulatedPlatformVersion;
 
         // FIXME: use FILL_H?
         setGravity(Gravity.START | Gravity.TOP | Gravity.RIGHT);
-        setBackgroundColor(Config.getStatusBarColor(simulatedPlatformVersion));
+
+        int color = getBarColor(ATTR_COLOR, ATTR_TRANSLUCENT);
+        setBackgroundColor(color == 0 ? Config.getStatusBarColor(simulatedPlatformVersion) : color);
 
         // Cannot access the inside items through id because no R.id values have been
         // created for them.
@@ -82,10 +103,8 @@ public class StatusBar extends CustomBar {
                 try {
                     BridgeXmlBlockParser parser = new BridgeXmlBlockParser(
                             ParserFactory.create(stream, null), (BridgeContext) mContext, true);
-                    Drawable drawable = Drawable.createFromXml(mContext.getResources(), parser);
-                    if (drawable != null) {
-                        imageView.setImageDrawable(drawable);
-                    }
+                    imageView.setImageDrawable(
+                            Drawable.createFromXml(mContext.getResources(), parser));
                 } catch (XmlPullParserException e) {
                     Bridge.getLog().error(LayoutLog.TAG_BROKEN, "Unable to draw wifi icon", e,
                             null);

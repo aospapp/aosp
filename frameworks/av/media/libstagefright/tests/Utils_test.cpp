@@ -109,21 +109,21 @@ TEST_F(UtilsTest, TestStringUtils) {
 
 TEST_F(UtilsTest, TestDebug) {
 #define LVL(x) (ADebug::Level)(x)
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "", LVL(5)), LVL(5));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "   \t  \n ", LVL(2)), LVL(2));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "3", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "3:*deo", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString(
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "", LVL(5)), LVL(5));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "   \t  \n ", LVL(2)), LVL(2));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "3", LVL(5)), LVL(3));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "3:*deo", LVL(5)), LVL(3));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString(
             "video", "\t\n 3 \t\n:\t\n video \t\n", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "3:*deo,2:vid*", LVL(5)), LVL(2));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString(
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "3:*deo,2:vid*", LVL(5)), LVL(2));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString(
             "avideo", "\t\n 3 \t\n:\t\n avideo \t\n,\t\n 2 \t\n:\t\n video \t\n", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString(
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString(
             "audio.omx", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(2));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString(
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString(
             "video.omx", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("video", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(3));
-    ASSERT_EQ(ADebug::GetDebugLevelFromString("omx", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(4));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("video", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(3));
+    ASSERT_EQ(ADebug::GetLevelFromSettingsString("omx", "4:*omx,3:*d*o*,2:audio*", LVL(5)), LVL(4));
 #undef LVL
 }
 
@@ -191,6 +191,87 @@ TEST_F(UtilsTest, TestMathTemplates) {
     ASSERT_EQ(max(6.0f, 5.6f), 6.0f);
     ASSERT_EQ(max(-4.3, 8.6), 8.6);
     ASSERT_EQ(max(8.6, -4.3), 8.6);
+
+    ASSERT_FALSE(isInRange(-43, 86u, -44));
+    ASSERT_TRUE(isInRange(-43, 87u, -43));
+    ASSERT_TRUE(isInRange(-43, 88u, -1));
+    ASSERT_TRUE(isInRange(-43, 89u, 0));
+    ASSERT_TRUE(isInRange(-43, 90u, 46));
+    ASSERT_FALSE(isInRange(-43, 91u, 48));
+    ASSERT_FALSE(isInRange(-43, 92u, 50));
+
+    ASSERT_FALSE(isInRange(43, 86u, 42));
+    ASSERT_TRUE(isInRange(43, 87u, 43));
+    ASSERT_TRUE(isInRange(43, 88u, 44));
+    ASSERT_TRUE(isInRange(43, 89u, 131));
+    ASSERT_FALSE(isInRange(43, 90u, 133));
+    ASSERT_FALSE(isInRange(43, 91u, 135));
+
+    ASSERT_FALSE(isInRange(43u, 86u, 42u));
+    ASSERT_TRUE(isInRange(43u, 85u, 43u));
+    ASSERT_TRUE(isInRange(43u, 84u, 44u));
+    ASSERT_TRUE(isInRange(43u, 83u, 125u));
+    ASSERT_FALSE(isInRange(43u, 82u, 125u));
+    ASSERT_FALSE(isInRange(43u, 81u, 125u));
+
+    ASSERT_FALSE(isInRange(-43, ~0u, 43));
+    ASSERT_FALSE(isInRange(-43, ~0u, 44));
+    ASSERT_FALSE(isInRange(-43, ~0u, ~0));
+    ASSERT_FALSE(isInRange(-43, ~0u, 41));
+    ASSERT_FALSE(isInRange(-43, ~0u, 40));
+
+    ASSERT_FALSE(isInRange(43u, ~0u, 43u));
+    ASSERT_FALSE(isInRange(43u, ~0u, 41u));
+    ASSERT_FALSE(isInRange(43u, ~0u, 40u));
+    ASSERT_FALSE(isInRange(43u, ~0u, ~0u));
+
+    ASSERT_FALSE(isInRange(-43, 86u, -44, 0u));
+    ASSERT_FALSE(isInRange(-43, 86u, -44, 1u));
+    ASSERT_FALSE(isInRange(-43, 86u, -44, 2u));
+    ASSERT_FALSE(isInRange(-43, 86u, -44, ~0u));
+    ASSERT_TRUE(isInRange(-43, 87u, -43, 0u));
+    ASSERT_TRUE(isInRange(-43, 87u, -43, 1u));
+    ASSERT_TRUE(isInRange(-43, 87u, -43, 86u));
+    ASSERT_TRUE(isInRange(-43, 87u, -43, 87u));
+    ASSERT_FALSE(isInRange(-43, 87u, -43, 88u));
+    ASSERT_FALSE(isInRange(-43, 87u, -43, ~0u));
+    ASSERT_TRUE(isInRange(-43, 88u, -1, 0u));
+    ASSERT_TRUE(isInRange(-43, 88u, -1, 45u));
+    ASSERT_TRUE(isInRange(-43, 88u, -1, 46u));
+    ASSERT_FALSE(isInRange(-43, 88u, -1, 47u));
+    ASSERT_FALSE(isInRange(-43, 88u, -1, ~3u));
+    ASSERT_TRUE(isInRange(-43, 90u, 46, 0u));
+    ASSERT_TRUE(isInRange(-43, 90u, 46, 1u));
+    ASSERT_FALSE(isInRange(-43, 90u, 46, 2u));
+    ASSERT_FALSE(isInRange(-43, 91u, 48, 0u));
+    ASSERT_FALSE(isInRange(-43, 91u, 48, 2u));
+    ASSERT_FALSE(isInRange(-43, 91u, 48, ~6u));
+    ASSERT_FALSE(isInRange(-43, 92u, 50, 0u));
+    ASSERT_FALSE(isInRange(-43, 92u, 50, 1u));
+
+    ASSERT_FALSE(isInRange(43u, 86u, 42u, 0u));
+    ASSERT_FALSE(isInRange(43u, 86u, 42u, 1u));
+    ASSERT_FALSE(isInRange(43u, 86u, 42u, 2u));
+    ASSERT_FALSE(isInRange(43u, 86u, 42u, ~0u));
+    ASSERT_TRUE(isInRange(43u, 87u, 43u, 0u));
+    ASSERT_TRUE(isInRange(43u, 87u, 43u, 1u));
+    ASSERT_TRUE(isInRange(43u, 87u, 43u, 86u));
+    ASSERT_TRUE(isInRange(43u, 87u, 43u, 87u));
+    ASSERT_FALSE(isInRange(43u, 87u, 43u, 88u));
+    ASSERT_FALSE(isInRange(43u, 87u, 43u, ~0u));
+    ASSERT_TRUE(isInRange(43u, 88u, 60u, 0u));
+    ASSERT_TRUE(isInRange(43u, 88u, 60u, 70u));
+    ASSERT_TRUE(isInRange(43u, 88u, 60u, 71u));
+    ASSERT_FALSE(isInRange(43u, 88u, 60u, 72u));
+    ASSERT_FALSE(isInRange(43u, 88u, 60u, ~3u));
+    ASSERT_TRUE(isInRange(43u, 90u, 132u, 0u));
+    ASSERT_TRUE(isInRange(43u, 90u, 132u, 1u));
+    ASSERT_FALSE(isInRange(43u, 90u, 132u, 2u));
+    ASSERT_FALSE(isInRange(43u, 91u, 134u, 0u));
+    ASSERT_FALSE(isInRange(43u, 91u, 134u, 2u));
+    ASSERT_FALSE(isInRange(43u, 91u, 134u, ~6u));
+    ASSERT_FALSE(isInRange(43u, 92u, 136u, 0u));
+    ASSERT_FALSE(isInRange(43u, 92u, 136u, 1u));
 
     ASSERT_EQ(periodicError(124, 100), 24);
     ASSERT_EQ(periodicError(288, 100), 12);

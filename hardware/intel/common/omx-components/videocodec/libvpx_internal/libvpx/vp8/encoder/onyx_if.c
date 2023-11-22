@@ -4897,7 +4897,7 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
     struct vpx_usec_timer  tsctimer;
     struct vpx_usec_timer  ticktimer;
     struct vpx_usec_timer  cmptimer;
-    YV12_BUFFER_CONFIG    *force_src_buffer = NULL;
+    YV12_BUFFER_CONFIG    *force_src_buffer;
 
     if (!cpi)
         return -1;
@@ -4910,6 +4910,7 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
         return VPX_CODEC_CORRUPT_FRAME;
     }
 
+    force_src_buffer = NULL;
     cpi->common.error.setjmp = 1;
 
 #if HAVE_NEON

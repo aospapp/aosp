@@ -41,6 +41,12 @@ working directory.</p>
 <div style="float:right">
   <img src="{@docRoot}images/submit-patches-0.png" alt="basic workflow diagram">
 </div>
+<div class="figure" style="width:200px">
+  <img src="{@docRoot}images/submit-patches-0.png" alt="basic workflow diagram" height="153px" />
+  <p class="img-caption">
+    <strong>Figure 1.</strong> Basic Android workflow
+  </p>
+</div>
 
 <p>The basic pattern of interacting with the repositories is as follows:</p>
 <ol>
@@ -157,4 +163,7 @@ $ git rebase --continue
 </code></pre>
 <p>Deleting a client will <em>permanently delete</em> any changes you have not yet uploaded for review.</p>
 <h2 id="git-and-repo-cheatsheet">Git and Repo cheatsheet</h2>
-<p><img src="{@docRoot}images/git-repo-1.png" alt="list of basic git and repo commands"></p>
+<img src="{@docRoot}images/git-repo-1.png" alt="list of basic git and repo commands" id="figure2" />
+<p class="img-caption">
+  <strong>Figure 2.</strong> Basic git and repo commands
+</p>

@@ -17,6 +17,12 @@
 package com.google.doclava;
 
 public class CodeTagInfo extends TagInfo {
+  public static final CodeTagInfo[] EMPTY_ARRAY = new CodeTagInfo[0];
+
+  public static CodeTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new CodeTagInfo[size];
+  }
+
   private static String encode(String t) {
     t = t.replace("&", "&amp;");
     t = t.replace("<", "&lt;");

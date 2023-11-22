@@ -17,9 +17,13 @@
 package com.android.dialer.calllog;
 
 import android.app.IntentService;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
+
+import com.android.contacts.common.util.PermissionsUtil;
+import com.android.dialer.util.TelecomUtil;
 
 /**
  * Provides operations for managing notifications.
@@ -56,7 +60,7 @@ public class CallLogNotificationsService extends IntentService {
      */
     public static final String EXTRA_NEW_VOICEMAIL_URI = "NEW_VOICEMAIL_URI";
 
-    private CallLogQueryHandler mCallLogQueryHandler;
+    private VoicemailQueryHandler mVoicemailQueryHandler;
 
     public CallLogNotificationsService() {
         super("CallLogNotificationsService");
@@ -65,7 +69,7 @@ public class CallLogNotificationsService extends IntentService {
     @Override
     public void onCreate() {
         super.onCreate();
-        mCallLogQueryHandler = new CallLogQueryHandler(getContentResolver(), null /*listener*/);
+        mVoicemailQueryHandler = new VoicemailQueryHandler(this, getContentResolver());
     }
 
     @Override
@@ -74,13 +78,38 @@ public class CallLogNotificationsService extends IntentService {
             Log.d(TAG, "onHandleIntent: could not handle null intent");
             return;
         }
+
+        if (!PermissionsUtil.hasPermission(this, android.Manifest.permission.READ_CALL_LOG)) {
+            return;
+        }
+
         if (ACTION_MARK_NEW_VOICEMAILS_AS_OLD.equals(intent.getAction())) {
-            mCallLogQueryHandler.markNewVoicemailsAsOld();
+            mVoicemailQueryHandler.markNewVoicemailsAsOld();
         } else if (ACTION_UPDATE_NOTIFICATIONS.equals(intent.getAction())) {
             Uri voicemailUri = (Uri) intent.getParcelableExtra(EXTRA_NEW_VOICEMAIL_URI);
             DefaultVoicemailNotifier.getInstance(this).updateNotification(voicemailUri);
         } else {
             Log.d(TAG, "onHandleIntent: could not handle: " + intent);
+        }
+    }
+
+    /**
+     * Updates notifications for any new voicemails.
+     *
+     * @param context a valid context.
+     * @param voicemailUri The uri pointing to the voicemail to update the notification for. If
+     *         {@code null}, then notifications for all new voicemails will be updated.
+     */
+    public static void updateVoicemailNotifications(Context context, Uri voicemailUri) {
+        if (TelecomUtil.hasReadWriteVoicemailPermissions(context)) {
+            Intent serviceIntent = new Intent(context, CallLogNotificationsService.class);
+            serviceIntent.setAction(CallLogNotificationsService.ACTION_UPDATE_NOTIFICATIONS);
+            // If voicemailUri is null, then notifications for all voicemails will be updated.
+            if (voicemailUri != null) {
+                serviceIntent.putExtra(
+                        CallLogNotificationsService.EXTRA_NEW_VOICEMAIL_URI, voicemailUri);
+            }
+            context.startService(serviceIntent);
         }
     }
 }

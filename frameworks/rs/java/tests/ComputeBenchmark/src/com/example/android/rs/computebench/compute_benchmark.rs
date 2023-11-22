@@ -60,13 +60,22 @@ static volatile long4 prefix##_l_4 = 1;     \
 static volatile ulong prefix##_ul_1 = 1;    \
 static volatile ulong2 prefix##_ul_2 = 1;   \
 static volatile ulong3 prefix##_ul_3 = 1;   \
-static volatile ulong4 prefix##_ul_4 = 1;   \
+static volatile ulong4 prefix##_ul_4 = 1;
 
 DECL_VAR_SET(res)
 DECL_VAR_SET(src1)
 DECL_VAR_SET(src2)
-DECL_VAR_SET(src3)
 
+static volatile float src3_f_1 = 1;     \
+static volatile float2 src3_f_2 = 1;    \
+static volatile float3 src3_f_3 = 1;    \
+static volatile float4 src3_f_4 = 1;    \
+static volatile char src3_c_1 = 1;      \
+static volatile uchar src3_uc_1 = 1;    \
+static volatile short src3_s_1 = 1;     \
+static volatile ushort src3_us_1 = 1;   \
+static volatile int src3_i_1 = 1;       \
+static volatile uint src3_ui_1 = 1;     \
 
 // Testing macros
 
@@ -95,6 +104,8 @@ DECL_VAR_SET(src3)
     BENCH_BASIC_OP_TYPE(op, us)                                 \
     BENCH_BASIC_OP_TYPE(op, i)                                  \
     BENCH_BASIC_OP_TYPE(op, ui)                                 \
+    BENCH_BASIC_OP_TYPE(op, l)                                  \
+    BENCH_BASIC_OP_TYPE(op, ul)                                 \
     RUN_BENCH(res_l_1 = src1_l_1 op src2_l_1, "l1 " #op " l1")  \
     RUN_BENCH(res_ul_1 = src1_ul_1 op src2_ul_1, "ul1 " #op " ul1")
 
@@ -116,6 +127,8 @@ DECL_VAR_SET(src3)
     BENCH_CVT(to, us, type);        \
     BENCH_CVT(to, i, type);         \
     BENCH_CVT(to, ui, type);        \
+    BENCH_CVT(to, l, type);         \
+    BENCH_CVT(to, ul, type);        \
     BENCH_CVT(to, f, type);         \
 
 #define BENCH_XN_FUNC_YN(typeout, fnc, typein)                                                  \
@@ -266,7 +279,6 @@ DECL_VAR_SET(src3)
 // Testing functions
 
 static void bench_basic_operators() {
-    int i = 0;
     BENCH_BASIC_OP(+);
     BENCH_BASIC_OP(-);
     BENCH_BASIC_OP(*);
@@ -283,6 +295,8 @@ static void bench_convert() {
     BENCH_CVT_MATRIX(us, ushort);
     BENCH_CVT_MATRIX(i, int);
     BENCH_CVT_MATRIX(ui, uint);
+    BENCH_CVT_MATRIX(l, long);
+    BENCH_CVT_MATRIX(ul, ulong);
     BENCH_CVT_MATRIX(f, float);
 }
 
@@ -291,7 +305,7 @@ static void bench_int_math() {
     BENCH_IN_FUNC_IN(clz);
     BENCH_IN_FUNC_IN_IN(min);
     BENCH_IN_FUNC_IN_IN(max);
-    BENCH_I_FUNC_I_I_I(rsClamp);
+    BENCH_I_FUNC_I_I_I(clamp);
 }
 
 static void bench_fp_math() {
@@ -404,4 +418,3 @@ void bench() {
     bench_fp_math();
     bench_approx_math();
 }
-

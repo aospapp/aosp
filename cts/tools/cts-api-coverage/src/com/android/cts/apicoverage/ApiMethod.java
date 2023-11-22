@@ -29,15 +29,35 @@ class ApiMethod implements Comparable<ApiMethod> {
 
     private final String mReturnType;
 
-    private boolean mDeprecated;
+    private final boolean mDeprecated;
+
+    private final String mVisibility;
+
+    private final boolean mStaticMethod;
+
+    private final boolean mFinalMethod;
+
+    private final boolean mAbstractMethod;
 
     private boolean mIsCovered;
 
-    ApiMethod(String name, List<String> parameterTypes, String returnType, boolean deprecated) {
+    ApiMethod(
+            String name,
+            List<String> parameterTypes,
+            String returnType,
+            boolean deprecated,
+            String visibility,
+            boolean staticMethod,
+            boolean finalMethod,
+            boolean abstractMethod) {
         mName = name;
         mParameterTypes = new ArrayList<String>(parameterTypes);
         mReturnType = returnType;
         mDeprecated = deprecated;
+        mVisibility = visibility;
+        mStaticMethod = staticMethod;
+        mFinalMethod = finalMethod;
+        mAbstractMethod = abstractMethod;
     }
 
     @Override
@@ -64,6 +84,14 @@ class ApiMethod implements Comparable<ApiMethod> {
     public boolean isCovered() {
         return mIsCovered;
     }
+
+    public String getVisibility() { return mVisibility; }
+
+    public boolean isAbstractMethod() { return mAbstractMethod; }
+
+    public boolean isStaticMethod() { return mStaticMethod; }
+
+    public boolean isFinalMethod() { return mFinalMethod; }
 
     public void setCovered(boolean covered) {
         mIsCovered = covered;

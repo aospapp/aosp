@@ -8,7 +8,6 @@ libc_bionic_src_files_arm64 += \
     bionic/__memset_chk.cpp \
     bionic/__strcpy_chk.cpp \
     bionic/__strcat_chk.cpp \
-    bionic/memrchr.c \
     bionic/strrchr.cpp \
 
 libc_freebsd_src_files_arm64 += \
@@ -21,6 +20,7 @@ libc_freebsd_src_files_arm64 += \
     upstream-freebsd/lib/libc/string/wmemcmp.c \
 
 libc_openbsd_src_files_arm64 += \
+    upstream-openbsd/lib/libc/string/memrchr.c \
     upstream-openbsd/lib/libc/string/stpncpy.c \
     upstream-openbsd/lib/libc/string/strcat.c \
     upstream-openbsd/lib/libc/string/strlcat.c \
@@ -35,10 +35,8 @@ libc_openbsd_src_files_arm64 += \
 libc_bionic_src_files_arm64 += \
     arch-arm64/bionic/__bionic_clone.S \
     arch-arm64/bionic/_exit_with_stack_teardown.S \
-    arch-arm64/bionic/_setjmp.S \
     arch-arm64/bionic/setjmp.S \
     arch-arm64/bionic/__set_tls.c \
-    arch-arm64/bionic/sigsetjmp.S \
     arch-arm64/bionic/syscall.S \
     arch-arm64/bionic/vfork.S \
 
@@ -61,6 +59,6 @@ ifeq ($(wildcard $(cpu_variant_mk)),)
 $(error "TARGET_CPU_VARIANT not set or set to an unknown value. Possible values are generic, denver64. Use generic for devices that do not have a CPU similar to any of the supported cpu variants.")
 endif
 include $(cpu_variant_mk)
-libc_common_additional_dependencies += $(cpu_variank_mk)
+libc_common_additional_dependencies += $(cpu_variant_mk)
 
 cpu_variant_mk :=

@@ -132,15 +132,15 @@ ihevc_inter_pred_luma_vert_av8:
     mov         x3,x16                      //load ht
     subs        x7,x3,#0                    //x3->ht
     //ble          end_loops            //end loop jump
-    dup         v22.8b, v0.8b[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)//
+    dup         v22.8b, v0.b[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)//
     cmp         x5,#8
-    dup         v23.8b, v0.8b[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)//
-    dup         v24.8b, v0.8b[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)//
-    dup         v25.8b, v0.8b[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)//
-    dup         v26.8b, v0.8b[4]            //coeffabs_4 = vdup_lane_u8(coeffabs, 4)//
-    dup         v27.8b, v0.8b[5]            //coeffabs_5 = vdup_lane_u8(coeffabs, 5)//
-    dup         v28.8b, v0.8b[6]            //coeffabs_6 = vdup_lane_u8(coeffabs, 6)//
-    dup         v29.8b, v0.8b[7]            //coeffabs_7 = vdup_lane_u8(coeffabs, 7)//
+    dup         v23.8b, v0.b[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)//
+    dup         v24.8b, v0.b[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)//
+    dup         v25.8b, v0.b[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)//
+    dup         v26.8b, v0.b[4]             //coeffabs_4 = vdup_lane_u8(coeffabs, 4)//
+    dup         v27.8b, v0.b[5]             //coeffabs_5 = vdup_lane_u8(coeffabs, 5)//
+    dup         v28.8b, v0.b[6]             //coeffabs_6 = vdup_lane_u8(coeffabs, 6)//
+    dup         v29.8b, v0.b[7]             //coeffabs_7 = vdup_lane_u8(coeffabs, 7)//
     blt         core_loop_wd_4              //core loop wd 4 jump
     stp         x0,x1, [sp, #-16]!
 
@@ -451,49 +451,49 @@ inner_loop_wd_4:
     add         x3,x0,x2
     ld1         {v4.s}[1],[x3],x2           //src_tmp1 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp1, 1)//
     subs        x12,x12,#4
-    dup         v5.2s, v4.2s[1]             //src_tmp2 = vdup_lane_u32(src_tmp1, 1)//
+    dup         v5.2s, v4.s[1]              //src_tmp2 = vdup_lane_u32(src_tmp1, 1)//
     ld1         {v5.s}[1],[x3],x2           //src_tmp2 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp2, 1)//
     ld1         {v4.s}[0],[x0]              //src_tmp1 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp1, 0)//
     umull       v0.8h, v5.8b, v23.8b        //mul_res1 = vmull_u8(vreinterpret_u8_u32(src_tmp2), coeffabs_1)//
 
-    dup         v6.2s, v5.2s[1]             //src_tmp3 = vdup_lane_u32(src_tmp2, 1)//
+    dup         v6.2s, v5.s[1]              //src_tmp3 = vdup_lane_u32(src_tmp2, 1)//
     add         x0,x0,#4
     ld1         {v6.s}[1],[x3],x2           //src_tmp3 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp3, 1)//
     umlsl       v0.8h, v4.8b, v22.8b        //mul_res1 = vmlsl_u8(mul_res1, vreinterpret_u8_u32(src_tmp1), coeffabs_0)//
 
-    dup         v7.2s, v6.2s[1]             //src_tmp4 = vdup_lane_u32(src_tmp3, 1)//
+    dup         v7.2s, v6.s[1]              //src_tmp4 = vdup_lane_u32(src_tmp3, 1)//
     ld1         {v7.s}[1],[x3],x2           //src_tmp4 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp4, 1)//
     umlsl       v0.8h, v6.8b, v24.8b        //mul_res1 = vmlsl_u8(mul_res1, vreinterpret_u8_u32(src_tmp3), coeffabs_2)//
 
     umull       v19.8h, v7.8b, v23.8b
-    dup         v4.2s, v7.2s[1]             //src_tmp1 = vdup_lane_u32(src_tmp4, 1)//
+    dup         v4.2s, v7.s[1]              //src_tmp1 = vdup_lane_u32(src_tmp4, 1)//
     umull       v2.8h, v7.8b, v25.8b        //mul_res2 = vmull_u8(vreinterpret_u8_u32(src_tmp4), coeffabs_3)//
     ld1         {v4.s}[1],[x3],x2           //src_tmp1 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp1, 1)//
     umlsl       v19.8h, v6.8b, v22.8b
     umlal       v0.8h, v4.8b, v26.8b        //mul_res1 = vmlal_u8(mul_res1, vreinterpret_u8_u32(src_tmp1), coeffabs_4)//
 
-    dup         v5.2s, v4.2s[1]             //src_tmp2 = vdup_lane_u32(src_tmp1, 1)//
+    dup         v5.2s, v4.s[1]              //src_tmp2 = vdup_lane_u32(src_tmp1, 1)//
     umlsl       v19.8h, v4.8b, v24.8b
     ld1         {v5.s}[1],[x3],x2           //src_tmp2 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp2, 1)//
     umlsl       v2.8h, v5.8b, v27.8b        //mul_res2 = vmlsl_u8(mul_res2, vreinterpret_u8_u32(src_tmp2), coeffabs_5)//
 
-    dup         v6.2s, v5.2s[1]             //src_tmp3 = vdup_lane_u32(src_tmp2, 1)//
+    dup         v6.2s, v5.s[1]              //src_tmp3 = vdup_lane_u32(src_tmp2, 1)//
     umlal       v19.8h, v5.8b, v25.8b
     ld1         {v6.s}[1],[x3],x2           //src_tmp3 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp3, 1)//
     umlal       v0.8h, v6.8b, v28.8b        //mul_res1 = vmlal_u8(mul_res1, vreinterpret_u8_u32(src_tmp3), coeffabs_6)//
 
-    dup         v7.2s, v6.2s[1]             //src_tmp4 = vdup_lane_u32(src_tmp3, 1)//
+    dup         v7.2s, v6.s[1]              //src_tmp4 = vdup_lane_u32(src_tmp3, 1)//
     umlal       v19.8h, v6.8b, v26.8b
     ld1         {v7.s}[1],[x3],x2           //src_tmp4 = vld1_lane_u32((uint32_t *)pu1_src_tmp, src_tmp4, 1)//
     umlsl       v2.8h, v7.8b, v29.8b        //mul_res2 = vmlsl_u8(mul_res2, vreinterpret_u8_u32(src_tmp4), coeffabs_7)//
 
-    dup         v4.2s, v7.2s[1]
+    dup         v4.2s, v7.s[1]
     add         v0.8h,  v0.8h ,  v2.8h      //mul_res1 = vaddq_u16(mul_res1, mul_res2)//
 
     umlsl       v19.8h, v7.8b, v27.8b
     ld1         {v4.s}[1],[x3],x2
     umlal       v19.8h, v4.8b, v28.8b
-    dup         v5.2s, v4.2s[1]
+    dup         v5.2s, v4.s[1]
     sqrshrun    v0.8b, v0.8h,#6             //sto_res = vqmovun_s16(sto_res_tmp)//
 
     ld1         {v5.s}[1],[x3]

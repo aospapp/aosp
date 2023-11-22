@@ -16,9 +16,10 @@
 
 #include "semi_space-inl.h"
 
+#include <climits>
 #include <functional>
 #include <numeric>
-#include <climits>
+#include <sstream>
 #include <vector>
 
 #include "base/logging.h"
@@ -215,7 +216,7 @@ void SemiSpace::MarkingPhase() {
   // Assume the cleared space is already empty.
   BindBitmaps();
   // Process dirty cards and add dirty cards to mod-union tables.
-  heap_->ProcessCards(GetTimings(), kUseRememberedSet && generational_);
+  heap_->ProcessCards(GetTimings(), kUseRememberedSet && generational_, false, true);
   // Clear the whole card table since we can not Get any additional dirty cards during the
   // paused GC. This saves memory but only works for pause the world collectors.
   t.NewTiming("ClearCardTable");
@@ -223,7 +224,7 @@ void SemiSpace::MarkingPhase() {
   // Need to do this before the checkpoint since we don't want any threads to add references to
   // the live stack during the recursive mark.
   if (kUseThreadLocalAllocationStack) {
-    TimingLogger::ScopedTiming t("RevokeAllThreadLocalAllocationStacks", GetTimings());
+    TimingLogger::ScopedTiming t2("RevokeAllThreadLocalAllocationStacks", GetTimings());
     heap_->RevokeAllThreadLocalAllocationStacks(self_);
   }
   heap_->SwapStacks(self_);
@@ -241,6 +242,7 @@ void SemiSpace::MarkingPhase() {
   // Revoke buffers before measuring how many objects were moved since the TLABs need to be revoked
   // before they are properly counted.
   RevokeAllThreadLocalBuffers();
+  GetHeap()->RecordFreeRevoke();  // this is for the non-moving rosalloc space used by GSS.
   // Record freed memory.
   const int64_t from_bytes = from_space_->GetBytesAllocated();
   const int64_t to_bytes = bytes_moved_;
@@ -252,8 +254,17 @@ void SemiSpace::MarkingPhase() {
   RecordFree(ObjectBytePair(from_objects - to_objects, from_bytes - to_bytes));
   // Clear and protect the from space.
   from_space_->Clear();
-  VLOG(heap) << "Protecting from_space_: " << *from_space_;
-  from_space_->GetMemMap()->Protect(kProtectFromSpace ? PROT_NONE : PROT_READ);
+  if (kProtectFromSpace && !from_space_->IsRosAllocSpace()) {
+    // Protect with PROT_NONE.
+    VLOG(heap) << "Protecting from_space_ : " << *from_space_;
+    from_space_->GetMemMap()->Protect(PROT_NONE);
+  } else {
+    // If RosAllocSpace, we'll leave it as PROT_READ here so the
+    // rosaloc verification can read the metadata magic number and
+    // protect it with PROT_NONE later in FinishPhase().
+    VLOG(heap) << "Protecting from_space_ with PROT_READ : " << *from_space_;
+    from_space_->GetMemMap()->Protect(PROT_READ);
+  }
   heap_->PreSweepingGcVerification(this);
   if (swap_semi_spaces_) {
     heap_->SwapSemiSpaces();
@@ -365,23 +376,23 @@ void SemiSpace::MarkReachableObjects() {
   }
 
   CHECK_EQ(is_large_object_space_immune_, collect_from_space_only_);
-  if (is_large_object_space_immune_) {
-    TimingLogger::ScopedTiming t("VisitLargeObjects", GetTimings());
+  space::LargeObjectSpace* los = GetHeap()->GetLargeObjectsSpace();
+  if (is_large_object_space_immune_ && los != nullptr) {
+    TimingLogger::ScopedTiming t2("VisitLargeObjects", GetTimings());
     DCHECK(collect_from_space_only_);
     // Delay copying the live set to the marked set until here from
     // BindBitmaps() as the large objects on the allocation stack may
     // be newly added to the live set above in MarkAllocStackAsLive().
-    GetHeap()->GetLargeObjectsSpace()->CopyLiveToMarked();
+    los->CopyLiveToMarked();
 
     // When the large object space is immune, we need to scan the
     // large object space as roots as they contain references to their
     // classes (primitive array classes) that could move though they
     // don't contain any other references.
-    space::LargeObjectSpace* large_object_space = GetHeap()->GetLargeObjectsSpace();
-    accounting::LargeObjectBitmap* large_live_bitmap = large_object_space->GetLiveBitmap();
+    accounting::LargeObjectBitmap* large_live_bitmap = los->GetLiveBitmap();
     SemiSpaceScanObjectVisitor visitor(this);
-    large_live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(large_object_space->Begin()),
-                                        reinterpret_cast<uintptr_t>(large_object_space->End()),
+    large_live_bitmap->VisitMarkedRange(reinterpret_cast<uintptr_t>(los->Begin()),
+                                        reinterpret_cast<uintptr_t>(los->End()),
                                         visitor);
   }
   // Recursively process the mark stack.
@@ -411,11 +422,11 @@ void SemiSpace::ReclaimPhase() {
 }
 
 void SemiSpace::ResizeMarkStack(size_t new_size) {
-  std::vector<Object*> temp(mark_stack_->Begin(), mark_stack_->End());
+  std::vector<StackReference<Object>> temp(mark_stack_->Begin(), mark_stack_->End());
   CHECK_LE(mark_stack_->Size(), new_size);
   mark_stack_->Resize(new_size);
-  for (const auto& obj : temp) {
-    mark_stack_->PushBack(obj);
+  for (auto& obj : temp) {
+    mark_stack_->PushBack(obj.AsMirrorPtr());
   }
 }
 
@@ -437,15 +448,15 @@ static inline size_t CopyAvoidingDirtyingPages(void* dest, const void* src, size
     return 0;
   }
   size_t saved_bytes = 0;
-  byte* byte_dest = reinterpret_cast<byte*>(dest);
+  uint8_t* byte_dest = reinterpret_cast<uint8_t*>(dest);
   if (kIsDebugBuild) {
     for (size_t i = 0; i < size; ++i) {
       CHECK_EQ(byte_dest[i], 0U);
     }
   }
   // Process the start of the page. The page must already be dirty, don't bother with checking.
-  const byte* byte_src = reinterpret_cast<const byte*>(src);
-  const byte* limit = byte_src + size;
+  const uint8_t* byte_src = reinterpret_cast<const uint8_t*>(src);
+  const uint8_t* limit = byte_src + size;
   size_t page_remain = AlignUp(byte_dest, kPageSize) - byte_dest;
   // Copy the bytes until the start of the next page.
   memcpy(dest, src, page_remain);
@@ -479,17 +490,18 @@ static inline size_t CopyAvoidingDirtyingPages(void* dest, const void* src, size
 
 mirror::Object* SemiSpace::MarkNonForwardedObject(mirror::Object* obj) {
   const size_t object_size = obj->SizeOf();
-  size_t bytes_allocated;
+  size_t bytes_allocated, dummy;
   mirror::Object* forward_address = nullptr;
-  if (generational_ && reinterpret_cast<byte*>(obj) < last_gc_to_space_end_) {
+  if (generational_ && reinterpret_cast<uint8_t*>(obj) < last_gc_to_space_end_) {
     // If it's allocated before the last GC (older), move
     // (pseudo-promote) it to the main free list space (as sort
     // of an old generation.)
     forward_address = promo_dest_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated,
-                                                           nullptr);
+                                                           nullptr, &dummy);
     if (UNLIKELY(forward_address == nullptr)) {
       // If out of space, fall back to the to-space.
-      forward_address = to_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated, nullptr);
+      forward_address = to_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated, nullptr,
+                                                     &dummy);
       // No logic for marking the bitmap, so it must be null.
       DCHECK(to_space_live_bitmap_ == nullptr);
     } else {
@@ -534,7 +546,8 @@ mirror::Object* SemiSpace::MarkNonForwardedObject(mirror::Object* obj) {
     }
   } else {
     // If it's allocated after the last GC (younger), copy it to the to-space.
-    forward_address = to_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated, nullptr);
+    forward_address = to_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated, nullptr,
+                                                   &dummy);
     if (forward_address != nullptr && to_space_live_bitmap_ != nullptr) {
       to_space_live_bitmap_->Set(forward_address);
     }
@@ -542,7 +555,7 @@ mirror::Object* SemiSpace::MarkNonForwardedObject(mirror::Object* obj) {
   // If it's still null, attempt to use the fallback space.
   if (UNLIKELY(forward_address == nullptr)) {
     forward_address = fallback_space_->AllocThreadUnsafe(self_, object_size, &bytes_allocated,
-                                                         nullptr);
+                                                         nullptr, &dummy);
     CHECK(forward_address != nullptr) << "Out of memory in the to-space and fallback space.";
     accounting::ContinuousSpaceBitmap* bitmap = fallback_space_->GetLiveBitmap();
     if (bitmap != nullptr) {
@@ -590,18 +603,29 @@ void SemiSpace::DelayReferenceReferentCallback(mirror::Class* klass, mirror::Ref
   reinterpret_cast<SemiSpace*>(arg)->DelayReferenceReferent(klass, ref);
 }
 
-void SemiSpace::MarkRootCallback(Object** root, void* arg, const RootInfo& /*root_info*/) {
-  auto ref = StackReference<mirror::Object>::FromMirrorPtr(*root);
-  reinterpret_cast<SemiSpace*>(arg)->MarkObject(&ref);
-  if (*root != ref.AsMirrorPtr()) {
-    *root = ref.AsMirrorPtr();
+void SemiSpace::VisitRoots(mirror::Object*** roots, size_t count,
+                           const RootInfo& info ATTRIBUTE_UNUSED) {
+  for (size_t i = 0; i < count; ++i) {
+    auto* root = roots[i];
+    auto ref = StackReference<mirror::Object>::FromMirrorPtr(*root);
+    MarkObject(&ref);
+    if (*root != ref.AsMirrorPtr()) {
+      *root = ref.AsMirrorPtr();
+    }
+  }
+}
+
+void SemiSpace::VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
+                           const RootInfo& info ATTRIBUTE_UNUSED) {
+  for (size_t i = 0; i < count; ++i) {
+    MarkObject(roots[i]);
   }
 }
 
 // Marks all objects in the root set.
 void SemiSpace::MarkRoots() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
-  Runtime::Current()->VisitRoots(MarkRootCallback, this);
+  Runtime::Current()->VisitRoots(this);
 }
 
 bool SemiSpace::HeapReferenceMarkedCallback(mirror::HeapReference<mirror::Object>* object,
@@ -654,8 +678,11 @@ void SemiSpace::Sweep(bool swap_bitmaps) {
 
 void SemiSpace::SweepLargeObjects(bool swap_bitmaps) {
   DCHECK(!is_large_object_space_immune_);
-  TimingLogger::ScopedTiming split("SweepLargeObjects", GetTimings());
-  RecordFreeLOS(heap_->GetLargeObjectsSpace()->Sweep(swap_bitmaps));
+  space::LargeObjectSpace* los = heap_->GetLargeObjectsSpace();
+  if (los != nullptr) {
+    TimingLogger::ScopedTiming split("SweepLargeObjects", GetTimings());
+    RecordFreeLOS(los->Sweep(swap_bitmaps));
+  }
 }
 
 // Process the "referent" field in a java.lang.ref.Reference.  If the referent has not yet been
@@ -723,7 +750,7 @@ inline Object* SemiSpace::GetMarkedForwardAddress(mirror::Object* obj) const
     SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_) {
   // All immune objects are assumed marked.
   if (from_space_->HasAddress(obj)) {
-    // Returns either the forwarding address or nullptr.
+    // Returns either the forwarding address or null.
     return GetForwardingAddressInFromSpace(obj);
   } else if (collect_from_space_only_ || immune_region_.ContainsObject(obj) ||
              to_space_->HasAddress(obj)) {
@@ -744,12 +771,17 @@ void SemiSpace::SetFromSpace(space::ContinuousMemMapAllocSpace* from_space) {
 
 void SemiSpace::FinishPhase() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
+  if (kProtectFromSpace && from_space_->IsRosAllocSpace()) {
+    VLOG(heap) << "Protecting from_space_ with PROT_NONE : " << *from_space_;
+    from_space_->GetMemMap()->Protect(PROT_NONE);
+  }
   // Null the "to" and "from" spaces since compacting from one to the other isn't valid until
   // further action is done by the heap.
   to_space_ = nullptr;
   from_space_ = nullptr;
   CHECK(mark_stack_->IsEmpty());
   mark_stack_->Reset();
+  space::LargeObjectSpace* los = GetHeap()->GetLargeObjectsSpace();
   if (generational_) {
     // Decide whether to do a whole heap collection or a bump pointer
     // only space collection at the next collection by updating
@@ -761,7 +793,7 @@ void SemiSpace::FinishPhase() {
       bytes_promoted_since_last_whole_heap_collection_ += bytes_promoted_;
       bool bytes_promoted_threshold_exceeded =
           bytes_promoted_since_last_whole_heap_collection_ >= kBytesPromotedThreshold;
-      uint64_t current_los_bytes_allocated = GetHeap()->GetLargeObjectsSpace()->GetBytesAllocated();
+      uint64_t current_los_bytes_allocated = los != nullptr ? los->GetBytesAllocated() : 0U;
       uint64_t last_los_bytes_allocated =
           large_object_bytes_allocated_at_last_whole_heap_collection_;
       bool large_object_bytes_threshold_exceeded =
@@ -774,7 +806,7 @@ void SemiSpace::FinishPhase() {
       // Reset the counters.
       bytes_promoted_since_last_whole_heap_collection_ = bytes_promoted_;
       large_object_bytes_allocated_at_last_whole_heap_collection_ =
-          GetHeap()->GetLargeObjectsSpace()->GetBytesAllocated();
+          los != nullptr ? los->GetBytesAllocated() : 0U;
       collect_from_space_only_ = true;
     }
   }

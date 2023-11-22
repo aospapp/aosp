@@ -23,6 +23,7 @@ import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
 
@@ -34,6 +35,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -285,6 +287,8 @@ public class CtsTestTest extends TestCase {
         EasyMock.expect(mMockPackageDef.getAbi()).andReturn(UnitTests.ABI).atLeastOnce();
         EasyMock.expect(mMockPackageDef.getId()).andReturn(ID).atLeastOnce();
         EasyMock.expect(mMockPackageDef.getDigest()).andReturn("digest").atLeastOnce();
+        EasyMock.expect(mMockPackageDef.getPackagePreparers()).andReturn(
+                    new ArrayList<ITargetPreparer>()).atLeastOnce();
         mMockTest.run((ITestInvocationListener) EasyMock.anyObject());
     }
 
@@ -293,6 +297,7 @@ public class CtsTestTest extends TestCase {
      * been specified
      */
     public void testRun_nothingToRun() throws DeviceNotAvailableException {
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
@@ -308,6 +313,7 @@ public class CtsTestTest extends TestCase {
     public void testRun_packagePlan() throws DeviceNotAvailableException {
         mCtsTest.setPlanName(PLAN_NAME);
         mCtsTest.addPackageName(PACKAGE_NAME);
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
@@ -323,6 +329,7 @@ public class CtsTestTest extends TestCase {
     public void testRun_planClass() throws DeviceNotAvailableException {
         mCtsTest.setPlanName(PLAN_NAME);
         mCtsTest.setClassName("class");
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
@@ -338,6 +345,7 @@ public class CtsTestTest extends TestCase {
     public void testRun_packageClass() throws DeviceNotAvailableException {
         mCtsTest.addPackageName(PACKAGE_NAME);
         mCtsTest.setClassName("class");
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
@@ -354,6 +362,7 @@ public class CtsTestTest extends TestCase {
         mCtsTest.setPlanName(PLAN_NAME);
         mCtsTest.addPackageName(PACKAGE_NAME);
         mCtsTest.setClassName("class");
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
@@ -369,12 +378,41 @@ public class CtsTestTest extends TestCase {
     public void testRun_planContinue() throws DeviceNotAvailableException {
         mCtsTest.setPlanName(PLAN_NAME);
         mCtsTest.setContinueSessionId(1);
+        replayMocks();
         try {
             mCtsTest.run(mMockListener);
             fail("IllegalArgumentException not thrown");
         } catch (IllegalArgumentException e) {
             // expected
         }
+    }
+
+    /**
+     * Test {@link CtsTestTest#join} works.
+     * @throws DeviceNotAvailableException
+     */
+    public void testJoin() throws DeviceNotAvailableException {
+        String expected = "a@b@c";
+        String actual = mCtsTest.join(new ArrayList<String>(Arrays.asList("a", "b", "c")), "@");
+        assertEquals(expected, actual);
+    }
+
+    /**
+     * Test {@link CtsTestTest#join} for a single element list.
+     * @throws DeviceNotAvailableException
+     */
+    public void testSingleJoin() throws DeviceNotAvailableException {
+        String actual = mCtsTest.join(new ArrayList<String>(Arrays.asList("foo")), "@");
+        assertEquals("foo", actual);
+    }
+
+    /**
+     * Test {@link CtsTestTest#join} for an empty list.
+     * @throws DeviceNotAvailableException
+     */
+    public void testEmptyJoin() throws DeviceNotAvailableException {
+        String actual = mCtsTest.join(new ArrayList<String>(), "@");
+        assertEquals("", actual);
     }
 
     private void replayMocks(Object... mocks) {

@@ -97,8 +97,7 @@ public class ProgressDialogTest extends ActivityInstrumentationTestCase2<MockAct
 
     @UiThreadTest
     public void testShow2() {
-        ProgressDialog dialog = buildDialog();
-        dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, false);
+        ProgressDialog dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, false);
 
         /*
          * note: the progress bar's style only supports indeterminate mode,
@@ -120,11 +119,11 @@ public class ProgressDialogTest extends ActivityInstrumentationTestCase2<MockAct
         // cancelable is false
         runTestOnUiThread(new Runnable() {
             public void run() {
-                ProgressDialog dialog = buildDialog();
-                dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, false);
+                ProgressDialog dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, false);
 
                 dialog.setOnCancelListener(cL);
                 dialog.onBackPressed();
+                dialog.dismiss();
             }
         });
         mInstrumentation.waitForIdleSync();
@@ -134,8 +133,7 @@ public class ProgressDialogTest extends ActivityInstrumentationTestCase2<MockAct
         // cancelable is true
         runTestOnUiThread(new Runnable() {
             public void run() {
-                ProgressDialog dialog = buildDialog();
-                dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, true);
+                ProgressDialog dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, true);
                 assertFalse(mCanceled);
                 dialog.setOnCancelListener(cL);
                 dialog.onBackPressed();
@@ -156,10 +154,11 @@ public class ProgressDialogTest extends ActivityInstrumentationTestCase2<MockAct
         // cancelable is false
         runTestOnUiThread(new Runnable() {
             public void run() {
-                ProgressDialog dialog = buildDialog();
-                dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, false, cL);
+                ProgressDialog dialog = ProgressDialog.show(
+                        mContext, TITLE, MESSAGE, true, false, cL);
 
                 dialog.onBackPressed();
+                dialog.dismiss();;
             }
         });
         mInstrumentation.waitForIdleSync();
@@ -169,8 +168,8 @@ public class ProgressDialogTest extends ActivityInstrumentationTestCase2<MockAct
         // cancelable is true
         runTestOnUiThread(new Runnable() {
             public void run() {
-                ProgressDialog dialog = buildDialog();
-                dialog = ProgressDialog.show(mContext, TITLE, MESSAGE, true, true, cL);
+                ProgressDialog dialog = ProgressDialog.show(
+                        mContext, TITLE, MESSAGE, true, true, cL);
 
                 assertFalse(mCanceled);
                 dialog.onBackPressed();

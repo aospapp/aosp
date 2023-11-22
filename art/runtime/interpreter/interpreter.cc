@@ -19,115 +19,12 @@
 #include <limits>
 
 #include "mirror/string-inl.h"
+#include "scoped_thread_state_change.h"
+#include "ScopedLocalRef.h"
+#include "unstarted_runtime.h"
 
 namespace art {
 namespace interpreter {
-
-// Hand select a number of methods to be run in a not yet started runtime without using JNI.
-static void UnstartedRuntimeJni(Thread* self, ArtMethod* method,
-                                Object* receiver, uint32_t* args, JValue* result)
-    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  std::string name(PrettyMethod(method));
-  if (name == "java.lang.Object dalvik.system.VMRuntime.newUnpaddedArray(java.lang.Class, int)") {
-    int32_t length = args[1];
-    DCHECK_GE(length, 0);
-    mirror::Class* element_class = reinterpret_cast<Object*>(args[0])->AsClass();
-    Runtime* runtime = Runtime::Current();
-    mirror::Class* array_class = runtime->GetClassLinker()->FindArrayClass(self, &element_class);
-    DCHECK(array_class != nullptr);
-    gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
-    result->SetL(mirror::Array::Alloc<true>(self, array_class, length,
-                                            array_class->GetComponentSize(), allocator, true));
-  } else if (name == "java.lang.ClassLoader dalvik.system.VMStack.getCallingClassLoader()") {
-    result->SetL(NULL);
-  } else if (name == "java.lang.Class dalvik.system.VMStack.getStackClass2()") {
-    NthCallerVisitor visitor(self, 3);
-    visitor.WalkStack();
-    result->SetL(visitor.caller->GetDeclaringClass());
-  } else if (name == "double java.lang.Math.log(double)") {
-    JValue value;
-    value.SetJ((static_cast<uint64_t>(args[1]) << 32) | args[0]);
-    result->SetD(log(value.GetD()));
-  } else if (name == "java.lang.String java.lang.Class.getNameNative()") {
-    StackHandleScope<1> hs(self);
-    result->SetL(mirror::Class::ComputeName(hs.NewHandle(receiver->AsClass())));
-  } else if (name == "int java.lang.Float.floatToRawIntBits(float)") {
-    result->SetI(args[0]);
-  } else if (name == "float java.lang.Float.intBitsToFloat(int)") {
-    result->SetI(args[0]);
-  } else if (name == "double java.lang.Math.exp(double)") {
-    JValue value;
-    value.SetJ((static_cast<uint64_t>(args[1]) << 32) | args[0]);
-    result->SetD(exp(value.GetD()));
-  } else if (name == "java.lang.Object java.lang.Object.internalClone()") {
-    result->SetL(receiver->Clone(self));
-  } else if (name == "void java.lang.Object.notifyAll()") {
-    receiver->NotifyAll(self);
-  } else if (name == "int java.lang.String.compareTo(java.lang.String)") {
-    String* rhs = reinterpret_cast<Object*>(args[0])->AsString();
-    CHECK(rhs != NULL);
-    result->SetI(receiver->AsString()->CompareTo(rhs));
-  } else if (name == "java.lang.String java.lang.String.intern()") {
-    result->SetL(receiver->AsString()->Intern());
-  } else if (name == "int java.lang.String.fastIndexOf(int, int)") {
-    result->SetI(receiver->AsString()->FastIndexOf(args[0], args[1]));
-  } else if (name == "java.lang.Object java.lang.reflect.Array.createMultiArray(java.lang.Class, int[])") {
-    StackHandleScope<2> hs(self);
-    auto h_class(hs.NewHandle(reinterpret_cast<mirror::Class*>(args[0])->AsClass()));
-    auto h_dimensions(hs.NewHandle(reinterpret_cast<mirror::IntArray*>(args[1])->AsIntArray()));
-    result->SetL(Array::CreateMultiArray(self, h_class, h_dimensions));
-  } else if (name == "java.lang.Object java.lang.Throwable.nativeFillInStackTrace()") {
-    ScopedObjectAccessUnchecked soa(self);
-    if (Runtime::Current()->IsActiveTransaction()) {
-      result->SetL(soa.Decode<Object*>(self->CreateInternalStackTrace<true>(soa)));
-    } else {
-      result->SetL(soa.Decode<Object*>(self->CreateInternalStackTrace<false>(soa)));
-    }
-  } else if (name == "int java.lang.System.identityHashCode(java.lang.Object)") {
-    mirror::Object* obj = reinterpret_cast<Object*>(args[0]);
-    result->SetI((obj != nullptr) ? obj->IdentityHashCode() : 0);
-  } else if (name == "boolean java.nio.ByteOrder.isLittleEndian()") {
-    result->SetZ(JNI_TRUE);
-  } else if (name == "boolean sun.misc.Unsafe.compareAndSwapInt(java.lang.Object, long, int, int)") {
-    Object* obj = reinterpret_cast<Object*>(args[0]);
-    jlong offset = (static_cast<uint64_t>(args[2]) << 32) | args[1];
-    jint expectedValue = args[3];
-    jint newValue = args[4];
-    bool success;
-    if (Runtime::Current()->IsActiveTransaction()) {
-      success = obj->CasFieldStrongSequentiallyConsistent32<true>(MemberOffset(offset),
-                                                                  expectedValue, newValue);
-    } else {
-      success = obj->CasFieldStrongSequentiallyConsistent32<false>(MemberOffset(offset),
-                                                                   expectedValue, newValue);
-    }
-    result->SetZ(success ? JNI_TRUE : JNI_FALSE);
-  } else if (name == "void sun.misc.Unsafe.putObject(java.lang.Object, long, java.lang.Object)") {
-    Object* obj = reinterpret_cast<Object*>(args[0]);
-    jlong offset = (static_cast<uint64_t>(args[2]) << 32) | args[1];
-    Object* newValue = reinterpret_cast<Object*>(args[3]);
-    if (Runtime::Current()->IsActiveTransaction()) {
-      obj->SetFieldObject<true>(MemberOffset(offset), newValue);
-    } else {
-      obj->SetFieldObject<false>(MemberOffset(offset), newValue);
-    }
-  } else if (name == "int sun.misc.Unsafe.getArrayBaseOffsetForComponentType(java.lang.Class)") {
-    mirror::Class* component = reinterpret_cast<Object*>(args[0])->AsClass();
-    Primitive::Type primitive_type = component->GetPrimitiveType();
-    result->SetI(mirror::Array::DataOffset(Primitive::ComponentSize(primitive_type)).Int32Value());
-  } else if (name == "int sun.misc.Unsafe.getArrayIndexScaleForComponentType(java.lang.Class)") {
-    mirror::Class* component = reinterpret_cast<Object*>(args[0])->AsClass();
-    Primitive::Type primitive_type = component->GetPrimitiveType();
-    result->SetI(Primitive::ComponentSize(primitive_type));
-  } else if (Runtime::Current()->IsActiveTransaction()) {
-    AbortTransaction(self, "Attempt to invoke native method in non-started runtime: %s",
-                     name.c_str());
-
-  } else {
-    LOG(FATAL) << "Calling native method " << PrettyMethod(method) << " in an unstarted "
-        "non-transactional runtime";
-  }
-}
 
 static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& shorty,
                            Object* receiver, uint32_t* args, JValue* result)
@@ -181,7 +78,8 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg0(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[0])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[0])));
       jobject jresult;
       {
         ScopedThreadStateChange tsc(self, kNative);
@@ -202,12 +100,14 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg0(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[0])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[0])));
       ScopedThreadStateChange tsc(self, kNative);
       result->SetI(fn(soa.Env(), klass.get(), arg0.get(), args[1]));
     } else if (shorty == "SIZ") {
       typedef jshort (fntype)(JNIEnv*, jclass, jint, jboolean);
-      fntype* const fn = reinterpret_cast<fntype*>(const_cast<void*>(method->GetEntryPointFromJni()));
+      fntype* const fn =
+          reinterpret_cast<fntype*>(const_cast<void*>(method->GetEntryPointFromJni()));
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedThreadStateChange tsc(self, kNative);
@@ -225,9 +125,11 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg0(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[0])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[0])));
       ScopedLocalRef<jobject> arg1(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[1])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[1])));
       ScopedThreadStateChange tsc(self, kNative);
       result->SetZ(fn(soa.Env(), klass.get(), arg0.get(), arg1.get()));
     } else if (shorty == "ZILL") {
@@ -236,9 +138,11 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg1(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[1])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[1])));
       ScopedLocalRef<jobject> arg2(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[2])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[2])));
       ScopedThreadStateChange tsc(self, kNative);
       result->SetZ(fn(soa.Env(), klass.get(), args[0], arg1.get(), arg2.get()));
     } else if (shorty == "VILII") {
@@ -247,7 +151,8 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg1(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[1])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[1])));
       ScopedThreadStateChange tsc(self, kNative);
       fn(soa.Env(), klass.get(), args[0], arg1.get(), args[2], args[3]);
     } else if (shorty == "VLILII") {
@@ -256,9 +161,11 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jclass> klass(soa.Env(),
                                    soa.AddLocalReference<jclass>(method->GetDeclaringClass()));
       ScopedLocalRef<jobject> arg0(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[0])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[0])));
       ScopedLocalRef<jobject> arg2(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[2])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[2])));
       ScopedThreadStateChange tsc(self, kNative);
       fn(soa.Env(), klass.get(), arg0.get(), args[1], arg2.get(), args[3], args[4]);
     } else {
@@ -290,7 +197,8 @@ static void InterpreterJni(Thread* self, ArtMethod* method, const StringPiece& s
       ScopedLocalRef<jobject> rcvr(soa.Env(),
                                    soa.AddLocalReference<jobject>(receiver));
       ScopedLocalRef<jobject> arg0(soa.Env(),
-                                   soa.AddLocalReference<jobject>(reinterpret_cast<Object*>(args[0])));
+                                   soa.AddLocalReference<jobject>(
+                                       reinterpret_cast<Object*>(args[0])));
       jobject jresult;
       {
         ScopedThreadStateChange tsc(self, kNative);
@@ -316,6 +224,10 @@ enum InterpreterImplKind {
   kSwitchImpl,            // Switch-based interpreter implementation.
   kComputedGotoImplKind   // Computed-goto-based interpreter implementation.
 };
+static std::ostream& operator<<(std::ostream& os, const InterpreterImplKind& rhs) {
+  os << ((rhs == kSwitchImpl) ? "Switch-based interpreter" : "Computed-goto-based interpreter");
+  return os;
+}
 
 #if !defined(__clang__)
 static constexpr InterpreterImplKind kInterpreterImplKind = kComputedGotoImplKind;
@@ -323,38 +235,31 @@ static constexpr InterpreterImplKind kInterpreterImplKind = kComputedGotoImplKin
 // Clang 3.4 fails to build the goto interpreter implementation.
 static constexpr InterpreterImplKind kInterpreterImplKind = kSwitchImpl;
 template<bool do_access_check, bool transaction_active>
-JValue ExecuteGotoImpl(Thread* self, MethodHelper& mh, const DexFile::CodeItem* code_item,
-                       ShadowFrame& shadow_frame, JValue result_register) {
+JValue ExecuteGotoImpl(Thread*, const DexFile::CodeItem*, ShadowFrame&, JValue) {
   LOG(FATAL) << "UNREACHABLE";
-  exit(0);
+  UNREACHABLE();
 }
 // Explicit definitions of ExecuteGotoImpl.
 template<> SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-JValue ExecuteGotoImpl<true, false>(Thread* self, MethodHelper& mh,
-                                    const DexFile::CodeItem* code_item,
+JValue ExecuteGotoImpl<true, false>(Thread* self, const DexFile::CodeItem* code_item,
                                     ShadowFrame& shadow_frame, JValue result_register);
 template<> SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-JValue ExecuteGotoImpl<false, false>(Thread* self, MethodHelper& mh,
-                                     const DexFile::CodeItem* code_item,
+JValue ExecuteGotoImpl<false, false>(Thread* self, const DexFile::CodeItem* code_item,
                                      ShadowFrame& shadow_frame, JValue result_register);
 template<> SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-JValue ExecuteGotoImpl<true, true>(Thread* self, MethodHelper& mh,
-                                    const DexFile::CodeItem* code_item,
+JValue ExecuteGotoImpl<true, true>(Thread* self,  const DexFile::CodeItem* code_item,
+                                   ShadowFrame& shadow_frame, JValue result_register);
+template<> SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+JValue ExecuteGotoImpl<false, true>(Thread* self, const DexFile::CodeItem* code_item,
                                     ShadowFrame& shadow_frame, JValue result_register);
-template<> SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-JValue ExecuteGotoImpl<false, true>(Thread* self, MethodHelper& mh,
-                                     const DexFile::CodeItem* code_item,
-                                     ShadowFrame& shadow_frame, JValue result_register);
 #endif
 
-static JValue Execute(Thread* self, MethodHelper& mh, const DexFile::CodeItem* code_item,
-                      ShadowFrame& shadow_frame, JValue result_register)
+static JValue Execute(Thread* self, const DexFile::CodeItem* code_item, ShadowFrame& shadow_frame,
+                      JValue result_register)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-static inline JValue Execute(Thread* self, MethodHelper& mh, const DexFile::CodeItem* code_item,
+static inline JValue Execute(Thread* self, const DexFile::CodeItem* code_item,
                              ShadowFrame& shadow_frame, JValue result_register) {
-  DCHECK(shadow_frame.GetMethod() == mh.GetMethod() ||
-         shadow_frame.GetMethod()->GetDeclaringClass()->IsProxyClass());
   DCHECK(!shadow_frame.GetMethod()->IsAbstract());
   DCHECK(!shadow_frame.GetMethod()->IsNative());
   shadow_frame.GetMethod()->GetDeclaringClass()->AssertInitializedOrInitializingInThread(self);
@@ -364,32 +269,32 @@ static inline JValue Execute(Thread* self, MethodHelper& mh, const DexFile::Code
     // Enter the "without access check" interpreter.
     if (kInterpreterImplKind == kSwitchImpl) {
       if (transaction_active) {
-        return ExecuteSwitchImpl<false, true>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteSwitchImpl<false, true>(self, code_item, shadow_frame, result_register);
       } else {
-        return ExecuteSwitchImpl<false, false>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteSwitchImpl<false, false>(self, code_item, shadow_frame, result_register);
       }
     } else {
       DCHECK_EQ(kInterpreterImplKind, kComputedGotoImplKind);
       if (transaction_active) {
-        return ExecuteGotoImpl<false, true>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteGotoImpl<false, true>(self, code_item, shadow_frame, result_register);
       } else {
-        return ExecuteGotoImpl<false, false>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteGotoImpl<false, false>(self, code_item, shadow_frame, result_register);
       }
     }
   } else {
     // Enter the "with access check" interpreter.
     if (kInterpreterImplKind == kSwitchImpl) {
       if (transaction_active) {
-        return ExecuteSwitchImpl<true, true>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteSwitchImpl<true, true>(self, code_item, shadow_frame, result_register);
       } else {
-        return ExecuteSwitchImpl<true, false>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteSwitchImpl<true, false>(self, code_item, shadow_frame, result_register);
       }
     } else {
       DCHECK_EQ(kInterpreterImplKind, kComputedGotoImplKind);
       if (transaction_active) {
-        return ExecuteGotoImpl<true, true>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteGotoImpl<true, true>(self, code_item, shadow_frame, result_register);
       } else {
-        return ExecuteGotoImpl<true, false>(self, mh, code_item, shadow_frame, result_register);
+        return ExecuteGotoImpl<true, false>(self, code_item, shadow_frame, result_register);
       }
     }
   }
@@ -408,7 +313,7 @@ void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method, Object* receive
   const DexFile::CodeItem* code_item = method->GetCodeItem();
   uint16_t num_regs;
   uint16_t num_ins;
-  if (code_item != NULL) {
+  if (code_item != nullptr) {
     num_regs =  code_item->registers_size_;
     num_ins = code_item->ins_size_;
   } else if (method->IsAbstract()) {
@@ -431,7 +336,7 @@ void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method, Object* receive
 
   size_t cur_reg = num_regs - num_ins;
   if (!method->IsStatic()) {
-    CHECK(receiver != NULL);
+    CHECK(receiver != nullptr);
     shadow_frame->SetVRegReference(cur_reg, receiver);
     ++cur_reg;
   }
@@ -463,17 +368,15 @@ void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method, Object* receive
     ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> h_class(hs.NewHandle(method->GetDeclaringClass()));
-    if (UNLIKELY(!class_linker->EnsureInitialized(h_class, true, true))) {
+    if (UNLIKELY(!class_linker->EnsureInitialized(self, h_class, true, true))) {
       CHECK(self->IsExceptionPending());
       self->PopShadowFrame();
       return;
     }
   }
   if (LIKELY(!method->IsNative())) {
-    StackHandleScope<1> hs(self);
-    MethodHelper mh(hs.NewHandle(method));
-    JValue r = Execute(self, mh, code_item, *shadow_frame, JValue());
-    if (result != NULL) {
+    JValue r = Execute(self, code_item, *shadow_frame, JValue());
+    if (result != nullptr) {
       *result = r;
     }
   } else {
@@ -483,7 +386,7 @@ void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method, Object* receive
     // references pointers due to moving GC.
     args = shadow_frame->GetVRegArgs(method->IsStatic() ? 0 : 1);
     if (!Runtime::Current()->IsStarted()) {
-      UnstartedRuntimeJni(self, method, receiver, args, result);
+      UnstartedRuntime::Jni(self, method, receiver, args, result);
     } else {
       InterpreterJni(self, method, shorty, receiver, args, result);
     }
@@ -494,12 +397,11 @@ void EnterInterpreterFromInvoke(Thread* self, ArtMethod* method, Object* receive
 void EnterInterpreterFromDeoptimize(Thread* self, ShadowFrame* shadow_frame, JValue* ret_val)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
   JValue value;
-  value.SetJ(ret_val->GetJ());  // Set value to last known result in case the shadow frame chain is empty.
-  while (shadow_frame != NULL) {
+  // Set value to last known result in case the shadow frame chain is empty.
+  value.SetJ(ret_val->GetJ());
+  while (shadow_frame != nullptr) {
     self->SetTopOfShadowStack(shadow_frame);
-    StackHandleScope<1> hs(self);
-    MethodHelper mh(hs.NewHandle(shadow_frame->GetMethod()));
-    const DexFile::CodeItem* code_item = mh.GetMethod()->GetCodeItem();
+    const DexFile::CodeItem* code_item = shadow_frame->GetMethod()->GetCodeItem();
     const uint32_t dex_pc = shadow_frame->GetDexPC();
     uint32_t new_dex_pc;
     if (UNLIKELY(self->IsExceptionPending())) {
@@ -511,21 +413,23 @@ void EnterInterpreterFromDeoptimize(Thread* self, ShadowFrame* shadow_frame, JVa
                                   // or DexFile::kDexNoIndex if there is none.
     } else {
       const Instruction* instr = Instruction::At(&code_item->insns_[dex_pc]);
-      new_dex_pc = dex_pc + instr->SizeInCodeUnits();  // the dex pc of the next instruction.
+      // For an invoke, use the dex pc of the next instruction.
+      // TODO: should be tested more once b/17586779 is fixed.
+      new_dex_pc = dex_pc + (instr->IsInvoke() ? instr->SizeInCodeUnits() : 0);
     }
     if (new_dex_pc != DexFile::kDexNoIndex) {
       shadow_frame->SetDexPC(new_dex_pc);
-      value = Execute(self, mh, code_item, *shadow_frame, value);
+      value = Execute(self, code_item, *shadow_frame, value);
     }
     ShadowFrame* old_frame = shadow_frame;
     shadow_frame = shadow_frame->GetLink();
-    delete old_frame;
+    ShadowFrame::DeleteDeoptimizedFrame(old_frame);
   }
   ret_val->SetJ(value.GetJ());
 }
 
-JValue EnterInterpreterFromStub(Thread* self, MethodHelper& mh, const DexFile::CodeItem* code_item,
-                                ShadowFrame& shadow_frame) {
+JValue EnterInterpreterFromEntryPoint(Thread* self, const DexFile::CodeItem* code_item,
+                                      ShadowFrame* shadow_frame) {
   DCHECK_EQ(self, Thread::Current());
   bool implicit_check = !Runtime::Current()->ExplicitStackOverflowChecks();
   if (UNLIKELY(__builtin_frame_address(0) < self->GetStackEndForInterpreter(implicit_check))) {
@@ -533,11 +437,10 @@ JValue EnterInterpreterFromStub(Thread* self, MethodHelper& mh, const DexFile::C
     return JValue();
   }
 
-  return Execute(self, mh, code_item, shadow_frame, JValue());
+  return Execute(self, code_item, *shadow_frame, JValue());
 }
 
-extern "C" void artInterpreterToInterpreterBridge(Thread* self, MethodHelper& mh,
-                                                  const DexFile::CodeItem* code_item,
+extern "C" void artInterpreterToInterpreterBridge(Thread* self, const DexFile::CodeItem* code_item,
                                                   ShadowFrame* shadow_frame, JValue* result) {
   bool implicit_check = !Runtime::Current()->ExplicitStackOverflowChecks();
   if (UNLIKELY(__builtin_frame_address(0) < self->GetStackEndForInterpreter(implicit_check))) {
@@ -546,15 +449,15 @@ extern "C" void artInterpreterToInterpreterBridge(Thread* self, MethodHelper& mh
   }
 
   self->PushShadowFrame(shadow_frame);
-  ArtMethod* method = shadow_frame->GetMethod();
   // Ensure static methods are initialized.
-  if (method->IsStatic()) {
-    mirror::Class* declaring_class = method->GetDeclaringClass();
+  const bool is_static = shadow_frame->GetMethod()->IsStatic();
+  if (is_static) {
+    mirror::Class* declaring_class = shadow_frame->GetMethod()->GetDeclaringClass();
     if (UNLIKELY(!declaring_class->IsInitialized())) {
       StackHandleScope<1> hs(self);
       HandleWrapper<Class> h_declaring_class(hs.NewHandleWrapper(&declaring_class));
       if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
-          h_declaring_class, true, true))) {
+          self, h_declaring_class, true, true))) {
         DCHECK(self->IsExceptionPending());
         self->PopShadowFrame();
         return;
@@ -563,15 +466,15 @@ extern "C" void artInterpreterToInterpreterBridge(Thread* self, MethodHelper& mh
     }
   }
 
-  if (LIKELY(!method->IsNative())) {
-    result->SetJ(Execute(self, mh, code_item, *shadow_frame, JValue()).GetJ());
+  if (LIKELY(!shadow_frame->GetMethod()->IsNative())) {
+    result->SetJ(Execute(self, code_item, *shadow_frame, JValue()).GetJ());
   } else {
     // We don't expect to be asked to interpret native code (which is entered via a JNI compiler
     // generated stub) except during testing and image writing.
     CHECK(!Runtime::Current()->IsStarted());
-    Object* receiver = method->IsStatic() ? nullptr : shadow_frame->GetVRegReference(0);
-    uint32_t* args = shadow_frame->GetVRegArgs(method->IsStatic() ? 0 : 1);
-    UnstartedRuntimeJni(self, method, receiver, args, result);
+    Object* receiver = is_static ? nullptr : shadow_frame->GetVRegReference(0);
+    uint32_t* args = shadow_frame->GetVRegArgs(is_static ? 0 : 1);
+    UnstartedRuntime::Jni(self, shadow_frame->GetMethod(), receiver, args, result);
   }
 
   self->PopShadowFrame();

@@ -43,7 +43,6 @@ import org.bouncycastle.jcajce.provider.symmetric.util.BaseMac;
 import org.bouncycastle.jcajce.provider.symmetric.util.BaseSecretKeyFactory;
 import org.bouncycastle.jcajce.provider.symmetric.util.BaseWrapCipher;
 import org.bouncycastle.jcajce.provider.util.AlgorithmProvider;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public final class DESede
 {
@@ -270,30 +269,30 @@ public final class DESede
     //     {
     //         throw new InvalidAlgorithmParameterException("No supported AlgorithmParameterSpec for DES parameter generation.");
     //     }
-    //
+
     //     protected AlgorithmParameters engineGenerateParameters()
     //     {
     //         byte[]  iv = new byte[8];
-    //
+
     //         if (random == null)
     //         {
     //             random = new SecureRandom();
     //         }
-    //
+
     //         random.nextBytes(iv);
-    //
+
     //         AlgorithmParameters params;
-    //
+
     //         try
     //         {
-    //             params = AlgorithmParameters.getInstance("DES", BouncyCastleProvider.PROVIDER_NAME);
+    //             params = createParametersInstance("DES");
     //             params.init(new IvParameterSpec(iv));
     //         }
     //         catch (Exception e)
     //         {
     //             throw new RuntimeException(e.getMessage());
     //         }
-    //
+
     //         return params;
     //     }
     // }

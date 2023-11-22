@@ -32,15 +32,10 @@ void setCube(rs_allocation c) {
 
     float4 m = (float4)(1.f / 255.f) * convert_float4(gDims - 1);
     gCoordMul = convert_int4(m * (float4)0x10000);
-
-    rsDebug("dims", gDims);
-    rsDebug("gCoordMul", gCoordMul);
 }
 
-void root(const uchar4 *in, uchar4 *out, uint32_t x, uint32_t y) {
-    //rsDebug("root", in);
-
-    int4 baseCoord = convert_int4(*in) * gCoordMul;
+uchar4 RS_KERNEL root(uchar4 in) {
+    int4 baseCoord = convert_int4(in) * gCoordMul;
     int4 coord1 = baseCoord >> (int4)16;
     int4 coord2 = min(coord1 + 1, gDims - 1);
 
@@ -67,23 +62,8 @@ void root(const uchar4 *in, uchar4 *out, uint32_t x, uint32_t y) {
     uint4 v = ((z0 * weight1.z) + (z1 * weight2.z)) >> (uint4)16;
     uint4 v2 = (v + 0x7f) >> (uint4)8;
 
-    *out = convert_uchar4(v2);
-    out->a = 0xff;
-
-    #if 0
-    if (in->r != out->r) {
-        rsDebug("dr", in->r - out->r);
-        //rsDebug("in", convert_int4(*in));
-        //rsDebug("coord1", coord1);
-        //rsDebug("coord2", coord2);
-        //rsDebug("weight1", weight1);
-        //rsDebug("weight2", weight2);
-        //rsDebug("yz00", yz00);
-        //rsDebug("z0", z0);
-        //rsDebug("v", v);
-        //rsDebug("v2", v2);
-        //rsDebug("out", convert_int4(*out));
-    }
-    #endif
+    uchar4 o = convert_uchar4(v2);
+    o.a = 0xff;
+    return o;
 }
 

@@ -17,14 +17,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
-import android.graphics.Rect;
 import android.graphics.drawable.GradientDrawable;
-import android.hardware.display.DisplayManagerGlobal;
+import android.hardware.display.DisplayManager;
 import android.os.Trace;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Display;
-import android.view.DisplayInfo;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -141,6 +139,7 @@ public class MultiShrinkScroller extends FrameLayout {
      */
     private boolean mHasEverTouchedTheTop;
     private boolean mIsTouchDisabledForDismissAnimation;
+    private boolean mIsTouchDisabledForSuppressLayout;
 
     private final Scroller mScroller;
     private final EdgeEffect mEdgeGlowBottom;
@@ -406,7 +405,8 @@ public class MultiShrinkScroller extends FrameLayout {
     }
 
     private boolean shouldStartDrag(MotionEvent event) {
-        if (mIsTouchDisabledForDismissAnimation) return false;
+        if (mIsTouchDisabledForDismissAnimation || mIsTouchDisabledForSuppressLayout) return false;
+
 
         if (mIsBeingDragged) {
             mIsBeingDragged = false;
@@ -442,7 +442,7 @@ public class MultiShrinkScroller extends FrameLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (mIsTouchDisabledForDismissAnimation) return true;
+        if (mIsTouchDisabledForDismissAnimation || mIsTouchDisabledForSuppressLayout) return true;
 
         final int action = event.getAction();
 
@@ -842,7 +842,7 @@ public class MultiShrinkScroller extends FrameLayout {
             if (mIsTwoPanel) {
                 // Only show the EdgeEffect on the bottom of the ScrollView.
                 mEdgeGlowBottom.setSize(mScrollView.getWidth(), height);
-                if (isLayoutRtl()) {
+                if (getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
                     canvas.translate(mPhotoViewContainer.getWidth(), 0);
                 }
             } else {
@@ -858,7 +858,7 @@ public class MultiShrinkScroller extends FrameLayout {
             final int restoreCount = canvas.save();
             if (mIsTwoPanel) {
                 mEdgeGlowTop.setSize(mScrollView.getWidth(), height);
-                if (!isLayoutRtl()) {
+                if (getLayoutDirection() != View.LAYOUT_DIRECTION_RTL) {
                     canvas.translate(mPhotoViewContainer.getWidth(), 0);
                 }
             } else {
@@ -992,7 +992,7 @@ public class MultiShrinkScroller extends FrameLayout {
         }
 
         // The pivot point for scaling should be middle of the starting side.
-        if (isLayoutRtl()) {
+        if (getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) {
             mLargeTextView.setPivotX(mLargeTextView.getWidth());
         } else {
             mLargeTextView.setPivotX(0);
@@ -1032,14 +1032,14 @@ public class MultiShrinkScroller extends FrameLayout {
      * finishes moving into its target location/size.
      */
     private void calculateCollapsedLargeTitlePadding() {
-        final Rect largeTextViewRect = new Rect();
-        mToolbar.getBoundsOnScreen(largeTextViewRect);
-        final Rect invisiblePlaceholderTextViewRect = new Rect();
-        mInvisiblePlaceholderTextView.getBoundsOnScreen(invisiblePlaceholderTextViewRect);
+        int invisiblePlaceHolderLocation[] = new int[2];
+        int largeTextViewRectLocation[] = new int[2];
+        mInvisiblePlaceholderTextView.getLocationOnScreen(invisiblePlaceHolderLocation);
+        mToolbar.getLocationOnScreen(largeTextViewRectLocation);
         // Distance between top of toolbar to the center of the target rectangle.
-        final int desiredTopToCenter = (
-                invisiblePlaceholderTextViewRect.top + invisiblePlaceholderTextViewRect.bottom)
-                / 2 - largeTextViewRect.top;
+        final int desiredTopToCenter = invisiblePlaceHolderLocation[1]
+                + mInvisiblePlaceholderTextView.getHeight() / 2
+                - largeTextViewRectLocation[1];
         // Padding needed on the mLargeTextView so that it has the same amount of
         // padding as the target rectangle.
         mCollapsedTitleBottomMargin = desiredTopToCenter - mLargeTextView.getHeight() / 2;
@@ -1239,7 +1239,7 @@ public class MultiShrinkScroller extends FrameLayout {
      * Similar to a {@link android.view.animation.AccelerateInterpolator} in the sense that
      * getInterpolation() is a quadratic function.
      */
-    private static class AcceleratingFlingInterpolator implements Interpolator {
+    private class AcceleratingFlingInterpolator implements Interpolator {
 
         private final float mStartingSpeedPixelsPerFrame;
         private final float mDurationMs;
@@ -1271,9 +1271,9 @@ public class MultiShrinkScroller extends FrameLayout {
         }
 
         private float getRefreshRate() {
-            DisplayInfo di = DisplayManagerGlobal.getInstance().getDisplayInfo(
-                    Display.DEFAULT_DISPLAY);
-            return di.refreshRate;
+            final DisplayManager displayManager = (DisplayManager) MultiShrinkScroller
+                    .this.getContext().getSystemService(Context.DISPLAY_SERVICE);
+            return displayManager.getDisplay(Display.DEFAULT_DISPLAY).getRefreshRate();
         }
 
         public long getFrameIntervalMs() {
@@ -1286,12 +1286,6 @@ public class MultiShrinkScroller extends FrameLayout {
      * space at the bottom of this ViewGroup.
      */
     public void prepareForShrinkingScrollChild(int heightDelta) {
-        // The Transition framework may suppress layout on the scene root and its children. If
-        // mScrollView has its layout suppressed, user scrolling interactions will not display
-        // correctly. By turning suppress off for mScrollView, mScrollView properly adjusts its
-        // graphics as the user scrolls during the transition.
-        mScrollView.suppressLayout(false);
-
         final int newEmptyScrollViewSpace = -getOverflowingChildViewSize() + heightDelta;
         if (newEmptyScrollViewSpace > 0 && !mIsTwoPanel) {
             final int newDesiredToolbarHeight = Math.min(getToolbarHeight()
@@ -1301,11 +1295,13 @@ public class MultiShrinkScroller extends FrameLayout {
         }
     }
 
-    public void prepareForExpandingScrollChild() {
-        // The Transition framework may suppress layout on the scene root and its children. If
-        // mScrollView has its layout suppressed, user scrolling interactions will not display
-        // correctly. By turning suppress off for mScrollView, mScrollView properly adjusts its
-        // graphics as the user scrolls during the transition.
-        mScrollView.suppressLayout(false);
+    /**
+     * If {@param areTouchesDisabled} is TRUE, ignore all of the user's touches.
+     */
+    public void setDisableTouchesForSuppressLayout(boolean areTouchesDisabled) {
+        // The card expansion animation uses the Transition framework's ChangeBounds API. This
+        // invokes suppressLayout(true) on the MultiShrinkScroller. As a result, we need to avoid
+        // all layout changes during expansion in order to avoid weird layout artifacts.
+        mIsTouchDisabledForSuppressLayout = areTouchesDisabled;
     }
 }

@@ -92,7 +92,7 @@
         </activity>
 
         <activity android:name="android.view.animation.cts.GridLayoutAnimCtsActivity"
-            android:label="GridLayoutAnimCtsActivity">
+            android:label="GridLayoutAnimCtsActivity" android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -100,7 +100,7 @@
         </activity>
 
         <activity android:name="android.view.animation.cts.LayoutAnimCtsActivity"
-            android:label="LayoutAnimCtsActivity">
+            android:label="LayoutAnimCtsActivity" android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -150,7 +150,11 @@
         <activity android:name="android.view.cts.GestureDetectorCtsActivity"
             android:label="GestureDetectorCtsActivity"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
-            
+
+        <activity android:name="android.view.cts.ScaleGestureDetectorCtsActivity"
+            android:label="ScaleGestureDetectorCtsActivity"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
         <activity android:name="android.view.cts.GLSurfaceViewCtsActivity"
             android:label="GLSurfaceViewCts"/>
 
@@ -159,8 +163,20 @@
                 android:resource="@xml/merge" />
         </activity>
 
+        <activity android:name="android.view.cts.ActionModeCtsActivity"
+            android:label="ActionModeCtsActivity">
+        </activity>
+
         <activity android:name="android.view.cts.ViewGroupCtsActivity"
             android:label="WidgetViewGroupCtsActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.SearchEventActivity"
+            android:label="SearchEventActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />

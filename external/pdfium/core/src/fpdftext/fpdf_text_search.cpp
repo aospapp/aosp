@@ -7,7 +7,7 @@
 #include "../../include/fpdfapi/fpdf_pageobj.h"
 #include "../../include/fpdftext/fpdf_text.h"
 #include "../../include/fpdfapi/fpdf_page.h"
-class CPDF_TextStream : public CFX_Object
+class CPDF_TextStream 
 {
 public:
     CPDF_TextStream(CFX_WideTextBuf& buffer, FX_BOOL bUseLF, CFX_PtrArray* pObjArray);
@@ -136,13 +136,9 @@ int FPDFText_ProcessInterObj(const CPDF_TextObject* pPrevObj, const CPDF_TextObj
 }
 FX_BOOL CPDF_TextStream::ProcessObject(const CPDF_TextObject* pObj, FX_BOOL bFirstLine)
 {
-    if(pObj->m_Bottom > 380 && pObj->m_Left < 45 && pObj->m_Top < 402) {
-        int i = 0;
-    }
     CPDF_Font* pFont = pObj->GetFont();
     CFX_AffineMatrix matrix;
     pObj->GetTextMatrix(&matrix);
-    FX_FLOAT fs = pObj->GetFontSize();
     int item_index = 0;
     if (m_pLastObj) {
         int result = FPDFText_ProcessInterObj(m_pLastObj, pObj);

@@ -20,17 +20,23 @@ import android.content.Context;
 import android.net.NetworkKey;
 import android.net.NetworkScoreManager;
 import android.net.WifiKey;
-import android.net.wifi.*;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
-import android.os.SystemClock;
-import android.provider.Settings;
+import android.net.wifi.WifiConnectionStatistics;
 import android.os.Process;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
+import android.os.SystemClock;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -59,12 +65,13 @@ public class WifiAutoJoinController {
 
     private String mCurrentConfigurationKey = null; //used by autojoin
 
-    private HashMap<String, ScanResult> scanResultCache =
-            new HashMap<String, ScanResult>();
+    private final HashMap<String, ScanDetail> scanResultCache = new HashMap<>();
 
     private WifiConnectionStatistics mWifiConnectionStatistics;
 
-    /** Whether to allow connections to untrusted networks. */
+    /**
+     * Whether to allow connections to untrusted networks.
+     */
     private boolean mAllowUntrustedConnections = false;
 
     /* For debug purpose only: if the scored override a score */
@@ -75,7 +82,9 @@ public class WifiAutoJoinController {
     // Lose some temporary blacklisting after 30 minutes
     private final static long loseBlackListSoftMilli = 1000 * 60 * 30;
 
-    /** @see android.provider.Settings.Global#WIFI_EPHEMERAL_OUT_OF_RANGE_TIMEOUT_MS */
+    /**
+     * @see android.provider.Settings.Global#WIFI_EPHEMERAL_OUT_OF_RANGE_TIMEOUT_MS
+     */
     private static final long DEFAULT_EPHEMERAL_OUT_OF_RANGE_TIMEOUT_MS = 1000 * 60; // 1 minute
 
     public static final int AUTO_JOIN_IDLE = 0;
@@ -84,6 +93,8 @@ public class WifiAutoJoinController {
     public static final int AUTO_JOIN_OUT_OF_NETWORK_ROAMING = 3;
 
     public static final int HIGH_THRESHOLD_MODIFIER = 5;
+
+    public static final int MAX_RSSI_DELTA = 50;
 
     // Below are AutoJoin wide parameters indicating if we should be aggressive before joining
     // weak network. Note that we cannot join weak network that are going to be marked as unanted by
@@ -123,7 +134,7 @@ public class WifiAutoJoinController {
     }
 
     void enableVerboseLogging(int verbose) {
-        if (verbose > 0 ) {
+        if (verbose > 0) {
             DBG = true;
             VDBG = true;
         } else {
@@ -134,7 +145,6 @@ public class WifiAutoJoinController {
 
     /**
      * Flush out scan results older than mScanResultMaximumAge
-     *
      */
     private void ageScanResultsOut(int delay) {
         if (delay <= 0) {
@@ -146,18 +156,67 @@ public class WifiAutoJoinController {
                     + Integer.valueOf(scanResultCache.size()) + " now " + Long.valueOf(milli));
         }
 
-        Iterator<HashMap.Entry<String,ScanResult>> iter = scanResultCache.entrySet().iterator();
+        Iterator<HashMap.Entry<String, ScanDetail>> iter = scanResultCache.entrySet().iterator();
         while (iter.hasNext()) {
-            HashMap.Entry<String,ScanResult> entry = iter.next();
-            ScanResult result = entry.getValue();
-
-            if ((result.seen + delay) < milli) {
+            HashMap.Entry<String, ScanDetail> entry = iter.next();
+            ScanDetail scanDetail = entry.getValue();
+            if ((scanDetail.getSeen() + delay) < milli) {
                 iter.remove();
             }
         }
     }
 
-    int addToScanCache(List<ScanResult> scanList) {
+
+    void averageRssiAndRemoveFromCache(ScanResult result) {
+        // Fetch the previous instance for this result
+        ScanDetail sd = scanResultCache.get(result.BSSID);
+        if (sd != null) {
+            ScanResult sr = sd.getScanResult();
+            if (mWifiConfigStore.scanResultRssiLevelPatchUp != 0
+                    && result.level == 0
+                    && sr.level < -20) {
+                // A 'zero' RSSI reading is most likely a chip problem which returns
+                // an unknown RSSI, hence ignore it
+                result.level = sr.level;
+            }
+
+            // If there was a previous cache result for this BSSID, average the RSSI values
+            result.averageRssi(sr.level, sr.seen, mScanResultMaximumAge);
+
+            // Remove the previous Scan Result - this is not necessary
+            scanResultCache.remove(result.BSSID);
+        } else if (mWifiConfigStore.scanResultRssiLevelPatchUp != 0 && result.level == 0) {
+            // A 'zero' RSSI reading is most likely a chip problem which returns
+            // an unknown RSSI, hence initialize it to a sane value
+            result.level = mWifiConfigStore.scanResultRssiLevelPatchUp;
+        }
+    }
+
+    void addToUnscoredNetworks(ScanResult result, List<NetworkKey> unknownScanResults) {
+        WifiKey wkey;
+        // Quoted SSIDs are the only one valid at this stage
+        try {
+            wkey = new WifiKey("\"" + result.SSID + "\"", result.BSSID);
+        } catch (IllegalArgumentException e) {
+            logDbg("AutoJoinController: received badly encoded SSID=[" + result.SSID +
+                    "] ->skipping this network");
+            wkey = null;
+        }
+        if (wkey != null) {
+            NetworkKey nkey = new NetworkKey(wkey);
+            //if we don't know this scan result then request a score from the scorer
+            unknownScanResults.add(nkey);
+        }
+        if (VDBG) {
+            String cap = "";
+            if (result.capabilities != null)
+                cap = result.capabilities;
+            logDbg(result.SSID + " " + result.BSSID + " rssi="
+                    + result.level + " cap " + cap + " tsf " + result.timestamp + " is not scored");
+        }
+    }
+
+    int addToScanCache(List<ScanDetail> scanList) {
         int numScanResultsKnown = 0; // Record number of scan results we knew about
         WifiConfiguration associatedConfig = null;
         boolean didAssociate = false;
@@ -165,56 +224,24 @@ public class WifiAutoJoinController {
 
         ArrayList<NetworkKey> unknownScanResults = new ArrayList<NetworkKey>();
 
-        for(ScanResult result: scanList) {
+        for (ScanDetail scanDetail : scanList) {
+            ScanResult result = scanDetail.getScanResult();
             if (result.SSID == null) continue;
 
-            // Make sure we record the last time we saw this result
-            result.seen = System.currentTimeMillis();
-
-            // Fetch the previous instance for this result
-            ScanResult sr = scanResultCache.get(result.BSSID);
-            if (sr != null) {
-                if (mWifiConfigStore.scanResultRssiLevelPatchUp != 0
-                        && result.level == 0
-                        && sr.level < -20) {
-                    // A 'zero' RSSI reading is most likely a chip problem which returns
-                    // an unknown RSSI, hence ignore it
-                    result.level = sr.level;
-                }
-
-                // If there was a previous cache result for this BSSID, average the RSSI values
-                result.averageRssi(sr.level, sr.seen, mScanResultMaximumAge);
-
-                // Remove the previous Scan Result - this is not necessary
-                scanResultCache.remove(result.BSSID);
-            } else if (mWifiConfigStore.scanResultRssiLevelPatchUp != 0 && result.level == 0) {
-                // A 'zero' RSSI reading is most likely a chip problem which returns
-                // an unknown RSSI, hence initialize it to a sane value
-                result.level = mWifiConfigStore.scanResultRssiLevelPatchUp;
+            if (VDBG) {
+                logDbg(" addToScanCache " + result.SSID + " " + result.BSSID
+                        + " tsf=" + result.timestamp
+                        + " now= " + now + " uptime=" + SystemClock.uptimeMillis()
+                        + " elapsed=" + SystemClock.elapsedRealtime());
             }
 
+            // Make sure we record the last time we saw this result
+            scanDetail.setSeen();
+
+            averageRssiAndRemoveFromCache(result);
+
             if (!mNetworkScoreCache.isScoredNetwork(result)) {
-                WifiKey wkey;
-                // Quoted SSIDs are the only one valid at this stage
-                try {
-                    wkey = new WifiKey("\"" + result.SSID + "\"", result.BSSID);
-                } catch (IllegalArgumentException e) {
-                    logDbg("AutoJoinController: received badly encoded SSID=[" + result.SSID +
-                            "] ->skipping this network");
-                    wkey = null;
-                }
-                if (wkey != null) {
-                    NetworkKey nkey = new NetworkKey(wkey);
-                    //if we don't know this scan result then request a score from the scorer
-                    unknownScanResults.add(nkey);
-                }
-                if (VDBG) {
-                    String cap = "";
-                    if (result.capabilities != null)
-                        cap = result.capabilities;
-                    logDbg(result.SSID + " " + result.BSSID + " rssi="
-                            + result.level + " cap " + cap + " is not scored");
-                }
+                addToUnscoredNetworks(result, unknownScanResults);
             } else {
                 if (VDBG) {
                     String cap = "";
@@ -227,29 +254,15 @@ public class WifiAutoJoinController {
             }
 
             // scanResultCache.put(result.BSSID, new ScanResult(result));
-            scanResultCache.put(result.BSSID, result);
+            scanResultCache.put(result.BSSID, scanDetail);
             // Add this BSSID to the scanResultCache of a Saved WifiConfiguration
-            didAssociate = mWifiConfigStore.updateSavedNetworkHistory(result);
+            didAssociate = mWifiConfigStore.updateSavedNetworkHistory(scanDetail);
 
             // If not successful, try to associate this BSSID to an existing Saved WifiConfiguration
             if (!didAssociate) {
                 // We couldn't associate the scan result to a Saved WifiConfiguration
                 // Hence it is untrusted
                 result.untrusted = true;
-                associatedConfig = mWifiConfigStore.associateWithConfiguration(result);
-                if (associatedConfig != null && associatedConfig.SSID != null) {
-                    if (VDBG) {
-                        logDbg("addToScanCache save associated config "
-                                + associatedConfig.SSID + " with " + result.SSID
-                                + " status " + associatedConfig.autoJoinStatus
-                                + " reason " + associatedConfig.disableReason
-                                + " tsp " + associatedConfig.blackListTimestamp
-                                + " was " + (now - associatedConfig.blackListTimestamp));
-                    }
-                    mWifiStateMachine.sendMessage(
-                            WifiStateMachine.CMD_AUTO_SAVE_NETWORK, associatedConfig);
-                    didAssociate = true;
-                }
             } else {
                 // If the scan result has been blacklisted fir 18 hours -> unblacklist
                 if ((now - result.blackListTimestamp) > loseBlackListHardMilli) {
@@ -258,7 +271,7 @@ public class WifiAutoJoinController {
             }
             if (didAssociate) {
                 numScanResultsKnown++;
-                result.isAutoJoinCandidate ++;
+                result.isAutoJoinCandidate++;
             } else {
                 result.isAutoJoinCandidate = 0;
             }
@@ -279,26 +292,26 @@ public class WifiAutoJoinController {
 
     void logDbg(String message, boolean stackTrace) {
         if (stackTrace) {
-            Log.e(TAG, message + " stack:"
+            Log.d(TAG, message + " stack:"
                     + Thread.currentThread().getStackTrace()[2].getMethodName() + " - "
                     + Thread.currentThread().getStackTrace()[3].getMethodName() + " - "
                     + Thread.currentThread().getStackTrace()[4].getMethodName() + " - "
                     + Thread.currentThread().getStackTrace()[5].getMethodName());
         } else {
-            Log.e(TAG, message);
+            Log.d(TAG, message);
         }
     }
 
     // Called directly from WifiStateMachine
     int newSupplicantResults(boolean doAutoJoin) {
         int numScanResultsKnown;
-        List<ScanResult> scanList = mWifiStateMachine.getScanResultsListNoCopyUnsync();
+        List<ScanDetail> scanList = mWifiStateMachine.getScanResultsListNoCopyUnsync();
         numScanResultsKnown = addToScanCache(scanList);
         ageScanResultsOut(mScanResultMaximumAge);
         if (DBG) {
             logDbg("newSupplicantResults size=" + Integer.valueOf(scanResultCache.size())
-                        + " known=" + numScanResultsKnown + " "
-                        + doAutoJoin);
+                    + " known=" + numScanResultsKnown + " "
+                    + doAutoJoin);
         }
         if (doAutoJoin) {
             attemptAutoJoin();
@@ -316,7 +329,7 @@ public class WifiAutoJoinController {
      * results as normal.
      */
     void newHalScanResults() {
-        List<ScanResult> scanList = null;//mWifiScanner.syncGetScanResultsList();
+        List<ScanDetail> scanList = null;//mWifiScanner.syncGetScanResultsList();
         String akm = WifiParser.parse_akm(null, null);
         logDbg(akm);
         addToScanCache(scanList);
@@ -326,7 +339,7 @@ public class WifiAutoJoinController {
     }
 
     /**
-     *  network link quality changed, called directly from WifiTrafficPoller,
+     * network link quality changed, called directly from WifiTrafficPoller,
      * or by listening to Link Quality intent
      */
     void linkQualitySignificantChange() {
@@ -350,7 +363,7 @@ public class WifiAutoJoinController {
         if (currentNetwork == null) {
             // Return any absurdly high score, if we are not connected there is no current
             // network to...
-           return 1000;
+            return 1000;
         }
 
         if (candidate.configKey(true).equals(currentNetwork.configKey(true))) {
@@ -375,7 +388,7 @@ public class WifiAutoJoinController {
             // above RSSI/scorer based selection of linked configuration (+/- 50)
             // by reducing order by -100
             order = order - 100;
-            if (VDBG)   {
+            if (VDBG) {
                 logDbg("     ...and prefers -100 " + currentNetwork.configKey()
                         + " over " + candidate.configKey()
                         + " because it is the last selected -> "
@@ -388,7 +401,7 @@ public class WifiAutoJoinController {
             // above RSSI/scorer based selection of linked configuration (+/- 50)
             // by increasing order by +100
             order = order + 100;
-            if (VDBG)   {
+            if (VDBG) {
                 logDbg("     ...and prefers +100 " + candidate.configKey()
                         + " over " + currentNetwork.configKey()
                         + " because it is the last selected -> "
@@ -408,7 +421,7 @@ public class WifiAutoJoinController {
      *
      * @param netId
      * @param userTriggered : if the update come from WiFiManager
-     * @param connect : if the update includes a connect
+     * @param connect       : if the update includes a connect
      */
     public void updateConfigurationHistory(int netId, boolean userTriggered, boolean connect) {
         WifiConfiguration selected = mWifiConfigStore.getWifiConfiguration(netId);
@@ -472,29 +485,16 @@ public class WifiAutoJoinController {
                         continue;
                     }
 
-                    // Compare RSSI values so as to evaluate the strength of the user preference
-                    int order = compareWifiConfigurationsRSSI(config, selected, null);
-
-                    if (order < -30) {
-                        // Selected configuration is worse than the visible configuration
-                        // hence register a strong choice so as autojoin cannot override this
-                        // for instance, the user has select a network
-                        // with 1 bar over a network with 3 bars...
-                        choice = 60;
-                    } else if (order < -20) {
-                        choice = 50;
-                    } else if (order < -10) {
-                        choice = 40;
-                    } else if (order < 20) {
-                        // Selected configuration is about same or has a slightly better RSSI
-                        // hence register a weaker choice, here a difference of at least +/-30 in
-                        // RSSI comparison triggered by autoJoin will override the choice
-                        choice = 30;
-                    } else {
-                        // Selected configuration is better than the visible configuration
-                        // hence we do not know if the user prefers this configuration strongly
-                        choice = 20;
+                    // If the selection was made while config was visible with reasonably good RSSI
+                    // then register the user preference, else ignore
+                    if (config.visibility == null ||
+                            (config.visibility.rssi24 < mWifiConfigStore.thresholdBadRssi24.get()
+                            && config.visibility.rssi5 < mWifiConfigStore.thresholdBadRssi5.get())
+                    ) {
+                        continue;
                     }
+
+                    choice = MAX_RSSI_DELTA + 10; // Make sure the choice overrides the RSSI diff
 
                     // The selected configuration was preferred over a recently seen config
                     // hence remember the user's choice:
@@ -508,11 +508,6 @@ public class WifiAutoJoinController {
                             + " over " + config.configKey(true)
                             + " choice " + Integer.toString(choice));
 
-                    Integer currentChoice = selected.connectChoices.get(config.configKey(true));
-                    if (currentChoice != null) {
-                        // User has made this choice multiple time in a row, so bump up a lot
-                        choice += currentChoice.intValue();
-                    }
                     // Add the visible config to the selected's connect choice list
                     selected.connectChoices.put(config.configKey(true), choice);
 
@@ -525,21 +520,21 @@ public class WifiAutoJoinController {
                         config.connectChoices.remove(selected.configKey(true));
 
                         if (selected.linkedConfigurations != null) {
-                           // Remove the selected's linked configuration from the
-                           // recently seen config's connectChoice list
-                           for (String key : selected.linkedConfigurations.keySet()) {
-                               config.connectChoices.remove(key);
-                           }
+                            // Remove the selected's linked configuration from the
+                            // recently seen config's connectChoice list
+                            for (String key : selected.linkedConfigurations.keySet()) {
+                                config.connectChoices.remove(key);
+                            }
                         }
                     }
                 }
                 if (found == false) {
-                     // We haven't found the configuration that the user just selected in our
-                     // scan cache.
-                     // In that case we will need a new scan before attempting to connect to this
-                     // configuration anyhow and thus we can process the scan results then.
-                     logDbg("updateConfigurationHistory try to connect to an old network!! : "
-                             + selected.configKey());
+                    // We haven't found the configuration that the user just selected in our
+                    // scan cache.
+                    // In that case we will need a new scan before attempting to connect to this
+                    // configuration anyhow and thus we can process the scan results then.
+                    logDbg("updateConfigurationHistory try to connect to an old network!! : "
+                            + selected.configKey());
                 }
 
                 if (selected.connectChoices != null) {
@@ -556,39 +551,44 @@ public class WifiAutoJoinController {
         }
     }
 
-    int getConnectChoice(WifiConfiguration source, WifiConfiguration target) {
-        Integer choice = null;
+    int getConnectChoice(WifiConfiguration source, WifiConfiguration target, boolean strict) {
+        int choice = 0;
         if (source == null || target == null) {
             return 0;
         }
 
         if (source.connectChoices != null
                 && source.connectChoices.containsKey(target.configKey(true))) {
-            choice = source.connectChoices.get(target.configKey(true));
+            Integer val = source.connectChoices.get(target.configKey(true));
+            if (val != null) {
+                choice = val;
+            }
         } else if (source.linkedConfigurations != null) {
             for (String key : source.linkedConfigurations.keySet()) {
                 WifiConfiguration config = mWifiConfigStore.getWifiConfiguration(key);
                 if (config != null) {
                     if (config.connectChoices != null) {
-                        choice = config.connectChoices.get(target.configKey(true));
+                        Integer val = config.connectChoices.get(target.configKey(true));
+                        if (val != null) {
+                            choice = val;
+                        }
                     }
                 }
             }
         }
 
-        if (choice == null) {
-            //We didn't find the connect choice
-            return 0;
-        } else {
-            if (choice.intValue() < 0) {
-                choice = 20; // Compatibility with older files
-            }
-            return choice.intValue();
+        if (!strict && choice == 0) {
+            // We didn't find the connect choice; fallback to some default choices
+            int sourceScore = getSecurityScore(source);
+            int targetScore = getSecurityScore(target);
+            choice = sourceScore - targetScore;
         }
+
+        return choice;
     }
 
-    int compareWifiConfigurationsFromVisibility(WifiConfiguration a, int aRssiBoost,
-             WifiConfiguration b, int bRssiBoost) {
+    int compareWifiConfigurationsFromVisibility(WifiConfiguration.Visibility a, int aRssiBoost,
+                                                String dbgA, WifiConfiguration.Visibility b, int bRssiBoost, String dbgB) {
 
         int aRssiBoost5 = 0; // 5GHz RSSI boost to apply for purpose band selection (5GHz pref)
         int bRssiBoost5 = 0; // 5GHz RSSI boost to apply for purpose band selection (5GHz pref)
@@ -606,17 +606,17 @@ public class WifiAutoJoinController {
          * This implements band preference where we prefer 5GHz if RSSI5 is good enough, whereas
          * we prefer 2.4GHz otherwise.
          */
-        aRssiBoost5 = rssiBoostFrom5GHzRssi(a.visibility.rssi5, a.configKey() + "->");
-        bRssiBoost5 = rssiBoostFrom5GHzRssi(b.visibility.rssi5, b.configKey() + "->");
+        aRssiBoost5 = rssiBoostFrom5GHzRssi(a.rssi5, dbgA + "->");
+        bRssiBoost5 = rssiBoostFrom5GHzRssi(b.rssi5, dbgB + "->");
 
         // Select which band to use for a
-        if (a.visibility.rssi5 + aRssiBoost5 > a.visibility.rssi24) {
+        if (a.rssi5 + aRssiBoost5 > a.rssi24) {
             // Prefer a's 5GHz
             aPrefers5GHz = true;
         }
 
         // Select which band to use for b
-        if (b.visibility.rssi5 + bRssiBoost5 > b.visibility.rssi24) {
+        if (b.rssi5 + bRssiBoost5 > b.rssi24) {
             // Prefer b's 5GHz
             bPrefers5GHz = true;
         }
@@ -626,13 +626,13 @@ public class WifiAutoJoinController {
                 // If both a and b are on 5GHz then we don't apply the 5GHz RSSI boost to either
                 // one, but directly compare the RSSI values, this improves stability,
                 // since the 5GHz RSSI boost can introduce large fluctuations
-                aScore = a.visibility.rssi5 + aRssiBoost;
+                aScore = a.rssi5 + aRssiBoost;
             } else {
                 // If only a is on 5GHz, then apply the 5GHz preference boost to a
-                aScore = a.visibility.rssi5 + aRssiBoost + aRssiBoost5;
+                aScore = a.rssi5 + aRssiBoost + aRssiBoost5;
             }
         } else {
-            aScore = a.visibility.rssi24 + aRssiBoost;
+            aScore = a.rssi24 + aRssiBoost;
         }
 
         if (bPrefers5GHz) {
@@ -640,29 +640,30 @@ public class WifiAutoJoinController {
                 // If both a and b are on 5GHz then we don't apply the 5GHz RSSI boost to either
                 // one, but directly compare the RSSI values, this improves stability,
                 // since the 5GHz RSSI boost can introduce large fluctuations
-                bScore = b.visibility.rssi5 + bRssiBoost;
+                bScore = b.rssi5 + bRssiBoost;
             } else {
                 // If only b is on 5GHz, then apply the 5GHz preference boost to b
-                bScore = b.visibility.rssi5 + bRssiBoost + bRssiBoost5;
+                bScore = b.rssi5 + bRssiBoost + bRssiBoost5;
             }
         } else {
-            bScore = b.visibility.rssi24 + bRssiBoost;
+            bScore = b.rssi24 + bRssiBoost;
         }
+
         if (VDBG) {
-            logDbg("        " + a.configKey() + " is5=" + aPrefers5GHz + " score=" + aScore
-                    + " " + b.configKey() + " is5=" + bPrefers5GHz + " score=" + bScore);
+            logDbg("        " + dbgA + " is5=" + aPrefers5GHz + " score=" + aScore
+                    + " " + dbgB + " is5=" + bPrefers5GHz + " score=" + bScore);
         }
 
         // Debug only, record RSSI comparison parameters
-        if (a.visibility != null) {
-            a.visibility.score = aScore;
-            a.visibility.currentNetworkBoost = aRssiBoost;
-            a.visibility.bandPreferenceBoost = aRssiBoost5;
+        if (a != null) {
+            a.score = aScore;
+            a.currentNetworkBoost = aRssiBoost;
+            a.bandPreferenceBoost = aRssiBoost5;
         }
-        if (b.visibility != null) {
-            b.visibility.score = bScore;
-            b.visibility.currentNetworkBoost = bRssiBoost;
-            b.visibility.bandPreferenceBoost = bRssiBoost5;
+        if (b != null) {
+            b.score = bScore;
+            b.currentNetworkBoost = bRssiBoost;
+            b.bandPreferenceBoost = bRssiBoost5;
         }
 
         // Compare a and b
@@ -686,9 +687,6 @@ public class WifiAutoJoinController {
         int aRssiBoost = 0;
         int bRssiBoost = 0;
 
-        int scoreA;
-        int scoreB;
-
         // Retrieve the visibility
         WifiConfiguration.Visibility astatus = a.visibility;
         WifiConfiguration.Visibility bstatus = b.visibility;
@@ -707,23 +705,25 @@ public class WifiAutoJoinController {
             }
         }
 
-        if (VDBG)  {
+        if (VDBG) {
             logDbg("    compareWifiConfigurationsRSSI: " + a.configKey()
-                    + " rssi=" + Integer.toString(astatus.rssi24)
-                    + "," + Integer.toString(astatus.rssi5)
-                    + " boost=" + Integer.toString(aRssiBoost)
-                    + " " + b.configKey() + " rssi="
-                    + Integer.toString(bstatus.rssi24) + ","
-                    + Integer.toString(bstatus.rssi5)
-                    + " boost=" + Integer.toString(bRssiBoost)
+                            + " rssi=" + Integer.toString(astatus.rssi24)
+                            + "," + Integer.toString(astatus.rssi5)
+                            + " boost=" + Integer.toString(aRssiBoost)
+                            + " " + b.configKey() + " rssi="
+                            + Integer.toString(bstatus.rssi24) + ","
+                            + Integer.toString(bstatus.rssi5)
+                            + " boost=" + Integer.toString(bRssiBoost)
             );
         }
 
-        order = compareWifiConfigurationsFromVisibility(a, aRssiBoost, b, bRssiBoost);
+        order = compareWifiConfigurationsFromVisibility(
+                a.visibility, aRssiBoost, a.configKey(),
+                b.visibility, bRssiBoost, b.configKey());
 
-        // Normalize the order to [-50, +50]
-        if (order > 50) order = 50;
-        else if (order < -50) order = -50;
+        // Normalize the order to [-50, +50] = [ -MAX_RSSI_DELTA, MAX_RSSI_DELTA]
+        if (order > MAX_RSSI_DELTA) order = MAX_RSSI_DELTA;
+        else if (order < -MAX_RSSI_DELTA) order = -MAX_RSSI_DELTA;
 
         if (VDBG) {
             String prefer = " = ";
@@ -750,63 +750,84 @@ public class WifiAutoJoinController {
 
     /**
      * b/18490330 only use scorer for untrusted networks
-     *
-    int compareWifiConfigurationsWithScorer(WifiConfiguration a, WifiConfiguration b) {
-
-        boolean aIsActive = false;
-        boolean bIsActive = false;
-
-        // Apply Hysteresis : boost RSSI of current configuration before
-        // looking up the score
-        if (null != mCurrentConfigurationKey) {
-            if (a.configKey().equals(mCurrentConfigurationKey)) {
-                aIsActive = true;
-            } else if (b.configKey().equals(mCurrentConfigurationKey)) {
-                bIsActive = true;
-            }
-        }
-        int scoreA = getConfigNetworkScore(a, mScanResultAutoJoinAge, aIsActive);
-        int scoreB = getConfigNetworkScore(b, mScanResultAutoJoinAge, bIsActive);
-
-        // Both configurations need to have a score for the scorer to be used
-        // ...and the scores need to be different:-)
-        if (scoreA == WifiNetworkScoreCache.INVALID_NETWORK_SCORE
-                || scoreB == WifiNetworkScoreCache.INVALID_NETWORK_SCORE) {
-            if (VDBG)  {
-                logDbg("    compareWifiConfigurationsWithScorer no-scores: "
-                        + a.configKey()
-                        + " "
-                        + b.configKey());
-            }
-            return 0;
-        }
-
-        if (VDBG) {
-            String prefer = " = ";
-            if (scoreA < scoreB) {
-                prefer = " < ";
-            } if (scoreA > scoreB) {
-                prefer = " > ";
-            }
-            logDbg("    compareWifiConfigurationsWithScorer " + a.configKey()
-                    + " rssi=(" + a.visibility.rssi24
-                    + "," + a.visibility.rssi5
-                    + ") num=(" + a.visibility.num24
-                    + "," + a.visibility.num5 + ")"
-                    + " sc=" + scoreA
-                    + prefer + b.configKey()
-                    + " rssi=(" + b.visibility.rssi24
-                    + "," + b.visibility.rssi5
-                    + ") num=(" + b.visibility.num24
-                    + "," + b.visibility.num5 + ")"
-                    + " sc=" + scoreB
-                    + " -> " + Integer.toString(scoreB - scoreA));
-        }
-
-        // If scoreA > scoreB, the comparison is descending hence the return value is negative
-        return scoreB - scoreA;
-    }
+     * <p/>
+     * int compareWifiConfigurationsWithScorer(WifiConfiguration a, WifiConfiguration b) {
+     * <p/>
+     * boolean aIsActive = false;
+     * boolean bIsActive = false;
+     * <p/>
+     * // Apply Hysteresis : boost RSSI of current configuration before
+     * // looking up the score
+     * if (null != mCurrentConfigurationKey) {
+     * if (a.configKey().equals(mCurrentConfigurationKey)) {
+     * aIsActive = true;
+     * } else if (b.configKey().equals(mCurrentConfigurationKey)) {
+     * bIsActive = true;
+     * }
+     * }
+     * int scoreA = getConfigNetworkScore(a, mScanResultAutoJoinAge, aIsActive);
+     * int scoreB = getConfigNetworkScore(b, mScanResultAutoJoinAge, bIsActive);
+     * <p/>
+     * // Both configurations need to have a score for the scorer to be used
+     * // ...and the scores need to be different:-)
+     * if (scoreA == WifiNetworkScoreCache.INVALID_NETWORK_SCORE
+     * || scoreB == WifiNetworkScoreCache.INVALID_NETWORK_SCORE) {
+     * if (VDBG)  {
+     * logDbg("    compareWifiConfigurationsWithScorer no-scores: "
+     * + a.configKey()
+     * + " "
+     * + b.configKey());
+     * }
+     * return 0;
+     * }
+     * <p/>
+     * if (VDBG) {
+     * String prefer = " = ";
+     * if (scoreA < scoreB) {
+     * prefer = " < ";
+     * } if (scoreA > scoreB) {
+     * prefer = " > ";
+     * }
+     * logDbg("    compareWifiConfigurationsWithScorer " + a.configKey()
+     * + " rssi=(" + a.visibility.rssi24
+     * + "," + a.visibility.rssi5
+     * + ") num=(" + a.visibility.num24
+     * + "," + a.visibility.num5 + ")"
+     * + " sc=" + scoreA
+     * + prefer + b.configKey()
+     * + " rssi=(" + b.visibility.rssi24
+     * + "," + b.visibility.rssi5
+     * + ") num=(" + b.visibility.num24
+     * + "," + b.visibility.num5 + ")"
+     * + " sc=" + scoreB
+     * + " -> " + Integer.toString(scoreB - scoreA));
+     * }
+     * <p/>
+     * // If scoreA > scoreB, the comparison is descending hence the return value is negative
+     * return scoreB - scoreA;
+     * }
      */
+
+    int getSecurityScore(WifiConfiguration config) {
+
+        if (TextUtils.isEmpty(config.SSID) == false) {
+            if (config.allowedKeyManagement.get(KeyMgmt.WPA_EAP)
+                    || config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)
+                    || config.allowedKeyManagement.get(KeyMgmt.WPA2_PSK)) {
+                /* enterprise or PSK networks get highest score */
+                return 100;
+            } else if (config.allowedKeyManagement.get(KeyMgmt.NONE)) {
+                /* open networks have lowest score */
+                return 33;
+            }
+        } else if (TextUtils.isEmpty(config.FQDN) == false) {
+            /* passpoint networks have medium preference */
+            return 66;
+        }
+
+        /* bad network */
+        return 0;
+    }
 
     int compareWifiConfigurations(WifiConfiguration a, WifiConfiguration b) {
         int order = 0;
@@ -845,7 +866,7 @@ public class WifiAutoJoinController {
         if (!linked) {
             int choice;
 
-            choice = getConnectChoice(a, b);
+            choice = getConnectChoice(a, b, false);
             if (choice > 0) {
                 // a is of higher priority - descending
                 order = order - choice;
@@ -861,7 +882,7 @@ public class WifiAutoJoinController {
                 }
             }
 
-            choice = getConnectChoice(b, a);
+            choice = getConnectChoice(b, a, false);
             if (choice > 0) {
                 // a is of lower priority - ascending
                 order = order + choice;
@@ -948,13 +969,13 @@ public class WifiAutoJoinController {
             return 0;
         }
         if (rssi
-                > mWifiConfigStore.bandPreferenceBoostThreshold5) {
+                > mWifiConfigStore.bandPreferenceBoostThreshold5.get()) {
             // Boost by 2 dB for each point
             //    Start boosting at -65
             //    Boost by 20 if above -55
             //    Boost by 40 if abore -45
             int boost = mWifiConfigStore.bandPreferenceBoostFactor5
-                    *(rssi - mWifiConfigStore.bandPreferenceBoostThreshold5);
+                    * (rssi - mWifiConfigStore.bandPreferenceBoostThreshold5.get());
             if (boost > 50) {
                 // 50 dB boost allows jumping from 2.4 to 5GHz
                 // consistently
@@ -967,38 +988,43 @@ public class WifiAutoJoinController {
         }
 
         if (rssi
-                < mWifiConfigStore.bandPreferencePenaltyThreshold5) {
+                < mWifiConfigStore.bandPreferencePenaltyThreshold5.get()) {
             // penalize if < -75
             int boost = mWifiConfigStore.bandPreferencePenaltyFactor5
-                    *(rssi - mWifiConfigStore.bandPreferencePenaltyThreshold5);
+                    * (rssi - mWifiConfigStore.bandPreferencePenaltyThreshold5.get());
             return boost;
         }
         return 0;
     }
-        /**
-         * attemptRoam() function implements the core of the same SSID switching algorithm
-         *
-         * Run thru all recent scan result of a WifiConfiguration and select the
-         * best one.
-         */
+
+    /**
+     * attemptRoam() function implements the core of the same SSID switching algorithm
+     * <p/>
+     * Run thru all recent scan result of a WifiConfiguration and select the
+     * best one.
+     */
     public ScanResult attemptRoam(ScanResult a,
                                   WifiConfiguration current, int age, String currentBSSID) {
         if (current == null) {
-            if (VDBG)   {
+            if (VDBG) {
                 logDbg("attemptRoam not associated");
             }
             return a;
         }
-        if (current.scanResultCache == null) {
-            if (VDBG)   {
+
+        ScanDetailCache scanDetailCache =
+                mWifiConfigStore.getScanDetailCache(current);
+
+        if (scanDetailCache == null) {
+            if (VDBG) {
                 logDbg("attemptRoam no scan cache");
             }
             return a;
         }
-        if (current.scanResultCache.size() > 6) {
-            if (VDBG)   {
+        if (scanDetailCache.size() > 6) {
+            if (VDBG) {
                 logDbg("attemptRoam scan cache size "
-                        + current.scanResultCache.size() + " --> bail");
+                        + scanDetailCache.size() + " --> bail");
             }
             // Implement same SSID roaming only for configurations
             // that have less than 4 BSSIDs
@@ -1006,7 +1032,7 @@ public class WifiAutoJoinController {
         }
 
         if (current.BSSID != null && !current.BSSID.equals("any")) {
-            if (DBG)   {
+            if (DBG) {
                 logDbg("attemptRoam() BSSID is set "
                         + current.BSSID + " -> bail");
             }
@@ -1017,13 +1043,14 @@ public class WifiAutoJoinController {
         // relative strength of 5 and 2.4 GHz BSSIDs
         long nowMs = System.currentTimeMillis();
 
-        for (ScanResult b : current.scanResultCache.values()) {
+        for (ScanDetail sd : scanDetailCache.values()) {
+            ScanResult b = sd.getScanResult();
             int bRssiBoost5 = 0;
             int aRssiBoost5 = 0;
             int bRssiBoost = 0;
             int aRssiBoost = 0;
-            if ((b.seen == 0) || (b.BSSID == null)
-                    || ((nowMs - b.seen) > age)
+            if ((sd.getSeen() == 0) || (b.BSSID == null)
+                    || ((nowMs - sd.getSeen()) > age)
                     || b.autoJoinStatus != ScanResult.ENABLED
                     || b.numIpConfigFailures > 8) {
                 continue;
@@ -1038,10 +1065,10 @@ public class WifiAutoJoinController {
             if (b.numIpConfigFailures < (a.numIpConfigFailures - 1)) {
                 // Prefer a BSSID that doesn't have less number of Ip config failures
                 logDbg("attemptRoam: "
-                        + b.BSSID + " rssi=" + b.level + " ipfail=" +b.numIpConfigFailures
+                        + b.BSSID + " rssi=" + b.level + " ipfail=" + b.numIpConfigFailures
                         + " freq=" + b.frequency
                         + " > "
-                        + a.BSSID + " rssi=" + a.level + " ipfail=" +a.numIpConfigFailures
+                        + a.BSSID + " rssi=" + a.level + " ipfail=" + a.numIpConfigFailures
                         + " freq=" + a.frequency);
                 a = b;
                 continue;
@@ -1050,14 +1077,14 @@ public class WifiAutoJoinController {
             // Apply hysteresis: we favor the currentBSSID by giving it a boost
             if (currentBSSID != null && currentBSSID.equals(b.BSSID)) {
                 // Reduce the benefit of hysteresis if RSSI <= -75
-                if (b.level <= mWifiConfigStore.bandPreferencePenaltyThreshold5) {
+                if (b.level <= mWifiConfigStore.bandPreferencePenaltyThreshold5.get()) {
                     bRssiBoost = mWifiConfigStore.associatedHysteresisLow;
                 } else {
                     bRssiBoost = mWifiConfigStore.associatedHysteresisHigh;
                 }
             }
             if (currentBSSID != null && currentBSSID.equals(a.BSSID)) {
-                if (a.level <= mWifiConfigStore.bandPreferencePenaltyThreshold5) {
+                if (a.level <= mWifiConfigStore.bandPreferencePenaltyThreshold5.get()) {
                     // Reduce the benefit of hysteresis if RSSI <= -75
                     aRssiBoost = mWifiConfigStore.associatedHysteresisLow;
                 } else {
@@ -1082,9 +1109,9 @@ public class WifiAutoJoinController {
                 aRssiBoost5 = rssiBoostFrom5GHzRssi(a.level + aRssiBoost, a.BSSID);
             }
 
-            if (VDBG)  {
+            if (VDBG) {
                 String comp = " < ";
-                if (b.level + bRssiBoost + bRssiBoost5 > a.level +aRssiBoost + aRssiBoost5) {
+                if (b.level + bRssiBoost + bRssiBoost5 > a.level + aRssiBoost + aRssiBoost5) {
                     comp = " > ";
                 }
                 logDbg("attemptRoam: "
@@ -1097,13 +1124,13 @@ public class WifiAutoJoinController {
 
             // Compare the RSSIs after applying the hysteresis boost and the 5GHz
             // boost if applicable
-            if (b.level + bRssiBoost + bRssiBoost5 > a.level +aRssiBoost + aRssiBoost5) {
+            if (b.level + bRssiBoost + bRssiBoost5 > a.level + aRssiBoost + aRssiBoost5) {
                 // b is the better BSSID
                 a = b;
             }
         }
         if (a != null) {
-            if (VDBG)  {
+            if (VDBG) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("attemptRoam: " + current.configKey() +
                         " Found " + a.BSSID + " rssi=" + a.level + " freq=" + a.frequency);
@@ -1119,9 +1146,9 @@ public class WifiAutoJoinController {
 
     /**
      * getNetworkScore()
-     *
+     * <p/>
      * if scorer is present, get the network score of a WifiConfiguration
-     *
+     * <p/>
      * Note: this should be merge with setVisibility
      *
      * @param config
@@ -1136,7 +1163,8 @@ public class WifiAutoJoinController {
             }
             return WifiNetworkScoreCache.INVALID_NETWORK_SCORE;
         }
-        if (config.scanResultCache == null) {
+
+        if (mWifiConfigStore.getScanDetailCache(config) == null) {
             if (VDBG) {
                 logDbg("       getConfigNetworkScore for " + config.configKey()
                         + " -> no scan cache");
@@ -1150,8 +1178,9 @@ public class WifiAutoJoinController {
         int startScore = -10000;
 
         // Run thru all cached scan results
-        for (ScanResult result : config.scanResultCache.values()) {
-            if ((nowMs - result.seen) < age) {
+        for (ScanDetail sd : mWifiConfigStore.getScanDetailCache(config).values()) {
+            ScanResult result = sd.getScanResult();
+            if ((nowMs - sd.getSeen()) < age) {
                 int sc = mNetworkScoreCache.getNetworkScore(result, isActive);
                 if (sc > startScore) {
                     startScore = sc;
@@ -1204,8 +1233,9 @@ public class WifiAutoJoinController {
         // Otherwise, we stop here if the currently selected network has a score. If it doesn't, we
         // keep going - it could be that another BSSID is in range (has been seen recently) which
         // has a score, even if the one we're immediately connected to doesn't.
-        ScanResult currentScanResult =  mWifiStateMachine.getCurrentScanResult();
-        boolean currentNetworkHasScoreCurve = mNetworkScoreCache.hasScoreCurve(currentScanResult);
+        ScanResult currentScanResult = mWifiStateMachine.getCurrentScanResult();
+        boolean currentNetworkHasScoreCurve = currentScanResult != null
+                && mNetworkScoreCache.hasScoreCurve(currentScanResult);
         if (ephemeralOutOfRangeTimeoutMs <= 0 || currentNetworkHasScoreCurve) {
             if (DBG) {
                 if (currentNetworkHasScoreCurve) {
@@ -1218,14 +1248,16 @@ public class WifiAutoJoinController {
             return currentNetworkHasScoreCurve;
         }
 
-        if (config.scanResultCache == null || config.scanResultCache.isEmpty()) {
+        if (mWifiConfigStore.getScanDetailCache(config) == null
+                || mWifiConfigStore.getScanDetailCache(config).isEmpty()) {
             return false;
         }
 
         long currentTimeMs = System.currentTimeMillis();
-        for (ScanResult result : config.scanResultCache.values()) {
-            if (currentTimeMs > result.seen
-                    && currentTimeMs - result.seen < ephemeralOutOfRangeTimeoutMs
+        for (ScanDetail sd : mWifiConfigStore.getScanDetailCache(config).values()) {
+            ScanResult result = sd.getScanResult();
+            if (currentTimeMs > sd.getSeen()
+                    && currentTimeMs - sd.getSeen() < ephemeralOutOfRangeTimeoutMs
                     && mNetworkScoreCache.hasScoreCurve(result)) {
                 if (DBG) {
                     logDbg("Found scored BSSID, keeping network: " + result.BSSID);
@@ -1240,6 +1272,163 @@ public class WifiAutoJoinController {
         return false;
     }
 
+    // After WifiStateMachine ask the supplicant to associate or reconnect
+    // we might still obtain scan results from supplicant
+    // however the supplicant state in the mWifiInfo and supplicant state tracker
+    // are updated when we get the supplicant state change message which can be
+    // processed after the SCAN_RESULT message, so at this point the framework doesn't
+    // know that supplicant is ASSOCIATING.
+    // A good fix for this race condition would be for the WifiStateMachine to add
+    // a new transient state where it expects to get the supplicant message indicating
+    // that it started the association process and within which critical operations
+    // like autojoin should be deleted.
+
+    // This transient state would remove the need for the roam Wathchdog which
+    // basically does that.
+
+    // At the moment, we just query the supplicant state synchronously with the
+    // mWifiNative.status() command, which allow us to know that
+    // supplicant has started association process, even though we didnt yet get the
+    // SUPPLICANT_STATE_CHANGE message.
+
+    private static final List<String> ASSOC_STATES = Arrays.asList(
+            "ASSOCIATING",
+            "ASSOCIATED",
+            "FOUR_WAY_HANDSHAKE",
+            "GROUP_KEY_HANDSHAKE");
+
+    private int getNetID(String wpaStatus) {
+        if (VDBG) {
+            logDbg("attemptAutoJoin() status=" + wpaStatus);
+        }
+
+        try {
+            int id = WifiConfiguration.INVALID_NETWORK_ID;
+            String state = null;
+            BufferedReader br = new BufferedReader(new StringReader(wpaStatus));
+            String line;
+            while ((line = br.readLine()) != null) {
+                int split = line.indexOf('=');
+                if (split < 0) {
+                    continue;
+                }
+
+                String name = line.substring(0, split);
+                if (name.equals("id")) {
+                    try {
+                        id = Integer.parseInt(line.substring(split + 1));
+                        if (state != null) {
+                            break;
+                        }
+                    } catch (NumberFormatException nfe) {
+                        return WifiConfiguration.INVALID_NETWORK_ID;
+                    }
+                } else if (name.equals("wpa_state")) {
+                    state = line.substring(split + 1);
+                    if (ASSOC_STATES.contains(state)) {
+                        return WifiConfiguration.INVALID_NETWORK_ID;
+                    } else if (id >= 0) {
+                        break;
+                    }
+                }
+            }
+            return id;
+        } catch (IOException ioe) {
+            return WifiConfiguration.INVALID_NETWORK_ID;    // Won't happen
+        }
+    }
+
+    private boolean setCurrentConfigurationKey(WifiConfiguration currentConfig,
+                                               int supplicantNetId) {
+        if (currentConfig != null) {
+            if (supplicantNetId != currentConfig.networkId
+                    // https://b.corp.google.com/issue?id=16484607
+                    // mark this condition as an error only if the mismatched networkId are valid
+                    && supplicantNetId != WifiConfiguration.INVALID_NETWORK_ID
+                    && currentConfig.networkId != WifiConfiguration.INVALID_NETWORK_ID) {
+                logDbg("attemptAutoJoin() ERROR wpa_supplicant out of sync nid="
+                        + Integer.toString(supplicantNetId) + " WifiStateMachine="
+                        + Integer.toString(currentConfig.networkId));
+                mWifiStateMachine.disconnectCommand();
+                return false;
+            } else if (currentConfig.ephemeral && (!mAllowUntrustedConnections ||
+                    !haveRecentlySeenScoredBssid(currentConfig))) {
+                // The current connection is untrusted (the framework added it), but we're either
+                // no longer allowed to connect to such networks, the score has been nullified
+                // since we connected, or the scored BSSID has gone out of range.
+                // Drop the current connection and perform the rest of autojoin.
+                logDbg("attemptAutoJoin() disconnecting from unwanted ephemeral network");
+                mWifiStateMachine.disconnectCommand(Process.WIFI_UID,
+                        mAllowUntrustedConnections ? 1 : 0);
+                return false;
+            } else {
+                mCurrentConfigurationKey = currentConfig.configKey();
+                return true;
+            }
+        } else {
+            // If not invalid, then maybe in the process of associating, skip this attempt
+            return supplicantNetId == WifiConfiguration.INVALID_NETWORK_ID;
+        }
+    }
+
+    private void updateBlackListStatus(WifiConfiguration config, long now) {
+        // Wait for 5 minutes before reenabling config that have known,
+        // repeated connection or DHCP failures
+        if (config.disableReason == WifiConfiguration.DISABLED_DHCP_FAILURE
+                || config.disableReason
+                == WifiConfiguration.DISABLED_ASSOCIATION_REJECT
+                || config.disableReason
+                == WifiConfiguration.DISABLED_AUTH_FAILURE) {
+            if (config.blackListTimestamp == 0
+                    || (config.blackListTimestamp > now)) {
+                // Sanitize the timestamp
+                config.blackListTimestamp = now;
+            }
+            if ((now - config.blackListTimestamp) >
+                    mWifiConfigStore.wifiConfigBlacklistMinTimeMilli) {
+                // Re-enable the WifiConfiguration
+                config.status = WifiConfiguration.Status.ENABLED;
+
+                // Reset the blacklist condition
+                config.numConnectionFailures = 0;
+                config.numIpConfigFailures = 0;
+                config.numAuthFailures = 0;
+                config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_ENABLED);
+
+                config.dirty = true;
+            } else {
+                if (VDBG) {
+                    long delay = mWifiConfigStore.wifiConfigBlacklistMinTimeMilli
+                            - (now - config.blackListTimestamp);
+                    logDbg("attemptautoJoin " + config.configKey()
+                            + " dont unblacklist yet, waiting for "
+                            + delay + " ms");
+                }
+            }
+        }
+        // Avoid networks disabled because of AUTH failure altogether
+        if (DBG) {
+            logDbg("attemptAutoJoin skip candidate due to auto join status "
+                    + Integer.toString(config.autoJoinStatus) + " key "
+                    + config.configKey(true)
+                    + " reason " + config.disableReason);
+        }
+    }
+
+    boolean underSoftThreshold(WifiConfiguration config) {
+        return config.visibility.rssi24 < mWifiConfigStore.thresholdUnblacklistThreshold24Soft.get()
+                && config.visibility.rssi5 < mWifiConfigStore.thresholdUnblacklistThreshold5Soft.get();
+    }
+
+    boolean underHardThreshold(WifiConfiguration config) {
+        return config.visibility.rssi24 < mWifiConfigStore.thresholdUnblacklistThreshold24Hard.get()
+                && config.visibility.rssi5 < mWifiConfigStore.thresholdUnblacklistThreshold5Hard.get();
+    }
+
+    boolean underThreshold(WifiConfiguration config, int rssi24, int rssi5) {
+        return config.visibility.rssi24 < rssi24 && config.visibility.rssi5 < rssi5;
+    }
+
     /**
      * attemptAutoJoin() function implements the core of the a network switching algorithm
      * Return false if no acceptable networks were found.
@@ -1249,79 +1438,32 @@ public class WifiAutoJoinController {
         didOverride = false;
         didBailDueToWeakRssi = false;
         int networkSwitchType = AUTO_JOIN_IDLE;
+        int age = mScanResultAutoJoinAge;
 
         long now = System.currentTimeMillis();
 
         String lastSelectedConfiguration = mWifiConfigStore.getLastSelectedConfiguration();
-
+        if (lastSelectedConfiguration != null) {
+            age = 14000;
+        }
         // Reset the currentConfiguration Key, and set it only if WifiStateMachine and
         // supplicant agree
         mCurrentConfigurationKey = null;
         WifiConfiguration currentConfiguration = mWifiStateMachine.getCurrentWifiConfiguration();
 
         WifiConfiguration candidate = null;
-
         // Obtain the subset of recently seen networks
         List<WifiConfiguration> list =
-                mWifiConfigStore.getRecentConfiguredNetworks(mScanResultAutoJoinAge, false);
+                mWifiConfigStore.getRecentConfiguredNetworks(age, false);
         if (list == null) {
-            if (VDBG)  logDbg("attemptAutoJoin nothing known=" +
-                    mWifiConfigStore.getconfiguredNetworkSize());
+            if (VDBG) logDbg("attemptAutoJoin nothing known=" +
+                    mWifiConfigStore.getConfiguredNetworksSize());
             return false;
         }
 
         // Find the currently connected network: ask the supplicant directly
-        String val = mWifiNative.status(true);
-        String status[] = val.split("\\r?\\n");
-        if (VDBG) {
-            logDbg("attemptAutoJoin() status=" + val + " split="
-                    + Integer.toString(status.length));
-        }
+        int supplicantNetId = getNetID(mWifiNative.status(true));
 
-        int supplicantNetId = -1;
-        for (String key : status) {
-            if (key.regionMatches(0, "id=", 0, 3)) {
-                int idx = 3;
-                supplicantNetId = 0;
-                while (idx < key.length()) {
-                    char c = key.charAt(idx);
-
-                    if ((c >= 0x30) && (c <= 0x39)) {
-                        supplicantNetId *= 10;
-                        supplicantNetId += c - 0x30;
-                        idx++;
-                    } else {
-                        break;
-                    }
-                }
-            } else if (key.contains("wpa_state=ASSOCIATING")
-                    || key.contains("wpa_state=ASSOCIATED")
-                    || key.contains("wpa_state=FOUR_WAY_HANDSHAKE")
-                    || key.contains("wpa_state=GROUP_KEY_HANDSHAKE")) {
-                if (DBG) {
-                    logDbg("attemptAutoJoin: bail out due to sup state " + key);
-                }
-                // After WifiStateMachine ask the supplicant to associate or reconnect
-                // we might still obtain scan results from supplicant
-                // however the supplicant state in the mWifiInfo and supplicant state tracker
-                // are updated when we get the supplicant state change message which can be
-                // processed after the SCAN_RESULT message, so at this point the framework doesn't
-                // know that supplicant is ASSOCIATING.
-                // A good fix for this race condition would be for the WifiStateMachine to add
-                // a new transient state where it expects to get the supplicant message indicating
-                // that it started the association process and within which critical operations
-                // like autojoin should be deleted.
-
-                // This transient state would remove the need for the roam Wathchdog which
-                // basically does that.
-
-                // At the moment, we just query the supplicant state synchronously with the
-                // mWifiNative.status() command, which allow us to know that
-                // supplicant has started association process, even though we didnt yet get the
-                // SUPPLICANT_STATE_CHANGE message.
-                return false;
-            }
-        }
         if (DBG) {
             String conf = "";
             String last = "";
@@ -1336,35 +1478,8 @@ public class WifiAutoJoinController {
                     + " ---> suppNetId=" + Integer.toString(supplicantNetId));
         }
 
-        if (currentConfiguration != null) {
-            if (supplicantNetId != currentConfiguration.networkId
-                    // https://b.corp.google.com/issue?id=16484607
-                    // mark this condition as an error only if the mismatched networkId are valid
-                    && supplicantNetId != WifiConfiguration.INVALID_NETWORK_ID
-                    && currentConfiguration.networkId != WifiConfiguration.INVALID_NETWORK_ID) {
-                logDbg("attemptAutoJoin() ERROR wpa_supplicant out of sync nid="
-                        + Integer.toString(supplicantNetId) + " WifiStateMachine="
-                        + Integer.toString(currentConfiguration.networkId));
-                mWifiStateMachine.disconnectCommand();
-                return false;
-            } else if (currentConfiguration.ephemeral && (!mAllowUntrustedConnections ||
-                    !haveRecentlySeenScoredBssid(currentConfiguration))) {
-                // The current connection is untrusted (the framework added it), but we're either
-                // no longer allowed to connect to such networks, the score has been nullified
-                // since we connected, or the scored BSSID has gone out of range.
-                // Drop the current connection and perform the rest of autojoin.
-                logDbg("attemptAutoJoin() disconnecting from unwanted ephemeral network");
-                mWifiStateMachine.disconnectCommand(Process.WIFI_UID,
-                        mAllowUntrustedConnections ? 1 : 0);
-                return false;
-            } else {
-                mCurrentConfigurationKey = currentConfiguration.configKey();
-            }
-        } else {
-            if (supplicantNetId != WifiConfiguration.INVALID_NETWORK_ID) {
-                // Maybe in the process of associating, skip this attempt
-                return false;
-            }
+        if (!setCurrentConfigurationKey(currentConfiguration, supplicantNetId)) {
+            return false;
         }
 
         int currentNetId = -1;
@@ -1384,48 +1499,17 @@ public class WifiAutoJoinController {
                 continue;
             }
 
-            if (config.autoJoinStatus >=
-                    WifiConfiguration.AUTO_JOIN_DISABLED_ON_AUTH_FAILURE) {
-                // Wait for 5 minutes before reenabling config that have known,
-                // repeated connection or DHCP failures
-                if (config.disableReason == WifiConfiguration.DISABLED_DHCP_FAILURE
-                        || config.disableReason
-                        == WifiConfiguration.DISABLED_ASSOCIATION_REJECT
-                        || config.disableReason
-                        == WifiConfiguration.DISABLED_AUTH_FAILURE) {
-                    if (config.blackListTimestamp == 0
-                            || (config.blackListTimestamp > now)) {
-                        // Sanitize the timestamp
-                        config.blackListTimestamp = now;
-                    }
-                    if ((now - config.blackListTimestamp) >
-                            mWifiConfigStore.wifiConfigBlacklistMinTimeMilli) {
-                        // Re-enable the WifiConfiguration
-                        config.status = WifiConfiguration.Status.ENABLED;
+            if (config.autoJoinStatus >= WifiConfiguration.AUTO_JOIN_DISABLED_ON_AUTH_FAILURE) {
+                updateBlackListStatus(config, now);
+                continue;
+            }
 
-                        // Reset the blacklist condition
-                        config.numConnectionFailures = 0;
-                        config.numIpConfigFailures = 0;
-                        config.numAuthFailures = 0;
-                        config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_ENABLED);
-
-                        config.dirty = true;
-                    } else {
-                        if (VDBG) {
-                            long delay = mWifiConfigStore.wifiConfigBlacklistMinTimeMilli
-                                    - (now - config.blackListTimestamp);
-                            logDbg("attemptautoJoin " + config.configKey()
-                                    + " dont unblacklist yet, waiting for "
-                                    + delay + " ms");
-                        }
-                    }
-                }
-                // Avoid networks disabled because of AUTH failure altogether
+            if (config.userApproved == WifiConfiguration.USER_PENDING ||
+                    config.userApproved == WifiConfiguration.USER_BANNED) {
                 if (DBG) {
-                    logDbg("attemptAutoJoin skip candidate due to auto join status "
-                            + Integer.toString(config.autoJoinStatus) + " key "
-                            + config.configKey(true)
-                            + " reason " + config.disableReason);
+                    logDbg("attemptAutoJoin skip candidate due to user approval status "
+                            + WifiConfiguration.userApprovedAsString(config.userApproved) + " key "
+                            + config.configKey(true));
                 }
                 continue;
             }
@@ -1450,42 +1534,29 @@ public class WifiAutoJoinController {
                 }
             }
 
+            if (config.visibility == null) {
+                continue;
+            }
+
             // Try to unblacklist based on good visibility
-            if (config.visibility.rssi5 < mWifiConfigStore.thresholdUnblacklistThreshold5Soft
-                    && config.visibility.rssi24
-                    < mWifiConfigStore.thresholdUnblacklistThreshold24Soft) {
+            if (underSoftThreshold(config)) {
                 if (DBG) {
-                    logDbg("attemptAutoJoin do not unblacklist due to low visibility "
-                            + config.autoJoinStatus
-                            + " key " + config.configKey(true)
-                            + " rssi=(" + config.visibility.rssi24
-                            + "," + config.visibility.rssi5
-                            + ") num=(" + config.visibility.num24
-                            + "," + config.visibility.num5 + ")");
+                    logDbg("attemptAutoJoin do not unblacklist due to low visibility " +
+                            config.configKey() + " status=" + config.autoJoinStatus);
                 }
-            } else if (config.visibility.rssi5 < mWifiConfigStore.thresholdUnblacklistThreshold5Hard
-                    && config.visibility.rssi24
-                    < mWifiConfigStore.thresholdUnblacklistThreshold24Hard) {
+            } else if (underHardThreshold(config)) {
                 // If the network is simply temporary disabled, don't allow reconnect until
                 // RSSI becomes good enough
                 config.setAutoJoinStatus(config.autoJoinStatus - 1);
                 if (DBG) {
-                    logDbg("attemptAutoJoin good candidate seen, bumped soft -> status="
-                            + config.autoJoinStatus
-                            + " " + config.configKey(true) + " rssi=("
-                            + config.visibility.rssi24 + "," + config.visibility.rssi5
-                            + ") num=(" + config.visibility.num24
-                            + "," + config.visibility.num5 + ")");
+                    logDbg("attemptAutoJoin good candidate seen, bumped soft -> status=" +
+                            config.configKey() + " status=" + config.autoJoinStatus);
                 }
             } else {
                 config.setAutoJoinStatus(config.autoJoinStatus - 3);
                 if (DBG) {
-                    logDbg("attemptAutoJoin good candidate seen, bumped hard -> status="
-                            + config.autoJoinStatus
-                            + " " + config.configKey(true) + " rssi=("
-                            + config.visibility.rssi24 + "," + config.visibility.rssi5
-                            + ") num=(" + config.visibility.num24
-                            + "," + config.visibility.num5 + ")");
+                    logDbg("attemptAutoJoin good candidate seen, bumped hard -> status=" +
+                            config.configKey() + " status=" + config.autoJoinStatus);
                 }
             }
 
@@ -1493,12 +1564,8 @@ public class WifiAutoJoinController {
                     WifiConfiguration.AUTO_JOIN_TEMPORARY_DISABLED) {
                 // Network is blacklisted, skip
                 if (DBG) {
-                    logDbg("attemptAutoJoin skip blacklisted -> status="
-                            + config.autoJoinStatus
-                            + " " + config.configKey(true) + " rssi=("
-                            + config.visibility.rssi24 + "," + config.visibility.rssi5
-                            + ") num=(" + config.visibility.num24
-                            + "," + config.visibility.num5 + ")");
+                    logDbg("attemptAutoJoin skip blacklisted -> status=" +
+                            config.configKey() + " status=" + config.autoJoinStatus);
                 }
                 continue;
             }
@@ -1515,10 +1582,6 @@ public class WifiAutoJoinController {
             if (lastSelectedConfiguration != null &&
                     config.configKey().equals(lastSelectedConfiguration)) {
                 isLastSelected = true;
-            }
-
-            if (config.visibility == null) {
-                continue;
             }
 
             if (config.lastRoamingFailure != 0
@@ -1544,17 +1607,12 @@ public class WifiAutoJoinController {
             }
 
             int boost = config.autoJoinUseAggressiveJoinAttemptThreshold + weakRssiBailCount;
-            if ((config.visibility.rssi5 + boost)
-                        < mWifiConfigStore.thresholdInitialAutoJoinAttemptMin5RSSI
-                        && (config.visibility.rssi24 + boost)
-                        < mWifiConfigStore.thresholdInitialAutoJoinAttemptMin24RSSI) {
+            if (underThreshold(config,
+                    mWifiConfigStore.thresholdInitialAutoJoinAttemptMin24RSSI.get() - boost,
+                    mWifiConfigStore.thresholdInitialAutoJoinAttemptMin5RSSI.get() - boost)) {
+
                 if (DBG) {
-                    logDbg("attemptAutoJoin skip due to low visibility -> status="
-                            + config.autoJoinStatus
-                            + " key " + config.configKey(true) + " rssi="
-                            + config.visibility.rssi24 + ", " + config.visibility.rssi5
-                            + " num=" + config.visibility.num24
-                            + ", " + config.visibility.num5);
+                    logDbg("attemptAutoJoin skip due to low visibility " + config.configKey());
                 }
 
                 // Don't try to autojoin a network that is too far but
@@ -1572,6 +1630,7 @@ public class WifiAutoJoinController {
                     }
                 }
             }
+            // NOTE: If this condition is updated, update NETWORK_STATUS_UNWANTED_DISABLE_AUTOJOIN.
             if (config.numNoInternetAccessReports > 0
                     && !isLastSelected
                     && !config.validatedInternetAccess) {
@@ -1601,11 +1660,15 @@ public class WifiAutoJoinController {
             if (candidate == null) {
                 candidate = config;
             } else {
-                if (VDBG)  {
+                if (VDBG) {
                     logDbg("attemptAutoJoin will compare candidate  " + candidate.configKey()
                             + " with " + config.configKey());
                 }
+
                 int order = compareWifiConfigurations(candidate, config);
+                if (VDBG) {
+                    logDbg("attemptAutoJoin compareWifiConfigurations returned " + order);
+                }
 
                 // The lastSelectedConfiguration is the configuration the user has manually selected
                 // thru WifiPicker, or that a 3rd party app asked us to connect to via the
@@ -1619,7 +1682,7 @@ public class WifiAutoJoinController {
                     // above RSSI/scorer based selection of linked configuration (+/- 50)
                     // by reducing order by -100
                     order = order - 100;
-                    if (VDBG)   {
+                    if (VDBG) {
                         logDbg("     ...and prefers -100 " + candidate.configKey()
                                 + " over " + config.configKey()
                                 + " because it is the last selected -> "
@@ -1632,7 +1695,7 @@ public class WifiAutoJoinController {
                     // above RSSI/scorer based selection of linked configuration (+/- 50)
                     // by increasing order by +100
                     order = order + 100;
-                    if (VDBG)   {
+                    if (VDBG) {
                         logDbg("     ...and prefers +100 " + config.configKey()
                                 + " over " + candidate.configKey()
                                 + " because it is the last selected -> "
@@ -1660,10 +1723,11 @@ public class WifiAutoJoinController {
             long nowMs = System.currentTimeMillis();
             int currentScore = -10000;
             // The untrusted network with highest score
-            ScanResult untrustedCandidate = null;
+            ScanDetail untrustedCandidate = null;
             // Look for untrusted scored network only if the current candidate is bad
             if (isBadCandidate(rssi24, rssi5)) {
-                for (ScanResult result : scanResultCache.values()) {
+                for (ScanDetail scanDetail : scanResultCache.values()) {
+                    ScanResult result = scanDetail.getScanResult();
                     // We look only at untrusted networks with a valid SSID
                     // A trusted result would have been looked at thru it's Wificonfiguration
                     if (TextUtils.isEmpty(result.SSID) || !result.untrusted ||
@@ -1686,13 +1750,13 @@ public class WifiAutoJoinController {
                                 && score > currentScore) {
                             // Highest score: Select this candidate
                             currentScore = score;
-                            untrustedCandidate = result;
+                            untrustedCandidate = scanDetail;
                             if (VDBG) {
                                 logDbg("AutoJoinController: found untrusted candidate "
                                         + result.SSID
-                                + " RSSI=" + result.level
-                                + " freq=" + result.frequency
-                                + " score=" + score);
+                                        + " RSSI=" + result.level
+                                        + " freq=" + result.frequency
+                                        + " score=" + score);
                             }
                         }
                     }
@@ -1705,6 +1769,7 @@ public class WifiAutoJoinController {
                         mWifiConfigStore.wifiConfigurationFromScanResult(untrustedCandidate);
                 candidate.allowedKeyManagement.set(KeyMgmt.NONE);
                 candidate.ephemeral = true;
+                candidate.dirty = true;
             }
         }
 
@@ -1716,7 +1781,7 @@ public class WifiAutoJoinController {
                 && currentConfiguration == null
                 && didBailDueToWeakRssi
                 && (mWifiConfigStore.lastUnwantedNetworkDisconnectTimestamp == 0
-                    || lastUnwanted > (1000 * 60 * 60 * 24 * 7))
+                || lastUnwanted > (1000 * 60 * 60 * 24 * 7))
                 ) {
             // We are bailing out of autojoin although we are seeing a weak configuration, and
             // - we didn't find another valid candidate
@@ -1751,7 +1816,7 @@ public class WifiAutoJoinController {
                     + candidate.configKey()
                     + current
                     + " linked=" + (currentConfiguration != null
-                            && currentConfiguration.isLinked(candidate))
+                    && currentConfiguration.isLinked(candidate))
                     + " : delta="
                     + Integer.toString(networkDelta) + " "
                     + doSwitch);
@@ -1762,7 +1827,7 @@ public class WifiAutoJoinController {
          * if user is currently streaming voice traffic,
          * then we should not be allowed to switch regardless of the delta
          */
-        if (mWifiStateMachine.shouldSwitchNetwork(networkDelta)) {
+        if (mWifiStateMachine.shouldSwitchNetwork(networkDelta)) {      // !!! JNo: Here!
             if (mStaStaSupported) {
                 logDbg("mStaStaSupported --> error do nothing now ");
             } else {
@@ -1818,39 +1883,16 @@ public class WifiAutoJoinController {
                     }
                 }
                 mWifiStateMachine.sendMessage(WifiStateMachine.CMD_AUTO_CONNECT,
-                            candidate.networkId, networkSwitchType, candidate);
+                        candidate.networkId, networkSwitchType, candidate);
                 found = true;
             }
         }
 
-        if (networkSwitchType == AUTO_JOIN_IDLE) {
+        if (networkSwitchType == AUTO_JOIN_IDLE && !mWifiConfigStore.enableHalBasedPno.get()) {
             String currentBSSID = mWifiStateMachine.getCurrentBSSID();
             // Attempt same WifiConfiguration roaming
             ScanResult roamCandidate =
                     attemptRoam(null, currentConfiguration, mScanResultAutoJoinAge, currentBSSID);
-            /**
-             *  TODO: (post L initial release)
-             *  consider handling linked configurations roaming (i.e. extended Roaming)
-             *  thru the attemptRoam function which makes use of the RSSI roaming threshold.
-             *  At the moment, extended roaming is only handled thru the attemptAutoJoin()
-             *  function which compare configurations.
-             *
-             *  The advantage of making use of attemptRoam function is that this function
-             *  will looks at all the BSSID of each configurations, instead of only looking
-             *  at WifiConfiguration.visibility which keeps trackonly of the RSSI/band of the
-             *  two highest BSSIDs.
-             */
-            // Attempt linked WifiConfiguration roaming
-            /* if (currentConfiguration != null
-                    && currentConfiguration.linkedConfigurations != null) {
-                for (String key : currentConfiguration.linkedConfigurations.keySet()) {
-                    WifiConfiguration link = mWifiConfigStore.getWifiConfiguration(key);
-                    if (link != null) {
-                        roamCandidate = attemptRoam(roamCandidate, link, mScanResultAutoJoinAge,
-                                currentBSSID);
-                    }
-                }
-            }*/
             if (roamCandidate != null && currentBSSID != null
                     && currentBSSID.equals(roamCandidate.BSSID)) {
                 roamCandidate = null;
@@ -1867,12 +1909,87 @@ public class WifiAutoJoinController {
                 mWifiConnectionStatistics.numAutoRoamAttempt++;
 
                 mWifiStateMachine.sendMessage(WifiStateMachine.CMD_AUTO_ROAM,
-                            currentConfiguration.networkId, 1, roamCandidate);
+                        currentConfiguration.networkId, 1, roamCandidate);
                 found = true;
             }
         }
         if (VDBG) logDbg("Done attemptAutoJoin status=" + Integer.toString(networkSwitchType));
         return found;
+    }
+
+    private void logDenial(String reason, WifiConfiguration config) {
+        if (!DBG) {
+            return;
+        }
+        logDbg(reason + config.toString());
+    }
+
+    WifiConfiguration getWifiConfiguration(WifiNative.WifiPnoNetwork network) {
+        if (network.configKey != null) {
+            return mWifiConfigStore.getWifiConfiguration(network.configKey);
+        }
+        return null;
+    }
+
+    ArrayList<WifiNative.WifiPnoNetwork> getPnoList(WifiConfiguration current) {
+        int size = -1;
+        ArrayList<WifiNative.WifiPnoNetwork> list = new ArrayList<WifiNative.WifiPnoNetwork>();
+
+        if (mWifiConfigStore.mCachedPnoList != null) {
+            size = mWifiConfigStore.mCachedPnoList.size();
+        }
+
+        if (DBG) {
+            String s = "";
+            if (current != null) {
+                s = " for: " + current.configKey();
+            }
+            Log.e(TAG, " get Pno List total size:" + size + s);
+        }
+        if (current != null) {
+            String configKey = current.configKey();
+            /**
+             * If we are currently associated to a WifiConfiguration then include
+             * only those networks that have a higher priority
+             */
+            for (WifiNative.WifiPnoNetwork network : mWifiConfigStore.mCachedPnoList) {
+                WifiConfiguration config = getWifiConfiguration(network);
+                if (config == null) {
+                    continue;
+                }
+                if (config.autoJoinStatus
+                        >= WifiConfiguration.AUTO_JOIN_DISABLED_NO_CREDENTIALS) {
+                     continue;
+                }
+
+                if (!configKey.equals(network.configKey)) {
+                    int choice = getConnectChoice(config, current, true);
+                    if (choice > 0) {
+                        // config is of higher priority
+                        if (DBG) {
+                            Log.e(TAG, " Pno List adding:" + network.configKey
+                                    + " choice " + choice);
+                        }
+                        list.add(network);
+                        network.rssi_threshold = mWifiConfigStore.thresholdGoodRssi24.get();
+                    }
+                }
+            }
+        } else {
+            for (WifiNative.WifiPnoNetwork network : mWifiConfigStore.mCachedPnoList) {
+                WifiConfiguration config = getWifiConfiguration(network);
+                if (config == null) {
+                    continue;
+                }
+                if (config.autoJoinStatus
+                        >= WifiConfiguration.AUTO_JOIN_DISABLED_NO_CREDENTIALS) {
+                    continue;
+                }
+                list.add(network);
+                network.rssi_threshold = mWifiConfigStore.thresholdGoodRssi24.get();
+            }
+        }
+        return list;
     }
 }
 

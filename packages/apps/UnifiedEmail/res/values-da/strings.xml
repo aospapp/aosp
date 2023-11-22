@@ -183,8 +183,8 @@
     <item quantity="other" msgid="6351739502184556635">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; bliver rapporteret som ikke spam"</item>
   </plurals>
   <plurals name="conversation_not_important">
-    <item quantity="one" msgid="7432667428974709669">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; bliver markeret som ikke vigtig"</item>
-    <item quantity="other" msgid="4823331037057239763">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; bliver markeret som ikke vigtig"</item>
+    <item quantity="one" msgid="7432667428974709669">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; er markeret som uvigtig"</item>
+    <item quantity="other" msgid="4823331037057239763">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; er markeret som uvigtig"</item>
   </plurals>
   <plurals name="conversation_phished">
     <item quantity="one" msgid="3511804715065046338">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; bliver rapporteret som phishing"</item>
@@ -195,8 +195,8 @@
     <item quantity="other" msgid="8520761617935818623">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; arkiveret"</item>
   </plurals>
   <plurals name="conversation_deleted">
-    <item quantity="one" msgid="4819167474123685161">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; slettes"</item>
-    <item quantity="other" msgid="6287534453625638257">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; slettes"</item>
+    <item quantity="one" msgid="4819167474123685161">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; er slettet"</item>
+    <item quantity="other" msgid="6287534453625638257">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; er slettet"</item>
   </plurals>
     <string name="deleted" msgid="7378013910782008375">"Slettet"</string>
     <string name="archived" msgid="6283673603512713022">"Arkiveret"</string>

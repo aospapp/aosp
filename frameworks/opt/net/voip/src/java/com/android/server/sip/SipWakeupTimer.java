@@ -35,7 +35,7 @@ import java.util.concurrent.Executor;
  */
 class SipWakeupTimer extends BroadcastReceiver {
     private static final String TAG = "SipWakeupTimer";
-    private static final boolean DBG = SipService.DBG && true; // STOPSHIP if true
+    private static final boolean DBG = SipService.DBG && false; // STOPSHIP if true
     private static final String TRIGGER_TIME = "TriggerTime";
 
     private Context mContext;

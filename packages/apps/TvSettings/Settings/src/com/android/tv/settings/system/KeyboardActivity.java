@@ -36,6 +36,7 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class KeyboardActivity extends BaseSettingsActivity implements ActionAdapter.Listener {
@@ -167,8 +168,7 @@ public class KeyboardActivity extends BaseSettingsActivity implements ActionAdap
     private String getDefaultInputMethodName() {
         String defaultInputMethodInfo = getDefaultInputMethodId();
 
-        List<InputMethodInfo> enabledInputMethodInfos = new ArrayList<InputMethodInfo>(
-                mInputMan.getEnabledInputMethodList());
+        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
         for (InputMethodInfo info : enabledInputMethodInfos) {
             if (defaultInputMethodInfo.equals(info.getId())) {
                 return info.loadLabel(getPackageManager()).toString();
@@ -180,8 +180,7 @@ public class KeyboardActivity extends BaseSettingsActivity implements ActionAdap
     private InputMethodInfo getCurrentInputMethodInfo() {
         String defaultInputMethodInfo = getDefaultInputMethodId();
 
-        List<InputMethodInfo> enabledInputMethodInfos = new ArrayList<InputMethodInfo>(
-                mInputMan.getEnabledInputMethodList());
+        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
         for (InputMethodInfo info : enabledInputMethodInfos) {
             if (defaultInputMethodInfo.equals(info.getId())) {
                 return info;
@@ -191,8 +190,7 @@ public class KeyboardActivity extends BaseSettingsActivity implements ActionAdap
     }
 
     private String[] getInputMethodNames() {
-        List<InputMethodInfo> enabledInputMethodInfos = new ArrayList<InputMethodInfo>(
-                mInputMan.getEnabledInputMethodList());
+        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
         int totalInputMethods = enabledInputMethodInfos.size();
         String[] inputMethodNames = new String[totalInputMethods];
         for (int i = 0; i < totalInputMethods; i++) {
@@ -203,14 +201,25 @@ public class KeyboardActivity extends BaseSettingsActivity implements ActionAdap
     }
 
     private String[] getInputMethodIds() {
-        List<InputMethodInfo> enabledInputMethodInfos = new ArrayList<InputMethodInfo>(
-                mInputMan.getEnabledInputMethodList());
+        List<InputMethodInfo> enabledInputMethodInfos = getEnabledSystemInputMethodList();
         int totalInputMethods = enabledInputMethodInfos.size();
         String[] inputMethodIds = new String[totalInputMethods];
         for (int i = 0; i < totalInputMethods; i++) {
             inputMethodIds[i] = enabledInputMethodInfos.get(i).getId();
         }
         return inputMethodIds;
+    }
+
+    private List<InputMethodInfo> getEnabledSystemInputMethodList() {
+        List<InputMethodInfo> enabledInputMethodInfos =
+                new ArrayList<>(mInputMan.getEnabledInputMethodList());
+        // Filter auxiliary keyboards out
+        for (Iterator<InputMethodInfo> it = enabledInputMethodInfos.iterator(); it.hasNext();) {
+            if (it.next().isAuxiliaryIme()) {
+                it.remove();
+            }
+        }
+        return enabledInputMethodInfos;
     }
 
     private void setInputMethod(String imid) {

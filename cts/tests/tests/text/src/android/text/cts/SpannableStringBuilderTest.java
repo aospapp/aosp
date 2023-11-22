@@ -18,10 +18,12 @@ package android.text.cts;
 
 
 import android.test.AndroidTestCase;
+import android.text.Editable;
 import android.text.InputFilter;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.TextWatcher;
 import android.text.style.StrikethroughSpan;
 import android.text.style.TabStopSpan;
 import android.text.style.UnderlineSpan;
@@ -595,5 +597,47 @@ public class SpannableStringBuilderTest extends AndroidTestCase {
         } catch (IndexOutOfBoundsException e) {
             // expected exception
         }
+    }
+
+    private static class MockTextWatcher implements TextWatcher {
+        private int mDepth = 0;
+
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            SpannableStringBuilder builder = (SpannableStringBuilder)s;
+            mDepth++;
+            assertEquals(mDepth, builder.getTextWatcherDepth());
+            mDepth--;
+        }
+
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+            SpannableStringBuilder builder = (SpannableStringBuilder)s;
+            mDepth++;
+            assertEquals(mDepth, builder.getTextWatcherDepth());
+            mDepth--;
+        }
+
+        @Override
+        public void afterTextChanged(Editable s) {
+            SpannableStringBuilder builder = (SpannableStringBuilder)s;
+            mDepth++;
+            assertEquals(mDepth, builder.getTextWatcherDepth());
+            if (mDepth <= builder.length()) {
+                // This will recursively call afterTextChanged.
+                builder.replace(mDepth - 1, mDepth, "a");
+            }
+            mDepth--;
+        }
+    }
+
+    public void testGetTextWatcherDepth() {
+        SpannableStringBuilder builder = new SpannableStringBuilder("hello");
+        builder.setSpan(new MockTextWatcher(), 0, builder.length(), 0);
+        assertEquals(0, builder.getTextWatcherDepth());
+        builder.replace(0, 1, "H");
+        assertEquals(0, builder.getTextWatcherDepth());
+        // MockTextWatcher replaces each character with 'a'.
+        assertEquals("aaaaa", builder.toString());
     }
 }

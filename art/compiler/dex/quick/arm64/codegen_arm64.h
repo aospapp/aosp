@@ -18,7 +18,8 @@
 #define ART_COMPILER_DEX_QUICK_ARM64_CODEGEN_ARM64_H_
 
 #include "arm64_lir.h"
-#include "dex/compiler_internals.h"
+#include "base/logging.h"
+#include "dex/quick/mir_to_lir.h"
 
 #include <map>
 
@@ -26,38 +27,25 @@ namespace art {
 
 class Arm64Mir2Lir FINAL : public Mir2Lir {
  protected:
-  // TODO: consolidate 64-bit target support.
-  class InToRegStorageMapper {
-   public:
-    virtual RegStorage GetNextReg(bool is_double_or_float, bool is_wide, bool is_ref) = 0;
-    virtual ~InToRegStorageMapper() {}
-  };
-
   class InToRegStorageArm64Mapper : public InToRegStorageMapper {
    public:
     InToRegStorageArm64Mapper() : cur_core_reg_(0), cur_fp_reg_(0) {}
     virtual ~InToRegStorageArm64Mapper() {}
-    virtual RegStorage GetNextReg(bool is_double_or_float, bool is_wide, bool is_ref);
+    virtual RegStorage GetNextReg(ShortyArg arg);
+    virtual void Reset() OVERRIDE {
+      cur_core_reg_ = 0;
+      cur_fp_reg_ = 0;
+    }
    private:
-    int cur_core_reg_;
-    int cur_fp_reg_;
+    size_t cur_core_reg_;
+    size_t cur_fp_reg_;
   };
 
-  class InToRegStorageMapping {
-   public:
-    InToRegStorageMapping() : max_mapped_in_(0), is_there_stack_mapped_(false),
-    initialized_(false) {}
-    void Initialize(RegLocation* arg_locs, int count, InToRegStorageMapper* mapper);
-    int GetMaxMappedIn() { return max_mapped_in_; }
-    bool IsThereStackMapped() { return is_there_stack_mapped_; }
-    RegStorage Get(int in_position);
-    bool IsInitialized() { return initialized_; }
-   private:
-    std::map<int, RegStorage> mapping_;
-    int max_mapped_in_;
-    bool is_there_stack_mapped_;
-    bool initialized_;
-  };
+  InToRegStorageArm64Mapper in_to_reg_storage_arm64_mapper_;
+  InToRegStorageMapper* GetResetedInToRegStorageMapper() OVERRIDE {
+    in_to_reg_storage_arm64_mapper_.Reset();
+    return &in_to_reg_storage_arm64_mapper_;
+  }
 
  public:
   Arm64Mir2Lir(CompilationUnit* cu, MIRGraph* mir_graph, ArenaAllocator* arena);
@@ -70,26 +58,30 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   bool HandleEasyDivRem64(Instruction::Code dalvik_opcode, bool is_div,
                           RegLocation rl_src, RegLocation rl_dest, int64_t lit);
   bool EasyMultiply(RegLocation rl_src, RegLocation rl_dest, int lit) OVERRIDE;
+  void GenMultiplyByConstantFloat(RegLocation rl_dest, RegLocation rl_src1,
+                                  int32_t constant) OVERRIDE;
+  void GenMultiplyByConstantDouble(RegLocation rl_dest, RegLocation rl_src1,
+                                   int64_t constant) OVERRIDE;
   LIR* CheckSuspendUsingLoad() OVERRIDE;
   RegStorage LoadHelper(QuickEntrypointEnum trampoline) OVERRIDE;
   LIR* LoadBaseDisp(RegStorage r_base, int displacement, RegStorage r_dest,
                     OpSize size, VolatileKind is_volatile) OVERRIDE;
-  LIR* LoadRefDisp(RegStorage r_base, int displacement, RegStorage r_dest,
-                   VolatileKind is_volatile) OVERRIDE;
   LIR* LoadBaseIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_dest, int scale,
                        OpSize size) OVERRIDE;
-  LIR* LoadRefIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_dest, int scale)
-      OVERRIDE;
   LIR* LoadConstantNoClobber(RegStorage r_dest, int value) OVERRIDE;
   LIR* LoadConstantWide(RegStorage r_dest, int64_t value) OVERRIDE;
   LIR* StoreBaseDisp(RegStorage r_base, int displacement, RegStorage r_src, OpSize size,
                      VolatileKind is_volatile) OVERRIDE;
-  LIR* StoreRefDisp(RegStorage r_base, int displacement, RegStorage r_src, VolatileKind is_volatile)
-      OVERRIDE;
   LIR* StoreBaseIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_src, int scale,
                         OpSize size) OVERRIDE;
-  LIR* StoreRefIndexed(RegStorage r_base, RegStorage r_index, RegStorage r_src, int scale) OVERRIDE;
-  void MarkGCCard(RegStorage val_reg, RegStorage tgt_addr_reg) OVERRIDE;
+
+  /// @copydoc Mir2Lir::UnconditionallyMarkGCCard(RegStorage)
+  void UnconditionallyMarkGCCard(RegStorage tgt_addr_reg) OVERRIDE;
+
+  bool CanUseOpPcRelDexCacheArrayLoad() const OVERRIDE;
+  void OpPcRelDexCacheArrayLoad(const DexFile* dex_file, int offset, RegStorage r_dest, bool wide)
+      OVERRIDE;
+
   LIR* OpCmpMemImmBranch(ConditionCode cond, RegStorage temp_reg, RegStorage base_reg,
                          int offset, int check_value, LIR* target, LIR** compare) OVERRIDE;
 
@@ -105,7 +97,6 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   RegStorage TargetPtrReg(SpecialTargetRegister symbolic_reg) OVERRIDE {
     return As64BitReg(TargetReg(symbolic_reg));
   }
-  RegStorage GetArgMappingToPhysicalReg(int arg_num) OVERRIDE;
   RegLocation GetReturnAlt() OVERRIDE;
   RegLocation GetReturnWideAlt() OVERRIDE;
   RegLocation LocCReturn() OVERRIDE;
@@ -140,13 +131,13 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   void GenShiftOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
                       RegLocation lr_shift) OVERRIDE;
   void GenArithImmOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                         RegLocation rl_src2) OVERRIDE;
+                         RegLocation rl_src2, int flags) OVERRIDE;
   void GenArrayGet(int opt_flags, OpSize size, RegLocation rl_array, RegLocation rl_index,
                    RegLocation rl_dest, int scale) OVERRIDE;
   void GenArrayPut(int opt_flags, OpSize size, RegLocation rl_array, RegLocation rl_index,
                    RegLocation rl_src, int scale, bool card_mark) OVERRIDE;
   void GenShiftImmOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                         RegLocation rl_shift) OVERRIDE;
+                         RegLocation rl_shift, int flags) OVERRIDE;
   void GenArithOpDouble(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
                         RegLocation rl_src2) OVERRIDE;
   void GenArithOpFloat(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
@@ -167,11 +158,12 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   bool GenInlinedRound(CallInfo* info, bool is_double) OVERRIDE;
   bool GenInlinedPeek(CallInfo* info, OpSize size) OVERRIDE;
   bool GenInlinedPoke(CallInfo* info, OpSize size) OVERRIDE;
+  bool GenInlinedAbsInt(CallInfo* info) OVERRIDE;
   bool GenInlinedAbsLong(CallInfo* info) OVERRIDE;
   bool GenInlinedArrayCopyCharArray(CallInfo* info) OVERRIDE;
   void GenIntToLong(RegLocation rl_dest, RegLocation rl_src) OVERRIDE;
   void GenArithOpLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                      RegLocation rl_src2) OVERRIDE;
+                      RegLocation rl_src2, int flags) OVERRIDE;
   RegLocation GenDivRem(RegLocation rl_dest, RegStorage reg_lo, RegStorage reg_hi, bool is_div)
       OVERRIDE;
   RegLocation GenDivRemLit(RegLocation rl_dest, RegStorage reg_lo, int lit, bool is_div)
@@ -181,13 +173,14 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   void GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) OVERRIDE;
   void GenExitSequence() OVERRIDE;
   void GenSpecialExitSequence() OVERRIDE;
-  void GenFillArrayData(DexOffset table_offset, RegLocation rl_src) OVERRIDE;
+  void GenSpecialEntryForSuspend() OVERRIDE;
+  void GenSpecialExitForSuspend() OVERRIDE;
   void GenFusedFPCmpBranch(BasicBlock* bb, MIR* mir, bool gt_bias, bool is_double) OVERRIDE;
   void GenFusedLongCmpBranch(BasicBlock* bb, MIR* mir) OVERRIDE;
   void GenSelect(BasicBlock* bb, MIR* mir) OVERRIDE;
   void GenSelectConst32(RegStorage left_op, RegStorage right_op, ConditionCode code,
                         int32_t true_val, int32_t false_val, RegStorage rs_dest,
-                        int dest_reg_class) OVERRIDE;
+                        RegisterClass dest_reg_class) OVERRIDE;
 
   bool GenMemBarrier(MemBarrierKind barrier_kind) OVERRIDE;
   void GenMonitorEnter(int opt_flags, RegLocation rl_src) OVERRIDE;
@@ -199,6 +192,10 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   void GenNegFloat(RegLocation rl_dest, RegLocation rl_src) OVERRIDE;
   void GenLargePackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) OVERRIDE;
   void GenLargeSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) OVERRIDE;
+  void GenMaddMsubInt(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2,
+                      RegLocation rl_src3, bool is_sub);
+  void GenMaddMsubLong(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2,
+                       RegLocation rl_src3, bool is_sub);
 
   // Required for target - single operation generators.
   LIR* OpUnconditionalBranch(LIR* target) OVERRIDE;
@@ -210,7 +207,7 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   LIR* OpIT(ConditionCode cond, const char* guide) OVERRIDE;
   void OpEndIT(LIR* it) OVERRIDE;
   LIR* OpMem(OpKind op, RegStorage r_base, int disp) OVERRIDE;
-  LIR* OpPcRelLoad(RegStorage reg, LIR* target) OVERRIDE;
+  void OpPcRelLoad(RegStorage reg, LIR* target) OVERRIDE;
   LIR* OpReg(OpKind op, RegStorage r_dest_src) OVERRIDE;
   void OpRegCopy(RegStorage r_dest, RegStorage r_src) OVERRIDE;
   LIR* OpRegCopyNoInsert(RegStorage r_dest, RegStorage r_src) OVERRIDE;
@@ -232,30 +229,38 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   bool InexpensiveConstantLong(int64_t value) OVERRIDE;
   bool InexpensiveConstantDouble(int64_t value) OVERRIDE;
 
-  void FlushIns(RegLocation* ArgLocs, RegLocation rl_method) OVERRIDE;
+  void GenMachineSpecificExtendedMethodMIR(BasicBlock* bb, MIR* mir) OVERRIDE;
 
-  int GenDalvikArgsNoRange(CallInfo* info, int call_state, LIR** pcrLabel,
-                           NextCallInsn next_call_insn,
-                           const MethodReference& target_method,
-                           uint32_t vtable_idx,
-                           uintptr_t direct_code, uintptr_t direct_method, InvokeType type,
-                           bool skip_this) OVERRIDE;
-
-  int GenDalvikArgsRange(CallInfo* info, int call_state, LIR** pcrLabel,
-                         NextCallInsn next_call_insn,
-                         const MethodReference& target_method,
-                         uint32_t vtable_idx,
-                         uintptr_t direct_code, uintptr_t direct_method, InvokeType type,
-                         bool skip_this) OVERRIDE;
-
-  bool WideGPRsAreAliases() OVERRIDE {
+  bool WideGPRsAreAliases() const OVERRIDE {
     return true;  // 64b architecture.
   }
-  bool WideFPRsAreAliases() OVERRIDE {
+  bool WideFPRsAreAliases() const OVERRIDE {
     return true;  // 64b architecture.
   }
 
   size_t GetInstructionOffset(LIR* lir) OVERRIDE;
+
+  NextCallInsn GetNextSDCallInsn() OVERRIDE;
+
+  /*
+   * @brief Generate a relative call to the method that will be patched at link time.
+   * @param target_method The MethodReference of the method to be invoked.
+   * @param type How the method will be invoked.
+   * @returns Call instruction
+   */
+  LIR* CallWithLinkerFixup(const MethodReference& target_method, InvokeType type);
+
+  /*
+   * @brief Generate the actual call insn based on the method info.
+   * @param method_info the lowering info for the method call.
+   * @returns Call instruction
+   */
+  virtual LIR* GenCallInsn(const MirMethodLoweringInfo& method_info) OVERRIDE;
+
+  /*
+   * @brief Handle ARM specific literals.
+   */
+  void InstallLiteralPools() OVERRIDE;
 
   LIR* InvokeTrampoline(OpKind op, RegStorage r_tgt, QuickEntrypointEnum trampoline) OVERRIDE;
 
@@ -340,8 +345,8 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   void InsertFixupBefore(LIR* prev_lir, LIR* orig_lir, LIR* new_lir);
   void AssignDataOffsets();
   RegLocation GenDivRem(RegLocation rl_dest, RegLocation rl_src1, RegLocation rl_src2,
-                        bool is_div, bool check_zero);
-  RegLocation GenDivRemLit(RegLocation rl_dest, RegLocation rl_src1, int lit, bool is_div);
+                        bool is_div, int flags) OVERRIDE;
+  RegLocation GenDivRemLit(RegLocation rl_dest, RegLocation rl_src1, int lit, bool is_div) OVERRIDE;
   size_t GetLoadStoreSize(LIR* lir);
 
   bool SmallLiteralDivRem64(Instruction::Code dalvik_opcode, bool is_div, RegLocation rl_src,
@@ -390,10 +395,20 @@ class Arm64Mir2Lir FINAL : public Mir2Lir {
   void GenNotLong(RegLocation rl_dest, RegLocation rl_src);
   void GenNegLong(RegLocation rl_dest, RegLocation rl_src);
   void GenDivRemLong(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src1,
-                     RegLocation rl_src2, bool is_div);
+                     RegLocation rl_src2, bool is_div, int flags);
 
-  InToRegStorageMapping in_to_reg_storage_mapping_;
-  static const ArmEncodingMap EncodingMap[kA64Last];
+  static int Arm64NextSDCallInsn(CompilationUnit* cu, CallInfo* info,
+                                 int state, const MethodReference& target_method,
+                                 uint32_t unused_idx,
+                                 uintptr_t direct_code, uintptr_t direct_method,
+                                 InvokeType type);
+
+  static const A64EncodingMap EncodingMap[kA64Last];
+
+  ArenaVector<LIR*> call_method_insns_;
+  ArenaVector<LIR*> dex_cache_access_insns_;
+
+  int GenDalvikArgsBulkCopy(CallInfo* info, int first, int count) OVERRIDE;
 };
 
 }  // namespace art

@@ -20,6 +20,9 @@ import android.content.Context;
 import android.content.Intent;
 
 import com.android.camera.debug.Log;
+import com.android.camera.processing.imagebackend.ImageBackend;
+import com.android.camera.util.AndroidContext;
+import com.android.camera2.R;
 
 import java.util.LinkedList;
 
@@ -30,11 +33,17 @@ import java.util.LinkedList;
  * Clients should only use this class and not the {@link ProcessingService}
  * directly.
  */
-public class ProcessingServiceManager {
+public class ProcessingServiceManager implements ProcessingTaskConsumer {
     private static final Log.Tag TAG = new Log.Tag("ProcessingSvcMgr");
 
-    /** The singleton instance of this manager. */
-    private static ProcessingServiceManager sInstance;
+    private static class Singleton {
+        private static final ProcessingServiceManager INSTANCE = new ProcessingServiceManager(
+              AndroidContext.instance().get());
+    }
+
+    public static ProcessingServiceManager instance() {
+        return Singleton.INSTANCE;
+    }
 
     /** The application context. */
     private final Context mAppContext;
@@ -48,29 +57,15 @@ public class ProcessingServiceManager {
     /** Can be set to prevent tasks from being processed until released.*/
     private boolean mHoldProcessing = false;
 
-    /**
-     * Initializes the singleton instance.
-     *
-     * @param context the application context.
-     */
-    public static void initSingleton(Context appContext) {
-        sInstance = new ProcessingServiceManager(appContext);
-    }
-
-    /**
-     * Note: Make sure to call {@link #initSingleton(Context)} first.
-     *
-     * @return the singleton instance of the processing service manager.
-     */
-    public static ProcessingServiceManager getInstance() {
-        if (sInstance == null) {
-            throw new IllegalStateException("initSingleton() not yet called.");
-        }
-        return sInstance;
-    }
+    private final ImageBackend mImageBackend;
 
     private ProcessingServiceManager(Context context) {
         mAppContext = context;
+
+        // Read and set the round thumbnail diameter value from resources.
+        int tinyThumbnailSize = context.getResources()
+              .getDimensionPixelSize(R.dimen.rounded_thumbnail_diameter_max);
+        mImageBackend = new ImageBackend(this, tinyThumbnailSize);
     }
 
     /**
@@ -79,6 +74,7 @@ public class ProcessingServiceManager {
      *
      * @param task The task to be enqueued.
      */
+    @Override
     public synchronized void enqueueTask(ProcessingTask task) {
         mQueue.add(task);
         Log.d(TAG, "Task added. Queue size now: " + mQueue.size());
@@ -145,6 +141,13 @@ public class ProcessingServiceManager {
                 startService();
             }
         }
+    }
+
+    /**
+     * @return the currently defined image backend for this service.
+     */
+    public ImageBackend getImageBackend() {
+        return mImageBackend;
     }
 
     /**

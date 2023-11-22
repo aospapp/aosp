@@ -362,6 +362,14 @@ public class CatService extends Handler implements AppInterface {
     private void handleCommand(CommandParams cmdParams, boolean isProactiveCmd) {
         CatLog.d(this, cmdParams.getCommandType().name());
 
+        // Log all proactive commands.
+        if (isProactiveCmd) {
+            if (mUiccController != null) {
+                mUiccController.addCardLog("ProactiveCommand mSlotId=" + mSlotId +
+                        " cmdParams=" + cmdParams);
+            }
+        }
+
         CharSequence message;
         CatCmdMessage cmdMsg = new CatCmdMessage(cmdParams);
         switch (cmdParams.getCommandType()) {
@@ -501,7 +509,7 @@ public class CatService extends Handler implements AppInterface {
         intent.putExtra("STK CMD", cmdMsg);
         intent.putExtra("SLOT_ID", mSlotId);
         CatLog.d(this, "Sending CmdMsg: " + cmdMsg+ " on slotid:" + mSlotId);
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, AppInterface.STK_PERMISSION);
     }
 
     /**
@@ -514,7 +522,7 @@ public class CatService extends Handler implements AppInterface {
         mCurrntCmd = mMenuCmd;
         Intent intent = new Intent(AppInterface.CAT_SESSION_END_ACTION);
         intent.putExtra("SLOT_ID", mSlotId);
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, AppInterface.STK_PERMISSION);
     }
 
 
@@ -626,9 +634,8 @@ public class CatService extends Handler implements AppInterface {
     }
 
     private void getPliResponse(ByteArrayOutputStream buf) {
-
         // Locale Language Setting
-        String lang = SystemProperties.get("persist.sys.language");
+        final String lang = Locale.getDefault().getLanguage();
 
         if (lang != null) {
             // tag
@@ -868,7 +875,7 @@ public class CatService extends Handler implements AppInterface {
         intent.putExtra(AppInterface.CARD_STATUS, cardPresent);
         CatLog.d(this, "Sending Card Status: "
                 + cardState + " " + "cardPresent: " + cardPresent);
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, AppInterface.STK_PERMISSION);
     }
 
     private void broadcastAlphaMessage(String alphaString) {
@@ -877,7 +884,7 @@ public class CatService extends Handler implements AppInterface {
         intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         intent.putExtra(AppInterface.ALPHA_STRING, alphaString);
         intent.putExtra("SLOT_ID", mSlotId);
-        mContext.sendBroadcast(intent);
+        mContext.sendBroadcast(intent, AppInterface.STK_PERMISSION);
     }
 
     @Override
@@ -954,6 +961,7 @@ public class CatService extends Handler implements AppInterface {
         case PRFRMD_WITH_MODIFICATION:
         case PRFRMD_NAA_NOT_ACTIVE:
         case PRFRMD_TONE_NOT_PLAYED:
+        case LAUNCH_BROWSER_ERROR:
         case TERMINAL_CRNTLY_UNABLE_TO_PROCESS:
             switch (type) {
             case SET_UP_MENU:

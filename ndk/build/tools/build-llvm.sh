@@ -28,7 +28,7 @@ PROGRAM_DESCRIPTION=\
 
 Where <src-dir> is the location of toolchain sources, <ndk-dir> is
 the top-level NDK installation path and <toolchain> is the name of
-the toolchain to use (e.g. llvm-3.4)."
+the toolchain to use (e.g. llvm-3.5)."
 
 RELEASE=`date +%Y%m%d`
 BUILD_OUT=/tmp/ndk-$USER/build/toolchain
@@ -47,6 +47,10 @@ register_var_option "--package-dir=<path>" PACKAGE_DIR "Create archive tarball i
 POLLY=no
 do_polly_option () { POLLY=yes; }
 register_option "--with-polly" do_polly_option "Enable Polyhedral optimizations for LLVM"
+
+MCLINKER=no
+do_mclinker_option () { MCLINKER=yes; }
+register_option "--mclinker" do_mclinker_option "Build mclinker as well"
 
 CHECK=no
 do_check_option () { CHECK=yes; }
@@ -143,6 +147,22 @@ if [ "$MINGW" != "yes" -a "$DARWIN" != "yes" ] ; then
     dump "Using C++ compiler: $CXX"
 fi
 
+if [ "$MINGW" = "yes" -a "$TRY64" != "yes" ]; then
+    # Clang3.5 and later needs gcc4.7+ to build, and some of
+    # cross toolchain "i586-*" we search for in find_mingw_toolchain()
+    # can no longer build.  One solution is to provide DEBIAN_NAME=mingw32
+    # BINPREFIX=i686-pc-mingw32msvc- MINGW_GCC=/path/to/i686-w64-mingw32,
+    # but ABI_CONFIGURE_HOST is still hard-coded to i586-pc-mingw32msvc.
+    # Fixup ABI_CONFIGURE_HOST in this case.
+    if [ "$ABI_CONFIGURE_HOST" = "i586-pc-mingw32msvc" ]; then
+        MINGW_GCC_BASENAME=`basename $MINGW_GCC`
+        if [ "$MINGW_GCC_BASENAME" = "${MINGW_GCC_BASENAME%%i585*}" ]; then
+            ABI_CONFIGURE_HOST=${MINGW_GCC_BASENAME%-gcc}
+	    STRIP=$ABI_CONFIGURE_HOST-strip
+        fi
+    fi
+fi
+
 rm -rf $BUILD_OUT
 mkdir -p $BUILD_OUT
 
@@ -161,8 +181,12 @@ LDFLAGS_FOR_BUILD="-L$TOOLCHAIN_BUILD_PREFIX/lib"
 
 # Statically link stdc++ to eliminate dependency on outdated libctdc++.so in old 32-bit
 # linux system, and libgcc_s_sjlj-1.dll and libstdc++-6.dll on windows
-if [ "$MINGW" = "yes" -o "$HOST_TAG" = "linux-x86" ]; then
-    LDFLAGS_FOR_BUILD=$LDFLAGS_FOR_BUILD" -static-libgcc -static-libstdc++"
+LLVM_VERSION="`echo $TOOLCHAIN | tr '-' '\n' | tail -n 1`"
+if [ "$MINGW" = "yes" -o "$HOST_TAG" = "linux-x86" -o "$LLVM_VERSION" \> "3.4" ]; then
+    LDFLAGS_FOR_BUILD=$LDFLAGS_FOR_BUILD" -static-libstdc++"
+    if [ "$CC" = "${CC%%clang*}" ]; then
+        LDFLAGS_FOR_BUILD=$LDFLAGS_FOR_BUILD" -static-libgcc"
+    fi
 fi
 
 CFLAGS="$CFLAGS $CFLAGS_FOR_BUILD $HOST_CFLAGS"
@@ -245,7 +269,6 @@ mkdir -p $LLVM_BUILD_OUT && cd $LLVM_BUILD_OUT
 fail_panic "Couldn't cd into llvm build path: $LLVM_BUILD_OUT"
 
 # Only start using integrated bc2native source >= 3.3 by default
-LLVM_VERSION="`echo $TOOLCHAIN | tr '-' '\n' | tail -n 1`"
 LLVM_VERSION_MAJOR=`echo $LLVM_VERSION | tr '.' '\n' | head -n 1`
 LLVM_VERSION_MINOR=`echo $LLVM_VERSION | tr '.' '\n' | tail -n 1`
 if [ $LLVM_VERSION_MAJOR -lt 3 ]; then
@@ -260,9 +283,10 @@ if [ "$USE_PYTHON" != "yes" ]; then
     rm -f $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native/*.c
     rm -f $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native/*.h
     run cp -a $NDK_DIR/tests/abcc/jni/*.cpp $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
-    run cp -a $NDK_DIR/tests/abcc/jni/*.h $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
+    run cp -a $NDK_DIR/tests/abcc/jni/Abcc.h $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
     run cp -a $NDK_DIR/tests/abcc/jni/host/*.cpp $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
     run cp -a $NDK_DIR/tests/abcc/jni/host/*.h $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
+    run cp -a $NDK_DIR/tests/abcc/jni/llvm_${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}.h $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native/llvm_version.h
     run cp -a $NDK_DIR/tests/abcc/jni/mman-win32/mman.[ch] $SRC_DIR/$TOOLCHAIN/llvm/tools/ndk-bc2native
     export LLVM_TOOLS_FILTER="PARALLEL_DIRS:=\$\$(PARALLEL_DIRS:%=% ndk-bc2native)"
 fi
@@ -323,7 +347,7 @@ if [ -f $TOOLCHAIN_BUILD_PREFIX/bin/llvm-config-host ] ; then
 fi
 
 # build mclinker only against default the LLVM version, once
-if [ "$TOOLCHAIN" = "llvm-$DEFAULT_LLVM_VERSION" ] ; then
+if [ "$MCLINKER" = "yes" -o "$TOOLCHAIN" = "llvm-$DEFAULT_LLVM_VERSION" ] ; then
     dump "Copy     : mclinker source"
     MCLINKER_SRC_DIR=$BUILD_OUT/mclinker
     mkdir -p $MCLINKER_SRC_DIR
@@ -333,6 +357,15 @@ if [ "$TOOLCHAIN" = "llvm-$DEFAULT_LLVM_VERSION" ] ; then
     fail_panic "Couldn't copy mclinker source: $MCLINKER_SRC_DIR"
 
     CXXFLAGS="$CXXFLAGS -fexceptions"  # optimized/ScriptParser.cc needs it
+    if [ "$MINGW" = "yes" ] ; then
+      # Windows dll targets is already build with position independent code, so adding
+      # -fPIC is considered insult to mingw-64 compilers which complains and dies
+      # if -Werror is also on
+      #
+      #  addng .../mclinker/lib/ADT/StringEntry.cpp:1:0: error: -fPIC ignored for target (all code is position independent) [-Werror]
+      #
+        CXXFLAGS="$CXXFLAGS -Wno-error"
+    fi
     export CXXFLAGS
 
     cd $MCLINKER_SRC_DIR && run ./autogen.sh
@@ -396,7 +429,8 @@ UNUSED_LLVM_EXECUTABLES="
 bugpoint c-index-test clang-check clang-format clang-tblgen lli llvm-bcanalyzer
 llvm-config llvm-config-host llvm-cov llvm-diff llvm-dwarfdump llvm-extract llvm-ld
 llvm-mc llvm-nm llvm-mcmarkup llvm-objdump llvm-prof llvm-ranlib llvm-readobj llvm-rtdyld
-llvm-size llvm-stress llvm-stub llvm-symbolizer llvm-tblgen macho-dump cloog lli-child-target"
+llvm-size llvm-stress llvm-stub llvm-symbolizer llvm-tblgen llvm-vtabledump macho-dump cloog
+llvm-vtabledump lli-child-target not count FileCheck llvm-profdata"
 
 for i in $UNUSED_LLVM_EXECUTABLES; do
     rm -f $TOOLCHAIN_BUILD_PREFIX/bin/$i
@@ -463,7 +497,7 @@ for ABI in $ABIS; do
       x86_64)
           LLVM_TARGET=x86_64-none-linux-android
           ;;
-      mips)
+      mips|mips32r6)
           LLVM_TARGET=mipsel-none-linux-android
           ;;
       mips64)

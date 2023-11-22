@@ -138,7 +138,7 @@ void write_sb(int fd, unsigned long long offset, struct ext4_super_block *sb);
 void write_ext4_image(int fd, int gz, int sparse, int crc);
 void ext4_create_fs_aux_info(void);
 void ext4_free_fs_aux_info(void);
-void ext4_fill_in_sb(void);
+void ext4_fill_in_sb(int real_uuid);
 void ext4_create_resize_inode(void);
 void ext4_create_journal_inode(void);
 void ext4_update_free(void);
@@ -150,14 +150,14 @@ u64 parse_num(const char *arg);
 void ext4_parse_sb_info(struct ext4_super_block *sb);
 u16 ext4_crc16(u16 crc_in, const void *buf, int size);
 
-typedef void (*fs_config_func_t)(const char *path, int dir, unsigned *uid, unsigned *gid,
-		unsigned *mode, uint64_t *capabilities);
+typedef void (*fs_config_func_t)(const char *path, int dir, const char *target_out_path,
+        unsigned *uid, unsigned *gid, unsigned *mode, uint64_t *capabilities);
 
 struct selabel_handle;
 
-int make_ext4fs_internal(int fd, const char *directory,
+int make_ext4fs_internal(int fd, const char *directory, const char *_target_out_directory,
 						 const char *mountpoint, fs_config_func_t fs_config_func, int gzip,
-						 int sparse, int crc, int wipe,
+						 int sparse, int crc, int wipe, int real_uuid,
 						 struct selabel_handle *sehnd, int verbose, time_t fixed_time,
 						 FILE* block_list_file);
 

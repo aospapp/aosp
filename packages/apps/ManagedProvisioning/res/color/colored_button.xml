@@ -18,6 +18,6 @@
 -->
 
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_enabled="false" android:color="@color/light_gray"/>
+    <item android:state_enabled="false" android:color="@color/gray"/>
     <item android:color="@color/accent"/>
 </selector>

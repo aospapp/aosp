@@ -15,6 +15,7 @@
  *
  */
 
+#include <inttypes.h>
 #include <math.h>
 #include <utils/Errors.h>
 #include "isv_processor.h"
@@ -208,8 +209,11 @@ status_t ISVProcessor::updateFirmwareOutputBufStatus(uint32_t fillBufNum) {
         }
 
         mInputBuffers.removeAt(0);
-        ALOGD_IF(ISV_THREAD_DEBUG, "%s: fetch buffer %u from input buffer queue for fill to decoder, and then queue size is %d", __func__,
-                inputBuffer, mInputBuffers.size());
+        ALOGD_IF(
+            ISV_THREAD_DEBUG,
+            "%s: fetch buffer %" PRIuPTR " from input buffer queue for fill to "
+            "decoder, and then queue size is %d", __func__,
+            reinterpret_cast<uintptr_t>(inputBuffer), mInputBuffers.size());
         mInputProcIdx--;
     }
 
@@ -241,8 +245,12 @@ status_t ISVProcessor::updateFirmwareOutputBufStatus(uint32_t fillBufNum) {
                 return UNKNOWN_ERROR;
             }
 
-            ALOGD_IF(ISV_THREAD_DEBUG, "%s: fetch buffer %u(timestamp %.2f ms) from output buffer queue for render, and then queue size is %d", __func__,
-                    outputBuffer, outputBuffer->nTimeStamp/1E3, mOutputBuffers.size());
+            ALOGD_IF(
+                ISV_THREAD_DEBUG,
+                "%s: fetch buffer %" PRIuPTR "(timestamp %.2f ms) from output "
+                "buffer queue for render, and then queue size is %d", __func__,
+                reinterpret_cast<uintptr_t>(outputBuffer),
+                outputBuffer->nTimeStamp/1E3, mOutputBuffers.size());
         }
         // remove filled buffers from output buffer queue
         mOutputBuffers.removeItemsAt(0, fillBufNum);
@@ -519,8 +527,10 @@ void ISVProcessor::addInput(OMX_BUFFERHEADERTYPE* input)
     if (ret == NOT_ENOUGH_DATA) {
         // release this buffer if frc is not ready.
         mpOwner->releaseBuffer(kPortIndexInput, input, false);
-        ALOGD_IF(ISV_THREAD_DEBUG, "%s: frc rate is not ready, release this buffer %u, fps %d", __func__,
-                input, mFilterParam.frameRate);
+        ALOGD_IF(ISV_THREAD_DEBUG,
+                 "%s: frc rate is not ready, release this buffer %" PRIuPTR
+                 ", fps %d", __func__, reinterpret_cast<uintptr_t>(input),
+                 mFilterParam.frameRate);
         return;
     } else if (ret == UNKNOWN_ERROR) {
         ALOGD_IF(ISV_THREAD_DEBUG, "%s: configFilters failed, bypass ISV", __func__);
@@ -536,10 +546,12 @@ void ISVProcessor::addInput(OMX_BUFFERHEADERTYPE* input)
         ALOGD_IF(ISV_COMPONENT_LOCK_DEBUG, "%s: acqired mInputLock", __func__);
 
         mInputBuffers.push_back(input);
-        ALOGD_IF(ISV_THREAD_DEBUG, "%s: hold pBuffer %u in input buffer queue. Intput queue size is %d, mInputProIdx %d.\
-                Output queue size is %d, mOutputProcIdx %d", __func__,
-                input, mInputBuffers.size(), mInputProcIdx,
-                mOutputBuffers.size(), mOutputProcIdx);
+        ALOGD_IF(ISV_THREAD_DEBUG,
+                 "%s: hold pBuffer %" PRIuPTR " in input buffer queue. Input "
+                 "queue size is %d, mInputProIdx %d. Output queue size is %d, "
+                 "mOutputProcIdx %d", __func__,
+                 reinterpret_cast<uintptr_t>(input), mInputBuffers.size(),
+                 mInputProcIdx, mOutputBuffers.size(), mOutputProcIdx);
         ALOGD_IF(ISV_COMPONENT_LOCK_DEBUG, "%s: releasing mInputLock", __func__);
     }
 
@@ -570,10 +582,12 @@ void ISVProcessor::addOutput(OMX_BUFFERHEADERTYPE* output)
         ALOGD_IF(ISV_COMPONENT_LOCK_DEBUG, "%s: acqired mOutputLock", __func__);
 
         mOutputBuffers.push_back(output);
-        ALOGD_IF(ISV_THREAD_DEBUG, "%s: hold pBuffer %u in output buffer queue. Input queue size is %d, mInputProIdx %d.\
-                Output queue size is %d, mOutputProcIdx %d", __func__,
-                output, mInputBuffers.size(), mInputProcIdx,
-                mOutputBuffers.size(), mOutputProcIdx);
+        ALOGD_IF(ISV_THREAD_DEBUG,
+                 "%s: hold pBuffer %" PRIuPTR " in output buffer queue. Input "
+                 "queue size is %d, mInputProIdx %d. Output queue size is %d, "
+                 "mOutputProcIdx %d", __func__,
+                 reinterpret_cast<uintptr_t>(output), mInputBuffers.size(),
+                 mInputProcIdx, mOutputBuffers.size(), mOutputProcIdx);
         ALOGD_IF(ISV_COMPONENT_LOCK_DEBUG, "%s: releasing mOutputLock", __func__);
     }
 
@@ -616,7 +630,10 @@ void ISVProcessor::flush()
         while (!mInputBuffers.empty()) {
             pBuffer = mInputBuffers.itemAt(0);
             mpOwner->releaseBuffer(kPortIndexInput, pBuffer, true);
-            ALOGD_IF(ISV_THREAD_DEBUG, "%s: Flush the pBuffer %u in input buffer queue.", __func__, pBuffer);
+            ALOGD_IF(
+                ISV_THREAD_DEBUG,
+                "%s: Flush the pBuffer %" PRIuPTR " in input buffer queue.",
+                __func__, reinterpret_cast<uintptr_t>(pBuffer));
             mInputBuffers.removeAt(0);
         }
     }
@@ -625,7 +642,10 @@ void ISVProcessor::flush()
         while (!mOutputBuffers.empty()) {
             pBuffer = mOutputBuffers.itemAt(0);
             mpOwner->releaseBuffer(kPortIndexOutput, pBuffer, true);
-            ALOGD_IF(ISV_THREAD_DEBUG, "%s: Flush the pBuffer %u in output buffer queue.", __func__, pBuffer);
+            ALOGD_IF(
+                ISV_THREAD_DEBUG, 
+                "%s: Flush the pBuffer %" PRIuPTR " in output buffer queue.",
+                __func__, reinterpret_cast<uintptr_t>(pBuffer));
             mOutputBuffers.removeAt(0);
         }
     }

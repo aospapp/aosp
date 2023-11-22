@@ -112,6 +112,9 @@ unw_step (unw_cursor_t *cursor)
   Debug (1, "(cursor=%p, ip=0x%016lx, cfa=0x%016lx))\n",
 	 c, c->dwarf.ip, c->dwarf.cfa);
 
+  unw_word_t old_ip = c->dwarf.ip;
+  unw_word_t old_cfa = c->dwarf.cfa;
+
   /* Check if this is a signal frame. */
   if (unw_is_signal_frame (cursor))
     /* ANDROID support update. */
@@ -145,9 +148,17 @@ unw_step (unw_cursor_t *cursor)
 
   if (ret >= 0)
     {
-      c->dwarf.frame++;
       if (c->dwarf.ip >= 4)
         c->dwarf.ip -= 4;
+      /* If the decode yields the exact same ip/cfa as before, then indicate
+         the unwind is complete. */
+      if (c->dwarf.ip == old_ip && c->dwarf.cfa == old_cfa)
+        {
+          Dprintf ("%s: ip and cfa unchanged; stopping here (ip=0x%lx)\n",
+                   __FUNCTION__, (long) c->dwarf.ip);
+          return -UNW_EBADFRAME;
+        }
+      c->dwarf.frame++;
     }
 
   if (unlikely (ret == -UNW_ESTOPUNWIND))

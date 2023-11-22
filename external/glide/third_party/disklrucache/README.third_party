@@ -1,5 +1,5 @@
-URL: https://github.com/JakeWharton/DiskLruCache/archive/disklrucache-2.0.2.tar.gz
-Version:c25de9c0a01974c41c75a41ba1bc4be8b3a1513a
+URL: https://github.com/JakeWharton/DiskLruCache/tarball/7a1ecbd38d2ad0873fb843e911d60235b7434acb
+Version: 7a1ecbd38d2ad0873fb843e911d60235b7434acb
 License: Apache 2.0
 License File: LICENSE
 
@@ -7,4 +7,4 @@ Description:
 Java implementation of a Disk-based LRU cache which specifically targets Android compatibility.
 
 Local Modifications:
-No local modifications.
+Exposed File objects directly to gets, removed key validation, removed test sources.

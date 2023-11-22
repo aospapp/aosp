@@ -1689,7 +1689,7 @@ public class GraphicalEditorPart extends EditorPart
             IProject project = getProject();
             ProjectResources projectRes = resManager.getProjectResources(project);
             mProjectCallback = new ProjectCallback(layoutLibrary, projectRes, project,
-                    mCredential);
+                    mCredential, this);
         } else if (reset) {
             // Also clears the set of missing/broken classes prior to rendering
             mProjectCallback.getMissingClasses().clear();

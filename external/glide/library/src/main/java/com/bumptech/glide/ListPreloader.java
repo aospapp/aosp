@@ -1,18 +1,17 @@
 package com.bumptech.glide;
 
-import android.annotation.TargetApi;
-import android.os.Build;
 import android.widget.AbsListView;
-import com.bumptech.glide.request.GlideAnimation;
-import com.bumptech.glide.request.target.BaseTarget;
 
-import java.util.ArrayDeque;
-import java.util.LinkedList;
+import com.bumptech.glide.request.animation.GlideAnimation;
+import com.bumptech.glide.request.target.BaseTarget;
+import com.bumptech.glide.request.target.SizeReadyCallback;
+import com.bumptech.glide.util.Util;
+
 import java.util.List;
 import java.util.Queue;
 
 /**
- * Loads a few images ahead in the direction of scrolling in any {@link AbsListView} so that images are in the memory
+ * Loads a few resources ahead in the direction of scrolling in any {@link AbsListView} so that images are in the memory
  * cache just before the corresponding view in created in the list. Gives the appearance of an infinitely large image
  * cache, depending on scrolling speed, cpu speed, and cache size.
  *
@@ -45,7 +44,9 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
     }
 
     @Override
-    public void onScrollStateChanged(AbsListView absListView, int i) { }
+    public void onScrollStateChanged(AbsListView absListView, int scrollState) {
+        // Do nothing.
+    }
 
     @Override
     public void onScroll(AbsListView absListView, int firstVisible, int visibleCount, int totalCount) {
@@ -59,7 +60,7 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
     }
 
     /**
-     * Returns the dimensions of the view in the list where the images will be displayed.
+     * Returns the dimensions of the view in the list where the resources will be displayed.
      * <p>
      *     Note - The dimensions returned here must precisely match those of the view in the list.
      * </p>
@@ -69,22 +70,23 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
     protected abstract int[] getDimensions(T item);
 
     /**
-     * Returns a list of all models that need to be loaded for the list to display adapter items start - end. A list of
-     * any size can be returned so there can be multiple models per adapter position.
+     * Returns a list of all models that need to be loaded for the list to display adapter items {@code start - end}.
+     * A list of any size can be returned so there can be multiple models per adapter position.
      *
-     * @param start The smallest adapter position. Will be >= 0 && < adapter.getCount() && <= end
-     * @param end The largest adapter position. Will be >= 0 && < adapter.getCount && >= start
-     * @return A non null list of all models for adapter positions between start and end.
+     * @param start The smallest adapter position. Will be {@code >= 0 && < adapter.getCount() && <= end}
+     * @param end The largest adapter position. Will be {@code >= 0 && < adapter.getCount && >= start}
+     * @return A non null list of all models for adapter positions between {@code start} and {@code end}.
      */
     protected abstract List<T> getItems(int start, int end);
 
     /**
-     * Returns a glide request for a given item. Must exactly match the request used to load the image in the list. The
-     * target and context will be provided by the preloader.
+     * Returns a glide request for a given item. Must exactly match the request used to load the resource in the list.
+     * The target and context will be provided by the preloader.
      *
      * @param item The model to load.
      * @return A non null {@link BitmapRequestBuilder}.
      */
+    @SuppressWarnings("rawtypes")
     protected abstract GenericRequestBuilder getRequestBuilder(T item);
 
     private void preload(int start, boolean increasing) {
@@ -126,6 +128,7 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
         lastEnd = end;
     }
 
+    @SuppressWarnings("unchecked")
     private void preloadItem(List<T> items, int position) {
         final T item = items.get(position);
         final int[] dimensions = getDimensions(item);
@@ -140,16 +143,11 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
         }
     }
 
-    private static class PreloadTargetQueue {
+    private static final class PreloadTargetQueue {
         private final Queue<PreloadTarget> queue;
 
-        @TargetApi(9)
-        private PreloadTargetQueue(int size) {
-            if (Build.VERSION.SDK_INT >= 9) {
-                queue = new ArrayDeque<PreloadTarget>(size);
-            } else {
-                queue = new LinkedList<PreloadTarget>();
-            }
+        public PreloadTargetQueue(int size) {
+            queue = Util.createQueue(size);
 
             for (int i = 0; i < size; i++) {
                 queue.offer(new PreloadTarget());
@@ -165,12 +163,12 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
         }
     }
 
-    private static class PreloadTarget extends BaseTarget {
+    private static class PreloadTarget extends BaseTarget<Object> {
         private int photoHeight;
         private int photoWidth;
 
         @Override
-        public void onResourceReady(Object resource, GlideAnimation glideAnimation) {
+        public void onResourceReady(Object resource, GlideAnimation<? super Object> glideAnimation) {
             // Do nothing.
         }
 
@@ -178,6 +176,5 @@ public abstract class ListPreloader<T> implements AbsListView.OnScrollListener {
         public void getSize(SizeReadyCallback cb) {
             cb.onSizeReady(photoWidth, photoHeight);
         }
-
     }
 }

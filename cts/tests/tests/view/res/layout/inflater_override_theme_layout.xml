@@ -43,4 +43,13 @@
             android:theme="?attr/themeOverrideAttr" />
     </LinearLayout>
 
+    <include
+        layout="@layout/single_view_layout"
+        android:id="@+id/view_include"
+        android:theme="@style/Theme_OverrideInclude" />
+
+    <include
+        layout="@layout/single_view_layout"
+        android:id="@+id/view_include_notheme" />
+
 </LinearLayout>

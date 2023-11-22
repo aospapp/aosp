@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef AMDGPUREGISTERINFO_H
-#define AMDGPUREGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_R600_AMDGPUREGISTERINFO_H
+#define LLVM_LIB_TARGET_R600_AMDGPUREGISTERINFO_H
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -30,9 +30,8 @@ class TargetInstrInfo;
 
 struct AMDGPURegisterInfo : public AMDGPUGenRegisterInfo {
   static const MCPhysReg CalleeSavedReg;
-  const AMDGPUSubtarget &ST;
 
-  AMDGPURegisterInfo(const AMDGPUSubtarget &st);
+  AMDGPURegisterInfo();
 
   BitVector getReservedRegs(const MachineFunction &MF) const override {
     assert(!"Unimplemented");  return BitVector();
@@ -62,4 +61,4 @@ struct AMDGPURegisterInfo : public AMDGPUGenRegisterInfo {
 
 } // End namespace llvm
 
-#endif // AMDIDSAREGISTERINFO_H
+#endif

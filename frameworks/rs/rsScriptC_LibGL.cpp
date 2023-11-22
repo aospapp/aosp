@@ -103,12 +103,12 @@ void rsrBindFrameBufferObjectDepthTarget(Context *rsc, Allocation *a) {
 }
 
 void rsrClearFrameBufferObjectColorTarget(Context *rsc, uint32_t slot) {
-    rsc->mFBOCache.bindColorTarget(rsc, NULL, slot);
+    rsc->mFBOCache.bindColorTarget(rsc, nullptr, slot);
     rsc->mStateVertex.updateSize(rsc);
 }
 
 void rsrClearFrameBufferObjectDepthTarget(Context *rsc) {
-    rsc->mFBOCache.bindDepthTarget(rsc, NULL);
+    rsc->mFBOCache.bindDepthTarget(rsc, nullptr);
     rsc->mStateVertex.updateSize(rsc);
 }
 
@@ -149,11 +149,7 @@ void rsrVpGetProjectionMatrix(Context *rsc, rsc_Matrix *m) {
 
 
 void rsrDrawPath(Context *rsc, Path *sm) {
-    CHECK_OBJ(sm);
-    if (!rsc->setupCheck()) {
-        return;
-    }
-    sm->render(rsc);
+    // Never shipped in a working state
 }
 
 void rsrDrawMesh(Context *rsc, Mesh *sm) {

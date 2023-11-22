@@ -492,7 +492,7 @@ static void
 TestLocaleStructure(void) {
     // This test checks the locale structure against a key file located
     // at source/test/testdata/structLocale.txt. When adding new data to
-    // a loale file such as en.txt, the structLocale.txt file must be changed
+    // a locale file such as en.txt, the structLocale.txt file must be changed
     // too to include the the template of the new data. Otherwise this test
     // will fail!
 
@@ -563,11 +563,8 @@ TestLocaleStructure(void) {
         if (strcmp(resolvedLoc, currLoc) != 0) {
             /* All locales have at least a Version resource.
                If it's absolutely empty, then the previous test will fail too.*/
-            /* Google Patch:  tl_PH and fil_PH are aliases of each other */
-            if (!(strcmp(currLoc, "tl_PH")==0 && strcmp(resolvedLoc, "fil_PH")==0) &&
-                !(strcmp(currLoc, "tl")==0 && strcmp(resolvedLoc, "fil")==0))
-                log_err("Locale resolves to different locale. Is %s an alias of %s?\n",
-                    currLoc, resolvedLoc);
+            log_err("Locale resolves to different locale. Is %s an alias of %s?\n",
+                currLoc, resolvedLoc);
         }
         TestKeyInRootRecursive(root, "root", currentLocale, currLoc);
 
@@ -1041,6 +1038,9 @@ static void VerifyTranslation(void) {
             }
             errorCode = U_ZERO_ERROR;
             numScripts = uscript_getCode(currLoc, scripts, sizeof(scripts)/sizeof(scripts[0]), &errorCode);
+            if (strcmp(currLoc, "yi") == 0 && numScripts > 0 && log_knownIssue("11217", "Fix result of uscript_getCode for yi: USCRIPT_YI -> USCRIPT_HEBREW")) {
+                scripts[0] = USCRIPT_HEBREW;
+            }
             if (numScripts == 0) {
                 log_err("uscript_getCode(%s) doesn't work.\n", currLoc);
             }else if(scripts[0] == USCRIPT_COMMON){
@@ -1083,6 +1083,10 @@ static void VerifyTranslation(void) {
                } else {
                    if ( strstr(fullLoc, "_US")!=NULL || strstr(fullLoc, "_MM")!=NULL || strstr(fullLoc, "_LR")!=NULL ) {
                        if(measurementSystem != UMS_US){
+                            log_err("ulocdata_getMeasurementSystem did not return expected data for locale %s \n", currLoc);
+                       }
+                   } else if ( strstr(fullLoc, "_GB")!=NULL ) {
+                       if(measurementSystem != UMS_UK){
                             log_err("ulocdata_getMeasurementSystem did not return expected data for locale %s \n", currLoc);
                        }
                    } else if (measurementSystem != UMS_SI) {
@@ -1170,6 +1174,9 @@ static void TestExemplarSet(void){
                 log_err("ExemplarSet contains unassigned characters for locale : %s\n", locale);
             }
             codeLen = uscript_getCode(locale, code, 8, &ec);
+            if (strcmp(locale, "yi") == 0 && codeLen > 0 && log_knownIssue("11217", "Fix result of uscript_getCode for yi: USCRIPT_YI -> USCRIPT_HEBREW")) {
+                code[0] = USCRIPT_HEBREW;
+            }
             if (!assertSuccess("uscript_getCode", &ec)) goto END;
 
             for (j=0; j<MAX_SCRIPTS_PER_LOCALE; ++j) {

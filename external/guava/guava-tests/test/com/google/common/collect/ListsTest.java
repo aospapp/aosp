@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.testing.IteratorFeature.UNMODIFIABLE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -28,12 +28,12 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.testing.IteratorTester;
 import com.google.common.collect.testing.ListTestSuiteBuilder;
-import com.google.common.collect.testing.SampleElements;
-import com.google.common.collect.testing.TestListGenerator;
 import com.google.common.collect.testing.TestStringListGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.ListFeature;
+import com.google.common.collect.testing.google.ListGenerators.CharactersOfCharSequenceGenerator;
+import com.google.common.collect.testing.google.ListGenerators.CharactersOfStringGenerator;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
 
@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Unit test for {@code Lists}.
@@ -68,6 +69,14 @@ public class ListsTest extends TestCase {
       = asList(0, 1, 1);
 
   private static final Iterable<Integer> SOME_ITERABLE = new SomeIterable();
+
+  private static final class RemoveFirstFunction
+      implements Function<String, String>, Serializable {
+    @Override
+    public String apply(String from) {
+      return (from.length() == 0) ? from : from.substring(1);
+    }
+  }
 
   private static class SomeIterable implements Iterable<Integer>, Serializable {
     @Override
@@ -106,34 +115,31 @@ public class ListsTest extends TestCase {
     suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
           @Override protected List<String> create(String[] elements) {
             String[] rest = new String[elements.length - 1];
-            Platform.unsafeArrayCopy(elements, 1, rest, 0, elements.length - 1);
+            System.arraycopy(elements, 1, rest, 0, elements.length - 1);
             return Lists.asList(elements[0], rest);
           }
         })
         .named("Lists.asList, 2 parameter")
         .withFeatures(CollectionSize.SEVERAL, CollectionSize.ONE,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_VALUES)
         .createTestSuite());
 
     suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
           @Override protected List<String> create(String[] elements) {
             String[] rest = new String[elements.length - 2];
-            Platform.unsafeArrayCopy(elements, 2, rest, 0, elements.length - 2);
+            System.arraycopy(elements, 2, rest, 0, elements.length - 2);
             return Lists.asList(elements[0], elements[1], rest);
           }
         })
         .named("Lists.asList, 3 parameter")
         .withFeatures(CollectionSize.SEVERAL,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_VALUES)
         .createTestSuite());
 
     final Function<String, String> removeFirst
-        = new Function<String, String>() {
-            @Override
-            public String apply(String from) {
-              return (from.length() == 0) ? from : from.substring(1);
-            }
-          };
+        = new RemoveFirstFunction();
 
     suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
           @Override protected List<String> create(String[] elements) {
@@ -147,6 +153,7 @@ public class ListsTest extends TestCase {
         .named("Lists.transform, random access, no nulls")
         .withFeatures(CollectionSize.ANY,
             ListFeature.REMOVE_OPERATIONS,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
 
@@ -162,6 +169,7 @@ public class ListsTest extends TestCase {
         .named("Lists.transform, sequential access, no nulls")
         .withFeatures(CollectionSize.ANY,
             ListFeature.REMOVE_OPERATIONS,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
 
@@ -174,6 +182,7 @@ public class ListsTest extends TestCase {
         .named("Lists.transform, random access, nulls")
         .withFeatures(CollectionSize.ANY,
             ListFeature.REMOVE_OPERATIONS,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_VALUES)
         .createTestSuite());
 
@@ -187,6 +196,7 @@ public class ListsTest extends TestCase {
         .named("Lists.transform, sequential access, nulls")
         .withFeatures(CollectionSize.ANY,
             ListFeature.REMOVE_OPERATIONS,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_VALUES)
         .createTestSuite());
 
@@ -234,55 +244,15 @@ public class ListsTest extends TestCase {
         CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
 
-    suite.addTest(
-        ListTestSuiteBuilder.using(new TestListGenerator<Character>() {
-          @Override public List<Character> create(Object... elements) {
-            char[] chars = new char[elements.length];
-            for (int i = 0; i < elements.length; i++)
-              chars[i] = (Character) elements[i];
-            return Lists.charactersOf(String.copyValueOf(chars));
-          }
-
-          @Override public Character[] createArray(int length) {
-            return new Character[length];
-          }
-
-          @Override public Iterable<Character> order(
-              List<Character> insertionOrder) {
-            return ImmutableList.copyOf(insertionOrder);
-          }
-
-          @Override public SampleElements<Character> samples() {
-            return new SampleElements<Character>('a', 'b', 'c', 'd', 'e');
-          }
-        }).named("Lists.charactersOf[String]").withFeatures(
-            CollectionSize.ANY, CollectionFeature.ALLOWS_NULL_QUERIES)
+    suite.addTest(ListTestSuiteBuilder.using(new CharactersOfStringGenerator())
+        .named("Lists.charactersOf[String]").withFeatures(
+            CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
+            CollectionFeature.ALLOWS_NULL_QUERIES)
             .createTestSuite());
 
-    suite.addTest(
-        ListTestSuiteBuilder.using(new TestListGenerator<Character>() {
-          @Override public List<Character> create(Object... elements) {
-            char[] chars = new char[elements.length];
-            for (int i = 0; i < elements.length; i++)
-              chars[i] = (Character) elements[i];
-            StringBuilder str = new StringBuilder();
-            str.append(chars);
-            return Lists.charactersOf(str);
-          }
-
-          @Override public Character[] createArray(int length) {
-            return new Character[length];
-          }
-
-          @Override public Iterable<Character> order(
-              List<Character> insertionOrder) {
-            return ImmutableList.copyOf(insertionOrder);
-          }
-
-          @Override public SampleElements<Character> samples() {
-            return new SampleElements<Character>('a', 'b', 'c', 'd', 'e');
-          }
-        }).named("Lists.charactersOf[CharSequence]").withFeatures(
+    suite.addTest(ListTestSuiteBuilder.using(new CharactersOfCharSequenceGenerator())
+        .named("Lists.charactersOf[CharSequence]").withFeatures(
             CollectionSize.ANY, CollectionFeature.ALLOWS_NULL_QUERIES)
             .createTestSuite());
 
@@ -382,8 +352,21 @@ public class ListsTest extends TestCase {
     assertEquals(SOME_COLLECTION, list);
   }
 
+  @GwtIncompatible("CopyOnWriteArrayList")
+  public void testNewCOWALEmpty() {
+    CopyOnWriteArrayList<Integer> list = Lists.newCopyOnWriteArrayList();
+    assertEquals(Collections.emptyList(), list);
+  }
+
+  @GwtIncompatible("CopyOnWriteArrayList")
+  public void testNewCOWALFromIterable() {
+    CopyOnWriteArrayList<Integer> list = Lists.newCopyOnWriteArrayList(
+        SOME_ITERABLE);
+    assertEquals(SOME_COLLECTION, list);
+  }
+
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointerExceptions() throws Exception {
+  public void testNullPointerExceptions() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(Lists.class);
   }
@@ -435,7 +418,7 @@ public class ListsTest extends TestCase {
   }
 
   private void checkFooBarBazList(List<String> list) {
-    ASSERT.that(list).hasContentsInOrder("foo", "bar", "baz");
+    ASSERT.that(list).has().exactly("foo", "bar", "baz").inOrder();
     assertEquals(3, list.size());
     assertIndexIsOutOfBounds(list, -1);
     assertEquals("foo", list.get(0));
@@ -446,7 +429,7 @@ public class ListsTest extends TestCase {
 
   public void testAsList1Small() {
     List<String> list = Lists.asList("foo", new String[0]);
-    ASSERT.that(list).hasContentsInOrder("foo");
+    ASSERT.that(list).has().item("foo");
     assertEquals(1, list.size());
     assertIndexIsOutOfBounds(list, -1);
     assertEquals("foo", list.get(0));
@@ -477,7 +460,7 @@ public class ListsTest extends TestCase {
   @GwtIncompatible("SerializableTester")
   public void testAsList2Small() {
     List<String> list = Lists.asList("foo", "bar", new String[0]);
-    ASSERT.that(list).hasContentsInOrder("foo", "bar");
+    ASSERT.that(list).has().exactly("foo", "bar").inOrder();
     assertEquals(2, list.size());
     assertIndexIsOutOfBounds(list, -1);
     assertEquals("foo", list.get(0));
@@ -543,18 +526,65 @@ public class ListsTest extends TestCase {
     assertEquals(Collections.emptyList(), fromList);
   }
 
-  @GwtIncompatible("SerializableTester")
-  public void testTransformEqualityRandomAccess() {
-    List<String> list = Lists.transform(SOME_LIST, SOME_FUNCTION);
-    assertEquals(SOME_STRING_LIST, list);
-    SerializableTester.reserializeAndAssert(list);
+  private static <E> List<E> list(E... elements) {
+    return ImmutableList.copyOf(elements);
   }
 
-  @GwtIncompatible("SerializableTester")
-  public void testTransformEqualitySequential() {
-    List<String> list = Lists.transform(SOME_SEQUENTIAL_LIST, SOME_FUNCTION);
-    assertEquals(SOME_STRING_LIST, list);
-    SerializableTester.reserializeAndAssert(list);
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_binary1x1() {
+    ASSERT.that(Lists.cartesianProduct(list(1), list(2))).has().item(list(1, 2));
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_binary1x2() {
+    ASSERT.that(Lists.cartesianProduct(list(1), list(2, 3)))
+        .has().exactly(list(1, 2), list(1, 3)).inOrder();
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_binary2x2() {
+    ASSERT.that(Lists.cartesianProduct(list(1, 2), list(3, 4)))
+        .has().exactly(list(1, 3), list(1, 4), list(2, 3), list(2, 4)).inOrder();
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_2x2x2() {
+    ASSERT.that(Lists.cartesianProduct(list(0, 1), list(0, 1), list(0, 1))).has().exactly(
+        list(0, 0, 0), list(0, 0, 1), list(0, 1, 0), list(0, 1, 1),
+        list(1, 0, 0), list(1, 0, 1), list(1, 1, 0), list(1, 1, 1)).inOrder();
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_contains() {
+    List<List<Integer>> actual = Lists.cartesianProduct(list(1, 2), list(3, 4));
+    assertTrue(actual.contains(list(1, 3)));
+    assertTrue(actual.contains(list(1, 4)));
+    assertTrue(actual.contains(list(2, 3)));
+    assertTrue(actual.contains(list(2, 4)));
+    assertFalse(actual.contains(list(3, 1)));
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProduct_unrelatedTypes() {
+    List<Integer> x = list(1, 2);
+    List<String> y = list("3", "4");
+
+    List<Object> exp1 = list((Object) 1, "3");
+    List<Object> exp2 = list((Object) 1, "4");
+    List<Object> exp3 = list((Object) 2, "3");
+    List<Object> exp4 = list((Object) 2, "4");
+
+    ASSERT.that(Lists.<Object>cartesianProduct(x, y))
+        .has().exactly(exp1, exp2, exp3, exp4).inOrder();
+  }
+
+  @SuppressWarnings("unchecked") // varargs!
+  public void testCartesianProductTooBig() {
+    List<String> list = Collections.nCopies(10000, "foo");
+    try {
+      Lists.cartesianProduct(list, list, list, list, list);
+      fail("Expected IAE");
+    } catch (IllegalArgumentException expected) {}
   }
 
   public void testTransformHashCodeRandomAccess() {
@@ -651,6 +681,20 @@ public class ListsTest extends TestCase {
     assertTransformListIterator(list);
   }
 
+  public void testTransformPreservesIOOBEsThrownByFunction() {
+    try {
+      Lists.transform(ImmutableList.of("foo", "bar"), new Function<String, String>() {
+        @Override
+        public String apply(String input) {
+          throw new IndexOutOfBoundsException();
+        }
+      }).toArray();
+      fail();
+    } catch (IndexOutOfBoundsException expected) {
+      // success
+    }
+  }
+
   private static void assertTransformListIterator(List<String> list) {
     ListIterator<String> iterator = list.listIterator(1);
     assertEquals(1, iterator.nextIndex());
@@ -721,6 +765,7 @@ public class ListsTest extends TestCase {
     ListIterator<Integer> sampleListIterator =
         SOME_SEQUENTIAL_LIST.listIterator();
     List<Integer> listMock = EasyMock.createMock(IntegerList.class);
+    EasyMock.expect(listMock.size()).andReturn(SOME_SEQUENTIAL_LIST.size());
     EasyMock.expect(listMock.listIterator(0)).andReturn(sampleListIterator);
     EasyMock.replay(listMock);
     List<String> transform = Lists.transform(listMock, SOME_FUNCTION);
@@ -857,6 +902,4 @@ public class ListsTest extends TestCase {
   public void testPartitionSize_2() {
     assertEquals(2, Lists.partition(Collections.nCopies(0x40000001, 1), 0x40000000).size());
   }
-
-  // These tests are quick and basic and don't actually show unmodifiability...
 }

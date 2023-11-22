@@ -38,11 +38,13 @@ class ElfWriter {
   // Looks up information about location of oat file in elf file container.
   // Used for ImageWriter to perform memory layout.
   static void GetOatElfInformation(File* file,
-                                   size_t& oat_loaded_size,
-                                   size_t& oat_data_offset);
+                                   size_t* oat_loaded_size,
+                                   size_t* oat_data_offset);
 
   // Returns runtime oat_data runtime address for an opened ElfFile.
-  static uint32_t GetOatDataAddress(ElfFile* elf_file);
+  static uintptr_t GetOatDataAddress(ElfFile* elf_file);
+
+  static bool Fixup(File* file, uintptr_t oat_data_begin);
 
  protected:
   ElfWriter(const CompilerDriver& driver, File* elf_file)

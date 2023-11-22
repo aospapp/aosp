@@ -4,8 +4,9 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _APPLE_INT_H_
-#define _APPLE_INT_H_
+#ifndef CORE_SRC_FXGE_APPLE_APPLE_INT_H_
+#define CORE_SRC_FXGE_APPLE_APPLE_INT_H_
+
 #if _FXM_PLATFORM_  == _FXM_PLATFORM_APPLE_
 #if _FX_OS_ == _FX_MACOSX_
 #include <Carbon/Carbon.h>
@@ -61,7 +62,7 @@ public:
     void saveGraphicsState(void* graphics);
     void restoreGraphicsState(void* graphics);
 };
-class CApplePlatform : public CFX_Object
+class CApplePlatform 
 {
 public:
     CApplePlatform()
@@ -185,28 +186,28 @@ protected:
     FX_INT32	_horzSize;
     FX_INT32	_vertSize;
 };
-class CFX_FontProvider : public IFX_FileRead
+class CFX_FontProvider FX_FINAL : public IFX_FileRead
 {
 public:
-    virtual void			Release()
+    virtual void			Release() FX_OVERRIDE
     {
         delete this;
     }
-    virtual FX_FILESIZE		GetSize()
+    virtual FX_FILESIZE		GetSize() FX_OVERRIDE
     {
         return (FX_FILESIZE)_totalSize;
     }
-    virtual FX_BOOL			ReadBlock(void* buffer, FX_FILESIZE offset, size_t size);
+    virtual FX_BOOL			ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) FX_OVERRIDE;
 
-    virtual FX_BOOL			IsEOF()
+    virtual FX_BOOL			IsEOF() FX_OVERRIDE
     {
         return _offSet == _totalSize;
     }
-    virtual FX_FILESIZE		GetPosition()
+    virtual FX_FILESIZE		GetPosition() FX_OVERRIDE
     {
         return (FX_FILESIZE)_offSet;
     }
-    virtual size_t			ReadBlock(void* buffer, size_t size);
+    virtual size_t			ReadBlock(void* buffer, size_t size) FX_OVERRIDE;
 public:
     CFX_FontProvider(CGFontRef cgFont);
     ~CFX_FontProvider();
@@ -243,4 +244,5 @@ FX_DWORD  FX_IOSGetMatchFamilyNameHashcode(FX_LPCSTR pFontName);
 FX_UINT32 FX_IOSGetFamilyNamesCount();
 FX_LPCSTR FX_IOSGetFamilyName( FX_UINT32 uIndex);
 #endif
-#endif
+
+#endif  // CORE_SRC_FXGE_APPLE_APPLE_INT_H_

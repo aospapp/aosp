@@ -41,7 +41,6 @@ final class BluetoothMasRequestGetMessagesListing extends BluetoothMasRequest {
     public BluetoothMasRequestGetMessagesListing(String folderName, int parameters,
             BluetoothMasClient.MessagesFilter filter, int subjectLength, int maxListCount,
             int listStartOffset) {
-
         if (subjectLength < 0 || subjectLength > 255) {
             throw new IllegalArgumentException("subjectLength should be [0..255]");
         }
@@ -97,8 +96,14 @@ final class BluetoothMasRequestGetMessagesListing extends BluetoothMasRequest {
         if (subjectLength != 0) {
             oap.add(OAP_TAGID_SUBJECT_LENGTH, (byte) subjectLength);
         }
-
-        if (maxListCount != 0) {
+        /* Include parameterMask only when specific values are selected,
+         * to avoid IOT specific issue with no paramterMask header support.
+         */
+        if (parameters >  0 ) {
+            oap.add(OAP_TAGID_PARAMETER_MASK, parameters);
+        }
+        // Allow GetMessageListing for maxlistcount value 0 also.
+        if (maxListCount >= 0) {
             oap.add(OAP_TAGID_MAX_LIST_COUNT, (short) maxListCount);
         }
 
@@ -122,8 +127,8 @@ final class BluetoothMasRequestGetMessagesListing extends BluetoothMasRequest {
 
         if (oap.exists(OAP_TAGID_MSE_TIME)) {
             String mseTime = oap.getString(OAP_TAGID_MSE_TIME);
-
-            mServerTime = (new ObexTime(mseTime)).getTime();
+            if(mseTime != null )
+               mServerTime = (new ObexTime(mseTime)).getTime();
         }
     }
 

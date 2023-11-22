@@ -6,16 +6,17 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Target/TargetLDBackend.h>
-#include <mcld/LinkerConfig.h>
+#include "mcld/Target/TargetLDBackend.h"
 
-using namespace mcld;
+#include "mcld/LinkerConfig.h"
+
+namespace mcld {
 
 TargetLDBackend::TargetLDBackend(const LinkerConfig& pConfig)
-  : m_Config(pConfig) {
+    : m_Config(pConfig) {
 }
 
-TargetLDBackend::~TargetLDBackend()
-{
+TargetLDBackend::~TargetLDBackend() {
 }
 
+}  // namespace mcld

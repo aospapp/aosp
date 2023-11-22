@@ -31,11 +31,16 @@ OMXVideoDecoderBase::OMXVideoDecoderBase()
 #ifdef TARGET_HAS_ISV
       mVppBufferNum(0),
 #endif
+      mCodecPriority(1),
+      mOperatingRate(0),
       mVideoDecoder(NULL),
       mNativeBufferCount(OUTPORT_NATIVE_BUFFER_COUNT),
       mWorkingMode(RAWDATA_MODE),
-      mErrorReportEnabled (false) {
+      mErrorReportEnabled (false),
+      mAPMode(LEGACY_MODE),
+      mFormatChanged(false) {
       mOMXBufferHeaderTypePtrNum = 0;
+      mMetaDataBuffersNum = 0;
       memset(&mGraphicBufferParam, 0, sizeof(mGraphicBufferParam));
 }
 
@@ -295,7 +300,27 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorPreFreeBuffer(OMX_U32 nPortIndex, OM
             LOGW("ProcessorPreFillBuffer: Video decoder is not created");
             return OMX_ErrorDynamicResourcesUnavailable;
         }
-        status = mVideoDecoder->signalRenderDone(buffer->pBuffer);
+
+        if (mAPMode == METADATA_MODE) {
+            bool found = false;
+            if (mOMXBufferHeaderTypePtrNum < mMetaDataBuffersNum) {
+                for (uint32_t i = 0; i < mOMXBufferHeaderTypePtrNum; i++) {
+                    if (mOMXBufferHeaderTypePtrArray[i] == buffer) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    mOMXBufferHeaderTypePtrArray[mOMXBufferHeaderTypePtrNum] = buffer;
+                    mOMXBufferHeaderTypePtrNum++;
+                }
+            }
+
+            VideoDecoderOutputMetaData *metadata = (VideoDecoderOutputMetaData *)(buffer->pBuffer);
+            status = mVideoDecoder->signalRenderDone((void *)(metadata->pHandle), !found);
+        } else {
+            status = mVideoDecoder->signalRenderDone(buffer->pBuffer);
+        }
 
         if (status != DECODE_SUCCESS) {
             LOGW("ProcessorPreFillBuffer:: signalRenderDone return error");
@@ -324,6 +349,14 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         if (isResolutionChange) {
             HandleFormatChange();
         }
+
+        // Actually, if mAPMode is set, mWorkingMode should be GRAPHICBUFFER_MODE.
+        if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
+            if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
+                HandleFormatChange();
+            }
+        }
+
         // TODO: continue decoding
         return ret;
     } else if (ret != OMX_ErrorNotReady) {
@@ -346,15 +379,20 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
         //pthread_mutex_unlock(&mSerializationLock);
 
         if (status == DECODE_FORMAT_CHANGE) {
-            ret = HandleFormatChange();
-            CHECK_RETURN_VALUE("HandleFormatChange");
-            ((*pBuffers[OUTPORT_INDEX]))->nFilledLen = 0;
-            retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-            retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
-            // real dynamic resolution change will be handled later
-            // Here is just a temporary workaround
-            // don't use the output buffer if format is changed.
-            return OMX_ErrorNone;
+            if ((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) {
+                mFormatChanged = true;
+                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+            } else {
+                ret = HandleFormatChange();
+                CHECK_RETURN_VALUE("HandleFormatChange");
+                ((*pBuffers[OUTPORT_INDEX]))->nFilledLen = 0;
+                retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                retains[INPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
+                // real dynamic resolution change will be handled later
+                // Here is just a temporary workaround
+                // don't use the output buffer if format is changed.
+                return OMX_ErrorNone;
+            }
         } else if (status == DECODE_NO_CONFIG) {
             LOGW("Decoder returns DECODE_NO_CONFIG.");
             retains[OUTPORT_INDEX] = BUFFER_RETAIN_GETAGAIN;
@@ -394,6 +432,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::ProcessorProcess(
 
     if (isResolutionChange) {
         HandleFormatChange();
+    }
+
+    if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
+        if (((*pBuffers[OUTPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS) || (mVideoDecoder->getOutputQueueLength() == 0)) {
+            HandleFormatChange();
+        }
     }
 
     bool inputEoS = ((*pBuffers[INPORT_INDEX])->nFlags & OMX_BUFFERFLAG_EOS);
@@ -443,11 +487,32 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareConfigBuffer(VideoConfigBuffer *p) {
     }
 
     if (mWorkingMode == GRAPHICBUFFER_MODE) {
-        p->surfaceNumber = mOMXBufferHeaderTypePtrNum;
-        for (uint32_t i = 0; i < mOMXBufferHeaderTypePtrNum; i++){
-            OMX_BUFFERHEADERTYPE *buffer_hdr = mOMXBufferHeaderTypePtrArray[i];
-            p->graphicBufferHandler[i] = buffer_hdr->pBuffer;
-            LOGV("PrepareConfigBuffer bufferid = %p, handle = %p", buffer_hdr, buffer_hdr->pBuffer);
+        if (mAPMode == METADATA_MODE) {
+            const OMX_PARAM_PORTDEFINITIONTYPE *def_output = this->ports[OUTPORT_INDEX]->GetPortDefinition();
+            if (def_output == NULL) {
+                return OMX_ErrorBadParameter;
+            }
+
+            mMetaDataBuffersNum = def_output->nBufferCountActual;
+            mOMXBufferHeaderTypePtrNum = 0;
+
+            mGraphicBufferParam.graphicBufferColorFormat = def_output->format.video.eColorFormat;
+            mGraphicBufferParam.graphicBufferStride = getStride(def_output->format.video.nFrameWidth);
+            mGraphicBufferParam.graphicBufferWidth = def_output->format.video.nFrameWidth;
+            mGraphicBufferParam.graphicBufferHeight = (def_output->format.video.nFrameHeight + 0xf) & ~0xf;
+
+            p->surfaceNumber = mMetaDataBuffersNum;
+            for (int i = 0; i < MAX_GRAPHIC_BUFFER_NUM; i++) {
+                p->graphicBufferHandler[i] = NULL;
+            }
+            p->flag |= WANT_STORE_META_DATA;
+        } else {
+            p->surfaceNumber = mOMXBufferHeaderTypePtrNum;
+            for (uint32_t i = 0; i < mOMXBufferHeaderTypePtrNum; i++){
+                OMX_BUFFERHEADERTYPE *buffer_hdr = mOMXBufferHeaderTypePtrArray[i];
+                p->graphicBufferHandler[i] = buffer_hdr->pBuffer;
+                LOGV("PrepareConfigBuffer bufferid = %p, handle = %p", buffer_hdr, buffer_hdr->pBuffer);
+            }
         }
         p->flag |= USE_NATIVE_GRAPHIC_BUFFER;
         p->graphicBufferStride = mGraphicBufferParam.graphicBufferStride;
@@ -534,8 +599,7 @@ OMX_ERRORTYPE OMXVideoDecoderBase::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE *buf
     return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer, buffer_retain_t *retain,
-    OMX_U32 inportBufferFlags, OMX_BOOL *isResolutionChange) {
+OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuffer, buffer_retain_t *retain, OMX_U32 inportBufferFlags, OMX_BOOL *isResolutionChange) {
     OMX_BUFFERHEADERTYPE *buffer = *pBuffer;
     OMX_BUFFERHEADERTYPE *buffer_orign = buffer;
     VideoErrorBuffer *ErrBufPtr = NULL;
@@ -555,8 +619,13 @@ OMX_ERRORTYPE OMXVideoDecoderBase::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBuff
 
     bool draining = (inportBufferFlags & OMX_BUFFERFLAG_EOS);
     //pthread_mutex_lock(&mSerializationLock);
-    const VideoRenderBuffer *renderBuffer = mVideoDecoder->getOutput(draining, ErrBufPtr);
+    const VideoRenderBuffer *renderBuffer;
     //pthread_mutex_unlock(&mSerializationLock);
+    if (((mAPMode == METADATA_MODE) && (mWorkingMode == GRAPHICBUFFER_MODE)) && mFormatChanged) {
+         renderBuffer = mVideoDecoder->getOutput(true, ErrBufPtr);
+    } else {
+         renderBuffer = mVideoDecoder->getOutput(draining, ErrBufPtr);
+    }
     if (renderBuffer == NULL) {
         buffer->nFilledLen = 0;
         if (draining) {
@@ -635,6 +704,44 @@ OMX_ERRORTYPE OMXVideoDecoderBase::HandleFormatChange(void) {
     uint32_t sliceHeightCropped = heightCropped;
     int force_realloc = 0;
     bool isVP8 = false;
+
+    if (mAPMode == METADATA_MODE && mWorkingMode == GRAPHICBUFFER_MODE) {
+#ifdef TARGET_HAS_ISV
+        if (paramPortDefinitionOutput.nBufferCountActual - mVppBufferNum < formatInfo->actualBufferNeeded) {
+#else
+        if (paramPortDefinitionOutput.nBufferCountActual < formatInfo->actualBufferNeeded) {
+#endif
+            paramPortDefinitionOutput.nBufferCountActual = mNativeBufferCount = formatInfo->actualBufferNeeded;
+            paramPortDefinitionOutput.nBufferCountMin = formatInfo->actualBufferNeeded - 4;
+        }
+        // input port
+        paramPortDefinitionInput.format.video.nFrameWidth = width;
+        paramPortDefinitionInput.format.video.nFrameHeight = height;
+        paramPortDefinitionInput.format.video.nStride = stride;
+        paramPortDefinitionInput.format.video.nSliceHeight = sliceHeight;
+        // output port
+        paramPortDefinitionOutput.format.video.nFrameWidth = width;
+        paramPortDefinitionOutput.format.video.nFrameHeight = (height + 0x1f) & ~0x1f;
+        paramPortDefinitionOutput.format.video.eColorFormat = GetOutputColorFormat(paramPortDefinitionOutput.format.video.nFrameWidth);
+        paramPortDefinitionOutput.format.video.nStride = stride;
+        paramPortDefinitionOutput.format.video.nSliceHeight = sliceHeight;
+
+        paramPortDefinitionOutput.bEnabled = (OMX_BOOL)false;
+        mOMXBufferHeaderTypePtrNum = 0;
+        memset(&mGraphicBufferParam, 0, sizeof(mGraphicBufferParam));
+        mMetaDataBuffersNum = 0;
+
+        this->ports[INPORT_INDEX]->SetPortDefinition(&paramPortDefinitionInput, true);
+        this->ports[OUTPORT_INDEX]->SetPortDefinition(&paramPortDefinitionOutput, true);
+
+        mVideoDecoder->freeSurfaceBuffers();
+
+        ProcessorFlush(INPORT_INDEX);
+        this->ports[OUTPORT_INDEX]->ReportPortSettingsChanged();
+
+        mFormatChanged = false;
+        return OMX_ErrorNone;
+    }
 
 #ifdef TARGET_HAS_ISV
     LOGI("============== mVppBufferNum = %d\n", mVppBufferNum);
@@ -776,7 +883,12 @@ OMX_ERRORTYPE OMXVideoDecoderBase::BuildHandlerList(void) {
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtVppBufferNum), GetDecoderVppBufferNum, SetDecoderVppBufferNum);
 #endif
     AddHandler(OMX_IndexConfigCommonOutputCrop, GetDecoderOutputCrop, SetDecoderOutputCrop);
+#ifdef USE_META_DATA
+    AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexStoreMetaDataInBuffers), GetStoreMetaDataMode, SetStoreMetaDataMode);
+#endif
     AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexExtEnableErrorReport), GetErrorReportMode, SetErrorReportMode);
+    AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexConfigPriority), GetCodecPriority, SetCodecPriority);
+    AddHandler(static_cast<OMX_INDEXTYPE>(OMX_IndexConfigOperatingRate), GetDecoderOperatingRate, SetDecoderOperatingRate);
 
     return OMX_ErrorNone;
 }
@@ -814,7 +926,10 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetNativeBufferUsageSpecific(OMX_PTR pStructu
      OMX_ERRORTYPE ret;
      GetAndroidNativeBufferUsageParams *param = (GetAndroidNativeBufferUsageParams*)pStructure;
      CHECK_TYPE_HEADER(param);
-     param->nUsage |= GRALLOC_USAGE_HW_TEXTURE;
+     // hardware usage: consumed by GLES and HWC
+     param->nUsage |= GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_COMPOSER;
+     // software usage: can be read/written by apps
+     param->nUsage |= GRALLOC_USAGE_SW_READ_RARELY | GRALLOC_USAGE_SW_WRITE_RARELY;
      return OMX_ErrorNone;
 }
 OMX_ERRORTYPE OMXVideoDecoderBase::SetNativeBufferUsageSpecific(OMX_PTR) {
@@ -919,6 +1034,40 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetNativeBufferModeSpecific(OMX_PTR pStructur
     return OMX_ErrorNone;
 }
 
+OMX_ERRORTYPE OMXVideoDecoderBase::GetStoreMetaDataMode(OMX_PTR) {
+    ALOGE("GetMetaDataMode is not implemented");
+    return OMX_ErrorNotImplemented;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetStoreMetaDataMode(OMX_PTR pStructure) {
+#ifndef USE_META_DATA
+    OMX_PARAM_PORTDEFINITIONTYPE defInput;
+    memcpy(&defInput,
+        this->ports[INPORT_INDEX]->GetPortDefinition(),
+        sizeof(defInput));
+    if (defInput.format.video.eCompressionFormat == OMX_VIDEO_CodingVP9) {
+        ALOGE("SetMetaDataMode for VP9 is not implemented");
+        return OMX_ErrorNotImplemented;
+    }
+#endif
+    OMX_ERRORTYPE ret;
+    StoreMetaDataInBuffersParams *param = (StoreMetaDataInBuffersParams*)pStructure;
+
+    CHECK_TYPE_HEADER(param);
+    CHECK_PORT_INDEX(param, OUTPORT_INDEX);
+    CHECK_SET_PARAM_STATE();
+
+    if (!param->bStoreMetaData) {
+        mAPMode = LEGACY_MODE;
+        // Don't return error which otherwise may cause framework crash
+        return OMX_ErrorNone;
+    }
+    mAPMode = METADATA_MODE;
+    ALOGI("We are in meta data mode!!!");
+
+    return OMX_ErrorNone;
+}
+
 OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderRotation(OMX_PTR) {
     return OMX_ErrorBadParameter;
 }
@@ -960,12 +1109,25 @@ OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderOutputCropSpecific(OMX_PTR pStructu
     if (rectParams->nPortIndex != OUTPORT_INDEX) {
         return OMX_ErrorUndefined;
     }
+
+    PortVideo *port = NULL;
+    port = static_cast<PortVideo *>(this->ports[OUTPORT_INDEX]);
+    OMX_PARAM_PORTDEFINITIONTYPE port_def;
+    memcpy(&port_def,port->GetPortDefinition(),sizeof(port_def));
+
     const VideoFormatInfo *formatInfo = mVideoDecoder->getFormatInfo();
     if (formatInfo->valid == true) {
         rectParams->nLeft =  formatInfo->cropLeft;
         rectParams->nTop = formatInfo->cropTop;
         rectParams->nWidth = formatInfo->width - formatInfo->cropLeft - formatInfo->cropRight;
         rectParams->nHeight = formatInfo->height - formatInfo->cropTop - formatInfo->cropBottom;
+
+        // if port width parsed from extractor is not as same as from SPS/PPS nalu header,
+        // align it.
+        if (port_def.format.video.nFrameWidth != rectParams->nWidth) {
+            port_def.format.video.nFrameWidth = rectParams->nWidth;
+        }
+        port->SetPortDefinition(&port_def,true);
         return OMX_ErrorNone;
     } else {
         return OMX_ErrorFormatNotDetected;
@@ -982,6 +1144,40 @@ OMX_ERRORTYPE OMXVideoDecoderBase::SetDecoderOutputCrop(OMX_PTR pStructure) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderOutputCrop(OMX_PTR pStructure) {
     return this->GetDecoderOutputCropSpecific(pStructure);
+}
+
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetCodecPriority(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    OMX_PARAM_U32TYPE *priorityParam = (OMX_PARAM_U32TYPE *)pStructure;
+    mCodecPriority = priorityParam->nU32;
+    return OMX_ErrorNone;
+}
+
+
+OMX_ERRORTYPE OMXVideoDecoderBase::GetCodecPriority(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    OMX_PARAM_U32TYPE *priorityParam = (OMX_PARAM_U32TYPE *)pStructure;
+    CHECK_TYPE_HEADER(priorityParam);
+    priorityParam->nU32 = mCodecPriority;
+    return OMX_ErrorNone;
+}
+
+
+OMX_ERRORTYPE OMXVideoDecoderBase::SetDecoderOperatingRate(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    OMX_PARAM_U32TYPE *operatingRateParam = (OMX_PARAM_U32TYPE *)pStructure;
+    CHECK_TYPE_HEADER(operatingRateParam);
+    mOperatingRate = operatingRateParam->nU32;
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OMXVideoDecoderBase::GetDecoderOperatingRate(OMX_PTR pStructure) {
+    OMX_ERRORTYPE ret;
+    OMX_PARAM_U32TYPE *operatingRateParam = (OMX_PARAM_U32TYPE *)pStructure;
+    CHECK_TYPE_HEADER(operatingRateParam);
+    operatingRateParam->nU32 = mOperatingRate;
+    return OMX_ErrorNone;
 }
 
 OMX_ERRORTYPE OMXVideoDecoderBase::GetErrorReportMode(OMX_PTR) {
@@ -1018,4 +1214,23 @@ OMX_COLOR_FORMATTYPE OMXVideoDecoderBase::GetOutputColorFormat(int width) {
 
 OMX_ERRORTYPE OMXVideoDecoderBase::SetMaxOutputBufferCount(OMX_PARAM_PORTDEFINITIONTYPE *) {
     return OMX_ErrorNone;
+}
+
+uint32_t OMXVideoDecoderBase::getStride(uint32_t width) {
+    uint32_t stride = 0;
+
+    if (width <= 512)
+        stride = 512;
+    else if (width <= 1024)
+        stride = 1024;
+    else if (width <= 1280) {
+        stride = 1280;
+    } else if (width <= 2048)
+        stride = 2048;
+    else if (width <= 4096)
+        stride = 4096;
+    else
+        stride = (width + 0x3f) & ~0x3f;
+
+    return stride;
 }

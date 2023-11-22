@@ -32,9 +32,11 @@ private:
     NetlinkHandler       *mUeventHandler;
     NetlinkHandler       *mRouteHandler;
     NetlinkHandler       *mQuotaHandler;
+    NetlinkHandler       *mStrictHandler;
     int                  mUeventSock;
     int                  mRouteSock;
     int                  mQuotaSock;
+    int                  mStrictSock;
 
 public:
     virtual ~NetlinkManager();
@@ -47,15 +49,14 @@ public:
 
     static NetlinkManager *Instance();
 
-    /* This is the nflog group arg that the xt_quota2 neftiler will use. */
+    /* Group used by xt_quota2 */
     static const int NFLOG_QUOTA_GROUP;
-
-    /* This is the group that the xt_IDLETIMER netfilter will use. */
-    static const int IDLETIMER_GROUP;
+    /* Group used by StrictController rules */
+    static const int NETFILTER_STRICT_GROUP;
 
 private:
     NetlinkManager();
     NetlinkHandler* setupSocket(int *sock, int netlinkFamily, int groups,
-        int format);
+        int format, bool configNflog);
 };
 #endif

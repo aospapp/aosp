@@ -58,6 +58,8 @@ if (NOT DEFINED TCUTIL_PLATFORM_SRCS)
 				${TCUTIL_PLATFORM_SRCS}
 				android/tcuAndroidAssets.cpp
 				android/tcuAndroidAssets.hpp
+				android/tcuAndroidInternals.cpp
+				android/tcuAndroidInternals.hpp
 				android/tcuAndroidNativeActivity.cpp
 				android/tcuAndroidNativeActivity.hpp
 				android/tcuAndroidPlatform.cpp
@@ -103,7 +105,7 @@ target_link_libraries(tcutil-platform glutil)
 
 # Link to eglutil if platform supports EGL
 if (DEQP_SUPPORT_EGL)
-	target_link_libraries(tcutil-platform eglutil)
+	target_link_libraries(tcutil-platform eglutil eglwrapper)
 endif ()
 
 # X11 libraries

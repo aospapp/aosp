@@ -16,14 +16,16 @@
 
 package com.google.common.eventbus;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.Beta;
 
 /**
  * Wraps an event that was posted, but which had no subscribers and thus could
  * not be delivered.
  *
- * <p>Subscribing a DeadEvent handler is useful for debugging or logging, as it
- * can detect misconfigurations in a system's event distribution.
+ * <p>Registering a DeadEvent subscriber is useful for debugging or logging, as
+ * it can detect misconfigurations in a system's event distribution.
  *
  * @author Cliff Biffle
  * @since 10.0
@@ -42,8 +44,8 @@ public class DeadEvent {
    * @param event   the event that could not be delivered.
    */
   public DeadEvent(Object source, Object event) {
-    this.source = source;
-    this.event = event;
+    this.source = checkNotNull(source);
+    this.event = checkNotNull(event);
   }
 
   /**
@@ -58,7 +60,7 @@ public class DeadEvent {
 
   /**
    * Returns the wrapped, 'dead' event, which the system was unable to deliver
-   * to any registered handler.
+   * to any registered subscriber.
    *
    * @return the 'dead' event that could not be delivered.
    */

@@ -17,6 +17,7 @@
 package android.widget.cts.util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +36,6 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.google.android.collect.Maps;
-
 /**
  * Utility base class for creating various List scenarios.  Configurable by the number
  * of items, how tall each item should be (in relation to the screen height), and
@@ -52,7 +51,7 @@ public abstract class ListScenario extends Activity {
 
     private int mStartingSelectionPosition;
     private double mItemScreenSizeFactor;
-    private Map<Integer, Double> mOverrideItemScreenSizeFactors = Maps.newHashMap();
+    private Map<Integer, Double> mOverrideItemScreenSizeFactors = new HashMap<>();
 
     private int mScreenHeight;
 
@@ -102,7 +101,7 @@ public abstract class ListScenario extends Activity {
         private double mItemScreenSizeFactor = 1 / 5;
         private Double mFadingEdgeScreenSizeFactor = null;
 
-        private Map<Integer, Double> mOverrideItemScreenSizeFactors = Maps.newHashMap();
+        private Map<Integer, Double> mOverrideItemScreenSizeFactors = new HashMap<>();
 
         // separators
         private List<Integer> mUnselectableItems = new ArrayList<Integer>(8);

@@ -22,15 +22,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.CollectPreconditions.checkNonnegative;
+import static com.google.common.collect.CollectPreconditions.checkRemove;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.math.IntMath;
 import com.google.common.primitives.Ints;
 
 import java.io.Serializable;
+import java.math.RoundingMode;
 import java.util.AbstractList;
 import java.util.AbstractSequentialList;
 import java.util.ArrayList;
@@ -43,19 +48,24 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.annotation.Nullable;
 
 /**
  * Static utility methods pertaining to {@link List} instances. Also see this
- * class's counterparts {@link Sets} and {@link Maps}.
+ * class's counterparts {@link Sets}, {@link Maps} and {@link Queues}.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/CollectionUtilitiesExplained#Lists">
+ * {@code Lists}</a>.
  *
  * @author Kevin Bourrillion
  * @author Mike Bostock
  * @author Louis Wasserman
  * @since 2.0 (imported from Google Collections Library)
  */
-@GwtCompatible
+@GwtCompatible(emulated = true)
 public final class Lists {
   private Lists() {}
 
@@ -96,7 +106,7 @@ public final class Lists {
   }
 
   @VisibleForTesting static int computeArrayListCapacity(int arraySize) {
-    checkArgument(arraySize >= 0);
+    checkNonnegative(arraySize, "arraySize");
 
     // TODO(kevinb): Figure out the right behavior, and document it
     return Ints.saturatedCast(5L + arraySize + (arraySize / 10));
@@ -133,11 +143,8 @@ public final class Lists {
    */
   @GwtCompatible(serializable = true)
   public static <E> ArrayList<E> newArrayList(Iterator<? extends E> elements) {
-    checkNotNull(elements); // for GWT
     ArrayList<E> list = newArrayList();
-    while (elements.hasNext()) {
-      list.add(elements.next());
-    }
+    Iterators.addAll(list, elements);
     return list;
   }
 
@@ -164,7 +171,7 @@ public final class Lists {
   @GwtCompatible(serializable = true)
   public static <E> ArrayList<E> newArrayListWithCapacity(
       int initialArraySize) {
-    checkArgument(initialArraySize >= 0);  // for GWT.
+    checkNonnegative(initialArraySize, "initialArraySize"); // for GWT.
     return new ArrayList<E>(initialArraySize);
   }
 
@@ -214,10 +221,40 @@ public final class Lists {
   public static <E> LinkedList<E> newLinkedList(
       Iterable<? extends E> elements) {
     LinkedList<E> list = newLinkedList();
-    for (E element : elements) {
-      list.add(element);
-    }
+    Iterables.addAll(list, elements);
     return list;
+  }
+
+  /**
+   * Creates an empty {@code CopyOnWriteArrayList} instance.
+   *
+   * <p><b>Note:</b> if you need an immutable empty {@link List}, use
+   * {@link Collections#emptyList} instead.
+   *
+   * @return a new, empty {@code CopyOnWriteArrayList}
+   * @since 12.0
+   */
+  @GwtIncompatible("CopyOnWriteArrayList")
+  public static <E> CopyOnWriteArrayList<E> newCopyOnWriteArrayList() {
+    return new CopyOnWriteArrayList<E>();
+  }
+
+  /**
+   * Creates a {@code CopyOnWriteArrayList} instance containing the given elements.
+   *
+   * @param elements the elements that the list should contain, in order
+   * @return a new {@code CopyOnWriteArrayList} containing those elements
+   * @since 12.0
+   */
+  @GwtIncompatible("CopyOnWriteArrayList")
+  public static <E> CopyOnWriteArrayList<E> newCopyOnWriteArrayList(
+      Iterable<? extends E> elements) {
+    // We copy elements to an ArrayList first, rather than incurring the
+    // quadratic cost of adding them to the COWAL directly.
+    Collection<? extends E> elementsCollection = (elements instanceof Collection)
+        ? Collections2.cast(elements)
+        : newArrayList(elements);
+    return new CopyOnWriteArrayList<E>(elementsCollection);
   }
 
   /**
@@ -314,6 +351,126 @@ public final class Lists {
   }
 
   /**
+   * Returns every possible list that can be formed by choosing one element
+   * from each of the given lists in order; the "n-ary
+   * <a href="http://en.wikipedia.org/wiki/Cartesian_product">Cartesian
+   * product</a>" of the lists. For example: <pre>   {@code
+   *
+   *   Lists.cartesianProduct(ImmutableList.of(
+   *       ImmutableList.of(1, 2),
+   *       ImmutableList.of("A", "B", "C")))}</pre>
+   *
+   * <p>returns a list containing six lists in the following order:
+   *
+   * <ul>
+   * <li>{@code ImmutableList.of(1, "A")}
+   * <li>{@code ImmutableList.of(1, "B")}
+   * <li>{@code ImmutableList.of(1, "C")}
+   * <li>{@code ImmutableList.of(2, "A")}
+   * <li>{@code ImmutableList.of(2, "B")}
+   * <li>{@code ImmutableList.of(2, "C")}
+   * </ul>
+   *
+   * <p>The result is guaranteed to be in the "traditional", lexicographical
+   * order for Cartesian products that you would get from nesting for loops:
+   * <pre>   {@code
+   *
+   *   for (B b0 : lists.get(0)) {
+   *     for (B b1 : lists.get(1)) {
+   *       ...
+   *       ImmutableList<B> tuple = ImmutableList.of(b0, b1, ...);
+   *       // operate on tuple
+   *     }
+   *   }}</pre>
+   *
+   * <p>Note that if any input list is empty, the Cartesian product will also be
+   * empty. If no lists at all are provided (an empty list), the resulting
+   * Cartesian product has one element, an empty list (counter-intuitive, but
+   * mathematically consistent).
+   *
+   * <p><i>Performance notes:</i> while the cartesian product of lists of size
+   * {@code m, n, p} is a list of size {@code m x n x p}, its actual memory
+   * consumption is much smaller. When the cartesian product is constructed, the
+   * input lists are merely copied. Only as the resulting list is iterated are
+   * the individual lists created, and these are not retained after iteration.
+   *
+   * @param lists the lists to choose elements from, in the order that
+   *     the elements chosen from those lists should appear in the resulting
+   *     lists
+   * @param <B> any common base class shared by all axes (often just {@link
+   *     Object})
+   * @return the Cartesian product, as an immutable list containing immutable
+   *     lists
+   * @throws IllegalArgumentException if the size of the cartesian product would
+   *     be greater than {@link Integer#MAX_VALUE}
+   * @throws NullPointerException if {@code lists}, any one of the {@code lists},
+   *     or any element of a provided list is null
+   */ static <B> List<List<B>>
+      cartesianProduct(List<? extends List<? extends B>> lists) {
+    return CartesianList.create(lists);
+  }
+
+  /**
+   * Returns every possible list that can be formed by choosing one element
+   * from each of the given lists in order; the "n-ary
+   * <a href="http://en.wikipedia.org/wiki/Cartesian_product">Cartesian
+   * product</a>" of the lists. For example: <pre>   {@code
+   *
+   *   Lists.cartesianProduct(ImmutableList.of(
+   *       ImmutableList.of(1, 2),
+   *       ImmutableList.of("A", "B", "C")))}</pre>
+   *
+   * <p>returns a list containing six lists in the following order:
+   *
+   * <ul>
+   * <li>{@code ImmutableList.of(1, "A")}
+   * <li>{@code ImmutableList.of(1, "B")}
+   * <li>{@code ImmutableList.of(1, "C")}
+   * <li>{@code ImmutableList.of(2, "A")}
+   * <li>{@code ImmutableList.of(2, "B")}
+   * <li>{@code ImmutableList.of(2, "C")}
+   * </ul>
+   *
+   * <p>The result is guaranteed to be in the "traditional", lexicographical
+   * order for Cartesian products that you would get from nesting for loops:
+   * <pre>   {@code
+   *
+   *   for (B b0 : lists.get(0)) {
+   *     for (B b1 : lists.get(1)) {
+   *       ...
+   *       ImmutableList<B> tuple = ImmutableList.of(b0, b1, ...);
+   *       // operate on tuple
+   *     }
+   *   }}</pre>
+   *
+   * <p>Note that if any input list is empty, the Cartesian product will also be
+   * empty. If no lists at all are provided (an empty list), the resulting
+   * Cartesian product has one element, an empty list (counter-intuitive, but
+   * mathematically consistent).
+   *
+   * <p><i>Performance notes:</i> while the cartesian product of lists of size
+   * {@code m, n, p} is a list of size {@code m x n x p}, its actual memory
+   * consumption is much smaller. When the cartesian product is constructed, the
+   * input lists are merely copied. Only as the resulting list is iterated are
+   * the individual lists created, and these are not retained after iteration.
+   *
+   * @param lists the lists to choose elements from, in the order that
+   *     the elements chosen from those lists should appear in the resulting
+   *     lists
+   * @param <B> any common base class shared by all axes (often just {@link
+   *     Object})
+   * @return the Cartesian product, as an immutable list containing immutable
+   *     lists
+   * @throws IllegalArgumentException if the size of the cartesian product would
+   *     be greater than {@link Integer#MAX_VALUE}
+   * @throws NullPointerException if {@code lists}, any one of the
+   *     {@code lists}, or any element of a provided list is null
+   */ static <B> List<List<B>>
+      cartesianProduct(List<? extends B>... lists) {
+    return cartesianProduct(Arrays.asList(lists));
+  }
+
+  /**
    * Returns a list that applies {@code function} to each element of {@code
    * fromList}. The returned list is a transformed view of {@code fromList};
    * changes to {@code fromList} will be reflected in the returned list and vice
@@ -332,13 +489,19 @@ public final class Lists {
    * view, copy the returned list into a new list of your choosing.
    *
    * <p>If {@code fromList} implements {@link RandomAccess}, so will the
-   * returned list. The returned list always implements {@link Serializable},
-   * but serialization will succeed only when {@code fromList} and
-   * {@code function} are serializable. The returned list is threadsafe if the
-   * supplied list and function are.
+   * returned list. The returned list is threadsafe if the supplied list and
+   * function are.
    *
    * <p>If only a {@code Collection} or {@code Iterable} input is available, use
    * {@link Collections2#transform} or {@link Iterables#transform}.
+   *
+   * <p><b>Note:</b> serializing the returned list is implemented by serializing
+   * {@code fromList}, its contents, and {@code function} -- <i>not</i> by
+   * serializing the transformed values. This can lead to surprising behavior,
+   * so serializing the returned list is <b>not recommended</b>. Instead,
+   * copy the list using {@link ImmutableList#copyOf(Collection)} (for example),
+   * then serialize the copy. Other methods similar to this do not implement
+   * serialization at all for this reason.
    */
   public static <F, T> List<T> transform(
       List<F> fromList, Function<? super F, ? extends T> function) {
@@ -374,51 +537,10 @@ public final class Lists {
       return fromList.size();
     }
     @Override public ListIterator<T> listIterator(final int index) {
-      final ListIterator<F> delegate = fromList.listIterator(index);
-      return new ListIterator<T>() {
+      return new TransformedListIterator<F, T>(fromList.listIterator(index)) {
         @Override
-        public void add(T e) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean hasNext() {
-          return delegate.hasNext();
-        }
-
-        @Override
-        public boolean hasPrevious() {
-          return delegate.hasPrevious();
-        }
-
-        @Override
-        public T next() {
-          return function.apply(delegate.next());
-        }
-
-        @Override
-        public int nextIndex() {
-          return delegate.nextIndex();
-        }
-
-        @Override
-        public T previous() {
-          return function.apply(delegate.previous());
-        }
-
-        @Override
-        public int previousIndex() {
-          return delegate.previousIndex();
-        }
-
-        @Override
-        public void remove() {
-          delegate.remove();
-        }
-
-        @Override
-        public void set(T e) {
-          throw new UnsupportedOperationException("not supported");
+        T transform(F from) {
+          return function.apply(from);
         }
       };
     }
@@ -449,6 +571,17 @@ public final class Lists {
     }
     @Override public T get(int index) {
       return function.apply(fromList.get(index));
+    }
+    @Override public Iterator<T> iterator() {
+      return listIterator();
+    }
+    @Override public ListIterator<T> listIterator(int index) {
+      return new TransformedListIterator<F, T>(fromList.listIterator(index)) {
+        @Override
+        T transform(F from) {
+          return function.apply(from);
+        }
+      };
     }
     @Override public boolean isEmpty() {
       return fromList.isEmpty();
@@ -498,20 +631,14 @@ public final class Lists {
     }
 
     @Override public List<T> get(int index) {
-      int listSize = size();
-      checkElementIndex(index, listSize);
+      checkElementIndex(index, size());
       int start = index * size;
       int end = Math.min(start + size, list.size());
       return list.subList(start, end);
     }
 
     @Override public int size() {
-      // TODO(user): refactor to common.math.IntMath.divide
-      int result = list.size() / size;
-      if (result * size != list.size()) {
-        result++;
-      }
-      return result;
+      return IntMath.divide(list.size(), size, RoundingMode.CEILING);
     }
 
     @Override public boolean isEmpty() {
@@ -546,10 +673,6 @@ public final class Lists {
       this.string = string;
     }
 
-    @Override public boolean contains(@Nullable Object object) {
-      return indexOf(object) >= 0;
-    }
-
     @Override public int indexOf(@Nullable Object object) {
       return (object instanceof Character)
           ? string.indexOf((Character) object) : -1;
@@ -560,17 +683,9 @@ public final class Lists {
           ? string.lastIndexOf((Character) object) : -1;
     }
 
-    @Override public UnmodifiableListIterator<Character> listIterator(
-        int index) {
-      return new AbstractIndexedListIterator<Character>(size(), index) {
-        @Override protected Character get(int index) {
-          return string.charAt(index);
-        }
-      };
-    }
-
     @Override public ImmutableList<Character> subList(
         int fromIndex, int toIndex) {
+      checkPositionIndexes(fromIndex, toIndex, size()); // for GWT
       return charactersOf(string.substring(fromIndex, toIndex));
     }
 
@@ -579,45 +694,12 @@ public final class Lists {
     }
 
     @Override public Character get(int index) {
+      checkElementIndex(index, size()); // for GWT
       return string.charAt(index);
     }
 
     @Override public int size() {
       return string.length();
-    }
-
-    @Override public boolean equals(@Nullable Object obj) {
-      if (!(obj instanceof List)) {
-        return false;
-      }
-      List<?> list = (List<?>) obj;
-      int n = string.length();
-      if (n != list.size()) {
-        return false;
-      }
-      Iterator<?> iterator = list.iterator();
-      for (int i = 0; i < n; i++) {
-        Object elem = iterator.next();
-        if (!(elem instanceof Character)
-            || ((Character) elem).charValue() != string.charAt(i)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    int hash = 0;
-
-    @Override public int hashCode() {
-      int h = hash;
-      if (h == 0) {
-        h = 1;
-        for (int i = 0; i < string.length(); i++) {
-          h = h * 31 + string.charAt(i);
-        }
-        hash = h;
-      }
-      return h;
     }
   }
 
@@ -645,71 +727,12 @@ public final class Lists {
     }
 
     @Override public Character get(int index) {
+      checkElementIndex(index, size()); // for GWT
       return sequence.charAt(index);
-    }
-
-    @Override public boolean contains(@Nullable Object o) {
-      return indexOf(o) >= 0;
-    }
-
-    @Override public int indexOf(@Nullable Object o) {
-      if (o instanceof Character) {
-        char c = (Character) o;
-        for (int i = 0; i < sequence.length(); i++) {
-          if (sequence.charAt(i) == c) {
-            return i;
-          }
-        }
-      }
-      return -1;
-    }
-
-    @Override public int lastIndexOf(@Nullable Object o) {
-      if (o instanceof Character) {
-        char c = ((Character) o).charValue();
-        for (int i = sequence.length() - 1; i >= 0; i--) {
-          if (sequence.charAt(i) == c) {
-            return i;
-          }
-        }
-      }
-      return -1;
     }
 
     @Override public int size() {
       return sequence.length();
-    }
-
-    @Override public List<Character> subList(int fromIndex, int toIndex) {
-      return charactersOf(sequence.subSequence(fromIndex, toIndex));
-    }
-
-    @Override public int hashCode() {
-      int hash = 1;
-      for (int i = 0; i < sequence.length(); i++) {
-        hash = hash * 31 + sequence.charAt(i);
-      }
-      return hash;
-    }
-
-    @Override public boolean equals(@Nullable Object o) {
-      if (!(o instanceof List)) {
-        return false;
-      }
-      List<?> list = (List<?>) o;
-      int n = sequence.length();
-      if (n != list.size()) {
-        return false;
-      }
-      Iterator<?> iterator = list.iterator();
-      for (int i = 0; i < n; i++) {
-        Object elem = iterator.next();
-        if (!(elem instanceof Character)
-            || ((Character) elem).charValue() != sequence.charAt(i)) {
-          return false;
-        }
-      }
-      return true;
     }
   }
 
@@ -726,7 +749,9 @@ public final class Lists {
    * @since 7.0
    */
   public static <T> List<T> reverse(List<T> list) {
-    if (list instanceof ReverseList) {
+    if (list instanceof ImmutableList) {
+      return ((ImmutableList<T>) list).reverse();
+    } else if (list instanceof ReverseList) {
       return ((ReverseList<T>) list).getForwardList();
     } else if (list instanceof RandomAccess) {
       return new RandomAccessReverseList<T>(list);
@@ -782,36 +807,14 @@ public final class Lists {
       return forwardList.get(reverseIndex(index));
     }
 
-    @Override public boolean isEmpty() {
-      return forwardList.isEmpty();
-    }
-
     @Override public int size() {
       return forwardList.size();
-    }
-
-    @Override public boolean contains(@Nullable Object o) {
-      return forwardList.contains(o);
-    }
-
-    @Override public boolean containsAll(Collection<?> c) {
-      return forwardList.containsAll(c);
     }
 
     @Override public List<T> subList(int fromIndex, int toIndex) {
       checkPositionIndexes(fromIndex, toIndex, size());
       return reverse(forwardList.subList(
           reversePosition(toIndex), reversePosition(fromIndex)));
-    }
-
-    @Override public int indexOf(@Nullable Object o) {
-      int index = forwardList.lastIndexOf(o);
-      return (index >= 0) ? reverseIndex(index) : -1;
-    }
-
-    @Override public int lastIndexOf(@Nullable Object o) {
-      int index = forwardList.indexOf(o);
-      return (index >= 0) ? reverseIndex(index) : -1;
     }
 
     @Override public Iterator<T> iterator() {
@@ -823,13 +826,12 @@ public final class Lists {
       final ListIterator<T> forwardIterator = forwardList.listIterator(start);
       return new ListIterator<T>() {
 
-        boolean canRemove;
-        boolean canSet;
+        boolean canRemoveOrSet;
 
         @Override public void add(T e) {
           forwardIterator.add(e);
           forwardIterator.previous();
-          canSet = canRemove = false;
+          canRemoveOrSet = false;
         }
 
         @Override public boolean hasNext() {
@@ -844,7 +846,7 @@ public final class Lists {
           if (!hasNext()) {
             throw new NoSuchElementException();
           }
-          canSet = canRemove = true;
+          canRemoveOrSet = true;
           return forwardIterator.previous();
         }
 
@@ -856,7 +858,7 @@ public final class Lists {
           if (!hasPrevious()) {
             throw new NoSuchElementException();
           }
-          canSet = canRemove = true;
+          canRemoveOrSet = true;
           return forwardIterator.next();
         }
 
@@ -865,13 +867,13 @@ public final class Lists {
         }
 
         @Override public void remove() {
-          checkState(canRemove);
+          checkRemove(canRemoveOrSet);
           forwardIterator.remove();
-          canRemove = canSet = false;
+          canRemoveOrSet = false;
         }
 
         @Override public void set(T e) {
-          checkState(canSet);
+          checkState(canRemoveOrSet);
           forwardIterator.set(e);
         }
       };
@@ -888,10 +890,14 @@ public final class Lists {
   /**
    * An implementation of {@link List#hashCode()}.
    */
-  static int hashCodeImpl(List<?> list){
+  static int hashCodeImpl(List<?> list) {
+    // TODO(user): worth optimizing for RandomAccess?
     int hashCode = 1;
     for (Object o : list) {
       hashCode = 31 * hashCode + (o == null ? 0 : o.hashCode());
+
+      hashCode = ~~hashCode;
+      // needed to deal with GWT integer overflow
     }
     return hashCode;
   }
@@ -930,7 +936,7 @@ public final class Lists {
   /**
    * An implementation of {@link List#indexOf(Object)}.
    */
-  static int indexOfImpl(List<?> list, @Nullable Object element){
+  static int indexOfImpl(List<?> list, @Nullable Object element) {
     ListIterator<?> listIterator = list.listIterator();
     while (listIterator.hasNext()) {
       if (Objects.equal(element, listIterator.next())) {
@@ -943,7 +949,7 @@ public final class Lists {
   /**
    * An implementation of {@link List#lastIndexOf(Object)}.
    */
-  static int lastIndexOfImpl(List<?> list, @Nullable Object element){
+  static int lastIndexOfImpl(List<?> list, @Nullable Object element) {
     ListIterator<?> listIterator = list.listIterator(list.size());
     while (listIterator.hasPrevious()) {
       if (Objects.equal(element, listIterator.previous())) {
@@ -1027,5 +1033,12 @@ public final class Lists {
     RandomAccessListWrapper(List<E> backingList) {
       super(backingList);
     }
+  }
+
+  /**
+   * Used to avoid http://bugs.sun.com/view_bug.do?bug_id=6558557
+   */
+  static <T> List<T> cast(Iterable<T> iterable) {
+    return (List<T>) iterable;
   }
 }

@@ -139,7 +139,7 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
     }
 
      private String buildNetworkKey(ScoredNetwork network) {
-        if (network.networkKey == null) return null;
+        if (network == null || network.networkKey == null) return null;
         if (network.networkKey.wifiKey == null) return null;
         if (network.networkKey.type == NetworkKey.TYPE_WIFI) {
             String key = network.networkKey.wifiKey.ssid;
@@ -153,7 +153,7 @@ public class WifiNetworkScoreCache extends INetworkScoreCache.Stub
     }
 
     private String buildNetworkKey(ScanResult result) {
-        if (result.SSID == null) {
+        if (result == null || result.SSID == null) {
             return null;
         }
         StringBuilder key = new StringBuilder("\"");

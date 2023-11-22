@@ -19,13 +19,17 @@
 #include "vp9/common/vp9_onyxc_int.h"
 #include "vp9/common/vp9_quant_common.h"
 
-#include "vp9/encoder/vp9_onyx_int.h"
+#include "vp9/encoder/vp9_encoder.h"
 #include "vp9/encoder/vp9_picklpf.h"
 #include "vp9/encoder/vp9_quantize.h"
 
-static int get_max_filter_level(VP9_COMP *cpi) {
-  return cpi->twopass.section_intra_rating > 8 ? MAX_LOOP_FILTER * 3 / 4
-                                               : MAX_LOOP_FILTER;
+static int get_max_filter_level(const VP9_COMP *cpi) {
+  if (cpi->oxcf.pass == 2) {
+    return cpi->twopass.section_intra_rating > 8 ? MAX_LOOP_FILTER * 3 / 4
+                                                 : MAX_LOOP_FILTER;
+  } else {
+    return MAX_LOOP_FILTER;
+  }
 }
 
 
@@ -34,7 +38,8 @@ static int try_filter_frame(const YV12_BUFFER_CONFIG *sd, VP9_COMP *const cpi,
   VP9_COMMON *const cm = &cpi->common;
   int filt_err;
 
-  vp9_loop_filter_frame(cm, &cpi->mb.e_mbd, filt_level, 1, partial_frame);
+  vp9_loop_filter_frame(cm->frame_to_show, cm, &cpi->mb.e_mbd, filt_level, 1,
+                        partial_frame);
   filt_err = vp9_get_y_sse(sd, cm->frame_to_show);
 
   // Re-instate the unfiltered frame
@@ -43,15 +48,15 @@ static int try_filter_frame(const YV12_BUFFER_CONFIG *sd, VP9_COMP *const cpi,
   return filt_err;
 }
 
-static void search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
-                                int partial_frame) {
-  VP9_COMMON *const cm = &cpi->common;
-  struct loopfilter *const lf = &cm->lf;
+static int search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
+                               int partial_frame) {
+  const VP9_COMMON *const cm = &cpi->common;
+  const struct loopfilter *const lf = &cm->lf;
   const int min_filter_level = 0;
   const int max_filter_level = get_max_filter_level(cpi);
-  int best_err;
-  int filt_best;
   int filt_direction = 0;
+  int best_err, filt_best;
+
   // Start the search at the previous frame filter level unless it is now out of
   // range.
   int filt_mid = clamp(lf->filter_level, min_filter_level, max_filter_level);
@@ -77,8 +82,8 @@ static void search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
     // Bias against raising loop filter in favor of lowering it.
     int bias = (best_err >> (15 - (filt_mid / 8))) * filter_step;
 
-    if (cpi->twopass.section_intra_rating < 20)
-      bias = bias * cpi->twopass.section_intra_rating / 20;
+    if ((cpi->oxcf.pass == 2) && (cpi->twopass.section_intra_rating < 20))
+      bias = (bias * cpi->twopass.section_intra_rating) / 20;
 
     // yx, bias less for large block size
     if (cm->tx_mode != ONLY_4X4)
@@ -128,7 +133,7 @@ static void search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
     }
   }
 
-  lf->filter_level = filt_best;
+  return filt_best;
 }
 
 void vp9_pick_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
@@ -139,7 +144,9 @@ void vp9_pick_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
   lf->sharpness_level = cm->frame_type == KEY_FRAME ? 0
                                                     : cpi->oxcf.sharpness;
 
-  if (method == LPF_PICK_FROM_Q) {
+  if (method == LPF_PICK_MINIMAL_LPF && lf->filter_level) {
+      lf->filter_level = 0;
+  } else if (method >= LPF_PICK_FROM_Q) {
     const int min_filter_level = 0;
     const int max_filter_level = get_max_filter_level(cpi);
     const int q = vp9_ac_quant(cm->base_qindex, 0);
@@ -150,6 +157,7 @@ void vp9_pick_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
       filt_guess -= 4;
     lf->filter_level = clamp(filt_guess, min_filter_level, max_filter_level);
   } else {
-    search_filter_level(sd, cpi, method == LPF_PICK_FROM_SUBIMAGE);
+    lf->filter_level = search_filter_level(sd, cpi,
+                                           method == LPF_PICK_FROM_SUBIMAGE);
   }
 }

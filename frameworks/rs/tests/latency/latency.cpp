@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 
     struct timeval start, stop;
 
-    gettimeofday(&start, NULL);
+    gettimeofday(&start, nullptr);
 
     for (int i = 0; i < iters; i++) {
         sc->forEach_root(ain, aout);
@@ -82,13 +82,13 @@ int main(int argc, char** argv)
 
     rs->finish();
 
-    gettimeofday(&stop, NULL);
+    gettimeofday(&stop, nullptr);
 
     long long elapsed = (stop.tv_sec * 1000000) - (start.tv_sec * 1000000) + (stop.tv_usec - start.tv_usec);
     printf("elapsed time : %lld microseconds\n", elapsed);
     printf("time per iter: %f microseconds\n", (double)elapsed / iters);
 
-    gettimeofday(&start, NULL);
+    gettimeofday(&start, nullptr);
 
     for (int i = 0; i < iters; i++) {
         ain->copy1DFrom(buf);
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
 
     rs->finish();
 
-    gettimeofday(&stop, NULL);
+    gettimeofday(&stop, nullptr);
     elapsed = (stop.tv_sec * 1000000) - (start.tv_sec * 1000000) + (stop.tv_usec - start.tv_usec);
     printf("elapsed time with copy : %lld microseconds\n", elapsed);
     printf("time per iter with copy: %f microseconds\n", (double)elapsed / iters);

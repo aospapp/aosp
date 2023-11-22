@@ -199,7 +199,8 @@ inner_loop_16:
 @   pld         [r12, r2, lsl #1]
 @   pld         [r4, r2, lsl #1]
 
-
+    pld         [r12, r2, lsl #2]
+    pld         [r4, r2, lsl #2]
 
     subs        r10,r10,#16
 
@@ -212,7 +213,6 @@ inner_loop_16:
 
 
 
-    pld         [r12, r2, lsl #2]
     vqrshrun.s16 d30,q15,#6
 
     vld1.u32    {q0},[r12],r11              @vector load pu1_src
@@ -232,7 +232,6 @@ inner_loop_16:
     vld1.u32    {q3},[r12],r9               @vector load pu1_src
     vmull.u8    q10,d11,d25                 @mul_res = vmull_u8(src[0_3], coeffabs_3)@
 
-    pld         [r4, r2, lsl #2]
     vmlsl.u8    q10,d9,d24                  @mul_res = vmlsl_u8(src[0_2], coeffabs_2)@
 
     vst1.16     {q15}, [r1],r3

@@ -157,6 +157,8 @@ static void do_fsck(struct f2fs_sb_info *sbi)
 static void do_dump(struct f2fs_sb_info *sbi)
 {
 	struct dump_option *opt = (struct dump_option *)config.private;
+	struct f2fs_checkpoint *ckpt = F2FS_CKPT(sbi);
+	u32 flag = le32_to_cpu(ckpt->ckpt_flags);
 
 	fsck_init(sbi);
 
@@ -169,9 +171,27 @@ static void do_dump(struct f2fs_sb_info *sbi)
 	if (opt->start_ssa != -1)
 		ssa_dump(sbi, opt->start_ssa, opt->end_ssa);
 	if (opt->blk_addr != -1) {
-		dump_inode_from_blkaddr(sbi, opt->blk_addr);
+		dump_info_from_blkaddr(sbi, opt->blk_addr);
 		goto cleanup;
 	}
+
+	MSG(0, "Info: checkpoint state = %x : ", flag);
+	if (flag & CP_FSCK_FLAG)
+		MSG(0, "%s", " fsck");
+	if (flag & CP_ERROR_FLAG)
+		MSG(0, "%s", " error");
+	if (flag & CP_COMPACT_SUM_FLAG)
+		MSG(0, "%s", " compacted_summary");
+	if (flag & CP_ORPHAN_PRESENT_FLAG)
+		MSG(0, "%s", " orphan_inodes");
+	if (flag & CP_FASTBOOT_FLAG)
+		MSG(0, "%s", " fastboot");
+	if (flag & CP_UMOUNT_FLAG)
+		MSG(0, "%s", " unmount");
+	else
+		MSG(0, "%s", " sudden-power-off");
+	MSG(0, "\n");
+
 	dump_node(sbi, opt->nid);
 cleanup:
 	fsck_free(sbi);

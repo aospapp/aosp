@@ -39,10 +39,6 @@ public class RSBaseCompute extends RSBase {
 
     @Override
     protected void tearDown() throws Exception {
-        if (mRS != null) {
-            mRS.destroy();
-            mRS = null;
-        }
         super.tearDown();
     }
 
@@ -387,5 +383,23 @@ public class RSBaseCompute extends RSBase {
 
     public void forEach(int testId, Allocation mIn) throws RSRuntimeException {
         // Intentionally empty... subclass will likely define only one, but not both
+    }
+
+    protected void appendVariableToMessage(StringBuilder message, int value) {
+        message.append(String.format("%d {%x}", value, value));
+    }
+
+    protected void appendVariableToMessage(StringBuilder message, float value) {
+        message.append(String.format("%14.8g {%8x} %15a", value,
+                        Float.floatToRawIntBits(value), value));
+    }
+
+    protected void appendVariableToMessage(StringBuilder message, double value) {
+        message.append(String.format("%24.8g {%16x} %31a", value,
+                        Double.doubleToRawLongBits(value), value));
+    }
+
+    protected void appendVariableToMessage(StringBuilder message, Target.Floaty value) {
+        message.append(value.toString());
     }
 }

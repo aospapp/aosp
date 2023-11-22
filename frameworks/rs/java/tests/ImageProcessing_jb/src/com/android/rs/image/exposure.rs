@@ -25,10 +25,9 @@ void setBright(float v) {
 
 uchar4 RS_KERNEL exposure(uchar4 in)
 {
-    uchar4 out = 0;
-    out.r = rsClamp((int)(bright * in.r), 0, 255);
-    out.g = rsClamp((int)(bright * in.g), 0, 255);
-    out.b = rsClamp((int)(bright * in.b), 0, 255);
+    uchar4 out = {0, 0, 0, 255};
+    float3 t = convert_float3(in.rgb);
+    out.rgb = convert_uchar3(clamp(convert_int3(t * bright), 0, 255));
     return out;
 }
 

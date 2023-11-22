@@ -27,9 +27,13 @@
  */
 
 #include <errno.h>
+#include <stdatomic.h>
+#include <string.h>
 
 #include "pthread_internal.h"
 #include "private/bionic_futex.h"
+#include "private/bionic_lock.h"
+#include "private/bionic_time_conversions.h"
 
 /* Technical note:
  *
@@ -51,35 +55,39 @@
  *  - This implementation will return EDEADLK in "write after write" and "read after
  *    write" cases and will deadlock in write after read case.
  *
- * TODO: VERY CAREFULLY convert this to use C++11 atomics when possible. All volatile
- * members of pthread_rwlock_t should be converted to atomics<> and __sync_bool_compare_and_swap
- * should be changed to compare_exchange_strong accompanied by the proper ordering
- * constraints (comments have been added with the intending ordering across the code).
- *
- * TODO: As it stands now, pending_readers and pending_writers could be merged into a
- * a single waiters variable.  Keeping them separate adds a bit of clarity and keeps
- * the door open for a writer-biased implementation.
- *
  */
 
-#define RWLOCKATTR_DEFAULT     0
-#define RWLOCKATTR_SHARED_MASK 0x0010
+// A rwlockattr is implemented as a 32-bit integer which has following fields:
+//  bits    name              description
+//   1     rwlock_kind       have rwlock preference like PTHREAD_RWLOCK_PREFER_READER_NP.
+//   0      process_shared    set to 1 if the rwlock is shared between processes.
 
-static inline bool rwlock_is_shared(const pthread_rwlock_t* rwlock) {
-  return rwlock->attr == PTHREAD_PROCESS_SHARED;
+#define RWLOCKATTR_PSHARED_SHIFT 0
+#define RWLOCKATTR_KIND_SHIFT    1
+
+#define RWLOCKATTR_PSHARED_MASK  1
+#define RWLOCKATTR_KIND_MASK     2
+#define RWLOCKATTR_RESERVED_MASK (~3)
+
+static inline __always_inline __always_inline bool __rwlockattr_getpshared(const pthread_rwlockattr_t* attr) {
+  return (*attr & RWLOCKATTR_PSHARED_MASK) >> RWLOCKATTR_PSHARED_SHIFT;
 }
 
-static bool timespec_from_absolute(timespec* rel_timeout, const timespec* abs_timeout) {
-  if (abs_timeout != NULL) {
-    if (__timespec_from_absolute(rel_timeout, abs_timeout, CLOCK_REALTIME) < 0) {
-      return false;
-    }
-  }
-  return true;
+static inline __always_inline __always_inline void __rwlockattr_setpshared(pthread_rwlockattr_t* attr, int pshared) {
+  *attr = (*attr & ~RWLOCKATTR_PSHARED_MASK) | (pshared << RWLOCKATTR_PSHARED_SHIFT);
 }
+
+static inline __always_inline int __rwlockattr_getkind(const pthread_rwlockattr_t* attr) {
+  return (*attr & RWLOCKATTR_KIND_MASK) >> RWLOCKATTR_KIND_SHIFT;
+}
+
+static inline __always_inline void __rwlockattr_setkind(pthread_rwlockattr_t* attr, int kind) {
+  *attr = (*attr & ~RWLOCKATTR_KIND_MASK) | (kind << RWLOCKATTR_KIND_SHIFT);
+}
+
 
 int pthread_rwlockattr_init(pthread_rwlockattr_t* attr) {
-  *attr = PTHREAD_PROCESS_PRIVATE;
+  *attr = 0;
   return 0;
 }
 
@@ -88,193 +96,412 @@ int pthread_rwlockattr_destroy(pthread_rwlockattr_t* attr) {
   return 0;
 }
 
+int pthread_rwlockattr_getpshared(const pthread_rwlockattr_t* attr, int* pshared) {
+  if (__rwlockattr_getpshared(attr)) {
+    *pshared = PTHREAD_PROCESS_SHARED;
+  } else {
+    *pshared = PTHREAD_PROCESS_PRIVATE;
+  }
+  return 0;
+}
+
 int pthread_rwlockattr_setpshared(pthread_rwlockattr_t* attr, int pshared) {
   switch (pshared) {
     case PTHREAD_PROCESS_PRIVATE:
+      __rwlockattr_setpshared(attr, 0);
+      return 0;
     case PTHREAD_PROCESS_SHARED:
-      *attr = pshared;
+      __rwlockattr_setpshared(attr, 1);
       return 0;
     default:
       return EINVAL;
   }
 }
 
-int pthread_rwlockattr_getpshared(const pthread_rwlockattr_t* attr, int* pshared) {
-  *pshared = *attr;
+int pthread_rwlockattr_getkind_np(const pthread_rwlockattr_t* attr, int* pref) {
+  *pref = __rwlockattr_getkind(attr);
   return 0;
 }
 
-int pthread_rwlock_init(pthread_rwlock_t* rwlock, const pthread_rwlockattr_t* attr) {
-  if (attr != NULL) {
-    switch (*attr) {
-      case PTHREAD_PROCESS_SHARED:
-      case PTHREAD_PROCESS_PRIVATE:
-        rwlock->attr= *attr;
+int pthread_rwlockattr_setkind_np(pthread_rwlockattr_t* attr, int pref) {
+  switch (pref) {
+    case PTHREAD_RWLOCK_PREFER_READER_NP:   // Fall through.
+    case PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP:
+      __rwlockattr_setkind(attr, pref);
+      return 0;
+    default:
+      return EINVAL;
+  }
+}
+
+// A rwlock state is implemented as a 32-bit integer which has following rules:
+//  bits      name                              description
+//   31      owned_by_writer_flag              set to 1 if the lock is owned by a writer now.
+//  30-2     reader_count                      the count of readers holding the lock.
+//   1       have_pending_writers              set to 1 if having pending writers.
+//   0       have_pending_readers              set to 1 if having pending readers.
+
+#define STATE_HAVE_PENDING_READERS_SHIFT    0
+#define STATE_HAVE_PENDING_WRITERS_SHIFT    1
+#define STATE_READER_COUNT_SHIFT            2
+#define STATE_OWNED_BY_WRITER_SHIFT        31
+
+#define STATE_HAVE_PENDING_READERS_FLAG     (1 << STATE_HAVE_PENDING_READERS_SHIFT)
+#define STATE_HAVE_PENDING_WRITERS_FLAG     (1 << STATE_HAVE_PENDING_WRITERS_SHIFT)
+#define STATE_READER_COUNT_CHANGE_STEP  (1 << STATE_READER_COUNT_SHIFT)
+#define STATE_OWNED_BY_WRITER_FLAG      (1 << STATE_OWNED_BY_WRITER_SHIFT)
+
+#define STATE_HAVE_PENDING_READERS_OR_WRITERS_FLAG \
+          (STATE_HAVE_PENDING_READERS_FLAG | STATE_HAVE_PENDING_WRITERS_FLAG)
+
+struct pthread_rwlock_internal_t {
+  atomic_int state;
+  atomic_int writer_tid;
+
+  bool pshared;
+  bool writer_nonrecursive_preferred;
+  uint16_t __pad;
+
+// When a reader thread plans to suspend on the rwlock, it will add STATE_HAVE_PENDING_READERS_FLAG
+// in state, increase pending_reader_count, and wait on pending_reader_wakeup_serial. After woken
+// up, the reader thread decreases pending_reader_count, and the last pending reader thread should
+// remove STATE_HAVE_PENDING_READERS_FLAG in state. A pending writer thread works in a similar way,
+// except that it uses flag and members for writer threads.
+
+  Lock pending_lock;  // All pending members below are protected by pending_lock.
+  uint32_t pending_reader_count;  // Count of pending reader threads.
+  uint32_t pending_writer_count;  // Count of pending writer threads.
+  uint32_t pending_reader_wakeup_serial;  // Pending reader threads wait on this address by futex_wait.
+  uint32_t pending_writer_wakeup_serial;  // Pending writer threads wait on this address by futex_wait.
+
+#if defined(__LP64__)
+  char __reserved[20];
+#else
+  char __reserved[4];
+#endif
+};
+
+static inline __always_inline bool __state_owned_by_writer(int state) {
+  return state < 0;
+}
+
+static inline __always_inline bool __state_owned_by_readers(int state) {
+  // If state >= 0, the owned_by_writer_flag is not set.
+  // And if state >= STATE_READER_COUNT_CHANGE_STEP, the reader_count field is not empty.
+  return state >= STATE_READER_COUNT_CHANGE_STEP;
+}
+
+static inline __always_inline bool __state_owned_by_readers_or_writer(int state) {
+  return state < 0 || state >= STATE_READER_COUNT_CHANGE_STEP;
+}
+
+static inline __always_inline int __state_add_writer_flag(int state) {
+  return state | STATE_OWNED_BY_WRITER_FLAG;
+}
+
+static inline __always_inline bool __state_is_last_reader(int state) {
+  return (state >> STATE_READER_COUNT_SHIFT) == 1;
+}
+
+static inline __always_inline bool __state_have_pending_writers(int state) {
+  return state & STATE_HAVE_PENDING_WRITERS_FLAG;
+}
+
+static inline __always_inline bool __state_have_pending_readers_or_writers(int state) {
+  return state & STATE_HAVE_PENDING_READERS_OR_WRITERS_FLAG;
+}
+
+static_assert(sizeof(pthread_rwlock_t) == sizeof(pthread_rwlock_internal_t),
+              "pthread_rwlock_t should actually be pthread_rwlock_internal_t in implementation.");
+
+// For binary compatibility with old version of pthread_rwlock_t, we can't use more strict
+// alignment than 4-byte alignment.
+static_assert(alignof(pthread_rwlock_t) == 4,
+             "pthread_rwlock_t should fulfill the alignment requirement of pthread_rwlock_internal_t.");
+
+static inline __always_inline pthread_rwlock_internal_t* __get_internal_rwlock(pthread_rwlock_t* rwlock_interface) {
+  return reinterpret_cast<pthread_rwlock_internal_t*>(rwlock_interface);
+}
+
+int pthread_rwlock_init(pthread_rwlock_t* rwlock_interface, const pthread_rwlockattr_t* attr) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+
+  memset(rwlock, 0, sizeof(pthread_rwlock_internal_t));
+
+  if (__predict_false(attr != NULL)) {
+    rwlock->pshared = __rwlockattr_getpshared(attr);
+    int kind = __rwlockattr_getkind(attr);
+    switch (kind) {
+      case PTHREAD_RWLOCK_PREFER_READER_NP:
+        rwlock->writer_nonrecursive_preferred = false;
+        break;
+      case PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP:
+        rwlock->writer_nonrecursive_preferred = true;
         break;
       default:
         return EINVAL;
     }
+    if ((*attr & RWLOCKATTR_RESERVED_MASK) != 0) {
+      return EINVAL;
+    }
   }
 
-  rwlock->state = 0;
-  rwlock->pending_readers = 0;
-  rwlock->pending_writers = 0;
-  rwlock->writer_thread_id = 0;
-
+  atomic_init(&rwlock->state, 0);
+  rwlock->pending_lock.init(rwlock->pshared);
   return 0;
 }
 
-int pthread_rwlock_destroy(pthread_rwlock_t* rwlock) {
-  if (rwlock->state != 0) {
+int pthread_rwlock_destroy(pthread_rwlock_t* rwlock_interface) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+
+  if (atomic_load_explicit(&rwlock->state, memory_order_relaxed) != 0) {
     return EBUSY;
   }
   return 0;
 }
 
-static int __pthread_rwlock_timedrdlock(pthread_rwlock_t* rwlock, const timespec* abs_timeout) {
-  if (__predict_false(__get_thread()->tid == rwlock->writer_thread_id)) {
+static inline __always_inline bool __can_acquire_read_lock(int old_state,
+                                                             bool writer_nonrecursive_preferred) {
+  // If writer is preferred with nonrecursive reader, we prevent further readers from acquiring
+  // the lock when there are writers waiting for the lock.
+  bool cannot_apply = __state_owned_by_writer(old_state) ||
+                      (writer_nonrecursive_preferred && __state_have_pending_writers(old_state));
+  return !cannot_apply;
+}
+
+static inline __always_inline int __pthread_rwlock_tryrdlock(pthread_rwlock_internal_t* rwlock) {
+  int old_state = atomic_load_explicit(&rwlock->state, memory_order_relaxed);
+
+  while (__predict_true(__can_acquire_read_lock(old_state, rwlock->writer_nonrecursive_preferred))) {
+
+    int new_state = old_state + STATE_READER_COUNT_CHANGE_STEP;
+    if (__predict_false(!__state_owned_by_readers(new_state))) { // Happens when reader count overflows.
+      return EAGAIN;
+    }
+    if (__predict_true(atomic_compare_exchange_weak_explicit(&rwlock->state, &old_state, new_state,
+                                              memory_order_acquire, memory_order_relaxed))) {
+      return 0;
+    }
+  }
+  return EBUSY;
+}
+
+static int __pthread_rwlock_timedrdlock(pthread_rwlock_internal_t* rwlock,
+                                        const timespec* abs_timeout_or_null) {
+
+  if (atomic_load_explicit(&rwlock->writer_tid, memory_order_relaxed) == __get_thread()->tid) {
     return EDEADLK;
   }
 
-  timespec ts;
-  timespec* rel_timeout = (abs_timeout == NULL) ? NULL : &ts;
-  bool done = false;
-  do {
-    // This is actually a race read as there's nothing that guarantees the atomicity of integer
-    // reads / writes. However, in practice this "never" happens so until we switch to C++11 this
-    // should work fine. The same applies in the other places this idiom is used.
-    int32_t cur_state = rwlock->state;  // C++11 relaxed atomic read
-    if (__predict_true(cur_state >= 0)) {
-      // Add as an extra reader.
-      done = __sync_bool_compare_and_swap(&rwlock->state, cur_state, cur_state + 1);  // C++11 memory_order_aquire
-    } else {
-      if (!timespec_from_absolute(rel_timeout, abs_timeout)) {
-        return ETIMEDOUT;
-      }
-      // Owner holds it in write mode, hang up.
-      // To avoid losing wake ups the pending_readers update and the state read should be
-      // sequentially consistent. (currently enforced by __sync_fetch_and_add which creates a full barrier)
-      __sync_fetch_and_add(&rwlock->pending_readers, 1);  // C++11 memory_order_relaxed (if the futex_wait ensures the ordering)
-      int ret = __futex_wait_ex(&rwlock->state, rwlock_is_shared(rwlock), cur_state, rel_timeout);
-      __sync_fetch_and_sub(&rwlock->pending_readers, 1);  // C++11 memory_order_relaxed
-      if (ret == -ETIMEDOUT) {
+  while (true) {
+    int ret = __pthread_rwlock_tryrdlock(rwlock);
+    if (ret == 0 || ret == EAGAIN) {
+      return ret;
+    }
+
+    int old_state = atomic_load_explicit(&rwlock->state, memory_order_relaxed);
+    if (__can_acquire_read_lock(old_state, rwlock->writer_nonrecursive_preferred)) {
+      continue;
+    }
+
+    timespec ts;
+    timespec* rel_timeout = NULL;
+
+    if (abs_timeout_or_null != NULL) {
+      rel_timeout = &ts;
+      if (!timespec_from_absolute_timespec(*rel_timeout, *abs_timeout_or_null, CLOCK_REALTIME)) {
         return ETIMEDOUT;
       }
     }
-  } while (!done);
 
-  return 0;
+    rwlock->pending_lock.lock();
+    rwlock->pending_reader_count++;
+
+    // We rely on the fact that all atomic exchange operations on the same object (here it is
+    // rwlock->state) always appear to occur in a single total order. If the pending flag is added
+    // before unlocking, the unlocking thread will wakeup the waiter. Otherwise, we will see the
+    // state is unlocked and will not wait anymore.
+    old_state = atomic_fetch_or_explicit(&rwlock->state, STATE_HAVE_PENDING_READERS_FLAG,
+                                         memory_order_relaxed);
+
+    int old_serial = rwlock->pending_reader_wakeup_serial;
+    rwlock->pending_lock.unlock();
+
+    int futex_ret = 0;
+    if (!__can_acquire_read_lock(old_state, rwlock->writer_nonrecursive_preferred)) {
+      futex_ret = __futex_wait_ex(&rwlock->pending_reader_wakeup_serial, rwlock->pshared,
+                                  old_serial, rel_timeout);
+    }
+
+    rwlock->pending_lock.lock();
+    rwlock->pending_reader_count--;
+    if (rwlock->pending_reader_count == 0) {
+      atomic_fetch_and_explicit(&rwlock->state, ~STATE_HAVE_PENDING_READERS_FLAG,
+                                memory_order_relaxed);
+    }
+    rwlock->pending_lock.unlock();
+
+    if (futex_ret == -ETIMEDOUT) {
+      return ETIMEDOUT;
+    }
+  }
 }
 
-static int __pthread_rwlock_timedwrlock(pthread_rwlock_t* rwlock, const timespec* abs_timeout) {
-  int tid = __get_thread()->tid;
-  if (__predict_false(tid == rwlock->writer_thread_id)) {
+static inline __always_inline bool __can_acquire_write_lock(int old_state) {
+  return !__state_owned_by_readers_or_writer(old_state);
+}
+
+static inline __always_inline int __pthread_rwlock_trywrlock(pthread_rwlock_internal_t* rwlock) {
+  int old_state = atomic_load_explicit(&rwlock->state, memory_order_relaxed);
+
+  while (__predict_true(__can_acquire_write_lock(old_state))) {
+    if (__predict_true(atomic_compare_exchange_weak_explicit(&rwlock->state, &old_state,
+          __state_add_writer_flag(old_state), memory_order_acquire, memory_order_relaxed))) {
+
+      atomic_store_explicit(&rwlock->writer_tid, __get_thread()->tid, memory_order_relaxed);
+      return 0;
+    }
+  }
+  return EBUSY;
+}
+
+static int __pthread_rwlock_timedwrlock(pthread_rwlock_internal_t* rwlock,
+                                        const timespec* abs_timeout_or_null) {
+
+  if (atomic_load_explicit(&rwlock->writer_tid, memory_order_relaxed) == __get_thread()->tid) {
     return EDEADLK;
   }
+  while (true) {
+    int ret = __pthread_rwlock_trywrlock(rwlock);
+    if (ret == 0) {
+      return ret;
+    }
 
-  timespec ts;
-  timespec* rel_timeout = (abs_timeout == NULL) ? NULL : &ts;
-  bool done = false;
-  do {
-    int32_t cur_state = rwlock->state;
-    if (__predict_true(cur_state == 0)) {
-      // Change state from 0 to -1.
-      done =  __sync_bool_compare_and_swap(&rwlock->state, 0 /* cur state */, -1 /* new state */);  // C++11 memory_order_aquire
-    } else {
-      if (!timespec_from_absolute(rel_timeout, abs_timeout)) {
-        return ETIMEDOUT;
-      }
-      // Failed to acquire, hang up.
-      // To avoid losing wake ups the pending_writers update and the state read should be
-      // sequentially consistent. (currently enforced by __sync_fetch_and_add which creates a full barrier)
-      __sync_fetch_and_add(&rwlock->pending_writers, 1);  // C++11 memory_order_relaxed (if the futex_wait ensures the ordering)
-      int ret = __futex_wait_ex(&rwlock->state, rwlock_is_shared(rwlock), cur_state, rel_timeout);
-      __sync_fetch_and_sub(&rwlock->pending_writers, 1);  // C++11 memory_order_relaxed
-      if (ret == -ETIMEDOUT) {
+    int old_state = atomic_load_explicit(&rwlock->state, memory_order_relaxed);
+    if (__can_acquire_write_lock(old_state)) {
+      continue;
+    }
+
+    timespec ts;
+    timespec* rel_timeout = NULL;
+
+    if (abs_timeout_or_null != NULL) {
+      rel_timeout = &ts;
+      if (!timespec_from_absolute_timespec(*rel_timeout, *abs_timeout_or_null, CLOCK_REALTIME)) {
         return ETIMEDOUT;
       }
     }
-  } while (!done);
 
-  rwlock->writer_thread_id = tid;
-  return 0;
+    rwlock->pending_lock.lock();
+    rwlock->pending_writer_count++;
+
+    old_state = atomic_fetch_or_explicit(&rwlock->state, STATE_HAVE_PENDING_WRITERS_FLAG,
+                                         memory_order_relaxed);
+
+    int old_serial = rwlock->pending_writer_wakeup_serial;
+    rwlock->pending_lock.unlock();
+
+    int futex_ret = 0;
+    if (!__can_acquire_write_lock(old_state)) {
+      futex_ret = __futex_wait_ex(&rwlock->pending_writer_wakeup_serial, rwlock->pshared,
+                                  old_serial, rel_timeout);
+    }
+
+    rwlock->pending_lock.lock();
+    rwlock->pending_writer_count--;
+    if (rwlock->pending_writer_count == 0) {
+      atomic_fetch_and_explicit(&rwlock->state, ~STATE_HAVE_PENDING_WRITERS_FLAG,
+                                memory_order_relaxed);
+    }
+    rwlock->pending_lock.unlock();
+
+    if (futex_ret == -ETIMEDOUT) {
+      return ETIMEDOUT;
+    }
+  }
 }
 
-int pthread_rwlock_rdlock(pthread_rwlock_t* rwlock) {
+int pthread_rwlock_rdlock(pthread_rwlock_t* rwlock_interface) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+  // Avoid slowing down fast path of rdlock.
+  if (__predict_true(__pthread_rwlock_tryrdlock(rwlock) == 0)) {
+    return 0;
+  }
   return __pthread_rwlock_timedrdlock(rwlock, NULL);
 }
 
-int pthread_rwlock_timedrdlock(pthread_rwlock_t* rwlock, const timespec* abs_timeout) {
+int pthread_rwlock_timedrdlock(pthread_rwlock_t* rwlock_interface, const timespec* abs_timeout) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+
   return __pthread_rwlock_timedrdlock(rwlock, abs_timeout);
 }
 
-int pthread_rwlock_tryrdlock(pthread_rwlock_t* rwlock) {
-  int32_t cur_state = rwlock->state;
-  if ((cur_state >= 0) &&
-      __sync_bool_compare_and_swap(&rwlock->state, cur_state, cur_state + 1)) {  // C++11 memory_order_acquire
-    return 0;
-  }
-  return EBUSY;
+int pthread_rwlock_tryrdlock(pthread_rwlock_t* rwlock_interface) {
+  return __pthread_rwlock_tryrdlock(__get_internal_rwlock(rwlock_interface));
 }
 
-int pthread_rwlock_wrlock(pthread_rwlock_t* rwlock) {
+int pthread_rwlock_wrlock(pthread_rwlock_t* rwlock_interface) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+  // Avoid slowing down fast path of wrlock.
+  if (__predict_true(__pthread_rwlock_trywrlock(rwlock) == 0)) {
+    return 0;
+  }
   return __pthread_rwlock_timedwrlock(rwlock, NULL);
 }
 
-int pthread_rwlock_timedwrlock(pthread_rwlock_t* rwlock, const timespec* abs_timeout) {
+int pthread_rwlock_timedwrlock(pthread_rwlock_t* rwlock_interface, const timespec* abs_timeout) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
+
   return __pthread_rwlock_timedwrlock(rwlock, abs_timeout);
 }
 
-int pthread_rwlock_trywrlock(pthread_rwlock_t* rwlock) {
-  int tid = __get_thread()->tid;
-  int32_t cur_state = rwlock->state;
-  if ((cur_state == 0) &&
-      __sync_bool_compare_and_swap(&rwlock->state, 0 /* cur state */, -1 /* new state */)) {  // C++11 memory_order_acquire
-    rwlock->writer_thread_id = tid;
-    return 0;
-  }
-  return EBUSY;
+int pthread_rwlock_trywrlock(pthread_rwlock_t* rwlock_interface) {
+  return __pthread_rwlock_trywrlock(__get_internal_rwlock(rwlock_interface));
 }
 
+int pthread_rwlock_unlock(pthread_rwlock_t* rwlock_interface) {
+  pthread_rwlock_internal_t* rwlock = __get_internal_rwlock(rwlock_interface);
 
-int pthread_rwlock_unlock(pthread_rwlock_t* rwlock) {
-  int tid = __get_thread()->tid;
-  bool done = false;
-  do {
-    int32_t cur_state = rwlock->state;
-    if (cur_state == 0) {
+  int old_state = atomic_load_explicit(&rwlock->state, memory_order_relaxed);
+  if (__state_owned_by_writer(old_state)) {
+    if (atomic_load_explicit(&rwlock->writer_tid, memory_order_relaxed) != __get_thread()->tid) {
       return EPERM;
     }
-    if (cur_state == -1) {
-      if (rwlock->writer_thread_id != tid) {
-        return EPERM;
-      }
-      // We're no longer the owner.
-      rwlock->writer_thread_id = 0;
-      // Change state from -1 to 0.
-      // We use __sync_bool_compare_and_swap to achieve sequential consistency of the state store and
-      // the following pendingX loads. A simple store with memory_order_release semantics
-      // is not enough to guarantee that the pendingX loads are not reordered before the
-      // store (which may lead to a lost wakeup).
-      __sync_bool_compare_and_swap( &rwlock->state, -1 /* cur state*/, 0 /* new state */);  // C++11 maybe memory_order_seq_cst?
-
-      // Wake any waiters.
-      if (__predict_false(rwlock->pending_readers > 0 || rwlock->pending_writers > 0)) {
-        __futex_wake_ex(&rwlock->state, rwlock_is_shared(rwlock), INT_MAX);
-      }
-      done = true;
-    } else { // cur_state > 0
-      // Reduce state by 1.
-      // See the comment above on why we need __sync_bool_compare_and_swap.
-      done = __sync_bool_compare_and_swap(&rwlock->state, cur_state, cur_state - 1);  // C++11 maybe memory_order_seq_cst?
-      if (done && (cur_state - 1) == 0) {
-        // There are no more readers, wake any waiters.
-        if (__predict_false(rwlock->pending_readers > 0 || rwlock->pending_writers > 0)) {
-          __futex_wake_ex(&rwlock->state, rwlock_is_shared(rwlock), INT_MAX);
-        }
-      }
+    atomic_store_explicit(&rwlock->writer_tid, 0, memory_order_relaxed);
+    old_state = atomic_fetch_and_explicit(&rwlock->state, ~STATE_OWNED_BY_WRITER_FLAG,
+                                          memory_order_release);
+    if (!__state_have_pending_readers_or_writers(old_state)) {
+      return 0;
     }
-  } while (!done);
 
+  } else if (__state_owned_by_readers(old_state)) {
+    old_state = atomic_fetch_sub_explicit(&rwlock->state, STATE_READER_COUNT_CHANGE_STEP,
+                                          memory_order_release);
+    if (!__state_is_last_reader(old_state) || !__state_have_pending_readers_or_writers(old_state)) {
+      return 0;
+    }
+
+  } else {
+    return EPERM;
+  }
+
+  // Wake up pending readers or writers.
+  rwlock->pending_lock.lock();
+  if (rwlock->pending_writer_count != 0) {
+    rwlock->pending_writer_wakeup_serial++;
+    rwlock->pending_lock.unlock();
+
+    __futex_wake_ex(&rwlock->pending_writer_wakeup_serial, rwlock->pshared, 1);
+
+  } else if (rwlock->pending_reader_count != 0) {
+    rwlock->pending_reader_wakeup_serial++;
+    rwlock->pending_lock.unlock();
+
+    __futex_wake_ex(&rwlock->pending_reader_wakeup_serial, rwlock->pshared, INT_MAX);
+
+  } else {
+    // It happens when waiters are woken up by timeout.
+    rwlock->pending_lock.unlock();
+  }
   return 0;
 }

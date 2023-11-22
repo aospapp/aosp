@@ -17,7 +17,6 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.android.internal.util.XmlUtils;
 
 import android.content.Context;
 import android.content.res.XmlResourceParser;
@@ -29,6 +28,7 @@ import android.util.SparseArray;
 import android.util.Xml;
 import android.view.View;
 import android.widget.DatePicker;
+import android.widget.cts.util.XmlUtils;
 
 /**
  * Test {@link DatePicker}.

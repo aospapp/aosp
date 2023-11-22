@@ -1,5 +1,0 @@
-specific_include_rules = {
-  "magnification_controller\.cc": [
-    "+ash/host"
-  ],
-}

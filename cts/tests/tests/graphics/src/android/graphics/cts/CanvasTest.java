@@ -1681,6 +1681,115 @@ public class CanvasTest extends InstrumentationTestCase {
         mCanvas.drawText(t5, 0, 7, 10, 30, mPaint);
     }
 
+    public void testDrawTextRun() {
+        final String text = "android";
+        final Paint paint = new Paint();
+
+        mCanvas.drawTextRun(text, 0, 0, 0, 0, 0.0f, 0.0f, false, paint);
+        mCanvas.drawTextRun(text, 0, text.length(), 0, text.length(), 0.0f, 0.0f, false, paint);
+        mCanvas.drawTextRun(text, text.length(), text.length(), text.length(), text.length(),
+                0.0f, 0.0f, false, paint);
+
+        try {
+            mCanvas.drawTextRun((char[])null, 0, 0, 0, 0, 0.0f, 0.0f, false, paint);
+            fail("should throw out NullPointerException because text is null");
+        } catch (NullPointerException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun((CharSequence)null, 0, 0, 0, 0, 0.0f, 0.0f, false, paint);
+            fail("should throw out NullPointerException because text is null");
+        } catch (NullPointerException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text.toCharArray(), 0, 0, 0, 0, 0.0f, 0.0f, false, null);
+            fail("should throw out NullPointerException because paint is null");
+        } catch (NullPointerException e) {
+        }
+        try {
+            mCanvas.drawTextRun(text, 0, 0, 0, 0, 0.0f, 0.0f, false, null);
+            fail("should throw out NullPointerException because paint is null");
+        } catch (NullPointerException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text.toCharArray(), -1, text.length(), 0, text.length(), 0.0f, 0.0f,
+                    false, paint);
+            fail("should throw out IndexOutOfBoundsException because index is less than 0");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text.toCharArray(), 0, -1, 0, text.length(), 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because count is less than 0");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text.toCharArray(), 0, text.length(), 1, text.length(), 0.0f, 0.0f,
+                    false, paint);
+            fail("should throw out IndexOutOfBoundsException because contextIndex is bigger than "
+                    + "index");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+
+        try {
+            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because contexIndex + contextCount "
+                    + "is less than index + count");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text.toCharArray(), 0, text.length() + 1, 0, text.length() + 1,
+                    0.0f, 0.0f, false, paint);
+            fail("should throw out IndexOutOfBoundsException because index + count is bigger than "
+                    + "text length");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text, 0, text.length(), -1, text.length(), 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because contextStart is less than 0");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text, 0, text.length(), 1, text.length(), 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because start is less than "
+                    + "contextStart");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text, 1, 0, 0, text.length(), 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because end is less than start");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() - 1, 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because contextEnd is less than end");
+        } catch (IndexOutOfBoundsException e) {
+        }
+
+        try {
+            mCanvas.drawTextRun(text, 0, text.length(), 0, text.length() + 1, 0.0f, 0.0f, false,
+                    paint);
+            fail("should throw out IndexOutOfBoundsException because contextEnd is bigger than "
+                    + "text length");
+        } catch (IndexOutOfBoundsException e) {
+        }
+    }
+
     public void testDrawPosText1() {
         final char[] text = {
                 'a', 'n', 'd', 'r', 'o', 'i', 'd'

@@ -4,12 +4,15 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
+#ifndef CORE_SRC_FXGE_GE_TEXT_INT_H_
+#define CORE_SRC_FXGE_GE_TEXT_INT_H_
+
 struct _CFX_UniqueKeyGen {
     void		Generate(int count, ...);
     FX_CHAR		m_Key[128];
     int			m_KeyLen;
 };
-class CFX_SizeGlyphCache : public CFX_Object
+class CFX_SizeGlyphCache 
 {
 public:
     CFX_SizeGlyphCache()
@@ -19,7 +22,7 @@ public:
     ~CFX_SizeGlyphCache();
     CFX_MapPtrToPtr			m_GlyphMap;
 };
-class CTTFontDesc : public CFX_Object
+class CTTFontDesc 
 {
 public:
     CTTFontDesc()
@@ -71,7 +74,7 @@ private:
 #define CHARSET_FLAG_BIG5		8
 #define CHARSET_FLAG_GB			16
 #define CHARSET_FLAG_KOREAN		32
-class CFontFaceInfo : public CFX_Object
+class CFontFaceInfo 
 {
 public:
     CFX_ByteString		m_FilePath;
@@ -82,7 +85,7 @@ public:
     FX_DWORD			m_FileSize;
     CFX_ByteString		m_FontTables;
 };
-class CFontFileFaceInfo : public CFX_Object
+class CFontFileFaceInfo 
 {
 public:
     CFontFileFaceInfo();
@@ -98,3 +101,5 @@ public:
     int					m_PitchFamily;
     CFX_ByteString		m_FontTables;
 };
+
+#endif  // CORE_SRC_FXGE_GE_TEXT_INT_H_

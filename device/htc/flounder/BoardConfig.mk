@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-# Use the non-open-source parts, if they're present
--include vendor/htc/flounder/BoardConfigVendor.mk
 # Build a separate vendor.img
 TARGET_COPY_OUT_VENDOR := vendor
 
@@ -24,7 +22,6 @@ TARGET_ARCH_VARIANT := armv8-a
 TARGET_CPU_ABI := arm64-v8a
 TARGET_CPU_ABI2 :=
 TARGET_CPU_VARIANT := denver64
-TARGET_CPU_SMP := true
 
 TARGET_2ND_ARCH := arm
 TARGET_2ND_ARCH_VARIANT := armv7-a-neon
@@ -37,6 +34,8 @@ BUILD_EMULATOR := false
 
 TARGET_NO_BOOTLOADER := true
 
+BOARD_KERNEL_CMDLINE += androidboot.hardware=flounder
+
 TARGET_NO_RADIOIMAGE := true
 
 TARGET_BOARD_PLATFORM := tegra132
@@ -47,6 +46,8 @@ TARGET_BOOTLOADER_BOARD_NAME := flounder
 USE_OPENGL_RENDERER := true
 NUM_FRAMEBUFFER_SURFACE_BUFFERS := 2
 BOARD_DISABLE_TRIPLE_BUFFERED_DISPLAY_SURFACES := true
+
+TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2782920704
@@ -75,7 +76,6 @@ BOARD_HAL_STATIC_LIBRARIES := libdumpstate.flounder libhealthd.flounder
 BOARD_VENDOR_USE_SENSOR_HAL := sensor_hub
 
 # GPS related defines
-BOARD_VENDOR_QCOM_GPS_LOC_API_HARDWARE := default
 TARGET_NO_RPC := true
 BOARD_USES_QCOM_HARDWARE_GPS := true
 
@@ -90,28 +90,7 @@ WIFI_DRIVER_FW_PATH_PARAM   := "/sys/module/bcmdhd/parameters/firmware_path"
 WIFI_DRIVER_FW_PATH_STA     := "/vendor/firmware/fw_bcmdhd.bin"
 WIFI_DRIVER_FW_PATH_AP      := "/vendor/firmware/fw_bcmdhd_apsta.bin"
 
-BOARD_SEPOLICY_DIRS := device/htc/flounder/sepolicy
-BOARD_SEPOLICY_UNION := \
-	bluetooth.te \
-	device.te \
-	drmserver.te \
-	file.te \
-	file_contexts \
-	genfs_contexts \
-	gpsd.te \
-	kernel.te \
-	kickstart.te \
-	mediaserver.te \
-	netd.te \
-	netmgrd.te \
-	qmuxd.te \
-	radio.te \
-	rild.te \
-	surfaceflinger.te \
-	system_server.te \
-	tee.te \
-	te_macros \
-	touch_fusion.te
+BOARD_SEPOLICY_DIRS += device/htc/flounder/sepolicy
 
 TARGET_USES_64_BIT_BCMDHD := true
 TARGET_USES_64_BIT_BINDER := true
@@ -146,3 +125,6 @@ EXTENDED_FONT_FOOTPRINT := true
 BOARD_CHARGER_ENABLE_SUSPEND := true
 
 MALLOC_IMPL := dlmalloc
+
+# Use the non-open-source parts, if they're present
+-include vendor/htc/flounder/BoardConfigVendor.mk

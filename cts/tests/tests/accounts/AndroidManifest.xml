@@ -18,11 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.accounts.cts">
 
-    <!-- Used for AccountManagerService test, don't delete this permission -->
-    <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
-    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
-    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
-    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <!-- Don't need GET_ACCOUNTS because share a Uid with the relevant
+         authenticators -->
+
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
     <application>
@@ -43,9 +41,20 @@
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator" />
             </intent-filter>
-
             <meta-data android:name="android.accounts.AccountAuthenticator"
                        android:resource="@xml/authenticator" />
+        </service>
+
+        <service android:name="MockCustomTokenAccountService" android:exported="true"
+                 android:process="android.accounts.cts">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                       android:resource="@xml/custom_token_authenticator" />
+            <meta-data android:name="android.accounts.AccountAuthenticator.customTokens"
+                       android:value="1" />
+
         </service>
     </application>
 

@@ -19,16 +19,17 @@
 
 #include <vector>
 
+#include "arch/instruction_set.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "arm/constants_arm.h"
-#include "mips/constants_mips.h"
-#include "x86/constants_x86.h"
-#include "x86_64/constants_x86_64.h"
-#include "instruction_set.h"
 #include "managed_register.h"
 #include "memory_region.h"
+#include "mips/constants_mips.h"
 #include "offsets.h"
+#include "x86/constants_x86.h"
+#include "x86_64/constants_x86_64.h"
+#include "dwarf/debug_frame_opcode_writer.h"
 
 namespace art {
 
@@ -47,6 +48,9 @@ namespace arm64 {
 namespace mips {
   class MipsAssembler;
 }
+namespace mips64 {
+  class Mips64Assembler;
+}
 namespace x86 {
   class X86Assembler;
 }
@@ -56,19 +60,19 @@ namespace x86_64 {
 
 class ExternalLabel {
  public:
-  ExternalLabel(const char* name, uword address)
-      : name_(name), address_(address) {
-    DCHECK(name != nullptr);
+  ExternalLabel(const char* name_in, uintptr_t address_in)
+      : name_(name_in), address_(address_in) {
+    DCHECK(name_in != nullptr);
   }
 
   const char* name() const { return name_; }
-  uword address() const {
+  uintptr_t address() const {
     return address_;
   }
 
  private:
   const char* name_;
-  const uword address_;
+  const uintptr_t address_;
 };
 
 class Label {
@@ -84,12 +88,12 @@ class Label {
   // for unused labels.
   int Position() const {
     CHECK(!IsUnused());
-    return IsBound() ? -position_ - kPointerSize : position_ - kPointerSize;
+    return IsBound() ? -position_ - sizeof(void*) : position_ - sizeof(void*);
   }
 
   int LinkPosition() const {
     CHECK(IsLinked());
-    return position_ - kPointerSize;
+    return position_ - sizeof(void*);
   }
 
   bool IsBound() const { return position_ < 0; }
@@ -105,20 +109,22 @@ class Label {
 
   void BindTo(int position) {
     CHECK(!IsBound());
-    position_ = -position - kPointerSize;
+    position_ = -position - sizeof(void*);
     CHECK(IsBound());
   }
 
   void LinkTo(int position) {
     CHECK(!IsBound());
-    position_ = position + kPointerSize;
+    position_ = position + sizeof(void*);
     CHECK(IsLinked());
   }
 
   friend class arm::ArmAssembler;
   friend class arm::Arm32Assembler;
   friend class arm::Thumb2Assembler;
+  friend class arm64::Arm64Assembler;
   friend class mips::MipsAssembler;
+  friend class mips64::Mips64Assembler;
   friend class x86::X86Assembler;
   friend class x86_64::X86_64Assembler;
 
@@ -139,10 +145,10 @@ class AssemblerFixup {
   int position_;
 
   AssemblerFixup* previous() const { return previous_; }
-  void set_previous(AssemblerFixup* previous) { previous_ = previous; }
+  void set_previous(AssemblerFixup* previous_in) { previous_ = previous_in; }
 
   int position() const { return position_; }
-  void set_position(int position) { position_ = position; }
+  void set_position(int position_in) { position_ = position_in; }
 
   friend class AssemblerBuffer;
 };
@@ -150,7 +156,7 @@ class AssemblerFixup {
 // Parent of all queued slow paths, emitted during finalization
 class SlowPath {
  public:
-  SlowPath() : next_(NULL) {}
+  SlowPath() : next_(nullptr) {}
   virtual ~SlowPath() {}
 
   Label* Continuation() { return &continuation_; }
@@ -210,20 +216,20 @@ class AssemblerBuffer {
   }
 
   void EnqueueSlowPath(SlowPath* slowpath) {
-    if (slow_path_ == NULL) {
+    if (slow_path_ == nullptr) {
       slow_path_ = slowpath;
     } else {
       SlowPath* cur = slow_path_;
-      for ( ; cur->next_ != NULL ; cur = cur->next_) {}
+      for ( ; cur->next_ != nullptr ; cur = cur->next_) {}
       cur->next_ = slowpath;
     }
   }
 
   void EmitSlowPaths(Assembler* sp_asm) {
     SlowPath* cur = slow_path_;
-    SlowPath* next = NULL;
-    slow_path_ = NULL;
-    for ( ; cur != NULL ; cur = next) {
+    SlowPath* next = nullptr;
+    slow_path_ = nullptr;
+    for ( ; cur != nullptr ; cur = next) {
       cur->Emit(sp_asm);
       next = cur->next_;
       delete cur;
@@ -236,7 +242,7 @@ class AssemblerBuffer {
     return cursor_ - contents_;
   }
 
-  byte* contents() const { return contents_; }
+  uint8_t* contents() const { return contents_; }
 
   // Copy the assembled instructions into the specified memory block
   // and apply all fixups.
@@ -316,9 +322,9 @@ class AssemblerBuffer {
   // for a single, fast space check per instruction.
   static const int kMinimumGap = 32;
 
-  byte* contents_;
-  byte* cursor_;
-  byte* limit_;
+  uint8_t* contents_;
+  uint8_t* cursor_;
+  uint8_t* limit_;
   AssemblerFixup* fixup_;
 #ifndef NDEBUG
   bool fixups_processed_;
@@ -327,8 +333,8 @@ class AssemblerBuffer {
   // Head of linked list of slow paths
   SlowPath* slow_path_;
 
-  byte* cursor() const { return cursor_; }
-  byte* limit() const { return limit_; }
+  uint8_t* cursor() const { return cursor_; }
+  uint8_t* limit() const { return limit_; }
   size_t Capacity() const {
     CHECK_GE(limit_, contents_);
     return (limit_ - contents_) + kMinimumGap;
@@ -340,13 +346,30 @@ class AssemblerBuffer {
 
   // Compute the limit based on the data area and the capacity. See
   // description of kMinimumGap for the reasoning behind the value.
-  static byte* ComputeLimit(byte* data, size_t capacity) {
+  static uint8_t* ComputeLimit(uint8_t* data, size_t capacity) {
     return data + capacity - kMinimumGap;
   }
 
   void ExtendCapacity();
 
   friend class AssemblerFixup;
+};
+
+// The purpose of this class is to ensure that we do not have to explicitly
+// call the AdvancePC method (which is good for convenience and correctness).
+class DebugFrameOpCodeWriterForAssembler FINAL
+    : public dwarf::DebugFrameOpCodeWriter<> {
+ public:
+  // This method is called the by the opcode writers.
+  virtual void ImplicitlyAdvancePC() FINAL;
+
+  explicit DebugFrameOpCodeWriterForAssembler(Assembler* buffer)
+      : dwarf::DebugFrameOpCodeWriter<>(),
+        assembler_(buffer) {
+  }
+
+ private:
+  Assembler* assembler_;
 };
 
 class Assembler {
@@ -365,7 +388,7 @@ class Assembler {
   }
 
   // TODO: Implement with disassembler.
-  virtual void Comment(const char* format, ...) { }
+  virtual void Comment(const char* format, ...) { UNUSED(format); }
 
   // Emit code that will create an activation on the stack
   virtual void BuildFrame(size_t frame_size, ManagedRegister method_reg,
@@ -411,8 +434,10 @@ class Assembler {
   virtual void LoadFromThread32(ManagedRegister dest, ThreadOffset<4> src, size_t size);
   virtual void LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size);
 
-  virtual void LoadRef(ManagedRegister dest, FrameOffset  src) = 0;
-  virtual void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs) = 0;
+  virtual void LoadRef(ManagedRegister dest, FrameOffset src) = 0;
+  // If poison_reference is true and kPoisonReference is true, then we negate the read reference.
+  virtual void LoadRef(ManagedRegister dest, ManagedRegister base, MemberOffset offs,
+                       bool poison_reference) = 0;
 
   virtual void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs) = 0;
 
@@ -466,14 +491,14 @@ class Assembler {
   virtual void GetCurrentThread(FrameOffset dest_offset,
                                 ManagedRegister scratch) = 0;
 
-  // Set up out_reg to hold a Object** into the handle scope, or to be NULL if the
+  // Set up out_reg to hold a Object** into the handle scope, or to be null if the
   // value is null and null_allowed. in_reg holds a possibly stale reference
   // that can be used to avoid loading the handle scope entry to see if the value is
-  // NULL.
+  // null.
   virtual void CreateHandleScopeEntry(ManagedRegister out_reg, FrameOffset handlescope_offset,
                                ManagedRegister in_reg, bool null_allowed) = 0;
 
-  // Set up out_off to hold a Object** into the handle scope, or to be NULL if the
+  // Set up out_off to hold a Object** into the handle scope, or to be null if the
   // value is null and null_allowed.
   virtual void CreateHandleScopeEntry(FrameOffset out_off, FrameOffset handlescope_offset,
                                ManagedRegister scratch, bool null_allowed) = 0;
@@ -501,10 +526,18 @@ class Assembler {
 
   virtual ~Assembler() {}
 
+  /**
+   * @brief Buffer of DWARF's Call Frame Information opcodes.
+   * @details It is used by debuggers and other tools to unwind the call stack.
+   */
+  DebugFrameOpCodeWriterForAssembler& cfi() { return cfi_; }
+
  protected:
-  Assembler() : buffer_() {}
+  Assembler() : buffer_(), cfi_(this) {}
 
   AssemblerBuffer buffer_;
+
+  DebugFrameOpCodeWriterForAssembler cfi_;
 };
 
 }  // namespace art

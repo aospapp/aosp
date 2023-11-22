@@ -6,8 +6,8 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Support/TargetRegistry.h>
-#include <mcld/LD/DWARFLineInfo.h>
+#include "mcld/LD/DWARFLineInfo.h"
+#include "mcld/Support/TargetRegistry.h"
 #include "Hexagon.h"
 
 namespace mcld {
@@ -16,22 +16,18 @@ namespace mcld {
 // createHexagonDiagnostic - the help function to create corresponding
 // HexagonDiagnostic
 //===----------------------------------------------------------------------===//
-DiagnosticLineInfo*
-createHexagonDiagLineInfo(const Target& pTarget, const std::string &pTriple)
-{
+DiagnosticLineInfo* createHexagonDiagLineInfo(const Target& pTarget,
+                                              const std::string& pTriple) {
   return new DWARFLineInfo();
 }
 
-} // namespace of mcld
-
-using namespace mcld;
+}  // namespace mcld
 
 //===----------------------------------------------------------------------===//
 // InitializeHexagonDiagnostic
 //===----------------------------------------------------------------------===//
 extern "C" void MCLDInitializeHexagonDiagnosticLineInfo() {
   // Register the linker frontend
-  mcld::TargetRegistry::RegisterDiagnosticLineInfo(TheHexagonTarget,
-                                                   createHexagonDiagLineInfo);
+  mcld::TargetRegistry::RegisterDiagnosticLineInfo(
+      mcld::TheHexagonTarget, mcld::createHexagonDiagLineInfo);
 }
-

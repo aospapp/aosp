@@ -93,10 +93,10 @@ private:
 
   DebugLoc debugLoc;                    // Source line information.
 
-  MachineInstr(const MachineInstr&) LLVM_DELETED_FUNCTION;
-  void operator=(const MachineInstr&) LLVM_DELETED_FUNCTION;
+  MachineInstr(const MachineInstr&) = delete;
+  void operator=(const MachineInstr&) = delete;
   // Use MachineFunction::DeleteMachineInstr() instead.
-  ~MachineInstr() LLVM_DELETED_FUNCTION;
+  ~MachineInstr() = delete;
 
   // Intrusive list support
   friend struct ilist_traits<MachineInstr>;
@@ -110,8 +110,8 @@ private:
   /// MachineInstr ctor - This constructor create a MachineInstr and add the
   /// implicit operands.  It reserves space for number of operands specified by
   /// MCInstrDesc.  An explicit DebugLoc is supplied.
-  MachineInstr(MachineFunction&, const MCInstrDesc &MCID,
-               const DebugLoc dl, bool NoImp = false);
+  MachineInstr(MachineFunction &, const MCInstrDesc &MCID, DebugLoc dl,
+               bool NoImp = false);
 
   // MachineInstrs are pool-allocated and owned by MachineFunction.
   friend class MachineFunction;
@@ -242,14 +242,20 @@ public:
 
   /// getDebugLoc - Returns the debug location id of this MachineInstr.
   ///
-  DebugLoc getDebugLoc() const { return debugLoc; }
+  const DebugLoc &getDebugLoc() const { return debugLoc; }
 
-  /// getDebugVariable() - Return the debug variable referenced by
+  /// \brief Return the debug variable referenced by
   /// this DBG_VALUE instruction.
   DIVariable getDebugVariable() const {
     assert(isDebugValue() && "not a DBG_VALUE");
-    const MDNode *Var = getOperand(getNumOperands() - 1).getMetadata();
-    return DIVariable(Var);
+    return cast<MDLocalVariable>(getOperand(2).getMetadata());
+  }
+
+  /// \brief Return the complex address expression referenced by
+  /// this DBG_VALUE instruction.
+  DIExpression getDebugExpression() const {
+    assert(isDebugValue() && "not a DBG_VALUE");
+    return cast<MDExpression>(getOperand(3).getMetadata());
   }
 
   /// emitError - Emit an error referring to the source location of this
@@ -510,6 +516,49 @@ public:
     return hasProperty(MCID::FoldableAsLoad, Type);
   }
 
+  /// \brief Return true if this instruction behaves
+  /// the same way as the generic REG_SEQUENCE instructions.
+  /// E.g., on ARM,
+  /// dX VMOVDRR rY, rZ
+  /// is equivalent to
+  /// dX = REG_SEQUENCE rY, ssub_0, rZ, ssub_1.
+  ///
+  /// Note that for the optimizers to be able to take advantage of
+  /// this property, TargetInstrInfo::getRegSequenceLikeInputs has to be
+  /// override accordingly.
+  bool isRegSequenceLike(QueryType Type = IgnoreBundle) const {
+    return hasProperty(MCID::RegSequence, Type);
+  }
+
+  /// \brief Return true if this instruction behaves
+  /// the same way as the generic EXTRACT_SUBREG instructions.
+  /// E.g., on ARM,
+  /// rX, rY VMOVRRD dZ
+  /// is equivalent to two EXTRACT_SUBREG:
+  /// rX = EXTRACT_SUBREG dZ, ssub_0
+  /// rY = EXTRACT_SUBREG dZ, ssub_1
+  ///
+  /// Note that for the optimizers to be able to take advantage of
+  /// this property, TargetInstrInfo::getExtractSubregLikeInputs has to be
+  /// override accordingly.
+  bool isExtractSubregLike(QueryType Type = IgnoreBundle) const {
+    return hasProperty(MCID::ExtractSubreg, Type);
+  }
+
+  /// \brief Return true if this instruction behaves
+  /// the same way as the generic INSERT_SUBREG instructions.
+  /// E.g., on ARM,
+  /// dX = VSETLNi32 dY, rZ, Imm
+  /// is equivalent to a INSERT_SUBREG:
+  /// dX = INSERT_SUBREG dY, rZ, translateImmToSubIdx(Imm)
+  ///
+  /// Note that for the optimizers to be able to take advantage of
+  /// this property, TargetInstrInfo::getInsertSubregLikeInputs has to be
+  /// override accordingly.
+  bool isInsertSubregLike(QueryType Type = IgnoreBundle) const {
+    return hasProperty(MCID::InsertSubreg, Type);
+  }
+
   //===--------------------------------------------------------------------===//
   // Side Effect Analysis
   //===--------------------------------------------------------------------===//
@@ -670,6 +719,12 @@ public:
   /// This function can not be used for instructions inside a bundle, use
   /// eraseFromBundle() to erase individual bundled instructions.
   void eraseFromParent();
+
+  /// Unlink 'this' from the containing basic block and delete it.
+  ///
+  /// For all definitions mark their uses in DBG_VALUE nodes
+  /// as undefined. Otherwise like eraseFromParent().
+  void eraseFromParentAndMarkDBGValuesForRemoval();
 
   /// Unlink 'this' form its basic block and delete it.
   ///
@@ -989,6 +1044,14 @@ public:
   bool addRegisterDead(unsigned Reg, const TargetRegisterInfo *RegInfo,
                        bool AddIfNotFound = false);
 
+  /// Clear all dead flags on operands defining register @p Reg.
+  void clearRegisterDeads(unsigned Reg);
+
+  /// Mark all subregister defs of register @p Reg with the undef flag.
+  /// This function is used when we determined to have a subregister def in an
+  /// otherwise undefined super register.
+  void addRegisterDefReadUndef(unsigned Reg);
+
   /// addRegisterDefined - We have determined MI defines a register. Make sure
   /// there is an operand defining Reg.
   void addRegisterDefined(unsigned Reg,
@@ -1046,8 +1109,7 @@ public:
   //
   // Debugging support
   //
-  void print(raw_ostream &OS, const TargetMachine *TM = nullptr,
-             bool SkipOpers = false) const;
+  void print(raw_ostream &OS, bool SkipOpers = false) const;
   void dump() const;
 
   //===--------------------------------------------------------------------===//
@@ -1080,7 +1142,10 @@ public:
   /// setDebugLoc - Replace current source information with new such.
   /// Avoid using this, the constructor argument is preferable.
   ///
-  void setDebugLoc(const DebugLoc dl) { debugLoc = dl; }
+  void setDebugLoc(DebugLoc dl) {
+    debugLoc = std::move(dl);
+    assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
+  }
 
   /// RemoveOperand - Erase an operand  from an instruction, leaving it with one
   /// fewer operand than it started with.
@@ -1098,6 +1163,12 @@ public:
     MemRefs = NewMemRefs;
     NumMemRefs = uint8_t(NewMemRefsEnd - NewMemRefs);
     assert(NumMemRefs == NewMemRefsEnd - NewMemRefs && "Too many memrefs");
+  }
+
+  /// clearMemRefs - Clear this MachineInstr's memory reference descriptor list.
+  void clearMemRefs() {
+    MemRefs = nullptr;
+    NumMemRefs = 0;
   }
 
 private:

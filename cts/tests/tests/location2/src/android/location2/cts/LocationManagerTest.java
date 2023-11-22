@@ -16,31 +16,29 @@
 
 package android.location2.cts;
 
-
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.location.Criteria;
-import android.location.GpsStatus;
 import android.location.GpsStatus.Listener;
 import android.location.GpsStatus.NmeaListener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.location.LocationProvider;
 import android.os.Bundle;
 import android.os.HandlerThread;
-import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 import android.test.UiThreadTest;
+import android.util.Log;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
-import java.lang.Thread;
 
 /**
  * Requires the permissions
@@ -49,6 +47,8 @@ import java.lang.Thread;
  * android.permission.ACCESS_LOCATION_EXTRA_COMMANDS to send extra commands to provider
  */
 public class LocationManagerTest extends InstrumentationTestCase {
+
+    public static final String LOG_TAG = "LocationManagerTest";
 
     private static final long TEST_TIME_OUT_MS = 10 * 1000;
 
@@ -71,12 +71,13 @@ public class LocationManagerTest extends InstrumentationTestCase {
 
         mManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
 
-        // test that mock locations are allowed so a more descriptive error message can be logged
-        if (Settings.Secure.getInt(mContext.getContentResolver(),
-                Settings.Secure.ALLOW_MOCK_LOCATION, 0) == 0) {
-            fail("Mock locations are currently disabled in Settings - this test requires "
-                    + "mock locations");
-        }
+        setAsMoskLocationProvider(true);
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        setAsMoskLocationProvider(false);
+        super.tearDown();
     }
 
     public void testGetGpsProvider_notAllowed() {
@@ -317,6 +318,25 @@ public class LocationManagerTest extends InstrumentationTestCase {
         location.setExtraLocation(Location.EXTRA_NO_GPS_LOCATION, nlocation);
 
         mManager.setTestProviderLocation(providerName, location);
+    }
+
+    private void setAsMoskLocationProvider(boolean enable) {
+        StringBuilder command = new StringBuilder();
+        command.append("appops set ");
+        command.append(getInstrumentation().getContext().getPackageName());
+        command.append(" android:mock_location ");
+        command.append(enable ? "allow" : "deny");
+
+        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
+                .executeShellCommand(command.toString());
+
+        InputStream is = new FileInputStream(pfd.getFileDescriptor());
+        try {
+            final byte[] buffer = new byte[8192];
+            while ((is.read(buffer)) != -1);
+        } catch (IOException e) {
+            Log.e(LOG_TAG, "Error managing mock locaiton app", e);
+        }
     }
 
     /**

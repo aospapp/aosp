@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_AST_COMMENT_PARSER_H
-#define LLVM_CLANG_AST_COMMENT_PARSER_H
+#ifndef LLVM_CLANG_AST_COMMENTPARSER_H
+#define LLVM_CLANG_AST_COMMENTPARSER_H
 
 #include "clang/AST/Comment.h"
 #include "clang/AST/CommentLexer.h"
@@ -28,8 +28,8 @@ class CommandTraits;
 
 /// Doxygen comment parser.
 class Parser {
-  Parser(const Parser &) LLVM_DELETED_FUNCTION;
-  void operator=(const Parser &) LLVM_DELETED_FUNCTION;
+  Parser(const Parser &) = delete;
+  void operator=(const Parser &) = delete;
 
   friend class TextTokenRetokenizer;
 

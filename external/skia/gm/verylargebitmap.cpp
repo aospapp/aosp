@@ -59,15 +59,15 @@ public:
     VeryLargeBitmapGM() {}
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("verylargebitmap");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(500, 600);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         int veryBig = 65*1024; // 64K < size
         int big = 33*1024;     // 32K < size < 64K
         // smaller than many max texture sizes, but large enough to gpu-tile for memory reasons.
@@ -97,20 +97,6 @@ protected:
         // as of this writing, the raster code will fail to draw the scaled version
         // since it has a 64K limit on x,y coordinates... (but gpu should succeed)
         show_bm(canvas, veryBig, small, colors);
-    }
-
-    virtual uint32_t onGetFlags() const {
-#ifdef SK_BUILD_FOR_WIN32
-        // The Windows bot runs out of memory in replay modes on this test in 32bit builds:
-        // http://skbug.com/1756
-        return kSkipPicture_Flag            |
-               kSkipPipe_Flag               |
-               kSkipPipeCrossProcess_Flag   |
-               kSkipTiled_Flag              |
-               kSkipScaledReplay_Flag;
-#else
-        return kSkipTiled_Flag;
-#endif
     }
 
 private:

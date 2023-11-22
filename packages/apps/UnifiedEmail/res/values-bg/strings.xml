@@ -251,7 +251,7 @@
     <string name="message_invite_decline" msgid="6331040872447290777">"Не."</string>
     <string name="enumeration_comma" msgid="2848850136844740850">", "</string>
     <string name="send_anyway" msgid="2727576121007079643">"Изпращ. въпреки това"</string>
-    <string name="ok" msgid="6178802457914802336">"Става"</string>
+    <string name="ok" msgid="6178802457914802336">"ОК"</string>
     <string name="done" msgid="344354738335270292">"Готово"</string>
     <string name="cancel" msgid="4831678293149626190">"Отказ"</string>
     <string name="clear" msgid="765949970989448022">"Изчистване"</string>
@@ -444,7 +444,7 @@
     <string name="open_source_licenses" msgid="8643615555920977752">"Лицензи за отворен код"</string>
     <string name="reply_choice_yes" msgid="3327633032975373220">"Да."</string>
     <string name="reply_choice_no" msgid="7068775605915475207">"Не."</string>
-    <string name="reply_choice_ok" msgid="7881073621845053152">"Става"</string>
+    <string name="reply_choice_ok" msgid="7881073621845053152">"ОК"</string>
     <string name="reply_choice_hehe" msgid="6054314968043050748">"Ха-ха"</string>
     <string name="reply_choice_thanks" msgid="4978961954288364694">"Благодаря"</string>
     <string name="reply_choice_i_agree" msgid="2496652737796884298">"Приемам"</string>

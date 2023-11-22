@@ -31,6 +31,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
 
     <application>
+        <provider android:name="android.telephony.cts.MmsPduProvider"
+                  android:authorities="telephonyctstest"
+                  android:grantUriPermissions="true" />
         <uses-library android:name="android.test.runner" />
     </application>
 

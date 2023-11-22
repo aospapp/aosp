@@ -44,6 +44,11 @@ typedef enum {
 } SUBPEL_SEARCH_METHODS;
 
 typedef enum {
+  NO_MOTION_THRESHOLD = 0,
+  LOW_MOTION_THRESHOLD = 7
+} MOTION_THRESHOLD;
+
+typedef enum {
   LAST_FRAME_PARTITION_OFF = 0,
   LAST_FRAME_PARTITION_LOW_MOTION = 1,
   LAST_FRAME_PARTITION_ALL = 2
@@ -51,9 +56,8 @@ typedef enum {
 
 typedef enum {
   USE_FULL_RD = 0,
-  USE_LARGESTINTRA,
-  USE_LARGESTINTRA_MODELINTER,
-  USE_LARGESTALL
+  USE_LARGESTALL,
+  USE_TX_8X8
 } TX_SIZE_SEARCH_METHOD;
 
 typedef enum {
@@ -69,6 +73,8 @@ typedef enum {
   LPF_PICK_FROM_SUBIMAGE,
   // Estimate the level based on quantizer and frame type
   LPF_PICK_FROM_Q,
+  // Pick 0 to disable LPF if LPF was enabled last frame
+  LPF_PICK_MINIMAL_LPF
 } LPF_PICK_METHOD;
 
 typedef enum {
@@ -129,14 +135,17 @@ typedef enum {
   ONE_LOOP_REDUCED = 2
 } FAST_COEFF_UPDATE;
 
-typedef struct {
-  // Frame level coding parameter update
-  int frame_parameter_update;
-
+typedef struct MV_SPEED_FEATURES {
   // Motion search method (Diamond, NSTEP, Hex, Big Diamond, Square, etc).
   SEARCH_METHODS search_method;
 
-  RECODE_LOOP_TYPE recode_loop;
+  // This parameter controls which step in the n-step process we start at.
+  // It's changed adaptively based on circumstances.
+  int reduce_first_step_size;
+
+  // If this is set to 1, we limit the motion search range to 2 times the
+  // largest motion vector found in the last frame.
+  int auto_mv_step_size;
 
   // Subpel_search_method can only be subpel_tree which does a subpixel
   // logarithmic search that keeps stepping at 1/2 pixel units until
@@ -150,17 +159,17 @@ typedef struct {
   // Control when to stop subpel search
   int subpel_force_stop;
 
-  // This parameter controls the number of steps we'll do in a diamond
-  // search.
-  int max_step_search_steps;
+  // This variable sets the step_param used in full pel motion search.
+  int fullpel_search_step_param;
+} MV_SPEED_FEATURES;
 
-  // This parameter controls which step in the n-step process we start at.
-  // It's changed adaptively based on circumstances.
-  int reduce_first_step_size;
+typedef struct SPEED_FEATURES {
+  MV_SPEED_FEATURES mv;
 
-  // If this is set to 1, we limit the motion search range to 2 times the
-  // largest motion vector found in the last frame.
-  int auto_mv_step_size;
+  // Frame level coding parameter update
+  int frame_parameter_update;
+
+  RECODE_LOOP_TYPE recode_loop;
 
   // Trellis (dynamic programming) optimization of quantized values (+1, 0).
   int optimize_coefficients;
@@ -176,7 +185,7 @@ typedef struct {
   // a log search that iterates 4 times (check around mv for last for best
   // error of combined predictor then check around mv for alt). If 0 we
   // we just use the best motion vector found for each frame by itself.
-  int comp_inter_joint_search_thresh;
+  BLOCK_SIZE comp_inter_joint_search_thresh;
 
   // This variable is used to cap the maximum number of times we skip testing a
   // mode to be evaluated. A high value means we will be faster.
@@ -199,6 +208,10 @@ typedef struct {
   // enables us to adjust up or down one partitioning from the last frames
   // partitioning.
   LAST_FRAME_PARTITION_METHOD use_lastframe_partitioning;
+
+  // The threshold is to determine how slow the motino is, it is used when
+  // use_lastframe_partitioning is set to LAST_FRAME_PARTITION_LOW_MOTION
+  MOTION_THRESHOLD lf_motion_threshold;
 
   // Determine which method we use to determine transform size. We can choose
   // between options like full rd, largest for prediction size, largest
@@ -270,6 +283,16 @@ typedef struct {
   // was selected, and 2 means we use 8 tap if no 8x8 filter mode was selected.
   int adaptive_pred_interp_filter;
 
+  // Chessboard pattern prediction filter type search
+  int cb_pred_filter_search;
+
+  int cb_partition_search;
+
+  int motion_field_mode_search;
+
+  // Fast quantization process path
+  int use_quant_fp;
+
   // Search through variable block partition types in non-RD mode decision
   // encoding process for RTC.
   int partition_check;
@@ -318,13 +341,9 @@ typedef struct {
   // This flag controls the use of non-RD mode decision.
   int use_nonrd_pick_mode;
 
-  // This variable sets the encode_breakout threshold. Currently, it is only
-  // enabled in real time mode.
-  int encode_breakout_thresh;
-
   // A binary mask indicating if NEARESTMV, NEARMV, ZEROMV, NEWMV
-  // modes are disabled in order from LSB to MSB for each BLOCK_SIZE.
-  int disable_inter_mode_mask[BLOCK_SIZES];
+  // modes are used in order from LSB to MSB for each BLOCK_SIZE.
+  int inter_mode_mask[BLOCK_SIZES];
 
   // This feature controls whether we do the expensive context update and
   // calculation in the rd coefficient costing loop.
@@ -343,8 +362,20 @@ typedef struct {
   // FIXED_PARTITION search type should be used.
   int search_type_check_frequency;
 
-  // The threshold used in SOURCE_VAR_BASED_PARTITION search type.
-  int source_var_thresh;
+  // When partition is pre-set, the inter prediction result from pick_inter_mode
+  // can be reused in final block encoding process. It is enabled only for real-
+  // time mode speed 6.
+  int reuse_inter_pred_sby;
+
+  // This variable sets the encode_breakout threshold. Currently, it is only
+  // enabled in real time mode.
+  int encode_breakout_thresh;
+
+  // In real time encoding, increase the threshold for NEWMV.
+  int elevate_newmv_thresh;
+
+  // default interp filter choice
+  INTERP_FILTER default_interp_filter;
 } SPEED_FEATURES;
 
 struct VP9_COMP;

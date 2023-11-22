@@ -27,8 +27,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <media/nbaio/MonoPipe.h>
-#include <media/nbaio/MonoPipeReader.h>
+#include <audio_utils/fifo.h>
+#include <audio_utils/sndfile.h>
 
 #define ASSERT_EQ(x, y) do { if ((x) == (y)) ; else { fprintf(stderr, "0x%x != 0x%x\n", \
     (unsigned) (x), (unsigned) (y)); assert((x) == (y)); } } while (0)
@@ -61,11 +61,15 @@ static SLBufferQueueItf playerBufferQueue;
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static android::MonoPipeReader *pipeReader;
-static android::MonoPipe *pipeWriter;
+static audio_utils_fifo fifo;
+
+static audio_utils_fifo fifo2;
+static short *fifo2Buffer = NULL;
+
+static int injectImpulse;
 
 // Called after audio recorder fills a buffer with data
-static void recorderCallback(SLAndroidSimpleBufferQueueItf caller, void *context)
+static void recorderCallback(SLAndroidSimpleBufferQueueItf caller __unused, void *context __unused)
 {
     SLresult result;
 
@@ -83,9 +87,19 @@ static void recorderCallback(SLAndroidSimpleBufferQueueItf caller, void *context
     }
 
 #if 1
-    ssize_t actual = pipeWriter->write(buffer, (size_t) bufSizeInFrames);
+    ssize_t actual = audio_utils_fifo_write(&fifo, buffer, (size_t) bufSizeInFrames);
     if (actual != (ssize_t) bufSizeInFrames) {
         write(1, "?", 1);
+    }
+
+    // This is called by a realtime (SCHED_FIFO) thread,
+    // and it is unsafe to do I/O as it could block for unbounded time.
+    // Flash filesystem is especially notorious for blocking.
+    if (fifo2Buffer != NULL) {
+        actual = audio_utils_fifo_write(&fifo2, buffer, (size_t) bufSizeInFrames);
+        if (actual != (ssize_t) bufSizeInFrames) {
+            write(1, "?", 1);
+        }
     }
 
     // Enqueue this same buffer for the recorder to fill again.
@@ -145,7 +159,7 @@ static void recorderCallback(SLAndroidSimpleBufferQueueItf caller, void *context
 
 
 // Called after audio player empties a buffer of data
-static void playerCallback(SLBufferQueueItf caller, void *context)
+static void playerCallback(SLBufferQueueItf caller __unused, void *context __unused)
 {
     SLresult result;
 
@@ -161,11 +175,26 @@ static void playerCallback(SLBufferQueueItf caller, void *context)
     }
 
 #if 1
-    ssize_t actual = pipeReader->read(buffer, bufSizeInFrames, (int64_t) -1);
+    ssize_t actual = audio_utils_fifo_read(&fifo, buffer, bufSizeInFrames);
     if (actual != (ssize_t) bufSizeInFrames) {
         write(1, "/", 1);
         // on underrun from pipe, substitute silence
         memset(buffer, 0, bufSizeInFrames * channels * sizeof(short));
+    }
+
+    if (injectImpulse == -1) {
+        // Experimentally, a single frame impulse was insufficient to trigger feedback.
+        // Also a Nyquist frequency signal was also insufficient, probably because
+        // the response of output and/or input path was not adequate at high frequencies.
+        // This short burst of a few cycles of square wave at Nyquist/4 was found to work well.
+        for (unsigned i = 0; i < bufSizeInFrames / 8; i += 8) {
+            for (int j = 0; j < 8; j++) {
+                for (unsigned k = 0; k < channels; k++) {
+                    ((short *)buffer)[(i+j)*channels+k] = j < 4 ? 0x7FFF : 0x8000;
+                }
+            }
+        }
+        injectImpulse = 0;
     }
 
     // Enqueue the filled buffer for playing
@@ -225,6 +254,7 @@ static void playerCallback(SLBufferQueueItf caller, void *context)
 // Main program
 int main(int argc, char **argv)
 {
+    const char *outFileName = NULL;
     // process command-line options
     int i;
     for (i = 1; i < argc; ++i) {
@@ -283,19 +313,28 @@ int main(int argc, char **argv)
         // -e# exit after this many seconds
         } else if (!strncmp(arg, "-e", 2)) {
             exitAfterSeconds = atoi(&arg[2]);
+        // -ofile log to output file also
+        } else if (!strncmp(arg, "-o", 2)) {
+            outFileName = &arg[2];
+        // -i# inject an impulse after # milliseconds
+        } else if (!strncmp(arg, "-i", 2)) {
+            injectImpulse = atoi(&arg[2]);
         } else
             fprintf(stderr, "%s: unknown option %s\n", argv[0], arg);
     }
     // no other arguments allowed
     if (i < argc) {
-        fprintf(stderr, "usage: %s -r# -t# -f# -s# -c#\n", argv[0]);
+        fprintf(stderr, "usage: %s -r# -t# -f# -s# -c# -i# -ofile\n", argv[0]);
         fprintf(stderr, "  -r# receive buffer queue count for microphone input, default 1\n");
         fprintf(stderr, "  -t# transmit buffer queue count for speaker output, default 2\n");
         fprintf(stderr, "  -f# number of frames per buffer, default 512\n");
         fprintf(stderr, "  -s# sample rate in Hz, default 44100\n");
         fprintf(stderr, "  -c1 mono\n");
         fprintf(stderr, "  -c2 stereo, default\n");
+        fprintf(stderr, "  -i# inject impulse after # milliseconds\n");
+        fprintf(stderr, "  -ofile log input to specified .wav file also\n");
     }
+
     // compute total free buffers as -r plus -t
     freeBufCount = rxBufCount + txBufCount;
     // compute buffer size
@@ -321,17 +360,30 @@ int main(int argc, char **argv)
     txFront = 0;
     txRear = 0;
 
-    const android::NBAIO_Format nbaio_format = android::Format_from_SR_C(sampleRate, channels,
-            AUDIO_FORMAT_PCM_16_BIT);
-    pipeWriter = new android::MonoPipe(1024, nbaio_format, false /*writeCanBlock*/);
-    android::NBAIO_Format offer = nbaio_format;
-    size_t numCounterOffers = 0;
-    ssize_t neg = pipeWriter->negotiate(&offer, 1, NULL, numCounterOffers);
-    assert(0 == neg);
-    pipeReader = new android::MonoPipeReader(pipeWriter);
-    numCounterOffers = 0;
-    neg = pipeReader->negotiate(&offer, 1, NULL, numCounterOffers);
-    assert(0 == neg);
+    size_t frameSize = channels * sizeof(short);
+#define FIFO_FRAMES 1024
+    short *fifoBuffer = new short[FIFO_FRAMES * channels];
+    audio_utils_fifo_init(&fifo, FIFO_FRAMES, frameSize, fifoBuffer);
+
+    SNDFILE *sndfile;
+    if (outFileName != NULL) {
+        // create .wav writer
+        SF_INFO info;
+        info.frames = 0;
+        info.samplerate = sampleRate;
+        info.channels = channels;
+        info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+        sndfile = sf_open(outFileName, SFM_WRITE, &info);
+        if (sndfile != NULL) {
+#define FIFO2_FRAMES 65536
+            fifo2Buffer = new short[FIFO2_FRAMES * channels];
+            audio_utils_fifo_init(&fifo2, FIFO2_FRAMES, frameSize, fifo2Buffer);
+        } else {
+            fprintf(stderr, "sf_open failed\n");
+        }
+    } else {
+        sndfile = NULL;
+    }
 
     SLresult result;
 
@@ -493,8 +545,31 @@ int main(int argc, char **argv)
 
     // Wait patiently
     do {
-        usleep(1000000);
-        write(1, ".", 1);
+        for (int i = 0; i < 10; i++) {
+            usleep(100000);
+            if (fifo2Buffer != NULL) {
+                for (;;) {
+                    short buffer[bufSizeInFrames * channels];
+                    ssize_t actual = audio_utils_fifo_read(&fifo2, buffer, bufSizeInFrames);
+                    if (actual <= 0)
+                        break;
+                    (void) sf_writef_short(sndfile, buffer, (sf_count_t) actual);
+                }
+            }
+            if (injectImpulse > 0) {
+                if (injectImpulse <= 100) {
+                    injectImpulse = -1;
+                    write(1, "I", 1);
+                } else {
+                    if ((injectImpulse % 1000) < 100) {
+                        write(1, "i", 1);
+                    }
+                    injectImpulse -= 100;
+                }
+            } else if (i == 9) {
+                write(1, ".", 1);
+            }
+        }
         SLBufferQueueState playerBQState;
         result = (*playerBufferQueue)->GetState(playerBufferQueue, &playerBQState);
         ASSERT_EQ(SL_RESULT_SUCCESS, result);
@@ -505,6 +580,14 @@ int main(int argc, char **argv)
 
     // Tear down the objects and exit
 cleanup:
+    audio_utils_fifo_deinit(&fifo);
+    delete[] fifoBuffer;
+
+    if (sndfile != NULL) {
+        audio_utils_fifo_deinit(&fifo2);
+        delete[] fifo2Buffer;
+        sf_close(sndfile);
+    }
     if (NULL != playerObject) {
         (*playerObject)->Destroy(playerObject);
     }

@@ -18,9 +18,11 @@ package com.android.contacts.common.widget;
 
 import android.app.Activity;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.view.View;
+import android.widget.ImageButton;
 
 import com.android.contacts.common.util.ViewUtil;
 import com.android.contacts.common.R;
@@ -42,11 +44,11 @@ public class FloatingActionButtonController {
     private final int mFloatingActionButtonWidth;
     private final int mFloatingActionButtonMarginRight;
     private final View mFloatingActionButtonContainer;
-    private final View mFloatingActionButton;
+    private final ImageButton mFloatingActionButton;
     private final Interpolator mFabInterpolator;
     private int mScreenWidth;
 
-    public FloatingActionButtonController(Activity activity, View container, View button) {
+    public FloatingActionButtonController(Activity activity, View container, ImageButton button) {
         Resources resources = activity.getResources();
         mFabInterpolator = AnimationUtils.loadInterpolator(activity,
                 android.R.interpolator.fast_out_slow_in);
@@ -80,6 +82,18 @@ public class FloatingActionButtonController {
         mFloatingActionButtonContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
+    public boolean isVisible() {
+        return mFloatingActionButtonContainer.getVisibility() == View.VISIBLE;
+    }
+
+    public void changeIcon(Drawable icon, String description) {
+        if (mFloatingActionButton.getDrawable() != icon
+                || !mFloatingActionButton.getContentDescription().equals(description)) {
+            mFloatingActionButton.setImageDrawable(icon);
+            mFloatingActionButton.setContentDescription(description);
+        }
+    }
+
     /**
      * Updates the FAB location (middle to right position) as the PageView scrolls.
      *
@@ -94,10 +108,21 @@ public class FloatingActionButtonController {
     }
 
     /**
+     * Aligns the FAB to the described location
+     *
+     * @param align One of ALIGN_MIDDLE, ALIGN_QUARTER_RIGHT, or ALIGN_RIGHT.
+     * @param animate Whether or not to animate the transition.
+     */
+    public void align(int align, boolean animate) {
+        align(align, 0 /*offsetX */, 0 /* offsetY */, animate);
+    }
+
+    /**
      * Aligns the FAB to the described location plus specified additional offsets.
      *
      * @param align One of ALIGN_MIDDLE, ALIGN_QUARTER_RIGHT, or ALIGN_RIGHT.
      * @param offsetX Additional offsetX to translate by.
+     * @param offsetY Additional offsetY to translate by.
      * @param animate Whether or not to animate the transition.
      */
     public void align(int align, int offsetX, int offsetY, boolean animate) {
@@ -146,6 +171,16 @@ public class FloatingActionButtonController {
         AnimUtils.scaleIn(mFloatingActionButtonContainer, FAB_SCALE_IN_DURATION, delayMs);
         AnimUtils.fadeIn(mFloatingActionButton, FAB_SCALE_IN_DURATION,
                 delayMs + FAB_SCALE_IN_FADE_IN_DELAY, null);
+    }
+
+    /**
+     * Immediately remove the affects of the last call to {@link #scaleOut}.
+     */
+    public void resetIn() {
+        mFloatingActionButton.setAlpha(1f);
+        mFloatingActionButton.setVisibility(View.VISIBLE);
+        mFloatingActionButtonContainer.setScaleX(1);
+        mFloatingActionButtonContainer.setScaleY(1);
     }
 
     /**

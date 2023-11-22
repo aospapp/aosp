@@ -21,8 +21,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
-import android.os.IInterface;
-import android.os.Process;
 import android.os.UserHandle;
 import android.text.TextUtils;
 import android.util.ArraySet;
@@ -38,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Subclasses supply the service intent and component name and this class will invoke protected
  * methods when the class is bound, unbound, or upon failure.
  */
-abstract class ServiceBinder<ServiceInterface extends IInterface> {
+abstract class ServiceBinder {
 
     /**
      * Callback to notify after a binding succeeds or fails.
@@ -51,22 +49,22 @@ abstract class ServiceBinder<ServiceInterface extends IInterface> {
     /**
      * Listener for bind events on ServiceBinder.
      */
-    interface Listener<ServiceBinderClass extends ServiceBinder<?>> {
+    interface Listener<ServiceBinderClass extends ServiceBinder> {
         void onUnbind(ServiceBinderClass serviceBinder);
     }
 
     /**
      * Helper class to perform on-demand binding.
      */
-    final class Binder {
+    final class Binder2 {
         /**
          * Performs an asynchronous bind to the service (only if not already bound) and executes the
          * specified callback.
          *
          * @param callback The callback to notify of the binding's success or failure.
+         * @param call The call for which we are being bound.
          */
-        void bind(BindCallback callback) {
-            ThreadUtil.checkOnMainThread();
+        void bind(BindCallback callback, Call call) {
             Log.d(ServiceBinder.this, "bind()");
 
             // Reset any abort request if we're asked to bind again.
@@ -81,18 +79,18 @@ abstract class ServiceBinder<ServiceInterface extends IInterface> {
             mCallbacks.add(callback);
             if (mServiceConnection == null) {
                 Intent serviceIntent = new Intent(mServiceAction).setComponent(mComponentName);
-                ServiceConnection connection = new ServiceBinderConnection();
+                ServiceConnection connection = new ServiceBinderConnection(call);
 
-                Log.d(ServiceBinder.this, "Binding to service with intent: %s", serviceIntent);
-                final boolean binding;
+                Log.event(call, Log.Events.BIND_CS, mComponentName);
+                final int bindingFlags = Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE;
+                final boolean isBound;
                 if (mUserHandle != null) {
-                    binding = mContext.bindServiceAsUser(serviceIntent, connection,
-                        Context.BIND_AUTO_CREATE, mUserHandle);
+                    isBound = mContext.bindServiceAsUser(serviceIntent, connection, bindingFlags,
+                            mUserHandle);
                 } else {
-                    binding = mContext.bindService(serviceIntent, connection,
-                        Context.BIND_AUTO_CREATE);
+                    isBound = mContext.bindService(serviceIntent, connection, bindingFlags);
                 }
-                if (!binding) {
+                if (!isBound) {
                     handleFailedConnection();
                     return;
                 }
@@ -105,38 +103,56 @@ abstract class ServiceBinder<ServiceInterface extends IInterface> {
     }
 
     private final class ServiceBinderConnection implements ServiceConnection {
+        /**
+         * The initial call for which the service was bound.
+         */
+        private Call mCall;
+
+        ServiceBinderConnection(Call call) {
+            mCall = call;
+        }
+
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder binder) {
-            ThreadUtil.checkOnMainThread();
-            Log.i(this, "Service bound %s", componentName);
+            synchronized (mLock) {
+                Log.i(this, "Service bound %s", componentName);
 
-            // Unbind request was queued so unbind immediately.
-            if (mIsBindingAborted) {
-                clearAbort();
-                logServiceDisconnected("onServiceConnected");
-                mContext.unbindService(this);
-                handleFailedConnection();
-                return;
+                Log.event(mCall, Log.Events.CS_BOUND, componentName);
+                mCall = null;
+
+                // Unbind request was queued so unbind immediately.
+                if (mIsBindingAborted) {
+                    clearAbort();
+                    logServiceDisconnected("onServiceConnected");
+                    mContext.unbindService(this);
+                    handleFailedConnection();
+                    return;
+                }
+
+                mServiceConnection = this;
+                setBinder(binder);
+                handleSuccessfulConnection();
             }
-
-            mServiceConnection = this;
-            setBinder(binder);
-            handleSuccessfulConnection();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
-            logServiceDisconnected("onServiceDisconnected");
+            synchronized (mLock) {
+                logServiceDisconnected("onServiceDisconnected");
 
-            mServiceConnection = null;
-            clearAbort();
+                mServiceConnection = null;
+                clearAbort();
 
-            handleServiceDisconnected();
+                handleServiceDisconnected();
+            }
         }
     }
 
     /** The application context. */
     private final Context mContext;
+
+    /** The Telecom lock object. */
+    protected final TelecomSystem.SyncRoot mLock;
 
     /** The intent action to use when binding through {@link Context#bindService}. */
     private final String mServiceAction;
@@ -182,11 +198,12 @@ abstract class ServiceBinder<ServiceInterface extends IInterface> {
      * @param userHandle The {@link UserHandle} to use for binding.
      */
     protected ServiceBinder(String serviceAction, ComponentName componentName, Context context,
-            UserHandle userHandle) {
+            TelecomSystem.SyncRoot lock, UserHandle userHandle) {
         Preconditions.checkState(!TextUtils.isEmpty(serviceAction));
         Preconditions.checkNotNull(componentName);
 
         mContext = context;
+        mLock = lock;
         mServiceAction = serviceAction;
         mComponentName = componentName;
         mUserHandle = userHandle;
@@ -221,8 +238,6 @@ abstract class ServiceBinder<ServiceInterface extends IInterface> {
      * Unbinds from the service if already bound, no-op otherwise.
      */
     final void unbind() {
-        ThreadUtil.checkOnMainThread();
-
         if (mServiceConnection == null) {
             // We're not yet bound, so queue up an abort request.
             mIsBindingAborted = true;

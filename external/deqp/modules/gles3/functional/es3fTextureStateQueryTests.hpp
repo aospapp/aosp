@@ -32,29 +32,17 @@ namespace gles3
 {
 namespace Functional
 {
-namespace TextureParamVerifiers
-{
-
-class GetTexParameterIVerifier;
-class GetTexParameterFVerifier;
-
-} // TextureParamVerifiers
 
 class TextureStateQueryTests : public TestCaseGroup
 {
 public:
-																TextureStateQueryTests	(Context& context);
-																~TextureStateQueryTests	(void);
+								TextureStateQueryTests	(Context& context);
 
-	void														init					(void);
-	void														deinit					(void);
+	void						init					(void);
 
 private:
-																TextureStateQueryTests	(const TextureStateQueryTests& other);
-	TextureStateQueryTests&										operator=				(const TextureStateQueryTests& other);
-
-	TextureParamVerifiers::GetTexParameterIVerifier*			m_verifierInt;
-	TextureParamVerifiers::GetTexParameterFVerifier*			m_verifierFloat;
+								TextureStateQueryTests	(const TextureStateQueryTests& other);
+	TextureStateQueryTests&		operator=				(const TextureStateQueryTests& other);
 };
 
 } // Functional

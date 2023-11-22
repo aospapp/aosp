@@ -16,18 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="playback_rate">
-    <item msgid="2256013827330361362">"-৩২x"</item>
-    <item msgid="8015022487770548480">"-১৬x"</item>
-    <item msgid="6059574568244647874">"-৮x"</item>
-    <item msgid="2843793773083341043">"-৪x"</item>
-    <item msgid="9116032734624497341">"-২x"</item>
-    <item msgid="8985811210531660085">"২x"</item>
-    <item msgid="8446986380658461054">"৪x"</item>
-    <item msgid="8690234526777393881">"৮x"</item>
-    <item msgid="5018600639704774041">"১৬x"</item>
-    <item msgid="1207415094508824492">"৩২x"</item>
-  </string-array>
   <string-array name="ampm">
     <item msgid="4375405926289364989">"AM"</item>
     <item msgid="4802437431289555052">"PM"</item>

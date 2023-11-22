@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2015 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.android.deskclock.stopwatch;
 
 import android.animation.LayoutTransition;
@@ -15,6 +30,7 @@ import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityManager;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.widget.BaseAdapter;
@@ -25,9 +41,11 @@ import com.android.deskclock.CircleButtonsLayout;
 import com.android.deskclock.CircleTimerView;
 import com.android.deskclock.DeskClock;
 import com.android.deskclock.DeskClockFragment;
+import com.android.deskclock.HandleDeskClockApiCalls;
 import com.android.deskclock.LogUtils;
 import com.android.deskclock.R;
 import com.android.deskclock.Utils;
+import com.android.deskclock.events.Events;
 import com.android.deskclock.timer.CountingTimerView;
 
 import java.util.ArrayList;
@@ -38,6 +56,8 @@ public class StopwatchFragment extends DeskClockFragment
 
     private static final String TAG = "StopwatchFragment";
     private static final int STOPWATCH_REFRESH_INTERVAL_MILLIS = 25;
+    // Lower the refresh rate in accessibility mode to give talkback time to catch up
+    private static final int STOPWATCH_ACCESSIBILTY_REFRESH_INTERVAL_MILLIS = 500;
 
     int mState = Stopwatches.STOPWATCH_RESET;
 
@@ -55,6 +75,8 @@ public class StopwatchFragment extends DeskClockFragment
     private View mEndSpace;
     private View mBottomSpace;
     private boolean mSpacersUsed;
+
+    private AccessibilityManager mAccessibilityManager;
 
     // Used for calculating the time from the start taking into account the pause times
     long mStartTime = 0;
@@ -85,7 +107,7 @@ public class StopwatchFragment extends DeskClockFragment
         private static final int VIEW_TYPE_SPACE = 1;
         private static final int VIEW_TYPE_COUNT = 2;
 
-        ArrayList<Lap> mLaps = new ArrayList<Lap>();
+        ArrayList<Lap> mLaps = new ArrayList<>();
         private final LayoutInflater mInflater;
         private final String[] mFormats;
         private final String[] mLapFormatSet;
@@ -106,6 +128,11 @@ public class StopwatchFragment extends DeskClockFragment
             mFormats = context.getResources().getStringArray(R.array.stopwatch_format_set);
             mLapFormatSet = context.getResources().getStringArray(R.array.sw_lap_number_set);
             updateLapFormat();
+        }
+
+        @Override
+        public boolean isEnabled(int position) {
+            return false;
         }
 
         @Override
@@ -265,7 +292,9 @@ public class StopwatchFragment extends DeskClockFragment
                 long curTime = Utils.getTimeNow();
                 mAccumulatedTime += (curTime - mStartTime);
                 doStop();
-                intent.setAction(Stopwatches.STOP_STOPWATCH);
+                Events.sendStopwatchEvent(R.string.action_stop, R.string.label_deskclock);
+
+                intent.setAction(HandleDeskClockApiCalls.ACTION_STOP_STOPWATCH);
                 context.startService(intent);
                 releaseWakeLock();
                 break;
@@ -273,7 +302,9 @@ public class StopwatchFragment extends DeskClockFragment
             case Stopwatches.STOPWATCH_STOPPED:
                 // do start
                 doStart(time);
-                intent.setAction(Stopwatches.START_STOPWATCH);
+                Events.sendStopwatchEvent(R.string.action_start, R.string.label_deskclock);
+
+                intent.setAction(HandleDeskClockApiCalls.ACTION_START_STOPWATCH);
                 context.startService(intent);
                 acquireWakeLock();
                 break;
@@ -308,7 +339,7 @@ public class StopwatchFragment extends DeskClockFragment
 
         mCircleLayout = (CircleButtonsLayout)v.findViewById(R.id.stopwatch_circle);
         mCircleLayout.setCircleTimerViewIds(R.id.stopwatch_time, 0 /* stopwatchId */ ,
-                0 /* labelId */,  0 /* labeltextId */);
+                0 /* labelId */);
 
         // Animation setup
         mLayoutTransition = new LayoutTransition();
@@ -411,6 +442,9 @@ public class StopwatchFragment extends DeskClockFragment
 
         ((ViewGroup)getView()).setLayoutTransition(mLayoutTransition);
         mCircleLayout.setLayoutTransition(mCircleLayoutTransition);
+
+        mAccessibilityManager = (AccessibilityManager) getActivity().getSystemService(
+                Context.ACCESSIBILITY_SERVICE);
     }
 
     @Override
@@ -696,10 +730,11 @@ public class StopwatchFragment extends DeskClockFragment
             if (mTime != null) {
                 mTimeText.setTime(totalTime, true, true);
             }
-            if (mLapsAdapter.getCount() > 0) {
-                updateCurrentLap(totalTime);
-            }
-            mTime.postDelayed(mTimeUpdateThread, STOPWATCH_REFRESH_INTERVAL_MILLIS);
+            updateCurrentLap(totalTime);
+            mTime.postDelayed(mTimeUpdateThread, mAccessibilityManager != null &&
+                    mAccessibilityManager.isTouchExplorationEnabled()
+                    ? STOPWATCH_ACCESSIBILTY_REFRESH_INTERVAL_MILLIS
+                    : STOPWATCH_REFRESH_INTERVAL_MILLIS);
         }
     };
 
@@ -814,13 +849,17 @@ public class StopwatchFragment extends DeskClockFragment
                 // Save lap time
                 addLapTime(time);
                 doLap();
-                intent.setAction(Stopwatches.LAP_STOPWATCH);
+                Events.sendStopwatchEvent(R.string.action_lap, R.string.label_deskclock);
+
+                intent.setAction(HandleDeskClockApiCalls.ACTION_LAP_STOPWATCH);
                 context.startService(intent);
                 break;
             case Stopwatches.STOPWATCH_STOPPED:
                 // do reset
                 doReset();
-                intent.setAction(Stopwatches.RESET_STOPWATCH);
+                Events.sendStopwatchEvent(R.string.action_reset, R.string.label_deskclock);
+
+                intent.setAction(HandleDeskClockApiCalls.ACTION_RESET_STOPWATCH);
                 context.startService(intent);
                 releaseWakeLock();
                 break;

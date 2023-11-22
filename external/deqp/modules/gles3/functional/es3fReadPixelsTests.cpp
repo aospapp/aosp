@@ -32,6 +32,7 @@
 #include "deRandom.hpp"
 #include "deMath.h"
 #include "deString.h"
+#include "deStringUtil.hpp"
 
 #include "gluDefs.hpp"
 #include "gluShaderProgram.hpp"
@@ -58,7 +59,14 @@ namespace
 class ReadPixelsTest : public TestCase
 {
 public:
-					ReadPixelsTest	(Context& context, const char* name, const char* description, bool chooseFormat, int alignment, GLint rowLength, GLint skipRows, GLint skipPixels, GLenum format = GL_RGBA, GLenum type = GL_UNSIGNED_BYTE);
+	enum
+	{
+		FLAG_NO_FLAGS		= 0x0,
+		FLAG_CHOOSE_FORMAT	= 0x1,
+		FLAG_USE_RBO		= 0x2,
+	};
+
+					ReadPixelsTest	(Context& context, const char* name, const char* description, int flags, int alignment, GLint rowLength, GLint skipRows, GLint skipPixels, GLenum format = GL_RGBA, GLenum type = GL_UNSIGNED_BYTE);
 
 	IterateResult	iterate			(void);
 	void			render			(tcu::Texture2D& reference);
@@ -66,6 +74,7 @@ public:
 private:
 	int				m_seed;
 	bool			m_chooseFormat;
+	bool			m_useRenderBuffer;
 	int				m_alignment;
 	GLint			m_rowLength;
 	GLint			m_skipRows;
@@ -76,14 +85,15 @@ private:
 	const int		m_width;
 	const int		m_height;
 
-	void			getFormatInfo	(tcu::TextureFormat& format, int& pixelSize, bool& align);
-	void			clearColor		(tcu::Texture2D& reference, vector<deUint8>& pixelData, bool align, int pixelSize);
+	void			getFormatInfo	(tcu::TextureFormat& format, int& pixelSize);
+	void			clearColor		(tcu::Texture2D& reference, vector<deUint8>& pixelData, int pixelSize);
 };
 
-ReadPixelsTest::ReadPixelsTest	(Context& context, const char* name, const char* description, bool chooseFormat, int alignment, GLint rowLength, GLint skipRows, GLint skipPixels, GLenum format, GLenum type)
+ReadPixelsTest::ReadPixelsTest	(Context& context, const char* name, const char* description, int flags, int alignment, GLint rowLength, GLint skipRows, GLint skipPixels, GLenum format, GLenum type)
 	: TestCase			(context, name, description)
 	, m_seed			(deStringHash(name))
-	, m_chooseFormat	(chooseFormat)
+	, m_chooseFormat	((flags & FLAG_CHOOSE_FORMAT) != 0)
+	, m_useRenderBuffer	((flags & FLAG_USE_RBO) != 0)
 	, m_alignment		(alignment)
 	, m_rowLength		(rowLength)
 	, m_skipRows		(skipRows)
@@ -191,54 +201,30 @@ void ReadPixelsTest::render (tcu::Texture2D& reference)
 	}
 }
 
-void ReadPixelsTest::getFormatInfo (tcu::TextureFormat& format, int& pixelSize, bool& align)
+void ReadPixelsTest::getFormatInfo (tcu::TextureFormat& format, int& pixelSize)
 {
 	if (m_chooseFormat)
 	{
 		GLU_CHECK_CALL(glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &m_format));
 		GLU_CHECK_CALL(glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &m_type));
+
+		if (m_format != GL_RGBA && m_format != GL_BGRA && m_format != GL_RGB)
+			TCU_THROW(NotSupportedError, ("Unsupported IMPLEMENTATION_COLOR_READ_FORMAT: " + de::toString(glu::getPixelFormatStr(m_format))).c_str());
+		if (glu::getTypeName(m_type) == DE_NULL)
+			TCU_THROW(NotSupportedError, ("Unsupported GL_IMPLEMENTATION_COLOR_READ_TYPE: " + de::toString(tcu::Format::Hex<4>(m_type))).c_str());
 	}
 
 	format = glu::mapGLTransferFormat(m_format, m_type);
-
-	switch (m_type)
-	{
-		case GL_BYTE:
-		case GL_UNSIGNED_BYTE:
-		case GL_SHORT:
-		case GL_UNSIGNED_SHORT:
-		case GL_INT:
-		case GL_UNSIGNED_INT:
-		case GL_FLOAT:
-		case GL_HALF_FLOAT:
-			align = true;
-			break;
-
-		case GL_UNSIGNED_SHORT_5_6_5:
-		case GL_UNSIGNED_SHORT_4_4_4_4:
-		case GL_UNSIGNED_SHORT_5_5_5_1:
-		case GL_UNSIGNED_INT_2_10_10_10_REV:
-		case GL_UNSIGNED_INT_10F_11F_11F_REV:
-		case GL_UNSIGNED_INT_24_8:
-		case GL_FLOAT_32_UNSIGNED_INT_24_8_REV:
-		case GL_UNSIGNED_INT_5_9_9_9_REV:
-			align = false;
-			break;
-
-		default:
-			throw tcu::InternalError("Unsupported format", "", __FILE__, __LINE__);
-	}
-
 	pixelSize = format.getPixelSize();
 }
 
-void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pixelData, bool align, int pixelSize)
+void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pixelData, int pixelSize)
 {
 	de::Random					rnd(m_seed);
 	GLuint						framebuffer = 0;
 	GLuint						renderbuffer = 0;
 
-	if (m_format == GL_RGBA_INTEGER)
+	if (m_useRenderBuffer)
 	{
 		if (m_type == GL_UNSIGNED_INT)
 		{
@@ -284,10 +270,7 @@ void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pix
 
 		GLU_CHECK_CALL(glClearBufferfv(GL_COLOR, 0, color));
 
-		// Clear reference
-		for (int x = 0; x < reference.getWidth(); x++)
-			for (int y = 0; y < reference.getHeight(); y++)
-					reference.getLevel(0).setPixel(tcu::UVec4((deUint32)(255.0f * red), (deUint32)(255.0f * green), (deUint32)(255.0f * blue), (deUint32)(255 * alpha)), x, y);
+		tcu::clear(reference.getLevel(0), tcu::Vec4(red, green, blue, alpha));
 	}
 	else if (m_format == GL_RGBA_INTEGER)
 	{
@@ -303,10 +286,7 @@ void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pix
 
 			GLU_CHECK_CALL(glClearBufferiv(GL_COLOR, 0, color));
 
-			// Clear reference
-			for (int x = 0; x < reference.getWidth(); x++)
-				for (int y = 0; y < reference.getHeight(); y++)
-						reference.getLevel(0).setPixel(tcu::IVec4(red, green, blue, alpha), x, y);
+			tcu::clear(reference.getLevel(0), tcu::IVec4(red, green, blue, alpha));
 		}
 		else if (m_type == GL_UNSIGNED_INT)
 		{
@@ -320,10 +300,7 @@ void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pix
 
 			GLU_CHECK_CALL(glClearBufferuiv(GL_COLOR, 0, color));
 
-			// Clear reference
-			for (int x = 0; x < reference.getWidth(); x++)
-				for (int y = 0; y < reference.getHeight(); y++)
-						reference.getLevel(0).setPixel(tcu::UVec4(red, green, blue, alpha), x, y);
+			tcu::clear(reference.getLevel(0), tcu::UVec4(red, green, blue, alpha));
 		}
 		else
 			DE_ASSERT(false);
@@ -334,7 +311,7 @@ void ReadPixelsTest::clearColor (tcu::Texture2D& reference, vector<deUint8>& pix
 	render(reference);
 
 	const int rowWidth	= (m_rowLength == 0 ? m_width : m_rowLength) + m_skipPixels;
-	const int rowPitch	= (align ? m_alignment * deCeilFloatToInt32(pixelSize * rowWidth / (float)m_alignment) : rowWidth * pixelSize);
+	const int rowPitch	= m_alignment * deCeilFloatToInt32(pixelSize * rowWidth / (float)m_alignment);
 
 	pixelData.resize(rowPitch * (m_height + m_skipRows), 0);
 
@@ -351,9 +328,8 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 {
 	tcu::TextureFormat			format(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8);
 	int							pixelSize;
-	bool						align;
 
-	getFormatInfo(format, pixelSize, align);
+	getFormatInfo(format, pixelSize);
 	m_testCtx.getLog() << tcu::TestLog::Message << "Format: " << glu::getPixelFormatStr(m_format) << ", Type: " << glu::getTypeStr(m_type) << tcu::TestLog::EndMessage;
 
 	tcu::Texture2D reference(format, m_width, m_height);
@@ -374,13 +350,14 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 	GLU_CHECK_CALL(glViewport(0, 0, m_width, m_height));
 
 	vector<deUint8>	pixelData;
-	clearColor(reference, pixelData, align, pixelSize);
+	clearColor(reference, pixelData, pixelSize);
 
-	const int rowWidth	= (m_rowLength == 0 ? m_width : m_rowLength);
-	const int rowPitch	= (align ? m_alignment * deCeilFloatToInt32(pixelSize * rowWidth / (float)m_alignment) : rowWidth * pixelSize);
+	const int							rowWidth		= (m_rowLength == 0 ? m_width : m_rowLength);
+	const int							rowPitch		= m_alignment * deCeilFloatToInt32(pixelSize * rowWidth / (float)m_alignment);
+	const tcu::ConstPixelBufferAccess	resultAccess	= tcu::ConstPixelBufferAccess(format, m_width, m_height, 1, rowPitch, 0, &(pixelData[pixelSize * m_skipPixels + m_skipRows * rowPitch]));
 
-	// \note GL_RGBA_INTEGER uses always renderbuffers that are never multisampled. Otherwise default framebuffer is used.
-	if (m_format != GL_RGBA_INTEGER && m_context.getRenderTarget().getNumSamples() > 1)
+	// \note Renderbuffers are never multisampled
+	if (!m_useRenderBuffer && m_context.getRenderTarget().getNumSamples() > 1)
 	{
 		const tcu::IVec4	formatBitDepths	= tcu::getTextureFormatBitDepth(format);
 		const deUint8		redThreshold	= (deUint8)deCeilFloatToInt32(256.0f * (2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().redBits,		formatBitDepths.x()))));
@@ -388,7 +365,17 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 		const deUint8		blueThreshold	= (deUint8)deCeilFloatToInt32(256.0f * (2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().blueBits,		formatBitDepths.z()))));
 		const deUint8		alphaThreshold	= (deUint8)deCeilFloatToInt32(256.0f * (2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().alphaBits,	formatBitDepths.w()))));
 
-		if (tcu::bilinearCompare(m_testCtx.getLog(), "Result", "Result", reference.getLevel(0), tcu::PixelBufferAccess(format, m_width, m_height, 1, rowPitch, 0, &(pixelData[0])), tcu::RGBA(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
+		// bilinearCompare only accepts RGBA, UINT8
+		tcu::Texture2D		referenceRGBA8	(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_width, m_height);
+		tcu::Texture2D		resultRGBA8		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_width, m_height);
+
+		referenceRGBA8.allocLevel(0);
+		resultRGBA8.allocLevel(0);
+
+		tcu::copy(referenceRGBA8.getLevel(0), reference.getLevel(0));
+		tcu::copy(resultRGBA8.getLevel(0), resultAccess);
+
+		if (tcu::bilinearCompare(m_testCtx.getLog(), "Result", "Result", referenceRGBA8.getLevel(0), resultRGBA8.getLevel(0), tcu::RGBA(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
 			m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
 		else
 			m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");
@@ -402,7 +389,7 @@ TestCase::IterateResult ReadPixelsTest::iterate (void)
 		const float			alphaThreshold	= 2.0f / (1 << deMin32(m_context.getRenderTarget().getPixelFormat().alphaBits,	formatBitDepths.w()));
 
 		// Compare
-		if (tcu::floatThresholdCompare(m_testCtx.getLog(), "Result", "Result", reference.getLevel(0), tcu::PixelBufferAccess(format, m_width, m_height, 1, rowPitch, 0, &(pixelData[pixelSize * m_skipPixels + m_skipRows * rowPitch])), tcu::Vec4(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
+		if (tcu::floatThresholdCompare(m_testCtx.getLog(), "Result", "Result", reference.getLevel(0), resultAccess, tcu::Vec4(redThreshold, greenThreshold, blueThreshold, alphaThreshold), tcu::COMPARE_LOG_RESULT))
 			m_testCtx.setTestResult(QP_TEST_RESULT_PASS, "Pass");
 		else
 			m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");
@@ -423,75 +410,75 @@ void ReadPixelsTests::init (void)
 	{
 		TestCaseGroup* group = new TestCaseGroup(m_context, "alignment", "Read pixels pack alignment parameter tests");
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_1", "", false, 1, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_2", "", false, 2, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_4", "", false, 4, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_8", "", false, 8, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_1", "", ReadPixelsTest::FLAG_NO_FLAGS, 1, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_2", "", ReadPixelsTest::FLAG_NO_FLAGS, 2, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_4", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_8", "", ReadPixelsTest::FLAG_NO_FLAGS, 8, 0, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_1", "", false, 1, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_2", "", false, 2, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_4", "", false, 4, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_8", "", false, 8, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_1", "", ReadPixelsTest::FLAG_USE_RBO, 1, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_2", "", ReadPixelsTest::FLAG_USE_RBO, 2, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_4", "", ReadPixelsTest::FLAG_USE_RBO, 4, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_8", "", ReadPixelsTest::FLAG_USE_RBO, 8, 0, 0, 0, GL_RGBA_INTEGER, GL_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_1", "", false, 1, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_2", "", false, 2, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_4", "", false, 4, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_8", "", false, 8, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_1", "", ReadPixelsTest::FLAG_USE_RBO, 1, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_2", "", ReadPixelsTest::FLAG_USE_RBO, 2, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_4", "", ReadPixelsTest::FLAG_USE_RBO, 4, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_8", "", ReadPixelsTest::FLAG_USE_RBO, 8, 0, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "choose_1", "", true, 1, 0, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_2", "", true, 2, 0, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_4", "", true, 4, 0, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_8", "", true, 8, 0, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_1", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 1, 0, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_2", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 2, 0, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_4", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 0, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_8", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 8, 0, 0, 0));
 
 		addChild(group);
 	}
 
 	{
 		TestCaseGroup* group = new TestCaseGroup(m_context, "rowlength", "Read pixels rowlength test");
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_17", "", false, 4, 17, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_19", "", false, 4, 19, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_23", "", false, 4, 23, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_29", "", false, 4, 29, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_17", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 17, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_19", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 19, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_23", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 23, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_29", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 29, 0, 0, GL_RGBA, GL_UNSIGNED_BYTE));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_17", "", false, 4, 17, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_19", "", false, 4, 19, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_23", "", false, 4, 23, 0, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_29", "", false, 4, 29, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_17", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_19", "", ReadPixelsTest::FLAG_USE_RBO, 4, 19, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_23", "", ReadPixelsTest::FLAG_USE_RBO, 4, 23, 0, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_29", "", ReadPixelsTest::FLAG_USE_RBO, 4, 29, 0, 0, GL_RGBA_INTEGER, GL_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_17", "", false, 4, 17, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_19", "", false, 4, 19, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_23", "", false, 4, 23, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_29", "", false, 4, 29, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_17", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_19", "", ReadPixelsTest::FLAG_USE_RBO, 4, 19, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_23", "", ReadPixelsTest::FLAG_USE_RBO, 4, 23, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_29", "", ReadPixelsTest::FLAG_USE_RBO, 4, 29, 0, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "choose_17", "", true, 4, 17, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_19", "", true, 4, 19, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_23", "", true, 4, 23, 0, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_29", "", true, 4, 29, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_17", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 17, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_19", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 19, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_23", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 23, 0, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_29", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 29, 0, 0));
 
 		addChild(group);
 	}
 
 	{
 		TestCaseGroup* group = new TestCaseGroup(m_context, "skip", "Read pixels skip pixels and rows test");
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_0_3", "", false, 4, 17, 0, 3, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_0", "", false, 4, 17, 3, 0, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_3", "", false, 4, 17, 3, 3, GL_RGBA, GL_UNSIGNED_BYTE));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_5", "", false, 4, 17, 3, 5, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_0_3", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 17, 0, 3, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_0", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 17, 3, 0, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_3", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 17, 3, 3, GL_RGBA, GL_UNSIGNED_BYTE));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_ubyte_3_5", "", ReadPixelsTest::FLAG_NO_FLAGS, 4, 17, 3, 5, GL_RGBA, GL_UNSIGNED_BYTE));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_0_3", "", false, 4, 17, 0, 3, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_0", "", false, 4, 17, 3, 0, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_3", "", false, 4, 17, 3, 3, GL_RGBA_INTEGER, GL_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_5", "", false, 4, 17, 3, 5, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_0_3", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 0, 3, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_0", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 0, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_3", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 3, GL_RGBA_INTEGER, GL_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_int_3_5", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 5, GL_RGBA_INTEGER, GL_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_0_3", "", false, 4, 17, 0, 3, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_0", "", false, 4, 17, 3, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_3", "", false, 4, 17, 3, 3, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
-		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_5", "", false, 4, 17, 3, 5, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_0_3", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 0, 3, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_0", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 0, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_3", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 3, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
+		group->addChild(new ReadPixelsTest(m_context, "rgba_uint_3_5", "", ReadPixelsTest::FLAG_USE_RBO, 4, 17, 3, 5, GL_RGBA_INTEGER, GL_UNSIGNED_INT));
 
-		group->addChild(new ReadPixelsTest(m_context, "choose_0_3", "", true, 4, 17, 0, 3));
-		group->addChild(new ReadPixelsTest(m_context, "choose_3_0", "", true, 4, 17, 3, 0));
-		group->addChild(new ReadPixelsTest(m_context, "choose_3_3", "", true, 4, 17, 3, 3));
-		group->addChild(new ReadPixelsTest(m_context, "choose_3_5", "", true, 4, 17, 3, 5));
+		group->addChild(new ReadPixelsTest(m_context, "choose_0_3", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 17, 0, 3));
+		group->addChild(new ReadPixelsTest(m_context, "choose_3_0", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 17, 3, 0));
+		group->addChild(new ReadPixelsTest(m_context, "choose_3_3", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 17, 3, 3));
+		group->addChild(new ReadPixelsTest(m_context, "choose_3_5", "", ReadPixelsTest::FLAG_CHOOSE_FORMAT, 4, 17, 3, 5));
 
 		addChild(group);
 	}

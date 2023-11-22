@@ -28,7 +28,7 @@ PROGRAM_DESCRIPTION=\
 
 Where <src-dir> is the location of toolchain sources, <ndk-dir> is
 the top-level NDK installation path and <toolchain> is the name of
-the toolchain to use (e.g. arm-linux-androideabi-4.6)."
+the toolchain to use (e.g. arm-linux-androideabi-4.8)."
 
 RELEASE=`date +%Y%m%d`
 BUILD_OUT=/tmp/ndk-$USER/build/toolchain
@@ -287,9 +287,6 @@ export CFLAGS LDFLAGS CFLAGS_FOR_BUILD LDFLAGS_FOR_BUILD
 # This extra flag is used to slightly speed up the build
 EXTRA_CONFIG_FLAGS="--disable-bootstrap"
 
-# This is to disable GCC 4.6 specific features that don't compile well
-# the flags are ignored for older GCC versions.
-EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-libquadmath"
 if [ "$DARWIN" = "yes" ]; then
     # Disable plugin because in canadian cross build, plugin gengtype
     # will be incorrectly linked with build's library and fails.
@@ -315,6 +312,12 @@ case "$TOOLCHAIN" in
     *) EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-libgomp" ;;
 esac
 
+# Enable indirect functions in the compilers that support it (4.6 and above)
+case "$TOOLCHAIN" in
+    *-4.4.3) ;;
+    *) EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-gnu-indirect-function" ;;
+esac
+
 # Disable libcilkrts which needs C++ for now, because libstdlibc++ in NDK is built separately...
 case "$TOOLCHAIN" in
     x86*-4.9) EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-libcilkrts"
@@ -323,15 +326,20 @@ esac
 # Disable libsanitizer (which depends on libstdc++ built separately) for now
 EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --disable-libsanitizer"
 
-# Enable Gold as default
+# Enable Gold
 case "$TOOLCHAIN" in
-    # Note that only ARM and X86 >= GCC 4.6 are supported
+    # Note that only ARM/X86 >= GCC 4.6 and AARCH64 >= GCC 4.9 are supported
     mips*)
     ;;
     *-4.4.3)
     ;;
+    aarch64*)
+        # Enable ld.gold but ld.bfd remain the default
+        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-gold --enable-ld=default --enable-threads"
+    ;;
     *)
-        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-gold=default"
+        # Enable ld.gold as default
+        EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-gold=default --enable-threads"
     ;;
 esac
 
@@ -348,6 +356,11 @@ esac
 
 # Enable linker option -eh-frame-hdr also for static executable
 EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-eh-frame-hdr-for-static"
+
+# Enable aarch64 workaround for Cortex-A53 Erratum number 835769
+case "$TOOLCHAIN" in
+    aarch64*-4.9) EXTRA_CONFIG_FLAGS=$EXTRA_CONFIG_FLAGS" --enable-fix-cortex-a53-835769"
+esac
 
 MAY_FAIL_DUE_TO_RACE_CONDITION=
 if [ "$MINGW" = "yes" -o "$DARWIN" = "yes" ]; then
@@ -464,7 +477,7 @@ unwind_library_for_abi ()
           pr-support.o \
           unwind-c.o"
     ;;
-    x86|mips)
+    x86|mips|mips32r6)
     BASE_DIR="$BUILD_OUT/gcc-$CONFIGURE_GCC_VERSION/$ABI_CONFIGURE_TARGET/libgcc/"
     if [ "$GCC_VERSION" = "4.6" -o "$GCC_VERSION" = "4.4.3" ]; then
        OBJS="unwind-c.o \
@@ -548,7 +561,7 @@ if [ -n "$WITH_PYTHON" -a "$MINGW" = "yes" ] ; then
 fi
 
 # don't forget to copy the GPL and LGPL license files
-run cp -f $TOOLCHAIN_LICENSES/COPYING $TOOLCHAIN_LICENSES/COPYING.LIB $TOOLCHAIN_PATH
+run cp -f $TOOLCHAIN_LICENSES/COPYING* $TOOLCHAIN_PATH
 
 # remove some unneeded files
 run rm -f $TOOLCHAIN_PATH/bin/*-gccbug
@@ -640,7 +653,15 @@ do_relink_bin () {
 do_relink_bin c++ g++
 do_relink_bin gcc-$GCC_VERSION gcc
 # symlink ld to either ld.gold or ld.bfd
-do_relink_bin ld ld.gold ld.bfd
+case "$TOOLCHAIN" in
+    aarch64*)
+    # Don't make ld.gold as default for now because it's new
+    do_relink_bin ld ld.bfd ld.gold 
+    ;;
+    *)
+    do_relink_bin ld ld.gold ld.bfd
+    ;;
+esac
 
 # copy SOURCES file if present
 if [ -f "$SRC_DIR/SOURCES" ]; then

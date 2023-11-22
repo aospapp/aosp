@@ -10,7 +10,8 @@
 
 #include "GrContext.h"
 #include "GrContextFactory.h"
-#include "GrEffect.h"
+#include "GrFragmentProcessor.h"
+#include "GrInvariantOutput.h"
 #include "SkColorFilter.h"
 #include "SkGr.h"
 #include "Test.h"
@@ -63,9 +64,9 @@ static void test_getConstantColorComponents(skiatest::Reporter* reporter, GrCont
     const GrColor gr_c1 = SkColor2GrColor(c1);
     const GrColor gr_c2 = SkColor2GrColor(c2);
 
-    const GrColor gr_black = GrColorPackRGBA(0, 0, 0, 0);
-    const GrColor gr_white = GrColorPackRGBA(255, 255, 255, 255);
-    const GrColor gr_whiteTrans = GrColorPackRGBA(128, 128, 128, 128);
+    const GrColor gr_black = GrColorPackA4(0);
+    const GrColor gr_white = GrColorPackA4(255);
+    const GrColor gr_whiteTrans = GrColorPackA4(128);
 
     GetConstantComponentTestCase filterTests[] = {
         // A color filtered with Clear produces black.
@@ -98,13 +99,18 @@ static void test_getConstantColorComponents(skiatest::Reporter* reporter, GrCont
     for (size_t i = 0; i < SK_ARRAY_COUNT(filterTests); ++i) {
         const GetConstantComponentTestCase& test = filterTests[i];
         SkAutoTUnref<SkColorFilter> cf(SkColorFilter::CreateModeFilter(test.filterColor, test.filterMode));
-        SkAutoTUnref<GrEffectRef> grEffect(cf->asNewEffect(grContext));
-        GrColor color = test.inputColor;
-        uint32_t components = test.inputComponents;
-        grEffect->get()->getConstantColorComponents(&color, &components);
+        SkTDArray<GrFragmentProcessor*> array;
+        bool hasFrag = cf->asFragmentProcessors(grContext, &array);
+        REPORTER_ASSERT(reporter, hasFrag);
+        REPORTER_ASSERT(reporter, 1 == array.count());
+        GrInvariantOutput inout(test.inputColor,
+                                static_cast<GrColorComponentFlags>(test.inputComponents),
+                                false);
+        array[0]->computeInvariantOutput(&inout);
 
-        REPORTER_ASSERT(reporter, filterColor(color, components) == test.outputColor);
-        REPORTER_ASSERT(reporter, test.outputComponents == components);
+        REPORTER_ASSERT(reporter, filterColor(inout.color(), inout.validFlags()) == test.outputColor);
+        REPORTER_ASSERT(reporter, test.outputComponents == inout.validFlags());
+        array[0]->unref();
     }
 }
 

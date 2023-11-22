@@ -16,10 +16,12 @@
 
 package com.android.internal.telephony.dataconnection;
 
+import android.telephony.ServiceState;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.RILConstants;
+import com.android.internal.telephony.uicc.IccRecords;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,12 +58,20 @@ public class ApnSetting {
       */
     public final boolean carrierEnabled;
     /**
+     * Radio Access Technology info
+     * To check what values can hold, refer to ServiceState.java.
+     * This should be spread to other technologies,
+     * but currently only used for LTE(14) and EHRPD(13).
+     */
+    private final int bearer;
+    /**
       * Radio Access Technology info
-      * To check what values can hold, refer to ServiceState.java.
+      * To check what values can hold, refer to ServiceState.java. This is a bitmask of radio
+      * technologies in ServiceState.
       * This should be spread to other technologies,
       * but currently only used for LTE(14) and EHRPD(13).
       */
-    public final int bearer;
+    public final int bearerBitmask;
 
     /* ID of the profile in the modem */
     public final int profileId;
@@ -90,8 +100,8 @@ public class ApnSetting {
             String mmsc, String mmsProxy, String mmsPort,
             String user, String password, int authType, String[] types,
             String protocol, String roamingProtocol, boolean carrierEnabled, int bearer,
-            int profileId, boolean modemCognitive, int maxConns, int waitTime, int maxConnsTime,
-            int mtu, String mvnoType, String mvnoMatchData) {
+            int bearerBitmask, int profileId, boolean modemCognitive, int maxConns, int waitTime,
+            int maxConnsTime, int mtu, String mvnoType, String mvnoMatchData) {
         this.id = id;
         this.numeric = numeric;
         this.carrier = carrier;
@@ -112,6 +122,7 @@ public class ApnSetting {
         this.roamingProtocol = roamingProtocol;
         this.carrierEnabled = carrierEnabled;
         this.bearer = bearer;
+        this.bearerBitmask = (bearerBitmask | ServiceState.getBitmaskForTech(bearer));
         this.profileId = profileId;
         this.modemCognitive = modemCognitive;
         this.maxConns = maxConns;
@@ -139,12 +150,12 @@ public class ApnSetting {
      * v2 format:
      *   [ApnSettingV2] <carrier>, <apn>, <proxy>, <port>, <user>, <password>, <server>,
      *   <mmsc>, <mmsproxy>, <mmsport>, <mcc>, <mnc>, <authtype>,
-     *   <type>[| <type>...], <protocol>, <roaming_protocol>, <carrierEnabled>, <bearer>,
+     *   <type>[| <type>...], <protocol>, <roaming_protocol>, <carrierEnabled>, <bearerBitmask>,
      *
      * v3 format:
      *   [ApnSettingV3] <carrier>, <apn>, <proxy>, <port>, <user>, <password>, <server>,
      *   <mmsc>, <mmsproxy>, <mmsport>, <mcc>, <mnc>, <authtype>,
-     *   <type>[| <type>...], <protocol>, <roaming_protocol>, <carrierEnabled>, <bearer>,
+     *   <type>[| <type>...], <protocol>, <roaming_protocol>, <carrierEnabled>, <bearerBitmask>,
      *   <profileId>, <modemCognitive>, <maxConns>, <waitTime>, <maxConnsTime>, <mtu>,
      *   <mvnoType>, <mvnoMatchData>
      *
@@ -181,7 +192,7 @@ public class ApnSetting {
         String[] typeArray;
         String protocol, roamingProtocol;
         boolean carrierEnabled;
-        int bearer = 0;
+        int bearerBitmask = 0;
         int profileId = 0;
         boolean modemCognitive = false;
         int maxConns = 0;
@@ -196,7 +207,6 @@ public class ApnSetting {
             protocol = RILConstants.SETUP_DATA_PROTOCOL_IP;
             roamingProtocol = RILConstants.SETUP_DATA_PROTOCOL_IP;
             carrierEnabled = true;
-            bearer = 0;
         } else {
             if (a.length < 18) {
                 return null;
@@ -206,10 +216,7 @@ public class ApnSetting {
             roamingProtocol = a[15];
             carrierEnabled = Boolean.parseBoolean(a[16]);
 
-            try {
-                bearer = Integer.parseInt(a[17]);
-            } catch (NumberFormatException ex) {
-            }
+            bearerBitmask = ServiceState.getBitmaskFromString(a[17]);
 
             if (a.length > 22) {
                 modemCognitive = Boolean.parseBoolean(a[19]);
@@ -234,8 +241,8 @@ public class ApnSetting {
         }
 
         return new ApnSetting(-1,a[10]+a[11],a[0],a[1],a[2],a[3],a[7],a[8],
-                a[9],a[4],a[5],authType,typeArray,protocol,roamingProtocol,carrierEnabled,bearer,
-                profileId, modemCognitive, maxConns, waitTime, maxConnsTime, mtu,
+                a[9],a[4],a[5],authType,typeArray,protocol,roamingProtocol,carrierEnabled,0,
+                bearerBitmask, profileId, modemCognitive, maxConns, waitTime, maxConnsTime, mtu,
                 mvnoType, mvnoMatchData);
     }
 
@@ -286,6 +293,7 @@ public class ApnSetting {
         sb.append(", ").append(roamingProtocol);
         sb.append(", ").append(carrierEnabled);
         sb.append(", ").append(bearer);
+        sb.append(", ").append(bearerBitmask);
         sb.append(", ").append(profileId);
         sb.append(", ").append(modemCognitive);
         sb.append(", ").append(maxConns);
@@ -312,6 +320,52 @@ public class ApnSetting {
                     t.equalsIgnoreCase(PhoneConstants.APN_TYPE_ALL) ||
                     (t.equalsIgnoreCase(PhoneConstants.APN_TYPE_DEFAULT) &&
                     type.equalsIgnoreCase(PhoneConstants.APN_TYPE_HIPRI))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean imsiMatches(String imsiDB, String imsiSIM) {
+        // Note: imsiDB value has digit number or 'x' character for seperating USIM information
+        // for MVNO operator. And then digit number is matched at same order and 'x' character
+        // could replace by any digit number.
+        // ex) if imsiDB inserted '310260x10xxxxxx' for GG Operator,
+        //     that means first 6 digits, 8th and 9th digit
+        //     should be set in USIM for GG Operator.
+        int len = imsiDB.length();
+        int idxCompare = 0;
+
+        if (len <= 0) return false;
+        if (len > imsiSIM.length()) return false;
+
+        for (int idx=0; idx<len; idx++) {
+            char c = imsiDB.charAt(idx);
+            if ((c == 'x') || (c == 'X') || (c == imsiSIM.charAt(idx))) {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean mvnoMatches(IccRecords r, String mvnoType, String mvnoMatchData) {
+        if (mvnoType.equalsIgnoreCase("spn")) {
+            if ((r.getServiceProviderName() != null) &&
+                    r.getServiceProviderName().equalsIgnoreCase(mvnoMatchData)) {
+                return true;
+            }
+        } else if (mvnoType.equalsIgnoreCase("imsi")) {
+            String imsiSIM = r.getIMSI();
+            if ((imsiSIM != null) && imsiMatches(mvnoMatchData, imsiSIM)) {
+                return true;
+            }
+        } else if (mvnoType.equalsIgnoreCase("gid")) {
+            String gid1 = r.getGid1();
+            int mvno_match_data_length = mvnoMatchData.length();
+            if ((gid1 != null) && (gid1.length() >= mvno_match_data_length) &&
+                    gid1.substring(0, mvno_match_data_length).equalsIgnoreCase(mvnoMatchData)) {
                 return true;
             }
         }

@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Telefonas"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Telefono skambučių tvarkymas"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telefonas"</string>
     <string name="unknown" msgid="6878797917991465859">"Nežinomas"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Praleistas skambutis"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Praleisti skambučiai"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Greitas atsakas"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Pranešimas išsiųstas numeriu <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Įrenginio savininkas leidžia skambinti tik pagalbos numeriais"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Skambinimo paskyros"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Įrenginio savininkas leidžia skambinti tik pagalbos numeriais."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Naudojant šią programą negalima skambinti be telefono leidimo."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Kad galėtumėte paskambinti, įveskite tinkamą numerį."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Šiuo metu dar vieno skambučio atlikti negalima."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Išjunkite TTY režimą, kad galėtumėte atlikti vaizdo skambučius."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Trūksta balso pašto numerio"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM kortelėje nėra išsaugoto balso pašto numerio."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Pridėti numerį"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Pakeisti numatytąją numerio rinkiklio programą?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Naudoti „<xliff:g id="NEW_APP">%1$s</xliff:g>“ vietoje „<xliff:g id="CURRENT_APP">%2$s</xliff:g>“ kaip numatytąją numerio rinkiklio programą?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Naudoti „<xliff:g id="NEW_APP">%s</xliff:g>“ kaip numatytąją numerio rinkiklio programą?"</string>
 </resources>

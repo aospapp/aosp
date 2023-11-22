@@ -117,7 +117,7 @@ static const FX_BYTE JS_RC4KEY[] = {0x19,0xa8,0xe8,0x01,0xf6,0xa8,0xb6,0x4d,0x82
 							0x55,0x8b,0x6e,0x6b,0x19,0xa0,0xf8,0x77,0xd5,0xa3
 							};
 
-CJS_GlobalData::CJS_GlobalData(CPDFDoc_Environment* pApp) : m_pApp(pApp)
+CJS_GlobalData::CJS_GlobalData(CPDFDoc_Environment* pApp)
 {
 // 	IBaseAnnot* pBaseAnnot = IBaseAnnot::GetBaseAnnot(m_pApp);
 // 	ASSERT(pBaseAnnot != NULL);
@@ -353,8 +353,7 @@ void CJS_GlobalData::LoadGlobalPersistentVariables()
 	FX_LPBYTE pBuffer = NULL;
 	FX_INT32 nLength = 0;
 
-	LoadFileBuffer(m_sFilePath, pBuffer, nLength);
-
+	LoadFileBuffer(m_sFilePath.c_str(), pBuffer, nLength);
 	CRYPT_ArcFourCryptBlock(pBuffer, nLength, JS_RC4KEY, sizeof(JS_RC4KEY));
 
 	if (pBuffer)
@@ -509,7 +508,7 @@ void CJS_GlobalData::SaveGlobalPersisitentVariables()
 	sFile.AppendBlock(sData.GetBuffer(), sData.GetSize());
 
 	CRYPT_ArcFourCryptBlock(sFile.GetBuffer(), sFile.GetSize(), JS_RC4KEY, sizeof(JS_RC4KEY));
-	WriteFileBuffer(m_sFilePath, (FX_LPCSTR)sFile.GetBuffer(), sFile.GetSize());
+	WriteFileBuffer(m_sFilePath.c_str(), (FX_LPCSTR)sFile.GetBuffer(), sFile.GetSize());
 }
 
 void CJS_GlobalData::LoadFileBuffer(FX_LPCWSTR sFilePath, FX_LPBYTE& pBuffer, FX_INT32& nLength)

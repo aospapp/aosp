@@ -22,11 +22,12 @@
 #ifndef LEARNING_STOCHASTIC_LINEAR_STOCHASTIC_LINEAR_RANKER_H_
 #define LEARNING_STOCHASTIC_LINEAR_STOCHASTIC_LINEAR_RANKER_H_
 
-#include <cmath>
-#include <hash_map>
-#include <string>
-
 #include <sys/types.h>
+
+#include <cmath>
+#include <string>
+#include <unordered_map>
+
 #include "cutils/log.h"
 #include "common_defs.h"
 #include "learning_rate_controller-inl.h"
@@ -37,7 +38,7 @@ namespace learning_stochastic_linear {
 // NOTE: This Stochastic Linear Ranker supports only the following update types:
 // SL: Stochastic Linear
 // CS: Constraint Satisfaction
-template<class Key = std::string, class Hash = std::hash_map<std::string, double> >
+template<class Key = std::string, class Hash = std::unordered_map<std::string, double> >
 class StochasticLinearRanker {
  public:
   // initialize lambda_ and constraint to a meaningful default. Will give

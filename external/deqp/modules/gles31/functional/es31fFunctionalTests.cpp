@@ -44,6 +44,13 @@
 #include "es31fTextureLevelStateQueryTests.hpp"
 #include "es31fIntegerStateQueryTests.hpp"
 #include "es31fInternalFormatQueryTests.hpp"
+#include "es31fBooleanStateQueryTests.hpp"
+#include "es31fIndexedStateQueryTests.hpp"
+#include "es31fTextureStateQueryTests.hpp"
+#include "es31fFramebufferDefaultStateQueryTests.hpp"
+#include "es31fProgramPipelineStateQueryTests.hpp"
+#include "es31fProgramStateQueryTests.hpp"
+#include "es31fSamplerStateQueryTests.hpp"
 #include "es31fTextureFilteringTests.hpp"
 #include "es31fTextureFormatTests.hpp"
 #include "es31fTextureSpecificationTests.hpp"
@@ -73,8 +80,14 @@
 #include "es31fTextureGatherTests.hpp"
 #include "es31fTextureFormatTests.hpp"
 #include "es31fTextureBufferTests.hpp"
+#include "es31fTextureBorderClampTests.hpp"
 #include "es31fShaderBuiltinConstantTests.hpp"
 #include "es31fShaderHelperInvocationTests.hpp"
+#include "es31fPrimitiveBoundingBoxTests.hpp"
+#include "es31fAndroidExtensionPackES31ATests.hpp"
+#include "es31fCopyImageTests.hpp"
+#include "es31fDrawBuffersIndexedTests.hpp"
+#include "es31fDefaultVertexArrayObjectTests.hpp"
 
 namespace deqp
 {
@@ -178,11 +191,13 @@ public:
 		addChild(new ShaderMultisampleInterpolationTests(m_context));
 		addChild(new OpaqueTypeIndexingTests			(m_context));
 		addChild(new ShaderLibraryTest					(m_context, "functions", "Function Tests"));
+		addChild(new ShaderLibraryTest					(m_context, "arrays", "Arrays Tests"));
 		addChild(new ShaderLibraryTest					(m_context, "arrays_of_arrays", "Arrays of Arrays Tests"));
 		addChild(new ShaderLinkageTests					(m_context));
 		addChild(new ShaderBuiltinConstantTests			(m_context));
 		addChild(new ShaderHelperInvocationTests		(m_context));
 		addChild(new ShaderLibraryTest					(m_context, "implicit_conversions", "GL_EXT_shader_implicit_conversions Tests"));
+		addChild(new ShaderLibraryTest					(m_context, "uniform_block", "Uniform block tests"));
 	}
 };
 
@@ -234,6 +249,7 @@ public:
 		addChild(new TextureMultisampleTests	(m_context));
 		addChild(new TextureGatherTests			(m_context));
 		addChild(createTextureBufferTests		(m_context));
+		addChild(new TextureBorderClampTests	(m_context));
 	}
 };
 
@@ -247,12 +263,19 @@ public:
 
 	void init (void)
 	{
+		addChild(new BooleanStateQueryTests							(m_context));
 		addChild(new IntegerStateQueryTests							(m_context));
+		addChild(new IndexedStateQueryTests							(m_context));
+		addChild(new TextureStateQueryTests							(m_context));
 		addChild(new TextureLevelStateQueryTests					(m_context));
+		addChild(new SamplerStateQueryTests							(m_context));
 		addChild(new ShaderStateQueryTests							(m_context));
 		addChild(new InternalFormatQueryTests						(m_context));
 		addChild(new VertexAttributeBindingStateQueryTests			(m_context));
 		addChild(new ShaderMultisampleInterpolationStateQueryTests	(m_context));
+		addChild(new FramebufferDefaultStateQueryTests				(m_context));
+		addChild(new ProgramStateQueryTests							(m_context));
+		addChild(new ProgramPipelineStateQueryTests					(m_context));
 	}
 };
 
@@ -308,7 +331,11 @@ void FunctionalTests::init (void)
 	addChild(new FboTests								(m_context));
 	addChild(new ProgramInterfaceQueryTests				(m_context));
 	addChild(new LayoutBindingTests						(m_context));
-
+	addChild(new PrimitiveBoundingBoxTests				(m_context));
+	addChild(new AndroidExtensionPackES31ATests			(m_context));
+	addChild(createCopyImageTests						(m_context));
+	addChild(createDrawBuffersIndexedTests				(m_context));
+	addChild(new DefaultVertexArrayObjectTests			(m_context));
 }
 
 } // Functional

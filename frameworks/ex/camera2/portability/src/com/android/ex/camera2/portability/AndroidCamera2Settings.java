@@ -429,7 +429,7 @@ public class AndroidCamera2Settings extends CameraSettings {
                     break;
                 }
                 case HDR: {
-                    mode = LegacyVendorTags.CONTROL_SCENE_MODE_HDR;
+                    mode = CONTROL_SCENE_MODE_HDR;
                     break;
                 }
                 case LANDSCAPE: {

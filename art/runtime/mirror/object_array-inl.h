@@ -17,16 +17,18 @@
 #ifndef ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 #define ART_RUNTIME_MIRROR_OBJECT_ARRAY_INL_H_
 
+#include <string>
+
 #include "object_array.h"
 
+#include "array-inl.h"
 #include "base/stringprintf.h"
 #include "gc/heap.h"
-#include "mirror/art_field.h"
 #include "mirror/class.h"
 #include "runtime.h"
 #include "handle_scope-inl.h"
 #include "thread.h"
-#include <string>
+#include "utils.h"
 
 namespace art {
 namespace mirror {
@@ -35,10 +37,13 @@ template<class T>
 inline ObjectArray<T>* ObjectArray<T>::Alloc(Thread* self, Class* object_array_class,
                                              int32_t length, gc::AllocatorType allocator_type) {
   Array* array = Array::Alloc<true>(self, object_array_class, length,
-                                    sizeof(HeapReference<Object>), allocator_type);
+                                    ComponentSizeShiftWidth(sizeof(HeapReference<Object>)),
+                                    allocator_type);
   if (UNLIKELY(array == nullptr)) {
     return nullptr;
   } else {
+    DCHECK_EQ(array->GetClass()->GetComponentSizeShift(),
+              ComponentSizeShiftWidth(sizeof(HeapReference<Object>)));
     return array->AsObjectArray<T>();
   }
 }
@@ -54,14 +59,14 @@ template<class T>
 inline T* ObjectArray<T>::Get(int32_t i) {
   if (!CheckIsValidIndex(i)) {
     DCHECK(Thread::Current()->IsExceptionPending());
-    return NULL;
+    return nullptr;
   }
   return GetFieldObject<T>(OffsetOfElement(i));
 }
 
 template<class T> template<VerifyObjectFlags kVerifyFlags>
 inline bool ObjectArray<T>::CheckAssignable(T* object) {
-  if (object != NULL) {
+  if (object != nullptr) {
     Class* element_class = GetClass<kVerifyFlags>()->GetComponentType();
     if (UNLIKELY(!object->InstanceOf(element_class))) {
       ThrowArrayStoreException(object);
@@ -127,7 +132,7 @@ inline void ObjectArray<T>::AssignableMemmove(int32_t dst_pos, ObjectArray<T>* s
   CHECK_EQ(sizeof(HeapReference<T>), sizeof(uint32_t));
   IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
   IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
-  if (kUseBakerOrBrooksReadBarrier) {
+  if (kUseReadBarrier) {
     // TODO: Optimize this later?
     const bool copy_forward = (src != this) || (dst_pos < src_pos) || (dst_pos - src_pos >= count);
     if (copy_forward) {
@@ -170,7 +175,7 @@ inline void ObjectArray<T>::AssignableMemcpy(int32_t dst_pos, ObjectArray<T>* sr
   CHECK_EQ(sizeof(HeapReference<T>), sizeof(uint32_t));
   IntArray* dstAsIntArray = reinterpret_cast<IntArray*>(this);
   IntArray* srcAsIntArray = reinterpret_cast<IntArray*>(src);
-  if (kUseBakerOrBrooksReadBarrier) {
+  if (kUseReadBarrier) {
     // TODO: Optimize this later?
     for (int i = 0; i < count; ++i) {
       // We need a RB here. ObjectArray::GetWithoutChecks() contains a RB.
@@ -229,9 +234,8 @@ inline void ObjectArray<T>::AssignableCheckingMemcpy(int32_t dst_pos, ObjectArra
     std::string actualSrcType(PrettyTypeOf(o));
     std::string dstType(PrettyTypeOf(this));
     Thread* self = Thread::Current();
-    ThrowLocation throw_location = self->GetCurrentLocationForThrow();
     if (throw_exception) {
-      self->ThrowNewExceptionF(throw_location, "Ljava/lang/ArrayStoreException;",
+      self->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
                                "source[%d] of type %s cannot be stored in destination array of type %s",
                                src_pos + i, actualSrcType.c_str(), dstType.c_str());
     } else {

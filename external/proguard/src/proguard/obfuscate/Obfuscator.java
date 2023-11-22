@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -98,6 +98,16 @@ public class Obfuscator
         libraryClassPool.classesAccept(nameMarker);
         libraryClassPool.classesAccept(new AllMemberVisitor(nameMarker));
 
+        // We also keep the names of all methods of classes that are returned
+        // by dynamic method invocations. They may return dynamic
+        // implementations of interfaces. The method names then have to match
+        // with the invoke dynamic names.
+        programClassPool.classesAccept(
+            new ClassVersionFilter(ClassConstants.CLASS_VERSION_1_7,
+            new AllConstantVisitor(
+            new DynamicReturnedClassVisitor(
+            new AllMemberVisitor(nameMarker)))));
+
         // Mark attributes that have to be kept.
         AttributeVisitor attributeUsageMarker =
             new NonEmptyAttributeFilter(
@@ -105,7 +115,7 @@ public class Obfuscator
 
         AttributeVisitor optionalAttributeUsageMarker =
             configuration.keepAttributes == null ? null :
-                new AttributeNameFilter(new ListParser(new NameParser()).parse(configuration.keepAttributes),
+                new AttributeNameFilter(configuration.keepAttributes,
                                         attributeUsageMarker);
 
         programClassPool.classesAccept(
@@ -227,20 +237,20 @@ public class Obfuscator
                     // the hierarchy.
                     new ClassHierarchyTraveler(true, false, false, true,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                    new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
                     // Collect all non-private member names anywhere in the hierarchy.
                     new ClassHierarchyTraveler(true, true, true, true,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
                     // Assign new names to all non-private members in this class.
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberObfuscator(configuration.overloadAggressively,
                                          nameFactory,
                                          descriptorMap))),
@@ -261,7 +271,7 @@ public class Obfuscator
                     // Collect all non-private member names higher up the hierarchy.
                     new ClassHierarchyTraveler(false, true, true, false,
                     new AllMemberVisitor(
-                    new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                    new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                     new MemberNameCollector(configuration.overloadAggressively,
                                             descriptorMap)))),
 
@@ -272,7 +282,7 @@ public class Obfuscator
                     // bugs #6691741 and #6684387, ProGuard bug #3471941,
                     // and ProGuard test #1180).
                     new ClassHierarchyTraveler(false, false, false, true,
-                    new ClassAccessFilter(ClassConstants.INTERNAL_ACC_ABSTRACT, 0,
+                    new ClassAccessFilter(ClassConstants.ACC_ABSTRACT, 0,
                     new ClassHierarchyTraveler(false, false, true, false,
                     new AllMemberVisitor(
                     new MemberNameCollector(configuration.overloadAggressively,
@@ -280,7 +290,7 @@ public class Obfuscator
 
                     // Assign new names to all private members in this class.
                     new AllMemberVisitor(
-                    new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                    new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                     new MemberObfuscator(configuration.overloadAggressively,
                                          nameFactory,
                                          descriptorMap))),
@@ -319,7 +329,7 @@ public class Obfuscator
                 // the hierarchy.
                 new ClassHierarchyTraveler(true, false, false, true,
                 new AllMemberVisitor(
-                new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
@@ -327,7 +337,7 @@ public class Obfuscator
                 // higher up the hierarchy.
                 new ClassHierarchyTraveler(true, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
@@ -335,7 +345,7 @@ public class Obfuscator
                 // in this class and higher up the hierarchy.
                 new ClassHierarchyTraveler(true, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameConflictFixer(configuration.overloadAggressively,
                                             descriptorMap,
                                             warningPrinter,
@@ -360,14 +370,14 @@ public class Obfuscator
                 // Collect all non-private member names higher up the hierarchy.
                 new ClassHierarchyTraveler(false, true, true, false,
                 new AllMemberVisitor(
-                new MemberAccessFilter(0, ClassConstants.INTERNAL_ACC_PRIVATE,
+                new MemberAccessFilter(0, ClassConstants.ACC_PRIVATE,
                 new MemberNameCollector(configuration.overloadAggressively,
                                         descriptorMap)))),
 
                 // Assign new names to all conflicting private members in this
                 // class.
                 new AllMemberVisitor(
-                new MemberAccessFilter(ClassConstants.INTERNAL_ACC_PRIVATE, 0,
+                new MemberAccessFilter(ClassConstants.ACC_PRIVATE, 0,
                 new MemberNameConflictFixer(configuration.overloadAggressively,
                                             descriptorMap,
                                             warningPrinter,
@@ -391,12 +401,12 @@ public class Obfuscator
             {
                 System.err.println("         If you are sure the conflicts are harmless,");
                 System.err.println("         you could try your luck using the '-ignorewarnings' option.");
-                }
+            }
 
-                System.err.println("         (http://proguard.sourceforge.net/manual/troubleshooting.html#mappingconflict2)");
+            System.err.println("         (http://proguard.sourceforge.net/manual/troubleshooting.html#mappingconflict2)");
 
-                if (!configuration.ignoreWarnings)
-                {
+            if (!configuration.ignoreWarnings)
+            {
                 throw new IOException("Please correct the above warnings first.");
             }
         }
@@ -438,8 +448,7 @@ public class Obfuscator
             configuration.allowAccessModification)
         {
             programClassPool.classesAccept(
-                new AllConstantVisitor(
-                new AccessFixer()));
+                new AccessFixer());
 
             // Fix the access flags of the inner classes information.
             programClassPool.classesAccept(

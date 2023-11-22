@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -21,7 +21,7 @@
 package proguard.gradle;
 
 import groovy.lang.Closure;
-import org.gradle.api.*;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.file.*;
 import org.gradle.api.logging.*;
 import org.gradle.api.tasks.*;
@@ -63,27 +63,106 @@ public class ProGuardTask extends DefaultTask
     // but package visible or protected methods are ok.
 
     @InputFiles
-    protected FileCollection getInJarFiles() throws ParseException
+    protected FileCollection getInJarFileCollection()
     {
         return getProject().files(inJarFiles);
     }
 
     @Optional @OutputFiles
-    protected FileCollection getOutJarFiles() throws ParseException
+    protected FileCollection getOutJarFileCollection()
     {
         return getProject().files(outJarFiles);
     }
 
     @InputFiles
-    protected FileCollection getLibraryJarFiles() throws ParseException
+    protected FileCollection getLibraryJarFileCollection()
     {
         return getProject().files(libraryJarFiles);
     }
 
     @InputFiles
-    protected FileCollection getConfigurationFiles() throws ParseException
+    protected FileCollection getConfigurationFileCollection()
     {
         return getProject().files(configurationFiles);
+    }
+
+
+    // Convenience methods to retrieve settings from outside the task.
+
+    /**
+     * Returns the collected list of input files (directory, jar, aar, etc,
+     * represented as Object, String, File, etc).
+     */
+    public List getInJarFiles()
+    {
+        return inJarFiles;
+    }
+
+    /**
+     * Returns the collected list of filters (represented as argument Maps)
+     * corresponding to the list of input files.
+     */
+    public List getInJarFilters()
+    {
+        return inJarFilters;
+    }
+
+    /**
+     * Returns the collected list of output files (directory, jar, aar, etc,
+     * represented as Object, String, File, etc).
+     */
+    public List getOutJarFiles()
+    {
+        return outJarFiles;
+    }
+
+    /**
+     * Returns the collected list of filters (represented as argument Maps)
+     * corresponding to the list of output files.
+     */
+    public List getOutJarFilters()
+    {
+        return outJarFilters;
+    }
+
+    /**
+     * Returns the list with the numbers of input files that correspond to the
+     * list of output files.
+     *
+     * For instance, [2, 3] means that
+     *   the contents of the first 2 input files go to the first output file and
+     *   the contents of the next 3 input files go to the second output file.
+     */
+    public List getInJarCounts()
+    {
+        return inJarCounts;
+    }
+
+    /**
+     * Returns the collected list of library files (directory, jar, aar, etc,
+     * represented as Object, String, File, etc).
+     */
+    public List getLibraryJarFiles()
+    {
+        return libraryJarFiles;
+    }
+
+    /**
+     * Returns the collected list of filters (represented as argument Maps)
+     * corresponding to the list of library files.
+     */
+    public List getLibraryJarFilters()
+    {
+        return libraryJarFilters;
+    }
+
+    /**
+     * Returns the collected list of configuration files to be included
+     * (represented as Object, String, File, etc).
+     */
+    public List getConfigurationFiles()
+    {
+        return configurationFiles;
     }
 
 
@@ -120,7 +199,7 @@ public class ProGuardTask extends DefaultTask
     throws ParseException
     {
         // Just collect the arguments, so they can be resolved lazily.
-        this.outJarFiles.add(getProject().file(outJarFiles));
+        this.outJarFiles.add(outJarFiles);
         this.outJarFilters.add(filterArgs);
         this.inJarCounts.add(Integer.valueOf(inJarFiles.size()));
     }
@@ -985,6 +1064,24 @@ public class ProGuardTask extends DefaultTask
     public void proguard()
     throws ParseException, IOException
     {
+        // Let the logging manager capture the standard output and errors from
+        // ProGuard.
+        LoggingManager loggingManager = getLogging();
+        loggingManager.captureStandardOutput(LogLevel.INFO);
+        loggingManager.captureStandardError(LogLevel.WARN);
+
+        // Run ProGuard with the collected configuration.
+        new ProGuard(getConfiguration()).execute();
+
+    }
+
+
+    /**
+     * Returns the configuration collected so far, resolving files and
+     * reading included configurations.
+     */
+    private Configuration getConfiguration() throws IOException, ParseException
+    {
         // Weave the input jars and the output jars into a single class path,
         // with lazy resolution of the files.
         configuration.programJars = new ClassPath();
@@ -1054,15 +1151,7 @@ public class ProGuardTask extends DefaultTask
         // was necessary.
         configuration.lastModified = Long.MAX_VALUE;
 
-        // Let the logging manager capture the standard output and errors from
-        // ProGuard.
-        LoggingManager loggingManager = getLogging();
-        loggingManager.captureStandardOutput(LogLevel.INFO);
-        loggingManager.captureStandardError(LogLevel.WARN);
-
-        // Run ProGuard with the collected configuration.
-        new ProGuard(configuration).execute();
-
+        return configuration;
     }
 
 
@@ -1097,7 +1186,9 @@ public class ProGuardTask extends DefaultTask
                 if (filterArgs != null)
                 {
                     classPathEntry.setFilter(ListUtil.commaSeparatedList((String)filterArgs.get("filter")));
+                    classPathEntry.setApkFilter(ListUtil.commaSeparatedList((String)filterArgs.get("apkfilter")));
                     classPathEntry.setJarFilter(ListUtil.commaSeparatedList((String)filterArgs.get("jarfilter")));
+                    classPathEntry.setAarFilter(ListUtil.commaSeparatedList((String)filterArgs.get("aarfilter")));
                     classPathEntry.setWarFilter(ListUtil.commaSeparatedList((String)filterArgs.get("warfilter")));
                     classPathEntry.setEarFilter(ListUtil.commaSeparatedList((String)filterArgs.get("earfilter")));
                     classPathEntry.setZipFilter(ListUtil.commaSeparatedList((String)filterArgs.get("zipfilter")));
@@ -1170,9 +1261,10 @@ public class ProGuardTask extends DefaultTask
         return
             new KeepClassSpecification(markClasses,
                                        markConditionally,
-                                       retrieveBoolean(keepArgs, "allowshrinking",    allowShrinking),
-                                       retrieveBoolean(keepArgs, "allowoptimization", false),
-                                       retrieveBoolean(keepArgs, "allowobfuscation",  false),
+                                       retrieveBoolean(keepArgs, "includedescriptorclasses", false),
+                                       retrieveBoolean(keepArgs, "allowshrinking",           allowShrinking),
+                                       retrieveBoolean(keepArgs, "allowoptimization",        false),
+                                       retrieveBoolean(keepArgs, "allowobfuscation",         false),
                                        classSpecification);
     }
 
@@ -1274,11 +1366,11 @@ public class ProGuardTask extends DefaultTask
                         token;
 
                     int accessFlag =
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_PUBLIC)     ? ClassConstants.INTERNAL_ACC_PUBLIC      :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_FINAL)      ? ClassConstants.INTERNAL_ACC_FINAL       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_ABSTRACT)   ? ClassConstants.INTERNAL_ACC_ABSTRACT    :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_SYNTHETIC)  ? ClassConstants.INTERNAL_ACC_SYNTHETIC   :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_ANNOTATION) ? ClassConstants.INTERNAL_ACC_ANNOTATTION :
+                        strippedToken.equals(JavaConstants.ACC_PUBLIC)     ? ClassConstants.ACC_PUBLIC      :
+                        strippedToken.equals(JavaConstants.ACC_FINAL)      ? ClassConstants.ACC_FINAL       :
+                        strippedToken.equals(JavaConstants.ACC_ABSTRACT)   ? ClassConstants.ACC_ABSTRACT    :
+                        strippedToken.equals(JavaConstants.ACC_SYNTHETIC)  ? ClassConstants.ACC_SYNTHETIC   :
+                        strippedToken.equals(JavaConstants.ACC_ANNOTATION) ? ClassConstants.ACC_ANNOTATTION :
                                                                              0;
 
                     if (accessFlag == 0)
@@ -1295,10 +1387,10 @@ public class ProGuardTask extends DefaultTask
         {
             int accessFlag =
                 type.equals("class")                           ? 0                            :
-                type.equals(      ClassConstants.EXTERNAL_ACC_INTERFACE) ||
-                type.equals("!" + ClassConstants.EXTERNAL_ACC_INTERFACE) ? ClassConstants.INTERNAL_ACC_INTERFACE :
-                type.equals(      ClassConstants.EXTERNAL_ACC_ENUM)      ||
-                type.equals("!" + ClassConstants.EXTERNAL_ACC_ENUM)      ? ClassConstants.INTERNAL_ACC_ENUM      :
+                type.equals(      JavaConstants.ACC_INTERFACE) ||
+                type.equals("!" + JavaConstants.ACC_INTERFACE) ? ClassConstants.ACC_INTERFACE :
+                type.equals(      JavaConstants.ACC_ENUM)      ||
+                type.equals("!" + JavaConstants.ACC_ENUM)      ? ClassConstants.ACC_ENUM      :
                                                                  -1;
             if (accessFlag == -1)
             {
@@ -1344,10 +1436,10 @@ public class ProGuardTask extends DefaultTask
 
                 if (parameters != null)
                 {
-                    type = ClassConstants.EXTERNAL_TYPE_VOID;
+                    type = JavaConstants.TYPE_VOID;
                 }
 
-                name = ClassConstants.INTERNAL_METHOD_NAME_INIT;
+                name = ClassConstants.METHOD_NAME_INIT;
             }
             else if ((type != null) ^ (parameters != null))
             {
@@ -1401,20 +1493,20 @@ public class ProGuardTask extends DefaultTask
                         token;
 
                     int accessFlag =
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_PUBLIC)       ? ClassConstants.INTERNAL_ACC_PUBLIC       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_PRIVATE)      ? ClassConstants.INTERNAL_ACC_PRIVATE      :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_PROTECTED)    ? ClassConstants.INTERNAL_ACC_PROTECTED    :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_STATIC)       ? ClassConstants.INTERNAL_ACC_STATIC       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_FINAL)        ? ClassConstants.INTERNAL_ACC_FINAL        :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_SYNCHRONIZED) ? ClassConstants.INTERNAL_ACC_SYNCHRONIZED :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_VOLATILE)     ? ClassConstants.INTERNAL_ACC_VOLATILE     :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_TRANSIENT)    ? ClassConstants.INTERNAL_ACC_TRANSIENT    :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_BRIDGE)       ? ClassConstants.INTERNAL_ACC_BRIDGE       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_VARARGS)      ? ClassConstants.INTERNAL_ACC_VARARGS      :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_NATIVE)       ? ClassConstants.INTERNAL_ACC_NATIVE       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_ABSTRACT)     ? ClassConstants.INTERNAL_ACC_ABSTRACT     :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_STRICT)       ? ClassConstants.INTERNAL_ACC_STRICT       :
-                        strippedToken.equals(ClassConstants.EXTERNAL_ACC_SYNTHETIC)    ? ClassConstants.INTERNAL_ACC_SYNTHETIC    :
+                        strippedToken.equals(JavaConstants.ACC_PUBLIC)       ? ClassConstants.ACC_PUBLIC       :
+                        strippedToken.equals(JavaConstants.ACC_PRIVATE)      ? ClassConstants.ACC_PRIVATE      :
+                        strippedToken.equals(JavaConstants.ACC_PROTECTED)    ? ClassConstants.ACC_PROTECTED    :
+                        strippedToken.equals(JavaConstants.ACC_STATIC)       ? ClassConstants.ACC_STATIC       :
+                        strippedToken.equals(JavaConstants.ACC_FINAL)        ? ClassConstants.ACC_FINAL        :
+                        strippedToken.equals(JavaConstants.ACC_SYNCHRONIZED) ? ClassConstants.ACC_SYNCHRONIZED :
+                        strippedToken.equals(JavaConstants.ACC_VOLATILE)     ? ClassConstants.ACC_VOLATILE     :
+                        strippedToken.equals(JavaConstants.ACC_TRANSIENT)    ? ClassConstants.ACC_TRANSIENT    :
+                        strippedToken.equals(JavaConstants.ACC_BRIDGE)       ? ClassConstants.ACC_BRIDGE       :
+                        strippedToken.equals(JavaConstants.ACC_VARARGS)      ? ClassConstants.ACC_VARARGS      :
+                        strippedToken.equals(JavaConstants.ACC_NATIVE)       ? ClassConstants.ACC_NATIVE       :
+                        strippedToken.equals(JavaConstants.ACC_ABSTRACT)     ? ClassConstants.ACC_ABSTRACT     :
+                        strippedToken.equals(JavaConstants.ACC_STRICT)       ? ClassConstants.ACC_STRICT       :
+                        strippedToken.equals(JavaConstants.ACC_SYNTHETIC)    ? ClassConstants.ACC_SYNTHETIC    :
                                                                                0;
 
                     if (accessFlag == 0)

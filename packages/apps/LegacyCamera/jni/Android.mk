@@ -10,6 +10,7 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/feature_mos/src/mosaic
 
 LOCAL_CFLAGS := -O3 -DNDEBUG
+LOCAL_CPPFLAGS := -std=gnu++98
 
 LOCAL_SRC_FILES := \
         feature_mos_jni.cpp \

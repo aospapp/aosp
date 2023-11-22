@@ -18,10 +18,10 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="timezone_rename_labels">
-    <item msgid="4609638052107641231">"מרכז אוסטרליה - NT"</item>
-    <item msgid="4345275500159159867">"מרכז אוסטרליה - SA"</item>
-    <item msgid="6771274300523132094">"מזרח אוסטרליה - QLD"</item>
-    <item msgid="4685547681424666687">"מזרח אוסטרליה - NSW"</item>
+    <item msgid="4609638052107641231">"‏מרכז אוסטרליה - NT"</item>
+    <item msgid="4345275500159159867">"‏מרכז אוסטרליה - SA"</item>
+    <item msgid="6771274300523132094">"‏מזרח אוסטרליה - QLD"</item>
+    <item msgid="4685547681424666687">"‏מזרח אוסטרליה - NSW"</item>
     <item msgid="5259393186526893961">"תקני הרים - דאוסון קריק"</item>
     <item msgid="5984634754870859705">"תקני מרכז - ססקצ\'ואן"</item>
     <item msgid="5340374311583423836">"תקני מזרחי - אטיקוקן"</item>

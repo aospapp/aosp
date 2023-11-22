@@ -17,18 +17,45 @@
 #
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_CLANG := true
 LOCAL_MODULE := librscpptest_jni
 LOCAL_MODULE_TAGS := optional
-LOCAL_SRC_FILES := rs_jni.cpp rs_jni_allocation.cpp
-LOCAL_SRC_FILES += setelementat.rs
+
+LOCAL_SRC_FILES := \
+    rs_jni.cpp \
+    rs_jni_allocation.cpp \
+    rs_jni_element.cpp \
+    rs_jni_foreach.cpp \
+    rs_jni_script.cpp \
+    rs_jni_type.cpp \
+    rs_jni_object.cpp
+
+LOCAL_SRC_FILES += \
+    setelementat.rs \
+    primitives.rs \
+    instance.rs \
+    clear_object.rs \
+    foreach.rs \
+    fe_all.rs \
+    noroot.rs \
+    vector.rs
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
-LOCAL_C_INCLUDES += external/stlport/stlport bionic/ bionic/libstdc++/include
 
 LOCAL_SHARED_LIBRARIES := libdl liblog
-LOCAL_STATIC_LIBRARIES := libRScpp_static libstlport_static libcutils
+LOCAL_STATIC_LIBRARIES := libRScpp_static libcutils
+
+ifeq ($(my_32_64_bit_suffix),32)
+    LOCAL_SDK_VERSION := 8
+else
+    LOCAL_SDK_VERSION := 21
+endif
+
+LOCAL_NDK_STL_VARIANT := stlport_static
+
 include $(BUILD_SHARED_LIBRARY)
 
 

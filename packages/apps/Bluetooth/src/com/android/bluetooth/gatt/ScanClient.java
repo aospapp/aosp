@@ -38,6 +38,8 @@ import java.util.UUID;
     List<List<ResultStorageDescriptor>> storages;
     // App associated with the scan client died.
     boolean appDied;
+    boolean hasLocationPermission;
+    boolean hasPeersMacAddressPermission;
 
     private static final ScanSettings DEFAULT_SCAN_SETTINGS = new ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();

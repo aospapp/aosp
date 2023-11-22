@@ -38,14 +38,21 @@
 #include "deAtomic.h"
 #include "deClock.h"
 
+#include "eglwLibrary.hpp"
+#include "eglwEnums.hpp"
+
 #include <vector>
+#include <set>
 #include <string>
 #include <sstream>
 
 using std::vector;
 using std::string;
 using std::pair;
+using std::set;
 using std::ostringstream;
+
+using namespace eglw;
 
 namespace deqp
 {
@@ -118,6 +125,7 @@ public:
 
 	void			setStatus	(ThreadStatus status)	{ m_status = status; }
 
+	const Library&	getLibrary	(void) const;
 
 	// Test has stopped
 	class TestStop {};
@@ -135,11 +143,15 @@ class MultiThreadedTest : public TestCase
 public:
 							MultiThreadedTest	(EglTestContext& eglTestCtx, const char* name, const char* description, int threadCount, deUint64 timeoutUs);
 	virtual					~MultiThreadedTest	(void);
-	virtual void			deinit				(void) {}
+
+	void					init				(void);
+	void					deinit				(void);
 
 	virtual bool			runThread			(TestThread& thread) = 0;
 	virtual IterateResult	iterate				(void);
 	bool					execTest			(TestThread& thread);
+
+	const Library&			getLibrary			(void) const { return m_eglTestCtx.getLibrary(); }
 
 protected:
 	void					barrier				(TestThread& thread);
@@ -154,7 +166,15 @@ private:
 	volatile deInt32		m_barrierWaiters;
 	de::Semaphore			m_barrierSemaphore1;
 	de::Semaphore			m_barrierSemaphore2;
+
+protected:
+	EGLDisplay				m_display;
 };
+
+inline const Library& TestThread::getLibrary (void) const
+{
+	return m_test.getLibrary();
+}
 
 TestThread::TestThread (MultiThreadedTest& test, int id)
 	: m_test	(test)
@@ -249,6 +269,8 @@ MultiThreadedTest::MultiThreadedTest (EglTestContext& eglTestCtx, const char* na
 	, m_barrierWaiters		(0)
 	, m_barrierSemaphore1	(0, 0)
 	, m_barrierSemaphore2	(1, 0)
+
+	, m_display				(EGL_NO_DISPLAY)
 {
 }
 
@@ -257,6 +279,20 @@ MultiThreadedTest::~MultiThreadedTest (void)
 	for (int threadNdx = 0; threadNdx < (int)m_threads.size(); threadNdx++)
 		delete m_threads[threadNdx];
 	m_threads.clear();
+}
+
+void MultiThreadedTest::init (void)
+{
+	m_display = eglu::getAndInitDisplay(m_eglTestCtx.getNativeDisplay());
+}
+
+void MultiThreadedTest::deinit (void)
+{
+	if (m_display != EGL_NO_DISPLAY)
+	{
+		m_eglTestCtx.getLibrary().terminate(m_display);
+		m_display = EGL_NO_DISPLAY;
+	}
 }
 
 void MultiThreadedTest::barrier (TestThread& thread)
@@ -498,7 +534,6 @@ public:
 	bool		runThread					(TestThread& thread);
 
 private:
-	EGLDisplay	m_display;
 	const int	m_getConfigs;
 	const int	m_chooseConfigs;
 	const int	m_query;
@@ -506,7 +541,6 @@ private:
 
 MultiThreadedConfigTest::MultiThreadedConfigTest (EglTestContext& context, const char* name, const char* description, int getConfigs, int chooseConfigs, int query)
 	: MultiThreadedTest (context, name, description, 2, 20000000/*us = 20s*/) // \todo [mika] Set timeout to something relevant to frameworks timeout?
-	, m_display			(EGL_NO_DISPLAY)
 	, m_getConfigs		(getConfigs)
 	, m_chooseConfigs	(chooseConfigs)
 	, m_query			(query)
@@ -515,11 +549,9 @@ MultiThreadedConfigTest::MultiThreadedConfigTest (EglTestContext& context, const
 
 bool MultiThreadedConfigTest::runThread (TestThread& thread)
 {
-	de::Random			rnd(deInt32Hash(thread.getId() + 10435));
+	const Library&		egl		= getLibrary();
+	de::Random			rnd		(deInt32Hash(thread.getId() + 10435));
 	vector<EGLConfig>	configs;
-
-	if (thread.getId() == 0)
-		m_display = m_eglTestCtx.getDisplay().getEGLDisplay();
 
 	barrier(thread);
 
@@ -531,9 +563,9 @@ bool MultiThreadedConfigTest::runThread (TestThread& thread)
 		{
 			EGLBoolean result;
 
-			result = eglGetConfigs(m_display, NULL, 0, &configCount);
+			result = egl.getConfigs(m_display, NULL, 0, &configCount);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglGetConfigs(" << m_display << ", NULL, 0, " << configCount << ")" <<  ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglGetConfigs()");
+			EGLU_CHECK_MSG(egl, "eglGetConfigs()");
 
 			if (!result)
 				return false;
@@ -546,9 +578,9 @@ bool MultiThreadedConfigTest::runThread (TestThread& thread)
 		{
 			EGLBoolean result;
 
-			result = eglGetConfigs(m_display, &(configs[configs.size() - configCount]), configCount, &configCount);
+			result = egl.getConfigs(m_display, &(configs[configs.size() - configCount]), configCount, &configCount);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglGetConfigs(" << m_display << ", &configs' " << configCount << ", " << configCount << ")" <<  ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglGetConfigs()");
+			EGLU_CHECK_MSG(egl, "eglGetConfigs()");
 
 			if (!result)
 				return false;
@@ -579,9 +611,9 @@ bool MultiThreadedConfigTest::runThread (TestThread& thread)
 		{
 			EGLBoolean result;
 
-			result = eglChooseConfig(m_display, attribList, NULL, 0, &configCount);
+			result = egl.chooseConfig(m_display, attribList, NULL, 0, &configCount);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglChooseConfig(" << m_display << ", { EGL_NONE }, NULL, 0, " << configCount << ")" <<  ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglChooseConfig()");
+			EGLU_CHECK_MSG(egl, "eglChooseConfig()");
 
 			if (!result)
 				return false;
@@ -594,9 +626,9 @@ bool MultiThreadedConfigTest::runThread (TestThread& thread)
 		{
 			EGLBoolean result;
 
-			result = eglChooseConfig(m_display, attribList, &(configs[configs.size() - configCount]), configCount, &configCount);
+			result = egl.chooseConfig(m_display, attribList, &(configs[configs.size() - configCount]), configCount, &configCount);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglChooseConfig(" << m_display << ", { EGL_NONE }, &configs, " << configCount << ", " << configCount << ")" <<  ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglChooseConfig()");
+			EGLU_CHECK_MSG(egl, "eglChooseConfig()");
 
 			if (!result)
 				return false;
@@ -660,9 +692,9 @@ bool MultiThreadedConfigTest::runThread (TestThread& thread)
 			EGLint			value;
 			EGLBoolean		result;
 
-			result = eglGetConfigAttrib(m_display, config, attribute, &value);
+			result = egl.getConfigAttrib(m_display, config, attribute, &value);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglGetConfigAttrib(" << m_display << ", " << config << ", " << configAttributeToString(attribute) << ", " << value << ")" <<  ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglGetConfigAttrib()");
+			EGLU_CHECK_MSG(egl, "eglGetConfigAttrib()");
 
 			if (!result)
 				return false;
@@ -698,7 +730,6 @@ public:
 	void			destroyObjects					(TestThread& thread);
 
 private:
-	EGLDisplay			m_display;
 	EGLConfig			m_config;
 	de::Random			m_rnd0;
 	de::Random			m_rnd1;
@@ -725,7 +756,6 @@ private:
 
 MultiThreadedObjectTest::MultiThreadedObjectTest (EglTestContext& context, const char* name, const char* description, deUint32 type)
 	: MultiThreadedTest (context, name, description, 2, 20000000/*us = 20s*/) // \todo [mika] Set timeout to something relevant to frameworks timeout?
-	, m_display			(EGL_NO_DISPLAY)
 	, m_config			(DE_NULL)
 	, m_rnd0			(58204327)
 	, m_rnd1			(230983)
@@ -741,13 +771,15 @@ MultiThreadedObjectTest::~MultiThreadedObjectTest (void)
 
 void MultiThreadedObjectTest::deinit (void)
 {
+	const Library&		egl		= getLibrary();
+
 	// Clear pbuffers
 	for (int pbufferNdx = 0; pbufferNdx < (int)m_pbuffers0.size(); pbufferNdx++)
 	{
 		if (m_pbuffers0[pbufferNdx] != EGL_NO_SURFACE)
 		{
-			eglDestroySurface(m_display, m_pbuffers0[pbufferNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroySurface()");
+			egl.destroySurface(m_display, m_pbuffers0[pbufferNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroySurface()");
 			m_pbuffers0[pbufferNdx] = EGL_NO_SURFACE;
 		}
 	}
@@ -757,8 +789,8 @@ void MultiThreadedObjectTest::deinit (void)
 	{
 		if (m_pbuffers1[pbufferNdx] != EGL_NO_SURFACE)
 		{
-			eglDestroySurface(m_display, m_pbuffers1[pbufferNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroySurface()");
+			egl.destroySurface(m_display, m_pbuffers1[pbufferNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroySurface()");
 			m_pbuffers1[pbufferNdx] = EGL_NO_SURFACE;
 		}
 	}
@@ -768,8 +800,8 @@ void MultiThreadedObjectTest::deinit (void)
 	{
 		if (m_sharedPbuffers[pbufferNdx] != EGL_NO_SURFACE)
 		{
-			eglDestroySurface(m_display, m_sharedPbuffers[pbufferNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroySurface()");
+			egl.destroySurface(m_display, m_sharedPbuffers[pbufferNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroySurface()");
 			m_sharedPbuffers[pbufferNdx] = EGL_NO_SURFACE;
 		}
 	}
@@ -779,8 +811,8 @@ void MultiThreadedObjectTest::deinit (void)
 	{
 		if (m_sharedContexts[contextNdx] != EGL_NO_CONTEXT)
 		{
-			eglDestroyContext(m_display, m_sharedContexts[contextNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroyContext()");
+			egl.destroyContext(m_display, m_sharedContexts[contextNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroyContext()");
 			m_sharedContexts[contextNdx] =  EGL_NO_CONTEXT;
 		}
 	}
@@ -790,8 +822,8 @@ void MultiThreadedObjectTest::deinit (void)
 	{
 		if (m_contexts0[contextNdx] != EGL_NO_CONTEXT)
 		{
-			eglDestroyContext(m_display, m_contexts0[contextNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroyContext()");
+			egl.destroyContext(m_display, m_contexts0[contextNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroyContext()");
 			m_contexts0[contextNdx] =  EGL_NO_CONTEXT;
 		}
 	}
@@ -801,18 +833,18 @@ void MultiThreadedObjectTest::deinit (void)
 	{
 		if (m_contexts1[contextNdx] != EGL_NO_CONTEXT)
 		{
-			eglDestroyContext(m_display, m_contexts1[contextNdx]);
-			TCU_CHECK_EGL_MSG("eglDestroyContext()");
+			egl.destroyContext(m_display, m_contexts1[contextNdx]);
+			EGLU_CHECK_MSG(egl, "eglDestroyContext()");
 			m_contexts1[contextNdx] =  EGL_NO_CONTEXT;
 		}
 	}
 	m_contexts1.clear();
 
 	// Clear pixmaps
-	for (int pixmapNdx = 0; pixmapNdx < (int)m_nativePixmaps0.size(); pixmapNdx++)	
+	for (int pixmapNdx = 0; pixmapNdx < (int)m_nativePixmaps0.size(); pixmapNdx++)
 	{
 		if (m_nativePixmaps0[pixmapNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_nativePixmaps0[pixmapNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_nativePixmaps0[pixmapNdx].second));
 
 		m_nativePixmaps0[pixmapNdx].second = EGL_NO_SURFACE;
 		delete m_nativePixmaps0[pixmapNdx].first;
@@ -823,7 +855,7 @@ void MultiThreadedObjectTest::deinit (void)
 	for (int pixmapNdx = 0; pixmapNdx < (int)m_nativePixmaps1.size(); pixmapNdx++)
 	{
 		if (m_nativePixmaps1[pixmapNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_nativePixmaps1[pixmapNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_nativePixmaps1[pixmapNdx].second));
 
 		m_nativePixmaps1[pixmapNdx].second = EGL_NO_SURFACE;
 		delete m_nativePixmaps1[pixmapNdx].first;
@@ -834,7 +866,7 @@ void MultiThreadedObjectTest::deinit (void)
 	for (int pixmapNdx = 0; pixmapNdx < (int)m_sharedNativePixmaps.size(); pixmapNdx++)
 	{
 		if (m_sharedNativePixmaps[pixmapNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_sharedNativePixmaps[pixmapNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_sharedNativePixmaps[pixmapNdx].second));
 
 		m_sharedNativePixmaps[pixmapNdx].second = EGL_NO_SURFACE;
 		delete m_sharedNativePixmaps[pixmapNdx].first;
@@ -846,7 +878,7 @@ void MultiThreadedObjectTest::deinit (void)
 	for (int windowNdx = 0; windowNdx < (int)m_nativeWindows1.size(); windowNdx++)
 	{
 		if (m_nativeWindows1[windowNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_nativeWindows1[windowNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_nativeWindows1[windowNdx].second));
 
 		m_nativeWindows1[windowNdx].second = EGL_NO_SURFACE;
 		delete m_nativeWindows1[windowNdx].first;
@@ -857,7 +889,7 @@ void MultiThreadedObjectTest::deinit (void)
 	for (int windowNdx = 0; windowNdx < (int)m_nativeWindows0.size(); windowNdx++)
 	{
 		if (m_nativeWindows0[windowNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_nativeWindows0[windowNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_nativeWindows0[windowNdx].second));
 
 		m_nativeWindows0[windowNdx].second = EGL_NO_SURFACE;
 		delete m_nativeWindows0[windowNdx].first;
@@ -868,21 +900,23 @@ void MultiThreadedObjectTest::deinit (void)
 	for (int windowNdx = 0; windowNdx < (int)m_sharedNativeWindows.size(); windowNdx++)
 	{
 		if (m_sharedNativeWindows[windowNdx].second != EGL_NO_SURFACE)
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, m_sharedNativeWindows[windowNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, m_sharedNativeWindows[windowNdx].second));
 
 		m_sharedNativeWindows[windowNdx].second = EGL_NO_SURFACE;
 		delete m_sharedNativeWindows[windowNdx].first;
 		m_sharedNativeWindows[windowNdx].first = NULL;
 	}
 	m_sharedNativeWindows.clear();
+
+	MultiThreadedTest::deinit();
 }
 
 bool MultiThreadedObjectTest::runThread (TestThread& thread)
 {
+	const Library&		egl		= getLibrary();
+
 	if (thread.getId() == 0)
 	{
-		m_display = m_eglTestCtx.getDisplay().getEGLDisplay();
-
 		EGLint surfaceTypes = 0;
 
 		if ((m_types & TYPE_WINDOW) != 0)
@@ -902,10 +936,10 @@ bool MultiThreadedObjectTest::runThread (TestThread& thread)
 			EGL_NONE
 		};
 
-		TCU_CHECK_EGL_CALL(eglChooseConfig(m_display, attribList, &m_config, 1, &configCount));
+		EGLU_CHECK_CALL(egl, chooseConfig(m_display, attribList, &m_config, 1, &configCount));
 
 		if (configCount == 0)
-			throw tcu::NotSupportedError("No usable config found", "", __FILE__, __LINE__);
+			TCU_THROW(NotSupportedError, "No usable config found");
 	}
 
 	barrier(thread);
@@ -960,25 +994,25 @@ bool MultiThreadedObjectTest::runThread (TestThread& thread)
 
 void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int count)
 {
+	const Library&									egl			= getLibrary();
 	de::Random&										rnd			= (thread.getId() == 0 ? m_rnd0 : m_rnd1);
 	vector<EGLSurface>&								pbuffers	= (thread.getId() == 0 ? m_pbuffers0 : m_pbuffers1);
 	vector<pair<eglu::NativeWindow*, EGLSurface> >&	windows		= (thread.getId() == 0 ? m_nativeWindows0 : m_nativeWindows1);
 	vector<pair<eglu::NativePixmap*, EGLSurface> >&	pixmaps		= (thread.getId() == 0 ? m_nativePixmaps0 : m_nativePixmaps1);
 	vector<EGLContext>&								contexts	= (thread.getId() == 0 ? m_contexts0 : m_contexts1);
-
-	vector<Type>		objectTypes;
+	set<Type>										objectTypes;
 
 	if ((m_types & TYPE_PBUFFER) != 0)
-		objectTypes.push_back(TYPE_PBUFFER);
+		objectTypes.insert(TYPE_PBUFFER);
 
 	if ((m_types & TYPE_PIXMAP) != 0)
-		objectTypes.push_back(TYPE_PIXMAP);
+		objectTypes.insert(TYPE_PIXMAP);
 
 	if ((m_types & TYPE_WINDOW) != 0)
-		objectTypes.push_back(TYPE_WINDOW);
+		objectTypes.insert(TYPE_WINDOW);
 
 	if ((m_types & TYPE_CONTEXT) != 0)
-		objectTypes.push_back(TYPE_CONTEXT);
+		objectTypes.insert(TYPE_CONTEXT);
 
 	for (int createDestroyNdx = 0; createDestroyNdx < count; createDestroyNdx++)
 	{
@@ -1025,15 +1059,19 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 			create	= true;
 			type	= TYPE_WINDOW;
 		}
-		else if (windows.empty() && ((m_types & TYPE_WINDOW) != 0) && ((m_types & TYPE_SINGLE_WINDOW) != 0))
+		else if (windows.empty() && (m_hasWindow == 0) && ((m_types & TYPE_WINDOW) != 0) && ((m_types & TYPE_SINGLE_WINDOW) != 0))
 		{
 			create	= true;
 			type	= TYPE_WINDOW;
 		}
 		else
 		{
-			create	= rnd.getBool();
-			type	= rnd.choose<Type>(objectTypes.begin(), objectTypes.end());
+			create = rnd.getBool();
+
+			if (!create && windows.empty())
+				objectTypes.erase(TYPE_WINDOW);
+
+			type = rnd.choose<Type>(objectTypes.begin(), objectTypes.end());
 		}
 
 		if (create)
@@ -1052,9 +1090,9 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 						EGL_NONE
 					};
 
-					surface = eglCreatePbufferSurface(m_display, m_config, attributes);
+					surface = egl.createPbufferSurface(m_display, m_config, attributes);
 					thread.getLog() << ThreadLog::BeginMessage << surface << " = eglCreatePbufferSurface(" << m_display << ", " << m_config << ", { EGL_WIDTH, 64, EGL_HEIGHT, 64, EGL_NONE })" << ThreadLog::EndMessage;
-					TCU_CHECK_EGL_MSG("eglCreatePbufferSurface()");
+					EGLU_CHECK_MSG(egl, "eglCreatePbufferSurface()");
 
 					pbuffers.push_back(surface);
 
@@ -1063,6 +1101,8 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 
 				case TYPE_WINDOW:
 				{
+					const eglu::NativeWindowFactory&	windowFactory	= eglu::selectNativeWindowFactory(m_eglTestCtx.getNativeDisplayFactory(), m_testCtx.getCommandLine());
+
 					if ((m_types & TYPE_SINGLE_WINDOW) != 0)
 					{
 						if (deAtomicCompareExchange32(&m_hasWindow, 0, 1) == 0)
@@ -1072,8 +1112,8 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 
 							try
 							{
-								window = m_eglTestCtx.createNativeWindow(m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL, 64, 64, eglu::parseWindowVisibility(m_testCtx.getCommandLine()));
-								surface = eglu::createWindowSurface(m_eglTestCtx.getNativeDisplay(), *window, m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL);
+								window = windowFactory.createWindow(&m_eglTestCtx.getNativeDisplay(), m_display, m_config, DE_NULL, eglu::WindowParams(64, 64, eglu::parseWindowVisibility(m_testCtx.getCommandLine())));
+								surface = eglu::createWindowSurface(m_eglTestCtx.getNativeDisplay(), *window, m_display, m_config, DE_NULL);
 
 								thread.getLog() << ThreadLog::BeginMessage << surface << " = eglCreateWindowSurface()" << ThreadLog::EndMessage;
 								windows.push_back(std::make_pair(window, surface));
@@ -1081,8 +1121,9 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 							catch (const std::exception&)
 							{
 								if (surface != EGL_NO_SURFACE)
-									TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, surface));
+									EGLU_CHECK_CALL(egl, destroySurface(m_display, surface));
 								delete window;
+								m_hasWindow = 0;
 								throw;
 							}
 						}
@@ -1098,8 +1139,8 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 
 						try
 						{
-							window	= m_eglTestCtx.createNativeWindow(m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL, 64, 64, eglu::parseWindowVisibility(m_testCtx.getCommandLine()));
-							surface	= eglu::createWindowSurface(m_eglTestCtx.getNativeDisplay(), *window, m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL);
+							window	= windowFactory.createWindow(&m_eglTestCtx.getNativeDisplay(), m_display, m_config, DE_NULL, eglu::WindowParams(64, 64, eglu::parseWindowVisibility(m_testCtx.getCommandLine())));
+							surface	= eglu::createWindowSurface(m_eglTestCtx.getNativeDisplay(), *window, m_display, m_config, DE_NULL);
 
 							thread.getLog() << ThreadLog::BeginMessage << surface << " = eglCreateWindowSurface()" << ThreadLog::EndMessage;
 							windows.push_back(std::make_pair(window, surface));
@@ -1107,7 +1148,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 						catch (const std::exception&)
 						{
 							if (surface != EGL_NO_SURFACE)
-								TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, surface));
+								EGLU_CHECK_CALL(egl, destroySurface(m_display, surface));
 							delete window;
 							throw;
 						}
@@ -1117,13 +1158,14 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 
 				case TYPE_PIXMAP:
 				{
-					eglu::NativePixmap* pixmap	= DE_NULL;
-					EGLSurface			surface	= EGL_NO_SURFACE;
+					const eglu::NativePixmapFactory&	pixmapFactory	= eglu::selectNativePixmapFactory(m_eglTestCtx.getNativeDisplayFactory(), m_testCtx.getCommandLine());
+					eglu::NativePixmap* 				pixmap			= DE_NULL;
+					EGLSurface							surface			= EGL_NO_SURFACE;
 
 					try
 					{
-						pixmap	= m_eglTestCtx.createNativePixmap(m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL, 64, 64);
-						surface	= eglu::createPixmapSurface(m_eglTestCtx.getNativeDisplay(), *pixmap, m_eglTestCtx.getDisplay().getEGLDisplay(), m_config, DE_NULL);
+						pixmap	= pixmapFactory.createPixmap(&m_eglTestCtx.getNativeDisplay(), m_display, m_config, DE_NULL, 64, 64);
+						surface	= eglu::createPixmapSurface(m_eglTestCtx.getNativeDisplay(), *pixmap, m_display, m_config, DE_NULL);
 
 						thread.getLog() << ThreadLog::BeginMessage << surface << " = eglCreatePixmapSurface()" << ThreadLog::EndMessage;
 						pixmaps.push_back(std::make_pair(pixmap, surface));
@@ -1131,7 +1173,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 					catch (const std::exception&)
 					{
 						if (surface != EGL_NO_SURFACE)
-							TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, surface));
+							EGLU_CHECK_CALL(egl, destroySurface(m_display, surface));
 						delete pixmap;
 						throw;
 					}
@@ -1142,7 +1184,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 				{
 					EGLContext context;
 
-					TCU_CHECK_EGL_CALL(eglBindAPI(EGL_OPENGL_ES_API));
+					EGLU_CHECK_CALL(egl, bindAPI(EGL_OPENGL_ES_API));
 					thread.getLog() << ThreadLog::BeginMessage << "eglBindAPI(EGL_OPENGL_ES_API)" << ThreadLog::EndMessage;
 
 					const EGLint attributes[] =
@@ -1151,9 +1193,9 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 						EGL_NONE
 					};
 
-					context = eglCreateContext(m_display, m_config, EGL_NO_CONTEXT, attributes);
+					context = egl.createContext(m_display, m_config, EGL_NO_CONTEXT, attributes);
 					thread.getLog() << ThreadLog::BeginMessage << context << " = eglCreateContext(" << m_display << ", " << m_config << ", EGL_NO_CONTEXT, { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE })" << ThreadLog::EndMessage;
-					TCU_CHECK_EGL_MSG("eglCreateContext()");
+					EGLU_CHECK_MSG(egl, "eglCreateContext()");
 					contexts.push_back(context);
 					break;
 				}
@@ -1171,9 +1213,9 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 					const int pbufferNdx = rnd.getInt(0, (int)(pbuffers.size()-1));
 					EGLBoolean result;
 
-					result = eglDestroySurface(m_display, pbuffers[pbufferNdx]);
+					result = egl.destroySurface(m_display, pbuffers[pbufferNdx]);
 					thread.getLog() << ThreadLog::BeginMessage << result << " = eglDestroySurface(" << m_display << ", " << pbuffers[pbufferNdx] << ")" << ThreadLog::EndMessage;
-					TCU_CHECK_EGL_MSG("eglDestroySurface()");
+					EGLU_CHECK_MSG(egl, "eglDestroySurface()");
 
 					pbuffers.erase(pbuffers.begin() + pbufferNdx);
 
@@ -1186,7 +1228,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 
 					thread.getLog() << ThreadLog::BeginMessage << "eglDestroySurface(" << m_display << ", " << windows[windowNdx].second << ")" << ThreadLog::EndMessage;
 
-					TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, windows[windowNdx].second));
+					EGLU_CHECK_CALL(egl, destroySurface(m_display, windows[windowNdx].second));
 					windows[windowNdx].second = EGL_NO_SURFACE;
 					delete windows[windowNdx].first;
 					windows[windowNdx].first = DE_NULL;
@@ -1203,7 +1245,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 					const int pixmapNdx = rnd.getInt(0, (int)(pixmaps.size()-1));
 
 					thread.getLog() << ThreadLog::BeginMessage << "eglDestroySurface(" << m_display << ", " << pixmaps[pixmapNdx].second << ")" << ThreadLog::EndMessage;
-					TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, pixmaps[pixmapNdx].second));
+					EGLU_CHECK_CALL(egl, destroySurface(m_display, pixmaps[pixmapNdx].second));
 					pixmaps[pixmapNdx].second = EGL_NO_SURFACE;
 					delete pixmaps[pixmapNdx].first;
 					pixmaps[pixmapNdx].first = DE_NULL;
@@ -1216,7 +1258,7 @@ void MultiThreadedObjectTest::createDestroyObjects (TestThread& thread, int coun
 				{
 					const int contextNdx = rnd.getInt(0, (int)(contexts.size()-1));
 
-					TCU_CHECK_EGL_CALL(eglDestroyContext(m_display, contexts[contextNdx]));
+					EGLU_CHECK_CALL(egl, destroyContext(m_display, contexts[contextNdx]));
 					thread.getLog() << ThreadLog::BeginMessage << "eglDestroyContext(" << m_display << ", " << contexts[contextNdx]  << ")" << ThreadLog::EndMessage;
 					contexts.erase(contexts.begin() + contextNdx);
 
@@ -1302,8 +1344,9 @@ void MultiThreadedObjectTest::pullObjectsFromShared (TestThread& thread, int pbu
 
 void MultiThreadedObjectTest::querySetSharedObjects (TestThread& thread, int count)
 {
-	de::Random& rnd = (thread.getId() == 0 ? m_rnd0 : m_rnd1);
-	vector<Type> objectTypes;
+	const Library&		egl		= getLibrary();
+	de::Random&			rnd		= (thread.getId() == 0 ? m_rnd0 : m_rnd1);
+	vector<Type>		objectTypes;
 
 	if ((m_types & TYPE_PBUFFER) != 0)
 		objectTypes.push_back(TYPE_PBUFFER);
@@ -1311,7 +1354,7 @@ void MultiThreadedObjectTest::querySetSharedObjects (TestThread& thread, int cou
 	if ((m_types & TYPE_PIXMAP) != 0)
 		objectTypes.push_back(TYPE_PIXMAP);
 
-	if ((m_types & TYPE_WINDOW) != 0)
+	if (!m_sharedNativeWindows.empty() && (m_types & TYPE_WINDOW) != 0)
 		objectTypes.push_back(TYPE_WINDOW);
 
 	if ((m_types & TYPE_CONTEXT) != 0)
@@ -1358,9 +1401,9 @@ void MultiThreadedObjectTest::querySetSharedObjects (TestThread& thread, int cou
 			EGLBoolean		result;
 			EGLint			value;
 
-			result = eglQuerySurface(m_display, surface, attribute, &value);
+			result = egl.querySurface(m_display, surface, attribute, &value);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglQuerySurface(" << m_display << ", " << surface << ", " << attribute << ", " << value << ")" << ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglQuerySurface()");
+			EGLU_CHECK_MSG(egl, "eglQuerySurface()");
 
 		}
 		else if (context != EGL_NO_CONTEXT)
@@ -1377,9 +1420,9 @@ void MultiThreadedObjectTest::querySetSharedObjects (TestThread& thread, int cou
 			EGLint			value;
 			EGLBoolean		result;
 
-			result = eglQueryContext(m_display, context, attribute, &value);
+			result = egl.queryContext(m_display, context, attribute, &value);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglQueryContext(" << m_display << ", " << context << ", " << attribute << ", " << value << ")" << ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglQueryContext()");
+			EGLU_CHECK_MSG(egl, "eglQueryContext()");
 
 		}
 		else
@@ -1389,6 +1432,7 @@ void MultiThreadedObjectTest::querySetSharedObjects (TestThread& thread, int cou
 
 void MultiThreadedObjectTest::destroyObjects (TestThread& thread)
 {
+	const Library&										egl			= getLibrary();
 	vector<EGLSurface>&									pbuffers	= (thread.getId() == 0 ? m_pbuffers0 : m_pbuffers1);
 	vector<pair<eglu::NativeWindow*, EGLSurface> >&		windows		= (thread.getId() == 0 ? m_nativeWindows0 : m_nativeWindows1);
 	vector<pair<eglu::NativePixmap*, EGLSurface> >&		pixmaps		= (thread.getId() == 0 ? m_nativePixmaps0 : m_nativePixmaps1);
@@ -1401,9 +1445,9 @@ void MultiThreadedObjectTest::destroyObjects (TestThread& thread)
 			// Destroy EGLSurface
 			EGLBoolean result;
 
-			result = eglDestroySurface(m_display, pbuffers[pbufferNdx]);
+			result = egl.destroySurface(m_display, pbuffers[pbufferNdx]);
 			thread.getLog() << ThreadLog::BeginMessage << result << " = eglDestroySurface(" << m_display << ", " << pbuffers[pbufferNdx] << ")" << ThreadLog::EndMessage;
-			TCU_CHECK_EGL_MSG("eglDestroySurface()");
+			EGLU_CHECK_MSG(egl, "eglDestroySurface()");
 			pbuffers[pbufferNdx] = EGL_NO_SURFACE;
 		}
 	}
@@ -1414,7 +1458,7 @@ void MultiThreadedObjectTest::destroyObjects (TestThread& thread)
 		if (windows[windowNdx].second != EGL_NO_SURFACE)
 		{
 			thread.getLog() << ThreadLog::BeginMessage << "eglDestroySurface(" << m_display << ", " << windows[windowNdx].second << ")" << ThreadLog::EndMessage;
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, windows[windowNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, windows[windowNdx].second));
 			windows[windowNdx].second = EGL_NO_SURFACE;
 		}
 
@@ -1431,7 +1475,7 @@ void MultiThreadedObjectTest::destroyObjects (TestThread& thread)
 		if (pixmaps[pixmapNdx].first != EGL_NO_SURFACE)
 		{
 			thread.getLog() << ThreadLog::BeginMessage << "eglDestroySurface(" << m_display << ", " << pixmaps[pixmapNdx].second << ")" << ThreadLog::EndMessage;
-			TCU_CHECK_EGL_CALL(eglDestroySurface(m_display, pixmaps[pixmapNdx].second));
+			EGLU_CHECK_CALL(egl, destroySurface(m_display, pixmaps[pixmapNdx].second));
 			pixmaps[pixmapNdx].second = EGL_NO_SURFACE;
 		}
 
@@ -1447,7 +1491,7 @@ void MultiThreadedObjectTest::destroyObjects (TestThread& thread)
 	{
 		if (contexts[contextNdx] != EGL_NO_CONTEXT)
 		{
-			TCU_CHECK_EGL_CALL(eglDestroyContext(m_display, contexts[contextNdx]));
+			EGLU_CHECK_CALL(egl, destroyContext(m_display, contexts[contextNdx]));
 			thread.getLog() << ThreadLog::BeginMessage << "eglDestroyContext(" << m_display << ", " << contexts[contextNdx]  << ")" << ThreadLog::EndMessage;
 			contexts[contextNdx] = EGL_NO_CONTEXT;
 		}

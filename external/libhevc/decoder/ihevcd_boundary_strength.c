@@ -386,8 +386,9 @@ WORD32 ihevcd_ctb_boundary_strength_islice(bs_ctxt_t *ps_bs_ctxt)
                 /*If the 1st slice in a new tile is a dependent slice*/
                 if(!((ps_bs_ctxt->ps_slice_hdr->i1_dependent_slice_flag == 1) && (slice_idx == left_slice_idx)))
                 {
+                    /* Removed reduntant checks */
                     if((0 == i1_loop_filter_across_slices_enabled_flag && (
-                                    (0 == ps_bs_ctxt->i4_ctb_slice_x && 0 == ps_bs_ctxt->i4_ctb_slice_y) || (0 == ps_bs_ctxt->i4_ctb_slice_x && 0 == ps_bs_ctxt->i4_ctb_tile_x) ||
+                                    ((slice_idx != left_slice_idx) && 0 == ps_bs_ctxt->i4_ctb_slice_y) ||
                                     ((0 == ps_bs_ctxt->i4_ctb_tile_x) && (slice_idx != left_slice_idx)))) ||
                                     (0 == ps_bs_ctxt->i4_ctb_x))
                     {
@@ -406,8 +407,9 @@ WORD32 ihevcd_ctb_boundary_strength_islice(bs_ctxt_t *ps_bs_ctxt)
         }
 
         /* If top neighbor is not available, then set BS for entire first row to zero */
+        /* Removed reduntant checks */
         if((0 == i1_loop_filter_across_tiles_enabled_flag && 0 == ps_bs_ctxt->i4_ctb_tile_y)
-                        || (0 == i1_loop_filter_across_slices_enabled_flag && ((0 == ps_bs_ctxt->i4_ctb_slice_y) || (slice_idx != top_slice_idx)))
+                        || (0 == i1_loop_filter_across_slices_enabled_flag && ((slice_idx != top_slice_idx)))
                         || (0 == ps_bs_ctxt->i4_ctb_y))
         {
             pu4_horz_bs[0] &= (64 == ctb_size) ? 0 : ((UWORD32)0xFFFFFFFF) << (ctb_size / 2);
@@ -941,9 +943,10 @@ WORD32 ihevcd_ctb_boundary_strength_pbslice(bs_ctxt_t *ps_bs_ctxt)
 
                 if(!((ps_bs_ctxt->ps_slice_hdr->i1_dependent_slice_flag == 1) && (slice_idx == left_slice_idx)))
                 {
+                    /* Removed reduntant checks */
                     if((0 == i1_loop_filter_across_slices_enabled_flag && (
-                                    (0 == ps_bs_ctxt->i4_ctb_slice_x && 0 == ps_bs_ctxt->i4_ctb_slice_y) || (0 == ps_bs_ctxt->i4_ctb_slice_x && 0 == ps_bs_ctxt->i4_ctb_tile_x)
-                                    || ((0 == ps_bs_ctxt->i4_ctb_tile_x) && (slice_idx != left_slice_idx)))) || (0 == ps_bs_ctxt->i4_ctb_x))
+                                    (0 == ps_bs_ctxt->i4_ctb_slice_x && 0 == ps_bs_ctxt->i4_ctb_slice_y) ||
+                                    ((0 == ps_bs_ctxt->i4_ctb_tile_x) && (slice_idx != left_slice_idx)))) || (0 == ps_bs_ctxt->i4_ctb_x))
                     {
                         pu4_vert_bs[0] &= (64 == ctb_size) ? 0 : ((UWORD32)0xFFFFFFFF) << (ctb_size / 2);
                     }
@@ -959,8 +962,9 @@ WORD32 ihevcd_ctb_boundary_strength_pbslice(bs_ctxt_t *ps_bs_ctxt)
             top_slice_idx = ps_bs_ctxt->pu1_slice_idx[ctb_addr];
         }
         /* If top neighbor is not available, then set BS for entire first row to zero */
+        /* Removed reduntant checks */
         if((0 == i1_loop_filter_across_tiles_enabled_flag && 0 == ps_bs_ctxt->i4_ctb_tile_y)
-                        || (0 == i1_loop_filter_across_slices_enabled_flag && ((0 == ps_bs_ctxt->i4_ctb_slice_y) || (slice_idx != top_slice_idx)))
+                        || (0 == i1_loop_filter_across_slices_enabled_flag && ((slice_idx != top_slice_idx)))
                         || (0 == ps_bs_ctxt->i4_ctb_y))
         {
             pu4_horz_bs[0] &= (64 == ctb_size) ? 0 : ((UWORD32)0xFFFFFFFF) << (ctb_size / 2);

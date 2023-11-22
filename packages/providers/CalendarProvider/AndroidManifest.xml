@@ -38,7 +38,8 @@
 
     <application android:label="@string/calendar_storage"
                  android:allowBackup="false"
-                 android:icon="@drawable/app_icon">
+                 android:icon="@drawable/app_icon"
+                 android:usesCleartextTraffic="false">
         <!-- TODO: Remove dependency of application on the test runner
              (android.test) library. -->
         <uses-library android:name="android.test.runner" />
@@ -100,10 +101,15 @@
            </intent-filter>
        </receiver>
 
-        <receiver android:name="CalendarProviderBroadcastReceiver">
+        <receiver android:name="CalendarProviderBroadcastReceiver"
+                  android:exported="false">
             <intent-filter>
-                <action android:name="com.android.providers.calendar.intent.CalendarProvider2" />
+                <action android:name="com.android.providers.calendar.intent.CalendarProvider2"/>
                 <category android:name="com.android.providers.calendar"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.EVENT_REMINDER"/>
+                <data android:scheme="content" />
             </intent-filter>
         </receiver>
         <service android:name="CalendarProviderIntentService"/>

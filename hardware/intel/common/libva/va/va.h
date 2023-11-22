@@ -3207,6 +3207,13 @@ typedef enum
      * specify vaPutSurface render area if there is no drawable on the monitor
      */
     VADisplayAttribRenderRect          = 18,
+    /*
+     * The flag is used to indicate that the range flag of color-space conversion.
+     * "value" field should be assigned as VA_SOURCE_RANGE_FULL or VA_SOURCE_RANGE_REDUCED
+     * to indicate full range or reduced range
+     */
+    VADisplayAttribColorRange          = 19,
+
 } VADisplayAttribType;
 
 /* flags for VADisplayAttribute */
@@ -3222,6 +3229,7 @@ typedef struct _VADisplayAttribute
     int value;	/* used by the set/get attribute functions */
 /* flags can be VA_DISPLAY_ATTRIB_GETTABLE or VA_DISPLAY_ATTRIB_SETTABLE or OR'd together */
     unsigned int flags;
+    void *attrib_ptr; /* if flags contains VA_DISPLAY_ATTRIB_POINTER, then "attrib_ptr" points to a structure for this display attribute */
 } VADisplayAttribute;
 
 /* Get maximum number of display attributs supported by the implementation */

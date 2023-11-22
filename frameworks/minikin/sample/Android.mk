@@ -15,14 +15,12 @@
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
-include external/stlport/libstlport.mk
 
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_C_INCLUDES += \
 	external/harfbuzz_ng/src \
 	external/freetype/include \
-	external/icu/icu4c/source/common \
 	frameworks/minikin/include
 
 LOCAL_SRC_FILES:= example.cpp
@@ -31,7 +29,6 @@ LOCAL_SHARED_LIBRARIES += \
 	libutils \
 	liblog \
 	libcutils \
-	libstlport \
 	libharfbuzz_ng \
 	libicuuc \
 	libft2 \
@@ -45,14 +42,12 @@ include $(BUILD_EXECUTABLE)
 
 
 include $(CLEAR_VARS)
-include external/stlport/libstlport.mk
 
 LOCAL_MODULE_TAG := tests
 
 LOCAL_C_INCLUDES += \
 	external/harfbuzz_ng/src \
 	external/freetype/include \
-	external/icu/icu4c/source/common \
 	frameworks/minikin/include \
 	external/skia/src/core
 
@@ -63,7 +58,6 @@ LOCAL_SHARED_LIBRARIES += \
 	libutils \
 	liblog \
 	libcutils \
-	libstlport \
 	libharfbuzz_ng \
 	libicuuc \
 	libskia \

@@ -38,6 +38,7 @@ class HDMIAudioOutput : public AudioOutput {
 
 protected:
     virtual void        applyPendingVolParams();
+    void                setChannelStatusToCompressed(bool compressed);
 };
 
 }  // namespace android

@@ -137,7 +137,7 @@ State_t actionRealize(Player_pt p)
     return STATE_REALIZED;
 }
 
-State_t actionSleep(Player_pt p)
+State_t actionSleep(Player_pt p __unused)
 {
     unsigned us = 1000 + (rand() & 0xFFFFF);
     usleep(us);
@@ -168,7 +168,7 @@ State_t actionTerminateIfDone(Player_pt p)
         return STATE_UNCHANGED;
 }
 
-State_t actionInitialize(Player_pt p)
+State_t actionInitialize(Player_pt p __unused)
 {
     // create engine
     SLresult result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);

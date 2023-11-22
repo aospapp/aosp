@@ -2,30 +2,41 @@ LOCAL_PATH:= $(call my-dir)
 
 transforms_scalar_SRC_FILES := \
   ADCE.cpp \
+  BDCE.cpp \
+  AlignmentFromAssumptions.cpp \
   ConstantProp.cpp \
   ConstantHoisting.cpp \
   CorrelatedValuePropagation.cpp \
   DCE.cpp \
   DeadStoreElimination.cpp \
   EarlyCSE.cpp \
+  FlattenCFGPass.cpp \
+  Float2Int.cpp \
   GVN.cpp \
   IndVarSimplify.cpp \
+  InductiveRangeCheckElimination.cpp \
   JumpThreading.cpp \
   LICM.cpp \
   LoadCombine.cpp \
   LoopDeletion.cpp \
   LoopIdiomRecognize.cpp \
   LoopInstSimplify.cpp \
+  LoopInterchange.cpp \
   LoopRerollPass.cpp \
   LoopRotation.cpp \
   LoopStrengthReduce.cpp \
   LoopUnrollPass.cpp \
   LoopUnswitch.cpp \
   LowerAtomic.cpp \
+  LowerExpectIntrinsic.cpp \
   MemCpyOptimizer.cpp \
+  MergedLoadStoreMotion.cpp \
+  NaryReassociate.cpp \
   PartiallyInlineLibCalls.cpp \
+  PlaceSafepoints.cpp \
   Reassociate.cpp \
   Reg2Mem.cpp \
+  RewriteStatepointsForGC.cpp \
   SCCP.cpp \
   SROA.cpp \
   SampleProfile.cpp \
@@ -35,6 +46,7 @@ transforms_scalar_SRC_FILES := \
   SeparateConstOffsetFromGEP.cpp \
   SimplifyCFGPass.cpp \
   Sink.cpp \
+  StraightLineStrengthReduce.cpp \
   StructurizeCFG.cpp \
   TailRecursionElimination.cpp
 

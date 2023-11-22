@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@ void GenerateSwapInt32(MacroAssembler* masm) {
 
 
 #ifndef TEST_EXAMPLES
+#ifdef USE_SIMULATOR
 int main(void) {
   // Create and initialize the assembler and the simulator.
   byte assm_buf[BUF_SIZE];
@@ -83,7 +84,7 @@ int main(void) {
          "x1 = 0x%" PRIx32 "\n",
          simulator.wreg(0), simulator.wreg(1));
 
-  simulator.RunFrom(swap_int32.target());
+  simulator.RunFrom(masm.GetLabelAddress<Instruction*>(&swap_int32));
 
   printf("After swap_int32:\n"
          "x0 = 0x%" PRIx32 "\n"
@@ -92,4 +93,8 @@ int main(void) {
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

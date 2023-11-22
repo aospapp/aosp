@@ -37,6 +37,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.ECParameterSpec;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.X509TrustManager;
 
 class Platform {
@@ -154,9 +155,10 @@ class Platform {
     }
 
     /**
-     * For the platform-bundled library, we currently don't enable SNI by default.
+     * Wrap the SocketFactory with the platform wrapper if needed for compatability.
+     * For the platform-bundled library we never need to wrap.
      */
-    public static boolean isSniEnabledByDefault() {
-        return false;
+    public static SSLSocketFactory wrapSocketFactoryIfNeeded(OpenSSLSocketFactoryImpl factory) {
+        return factory;
     }
 }

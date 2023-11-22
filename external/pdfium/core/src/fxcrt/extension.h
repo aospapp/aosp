@@ -1,11 +1,14 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FXCRT_EXTENSION_IMP_
-#define _FXCRT_EXTENSION_IMP_
+#ifndef CORE_SRC_FXCRT_EXTENSION_H_
+#define CORE_SRC_FXCRT_EXTENSION_H_
+
+#include "fx_safe_types.h"
+
 class IFXCRT_FileAccess
 {
 public:
@@ -13,7 +16,7 @@ public:
     virtual FX_BOOL		Open(FX_BSTR fileName, FX_DWORD dwMode) = 0;
     virtual FX_BOOL		Open(FX_WSTR fileName, FX_DWORD dwMode) = 0;
     virtual void		Close() = 0;
-    virtual void		Release(IFX_Allocator* pAllocator = NULL) = 0;
+    virtual void		Release() = 0;
     virtual FX_FILESIZE	GetSize() const = 0;
     virtual FX_FILESIZE	GetPosition() const = 0;
     virtual FX_FILESIZE	SetPosition(FX_FILESIZE pos) = 0;
@@ -24,42 +27,38 @@ public:
     virtual FX_BOOL		Flush() = 0;
     virtual FX_BOOL		Truncate(FX_FILESIZE szFile) = 0;
 };
-IFXCRT_FileAccess*	FXCRT_FileAccess_Create(IFX_Allocator* pAllocator = NULL);
-class CFX_CRTFileStream : public IFX_FileStream, public CFX_Object
+IFXCRT_FileAccess*	FXCRT_FileAccess_Create();
+class CFX_CRTFileStream FX_FINAL : public IFX_FileStream
 {
 public:
-    CFX_CRTFileStream(IFXCRT_FileAccess* pFA, IFX_Allocator* pAllocator) : m_pAllocator(pAllocator), m_pFile(pFA), m_dwCount(1), m_bUseRange(FALSE), m_nOffset(0), m_nSize(0) {}
+    CFX_CRTFileStream(IFXCRT_FileAccess* pFA) : m_pFile(pFA), m_dwCount(1), m_bUseRange(FALSE), m_nOffset(0), m_nSize(0) {}
     ~CFX_CRTFileStream()
     {
         if (m_pFile) {
-            m_pFile->Release(m_pAllocator);
+            m_pFile->Release();
         }
     }
-    virtual IFX_FileStream*		Retain()
+    virtual IFX_FileStream*		Retain() FX_OVERRIDE
     {
         m_dwCount ++;
         return this;
     }
-    virtual void				Release()
+    virtual void				Release() FX_OVERRIDE
     {
         FX_DWORD nCount = -- m_dwCount;
         if (!nCount) {
-            if (m_pAllocator) {
-                FX_DeleteAtAllocator(this, m_pAllocator, CFX_CRTFileStream);
-            } else {
-                delete this;
-            }
+            delete this;
         }
     }
-    virtual FX_FILESIZE			GetSize()
+    virtual FX_FILESIZE			GetSize() FX_OVERRIDE
     {
         return m_bUseRange ? m_nSize : m_pFile->GetSize();
     }
-    virtual FX_BOOL				IsEOF()
+    virtual FX_BOOL				IsEOF() FX_OVERRIDE
     {
         return GetPosition() >= GetSize();
     }
-    virtual FX_FILESIZE			GetPosition()
+    virtual FX_FILESIZE			GetPosition() FX_OVERRIDE
     {
         FX_FILESIZE pos = m_pFile->GetPosition();
         if (m_bUseRange) {
@@ -67,31 +66,44 @@ public:
         }
         return pos;
     }
-    virtual FX_BOOL				SetRange(FX_FILESIZE offset, FX_FILESIZE size)
+    virtual FX_BOOL				SetRange(FX_FILESIZE offset, FX_FILESIZE size) FX_OVERRIDE
     {
-        if (offset < 0 || offset + size > m_pFile->GetSize()) {
+        if (offset < 0 || size < 0) {
             return FALSE;
         }
+     
+        FX_SAFE_FILESIZE pos = size;
+        pos += offset;
+
+        if (!pos.IsValid() || pos.ValueOrDie() > m_pFile->GetSize()) {
+            return FALSE;
+        }
+
         m_nOffset = offset, m_nSize = size;
         m_bUseRange = TRUE;
         m_pFile->SetPosition(m_nOffset);
         return TRUE;
     }
-    virtual void				ClearRange()
+    virtual void				ClearRange() FX_OVERRIDE
     {
         m_bUseRange = FALSE;
     }
-    virtual FX_BOOL				ReadBlock(void* buffer, FX_FILESIZE offset, size_t size)
+    virtual FX_BOOL				ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) FX_OVERRIDE
     {
+        if (m_bUseRange && offset < 0) {
+            return FALSE;
+        }
+        FX_SAFE_FILESIZE pos = offset;
+
         if (m_bUseRange) {
-            if (offset + size > (size_t)GetSize()) {
+            pos += m_nOffset;
+            if (!pos.IsValid() || pos.ValueOrDie() > (size_t)GetSize()) {
                 return FALSE;
             }
-            offset += m_nOffset;
         }
-        return (FX_BOOL)m_pFile->ReadPos(buffer, size, offset);
+        return (FX_BOOL)m_pFile->ReadPos(buffer, size, pos.ValueOrDie());
     }
-    virtual size_t				ReadBlock(void* buffer, size_t size)
+    virtual size_t				ReadBlock(void* buffer, size_t size) FX_OVERRIDE
     {
         if (m_bUseRange) {
             FX_FILESIZE availSize = m_nOffset + m_nSize - m_pFile->GetPosition();
@@ -101,18 +113,17 @@ public:
         }
         return m_pFile->Read(buffer, size);
     }
-    virtual	FX_BOOL				WriteBlock(const void* buffer, FX_FILESIZE offset, size_t size)
+    virtual	FX_BOOL				WriteBlock(const void* buffer, FX_FILESIZE offset, size_t size) FX_OVERRIDE
     {
         if (m_bUseRange) {
             offset += m_nOffset;
         }
         return (FX_BOOL)m_pFile->WritePos(buffer, size, offset);
     }
-    virtual FX_BOOL				Flush()
+    virtual FX_BOOL				Flush()  FX_OVERRIDE
     {
         return m_pFile->Flush();
     }
-    IFX_Allocator*		m_pAllocator;
     IFXCRT_FileAccess*	m_pFile;
     FX_DWORD			m_dwCount;
     FX_BOOL				m_bUseRange;
@@ -122,12 +133,11 @@ public:
 #define FX_MEMSTREAM_BlockSize		(64 * 1024)
 #define FX_MEMSTREAM_Consecutive	0x01
 #define FX_MEMSTREAM_TakeOver		0x02
-class CFX_MemoryStream : public IFX_MemoryStream, public CFX_Object
+class CFX_MemoryStream FX_FINAL : public IFX_MemoryStream
 {
 public:
-    CFX_MemoryStream(FX_BOOL bConsecutive, IFX_Allocator* pAllocator)
-        : m_Blocks(pAllocator)
-        , m_dwCount(1)
+    CFX_MemoryStream(FX_BOOL bConsecutive)
+        : m_dwCount(1)
         , m_nTotalSize(0)
         , m_nCurSize(0)
         , m_nCurPos(0)
@@ -136,9 +146,8 @@ public:
     {
         m_dwFlags = FX_MEMSTREAM_TakeOver | (bConsecutive ? FX_MEMSTREAM_Consecutive : 0);
     }
-    CFX_MemoryStream(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver, IFX_Allocator* pAllocator)
-        : m_Blocks(pAllocator)
-        , m_dwCount(1)
+    CFX_MemoryStream(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver)
+        : m_dwCount(1)
         , m_nTotalSize(nSize)
         , m_nCurSize(nSize)
         , m_nCurPos(0)
@@ -150,41 +159,35 @@ public:
     }
     ~CFX_MemoryStream()
     {
-        IFX_Allocator* pAllocator = m_Blocks.m_pAllocator;
         if (m_dwFlags & FX_MEMSTREAM_TakeOver) {
-            for (FX_INT32 i = 0; i < m_Blocks.GetSize(); i ++) {
-                FX_Allocator_Free(pAllocator, (FX_LPBYTE)m_Blocks[i]);
+            for (FX_INT32 i = 0; i < m_Blocks.GetSize(); i++) {
+                FX_Free((FX_LPBYTE)m_Blocks[i]);
             }
         }
         m_Blocks.RemoveAll();
     }
-    virtual IFX_FileStream*		Retain()
+    virtual IFX_FileStream*		Retain()  FX_OVERRIDE
     {
         m_dwCount ++;
         return this;
     }
-    virtual void				Release()
+    virtual void				Release()  FX_OVERRIDE
     {
         FX_DWORD nCount = -- m_dwCount;
         if (nCount) {
             return;
         }
-        IFX_Allocator* pAllocator = m_Blocks.m_pAllocator;
-        if (pAllocator) {
-            FX_DeleteAtAllocator(this, pAllocator, CFX_MemoryStream);
-        } else {
-            delete this;
-        }
+        delete this;
     }
-    virtual FX_FILESIZE			GetSize()
+    virtual FX_FILESIZE			GetSize()  FX_OVERRIDE
     {
         return m_bUseRange ? (FX_FILESIZE) m_nSize : (FX_FILESIZE)m_nCurSize;
     }
-    virtual FX_BOOL				IsEOF()
+    virtual FX_BOOL				IsEOF()  FX_OVERRIDE
     {
         return m_nCurPos >= (size_t)GetSize();
     }
-    virtual FX_FILESIZE			GetPosition()
+    virtual FX_FILESIZE			GetPosition()  FX_OVERRIDE
     {
         FX_FILESIZE pos = (FX_FILESIZE)m_nCurPos;
         if (m_bUseRange) {
@@ -192,32 +195,50 @@ public:
         }
         return pos;
     }
-    virtual FX_BOOL				SetRange(FX_FILESIZE offset, FX_FILESIZE size)
+    virtual FX_BOOL				SetRange(FX_FILESIZE offset, FX_FILESIZE size)  FX_OVERRIDE
     {
-        if (offset < 0 || (size_t)(offset + size) > m_nCurSize) {
+        if (offset < 0 || size < 0) {
             return FALSE;
         }
+        FX_SAFE_FILESIZE range = size;
+        range += offset;
+        if (!range.IsValid() || range.ValueOrDie() > m_nCurSize) {
+            return FALSE;
+        }
+        
         m_nOffset = (size_t)offset, m_nSize = (size_t)size;
         m_bUseRange = TRUE;
         m_nCurPos = m_nOffset;
         return TRUE;
     }
-    virtual void				ClearRange()
+    virtual void				ClearRange()  FX_OVERRIDE
     {
         m_bUseRange = FALSE;
     }
-    virtual FX_BOOL				ReadBlock(void* buffer, FX_FILESIZE offset, size_t size)
+    virtual FX_BOOL				ReadBlock(void* buffer, FX_FILESIZE offset, size_t size)  FX_OVERRIDE
     {
         if (!buffer || !size) {
             return FALSE;
         }
+
+        FX_SAFE_FILESIZE safeOffset = offset;
         if (m_bUseRange) {
-            offset += (FX_FILESIZE)m_nOffset;
+            safeOffset += m_nOffset;
         }
-        if ((size_t)offset + size > m_nCurSize) {
+         
+        if (!safeOffset.IsValid()) {
             return FALSE;
         }
-        m_nCurPos = (size_t)offset + size;
+
+        offset = safeOffset.ValueOrDie();
+
+        FX_SAFE_SIZE_T newPos = size;
+        newPos += offset;
+        if (!newPos.IsValid() || newPos.ValueOrDefault(0) == 0 || newPos.ValueOrDie() > m_nCurSize) {
+            return FALSE;
+        }
+
+        m_nCurPos = newPos.ValueOrDie();
         if (m_dwFlags & FX_MEMSTREAM_Consecutive) {
             FXSYS_memcpy32(buffer, (FX_LPBYTE)m_Blocks[0] + (size_t)offset, size);
             return TRUE;
@@ -237,7 +258,7 @@ public:
         }
         return TRUE;
     }
-    virtual size_t				ReadBlock(void* buffer, size_t size)
+    virtual size_t				ReadBlock(void* buffer, size_t size)  FX_OVERRIDE
     {
         if (m_nCurPos >= m_nCurSize) {
             return 0;
@@ -254,7 +275,7 @@ public:
         }
         return nRead;
     }
-    virtual	FX_BOOL				WriteBlock(const void* buffer, FX_FILESIZE offset, size_t size)
+    virtual	FX_BOOL				WriteBlock(const void* buffer, FX_FILESIZE offset, size_t size)  FX_OVERRIDE
     {
         if (!buffer || !size) {
             return FALSE;
@@ -263,15 +284,19 @@ public:
             offset += (FX_FILESIZE)m_nOffset;
         }
         if (m_dwFlags & FX_MEMSTREAM_Consecutive) {
-            m_nCurPos = (size_t)offset + size;
+            FX_SAFE_SIZE_T newPos = size; 
+            newPos += offset;
+            if (!newPos.IsValid())
+                return FALSE;
+
+            m_nCurPos = newPos.ValueOrDie();
             if (m_nCurPos > m_nTotalSize) {
-                IFX_Allocator* pAllocator = m_Blocks.m_pAllocator;
                 m_nTotalSize = (m_nCurPos + m_nGrowSize - 1) / m_nGrowSize * m_nGrowSize;
                 if (m_Blocks.GetSize() < 1) {
-                    void* block = FX_Allocator_Alloc(pAllocator, FX_BYTE, m_nTotalSize);
+                    void* block = FX_Alloc(FX_BYTE, m_nTotalSize);
                     m_Blocks.Add(block);
                 } else {
-                    m_Blocks[0] = FX_Allocator_Realloc(pAllocator, FX_BYTE, m_Blocks[0], m_nTotalSize);
+                    m_Blocks[0] = FX_Realloc(FX_BYTE, m_Blocks[0], m_nTotalSize);
                 }
                 if (!m_Blocks[0]) {
                     m_Blocks.RemoveAll();
@@ -284,10 +309,17 @@ public:
             }
             return TRUE;
         }
-        if (!ExpandBlocks((size_t)offset + size)) {
+
+        FX_SAFE_SIZE_T newPos = size;
+        newPos += offset;
+        if (!newPos.IsValid()) {
             return FALSE;
         }
-        m_nCurPos = (size_t)offset + size;
+
+        if (!ExpandBlocks(newPos.ValueOrDie())) {
+            return FALSE;
+        }
+        m_nCurPos = newPos.ValueOrDie();
         size_t nStartBlock = (size_t)offset / m_nGrowSize;
         offset -= (FX_FILESIZE)(nStartBlock * m_nGrowSize);
         while (size) {
@@ -303,33 +335,31 @@ public:
         }
         return TRUE;
     }
-    virtual FX_BOOL				Flush()
+    virtual FX_BOOL				Flush()  FX_OVERRIDE
     {
         return TRUE;
     }
-    virtual FX_BOOL				IsConsecutive() const
+    virtual FX_BOOL				IsConsecutive() const  FX_OVERRIDE
     {
         return m_dwFlags & FX_MEMSTREAM_Consecutive;
     }
-    virtual void				EstimateSize(size_t nInitSize, size_t nGrowSize)
+    virtual void				EstimateSize(size_t nInitSize, size_t nGrowSize)  FX_OVERRIDE
     {
         if (m_dwFlags & FX_MEMSTREAM_Consecutive) {
             if (m_Blocks.GetSize() < 1) {
-                FX_LPBYTE pBlock = FX_Allocator_Alloc(m_Blocks.m_pAllocator, FX_BYTE, FX_MAX(nInitSize, 4096));
-                if (pBlock) {
-                    m_Blocks.Add(pBlock);
-                }
+                FX_LPBYTE pBlock = FX_Alloc(FX_BYTE, FX_MAX(nInitSize, 4096));
+                m_Blocks.Add(pBlock);
             }
             m_nGrowSize = FX_MAX(nGrowSize, 4096);
         } else if (m_Blocks.GetSize() < 1) {
             m_nGrowSize = FX_MAX(nGrowSize, 4096);
         }
     }
-    virtual FX_LPBYTE			GetBuffer() const
+    virtual FX_LPBYTE			GetBuffer() const  FX_OVERRIDE
     {
         return m_Blocks.GetSize() ? (FX_LPBYTE)m_Blocks[0] : NULL;
     }
-    virtual void				AttachBuffer(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver = FALSE)
+    virtual void				AttachBuffer(FX_LPBYTE pBuffer, size_t nSize, FX_BOOL bTakeOver = FALSE)  FX_OVERRIDE
     {
         if (!(m_dwFlags & FX_MEMSTREAM_Consecutive)) {
             return;
@@ -341,7 +371,7 @@ public:
         m_dwFlags = FX_MEMSTREAM_Consecutive | (bTakeOver ? FX_MEMSTREAM_TakeOver : 0);
         ClearRange();
     }
-    virtual void				DetachBuffer()
+    virtual void				DetachBuffer()  FX_OVERRIDE
     {
         if (!(m_dwFlags & FX_MEMSTREAM_Consecutive)) {
             return;
@@ -372,13 +402,9 @@ protected:
         }
         FX_INT32 iCount = m_Blocks.GetSize();
         size = (size - m_nTotalSize + m_nGrowSize - 1) / m_nGrowSize;
-        m_Blocks.SetSize(m_Blocks.GetSize() + (FX_INT32)size, -1);
-        IFX_Allocator* pAllocator = m_Blocks.m_pAllocator;
+        m_Blocks.SetSize(m_Blocks.GetSize() + (FX_INT32)size);
         while (size --) {
-            FX_LPBYTE pBlock = FX_Allocator_Alloc(pAllocator, FX_BYTE, m_nGrowSize);
-            if (!pBlock) {
-                return FALSE;
-            }
+            FX_LPBYTE pBlock = FX_Alloc(FX_BYTE, m_nGrowSize);
             m_Blocks.SetAt(iCount ++, pBlock);
             m_nTotalSize += m_nGrowSize;
         }
@@ -410,4 +436,5 @@ FX_BOOL FX_GenerateCryptoRandom(FX_LPDWORD pBuffer, FX_INT32 iCount);
 #ifdef __cplusplus
 }
 #endif
-#endif
+
+#endif  // CORE_SRC_FXCRT_EXTENSION_H_

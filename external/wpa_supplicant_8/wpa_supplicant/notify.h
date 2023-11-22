@@ -45,6 +45,7 @@ void wpas_notify_wps_event_m2d(struct wpa_supplicant *wpa_s,
 void wpas_notify_wps_event_fail(struct wpa_supplicant *wpa_s,
 				struct wps_event_fail *fail);
 void wpas_notify_wps_event_success(struct wpa_supplicant *wpa_s);
+void wpas_notify_wps_event_pbc_overlap(struct wpa_supplicant *wpa_s);
 void wpas_notify_network_added(struct wpa_supplicant *wpa_s,
 			       struct wpa_ssid *ssid);
 void wpas_notify_network_removed(struct wpa_supplicant *wpa_s,
@@ -84,6 +85,7 @@ void wpas_notify_resume(struct wpa_global *global);
 void wpas_notify_sta_authorized(struct wpa_supplicant *wpa_s,
 				const u8 *mac_addr, int authorized,
 				const u8 *p2p_dev_addr);
+void wpas_notify_p2p_find_stopped(struct wpa_supplicant *wpa_s);
 void wpas_notify_p2p_device_found(struct wpa_supplicant *wpa_s,
 				  const u8 *dev_addr, int new_device);
 void wpas_notify_p2p_device_lost(struct wpa_supplicant *wpa_s,
@@ -92,7 +94,7 @@ void wpas_notify_p2p_group_removed(struct wpa_supplicant *wpa_s,
 				   const struct wpa_ssid *ssid,
 				   const char *role);
 void wpas_notify_p2p_go_neg_req(struct wpa_supplicant *wpa_s,
-				const u8 *src, u16 dev_passwd_id);
+				const u8 *src, u16 dev_passwd_id, u8 go_intent);
 void wpas_notify_p2p_go_neg_completed(struct wpa_supplicant *wpa_s,
 				      struct p2p_go_neg_results *res);
 void wpas_notify_p2p_invitation_result(struct wpa_supplicant *wpa_s,
@@ -121,7 +123,8 @@ void wpas_notify_p2p_wps_failed(struct wpa_supplicant *wpa_s,
 				struct wps_event_fail *fail);
 
 void wpas_notify_certification(struct wpa_supplicant *wpa_s, int depth,
-			       const char *subject, const char *cert_hash,
+			       const char *subject, const char *altsubject[],
+			       int num_altsubject, const char *cert_hash,
 			       const struct wpabuf *cert);
 void wpas_notify_preq(struct wpa_supplicant *wpa_s,
 		      const u8 *addr, const u8 *dst, const u8 *bssid,
@@ -130,5 +133,7 @@ void wpas_notify_eap_status(struct wpa_supplicant *wpa_s, const char *status,
 			    const char *parameter);
 void wpas_notify_network_bssid_set_changed(struct wpa_supplicant *wpa_s,
 					   struct wpa_ssid *ssid);
+void wpas_notify_network_type_changed(struct wpa_supplicant *wpa_s,
+				      struct wpa_ssid *ssid);
 
 #endif /* NOTIFY_H */

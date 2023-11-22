@@ -29,6 +29,8 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Test runner for native gTests.
@@ -43,6 +45,7 @@ public class GeeTest implements IBuildReceiver, IDeviceTest, IRemoteTest {
     private static final String NATIVE_TESTS_DIRECTORY = "/data/local/tmp/cts-native-tests";
     private static final String NATIVE_TESTS_DIRECTORY_TMP = "/data/local/tmp";
     private static final String ANDROID_PATH_SEPARATOR = "/";
+    private static final String GTEST_FLAG_FILTER = "--gtest_filter=";
 
     private int mMaxTestTimeMs = 1 * 60 * 1000;
 
@@ -53,9 +56,46 @@ public class GeeTest implements IBuildReceiver, IDeviceTest, IRemoteTest {
 
     private final String mPackageName;
 
+    private String mPositiveFilters = "";
+    private String mNegativeFilters = "";
+
     public GeeTest(String packageName, String exeName) {
         mPackageName = packageName;
         mExeName = exeName;
+    }
+
+    public void setPositiveFilters(String positiveFilters) {
+        mPositiveFilters = positiveFilters;
+    }
+
+    public void setNegativeFilters(String negativeFilters) {
+        mNegativeFilters = negativeFilters;
+    }
+
+    protected String getGTestFilters() {
+        // If both filters are empty or null return empty string.
+        if (mPositiveFilters == null && mNegativeFilters == null) {
+            return "";
+        }
+        if (mPositiveFilters.isEmpty() && mNegativeFilters.isEmpty()) {
+            return "";
+        }
+        // Build filter string.
+        StringBuilder sb = new StringBuilder();
+        sb.append(GTEST_FLAG_FILTER);
+        boolean hasPositiveFilters = false;
+        if (mPositiveFilters != null && !mPositiveFilters.isEmpty()) {
+            sb.append(mPositiveFilters);
+            hasPositiveFilters = true;
+        }
+        if (mNegativeFilters != null && ! mNegativeFilters.isEmpty()) {
+            if (hasPositiveFilters) {
+                sb.append(":");
+            }
+            sb.append("-");
+            sb.append(mNegativeFilters);
+        }
+        return sb.toString();
     }
 
     /**
@@ -113,7 +153,7 @@ public class GeeTest implements IBuildReceiver, IDeviceTest, IRemoteTest {
         resultParser.setFakePackagePrefix(mPackageName + ".");
 
         String fullPath = NATIVE_TESTS_DIRECTORY + ANDROID_PATH_SEPARATOR + mExeName;
-        String flags = "";
+        String flags = getGTestFilters();
         CLog.v("Running gtest %s %s on %s", fullPath, flags, mDevice.getSerialNumber());
         // force file to be executable
         CLog.v("%s", mDevice.executeShellCommand(String.format("chmod 755 %s", fullPath)));

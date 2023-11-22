@@ -1,3 +1,4 @@
+
 # GOOGLE SAMPLE PACKAGING DATA
 #
 # This file is used by Google as part of our samples packaging process.
@@ -8,7 +9,7 @@ technologies: [Android]
 categories:   [Content]
 languages:    [Java]
 solutions:    [Mobile]
-github:       android-MyCloud
+github:       android-StorageProvider
 level:        INTERMEDIATE
 icon:         screenshots/icon-web.png
 apiRefs:

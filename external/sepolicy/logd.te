@@ -1,5 +1,5 @@
 # android user-space log manager
-type logd, domain;
+type logd, domain, mlstrustedsubject;
 type logd_exec, exec_type, file_type;
 
 init_daemon_domain(logd)
@@ -9,14 +9,21 @@ allow logd self:capability2 syslog;
 allow logd self:netlink_audit_socket { create_socket_perms nlmsg_write };
 allow logd kernel:system syslog_read;
 allow logd kmsg_device:chr_file w_file_perms;
+allow logd system_data_file:file r_file_perms;
+allow logd misc_logd_file:file create_file_perms;
+allow logd misc_logd_file:dir rw_dir_perms;
+allow logd pstorefs:dir search;
+allow logd pstorefs:file r_file_perms;
 
 r_dir_file(logd, domain)
 
+allow logd kernel:system syslog_mod;
+
+control_logd(logd)
+
+# case where logpersistd is actually logcat -f in logd context (nee: logcatd)
 userdebug_or_eng(`
-  # Debug output
-  type_transition logd device:file logd_debug;
-  allow logd device:dir rw_dir_perms;
-  allow logd logd_debug:file create_file_perms;
+  unix_socket_connect(logd, logdr, logd)
 ')
 
 ###

@@ -20,9 +20,16 @@ import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIV
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.net.Uri;
 import android.os.UserManager;
 import android.test.AndroidTestCase;
+import android.util.Log;
+
+import java.util.List;
 
 /**
  * The methods in this class are not really tests.
@@ -31,6 +38,8 @@ import android.test.AndroidTestCase;
  * device-side methods from the host.
  */
 public class CrossProfileUtils extends AndroidTestCase {
+    private static final String TAG = "CrossProfileUtils";
+
     private static final String ACTION_READ_FROM_URI = "com.android.cts.action.READ_FROM_URI";
 
     private static final String ACTION_WRITE_TO_URI = "com.android.cts.action.WRITE_TO_URI";
@@ -40,8 +49,8 @@ public class CrossProfileUtils extends AndroidTestCase {
 
     private static String ACTION_COPY_TO_CLIPBOARD = "com.android.cts.action.COPY_TO_CLIPBOARD";
 
-    public void addParentCanAccessManagedFilters() {
-        removeAllFilters();
+    public void testAddParentCanAccessManagedFilters() {
+        testRemoveAllFilters();
 
         final DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
@@ -49,8 +58,8 @@ public class CrossProfileUtils extends AndroidTestCase {
                 DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED);
     }
 
-    public void addManagedCanAccessParentFilters() {
-        removeAllFilters();
+    public void testAddManagedCanAccessParentFilters() {
+        testRemoveAllFilters();
 
         final DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
@@ -67,23 +76,37 @@ public class CrossProfileUtils extends AndroidTestCase {
         return intentFilter;
     }
 
-    public void removeAllFilters() {
+    public void testRemoveAllFilters() {
         final DevicePolicyManager dpm = (DevicePolicyManager) getContext().getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
         dpm.clearCrossProfileIntentFilters(ADMIN_RECEIVER_COMPONENT);
     }
 
-    public void disallowCrossProfileCopyPaste() {
+    public void testDisallowCrossProfileCopyPaste() {
         DevicePolicyManager dpm = (DevicePolicyManager)
                getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
         dpm.addUserRestriction(ADMIN_RECEIVER_COMPONENT,
                 UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE);
     }
 
-    public void allowCrossProfileCopyPaste() {
+    public void testAllowCrossProfileCopyPaste() {
         DevicePolicyManager dpm = (DevicePolicyManager)
                getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
         dpm.clearUserRestriction(ADMIN_RECEIVER_COMPONENT,
                 UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE);
+    }
+
+    // Disables all browsers in current user
+    public void testDisableAllBrowsers() {
+        PackageManager pm = (PackageManager) getContext().getPackageManager();
+        DevicePolicyManager dpm = (DevicePolicyManager)
+               getContext().getSystemService(Context.DEVICE_POLICY_SERVICE);
+        Intent webIntent = new Intent(Intent.ACTION_VIEW);
+        webIntent.setData(Uri.parse("http://com.android.cts.intent.receiver"));
+        List<ResolveInfo> ris = pm.queryIntentActivities(webIntent, 0 /* no flags*/);
+        for (ResolveInfo ri : ris) {
+            Log.d(TAG, "Hiding " + ri.activityInfo.packageName);
+            dpm.setApplicationHidden(ADMIN_RECEIVER_COMPONENT, ri.activityInfo.packageName, true);
+        }
     }
 }

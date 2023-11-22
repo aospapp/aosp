@@ -22,17 +22,18 @@
 #ifndef LEARNING_STOCHASTIC_LINEAR_SPARSE_WEIGHT_VECTOR_H_
 #define LEARNING_STOCHASTIC_LINEAR_SPARSE_WEIGHT_VECTOR_H_
 
-#include <hash_map>
-#include <iosfwd>
 #include <math.h>
+
+#include <iosfwd>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 #include "common_defs.h"
 
 namespace learning_stochastic_linear {
 
-template<class Key = std::string, class Hash = std::hash_map<Key, double> >
+template<class Key = std::string, class Hash = std::unordered_map<Key, double> >
 class SparseWeightVector {
  public:
   typedef Hash Wmap;
@@ -170,9 +171,9 @@ class SparseWeightVector {
   Wmap wmax_;
   // Normalizing constant in magnitude measurement.
   double normalizer_;
-  // This function in necessary since by default hash_map inserts an element
-  // if it does not find the key through [] operator. It implements a lookup
-  // without the space overhead of an add.
+  // This function is necessary since by default unordered_map inserts an
+  // element if it does not find the key through [] operator. It implements a
+  // lookup without the space overhead of an add.
   bool GetValue(const Wmap &w1, const Key &fname, double *val) const {
     Witer_const iter = w1.find(fname);
     if (iter != w1.end()) {

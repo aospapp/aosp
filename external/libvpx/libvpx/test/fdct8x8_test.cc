@@ -29,15 +29,15 @@ void vp9_idct8x8_64_add_c(const int16_t *input, uint8_t *output, int pitch);
 using libvpx_test::ACMRandom;
 
 namespace {
-typedef void (*fdct_t)(const int16_t *in, int16_t *out, int stride);
-typedef void (*idct_t)(const int16_t *in, uint8_t *out, int stride);
-typedef void (*fht_t) (const int16_t *in, int16_t *out, int stride,
-                       int tx_type);
-typedef void (*iht_t) (const int16_t *in, uint8_t *out, int stride,
-                       int tx_type);
+typedef void (*FdctFunc)(const int16_t *in, int16_t *out, int stride);
+typedef void (*IdctFunc)(const int16_t *in, uint8_t *out, int stride);
+typedef void (*FhtFunc)(const int16_t *in, int16_t *out, int stride,
+                        int tx_type);
+typedef void (*IhtFunc)(const int16_t *in, uint8_t *out, int stride,
+                        int tx_type);
 
-typedef std::tr1::tuple<fdct_t, idct_t, int> dct_8x8_param_t;
-typedef std::tr1::tuple<fht_t, iht_t, int> ht_8x8_param_t;
+typedef std::tr1::tuple<FdctFunc, IdctFunc, int> Dct8x8Param;
+typedef std::tr1::tuple<FhtFunc, IhtFunc, int> Ht8x8Param;
 
 void fdct8x8_ref(const int16_t *in, int16_t *out, int stride, int tx_type) {
   vp9_fdct8x8_c(in, out, stride);
@@ -68,7 +68,7 @@ class FwdTrans8x8TestBase {
       // Initialize a test block with input range [-255, 255].
       for (int j = 0; j < 64; ++j)
         test_input_block[j] = rnd.Rand8() - rnd.Rand8();
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
           RunFwdTxfm(test_input_block, test_output_block, pitch_));
 
       for (int j = 0; j < 64; ++j) {
@@ -97,7 +97,7 @@ class FwdTrans8x8TestBase {
       // Initialize a test block with input range [-15, 15].
       for (int j = 0; j < 64; ++j)
         test_input_block[j] = (rnd.Rand8() >> 4) - (rnd.Rand8() >> 4);
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
           RunFwdTxfm(test_input_block, test_output_block, pitch_));
 
       for (int j = 0; j < 64; ++j) {
@@ -139,7 +139,7 @@ class FwdTrans8x8TestBase {
         test_input_block[j] = src[j] - dst[j];
       }
 
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
           RunFwdTxfm(test_input_block, test_temp_block, pitch_));
       for (int j = 0; j < 64; ++j) {
           if (test_temp_block[j] > 0) {
@@ -152,7 +152,7 @@ class FwdTrans8x8TestBase {
             test_temp_block[j] *= 4;
           }
       }
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
           RunInvTxfm(test_temp_block, dst, pitch_));
 
       for (int j = 0; j < 64; ++j) {
@@ -177,23 +177,36 @@ class FwdTrans8x8TestBase {
     ACMRandom rnd(ACMRandom::DeterministicSeed());
     int max_error = 0;
     int total_error = 0;
+    int total_coeff_error = 0;
     const int count_test_block = 100000;
     DECLARE_ALIGNED_ARRAY(16, int16_t, test_input_block, 64);
     DECLARE_ALIGNED_ARRAY(16, int16_t, test_temp_block, 64);
+    DECLARE_ALIGNED_ARRAY(16, int16_t, ref_temp_block, 64);
     DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, 64);
     DECLARE_ALIGNED_ARRAY(16, uint8_t, src, 64);
 
     for (int i = 0; i < count_test_block; ++i) {
       // Initialize a test block with input range [-255, 255].
       for (int j = 0; j < 64; ++j) {
-        src[j] = rnd.Rand8() % 2 ? 255 : 0;
-        dst[j] = src[j] > 0 ? 0 : 255;
+        if (i == 0) {
+          src[j] = 255;
+          dst[j] = 0;
+        } else if (i == 1) {
+          src[j] = 0;
+          dst[j] = 255;
+        } else {
+          src[j] = rnd.Rand8() % 2 ? 255 : 0;
+          dst[j] = rnd.Rand8() % 2 ? 255 : 0;
+        }
+
         test_input_block[j] = src[j] - dst[j];
       }
 
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
           RunFwdTxfm(test_input_block, test_temp_block, pitch_));
-      REGISTER_STATE_CHECK(
+      ASM_REGISTER_STATE_CHECK(
+          fwd_txfm_ref(test_input_block, ref_temp_block, pitch_, tx_type_));
+      ASM_REGISTER_STATE_CHECK(
           RunInvTxfm(test_temp_block, dst, pitch_));
 
       for (int j = 0; j < 64; ++j) {
@@ -202,6 +215,9 @@ class FwdTrans8x8TestBase {
         if (max_error < error)
           max_error = error;
         total_error += error;
+
+        const int coeff_diff = test_temp_block[j] - ref_temp_block[j];
+        total_coeff_error += abs(coeff_diff);
       }
 
       EXPECT_GE(1, max_error)
@@ -211,17 +227,21 @@ class FwdTrans8x8TestBase {
       EXPECT_GE(count_test_block/5, total_error)
           << "Error: Extremal 8x8 FDCT/IDCT or FHT/IHT has average"
           << " roundtrip error > 1/5 per block";
+
+      EXPECT_EQ(0, total_coeff_error)
+          << "Error: Extremal 8x8 FDCT/FHT has"
+          << "overflow issues in the intermediate steps > 1";
     }
   }
 
   int pitch_;
   int tx_type_;
-  fht_t fwd_txfm_ref;
+  FhtFunc fwd_txfm_ref;
 };
 
 class FwdTrans8x8DCT
     : public FwdTrans8x8TestBase,
-      public ::testing::TestWithParam<dct_8x8_param_t> {
+      public ::testing::TestWithParam<Dct8x8Param> {
  public:
   virtual ~FwdTrans8x8DCT() {}
 
@@ -243,8 +263,8 @@ class FwdTrans8x8DCT
     inv_txfm_(out, dst, stride);
   }
 
-  fdct_t fwd_txfm_;
-  idct_t inv_txfm_;
+  FdctFunc fwd_txfm_;
+  IdctFunc inv_txfm_;
 };
 
 TEST_P(FwdTrans8x8DCT, SignBiasCheck) {
@@ -261,7 +281,7 @@ TEST_P(FwdTrans8x8DCT, ExtremalCheck) {
 
 class FwdTrans8x8HT
     : public FwdTrans8x8TestBase,
-      public ::testing::TestWithParam<ht_8x8_param_t> {
+      public ::testing::TestWithParam<Ht8x8Param> {
  public:
   virtual ~FwdTrans8x8HT() {}
 
@@ -283,8 +303,8 @@ class FwdTrans8x8HT
     inv_txfm_(out, dst, stride, tx_type_);
   }
 
-  fht_t fwd_txfm_;
-  iht_t inv_txfm_;
+  FhtFunc fwd_txfm_;
+  IhtFunc inv_txfm_;
 };
 
 TEST_P(FwdTrans8x8HT, SignBiasCheck) {
@@ -313,11 +333,11 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht8x8_c, &vp9_iht8x8_64_add_c, 2),
         make_tuple(&vp9_fht8x8_c, &vp9_iht8x8_64_add_c, 3)));
 
-#if HAVE_NEON
+#if HAVE_NEON_ASM
 INSTANTIATE_TEST_CASE_P(
     NEON, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_c, &vp9_idct8x8_64_add_neon, 0)));
+        make_tuple(&vp9_fdct8x8_neon, &vp9_idct8x8_64_add_neon, 0)));
 INSTANTIATE_TEST_CASE_P(
     DISABLED_NEON, FwdTrans8x8HT,
     ::testing::Values(
@@ -339,5 +359,12 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht8x8_sse2, &vp9_iht8x8_64_add_sse2, 1),
         make_tuple(&vp9_fht8x8_sse2, &vp9_iht8x8_64_add_sse2, 2),
         make_tuple(&vp9_fht8x8_sse2, &vp9_iht8x8_64_add_sse2, 3)));
+#endif
+
+#if HAVE_SSSE3 && ARCH_X86_64
+INSTANTIATE_TEST_CASE_P(
+    SSSE3, FwdTrans8x8DCT,
+    ::testing::Values(
+        make_tuple(&vp9_fdct8x8_ssse3, &vp9_idct8x8_64_add_ssse3, 0)));
 #endif
 }  // namespace

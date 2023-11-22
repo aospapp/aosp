@@ -140,7 +140,7 @@ static status_t WriteMemObjToBinder(Parcel& data, ShareMemMap* smem) {
         sp<IMemoryHeap> heap = smem->membase->getMemory(&offset, &size);
         data.writeInt32(offset);
         data.writeInt32(size);
-        data.writeStrongBinder(heap->asBinder());
+        data.writeStrongBinder(IInterface::asBinder(heap));
 #ifdef TEST
         ALOGI("membase heapID:%d pointer:%x data:%x", \
             heap->getHeapID(), smem->membase->pointer(), *((int *)(smem->membase->pointer())));

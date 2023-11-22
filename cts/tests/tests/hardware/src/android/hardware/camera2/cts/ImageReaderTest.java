@@ -34,6 +34,7 @@ import android.hardware.camera2.cts.rs.BitmapUtils;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
+import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.os.ConditionVariable;
 import android.util.Log;
@@ -65,8 +66,12 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-    // number of frame (for streaming requests) to be verified.
+    // Number of frame (for streaming requests) to be verified.
     private static final int NUM_FRAME_VERIFIED = 2;
+    // Number of frame (for streaming requests) to be verified with log processing time.
+    private static final int NUM_LONG_PROCESS_TIME_FRAME_VERIFIED = 10;
+    // The time to hold each image for to simulate long processing time.
+    private static final int LONG_PROCESS_TIME_MS = 300;
     // Max number of images can be accessed simultaneously from ImageReader.
     private static final int MAX_NUM_IMAGES = 5;
     // Max difference allowed between YUV and JPEG patches. This tolerance is intentionally very
@@ -97,6 +102,30 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
                 Log.i(TAG, "Testing Camera " + id);
                 openDevice(id);
                 bufferFormatTestByCamera(ImageFormat.YUV_420_888, /*repeating*/true);
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    public void testDepth16() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+                openDevice(id);
+                bufferFormatTestByCamera(ImageFormat.DEPTH16, /*repeating*/true);
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    public void testDepthPointCloud() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.i(TAG, "Testing Camera " + id);
+                openDevice(id);
+                bufferFormatTestByCamera(ImageFormat.DEPTH_POINT_CLOUD, /*repeating*/true);
             } finally {
                 closeDevice(id);
             }
@@ -153,9 +182,33 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
+    public void testLongProcessingRepeatingRaw() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.v(TAG, "Testing long processing on repeating raw for camera " + id);
+                openDevice(id);
+                bufferFormatLongProcessingTimeTestByCamera(ImageFormat.RAW_SENSOR);
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
+    public void testLongProcessingRepeatingFlexibleYuv() throws Exception {
+        for (String id : mCameraIds) {
+            try {
+                Log.v(TAG, "Testing long processing on repeating YUV for camera " + id);
+                openDevice(id);
+                bufferFormatLongProcessingTimeTestByCamera(ImageFormat.YUV_420_888);
+            } finally {
+                closeDevice(id);
+            }
+        }
+    }
+
     /**
-     * Test invalid access of image byte buffers: when an image is closed, further access
-     * of the image byte buffers will get an IllegalStateException. The basic assumption of
+     * Test invalid access of image after an image is closed, further access
+     * of the image will get an IllegalStateException. The basic assumption of
      * this test is that the ImageReader always gives direct byte buffer, which is always true
      * for camera case. For if the produced image byte buffer is not direct byte buffer, there
      * is no guarantee to get an ISE for this invalid access case.
@@ -166,16 +219,12 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "Testing invalid image access for Camera " + id);
                 openDevice(id);
-                bufferAccessAfterRelease();
-                fail("ImageReader should throw IllegalStateException when accessing a byte buffer"
-                        + " after the image is closed");
-            } catch (IllegalStateException e) {
-                // Expected.
+                invalidAccessTestAfterClose();
             } finally {
                 closeDevice(id);
+                closeDefaultImageReader();
             }
         }
-
     }
 
     /**
@@ -188,7 +237,11 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "YUV and JPEG testing for camera " + id);
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 bufferFormatWithYuvTestByCamera(ImageFormat.JPEG);
             } finally {
                 closeDevice(id);
@@ -205,7 +258,11 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "YUV and RAW testing for camera " + id);
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 bufferFormatWithYuvTestByCamera(ImageFormat.RAW_SENSOR);
             } finally {
                 closeDevice(id);
@@ -222,6 +279,11 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             try {
                 Log.v(TAG, "Testing all YUV image resolutions for camera " + id);
                 openDevice(id);
+
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
 
                 // Skip warmup on FULL mode devices.
                 int warmupCaptureNumber = (mStaticInfo.isHardwareLevelLegacy()) ?
@@ -553,7 +615,8 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
                 List<Surface> outputSurfaces = new ArrayList<Surface>();
                 outputSurfaces.add(yuvSurface);
                 outputSurfaces.add(captureSurface);
-                CaptureRequest.Builder request = prepareCaptureRequestForSurfaces(outputSurfaces);
+                CaptureRequest.Builder request = prepareCaptureRequestForSurfaces(outputSurfaces,
+                        CameraDevice.TEMPLATE_PREVIEW);
                 SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
 
                 for (int i = 0; i < NUM_SINGLE_CAPTURE_TESTED; i++) {
@@ -595,34 +658,29 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
-    /**
-     * Test buffer access after release, YUV420_888 single capture is tested. This method
-     * should throw ISE.
-     */
-    private void bufferAccessAfterRelease() throws Exception {
-        final int FORMAT = ImageFormat.YUV_420_888;
+    private void invalidAccessTestAfterClose() throws Exception {
+        final int FORMAT = mStaticInfo.isColorOutputSupported() ?
+            ImageFormat.YUV_420_888 : ImageFormat.DEPTH16;
+
         Size[] availableSizes = mStaticInfo.getAvailableSizesForFormatChecked(FORMAT,
                 StaticMetadata.StreamDirection.Output);
+        Image img = null;
+        // Create ImageReader.
+        mListener = new SimpleImageListener();
+        createDefaultImageReader(availableSizes[0], FORMAT, MAX_NUM_IMAGES, mListener);
 
-        try {
-            // Create ImageReader.
-            mListener = new SimpleImageListener();
-            createDefaultImageReader(availableSizes[0], FORMAT, MAX_NUM_IMAGES, mListener);
+        // Start capture.
+        CaptureRequest request = prepareCaptureRequest();
+        SimpleCaptureCallback listener = new SimpleCaptureCallback();
+        startCapture(request, /* repeating */false, listener, mHandler);
 
-            // Start capture.
-            CaptureRequest request = prepareCaptureRequest();
-            SimpleCaptureCallback listener = new SimpleCaptureCallback();
-            startCapture(request, /* repeating */false, listener, mHandler);
+        mListener.waitForAnyImageAvailable(CAPTURE_WAIT_TIMEOUT_MS);
+        img = mReader.acquireNextImage();
+        Plane firstPlane = img.getPlanes()[0];
+        ByteBuffer buffer = firstPlane.getBuffer();
+        img.close();
 
-            mListener.waitForAnyImageAvailable(CAPTURE_WAIT_TIMEOUT_MS);
-            Image img = mReader.acquireNextImage();
-            ByteBuffer buffer = img.getPlanes()[0].getBuffer();
-            img.close();
-
-            byte data = buffer.get(); // An ISE should be thrown here.
-        } finally {
-            closeDefaultImageReader();
-        }
+        imageInvalidAccessTestAfterClose(img, firstPlane, buffer);
     }
 
     private void bufferFormatTestByCamera(int format, boolean repeating) throws Exception {
@@ -664,6 +722,94 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
+    private void bufferFormatLongProcessingTimeTestByCamera(int format)
+            throws Exception {
+
+        final int TEST_SENSITIVITY_VALUE = mStaticInfo.getSensitivityClampToRange(204);
+        final long TEST_EXPOSURE_TIME_NS = mStaticInfo.getExposureClampToRange(28000000);
+        final long EXPOSURE_TIME_ERROR_MARGIN_NS = 100000;
+
+        Size[] availableSizes = mStaticInfo.getAvailableSizesForFormatChecked(format,
+                StaticMetadata.StreamDirection.Output);
+
+        // for each resolution, test imageReader:
+        for (Size sz : availableSizes) {
+            Log.v(TAG, "testing size " + sz.toString());
+            try {
+                if (VERBOSE) {
+                    Log.v(TAG, "Testing long processing time: size " + sz.toString() + " format " +
+                            format + " for camera " + mCamera.getId());
+                }
+
+                // Create ImageReader.
+                mListener  = new SimpleImageListener();
+                createDefaultImageReader(sz, format, MAX_NUM_IMAGES, mListener);
+
+                // Setting manual controls
+                List<Surface> outputSurfaces = new ArrayList<Surface>();
+                outputSurfaces.add(mReader.getSurface());
+                CaptureRequest.Builder requestBuilder = prepareCaptureRequestForSurfaces(
+                        outputSurfaces, CameraDevice.TEMPLATE_STILL_CAPTURE);
+
+                requestBuilder.set(
+                        CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);
+                requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
+                requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
+                requestBuilder.set(CaptureRequest.CONTROL_AE_MODE,
+                        CaptureRequest.CONTROL_AE_MODE_OFF);
+                requestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_OFF);
+                requestBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, TEST_SENSITIVITY_VALUE);
+                requestBuilder.set(CaptureRequest.SENSOR_EXPOSURE_TIME, TEST_EXPOSURE_TIME_NS);
+
+                SimpleCaptureCallback listener = new SimpleCaptureCallback();
+                startCapture(requestBuilder.build(), /*repeating*/true, listener, mHandler);
+
+                for (int i = 0; i < NUM_LONG_PROCESS_TIME_FRAME_VERIFIED; i++) {
+                    mListener.waitForAnyImageAvailable(CAPTURE_WAIT_TIMEOUT_MS);
+
+                    // Verify image.
+                    Image img = mReader.acquireNextImage();
+                    assertNotNull("Unable to acquire next image", img);
+                    CameraTestUtils.validateImage(img, sz.getWidth(), sz.getHeight(), format,
+                            DEBUG_FILE_NAME_BASE);
+
+                    // Verify the exposure time and iso match the requested values.
+                    CaptureResult result = listener.getCaptureResult(CAPTURE_RESULT_TIMEOUT_MS);
+
+                    long exposureTimeDiff = TEST_EXPOSURE_TIME_NS -
+                            getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME);
+                    int sensitivityDiff = TEST_SENSITIVITY_VALUE -
+                            getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY);
+
+                    mCollector.expectTrue(
+                            String.format("Long processing frame %d format %d size %s " +
+                                    "exposure time was %d expecting %d.", i, format, sz.toString(),
+                                    getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME),
+                                    TEST_EXPOSURE_TIME_NS),
+                            exposureTimeDiff < EXPOSURE_TIME_ERROR_MARGIN_NS &&
+                            exposureTimeDiff > 0);
+
+                    mCollector.expectTrue(
+                            String.format("Long processing frame %d format %d size %s " +
+                                    "sensitivity was %d expecting %d.", i, format, sz.toString(),
+                                    getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY),
+                                    TEST_SENSITIVITY_VALUE),
+                            sensitivityDiff == 0);
+
+
+                    // Sleep to Simulate long porcessing before closing the image.
+                    Thread.sleep(LONG_PROCESS_TIME_MS);
+                    img.close();
+                }
+                // stop capture.
+                stopCapture(/*fast*/false);
+            } finally {
+                closeDefaultImageReader();
+            }
+        }
+    }
+
     /**
      * Validate capture results.
      *
@@ -678,7 +824,7 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
 
             // TODO: Update this to use availableResultKeys once shim supports this.
             if (mStaticInfo.isCapabilitySupported(
-                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS)) {
                 Long exposureTime = getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME);
                 Integer sensitivity = getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY);
                 mCollector.expectInRange(
@@ -729,28 +875,6 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
         }
     }
 
-    private CaptureRequest prepareCaptureRequest() throws Exception {
-        List<Surface> outputSurfaces = new ArrayList<Surface>();
-        Surface surface = mReader.getSurface();
-        assertNotNull("Fail to get surface from ImageReader", surface);
-        outputSurfaces.add(surface);
-        return prepareCaptureRequestForSurfaces(outputSurfaces).build();
-    }
-
-    private CaptureRequest.Builder prepareCaptureRequestForSurfaces(List<Surface> surfaces)
-            throws Exception {
-        createSession(surfaces);
-
-        CaptureRequest.Builder captureBuilder =
-                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        assertNotNull("Fail to get captureRequest", captureBuilder);
-        for (Surface surface : surfaces) {
-            captureBuilder.addTarget(surface);
-        }
-
-        return captureBuilder;
-    }
-
     private void validateImage(Size sz, int format, int captureCount,  boolean repeating)
             throws Exception {
         // TODO: Add more format here, and wrap each one as a function.
@@ -784,7 +908,7 @@ public class ImageReaderTest extends Camera2AndroidTestCase {
             if (VERBOSE) Log.v(TAG, "Got the latest image");
             CameraTestUtils.validateImage(img, sz.getWidth(), sz.getHeight(), format,
                     DEBUG_FILE_NAME_BASE);
-            if (VERBOSE) Log.v(TAG, "finish vaildation of image " + numImageVerified);
+            if (VERBOSE) Log.v(TAG, "finish validation of image " + numImageVerified);
             img.close();
             numImageVerified++;
             reTryCount = 0;

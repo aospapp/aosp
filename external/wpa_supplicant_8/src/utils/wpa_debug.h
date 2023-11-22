@@ -34,6 +34,7 @@ enum {
 #define wpa_hexdump_ascii_key(l,t,b,le) do { } while (0)
 #define wpa_debug_open_file(p) do { } while (0)
 #define wpa_debug_close_file() do { } while (0)
+#define wpa_debug_setup_stdout() do { } while (0)
 #define wpa_dbg(args...) do { } while (0)
 
 static inline int wpa_debug_reopen_file(void)
@@ -46,6 +47,7 @@ static inline int wpa_debug_reopen_file(void)
 int wpa_debug_open_file(const char *path);
 int wpa_debug_reopen_file(void);
 void wpa_debug_close_file(void);
+void wpa_debug_setup_stdout(void);
 
 /**
  * wpa_debug_printf_timestamp - Print timestamp for debug output
@@ -241,7 +243,13 @@ PRINTF_FORMAT(3, 4);
 void wpa_msg_no_global(void *ctx, int level, const char *fmt, ...)
 PRINTF_FORMAT(3, 4);
 
-typedef void (*wpa_msg_cb_func)(void *ctx, int level, int global,
+enum wpa_msg_type {
+	WPA_MSG_PER_INTERFACE,
+	WPA_MSG_GLOBAL,
+	WPA_MSG_NO_GLOBAL,
+};
+
+typedef void (*wpa_msg_cb_func)(void *ctx, int level, enum wpa_msg_type type,
 				const char *txt, size_t len);
 
 /**

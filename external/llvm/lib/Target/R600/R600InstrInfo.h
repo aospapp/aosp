@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef R600INSTRUCTIONINFO_H_
-#define R600INSTRUCTIONINFO_H_
+#ifndef LLVM_LIB_TARGET_R600_R600INSTRINFO_H
+#define LLVM_LIB_TARGET_R600_R600INSTRINFO_H
 
 #include "AMDGPUInstrInfo.h"
 #include "R600Defines.h"
@@ -152,11 +152,10 @@ namespace llvm {
   /// instruction slots within an instruction group.
   bool isVector(const MachineInstr &MI) const;
 
-  unsigned getIEQOpcode() const override;
   bool isMov(unsigned Opcode) const override;
 
-  DFAPacketizer *CreateTargetScheduleState(const TargetMachine *TM,
-                                           const ScheduleDAG *DAG) const override;
+  DFAPacketizer *
+  CreateTargetScheduleState(const TargetSubtargetInfo &) const override;
 
   bool ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 
@@ -207,7 +206,7 @@ namespace llvm {
   int getInstrLatency(const InstrItineraryData *ItinData,
                       SDNode *Node) const override { return 1;}
 
-  virtual bool expandPostRAPseudo(MachineBasicBlock::iterator MI) const;
+  bool expandPostRAPseudo(MachineBasicBlock::iterator MI) const override;
 
   /// \brief Reserve the registers that may be accesed using indirect addressing.
   void reserveIndirectRegisters(BitVector &Reserved,
@@ -299,4 +298,4 @@ int getLDSNoRetOp(uint16_t Opcode);
 
 } // End llvm namespace
 
-#endif // R600INSTRINFO_H_
+#endif

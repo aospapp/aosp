@@ -9,7 +9,8 @@
 #include "SkImageDecoder.h"
 #include "SkScaledBitmapSampler.h"
 #include "SkStream.h"
-#include "SkStreamHelpers.h"
+#include "SkStreamPriv.h"
+#include "SkTextureCompressor.h"
 #include "SkTypes.h"
 
 #include "etc1.h"
@@ -18,12 +19,12 @@ class SkPKMImageDecoder : public SkImageDecoder {
 public:
     SkPKMImageDecoder() { }
 
-    virtual Format getFormat() const SK_OVERRIDE {
+    Format getFormat() const override {
         return kPKM_Format;
     }
 
 protected:
-    virtual Result onDecode(SkStream* stream, SkBitmap* bm, Mode) SK_OVERRIDE;
+    Result onDecode(SkStream* stream, SkBitmap* bm, Mode) override;
 
 private:
     typedef SkImageDecoder INHERITED;
@@ -33,7 +34,7 @@ private:
 
 SkImageDecoder::Result SkPKMImageDecoder::onDecode(SkStream* stream, SkBitmap* bm, Mode mode) {
     SkAutoMalloc autoMal;
-    const size_t length = CopyStreamToStorage(&autoMal, stream);
+    const size_t length = SkCopyStreamToStorage(&autoMal, stream);
     if (0 == length) {
         return kFailure;
     }
@@ -45,13 +46,6 @@ SkImageDecoder::Result SkPKMImageDecoder::onDecode(SkStream* stream, SkBitmap* b
 
     const unsigned short width = etc1_pkm_get_width(buf);
     const unsigned short height = etc1_pkm_get_height(buf);
-
-#ifdef SK_SUPPORT_LEGACY_IMAGEDECODER_CHOOSER
-    // should we allow the Chooser (if present) to pick a config for us???
-    if (!this->chooseFromOneChoice(kN32_SkColorType, width, height)) {
-        return kFailure;
-    }
-#endif
 
     // Setup the sampler...
     SkScaledBitmapSampler sampler(width, height, this->getSampleSize());
@@ -80,10 +74,11 @@ SkImageDecoder::Result SkPKMImageDecoder::onDecode(SkStream* stream, SkBitmap* b
     // ETC1 Data is encoded as RGB pixels, so we should extract it as such
     int nPixels = width * height;
     SkAutoMalloc outRGBData(nPixels * 3);
-    etc1_byte *outRGBDataPtr = reinterpret_cast<etc1_byte *>(outRGBData.get());
+    uint8_t *outRGBDataPtr = reinterpret_cast<uint8_t *>(outRGBData.get());
 
     // Decode ETC1
-    if (etc1_decode_image(buf, outRGBDataPtr, width, height, 3, width*3)) {
+    if (!SkTextureCompressor::DecompressBufferFromFormat(
+            outRGBDataPtr, width*3, buf, width, height, SkTextureCompressor::kETC1_Format)) {
         return kFailure;
     }
 

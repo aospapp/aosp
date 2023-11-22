@@ -16,15 +16,11 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
-import com.android.tv.settings.form.FormPage;
-
 import android.app.Activity;
-import android.app.Fragment;
-import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+
+import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
 
 /**
  * Saves a wifi network's configuration.

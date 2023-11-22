@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 //mask the top 8 bits
 #define TAG_MASK ((0xFFULL) << 56)

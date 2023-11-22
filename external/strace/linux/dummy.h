@@ -32,15 +32,21 @@
 #endif
 
 /* still unfinished */
+#define	sys_bpf			printargs
+#define	sys_execveat		printargs
 #define	sys_ioperm		printargs
 #define	sys_iopl		printargs
 #define	sys_kcmp		printargs
+#define	sys_kexec_file_load	printargs
 #define	sys_lookup_dcookie	printargs
+#define	sys_memfd_create	printargs
 #define	sys_name_to_handle_at	printargs
 #define	sys_open_by_handle_at	printargs
+#define	sys_sched_getattr	printargs
+#define	sys_sched_setattr	printargs
 #define	sys_sysfs		printargs
-#define	sys_vm86old		printargs
 #define	sys_vm86		printargs
+#define	sys_vm86old		printargs
 
 /* machine-specific */
 #if !(defined I386 || defined X86_64 || defined X32)
@@ -61,11 +67,18 @@
 #define	sys_fdatasync		sys_close
 #define	sys_fsync		sys_close
 #define	sys_getegid		sys_getuid
+#define	sys_getegid16		sys_geteuid16
 #define	sys_geteuid		sys_getuid
+#define	sys_geteuid16		sys_getuid16
 #define	sys_getgid		sys_getuid
+#define	sys_getgid16		sys_getuid16
+#define	sys_getpeername		sys_getsockname
 #define	sys_getresgid		sys_getresuid
+#define	sys_getresgid16		sys_getresuid16
 #define	sys_lstat		sys_stat
 #define	sys_lstat64		sys_stat64
+#define	sys_mkdir		sys_chmod
+#define	sys_mkdirat		sys_fchmodat
 #define	sys_mlock		sys_munmap
 #define	sys_mq_unlink		sys_chdir
 #define	sys_munlock		sys_munmap
@@ -75,10 +88,16 @@
 #define	sys_rmdir		sys_chdir
 #define	sys_sched_get_priority_max	sys_sched_get_priority_min
 #define	sys_set_robust_list	sys_munmap
+#define	sys_setdomainname	sys_sethostname
 #define	sys_setfsgid		sys_setfsuid
+#define	sys_setfsgid16		sys_setfsuid16
 #define	sys_setgid		sys_setuid
+#define	sys_setgid16		sys_setuid16
 #define	sys_setregid		sys_setreuid
+#define	sys_setregid16		sys_setreuid16
 #define	sys_setresgid		sys_setresuid
+#define	sys_setresgid16		sys_setresuid16
+#define	sys_stime		sys_time
 #define	sys_swapoff		sys_chdir
 #define	sys_symlink		sys_link
 #define	sys_syncfs		sys_close

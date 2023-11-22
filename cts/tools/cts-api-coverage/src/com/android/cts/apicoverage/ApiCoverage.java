@@ -39,10 +39,11 @@ class ApiCoverage {
         return Collections.unmodifiableCollection(mPackages.values());
     }
 
-    public void removeEmptyAbstractClasses() {
+    /** Iterate through all packages and update all classes to include its superclass */
+    public void resolveSuperClasses() {
         for (Map.Entry<String, ApiPackage> entry : mPackages.entrySet()) {
             ApiPackage pkg = entry.getValue();
-            pkg.removeEmptyAbstractClasses();
+            pkg.resolveSuperClasses(mPackages);
         }
     }
 }

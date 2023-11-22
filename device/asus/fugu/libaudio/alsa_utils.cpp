@@ -180,6 +180,7 @@ bool HDMIAudioCaps::loadCaps(int ALSADeviceID) {
                 goto bailout;
             m.bps_bitmask = static_cast<uint32_t>(tmp);
         } else if ((m.fmt >= kFmtAC3) && (m.fmt <= kFmtATRAC)) { // FIXME ATRAC is not last format!?
+            // FIXME SHould we extend the range up to kFmtDTSHD or kFmtMPGSUR?
             if ((tmp = mixer_ctl_get_value(ctrls[kMaxCompBRNdx], 0)) < 0)
                 goto bailout;
             m.comp_bitrate = static_cast<uint32_t>(tmp);
@@ -255,7 +256,7 @@ void HDMIAudioCaps::getFmtsForAF(String8& fmts) {
         return;
     }
 
-    fmts.append("AUDIO_FORMAT_PCM_16_BIT");
+    fmts.append("AUDIO_FORMAT_PCM_16_BIT|AUDIO_FORMAT_PCM_8_24_BIT");
     // TODO: when we can start to expect 20 and 24 bit audio modes coming from
     // AF, we need to implement support to enumerate those modes.
 
@@ -267,6 +268,12 @@ void HDMIAudioCaps::getFmtsForAF(String8& fmts) {
                 break;
             case kFmtEAC3:
                 fmts.append("|AUDIO_FORMAT_E_AC3");
+                break;
+            case kFmtDTS:
+                fmts.append("|AUDIO_FORMAT_DTS");
+                break;
+            case kFmtDTSHD:
+                fmts.append("|AUDIO_FORMAT_DTS_HD");
                 break;
             default:
                 break;
@@ -349,9 +356,12 @@ ssize_t HDMIAudioCaps::getMaxChModeNdx_l() {
 
 bool HDMIAudioCaps::supportsFormat(audio_format_t format,
                                       uint32_t sampleRate,
-                                      uint32_t channelCount) {
+                                      uint32_t channelCount,
+                                      bool isIec958NonAudio) {
     Mutex::Autolock _l(mLock);
 
+    ALOGV("supportsFormat() format = 0x%08X, sampleRate = %u, channels = 0x%08X, iec958 = %d",
+                format, sampleRate, channelCount, isIec958NonAudio ? 1 : 0);
     // If the sink does not support basic audio, then it supports no audio.
     if (!mBasicAudioSupported)
         return false;
@@ -360,8 +370,23 @@ bool HDMIAudioCaps::supportsFormat(audio_format_t format,
     switch (format & AUDIO_FORMAT_MAIN_MASK) {
         case AUDIO_FORMAT_PCM: alsaFormat = kFmtLPCM; break;
         case AUDIO_FORMAT_AC3: alsaFormat = kFmtAC3; break;
-        case AUDIO_FORMAT_E_AC3: alsaFormat = kFmtAC3; break;
+        case AUDIO_FORMAT_E_AC3: alsaFormat = kFmtAC3; break; // FIXME should this be kFmtEAC3?
+        case AUDIO_FORMAT_DTS: alsaFormat = kFmtDTS; break;
+        case AUDIO_FORMAT_DTS_HD: alsaFormat = kFmtDTSHD; break;
         default: return false;
+    }
+
+    // EAC3 uses a PCM sample rate of 4X the base rate.
+    // We try to detect that situation and allow 4X rate even if the
+    // EDID does not report that it is supported.
+    // This rate was chosen because it is between the region of typical PCM rates
+    // and the extreme rates used for IEC61973.
+    // It is > 96000 and < 4*32000.
+    const uint32_t maxReasonableRate = 100000; // FIXME review for N
+    if (isIec958NonAudio && (alsaFormat == kFmtLPCM) && (sampleRate > maxReasonableRate)) {
+        ALOGI("supportsFormat() dividing sample %u by 4 to test support for EAC3 over HDMI",
+                sampleRate);
+        sampleRate = sampleRate / 4;
     }
 
     SRMask srMask;
@@ -381,7 +406,10 @@ bool HDMIAudioCaps::supportsFormat(audio_format_t format,
         uint32_t subFormat = format & AUDIO_FORMAT_SUB_MASK;
         BPSMask bpsMask;
         switch (subFormat) {
-            case AUDIO_FORMAT_PCM_SUB_16_BIT: bpsMask = kBPS_16bit; break;
+        // FIXME: (legacy code). We match on 16 bits, but on Fugu we hard code to use
+        // PCM_FORMAT_S24_LE.
+            case AUDIO_FORMAT_PCM_SUB_16_BIT: // fall through
+            case AUDIO_FORMAT_PCM_SUB_8_24_BIT: bpsMask = kBPS_16bit; break;
             default: return false;
         }
 

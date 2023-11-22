@@ -18,6 +18,7 @@ package android.hardware.cts;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.ParallelSensorOperation;
 import android.hardware.cts.helpers.sensoroperations.RepeatingSensorOperation;
@@ -62,6 +63,7 @@ public class SensorIntegrationTests extends SensorTestCase {
      * of several clients can lead to the failing state.
      */
     public void testSensorsWithSeveralClients() throws Throwable {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         final int ITERATIONS = 50;
         final int MAX_REPORTING_LATENCY_US = (int) TimeUnit.SECONDS.toMicros(5);
         final Context context = getContext();
@@ -121,6 +123,7 @@ public class SensorIntegrationTests extends SensorTestCase {
      * of several clients can lead to the failing state.
      */
     public void testSensorsMovingRates() throws Throwable {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         // use at least two instances to ensure more than one client of any given sensor is in play
         final int INSTANCES_TO_USE = 5;
         final int ITERATIONS_TO_EXECUTE = 100;
@@ -219,6 +222,7 @@ public class SensorIntegrationTests extends SensorTestCase {
     public void verifySensorStoppingInteraction(
             int sensorTypeTestee,
             int sensorTypeTester) throws Throwable {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Context context = getContext();
 
         TestSensorEnvironment testerEnvironment = new TestSensorEnvironment(

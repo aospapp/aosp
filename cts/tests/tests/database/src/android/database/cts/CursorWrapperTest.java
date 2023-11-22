@@ -402,7 +402,7 @@ public class CursorWrapperTest extends AndroidTestCase {
         cursorWrapper.close();
     }
 
-    public void testContentObsererOperations() throws IllegalStateException {
+    public void testContentObserverOperations() throws IllegalStateException {
         CursorWrapper cursorWrapper = new CursorWrapper(getCursor());
         MockContentObserver observer = new MockContentObserver(null);
 
@@ -435,6 +435,18 @@ public class CursorWrapperTest extends AndroidTestCase {
         }catch(IllegalStateException e){
         }
         cursorWrapper.close();
+    }
+
+    public void testSetExtras() {
+        Cursor cursor = getCursor();
+        CursorWrapper cursorWrapper = new CursorWrapper(cursor);
+        try {
+            Bundle b = new Bundle();
+            cursorWrapper.setExtras(b);
+            assertSame(b, cursor.getExtras());
+        } finally {
+            cursorWrapper.close();
+        }
     }
 
     private class MockContentObserver extends ContentObserver {

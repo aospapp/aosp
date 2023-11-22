@@ -19,6 +19,8 @@ package com.android.inputmethod.latin;
 import android.text.TextUtils;
 
 import com.android.inputmethod.event.Event;
+import com.android.inputmethod.latin.common.InputPointers;
+import com.android.inputmethod.latin.define.DecoderSpecificConstants;
 
 import java.util.ArrayList;
 
@@ -48,10 +50,10 @@ public final class LastComposedWord {
     public final String mTypedWord;
     public final CharSequence mCommittedWord;
     public final String mSeparatorString;
-    public final PrevWordsInfo mPrevWordsInfo;
+    public final NgramContext mNgramContext;
     public final int mCapitalizedMode;
     public final InputPointers mInputPointers =
-            new InputPointers(Constants.DICTIONARY_MAX_WORD_LENGTH);
+            new InputPointers(DecoderSpecificConstants.DICTIONARY_MAX_WORD_LENGTH);
 
     private boolean mActive;
 
@@ -64,7 +66,7 @@ public final class LastComposedWord {
     public LastComposedWord(final ArrayList<Event> events,
             final InputPointers inputPointers, final String typedWord,
             final CharSequence committedWord, final String separatorString,
-            final PrevWordsInfo prevWordsInfo, final int capitalizedMode) {
+            final NgramContext ngramContext, final int capitalizedMode) {
         if (inputPointers != null) {
             mInputPointers.copy(inputPointers);
         }
@@ -73,7 +75,7 @@ public final class LastComposedWord {
         mCommittedWord = committedWord;
         mSeparatorString = separatorString;
         mActive = true;
-        mPrevWordsInfo = prevWordsInfo;
+        mNgramContext = ngramContext;
         mCapitalizedMode = capitalizedMode;
     }
 

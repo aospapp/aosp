@@ -15,6 +15,7 @@
 import its.image
 import its.device
 import its.objects
+import its.caps
 import os.path
 import numpy
 import pylab
@@ -41,6 +42,8 @@ def main():
 
         # Capture at full resolution.
         props = cam.get_camera_properties()
+        its.caps.skip_unless(its.caps.manual_sensor(props) and
+                             its.caps.awb_lock(props))
         w,h = its.objects.get_available_output_sizes("yuv", props)[0]
 
         # Converge 3A prior to capture.

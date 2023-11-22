@@ -25,6 +25,7 @@ import android.os.RegistrantList;
 import android.os.SystemProperties;
 import android.telephony.TelephonyManager;
 import android.telephony.Rlog;
+import android.text.format.Time;
 
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.PhoneConstants;
@@ -32,6 +33,7 @@ import com.android.internal.telephony.SubscriptionController;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.LinkedList;
 
 /**
  * This class is responsible for keeping all knowledge about
@@ -97,6 +99,10 @@ public class UiccController extends Handler {
     private Context mContext;
 
     protected RegistrantList mIccChangedRegistrants = new RegistrantList();
+
+    // Logging for dumpsys. Useful in cases when the cards run into errors.
+    private static final int MAX_PROACTIVE_COMMANDS_TO_LOG = 20;
+    private LinkedList<String> mCardLogs = new LinkedList<String>();
 
     public static UiccController make(Context c, CommandsInterface[] ci) {
         synchronized (mLock) {
@@ -312,11 +318,12 @@ public class UiccController extends Handler {
             return;
         }
 
-        if (resp.refreshResult != IccRefreshResponse.REFRESH_RESULT_RESET ||
-            resp.aid == null) {
-            Rlog.d(LOG_TAG, "Ignoring reset: " + resp);
-            return;
+        if (resp.refreshResult != IccRefreshResponse.REFRESH_RESULT_RESET) {
+          Rlog.d(LOG_TAG, "Ignoring non reset refresh: " + resp);
+          return;
         }
+
+        Rlog.d(LOG_TAG, "Handling refresh reset: " + resp);
 
         boolean changed = mUiccCards[index].resetAppWithAid(resp.aid);
         if (changed) {
@@ -329,8 +336,6 @@ public class UiccController extends Handler {
             }
             mIccChangedRegistrants.notifyRegistrants(new AsyncResult(null, index, null));
         }
-        // TODO: For a card level notification, we should delete the CarrierPrivilegeRules and the
-        // CAT service.
     }
 
     private boolean isValidCardIndex(int index) {
@@ -341,6 +346,15 @@ public class UiccController extends Handler {
         Rlog.d(LOG_TAG, string);
     }
 
+    // TODO: This is hacky. We need a better way of saving the logs.
+    public void addCardLog(String data) {
+        Time t = new Time();
+        t.setToNow();
+        mCardLogs.addLast(t.format("%m-%d %H:%M:%S") + " " + data);
+        if (mCardLogs.size() > MAX_PROACTIVE_COMMANDS_TO_LOG) {
+            mCardLogs.removeFirst();
+        }
+    }
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("UiccController: " + this);
@@ -361,6 +375,10 @@ public class UiccController extends Handler {
                 pw.println("  mUiccCards[" + i + "]=" + mUiccCards[i]);
                 mUiccCards[i].dump(fd, pw, args);
             }
+        }
+        pw.println("mCardLogs: ");
+        for (int i = 0; i < mCardLogs.size(); ++i) {
+            pw.println("  " + mCardLogs.get(i));
         }
     }
 }

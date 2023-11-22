@@ -20,4 +20,15 @@
     <string name="quicksettings_label_launcher">Picture Mode</string>
     <string name="main_label">Picture</string>
     <string name="reset_dialog_message">Reset picture settings to defaults?</string>
+
+    <string name="setting_preset_name">Preset mode</string>
+    <string name="setting_reset_defaults_name">Reset to defaults</string>
+
+    <string name="setting_backlight_name">Backlight</string>
+    <string name="setting_contrast_name">Contrast</string>
+    <string name="setting_brightness_name">Brightness</string>
+    <string name="setting_sharpness_name">Sharpness</string>
+    <string name="setting_color_name">Color</string>
+    <string name="setting_tint_name">Tint</string>
+
 </resources>

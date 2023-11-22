@@ -23,7 +23,7 @@
 #include <string>
 using std::string;
 using std::vector;
-using std::hash_map;
+using std::unordered_map;
 using learning_stochastic_linear::StochasticLinearRanker;
 using learning_stochastic_linear::SparseWeightVector;
 

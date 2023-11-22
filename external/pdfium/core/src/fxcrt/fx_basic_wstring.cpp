@@ -1,58 +1,45 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
+#include <stddef.h>  // For offsetof().
+
 #include "../../include/fxcrt/fx_basic.h"
-static CFX_StringDataW* FX_AllocStringW(int nLen)
+#include "../../../third_party/base/numerics/safe_math.h"
+
+// static
+CFX_WideString::StringData* CFX_WideString::StringData::Create(int nLen)
 {
-    if (nLen == 0) {
+    // TODO(palmer): |nLen| should really be declared as |size_t|, or
+    // at least unsigned.
+    if (nLen == 0 || nLen < 0) {
         return NULL;
     }
-    CFX_StringDataW* pData = (CFX_StringDataW*)FX_Alloc(FX_BYTE, sizeof(long) * 3 + (nLen + 1) * sizeof(FX_WCHAR));
-    if (!pData) {
-        return NULL;
-    }
-    pData->m_nAllocLength = nLen;
-    pData->m_nDataLength = nLen;
-    pData->m_nRefs = 1;
-    pData->m_String[nLen] = 0;
-    return pData;
-}
-static void FX_ReleaseStringW(CFX_StringDataW* pData)
-{
-    if (pData == NULL) {
-        return;
-    }
-    pData->m_nRefs --;
-    if (pData->m_nRefs <= 0) {
-        FX_Free(pData);
-    }
+
+    // Fixed portion of header plus a NUL wide char not in m_nAllocLength.
+    int overhead = offsetof(StringData, m_String) + sizeof(FX_WCHAR);
+    pdfium::base::CheckedNumeric<int> iSize = nLen;
+    iSize *= sizeof(FX_WCHAR);
+    iSize += overhead;
+
+    // Now round to an 8-byte boundary. We'd expect that this is the minimum
+    // granularity of any of the underlying allocators, so there may be cases
+    // where we can save a re-alloc when adding a few characters to a string
+    // by using this otherwise wasted space.
+    iSize += 7;
+    int totalSize = iSize.ValueOrDie() & ~7;
+    int usableLen = (totalSize - overhead) / sizeof(FX_WCHAR);
+    FXSYS_assert(usableLen >= nLen);
+
+    void* pData = FX_Alloc(FX_BYTE, iSize.ValueOrDie());
+    return new (pData) StringData(nLen, usableLen);
 }
 CFX_WideString::~CFX_WideString()
 {
-    if (m_pData == NULL) {
-        return;
-    }
-    m_pData->m_nRefs --;
-    if (m_pData->m_nRefs < 1) {
-        FX_Free(m_pData);
-    }
-}
-void CFX_WideString::InitStr(FX_LPCWSTR lpsz, FX_STRSIZE nLen)
-{
-    if (nLen < 0) {
-        nLen = lpsz ? (FX_STRSIZE)FXSYS_wcslen(lpsz) : 0;
-    }
-    if (nLen) {
-        m_pData = FX_AllocStringW(nLen);
-        if (!m_pData) {
-            return;
-        }
-        FXSYS_memcpy32(m_pData->m_String, lpsz, nLen * sizeof(FX_WCHAR));
-    } else {
-        m_pData = NULL;
+    if (m_pData) {
+        m_pData->Release();
     }
 }
 CFX_WideString::CFX_WideString(const CFX_WideString& stringSrc)
@@ -63,15 +50,28 @@ CFX_WideString::CFX_WideString(const CFX_WideString& stringSrc)
     }
     if (stringSrc.m_pData->m_nRefs >= 0) {
         m_pData = stringSrc.m_pData;
-        m_pData->m_nRefs ++;
+        m_pData->Retain();
     } else {
         m_pData = NULL;
         *this = stringSrc;
     }
 }
+CFX_WideString::CFX_WideString(FX_LPCWSTR lpsz, FX_STRSIZE nLen) {
+    if (nLen < 0) {
+        nLen = lpsz ? FXSYS_wcslen(lpsz) : 0;
+    }
+    if (nLen) {
+        m_pData = StringData::Create(nLen);
+        if (m_pData) {
+            FXSYS_memcpy32(m_pData->m_String, lpsz, nLen * sizeof(FX_WCHAR));
+        }
+    } else {
+        m_pData = NULL;
+    }
+}
 CFX_WideString::CFX_WideString(FX_WCHAR ch)
 {
-    m_pData = FX_AllocStringW(1);
+    m_pData = StringData::Create(1);
     if (m_pData) {
         m_pData->m_String[0] = ch;
     }
@@ -82,7 +82,7 @@ CFX_WideString::CFX_WideString(const CFX_WideStringC& str)
         m_pData = NULL;
         return;
     }
-    m_pData = FX_AllocStringW(str.GetLength());
+    m_pData = StringData::Create(str.GetLength());
     if (m_pData) {
         FXSYS_memcpy32(m_pData->m_String, str.GetPtr(), str.GetLength()*sizeof(FX_WCHAR));
     }
@@ -94,7 +94,7 @@ CFX_WideString::CFX_WideString(const CFX_WideStringC& str1, const CFX_WideString
     if (nNewLen == 0) {
         return;
     }
-    m_pData = FX_AllocStringW(nNewLen);
+    m_pData = StringData::Create(nNewLen);
     if (m_pData) {
         FXSYS_memcpy32(m_pData->m_String, str1.GetPtr(), str1.GetLength()*sizeof(FX_WCHAR));
         FXSYS_memcpy32(m_pData->m_String + str1.GetLength(), str2.GetPtr(), str2.GetLength()*sizeof(FX_WCHAR));
@@ -107,7 +107,7 @@ void CFX_WideString::ReleaseBuffer(FX_STRSIZE nNewLength)
     }
     CopyBeforeWrite();
     if (nNewLength == -1) {
-        nNewLength = m_pData ? (FX_STRSIZE)FXSYS_wcslen(m_pData->m_String) : 0;
+        nNewLength = m_pData ? FXSYS_wcslen(m_pData->m_String) : 0;
     }
     if (nNewLength == 0) {
         Empty();
@@ -122,7 +122,7 @@ const CFX_WideString& CFX_WideString::operator=(FX_LPCWSTR lpsz)
     if (lpsz == NULL || lpsz[0] == 0) {
         Empty();
     } else {
-        AssignCopy((FX_STRSIZE)FXSYS_wcslen(lpsz), lpsz);
+        AssignCopy(FXSYS_wcslen(lpsz), lpsz);
     }
     return *this;
 }
@@ -149,7 +149,7 @@ const CFX_WideString& CFX_WideString::operator=(const CFX_WideString& stringSrc)
         Empty();
         m_pData = stringSrc.m_pData;
         if (m_pData) {
-            m_pData->m_nRefs ++;
+            m_pData->Retain();
         }
     }
     return *this;
@@ -162,7 +162,7 @@ const CFX_WideString& CFX_WideString::operator+=(FX_WCHAR ch)
 const CFX_WideString& CFX_WideString::operator+=(FX_LPCWSTR lpsz)
 {
     if (lpsz) {
-        ConcatInPlace((FX_STRSIZE)FXSYS_wcslen(lpsz), lpsz);
+        ConcatInPlace(FXSYS_wcslen(lpsz), lpsz);
     }
     return *this;
 }
@@ -182,41 +182,16 @@ const CFX_WideString& CFX_WideString::operator+=(const CFX_WideStringC& string)
     ConcatInPlace(string.GetLength(), string.GetPtr());
     return *this;
 }
-bool operator==(const CFX_WideString& s1, FX_LPCWSTR s2)
+bool CFX_WideString::Equal(const wchar_t* ptr) const
 {
-    return s1.Equal(s2);
-}
-bool operator==(FX_LPCWSTR s1, const CFX_WideString& s2)
-{
-    return s2.Equal(s1);
-}
-bool operator==(const CFX_WideString& s1, const CFX_WideString& s2)
-{
-    return s1.Equal(s2);
-}
-bool operator==(const CFX_WideString& s1, const CFX_WideStringC& s2)
-{
-    return s1.Equal(s2);
-}
-bool operator==(const CFX_WideStringC& s1, const CFX_WideString& s2)
-{
-    return s2.Equal(s1);
-}
-bool operator != (const CFX_WideString& s1, FX_LPCWSTR s2)
-{
-    return !s1.Equal(s2);
-}
-bool operator!=(const CFX_WideString& s1, const CFX_WideString& s2)
-{
-    return !s1.Equal(s2);
-}
-bool operator!=(const CFX_WideString& s1, const CFX_WideStringC& s2)
-{
-    return !s1.Equal(s2);
-}
-bool operator!=(const CFX_WideStringC& s1, const CFX_WideString& s2)
-{
-    return !s2.Equal(s1);
+    if (!m_pData) {
+        return !ptr || ptr[0] == L'\0';
+    }
+    if (!ptr) {
+        return m_pData->m_nDataLength == 0;
+    }
+    return wcslen(ptr) == m_pData->m_nDataLength &&
+            wmemcmp(ptr, m_pData->m_String, m_pData->m_nDataLength) == 0;
 }
 bool CFX_WideString::Equal(const CFX_WideStringC& str) const
 {
@@ -224,19 +199,27 @@ bool CFX_WideString::Equal(const CFX_WideStringC& str) const
         return str.IsEmpty();
     }
     return str.GetLength() == m_pData->m_nDataLength &&
-           FXSYS_memcmp32(str.GetPtr(), m_pData->m_String, m_pData->m_nDataLength * sizeof(FX_WCHAR)) == 0;
+        wmemcmp(str.GetPtr(), m_pData->m_String, m_pData->m_nDataLength) == 0;
+}
+bool CFX_WideString::Equal(const CFX_WideString& other) const
+{
+    if (IsEmpty()) {
+        return other.IsEmpty();
+    }
+    if (other.IsEmpty()) {
+        return false;
+    }
+    return other.m_pData->m_nDataLength == m_pData->m_nDataLength &&
+        wmemcmp(other.m_pData->m_String,
+                m_pData->m_String,
+                m_pData->m_nDataLength) == 0;
 }
 void CFX_WideString::Empty()
 {
-    if (m_pData == NULL) {
-        return;
+    if (m_pData) {
+        m_pData->Release();
+        m_pData = NULL;
     }
-    if (m_pData->m_nRefs > 1) {
-        m_pData->m_nRefs --;
-    } else {
-        FX_Free(m_pData);
-    }
-    m_pData = NULL;
 }
 void CFX_WideString::ConcatInPlace(FX_STRSIZE nSrcLen, FX_LPCWSTR lpszSrcData)
 {
@@ -244,16 +227,14 @@ void CFX_WideString::ConcatInPlace(FX_STRSIZE nSrcLen, FX_LPCWSTR lpszSrcData)
         return;
     }
     if (m_pData == NULL) {
-        m_pData = FX_AllocStringW(nSrcLen);
+        m_pData = StringData::Create(nSrcLen);
         if (m_pData) {
             FXSYS_memcpy32(m_pData->m_String, lpszSrcData, nSrcLen * sizeof(FX_WCHAR));
         }
         return;
     }
     if (m_pData->m_nRefs > 1 || m_pData->m_nDataLength + nSrcLen > m_pData->m_nAllocLength) {
-        CFX_StringDataW* pOldData = m_pData;
         ConcatCopy(m_pData->m_nDataLength, m_pData->m_String, nSrcLen, lpszSrcData);
-        FX_ReleaseStringW(pOldData);
     } else {
         FXSYS_memcpy32(m_pData->m_String + m_pData->m_nDataLength, lpszSrcData, nSrcLen * sizeof(FX_WCHAR));
         m_pData->m_nDataLength += nSrcLen;
@@ -264,24 +245,27 @@ void CFX_WideString::ConcatCopy(FX_STRSIZE nSrc1Len, FX_LPCWSTR lpszSrc1Data,
                                 FX_STRSIZE nSrc2Len, FX_LPCWSTR lpszSrc2Data)
 {
     FX_STRSIZE nNewLen = nSrc1Len + nSrc2Len;
-    if (nNewLen == 0) {
+    if (nNewLen <= 0) {
         return;
     }
-    m_pData = FX_AllocStringW(nNewLen);
+    // Don't release until done copying, might be one of the arguments.
+    StringData* pOldData = m_pData;
+    m_pData = StringData::Create(nNewLen);
     if (m_pData) {
-        FXSYS_memcpy32(m_pData->m_String, lpszSrc1Data, nSrc1Len * sizeof(FX_WCHAR));
-        FXSYS_memcpy32(m_pData->m_String + nSrc1Len, lpszSrc2Data, nSrc2Len * sizeof(FX_WCHAR));
+        wmemcpy(m_pData->m_String, lpszSrc1Data, nSrc1Len);
+        wmemcpy(m_pData->m_String + nSrc1Len, lpszSrc2Data, nSrc2Len);
     }
+    pOldData->Release();
 }
 void CFX_WideString::CopyBeforeWrite()
 {
     if (m_pData == NULL || m_pData->m_nRefs <= 1) {
         return;
     }
-    CFX_StringDataW* pData = m_pData;
-    m_pData->m_nRefs --;
+    StringData* pData = m_pData;
+    m_pData->Release();
     FX_STRSIZE nDataLength = pData->m_nDataLength;
-    m_pData = FX_AllocStringW(nDataLength);
+    m_pData = StringData::Create(nDataLength);
     if (m_pData != NULL) {
         FXSYS_memcpy32(m_pData->m_String, pData->m_String, (nDataLength + 1) * sizeof(FX_WCHAR));
     }
@@ -292,7 +276,7 @@ void CFX_WideString::AllocBeforeWrite(FX_STRSIZE nLen)
         return;
     }
     Empty();
-    m_pData = FX_AllocStringW(nLen);
+    m_pData = StringData::Create(nLen);
 }
 void CFX_WideString::AssignCopy(FX_STRSIZE nSrcLen, FX_LPCWSTR lpszSrcData)
 {
@@ -312,25 +296,21 @@ CFX_ByteString CFX_WideString::UTF8Encode() const
 {
     return FX_UTF8Encode(*this);
 }
-CFX_ByteString CFX_WideString::UTF16LE_Encode(FX_BOOL bTerminate) const
+CFX_ByteString CFX_WideString::UTF16LE_Encode() const
 {
     if (m_pData == NULL) {
-        return bTerminate ? CFX_ByteString(FX_BSTRC("\0\0")) : CFX_ByteString();
+        return CFX_ByteString(FX_BSTRC("\0\0"));
     }
     int len = m_pData->m_nDataLength;
     CFX_ByteString result;
-    FX_LPSTR buffer = result.GetBuffer(len * 2 + (bTerminate ? 2 : 0));
+    FX_LPSTR buffer = result.GetBuffer(len * 2 + 2);
     for (int i = 0; i < len; i ++) {
         buffer[i * 2] = m_pData->m_String[i] & 0xff;
         buffer[i * 2 + 1] = m_pData->m_String[i] >> 8;
     }
-    if (bTerminate) {
-        buffer[len * 2] = 0;
-        buffer[len * 2 + 1] = 0;
-        result.ReleaseBuffer(len * 2 + 2);
-    } else {
-        result.ReleaseBuffer(len * 2);
-    }
+    buffer[len * 2] = 0;
+    buffer[len * 2 + 1] = 0;
+    result.ReleaseBuffer(len * 2 + 2);
     return result;
 }
 void CFX_WideString::ConvertFrom(const CFX_ByteString& str, CFX_CharMap* pCharMap)
@@ -354,7 +334,7 @@ FX_LPWSTR CFX_WideString::GetBuffer(FX_STRSIZE nMinBufLength)
         return m_pData->m_String;
     }
     if (m_pData == NULL) {
-        m_pData = FX_AllocStringW(nMinBufLength);
+        m_pData = StringData::Create(nMinBufLength);
         if (!m_pData) {
             return NULL;
         }
@@ -362,21 +342,18 @@ FX_LPWSTR CFX_WideString::GetBuffer(FX_STRSIZE nMinBufLength)
         m_pData->m_String[0] = 0;
         return m_pData->m_String;
     }
-    CFX_StringDataW* pOldData = m_pData;
+    StringData* pOldData = m_pData;
     FX_STRSIZE nOldLen = pOldData->m_nDataLength;
     if (nMinBufLength < nOldLen) {
         nMinBufLength = nOldLen;
     }
-    m_pData = FX_AllocStringW(nMinBufLength);
+    m_pData = StringData::Create(nMinBufLength);
     if (!m_pData) {
         return NULL;
     }
     FXSYS_memcpy32(m_pData->m_String, pOldData->m_String, (nOldLen + 1)*sizeof(FX_WCHAR));
     m_pData->m_nDataLength = nOldLen;
-    pOldData->m_nRefs --;
-    if (pOldData->m_nRefs <= 0) {
-        FX_Free(pOldData);
-    }
+    pOldData->Release();
     return m_pData->m_String;
 }
 CFX_WideString CFX_WideString::FromLocal(const char* str, FX_STRSIZE len)
@@ -387,15 +364,10 @@ CFX_WideString CFX_WideString::FromLocal(const char* str, FX_STRSIZE len)
 }
 CFX_WideString CFX_WideString::FromUTF8(const char* str, FX_STRSIZE len)
 {
-    if (!str) {
+    if (!str || 0 == len) {
         return CFX_WideString();
     }
-    if (len < 0) {
-        len = 0;
-        while (str[len]) {
-            len ++;
-        }
-    }
+
     CFX_UTF8Decoder decoder;
     for (FX_STRSIZE i = 0; i < len; i ++) {
         decoder.Input(str[i]);
@@ -404,15 +376,10 @@ CFX_WideString CFX_WideString::FromUTF8(const char* str, FX_STRSIZE len)
 }
 CFX_WideString CFX_WideString::FromUTF16LE(const unsigned short* wstr, FX_STRSIZE wlen)
 {
-    if (!wstr || !wlen) {
+    if (!wstr || 0 == wlen) {
         return CFX_WideString();
     }
-    if (wlen < 0) {
-        wlen = 0;
-        while (wstr[wlen]) {
-            wlen ++;
-        }
-    }
+
     CFX_WideString result;
     FX_WCHAR* buf = result.GetBuffer(wlen);
     for (int i = 0; i < wlen; i ++) {
@@ -421,17 +388,29 @@ CFX_WideString CFX_WideString::FromUTF16LE(const unsigned short* wstr, FX_STRSIZ
     result.ReleaseBuffer(wlen);
     return result;
 }
-void CFX_WideString::AllocCopy(CFX_WideString& dest, FX_STRSIZE nCopyLen, FX_STRSIZE nCopyIndex,
-                               FX_STRSIZE nExtraLen) const
+FX_STRSIZE CFX_WideString::WStringLength(const unsigned short* str)
 {
-    FX_STRSIZE nNewLen = nCopyLen + nExtraLen;
-    if (nNewLen == 0) {
+    FX_STRSIZE len = 0;
+    if (str)
+        while (str[len]) len++;
+    return len;
+}
+
+
+
+void CFX_WideString::AllocCopy(CFX_WideString& dest, FX_STRSIZE nCopyLen, FX_STRSIZE nCopyIndex) const
+{
+    // |FX_STRSIZE| is currently typedef'd as in |int|. TODO(palmer): It
+    // should be a |size_t|, or at least unsigned.
+    if (nCopyLen == 0 || nCopyLen < 0) {
         return;
     }
+    pdfium::base::CheckedNumeric<FX_STRSIZE> iSize = static_cast<FX_STRSIZE>(sizeof(FX_WCHAR));
+    iSize *= nCopyLen;
     ASSERT(dest.m_pData == NULL);
-    dest.m_pData = FX_AllocStringW(nNewLen);
+    dest.m_pData = StringData::Create(nCopyLen);
     if (dest.m_pData) {
-        FXSYS_memcpy32(dest.m_pData->m_String, m_pData->m_String + nCopyIndex, nCopyLen * sizeof(FX_WCHAR));
+        FXSYS_memcpy32(dest.m_pData->m_String, m_pData->m_String + nCopyIndex, iSize.ValueOrDie());
     }
 }
 CFX_WideString CFX_WideString::Left(FX_STRSIZE nCount) const
@@ -446,7 +425,7 @@ CFX_WideString CFX_WideString::Left(FX_STRSIZE nCount) const
         return *this;
     }
     CFX_WideString dest;
-    AllocCopy(dest, nCount, 0, 0);
+    AllocCopy(dest, nCount, 0);
     return dest;
 }
 CFX_WideString CFX_WideString::Mid(FX_STRSIZE nFirst) const
@@ -474,7 +453,7 @@ CFX_WideString CFX_WideString::Mid(FX_STRSIZE nFirst, FX_STRSIZE nCount) const
         return *this;
     }
     CFX_WideString dest;
-    AllocCopy(dest, nCount, nFirst, 0);
+    AllocCopy(dest, nCount, nFirst);
     return dest;
 }
 CFX_WideString CFX_WideString::Right(FX_STRSIZE nCount) const
@@ -489,7 +468,7 @@ CFX_WideString CFX_WideString::Right(FX_STRSIZE nCount) const
         return *this;
     }
     CFX_WideString dest;
-    AllocCopy(dest, nCount, m_pData->m_nDataLength - nCount, 0);
+    AllocCopy(dest, nCount, m_pData->m_nDataLength - nCount);
     return dest;
 }
 int CFX_WideString::CompareNoCase(FX_LPCWSTR lpsz) const
@@ -525,15 +504,6 @@ int CFX_WideString::Compare(const CFX_WideString& str) const
         return 1;
     }
     return 0;
-}
-FX_LPWSTR CFX_WideString::LockBuffer()
-{
-    if (m_pData == NULL) {
-        return NULL;
-    }
-    FX_LPWSTR lpsz = GetBuffer(0);
-    m_pData->m_nRefs = -1;
-    return lpsz;
 }
 void CFX_WideString::SetAt(FX_STRSIZE nIndex, FX_WCHAR ch)
 {
@@ -573,7 +543,7 @@ FX_STRSIZE CFX_WideString::Find(FX_LPCWSTR lpszSub, FX_STRSIZE nStart) const
     if (nLength < 1 || nStart > nLength) {
         return -1;
     }
-    FX_LPCWSTR lpsz = (FX_LPCWSTR)FXSYS_wcsstr(m_pData->m_String + nStart, lpszSub);
+    FX_LPCWSTR lpsz = FXSYS_wcsstr(m_pData->m_String + nStart, lpszSub);
     return (lpsz == NULL) ? -1 : (int)(lpsz - m_pData->m_String);
 }
 FX_STRSIZE CFX_WideString::Find(FX_WCHAR ch, FX_STRSIZE nStart) const
@@ -585,7 +555,7 @@ FX_STRSIZE CFX_WideString::Find(FX_WCHAR ch, FX_STRSIZE nStart) const
     if (nStart >= nLength) {
         return -1;
     }
-    FX_LPCWSTR lpsz = (FX_LPCWSTR)FXSYS_wcschr(m_pData->m_String + nStart, ch);
+    FX_LPCWSTR lpsz = FXSYS_wcschr(m_pData->m_String + nStart, ch);
     return (lpsz == NULL) ? -1 : (int)(lpsz - m_pData->m_String);
 }
 void CFX_WideString::TrimRight(FX_LPCWSTR lpszTargetList)
@@ -660,11 +630,11 @@ FX_STRSIZE CFX_WideString::Replace(FX_LPCWSTR lpszOld, FX_LPCWSTR lpszNew)
     if (lpszOld == NULL) {
         return 0;
     }
-    FX_STRSIZE nSourceLen = (FX_STRSIZE)FXSYS_wcslen(lpszOld);
+    FX_STRSIZE nSourceLen = FXSYS_wcslen(lpszOld);
     if (nSourceLen == 0) {
         return 0;
     }
-    FX_STRSIZE nReplacementLen = lpszNew ? (FX_STRSIZE)FXSYS_wcslen(lpszNew) : 0;
+    FX_STRSIZE nReplacementLen = lpszNew ? FXSYS_wcslen(lpszNew) : 0;
     FX_STRSIZE nCount = 0;
     FX_LPWSTR lpszStart = m_pData->m_String;
     FX_LPWSTR lpszEnd = m_pData->m_String + m_pData->m_nDataLength;
@@ -680,14 +650,14 @@ FX_STRSIZE CFX_WideString::Replace(FX_LPCWSTR lpszOld, FX_LPCWSTR lpszNew)
         FX_STRSIZE nOldLength = m_pData->m_nDataLength;
         FX_STRSIZE nNewLength =  nOldLength + (nReplacementLen - nSourceLen) * nCount;
         if (m_pData->m_nAllocLength < nNewLength || m_pData->m_nRefs > 1) {
-            CFX_StringDataW* pOldData = m_pData;
+            StringData* pOldData = m_pData;
             FX_LPCWSTR pstr = m_pData->m_String;
-            m_pData = FX_AllocStringW(nNewLength);
+            m_pData = StringData::Create(nNewLength);
             if (!m_pData) {
                 return 0;
             }
             FXSYS_memcpy32(m_pData->m_String, pstr, pOldData->m_nDataLength * sizeof(FX_WCHAR));
-            FX_ReleaseStringW(pOldData);
+            pOldData->Release();
         }
         lpszStart = m_pData->m_String;
         lpszEnd = m_pData->m_String + FX_MAX(m_pData->m_nDataLength, nNewLength);
@@ -718,15 +688,15 @@ FX_STRSIZE CFX_WideString::Insert(FX_STRSIZE nIndex, FX_WCHAR ch)
     }
     nNewLength++;
     if (m_pData == NULL || m_pData->m_nAllocLength < nNewLength) {
-        CFX_StringDataW* pOldData = m_pData;
+        StringData* pOldData = m_pData;
         FX_LPCWSTR pstr = m_pData->m_String;
-        m_pData = FX_AllocStringW(nNewLength);
+        m_pData = StringData::Create(nNewLength);
         if (!m_pData) {
             return 0;
         }
         if(pOldData != NULL) {
             FXSYS_memmove32(m_pData->m_String, pstr, (pOldData->m_nDataLength + 1)*sizeof(FX_WCHAR));
-            FX_ReleaseStringW(pOldData);
+            pOldData->Release();
         } else {
             m_pData->m_String[0] = 0;
         }
@@ -793,7 +763,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
     int nMaxLen = 0;
     for (FX_LPCWSTR lpsz = lpszFormat; *lpsz != 0; lpsz ++) {
         if (*lpsz != '%' || *(lpsz = lpsz + 1) == '%') {
-            nMaxLen += (FX_STRSIZE)FXSYS_wcslen(lpsz);
+            nMaxLen += FXSYS_wcslen(lpsz);
             continue;
         }
         int nItemLen = 0;
@@ -816,7 +786,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                 ;
         }
         if (nWidth < 0 || nWidth > 128 * 1024) {
-            lpszFormat = (FX_LPCWSTR)L"Bad width";
+            lpszFormat = L"Bad width";
             nMaxLen = 10;
             break;
         }
@@ -833,7 +803,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
             }
         }
         if (nPrecision < 0 || nPrecision > 128 * 1024) {
-            lpszFormat = (FX_LPCWSTR)L"Bad precision";
+            lpszFormat = L"Bad precision";
             nMaxLen = 14;
             break;
         }
@@ -879,7 +849,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                     if (pstrNextArg == NULL) {
                         nItemLen = 6;
                     } else {
-                        nItemLen = (FX_STRSIZE)FXSYS_wcslen(pstrNextArg);
+                        nItemLen = FXSYS_wcslen(pstrNextArg);
                         if (nItemLen < 1) {
                             nItemLen = 1;
                         }
@@ -891,7 +861,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                     if (pstrNextArg == NULL) {
                         nItemLen = 6;
                     } else {
-                        nItemLen = (FX_STRSIZE)FXSYS_strlen(pstrNextArg);
+                        nItemLen = FXSYS_strlen(pstrNextArg);
                         if (nItemLen < 1) {
                             nItemLen = 1;
                         }
@@ -904,7 +874,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                     if (pstrNextArg == NULL) {
                         nItemLen = 6;
                     } else {
-                        nItemLen = (FX_STRSIZE)FXSYS_strlen(pstrNextArg);
+                        nItemLen = FXSYS_strlen(pstrNextArg);
                         if (nItemLen < 1) {
                             nItemLen = 1;
                         }
@@ -917,7 +887,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                     if (pstrNextArg == NULL) {
                         nItemLen = 6;
                     } else {
-                        nItemLen = (FX_STRSIZE)FXSYS_wcslen(pstrNextArg);
+                        nItemLen = FXSYS_wcslen(pstrNextArg);
                         if (nItemLen < 1) {
                             nItemLen = 1;
                         }
@@ -970,7 +940,7 @@ void CFX_WideString::FormatV(FX_LPCWSTR lpszFormat, va_list argList)
                         char pszTemp[256];
                         f = va_arg(argList, double);
                         FXSYS_snprintf(pszTemp, sizeof(pszTemp), "%*.*f", nWidth, nPrecision + 6, f );
-                        nItemLen = (FX_STRSIZE)FXSYS_strlen(pszTemp);
+                        nItemLen = FXSYS_strlen(pszTemp);
                     }
                     break;
                 case 'p':
@@ -1049,69 +1019,17 @@ FX_FLOAT CFX_WideString::GetFloat() const
     }
     return FX_wtof(m_pData->m_String, m_pData->m_nDataLength);
 }
-void CFX_WideStringL::Empty(IFX_Allocator* pAllocator)
-{
-    if (m_Ptr) {
-        FX_Allocator_Free(pAllocator, (FX_LPVOID)m_Ptr);
-    }
-    m_Ptr = NULL, m_Length = 0;
-}
-void CFX_WideStringL::Set(FX_WSTR src, IFX_Allocator* pAllocator)
-{
-    Empty(pAllocator);
-    if (src.GetPtr() != NULL && src.GetLength() > 0) {
-        FX_LPWSTR str = FX_Allocator_Alloc(pAllocator, FX_WCHAR, src.GetLength() + 1);
-        if (!str) {
-            return;
-        }
-        FXSYS_memcpy32(str, src.GetPtr(), src.GetLength()*sizeof(FX_WCHAR));
-        str[src.GetLength()] = '\0';
-        *(FX_LPWSTR*)(&m_Ptr) = str;
-        m_Length = src.GetLength();
-    }
-}
-int CFX_WideStringL::GetInteger() const
-{
-    if (!m_Ptr) {
-        return 0;
-    }
-    return FXSYS_wtoi(m_Ptr);
-}
-FX_FLOAT CFX_WideStringL::GetFloat() const
-{
-    if (!m_Ptr) {
-        return 0.0f;
-    }
-    return FX_wtof(m_Ptr, m_Length);
-}
-void CFX_WideStringL::TrimRight(FX_LPCWSTR lpszTargets)
-{
-    if (!lpszTargets || *lpszTargets == 0 || !m_Ptr || m_Length < 1) {
-        return;
-    }
-    FX_STRSIZE pos = m_Length;
-    while (pos) {
-        if (FXSYS_wcschr(lpszTargets, m_Ptr[pos - 1]) == NULL) {
-            break;
-        }
-        pos --;
-    }
-    if (pos < m_Length) {
-        (*(FX_LPWSTR*)(&m_Ptr))[pos] = 0;
-        m_Length = pos;
-    }
-}
 static CFX_ByteString _DefMap_GetByteString(CFX_CharMap* pCharMap, const CFX_WideString& widestr)
 {
     int src_len = widestr.GetLength();
     int codepage = pCharMap->m_GetCodePage ? pCharMap->m_GetCodePage() : 0;
-    int dest_len = FXSYS_WideCharToMultiByte(codepage, 0, widestr, src_len, NULL, 0, NULL, NULL);
+    int dest_len = FXSYS_WideCharToMultiByte(codepage, 0, widestr.c_str(), src_len, NULL, 0, NULL, NULL);
     if (dest_len == 0) {
         return CFX_ByteString();
     }
     CFX_ByteString bytestr;
     FX_LPSTR dest_buf = bytestr.GetBuffer(dest_len);
-    FXSYS_WideCharToMultiByte(codepage, 0, widestr, src_len, dest_buf, dest_len, NULL, NULL);
+    FXSYS_WideCharToMultiByte(codepage, 0, widestr.c_str(), src_len, dest_buf, dest_len, NULL, NULL);
     bytestr.ReleaseBuffer(dest_len);
     return bytestr;
 }

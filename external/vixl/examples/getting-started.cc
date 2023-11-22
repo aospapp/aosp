@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,8 +24,8 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "a64/simulator-a64.h"
-#include "a64/macro-assembler-a64.h"
+#include "vixl/a64/simulator-a64.h"
+#include "vixl/a64/macro-assembler-a64.h"
 
 #define BUF_SIZE (4096)
 #define __ masm->
@@ -41,6 +41,7 @@ void GenerateDemoFunction(MacroAssembler *masm) {
 
 
 #ifndef TEST_EXAMPLES
+#ifdef USE_SIMULATOR
 int main() {
   byte assm_buf[BUF_SIZE];
   MacroAssembler masm(assm_buf, BUF_SIZE);
@@ -53,9 +54,13 @@ int main() {
   masm.FinalizeCode();
 
   simulator.set_xreg(0, 0x8899aabbccddeeff);
-  simulator.RunFrom(demo_function.target());
+  simulator.RunFrom(masm.GetLabelAddress<Instruction*>(&demo_function));
   printf("x0 = %" PRIx64 "\n", simulator.xreg(0));
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

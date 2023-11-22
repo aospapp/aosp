@@ -21,8 +21,8 @@ import com.android.cts.util.AbiUtils;
 import com.android.cts.util.TimeoutReq;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.ddmlib.IShellOutputReceiver;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
@@ -30,149 +30,44 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.String;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Test to check the Holo theme has not been changed.
+ * Test to check non-modifiable themes have not been changed.
  */
 public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+    private static final String LOG_TAG = "ThemeHostTest";
+    private static final String APK_NAME = "CtsThemeDeviceApp";
+    private static final String APP_PACKAGE_NAME = "android.theme.app";
 
-    private static final String TAG = ThemeHostTest.class.getSimpleName();
-
-    private static final int CAPTURE_TIMEOUT = 500;//0.5sec in ms
-
-    private static final int ADB_TIMEOUT = 60 * 60 * 1000;//60mins in ms
-
-    /** The package name of the APK. */
-    private static final String PACKAGE = "android.theme.app";
-
-    /** The file name of the APK. */
-    private static final String APK = "CtsThemeDeviceApp.apk";
+    private static final String GENERATED_ASSETS_ZIP = "/sdcard/cts-theme-assets.zip";
 
     /** The class name of the main activity in the APK. */
-    private static final String CLASS = "HoloDeviceActivity";
+    private static final String CLASS = "GenerateImagesActivity";
 
     /** The command to launch the main activity. */
     private static final String START_CMD = String.format(
-            "am start -W -a android.intent.action.MAIN -n %s/%s.%s", PACKAGE, PACKAGE, CLASS);
+            "am start -W -a android.intent.action.MAIN -n %s/%s.%s", APP_PACKAGE_NAME,
+            APP_PACKAGE_NAME, CLASS);
 
-    private static final String STOP_CMD = String.format("am force-stop %s", PACKAGE);
-
+    private static final String CLEAR_GENERATED_CMD = "rm -rf %s/*.png";
+    private static final String STOP_CMD = String.format("am force-stop %s", APP_PACKAGE_NAME);
     private static final String HARDWARE_TYPE_CMD = "dumpsys | grep android.hardware.type";
-
     private static final String DENSITY_PROP_DEVICE = "ro.sf.lcd_density";
-
     private static final String DENSITY_PROP_EMULATOR = "qemu.sf.lcd_density";
 
-    // Intent extras
-    protected final static String INTENT_STRING_EXTRA = " --es %s %s";
-
-    protected final static String INTENT_BOOLEAN_EXTRA = " --ez %s %b";
-
-    protected final static String INTENT_INTEGER_EXTRA = " --ei %s %d";
-
-    // Intent extra keys
-    private static final String EXTRA_THEME = "holo_theme_extra";
-
-    private static final String EXTRA_LAYOUT = "holo_layout_extra";
-
-    private static final String EXTRA_TIMEOUT = "holo_timeout_extra";
-
-    private static final String[] THEMES = {
-            "holo",
-            "holo_dialog",
-            "holo_dialog_minwidth",
-            "holo_dialog_noactionbar",
-            "holo_dialog_noactionbar_minwidth",
-            "holo_dialogwhenlarge",
-            "holo_dialogwhenlarge_noactionbar",
-            "holo_inputmethod",
-            "holo_light",
-            "holo_light_darkactionbar",
-            "holo_light_dialog",
-            "holo_light_dialog_minwidth",
-            "holo_light_dialog_noactionbar",
-            "holo_light_dialog_noactionbar_minwidth",
-            "holo_light_dialogwhenlarge",
-            "holo_light_dialogwhenlarge_noactionbar",
-            "holo_light_noactionbar",
-            "holo_light_noactionbar_fullscreen",
-            "holo_light_panel",
-            "holo_noactionbar",
-            "holo_noactionbar_fullscreen",
-            "holo_panel",
-            "holo_wallpaper",
-            "holo_wallpaper_notitlebar",
-    };
-
-    private final int NUM_THEMES = THEMES.length;
-
-    private static final String[] LAYOUTS = {
-            "button",
-            "button_pressed",
-            "checkbox",
-            "checkbox_checked",
-            "chronometer",
-            "color_blue_bright",
-            "color_blue_dark",
-            "color_blue_light",
-            "color_green_dark",
-            "color_green_light",
-            "color_orange_dark",
-            "color_orange_light",
-            "color_purple",
-            "color_red_dark",
-            "color_red_light",
-            "datepicker",
-            "display_info",
-            "edittext",
-            "progressbar_horizontal_0",
-            "progressbar_horizontal_100",
-            "progressbar_horizontal_50",
-            "progressbar_large",
-            "progressbar_small",
-            "progressbar",
-            "radiobutton_checked",
-            "radiobutton",
-            "radiogroup_horizontal",
-            "radiogroup_vertical",
-            "ratingbar_0",
-            "ratingbar_2point5",
-            "ratingbar_5",
-            "ratingbar_0_pressed",
-            "ratingbar_2point5_pressed",
-            "ratingbar_5_pressed",
-            "searchview_query",
-            "searchview_query_hint",
-            "seekbar_0",
-            "seekbar_100",
-            "seekbar_50",
-            "spinner",
-            "switch_button_checked",
-            "switch_button",
-            "textview",
-            "timepicker",
-            "togglebutton_checked",
-            "togglebutton",
-            "zoomcontrols",
-    };
-
-    private final int NUM_LAYOUTS = LAYOUTS.length;
-
-    private final HashMap<String, File> mReferences = new HashMap<String, File>();
+    private final HashMap<String, File> mReferences = new HashMap<>();
 
     /** The ABI to use. */
     private IAbi mAbi;
@@ -201,31 +96,21 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        // Get the device, this gives a handle to run commands and install APKs.
+
         mDevice = getDevice();
-        // Remove any previously installed versions of this APK.
-        mDevice.uninstallPackage(PACKAGE);
+        mDevice.uninstallPackage(APP_PACKAGE_NAME);
+
         // Get the APK from the build.
-        File app = mBuild.getTestApp(APK);
-        // Get the ABI flag.
-        String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-        // Install the APK on the device.
+        final File app = mBuild.getTestApp(String.format("%s.apk", APK_NAME));
+        final String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
+
         mDevice.installPackage(app, false, options);
 
-        final String densityProp;
+        final String density = getDensityBucketForDevice(mDevice);
+        final String zipFile = String.format("/%s.zip", density);
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Loading resources from " + zipFile);
 
-        if (mDevice.getSerialNumber().startsWith("emulator-")) {
-            densityProp = DENSITY_PROP_EMULATOR;
-        } else {
-            densityProp = DENSITY_PROP_DEVICE;
-        }
-
-        final String zip = String.format("/%s.zip",
-                getDensityBucket(Integer.parseInt(mDevice.getProperty(densityProp))));
-        Log.logAndDisplay(LogLevel.INFO, TAG, "Loading resources from " + zip);
-
-
-        final InputStream zipStream = this.getClass().getResourceAsStream(zip);
+        final InputStream zipStream = ThemeHostTest.class.getResourceAsStream(zipFile);
         if (zipStream != null) {
             final ZipInputStream in = new ZipInputStream(zipStream);
             try {
@@ -235,21 +120,28 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
                     final String name = ze.getName();
                     final File tmp = File.createTempFile("ref_" + name, ".png");
                     final FileOutputStream out = new FileOutputStream(tmp);
+
                     int count;
                     while ((count = in.read(buffer)) != -1) {
                         out.write(buffer, 0, count);
                     }
+
                     out.flush();
                     out.close();
                     mReferences.put(name, tmp);
                 }
+            } catch (IOException e) {
+                Log.logAndDisplay(LogLevel.ERROR, LOG_TAG, "Failed to unzip assets: " + zipFile);
             } finally {
                 in.close();
             }
+        } else {
+            Log.logAndDisplay(LogLevel.ERROR, LOG_TAG, "Failed to get resource: " + zipFile);
         }
 
-        mExecutionService = Executors.newFixedThreadPool(2);// 2 worker threads
-        mCompletionService = new ExecutorCompletionService<Boolean>(mExecutionService);
+        final int numCores = Runtime.getRuntime().availableProcessors();
+        mExecutionService = Executors.newFixedThreadPool(numCores * 2);
+        mCompletionService = new ExecutorCompletionService<>(mExecutionService);
     }
 
     @Override
@@ -258,96 +150,148 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         for (File ref : mReferences.values()) {
             ref.delete();
         }
+
         mExecutionService.shutdown();
+
         // Remove the APK.
-        mDevice.uninstallPackage(PACKAGE);
+        mDevice.uninstallPackage(APP_PACKAGE_NAME);
+
+        // Remove generated images.
+        mDevice.executeShellCommand(CLEAR_GENERATED_CMD);
+
         super.tearDown();
     }
 
     @TimeoutReq(minutes = 60)
-    public void testHoloThemes() throws Exception {
-        if (checkHardwareTypeSkipTest(
-                mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
-            Log.logAndDisplay(LogLevel.INFO, TAG, "Skipped HoloThemes test for watch and TV");
+    public void testThemes() throws Exception {
+        if (checkHardwareTypeSkipTest(mDevice.executeShellCommand(HARDWARE_TYPE_CMD).trim())) {
+            Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test for watch");
             return;
         }
-
 
         if (mReferences.isEmpty()) {
-            Log.logAndDisplay(LogLevel.INFO, TAG,
-                    "Skipped HoloThemes test due to no reference images");
+            Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Skipped themes test due to no reference images");
             return;
         }
 
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Generating device images...");
+
+        assertTrue("Aborted image generation", generateDeviceImages());
+
+        // Pull ZIP file from remote device.
+        final File localZip = File.createTempFile("generated", ".zip");
+        mDevice.pullFile(GENERATED_ASSETS_ZIP, localZip);
+
         int numTasks = 0;
-        for (int i = 0; i < NUM_THEMES; i++) {
-            final String themeName = THEMES[i];
-            for (int j = 0; j < NUM_LAYOUTS; j++) {
-                final String name = String.format("%s_%s", themeName, LAYOUTS[j]);
-                if (runCapture(i, j, name)) {
-                    final File ref = mReferences.get(name + ".png");
-                    if (!ref.exists()) {
-                        Log.logAndDisplay(LogLevel.INFO, TAG,
-                                "Skipping theme test due to missing reference for reference image " + name);
-                        continue;
-                    }
-                    mCompletionService.submit(new ComparisonTask(mDevice, ref, name));
-                    numTasks++;
-                } else {
-                    Log.logAndDisplay(LogLevel.ERROR, TAG, "Capture failed: " + name);
+
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Extracting generated images...");
+
+        // Extract generated images to temporary files.
+        final byte[] data = new byte[4096];
+        final ZipInputStream zipInput = new ZipInputStream(new FileInputStream(localZip));
+        ZipEntry entry;
+        while ((entry = zipInput.getNextEntry()) != null) {
+            final String name = entry.getName();
+            final File expected = mReferences.get(name);
+            if (expected != null && expected.exists()) {
+                final File actual = File.createTempFile("actual_" + name, ".png");
+                final FileOutputStream pngOutput = new FileOutputStream(actual);
+
+                int count;
+                while ((count = zipInput.read(data, 0, data.length)) != -1) {
+                    pngOutput.write(data, 0, count);
                 }
+
+                pngOutput.flush();
+                pngOutput.close();
+
+                mCompletionService.submit(new ComparisonTask(mDevice, expected, actual));
+                numTasks++;
+            } else {
+                Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Missing reference image for " + name);
             }
+
+            zipInput.closeEntry();
         }
+
+        zipInput.close();
+
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Waiting for comparison tasks...");
+
         int failures = 0;
-        for (int i = 0; i < numTasks; i++) {
+        for (int i = numTasks; i > 0; i--) {
             failures += mCompletionService.take().get() ? 0 : 1;
         }
+
         assertTrue(failures + " failures in theme test", failures == 0);
+
+        Log.logAndDisplay(LogLevel.INFO, LOG_TAG, "Finished!");
     }
 
-    private boolean runCapture(int themeId, int layoutId, String imageName) throws Exception {
-        final StringBuilder sb = new StringBuilder(START_CMD);
-        sb.append(String.format(INTENT_INTEGER_EXTRA, EXTRA_THEME, themeId));
-        sb.append(String.format(INTENT_INTEGER_EXTRA, EXTRA_LAYOUT, layoutId));
-        sb.append(String.format(INTENT_INTEGER_EXTRA, EXTRA_TIMEOUT, CAPTURE_TIMEOUT));
-        final String startCommand = sb.toString();
+    private boolean generateDeviceImages() throws Exception {
         // Clear logcat
         mDevice.executeAdbCommand("logcat", "-c");
+
         // Stop any existing instances
         mDevice.executeShellCommand(STOP_CMD);
-        // Start activity
-        mDevice.executeShellCommand(startCommand);
 
-        boolean success = false;
+        // Start activity
+        mDevice.executeShellCommand(START_CMD);
+
+        Log.logAndDisplay(LogLevel.VERBOSE, LOG_TAG, "Starting image generation...");
+
+        boolean aborted = false;
         boolean waiting = true;
-        while (waiting) {
+        do {
             // Dump logcat.
             final String logs = mDevice.executeAdbCommand(
                     "logcat", "-v", "brief", "-d", CLASS + ":I", "*:S");
+
             // Search for string.
             final Scanner in = new Scanner(logs);
             while (in.hasNextLine()) {
                 final String line = in.nextLine();
                 if (line.startsWith("I/" + CLASS)) {
                     final String[] lineSplit = line.split(":");
-                    final String s = lineSplit[1].trim();
-                    final String imageNameGenerated = lineSplit[2].trim();
-                    if (s.equals("OKAY") && imageNameGenerated.equals(imageName)) {
-                        success = true;
-                        waiting = false;
-                    } else if (s.equals("ERROR") && imageNameGenerated.equals(imageName)) {
-                        success = false;
-                        waiting = false;
+                    if (lineSplit.length >= 3) {
+                        final String cmd = lineSplit[1].trim();
+                        final String arg = lineSplit[2].trim();
+                        switch (cmd) {
+                            case "FAIL":
+                                Log.logAndDisplay(LogLevel.WARN, LOG_TAG, line);
+                                Log.logAndDisplay(LogLevel.WARN, LOG_TAG, "Aborting! Check host logs for details.");
+                                aborted = true;
+                                // fall-through
+                            case "OKAY":
+                                waiting = false;
+                                break;
+                        }
                     }
                 }
             }
             in.close();
-        }
+        } while (waiting && !aborted);
 
-        return success;
+        Log.logAndDisplay(LogLevel.VERBOSE, LOG_TAG, "Image generation completed!");
+
+        return !aborted;
     }
 
-    private static String getDensityBucket(int density) {
+    private static String getDensityBucketForDevice(ITestDevice device) {
+        final String densityProp;
+        if (device.getSerialNumber().startsWith("emulator-")) {
+            densityProp = DENSITY_PROP_EMULATOR;
+        } else {
+            densityProp = DENSITY_PROP_DEVICE;
+        }
+
+        final int density;
+        try {
+            density = Integer.parseInt(device.getProperty(densityProp));
+        } catch (DeviceNotAvailableException e) {
+            return "unknown";
+        }
+
         switch (density) {
             case 120:
                 return "ldpi";
@@ -376,9 +320,7 @@ public class ThemeHostTest extends DeviceTestCase implements IAbiReceiver, IBuil
         if (hardwareTypeString.contains("android.hardware.type.watch")) {
             return true;
         }
-        if (hardwareTypeString.contains("android.hardware.type.television")) {
-            return true;
-        }
+
         return false;
     }
 }

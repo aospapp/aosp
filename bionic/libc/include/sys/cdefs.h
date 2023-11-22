@@ -77,7 +77,9 @@
 #define	__GNUC_PREREQ(x, y)	0
 #endif
 
-#include <sys/cdefs_elf.h>
+#define __strong_alias(alias, sym) \
+    __asm__(".global " #alias "\n" \
+            #alias " = " #sym);
 
 #if defined(__cplusplus)
 #define	__BEGIN_DECLS		extern "C" {
@@ -263,13 +265,6 @@
 #endif
 #endif /* !(__STDC_VERSION__ >= 199901L) */
 
-#if defined(_KERNEL)
-#if defined(NO_KERNEL_RCSIDS)
-#undef __KERNEL_RCSID
-#define	__KERNEL_RCSID(_n, _s)		/* nothing */
-#endif /* NO_KERNEL_RCSIDS */
-#endif /* _KERNEL */
-
 /*
  * A barrier to stop the optimizer from moving code or assume live
  * register values. This is gcc specific, the version is more or less
@@ -340,12 +335,14 @@
 #endif
 
 #if __GNUC_PREREQ(4, 3)
-#define __errordecl(name, msg) extern void name(void) __attribute__((__error__(msg)))
+#define __errorattr(msg) __attribute__((__error__(msg)))
 #define __warnattr(msg) __attribute__((__warning__(msg)))
 #else
-#define __errordecl(name, msg) extern void name(void)
+#define __errorattr(msg)
 #define __warnattr(msg)
 #endif
+
+#define __errordecl(name, msg) extern void name(void) __errorattr(msg)
 
 /*
  * Some BSD source needs these macros.
@@ -358,9 +355,41 @@
 #define __RCSID(_s) /* nothing */
 #define __SCCSID(_s) /* nothing */
 
+/*
+ * _BSD_SOURCE and _GNU_SOURCE are expected to be defined by callers before
+ * any standard header file is included. In those header files we test
+ * against __USE_BSD and __USE_GNU. glibc does this in <features.h> but we
+ * do it in <sys/cdefs.h> instead because that's where our existing
+ * _POSIX_C_SOURCE tests were, and we're already confident that <sys/cdefs.h>
+ * is included everywhere it should be.
+ *
+ * The _GNU_SOURCE test needs to come before any _BSD_SOURCE or _POSIX* tests
+ * because _GNU_SOURCE implies everything else.
+ */
+#if defined(_GNU_SOURCE)
+# define __USE_GNU 1
+# undef _POSIX_SOURCE
+# define _POSIX_SOURCE 1
+# undef _POSIX_C_SOURCE
+# define _POSIX_C_SOURCE 200809L
+# undef _BSD_SOURCE
+# define _BSD_SOURCE 1
+#endif
+
+#if defined(_BSD_SOURCE)
+# define __USE_BSD 1
+#endif
+
+/*
+ * _FILE_OFFSET_BITS 64 support.
+ */
+#if !defined(__LP64__) && defined(_FILE_OFFSET_BITS)
+#if _FILE_OFFSET_BITS == 64
+#define __USE_FILE_OFFSET64 1
+#endif
+#endif
+
 /*-
- * The following definitions are an extension of the behavior originally
- * implemented in <sys/_posix.h>, but with a different level of granularity.
  * POSIX.1 requires that the macros we test be defined before any standard
  * header file is included.
  *
@@ -537,5 +566,11 @@
 
 /* Used to rename functions so that the compiler emits a call to 'x' rather than the function this was applied to. */
 #define __RENAME(x) __asm__(#x)
+
+#if __ANDROID_API__ >= 21
+#define _BIONIC_NOT_BEFORE_21(x) x
+#else
+#define _BIONIC_NOT_BEFORE_21(x)
+#endif /* __ANDROID_API__ >= 21 */
 
 #endif /* !_SYS_CDEFS_H_ */

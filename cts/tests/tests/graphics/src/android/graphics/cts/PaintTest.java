@@ -19,6 +19,7 @@ package android.graphics.cts;
 
 import android.graphics.ColorFilter;
 import android.graphics.MaskFilter;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.graphics.Paint.Cap;
@@ -28,11 +29,14 @@ import android.graphics.Path;
 import android.graphics.PathEffect;
 import android.graphics.Rasterizer;
 import android.graphics.Shader;
+import android.graphics.Bitmap;
+import android.graphics.BitmapShader;
 import android.graphics.Typeface;
 import android.graphics.Xfermode;
 import android.os.Build;
 import android.test.AndroidTestCase;
 import android.text.SpannedString;
+import android.util.Log;
 
 import java.util.Locale;
 
@@ -190,7 +194,7 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(m, p2.getMaskFilter());
         assertEquals(e, p2.getPathEffect());
         assertEquals(r, p2.getRasterizer());
-        assertNotSame(s, p2.getShader());
+        assertEquals(s, p2.getShader());
         assertEquals(t, p2.getTypeface());
         assertEquals(x, p2.getXfermode());
 
@@ -199,7 +203,7 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(m, p2.getMaskFilter());
         assertEquals(e, p2.getPathEffect());
         assertEquals(r, p2.getRasterizer());
-        assertNotSame(s, p2.getShader());
+        assertEquals(s, p2.getShader());
         assertEquals(t, p2.getTypeface());
         assertEquals(x, p2.getXfermode());
 
@@ -269,6 +273,35 @@ public class PaintTest extends AndroidTestCase {
 
         assertNull(p.setShader(null));
         assertNull(p.getShader());
+    }
+
+    public void testShaderLocalMatrix() {
+        int width = 80;
+        int height = 120;
+        int[] color = new int[width * height];
+        Bitmap bitmap = Bitmap.createBitmap(color, width, height, Bitmap.Config.RGB_565);
+
+        Paint p = new Paint();
+        Matrix m = new Matrix();
+        Shader s = new BitmapShader(bitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
+
+        // set the shaders matrix to a non identity value and attach to paint
+        m.setScale(10, 0);
+        s.setLocalMatrix(m);
+        p.setShader(s);
+
+        Matrix m2 = new Matrix();
+        assertTrue(p.getShader().getLocalMatrix(m2));
+        assertEquals(m, m2);
+
+        // updated the matrix again and set it on the shader but NOT the paint
+        m.setScale(0, 10);
+        s.setLocalMatrix(m);
+
+        // assert that the matrix on the paint's shader also changed
+        Matrix m3 = new Matrix();
+        assertTrue(p.getShader().getLocalMatrix(m3));
+        assertEquals(m, m3);
     }
 
     public void testSetAntiAlias() {
@@ -776,7 +809,6 @@ public class PaintTest extends AndroidTestCase {
     }
 
     public void testReset() {
-
         Paint p  = new Paint();
         ColorFilter c = new ColorFilter();
         MaskFilter m  = new MaskFilter();
@@ -812,7 +844,6 @@ public class PaintTest extends AndroidTestCase {
         assertEquals(null, p.getShader());
         assertEquals(null, p.getTypeface());
         assertEquals(null, p.getXfermode());
-
     }
 
     public void testSetLinearText() {
@@ -895,6 +926,20 @@ public class PaintTest extends AndroidTestCase {
         // Test measuring substrings from the front and back
         assertMeasureText(text, textChars, textSpan, 0, 2, widths[0] + widths[1]);
         assertMeasureText(text, textChars, textSpan, 4, 7, widths[4] + widths[5] + widths[6]);
+    }
+
+    public void testMeasureTextContext() {
+       Paint p = new Paint();
+       // Arabic LAM, which is different width depending on context
+       String shortString = "\u0644";
+       String longString = "\u0644\u0644\u0644";
+       char[] longChars = longString.toCharArray();
+       SpannedString longSpanned = new SpannedString(longString);
+       float width = p.measureText(shortString);
+       // Verify that measurement of substring is consistent no matter what surrounds it.
+       assertMeasureText(longString, longChars, longSpanned, 0, 1, width);
+       assertMeasureText(longString, longChars, longSpanned, 1, 2, width);
+       assertMeasureText(longString, longChars, longSpanned, 2, 3, width);
     }
 
     public void testMeasureTextWithLongText() {
@@ -1001,4 +1046,376 @@ public class PaintTest extends AndroidTestCase {
         }
     }
 
+    public void testHasGlyph() {
+        Paint p = new Paint();
+
+        // This method tests both the logic of hasGlyph and the sanity of fonts present
+        // on the device.
+        assertTrue(p.hasGlyph("A"));
+        assertFalse(p.hasGlyph("\uFFFE"));  // U+FFFE is guaranteed to be a noncharacter
+
+        // Roboto 2 (the default typeface) does have an "fi" glyph and is mandated by CDD
+        assertTrue(p.hasGlyph("fi"));
+        assertFalse(p.hasGlyph("ab"));  // but it does not contain an "ab" glyph
+        assertTrue(p.hasGlyph("\u02E5\u02E9"));  // IPA tone mark ligature
+
+        // variation selectors
+        assertFalse(p.hasGlyph("a\uFE0F"));
+        assertFalse(p.hasGlyph("a\uDB40\uDDEF"));  // UTF-16 encoding of U+E01EF
+        assertFalse(p.hasGlyph("\u2229\uFE0F"));  // base character is in mathematical symbol font
+        // Note: U+FE0F is variation selection, unofficially reserved for emoji
+
+        // regional indicator symbols
+        assertTrue(p.hasGlyph("\uD83C\uDDEF\uD83C\uDDF5"));   // "JP" U+1F1EF U+1F1F5
+        assertFalse(p.hasGlyph("\uD83C\uDDFF\uD83C\uDDFF"));  // "ZZ" U+1F1FF U+1F1FF
+
+        // Mongolian, which is an optional font, but if present, should support FVS
+        if (p.hasGlyph("\u182D")) {
+            assertTrue(p.hasGlyph("\u182D\u180B"));
+        }
+
+        // TODO: when we support variation selectors, add positive tests
+    }
+
+    public void testGetRunAdvance() {
+        Paint p = new Paint();
+        {
+            // LTR
+            String string = "abcdef";
+            {
+                final float width = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), false, 0);
+                assertEquals(0.0f, width);
+            }
+            {
+                final float widthToMid = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), false, string.length() / 2);
+                final float widthToTail = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), false, string.length());
+                assertTrue(widthToMid > 0.0f);
+                assertTrue(widthToTail > widthToMid);
+            }
+            {
+                final float widthFromHead = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), false, string.length());
+                final float widthFromSecond = p.getRunAdvance(string, 1, string.length(), 0,
+                        string.length(), false, string.length());
+                assertTrue(widthFromHead > widthFromSecond);
+            }
+        }
+        {
+            // RTL
+            String string = "\u0644\u063A\u0629 \u0639\u0631\u0628\u064A\u0629"; // Arabic
+            {
+                final float widthToMid = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, string.length() / 2);
+                final float widthToTail = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, string.length());
+                assertTrue(widthToMid > 0.0f);
+                assertTrue(widthToTail > widthToMid);
+            }
+            {
+                final float widthFromHead = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, string.length());
+                final float widthFromSecond = p.getRunAdvance(string, 1, string.length(), 0,
+                        string.length(), true, string.length());
+                assertTrue(widthFromHead > widthFromSecond);
+            }
+        }
+    }
+
+    public void testGetRunAdvance_invalidArguments() {
+        Paint p = new Paint();
+        try {
+            p.getRunAdvance((CharSequence)null, 0, 0, 0, 0, false, 0);
+            fail("Should throw an IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            fail("Should throw an IllegalArgumentException.");
+        }
+
+        try {
+            p.getRunAdvance((char[])null, 0, 0, 0, 0, false, 0);
+            fail("Should throw an IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            fail("Should throw an IllegalArgumentException.");
+        }
+
+        final String string = "abcde";
+
+        try {
+            // text length < context end
+            p.getRunAdvance(string, 0, string.length(), 0, string.length() + 1, false,
+                    string.length());
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+        try {
+            // context end < end
+            p.getRunAdvance(string, 0, string.length(), 0, string.length() - 1, false, 0);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+        try {
+            // end < offset
+            p.getRunAdvance(string, 0, string.length() - 1, 0, string.length() - 1, false,
+                    string.length());
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+        try {
+            // offset < start
+            p.getRunAdvance(string, 1, string.length(), 1, string.length(), false, 0);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+        try {
+            // start < context start
+            p.getRunAdvance(string, 0, string.length(), 1, string.length(), false, 1);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+        try {
+            // context start < 0
+            p.getRunAdvance(string, 0, string.length(), -1, string.length(), false, 0);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+    }
+
+    public void testGetRunAdvance_nonzeroIndex() {
+        Paint p = new Paint();
+        final String text = "Android powers hundreds of millions of mobile " +
+                "devices in more than 190 countries around the world. It's" +
+                "the largest installed base of any mobile platform and" +
+                "growing fast—every day another million users power up their" +
+                "Android devices for the first time and start looking for" +
+                "apps, games, and other digital content.";
+        // Test offset index does not affect width.
+        final float widthAndroidFirst = p.getRunAdvance(
+                text, 0, 7, 0, text.length(), false, 7);
+        final float widthAndroidSecond = p.getRunAdvance(
+                text, 215, 222, 0, text.length(), false, 222);
+        assertTrue(Math.abs(widthAndroidFirst - widthAndroidSecond) < 1);
+    }
+
+    public void testGetRunAdvance_glyphDependingContext() {
+        Paint p = new Paint();
+        // Test the context change the character shape.
+        // First character should be isolated form because the context ends at index 1.
+        final float isolatedFormWidth = p.getRunAdvance("\u0644\u0644", 0, 1, 0, 1, true, 1);
+        // First character should be initial form because the context ends at index 2.
+        final float initialFormWidth = p.getRunAdvance("\u0644\u0644", 0, 1, 0, 2, true, 1);
+        assertTrue(isolatedFormWidth > initialFormWidth);
+    }
+
+    public void testGetRunAdvance_arabic() {
+        Paint p = new Paint();
+        // Test total width is equals to sum of each character's width.
+        // "What is Unicode?" in Arabic.
+        final String text =
+                "\u0645\u0627\u0020\u0647\u064A\u0020\u0627\u0644\u0634" +
+                "\u0641\u0631\u0629\u0020\u0627\u0644\u0645\u0648\u062D" +
+                "\u062F\u0629\u0020\u064A\u0648\u0646\u064A\u0643\u0648" +
+                "\u062F\u061F";
+        final float totalWidth = p.getRunAdvance(
+                text, 0, text.length(), 0, text.length(), true, text.length());
+        float sumOfCharactersWidth = 0;
+        for (int i = 0; i < text.length(); i++) {
+            sumOfCharactersWidth += p.getRunAdvance(
+                    text, i, i + 1, 0, text.length(), true, i + 1);
+        }
+        assertTrue(Math.abs(totalWidth - sumOfCharactersWidth) < 1);
+    }
+
+    public void testGetOffsetForAdvance() {
+        Paint p = new Paint();
+        {
+            // LTR
+            String string = "abcdef";
+            {
+                for (int offset = 0; offset <= string.length(); ++offset) {
+                    final float widthToOffset = p.getRunAdvance(string, 0,
+                            string.length(), 0, string.length(), false, offset);
+                    final int restoredOffset = p.getOffsetForAdvance(string, 0,
+                            string.length(), 0, string.length(), false, widthToOffset);
+                    assertEquals(offset, restoredOffset);
+                }
+            }
+            {
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), false, -10.0f);
+                assertEquals(0, offset);
+            }
+            {
+                final float widthToEnd = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, string.length());
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), true, widthToEnd + 10.0f);
+                assertEquals(string.length(), offset);
+            }
+        }
+        {
+            // RTL
+            String string = "\u0639\u0631\u0628\u0649"; // Arabic
+            {
+                for (int offset = 0; offset <= string.length(); ++offset) {
+                    final float widthToOffset = p.getRunAdvance(string, 0,
+                            string.length(), 0, string.length(), true, offset);
+                    final int restoredOffset = p.getOffsetForAdvance(string, 0,
+                            string.length(), 0, string.length(), true, widthToOffset);
+                    assertEquals(offset, restoredOffset);
+                }
+            }
+            {
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), true, -10.0f);
+                assertEquals(0, offset);
+            }
+            {
+                final float widthToEnd = p.getRunAdvance(string, 0, string.length(), 0,
+                        string.length(), true, string.length());
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), true, widthToEnd + 10.0f);
+                assertEquals(string.length(), offset);
+            }
+        }
+    }
+
+    public void testGetOffsetForAdvance_invalidArguments() {
+        Paint p = new Paint();
+        try {
+            p.getOffsetForAdvance((CharSequence)null, 0, 0, 0, 0, false, 0.0f);
+            fail("Should throw an IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            fail("Should throw an IllegalArgumentException.");
+        }
+        try {
+            p.getOffsetForAdvance((char[])null, 0, 0, 0, 0, false, 0.0f);
+            fail("Should throw an IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            fail("Should throw an IllegalArgumentException.");
+        }
+
+        final String string = "abcde";
+
+        try {
+            // context start < 0
+            p.getOffsetForAdvance(string, -1, string.length(), 0, string.length(), false, 0.0f);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+
+        try {
+            // start < context start
+            p.getOffsetForAdvance(string, 0, string.length(), 1, string.length(), false, 0.0f);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+
+        try {
+            // end < start
+            p.getOffsetForAdvance(string, 1, 0, 0, 0, false, 0);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+
+        try {
+            // context end < end
+            p.getOffsetForAdvance(string, 0, string.length(), 0, string.length() - 1, false, 0.0f);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+
+        try {
+            // text length < context end
+            p.getOffsetForAdvance(string, 0, string.length(), 0, string.length() + 1, false, 0.0f);
+            fail("Should throw an IndexOutOfBoundsException.");
+        } catch (IndexOutOfBoundsException e) {
+        } catch (Exception e) {
+            fail("Should throw an IndexOutOfBoundsException.");
+        }
+    }
+
+    public void testGetOffsetForAdvance_grahpemeCluster() {
+        Paint p = new Paint();
+        {
+            String string = "\uD83C\uDF37"; // U+1F337: TULIP
+            {
+                final float widthToOffset = p.getRunAdvance(string, 0,
+                        string.length(), 0, string.length(), false, 1);
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), false, widthToOffset);
+                assertFalse(1 == offset);
+                assertTrue(0 == offset || string.length() == offset);
+            }
+        }
+        {
+            String string = "\uD83C\uDDFA\uD83C\uDDF8"; // US flag
+            {
+                final float widthToOffset = p.getRunAdvance(string, 0,
+                        string.length(), 0, string.length(), false, 2);
+                final int offset = p.getOffsetForAdvance(string, 0, string.length(), 0,
+                        string.length(), false, widthToOffset);
+                assertFalse(2 == offset);
+                assertTrue(0 == offset || string.length() == offset);
+            }
+            {
+                final float widthToOffset = p.getRunAdvance(string, 0, 2, 0, 2, false, 2);
+                final int offset = p.getOffsetForAdvance(string, 0, 2,
+                        0, 2, false, widthToOffset);
+                assertEquals(2, offset);
+            }
+        }
+        {
+            // HANGUL CHOSEONG KIYEOK, HANGUL JUNGSEONG A, HANDUL JONGSEONG KIYEOK
+            String string = "\u1100\u1161\u11A8";
+            {
+                for (int offset = 0; offset <= string.length(); ++offset) {
+                    final float widthToOffset = p.getRunAdvance(string, 0,
+                            string.length(), 0, string.length(), false, offset);
+                    final int offsetForAdvance = p.getOffsetForAdvance(string, 0, string.length(),
+                            0, string.length(), false, widthToOffset);
+                    assertTrue(0 == offsetForAdvance || string.length() == offsetForAdvance);
+                }
+                for (int offset = 0; offset <= string.length(); ++offset) {
+                    final float widthToOffset = p.getRunAdvance(string, 0, offset, 0, offset,
+                            false, offset);
+                    final int offsetForAdvance = p.getOffsetForAdvance(string, 0, string.length(),
+                            0, string.length(), false, widthToOffset);
+                    assertTrue(0 == offsetForAdvance || string.length() == offsetForAdvance);
+                }
+                for (int offset = 0; offset <= string.length(); ++offset) {
+                    final float widthToOffset = p.getRunAdvance(string, 0, offset, 0, offset,
+                            false, offset);
+                    final int offsetForAdvance = p.getOffsetForAdvance(string, 0, offset, 0,
+                            offset, false, widthToOffset);
+                    assertEquals(offset, offsetForAdvance);
+                }
+            }
+        }
+    }
 }

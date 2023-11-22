@@ -945,10 +945,6 @@ static void ProcessExifDir(unsigned char * DirStart, unsigned char * OffsetBase,
 
             case TAG_ISO_EQUIVALENT:
                 ImageInfo.ISOequivalent = (int)ConvertAnyFormat(ValuePtr, Format);
-                if ( ImageInfo.ISOequivalent < 50 ){
-                    // Fixes strange encoding on some older digicams.
-                    ImageInfo.ISOequivalent *= 200;
-                }
                 break;
 
             case TAG_DIGITALZOOMRATIO:
@@ -1341,7 +1337,7 @@ static void create_EXIF_internal(ExifElement_t* elements, int exifTagCount, int 
 #ifdef SUPERDEBUG
     ALOGE("create_EXIF %d exif elements, %d gps elements", exifTagCount, gpsTagCount);
 #endif
-    
+
     MotorolaOrder = 0;
 
     memcpy(Buffer+2, "Exif\0\0II",8);
@@ -1365,7 +1361,7 @@ static void create_EXIF_internal(ExifElement_t* elements, int exifTagCount, int 
 
         Put16u(Buffer+DirIndex, NumEntries); // Number of entries
         DirIndex += 2;
-  
+
         // Entries go here...
         if (!hasDateTimeTag) {
             // Date/time entry
@@ -1524,7 +1520,7 @@ static void create_EXIF_internal(ExifElement_t* elements, int exifTagCount, int 
         printf("Ending Thumbnail section DirIndex = %d DataWriteIndex %d", DirIndex, DataWriteIndex);
     }
 
-    
+
     Buffer[0] = (unsigned char)(DataWriteIndex >> 8);
     Buffer[1] = (unsigned char)DataWriteIndex;
 
@@ -1771,7 +1767,7 @@ void ShowImageInfo(int ShowFileInfo)
         printf("\n");
     }
     if (ImageInfo.ApertureFNumber){
-        printf("Aperture     : f/%3.1f\n",(double)ImageInfo.ApertureFNumber);
+        printf("Aperture     : f/%3.3f\n",(double)ImageInfo.ApertureFNumber);
     }
     if (ImageInfo.Distance){
         if (ImageInfo.Distance < 0){

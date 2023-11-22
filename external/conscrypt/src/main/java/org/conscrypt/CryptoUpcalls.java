@@ -16,14 +16,13 @@
 
 package org.conscrypt;
 
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Provider;
 import java.security.Security;
 import java.security.Signature;
-import java.security.interfaces.DSAPrivateKey;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.RSAPrivateKey;
+import java.util.ArrayList;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 
@@ -32,69 +31,89 @@ import javax.crypto.NoSuchPaddingException;
  * calls to work on delegated key types from native code.
  */
 public final class CryptoUpcalls {
-    private static final String RSA_CRYPTO_ALGORITHM = "RSA/ECB/PKCS1Padding";
 
     private CryptoUpcalls() {
     }
 
+    private static boolean isOurProvider(Provider p) {
+        return p.getClass().getPackage().equals(CryptoUpcalls.class.getPackage());
+    }
+
     /**
-     * Finds the first provider which provides {@code algorithm} but is not from
-     * the same ClassLoader as ours.
+     * Finds providers that are not us that provide the requested algorithms.
      */
-    public static Provider getExternalProvider(String algorithm) {
-        Provider selectedProvider = null;
+    private static ArrayList<Provider> getExternalProviders(String algorithm) {
+        ArrayList<Provider> providers = new ArrayList<>(1);
         for (Provider p : Security.getProviders(algorithm)) {
-            if (!p.getClass().getClassLoader().equals(CryptoUpcalls.class.getClassLoader())) {
-                selectedProvider = p;
-                break;
+            if (!isOurProvider(p)) {
+                providers.add(p);
             }
         }
-        if (selectedProvider == null) {
+        if (providers.isEmpty()) {
             System.err.println("Could not find external provider for algorithm: " + algorithm);
         }
-        return selectedProvider;
+        return providers;
     }
 
     public static byte[] rawSignDigestWithPrivateKey(PrivateKey javaKey, byte[] message) {
         // Get the raw signature algorithm for this key type.
-        String algorithm = null;
+        String algorithm;
         // Hint: Algorithm names come from:
         // http://docs.oracle.com/javase/6/docs/technotes/guides/security/StandardNames.html
-        if (javaKey instanceof RSAPrivateKey) {
+        String keyAlgorithm = javaKey.getAlgorithm();
+        if ("RSA".equals(keyAlgorithm)) {
             // IMPORTANT: Due to a platform bug, this will throw
             // NoSuchAlgorithmException
             // on Android 4.0.x and 4.1.x. Fixed in 4.2 and higher.
             // See https://android-review.googlesource.com/#/c/40352/
             algorithm = "NONEwithRSA";
-        } else if (javaKey instanceof DSAPrivateKey) {
-            algorithm = "NONEwithDSA";
-        } else if (javaKey instanceof ECPrivateKey) {
+        } else if ("EC".equals(keyAlgorithm)) {
             algorithm = "NONEwithECDSA";
         } else {
             throw new RuntimeException("Unexpected key type: " + javaKey.toString());
         }
 
-        Provider p = getExternalProvider("Signature." + algorithm);
-        if (p == null) {
-            return null;
-        }
+        Signature signature;
 
-        // Get the Signature for this key.
-        Signature signature = null;
+        // First try to get the most preferred provider as long as it isn't us.
         try {
-            signature = Signature.getInstance(algorithm, p);
+            signature = Signature.getInstance(algorithm);
+            signature.initSign(javaKey);
+
+            // Ignore it if it points back to us.
+            if (isOurProvider(signature.getProvider())) {
+                signature = null;
+            }
         } catch (NoSuchAlgorithmException e) {
-            ;
+            System.err.println("Unsupported signature algorithm: " + algorithm);
+            return null;
+        } catch (InvalidKeyException e) {
+            System.err.println("Preferred provider doesn't support key:");
+            e.printStackTrace();
+            signature = null;
         }
 
+        // If the preferred provider was us, fall back to trying to find the
+        // first not-us provider that initializes correctly.
         if (signature == null) {
-            System.err.println("Unsupported private key algorithm: " + javaKey.getAlgorithm());
-            return null;
+            ArrayList<Provider> providers = getExternalProviders("Signature." + algorithm);
+            for (Provider p : providers) {
+                try {
+                    signature = Signature.getInstance(algorithm, p);
+                    signature.initSign(javaKey);
+                    break;
+                } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+                    signature = null;
+                }
+            }
+            if (signature == null) {
+                System.err.println("Could not find provider for algorithm: " + algorithm);
+                return null;
+            }
         }
 
         // Sign the message.
         try {
-            signature.initSign(javaKey);
             signature.update(message);
             return signature.sign();
         } catch (Exception e) {
@@ -105,37 +124,76 @@ public final class CryptoUpcalls {
         }
     }
 
-    public static byte[] rawCipherWithPrivateKey(PrivateKey javaKey, boolean encrypt,
+    public static byte[] rsaDecryptWithPrivateKey(PrivateKey javaKey, int openSSLPadding,
             byte[] input) {
-        if (!(javaKey instanceof RSAPrivateKey)) {
-            System.err.println("Unexpected key type: " + javaKey.toString());
+        String keyAlgorithm = javaKey.getAlgorithm();
+        if (!"RSA".equals(keyAlgorithm)) {
+            System.err.println("Unexpected key type: " + keyAlgorithm);
             return null;
         }
 
-        Provider p = getExternalProvider("Cipher." + RSA_CRYPTO_ALGORITHM);
-        if (p == null) {
-            return null;
+        String jcaPadding;
+        switch (openSSLPadding) {
+            case NativeConstants.RSA_PKCS1_PADDING:
+                jcaPadding = "PKCS1Padding";
+                break;
+            case NativeConstants.RSA_NO_PADDING:
+                jcaPadding = "NoPadding";
+                break;
+            case NativeConstants.RSA_PKCS1_OAEP_PADDING:
+                jcaPadding = "OAEPPadding";
+                break;
+            default:
+                System.err.println("Unsupported OpenSSL/BoringSSL padding: " + openSSLPadding);
+                return null;
         }
 
+        String transformation = "RSA/ECB/" + jcaPadding;
         Cipher c = null;
+
+        // First try to get the most preferred provider as long as it isn't us.
         try {
-            c = Cipher.getInstance(RSA_CRYPTO_ALGORITHM, p);
-        } catch (NoSuchAlgorithmException e) {
-            ;
-        } catch (NoSuchPaddingException e) {
-            ;
+            c = Cipher.getInstance(transformation);
+            c.init(Cipher.DECRYPT_MODE, javaKey);
+
+            // Ignore it if it points back to us.
+            if (isOurProvider(c.getProvider())) {
+                c = null;
+            }
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+            System.err.println("Unsupported cipher algorithm: " + transformation);
+            return null;
+        } catch (InvalidKeyException e) {
+            System.err.println("Preferred provider doesn't support key:");
+            e.printStackTrace();
+            c = null;
         }
 
+        // If the preferred provider was us, fall back to trying to find the
+        // first not-us provider that initializes correctly.
         if (c == null) {
-            System.err.println("Unsupported private key algorithm: " + javaKey.getAlgorithm());
+            ArrayList<Provider> providers = getExternalProviders("Cipher." + transformation);
+            for (Provider p : providers) {
+                try {
+                    c = Cipher.getInstance(transformation, p);
+                    c.init(Cipher.DECRYPT_MODE, javaKey);
+                    break;
+                } catch (NoSuchAlgorithmException | InvalidKeyException
+                        | NoSuchPaddingException e) {
+                    c = null;
+                }
+            }
+            if (c == null) {
+                System.err.println("Could not find provider for algorithm: " + transformation);
+                return null;
+            }
         }
 
         try {
-            c.init(encrypt ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, javaKey);
             return c.doFinal(input);
         } catch (Exception e) {
-            System.err.println("Exception while ciphering message with " + javaKey.getAlgorithm()
-                    + " private key:");
+            System.err.println("Exception while decrypting message with " + javaKey.getAlgorithm()
+                    + " private key using " + transformation + ":");
             e.printStackTrace();
             return null;
         }

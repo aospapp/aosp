@@ -48,6 +48,13 @@ void memcpy_to_u8_from_i16(uint8_t *dst, const int16_t *src, size_t count)
     }
 }
 
+void memcpy_to_u8_from_float(uint8_t *dst, const float *src, size_t count)
+{
+    while (count--) {
+        *dst++ = clamp8_from_float(*src++);
+    }
+}
+
 void memcpy_to_i16_from_i32(int16_t *dst, const int32_t *src, size_t count)
 {
     while (count--) {
@@ -76,6 +83,13 @@ void memcpy_to_float_from_i16(float *dst, const int16_t *src, size_t count)
     }
 }
 
+void memcpy_to_float_from_u8(float *dst, const uint8_t *src, size_t count)
+{
+    while (count--) {
+        *dst++ = float_from_u8(*src++);
+    }
+}
+
 void memcpy_to_float_from_p24(float *dst, const uint8_t *src, size_t count)
 {
     while (count--) {
@@ -91,6 +105,18 @@ void memcpy_to_i16_from_p24(int16_t *dst, const uint8_t *src, size_t count)
         *dst++ = src[1] | (src[0] << 8);
 #else
         *dst++ = src[1] | (src[2] << 8);
+#endif
+        src += 3;
+    }
+}
+
+void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count)
+{
+    while (count--) {
+#ifdef HAVE_BIG_ENDIAN
+        *dst++ = (src[2] << 8) | (src[1] << 16) | (src[0] << 24);
+#else
+        *dst++ = (src[0] << 8) | (src[1] << 16) | (src[2] << 24);
 #endif
         src += 3;
     }
@@ -145,6 +171,23 @@ void memcpy_to_p24_from_q8_23(uint8_t *dst, const int32_t *src, size_t count)
     }
 }
 
+void memcpy_to_p24_from_i32(uint8_t *dst, const int32_t *src, size_t count)
+{
+    while (count--) {
+        int32_t ival = *src++ >> 8;
+
+#ifdef HAVE_BIG_ENDIAN
+        *dst++ = ival >> 16;
+        *dst++ = ival >> 8;
+        *dst++ = ival;
+#else
+        *dst++ = ival;
+        *dst++ = ival >> 8;
+        *dst++ = ival >> 16;
+#endif
+    }
+}
+
 void memcpy_to_q8_23_from_i16(int32_t *dst, const int16_t *src, size_t count)
 {
     while (count--) {
@@ -156,6 +199,18 @@ void memcpy_to_q8_23_from_float_with_clamp(int32_t *dst, const float *src, size_
 {
     while (count--) {
         *dst++ = clamp24_from_float(*src++);
+    }
+}
+
+void memcpy_to_q8_23_from_p24(int32_t *dst, const uint8_t *src, size_t count)
+{
+    while (count--) {
+#ifdef HAVE_BIG_ENDIAN
+        *dst++ = (int8_t)src[0] << 16 | src[1] << 8 | src[2];
+#else
+        *dst++ = (int8_t)src[2] << 16 | src[1] << 8 | src[0];
+#endif
+        src += 3;
     }
 }
 
@@ -213,6 +268,24 @@ void upmix_to_stereo_i16_from_mono_i16(int16_t *dst, const int16_t *src, size_t 
 {
     while (count--) {
         int32_t temp = *src++;
+        dst[0] = temp;
+        dst[1] = temp;
+        dst += 2;
+    }
+}
+
+void downmix_to_mono_float_from_stereo_float(float *dst, const float *src, size_t frames)
+{
+    while (frames--) {
+        *dst++ = (src[0] + src[1]) * 0.5;
+        src += 2;
+    }
+}
+
+void upmix_to_stereo_float_from_mono_float(float *dst, const float *src, size_t frames)
+{
+    while (frames--) {
+        float temp = *src++;
         dst[0] = temp;
         dst[1] = temp;
         dst += 2;
@@ -408,4 +481,46 @@ size_t memcpy_by_index_array_initialization(int8_t *idxary, size_t idxcount,
         }
     }
     return n + popcount(ormask & dst_mask);
+}
+
+size_t memcpy_by_index_array_initialization_src_index(int8_t *idxary, size_t idxcount,
+        uint32_t dst_mask, uint32_t src_mask) {
+    size_t dst_count = popcount(dst_mask);
+    if (idxcount == 0) {
+        return dst_count;
+    }
+    if (dst_count > idxcount) {
+        dst_count = idxcount;
+    }
+
+    size_t src_idx, dst_idx;
+    for (src_idx = 0, dst_idx = 0; dst_idx < dst_count; ++dst_idx) {
+        if (src_mask & 1) {
+            idxary[dst_idx] = src_idx++;
+        } else {
+            idxary[dst_idx] = -1;
+        }
+        src_mask >>= 1;
+    }
+    return dst_idx;
+}
+
+size_t memcpy_by_index_array_initialization_dst_index(int8_t *idxary, size_t idxcount,
+        uint32_t dst_mask, uint32_t src_mask) {
+    size_t src_idx, dst_idx;
+    size_t dst_count = __builtin_popcount(dst_mask);
+    size_t src_count = __builtin_popcount(src_mask);
+    if (idxcount == 0) {
+        return dst_count;
+    }
+    if (dst_count > idxcount) {
+        dst_count = idxcount;
+    }
+    for (src_idx = 0, dst_idx = 0; dst_idx < dst_count; ++src_idx) {
+        if (dst_mask & 1) {
+            idxary[dst_idx++] = src_idx < src_count ? (signed)src_idx : -1;
+        }
+        dst_mask >>= 1;
+    }
+    return dst_idx;
 }

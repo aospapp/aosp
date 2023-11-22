@@ -117,17 +117,25 @@ static void convolve(const uint8_t *src, ptrdiff_t src_stride,
                      const InterpKernel *const y_filters,
                      int y0_q4, int y_step_q4,
                      int w, int h) {
-  // Fixed size intermediate buffer places limits on parameters.
-  // Maximum intermediate_height is 324, for y_step_q4 == 80,
-  // h == 64, taps == 8.
-  // y_step_q4 of 80 allows for 1/10 scale for 5 layer svc
-  uint8_t temp[64 * 324];
+  // Note: Fixed size intermediate buffer, temp, places limits on parameters.
+  // 2d filtering proceeds in 2 steps:
+  //   (1) Interpolate horizontally into an intermediate buffer, temp.
+  //   (2) Interpolate temp vertically to derive the sub-pixel result.
+  // Deriving the maximum number of rows in the temp buffer (135):
+  // --Smallest scaling factor is x1/2 ==> y_step_q4 = 32 (Normative).
+  // --Largest block size is 64x64 pixels.
+  // --64 rows in the downscaled frame span a distance of (64 - 1) * 32 in the
+  //   original frame (in 1/16th pixel units).
+  // --Must round-up because block may be located at sub-pixel position.
+  // --Require an additional SUBPEL_TAPS rows for the 8-tap filter tails.
+  // --((64 - 1) * 32 + 15) >> 4 + 8 = 135.
+  uint8_t temp[135 * 64];
   int intermediate_height = (((h - 1) * y_step_q4 + 15) >> 4) + SUBPEL_TAPS;
 
   assert(w <= 64);
   assert(h <= 64);
-  assert(y_step_q4 <= 80);
-  assert(x_step_q4 <= 80);
+  assert(y_step_q4 <= 32);
+  assert(x_step_q4 <= 32);
 
   if (intermediate_height < h)
     intermediate_height = h;
@@ -156,6 +164,9 @@ void vp9_convolve8_horiz_c(const uint8_t *src, ptrdiff_t src_stride,
   const InterpKernel *const filters_x = get_filter_base(filter_x);
   const int x0_q4 = get_filter_offset(filter_x, filters_x);
 
+  (void)filter_y;
+  (void)y_step_q4;
+
   convolve_horiz(src, src_stride, dst, dst_stride, filters_x,
                  x0_q4, x_step_q4, w, h);
 }
@@ -168,6 +179,9 @@ void vp9_convolve8_avg_horiz_c(const uint8_t *src, ptrdiff_t src_stride,
   const InterpKernel *const filters_x = get_filter_base(filter_x);
   const int x0_q4 = get_filter_offset(filter_x, filters_x);
 
+  (void)filter_y;
+  (void)y_step_q4;
+
   convolve_avg_horiz(src, src_stride, dst, dst_stride, filters_x,
                      x0_q4, x_step_q4, w, h);
 }
@@ -179,6 +193,10 @@ void vp9_convolve8_vert_c(const uint8_t *src, ptrdiff_t src_stride,
                           int w, int h) {
   const InterpKernel *const filters_y = get_filter_base(filter_y);
   const int y0_q4 = get_filter_offset(filter_y, filters_y);
+
+  (void)filter_x;
+  (void)x_step_q4;
+
   convolve_vert(src, src_stride, dst, dst_stride, filters_y,
                 y0_q4, y_step_q4, w, h);
 }
@@ -190,6 +208,10 @@ void vp9_convolve8_avg_vert_c(const uint8_t *src, ptrdiff_t src_stride,
                               int w, int h) {
   const InterpKernel *const filters_y = get_filter_base(filter_y);
   const int y0_q4 = get_filter_offset(filter_y, filters_y);
+
+  (void)filter_x;
+  (void)x_step_q4;
+
   convolve_avg_vert(src, src_stride, dst, dst_stride, filters_y,
                     y0_q4, y_step_q4, w, h);
 }
@@ -232,6 +254,9 @@ void vp9_convolve_copy_c(const uint8_t *src, ptrdiff_t src_stride,
                          int w, int h) {
   int r;
 
+  (void)filter_x;  (void)filter_x_stride;
+  (void)filter_y;  (void)filter_y_stride;
+
   for (r = h; r > 0; --r) {
     vpx_memcpy(dst, src, w);
     src += src_stride;
@@ -245,6 +270,9 @@ void vp9_convolve_avg_c(const uint8_t *src, ptrdiff_t src_stride,
                         const int16_t *filter_y, int filter_y_stride,
                         int w, int h) {
   int x, y;
+
+  (void)filter_x;  (void)filter_x_stride;
+  (void)filter_y;  (void)filter_y_stride;
 
   for (y = 0; y < h; ++y) {
     for (x = 0; x < w; ++x)

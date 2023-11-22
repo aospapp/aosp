@@ -4,16 +4,17 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_TAGGED_H_
-#define _FPDF_TAGGED_H_
-class CPDF_StructTree;
-class CPDF_StructElement;
-struct CPDF_StructKid;
+#ifndef CORE_INCLUDE_FPDFDOC_FPDF_TAGGED_H_
+#define CORE_INCLUDE_FPDFDOC_FPDF_TAGGED_H_
+
 class CPDF_Document;
 class CPDF_Page;
-class IPDF_ReflowEngine;
+class CPDF_StructElement;
+class CPDF_StructTree;
 class IPDF_ReflowedPage;
-class CPDF_StructTree : public CFX_Object
+struct CPDF_StructKid;
+
+class CPDF_StructTree 
 {
 public:
 
@@ -65,9 +66,10 @@ struct CPDF_StructKid {
         } m_Object;
     };
 };
-class CPDF_StructElement : public CFX_Object
+class CPDF_StructElement 
 {
 public:
+    virtual ~CPDF_StructElement() { }
 
     virtual CPDF_StructTree*	GetTree() const = 0;
 
@@ -96,4 +98,5 @@ public:
     virtual int					GetInteger(FX_BSTR owner, FX_BSTR name, int default_value, FX_BOOL bInheritable = FALSE, int subindex = -1) = 0;
 
 };
-#endif
+
+#endif  // CORE_INCLUDE_FPDFDOC_FPDF_TAGGED_H_

@@ -49,6 +49,9 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 {
 	int i, j;
 
+	for (i = 0; i < NR_OPTS_SZ; i++)
+		o->set_options[i] = le64_to_cpu(top->set_options[i]);
+
 	string_to_cpu(&o->description, top->description);
 	string_to_cpu(&o->name, top->name);
 	string_to_cpu(&o->directory, top->directory);
@@ -131,6 +134,7 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 	o->verifysort = le32_to_cpu(top->verifysort);
 	o->verifysort_nr = le32_to_cpu(top->verifysort_nr);
 	o->experimental_verify = le32_to_cpu(top->experimental_verify);
+	o->verify_state = le32_to_cpu(top->verify_state);
 	o->verify_interval = le32_to_cpu(top->verify_interval);
 	o->verify_offset = le32_to_cpu(top->verify_offset);
 
@@ -149,8 +153,10 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 	o->rand_repeatable = le32_to_cpu(top->rand_repeatable);
 	o->allrand_repeatable = le32_to_cpu(top->allrand_repeatable);
 	o->rand_seed = le64_to_cpu(top->rand_seed);
-	o->use_os_rand = le32_to_cpu(top->use_os_rand);
 	o->log_avg_msec = le32_to_cpu(top->log_avg_msec);
+	o->log_offset = le32_to_cpu(top->log_offset);
+	o->log_gz = le32_to_cpu(top->log_gz);
+	o->log_gz_store = le32_to_cpu(top->log_gz_store);
 	o->norandommap = le32_to_cpu(top->norandommap);
 	o->softrandommap = le32_to_cpu(top->softrandommap);
 	o->bs_unaligned = le32_to_cpu(top->bs_unaligned);
@@ -191,8 +197,6 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 	o->stonewall = le32_to_cpu(top->stonewall);
 	o->new_group = le32_to_cpu(top->new_group);
 	o->numjobs = le32_to_cpu(top->numjobs);
-	o->cpumask_set = le32_to_cpu(top->cpumask_set);
-	o->verify_cpumask_set = le32_to_cpu(top->verify_cpumask_set);
 	o->cpus_allowed_policy = le32_to_cpu(top->cpus_allowed_policy);
 	o->iolog = le32_to_cpu(top->iolog);
 	o->rwmixcycle = le32_to_cpu(top->rwmixcycle);
@@ -215,7 +219,6 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 	o->unified_rw_rep = le32_to_cpu(top->unified_rw_rep);
 	o->gtod_reduce = le32_to_cpu(top->gtod_reduce);
 	o->gtod_cpu = le32_to_cpu(top->gtod_cpu);
-	o->gtod_offload = le32_to_cpu(top->gtod_offload);
 	o->clocksource = le32_to_cpu(top->clocksource);
 	o->no_stall = le32_to_cpu(top->no_stall);
 	o->trim_percentage = le32_to_cpu(top->trim_percentage);
@@ -238,6 +241,7 @@ void convert_thread_options_to_cpu(struct thread_options *o,
 	o->latency_percentile.u.f = fio_uint64_to_double(le64_to_cpu(top->latency_percentile.u.i));
 	o->compress_percentage = le32_to_cpu(top->compress_percentage);
 	o->compress_chunk = le32_to_cpu(top->compress_chunk);
+	o->dedupe_percentage = le32_to_cpu(top->dedupe_percentage);
 
 	o->trim_backlog = le64_to_cpu(top->trim_backlog);
 
@@ -253,6 +257,9 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 				   struct thread_options *o)
 {
 	int i, j;
+
+	for (i = 0; i < NR_OPTS_SZ; i++)
+		top->set_options[i] = cpu_to_le64(o->set_options[i]);
 
 	string_to_net(top->description, o->description);
 	string_to_net(top->name, o->name);
@@ -305,6 +312,7 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 	top->verifysort = cpu_to_le32(o->verifysort);
 	top->verifysort_nr = cpu_to_le32(o->verifysort_nr);
 	top->experimental_verify = cpu_to_le32(o->experimental_verify);
+	top->verify_state = cpu_to_le32(o->verify_state);
 	top->verify_interval = cpu_to_le32(o->verify_interval);
 	top->verify_offset = cpu_to_le32(o->verify_offset);
 	top->verify_pattern_bytes = cpu_to_le32(o->verify_pattern_bytes);
@@ -319,8 +327,10 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 	top->rand_repeatable = cpu_to_le32(o->rand_repeatable);
 	top->allrand_repeatable = cpu_to_le32(o->allrand_repeatable);
 	top->rand_seed = __cpu_to_le64(o->rand_seed);
-	top->use_os_rand = cpu_to_le32(o->use_os_rand);
 	top->log_avg_msec = cpu_to_le32(o->log_avg_msec);
+	top->log_offset = cpu_to_le32(o->log_offset);
+	top->log_gz = cpu_to_le32(o->log_gz);
+	top->log_gz_store = cpu_to_le32(o->log_gz_store);
 	top->norandommap = cpu_to_le32(o->norandommap);
 	top->softrandommap = cpu_to_le32(o->softrandommap);
 	top->bs_unaligned = cpu_to_le32(o->bs_unaligned);
@@ -348,8 +358,6 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 	top->stonewall = cpu_to_le32(o->stonewall);
 	top->new_group = cpu_to_le32(o->new_group);
 	top->numjobs = cpu_to_le32(o->numjobs);
-	top->cpumask_set = cpu_to_le32(o->cpumask_set);
-	top->verify_cpumask_set = cpu_to_le32(o->verify_cpumask_set);
 	top->cpus_allowed_policy = cpu_to_le32(o->cpus_allowed_policy);
 	top->iolog = cpu_to_le32(o->iolog);
 	top->rwmixcycle = cpu_to_le32(o->rwmixcycle);
@@ -372,7 +380,6 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 	top->unified_rw_rep = cpu_to_le32(o->unified_rw_rep);
 	top->gtod_reduce = cpu_to_le32(o->gtod_reduce);
 	top->gtod_cpu = cpu_to_le32(o->gtod_cpu);
-	top->gtod_offload = cpu_to_le32(o->gtod_offload);
 	top->clocksource = cpu_to_le32(o->clocksource);
 	top->no_stall = cpu_to_le32(o->no_stall);
 	top->trim_percentage = cpu_to_le32(o->trim_percentage);
@@ -395,6 +402,7 @@ void convert_thread_options_to_net(struct thread_options_pack *top,
 	top->latency_percentile.u.i = __cpu_to_le64(fio_double_to_uint64(o->latency_percentile.u.f));
 	top->compress_percentage = cpu_to_le32(o->compress_percentage);
 	top->compress_chunk = cpu_to_le32(o->compress_chunk);
+	top->dedupe_percentage = cpu_to_le32(o->dedupe_percentage);
 
 	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 		top->bs[i] = cpu_to_le32(o->bs[i]);

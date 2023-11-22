@@ -1,3 +1,0 @@
-android.webkit.WebView focusable focused scrollable
-    android.view.View clickable name='link with no href but onclick'
-    android.view.View clickable name='link with no href and click handler added via script'

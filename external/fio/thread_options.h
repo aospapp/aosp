@@ -3,6 +3,7 @@
 
 #include "arch/arch.h"
 #include "os/os.h"
+#include "options.h"
 #include "stat.h"
 #include "gettime.h"
 #include "lib/ieee754.h"
@@ -28,10 +29,13 @@ struct bssplit {
 	uint32_t perc;
 };
 
+#define NR_OPTS_SZ	(FIO_MAX_OPTS / (8 * sizeof(uint64_t)))
+
 #define OPT_MAGIC	0x4f50544e
 
 struct thread_options {
 	int magic;
+	uint64_t set_options[NR_OPTS_SZ];
 	char *description;
 	char *name;
 	char *directory;
@@ -99,6 +103,8 @@ struct thread_options {
 	unsigned long long verify_backlog;
 	unsigned int verify_batch;
 	unsigned int experimental_verify;
+	unsigned int verify_state;
+	unsigned int verify_state_save;
 	unsigned int use_thread;
 	unsigned int unlink;
 	unsigned int do_disk_util;
@@ -106,8 +112,11 @@ struct thread_options {
 	unsigned int rand_repeatable;
 	unsigned int allrand_repeatable;
 	unsigned long long rand_seed;
-	unsigned int use_os_rand;
+	unsigned int dep_use_os_rand;
 	unsigned int log_avg_msec;
+	unsigned int log_offset;
+	unsigned int log_gz;
+	unsigned int log_gz_store;
 	unsigned int norandommap;
 	unsigned int softrandommap;
 	unsigned int bs_unaligned;
@@ -154,16 +163,12 @@ struct thread_options {
 	unsigned int new_group;
 	unsigned int numjobs;
 	os_cpu_mask_t cpumask;
-	unsigned int cpumask_set;
 	os_cpu_mask_t verify_cpumask;
-	unsigned int verify_cpumask_set;
 	unsigned int cpus_allowed_policy;
 	char *numa_cpunodes;
-	unsigned int numa_cpumask_set;
 	unsigned short numa_mem_mode;
 	unsigned int numa_mem_prefer_node;
 	char *numa_memnodes;
-	unsigned int numa_memmask_set;
 	unsigned int iolog;
 	unsigned int rwmixcycle;
 	unsigned int rwmix[DDIR_RWDIR_CNT];
@@ -181,6 +186,7 @@ struct thread_options {
 	unsigned int buffer_pattern_bytes;
 	unsigned int compress_percentage;
 	unsigned int compress_chunk;
+	unsigned int dedupe_percentage;
 	unsigned int time_based;
 	unsigned int disable_lat;
 	unsigned int disable_clat;
@@ -189,7 +195,6 @@ struct thread_options {
 	unsigned int unified_rw_rep;
 	unsigned int gtod_reduce;
 	unsigned int gtod_cpu;
-	unsigned int gtod_offload;
 	enum fio_cs clocksource;
 	unsigned int no_stall;
 	unsigned int trim_percentage;
@@ -259,6 +264,7 @@ struct thread_options {
 #define FIO_TOP_STR_MAX		256
 
 struct thread_options_pack {
+	uint64_t set_options[NR_OPTS_SZ];
 	uint8_t description[FIO_TOP_STR_MAX];
 	uint8_t name[FIO_TOP_STR_MAX];
 	uint8_t directory[FIO_TOP_STR_MAX];
@@ -326,6 +332,8 @@ struct thread_options_pack {
 	uint64_t verify_backlog;
 	uint32_t verify_batch;
 	uint32_t experimental_verify;
+	uint32_t verify_state;
+	uint32_t verify_state_save;
 	uint32_t use_thread;
 	uint32_t unlink;
 	uint32_t do_disk_util;
@@ -333,8 +341,11 @@ struct thread_options_pack {
 	uint32_t rand_repeatable;
 	uint32_t allrand_repeatable;
 	uint64_t rand_seed;
-	uint32_t use_os_rand;
+	uint32_t dep_use_os_rand;
 	uint32_t log_avg_msec;
+	uint32_t log_offset;
+	uint32_t log_gz;
+	uint32_t log_gz_store;
 	uint32_t norandommap;
 	uint32_t softrandommap;
 	uint32_t bs_unaligned;
@@ -342,6 +353,7 @@ struct thread_options_pack {
 	uint32_t bs_is_seq_rand;
 
 	uint32_t random_distribution;
+	uint32_t pad;
 	fio_fp64_t zipf_theta;
 	fio_fp64_t pareto_h;
 
@@ -378,9 +390,7 @@ struct thread_options_pack {
 	uint32_t new_group;
 	uint32_t numjobs;
 	uint8_t cpumask[FIO_TOP_STR_MAX];
-	uint32_t cpumask_set;
 	uint8_t verify_cpumask[FIO_TOP_STR_MAX];
-	uint32_t verify_cpumask_set;
 	uint32_t cpus_allowed_policy;
 	uint32_t iolog;
 	uint32_t rwmixcycle;
@@ -397,8 +407,9 @@ struct thread_options_pack {
 	uint32_t scramble_buffers;
 	uint8_t buffer_pattern[MAX_PATTERN_SIZE];
 	uint32_t buffer_pattern_bytes;
-	unsigned int compress_percentage;
-	unsigned int compress_chunk;
+	uint32_t compress_percentage;
+	uint32_t compress_chunk;
+	uint32_t dedupe_percentage;
 	uint32_t time_based;
 	uint32_t disable_lat;
 	uint32_t disable_clat;
@@ -407,7 +418,6 @@ struct thread_options_pack {
 	uint32_t unified_rw_rep;
 	uint32_t gtod_reduce;
 	uint32_t gtod_cpu;
-	uint32_t gtod_offload;
 	uint32_t clocksource;
 	uint32_t no_stall;
 	uint32_t trim_percentage;
@@ -416,6 +426,7 @@ struct thread_options_pack {
 	uint64_t trim_backlog;
 	uint32_t clat_percentiles;
 	uint32_t percentile_precision;
+	uint32_t pad2;
 	fio_fp64_t percentile_list[FIO_IO_U_LIST_MAX_LEN];
 
 	uint8_t read_iolog_file[FIO_TOP_STR_MAX];
@@ -471,6 +482,7 @@ struct thread_options_pack {
 
 	uint64_t latency_target;
 	uint64_t latency_window;
+	uint32_t pad3;
 	fio_fp64_t latency_percentile;
 } __attribute__((packed));
 

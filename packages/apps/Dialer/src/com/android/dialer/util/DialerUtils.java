@@ -28,6 +28,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Telephony;
 import android.telecom.TelecomManager;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -38,9 +40,12 @@ import android.widget.Toast;
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.common.interactions.TouchPointManager;
 import com.android.dialer.R;
+import com.android.dialer.widget.EmptyContentView;
 import com.android.incallui.CallCardFragment;
 import com.android.incallui.Log;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -71,9 +76,8 @@ public class DialerUtils {
      */
     public static void startActivityWithErrorToast(Context context, Intent intent, int msgId) {
         try {
-            if ((Intent.ACTION_CALL.equals(intent.getAction())
-                    || Intent.ACTION_CALL_PRIVILEGED.equals(intent.getAction()))
-                            && context instanceof Activity) {
+            if ((IntentUtil.CALL_ACTION.equals(intent.getAction())
+                            && context instanceof Activity)) {
                 // All dialer-initiated calls should pass the touch point to the InCallUI
                 Point touchPoint = TouchPointManager.getInstance().getPoint();
                 if (touchPoint.x != 0 || touchPoint.y != 0) {
@@ -81,8 +85,9 @@ public class DialerUtils {
                     extras.putParcelable(TouchPointManager.TOUCH_POINT, touchPoint);
                     intent.putExtra(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, extras);
                 }
-
-                ((Activity) context).startActivityForResult(intent, 0);
+                final TelecomManager tm =
+                        (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
+                tm.placeCall(intent.getData(), intent.getExtras());
             } else {
                 context.startActivity(intent);
             }
@@ -112,27 +117,6 @@ public class DialerUtils {
     }
 
     /**
-     * Sets the image asset and text for an empty list view (see empty_list_view.xml).
-     *
-     * @param emptyListView The empty list view.
-     * @param imageResId The resource id for the drawable to set as the image.
-     * @param strResId The resource id for the string to set as the message.
-     * @param res The resources to obtain the image and string from.
-     */
-    public static void configureEmptyListView(
-            View emptyListView, int imageResId, int strResId, Resources res) {
-        ImageView emptyListViewImage =
-                (ImageView) emptyListView.findViewById(R.id.emptyListViewImage);
-
-        emptyListViewImage.setImageDrawable(res.getDrawable(imageResId));
-        emptyListViewImage.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-
-        TextView emptyListViewMessage =
-                (TextView) emptyListView.findViewById(R.id.emptyListViewMessage);
-        emptyListViewMessage.setText(res.getString(strResId));
-    }
-
-    /**
      * Closes an {@link AutoCloseable}, silently ignoring any checked exceptions. Does nothing if
      * null.
      *
@@ -158,8 +142,25 @@ public class DialerUtils {
      * @return Joined char sequences.
      */
     public static CharSequence join(Resources resources, Iterable<CharSequence> list) {
+        StringBuilder sb = new StringBuilder();
+        final BidiFormatter formatter = BidiFormatter.getInstance();
         final CharSequence separator = resources.getString(R.string.list_delimeter);
-        return TextUtils.join(separator, list);
+
+        Iterator<CharSequence> itr = list.iterator();
+        boolean firstTime = true;
+        while (itr.hasNext()) {
+            if (firstTime) {
+                firstTime = false;
+            } else {
+                sb.append(separator);
+            }
+            // Unicode wrap the elements of the list to respect RTL for individual strings.
+            sb.append(formatter.unicodeWrap(
+                    itr.next().toString(), TextDirectionHeuristics.FIRSTSTRONG_LTR));
+        }
+
+        // Unicode wrap the joined value, to respect locale's RTL ordering for the whole list.
+        return formatter.unicodeWrap(sb.toString());
     }
 
     /**

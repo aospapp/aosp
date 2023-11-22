@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/file.h>
 #ifdef _WIN32
 #include <direct.h>
 #endif
@@ -294,6 +295,11 @@ void llvm_gcda_start_file(const char *orig_filename, const char version[4],
     }
   }
 
+  /* Try to flock the file to serialize concurrent processes writing out to the
+   * same GCDA. This can fail if the filesystem doesn't support it, but in that
+   * case we'll just carry on with the old racy behaviour and hope for the best.
+   */
+  flock(fd, LOCK_EX);
   output_file = fdopen(fd, mode);
 
   /* Initialize the write buffer. */
@@ -389,13 +395,17 @@ void llvm_gcda_emit_arcs(uint32_t num_counters, uint64_t *counters) {
   if (val != (uint32_t)-1) {
     /* There are counters present in the file. Merge them. */
     if (val != 0x01a10000) {
-      fprintf(stderr, "profiling:invalid arc tag (0x%08x)\n", val);
+      fprintf(stderr, "profiling: %s: cannot merge previous GCDA file: "
+                      "corrupt arc tag (0x%08x)\n",
+              filename, val);
       return;
     }
 
     val = read_32bit_value();
     if (val == (uint32_t)-1 || val / 2 != num_counters) {
-      fprintf(stderr, "profiling:invalid number of counters (%d)\n", val);
+      fprintf(stderr, "profiling: %s: cannot merge previous GCDA file: "
+                      "mismatched number of counters (%d)\n",
+              filename, val);
       return;
     }
 
@@ -437,13 +447,17 @@ void llvm_gcda_summary_info() {
   if (val != (uint32_t)-1) {
     /* There are counters present in the file. Merge them. */
     if (val != 0xa1000000) {
-      fprintf(stderr, "profiling:invalid object tag (0x%08x)\n", val);
+      fprintf(stderr, "profiling: %s: cannot merge previous run count: "
+                      "corrupt object tag (0x%08x)\n",
+              filename, val);
       return;
     }
 
     val = read_32bit_value(); /* length */
     if (val != obj_summary_len) {
-      fprintf(stderr, "profiling:invalid object length (%d)\n", val);
+      fprintf(stderr, "profiling: %s: cannot merge previous run count: "
+                      "mismatched object length (%d)\n",
+              filename, val);
       return;
     }
 
@@ -485,6 +499,7 @@ void llvm_gcda_end_file() {
     }
 
     fclose(output_file);
+    flock(fd, LOCK_UN);
     output_file = NULL;
     write_buffer = NULL;
   }

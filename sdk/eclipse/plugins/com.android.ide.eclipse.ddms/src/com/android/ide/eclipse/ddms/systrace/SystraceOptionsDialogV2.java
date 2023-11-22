@@ -17,6 +17,9 @@
 package com.android.ide.eclipse.ddms.systrace;
 
 import com.android.ddmuilib.TableHelper;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import org.eclipse.jface.dialogs.TitleAreaDialog;
 import org.eclipse.swt.SWT;
@@ -38,15 +41,16 @@ import org.eclipse.swt.widgets.TableItem;
 import org.eclipse.swt.widgets.Text;
 
 import java.io.File;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystraceOptionsDialog {
-    private static final String TITLE = "Android System Trace";
+    private static final String TITLE = "Systrace (Android System Trace)";
     private static final String DEFAULT_MESSAGE =
             "Settings to use while capturing system level trace";
     private static final String DEFAULT_TRACE_FNAME = "trace.html"; //$NON-NLS-1$
+    private static final Set<String> sCommonTags = ImmutableSet.of(
+            "app", "dalvik", "gfx", "res", "rs", "sched", "view", "webview");
 
     private Text mDestinationText;
     private String mDestinationPath;
@@ -55,21 +59,34 @@ public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystrac
     private Combo mTraceAppCombo;
 
     private static String sSaveToFolder = System.getProperty("user.home"); //$NON-NLS-1$
-    private static String sTraceDuration = "";
-    private static String sTraceBufferSize = "";
-    private static Set<String> sEnabledTags = new HashSet<String>();
+    private static String sTraceDuration = "5";
+    private static String sTraceBufferSize = "2048";
+    private static Set<String> sEnabledTags = Sets.newHashSet(sCommonTags);
     private static String sLastSelectedApp = null;
 
-    private final List<SystraceTag> mSupportedTags;
+    private final List<SystraceTag> mCommonSupportedTags;
+    private final List<SystraceTag> mAdvancedSupportedTags;
+
     private final List<String> mCurrentApps;
 
     private final SystraceOptions mOptions = new SystraceOptions();
-    private Table mTable;
+    private Table mCommonTagsTable;
+    private Table mAdvancedTagsTable;
 
     public SystraceOptionsDialogV2(Shell parentShell, List<SystraceTag> tags, List<String> apps) {
         super(parentShell);
-        mSupportedTags = tags;
         mCurrentApps = apps;
+
+        mCommonSupportedTags = Lists.newArrayListWithExpectedSize(tags.size());
+        mAdvancedSupportedTags = Lists.newArrayListWithExpectedSize(tags.size());
+
+        for (SystraceTag supportedTag : tags) {
+            if (sCommonTags.contains(supportedTag.tag)) {
+                mCommonSupportedTags.add(supportedTag);
+            } else {
+                mAdvancedSupportedTags.add(supportedTag);
+            }
+        }
     }
 
     @Override
@@ -150,31 +167,38 @@ public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystrac
         mTraceBufferSizeText.addModifyListener(m);
         mTraceDurationText.addModifyListener(m);
 
-        l = new Label(c, SWT.NONE);
-        l.setText("Select tags to enable: ");
+        mCommonTagsTable = createTable(c, "Commonly Used Tags: ", mCommonSupportedTags);
+        mAdvancedTagsTable = createTable(c, "Advanced Options: ", mAdvancedSupportedTags);
+
+        return c;
+    }
+
+    private Table createTable(Composite c, String label, List<SystraceTag> supportedTags) {
+        Label l = new Label(c, SWT.NONE);
+        l.setText(label);
         l.setLayoutData(new GridData(SWT.RIGHT, SWT.CENTER, false, false, 1, 1));
 
-        mTable = new Table(c, SWT.CHECK | SWT.BORDER);
-        gd = new GridData(GridData.FILL_BOTH);
+        Table table = new Table(c, SWT.CHECK | SWT.BORDER);
+        GridData gd = new GridData(GridData.FILL_BOTH);
         gd.horizontalSpan = 2;
-        mTable.setLayoutData(gd);
-        mTable.setHeaderVisible(false);
-        mTable.setLinesVisible(false);
+        table.setLayoutData(gd);
+        table.setHeaderVisible(false);
+        table.setLinesVisible(false);
 
-        for (SystraceTag tag : mSupportedTags) {
-            TableItem item = new TableItem(mTable, SWT.NONE);
+        for (SystraceTag tag : supportedTags) {
+            TableItem item = new TableItem(table, SWT.NONE);
             item.setText(tag.info);
             item.setChecked(sEnabledTags.contains(tag.tag));
         }
 
-        TableHelper.createTableColumn(mTable,
+        TableHelper.createTableColumn(table,
                 "TagHeaderNotDisplayed",                //$NON-NLS-1$
                 SWT.LEFT,
                 "SampleTagForColumnLengthCalculation",  //$NON-NLS-1$
                 null,
                 null);
 
-        return c;
+        return table;
     }
 
     private void validateFields() {
@@ -273,14 +297,23 @@ public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystrac
         }
 
         sEnabledTags.clear();
-        for (int i = 0; i < mTable.getItemCount(); i++) {
-            TableItem it = mTable.getItem(i);
+        sEnabledTags.addAll(getEnabledTags(mCommonTagsTable, mCommonSupportedTags));
+        sEnabledTags.addAll(getEnabledTags(mAdvancedTagsTable, mAdvancedSupportedTags));
+
+        super.okPressed();
+    }
+
+    private static Set<String> getEnabledTags(Table table, List<SystraceTag> tags) {
+        Set<String> enabledTags = Sets.newHashSetWithExpectedSize(tags.size());
+
+        for (int i = 0; i < table.getItemCount(); i++) {
+            TableItem it = table.getItem(i);
             if (it.getChecked()) {
-                sEnabledTags.add(mSupportedTags.get(i).tag);
+                enabledTags.add(tags.get(i).tag);
             }
         }
 
-        super.okPressed();
+        return enabledTags;
     }
 
     @Override
@@ -305,7 +338,7 @@ public class SystraceOptionsDialogV2 extends TitleAreaDialog implements ISystrac
 
         @Override
         public String getOptions() {
-            StringBuilder sb = new StringBuilder(5 * mSupportedTags.size());
+            StringBuilder sb = new StringBuilder(5 * mCommonSupportedTags.size());
 
             if (mTraceApp != null) {
                 sb.append("-a ");   //$NON-NLS-1$

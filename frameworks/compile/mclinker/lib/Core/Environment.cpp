@@ -6,11 +6,10 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Environment.h>
-#include <mcld/Support/TargetSelect.h>
+#include "mcld/Environment.h"
+#include "mcld/Support/TargetSelect.h"
 
-void mcld::Initialize()
-{
+void mcld::Initialize() {
   static bool is_initialized = false;
 
   if (is_initialized)
@@ -23,7 +22,5 @@ void mcld::Initialize()
   is_initialized = true;
 }
 
-void mcld::Finalize()
-{
+void mcld::Finalize() {
 }
-

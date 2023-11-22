@@ -194,13 +194,19 @@ public abstract class CharsetEncoder {
             throw illegalStateException();
         }
 
+        if (!cb.hasRemaining()) {
+            return true;
+        }
+
         CodingErrorAction originalMalformedInputAction = malformedInputAction;
         CodingErrorAction originalUnmappableCharacterAction = unmappableCharacterAction;
         onMalformedInput(CodingErrorAction.REPORT);
         onUnmappableCharacter(CodingErrorAction.REPORT);
         try {
-            encode(cb);
-            return true;
+            ByteBuffer buf = encode(cb);
+            // b/18474439: ICU will return U_ZERO_ERROR but produce an output buffer
+            // of size zero when it encounters an ignorable codepoint.
+            return buf.hasRemaining();
         } catch (CharacterCodingException e) {
             return false;
         } finally {
@@ -436,30 +442,42 @@ public abstract class CharsetEncoder {
      * <p>
      * This method will call {@link #implFlush(ByteBuffer) implFlush}. Some
      * encoders may need to write some bytes to the output buffer when they have
-     * read all input characters, subclasses can overridden
-     * {@link #implFlush(ByteBuffer) implFlush} to perform writing action.
+     * read all input characters. Subclasses can override
+     * {@link #implFlush(ByteBuffer) implFlush} to perform any writes that are
+     * required at the end of the output sequence, such as footers and other
+     * metadata.
      * <p>
-     * The maximum number of written bytes won't larger than
-     * {@link ByteBuffer#remaining() out.remaining()}. If some encoder wants to
+     * The maximum number of written bytes won't be larger than
+     * {@link ByteBuffer#remaining() out.remaining()}. If the encoder wants to
      * write more bytes than the output buffer's available remaining space, then
-     * <code>CoderResult.OVERFLOW</code> will be returned, and this method
-     * must be called again with a byte buffer that has free space. Otherwise
-     * this method will return <code>CoderResult.UNDERFLOW</code>, which
-     * means one encoding process has been completed successfully.
+     * it will return {@code CoderResult.OVERFLOW}. This method must then be
+     * called again with a byte buffer that has free space.
+     * <p>
+     * If the encoder was asked to flush its output when its input is incomplete,
+     * (because it ends with an unpaired surrogate, say) it may return
+     * {@code CodeResult.MALFORMED}.
+     * <p>
+     * In all other cases the encoder will return {@code CoderResult.UNDERFLOW},
+     * which signifies that all the input so far has been successfully encoded.
      * <p>
      * During the flush, the output buffer's position will be changed
      * accordingly, while its mark and limit will be intact.
+     * <p>
+     * This method is a no-op if the encoder has already been flushed.
      *
-     * @param out
-     *            the given output buffer.
-     * @return <code>CoderResult.UNDERFLOW</code> or
-     *         <code>CoderResult.OVERFLOW</code>.
+     * @param out the given output buffer.
+     * @return {@code CoderResult.UNDERFLOW} or
+     *         {@code CoderResult.OVERFLOW} or
+     *         {@code CoderResult.MALFORMED}
      * @throws IllegalStateException
      *             if this encoder isn't already flushed or at end of input.
      */
     public final CoderResult flush(ByteBuffer out) {
         if (state != FLUSHED && state != END_OF_INPUT) {
             throw illegalStateException();
+        }
+        if (state == FLUSHED) {
+            return CoderResult.UNDERFLOW;
         }
         CoderResult result = implFlush(out);
         if (result == CoderResult.UNDERFLOW) {

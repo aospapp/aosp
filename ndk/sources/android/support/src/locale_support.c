@@ -48,7 +48,6 @@
 ///////////////////////////////////////////////////////////////////////
 // stdio.h declarations
 
-#if !defined(__LP64__)
 int vasprintf_l(char** strp, locale_t l, const char* fmt, va_list args) {
     // Ignore locale.
     return vasprintf(strp, fmt, args);
@@ -109,8 +108,6 @@ long strtol_l(const char *nptr, char **endptr, int base, locale_t loc) {
 unsigned long strtoul_l(const char *nptr, char **endptr, int base, locale_t loc) {
     return strtoul(nptr, endptr, base);
 }
-
-#endif // !__LP64__
 
 long long strtoll_l(const char *nptr, char **endptr, int base, locale_t loc) {
     return strtoll(nptr, endptr, base);

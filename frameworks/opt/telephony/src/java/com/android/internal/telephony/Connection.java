@@ -45,10 +45,14 @@ public abstract class Connection {
         public void onVideoStateChanged(int videoState);
         public void onLocalVideoCapabilityChanged(boolean capable);
         public void onRemoteVideoCapabilityChanged(boolean capable);
+        public void onWifiChanged(boolean isWifi);
         public void onVideoProviderChanged(
                 android.telecom.Connection.VideoProvider videoProvider);
         public void onAudioQualityChanged(int audioQuality);
         public void onConferenceParticipantsChanged(List<ConferenceParticipant> participants);
+        public void onCallSubstateChanged(int callSubstate);
+        public void onMultipartyStateChanged(boolean isMultiParty);
+        public void onConferenceMergedFailed();
     }
 
     /**
@@ -62,12 +66,20 @@ public abstract class Connection {
         @Override
         public void onRemoteVideoCapabilityChanged(boolean capable) {}
         @Override
+        public void onWifiChanged(boolean isWifi) {}
+        @Override
         public void onVideoProviderChanged(
                 android.telecom.Connection.VideoProvider videoProvider) {}
         @Override
         public void onAudioQualityChanged(int audioQuality) {}
         @Override
         public void onConferenceParticipantsChanged(List<ConferenceParticipant> participants) {}
+        @Override
+        public void onCallSubstateChanged(int callSubstate) {}
+        @Override
+        public void onMultipartyStateChanged(boolean isMultiParty) {}
+        @Override
+        public void onConferenceMergedFailed() {}
     }
 
     public static final int AUDIO_QUALITY_STANDARD = 1;
@@ -108,7 +120,9 @@ public abstract class Connection {
     private int mVideoState;
     private boolean mLocalVideoCapable;
     private boolean mRemoteVideoCapable;
+    private boolean mIsWifi;
     private int mAudioQuality;
+    private int mCallSubstate;
     private android.telecom.Connection.VideoProvider mVideoProvider;
     public Call.State mPreHandoverState = Call.State.IDLE;
 
@@ -242,6 +256,15 @@ public abstract class Connection {
     public abstract int getDisconnectCause();
 
     /**
+     * Returns a string disconnect cause which is from vendor.
+     * Vendors may use this string to explain the underline causes of failed calls.
+     * There is no guarantee that it is non-null nor it'll have meaningful stable values.
+     * Only use it when getDisconnectCause() returns a value that is not specific enough, like
+     * ERROR_UNSPECIFIED.
+     */
+    public abstract String getVendorDisconnectCause();
+
+    /**
      * Returns true of this connection originated elsewhere
      * ("MT" or mobile terminated; another party called this terminal)
      * or false if this call originated here (MO or mobile originated).
@@ -275,6 +298,22 @@ public abstract class Connection {
      */
     public Call.State getStateBeforeHandover() {
         return mPreHandoverState;
+    }
+
+    /**
+     * Get the details of conference participants. Expected to be
+     * overwritten by the Connection subclasses.
+     */
+    public List<ConferenceParticipant> getConferenceParticipants() {
+        Call c;
+
+        c = getCall();
+
+        if (c == null) {
+            return null;
+        } else {
+            return c.getConferenceParticipants();
+        }
     }
 
     /**
@@ -348,6 +387,10 @@ public abstract class Connection {
         if (!mPostDialListeners.contains(listener)) {
             mPostDialListeners.add(listener);
         }
+    }
+
+    public final void removePostDialListener(PostDialListener listener) {
+        mPostDialListeners.remove(listener);
     }
 
     protected final void clearPostDialListeners() {
@@ -487,6 +530,15 @@ public abstract class Connection {
     }
 
     /**
+     * Returns whether the connection is using a wifi network.
+     *
+     * @return {@code True} if the connection is using a wifi network.
+     */
+    public boolean isWifi() {
+        return mIsWifi;
+    }
+
+    /**
      * Returns the {@link android.telecom.Connection.VideoProvider} for the connection.
      *
      * @return The {@link android.telecom.Connection.VideoProvider}.
@@ -503,6 +555,17 @@ public abstract class Connection {
     public int getAudioQuality() {
         return mAudioQuality;
     }
+
+
+    /**
+     * Returns the current call substate of the connection.
+     *
+     * @return The call substate of the connection.
+     */
+    public int getCallSubstate() {
+        return mCallSubstate;
+    }
+
 
     /**
      * Sets the videoState for the current connection and reports the changes to all listeners.
@@ -542,6 +605,18 @@ public abstract class Connection {
     }
 
     /**
+     * Sets whether a wifi network is used for the connection.
+     *
+     * @param isWifi {@code True} if wifi is being used.
+     */
+    public void setWifi(boolean isWifi) {
+        mIsWifi = isWifi;
+        for (Listener l : mListeners) {
+            l.onWifiChanged(mIsWifi);
+        }
+    }
+
+    /**
      * Set the audio quality for the connection.
      *
      * @param audioQuality The audio quality.
@@ -550,6 +625,19 @@ public abstract class Connection {
         mAudioQuality = audioQuality;
         for (Listener l : mListeners) {
             l.onAudioQualityChanged(mAudioQuality);
+        }
+    }
+
+    /**
+     * Sets the call substate for the current connection and reports the changes to all listeners.
+     * Valid call substates are defined in {@link android.telecom.Connection}.
+     *
+     * @return The call substate.
+     */
+    public void setCallSubstate(int callSubstate) {
+        mCallSubstate = callSubstate;
+        for (Listener l : mListeners) {
+            l.onCallSubstateChanged(mCallSubstate);
         }
     }
 
@@ -580,6 +668,26 @@ public abstract class Connection {
     public void updateConferenceParticipants(List<ConferenceParticipant> conferenceParticipants) {
         for (Listener l : mListeners) {
             l.onConferenceParticipantsChanged(conferenceParticipants);
+        }
+    }
+
+    /**
+     * Notifies listeners of a change to the multiparty state of the connection.
+     *
+     * @param isMultiparty The participant(s).
+     */
+    public void updateMultipartyState(boolean isMultiparty) {
+        for (Listener l : mListeners) {
+            l.onMultipartyStateChanged(isMultiparty);
+        }
+    }
+
+    /**
+     * Notifies listeners of a failure in merging this connection with the background connection.
+     */
+    public void onConferenceMergeFailed() {
+        for (Listener l : mListeners) {
+            l.onConferenceMergedFailed();
         }
     }
 

@@ -23,9 +23,10 @@ class SK_API SkMatrixConvolutionImageFilter : public SkImageFilter {
 public:
     /*! \enum TileMode */
     enum TileMode {
-      kClamp_TileMode,         /*!< Clamp to the image's edge pixels. */
+      kClamp_TileMode = 0,         /*!< Clamp to the image's edge pixels. */
       kRepeat_TileMode,        /*!< Wrap around to the image's opposite edge. */
       kClampToBlack_TileMode,  /*!< Fill with transparent black. */
+      kMax_TileMode = kClampToBlack_TileMode
     };
 
     virtual ~SkMatrixConvolutionImageFilter();
@@ -59,12 +60,9 @@ public:
                                                   TileMode tileMode,
                                                   bool convolveAlpha,
                                                   SkImageFilter* input = NULL,
-                                                  const CropRect* cropRect = NULL) {
-        return SkNEW_ARGS(SkMatrixConvolutionImageFilter, (kernelSize, kernel, gain, bias,
-                                                           kernelOffset, tileMode, convolveAlpha,
-                                                           input, cropRect));
-    }
+                                                  const CropRect* cropRect = NULL);
 
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkMatrixConvolutionImageFilter)
 
 protected:
@@ -77,19 +75,16 @@ protected:
                                    bool convolveAlpha,
                                    SkImageFilter* input,
                                    const CropRect* cropRect);
-    explicit SkMatrixConvolutionImageFilter(SkReadBuffer& buffer);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
+    void flatten(SkWriteBuffer&) const override;
 
     virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* loc) const SK_OVERRIDE;
-    virtual bool onFilterBounds(const SkIRect&, const SkMatrix&, SkIRect*) const SK_OVERRIDE;
+                               SkBitmap* result, SkIPoint* loc) const override;
+    bool onFilterBounds(const SkIRect&, const SkMatrix&, SkIRect*) const override;
 
 
 #if SK_SUPPORT_GPU
-    virtual bool asNewEffect(GrEffectRef** effect,
-                             GrTexture*,
-                             const SkMatrix& ctm,
-                             const SkIRect& bounds) const SK_OVERRIDE;
+    virtual bool asFragmentProcessor(GrFragmentProcessor**, GrTexture*, const SkMatrix&,
+                                     const SkIRect& bounds) const override;
 #endif
 
 private:

@@ -21,6 +21,7 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.support.test.internal.runner.listener.InstrumentationRunListener;
+import android.text.TextUtils;
 import android.util.Log;
 
 import junit.framework.TestCase;
@@ -28,12 +29,18 @@ import junit.framework.TestCase;
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunListener;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.Class;
+import java.lang.ReflectiveOperationException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.Authenticator;
 import java.net.CookieHandler;
 import java.net.ResponseCache;
+import java.text.DateFormat;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -58,7 +65,7 @@ public class CtsTestRunListener extends InstrumentationRunListener {
 
     @Override
     public void testRunStarted(Description description) throws Exception {
-        mEnvironment = new TestEnvironment(getInstrumentation().getContext());
+        mEnvironment = new TestEnvironment(getInstrumentation().getTargetContext());
 
         // We might want to move this to /sdcard, if is is mounted/writable.
         File cacheDir = getInstrumentation().getTargetContext().getCacheDir();
@@ -114,6 +121,39 @@ public class CtsTestRunListener extends InstrumentationRunListener {
         Log.d(TAG, "Total memory  : " + total);
         Log.d(TAG, "Used memory   : " + used);
         Log.d(TAG, "Free memory   : " + free);
+
+        String tempdir = System.getProperty("java.io.tmpdir", "");
+        // TODO: Remove these extra Logs added to debug a specific timeout problem.
+        Log.d(TAG, "java.io.tmpdir is:" + tempdir);
+
+        if (!TextUtils.isEmpty(tempdir)) {
+            String[] commands = {"df", tempdir};
+            BufferedReader in = null;
+            try {
+                Log.d(TAG, "About to .exec df");
+                Process proc = runtime.exec(commands);
+                Log.d(TAG, ".exec returned");
+                in = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+                Log.d(TAG, "Stream reader created");
+                String line;
+                while ((line = in.readLine()) != null) {
+                    Log.d(TAG, line);
+                }
+            } catch (IOException e) {
+                Log.d(TAG, "Exception: " + e.toString());
+                // Well, we tried
+            } finally {
+                Log.d(TAG, "In finally");
+                if (in != null) {
+                    try {
+                        in.close();
+                    } catch (IOException e) {
+                        // Meh
+                    }
+                }
+            }
+        }
+
         Log.d(TAG, "Now executing : " + testClass.getName());
     }
 
@@ -148,11 +188,22 @@ public class CtsTestRunListener extends InstrumentationRunListener {
 
     // http://code.google.com/p/vogar/source/browse/trunk/src/vogar/target/TestEnvironment.java
     static class TestEnvironment {
+        private static final Field sDateFormatIs24HourField;
+        static {
+            try {
+                Class<?> dateFormatClass = Class.forName("java.text.DateFormat");
+                sDateFormatIs24HourField = dateFormatClass.getDeclaredField("is24Hour");
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("Missing DateFormat.is24Hour", e);
+            }
+        }
+
         private final Locale mDefaultLocale;
         private final TimeZone mDefaultTimeZone;
         private final HostnameVerifier mHostnameVerifier;
         private final SSLSocketFactory mSslSocketFactory;
         private final Properties mProperties = new Properties();
+        private final Boolean mDefaultIs24Hour;
 
         TestEnvironment(Context context) {
             mDefaultLocale = Locale.getDefault();
@@ -161,13 +212,13 @@ public class CtsTestRunListener extends InstrumentationRunListener {
             mSslSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
 
             mProperties.setProperty("user.home", "");
-            mProperties.setProperty("java.io.tmpdir", System.getProperty("java.io.tmpdir"));
-            // The CDD mandates that devices that support WiFi are the only ones that will have 
+            mProperties.setProperty("java.io.tmpdir", context.getCacheDir().getAbsolutePath());
+            // The CDD mandates that devices that support WiFi are the only ones that will have
             // multicast.
             PackageManager pm = context.getPackageManager();
             mProperties.setProperty("android.cts.device.multicast",
                     Boolean.toString(pm.hasSystemFeature(PackageManager.FEATURE_WIFI)));
-
+            mDefaultIs24Hour = getDateFormatIs24Hour();
         }
 
         void reset() {
@@ -180,6 +231,23 @@ public class CtsTestRunListener extends InstrumentationRunListener {
             ResponseCache.setDefault(null);
             HttpsURLConnection.setDefaultHostnameVerifier(mHostnameVerifier);
             HttpsURLConnection.setDefaultSSLSocketFactory(mSslSocketFactory);
+            setDateFormatIs24Hour(mDefaultIs24Hour);
+        }
+
+        private static Boolean getDateFormatIs24Hour() {
+            try {
+                return (Boolean) sDateFormatIs24HourField.get(null);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("Unable to get java.text.DateFormat.is24Hour", e);
+            }
+        }
+
+        private static void setDateFormatIs24Hour(Boolean value) {
+            try {
+                sDateFormatIs24HourField.set(null, value);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("Unable to set java.text.DateFormat.is24Hour", e);
+            }
         }
     }
 

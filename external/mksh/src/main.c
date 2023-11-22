@@ -1,11 +1,11 @@
-/*	$OpenBSD: main.c,v 1.54 2013/11/28 10:33:37 sobrado Exp $	*/
+/*	$OpenBSD: main.c,v 1.55 2015/02/09 09:09:30 jsg Exp $	*/
 /*	$OpenBSD: tty.c,v 1.10 2014/08/10 02:44:26 guenther Exp $	*/
 /*	$OpenBSD: io.c,v 1.25 2014/08/11 20:28:47 guenther Exp $	*/
 /*	$OpenBSD: table.c,v 1.15 2012/02/19 07:52:30 otto Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014
+ *		 2011, 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -34,7 +34,7 @@
 #include <locale.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/main.c,v 1.284 2014/10/03 17:19:27 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/main.c,v 1.285.2.4 2015/04/19 19:18:20 tg Exp $");
 
 extern char **environ;
 
@@ -892,6 +892,13 @@ unwind(int i)
 			/* FALLTHROUGH */
 		default:
 			quitenv(NULL);
+			/*
+			 * quitenv() may have reclaimed the memory
+			 * used by source which will end badly when
+			 * we jump to a function that expects it to
+			 * be valid
+			 */
+			source = NULL;
 		}
 	}
 }
@@ -1013,8 +1020,6 @@ cleanup_parents_env(void)
 {
 	struct env *ep;
 	int fd;
-
-	mkssert(e != NULL);
 
 	/*
 	 * Don't clean up temporary files - parent will probably need them.
@@ -1244,7 +1249,7 @@ bi_errorf(const char *fmt, ...)
 	 * non-interactive shells to exit.
 	 * XXX odd use of KEEPASN; also may not want LERROR here
 	 */
-	if (builtin_flag & SPEC_BI) {
+	if (builtin_spec) {
 		builtin_argv0 = NULL;
 		unwind(LERROR);
 	}
@@ -1281,8 +1286,9 @@ error_prefix(bool fileline)
 	    strcmp(source->file, kshname) != 0)
 		shf_fprintf(shl_out, "%s: ", kshname + (*kshname == '-'));
 	if (fileline && source && source->file != NULL) {
-		shf_fprintf(shl_out, "%s[%d]: ", source->file,
-		    source->errline > 0 ? source->errline : source->line);
+		shf_fprintf(shl_out, "%s[%lu]: ", source->file,
+		    (unsigned long)(source->errline ?
+		    source->errline : source->line));
 		source->errline = 0;
 	}
 }
@@ -1448,13 +1454,20 @@ closepipe(int *pv)
 int
 check_fd(const char *name, int mode, const char **emsgp)
 {
-	int fd, fl;
+	int fd = 0, fl;
 
 	if (name[0] == 'p' && !name[1])
 		return (coproc_getfd(mode, emsgp));
-	for (fd = 0; ksh_isdigit(*name); ++name)
+	while (ksh_isdigit(*name)) {
 		fd = (fd * 10) + *name - '0';
-	if (*name || fd >= FDBASE) {
+		if (fd >= FDBASE) {
+			if (emsgp)
+				*emsgp = "file descriptor too large";
+			return (-1);
+		}
+		++name;
+	}
+	if (*name) {
 		if (emsgp)
 			*emsgp = "illegal file descriptor name";
 		return (-1);

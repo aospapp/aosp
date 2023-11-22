@@ -76,7 +76,7 @@ public class SingleStepTest extends JDWPSyncTestCase {
         logWriter
                 .println("=> Send ReferenceType::Methods command and get methodIDs ");
 
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, "breakpointTest");
         logWriter.println("=> breakpointID = " + requestID);
         logWriter.println("=> starting thread");

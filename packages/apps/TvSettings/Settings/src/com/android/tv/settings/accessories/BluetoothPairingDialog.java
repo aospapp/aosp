@@ -16,13 +16,6 @@
 
 package com.android.tv.settings.accessories;
 
-import android.view.WindowManager;
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-
 import android.app.Fragment;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -31,21 +24,25 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.Html;
 import android.text.InputFilter;
-import android.text.InputType;
 import android.text.InputFilter.LengthFilter;
+import android.text.InputType;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionFragment;
+import com.android.tv.settings.dialog.old.DialogActivity;
 import com.android.tv.settings.util.AccessibilityHelper;
 
 import java.util.ArrayList;
@@ -60,7 +57,7 @@ public class BluetoothPairingDialog extends DialogActivity {
     private static final String KEY_PAIR = "action_pair";
     private static final String KEY_CANCEL = "action_cancel";
 
-    private static final String TAG = "aah.BluetoothPairingDialog";
+    private static final String TAG = "BluetoothPairingDialog";
     private static final boolean DEBUG = false;
 
     private static final int BLUETOOTH_PIN_MAX_LENGTH = 16;
@@ -69,17 +66,6 @@ public class BluetoothPairingDialog extends DialogActivity {
     private BluetoothDevice mDevice;
     private int mType;
     private String mPairingKey;
-
-    private ActionFragment mActionFragment;
-    private Fragment mContentFragment;
-    private ArrayList<Action> mActions;
-
-    private RelativeLayout mTopLayout;
-    protected ColorDrawable mBgDrawable = new ColorDrawable();
-    private TextView mTitleText;
-    private TextView mInstructionText;
-    private EditText mTextInput;
-
 
     /**
      * Dismiss the dialog if the bond state changes to bonded or none, or if
@@ -112,7 +98,7 @@ public class BluetoothPairingDialog extends DialogActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Intent intent = getIntent();
+        final Intent intent = getIntent();
         if (!BluetoothDevice.ACTION_PAIRING_REQUEST.equals(intent.getAction())) {
             Log.e(TAG, "Error: this activity may be started only with intent " +
                     BluetoothDevice.ACTION_PAIRING_REQUEST);
@@ -126,8 +112,6 @@ public class BluetoothPairingDialog extends DialogActivity {
         if (DEBUG) {
             Log.d(TAG, "Requested pairing Type = " + mType + " , Device = " + mDevice);
         }
-
-        mActions = new ArrayList<Action>();
 
         switch (mType) {
             case BluetoothDevice.PAIRING_VARIANT_PIN:
@@ -176,17 +160,18 @@ public class BluetoothPairingDialog extends DialogActivity {
                 return;
         }
 
-        ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
-        mTopLayout = (RelativeLayout) contentView.getChildAt(0);
-
         // Fade out the old activity, and fade in the new activity.
         overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
 
+        // TODO: don't do this
+        final ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
+        final View topLayout = contentView.getChildAt(0);
+
         // Set the activity background
-        int bgColor = getResources().getColor(R.color.dialog_activity_background);
-        mBgDrawable.setColor(bgColor);
-        mBgDrawable.setAlpha(255);
-        mTopLayout.setBackground(mBgDrawable);
+        final ColorDrawable bgDrawable =
+                new ColorDrawable(getColor(R.color.dialog_activity_background));
+        bgDrawable.setAlpha(255);
+        topLayout.setBackground(bgDrawable);
 
         // Make sure pairing wakes up day dream
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD |
@@ -228,7 +213,7 @@ public class BluetoothPairingDialog extends DialogActivity {
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
+    public boolean onKeyDown(int keyCode, @NonNull KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             cancelPairing();
         }
@@ -236,7 +221,7 @@ public class BluetoothPairingDialog extends DialogActivity {
     }
 
     private ArrayList<Action> getActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
+        ArrayList<Action> actions = new ArrayList<>();
 
         switch (mType) {
             case BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION:
@@ -276,106 +261,21 @@ public class BluetoothPairingDialog extends DialogActivity {
     }
 
     private void createUserEntryDialog() {
-        setContentView(R.layout.bt_pairing_passkey_entry);
-
-        mTitleText = (TextView) findViewById(R.id.title_text);
-        mTextInput = (EditText) findViewById(R.id.text_input);
-
-        String instructions = getString(R.string.bluetooth_confirm_passkey_msg,
-                mDevice.getName(), mPairingKey);
-        int maxLength;
-        switch (mType) {
-            case BluetoothDevice.PAIRING_VARIANT_PIN:
-                instructions = getString(R.string.bluetooth_enter_pin_msg, mDevice.getName());
-                mInstructionText = (TextView) findViewById(R.id.hint_text);
-                mInstructionText.setText(getString(R.string.bluetooth_pin_values_hint));
-                // Maximum of 16 characters in a PIN
-                maxLength = BLUETOOTH_PIN_MAX_LENGTH;
-                mTextInput.setInputType(InputType.TYPE_CLASS_NUMBER);
-                break;
-
-            case BluetoothDevice.PAIRING_VARIANT_PASSKEY:
-                instructions = getString(R.string.bluetooth_enter_passkey_msg, mDevice.getName());
-                // Maximum of 6 digits for passkey
-                maxLength = BLUETOOTH_PASSKEY_MAX_LENGTH;
-                mTextInput.setInputType(InputType.TYPE_CLASS_TEXT);
-                break;
-
-            default:
-                Log.e(TAG, "Incorrect pairing type for createPinEntryView: " + mType);
-                dismiss();
-                return;
-        }
-
-        mTitleText.setText(Html.fromHtml(instructions));
-
-        mTextInput.setFilters(new InputFilter[] { new LengthFilter(maxLength) });
+        getFragmentManager().beginTransaction()
+                .replace(android.R.id.content, EntryDialogFragment.newInstance(mDevice, mType))
+                .commit();
     }
 
     private void createConfirmationDialog() {
         // Build a Dialog activity view, with Action Fragment
 
-        mActions = getActions();
+        final ArrayList<Action> actions = getActions();
 
-        mActionFragment = ActionFragment.newInstance(mActions);
-        mContentFragment = new Fragment() {
-            @Override
-            public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                    Bundle savedInstanceState) {
-                View v = inflater.inflate(R.layout.bt_pairing_passkey_display, container, false);
+        final Fragment actionFragment = ActionFragment.newInstance(actions);
+        final Fragment contentFragment =
+                ConfirmationDialogFragment.newInstance(mDevice, mPairingKey, mType);
 
-                mTitleText = (TextView) v.findViewById(R.id.title);
-                mInstructionText = (TextView) v.findViewById(R.id.pairing_instructions);
-
-                mTitleText.setText(getString(R.string.bluetooth_pairing_request));
-
-                if (AccessibilityHelper.forceFocusableViews(getActivity())) {
-                    mTitleText.setFocusable(true);
-                    mTitleText.setFocusableInTouchMode(true);
-                    mInstructionText.setFocusable(true);
-                    mInstructionText.setFocusableInTouchMode(true);
-                }
-
-                String instructions;
-
-                switch (mType) {
-                    case BluetoothDevice.PAIRING_VARIANT_DISPLAY_PASSKEY:
-                    case BluetoothDevice.PAIRING_VARIANT_DISPLAY_PIN:
-                        instructions = getString(R.string.bluetooth_display_passkey_pin_msg,
-                                mDevice.getName(), mPairingKey);
-
-                        // Since its only a notification, send an OK to the framework,
-                        // indicating that the dialog has been displayed.
-                        if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PASSKEY) {
-                            mDevice.setPairingConfirmation(true);
-                        } else if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PIN) {
-                            byte[] pinBytes = BluetoothDevice.convertPinToBytes(mPairingKey);
-                            mDevice.setPin(pinBytes);
-                        }
-                        break;
-
-                    case BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION:
-                        instructions = getString(R.string.bluetooth_confirm_passkey_msg,
-                                mDevice.getName(), mPairingKey);
-                        break;
-
-                    case BluetoothDevice.PAIRING_VARIANT_CONSENT:
-                    case BluetoothDevice.PAIRING_VARIANT_OOB_CONSENT:
-                        instructions = getString(R.string.bluetooth_incoming_pairing_msg,
-                                mDevice.getName());
-
-                        break;
-                    default:
-                        instructions = new String();
-                }
-
-                mInstructionText.setText(Html.fromHtml(instructions));
-
-                return v;
-            }
-        };
-
-        setContentAndActionFragments(mContentFragment, mActionFragment);
+        setContentAndActionFragments(contentFragment, actionFragment);
     }
 
     private void onPair(String value) {
@@ -415,4 +315,157 @@ public class BluetoothPairingDialog extends DialogActivity {
         }
     }
 
+    public static class EntryDialogFragment extends Fragment {
+
+        private static final String ARG_DEVICE = "ConfirmationDialogFragment.DEVICE";
+        private static final String ARG_TYPE = "ConfirmationDialogFragment.TYPE";
+
+        private BluetoothDevice mDevice;
+        private int mType;
+
+        public static EntryDialogFragment newInstance(BluetoothDevice device, int type) {
+            final EntryDialogFragment fragment = new EntryDialogFragment();
+            final Bundle b = new Bundle(2);
+            fragment.setArguments(b);
+            b.putParcelable(ARG_DEVICE, device);
+            b.putInt(ARG_TYPE, type);
+            return fragment;
+        }
+
+        @Override
+        public void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            final Bundle args = getArguments();
+            mDevice = args.getParcelable(ARG_DEVICE);
+            mType = args.getInt(ARG_TYPE);
+        }
+
+        @Override
+        public @Nullable View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+                Bundle savedInstanceState) {
+            final View v = inflater.inflate(R.layout.bt_pairing_passkey_entry, container, false);
+
+            final TextView titleText = (TextView) v.findViewById(R.id.title_text);
+            final EditText textInput = (EditText) v.findViewById(R.id.text_input);
+
+            final String instructions;
+            final int maxLength;
+            switch (mType) {
+                case BluetoothDevice.PAIRING_VARIANT_PIN:
+                    instructions = getString(R.string.bluetooth_enter_pin_msg, mDevice.getName());
+                    final TextView instructionText = (TextView) v.findViewById(R.id.hint_text);
+                    instructionText.setText(getString(R.string.bluetooth_pin_values_hint));
+                    // Maximum of 16 characters in a PIN
+                    maxLength = BLUETOOTH_PIN_MAX_LENGTH;
+                    textInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+                    break;
+
+                case BluetoothDevice.PAIRING_VARIANT_PASSKEY:
+                    instructions = getString(R.string.bluetooth_enter_passkey_msg,
+                            mDevice.getName());
+                    // Maximum of 6 digits for passkey
+                    maxLength = BLUETOOTH_PASSKEY_MAX_LENGTH;
+                    textInput.setInputType(InputType.TYPE_CLASS_TEXT);
+                    break;
+
+                default:
+                    throw new IllegalStateException("Incorrect pairing type for" +
+                            " createPinEntryView: " + mType);
+            }
+
+            titleText.setText(Html.fromHtml(instructions));
+
+            textInput.setFilters(new InputFilter[]{new LengthFilter(maxLength)});
+
+            return v;
+        }
+    }
+
+    public static class ConfirmationDialogFragment extends Fragment {
+
+        private static final String ARG_DEVICE = "ConfirmationDialogFragment.DEVICE";
+        private static final String ARG_PAIRING_KEY = "ConfirmationDialogFragment.PAIRING_KEY";
+        private static final String ARG_TYPE = "ConfirmationDialogFragment.TYPE";
+
+        private BluetoothDevice mDevice;
+        private String mPairingKey;
+        private int mType;
+
+        public static ConfirmationDialogFragment newInstance(BluetoothDevice device,
+                String pairingKey, int type) {
+            final ConfirmationDialogFragment fragment = new ConfirmationDialogFragment();
+            final Bundle b = new Bundle(3);
+            b.putParcelable(ARG_DEVICE, device);
+            b.putString(ARG_PAIRING_KEY, pairingKey);
+            b.putInt(ARG_TYPE, type);
+            fragment.setArguments(b);
+            return fragment;
+        }
+
+        @Override
+        public void onCreate(@Nullable Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+
+            final Bundle args = getArguments();
+
+            mDevice = args.getParcelable(ARG_DEVICE);
+            mPairingKey = args.getString(ARG_PAIRING_KEY);
+            mType = args.getInt(ARG_TYPE);
+        }
+
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                Bundle savedInstanceState) {
+            final View v = inflater.inflate(R.layout.bt_pairing_passkey_display, container, false);
+
+            final TextView titleText = (TextView) v.findViewById(R.id.title);
+            final TextView instructionText = (TextView) v.findViewById(R.id.pairing_instructions);
+
+            titleText.setText(getString(R.string.bluetooth_pairing_request));
+
+            if (AccessibilityHelper.forceFocusableViews(getActivity())) {
+                titleText.setFocusable(true);
+                titleText.setFocusableInTouchMode(true);
+                instructionText.setFocusable(true);
+                instructionText.setFocusableInTouchMode(true);
+            }
+
+            final String instructions;
+
+            switch (mType) {
+                case BluetoothDevice.PAIRING_VARIANT_DISPLAY_PASSKEY:
+                case BluetoothDevice.PAIRING_VARIANT_DISPLAY_PIN:
+                    instructions = getString(R.string.bluetooth_display_passkey_pin_msg,
+                            mDevice.getName(), mPairingKey);
+
+                    // Since its only a notification, send an OK to the framework,
+                    // indicating that the dialog has been displayed.
+                    if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PASSKEY) {
+                        mDevice.setPairingConfirmation(true);
+                    } else if (mType == BluetoothDevice.PAIRING_VARIANT_DISPLAY_PIN) {
+                        byte[] pinBytes = BluetoothDevice.convertPinToBytes(mPairingKey);
+                        mDevice.setPin(pinBytes);
+                    }
+                    break;
+
+                case BluetoothDevice.PAIRING_VARIANT_PASSKEY_CONFIRMATION:
+                    instructions = getString(R.string.bluetooth_confirm_passkey_msg,
+                            mDevice.getName(), mPairingKey);
+                    break;
+
+                case BluetoothDevice.PAIRING_VARIANT_CONSENT:
+                case BluetoothDevice.PAIRING_VARIANT_OOB_CONSENT:
+                    instructions = getString(R.string.bluetooth_incoming_pairing_msg,
+                            mDevice.getName());
+
+                    break;
+                default:
+                    instructions = "";
+            }
+
+            instructionText.setText(Html.fromHtml(instructions));
+
+            return v;
+        }
+    }
 }

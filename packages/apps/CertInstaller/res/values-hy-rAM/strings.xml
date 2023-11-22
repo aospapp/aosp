@@ -55,4 +55,26 @@
     <item msgid="375085478373011304">"VPN և հավելվածներ"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi պրոֆիլ"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"%s-ի մանրամասներ"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"Մանրամասներ"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"Տեղադրել"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"Տեղադրվում է"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"Չեղարկել"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Անտեսել"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Ոչ մի"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"Անուն՝ %1$s\nFQDN՝ %2$s\nRoaming Consortiums՝ %3$s\nRealm՝ %4$s\nԻսկորոշման եղանակ՝ EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Օգտվողի անուն՝ %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"Սպասառուի վկայագիր՝\n%1$s\nԲանալի՝ %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM քարտ՝ %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"Վստահության վկայագիր՝\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"Հավատարմագրերը տեղադրվել են"</string>
+    <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g>-ի հավատարմագրերը ավելացվել են պահված Wi-Fi ցանցերին:"</string>
+    <string name="done_label" msgid="5597425930652904250">"ՊԱՏՐԱՍՏ Է"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Տեղադրեք Wi-Fi-ի հավատարմագրերը՝ <xliff:g id="NAME">%1$s</xliff:g>-ի միջոցով հասանելի ցանցերին կապակցվելու համար:"</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Ներբեռնված ֆայլը խնդիրներ ունի և չի կարող տեղադրվել: Համոզվեք, որ նիշքը ճիշտ աղբյուրից եք ներբեռնել:"</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Հնարավոր չէ տեղադրել Wi-Fi-ի հավատարմագրերը: Նորից փորձեք ներբեռնել ֆայլը:"</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Տեղադրումը չեղարկվել է"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Չհաջողվեց տեղադրել"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Միացրեք Wi-Fi-ը և նորից փորձեք:"</string>
 </resources>

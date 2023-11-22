@@ -54,7 +54,7 @@ class ScopedAnnotation {
     StatInc(thr, StatAnnotation); \
     StatInc(thr, Stat##typ); \
     ScopedAnnotation sa(thr, __func__, f, l, caller_pc); \
-    const uptr pc = __sanitizer::StackTrace::GetCurrentPc(); \
+    const uptr pc = StackTrace::GetCurrentPc(); \
     (void)pc; \
 /**/
 
@@ -126,8 +126,6 @@ static ExpectRace *FindRace(ExpectRace *list, uptr addr, uptr size) {
 
 static bool CheckContains(ExpectRace *list, uptr addr, uptr size) {
   ExpectRace *race = FindRace(list, addr, size);
-  if (race == 0 && AlternativeAddress(addr))
-    race = FindRace(list, AlternativeAddress(addr), size);
   if (race == 0)
     return false;
   DPrintf("Hit expected/benign race: %s addr=%zx:%d %s:%d\n",
@@ -456,4 +454,6 @@ const char INTERFACE_ATTRIBUTE* ThreadSanitizerQuery(const char *query) {
 
 void INTERFACE_ATTRIBUTE
 AnnotateMemoryIsInitialized(char *f, int l, uptr mem, uptr sz) {}
+void INTERFACE_ATTRIBUTE
+AnnotateMemoryIsUninitialized(char *f, int l, uptr mem, uptr sz) {}
 }  // extern "C"

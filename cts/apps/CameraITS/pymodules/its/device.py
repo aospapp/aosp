@@ -41,22 +41,34 @@ class ItsSession(object):
         sock: The open socket.
     """
 
-    # Open a connection to localhost:6000, forwarded to port 6000 on the device.
-    # TODO: Support multiple devices running over different TCP ports.
+    # Open a connection to localhost:<host_port>, forwarded to port 6000 on the
+    # device. <host_port> is determined at run-time to support multiple
+    # connected devices.
     IPADDR = '127.0.0.1'
-    PORT = 6000
+    REMOTE_PORT = 6000
     BUFFER_SIZE = 4096
+
+    # LOCK_PORT is used as a mutex lock to protect the list of forwarded ports
+    # among all processes. The script assumes LOCK_PORT is available and will
+    # try to use ports between CLIENT_PORT_START and
+    # CLIENT_PORT_START+MAX_NUM_PORTS-1 on host for ITS sessions.
+    CLIENT_PORT_START = 6000
+    MAX_NUM_PORTS = 100
+    LOCK_PORT = CLIENT_PORT_START + MAX_NUM_PORTS
 
     # Seconds timeout on each socket operation.
     SOCK_TIMEOUT = 10.0
+    SEC_TO_NSEC = 1000*1000*1000.0
 
     PACKAGE = 'com.android.cts.verifier.camera.its'
     INTENT_START = 'com.android.cts.verifier.camera.its.START'
     ACTION_ITS_RESULT = 'com.android.cts.verifier.camera.its.ACTION_ITS_RESULT'
+    EXTRA_CAMERA_ID = 'camera.its.extra.CAMERA_ID'
     EXTRA_SUCCESS = 'camera.its.extra.SUCCESS'
+    EXTRA_SUMMARY = 'camera.its.extra.SUMMARY'
 
-    # TODO: Handle multiple connected devices.
-    ADB = "adb -d"
+    adb = "adb -d"
+    device_id = ""
 
     # Definitions for some of the common output format options for do_capture().
     # Each gets images of full resolution for each requested format.
@@ -72,12 +84,83 @@ class ItsSession(object):
     CAP_RAW_YUV_JPEG = [{"format":"raw"}, {"format":"yuv"}, {"format":"jpeg"}]
     CAP_DNG_YUV_JPEG = [{"format":"dng"}, {"format":"yuv"}, {"format":"jpeg"}]
 
-    # Method to handle the case where the service isn't already running.
-    # This occurs when a test is invoked directly from the command line, rather
-    # than as a part of a separate test harness which is setting up the device
-    # and the TCP forwarding.
-    def __pre_init(self):
+    # Initialize the socket port for the host to forward requests to the device.
+    # This method assumes localhost's LOCK_PORT is available and will try to
+    # use ports between CLIENT_PORT_START and CLIENT_PORT_START+MAX_NUM_PORTS-1
+    def __init_socket_port(self):
+        NUM_RETRIES = 100
+        RETRY_WAIT_TIME_SEC = 0.05
 
+        # Bind a socket to use as mutex lock
+        socket_lock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        for i in range(NUM_RETRIES):
+            try:
+                socket_lock.bind((ItsSession.IPADDR, ItsSession.LOCK_PORT))
+                break
+            except socket.error:
+                if i == NUM_RETRIES - 1:
+                    raise its.error.Error(self.device_id,
+                                          "acquiring socket lock timed out")
+                else:
+                    time.sleep(RETRY_WAIT_TIME_SEC)
+
+        # Check if a port is already assigned to the device.
+        command = "adb forward --list"
+        proc = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+        output, error = proc.communicate()
+
+        port = None
+        used_ports = []
+        for line in output.split(os.linesep):
+            # each line should be formatted as:
+            # "<device_id> tcp:<host_port> tcp:<remote_port>"
+            forward_info = line.split()
+            if len(forward_info) >= 3 and \
+               len(forward_info[1]) > 4 and forward_info[1][:4] == "tcp:" and \
+               len(forward_info[2]) > 4 and forward_info[2][:4] == "tcp:":
+                local_p = int(forward_info[1][4:])
+                remote_p = int(forward_info[2][4:])
+                if forward_info[0] == self.device_id and \
+                   remote_p == ItsSession.REMOTE_PORT:
+                    port = local_p
+                    break;
+                else:
+                    used_ports.append(local_p)
+
+        # Find the first available port if no port is assigned to the device.
+        if port is None:
+            for p in range(ItsSession.CLIENT_PORT_START,
+                           ItsSession.CLIENT_PORT_START +
+                           ItsSession.MAX_NUM_PORTS):
+                if p not in used_ports:
+                    # Try to run "adb forward" with the port
+                    command = "%s forward tcp:%d tcp:%d" % \
+                              (self.adb, p, self.REMOTE_PORT)
+                    proc = subprocess.Popen(command.split(),
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE)
+                    output, error = proc.communicate()
+
+                    # Check if there is no error
+                    if error is None or error.find("error") < 0:
+                        port = p
+                        break
+
+        if port is None:
+            raise its.error.Error(self.device_id, " cannot find an available " +
+                                  "port")
+
+        # Release the socket as mutex unlock
+        socket_lock.close()
+
+        # Connect to the socket
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((self.IPADDR, port))
+        self.sock.settimeout(self.SOCK_TIMEOUT)
+
+    # Reboot the device if needed and wait for the service to be ready for
+    # connection.
+    def __wait_for_service(self):
         # This also includes the optional reboot handling: if the user
         # provides a "reboot" or "reboot=N" arg, then reboot the device,
         # waiting for N seconds (default 30) before returning.
@@ -87,19 +170,19 @@ class ItsSession(object):
                 if len(s) > 7 and s[6] == "=":
                     duration = int(s[7:])
                 print "Rebooting device"
-                _run("%s reboot" % (ItsSession.ADB));
-                _run("%s wait-for-device" % (ItsSession.ADB))
+                _run("%s reboot" % (self.adb));
+                _run("%s wait-for-device" % (self.adb))
                 time.sleep(duration)
                 print "Reboot complete"
 
         # TODO: Figure out why "--user 0" is needed, and fix the problem.
-        _run('%s shell am force-stop --user 0 %s' % (ItsSession.ADB, self.PACKAGE))
+        _run('%s shell am force-stop --user 0 %s' % (self.adb, self.PACKAGE))
         _run(('%s shell am startservice --user 0 -t text/plain '
-              '-a %s') % (ItsSession.ADB, self.INTENT_START))
+              '-a %s') % (self.adb, self.INTENT_START))
 
         # Wait until the socket is ready to accept a connection.
         proc = subprocess.Popen(
-                ItsSession.ADB.split() + ["logcat"],
+                self.adb.split() + ["logcat"],
                 stdout=subprocess.PIPE)
         logcat = proc.stdout
         while True:
@@ -108,15 +191,14 @@ class ItsSession(object):
                 break
         proc.kill()
 
-        # Setup the TCP-over-ADB forwarding.
-        _run('%s forward tcp:%d tcp:%d' % (ItsSession.ADB,self.PORT,self.PORT))
-
     def __init__(self):
-        if "noinit" not in sys.argv:
-            self.__pre_init()
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.IPADDR, self.PORT))
-        self.sock.settimeout(self.SOCK_TIMEOUT)
+        # Initialize device id and adb command.
+        self.device_id = get_device_id()
+        self.adb = "adb -s " + self.device_id
+
+        self.__wait_for_service()
+        self.__init_socket_port()
+
         self.__close_camera()
         self.__open_camera()
 
@@ -241,6 +323,20 @@ class ItsSession(object):
             raise its.error.Error('Invalid command response')
         return data['objValue']
 
+    def get_camera_ids(self):
+        """Get a list of camera device Ids that can be opened.
+
+        Returns:
+            a list of camera ID string
+        """
+        cmd = {}
+        cmd["cmdName"] = "getCameraIds"
+        self.sock.send(json.dumps(cmd) + "\n")
+        data,_ = self.__read_response_from_socket()
+        if data['tag'] != 'cameraIds':
+            raise its.error.Error('Invalid command response')
+        return data['objValue']['cameraIdArray']
+
     def get_camera_properties(self):
         """Get the camera properties object for the device.
 
@@ -343,7 +439,7 @@ class ItsSession(object):
             raise its.error.Error('3A failed to converge')
         return ae_sens, ae_exp, awb_gains, awb_transform, af_dist
 
-    def do_capture(self, cap_request, out_surfaces=None):
+    def do_capture(self, cap_request, out_surfaces=None, reprocess_format=None):
         """Issue capture request(s), and read back the image(s) and metadata.
 
         The main top-level function for capturing one or more images using the
@@ -352,7 +448,7 @@ class ItsSession(object):
 
         The out_surfaces field can specify the width(s), height(s), and
         format(s) of the captured image. The formats may be "yuv", "jpeg",
-        "dng", "raw", or "raw10". The default is a YUV420 frame ("yuv")
+        "dng", "raw", "raw10", or "raw12". The default is a YUV420 frame ("yuv")
         corresponding to a full sensor frame.
 
         Note that one or more surfaces can be specified, allowing a capture to
@@ -361,6 +457,18 @@ class ItsSession(object):
         default is the largest resolution available for the format of that
         surface. At most one output surface can be specified for a given format,
         and raw+dng, raw10+dng, and raw+raw10 are not supported as combinations.
+
+        If reprocess_format is not None, for each request, an intermediate
+        buffer of the given reprocess_format will be captured from camera and
+        the intermediate buffer will be reprocessed to the output surfaces. The
+        following settings will be turned off when capturing the intermediate
+        buffer and will be applied when reprocessing the intermediate buffer.
+            1. android.noiseReduction.mode
+            2. android.edge.mode
+            3. android.reprocess.effectiveExposureFactor
+
+        Supported reprocess format are "yuv" and "private". Supported output
+        surface formats when reprocessing is enabled are "yuv" and "jpeg".
 
         Example of a single capture request:
 
@@ -433,6 +541,8 @@ class ItsSession(object):
                 will be converted to JSON and sent to the device.
             out_surfaces: (Optional) specifications of the output image formats
                 and sizes to use for each capture.
+            reprocess_format: (Optional) The reprocessing format. If not None,
+                reprocessing will be enabled.
 
         Returns:
             An object, list of objects, or list of lists of objects, where each
@@ -444,7 +554,11 @@ class ItsSession(object):
             * metadata: the capture result object (Python dictionary).
         """
         cmd = {}
-        cmd["cmdName"] = "doCapture"
+        if reprocess_format != None:
+            cmd["cmdName"] = "doReprocessCapture"
+            cmd["reprocessFormat"] = reprocess_format
+        else:
+            cmd["cmdName"] = "doCapture"
         if not isinstance(cap_request, list):
             cmd["captureRequests"] = [cap_request]
         else:
@@ -467,6 +581,18 @@ class ItsSession(object):
                 "dng" in formats and "raw10" in formats or \
                 "raw" in formats and "raw10" in formats:
             raise its.error.Error('Different raw formats not supported')
+
+        # Detect long exposure time and set timeout accordingly
+        longest_exp_time = 0
+        for req in cmd["captureRequests"]:
+            if "android.sensor.exposureTime" in req and \
+                    req["android.sensor.exposureTime"] > longest_exp_time:
+                longest_exp_time = req["android.sensor.exposureTime"]
+
+        extended_timeout = longest_exp_time / self.SEC_TO_NSEC + \
+                self.SOCK_TIMEOUT
+        self.sock.settimeout(extended_timeout)
+
         print "Capturing %d frame%s with %d format%s [%s]" % (
                   ncap, "s" if ncap>1 else "", nsurf, "s" if nsurf>1 else "",
                   ",".join(formats))
@@ -508,23 +634,78 @@ class ItsSession(object):
                 obj["metadata"] = mds[i]
                 objs.append(obj)
             rets.append(objs if ncap>1 else objs[0])
+        self.sock.settimeout(self.SOCK_TIMEOUT)
         return rets if len(rets)>1 else rets[0]
 
-def report_result(camera_id, success):
+def get_device_id():
+    """ Return the ID of the device that the test is running on.
+
+    Return the device ID provided in the command line if it's connected. If no
+    device ID is provided in the command line and there is only one device
+    connected, return the device ID by parsing the result of "adb devices".
+
+    Raise an exception if no device is connected; or the device ID provided in
+    the command line is not connected; or no device ID is provided in the
+    command line and there are more than 1 device connected.
+
+    Returns:
+        Device ID string.
+    """
+    device_id = None
+    for s in sys.argv[1:]:
+        if s[:7] == "device=" and len(s) > 7:
+            device_id = str(s[7:])
+
+    # Get a list of connected devices
+    devices = []
+    command = "adb devices"
+    proc = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = proc.communicate()
+    for line in output.split(os.linesep):
+        device_info = line.split()
+        if len(device_info) == 2 and device_info[1] == "device":
+            devices.append(device_info[0])
+
+    if len(devices) == 0:
+        raise its.error.Error("No device is connected!")
+    elif device_id is not None and device_id not in devices:
+        raise its.error.Error(device_id + " is not connected!")
+    elif device_id is None and len(devices) >= 2:
+        raise its.error.Error("More than 1 device are connected. " +
+                "Use device=<device_id> to specify a device to test.")
+    elif len(devices) == 1:
+        device_id = devices[0]
+
+    return device_id
+
+def report_result(device_id, camera_id, success, summary_path=None):
     """Send a pass/fail result to the device, via an intent.
 
     Args:
+        device_id: The ID string of the device to report the results to.
         camera_id: The ID string of the camera for which to report pass/fail.
         success: Boolean, indicating if the result was pass or fail.
+        summary_path: (Optional) path to ITS summary file on host PC
 
     Returns:
         Nothing.
     """
-    resultstr = "%s=%s" % (camera_id, 'True' if success else 'False')
-    _run(('%s shell am broadcast '
-          '-a %s --es %s %s') % (ItsSession.ADB, ItsSession.ACTION_ITS_RESULT,
-          ItsSession.EXTRA_SUCCESS, resultstr))
-
+    adb = "adb -s " + device_id
+    device_summary_path = "/sdcard/camera_" + camera_id + "_its_summary.txt"
+    if summary_path is not None:
+        _run("%s push %s %s" % (
+                adb, summary_path, device_summary_path))
+        _run("%s shell am broadcast -a %s --es %s %s --es %s %s --es %s %s" % (
+                adb, ItsSession.ACTION_ITS_RESULT,
+                ItsSession.EXTRA_CAMERA_ID, camera_id,
+                ItsSession.EXTRA_SUCCESS, 'True' if success else 'False',
+                ItsSession.EXTRA_SUMMARY, device_summary_path))
+    else:
+        _run("%s shell am broadcast -a %s --es %s %s --es %s %s --es %s %s" % (
+                adb, ItsSession.ACTION_ITS_RESULT,
+                ItsSession.EXTRA_CAMERA_ID, camera_id,
+                ItsSession.EXTRA_SUCCESS, 'True' if success else 'False',
+                ItsSession.EXTRA_SUMMARY, "null"))
 
 def _run(cmd):
     """Replacement for os.system, with hiding of stdout+stderr messages.

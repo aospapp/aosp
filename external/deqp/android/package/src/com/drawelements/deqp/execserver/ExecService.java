@@ -27,11 +27,8 @@ import android.app.Service;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Intent;
-import android.content.Context;
-import android.content.ComponentName;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.Build;
 
 import com.drawelements.deqp.execserver.ExecServerActivity;
 import com.drawelements.deqp.R;
@@ -49,14 +46,14 @@ public class ExecService extends Service {
 			return ExecService.this;
 		}
 	}
-	
+
 	private final IBinder m_binder = new LocalBinder();
 
 	@Override
 	public void onCreate () {
 		onCreateNative();
 	}
-	
+
 	@Override
 	public int onStartCommand (Intent intent, int flags, int startId) {
 		// Intent to launch when notification is clicked.
@@ -71,12 +68,12 @@ public class ExecService extends Service {
 
 		return START_STICKY; // Keep us running until explictly stopped
 	}
-	
+
 	@Override
 	public IBinder onBind (Intent intent) {
 		return m_binder;
 	}
-	
+
 	@Override
 	public void onDestroy () {
 		onDestroyNative();

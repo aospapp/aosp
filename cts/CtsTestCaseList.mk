@@ -19,6 +19,8 @@ cts_security_apps_list := \
     CtsDocumentClient \
     CtsExternalStorageApp \
     CtsInstrumentationAppDiffCert \
+    CtsUsePermissionApp \
+    CtsUsePermissionAppCompat \
     CtsPermissionDeclareApp \
     CtsPermissionDeclareAppCompat \
     CtsReadExternalStorageApp \
@@ -57,13 +59,33 @@ cts_security_keysets_list := \
     CtsKeySetSigningBUpgradeB \
     CtsKeySetSigningAAndBUpgradeA \
     CtsKeySetSigningAAndCUpgradeB \
-    CtsKeySetSigningAUpgradeNone
+    CtsKeySetSigningAUpgradeNone \
+    CtsKeySetSharedUserSigningAUpgradeB \
+    CtsKeySetSharedUserSigningBUpgradeB \
+    CtsKeySetSigningABadUpgradeB \
+    CtsKeySetSigningCBadAUpgradeAB \
+    CtsKeySetSigningANoDefUpgradeB \
+    CtsKeySetSigningAUpgradeEcA \
+    CtsKeySetSigningEcAUpgradeA
+
+cts_account_support_packages := \
+    CtsUnaffiliatedAccountAuthenticators
 
 cts_support_packages := \
     CtsAccelerationTestStubs \
+    CtsAlarmClockService \
     CtsAppTestStubs \
+    CtsAssistService \
+    CtsAssistApp \
+    CtsAtraceTestApp \
+    CtsCertInstallerApp \
     CtsDeviceAdmin \
     CtsDeviceOpenGl \
+    CtsWifiConfigCreator \
+    CtsDeviceAndProfileOwnerApp \
+    CtsDeviceAppUsageTestApp \
+    CtsDeviceInfo \
+    CtsDeviceOsTestApp \
     CtsDeviceOwnerApp \
     CtsDeviceTaskswitchingAppA \
     CtsDeviceTaskswitchingAppB \
@@ -74,15 +96,24 @@ cts_support_packages := \
     CtsIntentSenderApp \
     CtsLauncherAppsTests \
     CtsLauncherAppsTestsSupport \
+    CtsLeanbackJank \
     CtsManagedProfileApp \
     CtsMonkeyApp \
     CtsMonkeyApp2 \
+    CtsPackageInstallerApp \
+    CtsPermissionApp \
     CtsSimpleApp \
+    CtsSimplePreMApp \
     CtsSomeAccessibilityServices \
     CtsThemeDeviceApp \
     TestDeviceSetup \
     CtsUiAutomatorApp \
     CtsUsbSerialTestApp \
+    CtsVoiceInteractionService \
+    CtsVoiceInteractionApp \
+    CtsVoiceSettingsService \
+    CtsWidgetProviderApp \
+    $(cts_account_support_packages) \
     $(cts_security_apps_list) \
     $(cts_security_keysets_list)
 
@@ -111,11 +142,14 @@ cts_test_packages := \
     CtsAccessibilityServiceTestCases \
     CtsAccessibilityTestCases \
     CtsAdminTestCases \
+    CtsAlarmClockTestCases \
     CtsAnimationTestCases \
     CtsAppTestCases \
     CtsAppWidgetTestCases \
+    CtsAssistTestCases \
     CtsBluetoothTestCases \
     CtsCalendarcommon2TestCases \
+    CtsCallLogTestCases \
     CtsContentTestCases \
     CtsDatabaseTestCases \
     CtsDisplayTestCases \
@@ -128,16 +162,22 @@ cts_test_packages := \
     CtsGraphicsTestCases \
     CtsGraphics2TestCases \
     CtsHardwareTestCases \
+    CtsJankTestCases \
+    CtsLeanbackJankTestCases \
     CtsJobSchedulerDeviceTestCases \
     CtsJniTestCases \
     CtsKeystoreTestCases \
+    CtsLibcoreLegacy22TestCases \
     CtsLocationTestCases \
     CtsLocation2TestCases \
     CtsMediaStressTestCases \
     CtsMediaTestCases \
+    CtsMidiTestCases \
     CtsNativeOpenGLTestCases \
     CtsNdefTestCases \
     CtsNetTestCases \
+    CtsNetTestCasesLegacyApi22 \
+    CtsNetTestCasesLegacyPermission22 \
     CtsOpenGLTestCases \
     CtsOpenGlPerfTestCases \
     CtsOsTestCases \
@@ -154,18 +194,22 @@ cts_test_packages := \
     CtsSecurityTestCases \
     CtsSignatureTestCases \
     CtsSpeechTestCases \
+    CtsTelecomTestCases \
+    CtsTelecomTestCases2 \
     CtsTelephonyTestCases \
     CtsTextTestCases \
     CtsTextureViewTestCases \
     CtsThemeTestCases \
+    CtsTransitionTestCases \
     CtsTvTestCases \
     CtsUiAutomationTestCases \
     CtsUiRenderingTestCases \
     CtsUsageStatsTestCases \
     CtsUtilTestCases \
     CtsViewTestCases \
+    CtsVoiceInteractionTestCases \
+    CtsVoiceSettingsTestCases \
     CtsWebkitTestCases \
-    CtsWebGLTestCases \
     CtsWidgetTestCases
 
 # All APKs that need to be scanned by the coverage utilities.
@@ -177,13 +221,17 @@ CTS_COVERAGE_TEST_CASE_LIST := \
 cts_host_libraries := \
     CtsAdbTests \
     CtsAppSecurityTests \
+    CtsAtraceHostTestCases \
     CtsDevicePolicyManagerTestCases \
     CtsDumpsysHostTestCases \
     CtsHostJank \
     CtsHostsideNetworkTests \
     CtsHostUi \
+    CtsJdwpSecurityHostTestCases \
     CtsMonkeyTestCases \
+    CtsOsHostTestCases \
     CtsThemeHostTestCases \
+    CtsUsageHostTestCases \
     CtsSecurityHostTestCases \
     CtsUsbTests
 
@@ -204,15 +252,14 @@ cts_ui_tests := \
 
 cts_device_jars := \
     CtsDeviceJank \
-    CtsPrintInstrument
-
-cts_device_executables := \
-    print-instrument
+    CtsJdwpApp
 
 cts_target_junit_tests := \
     CtsJdwp
 
 cts_deqp_test_apis := \
+    egl \
+    gles2 \
     gles3 \
     gles31
 
@@ -223,14 +270,8 @@ CTS_TEST_CASES := $(call cts-get-lib-paths,$(cts_host_libraries)) \
     $(call cts-get-ui-lib-paths,$(cts_ui_tests)) \
     $(call cts-get-ui-lib-paths,$(cts_device_jars)) \
     $(call cts-get-ui-lib-paths,$(cts_target_junit_tests)) \
-    $(call cts-get-executable-paths,$(cts_device_executables))
-
-# NOTE: If compiling on a 64 bit target, TARGET_2ND_ARCH will be non-empty
-# and will cause the function to expand to the secondary arch object
-# directory. If compiling on a 32 bit target, TARGET_2ND_ARCH will be
-# empty and will cause the function to expand to the primary arch object
-# directory.
-CTS_TEST_CASES += $(call cts-get-native-paths,$(cts_native_tests),32,$(TARGET_2ND_ARCH))
+    $(call cts-get-executable-paths,$(cts_device_executables)) \
+    $(call cts-get-native-paths,$(cts_native_tests),32)
 
 ifeq ($(TARGET_IS_64_BIT),true)
 CTS_TEST_CASES += $(call cts-get-native-paths,$(cts_native_tests),64)

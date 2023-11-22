@@ -46,4 +46,3 @@ done
 
 java $RDBG_FLAG \
   -cp ${JAR_PATH} com.android.tradefed.command.Console run singleCommand host -n --class com.android.cts.tradefed.UnitTests "$@"
-

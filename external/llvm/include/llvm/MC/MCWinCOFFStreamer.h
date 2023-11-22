@@ -24,16 +24,23 @@ class MCSubtargetInfo;
 class MCSymbol;
 class StringRef;
 class raw_ostream;
+class raw_pwrite_stream;
 
 class MCWinCOFFStreamer : public MCObjectStreamer {
 public:
   MCWinCOFFStreamer(MCContext &Context, MCAsmBackend &MAB, MCCodeEmitter &CE,
-                    raw_ostream &OS);
+                    raw_pwrite_stream &OS);
+
+  /// state management
+  void reset() override {
+    CurSymbol = nullptr;
+    MCObjectStreamer::reset();
+  }
 
   /// \name MCStreamer interface
   /// \{
 
-  void InitSections() override;
+  void InitSections(bool NoExecStack) override;
   void EmitLabel(MCSymbol *Symbol) override;
   void EmitAssemblerFlag(MCAssemblerFlag Flag) override;
   void EmitThumbFunc(MCSymbol *Func) override;

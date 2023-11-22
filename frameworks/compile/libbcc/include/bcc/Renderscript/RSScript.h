@@ -18,13 +18,19 @@
 #define BCC_RS_SCRIPT_H
 
 #include "bcc/Script.h"
-#include "bcc/Renderscript/RSInfo.h"
 #include "bcc/Support/Sha1Util.h"
+
+namespace llvm {
+  class Module;
+}
 
 namespace bcc {
 
 class RSScript;
 class Source;
+
+typedef llvm::Module* (*RSLinkRuntimeCallback) (bcc::RSScript *, llvm::Module *, llvm::Module *);
+
 
 class RSScript : public Script {
 public:
@@ -39,8 +45,6 @@ public:
   };
 
 private:
-  const RSInfo *mInfo;
-
   unsigned mCompilerVersion;
 
   OptimizationLevel mOptimizationLevel;
@@ -49,27 +53,24 @@ private:
 
   bool mEmbedInfo;
 
+  // Specifies whether we should embed global variable information in the
+  // code via special RS variables that can be examined later by the driver.
+  bool mEmbedGlobalInfo;
+
+  // Specifies whether we should skip constant (immutable) global variables
+  // when potentially embedding information about globals.
+  bool mEmbedGlobalInfoSkipConstant;
+
 private:
   // This will be invoked when the containing source has been reset.
   virtual bool doReset();
 
 public:
-  static bool LinkRuntime(RSScript &pScript, const char *rt_path = NULL);
+  static bool LinkRuntime(RSScript &pScript, const char *rt_path = nullptr);
 
   RSScript(Source &pSource);
 
-  virtual ~RSScript() {
-    delete mInfo;
-  }
-
-  // Set the associated RSInfo of the script.
-  void setInfo(const RSInfo *pInfo) {
-    mInfo = pInfo;
-  }
-
-  const RSInfo *getInfo() const {
-    return mInfo;
-  }
+  virtual ~RSScript() { }
 
   void setCompilerVersion(unsigned pCompilerVersion) {
     mCompilerVersion = pCompilerVersion;
@@ -97,6 +98,28 @@ public:
 
   bool getEmbedInfo() const {
     return mEmbedInfo;
+  }
+
+  // Set to true if we should embed global variable information in the code.
+  void setEmbedGlobalInfo(bool pEnable) {
+    mEmbedGlobalInfo = pEnable;
+  }
+
+  // Returns true if we should embed global variable information in the code.
+  bool getEmbedGlobalInfo() const {
+    return mEmbedGlobalInfo;
+  }
+
+  // Set to true if we should skip constant (immutable) global variables when
+  // potentially embedding information about globals.
+  void setEmbedGlobalInfoSkipConstant(bool pEnable) {
+    mEmbedGlobalInfoSkipConstant = pEnable;
+  }
+
+  // Returns true if we should skip constant (immutable) global variables when
+  // potentially embedding information about globals.
+  bool getEmbedGlobalInfoSkipConstant() const {
+    return mEmbedGlobalInfoSkipConstant;
   }
 };
 

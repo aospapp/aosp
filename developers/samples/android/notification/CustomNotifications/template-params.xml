@@ -20,7 +20,7 @@
     <package>com.example.android.customnotifications</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>4</minSdk>
+    <minSdk>16</minSdk>
 
     <strings>
         <intro>

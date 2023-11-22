@@ -55,7 +55,7 @@
     <string name="send" msgid="4269810089682120826">"ارسال"</string>
     <string name="mark_read" msgid="579388143288052493">"علامت‌گذاری به‌عنوان خوانده‌شده"</string>
     <string name="mark_unread" msgid="6245060538061533191">"علامت‌گذاری به‌عنوان خوانده‌نشده"</string>
-    <string name="toggle_read_unread" msgid="1006469736520919028">"جابجا شدن بین حالت «خوانده شده» و «خوانده نشده»"</string>
+    <string name="toggle_read_unread" msgid="1006469736520919028">"جابه‌جایی بین خوانده شده و خوانده نشده"</string>
     <string name="mute" msgid="9164839998562321569">"نادیده گرفتن"</string>
     <string name="add_star" msgid="3275117671153616270">"افزودن ستاره"</string>
     <string name="remove_star" msgid="9126690774161840733">"حذف ستاره"</string>
@@ -80,7 +80,7 @@
     <string name="menu_show_original" msgid="2330398228979616661">"برگرداندن اندازه خودکار"</string>
     <string name="menu_settings" msgid="7993485401501778040">"تنظیمات"</string>
     <string name="menu_search" msgid="1949652467806052768">"جستجو"</string>
-    <string name="menu_toggle_drawer" msgid="8653049392208282481">"جابجا کردن کشو"</string>
+    <string name="menu_toggle_drawer" msgid="8653049392208282481">"نمایان/پنهان کردن کشو"</string>
     <string name="drawer_title" msgid="3766219846644975778">"پیمایش"</string>
     <string name="mark_important" msgid="8781680450177768820">"علامت‌گذاری به‌عنوان مهم"</string>
     <string name="mark_not_important" msgid="3342258155408116917">"علامت‌گذاری به‌عنوان غیرمهم"</string>
@@ -224,7 +224,7 @@
     <item quantity="other" msgid="8094857552036574099">"باز کردن <xliff:g id="COUNT">%1$d</xliff:g> پیام قدیمی‌تر"</item>
   </plurals>
   <plurals name="super_collapsed_block_accessibility_announcement">
-    <item quantity="other" msgid="2016326586162784420">"<xliff:g id="COUNT">%1$d</xliff:g> پیام قدیمی‌تر بازشده"</item>
+    <item quantity="other" msgid="2016326586162784420">"<xliff:g id="COUNT">%1$d</xliff:g> پیام قدیمی‌تر باز شد"</item>
   </plurals>
     <string name="from_heading" msgid="48290556829713090">"از:"</string>
     <string name="replyto_heading" msgid="8275255318292059079">"پاسخ به:"</string>
@@ -312,7 +312,7 @@
     <string name="show" msgid="2874876876336599985">"نمایش پیام‌های جدید"</string>
     <string name="sync_error" msgid="1795794969006241678">"همگام‌سازی نشد."</string>
     <string name="sync_error_message" msgid="4182644657243736635">"دستگاه شما فضای ذخیره کافی برای همگام‌سازی ندارد."</string>
-    <string name="storage" msgid="4783683938444150638">"محل ذخیره"</string>
+    <string name="storage" msgid="4783683938444150638">"ذخیره‌سازی"</string>
     <string name="senders_split_token" msgid="6549228851819460081">"، "</string>
     <string name="draft_count_format" msgid="9122583199850209286">" (<xliff:g id="COUNT">%1$s</xliff:g>)"</string>
     <string name="all_folders_heading" msgid="9023770187629170967">"همه پوشه‌ها"</string>
@@ -367,7 +367,7 @@
   </string-array>
     <string name="prefDialogTitle_removal_action" msgid="7914272565548361304">"اقدام پیش‌فرض"</string>
     <string name="preferences_default_reply_all_title" msgid="7255858488369635327">"پاسخ به همه"</string>
-    <string name="preferences_default_reply_all_summary_impl" msgid="895581085692979709">"به‌ عنوان پیش‌فرض برای پاسخ‌ به پیام‌ها استفاده شود"</string>
+    <string name="preferences_default_reply_all_summary_impl" msgid="895581085692979709">"به‌ عنوان پیش‌فرض برای پاسخ‌ پیام استفاده شود"</string>
     <string name="preference_swipe_title" msgid="2073613840893904205">"اقداماتی با کشیدن سریع انگشت"</string>
     <string name="preference_swipe_description" msgid="3036560323237015010">"در لیست مکالمه"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"تصویر فرستنده"</string>
@@ -462,7 +462,7 @@
     <string name="preferences_disable_snap_headers_title" msgid="7257824136988429629">"عملکردهای پیام"</string>
   <string-array name="prefSummaries_snapHeader">
     <item msgid="43373293784193461">"عملکردهای پیام همیشه در بالای صفحه نشان داده شود"</item>
-    <item msgid="1765271305989996747">"عملکردهای پیام فقط وقتی در بالای صفحه نشان داده شود که به حالت پرتره چرخانده می‌شود"</item>
+    <item msgid="1765271305989996747">"عملکردهای پیام فقط وقتی در بالای صفحه نشان داده شود که به حالت عمودی چرخانده می‌شود"</item>
     <item msgid="6311113076575333488">"عملکردهای پیام خارج از سرصفحه پیام نشان داده نشود"</item>
   </string-array>
   <string-array name="prefEntries_snapHeader">

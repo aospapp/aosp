@@ -16,6 +16,7 @@
 
 #include <jni.h>
 #include <sys/types.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <utils/Log.h>

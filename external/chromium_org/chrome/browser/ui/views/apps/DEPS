@@ -1,3 +1,0 @@
-include_rules = [
- "+components/native_app_window"
-]

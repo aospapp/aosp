@@ -93,7 +93,7 @@
     <string name="kilobytes" msgid="1523463964465770347">"<xliff:g id="COUNT">%s</xliff:g> ኪባ"</string>
     <string name="megabytes" msgid="4309397368708773323">"<xliff:g id="COUNT">%s</xliff:g> ሜባ"</string>
     <string name="attachment_image" msgid="6375306026208274564">"ምስል"</string>
-    <string name="attachment_video" msgid="7119476472603939848">"ቪዲዮ"</string>
+    <string name="attachment_video" msgid="7119476472603939848">"ቪድዮ"</string>
     <string name="attachment_audio" msgid="7097658089301809284">"ኦዲዮ"</string>
     <string name="attachment_text" msgid="3485853714965922173">"ፅሑፍ"</string>
     <string name="attachment_application_msword" msgid="2110108876623152162">"ሰነድ"</string>
@@ -196,7 +196,7 @@
   </plurals>
   <plurals name="conversation_deleted">
     <item quantity="one" msgid="4819167474123685161">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; ተሰርዟል"</item>
-    <item quantity="other" msgid="6287534453625638257">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; ተሰርዘዋል"</item>
+    <item quantity="other" msgid="6287534453625638257">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; ተሰርዟል"</item>
   </plurals>
     <string name="deleted" msgid="7378013910782008375">"ተሰርዟል"</string>
     <string name="archived" msgid="6283673603512713022">"ተሰንዷል"</string>

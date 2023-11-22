@@ -1,19 +1,18 @@
 /*
-**
-** Copyright 2014, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ * Copyright 2014, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #ifndef ANDROID_AUDIO_FRAME_SCANNER_H
 #define ANDROID_AUDIO_FRAME_SCANNER_H
@@ -33,25 +32,28 @@ namespace android {
  */
 class FrameScanner {
 public:
-
-    FrameScanner(int dataType);
+    FrameScanner(int dataType,
+            const uint8_t *syncBytes,
+            uint32_t syncLength,
+            uint32_t headerLength
+            );
     virtual ~FrameScanner();
 
     /**
      * Pass each byte of the encoded stream to this scanner.
      * @return true if a complete and valid header was detected
      */
-    virtual bool scan(uint8_t) = 0;
+    virtual bool scan(uint8_t byte);
 
     /**
      * @return address of where the sync header was stored by scan()
      */
-    virtual const uint8_t *getHeaderAddress() const = 0;
+    const uint8_t *getHeaderAddress() const { return mHeaderBuffer; }
 
     /**
      * @return number of bytes in sync header stored by scan()
      */
-    virtual size_t getHeaderSizeBytes() const = 0;
+    size_t getHeaderSizeBytes() const { return mHeaderLength; }
 
     /**
      * @return sample rate of the encoded audio
@@ -71,8 +73,8 @@ public:
     /**
      * dataType is defined by the SPDIF standard for each format
      */
-    virtual int getDataType()      const { return mDataType; }
-    virtual int getDataTypeInfo()  const { return mDataTypeInfo; }
+    int getDataType()      const { return mDataType; }
+    int getDataTypeInfo()  const { return mDataTypeInfo; }
 
     virtual int getMaxChannels() const = 0;
 
@@ -95,78 +97,34 @@ public:
      */
     virtual bool isLastInBurst()  = 0;
 
-protected:
-    uint32_t mSampleRate;
-    uint32_t mRateMultiplier;
-    size_t   mFrameSizeBytes;
-    int      mDataType;
-    int      mDataTypeInfo;
-};
-
-#define AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES          3
-#define AC3_NUM_FRAME_SIZE_TABLE_ENTRIES          38
-#define AC3_PCM_FRAMES_PER_BLOCK                 256
-#define AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK        6
-#define EAC3_RATE_MULTIPLIER                       4
-#define EAC3_NUM_SAMPLE_RATE_TABLE_ENTRIES         3
-#define EAC3_NUM_BLOCKS_PER_FRAME_TABLE_ENTRIES   38
-#define EAC3_MAX_SUBSTREAMS                        8
-
-class AC3FrameScanner : public FrameScanner
-{
-public:
-    AC3FrameScanner();
-    virtual ~AC3FrameScanner();
-
-    virtual bool scan(uint8_t);
-
-    virtual const uint8_t *getHeaderAddress() const { return mHeaderBuffer; }
-    virtual size_t getHeaderSizeBytes() const { return sizeof(mHeaderBuffer); }
-
-    virtual int getDataType()      const { return mDataType; }
-    virtual int getDataTypeInfo()  const { return 0; }
-    virtual int getMaxChannels()   const { return 5 + 1; }
-
-    virtual int getMaxSampleFramesPerSyncFrame() const { return EAC3_RATE_MULTIPLIER
-            * AC3_MAX_BLOCKS_PER_SYNC_FRAME_BLOCK * AC3_PCM_FRAMES_PER_BLOCK; }
-    virtual int getSampleFramesPerSyncFrame() const;
-
-    virtual bool isFirstInBurst();
-    virtual bool isLastInBurst();
-    virtual void resetBurst();
+    /**
+     * Most compression types use a lengthCode expressed in bits.
+     */
+    virtual uint16_t convertBytesToLengthCode(uint16_t numBytes) const { return numBytes * 8; }
 
 protected:
+    uint32_t  mBytesSkipped;     // how many bytes were skipped looking for the start of a frame
+    const uint8_t *mSyncBytes;   // pointer to the sync word specific to a format
+    uint32_t  mSyncLength;       // number of bytes in sync word
+    uint8_t   mHeaderBuffer[32]; // a place to gather the relevant header bytes for parsing
+    uint32_t  mHeaderLength;     // the number of bytes we need to parse
+    uint32_t  mCursor;           // position in the mHeaderBuffer
+    uint32_t  mFormatDumpCount;  // used to thin out the debug dumps
+    uint32_t  mSampleRate;       // encoded sample rate
+    uint32_t  mRateMultiplier;   // SPDIF output data burst rate = msampleRate * mRateMultiplier
+    size_t    mFrameSizeBytes;   // encoded frame size
+    int       mDataType;         // as defined in IEC61937-2 paragraph 4.2
+    int       mDataTypeInfo;     // as defined in IEC61937-2 paragraph 4.1
 
-    // Preamble state machine states.
-    enum State {
-         STATE_EXPECTING_SYNC_1,
-         STATE_EXPECTING_SYNC_2,
-         STATE_GATHERING,
-         STATE_GOT_HEADER,
-    };
-
-    State parseHeader(void);
-
-    State    mState;
-    uint32_t mBytesSkipped;
-    uint8_t  mHeaderBuffer[6];
-    uint8_t  mSubstreamBlockCounts[EAC3_MAX_SUBSTREAMS];
-    int      mAudioBlocksPerSyncFrame;
-    uint     mCursor;
-    uint     mStreamType;
-    uint     mSubstreamID;
-    uint     mFormatDumpCount;
-
-    static const uint8_t kAC3SyncByte1;
-    static const uint8_t kAC3SyncByte2;
-    static const uint16_t   kAC3SampleRateTable[AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES];
-    static const uint16_t kAC3FrameSizeTable[AC3_NUM_FRAME_SIZE_TABLE_ENTRIES]
-            [AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES];
-
-    static const uint16_t   kEAC3ReducedSampleRateTable[AC3_NUM_SAMPLE_RATE_TABLE_ENTRIES];
-    static const uint16_t kEAC3BlocksPerFrameTable[EAC3_NUM_BLOCKS_PER_FRAME_TABLE_ENTRIES];
+    /**
+     * Parse data in mHeaderBuffer.
+     * Sets mDataType, mFrameSizeBytes, mSampleRate, mRateMultiplier.
+     * @return true if the header is valid.
+     */
+    virtual bool parseHeader() = 0;
 
 };
+
 
 }  // namespace android
 #endif  // ANDROID_AUDIO_FRAME_SCANNER_H

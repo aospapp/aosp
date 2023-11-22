@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+#include "dalvik_system_VMStack.h"
+
+#include "art_method-inl.h"
 #include "jni_internal.h"
 #include "nth_caller_visitor.h"
-#include "mirror/art_method-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
@@ -36,12 +38,7 @@ static jobject GetThreadStack(const ScopedFastNativeObjectAccess& soa, jobject p
     soa.Self()->TransitionFromRunnableToSuspended(kNative);
     ThreadList* thread_list = Runtime::Current()->GetThreadList();
     bool timed_out;
-    Thread* thread;
-    {
-      // Take suspend thread lock to avoid races with threads trying to suspend this one.
-      MutexLock mu(soa.Self(), *Locks::thread_list_suspend_thread_lock_);
-      thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
-    }
+    Thread* thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
     if (thread != nullptr) {
       // Must be runnable to create returned array.
       CHECK_EQ(soa.Self()->TransitionFromSuspendedToRunnable(), kNative);
@@ -84,31 +81,30 @@ static jobject VMStack_getCallingClassLoader(JNIEnv* env, jclass) {
   return soa.AddLocalReference<jobject>(visitor.caller->GetDeclaringClass()->GetClassLoader());
 }
 
-static jobject VMStack_getClosestUserClassLoader(JNIEnv* env, jclass, jobject javaBootstrap,
-                                                 jobject javaSystem) {
+static jobject VMStack_getClosestUserClassLoader(JNIEnv* env, jclass) {
   struct ClosestUserClassLoaderVisitor : public StackVisitor {
-    ClosestUserClassLoaderVisitor(Thread* thread, mirror::Object* bootstrap, mirror::Object* system)
-      : StackVisitor(thread, NULL), bootstrap(bootstrap), system(system), class_loader(NULL) {}
+    explicit ClosestUserClassLoaderVisitor(Thread* thread)
+      : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
+        class_loader(nullptr) {}
 
     bool VisitFrame() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-      DCHECK(class_loader == NULL);
+      DCHECK(class_loader == nullptr);
       mirror::Class* c = GetMethod()->GetDeclaringClass();
-      mirror::Object* cl = c->GetClassLoader();
-      if (cl != NULL && cl != bootstrap && cl != system) {
-        class_loader = cl;
-        return false;
+      // c is null for runtime methods.
+      if (c != nullptr) {
+        mirror::Object* cl = c->GetClassLoader();
+        if (cl != nullptr) {
+          class_loader = cl;
+          return false;
+        }
       }
       return true;
     }
 
-    mirror::Object* bootstrap;
-    mirror::Object* system;
     mirror::Object* class_loader;
   };
   ScopedFastNativeObjectAccess soa(env);
-  mirror::Object* bootstrap = soa.Decode<mirror::Object*>(javaBootstrap);
-  mirror::Object* system = soa.Decode<mirror::Object*>(javaSystem);
-  ClosestUserClassLoaderVisitor visitor(soa.Self(), bootstrap, system);
+  ClosestUserClassLoaderVisitor visitor(soa.Self());
   visitor.WalkStack();
   return soa.AddLocalReference<jobject>(visitor.class_loader);
 }
@@ -137,7 +133,7 @@ static jobjectArray VMStack_getThreadStackTrace(JNIEnv* env, jclass, jobject jav
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMStack, fillStackTraceElements, "!(Ljava/lang/Thread;[Ljava/lang/StackTraceElement;)I"),
   NATIVE_METHOD(VMStack, getCallingClassLoader, "!()Ljava/lang/ClassLoader;"),
-  NATIVE_METHOD(VMStack, getClosestUserClassLoader, "!(Ljava/lang/ClassLoader;Ljava/lang/ClassLoader;)Ljava/lang/ClassLoader;"),
+  NATIVE_METHOD(VMStack, getClosestUserClassLoader, "!()Ljava/lang/ClassLoader;"),
   NATIVE_METHOD(VMStack, getStackClass2, "!()Ljava/lang/Class;"),
   NATIVE_METHOD(VMStack, getThreadStackTrace, "!(Ljava/lang/Thread;)[Ljava/lang/StackTraceElement;"),
 };

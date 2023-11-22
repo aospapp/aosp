@@ -26,8 +26,7 @@ trace_tag_bits = {
   'camera':   1<<10,
 }
 
-flattened_css_file = 'style.css'
-flattened_js_file = 'script.js'
+flattened_html_file = 'systrace_trace_viewer.html'
 
 def add_adb_serial(command, serial):
   if serial != None:
@@ -74,6 +73,9 @@ def main():
   parser.add_option('-e', '--serial', dest='device_serial', type='string',
                     help='adb device serial number')
   options, args = parser.parse_args()
+
+  if options.link_assets or options.asset_dir != 'trace-viewer':
+    parser.error('--link-assets and --asset-dir is deprecated.')
 
   if options.set_tags:
     flags = 0
@@ -129,22 +131,8 @@ def main():
 
   script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
 
-  if options.link_assets:
-    src_dir = os.path.join(script_dir, options.asset_dir, 'src')
-    build_dir = os.path.join(script_dir, options.asset_dir, 'build')
-
-    js_files, js_flattenizer, css_files, templates = get_assets(src_dir, build_dir)
-
-    css = '\n'.join(linked_css_tag % (os.path.join(src_dir, f)) for f in css_files)
-    js = '<script language="javascript">\n%s</script>\n' % js_flattenizer
-    js += '\n'.join(linked_js_tag % (os.path.join(src_dir, f)) for f in js_files)
-
-  else:
-    css_filename = os.path.join(script_dir, flattened_css_file)
-    js_filename = os.path.join(script_dir, flattened_js_file)
-    css = compiled_css_tag % (open(css_filename).read())
-    js = compiled_js_tag % (open(js_filename).read())
-    templates = ''
+  with open(os.path.join(script_dir, flattened_html_file), 'r') as f:
+    trace_viewer_html = f.read()
 
   html_filename = options.output_file
 
@@ -178,7 +166,11 @@ def main():
             out = ''.join(lines[i+1:])
             html_prefix = read_asset(script_dir, 'prefix.html')
             html_file = open(html_filename, 'w')
-            html_file.write(html_prefix % (css, js, templates))
+            html_file.write(
+              html_prefix.replace("{{SYSTRACE_TRACE_VIEWER_HTML}}",
+                  trace_viewer_html))
+            html_file.write('<!-- BEGIN TRACE -->\n' +
+              '  <script class="trace-data" type="application/text">\n')
             trace_started = True
             break
           elif 'TRACE:'.startswith(line) and i == len(lines) - 1:
@@ -200,6 +192,7 @@ def main():
     html_out = dec.flush().replace('\n', '\\n\\\n').replace('\r', '')
     if len(html_out) > 0:
       html_file.write(html_out)
+    html_file.write('  </script>\n<!-- END TRACE -->\n')
     html_suffix = read_asset(script_dir, 'suffix.html')
     html_file.write(html_suffix)
     html_file.close()
@@ -210,42 +203,6 @@ def main():
 
 def read_asset(src_dir, filename):
   return open(os.path.join(src_dir, filename)).read()
-
-def get_assets(src_dir, build_dir):
-  sys.path.append(build_dir)
-  gen = __import__('generate_standalone_timeline_view', {}, {})
-  parse_deps = __import__('parse_deps', {}, {})
-  gen_templates = __import__('generate_template_contents', {}, {})
-  filenames = gen._get_input_filenames()
-  load_sequence = parse_deps.calc_load_sequence(filenames, src_dir)
-
-  js_files = []
-  js_flattenizer = "window.FLATTENED = {};\n"
-  js_flattenizer += "window.FLATTENED_RAW_SCRIPTS = {};\n"
-  css_files = []
-
-  for module in load_sequence:
-    js_files.append(os.path.relpath(module.filename, src_dir))
-    js_flattenizer += "window.FLATTENED['%s'] = true;\n" % module.name
-    for dependent_raw_script_name in module.dependent_raw_script_names:
-      js_flattenizer += (
-        "window.FLATTENED_RAW_SCRIPTS['%s'] = true;\n" %
-        dependent_raw_script_name)
-
-    for style_sheet in module.style_sheets:
-      css_files.append(os.path.relpath(style_sheet.filename, src_dir))
-
-  templates = gen_templates.generate_templates()
-
-  sys.path.pop()
-
-  return (js_files, js_flattenizer, css_files, templates)
-
-compiled_css_tag = """<style type="text/css">%s</style>"""
-compiled_js_tag = """<script language="javascript">%s</script>"""
-
-linked_css_tag = """<link rel="stylesheet" href="%s"></link>"""
-linked_js_tag = """<script language="javascript" src="%s"></script>"""
 
 if __name__ == '__main__':
   main()

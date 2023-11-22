@@ -80,10 +80,10 @@ public class Blur25G extends TestBase {
 
     public void runTest() {
         mIntrinsic.forEach(mScratchPixelsAllocation2);
+        mScript.forEach_toU8_4(mScratchPixelsAllocation2, mOutPixelsAllocation);
     }
 
     public void updateBitmap(Bitmap b) {
-        mScript.forEach_toU8_4(mScratchPixelsAllocation2, mOutPixelsAllocation);
         mOutPixelsAllocation.copyTo(b);
     }
 

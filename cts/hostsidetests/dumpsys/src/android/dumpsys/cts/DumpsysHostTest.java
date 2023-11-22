@@ -16,11 +16,15 @@
 
 package android.dumpsys.cts;
 
-import com.android.ddmlib.Log;
+import com.android.cts.tradefed.build.CtsBuildHelper;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,8 +32,10 @@ import java.util.Set;
 /**
  * Test to check the format of the dumps of various services (currently only procstats is tested).
  */
-public class DumpsysHostTest extends DeviceTestCase {
+public class DumpsysHostTest extends DeviceTestCase implements IBuildReceiver {
     private static final String TAG = "DumpsysHostTest";
+    private static final String TEST_APK = "CtsFramestatsTestApp.apk";
+    private static final String TEST_PKG = "com.android.cts.framestatstestapp";
 
     /**
      * A reference to the device under test.
@@ -49,11 +55,6 @@ public class DumpsysHostTest extends DeviceTestCase {
      * @throws Exception
      */
     public void testProcstatsOutput() throws Exception {
-        if (mDevice.getApiLevel() < 19) {
-            Log.i(TAG, "No Procstats output before KitKat, skipping test.");
-            return;
-        }
-
         String procstats = mDevice.executeShellCommand("dumpsys procstats -c");
         assertNotNull(procstats);
         assertTrue(procstats.length() > 0);
@@ -338,11 +339,6 @@ public class DumpsysHostTest extends DeviceTestCase {
      * @throws Exception
      */
     public void testBatterystatsOutput() throws Exception {
-        if (mDevice.getApiLevel() < 21) {
-            Log.i(TAG, "Batterystats output before Lollipop, skipping test.");
-            return;
-        }
-
         String batterystats = mDevice.executeShellCommand("dumpsys batterystats --checkin");
         assertNotNull(batterystats);
         assertTrue(batterystats.length() > 0);
@@ -359,7 +355,12 @@ public class DumpsysHostTest extends DeviceTestCase {
                     continue;
                 }
 
-                String[] parts = line.split(",");
+
+                // With a default limit of 0, empty strings at the end are discarded.
+                // We still consider the empty string as a valid value in some cases.
+                // Using any negative number for the limit will preserve a trailing empty string.
+                // @see String#split(String, int)
+                String[] parts = line.split(",", -1);
                 assertInteger(parts[0]); // old version
                 assertInteger(parts[1]); // UID
                 switch (parts[2]) { // aggregation type
@@ -586,10 +587,10 @@ public class DumpsysHostTest extends DeviceTestCase {
     }
 
     private void checkKernelWakelock(String[] parts) {
-        assertEquals(7, parts.length);
-        assertNotNull(parts[4]); // kernel wakelock
-        assertInteger(parts[5]); // totalTime
-        assertInteger(parts[6]); // count
+        assertTrue(parts.length >= 7);
+	assertNotNull(parts[4]); // Kernel wakelock
+	assertInteger(parts[parts.length-2]); // totalTime
+        assertInteger(parts[parts.length-1]); // count
     }
 
     private void checkWakeupReason(String[] parts) {
@@ -658,23 +659,22 @@ public class DumpsysHostTest extends DeviceTestCase {
     }
 
     private void checkMisc(String[] parts) {
-        assertTrue(parts.length >= 20);
+        assertTrue(parts.length >= 19);
         assertInteger(parts[4]);      // screenOnTime
         assertInteger(parts[5]);      // phoneOnTime
-        assertInteger(parts[6]);      // wifiOnTime
-        assertInteger(parts[7]);      // wifiRunningTime
-        assertInteger(parts[8]);      // bluetoothOnTime
-        assertInteger(parts[9]);      // mobileRxTotalBytes
-        assertInteger(parts[10]);     // mobileTxTotalBytes
-        assertInteger(parts[11]);     // wifiRxTotalBytes
-        assertInteger(parts[12]);     // wifiTxTotalBytes
-        assertInteger(parts[13]);     // fullWakeLockTimeTotal
-        assertInteger(parts[14]);     // partialWakeLockTimeTotal
-        assertEquals("0", parts[15]); // legacy input event count
-        assertInteger(parts[16]);     // mobileRadioActiveTime
-        assertInteger(parts[17]);     // mobileRadioActiveAdjustedTime
-        assertInteger(parts[18]);     // interactiveTime
-        assertInteger(parts[19]);     // lowPowerModeEnabledTime
+        assertInteger(parts[6]);      // fullWakeLockTimeTotal
+        assertInteger(parts[7]);      // partialWakeLockTimeTotal
+        assertInteger(parts[8]);      // mobileRadioActiveTime
+        assertInteger(parts[9]);      // mobileRadioActiveAdjustedTime
+        assertInteger(parts[10]);     // interactiveTime
+        assertInteger(parts[11]);     // lowPowerModeEnabledTime
+        assertInteger(parts[12]);     // connChanges
+        assertInteger(parts[13]);     // deviceIdleModeEnabledTime
+        assertInteger(parts[14]);     // deviceIdleModeEnabledCount
+        assertInteger(parts[15]);     // deviceIdlingTime
+        assertInteger(parts[16]);     // deviceIdlingCount
+        assertInteger(parts[17]);     // mobileRadioActiveCount
+        assertInteger(parts[18]);     // mobileRadioActiveUnknownTime
     }
 
     private void checkGlobalNetwork(String[] parts) {
@@ -699,7 +699,7 @@ public class DumpsysHostTest extends DeviceTestCase {
     }
 
     private void checkSignalStrength(String[] parts) {
-        assertEquals(9, parts.length);
+        assertTrue(parts.length >= 9);
         assertInteger(parts[4]); // none
         assertInteger(parts[5]); // poor
         assertInteger(parts[6]); // moderate
@@ -794,13 +794,14 @@ public class DumpsysHostTest extends DeviceTestCase {
     }
 
     private void checkChargeDischargeStep(String[] parts) {
-        assertEquals(8, parts.length);
+        assertEquals(9, parts.length);
         assertInteger(parts[4]); // duration
         if (!parts[5].equals("?")) {
             assertInteger(parts[5]); // level
         }
         assertNotNull(parts[6]); // screen
         assertNotNull(parts[7]); // power-save
+        assertNotNull(parts[8]); // device-idle
     }
 
     private void checkDischargeTimeRemain(String[] parts) {
@@ -813,11 +814,108 @@ public class DumpsysHostTest extends DeviceTestCase {
         assertInteger(parts[4]); // chargeTimeRemaining
     }
 
-    private static void assertInteger(String input) {
+    /**
+     * Tests the output of "dumpsys gfxinfo framestats".
+     *
+     * @throws Exception
+     */
+    public void testGfxinfoFramestats() throws Exception {
+        final String MARKER = "---PROFILEDATA---";
+
         try {
-            Long.parseLong(input);
+            // cleanup test apps that might be installed from previous partial test run
+            getDevice().uninstallPackage(TEST_PKG);
+
+            // install the test app
+            File testAppFile = mCtsBuild.getTestApp(TEST_APK);
+            String installResult = getDevice().installPackage(testAppFile, false);
+            assertNull(
+                    String.format("failed to install atrace test app. Reason: %s", installResult),
+                    installResult);
+
+            getDevice().executeShellCommand("am start -W " + TEST_PKG);
+
+            String frameinfo = mDevice.executeShellCommand("dumpsys gfxinfo " +
+                    TEST_PKG + " framestats");
+            assertNotNull(frameinfo);
+            assertTrue(frameinfo.length() > 0);
+            int profileStart = frameinfo.indexOf(MARKER);
+            int profileEnd = frameinfo.indexOf(MARKER, profileStart + 1);
+            assertTrue(profileStart >= 0);
+            assertTrue(profileEnd > profileStart);
+            String profileData = frameinfo.substring(profileStart + MARKER.length(), profileEnd);
+            assertTrue(profileData.length() > 0);
+            validateProfileData(profileData);
+        } finally {
+            getDevice().uninstallPackage(TEST_PKG);
+        }
+    }
+
+    private void validateProfileData(String profileData) throws IOException {
+        final int TIMESTAMP_COUNT = 14;
+        boolean foundAtLeastOneRow = false;
+        try (BufferedReader reader = new BufferedReader(
+                new StringReader(profileData))) {
+            String line;
+            // First line needs to be the headers
+            while ((line = reader.readLine()) != null && line.isEmpty()) {}
+
+            assertNotNull(line);
+            assertTrue("First line was not the expected header",
+                    line.startsWith("Flags,IntendedVsync,Vsync,OldestInputEvent" +
+                            ",NewestInputEvent,HandleInputStart,AnimationStart" +
+                            ",PerformTraversalsStart,DrawStart,SyncQueued,SyncStart" +
+                            ",IssueDrawCommandsStart,SwapBuffers,FrameCompleted"));
+
+            long[] numparts = new long[TIMESTAMP_COUNT];
+            while ((line = reader.readLine()) != null && !line.isEmpty()) {
+
+                String[] parts = line.split(",");
+                assertTrue(parts.length >= TIMESTAMP_COUNT);
+                for (int i = 0; i < TIMESTAMP_COUNT; i++) {
+                    numparts[i] = assertInteger(parts[i]);
+                }
+                if (numparts[0] != 0) {
+                    continue;
+                }
+                // assert VSYNC >= INTENDED_VSYNC
+                assertTrue(numparts[2] >= numparts[1]);
+                // assert time is flowing forwards, skipping index 3 & 4
+                // as those are input timestamps that may or may not be present
+                assertTrue(numparts[5] >= numparts[2]);
+                for (int i = 6; i < TIMESTAMP_COUNT; i++) {
+                    assertTrue("Index " + i + " did not flow forward, " +
+                            numparts[i] + " not larger than " + numparts[i - 1],
+                            numparts[i] >= numparts[i-1]);
+                }
+                long totalDuration = numparts[13] - numparts[1];
+                assertTrue("Frame did not take a positive amount of time to process",
+                        totalDuration > 0);
+                assertTrue("Bogus frame duration, exceeds 100 seconds",
+                        totalDuration < 100000000000L);
+                foundAtLeastOneRow = true;
+            }
+        }
+        assertTrue(foundAtLeastOneRow);
+    }
+
+    private CtsBuildHelper mCtsBuild;
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setBuild(IBuildInfo buildInfo) {
+        mCtsBuild = CtsBuildHelper.createBuildHelper(buildInfo);
+    }
+
+    private static long assertInteger(String input) {
+        try {
+            return Long.parseLong(input);
         } catch (NumberFormatException e) {
             fail("Expected an integer but found \"" + input + "\"");
+            // Won't be hit, above throws AssertException
+            return -1;
         }
     }
 

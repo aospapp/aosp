@@ -17,8 +17,11 @@
 #ifndef ANDROID_RS_CPP_INTERNAL_H
 #define ANDROID_RS_CPP_INTERNAL_H
 
+
 #define LOG_TAG "rsC++"
 #include "rsCppUtils.h"
+#include "rsInternalDefines.h"
+#include "rsDispatch.h"
 
 #define tryDispatch(rs, dispatch)               \
     if (rs->getError() == RS_SUCCESS) {         \
@@ -26,7 +29,7 @@
     }
 
 #define createDispatch(rs, dispatch) \
-    rs->getError() == RS_SUCCESS ? dispatch : NULL
+    rs->getError() == RS_SUCCESS ? dispatch : nullptr
 
 #undef LOG_TAG
 #undef LOG_NDEBUG

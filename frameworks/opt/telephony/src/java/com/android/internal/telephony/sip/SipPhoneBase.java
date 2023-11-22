@@ -19,6 +19,7 @@ package com.android.internal.telephony.sip;
 import android.content.Context;
 import android.net.LinkProperties;
 import android.os.AsyncResult;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
@@ -70,7 +71,7 @@ abstract class SipPhoneBase extends PhoneBase {
     public abstract Call getRingingCall();
 
     @Override
-    public Connection dial(String dialString, UUSInfo uusInfo, int videoState)
+    public Connection dial(String dialString, UUSInfo uusInfo, int videoState, Bundle intentExtras)
             throws CallStateException {
         // ignore UUSInfo
         return dial(dialString, videoState);
@@ -304,6 +305,11 @@ abstract class SipPhoneBase extends PhoneBase {
     }
 
     @Override
+    public String getGroupIdLevel2() {
+        return null;
+    }
+
+    @Override
     public String getIccSerialNumber() {
         return null;
     }
@@ -500,6 +506,16 @@ abstract class SipPhoneBase extends PhoneBase {
     public LinkProperties getLinkProperties(String apnType) {
         // FIXME: what's this for SIP?
         return null;
+    }
+
+    /**
+     * Determines if video calling is enabled.  Always {@code false} for SIP.
+     *
+     * @return {@code false} since SIP does not support video calling.
+     */
+    @Override
+    public boolean isVideoEnabled() {
+        return false;
     }
 
     void updatePhoneState() {

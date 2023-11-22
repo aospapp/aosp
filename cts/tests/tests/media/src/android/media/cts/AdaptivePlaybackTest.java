@@ -35,11 +35,13 @@ import android.opengl.GLES20;
 import javax.microedition.khronos.opengles.GL10;
 
 import java.io.IOException;
+import java.lang.System;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Vector;
 import java.util.zip.CRC32;
 
 public class AdaptivePlaybackTest extends MediaPlayerTestBase {
@@ -325,20 +327,42 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
      * Queue some frames with an EOS on the last one.  Test that we have decoded as many
      * frames as we queued.  This tests the EOS handling of the codec to see if all queued
      * (and out-of-order) frames are actually decoded and returned.
+     *
+     * Also test flushing prior to sending CSD, and immediately after sending CSD.
      */
     class EarlyEosTest extends ActivityTest {
+        // using bitfields to create a directed state graph that terminates at FLUSH_NEVER
+        static final int FLUSH_BEFORE_CSD = (1 << 1);
+        static final int FLUSH_AFTER_CSD = (1 << 0);
+        static final int FLUSH_NEVER = 0;
+
         public boolean isValid(Codec c) {
             return getFormat(c) != null;
         }
         public void addTests(TestList tests, final Codec c) {
-            for (int i = NUM_FRAMES / 2; i > 0; i--) {
+            int state = FLUSH_BEFORE_CSD;
+            for (int i = NUM_FRAMES / 2; i > 0; --i, state >>= 1) {
                 final int queuedFrames = i;
+                final int earlyFlushMode = state;
                 tests.add(
                     new Step("testing early EOS at " + queuedFrames, this, c) {
                         public void run() {
                             Decoder decoder = new Decoder(c.name);
                             try {
-                                decoder.configureAndStart(stepFormat(), stepSurface());
+                                MediaFormat fmt = stepFormat();
+                                MediaFormat configFmt = fmt;
+                                if (earlyFlushMode == FLUSH_BEFORE_CSD) {
+                                    // flush before CSD requires not submitting CSD with configure
+                                    configFmt = Media.removeCSD(fmt);
+                                }
+                                decoder.configureAndStart(configFmt, stepSurface());
+                                if (earlyFlushMode != FLUSH_NEVER) {
+                                    decoder.flush();
+                                    // We must always queue CSD after a flush that is potentially
+                                    // before we receive output format has changed.  This should
+                                    // work even after we receive the format change.
+                                    decoder.queueCSD(fmt);
+                                }
                                 int decodedFrames = -decoder.queueInputBufferRange(
                                         stepMedia(),
                                         0 /* startFrame */,
@@ -812,9 +836,10 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         return items;
     }
 
-    class Decoder {
+    class Decoder implements MediaCodec.OnFrameRenderedListener {
         private final static String TAG = "AdaptiveDecoder";
         final long kTimeOutUs = 5000;
+        final long kCSDTimeOutUs = 1000000;
         MediaCodec mCodec;
         ByteBuffer[] mInputBuffers;
         ByteBuffer[] mOutputBuffers;
@@ -823,6 +848,9 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         boolean mQueuedEos;
         ArrayList<Long> mTimeStamps;
         ArrayList<String> mWarnings;
+        Vector<Long> mRenderedTimeStamps; // using Vector as it is implicitly synchronized
+        long mLastRenderNanoTime;
+        int mFramesNotifiedRendered;
 
         public Decoder(String codecName) {
             MediaCodec codec = null;
@@ -837,6 +865,23 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             mQueuedEos = false;
             mTimeStamps = new ArrayList<Long>();
             mWarnings = new ArrayList<String>();
+            mRenderedTimeStamps = new Vector<Long>();
+            mLastRenderNanoTime = System.nanoTime();
+            mFramesNotifiedRendered = 0;
+
+            codec.setOnFrameRenderedListener(this, null);
+        }
+
+        public void onFrameRendered(MediaCodec codec, long presentationTimeUs, long nanoTime) {
+            final long NSECS_IN_1SEC = 1000000000;
+            if (!mRenderedTimeStamps.remove(presentationTimeUs)) {
+                warn("invalid timestamp " + presentationTimeUs + ", queued " +
+                        collectionString(mRenderedTimeStamps));
+            }
+            assert nanoTime > mLastRenderNanoTime;
+            mLastRenderNanoTime = nanoTime;
+            ++mFramesNotifiedRendered;
+            assert nanoTime > System.nanoTime() - NSECS_IN_1SEC;
         }
 
         public String getName() {
@@ -862,6 +907,15 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             mCodec.configure(format, mSurface.getSurface(), null /* crypto */, 0 /* flags */);
             Log.i(TAG, "start");
             mCodec.start();
+
+            // inject some minimal setOutputSurface test
+            // TODO: change this test to also change the surface midstream
+            try {
+                mCodec.setOutputSurface(null);
+                fail("should not be able to set surface to NULL");
+            } catch (IllegalArgumentException e) {}
+            mCodec.setOutputSurface(mSurface.getSurface());
+
             mInputBuffers = mCodec.getInputBuffers();
             mOutputBuffers = mCodec.getOutputBuffers();
             Log.i(TAG, "configured " + mInputBuffers.length + " input[" +
@@ -869,11 +923,20 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                   mOutputBuffers.length + "output[" +
                   (mOutputBuffers[0] == null ? null : mOutputBuffers[0].capacity()) + "]");
             mQueuedEos = false;
+            mRenderedTimeStamps.clear();
+            mLastRenderNanoTime = System.nanoTime();
+            mFramesNotifiedRendered = 0;
         }
 
         public void stop() {
             Log.i(TAG, "stop");
             mCodec.stop();
+            // if we have queued 32 frames or more, at least one should have been notified
+            // to have rendered.
+            if (mRenderedTimeStamps.size() > 32 && mFramesNotifiedRendered == 0) {
+                fail("rendered " + mRenderedTimeStamps.size() +
+                        " frames, but none have been notified.");
+            }
         }
 
         public void flush() {
@@ -930,6 +993,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             }
 
             if (doRender) {
+                mRenderedTimeStamps.add(info.presentationTimeUs);
                 if (!mTimeStamps.remove(info.presentationTimeUs)) {
                     warn("invalid timestamp " + info.presentationTimeUs + ", queued " +
                             collectionString(mTimeStamps));
@@ -986,6 +1050,31 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 Media media, int frameStartIx, int frameEndIx, boolean sendEosAtEnd,
                 boolean waitForEos) {
             return queueInputBufferRange(media,frameStartIx,frameEndIx,sendEosAtEnd,waitForEos,0);
+        }
+
+        public void queueCSD(MediaFormat format) {
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            for (int csdIx = 0; ; ++csdIx) {
+                ByteBuffer csdBuf = format.getByteBuffer("csd-" + csdIx);
+                if (csdBuf == null) {
+                    break;
+                }
+
+                int ix = mCodec.dequeueInputBuffer(kCSDTimeOutUs);
+                if (ix < 0) {
+                    fail("Could not dequeue input buffer for CSD #" + csdIx);
+                    return;
+                }
+
+                ByteBuffer buf = mInputBuffers[ix];
+                buf.clear();
+                buf.put((ByteBuffer)csdBuf.clear());
+                Log.v(TAG, "queue-CSD { [" + buf.position() + "]=" +
+                        byteBufferToString(buf, 0, 16) + "} => #" + ix);
+                mCodec.queueInputBuffer(
+                        ix, 0 /* offset */, buf.position(), 0 /* timeUs */,
+                        MediaCodec.BUFFER_FLAG_CODEC_CONFIG);
+            }
         }
 
         public int queueInputBufferRange(
@@ -1131,6 +1220,31 @@ class Media {
 
     public MediaFormat getFormat() {
         return mFormat;
+    }
+
+    public static MediaFormat removeCSD(MediaFormat orig) {
+        MediaFormat copy = MediaFormat.createVideoFormat(
+                orig.getString(orig.KEY_MIME),
+                orig.getInteger(orig.KEY_WIDTH), orig.getInteger(orig.KEY_HEIGHT));
+        for (String k : new String[] {
+                orig.KEY_FRAME_RATE, orig.KEY_MAX_WIDTH, orig.KEY_MAX_HEIGHT,
+                orig.KEY_MAX_INPUT_SIZE
+        }) {
+            if (orig.containsKey(k)) {
+                try {
+                    copy.setInteger(k, orig.getInteger(k));
+                } catch (ClassCastException e) {
+                    try {
+                        copy.setFloat(k, orig.getFloat(k));
+                    } catch (ClassCastException e2) {
+                        // Could not copy value. Don't fail here, as having non-standard
+                        // value types for defined keys is permissible by the media API
+                        // for optional keys.
+                    }
+                }
+            }
+        }
+        return copy;
     }
 
     public MediaFormat getAdaptiveFormat(int width, int height) {
@@ -1310,13 +1424,11 @@ class CodecFamily extends CodecList {
 
             /* test if the explicitly named codec is present on the system */
             if (explicitCodecName != null) {
-                try {
-                    MediaCodec codec = MediaCodec.createByCodecName(explicitCodecName);
-                    if (codec != null) {
-                        codec.release();
-                        add(new Codec(explicitCodecName, null, mediaList));
-                    }
-                } catch (Exception e) {}
+                MediaCodec codec = MediaCodec.createByCodecName(explicitCodecName);
+                if (codec != null) {
+                    codec.release();
+                    add(new Codec(explicitCodecName, null, mediaList));
+                }
             }
         } catch (Throwable t) {
             Log.wtf("Constructor failed", t);

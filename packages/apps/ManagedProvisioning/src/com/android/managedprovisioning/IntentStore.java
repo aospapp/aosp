@@ -49,6 +49,7 @@ public class IntentStore {
     private String[] mBooleanKeys = new String[0];
     private String[] mPersistableBundleKeys = new String[0];
     private String[] mAccountKeys = new String[0];
+    private String[] mComponentNameKeys = new String[0];
 
     private static final String TAG_PERSISTABLEBUNDLE = "persistable_bundle";
     private static final String TAG_ACCOUNT = "account";
@@ -94,6 +95,11 @@ public class IntentStore {
         return this;
     }
 
+    public IntentStore setComponentNameKeys(String[] keys) {
+        mComponentNameKeys = (keys == null) ? new String[0] : keys;
+        return this;
+    }
+
     public void clear() {
         mPrefs.edit().clear().commit();
     }
@@ -128,6 +134,12 @@ public class IntentStore {
                     .getParcelable(key));
             if (bundleString != null) {
                 editor.putString(key, bundleString);
+            }
+        }
+        for (String key : mComponentNameKeys) {
+            ComponentName cn = (ComponentName) data.getParcelable(key);
+            if (cn != null) {
+                editor.putString(key, cn.flattenToString());
             }
         }
         editor.putBoolean(IS_SET, true);
@@ -176,6 +188,14 @@ public class IntentStore {
                 PersistableBundle bundle = stringToPersistableBundle(mPrefs.getString(key, null));
                 if (bundle != null) {
                     result.putExtra(key, bundle);
+                }
+            }
+        }
+        for (String key : mComponentNameKeys) {
+            if (mPrefs.contains(key)) {
+                String st = mPrefs.getString(key, null);
+                if (st != null) {
+                    result.putExtra(key, ComponentName.unflattenFromString(st));
                 }
             }
         }

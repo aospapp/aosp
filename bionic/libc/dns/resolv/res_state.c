@@ -34,6 +34,7 @@
 #include "resolv_cache.h"
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
@@ -48,9 +49,6 @@
 #else
 #  define D(...)  do{}while(0)
 #endif
-
-static pthread_key_t   _res_key;
-static pthread_once_t  _res_once = PTHREAD_ONCE_INIT;
 
 typedef struct {
     int                  _h_errno;
@@ -105,17 +103,16 @@ _res_thread_free( void*  _rt )
     free(rt);
 }
 
-static void
-_res_init_key( void )
-{
-    pthread_key_create( &_res_key, _res_thread_free );
+static pthread_key_t _res_key;
+
+__attribute__((constructor)) static void __res_key_init() {
+    pthread_key_create(&_res_key, _res_thread_free);
 }
 
 static _res_thread*
 _res_thread_get(void)
 {
     _res_thread*  rt;
-    pthread_once( &_res_once, _res_init_key );
     rt = pthread_getspecific( _res_key );
 
     if (rt != NULL) {

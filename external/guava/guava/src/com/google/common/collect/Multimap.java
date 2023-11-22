@@ -19,88 +19,194 @@ package com.google.common.collect;
 import com.google.common.annotations.GwtCompatible;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
 
 /**
- * A collection similar to a {@code Map}, but which may associate multiple
- * values with a single key. If you call {@link #put} twice, with the same key
- * but different values, the multimap contains mappings from the key to both
- * values.
+ * A collection that maps keys to values, similar to {@link Map}, but in which
+ * each key may be associated with <i>multiple</i> values. You can visualize the
+ * contents of a multimap either as a map from keys to <i>nonempty</i>
+ * collections of values:
  *
- * <p>The methods {@link #get}, {@link #keySet}, {@link #keys}, {@link #values},
- * {@link #entries}, and {@link #asMap} return collections that are views of the
- * multimap. If the multimap is modifiable, updating it can change the contents
- * of those collections, and updating the collections will change the multimap.
- * In contrast, {@link #replaceValues} and {@link #removeAll} return collections
- * that are independent of subsequent multimap changes.
+ * <ul>
+ * <li>a → 1, 2
+ * <li>b → 3
+ * </ul>
  *
- * <p>Depending on the implementation, a multimap may or may not allow duplicate
- * key-value pairs. In other words, the multimap contents after adding the same
- * key and value twice varies between implementations. In multimaps allowing
- * duplicates, the multimap will contain two mappings, and {@code get} will
- * return a collection that includes the value twice. In multimaps not
- * supporting duplicates, the multimap will contain a single mapping from the
- * key to the value, and {@code get} will return a collection that includes the
- * value once.
+ * ... or as a single "flattened" collection of key-value pairs:
  *
- * <p>All methods that alter the multimap are optional, and the views returned
- * by the multimap may or may not be modifiable. When modification isn't
- * supported, those methods will throw an {@link UnsupportedOperationException}.
+ * <ul>
+ * <li>a → 1
+ * <li>a → 2
+ * <li>b → 3
+ * </ul>
+ *
+ * <p><b>Important:</b> although the first interpretation resembles how most
+ * multimaps are <i>implemented</i>, the design of the {@code Multimap} API is
+ * based on the <i>second</i> form. So, using the multimap shown above as an
+ * example, the {@link #size} is {@code 3}, not {@code 2}, and the {@link
+ * #values} collection is {@code [1, 2, 3]}, not {@code [[1, 2], [3]]}. For
+ * those times when the first style is more useful, use the multimap's {@link
+ * #asMap} view (or create a {@code Map<K, Collection<V>>} in the first place).
+ *
+ * <h3>Example</h3>
+ *
+ * <p>The following code: <pre>   {@code
+ *
+ *   ListMultimap<String, String> multimap = ArrayListMultimap.create();
+ *   for (President pres : US_PRESIDENTS_IN_ORDER) {
+ *     multimap.put(pres.firstName(), pres.lastName());
+ *   }
+ *   for (String firstName : multimap.keySet()) {
+ *     List<String> lastNames = multimap.get(firstName);
+ *     out.println(firstName + ": " + lastNames);
+ *   }}</pre>
+ *
+ * ... produces output such as: <pre>   {@code
+ *
+ *   Zachary: [Taylor]
+ *   John: [Adams, Adams, Tyler, Kennedy]  // Remember, Quincy!
+ *   George: [Washington, Bush, Bush]
+ *   Grover: [Cleveland, Cleveland]        // Two, non-consecutive terms, rep'ing NJ!
+ *   ...}</pre>
+ *
+ * <h3>Views</h3>
+ *
+ * <p>Much of the power of the multimap API comes from the <i>view
+ * collections</i> it provides. These always reflect the latest state of the
+ * multimap itself. When they support modification, the changes are
+ * <i>write-through</i> (they automatically update the backing multimap). These
+ * view collections are:
+ *
+ * <ul>
+ * <li>{@link #asMap}, mentioned above</li>
+ * <li>{@link #keys}, {@link #keySet}, {@link #values}, {@link #entries}, which
+ *     are similar to the corresponding view collections of {@link Map}
+ * <li>and, notably, even the collection returned by {@link #get get(key)} is an
+ *     active view of the values corresponding to {@code key}
+ * </ul>
+ *
+ * <p>The collections returned by the {@link #replaceValues replaceValues} and
+ * {@link #removeAll removeAll} methods, which contain values that have just
+ * been removed from the multimap, are naturally <i>not</i> views.
+ *
+ * <h3>Subinterfaces</h3>
+ *
+ * <p>Instead of using the {@code Multimap} interface directly, prefer the
+ * subinterfaces {@link ListMultimap} and {@link SetMultimap}. These take their
+ * names from the fact that the collections they return from {@code get} behave
+ * like (and, of course, implement) {@link List} and {@link Set}, respectively.
+ *
+ * <p>For example, the "presidents" code snippet above used a {@code
+ * ListMultimap}; if it had used a {@code SetMultimap} instead, two presidents
+ * would have vanished, and last names might or might not appear in
+ * chronological order.
+ *
+ * <p><b>Warning:</b> instances of type {@code Multimap} may not implement
+ * {@link Object#equals} in the way you expect (multimaps containing the same
+ * key-value pairs, even in the same order, may or may not be equal). The
+ * recommended subinterfaces provide a much stronger guarantee.
+ *
+ * <h3>Comparison to a map of collections</h3>
+ *
+ * <p>Multimaps are commonly used in places where a {@code Map<K,
+ * Collection<V>>} would otherwise have appeared. The differences include:
+ *
+ * <ul>
+ * <li>There is no need to populate an empty collection before adding an entry
+ *     with {@link #put put}.
+ * <li>{@code get} never returns {@code null}, only an empty collection.
+ * <li>A key is contained in the multimap if and only if it maps to at least 
+ *     one value. Any operation that causes a key to have zero associated 
+ *     values has the effect of <i>removing</i> that key from the multimap.
+ * <li>The total entry count is available as {@link #size}.
+ * <li>Many complex operations become easier; for example, {@code
+ *     Collections.min(multimap.values())} finds the smallest value across all
+ *     keys.
+ * </ul>
+ *
+ * <h3>Implementations</h3>
+ *
+ * <p>As always, prefer the immutable implementations, {@link
+ * ImmutableListMultimap} and {@link ImmutableSetMultimap}. General-purpose
+ * mutable implementations are listed above under "All Known Implementing
+ * Classes". You can also create a <i>custom</i> multimap, backed by any {@code
+ * Map} and {@link Collection} types, using the {@link Multimaps#newMultimap
+ * Multimaps.newMultimap} family of methods. Finally, another popular way to
+ * obtain a multimap is using {@link Multimaps#index Multimaps.index}. See
+ * the {@link Multimaps} class for these and other static utilities related
+ * to multimaps.
+ *
+ * <h3>Other Notes</h3>
+ * 
+ * <p>As with {@code Map}, the behavior of a {@code Multimap} is not specified 
+ * if key objects already present in the multimap change in a manner that 
+ * affects {@code equals} comparisons.  Use caution if mutable objects are used 
+ * as keys in a {@code Multimap}.
+ *
+ * <p>All methods that modify the multimap are optional. The view collections
+ * returned by the multimap may or may not be modifiable. Any modification
+ * method that is not supported will throw {@link
+ * UnsupportedOperationException}.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multimap">
+ * {@code Multimap}</a>.
  *
  * @author Jared Levy
- * @param <K> the type of keys maintained by this multimap
- * @param <V> the type of mapped values
  * @since 2.0 (imported from Google Collections Library)
  */
 @GwtCompatible
 public interface Multimap<K, V> {
   // Query Operations
 
-  /** Returns the number of key-value pairs in the multimap. */
+  /**
+   * Returns the number of key-value pairs in this multimap.
+   *
+   * <p><b>Note:</b> this method does not return the number of <i>distinct
+   * keys</i> in the multimap, which is given by {@code keySet().size()} or
+   * {@code asMap().size()}. See the opening section of the {@link Multimap}
+   * class documentation for clarification.
+   */
   int size();
 
-  /** Returns {@code true} if the multimap contains no key-value pairs. */
+  /**
+   * Returns {@code true} if this multimap contains no key-value pairs.
+   * Equivalent to {@code size() == 0}, but can in some cases be more efficient.
+   */
   boolean isEmpty();
 
   /**
-   * Returns {@code true} if the multimap contains any values for the specified
-   * key.
-   *
-   * @param key key to search for in multimap
+   * Returns {@code true} if this multimap contains at least one key-value pair
+   * with the key {@code key}.
    */
   boolean containsKey(@Nullable Object key);
 
   /**
-   * Returns {@code true} if the multimap contains the specified value for any
-   * key.
-   *
-   * @param value value to search for in multimap
+   * Returns {@code true} if this multimap contains at least one key-value pair
+   * with the value {@code value}.
    */
   boolean containsValue(@Nullable Object value);
 
   /**
-   * Returns {@code true} if the multimap contains the specified key-value pair.
-   *
-   * @param key key to search for in multimap
-   * @param value value to search for in multimap
+   * Returns {@code true} if this multimap contains at least one key-value pair
+   * with the key {@code key} and the value {@code value}.
    */
   boolean containsEntry(@Nullable Object key, @Nullable Object value);
 
   // Modification Operations
 
   /**
-   * Stores a key-value pair in the multimap.
+   * Stores a key-value pair in this multimap.
    *
    * <p>Some multimap implementations allow duplicate key-value pairs, in which
    * case {@code put} always adds a new key-value pair and increases the
    * multimap size by 1. Other implementations prohibit duplicates, and storing
    * a key-value pair that's already in the multimap has no effect.
    *
-   * @param key key to store in the multimap
-   * @param value value to store in the multimap
    * @return {@code true} if the method increased the size of the multimap, or
    *     {@code false} if the multimap already contained the key-value pair and
    *     doesn't allow duplicates
@@ -108,10 +214,11 @@ public interface Multimap<K, V> {
   boolean put(@Nullable K key, @Nullable V value);
 
   /**
-   * Removes a key-value pair from the multimap.
+   * Removes a single key-value pair with the key {@code key} and the value
+   * {@code value} from this multimap, if such exists. If multiple key-value
+   * pairs in the multimap fit this description, which one is removed is
+   * unspecified.
    *
-   * @param key key of entry to remove from the multimap
-   * @param value value of entry to remove the multimap
    * @return {@code true} if the multimap changed
    */
   boolean remove(@Nullable Object key, @Nullable Object value);
@@ -119,20 +226,24 @@ public interface Multimap<K, V> {
   // Bulk Operations
 
   /**
-   * Stores a collection of values with the same key.
+   * Stores a key-value pair in this multimap for each of {@code values}, all
+   * using the same key, {@code key}. Equivalent to (but expected to be more
+   * efficient than): <pre>   {@code
+   * 
+   *   for (V value : values) {
+   *     put(key, value);
+   *   }}</pre>
+   * 
+   * <p>In particular, this is a no-op if {@code values} is empty.
    *
-   * @param key key to store in the multimap
-   * @param values values to store in the multimap
    * @return {@code true} if the multimap changed
    */
   boolean putAll(@Nullable K key, Iterable<? extends V> values);
 
   /**
-   * Copies all of another multimap's key-value pairs into this multimap. The
-   * order in which the mappings are added is determined by
-   * {@code multimap.entries()}.
+   * Stores all key-value pairs of {@code multimap} in this multimap, in the
+   * order returned by {@code multimap.entries()}.
    *
-   * @param multimap mappings to store in this multimap
    * @return {@code true} if the multimap changed
    */
   boolean putAll(Multimap<? extends K, ? extends V> multimap);
@@ -140,9 +251,10 @@ public interface Multimap<K, V> {
   /**
    * Stores a collection of values with the same key, replacing any existing
    * values for that key.
+   * 
+   * <p>If {@code values} is empty, this is equivalent to 
+   * {@link #removeAll(Object) removeAll(key)}.
    *
-   * @param key key to store in the multimap
-   * @param values values to store in the multimap
    * @return the collection of replaced values, or an empty collection if no
    *     values were previously associated with the key. The collection
    *     <i>may</i> be modifiable, but updating it will have no effect on the
@@ -151,87 +263,90 @@ public interface Multimap<K, V> {
   Collection<V> replaceValues(@Nullable K key, Iterable<? extends V> values);
 
   /**
-   * Removes all values associated with a given key.
+   * Removes all values associated with the key {@code key}.
+   * 
+   * <p>Once this method returns, {@code key} will not be mapped to any values,
+   * so it will not appear in {@link #keySet()}, {@link #asMap()}, or any other
+   * views. 
    *
-   * @param key key of entries to remove from the multimap
-   * @return the collection of removed values, or an empty collection if no
-   *     values were associated with the provided key. The collection
-   *     <i>may</i> be modifiable, but updating it will have no effect on the
-   *     multimap.
+   * @return the values that were removed (possibly empty). The returned
+   *     collection <i>may</i> be modifiable, but updating it will have no
+   *     effect on the multimap.
    */
   Collection<V> removeAll(@Nullable Object key);
 
   /**
-   * Removes all key-value pairs from the multimap.
+   * Removes all key-value pairs from the multimap, leaving it {@linkplain
+   * #isEmpty empty}.
    */
   void clear();
 
   // Views
 
   /**
-   * Returns a collection view of all values associated with a key. If no
-   * mappings in the multimap have the provided key, an empty collection is
-   * returned.
+   * Returns a view collection of the values associated with {@code key} in this
+   * multimap, if any. Note that when {@code containsKey(key)} is false, this 
+   * returns an empty collection, not {@code null}.
    *
    * <p>Changes to the returned collection will update the underlying multimap,
    * and vice versa.
-   *
-   * @param key key to search for in multimap
-   * @return the collection of values that the key maps to
    */
   Collection<V> get(@Nullable K key);
 
   /**
-   * Returns the set of all keys, each appearing once in the returned set.
-   * Changes to the returned set will update the underlying multimap, and vice
-   * versa.
+   * Returns a view collection of all <i>distinct</i> keys contained in this
+   * multimap. Note that the key set contains a key if and only if this multimap
+   * maps that key to at least one value.
    *
-   * @return the collection of distinct keys
+   * <p>Changes to the returned set will update the underlying multimap, and
+   * vice versa. However, <i>adding</i> to the returned set is not possible.
    */
   Set<K> keySet();
 
   /**
-   * Returns a collection, which may contain duplicates, of all keys. The number
-   * of times of key appears in the returned multiset equals the number of
-   * mappings the key has in the multimap. Changes to the returned multiset will
-   * update the underlying multimap, and vice versa.
+   * Returns a view collection containing the key from each key-value pair in
+   * this multimap, <i>without</i> collapsing duplicates. This collection has
+   * the same size as this multimap, and {@code keys().count(k) ==
+   * get(k).size()} for all {@code k}.
    *
-   * @return a multiset with keys corresponding to the distinct keys of the
-   *     multimap and frequencies corresponding to the number of values that
-   *     each key maps to
+   * <p>Changes to the returned multiset will update the underlying multimap,
+   * and vice versa. However, <i>adding</i> to the returned collection is not
+   * possible.
    */
   Multiset<K> keys();
 
   /**
-   * Returns a collection of all values in the multimap. Changes to the returned
-   * collection will update the underlying multimap, and vice versa.
+   * Returns a view collection containing the <i>value</i> from each key-value
+   * pair contained in this multimap, without collapsing duplicates (so {@code
+   * values().size() == size()}).
    *
-   * @return collection of values, which may include the same value multiple
-   *     times if it occurs in multiple mappings
+   * <p>Changes to the returned collection will update the underlying multimap,
+   * and vice versa. However, <i>adding</i> to the returned collection is not
+   * possible.
    */
   Collection<V> values();
 
   /**
-   * Returns a collection of all key-value pairs. Changes to the returned
-   * collection will update the underlying multimap, and vice versa. The entries
-   * collection does not support the {@code add} or {@code addAll} operations.
+   * Returns a view collection of all key-value pairs contained in this
+   * multimap, as {@link Map.Entry} instances.
    *
-   * @return collection of map entries consisting of key-value pairs
+   * <p>Changes to the returned collection or the entries it contains will
+   * update the underlying multimap, and vice versa. However, <i>adding</i> to
+   * the returned collection is not possible.
    */
   Collection<Map.Entry<K, V>> entries();
 
   /**
-   * Returns a map view that associates each key with the corresponding values
-   * in the multimap. Changes to the returned map, such as element removal, will
-   * update the underlying multimap. The map does not support {@code setValue()}
-   * on its entries, {@code put}, or {@code putAll}.
+   * Returns a view of this multimap as a {@code Map} from each distinct key
+   * to the nonempty collection of that key's associated values. Note that
+   * {@code this.asMap().get(k)} is equivalent to {@code this.get(k)} only when
+   * {@code k} is a key contained in the multimap; otherwise it returns {@code
+   * null} as opposed to an empty collection.
    *
-   * <p>When passed a key that is present in the map, {@code
-   * asMap().get(Object)} has the same behavior as {@link #get}, returning a
-   * live collection. When passed a key that is not present, however, {@code
-   * asMap().get(Object)} returns {@code null} instead of an empty collection.
-   *
-   * @return a map view from a key to its collection of values
+   * <p>Changes to the returned map or the collections that serve as its values
+   * will update the underlying multimap, and vice versa. The map does not
+   * support {@code put} or {@code putAll}, nor do its entries support {@link
+   * Map.Entry#setValue setValue}.
    */
   Map<K, Collection<V>> asMap();
 

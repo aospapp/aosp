@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.provider.MediaStore;
 import android.text.TextUtils;
+
 import com.bumptech.glide.Priority;
 
 import java.io.File;
@@ -13,6 +14,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * A DataFetcher that retrieves an {@link java.io.InputStream} for a local Uri that may or may not be for a resource
+ * in the media store. If the local Uri is for a resource in the media store and the size requested is less than or
+ * equal to the media store thumbnail size, preferentially attempts to fetch data for the pre-generated media store
+ * thumbs using {@link android.provider.MediaStore.Images.Thumbnails} and
+ * {@link android.provider.MediaStore.Video.Thumbnails}.
+ */
 public class MediaStoreThumbFetcher implements DataFetcher<InputStream> {
     private static final int MINI_WIDTH = 512;
     private static final int MINI_HEIGHT = 384;
@@ -23,28 +31,21 @@ public class MediaStoreThumbFetcher implements DataFetcher<InputStream> {
     private final DataFetcher<InputStream> defaultFetcher;
     private final int width;
     private final int height;
-    private final long dateModified;
-    private final int orientation;
     private final ThumbnailStreamOpenerFactory factory;
     private InputStream inputStream;
-    private String mimeType;
 
     public MediaStoreThumbFetcher(Context context, Uri mediaStoreUri, DataFetcher<InputStream> defaultFetcher,
-            int width, int height, String mimeType, long dateModified, int orientation) {
-        this(context, mediaStoreUri, defaultFetcher, width, height, mimeType, dateModified, orientation,
-                DEFAULT_FACTORY);
+            int width, int height) {
+        this(context, mediaStoreUri, defaultFetcher, width, height, DEFAULT_FACTORY);
     }
 
     MediaStoreThumbFetcher(Context context, Uri mediaStoreUri, DataFetcher<InputStream> defaultFetcher, int width,
-            int height, String mimeType, long dateModified, int orientation, ThumbnailStreamOpenerFactory factory) {
+            int height, ThumbnailStreamOpenerFactory factory) {
         this.context = context;
         this.mediaStoreUri = mediaStoreUri;
         this.defaultFetcher = defaultFetcher;
         this.width = width;
         this.height = height;
-        this.mimeType = mimeType;
-        this.dateModified = dateModified;
-        this.orientation = orientation;
         this.factory = factory;
     }
 
@@ -77,7 +78,7 @@ public class MediaStoreThumbFetcher implements DataFetcher<InputStream> {
 
     @Override
     public String getId() {
-        return mediaStoreUri + mimeType + String.valueOf(dateModified) + String.valueOf(orientation);
+        return mediaStoreUri.toString();
     }
 
     @Override
@@ -110,7 +111,7 @@ public class MediaStoreThumbFetcher implements DataFetcher<InputStream> {
     }
 
     interface ThumbnailQuery {
-        public Cursor query(Context context, Uri uri);
+        Cursor query(Context context, Uri uri);
     }
 
     static class ThumbnailStreamOpener {

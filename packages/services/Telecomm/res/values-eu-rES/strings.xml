@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Telefonoa"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Telefono-deien kudeaketa"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telefonoa"</string>
     <string name="unknown" msgid="6878797917991465859">"Ezezaguna"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Dei galdua"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Dei galduak"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Erantzun bizkorra"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mezua bidali da <xliff:g id="PHONE_NUMBER">%s</xliff:g> zenbakira."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Gailuaren jabeak larrialdi-deiak bakarrik egitea onartzen du"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Deiak egiteko kontuak"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Gailuaren jabeak larrialdi-deiak bakarrik egin ditzake."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Aplikazioak irteerako deiak egin ahal izan ditzan, telefonoaren eginbidea erabiltzeko baimena behar du."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Deitzeko, idatzi balio duen zenbaki bat."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Une honetan ezin da deirik gehitu."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Desgaitu TTY modua bideo-deiak egiteko."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Erantzungailuaren zenbakia falta da"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Ez da erantzungailuaren zenbakirik gorde SIM txartelean."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Gehitu zenbakia"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Telefono-aplikazio lehenetsia aldatu nahi duzu?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> aplikazioaren ordez <xliff:g id="NEW_APP">%1$s</xliff:g> erabili nahi duzu telefono-aplikazio lehenetsi gisa?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> telefono-aplikazio lehenetsi gisa erabili nahi duzu?"</string>
 </resources>

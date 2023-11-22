@@ -51,8 +51,14 @@ print_addr(struct tcb *tcp, long addr, struct ifreq *ifr)
 		printstr(tcp, addr, sizeof(ifr->ifr_addr.sa_data));
 }
 
+static void
+print_ifname(const char *ifname)
+{
+	print_quoted_string(ifname, IFNAMSIZ + 1, QUOTE_0_TERMINATED);
+}
+
 int
-sock_ioctl(struct tcb *tcp, long code, long arg)
+sock_ioctl(struct tcb *tcp, const unsigned int code, long arg)
 {
 	struct ifreq ifr;
 	struct ifconf ifc;
@@ -60,12 +66,25 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 	unsigned char *bytes;
 
 	if (entering(tcp)) {
-		if (code == SIOCGIFCONF) {
+		switch (code) {
+		case SIOCGIFCONF:
 			if (umove(tcp, tcp->u_arg[2], &ifc) >= 0
 			    && ifc.ifc_buf == NULL)
 				tprintf(", {%d -> ", ifc.ifc_len);
 			else
 				tprints(", {");
+			break;
+		case SIOCSIFNAME:
+			if (umove(tcp, tcp->u_arg[2], &ifr) < 0)
+				tprintf(", %#lx", tcp->u_arg[2]);
+			else {
+				tprints(", {ifr_name=");
+				print_ifname(ifr.ifr_name);
+				tprints(", ifr_newname=");
+				print_ifname(ifr.ifr_newname);
+				tprints("}");
+			}
+			break;
 		}
 		return 0;
 	}
@@ -98,10 +117,10 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 #ifdef SIOCATMARK
 	case SIOCATMARK:
 #endif
-		printnum(tcp, arg, ", %#d");
+		printnum_int(tcp, arg, ", %d");
+	case SIOCSIFNAME:
 		return 1;
 	case SIOCGIFNAME:
-	case SIOCSIFNAME:
 	case SIOCGIFINDEX:
 	case SIOCGIFADDR:
 	case SIOCSIFADDR:
@@ -128,15 +147,22 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 		if (umove(tcp, tcp->u_arg[2], &ifr) < 0)
 			tprintf(", %#lx", tcp->u_arg[2]);
 		else if (syserror(tcp)) {
-			if (code == SIOCGIFNAME || code == SIOCSIFNAME)
-				tprintf(", {ifr_index=%d, ifr_name=???}", ifr.ifr_ifindex);
-			else
-				tprintf(", {ifr_name=\"%s\", ???}", ifr.ifr_name);
-		} else if (code == SIOCGIFNAME || code == SIOCSIFNAME)
-			tprintf(", {ifr_index=%d, ifr_name=\"%s\"}",
-				ifr.ifr_ifindex, ifr.ifr_name);
-		else {
-			tprintf(", {ifr_name=\"%s\", ", ifr.ifr_name);
+			if (code == SIOCGIFNAME) {
+				tprintf(", {ifr_index=%d, ifr_name=???}",
+					ifr.ifr_ifindex);
+			} else {
+				tprints(", {ifr_name=");
+				print_ifname(ifr.ifr_name);
+				tprints(", ???}");
+			}
+		} else if (code == SIOCGIFNAME) {
+			tprintf(", {ifr_index=%d, ifr_name=", ifr.ifr_ifindex);
+			print_ifname(ifr.ifr_name);
+			tprints("}");
+		} else {
+			tprints(", {ifr_name=");
+			print_ifname(ifr.ifr_name);
+			tprints(", ");
 			switch (code) {
 			case SIOCGIFINDEX:
 				tprintf("ifr_index=%d", ifr.ifr_ifindex);
@@ -191,7 +217,8 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 				break;
 			case SIOCGIFSLAVE:
 			case SIOCSIFSLAVE:
-				tprintf("ifr_slave=\"%s\"", ifr.ifr_slave);
+				tprints("ifr_slave=");
+				print_ifname(ifr.ifr_slave);
 				break;
 			case SIOCGIFTXQLEN:
 			case SIOCSIFTXQLEN:
@@ -224,12 +251,12 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 		} else if (ifc.ifc_buf == NULL) {
 			tprints("NULL");
 		} else {
-			int i;
-			unsigned nifra = ifc.ifc_len / sizeof(struct ifreq);
+			unsigned int i;
+			unsigned int nifra = ifc.ifc_len / sizeof(struct ifreq);
 			struct ifreq ifra[nifra];
 
 			if (umoven(tcp, (unsigned long) ifc.ifc_buf,
-				sizeof(ifra), (char *) ifra) < 0) {
+				sizeof(ifra), ifra) < 0) {
 				tprintf("%lx}", (unsigned long) ifc.ifc_buf);
 				return 1;
 			}
@@ -237,8 +264,9 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 			for (i = 0; i < nifra; ++i ) {
 				if (i > 0)
 					tprints(", ");
-				tprintf("{\"%s\", {",
-					ifra[i].ifr_name);
+				tprints("{");
+				print_ifname(ifra[i].ifr_newname);
+				tprints(", {");
 				if (verbose(tcp)) {
 					printxval(addrfams,
 						  ifra[i].ifr_addr.sa_family,
@@ -263,8 +291,7 @@ sock_ioctl(struct tcb *tcp, long code, long arg)
 	}
 }
 
-int
-sys_socketcall(struct tcb *tcp)
+SYS_FUNC(socketcall)
 {
 	return printargs(tcp);
 }

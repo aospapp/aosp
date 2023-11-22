@@ -38,7 +38,7 @@ public class SimpleScrollAdapterTransform implements ScrollAdapterTransform {
     /** for transform views on the left/up side of mScrollCenter */
     private Animator mLowItemTransform;
 
-    private DisplayMetrics mDisplayMetrics;
+    private final DisplayMetrics mDisplayMetrics;
 
     public SimpleScrollAdapterTransform(Context context) {
         mDisplayMetrics = context.getResources().getDisplayMetrics();

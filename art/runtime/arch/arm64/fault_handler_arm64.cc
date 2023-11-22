@@ -16,14 +16,15 @@
 
 
 #include "fault_handler.h"
+
 #include <sys/ucontext.h>
+
+#include "art_method-inl.h"
 #include "base/macros.h"
 #include "globals.h"
 #include "base/logging.h"
 #include "base/hex_dump.h"
 #include "registers_arm64.h"
-#include "mirror/art_method.h"
-#include "mirror/art_method-inl.h"
 #include "thread.h"
 #include "thread-inl.h"
 
@@ -37,22 +38,23 @@ extern "C" void art_quick_implicit_suspend();
 
 namespace art {
 
-void FaultManager::HandleNestedSignal(int sig, siginfo_t* info, void* context) {
+void FaultManager::HandleNestedSignal(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
+                                      void* context) {
   // To match the case used in ARM we return directly to the longjmp function
   // rather than through a trivial assembly language stub.
 
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
   Thread* self = Thread::Current();
-  CHECK(self != nullptr);       // This will cause a SIGABRT if self is nullptr.
+  CHECK(self != nullptr);       // This will cause a SIGABRT if self is null.
 
   sc->regs[0] = reinterpret_cast<uintptr_t>(*self->GetNestedSignalState());
   sc->regs[1] = 1;
   sc->pc = reinterpret_cast<uintptr_t>(longjmp);
 }
 
-void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
-                                             mirror::ArtMethod** out_method,
+void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo ATTRIBUTE_UNUSED, void* context,
+                                             ArtMethod** out_method,
                                              uintptr_t* out_return_pc, uintptr_t* out_sp) {
   struct ucontext *uc = reinterpret_cast<struct ucontext *>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
@@ -68,10 +70,10 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   uintptr_t* overflow_addr = reinterpret_cast<uintptr_t*>(
       reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(kArm64));
   if (overflow_addr == fault_addr) {
-    *out_method = reinterpret_cast<mirror::ArtMethod*>(sc->regs[0]);
+    *out_method = reinterpret_cast<ArtMethod*>(sc->regs[0]);
   } else {
     // The method is at the top of the stack.
-    *out_method = (reinterpret_cast<StackReference<mirror::ArtMethod>* >(*out_sp)[0]).AsMirrorPtr();
+    *out_method = *reinterpret_cast<ArtMethod**>(*out_sp);
   }
 
   // Work out the return PC.  This will be the address of the instruction
@@ -82,7 +84,8 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   *out_return_pc = sc->pc + 4;
 }
 
-bool NullPointerHandler::Action(int sig, siginfo_t* info, void* context) {
+bool NullPointerHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
+                                void* context) {
   // The code that looks for the catch location needs to know the value of the
   // PC at the point of call.  For Null checks we insert a GC map that is immediately after
   // the load/store instruction that might cause the fault.
@@ -105,7 +108,8 @@ bool NullPointerHandler::Action(int sig, siginfo_t* info, void* context) {
 // The offset from r18 is Thread::ThreadSuspendTriggerOffset().
 // To check for a suspend check, we examine the instructions that caused
 // the fault (at PC-4 and PC).
-bool SuspensionHandler::Action(int sig, siginfo_t* info, void* context) {
+bool SuspensionHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
+                               void* context) {
   // These are the instructions to check for.  The first one is the ldr x0,[r18,#xxx]
   // where xxx is the offset of the suspend trigger.
   uint32_t checkinst1 = 0xf9400240 | (Thread::ThreadSuspendTriggerOffset<8>().Int32Value() << 7);
@@ -155,7 +159,8 @@ bool SuspensionHandler::Action(int sig, siginfo_t* info, void* context) {
   return false;
 }
 
-bool StackOverflowHandler::Action(int sig, siginfo_t* info, void* context) {
+bool StackOverflowHandler::Action(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
+                                  void* context) {
   struct ucontext *uc = reinterpret_cast<struct ucontext *>(context);
   struct sigcontext *sc = reinterpret_cast<struct sigcontext*>(&uc->uc_mcontext);
   VLOG(signals) << "stack overflow handler with sp at " << std::hex << &uc;

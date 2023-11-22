@@ -10,6 +10,7 @@
 #ifndef LLVM_MC_MCOBJECTSTREAMER_H
 #define LLVM_MC_MCOBJECTSTREAMER_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCStreamer.h"
 
@@ -23,6 +24,7 @@ class MCFragment;
 class MCDataFragment;
 class MCAsmBackend;
 class raw_ostream;
+class raw_pwrite_stream;
 
 /// \brief Streaming object file generation interface.
 ///
@@ -37,17 +39,16 @@ class MCObjectStreamer : public MCStreamer {
   MCSectionData::iterator CurInsertionPoint;
   bool EmitEHFrame;
   bool EmitDebugFrame;
+  SmallVector<MCSymbolData *, 2> PendingLabels;
 
   virtual void EmitInstToData(const MCInst &Inst, const MCSubtargetInfo&) = 0;
   void EmitCFIStartProcImpl(MCDwarfFrameInfo &Frame) override;
   void EmitCFIEndProcImpl(MCDwarfFrameInfo &Frame) override;
 
 protected:
-  MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB, raw_ostream &_OS,
-                   MCCodeEmitter *_Emitter);
-  MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB, raw_ostream &_OS,
-                   MCCodeEmitter *_Emitter, MCAssembler *_Assembler);
-  ~MCObjectStreamer();
+  MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB, raw_pwrite_stream &OS,
+                   MCCodeEmitter *Emitter);
+  ~MCObjectStreamer() override;
 
 public:
   /// state management
@@ -69,14 +70,23 @@ protected:
 
   MCFragment *getCurrentFragment() const;
 
-  void insert(MCFragment *F) const {
+  void insert(MCFragment *F) {
+    flushPendingLabels(F);
     CurSectionData->getFragmentList().insert(CurInsertionPoint, F);
     F->setParent(CurSectionData);
   }
 
   /// Get a data fragment to write into, creating a new one if the current
   /// fragment is not a data fragment.
-  MCDataFragment *getOrCreateDataFragment() const;
+  MCDataFragment *getOrCreateDataFragment();
+
+  bool changeSectionImpl(const MCSection *Section, const MCExpr *Subsection);
+
+  /// If any labels have been emitted but not assigned fragments, ensure that
+  /// they get assigned, either to F if possible or to a new data fragment.
+  /// Optionally, it is also possible to provide an offset \p FOffset, which
+  /// will be used as a symbol offset within the fragment.
+  void flushPendingLabels(MCFragment *F, uint64_t FOffset = 0);
 
 public:
   void visitUsedSymbol(const MCSymbol &Sym) override;
@@ -126,7 +136,7 @@ public:
   void EmitZeros(uint64_t NumBytes) override;
   void FinishImpl() override;
 
-  virtual bool mayHaveInstructions() const {
+  bool mayHaveInstructions() const override {
     return getCurrentSectionData()->hasInstructions();
   }
 };

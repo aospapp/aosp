@@ -19,6 +19,9 @@ import android.animation.Animator;
 import android.animation.AnimatorInflater;
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
+import android.support.v17.leanback.widget.Action;
+import android.support.v17.leanback.widget.PlaybackControlsRow;
+import android.support.v17.leanback.widget.Row;
 import android.view.InputEvent;
 import android.view.animation.AccelerateInterpolator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
@@ -47,8 +50,15 @@ import java.util.ArrayList;
 
 /**
  * A fragment for displaying playback controls and related content.
- * The {@link android.support.v17.leanback.widget.PlaybackControlsRow} is expected to be
+ * <p>
+ * A PlaybackOverlayFragment renders the elements of its {@link ObjectAdapter} as a set
+ * of rows in a vertical list. The elements in this adapter must be subclasses
+ * of {@link Row}.
+ * </p>
+ * <p>
+ * An instance of {@link android.support.v17.leanback.widget.PlaybackControlsRow} is expected to be
  * at position 0 in the adapter.
+ * </p>
  */
 public class PlaybackOverlayFragment extends DetailsFragment {
 
@@ -67,6 +77,10 @@ public class PlaybackOverlayFragment extends DetailsFragment {
      */
     public static final int BG_LIGHT = 2;
 
+    /**
+     * Listener allowing the application to receive notification of fade in and/or fade out
+     * completion events.
+     */
     public static class OnFadeCompleteListener {
         public void onFadeInComplete() {
         }
@@ -74,6 +88,9 @@ public class PlaybackOverlayFragment extends DetailsFragment {
         }
     }
 
+    /**
+     * Interface allowing the application to handle input events.
+     */
     public interface InputEventHandler {
         /**
          * Called when an {@link InputEvent} is received.
@@ -278,42 +295,52 @@ public class PlaybackOverlayFragment extends DetailsFragment {
         }
     }
 
-    private static boolean isConsumableKey(KeyEvent keyEvent) {
-        if (keyEvent.isSystem()) {
-            return false;
-        }
-        return true;
+    private boolean areControlsHidden() {
+        return mFadingStatus == IDLE && mBgAlpha == 0;
     }
 
     private boolean onInterceptInputEvent(InputEvent event) {
-        if (DEBUG) Log.v(TAG, "onInterceptInputEvent status " + mFadingStatus +
-                " mBgAlpha " + mBgAlpha + " event " + event);
-        final boolean controlsHidden = (mFadingStatus == IDLE && mBgAlpha == 0);
-        boolean consumeEvent = controlsHidden;
+        final boolean controlsHidden = areControlsHidden();
+        if (DEBUG) Log.v(TAG, "onInterceptInputEvent hidden " + controlsHidden + " " + event);
+        boolean consumeEvent = false;
         int keyCode = KeyEvent.KEYCODE_UNKNOWN;
 
-        if (event instanceof KeyEvent) {
-            if (consumeEvent) {
-                consumeEvent = isConsumableKey((KeyEvent) event);
-            }
-            keyCode = ((KeyEvent) event).getKeyCode();
-        }
-        if (!consumeEvent && mInputEventHandler != null) {
+        if (mInputEventHandler != null) {
             consumeEvent = mInputEventHandler.handleInputEvent(event);
         }
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // If fading enabled and controls are not hidden, back will be consumed to fade
-            // them out (even if the key was consumed by the handler).
-            if (mFadingEnabled && !controlsHidden) {
-                consumeEvent = true;
-                mHandler.removeMessages(START_FADE_OUT);
-                fade(false);
-            } else if (consumeEvent) {
+        if (event instanceof KeyEvent) {
+            keyCode = ((KeyEvent) event).getKeyCode();
+        }
+
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                // Event may be consumed; regardless, if controls are hidden then these keys will
+                // bring up the controls.
+                if (controlsHidden) {
+                    consumeEvent = true;
+                }
                 tickle();
-            }
-        } else {
-            // Any other key will show the controls
-            tickle();
+                break;
+            case KeyEvent.KEYCODE_BACK:
+            case KeyEvent.KEYCODE_ESCAPE:
+                // If fading enabled and controls are not hidden, back will be consumed to fade
+                // them out (even if the key was consumed by the handler).
+                if (mFadingEnabled && !controlsHidden) {
+                    consumeEvent = true;
+                    mHandler.removeMessages(START_FADE_OUT);
+                    fade(false);
+                } else if (consumeEvent) {
+                    tickle();
+                }
+                break;
+            default:
+                if (consumeEvent) {
+                    tickle();
+                }
         }
         return consumeEvent;
     }

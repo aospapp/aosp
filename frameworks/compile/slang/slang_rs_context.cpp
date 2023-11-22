@@ -53,9 +53,9 @@ RSContext::RSContext(clang::Preprocessor &PP,
       mPragmas(Pragmas),
       mTargetAPI(TargetAPI),
       mVerbose(Verbose),
-      mDataLayout(NULL),
+      mDataLayout(nullptr),
       mLLVMContext(llvm::getGlobalContext()),
-      mLicenseNote(NULL),
+      mLicenseNote(nullptr),
       mRSPackageName("android.renderscript"),
       version(0),
       mMangleCtx(Ctx.createMangleContext()),
@@ -77,7 +77,7 @@ bool RSContext::processExportVar(const clang::VarDecl *VD) {
     return false;
 
   RSExportVar *EV = new RSExportVar(this, VD, ET);
-  if (EV == NULL)
+  if (EV == nullptr)
     return false;
   else
     mExportVars.push_back(EV);
@@ -103,7 +103,7 @@ bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
     return RSExportForEach::validateSpecialFuncDecl(mTargetAPI, this, FD);
   } else if (RSExportForEach::isRSForEachFunc(mTargetAPI, this, FD)) {
     RSExportForEach *EFE = RSExportForEach::Create(this, FD);
-    if (EFE == NULL)
+    if (EFE == nullptr)
       return false;
     else
       mExportForEach.push_back(EFE);
@@ -111,7 +111,7 @@ bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
   }
 
   RSExportFunc *EF = RSExportFunc::Create(this, FD);
-  if (EF == NULL)
+  if (EF == nullptr)
     return false;
   else
     mExportFuncs.push_back(EF);
@@ -123,23 +123,23 @@ bool RSContext::processExportFunc(const clang::FunctionDecl *FD) {
 bool RSContext::processExportType(const llvm::StringRef &Name) {
   clang::TranslationUnitDecl *TUDecl = mCtx.getTranslationUnitDecl();
 
-  slangAssert(TUDecl != NULL && "Translation unit declaration (top-level "
-                                "declaration) is null object");
+  slangAssert(TUDecl != nullptr && "Translation unit declaration (top-level "
+                                   "declaration) is null object");
 
   const clang::IdentifierInfo *II = mPP.getIdentifierInfo(Name);
-  if (II == NULL)
+  if (II == nullptr)
     // TODO(zonr): alert identifier @Name mark as an exportable type cannot be
     //             found
     return false;
 
-  clang::DeclContext::lookup_const_result R = TUDecl->lookup(II);
-  RSExportType *ET = NULL;
+  clang::DeclContext::lookup_result R = TUDecl->lookup(II);
+  RSExportType *ET = nullptr;
 
-  for (clang::DeclContext::lookup_const_iterator I = R.begin(), E = R.end();
+  for (clang::DeclContext::lookup_iterator I = R.begin(), E = R.end();
        I != E;
        I++) {
     clang::NamedDecl *const ND = *I;
-    const clang::Type *T = NULL;
+    const clang::Type *T = nullptr;
 
     switch (ND->getKind()) {
       case clang::Decl::Typedef: {
@@ -157,11 +157,11 @@ bool RSContext::processExportType(const llvm::StringRef &Name) {
       }
     }
 
-    if (T != NULL)
+    if (T != nullptr)
       ET = RSExportType::Create(this, T);
   }
 
-  return (ET != NULL);
+  return (ET != nullptr);
 }
 
 

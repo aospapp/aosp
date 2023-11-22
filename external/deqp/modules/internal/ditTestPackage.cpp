@@ -28,6 +28,7 @@
 #include "ditImageIOTests.hpp"
 #include "ditImageCompareTests.hpp"
 #include "ditTestLogTests.hpp"
+#include "ditSeedBuilderTests.hpp"
 
 namespace dit
 {
@@ -45,13 +46,39 @@ public:
 		addChild(new TestLogTests		(m_testCtx));
 		addChild(new ImageIOTests		(m_testCtx));
 		addChild(new ImageCompareTests	(m_testCtx));
+		addChild(createSeedBuilderTests	(m_testCtx));
+	}
+};
+
+class TestCaseExecutor : public tcu::TestCaseExecutor
+{
+public:
+	TestCaseExecutor (void)
+	{
+	}
+
+	~TestCaseExecutor (void)
+	{
+	}
+
+	void init (tcu::TestCase* testCase, const std::string&)
+	{
+		testCase->init();
+	}
+
+	void deinit (tcu::TestCase* testCase)
+	{
+		testCase->deinit();
+	}
+
+	tcu::TestNode::IterateResult iterate (tcu::TestCase* testCase)
+	{
+		return testCase->iterate();
 	}
 };
 
 TestPackage::TestPackage (tcu::TestContext& testCtx)
-	: tcu::TestPackage	(testCtx, "dE-IT", "drawElements Internal Tests")
-	, m_wrapper			(testCtx)
-	, m_archive			(testCtx.getRootArchive(), "internal/")
+	: tcu::TestPackage(testCtx, "dE-IT", "drawElements Internal Tests")
 {
 }
 
@@ -67,9 +94,9 @@ void TestPackage::init (void)
 	addChild(new DeqpTests		(m_testCtx));
 }
 
-void TestPackage::deinit (void)
+tcu::TestCaseExecutor* TestPackage::createExecutor (void) const
 {
-	TestNode::deinit();
+	return new TestCaseExecutor();
 }
 
 } // dit

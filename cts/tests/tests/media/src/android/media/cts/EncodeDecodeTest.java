@@ -16,6 +16,8 @@
 
 package android.media.cts;
 
+import android.graphics.ImageFormat;
+import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -207,15 +209,32 @@ public class EncodeDecodeTest extends AndroidTestCase {
      */
     public void testEncodeDecodeVideoFromSurfaceToSurfaceQCIF() throws Throwable {
         setParameters(176, 144, 1000000, MIME_TYPE_AVC, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
     }
     public void testEncodeDecodeVideoFromSurfaceToSurfaceQVGA() throws Throwable {
         setParameters(320, 240, 2000000, MIME_TYPE_AVC, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
     }
     public void testEncodeDecodeVideoFromSurfaceToSurface720p() throws Throwable {
         setParameters(1280, 720, 6000000, MIME_TYPE_AVC, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
+    }
+
+    /**
+     * Tests streaming of AVC video through the encoder and decoder.  Data is provided through
+     * a PersistentSurface and decoded onto a Surface.  The output is checked for validity.
+     */
+    public void testEncodeDecodeVideoFromPersistentSurfaceToSurfaceQCIF() throws Throwable {
+        setParameters(176, 144, 1000000, MIME_TYPE_AVC, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
+    }
+    public void testEncodeDecodeVideoFromPersistentSurfaceToSurfaceQVGA() throws Throwable {
+        setParameters(320, 240, 2000000, MIME_TYPE_AVC, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
+    }
+    public void testEncodeDecodeVideoFromPersistentSurfaceToSurface720p() throws Throwable {
+        setParameters(1280, 720, 6000000, MIME_TYPE_AVC, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
     }
 
     /**
@@ -224,40 +243,77 @@ public class EncodeDecodeTest extends AndroidTestCase {
      */
     public void testVP8EncodeDecodeVideoFromSurfaceToSurfaceQCIF() throws Throwable {
         setParameters(176, 144, 1000000, MIME_TYPE_VP8, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
     }
     public void testVP8EncodeDecodeVideoFromSurfaceToSurfaceQVGA() throws Throwable {
         setParameters(320, 240, 2000000, MIME_TYPE_VP8, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
     }
     public void testVP8EncodeDecodeVideoFromSurfaceToSurface720p() throws Throwable {
         setParameters(1280, 720, 6000000, MIME_TYPE_VP8, true, false);
-        SurfaceToSurfaceWrapper.runTest(this);
+        SurfaceToSurfaceWrapper.runTest(this, false);
+    }
+
+    /**
+     * Tests streaming of VP8 video through the encoder and decoder.  Data is provided through
+     * a PersistentSurface and decoded onto a Surface.  The output is checked for validity.
+     */
+    public void testVP8EncodeDecodeVideoFromPersistentSurfaceToSurfaceQCIF() throws Throwable {
+        setParameters(176, 144, 1000000, MIME_TYPE_VP8, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
+    }
+    public void testVP8EncodeDecodeVideoFromPersistentSurfaceToSurfaceQVGA() throws Throwable {
+        setParameters(320, 240, 2000000, MIME_TYPE_VP8, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
+    }
+    public void testVP8EncodeDecodeVideoFromPersistentSurfaceToSurface720p() throws Throwable {
+        setParameters(1280, 720, 6000000, MIME_TYPE_VP8, true, false);
+        SurfaceToSurfaceWrapper.runTest(this, true);
     }
 
     /** Wraps testEncodeDecodeVideoFromSurfaceToSurface() */
     private static class SurfaceToSurfaceWrapper implements Runnable {
         private Throwable mThrowable;
         private EncodeDecodeTest mTest;
+        private boolean mUsePersistentInput;
 
-        private SurfaceToSurfaceWrapper(EncodeDecodeTest test) {
+        private SurfaceToSurfaceWrapper(EncodeDecodeTest test, boolean persistent) {
             mTest = test;
+            mUsePersistentInput = persistent;
         }
 
         @Override
         public void run() {
+            InputSurface inputSurface = null;
             try {
-                mTest.encodeDecodeVideoFromSurfaceToSurface();
+                if (!mUsePersistentInput) {
+                    mTest.encodeDecodeVideoFromSurfaceToSurface(null);
+                } else {
+                    Log.d(TAG, "creating persistent surface");
+                    inputSurface = new InputSurface(
+                            MediaCodec.createPersistentInputSurface());
+
+                    for (int i = 0; i < 3; i++) {
+                        Log.d(TAG, "test persistent surface - round " + i);
+                        mTest.encodeDecodeVideoFromSurfaceToSurface(inputSurface);
+                    }
+                }
             } catch (Throwable th) {
                 mThrowable = th;
+            } finally {
+                if (inputSurface != null) {
+                    inputSurface.release();
+                }
             }
         }
 
         /**
          * Entry point.
          */
-        public static void runTest(EncodeDecodeTest obj) throws Throwable {
-            SurfaceToSurfaceWrapper wrapper = new SurfaceToSurfaceWrapper(obj);
+        public static void runTest(EncodeDecodeTest obj, boolean persisent)
+                throws Throwable {
+            SurfaceToSurfaceWrapper wrapper =
+                    new SurfaceToSurfaceWrapper(obj, persisent);
             Thread th = new Thread(wrapper, "codec test");
             th.start();
             th.join();
@@ -355,10 +411,10 @@ public class EncodeDecodeTest extends AndroidTestCase {
      * We encode several frames of a video test pattern using MediaCodec, then decode the
      * output with MediaCodec and do some simple checks.
      */
-    private void encodeDecodeVideoFromSurfaceToSurface() throws Exception {
+    private void encodeDecodeVideoFromSurfaceToSurface(InputSurface inSurf) throws Exception {
         MediaCodec encoder = null;
         MediaCodec decoder = null;
-        InputSurface inputSurface = null;
+        InputSurface inputSurface = inSurf;
         OutputSurface outputSurface = null;
 
         mLargestColorDelta = -1;
@@ -400,13 +456,19 @@ public class EncodeDecodeTest extends AndroidTestCase {
             // our desired properties.  Request a Surface to use for input.
             encoder = MediaCodec.createByCodecName(codec);
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            inputSurface = new InputSurface(encoder.createInputSurface());
+            if (inSurf != null) {
+                Log.d(TAG, "using persistent surface");
+                encoder.setInputSurface(inputSurface.getSurface());
+                inputSurface.updateSize(mWidth, mHeight);
+            } else {
+                inputSurface = new InputSurface(encoder.createInputSurface());
+            }
             encoder.start();
 
             doEncodeDecodeVideoFromSurfaceToSurface(encoder, inputSurface, decoder, outputSurface);
         } finally {
             if (VERBOSE) Log.d(TAG, "releasing codecs");
-            if (inputSurface != null) {
+            if (inSurf == null && inputSurface != null) {
                 inputSurface.release();
             }
             if (outputSurface != null) {
@@ -677,6 +739,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
                 } else {  // decoderStatus >= 0
                     if (!toSurface) {
                         ByteBuffer outputFrame = decoderOutputBuffers[decoderStatus];
+                        Image outputImage = (checkIndex % 2 == 0) ? null : decoder.getOutputImage(decoderStatus);
 
                         outputFrame.position(info.offset);
                         outputFrame.limit(info.offset + info.size);
@@ -688,9 +751,12 @@ public class EncodeDecodeTest extends AndroidTestCase {
                             if (VERBOSE) Log.d(TAG, "decoded, checking frame " + checkIndex);
                             assertEquals("Wrong time stamp", computePresentationTime(checkIndex),
                                     info.presentationTimeUs);
-                            if (!checkFrame(checkIndex++, decoderOutputFormat, outputFrame)) {
+                            if (!checkFrame(checkIndex++, decoderOutputFormat, outputFrame, outputImage)) {
                                 badFrames++;
                             }
+                        }
+                        if (outputImage != null) {
+                            outputImage.close();
                         }
 
                         if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -1012,7 +1078,7 @@ public class EncodeDecodeTest extends AndroidTestCase {
      *
      * @return true if the frame looks good
      */
-    private boolean checkFrame(int frameIndex, MediaFormat format, ByteBuffer frameData) {
+    private boolean checkFrame(int frameIndex, MediaFormat format, ByteBuffer frameData, Image image) {
         // Check for color formats we don't understand.  There is no requirement for video
         // decoders to use a "mundane" format, so we just give a pass on proprietary formats.
         // e.g. Nexus 4 0x7FA30C03 OMX_QCOM_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka
@@ -1032,6 +1098,12 @@ public class EncodeDecodeTest extends AndroidTestCase {
         int cropRight = format.getInteger("crop-right");
         int cropTop = format.getInteger("crop-top");
         int cropBottom = format.getInteger("crop-bottom");
+        if (image != null) {
+            cropLeft = image.getCropRect().left;
+            cropRight = image.getCropRect().right - 1;
+            cropTop = image.getCropRect().top;
+            cropBottom = image.getCropRect().bottom - 1;
+        }
         int cropWidth = cropRight - cropLeft + 1;
         int cropHeight = cropBottom - cropTop + 1;
 
@@ -1052,18 +1124,29 @@ public class EncodeDecodeTest extends AndroidTestCase {
             x += cropLeft;
 
             int testY, testU, testV;
-            int off = frameData.position();
-            if (semiPlanar) {
-                // Galaxy Nexus uses OMX_TI_COLOR_FormatYUV420PackedSemiPlanar
-                testY = frameData.get(off + y * width + x) & 0xff;
-                testU = frameData.get(off + width*height + 2*(y/2) * halfWidth + 2*(x/2)) & 0xff;
-                testV = frameData.get(off + width*height + 2*(y/2) * halfWidth + 2*(x/2) + 1) & 0xff;
+            if (image != null) {
+                Image.Plane[] planes = image.getPlanes();
+                if (planes.length == 3 && image.getFormat() == ImageFormat.YUV_420_888) {
+                    testY = planes[0].getBuffer().get(y * planes[0].getRowStride() + x * planes[0].getPixelStride()) & 0xff;
+                    testU = planes[1].getBuffer().get((y/2) * planes[1].getRowStride() + (x/2) * planes[1].getPixelStride()) & 0xff;
+                    testV = planes[2].getBuffer().get((y/2) * planes[2].getRowStride() + (x/2) * planes[2].getPixelStride()) & 0xff;
+                } else {
+                    testY = testU = testV = 0;
+                }
             } else {
-                // Nexus 10, Nexus 7 use COLOR_FormatYUV420Planar
-                testY = frameData.get(off + y * width + x) & 0xff;
-                testU = frameData.get(off + width*height + (y/2) * halfWidth + (x/2)) & 0xff;
-                testV = frameData.get(off + width*height + halfWidth * (height / 2) +
-                        (y/2) * halfWidth + (x/2)) & 0xff;
+                int off = frameData.position();
+                if (semiPlanar) {
+                    // Galaxy Nexus uses OMX_TI_COLOR_FormatYUV420PackedSemiPlanar
+                    testY = frameData.get(off + y * width + x) & 0xff;
+                    testU = frameData.get(off + width*height + 2*(y/2) * halfWidth + 2*(x/2)) & 0xff;
+                    testV = frameData.get(off + width*height + 2*(y/2) * halfWidth + 2*(x/2) + 1) & 0xff;
+                } else {
+                    // Nexus 10, Nexus 7 use COLOR_FormatYUV420Planar
+                    testY = frameData.get(off + y * width + x) & 0xff;
+                    testU = frameData.get(off + width*height + (y/2) * halfWidth + (x/2)) & 0xff;
+                    testV = frameData.get(off + width*height + halfWidth * (height / 2) +
+                            (y/2) * halfWidth + (x/2)) & 0xff;
+                }
             }
 
             int expY, expU, expV;

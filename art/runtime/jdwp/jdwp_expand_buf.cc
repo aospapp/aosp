@@ -57,7 +57,7 @@ ExpandBuf* expandBufAlloc() {
  * Free a JdwpBuf and associated storage.
  */
 void expandBufFree(ExpandBuf* pBuf) {
-  if (pBuf == NULL) {
+  if (pBuf == nullptr) {
     return;
   }
 
@@ -93,7 +93,7 @@ static void ensureSpace(ExpandBuf* pBuf, int newCount) {
   }
 
   uint8_t* newPtr = reinterpret_cast<uint8_t*>(realloc(pBuf->storage, pBuf->maxLen));
-  if (newPtr == NULL) {
+  if (newPtr == nullptr) {
     LOG(FATAL) << "realloc(" << pBuf->maxLen << ") failed";
   }
 
@@ -156,7 +156,7 @@ static void SetUtf8String(uint8_t* buf, const char* str, size_t strLen) {
 }
 
 /*
- * Add a UTF8 string as a 4-byte length followed by a non-NULL-terminated
+ * Add a UTF8 string as a 4-byte length followed by a non-nullptr-terminated
  * string.
  *
  * Because these strings are coming out of the VM, it's safe to assume that

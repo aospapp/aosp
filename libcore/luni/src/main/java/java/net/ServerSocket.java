@@ -65,24 +65,25 @@ public class ServerSocket implements Closeable {
     }
 
     /**
-     * Constructs a new {@code ServerSocket} instance bound to the given {@code port}.
-     * The backlog is set to 50. If {@code port == 0}, a port will be assigned by the OS.
+     * Constructs a new {@code ServerSocket} instance bound to the given {@code port} using a
+     * wildcard address. The backlog is set to 50. If {@code port == 0}, a port will be assigned by
+     * the OS.
      *
      * @throws IOException if an error occurs while creating the socket.
      */
     public ServerSocket(int port) throws IOException {
-        this(port, DEFAULT_BACKLOG, Inet4Address.ANY);
+        this(port, DEFAULT_BACKLOG, Inet6Address.ANY);
     }
 
     /**
-     * Constructs a new {@code ServerSocket} instance bound to the given {@code port}.
-     * The backlog is set to {@code backlog}.
+     * Constructs a new {@code ServerSocket} instance bound to the given {@code port} using a
+     * wildcard address. The backlog is set to {@code backlog}.
      * If {@code port == 0}, a port will be assigned by the OS.
      *
      * @throws IOException if an error occurs while creating the socket.
      */
     public ServerSocket(int port, int backlog) throws IOException {
-        this(port, backlog, Inet4Address.ANY);
+        this(port, backlog, Inet6Address.ANY);
     }
 
     /**
@@ -97,7 +98,7 @@ public class ServerSocket implements Closeable {
         checkListen(port);
         this.impl = factory != null ? factory.createSocketImpl()
                 : new PlainServerSocketImpl();
-        InetAddress addr = (localAddress == null) ? Inet4Address.ANY : localAddress;
+        InetAddress addr = (localAddress == null) ? Inet6Address.ANY : localAddress;
 
         synchronized (this) {
             impl.create(true);
@@ -316,7 +317,7 @@ public class ServerSocket implements Closeable {
         InetAddress addr;
         int port;
         if (localAddr == null) {
-            addr = Inet4Address.ANY;
+            addr = Inet6Address.ANY;
             port = 0;
         } else {
             if (!(localAddr instanceof InetSocketAddress)) {

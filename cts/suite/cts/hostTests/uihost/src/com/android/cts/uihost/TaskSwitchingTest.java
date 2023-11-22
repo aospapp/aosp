@@ -115,7 +115,9 @@ public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, I
         @Override
         public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
             // necessary as testMetrics passed from CollectingTestListerner is empty
-            mCtsReport = testMetrics.get("CTS_TEST_RESULT");
+            if (testMetrics.containsKey("CTS_TEST_RESULT")) {
+                mCtsReport = testMetrics.get("CTS_TEST_RESULT");
+            }
             super.testEnded(test, testMetrics);
         }
     }

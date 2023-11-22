@@ -2,35 +2,38 @@ package com.bumptech.glide;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
-import com.android.volley.RequestQueue;
+
+import com.bumptech.glide.load.DecodeFormat;
 import com.bumptech.glide.load.engine.Engine;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
-import com.bumptech.glide.load.engine.cache.DiskCache;
 import com.bumptech.glide.load.engine.cache.MemoryCache;
+import com.bumptech.glide.load.engine.prefill.BitmapPreFiller;
+import com.bumptech.glide.load.engine.prefill.PreFillType;
 import com.bumptech.glide.load.model.GenericLoaderFactory;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.ImageVideoWrapper;
 import com.bumptech.glide.load.model.ModelLoader;
 import com.bumptech.glide.load.model.ModelLoaderFactory;
 import com.bumptech.glide.load.model.file_descriptor.FileDescriptorFileLoader;
-import com.bumptech.glide.load.model.file_descriptor.FileDescriptorModelLoader;
 import com.bumptech.glide.load.model.file_descriptor.FileDescriptorResourceLoader;
 import com.bumptech.glide.load.model.file_descriptor.FileDescriptorStringLoader;
 import com.bumptech.glide.load.model.file_descriptor.FileDescriptorUriLoader;
+import com.bumptech.glide.load.model.stream.HttpUrlGlideUrlLoader;
+import com.bumptech.glide.load.model.stream.StreamByteArrayLoader;
 import com.bumptech.glide.load.model.stream.StreamFileLoader;
-import com.bumptech.glide.load.model.stream.StreamModelLoader;
 import com.bumptech.glide.load.model.stream.StreamResourceLoader;
 import com.bumptech.glide.load.model.stream.StreamStringLoader;
 import com.bumptech.glide.load.model.stream.StreamUriLoader;
@@ -38,86 +41,92 @@ import com.bumptech.glide.load.model.stream.StreamUrlLoader;
 import com.bumptech.glide.load.resource.bitmap.CenterCrop;
 import com.bumptech.glide.load.resource.bitmap.FileDescriptorBitmapDataLoadProvider;
 import com.bumptech.glide.load.resource.bitmap.FitCenter;
+import com.bumptech.glide.load.resource.bitmap.GlideBitmapDrawable;
 import com.bumptech.glide.load.resource.bitmap.ImageVideoDataLoadProvider;
 import com.bumptech.glide.load.resource.bitmap.StreamBitmapDataLoadProvider;
-import com.bumptech.glide.load.resource.gif.GifData;
-import com.bumptech.glide.load.resource.gif.GifDataLoadProvider;
+import com.bumptech.glide.load.resource.drawable.GlideDrawable;
+import com.bumptech.glide.load.resource.file.StreamFileDataLoadProvider;
 import com.bumptech.glide.load.resource.gif.GifDrawable;
+import com.bumptech.glide.load.resource.gif.GifDrawableLoadProvider;
 import com.bumptech.glide.load.resource.gifbitmap.GifBitmapWrapper;
 import com.bumptech.glide.load.resource.gifbitmap.GifBitmapWrapperTransformation;
-import com.bumptech.glide.load.resource.gifbitmap.ImageVideoGifDataLoadProvider;
-import com.bumptech.glide.load.resource.transcode.BitmapDrawableTranscoder;
+import com.bumptech.glide.load.resource.gifbitmap.ImageVideoGifDrawableLoadProvider;
 import com.bumptech.glide.load.resource.transcode.GifBitmapWrapperDrawableTranscoder;
-import com.bumptech.glide.load.resource.transcode.GifDataDrawableTranscoder;
+import com.bumptech.glide.load.resource.transcode.GlideBitmapDrawableTranscoder;
 import com.bumptech.glide.load.resource.transcode.ResourceTranscoder;
-import com.bumptech.glide.load.resource.transcode.TranscoderFactory;
+import com.bumptech.glide.load.resource.transcode.TranscoderRegistry;
 import com.bumptech.glide.manager.RequestManagerRetriever;
-import com.bumptech.glide.provider.DataLoadProviderFactory;
-import com.bumptech.glide.request.GlideAnimation;
+import com.bumptech.glide.provider.DataLoadProvider;
+import com.bumptech.glide.provider.DataLoadProviderRegistry;
+import com.bumptech.glide.request.FutureTarget;
 import com.bumptech.glide.request.Request;
+import com.bumptech.glide.request.animation.GlideAnimation;
 import com.bumptech.glide.request.target.ImageViewTargetFactory;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.request.target.ViewTarget;
-import com.bumptech.glide.volley.VolleyUrlLoader;
+import com.bumptech.glide.util.Util;
 
 import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 
 /**
- * A singleton to present a simple static interface for building requests with {@link BitmapRequestBuilder} and maintaining
- * an {@link Engine}, {@link BitmapPool}, {@link DiskCache} and {@link MemoryCache}.
- *
- * <p>
- * Note - This class is not thread safe.
- * </p>
+ * A singleton to present a simple static interface for building requests with {@link BitmapRequestBuilder} and
+ * maintaining an {@link Engine}, {@link BitmapPool}, {@link com.bumptech.glide.load.engine.cache.DiskCache} and
+ * {@link MemoryCache}.
  */
 public class Glide {
-    // 250 MB
+    /** 250 MB of cache. */
     static final int DEFAULT_DISK_CACHE_SIZE = 250 * 1024 * 1024;
 
     private static final String DEFAULT_DISK_CACHE_DIR = "image_manager_disk_cache";
     private static final String TAG = "Glide";
-    private static Glide GLIDE;
+    private static volatile Glide glide;
 
-    private final GenericLoaderFactory loaderFactory = new GenericLoaderFactory();
-    private final RequestQueue requestQueue;
+    private final GenericLoaderFactory loaderFactory;
     private final Engine engine;
     private final BitmapPool bitmapPool;
     private final MemoryCache memoryCache;
+    private final DecodeFormat decodeFormat;
     private final ImageViewTargetFactory imageViewTargetFactory = new ImageViewTargetFactory();
-    private final TranscoderFactory transcoderFactory = new TranscoderFactory();
-    private final DataLoadProviderFactory dataLoadProviderFactory;
+    private final TranscoderRegistry transcoderRegistry = new TranscoderRegistry();
+    private final DataLoadProviderRegistry dataLoadProviderRegistry;
     private final CenterCrop bitmapCenterCrop;
     private final GifBitmapWrapperTransformation drawableCenterCrop;
     private final FitCenter bitmapFitCenter;
     private final GifBitmapWrapperTransformation drawableFitCenter;
+    private final Handler mainHandler;
+    private final BitmapPreFiller bitmapPreFiller;
 
     /**
-     * Try to get the external cache directory if available and default to the internal. Use a default name for the
-     * cache directory if no name is provided
+     * Returns a directory with a default name in the private cache directory of the application to use to store
+     * retrieved media and thumbnails.
      *
-     * @param context A context
-     * @return A File representing the default disk cache directory
+     * @see #getPhotoCacheDir(android.content.Context, String)
+     *
+     * @param context A context.
      */
     public static File getPhotoCacheDir(Context context) {
         return getPhotoCacheDir(context, DEFAULT_DISK_CACHE_DIR);
     }
 
     /**
-     * Try to get the external cache directory if available and default to the internal. Use a default name for the
-     * cache directory if no name is provided
+     * Returns a directory with the given name in the private cache directory of the application to use to store
+     * retrieved media and thumbnails.
      *
-     * @param context A context
-     * @param cacheName The name of the subdirectory in which to store the cache
-     * @return A File representing the default disk cache directory
+     * @see #getPhotoCacheDir(android.content.Context)
+     *
+     * @param context A context.
+     * @param cacheName The name of the subdirectory in which to store the cache.
      */
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public static File getPhotoCacheDir(Context context, String cacheName) {
         File cacheDir = context.getCacheDir();
         if (cacheDir != null) {
             File result = new File(cacheDir, cacheName);
-            result.mkdirs();
+            if (!result.mkdirs() && (!result.exists() || !result.isDirectory())) {
+                // File wasn't able to create a directory, or the result exists but not a directory
+                return null;
+            }
             return result;
         }
         if (Log.isLoggable(TAG, Log.ERROR)) {
@@ -132,11 +141,15 @@ public class Glide {
      * @return the singleton
      */
     public static Glide get(Context context) {
-        if (GLIDE == null) {
-            GLIDE = new GlideBuilder(context).createGlide();
+        if (glide == null) {
+            synchronized (Glide.class) {
+                if (glide == null) {
+                    glide = new GlideBuilder(context).createGlide();
+                }
+            }
         }
 
-        return GLIDE;
+        return glide;
     }
 
     /**
@@ -146,7 +159,7 @@ public class Glide {
      * @see #setup(GlideBuilder)
      */
     public static boolean isSetup() {
-        return GLIDE != null;
+        return glide != null;
     }
 
     /**
@@ -163,37 +176,50 @@ public class Glide {
             throw new IllegalArgumentException("Glide is already setup, check with isSetup() first");
         }
 
-        GLIDE = builder.createGlide();
+        glide = builder.createGlide();
     }
 
+    // For testing.
     static void tearDown() {
-        GLIDE = null;
+        glide = null;
     }
 
-    Glide(Engine engine, RequestQueue requestQueue, MemoryCache memoryCache, BitmapPool bitmapPool,
-            Context context) {
+    Glide(Engine engine, MemoryCache memoryCache, BitmapPool bitmapPool, Context context, DecodeFormat decodeFormat) {
         this.engine = engine;
-        this.requestQueue = requestQueue;
         this.bitmapPool = bitmapPool;
         this.memoryCache = memoryCache;
+        this.decodeFormat = decodeFormat;
+        loaderFactory = new GenericLoaderFactory(context);
+        mainHandler = new Handler(Looper.getMainLooper());
+        bitmapPreFiller = new BitmapPreFiller(memoryCache, bitmapPool, decodeFormat);
 
-        dataLoadProviderFactory = new DataLoadProviderFactory();
+        dataLoadProviderRegistry = new DataLoadProviderRegistry();
 
-        dataLoadProviderFactory.register(InputStream.class, Bitmap.class, new StreamBitmapDataLoadProvider(bitmapPool));
-        dataLoadProviderFactory.register(ParcelFileDescriptor.class, Bitmap.class,
-                new FileDescriptorBitmapDataLoadProvider(bitmapPool));
+        StreamBitmapDataLoadProvider streamBitmapLoadProvider =
+                new StreamBitmapDataLoadProvider(bitmapPool, decodeFormat);
+        dataLoadProviderRegistry.register(InputStream.class, Bitmap.class, streamBitmapLoadProvider);
 
-        ImageVideoDataLoadProvider imageVideoDataLoadProvider = new ImageVideoDataLoadProvider(bitmapPool);
-        dataLoadProviderFactory.register(ImageVideoWrapper.class, Bitmap.class, imageVideoDataLoadProvider);
+        FileDescriptorBitmapDataLoadProvider fileDescriptorLoadProvider =
+                new FileDescriptorBitmapDataLoadProvider(bitmapPool, decodeFormat);
+        dataLoadProviderRegistry.register(ParcelFileDescriptor.class, Bitmap.class, fileDescriptorLoadProvider);
 
-        GifDataLoadProvider gifDataLoadProvider = new GifDataLoadProvider(context, bitmapPool);
-        dataLoadProviderFactory.register(InputStream.class, GifData.class, gifDataLoadProvider);
+        ImageVideoDataLoadProvider imageVideoDataLoadProvider =
+                new ImageVideoDataLoadProvider(streamBitmapLoadProvider, fileDescriptorLoadProvider);
+        dataLoadProviderRegistry.register(ImageVideoWrapper.class, Bitmap.class, imageVideoDataLoadProvider);
 
-        dataLoadProviderFactory.register(ImageVideoWrapper.class, GifBitmapWrapper.class,
-                new ImageVideoGifDataLoadProvider(imageVideoDataLoadProvider, gifDataLoadProvider));
+        GifDrawableLoadProvider gifDrawableLoadProvider =
+                new GifDrawableLoadProvider(context, bitmapPool);
+        dataLoadProviderRegistry.register(InputStream.class, GifDrawable.class, gifDrawableLoadProvider);
+
+        dataLoadProviderRegistry.register(ImageVideoWrapper.class, GifBitmapWrapper.class,
+                new ImageVideoGifDrawableLoadProvider(imageVideoDataLoadProvider, gifDrawableLoadProvider, bitmapPool));
+
+        dataLoadProviderRegistry.register(InputStream.class, File.class, new StreamFileDataLoadProvider());
 
         register(File.class, ParcelFileDescriptor.class, new FileDescriptorFileLoader.Factory());
         register(File.class, InputStream.class, new StreamFileLoader.Factory());
+        register(int.class, ParcelFileDescriptor.class, new FileDescriptorResourceLoader.Factory());
+        register(int.class, InputStream.class, new StreamResourceLoader.Factory());
         register(Integer.class, ParcelFileDescriptor.class, new FileDescriptorResourceLoader.Factory());
         register(Integer.class, InputStream.class, new StreamResourceLoader.Factory());
         register(String.class, ParcelFileDescriptor.class, new FileDescriptorStringLoader.Factory());
@@ -201,32 +227,54 @@ public class Glide {
         register(Uri.class, ParcelFileDescriptor.class, new FileDescriptorUriLoader.Factory());
         register(Uri.class, InputStream.class, new StreamUriLoader.Factory());
         register(URL.class, InputStream.class, new StreamUrlLoader.Factory());
-        register(GlideUrl.class, InputStream.class, new VolleyUrlLoader.Factory(requestQueue));
+        register(GlideUrl.class, InputStream.class, new HttpUrlGlideUrlLoader.Factory());
+        register(byte[].class, InputStream.class, new StreamByteArrayLoader.Factory());
 
-        transcoderFactory.register(Bitmap.class, BitmapDrawable.class,
-                new BitmapDrawableTranscoder(context.getResources(), bitmapPool));
-        transcoderFactory.register(GifBitmapWrapper.class, Drawable.class,
-                new GifBitmapWrapperDrawableTranscoder(new BitmapDrawableTranscoder(context.getResources(), bitmapPool),
-                        new GifDataDrawableTranscoder()));
-        transcoderFactory.register(GifData.class, GifDrawable.class, new GifDataDrawableTranscoder());
+        transcoderRegistry.register(Bitmap.class, GlideBitmapDrawable.class,
+                new GlideBitmapDrawableTranscoder(context.getResources(), bitmapPool));
+        transcoderRegistry.register(GifBitmapWrapper.class, GlideDrawable.class,
+                new GifBitmapWrapperDrawableTranscoder(
+                        new GlideBitmapDrawableTranscoder(context.getResources(), bitmapPool)));
 
         bitmapCenterCrop = new CenterCrop(bitmapPool);
-        drawableCenterCrop = new GifBitmapWrapperTransformation(bitmapCenterCrop);
+        drawableCenterCrop = new GifBitmapWrapperTransformation(bitmapPool, bitmapCenterCrop);
 
         bitmapFitCenter = new FitCenter(bitmapPool);
-        drawableFitCenter = new GifBitmapWrapperTransformation(bitmapFitCenter);
+        drawableFitCenter = new GifBitmapWrapperTransformation(bitmapPool, bitmapFitCenter);
     }
 
+    /**
+     * Returns the {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} used to temporarily store
+     * {@link android.graphics.Bitmap}s so they can be reused to avoid garbage collections.
+     *
+     * <p>
+     *     Note - Using this pool directly can lead to undefined behavior and strange drawing errors. Any
+     *     {@link android.graphics.Bitmap} added to the pool must not be currently in use in any other part of the
+     *     application. Any {@link android.graphics.Bitmap} added to the pool must be removed from the pool before it
+     *     is added a second time.
+     * </p>
+     *
+     * <p>
+     *     Note - To make effective use of the pool, any {@link android.graphics.Bitmap} removed from the pool must
+     *     eventually be re-added. Otherwise the pool will eventually empty and will not serve any useful purpose.
+     * </p>
+     *
+     * <p>
+     *     The primary reason this object is exposed is for use in custom
+     *     {@link com.bumptech.glide.load.ResourceDecoder}s and {@link com.bumptech.glide.load.Transformation}s. Use
+     *     outside of these classes is not generally recommended.
+     * </p>
+     */
     public BitmapPool getBitmapPool() {
         return bitmapPool;
     }
 
     <Z, R> ResourceTranscoder<Z, R> buildTranscoder(Class<Z> decodedClass, Class<R> transcodedClass) {
-        return transcoderFactory.get(decodedClass, transcodedClass);
+        return transcoderRegistry.get(decodedClass, transcodedClass);
     }
 
     <T, Z> DataLoadProvider<T, Z> buildDataProvider(Class<T> dataClass, Class<Z> decodedClass) {
-        return dataLoadProviderFactory.get(dataClass, decodedClass);
+        return dataLoadProviderRegistry.get(dataClass, decodedClass);
     }
 
     <R> Target<R> buildImageViewTarget(ImageView imageView, Class<R> transcodedClass) {
@@ -253,21 +301,52 @@ public class Glide {
         return drawableFitCenter;
     }
 
+    Handler getMainHandler() {
+        return mainHandler;
+    }
+
+    DecodeFormat getDecodeFormat() {
+        return decodeFormat;
+    }
+
     private GenericLoaderFactory getLoaderFactory() {
         return loaderFactory;
     }
 
     /**
-     * Returns the {@link RequestQueue} Glide is using to fetch images over http/https.
+     * Pre-fills the {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} using the given sizes.
+     *
+     * <p>
+     *   Enough Bitmaps are added to completely fill the pool, so most or all of the Bitmaps currently in the pool will
+     *   be evicted. Bitmaps are allocated according to the weights of the given sizes, where each size gets
+     *   (weight / prefillWeightSum) percent of the pool to fill.
+     * </p>
+     *
+     * <p>
+     *     Note - Pre-filling is done asynchronously using and {@link android.os.MessageQueue.IdleHandler}. Any
+     *     currently running pre-fill will be cancelled and replaced by a call to this method.
+     * </p>
+     *
+     * <p>
+     *     This method should be used with caution, overly aggressive pre-filling is substantially worse than not
+     *     pre-filling at all. Pre-filling should only be started in onCreate to avoid constantly clearing and
+     *     re-filling the {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool}. Rotation should be carefully
+     *     considered as well. It may be worth calling this method only when no saved instance state exists so that
+     *     pre-filling only happens when the Activity is first created, rather than on every rotation.
+     * </p>
+     *
+     * @param bitmapAttributeBuilders The list of
+     *     {@link com.bumptech.glide.load.engine.prefill.PreFillType.Builder Builders} representing
+     *     individual sizes and configurations of {@link android.graphics.Bitmap}s to be pre-filled.
      */
-    public RequestQueue getRequestQueue() {
-        return requestQueue;
+    public void preFillBitmapPool(PreFillType.Builder... bitmapAttributeBuilders) {
+        bitmapPreFiller.preFill(bitmapAttributeBuilders);
     }
 
     /**
      * Clears as much memory as possible.
      *
-     * @see ComponentCallbacks2#onLowMemory()
+     * @see android.content.ComponentCallbacks2#onLowMemory()
      */
     public void clearMemory() {
         bitmapPool.clearMemory();
@@ -277,7 +356,7 @@ public class Glide {
     /**
      * Clears some memory with the exact amount depending on the given level.
      *
-     * @see ComponentCallbacks2#onTrimMemory(int)
+     * @see android.content.ComponentCallbacks2#onTrimMemory(int)
      */
     public void trimMemory(int level) {
         bitmapPool.trimMemory(level);
@@ -306,11 +385,22 @@ public class Glide {
      *
      * @param target The Target to cancel loads for.
      */
-    public static void clear(Target target) {
+    public static void clear(Target<?> target) {
+        Util.assertMainThread();
         Request request = target.getRequest();
-        if (request!= null) {
+        if (request != null) {
             request.clear();
         }
+    }
+
+    /**
+     * Cancel any pending loads Glide may have for the target and free any resources that may have been loaded into
+     * the target so they may be reused.
+     *
+     * @param target The target to cancel loads for.
+     */
+    public static void clear(FutureTarget<?> target) {
+        target.clear();
     }
 
     /**
@@ -327,17 +417,17 @@ public class Glide {
      * @throws IllegalArgumentException if an object other than Glide's metadata is set as the view's tag.
      */
     public static void clear(View view) {
-        Target viewTarget = new ClearTarget(view);
+        Target<?> viewTarget = new ClearTarget(view);
         clear(viewTarget);
     }
 
     /**
      * Use the given factory to build a {@link ModelLoader} for models of the given class. Generally the best use of
      * this method is to replace one of the default factories or add an implementation for other similar low level
-     * models. Typically the {@link RequestManager#using(StreamModelLoader)} or
-     * {@link RequestManager#using(FileDescriptorModelLoader)} syntax is preferred because it directly links the model
-     * with the ModelLoader being used to load it. Any factory replaced by the given factory will have its
-     * {@link ModelLoaderFactory#teardown()}} method called.
+     * models. Typically the {@link RequestManager#using(com.bumptech.glide.load.model.stream.StreamModelLoader)} or
+     * {@link RequestManager#using(com.bumptech.glide.load.model.file_descriptor.FileDescriptorModelLoader)} syntax is
+     * preferred because it directly links the model with the ModelLoader being used to load it. Any factory replaced
+     * by the given factory will have its {@link ModelLoaderFactory#teardown()}} method called.
      *
      * <p>
      *     Note - If a factory already exists for the given class, it will be replaced. If that factory is not being
@@ -350,8 +440,8 @@ public class Glide {
      *     retained statically.
      * </p>
      *
-     * @see RequestManager#using(FileDescriptorModelLoader)
-     * @see RequestManager#using(StreamModelLoader)
+     * @see RequestManager#using(com.bumptech.glide.load.model.file_descriptor.FileDescriptorModelLoader)
+     * @see RequestManager#using(com.bumptech.glide.load.model.stream.StreamModelLoader)
      *
      * @param modelClass The model class.
      * @param resourceClass The resource class the model loader will translate the model type into.
@@ -398,7 +488,13 @@ public class Glide {
      */
     public static <T, Y> ModelLoader<T, Y> buildModelLoader(Class<T> modelClass, Class<Y> resourceClass,
             Context context) {
-        return Glide.get(context).getLoaderFactory().buildModelLoader(modelClass, resourceClass, context);
+         if (modelClass == null) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "Unable to load null model, setting placeholder only");
+            }
+            return null;
+        }
+        return Glide.get(context).getLoaderFactory().buildModelLoader(modelClass, resourceClass);
     }
 
     /**
@@ -416,13 +512,7 @@ public class Glide {
      */
     @SuppressWarnings("unchecked")
     public static <T, Y> ModelLoader<T, Y> buildModelLoader(T model, Class<Y> resourceClass, Context context) {
-        if (model == null) {
-            if (Log.isLoggable(TAG, Log.DEBUG)) {
-                Log.d(TAG, "Unable to load null model, setting placeholder only");
-            }
-            return null;
-        }
-        return buildModelLoader((Class<T>) model.getClass(), resourceClass, context);
+        return buildModelLoader(model != null ? (Class<T>) model.getClass() : null, resourceClass, context);
     }
 
     /**
@@ -469,28 +559,81 @@ public class Glide {
     /**
      * Begin a load with Glide by passing in a context.
      *
+     * <p>
+     *     Any requests started using a context will only have the application level options applied and will not be
+     *     started or stopped based on lifecycle events. In general, loads should be started at the level the result
+     *     will be used in. If the resource will be used in a view in a child fragment,
+     *     the load should be started with {@link #with(android.app.Fragment)}} using that child fragment. Similarly,
+     *     if the resource will be used in a view in the parent fragment, the load should be started with
+     *     {@link #with(android.app.Fragment)} using the parent fragment. In the same vein, if the resource will be used
+     *     in a view in an activity, the load should be started with {@link #with(android.app.Activity)}}.
+     * </p>
+     *
+     * <p>
+     *     This method is appropriate for resources that will be used outside of the normal fragment or activity
+     *     lifecycle (For example in services, or for notification thumbnails).
+     * </p>
+     *
+     * @see #with(android.app.Activity)
+     * @see #with(android.app.Fragment)
+     * @see #with(android.support.v4.app.Fragment)
+     * @see #with(android.support.v4.app.FragmentActivity)
+     *
      * @param context Any context, will not be retained.
-     * @return A model request to pass in the object representing the image to be loaded.
+     * @return A RequestManager for the top level application that can be used to start a load.
      */
     public static RequestManager with(Context context) {
-        return RequestManagerRetriever.get(context);
+        RequestManagerRetriever retriever = RequestManagerRetriever.get();
+        return retriever.get(context);
     }
 
+    /**
+     * Begin a load with Glide that will be tied to the given {@link android.app.Activity}'s lifecycle and that uses the
+     * given {@link Activity}'s default options.
+     *
+     * @param activity The activity to use.
+     * @return A RequestManager for the given activity that can be used to start a load.
+     */
     public static RequestManager with(Activity activity) {
-        return RequestManagerRetriever.get(activity);
+        RequestManagerRetriever retriever = RequestManagerRetriever.get();
+        return retriever.get(activity);
     }
 
+    /**
+     * Begin a load with Glide that will tied to the give {@link android.support.v4.app.FragmentActivity}'s lifecycle
+     * and that uses the given {@link android.support.v4.app.FragmentActivity}'s default options.
+     *
+     * @param activity The activity to use.
+     * @return A RequestManager for the given FragmentActivity that can be used to start a load.
+     */
     public static RequestManager with(FragmentActivity activity) {
-        return RequestManagerRetriever.get(activity);
+        RequestManagerRetriever retriever = RequestManagerRetriever.get();
+        return retriever.get(activity);
     }
 
-    @TargetApi(11)
+    /**
+     * Begin a load with Glide that will be tied to the given {@link android.app.Fragment}'s lifecycle and that uses
+     * the given {@link android.app.Fragment}'s default options.
+     *
+     * @param fragment The fragment to use.
+     * @return A RequestManager for the given Fragment that can be used to start a load.
+     */
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static RequestManager with(android.app.Fragment fragment) {
-        return RequestManagerRetriever.get(fragment);
+        RequestManagerRetriever retriever = RequestManagerRetriever.get();
+        return retriever.get(fragment);
     }
 
+    /**
+     * Begin a load with Glide that will be tied to the given {@link android.support.v4.app.Fragment}'s lifecycle and
+     * that uses the given {@link android.support.v4.app.Fragment}'s default options.
+     *
+     * @param fragment The fragment to use.
+     * @return A RequestManager for the given Fragment that can be used to start a load.
+     */
     public static RequestManager with(Fragment fragment) {
-        return RequestManagerRetriever.get(fragment);
+        RequestManagerRetriever retriever = RequestManagerRetriever.get();
+        return retriever.get(fragment);
     }
 
     private static class ClearTarget extends ViewTarget<View, Object> {
@@ -499,9 +642,23 @@ public class Glide {
         }
 
         @Override
-        public void onResourceReady(Object resource, GlideAnimation<Object> glideAnimation) { }
+        public void onLoadStarted(Drawable placeholder) {
+            // Do nothing.
+        }
 
         @Override
-        public void setPlaceholder(Drawable placeholder) { }
+        public void onLoadFailed(Exception e, Drawable errorDrawable) {
+            // Do nothing.
+        }
+
+        @Override
+        public void onResourceReady(Object resource, GlideAnimation<? super Object> glideAnimation) {
+            // Do nothing.
+        }
+
+        @Override
+        public void onLoadCleared(Drawable placeholder) {
+            // Do nothing.
+        }
     }
 }

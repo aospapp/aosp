@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Zvok ob pritisku tipke"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Povečaj črko ob pritisku"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Nastavitve"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Videz in postavitve"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Večjezikovne možnosti"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Računi in zasebnost"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Videz in postavitve"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Pisanje s kretnjami"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Popravki besedila"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Dodatno"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Tema"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Omogoči razdeljeno tipkovnico"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Sinhroniz. Googlove tipkovnice"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Sinhronizacija je vklopljena"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Sinhronizacija osebnega slovarja po napravah"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Sinhroniziraj"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Izbris podatkov v oblaku"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Izbriše sinhronizirane podatke iz Googla"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Sinhronizirani podatki bodo izbrisani iz oblaka. Ste prepričani?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Izbriši"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Prekliči"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Osebni slovar bo sinhroniziran in varnostno kopiran v Googlove strežnike. Statistične podatke o pogostosti rabe besed bomo morda zbirali zaradi izboljšanja naših izdelkov. Zbiranje in uporaba vseh podatkov bo skladna z "<a href="https://www.google.com/policies/privacy">"Googlovim pravilnikom o zasebnosti"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"V napravi dodajte Google Račun, če želite omogočiti to funkcijo"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Sinhronizacija ni na voljo za naprave z računi za Google Apps for Business"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Prekl. na drug nač. vnosa"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Tipka za preklop jezika, ki vključuje tudi druge načine vnosa"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Tipka za preklop med jeziki"</string>
@@ -65,7 +78,7 @@
     <string name="auto_correction_threshold_mode_very_aggressive" msgid="1853309024129480416">"Zelo agresivno"</string>
     <string name="bigram_prediction" msgid="1084449187723948550">"Predlogi za naslednjo besedo"</string>
     <string name="bigram_prediction_summary" msgid="3896362682751109677">"Pri predlogu upoštevaj prejšnjo besedo"</string>
-    <string name="gesture_input" msgid="826951152254563827">"Omogoči vnos besedila s potezo"</string>
+    <string name="gesture_input" msgid="826951152254563827">"Omogoči vnos s potezo"</string>
     <string name="gesture_input_summary" msgid="9180350639305731231">"Vnos besede s podrsavanjem od črke do črke"</string>
     <string name="gesture_preview_trail" msgid="3802333369335722221">"Prikaži pot poteze"</string>
     <string name="gesture_floating_preview_text" msgid="4443240334739381053">"Dinamični plavajoči predogled"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Če želite shraniti, se dotaknite tukaj"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Slovar je na voljo"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Tema tipkovnice"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Preklop med računi"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Ni izbranih računov"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Trenutno uporabljate račun <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"V redu"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Prekliči"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Odjava"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Izbira računa za uporabo"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"angleščina (Združeno kraljestvo)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"angleščina (ZDA)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"španščina (ZDA)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hindujska angleščina"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Srbščina (latinica)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"angleščina (VB) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"angleščina (ZDA) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"španščina (ZDA) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hindujska angleščina (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Srbščina (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (tradicionalna)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (cirilica)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (latinica)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (kompaktna)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Brez jezika (latinice)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Latinica (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Latinica (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Isti slog vnosa že obstaja: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Trajanje vibr. ob prit. tipke"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Glasn. zvoka ob pritisku tipke"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Zakasn. za dolg pritisk tipke"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Znaki »emoji« za fizično tipkovnico"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Fizična tipka Alt prikaže nabor znakov »emoji«"</string>
     <string name="button_default" msgid="3988017840431881491">"Privzeto"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Pozdravljeni v aplikaciji <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"s pisanjem s kretnjami"</string>

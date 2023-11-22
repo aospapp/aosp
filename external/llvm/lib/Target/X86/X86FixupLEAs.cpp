@@ -7,9 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the pass which will find  instructions  which
-// can be re-written as LEA instructions in order to reduce pipeline
-// delays for some models of the Intel Atom family.
+// This file defines the pass that finds instructions that can be
+// re-written as LEA instructions in order to reduce pipeline delays.
 //
 //===----------------------------------------------------------------------===//
 
@@ -40,7 +39,7 @@ class FixupLEAPass : public MachineFunctionPass {
   /// where appropriate.
   bool processBasicBlock(MachineFunction &MF, MachineFunction::iterator MFI);
 
-  const char *getPassName() const override { return "X86 Atom LEA Fixup"; }
+  const char *getPassName() const override { return "X86 LEA Fixup"; }
 
   /// \brief Given a machine register, look for the instruction
   /// which writes it in the current basic block. If found,
@@ -89,7 +88,6 @@ public:
 
 private:
   MachineFunction *MF;
-  const TargetMachine *TM;
   const X86InstrInfo *TII; // Machine instruction info.
 };
 char FixupLEAPass::ID = 0;
@@ -151,12 +149,11 @@ FunctionPass *llvm::createX86FixupLEAs() { return new FixupLEAPass(); }
 
 bool FixupLEAPass::runOnMachineFunction(MachineFunction &Func) {
   MF = &Func;
-  TM = &Func.getTarget();
-  const X86Subtarget &ST = TM->getSubtarget<X86Subtarget>();
+  const X86Subtarget &ST = Func.getSubtarget<X86Subtarget>();
   if (!ST.LEAusesAG() && !ST.slowLEA())
     return false;
 
-  TII = static_cast<const X86InstrInfo *>(TM->getInstrInfo());
+  TII = ST.getInstrInfo();
 
   DEBUG(dbgs() << "Start X86FixupLEAs\n";);
   // Process all basic blocks.
@@ -218,7 +215,8 @@ FixupLEAPass::searchBackwards(MachineOperand &p, MachineBasicBlock::iterator &I,
     if (usesRegister(p, CurInst) == RU_Write) {
       return CurInst;
     }
-    InstrDistance += TII->getInstrLatency(TM->getInstrItineraryData(), CurInst);
+    InstrDistance += TII->getInstrLatency(
+        MF->getSubtarget().getInstrItineraryData(), CurInst);
     Found = getPreviousInstr(CurInst, MFI);
   }
   return nullptr;
@@ -282,6 +280,7 @@ void FixupLEAPass::processInstructionForSLM(MachineBasicBlock::iterator &I,
     return;
   int addrr_opcode, addri_opcode;
   switch (opcode) {
+  default: llvm_unreachable("Unexpected LEA instruction");
   case X86::LEA16r:
     addrr_opcode = X86::ADD16rr;
     addri_opcode = X86::ADD16ri;
@@ -295,8 +294,6 @@ void FixupLEAPass::processInstructionForSLM(MachineBasicBlock::iterator &I,
     addrr_opcode = X86::ADD64rr;
     addri_opcode = X86::ADD64ri32;
     break;
-  default:
-    assert(false && "Unexpected LEA instruction");
   }
   DEBUG(dbgs() << "FixLEA: Candidate to replace:"; I->dump(););
   DEBUG(dbgs() << "FixLEA: Replaced by: ";);
@@ -333,7 +330,7 @@ bool FixupLEAPass::processBasicBlock(MachineFunction &MF,
                                      MachineFunction::iterator MFI) {
 
   for (MachineBasicBlock::iterator I = MFI->begin(); I != MFI->end(); ++I) {
-    if (TM->getSubtarget<X86Subtarget>().isSLM())
+    if (MF.getSubtarget<X86Subtarget>().isSLM())
       processInstructionForSLM(I, MFI);
     else
       processInstruction(I, MFI);

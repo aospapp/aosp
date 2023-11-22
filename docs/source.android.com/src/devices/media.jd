@@ -2,7 +2,7 @@ page.title=Media
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -24,20 +24,19 @@ page.title=Media
   </div>
 </div>
 
+<img style="float: right; margin: 0px 15px 15px 15px;" src="images/ape_fwk_hal_media.png" alt="Android Media HAL icon"/>
+
 <p>
-  Android provides a media playback engine at the native level called Stagefright that comes built-in with
-  software-based codecs for several popular media formats. Stagefright features for audio and video playback
-  include integration with OpenMAX codecs, session management, time-synchronized rendering, transport control,
-  and DRM. In addition, Stagefright supports integration with custom hardware codecs that you provide.
-  There actually isn't a HAL to implement for custom codecs, but to provide a hardware path to encode and
-  decode media, you must implement your hardware-based codec as an OpenMax IL (Integration Layer) component.
-</p>
-<h2 id="overview">
-Overview
-</h2>
+  Android provides a media playback engine at the native level called Stagefright that comes built-in with software-based codecs for several popular media formats. Stagefright features for audio and video playback include integration with OpenMAX codecs, session management, time-synchronized rendering, transport control, and DRM.</p>
+  <p>In addition, Stagefright supports integration with custom hardware codecs that you provide.
+  There actually isn't a HAL to implement for custom codecs, but to provide a hardware path to encode and decode media, you must implement your hardware-based codec as an OpenMax IL (Integration Layer) component.</p>
+
+
+<h2 id="architecture">Architecture</h2>
 <p>The following diagram shows how media applications interact with the Android native multimedia framework.</p>
-<p>
-  <img src="images/media.png">
+  <img src="images/ape_fwk_media.png" alt="Android media architecture" id="figure1" />
+<p class="img-caption">
+  <strong>Figure 1.</strong> Media architecture
 </p>
 <dl>
 <dt>Application Framework</dt>

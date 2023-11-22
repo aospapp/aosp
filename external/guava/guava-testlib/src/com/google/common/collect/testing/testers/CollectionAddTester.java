@@ -17,27 +17,32 @@
 package com.google.common.collect.testing.testers;
 
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
+import static com.google.common.collect.testing.features.CollectionFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
 import static com.google.common.collect.testing.features.CollectionFeature.RESTRICTS_ELEMENTS;
 import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_ADD;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
 import java.lang.reflect.Method;
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 
 /**
  * A generic JUnit test which tests {@code add} operations on a collection.
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  * @author Kevin Bourrillion
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible(emulated = true)
 public class CollectionAddTester<E> extends AbstractCollectionTester<E> {
   @CollectionFeature.Require(SUPPORTS_ADD)
   public void testAdd_supportedNotPresent() {
@@ -89,6 +94,20 @@ public class CollectionAddTester<E> extends AbstractCollectionTester<E> {
         "Should not contain null after unsupported add(null)");
   }
 
+  @CollectionFeature.Require({SUPPORTS_ADD,
+      FAILS_FAST_ON_CONCURRENT_MODIFICATION})
+  @CollectionSize.Require(absent = ZERO)
+  public void testAddConcurrentWithIteration() {
+    try {
+      Iterator<E> iterator = collection.iterator();
+      assertTrue(collection.add(samples.e3));
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
   /**
    * Returns the {@link Method} instance for {@link #testAdd_nullSupported()} so
    * that tests of {@link
@@ -101,20 +120,20 @@ public class CollectionAddTester<E> extends AbstractCollectionTester<E> {
    * seems more likely that code would depend on that behavior than on the
    * other. Thus, we say the bug is in add(), which fails to support null.
    */
+  @GwtIncompatible("reflection")
   public static Method getAddNullSupportedMethod() {
-    return Platform.getMethod(CollectionAddTester.class, "testAdd_nullSupported");
+    return Helpers.getMethod(CollectionAddTester.class, "testAdd_nullSupported");
   }
 
   /**
-   * Returns the {@link Method} instance for {@link #testAdd_nullSupported()} so
-   * that tests of {@link
-   * java.util.Collections#checkedCollection(java.util.Collection, Class)} can
-   * suppress it with {@code FeatureSpecificTestSuiteBuilder.suppressing()}
-   * until <a
-   * href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5045147">Sun
-   * bug 5045147</a> is fixed.
+   * Returns the {@link Method} instance for {@link #testAdd_nullSupported()}
+   * so that tests of {@link java.util.TreeSet} can suppress it with {@code
+   * FeatureSpecificTestSuiteBuilder.suppressing()} until <a
+   * href="http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5045147">Sun bug
+   * 5045147</a> is fixed.
    */
+  @GwtIncompatible("reflection")
   public static Method getAddNullUnsupportedMethod() {
-    return Platform.getMethod(CollectionAddTester.class, "testAdd_nullUnsupported");
+    return Helpers.getMethod(CollectionAddTester.class, "testAdd_nullUnsupported");
   }
 }

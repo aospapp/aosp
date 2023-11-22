@@ -23,11 +23,12 @@
 
 namespace art {
 
-class BufferedOutputStream : public OutputStream {
+class BufferedOutputStream FINAL : public OutputStream {
  public:
   explicit BufferedOutputStream(OutputStream* out);
 
   virtual ~BufferedOutputStream() {
+    Flush();
     delete out_;
   }
 

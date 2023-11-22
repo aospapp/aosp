@@ -22,9 +22,13 @@ import android.net.Uri;
 import android.view.Surface;
 
 import com.android.camera.session.CaptureSession;
+import com.android.camera.settings.SettingsManager;
+import com.android.camera.ui.motion.LinearScale;
 import com.android.camera.util.Size;
 
 import java.io.File;
+
+import javax.annotation.Nonnull;
 
 /**
  * OneCamera is a camera API tailored around our Google Camera application
@@ -68,20 +72,6 @@ public interface OneCamera {
     }
 
     /**
-     * Auto focus system mode.
-     * <ul>
-     * <li>{@link #CONTINUOUS_PICTURE}</li>
-     * <li>{@link #AUTO}</li>
-     * </ul>
-     */
-    public static enum AutoFocusMode {
-        /** System is continuously focusing. */
-        CONTINUOUS_PICTURE,
-        /** System is running a triggered scan. */
-        AUTO
-    }
-
-    /**
      * Classes implementing this interface will be called when the camera was
      * opened or failed to open.
      */
@@ -91,7 +81,7 @@ public interface OneCamera {
          *
          * @param camera the camera instance that was successfully opened
          */
-        public void onCameraOpened(OneCamera camera);
+        public void onCameraOpened(@Nonnull OneCamera camera);
 
         /**
          * Called if opening the camera failed.
@@ -102,15 +92,6 @@ public interface OneCamera {
          * Called if the camera is closed or disconnected while attempting to
          * open.
          */
-        public void onCameraClosed();
-    }
-
-    /**
-     * Classes implementing this interface will be called when the camera was
-     * closed.
-     */
-    public static interface CloseCallback {
-        /** Called when the camera was fully closed. */
         public void onCameraClosed();
     }
 
@@ -177,7 +158,7 @@ public interface OneCamera {
         /**
          * Called when picture taking failed.
          */
-        public void onPictureTakenFailed();
+        public void onPictureTakingFailed();
 
         /**
          * Called when capture session is reporting a processing update. This
@@ -191,12 +172,15 @@ public interface OneCamera {
     }
 
     /**
-     * Classes implementing this interface will be called whenever the camera
-     * encountered an error.
+     * A class implementing this interface can be passed to a picture saver in
+     * order to receive image processing events.
      */
-    public static interface CameraErrorListener {
-        /** Called when the camera encountered an error. */
-        public void onCameraError();
+    public static interface PictureSaverCallback {
+        /**
+         * Called when compressed data for Thumbnail on a remote device (such as
+         * Android wear) is available.
+         */
+        public void onRemoteThumbnailAvailable(byte[] jpegImage);
     }
 
     /**
@@ -215,67 +199,161 @@ public interface OneCamera {
     }
 
     /**
-     * Parameters to be given to photo capture requests.
+     * Classes implementing this interface will be called when the focus
+     * distance of the physical lens changes.
      */
-    public static final class PhotoCaptureParameters {
+    public static interface FocusDistanceListener {
         /**
-         * Flash modes.
-         * <p>
-         * Has to be in sync with R.arrays.pref_camera_flashmode_entryvalues.
+         * Called when physical lens distance on the camera changes.
          */
-        public static enum Flash {
-            AUTO, OFF, ON
-        }
+        public void onFocusDistance(float distance, LinearScale lensRange);
+    }
 
-        /** The title/filename (without suffix) for this capture. */
-        public String title = null;
-        /** Called when the capture is completed or failed. */
-        public PictureCallback callback = null;
-        /** The device orientation so we can compute the right JPEG rotation. */
-        public int orientation = Integer.MIN_VALUE;
-        /** The heading of the device at time of capture. In degrees. */
-        public int heading = Integer.MIN_VALUE;
-        /** Flash mode for this capture. */
-        public Flash flashMode = Flash.AUTO;
-        /** The location of this capture. */
-        public Location location = null;
-        /** Zoom value. */
-        public float zoom = 1f;
-        /** Timer duration in seconds or null for no timer. */
-        public Float timerSeconds = null;
-
-        /** Set this to provide a debug folder for this capture. */
-        public File debugDataFolder;
+    /**
+     * Single instance of the current camera AF state.
+     */
+    public static class FocusState {
+        public final float lensDistance;
+        public final boolean isActive;
 
         /**
-         * Checks whether all required values are set. If one is missing, it
-         * throws a {@link RuntimeException}.
+         * @param lensDistance The current focal distance.
+         * @param isActive Whether the lens is moving, e.g. because of either an
+         *            "active scan" or a "passive scan".
          */
-        public void checkSanity() {
-            checkRequired(title);
-            checkRequired(callback);
-            checkRequired(orientation);
-            checkRequired(heading);
+        public FocusState(float lensDistance, boolean isActive) {
+            this.lensDistance = lensDistance;
+            this.isActive = isActive;
         }
 
-        private void checkRequired(int num) {
-            if (num == Integer.MIN_VALUE) {
-                throw new RuntimeException("Photo capture parameter missing.");
-            }
+        @Override
+        public boolean equals(Object o) {
+            if (this == o)
+                return true;
+            if (o == null || getClass() != o.getClass())
+                return false;
+
+            FocusState that = (FocusState) o;
+
+            if (Float.compare(that.lensDistance, lensDistance) != 0)
+                return false;
+            if (isActive != that.isActive)
+                return false;
+
+            return true;
         }
 
-        private void checkRequired(Object obj) {
-            if (obj == null) {
-                throw new RuntimeException("Photo capture parameter missing.");
-            }
+        @Override
+        public int hashCode() {
+            int result = (lensDistance != +0.0f ? Float.floatToIntBits(lensDistance) : 0);
+            result = 31 * result + (isActive ? 1 : 0);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "FocusState{" +
+                  "lensDistance=" + lensDistance +
+                  ", isActive=" + isActive +
+                  '}';
         }
     }
 
     /**
+     * Parameters to be given to capture requests.
+     */
+    public static abstract class CaptureParameters {
+        /** The title/filename (without suffix) for this capture. */
+        public final String title;
+
+        /** The device orientation so we can compute the right JPEG rotation. */
+        public final int orientation;
+
+        /** The location of this capture. */
+        public final Location location;
+
+        /** Set this to provide a debug folder for this capture. */
+        public final File debugDataFolder;
+
+        public CaptureParameters(String title, int orientation, Location location, File
+                debugDataFolder) {
+            this.title = title;
+            this.orientation = orientation;
+            this.location = location;
+            this.debugDataFolder = debugDataFolder;
+        }
+    }
+
+    /**
+     * Parameters to be given to photo capture requests.
+     */
+    public static class PhotoCaptureParameters extends CaptureParameters {
+        /**
+         * Flash modes.
+         * <p>
+         */
+        public static enum Flash {
+            AUTO("auto"), OFF("off"), ON("on");
+
+            /**
+             * The machine-readable (via {@link #encodeSettingsString} and
+             * {@link #decodeSettingsString} string used to represent this flash
+             * mode in {@link SettingsManager}.
+             * <p>
+             * This must be in sync with R.arrays.pref_camera_flashmode_entryvalues.
+             */
+            private final String mSettingsString;
+
+            Flash(@Nonnull String settingsString) {
+                mSettingsString = settingsString;
+            }
+
+            @Nonnull
+            public String encodeSettingsString() {
+                return mSettingsString;
+            }
+
+            @Nonnull
+            public static Flash decodeSettingsString(@Nonnull String setting) {
+                if (AUTO.encodeSettingsString().equals(setting)) {
+                    return AUTO;
+                } else if (OFF.encodeSettingsString().equals(setting)) {
+                    return OFF;
+                } else if (ON.encodeSettingsString().equals(setting)) {
+                    return ON;
+                }
+                throw new IllegalArgumentException("Not a valid setting");
+            }
+        }
+
+        /** Called when the capture is completed or failed. */
+        public final PictureCallback callback;
+        public final PictureSaverCallback saverCallback;
+        /** The heading of the device at time of capture. In degrees. */
+        public final int heading;
+        /** Zoom value. */
+        public final float zoom;
+        /** Timer duration in seconds or 0 for no timer. */
+        public final float timerSeconds;
+
+        public PhotoCaptureParameters(String title, int orientation, Location location, File
+                debugDataFolder, PictureCallback callback, PictureSaverCallback saverCallback,
+                int heading, float zoom, float timerSeconds) {
+            super(title, orientation, location, debugDataFolder);
+            this.callback = callback;
+            this.saverCallback = saverCallback;
+            this.heading = heading;
+            this.zoom = zoom;
+            this.timerSeconds = timerSeconds;
+        }
+    }
+
+
+    /**
      * Meters and triggers auto focus scan with ROI around tap point.
      * <p/>
-     * Normalized coordinates are referenced to portrait preview window with
-     * (0, 0) top left and (1, 1) bottom right. Rotation has no effect.
+     * Normalized coordinates are referenced to portrait preview window with (0,
+     * 0) top left and (1, 1) bottom right. Rotation has no effect.
      *
      * @param nx normalized x coordinate.
      * @param ny normalized y coordinate.
@@ -291,16 +369,16 @@ public interface OneCamera {
     public void takePicture(PhotoCaptureParameters params, CaptureSession session);
 
     /**
-     * Sets or replaces a listener that is called whenever the camera encounters
-     * an error.
+     * Sets or replaces a listener that is called whenever the focus state of
+     * the camera changes.
      */
-    public void setCameraErrorListener(CameraErrorListener listener);
+    public void setFocusStateListener(FocusStateListener listener);
 
     /**
      * Sets or replaces a listener that is called whenever the focus state of
      * the camera changes.
      */
-    public void setFocusStateListener(FocusStateListener listener);
+    public void setFocusDistanceListener(FocusDistanceListener listener);
 
     /**
      * Sets or replaces a listener that is called whenever the state of the
@@ -310,57 +388,21 @@ public interface OneCamera {
 
     /**
      * Starts a preview stream and renders it to the given surface.
+     *
+     * @param surface the surface on which to render preview frames
+     * @param listener
      */
     public void startPreview(Surface surface, CaptureReadyCallback listener);
 
     /**
-     * Sets the size of the viewfinder.
-     * <p>
-     * The preview size requested from the camera device will depend on this as
-     * well as the requested photo/video aspect ratio.
-     */
-    public void setViewfinderSize(int width, int height);
-
-    /**
-     * @return Whether this camera supports flash.
-     * @param if true, returns whether flash is supported in enhanced mode. If
-     *        false, whether flash is supported in normal capture mode.
-     */
-    public boolean isFlashSupported(boolean enhanced);
-
-    /**
-     * @return Whether this camera supports enhanced mode, such as HDR.
-     */
-    public boolean isSupportingEnhancedMode();
-
-    /**
      * Closes the camera.
-     *
-     * @param closeCallback Optional. Called as soon as the camera is fully
-     *            closed.
      */
-    public void close(CloseCallback closeCallback);
+    public void close();
 
     /**
-     * @return A list of all supported resolutions.
+     * @return The direction of the camera.
      */
-    public Size[] getSupportedSizes();
-
-    /**
-     * @return The aspect ratio of the full size capture (usually the native
-     *         resolution of the camera).
-     */
-    public float getFullSizeAspectRatio();
-
-    /**
-     * @return Whether this camera is facing to the back.
-     */
-    public boolean isBackFacing();
-
-    /**
-     * @return Whether this camera is facing to the front.
-     */
-    public boolean isFrontFacing();
+    public Facing getDirection();
 
     /**
      * Get the maximum zoom value.

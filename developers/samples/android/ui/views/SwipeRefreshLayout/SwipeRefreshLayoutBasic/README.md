@@ -1,15 +1,16 @@
-Android SwipeRefreshLayoutBasic Sample
-==============================
 
-A basic sample which shows how to use SwipeRefreshLayout to add the \'swipe-to-refresh\'
+Android SwipeRefreshLayoutBasic Sample
+===================================
+
+A basic sample which shows how to use SwipeRefreshLayout to add the 'swipe-to-refresh'
 gesture to a View, enabling the ability to trigger a refresh from swiping down on the view.
 In this sample the View which can be refreshed is a ListView.
 
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Getting Started
@@ -42,7 +43,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

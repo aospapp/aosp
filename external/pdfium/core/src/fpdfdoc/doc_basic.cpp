@@ -46,7 +46,9 @@ int CPDF_Dest::GetZoomMode()
     if (m_pObj == NULL || m_pObj->GetType() != PDFOBJ_ARRAY) {
         return 0;
     }
-    CFX_ByteString mode = ((CPDF_Array*)m_pObj)->GetElementValue(1)->GetString();
+    CFX_ByteString mode;
+    CPDF_Object* pObj = ((CPDF_Array*)m_pObj)->GetElementValue(1);
+    mode = pObj ? pObj->GetString() : CFX_ByteString();
     int i = 0;
     while (g_sZoomModes[i][0] != '\0') {
         if (mode == g_sZoomModes[i]) {
@@ -72,7 +74,10 @@ CFX_ByteString CPDF_Dest::GetRemoteName()
 }
 CPDF_NameTree::CPDF_NameTree(CPDF_Document* pDoc, FX_BSTR category)
 {
-    m_pRoot = pDoc->GetRoot()->GetDict(FX_BSTRC("Names"))->GetDict(category);
+    if (pDoc->GetRoot() && pDoc->GetRoot()->GetDict(FX_BSTRC("Names")))
+        m_pRoot = pDoc->GetRoot()->GetDict(FX_BSTRC("Names"))->GetDict(category);
+    else
+        m_pRoot = NULL;
 }
 static CPDF_Object* SearchNameNode(CPDF_Dictionary* pNode, const CFX_ByteString& csName,
                                    int& nIndex, CPDF_Array** ppFind, int nLevel = 0)
@@ -245,6 +250,7 @@ CPDF_Array*	CPDF_NameTree::LookupNamedDest(CPDF_Document* pDoc, FX_BSTR sName)
     }
     return NULL;
 }
+#if _FXM_PLATFORM_  == _FXM_PLATFORM_APPLE_ || _FXM_PLATFORM_  == _FXM_PLATFORM_WINDOWS_
 static CFX_WideString ChangeSlashToPlatform(FX_LPCWSTR str)
 {
     CFX_WideString result;
@@ -252,10 +258,8 @@ static CFX_WideString ChangeSlashToPlatform(FX_LPCWSTR str)
         if (*str == '/') {
 #if _FXM_PLATFORM_  == _FXM_PLATFORM_APPLE_
             result += ':';
-#elif _FXM_PLATFORM_  == _FXM_PLATFORM_WINDOWS_
-            result += '\\';
 #else
-            result += *str;
+            result += '\\';
 #endif
         } else {
             result += *str;
@@ -264,6 +268,20 @@ static CFX_WideString ChangeSlashToPlatform(FX_LPCWSTR str)
     }
     return result;
 }
+static CFX_WideString ChangeSlashToPDF(FX_LPCWSTR str)
+{
+    CFX_WideString result;
+    while (*str) {
+        if (*str == '\\' || *str == ':') {
+            result += '/';
+        } else {
+            result += *str;
+        }
+        str++;
+    }
+    return result;
+}
+#endif
 static CFX_WideString FILESPEC_DecodeFileName(FX_WSTR filepath)
 {
     if (filepath.GetLength() <= 1) {
@@ -343,19 +361,6 @@ FX_BOOL CPDF_FileSpec::IsURL() const
         return FALSE;
     }
     return ((CPDF_Dictionary*)m_pObj)->GetString(FX_BSTRC("FS")) == FX_BSTRC("URL");
-}
-static CFX_WideString ChangeSlashToPDF(FX_LPCWSTR str)
-{
-    CFX_WideString result;
-    while (*str) {
-        if (*str == '\\' || *str == ':') {
-            result += '/';
-        } else {
-            result += *str;
-        }
-        str++;
-    }
-    return result;
 }
 CFX_WideString FILESPEC_EncodeFileName(FX_WSTR filepath)
 {
@@ -483,7 +488,7 @@ static CFX_WideString _GetLabelNumPortion(int num, const CFX_ByteString& bsStyle
         return wsNumPortion;
     }
     if (bsStyle == "D") {
-        wsNumPortion.Format((FX_LPCWSTR)L"%d", num);
+        wsNumPortion.Format(L"%d", num);
     } else if (bsStyle == "R") {
         wsNumPortion = _MakeRoman(num);
         wsNumPortion.MakeUpper();
@@ -532,7 +537,7 @@ CFX_WideString CPDF_PageLabel::GetLabel(int nPage) const
             return wsLabel;
         }
     }
-    wsLabel.Format((FX_LPCWSTR)L"%d", nPage + 1);
+    wsLabel.Format(L"%d", nPage + 1);
     return wsLabel;
 }
 FX_INT32 CPDF_PageLabel::GetPageByLabel(FX_BSTR bsLabel) const
@@ -562,6 +567,6 @@ FX_INT32 CPDF_PageLabel::GetPageByLabel(FX_BSTR bsLabel) const
 }
 FX_INT32 CPDF_PageLabel::GetPageByLabel(FX_WSTR wsLabel) const
 {
-    CFX_ByteString bsLabel = PDF_EncodeText((CFX_WideString)wsLabel);
+    CFX_ByteString bsLabel = PDF_EncodeText(wsLabel.GetPtr());
     return GetPageByLabel(bsLabel);
 }

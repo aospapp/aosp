@@ -26,6 +26,17 @@ Snapshots can download from:
 
 	http://brick.kernel.dk/snaps/
 
+There are also two official mirrors. Both of these are synced within
+an hour of commits landing at git.kernel.dk. So if the main repo is
+down for some reason, either one of those is safe to use:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git
+	https://git.kernel.org/pub/scm/linux/kernel/git/axboe/fio.git
+
+or
+
+	https://github.com/axboe/fio.git
+
 
 Binary packages
 ---------------
@@ -101,6 +112,9 @@ To build FIO with a cross-compiler:
  $ make CROSS_COMPILE=/path/to/toolchain/prefix
 Configure will attempt to determine the target platform automatically.
 
+It's possible to build fio for ESX as well, use the --esx switch to
+configure.
+
 
 Windows
 -------
@@ -134,7 +148,6 @@ $ fio
 	--parse-only		Parse options only, don't start any IO
 	--output		Write output to file
 	--runtime		Runtime in seconds
-	--latency-log		Generate per-job latency logs
 	--bandwidth-log		Generate per-job bandwidth logs
 	--minimal		Minimal (terse) output
 	--output-format=type	Output format (terse,json,normal)
@@ -160,9 +173,11 @@ $ fio
 	--max-jobs		Maximum number of threads/processes to support
 	--server=args		Start backend server. See Client/Server section.
 	--client=host		Connect to specified backend.
+	--remote-config=file	Tell fio server to load this local file
 	--idle-prof=option	Report cpu idleness on a system or percpu basis
 				(option=system,percpu) or run unit work
 				calibration only (option=calibrate).
+	--inflate-log=log	Inflate and output compressed log
 
 
 Any parameters following the options will be assumed to be job files,
@@ -196,6 +211,7 @@ Currently, additional logging is available for:
 	time		Dump info related to internal time keeping
 	net		Dump info related to networking connections
 	rate		Dump info related to IO rate switching
+	compress	Dump info related to log compress/decompress
 	? or help	Show available debug options.
 
 One can specify multiple debug options: e.g. --debug=file,mem will enable
@@ -289,6 +305,14 @@ does on the server side, to allow IP/hostname/socket and port strings.
 Fio can connect to multiple servers this way:
 
 fio --client=<server1> <job file(s)> --client=<server2> <job file(s)>
+
+If the job file is located on the fio server, then you can tell the server
+to load a local file as well. This is done by using --remote-config:
+
+fio --client=server --remote-config /path/to/file.fio
+
+Then the fio server will open this local (to the server) job file instead
+of being passed one from the client.
 
 
 Platforms

@@ -27,14 +27,10 @@
 
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
-#ifdef ANDROID
+#include <system/audio.h>
+#include <audio_utils/fifo.h>
+#include <audio_utils/primitives.h>
 #include <audio_utils/sndfile.h>
-#else
-#include <sndfile.h>
-#endif
-
-#include <media/nbaio/MonoPipe.h>
-#include <media/nbaio/MonoPipeReader.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -48,9 +44,10 @@ SLboolean eof;  // whether we have hit EOF on input yet
 void *buffers;
 SLuint32 byteOrder; // desired to use for PCM buffers
 SLuint32 nativeByteOrder;   // of platform
-audio_format_t transferFormat = AUDIO_FORMAT_PCM_16_BIT;
+audio_format_t transferFormat = AUDIO_FORMAT_DEFAULT;
 size_t sfframesize = 0;
 
+// FIXME move to audio_utils
 // swap adjacent bytes; this would normally be in <unistd.h> but is missing here
 static void swab(const void *from, void *to, ssize_t n)
 {
@@ -67,32 +64,26 @@ static void swab(const void *from, void *to, ssize_t n)
     }
 }
 
-// squeeze 16-bit signed PCM samples down to 8-bit unsigned PCM samples by truncation; no dithering
-static void squeeze(const short *from, unsigned char *to, ssize_t n)
-{
-    // note that we don't squeeze the last odd byte
-    while (n >= 2) {
-        *to++ = (*from++ + 32768) >> 8;
-        n -= 2;
-    }
-}
-
-// squeeze 32-bit signed PCM samples down to 24-bit unsigned PCM samples by truncation
-static void squeeze24(const unsigned char *from, unsigned char *to, ssize_t n)
-{
-    // note that we don't squeeze the last odd bytes
-    while (n >= 3) {
-        ++from;
-        *to++ = *from++;
-        *to++ = *from++;
-        *to++ = *from++;
-        n -= 4;
-    }
-}
-
-static android::MonoPipeReader *pipeReader;
-static android::MonoPipe *pipeWriter;
+static audio_utils_fifo fifo;
 static unsigned underruns = 0;
+
+static SLuint32 squeeze(void *buffer, SLuint32 nbytes)
+{
+    if (byteOrder != nativeByteOrder) {
+        // FIXME does not work for non 16-bit
+        swab(buffer, buffer, nbytes);
+    }
+    if (transferFormat == AUDIO_FORMAT_PCM_8_BIT) {
+        memcpy_to_u8_from_i16((uint8_t *) buffer, (const int16_t *) buffer,
+                nbytes / sizeof(int16_t));
+        nbytes /= 2;
+    } else if (transferFormat == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
+        memcpy_to_p24_from_i32((uint8_t *) buffer, (const int32_t *) buffer,
+                nbytes / sizeof(int32_t));
+        nbytes = nbytes * 3 / 4;
+    }
+    return nbytes;
+}
 
 // This callback is called each time a buffer finishes playing
 
@@ -101,7 +92,7 @@ static void callback(SLBufferQueueItf bufq, void *param)
     assert(NULL == param);
     if (!eof) {
         void *buffer = (char *)buffers + framesPerBuffer * sfframesize * which;
-        ssize_t count = pipeReader->read(buffer, framesPerBuffer, (int64_t) -1);
+        ssize_t count = audio_utils_fifo_read(&fifo, buffer, framesPerBuffer);
         // on underrun from pipe, substitute silence
         if (0 >= count) {
             memset(buffer, 0, framesPerBuffer * sfframesize);
@@ -110,16 +101,7 @@ static void callback(SLBufferQueueItf bufq, void *param)
         }
         if (count > 0) {
             SLuint32 nbytes = count * sfframesize;
-            if (byteOrder != nativeByteOrder) {
-                swab(buffer, buffer, nbytes);
-            }
-            if (transferFormat == AUDIO_FORMAT_PCM_8_BIT) {
-                squeeze((short *) buffer, (unsigned char *) buffer, nbytes);
-                nbytes /= 2;
-            } else if (transferFormat == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
-                squeeze24((unsigned char *) buffer, (unsigned char *) buffer, nbytes);
-                nbytes = nbytes * 3 / 4;
-            }
+            nbytes = squeeze(buffer, nbytes);
             SLresult result = (*bufq)->Enqueue(bufq, buffer, nbytes);
             assert(SL_RESULT_SUCCESS == result);
             if (++which >= numBuffers)
@@ -159,7 +141,7 @@ static void *file_reader_loop(void *arg __unused)
         }
         const unsigned char *ptr = (unsigned char *) temp;
         while (count > 0) {
-            ssize_t actual = pipeWriter->write(ptr, (size_t) count);
+            ssize_t actual = audio_utils_fifo_write(&fifo, ptr, (size_t) count);
             if (actual < 0) {
                 break;
             }
@@ -219,6 +201,8 @@ int main(int argc, char **argv)
             byteOrder = SL_BYTEORDER_LITTLEENDIAN;
         } else if (!strcmp(arg, "-8")) {
             transferFormat = AUDIO_FORMAT_PCM_8_BIT;
+        } else if (!strcmp(arg, "-16")) {
+            transferFormat = AUDIO_FORMAT_PCM_16_BIT;
         } else if (!strcmp(arg, "-24")) {
             transferFormat = AUDIO_FORMAT_PCM_24_BIT_PACKED;
         } else if (!strcmp(arg, "-32")) {
@@ -253,11 +237,12 @@ int main(int argc, char **argv)
     }
 
     if (argc - i != 1) {
-        fprintf(stderr, "usage: [-b/l] [-8 | -24 | -32 | -32f] [-f#] [-n#] [-p#] [-r]"
+        fprintf(stderr, "usage: [-b/l] [-8 | | -16 | -24 | -32 | -32f] [-f#] [-n#] [-p#] [-r]"
                 " %s filename\n", argv[0]);
         fprintf(stderr, "    -b  force big-endian byte order (default is native byte order)\n");
         fprintf(stderr, "    -l  force little-endian byte order (default is native byte order)\n");
-        fprintf(stderr, "    -8  output 8-bits per sample (default is 16-bits per sample)\n");
+        fprintf(stderr, "    -8  output 8-bits per sample (default is that of input file)\n");
+        fprintf(stderr, "    -16 output 16-bits per sample\n");
         fprintf(stderr, "    -24 output 24-bits per sample\n");
         fprintf(stderr, "    -32 output 32-bits per sample\n");
         fprintf(stderr, "    -32f output float 32-bits per sample\n");
@@ -290,18 +275,7 @@ int main(int argc, char **argv)
         goto close_sndfile;
     }
 
-    switch (sfinfo.samplerate) {
-    case  8000:
-    case 11025:
-    case 12000:
-    case 16000:
-    case 22050:
-    case 24000:
-    case 32000:
-    case 44100:
-    case 48000:
-        break;
-    default:
+    if (sfinfo.samplerate < 8000 || sfinfo.samplerate > 192000) {
         fprintf(stderr, "unsupported sample rate %d\n", sfinfo.samplerate);
         goto close_sndfile;
     }
@@ -316,9 +290,29 @@ int main(int argc, char **argv)
 
     switch (sfinfo.format & SF_FORMAT_SUBMASK) {
     case SF_FORMAT_FLOAT:
+        if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+            transferFormat = AUDIO_FORMAT_PCM_FLOAT;
+        }
+        break;
     case SF_FORMAT_PCM_32:
+        if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+            transferFormat = AUDIO_FORMAT_PCM_32_BIT;
+        }
+        break;
     case SF_FORMAT_PCM_16:
+        if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+            transferFormat = AUDIO_FORMAT_PCM_16_BIT;
+        }
+        break;
     case SF_FORMAT_PCM_U8:
+        if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+            transferFormat = AUDIO_FORMAT_PCM_8_BIT;
+        }
+        break;
+    case SF_FORMAT_PCM_24:
+        if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+            transferFormat = AUDIO_FORMAT_PCM_24_BIT_PACKED;
+        }
         break;
     default:
         fprintf(stderr, "unsupported sub-format 0x%x\n", sfinfo.format & SF_FORMAT_SUBMASK);
@@ -528,16 +522,7 @@ int main(int argc, char **argv)
 
         // enqueue a buffer
         SLuint32 nbytes = count * sfframesize;
-        if (byteOrder != nativeByteOrder) {
-            swab(buffer, buffer, nbytes);
-        }
-        if (transferFormat == AUDIO_FORMAT_PCM_8_BIT) {
-            squeeze((short *) buffer, (unsigned char *) buffer, nbytes);
-            nbytes /= 2;
-        } else if (transferFormat == AUDIO_FORMAT_PCM_24_BIT_PACKED) {
-            squeeze24((unsigned char *) buffer, (unsigned char *) buffer, nbytes);
-            nbytes = nbytes * 3 / 4;
-        }
+        nbytes = squeeze(buffer, nbytes);
         result = (*playerBufferQueue)->Enqueue(playerBufferQueue, buffer, nbytes);
         assert(SL_RESULT_SUCCESS == result);
     }
@@ -549,22 +534,9 @@ int main(int argc, char **argv)
     result = (*playerBufferQueue)->RegisterCallback(playerBufferQueue, callback, NULL);
     assert(SL_RESULT_SUCCESS == result);
 
-    // Create a NBAIO pipe for asynchronous data handling.  In this case,
-    // sample rate doesn't matter and audio_format just sets the transfer frame size.
-    const android::NBAIO_Format nbaio_format = android::Format_from_SR_C(
-            sfinfo.samplerate, sfinfo.channels,
-            transferFormat == AUDIO_FORMAT_PCM_8_BIT ? AUDIO_FORMAT_PCM_16_BIT :
-                    transferFormat == AUDIO_FORMAT_PCM_24_BIT_PACKED ?
-                            AUDIO_FORMAT_PCM_32_BIT : transferFormat);
-    pipeWriter = new android::MonoPipe(16384, nbaio_format, false /*writeCanBlock*/);
-    android::NBAIO_Format offer = nbaio_format;
-    size_t numCounterOffers = 0;
-    ssize_t neg = pipeWriter->negotiate(&offer, 1, NULL, numCounterOffers);
-    assert(0 == neg);
-    pipeReader = new android::MonoPipeReader(pipeWriter);
-    numCounterOffers = 0;
-    neg = pipeReader->negotiate(&offer, 1, NULL, numCounterOffers);
-    assert(0 == neg);
+#define FIFO_FRAMES 16384
+    void *fifoBuffer = malloc(FIFO_FRAMES * sfframesize);
+    audio_utils_fifo_init(&fifo, FIFO_FRAMES, sfframesize, fifoBuffer);
 
     // create thread to read from file
     pthread_t thread;
@@ -624,10 +596,22 @@ int main(int argc, char **argv)
                 deltaRate = abs(deltaRate);
             }
         }
+
     }
+
+    // wait for reader thread to exit
+    ok = pthread_join(thread, (void **) NULL);
+    assert(0 == ok);
+
+    // set the player's state to stopped
+    result = (*playerPlay)->SetPlayState(playerPlay, SL_PLAYSTATE_STOPPED);
+    assert(SL_RESULT_SUCCESS == result);
 
     // destroy audio player
     (*playerObject)->Destroy(playerObject);
+
+    audio_utils_fifo_deinit(&fifo);
+    free(fifoBuffer);
 
     }
 

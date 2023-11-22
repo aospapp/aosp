@@ -113,6 +113,8 @@ public class AccessibilityEventTest extends TestCase {
                 AccessibilityEvent.TYPE_VIEW_HOVER_EXIT));
         assertEquals("TYPE_VIEW_LONG_CLICKED", AccessibilityEvent.eventTypeToString(
                 AccessibilityEvent.TYPE_VIEW_LONG_CLICKED));
+        assertEquals("TYPE_VIEW_CONTEXT_CLICKED", AccessibilityEvent.eventTypeToString(
+                AccessibilityEvent.TYPE_VIEW_CONTEXT_CLICKED));
         assertEquals("TYPE_VIEW_SCROLLED", AccessibilityEvent.eventTypeToString(
                 AccessibilityEvent.TYPE_VIEW_SCROLLED));
         assertEquals("TYPE_VIEW_SELECTED", AccessibilityEvent.eventTypeToString(

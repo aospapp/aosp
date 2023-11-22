@@ -17,7 +17,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="calendar_storage" msgid="5387668002987562770">"Օրացույցի պահուստ"</string>
-    <string name="upgrade_msg" msgid="2792831029435070926">"Օրացույցի տվյալների շտեմարանի թարմացում:"</string>
     <string name="calendar_default_name" msgid="6924293766625167275">"Լռելյայն"</string>
     <string name="calendar_info" msgid="6687678621418059281">"Օրացույցի տեղեկություններ"</string>
     <string name="calendar_info_error" msgid="5575162446528419982">"Սխալ"</string>
@@ -30,5 +29,5 @@
     <string name="debug_tool_message" msgid="4862486669932821937">"Դուք պատրաստվում եք 1) պատճենել ձեր օրացույցի տվյալների շտեմարանը SD քարտում/USB կրիչում, որն ընթեռնելի է ցանկացած հավելվածի կողմից և 2) էլփոստով ուղարկել այն: Հիշեք ջնջել պատճենը անմիջապես` սարքից պատճենումը հաջողությամբ ավարտելուց կամ էլփոստով ուղարկելուց հետո:"</string>
     <string name="debug_tool_email_sender_picker" msgid="2000311987477419397">"Ընտրեք ծրագիրը՝ ձեր ֆայլն ուղարկելու համար"</string>
     <string name="debug_tool_email_subject" msgid="2403590332256471194">"Օրացույցի ՏՇ-ն կցված է"</string>
-    <string name="debug_tool_email_body" msgid="4835949635324134017">"Կցորդն իմ օրացույցի տվյալների շտեմարանն է՝ իմ բոլոր պայմանավորվածություններով և անձնական տեղեկություններով: Վերաբերվեք խնամքով:"</string>
+    <string name="debug_tool_email_body" msgid="4835949635324134017">"Հաղորդագրությանը կցված է իմ օրացույցի տվյալների շտեմարանը՝ բոլոր հանդիպումներով և անձնական տեղեկություններով: Վերաբերվեք խնամքով:"</string>
 </resources>

@@ -432,7 +432,6 @@ void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *
   if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0, fds)) {
     abort();
   }
-  struct tun_pi tun_header = { 0, 0 };
 
   char foo[512];
   snprintf(foo, sizeof(foo), "%s: Invalid original packet", msg);
@@ -443,13 +442,11 @@ void do_translate_packet(const uint8_t *original, size_t original_len, uint8_t *
   int version = ip_version(original);
   switch (version) {
     case 4:
-      tun_header.proto = htons(ETH_P_IP);
       expected_proto = htons(ETH_P_IPV6);
       read_fd = fds[1];
       write_fd = fds[0];
       break;
     case 6:
-      tun_header.proto = htons(ETH_P_IPV6);
       expected_proto = htons(ETH_P_IP);
       read_fd = fds[0];
       write_fd = fds[1];
@@ -856,7 +853,7 @@ TEST_F(ClatdTest, AdjustChecksum) {
     { 0x1215, 0x5560, 0x15560 + 20, 0x1200 },
     { 0xd0c7, 0x3ad0, 0x2644b, 0xa74a },
   };
-  unsigned i, failed = 0;
+  unsigned i = 0;
 
   for (i = 0; i < ARRAYSIZE(DATA); i++) {
     struct checksum_data *data = DATA + i;
@@ -889,7 +886,6 @@ TEST_F(ClatdTest, Translate) {
 }
 
 TEST_F(ClatdTest, Fragmentation) {
-  int len, i;
   check_fragment_translation(kIPv4Fragments, kIPv4FragLengths,
                              kIPv6Fragments, kIPv6FragLengths,
                              ARRAYSIZE(kIPv4Fragments), "IPv4->IPv6 fragment translation");

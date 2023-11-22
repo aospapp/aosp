@@ -114,8 +114,6 @@ public class Type extends BaseObj {
     /**
      * Get the YUV format
      *
-     * @hide
-     *
      * @return int
      */
     public int getYuv() {
@@ -187,8 +185,91 @@ public class Type extends BaseObj {
     }
 
 
-    Type(int id, RenderScript rs) {
+    Type(long id, RenderScript rs) {
         super(id, rs);
+    }
+
+    /*
+     * Get an identical dummy Type for Compat Context
+     *
+     */
+    public long getDummyType(RenderScript mRS, long eid) {
+        return mRS.nIncTypeCreate(eid, mDimX, mDimY, mDimZ, mDimMipmaps, mDimFaces, mDimYuv);
+    }
+
+    /**
+     * Utility function for creating basic 1D types. The type is
+     * created without mipmaps enabled.
+     *
+     * @param rs The RenderScript context
+     * @param e The Element for the Type
+     * @param dimX The X dimension, must be > 0
+     *
+     * @return Type
+     */
+    static public Type createX(RenderScript rs, Element e, int dimX) {
+        if (dimX < 1) {
+            throw new RSInvalidStateException("Dimension must be >= 1.");
+        }
+
+        long id = rs.nTypeCreate(e.getID(rs), dimX, 0, 0, false, false, 0);
+        Type t = new Type(id, rs);
+        t.mElement = e;
+        t.mDimX = dimX;
+        t.calcElementCount();
+        return t;
+    }
+
+    /**
+     * Utility function for creating basic 2D types. The type is
+     * created without mipmaps or cubemaps.
+     *
+     * @param rs The RenderScript context
+     * @param e The Element for the Type
+     * @param dimX The X dimension, must be > 0
+     * @param dimY The Y dimension, must be > 0
+     *
+     * @return Type
+     */
+    static public Type createXY(RenderScript rs, Element e, int dimX, int dimY) {
+        if ((dimX < 1) || (dimY < 1)) {
+            throw new RSInvalidStateException("Dimension must be >= 1.");
+        }
+
+        long id = rs.nTypeCreate(e.getID(rs), dimX, dimY, 0, false, false, 0);
+        Type t = new Type(id, rs);
+        t.mElement = e;
+        t.mDimX = dimX;
+        t.mDimY = dimY;
+        t.calcElementCount();
+        return t;
+    }
+
+    /**
+     * Utility function for creating basic 3D types. The type is
+     * created without mipmaps.
+     *
+     * @param rs The RenderScript context
+     * @param e The Element for the Type
+     * @param dimX The X dimension, must be > 0
+     * @param dimY The Y dimension, must be > 0
+     * @param dimZ The Z dimension, must be > 0
+     *
+     * @return Type
+     */
+    static public Type createXYZ(RenderScript rs, Element e, int dimX, int dimY, int dimZ) {
+        if ((dimX < 1) || (dimY < 1) || (dimZ < 1)) {
+            throw new RSInvalidStateException("Dimension must be >= 1.");
+        }
+
+        long id = rs.nTypeCreate(e.getID(rs), dimX, dimY, dimZ, false, false, 0);
+        Type t = new Type(id, rs);
+        t.mElement = e;
+        t.mDimX = dimX;
+        t.mDimY = dimY;
+        t.mDimZ = dimZ;
+        t.calcElementCount();
+        return t;
     }
 
     /**
@@ -261,8 +342,6 @@ public class Type extends BaseObj {
         /**
          * Set the YUV layout for a Type.
          *
-         * @hide
-         *
          * @param yuvFormat {@link android.graphics.ImageFormat#YV12} or {@link android.graphics.ImageFormat#NV21}
          */
         public Builder setYuvFormat(int yuvFormat) {
@@ -312,15 +391,10 @@ public class Type extends BaseObj {
             }
 
             Type t;
-            if (mRS.isNative) {
-                RenderScriptThunker rst = (RenderScriptThunker)mRS;
-                t = TypeThunker.create(rst, mElement, mDimX, mDimY, mDimZ,
-                                       mDimMipmaps, mDimFaces, mYuv);
-            } else {
-                int id = mRS.nTypeCreate(mElement.getID(mRS),
-                                         mDimX, mDimY, mDimZ, mDimMipmaps, mDimFaces, mYuv);
-                t = new Type(id, mRS);
-            }
+            long id = mRS.nTypeCreate(mElement.getID(mRS),
+                                     mDimX, mDimY, mDimZ, mDimMipmaps, mDimFaces, mYuv);
+            t = new Type(id, mRS);
+
             t.mElement = mElement;
             t.mDimX = mDimX;
             t.mDimY = mDimY;

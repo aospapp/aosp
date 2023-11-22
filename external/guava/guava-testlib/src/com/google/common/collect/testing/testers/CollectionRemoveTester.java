@@ -18,14 +18,18 @@ package com.google.common.collect.testing.testers;
 
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_QUERIES;
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
+import static com.google.common.collect.testing.features.CollectionFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
 import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_REMOVE;
+import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 import com.google.common.collect.testing.WrongType;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 
 /**
@@ -33,11 +37,10 @@ import java.util.Iterator;
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.CollectionTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible
 public class CollectionRemoveTester<E> extends AbstractCollectionTester<E> {
   @CollectionFeature.Require(SUPPORTS_REMOVE)
   @CollectionSize.Require(absent = ZERO)
@@ -48,6 +51,20 @@ public class CollectionRemoveTester<E> extends AbstractCollectionTester<E> {
     assertEquals("remove(present) should decrease a collection's size by one.",
         initialSize - 1, collection.size());
     expectMissing(samples.e0);
+  }
+
+  @CollectionFeature.Require({SUPPORTS_REMOVE,
+      FAILS_FAST_ON_CONCURRENT_MODIFICATION})
+  @CollectionSize.Require(SEVERAL)
+  public void testRemovePresentConcurrentWithIteration() {
+    try {
+      Iterator<E> iterator = collection.iterator();
+      assertTrue(collection.remove(samples.e0));
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
   }
 
   @CollectionFeature.Require(SUPPORTS_REMOVE)

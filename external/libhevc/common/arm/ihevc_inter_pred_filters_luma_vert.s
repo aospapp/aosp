@@ -105,7 +105,7 @@
 @   r3 =>  wd
 .text
 .align 4
-
+.syntax unified
 
 
 
@@ -407,7 +407,7 @@ end_loops:
     ldr         r1, [sp], #4
     ldr         r0, [sp], #4
 
-    ldmeqfd     sp!,{r4-r12,r15}            @reload the registers from sp
+    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
     mov         r5, #4
     add         r0, r0, #8
     add         r1, r1, #8
@@ -848,7 +848,7 @@ end_loops_16out:
     ldr         r1, [sp], #4
     ldr         r0, [sp], #4
 
-    ldmeqfd     sp!,{r4-r12,r15}            @reload the registers from sp
+    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
     mov         r5, #4
     add         r0, r0, #8
     add         r1, r1, #16

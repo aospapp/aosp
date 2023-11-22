@@ -23,18 +23,21 @@
 #include <signal.h>
 #include <pthread.h>
 
+#include "LogDumpHelper.h"
 #include "VideoFrameInfo.h"
+#include "ProtectedDataBuffer.h"
+
 
 // Be sure to have an equal string in VideoDecoderHost.cpp (libmix)
 static const char* AVC_MIME_TYPE = "video/avc";
 static const char* AVC_SECURE_MIME_TYPE = "video/avc-secure";
 
+#define INPORT_BUFFER_SIZE  sizeof(ProtectedDataBuffer)
 #define DATA_BUFFER_INITIAL_OFFSET      0 //1024
 #define DATA_BUFFER_SIZE                (8 * 1024 * 1024)
 #define KEEP_ALIVE_INTERVAL             5 // seconds
 #define DRM_KEEP_ALIVE_TIMER            1000000
 #define WV_SESSION_ID                   0x00000011
-#define NALU_BUFFER_SIZE                8192
 #define NALU_HEADER_LENGTH              1024 // THis should be changed to 4K
 #define FLUSH_WAIT_INTERVAL             (30 * 1000) //30 ms
 
@@ -42,17 +45,6 @@ static const char* AVC_SECURE_MIME_TYPE = "video/avc-secure";
 #define DRM_SCHEME_WVC      1
 #define DRM_SCHEME_CENC     2
 #define DRM_SCHEME_PRASF    3
-
-//#pragma pack(push, 1)
-struct DataBuffer {
-    uint32_t size;
-    uint8_t  *data;
-    uint8_t  clear;
-    uint32_t drmScheme;
-    uint32_t session_id;    //used by PR only
-    uint32_t flags;         //used by PR only
-};
-//#pragma pack(pop)
 
 bool OMXVideoDecoderAVCSecure::EnableIEDSession(bool enable)
 {
@@ -67,6 +59,7 @@ bool OMXVideoDecoderAVCSecure::EnableIEDSession(bool enable)
 
 OMXVideoDecoderAVCSecure::OMXVideoDecoderAVCSecure()
     : mKeepAliveTimer(0),
+      mNumInportBuffers(0),
       mSessionPaused(false){
     ALOGV("OMXVideoDecoderAVCSecure is constructed.");
     if (drm_vendor_api_init(&drm_vendor_api)) {
@@ -116,11 +109,6 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::InitInputPortFormatSpecific(OMX_PARAM_PO
 
     this->ports[INPORT_INDEX]->SetMemAllocator(MemAllocDataBuffer, MemFreeDataBuffer, this);
 
-    for (int i = 0; i < INPORT_ACTUAL_BUFFER_COUNT; i++) {
-        mDataBufferSlot[i].offset = DATA_BUFFER_INITIAL_OFFSET + i * INPORT_BUFFER_SIZE;
-        mDataBufferSlot[i].owner = NULL;
-    }
-
     return OMX_ErrorNone;
 }
 
@@ -147,8 +135,6 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::ProcessorDeinit(void) {
 }
 
 OMX_ERRORTYPE OMXVideoDecoderAVCSecure::ProcessorStart(void) {
-    uint32_t imrOffset = 0;
-    uint32_t dataBufferSize = DATA_BUFFER_SIZE;
 
     EnableIEDSession(true);
     uint32_t ret = drm_vendor_api.drm_start_playback();
@@ -182,7 +168,24 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::ProcessorProcess(
     int ret_value;
 
     OMX_BUFFERHEADERTYPE *pInput = *pBuffers[INPORT_INDEX];
-    DataBuffer *dataBuffer = (DataBuffer *)pInput->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)pInput->pBuffer;
+    // Check that we are dealing with the right buffer
+    if (dataBuffer->magic != PROTECTED_DATA_BUFFER_MAGIC)
+    {
+        if (pInput->nFlags & OMX_BUFFERFLAG_CODECCONFIG)
+        {
+            // Processing codec data, which is not in ProtectedDataBuffer format
+            ALOGV("%s: received AVC codec data (%" PRIu32 " bytes).", __FUNCTION__, pInput->nFilledLen);
+            DumpBuffer2("OMX: AVC codec data: ", pInput->pBuffer, pInput->nFilledLen);
+            return OMX_ErrorNone;
+        }
+        else
+        {
+            // Processing non-codec data, but this buffer is not in ProtectedDataBuffer format
+            ALOGE("%s: protected data buffer pointer %p doesn't have the right magic", __FUNCTION__, dataBuffer);
+            return OMX_ErrorBadParameter;
+        }
+    }
 
     if((dataBuffer->drmScheme == DRM_SCHEME_WVC) && (!mKeepAliveTimer)){
         struct sigevent sev;
@@ -268,7 +271,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareWVCDecodeBuffer(OMX_BUFFERHEADERT
        ALOGW("buffer offset %u is not zero!!!", buffer->nOffset);
    }
 
-   DataBuffer *dataBuffer = (DataBuffer *)buffer->pBuffer;
+   ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
    if (dataBuffer->clear) {
        p->data = dataBuffer->data + buffer->nOffset;
        p->size = buffer->nFilledLen;
@@ -343,7 +346,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareCENCDecodeBuffer(OMX_BUFFERHEADER
         ALOGW("buffer offset %u is not zero!!!", buffer->nOffset);
     }
 
-    DataBuffer *dataBuffer = (DataBuffer *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
     p->data = dataBuffer->data;
     p->size = sizeof(frame_info_t);
     p->flag |= IS_SECURE_DATA;
@@ -368,7 +371,7 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PreparePRASFDecodeBuffer(OMX_BUFFERHEADE
         ALOGW("PR:buffer offset %u is not zero!!!", buffer->nOffset);
     }
 
-    DataBuffer *dataBuffer = (DataBuffer *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
     if (dataBuffer->clear) {
         p->data = dataBuffer->data + buffer->nOffset;
         p->size = buffer->nFilledLen;
@@ -437,7 +440,26 @@ OMX_ERRORTYPE OMXVideoDecoderAVCSecure::PrepareDecodeBuffer(OMX_BUFFERHEADERTYPE
         return OMX_ErrorNone;
     }
 
-    DataBuffer *dataBuffer = (DataBuffer *)buffer->pBuffer;
+    ProtectedDataBuffer *dataBuffer = (ProtectedDataBuffer *)buffer->pBuffer;
+    // Check that we are dealing with the right buffer
+    if (dataBuffer->magic != PROTECTED_DATA_BUFFER_MAGIC)
+    {
+        if (buffer->nFlags & OMX_BUFFERFLAG_CODECCONFIG)
+        {
+            // Processing codec data, which is not in ProtectedDataBuffer format
+            ALOGI("%s: received AVC codec data (%" PRIu32 " bytes).", __FUNCTION__, buffer->nFilledLen);
+            DumpBuffer2("OMX: AVC codec data: ", buffer->pBuffer, buffer->nFilledLen) ;
+            return OMX_ErrorNone;
+        }
+        else
+        {
+            // Processing non-codec data, but this buffer is not in ProtectedDataBuffer format
+            ALOGE("%s: protected data buffer pointer %p doesn't have the right magic", __FUNCTION__, dataBuffer);
+            return OMX_ErrorBadParameter;
+        }
+    }
+    // End of magic check
+
     if(dataBuffer->drmScheme == DRM_SCHEME_WVC){
 
         // OMX_BUFFERFLAG_CODECCONFIG is an optional flag
@@ -541,54 +563,60 @@ void OMXVideoDecoderAVCSecure::MemFreeDataBuffer(OMX_U8 *pBuffer, OMX_PTR pUserD
 }
 
 OMX_U8* OMXVideoDecoderAVCSecure::MemAllocDataBuffer(OMX_U32 nSizeBytes) {
-    if (nSizeBytes > INPORT_BUFFER_SIZE) {
-        ALOGE("Invalid size (%u) of memory to allocate.", nSizeBytes);
+
+    ALOGW_IF(nSizeBytes != INPORT_BUFFER_SIZE,
+        "%s: size of memory to allocate is %" PRIu32 ", but will allocate %zu",
+        __FUNCTION__, nSizeBytes, sizeof(ProtectedDataBuffer));
+    
+    if (mNumInportBuffers >= INPORT_ACTUAL_BUFFER_COUNT)
+    {
+        ALOGE("%s: cannot allocate buffer: number of inport buffers is %u, which is already at maximum",
+            __FUNCTION__, mNumInportBuffers);
         return NULL;
     }
-    ALOGW_IF(nSizeBytes != INPORT_BUFFER_SIZE, "Size of memory to allocate is %u", nSizeBytes);
-    for (int i = 0; i < INPORT_ACTUAL_BUFFER_COUNT; i++) {
-        if (mDataBufferSlot[i].owner == NULL) {
-            DataBuffer *pBuffer = new DataBuffer;
-            if (pBuffer == NULL) {
-                ALOGE("Failed to allocate memory.");
-                return NULL;
-            }
-
-            pBuffer->data = new uint8_t [INPORT_BUFFER_SIZE];
-            if (pBuffer->data == NULL) {
-                delete pBuffer;
-                ALOGE("Failed to allocate memory, size to allocate %d.", INPORT_BUFFER_SIZE);
-                return NULL;
-            }
-
-            // Is this required for classic or not?
-           // pBuffer->offset = mDataBufferSlot[i].offset;
-            pBuffer->size = INPORT_BUFFER_SIZE;
-            mDataBufferSlot[i].owner = (OMX_U8 *)pBuffer;
-
-            ALOGV("Allocating buffer = %#x, Data offset = %#x, data = %#x",  (uint32_t)pBuffer, mDataBufferSlot[i].offset, (uint32_t)pBuffer->data);
-            return (OMX_U8 *) pBuffer;
-        }
+    
+    ProtectedDataBuffer *pBuffer = new ProtectedDataBuffer;
+    if (pBuffer == NULL)
+    {
+        ALOGE("%s: failed to allocate memory.", __FUNCTION__);
+        return NULL;
     }
-    ALOGE("Data buffer slot is not available.");
-    return NULL;
+
+    ++mNumInportBuffers;
+
+    Init_ProtectedDataBuffer(pBuffer);
+    
+    pBuffer->size = INPORT_BUFFER_SIZE;
+
+    ALOGV("Allocating buffer = %#x, data = %#x",  (uint32_t)pBuffer, (uint32_t)pBuffer->data);
+    return (OMX_U8 *) pBuffer;
 }
 
 void OMXVideoDecoderAVCSecure::MemFreeDataBuffer(OMX_U8 *pBuffer) {
-    DataBuffer *p = (DataBuffer*) pBuffer;
-    if (p == NULL) {
+
+    if (pBuffer == NULL)
+    {
+        ALOGE("%s: trying to free NULL pointer", __FUNCTION__);
         return;
     }
-    for (int i = 0; i < INPORT_ACTUAL_BUFFER_COUNT; i++) {
-        if (pBuffer == mDataBufferSlot[i].owner) {
-            ALOGV("Freeing Data buffer offset = %d, data = %#x", mDataBufferSlot[i].offset, (uint32_t)p->data);
-            delete [] p->data;
-            delete p;
-            mDataBufferSlot[i].owner = NULL;
-            return;
-        }
+
+    if (mNumInportBuffers == 0)
+    {
+        ALOGE("%s: allocated inport buffer count is already 0, cannot delete buffer %p",
+            __FUNCTION__, pBuffer);
+        return;
     }
-    ALOGE("Invalid buffer %#x to de-allocate", (uint32_t)pBuffer);
+    
+    ProtectedDataBuffer *p = (ProtectedDataBuffer*) pBuffer;
+    if (p->magic != PROTECTED_DATA_BUFFER_MAGIC)
+    {
+        ALOGE("%s: attempting to free buffer with a wrong magic 0x%08x", __FUNCTION__, p->magic);
+        return;
+    }
+
+    ALOGV("Freeing Data buffer %p with data = %p", p, p->data);
+    delete p;
+    --mNumInportBuffers;
 }
 
 void OMXVideoDecoderAVCSecure::KeepAliveTimerCallback(sigval v) {

@@ -41,7 +41,7 @@
 @*
 @* @brief
 @*  intraprediction for mode 27 to 33  (positive angle, vertical mode ) with
-@*.extern  neighboring samples location pointed by 'pu1_ref' to the  tu
+@* neighboring samples location pointed by 'pu1_ref' to the  tu
 @* block location pointed by 'pu1_dst'
 @*
 @* @par description:

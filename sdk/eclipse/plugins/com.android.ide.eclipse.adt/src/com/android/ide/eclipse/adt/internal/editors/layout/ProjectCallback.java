@@ -34,17 +34,19 @@ import com.android.ide.common.rendering.RenderSecurityManager;
 import com.android.ide.common.rendering.api.ActionBarCallback;
 import com.android.ide.common.rendering.api.AdapterBinding;
 import com.android.ide.common.rendering.api.DataBindingItem;
+import com.android.ide.common.rendering.api.Features;
 import com.android.ide.common.rendering.api.ILayoutPullParser;
 import com.android.ide.common.rendering.api.IProjectCallback;
+import com.android.ide.common.rendering.api.LayoutlibCallback;
 import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.ResourceReference;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.Result;
-import com.android.ide.common.rendering.legacy.LegacyCallback;
 import com.android.ide.common.resources.ResourceResolver;
 import com.android.ide.common.xml.ManifestData;
 import com.android.ide.eclipse.adt.AdtConstants;
 import com.android.ide.eclipse.adt.AdtPlugin;
+import com.android.ide.eclipse.adt.internal.editors.layout.gle2.GraphicalEditorPart;
 import com.android.ide.eclipse.adt.internal.editors.layout.gle2.LayoutMetadata;
 import com.android.ide.eclipse.adt.internal.editors.layout.gle2.RenderLogger;
 import com.android.ide.eclipse.adt.internal.editors.layout.uimodel.UiViewElementNode;
@@ -75,9 +77,9 @@ import java.util.TreeSet;
 /**
  * Loader for Android Project class in order to use them in the layout editor.
  * <p/>This implements {@link IProjectCallback} for the old and new API through
- * {@link LegacyCallback}
+ * {@link LayoutlibCallback}
  */
-public final class ProjectCallback extends LegacyCallback {
+public final class ProjectCallback extends LayoutlibCallback {
     private final HashMap<String, Class<?>> mLoadedClasses = new HashMap<String, Class<?>>();
     private final Set<String> mMissingClasses = new TreeSet<String>();
     private final Set<String> mBrokenClasses = new TreeSet<String>();
@@ -93,6 +95,7 @@ public final class ProjectCallback extends LegacyCallback {
     private String mLayoutName;
     private ILayoutPullParser mLayoutEmbeddedParser;
     private ResourceResolver mResourceResolver;
+    private GraphicalEditorPart mEditor;
 
     /**
      * Creates a new {@link ProjectCallback} to be used with the layout lib.
@@ -103,12 +106,14 @@ public final class ProjectCallback extends LegacyCallback {
      * @param credential the sandbox credential
      */
     public ProjectCallback(LayoutLibrary layoutLib,
-            ProjectResources projectRes, IProject project, Object credential) {
+            ProjectResources projectRes, IProject project, Object credential,
+            GraphicalEditorPart editor) {
         mLayoutLib = layoutLib;
         mParentClassLoader = layoutLib.getClassLoader();
         mProjectRes = projectRes;
         mProject = project;
         mCredential = credential;
+        mEditor = editor;
     }
 
     public Set<String> getMissingClasses() {
@@ -147,7 +152,7 @@ public final class ProjectCallback extends LegacyCallback {
     @SuppressWarnings("unchecked")
     public Object loadView(String className, Class[] constructorSignature,
             Object[] constructorParameters)
-            throws ClassNotFoundException, Exception {
+            throws Exception {
         mUsed = true;
 
         if (className == null) {
@@ -678,6 +683,11 @@ public final class ProjectCallback extends LegacyCallback {
 
     @Override
     public ActionBarCallback getActionBarCallback() {
-        return new ActionBarCallback();
+        return new ActionBarHandler(mEditor);
+    }
+
+    @Override
+    public boolean supports(int feature) {
+        return feature <= Features.LAST_CAPABILITY;
     }
 }

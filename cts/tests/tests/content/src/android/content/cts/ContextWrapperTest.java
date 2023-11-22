@@ -18,7 +18,6 @@ package android.content.cts;
 
 import com.android.cts.content.R;
 
-
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -44,6 +43,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
+import android.view.WindowManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -716,6 +716,16 @@ public class ContextWrapperTest extends AndroidTestCase {
 
         // Test valid service name
         assertNotNull(mContextWrapper.getSystemService(Context.WINDOW_SERVICE));
+    }
+
+    public void testGetSystemServiceByClass() {
+        // Test invalid service class
+        assertNull(mContextWrapper.getSystemService(Object.class));
+
+        // Test valid service name
+        assertNotNull(mContextWrapper.getSystemService(WindowManager.class));
+        assertEquals(mContextWrapper.getSystemService(Context.WINDOW_SERVICE),
+                mContextWrapper.getSystemService(WindowManager.class));
     }
 
     public void testGetAssets() {

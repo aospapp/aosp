@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-def isCayman : Predicate<"Subtarget.hasCaymanISA()">;
+def isCayman : Predicate<"Subtarget->hasCaymanISA()">;
 
 //===----------------------------------------------------------------------===//
 // Cayman Instructions
@@ -45,6 +45,8 @@ def RECIPSQRT_IEEE_cm : RECIPSQRT_IEEE_Common<0x89>;
 def SIN_cm : SIN_Common<0x8D>;
 def COS_cm : COS_Common<0x8E>;
 } // End isVector = 1
+
+def : RsqPat<RECIPSQRT_IEEE_cm, f32>;
 
 def : POW_Common <LOG_IEEE_cm, EXP_IEEE_cm, MUL>;
 

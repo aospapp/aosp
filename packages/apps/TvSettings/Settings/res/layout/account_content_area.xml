@@ -17,7 +17,7 @@
      This is the template to be used for the content are of a setup fragment
      which has a standard description and action.
 -->
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.tv.settings.widget.NonOverlappingRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
@@ -39,4 +39,4 @@
         android:layout_toEndOf="@id/description"
         android:paddingEnd="@dimen/pad_end_unsafe_action" />
 
-</RelativeLayout>
+</com.android.tv.settings.widget.NonOverlappingRelativeLayout>

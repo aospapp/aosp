@@ -16,6 +16,13 @@
 
 package com.android.inputmethod.latin.utils;
 
+import static com.android.inputmethod.latin.common.Constants.Subtype.KEYBOARD_MODE;
+import static com.android.inputmethod.latin.common.Constants.Subtype.ExtraValue.ASCII_CAPABLE;
+import static com.android.inputmethod.latin.common.Constants.Subtype.ExtraValue.EMOJI_CAPABLE;
+import static com.android.inputmethod.latin.common.Constants.Subtype.ExtraValue.IS_ADDITIONAL_SUBTYPE;
+import static com.android.inputmethod.latin.common.Constants.Subtype.ExtraValue.KEYBOARD_LAYOUT_SET;
+import static com.android.inputmethod.latin.common.Constants.Subtype.ExtraValue.UNTRANSLATABLE_STRING_IN_SUBTYPE_NAME;
+
 import android.content.Context;
 import android.os.Build;
 import android.test.AndroidTestCase;
@@ -25,14 +32,6 @@ import android.view.inputmethod.InputMethodSubtype;
 import com.android.inputmethod.compat.InputMethodSubtypeCompatUtils;
 
 import java.util.Locale;
-
-import static com.android.inputmethod.latin.Constants.Subtype.KEYBOARD_MODE;
-import static com.android.inputmethod.latin.Constants.Subtype.ExtraValue.ASCII_CAPABLE;
-import static com.android.inputmethod.latin.Constants.Subtype.ExtraValue.EMOJI_CAPABLE;
-import static com.android.inputmethod.latin.Constants.Subtype.ExtraValue.IS_ADDITIONAL_SUBTYPE;
-import static com.android.inputmethod.latin.Constants.Subtype.ExtraValue.KEYBOARD_LAYOUT_SET;
-import static com.android.inputmethod.latin.Constants.Subtype.ExtraValue
-        .UNTRANSLATABLE_STRING_IN_SUBTYPE_NAME;
 
 @SmallTest
 public class AdditionalSubtypeUtilsTests extends AndroidTestCase {
@@ -151,25 +150,25 @@ public class AdditionalSubtypeUtilsTests extends AndroidTestCase {
     }
 
     public void testRestorable() {
-        final InputMethodSubtype EN_UK_DVORAK =
+        final InputMethodSubtype EN_US_DVORAK =
                 AdditionalSubtypeUtils.createAsciiEmojiCapableAdditionalSubtype(
                         Locale.US.toString(), "dvorak");
         final InputMethodSubtype ZZ_AZERTY =
                 AdditionalSubtypeUtils.createAsciiEmojiCapableAdditionalSubtype(
                         SubtypeLocaleUtils.NO_LANGUAGE, "azerty");
-        assertEnUsDvorak(EN_UK_DVORAK);
+        assertEnUsDvorak(EN_US_DVORAK);
         assertAzerty(ZZ_AZERTY);
 
         // Make sure the subtype can be stored and restored in a deterministic manner.
-        final InputMethodSubtype[] subtypes = { EN_UK_DVORAK, ZZ_AZERTY };
+        final InputMethodSubtype[] subtypes = { EN_US_DVORAK, ZZ_AZERTY };
         final String prefSubtype = AdditionalSubtypeUtils.createPrefSubtypes(subtypes);
         final InputMethodSubtype[] restoredSubtypes =
                 AdditionalSubtypeUtils.createAdditionalSubtypesArray(prefSubtype);
         assertEquals(2, restoredSubtypes.length);
-        final InputMethodSubtype restored_EN_UK_DVORAK = restoredSubtypes[0];
+        final InputMethodSubtype restored_EN_US_DVORAK = restoredSubtypes[0];
         final InputMethodSubtype restored_ZZ_AZERTY = restoredSubtypes[1];
 
-        assertEnUsDvorak(restored_EN_UK_DVORAK);
+        assertEnUsDvorak(restored_EN_US_DVORAK);
         assertAzerty(restored_ZZ_AZERTY);
     }
 }

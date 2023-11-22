@@ -96,6 +96,7 @@ class TestResultsReport {
         xml.startTag(null, VERIFIER_INFO_TAG);
         xml.attribute(null, "version-name", Version.getVersionName(mContext));
         xml.attribute(null, "version-code", Integer.toString(Version.getVersionCode(mContext)));
+        xml.attribute(null, "build", Version.getBuildNumber(mContext));
         xml.endTag(null, VERIFIER_INFO_TAG);
 
         xml.startTag(null, DEVICE_INFO_TAG);

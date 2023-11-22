@@ -19,7 +19,9 @@ package com.android.testingcamera2;
 import java.util.HashSet;
 import java.util.Set;
 
-import android.content.Context;
+import android.Manifest;
+import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
@@ -32,11 +34,17 @@ import android.hardware.camera2.CameraAccessException;
 public class CameraOps2 extends CameraManager.AvailabilityCallback {
 
     private final CameraManager mCameraManager;
-
+    private final Activity mActivity;
     private final Set<CameraDevice> mOpenCameras = new HashSet<CameraDevice>();
 
-    public CameraOps2(Context context) {
-        mCameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+    // For persisting values for permission requests
+    private static final int PERMISSIONS_REQUEST_CAMERA = 1;
+    private String mDelayedOpenId = null;
+    private CameraDevice.StateCallback mDelayedOpenListener = null;
+
+    public CameraOps2(Activity activity) {
+        mActivity = activity;
+        mCameraManager = (CameraManager) activity.getSystemService(Activity.CAMERA_SERVICE);
         if (mCameraManager == null) {
             throw new AssertionError("Can't connect to camera manager!");
         }
@@ -101,6 +109,26 @@ public class CameraOps2 extends CameraManager.AvailabilityCallback {
                 return false;
             }
         }
+        if ((mActivity.checkSelfPermission(Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED)
+            || (mActivity.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)) {
+            TLog.i("Requesting camera/storage permissions");
+
+            mDelayedOpenId = cameraId;
+            mDelayedOpenListener = listener;
+
+            mActivity.requestPermissions(new String[] {
+                        Manifest.permission.CAMERA,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                    PERMISSIONS_REQUEST_CAMERA);
+            return false;
+        }
+
+        return doOpenCamera(cameraId, listener);
+    }
+
+    private boolean doOpenCamera(String cameraId, CameraDevice.StateCallback listener) {
         try {
             DeviceStateCallback proxyListener = new DeviceStateCallback(listener);
             mCameraManager.openCamera(cameraId, proxyListener, null);
@@ -110,6 +138,33 @@ public class CameraOps2 extends CameraManager.AvailabilityCallback {
         }
 
         return true;
+    }
+
+    public void onRequestPermissionsResult (int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_CAMERA) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                TLog.i("Camera permission granted");
+                if (mDelayedOpenId != null && mDelayedOpenListener != null) {
+                    doOpenCamera(mDelayedOpenId, mDelayedOpenListener);
+                }
+                mDelayedOpenId = null;
+                mDelayedOpenListener = null;
+            } else {
+                TLog.i("Camera permission denied, not opening camera");
+                if (mDelayedOpenId != null && mDelayedOpenListener != null) {
+                    mDelayedOpenListener.onError(null,
+                            CameraDevice.StateCallback.ERROR_CAMERA_DISABLED);
+                    mDelayedOpenId = null;
+                    mDelayedOpenListener = null;
+                }
+            }
+            if (grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                TLog.i("Storage permission granted");
+            } else {
+                TLog.i("Storage permission not granted; saving will not work");
+            }
+        }
     }
 
     public CameraCharacteristics getCameraInfo(String cameraId) {

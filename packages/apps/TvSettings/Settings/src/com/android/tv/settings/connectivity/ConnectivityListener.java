@@ -68,13 +68,19 @@ public class ConnectivityListener {
     private final WifiManager mWifiManager;
     private final EthernetManager mEthernetManager;
     private WifiNetworkListener mWifiListener;
-    private final BroadcastReceiver mWifiReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mWifiListReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (mWifiListener != null) {
                 mWifiListener.onWifiListChanged();
                 mWifiListener = null;
             }
+        }
+    };
+    private final BroadcastReceiver mWifiEnabledReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            mListener.onConnectivityChange(intent);
         }
     };
     private final EthernetManager.Listener mEthernetListener = new EthernetManager.Listener() {
@@ -107,9 +113,9 @@ public class ConnectivityListener {
                 .append("  mWifiSignalStrength ").append(mWifiSignalStrength)
                 .toString();
         }
-    };
+    }
 
-    private ConnectivityStatus mConnectivityStatus = new ConnectivityStatus();
+    private final ConnectivityStatus mConnectivityStatus = new ConnectivityStatus();
 
     public ConnectivityListener(Context context, Listener listener) {
         mContext = context;
@@ -120,7 +126,6 @@ public class ConnectivityListener {
         mListener = listener;
         mFilter = new IntentFilter();
         mFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        mFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION_IMMEDIATE);
         mFilter.addAction(ConnectivityManager.INET_CONDITION_ACTION);
         mFilter.addAction(WifiManager.RSSI_CHANGED_ACTION);
         mReceiver = new BroadcastReceiver() {
@@ -145,8 +150,10 @@ public class ConnectivityListener {
             mStarted = true;
             updateConnectivityStatus();
             mContext.registerReceiver(mReceiver, mFilter);
-            mContext.registerReceiver(mWifiReceiver, new IntentFilter(
+            mContext.registerReceiver(mWifiListReceiver, new IntentFilter(
                     WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+            mContext.registerReceiver(mWifiEnabledReceiver, new IntentFilter(
+                    WifiManager.WIFI_STATE_CHANGED_ACTION));
             mEthernetManager.addListener(mEthernetListener);
         }
     }
@@ -159,7 +166,8 @@ public class ConnectivityListener {
         if (mStarted) {
             mStarted = false;
             mContext.unregisterReceiver(mReceiver);
-            mContext.unregisterReceiver(mWifiReceiver);
+            mContext.unregisterReceiver(mWifiListReceiver);
+            mContext.unregisterReceiver(mWifiEnabledReceiver);
             mWifiListener = null;
             mEthernetManager.removeListener(mEthernetListener);
         }
@@ -347,6 +355,14 @@ public class ConnectivityListener {
             }
         }
         return false;
+    }
+
+    public boolean isWifiEnabled() {
+        return mWifiManager.isWifiEnabled();
+    }
+
+    public void setWifiEnabled(boolean enable) {
+        mWifiManager.setWifiEnabled(enable);
     }
 
     private boolean setNetworkType(int networkType) {

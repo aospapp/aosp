@@ -23,21 +23,22 @@
     <!-- Prevents the activity manager from delaying any activity-start
          requests by this package, including requests immediately after
          the user presses "home". -->
+    <uses-permission android:name="android.permission.BIND_CONNECTION_SERVICE" />
+    <uses-permission android:name="android.permission.BIND_INCALL_SERVICE" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BROADCAST_CALLLOG_INFO" />
+    <uses-permission android:name="android.permission.BROADCAST_PHONE_ACCOUNT_REGISTRATION" />
     <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
-    <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.STOP_APP_SWITCHES" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
-    <uses-permission android:name="android.permission.BIND_CONNECTION_SERVICE" />
-    <uses-permission android:name="android.permission.BIND_INCALL_SERVICE" />
-    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
-    <uses-permission android:name="android.permission.BROADCAST_CALLLOG_INFO" />
 
     <permission
             android:name="android.permission.BROADCAST_CALLLOG_INFO"
@@ -49,6 +50,16 @@
             android:label="Register to handle the broadcasted call type/duration information"
             android:protectionLevel="signature|system"/>
 
+    <permission
+            android:name="android.permission.BROADCAST_PHONE_ACCOUNT_REGISTRATION"
+            android:label="Broadcast phone account registration"
+            android:protectionLevel="signature|system"/>
+
+    <permission
+            android:name="android.permission.PROCESS_PHONE_ACCOUNT_REGISTRATION"
+            android:label="Process phone account registration"
+            android:protectionLevel="signature|system"/>
+
     <!-- Declare which SDK level this application was built against. This is needed so that IDEs
          can check for incompatible APIs. -->
     <uses-sdk android:minSdkVersion="19" />
@@ -57,7 +68,8 @@
             android:icon="@mipmap/ic_launcher_phone"
             android:allowBackup="false"
             android:supportsRtl="true"
-            android:process="system">
+            android:process="system"
+            android:usesCleartextTraffic="false">
 
         <!-- CALL vs CALL_PRIVILEGED vs CALL_EMERGENCY
              We have three different intents through which a call can be initiated each with its
@@ -75,7 +87,8 @@
              contain contact information in the intent's data. CallActivity handles any data
              URL with the schemes "tel", "sip", and "voicemail". It also handles URLs linked to
              contacts provider entries. Any data not fitting the schema described is ignored. -->
-        <activity android:name="CallActivity"
+        <activity android:name=".components.UserCallActivity"
+                android:label="@string/userCallActivityLabel"
                 android:theme="@style/Theme.Telecomm.Transparent"
                 android:permission="android.permission.CALL_PHONE"
                 android:excludeFromRecents="true"
@@ -114,7 +127,7 @@
              processed. High priority of 1000 is used in all intent filters to prevent anything but
              the system from processing this intent (b/8871505). -->
         <activity-alias android:name="PrivilegedCallActivity"
-                android:targetActivity="CallActivity"
+                android:targetActivity=".components.UserCallActivity"
                 android:permission="android.permission.CALL_PRIVILEGED"
                 android:process=":ui">
             <intent-filter android:priority="1000">
@@ -149,7 +162,7 @@
         <!-- TODO: Is there really a notion of an emergency SIP number? If not, can
              that scheme be removed from this activity? -->
         <activity-alias android:name="EmergencyCallActivity"
-                android:targetActivity="CallActivity"
+                android:targetActivity=".components.UserCallActivity"
                 android:permission="android.permission.CALL_PRIVILEGED"
                 android:process=":ui">
             <intent-filter android:priority="1000">
@@ -176,16 +189,16 @@
             </intent-filter>
         </activity-alias>
 
-        <receiver android:name="TelecomBroadcastReceiver" android:exported="false"
+        <receiver android:name=".components.TelecomBroadcastReceiver" android:exported="false"
                 android:process="system">
             <intent-filter>
-                <action android:name="com.android.server.telecom.ACTION_CALL_BACK_FROM_NOTIFICATION" />
+                <action android:name="com.android.server.telecom.ACTION_CLEAR_MISSED_CALLS" />
                 <action android:name="com.android.server.telecom.ACTION_CALL_BACK_FROM_NOTIFICATION" />
                 <action android:name="com.android.server.telecom.ACTION_SEND_SMS_FROM_NOTIFICATION" />
             </intent-filter>
         </receiver>
 
-        <receiver android:name="PhoneAccountBroadcastReceiver"
+        <receiver android:name=".components.PhoneAccountBroadcastReceiver"
                 android:process="system">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
@@ -193,17 +206,30 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".RespondViaSmsSettings$Settings"
+        <activity android:name=".RespondViaSmsSettings"
                   android:label="@string/respond_via_sms_setting_title"
                   android:configChanges="orientation|screenSize|keyboardHidden"
                   android:theme="@style/Theme.Telecom.DialerSettings"
                   android:process=":ui">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.telecom.action.SHOW_RESPOND_VIA_SMS_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".ErrorDialogActivity"
+        <activity android:name=".settings.EnableAccountPreferenceActivity"
+                  android:label="@string/enable_account_preference_title"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
+                  android:theme="@style/Theme.Telecom.DialerSettings"
+                  android:process=":ui">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".components.ErrorDialogActivity"
                 android:configChanges="orientation|screenSize|keyboardHidden"
                 android:excludeFromRecents="true"
                 android:launchMode="singleInstance"
@@ -211,13 +237,25 @@
                 android:process=":ui">
         </activity>
 
-        <receiver android:name=".CallReceiver"
+        <activity android:name=".components.ChangeDefaultDialerDialog"
+                  android:label="@string/change_default_dialer_dialog_title"
+                  android:excludeFromRecents="true"
+                  android:theme="@*android:style/Theme.Material.Light.Dialog.Alert"
+                  android:priority="1000"
+                  android:process=":ui" >
+            <intent-filter>
+                <action android:name="android.telecom.action.CHANGE_DEFAULT_DIALER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".components.PrimaryCallReceiver"
                 android:exported="true"
                 android:permission="android.permission.MODIFY_PHONE_STATE"
                 android:process="system">
         </receiver>
 
-        <service android:name="BluetoothPhoneService"
+        <service android:name=".components.BluetoothPhoneService"
                 android:singleUser="true"
                 android:process="system">
             <intent-filter>
@@ -225,11 +263,11 @@
             </intent-filter>
         </service>
 
-        <service android:name=".TelecomService"
+        <service android:name=".components.TelecomService"
                 android:singleUser="true"
                 android:process="system">
             <intent-filter>
-                <android android:name="android.telecom.ITelecomService" />
+                <action android:name="android.telecom.ITelecomService" />
             </intent-filter>
         </service>
 

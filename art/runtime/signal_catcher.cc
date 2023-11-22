@@ -25,10 +25,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <sstream>
+
+#include "arch/instruction_set.h"
+#include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
 #include "gc/heap.h"
-#include "instruction_set.h"
 #include "os.h"
 #include "runtime.h"
 #include "scoped_thread_state_change.h"
@@ -51,7 +54,7 @@ static void DumpCmdLine(std::ostream& os) {
 
     os << "Cmd line: " << current_cmd_line << "\n";
     const char* stashed_cmd_line = GetCmdLine();
-    if (stashed_cmd_line != NULL && current_cmd_line != stashed_cmd_line
+    if (stashed_cmd_line != nullptr && current_cmd_line != stashed_cmd_line
             && strcmp(stashed_cmd_line, "<unset>") != 0) {
       os << "Original command line: " << stashed_cmd_line << "\n";
     }
@@ -65,15 +68,15 @@ SignalCatcher::SignalCatcher(const std::string& stack_trace_file)
     : stack_trace_file_(stack_trace_file),
       lock_("SignalCatcher lock"),
       cond_("SignalCatcher::cond_", lock_),
-      thread_(NULL) {
+      thread_(nullptr) {
   SetHaltFlag(false);
 
   // Create a raw pthread; its start routine will attach to the runtime.
-  CHECK_PTHREAD_CALL(pthread_create, (&pthread_, NULL, &Run, this), "signal catcher thread");
+  CHECK_PTHREAD_CALL(pthread_create, (&pthread_, nullptr, &Run, this), "signal catcher thread");
 
   Thread* self = Thread::Current();
   MutexLock mu(self, lock_);
-  while (thread_ == NULL) {
+  while (thread_ == nullptr) {
     cond_.Wait(self);
   }
 }
@@ -83,7 +86,7 @@ SignalCatcher::~SignalCatcher() {
   // to arrive, send it one.
   SetHaltFlag(true);
   CHECK_PTHREAD_CALL(pthread_kill, (pthread_, SIGQUIT), "signal catcher shutdown");
-  CHECK_PTHREAD_CALL(pthread_join, (pthread_, NULL), "signal catcher shutdown");
+  CHECK_PTHREAD_CALL(pthread_join, (pthread_, nullptr), "signal catcher shutdown");
 }
 
 void SignalCatcher::SetHaltFlag(bool new_value) {
@@ -124,45 +127,29 @@ void SignalCatcher::Output(const std::string& s) {
 
 void SignalCatcher::HandleSigQuit() {
   Runtime* runtime = Runtime::Current();
-  ThreadList* thread_list = runtime->GetThreadList();
-
-  // Grab exclusively the mutator lock, set state to Runnable without checking for a pending
-  // suspend request as we're going to suspend soon anyway. We set the state to Runnable to avoid
-  // giving away the mutator lock.
-  thread_list->SuspendAll();
-  Thread* self = Thread::Current();
-  Locks::mutator_lock_->AssertExclusiveHeld(self);
-  const char* old_cause = self->StartAssertNoThreadSuspension("Handling SIGQUIT");
-  ThreadState old_state = self->SetStateUnsafe(kRunnable);
-
   std::ostringstream os;
   os << "\n"
       << "----- pid " << getpid() << " at " << GetIsoDate() << " -----\n";
 
   DumpCmdLine(os);
 
-  // Note: The string "ABI:" is chosen to match the format used by debuggerd.
-  os << "ABI: " << GetInstructionSetString(runtime->GetInstructionSet()) << "\n";
+  // Note: The strings "Build fingerprint:" and "ABI:" are chosen to match the format used by
+  // debuggerd. This allows, for example, the stack tool to work.
+  std::string fingerprint = runtime->GetFingerprint();
+  os << "Build fingerprint: '" << (fingerprint.empty() ? "unknown" : fingerprint) << "'\n";
+  os << "ABI: '" << GetInstructionSetString(runtime->GetInstructionSet()) << "'\n";
 
   os << "Build type: " << (kIsDebugBuild ? "debug" : "optimized") << "\n";
 
   runtime->DumpForSigQuit(os);
 
-  if (false) {
+  if ((false)) {
     std::string maps;
     if (ReadFileToString("/proc/self/maps", &maps)) {
       os << "/proc/self/maps:\n" << maps;
     }
   }
   os << "----- end " << getpid() << " -----\n";
-  CHECK_EQ(self->SetStateUnsafe(old_state), kRunnable);
-  self->EndAssertNoThreadSuspension(old_cause);
-  thread_list->ResumeAll();
-  // Run the checkpoints after resuming the threads to prevent deadlocks if the checkpoint function
-  // acquires the mutator lock.
-  if (self->ReadFlag(kCheckpointRequest)) {
-    self->RunCheckpointFunction();
-  }
   Output(os.str());
 }
 
@@ -193,11 +180,11 @@ int SignalCatcher::WaitForSignal(Thread* self, SignalSet& signals) {
 
 void* SignalCatcher::Run(void* arg) {
   SignalCatcher* signal_catcher = reinterpret_cast<SignalCatcher*>(arg);
-  CHECK(signal_catcher != NULL);
+  CHECK(signal_catcher != nullptr);
 
   Runtime* runtime = Runtime::Current();
   CHECK(runtime->AttachCurrentThread("Signal Catcher", true, runtime->GetSystemThreadGroup(),
-                                     !runtime->IsCompiler()));
+                                     !runtime->IsAotCompiler()));
 
   Thread* self = Thread::Current();
   DCHECK_NE(self->GetState(), kRunnable);
@@ -216,7 +203,7 @@ void* SignalCatcher::Run(void* arg) {
     int signal_number = signal_catcher->WaitForSignal(self, signals);
     if (signal_catcher->ShouldHalt()) {
       runtime->DetachCurrentThread();
-      return NULL;
+      return nullptr;
     }
 
     switch (signal_number) {

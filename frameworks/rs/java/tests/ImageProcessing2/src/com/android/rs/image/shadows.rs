@@ -15,20 +15,20 @@
  */
 
 #include "ip.rsh"
-//#pragma rs_fp_relaxed
+#pragma rs_fp_relaxed
 
-static double shadowFilterMap[] = {
-    -0.00591,  0.0001,
-     1.16488,  0.01668,
-    -0.18027, -0.06791,
-    -0.12625,  0.09001,
-     0.15065, -0.03897
+static float shadowFilterMap[] = {
+    -0.00591f,  0.0001f,
+     1.16488f,  0.01668f,
+    -0.18027f, -0.06791f,
+    -0.12625f,  0.09001f,
+     0.15065f, -0.03897f
 };
 
-static double poly[] = {
-    0., 0.,
-    0., 0.,
-    0.
+static float poly[] = {
+    0.f, 0.f,
+    0.f, 0.f,
+    0.f
 };
 
 static const int ABITS = 4;
@@ -36,10 +36,10 @@ static const int HSCALE = 256;
 static const int k1=255 << ABITS;
 static const int k2=HSCALE << ABITS;
 
-static double fastevalPoly(double *poly,int n, double x){
+static float fastevalPoly(float *poly,int n, float x){
 
-    double f =x;
-    double sum = poly[0]+poly[1]*f;
+    float f =x;
+    float sum = poly[0]+poly[1]*f;
     int i;
     for (i = 2; i < n; i++) {
         f*=x;
@@ -177,16 +177,15 @@ static uchar4 hsv2rgb(ushort3 hsv)
 }
 
 void prepareShadows(float scale) {
-    double s = (scale>=0)?scale:scale/5;
+    float s = (scale>=0) ? scale : scale / 5.f;
     for (int i = 0; i < 5; i++) {
         poly[i] = fastevalPoly(shadowFilterMap+i*2,2 , s);
     }
 }
 
-void shadowsKernel(const uchar4 *in, uchar4 *out) {
-    ushort3 hsv = rgb2hsv(*in);
-    double v = (fastevalPoly(poly,5,hsv.x/4080.)*4080);
-    if (v>4080) v = 4080;
-    hsv.x = (unsigned short) ((v>0)?v:0);
-    *out = hsv2rgb(hsv);
+uchar4 RS_KERNEL shadowsKernel(uchar4 in) {
+    ushort3 hsv = rgb2hsv(in);
+    float v = (fastevalPoly(poly, 5, hsv.x * (1.f / 4080.f)) * 4080.f);
+    hsv.x = (unsigned short) clamp(v, 0.f, 4080.f);
+    return hsv2rgb(hsv);
 }

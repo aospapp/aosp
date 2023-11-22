@@ -24,7 +24,6 @@
 #include <common_time/local_clock.h>
 #include <hardware/audio.h>
 #include <media/AudioParameter.h>
-#include <audio_utils/spdif/SPDIFEncoder.h>
 
 #include "AudioOutput.h"
 
@@ -34,7 +33,7 @@ class AudioHardwareOutput;
 
 class AudioStreamOut {
   public:
-    AudioStreamOut(AudioHardwareOutput& owner, bool mcOut);
+    AudioStreamOut(AudioHardwareOutput& owner, bool mcOut, bool isIec958NonAudio);
     ~AudioStreamOut();
 
     uint32_t            latency() const;
@@ -42,11 +41,13 @@ class AudioStreamOut {
     status_t            getPresentationPosition(uint64_t *frames, struct timespec *timestamp);
     status_t            getNextWriteTimestamp(int64_t *timestamp);
     status_t            standby();
+    status_t            pause();
+    status_t            resume();
+    status_t            flush();
     status_t            dump(int fd);
 
     uint32_t            sampleRate()        const { return mInputSampleRate; }
     uint32_t            outputSampleRate()  const;
-    uint32_t            getRateMultiplier() const;
 
     size_t              bufferSize()        const { return mInputBufSize; }
     uint32_t            chanMask()          const { return mInputChanMask; }
@@ -67,32 +68,23 @@ class AudioStreamOut {
 
     ssize_t             write(const void* buffer, size_t bytes);
 
-    bool                isEncoded() const { return mIsEncoded; }
-
-    class MySPDIFEncoder : public SPDIFEncoder
-    {
-    public:
-        MySPDIFEncoder(AudioStreamOut *streamOut)
-          : mStreamOut(streamOut)
-        {};
-
-        virtual ssize_t writeOutput(const void* buffer, size_t bytes)
-        {
-            return mStreamOut->writeInternal(buffer, bytes);
-        }
-    protected:
-        AudioStreamOut * const mStreamOut;
-    };
+    bool                isIec958NonAudio() const { return mIsIec958NonAudio; }
 
 protected:
-    Mutex           mLock;
-    Mutex           mRoutingLock;
+    // Lock in this order to avoid deadlock.
+    //    mRoutingLock
+    //    mPresentationLock
 
-    // Used to implment get_presentation_position()
-    int64_t         mFramesPresented; // application rate frames, not device rate frames
-    // Used to implement get_render_position()
-    int64_t         mFramesRendered; // application rate frames, not device rate frames
-    uint32_t        mFramesWrittenRemainder; // needed when device rate > app rate
+    // Track frame position for timestamps, etc.
+    uint64_t        mRenderPosition;  // in frames, increased by write
+    uint64_t        mFramesPresented; // increased by write
+
+    // Cache of the last PresentationPosition.
+    // This cache is used in case of retrograde timestamps or if the mRoutingLock is held.
+    Mutex           mPresentationLock; // protects these mLastPresentation* variables
+    uint64_t        mLastPresentationPosition; // frames
+    struct timespec mLastPresentationTime;
+    bool            mLastPresentationValid;
 
     // Our HAL, used as the middle-man to collect and trade AudioOutputs.
     AudioHardwareOutput&  mOwnerHAL;
@@ -107,6 +99,7 @@ protected:
     // Handy values pre-computed from the audio configuration.
     uint32_t        mInputBufSize;
     uint32_t        mInputChanCount;
+    uint32_t        mInputFrameSize;
     uint32_t        mInputChunkFrames;
     uint32_t        mInputNominalLatencyUSec;
     LinearTransform mLocalTimeToFrames;
@@ -120,6 +113,7 @@ protected:
     LinearTransform mUSecToLocalTime;
 
     // State to track which actual outputs are assigned to this output stream.
+    Mutex           mRoutingLock; // This protects mPhysOutputs and mTgtDevices
     AudioOutputList mPhysOutputs;
     uint32_t        mTgtDevices;
     bool            mTgtDevicesDirty;
@@ -128,22 +122,26 @@ protected:
     // Flag to track if this StreamOut was created to sink a direct output
     // multichannel stream.
     bool            mIsMCOutput;
-    // Is the audio data encoded, eg. AC3?
-    bool            mIsEncoded;
     // Is the stream on standby?
     bool            mInStandby;
+    // Is the stream compressed audio in SPDIF data bursts?
+    const bool      mIsIec958NonAudio;
 
-    MySPDIFEncoder  mSPDIFEncoder;
+    // reduce log spew
+    bool            mReportedAvailFail;
 
-    void            releaseAllOutputs();
-    void            updateTargetOutputs();
+    status_t        standbyHardware();
+    void            releaseAllOutputs(); // locks mRoutingLock
+    void            updateTargetOutputs();  // locks mRoutingLock
     void            updateInputNums();
     void            finishedWriteOp(size_t framesWritten, bool needThrottle);
     void            resetThrottle() { mThrottleValid = false; }
     status_t        getNextWriteTimestamp_internal(int64_t *timestamp);
     void            adjustOutputs(int64_t maxTime);
     ssize_t         writeInternal(const void* buffer, size_t bytes);
-    int             getBytesPerOutputFrame();
+
+    // mRoutingLock should be held before calling this.
+    status_t        getPresentationPosition_l(uint64_t *frames, struct timespec *timestamp);
 };
 
 }  // android

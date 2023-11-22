@@ -260,6 +260,14 @@
             <element name="notes" type="string" minOccurs="0" maxOccurs="1" />
         </sequence>
 
+        <attribute name="deprecated" default="false">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="true"></enumeration>
+                    <enumeration value="false"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
         <attribute name="optional">
             <simpleType>
                 <restriction base="string">

@@ -55,14 +55,14 @@ RSExportFunc *RSExportFunc::Create(RSContext *Context,
   slangAssert(!Name.empty() && "Function must have a name");
 
   if (!ValidateFuncDecl(Context, FD)) {
-    return NULL;
+    return nullptr;
   }
 
   F = new RSExportFunc(Context, Name, FD);
 
   // Initialize mParamPacketType
   if (FD->getNumParams() <= 0) {
-    F->mParamPacketType = NULL;
+    F->mParamPacketType = nullptr;
   } else {
     clang::ASTContext &Ctx = Context->getASTContext();
 
@@ -92,8 +92,8 @@ RSExportFunc *RSExportFunc::Create(RSContext *Context,
                                    clang::SourceLocation(),
                                    PVD->getIdentifier(),
                                    PVD->getOriginalType(),
-                                   NULL,
-                                   /* BitWidth = */ NULL,
+                                   nullptr,
+                                   /* BitWidth = */ nullptr,
                                    /* Mutable = */ false,
                                    /* HasInit = */ clang::ICIS_NoInit);
       RD->addDecl(FD);
@@ -107,11 +107,11 @@ RSExportFunc *RSExportFunc::Create(RSContext *Context,
     RSExportType *ET =
       RSExportType::Create(Context, T.getTypePtr());
 
-    if (ET == NULL) {
+    if (ET == nullptr) {
       fprintf(stderr, "Failed to export the function %s. There's at least one "
                       "parameter whose type is not supported by the "
                       "reflection\n", F->getName().c_str());
-      return NULL;
+      return nullptr;
     }
 
     slangAssert((ET->getClass() == RSExportType::ExportClassRecord) &&
@@ -125,12 +125,12 @@ RSExportFunc *RSExportFunc::Create(RSContext *Context,
 
 bool
 RSExportFunc::checkParameterPacketType(llvm::StructType *ParamTy) const {
-  if (ParamTy == NULL)
+  if (ParamTy == nullptr)
     return !hasParam();
   else if (!hasParam())
     return false;
 
-  slangAssert(mParamPacketType != NULL);
+  slangAssert(mParamPacketType != nullptr);
 
   const RSExportRecordType *ERT = mParamPacketType;
   // must have same number of elements

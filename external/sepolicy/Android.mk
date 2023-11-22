@@ -2,92 +2,41 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-# Force permissive domains to be unconfined+enforcing?
-#
-# During development, this should be set to false.
-# Permissive means permissive.
-#
-# When we're close to a release and SELinux new policy development
-# is frozen, we should flip this to true. This forces any currently
-# permissive domains into unconfined+enforcing.
-#
-FORCE_PERMISSIVE_TO_UNCONFINED:=true
-
-ifeq ($(TARGET_BUILD_VARIANT),user)
-  # User builds are always forced unconfined+enforcing
-  FORCE_PERMISSIVE_TO_UNCONFINED:=true
-endif
-
 # SELinux policy version.
-# Must be <= /selinux/policyvers reported by the Android kernel.
+# Must be <= /sys/fs/selinux/policyvers reported by the Android kernel.
 # Must be within the compatibility range reported by checkpolicy -V.
-POLICYVERS ?= 26
+POLICYVERS ?= 30
 
 MLS_SENS=1
 MLS_CATS=1024
 
-# Quick edge case error detection for BOARD_SEPOLICY_REPLACE.
-# Builds the singular path for each replace file.
-sepolicy_replace_paths :=
-$(foreach pf, $(BOARD_SEPOLICY_REPLACE), \
-  $(if $(filter $(pf), $(BOARD_SEPOLICY_UNION)), \
-    $(error Ambiguous request for sepolicy $(pf). Appears in both \
-      BOARD_SEPOLICY_REPLACE and BOARD_SEPOLICY_UNION), \
-  ) \
-  $(eval _paths := $(filter-out $(BOARD_SEPOLICY_IGNORE), \
-  $(wildcard $(addsuffix /$(pf), $(BOARD_SEPOLICY_DIRS))))) \
-  $(eval _occurrences := $(words $(_paths))) \
-  $(if $(filter 0,$(_occurrences)), \
-    $(error No sepolicy file found for $(pf) in $(BOARD_SEPOLICY_DIRS)), \
-  ) \
-  $(if $(filter 1, $(_occurrences)), \
-    $(eval sepolicy_replace_paths += $(_paths)), \
-    $(error Multiple occurrences of replace file $(pf) in $(_paths)) \
-  ) \
-  $(if $(filter 0, $(words $(wildcard $(addsuffix /$(pf), $(LOCAL_PATH))))), \
-    $(error Specified the sepolicy file $(pf) in BOARD_SEPOLICY_REPLACE, \
-      but none found in $(LOCAL_PATH)), \
-  ) \
-)
+ifdef BOARD_SEPOLICY_REPLACE
+$(error BOARD_SEPOLICY_REPLACE is no longer supported; please remove from your BoardConfig.mk or other .mk file.)
+endif
 
-# Quick edge case error detection for BOARD_SEPOLICY_UNION.
-# This ensures that a requested union file exists somewhere
-# in one of the listed BOARD_SEPOLICY_DIRS.
-$(foreach pf, $(BOARD_SEPOLICY_UNION), \
-  $(if $(filter 0, $(words $(wildcard $(addsuffix /$(pf), $(BOARD_SEPOLICY_DIRS))))), \
-    $(error No sepolicy file found for $(pf) in $(BOARD_SEPOLICY_DIRS)), \
-  ) \
-)
+ifdef BOARD_SEPOLICY_IGNORE
+$(error BOARD_SEPOLICY_IGNORE is no longer supported; please remove from your BoardConfig.mk or other .mk file.)
+endif
 
-# Builds paths for all requested policy files w.r.t
-# both BOARD_SEPOLICY_REPLACE and BOARD_SEPOLICY_UNION
-# product variables.
+ifdef BOARD_SEPOLICY_UNION
+$(warning BOARD_SEPOLICY_UNION is no longer required - all files found in BOARD_SEPOLICY_DIRS are implicitly unioned; please remove from your BoardConfig.mk or other .mk file.)
+endif
+
+# Builds paths for all policy files found in BOARD_SEPOLICY_DIRS.
 # $(1): the set of policy name paths to build
-build_policy = $(foreach type, $(1), \
-  $(filter-out $(BOARD_SEPOLICY_IGNORE), \
-    $(foreach expanded_type, $(notdir $(wildcard $(addsuffix /$(type), $(LOCAL_PATH)))), \
-      $(if $(filter $(expanded_type), $(BOARD_SEPOLICY_REPLACE)), \
-        $(wildcard $(addsuffix $(expanded_type), $(sort $(dir $(sepolicy_replace_paths))))), \
-        $(LOCAL_PATH)/$(expanded_type) \
-      ) \
-    ) \
-    $(foreach union_policy, $(wildcard $(addsuffix /$(type), $(BOARD_SEPOLICY_DIRS))), \
-      $(if $(filter $(notdir $(union_policy)), $(BOARD_SEPOLICY_UNION)), \
-        $(union_policy), \
-      ) \
-    ) \
-  ) \
-)
+build_policy = $(foreach type, $(1), $(wildcard $(addsuffix /$(type), $(LOCAL_PATH) $(BOARD_SEPOLICY_DIRS))))
 
 sepolicy_build_files := security_classes \
                         initial_sids \
                         access_vectors \
                         global_macros \
+                        neverallow_macros \
                         mls_macros \
                         mls \
                         policy_capabilities \
                         te_macros \
                         attributes \
+                        ioctl_macros \
                         *.te \
                         roles \
                         users \
@@ -113,7 +62,6 @@ $(sepolicy_policy.conf) : $(call build_policy, $(sepolicy_build_files))
 	@mkdir -p $(dir $@)
 	$(hide) m4 -D mls_num_sens=$(PRIVATE_MLS_SENS) -D mls_num_cats=$(PRIVATE_MLS_CATS) \
 		-D target_build_variant=$(TARGET_BUILD_VARIANT) \
-		-D force_permissive_to_unconfined=$(FORCE_PERMISSIVE_TO_UNCONFINED) \
 		-s $^ > $@
 	$(hide) sed '/dontaudit/d' $@ > $@.dontaudit
 
@@ -141,7 +89,6 @@ $(sepolicy_policy_recovery.conf) : $(call build_policy, $(sepolicy_build_files))
 	@mkdir -p $(dir $@)
 	$(hide) m4 -D mls_num_sens=$(PRIVATE_MLS_SENS) -D mls_num_cats=$(PRIVATE_MLS_CATS) \
 		-D target_build_variant=$(TARGET_BUILD_VARIANT) \
-		-D force_permissive_to_unconfined=$(FORCE_PERMISSIVE_TO_UNCONFINED) \
 		-D target_recovery=true \
 		-s $^ > $@
 
@@ -170,7 +117,6 @@ $(LOCAL_BUILT_MODULE): $(exp_sepolicy_build_files)
 	mkdir -p $(dir $@)
 	$(hide) m4 -D mls_num_sens=$(PRIVATE_MLS_SENS) -D mls_num_cats=$(PRIVATE_MLS_CATS) \
 		-D target_build_variant=user \
-		-D force_permissive_to_unconfined=true \
 		-s $^ > $@
 	$(hide) sed '/dontaudit/d' $@ > $@.dontaudit
 
@@ -200,6 +146,23 @@ built_fc := $(LOCAL_BUILT_MODULE)
 
 ##################################
 include $(CLEAR_VARS)
+
+LOCAL_MODULE := general_file_contexts
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := tests
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+$(LOCAL_BUILT_MODULE) : $(addprefix $(LOCAL_PATH)/, file_contexts) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/checkfc
+	@mkdir -p $(dir $@)
+	$(hide) m4 -s $< > $@
+	$(hide) $(HOST_OUT_EXECUTABLES)/checkfc $(PRIVATE_SEPOLICY) $@
+
+GENERAL_FILE_CONTEXTS := $(LOCAL_BUILT_MODULE)
+
+##################################
+include $(CLEAR_VARS)
 LOCAL_MODULE := seapp_contexts
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
@@ -219,6 +182,27 @@ $(LOCAL_BUILT_MODULE) : $(seapp_contexts.tmp) $(built_sepolicy) $(HOST_OUT_EXECU
 
 built_sc := $(LOCAL_BUILT_MODULE)
 seapp_contexts.tmp :=
+
+##################################
+include $(CLEAR_VARS)
+LOCAL_MODULE := general_seapp_contexts
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := tests
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+general_seapp_contexts.tmp := $(intermediates)/general_seapp_contexts.tmp
+$(general_seapp_contexts.tmp): $(addprefix $(LOCAL_PATH)/, seapp_contexts)
+	@mkdir -p $(dir $@)
+	$(hide) m4 -s $^ > $@
+
+$(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+$(LOCAL_BUILT_MODULE) : $(general_seapp_contexts.tmp) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/checkseapp
+	@mkdir -p $(dir $@)
+	$(HOST_OUT_EXECUTABLES)/checkseapp -p $(PRIVATE_SEPOLICY) -o $@ $<
+
+GENERAL_SEAPP_CONTEXTS := $(LOCAL_BUILT_MODULE)
+general_seapp_contexts.tmp :=
 
 ##################################
 include $(CLEAR_VARS)
@@ -243,6 +227,23 @@ built_pc := $(LOCAL_BUILT_MODULE)
 ##################################
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := general_property_contexts
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := tests
+
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+$(LOCAL_BUILT_MODULE) : $(addprefix $(LOCAL_PATH)/, property_contexts) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/checkfc
+	@mkdir -p $(dir $@)
+	$(hide) m4 -s $< > $@
+	$(hide) $(HOST_OUT_EXECUTABLES)/checkfc -p $(PRIVATE_SEPOLICY) $@
+
+GENERAL_PROPERTY_CONTEXTS := $(LOCAL_BUILT_MODULE)
+
+##################################
+include $(CLEAR_VARS)
+
 LOCAL_MODULE := service_contexts
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_TAGS := optional
@@ -261,17 +262,21 @@ $(LOCAL_BUILT_MODULE):  $(ALL_SVC_FILES) $(built_sepolicy) $(HOST_OUT_EXECUTABLE
 built_svc := $(LOCAL_BUILT_MODULE)
 
 ##################################
-
-##################################
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := selinux-network.sh
-LOCAL_SRC_FILES := $(LOCAL_MODULE)
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_PATH := $(TARGET_OUT_EXECUTABLES)
+LOCAL_MODULE := general_service_contexts
+LOCAL_MODULE_CLASS := ETC
+LOCAL_MODULE_TAGS := tests
 
-include $(BUILD_PREBUILT)
+include $(BUILD_SYSTEM)/base_rules.mk
+
+$(LOCAL_BUILT_MODULE): PRIVATE_SEPOLICY := $(built_sepolicy)
+$(LOCAL_BUILT_MODULE) : $(addprefix $(LOCAL_PATH)/, service_contexts) $(built_sepolicy) $(HOST_OUT_EXECUTABLES)/checkfc
+	@mkdir -p $(dir $@)
+	$(hide) m4 -s $< > $@
+	$(hide) $(HOST_OUT_EXECUTABLES)/checkfc -p $(PRIVATE_SEPOLICY) $@
+
+GENERAL_SERVICE_CONTEXTS := $(LOCAL_BUILT_MODULE)
 
 ##################################
 include $(CLEAR_VARS)
@@ -314,7 +319,6 @@ $(LOCAL_BUILT_MODULE) : $(built_sepolicy) $(built_pc) $(built_fc) $(built_sc) $(
 
 build_policy :=
 sepolicy_build_files :=
-sepolicy_replace_paths :=
 built_sepolicy :=
 built_sc :=
 built_fc :=

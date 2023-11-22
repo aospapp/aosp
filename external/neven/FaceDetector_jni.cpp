@@ -24,7 +24,7 @@
 #include <utils/String8.h>
 #include <utils/Log.h>
 
-#include <SkBitmap.h>
+#include <android/bitmap.h>
 
 #include "jni.h"
 #include "JNIHelp.h"
@@ -65,8 +65,6 @@ struct FaceDetectorOffsets
     jfieldID    maxFaces;
     jfieldID    bwbuffer;
 } gFaceDetectorOffsets;
-
-jfieldID nativeBitmapID;
 
 // ---------------------------------------------------------------------------
 
@@ -111,9 +109,6 @@ nativeClassInit
     gFaceOffsets.eulerx      = _env->GetFieldID(faceClass, "mPoseEulerX", "F");
     gFaceOffsets.eulery      = _env->GetFieldID(faceClass, "mPoseEulerY", "F");
     gFaceOffsets.eulerz      = _env->GetFieldID(faceClass, "mPoseEulerZ", "F");
-
-    jclass bitmapClass = _env->FindClass("android/graphics/Bitmap");
-    nativeBitmapID = _env->GetFieldID(bitmapClass, "mNativeBitmap", "J");
 }
 
 // ---------------------------------------------------------------------------
@@ -209,21 +204,18 @@ detect(JNIEnv *_env, jobject _this,
     jbyteArray bwbufferObject = (jbyteArray)
             _env->GetObjectField(_this, gFaceDetectorOffsets.bwbuffer);
 
-    // get to the native bitmap
-    SkBitmap const * nativeBitmap =
-            (SkBitmap const *)_env->GetLongField(bitmap, nativeBitmapID);
-
     // get to our BW temporary buffer
     jbyte* bwbuffer = _env->GetByteArrayElements(bwbufferObject, 0);
 
     // convert the image to B/W
     uint8_t* dst = (uint8_t*)bwbuffer;
 
-    // manage the life-time of locking our pixels
-    SkAutoLockPixels alp(*nativeBitmap);
+    uint16_t const* src;
+    AndroidBitmapInfo bitmapInfo;
+    AndroidBitmap_getInfo(_env, bitmap, &bitmapInfo);
+    AndroidBitmap_lockPixels(_env, bitmap, (void**) &src);
 
-    uint16_t const* src = (uint16_t const*)nativeBitmap->getPixels();
-    int wpr = nativeBitmap->rowBytes() / 2;
+    int wpr = bitmapInfo.stride / 2;
     for (u32 y=0 ; y<height; y++) {
         for (u32 x=0 ; x<width ; x++) {
             uint16_t rgb = src[x];
@@ -248,13 +240,14 @@ detect(JNIEnv *_env, jobject _this,
     }
 
     // release the arrays we're using
+    AndroidBitmap_unlockPixels(_env, bitmap);
     _env->ReleaseByteArrayElements(bwbufferObject, bwbuffer, 0);
     return numberOfFaces;
 }
 
 static void
 get_face(JNIEnv *_env, jobject _this,
-     jobject face, jint index)
+     jobject face, jint)
 {
     btk_HDCR hdcr = (btk_HDCR)(_env->GetLongField(_this, gFaceDetectorOffsets.dcr));
     btk_HFaceFinder hfd =
@@ -293,7 +286,7 @@ int register_android_media_FaceDetector(JNIEnv *_env)
 
 // ---------------------------------------------------------------------------
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved)
+jint JNI_OnLoad(JavaVM* vm, void*)
 {
     JNIEnv* env = NULL;
     jint result = -1;

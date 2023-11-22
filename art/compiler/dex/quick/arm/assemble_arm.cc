@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-#include "arm_lir.h"
 #include "codegen_arm.h"
+
+#include "arm_lir.h"
+#include "base/logging.h"
+#include "dex/compiler_ir.h"
 #include "dex/quick/mir_to_lir-inl.h"
 
 namespace art {
@@ -114,11 +117,11 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  "add", "!0C, !1C", 2, kFixupNone),
     ENCODING_MAP(kThumbAddPcRel,    0xa000,
                  kFmtBitBlt, 10, 8, kFmtBitBlt, 7, 0, kFmtUnused, -1, -1,
-                 kFmtUnused, -1, -1, IS_TERTIARY_OP | IS_BRANCH | NEEDS_FIXUP,
+                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0 | REG_USE_PC | NEEDS_FIXUP,
                  "add", "!0C, pc, #!1E", 2, kFixupLoad),
     ENCODING_MAP(kThumbAddSpRel,    0xa800,
                  kFmtBitBlt, 10, 8, kFmtSkip, -1, -1, kFmtBitBlt, 7, 0,
-                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF_SP | REG_USE_SP,
+                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0 | REG_USE_SP,
                  "add", "!0C, sp, #!2E", 2, kFixupNone),
     ENCODING_MAP(kThumbAddSpI7,      0xb000,
                  kFmtBitBlt, 6, 0, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
@@ -179,7 +182,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  "blx", "!0C", 2, kFixupNone),
     ENCODING_MAP(kThumbBx,            0x4700,
                  kFmtBitBlt, 6, 3, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
-                 kFmtUnused, -1, -1, IS_UNARY_OP | IS_BRANCH,
+                 kFmtUnused, -1, -1, IS_UNARY_OP | REG_USE0 | IS_BRANCH,
                  "bx", "!0C", 2, kFixupNone),
     ENCODING_MAP(kThumbCmnRR,        0x42c0,
                  kFmtBitBlt, 2, 0, kFmtBitBlt, 5, 3, kFmtUnused, -1, -1,
@@ -427,7 +430,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  REG_DEF_LR | NEEDS_FIXUP, "vldr", "!0s, [!1C, #!2E]", 4, kFixupVLoad),
     ENCODING_MAP(kThumb2Vldrd,       0xed900b00,
                  kFmtDfp, 22, 12, kFmtBitBlt, 19, 16, kFmtBitBlt, 7, 0,
-                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0_USE1 | IS_LOAD_OFF |
+                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0_USE1 | IS_LOAD_OFF4 |
                  REG_DEF_LR | NEEDS_FIXUP, "vldr", "!0S, [!1C, #!2E]", 4, kFixupVLoad),
     ENCODING_MAP(kThumb2Vmuls,        0xee200a00,
                  kFmtSfp, 22, 12, kFmtSfp, 7, 16, kFmtSfp, 5, 0,
@@ -560,12 +563,12 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtUnused, -1, -1, IS_BINARY_OP | REG_DEF0_USE1 | IS_MOVE,
                  "vmov.f64 ", " !0S, !1S", 4, kFixupNone),
     ENCODING_MAP(kThumb2Ldmia,         0xe8900000,
-                 kFmtBitBlt, 19, 16, kFmtBitBlt, 15, 0, kFmtUnused, -1, -1,
+                 kFmtBitBlt, 19, 16, kFmtLdmRegList, 15, 0, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_BINARY_OP | REG_DEF0_USE0 | REG_DEF_LIST1 | IS_LOAD,
                  "ldmia", "!0C!!, <!1R>", 4, kFixupNone),
     ENCODING_MAP(kThumb2Stmia,         0xe8800000,
-                 kFmtBitBlt, 19, 16, kFmtBitBlt, 15, 0, kFmtUnused, -1, -1,
+                 kFmtBitBlt, 19, 16, kFmtStmRegList, 15, 0, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_BINARY_OP | REG_DEF0_USE0 | REG_USE_LIST1 | IS_STORE,
                  "stmia", "!0C!!, <!1R>", 4, kFixupNone),
@@ -671,12 +674,12 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtBitBlt, 15, 0, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_UNARY_OP | REG_DEF_SP | REG_USE_SP | REG_DEF_LIST0
-                 | IS_LOAD | NEEDS_FIXUP, "pop", "<!0R>", 4, kFixupPushPop),
+                 | IS_LOAD, "pop", "<!0R>", 4, kFixupNone),
     ENCODING_MAP(kThumb2Push,          0xe92d0000,
                  kFmtBitBlt, 15, 0, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_UNARY_OP | REG_DEF_SP | REG_USE_SP | REG_USE_LIST0
-                 | IS_STORE | NEEDS_FIXUP, "push", "<!0R>", 4, kFixupPushPop),
+                 | IS_STORE, "push", "<!0R>", 4, kFixupNone),
     ENCODING_MAP(kThumb2CmpRI8M, 0xf1b00f00,
                  kFmtBitBlt, 19, 16, kFmtModImm, -1, -1, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
@@ -690,7 +693,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
     ENCODING_MAP(kThumb2AdcRRR,  0xeb500000, /* setflags encoding */
                  kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtBitBlt, 3, 0,
                  kFmtShift, -1, -1,
-                 IS_QUAD_OP | REG_DEF0_USE12 | SETS_CCODES,
+                 IS_QUAD_OP | REG_DEF0_USE12 | SETS_CCODES | USES_CCODES,
                  "adcs", "!0C, !1C, !2C!3H", 4, kFixupNone),
     ENCODING_MAP(kThumb2AndRRR,  0xea000000,
                  kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtBitBlt, 3, 0,
@@ -788,6 +791,10 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtModImm, -1, -1,
                  kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0_USE1,
                  "orr", "!0C, !1C, #!2m", 4, kFixupNone),
+    ENCODING_MAP(kThumb2OrnRRI8M,  0xf0600000,
+                 kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtModImm, -1, -1,
+                 kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0_USE1,
+                 "orn", "!0C, !1C, #!2m", 4, kFixupNone),
     ENCODING_MAP(kThumb2EorRRI8M,  0xf0800000,
                  kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtModImm, -1, -1,
                  kFmtUnused, -1, -1, IS_TERTIARY_OP | REG_DEF0_USE1,
@@ -828,20 +835,20 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  "it:!1b", "!0c", 2, kFixupNone),
     ENCODING_MAP(kThumb2Fmstat,  0xeef1fa10,
                  kFmtUnused, -1, -1, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
-                 kFmtUnused, -1, -1, NO_OPERAND | SETS_CCODES,
+                 kFmtUnused, -1, -1, NO_OPERAND | SETS_CCODES | USES_CCODES,
                  "fmstat", "", 4, kFixupNone),
     ENCODING_MAP(kThumb2Vcmpd,        0xeeb40b40,
                  kFmtDfp, 22, 12, kFmtDfp, 5, 0, kFmtUnused, -1, -1,
-                 kFmtUnused, -1, -1, IS_BINARY_OP | REG_USE01,
+                 kFmtUnused, -1, -1, IS_BINARY_OP | REG_USE01 | SETS_CCODES,
                  "vcmp.f64", "!0S, !1S", 4, kFixupNone),
     ENCODING_MAP(kThumb2Vcmps,        0xeeb40a40,
                  kFmtSfp, 22, 12, kFmtSfp, 5, 0, kFmtUnused, -1, -1,
-                 kFmtUnused, -1, -1, IS_BINARY_OP | REG_USE01,
+                 kFmtUnused, -1, -1, IS_BINARY_OP | REG_USE01 | SETS_CCODES,
                  "vcmp.f32", "!0s, !1s", 4, kFixupNone),
     ENCODING_MAP(kThumb2LdrPcRel12,       0xf8df0000,
                  kFmtBitBlt, 15, 12, kFmtBitBlt, 11, 0, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
-                 IS_TERTIARY_OP | REG_DEF0 | REG_USE_PC | IS_LOAD_OFF | NEEDS_FIXUP,
+                 IS_BINARY_OP | REG_DEF0 | REG_USE_PC | IS_LOAD_OFF | NEEDS_FIXUP,
                  "ldr", "!0C, [r15pc, #!1d]", 4, kFixupLoad),
     ENCODING_MAP(kThumb2BCond,        0xf0008000,
                  kFmtBrOffset, -1, -1, kFmtBitBlt, 25, 22, kFmtUnused, -1, -1,
@@ -892,6 +899,10 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtBitBlt, 3, 0,
                  kFmtBitBlt, 15, 12, IS_QUAD_OP | REG_DEF0_USE123,
                  "mla", "!0C, !1C, !2C, !3C", 4, kFixupNone),
+    ENCODING_MAP(kThumb2Mls,  0xfb000010,
+                 kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16, kFmtBitBlt, 3, 0,
+                 kFmtBitBlt, 15, 12, IS_QUAD_OP | REG_DEF0_USE123,
+                 "mls", "!0C, !1C, !2C, !3C", 4, kFixupNone),
     ENCODING_MAP(kThumb2Umull,  0xfba00000,
                  kFmtBitBlt, 15, 12, kFmtBitBlt, 11, 8, kFmtBitBlt, 19, 16,
                  kFmtBitBlt, 3, 0,
@@ -935,7 +946,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  IS_BINARY_OP | REG_DEF0 | REG_USE_PC | IS_LOAD_OFF,
                  "ldr", "!0C, [r15pc, -#!1d]", 4, kFixupNone),
     ENCODING_MAP(kThumb2Stm,          0xe9000000,
-                 kFmtBitBlt, 19, 16, kFmtBitBlt, 12, 0, kFmtUnused, -1, -1,
+                 kFmtBitBlt, 19, 16, kFmtStmRegList, 15, 0, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_BINARY_OP | REG_USE0 | REG_USE_LIST1 | IS_STORE,
                  "stm", "!0C, <!1R>", 4, kFixupNone),
@@ -968,6 +979,10 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtOff24, -1, -1, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1, NO_OPERAND | IS_BRANCH,
                  "b", "!0t", 4, kFixupT2Branch),
+    ENCODING_MAP(kThumb2Bl,           0xf000d000,
+                 kFmtOff24, -1, -1, kFmtUnused, -1, -1, kFmtUnused, -1, -1,
+                 kFmtUnused, -1, -1, IS_UNARY_OP | IS_BRANCH | REG_DEF_LR | NEEDS_FIXUP,
+                 "bl", "!0T", 4, kFixupLabel),
     ENCODING_MAP(kThumb2MovImm16H,       0xf2c00000,
                  kFmtBitBlt, 11, 8, kFmtImm16, -1, -1, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1, IS_BINARY_OP | REG_DEF0 | REG_USE0,
@@ -992,7 +1007,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
                  kFmtUnused, -1, -1, IS_BINARY_OP | REG_DEF0 | REG_USE0 | NEEDS_FIXUP,
                  "movt", "!0C, #!1M", 4, kFixupMovImmHST),
     ENCODING_MAP(kThumb2LdmiaWB,         0xe8b00000,
-                 kFmtBitBlt, 19, 16, kFmtBitBlt, 15, 0, kFmtUnused, -1, -1,
+                 kFmtBitBlt, 19, 16, kFmtLdmRegList, 15, 0, kFmtUnused, -1, -1,
                  kFmtUnused, -1, -1,
                  IS_BINARY_OP | REG_DEF0_USE0 | REG_DEF_LIST1 | IS_LOAD,
                  "ldmia", "!0C!!, <!1R>", 4, kFixupNone),
@@ -1040,7 +1055,7 @@ const ArmEncodingMap ArmMir2Lir::EncodingMap[kArmLast] = {
 // new_lir replaces orig_lir in the pcrel_fixup list.
 void ArmMir2Lir::ReplaceFixup(LIR* prev_lir, LIR* orig_lir, LIR* new_lir) {
   new_lir->u.a.pcrel_next = orig_lir->u.a.pcrel_next;
-  if (UNLIKELY(prev_lir == NULL)) {
+  if (UNLIKELY(prev_lir == nullptr)) {
     first_fixup_ = new_lir;
   } else {
     prev_lir->u.a.pcrel_next = new_lir;
@@ -1051,7 +1066,7 @@ void ArmMir2Lir::ReplaceFixup(LIR* prev_lir, LIR* orig_lir, LIR* new_lir) {
 // new_lir is inserted before orig_lir in the pcrel_fixup list.
 void ArmMir2Lir::InsertFixupBefore(LIR* prev_lir, LIR* orig_lir, LIR* new_lir) {
   new_lir->u.a.pcrel_next = orig_lir;
-  if (UNLIKELY(prev_lir == NULL)) {
+  if (UNLIKELY(prev_lir == nullptr)) {
     first_fixup_ = new_lir;
   } else {
     DCHECK(prev_lir->u.a.pcrel_next == orig_lir);
@@ -1068,7 +1083,9 @@ void ArmMir2Lir::InsertFixupBefore(LIR* prev_lir, LIR* orig_lir, LIR* new_lir) {
 #define PADDING_MOV_R5_R5               0x1C2D
 
 uint8_t* ArmMir2Lir::EncodeLIRs(uint8_t* write_pos, LIR* lir) {
-  for (; lir != NULL; lir = NEXT_LIR(lir)) {
+  uint8_t* const write_buffer = write_pos;
+  for (; lir != nullptr; lir = NEXT_LIR(lir)) {
+    lir->offset = (write_pos - write_buffer);
     if (!lir->flags.is_nop) {
       int opcode = lir->opcode;
       if (IsPseudoLirOp(opcode)) {
@@ -1094,6 +1111,19 @@ uint8_t* ArmMir2Lir::EncodeLIRs(uint8_t* write_pos, LIR* lir) {
             bits |= value;
           } else {
             switch (encoder->field_loc[i].kind) {
+              case kFmtLdmRegList:
+                value = (operand << encoder->field_loc[i].start) &
+                    ((1 << (encoder->field_loc[i].end + 1)) - 1);
+                bits |= value;
+                DCHECK_EQ((bits & (1 << 13)), 0u);
+                break;
+              case kFmtStmRegList:
+                value = (operand << encoder->field_loc[i].start) &
+                    ((1 << (encoder->field_loc[i].end + 1)) - 1);
+                bits |= value;
+                DCHECK_EQ((bits & (1 << 13)), 0u);
+                DCHECK_EQ((bits & (1 << 15)), 0u);
+                break;
               case kFmtSkip:
                 break;  // Nothing to do, but continue to next.
               case kFmtUnused:
@@ -1228,8 +1258,8 @@ void ArmMir2Lir::AssembleLIR() {
     generation ^= 1;
     // Note: nodes requring possible fixup linked in ascending order.
     lir = first_fixup_;
-    prev_lir = NULL;
-    while (lir != NULL) {
+    prev_lir = nullptr;
+    while (lir != nullptr) {
       /*
        * NOTE: the lir being considered here will be encoded following the switch (so long as
        * we're not in a retry situation).  However, any new non-pc_rel instructions inserted
@@ -1248,7 +1278,7 @@ void ArmMir2Lir::AssembleLIR() {
           if (lir->operands[1] != rs_r15pc.GetReg()) {
             break;
           }
-          // NOTE: intentional fallthrough.
+          FALLTHROUGH_INTENDED;
         case kFixupLoad: {
           /*
            * PC-relative loads are mostly used to load immediates
@@ -1379,31 +1409,6 @@ void ArmMir2Lir::AssembleLIR() {
           }
           break;
         }
-        case kFixupPushPop: {
-          if (__builtin_popcount(lir->operands[0]) == 1) {
-            /*
-             * The standard push/pop multiple instruction
-             * requires at least two registers in the list.
-             * If we've got just one, switch to the single-reg
-             * encoding.
-             */
-            lir->opcode = (lir->opcode == kThumb2Push) ? kThumb2Push1 :
-                kThumb2Pop1;
-            int reg = 0;
-            while (lir->operands[0]) {
-              if (lir->operands[0] & 0x1) {
-                break;
-              } else {
-                reg++;
-                lir->operands[0] >>= 1;
-              }
-            }
-            lir->operands[0] = reg;
-            // This won't change again, don't bother unlinking, just reset fixup kind
-            lir->flags.fixup = kFixupNone;
-          }
-          break;
-        }
         case kFixupCondBranch: {
           LIR *target_lir = lir->target;
           int32_t delta = 0;
@@ -1499,9 +1504,9 @@ void ArmMir2Lir::AssembleLIR() {
           break;
         }
         case kFixupAdr: {
-          EmbeddedData *tab_rec = reinterpret_cast<EmbeddedData*>(UnwrapPointer(lir->operands[2]));
+          const EmbeddedData* tab_rec = UnwrapPointer<EmbeddedData>(lir->operands[2]);
           LIR* target = lir->target;
-          int32_t target_disp = (tab_rec != NULL) ?  tab_rec->offset + offset_adjustment
+          int32_t target_disp = (tab_rec != nullptr) ?  tab_rec->offset + offset_adjustment
               : target->offset + ((target->flags.generation == lir->flags.generation) ? 0 :
               offset_adjustment);
           int32_t disp = target_disp - ((lir->offset + 4) & ~3);
@@ -1552,8 +1557,8 @@ void ArmMir2Lir::AssembleLIR() {
         }
         case kFixupMovImmLST: {
           // operands[1] should hold disp, [2] has add, [3] has tab_rec
-          LIR *addPCInst = reinterpret_cast<LIR*>(UnwrapPointer(lir->operands[2]));
-          EmbeddedData *tab_rec = reinterpret_cast<EmbeddedData*>(UnwrapPointer(lir->operands[3]));
+          const LIR* addPCInst = UnwrapPointer<LIR>(lir->operands[2]);
+          const EmbeddedData* tab_rec = UnwrapPointer<EmbeddedData>(lir->operands[3]);
           // If tab_rec is null, this is a literal load. Use target
           LIR* target = lir->target;
           int32_t target_disp = tab_rec ? tab_rec->offset : target->offset;
@@ -1562,8 +1567,8 @@ void ArmMir2Lir::AssembleLIR() {
         }
         case kFixupMovImmHST: {
           // operands[1] should hold disp, [2] has add, [3] has tab_rec
-          LIR *addPCInst = reinterpret_cast<LIR*>(UnwrapPointer(lir->operands[2]));
-          EmbeddedData *tab_rec = reinterpret_cast<EmbeddedData*>(UnwrapPointer(lir->operands[3]));
+          const LIR* addPCInst = UnwrapPointer<LIR>(lir->operands[2]);
+          const EmbeddedData* tab_rec = UnwrapPointer<EmbeddedData>(lir->operands[3]);
           // If tab_rec is null, this is a literal load. Use target
           LIR* target = lir->target;
           int32_t target_disp = tab_rec ? tab_rec->offset : target->offset;
@@ -1637,7 +1642,7 @@ size_t ArmMir2Lir::GetInsnSize(LIR* lir) {
 uint32_t ArmMir2Lir::LinkFixupInsns(LIR* head_lir, LIR* tail_lir, uint32_t offset) {
   LIR* end_lir = tail_lir->next;
 
-  LIR* last_fixup = NULL;
+  LIR* last_fixup = nullptr;
   for (LIR* lir = head_lir; lir != end_lir; lir = NEXT_LIR(lir)) {
     if (!lir->flags.is_nop) {
       if (lir->flags.fixup != kFixupNone) {
@@ -1653,8 +1658,8 @@ uint32_t ArmMir2Lir::LinkFixupInsns(LIR* head_lir, LIR* tail_lir, uint32_t offse
         }
         // Link into the fixup chain.
         lir->flags.use_def_invalid = true;
-        lir->u.a.pcrel_next = NULL;
-        if (first_fixup_ == NULL) {
+        lir->u.a.pcrel_next = nullptr;
+        if (first_fixup_ == nullptr) {
           first_fixup_ = lir;
         } else {
           last_fixup->u.a.pcrel_next = lir;

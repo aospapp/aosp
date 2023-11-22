@@ -15,20 +15,12 @@
 -->
 <resources>
 
-    <drawable name="settings_item_bg_normal">#ff333333</drawable>
-    <drawable name="settings_item_bg_pressed">#ff777777</drawable>
-    <drawable name="settings_item_bg_disabled">#ff555555</drawable>
-
     <color name="normal">#FFFFFFFF</color>
     <color name="background">#FF707070</color>
     <color name="quiet">#FF909090</color>
     <color name="legacy_app_item_background">#1a000000</color>
     <color name="settings_background">#FF1F292E</color>
 
-    <drawable name="network_item_focus">#FF5CC0FF</drawable>
-    <drawable name="network_item">#FF707070</drawable>
-
-    <color name="storage_used">#FF0000</color>
     <color name="storage_avail">#333333</color>
     <color name="storage_apps_usage">#77831A</color>
     <color name="storage_downloads">#476093</color>
@@ -39,7 +31,6 @@
 
     <color name="icon_background">#FF4A4F51</color>
 
-    <color name="list_item_selected_summary_text_color">#4DF1F1F1</color>
     <color name="add_accessory_hint_text_color">#FFE0E0E0</color>
 
     <color name="captioning_color_FFFFFF">#FFFFFFFF</color>
@@ -111,6 +102,7 @@
     <color name="overlay_blended_light_secondary">#ff878787</color>
     <color name="lb_dialog_activity_background">#77000000</color>
     <color name="lb_dialog_list_item_unselected_text_color">#FFF1F1F1</color>
+    <color name="lb_dialog_list_item_divider_color">#18FFFFFF</color>
     <color name="lb_content_title_text_color">#FFF1F1F1</color>
     <color name="lb_content_breadcrumb_text_color">#88F1F1F1</color>
     <color name="lb_content_description_text_color">#88F1F1F1</color>
@@ -142,8 +134,6 @@
     <color name="content_fragment_default_icon_color">#33F1F1F1</color>
     <color name="content_title_text_color">#FFF1F1F1</color>
     <color name="dialog_activity_background">#77000000</color>
-    <color name="list_item_selected_description_text_color">#FFF1F1F1</color>
-    <color name="list_item_selected_title_text_color">#FFF1F1F1</color>
     <color name="list_item_unselected_text_color">#FFF1F1F1</color>
     <color name="selector_color">#0DFFFFFF</color>
     <color name="toast_notification_background">#881F1F1F</color>
@@ -162,4 +152,6 @@
     <item name="picker_item_invisible_column_item_alpha" format="float" type="dimen">0.00</item>
     <item name="picker_item_separator_alpha" format="float" type="dimen">0.50</item>
     <item name="picker_item_visible_column_item_alpha" format="float" type="dimen">0.50</item>
+
+    <color name="permissions_color_overlay">#FFEEEEEE</color>
 </resources>

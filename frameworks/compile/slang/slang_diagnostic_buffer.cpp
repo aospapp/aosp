@@ -29,12 +29,6 @@ DiagnosticBuffer::DiagnosticBuffer()
   : mSOS(new llvm::raw_string_ostream(mDiags)) {
 }
 
-DiagnosticBuffer::DiagnosticBuffer(DiagnosticBuffer const &src)
-  : clang::DiagnosticConsumer(src),
-    mDiags(src.mDiags),
-    mSOS(new llvm::raw_string_ostream(mDiags)) {
-}
-
 DiagnosticBuffer::~DiagnosticBuffer() {
 }
 
@@ -43,43 +37,45 @@ void DiagnosticBuffer::HandleDiagnostic(
     clang::Diagnostic const &Info) {
   clang::SourceLocation const &SrcLoc = Info.getLocation();
 
-  // 100 is enough for storing general diagnosis message
-  llvm::SmallString<100> Buf;
+  std::string Message;
+  llvm::raw_string_ostream stream(Message);
 
   if (SrcLoc.isValid()) {
-    SrcLoc.print(*mSOS, Info.getSourceManager());
-    (*mSOS) << ": ";
+    SrcLoc.print(stream, Info.getSourceManager());
+    stream << ": ";
   }
 
   switch (DiagLevel) {
     case clang::DiagnosticsEngine::Note: {
-      (*mSOS) << "note: ";
+      stream << "note: ";
       break;
     }
     case clang::DiagnosticsEngine::Warning: {
-      (*mSOS) << "warning: ";
+      stream << "warning: ";
       break;
     }
     case clang::DiagnosticsEngine::Error: {
-      (*mSOS) << "error: ";
+      stream << "error: ";
       break;
     }
     case clang::DiagnosticsEngine::Fatal: {
-      (*mSOS) << "fatal: ";
+      stream << "fatal: ";
       break;
     }
     default: {
       slangAssert(0 && "Diagnostic not handled during diagnostic buffering!");
     }
   }
-
+  // 100 is enough for storing general diagnosis Message
+  llvm::SmallString<100> Buf;
   Info.FormatDiagnostic(Buf);
-  (*mSOS) << Buf.str() << '\n';
-}
+  stream << Buf.str() << '\n';
+  stream.flush();
 
-clang::DiagnosticConsumer *
-DiagnosticBuffer::clone(clang::DiagnosticsEngine &Diags) const {
-  return new DiagnosticBuffer(*this);
+  if (mIncludedMessages.find(Message) == mIncludedMessages.end()) {
+    mIncludedMessages.insert(Message);
+    (*mSOS) << Message;
+  }
 }
 
 }  // namespace slang

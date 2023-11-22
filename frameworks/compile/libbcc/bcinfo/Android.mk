@@ -31,6 +31,7 @@ libbcinfo_SRC_FILES := \
 
 libbcinfo_C_INCLUDES := \
   $(LOCAL_PATH)/../include \
+  $(RS_ROOT_PATH) \
   $(LOCAL_PATH)/../../slang
 
 libbcinfo_STATIC_LIBRARIES := \
@@ -40,14 +41,6 @@ libbcinfo_STATIC_LIBRARIES := \
   libLLVMBitWriter_3_2
 
 LLVM_ROOT_PATH := external/llvm
-
-ifeq ($(TARGET_ARCH),arm64)
-$(info TODOArm64: $(LOCAL_PATH)/Android.mk Enable build of libbcinfo device shared library)
-endif
-
-ifeq ($(TARGET_ARCH),mips64)
-$(info TODOMips64: $(LOCAL_PATH)/Android.mk Enable build of libbcinfo device shared library)
-endif
 
 ifneq (true,$(DISABLE_LLVM_DEVICE_BUILDS))
 include $(CLEAR_VARS)

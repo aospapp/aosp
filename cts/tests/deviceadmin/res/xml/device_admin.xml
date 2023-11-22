@@ -22,6 +22,7 @@
         <force-lock />
         <wipe-data />
         <expire-password />
+        <disable-keyguard-features />
     </uses-policies>
 </device-admin>
 

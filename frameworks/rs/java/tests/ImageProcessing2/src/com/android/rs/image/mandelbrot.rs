@@ -53,3 +53,36 @@ uchar4 RS_KERNEL root(uint32_t x, uint32_t y) {
                       (0xff * ((iter - (mi3 * 2)) / mi3)), 0xff};
   }
 }
+
+uchar4 RS_KERNEL rootD(uint32_t x, uint32_t y) {
+  double2 p;
+  p.x = lowerBoundX + ((float)x / gDimX) * scaleFactor;
+  p.y = lowerBoundY + ((float)y / gDimY) * scaleFactor;
+
+  double2 t = 0;
+  double2 t2 = t * t;
+  int iter = 0;
+  while((t2.x + t2.y < 4.f) && (iter < gMaxIteration)) {
+    double xtemp = t2.x - t2.y + p.x;
+    t.y = 2 * t.x * t.y + p.y;
+    t.x = xtemp;
+    iter++;
+    t2 = t * t;
+  }
+
+  if(iter >= gMaxIteration) {
+    // write a non-transparent black pixel
+    return (uchar4){0, 0, 0, 0xff};
+  } else {
+    double mi3 = gMaxIteration / 3.f;
+    if (iter <= (gMaxIteration / 3))
+      return (uchar4){0xff * (iter / mi3), 0, 0, 0xff};
+    else if (iter <= (((gMaxIteration / 3) * 2)))
+      return (uchar4){0xff - (0xff * ((iter - mi3) / mi3)),
+                      (0xff * ((iter - mi3) / mi3)), 0, 0xff};
+    else
+      return (uchar4){0, 0xff - (0xff * ((iter - (mi3 * 2)) / mi3)),
+                      (0xff * ((iter - (mi3 * 2)) / mi3)), 0xff};
+  }
+}
+

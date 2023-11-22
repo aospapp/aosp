@@ -35,7 +35,7 @@
     <string name="pause_prompt_no" msgid="6686238803236884877">"Жоқ"</string>
     <string name="wild_prompt_str" msgid="5543521676355533577">"Ерекше таңбаны келесі таңбамен алмастыру"</string>
     <string name="caller_manage_header" msgid="3231519674734638786">"<xliff:g id="CONF_CALL_TIME">%s</xliff:g> мәжіліс қоңырауы"</string>
-    <string name="voicemail_settings_number_label" msgid="8524164258691887790">"Дауыс хабарының нөмірі"</string>
+    <string name="voicemail_settings_number_label" msgid="8524164258691887790">"Дауыстық пошта нөмірі"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"Теруде"</string>
     <string name="card_title_redialing" msgid="8253487008234167266">"Қайта терілуде"</string>
     <string name="card_title_conf_call" msgid="1162980346189744501">"Мәжіліс қоңырауы"</string>
@@ -49,6 +49,7 @@
     <string name="card_title_video_call" msgid="5898636679563320218">"Бейне қоңырау"</string>
     <string name="card_title_video_call_requesting" msgid="4587504939739340937">"Бейне сұралуда"</string>
     <string name="card_title_video_call_error" msgid="9000555878389539225">"Бейне қоңырауға қосылу мүмкін емес"</string>
+    <string name="card_title_video_call_rejected" msgid="462358296694719787">"Бейне сұрауы қабылданбады"</string>
     <string name="card_title_callback_number" msgid="7307938207564217293">"Кері қоңырау шалу нөміріңіз\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="card_title_callback_number_emergency" msgid="8634765419223426754">"Жедел кері қоңырау шалу нөміріңіз\n <xliff:g id="DARK_NUMBER">%1$s</xliff:g>"</string>
     <string name="notification_dialing" msgid="2107666444937350731">"Теру"</string>
@@ -57,8 +58,10 @@
     <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> қабылданбаған қоңыраулар"</string>
     <string name="notification_missedCallTicker" msgid="504686252427747209">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> қоңырауы қабылданбаған"</string>
     <string name="notification_ongoing_call" msgid="7068688957273482989">"Ағымдағы қоңырау"</string>
+    <string name="notification_ongoing_call_wifi" msgid="8521553590606569379">"Ағымдық Wi-Fi қоңырауы"</string>
     <string name="notification_on_hold" msgid="3480694969511790465">"Күтуде"</string>
     <string name="notification_incoming_call" msgid="2820429205043529642">"Келген қоңырау"</string>
+    <string name="notification_incoming_call_wifi" msgid="9210706506594546627">"Кіріс Wi-Fi қоңырауы"</string>
     <string name="notification_incoming_video_call" msgid="7356836933934464805">"Кіріс бейне қоңырау"</string>
     <string name="notification_requesting_video_call" msgid="1405576812892369451">"Кіріс бейне сұрау"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"Жаңа дауыс хабары"</string>
@@ -73,7 +76,7 @@
     <string name="notification_action_answer_voice" msgid="1770796916369437773">"Дауыс"</string>
     <string name="notification_action_accept" msgid="2898609801209468429">"Қабылдау"</string>
     <string name="notification_action_dismiss" msgid="2679969397930852858">"Бас тарту"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Кері қоңырау шалу"</string>
+    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"Қоңырау шалу"</string>
     <string name="notification_missedCall_message" msgid="3049928912736917988">"Хабар"</string>
     <string name="incall_error_power_off" msgid="6550191216405193368">"Қоңырау шалу үшін алдымен Ұшақ режимін өшіріңіз."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Желіде тіркелмеген."</string>
@@ -95,13 +98,9 @@
     <string name="dial_emergency_error" msgid="1509085166367420355">"Қоңырау шалу мүмкін емес. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> жедел нөмір емес."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Қоңырау шалу мүмкін емес. Жедел нөмірді теріңіз."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Теру үшін пернетақтаны қолдану"</string>
-    <string name="overflowHoldMenuItemText" msgid="7382457697092158039">"Қоңырауды ұстау"</string>
-    <string name="overflowResumeMenuItemText" msgid="8826360006222366843">"Қоңырауды жалғастыру"</string>
-    <string name="overflowAddMenuItemText" msgid="5605615101930811453">"Қоңырау қосу"</string>
-    <string name="overflowMergeMenuItemText" msgid="6305762210377655389">"Қоңырауларды біріктіру"</string>
-    <string name="overflowSwapMenuItemText" msgid="6603717809137071603">"Қоңырауларды ауыстыру"</string>
-    <string name="onscreenHoldText" msgid="2285258239691145872">"Күту"</string>
-    <string name="onscreenEndCallText" msgid="4403855834875398585">"Аяқтау"</string>
+    <string name="onscreenHoldText_unselected" msgid="7092499303393171276">"Қоңырауды ұстап тұру"</string>
+    <string name="onscreenHoldText_selected" msgid="7127901498507384249">"Қоңырауды жалғастыру"</string>
+    <string name="onscreenEndCallText" msgid="9039601192595655846">"Қоңырауды аяқтау"</string>
     <string name="onscreenShowDialpadText" msgid="8561805492659639893">"Теру тақтасы"</string>
     <string name="onscreenMuteText" msgid="5011369181754261374">"Үнсіз"</string>
     <string name="onscreenAddCallText" msgid="5140385634712287403">"Қоңырау қосу"</string>
@@ -115,6 +114,11 @@
     <string name="onscreenSwitchCameraText" msgid="5324543493442787798">"Камераны ауыстыру"</string>
     <string name="onscreenPauseVideoText" msgid="5663965924921429203">"Бейнені кідірту"</string>
     <string name="onscreenOverflowText" msgid="2702376562345723132">"Басқа опциялар"</string>
+    <string name="player_started" msgid="6046262510243983589">"Ойнатқыш іске қосылды"</string>
+    <string name="player_stopped" msgid="8856926759436364963">"Ойнатқыш тоқтатылды"</string>
+    <string name="camera_not_ready" msgid="4955261496193316240">"Камера дайын емес"</string>
+    <string name="camera_ready" msgid="1903335385405807324">"Камера дайын"</string>
+    <string name="unknown_call_session_event" msgid="2431061946920253582">"Белгісіз қоңырау сеансы оқиғасы"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"Қызмет"</string>
     <string name="voicemail_settings" msgid="72448049107749316">"Орнату"</string>
     <string name="voicemail_number_not_set" msgid="6724904736891087856">"&lt;Реттелген жоқt&gt;"</string>
@@ -134,18 +138,35 @@
     <string name="description_target_answer_audio_call" msgid="8396296303320994450">"Аудио қоңырауға жауап беру"</string>
     <string name="description_target_accept_upgrade_to_video_request" msgid="2894072808324604062">"Бейне сұрауды қабылдау"</string>
     <string name="description_target_decline_upgrade_to_video_request" msgid="4093888612888538776">"Бейне сұрауды қабылдамау"</string>
+    <string name="description_target_accept_upgrade_to_video_transmit_request" msgid="5311037889642077468">"Бейне тасымалдау сұрауын қабылдау"</string>
+    <string name="description_target_decline_upgrade_to_video_transmit_request" msgid="3636108065510415975">"Бейне тасымалдау сұрауын қабылдамау"</string>
+    <string name="description_target_accept_upgrade_to_video_receive_request" msgid="8668058323593087912">"Бейне алу сұрауын қабылдау"</string>
+    <string name="description_target_decline_upgrade_to_video_receive_request" msgid="2355776509656298367">"Бейне алу сұрауын қабылдамау"</string>
     <string name="description_direction_up" msgid="4441409581444516690">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> үшін жоғары сырғыту."</string>
     <string name="description_direction_left" msgid="7129873384376533287">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> үшін сол жаққа сырғыту."</string>
     <string name="description_direction_right" msgid="2122584234531957308">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> үшін оң жаққа сырғыту."</string>
     <string name="description_direction_down" msgid="4317245625565166742">"<xliff:g id="TARGET_DESCRIPTION">%s</xliff:g> үшін төмен сырғыту."</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Тербеліс"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Тербеліс"</string>
+    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Діріл"</string>
+    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Діріл"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Дыбыс"</string>
     <string name="default_notification_description" msgid="78174796906240970">"Бастапқы бойынша дыбыс (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="ringtone_title" msgid="6374978286202084684">"Телефон рингтоны"</string>
     <string name="vibrate_on_ring_title" msgid="9197564612065258960">"Шырылдағанда тербеу"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"Теру тақтасын автотолтыру"</string>
-    <string name="preference_category_ringtone" msgid="5197960752529332721">"Рингтон&amp; Тербеліс"</string>
+    <string name="preference_category_ringtone" msgid="5197960752529332721">"Рингтон&amp; Діріл"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Мәжіліс қоңырауын басқару"</string>
     <string name="emergency_call_dialog_number_for_display" msgid="8373041754188879871">"Төтенше жағдай нөмірі"</string>
+    <plurals name="duration_seconds" formatted="false" msgid="59971978269163609">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> секунд</item>
+      <item quantity="one">1 секунд</item>
+    </plurals>
+    <plurals name="duration_minutes" formatted="false" msgid="1103289948818175408">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> минут</item>
+      <item quantity="one">1 минут</item>
+    </plurals>
+    <plurals name="duration_hours" formatted="false" msgid="7560637459014865969">
+      <item quantity="other"><xliff:g id="COUNT">%d</xliff:g> сағат</item>
+      <item quantity="one">1 сағат</item>
+    </plurals>
+    <string name="profile_photo_description" msgid="5609894336203315400">"Профиль фотосуреті"</string>
+    <string name="camera_off_description" msgid="5689494614359429889">"Камераны өшіру"</string>
 </resources>

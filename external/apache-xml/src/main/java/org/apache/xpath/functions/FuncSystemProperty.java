@@ -58,7 +58,7 @@ public class FuncSystemProperty extends FunctionOneArg
 
     String fullName = m_arg0.execute(xctxt).str();
     int indexOfNSSep = fullName.indexOf(':');
-    String result;
+    String result = null;
     String propName = "";
 
     // List of properties where the name of the
@@ -98,14 +98,20 @@ public class FuncSystemProperty extends FunctionOneArg
 
         try
         {
-          result = System.getProperty(propName);
-
-          if (null == result)
-          {
-
-            // result = System.getenv(propName);
-            return XString.EMPTYSTRING;
-          }
+            //if secure procession is enabled only handle required properties do not not map any valid system property
+            if(!xctxt.isSecureProcessing())
+            {
+                result = System.getProperty(propName);
+            }
+            else
+            {
+                warn(xctxt, XPATHErrorResources.WG_SECURITY_EXCEPTION,
+                        new Object[]{ fullName });  //"SecurityException when trying to access XSL system property: "+fullName);
+            }
+            if (null == result)
+            {
+                return XString.EMPTYSTRING;
+            }
         }
         catch (SecurityException se)
         {
@@ -120,14 +126,20 @@ public class FuncSystemProperty extends FunctionOneArg
     {
       try
       {
-        result = System.getProperty(fullName);
-
-        if (null == result)
-        {
-
-          // result = System.getenv(fullName);
-          return XString.EMPTYSTRING;
-        }
+          //if secure procession is enabled only handle required properties do not not map any valid system property
+          if(!xctxt.isSecureProcessing())
+          {
+              result = System.getProperty(fullName);
+          }
+          else
+          {
+              warn(xctxt, XPATHErrorResources.WG_SECURITY_EXCEPTION,
+                      new Object[]{ fullName });  //"SecurityException when trying to access XSL system property: "+fullName);
+          }
+          if (null == result)
+          {
+              return XString.EMPTYSTRING;
+          }
       }
       catch (SecurityException se)
       {

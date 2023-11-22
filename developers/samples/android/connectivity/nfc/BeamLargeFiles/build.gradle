@@ -1,8 +1,10 @@
-
 // BEGIN_EXCLUDE
-apply from: "../../../../../build/build.gradle"
+import com.example.android.samples.build.SampleGenPlugin
+apply plugin: SampleGenPlugin
+
 samplegen {
   pathToBuild "../../../../../build"
   pathToSamplesCommon "../../../common"
 }
+apply from: "../../../../../build/build.gradle"
 // END_EXCLUDE

@@ -32,15 +32,24 @@ import android.preference.PreferenceScreen;
 import android.support.v4.app.FragmentActivity;
 import android.view.MenuItem;
 
+import com.android.camera.FatalErrorHandler;
+import com.android.camera.FatalErrorHandlerImpl;
 import com.android.camera.debug.Log;
-import com.android.camera.settings.SettingsUtil.SelectedPictureSizes;
+import com.android.camera.device.CameraId;
+import com.android.camera.one.OneCamera.Facing;
+import com.android.camera.one.OneCameraAccessException;
+import com.android.camera.one.OneCameraCharacteristics;
+import com.android.camera.one.OneCameraException;
+import com.android.camera.one.OneCameraManager;
+import com.android.camera.one.OneCameraModule;
+import com.android.camera.settings.PictureSizeLoader.PictureSizes;
 import com.android.camera.settings.SettingsUtil.SelectedVideoQualities;
 import com.android.camera.util.CameraSettingsActivityHelper;
 import com.android.camera.util.GoogleHelpHelper;
+import com.android.camera.util.Size;
 import com.android.camera2.R;
 import com.android.ex.camera2.portability.CameraAgentFactory;
 import com.android.ex.camera2.portability.CameraDeviceInfo;
-import com.android.ex.camera2.portability.Size;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -50,6 +59,7 @@ import java.util.List;
  * Provides the settings UI for the Camera app.
  */
 public class CameraSettingsActivity extends FragmentActivity {
+
     /**
      * Used to denote a subsection of the preference tree to display in the
      * Fragment. For instance, if 'Advanced' key is provided, the advanced
@@ -58,10 +68,48 @@ public class CameraSettingsActivity extends FragmentActivity {
      * back/up stack to operate correctly.
      */
     public static final String PREF_SCREEN_EXTRA = "pref_screen_extra";
+    public static final String HIDE_ADVANCED_SCREEN = "hide_advanced";
+    private OneCameraManager mOneCameraManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        FatalErrorHandler fatalErrorHandler = new FatalErrorHandlerImpl(this);
+        boolean hideAdvancedScreen = false;
+
+        try {
+            mOneCameraManager = OneCameraModule.provideOneCameraManager();
+        } catch (OneCameraException e) {
+            // Log error and continue. Modules requiring OneCamera should check
+            // and handle if null by showing error dialog or other treatment.
+            fatalErrorHandler.onGenericCameraAccessFailure();
+        }
+
+        // Check if manual exposure is available, so we can decide whether to
+        // display Advanced screen.
+        try {
+            CameraId frontCameraId = mOneCameraManager.findFirstCameraFacing(Facing.FRONT);
+            CameraId backCameraId = mOneCameraManager.findFirstCameraFacing(Facing.BACK);
+
+            // The exposure compensation is supported when both of the following conditions meet
+            //   - we have the valid camera, and
+            //   - the valid camera supports the exposure compensation
+            boolean isExposureCompensationSupportedByFrontCamera = (frontCameraId != null) &&
+                    (mOneCameraManager.getOneCameraCharacteristics(frontCameraId)
+                            .isExposureCompensationSupported());
+            boolean isExposureCompensationSupportedByBackCamera = (backCameraId != null) &&
+                    (mOneCameraManager.getOneCameraCharacteristics(backCameraId)
+                            .isExposureCompensationSupported());
+
+            // Hides the option if neither front and back camera support exposure compensation.
+            if (!isExposureCompensationSupportedByFrontCamera &&
+                    !isExposureCompensationSupportedByBackCamera) {
+                hideAdvancedScreen = true;
+            }
+        } catch (OneCameraAccessException e) {
+            fatalErrorHandler.onGenericCameraAccessFailure();
+        }
 
         ActionBar actionBar = getActionBar();
         actionBar.setDisplayHomeAsUpEnabled(true);
@@ -71,6 +119,7 @@ public class CameraSettingsActivity extends FragmentActivity {
         CameraSettingsFragment dialog = new CameraSettingsFragment();
         Bundle bundle = new Bundle(1);
         bundle.putString(PREF_SCREEN_EXTRA, prefKey);
+        bundle.putBoolean(HIDE_ADVANCED_SCREEN, hideAdvancedScreen);
         dialog.setArguments(bundle);
         getFragmentManager().beginTransaction().replace(android.R.id.content, dialog).commit();
     }
@@ -96,15 +145,11 @@ public class CameraSettingsActivity extends FragmentActivity {
         private String[] mCamcorderProfileNames;
         private CameraDeviceInfo mInfos;
         private String mPrefKey;
+        private boolean mHideAdvancedScreen;
         private boolean mGetSubPrefAsRoot = true;
 
         // Selected resolutions for the different cameras and sizes.
-        private SelectedPictureSizes mOldPictureSizesBack;
-        private SelectedPictureSizes mOldPictureSizesFront;
-        private List<Size> mPictureSizesBack;
-        private List<Size> mPictureSizesFront;
-        private SelectedVideoQualities mVideoQualitiesBack;
-        private SelectedVideoQualities mVideoQualitiesFront;
+        private PictureSizes mPictureSizes;
 
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -112,12 +157,21 @@ public class CameraSettingsActivity extends FragmentActivity {
             Bundle arguments = getArguments();
             if (arguments != null) {
                 mPrefKey = arguments.getString(PREF_SCREEN_EXTRA);
+                mHideAdvancedScreen = arguments.getBoolean(HIDE_ADVANCED_SCREEN);
             }
             Context context = this.getActivity().getApplicationContext();
             addPreferencesFromResource(R.xml.camera_preferences);
+            PreferenceScreen advancedScreen =
+                    (PreferenceScreen) findPreference(PREF_CATEGORY_ADVANCED);
 
-            // Allow the Helper to edit the full preference hierarchy, not the sub
-            // tree we may show as root. See {@link #getPreferenceScreen()}.
+            // If manual exposure not enabled, hide the Advanced screen.
+            if (mHideAdvancedScreen) {
+                PreferenceScreen root = (PreferenceScreen) findPreference("prefscreen_top");
+                root.removePreference(advancedScreen);
+            }
+
+            // Allow the Helper to edit the full preference hierarchy, not the
+            // sub tree we may show as root. See {@link #getPreferenceScreen()}.
             mGetSubPrefAsRoot = false;
             CameraSettingsActivityHelper.addAdditionalPreferences(this, context);
             mGetSubPrefAsRoot = true;
@@ -136,6 +190,15 @@ public class CameraSettingsActivity extends FragmentActivity {
             // Load the camera sizes.
             loadSizes();
 
+            // Send loaded sizes to additional preferences.
+            CameraSettingsActivityHelper.onSizesLoaded(this, mPictureSizes.backCameraSizes,
+                    new ListPreferenceFiller() {
+                        @Override
+                        public void fill(List<Size> sizes, ListPreference preference) {
+                            setEntriesForSelection(sizes, preference);
+                        }
+                    });
+
             // Make sure to hide settings for cameras that don't exist on this
             // device.
             setVisibilities();
@@ -147,18 +210,21 @@ public class CameraSettingsActivity extends FragmentActivity {
             setPreferenceScreenIntent(resolutionScreen);
 
             final PreferenceScreen advancedScreen =
-                (PreferenceScreen) findPreference(PREF_CATEGORY_ADVANCED);
-            setPreferenceScreenIntent(advancedScreen);
+                    (PreferenceScreen) findPreference(PREF_CATEGORY_ADVANCED);
+
+            if (!mHideAdvancedScreen) {
+                setPreferenceScreenIntent(advancedScreen);
+            }
 
             Preference helpPref = findPreference(PREF_LAUNCH_HELP);
             helpPref.setOnPreferenceClickListener(
-                new OnPreferenceClickListener() {
-                    @Override
-                    public boolean onPreferenceClick(Preference preference) {
-                        GoogleHelpHelper.launchGoogleHelp(activity);
-                        return true;
-                    }
-                });
+                    new OnPreferenceClickListener() {
+                        @Override
+                        public boolean onPreferenceClick(Preference preference) {
+                            new GoogleHelpHelper(activity).launchGoogleHelp();
+                            return true;
+                        }
+                    });
             getPreferenceScreen().getSharedPreferences()
                     .registerOnSharedPreferenceChangeListener(this);
         }
@@ -219,13 +285,13 @@ public class CameraSettingsActivity extends FragmentActivity {
         private void setVisibilities() {
             PreferenceGroup resolutions =
                     (PreferenceGroup) findPreference(PREF_CATEGORY_RESOLUTION);
-            if (mPictureSizesBack == null) {
+            if (mPictureSizes.backCameraSizes.isEmpty()) {
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_PICTURE_SIZE_BACK));
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_VIDEO_QUALITY_BACK));
             }
-            if (mPictureSizesFront == null) {
+            if (mPictureSizes.frontCameraSizes.isEmpty()) {
                 recursiveDelete(resolutions,
                         findPreference(Keys.KEY_PICTURE_SIZE_FRONT));
                 recursiveDelete(resolutions,
@@ -301,13 +367,13 @@ public class CameraSettingsActivity extends FragmentActivity {
 
             ListPreference listPreference = (ListPreference) preference;
             if (listPreference.getKey().equals(Keys.KEY_PICTURE_SIZE_BACK)) {
-                setEntriesForSelection(mPictureSizesBack, listPreference);
+                setEntriesForSelection(mPictureSizes.backCameraSizes, listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_PICTURE_SIZE_FRONT)) {
-                setEntriesForSelection(mPictureSizesFront, listPreference);
+                setEntriesForSelection(mPictureSizes.frontCameraSizes, listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_VIDEO_QUALITY_BACK)) {
-                setEntriesForSelection(mVideoQualitiesBack, listPreference);
+                setEntriesForSelection(mPictureSizes.videoQualitiesBack.orNull(), listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_VIDEO_QUALITY_FRONT)) {
-                setEntriesForSelection(mVideoQualitiesFront, listPreference);
+                setEntriesForSelection(mPictureSizes.videoQualitiesFront.orNull(), listPreference);
             }
         }
 
@@ -322,13 +388,15 @@ public class CameraSettingsActivity extends FragmentActivity {
 
             ListPreference listPreference = (ListPreference) preference;
             if (listPreference.getKey().equals(Keys.KEY_PICTURE_SIZE_BACK)) {
-                setSummaryForSelection(mOldPictureSizesBack, mPictureSizesBack, listPreference);
+                setSummaryForSelection(mPictureSizes.backCameraSizes,
+                        listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_PICTURE_SIZE_FRONT)) {
-                setSummaryForSelection(mOldPictureSizesFront, mPictureSizesFront, listPreference);
+                setSummaryForSelection(mPictureSizes.frontCameraSizes,
+                        listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_VIDEO_QUALITY_BACK)) {
-                setSummaryForSelection(mVideoQualitiesBack, listPreference);
+                setSummaryForSelection(mPictureSizes.videoQualitiesBack.orNull(), listPreference);
             } else if (listPreference.getKey().equals(Keys.KEY_VIDEO_QUALITY_FRONT)) {
-                setSummaryForSelection(mVideoQualitiesFront, listPreference);
+                setSummaryForSelection(mPictureSizes.videoQualitiesFront.orNull(), listPreference);
             } else {
                 listPreference.setSummary(listPreference.getEntry());
             }
@@ -337,8 +405,8 @@ public class CameraSettingsActivity extends FragmentActivity {
         /**
          * Sets the entries for the given list preference.
          *
-         * @param selectedSizes The possible S,M,L entries the user can
-         *            choose from.
+         * @param selectedSizes The possible S,M,L entries the user can choose
+         *            from.
          * @param preference The preference to set the entries for.
          */
         private void setEntriesForSelection(List<Size> selectedSizes,
@@ -352,7 +420,7 @@ public class CameraSettingsActivity extends FragmentActivity {
             for (int i = 0; i < selectedSizes.size(); i++) {
                 Size size = selectedSizes.get(i);
                 entries[i] = getSizeSummaryString(size);
-                entryValues[i] = SettingsUtil.sizeToSetting(size);
+                entryValues[i] = SettingsUtil.sizeToSettingString(size);
             }
             preference.setEntries(entries);
             preference.setEntryValues(entryValues);
@@ -387,20 +455,20 @@ public class CameraSettingsActivity extends FragmentActivity {
         /**
          * Sets the summary for the given list preference.
          *
-         * @param oldPictureSizes The old selected picture sizes for small medium and large
          * @param displayableSizes The human readable preferred sizes
          * @param preference The preference for which to set the summary.
          */
-        private void setSummaryForSelection(SelectedPictureSizes oldPictureSizes,
-                List<Size> displayableSizes, ListPreference preference) {
-            if (oldPictureSizes == null) {
+        private void setSummaryForSelection(List<Size> displayableSizes,
+                                            ListPreference preference) {
+            String setting = preference.getValue();
+            if (setting == null || !setting.contains("x")) {
                 return;
             }
-
-            String setting = preference.getValue();
-            Size selectedSize = oldPictureSizes.getFromSetting(setting, displayableSizes);
-
-            preference.setSummary(getSizeSummaryString(selectedSize));
+            Size settingSize = SettingsUtil.sizeFromSettingString(setting);
+            if (settingSize == null || settingSize.area() == 0) {
+                return;
+            }
+            preference.setSummary(getSizeSummaryString(settingSize));
         }
 
         /**
@@ -421,48 +489,15 @@ public class CameraSettingsActivity extends FragmentActivity {
 
         /**
          * This method gets the selected picture sizes for S,M,L and populates
-         * {@link #mPictureSizesBack}, {@link #mPictureSizesFront},
-         * {@link #mVideoQualitiesBack} and {@link #mVideoQualitiesFront}
-         * accordingly.
+         * {@link #mPictureSizes} accordingly.
          */
         private void loadSizes() {
             if (mInfos == null) {
                 Log.w(TAG, "null deviceInfo, cannot display resolution sizes");
                 return;
             }
-            // Back camera.
-            int backCameraId = SettingsUtil.getCameraId(mInfos, SettingsUtil.CAMERA_FACING_BACK);
-            if (backCameraId >= 0) {
-                List<Size> sizes = CameraPictureSizesCacher.getSizesForCamera(backCameraId,
-                        this.getActivity().getApplicationContext());
-                if (sizes != null) {
-                    mOldPictureSizesBack = SettingsUtil.getSelectedCameraPictureSizes(sizes,
-                            backCameraId);
-                    mPictureSizesBack = ResolutionUtil
-                            .getDisplayableSizesFromSupported(sizes, true);
-                }
-                mVideoQualitiesBack = SettingsUtil.getSelectedVideoQualities(backCameraId);
-            } else {
-                mPictureSizesBack = null;
-                mVideoQualitiesBack = null;
-            }
-
-            // Front camera.
-            int frontCameraId = SettingsUtil.getCameraId(mInfos, SettingsUtil.CAMERA_FACING_FRONT);
-            if (frontCameraId >= 0) {
-                List<Size> sizes = CameraPictureSizesCacher.getSizesForCamera(frontCameraId,
-                        this.getActivity().getApplicationContext());
-                if (sizes != null) {
-                    mOldPictureSizesFront= SettingsUtil.getSelectedCameraPictureSizes(sizes,
-                            frontCameraId);
-                    mPictureSizesFront =
-                            ResolutionUtil.getDisplayableSizesFromSupported(sizes, false);
-                }
-                mVideoQualitiesFront = SettingsUtil.getSelectedVideoQualities(frontCameraId);
-            } else {
-                mPictureSizesFront = null;
-                mVideoQualitiesFront = null;
-            }
+            PictureSizeLoader loader = new PictureSizeLoader(getActivity().getApplicationContext());
+            mPictureSizes = loader.computePictureSizes();
         }
 
         /**

@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.0.0'
+        classpath 'com.android.tools.build:gradle:1.2.3'
     }
 }
 
@@ -27,38 +27,43 @@ apply plugin: 'com.android.application'
 
 repositories {
     jcenter()
-}
-
 <#if sample.repository?has_content>
-repositories {
 <#list sample.repository as rep>
     ${rep}
 </#list>
-}
 </#if>
+}
 
 dependencies {
-
 <#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
   <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
-    compile "com.android.support:support-v4:21.0.2"
+    compile "com.android.support:support-v4:23.0.0"
+    compile "com.android.support:appcompat-v7:23.0.0"
   <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
-    compile "com.android.support:support-v4:21.0.2"
-    compile "com.android.support:gridlayout-v7:21.0.2"
-    compile "com.android.support:cardview-v7:21.0.2"
+    compile "com.android.support:support-v4:23.0.0"
+    compile "com.android.support:gridlayout-v7:23.0.0"
+    compile "com.android.support:cardview-v7:23.0.0"
+    compile "com.android.support:appcompat-v7:23.0.0"
   <#else>
-    compile "com.android.support:support-v4:21.0.2"
-    compile "com.android.support:support-v13:21.0.2"
-    compile "com.android.support:cardview-v7:21.0.2"
+    compile "com.android.support:support-v4:23.0.0"
+    compile "com.android.support:support-v13:23.0.0"
+    compile "com.android.support:cardview-v7:23.0.0"
+    compile "com.android.support:appcompat-v7:23.0.0"
   </#if>
 </#if>
-
 <#list sample.dependency as dep>
-    compile "${dep}"
+    <#-- Output dependency after checking if it is a play services depdency and
+    needs the latest version number attached. -->
+    <@update_play_services_dependency dep="${dep}" />
 </#list>
 <#list sample.dependency_external as dep>
     compile files(${dep})
 </#list>
+<#if sample.wearable.has_handheld_app?has_content && sample.wearable.has_handheld_app?lower_case == "true">
+    compile ${play_services_wearable_dependency}
+    compile ${android_support_v13_dependency}
+    wearApp project(':Wearable')
+</#if>
 }
 
 // The sample build uses multiple directories to
@@ -77,7 +82,16 @@ android {
 
     defaultConfig {
         minSdkVersion ${min_sdk}
+      <#if sample.targetSdkVersion?? && sample.targetSdkVersion?has_content>
+        targetSdkVersion ${sample.targetSdkVersion}
+      <#else>
         targetSdkVersion ${compile_sdk}
+      </#if>
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
     }
 
     sourceSets {

@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,10 +29,9 @@ import java.util.Set;
  * tests without relying on any specific Set implementations. Slow. Explicitly
  * allows null elements so that they can be used in the testers.
  *
- * <p>This class is GWT compatible.
- *
  * @author Regina O'Dell
  */
+@GwtCompatible
 public class MinimalSet<E> extends MinimalCollection<E> implements Set<E> {
 
   @SuppressWarnings("unchecked") // empty Object[] as E[]

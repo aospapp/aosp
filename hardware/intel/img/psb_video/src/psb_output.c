@@ -51,6 +51,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <math.h>
 
 #define INIT_DRIVER_DATA        psb_driver_data_p driver_data = (psb_driver_data_p) ctx->pDriverData;
 
@@ -1858,7 +1859,8 @@ static  VADisplayAttribute psb__DisplayAttribute[] = {
         BRIGHTNESS_MIN,
         BRIGHTNESS_MAX,
         BRIGHTNESS_DEFAULT_VALUE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
 
     {
@@ -1866,7 +1868,8 @@ static  VADisplayAttribute psb__DisplayAttribute[] = {
         CONTRAST_MIN,
         CONTRAST_MAX,
         CONTRAST_DEFAULT_VALUE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
 
     {
@@ -1874,7 +1877,8 @@ static  VADisplayAttribute psb__DisplayAttribute[] = {
         HUE_MIN,
         HUE_MAX,
         HUE_DEFAULT_VALUE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
 
     {
@@ -1882,77 +1886,88 @@ static  VADisplayAttribute psb__DisplayAttribute[] = {
         SATURATION_MIN,
         SATURATION_MAX,
         SATURATION_DEFAULT_VALUE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribBackgroundColor,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribRotation,
         VA_ROTATION_NONE,
         VA_ROTATION_270,
         VA_ROTATION_NONE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribOutofLoopDeblock,
         VA_OOL_DEBLOCKING_FALSE,
         VA_OOL_DEBLOCKING_TRUE,
         VA_OOL_DEBLOCKING_FALSE,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribBlendColor,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribOverlayColorKey,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribOverlayAutoPaintColorKey,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribCSCMatrix,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribRenderDevice,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribRenderMode,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     },
     {
         VADisplayAttribRenderRect,
         0x00000000,
         0xffffffff,
         0x00000000,
-        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE
+        VA_DISPLAY_ATTRIB_GETTABLE | VA_DISPLAY_ATTRIB_SETTABLE,
+        NULL
     }
 };
 
@@ -2106,7 +2121,7 @@ VAStatus psb_SetDisplayAttributes(
 
     VADisplayAttribute *p = attr_list;
     int i, update_coeffs = 0;
-    unsigned int *p_tmp;
+    float *p_tmp;
 
     if (num_attributes <= 0) {
         return VA_STATUS_ERROR_INVALID_PARAMETER;
@@ -2155,13 +2170,32 @@ VAStatus psb_SetDisplayAttributes(
 
         case VADisplayAttribCSCMatrix:
             driver_data->load_csc_matrix = 1;
-            p_tmp = (unsigned int *)p->value;
+            p_tmp = (float *)(p->attrib_ptr);
             for (j = 0; j < CSC_MATRIX_Y; j++)
                 for (k = 0; k < CSC_MATRIX_X; k++) {
                     if (p_tmp)
                         driver_data->csc_matrix[j][k] = *p_tmp;
                    p_tmp++; 
                 }
+
+            for (j = 0; j < CSC_MATRIX_Y; j++)
+                for (k = 0; k < CSC_MATRIX_X; k++) {
+                    if (fabs(s601[j*CSC_MATRIX_X+k] - driver_data->csc_matrix[j][k]) > 1e-6) {
+                        break;
+                    }
+                    if (k < CSC_MATRIX_X) {
+                        break;
+                    }
+                }
+
+            if (j == CSC_MATRIX_Y && k == CSC_MATRIX_X) {
+                driver_data->is_BT601 = 1;
+            }
+            break;
+
+        case VADisplayAttribColorRange:
+            driver_data->set_video_range = 1;
+            driver_data->video_range = (p->value == VA_SOURCE_RANGE_FULL);
             break;
 
         case VADisplayAttribBlendColor:
@@ -2191,10 +2225,10 @@ VAStatus psb_SetDisplayAttributes(
             driver_data->render_mode = p->value & VA_RENDER_MODE_MASK;
             break;
         case VADisplayAttribRenderRect:
-            driver_data->render_rect.x = ((VARectangle *)(p->value))->x;
-            driver_data->render_rect.y = ((VARectangle *)(p->value))->y;
-            driver_data->render_rect.width = ((VARectangle *)(p->value))->width;
-            driver_data->render_rect.height = ((VARectangle *)(p->value))->height;
+            driver_data->render_rect.x = ((VARectangle *)(p->attrib_ptr))->x;
+            driver_data->render_rect.y = ((VARectangle *)(p->attrib_ptr))->y;
+            driver_data->render_rect.width = ((VARectangle *)(p->attrib_ptr))->width;
+            driver_data->render_rect.height = ((VARectangle *)(p->attrib_ptr))->height;
             break;
 
         default:

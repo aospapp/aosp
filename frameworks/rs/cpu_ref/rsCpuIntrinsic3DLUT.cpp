@@ -27,20 +27,20 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsic3DLUT : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
-    virtual void invokeFreeChildren();
+    void populateScript(Script *) override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsic3DLUT();
+    ~RsdCpuScriptIntrinsic3DLUT() override;
     RsdCpuScriptIntrinsic3DLUT(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
     ObjectBaseRef<Allocation> mLUT;
 
-    static void kernel(const RsForEachStubParamStruct *p,
+    static void kernel(const RsExpandKernelDriverInfo *info,
                        uint32_t xstart, uint32_t xend,
-                       uint32_t instep, uint32_t outstep);
+                       uint32_t outstep);
 };
 
 }
@@ -58,13 +58,13 @@ extern "C" void rsdIntrinsic3DLUT_K(void *dst, void const *in, size_t count,
                                       int dimx, int dimy, int dimz);
 
 
-void RsdCpuScriptIntrinsic3DLUT::kernel(const RsForEachStubParamStruct *p,
-                                      uint32_t xstart, uint32_t xend,
-                                      uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsic3DLUT *cp = (RsdCpuScriptIntrinsic3DLUT *)p->usr;
+void RsdCpuScriptIntrinsic3DLUT::kernel(const RsExpandKernelDriverInfo *info,
+                                        uint32_t xstart, uint32_t xend,
+                                        uint32_t outstep) {
+    RsdCpuScriptIntrinsic3DLUT *cp = (RsdCpuScriptIntrinsic3DLUT *)info->usr;
 
-    uchar4 *out = (uchar4 *)p->out;
-    uchar4 *in = (uchar4 *)p->in;
+    uchar4 *out = (uchar4 *)info->outPtr[0];
+    uchar4 *in = (uchar4 *)info->inPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -161,9 +161,9 @@ void RsdCpuScriptIntrinsic3DLUT::kernel(const RsForEachStubParamStruct *p,
     }
 }
 
-RsdCpuScriptIntrinsic3DLUT::RsdCpuScriptIntrinsic3DLUT(RsdCpuReferenceImpl *ctx,
-                                                     const Script *s, const Element *e)
-            : RsdCpuScriptIntrinsic(ctx, s, e, RS_SCRIPT_INTRINSIC_ID_3DLUT) {
+RsdCpuScriptIntrinsic3DLUT::RsdCpuScriptIntrinsic3DLUT(
+    RsdCpuReferenceImpl *ctx, const Script *s, const Element *e) :
+        RsdCpuScriptIntrinsic(ctx, s, e, RS_SCRIPT_INTRINSIC_ID_3DLUT) {
 
     mRootPtr = &kernel;
 }
@@ -185,5 +185,3 @@ RsdCpuScriptImpl * rsdIntrinsic_3DLUT(RsdCpuReferenceImpl *ctx,
 
     return new RsdCpuScriptIntrinsic3DLUT(ctx, s, e);
 }
-
-

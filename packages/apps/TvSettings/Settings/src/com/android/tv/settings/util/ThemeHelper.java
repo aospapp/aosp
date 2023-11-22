@@ -16,9 +16,9 @@
 
 package com.android.tv.settings.util;
 
-import com.android.tv.settings.R;
 import android.content.Intent;
-import android.os.Bundle;
+
+import com.android.tv.settings.R;
 
 public class ThemeHelper {
     public static final String EXTRA_FROM_SETUP_WIZARD = "firstRun";

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "base/arena_allocator.h"
 #include "base/stringprintf.h"
 #include "builder.h"
 #include "dex_file.h"
@@ -22,7 +23,6 @@
 #include "optimizing_unit_test.h"
 #include "pretty_printer.h"
 #include "ssa_builder.h"
-#include "utils/arena_allocator.h"
 
 #include "gtest/gtest.h"
 
@@ -32,15 +32,15 @@ class SsaPrettyPrinter : public HPrettyPrinter {
  public:
   explicit SsaPrettyPrinter(HGraph* graph) : HPrettyPrinter(graph), str_("") {}
 
-  virtual void PrintInt(int value) {
+  void PrintInt(int value) OVERRIDE {
     str_ += StringPrintf("%d", value);
   }
 
-  virtual void PrintString(const char* value) {
+  void PrintString(const char* value) OVERRIDE {
     str_ += value;
   }
 
-  virtual void PrintNewLine() {
+  void PrintNewLine() OVERRIDE {
     str_ += '\n';
   }
 
@@ -48,7 +48,7 @@ class SsaPrettyPrinter : public HPrettyPrinter {
 
   std::string str() const { return str_; }
 
-  virtual void VisitIntConstant(HIntConstant* constant) {
+  void VisitIntConstant(HIntConstant* constant) OVERRIDE {
     PrintPreInstruction(constant);
     str_ += constant->DebugName();
     str_ += " ";
@@ -78,13 +78,17 @@ static void ReNumberInstructions(HGraph* graph) {
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraphBuilder builder(&allocator);
+  HGraph* graph = CreateGraph(&allocator);
+  HGraphBuilder builder(graph);
   const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  HGraph* graph = builder.BuildGraph(*item);
-  ASSERT_NE(graph, nullptr);
+  bool graph_built = builder.BuildGraph(*item);
+  ASSERT_TRUE(graph_built);
 
   graph->BuildDominatorTree();
-  graph->TransformToSSA();
+  // Suspend checks implementation may change in the future, and this test relies
+  // on how instructions are ordered.
+  RemoveSuspendChecks(graph);
+  graph->TransformToSsa();
   ReNumberInstructions(graph);
 
   // Test that phis had their type set.
@@ -111,7 +115,7 @@ TEST(SsaTest, CFG1) {
     "  3: If(2)\n"
     "BasicBlock 2, pred: 1, succ: 3\n"
     "  4: Goto\n"
-    "BasicBlock 3, pred: 2, 5, succ: 4\n"
+    "BasicBlock 3, pred: 5, 2, succ: 4\n"
     "  5: ReturnVoid\n"
     "BasicBlock 4, pred: 3\n"
     "  6: Exit\n"
@@ -141,8 +145,8 @@ TEST(SsaTest, CFG2) {
     "  4: If(3)\n"
     "BasicBlock 2, pred: 1, succ: 3\n"
     "  5: Goto\n"
-    "BasicBlock 3, pred: 2, 5, succ: 4\n"
-    "  6: Phi(1, 0) [7]\n"
+    "BasicBlock 3, pred: 5, 2, succ: 4\n"
+    "  6: Phi(0, 1) [7]\n"
     "  7: Return(6)\n"
     "BasicBlock 4, pred: 3\n"
     "  8: Exit\n"
@@ -196,29 +200,31 @@ TEST(SsaTest, Loop1) {
   // Test that we create a phi for an initialized local at entry of a loop.
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  0: IntConstant 0 [6, 4, 2, 2]\n"
-    "  1: Goto\n"
-    "BasicBlock 1, pred: 0, succ: 5, 6\n"
-    "  2: Equal(0, 0) [3]\n"
-    "  3: If(2)\n"
-    "BasicBlock 2, pred: 3, 6, succ: 3\n"
-    "  4: Phi(6, 0) [6]\n"
+    "  0: IntConstant 0 [6, 3, 3]\n"
+    "  1: IntConstant 4 [6]\n"
+    "  2: Goto\n"
+    "BasicBlock 1, pred: 0, succ: 4, 2\n"
+    "  3: Equal(0, 0) [4]\n"
+    "  4: If(3)\n"
+    "BasicBlock 2, pred: 1, succ: 3\n"
     "  5: Goto\n"
-    "BasicBlock 3, pred: 2, 5, succ: 2\n"
-    "  6: Phi(4, 0) [4]\n"
+    "BasicBlock 3, pred: 2, 4, succ: 5\n"
+    "  6: Phi(1, 0) [9]\n"
     "  7: Goto\n"
-    "BasicBlock 4\n"
-    // Synthesized blocks to avoid critical edge.
-    "BasicBlock 5, pred: 1, succ: 3\n"
+    "BasicBlock 4, pred: 1, succ: 3\n"
     "  8: Goto\n"
-    "BasicBlock 6, pred: 1, succ: 2\n"
-    "  9: Goto\n";
+    "BasicBlock 5, pred: 3, succ: 6\n"
+    "  9: Return(6)\n"
+    "BasicBlock 6, pred: 5\n"
+    "  10: Exit\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
-    Instruction::IF_EQ, 3,
-    Instruction::GOTO | 0x100,
-    Instruction::GOTO | 0xFF00);
+    Instruction::IF_EQ, 4,
+    Instruction::CONST_4 | 4 << 12 | 0,
+    Instruction::GOTO | 0x200,
+    Instruction::GOTO | 0xFF00,
+    Instruction::RETURN | 0 << 8);
 
   TestCode(data, expected);
 }
@@ -295,8 +301,8 @@ TEST(SsaTest, Loop4) {
     "  2: Goto\n"
     "BasicBlock 1, pred: 0, succ: 4\n"
     "  3: Goto\n"
-    "BasicBlock 2, pred: 3, 4, succ: 5, 3\n"
-    "  4: Phi(1, 0) [9, 5, 5]\n"
+    "BasicBlock 2, pred: 4, 3, succ: 5, 3\n"
+    "  4: Phi(0, 1) [9, 5, 5]\n"
     "  5: Equal(4, 4) [6]\n"
     "  6: If(5)\n"
     "BasicBlock 3, pred: 2, succ: 2\n"
@@ -326,8 +332,8 @@ TEST(SsaTest, Loop5) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
     "  0: IntConstant 0 [4, 4]\n"
-    "  1: IntConstant 4 [14]\n"
-    "  2: IntConstant 5 [14]\n"
+    "  1: IntConstant 4 [13]\n"
+    "  2: IntConstant 5 [13]\n"
     "  3: Goto\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  4: Equal(0, 0) [5]\n"
@@ -336,19 +342,18 @@ TEST(SsaTest, Loop5) {
     "  6: Goto\n"
     "BasicBlock 3, pred: 1, succ: 8\n"
     "  7: Goto\n"
-    "BasicBlock 4, pred: 5, 8, succ: 6, 5\n"
-    "  8: Phi(8, 14) [8, 12, 9, 9]\n"
-    "  9: Equal(8, 8) [10]\n"
-    "  10: If(9)\n"
+    "BasicBlock 4, pred: 8, 5, succ: 6, 5\n"
+    "  8: Equal(13, 13) [9]\n"
+    "  9: If(8)\n"
     "BasicBlock 5, pred: 4, succ: 4\n"
-    "  11: Goto\n"
+    "  10: Goto\n"
     "BasicBlock 6, pred: 4, succ: 7\n"
-    "  12: Return(8)\n"
+    "  11: Return(13)\n"
     "BasicBlock 7, pred: 6\n"
-    "  13: Exit\n"
+    "  12: Exit\n"
     "BasicBlock 8, pred: 2, 3, succ: 4\n"
-    "  14: Phi(1, 2) [8]\n"
-    "  15: Goto\n";
+    "  13: Phi(1, 2) [8, 8, 11]\n"
+    "  14: Goto\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -368,30 +373,26 @@ TEST(SsaTest, Loop6) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
     "  0: IntConstant 0 [5]\n"
-    "  1: IntConstant 4 [14, 8, 8]\n"
-    "  2: IntConstant 5 [14]\n"
+    "  1: IntConstant 4 [5, 8, 8]\n"
+    "  2: IntConstant 5 [5]\n"
     "  3: Goto\n"
     "BasicBlock 1, pred: 0, succ: 2\n"
     "  4: Goto\n"
-    "BasicBlock 2, pred: 1, 8, succ: 6, 3\n"
-    "  5: Phi(0, 14) [12, 6, 6]\n"
+    "BasicBlock 2, pred: 1, 4, 5, succ: 6, 3\n"
+    "  5: Phi(0, 2, 1) [12, 6, 6]\n"
     "  6: Equal(5, 5) [7]\n"
     "  7: If(6)\n"
     "BasicBlock 3, pred: 2, succ: 5, 4\n"
     "  8: Equal(1, 1) [9]\n"
     "  9: If(8)\n"
-    "BasicBlock 4, pred: 3, succ: 8\n"
+    "BasicBlock 4, pred: 3, succ: 2\n"
     "  10: Goto\n"
-    "BasicBlock 5, pred: 3, succ: 8\n"
+    "BasicBlock 5, pred: 3, succ: 2\n"
     "  11: Goto\n"
     "BasicBlock 6, pred: 2, succ: 7\n"
     "  12: Return(5)\n"
     "BasicBlock 7, pred: 6\n"
-    "  13: Exit\n"
-    // Synthesized single back edge of loop.
-    "BasicBlock 8, pred: 5, 4, succ: 2\n"
-    "  14: Phi(1, 2) [5]\n"
-    "  15: Goto\n";
+    "  13: Exit\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -427,8 +428,8 @@ TEST(SsaTest, Loop7) {
     "  10: Goto\n"
     "BasicBlock 5, pred: 3, succ: 2\n"
     "  11: Goto\n"
-    "BasicBlock 6, pred: 4, 8, succ: 7\n"
-    "  12: Phi(2, 5) [13]\n"
+    "BasicBlock 6, pred: 8, 4, succ: 7\n"
+    "  12: Phi(5, 2) [13]\n"
     "  13: Return(12)\n"
     "BasicBlock 7, pred: 6\n"
     "  14: Exit\n"
@@ -479,7 +480,7 @@ TEST(SsaTest, LocalInIf) {
     "  4: If(3)\n"
     "BasicBlock 2, pred: 1, succ: 3\n"
     "  5: Goto\n"
-    "BasicBlock 3, pred: 2, 5, succ: 4\n"
+    "BasicBlock 3, pred: 5, 2, succ: 4\n"
     "  6: ReturnVoid\n"
     "BasicBlock 4, pred: 3\n"
     "  7: Exit\n"
@@ -516,7 +517,7 @@ TEST(SsaTest, MultiplePredecessors) {
     "  8: Add(0, 0)\n"
     "  9: Goto\n"
     // This block should not get a phi for local 1.
-    "BasicBlock 5, pred: 2, 4, 7, succ: 6\n"
+    "BasicBlock 5, pred: 2, 7, 4, succ: 6\n"
     "  10: ReturnVoid\n"
     "BasicBlock 6, pred: 5\n"
     "  11: Exit\n"

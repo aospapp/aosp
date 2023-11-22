@@ -28,8 +28,9 @@ AArch64TargetStreamer::~AArch64TargetStreamer() {}
 
 // The constant pool handling is shared by all AArch64TargetStreamer
 // implementations.
-const MCExpr *AArch64TargetStreamer::addConstantPoolEntry(const MCExpr *Expr) {
-  return ConstantPools->addEntry(Streamer, Expr);
+const MCExpr *AArch64TargetStreamer::addConstantPoolEntry(const MCExpr *Expr,
+                                                          unsigned Size) {
+  return ConstantPools->addEntry(Streamer, Expr, Size);
 }
 
 void AArch64TargetStreamer::emitCurrentConstantPool() {
@@ -38,3 +39,5 @@ void AArch64TargetStreamer::emitCurrentConstantPool() {
 
 // finish() - write out any non-empty assembler constant pools.
 void AArch64TargetStreamer::finish() { ConstantPools->emitAll(Streamer); }
+
+void AArch64TargetStreamer::emitInst(uint32_t Inst) {}

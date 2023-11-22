@@ -31,6 +31,7 @@
 package com.google.protobuf;
 
 import com.google.protobuf.nano.CodedInputByteBufferNano;
+import com.google.protobuf.nano.CodedOutputByteBufferNano;
 import com.google.protobuf.nano.EnumClassNanoMultiple;
 import com.google.protobuf.nano.EnumClassNanos;
 import com.google.protobuf.nano.EnumValidity;
@@ -49,6 +50,7 @@ import com.google.protobuf.nano.NanoHasOuterClass.TestAllTypesNanoHas;
 import com.google.protobuf.nano.NanoOuterClass;
 import com.google.protobuf.nano.NanoOuterClass.TestAllTypesNano;
 import com.google.protobuf.nano.NanoReferenceTypes;
+import com.google.protobuf.nano.NanoReferenceTypesCompat;
 import com.google.protobuf.nano.NanoRepeatedPackables;
 import com.google.protobuf.nano.PackedExtensions;
 import com.google.protobuf.nano.RepeatedExtensions;
@@ -2318,6 +2320,59 @@ public class NanoTest extends TestCase {
     }
   }
 
+  public void testDifferentStringLengthsNano() throws Exception {
+    // Test string serialization roundtrip using strings of the following lengths,
+    // with ASCII and Unicode characters requiring different UTF-8 byte counts per
+    // char, hence causing the length delimiter varint to sometimes require more
+    // bytes for the Unicode strings than the ASCII string of the same length.
+    int[] lengths = new int[] {
+            0,
+            1,
+            (1 << 4) - 1,  // 1 byte for ASCII and Unicode
+            (1 << 7) - 1,  // 1 byte for ASCII, 2 bytes for Unicode
+            (1 << 11) - 1, // 2 bytes for ASCII and Unicode
+            (1 << 14) - 1, // 2 bytes for ASCII, 3 bytes for Unicode
+            (1 << 17) - 1, // 3 bytes for ASCII and Unicode
+    };
+    for (int i : lengths) {
+      testEncodingOfString('q', i);      // 1 byte per char
+      testEncodingOfString('\u07FF', i); // 2 bytes per char
+      testEncodingOfString('\u0981', i); // 3 bytes per char
+    }
+  }
+
+  /** Regression test for https://github.com/google/protobuf/issues/292 */
+  public void testCorrectExceptionThrowWhenEncodingStringsWithoutEnoughSpace() throws Exception {
+    String testCase = "Foooooooo";
+    assertEquals(CodedOutputByteBufferNano.computeRawVarint32Size(testCase.length()),
+            CodedOutputByteBufferNano.computeRawVarint32Size(testCase.length() * 3));
+    assertEquals(11, CodedOutputByteBufferNano.computeStringSize(1, testCase));
+    // Tag is one byte, varint describing string length is 1 byte, string length is 9 bytes.
+    // An array of size 1 will cause a failure when trying to write the varint.
+    for (int i = 0; i < 11; i++) {
+      CodedOutputByteBufferNano bufferNano = CodedOutputByteBufferNano.newInstance(new byte[i]);
+      try {
+        bufferNano.writeString(1, testCase);
+        fail("Should have thrown an out of space exception");
+      } catch (CodedOutputByteBufferNano.OutOfSpaceException expected) {}
+    }
+  }
+
+  private void testEncodingOfString(char c, int length) throws InvalidProtocolBufferNanoException {
+    TestAllTypesNano testAllTypesNano = new TestAllTypesNano();
+    final String fullString = fullString(c, length);
+    testAllTypesNano.optionalString = fullString;
+    final TestAllTypesNano resultNano = new TestAllTypesNano();
+    MessageNano.mergeFrom(resultNano, MessageNano.toByteArray(testAllTypesNano));
+    assertEquals(fullString, resultNano.optionalString);
+  }
+
+  private String fullString(char c, int length) {
+    char[] result = new char[length];
+    Arrays.fill(result, c);
+    return new String(result);
+  }
+
   public void testNanoWithHasParseFrom() throws Exception {
     TestAllTypesNanoHas msg = null;
     // Test false on creation, after clear and upon empty parse.
@@ -2780,24 +2835,58 @@ public class NanoTest extends TestCase {
     RepeatedExtensions.RepeatedGroup group2 = new RepeatedExtensions.RepeatedGroup();
     group2.a = 32;
     RepeatedExtensions.RepeatedGroup[] groups = {group1, group2};
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedInt32));
     message.setExtension(RepeatedExtensions.repeatedInt32, int32s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedInt32));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedUint32));
     message.setExtension(RepeatedExtensions.repeatedUint32, uint32s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedUint32));
     message.setExtension(RepeatedExtensions.repeatedSint32, sint32s);
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedInt64));
     message.setExtension(RepeatedExtensions.repeatedInt64, int64s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedInt64));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedUint64));
     message.setExtension(RepeatedExtensions.repeatedUint64, uint64s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedUint64));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedSint64));
     message.setExtension(RepeatedExtensions.repeatedSint64, sint64s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedSint64));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedFixed32));
     message.setExtension(RepeatedExtensions.repeatedFixed32, fixed32s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedFixed32));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedSfixed32));
     message.setExtension(RepeatedExtensions.repeatedSfixed32, sfixed32s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedSfixed32));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedFixed64));
     message.setExtension(RepeatedExtensions.repeatedFixed64, fixed64s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedFixed64));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedSfixed64));
     message.setExtension(RepeatedExtensions.repeatedSfixed64, sfixed64s);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedSfixed64));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedBool));
     message.setExtension(RepeatedExtensions.repeatedBool, bools);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedBool));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedFloat));
     message.setExtension(RepeatedExtensions.repeatedFloat, floats);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedFloat));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedDouble));
     message.setExtension(RepeatedExtensions.repeatedDouble, doubles);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedDouble));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedEnum));
     message.setExtension(RepeatedExtensions.repeatedEnum, enums);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedEnum));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedString));
     message.setExtension(RepeatedExtensions.repeatedString, strings);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedString));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedBytes));
     message.setExtension(RepeatedExtensions.repeatedBytes, bytess);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedBytes));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedMessage));
     message.setExtension(RepeatedExtensions.repeatedMessage, messages);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedMessage));
+    assertFalse(message.hasExtension(RepeatedExtensions.repeatedGroup));
     message.setExtension(RepeatedExtensions.repeatedGroup, groups);
+    assertTrue(message.hasExtension(RepeatedExtensions.repeatedGroup));
 
     byte[] data = MessageNano.toByteArray(message);
     message = Extensions.ExtendableMessage.parseFrom(data);
@@ -2861,10 +2950,26 @@ public class NanoTest extends TestCase {
     assertEquals(group1.a, deserializedRepeatedGroup[0].a);
     assertEquals(group2.a, deserializedRepeatedGroup[1].a);
 
-    // Test reading back using PackedExtensions: the arrays should be equal, even the fields
-    // are non-packed.
     message = Extensions.ExtendableMessage.parseFrom(data);
     assertEquals(5, message.field);
+    // Test hasExtension using PackedExtensions.
+    assertTrue(message.hasExtension(PackedExtensions.packedInt32));
+    assertTrue(message.hasExtension(PackedExtensions.packedUint32));
+    assertTrue(message.hasExtension(PackedExtensions.packedSint32));
+    assertTrue(message.hasExtension(PackedExtensions.packedInt64));
+    assertTrue(message.hasExtension(PackedExtensions.packedUint64));
+    assertTrue(message.hasExtension(PackedExtensions.packedSint64));
+    assertTrue(message.hasExtension(PackedExtensions.packedFixed32));
+    assertTrue(message.hasExtension(PackedExtensions.packedSfixed32));
+    assertTrue(message.hasExtension(PackedExtensions.packedFixed64));
+    assertTrue(message.hasExtension(PackedExtensions.packedSfixed64));
+    assertTrue(message.hasExtension(PackedExtensions.packedBool));
+    assertTrue(message.hasExtension(PackedExtensions.packedFloat));
+    assertTrue(message.hasExtension(PackedExtensions.packedDouble));
+    assertTrue(message.hasExtension(PackedExtensions.packedEnum));
+
+    // Test reading back using PackedExtensions: the arrays should be equal, even the fields
+    // are non-packed.
     assertTrue(Arrays.equals(int32s, message.getExtension(PackedExtensions.packedInt32)));
     assertTrue(Arrays.equals(uint32s, message.getExtension(PackedExtensions.packedUint32)));
     assertTrue(Arrays.equals(sint32s, message.getExtension(PackedExtensions.packedSint32)));
@@ -2913,19 +3018,28 @@ public class NanoTest extends TestCase {
     assertTrue(Arrays.equals(floats, message.getExtension(RepeatedExtensions.repeatedFloat)));
     assertTrue(Arrays.equals(doubles, message.getExtension(RepeatedExtensions.repeatedDouble)));
     assertTrue(Arrays.equals(enums, message.getExtension(RepeatedExtensions.repeatedEnum)));
+
+    // Clone the message and ensure it's still equal.
+    Extensions.ExtendableMessage clone = message.clone();
+    assertEquals(clone, message);
   }
 
   public void testNullExtensions() throws Exception {
     // Check that clearing the extension on an empty message is a no-op.
     Extensions.ExtendableMessage message = new Extensions.ExtendableMessage();
+    assertFalse(message.hasExtension(SingularExtensions.someMessage));
     message.setExtension(SingularExtensions.someMessage, null);
+    assertFalse(message.hasExtension(SingularExtensions.someMessage));
     assertEquals(0, MessageNano.toByteArray(message).length);
 
     // Check that the message is empty after setting and clearing an extension.
     AnotherMessage another = new AnotherMessage();
+    assertFalse(message.hasExtension(SingularExtensions.someMessage));
     message.setExtension(SingularExtensions.someMessage, another);
+    assertTrue(message.hasExtension(SingularExtensions.someMessage));
     assertTrue(MessageNano.toByteArray(message).length > 0);
     message.setExtension(SingularExtensions.someMessage, null);
+    assertFalse(message.hasExtension(SingularExtensions.someMessage));
     assertEquals(0, MessageNano.toByteArray(message).length);
   }
 
@@ -3156,6 +3270,9 @@ public class NanoTest extends TestCase {
     // Complete equality:
     TestAllTypesNano a = createMessageForHashCodeEqualsTest();
     TestAllTypesNano aEquivalent = createMessageForHashCodeEqualsTest();
+
+    assertTrue(MessageNano.messageNanoEquals(a, aEquivalent));
+    assertFalse(MessageNano.messageNanoEquals(a, new TestAllTypesNano()));
 
     // Null and empty array for repeated fields equality:
     TestAllTypesNano b = createMessageForHashCodeEqualsTest();
@@ -3695,6 +3812,11 @@ public class NanoTest extends TestCase {
     assertTrue(Arrays.equals(new boolean[] {false, true, false, true}, nonPacked.bools));
   }
 
+  public void testRepeatedFieldInitializedInReftypesCompatMode() {
+    NanoReferenceTypesCompat.TestAllTypesNano proto = new NanoReferenceTypesCompat.TestAllTypesNano();
+    assertNotNull(proto.repeatedString);
+  }
+
   private void assertRepeatedPackablesEqual(
       NanoRepeatedPackables.NonPacked nonPacked, NanoRepeatedPackables.Packed packed) {
     // Not using MessageNano.equals() -- that belongs to a separate test.
@@ -3712,6 +3834,22 @@ public class NanoTest extends TestCase {
     assertTrue(Arrays.equals(nonPacked.doubles, packed.doubles));
     assertTrue(Arrays.equals(nonPacked.bools, packed.bools));
     assertTrue(Arrays.equals(nonPacked.enums, packed.enums));
+  }
+
+  public void testClone() throws Exception {
+    // A simple message.
+    AnotherMessage anotherMessage = new AnotherMessage();
+    anotherMessage.string = "Hello";
+    anotherMessage.value = true;
+    anotherMessage.integers = new int[] { 1, 2, 3 };
+
+    AnotherMessage clone = anotherMessage.clone();
+    assertEquals(clone, anotherMessage);
+
+    // Verify it was a deep clone - changes to the clone shouldn't affect the
+    // original.
+    clone.integers[1] = 100;
+    assertFalse(clone.equals(anotherMessage));
   }
 
   private void assertHasWireData(MessageNano message, boolean expected) {

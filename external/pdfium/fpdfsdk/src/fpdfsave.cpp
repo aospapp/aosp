@@ -4,23 +4,24 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
+#include "../../public/fpdf_edit.h"
+#include "../../public/fpdf_save.h"
 #include "../include/fsdk_define.h"
-#include "../include/fpdfsave.h"
-#include "../include/fpdfedit.h"
+
 #if _FX_OS_ == _FX_ANDROID_
 #include "time.h"
 #else
 #include <ctime>
 #endif
 
-class CFX_IFileWrite:public IFX_StreamWrite
+class CFX_IFileWrite FX_FINAL : public IFX_StreamWrite
 {
 	
 public:
 	CFX_IFileWrite();
 	FX_BOOL				Init( FPDF_FILEWRITE * pFileWriteStruct );
-	virtual	FX_BOOL		WriteBlock(const void* pData, size_t size);
-	virtual void		Release(){};
+	virtual	FX_BOOL		WriteBlock(const void* pData, size_t size) FX_OVERRIDE;
+	virtual void		Release() FX_OVERRIDE {}
 	
 protected:
 	FPDF_FILEWRITE*		m_pFileWriteStruct;
@@ -60,7 +61,7 @@ FPDF_BOOL _FPDF_Doc_Save(FPDF_DOCUMENT document,FPDF_FILEWRITE * pFileWrite,FPDF
 	if (!pDoc) 
 		return 0;
 	
-	if ( flags < 1 || flags > 2 )
+	if ( flags < FPDF_INCREMENTAL || flags > FPDF_REMOVE_SECURITY )
 	{
 		flags = 0;
 	}
@@ -68,6 +69,11 @@ FPDF_BOOL _FPDF_Doc_Save(FPDF_DOCUMENT document,FPDF_FILEWRITE * pFileWrite,FPDF
 	CPDF_Creator FileMaker(pDoc);
 	if(bSetVersion)
 		FileMaker.SetFileVersion(fileVerion);
+	if(flags == FPDF_REMOVE_SECURITY)
+	{
+		flags =  0;
+		FileMaker.RemoveSecurity();
+	}
 	CFX_IFileWrite* pStreamWrite = NULL;
 	FX_BOOL bRet;
 	pStreamWrite = new CFX_IFileWrite;

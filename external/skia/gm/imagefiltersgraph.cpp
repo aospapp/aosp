@@ -25,16 +25,24 @@
 // perform a draw and this one does.
 class SimpleOffsetFilter : public SkImageFilter {
 public:
+    class Registrar {
+    public:
+        Registrar() {
+            SkFlattenable::Register("SimpleOffsetFilter",
+                                    SimpleOffsetFilter::CreateProc,
+                                    SimpleOffsetFilter::GetFlattenableType());
+        }
+    };
     static SkImageFilter* Create(SkScalar dx, SkScalar dy, SkImageFilter* input) {
         return SkNEW_ARGS(SimpleOffsetFilter, (dx, dy, input));
     }
 
     virtual bool onFilterImage(Proxy* proxy, const SkBitmap& src, const Context& ctx,
-                               SkBitmap* dst, SkIPoint* offset) const SK_OVERRIDE {
+                               SkBitmap* dst, SkIPoint* offset) const override {
         SkBitmap source = src;
         SkImageFilter* input = getInput(0);
         SkIPoint srcOffset = SkIPoint::Make(0, 0);
-        if (NULL != input && !input->filterImage(proxy, src, ctx, &source, &srcOffset)) {
+        if (input && !input->filterImage(proxy, src, ctx, &source, &srcOffset)) {
             return false;
         }
 
@@ -54,40 +62,46 @@ public:
         return true;
     }
 
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SimpleOffsetFilter);
 
 protected:
-    explicit SimpleOffsetFilter(SkReadBuffer& buffer)
-    : SkImageFilter(1, buffer) {
-        fDX = buffer.readScalar();
-        fDY = buffer.readScalar();
-    }
-
-    virtual void flatten(SkWriteBuffer& buffer) const SK_OVERRIDE {
-        this->SkImageFilter::flatten(buffer);
+    void flatten(SkWriteBuffer& buffer) const override {
+        this->INHERITED::flatten(buffer);
         buffer.writeScalar(fDX);
         buffer.writeScalar(fDY);
     }
 
 private:
     SimpleOffsetFilter(SkScalar dx, SkScalar dy, SkImageFilter* input)
-    : SkImageFilter(input), fDX(dx), fDY(dy) {}
+        : SkImageFilter(1, &input), fDX(dx), fDY(dy) {}
 
     SkScalar fDX, fDY;
+
+    typedef SkImageFilter INHERITED;
 };
 
-SkFlattenable::Registrar registrar("SimpleOffsetFilter",
-                                   SimpleOffsetFilter::CreateProc,
-                                   SimpleOffsetFilter::GetFlattenableType());
+static SimpleOffsetFilter::Registrar gReg;
+
+SkFlattenable* SimpleOffsetFilter::CreateProc(SkReadBuffer& buffer) {
+    SK_IMAGEFILTER_UNFLATTEN_COMMON(common, 1);
+    SkScalar dx = buffer.readScalar();
+    SkScalar dy = buffer.readScalar();
+    return Create(dx, dy, common.getInput(0));
+}
+
+#ifndef SK_IGNORE_TO_STRING
+void SimpleOffsetFilter::toString(SkString* str) const {
+    str->appendf("SimpleOffsetFilter: (");
+    str->append(")");
+}
+#endif
 
 class ImageFiltersGraphGM : public skiagm::GM {
 public:
     ImageFiltersGraphGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     virtual SkString onShortName() {
         return SkString("imagefiltersgraph");
@@ -96,10 +110,11 @@ protected:
     void make_bitmap() {
         fBitmap.allocN32Pixels(100, 100);
         SkCanvas canvas(fBitmap);
-        canvas.clear(0x00000000);
+        canvas.clear(SK_ColorTRANSPARENT);
         SkPaint paint;
         paint.setAntiAlias(true);
-        paint.setColor(0xFFFFFFFF);
+        sk_tool_utils::set_portable_typeface(&paint);
+        paint.setColor(SK_ColorWHITE);
         paint.setTextSize(SkIntToScalar(96));
         const char* str = "e";
         canvas.drawText(str, strlen(str), SkIntToScalar(20), SkIntToScalar(70), paint);
@@ -120,7 +135,7 @@ protected:
     }
 
     virtual void onDraw(SkCanvas* canvas) {
-        canvas->clear(0x00000000);
+        canvas->clear(SK_ColorBLACK);
         {
             SkAutoTUnref<SkImageFilter> bitmapSource(SkBitmapSource::Create(fBitmap));
             SkAutoTUnref<SkColorFilter> cf(SkColorFilter::CreateModeFilter(SK_ColorRED,
@@ -201,7 +216,7 @@ protected:
 
             SkPaint paint;
             paint.setImageFilter(color2);
-            paint.setColor(0xFFFF0000);
+            paint.setColor(SK_ColorRED);
             canvas->drawRect(SkRect::MakeXYWH(0, 0, 100, 100), paint);
             canvas->translate(SkIntToScalar(100), 0);
         }

@@ -25,6 +25,7 @@ import static com.google.common.collect.SortedLists.KeyPresentBehavior.FIRST_AFT
 import static com.google.common.collect.SortedLists.KeyPresentBehavior.FIRST_PRESENT;
 
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -59,6 +60,11 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
     return elements.iterator();
   }
 
+  @GwtIncompatible("NavigableSet")
+  @Override public UnmodifiableIterator<E> descendingIterator() {
+    return elements.reverse().iterator();
+  }
+
   @Override public boolean isEmpty() {
     return false;
   }
@@ -69,11 +75,8 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
   }
 
   @Override public boolean contains(Object o) {
-    if (o == null) {
-      return false;
-    }
     try {
-      return binarySearch(o) >= 0;
+      return o != null && unsafeBinarySearch(o) >= 0;
     } catch (ClassCastException e) {
       return false;
     }
@@ -84,7 +87,10 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
     // targets.size() < size() / log(size())
     // TODO(kevinb): see if we can share code with OrderedIterator after it
     // graduates from labs.
-    if (!SortedIterables.hasSameComparator(comparator(), targets) 
+    if (targets instanceof Multiset) {
+      targets = ((Multiset<?>) targets).elementSet();
+    }
+    if (!SortedIterables.hasSameComparator(comparator(), targets)
         || (targets.size() <= 1)) {
       return super.containsAll(targets);
     }
@@ -93,7 +99,7 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
      * If targets is a sorted set with the same comparator, containsAll can run
      * in O(n) time stepping through the two collections.
      */
-    Iterator<E> thisIterator = iterator();
+    PeekingIterator<E> thisIterator = Iterators.peekingIterator(iterator());
     Iterator<?> thatIterator = targets.iterator();
     Object target = thatIterator.next();
 
@@ -101,9 +107,11 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
 
       while (thisIterator.hasNext()) {
 
-        int cmp = unsafeCompare(thisIterator.next(), target);
+        int cmp = unsafeCompare(thisIterator.peek(), target);
 
-        if (cmp == 0) {
+        if (cmp < 0) {
+          thisIterator.next();
+        } else if (cmp == 0) {
 
           if (!thatIterator.hasNext()) {
 
@@ -125,30 +133,17 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
     return false;
   }
 
-  private int binarySearch(Object key) {
-    // TODO(kevinb): split this into binarySearch(E) and 
-    // unsafeBinarySearch(Object), use each appropriately. name all methods that
-    // might throw CCE "unsafe*".
-    
-    // Pretend the comparator can compare anything. If it turns out it can't
-    // compare a and b, we should get a CCE on the subsequent line. Only methods
-    // that are spec'd to throw CCE should call this.
-    @SuppressWarnings("unchecked")
-    Comparator<Object> unsafeComparator = (Comparator<Object>) comparator;
-
-    return Collections.binarySearch(elements, key, unsafeComparator);
+  private int unsafeBinarySearch(Object key) throws ClassCastException {
+    return Collections.binarySearch(elements, key, unsafeComparator());
   }
 
   @Override boolean isPartialView() {
     return elements.isPartialView();
   }
 
-  @Override public Object[] toArray() {
-    return elements.toArray();
-  }
-
-  @Override public <T> T[] toArray(T[] array) {
-    return elements.toArray(array);
+  @Override
+  int copyIntoArray(Object[] dst, int offset) {
+    return elements.copyIntoArray(dst, offset);
   }
 
   @Override public boolean equals(@Nullable Object object) {
@@ -197,16 +192,38 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
   }
 
   @Override
+  public E lower(E element) {
+    int index = headIndex(element, false) - 1;
+    return (index == -1) ? null : elements.get(index);
+  }
+
+  @Override
+  public E floor(E element) {
+    int index = headIndex(element, true) - 1;
+    return (index == -1) ? null : elements.get(index);
+  }
+
+  @Override
+  public E ceiling(E element) {
+    int index = tailIndex(element, true);
+    return (index == size()) ? null : elements.get(index);
+  }
+
+  @Override
+  public E higher(E element) {
+    int index = tailIndex(element, false);
+    return (index == size()) ? null : elements.get(index);
+  }
+
+  @Override
   ImmutableSortedSet<E> headSetImpl(E toElement, boolean inclusive) {
-    int index;
-    if (inclusive) {
-      index = SortedLists.binarySearch(
-          elements, checkNotNull(toElement), comparator(), FIRST_AFTER, NEXT_HIGHER);
-    } else {
-      index = SortedLists.binarySearch(
-          elements, checkNotNull(toElement), comparator(), FIRST_PRESENT, NEXT_HIGHER);
-    }
-    return createSubset(0, index);
+    return getSubSet(0, headIndex(toElement, inclusive));
+  }
+
+  int headIndex(E toElement, boolean inclusive) {
+    return SortedLists.binarySearch(
+        elements, checkNotNull(toElement), comparator(),
+        inclusive ? FIRST_AFTER : FIRST_PRESENT, NEXT_HIGHER);
   }
 
   @Override
@@ -218,15 +235,15 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
 
   @Override
   ImmutableSortedSet<E> tailSetImpl(E fromElement, boolean inclusive) {
-    int index;
-    if (inclusive) {
-      index = SortedLists.binarySearch(
-          elements, checkNotNull(fromElement), comparator(), FIRST_PRESENT, NEXT_HIGHER);
-    } else {
-      index = SortedLists.binarySearch(
-          elements, checkNotNull(fromElement), comparator(), FIRST_AFTER, NEXT_HIGHER);
-    }
-    return createSubset(index, size());
+    return getSubSet(tailIndex(fromElement, inclusive), size());
+  }
+
+  int tailIndex(E fromElement, boolean inclusive) {
+    return SortedLists.binarySearch(
+        elements,
+        checkNotNull(fromElement),
+        comparator(),
+        inclusive ? FIRST_PRESENT : FIRST_AFTER, NEXT_HIGHER);
   }
 
   // Pretend the comparator can compare anything. If it turns out it can't
@@ -237,7 +254,7 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
     return (Comparator<Object>) comparator;
   }
 
-  private ImmutableSortedSet<E> createSubset(int newFromIndex, int newToIndex) {
+  ImmutableSortedSet<E> getSubSet(int newFromIndex, int newToIndex) {
     if (newFromIndex == 0 && newToIndex == size()) {
       return this;
     } else if (newFromIndex < newToIndex) {
@@ -248,28 +265,27 @@ final class RegularImmutableSortedSet<E> extends ImmutableSortedSet<E> {
     }
   }
 
-  @SuppressWarnings("unchecked")
   @Override int indexOf(@Nullable Object target) {
     if (target == null) {
       return -1;
     }
     int position;
     try {
-      position = SortedLists.binarySearch(elements, (E) target, comparator(), 
+      position = SortedLists.binarySearch(elements, target, unsafeComparator(),
           ANY_PRESENT, INVERTED_INSERTION_INDEX);
     } catch (ClassCastException e) {
       return -1;
     }
-    // TODO(kevinb): reconsider if it's really worth making feeble attempts at 
-    // sanity for inconsistent comparators.
-    
-    // The equals() check is needed when the comparator isn't compatible with
-    // equals().
-    return (position >= 0 && elements.get(position).equals(target))
-        ? position : -1;
+    return (position >= 0) ? position : -1;
   }
 
   @Override ImmutableList<E> createAsList() {
     return new ImmutableSortedAsList<E>(this, elements);
+  }
+
+  @Override
+  ImmutableSortedSet<E> createDescendingSet() {
+    return new RegularImmutableSortedSet<E>(elements.reverse(),
+        Ordering.from(comparator).reverse());
   }
 }

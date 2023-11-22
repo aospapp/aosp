@@ -39,6 +39,7 @@ struct EGLContext_t {
     const char*         versionString;
     const char*         vendorString;
     const char*         rendererString;
+    const char*         shaderVersionString;
     const char*         extensionString;
     EGLint              deletePending;
     GLClientState * getClientState(){ return clientState; }

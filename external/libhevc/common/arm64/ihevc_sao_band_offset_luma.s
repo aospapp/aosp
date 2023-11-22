@@ -123,16 +123,16 @@ SRC_TOP_LOOP:                               //wd is always multiple of 8
     LD1         {v30.8b},[x6]               //pi1_sao_offset load
     ADD         v5.8b,  v1.8b ,  v31.8b     //band_table.val[0] = vadd_u8(band_table.val[0], band_pos)
 
-    dup         v29.8b, v30.8b[1]           //vdup_n_u8(pi1_sao_offset[1])
+    dup         v29.8b, v30.b[1]            //vdup_n_u8(pi1_sao_offset[1])
     ADD         v6.8b,  v2.8b ,  v31.8b     //band_table.val[1] = vadd_u8(band_table.val[1], band_pos)
 
-    dup         v28.8b, v30.8b[2]           //vdup_n_u8(pi1_sao_offset[2])
+    dup         v28.8b, v30.b[2]            //vdup_n_u8(pi1_sao_offset[2])
     ADD         v7.8b,  v3.8b ,  v31.8b     //band_table.val[2] = vadd_u8(band_table.val[2], band_pos)
 
-    dup         v27.8b, v30.8b[3]           //vdup_n_u8(pi1_sao_offset[3])
+    dup         v27.8b, v30.b[3]            //vdup_n_u8(pi1_sao_offset[3])
     ADD         v21.8b,  v4.8b ,  v31.8b    //band_table.val[3] = vadd_u8(band_table.val[3], band_pos)
 
-    dup         v26.8b, v30.8b[4]           //vdup_n_u8(pi1_sao_offset[4])
+    dup         v26.8b, v30.b[4]            //vdup_n_u8(pi1_sao_offset[4])
     ADD         v1.8b,  v5.8b ,  v29.8b     //band_table.val[0] = vadd_u8(band_table.val[0], vdup_n_u8(pi1_sao_offset[1]))
 
     movi        v29.8b, #16                 //vdup_n_u8(16)

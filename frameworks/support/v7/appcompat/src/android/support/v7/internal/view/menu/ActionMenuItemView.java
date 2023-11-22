@@ -26,24 +26,20 @@ import android.os.Build;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.text.AllCapsTransformationMethod;
-import android.support.v7.internal.widget.CompatTextView;
 import android.support.v7.widget.ActionMenuView;
+import android.support.v7.widget.AppCompatTextView;
 import android.support.v7.widget.ListPopupWindow;
 import android.text.TextUtils;
-import android.text.method.TransformationMethod;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
-import java.util.Locale;
-
 /**
  * @hide
  */
-public class ActionMenuItemView extends CompatTextView
+public class ActionMenuItemView extends AppCompatTextView
         implements MenuView.ItemView, View.OnClickListener, View.OnLongClickListener,
         ActionMenuView.ActionMenuChildView {
 
@@ -88,8 +84,6 @@ public class ActionMenuItemView extends CompatTextView
 
         setOnClickListener(this);
         setOnLongClickListener(this);
-
-        setTransformationMethod(new AllCapsTransformationMethod(context));
 
         mSavedPaddingLeft = -1;
     }
@@ -256,7 +250,8 @@ public class ActionMenuItemView extends CompatTextView
         Toast cheatSheet = Toast.makeText(context, mItemData.getTitle(), Toast.LENGTH_SHORT);
         if (midy < displayFrame.height()) {
             // Show along the top; follow action buttons
-            cheatSheet.setGravity(Gravity.TOP | GravityCompat.END, referenceX, height);
+            cheatSheet.setGravity(Gravity.TOP | GravityCompat.END, referenceX,
+                    screenPos[1] + height - displayFrame.top);
         } else {
             // Show along the bottom center
             cheatSheet.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, height);
@@ -319,15 +314,12 @@ public class ActionMenuItemView extends CompatTextView
             return false;
         }
 
-        @Override
-        protected boolean onForwardingStopped() {
-            final ListPopupWindow popup = getPopup();
-            if (popup != null) {
-                popup.dismiss();
-                return true;
-            }
-            return false;
-        }
+        // Do not backport the framework impl here.
+        // The framework's ListPopupWindow uses an animation before performing the item click
+        // after selecting an item. As AppCompat doesn't use an animation, the popup is
+        // dismissed and thus null'ed out before onForwardingStopped() has been called.
+        // This messes up ActionMenuItemView's onForwardingStopped() impl since it will now
+        // return false and make ListPopupWindow think it's still forwarding.
     }
 
     public static abstract class PopupCallback {

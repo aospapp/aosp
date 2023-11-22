@@ -19,6 +19,8 @@ package com.google.common.collect;
 import com.google.common.annotations.GwtCompatible;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.SortedSet;
 
@@ -26,7 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Basic implementation of the {@link SortedSetMultimap} interface. It's a
- * wrapper around {@link AbstractMultimap} that converts the returned
+ * wrapper around {@link AbstractMapBasedMultimap} that converts the returned
  * collections into sorted sets. The {@link #createCollection} method
  * must return a {@code SortedSet}.
  *
@@ -45,7 +47,18 @@ abstract class AbstractSortedSetMultimap<K, V>
     super(map);
   }
 
-  @Override abstract SortedSet<V> createCollection();
+  @Override
+  abstract SortedSet<V> createCollection();
+
+  @Override
+  SortedSet<V> createUnmodifiableEmptyCollection() {
+    Comparator<? super V> comparator = valueComparator();
+    if (comparator == null) {
+      return Collections.unmodifiableSortedSet(createCollection());
+    } else {
+      return ImmutableSortedSet.emptySet(valueComparator());
+    }
+  }
 
   // Following Javadoc copied from Multimap and SortedSetMultimap.
 
@@ -88,7 +101,7 @@ abstract class AbstractSortedSetMultimap<K, V>
    * <p>Any duplicates in {@code values} will be stored in the multimap once.
    */
   @Override public SortedSet<V> replaceValues(
-      K key, Iterable<? extends V> values) {
+      @Nullable K key, Iterable<? extends V> values) {
     return (SortedSet<V>) super.replaceValues(key, values);
   }
 

@@ -16,12 +16,17 @@
 
 package com.android.dialer.settings;
 
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.preference.RingtonePreference;
+import android.provider.Settings;
 import android.util.AttributeSet;
+import android.widget.Toast;
+
+import com.android.dialer.R;
 
 /**
  * RingtonePreference which doesn't show default ringtone setting.
@@ -44,6 +49,13 @@ public class DefaultRingtonePreference extends RingtonePreference {
 
     @Override
     protected void onSaveRingtone(Uri ringtoneUri) {
+        if (!Settings.System.canWrite(getContext())) {
+            Toast.makeText(
+                    getContext(),
+                    getContext().getResources().getString(R.string.toast_cannot_write_system_settings),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
         RingtoneManager.setActualDefaultRingtoneUri(getContext(), getRingtoneType(), ringtoneUri);
     }
 

@@ -825,6 +825,8 @@ Encode_Status VideoEncoderBase::queryAutoReferenceConfig(VAProfile profile) {
     attrib_list.value = VA_ATTRIB_NOT_SUPPORTED;
 
     vaStatus = vaGetConfigAttributes(mVADisplay, profile, VAEntrypointEncSlice, &attrib_list, 1);
+    CHECK_VA_STATUS_RETURN("vaQueryConfigAttributes");
+
     if(attrib_list.value == VA_ATTRIB_NOT_SUPPORTED )
         mAutoReference = false;
     else
@@ -1190,7 +1192,7 @@ Encode_Status VideoEncoderBase::getParameters(
         }
 
     }
-    return ENCODE_SUCCESS;
+    return ret;
 }
 
 Encode_Status VideoEncoderBase::setConfig(VideoParamConfigSet *videoEncConfig) {

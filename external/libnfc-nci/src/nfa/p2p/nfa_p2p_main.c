@@ -294,6 +294,7 @@ void nfa_p2p_llcp_link_cback (UINT8 event, UINT8 reason)
         llcp_activated.remote_link_miu = nfa_p2p_cb.remote_link_miu;
         llcp_activated.remote_lsc      = LLCP_GetRemoteLSC ();
         llcp_activated.remote_wks      = LLCP_GetRemoteWKS ();
+        llcp_activated.remote_version  = LLCP_GetRemoteVersion ();
 
         nfa_dm_act_conn_cback_notify (NFA_LLCP_ACTIVATED_EVT, (tNFA_CONN_EVT_DATA *) &llcp_activated);
 

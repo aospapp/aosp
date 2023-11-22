@@ -6,6 +6,7 @@
  */
 
 
+#include "SkBitmapScaler.h"
 #include "SkBitmapProcState.h"
 #include "SkColorPriv.h"
 #include "SkPaint.h"
@@ -27,9 +28,9 @@ void SI8_D16_nofilter_DX_arm(const SkBitmapProcState& s,
                              int count, uint16_t* SK_RESTRICT colors) {
     SkASSERT(count > 0 && colors != NULL);
     SkASSERT(s.fInvType <= (SkMatrix::kTranslate_Mask | SkMatrix::kScale_Mask));
-    SkASSERT(SkPaint::kNone_FilterLevel == s.fFilterLevel);
+    SkASSERT(kNone_SkFilterQuality == s.fFilterLevel);
 
-    const uint16_t* SK_RESTRICT table = s.fBitmap->getColorTable()->lock16BitCache();
+    const uint16_t* SK_RESTRICT table = s.fBitmap->getColorTable()->read16BitCache();
     const uint8_t* SK_RESTRICT srcAddr = (const uint8_t*)s.fBitmap->getPixels();
 
     // buffer is y32, x16, x16, x16, x16, x16
@@ -103,8 +104,6 @@ void SI8_D16_nofilter_DX_arm(const SkBitmapProcState& s,
             src = srcAddr[*xx++]; *colors++ = table[src];
         }
     }
-
-    s.fBitmap->getColorTable()->unlock16BitCache();
 }
 
 void SI8_opaque_D32_nofilter_DX_arm(
@@ -118,9 +117,9 @@ void SI8_opaque_D32_nofilter_DX_arm(const SkBitmapProcState& s,
                                     int count, SkPMColor* SK_RESTRICT colors) {
     SkASSERT(count > 0 && colors != NULL);
     SkASSERT(s.fInvType <= (SkMatrix::kTranslate_Mask | SkMatrix::kScale_Mask));
-    SkASSERT(SkPaint::kNone_FilterLevel == s.fFilterLevel);
+    SkASSERT(kNone_SkFilterQuality == s.fFilterLevel);
 
-    const SkPMColor* SK_RESTRICT table = s.fBitmap->getColorTable()->lockColors();
+    const SkPMColor* SK_RESTRICT table = s.fBitmap->getColorTable()->readColors();
     const uint8_t* SK_RESTRICT srcAddr = (const uint8_t*)s.fBitmap->getPixels();
 
     // buffer is y32, x16, x16, x16, x16, x16
@@ -183,8 +182,6 @@ void SI8_opaque_D32_nofilter_DX_arm(const SkBitmapProcState& s,
             : "memory", "cc", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11"
         );
     }
-
-    s.fBitmap->getColorTable()->unlockColors();
 }
 #endif // !defined(SK_CPU_ARM64) && SK_ARM_ARCH >= 6 && !defined(SK_CPU_BENDIAN)
 
@@ -204,7 +201,7 @@ void SkBitmapProcState::platformProcs() {
 
     switch (fBitmap->colorType()) {
         case kIndex_8_SkColorType:
-            if (justDx && SkPaint::kNone_FilterLevel == fFilterLevel) {
+            if (justDx && kNone_SkFilterQuality == fFilterLevel) {
 #if 0   /* crashing on android device */
                 fSampleProc16 = SI8_D16_nofilter_DX_arm;
                 fShaderProc16 = NULL;
@@ -229,6 +226,6 @@ extern void platformConvolutionProcs_arm_neon(SkConvolutionProcs* procs);
 void platformConvolutionProcs_arm(SkConvolutionProcs* procs) {
 }
 
-void SkBitmapProcState::platformConvolutionProcs(SkConvolutionProcs* procs) {
+void SkBitmapScaler::PlatformConvolutionProcs(SkConvolutionProcs* procs) {
     SK_ARM_NEON_WRAP(platformConvolutionProcs_arm)(procs);
 }

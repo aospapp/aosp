@@ -22,7 +22,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
-import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -40,7 +39,7 @@ import com.android.contacts.common.vcard.ImportVCardActivity;
 import java.util.List;
 
 /**
- * Utility class for selectiong an Account for importing contact(s)
+ * Utility class for selecting an Account for importing contact(s)
  */
 public class AccountSelectionUtil {
     // TODO: maybe useful for EditContactActivity.java...
@@ -74,7 +73,7 @@ public class AccountSelectionUtil {
                 int resId) {
             // Subscription id is only needed for importing from SIM card. We can safely ignore
             // its value for SD card importing.
-            this(context, accountList, resId, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+            this(context, accountList, resId, /* subscriptionId = */ -1);
         }
 
         public void onClick(DialogInterface dialog, int which) {
@@ -167,8 +166,8 @@ public class AccountSelectionUtil {
                 doImportFromSim(context, account, subscriptionId);
                 break;
             }
-            case R.string.import_from_sdcard: {
-                doImportFromSdCard(context, account);
+            case R.string.import_from_vcf_file: {
+                doImportFromVcfFile(context, account);
                 break;
             }
         }
@@ -188,7 +187,7 @@ public class AccountSelectionUtil {
         context.startActivity(importIntent);
     }
 
-    public static void doImportFromSdCard(Context context, AccountWithDataSet account) {
+    public static void doImportFromVcfFile(Context context, AccountWithDataSet account) {
         Intent importIntent = new Intent(context, ImportVCardActivity.class);
         if (account != null) {
             importIntent.putExtra("account_name", account.name);

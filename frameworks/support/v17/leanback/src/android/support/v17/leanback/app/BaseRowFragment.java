@@ -21,7 +21,8 @@ import android.support.v17.leanback.widget.ItemBridgeAdapter;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.ListRow;
-import android.support.v17.leanback.widget.OnChildSelectedListener;
+import android.support.v17.leanback.widget.OnChildViewHolderSelectedListener;
+import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,17 +36,21 @@ abstract class BaseRowFragment extends Fragment {
     private PresenterSelector mPresenterSelector;
     private ItemBridgeAdapter mBridgeAdapter;
     private int mSelectedPosition = -1;
+    private boolean mPendingTransitionPrepare;
 
     abstract int getLayoutResourceId();
 
-    private final OnChildSelectedListener mRowSelectedListener = new OnChildSelectedListener() {
-        @Override
-        public void onChildSelected(ViewGroup parent, View view, int position, long id) {
-            onRowSelected(parent, view, position, id);
-        }
-    };
+    private final OnChildViewHolderSelectedListener mRowSelectedListener =
+            new OnChildViewHolderSelectedListener() {
+                @Override
+                public void onChildViewHolderSelected(RecyclerView parent,
+                        RecyclerView.ViewHolder view, int position, int subposition) {
+                    onRowSelected(parent, view, position, subposition);
+                }
+            };
 
-    void onRowSelected(ViewGroup parent, View view, int position, long id) {
+    void onRowSelected(RecyclerView parent, RecyclerView.ViewHolder view,
+            int position, int subposition) {
     }
 
     @Override
@@ -53,6 +58,10 @@ abstract class BaseRowFragment extends Fragment {
             Bundle savedInstanceState) {
         View view = inflater.inflate(getLayoutResourceId(), container, false);
         mVerticalGridView = findGridViewFromRoot(view);
+        if (mPendingTransitionPrepare) {
+            mPendingTransitionPrepare = false;
+            onTransitionPrepare();
+        }
         return view;
     }
 
@@ -68,7 +77,7 @@ abstract class BaseRowFragment extends Fragment {
                 mVerticalGridView.setSelectedPosition(mSelectedPosition);
             }
         }
-        mVerticalGridView.setOnChildSelectedListener(mRowSelectedListener);
+        mVerticalGridView.setOnChildViewHolderSelectedListener(mRowSelectedListener);
     }
 
     @Override
@@ -140,7 +149,11 @@ abstract class BaseRowFragment extends Fragment {
     }
 
     void updateAdapter() {
-        mBridgeAdapter = null;
+        if (mBridgeAdapter != null) {
+            // detach observer from ObjectAdapter
+            mBridgeAdapter.clear();
+            mBridgeAdapter = null;
+        }
 
         if (mAdapter != null) {
             // If presenter selector is null, adapter ps will be used
@@ -162,19 +175,32 @@ abstract class BaseRowFragment extends Fragment {
         }
     }
 
-    void onTransitionStart() {
+    boolean onTransitionPrepare() {
         if (mVerticalGridView != null) {
             mVerticalGridView.setAnimateChildLayout(false);
+            mVerticalGridView.setScrollEnabled(false);
+            return true;
+        }
+        mPendingTransitionPrepare = true;
+        return false;
+    }
+
+    void onTransitionStart() {
+        if (mVerticalGridView != null) {
             mVerticalGridView.setPruneChild(false);
+            mVerticalGridView.setLayoutFrozen(true);
             mVerticalGridView.setFocusSearchDisabled(true);
         }
     }
 
     void onTransitionEnd() {
+        // be careful that fragment might be destroyed before header transition ends.
         if (mVerticalGridView != null) {
+            mVerticalGridView.setLayoutFrozen(false);
             mVerticalGridView.setAnimateChildLayout(true);
             mVerticalGridView.setPruneChild(true);
             mVerticalGridView.setFocusSearchDisabled(false);
+            mVerticalGridView.setScrollEnabled(true);
         }
     }
 

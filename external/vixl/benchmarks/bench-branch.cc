@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2015, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -24,13 +24,13 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "a64/macro-assembler-a64.h"
-#include "a64/instructions-a64.h"
-#include "globals-vixl.h"
+#include "vixl/a64/macro-assembler-a64.h"
+#include "vixl/a64/instructions-a64.h"
+#include "vixl/globals.h"
 
 using namespace vixl;
 
-static const unsigned kDefaultInstructionCount = 100000;
+static const int kDefaultInstructionCount = 100000;
 
 // This program focuses on emitting branch instructions.
 //
@@ -38,7 +38,7 @@ static const unsigned kDefaultInstructionCount = 100000;
 // instructions in a fixed size buffer, looping over the buffer if necessary.
 // This code therefore focuses on Emit and label binding/patching.
 int main(int argc, char* argv[]) {
-  unsigned instructions = 0;
+  int instructions = 0;
 
   switch (argc) {
     case 1: instructions = kDefaultInstructionCount; break;
@@ -48,35 +48,37 @@ int main(int argc, char* argv[]) {
       exit(1);
   }
 
-  const unsigned buffer_size = 256 * KBytes;
-  // Emitting on the last word of the buffer will trigger an assert.
-  const unsigned buffer_instruction_count = buffer_size / kInstructionSize - 1;
+  const int buffer_size = 256 * KBytes;
+  const int buffer_instruction_count = buffer_size / kInstructionSize;
+  MacroAssembler masm(buffer_size);
 
-  byte* assm_buffer = new byte[buffer_size];
-  MacroAssembler* masm = new MacroAssembler(assm_buffer, buffer_size);
-
-  #define __ masm->
+  #define __ masm.
   // We emit a branch to the next instruction.
 
-  unsigned rounds = instructions / buffer_instruction_count;
-  for (unsigned i = 0; i < rounds; ++i) {
-    for (unsigned j = 0; j < buffer_instruction_count; ++j) {
+  int rounds = instructions / buffer_instruction_count;
+  for (int i = 0; i < rounds; ++i) {
+    {
+      InstructionAccurateScope scope(&masm, buffer_instruction_count);
+      for (int j = 0; j < buffer_instruction_count; ++j) {
+        Label target;
+        __ b(&target);
+        __ bind(&target);
+      }
+    }
+    masm.Reset();
+  }
+
+  int remaining = instructions % buffer_instruction_count;
+  {
+    InstructionAccurateScope scope(&masm, remaining);
+    for (int i = 0; i < remaining; ++i) {
       Label target;
       __ b(&target);
       __ bind(&target);
     }
-    masm->Reset();
   }
 
-  unsigned remaining = instructions % buffer_instruction_count;
-  for (unsigned i = 0; i < remaining; ++i) {
-    Label target;
-    __ b(&target);
-    __ bind(&target);
-  }
-
-  delete masm;
-  delete assm_buffer;
+  masm.FinalizeCode();
 
   return 0;
 }

@@ -137,7 +137,46 @@ def:short_descr(obj) ?><?cs
     /if ?>
     <?cs call:tag_list(obj.deprecated) ?></em><?cs
   else ?><?cs call:tag_list(obj.shortDescr) ?><?cs
+  if:subcount(obj.annotationdocumentation)?><?cs
+    each:annodoc=obj.annotationdocumentation ?>
+    <div><?cs var:annodoc.text?></div><?cs
+    /each?><?cs /if?><?cs
   /if ?><?cs
+/def ?>
+
+
+<?cs
+# Show a list of annotations associated with obj
+#
+# pre is an HTML string to start the list.
+# between is an HTML string to include between each successive element.
+# post is an HTML string to end the list.
+# for example, call:show_annotations_list(cl, "<p>Annotations: ", "<br />", "</p>")
+# ?><?cs
+def:show_annotations_list(obj, pre, between, post) ?><?cs
+  each:anno = obj.showAnnotations ?><?cs
+    if:first(anno) ?><?cs
+      var:pre ?><?cs
+    /if ?>
+    @<?cs var:anno.type.label ?>(<?cs
+    each:elem = anno.elementValues ?><?cs
+      var:elem.name ?>&nbsp;=&nbsp;<?cs
+      var:elem.value ?><?cs
+      if:last(elem) == 0 ?>, <?cs
+      /if ?><?cs
+    /each ?>)<?cs
+    if:last(anno) == 0 ?><?cs
+      var:between ?><?cs
+    /if ?><?cs
+    if:last(anno) ?><?cs
+      var:post ?><?cs
+    /if ?><?cs
+  /each ?><?cs
+/def ?>
+
+<?cs # Show a comma-separated list of annotations associated with obj ?><?cs
+def:show_simple_annotations_list(obj, pre, post) ?><?cs
+  call:show_annotations_list(obj, pre, ", ", post) ?><?cs
 /def ?>
 
 <?cs # Show the red box with the deprecated warning ?><?cs 
@@ -196,6 +235,10 @@ if:reference.apilevels && obj.since ?>
 def:description(obj) ?><?cs 
   call:deprecated_warning(obj) ?>
   <div class="jd-tagdata jd-tagdescr"><p><?cs call:tag_list(obj.descr) ?></p></div><?cs 
+  if:subcount(obj.annotationdocumentation)?><?cs
+    each:annodoc=obj.annotationdocumentation ?>
+    <div class="jd-tagdata" style="display:block"><?cs var:annodoc.text?></div><?cs
+    /each?><?cs /if?><?cs
   if:subcount(obj.attrRefs) ?>
   <div class="jd-tagdata">
       <h5 class="jd-tagtitle">Related XML Attributes</h5>

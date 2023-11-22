@@ -21,6 +21,8 @@
 
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -33,22 +35,15 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
-        <activity android:name="com.android.cts.deviceowner.ExampleIntentReceivingActivity1">
-            <intent-filter>
-                <action android:name="com.android.cts.deviceowner.EXAMPLE_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
 
-        <activity android:name="com.android.cts.deviceowner.ExampleIntentReceivingActivity2">
-            <intent-filter>
-                <action android:name="com.android.cts.deviceowner.EXAMPLE_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
+        <activity
+            android:name="com.android.cts.deviceowner.KeyManagementActivity" />
 
         <activity
             android:name="com.android.cts.deviceowner.LockTaskUtilityActivity" />
+        <activity
+            android:name="com.android.cts.deviceowner.LockTaskUtilityActivityIfWhitelisted"
+            android:lockTaskMode="if_whitelisted" />
 
         <!-- we need to give a different taskAffinity so that when we use
              FLAG_ACTIVITY_NEW_TASK, the system tries to start it in a different task
@@ -57,11 +52,9 @@
             android:name="com.android.cts.deviceowner.LockTaskTest$IntentReceivingActivity"
             android:taskAffinity="com.android.cts.deviceowner.LockTaskTest.IntentReceivingActivity"
             />
-        <activity
-            android:name="com.android.cts.deviceowner.ApplicationRestrictionActivity" />
     </application>
 
-    <instrumentation android:name="android.test.InstrumentationTestRunner"
+    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.deviceowner"
                      android:label="Device Owner CTS tests"/>
 </manifest>

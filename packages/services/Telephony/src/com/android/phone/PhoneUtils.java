@@ -30,12 +30,15 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
@@ -610,7 +613,7 @@ public class PhoneUtils {
         final boolean initiallyIdle = app.mCM.getState() == PhoneConstants.State.IDLE;
 
         try {
-            connection = app.mCM.dial(phone, numberToDial, VideoProfile.VideoState.AUDIO_ONLY);
+            connection = app.mCM.dial(phone, numberToDial, VideoProfile.STATE_AUDIO_ONLY);
         } catch (CallStateException ex) {
             // CallStateException means a new outgoing call is not currently
             // possible: either no more call slots exist, or there's another
@@ -979,7 +982,7 @@ public class PhoneUtils {
                             .create();
 
                     sUssdDialog.getWindow().setType(
-                            WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
+                            WindowManager.LayoutParams.TYPE_KEYGUARD_DIALOG);
                     sUssdDialog.getWindow().addFlags(
                             WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                 }
@@ -1827,7 +1830,8 @@ public class PhoneUtils {
         if (DBG) log("turnOnNoiseSuppression: " + flag);
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
-        if (!context.getResources().getBoolean(R.bool.has_in_call_noise_suppression)) {
+        PersistableBundle b = PhoneGlobals.getInstance().getCarrierConfig();
+        if (!b.getBoolean(CarrierConfigManager.KEY_HAS_IN_CALL_NOISE_SUPPRESSION_BOOL)) {
             return;
         }
 
@@ -1849,7 +1853,8 @@ public class PhoneUtils {
     static void restoreNoiseSuppression(Context context) {
         if (DBG) log("restoreNoiseSuppression, restoring to: " + sIsNoiseSuppressionEnabled);
 
-        if (!context.getResources().getBoolean(R.bool.has_in_call_noise_suppression)) {
+        PersistableBundle b = PhoneGlobals.getInstance().getCarrierConfig();
+        if (!b.getBoolean(CarrierConfigManager.KEY_HAS_IN_CALL_NOISE_SUPPRESSION_BOOL)) {
             return;
         }
 
@@ -1861,7 +1866,8 @@ public class PhoneUtils {
 
     static boolean isNoiseSuppressionOn(Context context) {
 
-        if (!context.getResources().getBoolean(R.bool.has_in_call_noise_suppression)) {
+        PersistableBundle b = PhoneGlobals.getInstance().getCarrierConfig();
+        if (!b.getBoolean(CarrierConfigManager.KEY_HAS_IN_CALL_NOISE_SUPPRESSION_BOOL)) {
             return false;
         }
 
@@ -2447,18 +2453,77 @@ public class PhoneUtils {
                 == Configuration.ORIENTATION_LANDSCAPE;
     }
 
+    public static PhoneAccountHandle makePstnPhoneAccountHandle(String id) {
+        return makePstnPhoneAccountHandleWithPrefix(id, "", false);
+    }
+
+    public static PhoneAccountHandle makePstnPhoneAccountHandle(int phoneId) {
+        return makePstnPhoneAccountHandle(PhoneFactory.getPhone(phoneId));
+    }
+
     public static PhoneAccountHandle makePstnPhoneAccountHandle(Phone phone) {
         return makePstnPhoneAccountHandleWithPrefix(phone, "", false);
     }
 
     public static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
             Phone phone, String prefix, boolean isEmergency) {
-        ComponentName pstnConnectionServiceName =
-                new ComponentName(phone.getContext(), TelephonyConnectionService.class);
         // TODO: Should use some sort of special hidden flag to decorate this account as
         // an emergency-only account
-        String id = isEmergency ? "E" : prefix + String.valueOf(phone.getSubId());
+        String id = isEmergency ? "E" : prefix + String.valueOf(phone.getIccSerialNumber());
+        return makePstnPhoneAccountHandleWithPrefix(id, prefix, isEmergency);
+    }
+
+    public static PhoneAccountHandle makePstnPhoneAccountHandleWithPrefix(
+            String id, String prefix, boolean isEmergency) {
+        ComponentName pstnConnectionServiceName = getPstnConnectionServiceName();
         return new PhoneAccountHandle(pstnConnectionServiceName, id);
+    }
+
+    public static int getSubIdForPhoneAccount(PhoneAccount phoneAccount) {
+        if (phoneAccount != null
+                && phoneAccount.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
+            return getSubIdForPhoneAccountHandle(phoneAccount.getAccountHandle());
+        }
+        return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+    }
+
+    public static int getSubIdForPhoneAccountHandle(PhoneAccountHandle handle) {
+        if (handle != null && handle.getComponentName().equals(getPstnConnectionServiceName())) {
+            Phone phone = getPhoneFromIccId(handle.getId());
+            if (phone != null) {
+                return phone.getSubId();
+            }
+        }
+        return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+    }
+
+    /**
+     * Determine if a given phone account corresponds to an active SIM
+     *
+     * @param sm An instance of the subscription manager so it is not recreated for each calling of
+     * this method.
+     * @param handle The handle for the phone account to check
+     * @return {@code true} If there is an active SIM for this phone account,
+     * {@code false} otherwise.
+     */
+    public static boolean isPhoneAccountActive(SubscriptionManager sm, PhoneAccountHandle handle) {
+        return sm.getActiveSubscriptionInfoForIccIndex(handle.getId()) != null;
+    }
+
+    private static ComponentName getPstnConnectionServiceName() {
+        return new ComponentName(PhoneGlobals.getInstance(), TelephonyConnectionService.class);
+    }
+
+    private static Phone getPhoneFromIccId(String iccId) {
+        if (!TextUtils.isEmpty(iccId)) {
+            for (Phone phone : PhoneFactory.getPhones()) {
+                String phoneIccId = phone.getIccSerialNumber();
+                if (iccId.equals(phoneIccId)) {
+                    return phone;
+                }
+            }
+        }
+        return null;
     }
 
     /**

@@ -89,8 +89,8 @@ void SkDrawBitmap::onEndElement(SkAnimateMaker&) {
     SkASSERT(height != -1);
     SkASSERT(rowBytes >= 0);
     SkColorType colorType = SkColorType(format);
-    fBitmap.setInfo(SkImageInfo::Make(width, height, colorType, kPremul_SkAlphaType), rowBytes);
-    fBitmap.allocPixels();
+    fBitmap.allocPixels(SkImageInfo::Make(width, height, colorType, kPremul_SkAlphaType),
+                        rowBytes);
     if (fColorSet)
         fBitmap.eraseColor(fColor);
 }
@@ -189,7 +189,7 @@ void SkImageBaseBitmap::resolve() {
         fBitmap.reset();
 
         //SkStream* stream = SkStream::GetURIStream(fUriBase, src.c_str());
-        SkAutoTUnref<SkStreamAsset> stream(SkStream::NewFromFile(src.c_str()));
+        SkAutoTDelete<SkStreamAsset> stream(SkStream::NewFromFile(src.c_str()));
         if (stream.get()) {
             SkImageDecoder::DecodeStream(stream, &fBitmap);
         }

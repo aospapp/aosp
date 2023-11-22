@@ -43,11 +43,22 @@
 #include "nl80211_copy.h"
 
 #include <utils/Log.h>
+#include "rb_wrapper.h"
+#include "pkt_stats.h"
 
 #define SOCKET_BUFFER_SIZE      (32768U)
 #define RECV_BUF_SIZE           (4096)
 #define DEFAULT_EVENT_CB_SIZE   (64)
 #define DEFAULT_CMD_SIZE        (64)
+#define NUM_RING_BUFS           5
+
+#define MAC_ADDR_ARRAY(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define MAC_ADDR_STR "%02x:%02x:%02x:%02x:%02x:%02x"
+#define BIT(x) (1 << (x))
+
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
 
 typedef void (*wifi_internal_event_handler) (wifi_handle handle, int events);
 
@@ -68,14 +79,15 @@ typedef struct {
 
 typedef struct {
     wifi_handle handle;                             // handle to wifi data
-    char name[8+1];                                 // interface name + trailing null
+    char name[IFNAMSIZ+1];                          // interface name + trailing null
     int  id;                                        // id to use when talking to driver
 } interface_info;
 
-typedef struct {
+typedef struct hal_info_s {
 
     struct nl_sock *cmd_sock;                       // command socket object
     struct nl_sock *event_sock;                     // event socket object
+    struct nl_sock *user_sock;                      // user socket object
     int nl80211_family_id;                          // family id for 80211 driver
 
     bool in_event_loop;                             // Indicates that event loop is active
@@ -87,6 +99,7 @@ typedef struct {
     cb_info *event_cb;                              // event callbacks
     int num_event_cb;                               // number of event callbacks
     int alloc_event_cb;                             // number of allocated callback objects
+    pthread_mutex_t cb_lock;                        // mutex for the event_cb access
 
     cmd_info *cmd;                                  // Outstanding commands
     int num_cmd;                                    // number of commands
@@ -95,7 +108,17 @@ typedef struct {
     interface_info **interfaces;                    // array of interfaces
     int num_interfaces;                             // number of interfaces
 
+    feature_set supported_feature_set;
     // add other details
+    int user_sock_arg;
+    struct rb_info rb_infos[NUM_RING_BUFS];
+    void (*on_ring_buffer_data) (char *ring_name, char *buffer, int buffer_size,
+          wifi_ring_buffer_status *status);
+    void (*on_alert) (wifi_request_id id, char *buffer, int buffer_size, int err_code);
+    struct pkt_stats_s *pkt_stats;
+
+    /* socket pair used to exit from blocking poll*/
+    int exit_sockets[2];
 } hal_info;
 
 wifi_error wifi_register_handler(wifi_handle handle, int cmd, nl_recvmsg_msg_cb_t func, void *arg);
@@ -117,6 +140,14 @@ wifi_handle getWifiHandle(hal_info *info);
 wifi_interface_handle getIfaceHandle(interface_info *info);
 
 
+wifi_error wifi_start_sending_offloaded_packet(wifi_request_id id,
+        wifi_interface_handle iface, u8 *ip_packet, u16 ip_packet_len,
+        u8 *src_mac_addr, u8 *dst_mac_addr, u32 period_msec);
+wifi_error wifi_stop_sending_offloaded_packet(wifi_request_id id,
+        wifi_interface_handle iface);
+wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
+        iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
+wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
 // some common macros
 
 #define min(x, y)       ((x) < (y) ? (x) : (y))
@@ -126,7 +157,7 @@ wifi_interface_handle getIfaceHandle(interface_info *info);
 extern "C"
 {
 #endif /* __cplusplus */
-void hexdump(char *bytes, u16 len);
+void hexdump(void *bytes, u16 len);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

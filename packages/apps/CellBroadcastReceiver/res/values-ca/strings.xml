@@ -68,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Configuració del Brasil"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Mostra difusions del canal 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"A Brasil s\'utilitza el canal 50 per actualitzar la informació sobre una zona"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Opcions del desenvolupador"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Opcions per a desenvolupadors"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Categoria de l\'alerta:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofísiques"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorològiques"</string>

@@ -16,17 +16,5 @@
 
 <resources>
     <!-- Application label -->
-    <string name="app_name">TelecommTests</string>
-
-    <!-- String for the TestCallActivity -->
-    <string name="testCallActivityLabel">Test Connection Service App</string>
-
-    <!-- String for the TestDialerActivity -->
-    <string name="testDialerActivityLabel">Test Dialer</string>
-
-    <!-- String for button in TestDialerActivity that reassigns the default Dialer -->
-    <string name="defaultDialerButton">Default dialer request</string>
-
-    <!-- String for button in TestDialerActivity that places a test call -->
-    <string name="placeCallButton">Place call</string>
+    <string name="app_name">Telecom Unit Tests</string>
 </resources>

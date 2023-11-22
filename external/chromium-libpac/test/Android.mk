@@ -1,7 +1,7 @@
-ifneq ($(TARGET_SIMULATOR),true)
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_CPP_EXTENSION := .cc
 
@@ -16,12 +16,8 @@ LOCAL_CFLAGS += \
   -Wno-import \
   -Wno-format \
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../src $(LOCAL_PATH)/ external/v8 external/gtest
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../src $(LOCAL_PATH)/ external/v8
 
-LOCAL_SHARED_LIBRARIES := libpac libutils libstlport liblog
-
-include external/stlport/libstlport.mk
+LOCAL_SHARED_LIBRARIES := libpac libutils liblog
 
 include $(BUILD_NATIVE_TEST)
-
-endif

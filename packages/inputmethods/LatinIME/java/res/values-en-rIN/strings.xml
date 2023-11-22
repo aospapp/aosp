@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Sound on keypress"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Pop-up on key press"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Preferences"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Appearance &amp; layouts"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Multilingual options"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Accounts &amp; Privacy"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Appearance &amp; Layouts"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Gesture Typing"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Text correction"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Advanced"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Theme"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Enable split keyboard"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google Keyboard Sync"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Sync is turned on"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Sync your personal dictionary across devices"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Sync now"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Delete cloud data"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Deletes your synced data from Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Your synced data will be deleted from the cloud. Are you sure?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Delete"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Cancel"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Your personal dictionary will be synced and backed up to Google servers. The statistical information of word frequency may be collected to help improve our products. The collection and usage of all the information will be compliant with "<a href="https://www.google.com/policies/privacy">"Google\'s Privacy Policy"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Please add a Google account to this device to enable this feature"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Sync is not available for devices with Google Apps for Business accounts"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Switch to other input methods"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Language switch key also covers other input methods"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Language switch key"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Touch here to save"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Dictionary available"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Keyboard theme"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Change accounts"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"No accounts selected"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Currently using <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"OK"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Cancel"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Sign out"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Select an account to use"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"English (UK)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"English (US)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Spanish (US)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hinglish"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Serbian (Latin)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"English (UK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"English (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Spanish (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hinglish (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Serbian (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Traditional)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Cyrillic)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Latin)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Compact)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"No language (Alphabet)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Alphabet (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Alphabet (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"The same input style already exists: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Keypress vibration duration"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Keypress sound volume"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Key long press delay"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Emoji for physical keyboard"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Physical Alt key shows the emoji palette"</string>
     <string name="button_default" msgid="3988017840431881491">"Default"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Welcome to <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"with Gesture Typing"</string>

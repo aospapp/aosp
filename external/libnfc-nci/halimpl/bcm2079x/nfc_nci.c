@@ -20,6 +20,8 @@
 #define LOG_TAG "NfcNciHal"
 #include "OverrideLog.h"
 #include <errno.h>
+#include <malloc.h>
+#include <string.h>
 #include <hardware/hardware.h>
 #include <hardware/nfc.h>
 #include "HalAdaptation.h"

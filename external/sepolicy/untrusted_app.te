@@ -55,6 +55,11 @@ allow untrusted_app shell_data_file:dir r_dir_perms;
 # This line needs to be deleted.
 allow untrusted_app anr_data_file:file r_file_perms;
 
+# Read and write system app data files passed over Binder.
+# Motivating case was /data/data/com.android.settings/cache/*.jpg for
+# cropping or taking user photos.
+allow untrusted_app system_app_data_file:file { read write getattr };
+
 #
 # Rules migrated from old app domains coalesced into untrusted_app.
 # This includes what used to be media_app, shared_app, and release_app.
@@ -67,9 +72,45 @@ allow untrusted_app mtp_device:chr_file rw_file_perms;
 allow untrusted_app media_rw_data_file:dir create_dir_perms;
 allow untrusted_app media_rw_data_file:file create_file_perms;
 
+# Traverse into /mnt/media_rw for bypassing FUSE daemon
+# TODO: narrow this to just MediaProvider
+allow untrusted_app mnt_media_rw_file:dir search;
+
 # Write to /cache.
 allow untrusted_app cache_file:dir create_dir_perms;
 allow untrusted_app cache_file:file create_file_perms;
+
+allow untrusted_app drmserver_service:service_manager find;
+allow untrusted_app mediaserver_service:service_manager find;
+allow untrusted_app nfc_service:service_manager find;
+allow untrusted_app radio_service:service_manager find;
+allow untrusted_app surfaceflinger_service:service_manager find;
+allow untrusted_app app_api_service:service_manager find;
+
+# TODO: remove this once priv-apps are no longer running in untrusted_app
+allow untrusted_app system_api_service:service_manager find;
+
+# TODO: remove and replace with specific package that accesses this
+allow untrusted_app persistent_data_block_service:service_manager find;
+
+# Allow verifier to access staged apks.
+allow untrusted_app { apk_tmp_file apk_private_tmp_file }:dir r_dir_perms;
+allow untrusted_app { apk_tmp_file apk_private_tmp_file }:file r_file_perms;
+
+# only allow unprivileged socket ioctl commands
+allow untrusted_app self:{ rawip_socket tcp_socket udp_socket } unpriv_sock_ioctls;
+
+# Allow GMS core to access perfprofd output, which is stored
+# in /data/misc/perfprofd/. GMS core will need to list all
+# data stored in that directory to process them one by one.
+userdebug_or_eng(`
+  allow untrusted_app perfprofd_data_file:file r_file_perms;
+  allow untrusted_app perfprofd_data_file:dir r_dir_perms;
+')
+
+# Programs routinely attempt to scan through /system, looking
+# for files. Suppress the denials when they occur.
+dontaudit untrusted_app exec_type:file getattr;
 
 ###
 ### neverallow rules
@@ -96,6 +137,20 @@ neverallow untrusted_app property_socket:sock_file write;
 neverallow untrusted_app init:unix_stream_socket connectto;
 neverallow untrusted_app property_type:property_service set;
 
-# Allow verifier to access staged apks.
-allow untrusted_app { apk_tmp_file apk_private_tmp_file }:dir r_dir_perms;
-allow untrusted_app { apk_tmp_file apk_private_tmp_file }:file r_file_perms;
+# Do not allow untrusted_app to be assigned mlstrustedsubject.
+# This would undermine the per-user isolation model being
+# enforced via levelFrom=user in seapp_contexts and the mls
+# constraints.  As there is no direct way to specify a neverallow
+# on attribute assignment, this relies on the fact that fork
+# permission only makes sense within a domain (hence should
+# never be granted to any other domain within mlstrustedsubject)
+# and untrusted_app is allowed fork permission to itself.
+neverallow untrusted_app mlstrustedsubject:process fork;
+
+# Do not allow untrusted_app to hard link to any files.
+# In particular, if untrusted_app links to other app data
+# files, installd will not be able to guarantee the deletion
+# of the linked to file. Hard links also contribute to security
+# bugs, so we want to ensure untrusted_app never has this
+# capability.
+neverallow untrusted_app file_type:file link;

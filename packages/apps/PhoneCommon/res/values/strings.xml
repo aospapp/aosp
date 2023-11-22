@@ -15,26 +15,6 @@
   ~ limitations under the License
   -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <!-- The digit to be displayed on the 0 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_0_number">0</string>
-    <!-- The digit to be displayed on the 1 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_1_number">1</string>
-    <!-- The digit to be displayed on the 2 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_2_number">2</string>
-    <!-- The digit to be displayed on the 3 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_3_number">3</string>
-    <!-- The digit to be displayed on the 4 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_4_number">4</string>
-    <!-- The digit to be displayed on the 5 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_5_number">5</string>
-    <!-- The digit to be displayed on the 6 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_6_number">6</string>
-    <!-- The digit to be displayed on the 7 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_7_number">7</string>
-    <!-- The digit to be displayed on the 8 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_8_number">8</string>
-    <!-- The digit to be displayed on the 9 key of the dialpad [TRANSLATE FOR FA ONLY] [CHAR LIMIT=1]-->
-    <string name="dialpad_9_number">9</string>
     <!--  Do not translate. -->
     <string name="dialpad_star_number">*</string>
     <!--  Do not translate. -->
@@ -128,5 +108,10 @@
     <string name="callFailed_unobtainable_number">Invalid number</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_missing_voicemail_number">Voicemail number unknown.</string>
+
+    <!-- Choice in the ringtone picker.  If chosen, there will be silence instead of a ringtone played. -->
+    <string name="ringtone_silent">None</string>
+    <!-- If there is ever a ringtone set for some setting, but that ringtone can no longer be resolved, this is shown instead.  For example, if the ringtone was on a SD card and it had been removed, this would be shown for ringtones on that SD card. -->
+    <string name="ringtone_unknown">Unknown ringtone</string>
 
 </resources>

@@ -465,7 +465,6 @@ typedef struct
      * 4x4 Luma TUs only the fourth one contains cb,cr
      * TODO: Check if this is really needed, cb_cbf and cr_cbf should be enough
      */
-    //UWORD32      b1_chroma_present   : 1;
 
     /**
      *  Y CBF
@@ -476,6 +475,7 @@ typedef struct
      *  Cb CBF
      */
     UWORD32      b1_cb_cbf           : 1;
+
 
     /**
      *  Cr CBF
@@ -513,7 +513,6 @@ typedef struct
      * Chroma Intra Mode Index 0 - 4
      */
     UWORD32    b3_chroma_intra_mode_idx    : 3;
-
 
 }tu_t;
 
@@ -1035,6 +1034,51 @@ typedef struct
     WORD8 i1_frame_only_constraint_flag;
 
     /**
+     * general_max_12bit_constraint_flag
+     */
+    WORD8 i1_general_max_12bit_constraint_flag;
+
+    /**
+     * general_max_10bit_constraint_flag
+     */
+    WORD8 i1_general_max_10bit_constraint_flag;
+
+    /**
+     * general_max_8bit_constraint_flag
+     */
+    WORD8 i1_general_max_8bit_constraint_flag;
+
+    /**
+     * general_max_422chroma_constraint_flag
+     */
+    WORD8 i1_general_max_422chroma_constraint_flag;
+
+    /**
+     * general_max_420chroma_constraint_flag
+     */
+    WORD8 i1_general_max_420chroma_constraint_flag;
+
+    /**
+     * general_max_monochrome_constraint_flag
+     */
+    WORD8 i1_general_max_monochrome_constraint_flag;
+
+    /**
+     * general_intra_constraint_flag
+     */
+    WORD8 i1_general_intra_constraint_flag;
+
+    /**
+     * general_one_picture_only_constraint_flag
+     */
+    WORD8 i1_general_one_picture_only_constraint_flag;
+
+    /**
+     * general_lower_bit_rate_constraint_flag
+     */
+    WORD8 i1_general_lower_bit_rate_constraint_flag;
+
+    /**
      *  level_idc
      */
     UWORD8 u1_level_idc;
@@ -1124,6 +1168,7 @@ typedef struct
     /** delta_chroma_log2_weight_denom */
     WORD8 i1_chroma_log2_weight_denom;
 
+
     /** luma_weight_l0_flag[ i ] */
     WORD8 i1_luma_weight_l0_flag[MAX_DPB_SIZE];
 
@@ -1191,6 +1236,10 @@ typedef struct
 
     /* list_entry_l1[ i ] */
     WORD8 i1_list_entry_l1[16];
+
+    /* Reference POC values for L0,L1 */
+    WORD32 i4_ref_poc_l0[16];
+    WORD32 i4_ref_poc_l1[16];
 }rplm_t;
 
 
@@ -1987,6 +2036,7 @@ typedef struct
     /*************************************************************************/
     WORD16 *pi2_scaling_mat;
 
+
     /*
      * Flag indicating if the SPS is parsed
      */
@@ -2229,6 +2279,7 @@ typedef struct
      */
     WORD8 i1_log2_min_cu_qp_delta_size;
 
+
     /*
      * Flag indicating if the PPS is parsed
      */
@@ -2347,7 +2398,7 @@ typedef struct
     /**
     * Encoder buffer fullness  used in buffering period SEI
     */
-    UWORD32 u4_ebf_sei;
+    UWORD32 u4_dbf_sei;
 
     /**
     * target bitrate used in buffering period SEI
@@ -2510,7 +2561,7 @@ typedef struct
     active_parameter_set_sei_param_t s_active_parameter_set_sei_params;
 
 
-}sei_params_t;
+} sei_params_t;
 
 
 
@@ -2787,6 +2838,7 @@ typedef struct
      * If the current slice is independent, it is the same as the current CTBs ctb_y
      */
     WORD16 i2_independent_ctb_y;
+
 
     UWORD8 u1_parse_data_init_done;
 

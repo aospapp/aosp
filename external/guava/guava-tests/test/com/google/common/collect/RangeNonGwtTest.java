@@ -28,16 +28,14 @@ import junit.framework.TestCase;
  */
 public class RangeNonGwtTest extends TestCase {
 
-  public void testNullPointers() throws Exception {
+  public void testNullPointers() {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(BoundType.class, BoundType.OPEN);
-    tester.setDefault(Comparable.class, 0);
 
     tester.testAllPublicStaticMethods(Range.class);
-    tester.testAllPublicStaticMethods(Ranges.class);
+    tester.testAllPublicStaticMethods(Range.class);
 
-    tester.testAllPublicInstanceMethods(Ranges.all());
-    tester.testAllPublicInstanceMethods(Ranges.open(1, 3));
+    tester.testAllPublicInstanceMethods(Range.all());
+    tester.testAllPublicInstanceMethods(Range.open(1, 3));
   }
 
 }

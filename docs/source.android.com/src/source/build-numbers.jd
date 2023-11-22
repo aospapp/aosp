@@ -41,84 +41,24 @@ API levels and NDK releases provided for convenience:</p>
 </thead>
 <tbody>
 <tr>
-<td>(no code name)</td>
-<td>1.0</td>
-<td>API level 1</td>
+<td>Lollipop</td>
+<td>5.1</td>
+<td>API level 22</td>
 </tr>
 <tr>
-<td>(no code name)</td>
-<td>1.1</td>
-<td>API level 2</td>
+<td>Lollipop</td>
+<td>5.0</td>
+<td>API level 21</td>
 </tr>
 <tr>
-<td>Cupcake</td>
-<td>1.5</td>
-<td>API level 3, NDK 1</td>
-</tr>
-<tr>
-<td>Donut</td>
-<td>1.6</td>
-<td>API level 4, NDK 2</td>
-</tr>
-<tr>
-<td>Eclair</td>
-<td>2.0</td>
-<td>API level 5</td>
-</tr>
-<tr>
-<td>Eclair</td>
-<td>2.0.1</td>
-<td>API level 6</td>
-</tr>
-<tr>
-<td>Eclair</td>
-<td>2.1</td>
-<td>API level 7, NDK 3</td>
-</tr>
-<tr>
-<td>Froyo</td>
-<td>2.2.x</td>
-<td>API level 8, NDK 4</td>
-</tr>
-<tr>
-<td>Gingerbread</td>
-<td>2.3 - 2.3.2</td>
-<td>API level 9, NDK 5</td>
-</tr>
-<tr>
-<td>Gingerbread</td>
-<td>2.3.3 - 2.3.7</td>
-<td>API level 10</td>
-</tr>
-<tr>
-<td>Honeycomb</td>
-<td>3.0</td>
-<td>API level 11</td>
-</tr>
-<tr>
-<td>Honeycomb</td>
-<td>3.1</td>
-<td>API level 12, NDK 6</td>
-</tr>
-<tr>
-<td>Honeycomb</td>
-<td>3.2.x</td>
-<td>API level 13</td>
-</tr>
-<tr>
-<td>Ice Cream Sandwich</td>
-<td>4.0.1 - 4.0.2</td>
-<td>API level 14, NDK 7</td>
-</tr>
-<tr>
-<td>Ice Cream Sandwich</td>
-<td>4.0.3 - 4.0.4</td>
-<td>API level 15, NDK 8</td>
+<td>KitKat</td>
+<td>4.4 - 4.4.4</td>
+<td>API level 19</td>
 </tr>
 <tr>
 <td>Jelly Bean</td>
-<td>4.1.x</td>
-<td>API level 16</td>
+<td>4.3.x</td>
+<td>API level 18</td>
 </tr>
 <tr>
 <td>Jelly Bean</td>
@@ -127,18 +67,83 @@ API levels and NDK releases provided for convenience:</p>
 </tr>
 <tr>
 <td>Jelly Bean</td>
-<td>4.3.x</td>
-<td>API level 18</td>
+<td>4.1.x</td>
+<td>API level 16</td>
 </tr>
 <tr>
-<td>KitKat</td>
-<td>4.4 - 4.4.4</td>
-<td>API level 19</td>
+<td>Ice Cream Sandwich</td>
+<td>4.0.3 - 4.0.4</td>
+<td>API level 15, NDK 8</td>
 </tr>
 <tr>
-<td>Lollipop</td>
-<td>5.0</td>
-<td>API level 21</td>
+<td>Ice Cream Sandwich</td>
+<td>4.0.1 - 4.0.2</td>
+<td>API level 14, NDK 7</td>
+</tr>
+<tr>
+<td>Honeycomb</td>
+<td>3.2.x</td>
+<td>API level 13</td>
+</tr>
+<tr>
+<td>Honeycomb</td>
+<td>3.1</td>
+<td>API level 12, NDK 6</td>
+</tr>
+<tr>
+<td>Honeycomb</td>
+<td>3.0</td>
+<td>API level 11</td>
+</tr>
+<tr>
+<td>Gingerbread</td>
+<td>2.3.3 - 2.3.7</td>
+<td>API level 10</td>
+</tr>
+<tr>
+<td>Gingerbread</td>
+<td>2.3 - 2.3.2</td>
+<td>API level 9, NDK 5</td>
+</tr>
+<tr>
+<td>Froyo</td>
+<td>2.2.x</td>
+<td>API level 8, NDK 4</td>
+</tr>
+<tr>
+<td>Eclair</td>
+<td>2.1</td>
+<td>API level 7, NDK 3</td>
+</tr>
+<tr>
+<td>Eclair</td>
+<td>2.0.1</td>
+<td>API level 6</td>
+</tr>
+<tr>
+<td>Eclair</td>
+<td>2.0</td>
+<td>API level 5</td>
+</tr>
+<tr>
+<td>Donut</td>
+<td>1.6</td>
+<td>API level 4, NDK 2</td>
+</tr>
+<tr>
+<td>Cupcake</td>
+<td>1.5</td>
+<td>API level 3, NDK 1</td>
+</tr>
+<tr>
+<td>(no code name)</td>
+<td>1.1</td>
+<td>API level 2</td>
+</tr>
+<tr>
+<td>(no code name)</td>
+<td>1.0</td>
+<td>API level 1</td>
 </tr>
 </tbody>
 </table>
@@ -173,14 +178,86 @@ following table. Factory images and binaries for Nexus devices can be downloaded
 <th>Supported devices</th>
 </tr>
 <tr>
+  <td>LMY47V</td>
+  <td>android-5.1.1_r1</td>
+  <td>Lollipop</td>
+  <td>Nexus Player</td>
+</tr>
+<tr>
+  <td>LMY47O</td>
+  <td>android-5.1.0_r5</td>
+  <td>Lollipop</td>
+  <td>Nexus 4, Nexus 7 (flo/deb)</td>
+</tr>
+<tr>
+  <td>LMY47I</td>
+  <td>android-5.1.0_r3</td>
+  <td>Lollipop</td>
+  <td>Nexus 5, Nexus 6</td>
+</tr>
+<tr>
+  <td>LMY47D</td>
+  <td>android-5.1.0_r1</td>
+  <td>Lollipop</td>
+  <td>Nexus 5, Nexus 6, Nexus 7 (grouper/tilapia), Nexus 10, Nexus Player</td>
+</tr>
+<tr>
+  <td>LRX22G</td>
+  <td>android-5.0.2_r1</td>
+  <td>Lollipop</td>
+  <td>Nexus 7 (flo/deb/grouper/tilapia), Nexus 10</td>
+</tr>
+<tr>
+  <td>LRX22C</td>
+  <td>android-5.0.1_r1</td>
+  <td>Lollipop</td>
+  <td>Nexus 4, Nexus 5, Nexus 6 (shamu), Nexus 7 (flo), Nexus 9 (volantis/volantisg), Nexus 10</td>
+</tr>
+<tr>
+  <td>LRX21V</td>
+  <td>android-5.0.0_r7.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus Player (fugu)</td>
+</tr>
+<tr>
+  <td>LRX21T</td>
+  <td>android-5.0.0_r6.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus 4</td>
+</tr>
+<tr>
+  <td>LRX21R</td>
+  <td>android-5.0.0_r5.1.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantis)</td>
+</tr>
+<tr>
+  <td>LRX21Q</td>
+  <td>android-5.0.0_r5.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus 9 (volantis)</td>
+</tr>
+<tr>
+  <td>LRX21P</td>
+  <td>android-5.0.0_r4.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus 7 (flo/grouper), Nexus 10</td>
+</tr>
+<tr>
+  <td>LRX21O</td>
+  <td>android-5.0.0_r3.0.1</td>
+  <td>Lollipop</td>
+  <td>Nexus 5 (hammerhead), Nexus 6 (shamu)</td>
+</tr>
+<tr>
   <td>LRX21M</td>
-  <td>android-5.0.0_r2</td>
+  <td>android-5.0.0_r2.0.1</td>
   <td>Lollipop</td>
   <td>Nexus Player (fugu)</td>
 </tr>
 <tr>
   <td>LRX21L</td>
-  <td>android-5.0.0_r1</td>
+  <td>android-5.0.0_r1.0.1</td>
   <td>Lollipop</td>
   <td>Nexus 9 (volantis)</td>
 </tr>

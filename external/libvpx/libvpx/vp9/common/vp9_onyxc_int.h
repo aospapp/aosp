@@ -68,9 +68,6 @@ typedef struct VP9Common {
 
   DECLARE_ALIGNED(16, int16_t, y_dequant[QINDEX_RANGE][8]);
   DECLARE_ALIGNED(16, int16_t, uv_dequant[QINDEX_RANGE][8]);
-#if CONFIG_ALPHA
-  DECLARE_ALIGNED(16, int16_t, a_dequant[QINDEX_RANGE][8]);
-#endif
 
   COLOR_SPACE color_space;
 
@@ -120,7 +117,6 @@ typedef struct VP9Common {
   // frame header, 3 reset all contexts.
   int reset_frame_context;
 
-  int frame_flags;
   // MBs, mb_rows/cols is in 16-pixel units; mi_rows/cols is in
   // MODE_INFO (8-pixel) units.
   int MBs;
@@ -135,13 +131,14 @@ typedef struct VP9Common {
   int y_dc_delta_q;
   int uv_dc_delta_q;
   int uv_ac_delta_q;
-#if CONFIG_ALPHA
-  int a_dc_delta_q;
-  int a_ac_delta_q;
-#endif
 
   /* We allocate a MODE_INFO struct for each macroblock, together with
      an extra row on top and column on the left to simplify prediction. */
+
+  int mi_idx;
+  int prev_mi_idx;
+  MODE_INFO *mip_array[2];
+  MODE_INFO **mi_grid_base_array[2];
 
   MODE_INFO *mip; /* Base of allocated array */
   MODE_INFO *mi;  /* Corresponds to upper left visible macroblock */
@@ -191,11 +188,6 @@ typedef struct VP9Common {
   int error_resilient_mode;
   int frame_parallel_decoding_mode;
 
-  // Flag indicates if prev_mi can be used in coding:
-  //   0: encoder assumes decoder does not have prev_mi
-  //   1: encoder assumes decoder has and uses prev_mi
-  unsigned int coding_use_prev_mi;
-
   int log2_tile_cols, log2_tile_rows;
 
   // Private data associated with the frame buffer callbacks.
@@ -209,6 +201,15 @@ typedef struct VP9Common {
   PARTITION_CONTEXT *above_seg_context;
   ENTROPY_CONTEXT *above_context;
 } VP9_COMMON;
+
+static INLINE YV12_BUFFER_CONFIG *get_ref_frame(VP9_COMMON *cm, int index) {
+  if (index < 0 || index >= REF_FRAMES)
+    return NULL;
+  if (cm->ref_frame_map[index] < 0)
+    return NULL;
+  assert(cm->ref_frame_map[index] < REF_FRAMES);
+  return &cm->frame_bufs[cm->ref_frame_map[index]].buf;
+}
 
 static INLINE YV12_BUFFER_CONFIG *get_frame_new_buffer(VP9_COMMON *cm) {
   return &cm->frame_bufs[cm->new_fb_idx].buf;
@@ -253,10 +254,14 @@ static INLINE void init_macroblockd(VP9_COMMON *cm, MACROBLOCKD *xd) {
   xd->mi_stride = cm->mi_stride;
 }
 
+static INLINE int frame_is_intra_only(const VP9_COMMON *const cm) {
+  return cm->frame_type == KEY_FRAME || cm->intra_only;
+}
+
 static INLINE const vp9_prob* get_partition_probs(const VP9_COMMON *cm,
                                                   int ctx) {
-  return cm->frame_type == KEY_FRAME ? vp9_kf_partition_probs[ctx]
-                                     : cm->fc.partition_prob[ctx];
+  return frame_is_intra_only(cm) ? vp9_kf_partition_probs[ctx]
+                                 : cm->fc.partition_prob[ctx];
 }
 
 static INLINE void set_skip_context(MACROBLOCKD *xd, int mi_row, int mi_col) {
@@ -284,19 +289,15 @@ static INLINE void set_mi_row_col(MACROBLOCKD *xd, const TileInfo *const tile,
   xd->left_available  = (mi_col > tile->mi_col_start);
 }
 
-static INLINE MODE_INFO *get_prev_mi(VP9_COMMON *cm) {
-  const int use_prev_mi = cm->coding_use_prev_mi &&
-                          cm->width == cm->last_width &&
-                          cm->height == cm->last_height &&
-                          !cm->intra_only &&
-                          cm->last_show_frame;
+static INLINE void set_prev_mi(VP9_COMMON *cm) {
+  const int use_prev_in_find_mv_refs = cm->width == cm->last_width &&
+                                       cm->height == cm->last_height &&
+                                       !cm->intra_only &&
+                                       cm->last_show_frame;
   // Special case: set prev_mi to NULL when the previous mode info
   // context cannot be used.
-  return use_prev_mi ? &cm->prev_mip[cm->mi_stride + 1] : NULL;
-}
-
-static INLINE int frame_is_intra_only(const VP9_COMMON *const cm) {
-  return cm->frame_type == KEY_FRAME || cm->intra_only;
+  cm->prev_mi = use_prev_in_find_mv_refs ?
+                  cm->prev_mip + cm->mi_stride + 1 : NULL;
 }
 
 static INLINE void update_partition_context(MACROBLOCKD *xd,

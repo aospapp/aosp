@@ -85,22 +85,28 @@ void FrameSequence_webp::constructDependencyChain() {
 }
 
 FrameSequence_webp::FrameSequence_webp(Stream* stream) {
-    // Read RIFF header to get file size.
-    uint8_t riff_header[RIFF_HEADER_SIZE];
-    if (stream->read(riff_header, RIFF_HEADER_SIZE) != RIFF_HEADER_SIZE) {
-        ALOGE("WebP header load failed");
-        return;
-    }
-    mData.size = CHUNK_HEADER_SIZE + GetLE32(riff_header + TAG_SIZE);
-    mData.bytes = new uint8_t[mData.size];
-    memcpy((void*)mData.bytes, riff_header, RIFF_HEADER_SIZE);
+    if (stream->getRawBuffer() != NULL) {
+        mData.size = stream->getRawBufferSize();
+        mData.bytes = stream->getRawBufferAddr();
+        mRawByteBuffer = stream->getRawBuffer();
+    } else {
+        // Read RIFF header to get file size.
+        uint8_t riff_header[RIFF_HEADER_SIZE];
+        if (stream->read(riff_header, RIFF_HEADER_SIZE) != RIFF_HEADER_SIZE) {
+            ALOGE("WebP header load failed");
+            return;
+        }
+        mData.size = CHUNK_HEADER_SIZE + GetLE32(riff_header + TAG_SIZE);
+        mData.bytes = new uint8_t[mData.size];
+        memcpy((void*)mData.bytes, riff_header, RIFF_HEADER_SIZE);
 
-    // Read rest of the bytes.
-    void* remaining_bytes = (void*)(mData.bytes + RIFF_HEADER_SIZE);
-    size_t remaining_size = mData.size - RIFF_HEADER_SIZE;
-    if (stream->read(remaining_bytes, remaining_size) != remaining_size) {
-        ALOGE("WebP full load failed");
-        return;
+        // Read rest of the bytes.
+        void* remaining_bytes = (void*)(mData.bytes + RIFF_HEADER_SIZE);
+        size_t remaining_size = mData.size - RIFF_HEADER_SIZE;
+        if (stream->read(remaining_bytes, remaining_size) != remaining_size) {
+            ALOGE("WebP full load failed");
+            return;
+        }
     }
 
     // Construct demux.
@@ -120,8 +126,10 @@ FrameSequence_webp::FrameSequence_webp(Stream* stream) {
 
 FrameSequence_webp::~FrameSequence_webp() {
     WebPDemuxDelete(mDemux);
-    delete[] mData.bytes;
     delete[] mIsKeyFrame;
+    if (mRawByteBuffer == NULL) {
+        delete[] mData.bytes;
+    }
 }
 
 FrameSequenceState* FrameSequence_webp::createState() const {
@@ -366,6 +374,10 @@ static bool isWebP(void* header, int header_size) {
             !memcmp("WEBP", header_str + 8, 4);
 }
 
+static bool acceptsWebPBuffer() {
+    return true;
+}
+
 static FrameSequence* createFramesequence(Stream* stream) {
     return new FrameSequence_webp(stream);
 }
@@ -375,6 +387,7 @@ static RegistryEntry gEntry = {
         isWebP,
         createFramesequence,
         NULL,
+        acceptsWebPBuffer,
 };
 static Registry gRegister(gEntry);
 

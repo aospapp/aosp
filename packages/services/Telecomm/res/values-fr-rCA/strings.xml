@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Téléphone"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Gestion des appels téléphoniques"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Téléphone"</string>
     <string name="unknown" msgid="6878797917991465859">"Inconnu"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Appel manqué"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Appels manqués"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Réponse rapide"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Message envoyé à <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Seuls les appels d\'urgence sont autorisés par le propriétaire de l\'appareil"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Comptes d\'appel"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Seuls les appels d\'urgence sont autorisés par le propriétaire de l\'appareil."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Cette application ne peut pas faire d\'appels sans l\'autorisation de l\'application Téléphone."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Pour faire un appel, entrez un numéro valide."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Impossible d\'ajouter l\'appel pour le moment."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Veuillez désactiver le mode ATS pour faire un appel vidéo."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Numéro de messagerie vocale manquant"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Aucun numéro de messagerie vocale n\'est enregistré sur la carte SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Ajouter un numéro"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Changer l\'application de composition par défaut?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Utiliser <xliff:g id="NEW_APP">%1$s</xliff:g> au lieu de <xliff:g id="CURRENT_APP">%2$s</xliff:g> comme application de composition par défaut?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Utiliser <xliff:g id="NEW_APP">%s</xliff:g> comme application de composition par défaut?"</string>
 </resources>

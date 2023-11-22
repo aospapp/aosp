@@ -59,7 +59,6 @@ public class TextFieldsEditorView extends LabeledEditorView {
     private boolean mHasShortAndLongForms;
     private int mMinFieldHeight;
     private int mPreviousViewHeight;
-    private int mHintTextColor;
     private int mHintTextColorUnfocused;
 
     public TextFieldsEditorView(Context context) {
@@ -82,10 +81,9 @@ public class TextFieldsEditorView extends LabeledEditorView {
         setDrawingCacheEnabled(true);
         setAlwaysDrawnWithCacheEnabled(true);
 
-        mMinFieldHeight = mContext.getResources().getDimensionPixelSize(
+        mMinFieldHeight = getContext().getResources().getDimensionPixelSize(
                 R.dimen.editor_min_line_item_height);
         mFields = (ViewGroup) findViewById(R.id.editors);
-        mHintTextColor = getResources().getColor(R.color.secondary_text_color);
         mHintTextColorUnfocused = getResources().getColor(R.color.editor_disabled_text_color);
         mExpansionView = (ImageView) findViewById(R.id.expansion_view);
         mExpansionViewContainer = findViewById(R.id.expansion_view_container);
@@ -151,11 +149,18 @@ public class TextFieldsEditorView extends LabeledEditorView {
     private OnFocusChangeListener mTextFocusChangeListener = new OnFocusChangeListener() {
         @Override
         public void onFocusChange(View v, boolean hasFocus) {
-            // Check whether this field contains focus by calling findFocus() instead of
-            // hasFocus(). The hasFocus() value is not necessarily up to date.
-            setHintColorDark(TextFieldsEditorView.this.findFocus() != null);
             if (getEditorListener() != null) {
                 getEditorListener().onRequest(EditorListener.EDITOR_FOCUS_CHANGED);
+            }
+            // Check whether this field contains focus by calling findFocus() instead of
+            // hasFocus(). The hasFocus() value is not necessarily up to date.
+            final boolean foundFocus = TextFieldsEditorView.this.findFocus() != null;
+            if (foundFocus && !isTypeVisible()) {
+                // We just got focus and the types are not visible
+                showType();
+            } else if (isEmpty()) {
+                // We just lost focus and the field is empty
+                hideType();
             }
             // Rebuild the label spinner using the new colors.
             rebuildLabel();
@@ -163,33 +168,13 @@ public class TextFieldsEditorView extends LabeledEditorView {
     };
 
     /**
-     * Set the hint color. If {@param isHintDark} is TRUE, then the hint color is set to a
-     * a darker color.
-     */
-    public void setHintColorDark(boolean isHintDark) {
-        if (mFieldEditTexts != null) {
-            for (EditText text : mFieldEditTexts) {
-                if (isHintDark) {
-                    text.setHintTextColor(mHintTextColor);
-                } else {
-                    text.setHintTextColor(mHintTextColorUnfocused);
-                }
-            }
-        }
-    }
-
-    /**
      * Creates or removes the type/label button. Doesn't do anything if already correctly configured
      */
     private void setupExpansionView(boolean shouldExist, boolean collapsed) {
-        if (shouldExist) {
-            mExpansionViewContainer.setVisibility(View.VISIBLE);
-            mExpansionView.setImageResource(collapsed
-                    ? R.drawable.ic_menu_expander_minimized_holo_light
-                    : R.drawable.ic_menu_expander_maximized_holo_light);
-        } else {
-            mExpansionViewContainer.setVisibility(View.GONE);
-        }
+        mExpansionView.setImageResource(collapsed
+                ? R.drawable.ic_menu_expander_minimized_holo_light
+                : R.drawable.ic_menu_expander_maximized_holo_light);
+        mExpansionViewContainer.setVisibility(shouldExist ? View.VISIBLE : View.INVISIBLE);
     }
 
     @Override
@@ -232,7 +217,7 @@ public class TextFieldsEditorView extends LabeledEditorView {
         mFieldEditTexts = new EditText[fieldCount];
         for (int index = 0; index < fieldCount; index++) {
             final EditField field = kind.fieldList.get(index);
-            final EditText fieldView = new EditText(mContext);
+            final EditText fieldView = new EditText(getContext());
             fieldView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,
                     LayoutParams.WRAP_CONTENT));
             fieldView.setTextSize(TypedValue.COMPLEX_UNIT_PX,
@@ -246,7 +231,7 @@ public class TextFieldsEditorView extends LabeledEditorView {
             int inputType = field.inputType;
             fieldView.setInputType(inputType);
             if (inputType == InputType.TYPE_CLASS_PHONE) {
-                PhoneNumberFormatter.setPhoneNumberFormattingTextWatcher(mContext, fieldView);
+                PhoneNumberFormatter.setPhoneNumberFormattingTextWatcher(getContext(), fieldView);
                 fieldView.setTextDirection(View.TEXT_DIRECTION_LTR);
             }
 
@@ -269,6 +254,11 @@ public class TextFieldsEditorView extends LabeledEditorView {
             final String column = field.column;
             final String value = entry.getAsString(column);
             fieldView.setText(value);
+
+            // Show the type drop down if we have a non-empty value.
+            if (!isTypeVisible() && !TextUtils.isEmpty(value)) {
+                showType();
+            }
 
             // Show the delete button if we have a non-null value
             setDeleteButtonVisible(value != null);
@@ -387,7 +377,8 @@ public class TextFieldsEditorView extends LabeledEditorView {
 
         mHideOptional = ss.mHideOptional;
 
-        int numChildren = Math.min(mFieldEditTexts.length, ss.mVisibilities.length);
+        int numChildren = Math.min(mFieldEditTexts == null ? 0 : mFieldEditTexts.length,
+                ss.mVisibilities == null ? 0 : ss.mVisibilities.length);
         for (int i = 0; i < numChildren; i++) {
             mFieldEditTexts[i].setVisibility(ss.mVisibilities[i]);
         }

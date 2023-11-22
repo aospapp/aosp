@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN ಮತ್ತು ಅಪ್ಲಿಕೇಶನ್‌ಗಳು"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"ವೈ-ಫೈ ಪ್ರೊಫೈಲ್‌"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"%s ಗೆ ವಿವರಗಳು"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"ವಿವರಗಳು"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"ಸ್ಥಾಪಿಸು"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"ಸ್ಥಾಪಿಸಲಾಗುತ್ತಿದೆ"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"ರದ್ದುಮಾಡು"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"ವಜಾಗೊಳಿಸು"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"ಯಾವುದೂ ಇಲ್ಲ"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"ಹೆಸರು: %1$s\nFQDN: %2$s\nರೋಮಿಂಗ್‌ ಕನ್ಸೋರ್ಟಿಯಂಗಳು: %3$s\nಕ್ಷೇತ್ರ: %4$s\nದೃಢೀಕರಣ ವಿಧಾನ: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"ಬಳಕೆದಾರರ ಹೆಸರು: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"ಕ್ಲೈಂಟ್ ಪ್ರಮಾಣಪತ್ರ:\n%1$s\nಕೀ: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"ಸಿಮ್: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"ಟ್ರಸ್ಟ್ ಪ್ರಮಾಣಪತ್ರ:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"ರುಜುವಾತುಗಳನ್ನು ಸ್ಥಾಪಿಸಲಾಗಿದೆ"</string>
+    <string name="install_done" msgid="1522718684172097080">"Wi-Fi ಉಳಿಸಲಾದ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ <xliff:g id="NAME">%1$s</xliff:g> ರುಜುವಾತುಗಳನ್ನು ಸೇರಿಸಲಾಗಿದೆ."</string>
+    <string name="done_label" msgid="5597425930652904250">"ಮುಗಿದಿದೆ"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"<xliff:g id="NAME">%1$s</xliff:g> ಮೂಲಕ ಲಭ್ಯವಿರುವ ನೆಟ್‌ವರ್ಕ್‌ಗಳಿಗೆ ಸಂಪರ್ಕಪಡಿಸಲು Wi-Fi ರುಜುವಾತುಗಳನ್ನು ಸ್ಥಾಪಿಸಿ."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾದ ಫೈಲ್ ಸಮಸ್ಯೆಗಳನ್ನು ಹೊಂದಿವೆ ಹಾಗೂ ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ನೀವು ಸರಿಯಾದ ಮೂಲದಿಂದ ಫೈಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿರುವಿರಾ ಎಂಬುದನ್ನು ಖಚಿತಪಡಿಸಿಕೊಳ್ಳಿ."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi ರುಜುವಾತುಗಳನ್ನು ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ. ಮತ್ತೆ ಫೈಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಪ್ರಯತ್ನಿಸಿ."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"ಸ್ಥಾಪಿಸುವಿಕೆ ರದ್ದು ಮಾಡಲಾಗಿದೆ"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"ಸ್ಥಾಪಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"ವೈ-ಫೈ ಆನ್ ಮಾಡಿ ಹಾಗೂ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
 </resources>

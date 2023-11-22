@@ -76,8 +76,13 @@ public class MacTest extends TestCase {
 
     static {
         for (int i = 0; i < validAlgorithmsMac.length; i++) {
-            defaultProvider = SpiEngUtils.isSupport(validAlgorithmsMac[i],
-                    srvMac);
+            try {
+                Mac mac = Mac.getInstance(validAlgorithmsMac[i]);
+                mac.init(new SecretKeySpec(new byte[64], validAlgorithmsMac[i]));
+                defaultProvider = mac.getProvider();
+            } catch (NoSuchAlgorithmException ignored) {
+            } catch (InvalidKeyException ignored) {}
+
             DEFSupported = (defaultProvider != null);
             if (DEFSupported) {
                 defaultAlgorithm = validAlgorithmsMac[i];
@@ -100,6 +105,12 @@ public class MacTest extends TestCase {
         macList.add(Mac.getInstance(defaultAlgorithm, defaultProvider));
         macList.add(Mac.getInstance(defaultAlgorithm, defaultProviderName));
         for (Provider p : Security.getProviders("Mac." + defaultAlgorithm)) {
+            // Do not test AndroidKeyStore's Mac. It cannot be initialized without providing an
+            // AndroidKeyStore-backed SecretKey instance. It's OKish not to test here because it's
+            // tested by cts/tests/test/keystore.
+            if (p.getName().startsWith("AndroidKeyStore")) {
+                continue;
+            }
             macList.add(Mac.getInstance(defaultAlgorithm, p));
         }
         return macList.toArray(new Mac[macList.size()]);
@@ -845,6 +856,13 @@ public class MacTest extends TestCase {
         byte[] output = null;
         byte[] output2 = null;
         for (int i = 0; i < providers.length; i++) {
+            // Do not test AndroidKeyStore's Mac. It cannot be initialized without providing an
+            // AndroidKeyStore-backed SecretKey instance. It's OKish not to test here because it's
+            // tested by cts/tests/test/keystore.
+            if (providers[i].getName().startsWith("AndroidKeyStore")) {
+                continue;
+            }
+
             System.out.println("provider = " + providers[i].getName());
             Mac mac = Mac.getInstance("HmacMD5", providers[i]);
             mac.init(key);
@@ -882,6 +900,24 @@ public class MacTest extends TestCase {
         }
 
         public abstract void setup();
+    }
+
+    public void testMac_getInstance_DoesNotSupportKeyClass_Success() throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Mac.FOO", MockMacSpi.AllKeyTypes.class.getName());
+                put("Mac.FOO SupportedKeyClasses", "None");
+            }
+        };
+
+        Security.addProvider(mockProvider);
+        try {
+            Mac s = Mac.getInstance("FOO", mockProvider);
+            s.init(new MockKey());
+            assertEquals(mockProvider, s.getProvider());
+        } finally {
+            Security.removeProvider(mockProvider.getName());
+        }
     }
 
     public void testMac_getInstance_SuppliedProviderNotRegistered_Success() throws Exception {

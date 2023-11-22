@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.CAN_REQUEST_ENHANCED_WEB_ACCESSIBILITY"/>
 
     <uses-sdk
-        android:minSdkVersion="JellyBeanMR2" />
+        android:minSdkVersion="21" />
 
     <application
         android:icon="@drawable/ic_launcher"
@@ -23,16 +23,6 @@
               android:name="android.accessibilityservice"
               android:resource="@xml/accessibilityservice" />
         </service>
-        <receiver
-            android:enabled="true"
-            android:exported="true"
-            android:name=".IdleMaintenanceReceiver">
-            <intent-filter>
-                 <action android:name="FOO" />
-                 <action android:name="android.intent.action.ACTION_IDLE_MAINTENANCE_START" />
-                 <action android:name="android.intent.action.ACTION_IDLE_MAINTENANCE_END" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>

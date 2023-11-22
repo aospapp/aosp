@@ -17,8 +17,11 @@
 #ifndef ART_RUNTIME_LEB128_H_
 #define ART_RUNTIME_LEB128_H_
 
+#include <vector>
+
+#include "base/bit_utils.h"
+#include "base/logging.h"
 #include "globals.h"
-#include "utils.h"
 
 namespace art {
 
@@ -124,6 +127,31 @@ static inline uint8_t* EncodeUnsignedLeb128(uint8_t* dest, uint32_t value) {
   return dest;
 }
 
+template<typename Allocator>
+static inline void EncodeUnsignedLeb128(std::vector<uint8_t, Allocator>* dest, uint32_t value) {
+  uint8_t out = value & 0x7f;
+  value >>= 7;
+  while (value != 0) {
+    dest->push_back(out | 0x80);
+    out = value & 0x7f;
+    value >>= 7;
+  }
+  dest->push_back(out);
+}
+
+// Overwrite encoded Leb128 with a new value. The new value must be less than
+// or equal to the old value to ensure that it fits the allocated space.
+static inline void UpdateUnsignedLeb128(uint8_t* dest, uint32_t value) {
+  const uint8_t* old_end = dest;
+  uint32_t old_value = DecodeUnsignedLeb128(&old_end);
+  DCHECK_LE(value, old_value);
+  for (uint8_t* end = EncodeUnsignedLeb128(dest, value); end < old_end; end++) {
+    // Use longer encoding than necessary to fill the allocated space.
+    end[-1] |= 0x80;
+    end[0] = 0;
+  }
+}
+
 static inline uint8_t* EncodeSignedLeb128(uint8_t* dest, int32_t value) {
   uint32_t extra_bits = static_cast<uint32_t>(value ^ (value >> 31)) >> 6;
   uint8_t out = value & 0x7f;
@@ -137,25 +165,32 @@ static inline uint8_t* EncodeSignedLeb128(uint8_t* dest, int32_t value) {
   return dest;
 }
 
-// An encoder with an API similar to vector<uint32_t> where the data is captured in ULEB128 format.
-class Leb128EncodingVector {
+template<typename Allocator>
+static inline void EncodeSignedLeb128(std::vector<uint8_t, Allocator>* dest, int32_t value) {
+  uint32_t extra_bits = static_cast<uint32_t>(value ^ (value >> 31)) >> 6;
+  uint8_t out = value & 0x7f;
+  while (extra_bits != 0u) {
+    dest->push_back(out | 0x80);
+    value >>= 7;
+    out = value & 0x7f;
+    extra_bits >>= 7;
+  }
+  dest->push_back(out);
+}
+
+// An encoder that pushed uint32_t data onto the given std::vector.
+class Leb128Encoder {
  public:
-  Leb128EncodingVector() {
+  explicit Leb128Encoder(std::vector<uint8_t>* data) : data_(data) {
+    DCHECK(data != nullptr);
   }
 
   void Reserve(uint32_t size) {
-    data_.reserve(size);
+    data_->reserve(size);
   }
 
   void PushBackUnsigned(uint32_t value) {
-    uint8_t out = value & 0x7f;
-    value >>= 7;
-    while (value != 0) {
-      data_.push_back(out | 0x80);
-      out = value & 0x7f;
-      value >>= 7;
-    }
-    data_.push_back(out);
+    EncodeUnsignedLeb128(data_, value);
   }
 
   template<typename It>
@@ -166,15 +201,7 @@ class Leb128EncodingVector {
   }
 
   void PushBackSigned(int32_t value) {
-    uint32_t extra_bits = static_cast<uint32_t>(value ^ (value >> 31)) >> 6;
-    uint8_t out = value & 0x7f;
-    while (extra_bits != 0u) {
-      data_.push_back(out | 0x80);
-      value >>= 7;
-      out = value & 0x7f;
-      extra_bits >>= 7;
-    }
-    data_.push_back(out);
+    EncodeSignedLeb128(data_, value);
   }
 
   template<typename It>
@@ -185,12 +212,23 @@ class Leb128EncodingVector {
   }
 
   const std::vector<uint8_t>& GetData() const {
-    return data_;
+    return *data_;
+  }
+
+ protected:
+  std::vector<uint8_t>* const data_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(Leb128Encoder);
+};
+
+// An encoder with an API similar to vector<uint32_t> where the data is captured in ULEB128 format.
+class Leb128EncodingVector FINAL : private std::vector<uint8_t>, public Leb128Encoder {
+ public:
+  Leb128EncodingVector() : Leb128Encoder(this) {
   }
 
  private:
-  std::vector<uint8_t> data_;
-
   DISALLOW_COPY_AND_ASSIGN(Leb128EncodingVector);
 };
 

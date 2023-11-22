@@ -25,6 +25,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
         <service android:name="android.security.cts.SeccompDeathTestService"
                  android:process=":death_test_service"

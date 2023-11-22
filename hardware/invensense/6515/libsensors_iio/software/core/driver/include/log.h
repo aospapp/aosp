@@ -56,6 +56,11 @@
 extern "C" {
 #endif
 
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define LOG ALOG
+#endif
+
 #if defined ANDROID_JELLYBEAN || defined ANDROID_KITKAT
 #define LOG ALOG
 #define LOG_ERRROR ANDROID_LOG_ERROR
@@ -89,6 +94,18 @@ extern "C" {
 #else
 	/* Based off the log priorities in android
 	   /system/core/include/android/log.h */
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOG_UNKNOWN		LOG_UNKNOWN
+#define MPL_LOG_DEFAULT		LOG_DEFAULT
+#define MPL_LOG_VERBOSE		LOG_VERBOSE
+#define MPL_LOG_DEBUG		LOG_DEBUG
+#define MPL_LOG_INFO		LOG_INFO
+#define MPL_LOG_WARN		LOG_WARN
+#define MPL_LOG_ERROR		LOG_ERROR
+//--yd #define MPL_LOG_FATAL		LOG_FATAL
+#define MPL_LOG_SILENT		LOG_SILENT
+#else
 #define MPL_LOG_UNKNOWN		(0)
 #define MPL_LOG_DEFAULT		(1)
 #define MPL_LOG_VERBOSE		(2)
@@ -97,6 +114,7 @@ extern "C" {
 #define MPL_LOG_WARN		(5)
 #define MPL_LOG_ERROR		(6)
 #define MPL_LOG_SILENT		(8)
+#endif
 #endif
 
 
@@ -129,15 +147,28 @@ extern "C" {
             __pragma (warning(suppress : 4127 )) \
     } while (0)
 #else
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGV(fmt, ...)						\
+	do {								\
+		if (0)							\
+			MPL_LOG(MPL_LOG_VERBOSE, MPL_LOG_TAG, fmt, ##__VA_ARGS__);\
+    } while (0)
+#else
 #define MPL_LOGV(fmt, ...)						\
 	do {								\
 		if (0)							\
 			MPL_LOG(LOG_VERBOSE, MPL_LOG_TAG, fmt, ##__VA_ARGS__);\
     } while (0)
 #endif
-
+#endif
+#else
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGV(fmt, ...) MPL_LOG(MPL_LOG_VERBOSE, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
 #else
 #define MPL_LOGV(fmt, ...) MPL_LOG(LOG_VERBOSE, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#endif
 #endif
 #endif
 
@@ -161,7 +192,12 @@ extern "C" {
  * Simplified macro to send a debug log message using the current MPL_LOG_TAG.
  */
 #ifndef MPL_LOGD
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGD(fmt, ...) MPL_LOG(MPL_LOG_DEBUG, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#else
 #define MPL_LOGD(fmt, ...) MPL_LOG(LOG_DEBUG, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#endif
 #endif
 
 #ifndef MPL_LOGD_IF
@@ -178,7 +214,12 @@ extern "C" {
 #ifdef __KERNEL__
 #define MPL_LOGI(fmt, ...) pr_info(KERN_INFO MPL_LOG_TAG fmt, ##__VA_ARGS__)
 #else
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGI(fmt, ...) MPL_LOG(MPL_LOG_INFO, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#else
 #define MPL_LOGI(fmt, ...) MPL_LOG(LOG_INFO, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#endif
 #endif
 #endif
 
@@ -214,15 +255,28 @@ extern "C" {
 #ifdef __KERNEL__
 #define MPL_LOGE(fmt, ...) printk(KERN_ERR MPL_LOG_TAG fmt, ##__VA_ARGS__)
 #else
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGE(fmt, ...) MPL_LOG(MPL_LOG_ERROR, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#else
 #define MPL_LOGE(fmt, ...) MPL_LOG(LOG_ERROR, MPL_LOG_TAG, fmt, ##__VA_ARGS__)
+#endif
 #endif
 #endif
 
 #ifndef MPL_LOGE_IF
+#if defined ANDROID_LOLLIPOP
+//--yd
+#define MPL_LOGE_IF(cond, fmt, ...) \
+	((CONDITION(cond))					       \
+		? MPL_LOG(MPL_LOG_ERROR, MPL_LOG_TAG, fmt, ##__VA_ARGS__)  \
+		: (void)0)
+#else
 #define MPL_LOGE_IF(cond, fmt, ...) \
 	((CONDITION(cond))					       \
 		? MPL_LOG(LOG_ERROR, MPL_LOG_TAG, fmt, ##__VA_ARGS__)  \
 		: (void)0)
+#endif
 #endif
 
 /* --------------------------------------------------------------------- */

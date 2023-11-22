@@ -16,13 +16,19 @@
 
 package com.google.common.collect.testing;
 
+import static java.util.Collections.sort;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+
 import junit.framework.Assert;
 import junit.framework.AssertionFailedError;
 
+import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -36,7 +42,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-// This class is GWT compatible.
+@GwtCompatible(emulated = true)
 public class Helpers {
   // Clone of Objects.equal
   static boolean equal(Object a, Object b) {
@@ -66,7 +72,7 @@ public class Helpers {
   }
 
   // Would use Maps.immutableEntry
-  static <K, V> Entry<K, V> mapEntry(K key, V value) {
+  public static <K, V> Entry<K, V> mapEntry(K key, V value) {
     return Collections.singletonMap(key, value).entrySet().iterator().next();
   }
 
@@ -165,8 +171,11 @@ public class Helpers {
       final Comparator<? super K> keyComparator) {
     return new Comparator<Entry<K, V>>() {
       @Override
+      @SuppressWarnings("unchecked") // no less safe than putting it in the map!
       public int compare(Entry<K, V> a, Entry<K, V> b) {
-        return keyComparator.compare(a.getKey(), b.getKey());
+        return (keyComparator == null)
+            ? ((Comparable) a.getKey()).compareTo(b.getKey())
+            : keyComparator.compare(a.getKey(), b.getKey());
       }
     };
   }
@@ -248,9 +257,9 @@ public class Helpers {
    * possible to access the raw (modifiable) map entry via a nefarious equals
    * method.
    */
-  public static <K, V> Map.Entry<K, V> nefariousMapEntry(final K key, 
+  public static <K, V> Map.Entry<K, V> nefariousMapEntry(final K key,
       final V value) {
-    return new Map.Entry<K, V>() {      
+    return new Map.Entry<K, V>() {
       @Override public K getKey() {
         return key;
       }
@@ -262,10 +271,10 @@ public class Helpers {
       }
       @SuppressWarnings("unchecked")
       @Override public boolean equals(Object o) {
-        if (o instanceof Map.Entry<?, ?>) {
+        if (o instanceof Map.Entry) {
           Map.Entry<K, V> e = (Map.Entry<K, V>) o;
           e.setValue(value); // muhahaha!
-          
+
           return equal(this.getKey(), e.getKey())
               && equal(this.getValue(), e.getValue());
         }
@@ -286,5 +295,120 @@ public class Helpers {
         return getKey() + "=" + getValue();
       }
     };
-  }  
+  }
+
+  static <E> List<E> castOrCopyToList(Iterable<E> iterable) {
+    if (iterable instanceof List) {
+      return (List<E>) iterable;
+    }
+    List<E> list = new ArrayList<E>();
+    for (E e : iterable) {
+      list.add(e);
+    }
+    return list;
+  }
+
+  private static final Comparator<Comparable> NATURAL_ORDER = new Comparator<Comparable>() {
+    @SuppressWarnings("unchecked") // assume any Comparable is Comparable<Self>
+    @Override public int compare(Comparable left, Comparable right) {
+      return left.compareTo(right);
+    }
+  };
+
+  public static <K extends Comparable, V> Iterable<Entry<K, V>> orderEntriesByKey(
+      List<Entry<K, V>> insertionOrder) {
+    sort(insertionOrder, Helpers.<K, V>entryComparator(NATURAL_ORDER));
+    return insertionOrder;
+  }
+
+  /**
+   * Private replacement for {@link com.google.gwt.user.client.rpc.GwtTransient} to work around
+   * build-system quirks.
+   */
+  private @interface GwtTransient {}
+
+  /**
+   * Compares strings in natural order except that null comes immediately before a given value. This
+   * works better than Ordering.natural().nullsFirst() because, if null comes before all other
+   * values, it lies outside the submap/submultiset ranges we test, and the variety of tests that
+   * exercise null handling fail on those subcollections.
+   */
+  public abstract static class NullsBefore implements Comparator<String>, Serializable {
+    /*
+     * We don't serialize this class in GWT, so we don't care about whether GWT will serialize this
+     * field.
+     */
+    @GwtTransient private final String justAfterNull;
+
+    protected NullsBefore(String justAfterNull) {
+      if (justAfterNull == null) {
+        throw new NullPointerException();
+      }
+
+      this.justAfterNull = justAfterNull;
+    }
+
+    @Override
+    public int compare(String lhs, String rhs) {
+      if (lhs == rhs) {
+        return 0;
+      }
+      if (lhs == null) {
+        // lhs (null) comes just before justAfterNull.
+        // If rhs is b, lhs comes first.
+        if (rhs.equals(justAfterNull)) {
+          return -1;
+        }
+        return justAfterNull.compareTo(rhs);
+      }
+      if (rhs == null) {
+        // rhs (null) comes just before justAfterNull.
+        // If lhs is b, rhs comes first.
+        if (lhs.equals(justAfterNull)) {
+          return 1;
+        }
+        return lhs.compareTo(justAfterNull);
+      }
+      return lhs.compareTo(rhs);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof NullsBefore) {
+        NullsBefore other = (NullsBefore) obj;
+        return justAfterNull.equals(other.justAfterNull);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return justAfterNull.hashCode();
+    }
+  }
+
+  public static final class NullsBeforeB extends NullsBefore {
+    public static final NullsBeforeB INSTANCE = new NullsBeforeB();
+
+    private NullsBeforeB() {
+      super("b");
+    }
+  }
+
+  public static final class NullsBeforeTwo extends NullsBefore {
+    public static final NullsBeforeTwo INSTANCE = new NullsBeforeTwo();
+
+    private NullsBeforeTwo() {
+      super("two"); // from TestStringSortedMapGenerator's sample keys
+    }
+  }
+
+  @GwtIncompatible("reflection")
+  public static Method getMethod(Class<?> clazz, String name) {
+    try {
+      return clazz.getMethod(name);
+    } catch (Exception e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
 }

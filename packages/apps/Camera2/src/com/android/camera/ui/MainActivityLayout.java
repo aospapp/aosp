@@ -29,10 +29,8 @@ import android.widget.FrameLayout;
 import com.android.camera.app.CameraAppUI;
 import com.android.camera.debug.Log;
 import com.android.camera.util.CameraUtil;
-import com.android.camera.util.UsageStatistics;
 import com.android.camera.widget.FilmstripLayout;
 import com.android.camera2.R;
-import com.google.common.logging.eventprotos;
 
 public class MainActivityLayout extends FrameLayout {
 
@@ -152,7 +150,7 @@ public class MainActivityLayout extends FrameLayout {
         if (mNonDecorWindowSizeChangedListener != null) {
             mNonDecorWindowSizeChangedListener.onNonDecorWindowSizeChanged(
                     MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec),
-                    CameraUtil.getDisplayRotation(getContext()));
+                    CameraUtil.getDisplayRotation());
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
@@ -168,7 +166,7 @@ public class MainActivityLayout extends FrameLayout {
         if (mNonDecorWindowSizeChangedListener != null) {
             mNonDecorWindowSizeChangedListener.onNonDecorWindowSizeChanged(
                     getMeasuredWidth(), getMeasuredHeight(),
-                    CameraUtil.getDisplayRotation(getContext()));
+                    CameraUtil.getDisplayRotation());
         }
     }
 }

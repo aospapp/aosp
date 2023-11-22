@@ -16,10 +16,11 @@
 
 package android.content.res.cts;
 
-import java.io.IOException;
+import com.android.cts.content.R;
 
 import org.xmlpull.v1.XmlPullParserException;
 
+import android.content.cts.util.XmlUtils;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.test.AndroidTestCase;
@@ -27,8 +28,7 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 
-import com.android.cts.content.R;
-import com.android.internal.util.XmlUtils;
+import java.io.IOException;
 
 
 public class TypedArrayTest extends AndroidTestCase{

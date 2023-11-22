@@ -15,10 +15,10 @@
 #define WEBP_DSP_DSP_H_
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include "../webp/config.h"
 #endif
 
-#include "webp/types.h"
+#include "../webp/types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,8 +32,18 @@ extern "C" {
 # define LOCAL_GCC_PREREQ(maj, min) \
     (LOCAL_GCC_VERSION >= (((maj) << 8) | (min)))
 #else
+# define LOCAL_GCC_VERSION 0
 # define LOCAL_GCC_PREREQ(maj, min) 0
 #endif
+
+#ifdef __clang__
+# define LOCAL_CLANG_VERSION ((__clang_major__ << 8) | __clang_minor__)
+# define LOCAL_CLANG_PREREQ(maj, min) \
+    (LOCAL_CLANG_VERSION >= (((maj) << 8) | (min)))
+#else
+# define LOCAL_CLANG_VERSION 0
+# define LOCAL_CLANG_PREREQ(maj, min) 0
+#endif  // __clang__
 
 #if defined(_MSC_VER) && _MSC_VER > 1310 && \
     (defined(_M_X64) || defined(_M_IX86))
@@ -56,12 +66,18 @@ extern "C" {
 #define WEBP_ANDROID_NEON  // Android targets that might support NEON
 #endif
 
-#if defined(__ARM_NEON__) || defined(__aarch64__)
+// The intrinsics currently cause compiler errors with arm-nacl-gcc and the
+// inline assembly would need to be modified for use with Native Client.
+#if (defined(__ARM_NEON__) || defined(__aarch64__)) \
+    && !defined(__native_client__)
 #define WEBP_USE_NEON
 #endif
 
-#if defined(__mips__) && !defined(__mips64)
+#if defined(__mips__) && !defined(__mips64) && (__mips_isa_rev < 6)
 #define WEBP_USE_MIPS32
+#if (__mips_isa_rev >= 2)
+#define WEBP_USE_MIPS32_R2
+#endif
 #endif
 
 typedef enum {
@@ -243,6 +259,13 @@ extern void (*WebPApplyAlphaMultiply)(
 // Same, buf specifically for RGBA4444 format
 extern void (*WebPApplyAlphaMultiply4444)(
     uint8_t* rgba4444, int w, int h, int stride);
+
+// Extract the alpha values from 32b values in argb[] and pack them into alpha[]
+// (this is the opposite of WebPDispatchAlpha).
+// Returns true if there's only trivial 0xff alpha values.
+extern int (*WebPExtractAlpha)(const uint8_t* argb, int argb_stride,
+                               int width, int height,
+                               uint8_t* alpha, int alpha_stride);
 
 // Pre-Multiply operation transforms x into x * A / 255  (where x=Y,R,G or B).
 // Un-Multiply operation transforms x into x * 255 / A.

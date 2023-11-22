@@ -196,21 +196,21 @@ typedef struct
     /**
      * Absolute POCs of reference List 0 for all slices in the frame from which this frame is reconstructed
      */
-    WORD32 l0_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD32 ai4_l0_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
 
     /**
      * Flag to indicate Long Term reference for POCs of reference List 0 for all slices in the frame from which this frame is reconstructed
      */
-    WORD8 u1_l0_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD8 ai1_l0_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
 
     /**
      * Absolute POCs of reference List 1 for all slices in the frame from which this frame is reconstructed
      */
-    WORD32 l1_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD32 ai4_l1_collocated_poc[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
     /**
      * Flag to indicate Long Term reference for POCs of reference List 1 for all slices in the frame from which this frame is reconstructed
      */
-    WORD32 u1_l1_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
+    WORD8 ai1_l1_collocated_poc_lt[MAX_SLICE_SEGMENTS_IN_FRAME][MAX_DPB_SIZE];
 
 }mv_buf_t;
 
@@ -1713,6 +1713,12 @@ struct _codec_t
     WORD32 i4_rasl_output_flag;
 
     /**
+     * This flag is set if the next picture received is a CRA and has to be treated as a first pic in the video sequence
+     * For example, it is set, if an EOS (end of stream) NAL is received
+     */
+    WORD32 i4_cra_as_first_pic;
+
+    /**
      * Pictures that are are degraded
      * 0 : No degrade
      * 1 : Only on non-reference frames
@@ -1975,6 +1981,15 @@ struct _codec_t
      */
     WORD32 i4_total_pic_buf_size;
 
+    /**
+     * Remaining pic buffer size - used for shared mode with 420p support
+     */
+    WORD32 i4_remaining_pic_buf_size;
+
+    /**
+     * Current chroma buffer base - used for shared mode with 420p output
+     */
+    UWORD8 *pu1_cur_chroma_ref_buf;
 
     /**
      * Picture buffer manager
@@ -2139,6 +2154,12 @@ struct _codec_t
     IVD_ARCH_T e_processor_arch;
     /**  Processor soc */
     IVD_SOC_T e_processor_soc;
+
+    /** Display buffer array - for shared mode */
+    ivd_out_bufdesc_t s_disp_buffer[IVD_VIDDEC_MAX_IO_BUFFERS];
+
+    /** Number of active display buffers - for shared mode */
+    WORD32  i4_share_disp_buf_cnt;
 };
 
 #endif /* _IHEVCD_STRUCTS_H_ */

@@ -4,8 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_IconList_H_
-#define _PWL_IconList_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_ICONLIST_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_ICONLIST_H_
+
+#include "../../../core/include/fxcrt/fx_string.h"
+#include "PWL_ListCtrl.h"
+#include "PWL_Wnd.h"
 
 class IPWL_IconList_Notify;
 class CPWL_IconList_Item;
@@ -16,6 +20,7 @@ class CPWL_Label;
 class IPWL_IconList_Notify
 {
 public:
+        virtual ~IPWL_IconList_Notify() { }
 	virtual void						OnNoteListSelChanged(FX_INT32 nItemIndex) = 0;
 };
 
@@ -72,10 +77,10 @@ public:
 
 protected:
 	virtual void						CreateChildWnd(const PWL_CREATEPARAM & cp);
-	virtual FX_BOOL						OnLButtonDown(const CPDF_Point & point);
-	virtual FX_BOOL						OnLButtonUp(const CPDF_Point & point);
-	virtual FX_BOOL						OnMouseMove(const CPDF_Point & point);
-	virtual FX_BOOL						OnKeyDown(FX_WORD nChar);
+	virtual FX_BOOL						OnLButtonDown(const CPDF_Point & point, FX_DWORD nFlag);
+	virtual FX_BOOL						OnLButtonUp(const CPDF_Point & point, FX_DWORD nFlag);
+	virtual FX_BOOL						OnMouseMove(const CPDF_Point & point, FX_DWORD nFlag);
+	virtual FX_BOOL						OnKeyDown(FX_WORD nChar, FX_DWORD nFlag);
 
 private:
 	CPWL_IconList_Item*					GetListItem(FX_INT32 nItemIndex) const;
@@ -95,7 +100,7 @@ public:
 	CPWL_IconList(FX_INT32 nListCount);
 	virtual ~CPWL_IconList();
 
-	virtual FX_BOOL						OnMouseWheel(short zDelta, const CPDF_Point & point);
+	virtual FX_BOOL						OnMouseWheel(short zDelta, const CPDF_Point & point, FX_DWORD nFlag);
 
 	void								SetSelect(FX_INT32 nIndex);
 	void								SetTopItem(FX_INT32 nIndex);
@@ -119,7 +124,5 @@ private:
 	CPWL_IconList_Content*				m_pListContent;
 	FX_INT32							m_nListCount;
 };
- 
-#endif //_PWL_IconList_H_
 
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_ICONLIST_H_

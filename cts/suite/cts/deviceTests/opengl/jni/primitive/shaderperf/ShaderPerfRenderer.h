@@ -18,9 +18,9 @@
 
 class ShaderPerfRenderer: public Renderer {
 public:
-    ShaderPerfRenderer(ANativeWindow* window, bool offscreen, int workload);
+    ShaderPerfRenderer(ANativeWindow* window, bool offscreen);
     virtual ~ShaderPerfRenderer() {};
-    bool setUp();
+    bool setUp(int workload);
     void drawWorkload();
 private:
     GLuint mTextureId;

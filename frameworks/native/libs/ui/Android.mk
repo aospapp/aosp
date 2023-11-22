@@ -12,10 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES:= \
+LOCAL_CLANG := true
+LOCAL_CPPFLAGS := -std=c++1y -Weverything -Werror
+
+# The static constructors and destructors in this library have not been noted to
+# introduce significant overheads
+LOCAL_CPPFLAGS += -Wno-exit-time-destructors
+LOCAL_CPPFLAGS += -Wno-global-constructors
+
+# We only care about compiling as C++14
+LOCAL_CPPFLAGS += -Wno-c++98-compat-pedantic
+
+# We use four-character constants for the GraphicBuffer header, and don't care
+# that they're non-portable as long as they're consistent within one execution
+LOCAL_CPPFLAGS += -Wno-four-char-constants
+
+# Don't warn about struct padding
+LOCAL_CPPFLAGS += -Wno-padded
+
+LOCAL_SRC_FILES := \
 	Fence.cpp \
 	FramebufferNativeWindow.cpp \
 	FrameStats.cpp \
@@ -38,7 +56,7 @@ ifneq ($(BOARD_FRAMEBUFFER_FORCE_FORMAT),)
 LOCAL_CFLAGS += -DFRAMEBUFFER_FORCE_FORMAT=$(BOARD_FRAMEBUFFER_FORCE_FORMAT)
 endif
 
-LOCAL_MODULE:= libui
+LOCAL_MODULE := libui
 
 include $(BUILD_SHARED_LIBRARY)
 

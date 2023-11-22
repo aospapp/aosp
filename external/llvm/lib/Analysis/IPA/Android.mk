@@ -4,7 +4,6 @@ analysis_ipa_SRC_FILES := \
   CallGraph.cpp \
   CallGraphSCCPass.cpp \
   CallPrinter.cpp \
-  FindUsedTypes.cpp \
   GlobalsModRef.cpp \
   IPA.cpp \
   InlineCost.cpp

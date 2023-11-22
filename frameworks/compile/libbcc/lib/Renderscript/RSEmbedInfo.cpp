@@ -15,7 +15,11 @@
  */
 
 #include "bcc/Assert.h"
+#include "bcc/Config/Config.h"
 #include "bcc/Renderscript/RSTransforms.h"
+#include "bcc/Support/Log.h"
+#include "bcinfo/MetadataExtractor.h"
+#include "rsDefines.h"
 
 #include <cstdlib>
 #include <vector>
@@ -28,10 +32,6 @@
 #include <llvm/Pass.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/Type.h>
-
-#include "bcc/Config/Config.h"
-#include "bcc/Support/Log.h"
-#include "bcinfo/MetadataExtractor.h"
 
 using namespace bcc;
 
@@ -54,7 +54,11 @@ private:
 public:
   RSEmbedInfoPass()
       : ModulePass(ID),
-        M(NULL) {
+        M(nullptr) {
+  }
+
+  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
   }
 
   static std::string getRSInfoString(const llvm::Module *module) {
@@ -70,12 +74,18 @@ public:
     size_t exportFuncCount = me.getExportFuncCount();
     size_t exportForEachCount = me.getExportForEachSignatureCount();
     size_t objectSlotCount = me.getObjectSlotCount();
+    size_t pragmaCount = me.getPragmaCount();
     const char **exportVarNameList = me.getExportVarNameList();
     const char **exportFuncNameList = me.getExportFuncNameList();
     const char **exportForEachNameList = me.getExportForEachNameList();
     const uint32_t *exportForEachSignatureList =
         me.getExportForEachSignatureList();
     const uint32_t *objectSlotList = me.getObjectSlotList();
+    const char **pragmaKeyList = me.getPragmaKeyList();
+    const char **pragmaValueList = me.getPragmaValueList();
+    bool isThreadable = me.isThreadable();
+    const char *buildChecksum = me.getBuildChecksum();
+
     size_t i;
 
     // We use a simple text format here that the compatibility library can
@@ -106,6 +116,17 @@ public:
       s << objectSlotList[i] << "\n";
     }
 
+    s << "pragmaCount: " << pragmaCount << "\n";
+    for (i = 0; i < pragmaCount; ++i) {
+      s << pragmaKeyList[i] << " - "
+        << pragmaValueList[i] << "\n";
+    }
+    s << "isThreadable: " << ((isThreadable) ? "yes" : "no") << "\n";
+
+    if (buildChecksum != nullptr && buildChecksum[0]) {
+      s << "buildChecksum: " << buildChecksum << "\n";
+    }
+
     s.flush();
     return str;
   }
@@ -121,7 +142,7 @@ public:
     llvm::GlobalVariable *InfoGV =
         new llvm::GlobalVariable(M, Init->getType(), true,
                                  llvm::GlobalValue::ExternalLinkage, Init,
-                                 ".rs.info");
+                                 kRsInfo);
     (void) InfoGV;
 
     return true;

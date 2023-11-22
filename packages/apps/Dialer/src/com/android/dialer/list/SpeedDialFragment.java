@@ -15,6 +15,8 @@
  */
 package com.android.dialer.list;
 
+import static android.Manifest.permission.READ_CONTACTS;
+
 import android.animation.Animator;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
@@ -23,11 +25,12 @@ import android.app.Fragment;
 import android.app.LoaderManager;
 import android.content.CursorLoader;
 import android.content.Loader;
-import android.content.res.Resources;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Trace;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -38,17 +41,19 @@ import android.view.animation.LayoutAnimationController;
 import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.FrameLayout;
+import android.widget.FrameLayout.LayoutParams;
 import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.RelativeLayout;
-import android.widget.RelativeLayout.LayoutParams;
 
 import com.android.contacts.common.ContactPhotoManager;
 import com.android.contacts.common.ContactTileLoaderFactory;
 import com.android.contacts.common.list.ContactTileView;
 import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
+import com.android.contacts.common.util.PermissionsUtil;
 import com.android.dialer.R;
 import com.android.dialer.util.DialerUtils;
+import com.android.dialer.widget.EmptyContentView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,7 +62,10 @@ import java.util.HashMap;
  * This fragment displays the user's favorite/frequent contacts in a grid.
  */
 public class SpeedDialFragment extends Fragment implements OnItemClickListener,
-        PhoneFavoritesTileAdapter.OnDataSetChangedForAnimationListener {
+        PhoneFavoritesTileAdapter.OnDataSetChangedForAnimationListener,
+        EmptyContentView.OnEmptyViewActionButtonClickedListener {
+
+    private static final int READ_CONTACTS_PERMISSION_REQUEST_CODE = 1;
 
     /**
      * By default, the animation code assumes that all items in a list view are of the same height
@@ -68,7 +76,7 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
      */
     private static final long KEY_REMOVED_ITEM_HEIGHT = Long.MAX_VALUE;
 
-    private static final String TAG = SpeedDialFragment.class.getSimpleName();
+    private static final String TAG = "SpeedDialFragment";
     private static final boolean DEBUG = false;
 
     private int mAnimationDuration;
@@ -80,6 +88,7 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
 
     public interface HostInterface {
         public void setDragDropController(DragDropController controller);
+        public void showAllContactsTab();
     }
 
     private class ContactTileLoaderListener implements LoaderManager.LoaderCallbacks<Cursor> {
@@ -156,7 +165,7 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
     /**
      * Layout used when there are no favorites.
      */
-    private View mEmptyView;
+    private EmptyContentView mEmptyView;
 
     private final ContactTileView.Listener mContactTileAdapterListener =
             new ContactTileAdapterListener();
@@ -180,21 +189,40 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
     @Override
     public void onCreate(Bundle savedState) {
         if (DEBUG) Log.d(TAG, "onCreate()");
+        Trace.beginSection(TAG + " onCreate");
         super.onCreate(savedState);
 
         mAnimationDuration = getResources().getInteger(R.integer.fade_duration);
+        Trace.endSection();
     }
 
     @Override
     public void onResume() {
+        Trace.beginSection(TAG + " onResume");
         super.onResume();
 
-        getLoaderManager().getLoader(LOADER_ID_CONTACT_TILE).forceLoad();
+        if (PermissionsUtil.hasContactsPermissions(getActivity())) {
+            if (getLoaderManager().getLoader(LOADER_ID_CONTACT_TILE) == null) {
+                getLoaderManager().initLoader(LOADER_ID_CONTACT_TILE, null,
+                        mContactTileLoaderListener);
+
+            } else {
+                getLoaderManager().getLoader(LOADER_ID_CONTACT_TILE).forceLoad();
+            }
+
+            mEmptyView.setDescription(R.string.speed_dial_empty);
+            mEmptyView.setActionLabel(R.string.speed_dial_empty_add_favorite_action);
+        } else {
+            mEmptyView.setDescription(R.string.permission_no_speeddial);
+            mEmptyView.setActionLabel(R.string.permission_single_turn_on);
+        }
+        Trace.endSection();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
+        Trace.beginSection(TAG + " onCreateView");
         mParentView = inflater.inflate(R.layout.speed_dial_fragment, container, false);
 
         mListView = (PhoneFavoriteListView) mParentView.findViewById(R.id.contact_tile_list);
@@ -208,10 +236,9 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
                 (ImageView) getActivity().findViewById(R.id.contact_tile_drag_shadow_overlay);
         mListView.setDragShadowOverlay(dragShadowOverlay);
 
-        final Resources resources = getResources();
-        mEmptyView = mParentView.findViewById(R.id.empty_list_view);
-        DialerUtils.configureEmptyListView(
-                mEmptyView, R.drawable.empty_speed_dial, R.string.speed_dial_empty, getResources());
+        mEmptyView = (EmptyContentView) mParentView.findViewById(R.id.empty_list_view);
+        mEmptyView.setImage(R.drawable.empty_speed_dial);
+        mEmptyView.setActionClickedListener(this);
 
         mContactTileFrame = mParentView.findViewById(R.id.contact_tile_frame);
 
@@ -224,7 +251,7 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
         mListView.setOnScrollListener(mScrollListener);
         mListView.setFastScrollEnabled(false);
         mListView.setFastScrollAlwaysVisible(false);
-
+        Trace.endSection();
         return mParentView;
     }
 
@@ -239,7 +266,7 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
         final int listViewVisibility = visible ? View.GONE : View.VISIBLE;
 
         if (previousVisibility != emptyViewVisibility) {
-            final RelativeLayout.LayoutParams params = (LayoutParams) mContactTileFrame
+            final FrameLayout.LayoutParams params = (LayoutParams) mContactTileFrame
                     .getLayoutParams();
             params.height = visible ? LayoutParams.WRAP_CONTENT : LayoutParams.MATCH_PARENT;
             mContactTileFrame.setLayoutParams(params);
@@ -280,7 +307,11 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
         // Use initLoader() instead of restartLoader() to refraining unnecessary reload.
         // This method call implicitly assures ContactTileLoaderListener's onLoadFinished() will
         // be called, on which we'll check if "all" contacts should be reloaded again or not.
-        getLoaderManager().initLoader(LOADER_ID_CONTACT_TILE, null, mContactTileLoaderListener);
+        if (PermissionsUtil.hasContactsPermissions(activity)) {
+            getLoaderManager().initLoader(LOADER_ID_CONTACT_TILE, null, mContactTileLoaderListener);
+        } else {
+            setEmptyViewVisibility(true);
+        }
     }
 
     /**
@@ -432,5 +463,30 @@ public class SpeedDialFragment extends Fragment implements OnItemClickListener,
 
     public AbsListView getListView() {
         return mListView;
+    }
+
+    @Override
+    public void onEmptyViewActionButtonClicked() {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+
+        if (!PermissionsUtil.hasPermission(activity, READ_CONTACTS)) {
+            requestPermissions(new String[] {READ_CONTACTS}, READ_CONTACTS_PERMISSION_REQUEST_CODE);
+        } else {
+            // Switch tabs
+            ((HostInterface) activity).showAllContactsTab();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (requestCode == READ_CONTACTS_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length == 1 && PackageManager.PERMISSION_GRANTED == grantResults[0]) {
+                PermissionsUtil.notifyPermissionGranted(getActivity(), READ_CONTACTS);
+            }
+        }
     }
 }

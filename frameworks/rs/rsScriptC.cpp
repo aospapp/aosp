@@ -29,6 +29,21 @@
 
 #include <sys/stat.h>
 
+#include <string>
+
+#ifdef USE_MINGW
+/* Define the default path separator for the platform. */
+#define OS_PATH_SEPARATOR     '\\'
+#define OS_PATH_SEPARATOR_STR "\\"
+
+#else /* not USE_MINGW */
+
+/* Define the default path separator for the platform. */
+#define OS_PATH_SEPARATOR     '/'
+#define OS_PATH_SEPARATOR_STR "/"
+
+#endif
+
 using namespace android;
 using namespace android::renderscript;
 
@@ -39,7 +54,7 @@ using namespace android::renderscript;
 
 ScriptC::ScriptC(Context *rsc) : Script(rsc) {
 #if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
-    BT = NULL;
+    BT = nullptr;
 #endif
 }
 
@@ -47,7 +62,7 @@ ScriptC::~ScriptC() {
 #if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
     if (BT) {
         delete BT;
-        BT = NULL;
+        BT = nullptr;
     }
 #endif
     if (mInitialized) {
@@ -58,29 +73,45 @@ ScriptC::~ScriptC() {
 
 #ifndef RS_COMPATIBILITY_LIB
 bool ScriptC::createCacheDir(const char *cacheDir) {
-    String8 cacheDirString, currentDir;
+    std::string currentDir;
+    const std::string cacheDirString(cacheDir);
+
     struct stat statBuf;
     int statReturn = stat(cacheDir, &statBuf);
     if (!statReturn) {
         return true;
     }
 
-    // String8 path functions strip leading /'s
-    // insert if necessary
-    if (cacheDir[0] == '/') {
-        currentDir += "/";
-    }
+    // Start from the beginning of the cacheDirString.
+    int currPos = 0;
 
-    cacheDirString.setPathName(cacheDir);
+    // Reserve space in currentDir for the entire cacheDir path.
+    currentDir.reserve(cacheDirString.length());
 
-    while (cacheDirString.length()) {
-        currentDir += (cacheDirString.walkPath(&cacheDirString));
-        statReturn = stat(currentDir.string(), &statBuf);
+    while (currPos >= 0) {
+        /*
+         * The character at currPos should be a path separator.  We need to look
+         * for the next one.
+         */
+        int nextPos = cacheDirString.find(OS_PATH_SEPARATOR_STR, currPos + 1);
+
+        if (nextPos > 0) {
+            // A new path separator has been found.
+            currentDir += cacheDirString.substr(currPos, nextPos - currPos);
+        } else {
+            // There are no more path separators.
+            currentDir += cacheDirString.substr(currPos);
+        }
+
+        currPos = nextPos;
+
+        statReturn = stat(currentDir.c_str(), &statBuf);
+
         if (statReturn) {
             if (errno == ENOENT) {
-                if (mkdir(currentDir.string(), S_IRUSR | S_IWUSR | S_IXUSR)) {
+                if (mkdir(currentDir.c_str(), S_IRUSR | S_IWUSR | S_IXUSR)) {
                     ALOGE("Couldn't create cache directory: %s",
-                          currentDir.string());
+                          currentDir.c_str());
                     ALOGE("Error: %s", strerror(errno));
                     return false;
                 }
@@ -89,7 +120,6 @@ bool ScriptC::createCacheDir(const char *cacheDir) {
                 return false;
             }
         }
-        currentDir += "/";
     }
     return true;
 }
@@ -130,7 +160,7 @@ void ScriptC::setupGLState(Context *rsc) {
 }
 
 uint32_t ScriptC::run(Context *rsc) {
-    if (mHal.info.root == NULL) {
+    if (mHal.info.root == nullptr) {
         rsc->setError(RS_ERROR_BAD_SCRIPT, "Attempted to run bad script");
         return 0;
     }
@@ -156,42 +186,21 @@ uint32_t ScriptC::run(Context *rsc) {
 
 void ScriptC::runForEach(Context *rsc,
                          uint32_t slot,
-                         const Allocation * ain,
-                         Allocation * aout,
-                         const void * usr,
-                         size_t usrBytes,
-                         const RsScriptCall *sc) {
-    // Trace this function call.
-    // To avoid overhead, we only build the string, if tracing is actually
-    // enabled.
-    String8 *AString = NULL;
-    const char *String = "";
-    if (ATRACE_ENABLED()) {
-        AString = new String8("runForEach_");
-        AString->append(mHal.info.exportedForeachFuncList[slot].first);
-        String = AString->string();
-    }
-    ATRACE_NAME(String);
-    (void)String;
-
-    Context::PushState ps(rsc);
-
-    setupGLState(rsc);
-    setupScript(rsc);
-    rsc->mHal.funcs.script.invokeForEach(rsc, this, slot, ain, aout, usr, usrBytes, sc);
-
-    if (AString)
-        delete AString;
-}
-
-void ScriptC::runForEach(Context *rsc,
-                         uint32_t slot,
                          const Allocation ** ains,
                          size_t inLen,
                          Allocation * aout,
                          const void * usr,
                          size_t usrBytes,
                          const RsScriptCall *sc) {
+    // Make a copy of RsScriptCall and zero out extra fields that are absent
+    // in API levels below 23.
+    RsScriptCall sc_copy;
+    if (sc != nullptr && getApiLevel() < 23) {
+        memset(&sc_copy, 0, sizeof(sc_copy));
+        memcpy(&sc_copy, sc, 7*4);
+        sc = &sc_copy;
+    }
+
     // Trace this function call.
     // To avoid overhead we only build the string if tracing is actually
     // enabled.
@@ -204,16 +213,29 @@ void ScriptC::runForEach(Context *rsc,
     }
     ATRACE_NAME(String);
     (void)String;
+    if (mRSC->hadFatalError()) return;
 
     Context::PushState ps(rsc);
 
     setupGLState(rsc);
     setupScript(rsc);
 
-    rsc->mHal.funcs.script.invokeForEachMulti(rsc, this, slot, ains, inLen, aout, usr, usrBytes, sc);
+    if (rsc->mHal.funcs.script.invokeForEachMulti != nullptr) {
+        rsc->mHal.funcs.script.invokeForEachMulti(rsc, this, slot, ains, inLen,
+                                                  aout, usr, usrBytes, sc);
 
-    if (AString)
+    } else if (inLen == 1) {
+        rsc->mHal.funcs.script.invokeForEach(rsc, this, slot, ains[0], aout,
+                                             usr, usrBytes, sc);
+
+    } else {
+        rsc->setError(RS_ERROR_FATAL_DRIVER,
+                      "Driver support for multi-input not present");
+    }
+
+    if (AString) {
         delete AString;
+    }
 }
 
 void ScriptC::Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) {
@@ -223,6 +245,8 @@ void ScriptC::Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) 
         rsc->setError(RS_ERROR_BAD_SCRIPT, "Calling invoke on bad script");
         return;
     }
+    if (mRSC->hadFatalError()) return;
+
     setupScript(rsc);
 
     if (rsc->props.mLogScripts) {
@@ -230,6 +254,44 @@ void ScriptC::Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) 
     }
     rsc->mHal.funcs.script.invokeFunction(rsc, this, slot, data, len);
 }
+
+static const bool kDebugBitcode = false;
+
+#ifndef RS_COMPATIBILITY_LIB
+#ifndef ANDROID_RS_SERIALIZE
+
+static bool dumpBitcodeFile(const char *cacheDir, const char *resName,
+                            const char *suffix, const uint8_t *bitcode,
+                            size_t bitcodeLen) {
+    std::string f(cacheDir);
+    f.append("/");
+    f.append(resName);
+    f.append("#");
+    f.append(suffix);
+    f.append(".bc");
+
+    if (!ScriptC::createCacheDir(cacheDir)) {
+        return false;
+    }
+
+    FILE *fp = fopen(f.c_str(), "w");
+    if (!fp) {
+        ALOGE("Could not open %s", f.c_str());
+        return false;
+    }
+
+    size_t nWritten = fwrite(bitcode, 1, bitcodeLen, fp);
+    fclose(fp);
+    if (nWritten != bitcodeLen) {
+        ALOGE("Could not write %s", f.c_str());
+        return false;
+    }
+    return true;
+}
+
+#endif  // !ANDROID_RS_SERIALIZE
+#endif  // !RS_COMPATIBILITY_LIB
+
 
 bool ScriptC::runCompiler(Context *rsc,
                           const char *resName,
@@ -257,6 +319,10 @@ bool ScriptC::runCompiler(Context *rsc,
         sdkVersion = rsc->getTargetSdkVersion();
     }
 
+    // Save off the sdkVersion, so that we can handle broken cases later.
+    // Bug 19734267
+    mApiLevel = sdkVersion;
+
     if (BT) {
         delete BT;
     }
@@ -265,11 +331,17 @@ bool ScriptC::runCompiler(Context *rsc,
     if (!BT->translate()) {
         ALOGE("Failed to translate bitcode from version: %u", sdkVersion);
         delete BT;
-        BT = NULL;
+        BT = nullptr;
         return false;
     }
     bitcode = (const uint8_t *) BT->getTranslatedBitcode();
     bitcodeLen = BT->getTranslatedBitcodeSize();
+
+    if (kDebugBitcode) {
+        if (!dumpBitcodeFile(cacheDir, resName, "after", bitcode, bitcodeLen)) {
+            return false;
+        }
+    }
 
 #endif
     if (!cacheDir) {
@@ -381,7 +453,7 @@ RsScript rsi_ScriptCCreate(Context *rsc,
     if (!s->runCompiler(rsc, resName, cacheDir, (uint8_t *)text, text_length)) {
         // Error during compile, destroy s and return null.
         ObjectBase::checkDelete(s);
-        return NULL;
+        return nullptr;
     }
 
     s->incUserRef();

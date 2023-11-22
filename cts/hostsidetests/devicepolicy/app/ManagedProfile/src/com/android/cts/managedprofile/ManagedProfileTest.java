@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
 
 import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT;
 
@@ -43,6 +44,10 @@ public class ManagedProfileTest extends ActivityInstrumentationTestCase2<TestAct
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        // As the way to access Instrumentation is changed in the new runner, we need to inject it
+        // manually into ActivityInstrumentationTestCase2. ActivityInstrumentationTestCase2 will
+        // be marked as deprecated and replaced with ActivityTestRule.
+        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
         mPackageManager = getActivity().getPackageManager();
         mDevicePolicyManager = (DevicePolicyManager)
                 getActivity().getSystemService(Context.DEVICE_POLICY_SERVICE);

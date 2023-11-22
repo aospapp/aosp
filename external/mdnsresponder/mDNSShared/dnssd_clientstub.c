@@ -73,12 +73,13 @@ static int gDaemonErr = kDNSServiceErr_NoError;
 		WSASetLastError( err );
 		}
 #else
+
 #ifndef __ANDROID__
 	#include <sys/fcntl.h>		// For O_RDWR etc.
 #else
 	#include <fcntl.h>
-	#define LOG_TAG "libmdnsd"
-#endif
+	#define LOG_TAG "libmdns"
+#endif  // !__ANDROID__
 	#include <sys/time.h>
 	#include <sys/socket.h>
 	#include <syslog.h>
@@ -1383,42 +1384,51 @@ DNSServiceErrorType DNSSD_API DNSServiceBrowse
 	return err;
 	}
 
-static void handle_hostname_changed_response(DNSServiceOp *const sdr, const CallbackHeader *const cbh, const char *data, const char *const end)
-	{
+static void handle_hostname_changed_response(
+	DNSServiceOp         *const sdr,
+	const CallbackHeader *const cbh, 
+	const char           *data, 
+	const char           *const end)
+{
 	char replyHostname[256];
-
 	get_string(&data, end, replyHostname, sizeof(replyHostname));
-	if (!data) syslog(LOG_WARNING, "dnssd_clientstub handle_hostname_changed_response: error reading result from daemon");
-	else ((DNSHostnameChangedReply)sdr->AppCallback)(sdr, cbh->cb_flags, cbh->cb_err, replyHostname, sdr->AppContext);
-	// MUST NOT touch sdr after invoking AppCallback -- client is allowed to dispose it from within callback function
-	}
+	if (!data) syslog(LOG_WARNING,
+		"dnssd_clientstub handle_hostname_changed_response: error reading result from daemon");
+	else ((DNSHostnameChangedReply)sdr->AppCallback)(
+		sdr, cbh->cb_flags, cbh->cb_err, replyHostname, sdr->AppContext);
+}
 
 DNSServiceErrorType DNSSD_API DNSSetHostname
-	(
+(
 	DNSServiceRef           *sdRef,
-	DNSServiceFlags          flags,
+	DNSServiceFlags         flags,
 	const char              *hostname,
-	DNSHostnameChangedReply  callBack,
+	DNSHostnameChangedReply callBack,
 	void                    *context
-	)
-	{
+)
+{
 	char *ptr;
 	size_t len;
 	ipc_msg_hdr *hdr;
-	DNSServiceErrorType err = ConnectToServer(sdRef, flags, sethost_request, handle_hostname_changed_response, callBack, context);
+	DNSServiceErrorType err = ConnectToServer(sdRef, flags, sethost_request,
+		handle_hostname_changed_response, callBack, context);
 	if (err) return err;
 	len = sizeof(flags);
 	len += strlen(hostname) + 1;
-
-	hdr = create_hdr(sethost_request, &len, &ptr, (*sdRef)->primary ? 1 : 0, *sdRef);
-	if (!hdr) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; return kDNSServiceErr_NoMemory; }
-
+	hdr = create_hdr(sethost_request, &len, &ptr,
+		(*sdRef)->primary ? 1 : 0, *sdRef);
+	if (!hdr)
+ 	{
+		DNSServiceRefDeallocate(*sdRef);
+		*sdRef = NULL;
+		return kDNSServiceErr_NoMemory;
+	}
 	put_flags(flags, &ptr);
 	put_string(hostname, &ptr);
-	err = deliver_request(hdr, *sdRef);		// Will free hdr for us
+	err = deliver_request(hdr, *sdRef);
 	if (err) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; }
 	return err;
-	}
+}
 
 DNSServiceErrorType DNSSD_API DNSServiceSetDefaultDomainForUser(DNSServiceFlags flags, const char *domain);
 DNSServiceErrorType DNSSD_API DNSServiceSetDefaultDomainForUser(DNSServiceFlags flags, const char *domain)

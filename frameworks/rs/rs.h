@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "rsDefines.h"
+#include "rsInternalDefines.h"
 
 // Legacy graphics functions
 // Not extern C because not used from C++ API

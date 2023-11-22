@@ -17,8 +17,10 @@
 #ifndef ANDROID_RSDISPATCH_H
 #define ANDROID_RSDISPATCH_H
 
-#include "rsDefines.h"
+#include "rsInternalDefines.h"
+#include "jni.h"
 
+typedef void (*SetNativeLibDirFnPtr)(RsContext con, const char *nativeLibDir, size_t length);
 typedef const void* (*AllocationGetTypeFnPtr)(RsContext con, RsAllocation va);
 typedef void (*TypeGetNativeDataFnPtr)(RsContext, RsType, uintptr_t *typeData, uint32_t typeDataSize);
 typedef void (*ElementGetNativeDataFnPtr)(RsContext, RsElement, uintptr_t *elemData, uint32_t elemDataSize);
@@ -28,7 +30,10 @@ typedef void (*DeviceDestroyFnPtr) (RsDevice dev);
 typedef void (*DeviceSetConfigFnPtr) (RsDevice dev, RsDeviceParam p, int32_t value);
 typedef RsContext (*ContextCreateFnPtr)(RsDevice vdev, uint32_t version, uint32_t sdkVersion, RsContextType ct, uint32_t flags);
 typedef void (*GetNameFnPtr)(RsContext, void * obj, const char **name);
-
+typedef RsClosure (*ClosureCreateFnPtr)(RsContext, RsScriptKernelID, RsAllocation, RsScriptFieldID*, size_t, uintptr_t*, size_t, int*, size_t, RsClosure*, size_t, RsScriptFieldID*, size_t);
+typedef RsClosure (*InvokeClosureCreateFnPtr)(RsContext, RsScriptInvokeID, const void*, const size_t, const RsScriptFieldID*, const size_t, const uintptr_t*, const size_t, const int*, const size_t);
+typedef void (*ClosureSetArgFnPtr)(RsContext, RsClosure, uint32_t, uintptr_t, size_t);
+typedef void (*ClosureSetGlobalFnPtr)(RsContext, RsClosure, RsScriptFieldID, uintptr_t, size_t);
 typedef void (*ContextDestroyFnPtr) (RsContext);
 typedef RsMessageToClientType (*ContextGetMessageFnPtr) (RsContext, void*, size_t, size_t*, size_t, uint32_t*, size_t);
 typedef RsMessageToClientType (*ContextPeekMessageFnPtr) (RsContext, size_t*, size_t, uint32_t*, size_t);
@@ -51,12 +56,15 @@ typedef RsElement (*ElementCreate2FnPtr) (RsContext, const RsElement*, size_t, c
 typedef void (*AllocationCopyToBitmapFnPtr) (RsContext, RsAllocation, void*, size_t);
 typedef void (*Allocation1DDataFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, const void*, size_t);
 typedef void (*Allocation1DElementDataFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, const void*, size_t, size_t);
+typedef void (*AllocationElementDataFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, const void*, size_t, size_t);
 typedef void (*Allocation2DDataFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, RsAllocationCubemapFace, uint32_t, uint32_t, const void*, size_t, size_t);
 typedef void (*Allocation3DDataFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, const void*, size_t, size_t);
 typedef void (*AllocationGenerateMipmapsFnPtr) (RsContext, RsAllocation);
 typedef void (*AllocationReadFnPtr) (RsContext, RsAllocation, void*, size_t);
 typedef void (*Allocation1DReadFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, void*, size_t);
+typedef void (*AllocationElementReadFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, void*, size_t, size_t);
 typedef void (*Allocation2DReadFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, RsAllocationCubemapFace, uint32_t, uint32_t, void*, size_t, size_t);
+typedef void (*Allocation3DReadFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void*, size_t, size_t);
 typedef void (*AllocationSyncAllFnPtr) (RsContext, RsAllocation, RsAllocationUsageType);
 typedef void (*AllocationResize1DFnPtr) (RsContext, RsAllocation, uint32_t);
 typedef void (*AllocationCopy2DRangeFnPtr) (RsContext, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, RsAllocation, uint32_t, uint32_t, uint32_t, uint32_t);
@@ -78,16 +86,21 @@ typedef void (*ScriptSetVarVEFnPtr) (RsContext, RsScript, uint32_t, const void*,
 typedef RsScript (*ScriptCCreateFnPtr) (RsContext, const char*, size_t, const char*, size_t, const char*, size_t);
 typedef RsScript (*ScriptIntrinsicCreateFnPtr) (RsContext, uint32_t id, RsElement);
 typedef RsScriptKernelID (*ScriptKernelIDCreateFnPtr) (RsContext, RsScript, int, int);
+typedef RsScriptInvokeID (*ScriptInvokeIDCreateFnPtr) (RsContext, RsScript, int);
 typedef RsScriptFieldID (*ScriptFieldIDCreateFnPtr) (RsContext, RsScript, int);
 typedef RsScriptGroup (*ScriptGroupCreateFnPtr) (RsContext, RsScriptKernelID*, size_t, RsScriptKernelID*, size_t, RsScriptKernelID*, size_t, RsScriptFieldID*, size_t, const RsType*, size_t);
+typedef RsScriptGroup2 (*ScriptGroup2CreateFnPtr)(RsContext, const char*, size_t, const char*, size_t, RsClosure*, size_t);
 typedef void (*ScriptGroupSetOutputFnPtr) (RsContext, RsScriptGroup, RsScriptKernelID, RsAllocation);
 typedef void (*ScriptGroupSetInputFnPtr) (RsContext, RsScriptGroup, RsScriptKernelID, RsAllocation);
 typedef void (*ScriptGroupExecuteFnPtr) (RsContext, RsScriptGroup);
+typedef void (*ScriptForEachMultiFnPtr) (RsContext, RsScript, uint32_t, RsAllocation *, size_t, RsAllocation, const void *, size_t, const RsScriptCall *, size_t);
 typedef void (*AllocationIoSendFnPtr) (RsContext, RsAllocation);
 typedef void (*AllocationIoReceiveFnPtr) (RsContext, RsAllocation);
-typedef void * (*AllocationGetPointerFnPtr) (RsContext, RsAllocation, uint32_t lod, RsAllocationCubemapFace face, uint32_t z, uint32_t array, size_t *stride);
+typedef void * (*AllocationGetPointerFnPtr) (RsContext, RsAllocation, uint32_t lod, RsAllocationCubemapFace face, uint32_t z, uint32_t array, size_t *stride, size_t stride_len);
 
-typedef struct {
+struct dispatchTable {
+    SetNativeLibDirFnPtr SetNativeLibDir;
+
     // inserted by hand from rs.h
     AllocationGetTypeFnPtr AllocationGetType;
     TypeGetNativeDataFnPtr TypeGetNativeData;
@@ -113,6 +126,10 @@ typedef struct {
     AllocationCubeCreateFromBitmapFnPtr AllocationCubeCreateFromBitmap;
     AllocationGetSurfaceFnPtr AllocationGetSurface;
     AllocationSetSurfaceFnPtr AllocationSetSurface;
+    ClosureCreateFnPtr ClosureCreate;
+    InvokeClosureCreateFnPtr InvokeClosureCreate;
+    ClosureSetArgFnPtr ClosureSetArg;
+    ClosureSetGlobalFnPtr ClosureSetGlobal;
     ContextFinishFnPtr ContextFinish;
     ContextDumpFnPtr ContextDump;
     ContextSetPriorityFnPtr ContextSetPriority;
@@ -123,12 +140,15 @@ typedef struct {
     AllocationCopyToBitmapFnPtr AllocationCopyToBitmap;
     Allocation1DDataFnPtr Allocation1DData;
     Allocation1DElementDataFnPtr Allocation1DElementData;
+    AllocationElementDataFnPtr AllocationElementData;
     Allocation2DDataFnPtr Allocation2DData;
     Allocation3DDataFnPtr Allocation3DData;
     AllocationGenerateMipmapsFnPtr AllocationGenerateMipmaps;
     AllocationReadFnPtr AllocationRead;
     Allocation1DReadFnPtr Allocation1DRead;
+    AllocationElementReadFnPtr AllocationElementRead;
     Allocation2DReadFnPtr Allocation2DRead;
+    Allocation3DReadFnPtr Allocation3DRead;
     AllocationSyncAllFnPtr AllocationSyncAll;
     AllocationResize1DFnPtr AllocationResize1D;
     AllocationCopy2DRangeFnPtr AllocationCopy2DRange;
@@ -150,14 +170,27 @@ typedef struct {
     ScriptCCreateFnPtr ScriptCCreate;
     ScriptIntrinsicCreateFnPtr ScriptIntrinsicCreate;
     ScriptKernelIDCreateFnPtr ScriptKernelIDCreate;
+    ScriptInvokeIDCreateFnPtr ScriptInvokeIDCreate;
     ScriptFieldIDCreateFnPtr ScriptFieldIDCreate;
     ScriptGroupCreateFnPtr ScriptGroupCreate;
+    ScriptGroup2CreateFnPtr ScriptGroup2Create;
     ScriptGroupSetOutputFnPtr ScriptGroupSetOutput;
     ScriptGroupSetInputFnPtr ScriptGroupSetInput;
     ScriptGroupExecuteFnPtr ScriptGroupExecute;
+    ScriptForEachMultiFnPtr ScriptForEachMulti;
     AllocationIoSendFnPtr AllocationIoSend;
     AllocationIoReceiveFnPtr AllocationIoReceive;
     AllocationGetPointerFnPtr AllocationGetPointer;
-} dispatchTable;
+};
 
+bool loadSymbols(void* handle, dispatchTable& dispatchTab, int device_api = 0);
+
+//USAGE_IO for RS Support lib
+typedef void (*sAllocationSetSurfaceFnPtr) (JNIEnv *, jobject, RsContext, RsAllocation, RsNativeWindow, dispatchTable);
+struct ioSuppDT {
+    //USAGE_IO_OUTPUT
+    sAllocationSetSurfaceFnPtr sAllocationSetSurface;
+};
+
+bool loadIOSuppSyms(void* handleIO, ioSuppDT& ioDispatch);
 #endif

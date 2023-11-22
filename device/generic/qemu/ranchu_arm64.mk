@@ -18,8 +18,6 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base_telephony.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/board/generic_arm64/device.mk)
 
-PRODUCT_RUNTIMES := runtime_libart_default
-
 PRODUCT_NAME := ranchu_arm64
 # Use the same BoardConfig as generic_arm64.
 PRODUCT_DEVICE := generic_arm64

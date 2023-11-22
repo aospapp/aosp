@@ -1,30 +1,10 @@
 # 32-bit arm.
 
 #
-# Various kinds of LP32 cruft.
-#
-
-libc_bionic_src_files_arm += \
-    bionic/mmap.cpp \
-
-libc_common_src_files_arm += \
-    bionic/legacy_32_bit_support.cpp \
-    bionic/ndk_cruft.cpp \
-    bionic/time64.c \
-
-libc_netbsd_src_files_arm += \
-    upstream-netbsd/common/lib/libc/hash/sha1/sha1.c \
-
-libc_openbsd_src_files_arm += \
-    upstream-openbsd/lib/libc/stdio/putw.c \
-
-#
 # Default implementations of functions that are commonly optimized.
 #
 
 libc_bionic_src_files_arm += \
-    bionic/memchr.c \
-    bionic/memrchr.c \
     bionic/strchr.cpp \
     bionic/strnlen.c \
     bionic/strrchr.cpp \
@@ -40,7 +20,8 @@ libc_freebsd_src_files_arm += \
     upstream-freebsd/lib/libc/string/wmemmove.c \
 
 libc_openbsd_src_files_arm += \
-    upstream-openbsd/lib/libc/string/bcopy.c \
+    upstream-openbsd/lib/libc/string/memchr.c \
+    upstream-openbsd/lib/libc/string/memrchr.c \
     upstream-openbsd/lib/libc/string/stpncpy.c \
     upstream-openbsd/lib/libc/string/strlcat.c \
     upstream-openbsd/lib/libc/string/strlcpy.c \
@@ -58,11 +39,8 @@ libc_bionic_src_files_arm += \
     arch-arm/bionic/__bionic_clone.S \
     arch-arm/bionic/_exit_with_stack_teardown.S \
     arch-arm/bionic/libgcc_compat.c \
-    arch-arm/bionic/memcmp.S \
     arch-arm/bionic/__restore.S \
-    arch-arm/bionic/_setjmp.S \
     arch-arm/bionic/setjmp.S \
-    arch-arm/bionic/sigsetjmp.S \
     arch-arm/bionic/syscall.S \
 
 libc_arch_static_src_files_arm := arch-arm/bionic/exidx_static.c

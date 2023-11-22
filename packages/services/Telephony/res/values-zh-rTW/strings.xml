@@ -54,7 +54,9 @@
     <string name="unlock_success" msgid="6770085622238180152">"網路解鎖成功。"</string>
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"這位使用者無法修改行動網路設定"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM 通話設定"</string>
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM 通話設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA 通話設定"</string>
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA 通話設定 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"存取點名稱 (APN)"</string>
     <string name="settings_label" msgid="3876743539816984008">"網路設定"</string>
     <string name="phone_accounts" msgid="6376603393888116364">"通話帳戶"</string>
@@ -66,18 +68,12 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"手機帳戶"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"新增 SIP 帳戶"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"配置帳戶設定"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"Wi-Fi 通話"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"不使用 Wi-Fi 通話功能"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"不使用通話小幫手"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"無"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"通話小幫手"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"使用通話小幫手"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"選擇通話小幫手"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"管理通話網路"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"允許應用程式或服務管理通話網路"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"設定"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"所有通話帳戶"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"選取可撥打電話的帳戶"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi 通話"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"內建連線服務"</string>
     <string name="voicemail" msgid="8693759337917898954">"語音信箱"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"語音信箱 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"語音信箱："</string>
     <string name="networks" msgid="8873030692174541976">"電信業者"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"緊急廣播"</string>
@@ -93,7 +89,7 @@
     <string name="sum_hide_caller_id" msgid="1071407020290873782">"隱藏本機號碼"</string>
     <string name="sum_show_caller_id" msgid="6768534125447290401">"撥出電話時顯示本機號碼"</string>
     <string name="sum_default_caller_id" msgid="1954518825510901365">"使用預設值，在撥出電話時顯示本機號碼"</string>
-    <string name="labelCW" msgid="6120513814915920200">"來電待接"</string>
+    <string name="labelCW" msgid="6120513814915920200">"來電等待"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"通話時如有來電請通知我"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"通話時如有來電請通知我"</string>
     <string name="call_forwarding_settings" msgid="3378927671091537173">"來電轉接設定"</string>
@@ -105,8 +101,8 @@
     <string name="sum_cfu_enabled" msgid="2450052502198827927">"將所有來電轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"號碼無法使用"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"關閉"</string>
-    <string name="labelCFB" msgid="6139853033106283172">"忙碌時"</string>
-    <string name="messageCFB" msgid="3711089705936187129">"忙線時轉接號碼"</string>
+    <string name="labelCFB" msgid="6139853033106283172">"忙線時"</string>
+    <string name="messageCFB" msgid="3711089705936187129">"忙線時的轉接號碼"</string>
     <string name="sum_cfb_enabled" msgid="5984198104833116690">"轉接至 <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfb_disabled" msgid="4913145177320506827">"關閉"</string>
     <string name="disable_cfb_forbidden" msgid="3506984333877998061">"您的行動通訊業者不支援手機通話時停用轉接功能。"</string>
@@ -204,7 +200,8 @@
     <string name="roaming_enable" msgid="7331106985174381987">"漫遊時連線到數據傳輸服務"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"漫遊時連線到數據傳輸服務"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"您已離開國內網路涵蓋範圍，且已關閉數據傳輸漫遊服務，因此數據連線已中斷。"</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"允許漫遊時使用行動數據嗎？可能需要支付可觀的費用。"</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"您可能需要支付可觀的費用。"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"允許漫遊服務？"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS 選項"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA 選項"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"數據用量"</string>
@@ -356,6 +353,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"設定 TTY 模式"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"自動重試"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"啟用自動重試模式"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"無法在視訊通話過程中變更 TTY 模式"</string>
     <string name="menu_add" msgid="1882023737425114762">"新增聯絡人"</string>
     <string name="menu_edit" msgid="7143003705504672374">"編輯聯絡人"</string>
     <string name="menu_delete" msgid="3977150783449642851">"刪除聯絡人"</string>
@@ -379,7 +377,7 @@
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"正在從 SIM 卡讀取…"</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"您的 SIM 卡上沒有聯絡人。"</string>
     <string name="simContacts_title" msgid="1861472842524839921">"選取要匯入的聯絡人"</string>
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"如要從 SIM 卡匯入聯絡人，請先關閉「飛行」模式。"</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"關閉飛航模式即可從 SIM 卡匯入聯絡人資訊。"</string>
     <string name="enable_pin" msgid="5422767284133234860">"啟用/停用 SIM PIN"</string>
     <string name="change_pin" msgid="9174186126330785343">"變更 SIM PIN"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"SIM 卡 PIN 碼："</string>
@@ -413,6 +411,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 遭到永久封鎖。"</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"您還可以嘗試 <xliff:g id="NUMBER">%d</xliff:g> 次。"</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"PIN2 已解除封鎖"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"網路或 SIM 卡錯誤"</string>
     <string name="doneButton" msgid="2859593360997984240">"完成"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"語音信箱號碼"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"撥號中"</string>
@@ -423,26 +422,17 @@
     <string name="card_title_on_hold" msgid="821463117892339942">"通話保留"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"掛斷電話"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"通話中"</string>
-    <string name="notification_dialing" msgid="2107666444937350731">"撥號中"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"未接來電"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"未接來電"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> 通未接來電"</string>
-    <string name="notification_missedCallTicker" msgid="504686252427747209">"來自 <xliff:g id="MISSED_CALL_FROM">%s</xliff:g> 的未接來電"</string>
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"通話中"</string>
-    <string name="notification_on_hold" msgid="3480694969511790465">"通話保留"</string>
-    <string name="notification_incoming_call" msgid="2820429205043529642">"來電"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"新留言"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"新留言 (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"撥打 <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"無語音信箱號碼"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"沒有服務"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"您所選取的網路 (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) 無法使用"</string>
-    <string name="notification_action_end_call" msgid="6069460915123531620">"掛斷"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"回撥"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"簡訊"</string>
-    <string name="incall_error_power_off" msgid="6550191216405193368">"撥號前，請先關閉飛航模式。"</string>
+    <string name="incall_error_power_off" msgid="2947938060513306698">"關閉飛航模式即可撥打電話。"</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"關閉飛航模式或連上無線網路即可撥打電話。"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"尚未註冊網路。"</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"無法連線到行動網路。"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"無法使用行動通訊網路。但連上 Wi-Fi 網路即可撥打電話。"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"如要撥打電話，請輸入有效的號碼。"</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"無法通話。"</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"開始 MMI 序列…"</string>
@@ -453,6 +443,7 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"無法進行多方通話。"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"無法拒接來電。"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"無法掛斷電話。"</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"連上無線網路即可撥打電話。"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"緊急電話"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"開啟無線通訊中…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"找不到服務訊號，正在重試…"</string>
@@ -514,18 +505,18 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"已進入緊急回撥模式"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"緊急回撥模式"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"資料連線已停用"</string>
-  <plurals name="phone_in_ecm_notification_time">
-    <item quantity="one" msgid="4866221796252472622">"接下來的 <xliff:g id="COUNT">%s</xliff:g> 分鐘內沒有資料連線"</item>
-    <item quantity="other" msgid="3122217344579273583">"接下來將出現 <xliff:g id="COUNT">%s</xliff:g> 分鐘的資料斷線狀態"</item>
-  </plurals>
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"手機在接下來的 <xliff:g id="COUNT">%s</xliff:g> 分鐘都將處於緊急回撥模式。在這個模式中，所有使用數據連線的應用程式皆無法運作。您要立即退出嗎？"</item>
-    <item quantity="other" msgid="8617116564023933114">"手機在接下來的 <xliff:g id="COUNT">%s</xliff:g> 分鐘都將處於緊急回撥模式。在這個模式中，所有使用數據連線的應用程式皆無法運作。您要立即退出嗎？"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"緊急回撥模式不支援您要執行的操作。手機在接下來的 <xliff:g id="COUNT">%s</xliff:g> 分鐘都將處於這個模式，您要立即退出嗎？"</item>
-    <item quantity="other" msgid="6115622137771382224">"緊急回撥模式不支援您要執行的操作。手機在接下來的 <xliff:g id="COUNT">%s</xliff:g> 分鐘都將處於這個模式，您要立即退出嗎？"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="other">接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內沒有數據連線</item>
+      <item quantity="one">接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內沒有數據連線</item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="other">接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內，手機會進入緊急回電模式。在此模式下，您將無法使用需要數據連線的應用程式。您要立即退出這個模式嗎？</item>
+      <item quantity="one">接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內，手機會進入緊急回電模式。在此模式下，您將無法使用需要數據連線的應用程式。您要立即退出這個模式嗎？</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="other">緊急回電模式不支援您要執行的操作。接下來的 <xliff:g id="COUNT_1">%s</xliff:g> 分鐘內，手機會進入此模式。您要立即退出這個模式嗎？</item>
+      <item quantity="one">緊急回電模式不支援您要執行的操作。接下來的 <xliff:g id="COUNT_0">%s</xliff:g> 分鐘內，手機會進入此模式。您要立即退出這個模式嗎？</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"緊急通話模式不支援您要執行的操作。"</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"正在退出緊急回撥模式"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"是"</string>
@@ -543,8 +534,8 @@
     <string name="description_dial_button" msgid="7459705245418435351">"撥號"</string>
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"震動"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"震動"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"具有畫面的語音信箱"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"音效"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"撥號鍵盤自動完成"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"鈴聲與震動"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"內建 SIM 卡"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"開啟視訊通話"</string>
@@ -554,4 +545,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"緊急電話"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"僅限撥打緊急電話"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM 卡，插槽：<xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"協助工具"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Wi-Fi 來電"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi 通話"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"再次輕觸即可開啟"</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"為郵件解碼時發生錯誤。"</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM 卡已啟用您的服務並更新了手機的漫遊功能。"</string>
 </resources>

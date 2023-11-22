@@ -46,6 +46,7 @@
 #define deflateInit2_ FPDFAPI_deflateInit2_
 #define deflateSetDictionary FPDFAPI_deflateSetDictionary
 #define deflateReset FPDFAPI_deflateReset
+#define deflatePending FPDFAPI_deflatePending
 #define deflatePrime FPDFAPI_deflatePrime
 #define deflateParams FPDFAPI_deflateParams
 #define deflateBound FPDFAPI_deflateBound
@@ -83,14 +84,18 @@
 #define _tr_init FPDFAPI_tr_init
 #define _tr_align FPDFAPI_tr_align
 #define _tr_tally FPDFAPI_tr_tally
+#define _tr_flush_bits FPDFAPI_tr_flush_bits
 #define adler32_combine FPDFAPI_adler32_combine
 #define inflatePrime FPDFAPI_inflatePrime
+#define inflateGetDictionary FPDFAPI_inflateGetDictionary
 #define inflateGetHeader FPDFAPI_inflateGetHeader
 #define crc32_combine FPDFAPI_crc32_combine
 #define inflateReset2 FPDFAPI_inflateReset2
 #define inflateUndermine FPDFAPI_inflateUndermine
 #define inflateMark FPDFAPI_inflateMark
 #define adler32_combine64 FPDFAPI_adler32_combine64
+#define inflateResetKeep FPDFAPI_inflateResetKeep
+#define deflateResetKeep FPDFAPI_deflateResetKeep
 
 #include "zconf.h"
 
@@ -1774,6 +1779,8 @@ ZEXTERN int ZEXPORT gzgetc_ OF((gzFile file));  /* backward compatibility */
 #    define gzseek gzseek64
 #    define gztell gztell64
 #    define gzoffset gzoffset64
+#    undef adler32_combine
+#    undef crc32_combine
 #    define adler32_combine adler32_combine64
 #    define crc32_combine crc32_combine64
 #  endif

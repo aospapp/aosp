@@ -117,10 +117,6 @@ const char* Stream::formatToString(int format)
         return "RGB 888";
     case HAL_PIXEL_FORMAT_RGB_565:
         return "RGB 565";
-    case HAL_PIXEL_FORMAT_sRGB_A_8888:
-        return "sRGB A 8888";
-    case HAL_PIXEL_FORMAT_sRGB_X_8888:
-        return "sRGB B 8888";
     case HAL_PIXEL_FORMAT_Y8:
         return "Y8";
     case HAL_PIXEL_FORMAT_Y16:
@@ -133,8 +129,10 @@ const char* Stream::formatToString(int format)
         return "NV21";
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
         return "YUY2";
-    case HAL_PIXEL_FORMAT_RAW_SENSOR:
-        return "RAW SENSOR";
+    case HAL_PIXEL_FORMAT_RAW10:
+        return "RAW10";
+    case HAL_PIXEL_FORMAT_RAW16:
+        return "RAW16";
     case HAL_PIXEL_FORMAT_BLOB:
         return "BLOB";
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
@@ -227,15 +225,15 @@ void Stream::dump(int fd)
 
     dprintf(fd, "Stream ID: %d (%p)\n", mId, mStream);
     dprintf(fd, "Stream Type: %s (%d)\n", typeToString(mType), mType);
-    dprintf(fd, "Width: %"PRIu32" Height: %"PRIu32"\n", mWidth, mHeight);
+    dprintf(fd, "Width: %" PRIu32 " Height: %" PRIu32 "\n", mWidth, mHeight);
     dprintf(fd, "Stream Format: %s (%d)", formatToString(mFormat), mFormat);
     // ToDo: prettyprint usage mask flags
-    dprintf(fd, "Gralloc Usage Mask: %#"PRIx32"\n", mUsage);
-    dprintf(fd, "Max Buffer Count: %"PRIu32"\n", mMaxBuffers);
+    dprintf(fd, "Gralloc Usage Mask: %#" PRIx32 "\n", mUsage);
+    dprintf(fd, "Max Buffer Count: %" PRIu32 "\n", mMaxBuffers);
     dprintf(fd, "Buffers Registered: %s\n", mRegistered ? "true" : "false");
-    dprintf(fd, "Number of Buffers: %"PRIu32"\n", mNumBuffers);
+    dprintf(fd, "Number of Buffers: %" PRIu32 "\n", mNumBuffers);
     for (uint32_t i = 0; i < mNumBuffers; i++) {
-        dprintf(fd, "Buffer %"PRIu32"/%"PRIu32": %p\n", i, mNumBuffers,
+        dprintf(fd, "Buffer %" PRIu32 "/%" PRIu32 ": %p\n", i, mNumBuffers,
                 mBuffers[i]);
     }
 }

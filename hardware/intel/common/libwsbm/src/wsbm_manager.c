@@ -613,7 +613,7 @@ wsbmBOData(struct _WsbmBufferObject *buf,
 int
 wsbmBODataUB(struct _WsbmBufferObject *buf,
         unsigned size, const void *data, struct _WsbmBufferPool *newPool,
-        uint32_t placement, const unsigned long *user_ptr)
+        uint32_t placement, const unsigned long *user_ptr, int fd)
 {
     int newBuffer;
     int retval = 0;
@@ -624,7 +624,7 @@ wsbmBODataUB(struct _WsbmBufferObject *buf,
     extern struct _WsbmBufStorage *
     ttm_pool_ub_create(struct _WsbmBufferPool *pool,
         unsigned long size, uint32_t placement, unsigned alignment,
-        const unsigned long *user_ptr);
+        const unsigned long *user_ptr, int fd);
 
     if (buf->bufferType == WSBM_BUFFER_SIMPLE)
         return -EINVAL;
@@ -659,7 +659,7 @@ wsbmBODataUB(struct _WsbmBufferObject *buf,
         }
 
         buf->storage =
-            ttm_pool_ub_create(newPool, size, placement, buf->alignment, user_ptr);
+            ttm_pool_ub_create(newPool, size, placement, buf->alignment, user_ptr, fd);
         if (!buf->storage) {
             retval = -ENOMEM;
             goto out;
@@ -681,7 +681,7 @@ wsbmBODataUB(struct _WsbmBufferObject *buf,
         curPool = storage->pool;
 
         tmp_storage =
-            ttm_pool_ub_create(curPool, size, placement, buf->alignment, user_ptr);
+            ttm_pool_ub_create(curPool, size, placement, buf->alignment, user_ptr, fd);
 
         if (tmp_storage) {
             wsbmBufStorageUnref(&buf->storage);

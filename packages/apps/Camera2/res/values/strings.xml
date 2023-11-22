@@ -128,10 +128,19 @@
     <string name="camera_error_title">Camera error</string>
 
     <!-- message for the dialog showing the error of camera hardware -->
-    <string name="cannot_connect_camera">Can\'t connect to the camera.</string>
+    <string name="error_cannot_connect_camera">Can\'t connect to the camera.</string>
 
     <!-- message for the dialog showing the camera is disabled because of security policies. Camera cannot be used. -->
-    <string name="camera_disabled">Camera has been disabled because of security policies.</string>
+    <string name="error_camera_disabled">Camera has been disabled because of security policies.</string>
+
+    <!-- message for the dialog showing that the user's photo could not be saved [CHAR LIMIT=NONE] -->
+    <string name="error_media_storage_failure">There was a problem saving your photo or video.</string>
+
+    <!-- message for the dialog showing that the app does not have sufficient permissions [CHAR LIMIT=NONE] -->
+    <string name="error_permissions">The app does not have critical permissions needed to run. Please check your permissions settings.</string>
+
+    <!-- Reason used for session failure which is visible in UI [CHAR LIMIT=NONE] -->
+    <string name="reason_storage_failure">Photo storage failure.</string>
 
     <!-- alert to the user to wait for some operation to complete -->
     <string name="wait">Please wait\u2026</string>
@@ -147,6 +156,12 @@
 
     <!-- A label that overlays on top of the preview frame to indicate the camcorder is in time lapse mode [CHAR LIMIT=35] -->
     <string name="time_lapse_title">Time lapse recording</string>
+
+    <!-- Default feedback that is entered in the Feedback textview for issues related to camera access. [CHAR LIMIT=NONE] -->
+    <string name="feedback_description_camera_access">The app couldn\'t connect to the camera</string>
+
+    <!-- Default feedback that is entered in the Feedback textview for issues related to saving photos. [CHAR LIMIT=NONE] -->
+    <string name="feedback_description_save_photo">Photo or video did not save to the device.</string>
 
     <!-- Screen display message during image capture to indicate that the capture is in progress, like during HDR+. [CHAR LIMIT=20] -->
     <string name="capturing">Capturing</string>
@@ -246,6 +261,11 @@
     <string name="pref_camera_focusmode_label_auto">AUTO</string>
     <string name="pref_camera_focusmode_label_infinity">INFINITY</string>
     <string name="pref_camera_focusmode_label_macro">MACRO</string>
+
+    <!-- HDR support mode setting. -->
+    <string name="pref_camera_hdr_supportmode_none" translatable="false">no_hdr</string>
+    <string name="pref_camera_hdr_supportmode_hdr" translatable="false">hdr</string>
+    <string name="pref_camera_hdr_supportmode_hdr_plus" translatable="false">hdr_plus</string>
 
     <!-- Default focus mode setting -->
     <string name="pref_camera_focusmode_default" translatable="false">continuous-picture</string>
@@ -379,6 +399,11 @@
     <string name="dialog_ok">OK</string>
     <string name="dialog_cancel">Cancel</string>
 
+    <!-- Dialog "Report" button. Opens Google Feedback screen [CHAR LIMIT=12] -->
+    <string name="dialog_report">Report</string>
+    <!-- Dialog "Dismiss" button. Closes the dialog [CHAR LIMIT=12]-->
+    <string name="dialog_dismiss">Dismiss</string>
+
     <!-- Low-memory dialog message [CHAR LIMIT=NONE] -->
     <string name="spaceIsLow_content" product="default">Your SD card is running out of space. Change the quality setting or delete some images or other files.</string>
 
@@ -489,8 +514,7 @@
     <string name="accessibility_review_cancel">Review cancel</string>
     <!-- The button in review mode indicating that the taken photo/video is OK to be attached/uploaded [CHAR LIMIT=NONE] -->
     <string name="accessibility_review_ok">Review done</string>
-    <!-- button in review mode indicate the user want to retake another photo/video for attachment [
-CHAR LIMIT=NONE] -->
+    <!-- button in review mode indicate the user want to retake another photo/video for attachment [CHAR LIMIT=NONE] -->
     <string name="accessibility_review_retake">Review retake</string>
     <!-- The button that opens up mode options, shown as '...' on screen [CHAR LIMIT=NONE] -->
     <string name="accessibility_mode_options">Options</string>
@@ -535,6 +559,21 @@ CHAR LIMIT=NONE] -->
 
     <!-- Text on the button that toggles the filmstrip. [CHAR LIMIT=20] -->
     <string name="btn_filmstrip_toggle">Filmstrip</string>
+
+    <!-- Content description of the button that zooms in. [CHAR LIMIT=NONE] -->
+    <string name="accessibility_mode_zoom_plus">Zoom in</string>
+
+    <!-- Text on the button that zooms in [CHAR LIMIT=20] -->
+    <string name="btn_zoom_plus">Z+</string>
+
+    <!-- Content description of the button that zooms out. [CHAR LIMIT=NONE] -->
+    <string name="accessibility_mode_zoom_minus">Zoom out</string>
+
+    <!-- Text on the button that zooms out [CHAR LIMIT=20] -->
+    <string name="btn_zoom_minus">Z-</string>
+
+    <!-- Accessibility message spoken by TalkBack informing user of the current zoom value [CHAR LIMIT=NONE] -->
+    <string name="accessibility_zoom_announcement">Zoom value is %.1f</string>
 
     <!-- Default text for a button that can be toggled on and off. -->
     <string name="capital_on">ON</string>
@@ -646,7 +685,7 @@ CHAR LIMIT=NONE] -->
     <!-- Title for first run dialog asking if the user wants to remember photo locations [CHAR LIMIT=50] -->
     <string name="remember_location_title">Remember photo locations?</string>
     <!-- Message for first run dialog asking if the user wants to remember photo locations [CHAR LIMIT=None] -->
-    <string name="remember_location_prompt">Tag your photos and videos with the locations where they are taken.\n\nOther apps can access this information along with your saved images.</string>
+    <string name="remember_location_prompt">Tag your photos and videos with the locations where they\'re taken.</string>
     <!-- Negative answer for first run dialog asking if the user wants to remember photo locations [CHAR LIMIT=20] -->
     <string name="remember_location_no">No thanks</string>
     <!-- Positive answer for first run dialog asking if the user wants to remember photo locations [CHAR LIMIT=20] -->
@@ -757,6 +796,8 @@ CHAR LIMIT=NONE] -->
     <string name="done_button_description">Done</string>
     <!-- Accessibility text for retake button [CHAR_LIMIT=NONE] -->
     <string name="retake_button_description">Retake</string>
+    <!-- Accessibility text for video review button [CHAR_LIMIT=NONE] -->
+    <string name="review_button_description">Review</string>
 
     <!-- Accessibility text for filmstrip share button [CHAR_LIMIT=NONE] -->
     <string name="share_button_description">Share</string>
@@ -916,4 +957,7 @@ CHAR LIMIT=NONE] -->
     <string name="pref_boolean_false">0</string>
     <!-- String representation of boolean true, allows for integer conversion. -->
     <string name="pref_boolean_true">1</string>
+
+    <!-- Shown to the user while an image/video is being saved to disk. -->
+    <string name="session_saving_image">Saving\u2026</string>
  </resources>

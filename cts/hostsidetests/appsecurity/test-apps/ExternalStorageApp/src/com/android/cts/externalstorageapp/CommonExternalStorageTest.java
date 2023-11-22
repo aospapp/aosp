@@ -16,18 +16,29 @@
 
 package com.android.cts.externalstorageapp;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
+import android.net.Uri;
 import android.os.Environment;
+import android.provider.MediaStore;
+import android.provider.MediaStore.Images;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -41,6 +52,14 @@ public class CommonExternalStorageTest extends AndroidTestCase {
     public static final String PACKAGE_NONE = "com.android.cts.externalstorageapp";
     public static final String PACKAGE_READ = "com.android.cts.readexternalstorageapp";
     public static final String PACKAGE_WRITE = "com.android.cts.writeexternalstorageapp";
+
+    /**
+     * Dump helpful debugging details.
+     */
+    public void testDumpDebug() throws Exception {
+        logCommand("/system/bin/id");
+        logCommand("/system/bin/cat", "/proc/self/mountinfo");
+    }
 
     /**
      * Primary storage must always be mounted.
@@ -88,7 +107,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         for (File path : paths) {
             assertNotNull("Valid media must be inserted during CTS", path);
             assertEquals("Valid media must be inserted during CTS", Environment.MEDIA_MOUNTED,
-                    Environment.getStorageState(path));
+                    Environment.getExternalStorageState(path));
 
             assertDirReadWriteAccess(path);
 
@@ -146,6 +165,21 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         Collections.addAll(
                 paths, dropFirst(context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES)));
         Collections.addAll(paths, dropFirst(context.getObbDirs()));
+        return paths;
+    }
+
+    public static List<File> getMountPaths() throws IOException {
+        final List<File> paths = new ArrayList<>();
+        final BufferedReader br = new BufferedReader(new FileReader("/proc/self/mounts"));
+        try {
+            String line;
+            while ((line = br.readLine()) != null) {
+                final String[] fields = line.split(" ");
+                paths.add(new File(fields[1]));
+            }
+        } finally {
+            br.close();
+        }
         return paths;
     }
 
@@ -274,6 +308,35 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         }
     }
 
+    public static void assertMediaNoAccess(ContentResolver resolver) throws Exception {
+        final ContentValues values = new ContentValues();
+        values.put(Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(Images.Media.DATA,
+                buildProbeFile(Environment.getExternalStorageDirectory()).getAbsolutePath());
+
+        try {
+            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+            fail("Expected access to be blocked");
+        } catch (Exception expected) {
+        }
+    }
+
+    public static void assertMediaReadWriteAccess(ContentResolver resolver) throws Exception {
+        final ContentValues values = new ContentValues();
+        values.put(Images.Media.MIME_TYPE, "image/jpeg");
+        values.put(Images.Media.DATA,
+                buildProbeFile(Environment.getExternalStorageDirectory()).getAbsolutePath());
+
+        final Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        try {
+            resolver.openFileDescriptor(uri, "rw").close();
+            resolver.openFileDescriptor(uri, "w").close();
+            resolver.openFileDescriptor(uri, "r").close();
+        } finally {
+            resolver.delete(uri, null, null);
+        }
+    }
+
     private static boolean isWhiteList(File file) {
         final String[] whiteLists = {
                 "autorun.inf", ".android_secure", "android_secure"
@@ -315,7 +378,9 @@ public class CommonExternalStorageTest extends AndroidTestCase {
             }
 
             File[] dirs = removeWhiteList(dir.listFiles());
-            assertEquals(0, dirs.length);
+            if (dirs.length != 0) {
+                fail("Expected wiped storage but found: " + Arrays.toString(dirs));
+            }
         }
     }
 
@@ -335,5 +400,28 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         } finally {
             is.close();
         }
+    }
+
+    public static void logCommand(String... cmd) throws Exception {
+        final Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+
+        final ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        copy(proc.getInputStream(), buf);
+        final int res = proc.waitFor();
+
+        Log.d(TAG, Arrays.toString(cmd) + " result " + res + ":");
+        Log.d(TAG, buf.toString());
+    }
+
+    /** Shamelessly lifted from libcore.io.Streams */
+    public static int copy(InputStream in, OutputStream out) throws IOException {
+        int total = 0;
+        byte[] buffer = new byte[8192];
+        int c;
+        while ((c = in.read(buffer)) != -1) {
+            total += c;
+            out.write(buffer, 0, c);
+        }
+        return total;
     }
 }

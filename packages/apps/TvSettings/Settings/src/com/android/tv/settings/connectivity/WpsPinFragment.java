@@ -16,14 +16,14 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-
 import android.app.Fragment;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import com.android.tv.settings.R;
 
 /**
  * Displays a UI for showing that the user must enter a PIN for WPS to continue
@@ -42,11 +42,11 @@ public class WpsPinFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
-        View view = inflater.inflate(R.layout.wps_fragment, null);
-        TextView titleView = (TextView) view.findViewById(R.id.title);
+        final View view = inflater.inflate(R.layout.wps_fragment, container, false);
+        final TextView titleView = (TextView) view.findViewById(R.id.title);
         titleView.setText(getActivity().getString(R.string.wifi_wps_onstart_pin,
                 getArguments().getString(KEY_PIN)));
-        TextView descriptionView = (TextView) view.findViewById(R.id.description);
+        final TextView descriptionView = (TextView) view.findViewById(R.id.description);
         descriptionView.setText(getActivity().getString(R.string.wifi_wps_onstart_pin_description));
         return view;
     }

@@ -159,7 +159,7 @@
   </plurals>
     <string name="confirm_discard_text" msgid="5172680524418848519">"यह संदेश छोड़ें?"</string>
     <string name="loading_conversations" msgid="7255732786298655246">"लोड हो रहा है…"</string>
-    <string name="empty_inbox" msgid="5901734942362315228">"आपने पूर्ण कर लिया है! कृपया अपने दिन का आनंद लें."</string>
+    <string name="empty_inbox" msgid="5901734942362315228">"आपने सभी ईमेल पढ़ लिया है! कृपया अपने दिन का आनंद लें."</string>
     <string name="empty_search" msgid="8564899353449880818">"ओह! हमें \"<xliff:g id="SEARCH_QUERY">%1$s</xliff:g>\" के लिए कुछ भी नहीं मिला."</string>
     <string name="empty_spam_folder" msgid="3288985543286122800">"हुर्रे, कोई अनचाहा ईमेल नहीं है!"</string>
     <string name="empty_trash_folder" msgid="378119063015945020">"कोई मिटाए गए ईमेल नहीं है. रिसाइकलिंग के लिए धन्यवाद!"</string>
@@ -253,7 +253,7 @@
     <string name="send_anyway" msgid="2727576121007079643">"फिर भी भेजें"</string>
     <string name="ok" msgid="6178802457914802336">"ठीक"</string>
     <string name="done" msgid="344354738335270292">"पूर्ण"</string>
-    <string name="cancel" msgid="4831678293149626190">"रहने दें"</string>
+    <string name="cancel" msgid="4831678293149626190">"अभी नहीं"</string>
     <string name="clear" msgid="765949970989448022">"साफ़ करें"</string>
     <string name="next" msgid="2662478712866255138">"अगला"</string>
     <string name="previous" msgid="8985379053279804274">"पिछला"</string>

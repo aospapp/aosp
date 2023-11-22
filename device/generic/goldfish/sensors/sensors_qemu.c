@@ -34,7 +34,6 @@
 #include <errno.h>
 #include <string.h>
 #include <cutils/log.h>
-#include <cutils/native_handle.h>
 #include <cutils/sockets.h>
 #include <hardware/sensors.h>
 
@@ -62,13 +61,13 @@
 #define  ID_TEMPERATURE    (ID_BASE+3)
 #define  ID_PROXIMITY      (ID_BASE+4)
 
-#define  SENSORS_ACCELERATION   (1 << ID_ACCELERATION)
+#define  SENSORS_ACCELERATION    (1 << ID_ACCELERATION)
 #define  SENSORS_MAGNETIC_FIELD  (1 << ID_MAGNETIC_FIELD)
 #define  SENSORS_ORIENTATION     (1 << ID_ORIENTATION)
 #define  SENSORS_TEMPERATURE     (1 << ID_TEMPERATURE)
 #define  SENSORS_PROXIMITY       (1 << ID_PROXIMITY)
 
-#define  ID_CHECK(x)  ((unsigned)((x)-ID_BASE) < MAX_NUM_SENSORS)
+#define  ID_CHECK(x)  ((unsigned)((x) - ID_BASE) < MAX_NUM_SENSORS)
 
 #define  SENSORS_LIST  \
     SENSOR_(ACCELERATION,"acceleration") \
@@ -111,6 +110,13 @@ _sensorIdFromName( const char*  name )
     return -1;
 }
 
+/* return the current time in nanoseconds */
+static int64_t now_ns(void) {
+    struct timespec  ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
 /** SENSORS POLL DEVICE
  **
  ** This one is used to read sensor data from the hardware.
@@ -118,252 +124,215 @@ _sensorIdFromName( const char*  name )
  ** emulator through the QEMUD channel.
  **/
 
-typedef struct SensorPoll {
+typedef struct SensorDevice {
     struct sensors_poll_device_1  device;
     sensors_event_t               sensors[MAX_NUM_SENSORS];
-    int                           events_fd;
     uint32_t                      pendingSensors;
     int64_t                       timeStart;
     int64_t                       timeOffset;
-    int                           fd;
     uint32_t                      active_sensors;
-} SensorPoll;
+    int                           fd;
+    pthread_mutex_t               lock;
+} SensorDevice;
 
-/* this must return a file descriptor that will be used to read
- * the sensors data (it is passed to data__data_open() below
+/* Grab the file descriptor to the emulator's sensors service pipe.
+ * This function returns a file descriptor on success, or -errno on
+ * failure, and assumes the SensorDevice instance's lock is held.
+ *
+ * This is needed because set_delay(), poll() and activate() can be called
+ * from different threads, and poll() is blocking.
+ *
+ * Note that the emulator's sensors service creates a new client for each
+ * connection through qemud_channel_open(), where each client has its own
+ * delay and set of activated sensors. This precludes calling
+ * qemud_channel_open() on each request, because a typical emulated system
+ * will do something like:
+ *
+ * 1) On a first thread, de-activate() all sensors first, then call poll(),
+ *    which results in the thread blocking.
+ *
+ * 2) On a second thread, slightly later, call set_delay() then activate()
+ *    to enable the acceleration sensor.
+ *
+ * The system expects this to unblock the first thread which will receive
+ * new sensor events after the activate() call in 2).
+ *
+ * This cannot work if both threads don't use the same connection.
+ *
+ * TODO(digit): This protocol is brittle, implement another control channel
+ *              for set_delay()/activate()/batch() when supporting HAL 1.3
  */
-static native_handle_t*
-control__open_data_source(struct sensors_poll_device_1 *dev)
-{
-    SensorPoll*  ctl = (void*)dev;
-    native_handle_t* handle;
-
-    if (ctl->fd < 0) {
-        ctl->fd = qemud_channel_open(SENSORS_SERVICE_NAME);
-    }
-    D("%s: fd=%d", __FUNCTION__, ctl->fd);
-    handle = native_handle_create(1, 0);
-    handle->data[0] = dup(ctl->fd);
-    return handle;
-}
-
-static int
-control__activate(struct sensors_poll_device_1 *dev,
-                  int handle,
-                  int enabled)
-{
-    SensorPoll*     ctl = (void*)dev;
-    uint32_t        mask, sensors, active, new_sensors, changed;
-    char            command[128];
-    int             ret;
-
-    D("%s: handle=%s (%d) fd=%d enabled=%d", __FUNCTION__,
-        _sensorIdToName(handle), handle, ctl->fd, enabled);
-
-    if (!ID_CHECK(handle)) {
-        E("%s: bad handle ID", __FUNCTION__);
-        return -1;
-    }
-
-    mask    = (1<<handle);
-    sensors = enabled ? mask : 0;
-
-    active      = ctl->active_sensors;
-    new_sensors = (active & ~mask) | (sensors & mask);
-    changed     = active ^ new_sensors;
-
-    if (!changed)
-        return 0;
-
-    snprintf(command, sizeof command, "set:%s:%d",
-                _sensorIdToName(handle), enabled != 0);
-
-    if (ctl->fd < 0) {
-        ctl->fd = qemud_channel_open(SENSORS_SERVICE_NAME);
-    }
-
-    ret = qemud_channel_send(ctl->fd, command, -1);
-    if (ret < 0) {
-        E("%s: when sending command errno=%d: %s", __FUNCTION__, errno, strerror(errno));
-        return -1;
-    }
-    ctl->active_sensors = new_sensors;
-
-    return 0;
-}
-
-static int
-control__set_delay(struct sensors_poll_device_1 *dev, int32_t ms)
-{
-    SensorPoll*     ctl = (void*)dev;
-    char            command[128];
-
-    D("%s: dev=%p delay-ms=%d", __FUNCTION__, dev, ms);
-
-    snprintf(command, sizeof command, "set-delay:%d", ms);
-
-    return qemud_channel_send(ctl->fd, command, -1);
-}
-
-static int
-control__close(struct hw_device_t *dev)
-{
-    SensorPoll*  ctl = (void*)dev;
-    close(ctl->fd);
-    free(ctl);
-    return 0;
-}
-
-/* return the current time in nanoseconds */
-static int64_t
-data__now_ns(void)
-{
-    struct timespec  ts;
-
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-
-    return (int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec;
-}
-
-static int
-data__data_open(struct sensors_poll_device_1 *dev, native_handle_t* handle)
-{
-    SensorPoll*  data = (void*)dev;
-    int i;
-    D("%s: dev=%p fd=%d", __FUNCTION__, dev, handle->data[0]);
-    memset(&data->sensors, 0, sizeof(data->sensors));
-
-    data->pendingSensors = 0;
-    data->timeStart      = 0;
-    data->timeOffset     = 0;
-
-    data->events_fd = dup(handle->data[0]);
-    D("%s: dev=%p fd=%d (was %d)", __FUNCTION__, dev, data->events_fd, handle->data[0]);
-    native_handle_close(handle);
-    native_handle_delete(handle);
-    return 0;
-}
-
-static int
-data__data_close(struct sensors_poll_device_1 *dev)
-{
-    SensorPoll*  data = (void*)dev;
-    D("%s: dev=%p", __FUNCTION__, dev);
-    if (data->events_fd >= 0) {
-        close(data->events_fd);
-        data->events_fd = -1;
-    }
-    return 0;
-}
-
-static int
-pick_sensor(SensorPoll*       data,
-            sensors_event_t*  values)
-{
-    uint32_t mask = SUPPORTED_SENSORS;
-    while (mask) {
-        uint32_t i = 31 - __builtin_clz(mask);
-        mask &= ~(1<<i);
-        if (data->pendingSensors & (1<<i)) {
-            data->pendingSensors &= ~(1<<i);
-            *values = data->sensors[i];
-            values->sensor = i;
-            values->version = sizeof(*values);
-
-            D("%s: %d [%f, %f, %f]", __FUNCTION__,
-                    i,
-                    values->data[0],
-                    values->data[1],
-                    values->data[2]);
-            return i;
+static int sensor_device_get_fd_locked(SensorDevice* dev) {
+    /* Create connection to service on first call */
+    if (dev->fd < 0) {
+        dev->fd = qemud_channel_open(SENSORS_SERVICE_NAME);
+        if (dev->fd < 0) {
+            int ret = -errno;
+            E("%s: Could not open connection to service: %s", __FUNCTION__,
+                strerror(-ret));
+            return ret;
         }
     }
-    ALOGE("No sensor to return!!! pendingSensors=%08x", data->pendingSensors);
+    return dev->fd;
+}
+
+/* Send a command to the sensors virtual device. |dev| is a device instance and
+ * |cmd| is a zero-terminated command string. Return 0 on success, or -errno
+ * on failure. */
+static int sensor_device_send_command_locked(SensorDevice* dev,
+                                             const char* cmd) {
+    int fd = sensor_device_get_fd_locked(dev);
+    if (fd < 0) {
+        return fd;
+    }
+
+    int ret = 0;
+    if (qemud_channel_send(fd, cmd, strlen(cmd)) < 0) {
+        ret = -errno;
+        E("%s(fd=%d): ERROR: %s", __FUNCTION__, fd, strerror(errno));
+    }
+    return ret;
+}
+
+/* Pick up one pending sensor event. On success, this returns the sensor
+ * id, and sets |*event| accordingly. On failure, i.e. if there are no
+ * pending events, return -EINVAL.
+ *
+ * Note: The device's lock must be acquired.
+ */
+static int sensor_device_pick_pending_event_locked(SensorDevice* d,
+                                                   sensors_event_t*  event)
+{
+    uint32_t mask = SUPPORTED_SENSORS & d->pendingSensors;
+    if (mask) {
+        uint32_t i = 31 - __builtin_clz(mask);
+        d->pendingSensors &= ~(1U << i);
+        *event = d->sensors[i];
+        event->sensor = i;
+        event->version = sizeof(*event);
+
+        D("%s: %d [%f, %f, %f]", __FUNCTION__,
+                i,
+                event->data[0],
+                event->data[1],
+                event->data[2]);
+        return i;
+    }
+    E("No sensor to return!!! pendingSensors=0x%08x", d->pendingSensors);
     // we may end-up in a busy loop, slow things down, just in case.
     usleep(100000);
     return -EINVAL;
 }
 
-static int
-data__poll(struct sensors_poll_device_1 *dev, sensors_event_t* values)
+/* Block until new sensor events are reported by the emulator, or if a
+ * 'wake' command is received through the service. On succes, return 0
+ * and updates the |pendingEvents| and |sensors| fields of |dev|.
+ * On failure, return -errno.
+ *
+ * Note: The device lock must be acquired when calling this function, and
+ *       will still be held on return. However, the function releases the
+ *       lock temporarily during the blocking wait.
+ */
+static int sensor_device_poll_event_locked(SensorDevice* dev)
 {
-    SensorPoll*  data = (void*)dev;
-    int fd = data->events_fd;
+    D("%s: dev=%p", __FUNCTION__, dev);
 
-    D("%s: data=%p", __FUNCTION__, dev);
-
-    // there are pending sensors, returns them now...
-    if (data->pendingSensors) {
-        return pick_sensor(data, values);
+    int fd = sensor_device_get_fd_locked(dev);
+    if (fd < 0) {
+        E("%s: Could not get pipe channel: %s", __FUNCTION__, strerror(-fd));
+        return fd;
     }
 
-    // wait until we get a complete event for an enabled sensor
-    uint32_t new_sensors = 0;
+    // Accumulate pending events into |events| and |new_sensors| mask
+    // until a 'sync' or 'wake' command is received. This also simplifies the
+    // code a bit.
+    uint32_t new_sensors = 0U;
+    sensors_event_t* events = dev->sensors;
 
-    while (1) {
+    int64_t event_time = -1;
+    int ret = 0;
+
+    for (;;) {
+        /* Release the lock since we're going to block on recv() */
+        pthread_mutex_unlock(&dev->lock);
+
         /* read the next event */
-        char     buff[256];
-        int      len = qemud_channel_recv(data->events_fd, buff, sizeof buff-1);
-        float    params[3];
-        int64_t  event_time;
+        char buff[256];
+        int len = qemud_channel_recv(fd, buff, sizeof(buff) - 1U);
+        /* re-acquire the lock to modify the device state. */
+        pthread_mutex_lock(&dev->lock);
 
         if (len < 0) {
-            E("%s: len=%d, errno=%d: %s", __FUNCTION__, len, errno, strerror(errno));
-            return -errno;
+            ret = -errno;
+            E("%s(fd=%d): Could not receive event data len=%d, errno=%d: %s",
+              __FUNCTION__, fd, len, errno, strerror(errno));
+            break;
         }
-
         buff[len] = 0;
+        D("%s(fd=%d): received [%s]", __FUNCTION__, fd, buff);
+
 
         /* "wake" is sent from the emulator to exit this loop. */
-        if (!strcmp((const char*)data, "wake")) {
-            return 0x7FFFFFFF;
+        /* TODO(digit): Is it still needed? */
+        if (!strcmp((const char*)buff, "wake")) {
+            ret = 0x7FFFFFFF;
+            break;
         }
+
+        float params[3];
 
         /* "acceleration:<x>:<y>:<z>" corresponds to an acceleration event */
-        if (sscanf(buff, "acceleration:%g:%g:%g", params+0, params+1, params+2) == 3) {
+        if (sscanf(buff, "acceleration:%g:%g:%g", params+0, params+1, params+2)
+                == 3) {
             new_sensors |= SENSORS_ACCELERATION;
-            data->sensors[ID_ACCELERATION].acceleration.x = params[0];
-            data->sensors[ID_ACCELERATION].acceleration.y = params[1];
-            data->sensors[ID_ACCELERATION].acceleration.z = params[2];
-            data->sensors[ID_ACCELERATION].type = SENSOR_TYPE_ACCELEROMETER;
+            events[ID_ACCELERATION].acceleration.x = params[0];
+            events[ID_ACCELERATION].acceleration.y = params[1];
+            events[ID_ACCELERATION].acceleration.z = params[2];
+            events[ID_ACCELERATION].type = SENSOR_TYPE_ACCELEROMETER;
             continue;
         }
 
-        /* "orientation:<azimuth>:<pitch>:<roll>" is sent when orientation changes */
-        if (sscanf(buff, "orientation:%g:%g:%g", params+0, params+1, params+2) == 3) {
+        /* "orientation:<azimuth>:<pitch>:<roll>" is sent when orientation
+         * changes */
+        if (sscanf(buff, "orientation:%g:%g:%g", params+0, params+1, params+2)
+                == 3) {
             new_sensors |= SENSORS_ORIENTATION;
-            data->sensors[ID_ORIENTATION].orientation.azimuth = params[0];
-            data->sensors[ID_ORIENTATION].orientation.pitch   = params[1];
-            data->sensors[ID_ORIENTATION].orientation.roll    = params[2];
-            data->sensors[ID_ORIENTATION].orientation.status  = SENSOR_STATUS_ACCURACY_HIGH;
-            data->sensors[ID_ACCELERATION].type = SENSOR_TYPE_ORIENTATION;
+            events[ID_ORIENTATION].orientation.azimuth = params[0];
+            events[ID_ORIENTATION].orientation.pitch   = params[1];
+            events[ID_ORIENTATION].orientation.roll    = params[2];
+            events[ID_ORIENTATION].orientation.status  =
+                    SENSOR_STATUS_ACCURACY_HIGH;
+            events[ID_ACCELERATION].type = SENSOR_TYPE_ORIENTATION;
             continue;
         }
 
-        /* "magnetic:<x>:<y>:<z>" is sent for the params of the magnetic field */
-        if (sscanf(buff, "magnetic:%g:%g:%g", params+0, params+1, params+2) == 3) {
+        /* "magnetic:<x>:<y>:<z>" is sent for the params of the magnetic
+         * field */
+        if (sscanf(buff, "magnetic:%g:%g:%g", params+0, params+1, params+2)
+                == 3) {
             new_sensors |= SENSORS_MAGNETIC_FIELD;
-            data->sensors[ID_MAGNETIC_FIELD].magnetic.x = params[0];
-            data->sensors[ID_MAGNETIC_FIELD].magnetic.y = params[1];
-            data->sensors[ID_MAGNETIC_FIELD].magnetic.z = params[2];
-            data->sensors[ID_MAGNETIC_FIELD].magnetic.status = SENSOR_STATUS_ACCURACY_HIGH;
-            data->sensors[ID_ACCELERATION].type = SENSOR_TYPE_MAGNETIC_FIELD;
+            events[ID_MAGNETIC_FIELD].magnetic.x = params[0];
+            events[ID_MAGNETIC_FIELD].magnetic.y = params[1];
+            events[ID_MAGNETIC_FIELD].magnetic.z = params[2];
+            events[ID_MAGNETIC_FIELD].magnetic.status =
+                    SENSOR_STATUS_ACCURACY_HIGH;
+            events[ID_ACCELERATION].type = SENSOR_TYPE_MAGNETIC_FIELD;
             continue;
         }
 
         /* "temperature:<celsius>" */
         if (sscanf(buff, "temperature:%g", params+0) == 1) {
             new_sensors |= SENSORS_TEMPERATURE;
-            data->sensors[ID_TEMPERATURE].temperature = params[0];
-            data->sensors[ID_ACCELERATION].type = SENSOR_TYPE_TEMPERATURE;
+            events[ID_TEMPERATURE].temperature = params[0];
+            events[ID_ACCELERATION].type = SENSOR_TYPE_TEMPERATURE;
             continue;
         }
 
         /* "proximity:<value>" */
         if (sscanf(buff, "proximity:%g", params+0) == 1) {
             new_sensors |= SENSORS_PROXIMITY;
-            data->sensors[ID_PROXIMITY].distance = params[0];
-            data->sensors[ID_ACCELERATION].type = SENSOR_TYPE_PROXIMITY;
+            events[ID_PROXIMITY].distance = params[0];
+            events[ID_ACCELERATION].type = SENSOR_TYPE_PROXIMITY;
             continue;
         }
 
@@ -373,105 +342,176 @@ data__poll(struct sensors_poll_device_1 *dev, sensors_event_t* values)
          */
         if (sscanf(buff, "sync:%lld", &event_time) == 1) {
             if (new_sensors) {
-                data->pendingSensors = new_sensors;
-                int64_t t = event_time * 1000LL;  /* convert to nano-seconds */
-
-                /* use the time at the first sync: as the base for later
-                 * time values */
-                if (data->timeStart == 0) {
-                    data->timeStart  = data__now_ns();
-                    data->timeOffset = data->timeStart - t;
-                }
-                t += data->timeOffset;
-
-                while (new_sensors) {
-                    uint32_t i = 31 - __builtin_clz(new_sensors);
-                    new_sensors &= ~(1<<i);
-                    data->sensors[i].timestamp = t;
-                }
-                return pick_sensor(data, values);
-            } else {
-                D("huh ? sync without any sensor data ?");
+                goto out;
             }
+            D("huh ? sync without any sensor data ?");
             continue;
         }
         D("huh ? unsupported command");
     }
-    return -1;
-}
+out:
+    if (new_sensors) {
+        /* update the time of each new sensor event. */
+        dev->pendingSensors |= new_sensors;
+        int64_t t = (event_time < 0) ? 0 : event_time * 1000LL;
 
-static int
-data__close(struct hw_device_t *dev)
-{
-    SensorPoll* data = (SensorPoll*)dev;
-    if (data) {
-        if (data->events_fd >= 0) {
-            //ALOGD("(device close) about to close fd=%d", data->events_fd);
-            close(data->events_fd);
+        /* use the time at the first sync: as the base for later
+         * time values */
+        if (dev->timeStart == 0) {
+            dev->timeStart  = now_ns();
+            dev->timeOffset = dev->timeStart - t;
         }
-        free(data);
+        t += dev->timeOffset;
+
+        while (new_sensors) {
+            uint32_t i = 31 - __builtin_clz(new_sensors);
+            new_sensors &= ~(1U << i);
+            dev->sensors[i].timestamp = t;
+        }
     }
-    return 0;
+    return ret;
 }
 
 /** SENSORS POLL DEVICE FUNCTIONS **/
 
-static int poll__close(struct hw_device_t* dev)
+static int sensor_device_close(struct hw_device_t* dev0)
 {
-    SensorPoll*  ctl = (void*)dev;
-    close(ctl->fd);
-    if (ctl->fd >= 0) {
-        close(ctl->fd);
+    SensorDevice* dev = (void*)dev0;
+    // Assume that there are no other threads blocked on poll()
+    if (dev->fd >= 0) {
+        close(dev->fd);
+        dev->fd = -1;
     }
-    if (ctl->events_fd >= 0) {
-        close(ctl->events_fd);
-    }
-    free(ctl);
+    pthread_mutex_destroy(&dev->lock);
+    free(dev);
     return 0;
 }
 
-static int poll__poll(struct sensors_poll_device_1 *dev,
-            sensors_event_t* data, int count)
+/* Return an array of sensor data. This function blocks until there is sensor
+ * related events to report. On success, it will write the events into the
+ * |data| array, which contains |count| items. The function returns the number
+ * of events written into the array, which shall never be greater than |count|.
+ * On error, return -errno code.
+ *
+ * Note that according to the sensor HAL [1], it shall never return 0!
+ *
+ * [1] http://source.android.com/devices/sensors/hal-interface.html
+ */
+static int sensor_device_poll(struct sensors_poll_device_t *dev0,
+                              sensors_event_t* data, int count)
 {
-    SensorPoll*  datadev = (void*)dev;
-    int ret;
-    int i;
+    SensorDevice* dev = (void*)dev0;
     D("%s: dev=%p data=%p count=%d ", __FUNCTION__, dev, data, count);
 
-    for (i = 0; i < count; i++)  {
-        ret = data__poll(dev, data);
-        data++;
-        if (ret > MAX_NUM_SENSORS || ret < 0) {
-           return i;
+    if (count <= 0) {
+        return -EINVAL;
+    }
+
+    int result = 0;
+    pthread_mutex_lock(&dev->lock);
+    if (!dev->pendingSensors) {
+        /* Block until there are pending events. Note that this releases
+         * the lock during the blocking call, then re-acquires it before
+         * returning. */
+        int ret = sensor_device_poll_event_locked(dev);
+        if (ret < 0) {
+            result = ret;
+            goto out;
         }
-        if (!datadev->pendingSensors) {
-           return i + 1;
+        if (!dev->pendingSensors) {
+            /* 'wake' event received before any sensor data. */
+            result = -EIO;
+            goto out;
         }
     }
-    return count;
+    /* Now read as many pending events as needed. */
+    int i;
+    for (i = 0; i < count; i++)  {
+        if (!dev->pendingSensors) {
+            break;
+        }
+        int ret = sensor_device_pick_pending_event_locked(dev, data);
+        if (ret < 0) {
+            if (!result) {
+                result = ret;
+            }
+            break;
+        }
+        data++;
+        result++;
+    }
+out:
+    pthread_mutex_unlock(&dev->lock);
+    D("%s: result=%d", __FUNCTION__, result);
+    return result;
 }
 
-static int poll__activate(struct sensors_poll_device_1 *dev,
-            int handle, int enabled)
+static int sensor_device_activate(struct sensors_poll_device_t *dev0,
+                                  int handle,
+                                  int enabled)
 {
-    int ret;
-    native_handle_t* hdl;
-    SensorPoll*  ctl = (void*)dev;
-    D("%s: dev=%p handle=%x enable=%d ", __FUNCTION__, dev, handle, enabled);
-    if (ctl->fd < 0) {
-        D("%s: OPEN CTRL and DATA ", __FUNCTION__);
-        hdl = control__open_data_source(dev);
-        ret = data__data_open(dev,hdl);
+    SensorDevice* dev = (void*)dev0;
+
+    D("%s: handle=%s (%d) enabled=%d", __FUNCTION__,
+        _sensorIdToName(handle), handle, enabled);
+
+    /* Sanity check */
+    if (!ID_CHECK(handle)) {
+        E("%s: bad handle ID", __FUNCTION__);
+        return -EINVAL;
     }
-    ret = control__activate(dev, handle, enabled);
+
+    /* Exit early if sensor is already enabled/disabled. */
+    uint32_t mask = (1U << handle);
+    uint32_t sensors = enabled ? mask : 0;
+
+    pthread_mutex_lock(&dev->lock);
+
+    uint32_t active = dev->active_sensors;
+    uint32_t new_sensors = (active & ~mask) | (sensors & mask);
+    uint32_t changed = active ^ new_sensors;
+
+    int ret = 0;
+    if (changed) {
+        /* Send command to the emulator. */
+        char command[64];
+        snprintf(command,
+                 sizeof command,
+                 "set:%s:%d",
+                 _sensorIdToName(handle),
+                 enabled != 0);
+
+        ret = sensor_device_send_command_locked(dev, command);
+        if (ret < 0) {
+            E("%s: when sending command errno=%d: %s", __FUNCTION__, -ret,
+              strerror(-ret));
+        } else {
+            dev->active_sensors = new_sensors;
+        }
+    }
+    pthread_mutex_unlock(&dev->lock);
     return ret;
 }
 
-static int poll__setDelay(struct sensors_poll_device_1 *dev,
-            int handle, int64_t ns)
+static int sensor_device_set_delay(struct sensors_poll_device_t *dev0,
+                                   int handle __unused,
+                                   int64_t ns)
 {
-    // TODO
-    return 0;
+    SensorDevice* dev = (void*)dev0;
+
+    int ms = (int)(ns / 1000000);
+    D("%s: dev=%p delay-ms=%d", __FUNCTION__, dev, ms);
+
+    char command[64];
+    snprintf(command, sizeof command, "set-delay:%d", ms);
+
+    pthread_mutex_lock(&dev->lock);
+    int ret = sensor_device_send_command_locked(dev, command);
+    pthread_mutex_unlock(&dev->lock);
+    if (ret < 0) {
+        E("%s: Could not send command: %s", __FUNCTION__, strerror(-ret));
+    }
+    return ret;
 }
 
 /** MODULE REGISTRATION SUPPORT
@@ -548,34 +588,31 @@ static const struct sensor_t sSensorListInit[] = {
 
 static struct sensor_t  sSensorList[MAX_NUM_SENSORS];
 
-static int sensors__get_sensors_list(struct sensors_module_t* module,
+static int sensors__get_sensors_list(struct sensors_module_t* module __unused,
         struct sensor_t const** list)
 {
     int  fd = qemud_channel_open(SENSORS_SERVICE_NAME);
     char buffer[12];
     int  mask, nn, count;
+    int  ret = 0;
 
-    int  ret;
     if (fd < 0) {
         E("%s: no qemud connection", __FUNCTION__);
-        return 0;
+        goto out;
     }
     ret = qemud_channel_send(fd, "list-sensors", -1);
     if (ret < 0) {
         E("%s: could not query sensor list: %s", __FUNCTION__,
           strerror(errno));
-        close(fd);
-        return 0;
+        goto out;
     }
     ret = qemud_channel_recv(fd, buffer, sizeof buffer-1);
     if (ret < 0) {
         E("%s: could not receive sensor list: %s", __FUNCTION__,
           strerror(errno));
-        close(fd);
-        return 0;
+        goto out;
     }
     buffer[ret] = 0;
-    close(fd);
 
     /* the result is a integer used as a mask for available sensors */
     mask  = atoi(buffer);
@@ -588,7 +625,13 @@ static int sensors__get_sensors_list(struct sensors_module_t* module,
     }
     D("%s: returned %d sensors (mask=%d)", __FUNCTION__, count, mask);
     *list = sSensorList;
-    return count;
+
+    ret = count;
+out:
+    if (fd >= 0) {
+        close(fd);
+    }
+    return ret;
 }
 
 
@@ -602,19 +645,20 @@ open_sensors(const struct hw_module_t* module,
     D("%s: name=%s", __FUNCTION__, name);
 
     if (!strcmp(name, SENSORS_HARDWARE_POLL)) {
-        SensorPoll *dev = malloc(sizeof(*dev));
+        SensorDevice *dev = malloc(sizeof(*dev));
 
         memset(dev, 0, sizeof(*dev));
 
         dev->device.common.tag     = HARDWARE_DEVICE_TAG;
         dev->device.common.version = SENSORS_DEVICE_API_VERSION_1_0;
         dev->device.common.module  = (struct hw_module_t*) module;
-        dev->device.common.close   = poll__close;
-        dev->device.poll           = poll__poll;
-        dev->device.activate       = poll__activate;
-        dev->device.setDelay       = poll__setDelay;
-        dev->events_fd             = -1;
-        dev->fd                    = -1;
+        dev->device.common.close   = sensor_device_close;
+        dev->device.poll           = sensor_device_poll;
+        dev->device.activate       = sensor_device_activate;
+        dev->device.setDelay       = sensor_device_set_delay;
+
+        dev->fd = -1;
+        pthread_mutex_init(&dev->lock, NULL);
 
         *device = &dev->device.common;
         status  = 0;

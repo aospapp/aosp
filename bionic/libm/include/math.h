@@ -459,14 +459,17 @@ long double	tanhl(long double);
 long double	tanl(long double);
 long double	tgammal(long double);
 long double	truncl(long double);
-
 #endif /* __ISO_C_VISIBLE >= 1999 */
 
-#if defined(_GNU_SOURCE)
+#if __BSD_VISIBLE
+long double	lgammal_r(long double, int *);
+#endif
+
+#if defined(__USE_GNU)
 void sincos(double, double*, double*);
 void sincosf(float, float*, float*);
 void sincosl(long double, long double*, long double*);
-#endif /* _GNU_SOURCE */
+#endif /* __USE_GNU */
 
 #pragma GCC visibility pop
 __END_DECLS

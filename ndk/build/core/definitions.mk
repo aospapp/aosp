@@ -1140,6 +1140,13 @@ all-subdir-makefiles = $(call all-makefiles-under,$(call my-dir))
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Macro    : escape-colon-in-path
+# Returns  : replace colon in $1 with $(colon)
+# Usage    : $(escape-colon-in-path,<file>)
+# -----------------------------------------------------------------------------
+escape-colon-in-path = $(subst $(colon),$$(colon),$1)
+
+# -----------------------------------------------------------------------------
 # Macro    : clear-all-src-tags
 # Returns  : remove all source file tags and associated data.
 # Usage    : $(clear-all-src-tags)
@@ -1149,9 +1156,9 @@ $(foreach __tag,$(LOCAL_SRC_TAGS), \
     $(eval LOCAL_SRC_TAG.$(__tag) := $(empty)) \
 ) \
 $(foreach __src,$(LOCAL_SRC_FILES), \
-    $(eval LOCAL_SRC_FILES_TAGS.$(__src) := $(empty)) \
-    $(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(__src) := $(empty)) \
-    $(eval LOCAL_SRC_FILES_TEXT.$(__src) := $(empty)) \
+    $(eval LOCAL_SRC_FILES_TAGS.$(call escape-colon-in-path,$(__src)) := $(empty)) \
+    $(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(call escape-colon-in-path,$(__src)) := $(empty)) \
+    $(eval LOCAL_SRC_FILES_TEXT.$(call escape-colon-in-path,$(__src)) := $(empty)) \
 ) \
 $(eval LOCAL_SRC_TAGS := $(empty_set))
 
@@ -1166,7 +1173,7 @@ tag-src-files = \
 $(eval LOCAL_SRC_TAGS := $(call set_insert,$2,$(LOCAL_SRC_TAGS))) \
 $(eval LOCAL_SRC_TAG.$2 := $(call set_union,$1,$(LOCAL_SRC_TAG.$2))) \
 $(foreach __src,$1, \
-    $(eval LOCAL_SRC_FILES_TAGS.$(__src) += $2) \
+    $(eval LOCAL_SRC_FILES_TAGS.$(call escape-colon-in-path,$(__src)) += $2) \
 )
 
 # -----------------------------------------------------------------------------
@@ -1195,7 +1202,8 @@ get-src-files-without-tag = $(filter-out $(LOCAL_SRC_TAG.$1),$(LOCAL_SRC_FILES))
 #            normally be called from the toolchain-specific function that
 #            computes all compiler flags for all source files.
 # -----------------------------------------------------------------------------
-set-src-files-target-cflags = $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(__src) := $2))
+set-src-files-target-cflags = \
+    $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(call escape-colon-in-path,$(__src)) := $2))
 
 # -----------------------------------------------------------------------------
 # Macro    : add-src-files-target-cflags
@@ -1206,7 +1214,8 @@ set-src-files-target-cflags = $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TARGET_C
 #            to append, instead of replace, compiler flags for specific
 #            source files.
 # -----------------------------------------------------------------------------
-add-src-files-target-cflags = $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(__src) += $2))
+add-src-files-target-cflags = \
+    $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TARGET_CFLAGS.$(call escape-colon-in-path,$(__src)) += $2))
 
 # -----------------------------------------------------------------------------
 # Macro    : get-src-file-target-cflags
@@ -1229,7 +1238,8 @@ get-src-file-target-cflags = $(LOCAL_SRC_FILES_TARGET_CFLAGS.$1)
 #            ARM-based toolchains. This function must be called by the
 #            toolchain-specific functions that processes all source files.
 # -----------------------------------------------------------------------------
-set-src-files-text = $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TEXT.$(__src) := $2))
+set-src-files-text = \
+    $(foreach __src,$1,$(eval LOCAL_SRC_FILES_TEXT.$(call escape-colon-in-path,$(__src)) := $2))
 
 # -----------------------------------------------------------------------------
 # Macro    : get-src-file-text
@@ -1449,6 +1459,7 @@ endef
 # _CXX: 'compiler' command for _CPP_SRC
 # _RS_FLAGS: 'compiler' flags for _RS_SRC
 # _CPP_FLAGS: 'compiler' flags for _CPP_SRC
+# _LD_FLAGS: 'compiler' flags for linking
 # _TEXT: Display text (e.g. "Compile RS")
 # _OUT: output dir
 # _COMPAT: 'true' if bcc_compat is required
@@ -1469,6 +1480,7 @@ $$(_OBJ): PRIVATE_RS_BCC    := $$(_RS_BCC)
 $$(_OBJ): PRIVATE_CXX       := $$(_CXX)
 $$(_OBJ): PRIVATE_RS_FLAGS  := $$(_RS_FLAGS)
 $$(_OBJ): PRIVATE_CPPFLAGS  := $$(_CPP_FLAGS)
+$$(_OBJ): PRIVATE_LDFLAGS   := $$(_LD_FLAGS)
 $$(_OBJ): PRIVATE_OUT       := $$(NDK_APP_DST_DIR)
 $$(_OBJ): PRIVATE_RS_TRIPLE := $$(RS_TRIPLE)
 $$(_OBJ): PRIVATE_COMPAT    := $$(_COMPAT)
@@ -1487,17 +1499,17 @@ ifeq ($$(_COMPAT),true)
 $$(_OBJ): $$(_RS_SRC) $$(LOCAL_MAKEFILE) $$(NDK_APP_APPLICATION_MK) $$(NDK_DEPENDENCIES_CONVERTER)
 	$$(call host-echo-build-step,$$(PRIVATE_ABI),$$(PRIVATE_TEXT)) "$$(PRIVATE_MODULE) <= $$(notdir $$(PRIVATE_RS_SRC))"
 	$$(hide) \
-	cd $$(call host-path,$$(dir $$(PRIVATE_RS_SRC))) && $$(PRIVATE_RS_CC) -o $$(call host-path,$$(abspath $$(dir $$(PRIVATE_OBJ))))/ -d $$(abspath $$(call host-path,$$(dir $$(PRIVATE_OBJ)))) -MD -reflect-c++ $$(PRIVATE_RS_FLAGS) $$(notdir $$(PRIVATE_RS_SRC))
+	cd $$(call host-path,$$(dir $$(PRIVATE_RS_SRC))) && $$(PRIVATE_RS_CC) -o $$(call host-path,$$(abspath $$(dir $$(PRIVATE_OBJ))))/ -d $$(abspath $$(call host-path,$$(dir $$(PRIVATE_OBJ)))) -MD -reflect-c++ -target-api $(strip $(subst android-,,$(APP_PLATFORM))) $$(PRIVATE_RS_FLAGS) $$(notdir $$(PRIVATE_RS_SRC))
 	$$(hide) \
 	$$(PRIVATE_RS_BCC) -O3 -o $$(call host-path,$$(PRIVATE_BC_OBJ)) -fPIC -shared -rt-path $$(call host-path,$(SYSROOT_LINK)/usr/lib/rs/libclcore.bc) -mtriple $$(PRIVATE_RS_TRIPLE) $$(call host-path,$$(PRIVATE_BC_SRC)) && \
-	$$(PRIVATE_CXX) -shared -Wl,-soname,librs.$$(PRIVATE_BC_SO) -nostdlib $$(call host-path,$$(PRIVATE_BC_OBJ)) $$(call host-path,$(SYSROOT_LINK)/usr/lib/rs/libcompiler_rt.a) -o $$(call host-path,$$(PRIVATE_OUT)/librs.$$(PRIVATE_BC_SO)) -L $$(call host-path,$(SYSROOT_LINK)/usr/lib) -L $$(call host-path,$(SYSROOT_LINK)/usr/lib/rs) -lRSSupport -lm -lc && \
+	$$(PRIVATE_CXX) -shared -Wl,-soname,librs.$$(PRIVATE_BC_SO) -nostdlib $$(call host-path,$$(PRIVATE_BC_OBJ)) $$(call host-path,$(SYSROOT_LINK)/usr/lib/rs/libcompiler_rt.a) -o $$(call host-path,$$(PRIVATE_OUT)/librs.$$(PRIVATE_BC_SO)) -L $$(call host-path,$(SYSROOT_LINK)/usr/lib) -L $$(call host-path,$(SYSROOT_LINK)/usr/lib/rs) $$(PRIVATE_LDFLAGS) -lRSSupport -lm -lc && \
 	$$(PRIVATE_CXX) -MMD -MP -MF $$(call convert-deps,$$(PRIVATE_DEPS)) $$(PRIVATE_CPPFLAGS) $$(call host-path,$$(PRIVATE_CPP_SRC)) -o $$(call host-path,$$(PRIVATE_OBJ)) \
 	$$(call cmd-convert-deps,$$(PRIVATE_DEPS))
 else
 $$(_OBJ): $$(_RS_SRC) $$(LOCAL_MAKEFILE) $$(NDK_APP_APPLICATION_MK) $$(NDK_DEPENDENCIES_CONVERTER)
 	$$(call host-echo-build-step,$$(PRIVATE_ABI),$$(PRIVATE_TEXT)) "$$(PRIVATE_MODULE) <= $$(notdir $$(PRIVATE_RS_SRC))"
 	$$(hide) \
-	cd $$(call host-path,$$(dir $$(PRIVATE_RS_SRC))) && $$(PRIVATE_RS_CC) -o $$(call host-path,$$(abspath $$(dir $$(PRIVATE_OBJ))))/ -d $$(abspath $$(call host-path,$$(dir $$(PRIVATE_OBJ)))) -MD -reflect-c++ $$(PRIVATE_RS_FLAGS) $$(notdir $$(PRIVATE_RS_SRC))
+	cd $$(call host-path,$$(dir $$(PRIVATE_RS_SRC))) && $$(PRIVATE_RS_CC) -o $$(call host-path,$$(abspath $$(dir $$(PRIVATE_OBJ))))/ -d $$(abspath $$(call host-path,$$(dir $$(PRIVATE_OBJ)))) -MD -reflect-c++ -target-api $(strip $(subst android-,,$(APP_PLATFORM))) $$(PRIVATE_RS_FLAGS) $$(notdir $$(PRIVATE_RS_SRC))
 	$$(hide) \
 	$$(PRIVATE_CXX) -MMD -MP -MF $$(call convert-deps,$$(PRIVATE_DEPS)) $$(PRIVATE_CPPFLAGS) $$(call host-path,$$(PRIVATE_CPP_SRC)) -o $$(call host-path,$$(PRIVATE_OBJ)) \
 	$$(call cmd-convert-deps,$$(PRIVATE_DEPS))
@@ -1623,7 +1635,7 @@ _FLAGS := $$(call host-c-includes,$$(LOCAL_C_INCLUDES) $$(LOCAL_PATH)) \
           $$(LOCAL_ASMFLAGS) \
           $$(NDK_APP_ASMFLAGS) \
           $$(call host-c-includes,$$($(my)C_INCLUDES)) \
-          -f elf32 -m x86
+          $$(if $$(filter x86_64, $$(TARGET_ARCH_ABI)), -f elf64, -f elf32 -m x86)
 
 _TEXT := Assemble $$(call get-src-file-text,$1)
 _CC   := $$(NDK_CCACHE) $$(TARGET_ASM)
@@ -1751,6 +1763,8 @@ _CPP_FLAGS := $$($$(my)CXXFLAGS) \
           $$(call host-c-includes,$$($(my)C_INCLUDES)) \
           -fno-rtti \
           -c \
+
+_LD_FLAGS := $$(TARGET_LDFLAGS)
 
 _RS_FLAGS := $$(call host-c-includes, $$(LOCAL_RENDERSCRIPT_INCLUDES) $$(LOCAL_PATH)) \
           $$($$(my)RS_FLAGS) \

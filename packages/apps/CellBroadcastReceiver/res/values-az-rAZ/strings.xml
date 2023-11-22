@@ -18,6 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Şəbəkə Yayımları"</string>
     <string name="sms_cb_settings" msgid="971917159442705371">"Şəbəkə Yayım ayarları"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Şəbəkə Yayım ayarları bu istifadəçi üçün əlçatımlı deyil"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Sahənizdə aktiv siqnallar yoxdur. Ayarlar menyu seçimlərini istifadə edərək Siqnal ayarlarını dəyişə bilərsiniz."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Ayarlar"</string>

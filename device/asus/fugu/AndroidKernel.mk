@@ -45,15 +45,13 @@ KERNEL_DEFCONFIG ?= $(KERNEL_SRC_DIR)/arch/x86/configs/$(KERNEL_CFG_NAME)_defcon
 KERNEL_VERSION_FILE := $(KERNEL_OUT_DIR)/include/config/kernel.release
 KERNEL_BZIMAGE := $(PRODUCT_OUT)/kernel
 
-HOST_OPENSSL := $(HOST_OUT_EXECUTABLES)/openssl
-
 $(KERNEL_CONFIG): $(KERNEL_DEFCONFIG)
 	$(hide) echo Regenerating kernel config $(KERNEL_OUT_DIR)
 	$(hide) mkdir -p $(KERNEL_OUT_DIR)
 	$(hide) $(KERNEL_BLD_ENV) $(MAKE) -C $(KERNEL_SRC_DIR) $(KERNEL_BLD_FLAGS) $(notdir $(KERNEL_DEFCONFIG))
 
 ifeq (,$(filter build_kernel-nodeps,$(MAKECMDGOALS)))
-$(KERNEL_BZIMAGE): $(HOST_OPENSSL) $(MINIGZIP)
+$(KERNEL_BZIMAGE): $(MINIGZIP)
 endif
 
 $(KERNEL_BZIMAGE): $(KERNEL_CONFIG)

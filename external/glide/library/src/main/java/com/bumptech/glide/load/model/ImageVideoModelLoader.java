@@ -2,11 +2,21 @@ package com.bumptech.glide.load.model;
 
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
+
 import com.bumptech.glide.Priority;
 import com.bumptech.glide.load.data.DataFetcher;
 
 import java.io.InputStream;
 
+/**
+ * A wrapper model loader that provides both an {@link java.io.InputStream} and a
+ * {@link android.os.ParcelFileDescriptor} for a given model type by wrapping an
+ * {@link com.bumptech.glide.load.model.ModelLoader} for {@link java.io.InputStream}s for the given model type and an
+ * {@link com.bumptech.glide.load.model.ModelLoader} for {@link android.os.ParcelFileDescriptor} for the given model
+ * type.
+ *
+ * @param <A> The model type.
+ */
 public class ImageVideoModelLoader<A> implements ModelLoader<A, ImageVideoWrapper> {
     private static final String TAG = "IVML";
 
@@ -32,10 +42,15 @@ public class ImageVideoModelLoader<A> implements ModelLoader<A, ImageVideoWrappe
         if (fileDescriptorLoader != null) {
             fileDescriptorFetcher = fileDescriptorLoader.getResourceFetcher(model, width, height);
         }
-        return new ImageVideoFetcher(streamFetcher, fileDescriptorFetcher);
+
+        if (streamFetcher != null || fileDescriptorFetcher != null) {
+            return new ImageVideoFetcher(streamFetcher, fileDescriptorFetcher);
+        } else {
+            return null;
+        }
     }
 
-    public static class ImageVideoFetcher implements DataFetcher<ImageVideoWrapper> {
+    static class ImageVideoFetcher implements DataFetcher<ImageVideoWrapper> {
         private final DataFetcher<InputStream> streamFetcher;
         private final DataFetcher<ParcelFileDescriptor> fileDescriptorFetcher;
 
@@ -44,6 +59,9 @@ public class ImageVideoModelLoader<A> implements ModelLoader<A, ImageVideoWrappe
             this.streamFetcher = streamFetcher;
             this.fileDescriptorFetcher = fileDescriptorFetcher;
         }
+
+        @SuppressWarnings("resource")
+        // @see ModelLoader.loadData
         @Override
         public ImageVideoWrapper loadData(Priority priority) throws Exception {
             InputStream is = null;

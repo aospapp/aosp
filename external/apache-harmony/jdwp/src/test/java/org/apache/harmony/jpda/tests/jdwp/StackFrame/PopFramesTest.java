@@ -74,7 +74,7 @@ public class PopFramesTest extends JDWPStackFrameTestCase {
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
 
         logWriter.println("=> Set breakpoint at the beginning of " + breakpointMethodName);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, breakpointMethodName);
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);

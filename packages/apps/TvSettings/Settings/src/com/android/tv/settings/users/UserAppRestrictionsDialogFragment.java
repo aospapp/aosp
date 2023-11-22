@@ -16,31 +16,24 @@
 
 package com.android.tv.settings.users;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.DialogFragment;
-import com.android.tv.settings.dialog.DialogFragment.Action;
-import com.android.tv.settings.users.AppRestrictionsManager.Listener;
-
-import android.app.Activity;
-import android.app.Fragment;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.RestrictionEntry;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
-import android.content.pm.UserInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.DialogFragment;
+import com.android.tv.settings.dialog.DialogFragment.Action;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -71,7 +64,7 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
 
     private static final String EXTRA_PACKAGE_NAME = "packageName";
     private static final String EXTRA_CAN_CONFIGURE_RESTRICTIONS = "canConfigureRestrictions";
-    private static final String EXTRA_CAN_SEE_RESTRICTED_ACCOUNTS = "canSeeRectrictedAccounts";
+    private static final String EXTRA_CAN_SEE_RESTRICTED_ACCOUNTS = "canSeeRestrictedAccounts";
     private static final String EXTRA_IS_ALLOWED = "isAllowed";
     private static final String EXTRA_CAN_BE_ENABLED_DISABLED = "canBeEnabledDisabled";
     private static final String EXTRA_CONTROLLING_APP = "controllingApp";
@@ -101,13 +94,13 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
     private UserManager mUserManager;
     private IPackageManager mIPm;
     private AppLoadingTask mAppLoadingTask;
-    private final HashMap<String, Boolean> mSelectedPackages = new HashMap<String, Boolean>();
+    private final HashMap<String, Boolean> mSelectedPackages = new HashMap<>();
     private UserHandle mUser;
     private boolean mNewUser;
     private boolean mAppListChanged;
     private AppRestrictionsManager mAppRestrictionsManager;
 
-    private BroadcastReceiver mUserBackgrounding = new BroadcastReceiver() {
+    private final BroadcastReceiver mUserBackgrounding = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             // Update the user's app selection right away without waiting for a pause
@@ -124,7 +117,7 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
             }
         }
     };
-    private BroadcastReceiver mPackageObserver = new BroadcastReceiver() {
+    private final BroadcastReceiver mPackageObserver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             onPackageChanged(intent);
@@ -215,7 +208,7 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
             boolean canBeEnabledDisabled = action.getIntent().getBooleanExtra(
                     EXTRA_CAN_BE_ENABLED_DISABLED, false);
             String controllingActivity = action.getIntent().getStringExtra(EXTRA_CONTROLLING_APP);
-            final ArrayList<Action> initialAllowDisallowActions = new ArrayList<Action>();
+            final ArrayList<Action> initialAllowDisallowActions = new ArrayList<>();
             if (controllingActivity != null) {
                 initialAllowDisallowActions.add(new Action.Builder()
                         .title(getString(isAllowed ? R.string.restricted_profile_allowed
@@ -264,7 +257,7 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
                             public void onRestrictionActionsLoaded(String packageName,
                                     ArrayList<Action> restrictionActions) {
                                 ArrayList<Action> oldActions = dialogFragment.getActions();
-                                ArrayList<Action> newActions = new ArrayList<Action>();
+                                ArrayList<Action> newActions = new ArrayList<>();
                                 if (oldActions != null && oldActions.size()
                                         >= initialAllowDisallowActions.size()) {
                                     for (int i = 0, size = initialAllowDisallowActions.size();
@@ -285,8 +278,10 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
             DialogFragment.add(getFragmentManager(), dialogFragment);
         } else if (ACTION_ALLOW.equals(action.getKey())) {
             setEnabled(packageName, true);
+            getFragmentManager().popBackStack();
         } else if (ACTION_DISALLOW.equals(action.getKey())) {
             setEnabled(packageName, false);
+            getFragmentManager().popBackStack();
         } else if (mAppRestrictionsManager != null) {
             mAppRestrictionsManager.onActionClicked(action);
         }
@@ -380,14 +375,14 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
             try {
                 ApplicationInfo info = ipm.getApplicationInfo(packageName,
                         PackageManager.GET_UNINSTALLED_PACKAGES, userId);
-                if (info == null || info.enabled == false
+                if (info == null || !info.enabled
                         || (info.flags & ApplicationInfo.FLAG_INSTALLED) == 0) {
                     ipm.installExistingPackageAsUser(packageName, userId);
                     if (DEBUG) {
                         Log.d(TAG, "Installing " + packageName);
                     }
                 }
-                if (info != null && (info.flags & ApplicationInfo.FLAG_HIDDEN) != 0
+                if (info != null && (info.privateFlags & ApplicationInfo.PRIVATE_FLAG_HIDDEN) != 0
                         && (info.flags & ApplicationInfo.FLAG_INSTALLED) != 0) {
                     disableActionForPackage = true;
                     ipm.setApplicationHiddenSettingAsUser(packageName, false, userId);
@@ -425,7 +420,7 @@ public class UserAppRestrictionsDialogFragment extends DialogFragment implements
 
     private static ArrayList<Action> findActionsWithPackageName(ArrayList<Action> actions,
             String packageName) {
-        ArrayList<Action> matchingActions = new ArrayList<Action>();
+        ArrayList<Action> matchingActions = new ArrayList<>();
         if (packageName != null) {
             for (Action action : actions) {
                 if (packageName.equals(action.getIntent().getStringExtra(EXTRA_PACKAGE_NAME))) {

@@ -15,61 +15,83 @@
  */
 package com.squareup.okhttp;
 
-import com.squareup.okhttp.internal.Util;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import okio.ByteString;
 
 /**
- * Contains protocols that OkHttp supports
- * <a href="http://tools.ietf.org/html/draft-agl-tls-nextprotoneg-04">NPN</a> or
- * <a href="http://tools.ietf.org/html/draft-ietf-tls-applayerprotoneg">ALPN</a> selection.
+ * Protocols that OkHttp implements for <a
+ * href="http://tools.ietf.org/html/draft-ietf-tls-applayerprotoneg">ALPN</a>
+ * selection.
  *
- * <p>
  * <h3>Protocol vs Scheme</h3>
  * Despite its name, {@link java.net.URL#getProtocol()} returns the
- * {@link java.net.URI#getScheme() scheme} (http, https, etc.) of the URL, not
- * the protocol (http/1.1, spdy/3.1, etc.).  OkHttp uses the word protocol to
- * indicate how HTTP messages are framed.
+ * {@linkplain java.net.URI#getScheme() scheme} (http, https, etc.) of the URL, not
+ * the protocol (http/1.1, spdy/3.1, etc.). OkHttp uses the word <i>protocol</i>
+ * to identify how HTTP messages are framed.
  */
 public enum Protocol {
-  HTTP_2("HTTP-draft-09/2.0", true),
-  SPDY_3("spdy/3.1", true),
-  HTTP_11("http/1.1", false);
-
-  public static final List<Protocol> HTTP2_SPDY3_AND_HTTP =
-      Util.immutableList(Arrays.asList(HTTP_2, SPDY_3, HTTP_11));
-  public static final List<Protocol> SPDY3_AND_HTTP11 =
-      Util.immutableList(Arrays.asList(SPDY_3, HTTP_11));
-  public static final List<Protocol> HTTP2_AND_HTTP_11 =
-      Util.immutableList(Arrays.asList(HTTP_2, HTTP_11));
-
-  /** Identifier string used in NPN or ALPN selection. */
-  public final ByteString name;
+  /**
+   * An obsolete plaintext framing that does not use persistent sockets by
+   * default.
+   */
+  HTTP_1_0("http/1.0"),
 
   /**
-   * When true the protocol is binary framed and derived from SPDY.
+   * A plaintext framing that includes persistent connections.
    *
-   * @see com.squareup.okhttp.internal.spdy.Variant
+   * <p>This version of OkHttp implements <a
+   * href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</a>, and tracks
+   * revisions to that spec.
    */
-  public final boolean spdyVariant;
+  HTTP_1_1("http/1.1"),
 
-  Protocol(String name, boolean spdyVariant) {
-    this.name = ByteString.encodeUtf8(name);
-    this.spdyVariant = spdyVariant;
+  /**
+   * Chromium's binary-framed protocol that includes header compression,
+   * multiplexing multiple requests on the same socket, and server-push.
+   * HTTP/1.1 semantics are layered on SPDY/3.
+   *
+   * <p>This version of OkHttp implements SPDY 3 <a
+   * href="http://dev.chromium.org/spdy/spdy-protocol/spdy-protocol-draft3-1">draft
+   * 3.1</a>. Future releases of OkHttp may use this identifier for a newer draft
+   * of the SPDY spec.
+   */
+  SPDY_3("spdy/3.1"),
+
+  /**
+   * The IETF's binary-framed protocol that includes header compression,
+   * multiplexing multiple requests on the same socket, and server-push.
+   * HTTP/1.1 semantics are layered on HTTP/2.
+   *
+   * <p>HTTP/2 requires deployments of HTTP/2 that use TLS 1.2 support
+   * {@linkplain com.squareup.okhttp.CipherSuite#TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}
+   * , present in Java 8+ and Android 5+. Servers that enforce this may send an
+   * exception message including the string {@code INADEQUATE_SECURITY}.
+   */
+  HTTP_2("h2");
+
+  private final String protocol;
+
+  Protocol(String protocol) {
+    this.protocol = protocol;
   }
 
   /**
-   * Returns the protocol matching {@code input} or {@link #HTTP_11} is on
-   * {@code null}. Throws an {@link IOException} when {@code input} doesn't
-   * match the {@link #name} of a supported protocol.
+   * Returns the protocol identified by {@code protocol}.
+   * @throws IOException if {@code protocol} is unknown.
    */
-  public static Protocol find(ByteString input) throws IOException {
-    if (input == null) return HTTP_11;
-    for (Protocol protocol : values()) {
-      if (protocol.name.equals(input)) return protocol;
-    }
-    throw new IOException("Unexpected protocol: " + input.utf8());
+  public static Protocol get(String protocol) throws IOException {
+    // Unroll the loop over values() to save an allocation.
+    if (protocol.equals(HTTP_1_0.protocol)) return HTTP_1_0;
+    if (protocol.equals(HTTP_1_1.protocol)) return HTTP_1_1;
+    if (protocol.equals(HTTP_2.protocol)) return HTTP_2;
+    if (protocol.equals(SPDY_3.protocol)) return SPDY_3;
+    throw new IOException("Unexpected protocol: " + protocol);
+  }
+
+  /**
+   * Returns the string used to identify this protocol for ALPN, like
+   * "http/1.1", "spdy/3.1" or "h2".
+   */
+  @Override public String toString() {
+    return protocol;
   }
 }

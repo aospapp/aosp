@@ -20,17 +20,22 @@ import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.TextView;
 
 /**
  * An abstract {@link Presenter} for rendering a detailed description of an
- * item. Typically this Presenter will be used in a DetailsOveriewRowPresenter.
+ * item. Typically this Presenter will be used in a {@link DetailsOverviewRowPresenter}
+ * or {@link PlaybackControlsRowPresenter}.
  *
- * <p>Subclasses will override {@link #onBindDescription} to implement the data
+ * <p>Subclasses must override {@link #onBindDescription} to implement the data
  * binding for this Presenter.
  */
 public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
 
+    /**
+     * The ViewHolder for the {@link AbstractDetailsDescriptionPresenter}.
+     */
     public static class ViewHolder extends Presenter.ViewHolder {
         private final TextView mTitle;
         private final TextView mSubtitle;
@@ -45,8 +50,10 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
         private final FontMetricsInt mTitleFontMetricsInt;
         private final FontMetricsInt mSubtitleFontMetricsInt;
         private final FontMetricsInt mBodyFontMetricsInt;
+        private final int mTitleMaxLines;
+        private ViewTreeObserver.OnPreDrawListener mPreDrawListener;
 
-        public ViewHolder(View view) {
+        public ViewHolder(final View view) {
             super(view);
             mTitle = (TextView) view.findViewById(R.id.lb_details_description_title);
             mSubtitle = (TextView) view.findViewById(R.id.lb_details_description_subtitle);
@@ -72,6 +79,7 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
                     R.integer.lb_details_description_body_max_lines);
             mBodyMinLines = view.getResources().getInteger(
                     R.integer.lb_details_description_body_min_lines);
+            mTitleMaxLines = mTitle.getMaxLines();
 
             mTitleFontMetricsInt = getFontMetricsInt(mTitle);
             mSubtitleFontMetricsInt = getFontMetricsInt(mSubtitle);
@@ -79,11 +87,45 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
 
             mTitle.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
                 @Override
-                public void onLayoutChange(View v, int left, int top, int right,
-                        int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
-                    mBody.setMaxLines(mTitle.getLineCount() > 1 ? mBodyMinLines : mBodyMaxLines);
+                public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                           int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                    addPreDrawListener();
                 }
             });
+        }
+
+        void addPreDrawListener() {
+            if (mPreDrawListener != null) {
+                return;
+            }
+            mPreDrawListener = new ViewTreeObserver.OnPreDrawListener() {
+                @Override
+                public boolean onPreDraw() {
+                    if (mSubtitle.getVisibility() == View.VISIBLE &&
+                            mSubtitle.getTop() > view.getHeight() &&
+                            mTitle.getLineCount() > 1) {
+                        mTitle.setMaxLines(mTitle.getLineCount() - 1);
+                        return false;
+                    }
+                    final int titleLines = mTitle.getLineCount();
+                    final int maxLines = titleLines > 1 ? mBodyMinLines : mBodyMaxLines;
+                    if (mBody.getMaxLines() != maxLines) {
+                        mBody.setMaxLines(maxLines);
+                        return false;
+                    } else {
+                        removePreDrawListener();
+                        return true;
+                    }
+                }
+            };
+            view.getViewTreeObserver().addOnPreDrawListener(mPreDrawListener);
+        }
+
+        void removePreDrawListener() {
+            if (mPreDrawListener != null) {
+                view.getViewTreeObserver().removeOnPreDrawListener(mPreDrawListener);
+                mPreDrawListener = null;
+            }
         }
 
         public TextView getTitle() {
@@ -126,6 +168,7 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
             vh.mTitle.setVisibility(View.VISIBLE);
             vh.mTitle.setLineSpacing(vh.mTitleLineSpacing - vh.mTitle.getLineHeight() +
                     vh.mTitle.getLineSpacingExtra(), vh.mTitle.getLineSpacingMultiplier());
+            vh.mTitle.setMaxLines(vh.mTitleMaxLines);
         }
         setTopMargin(vh.mTitle, vh.mTitleMargin);
 
@@ -163,16 +206,32 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
     }
 
     /**
-     * Binds the data from the item referenced in the DetailsOverviewRow to the
-     * ViewHolder.
+     * Binds the data from the item to the ViewHolder.  The item is typically associated with
+     * a {@link DetailsOverviewRow} or {@link PlaybackControlsRow}.
      *
      * @param vh The ViewHolder for this details description view.
-     * @param item The item from the DetailsOverviewRow being presented.
+     * @param item The item being presented.
      */
     protected abstract void onBindDescription(ViewHolder vh, Object item);
 
     @Override
     public void onUnbindViewHolder(Presenter.ViewHolder viewHolder) {}
+
+    @Override
+    public void onViewAttachedToWindow(Presenter.ViewHolder holder) {
+        // In case predraw listener was removed in detach, make sure
+        // we have the proper layout.
+        ViewHolder vh = (ViewHolder) holder;
+        vh.addPreDrawListener();
+        super.onViewAttachedToWindow(holder);
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(Presenter.ViewHolder holder) {
+        ViewHolder vh = (ViewHolder) holder;
+        vh.removePreDrawListener();
+        super.onViewDetachedFromWindow(holder);
+    }
 
     private void setTopMargin(TextView textView, int topMargin) {
         ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) textView.getLayoutParams();

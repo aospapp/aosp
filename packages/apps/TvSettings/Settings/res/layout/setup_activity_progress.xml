@@ -16,7 +16,7 @@
 <!-- Use this layout for activities where you have a single text field and need
      an indeterminate progress indicator. You must find the ImageView, get the
      AnimationDrawable and then call start() on it for it to be shown. -->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<android.support.v17.leanback.widget.NonOverlappingFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_height="match_parent"
     android:layout_width="match_parent">
 
@@ -41,4 +41,4 @@
 
     </LinearLayout>
 
-</FrameLayout>
+</android.support.v17.leanback.widget.NonOverlappingFrameLayout>

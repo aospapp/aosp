@@ -27,7 +27,6 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
-import android.support.test.InjectContext;
 
 import com.android.ex.camera2.portability.CameraCapabilities.FlashMode;
 import com.android.ex.camera2.portability.CameraCapabilities.FocusMode;

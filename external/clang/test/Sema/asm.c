@@ -107,6 +107,7 @@ void test10(void){
 
   register int r asm ("cx");
   register int rr asm ("rr_asm"); // expected-error{{unknown register name 'rr_asm' in asm}}
+  register int rrr asm ("%"); // expected-error{{unknown register name '%' in asm}}
 }
 
 // This is just an assert because of the boolean conversion.
@@ -157,3 +158,49 @@ struct foo {
 };
 register struct foo bar asm("sp"); // expected-error {{bad type for named register variable}}
 register float baz asm("sp"); // expected-error {{bad type for named register variable}}
+
+double f_output_constraint(void) {
+  double result;
+  __asm("foo1": "=f" (result)); // expected-error {{invalid output constraint '=f' in asm}}
+  return result;
+}
+
+void fn1() {
+  int l;
+  __asm__(""
+          : [l] "=r"(l)
+          : "[l],m"(l)); // expected-error {{asm constraint has an unexpected number of alternatives: 1 vs 2}}
+}
+
+void fn2() {
+  int l;
+ __asm__(""
+          : "+&m"(l)); // expected-error {{invalid output constraint '+&m' in asm}}
+}
+
+void fn3() {
+  int l;
+ __asm__(""
+          : "+#r"(l)); // expected-error {{invalid output constraint '+#r' in asm}}
+}
+
+void fn4() {
+  int l;
+ __asm__(""
+          : "=r"(l)
+          : "m#"(l));
+}
+
+void fn5() {
+  int l;
+    __asm__(""
+          : [g] "+r"(l)
+          : "[g]"(l)); // expected-error {{invalid input constraint '[g]' in asm}}
+}
+
+void fn6() {
+    int a;
+  __asm__(""
+            : "=rm"(a), "=rm"(a)
+            : "11m"(a)) // expected-error {{invalid input constraint '11m' in asm}}
+}

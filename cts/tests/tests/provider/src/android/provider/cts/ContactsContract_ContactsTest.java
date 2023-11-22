@@ -27,6 +27,7 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.provider.ContactsContract;
+import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestContact;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestRawContact;
@@ -101,6 +102,12 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         assertEquals(ContentUris.withAppendedId(Uri.withAppendedPath(Contacts.CONTENT_LOOKUP_URI,
                 lookupKey), contactId), lookupUri);
 
+        Uri nullLookupUri = Contacts.getLookupUri(contactId, null);
+        assertNull(nullLookupUri);
+
+        Uri emptyLookupUri = Contacts.getLookupUri(contactId, "");
+        assertNull(emptyLookupUri);
+
         Uri lookupUri2 = Contacts.getLookupUri(mResolver, contactUri);
         assertEquals(lookupUri, lookupUri2);
 
@@ -159,6 +166,74 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
 
         // Clean up
         RawContactUtil.delete(mResolver, ids.mRawContactId, true);
+    }
+
+    public void testProjection() throws Exception {
+        final TestRawContact rawContact = mBuilder.newRawContact().insert().load();
+        rawContact.newDataRow(StructuredName.CONTENT_ITEM_TYPE)
+                .with(StructuredName.GIVEN_NAME, "xxx")
+                .insert();
+
+        final TestContact contact = rawContact.getContact().load();
+        final long contactId = contact.getId();
+        final String lookupKey = contact.getString(Contacts.LOOKUP_KEY);
+
+        final String[] PROJECTION = new String[]{
+                Contacts._ID,
+                Contacts.DISPLAY_NAME,
+                Contacts.DISPLAY_NAME_PRIMARY,
+                Contacts.DISPLAY_NAME_ALTERNATIVE,
+                Contacts.DISPLAY_NAME_SOURCE,
+                Contacts.PHONETIC_NAME,
+                Contacts.PHONETIC_NAME_STYLE,
+                Contacts.SORT_KEY_PRIMARY,
+                Contacts.SORT_KEY_ALTERNATIVE,
+                Contacts.LAST_TIME_CONTACTED,
+                Contacts.TIMES_CONTACTED,
+                Contacts.STARRED,
+                Contacts.PINNED,
+                Contacts.IN_DEFAULT_DIRECTORY,
+                Contacts.IN_VISIBLE_GROUP,
+                Contacts.PHOTO_ID,
+                Contacts.PHOTO_FILE_ID,
+                Contacts.PHOTO_URI,
+                Contacts.PHOTO_THUMBNAIL_URI,
+                Contacts.CUSTOM_RINGTONE,
+                Contacts.HAS_PHONE_NUMBER,
+                Contacts.SEND_TO_VOICEMAIL,
+                Contacts.IS_USER_PROFILE,
+                Contacts.LOOKUP_KEY,
+                Contacts.NAME_RAW_CONTACT_ID,
+                Contacts.CONTACT_PRESENCE,
+                Contacts.CONTACT_CHAT_CAPABILITY,
+                Contacts.CONTACT_STATUS,
+                Contacts.CONTACT_STATUS_TIMESTAMP,
+                Contacts.CONTACT_STATUS_RES_PACKAGE,
+                Contacts.CONTACT_STATUS_LABEL,
+                Contacts.CONTACT_STATUS_ICON,
+                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP
+        };
+
+        // Contacts.CONTENT_URI
+        DatabaseAsserts.checkProjection(mResolver,
+                Contacts.CONTENT_URI,
+                PROJECTION,
+                new long[]{contact.getId()}
+        );
+
+        // Contacts.CONTENT_FILTER_URI
+        DatabaseAsserts.checkProjection(mResolver,
+                Contacts.CONTENT_FILTER_URI.buildUpon().appendEncodedPath("xxx").build(),
+                PROJECTION,
+                new long[]{contact.getId()}
+        );
+
+        // Contacts.CONTENT_LOOKUP_URI
+        DatabaseAsserts.checkProjection(mResolver,
+                Contacts.getLookupUri(contactId, lookupKey),
+                PROJECTION,
+                new long[]{contact.getId()}
+        );
     }
 
     /**

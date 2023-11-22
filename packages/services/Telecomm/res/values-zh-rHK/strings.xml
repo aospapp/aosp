@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"電話"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"手機通話管理"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"電話"</string>
     <string name="unknown" msgid="6878797917991465859">"未知"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"未接來電"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"未接來電"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"快速回應"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"訊息已傳送至 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"只有裝置擁有者才可撥打緊急電話"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"通話帳戶"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"只有裝置擁有者才可撥打緊急電話。"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"此應用程式沒有電話權限，無法撥出電話。"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"要撥打電話，請輸入有效的號碼。"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"目前無法新增視像通話。"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"請停用 TTY 模式以進行視像通話。"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"未填留言信箱號碼"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM 卡中沒有儲存任何留言信箱號碼。"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"新增電話號碼"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"變更預設撥號器應用程式？"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"使用 <xliff:g id="NEW_APP">%1$s</xliff:g> 取代 <xliff:g id="CURRENT_APP">%2$s</xliff:g> 作為預設撥號器應用程式？"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"使用 <xliff:g id="NEW_APP">%s</xliff:g> 為預設撥號器應用程式？"</string>
 </resources>

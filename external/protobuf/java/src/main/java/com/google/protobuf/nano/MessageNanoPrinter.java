@@ -108,6 +108,10 @@ public final class MessageNanoPrinter {
             for (Field field : clazz.getFields()) {
                 int modifiers = field.getModifiers();
                 String fieldName = field.getName();
+                if ("cachedSize".equals(fieldName)) {
+                    // TODO(bduff): perhaps cachedSize should have a more obscure name.
+                    continue;
+                }
 
                 if ((modifiers & Modifier.PUBLIC) == Modifier.PUBLIC
                         && (modifiers & Modifier.STATIC) != Modifier.STATIC
@@ -243,7 +247,7 @@ public final class MessageNanoPrinter {
 
         builder.append('"');
         for (int i = 0; i < bytes.length; ++i) {
-            int ch = bytes[i];
+            int ch = bytes[i] & 0xff;
             if (ch == '\\' || ch == '"') {
                 builder.append('\\').append((char) ch);
             } else if (ch >= 32 && ch < 127) {

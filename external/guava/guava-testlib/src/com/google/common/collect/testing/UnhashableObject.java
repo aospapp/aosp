@@ -16,13 +16,14 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 /**
  * An unhashable object to be used in testing as values in our collections.
  *
- * <p>This class is GWT compatible.
- *
  * @author Regina O'Dell
  */
+@GwtCompatible
 public class UnhashableObject implements Comparable<UnhashableObject> {
   private final int value;
 

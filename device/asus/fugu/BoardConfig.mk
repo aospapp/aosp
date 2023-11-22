@@ -20,7 +20,6 @@
 TARGET_ARCH := x86
 TARGET_ARCH_VARIANT := silvermont
 TARGET_CPU_ABI := x86
-TARGET_CPU_SMP := true
 
 TARGET_RECOVERY_FSTAB := device/asus/fugu/recovery.fstab
 TARGET_RELEASETOOLS_EXTENSIONS := device/asus/fugu
@@ -32,6 +31,8 @@ TARGET_BOOTLOADER_BOARD_NAME := fugu
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 1073741824
 BOARD_FLASH_BLOCK_SIZE := 2048
+
+BOARD_CACHEIMAGE_PARTITION_SIZE := 260014080
 
 TARGET_DROIDBOOT_LIBS := libintel_droidboot
 TARGET_RECOVERY_PIXEL_FORMAT := "RGBX_8888"
@@ -60,6 +61,7 @@ ifeq ($(HOST_OS),linux)
     endif
   endif
 endif
+DONT_DEXPREOPT_PREBUILTS := true
 
 # Security
 BUILD_WITH_SECURITY_FRAMEWORK := chaabi_token
@@ -84,9 +86,10 @@ BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/asus/fugu/bluetooth
 BOARD_GFX_REV := RGX6400
 ENABLE_IMG_GRAPHICS := true
 ENABLE_MRFL_GRAPHICS := true
-INTEL_HWC_MOOREFIELD := true
+INTEL_HWC_MOOREFIELD_HDMI := true
 HWUI_IMG_FBO_CACHE_OPTIM := true
 TARGET_SUPPORT_HDMI_PRIMARY := true
+BOARD_USES_LIBDRM := true
 
 # Audio
 BOARD_USES_ALSA_AUDIO := true
@@ -99,7 +102,7 @@ SF_VSYNC_EVENT_PHASE_OFFSET_NS := 5000000
 BOARD_EGL_CFG := device/asus/fugu/egl.cfg
 
 ADDITIONAL_DEFAULT_PROPERTIES += \
-    ro.opengles.version = 196608 \
+    ro.opengles.version = 196609 \
     ro.hwui.drop_shadow_cache_size = 4.0 \
     ro.hwui.gradient_cache_size = 0.8 \
     ro.hwui.layer_cache_size = 32.0 \
@@ -139,7 +142,6 @@ ADDITIONAL_DEFAULT_PROPERTIES += \
 
 COMMON_GLOBAL_CFLAGS += -DGFX_BUF_EXT
 
-# Disable IMG RS GPU driver
 OVERRIDE_RS_DRIVER := libPVRRS.so
 
 # enable ARM codegen for x86 with Houdini
@@ -153,26 +155,7 @@ INTEL_DPST := true
 # bootstub as 2nd bootloader
 TARGET_BOOTLOADER_IS_2ND := true
 
-BOARD_SEPOLICY_DIRS := device/asus/fugu/sepolicy
-BOARD_SEPOLICY_UNION := \
-    bluetooth.te \
-    btfwloader.te \
-    dhcp.te \
-    dumpstate.te \
-    file.te \
-    mediaserver.te \
-    netd.te \
-    property.te \
-    pvrsrvctl.te \
-    surfaceflinger.te \
-    system_app.te \
-    wpa.te \
-    shell.te \
-    sepfs.te \
-    file_contexts \
-    genfs_contexts \
-    property_contexts \
-    service_contexts
+BOARD_SEPOLICY_DIRS += device/asus/fugu/sepolicy
 
 # Use the non-open-source parts, if they're present
 -include vendor/asus/fugu/BoardConfigVendor.mk

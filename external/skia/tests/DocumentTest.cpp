@@ -29,7 +29,7 @@ static void test_abort(skiatest::Reporter* reporter) {
 }
 
 static void test_abortWithFile(skiatest::Reporter* reporter) {
-    SkString tmpDir = skiatest::Test::GetTmpDir();
+    SkString tmpDir = skiatest::GetTmpDir();
 
     if (tmpDir.isEmpty()) {
         return;  // TODO(edisonn): unfortunatelly this pattern is used in other
@@ -37,7 +37,7 @@ static void test_abortWithFile(skiatest::Reporter* reporter) {
                  // allways, then all these tests will be disabled.
     }
 
-    SkString path = SkOSPath::SkPathJoin(tmpDir.c_str(), "aborted.pdf");
+    SkString path = SkOSPath::Join(tmpDir.c_str(), "aborted.pdf");
 
     // Make sure doc's destructor is called to flush.
     {
@@ -58,14 +58,14 @@ static void test_abortWithFile(skiatest::Reporter* reporter) {
 }
 
 static void test_file(skiatest::Reporter* reporter) {
-    SkString tmpDir = skiatest::Test::GetTmpDir();
+    SkString tmpDir = skiatest::GetTmpDir();
     if (tmpDir.isEmpty()) {
         return;  // TODO(edisonn): unfortunatelly this pattern is used in other
                  // tests, but if GetTmpDir() starts returning and empty dir
                  // allways, then all these tests will be disabled.
     }
 
-    SkString path = SkOSPath::SkPathJoin(tmpDir.c_str(), "file.pdf");
+    SkString path = SkOSPath::Join(tmpDir.c_str(), "file.pdf");
 
     SkAutoTUnref<SkDocument> doc(SkDocument::CreatePDF(path.c_str()));
 

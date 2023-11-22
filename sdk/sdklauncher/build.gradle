@@ -19,17 +19,17 @@ sources {
 
 sdk {
     windows {
-        item( { getExeName("windows") } ) {
+        item( { getExeName("windows32SdkLauncherExecutable") } ) {
             into 'lib'
             name 'SDK Manager.exe'
-            builtBy 'sdkLauncherExecutable'
+            builtBy 'windows32SdkLauncherExecutable'
         }
     }
 }
 
-def getExeName(String platform) {
+def getExeName(String name) {
     // binaries will return a set of binaries
-    def binaries = executables.sdkLauncher.binaries.matching { it.name == "sdkLauncherExecutable" }
+    def binaries = executables.sdkLauncher.binaries.matching { it.name == name }
     // calling .exeFile on the set returns an array with the result from each item in the set...
     return binaries.executableFile.get(0)
 }

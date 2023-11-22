@@ -26,35 +26,28 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.RandomAccess;
 
 import javax.annotation.Nullable;
 
 /**
  * GWT emulated version of {@link ImmutableList}.
+ * TODO(cpovirk): more doc
  *
  * @author Hayward Chan
  */
 @SuppressWarnings("serial") // we're overriding default serialization
-public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
+public abstract class ImmutableList<E> extends ImmutableCollection<E>
     implements List<E>, RandomAccess {
+  static final ImmutableList<Object> EMPTY = 
+      new RegularImmutableList<Object>(Collections.emptyList());
   
-  private transient final List<E> delegate;
-
-  ImmutableList(List<E> delegate) {
-    super(delegate);
-    this.delegate = Collections.unmodifiableList(delegate);
-  }
-
-  ImmutableList() {
-    this(Collections.<E>emptyList());
-  }
+  ImmutableList() {}
 
   // Casting to any type is safe because the list will never hold any elements.
   @SuppressWarnings("unchecked")
   public static <E> ImmutableList<E> of() {
-    return (ImmutableList<E>) EmptyImmutableList.INSTANCE;
+    return (ImmutableList<E>) EMPTY;
   }
 
   public static <E> ImmutableList<E> of(E element) {
@@ -126,19 +119,6 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
     return new RegularImmutableList<E>(ImmutableList.<E>nullCheckedList(array));
   }
 
-  public static <E> ImmutableList<E> of(E[] elements) {
-    checkNotNull(elements); // for GWT
-    switch (elements.length) {
-      case 0:
-        return ImmutableList.of();
-      case 1:
-        return new SingletonImmutableList<E>(elements[0]);
-      default:
-        return new RegularImmutableList<E>(
-            ImmutableList.<E>nullCheckedList(elements));
-    }
-  }
-
   private static void arrayCopy(Object[] dest, int pos, Object... source) {
     System.arraycopy(source, 0, dest, pos, source.length);
   }
@@ -188,7 +168,7 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
   }
 
   // Factory method that skips the null checks.  Used only when the elements
-  // are guaranteed to be null.
+  // are guaranteed to be non-null.
   static <E> ImmutableList<E> unsafeDelegateList(List<? extends E> list) {
     switch (list.size()) {
       case 0:
@@ -202,8 +182,14 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
     }
   }
 
-  static <E> ImmutableList<E> backedBy(E[] elements) {
-    return unsafeDelegateList(Arrays.asList(elements));
+  /**
+   * Views the array as an immutable list.  The array must have only {@code E} elements.
+   *
+   * <p>The array must be internally created.
+   */
+  @SuppressWarnings("unchecked") // caller is reponsible for getting this right
+  static <E> ImmutableList<E> asImmutableList(Object[] elements) {
+    return unsafeDelegateList((List) Arrays.asList(elements));
   }
 
   private static <E> List<E> nullCheckedList(Object... array) {
@@ -217,12 +203,14 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
     return Arrays.asList(castedArray);
   }
 
+  @Override
   public int indexOf(@Nullable Object object) {
-    return delegate.indexOf(object);
+    return (object == null) ? -1 : Lists.indexOfImpl(this, object);
   }
 
+  @Override
   public int lastIndexOf(@Nullable Object object) {
-    return delegate.lastIndexOf(object);
+    return (object == null) ? -1 : Lists.lastIndexOfImpl(this, object);
   }
 
   public final boolean addAll(int index, Collection<? extends E> newElements) {
@@ -241,44 +229,45 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
     throw new UnsupportedOperationException();
   }
 
-  public E get(int index) {
-    return delegate.get(index);
+  @Override public UnmodifiableIterator<E> iterator() {
+    return listIterator();
   }
 
-  public ImmutableList<E> subList(int fromIndex, int toIndex) {
-    return unsafeDelegateList(delegate.subList(fromIndex, toIndex));
+  @Override public ImmutableList<E> subList(int fromIndex, int toIndex) {
+    return unsafeDelegateList(Lists.subListImpl(this, fromIndex, toIndex));
   }
 
-  public ListIterator<E> listIterator() {
-    return delegate.listIterator();
+  @Override public UnmodifiableListIterator<E> listIterator() {
+    return listIterator(0);
   }
 
-  public ListIterator<E> listIterator(int index) {
-    return delegate.listIterator(index);
+  @Override public UnmodifiableListIterator<E> listIterator(int index) {
+    return new AbstractIndexedListIterator<E>(size(), index) {
+      @Override
+      protected E get(int index) {
+        return ImmutableList.this.get(index);
+      }
+    };
   }
 
   @Override public ImmutableList<E> asList() {
     return this;
   }
-  
-  public ImmutableList<E> reverse(){
+
+  @Override
+  public boolean equals(@Nullable Object obj) {
+    return Lists.equalsImpl(this, obj);
+  }
+
+  @Override
+  public int hashCode() {
+    return Lists.hashCodeImpl(this);
+  }
+
+  public ImmutableList<E> reverse() {
     List<E> list = Lists.newArrayList(this);
     Collections.reverse(list);
     return unsafeDelegateList(list);
-  }
-
-  @Override public Object[] toArray() {
-    // Note that ArrayList.toArray() doesn't work here because it returns E[]
-    // instead of Object[].
-    return delegate.toArray(new Object[size()]);
-  }
-
-  @Override public boolean equals(Object obj) {
-    return delegate.equals(obj);
-  }
-
-  @Override public int hashCode() {
-    return delegate.hashCode();
   }
 
   public static <E> Builder<E> builder() {
@@ -286,9 +275,15 @@ public abstract class ImmutableList<E> extends ForwardingImmutableCollection<E>
   }
 
   public static final class Builder<E> extends ImmutableCollection.Builder<E> {
-    private final ArrayList<E> contents = Lists.newArrayList();
+    private final ArrayList<E> contents;
 
-    public Builder() {}
+    public Builder() {
+      contents = Lists.newArrayList();
+    }
+
+    Builder(int capacity) {
+      contents = Lists.newArrayListWithCapacity(capacity);
+    }
 
     @Override public Builder<E> add(E element) {
       contents.add(checkNotNull(element));

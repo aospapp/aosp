@@ -23,6 +23,7 @@ extern "C"
 {
     #include "nfc_hal_post_reset.h"
 }
+#include <malloc.h>
 #include <string>
 #include <cutils/properties.h>
 #include "spdhelper.h"

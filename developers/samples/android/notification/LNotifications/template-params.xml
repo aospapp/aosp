@@ -22,6 +22,7 @@
 
     <!-- change minSdk if needed-->
     <minSdk>21</minSdk>
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>

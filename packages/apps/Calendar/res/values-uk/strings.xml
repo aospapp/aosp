@@ -127,7 +127,7 @@
     <item msgid="1524421198348168403">"Запізнююся на декілька хвилин."</item>
     <item msgid="6215158751728689832">"Буду за 10 хвилин."</item>
     <item msgid="4485794001743679338">"Починайте без мене."</item>
-    <item msgid="8036557974294987511">"На жаль, не встигаю. Доведеться перенести."</item>
+    <item msgid="8036557974294987511">"Не встигаю. Доведеться перенести."</item>
   </string-array>
     <string name="quick_response_custom_msg" msgid="8792374208224108798">"Напишіть власну відповідь…"</string>
     <string name="event_info_organizer" msgid="9138683335394832629">"Організатор:"</string>
@@ -196,7 +196,7 @@
     <string name="preferences_default_reminder_default" msgid="2903884416749959435">"10"</string>
     <string name="preferences_use_home_tz_title" msgid="5597546849968598210">"Викор.рідн.час.пояс"</string>
     <string name="preferences_use_home_tz_descrip" msgid="4835375381297413746">"Показувати календарі й час подій у рідному час. поясі під час подорожі"</string>
-    <string name="preferences_home_tz_title" msgid="6680000444088818578">"Рідний час. пояс"</string>
+    <string name="preferences_home_tz_title" msgid="6680000444088818578">"Мій часовий пояс"</string>
     <string name="preferences_show_week_num_title" msgid="5280734329664503461">"Показувати номер тижня"</string>
     <string name="preferences_about_title" msgid="2810624892412097879">"Про"</string>
     <string name="preferences_build_version" msgid="8242471883413502068">"Версія складання"</string>

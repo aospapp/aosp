@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include <jni.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ucontext.h>
 #include <unistd.h>
 
-#include "jni.h"
-
-#include <sys/ucontext.h>
+#include "base/macros.h"
 
 static int signal_count;
 static const int kMaxSignal = 2;
@@ -47,7 +47,8 @@ static const int kMaxSignal = 2;
 #endif
 #endif
 
-static void signalhandler(int sig, siginfo_t* info, void* context) {
+static void signalhandler(int sig ATTRIBUTE_UNUSED, siginfo_t* info ATTRIBUTE_UNUSED,
+                          void* context) {
   printf("signal caught\n");
   ++signal_count;
   if (signal_count > kMaxSignal) {
@@ -64,6 +65,8 @@ static void signalhandler(int sig, siginfo_t* info, void* context) {
 #elif defined(__i386__) || defined(__x86_64__)
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   uc->CTX_EIP += 3;
+#else
+  UNUSED(context);
 #endif
 }
 
@@ -86,13 +89,13 @@ extern "C" JNIEXPORT void JNICALL Java_Main_terminateSignalTest(JNIEnv*, jclass)
 }
 
 // Prevent the compiler being a smart-alec and optimizing out the assignment
-// to nullptr.
-char *p = nullptr;
+// to null.
+char *go_away_compiler = nullptr;
 
 extern "C" JNIEXPORT jint JNICALL Java_Main_testSignal(JNIEnv*, jclass) {
 #if defined(__arm__) || defined(__i386__) || defined(__x86_64__) || defined(__aarch64__)
   // On supported architectures we cause a real SEGV.
-  *p = 'a';
+  *go_away_compiler = 'a';
 #else
   // On other architectures we simulate SEGV.
   kill(getpid(), SIGSEGV);

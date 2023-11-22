@@ -46,7 +46,7 @@ class Heap;
 
 namespace accounting {
   template <typename T> class AtomicStack;
-  typedef AtomicStack<mirror::Object*> ObjectStack;
+  typedef AtomicStack<mirror::Object> ObjectStack;
 }  // namespace accounting
 
 namespace space {
@@ -114,8 +114,12 @@ class MarkCompact : public GarbageCollector {
   void SweepSystemWeaks()
       SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
-  static void MarkRootCallback(mirror::Object** root, void* arg, const RootInfo& root_info)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+  virtual void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info)
+      OVERRIDE EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
+
+  virtual void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
+                          const RootInfo& info)
+      OVERRIDE EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
 
   static mirror::Object* MarkObjectCallback(mirror::Object* root, void* arg)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
@@ -156,13 +160,13 @@ class MarkCompact : public GarbageCollector {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Expand mark stack to 2x its current size.
-  void ResizeMarkStack(size_t new_size);
+  void ResizeMarkStack(size_t new_size) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Returns true if we should sweep the space.
   bool ShouldSweepSpace(space::ContinuousSpace* space) const;
 
   // Push an object onto the mark stack.
-  void MarkStackPush(mirror::Object* obj);
+  void MarkStackPush(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   void UpdateAndMarkModUnion()
       EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
@@ -226,7 +230,7 @@ class MarkCompact : public GarbageCollector {
   std::string collector_name_;
 
   // The bump pointer in the space where the next forwarding address will be.
-  byte* bump_pointer_;
+  uint8_t* bump_pointer_;
   // How many live objects we have in the space.
   size_t live_objects_in_space_;
 
@@ -245,7 +249,9 @@ class MarkCompact : public GarbageCollector {
   friend class MoveObjectVisitor;
   friend class UpdateObjectReferencesVisitor;
   friend class UpdateReferenceVisitor;
-  DISALLOW_COPY_AND_ASSIGN(MarkCompact);
+  friend class UpdateRootVisitor;
+
+  DISALLOW_IMPLICIT_CONSTRUCTORS(MarkCompact);
 };
 
 }  // namespace collector

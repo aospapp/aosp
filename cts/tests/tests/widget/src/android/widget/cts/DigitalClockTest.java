@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import java.io.IOException;
+import com.android.cts.widget.R;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -29,9 +29,9 @@ import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.DigitalClock;
 import android.widget.LinearLayout;
+import android.widget.cts.util.XmlUtils;
 
-import com.android.cts.widget.R;
-import com.android.internal.util.XmlUtils;
+import java.io.IOException;
 
 
 /**

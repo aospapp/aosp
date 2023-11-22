@@ -18,8 +18,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="add_cc_label" msgid="5504248178750252553">"+ Պտճ/Ծածկպտճ"</string>
-    <string name="add_bcc_label" msgid="2464329024392383408">"+ Ծածկպտճ"</string>
-    <string name="menu_manage_folders" msgid="2575462565700103317">"Կառավարել թղթապանակները"</string>
+    <string name="add_cc_label" msgid="5504248178750252553">"+ Պճ/Ծպճ"</string>
+    <string name="add_bcc_label" msgid="2464329024392383408">"+ Ծպճ"</string>
+    <string name="menu_manage_folders" msgid="2575462565700103317">"Կառավարել պանակները"</string>
     <string name="preferences_default_reply_all_summary" msgid="6407854387225415499">"Օգտագործել ըստ կանխադրման՝ բոլոր ծանուցումների համար"</string>
 </resources>

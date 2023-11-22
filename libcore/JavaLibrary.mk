@@ -69,14 +69,43 @@ local_javac_flags=-encoding UTF-8
 local_javac_flags+=-Xmaxwarns 9999999
 
 #
+# ICU4J related rules.
+#
+# We compile icu4j along with core-libart because we're implementing parts of core-libart
+# in terms of icu4j.
+icu4j_root := ../external/icu/icu4j/
+icu4j_src_files := $(call all-java-files-under,$(icu4j_root)/main/classes)
+
+# Filter out bits of ICU4J we don't use yet : the SPIs (which we have limited support for),
+# the charset encoders and the transliterators.
+icu4j_src_files := $(filter-out $(icu4j_root)/main/classes/localespi/%, $(icu4j_src_files))
+icu4j_src_files := $(filter-out $(icu4j_root)/main/classes/charset/%, $(icu4j_src_files))
+icu4j_src_files := $(filter-out $(icu4j_root)/main/classes/translit/%, $(icu4j_src_files))
+
+# Not all src dirs contain resources, some instead contain other random files
+# that should not be included as resources. The ones that should be included
+# can be identifed by the fact that they contain particular subdir trees.
+#
+define all-icu-subdir-with-subdir
+$(patsubst $(LOCAL_PATH)/%/$(2),%,$(wildcard $(LOCAL_PATH)/$(1)/$(2)))
+endef
+
+icu4j_resource_dirs := $(call all-icu-subdir-with-subdir,$(icu4j_root)/main/classes/*/src,com/ibm/icu)
+icu4j_resource_dirs := $(filter-out $(icu4j_root)/main/classes/localespi/%, $(icu4j_resource_dirs))
+icu4j_resource_dirs := $(filter-out $(icu4j_root)/main/classes/charset/%, $(icu4j_resource_dirs))
+icu4j_resource_dirs := $(filter-out $(icu4j_root)/main/classes/translit/%, $(icu4j_resource_dirs))
+
+
+
+#
 # Build for the target (device).
 #
 
 # Definitions to make the core library.
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(libart_core_src_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
+LOCAL_SRC_FILES := $(libart_core_src_files) $(icu4j_src_files)
+LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs) $(icu4j_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_DX_FLAGS := --core-library
@@ -84,7 +113,18 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := core-libart
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/JavaLibrary.mk
 LOCAL_REQUIRED_MODULES := tzdata
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 include $(BUILD_JAVA_LIBRARY)
+
+# Path to the ICU4C data files in the Android device file system:
+icu4c_data := /system/usr/icu
+# TODO: It's quite hideous that this double-slash between icu4j and main is required.
+# It's because we provide a variable substition of the make-rule generated jar command
+# to substitute a processed ICUProperties.config file in place of the original.
+#
+# We can avoid this by filtering out ICUConfig.properties from our list of resources.
+icu4j_config_root := $(LOCAL_PATH)/../external/icu/icu4j//main/classes/core/src
+include external/icu/icu4j/adjust_icudt_path.mk
 
 ifeq ($(LIBCORE_SKIP_TESTS),)
 # Make the core-tests library.
@@ -126,24 +166,11 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/JavaLibrary.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 endif
 
-# This one's tricky. One of our tests needs to have a
-# resource with a "#" in its name, but Perforce doesn't
-# allow us to submit such a file. So we create it here
-# on-the-fly.
-TMP_RESOURCE_DIR := $(intermediates.COMMON)/tmp/
-TMP_RESOURCE_FILE := org/apache/harmony/luni/tests/java/lang/test\#.properties
-
-$(TMP_RESOURCE_DIR)$(TMP_RESOURCE_FILE):
-	@mkdir -p $(dir $@)
-	@echo "Hello, world!" > $@
-
-$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_EXTRA_JAR_ARGS := $(extra_jar_args) -C "$(TMP_RESOURCE_DIR)" "$(TMP_RESOURCE_FILE)"
-$(LOCAL_INTERMEDIATE_TARGETS): $(TMP_RESOURCE_DIR)$(TMP_RESOURCE_FILE)
-
-
 #
 # Build for the host.
 #
+
+ifeq ($(HOST_OS),linux)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-main-java-files-under, dex)
@@ -153,8 +180,8 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 
 # Definitions to make the core library.
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(libart_core_src_files)
-LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs)
+LOCAL_SRC_FILES := $(libart_core_src_files) $(icu4j_src_files)
+LOCAL_JAVA_RESOURCE_DIRS := $(core_resource_dirs) $(icu4j_resource_dirs)
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_DX_FLAGS := --core-library
@@ -162,6 +189,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := core-libart-hostdex
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/JavaLibrary.mk
 LOCAL_REQUIRED_MODULES := tzdata-host
+LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 
 # Make the core-tests library.
@@ -192,6 +220,8 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/JavaLibrary.mk
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif
+
+endif # HOST_OS == linux
 
 #
 # Local droiddoc for faster libcore testing

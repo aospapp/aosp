@@ -36,7 +36,7 @@ def main():
         # Use a manual request with a linear tonemap so that the YUV and RAW
         # should look the same (once converted by the its.image module).
         e, s = its.target.get_target_exposure_combos(cam)["midExposureTime"]
-        req = its.objects.manual_capture_request(s, e, True)
+        req = its.objects.manual_capture_request(s, e, True, props)
 
         cap_raw, cap_yuv = cam.do_capture(req,
                 [{"format":"raw10"}, {"format":"yuv"}])

@@ -17,7 +17,7 @@
 #ifndef ART_COMPILER_DEX_DATAFLOW_ITERATOR_H_
 #define ART_COMPILER_DEX_DATAFLOW_ITERATOR_H_
 
-#include "compiler_ir.h"
+#include "base/logging.h"
 #include "mir_graph.h"
 
 namespace art {
@@ -72,7 +72,7 @@ namespace art {
           : mir_graph_(mir_graph),
             start_idx_(start_idx),
             end_idx_(end_idx),
-            block_id_list_(NULL),
+            block_id_list_(nullptr),
             idx_(0),
             repeats_(0),
             changed_(false) {}
@@ -104,7 +104,7 @@ namespace art {
       MIRGraph* const mir_graph_;                       /**< @brief the MIRGraph */
       const int32_t start_idx_;                         /**< @brief the start index for the iteration */
       const int32_t end_idx_;                           /**< @brief the last index for the iteration */
-      GrowableArray<BasicBlockId>* block_id_list_;      /**< @brief the list of BasicBlocks we want to iterate on */
+      const ArenaVector<BasicBlockId>* block_id_list_;  /**< @brief the list of BasicBlocks we want to iterate on */
       int32_t idx_;                                     /**< @brief Current index for the iterator */
       int32_t repeats_;                                 /**< @brief Number of repeats over the iteration */
       bool changed_;                                    /**< @brief Has something changed during the current iteration? */
@@ -124,7 +124,7 @@ namespace art {
           : DataflowIterator(mir_graph, 0, mir_graph->GetNumReachableBlocks()) {
         // Extra setup for the PreOrderDfsIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDfsOrder();
+        block_id_list_ = &mir_graph->GetDfsOrder();
       }
 
       /**
@@ -155,7 +155,7 @@ namespace art {
           : DataflowIterator(mir_graph, 0, mir_graph->GetNumReachableBlocks()) {
         // Extra setup for the RepeatingPreOrderDfsIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDfsOrder();
+        block_id_list_ = &mir_graph->GetDfsOrder();
       }
 
       /**
@@ -186,7 +186,7 @@ namespace art {
           : DataflowIterator(mir_graph, 0, mir_graph->GetNumReachableBlocks()) {
         // Extra setup for the RepeatingPostOrderDfsIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDfsPostOrder();
+        block_id_list_ = &mir_graph->GetDfsPostOrder();
       }
 
       /**
@@ -216,7 +216,7 @@ namespace art {
           : DataflowIterator(mir_graph, mir_graph->GetNumReachableBlocks() -1, 0) {
         // Extra setup for the ReversePostOrderDfsIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDfsPostOrder();
+        block_id_list_ = &mir_graph->GetDfsPostOrder();
       }
 
       /**
@@ -247,7 +247,7 @@ namespace art {
           : DataflowIterator(mir_graph, mir_graph->GetNumReachableBlocks() -1, 0) {
         // Extra setup for the RepeatingReversePostOrderDfsIterator
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDfsPostOrder();
+        block_id_list_ = &mir_graph->GetDfsPostOrder();
       }
 
       /**
@@ -277,7 +277,7 @@ namespace art {
           : DataflowIterator(mir_graph, 0, mir_graph->GetNumReachableBlocks()) {
         // Extra setup for thePostOrderDOMIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetDomPostOrder();
+        block_id_list_ = &mir_graph->GetDomPostOrder();
       }
 
       /**
@@ -304,15 +304,14 @@ namespace art {
        * @param mir_graph The MIRGraph considered.
        */
       explicit AllNodesIterator(MIRGraph* mir_graph)
-          : DataflowIterator(mir_graph, 0, 0),
-            all_nodes_iterator_(mir_graph->GetBlockList()) {
+          : DataflowIterator(mir_graph, 0, mir_graph->GetBlockList().size()) {
       }
 
       /**
        * @brief Resetting the iterator.
        */
       void Reset() {
-        all_nodes_iterator_.Reset();
+        idx_ = 0;
       }
 
       /**
@@ -321,9 +320,6 @@ namespace art {
        * @return the next BasicBlock following the iteration order, 0 if finished.
        */
       virtual BasicBlock* Next(bool had_change = false) ALWAYS_INLINE;
-
-    private:
-      GrowableArray<BasicBlock*>::Iterator all_nodes_iterator_;    /**< @brief The list of all the nodes */
   };
 
   /**
@@ -337,10 +333,12 @@ namespace art {
        * @param mir_graph The MIRGraph considered.
        */
       explicit TopologicalSortIterator(MIRGraph* mir_graph)
-          : DataflowIterator(mir_graph, 0, mir_graph->GetTopologicalSortOrder()->Size()) {
+          : DataflowIterator(mir_graph, 0, mir_graph->GetTopologicalSortOrder().size()),
+            loop_ends_(&mir_graph->GetTopologicalSortOrderLoopEnds()),
+            loop_head_stack_(mir_graph_->GetTopologicalSortOrderLoopHeadStack()) {
         // Extra setup for TopologicalSortIterator.
         idx_ = start_idx_;
-        block_id_list_ = mir_graph->GetTopologicalSortOrder();
+        block_id_list_ = &mir_graph->GetTopologicalSortOrder();
       }
 
       /**
@@ -348,44 +346,11 @@ namespace art {
        * @param had_change did the user of the iteration change the previous BasicBlock.
        * @return the next BasicBlock following the iteration order, 0 if finished.
        */
-      virtual BasicBlock* Next(bool had_change = false) {
-        // Update changed: if had_changed is true, we remember it for the whole iteration.
-        changed_ |= had_change;
+      virtual BasicBlock* Next(bool had_change = false) OVERRIDE;
 
-        return ForwardSingleNext();
-      }
-  };
-
-  /**
-   * @class RepeatingTopologicalSortIterator
-   * @brief Used to perform a Topological Sort Iteration of a MIRGraph.
-   * @details If there is a change during an iteration, the iteration starts over at the end of the
-   *          iteration.
-   */
-  class RepeatingTopologicalSortIterator : public DataflowIterator {
-    public:
-     /**
-      * @brief The constructor, using all of the reachable blocks of the MIRGraph.
-      * @param mir_graph The MIRGraph considered.
-      */
-     explicit RepeatingTopologicalSortIterator(MIRGraph* mir_graph)
-         : DataflowIterator(mir_graph, 0, mir_graph->GetTopologicalSortOrder()->Size()) {
-       // Extra setup for RepeatingTopologicalSortIterator.
-       idx_ = start_idx_;
-       block_id_list_ = mir_graph->GetTopologicalSortOrder();
-     }
-
-     /**
-      * @brief Get the next BasicBlock depending on iteration order.
-      * @param had_change did the user of the iteration change the previous BasicBlock.
-      * @return the next BasicBlock following the iteration order, 0 if finished.
-      */
-     virtual BasicBlock* Next(bool had_change = false) {
-       // Update changed: if had_changed is true, we remember it for the whole iteration.
-       changed_ |= had_change;
-
-       return ForwardRepeatNext();
-     }
+    private:
+     const ArenaVector<BasicBlockId>* const loop_ends_;
+     ArenaVector<std::pair<uint16_t, bool>>* const loop_head_stack_;
   };
 
   /**
@@ -408,19 +373,19 @@ namespace art {
       * @param mir_graph The MIRGraph considered.
       */
      explicit LoopRepeatingTopologicalSortIterator(MIRGraph* mir_graph)
-         : DataflowIterator(mir_graph, 0, mir_graph->GetTopologicalSortOrder()->Size()),
-           loop_ends_(mir_graph->GetTopologicalSortOrderLoopEnds()),
+         : DataflowIterator(mir_graph, 0, mir_graph->GetTopologicalSortOrder().size()),
+           loop_ends_(&mir_graph->GetTopologicalSortOrderLoopEnds()),
            loop_head_stack_(mir_graph_->GetTopologicalSortOrderLoopHeadStack()) {
        // Extra setup for RepeatingTopologicalSortIterator.
        idx_ = start_idx_;
-       block_id_list_ = mir_graph->GetTopologicalSortOrder();
+       block_id_list_ = &mir_graph->GetTopologicalSortOrder();
        // Clear visited flags and check that the loop head stack is empty.
        mir_graph->ClearAllVisitedFlags();
-       DCHECK_EQ(loop_head_stack_->Size(), 0u);
+       DCHECK_EQ(loop_head_stack_->size(), 0u);
      }
 
      ~LoopRepeatingTopologicalSortIterator() {
-       DCHECK_EQ(loop_head_stack_->Size(), 0u);
+       DCHECK_EQ(loop_head_stack_->size(), 0u);
      }
 
      /**
@@ -431,8 +396,8 @@ namespace art {
      virtual BasicBlock* Next(bool had_change = false) OVERRIDE;
 
     private:
-     const GrowableArray<BasicBlockId>* const loop_ends_;
-     GrowableArray<std::pair<uint16_t, bool>>* const loop_head_stack_;
+     const ArenaVector<BasicBlockId>* const loop_ends_;
+     ArenaVector<std::pair<uint16_t, bool>>* const loop_head_stack_;
   };
 
 }  // namespace art

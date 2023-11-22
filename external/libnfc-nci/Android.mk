@@ -20,13 +20,13 @@ D_CFLAGS := -DANDROID -DBUILDCFG=1
 # Build shared library system/lib/libnfc-nci.so for stack code.
 
 include $(CLEAR_VARS)
-LOCAL_PRELINK_MODULE := false
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE := libnfc-nci
 LOCAL_MODULE_TAGS := optional
-LOCAL_SHARED_LIBRARIES := libhardware_legacy libcutils liblog libdl libstlport libhardware
+LOCAL_SHARED_LIBRARIES := libhardware_legacy libcutils liblog libdl libhardware
 LOCAL_CFLAGS := $(D_CFLAGS)
-LOCAL_C_INCLUDES := external/stlport/stlport bionic/ bionic/libstdc++/include \
+LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/src/include \
     $(LOCAL_PATH)/src/gki/ulinux \
     $(LOCAL_PATH)/src/gki/common \
@@ -54,15 +54,16 @@ include $(BUILD_SHARED_LIBRARY)
 # Android's generic HAL (libhardware.so) dynamically loads this shared library.
 
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE := nfc_nci.bcm2079x.default
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := $(call all-c-files-under, $(HALIMPL)) \
     $(call all-cpp-files-under, $(HALIMPL)) \
     src/adaptation/CrcChecksum.cpp \
     src//nfca_version.c
-LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy libstlport
+LOCAL_SHARED_LIBRARIES := liblog libcutils libhardware_legacy
 LOCAL_MODULE_TAGS := optional
-LOCAL_C_INCLUDES := external/stlport/stlport bionic/ bionic/libstdc++/include \
+LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/$(HALIMPL)/include \
     $(LOCAL_PATH)/$(HALIMPL)/gki/ulinux \
     $(LOCAL_PATH)/$(HALIMPL)/gki/common \

@@ -113,6 +113,12 @@ typedef STACK_OF(GENERAL_NAME) GENERAL_NAMES;
 #include "debug.h"
 #include "gcmalloc.h"
 
+#if defined(OPENSSL_IS_BORINGSSL)
+/* HMAC_cleanup is deprecated wrapper in OpenSSL and has been removed in
+ * BoringSSL. */
+#define HMAC_cleanup(ctx) HMAC_CTX_cleanup(ctx)
+#endif
+
 /*
  * I hate to cast every parameter to des_xx into void *, but it is
  * necessary for SSLeay/OpenSSL portability.  It sucks.
@@ -814,7 +820,11 @@ eay_get_x509text(cert)
 		goto end;
 	}
 
+#if defined(ANDROID_CHANGES)
+	len = BIO_get_mem_data(bio, (char**) &bp);
+#else
 	len = BIO_get_mem_data(bio, &bp);
+#endif
 	text = racoon_malloc(len + 1);
 	if (text == NULL)
 		goto end;
@@ -1208,7 +1218,11 @@ eay_strerror()
 	int line, flags;
 	unsigned long es;
 
+#if defined(ANDROID_CHANGES)
+	es = 0;
+#else
 	es = CRYPTO_thread_id();
+#endif
 
 	while ((l = ERR_get_error_line_data(&file, &line, &data, &flags)) != 0){
 		n = snprintf(ebuf + len, sizeof(ebuf) - len,
@@ -1242,6 +1256,7 @@ evp_crypt(vchar_t *data, vchar_t *key, vchar_t *iv, const EVP_CIPHER *e, int enc
 
 	EVP_CIPHER_CTX_init(&ctx);
 
+#if !defined(OPENSSL_IS_BORINGSSL)
 	switch(EVP_CIPHER_nid(e)){
 	case NID_bf_cbc:
 	case NID_bf_ecb:
@@ -1282,13 +1297,16 @@ evp_crypt(vchar_t *data, vchar_t *key, vchar_t *iv, const EVP_CIPHER *e, int enc
 		}
 		break;
 	default:
+#endif  /* OPENSSL_IS_BORINGSSL */
 		if (!EVP_CipherInit(&ctx, e, (u_char *) key->v, 
 							(u_char *) iv->v, enc)) {
 			OpenSSL_BUG();
 			vfree(res);
 			return NULL;
 		}
+#if !defined(OPENSSL_IS_BORINGSSL)
 	}
+#endif
 
 	/* disable openssl padding */
 	EVP_CIPHER_CTX_set_padding(&ctx, 0); 
@@ -1340,6 +1358,16 @@ eay_des_decrypt(data, key, iv)
 {
 	return evp_crypt(data, key, iv, EVP_des_cbc(), 0);
 }
+
+#if defined(OPENSSL_IS_BORINGSSL)
+/* BoringSSL doesn't implement DES_is_weak_key because the concept is nonsense.
+ * Thankfully, ipsec-tools never actually uses the result of this function. */
+static int
+DES_is_weak_key(const DES_cblock *key)
+{
+	return 0;
+}
+#endif  /* OPENSSL_IS_BORINGSSL */
 
 int
 eay_des_weakkey(key)
@@ -1672,9 +1700,11 @@ aes_evp_by_keylen(int keylen)
 		case 16:
 		case 128:
 			return EVP_aes_128_cbc();
+#if !defined(ANDROID_CHANGES)
 		case 24:
 		case 192:
 			return EVP_aes_192_cbc();
+#endif
 		case 32:
 		case 256:
 			return EVP_aes_256_cbc();
@@ -2447,8 +2477,13 @@ eay_dh_generate(prime, g, publen, pub, priv)
 	if (!BN_set_word(dh->g, g))
 		goto end;
 
-	if (publen != 0)
+	if (publen != 0) {
+#if defined(OPENSSL_IS_BORINGSSL)
+		dh->priv_length = publen;
+#else
 		dh->length = publen;
+#endif
+	}
 
 	/* generate public and private number */
 	if (!DH_generate_key(dh))
@@ -2496,7 +2531,11 @@ eay_dh_compute(prime, g, pub, priv, pub2, key)
 		goto end;
 	if (eay_v2bn(&dh->priv_key, priv) < 0)
 		goto end;
+#if defined(OPENSSL_IS_BORINGSSL)
+	dh->priv_length = pub2->l * 8;
+#else
 	dh->length = pub2->l * 8;
+#endif
 
 	dh->g = NULL;
 	if ((dh->g = BN_new()) == NULL)
@@ -2551,7 +2590,11 @@ eay_bn2v(var, bn)
 	vchar_t **var;
 	BIGNUM *bn;
 {
+#if defined(ANDROID_CHANGES)
+	*var = vmalloc(bn->top * sizeof(BN_ULONG));
+#else
 	*var = vmalloc(bn->top * BN_BYTES);
+#endif
 	if (*var == NULL)
 		return(-1);
 
@@ -2574,6 +2617,23 @@ eay_init()
 vchar_t *
 base64_decode(char *in, long inlen)
 {
+#if defined(OPENSSL_IS_BORINGSSL)
+	vchar_t *res;
+	size_t decoded_size;
+
+	if (!EVP_DecodedLength(&decoded_size, inlen)) {
+		return NULL;
+	}
+	res = vmalloc(decoded_size);
+	if (res == NULL) {
+		return NULL;
+	}
+	if (!EVP_DecodeBase64((uint8_t*) res->v, &res->l, decoded_size, (uint8_t*) in, inlen)) {
+		vfree(res);
+		return NULL;
+	}
+	return res;
+#else
 	BIO *bio=NULL, *b64=NULL;
 	vchar_t *res = NULL;
 	char *outb;
@@ -2606,11 +2666,27 @@ out:
 		BIO_free_all(bio);
 
 	return res;
+#endif
 }
 
 vchar_t *
 base64_encode(char *in, long inlen)
 {
+#if defined(OPENSSL_IS_BORINGSSL)
+	vchar_t *res;
+	size_t encoded_size;
+
+	if (!EVP_EncodedLength(&encoded_size, inlen)) {
+		return NULL;
+	}
+	res = vmalloc(encoded_size+1);
+	if (res == NULL) {
+		return NULL;
+	}
+	EVP_EncodeBlock((uint8_t*) res->v, (uint8_t*) in, inlen);
+	res->v[encoded_size] = 0;
+	return res;
+#else
 	BIO *bio=NULL, *b64=NULL;
 	char *ptr;
 	long plen = -1;
@@ -2637,6 +2713,7 @@ out:
 		BIO_free_all(bio);
 
 	return res;
+#endif
 }
 
 static RSA *
@@ -2745,5 +2822,9 @@ eay_random()
 const char *
 eay_version()
 {
+#if defined(OPENSSL_IS_BORINGSSL)
+	return "(BoringSSL)";
+#else
 	return SSLeay_version(SSLEAY_VERSION);
+#endif
 }

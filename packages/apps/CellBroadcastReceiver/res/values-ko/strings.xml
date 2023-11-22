@@ -64,7 +64,7 @@
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"CMAS 테스트 브로드캐스트 표시"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"모바일 경보 시스템(CMAS)에 대한 테스트 브로드캐스트 표시"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"진동"</string>
-    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"알리미 받을 때 진동"</string>
+    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"알림 받을 때 진동"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"브라질에 대한 설정"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"채널 50 브로드캐스트 표시"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"지역 업데이트 정보용으로 브라질에서 사용되는 채널 50"</string>

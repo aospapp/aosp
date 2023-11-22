@@ -90,8 +90,7 @@ public class PeopleActivityTest
         InjectedServices services = new InjectedServices();
         services.setContentResolver(mContext.getContentResolver());
         services.setSharedPreferences(new MockSharedPreferences());
-        services.setSystemService(ContactPhotoManager.CONTACT_PHOTO_SERVICE,
-                new MockContactPhotoManager());
+        ContactPhotoManager.injectContactPhotoManagerForTesting(new MockContactPhotoManager());
         AccountType accountType = new BaseAccountType() {
             @Override
             public boolean areContactsWritable() {
@@ -117,8 +116,8 @@ public class PeopleActivityTest
     private void expectProviderStatusQueryAndReturnNormal() {
         mContactsProvider
                 .expectQuery(ProviderStatus.CONTENT_URI)
-                .withProjection(ProviderStatus.STATUS, ProviderStatus.DATA1)
-                .returnRow(ProviderStatus.STATUS_NORMAL, null)
+                .withProjection(ProviderStatus.STATUS)
+                .returnRow(ProviderStatus.STATUS_NORMAL)
                 .anyNumberOfTimes();
     }
 

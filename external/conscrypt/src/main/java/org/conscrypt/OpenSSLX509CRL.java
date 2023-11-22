@@ -52,7 +52,7 @@ public class OpenSSLX509CRL extends X509CRL {
     }
 
     public static OpenSSLX509CRL fromX509DerInputStream(InputStream is) throws ParsingException {
-        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         try {
             final long crlCtx = NativeCrypto.d2i_X509_CRL_bio(bis.getBioContext());
@@ -69,7 +69,7 @@ public class OpenSSLX509CRL extends X509CRL {
 
     public static List<OpenSSLX509CRL> fromPkcs7DerInputStream(InputStream is)
             throws ParsingException {
-        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         final long[] certRefs;
         try {
@@ -91,7 +91,7 @@ public class OpenSSLX509CRL extends X509CRL {
     }
 
     public static OpenSSLX509CRL fromX509PemInputStream(InputStream is) throws ParsingException {
-        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        final OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         try {
             final long crlCtx = NativeCrypto.PEM_read_bio_X509_CRL(bis.getBioContext());
@@ -108,7 +108,7 @@ public class OpenSSLX509CRL extends X509CRL {
 
     public static List<OpenSSLX509CRL> fromPkcs7PemInputStream(InputStream is)
             throws ParsingException {
-        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is);
+        OpenSSLBIOInputStream bis = new OpenSSLBIOInputStream(is, true);
 
         final long[] certRefs;
         try {
@@ -195,7 +195,7 @@ public class OpenSSLX509CRL extends X509CRL {
 
     private void verifyOpenSSL(OpenSSLKey pkey) throws CRLException, NoSuchAlgorithmException,
             InvalidKeyException, NoSuchProviderException, SignatureException {
-        NativeCrypto.X509_CRL_verify(mContext, pkey.getPkeyContext());
+        NativeCrypto.X509_CRL_verify(mContext, pkey.getNativeRef());
     }
 
     private void verifyInternal(PublicKey key, String sigProvider) throws CRLException,

@@ -267,6 +267,7 @@ int inode_set_permissions(u32 inode_num, u16 mode, u16 uid, u16 gid, u32 mtime)
  */
 static size_t xattr_free_space(struct ext4_xattr_entry *entry, char *end)
 {
+        end -= sizeof(uint32_t); /* Required four null bytes */
 	while(!IS_LAST_ENTRY(entry) && (((char *) entry) < end)) {
 		end   -= EXT4_XATTR_SIZE(le32_to_cpu(entry->e_value_size));
 		entry  = EXT4_XATTR_NEXT(entry);

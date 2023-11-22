@@ -33,9 +33,7 @@ CPDF_ClipPathData::CPDF_ClipPathData()
 CPDF_ClipPathData::~CPDF_ClipPathData()
 {
     int i;
-    if (m_pPathList) {
-        FX_DELETE_VECTOR(m_pPathList, CPDF_Path, m_PathCount);
-    }
+    delete[] m_pPathList;
     if (m_pTypeList) {
         FX_Free(m_pTypeList);
     }
@@ -58,7 +56,7 @@ CPDF_ClipPathData::CPDF_ClipPathData(const CPDF_ClipPathData& src)
         if (alloc_size % 8) {
             alloc_size += 8 - (alloc_size % 8);
         }
-        FX_NEW_VECTOR(m_pPathList, CPDF_Path, alloc_size);
+        m_pPathList = new CPDF_Path[alloc_size];
         for (int i = 0; i < m_PathCount; i ++) {
             m_pPathList[i] = src.m_pPathList[i];
         }
@@ -71,10 +69,9 @@ CPDF_ClipPathData::CPDF_ClipPathData(const CPDF_ClipPathData& src)
     m_TextCount = src.m_TextCount;
     if (m_TextCount) {
         m_pTextList = FX_Alloc(CPDF_TextObject*, m_TextCount);
-        FXSYS_memset32(m_pTextList, 0, sizeof(CPDF_TextObject*) * m_TextCount);
         for (int i = 0; i < m_TextCount; i ++) {
             if (src.m_pTextList[i]) {
-                m_pTextList[i] = FX_NEW CPDF_TextObject;
+                m_pTextList[i] = new CPDF_TextObject;
                 m_pTextList[i]->Copy(src.m_pTextList[i]);
             } else {
                 m_pTextList[i] = NULL;
@@ -90,13 +87,12 @@ void CPDF_ClipPathData::SetCount(int path_count, int text_count)
     if (path_count) {
         m_PathCount = path_count;
         int alloc_size = (path_count + 7) / 8 * 8;
-        FX_NEW_VECTOR(m_pPathList, CPDF_Path, alloc_size);
+        m_pPathList = new CPDF_Path[alloc_size];
         m_pTypeList = FX_Alloc(FX_BYTE, alloc_size);
     }
     if (text_count) {
         m_TextCount = text_count;
         m_pTextList = FX_Alloc(CPDF_TextObject*, text_count);
-        FXSYS_memset32(m_pTextList, 0, sizeof(void*) * text_count);
     }
 }
 CPDF_Rect CPDF_ClipPath::GetClipBox() const
@@ -154,14 +150,11 @@ void CPDF_ClipPath::AppendPath(CPDF_Path path, int type, FX_BOOL bAutoMerge)
         }
     }
     if (pData->m_PathCount % 8 == 0) {
-        CPDF_Path* pNewPath;
-        FX_NEW_VECTOR(pNewPath, CPDF_Path, pData->m_PathCount + 8);
+        CPDF_Path* pNewPath = new CPDF_Path[pData->m_PathCount + 8];
         for (int i = 0; i < pData->m_PathCount; i ++) {
             pNewPath[i] = pData->m_pPathList[i];
         }
-        if (pData->m_pPathList) {
-            FX_DELETE_VECTOR(pData->m_pPathList, CPDF_Path, pData->m_PathCount);
-        }
+        delete[] pData->m_pPathList;
         FX_BYTE* pNewType = FX_Alloc(FX_BYTE, pData->m_PathCount + 8);
         FXSYS_memcpy32(pNewType, pData->m_pTypeList, pData->m_PathCount);
         if (pData->m_pTypeList) {
@@ -194,7 +187,7 @@ void CPDF_ClipPath::AppendTexts(CPDF_TextObject** pTexts, int count)
     CPDF_ClipPathData* pData = GetModify();
     if (pData->m_TextCount + count > FPDF_CLIPPATH_MAX_TEXTS) {
         for (int i = 0; i < count; i ++) {
-            pTexts[i]->Release();
+            delete pTexts[i];
         }
         return;
     }
@@ -286,6 +279,7 @@ void CPDF_ColorState::SetStrokePattern(CPDF_Pattern* pPattern, FX_FLOAT* pValue,
 CPDF_TextStateData::CPDF_TextStateData()
 {
     m_pFont = NULL;
+    m_pDocument = NULL;
     m_FontSize = 1.0f;
     m_WordSpace = 0;
     m_CharSpace = 0;
@@ -297,27 +291,35 @@ CPDF_TextStateData::CPDF_TextStateData()
 }
 CPDF_TextStateData::CPDF_TextStateData(const CPDF_TextStateData& src)
 {
+    if (this == &src) {
+        return;
+    }
     FXSYS_memcpy32(this, &src, sizeof(CPDF_TextStateData));
-    if (m_pFont && m_pFont->m_pDocument) {
-        m_pFont = m_pFont->m_pDocument->GetPageData()->GetFont(m_pFont->GetFontDict(), FALSE);
+    if (m_pDocument && m_pFont) {
+        m_pFont = m_pDocument->GetPageData()->GetFont(m_pFont->GetFontDict(), FALSE);
     }
 }
 CPDF_TextStateData::~CPDF_TextStateData()
 {
-    CPDF_Font* pFont = m_pFont;
-    if (pFont && pFont->m_pDocument) {
-        pFont->m_pDocument->GetPageData()->ReleaseFont(pFont->GetFontDict());
+    if (m_pDocument && m_pFont) {
+        CPDF_DocPageData *pPageData = m_pDocument->GetPageData();
+        if (pPageData && !pPageData->IsForceClear()) {
+            pPageData->ReleaseFont(m_pFont->GetFontDict());
+        }
     }
 }
 void CPDF_TextState::SetFont(CPDF_Font* pFont)
 {
-    CPDF_Font*& pStateFont = GetModify()->m_pFont;
-    CPDF_DocPageData* pDocPageData = NULL;
-    if (pStateFont && pStateFont->m_pDocument) {
-        pDocPageData = pStateFont->m_pDocument->GetPageData();
-        pDocPageData->ReleaseFont(pStateFont->GetFontDict());
+    CPDF_TextStateData* pStateData = GetModify();
+    if (pStateData) {
+        CPDF_Document* pDoc = pStateData->m_pDocument;
+        CPDF_DocPageData *pPageData = pDoc ? pDoc->GetPageData() : NULL;
+        if (pPageData && pStateData->m_pFont && !pPageData->IsForceClear()) {
+            pPageData->ReleaseFont(pStateData->m_pFont->GetFontDict());
+        }
+        pStateData->m_pDocument = pFont ? pFont->m_pDocument : NULL;
+        pStateData->m_pFont = pFont;
     }
-    pStateFont = pFont;
 }
 FX_FLOAT CPDF_TextState::GetFontSizeV() const
 {
@@ -347,7 +349,7 @@ FX_FLOAT CPDF_TextState::GetShearAngle() const
 CPDF_GeneralStateData::CPDF_GeneralStateData()
 {
     FXSYS_memset32(this, 0, sizeof(CPDF_GeneralStateData));
-    FXSYS_strcpy((FX_LPSTR)m_BlendMode, (FX_LPCSTR)"Normal");
+    FXSYS_strcpy((FX_LPSTR)m_BlendMode, "Normal");
     m_StrokeAlpha = 1.0f;
     m_FillAlpha = 1.0f;
     m_Flatness = 1.0f;
@@ -420,7 +422,7 @@ void CPDF_GeneralStateData::SetBlendMode(FX_BSTR blend_mode)
     if (blend_mode.GetLength() > 15) {
         return;
     }
-    FXSYS_memcpy32(m_BlendMode, (FX_LPCBYTE)blend_mode, blend_mode.GetLength());
+    FXSYS_memcpy32(m_BlendMode, blend_mode.GetPtr(), blend_mode.GetLength());
     m_BlendMode[blend_mode.GetLength()] = 0;
     m_BlendType = ::GetBlendType(blend_mode);
 }
@@ -481,7 +483,8 @@ void CPDF_AllStates::ProcessExtGS(CPDF_Dictionary* pGS, CPDF_StreamContentParser
     FX_POSITION pos = pGS->GetStartPos();
     while (pos) {
         CFX_ByteString key_str;
-        CPDF_Object* pObject = pGS->GetNextElement(pos, key_str)->GetDirect();
+        CPDF_Object* pElement = pGS->GetNextElement(pos, key_str);
+        CPDF_Object* pObject = pElement ? pElement->GetDirect() : NULL;
         if (pObject == NULL) {
             continue;
         }
@@ -625,7 +628,7 @@ CPDF_ContentMarkItem::CPDF_ContentMarkItem(const CPDF_ContentMarkItem& src)
 }
 CPDF_ContentMarkItem::~CPDF_ContentMarkItem()
 {
-    if (m_ParamType == DirectDict) {
+    if (m_ParamType == DirectDict && m_pParam) {
         ((CPDF_Dictionary*)m_pParam)->Release();
     }
 }

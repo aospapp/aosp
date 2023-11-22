@@ -60,7 +60,7 @@ public class AbsSeekBarTest extends ActivityInstrumentationTestCase2<ProgressBar
 
         new MyAbsSeekBar(mActivity, null);
 
-        new MyAbsSeekBar(mActivity, null, com.android.internal.R.attr.progressBarStyle);
+        new MyAbsSeekBar(mActivity, null, android.R.attr.progressBarStyle);
     }
 
     public void testAccessThumbOffset() {

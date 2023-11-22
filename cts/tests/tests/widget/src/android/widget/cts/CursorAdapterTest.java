@@ -19,8 +19,8 @@ package android.widget.cts;
 import java.io.File;
 
 import android.content.Context;
+import android.content.res.Resources.Theme;
 import android.cts.util.PollingCheck;
-import android.cts.util.ReadElf;
 import android.cts.util.TestThread;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -38,7 +38,6 @@ import android.widget.FilterQueryProvider;
 import android.widget.TextView;
 
 import com.android.cts.widget.R;
-
 
 /**
  * Test {@link CursorAdapter}.
@@ -253,6 +252,14 @@ public class CursorAdapterTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    public void testAccessDropDownViewTheme() {
+        CursorAdapter cursorAdapter = new MockCursorAdapter(mContext, null);
+        Theme theme = mContext.getResources().newTheme();
+        cursorAdapter.setDropDownViewTheme(theme);
+        assertSame(theme, cursorAdapter.getDropDownViewTheme());
+    }
+
+    @UiThreadTest
     public void testGetFilter() {
         CursorAdapter cursorAdapter = new MockCursorAdapter(mContext, mCursor);
         Filter filter = cursorAdapter.getFilter();
@@ -338,14 +345,23 @@ public class CursorAdapterTest extends InstrumentationTestCase {
     }
 
     private final class MockCursorAdapter extends CursorAdapter {
+        private Context mContext;
+        private boolean mAutoRequery;
+
         private boolean mContentChanged = false;
 
         public MockCursorAdapter(Context context, Cursor c) {
             super(context, c);
+
+            mContext = context;
+            mAutoRequery = false;
         }
 
         public MockCursorAdapter(Context context, Cursor c, boolean autoRequery) {
             super(context, c, autoRequery);
+
+            mContext = context;
+            mAutoRequery = autoRequery;
         }
 
         public Context getContext() {
@@ -375,6 +391,9 @@ public class CursorAdapterTest extends InstrumentationTestCase {
         @Override
         public void init(Context context, Cursor c, boolean autoRequery) {
             super.init(context, c, autoRequery);
+
+            mContext = context;
+            mAutoRequery = autoRequery;
         }
 
         @Override

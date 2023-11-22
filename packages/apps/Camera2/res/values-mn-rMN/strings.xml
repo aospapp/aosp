@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Локалд хадгалагдсан ба офлайнаар харах боломжтой."</string>
     <string name="please_wait" msgid="1416313324505140068">"Түр хүлээнэ үү"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Камерын алдаа"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Камертай холбогдож чадсангүй."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"Аюулгүйн үүднээс камерыг идэвхгүй болгосон."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Камертай холбогдож чадсангүй."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"Аюулгүйн үүднээс камерыг идэвхгүй болгосон."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"Зураг эсвэл видеог хадгалахад алдаа гарсан байна."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"Апп-г ажиллуулахад шаардлагатай чухал зөвшөөрөл байхгүй байна. Зөвшөөрлийн тохиргоог шалгана уу."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Зураг хадгалахад алдаа гарлаа."</string>
     <string name="wait" msgid="765601745709933047">"Түр хүлээнэ үү..."</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Камер ашиглахын өмнө SD карт хийнэ үү."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"SD карт бэлдэж байна…"</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"SD картад хандаж чадсангүй."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Цагийн урсгал бичигдэж байна"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Програмыг камертай холбох боломжгүй байна"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"Төхөөрөмж дээр зураг эсвэл видеог хадгалаагүй байна."</string>
     <string name="capturing" msgid="5255164204641920893">"Авч байна"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Камер сонгох"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Буцах"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"АРЫН КАМЕР"</string>
     <string name="dialog_ok" msgid="774141340500181131">"Тийм"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Цуцлах"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Мэдэгдэх"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Хаах"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Таны USB сан зайгүй болсон байна. Зарим зураг болон файлын чанарын тохиргоог өөрчлөх юмуу устгана уу."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Хэмжээний хязгаарт хүрэв."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Хэт хурдан"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Горимын жагсаалт"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Зургийн кадрыг сэлгэх"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Зургийн кадр"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Томруулах"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Z+"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Жижигрүүлэх"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Z-"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Харах утга %.1f байна."</string>
     <string name="capital_on" msgid="1118214824959797269">"ИДЭВХТЭЙ"</string>
     <string name="capital_off" msgid="3020696135020167263">"ИДЭВХГҮЙ"</string>
     <string name="video_control_play" msgid="6895236811408921715">"Видео тоглуулах"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Үргэлжлэх хугацааг секундээр тохируулах"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Зураг авахаар цаг тоолж байна"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Зургийн байршлыг санаж байна уу?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Өөрийн зураг болон видеог авсан газрын байршлаар нь шошго өгнө үү.\n\nБусад апп-с энэ мэдээлэл болон хадгалагдсан зурагт хандах боломжтой."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Өөрийн зураг болон бичлэгийг авсан газрын байршлаар нь таг хийнэ үү."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"Үгүй"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Тийм"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"НЭМЭЛТ СОНГОЛТУУД"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Цуцлах"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Дууссан"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Зураг авах"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Сэтгэгдэл бичих"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Хуваалцах"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Харагдац"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Засах"</string>
@@ -365,4 +378,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"Тайруулсан мэдрэгч \n (16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Хадгалж байна..."</string>
 </resources>

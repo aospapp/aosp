@@ -32,7 +32,8 @@ Each unread conversation from a user is sent as a distinct notification.
         </intro>
     </strings>
 
-    <template src="basebuild" />
+    <template src="base-build" />
+    <template src="base-application" />
     <metadata>
         <status>PUBLISHED</status>
         <categories>UI, Notification</categories>

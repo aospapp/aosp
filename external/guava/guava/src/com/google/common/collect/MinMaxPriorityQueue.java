@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.CollectPreconditions.checkRemove;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
@@ -85,7 +86,7 @@ import java.util.Queue;
  * @author Torbjorn Gannholm
  * @since 8.0
  */
-// TODO(kevinb): @GwtCompatible
+// TODO(kevinb): GWT compatibility
 @Beta
 public final class MinMaxPriorityQueue<E> extends AbstractQueue<E> {
 
@@ -747,7 +748,6 @@ public final class MinMaxPriorityQueue<E> extends AbstractQueue<E> {
   private class QueueIterator implements Iterator<E> {
     private int cursor = -1;
     private int expectedModCount = modCount;
-    // TODO(user): Switch to ArrayDeque once Guava supports it.
     private Queue<E> forgetMeNot;
     private List<E> skipMe;
     private E lastFromForgetMeNot;
@@ -779,8 +779,7 @@ public final class MinMaxPriorityQueue<E> extends AbstractQueue<E> {
     }
 
     @Override public void remove() {
-      checkState(canRemove,
-          "no calls to remove() since the last call to next()");
+      checkRemove(canRemove);
       checkModCount();
       canRemove = false;
       expectedModCount++;

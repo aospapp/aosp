@@ -17,15 +17,18 @@
 #include <time.h>
 
 #include <errno.h>
-#include <features.h>
 #include <gtest/gtest.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <atomic>
 
 #include "ScopedSignalHandler.h"
+
+#include "private/bionic_constants.h"
 
 TEST(time, gmtime) {
   time_t t = 0;
@@ -68,6 +71,30 @@ TEST(time, gmtime_no_stack_overflow_14313703) {
   ASSERT_EQ(0, pthread_create(&t, &attributes, gmtime_no_stack_overflow_14313703_fn, NULL));
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
+}
+
+TEST(time, mktime_empty_TZ) {
+  // tzcode used to have a bug where it didn't reinitialize some internal state.
+
+  // Choose a time where DST is set.
+  struct tm t;
+  memset(&t, 0, sizeof(tm));
+  t.tm_year = 1980 - 1900;
+  t.tm_mon = 6;
+  t.tm_mday = 2;
+
+  setenv("TZ", "America/Los_Angeles", 1);
+  tzset();
+  ASSERT_EQ(static_cast<time_t>(331372800U), mktime(&t));
+
+  memset(&t, 0, sizeof(tm));
+  t.tm_year = 1980 - 1900;
+  t.tm_mon = 6;
+  t.tm_mday = 2;
+
+  setenv("TZ", "", 1); // Implies UTC.
+  tzset();
+  ASSERT_EQ(static_cast<time_t>(331344000U), mktime(&t));
 }
 
 TEST(time, mktime_10310929) {
@@ -139,7 +166,7 @@ void SetTime(timer_t t, time_t value_s, time_t value_ns, time_t interval_s, time
   ts.it_value.tv_nsec = value_ns;
   ts.it_interval.tv_sec = interval_s;
   ts.it_interval.tv_nsec = interval_ns;
-  ASSERT_EQ(0, timer_settime(t, TIMER_ABSTIME, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(t, 0, &ts, NULL));
 }
 
 static void NoOpNotifyFunction(sigval_t) {
@@ -171,7 +198,7 @@ TEST(time, timer_create) {
   ASSERT_EQ(0, timer_delete(timer_id));
 }
 
-static int timer_create_SIGEV_SIGNAL_signal_handler_invocation_count = 0;
+static int timer_create_SIGEV_SIGNAL_signal_handler_invocation_count;
 static void timer_create_SIGEV_SIGNAL_signal_handler(int signal_number) {
   ++timer_create_SIGEV_SIGNAL_signal_handler_invocation_count;
   ASSERT_EQ(SIGUSR1, signal_number);
@@ -186,6 +213,7 @@ TEST(time, timer_create_SIGEV_SIGNAL) {
   timer_t timer_id;
   ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, &se, &timer_id));
 
+  timer_create_SIGEV_SIGNAL_signal_handler_invocation_count = 0;
   ScopedSignalHandler ssh(SIGUSR1, timer_create_SIGEV_SIGNAL_signal_handler);
 
   ASSERT_EQ(0, timer_create_SIGEV_SIGNAL_signal_handler_invocation_count);
@@ -202,18 +230,11 @@ TEST(time, timer_create_SIGEV_SIGNAL) {
 }
 
 struct Counter {
-  volatile int value;
+ private:
+  std::atomic<int> value;
   timer_t timer_id;
   sigevent_t se;
   bool timer_valid;
-
-  Counter(void (*fn)(sigval_t)) : value(0), timer_valid(false) {
-    memset(&se, 0, sizeof(se));
-    se.sigev_notify = SIGEV_THREAD;
-    se.sigev_notify_function = fn;
-    se.sigev_value.sival_ptr = this;
-    Create();
-  }
 
   void Create() {
     ASSERT_FALSE(timer_valid);
@@ -221,6 +242,14 @@ struct Counter {
     timer_valid = true;
   }
 
+ public:
+  Counter(void (*fn)(sigval_t)) : value(0), timer_valid(false) {
+    memset(&se, 0, sizeof(se));
+    se.sigev_notify = SIGEV_THREAD;
+    se.sigev_notify_function = fn;
+    se.sigev_value.sival_ptr = this;
+    Create();
+  }
   void DeleteTimer() {
     ASSERT_TRUE(timer_valid);
     ASSERT_EQ(0, timer_delete(timer_id));
@@ -233,12 +262,16 @@ struct Counter {
     }
   }
 
+  int Value() const {
+    return value;
+  }
+
   void SetTime(time_t value_s, time_t value_ns, time_t interval_s, time_t interval_ns) {
     ::SetTime(timer_id, value_s, value_ns, interval_s, interval_ns);
   }
 
   bool ValueUpdated() {
-    volatile int current_value = value;
+    int current_value = value;
     time_t start = time(NULL);
     while (current_value == value && (time(NULL) - start) < 5) {
     }
@@ -261,30 +294,29 @@ struct Counter {
 
 TEST(time, timer_settime_0) {
   Counter counter(Counter::CountAndDisarmNotifyFunction);
-  ASSERT_TRUE(counter.timer_valid);
+  ASSERT_EQ(0, counter.Value());
 
-  ASSERT_EQ(0, counter.value);
-
-  counter.SetTime(0, 1, 1, 0);
-  usleep(500000);
+  counter.SetTime(0, 500000000, 1, 0);
+  sleep(1);
 
   // The count should just be 1 because we disarmed the timer the first time it fired.
-  ASSERT_EQ(1, counter.value);
+  ASSERT_EQ(1, counter.Value());
 }
 
 TEST(time, timer_settime_repeats) {
   Counter counter(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter.timer_valid);
-
-  ASSERT_EQ(0, counter.value);
+  ASSERT_EQ(0, counter.Value());
 
   counter.SetTime(0, 1, 0, 10);
   ASSERT_TRUE(counter.ValueUpdated());
   ASSERT_TRUE(counter.ValueUpdated());
   ASSERT_TRUE(counter.ValueUpdated());
+  counter.DeleteTimer();
+  // Add a sleep as other threads may be calling the callback function when the timer is deleted.
+  usleep(500000);
 }
 
-static int timer_create_NULL_signal_handler_invocation_count = 0;
+static int timer_create_NULL_signal_handler_invocation_count;
 static void timer_create_NULL_signal_handler(int signal_number) {
   ++timer_create_NULL_signal_handler_invocation_count;
   ASSERT_EQ(SIGALRM, signal_number);
@@ -295,6 +327,7 @@ TEST(time, timer_create_NULL) {
   timer_t timer_id;
   ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, NULL, &timer_id));
 
+  timer_create_NULL_signal_handler_invocation_count = 0;
   ScopedSignalHandler ssh(SIGALRM, timer_create_NULL_signal_handler);
 
   ASSERT_EQ(0, timer_create_NULL_signal_handler_invocation_count);
@@ -341,22 +374,59 @@ TEST(time, timer_delete_multiple) {
 
 TEST(time, timer_create_multiple) {
   Counter counter1(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter1.timer_valid);
   Counter counter2(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter2.timer_valid);
   Counter counter3(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter3.timer_valid);
 
-  ASSERT_EQ(0, counter1.value);
-  ASSERT_EQ(0, counter2.value);
-  ASSERT_EQ(0, counter3.value);
+  ASSERT_EQ(0, counter1.Value());
+  ASSERT_EQ(0, counter2.Value());
+  ASSERT_EQ(0, counter3.Value());
 
-  counter2.SetTime(0, 1, 0, 0);
+  counter2.SetTime(0, 500000000, 0, 0);
+  sleep(1);
+
+  EXPECT_EQ(0, counter1.Value());
+  EXPECT_EQ(1, counter2.Value());
+  EXPECT_EQ(0, counter3.Value());
+}
+
+// Test to verify that disarming a repeatable timer disables the callbacks.
+TEST(time, timer_disarm_terminates) {
+  Counter counter(Counter::CountNotifyFunction);
+  ASSERT_EQ(0, counter.Value());
+
+  counter.SetTime(0, 1, 0, 1);
+  ASSERT_TRUE(counter.ValueUpdated());
+  ASSERT_TRUE(counter.ValueUpdated());
+  ASSERT_TRUE(counter.ValueUpdated());
+
+  counter.SetTime(0, 0, 0, 0);
+  // Add a sleep as the kernel may have pending events when the timer is disarmed.
+  usleep(500000);
+  int value = counter.Value();
   usleep(500000);
 
-  EXPECT_EQ(0, counter1.value);
-  EXPECT_EQ(1, counter2.value);
-  EXPECT_EQ(0, counter3.value);
+  // Verify the counter has not been incremented.
+  ASSERT_EQ(value, counter.Value());
+}
+
+// Test to verify that deleting a repeatable timer disables the callbacks.
+TEST(time, timer_delete_terminates) {
+  Counter counter(Counter::CountNotifyFunction);
+  ASSERT_EQ(0, counter.Value());
+
+  counter.SetTime(0, 1, 0, 1);
+  ASSERT_TRUE(counter.ValueUpdated());
+  ASSERT_TRUE(counter.ValueUpdated());
+  ASSERT_TRUE(counter.ValueUpdated());
+
+  counter.DeleteTimer();
+  // Add a sleep as other threads may be calling the callback function when the timer is deleted.
+  usleep(500000);
+  int value = counter.Value();
+  usleep(500000);
+
+  // Verify the counter has not been incremented.
+  ASSERT_EQ(value, counter.Value());
 }
 
 struct TimerDeleteData {
@@ -386,11 +456,11 @@ TEST(time, timer_delete_from_timer_thread) {
   ASSERT_EQ(0, timer_create(CLOCK_REALTIME, &se, &tdd.timer_id));
 
   itimerspec ts;
-  ts.it_value.tv_sec = 0;
-  ts.it_value.tv_nsec = 100;
+  ts.it_value.tv_sec = 1;
+  ts.it_value.tv_nsec = 0;
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
-  ASSERT_EQ(0, timer_settime(tdd.timer_id, TIMER_ABSTIME, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(tdd.timer_id, 0, &ts, NULL));
 
   time_t cur_time = time(NULL);
   while (!tdd.complete && (time(NULL) - cur_time) < 5);
@@ -417,7 +487,7 @@ TEST(time, clock_gettime) {
   ts2.tv_nsec -= ts1.tv_nsec;
   if (ts2.tv_nsec < 0) {
     --ts2.tv_sec;
-    ts2.tv_nsec += 1000000000;
+    ts2.tv_nsec += NS_PER_S;
   }
 
   // Should be less than (a very generous, to try to avoid flakiness) 1000000ns.
@@ -425,44 +495,51 @@ TEST(time, clock_gettime) {
   ASSERT_LT(ts2.tv_nsec, 1000000);
 }
 
-// Test to verify that disarming a repeatable timer disables the
-// callbacks.
-TEST(time, timer_disarm_terminates) {
-  Counter counter(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter.timer_valid);
-
-  ASSERT_EQ(0, counter.value);
-
-  counter.SetTime(0, 1, 0, 1);
-  ASSERT_TRUE(counter.ValueUpdated());
-  ASSERT_TRUE(counter.ValueUpdated());
-  ASSERT_TRUE(counter.ValueUpdated());
-
-  counter.SetTime(0, 0, 1, 0);
-  volatile int value = counter.value;
-  usleep(500000);
-
-  // Verify the counter has not been incremented.
-  ASSERT_EQ(value, counter.value);
+TEST(time, clock) {
+  // clock(3) is hard to test, but a 1s sleep should cost less than 1ms.
+  clock_t t0 = clock();
+  sleep(1);
+  clock_t t1 = clock();
+  ASSERT_LT(t1 - t0, CLOCKS_PER_SEC / 1000);
 }
 
-// Test to verify that deleting a repeatable timer disables the
-// callbacks.
-TEST(time, timer_delete_terminates) {
-  Counter counter(Counter::CountNotifyFunction);
-  ASSERT_TRUE(counter.timer_valid);
+pid_t GetInvalidPid() {
+  FILE* fp = fopen("/proc/sys/kernel/pid_max", "r");
+  long pid_max;
+  fscanf(fp, "%ld", &pid_max);
+  pid_t invalid_pid = static_cast<pid_t>(pid_max + 1);
+  fclose(fp);
+  return invalid_pid;
+}
 
-  ASSERT_EQ(0, counter.value);
+TEST(time, clock_getcpuclockid) {
+  // For current process.
+  clockid_t clockid;
+  ASSERT_EQ(0, clock_getcpuclockid(getpid(), &clockid));
 
-  counter.SetTime(0, 1, 0, 1);
-  ASSERT_TRUE(counter.ValueUpdated());
-  ASSERT_TRUE(counter.ValueUpdated());
-  ASSERT_TRUE(counter.ValueUpdated());
+  timespec ts;
+  ASSERT_EQ(0, clock_gettime(clockid, &ts));
 
-  counter.DeleteTimer();
-  volatile int value = counter.value;
-  usleep(500000);
+  // For parent process.
+  ASSERT_EQ(0, clock_getcpuclockid(getppid(), &clockid));
+  ASSERT_EQ(0, clock_gettime(clockid, &ts));
 
-  // Verify the counter has not been incremented.
-  ASSERT_EQ(value, counter.value);
+  // For invalid process.
+  // We can't use -1 for invalid pid here, because clock_getcpuclockid() can't detect it.
+  errno = 0;
+  ASSERT_EQ(ESRCH, clock_getcpuclockid(GetInvalidPid(), &clockid));
+  ASSERT_EQ(0, errno);
+}
+
+TEST(time, clock_settime) {
+  errno = 0;
+  timespec ts;
+  ASSERT_EQ(-1, clock_settime(-1, &ts));
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(time, clock_nanosleep) {
+  timespec in;
+  timespec out;
+  ASSERT_EQ(EINVAL, clock_nanosleep(-1, 0, &in, &out));
 }

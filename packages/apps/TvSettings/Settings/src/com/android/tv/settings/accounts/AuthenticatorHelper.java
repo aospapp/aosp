@@ -32,11 +32,10 @@ import java.util.Map;
 public class AuthenticatorHelper {
 
     private static final String TAG = "AuthenticatorHelper";
-    private Map<String, AuthenticatorDescription> mTypeToAuthDescription
-            = new HashMap<String, AuthenticatorDescription>();
+    private final Map<String, AuthenticatorDescription> mTypeToAuthDescription = new HashMap<>();
     private AuthenticatorDescription[] mAuthDescs;
-    private ArrayList<String> mEnabledAccountTypes = new ArrayList<String>();
-    private Map<String, Drawable> mAccTypeIconCache = new HashMap<String, Drawable>();
+    private final ArrayList<String> mEnabledAccountTypes = new ArrayList<>();
+    private final Map<String, Drawable> mAccTypeIconCache = new HashMap<>();
 
     public AuthenticatorHelper() {
     }

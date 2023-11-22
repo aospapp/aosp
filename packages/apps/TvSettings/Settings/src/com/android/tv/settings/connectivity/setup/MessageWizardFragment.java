@@ -17,7 +17,6 @@
 package com.android.tv.settings.connectivity.setup;
 
 import android.app.Fragment;
-import android.content.Context;
 import android.graphics.drawable.AnimationDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -37,7 +36,6 @@ public class MessageWizardFragment extends Fragment {
 
     private static final String EXTRA_TITLE = "title";
     private static final String EXTRA_SHOW_PROGRESS_INDICATOR = "show_progress_indicator";
-    private TextView mTitle;
 
     public static MessageWizardFragment newInstance(String title, boolean showProgressIndicator) {
         MessageWizardFragment fragment = new MessageWizardFragment();
@@ -54,24 +52,24 @@ public class MessageWizardFragment extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
-        View view = inflater.inflate(R.layout.setup_activity_progress, null);
+        final View view = inflater.inflate(R.layout.setup_activity_progress, container, false);
 
-        ImageView progressView = (ImageView) view.findViewById(R.id.progress);
-        mTitle = (TextView) view.findViewById(R.id.status_text);
+        final ImageView progressView = (ImageView) view.findViewById(R.id.progress);
+        final TextView titleView = (TextView) view.findViewById(R.id.status_text);
 
         Bundle args = getArguments();
         String title = args.getString(EXTRA_TITLE);
         boolean showProgressIndicator = args.getBoolean(EXTRA_SHOW_PROGRESS_INDICATOR);
 
         if (title != null) {
-            mTitle.setText(title);
-            mTitle.setVisibility(View.VISIBLE);
+            titleView.setText(title);
+            titleView.setVisibility(View.VISIBLE);
             if (AccessibilityHelper.forceFocusableViews(getActivity())) {
-                mTitle.setFocusable(true);
-                mTitle.setFocusableInTouchMode(true);
+                titleView.setFocusable(true);
+                titleView.setFocusableInTouchMode(true);
             }
         } else {
-            mTitle.setVisibility(View.GONE);
+            titleView.setVisibility(View.GONE);
         }
 
         if (showProgressIndicator) {

@@ -444,12 +444,12 @@ static int send_job_file(struct gui_entry *ge)
 	while (!flist_empty(&gc->o_list)) {
 		struct gfio_client_options *gco;
 
-		gco = flist_entry(gc->o_list.next, struct gfio_client_options, list);
+		gco = flist_first_entry(&gc->o_list, struct gfio_client_options, list);
 		flist_del(&gco->list);
 		free(gco);
 	}
 
-	ret = fio_client_send_ini(gc->client, ge->job_file);
+	ret = fio_client_send_ini(gc->client, ge->job_file, 0);
 	if (!ret)
 		return 0;
 
@@ -1687,7 +1687,9 @@ static void init_ui(int *argc, char **argv[], struct gui *ui)
 	gtk_init(argc, argv);
 	settings = gtk_settings_get_default();
 	gtk_settings_set_long_property(settings, "gtk_tooltip_timeout", 10, "gfio setting");
+#if !GLIB_CHECK_VERSION(2, 36, 0)
 	g_type_init();
+#endif
 	gdk_color_parse("#fffff4", &gfio_color_lightyellow);
 	gdk_color_parse("white", &gfio_color_white);
 

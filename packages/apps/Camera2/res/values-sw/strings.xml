@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Kipengee hiki kimehifadhiwa karibu na kinapatikana nje ya mtandao."</string>
     <string name="please_wait" msgid="1416313324505140068">"Tafadhali subiri"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Hitilafu ya kamera"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Haiwezi kuunganisha kwenye kamera."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"Kamera imezimwa kwa sababu ya sera za usalama."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Haiwezi kuunganisha kwenye kamera."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"Kamera imezimwa kwa sababu ya sera za usalama."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"Kulikuwa na tatizo wakati wa kuhifadhi picha au video yako."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"Programu haina ruhusa muhimu zinazohitajika ili itumike. Tafadhali angalia mipangilio yako ya ruhusa."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Tatizo kwenye hifadhi ya picha."</string>
     <string name="wait" msgid="765601745709933047">"Tafadhali subiri…"</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Chomeka kadi ya SD kabla ya kutumia kamera."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"Inatayarisha kadi ya SD..."</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"Haikuweza kufikia kadi ya SD."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Kurekodi wa muda ukipita"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Programu haikuweza kuunganisha kwenye kamera"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"Haikuhifadhi picha au video kwenye kifaa."</string>
     <string name="capturing" msgid="5255164204641920893">"Inapiga picha"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Chagua kamera"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Nyuma"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"KAMERA YA NYUMA"</string>
     <string name="dialog_ok" msgid="774141340500181131">"SAWA"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Ghairi"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Ripoti"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Ondoa"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Nafasi ya kadi yako ya SD inaelekea kuisha. Badilisha mpangilio wa ubora au futa baadhi ya picha au faili zingine."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Upeo wa ukubwa umefikiwa."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Umesonga kwa kasi"</string>
@@ -214,6 +221,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Orodha ya Hali"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Geuza utepe wa filamu"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Utepe wa filamu"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Kuza"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Z+"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Fifiza"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Z-"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Thamani ya kukuza ni %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"WASHA"</string>
     <string name="capital_off" msgid="3020696135020167263">"ZIMA"</string>
     <string name="video_control_play" msgid="6895236811408921715">"Cheza Video"</string>
@@ -266,7 +278,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Weka muda katika sekunde"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Inahesabu ili kupiga picha"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Ungependa kukumbuka maeneo ambamo picha ilipigiwa?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Tambulisha picha na video zako kwa kujumuisha maeneo ambamo zinapigiwa.\n\nProgramu nyingine zinaweza kufikia maelezo haya pamoja na picha zako zilizohifadhiwa."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Tambulisha picha na video zako kwa maeneo ambapo zilikuchukuliwa."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"La, asante"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Ndiyo"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"CHAGUO ZAIDI"</string>
@@ -318,6 +330,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Ghairi"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Nimemaliza"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Piga picha tena"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Maoni"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Shiriki"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Angalia"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Badilisha"</string>
@@ -367,4 +380,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"Kihisi kilichopunguzwa \n(16:09)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Inahifadhiwa…"</string>
 </resources>

@@ -50,13 +50,14 @@ static const char* PO_FRAGMENT =
         "  gl_FragColor = texture2D(u_Texture, v_TexCoord);"
         "}";
 
-PixelOutputRenderer::PixelOutputRenderer(ANativeWindow* window, bool offscreen, int workload) :
-        Renderer(window, offscreen, workload) {
+PixelOutputRenderer::PixelOutputRenderer(ANativeWindow* window, bool offscreen) :
+        Renderer(window, offscreen), mWorkload(0) {
 }
 
-bool PixelOutputRenderer::setUp() {
+bool PixelOutputRenderer::setUp(int workload) {
     SCOPED_TRACE();
-    if (!Renderer::setUp()) {
+    mWorkload = workload;
+    if (!Renderer::setUp(workload)) {
         return false;
     }
 
@@ -80,6 +81,11 @@ bool PixelOutputRenderer::setUp() {
 
 bool PixelOutputRenderer::tearDown() {
     SCOPED_TRACE();
+    if (mProgramId != 0)
+    {
+        glDeleteProgram(mProgramId);
+        mProgramId = 0;
+    }
     if (mTextureId != 0) {
         glDeleteTextures(1, &mTextureId);
         mTextureId = 0;

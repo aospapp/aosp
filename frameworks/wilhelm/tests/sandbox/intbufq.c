@@ -78,7 +78,7 @@ static void callback(BufferQueueItf caller, void *context)
     fflush(stdout);
 }
 
-int main(int argc, char **argv)
+int main(int argc __unused, char **argv __unused)
 {
     SLresult result;
 

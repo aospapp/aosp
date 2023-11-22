@@ -1,15 +1,30 @@
+
 Android NetworkConnect Sample
-==============================
+===================================
 
 This sample demonstrates how to connect to the network and fetch raw HTML using
 HttpURLConnection. AsyncTask is used to perform the fetch on a background thread.
 
+Introduction
+------------
+
+This sample application demonstrates how to connect to the network and fetch raw
+HTML. It uses AsyncTask, a background task manager, to perform the network fetch
+on a background thread. By using AsyncTask, the app can avoid hanging on the UI
+thread, and instead update the UI when the response is ready. To establish the
+network connection, the sample uses HttpURLConnection.
+
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/main.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -41,7 +56,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

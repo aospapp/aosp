@@ -282,6 +282,11 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
 
             final int[] width  = {176, 352, 320, 640, 1280, 1920};
             final int[] height = {144, 288, 240, 480,  720, 1080};
+            final int[] audioSource = {
+                    MediaRecorder.AudioSource.DEFAULT,
+                    MediaRecorder.AudioSource.MIC,
+                    MediaRecorder.AudioSource.CAMCORDER,
+            };
 
             watchdog.start();
             for (int i = 0; i < NUMBER_OF_RECORDER_RANDOM_ACTIONS; i++) {
@@ -292,9 +297,14 @@ public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubA
                 mParam = (int)(r.nextInt(1000000));
                 try {
                     switch (mAction) {
-                    case 0:
-                        mRecorder.setAudioSource(mParam % 3);
+                    case 0: {
+                        // We restrict the audio sources because setting some sources
+                        // may cause 2+ second delays because the input device may
+                        // retry - loop (e.g. VOICE_UPLINK for voice call to be initiated).
+                        final int index = mParam % audioSource.length;
+                        mRecorder.setAudioSource(audioSource[index]);
                         break;
+                    }
                     case 1:
                         // XXX:
                         // Fix gralloc source and change

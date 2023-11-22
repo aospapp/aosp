@@ -28,6 +28,7 @@ import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -189,33 +190,19 @@ public class RawContactEditorView extends BaseRawContactEditorView {
         mRawContactId = state.getRawContactId();
 
         // Fill in the account info
-        if (isProfile) {
-            String accountName = state.getAccountName();
-            if (TextUtils.isEmpty(accountName)) {
-                mAccountHeaderNameTextView.setVisibility(View.GONE);
-                mAccountHeaderTypeTextView.setText(R.string.local_profile_title);
-            } else {
-                CharSequence accountType = type.getDisplayLabel(mContext);
-                mAccountHeaderTypeTextView.setText(mContext.getString(R.string.external_profile_title,
-                        accountType));
-                mAccountHeaderNameTextView.setText(accountName);
-            }
+        final Pair<String,String> accountInfo = EditorUiUtils.getAccountInfo(getContext(),
+                isProfile, state.getAccountName(), type);
+        if (accountInfo == null) {
+            // Hide this view so the other text view will be centered vertically
+            mAccountHeaderNameTextView.setVisibility(View.GONE);
         } else {
-            String accountName = state.getAccountName();
-            CharSequence accountType = type.getDisplayLabel(mContext);
-            if (TextUtils.isEmpty(accountType)) {
-                accountType = mContext.getString(R.string.account_phone);
-            }
-            if (!TextUtils.isEmpty(accountName)) {
-                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
-                mAccountHeaderNameTextView.setText(
-                        mContext.getString(R.string.from_account_format, accountName));
-            } else {
-                // Hide this view so the other text view will be centered vertically
+            if (accountInfo.first == null) {
                 mAccountHeaderNameTextView.setVisibility(View.GONE);
+            } else {
+                mAccountHeaderNameTextView.setVisibility(View.VISIBLE);
+                mAccountHeaderNameTextView.setText(accountInfo.first);
             }
-            mAccountHeaderTypeTextView.setText(
-                    mContext.getString(R.string.account_type_format, accountType));
+            mAccountHeaderTypeTextView.setText(accountInfo.second);
         }
         updateAccountHeaderContentDescription();
 
@@ -300,8 +287,9 @@ public class RawContactEditorView extends BaseRawContactEditorView {
                 if (kind.fieldList == null) continue;
                 final KindSectionView section = (KindSectionView)mInflater.inflate(
                         R.layout.item_kind_section, mFields, false);
+                section.setShowOneEmptyEditor(true);
                 section.setEnabled(isEnabled());
-                section.setState(kind, state, false, vig);
+                section.setState(kind, state, /* readOnly =*/ false, vig);
                 mFields.addView(section);
             }
         }

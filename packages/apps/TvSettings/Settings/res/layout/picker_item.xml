@@ -20,6 +20,6 @@
     android:layout_height="@dimen/picker_item_height"
     android:layout_centerHorizontal="true"
     android:alpha="@dimen/list_item_unselected_text_alpha"
-    android:focusable="false"
+    android:focusable="true"
     android:gravity="center"
     android:textColor="@color/list_item_unselected_text_color" />

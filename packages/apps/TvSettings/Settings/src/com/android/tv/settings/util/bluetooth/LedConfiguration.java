@@ -41,9 +41,9 @@ public class LedConfiguration implements Parcelable {
         }
     };
 
-    public int color0;
-    public int color1;
-    public boolean pulse;
+    public final int color0;
+    public final int color1;
+    public final boolean pulse;
     public boolean isTransient;
 
     public LedConfiguration(int color0, int color1, boolean pulse) {

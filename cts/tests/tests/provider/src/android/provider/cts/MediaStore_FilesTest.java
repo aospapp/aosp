@@ -306,19 +306,25 @@ public class MediaStore_FilesTest extends AndroidTestCase {
 
                 // get the real path from the file descriptor (this relies on the media provider
                 // having opened the path via the real path instead of the emulated path).
-                values = new ContentValues();
-                values.put("_data", realPathFor(pfd));
-                mResolver.update(uri, values, null, null);
+                String realPath = realPathFor(pfd);
                 pfd.close();
+                if (realPath.equals(sdfile.getCanonicalPath())) {
+                    // provider did not use real/translated path
+                    sdfile = null;
+                } else {
+                    values = new ContentValues();
+                    values.put("_data", realPath);
+                    mResolver.update(uri, values, null, null);
 
-                // we shouldn't be able to access this
-                try {
-                    pfd = mResolver.openFileDescriptor(uri, "r");
-                    fail("shouldn't have fd for " + realPathFor(pfd));
-                } catch (FileNotFoundException e) {
-                    // expected
-                } finally {
-                    pfd.close();
+                    // we shouldn't be able to access this
+                    try {
+                        pfd = mResolver.openFileDescriptor(uri, "r");
+                        fail("shouldn't have fd for " + realPath);
+                    } catch (FileNotFoundException e) {
+                        // expected
+                    } finally {
+                        pfd.close();
+                    }
                 }
             } catch (FileNotFoundException e) {
                 fail("couldn't open file");
@@ -328,7 +334,7 @@ public class MediaStore_FilesTest extends AndroidTestCase {
         // clean up
         assertEquals(1, mResolver.delete(uri, null, null));
         if (sdfile != null) {
-            assertEquals(true, sdfile.delete());
+            assertEquals("couldn't delete " + sdfile.getCanonicalPath(), true, sdfile.delete());
         }
 
         // test secondary storage if present
@@ -373,7 +379,7 @@ public class MediaStore_FilesTest extends AndroidTestCase {
         values.put(MediaStore.Audio.Media.MIME_TYPE, "audio/mp3");
         Uri fileUri = mResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
         // give media provider some time to realize there's no album art
-        //SystemClock.sleep(1000);
+        SystemClock.sleep(1000);
         // get its album id
         Cursor c = mResolver.query(fileUri, new String[] { MediaStore.Audio.Media.ALBUM_ID},
                 null, null, null);

@@ -1,11 +1,9 @@
-
 /*
  * Copyright 2006 The Android Open Source Project
  *
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 
 #ifndef SkPath_DEFINED
 #define SkPath_DEFINED
@@ -21,6 +19,7 @@ class SkWriter32;
 class SkAutoPathBoundsUpdate;
 class SkString;
 class SkRRect;
+class SkWStream;
 
 /** \class SkPath
 
@@ -29,7 +28,7 @@ class SkRRect;
 */
 class SK_API SkPath {
 public:
-    SK_DECLARE_INST_COUNT_ROOT(SkPath);
+    SK_DECLARE_INST_COUNT(SkPath);
 
     SkPath();
     SkPath(const SkPath&);
@@ -40,6 +39,11 @@ public:
     friend bool operator!=(const SkPath& a, const SkPath& b) {
         return !(a == b);
     }
+
+#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
+    /** Returns true if the caller is the only owner of the underlying path data */
+    bool unique() const { return fPathRef->unique(); }
+#endif
 
     enum FillType {
         /** Specifies that "inside" is computed by a non-zero sum of signed
@@ -184,6 +188,23 @@ public:
         return fPathRef->isFinite();
     }
 
+    /** Returns true if the path is volatile (i.e. should not be cached by devices.)
+     */
+    bool isVolatile() const {
+        return SkToBool(fIsVolatile);
+    }
+
+    /** Specify whether this path is volatile. Paths are not volatile by
+     default. Temporary paths that are discarded or modified after use should be
+     marked as volatile. This provides a hint to the device that the path
+     should not be cached. Providing this hint when appropriate can
+     improve performance by avoiding unnecessary overhead and resource
+     consumption on the device.
+     */
+    void setIsVolatile(bool isVolatile) {
+        fIsVolatile = isVolatile;
+    }
+
     /** Test a line for zero length
 
         @return true if the line is of zero length; otherwise false.
@@ -220,16 +241,6 @@ public:
      *  line, returns false and ignores line[].
      */
     bool isLine(SkPoint line[2]) const;
-
-    /** Returns true if the path specifies a rectangle. If so, and if rect is
-        not null, set rect to the bounds of the path. If the path does not
-        specify a rectangle, return false and ignore rect.
-
-        @param rect If not null, returns the bounds of the path if it specifies
-                    a rectangle
-        @return true if the path specifies a rectangle
-    */
-    bool isRect(SkRect* rect) const;
 
     /** Return the number of points in the path
      */
@@ -268,7 +279,8 @@ public:
     /** Returns the bounds of the path's points. If the path contains 0 or 1
         points, the bounds is set to (0,0,0,0), and isEmpty() will return true.
         Note: this bounds may be larger than the actual shape, since curves
-        do not extend as far as their control points.
+        do not extend as far as their control points. Additionally this bound
+        can contain trailing MoveTo points (cf. isRect).
     */
     const SkRect& getBounds() const {
         return fPathRef->getBounds();
@@ -449,26 +461,23 @@ public:
     void rCubicTo(SkScalar x1, SkScalar y1, SkScalar x2, SkScalar y2,
                   SkScalar x3, SkScalar y3);
 
-    /** Append the specified arc to the path as a new contour. If the start of
-        the path is different from the path's current last point, then an
-        automatic lineTo() is added to connect the current contour to the start
-        of the arc. However, if the path is empty, then we call moveTo() with
-        the first point of the arc. The sweep angle is treated mod 360.
+    /**
+     *  Append the specified arc to the path. If the start of the arc is different from the path's
+     *  current last point, then an automatic lineTo() is added to connect the current contour
+     *  to the start of the arc. However, if the path is empty, then we call moveTo() with
+     *  the first point of the arc. The sweep angle is treated mod 360.
+     *
+     *  @param oval The bounding oval defining the shape and size of the arc
+     *  @param startAngle Starting angle (in degrees) where the arc begins
+     *  @param sweepAngle Sweep angle (in degrees) measured clockwise. This is treated mod 360.
+     *  @param forceMoveTo If true, always begin a new contour with the arc
+     */
+    void arcTo(const SkRect& oval, SkScalar startAngle, SkScalar sweepAngle, bool forceMoveTo);
 
-        @param oval The bounding oval defining the shape and size of the arc
-        @param startAngle Starting angle (in degrees) where the arc begins
-        @param sweepAngle Sweep angle (in degrees) measured clockwise. This is
-                          treated mod 360.
-        @param forceMoveTo If true, always begin a new contour with the arc
-    */
-    void arcTo(const SkRect& oval, SkScalar startAngle, SkScalar sweepAngle,
-               bool forceMoveTo);
-
-    /** Append a line and arc to the current path. This is the same as the
-        PostScript call "arct".
-    */
-    void arcTo(SkScalar x1, SkScalar y1, SkScalar x2, SkScalar y2,
-               SkScalar radius);
+    /**
+     *  Append a line and arc to the current path. This is the same as the PostScript call "arct".
+     */
+    void arcTo(SkScalar x1, SkScalar y1, SkScalar x2, SkScalar y2, SkScalar radius);
 
     /** Append a line and arc to the current path. This is the same as the
         PostScript call "arct".
@@ -555,37 +564,25 @@ public:
         return computedDir == dir;
     }
 
-    enum PathAsRect {
-        /** The path can not draw the same as its bounds. */
-        kNone_PathAsRect,
-        /** The path draws the same as its bounds when filled. */
-        kFill_PathAsRect,
-        /** The path draws the same as its bounds when stroked or filled. */
-        kStroke_PathAsRect,
-    };
-
-    /** Returns kFill_PathAsRect or kStroke_PathAsRect if drawing the path (either filled or
-        stroked) will be equivalent to filling/stroking the path's bounding rect. If
-        either is true, and direction is not null, sets the direction of the contour. If the
-        path is not drawn equivalent to a rect, returns kNone_PathAsRect and ignores direction.
-
-        @param direction If not null, set to the contour's direction when it is drawn as a rect
-        @return the path's PathAsRect type
+    /**
+     *  Returns true if the path specifies a rectangle.
+     *
+     *  If this returns false, then all output parameters are ignored, and left
+     *  unchanged. If this returns true, then each of the output parameters
+     *  are checked for NULL. If they are not, they return their value.
+     *
+     *  @param rect If not null, set to the bounds of the rectangle.
+     *              Note : this bounds may be smaller than the path's bounds, since it is just
+     *              the bounds of the "drawable" parts of the path. e.g. a trailing MoveTo would
+     *              be ignored in this rect, but not by the path's bounds
+     *  @param isClosed If not null, set to true if the path is closed
+     *  @param direction If not null, set to the rectangle's direction
+     *  @return true if the path specifies a rectangle
      */
-    PathAsRect asRect(Direction* direction = NULL) const;
+    bool isRect(SkRect* rect, bool* isClosed = NULL, Direction* direction = NULL) const;
 
-    /** Returns true if the path specifies a rectangle. If so, and if isClosed is
-        not null, set isClosed to true if the path is closed. Also, if returning true
-        and direction is not null, return the rect direction. If the path does not
-        specify a rectangle, return false and ignore isClosed and direction.
-
-        @param isClosed If not null, set to true if the path is closed
-        @param direction If not null, set to the rectangle's direction
-        @return true if the path specifies a rectangle
-    */
-    bool isRect(bool* isClosed, Direction* direction) const;
-
-    /** Returns true if the path specifies a pair of nested rectangles. If so, and if
+    /** Returns true if the path specifies a pair of nested rectangles, or would draw a
+        pair of nested rectangles when filled. If so, and if
         rect is not null, set rect[0] to the outer rectangle and rect[1] to the inner
         rectangle. If so, and dirs is not null, set dirs[0] to the direction of
         the outer rectangle and dirs[1] to the direction of the inner rectangle. If
@@ -596,7 +593,7 @@ public:
         @param dirs If not null, returns the direction of the rects
         @return true if the path describes a pair of nested rectangles
     */
-    bool isNestedRects(SkRect rect[2], Direction dirs[2] = NULL) const;
+    bool isNestedFillRects(SkRect rect[2], Direction dirs[2] = NULL) const;
 
     /**
      *  Add a closed rectangle contour to the path
@@ -921,7 +918,6 @@ public:
         const uint8_t*  fVerbStop;
         const SkScalar* fConicWeights;
         SkPoint         fMoveTo;
-        SkPoint         fLastPt;
     };
 
     /**
@@ -930,8 +926,9 @@ public:
      */
     bool contains(SkScalar x, SkScalar y) const;
 
-    void dump(bool forceClose, const char title[] = NULL) const;
+    void dump(SkWStream* , bool forceClose, bool dumpAsHex) const;
     void dump() const;
+    void dumpHex() const;
 
     /**
      *  Write the path to the buffer, and return the number of bytes written.
@@ -954,22 +951,21 @@ public:
     */
     uint32_t getGenerationID() const;
 
-#ifdef SK_BUILD_FOR_ANDROID
+#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
     static const int kPathRefGenIDBitCnt = 30; // leave room for the fill type (skbug.com/1762)
-    const SkPath* getSourcePath() const;
-    void setSourcePath(const SkPath* path);
 #else
     static const int kPathRefGenIDBitCnt = 32;
 #endif
 
     SkDEBUGCODE(void validate() const;)
+    SkDEBUGCODE(void experimentalValidateRef() const { fPathRef->validate(); } )
 
 private:
     enum SerializationOffsets {
         // 1 free bit at 29
         kUnused1_SerializationShift = 28,    // 1 free bit
         kDirection_SerializationShift = 26, // requires 2 bits
-        kUnused2_SerializationShift = 25,    // 1 free bit
+        kIsVolatile_SerializationShift = 25, // requires 1 bit
         // 1 free bit at 24
         kConvexity_SerializationShift = 16, // requires 8 bits
         kFillType_SerializationShift = 8,   // requires 8 bits
@@ -982,9 +978,7 @@ private:
     uint8_t             fFillType;
     mutable uint8_t     fConvexity;
     mutable uint8_t     fDirection;
-#ifdef SK_BUILD_FOR_ANDROID
-    const SkPath*       fSourcePath;
-#endif
+    mutable SkBool8     fIsVolatile;
 
     /** Resets all fields other than fPathRef to their initial 'empty' values.
      *  Assumes the caller has already emptied fPathRef.
@@ -1038,6 +1032,8 @@ private:
 
         ed.setBounds(rect);
     }
+
+    void setPt(int index, SkScalar x, SkScalar y);
 
     friend class SkAutoPathBoundsUpdate;
     friend class SkAutoDisableOvalCheck;

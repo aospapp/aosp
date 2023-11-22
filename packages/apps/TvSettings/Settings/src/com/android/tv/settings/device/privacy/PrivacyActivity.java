@@ -16,6 +16,19 @@
 
 package com.android.tv.settings.device.privacy;
 
+import android.app.ActivityManager;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.Fragment;
+import android.app.backup.IBackupManager;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.RemoteException;
+import android.os.ServiceManager;
+import android.provider.Settings;
+
 import com.android.tv.settings.ActionBehavior;
 import com.android.tv.settings.ActionKey;
 import com.android.tv.settings.R;
@@ -26,26 +39,7 @@ import com.android.tv.settings.dialog.old.ContentFragment;
 import com.android.tv.settings.dialog.old.DialogActivity;
 import com.android.tv.settings.util.IntentUtils;
 
-import android.app.ActivityManager;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.app.backup.IBackupManager;
-import android.app.Fragment;
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.res.Resources;
-import android.os.Bundle;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.provider.Settings;
-
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Activity that allows enabling and disabling of backup and restore functions.

@@ -37,7 +37,7 @@ import com.android.tools.lint.checks.TypographyDetector;
 import com.android.tools.lint.checks.UseCompoundDrawableDetector;
 import com.android.tools.lint.checks.UselessViewDetector;
 import com.android.tools.lint.detector.api.Issue;
-import com.android.tools.lint.detector.api.Issue.OutputFormat;
+import com.android.tools.lint.detector.api.TextFormat;
 
 import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.runtime.CoreException;
@@ -110,7 +110,7 @@ abstract class LintFix implements ICompletionProposal {
     public String getAdditionalProposalInfo() {
         Issue issue = EclipseLintClient.getRegistry().getIssue(mId);
         if (issue != null) {
-            return issue.getExplanation(OutputFormat.HTML);
+            return issue.getExplanation(TextFormat.HTML);
         }
 
         return null;

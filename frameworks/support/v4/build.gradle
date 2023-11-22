@@ -27,9 +27,10 @@ def jbSS           = createApiSourceset('jellybean',    'jellybean',     '16',  
 def jbMr1SS        = createApiSourceset('jellybeanmr1', 'jellybean-mr1', '17',      jbSS)
 def jbMr2SS        = createApiSourceset('jellybeanmr2', 'jellybean-mr2', '18',      jbMr1SS)
 def kitkatSS       = createApiSourceset('kitkat',       'kitkat',        '19',      jbMr2SS)
-def api20SS        = createApiSourceset('api20',        'api20',         '20', kitkatSS)
-def api21SS        = createApiSourceset('api21',        'api21',         '21', api20SS)
-def api22SS        = createApiSourceset('api22',        'api22',         'current', api21SS)
+def api20SS        = createApiSourceset('api20',        'api20',         '20',      kitkatSS)
+def api21SS        = createApiSourceset('api21',        'api21',         '21',      api20SS)
+def api22SS        = createApiSourceset('api22',        'api22',         '22',      api21SS)
+def api23SS        = createApiSourceset('api23',        'api23',         'current', api22SS)
 
 
 def createApiSourceset(String name, String folder, String apiLevel, SourceSet previousSource) {
@@ -67,7 +68,6 @@ dependencies {
 
 android {
     compileSdkVersion 4
-    buildToolsVersion "19.0.1"
 
     defaultConfig {
         minSdkVersion 4
@@ -88,6 +88,11 @@ android {
         // TODO: fix errors and reenable.
         abortOnError false
     }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
 }
 
 android.libraryVariants.all { variant ->
@@ -95,7 +100,7 @@ android.libraryVariants.all { variant ->
 
     def name = variant.buildType.name
 
-    if (name.equals(com.android.builder.BuilderConstants.DEBUG)) {
+    if (name.equals(com.android.builder.core.BuilderConstants.DEBUG)) {
         return; // Skip debug builds.
     }
     def suffix = name.capitalize()
@@ -106,9 +111,9 @@ android.libraryVariants.all { variant ->
         from 'LICENSE.txt'
     }
     def javadocTask = project.tasks.create(name: "javadoc${suffix}", type: Javadoc) {
-        source android.sourceSets.main.allJava
+        source android.sourceSets.main.java
         classpath = files(variant.javaCompile.classpath.files) + files(
-                "${android.plugin.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar")
+                "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar")
     }
 
     def javadocJarTask = project.tasks.create(name: "javadocJar${suffix}", type: Jar) {
@@ -118,12 +123,12 @@ android.libraryVariants.all { variant ->
 
     def sourcesJarTask = project.tasks.create(name: "sourceJar${suffix}", type: Jar) {
         classifier = 'sources'
-        from android.sourceSets.main.allSource
+        from android.sourceSets.main.java.srcDirs
     }
 
     project.ext.allSS.each { ss ->
-        javadocTask.source ss.allJava
-        sourcesJarTask.from ss.allSource
+        javadocTask.source ss.java
+        sourcesJarTask.from ss.java.srcDirs
     }
 
     artifacts.add('archives', javadocJarTask);

@@ -109,7 +109,6 @@ public:
 							Vector		(T x_, T y_, T z_, T w_);
 							Vector		(const Vector<T, Size>& v);
 							Vector		(const T (&v)[Size]);
-							~Vector		(void);
 
 	const T*				getPtr		(void) const { return &m_data[0]; }
 	T*						getPtr		(void) { return &m_data[0]; }
@@ -153,8 +152,8 @@ public:
 	Vector<bool, Size>		asBool		(void) const { return cast<bool>();		}
 
 	// Operators.
-	Vector<T, Size>&		operator=	(const Vector<T, Size>& v) { for (int i = 0; i < Size; i++) m_data[i] = v.m_data[i]; return *this; }
 	Vector<T, Size>&		operator+=	(const Vector<T, Size>& v);
+	Vector<T, Size>&		operator-=	(const Vector<T, Size>& v);
 
 	const T&				operator[]	(int ndx) const		{ DE_ASSERT(de::inBounds(ndx, 0, Size)); return m_data[ndx]; }
 	T&						operator[]	(int ndx)			{ DE_ASSERT(de::inBounds(ndx, 0, Size)); return m_data[ndx]; }
@@ -168,7 +167,7 @@ public:
 
 	template <int NewSize>
 	Vector<T, NewSize>		toWidth		(void) const;
-};
+} DE_WARN_UNUSED_TYPE;
 
 template <typename T, int Size>
 inline Vector<T, Size>::Vector (void)
@@ -258,13 +257,6 @@ inline Vector<T, NewSize> Vector<T, Size>::toWidth (void) const
 	for (; i < NewSize; i++)
 		res.m_data[i] = T(0);
 	return res;
-}
-
-// \todo [petri] Other conversions!
-
-template <typename T, int Size>
-inline Vector<T, Size>::~Vector (void)
-{
 }
 
 // Operators.
@@ -397,6 +389,14 @@ inline Vector<T, Size>& Vector<T, Size>::operator+= (const Vector<T, Size>& v)
 {
 	for (int i = 0; i < Size; i++)
 		m_data[i] += v.m_data[i];
+	return *this;
+}
+
+template <typename T, int Size>
+inline Vector<T, Size>& Vector<T, Size>::operator-= (const Vector<T, Size>& v)
+{
+	for (int i = 0; i < Size; i++)
+		m_data[i] -= v.m_data[i];
 	return *this;
 }
 

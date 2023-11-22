@@ -18,33 +18,20 @@ package com.example.android.supportv7.app;
 import com.example.android.supportv7.R;
 
 import android.app.SearchManager;
-import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Handler;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBarActivity;
-import android.support.v7.view.ActionMode;
-import android.support.v7.widget.PopupMenu;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
-import android.text.TextUtils;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 /**
  * This demonstrates idiomatic usage of the Toolbar as the action bar.
  */
-public class ToolbarUsage extends ActionBarActivity {
+public class ToolbarUsage extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

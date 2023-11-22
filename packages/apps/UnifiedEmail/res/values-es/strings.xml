@@ -143,8 +143,8 @@
     <string name="message_retrying" msgid="5335188121407261331">"Reintentando..."</string>
     <string name="message_failed" msgid="7887650587384601790">"Error"</string>
     <string name="send_failed" msgid="2186285547449865010">"No se ha enviado el mensaje."</string>
-    <string name="me_object_pronoun" msgid="4674452244417913816">"mí"</string>
-    <string name="me_subject_pronoun" msgid="7479328865714008288">"mí"</string>
+    <string name="me_object_pronoun" msgid="4674452244417913816">"yo"</string>
+    <string name="me_subject_pronoun" msgid="7479328865714008288">"yo"</string>
   <plurals name="confirm_delete_conversation">
     <item quantity="one" msgid="7605755011865575440">"¿Eliminar esta conversación?"</item>
     <item quantity="other" msgid="1585660381208712562">"¿Eliminar estas <xliff:g id="COUNT">%1$d</xliff:g> conversaciones?"</item>

@@ -1,6 +1,6 @@
 // Protocol Buffers - Google's data interchange format
 // Copyright 2008 Google Inc.  All rights reserved.
-// http://code.google.com/p/protobuf/
+// https://developers.google.com/protocol-buffers/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -48,6 +48,9 @@ option java_package = "com.google.protobuf.test";
 
 // Do not set a java_outer_classname here to verify that Proto2 works without
 // one.
+
+// Test public import
+import public "google/protobuf/unittest_import_public.proto";
 
 message ImportMessage {
   optional int32 d = 1;

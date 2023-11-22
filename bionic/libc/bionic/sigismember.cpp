@@ -26,14 +26,15 @@
  * SUCH DAMAGE.
  */
 
+#include <errno.h>
 #include <signal.h>
 
 int sigismember(const sigset_t* set, int signum) {
   int bit = signum - 1; // Signal numbers start at 1, but bit positions start at 0.
-  const unsigned long* local_set = (const unsigned long*) set;
-  if (set == NULL || bit < 0 || bit >= (int) (8*sizeof(sigset_t))) {
+  const unsigned long* local_set = reinterpret_cast<const unsigned long*>(set);
+  if (set == NULL || bit < 0 || bit >= static_cast<int>(8*sizeof(sigset_t))) {
     errno = EINVAL;
     return -1;
   }
-  return (int) ((local_set[bit / LONG_BIT] >> (bit % LONG_BIT)) & 1);
+  return static_cast<int>((local_set[bit / LONG_BIT] >> (bit % LONG_BIT)) & 1);
 }

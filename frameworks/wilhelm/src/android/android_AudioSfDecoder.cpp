@@ -18,6 +18,7 @@
 
 #include "sles_allinclusive.h"
 #include "android/android_AudioSfDecoder.h"
+#include "android/channels.h"
 
 #include <binder/IServiceManager.h>
 #include <media/IMediaHTTPService.h>
@@ -75,7 +76,7 @@ void AudioSfDecoder::play() {
     SL_LOGD("AudioSfDecoder::play");
 
     GenericPlayer::play();
-    (new AMessage(kWhatDecode, id()))->post();
+    (new AMessage(kWhatDecode, this))->post();
 }
 
 
@@ -435,7 +436,7 @@ void AudioSfDecoder::onCheckCache(const sp<AMessage> &msg) {
         }
 
         if (mStateFlags & kFlagPlaying) {
-            (new AMessage(kWhatDecode, id()))->post();
+            (new AMessage(kWhatDecode, this))->post();
         }
         return;
     }
@@ -463,7 +464,7 @@ void AudioSfDecoder::onDecode() {
             pauseAudioSink();
         }
         mStateFlags |= kFlagBuffering;
-        (new AMessage(kWhatCheckCache, id()))->post(100000);
+        (new AMessage(kWhatCheckCache, this))->post(100000);
         return;
     }
 
@@ -524,7 +525,7 @@ void AudioSfDecoder::onDecode() {
     //-------------------------------- Handle return of decode
     if (err != OK) {
         bool continueDecoding = false;
-        switch(err) {
+        switch (err) {
             case ERROR_END_OF_STREAM:
                 if (0 < mDurationUsec) {
                     Mutex::Autolock _l(mTimeLock);
@@ -559,7 +560,7 @@ void AudioSfDecoder::onDecode() {
         }
         if (continueDecoding) {
             if (NULL == mDecodeBuffer) {
-                (new AMessage(kWhatDecode, id()))->post();
+                (new AMessage(kWhatDecode, this))->post();
                 return;
             }
         } else {
@@ -568,7 +569,7 @@ void AudioSfDecoder::onDecode() {
     }
 
     //-------------------------------- Render
-    sp<AMessage> msg = new AMessage(kWhatRender, id());
+    sp<AMessage> msg = new AMessage(kWhatRender, this);
     msg->post();
 
 }

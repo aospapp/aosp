@@ -114,7 +114,7 @@ LOOP_NEON_MEMCPY:
 
     SUBS        x2,x2,#8
     BGE         LOOP_NEON_MEMCPY
-    CMP         x2,#-8
+    CMN         x2,#8
     BEQ         MEMCPY_RETURN
 
 ARM_MEMCPY:
@@ -186,7 +186,7 @@ LOOP_NEON_MEMSET:
 
     SUBS        x2,x2,#8
     BGE         LOOP_NEON_MEMSET
-    CMP         x2,#-8
+    CMN         x2,#8
     BEQ         MEMSET_RETURN
 
 ARM_MEMSET:
@@ -259,7 +259,7 @@ LOOP_NEON_MEMSET_16BIT:
 
     SUBS        x2,x2,#8
     BGE         LOOP_NEON_MEMSET_16BIT
-    CMP         x2,#-8
+    CMN         x2,#8
     BEQ         MEMSET_16BIT_RETURN
 
 ARM_MEMSET_16BIT:

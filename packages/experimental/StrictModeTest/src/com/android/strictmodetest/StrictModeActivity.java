@@ -362,6 +362,7 @@ public class StrictModeActivity extends Activity {
         final CheckBox checkNoRead = (CheckBox) findViewById(R.id.policy_no_reads);
         final CheckBox checkNoNetwork = (CheckBox) findViewById(R.id.policy_no_network);
         final CheckBox checkCustom = (CheckBox) findViewById(R.id.policy_custom);
+        final CheckBox checkResourceMismatch = (CheckBox) findViewById(R.id.policy_resource_mismatch);
         final CheckBox checkPenaltyLog = (CheckBox) findViewById(R.id.policy_penalty_log);
         final CheckBox checkPenaltyDialog = (CheckBox) findViewById(R.id.policy_penalty_dialog);
         final CheckBox checkPenaltyDeath = (CheckBox) findViewById(R.id.policy_penalty_death);
@@ -376,6 +377,7 @@ public class StrictModeActivity extends Activity {
                     if (checkNoRead.isChecked()) newPolicy.detectDiskReads();
                     if (checkNoNetwork.isChecked()) newPolicy.detectNetwork();
                     if (checkCustom.isChecked()) newPolicy.detectCustomSlowCalls();
+                    if (checkResourceMismatch.isChecked()) newPolicy.detectResourceMismatches();
                     if (checkPenaltyLog.isChecked()) newPolicy.penaltyLog();
                     if (checkPenaltyDialog.isChecked()) newPolicy.penaltyDialog();
                     if (checkPenaltyDeath.isChecked()) newPolicy.penaltyDeath();
@@ -391,6 +393,7 @@ public class StrictModeActivity extends Activity {
         checkNoRead.setOnClickListener(changePolicy);
         checkNoNetwork.setOnClickListener(changePolicy);
         checkCustom.setOnClickListener(changePolicy);
+        checkResourceMismatch.setOnClickListener(changePolicy);
         checkPenaltyLog.setOnClickListener(changePolicy);
         checkPenaltyDialog.setOnClickListener(changePolicy);
         checkPenaltyDeath.setOnClickListener(changePolicy);

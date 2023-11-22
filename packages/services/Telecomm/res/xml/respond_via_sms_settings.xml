@@ -35,24 +35,32 @@
          EditTextPreference here, to allow the preference "title" to wrap
          onto multiple lines if the customized messages are long enough. -->
 
+    <!-- These preferences are not persisted, so that they will update
+         when the localization is changed. RespondViaSmsSettings handles
+         the logic of storing user-specified preference changes. -->
+
     <com.android.server.telecom.MultiLineTitleEditTextPreference
         android:key="canned_response_pref_1"
         android:defaultValue="@string/respond_via_sms_canned_response_1"
-        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title" />
+        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title"
+        android:persistent="false" />
 
     <com.android.server.telecom.MultiLineTitleEditTextPreference
         android:key="canned_response_pref_2"
         android:defaultValue="@string/respond_via_sms_canned_response_2"
-        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title" />
+        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title"
+        android:persistent="false" />
 
     <com.android.server.telecom.MultiLineTitleEditTextPreference
         android:key="canned_response_pref_3"
         android:defaultValue="@string/respond_via_sms_canned_response_3"
-        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title" />
+        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title"
+        android:persistent="false" />
 
     <com.android.server.telecom.MultiLineTitleEditTextPreference
         android:key="canned_response_pref_4"
         android:defaultValue="@string/respond_via_sms_canned_response_4"
-        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title" />
+        android:dialogTitle="@string/respond_via_sms_edittext_dialog_title"
+        android:persistent="false" />
 
 </PreferenceScreen>

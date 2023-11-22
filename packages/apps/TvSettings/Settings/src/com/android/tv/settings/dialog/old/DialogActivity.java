@@ -28,6 +28,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -96,12 +97,9 @@ public abstract class DialogActivity extends Activity
     public static final String KEY_BACKSTACK_COUNT = "backstack_count";
 
     protected static final int ANIMATE_IN_DURATION = 250;
-    protected static final int ANIMATE_DELAY = 550;
-    protected static final int SLIDE_IN_STAGGER = 100;
-    protected static final int SLIDE_IN_DISTANCE = 120;
 
     private DialogFragment mDialogFragment;
-    private int mLayoutResId = R.layout.two_pane_dialog_frame;
+    private int mLayoutResId = R.layout.lb_dialog_fragment;
     private View mContent;
     private int mLastBackStackCount = 0;
 
@@ -190,7 +188,7 @@ public abstract class DialogActivity extends Activity
         LayoutInflater helium = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         mContent = helium.inflate(mLayoutResId, null);
         setContentView(mContent);
-        if (mLayoutResId == R.layout.two_pane_dialog_frame) {
+        if (mLayoutResId == R.layout.lb_dialog_fragment) {
             helium.inflate(R.layout.dialog_container, (ViewGroup) mContent);
             setDialogFragment(mDialogFragment);
         }
@@ -220,7 +218,7 @@ public abstract class DialogActivity extends Activity
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle savedInstanceState) {
+    protected void onSaveInstanceState(@NonNull Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
         savedInstanceState.putInt(KEY_BACKSTACK_COUNT, mLastBackStackCount);
     }
@@ -228,7 +226,7 @@ public abstract class DialogActivity extends Activity
     @Override
     protected void onStart() {
         super.onStart();
-        if (mLayoutResId == R.layout.two_pane_dialog_frame) {
+        if (mLayoutResId == R.layout.lb_dialog_fragment) {
             getDialogFragment().performEntryTransition();
         }
     }
@@ -387,12 +385,10 @@ public abstract class DialogActivity extends Activity
     }
 
     protected DialogFragment getDialogFragment() {
-        FragmentManager fm = getFragmentManager();
-        if (fm != null) {
-            DialogFragment fragment = (DialogFragment) fm.findFragmentByTag(TAG_DIALOG);
-            if (fragment != null) {
-                mDialogFragment = fragment;
-            }
+        final DialogFragment fragment =
+                (DialogFragment) getFragmentManager().findFragmentByTag(TAG_DIALOG);
+        if (fragment != null) {
+            mDialogFragment = fragment;
         }
 
         return mDialogFragment;

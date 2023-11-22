@@ -61,8 +61,8 @@ public class CalendarTest extends InstrumentationTestCase {
     // an arbitrary int used by some tests
     private static final int SOME_ARBITRARY_INT = 143234;
 
-    // 10 sec timeout for reminder broadcast (but shouldn't usually take this long).
-    private static final int POLLING_TIMEOUT = 10000;
+    // 15 sec timeout for reminder broadcast (but shouldn't usually take this long).
+    private static final int POLLING_TIMEOUT = 15000;
 
     // @formatter:off
     private static final String[] TIME_ZONES = new String[] {

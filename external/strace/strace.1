@@ -269,6 +269,9 @@ Print the instruction pointer at the time of the system call.
 .TP
 .B \-k
 Print the execution stack trace of the traced processes after each system call (experimental).
+This option is available only if
+.B strace
+is built with libunwind.
 .TP
 .B \-q
 Suppress messages about attaching, detaching etc.  This happens
@@ -320,6 +323,9 @@ Print all strings in hexadecimal string format.
 .TP
 .B \-y
 Print paths associated with file descriptor arguments.
+.TP
+.B \-yy
+Print ip:port pairs associated with socket file descriptors.
 .TP
 .BI "\-a " column
 Align return values in a specific column (default column 40).

@@ -1,17 +1,36 @@
-Android SwipeRefreshListFragment Sample
-==============================
 
-A sample which shows how to use SwipeRefreshLayout within a ListFragment to add the
-\'swipe-to-refresh\' gesture to a ListView, enabling the ability to trigger a refresh
-from swiping down on that view. This is provided through the re-usable
-SwipeRefreshListFragment class.
+Android SwipeRefreshListFragment Sample
+===================================
+
+A sample which shows how to use `SwipeRefreshLayout` to add
+'swipe-to-refresh' gesture to a ListView, enabling the ability to trigger a refresh
+from swiping down on that view.
+
+Introduction
+------------
+
+A sample which shows how to use
+[SwipeRefreshLayout][1] within a `ListFragment` to add the 'swipe-to-refresh'
+gesture to a `ListView`. The sample provides this functionality by defining a
+re-usable `SwipeRefreshListFragment` class.
+
+The sample displays a list of cheeses. When the user initiates a downward swipe,
+that list refreshes with randomly generated items. Selecting the `Refresh`
+action from the action bar also refreshes the list.
+
+[1]: https://developer.android.com/reference/android/support/v4/widget/SwipeRefreshLayout.html
 
 Pre-requisites
 --------------
 
-- Android SDK v20
-- Android Build Tools v20
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
+
+Screenshots
+-------------
+
+<img src="screenshots/refresh.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -43,7 +62,7 @@ file to you under the Apache License, Version 2.0 (the "License"); you may not
 use this file except in compliance with the License.  You may obtain a copy of
 the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS, WITHOUT

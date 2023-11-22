@@ -18,18 +18,25 @@ package com.android.rs.imagejb;
 
 import java.lang.Math;
 
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.ScriptIntrinsicHistogram;
 
 public class WhiteBalance extends TestBase {
     private ScriptC_wbalance mScript;
+    private ScriptIntrinsicHistogram mHist;
+    private Allocation mSums;
 
     public void createTest(android.content.res.Resources res) {
         mScript = new ScriptC_wbalance(mRS);
+        mHist = ScriptIntrinsicHistogram.create(mRS, Element.U8_4(mRS));
+        mSums = Allocation.createSized(mRS, Element.I32_3(mRS), 256);
+        mHist.setOutput(mSums);
+        mScript.set_histogramValues(mSums);
     }
 
     public void runTest() {
-        mScript.set_histogramSource(mInPixelsAllocation);
-        mScript.set_histogramWidth(mInPixelsAllocation.getType().getX());
-        mScript.set_histogramHeight(mInPixelsAllocation.getType().getY());
+        mHist.forEach(mInPixelsAllocation);
         mScript.invoke_prepareWhiteBalance();
         mScript.forEach_whiteBalanceKernel(mInPixelsAllocation, mOutPixelsAllocation);
     }

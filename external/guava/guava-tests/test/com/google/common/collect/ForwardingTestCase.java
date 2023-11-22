@@ -42,7 +42,7 @@ import java.util.Set;
  */
 public abstract class ForwardingTestCase extends TestCase {
 
-  private List<String> calls = new ArrayList<String>();
+  private final List<String> calls = new ArrayList<String>();
 
   private void called(String id) {
     calls.add(id);
@@ -111,7 +111,7 @@ public abstract class ForwardingTestCase extends TestCase {
       return 0;
     } else if ((returnType == Set.class) || (returnType == Collection.class)) {
       return Collections.emptySet();
-    } else if (returnType == Iterator.class){
+    } else if (returnType == Iterator.class) {
       return Iterators.emptyModifiableIterator();
     } else if (returnType.isArray()) {
       return Array.newInstance(returnType.getComponentType(), 0);
@@ -140,7 +140,7 @@ public abstract class ForwardingTestCase extends TestCase {
         }
       } catch (Throwable cause) {
         throw new InvocationTargetException(cause,
-            method.toString() + " with args: " + Arrays.toString(parameters));
+            method + " with args: " + Arrays.toString(parameters));
       }
     }
   }

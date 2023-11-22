@@ -61,7 +61,7 @@ public class OnthrowLaunchDebugger002 extends LaunchedDebugger {
         }
 
         logWriter.println("**> Set breakpoint at the beginning of " + breakpointMethodName);
-        long requestID = 0;
+        int requestID = 0;
         try {
             requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                         refTypeID, breakpointMethodName);

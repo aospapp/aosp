@@ -133,6 +133,15 @@ M
 **MC**
     Machine Code
 
+N
+-
+
+**NFC**
+  "No functional change". Used in a commit message to indicate that a patch
+  is a pure refactoring/cleanup.
+  Usually used in the first line, so it is visible without opening the
+  actual commit email.
+
 O
 -
 .. _object pointer:
@@ -159,7 +168,7 @@ R
     ``Constant::replaceUsesOfWithOnConstant()`` implement the replacement of one
     Value with another by iterating over its def/use chain and fixing up all of
     the pointers to point to the new value.  See
-    also `def/use chains <ProgrammersManual.html#iterate_chains>`_.
+    also `def/use chains <ProgrammersManual.html#iterating-over-def-use-use-def-chains>`_.
 
 **Reassociation**
     Rearranging associative expressions to promote better redundancy elimination

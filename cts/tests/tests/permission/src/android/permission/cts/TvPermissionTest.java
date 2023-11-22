@@ -42,16 +42,6 @@ public class TvPermissionTest extends AndroidTestCase {
         super.tearDown();
     }
 
-    private void verifyQuery(Uri uri, final String[] projection,
-            String tableName) throws Exception {
-        try {
-            getContext().getContentResolver().query(uri, projection, null, null, null);
-            fail("Accessing " + tableName + " table should require READ_EPG_DATA permission.");
-        } catch (SecurityException e) {
-            // Expected exception
-        }
-    }
-
     public void verifyInsert(Uri uri, String tableName) throws Exception {
         try {
             ContentValues values = new ContentValues();
@@ -81,12 +71,6 @@ public class TvPermissionTest extends AndroidTestCase {
         }
     }
 
-    public void testQueryChannels() throws Exception {
-        if (!mHasTvInputFramework) return;
-        final String[] projection = { TvContract.Channels._ID };
-        verifyQuery(TvContract.Channels.CONTENT_URI, projection, "channels");
-    }
-
     public void testInsertChannels() throws Exception {
         if (!mHasTvInputFramework) return;
         verifyInsert(TvContract.Channels.CONTENT_URI, "channels");
@@ -100,12 +84,6 @@ public class TvPermissionTest extends AndroidTestCase {
     public void testDeleteChannels() throws Exception {
         if (!mHasTvInputFramework) return;
         verifyDelete(TvContract.Channels.CONTENT_URI, "channels");
-    }
-
-    public void testQueryPrograms() throws Exception {
-        if (!mHasTvInputFramework) return;
-        final String[] projection = { TvContract.Programs._ID };
-        verifyQuery(TvContract.Programs.CONTENT_URI, projection, "programs");
     }
 
     public void testInsertPrograms() throws Exception {

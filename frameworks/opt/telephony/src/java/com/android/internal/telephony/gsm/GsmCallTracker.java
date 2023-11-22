@@ -17,6 +17,7 @@
 package com.android.internal.telephony.gsm;
 
 import android.os.AsyncResult;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
@@ -37,6 +38,7 @@ import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.DriverCall;
 import com.android.internal.telephony.EventLogTags;
+import com.android.internal.telephony.LastCallFailCause;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
@@ -169,7 +171,8 @@ public final class GsmCallTracker extends CallTracker {
      * clirMode is one of the CLIR_ constants
      */
     synchronized Connection
-    dial (String dialString, int clirMode, UUSInfo uusInfo) throws CallStateException {
+    dial (String dialString, int clirMode, UUSInfo uusInfo, Bundle intentExtras)
+            throws CallStateException {
         // note that this triggers call state changed notif
         clearDisconnected();
 
@@ -189,6 +192,14 @@ public final class GsmCallTracker extends CallTracker {
             // and we need to make sure the foreground call is clear
             // for the newly dialed connection
             switchWaitingOrHoldingAndActive();
+            // This is a hack to delay DIAL so that it is sent out to RIL only after
+            // EVENT_SWITCH_RESULT is received. We've seen failures when adding a new call to
+            // multi-way conference calls due to DIAL being sent out before SWITCH is processed
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                // do nothing
+            }
 
             // Fake local state so that
             // a) foregroundCall is empty for the newly dialed connection
@@ -239,13 +250,13 @@ public final class GsmCallTracker extends CallTracker {
     }
 
     Connection
-    dial(String dialString, UUSInfo uusInfo) throws CallStateException {
-        return dial(dialString, CommandsInterface.CLIR_DEFAULT, uusInfo);
+    dial(String dialString, UUSInfo uusInfo, Bundle intentExtras) throws CallStateException {
+        return dial(dialString, CommandsInterface.CLIR_DEFAULT, uusInfo, intentExtras);
     }
 
     Connection
-    dial(String dialString, int clirMode) throws CallStateException {
-        return dial(dialString, clirMode, null);
+    dial(String dialString, int clirMode, Bundle intentExtras) throws CallStateException {
+        return dial(dialString, clirMode, null, intentExtras);
     }
 
     void
@@ -907,6 +918,7 @@ public final class GsmCallTracker extends CallTracker {
 
             case EVENT_GET_LAST_CALL_FAIL_CAUSE:
                 int causeCode;
+                String vendorCause = null;
                 ar = (AsyncResult)msg.obj;
 
                 operationComplete();
@@ -918,7 +930,9 @@ public final class GsmCallTracker extends CallTracker {
                     Rlog.i(LOG_TAG,
                             "Exception during getLastCallFailCause, assuming normal disconnect");
                 } else {
-                    causeCode = ((int[])ar.result)[0];
+                    LastCallFailCause failCause = (LastCallFailCause)ar.result;
+                    causeCode = failCause.causeCode;
+                    vendorCause = failCause.vendorCause;
                 }
                 // Log the causeCode if its not normal
                 if (causeCode == CallFailCause.NO_CIRCUIT_AVAIL ||
@@ -939,7 +953,7 @@ public final class GsmCallTracker extends CallTracker {
                 ) {
                     GsmConnection conn = mDroppedDuringPoll.get(i);
 
-                    conn.onRemoteDisconnect(causeCode);
+                    conn.onRemoteDisconnect(causeCode, vendorCause);
                 }
 
                 updatePhoneState();

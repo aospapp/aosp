@@ -103,7 +103,7 @@ Encode_Status VideoEncoderVP8::renderSequenceParams() {
     CHECK_VA_STATUS_RETURN("vaRenderPicture");
 
     LOG_V( "End\n");
-	return ret;
+    return ret;
 }
 
 Encode_Status VideoEncoderVP8::renderPictureParams(EncodeTask *task) {
@@ -287,9 +287,9 @@ Encode_Status VideoEncoderVP8::renderLayerStructureParam(void)
     uint32_t i;
 
     vaStatus = vaCreateBuffer(mVADisplay, mVAContext,
-		               VAEncMiscParameterBufferType,
-			       sizeof(VAEncMiscParameterBuffer) + sizeof(VAEncMiscParameterTemporalLayerStructure),
-			       1, NULL, &layer_struc_buf);
+                                VAEncMiscParameterBufferType,
+                                sizeof(VAEncMiscParameterBuffer) + sizeof(VAEncMiscParameterTemporalLayerStructure),
+                                1, NULL, &layer_struc_buf);
 
     CHECK_VA_STATUS_RETURN("vaCreateBuffer");
     vaMapBuffer(mVADisplay, layer_struc_buf, (void **)&misc_param);
@@ -379,24 +379,24 @@ Encode_Status VideoEncoderVP8::sendEncodeCommand(EncodeTask *task) {
 
 Encode_Status VideoEncoderVP8::derivedSetParams(VideoParamConfigSet *videoEncParams) {
 
-	CHECK_NULL_RETURN_IFFAIL(videoEncParams);
-	VideoParamsVP8 *encParamsVP8 = reinterpret_cast <VideoParamsVP8*> (videoEncParams);
+        CHECK_NULL_RETURN_IFFAIL(videoEncParams);
+        VideoParamsVP8 *encParamsVP8 = reinterpret_cast <VideoParamsVP8*> (videoEncParams);
 
-	if (encParamsVP8->size != sizeof(VideoParamsVP8)) {
-		return ENCODE_INVALID_PARAMS;
-	}
+        if (encParamsVP8->size != sizeof(VideoParamsVP8)) {
+                return ENCODE_INVALID_PARAMS;
+        }
 
-	mVideoParamsVP8 = *encParamsVP8;
-	return ENCODE_SUCCESS;
+        mVideoParamsVP8 = *encParamsVP8;
+        return ENCODE_SUCCESS;
 }
 
 Encode_Status VideoEncoderVP8::derivedGetParams(VideoParamConfigSet *videoEncParams) {
 
-	CHECK_NULL_RETURN_IFFAIL(videoEncParams);
-	VideoParamsVP8 *encParamsVP8 = reinterpret_cast <VideoParamsVP8*> (videoEncParams);
+        CHECK_NULL_RETURN_IFFAIL(videoEncParams);
+        VideoParamsVP8 *encParamsVP8 = reinterpret_cast <VideoParamsVP8*> (videoEncParams);
 
-	if (encParamsVP8->size != sizeof(VideoParamsVP8)) {
-	       return ENCODE_INVALID_PARAMS;
+        if (encParamsVP8->size != sizeof(VideoParamsVP8)) {
+                return ENCODE_INVALID_PARAMS;
         }
 
         *encParamsVP8 = mVideoParamsVP8;
@@ -405,7 +405,6 @@ Encode_Status VideoEncoderVP8::derivedGetParams(VideoParamConfigSet *videoEncPar
 
 Encode_Status VideoEncoderVP8::derivedGetConfig(VideoParamConfigSet *videoEncConfig) {
 
-		int layer_id;
         CHECK_NULL_RETURN_IFFAIL(videoEncConfig);
 
         switch (videoEncConfig->type)
@@ -460,7 +459,6 @@ Encode_Status VideoEncoderVP8::derivedGetConfig(VideoParamConfigSet *videoEncCon
 
 Encode_Status VideoEncoderVP8::derivedSetConfig(VideoParamConfigSet *videoEncConfig) {
 
-        int layer_id;
         CHECK_NULL_RETURN_IFFAIL(videoEncConfig);
 
         switch (videoEncConfig->type)
@@ -500,13 +498,10 @@ Encode_Status VideoEncoderVP8::derivedSetConfig(VideoParamConfigSet *videoEncCon
 
                         mVideoParamsVP8.max_frame_size_ratio = encConfigVP8MaxFrameSizeRatio->max_frame_size_ratio;
                         mRenderMaxFrameSize = true;
-		}
+                }
                 break;
 
                 case VideoConfigTypeIDRRequest:{
-                        VideoParamConfigSet *encConfigVP8KFrameRequest =
-                                reinterpret_cast<VideoParamConfigSet*> (videoEncConfig);
-
                         mVideoConfigVP8.force_kf = 1;
                         mForceKFrame = true;
                  }

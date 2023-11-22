@@ -3,7 +3,7 @@
 no strict 'refs';
 use warnings;
 use Getopt::Long;
-Getopt::Long::Configure("auto_help");
+Getopt::Long::Configure("auto_help") if $Getopt::Long::VERSION > 2.32;
 
 my %ALL_FUNCS = ();
 my @ALL_ARCHS;
@@ -272,6 +272,9 @@ sub arm() {
   # Assign the helper variable for each enabled extension
   foreach my $opt (@ALL_ARCHS) {
     my $opt_uc = uc $opt;
+    # Enable neon assembly based on HAVE_NEON logic instead of adding new
+    # HAVE_NEON_ASM logic
+    if ($opt eq 'neon_asm') { $opt_uc = 'NEON' }
     eval "\$have_${opt}=\"flags & HAS_${opt_uc}\"";
   }
 
@@ -381,7 +384,12 @@ if ($opts{arch} eq 'x86') {
   @ALL_ARCHS = filter(qw/edsp media/);
   arm;
 } elsif ($opts{arch} eq 'armv7') {
-  @ALL_ARCHS = filter(qw/edsp media neon/);
+  @ALL_ARCHS = filter(qw/edsp media neon_asm neon/);
+  @REQUIRES = filter(keys %required ? keys %required : qw/media/);
+  &require(@REQUIRES);
+  arm;
+} elsif ($opts{arch} eq 'armv8') {
+  @ALL_ARCHS = filter(qw/neon/);
   arm;
 } else {
   unoptimized;

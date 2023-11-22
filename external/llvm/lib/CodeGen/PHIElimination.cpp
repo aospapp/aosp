@@ -29,8 +29,9 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -45,6 +46,10 @@ static cl::opt<bool>
 SplitAllCriticalEdges("phi-elim-split-all-critical-edges", cl::init(false),
                       cl::Hidden, cl::desc("Split all critical edges during "
                                            "PHI elimination"));
+
+static cl::opt<bool> NoPhiElimLiveOutEarlyExit(
+    "no-phi-elim-live-out-early-exit", cl::init(false), cl::Hidden,
+    cl::desc("Do not use an early exit if isLiveOutPastPHIs returns true."));
 
 namespace {
   class PHIElimination : public MachineFunctionPass {
@@ -150,9 +155,7 @@ bool PHIElimination::runOnMachineFunction(MachineFunction &MF) {
     Changed |= EliminatePHINodes(MF, *I);
 
   // Remove dead IMPLICIT_DEF instructions.
-  for (SmallPtrSet<MachineInstr*, 4>::iterator I = ImpDefs.begin(),
-         E = ImpDefs.end(); I != E; ++I) {
-    MachineInstr *DefMI = *I;
+  for (MachineInstr *DefMI : ImpDefs) {
     unsigned DefReg = DefMI->getOperand(0).getReg();
     if (MRI->use_nodbg_empty(DefReg)) {
       if (LIS)
@@ -240,7 +243,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
   // Insert a register to register copy at the top of the current block (but
   // after any remaining phi nodes) which copies the new incoming register
   // into the phi node destination.
-  const TargetInstrInfo *TII = MF.getTarget().getInstrInfo();
+  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
   if (isSourceDefinedByImplicitDef(MPhi, MRI))
     // If all sources of a PHI node are implicit_def, just emit an
     // implicit_def instead of a copy.
@@ -369,7 +372,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
     // Check to make sure we haven't already emitted the copy for this block.
     // This can happen because PHI nodes may have multiple entries for the same
     // basic block.
-    if (!MBBsInsertedInto.insert(&opBlock))
+    if (!MBBsInsertedInto.insert(&opBlock).second)
       continue;  // If the copy has already been emitted, we're done.
 
     // Find a safe location to insert the copy, this may be the first terminator
@@ -575,12 +578,14 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
       // there is a risk it may not be coalesced away.
       //
       // If the copy would be a kill, there is no need to split the edge.
-      if (!isLiveOutPastPHIs(Reg, PreMBB) && !SplitAllCriticalEdges)
+      bool ShouldSplit = isLiveOutPastPHIs(Reg, PreMBB);
+      if (!ShouldSplit && !NoPhiElimLiveOutEarlyExit)
         continue;
-
-      DEBUG(dbgs() << PrintReg(Reg) << " live-out before critical edge BB#"
-                   << PreMBB->getNumber() << " -> BB#" << MBB.getNumber()
-                   << ": " << *BBI);
+      if (ShouldSplit) {
+        DEBUG(dbgs() << PrintReg(Reg) << " live-out before critical edge BB#"
+                     << PreMBB->getNumber() << " -> BB#" << MBB.getNumber()
+                     << ": " << *BBI);
+      }
 
       // If Reg is not live-in to MBB, it means it must be live-in to some
       // other PreMBB successor, and we can avoid the interference by splitting
@@ -590,7 +595,7 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
       // is likely to be left after coalescing. If we are looking at a loop
       // exiting edge, split it so we won't insert code in the loop, otherwise
       // don't bother.
-      bool ShouldSplit = !isLiveIn(Reg, &MBB) || SplitAllCriticalEdges;
+      ShouldSplit = ShouldSplit && !isLiveIn(Reg, &MBB);
 
       // Check for a loop exiting edge.
       if (!ShouldSplit && CurLoop != PreLoop) {
@@ -605,7 +610,7 @@ bool PHIElimination::SplitPHIEdges(MachineFunction &MF,
         // Split unless this edge is entering CurLoop from an outer loop.
         ShouldSplit = PreLoop && !PreLoop->contains(CurLoop);
       }
-      if (!ShouldSplit)
+      if (!ShouldSplit && !SplitAllCriticalEdges)
         continue;
       if (!PreMBB->SplitCriticalEdge(&MBB, this)) {
         DEBUG(dbgs() << "Failed to split critical edge.\n");

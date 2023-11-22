@@ -23,7 +23,6 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -33,6 +32,7 @@ import android.util.Size;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "BurstCaptureTest";
@@ -40,7 +40,7 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     /**
-     * Test BURST_CAPTURE capability with full-AUTO capture.
+     * Test YUV burst capture with full-AUTO control.
      * Also verifies sensor settings operation if READ_SENSOR_SETTINGS is available.
      */
     public void testYuvBurst() throws Exception {
@@ -49,9 +49,18 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
                 String id = mCameraIds[i];
                 Log.i(TAG, "Testing YUV Burst for camera " + id);
                 openDevice(id);
-                if (!mStaticInfo.isCapabilitySupported(
-                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE)) {
-                    Log.i(TAG, "BURST_CAPTURE capability is not supported in camera " + id +
+
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                }
+                if (!mStaticInfo.isAeLockSupported() || !mStaticInfo.isAwbLockSupported()) {
+                    Log.i(TAG, "AE/AWB lock is not supported in camera " + id +
+                            ". Skip the test");
+                    continue;
+                }
+
+                if (mStaticInfo.isHardwareLevelLegacy()) {
+                    Log.i(TAG, "Legacy camera doesn't report min frame duration" +
                             ". Skip the test");
                     continue;
                 }
@@ -64,7 +73,7 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
         }
     }
 
-    public void yuvBurstTestByCamera(String cameraId) throws Exception {
+    private void yuvBurstTestByCamera(String cameraId) throws Exception {
         // Parameters
         final int MAX_CONVERGENCE_FRAMES = 150; // 5 sec at 30fps
         final long MAX_PREVIEW_RESULT_TIMEOUT_MS = 1000;
@@ -75,17 +84,14 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
         final Size previewSize = mOrderedPreviewSizes.get(0);
 
         // Get maximum YUV_420_888 size
-        final Size stillSize = getMaxPreviewSize(cameraId, mCameraManager);
+        final Size stillSize = getSortedSizesForFormat(
+                cameraId, mCameraManager, ImageFormat.YUV_420_888, /*bound*/null).get(0);
 
         // Find max pipeline depth and sync latency
         final int maxPipelineDepth = mStaticInfo.getCharacteristics().get(
             CameraCharacteristics.REQUEST_PIPELINE_MAX_DEPTH);
         final int maxSyncLatency = mStaticInfo.getCharacteristics().get(
             CameraCharacteristics.SYNC_MAX_LATENCY);
-
-        assertTrue("Cam " + cameraId + ": maxSyncLatency is UNKNOWN;" +
-            " not allowed for BURST_CAPTURE capability",
-            maxSyncLatency >= 0);
 
         // Find minimum frame duration for full-res YUV_420_888
         StreamConfigurationMap config = mStaticInfo.getCharacteristics().get(
@@ -94,24 +100,32 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
                 config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, stillSize);
 
         // Find suitable target FPS range - as high as possible
-        Range<Integer>[] fpsRanges = mStaticInfo.getAeAvailableTargetFpsRangesChecked();
-        int minBurstFps = (int) Math.floor(1e9 / minStillFrameDuration);
-        Range<Integer> targetRange = null;
-        for (Range<Integer> candidateRange : fpsRanges) {
-            if (candidateRange.getLower() >= minBurstFps) {
-                if (targetRange == null) {
-                    targetRange = candidateRange;
-                } else if (candidateRange.getLower() > targetRange.getLower()) {
-                    targetRange = candidateRange;
-                } else if (candidateRange.getUpper() > targetRange.getUpper()) {
-                    targetRange = candidateRange;
-                }
+        List<Range<Integer> > fpsRanges = Arrays.asList(
+                mStaticInfo.getAeAvailableTargetFpsRangesChecked());
+        Range<Integer> targetRange = mStaticInfo.getAeMaxTargetFpsRange();
+        // Add 0.05 here so Fps like 29.99 evaluated to 30
+        int minBurstFps = (int) Math.floor(1e9 / minStillFrameDuration + 0.05f);
+        boolean foundConstantMaxYUVRange = false;
+        boolean foundYUVStreamingRange = false;
+
+        for (Range<Integer> fpsRange : fpsRanges) {
+            if (fpsRange.getLower() == minBurstFps && fpsRange.getUpper() == minBurstFps) {
+                foundConstantMaxYUVRange = true;
+            }
+            if (fpsRange.getLower() <= 15 && fpsRange.getUpper() == minBurstFps) {
+                foundYUVStreamingRange = true;
             }
         }
+
+        assertTrue(String.format("Cam %s: Target FPS range of (%d, %d) must be supported",
+                cameraId, minBurstFps, minBurstFps), foundConstantMaxYUVRange);
+        assertTrue(String.format(
+                "Cam %s: Target FPS range of (x, %d) where x <= 15 must be supported",
+                cameraId, minBurstFps), foundYUVStreamingRange);
         assertTrue(String.format("Cam %s: No target FPS range found with minimum FPS above " +
                         " 1/minFrameDuration (%d fps, duration %d ns) for full-resolution YUV",
-                cameraId, minBurstFps, minStillFrameDuration),
-            targetRange != null);
+                        cameraId, minBurstFps, minStillFrameDuration),
+                targetRange.getLower() >= minBurstFps);
 
         Log.i(TAG, String.format("Selected frame rate range %d - %d for YUV burst",
                         targetRange.getLower(), targetRange.getUpper()));
@@ -137,13 +151,13 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
         // Create session and start up preview
 
         SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
-        SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+        ImageDropperListener imageDropper = new ImageDropperListener();
 
         prepareCaptureAndStartPreview(
             previewBuilder, burstBuilder,
             previewSize, stillSize,
             ImageFormat.YUV_420_888, resultListener,
-            /*maxNumImages*/ 3, imageListener);
+            /*maxNumImages*/ 3, imageDropper);
 
         // Create burst
 
@@ -213,7 +227,7 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
         mSession.setRepeatingRequest(lockedRequest, resultListener, mHandler);
 
         // Wait for first result with locking
-
+        resultListener.drain();
         CaptureResult lockedResult =
                 resultListener.getCaptureResultForRequest(lockedRequest, maxPipelineDepth);
 
@@ -234,8 +248,13 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
             // Calculate how many requests we need to still send down to camera before we
             // know the settings have settled for the burst
 
-            int requestsNeededToSync = maxSyncLatency - pipelineDepth;
-            for (int i = 0; i < maxSyncLatency; i++) {
+            int numFramesWaited = maxSyncLatency;
+            if (numFramesWaited == CameraCharacteristics.SYNC_MAX_LATENCY_UNKNOWN) {
+                numFramesWaited = NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY;
+            }
+
+            int requestsNeededToSync = numFramesWaited - pipelineDepth;
+            for (int i = 0; i < numFramesWaited; i++) {
                 if (!burstSent && requestsNeededToSync <= 0) {
                     mSession.captureBurst(burst, resultListener, mHandler);
                     burstSent = true;
@@ -270,13 +289,6 @@ public class BurstCaptureTest extends Camera2SurfaceViewTestCase {
             assertTrue(String.format("Cam %s: Sensitivity is not valid: %d",
                     cameraId, burstSensitivity),
                 burstSensitivity > 0);
-        }
-
-        // Process burst images
-        for (int i = 0; i < BURST_SIZE; i++) {
-            Image img = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
-
-            img.close();
         }
 
         // Process burst results

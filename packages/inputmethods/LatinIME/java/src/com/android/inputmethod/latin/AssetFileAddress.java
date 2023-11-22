@@ -16,7 +16,7 @@
 
 package com.android.inputmethod.latin;
 
-import com.android.inputmethod.latin.utils.FileUtils;
+import com.android.inputmethod.latin.common.FileUtils;
 
 import java.io.File;
 
@@ -61,5 +61,10 @@ public final class AssetFileAddress {
 
     public void deleteUnderlyingFile() {
         FileUtils.deleteRecursively(new File(mFilename));
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s (offset=%d, length=%d)", mFilename, mOffset, mLength);
     }
 }

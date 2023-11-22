@@ -74,15 +74,15 @@ RSExportType *RSExportElement::Create(RSContext *Context,
   // Create RSExportType corresponded to the @T first and then verify
 
   llvm::StringRef TypeName;
-  RSExportType *ET = NULL;
+  RSExportType *ET = nullptr;
 
   if (!Initialized)
     Init();
 
-  slangAssert(EI != NULL && "Element info not found");
+  slangAssert(EI != nullptr && "Element info not found");
 
-  if (!RSExportType::NormalizeType(T, TypeName, Context, NULL))
-    return NULL;
+  if (!RSExportType::NormalizeType(T, TypeName, Context, nullptr))
+    return nullptr;
 
   switch (T->getTypeClass()) {
     case clang::Type::Builtin:
@@ -131,7 +131,7 @@ RSExportType *RSExportElement::CreateFromDecl(RSContext *Context,
                                               const clang::DeclaratorDecl *DD) {
   const clang::Type* T = RSExportType::GetTypeOfDecl(DD);
   const clang::Type* CT = GetCanonicalType(T);
-  const ElementInfo* EI = NULL;
+  const ElementInfo* EI = nullptr;
 
   // Note: RS element like rs_pixel_rgb elements are either in the type of
   // primitive or vector.
@@ -149,14 +149,14 @@ RSExportType *RSExportElement::CreateFromDecl(RSContext *Context,
       const clang::TypedefType *TT = static_cast<const clang::TypedefType*>(T);
       const clang::TypedefNameDecl *TD = TT->getDecl();
       EI = GetElementInfo(TD->getName());
-      if (EI != NULL)
+      if (EI != nullptr)
         break;
 
       T = TD->getUnderlyingType().getTypePtr();
     }
   }
 
-  if (EI == NULL) {
+  if (EI == nullptr) {
     return RSExportType::Create(Context, T);
   } else {
     return RSExportElement::Create(Context, T, EI);
@@ -170,7 +170,7 @@ RSExportElement::GetElementInfo(const llvm::StringRef &Name) {
 
   ElementInfoMapTy::const_iterator I = ElementInfoMap.find(Name);
   if (I == ElementInfoMap.end())
-    return NULL;
+    return nullptr;
   else
     return I->getValue();
 }

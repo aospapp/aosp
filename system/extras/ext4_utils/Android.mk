@@ -10,7 +10,6 @@ libext4_utils_src_files := \
     contents.c \
     extent.c \
     indirect.c \
-    uuid.c \
     sha1.c \
     wipe.c \
     crc16.c \
@@ -35,6 +34,7 @@ include $(BUILD_HOST_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := make_ext4fs_main.c canned_fs_config.c
 LOCAL_MODULE := make_ext4fs
+LOCAL_SHARED_LIBRARIES += libcutils
 LOCAL_STATIC_LIBRARIES += \
     libext4_utils_host \
     libsparse_host \
@@ -42,7 +42,7 @@ LOCAL_STATIC_LIBRARIES += \
 ifeq ($(HOST_OS),windows)
   LOCAL_LDLIBS += -lws2_32
 else
-  LOCAL_STATIC_LIBRARIES += libselinux
+  LOCAL_SHARED_LIBRARIES += libselinux
   LOCAL_CFLAGS := -DHOST
 endif
 include $(BUILD_HOST_EXECUTABLE)
@@ -52,23 +52,32 @@ include $(BUILD_HOST_EXECUTABLE)
 # -- All host/targets excluding windows
 #
 
+libext4_utils_src_files += \
+    key_control.cpp \
+    ext4_crypt.cpp \
+    unencrypted_properties.cpp
+
 ifneq ($(HOST_OS),windows)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(libext4_utils_src_files)
 LOCAL_MODULE := libext4_utils
+LOCAL_C_INCLUDES += system/core/logwrapper/include
 LOCAL_SHARED_LIBRARIES := \
+    libcutils \
+    libext2_uuid \
     libselinux \
     libsparse \
     libz
+LOCAL_CFLAGS := -DREAL_UUID
 include $(BUILD_SHARED_LIBRARY)
 
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(libext4_utils_src_files)
+LOCAL_SRC_FILES := $(libext4_utils_src_files) \
+    ext4_crypt_init_extensions.cpp
 LOCAL_MODULE := libext4_utils_static
-LOCAL_STATIC_LIBRARIES += \
-    libselinux \
+LOCAL_STATIC_LIBRARIES := \
     libsparse_static
 include $(BUILD_STATIC_LIBRARY)
 
@@ -77,9 +86,12 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := make_ext4fs_main.c canned_fs_config.c
 LOCAL_MODULE := make_ext4fs
 LOCAL_SHARED_LIBRARIES := \
+    libcutils \
+    libext2_uuid \
     libext4_utils \
     libselinux \
     libz
+LOCAL_CFLAGS := -DREAL_UUID
 include $(BUILD_EXECUTABLE)
 
 
@@ -97,9 +109,10 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := ext2simg.c
 LOCAL_MODULE := ext2simg
+LOCAL_SHARED_LIBRARIES += \
+    libselinux
 LOCAL_STATIC_LIBRARIES += \
     libext4_utils_host \
-    libselinux \
     libsparse_host \
     libz
 include $(BUILD_HOST_EXECUTABLE)
@@ -143,4 +156,3 @@ LOCAL_IS_HOST_MODULE := true
 include $(BUILD_PREBUILT)
 
 endif
-

@@ -199,7 +199,7 @@ int BandwidthController::runIptablesCmd(const char *cmd, IptJumpOp jumpHandling,
         break;
     }
 
-    fullCmd.insert(0, " ");
+    fullCmd.insert(0, " -w ");
     fullCmd.insert(0, iptVer == IptIpV4 ? IPTABLES_PATH : IP6TABLES_PATH);
 
     if (StrncpyAndCheck(buffer, fullCmd.c_str(), sizeof(buffer))) {
@@ -786,7 +786,7 @@ int BandwidthController::getInterfaceQuota(const char *costName, int64_t *bytes)
         return -1;
 
     asprintf(&fname, "/proc/net/xt_quota/%s", costName);
-    fp = fopen(fname, "r");
+    fp = fopen(fname, "re");
     free(fname);
     if (!fp) {
         ALOGE("Reading quota %s failed (%s)", costName, strerror(errno));
@@ -843,7 +843,7 @@ int BandwidthController::updateQuota(const char *quotaName, int64_t bytes) {
     }
 
     asprintf(&fname, "/proc/net/xt_quota/%s", quotaName);
-    fp = fopen(fname, "w");
+    fp = fopen(fname, "we");
     free(fname);
     if (!fp) {
         ALOGE("Updating quota %s failed (%s)", quotaName, strerror(errno));
@@ -1100,12 +1100,12 @@ int BandwidthController::removeCostlyAlert(const char *costName, int64_t *alertB
         return -1;
     }
 
-    asprintf(&alertName, "%sAlert", costName);
     if (!*alertBytes) {
         ALOGE("No prior alert set for %s alert", costName);
         return -1;
     }
 
+    asprintf(&alertName, "%sAlert", costName);
     asprintf(&chainName, "bw_costly_%s", costName);
     asprintf(&alertQuotaCmd, ALERT_IPT_TEMPLATE, "-D", chainName, *alertBytes, alertName);
     res |= runIpxtablesCmd(alertQuotaCmd, IptJumpNoAdd);
@@ -1249,7 +1249,7 @@ int BandwidthController::getTetherStats(SocketClient *cli, TetherStats &stats, s
      * the wanted info.
      */
     fullCmd = IPTABLES_PATH;
-    fullCmd += " -nvx -L ";
+    fullCmd += " -nvx -w -L ";
     fullCmd += NatController::LOCAL_TETHER_COUNTERS_CHAIN;
     iptOutput = popen(fullCmd.c_str(), "r");
     if (!iptOutput) {
@@ -1270,7 +1270,7 @@ void BandwidthController::flushExistingCostlyTables(bool doClean) {
 
     /* Only lookup ip4 table names as ip6 will have the same tables ... */
     fullCmd = IPTABLES_PATH;
-    fullCmd += " -S";
+    fullCmd += " -w -S";
     iptOutput = popen(fullCmd.c_str(), "r");
     if (!iptOutput) {
             ALOGE("Failed to run %s err=%s", fullCmd.c_str(), strerror(errno));

@@ -256,7 +256,7 @@ static int compile_regex(struct saved_data *data, spec_t *spec, const char **err
 	*cp = '\0';
 
 	/* Compile the regular expression. */
-	spec->regex = pcre_compile(anchored_regex, 0, &tmperrbuf, &erroff, NULL);
+	spec->regex = pcre_compile(anchored_regex, PCRE_DOTALL, &tmperrbuf, &erroff, NULL);
 	free(anchored_regex);
 	if (!spec->regex) {
 		if (errbuf)
@@ -265,7 +265,7 @@ static int compile_regex(struct saved_data *data, spec_t *spec, const char **err
 	}
 
 	spec->sd = pcre_study(spec->regex, 0, &tmperrbuf);
-	if (!spec->sd) {
+	if (!spec->sd && tmperrbuf) {
 		if (errbuf)
 			*errbuf=tmperrbuf;
 		return -1;

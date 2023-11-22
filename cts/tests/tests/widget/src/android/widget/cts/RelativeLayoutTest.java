@@ -17,8 +17,6 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.android.internal.util.XmlUtils;
-
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -36,6 +34,7 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.AbsListView;
 import android.widget.RelativeLayout;
+import android.widget.cts.util.XmlUtils;
 
 import java.io.IOException;
 
@@ -316,6 +315,42 @@ public class RelativeLayoutTest extends
 
         AbsListView.LayoutParams p3 = new AbsListView.LayoutParams(200, 300);
         assertFalse(myRelativeLayout.checkLayoutParams(p3));
+    }
+
+    public void testGetRule() {
+        RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(0, 0);
+        p.addRule(RelativeLayout.LEFT_OF, R.id.abslistview_root);
+        p.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
+
+        assertEquals("Get resource ID rule", R.id.abslistview_root,
+                p.getRule(RelativeLayout.LEFT_OF));
+        assertEquals("Get boolean rule", RelativeLayout.TRUE,
+                p.getRule(RelativeLayout.CENTER_IN_PARENT));
+        assertEquals("Get missing rule", 0, p.getRule(RelativeLayout.ABOVE));
+    }
+
+    /**
+     * Tests to prevent regressions in baseline alignment.
+     */
+    public void testBaselineAlignment() {
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mActivity.setContentView(R.layout.relative_layout_baseline);
+            }
+        });
+        getInstrumentation().waitForIdleSync();
+
+        View button = mActivity.findViewById(R.id.button1);
+        assertTrue(button.getHeight() > 0);
+
+        button = mActivity.findViewById(R.id.button2);
+        assertTrue(button.getHeight() > 0);
+
+        button = mActivity.findViewById(R.id.button3);
+        assertTrue(button.getHeight() > 0);
+
+        button = mActivity.findViewById(R.id.button4);
+        assertTrue(button.getHeight() > 0);
     }
 
     private class MyRelativeLayout extends RelativeLayout {

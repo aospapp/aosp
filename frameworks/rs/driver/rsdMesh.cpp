@@ -28,7 +28,7 @@ using namespace android;
 using namespace android::renderscript;
 
 bool rsdMeshInit(const Context *rsc, const Mesh *m) {
-    RsdMeshObj *drv = NULL;
+    RsdMeshObj *drv = nullptr;
     if(m->mHal.drv) {
         drv = (RsdMeshObj*)m->mHal.drv;
         delete drv;

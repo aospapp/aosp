@@ -41,11 +41,11 @@ public:
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return fName.c_str();
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         SkISize size = canvas->getDeviceSize();
 
         canvas->clear(0xFFFF0000);
@@ -54,9 +54,7 @@ protected:
         bmp.allocN32Pixels(size.width(), size.height());
         canvas->readPixels(&bmp, 0, 0);
 
-        SkImageInfo info = bmp.info();
-        info.fColorType = fColorType;
-        info.fAlphaType = fAlphaType;
+        SkImageInfo info = SkImageInfo::Make(bmp.width(), bmp.height(), fColorType, fAlphaType);
 
         for (int loop = 0; loop < loops; ++loop) {
             canvas->writePixels(info, bmp.getPixels(), bmp.rowBytes(), 0, 0);

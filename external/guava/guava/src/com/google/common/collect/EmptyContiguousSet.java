@@ -71,12 +71,17 @@ final class EmptyContiguousSet<C extends Comparable> extends ContiguousSet<C> {
     return this;
   }
 
-  //Abstract method doesn't exist in GWT emulation
-  /* @Override */ int indexOf(Object target) {
+  @GwtIncompatible("not used by GWT emulation")
+  @Override int indexOf(Object target) {
     return -1;
   }
 
   @Override public UnmodifiableIterator<C> iterator() {
+    return Iterators.emptyIterator();
+  }
+
+  @GwtIncompatible("NavigableSet")
+  @Override public UnmodifiableIterator<C> descendingIterator() {
     return Iterators.emptyIterator();
   }
 
@@ -127,5 +132,10 @@ final class EmptyContiguousSet<C extends Comparable> extends ContiguousSet<C> {
   @Override
   Object writeReplace() {
     return new SerializedForm<C>(domain);
+  }
+
+  @GwtIncompatible("NavigableSet")
+  ImmutableSortedSet<C> createDescendingSet() {
+    return new EmptyImmutableSortedSet<C>(Ordering.natural().reverse());
   }
 }

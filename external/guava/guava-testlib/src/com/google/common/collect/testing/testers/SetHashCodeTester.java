@@ -18,6 +18,9 @@ package com.google.common.collect.testing.testers;
 
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 
@@ -27,10 +30,9 @@ import java.util.Collection;
 /**
  * Tests {@link java.util.Set#hashCode}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible(emulated = true)
 public class SetHashCodeTester<E> extends AbstractSetTester<E> {
   public void testHashCode() {
     int expectedHashCode = 0;
@@ -65,9 +67,10 @@ public class SetHashCodeTester<E> extends AbstractSetTester<E> {
    * unhashable objects can suppress it with
    * {@code FeatureSpecificTestSuiteBuilder.suppressing()}.
    */
+  @GwtIncompatible("reflection")
   public static Method[] getHashCodeMethods() {
     return new Method[]{
-        Platform.getMethod(SetHashCodeTester.class, "testHashCode"),
-        Platform.getMethod(SetHashCodeTester.class, "testHashCode_containingNull") };
+        Helpers.getMethod(SetHashCodeTester.class, "testHashCode"),
+        Helpers.getMethod(SetHashCodeTester.class, "testHashCode_containingNull") };
   }
 }

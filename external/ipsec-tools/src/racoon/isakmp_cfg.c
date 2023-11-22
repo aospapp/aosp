@@ -1841,7 +1841,11 @@ isakmp_cfg_iplist_to_str(dest, count, addr, withmask)
 		else
 			l = sizeof(struct in_addr);
 		memcpy(&tmp, addr, l);
+#if defined(ANDROID_CHANGES)
+		addr = ((uint8_t*) addr) + l;
+#else
 		addr += l;
+#endif
 		if((uint32_t)tmp.addr4.s_addr == 0)
 			break;
 	

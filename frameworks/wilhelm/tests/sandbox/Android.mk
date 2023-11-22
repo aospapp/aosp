@@ -14,7 +14,6 @@ LOCAL_SRC_FILES:= \
 	getch.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -42,7 +41,6 @@ LOCAL_SRC_FILES:= \
 	multiplay.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -70,7 +68,6 @@ LOCAL_SRC_FILES:= \
 	engine.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -102,7 +99,6 @@ LOCAL_SRC_FILES:= \
 	object.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -133,7 +129,6 @@ LOCAL_SRC_FILES:= \
 	configbq.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -160,7 +155,6 @@ LOCAL_SRC_FILES:= \
 	reverb.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -191,7 +185,6 @@ LOCAL_SRC_FILES:= \
 	srcsink.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -223,7 +216,6 @@ LOCAL_SRC_FILES:= \
 	outputmix.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -254,7 +246,6 @@ LOCAL_SRC_FILES:= \
 	urimime.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -285,7 +276,6 @@ LOCAL_SRC_FILES:= \
 	dim.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -316,7 +306,6 @@ LOCAL_SRC_FILES:= \
 	multithread.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -350,7 +339,6 @@ LOCAL_SRC_FILES:= \
 LOCAL_SHARED_LIBRARIES := \
 	libaudioutils \
 	libnbaio \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -382,7 +370,6 @@ LOCAL_SRC_FILES:= \
 	monkey.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES
 
@@ -413,7 +400,6 @@ LOCAL_SRC_FILES:= \
 	xa.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenMAXAL
 
@@ -444,7 +430,6 @@ LOCAL_SRC_FILES:= \
 	dual.c
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	liblog \
 	libOpenSLES \
 	libOpenMAXAL

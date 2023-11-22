@@ -22,6 +22,7 @@
 #ifdef IMG_GFX
 #include <hal/hal_public.h>
 #include <hardware/gralloc.h>
+#include <sync/sync.h>
 
 //#define GFX_DUMP
 
@@ -161,7 +162,14 @@ static int gfx_Blit(buffer_handle_t src, buffer_handle_t dest,
     IMG_gralloc_module_public_t* GrallocMod = (IMG_gralloc_module_public_t*)gModule;
 
 #ifdef MRFLD_GFX
-    err = GrallocMod->Blit(GrallocMod, src, dest, w, h, 0, 0, 0, 0);
+    {
+        int fenceFd;
+        err = GrallocMod->Blit(GrallocMod, src, dest, w, h, 0, 0, 0, -1, &fenceFd);
+        if (!err) {
+            sync_wait(fenceFd, -1);
+            close(fenceFd);
+        }
+    }
 #else
     err = GrallocMod->Blit2(GrallocMod, src, dest, w, h, 0, 0);
 #endif
@@ -193,10 +201,7 @@ Encode_Status GetGfxBufferInfo(intptr_t handle, ValueInfo& vinfo){
 
     if (h->iFormat == HAL_PIXEL_FORMAT_NV12) {
     #ifdef MRFLD_GFX
-        if((h->usage & GRALLOC_USAGE_HW_CAMERA_READ) || (h->usage & GRALLOC_USAGE_HW_CAMERA_WRITE) )
-            vinfo.lumaStride = (h->iWidth + 63) & ~63; //64 aligned
-        else
-            vinfo.lumaStride = (h->iWidth + 31) & ~31; //32 aligned
+        vinfo.lumaStride = (h->iWidth + 63) & ~63; //64 aligned
     #else //on CTP
         if (h->iWidth > 512)
             vinfo.lumaStride = (h->iWidth + 63) & ~63;  //64 aligned
@@ -427,7 +432,6 @@ Encode_Status VASurfaceMap::MappingToVASurface() {
 Encode_Status VASurfaceMap::MappingSurfaceID(intptr_t value) {
 
     VAStatus vaStatus = VA_STATUS_SUCCESS;
-    VASurfaceID surface;
 
     //try to get kbufhandle from SurfaceID
     uint32_t fourCC = 0;
@@ -627,7 +631,6 @@ Encode_Status VASurfaceMap::doActionCopy() {
     }
 
     uint8_t *srcY, *dstY;
-    uint8_t *srcU, *srcV;
     uint8_t *srcUV, *dstUV;
 
     srcY = pSrcBuffer + srcY_offset;

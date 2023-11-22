@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -24,12 +26,11 @@ import java.util.Map.Entry;
  * Implementation helper for {@link TestMapGenerator} for use with maps of
  * strings.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  * @author Jared Levy
  * @author George van den Driessche
  */
+@GwtCompatible
 public abstract class TestStringMapGenerator
     implements TestMapGenerator<String, String> {
 
@@ -45,7 +46,7 @@ public abstract class TestStringMapGenerator
   }
 
   @Override
-  public final Map<String, String> create(Object... entries) {
+  public Map<String, String> create(Object... entries) {
     @SuppressWarnings("unchecked")
     Entry<String, String>[] array = new Entry[entries.length];
     int i = 0;

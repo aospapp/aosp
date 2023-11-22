@@ -24,6 +24,7 @@ import static org.easymock.EasyMock.verify;
 
 import com.google.common.collect.testing.MapTestSuiteBuilder;
 import com.google.common.collect.testing.TestStringMapGenerator;
+import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
 
@@ -131,7 +132,9 @@ public class ForwardingMapTest extends ForwardingTestCase {
 
     }).named("ForwardingMap[LinkedHashMap] with standard implementations")
         .withFeatures(CollectionSize.ANY, MapFeature.ALLOWS_NULL_VALUES,
-            MapFeature.ALLOWS_NULL_KEYS, MapFeature.GENERAL_PURPOSE)
+            MapFeature.ALLOWS_NULL_KEYS, MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            MapFeature.GENERAL_PURPOSE,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE, CollectionFeature.KNOWN_ORDER)
         .createTestSuite());
     suite.addTest(MapTestSuiteBuilder.using(new TestStringMapGenerator() {
 
@@ -147,7 +150,8 @@ public class ForwardingMapTest extends ForwardingTestCase {
     }).named("ForwardingMap[ImmutableMap] with standard implementations")
         .withFeatures(
             CollectionSize.ANY, MapFeature.REJECTS_DUPLICATES_AT_CREATION,
-            MapFeature.ALLOWS_NULL_QUERIES)
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            CollectionFeature.KNOWN_ORDER)
         .createTestSuite());
 
     return suite;
@@ -243,7 +247,7 @@ public class ForwardingMapTest extends ForwardingTestCase {
     forward().hashCode();
     assertEquals("[hashCode]", getCalls());
   }
-  
+
   public void testStandardEntrySet() throws InvocationTargetException {
     @SuppressWarnings("unchecked")
     final Map<String, Boolean> map = createMock(Map.class);
@@ -280,7 +284,7 @@ public class ForwardingMapTest extends ForwardingTestCase {
 
     verify(map, entrySet);
   }
-  
+
   public void testStandardKeySet() throws InvocationTargetException {
     @SuppressWarnings("unchecked")
     Set<Entry<String, Boolean>> entrySet = createMock(Set.class);
@@ -312,7 +316,7 @@ public class ForwardingMapTest extends ForwardingTestCase {
 
     verify(entrySet, map);
   }
-  
+
   public void testStandardValues() throws InvocationTargetException {
     @SuppressWarnings("unchecked")
     Set<Entry<String, Boolean>> entrySet = createMock(Set.class);
@@ -342,6 +346,34 @@ public class ForwardingMapTest extends ForwardingTestCase {
     callAllPublicMethods(Collection.class, forward.values());
 
     verify(entrySet, map);
+  }
+
+  public void testToStringWithNullKeys() throws Exception {
+    Map<String, String> hashmap = Maps.newHashMap();
+    hashmap.put("foo", "bar");
+    hashmap.put(null, "baz");
+
+    StandardImplForwardingMap<String, String> forwardingMap =
+        new StandardImplForwardingMap<String, String>(
+            Maps.<String, String>newHashMap());
+    forwardingMap.put("foo", "bar");
+    forwardingMap.put(null, "baz");
+
+    assertEquals(hashmap.toString(), forwardingMap.toString());
+  }
+
+  public void testToStringWithNullValues() throws Exception {
+    Map<String, String> hashmap = Maps.newHashMap();
+    hashmap.put("foo", "bar");
+    hashmap.put("baz", null);
+
+    StandardImplForwardingMap<String, String> forwardingMap =
+        new StandardImplForwardingMap<String, String>(
+            Maps.<String, String>newHashMap());
+    forwardingMap.put("foo", "bar");
+    forwardingMap.put("baz", null);
+
+    assertEquals(hashmap.toString(), forwardingMap.toString());
   }
 
   Map<String, Boolean> forward() {

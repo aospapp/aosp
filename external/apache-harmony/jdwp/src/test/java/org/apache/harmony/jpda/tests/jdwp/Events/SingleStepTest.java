@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -109,7 +110,7 @@ public class SingleStepTest extends JDWPEventTestCase {
         logWriter.println("=> referenceTypeID for Debuggee class = " + refTypeID);
         logWriter.println("=> Send ReferenceType::Methods command and get methodIDs ");
 
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, "breakpointTest");
         logWriter.println("=> breakpointID = " + requestID);
         logWriter.println("=> starting thread");
@@ -175,10 +176,14 @@ public class SingleStepTest extends JDWPEventTestCase {
                 JDWPConstants.EventKind.getName(JDWPConstants.EventKind.SINGLE_STEP),
                 JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
 
+        long eventThreadID = ((EventThread) parsedEvents[0]).getThreadID();
+        checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+                JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
+
         // clear SINGLE_STEP event
         logWriter.println("==> Clearing SINGLE_STEP event..");
         ReplyPacket clearRequestReply =
-            debuggeeWrapper.vmMirror.clearEvent(JDWPConstants.EventKind.SINGLE_STEP, (int) requestID);
+            debuggeeWrapper.vmMirror.clearEvent(JDWPConstants.EventKind.SINGLE_STEP, requestID);
         checkReplyPacket(clearRequestReply, "Clear SINGLE_STEP event");
         logWriter.println("==> SINGLE_STEP event has been cleared");
 

@@ -10,7 +10,7 @@
 #include "Resources.h"
 #include "SkCanvas.h"
 #include "SkData.h"
-#include "SkDecodingImageGenerator.h"
+#include "SkImageGenerator.h"
 #include "SkImageDecoder.h"
 #include "SkOSFile.h"
 
@@ -81,33 +81,29 @@ public:
     virtual ~ETC1BitmapGM() { }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         SkString str = SkString("etc1bitmap_");
         str.append(this->fileExtension());
         return str;
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(128, 128);
     }
 
     virtual SkString fileExtension() const = 0;
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkBitmap bm;
-        SkString resourcePath = GetResourcePath();
-        SkString filename = SkOSPath::SkPathJoin(resourcePath.c_str(), "mandrill_128.");
+        SkString filename = GetResourcePath("mandrill_128.");
         filename.append(this->fileExtension());
-
         SkAutoTUnref<SkData> fileData(SkData::NewFromFileName(filename.c_str()));
         if (NULL == fileData) {
             SkDebugf("Could not open the file. Did you forget to set the resourcePath?\n");
             return;
         }
 
-        if (!SkInstallDiscardablePixelRef(
-                SkDecodingImageGenerator::Create(
-                    fileData, SkDecodingImageGenerator::Options()), &bm)) {
+        if (!SkInstallDiscardablePixelRef(fileData, &bm)) {
             SkDebugf("Could not install discardable pixel ref.\n");
             return;
         }
@@ -127,7 +123,7 @@ public:
 
 protected:
 
-    virtual SkString fileExtension() const SK_OVERRIDE { return SkString("pkm"); }
+    SkString fileExtension() const override { return SkString("pkm"); }
 
 private:
     typedef ETC1BitmapGM INHERITED;
@@ -141,7 +137,21 @@ public:
 
 protected:
 
-    virtual SkString fileExtension() const SK_OVERRIDE { return SkString("ktx"); }
+    SkString fileExtension() const override { return SkString("ktx"); }
+
+private:
+    typedef ETC1BitmapGM INHERITED;
+};
+
+// This class specializes ETC1BitmapGM to load the mandrill_128.r11.ktx file.
+class ETC1Bitmap_R11_KTX_GM : public ETC1BitmapGM {
+public:
+    ETC1Bitmap_R11_KTX_GM() : ETC1BitmapGM() { }
+    virtual ~ETC1Bitmap_R11_KTX_GM() { }
+
+protected:
+
+    SkString fileExtension() const override { return SkString("r11.ktx"); }
 
 private:
     typedef ETC1BitmapGM INHERITED;
@@ -160,20 +170,18 @@ public:
     virtual ~ETC1Bitmap_NPOT_GM() { }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("etc1bitmap_npot");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(124, 124);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkBitmap bm;
-        SkString resourcePath = GetResourcePath();
-        SkString filename = SkOSPath::SkPathJoin(resourcePath.c_str(), "mandrill_128.pkm");
-
-        SkAutoDataUnref fileData(SkData::NewFromFileName(filename.c_str()));
+        SkString pkmFilename = GetResourcePath("mandrill_128.pkm");
+        SkAutoDataUnref fileData(SkData::NewFromFileName(pkmFilename.c_str()));
         if (NULL == fileData) {
             SkDebugf("Could not open the file. Did you forget to set the resourcePath?\n");
             return;
@@ -194,9 +202,7 @@ protected:
         size_t dataSz = etc1_get_encoded_data_size(width, height) + ETC_PKM_HEADER_SIZE;
         SkAutoDataUnref nonPOTData(SkData::NewWithCopy(am.get(), dataSz));
 
-        if (!SkInstallDiscardablePixelRef(
-                SkDecodingImageGenerator::Create(
-                    nonPOTData, SkDecodingImageGenerator::Options()), &bm)) {
+        if (!SkInstallDiscardablePixelRef(nonPOTData, &bm)) {
             SkDebugf("Could not install discardable pixel ref.\n");
             return;
         }
@@ -215,6 +221,7 @@ private:
 
 DEF_GM( return SkNEW(skiagm::ETC1Bitmap_PKM_GM); )
 DEF_GM( return SkNEW(skiagm::ETC1Bitmap_KTX_GM); )
+DEF_GM( return SkNEW(skiagm::ETC1Bitmap_R11_KTX_GM); )
 
 #ifndef SK_IGNORE_ETC1_SUPPORT
 DEF_GM( return SkNEW(skiagm::ETC1Bitmap_NPOT_GM); )

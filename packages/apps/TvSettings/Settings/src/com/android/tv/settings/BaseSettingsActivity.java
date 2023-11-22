@@ -34,7 +34,7 @@ import java.util.Stack;
 public abstract class BaseSettingsActivity extends DialogActivity {
 
     protected Object mState;
-    protected Stack<Object> mStateStack = new Stack<Object>();
+    protected final Stack<Object> mStateStack = new Stack<>();
     protected Resources mResources;
     protected Fragment mContentFragment;
     protected Fragment mActionFragment;

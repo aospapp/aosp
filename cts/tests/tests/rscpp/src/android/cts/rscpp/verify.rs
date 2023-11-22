@@ -24,10 +24,10 @@ static const int RS_MSG_TEST_FAILED = 101;
 int gAllowedIntError = 0;
 static bool hadError = false;
 static int2 errorLoc = {0,0};
-
+float image_tolerance = 0.0001f;
 
 static bool compare_float(float f1, float f2) {
-    if (fabs(f1-f2) > 0.0001f) {
+    if (fabs(f1-f2) > image_tolerance) {
         hadError = true;
         return false;
     }

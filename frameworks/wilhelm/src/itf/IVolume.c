@@ -19,10 +19,11 @@
 #include "sles_allinclusive.h"
 
 
-static SLresult IVolume_SetVolumeLevel(SLVolumeItf self, SLmillibel level)
+static SLresult IVolume_SetVolumeLevel(SLVolumeItf self, SLmillibel level_)
 {
     SL_ENTER_INTERFACE
 
+    int level = level_;
     if (!((SL_MILLIBEL_MIN <= level) && (level <= PLATFORM_MILLIBEL_MAX_VOLUME))) {
         result = SL_RESULT_PARAMETER_INVALID;
     } else {

@@ -82,4 +82,8 @@ public abstract class AbstractSensorVerification implements ISensorVerification 
             this.previousEvent = previousEvent;
         }
     }
+
+    protected double nanosToMillis(long nanos) {
+        return nanos/(1000.0 * 1000.0);
+    }
 }

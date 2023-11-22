@@ -31,14 +31,14 @@ public:
     static SkRectShaderImageFilter* Create(SkShader* s, const CropRect* rect = NULL);
     virtual ~SkRectShaderImageFilter();
 
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkRectShaderImageFilter)
 
 protected:
-    SkRectShaderImageFilter(SkReadBuffer& buffer);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
+    void flatten(SkWriteBuffer&) const override;
 
     virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* loc) const SK_OVERRIDE;
+                               SkBitmap* result, SkIPoint* loc) const override;
 
 private:
     SkRectShaderImageFilter(SkShader* s, const CropRect* rect);

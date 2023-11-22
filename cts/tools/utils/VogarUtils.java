@@ -19,6 +19,7 @@ import com.android.cts.util.AbiUtils;
 import vogar.Expectation;
 import vogar.ExpectationStore;
 import vogar.ModeId;
+import vogar.Result;
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -52,14 +53,14 @@ public class VogarUtils {
         }
         String fullTestName = buildFullTestName(testClassName, testMethodName);
         Expectation expectation = expectationStore.get(fullTestName);
-        if (expectation == Expectation.SUCCESS) {
+        if (expectation.getResult() == Result.SUCCESS) {
             return false;
         }
 
         String description = expectation.getDescription();
         boolean foundAbi = AbiUtils.parseAbiList(description).size() > 0;
 
-        return expectation != Expectation.SUCCESS && !foundAbi;
+        return expectation.getResult() != Result.SUCCESS && !foundAbi;
     }
 
     public static ExpectationStore provideExpectationStore(String dir) throws IOException {
@@ -119,7 +120,7 @@ public class VogarUtils {
                                                    String className,
                                                    String testName) {
 
-        String fullTestName = VogarUtils.buildFullTestName(className, testName);
+        String fullTestName = buildFullTestName(className, testName);
         Set<String> supportedAbiSet = AbiUtils.getAbisForArch(architecture);
         for (ExpectationStore expectationStore : expectationStores) {
             Expectation expectation = expectationStore.get(fullTestName);
@@ -127,5 +128,45 @@ public class VogarUtils {
         }
 
         return supportedAbiSet;
+    }
+
+    /**
+     * Returns the greatest timeout in minutes for the test in all
+     * expectation stores, or 0 if no timeout was found.
+     */
+    public static int timeoutInMinutes(ExpectationStore[] expectationStores,
+            final String testClassName,
+            final String testMethodName) {
+        int timeoutInMinutes = 0;
+        for (ExpectationStore expectationStore : expectationStores) {
+            timeoutInMinutes = Math.max(timeoutInMinutes,
+                                        timeoutInMinutes(expectationStore,
+                                                         testClassName,
+                                                         testMethodName));
+        }
+        return timeoutInMinutes;
+    }
+
+    /**
+     * Returns the timeout in minutes for the test in the expectation
+     * stores, or 0 if no timeout was found.
+     */
+    public static int timeoutInMinutes(ExpectationStore expectationStore,
+            final String testClassName,
+            final String testMethodName) {
+        if (expectationStore == null) {
+            return 0;
+        }
+        String fullTestName = buildFullTestName(testClassName, testMethodName);
+        return timeoutInMinutes(expectationStore.get(fullTestName));
+    }
+
+    /**
+     * Returns the timeout in minutes for the expectation. Currently a
+     * tag of large results in a 60 minute timeout, otherwise 0 is
+     * returned to indicate a default timeout should be used.
+     */
+    public static int timeoutInMinutes(Expectation expectation) {
+        return expectation.getTags().contains("large") ? 60 : 0;
     }
 }

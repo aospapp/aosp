@@ -17,7 +17,8 @@
 #ifndef ART_COMPILER_DEX_QUICK_X86_X86_LIR_H_
 #define ART_COMPILER_DEX_QUICK_X86_X86_LIR_H_
 
-#include "dex/compiler_internals.h"
+#include "dex/reg_location.h"
+#include "dex/reg_storage.h"
 
 namespace art {
 
@@ -56,15 +57,15 @@ namespace art {
  * x86-64/x32 gs: holds it.
  *
  * For floating point we don't support CPUs without SSE2 support (ie newer than PIII):
- *  Native: x86  | x86-64 / x32 | ART x86                    | ART x86-64
- *  XMM0: caller | caller, arg1 | caller, float return value | caller, arg1, float return value
- *  XMM1: caller | caller, arg2 | caller, scratch            | caller, arg2, scratch
- *  XMM2: caller | caller, arg3 | caller, scratch            | caller, arg3, scratch
- *  XMM3: caller | caller, arg4 | caller, scratch            | caller, arg4, scratch
- *  XMM4: caller | caller, arg5 | caller, scratch            | caller, arg5, scratch
- *  XMM5: caller | caller, arg6 | caller, scratch            | caller, arg6, scratch
- *  XMM6: caller | caller, arg7 | caller, scratch            | caller, arg7, scratch
- *  XMM7: caller | caller, arg8 | caller, scratch            | caller, arg8, scratch
+ *  Native: x86  | x86-64 / x32 | ART x86                          | ART x86-64
+ *  XMM0: caller | caller, arg1 | caller, arg1, float return value | caller, arg1, float return value
+ *  XMM1: caller | caller, arg2 | caller, arg2, scratch            | caller, arg2, scratch
+ *  XMM2: caller | caller, arg3 | caller, arg3, scratch            | caller, arg3, scratch
+ *  XMM3: caller | caller, arg4 | caller, arg4, scratch            | caller, arg4, scratch
+ *  XMM4: caller | caller, arg5 | caller, scratch                  | caller, arg5, scratch
+ *  XMM5: caller | caller, arg6 | caller, scratch                  | caller, arg6, scratch
+ *  XMM6: caller | caller, arg7 | caller, scratch                  | caller, arg7, scratch
+ *  XMM7: caller | caller, arg8 | caller, scratch                  | caller, arg8, scratch
  *  ---  x86-64/x32 registers
  *  XMM8 .. 11: caller save available as scratch registers for ART.
  *  XMM12 .. 15: callee save available as promoted registers for ART.
@@ -75,33 +76,36 @@ namespace art {
  *  ST1 .. ST7: caller save
  *
  *  Stack frame diagram (stack grows down, higher addresses at top):
+ *  For a more detailed view of each region see stack.h.
  *
- * +------------------------+
- * | IN[ins-1]              |  {Note: resides in caller's frame}
- * |       .                |
- * | IN[0]                  |
- * | caller's Method*       |
- * +========================+  {Note: start of callee's frame}
- * | return address         |  {pushed by call}
- * | spill region           |  {variable sized}
- * +------------------------+
- * | ...filler word...      |  {Note: used as 2nd word of V[locals-1] if long]
- * +------------------------+
- * | V[locals-1]            |
- * | V[locals-2]            |
- * |      .                 |
- * |      .                 |
- * | V[1]                   |
- * | V[0]                   |
- * +------------------------+
- * |  0 to 3 words padding  |
- * +------------------------+
- * | OUT[outs-1]            |
- * | OUT[outs-2]            |
- * |       .                |
- * | OUT[0]                 |
- * | cur_method*            | <<== sp w/ 16-byte alignment
- * +========================+
+ * +---------------------------+
+ * | IN[ins-1]                 |  {Note: resides in caller's frame}
+ * |       .                   |
+ * | IN[0]                     |
+ * | caller's ArtMethod*       |
+ * +===========================+  {Note: start of callee's frame}
+ * | return address            |  {pushed by call}
+ * | spill region              |  {variable sized}
+ * +---------------------------+
+ * | ...filler 4-bytes...      |  {Note: used as 2nd word of V[locals-1] if long]
+ * +---------------------------+
+ * | V[locals-1]               |
+ * | V[locals-2]               |
+ * |      .                    |
+ * |      .                    |
+ * | V[1]                      |
+ * | V[0]                      |
+ * +---------------------------+
+ * | 0 to 12-bytes padding     |
+ * +---------------------------+
+ * | compiler temp region      |
+ * +---------------------------+
+ * | OUT[outs-1]               |
+ * | OUT[outs-2]               |
+ * |       .                   |
+ * | OUT[0]                    |
+ * | ArtMethod*                | <<== sp w/ 16-byte alignment
+ * +===========================+
  */
 
 enum X86ResourceEncodingPos {
@@ -214,6 +218,9 @@ enum X86NativeRegisterPool {
   xr14 = RegStorage::k128BitSolo | 14,
   xr15 = RegStorage::k128BitSolo | 15,
 
+  // Special value for RIP 64 bit addressing.
+  kRIPReg = 255,
+
   // TODO: as needed, add 256, 512 and 1024-bit xmm views.
 };
 
@@ -231,7 +238,7 @@ constexpr RegStorage rs_r3q(RegStorage::kValid | r3q);
 constexpr RegStorage rs_rBX = rs_r3;
 constexpr RegStorage rs_rX86_SP_64(RegStorage::kValid | r4sp_64);
 constexpr RegStorage rs_rX86_SP_32(RegStorage::kValid | r4sp_32);
-extern RegStorage rs_rX86_SP;
+static_assert(rs_rX86_SP_64.GetRegNum() == rs_rX86_SP_32.GetRegNum(), "Unexpected mismatch");
 constexpr RegStorage rs_r5(RegStorage::kValid | r5);
 constexpr RegStorage rs_r5q(RegStorage::kValid | r5q);
 constexpr RegStorage rs_rBP = rs_r5;
@@ -310,43 +317,8 @@ constexpr RegStorage rs_xr13(RegStorage::kValid | xr13);
 constexpr RegStorage rs_xr14(RegStorage::kValid | xr14);
 constexpr RegStorage rs_xr15(RegStorage::kValid | xr15);
 
-extern X86NativeRegisterPool rX86_ARG0;
-extern X86NativeRegisterPool rX86_ARG1;
-extern X86NativeRegisterPool rX86_ARG2;
-extern X86NativeRegisterPool rX86_ARG3;
-extern X86NativeRegisterPool rX86_ARG4;
-extern X86NativeRegisterPool rX86_ARG5;
-extern X86NativeRegisterPool rX86_FARG0;
-extern X86NativeRegisterPool rX86_FARG1;
-extern X86NativeRegisterPool rX86_FARG2;
-extern X86NativeRegisterPool rX86_FARG3;
-extern X86NativeRegisterPool rX86_FARG4;
-extern X86NativeRegisterPool rX86_FARG5;
-extern X86NativeRegisterPool rX86_FARG6;
-extern X86NativeRegisterPool rX86_FARG7;
-extern X86NativeRegisterPool rX86_RET0;
-extern X86NativeRegisterPool rX86_RET1;
-extern X86NativeRegisterPool rX86_INVOKE_TGT;
-extern X86NativeRegisterPool rX86_COUNT;
-
-extern RegStorage rs_rX86_ARG0;
-extern RegStorage rs_rX86_ARG1;
-extern RegStorage rs_rX86_ARG2;
-extern RegStorage rs_rX86_ARG3;
-extern RegStorage rs_rX86_ARG4;
-extern RegStorage rs_rX86_ARG5;
-extern RegStorage rs_rX86_FARG0;
-extern RegStorage rs_rX86_FARG1;
-extern RegStorage rs_rX86_FARG2;
-extern RegStorage rs_rX86_FARG3;
-extern RegStorage rs_rX86_FARG4;
-extern RegStorage rs_rX86_FARG5;
-extern RegStorage rs_rX86_FARG6;
-extern RegStorage rs_rX86_FARG7;
-extern RegStorage rs_rX86_RET0;
-extern RegStorage rs_rX86_RET1;
-extern RegStorage rs_rX86_INVOKE_TGT;
-extern RegStorage rs_rX86_COUNT;
+constexpr RegStorage rs_rX86_RET0 = rs_rAX;
+constexpr RegStorage rs_rX86_RET1 = rs_rDX;
 
 // RegisterLocation templates return values (r_V0, or r_V0/r_V1).
 const RegLocation x86_loc_c_return
@@ -440,12 +412,12 @@ enum X86OpCode {
   kX86Mov16MR, kX86Mov16AR, kX86Mov16TR,
   kX86Mov16RR, kX86Mov16RM, kX86Mov16RA, kX86Mov16RT,
   kX86Mov16RI, kX86Mov16MI, kX86Mov16AI, kX86Mov16TI,
-  kX86Mov32MR, kX86Mov32AR, kX86Mov32TR,
+  kX86Mov32MR, kX86Mov32AR, kX86Movnti32MR, kX86Movnti32AR, kX86Mov32TR,
   kX86Mov32RR, kX86Mov32RM, kX86Mov32RA, kX86Mov32RT,
   kX86Mov32RI, kX86Mov32MI, kX86Mov32AI, kX86Mov32TI,
   kX86Lea32RM,
   kX86Lea32RA,
-  kX86Mov64MR, kX86Mov64AR, kX86Mov64TR,
+  kX86Mov64MR, kX86Mov64AR, kX86Movnti64MR, kX86Movnti64AR, kX86Mov64TR,
   kX86Mov64RR, kX86Mov64RM, kX86Mov64RA, kX86Mov64RT,
   kX86Mov64RI32, kX86Mov64RI64, kX86Mov64MI, kX86Mov64AI, kX86Mov64TI,
   kX86Lea64RM,
@@ -484,8 +456,10 @@ enum X86OpCode {
 #undef BinaryShiftOpcode
   kX86Cmc,
   kX86Shld32RRI,
+  kX86Shld32RRC,
   kX86Shld32MRI,
   kX86Shrd32RRI,
+  kX86Shrd32RRC,
   kX86Shrd32MRI,
   kX86Shld64RRI,
   kX86Shld64MRI,
@@ -550,20 +524,27 @@ enum X86OpCode {
   Binary0fOpCode(kX86Subss),    // float subtract
   Binary0fOpCode(kX86Divsd),    // double divide
   Binary0fOpCode(kX86Divss),    // float divide
-  Binary0fOpCode(kX86Punpckldq),  // Interleave low-order double words
+  Binary0fOpCode(kX86Punpcklbw),  // Interleave low-order bytes
+  Binary0fOpCode(kX86Punpcklwd),  // Interleave low-order single words (16-bits)
+  Binary0fOpCode(kX86Punpckldq),  // Interleave low-order double words (32-bit)
+  Binary0fOpCode(kX86Punpcklqdq),  // Interleave low-order quad word
   Binary0fOpCode(kX86Sqrtsd),   // square root
   Binary0fOpCode(kX86Pmulld),   // parallel integer multiply 32 bits x 4
   Binary0fOpCode(kX86Pmullw),   // parallel integer multiply 16 bits x 8
+  Binary0fOpCode(kX86Pmuludq),   // parallel unsigned 32 integer and stores result as 64
   Binary0fOpCode(kX86Mulps),    // parallel FP multiply 32 bits x 4
   Binary0fOpCode(kX86Mulpd),    // parallel FP multiply 64 bits x 2
   Binary0fOpCode(kX86Paddb),    // parallel integer addition 8 bits x 16
   Binary0fOpCode(kX86Paddw),    // parallel integer addition 16 bits x 8
   Binary0fOpCode(kX86Paddd),    // parallel integer addition 32 bits x 4
+  Binary0fOpCode(kX86Paddq),    // parallel integer addition 64 bits x 2
+  Binary0fOpCode(kX86Psadbw),   // computes sum of absolute differences for unsigned byte integers
   Binary0fOpCode(kX86Addps),    // parallel FP addition 32 bits x 4
   Binary0fOpCode(kX86Addpd),    // parallel FP addition 64 bits x 2
   Binary0fOpCode(kX86Psubb),    // parallel integer subtraction 8 bits x 16
   Binary0fOpCode(kX86Psubw),    // parallel integer subtraction 16 bits x 8
   Binary0fOpCode(kX86Psubd),    // parallel integer subtraction 32 bits x 4
+  Binary0fOpCode(kX86Psubq),    // parallel integer subtraction 32 bits x 4
   Binary0fOpCode(kX86Subps),    // parallel FP subtraction 32 bits x 4
   Binary0fOpCode(kX86Subpd),    // parallel FP subtraction 64 bits x 2
   Binary0fOpCode(kX86Pand),     // parallel AND 128 bits x 1
@@ -588,6 +569,7 @@ enum X86OpCode {
   kX86PsrlwRI,                  // logical right shift of floating point registers 16 bits x 8
   kX86PsrldRI,                  // logical right shift of floating point registers 32 bits x 4
   kX86PsrlqRI,                  // logical right shift of floating point registers 64 bits x 2
+  kX86PsrldqRI,                 // logical shift of 128-bit vector register, immediate in bytes
   kX86PsllwRI,                  // left shift of floating point registers 16 bits x 8
   kX86PslldRI,                  // left shift of floating point registers 32 bits x 4
   kX86PsllqRI,                  // left shift of floating point registers 64 bits x 2
@@ -602,8 +584,8 @@ enum X86OpCode {
   kX86Fprem,                    // remainder from dividing of two floating point values
   kX86Fucompp,                  // compare floating point values and pop x87 fp stack twice
   kX86Fstsw16R,                 // store FPU status word
-  Binary0fOpCode(kX86Mova128),  // move 128 bits aligned
-  kX86Mova128MR, kX86Mova128AR,  // store 128 bit aligned from xmm1 to m128
+  Binary0fOpCode(kX86Movdqa),   // move 128 bits aligned
+  kX86MovdqaMR, kX86MovdqaAR,   // store 128 bit aligned from xmm1 to m128
   Binary0fOpCode(kX86Movups),   // load unaligned packed single FP values from xmm2/m128 to xmm1
   kX86MovupsMR, kX86MovupsAR,   // store unaligned packed single FP values from xmm1 to m128
   Binary0fOpCode(kX86Movaps),   // load aligned packed single FP values from xmm2/m128 to xmm1
@@ -618,7 +600,12 @@ enum X86OpCode {
   kX86MovdrxRR, kX86MovdrxMR, kX86MovdrxAR,  // move into reg from xmm
   kX86MovsxdRR, kX86MovsxdRM, kX86MovsxdRA,  // move 32 bit to 64 bit with sign extension
   kX86Set8R, kX86Set8M, kX86Set8A,  // set byte depending on condition operand
-  kX86Mfence,                   // memory barrier
+  kX86Lfence,                   // memory barrier to serialize all previous
+                                // load-from-memory instructions
+  kX86Mfence,                   // memory barrier to serialize all previous
+                                // load-from-memory and store-to-memory instructions
+  kX86Sfence,                   // memory barrier to serialize all previous
+                                // store-to-memory instructions
   Binary0fOpCode(kX86Imul16),   // 16bit multiply
   Binary0fOpCode(kX86Imul32),   // 32bit multiply
   Binary0fOpCode(kX86Imul64),   // 64bit multiply
@@ -648,14 +635,13 @@ enum X86OpCode {
   kX86CallT,            // call fs:[disp]; fs: is equal to Thread::Current(); lir operands - 0: disp
   kX86CallI,            // call <relative> - 0: disp; Used for core.oat linking only
   kX86Ret,              // ret; no lir operands
-  kX86StartOfMethod,    // call 0; pop reg; sub reg, # - generate start of method into reg
-                        // lir operands - 0: reg
   kX86PcRelLoadRA,      // mov reg, [base + index * scale + PC relative displacement]
                         // lir operands - 0: reg, 1: base, 2: index, 3: scale, 4: table
   kX86PcRelAdr,         // mov reg, PC relative displacement; lir operands - 0: reg, 1: table
   kX86RepneScasw,       // repne scasw
   kX86Last
 };
+std::ostream& operator<<(std::ostream& os, const X86OpCode& rhs);
 
 /* Instruction assembly field_loc kind */
 enum X86EncodingKind {
@@ -675,13 +661,13 @@ enum X86EncodingKind {
   kMemRegImm,                               // MRI instruction kinds.
   kShiftRegImm, kShiftMemImm, kShiftArrayImm,  // Shift opcode with immediate.
   kShiftRegCl, kShiftMemCl, kShiftArrayCl,     // Shift opcode with register CL.
+  kShiftRegRegCl,
   // kRegRegReg, kRegRegMem, kRegRegArray,    // RRR, RRM, RRA instruction kinds.
   kRegCond, kMemCond, kArrayCond,          // R, M, A instruction kinds following by a condition.
   kRegRegCond,                             // RR instruction kind followed by a condition.
   kRegMemCond,                             // RM instruction kind followed by a condition.
   kJmp, kJcc, kCall,                       // Branch instruction kinds.
   kPcRel,                                  // Operation with displacement that is PC relative
-  kMacro,                                  // An instruction composing multiple others
   kUnimplemented                           // Encoding used when an instruction isn't yet implemented.
 };
 

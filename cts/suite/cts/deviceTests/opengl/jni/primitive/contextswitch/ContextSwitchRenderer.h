@@ -18,9 +18,9 @@
 
 class ContextSwitchRenderer: public Renderer {
 public:
-    ContextSwitchRenderer(ANativeWindow* window, bool offscreen, int workload);
+    ContextSwitchRenderer(ANativeWindow* window, bool offscreen);
     virtual ~ContextSwitchRenderer() {};
-    bool setUp();
+    bool setUp(int workload);
     bool tearDown();
     void drawWorkload();
 private:
@@ -31,6 +31,7 @@ private:
     GLuint mTranslateUniformHandle;
     GLuint mPositionHandle;
     GLuint mTexCoordHandle;
+    int mWorkload;
 };
 
 #endif

@@ -24,14 +24,17 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.android.internal.logging.MetricsLogger;
 import com.android.systemui.R;
 import com.android.systemui.qs.QSTile;
 import com.android.systemui.qs.QSTileView;
 import com.android.systemui.qs.SignalTileView;
 import com.android.systemui.statusbar.policy.NetworkController;
+import com.android.systemui.statusbar.policy.NetworkController.IconState;
 import com.android.systemui.statusbar.policy.NetworkController.MobileDataController;
 import com.android.systemui.statusbar.policy.NetworkController.MobileDataController.DataUsageInfo;
-import com.android.systemui.statusbar.policy.NetworkController.NetworkSignalChangedCallback;
+import com.android.systemui.statusbar.policy.NetworkController.SignalCallback;
+import com.android.systemui.statusbar.policy.SignalCallbackAdapter;
 
 /** Quick settings tile: Cellular **/
 public class CellularTile extends QSTile<QSTile.SignalState> {
@@ -41,6 +44,8 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
     private final NetworkController mController;
     private final MobileDataController mDataController;
     private final CellularDetailAdapter mDetailAdapter;
+
+    private final CellSignalCallback mSignalCallback = new CellSignalCallback();
 
     public CellularTile(Host host) {
         super(host);
@@ -62,9 +67,9 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
     @Override
     public void setListening(boolean listening) {
         if (listening) {
-            mController.addNetworkSignalChangedCallback(mCallback);
+            mController.addSignalCallback(mSignalCallback);
         } else {
-            mController.removeNetworkSignalChangedCallback(mCallback);
+            mController.removeSignalCallback(mSignalCallback);
         }
     }
 
@@ -75,10 +80,11 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
 
     @Override
     protected void handleClick() {
+        MetricsLogger.action(mContext, getMetricsCategory());
         if (mDataController.isMobileDataSupported()) {
             showDetail(true);
         } else {
-            mHost.startSettingsActivity(CELLULAR_SETTINGS);
+            mHost.startActivityDismissingKeyguard(CELLULAR_SETTINGS);
         }
     }
 
@@ -86,8 +92,10 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
     protected void handleUpdateState(SignalState state, Object arg) {
         state.visible = mController.hasMobileDataFeature();
         if (!state.visible) return;
-        final CallbackInfo cb = (CallbackInfo) arg;
-        if (cb == null) return;
+        CallbackInfo cb = (CallbackInfo) arg;
+        if (cb == null) {
+            cb = mSignalCallback.mInfo;
+        }
 
         final Resources r = mContext.getResources();
         final int iconId = cb.noSim ? R.drawable.ic_qs_no_sim
@@ -118,6 +126,11 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
                 state.label);
     }
 
+    @Override
+    public int getMetricsCategory() {
+        return MetricsLogger.QS_CELLULAR;
+    }
+
     // Remove the period from the network name
     public static String removeTrailingPeriod(String string) {
         if (string == null) return null;
@@ -131,7 +144,6 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
     private static final class CallbackInfo {
         boolean enabled;
         boolean wifiEnabled;
-        boolean wifiConnected;
         boolean airplaneModeEnabled;
         int mobileSignalIconId;
         String signalContentDescription;
@@ -144,40 +156,38 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
         boolean isDataTypeIconWide;
     }
 
-    private final NetworkSignalChangedCallback mCallback = new NetworkSignalChangedCallback() {
+    private final class CellSignalCallback extends SignalCallbackAdapter {
         private final CallbackInfo mInfo = new CallbackInfo();
-
         @Override
-        public void onWifiSignalChanged(boolean enabled, boolean connected, int wifiSignalIconId,
-                boolean activityIn, boolean activityOut,
-                String wifiSignalContentDescriptionId, String description) {
+        public void setWifiIndicators(boolean enabled, IconState statusIcon, IconState qsIcon,
+                boolean activityIn, boolean activityOut, String description) {
             mInfo.wifiEnabled = enabled;
-            mInfo.wifiConnected = connected;
             refreshState(mInfo);
         }
 
         @Override
-        public void onMobileDataSignalChanged(boolean enabled,
-                int mobileSignalIconId,
-                String mobileSignalContentDescriptionId, int dataTypeIconId,
-                boolean activityIn, boolean activityOut,
-                String dataTypeContentDescriptionId, String description,
-                boolean isDataTypeIconWide) {
-            mInfo.enabled = enabled;
-            mInfo.mobileSignalIconId = mobileSignalIconId;
-            mInfo.signalContentDescription = mobileSignalContentDescriptionId;
-            mInfo.dataTypeIconId = dataTypeIconId;
-            mInfo.dataContentDescription = dataTypeContentDescriptionId;
+        public void setMobileDataIndicators(IconState statusIcon, IconState qsIcon, int statusType,
+                int qsType, boolean activityIn, boolean activityOut, String typeContentDescription,
+                String description, boolean isWide, int subId) {
+            if (qsIcon == null) {
+                // Not data sim, don't display.
+                return;
+            }
+            mInfo.enabled = qsIcon.visible;
+            mInfo.mobileSignalIconId = qsIcon.icon;
+            mInfo.signalContentDescription = qsIcon.contentDescription;
+            mInfo.dataTypeIconId = qsType;
+            mInfo.dataContentDescription = typeContentDescription;
             mInfo.activityIn = activityIn;
             mInfo.activityOut = activityOut;
             mInfo.enabledDesc = description;
-            mInfo.isDataTypeIconWide = isDataTypeIconWide;
+            mInfo.isDataTypeIconWide = qsType != 0 && isWide;
             refreshState(mInfo);
         }
 
         @Override
-        public void onNoSimVisibleChanged(boolean visible) {
-            mInfo.noSim = visible;
+        public void setNoSims(boolean show) {
+            mInfo.noSim = show;
             if (mInfo.noSim) {
                 // Make sure signal gets cleared out when no sims.
                 mInfo.mobileSignalIconId = 0;
@@ -192,12 +202,13 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
         }
 
         @Override
-        public void onAirplaneModeChanged(boolean enabled) {
-            mInfo.airplaneModeEnabled = enabled;
+        public void setIsAirplaneMode(IconState icon) {
+            mInfo.airplaneModeEnabled = icon.visible;
             refreshState(mInfo);
         }
 
-        public void onMobileDataEnabled(boolean enabled) {
+        @Override
+        public void setMobileDataEnabled(boolean enabled) {
             mDetailAdapter.setMobileDataEnabled(enabled);
         }
     };
@@ -223,7 +234,13 @@ public class CellularTile extends QSTile<QSTile.SignalState> {
 
         @Override
         public void setToggleState(boolean state) {
+            MetricsLogger.action(mContext, MetricsLogger.QS_CELLULAR_TOGGLE, state);
             mDataController.setMobileDataEnabled(state);
+        }
+
+        @Override
+        public int getMetricsCategory() {
+            return MetricsLogger.QS_DATAUSAGEDETAIL;
         }
 
         @Override

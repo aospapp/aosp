@@ -62,6 +62,10 @@ public class SmsMessageTest extends AndroidTestCase{
     private static final long TIMESTAMP_MILLIS = 1149631383000l;
     private static final int SEPTETS_SKT = 80;
     private static final int SEPTETS_KT = 90;
+    private static final String LONG_TEXT_WITH_32BIT_CHARS =
+        "Long dkkshsh jdjsusj kbsksbdf jfkhcu hhdiwoqiwyrygrvn?*?*!\";:'/,."
+        + "__?9#9292736&4;\"$+$+((]\\[\\℅©℅™^®°¥°¥=¢£}}£∆~¶~÷|√×."
+        + " 😯😆😉😇😂😀👕🎓😀👙🐕🐀🐶🐰🐩⛪⛲ ";
 
     @Override
     protected void setUp() throws Exception {
@@ -71,7 +75,6 @@ public class SmsMessageTest extends AndroidTestCase{
         mPackageManager = getContext().getPackageManager();
     }
 
-    @SuppressWarnings("deprecation")
     public void testCreateFromPdu() throws Exception {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
                 || mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_CDMA)) {
@@ -80,7 +83,8 @@ public class SmsMessageTest extends AndroidTestCase{
         }
 
         String pdu = "07916164260220F0040B914151245584F600006060605130308A04D4F29C0E";
-        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu),
+                SmsMessage.FORMAT_3GPP);
         assertEquals(SCA1, sms.getServiceCenterAddress());
         assertEquals(OA1, sms.getOriginatingAddress());
         assertEquals(MESSAGE_BODY1, sms.getMessageBody());
@@ -88,7 +92,7 @@ public class SmsMessageTest extends AndroidTestCase{
         int[] result = SmsMessage.calculateLength(sms.getMessageBody(), true);
         assertEquals(SMS_NUMBER1, result[0]);
         assertEquals(sms.getMessageBody().length(), result[1]);
-        assertRemaining(sms.getMessageBody().length(), result[2]);
+        assertRemaining(sms.getMessageBody().length(), result[2], SmsMessage.MAX_USER_DATA_SEPTETS);
         assertEquals(SmsMessage.ENCODING_7BIT, result[3]);
         assertEquals(pdu, toHexString(sms.getPdu()));
 
@@ -106,13 +110,13 @@ public class SmsMessageTest extends AndroidTestCase{
         assertEquals(TIMESTAMP_MILLIS, sms.getTimestampMillis());
 
         // Test create from null Pdu
-        sms = SmsMessage.createFromPdu(null);
+        sms = SmsMessage.createFromPdu(null, SmsMessage.FORMAT_3GPP);
         assertNotNull(sms);
 
-        //Test create from long Pdu
+        // Test create from long Pdu
         pdu = "07912160130310F2040B915121927786F300036060924180008A0DA"
             + "8695DAC2E8FE9296A794E07";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertEquals(SCA2, sms.getServiceCenterAddress());
         assertEquals(OA2, sms.getOriginatingAddress());
         assertEquals(MESSAGE_BODY2, sms.getMessageBody());
@@ -120,30 +124,30 @@ public class SmsMessageTest extends AndroidTestCase{
         result = SmsMessage.calculateLength(msgBody, false);
         assertEquals(SMS_NUMBER2, result[0]);
         assertEquals(sms.getMessageBody().length(), result[1]);
-        assertRemaining(sms.getMessageBody().length(), result[2]);
+        assertRemaining(sms.getMessageBody().length(), result[2], SmsMessage.MAX_USER_DATA_SEPTETS);
         assertEquals(SmsMessage.ENCODING_7BIT, result[3]);
 
         // Test createFromPdu Ucs to Sms
         pdu = "07912160130300F4040B914151245584"
             + "F600087010807121352B10212200A900AE00680065006C006C006F";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertEquals(MESSAGE_BODY3, sms.getMessageBody());
         result = SmsMessage.calculateLength(sms.getMessageBody(), true);
         assertEquals(SMS_NUMBER3, result[0]);
         assertEquals(sms.getMessageBody().length(), result[1]);
-        assertRemaining(sms.getMessageBody().length(), result[2]);
+        assertRemaining(sms.getMessageBody().length(), result[2], SmsMessage.MAX_USER_DATA_SEPTETS);
         assertEquals(SmsMessage.ENCODING_7BIT, result[3]);
     }
 
-    private void assertRemaining(int messageLength, int remaining) {
+    private void assertRemaining(int messageLength, int remaining, int maxChars) {
         if (TelephonyUtils.isSkt(mTelephonyManager)) {
             assertTrue(checkRemaining(SEPTETS_SKT, messageLength, remaining)
-                    || checkRemaining(SmsMessage.MAX_USER_DATA_SEPTETS, messageLength, remaining));
+                    || checkRemaining(maxChars, messageLength, remaining));
         } else if (TelephonyUtils.isKt(mTelephonyManager)) {
             assertTrue(checkRemaining(SEPTETS_KT, messageLength, remaining)
-                    || checkRemaining(SmsMessage.MAX_USER_DATA_SEPTETS, messageLength, remaining));
+                    || checkRemaining(maxChars, messageLength, remaining));
         } else {
-            assertTrue(checkRemaining(SmsMessage.MAX_USER_DATA_SEPTETS, messageLength, remaining));
+            assertTrue(checkRemaining(maxChars, messageLength, remaining));
         }
     }
 
@@ -160,7 +164,8 @@ public class SmsMessageTest extends AndroidTestCase{
 
         // "set MWI flag"
         String pdu = "07912160130310F20404D0110041006060627171118A0120";
-        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu),
+                SmsMessage.FORMAT_3GPP);
         assertTrue(sms.isReplace());
         assertEquals(OA3, sms.getOriginatingAddress());
         assertEquals(MESSAGE_BODY4, sms.getMessageBody());
@@ -168,12 +173,12 @@ public class SmsMessageTest extends AndroidTestCase{
 
         // "clear mwi flag"
         pdu = "07912160130310F20404D0100041006021924193352B0120";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertTrue(sms.isMWIClearMessage());
 
         // "clear MWI flag"
         pdu = "07912160130310F20404D0100041006060627161058A0120";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertTrue(sms.isReplace());
         assertEquals(OA4, sms.getOriginatingAddress());
         assertEquals(MESSAGE_BODY5, sms.getMessageBody());
@@ -181,13 +186,13 @@ public class SmsMessageTest extends AndroidTestCase{
 
         // "set MWI flag"
         pdu = "07912180958750F84401800500C87020026195702B06040102000200";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertTrue(sms.isMWISetMessage());
         assertTrue(sms.isMwiDontStore());
 
         // "clear mwi flag"
         pdu = "07912180958750F84401800500C07020027160112B06040102000000";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
 
         assertTrue(sms.isMWIClearMessage());
         assertTrue(sms.isMwiDontStore());
@@ -206,7 +211,8 @@ public class SmsMessageTest extends AndroidTestCase{
             + "66C414141414D7741414236514141414141008D908918802B3135313232393737"
             + "3638332F545950453D504C4D4E008A808E022B918805810306977F83687474703"
             + "A2F2F36";
-        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu),
+                SmsMessage.FORMAT_3GPP);
         byte[] userData = sms.getUserData();
         assertNotNull(userData);
     }
@@ -265,7 +271,8 @@ public class SmsMessageTest extends AndroidTestCase{
         String pdu = "07914151551512f204038105f300007011103164638a28e6f71b50c687db" +
                          "7076d9357eb7412f7a794e07cdeb6275794c07bde8e5391d247e93f3";
 
-        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        SmsMessage sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu),
+                SmsMessage.FORMAT_3GPP);
         assertEquals(SCA4, sms.getServiceCenterAddress());
         assertTrue(sms.isEmail());
         assertEquals(EMAIL_ADD, sms.getEmailFrom());
@@ -277,13 +284,29 @@ public class SmsMessageTest extends AndroidTestCase{
 
         pdu = "07914151551512f204038105f400007011103105458a29e6f71b50c687db" +
                         "7076d9357eb741af0d0a442fcfe9c23739bfe16d289bdee6b5f1813629";
-        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu));
+        sms = SmsMessage.createFromPdu(hexStringToByteArray(pdu), SmsMessage.FORMAT_3GPP);
         assertEquals(SCA3, sms.getServiceCenterAddress());
         assertTrue(sms.isEmail());
         assertEquals(OA, sms.getDisplayOriginatingAddress());
         assertEquals(EMAIL_FROM, sms.getEmailFrom());
         assertEquals(DMB, sms.getDisplayMessageBody());
         assertEquals(MB, sms.getEmailBody());
+    }
+
+    public void testCalculateLength() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+
+        int[] result = SmsMessage.calculateLength(LONG_TEXT_WITH_32BIT_CHARS, false);
+        assertEquals(3, result[0]);
+        assertEquals(LONG_TEXT_WITH_32BIT_CHARS.length(), result[1]);
+        assertRemaining(LONG_TEXT_WITH_32BIT_CHARS.length(), result[2],
+                // 3 parts, each with (SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2) 16-bit
+                // characters. We need to subtract one because a 32-bit character crosses the
+                // boundary of 2 parts.
+                3 * SmsMessage.MAX_USER_DATA_BYTES_WITH_HEADER / 2 - 1);
+        assertEquals(SmsMessage.ENCODING_16BIT, result[3]);
     }
 
     private final static char[] HEX_DIGITS = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',

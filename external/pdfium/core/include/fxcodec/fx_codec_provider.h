@@ -4,12 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_CODEC_PROVIDER_H_
-#define _FX_CODEC_PROVIDER_H_
+#ifndef CORE_INCLUDE_FXCODEC_FX_CODEC_PROVIDER_H_
+#define CORE_INCLUDE_FXCODEC_FX_CODEC_PROVIDER_H_
+
 class IFX_JpegProvider
 {
 public:
-
     virtual void		Release() = 0;
 
     virtual void*		CreateDecoder(FX_LPCBYTE src_buf, FX_DWORD src_size, int width, int height, int nComps, FX_BOOL ColorTransform) = 0;
@@ -49,5 +49,9 @@ public:
 
 
     virtual FX_DWORD	GetAvailInput(void* pContext, FX_LPBYTE* avail_buf_ptr = NULL) = 0;
+
+protected:
+    ~IFX_JpegProvider() { }
 };
-#endif
+
+#endif  // CORE_INCLUDE_FXCODEC_FX_CODEC_PROVIDER_H_

@@ -77,9 +77,9 @@ typedef enum {
   ZEROMV,
   NEWMV,
   MB_MODE_COUNT
-} MB_PREDICTION_MODE;
+} PREDICTION_MODE;
 
-static INLINE int is_inter_mode(MB_PREDICTION_MODE mode) {
+static INLINE int is_inter_mode(PREDICTION_MODE mode) {
   return mode >= NEARESTMV && mode <= NEWMV;
 }
 
@@ -94,7 +94,7 @@ static INLINE int is_inter_mode(MB_PREDICTION_MODE mode) {
    is a single probability table. */
 
 typedef struct {
-  MB_PREDICTION_MODE as_mode;
+  PREDICTION_MODE as_mode;
   int_mv as_mv[2];  // first, second inter predictor motion vectors
 } b_mode_info;
 
@@ -122,14 +122,14 @@ static INLINE int mi_width_log2(BLOCK_SIZE sb_type) {
 typedef struct {
   // Common for both INTER and INTRA blocks
   BLOCK_SIZE sb_type;
-  MB_PREDICTION_MODE mode;
+  PREDICTION_MODE mode;
   TX_SIZE tx_size;
-  uint8_t skip;
-  uint8_t segment_id;
-  uint8_t seg_id_predicted;  // valid only when temporal_update is enabled
+  int8_t skip;
+  int8_t segment_id;
+  int8_t seg_id_predicted;  // valid only when temporal_update is enabled
 
   // Only for INTRA blocks
-  MB_PREDICTION_MODE uv_mode;
+  PREDICTION_MODE uv_mode;
 
   // Only for INTER blocks
   MV_REFERENCE_FRAME ref_frame[2];
@@ -144,7 +144,7 @@ typedef struct {
   b_mode_info bmi[4];
 } MODE_INFO;
 
-static INLINE MB_PREDICTION_MODE get_y_mode(const MODE_INFO *mi, int block) {
+static INLINE PREDICTION_MODE get_y_mode(const MODE_INFO *mi, int block) {
   return mi->mbmi.sb_type < BLOCK_8X8 ? mi->bmi[block].as_mode
                                       : mi->mbmi.mode;
 }
@@ -157,22 +157,18 @@ static INLINE int has_second_ref(const MB_MODE_INFO *mbmi) {
   return mbmi->ref_frame[1] > INTRA_FRAME;
 }
 
-MB_PREDICTION_MODE vp9_left_block_mode(const MODE_INFO *cur_mi,
-                                       const MODE_INFO *left_mi, int b);
+PREDICTION_MODE vp9_left_block_mode(const MODE_INFO *cur_mi,
+                                    const MODE_INFO *left_mi, int b);
 
-MB_PREDICTION_MODE vp9_above_block_mode(const MODE_INFO *cur_mi,
-                                        const MODE_INFO *above_mi, int b);
+PREDICTION_MODE vp9_above_block_mode(const MODE_INFO *cur_mi,
+                                     const MODE_INFO *above_mi, int b);
 
 enum mv_precision {
   MV_PRECISION_Q3,
   MV_PRECISION_Q4
 };
 
-#if CONFIG_ALPHA
-enum { MAX_MB_PLANE = 4 };
-#else
 enum { MAX_MB_PLANE = 3 };
-#endif
 
 struct buf_2d {
   uint8_t *buf;
@@ -228,8 +224,6 @@ typedef struct macroblockd {
   DECLARE_ALIGNED(16, uint8_t, mc_buf[80 * 2 * 80 * 2]);
 
   int lossless;
-  /* Inverse transform function pointers. */
-  void (*itxm_add)(const int16_t *input, uint8_t *dest, int stride, int eob);
 
   int corrupted;
 
@@ -244,9 +238,7 @@ typedef struct macroblockd {
 
 static INLINE BLOCK_SIZE get_subsize(BLOCK_SIZE bsize,
                                      PARTITION_TYPE partition) {
-  const BLOCK_SIZE subsize = subsize_lookup[partition][bsize];
-  assert(subsize < BLOCK_SIZES);
-  return subsize;
+  return subsize_lookup[partition][bsize];
 }
 
 extern const TX_TYPE intra_mode_to_tx_type_lookup[INTRA_MODES];
@@ -272,25 +264,25 @@ static INLINE TX_TYPE get_tx_type_4x4(PLANE_TYPE plane_type,
 
 void vp9_setup_block_planes(MACROBLOCKD *xd, int ss_x, int ss_y);
 
-static INLINE TX_SIZE get_uv_tx_size_impl(TX_SIZE y_tx_size, BLOCK_SIZE bsize) {
+static INLINE TX_SIZE get_uv_tx_size_impl(TX_SIZE y_tx_size, BLOCK_SIZE bsize,
+                                          int xss, int yss) {
   if (bsize < BLOCK_8X8) {
     return TX_4X4;
   } else {
-    // TODO(dkovalev): Assuming YUV420 (ss_x == 1, ss_y == 1)
-    const BLOCK_SIZE plane_bsize = ss_size_lookup[bsize][1][1];
+    const BLOCK_SIZE plane_bsize = ss_size_lookup[bsize][xss][yss];
     return MIN(y_tx_size, max_txsize_lookup[plane_bsize]);
   }
 }
 
-static INLINE TX_SIZE get_uv_tx_size(const MB_MODE_INFO *mbmi) {
-  return get_uv_tx_size_impl(mbmi->tx_size, mbmi->sb_type);
+static INLINE TX_SIZE get_uv_tx_size(const MB_MODE_INFO *mbmi,
+                                     const struct macroblockd_plane *pd) {
+  return get_uv_tx_size_impl(mbmi->tx_size, mbmi->sb_type, pd->subsampling_x,
+                             pd->subsampling_y);
 }
 
 static INLINE BLOCK_SIZE get_plane_block_size(BLOCK_SIZE bsize,
     const struct macroblockd_plane *pd) {
-  BLOCK_SIZE bs = ss_size_lookup[bsize][pd->subsampling_x][pd->subsampling_y];
-  assert(bs < BLOCK_SIZES);
-  return bs;
+  return ss_size_lookup[bsize][pd->subsampling_x][pd->subsampling_y];
 }
 
 typedef void (*foreach_transformed_block_visitor)(int plane, int block,

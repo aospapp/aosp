@@ -18,8 +18,6 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_MODULE_TAGS := optional
-
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsDumpsysHostTestCases
 

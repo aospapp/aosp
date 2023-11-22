@@ -95,6 +95,8 @@ class DeviceInfoResult extends AbstractXmlPullParser {
                 getMetric(metricsCopy, DeviceInfoConstants.SCREEN_DENSITY_BUCKET));
         serializer.attribute(ns, DeviceInfoConstants.SCREEN_SIZE,
                 getMetric(metricsCopy, DeviceInfoConstants.SCREEN_SIZE));
+        serializer.attribute(ns, DeviceInfoConstants.SMALLEST_SCREEN_WIDTH_DP,
+                getMetric(metricsCopy, DeviceInfoConstants.SMALLEST_SCREEN_WIDTH_DP));
         serializer.endTag(ns, SCREEN_TAG);
 
         serializer.startTag(ns, PHONE_TAG);

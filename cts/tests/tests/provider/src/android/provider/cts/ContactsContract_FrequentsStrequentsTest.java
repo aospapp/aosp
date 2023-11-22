@@ -29,6 +29,7 @@ import android.provider.ContactsContract.CommonDataKinds.Organization;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
+import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.DataUsageFeedback;
 import android.provider.ContactsContract.RawContacts;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestContact;
@@ -46,6 +47,85 @@ import java.util.ArrayList;
 public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTestCase {
     private ContentResolver mResolver;
     private ContactsContract_TestDataBuilder mBuilder;
+
+    private static final String[] STREQUENT_PROJECTION = new String[]{
+            Contacts._ID,
+            Contacts.HAS_PHONE_NUMBER,
+            Contacts.NAME_RAW_CONTACT_ID,
+            Contacts.IS_USER_PROFILE,
+            Contacts.CUSTOM_RINGTONE,
+            Contacts.DISPLAY_NAME,
+            Contacts.DISPLAY_NAME_ALTERNATIVE,
+            Contacts.DISPLAY_NAME_SOURCE,
+            Contacts.IN_DEFAULT_DIRECTORY,
+            Contacts.IN_VISIBLE_GROUP,
+            Contacts.LAST_TIME_CONTACTED,
+            Contacts.LOOKUP_KEY,
+            Contacts.PHONETIC_NAME,
+            Contacts.PHONETIC_NAME_STYLE,
+            Contacts.PHOTO_ID,
+            Contacts.PHOTO_FILE_ID,
+            Contacts.PHOTO_URI,
+            Contacts.PHOTO_THUMBNAIL_URI,
+            Contacts.SEND_TO_VOICEMAIL,
+            Contacts.SORT_KEY_ALTERNATIVE,
+            Contacts.SORT_KEY_PRIMARY,
+            Contacts.STARRED,
+            Contacts.PINNED,
+            Contacts.TIMES_CONTACTED,
+            Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+            Contacts.CONTACT_PRESENCE,
+            Contacts.CONTACT_CHAT_CAPABILITY,
+            Contacts.CONTACT_STATUS,
+            Contacts.CONTACT_STATUS_TIMESTAMP,
+            Contacts.CONTACT_STATUS_RES_PACKAGE,
+            Contacts.CONTACT_STATUS_LABEL,
+            Contacts.CONTACT_STATUS_ICON,
+            Data.TIMES_USED,
+            Data.LAST_TIME_USED,
+    };
+
+    private static final String[] STREQUENT_PHONE_ONLY_PROJECTION = new String[]{
+            Data._ID,
+            Contacts.HAS_PHONE_NUMBER,
+            Contacts.NAME_RAW_CONTACT_ID,
+            Contacts.IS_USER_PROFILE,
+            Contacts.CUSTOM_RINGTONE,
+            Contacts.DISPLAY_NAME,
+            Contacts.DISPLAY_NAME_ALTERNATIVE,
+            Contacts.DISPLAY_NAME_SOURCE,
+            Contacts.IN_DEFAULT_DIRECTORY,
+            Contacts.IN_VISIBLE_GROUP,
+            Contacts.LAST_TIME_CONTACTED,
+            Contacts.LOOKUP_KEY,
+            Contacts.PHONETIC_NAME,
+            Contacts.PHONETIC_NAME_STYLE,
+            Contacts.PHOTO_ID,
+            Contacts.PHOTO_FILE_ID,
+            Contacts.PHOTO_URI,
+            Contacts.PHOTO_THUMBNAIL_URI,
+            Contacts.SEND_TO_VOICEMAIL,
+            Contacts.SORT_KEY_ALTERNATIVE,
+            Contacts.SORT_KEY_PRIMARY,
+            Contacts.STARRED,
+            Contacts.PINNED,
+            Contacts.TIMES_CONTACTED,
+            Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+            Contacts.CONTACT_PRESENCE,
+            Contacts.CONTACT_CHAT_CAPABILITY,
+            Contacts.CONTACT_STATUS,
+            Contacts.CONTACT_STATUS_TIMESTAMP,
+            Contacts.CONTACT_STATUS_RES_PACKAGE,
+            Contacts.CONTACT_STATUS_LABEL,
+            Contacts.CONTACT_STATUS_ICON,
+            Data.TIMES_USED,
+            Data.LAST_TIME_USED,
+            Phone.NUMBER,
+            Phone.TYPE,
+            Phone.LABEL,
+            Phone.IS_SUPER_PRIMARY,
+            Phone.CONTACT_ID,
+    };
 
     public static ContentValues[] sContentValues = new ContentValues[3];
     static {
@@ -174,6 +254,27 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
         assertCursorStoredValuesWithContactsFilter(uri, ids, false, sContentValues[1], sContentValues[0]);
     }
 
+    public void testStrequents_projection() throws Exception {
+        long[] ids = setupTestData();
+
+        // Start contact 0 and mark contact 2 as frequent
+        starContact(ids[0]);
+        markDataAsUsed(mDataIds[2], 1);
+
+        DatabaseAsserts.checkProjection(mResolver, Contacts.CONTENT_STREQUENT_URI,
+                STREQUENT_PROJECTION,
+                new long[]{ids[0], ids[2]}
+        );
+
+        // Strequent filter.
+        DatabaseAsserts.checkProjection(mResolver,
+                Contacts.CONTENT_STREQUENT_FILTER_URI.buildUpon()
+                        .appendEncodedPath("Hot Tamale").build(),
+                STREQUENT_PROJECTION,
+                new long[]{ids[0]}
+        );
+    }
+
     public void testStrequents_phoneOnly() throws Exception {
         long[] ids = setupTestData();
 
@@ -213,6 +314,23 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
                 sContentValues[2], sContentValues[0]);
     }
 
+    public void testStrequents_phoneOnly_projection() throws Exception {
+        long[] ids = setupTestData();
+
+        // Start contact 0 and mark contact 2 as frequent
+        starContact(ids[0]);
+        markDataAsUsed(mDataIds[2], 1);
+
+        // Construct a uri for phone only favorites.
+        Uri uri = Contacts.CONTENT_STREQUENT_URI.buildUpon().
+                appendQueryParameter(ContactsContract.STREQUENT_PHONE_ONLY, "true").build();
+
+        DatabaseAsserts.checkProjection(mResolver, uri,
+                STREQUENT_PHONE_ONLY_PROJECTION,
+                new long[]{mDataIds[0], mDataIds[2]} // Note _id from phone_only is data._id
+        );
+    }
+
     public void testFrequents_noFrequentsReturnsEmptyCursor() throws Exception {
         long[] ids = setupTestData();
         assertCursorStoredValuesWithContactsFilter(Contacts.CONTENT_FREQUENT_URI, ids, false);
@@ -234,6 +352,17 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
         // data usage.
         assertCursorStoredValuesWithContactsFilter(Contacts.CONTENT_FREQUENT_URI, ids,
                 true /* inOrder */, sContentValues[1], sContentValues[2], sContentValues[0]);
+    }
+
+    public void testFrequent_projection() throws Exception {
+        long[] ids = setupTestData();
+
+        markDataAsUsed(mDataIds[0], 10);
+
+        DatabaseAsserts.checkProjection(mResolver, Contacts.CONTENT_FREQUENT_URI,
+                STREQUENT_PROJECTION,
+                new long[]{ids[0]}
+        );
     }
 
     /**

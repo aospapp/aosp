@@ -98,7 +98,8 @@ DiagnosticInfoInlineAsm::DiagnosticInfoInlineAsm(const Instruction &I,
       Instr(&I) {
   if (const MDNode *SrcLoc = I.getMetadata("srcloc")) {
     if (SrcLoc->getNumOperands() != 0)
-      if (const ConstantInt *CI = dyn_cast<ConstantInt>(SrcLoc->getOperand(0)))
+      if (const auto *CI =
+              mdconst::dyn_extract<ConstantInt>(SrcLoc->getOperand(0)))
         LocCookie = CI->getZExtValue();
   }
 }
@@ -127,29 +128,29 @@ void DiagnosticInfoSampleProfile::print(DiagnosticPrinter &DP) const {
   DP << getMsg();
 }
 
-bool DiagnosticInfoOptimizationRemarkBase::isLocationAvailable() const {
-  return getDebugLoc().isUnknown() == false;
+bool DiagnosticInfoOptimizationBase::isLocationAvailable() const {
+  return getDebugLoc();
 }
 
-void DiagnosticInfoOptimizationRemarkBase::getLocation(StringRef *Filename,
-                                                       unsigned *Line,
-                                                       unsigned *Column) const {
-  DILocation DIL(getDebugLoc().getAsMDNode(getFunction().getContext()));
-  *Filename = DIL.getFilename();
-  *Line = DIL.getLineNumber();
-  *Column = DIL.getColumnNumber();
+void DiagnosticInfoOptimizationBase::getLocation(StringRef *Filename,
+                                                 unsigned *Line,
+                                                 unsigned *Column) const {
+  MDLocation *L = getDebugLoc();
+  *Filename = L->getFilename();
+  *Line = L->getLine();
+  *Column = L->getColumn();
 }
 
-const std::string DiagnosticInfoOptimizationRemarkBase::getLocationStr() const {
+const std::string DiagnosticInfoOptimizationBase::getLocationStr() const {
   StringRef Filename("<unknown>");
   unsigned Line = 0;
   unsigned Column = 0;
   if (isLocationAvailable())
     getLocation(&Filename, &Line, &Column);
-  return Twine(Filename + ":" + Twine(Line) + ":" + Twine(Column)).str();
+  return (Filename + ":" + Twine(Line) + ":" + Twine(Column)).str();
 }
 
-void DiagnosticInfoOptimizationRemarkBase::print(DiagnosticPrinter &DP) const {
+void DiagnosticInfoOptimizationBase::print(DiagnosticPrinter &DP) const {
   DP << getLocationStr() << ": " << getMsg();
 }
 
@@ -188,4 +189,21 @@ void llvm::emitOptimizationRemarkAnalysis(LLVMContext &Ctx,
                                           const Twine &Msg) {
   Ctx.diagnose(
       DiagnosticInfoOptimizationRemarkAnalysis(PassName, Fn, DLoc, Msg));
+}
+
+bool DiagnosticInfoOptimizationFailure::isEnabled() const {
+  // Only print warnings.
+  return getSeverity() == DS_Warning;
+}
+
+void llvm::emitLoopVectorizeWarning(LLVMContext &Ctx, const Function &Fn,
+                                    const DebugLoc &DLoc, const Twine &Msg) {
+  Ctx.diagnose(DiagnosticInfoOptimizationFailure(
+      Fn, DLoc, Twine("loop not vectorized: " + Msg)));
+}
+
+void llvm::emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
+                                     const DebugLoc &DLoc, const Twine &Msg) {
+  Ctx.diagnose(DiagnosticInfoOptimizationFailure(
+      Fn, DLoc, Twine("loop not interleaved: " + Msg)));
 }

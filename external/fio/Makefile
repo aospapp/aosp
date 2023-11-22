@@ -35,7 +35,15 @@ SOURCE := gettime.c ioengines.c init.c stat.c log.c time.c filesetup.c \
 		cconv.c lib/prio_tree.c json.c lib/zipf.c lib/axmap.c \
 		lib/lfsr.c gettime-thread.c helpers.c lib/flist_sort.c \
 		lib/hweight.c lib/getrusage.c idletime.c td_error.c \
-		profiles/tiobench.c profiles/act.c io_u_queue.c filelock.c
+		profiles/tiobench.c profiles/act.c io_u_queue.c filelock.c \
+		lib/tp.c lib/bloom.c
+
+ifdef CONFIG_LIBHDFS
+  HDFSFLAGS= -I $(JAVA_HOME)/include -I $(JAVA_HOME)/include/linux -I $(FIO_LIBHDFS_INCLUDE)
+  HDFSLIB= -Wl,-rpath $(JAVA_HOME)/jre/lib/amd64/server -L$(JAVA_HOME)/jre/lib/amd64/server -ljvm $(FIO_LIBHDFS_LIB)/libhdfs.a
+  CFLAGS += $(HDFSFLAGS)
+  SOURCE += engines/libhdfs.c
+endif
 
 ifdef CONFIG_64BIT_LLP64
   CFLAGS += -DBITS_PER_LONG=32
@@ -91,15 +99,24 @@ endif
 ifndef CONFIG_INET_ATON
   SOURCE += lib/inet_aton.c
 endif
+ifdef CONFIG_GFAPI
+  SOURCE += engines/glusterfs.c
+  SOURCE += engines/glusterfs_sync.c
+  SOURCE += engines/glusterfs_async.c
+  ifdef CONFIG_GF_FADVISE
+    CFLAGS += "-DGFAPI_USE_FADVISE"
+  endif
+endif
 
 ifeq ($(CONFIG_TARGET_OS), Linux)
   SOURCE += diskutil.c fifo.c blktrace.c cgroup.c trim.c engines/sg.c \
-		engines/binject.c
+		engines/binject.c lib/linux-dev-lookup.c
   LIBS += -lpthread -ldl
   LDFLAGS += -rdynamic
 endif
 ifeq ($(CONFIG_TARGET_OS), Android)
-  SOURCE += diskutil.c fifo.c blktrace.c trim.c profiles/tiobench.c
+  SOURCE += diskutil.c fifo.c blktrace.c trim.c profiles/tiobench.c \
+		lib/linux-dev-lookup.c
   LIBS += -ldl
   LDFLAGS += -rdynamic
 endif
@@ -116,6 +133,10 @@ ifeq ($(CONFIG_TARGET_OS), OpenBSD)
   LDFLAGS += -rdynamic
 endif
 ifeq ($(CONFIG_TARGET_OS), NetBSD)
+  LIBS	 += -lpthread -lrt
+  LDFLAGS += -rdynamic
+endif
+ifeq ($(CONFIG_TARGET_OS), DragonFly)
   LIBS	 += -lpthread -lrt
   LDFLAGS += -rdynamic
 endif
@@ -141,13 +162,19 @@ endif
 OBJS = $(SOURCE:.c=.o)
 
 FIO_OBJS = $(OBJS) fio.o
+
 GFIO_OBJS = $(OBJS) gfio.o graph.o tickmarks.o ghelpers.o goptions.o gerror.o \
 			gclient.o gcompat.o cairo_text_helpers.o printing.o
+
+ifdef CONFIG_ARITHMETIC
+FIO_OBJS += lex.yy.o y.tab.o
+GFIO_OBJS += lex.yy.o y.tab.o
+endif
 
 -include $(OBJS:.o=.d)
 
 T_SMALLOC_OBJS = t/stest.o
-T_SMALLOC_OBJS += gettime.o mutex.o smalloc.o t/log.o
+T_SMALLOC_OBJS += gettime.o mutex.o smalloc.o t/log.o t/debug.o
 T_SMALLOC_PROGS = t/stest
 
 T_IEEE_OBJS = t/ieee754.o
@@ -156,33 +183,53 @@ T_IEEE_PROGS = t/ieee754
 
 T_ZIPF_OBS = t/genzipf.o
 T_ZIPF_OBJS += t/log.o lib/ieee754.o lib/rand.o lib/zipf.o t/genzipf.o
-T_ZIPF_PROGS = t/genzipf
+T_ZIPF_PROGS = t/fio-genzipf
 
 T_AXMAP_OBJS = t/axmap.o
 T_AXMAP_OBJS += lib/lfsr.o lib/axmap.o
 T_AXMAP_PROGS = t/axmap
 
 T_LFSR_TEST_OBJS = t/lfsr-test.o
-T_LFSR_TEST_OBJS += lib/lfsr.o
+T_LFSR_TEST_OBJS += lib/lfsr.o gettime.o t/log.o t/debug.o
 T_LFSR_TEST_PROGS = t/lfsr-test
+
+ifeq ($(CONFIG_TARGET_OS), Linux)
+T_BTRACE_FIO_OBJS = t/btrace2fio.o
+T_BTRACE_FIO_OBJS += fifo.o lib/flist_sort.o t/log.o lib/linux-dev-lookup.o
+T_BTRACE_FIO_PROGS = t/fio-btrace2fio
+endif
+
+T_DEDUPE_OBJS = t/dedupe.o
+T_DEDUPE_OBJS += lib/rbtree.o t/log.o mutex.o smalloc.o gettime.o crc/md5.o \
+		memalign.o lib/bloom.o t/debug.o crc/xxhash.o crc/murmur3.o \
+		crc/crc32c.o crc/crc32c-intel.o crc/fnv.o
+T_DEDUPE_PROGS = t/fio-dedupe
 
 T_OBJS = $(T_SMALLOC_OBJS)
 T_OBJS += $(T_IEEE_OBJS)
 T_OBJS += $(T_ZIPF_OBJS)
 T_OBJS += $(T_AXMAP_OBJS)
 T_OBJS += $(T_LFSR_TEST_OBJS)
+T_OBJS += $(T_BTRACE_FIO_OBJS)
+T_OBJS += $(T_DEDUPE_OBJS)
 
-T_PROGS = $(T_SMALLOC_PROGS)
-T_PROGS += $(T_IEEE_PROGS)
+T_TEST_PROGS = $(T_SMALLOC_PROGS)
+T_TEST_PROGS += $(T_IEEE_PROGS)
 T_PROGS += $(T_ZIPF_PROGS)
-T_PROGS += $(T_AXMAP_PROGS)
-T_PROGS += $(T_LFSR_TEST_PROGS)
+T_TEST_PROGS += $(T_AXMAP_PROGS)
+T_TEST_PROGS += $(T_LFSR_TEST_PROGS)
+T_PROGS += $(T_BTRACE_FIO_PROGS)
+T_PROGS += $(T_DEDUPE_PROGS)
+
+PROGS += $(T_PROGS)
 
 ifneq ($(findstring $(MAKEFLAGS),s),s)
 ifndef V
 	QUIET_CC	= @echo '   ' CC $@;
-	QUIET_LINK	= @echo '   ' LINK $@;
-	QUIET_DEP	= @echo '   ' DEP $@;
+	QUIET_LINK	= @echo ' ' LINK $@;
+	QUIET_DEP	= @echo '  ' DEP $@;
+	QUIET_YACC	= @echo ' ' YACC $@;
+	QUIET_LEX	= @echo '  ' LEX $@;
 endif
 endif
 
@@ -202,7 +249,7 @@ mandir = $(prefix)/man
 sharedir = $(prefix)/share/fio
 endif
 
-all: $(PROGS) $(SCRIPTS) FORCE
+all: $(PROGS) $(T_TEST_PROGS) $(SCRIPTS) FORCE
 
 .PHONY: all install clean
 .PHONY: FORCE cscope
@@ -213,7 +260,7 @@ FIO-VERSION-FILE: FORCE
 
 override CFLAGS += -DFIO_VERSION='"$(FIO_VERSION)"'
 
-.c.o: FORCE FIO-VERSION-FILE
+%.o : %.c
 	$(QUIET_CC)$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) -c $<
 	@$(CC) -MM $(CFLAGS) $(CPPFLAGS) $*.c > $*.d
 	@mv -f $*.d $*.d.tmp
@@ -221,6 +268,31 @@ override CFLAGS += -DFIO_VERSION='"$(FIO_VERSION)"'
 	@sed -e 's/.*://' -e 's/\\$$//' < $*.d.tmp | fmt -1 | \
 		sed -e 's/^ *//' -e 's/$$/:/' >> $*.d
 	@rm -f $*.d.tmp
+
+ifdef CONFIG_ARITHMETIC
+lex.yy.c: exp/expression-parser.l
+	$(QUIET_LEX)$(LEX) exp/expression-parser.l
+
+lex.yy.o: lex.yy.c y.tab.h
+	$(QUIET_CC)$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) -c $<
+
+y.tab.o: y.tab.c y.tab.h
+	$(QUIET_CC)$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) -c $<
+
+y.tab.c: exp/expression-parser.y
+	$(QUIET_YACC)$(YACC) -l -d -b y exp/expression-parser.y
+
+y.tab.h: y.tab.c
+
+lexer.h: lex.yy.c
+
+exp/test-expression-parser.o: exp/test-expression-parser.c
+	$(QUIET_CC)$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) -c $<
+exp/test-expression-parser: exp/test-expression-parser.o
+	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) $< y.tab.o lex.yy.o -o $@ $(LIBS)
+
+parse.o: lex.yy.o y.tab.o
+endif
 
 init.o: FIO-VERSION-FILE init.c
 	$(QUIET_CC)$(CC) -o init.o $(CFLAGS) $(CPPFLAGS) -c init.c
@@ -259,12 +331,12 @@ t/ieee754: $(T_IEEE_OBJS)
 	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(T_IEEE_OBJS) $(LIBS)
 
 fio: $(FIO_OBJS)
-	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(FIO_OBJS) $(LIBS)
+	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(FIO_OBJS) $(LIBS) $(HDFSLIB)
 
 gfio: $(GFIO_OBJS)
-	$(QUIET_LINK)$(CC) $(LDFLAGS) -o gfio $(GFIO_OBJS) $(LIBS) $(GTK_LDFLAGS)
+	$(QUIET_LINK)$(CC) $(filter-out -static, $(LDFLAGS)) -o gfio $(GFIO_OBJS) $(LIBS) $(GFIO_LIBS) $(GTK_LDFLAGS) $(HDFSLIB)
 
-t/genzipf: $(T_ZIPF_OBJS)
+t/fio-genzipf: $(T_ZIPF_OBJS)
 	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(T_ZIPF_OBJS) $(LIBS)
 
 t/axmap: $(T_AXMAP_OBJS)
@@ -273,8 +345,16 @@ t/axmap: $(T_AXMAP_OBJS)
 t/lfsr-test: $(T_LFSR_TEST_OBJS)
 	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(T_LFSR_TEST_OBJS) $(LIBS)
 
+ifeq ($(CONFIG_TARGET_OS), Linux)
+t/fio-btrace2fio: $(T_BTRACE_FIO_OBJS)
+	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(T_BTRACE_FIO_OBJS) $(LIBS)
+endif
+
+t/fio-dedupe: $(T_DEDUPE_OBJS)
+	$(QUIET_LINK)$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(T_DEDUPE_OBJS) $(LIBS)
+
 clean: FORCE
-	-rm -f .depend $(FIO_OBJS) $(GFIO_OBJS) $(OBJS) $(T_OBJS) $(PROGS) $(T_PROGS) core.* core gfio FIO-VERSION-FILE *.d lib/*.d crc/*.d engines/*.d profiles/*.d t/*.d config-host.mak config-host.h
+	@rm -f .depend $(FIO_OBJS) $(GFIO_OBJS) $(OBJS) $(T_OBJS) $(PROGS) $(T_PROGS) $(T_TEST_PROGS) core.* core gfio FIO-VERSION-FILE *.d lib/*.d crc/*.d engines/*.d profiles/*.d t/*.d config-host.mak config-host.h y.tab.[ch] lex.yy.c exp/*.[do] lexer.h
 
 distclean: clean FORCE
 	@rm -f cscope.out fio.pdf fio_generate_plots.pdf fio2gnuplot.pdf

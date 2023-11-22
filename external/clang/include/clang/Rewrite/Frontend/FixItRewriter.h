@@ -12,8 +12,8 @@
 // then forwards any diagnostics to the adapted diagnostic client.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_CLANG_REWRITE_FIX_IT_REWRITER_H
-#define LLVM_CLANG_REWRITE_FIX_IT_REWRITER_H
+#ifndef LLVM_CLANG_REWRITE_FRONTEND_FIXITREWRITER_H
+#define LLVM_CLANG_REWRITE_FRONTEND_FIXITREWRITER_H
 
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceLocation.h"
@@ -66,7 +66,7 @@ class FixItRewriter : public DiagnosticConsumer {
   /// \brief The diagnostic client that performs the actual formatting
   /// of error messages.
   DiagnosticConsumer *Client;
-  bool OwnsClient;
+  std::unique_ptr<DiagnosticConsumer> Owner;
 
   /// \brief Turn an input path into an output path. NULL implies overwriting
   /// the original.
@@ -86,7 +86,7 @@ public:
                 const LangOptions &LangOpts, FixItOptions *FixItOpts);
 
   /// \brief Destroy the fix-it rewriter.
-  ~FixItRewriter();
+  ~FixItRewriter() override;
 
   /// \brief Check whether there are modifications for a given file.
   bool IsModified(FileID ID) const {
@@ -125,4 +125,4 @@ public:
 
 }
 
-#endif // LLVM_CLANG_REWRITE_FIX_IT_REWRITER_H
+#endif

@@ -320,9 +320,6 @@ public class ClearKeySystemTest extends MediaPlayerTestBase {
      * Tests clear key system playback.
      */
     public void testClearKeyPlayback() throws Exception {
-        if (!hasAudioOutput()) {
-            return;
-        }
 
         MediaDrm drm = startDrm();
         if (null == drm) {

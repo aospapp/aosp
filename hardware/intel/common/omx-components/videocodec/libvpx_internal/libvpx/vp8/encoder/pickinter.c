@@ -55,7 +55,7 @@ int vp8_skip_fractional_mv_step(MACROBLOCK *mb, BLOCK *b, BLOCKD *d,
     (void) mvcost;
     (void) distortion;
     (void) sse;
-    mb = mb; // remove warning
+    (void) mb;
     bestmv->as_mv.row <<= 3;
     bestmv->as_mv.col <<= 3;
     return 0;

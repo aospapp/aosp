@@ -19,6 +19,12 @@ package com.google.doclava;
 import com.google.clearsilver.jsilver.data.Data;
 
 public class SeeTagInfo extends TagInfo {
+  public static final SeeTagInfo[] EMPTY_ARRAY = new SeeTagInfo[0];
+
+  public static SeeTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new SeeTagInfo[size];
+  }
+
   private ContainerInfo mBase;
   LinkReference mLink;
 

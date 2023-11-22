@@ -5,8 +5,8 @@
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
 #include "../../include/fpdfdoc/fpdf_doc.h"
-CFX_WideString		GetFullName(CPDF_Dictionary* pFieldDict);
-void				SaveCheckedFieldStatus(CPDF_FormField* pField, CFX_ByteArray& statusArray);
+#include "doc_utils.h"
+
 FX_BOOL PDF_FormField_IsUnison(CPDF_FormField *pField)
 {
     FX_BOOL bUnison = FALSE;
@@ -32,8 +32,8 @@ CPDF_FormField::~CPDF_FormField()
 }
 void CPDF_FormField::SyncFieldFlags()
 {
-    CFX_ByteString type_name = FPDF_GetFieldAttr(m_pDict, "FT")->GetString();
-    FX_DWORD flags = FPDF_GetFieldAttr(m_pDict, "Ff")->GetInteger();
+    CFX_ByteString type_name = FPDF_GetFieldAttr(m_pDict, "FT") ? FPDF_GetFieldAttr(m_pDict, "FT")->GetString() : CFX_ByteString();
+    FX_DWORD flags = FPDF_GetFieldAttr(m_pDict, "Ff")? FPDF_GetFieldAttr(m_pDict, "Ff")->GetInteger() : 0;
     m_Flags = 0;
     if (flags & 1) {
         m_Flags |= FORMFIELD_READONLY;
@@ -324,7 +324,9 @@ CFX_WideString CPDF_FormField::GetValue(FX_BOOL bDefault)
             return pValue->GetUnicodeText();
         case PDFOBJ_ARRAY:
             pValue = ((CPDF_Array*)pValue)->GetElementValue(0);
-            return pValue->GetUnicodeText();
+            if (pValue) {
+                return pValue->GetUnicodeText();
+            }
             break;
     }
     return CFX_WideString();
@@ -485,7 +487,8 @@ int CPDF_FormField::GetSelectedIndex(int index)
         if (index < 0) {
             return -1;
         }
-        sel_value = ((CPDF_Array*)pValue)->GetElementValue(index)->GetUnicodeText();
+        CPDF_Object* elementValue = ((CPDF_Array*)pValue)->GetElementValue(index);
+        sel_value = elementValue ? elementValue->GetUnicodeText() : CFX_WideString();
     }
     if (index < CountSelectedOptions()) {
         int iOptIndex = GetSelectedOptionIndex(index);
@@ -643,7 +646,7 @@ FX_BOOL CPDF_FormField::SetItemSelection(int index, FX_BOOL bSelected, FX_BOOL b
         if (m_Type == ListBox) {
             SelectOption(index, TRUE);
             if (!(m_Flags & FORMLIST_MULTISELECT)) {
-                m_pDict->SetAtString("V", PDF_EncodeText(opt_value, opt_value.GetLength()));
+                m_pDict->SetAtString("V", PDF_EncodeText(opt_value));
             } else {
                 CPDF_Array* pArray = CPDF_Array::Create();
                 if (pArray == NULL) {
@@ -665,7 +668,7 @@ FX_BOOL CPDF_FormField::SetItemSelection(int index, FX_BOOL bSelected, FX_BOOL b
                 m_pDict->SetAt("V", pArray);
             }
         } else if (m_Type == ComboBox) {
-            m_pDict->SetAtString("V", PDF_EncodeText(opt_value, opt_value.GetLength()));
+            m_pDict->SetAtString("V", PDF_EncodeText(opt_value));
             CPDF_Array* pI = CPDF_Array::Create();
             if (pI == NULL) {
                 return FALSE;
@@ -780,7 +783,7 @@ int CPDF_FormField::FindOption(CFX_WideString csOptLabel)
     }
     return -1;
 }
-int CPDF_FormField::FindOptionValue(FX_LPCWSTR csOptValue, int iStartIndex)
+int CPDF_FormField::FindOptionValue(const CFX_WideString& csOptValue, int iStartIndex)
 {
     if (iStartIndex < 0) {
         iStartIndex = 0;
@@ -808,7 +811,7 @@ FX_BOOL CPDF_FormField::CheckControl(int iControlIndex, FX_BOOL bChecked, FX_BOO
     if (bNotify && m_pForm->m_pFormNotify != NULL) {
         SaveCheckedFieldStatus(this, statusArray);
     }
-    CFX_WideString csWExport =  pControl->GetExportValue();
+    CFX_WideString csWExport = pControl->GetExportValue();
     CFX_ByteString csBExport = PDF_EncodeText(csWExport);
     int iCount = CountControls();
     FX_BOOL bUnison = PDF_FormField_IsUnison(this);
@@ -1076,8 +1079,11 @@ FX_BOOL CPDF_FormField::ClearSelectedOptions(FX_BOOL bNotify)
 }
 void CPDF_FormField::LoadDA()
 {
-    CFX_ByteString DA = FPDF_GetFieldAttr(m_pDict, "DA")->GetString();
-    if (DA.IsEmpty()) {
+    CFX_ByteString DA;
+    if (CPDF_Object* pObj_t = FPDF_GetFieldAttr(m_pDict, "DA")) {
+        DA = pObj_t->GetString();
+    }
+    if (DA.IsEmpty() && m_pForm->m_pFormDict) {
         DA = m_pForm->m_pFormDict->GetString("DA");
     }
     if (DA.IsEmpty()) {
@@ -1086,7 +1092,11 @@ void CPDF_FormField::LoadDA()
     CPDF_SimpleParser syntax(DA);
     syntax.FindTagParam("Tf", 2);
     CFX_ByteString font_name = syntax.GetWord();
-    CPDF_Dictionary* pFontDict = m_pForm->m_pFormDict->GetDict("DR")->GetDict("Font")->GetDict(font_name);
+    CPDF_Dictionary* pFontDict = NULL;
+    if (m_pForm->m_pFormDict && m_pForm->m_pFormDict->GetDict("DR") &&
+        m_pForm->m_pFormDict->GetDict("DR")->GetDict("Font") )
+    pFontDict = m_pForm->m_pFormDict->GetDict("DR")->GetDict("Font")->GetDict(font_name);
+
     if (pFontDict == NULL) {
         return;
     }

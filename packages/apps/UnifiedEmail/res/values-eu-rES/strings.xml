@@ -373,9 +373,9 @@
     <string name="preference_sender_image_title" msgid="7890813537985591865">"Igorlearen irudia"</string>
     <string name="preference_sender_image_description" msgid="3586817690132199889">"Erakutsi izenaren ondoan elkarrizketen zerrendan"</string>
     <string name="empty_trash" msgid="3385937024924728399">"Hustu zaborrontzia"</string>
-    <string name="empty_spam" msgid="2911988289997281371">"Hustu Spam karpeta"</string>
+    <string name="empty_spam" msgid="2911988289997281371">"Hustu Spama karpeta"</string>
     <string name="empty_trash_dialog_title" msgid="2104898489663621508">"Zaborrontzia hustu nahi duzu?"</string>
-    <string name="empty_spam_dialog_title" msgid="1130319045917820569">"Spam karpeta hustu nahi duzu?"</string>
+    <string name="empty_spam_dialog_title" msgid="1130319045917820569">"Spama karpeta hustu nahi duzu?"</string>
   <plurals name="empty_folder_dialog_message">
     <item quantity="one" msgid="3315412388217832914">"<xliff:g id="COUNT">%1$d</xliff:g> mezu betiko ezabatuko da."</item>
     <item quantity="other" msgid="263840304486020101">"<xliff:g id="COUNT">%1$d</xliff:g> mezu betiko ezabatuko dira."</item>

@@ -179,19 +179,19 @@ public class MockTextView extends TextView {
     }
 
     public int getFrameLeft() {
-        return mLeft;
+        return getLeft();
     }
 
     public int getFrameTop() {
-        return mTop;
+        return getTop();
     }
 
     public int getFrameRight() {
-        return mRight;
+        return getRight();
     }
 
     public int getFrameBottom() {
-        return mBottom;
+        return getBottom();
     }
 
     public int getBottomPaddingOffset() {

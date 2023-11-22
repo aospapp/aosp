@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Stavka je pohranjena lokalno i dostupna je izvan mreže."</string>
     <string name="please_wait" msgid="1416313324505140068">"Pričekajte"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Pogreška fotoaparata"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Povezivanje s fotoaparatom nije moguće."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"Fotoaparat je onemogućen zbog sigurnosnih pravila."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Povezivanje s fotoaparatom nije moguće."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"Fotoaparat je onemogućen zbog sigurnosnih pravila."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"Pojavio se problem prilikom spremanja fotografije ili videozapisa."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"Aplikacija nema važna dopuštenja potrebna za pokretanje. Provjerite svoje postavke dopuštenja."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Pohranjivanje fotografije nije uspjelo."</string>
     <string name="wait" msgid="765601745709933047">"Pričekajte…"</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Prije upotrebe fotoaparata umetnite SD karticu."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"Priprema SD kartice…"</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"Nije moguć pristup SD kartici."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Snimanje s vremenskim odmakom"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Aplikacija se nije uspjela povezati s fotoaparatom"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"Spremanje fotografije ili videozapisa na uređaju nije uspjelo."</string>
     <string name="capturing" msgid="5255164204641920893">"Snimanje"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Odaberite fotoaparat"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Stražnji"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"STRAŽNJI FOTOAPARAT"</string>
     <string name="dialog_ok" msgid="774141340500181131">"U redu"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Odustani"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Prijavi"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Odbaci"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Na vašoj SD kartici ponestaje prostora. Promijenite postavku kvalitete ili izbrišite neke slike ili druge datoteke."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Dosegnuto je ograničenje veličine."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Prebrzo"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Popis načina"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Prikazivanje/sakrivanje filmske vrpce"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Filmska vrpca"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Povećaj"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Z+"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Smanji"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Z-"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Vrijednost zumiranja iznosi %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"UKLJUČENO"</string>
     <string name="capital_off" msgid="3020696135020167263">"ISKLJUČENO"</string>
     <string name="video_control_play" msgid="6895236811408921715">"Reprodukcija videozapisa"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Postavite trajanje u sekundama"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Odbrojavanje do snimanja fotografije"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Zapamtiti lokacije fotografija?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Dodajte svojim fotografijama i videozapisima oznake lokacija na kojima su snimljeni.\n\nOstale aplikacije mogu pristupiti tim podacima i vašim spremljenim slikama."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Dodajte svojim fotografijama i videozapisima oznake lokacija na kojima su snimljeni."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"Ne, hvala"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Da"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"VIŠE OPCIJA"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Otkazivanje"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Gotovo"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Ponovno snimanje"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Pregledaj"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Dijeljenje"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Prikaz"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Uređivanje"</string>
@@ -360,9 +373,10 @@
     <string name="share_to" msgid="5144911209144798122">"Dijeljenje"</string>
     <string name="edit_with" msgid="615569327230783971">"Uređivanje pomoću"</string>
     <string name="startup_dialog_button_next" msgid="1011831256978228993">"DALJE"</string>
-    <string name="confirm_button_text" msgid="7389949384482206814">"U REDU, SHVAĆAM"</string>
+    <string name="confirm_button_text" msgid="7389949384482206814">"SHVAĆAM"</string>
     <string name="full_sensor_4x3_aspect_ratio" msgid="1270461419743888925">"Cijeli senzor \n(4:3)"</string>
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"Obrezani senzor \n(16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Spremanje…"</string>
 </resources>

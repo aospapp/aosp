@@ -22,6 +22,7 @@
 #  define xallocx je_xallocx
 #  define sallocx je_sallocx
 #  define dallocx je_dallocx
+#  define sdallocx je_sdallocx
 #  define nallocx je_nallocx
 #  define mallctl je_mallctl
 #  define mallctlnametomib je_mallctlnametomib
@@ -53,6 +54,7 @@
 #  undef je_xallocx
 #  undef je_sallocx
 #  undef je_dallocx
+#  undef je_sdallocx
 #  undef je_nallocx
 #  undef je_mallctl
 #  undef je_mallctlnametomib

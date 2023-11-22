@@ -40,6 +40,7 @@ public class TestSensorEnvironment {
     private final boolean mSensorMightHaveMoreListeners;
     private final int mSamplingPeriodUs;
     private final int mMaxReportLatencyUs;
+    private final boolean mIsDeviceSuspendTest;
 
     /**
      * Constructs an environment for sensor testing.
@@ -163,11 +164,27 @@ public class TestSensorEnvironment {
             boolean sensorMightHaveMoreListeners,
             int samplingPeriodUs,
             int maxReportLatencyUs) {
+        this(context,
+                sensor,
+                sensorMightHaveMoreListeners,
+                samplingPeriodUs,
+                maxReportLatencyUs,
+                false /* isDeviceSuspendTest */);
+    }
+
+    public TestSensorEnvironment(
+            Context context,
+            Sensor sensor,
+            boolean sensorMightHaveMoreListeners,
+            int samplingPeriodUs,
+            int maxReportLatencyUs,
+            boolean isDeviceSuspendTest) {
         mContext = context;
         mSensor = sensor;
         mSensorMightHaveMoreListeners = sensorMightHaveMoreListeners;
         mSamplingPeriodUs = samplingPeriodUs;
         mMaxReportLatencyUs = maxReportLatencyUs;
+        mIsDeviceSuspendTest = isDeviceSuspendTest;
     }
 
     /**
@@ -206,7 +223,7 @@ public class TestSensorEnvironment {
         if (mSamplingPeriodUs == SensorManager.SENSOR_DELAY_FASTEST) {
             return "fastest";
         }
-        return String.format("%.0fhz", getFrequencyHz());
+        return String.format("%.2fhz", getFrequencyHz());
     }
 
     /**
@@ -248,10 +265,19 @@ public class TestSensorEnvironment {
     }
 
     /**
-     * @return The actual sampling period at which a sensor can sample data. This value is a
-     *         fraction of {@link #getExpectedSamplingPeriodUs()}.
+     * @return The maximum acceptable actual sampling period of this sensor.
+     *         For continuous sensors, this is higher than {@link #getExpectedSamplingPeriodUs()}
+     *         because sensors are allowed to run up to 10% slower than requested.
+     *         For sensors with other reporting modes, this is the maximum integer
+     *         {@link Integer#MAX_VALUE} as they can report no events for long
+     *         periods of time.
      */
     public int getMaximumExpectedSamplingPeriodUs() {
+        int sensorReportingMode = mSensor.getReportingMode();
+        if (sensorReportingMode != Sensor.REPORTING_MODE_CONTINUOUS) {
+            return Integer.MAX_VALUE;
+        }
+
         int expectedSamplingPeriodUs = getExpectedSamplingPeriodUs();
         return (int) (expectedSamplingPeriodUs / MAXIMUM_EXPECTED_SAMPLING_FREQUENCY_MULTIPLIER);
     }
@@ -348,4 +374,9 @@ public class TestSensorEnvironment {
                 && mSamplingPeriodUs != SensorManager.SENSOR_DELAY_UI
                 && mSamplingPeriodUs != SensorManager.SENSOR_DELAY_NORMAL);
     }
+
+    public boolean isDeviceSuspendTest() {
+        return mIsDeviceSuspendTest;
+    }
 }
+

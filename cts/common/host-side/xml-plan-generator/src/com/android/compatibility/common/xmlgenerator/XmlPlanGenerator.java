@@ -22,9 +22,9 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import vogar.Expectation;
 import vogar.ExpectationStore;
 import vogar.ModeId;
+import vogar.Result;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -161,7 +161,7 @@ public class XmlPlanGenerator {
     }
 
     public static boolean isKnownFailure(ExpectationStore store, String fullname) {
-        return store != null && store.get(fullname) != Expectation.SUCCESS;
+        return store != null && store.get(fullname).getResult() != Result.SUCCESS;
     }
 
     public static void main(String[] args) throws Exception {

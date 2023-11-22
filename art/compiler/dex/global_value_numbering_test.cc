@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "compiler_internals.h"
-#include "dataflow_iterator.h"
+#include "base/logging.h"
 #include "dataflow_iterator-inl.h"
+#include "dex/mir_field_info.h"
 #include "global_value_numbering.h"
 #include "local_value_numbering.h"
 #include "gtest/gtest.h"
@@ -25,11 +25,14 @@ namespace art {
 
 class GlobalValueNumberingTest : public testing::Test {
  protected:
+  static constexpr uint16_t kNoValue = GlobalValueNumbering::kNoValue;
+
   struct IFieldDef {
     uint16_t field_idx;
     uintptr_t declaring_dex_file;
     uint16_t declaring_field_idx;
     bool is_volatile;
+    DexMemAccessType type;
   };
 
   struct SFieldDef {
@@ -37,6 +40,7 @@ class GlobalValueNumberingTest : public testing::Test {
     uintptr_t declaring_dex_file;
     uint16_t declaring_field_idx;
     bool is_volatile;
+    DexMemAccessType type;
   };
 
   struct BBDef {
@@ -125,22 +129,26 @@ class GlobalValueNumberingTest : public testing::Test {
     { bb, opcode, 0u, 0u, 1, { reg }, 0, { } }
 #define DEF_MOVE(bb, opcode, reg, src) \
     { bb, opcode, 0u, 0u, 1, { src }, 1, { reg } }
+#define DEF_MOVE_WIDE(bb, opcode, reg, src) \
+    { bb, opcode, 0u, 0u, 2, { src, src + 1 }, 2, { reg, reg + 1 } }
 #define DEF_PHI2(bb, reg, src1, src2) \
     { bb, static_cast<Instruction::Code>(kMirOpPhi), 0, 0u, 2u, { src1, src2 }, 1, { reg } }
+#define DEF_BINOP(bb, opcode, result, src1, src2) \
+    { bb, opcode, 0u, 0u, 2, { src1, src2 }, 1, { result } }
+#define DEF_UNOP(bb, opcode, result, src) DEF_MOVE(bb, opcode, result, src)
 
   void DoPrepareIFields(const IFieldDef* defs, size_t count) {
-    cu_.mir_graph->ifield_lowering_infos_.Reset();
-    cu_.mir_graph->ifield_lowering_infos_.Resize(count);
+    cu_.mir_graph->ifield_lowering_infos_.clear();
+    cu_.mir_graph->ifield_lowering_infos_.reserve(count);
     for (size_t i = 0u; i != count; ++i) {
       const IFieldDef* def = &defs[i];
-      MirIFieldLoweringInfo field_info(def->field_idx);
+      MirIFieldLoweringInfo field_info(def->field_idx, def->type, false);
       if (def->declaring_dex_file != 0u) {
         field_info.declaring_dex_file_ = reinterpret_cast<const DexFile*>(def->declaring_dex_file);
         field_info.declaring_field_idx_ = def->declaring_field_idx;
-        field_info.flags_ = 0u |  // Without kFlagIsStatic.
-            (def->is_volatile ? MirIFieldLoweringInfo::kFlagIsVolatile : 0u);
+        field_info.flags_ &= ~(def->is_volatile ? 0u : MirSFieldLoweringInfo::kFlagIsVolatile);
       }
-      cu_.mir_graph->ifield_lowering_infos_.Insert(field_info);
+      cu_.mir_graph->ifield_lowering_infos_.push_back(field_info);
     }
   }
 
@@ -150,20 +158,20 @@ class GlobalValueNumberingTest : public testing::Test {
   }
 
   void DoPrepareSFields(const SFieldDef* defs, size_t count) {
-    cu_.mir_graph->sfield_lowering_infos_.Reset();
-    cu_.mir_graph->sfield_lowering_infos_.Resize(count);
+    cu_.mir_graph->sfield_lowering_infos_.clear();
+    cu_.mir_graph->sfield_lowering_infos_.reserve(count);
     for (size_t i = 0u; i != count; ++i) {
       const SFieldDef* def = &defs[i];
-      MirSFieldLoweringInfo field_info(def->field_idx);
+      MirSFieldLoweringInfo field_info(def->field_idx, def->type);
       // Mark even unresolved fields as initialized.
-      field_info.flags_ = MirSFieldLoweringInfo::kFlagIsStatic |
-          MirSFieldLoweringInfo::kFlagIsInitialized;
+      field_info.flags_ |= MirSFieldLoweringInfo::kFlagClassIsInitialized;
+      // NOTE: MirSFieldLoweringInfo::kFlagClassIsInDexCache isn't used by GVN.
       if (def->declaring_dex_file != 0u) {
         field_info.declaring_dex_file_ = reinterpret_cast<const DexFile*>(def->declaring_dex_file);
         field_info.declaring_field_idx_ = def->declaring_field_idx;
-        field_info.flags_ |= (def->is_volatile ? MirSFieldLoweringInfo::kFlagIsVolatile : 0u);
+        field_info.flags_ &= ~(def->is_volatile ? 0u : MirSFieldLoweringInfo::kFlagIsVolatile);
       }
-      cu_.mir_graph->sfield_lowering_infos_.Insert(field_info);
+      cu_.mir_graph->sfield_lowering_infos_.push_back(field_info);
     }
   }
 
@@ -174,52 +182,43 @@ class GlobalValueNumberingTest : public testing::Test {
 
   void DoPrepareBasicBlocks(const BBDef* defs, size_t count) {
     cu_.mir_graph->block_id_map_.clear();
-    cu_.mir_graph->block_list_.Reset();
+    cu_.mir_graph->block_list_.clear();
     ASSERT_LT(3u, count);  // null, entry, exit and at least one bytecode block.
     ASSERT_EQ(kNullBlock, defs[0].type);
     ASSERT_EQ(kEntryBlock, defs[1].type);
     ASSERT_EQ(kExitBlock, defs[2].type);
     for (size_t i = 0u; i != count; ++i) {
       const BBDef* def = &defs[i];
-      BasicBlock* bb = cu_.mir_graph->NewMemBB(def->type, i);
-      cu_.mir_graph->block_list_.Insert(bb);
+      BasicBlock* bb = cu_.mir_graph->CreateNewBB(def->type);
       if (def->num_successors <= 2) {
         bb->successor_block_list_type = kNotUsed;
-        bb->successor_blocks = nullptr;
         bb->fall_through = (def->num_successors >= 1) ? def->successors[0] : 0u;
         bb->taken = (def->num_successors >= 2) ? def->successors[1] : 0u;
       } else {
         bb->successor_block_list_type = kPackedSwitch;
         bb->fall_through = 0u;
         bb->taken = 0u;
-        bb->successor_blocks = new (&cu_.arena) GrowableArray<SuccessorBlockInfo*>(
-            &cu_.arena, def->num_successors, kGrowableArraySuccessorBlocks);
+        bb->successor_blocks.reserve(def->num_successors);
         for (size_t j = 0u; j != def->num_successors; ++j) {
           SuccessorBlockInfo* successor_block_info =
               static_cast<SuccessorBlockInfo*>(cu_.arena.Alloc(sizeof(SuccessorBlockInfo),
                                                                kArenaAllocSuccessor));
           successor_block_info->block = j;
           successor_block_info->key = 0u;  // Not used by class init check elimination.
-          bb->successor_blocks->Insert(successor_block_info);
+          bb->successor_blocks.push_back(successor_block_info);
         }
       }
-      bb->predecessors = new (&cu_.arena) GrowableArray<BasicBlockId>(
-          &cu_.arena, def->num_predecessors, kGrowableArrayPredecessors);
-      for (size_t j = 0u; j != def->num_predecessors; ++j) {
-        ASSERT_NE(0u, def->predecessors[j]);
-        bb->predecessors->Insert(def->predecessors[j]);
-      }
+      bb->predecessors.assign(def->predecessors, def->predecessors + def->num_predecessors);
       if (def->type == kDalvikByteCode || def->type == kEntryBlock || def->type == kExitBlock) {
         bb->data_flow_info = static_cast<BasicBlockDataFlow*>(
             cu_.arena.Alloc(sizeof(BasicBlockDataFlow), kArenaAllocDFInfo));
         bb->data_flow_info->live_in_v = live_in_v_;
       }
     }
-    cu_.mir_graph->num_blocks_ = count;
-    ASSERT_EQ(count, cu_.mir_graph->block_list_.Size());
-    cu_.mir_graph->entry_block_ = cu_.mir_graph->block_list_.Get(1);
+    ASSERT_EQ(count, cu_.mir_graph->block_list_.size());
+    cu_.mir_graph->entry_block_ = cu_.mir_graph->block_list_[1];
     ASSERT_EQ(kEntryBlock, cu_.mir_graph->entry_block_->block_type);
-    cu_.mir_graph->exit_block_ = cu_.mir_graph->block_list_.Get(2);
+    cu_.mir_graph->exit_block_ = cu_.mir_graph->block_list_[2];
     ASSERT_EQ(kExitBlock, cu_.mir_graph->exit_block_->block_type);
   }
 
@@ -230,47 +229,74 @@ class GlobalValueNumberingTest : public testing::Test {
 
   void DoPrepareMIRs(const MIRDef* defs, size_t count) {
     mir_count_ = count;
-    mirs_ = reinterpret_cast<MIR*>(cu_.arena.Alloc(sizeof(MIR) * count, kArenaAllocMIR));
+    mirs_ = cu_.arena.AllocArray<MIR>(count, kArenaAllocMIR);
     ssa_reps_.resize(count);
     for (size_t i = 0u; i != count; ++i) {
       const MIRDef* def = &defs[i];
       MIR* mir = &mirs_[i];
-      ASSERT_LT(def->bbid, cu_.mir_graph->block_list_.Size());
-      BasicBlock* bb = cu_.mir_graph->block_list_.Get(def->bbid);
+      ASSERT_LT(def->bbid, cu_.mir_graph->block_list_.size());
+      BasicBlock* bb = cu_.mir_graph->block_list_[def->bbid];
       bb->AppendMIR(mir);
       mir->dalvikInsn.opcode = def->opcode;
       mir->dalvikInsn.vB = static_cast<int32_t>(def->value);
       mir->dalvikInsn.vB_wide = def->value;
-      if (def->opcode >= Instruction::IGET && def->opcode <= Instruction::IPUT_SHORT) {
-        ASSERT_LT(def->field_info, cu_.mir_graph->ifield_lowering_infos_.Size());
+      if (IsInstructionIGetOrIPut(def->opcode)) {
+        ASSERT_LT(def->field_info, cu_.mir_graph->ifield_lowering_infos_.size());
         mir->meta.ifield_lowering_info = def->field_info;
-      } else if (def->opcode >= Instruction::SGET && def->opcode <= Instruction::SPUT_SHORT) {
-        ASSERT_LT(def->field_info, cu_.mir_graph->sfield_lowering_infos_.Size());
+        ASSERT_EQ(cu_.mir_graph->ifield_lowering_infos_[def->field_info].MemAccessType(),
+                  IGetOrIPutMemAccessType(def->opcode));
+      } else if (IsInstructionSGetOrSPut(def->opcode)) {
+        ASSERT_LT(def->field_info, cu_.mir_graph->sfield_lowering_infos_.size());
         mir->meta.sfield_lowering_info = def->field_info;
+        ASSERT_EQ(cu_.mir_graph->sfield_lowering_infos_[def->field_info].MemAccessType(),
+                  SGetOrSPutMemAccessType(def->opcode));
       } else if (def->opcode == static_cast<Instruction::Code>(kMirOpPhi)) {
-        mir->meta.phi_incoming = static_cast<BasicBlockId*>(
-            allocator_->Alloc(def->num_uses * sizeof(BasicBlockId), kArenaAllocDFInfo));
-        for (size_t i = 0; i != def->num_uses; ++i) {
-          mir->meta.phi_incoming[i] = bb->predecessors->Get(i);
-        }
+        mir->meta.phi_incoming =
+            allocator_->AllocArray<BasicBlockId>(def->num_uses, kArenaAllocDFInfo);
+        ASSERT_EQ(def->num_uses, bb->predecessors.size());
+        std::copy(bb->predecessors.begin(), bb->predecessors.end(), mir->meta.phi_incoming);
       }
       mir->ssa_rep = &ssa_reps_[i];
       mir->ssa_rep->num_uses = def->num_uses;
       mir->ssa_rep->uses = const_cast<int32_t*>(def->uses);  // Not modified by LVN.
-      mir->ssa_rep->fp_use = nullptr;  // Not used by LVN.
       mir->ssa_rep->num_defs = def->num_defs;
       mir->ssa_rep->defs = const_cast<int32_t*>(def->defs);  // Not modified by LVN.
-      mir->ssa_rep->fp_def = nullptr;  // Not used by LVN.
       mir->dalvikInsn.opcode = def->opcode;
       mir->offset = i;  // LVN uses offset only for debug output
       mir->optimization_flags = 0u;
     }
-    mirs_[count - 1u].next = nullptr;
+    DexFile::CodeItem* code_item = static_cast<DexFile::CodeItem*>(
+        cu_.arena.Alloc(sizeof(DexFile::CodeItem), kArenaAllocMisc));
+    code_item->insns_size_in_code_units_ = 2u * count;
+    cu_.mir_graph->current_code_item_ = code_item;
   }
 
   template <size_t count>
   void PrepareMIRs(const MIRDef (&defs)[count]) {
     DoPrepareMIRs(defs, count);
+  }
+
+  void DoPrepareVregToSsaMapExit(BasicBlockId bb_id, const int32_t* map, size_t count) {
+    BasicBlock* bb = cu_.mir_graph->GetBasicBlock(bb_id);
+    ASSERT_TRUE(bb != nullptr);
+    ASSERT_TRUE(bb->data_flow_info != nullptr);
+    bb->data_flow_info->vreg_to_ssa_map_exit =
+        cu_.arena.AllocArray<int32_t>(count, kArenaAllocDFInfo);
+    std::copy_n(map, count, bb->data_flow_info->vreg_to_ssa_map_exit);
+  }
+
+  template <size_t count>
+  void PrepareVregToSsaMapExit(BasicBlockId bb_id, const int32_t (&map)[count]) {
+    DoPrepareVregToSsaMapExit(bb_id, map, count);
+  }
+
+  template <size_t count>
+  void MarkAsWideSRegs(const int32_t (&sregs)[count]) {
+    for (int32_t sreg : sregs) {
+      cu_.mir_graph->reg_location_[sreg].wide = true;
+      cu_.mir_graph->reg_location_[sreg + 1].wide = true;
+      cu_.mir_graph->reg_location_[sreg + 1].high_word = true;
+    }
   }
 
   void PerformGVN() {
@@ -288,9 +314,13 @@ class GlobalValueNumberingTest : public testing::Test {
     cu_.mir_graph->ComputeDominators();
     cu_.mir_graph->ComputeTopologicalSortOrder();
     cu_.mir_graph->SSATransformationEnd();
+    cu_.mir_graph->temp_.gvn.ifield_ids =  GlobalValueNumbering::PrepareGvnFieldIds(
+        allocator_.get(), cu_.mir_graph->ifield_lowering_infos_);
+    cu_.mir_graph->temp_.gvn.sfield_ids =  GlobalValueNumbering::PrepareGvnFieldIds(
+        allocator_.get(), cu_.mir_graph->sfield_lowering_infos_);
     ASSERT_TRUE(gvn_ == nullptr);
-    gvn_.reset(new (allocator_.get()) GlobalValueNumbering(&cu_, allocator_.get()));
-    ASSERT_FALSE(gvn_->CanModify());
+    gvn_.reset(new (allocator_.get()) GlobalValueNumbering(&cu_, allocator_.get(),
+                                                           GlobalValueNumbering::kModeGvn));
     value_names_.resize(mir_count_, 0xffffu);
     IteratorType iterator(cu_.mir_graph.get());
     bool change = false;
@@ -309,8 +339,7 @@ class GlobalValueNumberingTest : public testing::Test {
   void PerformGVNCodeModifications() {
     ASSERT_TRUE(gvn_ != nullptr);
     ASSERT_TRUE(gvn_->Good());
-    ASSERT_FALSE(gvn_->CanModify());
-    gvn_->AllowModifications();
+    gvn_->StartPostProcessing();
     TopologicalSortIterator iterator(cu_.mir_graph.get());
     for (BasicBlock* bb = iterator.Next(); bb != nullptr; bb = iterator.Next()) {
       LocalValueNumbering* lvn = gvn_->PrepareBasicBlock(bb);
@@ -328,7 +357,7 @@ class GlobalValueNumberingTest : public testing::Test {
 
   GlobalValueNumberingTest()
       : pool_(),
-        cu_(&pool_),
+        cu_(&pool_, kRuntimeISA, nullptr, nullptr),
         mir_count_(0u),
         mirs_(nullptr),
         ssa_reps_(),
@@ -339,14 +368,22 @@ class GlobalValueNumberingTest : public testing::Test {
     cu_.mir_graph.reset(new MIRGraph(&cu_, &cu_.arena));
     cu_.access_flags = kAccStatic;  // Don't let "this" interfere with this test.
     allocator_.reset(ScopedArenaAllocator::Create(&cu_.arena_stack));
+    // By default, the zero-initialized reg_location_[.] with ref == false tells LVN that
+    // 0 constants are integral, not references, and the values are all narrow.
+    // Nothing else is used by LVN/GVN. Tests can override the default values as needed.
+    cu_.mir_graph->reg_location_ =
+        cu_.arena.AllocArray<RegLocation>(kMaxSsaRegs, kArenaAllocRegAlloc);
+    cu_.mir_graph->num_ssa_regs_ = kMaxSsaRegs;
     // Bind all possible sregs to live vregs for test purposes.
     live_in_v_->SetInitialBits(kMaxSsaRegs);
-    cu_.mir_graph->ssa_base_vregs_ = new (&cu_.arena) GrowableArray<int>(&cu_.arena, kMaxSsaRegs);
-    cu_.mir_graph->ssa_subscripts_ = new (&cu_.arena) GrowableArray<int>(&cu_.arena, kMaxSsaRegs);
+    cu_.mir_graph->ssa_base_vregs_.reserve(kMaxSsaRegs);
+    cu_.mir_graph->ssa_subscripts_.reserve(kMaxSsaRegs);
     for (unsigned int i = 0; i < kMaxSsaRegs; i++) {
-      cu_.mir_graph->ssa_base_vregs_->Insert(i);
-      cu_.mir_graph->ssa_subscripts_->Insert(0);
+      cu_.mir_graph->ssa_base_vregs_.push_back(i);
+      cu_.mir_graph->ssa_subscripts_.push_back(0);
     }
+    // Set shorty for a void-returning method without arguments.
+    cu_.shorty = "V";
   }
 
   static constexpr size_t kMaxSsaRegs = 16384u;
@@ -361,6 +398,8 @@ class GlobalValueNumberingTest : public testing::Test {
   std::vector<uint16_t> value_names_;
   ArenaBitVector* live_in_v_;
 };
+
+constexpr uint16_t GlobalValueNumberingTest::kNoValue;
 
 class GlobalValueNumberingTestDiamond : public GlobalValueNumberingTest {
  public:
@@ -434,12 +473,10 @@ GlobalValueNumberingTestCatch::GlobalValueNumberingTestCatch()
   // Add successor block info to the check block.
   BasicBlock* check_bb = cu_.mir_graph->GetBasicBlock(3u);
   check_bb->successor_block_list_type = kCatch;
-  check_bb->successor_blocks = new (&cu_.arena) GrowableArray<SuccessorBlockInfo*>(
-      &cu_.arena, 2, kGrowableArraySuccessorBlocks);
   SuccessorBlockInfo* successor_block_info = reinterpret_cast<SuccessorBlockInfo*>
       (cu_.arena.Alloc(sizeof(SuccessorBlockInfo), kArenaAllocSuccessor));
   successor_block_info->block = catch_handler->id;
-  check_bb->successor_blocks->Insert(successor_block_info);
+  check_bb->successor_blocks.push_back(successor_block_info);
 }
 
 class GlobalValueNumberingTestTwoConsecutiveLoops : public GlobalValueNumberingTest {
@@ -497,18 +534,18 @@ GlobalValueNumberingTestTwoNestedLoops::GlobalValueNumberingTestTwoNestedLoops()
 
 TEST_F(GlobalValueNumberingTestDiamond, NonAliasingIFields) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Short.
-      { 5u, 1u, 5u, false },  // Char.
-      { 6u, 0u, 0u, false },  // Unresolved, Short.
-      { 7u, 1u, 7u, false },  // Int.
-      { 8u, 0u, 0u, false },  // Unresolved, Int.
-      { 9u, 1u, 9u, false },  // Int.
-      { 10u, 1u, 10u, false },  // Int.
-      { 11u, 1u, 11u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessShort },
+      { 5u, 1u, 5u, false, kDexMemAccessChar },
+      { 6u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
+      { 7u, 1u, 7u, false, kDexMemAccessWord },
+      { 8u, 0u, 0u, false, kDexMemAccessWord },    // Unresolved.
+      { 9u, 1u, 9u, false, kDexMemAccessWord },
+      { 10u, 1u, 10u, false, kDexMemAccessWord },
+      { 11u, 1u, 11u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -603,15 +640,15 @@ TEST_F(GlobalValueNumberingTestDiamond, NonAliasingIFields) {
 
 TEST_F(GlobalValueNumberingTestDiamond, AliasingIFieldsSingleObject) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Short.
-      { 5u, 1u, 5u, false },  // Char.
-      { 6u, 0u, 0u, false },  // Unresolved, Short.
-      { 7u, 1u, 7u, false },  // Int.
-      { 8u, 1u, 8u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessShort },
+      { 5u, 1u, 5u, false, kDexMemAccessChar },
+      { 6u, 0u, 0u, false, kDexMemAccessShort },  // Unresolved.
+      { 7u, 1u, 7u, false, kDexMemAccessWord },
+      { 8u, 1u, 8u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -670,15 +707,15 @@ TEST_F(GlobalValueNumberingTestDiamond, AliasingIFieldsSingleObject) {
 
 TEST_F(GlobalValueNumberingTestDiamond, AliasingIFieldsTwoObjects) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Short.
-      { 5u, 1u, 5u, false },  // Char.
-      { 6u, 0u, 0u, false },  // Unresolved, Short.
-      { 7u, 1u, 7u, false },  // Int.
-      { 8u, 1u, 8u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessShort },
+      { 5u, 1u, 5u, false, kDexMemAccessChar },
+      { 6u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
+      { 7u, 1u, 7u, false, kDexMemAccessWord },
+      { 8u, 1u, 8u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -739,15 +776,15 @@ TEST_F(GlobalValueNumberingTestDiamond, AliasingIFieldsTwoObjects) {
 
 TEST_F(GlobalValueNumberingTestDiamond, SFields) {
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Short.
-      { 5u, 1u, 5u, false },  // Char.
-      { 6u, 0u, 0u, false },  // Unresolved, Short.
-      { 7u, 1u, 7u, false },  // Int.
-      { 8u, 1u, 8u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessShort },
+      { 5u, 1u, 5u, false, kDexMemAccessChar },
+      { 6u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
+      { 7u, 1u, 7u, false, kDexMemAccessWord },
+      { 8u, 1u, 8u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -884,14 +921,14 @@ TEST_F(GlobalValueNumberingTestDiamond, AliasingArrays) {
       DEF_IGET(6, Instruction::AGET_OBJECT, 3u, 200u, 201u),  // Same as at the left side.
 
       DEF_AGET(3, Instruction::AGET_WIDE, 4u, 300u, 301u),
-      DEF_CONST(5, Instruction::CONST_WIDE, 5u, 1000),
-      DEF_APUT(5, Instruction::APUT_WIDE, 5u, 300u, 301u),
-      DEF_AGET(6, Instruction::AGET_WIDE, 7u, 300u, 301u),  // Differs from the top and the CONST.
+      DEF_CONST(5, Instruction::CONST_WIDE, 6u, 1000),
+      DEF_APUT(5, Instruction::APUT_WIDE, 6u, 300u, 301u),
+      DEF_AGET(6, Instruction::AGET_WIDE, 8u, 300u, 301u),  // Differs from the top and the CONST.
 
-      DEF_AGET(3, Instruction::AGET_SHORT, 8u, 400u, 401u),
-      DEF_CONST(3, Instruction::CONST, 9u, 2000),
-      DEF_APUT(4, Instruction::APUT_SHORT, 9u, 400u, 401u),
-      DEF_APUT(5, Instruction::APUT_SHORT, 9u, 400u, 401u),
+      DEF_AGET(3, Instruction::AGET_SHORT, 10u, 400u, 401u),
+      DEF_CONST(3, Instruction::CONST, 11u, 2000),
+      DEF_APUT(4, Instruction::APUT_SHORT, 11u, 400u, 401u),
+      DEF_APUT(5, Instruction::APUT_SHORT, 11u, 400u, 401u),
       DEF_AGET(6, Instruction::AGET_SHORT, 12u, 400u, 401u),  // Differs from the top, == CONST.
 
       DEF_AGET(3, Instruction::AGET_CHAR, 13u, 500u, 501u),
@@ -913,6 +950,8 @@ TEST_F(GlobalValueNumberingTestDiamond, AliasingArrays) {
   };
 
   PrepareMIRs(mirs);
+  static const int32_t wide_sregs[] = { 4, 6, 8 };
+  MarkAsWideSRegs(wide_sregs);
   PerformGVN();
   ASSERT_EQ(arraysize(mirs), value_names_.size());
   EXPECT_EQ(value_names_[0], value_names_[1]);
@@ -989,20 +1028,112 @@ TEST_F(GlobalValueNumberingTestDiamond, Phi) {
   EXPECT_EQ(value_names_[18], value_names_[21]);
 }
 
+TEST_F(GlobalValueNumberingTestDiamond, PhiWide) {
+  static const MIRDef mirs[] = {
+      DEF_CONST_WIDE(3, Instruction::CONST_WIDE, 0u, 1000),
+      DEF_CONST_WIDE(4, Instruction::CONST_WIDE, 2u, 2000),
+      DEF_CONST_WIDE(5, Instruction::CONST_WIDE, 4u, 3000),
+      DEF_MOVE_WIDE(4, Instruction::MOVE_WIDE, 6u, 0u),
+      DEF_MOVE_WIDE(4, Instruction::MOVE_WIDE, 8u, 2u),
+      DEF_MOVE_WIDE(5, Instruction::MOVE_WIDE, 10u, 0u),
+      DEF_MOVE_WIDE(5, Instruction::MOVE_WIDE, 12u, 4u),
+      DEF_PHI2(6, 14u, 6u, 10u),    // Same as CONST_WIDE 0u (1000).
+      DEF_PHI2(6, 15u, 7u, 11u),    // Same as CONST_WIDE 0u (1000), high word.
+      DEF_PHI2(6, 16u, 6u,  0u),    // Same as CONST_WIDE 0u (1000).
+      DEF_PHI2(6, 17u, 7u,  1u),    // Same as CONST_WIDE 0u (1000), high word.
+      DEF_PHI2(6, 18u, 0u, 10u),    // Same as CONST_WIDE 0u (1000).
+      DEF_PHI2(6, 19u, 1u, 11u),    // Same as CONST_WIDE 0u (1000), high word.
+      DEF_PHI2(6, 20u, 8u, 10u),    // Merge 2u (2000) and 0u (1000).
+      DEF_PHI2(6, 21u, 9u, 11u),    // Merge 2u (2000) and 0u (1000), high word.
+      DEF_PHI2(6, 22u, 2u, 10u),    // Merge 2u (2000) and 0u (1000).
+      DEF_PHI2(6, 23u, 3u, 11u),    // Merge 2u (2000) and 0u (1000), high word.
+      DEF_PHI2(6, 24u, 8u,  0u),    // Merge 2u (2000) and 0u (1000).
+      DEF_PHI2(6, 25u, 9u,  1u),    // Merge 2u (2000) and 0u (1000), high word.
+      DEF_PHI2(6, 26u, 2u,  0u),    // Merge 2u (2000) and 0u (1000).
+      DEF_PHI2(6, 27u, 5u,  1u),    // Merge 2u (2000) and 0u (1000), high word.
+      DEF_PHI2(6, 28u, 6u, 12u),    // Merge 0u (1000) and 4u (3000).
+      DEF_PHI2(6, 29u, 7u, 13u),    // Merge 0u (1000) and 4u (3000), high word.
+      DEF_PHI2(6, 30u, 0u, 12u),    // Merge 0u (1000) and 4u (3000).
+      DEF_PHI2(6, 31u, 1u, 13u),    // Merge 0u (1000) and 4u (3000), high word.
+      DEF_PHI2(6, 32u, 6u,  4u),    // Merge 0u (1000) and 4u (3000).
+      DEF_PHI2(6, 33u, 7u,  5u),    // Merge 0u (1000) and 4u (3000), high word.
+      DEF_PHI2(6, 34u, 0u,  4u),    // Merge 0u (1000) and 4u (3000).
+      DEF_PHI2(6, 35u, 1u,  5u),    // Merge 0u (1000) and 4u (3000), high word.
+      DEF_PHI2(6, 36u, 8u, 12u),    // Merge 2u (2000) and 4u (3000).
+      DEF_PHI2(6, 37u, 9u, 13u),    // Merge 2u (2000) and 4u (3000), high word.
+      DEF_PHI2(6, 38u, 2u, 12u),    // Merge 2u (2000) and 4u (3000).
+      DEF_PHI2(6, 39u, 3u, 13u),    // Merge 2u (2000) and 4u (3000), high word.
+      DEF_PHI2(6, 40u, 8u,  4u),    // Merge 2u (2000) and 4u (3000).
+      DEF_PHI2(6, 41u, 9u,  5u),    // Merge 2u (2000) and 4u (3000), high word.
+      DEF_PHI2(6, 42u, 2u,  4u),    // Merge 2u (2000) and 4u (3000).
+      DEF_PHI2(6, 43u, 3u,  5u),    // Merge 2u (2000) and 4u (3000), high word.
+  };
+
+  PrepareMIRs(mirs);
+  for (size_t i = 0u; i != arraysize(mirs); ++i) {
+    if ((mirs_[i].ssa_rep->defs[0] % 2) == 0) {
+      const int32_t wide_sregs[] = { mirs_[i].ssa_rep->defs[0] };
+      MarkAsWideSRegs(wide_sregs);
+    }
+  }
+  PerformGVN();
+  ASSERT_EQ(arraysize(mirs), value_names_.size());
+  EXPECT_EQ(value_names_[0], value_names_[7]);
+  EXPECT_EQ(value_names_[0], value_names_[9]);
+  EXPECT_EQ(value_names_[0], value_names_[11]);
+  EXPECT_NE(value_names_[13], value_names_[0]);
+  EXPECT_NE(value_names_[13], value_names_[1]);
+  EXPECT_NE(value_names_[13], value_names_[2]);
+  EXPECT_EQ(value_names_[13], value_names_[15]);
+  EXPECT_EQ(value_names_[13], value_names_[17]);
+  EXPECT_EQ(value_names_[13], value_names_[19]);
+  EXPECT_NE(value_names_[21], value_names_[0]);
+  EXPECT_NE(value_names_[21], value_names_[1]);
+  EXPECT_NE(value_names_[21], value_names_[2]);
+  EXPECT_NE(value_names_[21], value_names_[13]);
+  EXPECT_EQ(value_names_[21], value_names_[23]);
+  EXPECT_EQ(value_names_[21], value_names_[25]);
+  EXPECT_EQ(value_names_[21], value_names_[27]);
+  EXPECT_NE(value_names_[29], value_names_[0]);
+  EXPECT_NE(value_names_[29], value_names_[1]);
+  EXPECT_NE(value_names_[29], value_names_[2]);
+  EXPECT_NE(value_names_[29], value_names_[13]);
+  EXPECT_NE(value_names_[29], value_names_[21]);
+  EXPECT_EQ(value_names_[29], value_names_[31]);
+  EXPECT_EQ(value_names_[29], value_names_[33]);
+  EXPECT_EQ(value_names_[29], value_names_[35]);
+  // High words should get kNoValue.
+  EXPECT_EQ(value_names_[8], kNoValue);
+  EXPECT_EQ(value_names_[10], kNoValue);
+  EXPECT_EQ(value_names_[12], kNoValue);
+  EXPECT_EQ(value_names_[14], kNoValue);
+  EXPECT_EQ(value_names_[16], kNoValue);
+  EXPECT_EQ(value_names_[18], kNoValue);
+  EXPECT_EQ(value_names_[20], kNoValue);
+  EXPECT_EQ(value_names_[22], kNoValue);
+  EXPECT_EQ(value_names_[24], kNoValue);
+  EXPECT_EQ(value_names_[26], kNoValue);
+  EXPECT_EQ(value_names_[28], kNoValue);
+  EXPECT_EQ(value_names_[30], kNoValue);
+  EXPECT_EQ(value_names_[32], kNoValue);
+  EXPECT_EQ(value_names_[34], kNoValue);
+  EXPECT_EQ(value_names_[36], kNoValue);
+}
+
 TEST_F(GlobalValueNumberingTestLoop, NonAliasingIFields) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Int.
-      { 5u, 1u, 5u, false },  // Short.
-      { 6u, 1u, 6u, false },  // Char.
-      { 7u, 0u, 0u, false },  // Unresolved, Short.
-      { 8u, 1u, 8u, false },  // Int.
-      { 9u, 0u, 0u, false },  // Unresolved, Int.
-      { 10u, 1u, 10u, false },  // Int.
-      { 11u, 1u, 11u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessWord },
+      { 5u, 1u, 5u, false, kDexMemAccessShort },
+      { 6u, 1u, 6u, false, kDexMemAccessChar },
+      { 7u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
+      { 8u, 1u, 8u, false, kDexMemAccessWord },
+      { 9u, 0u, 0u, false, kDexMemAccessWord },    // Unresolved.
+      { 10u, 1u, 10u, false, kDexMemAccessWord },
+      { 11u, 1u, 11u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -1114,14 +1245,14 @@ TEST_F(GlobalValueNumberingTestLoop, NonAliasingIFields) {
 
 TEST_F(GlobalValueNumberingTestLoop, AliasingIFieldsSingleObject) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Int.
-      { 4u, 1u, 4u, false },  // Int.
-      { 5u, 1u, 5u, false },  // Short.
-      { 6u, 1u, 6u, false },  // Char.
-      { 7u, 0u, 0u, false },  // Unresolved, Short.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessWord },
+      { 4u, 1u, 4u, false, kDexMemAccessWord },
+      { 5u, 1u, 5u, false, kDexMemAccessShort },
+      { 6u, 1u, 6u, false, kDexMemAccessChar },
+      { 7u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -1185,14 +1316,14 @@ TEST_F(GlobalValueNumberingTestLoop, AliasingIFieldsSingleObject) {
 
 TEST_F(GlobalValueNumberingTestLoop, AliasingIFieldsTwoObjects) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
-      { 3u, 1u, 3u, false },  // Short.
-      { 4u, 1u, 4u, false },  // Char.
-      { 5u, 0u, 0u, false },  // Unresolved, Short.
-      { 6u, 1u, 6u, false },  // Int.
-      { 7u, 1u, 7u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
+      { 3u, 1u, 3u, false, kDexMemAccessShort },
+      { 4u, 1u, 4u, false, kDexMemAccessChar },
+      { 5u, 0u, 0u, false, kDexMemAccessShort },   // Unresolved.
+      { 6u, 1u, 6u, false, kDexMemAccessWord },
+      { 7u, 1u, 7u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -1254,7 +1385,7 @@ TEST_F(GlobalValueNumberingTestLoop, AliasingIFieldsTwoObjects) {
 
 TEST_F(GlobalValueNumberingTestLoop, IFieldToBaseDependency) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // For the IGET that loads sreg 3u using base 2u, the following IPUT creates a dependency
@@ -1279,9 +1410,9 @@ TEST_F(GlobalValueNumberingTestLoop, IFieldToBaseDependency) {
 
 TEST_F(GlobalValueNumberingTestLoop, SFields) {
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
-      { 2u, 1u, 2u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
+      { 2u, 1u, 2u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
@@ -1381,27 +1512,27 @@ TEST_F(GlobalValueNumberingTestLoop, AliasingArrays) {
   static const MIRDef mirs[] = {
       // NOTE: MIRs here are ordered by unique tests. They will be put into appropriate blocks.
       DEF_AGET(3, Instruction::AGET_WIDE, 0u, 100u, 101u),
-      DEF_AGET(4, Instruction::AGET_WIDE, 1u, 100u, 101u),   // Same as at the top.
-      DEF_AGET(5, Instruction::AGET_WIDE, 2u, 100u, 101u),   // Same as at the top.
+      DEF_AGET(4, Instruction::AGET_WIDE, 2u, 100u, 101u),   // Same as at the top.
+      DEF_AGET(5, Instruction::AGET_WIDE, 4u, 100u, 101u),   // Same as at the top.
 
-      DEF_AGET(3, Instruction::AGET_BYTE, 3u, 200u, 201u),
-      DEF_AGET(4, Instruction::AGET_BYTE, 4u, 200u, 201u),  // Differs from top...
-      DEF_APUT(4, Instruction::APUT_BYTE, 5u, 200u, 201u),  // Because of this IPUT.
-      DEF_AGET(5, Instruction::AGET_BYTE, 6u, 200u, 201u),  // Differs from top and the loop AGET.
+      DEF_AGET(3, Instruction::AGET_BYTE, 6u, 200u, 201u),
+      DEF_AGET(4, Instruction::AGET_BYTE, 7u, 200u, 201u),  // Differs from top...
+      DEF_APUT(4, Instruction::APUT_BYTE, 8u, 200u, 201u),  // Because of this IPUT.
+      DEF_AGET(5, Instruction::AGET_BYTE, 9u, 200u, 201u),  // Differs from top and the loop AGET.
 
-      DEF_AGET(3, Instruction::AGET, 7u, 300u, 301u),
-      DEF_APUT(4, Instruction::APUT, 8u, 300u, 301u),   // Because of this IPUT...
-      DEF_AGET(4, Instruction::AGET, 9u, 300u, 301u),   // Differs from top.
-      DEF_AGET(5, Instruction::AGET, 10u, 300u, 301u),  // Differs from top but == the loop AGET.
+      DEF_AGET(3, Instruction::AGET, 10u, 300u, 301u),
+      DEF_APUT(4, Instruction::APUT, 11u, 300u, 301u),  // Because of this IPUT...
+      DEF_AGET(4, Instruction::AGET, 12u, 300u, 301u),   // Differs from top.
+      DEF_AGET(5, Instruction::AGET, 13u, 300u, 301u),  // Differs from top but == the loop AGET.
 
-      DEF_CONST(3, Instruction::CONST, 11u, 3000),
-      DEF_APUT(3, Instruction::APUT_CHAR, 11u, 400u, 401u),
-      DEF_APUT(3, Instruction::APUT_CHAR, 11u, 400u, 402u),
-      DEF_AGET(4, Instruction::AGET_CHAR, 14u, 400u, 401u),  // Differs from 11u and 16u.
-      DEF_AGET(4, Instruction::AGET_CHAR, 15u, 400u, 402u),  // Same as 14u.
-      DEF_CONST(4, Instruction::CONST, 16u, 4000),
-      DEF_APUT(4, Instruction::APUT_CHAR, 16u, 400u, 401u),
-      DEF_APUT(4, Instruction::APUT_CHAR, 16u, 400u, 402u),
+      DEF_CONST(3, Instruction::CONST, 14u, 3000),
+      DEF_APUT(3, Instruction::APUT_CHAR, 14u, 400u, 401u),
+      DEF_APUT(3, Instruction::APUT_CHAR, 14u, 400u, 402u),
+      DEF_AGET(4, Instruction::AGET_CHAR, 15u, 400u, 401u),  // Differs from 11u and 16u.
+      DEF_AGET(4, Instruction::AGET_CHAR, 16u, 400u, 402u),  // Same as 14u.
+      DEF_CONST(4, Instruction::CONST, 17u, 4000),
+      DEF_APUT(4, Instruction::APUT_CHAR, 17u, 400u, 401u),
+      DEF_APUT(4, Instruction::APUT_CHAR, 17u, 400u, 402u),
       DEF_AGET(5, Instruction::AGET_CHAR, 19u, 400u, 401u),  // Differs from 11u and 14u...
       DEF_AGET(5, Instruction::AGET_CHAR, 20u, 400u, 402u),  // and same as the CONST 16u.
 
@@ -1419,6 +1550,8 @@ TEST_F(GlobalValueNumberingTestLoop, AliasingArrays) {
   };
 
   PrepareMIRs(mirs);
+  static const int32_t wide_sregs[] = { 0, 2, 4 };
+  MarkAsWideSRegs(wide_sregs);
   PerformGVN();
   ASSERT_EQ(arraysize(mirs), value_names_.size());
   EXPECT_EQ(value_names_[0], value_names_[1]);
@@ -1473,10 +1606,44 @@ TEST_F(GlobalValueNumberingTestLoop, Phi) {
   EXPECT_NE(value_names_[4], value_names_[3]);
 }
 
+TEST_F(GlobalValueNumberingTestLoop, IFieldLoopVariable) {
+  static const IFieldDef ifields[] = {
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+  };
+  static const MIRDef mirs[] = {
+      DEF_CONST(3, Instruction::CONST, 0u, 0),
+      DEF_IPUT(3, Instruction::IPUT, 0u, 100u, 0u),
+      DEF_IGET(4, Instruction::IGET, 2u, 100u, 0u),
+      DEF_BINOP(4, Instruction::ADD_INT, 3u, 2u, 101u),
+      DEF_IPUT(4, Instruction::IPUT, 3u, 100u, 0u),
+  };
+
+  PrepareIFields(ifields);
+  PrepareMIRs(mirs);
+  PerformGVN();
+  ASSERT_EQ(arraysize(mirs), value_names_.size());
+  EXPECT_NE(value_names_[2], value_names_[0]);
+  EXPECT_NE(value_names_[3], value_names_[0]);
+  EXPECT_NE(value_names_[3], value_names_[2]);
+
+
+  // Set up vreg_to_ssa_map_exit for prologue and loop and set post-processing mode
+  // as needed for GetStartingVregValueNumber().
+  const int32_t prologue_vreg_to_ssa_map_exit[] = { 0 };
+  const int32_t loop_vreg_to_ssa_map_exit[] = { 3 };
+  PrepareVregToSsaMapExit(3, prologue_vreg_to_ssa_map_exit);
+  PrepareVregToSsaMapExit(4, loop_vreg_to_ssa_map_exit);
+  gvn_->StartPostProcessing();
+
+  // Check that vreg 0 has the same value number as the result of IGET 2u.
+  const LocalValueNumbering* loop = gvn_->GetLvn(4);
+  EXPECT_EQ(value_names_[2], loop->GetStartingVregValueNumber(0));
+}
+
 TEST_F(GlobalValueNumberingTestCatch, IFields) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },
-      { 1u, 1u, 1u, false },
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       DEF_UNIQUE_REF(3, Instruction::NEW_INSTANCE, 200u),
@@ -1521,8 +1688,8 @@ TEST_F(GlobalValueNumberingTestCatch, IFields) {
 
 TEST_F(GlobalValueNumberingTestCatch, SFields) {
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },
-      { 1u, 1u, 1u, false },
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       DEF_SGET(3, Instruction::SGET, 0u, 0u),
@@ -1644,8 +1811,8 @@ TEST_F(GlobalValueNumberingTestCatch, Phi) {
 
 TEST_F(GlobalValueNumberingTest, NullCheckIFields) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Object.
-      { 1u, 1u, 1u, false },  // Object.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },  // Object.
+      { 1u, 1u, 1u, false, kDexMemAccessObject },  // Object.
   };
   static const BBDef bbs[] = {
       DEF_BB(kNullBlock, DEF_SUCC0(), DEF_PRED0()),
@@ -1693,8 +1860,8 @@ TEST_F(GlobalValueNumberingTest, NullCheckIFields) {
 
 TEST_F(GlobalValueNumberingTest, NullCheckSFields) {
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },  // Object.
-      { 1u, 1u, 1u, false },  // Object.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
+      { 1u, 1u, 1u, false, kDexMemAccessObject },
   };
   static const BBDef bbs[] = {
       DEF_BB(kNullBlock, DEF_SUCC0(), DEF_PRED0()),
@@ -1820,12 +1987,12 @@ TEST_F(GlobalValueNumberingTestDiamond, RangeCheckArrays) {
 
 TEST_F(GlobalValueNumberingTestDiamond, MergeSameValueInDifferentMemoryLocations) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
   };
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },  // Int.
-      { 1u, 1u, 1u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessWord },
+      { 1u, 1u, 1u, false, kDexMemAccessWord },
   };
   static const MIRDef mirs[] = {
       DEF_UNIQUE_REF(3, Instruction::NEW_INSTANCE, 100u),
@@ -1890,7 +2057,7 @@ TEST_F(GlobalValueNumberingTest, InfiniteLocationLoop) {
   // LVN's aliasing_array_value_map_'s load_value_map for BBs #9, #4, #5, #7 because of the
   // DFS ordering of LVN evaluation.
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Object.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
   };
   static const BBDef bbs[] = {
       DEF_BB(kNullBlock, DEF_SUCC0(), DEF_PRED0()),
@@ -1928,7 +2095,7 @@ TEST_F(GlobalValueNumberingTest, InfiniteLocationLoop) {
 
 TEST_F(GlobalValueNumberingTestTwoConsecutiveLoops, IFieldAndPhi) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
   };
   static const MIRDef mirs[] = {
       DEF_MOVE(3, Instruction::MOVE_OBJECT, 0u, 100u),
@@ -1965,10 +2132,10 @@ TEST_F(GlobalValueNumberingTestTwoConsecutiveLoops, IFieldAndPhi) {
 
 TEST_F(GlobalValueNumberingTestTwoConsecutiveLoops, NullCheck) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
   };
   static const SFieldDef sfields[] = {
-      { 0u, 1u, 0u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
   };
   static const MIRDef mirs[] = {
       DEF_MOVE(3, Instruction::MOVE_OBJECT, 0u, 100u),
@@ -2056,7 +2223,7 @@ TEST_F(GlobalValueNumberingTestTwoConsecutiveLoops, NullCheck) {
 
 TEST_F(GlobalValueNumberingTestTwoNestedLoops, IFieldAndPhi) {
   static const IFieldDef ifields[] = {
-      { 0u, 1u, 0u, false },  // Int.
+      { 0u, 1u, 0u, false, kDexMemAccessObject },
   };
   static const MIRDef mirs[] = {
       DEF_MOVE(3, Instruction::MOVE_OBJECT, 0u, 100u),
@@ -2116,16 +2283,146 @@ TEST_F(GlobalValueNumberingTest, NormalPathToCatchEntry) {
   // Add successor block info to the check block.
   BasicBlock* check_bb = cu_.mir_graph->GetBasicBlock(3u);
   check_bb->successor_block_list_type = kCatch;
-  check_bb->successor_blocks = new (&cu_.arena) GrowableArray<SuccessorBlockInfo*>(
-      &cu_.arena, 2, kGrowableArraySuccessorBlocks);
   SuccessorBlockInfo* successor_block_info = reinterpret_cast<SuccessorBlockInfo*>
       (cu_.arena.Alloc(sizeof(SuccessorBlockInfo), kArenaAllocSuccessor));
   successor_block_info->block = catch_handler->id;
-  check_bb->successor_blocks->Insert(successor_block_info);
+  check_bb->successor_blocks.push_back(successor_block_info);
   BasicBlock* merge_block = cu_.mir_graph->GetBasicBlock(4u);
   std::swap(merge_block->taken, merge_block->fall_through);
   PrepareMIRs(mirs);
   PerformGVN();
+}
+
+TEST_F(GlobalValueNumberingTestDiamond, DivZeroCheckDiamond) {
+  static const MIRDef mirs[] = {
+      DEF_BINOP(3u, Instruction::DIV_INT, 1u, 20u, 21u),
+      DEF_BINOP(3u, Instruction::DIV_INT, 2u, 24u, 21u),
+      DEF_BINOP(3u, Instruction::DIV_INT, 3u, 20u, 23u),
+      DEF_BINOP(4u, Instruction::DIV_INT, 4u, 24u, 22u),
+      DEF_BINOP(4u, Instruction::DIV_INT, 9u, 24u, 25u),
+      DEF_BINOP(5u, Instruction::DIV_INT, 5u, 24u, 21u),
+      DEF_BINOP(5u, Instruction::DIV_INT, 10u, 24u, 26u),
+      DEF_PHI2(6u, 27u, 25u, 26u),
+      DEF_BINOP(6u, Instruction::DIV_INT, 12u, 20u, 27u),
+      DEF_BINOP(6u, Instruction::DIV_INT, 6u, 24u, 21u),
+      DEF_BINOP(6u, Instruction::DIV_INT, 7u, 20u, 23u),
+      DEF_BINOP(6u, Instruction::DIV_INT, 8u, 20u, 22u),
+  };
+
+  static const bool expected_ignore_div_zero_check[] = {
+      false,  // New divisor seen.
+      true,   // Eliminated since it has first divisor as first one.
+      false,  // New divisor seen.
+      false,  // New divisor seen.
+      false,  // New divisor seen.
+      true,   // Eliminated in dominating block.
+      false,  // New divisor seen.
+      false,  // Phi node.
+      true,   // Eliminated on both sides of diamond and merged via phi.
+      true,   // Eliminated in dominating block.
+      true,   // Eliminated in dominating block.
+      false,  // Only eliminated on one path of diamond.
+  };
+
+  PrepareMIRs(mirs);
+  PerformGVN();
+  PerformGVNCodeModifications();
+  ASSERT_EQ(arraysize(expected_ignore_div_zero_check), mir_count_);
+  for (size_t i = 0u; i != mir_count_; ++i) {
+    int expected = expected_ignore_div_zero_check[i] ? MIR_IGNORE_DIV_ZERO_CHECK : 0u;
+    EXPECT_EQ(expected, mirs_[i].optimization_flags) << i;
+  }
+}
+
+TEST_F(GlobalValueNumberingTestDiamond, CheckCastDiamond) {
+  static const MIRDef mirs[] = {
+      DEF_UNOP(3u, Instruction::INSTANCE_OF, 0u, 100u),
+      DEF_UNOP(3u, Instruction::INSTANCE_OF, 1u, 200u),
+      DEF_IFZ(3u, Instruction::IF_NEZ, 0u),
+      DEF_INVOKE1(4u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(5u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(5u, Instruction::CHECK_CAST, 200u),
+      DEF_INVOKE1(5u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(6u, Instruction::CHECK_CAST, 100u),
+  };
+
+  static const bool expected_ignore_check_cast[] = {
+      false,  // instance-of
+      false,  // instance-of
+      false,  // if-nez
+      false,  // Not eliminated, fall-through branch.
+      true,   // Eliminated.
+      false,  // Not eliminated, different value.
+      false,  // Not eliminated, different type.
+      false,  // Not eliminated, bottom block.
+  };
+
+  PrepareMIRs(mirs);
+  mirs_[0].dalvikInsn.vC = 1234;  // type for instance-of
+  mirs_[1].dalvikInsn.vC = 1234;  // type for instance-of
+  mirs_[3].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[4].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[5].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[6].dalvikInsn.vB = 4321;  // type for check-cast
+  mirs_[7].dalvikInsn.vB = 1234;  // type for check-cast
+  PerformGVN();
+  PerformGVNCodeModifications();
+  ASSERT_EQ(arraysize(expected_ignore_check_cast), mir_count_);
+  for (size_t i = 0u; i != mir_count_; ++i) {
+    int expected = expected_ignore_check_cast[i] ? MIR_IGNORE_CHECK_CAST : 0u;
+    EXPECT_EQ(expected, mirs_[i].optimization_flags) << i;
+  }
+}
+
+TEST_F(GlobalValueNumberingTest, CheckCastDominators) {
+  const BBDef bbs[] = {
+      DEF_BB(kNullBlock, DEF_SUCC0(), DEF_PRED0()),
+      DEF_BB(kEntryBlock, DEF_SUCC1(3), DEF_PRED0()),
+      DEF_BB(kExitBlock, DEF_SUCC0(), DEF_PRED1(7)),
+      DEF_BB(kDalvikByteCode, DEF_SUCC2(4, 5), DEF_PRED1(1)),  // Block #3, top of the diamond.
+      DEF_BB(kDalvikByteCode, DEF_SUCC1(7), DEF_PRED1(3)),     // Block #4, left side.
+      DEF_BB(kDalvikByteCode, DEF_SUCC1(6), DEF_PRED1(3)),     // Block #5, right side.
+      DEF_BB(kDalvikByteCode, DEF_SUCC1(7), DEF_PRED1(5)),     // Block #6, right side.
+      DEF_BB(kDalvikByteCode, DEF_SUCC1(2), DEF_PRED2(4, 6)),  // Block #7, bottom.
+  };
+  static const MIRDef mirs[] = {
+      DEF_UNOP(3u, Instruction::INSTANCE_OF, 0u, 100u),
+      DEF_UNOP(3u, Instruction::INSTANCE_OF, 1u, 200u),
+      DEF_IFZ(3u, Instruction::IF_NEZ, 0u),
+      DEF_INVOKE1(4u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(6u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(6u, Instruction::CHECK_CAST, 200u),
+      DEF_INVOKE1(6u, Instruction::CHECK_CAST, 100u),
+      DEF_INVOKE1(7u, Instruction::CHECK_CAST, 100u),
+  };
+
+  static const bool expected_ignore_check_cast[] = {
+      false,  // instance-of
+      false,  // instance-of
+      false,  // if-nez
+      false,  // Not eliminated, fall-through branch.
+      true,   // Eliminated.
+      false,  // Not eliminated, different value.
+      false,  // Not eliminated, different type.
+      false,  // Not eliminated, bottom block.
+  };
+
+  PrepareBasicBlocks(bbs);
+  PrepareMIRs(mirs);
+  mirs_[0].dalvikInsn.vC = 1234;  // type for instance-of
+  mirs_[1].dalvikInsn.vC = 1234;  // type for instance-of
+  mirs_[3].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[4].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[5].dalvikInsn.vB = 1234;  // type for check-cast
+  mirs_[6].dalvikInsn.vB = 4321;  // type for check-cast
+  mirs_[7].dalvikInsn.vB = 1234;  // type for check-cast
+  PerformGVN();
+  PerformGVNCodeModifications();
+  ASSERT_EQ(arraysize(expected_ignore_check_cast), mir_count_);
+  for (size_t i = 0u; i != mir_count_; ++i) {
+    int expected = expected_ignore_check_cast[i] ? MIR_IGNORE_CHECK_CAST : 0u;
+    EXPECT_EQ(expected, mirs_[i].optimization_flags) << i;
+  }
 }
 
 }  // namespace art

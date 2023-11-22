@@ -64,11 +64,4 @@ public class WipeDataTest extends BaseManagedProfileTest {
         // Verify the profile is deleted
         assertFalse(mUserManager.getUserProfiles().contains(currentUser));
     }
-
-    // Override this test inherited from base class, as it will trigger another round of setUp()
-    // which would fail because the managed profile has been removed by this test.
-    @Override
-    @Ignore
-    public void testAndroidTestCaseSetupProperly() {
-    }
 }

@@ -17,16 +17,14 @@
 package com.android.tv.settings;
 
 import android.animation.ObjectAnimator;
-import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.Paint;
-import android.graphics.Paint.FontMetricsInt;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.support.v17.leanback.widget.Presenter;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,6 +37,8 @@ import com.android.tv.settings.widget.BitmapDownloader.BitmapCallback;
 import com.android.tv.settings.widget.BitmapWorkerOptions;
 
 public class MenuItemPresenter extends Presenter {
+
+    private static final String TAG = "MenuItemPresenter";
 
     private static class MenuItemViewHolder extends ViewHolder {
         public final ImageView mIconView;
@@ -92,7 +92,11 @@ public class MenuItemPresenter extends Presenter {
                 @Override
                 public void onClick(View v) {
                     if (v != null && menuItem.getIntent() != null) {
-                        ((Activity) v.getContext()).startActivity(menuItem.getIntent());
+                        try {
+                            v.getContext().startActivity(menuItem.getIntent());
+                        } catch (ActivityNotFoundException e) {
+                            Log.e(TAG, "Activity not found", e);
+                        }
                     }
                 }
             });

@@ -16,23 +16,26 @@
 
 package com.google.common.collect.testing.google;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.testing.Helpers.mapEntry;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
+import com.google.common.collect.testing.AnEnum;
 import com.google.common.collect.testing.SampleElements;
-import com.google.common.collect.testing.TestCollectionGenerator;
+import com.google.common.collect.testing.TestEnumMapGenerator;
 import com.google.common.collect.testing.TestListGenerator;
-import com.google.common.collect.testing.TestMapEntrySetGenerator;
-import com.google.common.collect.testing.TestStringSetGenerator;
+import com.google.common.collect.testing.TestStringListGenerator;
+import com.google.common.collect.testing.TestStringMapGenerator;
 import com.google.common.collect.testing.TestUnhashableCollectionGenerator;
 import com.google.common.collect.testing.UnhashableObject;
 
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  * Generators of different types of map and related collections, such as
@@ -42,43 +45,25 @@ import java.util.Set;
  */
 @GwtCompatible
 public class MapGenerators {
-
-  public static class ImmutableMapKeySetGenerator
-      extends TestStringSetGenerator {
-    @Override protected Set<String> create(String[] elements) {
-      Builder<String, Integer> builder = ImmutableMap.builder();
-      for (String key : elements) {
-        builder.put(key, 4);
+  public static class ImmutableMapGenerator
+      extends TestStringMapGenerator {
+    @Override protected Map<String, String> create(Entry<String, String>[] entries) {
+      ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+      for (Entry<String, String> entry : entries) {
+        builder.put(entry.getKey(), entry.getValue());
       }
-      return builder.build().keySet();
+      return builder.build();
     }
   }
-
-  public static class ImmutableMapValuesGenerator
-      implements TestCollectionGenerator<String> {
-
-    @Override
-    public SampleElements<String> samples() {
-      return new SampleElements.Strings();
-    }
-
-    @Override
-    public Collection<String> create(Object... elements) {
-      Builder<Object, String> builder = ImmutableMap.builder();
-      for (Object key : elements) {
-        builder.put(key, String.valueOf(key));
+  
+  public static class ImmutableMapCopyOfGenerator
+      extends TestStringMapGenerator {
+    @Override protected Map<String, String> create(Entry<String, String>[] entries) {
+      Map<String, String> builder = Maps.newLinkedHashMap();
+      for (Entry<String, String> entry : entries) {
+        builder.put(entry.getKey(), entry.getValue());
       }
-      return builder.build().values();
-    }
-
-    @Override
-    public String[] createArray(int length) {
-      return new String[length];
-    }
-
-    @Override
-    public List<String> order(List<String> insertionOrder) {
-      return insertionOrder;
+      return ImmutableMap.copyOf(builder);
     }
   }
 
@@ -87,7 +72,7 @@ public class MapGenerators {
 
     @Override public Collection<UnhashableObject> create(
         UnhashableObject[] elements) {
-      Builder<Integer, UnhashableObject> builder = ImmutableMap.builder();
+      ImmutableMap.Builder<Integer, UnhashableObject> builder = ImmutableMap.builder();
       int key = 1;
       for (UnhashableObject value : elements) {
         builder.put(key++, value);
@@ -96,51 +81,96 @@ public class MapGenerators {
     }
   }
 
-  public static class ImmutableMapEntrySetGenerator
-      extends TestMapEntrySetGenerator<String, String> {
-
-    public ImmutableMapEntrySetGenerator() {
-      super(new SampleElements.Strings(), new SampleElements.Strings());
-    }
-
-    @Override public Set<Entry<String, String>> createFromEntries(
-        Entry<String, String>[] entries) {
-      Builder<String, String> builder = ImmutableMap.builder();
-      for (Entry<String, String> entry : entries) {
-        // This null-check forces NPE to be thrown for tests with null
-        // elements.  Those tests aren't useful in testing entry sets
-        // because entry sets never have null elements.
-        checkNotNull(entry);
-        builder.put(entry.getKey(), entry.getValue());
+  public static class ImmutableMapKeyListGenerator extends TestStringListGenerator {
+    @Override
+    public List<String> create(String[] elements) {
+      ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+      for (int i = 0; i < elements.length; i++) {
+        builder.put(elements[i], i);
       }
-      return builder.build().entrySet();
+      return builder.build().keySet().asList();
     }
   }
 
-  public static class ImmutableMapValueListGenerator
-      implements TestListGenerator<String> {
+  public static class ImmutableMapValueListGenerator extends TestStringListGenerator {
     @Override
-    public SampleElements<String> samples() {
-      return new SampleElements.Strings();
-    }
-
-    @Override
-    public List<String> create(Object... elements) {
-      Builder<Integer, String> builder = ImmutableMap.builder();
+    public List<String> create(String[] elements) {
+      ImmutableMap.Builder<Integer, String> builder = ImmutableMap.builder();
       for (int i = 0; i < elements.length; i++) {
-        builder.put(i, toStringOrNull(elements[i]));
+        builder.put(i, elements[i]);
       }
       return builder.build().values().asList();
     }
+  }
+
+  public static class ImmutableMapEntryListGenerator
+      implements TestListGenerator<Entry<String, Integer>> {
 
     @Override
-    public String[] createArray(int length) {
-      return new String[length];
+    public SampleElements<Entry<String, Integer>> samples() {
+      return new SampleElements<Entry<String, Integer>>(
+          mapEntry("foo", 5),
+          mapEntry("bar", 3),
+          mapEntry("baz", 17),
+          mapEntry("quux", 1),
+          mapEntry("toaster", -2));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Entry<String, Integer>[] createArray(int length) {
+      return new Entry[length];
     }
 
     @Override
-    public Iterable<String> order(List<String> insertionOrder) {
+    public Iterable<Entry<String, Integer>> order(List<Entry<String, Integer>> insertionOrder) {
       return insertionOrder;
+    }
+
+    @Override
+    public List<Entry<String, Integer>> create(Object... elements) {
+      ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+      for (Object o : elements) {
+        @SuppressWarnings("unchecked")
+        Entry<String, Integer> entry = (Entry<String, Integer>) o;
+        builder.put(entry);
+      }
+      return builder.build().entrySet().asList();
+    }
+  }
+
+  public static class ImmutableEnumMapGenerator extends TestEnumMapGenerator {
+    @Override
+    protected Map<AnEnum, String> create(Entry<AnEnum, String>[] entries) {
+      Map<AnEnum, String> map = Maps.newHashMap();
+      for (Entry<AnEnum, String> entry : entries) {
+        // checkArgument(!map.containsKey(entry.getKey()));
+        map.put(entry.getKey(), entry.getValue());
+      }
+      return Maps.immutableEnumMap(map);
+    }
+  }
+
+  public static class ImmutableMapCopyOfEnumMapGenerator extends TestEnumMapGenerator {
+    @Override
+    protected Map<AnEnum, String> create(Entry<AnEnum, String>[] entries) {
+      EnumMap<AnEnum, String> map = new EnumMap<AnEnum, String>(AnEnum.class);
+      for (Entry<AnEnum, String> entry : entries) {
+        map.put(entry.getKey(), entry.getValue());
+      }
+      return ImmutableMap.copyOf(map);
+    }
+
+    @Override
+    public Iterable<Entry<AnEnum, String>> order(List<Entry<AnEnum, String>> insertionOrder) {
+      return new Ordering<Entry<AnEnum, String>>() {
+
+        @Override
+        public int compare(Entry<AnEnum, String> left, Entry<AnEnum, String> right) {
+          return left.getKey().compareTo(right.getKey());
+        }
+
+      }.sortedCopy(insertionOrder);
     }
   }
 

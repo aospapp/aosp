@@ -111,9 +111,9 @@ class BluetoothOppNotification {
 
         int direction; // to indicate sending or receiving
 
-        int totalCurrent = 0; // current transfer bytes
+        long totalCurrent = 0; // current transfer bytes
 
-        int totalTotal = 0; // total bytes for current transfer
+        long totalTotal = 0; // total bytes for current transfer
 
         long timeStamp = 0; // Database time stamp. Used for sorting ongoing transfers.
 
@@ -241,8 +241,8 @@ class BluetoothOppNotification {
             long timeStamp = cursor.getLong(timestampIndex);
             int dir = cursor.getInt(directionIndex);
             int id = cursor.getInt(idIndex);
-            int total = cursor.getInt(totalBytesIndex);
-            int current = cursor.getInt(currentBytesIndex);
+            long total = cursor.getLong(totalBytesIndex);
+            long current = cursor.getLong(currentBytesIndex);
             int confirmation = cursor.getInt(confirmIndex);
 
             String destination = cursor.getString(destinationIndex);
@@ -318,8 +318,16 @@ class BluetoothOppNotification {
                     com.android.internal.R.color.system_notification_accent_color));
             b.setContentTitle(item.description);
             b.setContentInfo(
-                    BluetoothOppUtility.formatProgressText(item.totalTotal, item.totalCurrent));
-            b.setProgress(item.totalTotal, item.totalCurrent, item.totalTotal == -1);
+                BluetoothOppUtility.formatProgressText(item.totalTotal, item.totalCurrent));
+            if (item.totalTotal != 0) {
+                if (V) Log.v(TAG, "mCurrentBytes: " + item.totalCurrent +
+                    " mTotalBytes: " + item.totalTotal + " (" +
+                    (int)((item.totalCurrent * 100) / item.totalTotal) + " %)");
+                b.setProgress(100, (int)((item.totalCurrent * 100) / item.totalTotal),
+                    item.totalTotal == -1);
+            } else {
+                b.setProgress(100, 100, item.totalTotal == -1);
+            }
             b.setWhen(item.timeStamp);
             if (item.direction == BluetoothShare.DIRECTION_OUTBOUND) {
                 b.setSmallIcon(android.R.drawable.stat_sys_upload);
@@ -343,6 +351,7 @@ class BluetoothOppNotification {
 
     private void updateCompletedNotification() {
         String title;
+        String unsuccess_caption;
         String caption;
         long timeStamp = 0;
         int outboundSuccNumber = 0;
@@ -401,8 +410,11 @@ class BluetoothOppNotification {
             Notification outNoti = new Notification();
             outNoti.icon = android.R.drawable.stat_sys_upload_done;
             title = mContext.getString(R.string.outbound_noti_title);
-            caption = mContext.getString(R.string.noti_caption, outboundSuccNumber,
-                    outboundFailNumber);
+            unsuccess_caption = mContext.getResources().getQuantityString(
+                    R.plurals.noti_caption_unsuccessful, outboundFailNumber, outboundFailNumber);
+            caption = mContext.getResources().getQuantityString(
+                    R.plurals.noti_caption_success, outboundSuccNumber, outboundSuccNumber,
+                    unsuccess_caption);
             intent = new Intent(Constants.ACTION_OPEN_OUTBOUND_TRANSFER);
             intent.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
             outNoti.color = mContext.getResources().getColor(
@@ -450,8 +462,11 @@ class BluetoothOppNotification {
             Notification inNoti = new Notification();
             inNoti.icon = android.R.drawable.stat_sys_download_done;
             title = mContext.getString(R.string.inbound_noti_title);
-            caption = mContext.getString(R.string.noti_caption, inboundSuccNumber,
-                    inboundFailNumber);
+            unsuccess_caption = mContext.getResources().getQuantityString(
+                    R.plurals.noti_caption_unsuccessful, inboundFailNumber, inboundFailNumber);
+            caption = mContext.getResources().getQuantityString(
+                    R.plurals.noti_caption_success, inboundSuccNumber, inboundSuccNumber,
+                    unsuccess_caption);
             intent = new Intent(Constants.ACTION_OPEN_INBOUND_TRANSFER);
             intent.setClassName(Constants.THIS_PACKAGE_NAME, BluetoothOppReceiver.class.getName());
             inNoti.color = mContext.getResources().getColor(

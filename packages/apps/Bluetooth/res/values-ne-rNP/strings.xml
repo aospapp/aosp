@@ -31,7 +31,7 @@
     <string name="bt_enable_cancel" msgid="1988832367505151727">"रद्द गर्नुहोस्"</string>
     <string name="bt_enable_ok" msgid="3432462749994538265">"सक्रिय पार्नुहोस्"</string>
     <string name="incoming_file_confirm_title" msgid="8139874248612182627">"फाइल स्थानान्तरण"</string>
-    <string name="incoming_file_confirm_content" msgid="6673812334377911289">"\" <xliff:g id="SENDER">%1$s</xliff:g>\" ले तपाईँलाई <xliff:g id="FILE">%2$s</xliff:g> ( <xliff:g id="SIZE">%3$s</xliff:g> )। \n \n पठाउन चाहन्छ। फाइल स्वीकार्ने हो?"</string>
+    <string name="incoming_file_confirm_content" msgid="2752605552743148036">"आगमन फाइल स्वीकार गर्नुहुन्छ?"</string>
     <string name="incoming_file_confirm_cancel" msgid="2973321832477704805">"अस्वीकार गर्नुहोस्"</string>
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"स्वीकार्नुहोस्"</string>
     <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"ठीक छ"</string>
@@ -54,6 +54,9 @@
     <string name="download_line5" msgid="3069560415845295386">"फाइल प्राप्त गर्दै..."</string>
     <string name="download_cancel" msgid="9177305996747500768">"रोक्नुहोस्"</string>
     <string name="download_ok" msgid="5000360731674466039">"लुकाउनुहोस्"</string>
+    <string name="incoming_line1" msgid="2127419875681087545">"प्रेषक"</string>
+    <string name="incoming_line2" msgid="3348994249285315873">"फाइलको नाम"</string>
+    <string name="incoming_line3" msgid="7954237069667474024">"आकार"</string>
     <string name="download_fail_line1" msgid="3846450148862894552">"फाइल प्राप्त भएन"</string>
     <string name="download_fail_line2" msgid="8950394574689971071">"फाइल: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_fail_line3" msgid="3451040656154861722">"कारण: <xliff:g id="REASON">%1$s</xliff:g>"</string>
@@ -107,16 +110,23 @@
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"सूचीबाट सम्पूर्ण वस्तुहरू मेटाइने छन्।"</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ब्लुटुथ साझेदारी: पठाइएका फाइलहरू"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ब्लुटुथ साझेदारी: प्राप्त फाइलहरू"</string>
-    <string name="noti_caption" msgid="7508708288885707365">"<xliff:g id="SUCCESSFUL_NUMBER_0">%1$s</xliff:g> सफल, <xliff:g id="UNSUCCESSFUL_NUMBER">%2$s</xliff:g> विफल।"</string>
+    <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
+      <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> असफल।</item>
+      <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g> असफल।</item>
+    </plurals>
+    <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
+      <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> सफल, %2$s</item>
+      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> सफल, %2$s</item>
+    </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"सूची हटाउनुहोस्"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"खोल्नुहोस्"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"सूचीबाट हटाउनुहोस्"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"हटाउनुहोस्"</string>
-    <string name="bluetooth_map_email_settings_save" msgid="5349902976213455385">"सुरक्षित गर्नुहोस्"</string>
-    <string name="bluetooth_map_email_settings_cancel" msgid="5019472404940038118">"रद्द गर्नुहोस्"</string>
-    <string name="bluetooth_map_email_settings_intro" msgid="6219461401455143988">"तपाईँ ब्लूटूथ मार्फत साझेदारी गर्न चाहनुहुन्छ भने इमेल खाता चयन गर्नुहोस्। जडान हुँदा खाताहरूलाई तपाईँले अझै कुनै पहुँच स्वीकार्नु पर्ने हुन्छ।"</string>
-    <string name="bluetooth_map_email_settings_count" msgid="8884933619108905375">"स्लटहरू बायाँ:"</string>
-    <string name="bluetooth_map_email_settings_app_icon" msgid="6905622365985483669">"आवेदन प्रतीक"</string>
-    <string name="bluetooth_map_email_settings_title" msgid="2181388147513118336">"ब्लुटुथ सन्देश साझेदारी सेटिङहरू"</string>
-    <string name="bluetooth_map_email_settings_no_account_slots_left" msgid="5989596869950397488">"खाता चयन गर्न सकिँदैन। ० स्लट बाँकी"</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सुरक्षित गर्नुहोस्"</string>
+    <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"रद्द गर्नुहोस्"</string>
+    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"तपाईंले ब्लुटुथ मार्फत साझेदारी गर्न चाहेको खाता चयन गर्नुहोस्। तपाईंले अझै पनि खातामा जडान गर्दा कुनै पनि पहुँच स्वीकार गर्नुपर्छ।"</string>
+    <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"स्लटहरू बाँकी:"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"अनुप्रयोग आइकन"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ब्लुटुथ सन्देश साझेदारी सेटिङहरू"</string>
+    <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"खाता चयन गर्न सक्दैन। ० स्लटहरू बाँकी"</string>
 </resources>

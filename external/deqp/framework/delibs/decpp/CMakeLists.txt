@@ -5,6 +5,10 @@ if (NOT DE_DEFS)
 endif ()
 
 set(DECPP_SRCS
+	deArrayBuffer.cpp
+	deArrayBuffer.hpp
+	deArrayUtil.cpp
+	deArrayUtil.hpp
 	deBlockBuffer.cpp
 	deBlockBuffer.hpp
 	deCommandLine.cpp
@@ -19,6 +23,8 @@ set(DECPP_SRCS
 	deFilePath.hpp
 	deMemPool.cpp
 	deMemPool.hpp
+	deMeta.cpp
+	deMeta.hpp
 	deMutex.cpp
 	deMutex.hpp
 	dePoolArray.cpp
@@ -49,8 +55,8 @@ set(DECPP_SRCS
 	deThreadSafeRingBuffer.hpp
 	deUniquePtr.cpp
 	deUniquePtr.hpp
-	deArrayBuffer.cpp
-	deArrayBuffer.hpp
+	deSpinBarrier.cpp
+	deSpinBarrier.hpp
 	)
 
 add_library(decpp STATIC ${DECPP_SRCS})

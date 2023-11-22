@@ -72,14 +72,31 @@ class ApiPackage implements HasCoverage {
         return (float) getNumCoveredMethods() / getTotalMethods() * 100;
     }
 
-    public void removeEmptyAbstractClasses() {
+    @Override
+    public int getMemberSize() {
+        return getTotalMethods();
+    }
+
+    /** Iterate through all classes and add superclass. */
+    public void resolveSuperClasses(Map<String, ApiPackage> packageMap) {
         Iterator<Entry<String, ApiClass>> it = mApiClassMap.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, ApiClass> entry = it.next();
-            ApiClass cls = entry.getValue();
-            if (cls.isAbstract() && (cls.getTotalMethods() == 0)) {
-                // this is essentially interface
-                it.remove();
+            ApiClass apiClass = entry.getValue();
+            if (apiClass.getSuperClassName() != null) {
+                String superClassName = apiClass.getSuperClassName();
+                // Split the fully qualified class name into package and class name.
+                String packageName = superClassName.substring(0, superClassName.lastIndexOf('.'));
+                String className = superClassName.substring(
+                        superClassName.lastIndexOf('.') + 1, superClassName.length());
+                if (packageMap.containsKey(packageName)) {
+                    ApiPackage apiPackage = packageMap.get(packageName);
+                    ApiClass superClass = apiPackage.getClass(className);
+                    if (superClass != null) {
+                        // Add the super class
+                        apiClass.setSuperClass(superClass);
+                    }
+                }
             }
         }
     }

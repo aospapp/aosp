@@ -17,6 +17,9 @@
 /** Data locator, data format, data source, and data sink support */
 
 #include "sles_allinclusive.h"
+#ifdef ANDROID  // FIXME This file should be portable
+#include "android/channels.h"
+#endif
 
 
 /** \brief Check a data locator and make local deep copy */
@@ -332,15 +335,6 @@ static void freeDataLocator(DataLocator *pDataLocator)
 
 
 /** \brief Check a data format and make local deep copy */
-#define SL_ANDROID_SPEAKER_QUAD (SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT \
- | SL_SPEAKER_BACK_LEFT | SL_SPEAKER_BACK_RIGHT)
-
-#define SL_ANDROID_SPEAKER_5DOT1 (SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT \
- | SL_SPEAKER_FRONT_CENTER  | SL_SPEAKER_LOW_FREQUENCY| SL_SPEAKER_BACK_LEFT \
- | SL_SPEAKER_BACK_RIGHT)
-
-#define SL_ANDROID_SPEAKER_7DOT1 (SL_ANDROID_SPEAKER_5DOT1 | SL_SPEAKER_SIDE_LEFT \
- |SL_SPEAKER_SIDE_RIGHT)
 
 static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDataFormat,
         SLuint32 allowedDataFormatMask)
@@ -375,12 +369,16 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
             do {
 
                 // check the channel count
+                // FIXME FCC_8 Android and 8-channel positional assumptions here
                 switch (pDataFormat->mPCM.numChannels) {
                 case 1:     // mono
                 case 2:     // stereo
+                case 3:     // stereo + front center
                 case 4:     // QUAD
+                case 5:     // QUAD + front center
                 case 6:     // 5.1
-                case 8:     // 8.1
+                case 7:     // 5.1 + back center
+                case 8:     // 7.1
                     break;
                 case 0:     // unknown
                     result = SL_RESULT_PARAMETER_INVALID;
@@ -395,50 +393,34 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                 }
 
                 // check the sampling rate
-                switch (pDataFormat->mPCM.samplesPerSec) {
-                case SL_SAMPLINGRATE_8:
-                case SL_SAMPLINGRATE_11_025:
-                case SL_SAMPLINGRATE_12:
-                case SL_SAMPLINGRATE_16:
-                case SL_SAMPLINGRATE_22_05:
-                case SL_SAMPLINGRATE_24:
-                case SL_SAMPLINGRATE_32:
-                case SL_SAMPLINGRATE_44_1:
-                case SL_SAMPLINGRATE_48:
-                case SL_SAMPLINGRATE_64:
-                case SL_SAMPLINGRATE_88_2:
-                case SL_SAMPLINGRATE_96:
-                case SL_SAMPLINGRATE_192:
-                    break;
-                case 0:
+                if (pDataFormat->mPCM.samplesPerSec == 0) {
                     result = SL_RESULT_PARAMETER_INVALID;
-                    break;
-                default:
+                } else if (pDataFormat->mPCM.samplesPerSec < SL_SAMPLINGRATE_8 ||
+                        pDataFormat->mPCM.samplesPerSec > SL_SAMPLINGRATE_192) {
                     result = SL_RESULT_CONTENT_UNSUPPORTED;
-                    break;
                 }
                 if (SL_RESULT_SUCCESS != result) {
                     SL_LOGE("%s: samplesPerSec=%u", name, pDataFormat->mPCM.samplesPerSec);
                     break;
                 }
 
-                // check the container bit depth
+                // check the container bit depth and representation
                 switch (pDataFormat->mPCM.containerSize) {
                 case 8:
-                    if (df_representation &&
+                    if (df_representation != NULL &&
                             *df_representation != SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT) {
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
                 case 16:
                 case 24:
-                    if (df_representation &&
+                    if (df_representation != NULL &&
                             *df_representation != SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT) {
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
                 case 32:
-                    if (df_representation
+                    if (df_representation != NULL
                             && *df_representation != SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT
                             && *df_representation != SL_ANDROID_PCM_REPRESENTATION_FLOAT) {
                         result = SL_RESULT_PARAMETER_INVALID;
@@ -453,8 +435,9 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                     break;
                 }
 
-                // container size cannot be less than sample size
-                if (pDataFormat->mPCM.containerSize < pDataFormat->mPCM.bitsPerSample) {
+                // sample size cannot be zero, and container size cannot be less than sample size
+                if (pDataFormat->mPCM.bitsPerSample == 0 ||
+                        pDataFormat->mPCM.containerSize < pDataFormat->mPCM.bitsPerSample) {
                     result = SL_RESULT_PARAMETER_INVALID;
                 }
                 if (SL_RESULT_SUCCESS != result) {
@@ -465,6 +448,7 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                 }
 
                 // check the channel mask
+                // FIXME FCC_8 Android and 8-channel positional assumptions here
                 switch (pDataFormat->mPCM.channelMask) {
                 case SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT:
                     if (2 != pDataFormat->mPCM.numChannels) {
@@ -478,8 +462,19 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
+#ifdef ANDROID
+                case SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT | SL_SPEAKER_FRONT_CENTER:
+                    if (3 != pDataFormat->mPCM.numChannels) {
+                        result = SL_RESULT_PARAMETER_INVALID;
+                    }
+                    break;
                 case SL_ANDROID_SPEAKER_QUAD:
                     if (4 != pDataFormat->mPCM.numChannels) {
+                        result = SL_RESULT_PARAMETER_INVALID;
+                    }
+                    break;
+                case SL_ANDROID_SPEAKER_QUAD | SL_SPEAKER_FRONT_CENTER:
+                    if (5 != pDataFormat->mPCM.numChannels) {
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
@@ -488,17 +483,33 @@ static SLresult checkDataFormat(const char *name, void *pFormat, DataFormat *pDa
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
+                case SL_ANDROID_SPEAKER_5DOT1 | SL_SPEAKER_BACK_CENTER:
+                    if (7 != pDataFormat->mPCM.numChannels) {
+                        result = SL_RESULT_PARAMETER_INVALID;
+                    }
+                    break;
                 case SL_ANDROID_SPEAKER_7DOT1:
                     if (8 != pDataFormat->mPCM.numChannels) {
                         result = SL_RESULT_PARAMETER_INVALID;
                     }
                     break;
-                case 0:
+#endif
+                case 0: {
+                    // According to OpenSL ES 1.0.1 section 9.1.7 SLDataFormat_PCM, "a default
+                    // setting of zero indicates stereo format (i.e. the setting is equivalent to
+                    // SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT)."
+                    //
+                    // ANDROID SPECIFIC BEHAVIOR.
+                    // We fill in the appropriate mask to the number indicated by numChannels.
                     // The default of front left rather than center for mono may be non-intuitive,
                     // but the left channel is the first channel for stereo or multichannel content.
-                    pDataFormat->mPCM.channelMask = pDataFormat->mPCM.numChannels == 2 ?
-                        SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT : SL_SPEAKER_FRONT_LEFT;
-                    break;
+                    SLuint32 mask = channelCountToMask(pDataFormat->mPCM.numChannels);
+                    if (mask == UNKNOWN_CHANNELMASK) {
+                        result = SL_RESULT_PARAMETER_INVALID;
+                    } else {
+                        pDataFormat->mPCM.channelMask = mask;
+                    }
+                } break;
                 default:
                     result = SL_RESULT_PARAMETER_INVALID;
                     break;

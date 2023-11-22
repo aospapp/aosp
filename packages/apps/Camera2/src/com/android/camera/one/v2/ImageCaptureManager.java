@@ -102,7 +102,7 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
      * Callback for saving an image.
      */
     public interface ImageCaptureListener {
-         /**
+        /**
          * Called with the {@link Image} and associated
          * {@link TotalCaptureResult}. A typical implementation would save this
          * to disk.
@@ -214,6 +214,19 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
          */
         public TotalCaptureResult tryGetMetadata() {
             return mMetadata;
+        }
+
+        /**
+         * Returs the timestamp of the image if present, -1 otherwise.
+         */
+        public long tryGetTimestamp() {
+            if (mImage != null) {
+                return mImage.getTimestamp();
+            }
+            if (mMetadata != null) {
+                return mMetadata.get(TotalCaptureResult.SENSOR_TIMESTAMP);
+            }
+            return -1;
         }
     }
 
@@ -377,48 +390,15 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
     @Override
     public void onCaptureProgressed(CameraCaptureSession session, CaptureRequest request,
             final CaptureResult partialResult) {
-        long frameNumber = partialResult.getFrameNumber();
-
-        // Update mMetadata for whichever keys are present, if this frame is
-        // supplying newer values.
-        for (final Key<?> key : partialResult.getKeys()) {
-            Pair<Long, Object> oldEntry = mMetadata.get(key);
-            final Object oldValue = (oldEntry != null) ? oldEntry.second : null;
-
-            boolean newerValueAlreadyExists = oldEntry != null
-                    && frameNumber < oldEntry.first;
-            if (newerValueAlreadyExists) {
-                continue;
-            }
-
-            final Object newValue = partialResult.get(key);
-            mMetadata.put(key, new Pair<Long, Object>(frameNumber, newValue));
-
-            // If the value has changed, call the appropriate listeners, if
-            // any exist.
-            if (oldValue == newValue || !mMetadataChangeListeners.containsKey(key)) {
-                continue;
-            }
-
-            for (final MetadataChangeListener listener :
-                    mMetadataChangeListeners.get(key)) {
-                Log.v(TAG, "Dispatching to metadata change listener for key: "
-                        + key.toString());
-                mListenerHandler.post(new Runnable() {
-                        @Override
-                    public void run() {
-                        listener.onImageMetadataChange(key, oldValue, newValue,
-                                partialResult);
-                    }
-                });
-            }
-        }
+        updateMetadataChangeListeners(partialResult);
     }
 
     @Override
     public void onCaptureCompleted(CameraCaptureSession session, CaptureRequest request,
             final TotalCaptureResult result) {
         final long timestamp = result.get(TotalCaptureResult.SENSOR_TIMESTAMP);
+
+        updateMetadataChangeListeners(result);
 
         // Detect camera thread stall.
         long now = SystemClock.uptimeMillis();
@@ -433,34 +413,109 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
         // Find the CapturedImage in the ring-buffer and attach the
         // TotalCaptureResult to it.
         // See documentation for swapLeast() for details.
-        boolean swapSuccess = mCapturedImageBuffer.swapLeast(timestamp,
-                new SwapTask<CapturedImage>() {
-                @Override
-                    public CapturedImage create() {
-                        CapturedImage image = new CapturedImage();
-                        image.addMetadata(result);
-                        return image;
-                    }
-
-                @Override
-                    public CapturedImage swap(CapturedImage oldElement) {
-                        oldElement.reset();
-                        oldElement.addMetadata(result);
-                        return oldElement;
-                    }
-
-                @Override
-                    public void update(CapturedImage existingElement) {
-                        existingElement.addMetadata(result);
-                    }
-                });
-
+        boolean swapSuccess = doMetaDataSwap(result, timestamp);
         if (!swapSuccess) {
             // Do nothing on failure to swap in.
             Log.v(TAG, "Unable to add new image metadata to ring-buffer.");
         }
 
         tryExecutePendingCaptureRequest(timestamp);
+    }
+
+    private void updateMetadataChangeListeners(final CaptureResult result) {
+        long frameNumber = result.getFrameNumber();
+
+        // Update mMetadata for whichever keys are present, if this frame is
+        // supplying newer values.
+        for (final Key<?> key : result.getKeys()) {
+            Pair<Long, Object> oldEntry = mMetadata.get(key);
+            final Object oldValue = (oldEntry != null) ? oldEntry.second : null;
+
+            boolean newerValueAlreadyExists = oldEntry != null
+                    && frameNumber < oldEntry.first;
+            if (newerValueAlreadyExists) {
+                continue;
+            }
+
+            final Object newValue = result.get(key);
+            mMetadata.put(key, new Pair<Long, Object>(frameNumber, newValue));
+
+            // If the value has changed, call the appropriate listeners, if
+            // any exist.
+            if (oldValue == newValue || !mMetadataChangeListeners.containsKey(key)) {
+                continue;
+            }
+
+            for (final MetadataChangeListener listener :
+                    mMetadataChangeListeners.get(key)) {
+                mListenerHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        listener.onImageMetadataChange(key, oldValue, newValue,
+                                result);
+                    }
+                });
+            }
+        }
+    }
+
+    private boolean doMetaDataSwap(final TotalCaptureResult newMetadata, final long timestamp) {
+        return mCapturedImageBuffer.swapLeast(timestamp,
+                new SwapTask<CapturedImage>() {
+                @Override
+                    public CapturedImage create() {
+                        CapturedImage image = new CapturedImage();
+                        image.addMetadata(newMetadata);
+                        return image;
+                    }
+
+                @Override
+                    public CapturedImage swap(CapturedImage oldElement) {
+                        oldElement.reset();
+                        oldElement.addMetadata(newMetadata);
+                        return oldElement;
+                    }
+
+                @Override
+                    public void update(CapturedImage existingElement) {
+                        existingElement.addMetadata(newMetadata);
+                    }
+
+                @Override
+                    public long getSwapKey() {
+                        return -1;
+                    }
+                });
+    }
+
+    private boolean doImageSwap(final Image newImage) {
+        return mCapturedImageBuffer.swapLeast(newImage.getTimestamp(),
+                new SwapTask<CapturedImage>() {
+                @Override
+                    public CapturedImage create() {
+                        CapturedImage image = new CapturedImage();
+                        image.addImage(newImage);
+                        return image;
+                    }
+
+                @Override
+                    public CapturedImage swap(CapturedImage oldElement) {
+                        oldElement.reset();
+                        CapturedImage image = new CapturedImage();
+                        image.addImage(newImage);
+                        return image;
+                    }
+
+                @Override
+                    public void update(CapturedImage existingElement) {
+                        existingElement.addImage(newImage);
+                    }
+
+                @Override
+                    public long getSwapKey() {
+                        return -1;
+                    }
+                });
     }
 
     @Override
@@ -475,29 +530,9 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
                 Log.v(TAG, "Acquired an image. Number of open images = " + numOpenImages);
             }
 
+            long timestamp = img.getTimestamp();
             // Try to place the newly-acquired image into the ring buffer.
-            boolean swapSuccess = mCapturedImageBuffer.swapLeast(
-                    img.getTimestamp(), new SwapTask<CapturedImage>() {
-                            @Override
-                        public CapturedImage create() {
-                            CapturedImage image = new CapturedImage();
-                            image.addImage(img);
-                            return image;
-                        }
-
-                            @Override
-                        public CapturedImage swap(CapturedImage oldElement) {
-                            oldElement.reset();
-                            oldElement.addImage(img);
-                            return oldElement;
-                        }
-
-                            @Override
-                        public void update(CapturedImage existingElement) {
-                            existingElement.addImage(img);
-                        }
-                    });
-
+            boolean swapSuccess = doImageSwap(img);
             if (!swapSuccess) {
                 // If we were unable to save the image to the ring buffer, we
                 // must close it now.
@@ -509,7 +544,7 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
                 }
             }
 
-            tryExecutePendingCaptureRequest(img.getTimestamp());
+            tryExecutePendingCaptureRequest(timestamp);
 
             long endTime = SystemClock.currentThreadTimeMillis();
             long totTime = endTime - startTime;
@@ -526,16 +561,7 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
      * s.
      */
     public void close() {
-        try {
-            mCapturedImageBuffer.close(new Task<CapturedImage>() {
-                    @Override
-                public void run(CapturedImage e) {
-                    e.reset();
-                }
-            });
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        closeBuffer();
     }
 
     /**
@@ -690,6 +716,58 @@ public class ImageCaptureManager extends CameraCaptureSession.CaptureCallback im
             }
 
             return true;
+        }
+    }
+
+    /**
+     * Tries to capture a pinned image for the given key from the ring-buffer.
+     *
+     * @return the pair of (image, captureResult) if image is found, null
+     *         otherwise.
+     */
+    public Pair<Image, TotalCaptureResult>
+            tryCapturePinnedImage(long timestamp) {
+        final Pair<Long, CapturedImage> toCapture =
+                mCapturedImageBuffer.tryGetPinned(timestamp);
+        Image pinnedImage = null;
+        TotalCaptureResult imageCaptureResult = null;
+        // Return an Image
+        if (toCapture != null && toCapture.second != null) {
+            pinnedImage = toCapture.second.tryGetImage();
+            imageCaptureResult = toCapture.second.tryGetMetadata();
+        }
+        return Pair.create(pinnedImage, imageCaptureResult);
+    }
+
+    /**
+     * Clear the buffer and reserves <code>unpinnedReservedSlots</code> in the buffer.
+     *
+     * @param unpinnedReservedSlots the number of unpinned slots that are never
+     *            allowed to be pinned.
+     */
+    private void clearCapturedImageBuffer(int unpinnedReservedSlots) {
+        mCapturedImageBuffer.releaseAll();
+        closeBuffer();
+        try {
+            mCapturedImageBuffer.reopenBuffer(unpinnedReservedSlots);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Closes the buffer and frees up any images in the buffer.
+     */
+    private void closeBuffer() {
+        try {
+            mCapturedImageBuffer.close(new Task<CapturedImage>() {
+                @Override
+                public void run(CapturedImage e) {
+                    e.reset();
+                }
+            });
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }

@@ -49,7 +49,10 @@ public:
 
     SimpleClipGM(SkGeomTypes geomType)
     : fGeomType(geomType) {
+    }
 
+protected:
+    void onOnceBeforeDraw() override {
         // offset the rects a bit so we get anti-aliasing in the rect case
         fBase.set(100.65f,
                   100.65f,
@@ -64,7 +67,6 @@ public:
         INHERITED::setBGColor(0xFFDDDDDD);
     }
 
-protected:
     void buildRgn(SkAAClip* clip, SkRegion::Op op) {
         clip->setPath(fBasePath, NULL, true);
 
@@ -124,10 +126,6 @@ protected:
         canvas->restore();
     }
 
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kPath_GeomType == fGeomType ? kSkipTiled_Flag : 0;
-    }
-
     virtual SkString onShortName() {
         SkString str;
         str.printf("simpleaaclip_%s",
@@ -158,6 +156,7 @@ protected:
 
         SkPaint textPaint;
         textPaint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&textPaint);
         textPaint.setTextSize(SK_Scalar1*24);
         int xOff = 0;
 

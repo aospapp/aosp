@@ -21,14 +21,15 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 /**
- * RowHeaderPresenter provides a default implementation for header using TextView.
- * If subclass override and creates its own view, subclass must also override
+ * RowHeaderPresenter provides a default presentation for {@link HeaderItem} using a
+ * {@link RowHeaderView}. If a subclass creates its own view, the subclass must also override
  * {@link #onSelectLevelChanged(ViewHolder)}.
  */
 public class RowHeaderPresenter extends Presenter {
 
     private final int mLayoutResourceId;
     private final Paint mFontMeasurePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean mNullItemVisibilityGone;
 
     public RowHeaderPresenter() {
         this(R.layout.lb_row_header);
@@ -41,6 +42,23 @@ public class RowHeaderPresenter extends Presenter {
         mLayoutResourceId = layoutResourceId;
     }
 
+    /**
+     * Optionally sets the view visibility to {@link View#GONE} when bound to null.
+     */
+    public void setNullItemVisibilityGone(boolean nullItemVisibilityGone) {
+        mNullItemVisibilityGone = nullItemVisibilityGone;
+    }
+
+    /**
+     * Returns true if the view visibility is set to {@link View#GONE} when bound to null.
+     */
+    public boolean isNullItemVisibilityGone() {
+        return mNullItemVisibilityGone;
+    }
+
+    /**
+     * A ViewHolder for the RowHeaderPresenter.
+     */
     public static class ViewHolder extends Presenter.ViewHolder {
         float mSelectLevel;
         int mOriginalTextColor;
@@ -63,31 +81,41 @@ public class RowHeaderPresenter extends Presenter {
         viewHolder.mOriginalTextColor = headerView.getCurrentTextColor();
         viewHolder.mUnselectAlpha = parent.getResources().getFraction(
                 R.fraction.lb_browse_header_unselect_alpha, 1, 1);
+        setSelectLevel(viewHolder, 0);
         return viewHolder;
     }
 
     @Override
     public void onBindViewHolder(Presenter.ViewHolder viewHolder, Object item) {
-        setSelectLevel((ViewHolder) viewHolder, 0);
-        Row rowItem = (Row) item;
-        if (rowItem != null) {
-            HeaderItem headerItem = rowItem.getHeaderItem();
-            if (headerItem != null) {
-                String text = headerItem.getName();
-                ((RowHeaderView) viewHolder.view).setText(text);
+        HeaderItem headerItem = item == null ? null : ((Row) item).getHeaderItem();
+        if (headerItem == null) {
+            ((RowHeaderView) viewHolder.view).setText(null);
+            if (mNullItemVisibilityGone) {
+                viewHolder.view.setVisibility(View.GONE);
             }
+        } else {
+            viewHolder.view.setVisibility(View.VISIBLE);
+            ((RowHeaderView) viewHolder.view).setText(headerItem.getName());
         }
     }
 
     @Override
     public void onUnbindViewHolder(Presenter.ViewHolder viewHolder) {
+        ((RowHeaderView) viewHolder.view).setText(null);
+        setSelectLevel((ViewHolder) viewHolder, 0);
     }
 
+    /**
+     * Sets the select level.
+     */
     public final void setSelectLevel(ViewHolder holder, float selectLevel) {
         holder.mSelectLevel = selectLevel;
         onSelectLevelChanged(holder);
     }
 
+    /**
+     * Called when the select level changes.  The default implementation sets the alpha on the view.
+     */
     protected void onSelectLevelChanged(ViewHolder holder) {
         holder.view.setAlpha(holder.mUnselectAlpha + holder.mSelectLevel *
                 (1f - holder.mUnselectAlpha));

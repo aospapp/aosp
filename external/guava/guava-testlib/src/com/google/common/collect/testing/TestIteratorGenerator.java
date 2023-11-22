@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.Iterator;
 
 /**
@@ -23,10 +25,9 @@ import java.util.Iterator;
  *
  * @param <E> the element type of the iterator.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public interface TestIteratorGenerator<E> {
   Iterator<E> get();
 }

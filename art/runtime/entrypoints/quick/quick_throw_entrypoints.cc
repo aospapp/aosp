@@ -24,94 +24,87 @@
 namespace art {
 
 // Deliver an exception that's pending on thread helping set up a callee save frame on the way.
-extern "C" void artDeliverPendingExceptionFromCode(Thread* thread,
-                                                   StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artDeliverPendingExceptionFromCode(Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(thread, sp, Runtime::kSaveAll);
-  thread->QuickDeliverException();
+  ScopedQuickEntrypointChecks sqec(self);
+  self->QuickDeliverException();
 }
 
 // Called by generated call to throw an exception.
-extern "C" void artDeliverExceptionFromCode(mirror::Throwable* exception, Thread* self,
-                                            StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artDeliverExceptionFromCode(mirror::Throwable* exception, Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
   /*
-   * exception may be NULL, in which case this routine should
+   * exception may be null, in which case this routine should
    * throw NPE.  NOTE: this is a convenience for generated code,
    * which previously did the null check inline and constructed
-   * and threw a NPE if NULL.  This routine responsible for setting
+   * and threw a NPE if null.  This routine responsible for setting
    * exception_ in thread and delivering the exception.
    */
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
-  ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-  if (exception == NULL) {
-    self->ThrowNewException(throw_location, "Ljava/lang/NullPointerException;",
-                            "throw with null exception");
+  ScopedQuickEntrypointChecks sqec(self);
+  if (exception == nullptr) {
+    self->ThrowNewException("Ljava/lang/NullPointerException;", "throw with null exception");
   } else {
-    self->SetException(throw_location, exception);
+    self->SetException(exception);
   }
   self->QuickDeliverException();
 }
 
 // Called by generated call to throw a NPE exception.
-extern "C" void artThrowNullPointerExceptionFromCode(Thread* self,
-                                                     StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowNullPointerExceptionFromCode(Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   self->NoteSignalBeingHandled();
-  ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-  ThrowNullPointerExceptionFromDexPC(throw_location);
+  ThrowNullPointerExceptionFromDexPC();
   self->NoteSignalHandlerDone();
   self->QuickDeliverException();
 }
 
 // Called by generated call to throw an arithmetic divide by zero exception.
-extern "C" void artThrowDivZeroFromCode(Thread* self, StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowDivZeroFromCode(Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   ThrowArithmeticExceptionDivideByZero();
   self->QuickDeliverException();
 }
 
 // Called by generated call to throw an array index out of bounds exception.
-extern "C" void artThrowArrayBoundsFromCode(int index, int length, Thread* self,
-                                            StackReference<mirror::ArtMethod>*sp)
+extern "C" NO_RETURN void artThrowArrayBoundsFromCode(int index, int length, Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   ThrowArrayIndexOutOfBoundsException(index, length);
   self->QuickDeliverException();
 }
 
-extern "C" void artThrowStackOverflowFromCode(Thread* self, StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowStackOverflowFromCode(Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   self->NoteSignalBeingHandled();
   ThrowStackOverflowError(self);
   self->NoteSignalHandlerDone();
   self->QuickDeliverException();
 }
 
-extern "C" void artThrowNoSuchMethodFromCode(int32_t method_idx, Thread* self,
-                                             StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowNoSuchMethodFromCode(int32_t method_idx, Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   ThrowNoSuchMethodError(method_idx);
   self->QuickDeliverException();
 }
 
-extern "C" void artThrowClassCastException(mirror::Class* dest_type, mirror::Class* src_type,
-                                           Thread* self, StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowClassCastException(mirror::Class* dest_type,
+                                                     mirror::Class* src_type,
+                                                     Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
-  CHECK(!dest_type->IsAssignableFrom(src_type));
+  ScopedQuickEntrypointChecks sqec(self);
+  DCHECK(!dest_type->IsAssignableFrom(src_type));
   ThrowClassCastException(dest_type, src_type);
   self->QuickDeliverException();
 }
 
-extern "C" void artThrowArrayStoreException(mirror::Object* array, mirror::Object* value,
-                                            Thread* self, StackReference<mirror::ArtMethod>* sp)
+extern "C" NO_RETURN void artThrowArrayStoreException(mirror::Object* array, mirror::Object* value,
+                                                      Thread* self)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-  FinishCalleeSaveFrameSetup(self, sp, Runtime::kSaveAll);
+  ScopedQuickEntrypointChecks sqec(self);
   ThrowArrayStoreException(value->GetClass(), array->GetClass());
   self->QuickDeliverException();
 }

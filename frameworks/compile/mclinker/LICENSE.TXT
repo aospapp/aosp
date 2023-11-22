@@ -4,7 +4,7 @@ MCLinker Release License
 University of Illinois/NCSA
 Open Source License
 
-Copyright (c) 2011-2013 MediaTek Inc.
+Copyright (c) 2011-2014 MediaTek Inc.
 All rights reserved.
 
 Developed by:
@@ -59,6 +59,6 @@ licenses, and/or restrictions:
 
 Program             Directory
 -------             ---------
-Google Test         utils/gtest/
-Quake               test/Android/Quake/
-Quake2              test/Android/Quake2/
+cpplint             utils/cpplint
+Google Test         utils/gtest
+zlib                utils/zlib

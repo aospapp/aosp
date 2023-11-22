@@ -26,6 +26,7 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.android.camera.debug.Log;
+import com.android.camera.util.AndroidServices;
 import com.android.camera2.R;
 
 /**
@@ -54,9 +55,11 @@ public class OnScreenHint {
     /**
      * Construct an empty OnScreenHint object.
      *
-     * @param context  The context to use.  Usually your
-     *                 {@link android.app.Application} or
-     *                 {@link android.app.Activity} object.
+     * @param activity An activity from which to create a {@link WindowManager}
+     *        to create and attach a view. This must be an Activity, not an
+     *        application context, otherwise app will crash upon display of the
+     *        hint due to adding a view to a application {@link WindowManager}
+     *        that doesn't allow view attachment.
      */
     private OnScreenHint(Activity activity) {
         mWM = (WindowManager) activity.getSystemService(Context.WINDOW_SERVICE);
@@ -91,17 +94,18 @@ public class OnScreenHint {
     /**
      * Make a standard hint that just contains a text view.
      *
-     * @param context  The context to use.  Usually your
-     *                 {@link android.app.Application} or
-     *                 {@link android.app.Activity} object.
-     * @param text     The text to show.  Can be formatted text.
+     * @param activity An activity from which to create a {@link WindowManager}
+     *        to create and attach a view. This must be an Activity, not an
+     *        application context, otherwise app will crash upon display of the
+     *        hint due to adding a view to a application {@link WindowManager}
+     *        that doesn't allow view attachment.
+     * @param text The text to show.  Can be formatted text.
      *
      */
     public static OnScreenHint makeText(Activity activity, CharSequence text) {
         OnScreenHint result = new OnScreenHint(activity);
 
-        LayoutInflater inflate =
-                (LayoutInflater) activity.getSystemService(
+        LayoutInflater inflate = (LayoutInflater) activity.getSystemService(
                 Context.LAYOUT_INFLATER_SERVICE);
         View v = inflate.inflate(R.layout.on_screen_hint, null);
         TextView tv = (TextView) v.findViewById(R.id.message);

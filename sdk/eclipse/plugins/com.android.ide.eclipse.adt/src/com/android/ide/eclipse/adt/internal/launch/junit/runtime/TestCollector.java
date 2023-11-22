@@ -46,10 +46,26 @@ class TestCollector implements ITestRunListener {
     }
 
     /* (non-Javadoc)
-     * @see com.android.ddmlib.testrunner.ITestRunListener#testFailed(com.android.ddmlib.testrunner.ITestRunListener.TestFailure, com.android.ddmlib.testrunner.TestIdentifier, java.lang.String)
+     * @see com.android.ddmlib.testrunner.ITestRunListener#testFailed(com.android.ddmlib.testrunner.TestIdentifier, java.lang.String)
      */
     @Override
-    public synchronized void testFailed(TestFailure status, TestIdentifier test, String trace) {
+    public synchronized void testFailed(TestIdentifier test, String trace) {
+        // ignore - should be impossible since this is only collecting test information
+    }
+
+    /* (non-Javadoc)
+     * @see com.android.ddmlib.testrunner.ITestRunListener#testIgnored(com.android.ddmlib.testrunner.TestIdentifier)
+     */
+    @Override
+    public synchronized void testIgnored(TestIdentifier test) {
+        // ignore - should be impossible since this is only collecting test information
+    }
+
+    /* (non-Javadoc)
+     * @see com.android.ddmlib.testrunner.ITestRunListener#testAssumptionFailure(com.android.ddmlib.testrunner.TestIdentifier, java.lang.String)
+     */
+    @Override
+    public synchronized void testAssumptionFailure(TestIdentifier test, String trace) {
         // ignore - should be impossible since this is only collecting test information
     }
 

@@ -16,27 +16,33 @@
 
 package com.google.common.collect.testing.testers;
 
+import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 import static com.google.common.collect.testing.features.MapFeature.ALLOWS_NULL_KEYS;
-import static com.google.common.collect.testing.features.MapFeature.ALLOWS_NULL_QUERIES;
+import static com.google.common.collect.testing.features.MapFeature.ALLOWS_NULL_KEY_QUERIES;
+import static com.google.common.collect.testing.features.MapFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION;
 import static com.google.common.collect.testing.features.MapFeature.SUPPORTS_REMOVE;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractMapTester;
 import com.google.common.collect.testing.WrongType;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
+
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 /**
  * A generic JUnit test which tests {@code remove} operations on a map. Can't be
  * invoked directly; please see
  * {@link com.google.common.collect.testing.MapTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  * @author Chris Povirk
  */
 @SuppressWarnings("unchecked") // too many "unchecked generic array creations"
+@GwtCompatible
 public class MapRemoveTester<K, V> extends AbstractMapTester<K, V> {
   @MapFeature.Require(SUPPORTS_REMOVE)
   @CollectionSize.Require(absent = ZERO)
@@ -47,6 +53,48 @@ public class MapRemoveTester<K, V> extends AbstractMapTester<K, V> {
     assertEquals("remove(present) should decrease a map's size by one.",
         initialSize - 1, getMap().size());
     expectMissing(samples.e0);
+  }
+
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testRemovePresentConcurrentWithEntrySetIteration() {
+    try {
+      Iterator<Entry<K, V>> iterator = getMap().entrySet().iterator();
+      getMap().remove(samples.e0.getKey());
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testRemovePresentConcurrentWithKeySetIteration() {
+    try {
+      Iterator<K> iterator = getMap().keySet().iterator();
+      getMap().remove(samples.e0.getKey());
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
+  }
+
+  @MapFeature.Require({FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+      SUPPORTS_REMOVE})
+  @CollectionSize.Require(SEVERAL)
+  public void testRemovePresentConcurrentWithValuesIteration() {
+    try {
+      Iterator<V> iterator = getMap().values().iterator();
+      getMap().remove(samples.e0.getKey());
+      iterator.next();
+      fail("Expected ConcurrentModificationException");
+    } catch (ConcurrentModificationException expected) {
+      // success
+    }
   }
 
   @MapFeature.Require(SUPPORTS_REMOVE)
@@ -96,7 +144,7 @@ public class MapRemoveTester<K, V> extends AbstractMapTester<K, V> {
 
   @MapFeature.Require(
       value = SUPPORTS_REMOVE,
-      absent = ALLOWS_NULL_QUERIES)
+      absent = ALLOWS_NULL_KEY_QUERIES)
   public void testRemove_nullQueriesNotSupported() {
     try {
       assertNull("remove(null) should return null or throw "
@@ -107,7 +155,7 @@ public class MapRemoveTester<K, V> extends AbstractMapTester<K, V> {
     expectUnchanged();
   }
 
-  @MapFeature.Require({SUPPORTS_REMOVE, ALLOWS_NULL_QUERIES})
+  @MapFeature.Require({SUPPORTS_REMOVE, ALLOWS_NULL_KEY_QUERIES})
   public void testRemove_nullSupportedMissing() {
     assertNull("remove(null) should return null", getMap().remove(null));
     expectUnchanged();

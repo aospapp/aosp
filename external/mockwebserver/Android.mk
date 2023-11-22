@@ -31,4 +31,4 @@ LOCAL_SRC_FILES := $(mockwebserver_src_files)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := mockwebserver-host
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-include $(BUILD_HOST_JAVA_LIBRARY)
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)

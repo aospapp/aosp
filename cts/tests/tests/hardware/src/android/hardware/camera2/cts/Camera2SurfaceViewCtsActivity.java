@@ -19,6 +19,7 @@ package android.hardware.camera2.cts;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.ConditionVariable;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -31,6 +32,7 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
     private SurfaceView mSurfaceView;
     private int currentWidth = 0;
     private int currentHeight = 0;
+    private final Object sizeLock = new Object();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,10 +56,16 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
                             timeOutMs, expectWidth, expectHeight));
         }
 
+        synchronized(sizeLock) {
+            if (expectWidth == currentWidth && expectHeight == currentHeight) {
+                return true;
+            }
+        }
+
         int waitTimeMs = timeOutMs;
         boolean changeSucceeded = false;
         while (!changeSucceeded && waitTimeMs > 0) {
-            long startTimeMs = System.currentTimeMillis();
+            long startTimeMs = SystemClock.elapsedRealtime();
             changeSucceeded = surfaceChangedDone.block(waitTimeMs);
             if (!changeSucceeded) {
                 Log.e(TAG, "Wait for surface change timed out after " + timeOutMs + " ms");
@@ -72,7 +80,7 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
                 // again.
                 changeSucceeded = false;
             }
-            waitTimeMs -= (System.currentTimeMillis() - startTimeMs);
+            waitTimeMs -= (SystemClock.elapsedRealtime() - startTimeMs);
         }
 
         // Couldn't get expected surface size change.
@@ -86,8 +94,10 @@ public class Camera2SurfaceViewCtsActivity extends Activity implements SurfaceHo
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         Log.i(TAG, "Surface Changed to: " + width + "x" + height);
-        currentWidth = width;
-        currentHeight = height;
+        synchronized (sizeLock) {
+            currentWidth = width;
+            currentHeight = height;
+        }
         surfaceChangedDone.open();
     }
 

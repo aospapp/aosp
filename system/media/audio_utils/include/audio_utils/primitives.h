@@ -68,6 +68,17 @@ void memcpy_to_i16_from_u8(int16_t *dst, const uint8_t *src, size_t count);
  */
 void memcpy_to_u8_from_i16(uint8_t *dst, const int16_t *src, size_t count);
 
+/* Copy samples from float to unsigned 8-bit offset by 0x80.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of samples to copy
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * The conversion is done by truncation, without dithering, so it loses resolution.
+ */
+void memcpy_to_u8_from_float(uint8_t *dst, const float *src, size_t count);
+
 /* Shrink and copy samples from signed 32-bit fixed-point Q0.31 to signed 16-bit Q0.15.
  * Parameters:
  *  dst     Destination buffer
@@ -116,6 +127,17 @@ void memcpy_to_float_from_q4_27(float *dst, const int32_t *src, size_t count);
  */
 void memcpy_to_float_from_i16(float *dst, const int16_t *src, size_t count);
 
+/* Copy samples from unsigned fixed-point 8 bit to single-precision floating-point.
+ * The output float range is [-1.0, 1.0) for the fixed-point range [0x00, 0xFF].
+ * No rounding is needed as the representation is exact.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of samples to copy
+ * The destination and source buffers must be completely separate.
+ */
+void memcpy_to_float_from_u8(float *dst, const uint8_t *src, size_t count);
+
 /* Copy samples from signed fixed-point packed 24 bit Q0.23 to single-precision floating-point.
  * The packed 24 bit input is stored in native endian format in a uint8_t byte array.
  * The output float range is [-1.0, 1.0) for the fixed-point range [0x800000, 0x7fffff].
@@ -139,6 +161,17 @@ void memcpy_to_float_from_p24(float *dst, const uint8_t *src, size_t count);
  * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_i16_from_p24(int16_t *dst, const uint8_t *src, size_t count);
+
+/* Copy samples from signed fixed-point packed 24 bit Q0.23 to signed fixed-point 32-bit Q0.31.
+ * The packed 24 bit input is stored in native endian format in a uint8_t byte array.
+ * The output data range is [0x80000000, 0x7fffff00] at intervals of 0x100.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of samples to copy
+ * The destination and source buffers must be completely separate.
+ */
+void memcpy_to_i32_from_p24(int32_t *dst, const uint8_t *src, size_t count);
 
 /* Copy samples from signed fixed point 16 bit Q0.15 to signed fixed-point packed 24 bit Q0.23.
  * The packed 24 bit output is assumed to be a native-endian uint8_t byte array.
@@ -176,6 +209,19 @@ void memcpy_to_p24_from_float(uint8_t *dst, const float *src, size_t count);
  */
 void memcpy_to_p24_from_q8_23(uint8_t *dst, const int32_t *src, size_t count);
 
+/* Shrink and copy samples from signed 32-bit fixed-point Q0.31
+ * to signed fixed-point packed 24 bit Q0.23.
+ * The packed 24 bit output is assumed to be a native-endian uint8_t byte array.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of samples to copy
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ * The conversion is done by truncation, without dithering, so it loses resolution.
+ */
+void memcpy_to_p24_from_i32(uint8_t *dst, const int32_t *src, size_t count);
+
 /* Copy samples from signed fixed point 16-bit Q0.15 to signed fixed-point 32-bit Q8.23.
  * The output data range is [0xff800000, 0x007fff00] at intervals of 0x100.
  * Parameters:
@@ -198,6 +244,16 @@ void memcpy_to_q8_23_from_i16(int32_t *dst, const int16_t *src, size_t count);
  * they must both start at the same address.  Partially overlapping buffers are not supported.
  */
 void memcpy_to_q8_23_from_float_with_clamp(int32_t *dst, const float *src, size_t count);
+
+/* Copy samples from signed fixed point packed 24-bit Q0.23 to signed fixed-point 32-bit Q8.23.
+ * The output data range is [0xff800000, 0x007fffff].
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of samples to copy
+ * The destination and source buffers must be completely separate.
+ */
+void memcpy_to_q8_23_from_p24(int32_t *dst, const uint8_t *src, size_t count);
 
 /* Copy samples from single-precision floating-point to signed fixed-point 32-bit Q4.27.
  * The conversion will use the full available Q4.27 range, including guard bits.
@@ -277,7 +333,7 @@ void memcpy_to_float_from_i32(float *dst, const int32_t *src, size_t count);
  *  src     Source buffer
  *  count   Number of stereo frames to downmix
  * The destination and source buffers must be completely separate (non-overlapping).
- * The current implementation truncates the sum rather than dither, but this may change.
+ * The current implementation truncates the mean rather than dither, but this may change.
  */
 void downmix_to_mono_i16_from_stereo_i16(int16_t *dst, const int16_t *src, size_t count);
 
@@ -290,6 +346,27 @@ void downmix_to_mono_i16_from_stereo_i16(int16_t *dst, const int16_t *src, size_
  * The destination and source buffers must be completely separate (non-overlapping).
  */
 void upmix_to_stereo_i16_from_mono_i16(int16_t *dst, const int16_t *src, size_t count);
+
+/* Downmix pairs of interleaved stereo input float samples to mono output float samples
+ * by averaging the stereo pair together.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of stereo frames to downmix
+ * The destination and source buffers must be completely separate (non-overlapping),
+ * or they must both start at the same address.
+ */
+void downmix_to_mono_float_from_stereo_float(float *dst, const float *src, size_t count);
+
+/* Upmix mono input float samples to pairs of interleaved stereo output float samples by
+ * duplicating.
+ * Parameters:
+ *  dst     Destination buffer
+ *  src     Source buffer
+ *  count   Number of mono samples to upmix
+ * The destination and source buffers must be completely separate (non-overlapping).
+ */
+void upmix_to_stereo_float_from_mono_float(float *dst, const float *src, size_t count);
 
 /* Return the total number of non-zero 32-bit samples */
 size_t nonZeroMono32(const int32_t *samples, size_t count);
@@ -368,6 +445,9 @@ void memcpy_by_index_array(void *dst, uint32_t dst_channels,
  * Channels present in the channel mask are represented by set bits in the
  * uint32_t value and are matched without further interpretation.
  *
+ * This function is typically used for converting audio data with different
+ * channel position masks.
+ *
  * Parameters:
  *  idxary      Updated array of indices of channels in the src frame for the dst frame
  *  idxcount    Number of caller allocated elements in idxary
@@ -375,6 +455,45 @@ void memcpy_by_index_array(void *dst, uint32_t dst_channels,
  *  src_mask    Bit mask corresponding to source channels present
  */
 size_t memcpy_by_index_array_initialization(int8_t *idxary, size_t idxcount,
+        uint32_t dst_mask, uint32_t src_mask);
+
+/* Prepares an index array (idxary) from channel masks, which can be later
+ * used by memcpy_by_index_array(). Returns the number of array elements required.
+ *
+ * For a source channel index mask, the source channels will map to the destination
+ * channels as if counting the set bits in dst_mask in order from lsb to msb
+ * (zero bits are ignored). The ith bit of the src_mask corresponds to the
+ * ith SET bit of dst_mask and the ith destination channel.  Hence, a zero ith
+ * bit of the src_mask indicates that the ith destination channel plays silence.
+ *
+ * Parameters:
+ *  idxary      Updated array of indices of channels in the src frame for the dst frame
+ *  idxcount    Number of caller allocated elements in idxary
+ *  dst_mask    Bit mask corresponding to destination channels present
+ *  src_mask    Bit mask corresponding to source channels present
+ */
+size_t memcpy_by_index_array_initialization_src_index(int8_t *idxary, size_t idxcount,
+        uint32_t dst_mask, uint32_t src_mask);
+
+/* Prepares an index array (idxary) from channel mask bits, which can be later
+ * used by memcpy_by_index_array(). Returns the number of array elements required.
+ *
+ * This initialization is for a destination channel index mask from a positional
+ * source mask.
+ *
+ * For an destination channel index mask, the input channels will map
+ * to the destination channels, with the ith SET bit in the source bits corresponding
+ * to the ith bit in the destination bits. If there is a zero bit in the middle
+ * of set destination bits (unlikely), the corresponding source channel will
+ * be dropped.
+ *
+ * Parameters:
+ *  idxary      Updated array of indices of channels in the src frame for the dst frame
+ *  idxcount    Number of caller allocated elements in idxary
+ *  dst_mask    Bit mask corresponding to destination channels present
+ *  src_mask    Bit mask corresponding to source channels present
+ */
+size_t memcpy_by_index_array_initialization_dst_index(int8_t *idxary, size_t idxcount,
         uint32_t dst_mask, uint32_t src_mask);
 
 /**
@@ -424,6 +543,45 @@ static inline int16_t clamp16_from_float(float f)
     else if (u.i > limpos)
         u.i = 32767;
     return u.i; /* Return lower 16 bits, the part of interest in the significand. */
+}
+
+/*
+ * Convert a IEEE 754 single precision float [-1.0, 1.0) to uint8_t [0, 0xff]
+ * with clamping.  Note the open bound at 1.0, values within 1/128 of 1.0 map
+ * to 255 instead of 256 (early clamping due to the smaller positive integer subrange).
+ *
+ * Values outside the range [-1.0, 1.0) are properly clamped to 0 and 255,
+ * including -Inf and +Inf. NaN will generally be treated either as 0 or 255,
+ * depending on the sign bit inside NaN (whose representation is not unique).
+ * Nevertheless, strictly speaking, NaN behavior should be considered undefined.
+ *
+ * Rounding of 0.5 lsb is to even (default for IEEE 754).
+ */
+static inline uint8_t clamp8_from_float(float f)
+{
+    /* Offset is used to expand the valid range of [-1.0, 1.0) into the 16 lsbs of the
+     * floating point significand. The normal shift is 3<<22, but the -7 offset
+     * is used to multiply by 128.
+     */
+    static const float offset = (float)((3 << (22 - 7)) + 1 /* to cancel -1.0 */);
+    /* zero = (0x11f << 22) =  0x47c00000 */
+    static const int32_t limneg = (0x11f << 22) /*zero*/;
+    static const int32_t limpos = (0x11f << 22) /*zero*/ + 255; /* 0x47c000ff */
+
+    union {
+        float f;
+        int32_t i;
+    } u;
+
+    u.f = f + offset; /* recenter valid range */
+    /* Now the valid range is represented as integers between [limneg, limpos].
+     * Clamp using the fact that float representation (as an integer) is an ordered set.
+     */
+    if (u.i < limneg)
+        return 0;
+    if (u.i > limpos)
+        return 255;
+    return u.i; /* Return lower 8 bits, the part of interest in the significand. */
 }
 
 /* Convert a single-precision floating point value to a Q0.23 integer value, stored in a
@@ -636,6 +794,17 @@ static inline float float_from_i16(int16_t ival)
     return ival * scale;
 }
 
+/* Convert an unsigned fixed-point 8-bit U0.8 value to single-precision floating-point.
+ * The nominal output float range is [-1.0, 1.0) if the fixed-point range is
+ * [0x00, 0xff].
+ */
+static inline float float_from_u8(uint8_t uval)
+{
+    static const float scale = 1. / (float)(1UL << 7);
+
+    return ((int)uval - 128) * scale;
+}
+
 /* Convert a packed 24bit Q0.23 value stored native-endian in a uint8_t ptr
  * to a signed fixed-point 32 bit integer Q0.31 value. The output Q0.31 range
  * is [0x80000000, 0x7fffff00] for the fixed-point range [0x800000, 0x7fffff].
@@ -648,14 +817,7 @@ static inline float float_from_i16(int16_t ival)
 static inline int32_t i32_from_p24(const uint8_t *packed24)
 {
     /* convert to 32b */
-#if defined(HAVE_BIG_ENDIAN) == defined(HAVE_LITTLE_ENDIAN)
-    /* check to see if we have exactly one or the other android endian flags set. */
-#error "Either HAVE_LITTLE_ENDIAN or HAVE_BIG_ENDIAN must be defined"
-#elif defined(HAVE_BIG_ENDIAN)
-    return (packed24[2] << 8) | (packed24[1] << 16) | (packed24[0] << 24);
-#else /* HAVE_LITTLE_ENDIAN */
     return (packed24[0] << 8) | (packed24[1] << 16) | (packed24[2] << 24);
-#endif
 }
 
 /* Convert a 32-bit Q0.31 value to single-precision floating-point.

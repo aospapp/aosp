@@ -13,7 +13,6 @@
 #include "SkImageEncoder.h"
 #include "SkOSFile.h"
 #include "SkPicture.h"
-#include "SkPicturePlayback.h"
 #include "SkPictureRecord.h"
 #include "SkPictureRecorder.h"
 #include "SkStream.h"
@@ -50,10 +49,10 @@ static bool is_simple(const SkPaint& p) {
 //    RESTORE
 // where the saveLayer's color can be moved into the drawBitmapRect
 static bool check_0(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE_LAYER != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSaveLayer_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+2 ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+2)->getType()) {
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+2)->getType()) {
         return false;
     }
 
@@ -85,7 +84,7 @@ static void apply_0(SkDebugCanvas* canvas, int curCommand) {
     const SkPaint* saveLayerPaint = saveLayer->paint();
 
     // if (NULL == saveLayerPaint) the dbmr's paint doesn't need to be changed
-    if (NULL != saveLayerPaint) {
+    if (saveLayerPaint) {
         SkDrawBitmapRectCommand* dbmr =
             (SkDrawBitmapRectCommand*) canvas->getDrawCommandAt(curCommand+1);
         SkPaint* dbmrPaint = dbmr->paint();
@@ -93,7 +92,7 @@ static void apply_0(SkDebugCanvas* canvas, int curCommand) {
         if (NULL == dbmrPaint) {
             // if the DBMR doesn't have a paint just use the saveLayer's
             dbmr->setPaint(*saveLayerPaint);
-        } else if (NULL != saveLayerPaint) {
+        } else if (saveLayerPaint) {
             // Both paints are present so their alphas need to be combined
             SkColor color = saveLayerPaint->getColor();
             int a0 = SkColorGetA(color);
@@ -122,13 +121,13 @@ static void apply_0(SkDebugCanvas* canvas, int curCommand) {
 //    RESTORE
 // where the saveLayer's color can be moved into the drawBitmapRect
 static bool check_1(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE_LAYER != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSaveLayer_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+5 ||
-        SAVE != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+3)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+4)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+5)->getType()) {
+        SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+3)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+4)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+5)->getType()) {
         return false;
     }
 
@@ -163,7 +162,7 @@ static void apply_1(SkDebugCanvas* canvas, int curCommand) {
     const SkPaint* saveLayerPaint = saveLayer->paint();
 
     // if (NULL == saveLayerPaint) the dbmr's paint doesn't need to be changed
-    if (NULL != saveLayerPaint) {
+    if (saveLayerPaint) {
         SkDrawBitmapRectCommand* dbmr =
             (SkDrawBitmapRectCommand*) canvas->getDrawCommandAt(curCommand+3);
         SkPaint* dbmrPaint = dbmr->paint();
@@ -188,11 +187,11 @@ static void apply_1(SkDebugCanvas* canvas, int curCommand) {
 //    RESTORE
 // where the rect is entirely within the clip and the clip is an intersect
 static bool check_2(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+4 ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        DRAW_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+3)->getType()) {
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kDrawRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+3)->getType()) {
         return false;
     }
 
@@ -223,11 +222,11 @@ static void apply_2(SkDebugCanvas* canvas, int curCommand) {
 //    RESTORE
 // where the rect entirely encloses the clip
 static bool check_3(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+4 ||
-        CLIP_RRECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        DRAW_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+3)->getType()) {
+        SkDrawCommand::kClipRRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kDrawRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+3)->getType()) {
         return false;
     }
 
@@ -271,11 +270,11 @@ static void apply_3(SkDebugCanvas* canvas, int curCommand) {
 //    RESTORE
 // where the rect and drawBitmapRect dst exactly match
 static bool check_4(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+4 ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+3)->getType()) {
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+3)->getType()) {
         return false;
     }
 
@@ -300,43 +299,6 @@ static void apply_4(SkDebugCanvas* canvas, int curCommand) {
 }
 
 // Check for:
-//    TRANSLATE
-// where the translate is zero
-static bool check_5(SkDebugCanvas* canvas, int curCommand) {
-    if (TRANSLATE != canvas->getDrawCommandAt(curCommand)->getType()) {
-        return false;
-    }
-
-    SkTranslateCommand* t =
-        (SkTranslateCommand*) canvas->getDrawCommandAt(curCommand);
-
-    return 0 == t->x() && 0 == t->y();
-}
-
-// Just remove the translate
-static void apply_5(SkDebugCanvas* canvas, int curCommand) {
-    canvas->deleteDrawCommandAt(curCommand);    // translate
-}
-
-// Check for:
-//    SCALE
-// where the scale is 1,1
-static bool check_6(SkDebugCanvas* canvas, int curCommand) {
-    if (SCALE != canvas->getDrawCommandAt(curCommand)->getType()) {
-        return false;
-    }
-
-    SkScaleCommand* s = (SkScaleCommand*) canvas->getDrawCommandAt(curCommand);
-
-    return SK_Scalar1 == s->x() && SK_Scalar1 == s->y();
-}
-
-// Just remove the scale
-static void apply_6(SkDebugCanvas* canvas, int curCommand) {
-    canvas->deleteDrawCommandAt(curCommand);   // scale
-}
-
-// Check for:
 //  SAVE
 //      CLIP_RECT
 //      SAVE_LAYER
@@ -358,21 +320,21 @@ static void apply_6(SkDebugCanvas* canvas, int curCommand) {
 //      all the saveLayer's paints can be rolled into the drawBitmapRectToRect's paint
 // This pattern is used by Google spreadsheet when drawing the toolbar buttons
 static bool check_7(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+13 ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        SAVE_LAYER != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        SAVE != canvas->getDrawCommandAt(curCommand+3)->getType() ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+4)->getType() ||
-        SAVE_LAYER != canvas->getDrawCommandAt(curCommand+5)->getType() ||
-        SAVE != canvas->getDrawCommandAt(curCommand+6)->getType() ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+7)->getType() ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+8)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+9)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+10)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+11)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+12)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+13)->getType()) {
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kSaveLayer_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand+3)->getType() ||
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+4)->getType() ||
+        SkDrawCommand::kSaveLayer_OpType != canvas->getDrawCommandAt(curCommand+5)->getType() ||
+        SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand+6)->getType() ||
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+7)->getType() ||
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+8)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+9)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+10)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+11)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+12)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+13)->getType()) {
         return false;
     }
 
@@ -424,8 +386,8 @@ static bool check_7(SkDebugCanvas* canvas, int curCommand) {
     const SkPaint* saveLayerPaint0 = saveLayer0->paint();
     const SkPaint* saveLayerPaint1 = saveLayer1->paint();
 
-    if ((NULL != saveLayerPaint0 && !is_simple(*saveLayerPaint0)) ||
-        (NULL != saveLayerPaint1 && !is_simple(*saveLayerPaint1))) {
+    if ((saveLayerPaint0 && !is_simple(*saveLayerPaint0)) ||
+        (saveLayerPaint1 && !is_simple(*saveLayerPaint1))) {
         return false;
     }
 
@@ -435,14 +397,14 @@ static bool check_7(SkDebugCanvas* canvas, int curCommand) {
         return true;
     }
 
-    if (NULL != saveLayerPaint0) {
+    if (saveLayerPaint0) {
         SkColor layerColor0 = saveLayerPaint0->getColor() | 0xFF000000; // force opaque
         if (dbmrPaint->getColor() != layerColor0) {
             return false;
         }
     }
 
-    if (NULL != saveLayerPaint1) {
+    if (saveLayerPaint1) {
         SkColor layerColor1 = saveLayerPaint1->getColor() | 0xFF000000; // force opaque
         if (dbmrPaint->getColor() != layerColor1) {
             return false;
@@ -478,7 +440,7 @@ static void apply_7(SkDebugCanvas* canvas, int curCommand) {
     int a0, a1;
 
     const SkPaint* saveLayerPaint0 = saveLayer0->paint();
-    if (NULL != saveLayerPaint0) {
+    if (saveLayerPaint0) {
         color = saveLayerPaint0->getColor();
         a0 = SkColorGetA(color);
     } else {
@@ -486,7 +448,7 @@ static void apply_7(SkDebugCanvas* canvas, int curCommand) {
     }
 
     const SkPaint* saveLayerPaint1 = saveLayer1->paint();
-    if (NULL != saveLayerPaint1) {
+    if (saveLayerPaint1) {
         color = saveLayerPaint1->getColor();
         a1 = SkColorGetA(color);
     } else {
@@ -498,7 +460,7 @@ static void apply_7(SkDebugCanvas* canvas, int curCommand) {
 
     SkPaint* dbmrPaint = dbmr->paint();
 
-    if (NULL != dbmrPaint) {
+    if (dbmrPaint) {
         SkColor newColor = SkColorSetA(dbmrPaint->getColor(), newA);
         dbmrPaint->setColor(newColor);
     } else {
@@ -534,11 +496,11 @@ static void apply_7(SkDebugCanvas* canvas, int curCommand) {
 //      the drawBitmapRectToRect is a 1-1 copy from src to dest
 //      the clip rect is BW and a subset of the drawBitmapRectToRect's dest rect
 static bool check_8(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+4 ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+3)->getType()) {
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+3)->getType()) {
         return false;
     }
 
@@ -580,7 +542,7 @@ static void apply_8(SkDebugCanvas* canvas, int curCommand) {
 
     SkScalar newSrcLeft, newSrcTop;
 
-    if (NULL != dbmr->srcRect()) {
+    if (dbmr->srcRect()) {
         newSrcLeft = dbmr->srcRect()->fLeft + clip->rect().fLeft - dbmr->dstRect().fLeft;
         newSrcTop  = dbmr->srcRect()->fTop + clip->rect().fTop - dbmr->dstRect().fTop;
     } else {
@@ -608,11 +570,11 @@ static void apply_8(SkDebugCanvas* canvas, int curCommand) {
 // where:
 //      clipRect is BW and encloses the DBMR2R's dest rect
 static bool check_9(SkDebugCanvas* canvas, int curCommand) {
-    if (SAVE != canvas->getDrawCommandAt(curCommand)->getType() ||
+    if (SkDrawCommand::kSave_OpType != canvas->getDrawCommandAt(curCommand)->getType() ||
         canvas->getSize() <= curCommand+4 ||
-        CLIP_RECT != canvas->getDrawCommandAt(curCommand+1)->getType() ||
-        DRAW_BITMAP_RECT_TO_RECT != canvas->getDrawCommandAt(curCommand+2)->getType() ||
-        RESTORE != canvas->getDrawCommandAt(curCommand+3)->getType()) {
+        SkDrawCommand::kClipRect_OpType != canvas->getDrawCommandAt(curCommand+1)->getType() ||
+        SkDrawCommand::kDrawBitmapRect_OpType != canvas->getDrawCommandAt(curCommand+2)->getType() ||
+        SkDrawCommand::kRestore_OpType != canvas->getDrawCommandAt(curCommand+3)->getType()) {
         return false;
     }
 
@@ -653,8 +615,6 @@ struct OptTableEntry {
     { check_2, apply_2, 0 },
     { check_3, apply_3, 0 },
     { check_4, apply_4, 0 },
-    { check_5, apply_5, 0 },
-    { check_6, apply_6, 0 },
     { check_7, apply_7, 0 },
     { check_8, apply_8, 0 },
     { check_9, apply_9, 0 },
@@ -662,7 +622,7 @@ struct OptTableEntry {
 
 
 static int filter_picture(const SkString& inFile, const SkString& outFile) {
-    SkAutoTDelete<SkPicture> inPicture;
+    SkAutoTUnref<SkPicture> inPicture;
 
     SkFILEStream inStream(inFile.c_str());
     if (inStream.isValid()) {
@@ -678,9 +638,9 @@ static int filter_picture(const SkString& inFile, const SkString& outFile) {
 
     memset(localCount, 0, sizeof(localCount));
 
-    SkDebugCanvas debugCanvas(inPicture->width(), inPicture->height());
-    debugCanvas.setBounds(inPicture->width(), inPicture->height());
-    inPicture->draw(&debugCanvas);
+    SkDebugCanvas debugCanvas(SkScalarCeilToInt(inPicture->cullRect().width()), 
+                              SkScalarCeilToInt(inPicture->cullRect().height()));
+    inPicture->playback(&debugCanvas);
 
     // delete the initial save and restore since replaying the commands will
     // re-add them
@@ -718,7 +678,9 @@ static int filter_picture(const SkString& inFile, const SkString& outFile) {
 
     if (!outFile.isEmpty()) {
         SkPictureRecorder recorder;
-        SkCanvas* canvas = recorder.beginRecording(inPicture->width(), inPicture->height(), NULL, 0);
+        SkCanvas* canvas = recorder.beginRecording(inPicture->cullRect().width(), 
+                                                   inPicture->cullRect().height(), 
+                                                   NULL, 0);
         debugCanvas.draw(canvas);
         SkAutoTUnref<SkPicture> outPicture(recorder.endRecording());
 
@@ -817,9 +779,9 @@ int tool_main(int argc, char** argv) {
     if (iter.next(&inputFilename)) {
 
         do {
-            inFile = SkOSPath::SkPathJoin(inDir.c_str(), inputFilename.c_str());
+            inFile = SkOSPath::Join(inDir.c_str(), inputFilename.c_str());
             if (!outDir.isEmpty()) {
-                outFile = SkOSPath::SkPathJoin(outDir.c_str(), inputFilename.c_str());
+                outFile = SkOSPath::Join(outDir.c_str(), inputFilename.c_str());
             }
             SkDebugf("Executing %s\n", inputFilename.c_str());
             filter_picture(inFile, outFile);

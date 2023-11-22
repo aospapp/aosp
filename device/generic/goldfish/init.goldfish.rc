@@ -3,15 +3,11 @@ on early-init
     mount debugfs debugfs /sys/kernel/debug
 
 on init
-    # See storage config details at http://source.android.com/tech/storage/
-    mkdir /mnt/media_rw/sdcard 0700 media_rw media_rw
-    mkdir /storage/sdcard 0700 root root
-
-    export EXTERNAL_STORAGE /storage/sdcard
-
     # Support legacy paths
-    symlink /storage/sdcard /sdcard
-    symlink /storage/sdcard /mnt/sdcard
+    symlink /sdcard /mnt/sdcard
+
+    # By default, primary storage is physical
+    setprop ro.vold.primary_physical 1
 
 on boot
     setprop ARGH ARGH
@@ -90,7 +86,6 @@ service qemud /system/bin/qemud
 service goldfish-logcat /system/bin/logcat -Q
     oneshot
 
-# fusewrapped external sdcard daemon running as media_rw (1023)
-service fuse_sdcard /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/sdcard /storage/sdcard
+service fingerprintd /system/bin/fingerprintd
     class late_start
-    disabled
+    user system

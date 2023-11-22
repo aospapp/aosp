@@ -17,10 +17,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.android.cts.verifier"
-      android:versionCode="5"
-      android:versionName="5.1_r0.5">
+      android:versionCode="5">
 
-    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="21"/>
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="23"/>
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -57,6 +56,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
     <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
 
     <!-- Needed by the Audio Quality Verifier to store the sound samples that will be mailed. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -269,8 +269,7 @@
                        android:value="android.hardware.bluetooth_le"/>
         </activity> -->
 
-        <!-- TODO: Enable when test quality issues listed in b/18282549 is resolved -->
-        <!-- activity android:name=".bluetooth.BleScannerTestActivity"
+        <activity android:name=".bluetooth.BleScannerTestActivity"
                 android:label="@string/ble_scanner_test_name"
                 android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
@@ -281,7 +280,7 @@
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BluetoothTestActivity" />
             <meta-data android:name="test_required_features"
                        android:value="android.hardware.bluetooth_le"/>
-        </activity -->
+        </activity>
 
         <activity android:name=".bluetooth.BleScannerPowerLevelActivity"
                 android:label="@string/ble_power_level_name"
@@ -294,6 +293,7 @@
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BleScannerTestActivity" />
         </activity>
 
+        <!-- Comment out until we have a better way to validate the hardware scan filter
         <activity android:name=".bluetooth.BleScannerHardwareScanFilterActivity"
                 android:label="@string/ble_scanner_scan_filter_name"
                 android:configChanges="keyboardHidden|orientation|screenSize">
@@ -304,9 +304,9 @@
             <meta-data android:name="test_category" android:value="@string/bt_le" />
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BleScannerTestActivity" />
         </activity>
+        -->
 
-        <!-- TODO: Enable when test quality issues listed in b/18282549 is resolved -->
-        <!-- activity android:name=".bluetooth.BleAdvertiserTestActivity"
+        <activity android:name=".bluetooth.BleAdvertiserTestActivity"
                 android:label="@string/ble_advertiser_test_name"
                 android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
@@ -317,7 +317,7 @@
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BluetoothTestActivity" />
             <meta-data android:name="test_required_features"
                        android:value="android.hardware.bluetooth_le"/>
-         </activity -->
+         </activity>
 
         <activity android:name=".bluetooth.BleAdvertiserPowerLevelActivity"
                 android:label="@string/ble_power_level_name"
@@ -330,6 +330,7 @@
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity" />
         </activity>
 
+        <!-- Comment out until we have a better way to validate the hardware scan filter
         <activity android:name=".bluetooth.BleAdvertiserHardwareScanFilterActivity"
                 android:label="@string/ble_advertiser_scan_filter_name"
                 android:configChanges="keyboardHidden|orientation|screenSize">
@@ -340,6 +341,7 @@
             <meta-data android:name="test_category" android:value="@string/bt_le" />
             <meta-data android:name="test_parent" android:value="com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity" />
         </activity>
+        -->
 
         <activity android:name=".suid.SuidFilesActivity"
                 android:label="@string/suid_files"
@@ -351,6 +353,29 @@
             <meta-data android:name="test_category" android:value="@string/test_category_security" />
         </activity>
 
+        <activity android:name=".security.FingerprintBoundKeysTest"
+                android:label="@string/sec_fingerprint_bound_key_test"
+                android:configChanges="keyboardHidden|orientation|screenSize" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_security" />
+            <meta-data android:name="test_excluded_features"
+                       android:value="android.hardware.type.television:android.software.leanback:android.hardware.type.watch" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.fingerprint" />
+        </activity>
+        <activity android:name=".security.ScreenLockBoundKeysTest"
+                android:label="@string/sec_lock_bound_key_test"
+                android:configChanges="keyboardHidden|orientation|screenSize" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_security" />
+            <meta-data android:name="test_excluded_features"
+                       android:value="android.hardware.type.television:android.software.leanback:android.hardware.type.watch" />
+        </activity>
         <activity android:name=".security.LockConfirmBypassTest"
                 android:label="@string/lock_confirm_test_title"
                 android:configChanges="keyboardHidden|orientation|screenSize" >
@@ -426,6 +451,10 @@
 
         <activity android:name=".nfc.NdefPushReceiverActivity"
                 android:label="@string/nfc_ndef_push_receiver"
+                android:configChanges="keyboardHidden|orientation|screenSize" />
+
+        <activity android:name=".nfc.LlcpVersionActivity"
+                android:label="@string/nfc_llcp_version_check"
                 android:configChanges="keyboardHidden|orientation|screenSize" />
 
         <activity android:name=".nfc.TagVerifierActivity"
@@ -718,6 +747,33 @@
                        android:value="android.hardware.sensor.compass" />
         </activity>
 
+        <activity
+            android:name=".sensors.RVCVXCheckTestActivity"
+            android:keepScreenOn="true"
+            android:label="@string/snsr_rvcvxchk_test"
+            android:screenOrientation="locked" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST"/>
+            </intent-filter>
+
+            <meta-data
+                android:name="test_category"
+                android:value="@string/test_category_sensors" />
+            <meta-data
+                android:name="test_required_features"
+                android:value="android.hardware.sensor.accelerometer:android.hardware.sensor.gyroscope:android.hardware.sensor.compass:android.hardware.camera.any" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.hardware.type.television" />
+        </activity>
+        <activity
+            android:name=".sensors.RVCVRecordActivity"
+            android:keepScreenOn="true"
+            android:label="@string/snsr_rvcvxchk_test_rec"
+            android:screenOrientation="locked" >
+        </activity>
+
+
         <!-- TODO: enable when a full set of verifications can be implemented -->
         <!--activity android:name=".sensors.RotationVectorTestActivity"
                   android:label="@string/snsr_rot_vec_test"
@@ -870,23 +926,6 @@
 
             <meta-data android:name="test_required_features" android:value="android.hardware.camera.any"/>
         </activity>
-<!-- Experimental. If re-enabling, libcameraanalyzer must be included in the build
-        <activity android:name=".camera.analyzer.CameraAnalyzerActivity"
-                 android:label="@string/camera_analyzer"
-                 android:screenOrientation="landscape">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.cts.intent.category.MANUAL_TEST" />
-            </intent-filter>
-            <meta-data android:name="test_category" android:value="@string/test_category_camera" />
-
-            <intent-filter>
-                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
-            </intent-filter>
-            <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
-                android:resource="@xml/accessory_filter_adk" />
-        </activity>
--->
 
         <activity android:name=".camera.intents.CameraIntentsActivity"
                  android:label="@string/camera_intents">
@@ -960,6 +999,17 @@
             <meta-data android:name="test_required_features" android:value="android.hardware.camera.any" />
         </activity>
 
+        <activity android:name=".camera.flashlight.CameraFlashlightActivity"
+                  android:label="@string/camera_flashlight_test"
+                  android:configChanges="keyboardHidden|orientation|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_camera" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.camera.flash" />
+        </activity>
+
         <activity android:name=".usb.UsbAccessoryTestActivity"
                 android:label="@string/usb_accessory_test"
                 android:configChanges="keyboardHidden|orientation|screenSize">
@@ -1024,11 +1074,7 @@
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_notifications" />
             <meta-data android:name="test_excluded_features"
-                    android:value="android.hardware.type.watch" />
-            <meta-data android:name="test_excluded_features"
-                    android:value="android.hardware.type.television" />
-            <meta-data android:name="test_excluded_features"
-                    android:value="android.software.leanback" />
+                       android:value="android.hardware.type.watch:android.software.leanback" />
         </activity>
 
         <service android:name=".notifications.MockListener"
@@ -1063,6 +1109,22 @@
                 <category android:name="android.cts.intent.category.MANUAL_TEST" />
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_notifications" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.hardware.type.watch" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.hardware.type.television" />
+            <meta-data android:name="test_excluded_features"
+                    android:value="android.software.leanback" />
+        </activity>
+
+        <activity android:name=".security.KeyChainTest"
+                android:label="@string/keychain_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_security" />
+            <!-- KeyChain is only installed on communication-oriented devices inheriting core.mk -->
             <meta-data android:name="test_excluded_features"
                     android:value="android.hardware.type.watch" />
             <meta-data android:name="test_excluded_features"
@@ -1135,8 +1197,6 @@
             <meta-data android:name="test_category" android:value="@string/test_category_other" />
             <meta-data android:name="test_required_features"
                     android:value="android.software.app_widgets" />
-            <meta-data android:name="test_excluded_features"
-                       android:value="android.software.leanback" />
         </activity>
 
         <activity android:name=".deskclock.DeskClockTestsActivity"
@@ -1168,6 +1228,23 @@
                        android:value="android.hardware.type.television:android.software.leanback" />
         </activity>
 -->
+          <activity
+                android:name="com.android.cts.verifier.sensors.DeviceSuspendTestActivity"
+                android:label="@string/snsr_device_suspend_test"
+                android:screenOrientation="nosensor" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_sensors" />
+        </activity>
+
+        <receiver android:name="com.android.cts.verifier.sensors.DeviceSuspendTestActivity$AlarmReceiver">
+        </receiver>
+
+        <receiver android:name="com.android.cts.verifier.sensors.SignificantMotionTestActivity$AlarmReceiver">
+        </receiver>
+
         <activity
             android:name="com.android.cts.verifier.sensors.SignificantMotionTestActivity"
             android:label="@string/snsr_significant_motion_test"
@@ -1268,16 +1345,58 @@
                  android:label="@string/projection_service_name"
                  android:process=":projectionservice" />
 
-        <activity android:name=".managedprovisioning.DeviceOwnerTestActivity"
+        <activity android:name=".managedprovisioning.DeviceOwnerNegativeTestActivity"
                 android:label="@string/provisioning_device_owner">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.cts.intent.category.MANUAL_TEST" />
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_managed_provisioning" />
-            <meta-data android:name="test_required_features" android:value="android.software.managed_users:android.software.device_admin" />
+            <meta-data android:name="test_required_features" android:value="android.software.device_admin" />
         </activity>
 
+        <activity android:name=".managedprovisioning.DeviceOwnerPositiveTestActivity"
+                android:label="@string/positive_device_owner">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_managed_provisioning" />
+            <meta-data android:name="test_required_features" android:value="android.software.device_admin" />
+        </activity>
+
+        <activity android:name=".managedprovisioning.DeviceOwnerPositiveTestActivity$CommandReceiver"
+                android:exported="false"
+                android:theme="@android:style/Theme.NoDisplay"
+                android:noHistory="true"
+                android:autoRemoveFromRecents="true"
+                android:stateNotNeeded="true">
+        </activity>
+
+        <activity android:name=".managedprovisioning.KeyguardDisabledFeaturesActivity"
+                android:label="@string/provisioning_byod_keyguard_disabled_features">
+        </activity>
+
+        <activity android:name=".managedprovisioning.WifiLockdownTestActivity"
+                android:label="@string/device_owner_wifi_lockdown_test">
+        </activity>
+
+        <activity android:name=".managedprovisioning.PermissionLockdownTestActivity"
+                android:label="@string/device_profile_owner_permission_lockdown_test">
+            <intent-filter>
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.CHECK_PERMISSION_LOCKDOWN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+                android:name=".managedprovisioning.ManagedProfilePermissionLockdownTestActivity"
+                android:targetActivity=".managedprovisioning.PermissionLockdownTestActivity">
+            <intent-filter>
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
 
         <activity android:name=".managedprovisioning.ByodFlowTestActivity"
                 android:launchMode="singleTask"
@@ -1299,9 +1418,32 @@
                 <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_QUERY" />
                 <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_REMOVE" />
                 <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_INSTALL_APK" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.CHECK_INTENT_FILTERS" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_IMAGE" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_VIDEO" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_CAPTURE_AND_CHECK_AUDIO" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_KEYGUARD_DISABLED_FEATURES" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.BYOD_LOCKNOW" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.TEST_NFC_BEAM" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.TEST_CROSS_PROFILE_INTENTS_DIALOG" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.action.TEST_APP_LINKING_DIALOG" />
                 <category android:name="android.intent.category.DEFAULT"></category>
             </intent-filter>
         </activity>
+
+        <activity android:name=".managedprovisioning.NfcTestActivity">
+            <meta-data android:name="test_required_features" android:value="android.hardware.nfc" />
+        </activity>
+
+        <provider
+            android:name="android.support.v4.content.FileProvider"
+            android:authorities="com.android.cts.verifier.managedprovisioning.fileprovider"
+            android:grantUriPermissions="true"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths" />
+        </provider>
 
         <activity android:name=".managedprovisioning.ByodIconSamplerActivity">
             <intent-filter>
@@ -1312,7 +1454,25 @@
 
         <activity android:name=".managedprovisioning.CrossProfileTestActivity">
             <intent-filter>
-                <action android:name="com.android.cts.verifier.managedprovisioning.CROSS_PROFILE" />
+                <!-- We need to have at least one activity listening to this intent in the parent
+                     to test if it is forwarded from the managed profile to the parent -->
+                <action android:name="android.provider.MediaStore.RECORD_SOUND" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.CROSS_PROFILE_TO_PERSONAL" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.CROSS_PROFILE_TO_WORK" />
+                <category android:name="android.intent.category.DEFAULT"></category>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <category android:name="android.intent.category.DEFAULT"></category>
+                <data android:scheme="http" android:host="com.android.cts.verifier" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".managedprovisioning.WorkStatusTestActivity">
+            <intent-filter>
+                <action android:name="com.android.cts.verifier.managedprovisioning.WORK_STATUS_ICON" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.WORK_STATUS_TOAST" />
                 <category android:name="android.intent.category.DEFAULT"></category>
             </intent-filter>
         </activity>
@@ -1320,13 +1480,14 @@
         <activity android:name=".managedprovisioning.WorkNotificationTestActivity">
             <intent-filter>
                 <action android:name="com.android.cts.verifier.managedprovisioning.WORK_NOTIFICATION" />
+                <action android:name="com.android.cts.verifier.managedprovisioning.LOCKSCREEN_NOTIFICATION" />
                 <action android:name="com.android.cts.verifier.managedprovisioning.CLEAR_WORK_NOTIFICATION" />
                 <category android:name="android.intent.category.DEFAULT"></category>
             </intent-filter>
         </activity>
 
         <receiver android:name=".managedprovisioning.DeviceAdminTestReceiver"
-                android:label="@string/provisioning_byod_device_admin"
+                android:label="@string/afw_device_admin"
                 android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin"
                        android:resource="@xml/device_admin_byod" />
@@ -1411,6 +1572,17 @@
                     android:value="android.software.live_tv" />
         </activity>
 
+        <activity android:name=".tv.TimeShiftTestActivity"
+                android:label="@string/tv_time_shift_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_tv" />
+            <meta-data android:name="test_required_features"
+                    android:value="android.software.live_tv" />
+        </activity>
+
         <activity android:name=".screenpinning.ScreenPinningTestActivity"
             android:label="@string/screen_pinning_test">
             <intent-filter>
@@ -1418,18 +1590,106 @@
                 <category android:name="android.cts.intent.category.MANUAL_TEST" />
             </intent-filter>
             <meta-data android:name="test_category" android:value="@string/test_category_other" />
-        </activity>
-
-        <activity android:name=".tv.MockTvInputSettingsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-            </intent-filter>
+            <meta-data android:name="test_excluded_features"
+                       android:value="android.hardware.type.television:android.software.leanback:android.hardware.type.watch" />
         </activity>
 
         <activity android:name=".tv.MockTvInputSetupActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
+        </activity>
+
+        <activity android:name=".audio.HifiUltrasoundTestActivity"
+                android:label="@string/hifi_ultrasound_test"
+                android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+        </activity>
+
+        <activity android:name=".audio.HifiUltrasoundSpeakerTestActivity"
+                android:label="@string/hifi_ultrasound_speaker_test"
+                android:screenOrientation="locked">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+        </activity>
+
+        <activity android:name=".audio.AudioDeviceNotificationsActivity"
+                  android:label="@string/audio_devices_notifications_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <!--
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+            -->
+        </activity>
+
+        <activity android:name=".audio.AudioRoutingNotificationsActivity"
+                  android:label="@string/audio_routingnotifications_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <!--
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+            -->
+        </activity>
+
+        <activity android:name=".audio.AudioLoopbackActivity"
+                  android:label="@string/audio_loopback_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+            <meta-data android:name="test_excluded_features" android:value="android.hardware.type.watch" />
+            <meta-data android:name="test_excluded_features" android:value="android.hardware.type.television" />
+        </activity>
+
+        <activity android:name=".audio.AudioFrequencyLineActivity"
+                  android:label="@string/audio_frequency_line_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.audio.output" />
+        </activity>
+
+        <activity android:name=".audio.AudioFrequencySpeakerActivity"
+                  android:label="@string/audio_frequency_speaker_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.audio.output" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.usb.host" />
+        </activity>
+
+        <activity android:name=".audio.AudioFrequencyMicActivity"
+                  android:label="@string/audio_frequency_mic_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_audio" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.microphone" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.audio.output" />
+            <meta-data android:name="test_required_features" android:value="android.hardware.usb.host" />
         </activity>
 
         <service android:name=".tv.MockTvInputService"
@@ -1448,6 +1708,54 @@
             <meta-data android:name="android.media.tv.metadata.CONTENT_RATING_SYSTEMS"
                 android:resource="@xml/mock_content_rating_systems" />
         </receiver>
+
+        <activity android:name=".car.CarDockTestActivity"
+                android:label="@string/car_dock_test">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.cts.intent.category.MANUAL_TEST" />
+            </intent-filter>
+            <meta-data android:name="test_category" android:value="@string/test_category_car" />
+            <meta-data android:name="test_excluded_features"
+                       android:value="android.hardware.type.television:android.software.leanback:android.hardware.type.watch" />
+
+        </activity>
+
+        <activity android:name=".car.CarDockActivity"
+                  android:launchMode="singleTask"
+                  android:autoRemoveFromRecents="true"
+                  android:exported="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- See explaination in CarDockTestActivity.java -->
+        <activity-alias android:name=".car.CarDockActivity1"
+            android:targetActivity=".car.CarDockActivity" >
+            <meta-data
+                android:name="android.dock_home"
+                android:value="true" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.CAR_DOCK" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias android:name=".car.CarDockActivity2"
+            android:targetActivity=".car.CarDockActivity"
+            android:enabled="false" >
+            <meta-data
+                android:name="android.dock_home"
+                android:value="true" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.CAR_DOCK" />
+            </intent-filter>
+        </activity-alias>
 
     </application>
 

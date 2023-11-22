@@ -22,6 +22,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkFactory;
 import android.net.NetworkRequest;
+import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -30,6 +31,7 @@ import android.provider.Settings;
 import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
+import android.util.LocalLog;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.Phone;
@@ -39,9 +41,11 @@ import com.android.internal.telephony.PhoneProxy;
 import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.dataconnection.DcSwitchAsyncChannel.RequestInfo;
 import com.android.internal.util.AsyncChannel;
+import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -55,9 +59,13 @@ public class DctController extends Handler {
     private static final int EVENT_EXECUTE_ALL_REQUESTS = 102;
     private static final int EVENT_RELEASE_REQUEST = 103;
     private static final int EVENT_RELEASE_ALL_REQUESTS = 104;
+    private static final int EVENT_RETRY_ATTACH = 105;
+    private static final int EVENT_SETTINGS_CHANGED = 106;
+    private static final int EVENT_SUBSCRIPTIONS_CHANGED = 107;
 
     private static final int EVENT_DATA_ATTACHED = 500;
     private static final int EVENT_DATA_DETACHED = 600;
+    private static final int EVENT_EMERGENCY_CALL_TOGGLED = 700;
 
     private static DctController sDctController;
 
@@ -83,7 +91,7 @@ public class DctController extends Handler {
             new OnSubscriptionsChangedListener() {
         @Override
         public void onSubscriptionsChanged() {
-            onSubInfoReady();
+            DctController.this.obtainMessage(EVENT_SUBSCRIPTIONS_CHANGED).sendToTarget();
         }
     };
 
@@ -91,7 +99,7 @@ public class DctController extends Handler {
         @Override
         public void onChange(boolean selfChange) {
             logd("Settings change");
-            onSettingsChange();
+            DctController.this.obtainMessage(EVENT_SETTINGS_CHANGED).sendToTarget();
         }
     };
 
@@ -122,6 +130,8 @@ public class DctController extends Handler {
                    EVENT_DATA_ATTACHED + index, null);
         phoneBase.getServiceStateTracker().registerForDataConnectionDetached(mRspHandler,
                    EVENT_DATA_DETACHED + index, null);
+        phoneBase.registerForEmergencyCallToggle(mRspHandler,
+                EVENT_EMERGENCY_CALL_TOGGLED + index, null);
 
         ConnectivityManager cm = (ConnectivityManager)mPhones[index].getContext()
             .getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -160,7 +170,14 @@ public class DctController extends Handler {
     private Handler mRspHandler = new Handler() {
         @Override
         public void handleMessage(Message msg){
-            if (msg.what >= EVENT_DATA_DETACHED) {
+            if (msg.what >= EVENT_EMERGENCY_CALL_TOGGLED) {
+                logd("EVENT_PHONE" + (msg.what - EVENT_EMERGENCY_CALL_TOGGLED + 1)
+                        + "_EMERGENCY_CALL_END.");
+                AsyncResult ar = (AsyncResult) msg.obj;
+                Integer toggle = (Integer) ar.result;
+                mDcSwitchAsyncChannel[msg.what - EVENT_EMERGENCY_CALL_TOGGLED].
+                        notifyEmergencyCallToggled(toggle.intValue());
+            } else if (msg.what >= EVENT_DATA_DETACHED) {
                 logd("EVENT_PHONE" + (msg.what - EVENT_DATA_DETACHED + 1)
                         + "_DATA_DETACH.");
                 mDcSwitchAsyncChannel[msg.what - EVENT_DATA_DETACHED].notifyDataDetached();
@@ -276,16 +293,26 @@ public class DctController extends Handler {
             case EVENT_RELEASE_ALL_REQUESTS:
                 onReleaseAllRequests(msg.arg1);
                 break;
+            case EVENT_RETRY_ATTACH:
+                onRetryAttach(msg.arg1);
+                break;
+            case EVENT_SETTINGS_CHANGED:
+                onSettingsChanged();
+                break;
+            case EVENT_SUBSCRIPTIONS_CHANGED:
+                onSubInfoReady();
+                break;
             default:
                 loge("Un-handled message [" + msg.what + "]");
         }
     }
 
-    private int requestNetwork(NetworkRequest request, int priority) {
+    private int requestNetwork(NetworkRequest request, int priority, LocalLog l, int phoneId) {
         logd("requestNetwork request=" + request
                 + ", priority=" + priority);
+        l.log("Dctc.requestNetwork, priority=" + priority);
 
-        RequestInfo requestInfo = new RequestInfo(request, priority);
+        RequestInfo requestInfo = new RequestInfo(request, priority, l, phoneId);
         mRequestInfos.put(request.requestId, requestInfo);
         processRequests();
 
@@ -295,6 +322,7 @@ public class DctController extends Handler {
     private int releaseNetwork(NetworkRequest request) {
         RequestInfo requestInfo = mRequestInfos.get(request.requestId);
         logd("releaseNetwork request=" + request + ", requestInfo=" + requestInfo);
+        if (requestInfo != null) requestInfo.log("DctController.releaseNetwork");
 
         mRequestInfos.remove(request.requestId);
         releaseRequest(requestInfo);
@@ -327,6 +355,11 @@ public class DctController extends Handler {
         sendMessage(obtainMessage(EVENT_RELEASE_ALL_REQUESTS, phoneId, 0));
     }
 
+    public void retryAttach(int phoneId) {
+        logd("retryAttach, phone:" + phoneId);
+        sendMessage(obtainMessage(EVENT_RETRY_ATTACH, phoneId, 0));
+    }
+
     private void onProcessRequest() {
         //process all requests
         //1. Check all requests and find subscription of the top priority
@@ -353,24 +386,25 @@ public class DctController extends Handler {
             Iterator<Integer> iterator = mRequestInfos.keySet().iterator();
             while (iterator.hasNext()) {
                 RequestInfo requestInfo = mRequestInfos.get(iterator.next());
-                if (getRequestPhoneId(requestInfo.request) == phoneId && !requestInfo.executed) {
-                    mDcSwitchAsyncChannel[phoneId].connectSync(requestInfo);
+                if (requestInfo.phoneId == phoneId && !requestInfo.executed) {
+                    mDcSwitchAsyncChannel[phoneId].connect(requestInfo);
                 }
             }
         } else {
-            mDcSwitchAsyncChannel[activePhoneId].disconnectAllSync();
+            mDcSwitchAsyncChannel[activePhoneId].disconnectAll();
         }
     }
 
     private void onExecuteRequest(RequestInfo requestInfo) {
-        logd("onExecuteRequest request=" + requestInfo);
-        if (!requestInfo.executed) {
+        if (!requestInfo.executed && mRequestInfos.containsKey(requestInfo.request.requestId)) {
+            logd("onExecuteRequest request=" + requestInfo);
+            requestInfo.log("DctController.onExecuteRequest - executed=" + requestInfo.executed);
             requestInfo.executed = true;
             String apn = apnForNetworkRequest(requestInfo.request);
-            int phoneId = getRequestPhoneId(requestInfo.request);
+            int phoneId = requestInfo.phoneId;
             PhoneBase phoneBase = (PhoneBase)mPhones[phoneId].getActivePhone();
             DcTrackerBase dcTracker = phoneBase.mDcTracker;
-            dcTracker.incApnRefCount(apn);
+            dcTracker.incApnRefCount(apn, requestInfo.getLog());
         }
     }
 
@@ -379,7 +413,7 @@ public class DctController extends Handler {
         Iterator<Integer> iterator = mRequestInfos.keySet().iterator();
         while (iterator.hasNext()) {
             RequestInfo requestInfo = mRequestInfos.get(iterator.next());
-            if (getRequestPhoneId(requestInfo.request) == phoneId) {
+            if (requestInfo.phoneId == phoneId) {
                 onExecuteRequest(requestInfo);
             }
         }
@@ -387,13 +421,16 @@ public class DctController extends Handler {
 
     private void onReleaseRequest(RequestInfo requestInfo) {
         logd("onReleaseRequest request=" + requestInfo);
-        if (requestInfo != null && requestInfo.executed) {
-            String apn = apnForNetworkRequest(requestInfo.request);
-            int phoneId = getRequestPhoneId(requestInfo.request);
-            PhoneBase phoneBase = (PhoneBase)mPhones[phoneId].getActivePhone();
-            DcTrackerBase dcTracker = phoneBase.mDcTracker;
-            dcTracker.decApnRefCount(apn);
-            requestInfo.executed = false;
+        if (requestInfo != null) {
+            requestInfo.log("DctController.onReleaseRequest");
+            if (requestInfo.executed) {
+                String apn = apnForNetworkRequest(requestInfo.request);
+                int phoneId = requestInfo.phoneId;
+                PhoneBase phoneBase = (PhoneBase)mPhones[phoneId].getActivePhone();
+                DcTrackerBase dcTracker = phoneBase.mDcTracker;
+                dcTracker.decApnRefCount(apn, requestInfo.getLog());
+                requestInfo.executed = false;
+            }
         }
     }
 
@@ -402,13 +439,22 @@ public class DctController extends Handler {
         Iterator<Integer> iterator = mRequestInfos.keySet().iterator();
         while (iterator.hasNext()) {
             RequestInfo requestInfo = mRequestInfos.get(iterator.next());
-            if (getRequestPhoneId(requestInfo.request) == phoneId) {
+            if (requestInfo.phoneId == phoneId) {
                 onReleaseRequest(requestInfo);
             }
         }
     }
 
-    private void onSettingsChange() {
+    private void onRetryAttach(int phoneId) {
+        final int topPriPhone = getTopPriorityRequestPhoneId();
+        logd("onRetryAttach phoneId=" + phoneId + " topPri phone = " + topPriPhone);
+
+        if (phoneId != -1 && phoneId == topPriPhone) {
+            mDcSwitchAsyncChannel[phoneId].retryConnect();
+        }
+    }
+
+    private void onSettingsChanged() {
         //Sub Selection
         long dataSubId = mSubController.getDefaultDataSubId();
 
@@ -437,10 +483,11 @@ public class DctController extends Handler {
                         String apn = apnForNetworkRequest(requestInfo.request);
                         logd("[setDataSubId] activePhoneId:" + activePhoneId + ", subId =" +
                                 dataSubId);
+                        requestInfo.log("DctController.onSettingsChange releasing request");
                         PhoneBase phoneBase =
                                 (PhoneBase)mPhones[activePhoneId].getActivePhone();
                         DcTrackerBase dcTracker = phoneBase.mDcTracker;
-                        dcTracker.decApnRefCount(apn);
+                        dcTracker.decApnRefCount(apn, requestInfo.getLog());
                         requestInfo.executed = false;
                     }
                 }
@@ -467,7 +514,7 @@ public class DctController extends Handler {
             while (iterator.hasNext()) {
                 RequestInfo requestInfo = mRequestInfos.get(iterator.next());
                 logd("selectExecPhone requestInfo = " + requestInfo);
-                if (getRequestPhoneId(requestInfo.request) == i &&
+                if (requestInfo.phoneId == i &&
                         priority < requestInfo.priority) {
                     priority = requestInfo.priority;
                     retRequestInfo = requestInfo;
@@ -477,6 +524,11 @@ public class DctController extends Handler {
 
         if (retRequestInfo != null) {
             phoneId = getRequestPhoneId(retRequestInfo.request);
+        } else {
+            int defaultDds = mSubController.getDefaultDataSubId();
+            phoneId = mSubController.getPhoneId(defaultDds);
+            logd("getTopPriorityRequestPhoneId: RequestInfo list is empty, " +
+                    "use Dds sub phone id");
         }
 
         logd("getTopPriorityRequestPhoneId = " + phoneId
@@ -562,10 +614,14 @@ public class DctController extends Handler {
         }
         if (nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_EIMS)) {
             if (name != null) error = true;
-            name = null;
-            loge("EIMS APN type not yet supported");
+            name = PhoneConstants.APN_TYPE_EMERGENCY;
+            type = ConnectivityManager.TYPE_MOBILE_EMERGENCY;
         }
         if (error) {
+            // TODO: If this error condition is removed, the framework's handling of
+            // NET_CAPABILITY_NOT_RESTRICTED will need to be updated so requests for
+            // say FOTA and INTERNET are marked as restricted.  This is not how
+            // NetworkCapabilities.maybeMarkCapabilitiesRestricted currently works.
             loge("Multiple apn types specified in request - result is unspecified!");
         }
         if (type == -1 || name == null) {
@@ -605,6 +661,21 @@ public class DctController extends Handler {
         private final SparseArray<NetworkRequest> mPendingReq = new SparseArray<NetworkRequest>();
         private Phone mPhone;
 
+        private class RequestLogger {
+            public NetworkRequest request;
+            public LocalLog log;
+
+            public RequestLogger(NetworkRequest r, LocalLog log) {
+                request = r;
+                this.log = log;
+            }
+        }
+
+        private static final int MAX_REQUESTS_LOGGED = 20;
+        private static final int MAX_LOG_LINES_PER_REQUEST = 50;
+
+        private ArrayDeque<RequestLogger> mRequestLogs = new ArrayDeque<RequestLogger>();
+
         public TelephonyNetworkFactory(Looper l, Context c, String TAG, Phone phone,
                 NetworkCapabilities nc) {
             super(l, c, TAG, nc);
@@ -612,53 +683,78 @@ public class DctController extends Handler {
             log("NetworkCapabilities: " + nc);
         }
 
+        public LocalLog requestLog(int requestId, String l) {
+            synchronized(mRequestLogs) {
+                for (RequestLogger r : mRequestLogs) {
+                    if (r.request.requestId == requestId) {
+                        r.log.log(l);
+                        return r.log;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private LocalLog addLogger(NetworkRequest request) {
+            synchronized(mRequestLogs) {
+                for (RequestLogger r : mRequestLogs) {
+                    if (r.request.requestId == request.requestId) {
+                        return r.log;
+                    }
+                }
+                LocalLog l = new LocalLog(MAX_LOG_LINES_PER_REQUEST);
+                RequestLogger logger = new RequestLogger(request, l);
+                while (mRequestLogs.size() >= MAX_REQUESTS_LOGGED) {
+                    mRequestLogs.removeFirst();
+                }
+                mRequestLogs.addLast(logger);
+                return l;
+            }
+        }
+
         @Override
         protected void needNetworkFor(NetworkRequest networkRequest, int score) {
             // figure out the apn type and enable it
             log("Cellular needs Network for " + networkRequest);
 
-            if (!SubscriptionManager.isUsableSubIdValue(mPhone.getSubId())) {
-                log("Sub Info has not been ready, pending request.");
+            final LocalLog l = addLogger(networkRequest);
+
+            if (!SubscriptionManager.isUsableSubIdValue(mPhone.getSubId()) ||
+                    getRequestPhoneId(networkRequest) != mPhone.getPhoneId()) {
+                final String str = "Request not useable, pending request.";
+                log(str);
+                l.log(str);
                 mPendingReq.put(networkRequest.requestId, networkRequest);
                 return;
             }
 
-            if (getRequestPhoneId(networkRequest) == mPhone.getPhoneId()) {
-                DcTrackerBase dcTracker =((PhoneBase)mPhone).mDcTracker;
-                String apn = apnForNetworkRequest(networkRequest);
-                if (dcTracker.isApnSupported(apn)) {
-                    requestNetwork(networkRequest, dcTracker.getApnPriority(apn));
-                } else {
-                    log("Unsupported APN");
-                }
+            DcTrackerBase dcTracker =((PhoneBase)mPhone).mDcTracker;
+            String apn = apnForNetworkRequest(networkRequest);
+            if (dcTracker.isApnSupported(apn)) {
+                requestNetwork(networkRequest, dcTracker.getApnPriority(apn), l,
+                        mPhone.getPhoneId());
             } else {
-                log("Request not send, put to pending");
-                mPendingReq.put(networkRequest.requestId, networkRequest);
+                final String str = "Unsupported APN";
+                log(str);
+                l.log(str);
             }
         }
 
         @Override
         protected void releaseNetworkFor(NetworkRequest networkRequest) {
-            log("Cellular releasing Network for " + networkRequest);
+            String str = "Cellular releasing Network for ";
+            log(str + networkRequest);
+            final LocalLog l = requestLog(networkRequest.requestId, str);
 
-            if (!SubscriptionManager.isUsableSubIdValue(mPhone.getSubId())) {
-                log("Sub Info has not been ready, remove request.");
+            if (mPendingReq.get(networkRequest.requestId) != null) {
+                str = "Sub Info has not been ready, remove request.";
+                log(str);
+                if (l != null) l.log(str);
                 mPendingReq.remove(networkRequest.requestId);
                 return;
             }
 
-            if (getRequestPhoneId(networkRequest) == mPhone.getPhoneId()) {
-                DcTrackerBase dcTracker =((PhoneBase)mPhone).mDcTracker;
-                String apn = apnForNetworkRequest(networkRequest);
-                if (dcTracker.isApnSupported(apn)) {
-                    releaseNetwork(networkRequest);
-                } else {
-                    log("Unsupported APN");
-                }
-
-            } else {
-                log("Request not release");
-            }
+            releaseNetwork(networkRequest);
         }
 
         @Override
@@ -677,6 +773,33 @@ public class DctController extends Handler {
                 mPendingReq.remove(request.requestId);
                 needNetworkFor(request, 0);
             }
+        }
+
+        @Override
+        public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+            super.dump(fd, writer, args);
+            final IndentingPrintWriter pw = new IndentingPrintWriter(writer, "  ");
+            pw.increaseIndent();
+            pw.println("Pending Requests:");
+            pw.increaseIndent();
+            for (int i = 0; i < mPendingReq.size(); i++) {
+                NetworkRequest request = mPendingReq.valueAt(i);
+                pw.println(request);
+            }
+            pw.decreaseIndent();
+
+            pw.println("Request History:");
+            pw.increaseIndent();
+            synchronized(mRequestLogs) {
+                for (RequestLogger r : mRequestLogs) {
+                    pw.println(r.request);
+                    pw.increaseIndent();
+                    r.log.dump(fd, pw, args);
+                    pw.decreaseIndent();
+                }
+            }
+            pw.decreaseIndent();
+            pw.decreaseIndent();
         }
     }
 
@@ -704,7 +827,7 @@ public class DctController extends Handler {
         pw.flush();
         pw.println("TelephonyNetworkFactories:");
         for (NetworkFactory tnf : mNetworkFactory) {
-            pw.println("  " + tnf);
+            tnf.dump(fd, pw, args);
         }
         pw.flush();
         pw.println("++++++++++++++++++++++++++++++++");

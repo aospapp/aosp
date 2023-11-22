@@ -27,7 +27,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Intents.Insert;
-import android.provider.ContactsContract.Intents.UI;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -45,7 +44,10 @@ import android.widget.Toast;
 
 import com.android.contacts.ContactsActivity;
 import com.android.contacts.R;
+import com.android.contacts.common.activity.RequestPermissionsActivity;
 import com.android.contacts.common.list.ContactEntryListFragment;
+import com.android.contacts.common.util.ImplicitIntentsUtil;
+import com.android.contacts.editor.EditorIntents;
 import com.android.contacts.list.ContactPickerFragment;
 import com.android.contacts.list.ContactsIntentResolver;
 import com.android.contacts.list.ContactsRequest;
@@ -55,6 +57,7 @@ import com.android.contacts.list.JoinContactListFragment;
 import com.android.contacts.list.LegacyPhoneNumberPickerFragment;
 import com.android.contacts.list.OnContactPickerActionListener;
 import com.android.contacts.list.OnEmailAddressPickerActionListener;
+import com.android.contacts.list.UiIntentActions;
 import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
 import com.android.contacts.list.OnPostalAddressPickerActionListener;
 import com.android.contacts.common.list.PhoneNumberPickerFragment;
@@ -105,6 +108,10 @@ public class ContactSelectionActivity extends ContactsActivity
     protected void onCreate(Bundle savedState) {
         super.onCreate(savedState);
 
+        if (RequestPermissionsActivity.startPermissionActivity(this)) {
+            return;
+        }
+
         if (savedState != null) {
             mActionCode = savedState.getInt(KEY_ACTION_CODE);
             mIsSearchMode = savedState.getBoolean(KEY_SEARCH_MODE);
@@ -114,14 +121,6 @@ public class ContactSelectionActivity extends ContactsActivity
         mRequest = mIntentResolver.resolveIntent(getIntent());
         if (!mRequest.isValid()) {
             setResult(RESULT_CANCELED);
-            finish();
-            return;
-        }
-
-        Intent redirect = mRequest.getRedirectIntent();
-        if (redirect != null) {
-            // Need to start a different activity
-            startActivity(redirect);
             finish();
             return;
         }
@@ -427,7 +426,9 @@ public class ContactSelectionActivity extends ContactsActivity
                 startActivityForResult(intent, SUBACTIVITY_ADD_TO_EXISTING_CONTACT);
             } else {
                 // Otherwise launch the full contact editor.
-                startActivityAndForwardResult(new Intent(Intent.ACTION_EDIT, contactLookupUri));
+                startActivityAndForwardResult(EditorIntents.createEditContactIntent(
+                        contactLookupUri, /* materialPalette =*/ null, /* photoId =*/ -1,
+                        /* nameId =*/ -1));
             }
         }
 
@@ -616,10 +617,11 @@ public class ContactSelectionActivity extends ContactsActivity
 
     private long getTargetContactId() {
         Intent intent = getIntent();
-        final long targetContactId = intent.getLongExtra(UI.TARGET_CONTACT_ID_EXTRA_KEY, -1);
+        final long targetContactId = intent.getLongExtra(
+                UiIntentActions.TARGET_CONTACT_ID_EXTRA_KEY, -1);
         if (targetContactId == -1) {
             Log.e(TAG, "Intent " + intent.getAction() + " is missing required extra: "
-                    + UI.TARGET_CONTACT_ID_EXTRA_KEY);
+                    + UiIntentActions.TARGET_CONTACT_ID_EXTRA_KEY);
             setResult(RESULT_CANCELED);
             finish();
             return -1;
@@ -649,7 +651,7 @@ public class ContactSelectionActivity extends ContactsActivity
         if (requestCode == SUBACTIVITY_ADD_TO_EXISTING_CONTACT) {
             if (resultCode == Activity.RESULT_OK) {
                 if (data != null) {
-                    startActivity(data);
+                    ImplicitIntentsUtil.startActivityInAppIfPossible(this, data);
                 }
                 finish();
             }

@@ -104,7 +104,7 @@ const char * const uris[4] = {"wav/frog.wav", "wav/frog.wav", "wav/frog.wav", "w
 
 // Main program
 
-int main(int argc, char **argv)
+int main(int argc __unused, char **argv __unused)
 {
     SLresult result;
 

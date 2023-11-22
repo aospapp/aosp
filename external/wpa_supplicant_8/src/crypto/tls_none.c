@@ -87,7 +87,7 @@ int tls_connection_get_keys(void *tls_ctx, struct tls_connection *conn,
 
 int tls_connection_prf(void *tls_ctx, struct tls_connection *conn,
 		       const char *label, int server_random_first,
-		       u8 *out, size_t out_len)
+		       int skip_keyblock, u8 *out, size_t out_len)
 {
 	return -1;
 }
@@ -181,14 +181,13 @@ int tls_connection_get_write_alerts(void *tls_ctx,
 }
 
 
-int tls_connection_get_keyblock_size(void *tls_ctx,
-				     struct tls_connection *conn)
-{
-	return -1;
-}
-
-
 unsigned int tls_capabilities(void *tls_ctx)
 {
 	return 0;
+}
+
+
+int tls_get_library_version(char *buf, size_t buf_len)
+{
+	return os_snprintf(buf, buf_len, "none");
 }

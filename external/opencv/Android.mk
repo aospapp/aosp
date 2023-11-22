@@ -9,6 +9,9 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/cxcore/include
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%)
 
+# cxmathfuncs.cpp has implicit cast of int struct fields.
+LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
+
 LOCAL_SRC_FILES := \
         cxcore/src/cxalloc.cpp \
         cxcore/src/cxarithm.cpp \
@@ -233,6 +236,9 @@ LOCAL_C_INCLUDES := \
 LOCAL_SHARED_LIBRARIES += libjpeg
 
 LOCAL_CFLAGS := $(LOCAL_C_INCLUDES:%=-I%) -DHAVE_JPEG
+
+# grfmt_tiff.cpp has implicit cast of int struct fields.
+LOCAL_CLANG_CFLAGS += -Wno-c++11-narrowing
 
 LOCAL_SRC_FILES := \
         otherlibs/highgui/bitstrm.cpp \

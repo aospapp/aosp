@@ -16,11 +16,21 @@
 
 /* This file contains codegen for the Thumb2 ISA. */
 
-#include "arm_lir.h"
 #include "codegen_arm.h"
+
+#include "arm_lir.h"
+#include "art_method.h"
+#include "base/bit_utils.h"
+#include "base/logging.h"
+#include "dex/mir_graph.h"
+#include "dex/quick/dex_file_to_method_inliner_map.h"
 #include "dex/quick/mir_to_lir-inl.h"
+#include "driver/compiler_driver.h"
+#include "driver/compiler_options.h"
 #include "gc/accounting/card_table.h"
+#include "mirror/object_array-inl.h"
 #include "entrypoints/quick/quick_entrypoints.h"
+#include "utils/dex_cache_arrays_layout-inl.h"
 
 namespace art {
 
@@ -44,18 +54,15 @@ namespace art {
  *   cbnz  r_idx, lp
  */
 void ArmMir2Lir::GenLargeSparseSwitch(MIR* mir, uint32_t table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
-  if (cu_->verbose) {
-    DumpSparseSwitchTable(table);
-  }
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   // Add the table to the list - we'll process it later
   SwitchTable *tab_rec =
       static_cast<SwitchTable*>(arena_->Alloc(sizeof(SwitchTable), kArenaAllocData));
+  tab_rec->switch_mir = mir;
   tab_rec->table = table;
   tab_rec->vaddr = current_dalvik_offset_;
   uint32_t size = table[1];
-  tab_rec->targets = static_cast<LIR**>(arena_->Alloc(size * sizeof(LIR*), kArenaAllocLIR));
-  switch_tables_.Insert(tab_rec);
+  switch_tables_.push_back(tab_rec);
 
   // Get the switch value
   rl_src = LoadValue(rl_src, kCoreReg);
@@ -92,19 +99,15 @@ void ArmMir2Lir::GenLargeSparseSwitch(MIR* mir, uint32_t table_offset, RegLocati
 
 
 void ArmMir2Lir::GenLargePackedSwitch(MIR* mir, uint32_t table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
-  if (cu_->verbose) {
-    DumpPackedSwitchTable(table);
-  }
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   // Add the table to the list - we'll process it later
   SwitchTable *tab_rec =
       static_cast<SwitchTable*>(arena_->Alloc(sizeof(SwitchTable),  kArenaAllocData));
+  tab_rec->switch_mir = mir;
   tab_rec->table = table;
   tab_rec->vaddr = current_dalvik_offset_;
   uint32_t size = table[1];
-  tab_rec->targets =
-      static_cast<LIR**>(arena_->Alloc(size * sizeof(LIR*), kArenaAllocLIR));
-  switch_tables_.Insert(tab_rec);
+  switch_tables_.push_back(tab_rec);
 
   // Get the switch value
   rl_src = LoadValue(rl_src, kCoreReg);
@@ -122,7 +125,7 @@ void ArmMir2Lir::GenLargePackedSwitch(MIR* mir, uint32_t table_offset, RegLocati
   }
   // Bounds check - if < 0 or >= size continue following switch
   OpRegImm(kOpCmp, keyReg, size-1);
-  LIR* branch_over = OpCondBranch(kCondHi, NULL);
+  LIR* branch_over = OpCondBranch(kCondHi, nullptr);
 
   // Load the displacement from the switch table
   RegStorage disp_reg = AllocTemp();
@@ -135,41 +138,6 @@ void ArmMir2Lir::GenLargePackedSwitch(MIR* mir, uint32_t table_offset, RegLocati
   /* branch_over target here */
   LIR* target = NewLIR0(kPseudoTargetLabel);
   branch_over->target = target;
-}
-
-/*
- * Array data table format:
- *  ushort ident = 0x0300   magic value
- *  ushort width            width of each element in the table
- *  uint   size             number of elements in the table
- *  ubyte  data[size*width] table of data values (may contain a single-byte
- *                          padding at the end)
- *
- * Total size is 4+(width * size + 1)/2 16-bit code units.
- */
-void ArmMir2Lir::GenFillArrayData(uint32_t table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
-  // Add the table to the list - we'll process it later
-  FillArrayData *tab_rec =
-      static_cast<FillArrayData*>(arena_->Alloc(sizeof(FillArrayData), kArenaAllocData));
-  tab_rec->table = table;
-  tab_rec->vaddr = current_dalvik_offset_;
-  uint16_t width = tab_rec->table[1];
-  uint32_t size = tab_rec->table[2] | ((static_cast<uint32_t>(tab_rec->table[3])) << 16);
-  tab_rec->size = (size * width) + 8;
-
-  fill_array_data_.Insert(tab_rec);
-
-  // Making a call - use explicit registers
-  FlushAllRegs();   /* Everything to home location */
-  LoadValueDirectFixed(rl_src, rs_r0);
-  LoadWordDisp(rs_rARM_SELF, QUICK_ENTRYPOINT_OFFSET(4, pHandleFillArrayData).Int32Value(),
-               rs_rARM_LR);
-  // Materialize a pointer to the fill data image
-  NewLIR3(kThumb2Adr, rs_r1.GetReg(), 0, WrapPointer(tab_rec));
-  ClobberCallerSave();
-  LIR* call_inst = OpReg(kOpBlx, rs_rARM_LR);
-  MarkSafepointPC(call_inst);
 }
 
 /*
@@ -189,17 +157,21 @@ void ArmMir2Lir::GenMonitorEnter(int opt_flags, RegLocation rl_src) {
     } else {
       // If the null-check fails its handled by the slow-path to reduce exception related meta-data.
       if (!cu_->compiler_driver->GetCompilerOptions().GetImplicitNullChecks()) {
-        null_check_branch = OpCmpImmBranch(kCondEq, rs_r0, 0, NULL);
+        null_check_branch = OpCmpImmBranch(kCondEq, rs_r0, 0, nullptr);
       }
     }
     Load32Disp(rs_rARM_SELF, Thread::ThinLockIdOffset<4>().Int32Value(), rs_r2);
     NewLIR3(kThumb2Ldrex, rs_r1.GetReg(), rs_r0.GetReg(),
         mirror::Object::MonitorOffset().Int32Value() >> 2);
     MarkPossibleNullPointerException(opt_flags);
-    LIR* not_unlocked_branch = OpCmpImmBranch(kCondNe, rs_r1, 0, NULL);
+    // Zero out the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r3, rs_r1, LockWord::kReadBarrierStateMaskShiftedToggled);
+    LIR* not_unlocked_branch = OpCmpImmBranch(kCondNe, rs_r3, 0, nullptr);
+    // r1 is zero except for the rb bits here. Copy the read barrier bits into r2.
+    OpRegRegReg(kOpOr, rs_r2, rs_r2, rs_r1);
     NewLIR4(kThumb2Strex, rs_r1.GetReg(), rs_r2.GetReg(), rs_r0.GetReg(),
         mirror::Object::MonitorOffset().Int32Value() >> 2);
-    LIR* lock_success_branch = OpCmpImmBranch(kCondEq, rs_r1, 0, NULL);
+    LIR* lock_success_branch = OpCmpImmBranch(kCondEq, rs_r1, 0, nullptr);
 
 
     LIR* slow_path_target = NewLIR0(kPseudoTargetLabel);
@@ -224,7 +196,14 @@ void ArmMir2Lir::GenMonitorEnter(int opt_flags, RegLocation rl_src) {
     NewLIR3(kThumb2Ldrex, rs_r1.GetReg(), rs_r0.GetReg(),
         mirror::Object::MonitorOffset().Int32Value() >> 2);
     MarkPossibleNullPointerException(opt_flags);
-    OpRegImm(kOpCmp, rs_r1, 0);
+    // Zero out the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r3, rs_r1, LockWord::kReadBarrierStateMaskShiftedToggled);
+    // r1 will be zero except for the rb bits if the following
+    // cmp-and-branch branches to eq where r2 will be used. Copy the
+    // read barrier bits into r2.
+    OpRegRegReg(kOpOr, rs_r2, rs_r2, rs_r1);
+    OpRegImm(kOpCmp, rs_r3, 0);
+
     LIR* it = OpIT(kCondEq, "");
     NewLIR4(kThumb2Strex/*eq*/, rs_r1.GetReg(), rs_r2.GetReg(), rs_r0.GetReg(),
         mirror::Object::MonitorOffset().Int32Value() >> 2);
@@ -260,17 +239,31 @@ void ArmMir2Lir::GenMonitorExit(int opt_flags, RegLocation rl_src) {
     } else {
       // If the null-check fails its handled by the slow-path to reduce exception related meta-data.
       if (!cu_->compiler_driver->GetCompilerOptions().GetImplicitNullChecks()) {
-        null_check_branch = OpCmpImmBranch(kCondEq, rs_r0, 0, NULL);
+        null_check_branch = OpCmpImmBranch(kCondEq, rs_r0, 0, nullptr);
       }
     }
-    Load32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);
+    if (!kUseReadBarrier) {
+      Load32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);  // Get lock
+    } else {
+      NewLIR3(kThumb2Ldrex, rs_r1.GetReg(), rs_r0.GetReg(),
+              mirror::Object::MonitorOffset().Int32Value() >> 2);
+    }
     MarkPossibleNullPointerException(opt_flags);
-    LoadConstantNoClobber(rs_r3, 0);
-    LIR* slow_unlock_branch = OpCmpBranch(kCondNe, rs_r1, rs_r2, NULL);
+    // Zero out the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r3, rs_r1, LockWord::kReadBarrierStateMaskShiftedToggled);
+    // Zero out except the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r1, rs_r1, LockWord::kReadBarrierStateMaskShifted);
+    LIR* slow_unlock_branch = OpCmpBranch(kCondNe, rs_r3, rs_r2, nullptr);
     GenMemBarrier(kAnyStore);
-    Store32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r3);
-    LIR* unlock_success_branch = OpUnconditionalBranch(NULL);
-
+    LIR* unlock_success_branch;
+    if (!kUseReadBarrier) {
+      Store32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);
+      unlock_success_branch = OpUnconditionalBranch(nullptr);
+    } else {
+      NewLIR4(kThumb2Strex, rs_r2.GetReg(), rs_r1.GetReg(), rs_r0.GetReg(),
+              mirror::Object::MonitorOffset().Int32Value() >> 2);
+      unlock_success_branch = OpCmpImmBranch(kCondEq, rs_r2, 0, nullptr);
+    }
     LIR* slow_path_target = NewLIR0(kPseudoTargetLabel);
     slow_unlock_branch->target = slow_path_target;
     if (null_check_branch != nullptr) {
@@ -288,25 +281,57 @@ void ArmMir2Lir::GenMonitorExit(int opt_flags, RegLocation rl_src) {
   } else {
     // Explicit null-check as slow-path is entered using an IT.
     GenNullCheck(rs_r0, opt_flags);
-    Load32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);  // Get lock
+    if (!kUseReadBarrier) {
+      Load32Disp(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);  // Get lock
+    } else {
+      // If we use read barriers, we need to use atomic instructions.
+      NewLIR3(kThumb2Ldrex, rs_r1.GetReg(), rs_r0.GetReg(),
+              mirror::Object::MonitorOffset().Int32Value() >> 2);
+    }
     MarkPossibleNullPointerException(opt_flags);
     Load32Disp(rs_rARM_SELF, Thread::ThinLockIdOffset<4>().Int32Value(), rs_r2);
-    LoadConstantNoClobber(rs_r3, 0);
+    // Zero out the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r3, rs_r1, LockWord::kReadBarrierStateMaskShiftedToggled);
+    // Zero out except the read barrier bits.
+    OpRegRegImm(kOpAnd, rs_r1, rs_r1, LockWord::kReadBarrierStateMaskShifted);
     // Is lock unheld on lock or held by us (==thread_id) on unlock?
-    OpRegReg(kOpCmp, rs_r1, rs_r2);
-
-    LIR* it = OpIT(kCondEq, "EE");
-    if (GenMemBarrier(kAnyStore)) {
-      UpdateIT(it, "TEE");
+    OpRegReg(kOpCmp, rs_r3, rs_r2);
+    if (!kUseReadBarrier) {
+      LIR* it = OpIT(kCondEq, "EE");
+      if (GenMemBarrier(kAnyStore)) {
+        UpdateIT(it, "TEE");
+      }
+      Store32Disp/*eq*/(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r1);
+      // Go expensive route - UnlockObjectFromCode(obj);
+      LoadWordDisp/*ne*/(rs_rARM_SELF, QUICK_ENTRYPOINT_OFFSET(4, pUnlockObject).Int32Value(),
+                         rs_rARM_LR);
+      ClobberCallerSave();
+      LIR* call_inst = OpReg(kOpBlx/*ne*/, rs_rARM_LR);
+      OpEndIT(it);
+      MarkSafepointPC(call_inst);
+    } else {
+      // If we use read barriers, we need to use atomic instructions.
+      LIR* it = OpIT(kCondEq, "");
+      if (GenMemBarrier(kAnyStore)) {
+        UpdateIT(it, "T");
+      }
+      NewLIR4/*eq*/(kThumb2Strex, rs_r2.GetReg(), rs_r1.GetReg(), rs_r0.GetReg(),
+                    mirror::Object::MonitorOffset().Int32Value() >> 2);
+      OpEndIT(it);
+      // Since we know r2 wasn't zero before the above it instruction,
+      // if r2 is zero here, we know r3 was equal to r2 and the strex
+      // suceeded (we're done). Otherwise (either r3 wasn't equal to r2
+      // or the strex failed), call the entrypoint.
+      OpRegImm(kOpCmp, rs_r2, 0);
+      LIR* it2 = OpIT(kCondNe, "T");
+      // Go expensive route - UnlockObjectFromCode(obj);
+      LoadWordDisp/*ne*/(rs_rARM_SELF, QUICK_ENTRYPOINT_OFFSET(4, pUnlockObject).Int32Value(),
+                         rs_rARM_LR);
+      ClobberCallerSave();
+      LIR* call_inst = OpReg(kOpBlx/*ne*/, rs_rARM_LR);
+      OpEndIT(it2);
+      MarkSafepointPC(call_inst);
     }
-    Store32Disp/*eq*/(rs_r0, mirror::Object::MonitorOffset().Int32Value(), rs_r3);
-    // Go expensive route - UnlockObjectFromCode(obj);
-    LoadWordDisp/*ne*/(rs_rARM_SELF, QUICK_ENTRYPOINT_OFFSET(4, pUnlockObject).Int32Value(),
-                       rs_rARM_LR);
-    ClobberCallerSave();
-    LIR* call_inst = OpReg(kOpBlx/*ne*/, rs_rARM_LR);
-    OpEndIT(it);
-    MarkSafepointPC(call_inst);
   }
 }
 
@@ -321,23 +346,26 @@ void ArmMir2Lir::GenMoveException(RegLocation rl_dest) {
   StoreValue(rl_dest, rl_result);
 }
 
-/*
- * Mark garbage collection card. Skip if the value we're storing is null.
- */
-void ArmMir2Lir::MarkGCCard(RegStorage val_reg, RegStorage tgt_addr_reg) {
+void ArmMir2Lir::UnconditionallyMarkGCCard(RegStorage tgt_addr_reg) {
   RegStorage reg_card_base = AllocTemp();
   RegStorage reg_card_no = AllocTemp();
-  LIR* branch_over = OpCmpImmBranch(kCondEq, val_reg, 0, NULL);
   LoadWordDisp(rs_rARM_SELF, Thread::CardTableOffset<4>().Int32Value(), reg_card_base);
   OpRegRegImm(kOpLsr, reg_card_no, tgt_addr_reg, gc::accounting::CardTable::kCardShift);
   StoreBaseIndexed(reg_card_base, reg_card_no, reg_card_base, 0, kUnsignedByte);
-  LIR* target = NewLIR0(kPseudoTargetLabel);
-  branch_over->target = target;
   FreeTemp(reg_card_base);
   FreeTemp(reg_card_no);
 }
 
+static dwarf::Reg DwarfCoreReg(int num) {
+  return dwarf::Reg::ArmCore(num);
+}
+
+static dwarf::Reg DwarfFpReg(int num) {
+  return dwarf::Reg::ArmFp(num);
+}
+
 void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
+  DCHECK_EQ(cfi_.GetCurrentCFAOffset(), 0);  // empty stack.
   int spill_count = num_core_spills_ + num_fp_spills_;
   /*
    * On entry, r0, r1, r2 & r3 are live.  Let the register allocation
@@ -355,7 +383,6 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
    * a leaf *and* our frame size < fudge factor.
    */
   bool skip_overflow_check = mir_graph_->MethodIsLeaf() && !FrameNeedsStackCheck(frame_size_, kArm);
-  NewLIR0(kPseudoMethodEntry);
   const size_t kStackOverflowReservedUsableBytes = GetStackOverflowReservedBytes(kArm);
   bool large_frame = (static_cast<size_t>(frame_size_) > kStackOverflowReservedUsableBytes);
   bool generate_explicit_stack_overflow_check = large_frame ||
@@ -386,15 +413,32 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
     }
   }
   /* Spill core callee saves */
-  NewLIR1(kThumb2Push, core_spill_mask_);
+  if (core_spill_mask_ != 0u) {
+    if ((core_spill_mask_ & ~(0xffu | (1u << rs_rARM_LR.GetRegNum()))) == 0u) {
+      // Spilling only low regs and/or LR, use 16-bit PUSH.
+      constexpr int lr_bit_shift = rs_rARM_LR.GetRegNum() - 8;
+      NewLIR1(kThumbPush,
+              (core_spill_mask_ & ~(1u << rs_rARM_LR.GetRegNum())) |
+              ((core_spill_mask_ & (1u << rs_rARM_LR.GetRegNum())) >> lr_bit_shift));
+    } else if (IsPowerOfTwo(core_spill_mask_)) {
+      // kThumb2Push cannot be used to spill a single register.
+      NewLIR1(kThumb2Push1, CTZ(core_spill_mask_));
+    } else {
+      NewLIR1(kThumb2Push, core_spill_mask_);
+    }
+    cfi_.AdjustCFAOffset(num_core_spills_ * kArmPointerSize);
+    cfi_.RelOffsetForMany(DwarfCoreReg(0), 0, core_spill_mask_, kArmPointerSize);
+  }
   /* Need to spill any FP regs? */
-  if (num_fp_spills_) {
+  if (num_fp_spills_ != 0u) {
     /*
      * NOTE: fp spills are a little different from core spills in that
      * they are pushed as a contiguous block.  When promoting from
      * the fp set, we must allocate all singles from s16..highest-promoted
      */
     NewLIR1(kThumb2VPushCS, num_fp_spills_);
+    cfi_.AdjustCFAOffset(num_fp_spills_ * kArmPointerSize);
+    cfi_.RelOffsetForMany(DwarfFpReg(0), 0, fp_spill_mask_, kArmPointerSize);
   }
 
   const int spill_size = spill_count * 4;
@@ -404,7 +448,7 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
       class StackOverflowSlowPath : public LIRSlowPath {
        public:
         StackOverflowSlowPath(Mir2Lir* m2l, LIR* branch, bool restore_lr, size_t sp_displace)
-            : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch, nullptr), restore_lr_(restore_lr),
+            : LIRSlowPath(m2l, branch), restore_lr_(restore_lr),
               sp_displace_(sp_displace) {
         }
         void Compile() OVERRIDE {
@@ -415,12 +459,14 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
             m2l_->LoadWordDisp(rs_rARM_SP, sp_displace_ - 4, rs_rARM_LR);
           }
           m2l_->OpRegImm(kOpAdd, rs_rARM_SP, sp_displace_);
+          m2l_->cfi().AdjustCFAOffset(-sp_displace_);
           m2l_->ClobberCallerSave();
           ThreadOffset<4> func_offset = QUICK_ENTRYPOINT_OFFSET(4, pThrowStackOverflow);
           // Load the entrypoint directly into the pc instead of doing a load + branch. Assumes
           // codegen and target are in thumb2 mode.
           // NOTE: native pointer.
           m2l_->LoadWordDisp(rs_rARM_SELF, func_offset.Int32Value(), rs_rARM_PC);
+          m2l_->cfi().AdjustCFAOffset(sp_displace_);
         }
 
        private:
@@ -435,6 +481,7 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
         // Need to restore LR since we used it as a temp.
         AddSlowPath(new(arena_)StackOverflowSlowPath(this, branch, true, spill_size));
         OpRegCopy(rs_rARM_SP, rs_rARM_LR);     // Establish stack
+        cfi_.AdjustCFAOffset(frame_size_without_spills);
       } else {
         /*
          * If the frame is small enough we are guaranteed to have enough space that remains to
@@ -445,6 +492,7 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
         MarkTemp(rs_rARM_LR);
         FreeTemp(rs_rARM_LR);
         OpRegRegImm(kOpSub, rs_rARM_SP, rs_rARM_SP, frame_size_without_spills);
+        cfi_.AdjustCFAOffset(frame_size_without_spills);
         Clobber(rs_rARM_LR);
         UnmarkTemp(rs_rARM_LR);
         LIR* branch = OpCmpBranch(kCondUlt, rs_rARM_SP, rs_r12, nullptr);
@@ -454,12 +502,22 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
       // Implicit stack overflow check has already been done.  Just make room on the
       // stack for the frame now.
       OpRegImm(kOpSub, rs_rARM_SP, frame_size_without_spills);
+      cfi_.AdjustCFAOffset(frame_size_without_spills);
     }
   } else {
     OpRegImm(kOpSub, rs_rARM_SP, frame_size_without_spills);
+    cfi_.AdjustCFAOffset(frame_size_without_spills);
   }
 
   FlushIns(ArgLocs, rl_method);
+
+  // We can promote a PC-relative reference to dex cache arrays to a register
+  // if it's used at least twice. Without investigating where we should lazily
+  // load the reference, we conveniently load it after flushing inputs.
+  if (dex_cache_arrays_base_reg_.Valid()) {
+    OpPcRelDexCacheArrayAddr(cu_->dex_file, dex_cache_arrays_min_offset_,
+                             dex_cache_arrays_base_reg_);
+  }
 
   FreeTemp(rs_r0);
   FreeTemp(rs_r1);
@@ -469,7 +527,9 @@ void ArmMir2Lir::GenEntrySequence(RegLocation* ArgLocs, RegLocation rl_method) {
 }
 
 void ArmMir2Lir::GenExitSequence() {
+  cfi_.RememberState();
   int spill_count = num_core_spills_ + num_fp_spills_;
+
   /*
    * In the exit path, r0/r1 are live - make sure they aren't
    * allocated by the register utilities as temps.
@@ -477,26 +537,225 @@ void ArmMir2Lir::GenExitSequence() {
   LockTemp(rs_r0);
   LockTemp(rs_r1);
 
-  NewLIR0(kPseudoMethodExit);
-  OpRegImm(kOpAdd, rs_rARM_SP, frame_size_ - (spill_count * 4));
+  int adjust = frame_size_ - (spill_count * kArmPointerSize);
+  OpRegImm(kOpAdd, rs_rARM_SP, adjust);
+  cfi_.AdjustCFAOffset(-adjust);
   /* Need to restore any FP callee saves? */
   if (num_fp_spills_) {
     NewLIR1(kThumb2VPopCS, num_fp_spills_);
+    cfi_.AdjustCFAOffset(-num_fp_spills_ * kArmPointerSize);
+    cfi_.RestoreMany(DwarfFpReg(0), fp_spill_mask_);
   }
-  if (core_spill_mask_ & (1 << rs_rARM_LR.GetRegNum())) {
-    /* Unspill rARM_LR to rARM_PC */
+  bool unspill_LR_to_PC = (core_spill_mask_ & (1 << rs_rARM_LR.GetRegNum())) != 0;
+  if (unspill_LR_to_PC) {
     core_spill_mask_ &= ~(1 << rs_rARM_LR.GetRegNum());
     core_spill_mask_ |= (1 << rs_rARM_PC.GetRegNum());
   }
-  NewLIR1(kThumb2Pop, core_spill_mask_);
-  if (!(core_spill_mask_ & (1 << rs_rARM_PC.GetRegNum()))) {
+  if (core_spill_mask_ != 0u) {
+    if ((core_spill_mask_ & ~(0xffu | (1u << rs_rARM_PC.GetRegNum()))) == 0u) {
+      // Unspilling only low regs and/or PC, use 16-bit POP.
+      constexpr int pc_bit_shift = rs_rARM_PC.GetRegNum() - 8;
+      NewLIR1(kThumbPop,
+              (core_spill_mask_ & ~(1u << rs_rARM_PC.GetRegNum())) |
+              ((core_spill_mask_ & (1u << rs_rARM_PC.GetRegNum())) >> pc_bit_shift));
+    } else if (IsPowerOfTwo(core_spill_mask_)) {
+      // kThumb2Pop cannot be used to unspill a single register.
+      NewLIR1(kThumb2Pop1, CTZ(core_spill_mask_));
+    } else {
+      NewLIR1(kThumb2Pop, core_spill_mask_);
+    }
+    // If we pop to PC, there is no further epilogue code.
+    if (!unspill_LR_to_PC) {
+      cfi_.AdjustCFAOffset(-num_core_spills_ * kArmPointerSize);
+      cfi_.RestoreMany(DwarfCoreReg(0), core_spill_mask_);
+      DCHECK_EQ(cfi_.GetCurrentCFAOffset(), 0);  // empty stack.
+    }
+  }
+  if (!unspill_LR_to_PC) {
     /* We didn't pop to rARM_PC, so must do a bv rARM_LR */
     NewLIR1(kThumbBx, rs_rARM_LR.GetReg());
   }
+  // The CFI should be restored for any code that follows the exit block.
+  cfi_.RestoreState();
+  cfi_.DefCFAOffset(frame_size_);
 }
 
 void ArmMir2Lir::GenSpecialExitSequence() {
   NewLIR1(kThumbBx, rs_rARM_LR.GetReg());
+}
+
+void ArmMir2Lir::GenSpecialEntryForSuspend() {
+  // Keep 16-byte stack alignment - push r0, i.e. ArtMethod*, r5, r6, lr.
+  DCHECK(!IsTemp(rs_r5));
+  DCHECK(!IsTemp(rs_r6));
+  core_spill_mask_ =
+      (1u << rs_r5.GetRegNum()) | (1u << rs_r6.GetRegNum()) | (1u << rs_rARM_LR.GetRegNum());
+  num_core_spills_ = 3u;
+  fp_spill_mask_ = 0u;
+  num_fp_spills_ = 0u;
+  frame_size_ = 16u;
+  core_vmap_table_.clear();
+  fp_vmap_table_.clear();
+  NewLIR1(kThumbPush, (1u << rs_r0.GetRegNum()) |                 // ArtMethod*
+          (core_spill_mask_ & ~(1u << rs_rARM_LR.GetRegNum())) |  // Spills other than LR.
+          (1u << 8));                                             // LR encoded for 16-bit push.
+  cfi_.AdjustCFAOffset(frame_size_);
+  // Do not generate CFI for scratch register r0.
+  cfi_.RelOffsetForMany(DwarfCoreReg(0), 4, core_spill_mask_, kArmPointerSize);
+}
+
+void ArmMir2Lir::GenSpecialExitForSuspend() {
+  // Pop the frame. (ArtMethod* no longer needed but restore it anyway.)
+  NewLIR1(kThumb2Pop, (1u << rs_r0.GetRegNum()) | core_spill_mask_);  // 32-bit because of LR.
+  cfi_.AdjustCFAOffset(-frame_size_);
+  cfi_.RestoreMany(DwarfCoreReg(0), core_spill_mask_);
+}
+
+static bool ArmUseRelativeCall(CompilationUnit* cu, const MethodReference& target_method) {
+  // Emit relative calls only within a dex file due to the limited range of the BL insn.
+  return cu->dex_file == target_method.dex_file;
+}
+
+/*
+ * Bit of a hack here - in the absence of a real scheduling pass,
+ * emit the next instruction in static & direct invoke sequences.
+ */
+int ArmMir2Lir::ArmNextSDCallInsn(CompilationUnit* cu, CallInfo* info,
+                                  int state, const MethodReference& target_method,
+                                  uint32_t unused_idx ATTRIBUTE_UNUSED,
+                                  uintptr_t direct_code, uintptr_t direct_method,
+                                  InvokeType type) {
+  ArmMir2Lir* cg = static_cast<ArmMir2Lir*>(cu->cg.get());
+  if (info->string_init_offset != 0) {
+    RegStorage arg0_ref = cg->TargetReg(kArg0, kRef);
+    switch (state) {
+    case 0: {  // Grab target method* from thread pointer
+      cg->LoadRefDisp(rs_rARM_SELF, info->string_init_offset, arg0_ref, kNotVolatile);
+      break;
+    }
+    case 1:  // Grab the code from the method*
+      if (direct_code == 0) {
+        // kInvokeTgt := arg0_ref->entrypoint
+        cg->LoadWordDisp(arg0_ref,
+                         ArtMethod::EntryPointFromQuickCompiledCodeOffset(
+                             kArmPointerSize).Int32Value(), cg->TargetPtrReg(kInvokeTgt));
+      }
+      break;
+    default:
+      return -1;
+    }
+  } else if (direct_code != 0 && direct_method != 0) {
+    switch (state) {
+    case 0:  // Get the current Method* [sets kArg0]
+      if (direct_code != static_cast<uintptr_t>(-1)) {
+        cg->LoadConstant(cg->TargetPtrReg(kInvokeTgt), direct_code);
+      } else if (ArmUseRelativeCall(cu, target_method)) {
+        // Defer to linker patch.
+      } else {
+        cg->LoadCodeAddress(target_method, type, kInvokeTgt);
+      }
+      if (direct_method != static_cast<uintptr_t>(-1)) {
+        cg->LoadConstant(cg->TargetReg(kArg0, kRef), direct_method);
+      } else {
+        cg->LoadMethodAddress(target_method, type, kArg0);
+      }
+      break;
+    default:
+      return -1;
+    }
+  } else {
+    bool use_pc_rel = cg->CanUseOpPcRelDexCacheArrayLoad();
+    RegStorage arg0_ref = cg->TargetReg(kArg0, kRef);
+    switch (state) {
+    case 0:  // Get the current Method* [sets kArg0]
+      // TUNING: we can save a reg copy if Method* has been promoted.
+      if (!use_pc_rel) {
+        cg->LoadCurrMethodDirect(arg0_ref);
+        break;
+      }
+      ++state;
+      FALLTHROUGH_INTENDED;
+    case 1:  // Get method->dex_cache_resolved_methods_
+      if (!use_pc_rel) {
+        cg->LoadRefDisp(arg0_ref,
+                        ArtMethod::DexCacheResolvedMethodsOffset().Int32Value(),
+                        arg0_ref,
+                        kNotVolatile);
+      }
+      // Set up direct code if known.
+      if (direct_code != 0) {
+        if (direct_code != static_cast<uintptr_t>(-1)) {
+          cg->LoadConstant(cg->TargetPtrReg(kInvokeTgt), direct_code);
+        } else if (ArmUseRelativeCall(cu, target_method)) {
+          // Defer to linker patch.
+        } else {
+          CHECK_LT(target_method.dex_method_index, target_method.dex_file->NumMethodIds());
+          cg->LoadCodeAddress(target_method, type, kInvokeTgt);
+        }
+      }
+      if (!use_pc_rel || direct_code != 0) {
+        break;
+      }
+      ++state;
+      FALLTHROUGH_INTENDED;
+    case 2:  // Grab target method*
+      CHECK_EQ(cu->dex_file, target_method.dex_file);
+      if (!use_pc_rel) {
+        cg->LoadRefDisp(arg0_ref,
+                        mirror::ObjectArray<mirror::Object>::OffsetOfElement(
+                            target_method.dex_method_index).Int32Value(),
+                        arg0_ref,
+                        kNotVolatile);
+      } else {
+        size_t offset = cg->dex_cache_arrays_layout_.MethodOffset(target_method.dex_method_index);
+        cg->OpPcRelDexCacheArrayLoad(cu->dex_file, offset, arg0_ref, false);
+      }
+      break;
+    case 3:  // Grab the code from the method*
+      if (direct_code == 0) {
+        // kInvokeTgt := arg0_ref->entrypoint
+        cg->LoadWordDisp(arg0_ref,
+                         ArtMethod::EntryPointFromQuickCompiledCodeOffset(
+                             kArmPointerSize).Int32Value(), cg->TargetPtrReg(kInvokeTgt));
+      }
+      break;
+    default:
+      return -1;
+    }
+  }
+  return state + 1;
+}
+
+NextCallInsn ArmMir2Lir::GetNextSDCallInsn() {
+  return ArmNextSDCallInsn;
+}
+
+LIR* ArmMir2Lir::CallWithLinkerFixup(const MethodReference& target_method, InvokeType type) {
+  // For ARM, just generate a relative BL instruction that will be filled in at 'link time'.
+  // If the target turns out to be too far, the linker will generate a thunk for dispatch.
+  int target_method_idx = target_method.dex_method_index;
+  const DexFile* target_dex_file = target_method.dex_file;
+
+  // Generate the call instruction and save index, dex_file, and type.
+  // NOTE: Method deduplication takes linker patches into account, so we can just pass 0
+  // as a placeholder for the offset.
+  LIR* call = RawLIR(current_dalvik_offset_, kThumb2Bl, 0,
+                     target_method_idx, WrapPointer(target_dex_file), type);
+  AppendLIR(call);
+  call_method_insns_.push_back(call);
+  return call;
+}
+
+LIR* ArmMir2Lir::GenCallInsn(const MirMethodLoweringInfo& method_info) {
+  LIR* call_insn;
+  if (method_info.FastPath() && ArmUseRelativeCall(cu_, method_info.GetTargetMethod()) &&
+      (method_info.GetSharpType() == kDirect || method_info.GetSharpType() == kStatic) &&
+      method_info.DirectCode() == static_cast<uintptr_t>(-1)) {
+    call_insn = CallWithLinkerFixup(method_info.GetTargetMethod(), method_info.GetSharpType());
+  } else {
+    call_insn = OpReg(kOpBlx, TargetPtrReg(kInvokeTgt));
+  }
+  return call_insn;
 }
 
 }  // namespace art

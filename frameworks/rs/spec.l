@@ -187,6 +187,11 @@ ID       [a-zA-Z_][a-zA-Z0-9_]*
     BEGIN(INITIAL);
     }
 
+<*>. {
+    fprintf(stderr, "error: unexpected character \'%c\' at line %d\n",
+            *yytext, num_lines + 1);
+    exit(1);
+    }
 
 %%
 

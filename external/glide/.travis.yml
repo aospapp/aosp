@@ -1,8 +1,12 @@
 language: android
 android:
   components:
-    - build-tools-19.1.0
+  - build-tools-19.1.0
   licenses: 
-    - 'android-sdk-license.*'
+  - 'android-sdk-license.*'
 
-script: 'travis_retry ./gradlew clean build'
+script: 'travis_retry ./gradlew build --parallel'
+
+after_success:
+- scripts/travis-sonatype-publish.sh
+- ./gradlew jacocoTestReport coveralls

@@ -68,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Asetukset, Brasilia"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Näytä kanavan 50 lähetykset"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"Kanavaa 50 käytetään Brasiliassa alueellisiin tietojen päivityksiin"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Kehittäjävaihtoehdot"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Kehittäjäasetukset"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Ilmoitusluokka:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofysikaalinen"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologinen"</string>

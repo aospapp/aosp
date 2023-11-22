@@ -22,9 +22,12 @@
  *//*--------------------------------------------------------------------*/
 
 #include "egluNativeDisplay.hpp"
+#include "eglwEnums.hpp"
 
 namespace eglu
 {
+
+using namespace eglw;
 
 // NativeDisplay
 
@@ -60,6 +63,12 @@ void* NativeDisplay::getPlatformNative (void)
 {
 	TCU_CHECK_INTERNAL((m_capabilities & CAPABILITY_GET_DISPLAY_PLATFORM) == 0);
 	throw tcu::NotSupportedError("eglu::NativeDisplay can't be used with eglGetPlatformDisplay()", DE_NULL, __FILE__, __LINE__);
+}
+
+const EGLAttrib* NativeDisplay::getPlatformAttributes (void) const
+{
+	TCU_CHECK_INTERNAL((m_capabilities & CAPABILITY_GET_DISPLAY_PLATFORM) == 0);
+	return DE_NULL;
 }
 
 // NativeDisplayFactory

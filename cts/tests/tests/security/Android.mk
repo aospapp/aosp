@@ -23,7 +23,7 @@ LOCAL_MULTILIB := both
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestserver ctstestrunner ctsdeviceutil guava
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner org.apache.http.legacy
 
 LOCAL_JNI_SHARED_LIBRARIES := libctssecurity_jni libcts_jni
 

@@ -49,19 +49,15 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
-
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("composeshader");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(120, 120);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
 
         SkPaint paint;
 
@@ -83,20 +79,15 @@ public:
     ComposeShaderAlphaGM() {}
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("composeshader_alpha");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(220, 750);
     }
 
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        // we're only off by 1 bit per-component
-        return kSkipTiled_Flag;
-    }
-
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkAutoTUnref<SkShader> shader0(make_shader(SkXfermode::kDstIn_Mode));
         SkAutoTUnref<SkShader> shader1(make_shader(SkXfermode::kSrcOver_Mode));
         SkShader* shaders[] = { shader0.get(), shader1.get() };

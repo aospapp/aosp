@@ -44,6 +44,8 @@ import org.bouncycastle.jce.interfaces.ECPointEncoder;
 // END android-removed
 import org.bouncycastle.jce.spec.ECNamedCurveSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.math.ec.custom.sec.SecP256K1Point;
+import org.bouncycastle.math.ec.custom.sec.SecP256R1Point;
 
 public class JCEECPublicKey
     implements ECPublicKey, org.bouncycastle.jce.interfaces.ECPublicKey, ECPointEncoder
@@ -452,14 +454,7 @@ public class JCEECPublicKey
     {
         if (ecSpec == null)
         {
-            if (q instanceof org.bouncycastle.math.ec.ECPoint.Fp)
-            {
-                return new org.bouncycastle.math.ec.ECPoint.Fp(null, q.getAffineXCoord(), q.getAffineYCoord());
-            }
-            else
-            {
-                return new org.bouncycastle.math.ec.ECPoint.F2m(null, q.getAffineXCoord(), q.getAffineYCoord());
-            }
+            return q.getDetachedPoint();
         }
 
         return q;

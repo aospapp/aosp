@@ -95,6 +95,9 @@ public class Doclava {
   private static boolean generateDocs = true;
   private static boolean parseComments = false;
   private static String yamlNavFile = null;
+  public static boolean documentAnnotations = false;
+  public static String documentAnnotationsPath = null;
+  public static Map<String, String> annotationDocumentationMap = null;
 
   public static JSilver jSilver = null;
 
@@ -273,6 +276,9 @@ public class Doclava {
         // Don't copy the doclava assets to devsite output (ie use proj assets only)
         includeDefaultAssets = false;
         outputPathHtmlDirs = outputPathHtmlDirs + "/" + devsiteRoot;
+      } else if (a[0].equals("-documentannotations")) {
+        documentAnnotations = true;
+        documentAnnotationsPath = a[1];
       }
     }
 
@@ -663,6 +669,9 @@ public class Doclava {
     if (option.equals("-metadataDebug")) {
       return 1;
     }
+    if (option.equals("-documentannotations")) {
+      return 2;
+    }
     return 0;
   }
   public static boolean validOptions(String[][] options, DocErrorReporter r) {
@@ -709,8 +718,9 @@ public class Doclava {
     }
 
     int i = 0;
-    for (String s : sorted.keySet()) {
-      PackageInfo pkg = sorted.get(s);
+    for (Map.Entry<String, PackageInfo> entry : sorted.entrySet()) {
+      String s = entry.getKey();
+      PackageInfo pkg = entry.getValue();
 
       if (pkg.isHiddenOrRemoved()) {
         continue;
@@ -1814,6 +1824,33 @@ public class Doclava {
       }
       return false;
     }
+  }
+
+  public static String getDocumentationStringForAnnotation(String annotationName) {
+    if (!documentAnnotations) return null;
+    if (annotationDocumentationMap == null) {
+      // parse the file for map
+      annotationDocumentationMap = new HashMap<String, String>();
+      try {
+        BufferedReader in = new BufferedReader(
+            new FileReader(documentAnnotationsPath));
+        try {
+          String line = in.readLine();
+          String[] split;
+          while (line != null) {
+            split = line.split(":");
+            annotationDocumentationMap.put(split[0], split[1]);
+            line = in.readLine();
+          }
+        } finally {
+          in.close();
+        }
+      } catch (IOException e) {
+        System.err.println("Unable to open annotations documentation file for reading: "
+            + documentAnnotationsPath);
+      }
+    }
+    return annotationDocumentationMap.get(annotationName);
   }
 
 }

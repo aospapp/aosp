@@ -355,7 +355,7 @@ static bool test_int_math(uint32_t index) {
     TEST_IN_FUNC_IN(clz);
     TEST_IN_FUNC_IN_IN(min);
     TEST_IN_FUNC_IN_IN(max);
-    TEST_I_FUNC_I_I_I(rsClamp);
+    TEST_I_FUNC_I_I_I(clamp);
 
     float time = end(index);
 
@@ -442,4 +442,3 @@ void math_test(uint32_t index, int test_num) {
         rsSendToClientBlocking(RS_MSG_TEST_PASSED);
     }
 }
-

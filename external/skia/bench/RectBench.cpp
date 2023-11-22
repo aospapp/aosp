@@ -92,14 +92,14 @@ public:
     }
 
 protected:
-    virtual void setupPaint(SkPaint* paint) SK_OVERRIDE {
+    void setupPaint(SkPaint* paint) override {
         this->INHERITED::setupPaint(paint);
         // srcmode is most interesting when we're not opaque
         paint->setAlpha(0x80);
         paint->setXfermode(fMode);
     }
 
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         fName.set(this->INHERITED::onGetName());
         fName.prepend("srcmode_");
         return fName.c_str();
@@ -168,60 +168,6 @@ protected:
         }
     }
     virtual const char* onGetName() { return fName; }
-};
-
-class AARectBench : public Benchmark {
-public:
-    enum {
-        W = 640,
-        H = 480,
-    };
-
-    AARectBench(bool rotate) : fRotate(rotate) {}
-
-protected:
-
-    virtual const char* onGetName() {
-        if (fRotate) {
-            return "aarects_rotated";
-        }
-        return "aarects";
-    }
-
-    virtual void onDraw(const int loops, SkCanvas* canvas) {
-        static const SkScalar kHalfRectSize = 0.75f;
-
-        SkPaint paint;
-        this->setupPaint(&paint);
-        paint.setAntiAlias(true);
-        paint.setColor(SK_ColorBLACK);
-        SkRect r = { -kHalfRectSize, -kHalfRectSize, kHalfRectSize, kHalfRectSize };
-        int rot = 0;
-
-        for (int i = 0; i < loops; i++) {
-            // Draw small aa rects in a grid across the screen
-            for (SkScalar y = kHalfRectSize+SK_Scalar1; y < H; y += 2*kHalfRectSize+2) {
-                for (SkScalar x = kHalfRectSize+SK_Scalar1; x < W; x += 2*kHalfRectSize+2) {
-                    canvas->save();
-                    canvas->translate(x, y);
-
-                    if (fRotate) {
-                        SkMatrix rotate;
-                        rotate.setRotate(SkIntToScalar(rot));
-                        canvas->concat(rotate);
-                        rot += 10;
-                    }
-
-                    canvas->drawRect(r, paint);
-                    canvas->restore();
-                }
-            }
-        }
-
-    }
-private:
-    bool fRotate;
-    typedef Benchmark INHERITED;
 };
 
 /*******************************************************************************
@@ -321,9 +267,6 @@ DEF_BENCH( return SkNEW_ARGS(PointsBench, (SkCanvas::kLines_PointMode, "lines"))
 DEF_BENCH( return SkNEW_ARGS(PointsBench, (SkCanvas::kPolygon_PointMode, "polygon")); )
 
 DEF_BENCH( return SkNEW_ARGS(SrcModeRectBench, ()); )
-
-DEF_BENCH( return SkNEW_ARGS(AARectBench, (false)); )
-DEF_BENCH( return SkNEW_ARGS(AARectBench, (true)); )
 
 /* init the blitmask bench
  */

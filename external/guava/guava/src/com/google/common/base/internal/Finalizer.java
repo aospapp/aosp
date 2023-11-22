@@ -46,7 +46,7 @@ import java.util.logging.Logger;
  * class loader from getting garbage collected, and this class can detect when
  * the main class loader has been garbage collected and stop itself.
  */
-public class Finalizer extends Thread {
+public class Finalizer implements Runnable {
 
   private static final Logger logger
       = Logger.getLogger(Finalizer.class.getName());
@@ -59,13 +59,16 @@ public class Finalizer extends Thread {
    * Starts the Finalizer thread. FinalizableReferenceQueue calls this method
    * reflectively.
    *
-   * @param finalizableReferenceClass FinalizableReference.class
-   * @param frq reference to instance of FinalizableReferenceQueue that started
-   *  this thread
-   * @return ReferenceQueue which Finalizer will poll
+   * @param finalizableReferenceClass FinalizableReference.class.
+   * @param queue a reference queue that the thread will poll.
+   * @param frqReference a phantom reference to the FinalizableReferenceQueue, which will be
+   * queued either when the FinalizableReferenceQueue is no longer referenced anywhere, or when
+   * its close() method is called.
    */
-  public static ReferenceQueue<Object> startFinalizer(
-      Class<?> finalizableReferenceClass, Object frq) {
+  public static void startFinalizer(
+      Class<?> finalizableReferenceClass,
+      ReferenceQueue<Object> queue,
+      PhantomReference<Object> frqReference) {
     /*
      * We use FinalizableReference.class for two things:
      *
@@ -79,40 +82,42 @@ public class Finalizer extends Thread {
           "Expected " + FINALIZABLE_REFERENCE + ".");
     }
 
-    Finalizer finalizer = new Finalizer(finalizableReferenceClass, frq);
-    finalizer.start();
-    return finalizer.queue;
-  }
-
-  private final WeakReference<Class<?>> finalizableReferenceClassReference;
-  private final PhantomReference<Object> frqReference;
-  private final ReferenceQueue<Object> queue = new ReferenceQueue<Object>();
-
-  private static final Field inheritableThreadLocals
-      = getInheritableThreadLocalsField();
-
-  /** Constructs a new finalizer thread. */
-  private Finalizer(Class<?> finalizableReferenceClass, Object frq) {
-    super(Finalizer.class.getName());
-
-    this.finalizableReferenceClassReference
-        = new WeakReference<Class<?>>(finalizableReferenceClass);
-
-    // Keep track of the FRQ that started us so we know when to stop.
-    this.frqReference = new PhantomReference<Object>(frq, queue);
-
-    setDaemon(true);
+    Finalizer finalizer = new Finalizer(finalizableReferenceClass, queue, frqReference);
+    Thread thread = new Thread(finalizer);
+    thread.setName(Finalizer.class.getName());
+    thread.setDaemon(true);
 
     try {
       if (inheritableThreadLocals != null) {
-        inheritableThreadLocals.set(this, null);
+        inheritableThreadLocals.set(thread, null);
       }
     } catch (Throwable t) {
       logger.log(Level.INFO, "Failed to clear thread local values inherited"
           + " by reference finalizer thread.", t);
     }
 
-    // TODO(fry): Priority?
+    thread.start();
+  }
+
+  private final WeakReference<Class<?>> finalizableReferenceClassReference;
+  private final PhantomReference<Object> frqReference;
+  private final ReferenceQueue<Object> queue;
+
+  private static final Field inheritableThreadLocals
+      = getInheritableThreadLocalsField();
+
+  /** Constructs a new finalizer thread. */
+  private Finalizer(
+      Class<?> finalizableReferenceClass,
+      ReferenceQueue<Object> queue,
+      PhantomReference<Object> frqReference) {
+    this.queue = queue;
+
+    this.finalizableReferenceClassReference
+        = new WeakReference<Class<?>>(finalizableReferenceClass);
+
+    // Keep track of the FRQ that started us so we know when to stop.
+    this.frqReference = frqReference;
   }
 
   /**
@@ -121,20 +126,25 @@ public class Finalizer extends Thread {
   @SuppressWarnings("InfiniteLoopStatement")
   @Override
   public void run() {
-    try {
-      while (true) {
-        try {
-          cleanUp(queue.remove());
-        } catch (InterruptedException e) { /* ignore */ }
-      }
-    } catch (ShutDown shutDown) { /* ignore */ }
+    while (true) {
+      try {
+        if (!cleanUp(queue.remove())) {
+          break;
+        }
+      } catch (InterruptedException e) { /* ignore */ }
+    }
   }
 
   /**
    * Cleans up a single reference. Catches and logs all throwables.
+   * @return true if the caller should continue, false if the associated FinalizableReferenceQueue
+   * is no longer referenced.
    */
-  private void cleanUp(Reference<?> reference) throws ShutDown {
+  private boolean cleanUp(Reference<?> reference) {
     Method finalizeReferentMethod = getFinalizeReferentMethod();
+    if (finalizeReferentMethod == null) {
+      return false;
+    }
     do {
       /*
        * This is for the benefit of phantom references. Weak and soft
@@ -147,7 +157,7 @@ public class Finalizer extends Thread {
          * The client no longer has a reference to the
          * FinalizableReferenceQueue. We can stop.
          */
-        throw new ShutDown();
+        return false;
       }
 
       try {
@@ -161,12 +171,13 @@ public class Finalizer extends Thread {
        * CPU looking up the Method over and over again.
        */
     } while ((reference = queue.poll()) != null);
+    return true;
   }
 
   /**
    * Looks up FinalizableReference.finalizeReferent() method.
    */
-  private Method getFinalizeReferentMethod() throws ShutDown {
+  private Method getFinalizeReferentMethod() {
     Class<?> finalizableReferenceClass
         = finalizableReferenceClassReference.get();
     if (finalizableReferenceClass == null) {
@@ -178,7 +189,7 @@ public class Finalizer extends Thread {
        * much just shut down and make sure we don't keep it alive any longer
        * than necessary.
        */
-      throw new ShutDown();
+      return null;
     }
     try {
       return finalizableReferenceClass.getMethod("finalizeReferent");
@@ -200,8 +211,4 @@ public class Finalizer extends Thread {
       return null;
     }
   }
-
-  /** Indicates that it's time to shut down the Finalizer. */
-  @SuppressWarnings("serial") // Never serialized or thrown out of this class.
-  private static class ShutDown extends Exception { }
 }

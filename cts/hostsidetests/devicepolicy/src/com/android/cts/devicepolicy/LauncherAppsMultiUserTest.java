@@ -81,7 +81,7 @@ public class LauncherAppsMultiUserTest extends BaseLauncherAppsTest {
         try {
             assertTrue(runDeviceTests(LAUNCHER_TESTS_PKG,
                     LAUNCHER_TESTS_CLASS,
-                            "testNoCallbackForUser",
+                            "testNoPackageAddedCallbackForUser",
                             0, "-e testUser " + mSecondaryUserSerialNumber));
         } finally {
             getDevice().uninstallPackage(SIMPLE_APP_PKG);

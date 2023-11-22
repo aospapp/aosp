@@ -14,38 +14,42 @@ import makefile_writer
 import os
 import vars_dict_lib
 
+SKIA_RESOURCES = (
+"""
+# Setup directory to store skia's resources in the directory structure that
+# the Android testing infrastructure expects
+skia_res_dir := $(call intermediates-dir-for,PACKAGING,skia_resources)/DATA
+$(shell mkdir -p $(skia_res_dir))
+$(shell cp -r $(LOCAL_PATH)/../resources/. $(skia_res_dir)/skia_resources)
+LOCAL_PICKUP_FILES := $(skia_res_dir)
+skia_res_dir :=
 
-def write_tool_android_mk(target_dir, var_dict, place_in_local_tmp):
+"""
+)
+
+def write_tool_android_mk(target_dir, var_dict):
   """Write Android.mk for a Skia tool.
 
   Args:
     target_dir: Destination for the makefile. Must not be None.
     var_dict: VarsDict containing variables for the makefile.
-    place_in_local_tmp: If True, the executable will be synced to
-      /data/local/tmp.
   """
   target_file = os.path.join(target_dir, 'Android.mk')
   with open(target_file, 'w') as f:
     f.write(makefile_writer.AUTOGEN_WARNING)
-
-    if place_in_local_tmp:
-      f.write('local_target_dir := $(TARGET_OUT_DATA)/local/tmp\n')
 
     makefile_writer.write_local_path(f)
     makefile_writer.write_clear_vars(f)
 
     makefile_writer.write_local_vars(f, var_dict, False, None)
 
-    if place_in_local_tmp:
-      f.write('LOCAL_MODULE_PATH := $(local_target_dir)\n')
-
-    makefile_writer.write_include_stlport(f)
-    f.write('include $(BUILD_EXECUTABLE)\n')
+    f.write(SKIA_RESOURCES)
+    f.write('include $(BUILD_NATIVE_TEST)\n')
 
 
 def generate_tool(gyp_dir, target_file, skia_trunk, dest_dir,
                   skia_lib_var_dict, local_module_name, local_module_tags,
-                  place_in_local_tmp=False):
+                  desired_targets, gyp_source_dir=None):
   """Common steps for building one of the skia tools.
 
   Parse a gyp file and create an Android.mk for this tool.
@@ -62,20 +66,21 @@ def generate_tool(gyp_dir, target_file, skia_trunk, dest_dir,
       ensure we do not duplicate anything in this Android.mk.
     local_module_name: Name for this tool, to set as LOCAL_MODULE.
     local_module_tags: Tags to pass to LOCAL_MODULE_TAG.
-    place_in_local_tmp: If True, the executable will be synced to
-      /data/local/tmp.
+    desired_targets: List of targets to parse.
+    gyp_source_dir: Source directory for gyp.
   """
   result_file = android_framework_gyp.main(target_dir=gyp_dir,
                                            target_file=target_file,
                                            skia_arch_type='other',
-                                           have_neon=False)
+                                           have_neon=False,
+                                           gyp_source_dir=gyp_source_dir)
 
   var_dict = vars_dict_lib.VarsDict()
 
   # Add known targets from skia_lib, so we do not reparse them.
   var_dict.KNOWN_TARGETS.set(skia_lib_var_dict.KNOWN_TARGETS)
 
-  gypd_parser.parse_gypd(var_dict, result_file, dest_dir)
+  gypd_parser.parse_gypd(var_dict, result_file, dest_dir, desired_targets)
 
   android_framework_gyp.clean_gypd_files(gyp_dir)
 
@@ -101,5 +106,4 @@ def generate_tool(gyp_dir, target_file, skia_trunk, dest_dir,
   if not os.path.exists(full_dest):
     os.mkdir(full_dest)
 
-  write_tool_android_mk(target_dir=full_dest, var_dict=var_dict,
-                        place_in_local_tmp=place_in_local_tmp)
+  write_tool_android_mk(target_dir=full_dest, var_dict=var_dict)

@@ -20,7 +20,7 @@ class SkPath;
 class SkPicture;
 class SkXfermode;
 class GrContext;
-class GrEffectRef;
+class GrFragmentProcessor;
 
 /** \class SkShader
  *
@@ -41,26 +41,11 @@ public:
 
     /**
      *  Returns the local matrix.
+     *
+     *  FIXME: This can be incorrect for a Shader with its own local matrix
+     *  that is also wrapped via CreateLocalMatrixShader.
      */
     const SkMatrix& getLocalMatrix() const { return fLocalMatrix; }
-
-    /**
-     *  Returns true if the local matrix is not an identity matrix.
-     */
-    bool hasLocalMatrix() const { return !fLocalMatrix.isIdentity(); }
-
-#ifdef SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX
-    /**
-     *  Set the shader's local matrix.
-     *  @param localM   The shader's new local matrix.
-     */
-    void setLocalMatrix(const SkMatrix& localM) { fLocalMatrix = localM; }
-
-    /**
-     *  Reset the shader's local matrix to identity.
-     */
-    void resetLocalMatrix() { fLocalMatrix.reset(); }
-#endif
 
     enum TileMode {
         /** replicate the edge color if the shader draws outside of its
@@ -80,8 +65,10 @@ public:
         /** only draw within the original domain, return 0 everywhere else */
         kDecal_TileMode,
 #endif
+    };
 
-        kTileModeCount
+    enum {
+        kTileModeCount = kMirror_TileMode + 1
     };
 
     // override these in your subclass
@@ -259,19 +246,6 @@ public:
                             //   to (0,0) as bitmap x coord, where angle = 0 is
                             //   bitmap left edge of bitmap = 2pi is the
                             //   right edge. Bitmap is 1 pixel tall. No extras
-        kTwoPointRadial_BitmapType,
-                            //<! Matrix transforms to space where (0,0) is
-                            //   the center of the starting circle.  The second
-                            //   circle will be centered (x, 0) where x  may be
-                            //   0. The post-matrix space is normalized such
-                            //   that 1 is the second radius - first radius.
-                            //   Three extra parameters are returned:
-                            //      0: x-offset of second circle center
-                            //         to first.
-                            //      1: radius of first circle in post-matrix
-                            //         space
-                            //      2: the second radius minus the first radius
-                            //         in pre-transformed space.
         kTwoPointConical_BitmapType,
                             //<! Matrix transforms to space where (0,0) is
                             //   the center of the starting circle.  The second
@@ -327,7 +301,7 @@ public:
      *      fPoint[0] and fPoint[1] are the end-points of the gradient
      *  Radial:
      *      fPoint[0] and fRadius[0] are the center and radius
-     *  Radial2:
+     *  Conical:
      *      fPoint[0] and fRadius[0] are the center and radius of the 1st circle
      *      fPoint[1] and fRadius[1] are the center and radius of the 2nd circle
      *  Sweep:
@@ -339,7 +313,6 @@ public:
         kColor_GradientType,
         kLinear_GradientType,
         kRadial_GradientType,
-        kRadial2_GradientType,
         kSweep_GradientType,
         kConical_GradientType,
         kLast_GradientType = kConical_GradientType
@@ -373,31 +346,48 @@ public:
         const SkXfermode*   fMode;
     };
 
-    virtual bool asACompose(ComposeRec* rec) const { return false; }
+    virtual bool asACompose(ComposeRec*) const { return false; }
 
 
     /**
-     *  Returns true if the shader subclass succeeds in setting the grEffect and the grColor output 
-     *  parameters to a value, returns false if it fails or if there is not an implementation of
-     *  this method in the shader subclass.
-     *  The incoming color to the effect has r=g=b=a all extracted from the SkPaint's alpha.
-     *  The output color should be the computed SkShader premul color modulated by the incoming
-     *  color. The GrContext may be used by the effect to create textures. The GPU device does not
+     *  Returns true if the shader subclass succeeds in creating an effect or if none is required.
+     *  False is returned if it fails or if there is not an implementation of this method in the
+     *  shader subclass.
+     *
+     *  On success an implementation of this method must inspect the SkPaint and set paintColor to
+     *  the color the effect expects as its input color. If the SkShader wishes to emit a solid
+     *  color then it should set paintColor to that color and not create an effect. Note that
+     *  GrColor is always premul. The common patterns are to convert paint's SkColor to GrColor or
+     *  to extract paint's alpha and replicate it to all channels in paintColor. Upon failure
+     *  paintColor should not be modified. It is not recommended to specialize the effect to
+     *  the paint's color as then many GPU shaders may be generated.
+     *
+     *  The GrContext may be used by the effect to create textures. The GPU device does not
      *  call createContext. Instead we pass the SkPaint here in case the shader needs paint info.
+     *
+     *  A view matrix is always required to create the correct GrFragmentProcessor.  Some shaders
+     *  may also use the optional localMatrix to define a matrix relevant only for sampling.
      */
-    virtual bool asNewEffect(GrContext* context, const SkPaint& paint,
-                             const SkMatrix* localMatrixOrNull, GrColor* grColor,
-                             GrEffectRef** grEffect) const;
+    virtual bool asFragmentProcessor(GrContext*, const SkPaint&, const SkMatrix& viewM,
+                                     const SkMatrix* localMatrix, GrColor*,
+                                     GrFragmentProcessor**) const;
+
+    /**
+     *  If the shader can represent its "average" luminance in a single color, return true and
+     *  if color is not NULL, return that color. If it cannot, return false and ignore the color
+     *  parameter.
+     *
+     *  Note: if this returns true, the returned color will always be opaque, as only the RGB
+     *  components are used to compute luminance.
+     */
+    bool asLuminanceColor(SkColor*) const;
 
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
     /**
      *  If the shader is a custom shader which has data the caller might want, call this function
      *  to get that data.
      */
-    virtual bool asACustomShader(void** customData) const { return false; }
-
-    uint32_t getGenerationID() const { return fGenerationID; }
-    void setGenerationID(uint32_t generationID) { fGenerationID = generationID; }
+    virtual bool asACustomShader(void** /* customData */) const { return false; }
 #endif
 
     //////////////////////////////////////////////////////////////////////////
@@ -407,6 +397,12 @@ public:
      *  Call this to create a new "empty" shader, that will not draw anything.
      */
     static SkShader* CreateEmptyShader();
+
+    /**
+     *  Call this to create a new shader that just draws the specified color. This should always
+     *  draw the same as a paint with this color (and no shader).
+     */
+    static SkShader* CreateColorShader(SkColor);
 
     /** Call this to create a new shader that will draw with the specified bitmap.
      *
@@ -431,13 +427,19 @@ public:
      *  @param src  The picture to use inside the shader (if not NULL, its ref count
      *              is incremented). The SkPicture must not be changed after
      *              successfully creating a picture shader.
-     *              FIXME: src cannot be const due to SkCanvas::drawPicture
      *  @param tmx  The tiling mode to use when sampling the bitmap in the x-direction.
      *  @param tmy  The tiling mode to use when sampling the bitmap in the y-direction.
+     *  @param tile The tile rectangle in picture coordinates: this represents the subset
+     *              (or superset) of the picture used when building a tile. It is not
+     *              affected by localMatrix and does not imply scaling (only translation
+     *              and cropping). If null, the tile rect is considered equal to the picture
+     *              bounds.
      *  @return     Returns a new shader object. Note: this function never returns null.
     */
-    static SkShader* CreatePictureShader(SkPicture* src, TileMode tmx, TileMode tmy,
-                                         const SkMatrix* localMatrix = NULL);
+    static SkShader* CreatePictureShader(const SkPicture* src,
+                                         TileMode tmx, TileMode tmy,
+                                         const SkMatrix* localMatrix,
+                                         const SkRect* tile);
 
     /**
      *  Return a shader that will apply the specified localMatrix to the proxy shader.
@@ -460,8 +462,7 @@ public:
     SK_DEFINE_FLATTENABLE_TYPE(SkShader)
 
 protected:
-    SkShader(SkReadBuffer& );
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
+    void flatten(SkWriteBuffer&) const override;
 
     bool computeTotalInverse(const ContextRec&, SkMatrix* totalInverse) const;
 
@@ -471,14 +472,18 @@ protected:
      */
     virtual Context* onCreateContext(const ContextRec&, void* storage) const;
 
+    virtual bool onAsLuminanceColor(SkColor*) const {
+        return false;
+    }
 private:
+    // This is essentially const, but not officially so it can be modified in
+    // constructors.
     SkMatrix fLocalMatrix;
-    
-    typedef SkFlattenable INHERITED;
 
-#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
-    uint32_t fGenerationID;
-#endif
+    // So the SkLocalMatrixShader can whack fLocalMatrix in its SkReadBuffer constructor.
+    friend class SkLocalMatrixShader;
+
+    typedef SkFlattenable INHERITED;
 };
 
 #endif

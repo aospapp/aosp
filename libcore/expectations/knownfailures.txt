@@ -4,6 +4,7 @@
 [
 {
   description: "can't compile a pattern with negative look-behind and quantifiers with upper bounds",
+  result: EXEC_FAILED,
   name: "org.apache.harmony.regex.tests.java.util.regex.PatternTest#test_bug_40103",
   bug: 40103
 },
@@ -76,6 +77,7 @@
 {
   description: "Runtime.getRuntime().traceMethodCalls(true) doesn't return on the host, fails in CTS",
   bug: 3447964,
+  result: EXEC_FAILED,
   name: "libcore.java.lang.OldRuntimeTest#test_traceMethodCalls"
 },
 {
@@ -1317,11 +1319,13 @@
 {
   description: "Known failure in MathTest 1^NAN should be NAN",
   bug: 11669804,
+  result: EXEC_FAILED,
   name: "org.apache.harmony.tests.java.lang.MathTest#test_powDD"
 },
 {
   description: "Known failures in PropertiesTest: We don't deal with comments in store()",
   bug: 11686302,
+  result: EXEC_FAILED,
   names: [
     "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario0",
     "org.apache.harmony.tests.java.util.PropertiesTest#testStore_scenario1",
@@ -1343,6 +1347,7 @@
 {
   description: "ScannerParseLargeFileBenchmark can cause a failure due to a timeout",
   bug: 14865710,
+  result: EXEC_FAILED,
   name: "org.apache.harmony.tests.java.util.ScannerParseLargeFileBenchmarkTest"
 },
 {
@@ -1419,14 +1424,6 @@
   name: "com.android.org.apache.harmony.logging.tests.java.util.logging.LevelTest#testSerializationCompatibility"
 },
 {
-  description: "java.util.logging: Tests that require java.util.logging code changes to fix.",
-  bug: 13882147,
-  names: [
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.SocketHandlerTest#testConstructor_NoProperties",
-    "com.android.org.apache.harmony.logging.tests.java.util.logging.XMLFormatterTest#test_TestFileHandlerClass_constructor"
-  ]
-},
-{
   description: "java.util.beans: the harmony tests were broken by Android commit 19a270e90b1e992c1f6639f355ae13564c2f3a6a",
   bug: 17394106,
   names: [
@@ -1457,47 +1454,19 @@
   name: "org.apache.harmony.tests.java.util.GregorianCalendarTest#test_computeTime"
 },
 {
-  description: "SpdyConnection issue https://github.com/square/okhttp/issues/644 crashes the test app. Android does not provide SPDY/HTTP_2 connections by default so have been suppressed.",
-  bug: 14462336,
+  description: "OkHttp tests require SOCKS 5 support. Android PlainSocketImpl implements SOCKS 4",
+  bug: 96926,
   names: [
-    "com.squareup.okhttp.ConnectionPoolTest",
-    "com.squareup.okhttp.internal.spdy.SpdyConnectionTest",
-    "com.squareup.okhttp.internal.http.HttpOverHttp20Draft09Test",
-    "com.squareup.okhttp.internal.http.HttpOverSpdy3Test",
-    "com.squareup.okhttp.internal.http.ResponseCacheAdapterTest",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#npnSetsProtocolHeader_SPDY_3",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#npnSetsProtocolHeader_HTTP_2",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#zeroLengthPost_SPDY_3",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#zeroLengthPost_HTTP_2",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#zeroLengthPut_SPDY_3",
-    "com.squareup.okhttp.internal.http.URLConnectionTest#zeroLengthPut_HTTP_2"
+    "com.squareup.okhttp.SocksProxyTest#proxy",
+    "com.squareup.okhttp.SocksProxyTest#proxySelector"
   ]
 },
 {
-  description: "Some OkHttp tests were written before the introduction of TLS_FALLBACK_SCSV and have only been fixed for APIs used by Android",
-  bug: 17962997,
+  description: "OkHttp tests that fail on Wear devices due to a lack of memory",
+  bug: 20055487,
   names: [
-    "com.squareup.okhttp.SyncApiTest#recoverFromTlsHandshakeFailure",
-    "com.squareup.okhttp.AsyncApiTest#recoverFromTlsHandshakeFailure"
-  ]
-},
-{
-  description: "JavaApiConverterTest#createOkResponse_fromJavaHttpsUrlConnection works independently but fails when run with some other test(s).",
-  bug: 17962997,
-  name: "com.squareup.okhttp.internal.http.JavaApiConverterTest#createOkResponse_fromJavaHttpsUrlConnection"
-},
-{
-  description: "Okhttp test hardcodes the TLS version expected.",
-  bug: 14462336,
-  names: [
-    "com.squareup.okhttp.internal.http.URLConnectionTest#sslFallbackNotUsedWhenRecycledConnectionFails"
-  ]
-},
-{
-  description: "The test relies on SimpleDateFormat zzz producing GMT not GMT+00:00 as it does on Android. Android issue 66136.",
-  bug: 14462336,
-  names: [
-    "com.squareup.okhttp.internal.http.HttpResponseCacheTest#setIfModifiedSince"
+    "com.squareup.okhttp.internal.spdy.Http20Draft09Test#tooLargeDataFrame",
+    "com.squareup.okhttp.internal.spdy.Spdy3Test#tooLargeDataFrame"
   ]
 },
 {
@@ -1505,6 +1474,57 @@
   bug: 17374604,
   names: [
     "libcore.java.text.DecimalFormatSymbolsTest#test_getInstance_unknown_or_invalid_locale"
+  ]
+},
+{
+  description: "Tests failing on host - needing investigation.",
+  modes: [host],
+  bug: 18547404,
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.java.util.HashMapTest#test_EntrySet"
+  ]
+},
+{
+  description: "Differences between glibc and bionic",
+  modes_variants: [[host, X64]],
+  bug: 18087920,
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.java.lang.MathTest#test_cbrt_D"
+  ]
+},
+{
+  description: "Recursive calls to Charset.forName from within providers will overflow the stack.",
+  result: EXEC_FAILED,
+  names: [
+    "org.apache.harmony.tests.java.nio.charset.CharsetTest#testForName_withProviderWithRecursiveCall"
+  ]
+},
+{
+  description: "Zip64 tests take too long to execute and need more than 5GB of space to run.",
+  result: EXEC_FAILED,
+  names: [
+    "libcore.java.util.zip.Zip64FileTest#testZip64Support_largeNumberOfEntries",
+    "libcore.java.util.zip.Zip64FileTest#testZip64Support_totalLargerThan4G",
+    "libcore.java.util.zip.Zip64FileTest#testZip64Support_hugeEntry"
+  ]
+},
+{
+  description: "OsTest.test_PacketSocketAddress needs CAP_NET_RAW",
+  bug: 19764047,
+  result: EXEC_FAILED,
+  names: [
+    "libcore.io.OsTest#test_PacketSocketAddress"
+  ]
+},
+{
+  description: "Need to rewrite tests for the client-side of renegotiation",
+  bug: 21876068,
+  result: EXEC_FAILED,
+  names: [
+    "com.android.org.conscrypt.NativeCryptoTest#test_SSL_renegotiate",
+    "com.android.org.conscrypt.NativeCryptoTest#test_SSL_do_handshake_clientCertificateRequested_throws_after_renegotiate"
   ]
 }
 ]

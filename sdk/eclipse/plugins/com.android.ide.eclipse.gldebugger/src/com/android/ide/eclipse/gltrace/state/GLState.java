@@ -23,10 +23,10 @@ import java.util.Collections;
 
 public class GLState {
     /** # of texture units modeled in the GL State. */
-    public static final int TEXTURE_UNIT_COUNT = 16;
+    public static final int TEXTURE_UNIT_COUNT = 32;
 
     /** # of vertex attributes */
-    private static final int MAX_VERTEX_ATTRIBS = 8;
+    private static final int MAX_VERTEX_ATTRIBS = 16;
 
     private static GLState sGLState = new GLState();
 

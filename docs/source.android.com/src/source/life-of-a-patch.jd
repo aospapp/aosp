@@ -23,4 +23,7 @@ a patch, once it's been written. Though it may appear complex, the majority of
 the steps below are performed in the web application.</p>
 <p>For full instructions on how to get set up to use gerrit and git, please
 see the <a href="submit-patches.html">Submitting Patches</a> page.</p>
-<p><img src="{@docRoot}images/workflow-0.png" alt="workflow diagram"/></p>
+<img src="{@docRoot}images/workflow-0.png" alt="workflow diagram" id="figure1" />
+<p class="img-caption">
+  <strong>Figure 1.</strong> Patch workflow
+</p>

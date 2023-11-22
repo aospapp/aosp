@@ -23,6 +23,7 @@
 #include "arm/assembler_thumb2.h"
 #include "arm64/assembler_arm64.h"
 #include "mips/assembler_mips.h"
+#include "mips64/assembler_mips64.h"
 #include "x86/assembler_x86.h"
 #include "x86_64/assembler_x86_64.h"
 #include "globals.h"
@@ -30,8 +31,8 @@
 
 namespace art {
 
-static byte* NewContents(size_t capacity) {
-  return new byte[capacity];
+static uint8_t* NewContents(size_t capacity) {
+  return new uint8_t[capacity];
 }
 
 
@@ -40,8 +41,8 @@ AssemblerBuffer::AssemblerBuffer() {
   contents_ = NewContents(kInitialBufferCapacity);
   cursor_ = contents_;
   limit_ = ComputeLimit(contents_, kInitialBufferCapacity);
-  fixup_ = NULL;
-  slow_path_ = NULL;
+  fixup_ = nullptr;
+  slow_path_ = nullptr;
 #ifndef NDEBUG
   has_ensured_capacity_ = false;
   fixups_processed_ = false;
@@ -60,7 +61,7 @@ AssemblerBuffer::~AssemblerBuffer() {
 
 void AssemblerBuffer::ProcessFixups(const MemoryRegion& region) {
   AssemblerFixup* fixup = fixup_;
-  while (fixup != NULL) {
+  while (fixup != nullptr) {
     fixup->Process(region, fixup->position());
     fixup = fixup->previous();
   }
@@ -85,13 +86,14 @@ void AssemblerBuffer::ExtendCapacity() {
   size_t new_capacity = std::min(old_capacity * 2, old_capacity + 1 * MB);
 
   // Allocate the new data area and copy contents of the old one to it.
-  byte* new_contents = NewContents(new_capacity);
+  uint8_t* new_contents = NewContents(new_capacity);
   memmove(reinterpret_cast<void*>(new_contents),
           reinterpret_cast<void*>(contents_),
           old_size);
 
   // Compute the relocation delta and switch to the new contents area.
   ptrdiff_t delta = new_contents - contents_;
+  delete[] contents_;
   contents_ = new_contents;
 
   // Update the cursor and recompute the limit.
@@ -103,6 +105,9 @@ void AssemblerBuffer::ExtendCapacity() {
   CHECK_EQ(Size(), old_size);
 }
 
+void DebugFrameOpCodeWriterForAssembler::ImplicitlyAdvancePC() {
+  this->AdvancePC(assembler_->CodeSize());
+}
 
 Assembler* Assembler::Create(InstructionSet instruction_set) {
   switch (instruction_set) {
@@ -114,87 +119,103 @@ Assembler* Assembler::Create(InstructionSet instruction_set) {
       return new arm64::Arm64Assembler();
     case kMips:
       return new mips::MipsAssembler();
+    case kMips64:
+      return new mips64::Mips64Assembler();
     case kX86:
       return new x86::X86Assembler();
     case kX86_64:
       return new x86_64::X86_64Assembler();
     default:
       LOG(FATAL) << "Unknown InstructionSet: " << instruction_set;
-      return NULL;
+      return nullptr;
   }
 }
 
-void Assembler::StoreImmediateToThread32(ThreadOffset<4> dest, uint32_t imm,
-                                         ManagedRegister scratch) {
+void Assembler::StoreImmediateToThread32(ThreadOffset<4> dest ATTRIBUTE_UNUSED,
+                                         uint32_t imm ATTRIBUTE_UNUSED,
+                                         ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::StoreImmediateToThread64(ThreadOffset<8> dest, uint32_t imm,
-                                         ManagedRegister scratch) {
+void Assembler::StoreImmediateToThread64(ThreadOffset<8> dest ATTRIBUTE_UNUSED,
+                                         uint32_t imm ATTRIBUTE_UNUSED,
+                                         ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::StoreStackOffsetToThread32(ThreadOffset<4> thr_offs,
-                                           FrameOffset fr_offs,
-                                           ManagedRegister scratch) {
+void Assembler::StoreStackOffsetToThread32(ThreadOffset<4> thr_offs ATTRIBUTE_UNUSED,
+                                           FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                           ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::StoreStackOffsetToThread64(ThreadOffset<8> thr_offs,
-                                           FrameOffset fr_offs,
-                                           ManagedRegister scratch) {
+void Assembler::StoreStackOffsetToThread64(ThreadOffset<8> thr_offs ATTRIBUTE_UNUSED,
+                                           FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                           ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::StoreStackPointerToThread32(ThreadOffset<4> thr_offs) {
+void Assembler::StoreStackPointerToThread32(ThreadOffset<4> thr_offs ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::StoreStackPointerToThread64(ThreadOffset<8> thr_offs) {
+void Assembler::StoreStackPointerToThread64(ThreadOffset<8> thr_offs ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::LoadFromThread32(ManagedRegister dest, ThreadOffset<4> src, size_t size) {
+void Assembler::LoadFromThread32(ManagedRegister dest ATTRIBUTE_UNUSED,
+                                 ThreadOffset<4> src ATTRIBUTE_UNUSED,
+                                 size_t size ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::LoadFromThread64(ManagedRegister dest, ThreadOffset<8> src, size_t size) {
+void Assembler::LoadFromThread64(ManagedRegister dest ATTRIBUTE_UNUSED,
+                                 ThreadOffset<8> src ATTRIBUTE_UNUSED,
+                                 size_t size ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::LoadRawPtrFromThread32(ManagedRegister dest, ThreadOffset<4> offs) {
+void Assembler::LoadRawPtrFromThread32(ManagedRegister dest ATTRIBUTE_UNUSED,
+                                       ThreadOffset<4> offs ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::LoadRawPtrFromThread64(ManagedRegister dest, ThreadOffset<8> offs) {
+void Assembler::LoadRawPtrFromThread64(ManagedRegister dest ATTRIBUTE_UNUSED,
+                                       ThreadOffset<8> offs ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CopyRawPtrFromThread32(FrameOffset fr_offs, ThreadOffset<4> thr_offs,
-                                       ManagedRegister scratch) {
+void Assembler::CopyRawPtrFromThread32(FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                       ThreadOffset<4> thr_offs ATTRIBUTE_UNUSED,
+                                       ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CopyRawPtrFromThread64(FrameOffset fr_offs, ThreadOffset<8> thr_offs,
-                                       ManagedRegister scratch) {
+void Assembler::CopyRawPtrFromThread64(FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                       ThreadOffset<8> thr_offs ATTRIBUTE_UNUSED,
+                                       ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CopyRawPtrToThread32(ThreadOffset<4> thr_offs, FrameOffset fr_offs,
-                                     ManagedRegister scratch) {
+void Assembler::CopyRawPtrToThread32(ThreadOffset<4> thr_offs ATTRIBUTE_UNUSED,
+                                     FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                     ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CopyRawPtrToThread64(ThreadOffset<8> thr_offs, FrameOffset fr_offs,
-                                     ManagedRegister scratch) {
+void Assembler::CopyRawPtrToThread64(ThreadOffset<8> thr_offs ATTRIBUTE_UNUSED,
+                                     FrameOffset fr_offs ATTRIBUTE_UNUSED,
+                                     ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CallFromThread32(ThreadOffset<4> offset, ManagedRegister scratch) {
+void Assembler::CallFromThread32(ThreadOffset<4> offset ATTRIBUTE_UNUSED,
+                                 ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 
-void Assembler::CallFromThread64(ThreadOffset<8> offset, ManagedRegister scratch) {
+void Assembler::CallFromThread64(ThreadOffset<8> offset ATTRIBUTE_UNUSED,
+                                 ManagedRegister scratch ATTRIBUTE_UNUSED) {
   UNIMPLEMENTED(FATAL);
 }
 

@@ -19,6 +19,8 @@
 
 #include "indirect_reference_table.h"
 
+#include "gc_root-inl.h"
+#include "runtime-inl.h"
 #include "verify_object-inl.h"
 
 namespace art {
@@ -30,7 +32,7 @@ class Object;
 // Returns "false" if something looks bad.
 inline bool IndirectReferenceTable::GetChecked(IndirectRef iref) const {
   if (UNLIKELY(iref == nullptr)) {
-    LOG(WARNING) << "Attempt to look up NULL " << kind_;
+    LOG(WARNING) << "Attempt to look up nullptr " << kind_;
     return false;
   }
   if (UNLIKELY(GetIndirectRefKind(iref) == kHandleScopeOrInvalid)) {
@@ -73,16 +75,21 @@ inline bool IndirectReferenceTable::CheckEntry(const char* what, IndirectRef ire
 template<ReadBarrierOption kReadBarrierOption>
 inline mirror::Object* IndirectReferenceTable::Get(IndirectRef iref) const {
   if (!GetChecked(iref)) {
-    return kInvalidIndirectRefObject;
+    return nullptr;
   }
   uint32_t idx = ExtractIndex(iref);
-  mirror::Object* obj = table_[idx].GetReference()->Read<kWithoutReadBarrier>();
-  if (LIKELY(obj != kClearedJniWeakGlobal)) {
-    // The read barrier or VerifyObject won't handle kClearedJniWeakGlobal.
-    obj = table_[idx].GetReference()->Read();
-    VerifyObject(obj);
-  }
+  mirror::Object* obj = table_[idx].GetReference()->Read<kReadBarrierOption>();
+  VerifyObject(obj);
   return obj;
+}
+
+inline void IndirectReferenceTable::Update(IndirectRef iref, mirror::Object* obj) {
+  if (!GetChecked(iref)) {
+    LOG(WARNING) << "IndirectReferenceTable Update failed to find reference " << iref;
+    return;
+  }
+  uint32_t idx = ExtractIndex(iref);
+  table_[idx].SetReference(obj);
 }
 
 }  // namespace art

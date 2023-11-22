@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "BionicDeathTest.h"
 #include "TemporaryFile.h"
 
 #include <errno.h>
@@ -27,12 +28,54 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+// The random number generator tests all set the seed, get four values, reset the seed and check
+// that they get the first two values repeated, and then reset the seed and check two more values
+// to rule out the possibility that we're just going round a cycle of four values.
+// TODO: factor this out.
+
 TEST(stdlib, drand48) {
   srand48(0x01020304);
   EXPECT_DOUBLE_EQ(0.65619299195623526, drand48());
   EXPECT_DOUBLE_EQ(0.18522597229772941, drand48());
   EXPECT_DOUBLE_EQ(0.42015087072844537, drand48());
   EXPECT_DOUBLE_EQ(0.061637783047395089, drand48());
+  srand48(0x01020304);
+  EXPECT_DOUBLE_EQ(0.65619299195623526, drand48());
+  EXPECT_DOUBLE_EQ(0.18522597229772941, drand48());
+  srand48(0x01020304);
+  EXPECT_DOUBLE_EQ(0.65619299195623526, drand48());
+  EXPECT_DOUBLE_EQ(0.18522597229772941, drand48());
+}
+
+TEST(stdlib, erand48) {
+  const unsigned short seed[3] = { 0x330e, 0xabcd, 0x1234 };
+  unsigned short xsubi[3];
+  memcpy(xsubi, seed, sizeof(seed));
+  EXPECT_DOUBLE_EQ(0.39646477376027534, erand48(xsubi));
+  EXPECT_DOUBLE_EQ(0.84048536941142515, erand48(xsubi));
+  EXPECT_DOUBLE_EQ(0.35333609724524351, erand48(xsubi));
+  EXPECT_DOUBLE_EQ(0.44658343479654405, erand48(xsubi));
+  memcpy(xsubi, seed, sizeof(seed));
+  EXPECT_DOUBLE_EQ(0.39646477376027534, erand48(xsubi));
+  EXPECT_DOUBLE_EQ(0.84048536941142515, erand48(xsubi));
+  memcpy(xsubi, seed, sizeof(seed));
+  EXPECT_DOUBLE_EQ(0.39646477376027534, erand48(xsubi));
+  EXPECT_DOUBLE_EQ(0.84048536941142515, erand48(xsubi));
+}
+
+TEST(stdlib, lcong48) {
+  unsigned short p[7] = { 0x0102, 0x0304, 0x0506, 0x0708, 0x090a, 0x0b0c, 0x0d0e };
+  lcong48(p);
+  EXPECT_EQ(1531389981, lrand48());
+  EXPECT_EQ(1598801533, lrand48());
+  EXPECT_EQ(2080534853, lrand48());
+  EXPECT_EQ(1102488897, lrand48());
+  lcong48(p);
+  EXPECT_EQ(1531389981, lrand48());
+  EXPECT_EQ(1598801533, lrand48());
+  lcong48(p);
+  EXPECT_EQ(1531389981, lrand48());
+  EXPECT_EQ(1598801533, lrand48());
 }
 
 TEST(stdlib, lrand48) {
@@ -41,6 +84,12 @@ TEST(stdlib, lrand48) {
   EXPECT_EQ(397769746, lrand48());
   EXPECT_EQ(902267124, lrand48());
   EXPECT_EQ(132366131, lrand48());
+  srand48(0x01020304);
+  EXPECT_EQ(1409163720, lrand48());
+  EXPECT_EQ(397769746, lrand48());
+  srand48(0x01020304);
+  EXPECT_EQ(1409163720, lrand48());
+  EXPECT_EQ(397769746, lrand48());
 }
 
 TEST(stdlib, random) {
@@ -49,6 +98,12 @@ TEST(stdlib, random) {
   EXPECT_EQ(1399865117, random());
   EXPECT_EQ(2032643283, random());
   EXPECT_EQ(571329216, random());
+  srandom(0x01020304);
+  EXPECT_EQ(55436735, random());
+  EXPECT_EQ(1399865117, random());
+  srandom(0x01020304);
+  EXPECT_EQ(55436735, random());
+  EXPECT_EQ(1399865117, random());
 }
 
 TEST(stdlib, rand) {
@@ -57,6 +112,12 @@ TEST(stdlib, rand) {
   EXPECT_EQ(1399865117, rand());
   EXPECT_EQ(2032643283, rand());
   EXPECT_EQ(571329216, rand());
+  srand(0x01020304);
+  EXPECT_EQ(55436735, rand());
+  EXPECT_EQ(1399865117, rand());
+  srand(0x01020304);
+  EXPECT_EQ(55436735, rand());
+  EXPECT_EQ(1399865117, rand());
 }
 
 TEST(stdlib, mrand48) {
@@ -65,6 +126,12 @@ TEST(stdlib, mrand48) {
   EXPECT_EQ(795539493, mrand48());
   EXPECT_EQ(1804534249, mrand48());
   EXPECT_EQ(264732262, mrand48());
+  srand48(0x01020304);
+  EXPECT_EQ(-1476639856, mrand48());
+  EXPECT_EQ(795539493, mrand48());
+  srand48(0x01020304);
+  EXPECT_EQ(-1476639856, mrand48());
+  EXPECT_EQ(795539493, mrand48());
 }
 
 TEST(stdlib, posix_memalign) {
@@ -97,6 +164,18 @@ TEST(stdlib, realpath__ENOENT) {
   char* p = realpath("/this/directory/path/almost/certainly/does/not/exist", NULL);
   ASSERT_TRUE(p == NULL);
   ASSERT_EQ(ENOENT, errno);
+}
+
+TEST(stdlib, realpath__component_after_non_directory) {
+  errno = 0;
+  char* p = realpath("/dev/null/.", NULL);
+  ASSERT_TRUE(p == NULL);
+  ASSERT_EQ(ENOTDIR, errno);
+
+  errno = 0;
+  p = realpath("/dev/null/..", NULL);
+  ASSERT_TRUE(p == NULL);
+  ASSERT_EQ(ENOTDIR, errno);
 }
 
 TEST(stdlib, realpath) {
@@ -156,23 +235,39 @@ static void TestBug57421_main() {
 
 // Even though this isn't really a death test, we have to say "DeathTest" here so gtest knows to
 // run this test (which exits normally) in its own process.
-TEST(stdlib_DeathTest, getenv_after_main_thread_exits) {
+
+class stdlib_DeathTest : public BionicDeathTest {};
+
+TEST_F(stdlib_DeathTest, getenv_after_main_thread_exits) {
   // https://code.google.com/p/android/issues/detail?id=57421
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
   ASSERT_EXIT(TestBug57421_main(), ::testing::ExitedWithCode(0), "");
+}
+
+TEST(stdlib, mkostemp64) {
+  TemporaryFile tf([](char* path) { return mkostemp64(path, O_CLOEXEC); });
+  int flags = fcntl(tf.fd, F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(FD_CLOEXEC, flags & FD_CLOEXEC);
+}
+
+TEST(stdlib, mkostemp) {
+  TemporaryFile tf([](char* path) { return mkostemp(path, O_CLOEXEC); });
+  int flags = fcntl(tf.fd, F_GETFD);
+  ASSERT_TRUE(flags != -1);
+  ASSERT_EQ(FD_CLOEXEC, flags & FD_CLOEXEC);
+}
+
+TEST(stdlib, mkstemp64) {
+  TemporaryFile tf(mkstemp64);
+  struct stat64 sb;
+  ASSERT_EQ(0, fstat64(tf.fd, &sb));
+  ASSERT_EQ(O_LARGEFILE, fcntl(tf.fd, F_GETFL) & O_LARGEFILE);
 }
 
 TEST(stdlib, mkstemp) {
   TemporaryFile tf;
   struct stat sb;
   ASSERT_EQ(0, fstat(tf.fd, &sb));
-}
-
-TEST(stdlib, mkstemp64) {
-  GenericTemporaryFile<mkstemp64> tf;
-  struct stat64 sb;
-  ASSERT_EQ(0, fstat64(tf.fd, &sb));
-  ASSERT_EQ(O_LARGEFILE, fcntl(tf.fd, F_GETFL) & O_LARGEFILE);
 }
 
 TEST(stdlib, system) {
@@ -201,6 +296,23 @@ TEST(stdlib, strtof) {
 
 TEST(stdlib, strtold) {
   ASSERT_DOUBLE_EQ(1.23, strtold("1.23", NULL));
+}
+
+TEST(stdlib, strtof_2206701) {
+  ASSERT_EQ(0.0f, strtof("7.0064923216240853546186479164495e-46", NULL));
+  ASSERT_EQ(1.4e-45f, strtof("7.0064923216240853546186479164496e-46", NULL));
+}
+
+TEST(stdlib, strtod_largest_subnormal) {
+  // This value has been known to cause javac and java to infinite loop.
+  // http://www.exploringbinary.com/java-hangs-when-converting-2-2250738585072012e-308/
+  ASSERT_EQ(2.2250738585072014e-308, strtod("2.2250738585072012e-308", NULL));
+  ASSERT_EQ(2.2250738585072014e-308, strtod("0.00022250738585072012e-304", NULL));
+  ASSERT_EQ(2.2250738585072014e-308, strtod("00000002.2250738585072012e-308", NULL));
+  ASSERT_EQ(2.2250738585072014e-308, strtod("2.225073858507201200000e-308", NULL));
+  ASSERT_EQ(2.2250738585072014e-308, strtod("2.2250738585072012e-00308", NULL));
+  ASSERT_EQ(2.2250738585072014e-308, strtod("2.22507385850720129978001e-308", NULL));
+  ASSERT_EQ(-2.2250738585072014e-308, strtod("-2.2250738585072012e-308", NULL));
 }
 
 TEST(stdlib, quick_exit) {
@@ -360,4 +472,52 @@ TEST(stdlib, unlockpt_ENOTTY) {
   ASSERT_EQ(-1, unlockpt(fd));
   ASSERT_EQ(ENOTTY, errno);
   close(fd);
+}
+
+TEST(stdlib, strtol_EINVAL) {
+  errno = 0;
+  strtol("123", NULL, -1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtol("123", NULL, 1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtol("123", NULL, 37);
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(stdlib, strtoll_EINVAL) {
+  errno = 0;
+  strtoll("123", NULL, -1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoll("123", NULL, 1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoll("123", NULL, 37);
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(stdlib, strtoul_EINVAL) {
+  errno = 0;
+  strtoul("123", NULL, -1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoul("123", NULL, 1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoul("123", NULL, 37);
+  ASSERT_EQ(EINVAL, errno);
+}
+
+TEST(stdlib, strtoull_EINVAL) {
+  errno = 0;
+  strtoull("123", NULL, -1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoull("123", NULL, 1);
+  ASSERT_EQ(EINVAL, errno);
+  errno = 0;
+  strtoull("123", NULL, 37);
+  ASSERT_EQ(EINVAL, errno);
 }

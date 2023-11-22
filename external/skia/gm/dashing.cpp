@@ -12,7 +12,8 @@
 
 static void drawline(SkCanvas* canvas, int on, int off, const SkPaint& paint,
                      SkScalar finalX = SkIntToScalar(600), SkScalar finalY = SkIntToScalar(0),
-                     SkScalar phase = SkIntToScalar(0)) {
+                     SkScalar phase = SkIntToScalar(0), 
+                     SkScalar startX = SkIntToScalar(0), SkScalar startY = SkIntToScalar(0)) {
     SkPaint p(paint);
 
     const SkScalar intervals[] = {
@@ -21,7 +22,7 @@ static void drawline(SkCanvas* canvas, int on, int off, const SkPaint& paint,
     };
 
     p.setPathEffect(SkDashPathEffect::Create(intervals, 2, phase))->unref();
-    canvas->drawLine(0, 0, finalX, finalY, p);
+    canvas->drawLine(startX, startY, finalX, finalY, p);
 }
 
 // earlier bug stopped us from drawing very long single-segment dashes, because
@@ -33,14 +34,21 @@ static void show_giant_dash(SkCanvas* canvas) {
     drawline(canvas, 1, 1, paint, SkIntToScalar(20 * 1000));
 }
 
+static void show_zero_len_dash(SkCanvas* canvas) {
+    SkPaint paint;
+
+    drawline(canvas, 2, 2, paint, SkIntToScalar(0));
+    paint.setStyle(SkPaint::kStroke_Style);
+    paint.setStrokeWidth(SkIntToScalar(2));
+    canvas->translate(0, SkIntToScalar(20));
+    drawline(canvas, 4, 4, paint, SkIntToScalar(0));
+}
+
 class DashingGM : public skiagm::GM {
 public:
     DashingGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("dashing");
@@ -80,6 +88,8 @@ protected:
         }
 
         show_giant_dash(canvas);
+        canvas->translate(0, SkIntToScalar(20));
+        show_zero_len_dash(canvas);
     }
 };
 
@@ -123,9 +133,6 @@ public:
     Dashing2GM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("dashing2");
@@ -185,9 +192,6 @@ public:
     Dashing3GM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("dashing3");
@@ -318,9 +322,6 @@ public:
     Dashing4GM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("dashing4");
@@ -396,12 +397,87 @@ protected:
 
 //////////////////////////////////////////////////////////////////////////////
 
-static skiagm::GM* F0(void*) { return new DashingGM; }
-static skiagm::GM* F1(void*) { return new Dashing2GM; }
-static skiagm::GM* F2(void*) { return new Dashing3GM; }
-static skiagm::GM* F3(void*) { return new Dashing4GM; }
+class Dashing5GM : public skiagm::GM {
+public:
+    Dashing5GM(bool doAA) : fDoAA(doAA) {}
 
-static skiagm::GMRegistry gR0(F0);
-static skiagm::GMRegistry gR1(F1);
-static skiagm::GMRegistry gR2(F2);
-static skiagm::GMRegistry gR3(F3);
+protected:
+
+    bool runAsBench() const override { return true; }
+
+    SkString onShortName() override {
+        if (fDoAA) {
+            return SkString("dashing5_aa");
+        } else {
+            return SkString("dashing5_bw");
+        }
+    }
+
+    SkISize onISize() override { return SkISize::Make(400, 200); }
+
+    void onDraw(SkCanvas* canvas) override {
+        static const int kOn = 4;
+        static const int kOff = 4;
+        static const int kIntervalLength = kOn + kOff;
+
+        static const SkColor gColors[kIntervalLength] = {
+            SK_ColorRED,
+            SK_ColorGREEN,
+            SK_ColorBLUE,
+            SK_ColorCYAN,
+            SK_ColorMAGENTA,
+            SK_ColorYELLOW,
+            SK_ColorGRAY,
+            SK_ColorDKGRAY
+        };
+
+        SkPaint paint;
+        paint.setStyle(SkPaint::kStroke_Style);
+
+        paint.setAntiAlias(fDoAA);
+
+        SkMatrix rot;
+        rot.setRotate(90);
+        SkASSERT(rot.rectStaysRect());
+
+        canvas->concat(rot);
+
+        int sign;       // used to toggle the direction of the lines
+        int phase = 0;
+
+        for (int x = 0; x < 200; x += 10) {
+            paint.setStrokeWidth(SkIntToScalar(phase+1));
+            paint.setColor(gColors[phase]);
+            sign = (x % 20) ? 1 : -1;
+            drawline(canvas, kOn, kOff, paint, 
+                     SkIntToScalar(x), -sign * SkIntToScalar(10003), 
+                     SkIntToScalar(phase),
+                     SkIntToScalar(x),  sign * SkIntToScalar(10003));
+            phase = (phase + 1) % kIntervalLength;
+        }
+
+        for (int y = -400; y < 0; y += 10) {
+            paint.setStrokeWidth(SkIntToScalar(phase+1));
+            paint.setColor(gColors[phase]);
+            sign = (y % 20) ? 1 : -1;
+            drawline(canvas, kOn, kOff, paint, 
+                     -sign * SkIntToScalar(10003), SkIntToScalar(y), 
+                     SkIntToScalar(phase),
+                      sign * SkIntToScalar(10003), SkIntToScalar(y));
+            phase = (phase + 1) % kIntervalLength;
+        }
+    }
+
+private:
+    bool fDoAA;
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+DEF_GM(return SkNEW(DashingGM);)
+DEF_GM(return SkNEW(Dashing2GM);)
+DEF_GM(return SkNEW(Dashing3GM);)
+DEF_GM(return SkNEW(Dashing4GM);)
+DEF_GM(return SkNEW_ARGS(Dashing5GM, (true));)
+DEF_GM(return SkNEW_ARGS(Dashing5GM, (false));)
+

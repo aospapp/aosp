@@ -397,28 +397,6 @@ void IFX_Edit::DrawRichEdit(CFX_RenderDevice* pDevice, CPDF_Matrix* pUser2Device
 	pDevice->RestoreState();
 }
 
-static void AddLineToPageObjects(CPDF_PageObjects* pPageObjs, FX_COLORREF crStroke, 
-								 const CPDF_Point& pt1, const CPDF_Point& pt2)
-{
-	CPDF_PathObject* pPathObj = new CPDF_PathObject;
-	CPDF_PathData* pPathData = pPathObj->m_Path.GetModify();
-
-	pPathData->SetPointCount(2);
-	pPathData->SetPoint(0, pt1.x, pt1.y, FXPT_MOVETO);
-	pPathData->SetPoint(1, pt2.x, pt2.y, FXPT_LINETO);
-
-	FX_FLOAT rgb[3];
-	rgb[0] = FXARGB_R(crStroke) / 255.0f;
-	rgb[1] = FXARGB_G(crStroke) / 255.0f;
-	rgb[2] = FXARGB_B(crStroke) / 255.0f;
-	pPathObj->m_ColorState.SetStrokeColor(CPDF_ColorSpace::GetStockCS(PDFCS_DEVICERGB), rgb, 3);
-
-	CFX_GraphStateData* pData = pPathObj->m_GraphState.GetModify();
-	pData->m_LineWidth = 1;
-
-	pPageObjs->InsertObject(pPageObjs->GetLastObjectPosition(),pPathObj);
-}
-
 static void AddRectToPageObjects(CPDF_PageObjects* pPageObjs, FX_COLORREF crFill, const CPDF_Rect& rcFill)
 {
 	CPDF_PathObject* pPathObj = new CPDF_PathObject;
@@ -467,30 +445,6 @@ static CPDF_TextObject* AddTextObjToPageObjects(CPDF_PageObjects* pPageObjs, FX_
 	pPageObjs->InsertObject(pPageObjs->GetLastObjectPosition(),pTxtObj);
 
 	return pTxtObj;
-}
-
-/*
-List of currently supported standard fonts:
-Courier, Courier-Bold, Courier-BoldOblique, Courier-Oblique
-Helvetica, Helvetica-Bold, Helvetica-BoldOblique, Helvetica-Oblique
-Times-Roman, Times-Bold, Times-Italic, Times-BoldItalic
-Symbol, ZapfDingbats
-*/
-
-const char* g_sFXEDITStandardFontName[] = {"Courier", "Courier-Bold", "Courier-BoldOblique", "Courier-Oblique",
-	"Helvetica", "Helvetica-Bold", "Helvetica-BoldOblique", "Helvetica-Oblique",
-	"Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic",
-	"Symbol", "ZapfDingbats"};
-
-static FX_BOOL FX_EDIT_IsStandardFont(const CFX_ByteString& sFontName)
-{
-	for (FX_INT32 i=0; i<14; i++)
-	{
-		if (sFontName == g_sFXEDITStandardFontName[i])
-			return TRUE;
-	}
-
-	return FALSE;
 }
 
 void IFX_Edit::GeneratePageObjects(CPDF_PageObjects* pPageObjects, IFX_Edit* pEdit,

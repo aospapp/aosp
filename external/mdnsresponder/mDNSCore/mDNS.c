@@ -4436,7 +4436,7 @@ mDNSexport mDNSs32 mDNS_Execute(mDNS *const m)
 				}
 			}
 		m->NewLocalRecords = head;
-		debugf("mDNS_Execute: Setting NewLocalRecords to %s", (head ? ARDisplayString(m, head) : "NULL"));
+		// debugf("mDNS_Execute: Setting NewLocalRecords to %s", (head ? ARDisplayString(m, head) : "NULL"));
 
 		if (i >= 1000) LogMsg("mDNS_Execute: m->NewLocalRecords exceeded loop limit");
 
@@ -11419,6 +11419,9 @@ mDNSexport void mDNS_StartExit(mDNS *const m)
 
 	for (rr = m->DuplicateRecords; rr; rr = rr->next)
 		LogMsg("mDNS_StartExit: Should not still have Duplicate Records remaining: %02X %s", rr->resrec.RecordType, ARDisplayString(m, rr));
+
+	// Send responses to flush any pending deregistrations
+	SendResponses(m);
 
 	// If any deregistering records remain, send their deregistration announcements before we exit
 	if (m->mDNSPlatformStatus != mStatus_NoError) DiscardDeregistrations(m);

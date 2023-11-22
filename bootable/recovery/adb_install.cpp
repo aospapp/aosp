@@ -30,10 +30,8 @@
 #include "install.h"
 #include "common.h"
 #include "adb_install.h"
-extern "C" {
 #include "minadbd/fuse_adb_provider.h"
 #include "fuse_sideload.h"
-}
 
 static RecoveryUI* ui = NULL;
 
@@ -44,7 +42,7 @@ set_usb_driver(bool enabled) {
         ui->Print("failed to open driver control: %s\n", strerror(errno));
         return;
     }
-    if (write(fd, enabled ? "1" : "0", 1) < 0) {
+    if (TEMP_FAILURE_RETRY(write(fd, enabled ? "1" : "0", 1)) == -1) {
         ui->Print("failed to set driver control: %s\n", strerror(errno));
     }
     if (close(fd) < 0) {
@@ -61,9 +59,7 @@ stop_adbd() {
 
 static void
 maybe_restart_adbd() {
-    char value[PROPERTY_VALUE_MAX+1];
-    int len = property_get("ro.debuggable", value, NULL);
-    if (len == 1 && value[0] == '1') {
+    if (is_ro_debuggable()) {
         ui->Print("Restarting adbd...\n");
         set_usb_driver(true);
         property_set("ctl.start", "adbd");
@@ -75,7 +71,9 @@ maybe_restart_adbd() {
 #define ADB_INSTALL_TIMEOUT 300
 
 int
-apply_from_adb(RecoveryUI* ui_, int* wipe_cache, const char* install_file) {
+apply_from_adb(RecoveryUI* ui_, bool* wipe_cache, const char* install_file) {
+    modified_flash = true;
+
     ui = ui_;
 
     stop_adbd();
@@ -109,7 +107,7 @@ apply_from_adb(RecoveryUI* ui_, int* wipe_cache, const char* install_file) {
                 sleep(1);
                 continue;
             } else {
-                ui->Print("\nTimed out waiting for package.\n\n", strerror(errno));
+                ui->Print("\nTimed out waiting for package.\n\n");
                 result = INSTALL_ERROR;
                 kill(child, SIGKILL);
                 break;

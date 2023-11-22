@@ -10,59 +10,6 @@ LLVM_ROOT_PATH := $(LOCAL_PATH)/../..
 llvm_ar_SRC_FILES := \
   llvm-ar.cpp
 
-llvm_ar_STATIC_LIBRARIES := \
-  libLLVMObject             \
-  libLLVMBitReader          \
-  libLLVMCore               \
-  libLLVMSupport            \
-
-#  libLLVMAArch64CodeGen \
-  libLLVMAArch64Info \
-  libLLVMAArch64Desc \
-  libLLVMAArch64AsmParser \
-  libLLVMAArch64AsmPrinter \
-  libLLVMAArch64Disassembler \
-  libLLVMARMCodeGen \
-  libLLVMARMInfo \
-  libLLVMARMDesc \
-  libLLVMARMAsmParser \
-  libLLVMARMAsmPrinter \
-  libLLVMARMDisassembler \
-  libLLVMMipsCodeGen \
-  libLLVMMipsInfo \
-  libLLVMMipsDesc \
-  libLLVMMipsAsmParser \
-  libLLVMMipsAsmPrinter \
-  libLLVMMipsDisassembler \
-  libLLVMX86CodeGen \
-  libLLVMX86Info \
-  libLLVMX86Desc \
-  libLLVMX86AsmParser \
-  libLLVMX86AsmPrinter \
-  libLLVMX86Disassembler \
-  libLLVMAsmPrinter \
-  libLLVMSelectionDAG \
-  libLLVMCodeGen \
-  libLLVMObject \
-  libLLVMScalarOpts \
-  libLLVMInstCombine \
-  libLLVMInstrumentation \
-  libLLVMTransformObjCARC \
-  libLLVMTransformUtils \
-  libLLVMipa \
-  libLLVMAnalysis \
-  libLLVMTarget \
-  libLLVMMC \
-  libLLVMMCParser \
-  libLLVMCore \
-  libLLVMAsmParser \
-  libLLVMOption \
-  libLLVMSupport \
-  libLLVMVectorize \
-
-
-
-
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := llvm-ar
@@ -72,7 +19,6 @@ LOCAL_IS_HOST_MODULE := true
 
 LOCAL_SRC_FILES := $(llvm_ar_SRC_FILES)
 
-LOCAL_STATIC_LIBRARIES := $(llvm_ar_STATIC_LIBRARIES)
 LOCAL_SHARED_LIBRARIES := libLLVM
 
 LOCAL_LDLIBS += -lpthread -lm -ldl

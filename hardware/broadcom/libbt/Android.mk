@@ -4,7 +4,7 @@ ifneq ($(BOARD_HAVE_BLUETOOTH_BCM),)
 
 include $(CLEAR_VARS)
 
-BDROID_DIR := $(TOP_DIR)external/bluetooth/bluedroid
+BDROID_DIR := $(TOP_DIR)system/bt
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_brcm.c \

@@ -170,8 +170,8 @@ void printEnvNames(void)
 
 // These are extensions to OpenSL ES 1.0.1 values
 
-#define SL_PREFETCHSTATUS_UNKNOWN 0
-#define SL_PREFETCHSTATUS_ERROR   (-1)
+#define SL_PREFETCHSTATUS_UNKNOWN ((SLuint32) 0)
+#define SL_PREFETCHSTATUS_ERROR   ((SLuint32) -1)
 
 // Mutex and condition shared with main program to protect prefetch_status
 

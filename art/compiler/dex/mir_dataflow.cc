@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "compiler_internals.h"
 #include "local_value_numbering.h"
 #include "dataflow_iterator-inl.h"
 
@@ -118,19 +117,19 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_DA | DF_REF_A | DF_NON_NULL_DST,
 
   // 1D MONITOR_ENTER vAA
-  DF_UA | DF_NULL_CHK_0 | DF_REF_A,
+  DF_UA | DF_NULL_CHK_A | DF_REF_A,
 
   // 1E MONITOR_EXIT vAA
-  DF_UA | DF_NULL_CHK_0 | DF_REF_A,
+  DF_UA | DF_NULL_CHK_A | DF_REF_A,
 
   // 1F CHK_CAST vAA, type@BBBB
-  DF_UA | DF_REF_A | DF_UMS,
+  DF_UA | DF_REF_A | DF_CHK_CAST | DF_UMS,
 
   // 20 INSTANCE_OF vA, vB, type@CCCC
   DF_DA | DF_UB | DF_CORE_A | DF_REF_B | DF_UMS,
 
   // 21 ARRAY_LENGTH vA, vB
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_CORE_A | DF_REF_B,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_CORE_A | DF_REF_B,
 
   // 22 NEW_INSTANCE vAA, type@BBBB
   DF_DA | DF_NON_NULL_DST | DF_REF_A | DF_UMS,
@@ -160,10 +159,10 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_NOP,
 
   // 2B PACKED_SWITCH vAA, +BBBBBBBB
-  DF_UA,
+  DF_UA | DF_CORE_A,
 
   // 2C SPARSE_SWITCH vAA, +BBBBBBBB
-  DF_UA,
+  DF_UA | DF_CORE_A,
 
   // 2D CMPL_FLOAT vAA, vBB, vCC
   DF_DA | DF_UB | DF_UC | DF_FP_B | DF_FP_C | DF_CORE_A,
@@ -181,22 +180,22 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_DA | DF_UB | DF_B_WIDE | DF_UC | DF_C_WIDE | DF_CORE_A | DF_CORE_B | DF_CORE_C,
 
   // 32 IF_EQ vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 33 IF_NE vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 34 IF_LT vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 35 IF_GE vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 36 IF_GT vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 37 IF_LE vA, vB, +CCCC
-  DF_UA | DF_UB,
+  DF_UA | DF_UB | DF_SAME_TYPE_AB,
 
   // 38 IF_EQZ vAA, +BBBB
   DF_UA,
@@ -235,130 +234,130 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_NOP,
 
   // 44 AGET vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 45 AGET_WIDE vAA, vBB, vCC
-  DF_DA | DF_A_WIDE | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_A_WIDE | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 46 AGET_OBJECT vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_A | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_A | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 47 AGET_BOOLEAN vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 48 AGET_BYTE vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 49 AGET_CHAR vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4A AGET_SHORT vAA, vBB, vCC
-  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_0 | DF_RANGE_CHK_1 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_DA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4B APUT vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4C APUT_WIDE vAA, vBB, vCC
-  DF_UA | DF_A_WIDE | DF_UB | DF_UC | DF_NULL_CHK_2 | DF_RANGE_CHK_3 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_A_WIDE | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4D APUT_OBJECT vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_A | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_A | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4E APUT_BOOLEAN vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 4F APUT_BYTE vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 50 APUT_CHAR vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 51 APUT_SHORT vAA, vBB, vCC
-  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_1 | DF_RANGE_CHK_2 | DF_REF_B | DF_CORE_C | DF_LVN,
+  DF_UA | DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
 
   // 52 IGET vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 53 IGET_WIDE vA, vB, field@CCCC
-  DF_DA | DF_A_WIDE | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_A_WIDE | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 54 IGET_OBJECT vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 55 IGET_BOOLEAN vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 56 IGET_BYTE vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 57 IGET_CHAR vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 58 IGET_SHORT vA, vB, field@CCCC
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 59 IPUT vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5A IPUT_WIDE vA, vB, field@CCCC
-  DF_UA | DF_A_WIDE | DF_UB | DF_NULL_CHK_2 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_A_WIDE | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5B IPUT_OBJECT vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5C IPUT_BOOLEAN vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5D IPUT_BYTE vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5E IPUT_CHAR vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 5F IPUT_SHORT vA, vB, field@CCCC
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
   // 60 SGET vAA, field@BBBB
-  DF_DA | DF_SFIELD | DF_UMS,
+  DF_DA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 61 SGET_WIDE vAA, field@BBBB
-  DF_DA | DF_A_WIDE | DF_SFIELD | DF_UMS,
+  DF_DA | DF_A_WIDE | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 62 SGET_OBJECT vAA, field@BBBB
-  DF_DA | DF_REF_A | DF_SFIELD | DF_UMS,
+  DF_DA | DF_REF_A | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 63 SGET_BOOLEAN vAA, field@BBBB
-  DF_DA | DF_SFIELD | DF_UMS,
+  DF_DA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 64 SGET_BYTE vAA, field@BBBB
-  DF_DA | DF_SFIELD | DF_UMS,
+  DF_DA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 65 SGET_CHAR vAA, field@BBBB
-  DF_DA | DF_SFIELD | DF_UMS,
+  DF_DA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 66 SGET_SHORT vAA, field@BBBB
-  DF_DA | DF_SFIELD | DF_UMS,
+  DF_DA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 67 SPUT vAA, field@BBBB
-  DF_UA | DF_SFIELD | DF_UMS,
+  DF_UA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 68 SPUT_WIDE vAA, field@BBBB
-  DF_UA | DF_A_WIDE | DF_SFIELD | DF_UMS,
+  DF_UA | DF_A_WIDE | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 69 SPUT_OBJECT vAA, field@BBBB
-  DF_UA | DF_REF_A | DF_SFIELD | DF_UMS,
+  DF_UA | DF_REF_A | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 6A SPUT_BOOLEAN vAA, field@BBBB
-  DF_UA | DF_SFIELD | DF_UMS,
+  DF_UA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 6B SPUT_BYTE vAA, field@BBBB
-  DF_UA | DF_SFIELD | DF_UMS,
+  DF_UA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 6C SPUT_CHAR vAA, field@BBBB
-  DF_UA | DF_SFIELD | DF_UMS,
+  DF_UA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 6D SPUT_SHORT vAA, field@BBBB
-  DF_UA | DF_SFIELD | DF_UMS,
+  DF_UA | DF_SFIELD | DF_CLINIT | DF_UMS,
 
   // 6E INVOKE_VIRTUAL {vD, vE, vF, vG, vA}
   DF_FORMAT_35C | DF_NULL_CHK_OUT0 | DF_UMS,
@@ -370,12 +369,12 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_FORMAT_35C | DF_NULL_CHK_OUT0 | DF_UMS,
 
   // 71 INVOKE_STATIC {vD, vE, vF, vG, vA}
-  DF_FORMAT_35C | DF_UMS,
+  DF_FORMAT_35C | DF_CLINIT | DF_UMS,
 
   // 72 INVOKE_INTERFACE {vD, vE, vF, vG, vA}
   DF_FORMAT_35C | DF_NULL_CHK_OUT0 | DF_UMS,
 
-  // 73 UNUSED_73
+  // 73 RETURN_VOID_NO_BARRIER
   DF_NOP,
 
   // 74 INVOKE_VIRTUAL_RANGE {vCCCC .. vNNNN}
@@ -388,7 +387,7 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_FORMAT_3RC | DF_NULL_CHK_OUT0 | DF_UMS,
 
   // 77 INVOKE_STATIC_RANGE {vCCCC .. vNNNN}
-  DF_FORMAT_3RC | DF_UMS,
+  DF_FORMAT_3RC | DF_CLINIT | DF_UMS,
 
   // 78 INVOKE_INTERFACE_RANGE {vCCCC .. vNNNN}
   DF_FORMAT_3RC | DF_NULL_CHK_OUT0 | DF_UMS,
@@ -711,89 +710,89 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   // E2 USHR_INT_LIT8 vAA, vBB, #+CC
   DF_DA | DF_UB | DF_CORE_A | DF_CORE_B,
 
-  // E3 IGET_VOLATILE
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  // E3 IGET_QUICK
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E4 IPUT_VOLATILE
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_B | DF_IFIELD | DF_LVN,
+  // E4 IGET_WIDE_QUICK
+  DF_DA | DF_A_WIDE | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E5 SGET_VOLATILE
-  DF_DA | DF_SFIELD | DF_UMS,
+  // E5 IGET_OBJECT_QUICK
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E6 SPUT_VOLATILE
-  DF_UA | DF_SFIELD | DF_UMS,
+  // E6 IPUT_QUICK
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E7 IGET_OBJECT_VOLATILE
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
+  // E7 IPUT_WIDE_QUICK
+  DF_UA | DF_A_WIDE | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E8 IGET_WIDE_VOLATILE
-  DF_DA | DF_A_WIDE | DF_UB | DF_NULL_CHK_0 | DF_REF_B | DF_IFIELD | DF_LVN,
+  // E8 IPUT_OBJECT_QUICK
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // E9 IPUT_WIDE_VOLATILE
-  DF_UA | DF_A_WIDE | DF_UB | DF_NULL_CHK_2 | DF_REF_B | DF_IFIELD | DF_LVN,
-
-  // EA SGET_WIDE_VOLATILE
-  DF_DA | DF_A_WIDE | DF_SFIELD | DF_UMS,
-
-  // EB SPUT_WIDE_VOLATILE
-  DF_UA | DF_A_WIDE | DF_SFIELD | DF_UMS,
-
-  // EC BREAKPOINT
-  DF_NOP,
-
-  // ED THROW_VERIFICATION_ERROR
-  DF_NOP | DF_UMS,
-
-  // EE EXECUTE_INLINE
-  DF_FORMAT_35C,
-
-  // EF EXECUTE_INLINE_RANGE
-  DF_FORMAT_3RC,
-
-  // F0 INVOKE_OBJECT_INIT_RANGE
-  DF_NOP | DF_NULL_CHK_0,
-
-  // F1 RETURN_VOID_BARRIER
-  DF_NOP,
-
-  // F2 IGET_QUICK
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_IFIELD | DF_LVN,
-
-  // F3 IGET_WIDE_QUICK
-  DF_DA | DF_A_WIDE | DF_UB | DF_NULL_CHK_0 | DF_IFIELD | DF_LVN,
-
-  // F4 IGET_OBJECT_QUICK
-  DF_DA | DF_UB | DF_NULL_CHK_0 | DF_IFIELD | DF_LVN,
-
-  // F5 IPUT_QUICK
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_IFIELD | DF_LVN,
-
-  // F6 IPUT_WIDE_QUICK
-  DF_UA | DF_A_WIDE | DF_UB | DF_NULL_CHK_2 | DF_IFIELD | DF_LVN,
-
-  // F7 IPUT_OBJECT_QUICK
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_IFIELD | DF_LVN,
-
-  // F8 INVOKE_VIRTUAL_QUICK
+  // E9 INVOKE_VIRTUAL_QUICK
   DF_FORMAT_35C | DF_NULL_CHK_OUT0 | DF_UMS,
 
-  // F9 INVOKE_VIRTUAL_QUICK_RANGE
+  // EA INVOKE_VIRTUAL_RANGE_QUICK
   DF_FORMAT_3RC | DF_NULL_CHK_OUT0 | DF_UMS,
 
-  // FA INVOKE_SUPER_QUICK
-  DF_FORMAT_35C | DF_NULL_CHK_OUT0 | DF_UMS,
+  // EB IPUT_BOOLEAN_QUICK vA, vB, index
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // FB INVOKE_SUPER_QUICK_RANGE
-  DF_FORMAT_3RC | DF_NULL_CHK_OUT0 | DF_UMS,
+  // EC IPUT_BYTE_QUICK vA, vB, index
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // FC IPUT_OBJECT_VOLATILE
-  DF_UA | DF_UB | DF_NULL_CHK_1 | DF_REF_A | DF_REF_B | DF_IFIELD | DF_LVN,
+  // ED IPUT_CHAR_QUICK vA, vB, index
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // FD SGET_OBJECT_VOLATILE
-  DF_DA | DF_REF_A | DF_SFIELD | DF_UMS,
+  // EE IPUT_SHORT_QUICK vA, vB, index
+  DF_UA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
 
-  // FE SPUT_OBJECT_VOLATILE
-  DF_UA | DF_REF_A | DF_SFIELD | DF_UMS,
+  // EF IGET_BOOLEAN_QUICK vA, vB, index
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
+
+  // F0 IGET_BYTE_QUICK vA, vB, index
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
+
+  // F1 IGET_CHAR_QUICK vA, vB, index
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
+
+  // F2 IGET_SHORT_QUICK vA, vB, index
+  DF_DA | DF_UB | DF_NULL_CHK_B | DF_REF_B | DF_IFIELD | DF_LVN,
+
+  // F3 UNUSED_F3
+  DF_NOP,
+
+  // F4 UNUSED_F4
+  DF_NOP,
+
+  // F5 UNUSED_F5
+  DF_NOP,
+
+  // F6 UNUSED_F6
+  DF_NOP,
+
+  // F7 UNUSED_F7
+  DF_NOP,
+
+  // F8 UNUSED_F8
+  DF_NOP,
+
+  // F9 UNUSED_F9
+  DF_NOP,
+
+  // FA UNUSED_FA
+  DF_NOP,
+
+  // FB UNUSED_FB
+  DF_NOP,
+
+  // FC UNUSED_FC
+  DF_NOP,
+
+  // FD UNUSED_FD
+  DF_NOP,
+
+  // FE UNUSED_FE
+  DF_NOP,
 
   // FF UNUSED_FF
   DF_NOP,
@@ -824,80 +823,93 @@ const uint64_t MIRGraph::oat_data_flow_attributes_[kMirOpLast] = {
   DF_NOP,
 
   // 108 MIR_NULL_CHECK
-  0,
+  DF_UA | DF_REF_A | DF_NULL_CHK_A | DF_LVN,
 
   // 109 MIR_RANGE_CHECK
   0,
 
-  // 110 MIR_DIV_ZERO_CHECK
+  // 10A MIR_DIV_ZERO_CHECK
   0,
 
-  // 111 MIR_CHECK
+  // 10B MIR_CHECK
   0,
 
-  // 112 MIR_CHECKPART2
-  0,
-
-  // 113 MIR_SELECT
+  // 10D MIR_SELECT
   DF_DA | DF_UB,
 
-  // 114 MirOpConstVector
-  DF_DA,
-
-  // 115 MirOpMoveVector
+  // 10E MirOpConstVector
   0,
 
-  // 116 MirOpPackedMultiply
+  // 10F MirOpMoveVector
   0,
 
-  // 117 MirOpPackedAddition
+  // 110 MirOpPackedMultiply
   0,
 
-  // 118 MirOpPackedSubtract
+  // 111 MirOpPackedAddition
   0,
 
-  // 119 MirOpPackedShiftLeft
+  // 112 MirOpPackedSubtract
   0,
 
-  // 120 MirOpPackedSignedShiftRight
+  // 113 MirOpPackedShiftLeft
   0,
 
-  // 121 MirOpPackedUnsignedShiftRight
+  // 114 MirOpPackedSignedShiftRight
   0,
 
-  // 122 MirOpPackedAnd
+  // 115 MirOpPackedUnsignedShiftRight
   0,
 
-  // 123 MirOpPackedOr
+  // 116 MirOpPackedAnd
   0,
 
-  // 124 MirOpPackedXor
+  // 117 MirOpPackedOr
   0,
 
-  // 125 MirOpPackedAddReduce
-  DF_DA | DF_UA,
-
-  // 126 MirOpPackedReduce
-  DF_DA,
-
-  // 127 MirOpPackedSet
-  DF_UB,
-
-  // 128 MirOpReserveVectorRegisters
+  // 118 MirOpPackedXor
   0,
 
-  // 129 MirOpReturnVectorRegisters
+  // 119 MirOpPackedAddReduce
+  DF_FORMAT_EXTENDED,
+
+  // 11A MirOpPackedReduce
+  DF_FORMAT_EXTENDED,
+
+  // 11B MirOpPackedSet
+  DF_FORMAT_EXTENDED,
+
+  // 11C MirOpReserveVectorRegisters
   0,
+
+  // 11D MirOpReturnVectorRegisters
+  0,
+
+  // 11E MirOpMemBarrier
+  0,
+
+  // 11F MirOpPackedArrayGet
+  DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
+
+  // 120 MirOpPackedArrayPut
+  DF_UB | DF_UC | DF_NULL_CHK_B | DF_RANGE_CHK_C | DF_REF_B | DF_CORE_C | DF_LVN,
+
+  // 121 MirOpMaddInt
+  DF_FORMAT_EXTENDED,
+
+  // 122 MirOpMsubInt
+  DF_FORMAT_EXTENDED,
+
+  // 123 MirOpMaddLong
+  DF_FORMAT_EXTENDED,
+
+  // 124 MirOpMsubLong
+  DF_FORMAT_EXTENDED,
 };
-
-/* Return the base virtual register for a SSA name */
-int MIRGraph::SRegToVReg(int ssa_reg) const {
-  return ssa_base_vregs_->Get(ssa_reg);
-}
 
 /* Any register that is used before being defined is considered live-in */
 void MIRGraph::HandleLiveInUse(ArenaBitVector* use_v, ArenaBitVector* def_v,
-                            ArenaBitVector* live_in_v, int dalvik_reg_id) {
+                               ArenaBitVector* live_in_v, int dalvik_reg_id) {
   use_v->SetBit(dalvik_reg_id);
   if (!def_v->IsBitSet(dalvik_reg_id)) {
     live_in_v->SetBit(dalvik_reg_id);
@@ -910,9 +922,56 @@ void MIRGraph::HandleDef(ArenaBitVector* def_v, int dalvik_reg_id) {
 }
 
 void MIRGraph::HandleExtended(ArenaBitVector* use_v, ArenaBitVector* def_v,
-                            ArenaBitVector* live_in_v,
-                            const MIR::DecodedInstruction& d_insn) {
+                              ArenaBitVector* live_in_v,
+                              const MIR::DecodedInstruction& d_insn) {
+  // For vector MIRs, vC contains type information
+  bool is_vector_type_wide = false;
+  int type_size = d_insn.vC >> 16;
+  if (type_size == k64 || type_size == kDouble) {
+    is_vector_type_wide = true;
+  }
+
   switch (static_cast<int>(d_insn.opcode)) {
+    case kMirOpPackedAddReduce:
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vA);
+      if (is_vector_type_wide == true) {
+        HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vA + 1);
+      }
+      HandleDef(def_v, d_insn.vA);
+      if (is_vector_type_wide == true) {
+        HandleDef(def_v, d_insn.vA + 1);
+      }
+      break;
+    case kMirOpPackedReduce:
+      HandleDef(def_v, d_insn.vA);
+      if (is_vector_type_wide == true) {
+        HandleDef(def_v, d_insn.vA + 1);
+      }
+      break;
+    case kMirOpPackedSet:
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
+      if (is_vector_type_wide == true) {
+        HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB + 1);
+      }
+      break;
+    case kMirOpMaddInt:
+    case kMirOpMsubInt:
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vC);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.arg[0]);
+      HandleDef(def_v, d_insn.vA);
+      break;
+    case kMirOpMaddLong:
+    case kMirOpMsubLong:
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vB + 1);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vC);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.vC + 1);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.arg[0]);
+      HandleLiveInUse(use_v, def_v, live_in_v, d_insn.arg[0] + 1);
+      HandleDef(def_v, d_insn.vA);
+      HandleDef(def_v, d_insn.vA + 1);
+      break;
     default:
       LOG(ERROR) << "Unexpected Extended Opcode " << d_insn.opcode;
       break;
@@ -927,16 +986,16 @@ bool MIRGraph::FindLocalLiveIn(BasicBlock* bb) {
   MIR* mir;
   ArenaBitVector *use_v, *def_v, *live_in_v;
 
-  if (bb->data_flow_info == NULL) return false;
+  if (bb->data_flow_info == nullptr) return false;
 
   use_v = bb->data_flow_info->use_v =
-      new (arena_) ArenaBitVector(arena_, cu_->num_dalvik_registers, false, kBitMapUse);
+      new (arena_) ArenaBitVector(arena_, GetNumOfCodeAndTempVRs(), false, kBitMapUse);
   def_v = bb->data_flow_info->def_v =
-      new (arena_) ArenaBitVector(arena_, cu_->num_dalvik_registers, false, kBitMapDef);
+      new (arena_) ArenaBitVector(arena_, GetNumOfCodeAndTempVRs(), false, kBitMapDef);
   live_in_v = bb->data_flow_info->live_in_v =
-      new (arena_) ArenaBitVector(arena_, cu_->num_dalvik_registers, false, kBitMapLiveIn);
+      new (arena_) ArenaBitVector(arena_, GetNumOfCodeAndTempVRs(), false, kBitMapLiveIn);
 
-  for (mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+  for (mir = bb->first_mir_insn; mir != nullptr; mir = mir->next) {
     uint64_t df_attributes = GetDataFlowAttributes(mir);
     MIR::DecodedInstruction* d_insn = &mir->dalvikInsn;
 
@@ -984,31 +1043,30 @@ bool MIRGraph::FindLocalLiveIn(BasicBlock* bb) {
 }
 
 int MIRGraph::AddNewSReg(int v_reg) {
-  // Compiler temps always have a subscript of 0
-  int subscript = (v_reg < 0) ? 0 : ++ssa_last_defs_[v_reg];
+  int subscript = ++ssa_last_defs_[v_reg];
   uint32_t ssa_reg = GetNumSSARegs();
   SetNumSSARegs(ssa_reg + 1);
-  ssa_base_vregs_->Insert(v_reg);
-  ssa_subscripts_->Insert(subscript);
-  DCHECK_EQ(ssa_base_vregs_->Size(), ssa_subscripts_->Size());
+  ssa_base_vregs_.push_back(v_reg);
+  ssa_subscripts_.push_back(subscript);
+  DCHECK_EQ(ssa_base_vregs_.size(), ssa_subscripts_.size());
   // If we are expanding very late, update use counts too.
-  if (ssa_reg > 0 && use_counts_.Size() == ssa_reg) {
+  if (ssa_reg > 0 && use_counts_.size() == ssa_reg) {
     // Need to expand the counts.
-    use_counts_.Insert(0);
-    raw_use_counts_.Insert(0);
+    use_counts_.push_back(0);
+    raw_use_counts_.push_back(0);
   }
   return ssa_reg;
 }
 
 /* Find out the latest SSA register for a given Dalvik register */
 void MIRGraph::HandleSSAUse(int* uses, int dalvik_reg, int reg_index) {
-  DCHECK((dalvik_reg >= 0) && (dalvik_reg < cu_->num_dalvik_registers));
+  DCHECK((dalvik_reg >= 0) && (dalvik_reg < static_cast<int>(GetNumOfCodeAndTempVRs())));
   uses[reg_index] = vreg_to_ssa_map_[dalvik_reg];
 }
 
 /* Setup a new SSA register for a given Dalvik register */
 void MIRGraph::HandleSSADef(int* defs, int dalvik_reg, int reg_index) {
-  DCHECK((dalvik_reg >= 0) && (dalvik_reg < cu_->num_dalvik_registers));
+  DCHECK((dalvik_reg >= 0) && (dalvik_reg < static_cast<int>(GetNumOfCodeAndTempVRs())));
   int ssa_reg = AddNewSReg(dalvik_reg);
   vreg_to_ssa_map_[dalvik_reg] = ssa_reg;
   defs[reg_index] = ssa_reg;
@@ -1018,9 +1076,7 @@ void MIRGraph::AllocateSSAUseData(MIR *mir, int num_uses) {
   mir->ssa_rep->num_uses = num_uses;
 
   if (mir->ssa_rep->num_uses_allocated < num_uses) {
-    mir->ssa_rep->uses = static_cast<int*>(arena_->Alloc(sizeof(int) * num_uses, kArenaAllocDFInfo));
-    // NOTE: will be filled in during type & size inference pass
-    mir->ssa_rep->fp_use = static_cast<bool*>(arena_->Alloc(sizeof(bool) * num_uses, kArenaAllocDFInfo));
+    mir->ssa_rep->uses = arena_->AllocArray<int32_t>(num_uses, kArenaAllocDFInfo);
   }
 }
 
@@ -1028,10 +1084,7 @@ void MIRGraph::AllocateSSADefData(MIR *mir, int num_defs) {
   mir->ssa_rep->num_defs = num_defs;
 
   if (mir->ssa_rep->num_defs_allocated < num_defs) {
-    mir->ssa_rep->defs = static_cast<int*>(arena_->Alloc(sizeof(int) * num_defs,
-          kArenaAllocDFInfo));
-    mir->ssa_rep->fp_def = static_cast<bool*>(arena_->Alloc(sizeof(bool) * num_defs,
-          kArenaAllocDFInfo));
+    mir->ssa_rep->defs = arena_->AllocArray<int32_t>(num_defs, kArenaAllocDFInfo);
   }
 }
 
@@ -1062,7 +1115,68 @@ void MIRGraph::DataFlowSSAFormat3RC(MIR* mir) {
 }
 
 void MIRGraph::DataFlowSSAFormatExtended(MIR* mir) {
+  const MIR::DecodedInstruction& d_insn = mir->dalvikInsn;
+  // For vector MIRs, vC contains type information
+  bool is_vector_type_wide = false;
+  int type_size = d_insn.vC >> 16;
+  if (type_size == k64 || type_size == kDouble) {
+    is_vector_type_wide = true;
+  }
+
   switch (static_cast<int>(mir->dalvikInsn.opcode)) {
+    case kMirOpPackedAddReduce:
+      // We have one use, plus one more for wide
+      AllocateSSAUseData(mir, is_vector_type_wide ? 2 : 1);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vA, 0);
+      if (is_vector_type_wide == true) {
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.vA + 1, 1);
+      }
+
+      // We have a def, plus one more for wide
+      AllocateSSADefData(mir, is_vector_type_wide ? 2 : 1);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA, 0);
+      if (is_vector_type_wide == true) {
+        HandleSSADef(mir->ssa_rep->defs, d_insn.vA + 1, 1);
+      }
+      break;
+    case kMirOpPackedReduce:
+      // We have a def, plus one more for wide
+      AllocateSSADefData(mir, is_vector_type_wide ? 2 : 1);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA, 0);
+      if (is_vector_type_wide == true) {
+        HandleSSADef(mir->ssa_rep->defs, d_insn.vA + 1, 1);
+      }
+      break;
+    case kMirOpPackedSet:
+      // We have one use, plus one more for wide
+      AllocateSSAUseData(mir, is_vector_type_wide ? 2 : 1);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vB, 0);
+      if (is_vector_type_wide == true) {
+        HandleSSAUse(mir->ssa_rep->uses, d_insn.vB + 1, 1);
+      }
+      break;
+    case kMirOpMaddInt:
+    case kMirOpMsubInt:
+      AllocateSSAUseData(mir, 3);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vB, 0);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vC, 1);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.arg[0], 2);
+      AllocateSSADefData(mir, 1);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA, 0);
+      break;
+    case kMirOpMaddLong:
+    case kMirOpMsubLong:
+      AllocateSSAUseData(mir, 6);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vB, 0);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vB + 1, 1);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vC, 2);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.vC + 1, 3);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.arg[0], 4);
+      HandleSSAUse(mir->ssa_rep->uses, d_insn.arg[0] + 1, 5);
+      AllocateSSADefData(mir, 2);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA, 0);
+      HandleSSADef(mir->ssa_rep->defs, d_insn.vA + 1, 1);
+      break;
     default:
       LOG(ERROR) << "Missing case for extended MIR: " << mir->dalvikInsn.opcode;
       break;
@@ -1071,11 +1185,30 @@ void MIRGraph::DataFlowSSAFormatExtended(MIR* mir) {
 
 /* Entry function to convert a block into SSA representation */
 bool MIRGraph::DoSSAConversion(BasicBlock* bb) {
-  MIR* mir;
+  if (bb->data_flow_info == nullptr) return false;
 
-  if (bb->data_flow_info == NULL) return false;
+  /*
+   * Pruned SSA form: Insert phi nodes for each dalvik register marked in phi_node_blocks
+   * only if the dalvik register is in the live-in set.
+   */
+  BasicBlockId bb_id = bb->id;
+  for (int dalvik_reg = GetNumOfCodeAndTempVRs() - 1; dalvik_reg >= 0; dalvik_reg--) {
+    if (temp_.ssa.phi_node_blocks[dalvik_reg]->IsBitSet(bb_id)) {
+      if (!bb->data_flow_info->live_in_v->IsBitSet(dalvik_reg)) {
+        /* Variable will be clobbered before being used - no need for phi */
+        vreg_to_ssa_map_[dalvik_reg] = INVALID_SREG;
+        continue;
+      }
+      MIR *phi = NewMIR();
+      phi->dalvikInsn.opcode = static_cast<Instruction::Code>(kMirOpPhi);
+      phi->dalvikInsn.vA = dalvik_reg;
+      phi->offset = bb->start_offset;
+      phi->m_unit_index = 0;  // Arbitrarily assign all Phi nodes to outermost method.
+      bb->PrependMIR(phi);
+    }
+  }
 
-  for (mir = bb->first_mir_insn; mir != NULL; mir = mir->next) {
+  for (MIR* mir = bb->first_mir_insn; mir != nullptr; mir = mir->next) {
     mir->ssa_rep =
         static_cast<struct SSARepresentation *>(arena_->Alloc(sizeof(SSARepresentation),
                                                               kArenaAllocDFInfo));
@@ -1085,9 +1218,9 @@ bool MIRGraph::DoSSAConversion(BasicBlock* bb) {
 
       // If not a pseudo-op, note non-leaf or can throw
     if (!MIR::DecodedInstruction::IsPseudoMirOp(mir->dalvikInsn.opcode)) {
-      int flags = Instruction::FlagsOf(mir->dalvikInsn.opcode);
+      int flags = mir->dalvikInsn.FlagsOf();
 
-      if ((flags & Instruction::kInvoke) != 0 && (mir->optimization_flags & MIR_INLINED) == 0) {
+      if ((flags & Instruction::kInvoke) != 0) {
         attributes_ &= ~METHOD_IS_LEAF;
       }
     }
@@ -1148,35 +1281,27 @@ bool MIRGraph::DoSSAConversion(BasicBlock* bb) {
     if (df_attributes & DF_HAS_USES) {
       num_uses = 0;
       if (df_attributes & DF_UA) {
-        mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_A;
         HandleSSAUse(mir->ssa_rep->uses, d_insn->vA, num_uses++);
         if (df_attributes & DF_A_WIDE) {
-          mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_A;
           HandleSSAUse(mir->ssa_rep->uses, d_insn->vA+1, num_uses++);
         }
       }
       if (df_attributes & DF_UB) {
-        mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_B;
         HandleSSAUse(mir->ssa_rep->uses, d_insn->vB, num_uses++);
         if (df_attributes & DF_B_WIDE) {
-          mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_B;
           HandleSSAUse(mir->ssa_rep->uses, d_insn->vB+1, num_uses++);
         }
       }
       if (df_attributes & DF_UC) {
-        mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_C;
         HandleSSAUse(mir->ssa_rep->uses, d_insn->vC, num_uses++);
         if (df_attributes & DF_C_WIDE) {
-          mir->ssa_rep->fp_use[num_uses] = df_attributes & DF_FP_C;
           HandleSSAUse(mir->ssa_rep->uses, d_insn->vC+1, num_uses++);
         }
       }
     }
     if (df_attributes & DF_HAS_DEFS) {
-      mir->ssa_rep->fp_def[0] = df_attributes & DF_FP_A;
       HandleSSADef(mir->ssa_rep->defs, d_insn->vA, 0);
       if (df_attributes & DF_A_WIDE) {
-        mir->ssa_rep->fp_def[1] = df_attributes & DF_FP_A;
         HandleSSADef(mir->ssa_rep->defs, d_insn->vA+1, 1);
       }
     }
@@ -1188,70 +1313,22 @@ bool MIRGraph::DoSSAConversion(BasicBlock* bb) {
    * predecessor blocks.
    */
   bb->data_flow_info->vreg_to_ssa_map_exit =
-      static_cast<int*>(arena_->Alloc(sizeof(int) * cu_->num_dalvik_registers,
-                                      kArenaAllocDFInfo));
+      arena_->AllocArray<int32_t>(GetNumOfCodeAndTempVRs(), kArenaAllocDFInfo);
 
   memcpy(bb->data_flow_info->vreg_to_ssa_map_exit, vreg_to_ssa_map_,
-         sizeof(int) * cu_->num_dalvik_registers);
+         sizeof(int) * GetNumOfCodeAndTempVRs());
   return true;
 }
 
-/* Setup the basic data structures for SSA conversion */
-void MIRGraph::CompilerInitializeSSAConversion() {
-  size_t num_dalvik_reg = cu_->num_dalvik_registers;
-
-  ssa_base_vregs_ = new (arena_) GrowableArray<int>(arena_, num_dalvik_reg + GetDefCount() + 128,
-                                                    kGrowableArraySSAtoDalvikMap);
-  ssa_subscripts_ = new (arena_) GrowableArray<int>(arena_, num_dalvik_reg + GetDefCount() + 128,
-                                                    kGrowableArraySSAtoDalvikMap);
+void MIRGraph::InitializeBasicBlockDataFlow() {
   /*
-   * Initial number of SSA registers is equal to the number of Dalvik
-   * registers.
+   * Allocate the BasicBlockDataFlow structure for the entry and code blocks.
    */
-  SetNumSSARegs(num_dalvik_reg);
-
-  /*
-   * Initialize the SSA2Dalvik map list. For the first num_dalvik_reg elements,
-   * the subscript is 0 so we use the ENCODE_REG_SUB macro to encode the value
-   * into "(0 << 16) | i"
-   */
-  for (unsigned int i = 0; i < num_dalvik_reg; i++) {
-    ssa_base_vregs_->Insert(i);
-    ssa_subscripts_->Insert(0);
-  }
-
-  /*
-   * Initialize the DalvikToSSAMap map. There is one entry for each
-   * Dalvik register, and the SSA names for those are the same.
-   */
-  vreg_to_ssa_map_ =
-      static_cast<int*>(arena_->Alloc(sizeof(int) * num_dalvik_reg,
-                                      kArenaAllocDFInfo));
-  /* Keep track of the higest def for each dalvik reg */
-  ssa_last_defs_ =
-      static_cast<int*>(arena_->Alloc(sizeof(int) * num_dalvik_reg,
-                                      kArenaAllocDFInfo));
-
-  for (unsigned int i = 0; i < num_dalvik_reg; i++) {
-    vreg_to_ssa_map_[i] = i;
-    ssa_last_defs_[i] = 0;
-  }
-
-  // Create a compiler temporary for Method*. This is done after SSA initialization.
-  GetNewCompilerTemp(kCompilerTempSpecialMethodPtr, false);
-
-  /*
-   * Allocate the BasicBlockDataFlow structure for the entry and code blocks
-   */
-  GrowableArray<BasicBlock*>::Iterator iterator(&block_list_);
-
-  while (true) {
-    BasicBlock* bb = iterator.Next();
-    if (bb == NULL) break;
+  for (BasicBlock* bb : block_list_) {
     if (bb->hidden == true) continue;
     if (bb->block_type == kDalvikByteCode ||
-      bb->block_type == kEntryBlock ||
-      bb->block_type == kExitBlock) {
+        bb->block_type == kEntryBlock ||
+        bb->block_type == kExitBlock) {
       bb->data_flow_info =
           static_cast<BasicBlockDataFlow*>(arena_->Alloc(sizeof(BasicBlockDataFlow),
                                                          kArenaAllocDFInfo));
@@ -1259,54 +1336,57 @@ void MIRGraph::CompilerInitializeSSAConversion() {
   }
 }
 
-/*
- * This function will make a best guess at whether the invoke will
- * end up using Method*.  It isn't critical to get it exactly right,
- * and attempting to do would involve more complexity than it's
- * worth.
- */
-bool MIRGraph::InvokeUsesMethodStar(MIR* mir) {
-  InvokeType type;
-  Instruction::Code opcode = mir->dalvikInsn.opcode;
-  switch (opcode) {
-    case Instruction::INVOKE_STATIC:
-    case Instruction::INVOKE_STATIC_RANGE:
-      type = kStatic;
-      break;
-    case Instruction::INVOKE_DIRECT:
-    case Instruction::INVOKE_DIRECT_RANGE:
-      type = kDirect;
-      break;
-    case Instruction::INVOKE_VIRTUAL:
-    case Instruction::INVOKE_VIRTUAL_RANGE:
-      type = kVirtual;
-      break;
-    case Instruction::INVOKE_INTERFACE:
-    case Instruction::INVOKE_INTERFACE_RANGE:
-      return false;
-    case Instruction::INVOKE_SUPER_RANGE:
-    case Instruction::INVOKE_SUPER:
-      type = kSuper;
-      break;
-    default:
-      LOG(WARNING) << "Unexpected invoke op: " << opcode;
-      return false;
+/* Setup the basic data structures for SSA conversion */
+void MIRGraph::CompilerInitializeSSAConversion() {
+  size_t num_reg = GetNumOfCodeAndTempVRs();
+
+  ssa_base_vregs_.clear();
+  ssa_base_vregs_.reserve(num_reg + GetDefCount() + 128);
+  ssa_subscripts_.clear();
+  ssa_subscripts_.reserve(num_reg + GetDefCount() + 128);
+
+  /*
+   * Initial number of SSA registers is equal to the number of Dalvik
+   * registers.
+   */
+  SetNumSSARegs(num_reg);
+
+  /*
+   * Initialize the SSA2Dalvik map list. For the first num_reg elements,
+   * the subscript is 0 so we use the ENCODE_REG_SUB macro to encode the value
+   * into "(0 << 16) | i"
+   */
+  for (unsigned int i = 0; i < num_reg; i++) {
+    ssa_base_vregs_.push_back(i);
+    ssa_subscripts_.push_back(0);
   }
-  DexCompilationUnit m_unit(cu_);
-  MethodReference target_method(cu_->dex_file, mir->dalvikInsn.vB);
-  int vtable_idx;
-  uintptr_t direct_code;
-  uintptr_t direct_method;
-  uint32_t current_offset = static_cast<uint32_t>(current_offset_);
-  bool fast_path =
-      cu_->compiler_driver->ComputeInvokeInfo(&m_unit, current_offset,
-                                              false, true,
-                                              &type, &target_method,
-                                              &vtable_idx,
-                                              &direct_code, &direct_method) &&
-                                              !(cu_->enable_debug & (1 << kDebugSlowInvokePath));
-  return (((type == kDirect) || (type == kStatic)) &&
-          fast_path && ((direct_code == 0) || (direct_method == 0)));
+
+  /*
+   * Initialize the DalvikToSSAMap map. There is one entry for each
+   * Dalvik register, and the SSA names for those are the same.
+   */
+  vreg_to_ssa_map_ = arena_->AllocArray<int32_t>(num_reg, kArenaAllocDFInfo);
+  /* Keep track of the higest def for each dalvik reg */
+  ssa_last_defs_ = arena_->AllocArray<int>(num_reg, kArenaAllocDFInfo);
+
+  for (unsigned int i = 0; i < num_reg; i++) {
+    vreg_to_ssa_map_[i] = i;
+    ssa_last_defs_[i] = 0;
+  }
+
+  // Create a compiler temporary for Method*. This is done after SSA initialization.
+  CompilerTemp* method_temp = GetNewCompilerTemp(kCompilerTempSpecialMethodPtr, false);
+  // The MIR graph keeps track of the sreg for method pointer specially, so record that now.
+  method_sreg_ = method_temp->s_reg_low;
+
+  InitializeBasicBlockDataFlow();
+}
+
+uint32_t MIRGraph::GetUseCountWeight(BasicBlock* bb) const {
+  // Each level of nesting adds *100 to count, up to 3 levels deep.
+  uint32_t depth = std::min(3U, static_cast<uint32_t>(bb->nesting_depth));
+  uint32_t weight = std::max(1U, depth * 100);
+  return weight;
 }
 
 /*
@@ -1314,59 +1394,35 @@ bool MIRGraph::InvokeUsesMethodStar(MIR* mir) {
  * counts explicitly used s_regs.  A later phase will add implicit
  * counts for things such as Method*, null-checked references, etc.
  */
-void MIRGraph::CountUses(struct BasicBlock* bb) {
+void MIRGraph::CountUses(BasicBlock* bb) {
   if (bb->block_type != kDalvikByteCode) {
     return;
   }
-  // Each level of nesting adds *100 to count, up to 3 levels deep.
-  uint32_t depth = std::min(3U, static_cast<uint32_t>(bb->nesting_depth));
-  uint32_t weight = std::max(1U, depth * 100);
-  for (MIR* mir = bb->first_mir_insn; (mir != NULL); mir = mir->next) {
-    if (mir->ssa_rep == NULL) {
+  uint32_t weight = GetUseCountWeight(bb);
+  for (MIR* mir = bb->first_mir_insn; (mir != nullptr); mir = mir->next) {
+    if (mir->ssa_rep == nullptr) {
       continue;
     }
     for (int i = 0; i < mir->ssa_rep->num_uses; i++) {
       int s_reg = mir->ssa_rep->uses[i];
-      raw_use_counts_.Increment(s_reg);
-      use_counts_.Put(s_reg, use_counts_.Get(s_reg) + weight);
-    }
-    if (!(cu_->disable_opt & (1 << kPromoteCompilerTemps))) {
-      uint64_t df_attributes = GetDataFlowAttributes(mir);
-      // Implicit use of Method* ? */
-      if (df_attributes & DF_UMS) {
-        /*
-         * Some invokes will not use Method* - need to perform test similar
-         * to that found in GenInvoke() to decide whether to count refs
-         * for Method* on invoke-class opcodes.  This is a relatively expensive
-         * operation, so should only be done once.
-         * TODO: refactor InvokeUsesMethodStar() to perform check at parse time,
-         * and save results for both here and GenInvoke.  For now, go ahead
-         * and assume all invokes use method*.
-         */
-        raw_use_counts_.Increment(method_sreg_);
-        use_counts_.Put(method_sreg_, use_counts_.Get(method_sreg_) + weight);
-      }
+      raw_use_counts_[s_reg] += 1u;
+      use_counts_[s_reg] += weight;
     }
   }
 }
 
 /* Verify if all the successor is connected with all the claimed predecessors */
 bool MIRGraph::VerifyPredInfo(BasicBlock* bb) {
-  GrowableArray<BasicBlockId>::Iterator iter(bb->predecessors);
-
-  while (true) {
-    BasicBlock* pred_bb = GetBasicBlock(iter.Next());
-    if (!pred_bb) break;
+  for (BasicBlockId pred_id : bb->predecessors) {
+    BasicBlock* pred_bb = GetBasicBlock(pred_id);
+    DCHECK(pred_bb != nullptr);
     bool found = false;
     if (pred_bb->taken == bb->id) {
         found = true;
     } else if (pred_bb->fall_through == bb->id) {
         found = true;
     } else if (pred_bb->successor_block_list_type != kNotUsed) {
-      GrowableArray<SuccessorBlockInfo*>::Iterator iterator(pred_bb->successor_blocks);
-      while (true) {
-        SuccessorBlockInfo *successor_block_info = iterator.Next();
-        if (successor_block_info == NULL) break;
+      for (SuccessorBlockInfo* successor_block_info : pred_bb->successor_blocks) {
         BasicBlockId succ_bb = successor_block_info->block;
         if (succ_bb == bb->id) {
             found = true;
@@ -1379,7 +1435,7 @@ bool MIRGraph::VerifyPredInfo(BasicBlock* bb) {
       GetBlockName(bb, block_name1);
       GetBlockName(pred_bb, block_name2);
       DumpCFG("/sdcard/cfg/", false);
-      LOG(FATAL) << "Successor " << block_name1 << "not found from "
+      LOG(FATAL) << "Successor " << block_name1 << " not found from "
                  << block_name2;
     }
   }
@@ -1389,7 +1445,7 @@ bool MIRGraph::VerifyPredInfo(BasicBlock* bb) {
 void MIRGraph::VerifyDataflow() {
     /* Verify if all blocks are connected as claimed */
   AllNodesIterator iter(this);
-  for (BasicBlock* bb = iter.Next(); bb != NULL; bb = iter.Next()) {
+  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
     VerifyPredInfo(bb);
   }
 }

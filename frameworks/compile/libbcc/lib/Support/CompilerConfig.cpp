@@ -27,8 +27,28 @@
 
 using namespace bcc;
 
+#if defined (PROVIDE_X86_CODEGEN) && !defined(__HOST__)
+
+namespace {
+
+// Utility function to test for f16c feature.  This function is only needed for
+// on-device bcc for x86
+bool HasF16C() {
+  llvm::StringMap<bool> features;
+  if (!llvm::sys::getHostCPUFeatures(features))
+    return false;
+
+  if (features.count("f16c") && features["f16c"])
+    return true;
+  else
+    return false;
+}
+
+}
+#endif // (PROVIDE_X86_CODEGEN) && !defined(__HOST__)
+
 CompilerConfig::CompilerConfig(const std::string &pTriple)
-  : mTriple(pTriple), mFullPrecision(true), mTarget(NULL) {
+  : mTriple(pTriple), mFullPrecision(true), mTarget(nullptr) {
   //===--------------------------------------------------------------------===//
   // Default setting of register sheduler
   //===--------------------------------------------------------------------===//
@@ -79,7 +99,7 @@ CompilerConfig::CompilerConfig(const std::string &pTriple)
 bool CompilerConfig::initializeTarget() {
   std::string error;
   mTarget = llvm::TargetRegistry::lookupTarget(mTriple, error);
-  if (mTarget != NULL) {
+  if (mTarget != nullptr) {
     return true;
   } else {
     ALOGE("Cannot initialize llvm::Target for given triple '%s'! (%s)",
@@ -89,7 +109,7 @@ bool CompilerConfig::initializeTarget() {
 }
 
 bool CompilerConfig::initializeArch() {
-  if (mTarget != NULL) {
+  if (mTarget != nullptr) {
     mArchType = llvm::Triple::getArchTypeForLLVMName(mTarget->getName());
   } else {
     mArchType = llvm::Triple::UnknownArch;
@@ -130,6 +150,12 @@ bool CompilerConfig::initializeArch() {
       if (features.count("hwdiv") && features["hwdiv"])
         attributes.push_back("+hwdiv");
     }
+
+    // Enable fp16 attribute if available in the feature list.  This feature
+    // will not be added in the host version of bcc or bcc_compat since
+    // 'features' would correspond to features in an x86 host.
+    if (features.count("fp16") && features["fp16"])
+      attributes.push_back("+fp16");
 
     setFeatureString(attributes);
 
@@ -173,28 +199,55 @@ bool CompilerConfig::initializeArch() {
 #if defined (PROVIDE_MIPS_CODEGEN)
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
-  case llvm::Triple::mips64:
-  case llvm::Triple::mips64el:
     if (getRelocationModel() == llvm::Reloc::Default) {
       setRelocationModel(llvm::Reloc::Static);
     }
     break;
 #endif  // PROVIDE_MIPS_CODEGEN
 
+#if defined (PROVIDE_MIPS64_CODEGEN)
+  case llvm::Triple::mips64:
+  case llvm::Triple::mips64el:
+    // Default revision for MIPS64 Android is R6.
+    setCPU("mips64r6");
+    break;
+#endif // PROVIDE_MIPS64_CODEGEN
+
 #if defined (PROVIDE_X86_CODEGEN)
   case llvm::Triple::x86:
     // Disable frame pointer elimination optimization on x86 family.
     getTargetOptions().NoFramePointerElim = true;
     getTargetOptions().UseInitArray = true;
+
+#ifndef __HOST__
+    // If not running on the host, and f16c is available, set it in the feature
+    // string
+    if (HasF16C())
+      mFeatureString = "+f16c";
+#endif // __HOST__
+
     break;
 #endif  // PROVIDE_X86_CODEGEN
 
 #if defined (PROVIDE_X86_CODEGEN)
   case llvm::Triple::x86_64:
-    setCodeModel(llvm::CodeModel::Medium);
+    // x86_64 needs small CodeModel if use PIC_ reloc, or else dlopen failed with TEXTREL.
+    if (getRelocationModel() == llvm::Reloc::PIC_) {
+      setCodeModel(llvm::CodeModel::Small);
+    } else {
+      setCodeModel(llvm::CodeModel::Medium);
+    }
     // Disable frame pointer elimination optimization on x86 family.
     getTargetOptions().NoFramePointerElim = true;
     getTargetOptions().UseInitArray = true;
+
+#ifndef __HOST__
+    // If not running on the host, and f16c is available, set it in the feature
+    // string
+    if (HasF16C())
+      mFeatureString = "+f16c";
+#endif // __HOST__
+
     break;
 #endif  // PROVIDE_X86_CODEGEN
 

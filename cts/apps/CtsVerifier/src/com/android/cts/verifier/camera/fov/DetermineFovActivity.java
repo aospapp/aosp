@@ -145,7 +145,7 @@ public class DetermineFovActivity extends Activity {
         mTargetDistanceCm = getTargetDistance();
         mReportedFovDegrees = PhotoCaptureActivity.getReportedFovDegrees();
 
-        mFovDegrees = mReportedFovDegrees > 80 ? 60 : mReportedFovDegrees;
+        mFovDegrees = mReportedFovDegrees > 120 ? 60 : mReportedFovDegrees;
         mFovMaxDegrees = mFovDegrees + FOV_ADJUSTMENT_RANGE / 2;
         mFovMinDegrees = mFovDegrees - FOV_ADJUSTMENT_RANGE / 2;
 

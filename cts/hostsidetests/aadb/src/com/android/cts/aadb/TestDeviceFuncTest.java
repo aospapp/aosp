@@ -294,7 +294,11 @@ public class TestDeviceFuncTest extends DeviceTestCase {
             String deviceTimezone = mTestDevice.getProperty("persist.sys.timezone");
             if (deviceTimezone != null) {
                 TimeZone tz = TimeZone.getTimeZone(deviceTimezone);
-                tmpFile.setLastModified(tmpFile.lastModified() + tz.getRawOffset());
+                long timestamp = tmpFile.lastModified() + tz.getRawOffset();
+                if (tz.observesDaylightTime()) {
+                    timestamp += tz.getDSTSavings();
+                }
+                tmpFile.setLastModified(timestamp);
             }
 
             assertTrue(mTestDevice.syncFiles(tmpDir, externalStorePath));

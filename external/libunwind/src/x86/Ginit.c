@@ -254,7 +254,28 @@ get_static_proc_name (unw_addr_space_t as, unw_word_t ip,
 		      char *buf, size_t buf_len, unw_word_t *offp,
 		      void *arg)
 {
-  return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp);
+  return _Uelf32_get_proc_name (as, getpid (), ip, buf, buf_len, offp, arg);
+}
+
+static int
+access_mem_unrestricted (unw_addr_space_t as, unw_word_t addr, unw_word_t *val,
+                         int write, void *arg)
+{
+  if (write)
+    return -1;
+
+  *val = *(unw_word_t *) addr;
+  Debug (16, "mem[%x] -> %x\n", addr, *val);
+  return 0;
+}
+
+// This initializes just enough of the address space to call the
+// access memory function.
+PROTECTED void
+unw_local_access_addr_space_init (unw_addr_space_t as)
+{
+  memset (as, 0, sizeof (*as));
+  as->acc.access_mem = access_mem_unrestricted;
 }
 
 HIDDEN void

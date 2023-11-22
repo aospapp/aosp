@@ -38,15 +38,9 @@ class ConsumerBase : public virtual RefBase,
         protected ConsumerListener {
 public:
     struct FrameAvailableListener : public virtual RefBase {
-        // onFrameAvailable() is called each time an additional frame becomes
-        // available for consumption. This means that frames that are queued
-        // while in asynchronous mode only trigger the callback if no previous
-        // frames are pending. Frames queued while in synchronous mode always
-        // trigger the callback.
-        //
-        // This is called without any lock held and can be called concurrently
-        // by multiple threads.
+        // See IConsumerListener::onFrame{Available,Replaced}
         virtual void onFrameAvailable(const BufferItem& item) = 0;
+        virtual void onFrameReplaced(const BufferItem& /* item */) {}
     };
 
     virtual ~ConsumerBase();
@@ -62,6 +56,9 @@ public:
     // or by OpenGL ES as a texture) then those buffer will remain allocated.
     void abandon();
 
+    // Returns true if the ConsumerBase is in the 'abandoned' state
+    bool isAbandoned();
+
     // set the name of the ConsumerBase that will be used to identify it in
     // log messages.
     void setName(const String8& name);
@@ -75,6 +72,18 @@ public:
     // setFrameAvailableListener sets the listener object that will be notified
     // when a new frame becomes available.
     void setFrameAvailableListener(const wp<FrameAvailableListener>& listener);
+
+    // See IGraphicBufferConsumer::detachBuffer
+    status_t detachBuffer(int slot);
+
+    // See IGraphicBufferConsumer::setDefaultBufferSize
+    status_t setDefaultBufferSize(uint32_t width, uint32_t height);
+
+    // See IGraphicBufferConsumer::setDefaultBufferFormat
+    status_t setDefaultBufferFormat(PixelFormat defaultFormat);
+
+    // See IGraphicBufferConsumer::setDefaultBufferDataSpace
+    status_t setDefaultBufferDataSpace(android_dataspace defaultDataSpace);
 
 private:
     ConsumerBase(const ConsumerBase&);
@@ -101,14 +110,16 @@ protected:
 
     // Implementation of the IConsumerListener interface.  These
     // calls are used to notify the ConsumerBase of asynchronous events in the
-    // BufferQueue.  The onFrameAvailable and onBuffersReleased methods should
-    // not need to be overridden by derived classes, but if they are overridden
-    // the ConsumerBase implementation must be called from the derived class.
-    // The ConsumerBase version of onSidebandStreamChanged does nothing and can
-    // be overriden by derived classes if they want the notification.
-    virtual void onFrameAvailable(const BufferItem& item);
-    virtual void onBuffersReleased();
-    virtual void onSidebandStreamChanged();
+    // BufferQueue.  The onFrameAvailable, onFrameReplaced, and
+    // onBuffersReleased methods should not need to be overridden by derived
+    // classes, but if they are overridden the ConsumerBase implementation must
+    // be called from the derived class. The ConsumerBase version of
+    // onSidebandStreamChanged does nothing and can be overriden by derived
+    // classes if they want the notification.
+    virtual void onFrameAvailable(const BufferItem& item) override;
+    virtual void onFrameReplaced(const BufferItem& item) override;
+    virtual void onBuffersReleased() override;
+    virtual void onSidebandStreamChanged() override;
 
     // freeBufferLocked frees up the given buffer slot.  If the slot has been
     // initialized this will release the reference to the GraphicBuffer in that
@@ -153,8 +164,8 @@ protected:
     // initialization that must take place the first time a buffer is assigned
     // to a slot.  If it is overridden the derived class's implementation must
     // call ConsumerBase::acquireBufferLocked.
-    virtual status_t acquireBufferLocked(IGraphicBufferConsumer::BufferItem *item,
-        nsecs_t presentWhen);
+    virtual status_t acquireBufferLocked(BufferItem *item, nsecs_t presentWhen,
+            uint64_t maxFrameNumber = 0);
 
     // releaseBufferLocked relinquishes control over a buffer, returning that
     // control to the BufferQueue.

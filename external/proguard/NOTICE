@@ -2,28 +2,29 @@ License
 
 ProGuard is free. You can use it freely for processing your
 applications, commercial or not. Your code obviously remains yours
-after having been processed, and its license can remain the same.
+after having been processed, and its license can remain unchanged.
 
-ProGuard itself is copyrighted, but its distribution license provides
-you with some rights for modifying and redistributing its code and its
-documentation. More specifically, ProGuard is distributed under the
-terms of the GNU General Public License (GPL), version 2, as published
-by the Free Software Foundation (FSF). In short, this means that you
-may freely redistribute the program, modified or as is, on the
-condition that you make the complete source code available as well. If
-you develop a program that is linked with ProGuard, the program as a
-whole has to be distributed at no charge under the GPL. I am granting
-a special exception to the latter clause (in wording suggested by the
-FSF), for combinations with the following stand-alone applications:
-Apache Ant, Apache Maven, the Eclipse ProGuardDT GUI, the EclipseME
-JME IDE, the Sun NetBeans Java IDE, the Sun JME Wireless Toolkit, and
-the Javaground Tools.
+The ProGuard code itself is copyrighted, but its distribution license
+provides you with some rights for modifying and redistributing its
+code and its documentation. More specifically, ProGuard is distributed
+under the terms of the GNU General Public License (GPL), version 2, as
+published by the Free Software Foundation (FSF). In short, this means
+that you may freely redistribute the program, modified or as is, on
+the condition that you make the complete source code available as
+well. If you develop a program that is linked with ProGuard, the
+program as a whole has to be distributed at no charge under the GPL. I
+am granting a special exception to the latter clause (in wording
+suggested by the FSF, for combinations with the following stand-alone
+applications: Apache Ant, Apache Maven, the Google Android SDK, the
+Eclipse ProGuardDT GUI, the EclipseME JME IDE, the Oracle NetBeans
+Java IDE, the Oracle JME Wireless Toolkit, the Simple Build Tool for
+Scala, and the Sanaware Tools.
 
-The ProGuard user documentation represents an important part of this
-work. It may only be redistributed without changes, along with the
-unmodified version of the code.
+The ProGuard user documentation is copyrighted as well. It may only be
+redistributed without changes, along with the unmodified version of
+the code.
 
-Copyright © 2002-2009 Eric Lafortune.
+Copyright © 2002-2014 Eric Lafortune @ Saikoa.
 
 		    GNU GENERAL PUBLIC LICENSE
 		       Version 2, June 1991
@@ -365,3 +366,37 @@ proprietary programs.  If your program is a subroutine library, you may
 consider it more useful to permit linking proprietary applications with the
 library.  If this is what you want to do, use the GNU Library General
 Public License instead of this License.
+
+Special Exception to the GNU General Public License
+
+Copyright © 2002-2014 Eric Lafortune
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place, Suite 330, Boston, MA 02111-1307 USA
+
+In addition, as a special exception, Eric Lafortune gives permission to link
+the code of this program with the following stand-alone applications:
+- Apache Ant,
+- Apache Maven,
+- the Google Android SDK,
+- the Eclipse ProGuardDT GUI,
+- the EclipseME JME IDE,
+- the Oracle NetBeans Java IDE,
+- the Oracle JME Wireless Toolkit,
+- the Simple Build Tool for Scala (and its scripts), and
+- the Sanaware Tools.
+and distribute linked combinations including the two. You must obey the GNU
+General Public License in all respects for all of the code used other than
+these programs. If you modify this file, you may extend this exception to your
+version of the file, but you are not obligated to do so. If you do not wish to
+do so, delete this exception statement from your version.

@@ -26,7 +26,6 @@ LOCAL_PACKAGE_NAME := CtsAccessibilityTestCases
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctsdeviceutil ctstestrunner
 
-# This test runner sets up/cleans up the device before/after running the tests.
-LOCAL_CTS_TEST_RUNNER := com.android.cts.tradefed.testtype.AccessibilityTestRunner
+LOCAL_SDK_VERSION := current
 
 include $(BUILD_CTS_PACKAGE)

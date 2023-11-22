@@ -18,7 +18,6 @@ package com.android.contacts.editor;
 
 import android.content.ContentValues;
 import android.content.Context;
-import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
@@ -196,12 +195,6 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
         }
     }
 
-    private static void appendQueryParameter(Uri.Builder builder, String field, String value) {
-        if (!TextUtils.isEmpty(value)) {
-            builder.appendQueryParameter(field, value);
-        }
-    }
-
     /**
      * Set the display name onto the text field directly.  This does not affect the underlying
      * data structure so it is similar to the user typing the value in on the field directly.
@@ -212,6 +205,34 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
         // For now, assume the first text field is the name.
         // TODO: Find a better way to get a hold of the name field.
         super.setValue(0, name);
+    }
+
+    /**
+     * Returns the display name currently displayed in the editor.
+     */
+    public String getDisplayName() {
+        final ValuesDelta valuesDelta = getValues();
+        if (hasShortAndLongForms()) {
+            if (areOptionalFieldsVisible()) {
+                final Map<String, String> structuredNameMap = valuesToStructuredNameMap(valuesDelta);
+                final String displayName = NameConverter.structuredNameToDisplayName(
+                        getContext(), structuredNameMap);
+                if (!TextUtils.isEmpty(displayName)) {
+                    return displayName;
+                }
+            } else {
+                final String displayName = valuesDelta.getDisplayName();
+                if (!TextUtils.isEmpty(displayName)) {
+                    return displayName;
+                }
+            }
+        }
+        return valuesDelta.getDisplayName();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return TextUtils.isEmpty(getDisplayName());
     }
 
     @Override
@@ -274,13 +295,5 @@ public class StructuredNameEditorView extends TextFieldsEditorView {
         public int describeContents() {
             return 0;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected void onFinishInflate() {
-        super.onFinishInflate();
-        // Remove padding below this view.
-        setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(), 0);
     }
 }

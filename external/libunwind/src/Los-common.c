@@ -49,7 +49,7 @@ move_cached_elf_data (struct map_info *old_list, struct map_info *new_list)
 {
   while (old_list)
     {
-      if (old_list->ei.image == NULL)
+      if (!old_list->ei.valid)
         {
           old_list = old_list->next;
           continue;
@@ -65,10 +65,9 @@ move_cached_elf_data (struct map_info *old_list, struct map_info *new_list)
             {
               /* No need to do any lock, the entire local_map_list is locked
                  at this point. */
-              new_list->ei.size = old_list->ei.size;
-              new_list->ei.image = old_list->ei.image;
-              old_list->ei.size = 0;
-              old_list->ei.image = NULL;
+              new_list->ei = old_list->ei;
+              /* If it was mapped before, make sure to mark it unmapped now. */
+              old_list->ei.mapped = false;
               /* Don't bother breaking out of the loop, the next while check
                  is guaranteed to fail, causing us to break out of the loop
                  after advancing to the next map element. */
@@ -93,7 +92,7 @@ rebuild_if_necessary (unw_word_t addr, int expected_flags)
   int ret_value = -1;
   intrmask_t saved_mask;
 
-  new_list = map_create_list (getpid());
+  new_list = map_create_list (UNW_MAP_CREATE_LOCAL, getpid());
   map = map_find_from_addr (new_list, addr);
   if (map && (expected_flags == 0 || (map->flags & expected_flags)))
     {
@@ -164,8 +163,8 @@ map_local_is_writable (unw_word_t addr)
 }
 
 PROTECTED int
-local_get_elf_image (struct elf_image *ei, unw_word_t ip,
-                     unsigned long *segbase, unsigned long *mapoff, char **path)
+local_get_elf_image (unw_addr_space_t as, struct elf_image *ei, unw_word_t ip,
+                     unsigned long *segbase, unsigned long *mapoff, char **path, void *as_arg)
 {
   struct map_info *map;
   intrmask_t saved_mask;
@@ -183,11 +182,20 @@ local_get_elf_image (struct elf_image *ei, unw_word_t ip,
       map = map_find_from_addr (local_map_list, ip);
     }
 
-  if (map && elf_map_cached_image (map, ip) == 0)
+  if (map && elf_map_cached_image (as, as_arg, map, ip))
     {
       *ei = map->ei;
       *segbase = map->start;
-      *mapoff = map->offset;
+      if (ei->mapped)
+        *mapoff = map->offset;
+      else
+        /* Always use zero as the map offset for in memory maps. The
+         * dlopen of a shared library from an APK will result in a
+         * non-zero offset so it won't match the elf data and cause
+         * unwinds to fail. Currently, only in memory unwinds of an APK
+         * are possible, so only modify this path.
+         */
+        *mapoff = 0;
       if (path != NULL)
         {
           if (map->path)

@@ -89,7 +89,8 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
 
 
     protected static final String TAG = "CalendarProvider2";
-    static final boolean DEBUG_INSTANCES = false;
+    // Turn on for b/22449592
+    static final boolean DEBUG_INSTANCES = Log.isLoggable(TAG, Log.DEBUG);
 
     private static final String TIMEZONE_GMT = "GMT";
     private static final String ACCOUNT_SELECTION_PREFIX = Calendars.ACCOUNT_NAME + "=? AND "
@@ -178,14 +179,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
 
     private CalendarDatabaseHelper mDbHelper;
     private CalendarInstancesHelper mInstancesHelper;
-
-    // The extended property name for storing an Event original Timezone.
-    // Due to an issue in Calendar Server restricting the length of the name we
-    // had to strip it down
-    // TODO - Better name would be:
-    // "com.android.providers.calendar.CalendarSyncAdapter#originalTimezone"
-    protected static final String EXT_PROP_ORIGINAL_TIMEZONE =
-        "CalendarSyncAdapter#originalTimezone";
 
     private static final String SQL_SELECT_EVENTSRAWTIMES = "SELECT " +
             CalendarContract.EventsRawTimes.EVENT_ID + ", " +
@@ -480,13 +473,13 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
             }
             if (Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
                 updateTimezoneDependentFields();
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
             } else if (Intent.ACTION_DEVICE_STORAGE_OK.equals(action)) {
                 // Try to clean up if things were screwy due to a full disk
                 updateTimezoneDependentFields();
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
             } else if (Intent.ACTION_TIME_CHANGED.equals(action)) {
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
             }
         }
     };
@@ -1088,7 +1081,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
             long rangeEnd, String[] projection, String selection, String[] selectionArgs,
             String sort, boolean searchByDay, boolean forceExpansion,
             String instancesTimezone, boolean isHomeTimezone) {
-
         mDb = mDbHelper.getWritableDatabase();
         qb.setTables(INSTANCE_QUERY_TABLES);
         qb.setProjectionMap(sInstancesProjectionMap);
@@ -1116,8 +1108,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
         if (selectionArgs == null) {
             selectionArgs = newSelectionArgs;
         } else {
-            // The appendWhere pieces get added first, so put the
-            // newSelectionArgs first.
             selectionArgs = combine(newSelectionArgs, selectionArgs);
         }
         return qb.query(mDb, projection, selection, selectionArgs, null /* groupBy */,
@@ -1237,15 +1227,12 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
     }
 
     @VisibleForTesting
-    String[] constructSearchArgs(String[] tokens, long rangeBegin, long rangeEnd) {
+    String[] constructSearchArgs(String[] tokens) {
         int numCols = SEARCH_COLUMNS.length;
-        int numArgs = tokens.length * numCols + 2;
-        // the additional two elements here are for begin/end time
+        int numArgs = tokens.length * numCols;
         String[] selectionArgs = new String[numArgs];
-        selectionArgs[0] =  String.valueOf(rangeEnd);
-        selectionArgs[1] =  String.valueOf(rangeBegin);
         for (int j = 0; j < tokens.length; j++) {
-            int start = 2 + numCols * j;
+            int start = numCols * j;
             for (int i = start; i < start + numCols; i++) {
                 selectionArgs[i] = "%" + tokens[j] + "%";
             }
@@ -1262,13 +1249,13 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
         qb.setProjectionMap(sInstancesProjectionMap);
 
         String[] tokens = tokenizeSearchQuery(query);
-        String[] newSelectionArgs = constructSearchArgs(tokens, rangeBegin, rangeEnd);
+        String[] searchArgs = constructSearchArgs(tokens);
+        String[] timeRange = new String[] {String.valueOf(rangeEnd), String.valueOf(rangeBegin)};
         if (selectionArgs == null) {
-            selectionArgs = newSelectionArgs;
+            selectionArgs = combine(timeRange, searchArgs);
         } else {
-            // The appendWhere pieces get added first, so put the
-            // newSelectionArgs first.
-            selectionArgs = combine(newSelectionArgs, selectionArgs);
+            // where clause comes first, so put selectionArgs before searchArgs.
+            selectionArgs = combine(timeRange, selectionArgs, searchArgs);
         }
         // we pass this in as a HAVING instead of a WHERE so the filtering
         // happens after the grouping
@@ -1304,7 +1291,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
             );
             qb.appendWhere(SQL_WHERE_INSTANCES_BETWEEN);
         }
-
         return qb.query(mDb, projection, selection, selectionArgs,
                 Tables.INSTANCES + "." + Instances._ID /* groupBy */,
                 searchWhere /* having */, sort);
@@ -2299,10 +2285,15 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 }
                 id = mDbHelper.colorsInsert(values);
                 break;
-            case ATTENDEES:
+            case ATTENDEES: {
                 if (!values.containsKey(Attendees.EVENT_ID)) {
                     throw new IllegalArgumentException("Attendees values must "
                             + "contain an event_id");
+                }
+                Long eventIdObj = values.getAsLong(Reminders.EVENT_ID);
+                if (!doesEventExist(eventIdObj)) {
+                    Log.i(TAG, "Trying to insert a attendee to a non-existent event");
+                    return null;
                 }
                 if (!callerIsSyncAdapter) {
                     final Long eventId = values.getAsLong(Attendees.EVENT_ID);
@@ -2314,13 +2305,18 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 // Copy the attendee status value to the Events table.
                 updateEventAttendeeStatus(mDb, values);
                 break;
-            case REMINDERS:
-            {
+            }
+            case REMINDERS: {
                 Long eventIdObj = values.getAsLong(Reminders.EVENT_ID);
                 if (eventIdObj == null) {
                     throw new IllegalArgumentException("Reminders values must "
                             + "contain a numeric event_id");
                 }
+                if (!doesEventExist(eventIdObj)) {
+                    Log.i(TAG, "Trying to insert a reminder to a non-existent event");
+                    return null;
+                }
+
                 if (!callerIsSyncAdapter) {
                     mDbHelper.duplicateEvent(eventIdObj);
                     setEventDirty(eventIdObj);
@@ -2334,22 +2330,34 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "insertInternal() changing reminder");
                 }
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
                 break;
             }
-            case CALENDAR_ALERTS:
-                if (!values.containsKey(CalendarAlerts.EVENT_ID)) {
+            case CALENDAR_ALERTS: {
+                Long eventIdObj = values.getAsLong(Reminders.EVENT_ID);
+                if (eventIdObj == null) {
                     throw new IllegalArgumentException("CalendarAlerts values must "
-                            + "contain an event_id");
+                            + "contain a numeric event_id");
+                }
+                if (!doesEventExist(eventIdObj)) {
+                    Log.i(TAG, "Trying to insert an alert to a non-existent event");
+                    return null;
                 }
                 id = mDbHelper.calendarAlertsInsert(values);
                 // Note: dirty bit is not set for Alerts because it is not synced.
                 // It is generated from Reminders, which is synced.
                 break;
-            case EXTENDED_PROPERTIES:
-                if (!values.containsKey(CalendarContract.ExtendedProperties.EVENT_ID)) {
+            }
+            case EXTENDED_PROPERTIES: {
+                Long eventIdObj = values.getAsLong(Reminders.EVENT_ID);
+                if (eventIdObj == null) {
                     throw new IllegalArgumentException("ExtendedProperties values must "
-                            + "contain an event_id");
+                            + "contain a numeric event_id");
+                }
+                if (!doesEventExist(eventIdObj)) {
+                    Log.i(TAG, "Trying to insert extended properties to a non-existent event id = "
+                            + eventIdObj);
+                    return null;
                 }
                 if (!callerIsSyncAdapter) {
                     final Long eventId = values
@@ -2359,6 +2367,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 }
                 id = mDbHelper.extendedPropertiesInsert(values);
                 break;
+            }
             case EMMA:
                 // Special target used during code-coverage evaluation.
                 handleEmmaRequest(values);
@@ -2379,8 +2388,12 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
         if (id < 0) {
             return null;
         }
-
         return ContentUris.withAppendedId(uri, id);
+    }
+
+    private boolean doesEventExist(long eventId) {
+        return DatabaseUtils.queryNumEntries(mDb, Tables.EVENTS, Events._ID + "=?",
+                new String[]{String.valueOf(eventId)}) > 0;
     }
 
     /**
@@ -3101,7 +3114,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                         long id = cursor.getLong(0);
                         result += deleteEventInternal(id, callerIsSyncAdapter, true /* isBatch */);
                     }
-                    mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                    mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
                     sendUpdateNotification(callerIsSyncAdapter);
                 } finally {
                     cursor.close();
@@ -3299,7 +3312,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
         }
 
         if (!isBatch) {
-            mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+            mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
             sendUpdateNotification(callerIsSyncAdapter);
         }
         return result;
@@ -3343,13 +3356,13 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 // event that we just duplicated on the previous iteration.
                 if (eventId != prevEventId) {
                     mDbHelper.duplicateEvent(eventId);
-                    prevEventId = eventId;
                 }
                 mDb.delete(table, SQL_WHERE_ID, new String[]{String.valueOf(id)});
                 if (eventId != prevEventId) {
                     mDb.update(Tables.EVENTS, dirtyValues, SQL_WHERE_ID,
                             new String[] { String.valueOf(eventId)} );
                 }
+                prevEventId = eventId;
                 count++;
             }
         } finally {
@@ -3906,14 +3919,14 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                         if (Log.isLoggable(TAG, Log.DEBUG)) {
                             Log.d(TAG, "updateInternal() changing event");
                         }
-                        mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                        mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
                     }
 
                     sendUpdateNotification(id, callerIsSyncAdapter);
                 }
             } else {
                 deleteEventInternal(id, callerIsSyncAdapter, true /* isBatch */);
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
                 sendUpdateNotification(callerIsSyncAdapter);
             }
         }
@@ -4026,7 +4039,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                         // scheduleNextAlarmLocked will remove any alarms for
                         // non-visible events anyways. removeScheduledAlarmsLocked
                         // does not actually have the effect we want
-                        mCalendarAlarm.scheduleNextAlarm(false);
+                        mCalendarAlarm.checkNextAlarm(false);
                     }
                     // update the widget
                     sendUpdateNotification(callerIsSyncAdapter);
@@ -4102,22 +4115,15 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     Log.d(TAG, "updateInternal() changing reminder");
                 }
-                mCalendarAlarm.scheduleNextAlarm(false /* do not remove alarms */);
+                mCalendarAlarm.checkNextAlarm(false /* do not remove alarms */);
                 return count;
             }
 
             case EXTENDED_PROPERTIES_ID:
                 return updateEventRelatedTable(uri, Tables.EXTENDED_PROPERTIES, true, values,
                         null, null, callerIsSyncAdapter);
-
-            // TODO: replace the SCHEDULE_ALARM private URIs with a
-            // service
-            case SCHEDULE_ALARM: {
-                mCalendarAlarm.scheduleNextAlarm(false);
-                return 0;
-            }
             case SCHEDULE_ALARM_REMOVE: {
-                mCalendarAlarm.scheduleNextAlarm(true);
+                mCalendarAlarm.checkNextAlarm(true);
                 return 0;
             }
 
@@ -4618,7 +4624,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
     private static final int EVENT_ENTITIES = 18;
     private static final int EVENT_ENTITIES_ID = 19;
     private static final int EVENT_DAYS = 20;
-    private static final int SCHEDULE_ALARM = 21;
     private static final int SCHEDULE_ALARM_REMOVE = 22;
     private static final int TIME = 23;
     private static final int CALENDAR_ENTITIES = 24;
@@ -4671,8 +4676,6 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
                            CALENDAR_ALERTS_BY_INSTANCE);
         sUriMatcher.addURI(CalendarContract.AUTHORITY, "syncstate", SYNCSTATE);
         sUriMatcher.addURI(CalendarContract.AUTHORITY, "syncstate/#", SYNCSTATE_ID);
-        sUriMatcher.addURI(CalendarContract.AUTHORITY, CalendarAlarmManager.SCHEDULE_ALARM_PATH,
-                SCHEDULE_ALARM);
         sUriMatcher.addURI(CalendarContract.AUTHORITY,
                 CalendarAlarmManager.SCHEDULE_ALARM_REMOVE_PATH, SCHEDULE_ALARM_REMOVE);
         sUriMatcher.addURI(CalendarContract.AUTHORITY, "time/#", TIME);
@@ -4685,7 +4688,7 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
 
         /** Contains just BaseColumns._COUNT */
         sCountProjectionMap = new HashMap<String, String>();
-        sCountProjectionMap.put(BaseColumns._COUNT, "COUNT(*)");
+        sCountProjectionMap.put(BaseColumns._COUNT, "COUNT(*) AS " + BaseColumns._COUNT);
 
         sColorsProjectionMap = new HashMap<String, String>();
         sColorsProjectionMap.put(Colors._ID, Colors._ID);
@@ -4717,7 +4720,8 @@ public class CalendarProvider2 extends SQLiteContentProvider implements OnAccoun
         sCalendarsProjectionMap.put(Calendars.OWNER_ACCOUNT, Calendars.OWNER_ACCOUNT);
         sCalendarsProjectionMap.put(Calendars.IS_PRIMARY,
                 "COALESCE(" + Events.IS_PRIMARY + ", "
-                        + Calendars.OWNER_ACCOUNT + " = " + Calendars.ACCOUNT_NAME + ")");
+                        + Calendars.OWNER_ACCOUNT + " = " + Calendars.ACCOUNT_NAME + ") AS "
+                        + Calendars.IS_PRIMARY);
         sCalendarsProjectionMap.put(Calendars.CAN_ORGANIZER_RESPOND,
                 Calendars.CAN_ORGANIZER_RESPOND);
         sCalendarsProjectionMap.put(Calendars.CAN_MODIFY_TIME_ZONE, Calendars.CAN_MODIFY_TIME_ZONE);

@@ -376,6 +376,12 @@ public class AbstractCursorTest extends InstrumentationTestCase {
         }
     }
 
+    public void testSetExtras() {
+        Bundle b = new Bundle();
+        mTestAbstractCursor.setExtras(b);
+        assertSame(b, mTestAbstractCursor.getExtras());
+    }
+
     @SuppressWarnings("unchecked")
     private static ArrayList<ArrayList> createTestList(int rows, int cols) {
         ArrayList<ArrayList> list = new ArrayList<ArrayList>();
@@ -431,7 +437,6 @@ public class AbstractCursorTest extends InstrumentationTestCase {
         public TestAbstractCursor(String[] columnNames, ArrayList<ArrayList> rows) {
             int colCount = columnNames.length;
             boolean foundID = false;
-            mRowIdColumnIndex = 0;
 
             // Add an _id column if not in columnNames
             for (int i = 0; i < colCount; ++i) {

@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing.features;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.Helpers;
 
 import java.lang.annotation.Inherited;
@@ -41,12 +42,11 @@ import java.util.Set;
  * require more than one CollectionSize, since a particular collection instance
  * can only be one size at once.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
 // Enum values use constructors with generic varargs.
 @SuppressWarnings("unchecked")
+@GwtCompatible
 public enum CollectionSize implements Feature<Collection>,
     Comparable<CollectionSize> {
   /** Test an empty collection. */

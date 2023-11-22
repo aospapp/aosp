@@ -13,5 +13,6 @@
 # limitations under the License.
 
 dir=`dirname $0`
-$dir/runtest.sh vg-integer
-$dir/runtest.sh vg-fp_and_simd
+$dir/runtest.sh vg-memory 64
+$dir/runtest.sh vg-integer 64
+$dir/runtest.sh vg-fp_and_simd 64

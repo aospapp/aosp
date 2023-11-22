@@ -60,6 +60,8 @@ public class BluetoothTestActivity extends PassFailButtons.TestListActivity {
                   "com.android.cts.verifier.bluetooth.BleAdvertiserTestActivity");
             disabledTestArray.add(
                   "com.android.cts.verifier.bluetooth.BleServerStartActivity");
+            disabledTestArray.add(
+                  "com.android.cts.verifier.bluetooth.BleScannerTestActivity");
         }
         setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
                 disabledTestArray.toArray(new String[disabledTestArray.size()])));

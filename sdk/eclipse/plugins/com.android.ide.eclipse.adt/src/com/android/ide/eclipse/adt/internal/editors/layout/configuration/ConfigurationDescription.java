@@ -27,8 +27,7 @@ import com.android.annotations.Nullable;
 import com.android.ide.common.resources.ResourceRepository;
 import com.android.ide.common.resources.configuration.DeviceConfigHelper;
 import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 import com.android.ide.common.resources.configuration.ScreenSizeQualifier;
 import com.android.ide.eclipse.adt.AdtPlugin;
 import com.android.ide.eclipse.adt.internal.editors.manifest.ManifestInfo;
@@ -50,6 +49,7 @@ import org.eclipse.core.runtime.QualifiedName;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import java.util.Collection;
 import java.util.List;
 
 /** A description of a configuration, used for persistence */
@@ -169,7 +169,7 @@ public class ConfigurationDescription {
     public static ConfigurationDescription fromXml(
             @Nullable IProject project,
             @NonNull Element element,
-            @NonNull List<Device> deviceList) {
+            @NonNull Collection<Device> deviceList) {
         ConfigurationDescription description = new ConfigurationDescription(project);
 
         if (!TAG_PREVIEW.equals(element.getTagName())) {
@@ -200,16 +200,19 @@ public class ConfigurationDescription {
         if (!localeString.isEmpty()) {
             // Load locale. Note that this can get overwritten by the
             // project-wide settings read below.
-            LanguageQualifier language = Locale.ANY_LANGUAGE;
-            RegionQualifier region = Locale.ANY_REGION;
             String locales[] = localeString.split(SEP_LOCALE);
-            if (locales[0].length() > 0) {
-                language = new LanguageQualifier(locales[0]);
+            if (locales[0].length() > 0 && !LocaleQualifier.FAKE_VALUE.equals(locales[0])) {
+                String language = locales[0];
+                if (locales.length >= 2 && locales[1].length() > 0 && !LocaleQualifier.FAKE_VALUE.equals(locales[1])) {
+                    description.locale = Locale.create(LocaleQualifier.getQualifier(language + "-r" + locales[1]));
+                } else {
+                    description.locale = Locale.create(new LocaleQualifier(language));
+                }
+            } else {
+                description.locale = Locale.ANY;
             }
-            if (locales.length > 1 && locales[1].length() > 0) {
-                region = new RegionQualifier(locales[1]);
-            }
-            description.locale = Locale.create(language, region);
+
+
         }
 
         String activity = element.getAttribute(ATTR_ACTIVITY);
@@ -280,9 +283,9 @@ public class ConfigurationDescription {
         if (locale != null && (locale.hasLanguage() || locale.hasRegion())) {
             String value;
             if (locale.hasRegion()) {
-                value = locale.language.getValue() + SEP_LOCALE + locale.region.getValue();
+                value = locale.qualifier.getLanguage() + SEP_LOCALE + locale.qualifier.getRegion();
             } else {
-                value = locale.language.getValue();
+                value = locale.qualifier.getLanguage();
             }
             element.setAttribute(ATTR_LOCALE, value);
         }

@@ -3,15 +3,15 @@
 #include "json.h"
 #define FIO_DU_NAME_SZ		64
 
-extern volatile int disk_util_exit;
+extern volatile int helper_exit;
 
 struct disk_util_stats {
-	uint32_t ios[2];
-	uint32_t merges[2];
+	uint64_t ios[2];
+	uint64_t merges[2];
 	uint64_t sectors[2];
-	uint32_t ticks[2];
-	uint32_t io_ticks;
-	uint32_t time_in_queue;
+	uint64_t ticks[2];
+	uint64_t io_ticks;
+	uint64_t time_in_queue;
 	uint64_t msec;
 };
 
@@ -24,13 +24,14 @@ struct disk_util_stat {
 };
 
 struct disk_util_agg {
-	uint32_t ios[2];
-	uint32_t merges[2];
+	uint64_t ios[2];
+	uint64_t merges[2];
 	uint64_t sectors[2];
-	uint32_t ticks[2];
-	uint32_t io_ticks;
-	uint32_t time_in_queue;
+	uint64_t ticks[2];
+	uint64_t io_ticks;
+	uint64_t time_in_queue;
 	uint32_t slavecount;
+	uint32_t pad;
 	fio_fp64_t max_util;
 };
 
@@ -100,8 +101,6 @@ static inline void disk_util_dec(struct disk_util *du)
 
 extern struct flist_head disk_list;
 
-extern void wait_for_disk_thread_exit(void);
-
 /*
  * disk util stuff
  */
@@ -127,12 +126,8 @@ static inline void print_disk_util(struct disk_util_stat *du,
 
 static inline int update_io_ticks(void)
 {
-	return disk_util_exit;
+	return helper_exit;
 }
 #endif
 
-static inline void disk_util_start_exit(void)
-{
-	disk_util_exit = 1;
-}
 #endif

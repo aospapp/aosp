@@ -41,6 +41,7 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.ToolItem;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +73,7 @@ class DeviceMenuListener extends SelectionAdapter {
         Device current = configuration.getDevice();
         Menu menu = new Menu(chooser.getShell(), SWT.POP_UP);
 
-        List<Device> deviceList = chooser.getDeviceList();
+        Collection<Device> deviceCollection = chooser.getDevices();
         Sdk sdk = Sdk.getCurrent();
         if (sdk != null) {
             AvdManager avdManager = sdk.getAvdManager();
@@ -80,7 +81,7 @@ class DeviceMenuListener extends SelectionAdapter {
                 boolean separatorNeeded = false;
                 AvdInfo[] avds = avdManager.getValidAvds();
                 for (AvdInfo avd : avds) {
-                    for (Device device : deviceList) {
+                    for (Device device : deviceCollection) {
                         if (device.getManufacturer().equals(avd.getDeviceManufacturer())
                                 && device.getName().equals(avd.getDeviceName())) {
                             separatorNeeded = true;
@@ -105,9 +106,9 @@ class DeviceMenuListener extends SelectionAdapter {
         // make many manufacturer submenus.
         boolean haveNexus = false;
         boolean haveNonNexus = false;
-        if (!deviceList.isEmpty()) {
+        if (!deviceCollection.isEmpty()) {
             Map<String, List<Device>> manufacturers = new TreeMap<String, List<Device>>();
-            for (Device device : deviceList) {
+            for (Device device : deviceCollection) {
                 List<Device> devices;
                 if (isNexus(device)) {
                     haveNexus = true;

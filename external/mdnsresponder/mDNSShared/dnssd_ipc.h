@@ -55,7 +55,7 @@ extern char *win32_strerror(int inErrorCode);
 #	include <unistd.h>
 #ifdef __ANDROID__
 #	include <sys/socket.h>
-#endif
+#endif  // __ANDROID__
 #	include <sys/un.h>
 #	include <string.h>
 #	include <stdio.h>
@@ -63,7 +63,7 @@ extern char *win32_strerror(int inErrorCode);
 #	include <sys/stat.h>
 #ifndef __ANDROID__
 #	include <sys/socket.h>
-#endif
+#endif  // !__ANDROID__
 #	include <netinet/in.h>
 #	define dnssd_InvalidSocket	-1
 #	define dnssd_SocketValid(s) ((s) >= 0)

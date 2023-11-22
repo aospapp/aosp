@@ -12,8 +12,52 @@
 #include "SkEndian.h"
 
 #include "gl/GrGLDefines.h"
+#include "GrConfig.h"
 
 #include "etc1.h"
+
+static inline uint32_t compressed_fmt_to_gl_define(SkTextureCompressor::Format fmt) {
+    static const uint32_t kGLDefineMap[SkTextureCompressor::kFormatCnt] = {
+        GR_GL_COMPRESSED_LUMINANCE_LATC1,      // kLATC_Format
+        GR_GL_COMPRESSED_R11_EAC,              // kR11_EAC_Format
+        GR_GL_COMPRESSED_ETC1_RGB8,            // kETC1_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_4x4_KHR,    // kASTC_4x4_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_5x4_KHR,    // kASTC_5x4_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_5x5_KHR,    // kASTC_5x5_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_6x5_KHR,    // kASTC_6x5_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_6x6_KHR,    // kASTC_6x6_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_8x5_KHR,    // kASTC_8x5_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_8x6_KHR,    // kASTC_8x6_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_8x8_KHR,    // kASTC_8x8_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_10x5_KHR,   // kASTC_10x5_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_10x6_KHR,   // kASTC_10x6_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_10x8_KHR,   // kASTC_10x8_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_10x10_KHR,  // kASTC_10x10_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_12x10_KHR,  // kASTC_12x10_Format
+        GR_GL_COMPRESSED_RGBA_ASTC_12x12_KHR,  // kASTC_12x12_Format
+    };
+
+    GR_STATIC_ASSERT(0 == SkTextureCompressor::kLATC_Format);
+    GR_STATIC_ASSERT(1 == SkTextureCompressor::kR11_EAC_Format);
+    GR_STATIC_ASSERT(2 == SkTextureCompressor::kETC1_Format);
+    GR_STATIC_ASSERT(3 == SkTextureCompressor::kASTC_4x4_Format);
+    GR_STATIC_ASSERT(4 == SkTextureCompressor::kASTC_5x4_Format);
+    GR_STATIC_ASSERT(5 == SkTextureCompressor::kASTC_5x5_Format);
+    GR_STATIC_ASSERT(6 == SkTextureCompressor::kASTC_6x5_Format);
+    GR_STATIC_ASSERT(7 == SkTextureCompressor::kASTC_6x6_Format);
+    GR_STATIC_ASSERT(8 == SkTextureCompressor::kASTC_8x5_Format);
+    GR_STATIC_ASSERT(9 == SkTextureCompressor::kASTC_8x6_Format);
+    GR_STATIC_ASSERT(10 == SkTextureCompressor::kASTC_8x8_Format);
+    GR_STATIC_ASSERT(11 == SkTextureCompressor::kASTC_10x5_Format);
+    GR_STATIC_ASSERT(12 == SkTextureCompressor::kASTC_10x6_Format);
+    GR_STATIC_ASSERT(13 == SkTextureCompressor::kASTC_10x8_Format);
+    GR_STATIC_ASSERT(14 == SkTextureCompressor::kASTC_10x10_Format);
+    GR_STATIC_ASSERT(15 == SkTextureCompressor::kASTC_12x10_Format);
+    GR_STATIC_ASSERT(16 == SkTextureCompressor::kASTC_12x12_Format);
+    GR_STATIC_ASSERT(SK_ARRAY_COUNT(kGLDefineMap) == SkTextureCompressor::kFormatCnt);
+
+    return kGLDefineMap[fmt];
+}
 
 #define KTX_FILE_IDENTIFIER_SIZE 12
 static const uint8_t KTX_FILE_IDENTIFIER[KTX_FILE_IDENTIFIER_SIZE] = {
@@ -91,7 +135,7 @@ bool SkKTXFile::KeyValue::writeKeyAndValueForKTX(SkWStream* strm) {
 }
 
 uint32_t SkKTXFile::readInt(const uint8_t** buf, size_t* bytesLeft) const {
-    SkASSERT(NULL != buf && NULL != bytesLeft);
+    SkASSERT(buf && bytesLeft);
 
     uint32_t result;
 
@@ -123,8 +167,19 @@ SkString SkKTXFile::getValueForKey(const SkString& key) const {
     return SkString();
 }
 
-bool SkKTXFile::isETC1() const {
-    return this->valid() && GR_GL_COMPRESSED_RGB8_ETC1 == fHeader.fGLInternalFormat;
+bool SkKTXFile::isCompressedFormat(SkTextureCompressor::Format fmt) const {
+    if (!this->valid()) {
+        return false;
+    }
+
+    // This has many aliases
+    bool isFmt = false;
+    if (fmt == SkTextureCompressor::kLATC_Format) {
+        isFmt = GR_GL_COMPRESSED_RED_RGTC1 == fHeader.fGLInternalFormat ||
+                GR_GL_COMPRESSED_3DC_X == fHeader.fGLInternalFormat;
+    }
+
+    return isFmt || compressed_fmt_to_gl_define(fmt) == fHeader.fGLInternalFormat;
 }
 
 bool SkKTXFile::isRGBA8() const {
@@ -199,6 +254,11 @@ bool SkKTXFile::readKTXFile(const uint8_t* data, size_t dataLen) {
 
         // We don't support cube maps
         if (fHeader.fNumberOfFaces > 1) {
+            return false;
+        }
+
+        // We don't support width and/or height <= 0
+        if (fHeader.fPixelWidth <= 0 || fHeader.fPixelHeight <= 0) {
             return false;
         }
     }
@@ -325,7 +385,7 @@ bool SkKTXFile::WriteETC1ToKTX(SkWStream* stream, const uint8_t *etc1Data,
     hdr.fGLType = 0;
     hdr.fGLTypeSize = 1;
     hdr.fGLFormat = 0;
-    hdr.fGLInternalFormat = GR_GL_COMPRESSED_RGB8_ETC1;
+    hdr.fGLInternalFormat = GR_GL_COMPRESSED_ETC1_RGB8;
     hdr.fGLBaseInternalFormat = GR_GL_RGB;
     hdr.fPixelWidth = width;
     hdr.fPixelHeight = height;
@@ -440,7 +500,7 @@ bool SkKTXFile::WriteBitmapToKTX(SkWStream* stream, const SkBitmap& bitmap) {
         size_t kvsize = kv->size();
         kvsize += 4;
         kvsize = (kvsize + 3) & ~3;
-        hdr.fBytesOfKeyValueData += kvsize;
+        hdr.fBytesOfKeyValueData = SkToU32(hdr.fBytesOfKeyValueData + kvsize);
     }
 
     // Write the header

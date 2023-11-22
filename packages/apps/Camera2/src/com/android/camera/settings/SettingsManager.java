@@ -22,10 +22,13 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.preference.PreferenceManager;
 
 import com.android.camera.debug.Log;
-import com.android.camera.util.Size;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
+
 
 /**
  * SettingsManager class provides an api for getting and setting SharedPreferences
@@ -69,14 +72,19 @@ import java.util.List;
  * methods, which rely on an index into the set of possible values.
  *
  */
+@ThreadSafe
 public class SettingsManager {
     private static final Log.Tag TAG = new Log.Tag("SettingsManager");
 
+    private final Object mLock;
     private final Context mContext;
     private final String mPackageName;
     private final SharedPreferences mDefaultPreferences;
     private SharedPreferences mCustomPreferences;
     private final DefaultsStore mDefaultsStore = new DefaultsStore();
+
+    public static final String MODULE_SCOPE_PREFIX = "_preferences_module_";
+    public static final String CAMERA_SCOPE_PREFIX = "_preferences_camera_";
 
     /**
      * A List of OnSettingChangedListener's, maintained to compare to new
@@ -93,6 +101,7 @@ public class SettingsManager {
         new ArrayList<OnSharedPreferenceChangeListener>();
 
     public SettingsManager(Context context) {
+        mLock = new Object();
         mContext = context;
         mPackageName = mContext.getPackageName();
 
@@ -106,7 +115,9 @@ public class SettingsManager {
      * custom scope.
      */
     public SharedPreferences getDefaultPreferences() {
-        return mDefaultPreferences;
+        synchronized (mLock) {
+            return mDefaultPreferences;
+        }
     }
 
     /**
@@ -115,14 +126,16 @@ public class SettingsManager {
      * SharedPreferences instance.
      */
     protected SharedPreferences openPreferences(String scope) {
-        SharedPreferences preferences = mContext.getSharedPreferences(
-            mPackageName + scope, Context.MODE_PRIVATE);
+        synchronized (mLock) {
+            SharedPreferences preferences;
+            preferences = mContext.getSharedPreferences(
+                    mPackageName + scope, Context.MODE_PRIVATE);
 
-        for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
-            preferences.registerOnSharedPreferenceChangeListener(listener);
+            for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
+                preferences.registerOnSharedPreferenceChangeListener(listener);
+            }
+            return preferences;
         }
-
-        return preferences;
     }
 
     /**
@@ -136,9 +149,19 @@ public class SettingsManager {
      * cameras/modules they are not compatible with.
      */
     protected void closePreferences(SharedPreferences preferences) {
-        for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
-            preferences.unregisterOnSharedPreferenceChangeListener(listener);
+        synchronized (mLock) {
+            for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
+                preferences.unregisterOnSharedPreferenceChangeListener(listener);
+            }
         }
+    }
+
+    public static String getCameraSettingScope(String cameraIdValue) {
+        return CAMERA_SCOPE_PREFIX + cameraIdValue;
+    }
+
+    public static String getModuleSettingScope(String moduleScopeNamespace) {
+        return CAMERA_SCOPE_PREFIX + moduleScopeNamespace;
     }
 
     /**
@@ -148,7 +171,7 @@ public class SettingsManager {
         /**
          * Called every time a SharedPreference has been changed.
          */
-	public void onSettingChanged(SettingsManager settingsManager, String key);
+        public void onSettingChanged(SettingsManager settingsManager, String key);
     }
 
     private OnSharedPreferenceChangeListener getSharedPreferenceListener(
@@ -157,7 +180,7 @@ public class SettingsManager {
             @Override
             public void onSharedPreferenceChanged(
                     SharedPreferences sharedPreferences, String key) {
-		listener.onSettingChanged(SettingsManager.this, key);
+                listener.onSettingChanged(SettingsManager.this, key);
             }
         };
     }
@@ -167,25 +190,27 @@ public class SettingsManager {
      * execute onSettingsChanged when any SharedPreference has been updated.
      */
     public void addListener(final OnSettingChangedListener listener) {
-        if (listener == null) {
-            throw new IllegalArgumentException("OnSettingChangedListener cannot be null.");
-        }
+        synchronized (mLock) {
+            if (listener == null) {
+                throw new IllegalArgumentException("OnSettingChangedListener cannot be null.");
+            }
 
-        if (mListeners.contains(listener)) {
-            return;
-        }
+            if (mListeners.contains(listener)) {
+                return;
+            }
 
-        mListeners.add(listener);
-        OnSharedPreferenceChangeListener sharedPreferenceListener =
-                getSharedPreferenceListener(listener);
-        mSharedPreferenceListeners.add(sharedPreferenceListener);
-        mDefaultPreferences.registerOnSharedPreferenceChangeListener(sharedPreferenceListener);
+            mListeners.add(listener);
+            OnSharedPreferenceChangeListener sharedPreferenceListener =
+                    getSharedPreferenceListener(listener);
+            mSharedPreferenceListeners.add(sharedPreferenceListener);
+            mDefaultPreferences.registerOnSharedPreferenceChangeListener(sharedPreferenceListener);
 
-        if (mCustomPreferences != null) {
-            mCustomPreferences.registerOnSharedPreferenceChangeListener(
-                sharedPreferenceListener);
+            if (mCustomPreferences != null) {
+                mCustomPreferences.registerOnSharedPreferenceChangeListener(
+                        sharedPreferenceListener);
+            }
+            Log.v(TAG, "listeners: " + mListeners);
         }
-        Log.v(TAG, "listeners: " + mListeners);
     }
 
     /**
@@ -193,26 +218,28 @@ public class SettingsManager {
      * listener has been set.
      */
     public void removeListener(OnSettingChangedListener listener) {
-        if (listener == null) {
-            throw new IllegalArgumentException();
-        }
+        synchronized (mLock) {
+            if (listener == null) {
+                throw new IllegalArgumentException();
+            }
 
-        if (!mListeners.contains(listener)) {
-            return;
-        }
+            if (!mListeners.contains(listener)) {
+                return;
+            }
 
-        int index = mListeners.indexOf(listener);
-        mListeners.remove(listener);
+            int index = mListeners.indexOf(listener);
+            mListeners.remove(listener);
 
-        OnSharedPreferenceChangeListener sharedPreferenceListener =
-                mSharedPreferenceListeners.get(index);
-        mSharedPreferenceListeners.remove(index);
-        mDefaultPreferences.unregisterOnSharedPreferenceChangeListener(
-                sharedPreferenceListener);
+            OnSharedPreferenceChangeListener sharedPreferenceListener =
+                    mSharedPreferenceListeners.get(index);
+            mSharedPreferenceListeners.remove(index);
+            mDefaultPreferences.unregisterOnSharedPreferenceChangeListener(
+                    sharedPreferenceListener);
 
-        if (mCustomPreferences != null) {
-            mCustomPreferences.unregisterOnSharedPreferenceChangeListener(
-                sharedPreferenceListener);
+            if (mCustomPreferences != null) {
+                mCustomPreferences.unregisterOnSharedPreferenceChangeListener(
+                        sharedPreferenceListener);
+            }
         }
     }
 
@@ -221,15 +248,17 @@ public class SettingsManager {
      * onDestroy.
      */
     public void removeAllListeners() {
-        for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
-            mDefaultPreferences.unregisterOnSharedPreferenceChangeListener(listener);
+        synchronized (mLock) {
+            for (OnSharedPreferenceChangeListener listener : mSharedPreferenceListeners) {
+                mDefaultPreferences.unregisterOnSharedPreferenceChangeListener(listener);
 
-            if (mCustomPreferences != null) {
-                mCustomPreferences.unregisterOnSharedPreferenceChangeListener(listener);
+                if (mCustomPreferences != null) {
+                    mCustomPreferences.unregisterOnSharedPreferenceChangeListener(listener);
+                }
             }
+            mSharedPreferenceListeners.clear();
+            mListeners.clear();
         }
-        mSharedPreferenceListeners.clear();
-        mListeners.clear();
     }
 
     /** This scope stores and retrieves settings from
@@ -245,15 +274,17 @@ public class SettingsManager {
      * are unregistered and a new file is opened.
      */
     private SharedPreferences getPreferencesFromScope(String scope) {
-        if (scope.equals(SCOPE_GLOBAL)) {
-            return mDefaultPreferences;
-        }
+        synchronized (mLock) {
+            if (scope.equals(SCOPE_GLOBAL)) {
+                return mDefaultPreferences;
+            }
 
-        if (mCustomPreferences != null) {
-            closePreferences(mCustomPreferences);
+            if (mCustomPreferences != null) {
+                closePreferences(mCustomPreferences);
+            }
+            mCustomPreferences = openPreferences(scope);
+            return mCustomPreferences;
         }
-        mCustomPreferences = openPreferences(scope);
-        return mCustomPreferences;
     }
 
     /**
@@ -262,7 +293,9 @@ public class SettingsManager {
      * This is not required.
      */
     public void setDefaults(String key, String defaultValue, String[] possibleValues) {
-        mDefaultsStore.storeDefaults(key, defaultValue, possibleValues);
+        synchronized (mLock) {
+            mDefaultsStore.storeDefaults(key, defaultValue, possibleValues);
+        }
     }
 
     /**
@@ -271,12 +304,14 @@ public class SettingsManager {
      * This is not required.
      */
     public void setDefaults(String key, int defaultValue, int[] possibleValues) {
-        String defaultValueString = Integer.toString(defaultValue);
-        String[] possibleValuesString = new String[possibleValues.length];
-        for (int i = 0; i < possibleValues.length; i++) {
-            possibleValuesString[i] = Integer.toString(possibleValues[i]);
+        synchronized (mLock) {
+            String defaultValueString = Integer.toString(defaultValue);
+            String[] possibleValuesString = new String[possibleValues.length];
+            for (int i = 0; i < possibleValues.length; i++) {
+                possibleValuesString[i] = Integer.toString(possibleValues[i]);
+            }
+            mDefaultsStore.storeDefaults(key, defaultValueString, possibleValuesString);
         }
-        mDefaultsStore.storeDefaults(key, defaultValueString, possibleValuesString);
     }
 
     /**
@@ -285,33 +320,41 @@ public class SettingsManager {
      * This is not required.
      */
     public void setDefaults(String key, boolean defaultValue) {
-        String defaultValueString = defaultValue ? "1" : "0";
-        String[] possibleValues = { "0", "1" };
-        mDefaultsStore.storeDefaults(key, defaultValueString, possibleValues);
+        synchronized (mLock) {
+            String defaultValueString = defaultValue ? "1" : "0";
+            String[] possibleValues = {"0", "1"};
+            mDefaultsStore.storeDefaults(key, defaultValueString, possibleValues);
+        }
     }
 
     /**
      * Retrieve a default from the DefaultsStore as a String.
      */
     public String getStringDefault(String key) {
-        return mDefaultsStore.getDefaultValue(key);
+        synchronized (mLock) {
+            return mDefaultsStore.getDefaultValue(key);
+        }
     }
 
     /**
      * Retrieve a default from the DefaultsStore as an Integer.
      */
     public Integer getIntegerDefault(String key) {
-        String defaultValueString = mDefaultsStore.getDefaultValue(key);
-        return defaultValueString == null ? 0 : Integer.parseInt(defaultValueString);
+        synchronized (mLock) {
+            String defaultValueString = mDefaultsStore.getDefaultValue(key);
+            return defaultValueString == null ? 0 : Integer.parseInt(defaultValueString);
+        }
     }
 
     /**
      * Retrieve a default from the DefaultsStore as a boolean.
      */
     public boolean getBooleanDefault(String key) {
-        String defaultValueString = mDefaultsStore.getDefaultValue(key);
-        return defaultValueString == null ? false :
-            (Integer.parseInt(defaultValueString) != 0);
+        synchronized (mLock) {
+            String defaultValueString = mDefaultsStore.getDefaultValue(key);
+            return defaultValueString == null ? false :
+                    (Integer.parseInt(defaultValueString) != 0);
+        }
     }
 
     /**
@@ -319,13 +362,15 @@ public class SettingsManager {
      * a default value.
      */
     public String getString(String scope, String key, String defaultValue) {
-        SharedPreferences preferences = getPreferencesFromScope(scope);
-        try {
-            return preferences.getString(key, defaultValue);
-        } catch (ClassCastException e) {
-            Log.w(TAG, "existing preference with invalid type, removing and returning default", e);
-            preferences.edit().remove(key).apply();
-            return defaultValue;
+        synchronized (mLock) {
+            SharedPreferences preferences = getPreferencesFromScope(scope);
+            try {
+                return preferences.getString(key, defaultValue);
+            } catch (ClassCastException e) {
+                Log.w(TAG, "existing preference with invalid type, removing and returning default", e);
+                preferences.edit().remove(key).apply();
+                return defaultValue;
+            }
         }
     }
 
@@ -333,26 +378,33 @@ public class SettingsManager {
      * Retrieve a setting's value as a String, using the default value
      * stored in the DefaultsStore.
      */
+    @Nullable
     public String getString(String scope, String key) {
-        return getString(scope, key, getStringDefault(key));
+        synchronized (mLock) {
+            return getString(scope, key, getStringDefault(key));
+        }
     }
 
     /**
      * Retrieve a setting's value as an Integer, manually specifying
      * a default value.
      */
-    public Integer getInteger(String scope, String key, Integer defaultValue) {
-        String defaultValueString = Integer.toString(defaultValue);
-        String value = getString(scope, key, defaultValueString);
-        return convertToInt(value);
+    public int getInteger(String scope, String key, Integer defaultValue) {
+        synchronized (mLock) {
+            String defaultValueString = Integer.toString(defaultValue);
+            String value = getString(scope, key, defaultValueString);
+            return convertToInt(value);
+        }
     }
 
     /**
      * Retrieve a setting's value as an Integer, converting the default value
      * stored in the DefaultsStore.
      */
-    public Integer getInteger(String scope, String key) {
-        return getInteger(scope, key, getIntegerDefault(key));
+    public int getInteger(String scope, String key) {
+        synchronized (mLock) {
+            return getInteger(scope, key, getIntegerDefault(key));
+        }
     }
 
     /**
@@ -360,9 +412,11 @@ public class SettingsManager {
      * a default value.
      */
     public boolean getBoolean(String scope, String key, boolean defaultValue) {
-        String defaultValueString = defaultValue ? "1" : "0";
-        String value = getString(scope, key, defaultValueString);
-        return convertToBoolean(value);
+        synchronized (mLock) {
+            String defaultValueString = defaultValue ? "1" : "0";
+            String value = getString(scope, key, defaultValueString);
+            return convertToBoolean(value);
+        }
     }
 
     /**
@@ -370,30 +424,8 @@ public class SettingsManager {
      * stored in the DefaultsStore.
      */
     public boolean getBoolean(String scope, String key) {
-        return getBoolean(scope, key, getBooleanDefault(key));
-    }
-
-    /**
-     * Retrieve a setting's value as a {@link Size}. Returns <code>null</code>
-     * if value could not be parsed as a size.
-     */
-    public Size getSize(String scope, String key) {
-        String strValue = getString(scope, key);
-        if (strValue == null) {
-            return null;
-        }
-
-        String[] widthHeight = strValue.split("x");
-        if (widthHeight.length != 2) {
-            return null;
-        }
-
-        try {
-            int width = Integer.parseInt(widthHeight[0]);
-            int height = Integer.parseInt(widthHeight[1]);
-            return new Size(width, height);
-        } catch (NumberFormatException ex) {
-            return null;
+        synchronized (mLock) {
+            return getBoolean(scope, key, getBooleanDefault(key));
         }
     }
 
@@ -409,20 +441,22 @@ public class SettingsManager {
      * an IllegalArgumentException.
      */
     public int getIndexOfCurrentValue(String scope, String key) {
-        String[] possibleValues = mDefaultsStore.getPossibleValues(key);
-        if (possibleValues == null || possibleValues.length == 0) {
-            throw new IllegalArgumentException(
-                "No possible values for scope=" + scope + " key=" + key);
-        }
-
-        String value = getString(scope, key);
-        for (int i = 0; i < possibleValues.length; i++) {
-            if (value.equals(possibleValues[i])) {
-                return i;
+        synchronized (mLock) {
+            String[] possibleValues = mDefaultsStore.getPossibleValues(key);
+            if (possibleValues == null || possibleValues.length == 0) {
+                throw new IllegalArgumentException(
+                        "No possible values for scope=" + scope + " key=" + key);
             }
+
+            String value = getString(scope, key);
+            for (int i = 0; i < possibleValues.length; i++) {
+                if (value.equals(possibleValues[i])) {
+                    return i;
+                }
+            }
+            throw new IllegalStateException("Current value for scope=" + scope + " key="
+                    + key + " not in list of possible values");
         }
-        throw new IllegalStateException("Current value for scope=" + scope + " key="
-                                        + key + " not in list of possible values");
     }
 
     /**
@@ -430,8 +464,10 @@ public class SettingsManager {
      * occurs before this value is stored in SharedPreferences.
      */
     public void set(String scope, String key, String value) {
-        SharedPreferences preferences = getPreferencesFromScope(scope);
-        preferences.edit().putString(key, value).apply();
+        synchronized (mLock) {
+            SharedPreferences preferences = getPreferencesFromScope(scope);
+            preferences.edit().putString(key, value).apply();
+        }
     }
 
     /**
@@ -439,7 +475,9 @@ public class SettingsManager {
      * to String occurs before this value is stored in SharedPreferences.
      */
     public void set(String scope, String key, int value) {
-        set(scope, key, convert(value));
+        synchronized (mLock) {
+            set(scope, key, convert(value));
+        }
     }
 
     /**
@@ -448,14 +486,18 @@ public class SettingsManager {
      * stored in SharedPreferences.
      */
     public void set(String scope, String key, boolean value) {
-        set(scope, key, convert(value));
+        synchronized (mLock) {
+            set(scope, key, convert(value));
+        }
     }
 
     /**
      * Set a setting to the default value stored in the DefaultsStore.
      */
     public void setToDefault(String scope, String key) {
-        set(scope, key, getStringDefault(key));
+        synchronized (mLock) {
+            set(scope, key, getStringDefault(key));
+        }
     }
 
     /**
@@ -471,17 +513,19 @@ public class SettingsManager {
      * method throws an exception.
      */
     public void setValueByIndex(String scope, String key, int index) {
-        String[] possibleValues = mDefaultsStore.getPossibleValues(key);
-        if (possibleValues.length == 0) {
-            throw new IllegalArgumentException(
-                "No possible values for scope=" + scope + " key=" + key);
-        }
+        synchronized (mLock) {
+            String[] possibleValues = mDefaultsStore.getPossibleValues(key);
+            if (possibleValues.length == 0) {
+                throw new IllegalArgumentException(
+                        "No possible values for scope=" + scope + " key=" + key);
+            }
 
-        if (index >= 0 && index < possibleValues.length) {
-            set(scope, key, possibleValues[index]);
-        } else {
-            throw new IndexOutOfBoundsException("For possible values of scope=" + scope
-                                                + " key=" + key);
+            if (index >= 0 && index < possibleValues.length) {
+                set(scope, key, possibleValues[index]);
+            } else {
+                throw new IndexOutOfBoundsException("For possible values of scope=" + scope
+                        + " key=" + key);
+            }
         }
     }
 
@@ -489,8 +533,10 @@ public class SettingsManager {
      * Check that a setting has some value stored.
      */
     public boolean isSet(String scope, String key) {
-        SharedPreferences preferences = getPreferencesFromScope(scope);
-        return preferences.contains(key);
+        synchronized (mLock) {
+            SharedPreferences preferences = getPreferencesFromScope(scope);
+            return preferences.contains(key);
+        }
     }
 
     /**
@@ -498,17 +544,21 @@ public class SettingsManager {
      * default value.
      */
     public boolean isDefault(String scope, String key) {
-        String defaultValue = getStringDefault(key);
-        String value = getString(scope, key);
-        return value == null ? false : value.equals(defaultValue);
+        synchronized (mLock) {
+            String defaultValue = getStringDefault(key);
+            String value = getString(scope, key);
+            return value == null ? false : value.equals(defaultValue);
+        }
     }
 
     /**
      * Remove a setting.
      */
     public void remove(String scope, String key) {
-        SharedPreferences preferences = getPreferencesFromScope(scope);
-        preferences.edit().remove(key).apply();
+        synchronized (mLock) {
+            SharedPreferences preferences = getPreferencesFromScope(scope);
+            preferences.edit().remove(key).apply();
+        }
     }
 
     /**

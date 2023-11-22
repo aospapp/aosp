@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing.features;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.Helpers;
 
 import java.lang.annotation.Inherited;
@@ -27,26 +28,49 @@ import java.util.Set;
 /**
  * Optional features of classes derived from {@code Map}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
 // Enum values use constructors with generic varargs.
 @SuppressWarnings("unchecked")
+@GwtCompatible
 public enum MapFeature implements Feature<Map> {
   /**
    * The map does not throw {@code NullPointerException} on calls such as
-   * {@code containsKey(null)}, {@code get(null)}, or {@code remove(null)}.
+   * {@code containsKey(null)}, {@code get(null)},
+   * {@code keySet().contains(null)} or {@code remove(null)}.
    */
-  ALLOWS_NULL_QUERIES,
-  ALLOWS_NULL_KEYS (ALLOWS_NULL_QUERIES),
-  ALLOWS_NULL_VALUES,
+  ALLOWS_NULL_KEY_QUERIES,
+  ALLOWS_NULL_KEYS(ALLOWS_NULL_KEY_QUERIES),
+  /**
+   * The map does not throw {@code NullPointerException} on calls such as
+   * {@code containsValue(null)}, {@code values().contains(null)} or
+   * {@code values().remove(null)}.
+   */
+  ALLOWS_NULL_VALUE_QUERIES,
+  ALLOWS_NULL_VALUES(ALLOWS_NULL_VALUE_QUERIES),
+  /**
+   * The map does not throw {@code NullPointerException} on calls such as
+   * {@code entrySet().contains(null)} or {@code entrySet().remove(null)}
+   */
+  ALLOWS_NULL_ENTRY_QUERIES,
+  /**
+   * The map does not throw {@code NullPointerException} on any {@code null}
+   * queries.
+   *
+   * @see #ALLOWS_NULL_KEY_QUERIES
+   * @see #ALLOWS_NULL_VALUE_QUERIES
+   * @see #ALLOWS_NULL_ENTRY_QUERIES
+   */
+  ALLOWS_ANY_NULL_QUERIES(
+      ALLOWS_NULL_ENTRY_QUERIES,
+      ALLOWS_NULL_KEY_QUERIES,
+      ALLOWS_NULL_VALUE_QUERIES
+  ),
   RESTRICTS_KEYS,
   RESTRICTS_VALUES,
   SUPPORTS_PUT,
-  SUPPORTS_PUT_ALL,
   SUPPORTS_REMOVE,
-  SUPPORTS_CLEAR,
+  FAILS_FAST_ON_CONCURRENT_MODIFICATION,
   /**
    * Indicates that the constructor or factory method of a map, usually an
    * immutable map, throws an {@link IllegalArgumentException} when presented
@@ -56,16 +80,8 @@ public enum MapFeature implements Feature<Map> {
 
   GENERAL_PURPOSE(
       SUPPORTS_PUT,
-      SUPPORTS_PUT_ALL,
-      SUPPORTS_REMOVE,
-      SUPPORTS_CLEAR
-  ),
-
-  /** Features supported by maps where only removal is allowed. */
-  REMOVE_OPERATIONS(
-      SUPPORTS_REMOVE,
-      SUPPORTS_CLEAR
-    );
+      SUPPORTS_REMOVE
+  );
 
   private final Set<Feature<? super Map>> implied;
 

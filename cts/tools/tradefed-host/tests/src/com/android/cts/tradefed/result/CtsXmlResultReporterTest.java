@@ -39,6 +39,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -84,10 +85,16 @@ public class CtsXmlResultReporterTest extends TestCase {
         File plansDir = new File(repoDir, "plans");
         assertTrue(casesDir.mkdirs());
         assertTrue(plansDir.mkdirs());
-        mMockBuild = EasyMock.createNiceMock(IFolderBuildInfo.class);
+        mMockBuild = EasyMock.createMock(IFolderBuildInfo.class);
         EasyMock.expect(mMockBuild.getDeviceSerial()).andStubReturn(null);
         EasyMock.expect(mMockBuild.getRootDir()).andStubReturn(mBuildDir);
-        EasyMock.replay(mMockBuild);
+        mMockBuild.addBuildAttribute(EasyMock.cmpEq(CtsXmlResultReporter.CTS_RESULT_DIR),
+                (String) EasyMock.anyObject());
+        EasyMock.expectLastCall();
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put(CtsXmlResultReporter.CTS_RESULT_DIR, "");
+        EasyMock.expect(mMockBuild.getBuildAttributes()).andStubReturn(attributes);
+        EasyMock.expect(mMockBuild.getBuildId()).andStubReturn("");
     }
 
     @Override
@@ -113,6 +120,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         final String expectedSummaryOutput =
             "<Summary failed=\"0\" notExecuted=\"0\" timeout=\"0\" pass=\"0\" />";
         final String expectedEndTag = "</TestResult>";
+        EasyMock.replay(mMockBuild);
         mResultReporter.invocationStarted(mMockBuild);
         mResultReporter.invocationEnded(1);
         String actualOutput = getOutput();
@@ -123,6 +131,7 @@ public class CtsXmlResultReporterTest extends TestCase {
                 expectedTestOutput, actualOutput), actualOutput.contains(expectedSummaryOutput));
         assertTrue(String.format("test output did not contain expected TestResult end tag. Got %s",
                 actualOutput), actualOutput.endsWith(expectedEndTag));
+        EasyMock.verify(mMockBuild);
     }
 
     /**
@@ -131,6 +140,7 @@ public class CtsXmlResultReporterTest extends TestCase {
     public void testSinglePass() {
         Map<String, String> emptyMap = Collections.emptyMap();
         final TestIdentifier testId = new TestIdentifier("com.foo.FooTest", "testFoo");
+        EasyMock.replay(mMockBuild);
         mResultReporter.invocationStarted(mMockBuild);
         mResultReporter.testRunStarted(AbiUtils.createId(UnitTests.ABI.getName(), "run"), 1);
         mResultReporter.testStarted(testId);
@@ -149,6 +159,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         final String testCaseTag = String.format(
                 "<Test name=\"%s\" result=\"pass\"", testId.getTestName());
         assertTrue(output.contains(testCaseTag));
+        EasyMock.verify(mMockBuild);
     }
 
     /**
@@ -158,6 +169,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         Map<String, String> emptyMap = Collections.emptyMap();
         final TestIdentifier testId = new TestIdentifier("FooTest", "testFoo");
         final String trace = "this is a trace\nmore trace\nyet more trace";
+        EasyMock.replay(mMockBuild);
         mResultReporter.invocationStarted(mMockBuild);
         mResultReporter.testRunStarted(AbiUtils.createId(UnitTests.ABI.getName(), "run"), 1);
         mResultReporter.testStarted(testId);
@@ -179,6 +191,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         // Check that no TestLog tags were added, because the flag wasn't enabled.
         final String testLogTag = String.format("<TestLog type=\"logcat\" url=\"url\" />");
         assertFalse(output, output.contains(testLogTag));
+        EasyMock.verify(mMockBuild);
     }
 
     /**
@@ -192,6 +205,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         // Include TestLogTags in the XML.
         mResultReporter.setIncludeTestLogTags(true);
 
+        EasyMock.replay(mMockBuild);
         mResultReporter.invocationStarted(mMockBuild);
         mResultReporter.testRunStarted(AbiUtils.createId(UnitTests.ABI.getName(), "run"), 1);
         mResultReporter.testStarted(testId);
@@ -206,11 +220,13 @@ public class CtsXmlResultReporterTest extends TestCase {
         final String output = getOutput();
         final String testLogTag = String.format("<TestLog type=\"logcat\" url=\"url\" />");
         assertTrue(output, output.contains(testLogTag));
+        EasyMock.verify(mMockBuild);
     }
 
     public void testDeviceSetup() {
         Map<String, String> emptyMap = Collections.emptyMap();
         final TestIdentifier testId = new TestIdentifier("android.tests.devicesetup", "TestDeviceSetup");
+        EasyMock.replay(mMockBuild);
         mResultReporter.invocationStarted(mMockBuild);
         mResultReporter.testRunStarted(AbiUtils.createId(UnitTests.ABI.getName(), testId.getClassName()), 1);
         mResultReporter.testStarted(testId);
@@ -221,6 +237,7 @@ public class CtsXmlResultReporterTest extends TestCase {
         // TODO: consider doing xml based compare
         final String deviceSetupTag = "appPackageName=\"android.tests.devicesetup\"";
         assertFalse(output, output.contains(deviceSetupTag));
+        EasyMock.verify(mMockBuild);
     }
 
     /**

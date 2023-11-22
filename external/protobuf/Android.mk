@@ -16,15 +16,18 @@
 
 LOCAL_PATH := $(call my-dir)
 
-IGNORED_WARNINGS := -Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo
+IGNORED_WARNINGS := -Wno-sign-compare -Wno-unused-parameter -Wno-sign-promo -Wno-error=return-type
 
 CC_LITE_SRC_FILES := \
+    src/google/protobuf/stubs/atomicops_internals_x86_gcc.cc         \
+    src/google/protobuf/stubs/atomicops_internals_x86_msvc.cc        \
     src/google/protobuf/stubs/common.cc                              \
     src/google/protobuf/stubs/once.cc                                \
-    src/google/protobuf/stubs/hash.cc                                \
     src/google/protobuf/stubs/hash.h                                 \
-    src/google/protobuf/stubs/map-util.h                             \
-    src/google/protobuf/stubs/stl_util-inl.h                         \
+    src/google/protobuf/stubs/map_util.h                             \
+    src/google/protobuf/stubs/shared_ptr.h                           \
+    src/google/protobuf/stubs/stringprintf.cc                        \
+    src/google/protobuf/stubs/stringprintf.h                         \
     src/google/protobuf/extension_set.cc                             \
     src/google/protobuf/generated_message_util.cc                    \
     src/google/protobuf/message_lite.cc                              \
@@ -44,10 +47,30 @@ JAVA_LITE_SRC_FILES := \
     java/src/main/java/com/google/protobuf/CodedInputStream.java \
     java/src/main/java/com/google/protobuf/ExtensionRegistryLite.java \
     java/src/main/java/com/google/protobuf/AbstractMessageLite.java \
+    java/src/main/java/com/google/protobuf/AbstractParser.java \
     java/src/main/java/com/google/protobuf/FieldSet.java \
     java/src/main/java/com/google/protobuf/Internal.java \
     java/src/main/java/com/google/protobuf/WireFormat.java \
-    java/src/main/java/com/google/protobuf/GeneratedMessageLite.java
+    java/src/main/java/com/google/protobuf/GeneratedMessageLite.java \
+    java/src/main/java/com/google/protobuf/BoundedByteString.java \
+    java/src/main/java/com/google/protobuf/LazyField.java \
+    java/src/main/java/com/google/protobuf/LazyFieldLite.java \
+    java/src/main/java/com/google/protobuf/LazyStringList.java \
+    java/src/main/java/com/google/protobuf/LazyStringArrayList.java \
+    java/src/main/java/com/google/protobuf/UnmodifiableLazyStringList.java \
+    java/src/main/java/com/google/protobuf/LiteralByteString.java \
+    java/src/main/java/com/google/protobuf/MessageLiteOrBuilder.java \
+    java/src/main/java/com/google/protobuf/Parser.java \
+    java/src/main/java/com/google/protobuf/ProtocolStringList.java \
+    java/src/main/java/com/google/protobuf/RopeByteString.java \
+    java/src/main/java/com/google/protobuf/SmallSortedMap.java \
+    java/src/main/java/com/google/protobuf/Utf8.java
+
+# This contains more source files than needed for the full version, but the
+# additional files should not create any conflict.
+JAVA_FULL_SRC_FILES := \
+    $(call all-java-files-under, java/src/main/java) \
+    src/google/protobuf/descriptor.proto
 
 COMPILER_SRC_FILES :=  \
     src/google/protobuf/descriptor.cc \
@@ -88,17 +111,24 @@ COMPILER_SRC_FILES :=  \
     src/google/protobuf/compiler/cpp/cpp_primitive_field.cc \
     src/google/protobuf/compiler/cpp/cpp_service.cc \
     src/google/protobuf/compiler/cpp/cpp_string_field.cc \
+    src/google/protobuf/compiler/java/java_context.cc \
     src/google/protobuf/compiler/java/java_enum.cc \
     src/google/protobuf/compiler/java/java_enum_field.cc \
     src/google/protobuf/compiler/java/java_extension.cc \
     src/google/protobuf/compiler/java/java_field.cc \
     src/google/protobuf/compiler/java/java_file.cc \
     src/google/protobuf/compiler/java/java_generator.cc \
+    src/google/protobuf/compiler/java/java_generator_factory.cc \
     src/google/protobuf/compiler/java/java_helpers.cc \
+    src/google/protobuf/compiler/java/java_lazy_message_field.cc \
     src/google/protobuf/compiler/java/java_message.cc \
     src/google/protobuf/compiler/java/java_message_field.cc \
+    src/google/protobuf/compiler/java/java_name_resolver.cc \
     src/google/protobuf/compiler/java/java_primitive_field.cc \
+    src/google/protobuf/compiler/java/java_shared_code_generator.cc \
     src/google/protobuf/compiler/java/java_service.cc \
+    src/google/protobuf/compiler/java/java_string_field.cc \
+    src/google/protobuf/compiler/java/java_doc_comment.cc \
     src/google/protobuf/compiler/javamicro/javamicro_enum.cc \
     src/google/protobuf/compiler/javamicro/javamicro_enum_field.cc \
     src/google/protobuf/compiler/javamicro/javamicro_field.cc \
@@ -122,22 +152,25 @@ COMPILER_SRC_FILES :=  \
     src/google/protobuf/io/coded_stream.cc \
     src/google/protobuf/io/gzip_stream.cc \
     src/google/protobuf/io/printer.cc \
+    src/google/protobuf/io/strtod.cc \
     src/google/protobuf/io/tokenizer.cc \
     src/google/protobuf/io/zero_copy_stream.cc \
     src/google/protobuf/io/zero_copy_stream_impl.cc \
     src/google/protobuf/io/zero_copy_stream_impl_lite.cc \
+    src/google/protobuf/stubs/atomicops_internals_x86_gcc.cc \
+    src/google/protobuf/stubs/atomicops_internals_x86_msvc.cc \
     src/google/protobuf/stubs/common.cc \
-    src/google/protobuf/stubs/hash.cc \
     src/google/protobuf/stubs/once.cc \
     src/google/protobuf/stubs/structurally_valid.cc \
     src/google/protobuf/stubs/strutil.cc \
-    src/google/protobuf/stubs/substitute.cc
+    src/google/protobuf/stubs/substitute.cc \
+    src/google/protobuf/stubs/stringprintf.cc
 
 # Java nano library (for device-side users)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-java-2.3.0-nano
+LOCAL_MODULE := libprotobuf-java-nano
 LOCAL_MODULE_TAGS := optional
 LOCAL_SDK_VERSION := 8
 
@@ -150,7 +183,7 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := host-libprotobuf-java-2.3.0-nano
+LOCAL_MODULE := host-libprotobuf-java-nano
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/nano)
@@ -161,7 +194,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-java-2.3.0-micro
+LOCAL_MODULE := libprotobuf-java-micro
 LOCAL_MODULE_TAGS := optional
 LOCAL_SDK_VERSION := 8
 
@@ -173,7 +206,7 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := host-libprotobuf-java-2.3.0-micro
+LOCAL_MODULE := host-libprotobuf-java-micro
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java/src/main/java/com/google/protobuf/micro)
@@ -184,9 +217,9 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-java-2.3.0-lite
+LOCAL_MODULE := libprotobuf-java-lite
 LOCAL_MODULE_TAGS := optional
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 9
 
 LOCAL_SRC_FILES := $(JAVA_LITE_SRC_FILES)
 
@@ -196,10 +229,21 @@ include $(BUILD_STATIC_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := host-libprotobuf-java-2.3.0-lite
+LOCAL_MODULE := host-libprotobuf-java-lite
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(JAVA_LITE_SRC_FILES)
+
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+# Java full library (for host-side users)
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := host-libprotobuf-java-full
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_SRC_FILES := $(JAVA_FULL_SRC_FILES)
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 
@@ -207,7 +251,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-2.3.0-lite
+LOCAL_MODULE := libprotobuf-cpp-lite
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_CPP_EXTENSION := .cc
@@ -243,6 +287,25 @@ LOCAL_NDK_STL_VARIANT := stlport_static
 
 include $(BUILD_STATIC_LIBRARY)
 
+# C++ lite library (libc++ flavored for the platform)
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-lite
+LOCAL_MODULE_TAGS := optional
+
+LOCAL_CPP_EXTENSION := .cc
+
+LOCAL_SRC_FILES := $(CC_LITE_SRC_FILES)
+
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    $(LOCAL_PATH)/src
+
+LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
+
+include $(BUILD_SHARED_LIBRARY)
+
 # C++ full library
 # =======================================================
 protobuf_cc_full_src_files := \
@@ -266,6 +329,7 @@ protobuf_cc_full_src_files := \
     src/google/protobuf/wire_format.cc                               \
     src/google/protobuf/io/gzip_stream.cc                            \
     src/google/protobuf/io/printer.cc                                \
+    src/google/protobuf/io/strtod.cc                                 \
     src/google/protobuf/io/tokenizer.cc                              \
     src/google/protobuf/io/zero_copy_stream_impl.cc                  \
     src/google/protobuf/compiler/importer.cc                         \
@@ -275,7 +339,7 @@ protobuf_cc_full_src_files := \
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-2.3.0-full
+LOCAL_MODULE := libprotobuf-cpp-full
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
@@ -313,7 +377,7 @@ include $(BUILD_STATIC_LIBRARY)
 # =======================================================
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := libprotobuf-cpp-2.3.0-full-gnustl-rtti
+LOCAL_MODULE := libprotobuf-cpp-full-gnustl-rtti
 LOCAL_MODULE_TAGS := optional
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
@@ -327,6 +391,24 @@ LOCAL_SDK_VERSION := 14
 LOCAL_NDK_STL_VARIANT := gnustl_static
 
 include $(BUILD_STATIC_LIBRARY)
+
+# C++ full library - libc++ version for the platform
+# =======================================================
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libprotobuf-cpp-full
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(protobuf_cc_full_src_files)
+LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/android \
+    external/zlib \
+    $(LOCAL_PATH)/src
+
+LOCAL_CFLAGS := -DGOOGLE_PROTOBUF_NO_RTTI $(IGNORED_WARNINGS)
+LOCAL_SHARED_LIBRARIES := libz
+
+include $(BUILD_SHARED_LIBRARY)
 
 # Clean temp vars
 protobuf_cc_full_src_files :=
@@ -342,6 +424,10 @@ LOCAL_MODULE := aprotoc
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_TAGS := optional
 
+# Use the system's libstdc++ (libc++ on mac) because we copy aprotoc to
+# unbundled projects where libc++.so may not be available.
+LOCAL_CXX_STL := libstdc++
+
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_SRC_FILES := $(COMPILER_SRC_FILES)
 
@@ -351,7 +437,10 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/src
 
 LOCAL_STATIC_LIBRARIES += libz
+
+ifneq ($(HOST_OS),windows)
 LOCAL_LDLIBS := -lpthread
+endif
 
 LOCAL_CFLAGS := $(IGNORED_WARNINGS)
 
@@ -390,6 +479,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android-nano-test-parcelable
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
+# Only needed at compile-time.
+LOCAL_JAVA_LIBRARIES := android-support-annotations
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 
@@ -398,7 +489,8 @@ LOCAL_SRC_FILES := src/google/protobuf/unittest_simple_nano.proto
 LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)/src
 
 LOCAL_PROTO_JAVA_OUTPUT_PARAMS := \
-        parcelable_messages = true
+        parcelable_messages = true, \
+        generate_intdefs = true
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
@@ -408,6 +500,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := android-nano-test-parcelable-extendable
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
+# Only needed at compile-time.
+LOCAL_JAVA_LIBRARIES := android-support-annotations
 
 LOCAL_PROTOC_OPTIMIZE_TYPE := nano
 
@@ -417,6 +511,7 @@ LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)/src
 
 LOCAL_PROTO_JAVA_OUTPUT_PARAMS := \
         parcelable_messages = true, \
+        generate_intdefs = true, \
         store_unknown_fields = true
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -434,10 +529,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, java/src/device/test/java/com/go
 
 LOCAL_MANIFEST_FILE := java/src/device/test/AndroidManifest.xml
 
-LOCAL_STATIC_JAVA_LIBRARIES := libprotobuf-java-2.3.0-nano \
+LOCAL_STATIC_JAVA_LIBRARIES := libprotobuf-java-nano \
         android-nano-test-parcelable \
         android-nano-test-parcelable-extendable
 
 LOCAL_DEX_PREOPT := false
 
 include $(BUILD_PACKAGE)
+

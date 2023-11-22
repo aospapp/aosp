@@ -21,6 +21,7 @@ import android.location.Location;
 import android.os.Bundle;
 
 import com.android.camera.debug.Log;
+import com.android.camera.util.AndroidServices;
 
 /**
  * A class that handles legacy (network, gps) location providers, in the event
@@ -44,17 +45,22 @@ public class LegacyLocationProvider implements LocationProvider {
 
     @Override
     public Location getCurrentLocation() {
-        if (!mRecordLocation) return null;
+        if (!mRecordLocation) {
+            return null;
+        }
 
         // go in best to worst order
         for (int i = 0; i < mLocationListeners.length; i++) {
             Location l = mLocationListeners[i].current();
-            if (l != null) return l;
+            if (l != null) {
+                return l;
+            }
         }
         Log.d(TAG, "No location received yet.");
         return null;
     }
 
+    @Override
     public void recordLocation(boolean recordLocation) {
         if (mRecordLocation != recordLocation) {
             mRecordLocation = recordLocation;
@@ -74,9 +80,9 @@ public class LegacyLocationProvider implements LocationProvider {
     }
 
     private void startReceivingLocationUpdates() {
+        Log.v(TAG, "starting location updates");
         if (mLocationManager == null) {
-            mLocationManager = (android.location.LocationManager)
-                    mContext.getSystemService(Context.LOCATION_SERVICE);
+            mLocationManager = AndroidServices.instance().provideLocationManager();
         }
         if (mLocationManager != null) {
             try {
@@ -106,6 +112,7 @@ public class LegacyLocationProvider implements LocationProvider {
     }
 
     private void stopReceivingLocationUpdates() {
+        Log.v(TAG, "stopping location updates");
         if (mLocationManager != null) {
             for (int i = 0; i < mLocationListeners.length; i++) {
                 try {

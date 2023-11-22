@@ -5,7 +5,7 @@
 
 int options;
 
-int mark;
+__u32 mark;
 int sndbuf;
 int ttl;
 int rtt;
@@ -294,9 +294,9 @@ void common_options(int ch)
 	case 'm':
 	{
 		char *endp;
-		mark = (int)strtoul(optarg, &endp, 10);
-		if (mark < 0 || *endp != '\0') {
-			fprintf(stderr, "mark cannot be negative\n");
+		mark = strtoul(optarg, &endp, 0);
+		if (*endp != '\0') {
+			fprintf(stderr, "ping: invalid mark %s\n", optarg);
 			exit(2);
 		}
 		options |= F_MARK;

@@ -74,4 +74,19 @@ class BluetoothMapRfcommTransport implements ObexTransport {
     public DataOutputStream openDataOutputStream() throws IOException {
         return new DataOutputStream(openOutputStream());
     }
+
+    @Override
+    public int getMaxTransmitPacketSize() {
+        return -1;
+    }
+
+    @Override
+    public int getMaxReceivePacketSize() {
+        return -1;
+    }
+
+    @Override
+    public boolean isSrmSupported() {
+        return false;
+    }
 }

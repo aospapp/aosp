@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 
 #include "common.h"
 #include "verifier.h"
@@ -122,6 +124,8 @@ RecoveryUI* ui = NULL;
 // nothing but print.
 class FakeUI : public RecoveryUI {
     void Init() { }
+    void SetStage(int, int) { }
+    void SetLocale(const char*) { }
     void SetBackground(Icon icon) { }
 
     void SetProgressType(ProgressType determinate) { }
@@ -137,6 +141,7 @@ class FakeUI : public RecoveryUI {
         vfprintf(stderr, fmt, ap);
         va_end(ap);
     }
+    void ShowFile(const char*) { }
 
     void StartMenu(const char* const * headers, const char* const * items,
                            int initial_selection) { }

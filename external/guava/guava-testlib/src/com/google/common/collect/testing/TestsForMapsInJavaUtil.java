@@ -23,6 +23,7 @@ import com.google.common.collect.testing.features.MapFeature;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
+import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,10 +31,8 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -44,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Kevin Bourrillion
  */
 public class TestsForMapsInJavaUtil {
+
   public static Test suite() {
     return new TestsForMapsInJavaUtil().allTests();
   }
@@ -54,7 +54,6 @@ public class TestsForMapsInJavaUtil {
     suite.addTest(testsForSingletonMap());
     suite.addTest(testsForHashMap());
     suite.addTest(testsForLinkedHashMap());
-    suite.addTest(testsForTreeMap());
     suite.addTest(testsForEnumMap());
     suite.addTest(testsForConcurrentHashMap());
     return suite;
@@ -72,13 +71,19 @@ public class TestsForMapsInJavaUtil {
   protected Collection<Method> suppressForLinkedHashMap() {
     return Collections.emptySet();
   }
-  protected Collection<Method> suppressForTreeMap() {
+  protected Collection<Method> suppressForTreeMapNatural() {
+    return Collections.emptySet();
+  }
+  protected Collection<Method> suppressForTreeMapWithComparator() {
     return Collections.emptySet();
   }
   protected Collection<Method> suppressForEnumMap() {
     return Collections.emptySet();
   }
   protected Collection<Method> suppressForConcurrentHashMap() {
+    return Collections.emptySet();
+  }
+  protected Collection<Method> suppressForConcurrentSkipListMap() {
     return Collections.emptySet();
   }
 
@@ -92,7 +97,7 @@ public class TestsForMapsInJavaUtil {
           })
         .named("emptyMap")
         .withFeatures(
-            CollectionFeature.NONE,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ZERO)
         .suppressing(suppressForEmptyMap())
         .createTestSuite();
@@ -111,6 +116,8 @@ public class TestsForMapsInJavaUtil {
         .withFeatures(
             MapFeature.ALLOWS_NULL_KEYS,
             MapFeature.ALLOWS_NULL_VALUES,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ONE)
         .suppressing(suppressForSingletonMap())
         .createTestSuite();
@@ -123,20 +130,16 @@ public class TestsForMapsInJavaUtil {
                 Entry<String, String>[] entries) {
               return toHashMap(entries);
             }
-            @Override public Iterable<Entry<String, String>> order(
-                List<Entry<String, String>> insertionOrder) {
-              /*
-               * For convenience, make this test double as a test that no tester
-               * calls order() on a container without the KNOWN_ORDER feature.
-               */
-              throw new UnsupportedOperationException();
-            }
           })
         .named("HashMap")
         .withFeatures(
             MapFeature.GENERAL_PURPOSE,
             MapFeature.ALLOWS_NULL_KEYS,
             MapFeature.ALLOWS_NULL_VALUES,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            MapFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ANY)
         .suppressing(suppressForHashMap())
         .createTestSuite();
@@ -155,29 +158,13 @@ public class TestsForMapsInJavaUtil {
             MapFeature.GENERAL_PURPOSE,
             MapFeature.ALLOWS_NULL_KEYS,
             MapFeature.ALLOWS_NULL_VALUES,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES,
+            MapFeature.FAILS_FAST_ON_CONCURRENT_MODIFICATION,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
             CollectionFeature.KNOWN_ORDER,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ANY)
         .suppressing(suppressForLinkedHashMap())
-        .createTestSuite();
-  }
-
-  public Test testsForTreeMap() {
-    return NavigableMapTestSuiteBuilder
-        .using(new TestStringMapGenerator() {
-            @Override protected Map<String, String> create(
-                Entry<String, String>[] entries) {
-              return populate(new TreeMap<String, String>(
-                  arbitraryNullFriendlyComparator()), entries);
-            }
-          })
-        .named("TreeMap")
-        .withFeatures(
-            MapFeature.GENERAL_PURPOSE,
-            MapFeature.ALLOWS_NULL_KEYS,
-            MapFeature.ALLOWS_NULL_VALUES,
-            CollectionFeature.KNOWN_ORDER,
-            CollectionSize.ANY)
-        .suppressing(suppressForTreeMap())
         .createTestSuite();
   }
 
@@ -195,7 +182,9 @@ public class TestsForMapsInJavaUtil {
             MapFeature.GENERAL_PURPOSE,
             MapFeature.ALLOWS_NULL_VALUES,
             MapFeature.RESTRICTS_KEYS,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
             CollectionFeature.KNOWN_ORDER,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ANY)
         .suppressing(suppressForEnumMap())
         .createTestSuite();
@@ -212,6 +201,8 @@ public class TestsForMapsInJavaUtil {
         .named("ConcurrentHashMap")
         .withFeatures(
             MapFeature.GENERAL_PURPOSE,
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+            CollectionFeature.SERIALIZABLE,
             CollectionSize.ANY)
         .suppressing(suppressForConcurrentHashMap())
         .createTestSuite();
@@ -226,8 +217,8 @@ public class TestsForMapsInJavaUtil {
 
   // TODO: call conversion constructors or factory methods instead of using
   // populate() on an empty map
-  private static <T> Map<T, String> populate(
-      Map<T, String> map, Entry<T, String>[] entries) {
+  private static <T, M extends Map<T, String>> M populate(
+      M map, Entry<T, String>[] entries) {
     for (Entry<T, String> entry : entries) {
       map.put(entry.getKey(), entry.getValue());
     }
@@ -235,11 +226,13 @@ public class TestsForMapsInJavaUtil {
   }
 
   static <T> Comparator<T> arbitraryNullFriendlyComparator() {
-    return new Comparator<T>() {
-      @Override
-      public int compare(T left, T right) {
-        return String.valueOf(left).compareTo(String.valueOf(right));
-      }
-    };
+    return new NullFriendlyComparator<T>();
+  }
+
+  private static final class NullFriendlyComparator<T> implements Comparator<T>, Serializable {
+    @Override
+    public int compare(T left, T right) {
+      return String.valueOf(left).compareTo(String.valueOf(right));
+    }
   }
 }

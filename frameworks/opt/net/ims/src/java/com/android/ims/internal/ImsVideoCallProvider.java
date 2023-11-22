@@ -16,13 +16,16 @@
 
 package com.android.ims.internal;
 
+import com.android.internal.os.SomeArgs;
+
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
-import android.telecom.CameraCapabilities;
 import android.telecom.Connection;
 import android.telecom.VideoProfile;
+import android.telecom.VideoProfile.CameraCapabilities;
 import android.view.Surface;
 
 public abstract class ImsVideoCallProvider {
@@ -67,9 +70,18 @@ public abstract class ImsVideoCallProvider {
                 case MSG_SET_ZOOM:
                     onSetZoom((Float) msg.obj);
                     break;
-                case MSG_SEND_SESSION_MODIFY_REQUEST:
-                    onSendSessionModifyRequest((VideoProfile) msg.obj);
+                case MSG_SEND_SESSION_MODIFY_REQUEST: {
+                    SomeArgs args = (SomeArgs) msg.obj;
+                    try {
+                        VideoProfile fromProfile = (VideoProfile) args.arg1;
+                        VideoProfile toProfile = (VideoProfile) args.arg2;
+
+                        onSendSessionModifyRequest(fromProfile, toProfile);
+                    } finally {
+                        args.recycle();
+                    }
                     break;
+                }
                 case MSG_SEND_SESSION_MODIFY_RESPONSE:
                     onSendSessionModifyResponse((VideoProfile) msg.obj);
                     break;
@@ -80,7 +92,7 @@ public abstract class ImsVideoCallProvider {
                     onRequestCallDataUsage();
                     break;
                 case MSG_SET_PAUSE_IMAGE:
-                    onSetPauseImage((String) msg.obj);
+                    onSetPauseImage((Uri) msg.obj);
                     break;
                 default:
                     break;
@@ -109,16 +121,18 @@ public abstract class ImsVideoCallProvider {
         }
 
         public void setDeviceOrientation(int rotation) {
-            mProviderHandler.obtainMessage(MSG_SET_DEVICE_ORIENTATION, rotation).sendToTarget();
+            mProviderHandler.obtainMessage(MSG_SET_DEVICE_ORIENTATION, rotation, 0).sendToTarget();
         }
 
         public void setZoom(float value) {
             mProviderHandler.obtainMessage(MSG_SET_ZOOM, value).sendToTarget();
         }
 
-        public void sendSessionModifyRequest(VideoProfile requestProfile) {
-            mProviderHandler.obtainMessage(
-                    MSG_SEND_SESSION_MODIFY_REQUEST, requestProfile).sendToTarget();
+        public void sendSessionModifyRequest(VideoProfile fromProfile, VideoProfile toProfile) {
+            SomeArgs args = SomeArgs.obtain();
+            args.arg1 = fromProfile;
+            args.arg2 = toProfile;
+            mProviderHandler.obtainMessage(MSG_SEND_SESSION_MODIFY_REQUEST, args).sendToTarget();
         }
 
         public void sendSessionModifyResponse(VideoProfile responseProfile) {
@@ -134,7 +148,7 @@ public abstract class ImsVideoCallProvider {
             mProviderHandler.obtainMessage(MSG_REQUEST_CALL_DATA_USAGE).sendToTarget();
         }
 
-        public void setPauseImage(String uri) {
+        public void setPauseImage(Uri uri) {
             mProviderHandler.obtainMessage(MSG_SET_PAUSE_IMAGE, uri).sendToTarget();
         }
     }
@@ -166,7 +180,8 @@ public abstract class ImsVideoCallProvider {
     public abstract void onSetZoom(float value);
 
     /** @see Connection.VideoProvider#onSendSessionModifyRequest */
-    public abstract void onSendSessionModifyRequest(VideoProfile requestProfile);
+    public abstract void onSendSessionModifyRequest(VideoProfile fromProfile,
+            VideoProfile toProfile);
 
     /** @see Connection.VideoProvider#onSendSessionModifyResponse */
     public abstract void onSendSessionModifyResponse(VideoProfile responseProfile);
@@ -178,7 +193,7 @@ public abstract class ImsVideoCallProvider {
     public abstract void onRequestCallDataUsage();
 
     /** @see Connection.VideoProvider#onSetPauseImage */
-    public abstract void onSetPauseImage(String uri);
+    public abstract void onSetPauseImage(Uri uri);
 
     /** @see Connection.VideoProvider#receiveSessionModifyRequest */
     public void receiveSessionModifyRequest(VideoProfile VideoProfile) {
@@ -222,7 +237,7 @@ public abstract class ImsVideoCallProvider {
     }
 
     /** @see Connection.VideoProvider#changeCallDataUsage */
-    public void changeCallDataUsage(int dataUsage) {
+    public void changeCallDataUsage(long dataUsage) {
         if (mCallback != null) {
             try {
                 mCallback.changeCallDataUsage(dataUsage);
@@ -236,6 +251,16 @@ public abstract class ImsVideoCallProvider {
         if (mCallback != null) {
             try {
                 mCallback.changeCameraCapabilities(CameraCapabilities);
+            } catch (RemoteException ignored) {
+            }
+        }
+    }
+
+    /** @see Connection.VideoProvider#changeVideoQuality */
+    public void changeVideoQuality(int videoQuality) {
+        if (mCallback != null) {
+            try {
+                mCallback.changeVideoQuality(videoQuality);
             } catch (RemoteException ignored) {
             }
         }

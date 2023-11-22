@@ -68,7 +68,7 @@
     <string name="upload_line5" msgid="7759322537674229752">"Файлът се изпраща..."</string>
     <string name="upload_succ_line5" msgid="5687317197463383601">"Файлът е изпратен"</string>
     <string name="upload_succ_ok" msgid="7705428476405478828">"OK"</string>
-    <string name="upload_fail_line1" msgid="7899394672421491701">"Файлът не бе изпратен до „<xliff:g id="RECIPIENT">%1$s</xliff:g>“."</string>
+    <string name="upload_fail_line1" msgid="7899394672421491701">"Файлът не бе изпратен до <xliff:g id="RECIPIENT">%1$s</xliff:g>."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Файл: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="upload_fail_ok" msgid="5807702461606714296">"Опитайте отново"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Затваряне"</string>
@@ -110,16 +110,23 @@
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"Всички елементи ще бъдат премахнати от списъка."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"Споделяне чрез Bluetooth: Изпратени файлове"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Споделяне чрез Bluetooth: Получени файлове"</string>
-    <string name="noti_caption" msgid="7508708288885707365">"Успешно: <xliff:g id="SUCCESSFUL_NUMBER_0">%1$s</xliff:g>. Неуспешно: <xliff:g id="UNSUCCESSFUL_NUMBER">%2$s</xliff:g>."</string>
+    <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
+      <item quantity="other">Неуспешно: <xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g>.</item>
+      <item quantity="one">Неуспешно: <xliff:g id="UNSUCCESSFUL_NUMBER_0">%1$d</xliff:g>.</item>
+    </plurals>
+    <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
+      <item quantity="other">Успешно: <xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> – %2$s</item>
+      <item quantity="one">Успешно: <xliff:g id="SUCCESSFUL_NUMBER_0">%1$d</xliff:g> – %2$s</item>
+    </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"Изчистване на списъка"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"Отваряне"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Изчистване от списъка"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Изчистване"</string>
-    <string name="bluetooth_map_email_settings_save" msgid="5349902976213455385">"Запазване"</string>
-    <string name="bluetooth_map_email_settings_cancel" msgid="5019472404940038118">"Отказ"</string>
-    <string name="bluetooth_map_email_settings_intro" msgid="6219461401455143988">"Изберете профилите за електронна поща, които искате да споделите чрез Bluetooth. Пак трябва да приемете достъпа до тях при свързване."</string>
-    <string name="bluetooth_map_email_settings_count" msgid="8884933619108905375">"Оставащи слотове:"</string>
-    <string name="bluetooth_map_email_settings_app_icon" msgid="6905622365985483669">"Икона на приложението"</string>
-    <string name="bluetooth_map_email_settings_title" msgid="2181388147513118336">"Настройки за споделяне на съобщения чрез Bluetooth"</string>
-    <string name="bluetooth_map_email_settings_no_account_slots_left" msgid="5989596869950397488">"Не може да се избере профил. Останали са 0 слота."</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Запазване"</string>
+    <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Отказ"</string>
+    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"Изберете профилите, които искате да споделите през Bluetooth. Пак трябва да приемете достъпа до тях при свързване."</string>
+    <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"Оставащи слотове:"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"Икона на приложението"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"Настройки за споделяне на съобщения през Bluetooth"</string>
+    <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"Не може да се избере профил. Остават 0 слота"</string>
 </resources>

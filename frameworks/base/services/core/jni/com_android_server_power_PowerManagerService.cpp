@@ -112,17 +112,17 @@ static void nativeInit(JNIEnv* env, jobject obj) {
     }
 }
 
-static void nativeAcquireSuspendBlocker(JNIEnv *env, jclass clazz, jstring nameStr) {
+static void nativeAcquireSuspendBlocker(JNIEnv *env, jclass /* clazz */, jstring nameStr) {
     ScopedUtfChars name(env, nameStr);
     acquire_wake_lock(PARTIAL_WAKE_LOCK, name.c_str());
 }
 
-static void nativeReleaseSuspendBlocker(JNIEnv *env, jclass clazz, jstring nameStr) {
+static void nativeReleaseSuspendBlocker(JNIEnv *env, jclass /* clazz */, jstring nameStr) {
     ScopedUtfChars name(env, nameStr);
     release_wake_lock(name.c_str());
 }
 
-static void nativeSetInteractive(JNIEnv *env, jclass clazz, jboolean enable) {
+static void nativeSetInteractive(JNIEnv* /* env */, jclass /* clazz */, jboolean enable) {
     if (gPowerModule) {
         if (enable) {
             ALOGD_IF_SLOW(20, "Excessive delay in setInteractive(true) while turning screen on");
@@ -134,7 +134,7 @@ static void nativeSetInteractive(JNIEnv *env, jclass clazz, jboolean enable) {
     }
 }
 
-static void nativeSetAutoSuspend(JNIEnv *env, jclass clazz, jboolean enable) {
+static void nativeSetAutoSuspend(JNIEnv* /* env */, jclass /* clazz */, jboolean enable) {
     if (enable) {
         ALOGD_IF_SLOW(100, "Excessive delay in autosuspend_enable() while turning screen off");
         autosuspend_enable();
@@ -156,6 +156,14 @@ static void nativeSendPowerHint(JNIEnv *env, jclass clazz, jint hintId, jint dat
     }
 }
 
+static void nativeSetFeature(JNIEnv *env, jclass clazz, jint featureId, jint data) {
+    int data_param = data;
+
+    if (gPowerModule && gPowerModule->setFeature) {
+        gPowerModule->setFeature(gPowerModule, (feature_t)featureId, data_param);
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 static JNINativeMethod gPowerManagerServiceMethods[] = {
@@ -172,6 +180,8 @@ static JNINativeMethod gPowerManagerServiceMethods[] = {
             (void*) nativeSetAutoSuspend },
     { "nativeSendPowerHint", "(II)V",
             (void*) nativeSendPowerHint },
+    { "nativeSetFeature", "(II)V",
+            (void*) nativeSetFeature },
 };
 
 #define FIND_CLASS(var, className) \
@@ -189,6 +199,7 @@ static JNINativeMethod gPowerManagerServiceMethods[] = {
 int register_android_server_PowerManagerService(JNIEnv* env) {
     int res = jniRegisterNativeMethods(env, "com/android/server/power/PowerManagerService",
             gPowerManagerServiceMethods, NELEM(gPowerManagerServiceMethods));
+    (void) res;  // Faked use when LOG_NDEBUG.
     LOG_FATAL_IF(res < 0, "Unable to register native methods.");
 
     // Callbacks

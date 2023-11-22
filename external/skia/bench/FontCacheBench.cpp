@@ -7,7 +7,7 @@
 
 #include "Benchmark.h"
 #include "SkCanvas.h"
-#include "SkFontHost.h"
+#include "SkChecksum.h"
 #include "SkPaint.h"
 #include "SkString.h"
 #include "SkTemplates.h"
@@ -28,11 +28,11 @@ public:
     FontCacheBench()  {}
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return "fontcache";
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         SkPaint paint;
         this->setupPaint(&paint);
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
@@ -64,23 +64,12 @@ static uint32_t hasher0(uint32_t value) {
     return value ^ (value >> 8);
 }
 
-static uint32_t hasher2(uint32_t h) {
-    h ^= h >> 16;
-    h *= 0x85ebca6b;
-    h ^= h >> 13;
-    h *= 0xc2b2ae35;
-    h ^= h >> 16;
-
-    h ^= (h >> 8);
-    return h;
-}
-
 static const struct {
     const char* fName;
     HasherProc  fHasher;
 } gRec[] = {
     { "hasher0",  hasher0 },
-    { "hasher2",  hasher2 },
+    { "hasher2",  SkChecksum::Mix },
 };
 
 #define kMaxHashBits   12
@@ -115,11 +104,11 @@ public:
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return "fontefficiency";
     }
 
-    virtual void onDraw(const int loops, SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas* canvas) override {
         static bool gDone;
         if (gDone) {
             return;

@@ -23,6 +23,8 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.webkit.cts.CtsTestServer;
 
+import com.android.cts.util.TimeoutReq;
+
 import org.apache.http.HttpServerConnection;
 
 import org.apache.http.impl.DefaultHttpServerConnection;
@@ -67,30 +69,37 @@ public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
         super.tearDown();
     }
 
+    @TimeoutReq(minutes = 5)
     public void test_S0P0() throws Throwable {
         doPlayStreams(0, 0);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S1P000005() throws Throwable {
         doPlayStreams(1, 0.000005f);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S2P00001() throws Throwable {
         doPlayStreams(2, 0.00001f);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S3P00001() throws Throwable {
         doPlayStreams(3, 0.00001f);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S4P00001() throws Throwable {
         doPlayStreams(4, 0.00001f);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S5P00001() throws Throwable {
         doPlayStreams(5, 0.00001f);
     }
 
+    @TimeoutReq(minutes = 10)
     public void test_S6P00002() throws Throwable {
         doPlayStreams(6, 0.00002f);
     }

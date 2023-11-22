@@ -41,6 +41,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
+
 /**
  * Helpers to get common static info out of the camera.
  *
@@ -64,11 +66,52 @@ public class StaticMetadata {
     private static final int CONTROL_AE_COMPENSATION_RANGE_DEFAULT_MAX = 2;
     private static final Rational CONTROL_AE_COMPENSATION_STEP_DEFAULT = new Rational(1, 2);
     private static final byte REQUEST_PIPELINE_MAX_DEPTH_MAX = 8;
+    private static final int MAX_REPROCESS_MAX_CAPTURE_STALL = 4;
 
     // TODO: Consider making this work across any metadata object, not just camera characteristics
     private final CameraCharacteristics mCharacteristics;
     private final CheckLevel mLevel;
     private final CameraErrorCollector mCollector;
+
+    // Index with android.control.aeMode
+    public static final String[] AE_MODE_NAMES = new String[] {
+        "AE_MODE_OFF",
+        "AE_MODE_ON",
+        "AE_MODE_ON_AUTO_FLASH",
+        "AE_MODE_ON_ALWAYS_FLASH",
+        "AE_MODE_ON_AUTO_FLASH_REDEYE"
+    };
+
+    // Index with android.control.afMode
+    public static final String[] AF_MODE_NAMES = new String[] {
+        "AF_MODE_OFF",
+        "AF_MODE_AUTO",
+        "AF_MODE_MACRO",
+        "AF_MODE_CONTINUOUS_VIDEO",
+        "AF_MODE_CONTINUOUS_PICTURE",
+        "AF_MODE_EDOF"
+    };
+
+    // Index with android.control.aeState
+    public static final String[] AE_STATE_NAMES = new String[] {
+        "AE_STATE_INACTIVE",
+        "AE_STATE_SEARCHING",
+        "AE_STATE_CONVERGED",
+        "AE_STATE_LOCKED",
+        "AE_STATE_FLASH_REQUIRED",
+        "AE_STATE_PRECAPTURE"
+    };
+
+    // Index with android.control.afState
+    public static final String[] AF_STATE_NAMES = new String[] {
+        "AF_STATE_INACTIVE",
+        "AF_STATE_PASSIVE_SCAN",
+        "AF_STATE_PASSIVE_FOCUSED",
+        "AF_STATE_ACTIVE_SCAN",
+        "AF_STATE_FOCUSED_LOCKED",
+        "AF_STATE_NOT_FOCUSED_LOCKED",
+        "AF_STATE_PASSIVE_UNFOCUSED"
+    };
 
     public enum CheckLevel {
         /** Only log warnings for metadata check failures. Execution continues. */
@@ -394,7 +437,7 @@ public class StaticMetadata {
      * @return AE max regions supported by the camera device
      */
     public int getAeMaxRegionsChecked() {
-        Integer regionCount = getValueFromKeyNonNull(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
+        Integer regionCount = mCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
         if (regionCount == null) {
             return 0;
         }
@@ -407,7 +450,7 @@ public class StaticMetadata {
      * @return AWB max regions supported by the camera device
      */
     public int getAwbMaxRegionsChecked() {
-        Integer regionCount = getValueFromKeyNonNull(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB);
+        Integer regionCount = mCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB);
         if (regionCount == null) {
             return 0;
         }
@@ -420,7 +463,7 @@ public class StaticMetadata {
      * @return AF max regions supported by the camera device
      */
     public int getAfMaxRegionsChecked() {
-        Integer regionCount = getValueFromKeyNonNull(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
+        Integer regionCount = mCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
         if (regionCount == null) {
             return 0;
         }
@@ -586,6 +629,17 @@ public class StaticMetadata {
             checkTrueForKey(key, "Full-capability camera devices must support FAST mode",
                     modeList.contains(CameraMetadata.HOT_PIXEL_MODE_FAST));
         }
+
+        if (isHardwareLevelLimitedOrBetter()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.HOT_PIXEL_MODE_FAST,
+                    CameraMetadata.HOT_PIXEL_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
+        }
         checkElementDistinct(key, modeList);
         checkArrayValuesInRange(key, modes, CameraMetadata.HOT_PIXEL_MODE_OFF,
                 CameraMetadata.HOT_PIXEL_MODE_HIGH_QUALITY);
@@ -666,16 +720,22 @@ public class StaticMetadata {
         List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
         checkTrueForKey(key, " Camera devices must always support FAST mode",
                 modeList.contains(CameraMetadata.TONEMAP_MODE_FAST));
-        if (isCapabilitySupported(
-                CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING)) {
-            checkTrueForKey(key, "MANUAL_POST_PROCESSING supported camera devices must support"
-                    + "CONTRAST_CURVE mode",
-                    modeList.contains(CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE) &&
-                    modeList.contains(CameraMetadata.TONEMAP_MODE_FAST));
+        // Qualification check for MANUAL_POSTPROCESSING capability is in
+        // StaticMetadataTest#testCapabilities
+
+        if (isHardwareLevelLimitedOrBetter()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.TONEMAP_MODE_FAST,
+                    CameraMetadata.TONEMAP_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
         }
         checkElementDistinct(key, modeList);
         checkArrayValuesInRange(key, modes, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE,
-                CameraMetadata.TONEMAP_MODE_HIGH_QUALITY);
+                CameraMetadata.TONEMAP_MODE_PRESET_CURVE);
 
         return modes;
     }
@@ -688,16 +748,23 @@ public class StaticMetadata {
     public int getMaxTonemapCurvePointChecked() {
         Key<Integer> key = CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS;
         Integer count = getValueFromKeyNonNull(key);
+        List<Integer> modeList =
+                Arrays.asList(CameraTestUtils.toObject(getAvailableToneMapModesChecked()));
+        boolean tonemapCurveOutputSupported =
+                modeList.contains(CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE) ||
+                modeList.contains(CameraMetadata.TONEMAP_MODE_GAMMA_VALUE) ||
+                modeList.contains(CameraMetadata.TONEMAP_MODE_PRESET_CURVE);
 
         if (count == null) {
+            if (tonemapCurveOutputSupported) {
+                Assert.fail("Tonemap curve output is supported but MAX_CURVE_POINTS is null");
+            }
             return 0;
         }
 
-        List<Integer> modeList =
-                Arrays.asList(CameraTestUtils.toObject(getAvailableToneMapModesChecked()));
-        if (modeList.contains(CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE)) {
-            checkTrueForKey(key, "Full-capability camera device must support maxCurvePoints "
-                    + ">= " + TONEMAP_MAX_CURVE_POINTS_AT_LEAST,
+        if (tonemapCurveOutputSupported) {
+            checkTrueForKey(key, "Tonemap curve output supported camera device must support "
+                    + "maxCurvePoints >= " + TONEMAP_MAX_CURVE_POINTS_AT_LEAST,
                     count >= TONEMAP_MAX_CURVE_POINTS_AT_LEAST);
         }
 
@@ -718,6 +785,26 @@ public class StaticMetadata {
     }
 
     /**
+     * Get and check pre-correction active array size.
+     */
+    public Rect getPreCorrectedActiveArraySizeChecked() {
+        Key<Rect> key = CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE;
+        Rect activeArray = getValueFromKeyNonNull(key);
+
+        if (activeArray == null) {
+            return new Rect(0, 0, 0, 0);
+        }
+
+        Size pixelArraySize = getPixelArraySizeChecked();
+        checkTrueForKey(key, "values left/top are invalid", activeArray.left >= 0 && activeArray.top >= 0);
+        checkTrueForKey(key, "values width/height are invalid",
+                activeArray.width() <= pixelArraySize.getWidth() &&
+                activeArray.height() <= pixelArraySize.getHeight());
+
+        return activeArray;
+    }
+
+    /**
      * Get and check active array size.
      */
     public Rect getActiveArraySizeChecked() {
@@ -735,6 +822,29 @@ public class StaticMetadata {
                 activeArray.height() <= pixelArraySize.getHeight());
 
         return activeArray;
+    }
+
+    /**
+     * Get the dimensions to use for RAW16 buffers.
+     */
+    public Size getRawDimensChecked() throws Exception {
+        Size[] targetCaptureSizes = getAvailableSizesForFormatChecked(ImageFormat.RAW_SENSOR,
+                        StaticMetadata.StreamDirection.Output);
+        Assert.assertTrue("No capture sizes available for RAW format!",
+                targetCaptureSizes.length != 0);
+        Rect activeArray = getPreCorrectedActiveArraySizeChecked();
+        Size preCorrectionActiveArraySize =
+                new Size(activeArray.width(), activeArray.height());
+        Size pixelArraySize = getPixelArraySizeChecked();
+        Assert.assertTrue("Missing pre-correction active array size", activeArray.width() > 0 &&
+                activeArray.height() > 0);
+        Assert.assertTrue("Missing pixel array size", pixelArraySize.getWidth() > 0 &&
+                pixelArraySize.getHeight() > 0);
+        Size[] allowedArraySizes = new Size[] { preCorrectionActiveArraySize,
+                pixelArraySize };
+        return assertArrayContainsAnyOf("Available sizes for RAW format" +
+                " must include either the pre-corrected active array size, or the full " +
+                "pixel array size", targetCaptureSizes, allowedArraySizes);
     }
 
     /**
@@ -955,6 +1065,62 @@ public class StaticMetadata {
     }
 
     /**
+     * get android.control.availableModes and do the sanity check.
+     *
+     * @return available control modes.
+     */
+    public int[] getAvailableControlModesChecked() {
+        Key<int[]> modesKey = CameraCharacteristics.CONTROL_AVAILABLE_MODES;
+        int[] modes = getValueFromKeyNonNull(modesKey);
+        if (modes == null) {
+            modes = new int[0];
+        }
+
+        List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
+        checkTrueForKey(modesKey, "value is empty", !modeList.isEmpty());
+
+        // All camera device must support AUTO
+        checkTrueForKey(modesKey, "values " + modeList.toString() + " must contain AUTO mode",
+                modeList.contains(CameraMetadata.CONTROL_MODE_AUTO));
+
+        boolean isAeOffSupported =  Arrays.asList(
+                CameraTestUtils.toObject(getAeAvailableModesChecked())).contains(
+                        CameraMetadata.CONTROL_AE_MODE_OFF);
+        boolean isAfOffSupported =  Arrays.asList(
+                CameraTestUtils.toObject(getAfAvailableModesChecked())).contains(
+                        CameraMetadata.CONTROL_AF_MODE_OFF);
+        boolean isAwbOffSupported =  Arrays.asList(
+                CameraTestUtils.toObject(getAwbAvailableModesChecked())).contains(
+                        CameraMetadata.CONTROL_AWB_MODE_OFF);
+        if (isAeOffSupported && isAfOffSupported && isAwbOffSupported) {
+            // 3A OFF controls are supported, OFF mode must be supported here.
+            checkTrueForKey(modesKey, "values " + modeList.toString() + " must contain OFF mode",
+                    modeList.contains(CameraMetadata.CONTROL_MODE_OFF));
+        }
+
+        if (isSceneModeSupported()) {
+            checkTrueForKey(modesKey, "values " + modeList.toString() + " must contain"
+                    + " USE_SCENE_MODE",
+                    modeList.contains(CameraMetadata.CONTROL_MODE_USE_SCENE_MODE));
+        }
+
+        return modes;
+    }
+
+    public boolean isSceneModeSupported() {
+        List<Integer> availableSceneModes = Arrays.asList(
+                CameraTestUtils.toObject(getAvailableSceneModesChecked()));
+
+        if (availableSceneModes.isEmpty()) {
+            return false;
+        }
+
+        // If sceneMode is not supported, camera device will contain single entry: DISABLED.
+        return availableSceneModes.size() > 1 ||
+                !availableSceneModes.contains(CameraMetadata.CONTROL_SCENE_MODE_DISABLED);
+    }
+
+    /**
      * Get aeAvailableModes and do the sanity check.
      *
      * <p>Depending on the check level this class has, for WAR or COLLECT levels,
@@ -1087,7 +1253,7 @@ public class StaticMetadata {
      *
      * @return Empty size array if jpeg output is not supported
      */
-    public Size[] getJpegOutputSizeChecked() {
+    public Size[] getJpegOutputSizesChecked() {
         return getAvailableSizesForFormatChecked(ImageFormat.JPEG,
                 StreamDirection.Output);
     }
@@ -1104,15 +1270,73 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available sizes for given user-defined format.
+     * Get available formats for a given direction.
      *
-     * <p><strong>Does not</strong> work with implementation-defined format.</p>
+     * @param direction The stream direction, input or output.
+     * @return The formats of the given direction, empty array if no available format is found.
+     */
+    public int[] getAvailableFormats(StreamDirection direction) {
+        Key<StreamConfigurationMap> key =
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+        StreamConfigurationMap config = getValueFromKeyNonNull(key);
+
+        if (config == null) {
+            return new int[0];
+        }
+
+        switch (direction) {
+            case Output:
+                return config.getOutputFormats();
+            case Input:
+                return config.getInputFormats();
+            default:
+                throw new IllegalArgumentException("direction must be output or input");
+        }
+    }
+
+    /**
+     * Get valid output formats for a given input format.
+     *
+     * @param inputFormat The input format used to produce the output images.
+     * @return The output formats for the given input format, empty array if
+     *         no available format is found.
+     */
+    public int[] getValidOutputFormatsForInput(int inputFormat) {
+        Key<StreamConfigurationMap> key =
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
+        StreamConfigurationMap config = getValueFromKeyNonNull(key);
+
+        if (config == null) {
+            return new int[0];
+        }
+
+        return config.getValidOutputFormatsForInput(inputFormat);
+    }
+
+    /**
+     * Get available sizes for given format and direction.
      *
      * @param format The format for the requested size array.
      * @param direction The stream direction, input or output.
      * @return The sizes of the given format, empty array if no available size is found.
      */
     public Size[] getAvailableSizesForFormatChecked(int format, StreamDirection direction) {
+        return getAvailableSizesForFormatChecked(format, direction,
+                /*fastSizes*/true, /*slowSizes*/true);
+    }
+
+    /**
+     * Get available sizes for given format and direction, and whether to limit to slow or fast
+     * resolutions.
+     *
+     * @param format The format for the requested size array.
+     * @param direction The stream direction, input or output.
+     * @param fastSizes whether to include getOutputSizes() sizes (generally faster)
+     * @param slowSizes whether to include getHighResolutionOutputSizes() sizes (generally slower)
+     * @return The sizes of the given format, empty array if no available size is found.
+     */
+    public Size[] getAvailableSizesForFormatChecked(int format, StreamDirection direction,
+            boolean fastSizes, boolean slowSizes) {
         Key<StreamConfigurationMap> key =
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
         StreamConfigurationMap config = getValueFromKeyNonNull(key);
@@ -1121,28 +1345,37 @@ public class StaticMetadata {
             return new Size[0];
         }
 
-        android.util.Size[] utilSizes;
+        Size[] sizes = null;
 
         switch (direction) {
             case Output:
-                utilSizes = config.getOutputSizes(format);
+                Size[] fastSizeList = null;
+                Size[] slowSizeList = null;
+                if (fastSizes) {
+                    fastSizeList = config.getOutputSizes(format);
+                }
+                if (slowSizes) {
+                    slowSizeList = config.getHighResolutionOutputSizes(format);
+                }
+                if (fastSizeList != null && slowSizeList != null) {
+                    sizes = new Size[slowSizeList.length + fastSizeList.length];
+                    System.arraycopy(fastSizeList, 0, sizes, 0, fastSizeList.length);
+                    System.arraycopy(slowSizeList, 0, sizes, fastSizeList.length, slowSizeList.length);
+                } else if (fastSizeList != null) {
+                    sizes = fastSizeList;
+                } else if (slowSizeList != null) {
+                    sizes = slowSizeList;
+                }
                 break;
             case Input:
-                utilSizes = null;
+                sizes = config.getInputSizes(format);
                 break;
             default:
                 throw new IllegalArgumentException("direction must be output or input");
         }
 
-        // TODO: Get rid of android.util.Size
-        if (utilSizes == null) {
-            Log.i(TAG, "This camera doesn't support format " + format + " for " + direction);
-            return new Size[0];
-        }
-
-        Size[] sizes = new Size[utilSizes.length];
-        for (int i = 0; i < utilSizes.length; ++i) {
-            sizes[i] = new Size(utilSizes[i].getWidth(), utilSizes[i].getHeight());
+        if (sizes == null) {
+            sizes = new Size[0];
         }
 
         return sizes;
@@ -1168,9 +1401,17 @@ public class StaticMetadata {
         int fpsRangeLength = fpsRanges.length;
         int minFps, maxFps;
         long maxFrameDuration = getMaxFrameDurationChecked();
+        boolean foundConstant30Range = false;
+        boolean foundPreviewStreamingRange = false;
         for (int i = 0; i < fpsRangeLength; i += 1) {
             minFps = fpsRanges[i].getLower();
             maxFps = fpsRanges[i].getUpper();
+            if (minFps == 30 && maxFps == 30) {
+                foundConstant30Range = true;
+            }
+            if (minFps <= 15 && maxFps >= 30) {
+                foundPreviewStreamingRange = true;
+            }
             checkTrueForKey(key, " min fps must be no larger than max fps!",
                     minFps > 0 && maxFps >= minFps);
             long maxDuration = (long) (1e9 / minFps);
@@ -1178,8 +1419,35 @@ public class StaticMetadata {
                     " the frame duration %d for min fps %d must smaller than maxFrameDuration %d",
                     maxDuration, minFps, maxFrameDuration), maxDuration <= maxFrameDuration);
         }
-
+        checkTrueForKey(key, String.format(" (30, 30) must be included"), foundConstant30Range);
+        checkTrueForKey(key, String.format(
+                " (min, max) where min <= 15 and max >= 30 must be included"),
+                foundPreviewStreamingRange);
         return fpsRanges;
+    }
+
+    /**
+     * Get the highest supported target FPS range.
+     * Prioritizes maximizing the min FPS, then the max FPS without lowering min FPS.
+     */
+    public Range<Integer> getAeMaxTargetFpsRange() {
+        Range<Integer>[] fpsRanges = getAeAvailableTargetFpsRangesChecked();
+
+        Range<Integer> targetRange = fpsRanges[0];
+        // Assume unsorted list of target FPS ranges, so use two passes, first maximize min FPS
+        for (Range<Integer> candidateRange : fpsRanges) {
+            if (candidateRange.getLower() > targetRange.getLower()) {
+                targetRange = candidateRange;
+            }
+        }
+        // Then maximize max FPS while not lowering min FPS
+        for (Range<Integer> candidateRange : fpsRanges) {
+            if (candidateRange.getLower() >= targetRange.getLower() &&
+                    candidateRange.getUpper() > targetRange.getUpper()) {
+                targetRange = candidateRange;
+            }
+        }
+        return targetRange;
     }
 
     /**
@@ -1200,9 +1468,7 @@ public class StaticMetadata {
     }
 
     /**
-     * Get available minimal frame durations for a given user-defined format.
-     *
-     * <p><strong>Does not</strong> work with implementation-defined format.</p>
+     * Get available minimal frame durations for a given format.
      *
      * @param format One of the format from {@link ImageFormat}.
      * @return HashMap of minimal frame durations for different sizes, empty HashMap
@@ -1220,7 +1486,8 @@ public class StaticMetadata {
             return minDurationMap;
         }
 
-        for (android.util.Size size : config.getOutputSizes(format)) {
+        for (android.util.Size size : getAvailableSizesForFormatChecked(format,
+                StreamDirection.Output)) {
             long minFrameDuration = config.getOutputMinFrameDuration(format, size);
 
             if (minFrameDuration != 0) {
@@ -1239,12 +1506,23 @@ public class StaticMetadata {
             return new int[0];
         }
 
+        List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(edgeModes));
         // Full device should always include OFF and FAST
         if (isHardwareLevelFull()) {
-            List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(edgeModes));
             checkTrueForKey(key, "Full device must contain OFF and FAST edge modes",
                     modeList.contains(CameraMetadata.EDGE_MODE_OFF) &&
                     modeList.contains(CameraMetadata.EDGE_MODE_FAST));
+        }
+
+        if (isHardwareLevelLimitedOrBetter()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.EDGE_MODE_FAST,
+                    CameraMetadata.EDGE_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
         }
 
         return edgeModes;
@@ -1259,14 +1537,25 @@ public class StaticMetadata {
             return new int[0];
         }
 
+        List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(noiseReductionModes));
         // Full device should always include OFF and FAST
         if (isHardwareLevelFull()) {
-            List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(noiseReductionModes));
+
             checkTrueForKey(key, "Full device must contain OFF and FAST noise reduction modes",
                     modeList.contains(CameraMetadata.NOISE_REDUCTION_MODE_OFF) &&
                     modeList.contains(CameraMetadata.NOISE_REDUCTION_MODE_FAST));
         }
 
+        if (isHardwareLevelLimitedOrBetter()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.NOISE_REDUCTION_MODE_FAST,
+                    CameraMetadata.NOISE_REDUCTION_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
+        }
         return noiseReductionModes;
     }
 
@@ -1444,6 +1733,17 @@ public class StaticMetadata {
         checkTrueForKey(key, " Camera devices must always support either OFF or FAST mode",
                 modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF) ||
                 modeList.contains(CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_FAST));
+
+        if (isHardwareLevelLimitedOrBetter()) {
+            // FAST and HIGH_QUALITY mode must be both present or both not present
+            List<Integer> coupledModes = Arrays.asList(new Integer[] {
+                    CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_FAST,
+                    CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_HIGH_QUALITY
+            });
+            checkTrueForKey(
+                    key, " FAST and HIGH_QUALITY mode must both present or both not present",
+                    containsAllOrNone(modeList, coupledModes));
+        }
         checkElementDistinct(key, modeList);
         checkArrayValuesInRange(key, modes,
                 CameraMetadata.COLOR_CORRECTION_ABERRATION_MODE_OFF,
@@ -1473,6 +1773,52 @@ public class StaticMetadata {
     }
 
     /**
+     * Get available lens shading modes.
+     */
+     public int[] getAvailableLensShadingModesChecked() {
+         Key<int[]> key =
+                 CameraCharacteristics.SHADING_AVAILABLE_MODES;
+         int[] modes = getValueFromKeyNonNull(key);
+         if (modes == null) {
+             return new int[0];
+         }
+
+         List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
+         // FAST must be included.
+         checkTrueForKey(key, " FAST must be included",
+                 modeList.contains(CameraMetadata.SHADING_MODE_FAST));
+
+         if (isCapabilitySupported(
+                 CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_POST_PROCESSING)) {
+             checkTrueForKey(key, " OFF must be included for MANUAL_POST_PROCESSING devices",
+                     modeList.contains(CameraMetadata.SHADING_MODE_OFF));
+         }
+         return modes;
+     }
+
+     /**
+      * Get available lens shading map modes.
+      */
+      public int[] getAvailableLensShadingMapModesChecked() {
+          Key<int[]> key =
+                  CameraCharacteristics.STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES;
+          int[] modes = getValueFromKeyNonNull(key);
+          if (modes == null) {
+              return new int[0];
+          }
+
+          List<Integer> modeList = Arrays.asList(CameraTestUtils.toObject(modes));
+
+          if (isCapabilitySupported(
+                  CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
+              checkTrueForKey(key, " ON must be included for RAW capability devices",
+                      modeList.contains(CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON));
+          }
+          return modes;
+      }
+
+
+    /**
      * Get available capabilities and do the sanity check.
      *
      * @return reported available capabilities list, empty list if the value is unavailable.
@@ -1489,7 +1835,7 @@ public class StaticMetadata {
 
         checkArrayValuesInRange(key, availableCaps,
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO);
         capList = Arrays.asList(CameraTestUtils.toObject(availableCaps));
         return capList;
     }
@@ -1618,6 +1964,25 @@ public class StaticMetadata {
     }
 
     /*
+     * Determine if camera device support AE lock control
+     *
+     * @return {@code true} if AE lock control is supported
+     */
+    public boolean isAeLockSupported() {
+        return getValueFromKeyNonNull(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE);
+    }
+
+    /*
+     * Determine if camera device support AWB lock control
+     *
+     * @return {@code true} if AWB lock control is supported
+     */
+    public boolean isAwbLockSupported() {
+        return getValueFromKeyNonNull(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE);
+    }
+
+
+    /*
      * Determine if camera device support manual lens shading map control
      *
      * @return {@code true} if manual lens shading map control is supported
@@ -1631,7 +1996,7 @@ public class StaticMetadata {
      *
      * @return {@code true} if manual color correction control is supported
      */
-    public boolean isManualColorCorrectionSupported() {
+    public boolean isColorCorrectionSupported() {
         return areKeysAvailable(CaptureRequest.COLOR_CORRECTION_MODE);
     }
 
@@ -1739,6 +2104,26 @@ public class StaticMetadata {
     }
 
     /**
+     * Get maxCaptureStall frames or default value (if value doesn't exist)
+     * @return maxCaptureStall frames or default value.
+     */
+    public int getMaxCaptureStallOrDefault() {
+        Key<Integer> key =
+                CameraCharacteristics.REPROCESS_MAX_CAPTURE_STALL;
+        Integer value = getValueFromKeyNonNull(key);
+
+        if (value == null) {
+            return MAX_REPROCESS_MAX_CAPTURE_STALL;
+        }
+
+        checkTrueForKey(key, " value is out of range ",
+                value >= 0 &&
+                value <= MAX_REPROCESS_MAX_CAPTURE_STALL);
+
+        return value;
+    }
+
+    /**
      * Get the scaler's cropping type (center only or freeform)
      * @return cropping type, return default value (CENTER_ONLY) if value is unavailable
      */
@@ -1756,6 +2141,19 @@ public class StaticMetadata {
                 value <= CameraCharacteristics.SCALER_CROPPING_TYPE_FREEFORM);
 
         return value;
+    }
+
+    /**
+     * Check if the constrained high speed video is supported by the camera device.
+     * The high speed FPS ranges and sizes are sanitized in
+     * ExtendedCameraCharacteristicsTest#testConstrainedHighSpeedCapability.
+     *
+     * @return true if the constrained high speed video is supported, false otherwise.
+     */
+    public boolean isConstrainedHighSpeedVideoSupported() {
+        List<Integer> availableCapabilities = getAvailableCapabilitiesChecked();
+        return (availableCapabilities.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO));
     }
 
     /**
@@ -1789,6 +2187,23 @@ public class StaticMetadata {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Check if depth output is supported, based on the depth capability
+     */
+    public boolean isDepthOutputSupported() {
+        return isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT);
+    }
+
+    /**
+     * Check if standard outputs (PRIVATE, YUV, JPEG) outputs are supported, based on the
+     * backwards-compatible capability
+     */
+    public boolean isColorOutputSupported() {
+        return isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE);
     }
 
     /**
@@ -1926,6 +2341,19 @@ public class StaticMetadata {
         if (!condition) {
             failKeyCheck(key, message);
         }
+    }
+
+    /* Helper function to check if the coupled modes are either all present or all non-present */
+    private <T> boolean containsAllOrNone(Collection<T> observedModes, Collection<T> coupledModes) {
+        if (observedModes.containsAll(coupledModes)) {
+            return true;
+        }
+        for (T mode : coupledModes) {
+            if (observedModes.contains(mode)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private <T> void failKeyCheck(Key<T> key, String message) {

@@ -46,8 +46,7 @@ class ImportInsteadPage extends WizardPage {
                 "  to the new Gradle directory layout which better supports multiple resource directories.\n" +
                 "- It can merge instrumentation test projects into the same project\n" +
                 "- Android Studio is released more frequently than the ADT plugin, so the import\n" +
-                "  mechanism more closely tracks the rapidly evolving requirements of Studio Gradle\n" +
-                "  projects.\n" +
+                "  mechanism more closely tracks the requirements of Studio Gradle projects.\n" +
                 "\n" +
                 "If you want to preserve your Eclipse directory structure, or if for some reason import\n" +
                 "in Studio doesn't work (please let us know by filing a bug), continue to export from\n" +

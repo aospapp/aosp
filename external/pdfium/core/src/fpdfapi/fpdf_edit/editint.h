@@ -4,9 +4,10 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_EDITINT_
-#define _FPDF_EDITINT_
-class CPDF_ObjectStream : public CFX_Object
+#ifndef CORE_SRC_FPDFAPI_FPDF_EDIT_EDITINT_H_
+#define CORE_SRC_FPDFAPI_FPDF_EDIT_EDITINT_H_
+
+class CPDF_ObjectStream 
 {
 public:
     CPDF_ObjectStream();
@@ -27,7 +28,7 @@ protected:
 
     CFX_DWordArray		m_OffsetArray;
 };
-class CPDF_XRefStream : public CFX_Object
+class CPDF_XRefStream 
 {
 public:
 
@@ -56,4 +57,5 @@ protected:
     CPDF_ObjectStream	m_ObjStream;
     CFX_ByteTextBuf		m_Buffer;
 };
-#endif
+
+#endif  // CORE_SRC_FPDFAPI_FPDF_EDIT_EDITINT_H_

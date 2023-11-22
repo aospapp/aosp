@@ -60,12 +60,7 @@ enum
     FORMAT_VERSION,
     WRITE_POOL_BUNDLE,
     USE_POOL_BUNDLE,
-    INCLUDE_UNIHAN_COLL,
-    // BEGIN ANDROID-addition
-    INCLUDE_BIG5HAN_COLL,
-    INCLUDE_GB2312HAN_COLL,
-    INCLUDE_ZHUYINHAN_COLL
-    // END ANDROID-addition
+    INCLUDE_UNIHAN_COLL
 };
 
 UOption options[]={
@@ -91,23 +86,12 @@ UOption options[]={
                       UOPTION_DEF("writePoolBundle", '\x01', UOPT_NO_ARG),/* 19 */
                       UOPTION_DEF("usePoolBundle", '\x01', UOPT_OPTIONAL_ARG),/* 20 */
                       UOPTION_DEF("includeUnihanColl", '\x01', UOPT_NO_ARG),/* 21 */ /* temporary, don't display in usage info */
-                      // BEGIN Android-added
-                      UOPTION_DEF("includeBig5HanColl", '\x01', UOPT_NO_ARG),/* 22 */ /* temporary, don't display in usage info */
-                      UOPTION_DEF("includeGb2312HanColl", '\x01', UOPT_NO_ARG),/* 23 */ /* temporary, don't display in usage info */
-                      UOPTION_DEF("includeZhuyinHanColl", '\x01', UOPT_NO_ARG)/* 25 */ /* temporary, don't display in usage info */
-                      // END Android-added
                   };
 
 static     UBool       write_java = FALSE;
 static     UBool       write_xliff = FALSE;
 static     const char* outputEnc ="";
 static     struct SRBRoot *newPoolBundle = NULL;
-           UBool       gIncludeUnihanColl = FALSE;
-           // BEGIN Android-added
-           UBool       gIncludeBig5HanColl = FALSE;
-           UBool       gIncludeGb2312HanColl = FALSE;
-           UBool       gIncludeZhuyinHanColl = TRUE;
-           // END Android-added
 
 /* TODO: separate header file for ResFile? */
 typedef struct ResFile {
@@ -412,7 +396,10 @@ main(int argc,
     }
 
     if(options[INCLUDE_UNIHAN_COLL].doesOccur) {
-        gIncludeUnihanColl = TRUE;
+        puts("genrb option --includeUnihanColl ignored: \n"
+                "CLDR 26/ICU 54 unihan data is small, except\n"
+                "the ucadata-unihan.icu version of the collation root data\n"
+                "is about 300kB larger than the ucadata-implicithan.icu version.");
     }
 
     if((argc-1)!=1) {

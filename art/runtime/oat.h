@@ -19,32 +19,40 @@
 
 #include <vector>
 
+#include "arch/instruction_set.h"
 #include "base/macros.h"
 #include "dex_file.h"
-#include "instruction_set.h"
 #include "quick/quick_method_frame_info.h"
 #include "safe_map.h"
 
 namespace art {
 
+class InstructionSetFeatures;
+
 class PACKED(4) OatHeader {
  public:
-  static const uint8_t kOatMagic[4];
-  static const uint8_t kOatVersion[4];
+  static constexpr uint8_t kOatMagic[] = { 'o', 'a', 't', '\n' };
+  static constexpr uint8_t kOatVersion[] = { '0', '6', '4', '\0' };
 
   static constexpr const char* kImageLocationKey = "image-location";
   static constexpr const char* kDex2OatCmdLineKey = "dex2oat-cmdline";
   static constexpr const char* kDex2OatHostKey = "dex2oat-host";
   static constexpr const char* kPicKey = "pic";
+  static constexpr const char* kDebuggableKey = "debuggable";
+  static constexpr const char* kClassPathKey = "classpath";
+
+  static constexpr const char kTrueValue[] = "true";
+  static constexpr const char kFalseValue[] = "false";
 
   static OatHeader* Create(InstructionSet instruction_set,
-                           const InstructionSetFeatures& instruction_set_features,
+                           const InstructionSetFeatures* instruction_set_features,
                            const std::vector<const DexFile*>* dex_files,
                            uint32_t image_file_location_oat_checksum,
                            uint32_t image_file_location_oat_data_begin,
                            const SafeMap<std::string, std::string>* variable_data);
 
   bool IsValid() const;
+  std::string GetValidationErrorMessage() const;
   const char* GetMagic() const;
   uint32_t GetChecksum() const;
   void UpdateChecksum(const void* data, size_t length);
@@ -66,16 +74,6 @@ class PACKED(4) OatHeader {
   uint32_t GetJniDlsymLookupOffset() const;
   void SetJniDlsymLookupOffset(uint32_t offset);
 
-  const void* GetPortableResolutionTrampoline() const;
-  uint32_t GetPortableResolutionTrampolineOffset() const;
-  void SetPortableResolutionTrampolineOffset(uint32_t offset);
-  const void* GetPortableImtConflictTrampoline() const;
-  uint32_t GetPortableImtConflictTrampolineOffset() const;
-  void SetPortableImtConflictTrampolineOffset(uint32_t offset);
-  const void* GetPortableToInterpreterBridge() const;
-  uint32_t GetPortableToInterpreterBridgeOffset() const;
-  void SetPortableToInterpreterBridgeOffset(uint32_t offset);
-
   const void* GetQuickGenericJniTrampoline() const;
   uint32_t GetQuickGenericJniTrampolineOffset() const;
   void SetQuickGenericJniTrampolineOffset(uint32_t offset);
@@ -94,7 +92,7 @@ class PACKED(4) OatHeader {
   void SetImagePatchDelta(int32_t off);
 
   InstructionSet GetInstructionSet() const;
-  const InstructionSetFeatures& GetInstructionSetFeatures() const;
+  uint32_t GetInstructionSetFeaturesBitmap() const;
   uint32_t GetImageFileLocationOatChecksum() const;
   uint32_t GetImageFileLocationOatDataBegin() const;
 
@@ -105,14 +103,18 @@ class PACKED(4) OatHeader {
 
   size_t GetHeaderSize() const;
   bool IsPic() const;
+  bool IsDebuggable() const;
 
  private:
   OatHeader(InstructionSet instruction_set,
-            const InstructionSetFeatures& instruction_set_features,
+            const InstructionSetFeatures* instruction_set_features,
             const std::vector<const DexFile*>* dex_files,
             uint32_t image_file_location_oat_checksum,
             uint32_t image_file_location_oat_data_begin,
             const SafeMap<std::string, std::string>* variable_data);
+
+  // Returns true if the value of the given key is "true", false otherwise.
+  bool IsKeyEnabled(const char* key) const;
 
   void Flatten(const SafeMap<std::string, std::string>* variable_data);
 
@@ -121,15 +123,12 @@ class PACKED(4) OatHeader {
   uint32_t adler32_checksum_;
 
   InstructionSet instruction_set_;
-  InstructionSetFeatures instruction_set_features_;
+  uint32_t instruction_set_features_bitmap_;
   uint32_t dex_file_count_;
   uint32_t executable_offset_;
   uint32_t interpreter_to_interpreter_bridge_offset_;
   uint32_t interpreter_to_compiled_code_bridge_offset_;
   uint32_t jni_dlsym_lookup_offset_;
-  uint32_t portable_imt_conflict_trampoline_offset_;
-  uint32_t portable_resolution_trampoline_offset_;
-  uint32_t portable_to_interpreter_bridge_offset_;
   uint32_t quick_generic_jni_trampoline_offset_;
   uint32_t quick_imt_conflict_trampoline_offset_;
   uint32_t quick_resolution_trampoline_offset_;
@@ -154,7 +153,7 @@ class PACKED(4) OatHeader {
 enum OatClassType {
   kOatClassAllCompiled = 0,   // OatClass is followed by an OatMethodOffsets for each method.
   kOatClassSomeCompiled = 1,  // A bitmap of which OatMethodOffsets are present follows the OatClass.
-  kOatClassNoneCompiled = 2,  // All methods are interpretted so no OatMethodOffsets are necessary.
+  kOatClassNoneCompiled = 2,  // All methods are interpreted so no OatMethodOffsets are necessary.
   kOatClassMax = 3,
 };
 
@@ -165,6 +164,8 @@ class PACKED(4) OatMethodOffsets {
   OatMethodOffsets(uint32_t code_offset = 0);
 
   ~OatMethodOffsets();
+
+  OatMethodOffsets& operator=(const OatMethodOffsets&) = default;
 
   uint32_t code_offset_;
 };
@@ -178,6 +179,8 @@ class PACKED(4) OatQuickMethodHeader {
                        uint32_t code_size = 0U);
 
   ~OatQuickMethodHeader();
+
+  OatQuickMethodHeader& operator=(const OatQuickMethodHeader&) = default;
 
   // The offset in bytes from the start of the mapping table to the end of the header.
   uint32_t mapping_table_offset_;

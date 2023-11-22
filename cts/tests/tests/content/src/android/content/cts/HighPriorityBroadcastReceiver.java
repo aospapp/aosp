@@ -22,13 +22,11 @@ import android.content.Intent;
 public class HighPriorityBroadcastReceiver extends ResultReceiver {
 
     @Override
-    public void onReceive(Context context, Intent intent) {
+    public synchronized void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
 
         try {
-            synchronized (this) {
-                wait();
-            }
+            wait();
         } catch (InterruptedException e) {
             throw new RuntimeException("Got interrupted during wait()", e);
         }

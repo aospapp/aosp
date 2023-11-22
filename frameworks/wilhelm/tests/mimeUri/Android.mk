@@ -13,7 +13,6 @@ LOCAL_SRC_FILES:= \
 	slesTest_playStates.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -39,7 +38,6 @@ LOCAL_SRC_FILES:= \
 	slesTestPlayStreamType.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -65,7 +63,6 @@ LOCAL_SRC_FILES:= \
 	slesTestPlayUri.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -91,7 +88,6 @@ LOCAL_SRC_FILES:= \
 	slesTestLoopUri.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -117,7 +113,6 @@ LOCAL_SRC_FILES:= \
 	slesTestPlayUri2.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -143,7 +138,6 @@ LOCAL_SRC_FILES:= \
 	slesTestSlowDownUri.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -169,7 +163,6 @@ LOCAL_SRC_FILES:= \
 	slesTestManyPlayers.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG
@@ -195,7 +188,6 @@ LOCAL_SRC_FILES:= \
 	slesTestGetPositionUri.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 LOCAL_CFLAGS += -UNDEBUG

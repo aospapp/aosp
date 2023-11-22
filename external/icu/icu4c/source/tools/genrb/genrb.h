@@ -1,15 +1,12 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2011, International Business Machines
+*   Copyright (C) 2002-2014, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
 *
 * File genrb.h
-*
-* Modification History:
-*******************************************************************************
 */
 
 #ifndef GENRB_H
@@ -40,11 +37,6 @@
 #define GENRB_VERSION "3.3"
 
 U_CDECL_BEGIN
-
-extern UBool gIncludeUnihanColl;
-extern UBool gIncludeBig5HanColl;
-extern UBool gIncludeGb2312HanColl;
-extern UBool gIncludeZhuyinHanColl;
 
 U_CAPI void processFile(
     const char *filename,

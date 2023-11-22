@@ -130,3 +130,70 @@ API2 CTS failure) are bugs that were already present in the device’s existing
 Camera HAL and would also be a bug that could be easily hit by existing Camera
 API1 apps. The expectation is that there should be very few bugs of this
 nature. Nevertheless, any such bugs will need to be fixed.</p>
+
+<h2 id="version-history">Version history</h2>
+
+<h3 id="32">3.2</h3>
+
+<p>Second revision of expanded-capability HAL:</p>
+
+<ul>
+<li>Deprecates get_metadata_vendor_tag_ops.  Please use get_vendor_tag_ops in
+camera_common.h instead.</li>
+<li>register_stream_buffers deprecated. All gralloc buffers provided by
+framework to HAL in process_capture_request may be new at any time.</li>
+<li>Add partial result support. process_capture_result may be called multiple
+times with a subset of the available result before the full result is available.</li>
+<li>Add manual template to camera3_request_template. The applications may use
+this template to control the capture settings directly.</li>
+<li>Rework the bidirectional and input stream specifications.</li>
+<li>Change the input buffer return path. The buffer is returned in
+process_capture_result instead of process_capture_request.</li>
+</ul>
+
+<h3 id="31">3.1</h3>
+
+<p>Minor revision of expanded-capability HAL:</p>
+
+<ul>
+<li>configure_streams passes consumer usage flags to the HAL.</li>
+<li>flush call to drop all in-flight requests/buffers as fast as possible.</li>
+</ul>
+
+<h3 id="30">3.0</h3>
+
+<p>First revision of expanded-capability HAL:</p>
+
+<ul>
+<li>Major version change since the ABI is completely different. No change to the
+required hardware capabilities or operational model from 2.0.</li>
+<li>Reworked input request and stream queue interfaces: Framework calls into HAL
+with next request and stream buffers already dequeued. Sync framework support
+is included, necessary for efficient implementations.</li>
+<li>Moved triggers into requests, most notifications into results.</li>
+<li>Consolidated all callbacks into framework into one structure, and all setup
+methods into a single initialize() call.</li>
+<li>Made stream configuration into a single call to simplify stream management.
+Bidirectional streams replace STREAM_FROM_STREAM construct.</li>
+<li>Limited mode semantics for older/limited hardware devices.</li>
+</ul>
+
+<h3 id="20">2.0</h3>
+
+<p>Initial release of expanded-capability HAL (Android 4.2) [camera2.h]:</p>
+
+<ul>
+<li>Sufficient for implementing existing android.hardware.Camera API.</li>
+<li>Allows for ZSL queue in camera service layer</li>
+<li>Not tested for any new features such manual capture control, Bayer RAW
+capture, reprocessing of RAW data.</li>
+</ul>
+
+<h3 id="10">1.0</strong></h3>
+
+<p>Initial Android camera HAL (Android 4.0) [camera.h]:</p>
+
+<ul>
+<li>Converted from C++ CameraHardwareInterface abstraction layer.</li>
+<li>Supports android.hardware.Camera API.</li>
+</ul>

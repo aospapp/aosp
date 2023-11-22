@@ -53,6 +53,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
     private static final int MAX_SAMPLE_SIZE = 256 * 1024;
     private static final String TAG = "VideoEncoderTest";
     private static final long FRAME_TIMEOUT_MS = 1000;
+    // use larger delay before we get first frame, some encoders may need more time
+    private static final long INIT_TIMEOUT_MS = 2000;
 
     private static final String SOURCE_URL =
         "android.resource://com.android.cts.media/raw/video_480x360_mp4_h264_871kbps_30fps";
@@ -172,6 +174,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         private boolean mSignaledDecoderEOS;
 
         protected boolean mCompleted;
+        protected boolean mEncodeOutputFormatUpdated;
         protected final Object mCondition = new Object();
 
         protected MediaFormat mDecFormat;
@@ -382,7 +385,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                             // wait for an encoder input buffer and a decoder output buffer
                             // Use a timeout to avoid stalling the test if it doesn't arrive.
                             if (!haveBuffers() && !mCompleted) {
-                                mCondition.wait(FRAME_TIMEOUT_MS);
+                                mCondition.wait(mEncodeOutputFormatUpdated ?
+                                        FRAME_TIMEOUT_MS : INIT_TIMEOUT_MS);
                             }
                         } catch (InterruptedException ie) {
                             fail("wait interrupted");  // shouldn't happen
@@ -494,7 +498,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
             if (mEncInputBufferSize < 0) {
                 mEncInputBufferSize = mEncoder.getInputBuffer(encBuffer).capacity();
             }
-            Log.d(TAG, "queuing output #" + encBuffer + " for encoder (sz="
+            Log.d(TAG, "queuing input #" + encBuffer + " for encoder (sz="
                     + mEncInputBufferSize + ", f=" + decBuffer.second.flags
                     + ", ts=" + decBuffer.second.presentationTimeUs + ")");
             mEncoder.queueInputBuffer(
@@ -515,6 +519,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         public void onOutputFormatChanged(MediaCodec mediaCodec, MediaFormat mediaFormat) {
             Log.i(TAG, mediaCodec.getName() + " got new output format " + mediaFormat);
             if (mediaCodec == mEncoder) {
+                mEncodeOutputFormatUpdated = true;
                 saveEncoderFormat(mediaFormat);
             }
         }
@@ -596,7 +601,8 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
                             // wait for mFrameAvailable, which is set by onFrameAvailable().
                             // Use a timeout to avoid stalling the test if it doesn't arrive.
                             if (!mFrameAvailable && !mCompleted && !mEncoderIsActive) {
-                                mCondition.wait(FRAME_TIMEOUT_MS);
+                                mCondition.wait(mEncodeOutputFormatUpdated ?
+                                        FRAME_TIMEOUT_MS : INIT_TIMEOUT_MS);
                             }
                         } catch (InterruptedException ie) {
                             fail("wait interrupted");  // shouldn't happen
@@ -746,6 +752,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         public void onOutputFormatChanged(MediaCodec mediaCodec, MediaFormat mediaFormat) {
             Log.i(TAG, mediaCodec.getName() + " got new output format " + mediaFormat);
             if (mediaCodec == mEncoder) {
+                mEncodeOutputFormatUpdated = true;
                 saveEncoderFormat(mediaFormat);
             }
         }

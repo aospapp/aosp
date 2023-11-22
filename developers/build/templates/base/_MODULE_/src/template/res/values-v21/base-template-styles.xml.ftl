@@ -17,7 +17,7 @@
 <resources>
 
     <!-- Activity themes -->
-    <style name="Theme.Base" parent="android:Theme.Material.Light">
+    <style name="Theme.Base" parent="@style/Theme.AppCompat.Light">
         <#list sample.colors.color as col>
             <item name="android:${col.name}">@color/${col.name}</item>
         </#list>

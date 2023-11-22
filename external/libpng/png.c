@@ -1235,16 +1235,17 @@ png_XYZ_from_xy(png_XYZ *XYZ, const png_xy *xy)
 
    /* Check xy and, implicitly, z.  Note that wide gamut color spaces typically
     * have end points with 0 tristimulus values (these are impossible end
-    * points, but they are used to cover the possible colors.)
+    * points, but they are used to cover the possible colors).  We check
+    * xy->whitey against 5, not 0, to avoid a possible integer overflow.
     */
-   if (xy->redx < 0 || xy->redx > PNG_FP_1) return 1;
-   if (xy->redy < 0 || xy->redy > PNG_FP_1-xy->redx) return 1;
+   if (xy->redx   < 0 || xy->redx > PNG_FP_1) return 1;
+   if (xy->redy   < 0 || xy->redy > PNG_FP_1-xy->redx) return 1;
    if (xy->greenx < 0 || xy->greenx > PNG_FP_1) return 1;
    if (xy->greeny < 0 || xy->greeny > PNG_FP_1-xy->greenx) return 1;
-   if (xy->bluex < 0 || xy->bluex > PNG_FP_1) return 1;
-   if (xy->bluey < 0 || xy->bluey > PNG_FP_1-xy->bluex) return 1;
+   if (xy->bluex  < 0 || xy->bluex > PNG_FP_1) return 1;
+   if (xy->bluey  < 0 || xy->bluey > PNG_FP_1-xy->bluex) return 1;
    if (xy->whitex < 0 || xy->whitex > PNG_FP_1) return 1;
-   if (xy->whitey < 0 || xy->whitey > PNG_FP_1-xy->whitex) return 1;
+   if (xy->whitey < 5 || xy->whitey > PNG_FP_1-xy->whitex) return 1;
 
    /* The reverse calculation is more difficult because the original tristimulus
     * value had 9 independent values (red,green,blue)x(X,Y,Z) however only 8
@@ -2421,6 +2422,17 @@ png_colorspace_set_rgb_coefficients(png_structrp png_ptr)
 
 #endif /* COLORSPACE */
 
+#ifdef __GNUC__
+/* This exists solely to work round a warning from GNU C. */
+static int /* PRIVATE */
+png_gt(size_t a, size_t b)
+{
+    return a > b;
+}
+#else
+#   define png_gt(a,b) ((a) > (b))
+#endif
+
 void /* PRIVATE */
 png_check_IHDR(png_const_structrp png_ptr,
    png_uint_32 width, png_uint_32 height, int bit_depth,
@@ -2435,6 +2447,43 @@ png_check_IHDR(png_const_structrp png_ptr,
       png_warning(png_ptr, "Image width is zero in IHDR");
       error = 1;
    }
+   else if (width > PNG_UINT_31_MAX)
+   {
+      png_warning(png_ptr, "Invalid image width in IHDR");
+      error = 1;
+   }
+
+   else if (png_gt(width,
+                   (PNG_SIZE_MAX >> 3) /* 8-byte RGBA pixels */
+                   - 48                /* big_row_buf hack */
+                   - 1                 /* filter byte */
+                   - 7*8               /* rounding width to multiple of 8 pix */
+                   - 8))               /* extra max_pixel_depth pad */
+   {
+      /* The size of the row must be within the limits of this architecture.
+       * Because the read code can perform arbitrary transformations the
+       * maximum size is checked here.  Because the code in png_read_start_row
+       * adds extra space "for safety's sake" in several places a conservative
+       * limit is used here.
+       *
+       * NOTE: it would be far better to check the size that is actually used,
+       * but the effect in the real world is minor and the changes are more
+       * extensive, therefore much more dangerous and much more difficult to
+       * write in a way that avoids compiler warnings.
+       */
+       png_warning(png_ptr, "Image width is too large for this architecture");
+       error = 1;
+   }
+
+#  ifdef PNG_SET_USER_LIMITS_SUPPORTED
+   else if (width > png_ptr->user_width_max)
+#  else
+   else if (width > PNG_USER_WIDTH_MAX)
+#  endif
+   {
+      png_warning(png_ptr, "Image width exceeds user limit in IHDR");
+      error = 1;
+   }
 
    if (height == 0)
    {
@@ -2442,16 +2491,6 @@ png_check_IHDR(png_const_structrp png_ptr,
       error = 1;
    }
 
-#  ifdef PNG_SET_USER_LIMITS_SUPPORTED
-   if (width > png_ptr->user_width_max)
-
-#  else
-   if (width > PNG_USER_WIDTH_MAX)
-#  endif
-   {
-      png_warning(png_ptr, "Image width exceeds user limit in IHDR");
-      error = 1;
-   }
 
 #  ifdef PNG_SET_USER_LIMITS_SUPPORTED
    if (height > png_ptr->user_height_max)
@@ -2463,11 +2502,6 @@ png_check_IHDR(png_const_structrp png_ptr,
       error = 1;
    }
 
-   if (width > PNG_UINT_31_MAX)
-   {
-      png_warning(png_ptr, "Invalid image width in IHDR");
-      error = 1;
-   }
 
    if (height > PNG_UINT_31_MAX)
    {

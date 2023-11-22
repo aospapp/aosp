@@ -291,16 +291,21 @@ status_t EmulatedCameraDevice::WorkerThread::readyToRun()
             "%s: Thread control FDs are opened", __FUNCTION__);
     /* Create a pair of FDs that would be used to control the thread. */
     int thread_fds[2];
+    status_t ret;
+    Mutex::Autolock lock(mCameraDevice->mObjectLock);
     if (pipe(thread_fds) == 0) {
         mThreadControl = thread_fds[1];
         mControlFD = thread_fds[0];
         ALOGV("Emulated device's worker thread has been started.");
-        return NO_ERROR;
+        ret = NO_ERROR;
     } else {
         ALOGE("%s: Unable to create thread control FDs: %d -> %s",
              __FUNCTION__, errno, strerror(errno));
-        return errno;
+        ret = errno;
     }
+
+    mSetup.signal();
+    return ret;
 }
 
 status_t EmulatedCameraDevice::WorkerThread::stopThread()
@@ -308,6 +313,17 @@ status_t EmulatedCameraDevice::WorkerThread::stopThread()
     ALOGV("Stopping emulated camera device's worker thread...");
 
     status_t res = EINVAL;
+
+    // Limit the scope of the Autolock
+    {
+      // If thread is running and readyToRun() has not finished running,
+      //    then wait until it is done.
+      Mutex::Autolock lock(mCameraDevice->mObjectLock);
+      if (isRunning() && (mThreadControl < 0 || mControlFD < 0)) {
+          mSetup.wait(mCameraDevice->mObjectLock);
+      }
+    }
+
     if (mThreadControl >= 0) {
         /* Send "stop" message to the thread loop. */
         const ControlMessage msg = THREAD_STOP;

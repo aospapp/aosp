@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/sendfile.h>
 #include <time.h>
 #include <zlib.h>
@@ -34,6 +35,7 @@
 #include <cutils/properties.h>
 
 #include <utils/String8.h>
+#include <utils/Timers.h>
 #include <utils/Trace.h>
 
 using namespace android;
@@ -135,6 +137,9 @@ static const TracingCategory k_categories[] = {
         { REQ,      "/sys/kernel/debug/tracing/events/vmscan/mm_vmscan_kswapd_wake/enable" },
         { REQ,      "/sys/kernel/debug/tracing/events/vmscan/mm_vmscan_kswapd_sleep/enable" },
     } },
+    { "regulators",  "Voltage and Current Regulators", 0, {
+        { REQ,      "/sys/kernel/debug/tracing/events/regulator/enable" },
+    } },
 };
 
 /* Command line options */
@@ -190,6 +195,9 @@ static const char* k_tracingOnPath =
 
 static const char* k_tracePath =
     "/sys/kernel/debug/tracing/trace";
+
+static const char* k_traceMarkerPath =
+    "/sys/kernel/debug/tracing/trace_marker";
 
 // Check whether a file exists.
 static bool fileExists(const char* filename) {
@@ -251,6 +259,14 @@ static bool writeStr(const char* filename, const char* str)
 static bool appendStr(const char* filename, const char* str)
 {
     return _writeStr(filename, str, O_APPEND|O_WRONLY);
+}
+
+static void writeClockSyncMarker()
+{
+  char buffer[128];
+  float now_in_seconds = systemTime(CLOCK_MONOTONIC) / 1000000000.0f;
+  snprintf(buffer, 128, "trace_event_clock_sync: parent_ts=%f\n", now_in_seconds);
+  writeStr(k_traceMarkerPath, buffer);
 }
 
 // Enable or disable a kernel option by writing a "1" or a "0" into a /sys
@@ -630,6 +646,7 @@ static bool startTrace()
 // Disable tracing in the kernel.
 static void stopTrace()
 {
+    writeClockSyncMarker();
     setTracingEnabled(false);
 }
 
@@ -648,7 +665,7 @@ static void dumpTrace()
         uint8_t *in, *out;
         int result, flush;
 
-        bzero(&zs, sizeof(zs));
+        memset(&zs, 0, sizeof(zs));
         result = deflateInit(&zs, Z_DEFAULT_COMPRESSION);
         if (result != Z_OK) {
             fprintf(stderr, "error initializing zlib: %d\n", result);
@@ -883,7 +900,7 @@ int main(int argc, char **argv)
                     g_traceOverwrite = true;
                 } else if (!strcmp(long_options[option_index].name, "async_stop")) {
                     async = true;
-                    traceStop = false;
+                    traceStart = false;
                 } else if (!strcmp(long_options[option_index].name, "async_dump")) {
                     async = true;
                     traceStart = false;

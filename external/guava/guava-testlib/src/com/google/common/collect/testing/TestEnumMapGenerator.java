@@ -16,6 +16,10 @@
 
 package com.google.common.collect.testing;
 
+import static com.google.common.collect.testing.Helpers.orderEntriesByKey;
+
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -23,10 +27,9 @@ import java.util.Map.Entry;
 /**
  * Implementation helper for {@link TestMapGenerator} for use with enum maps.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public abstract class TestEnumMapGenerator
     implements TestMapGenerator<AnEnum, String> {
 
@@ -73,10 +76,10 @@ public abstract class TestEnumMapGenerator
     return new String[length];
   }
 
-  /** Returns the original element list, unchanged. */
+  /** Returns the elements sorted in natural order. */
   @Override
   public Iterable<Entry<AnEnum, String>> order(
       List<Entry<AnEnum, String>> insertionOrder) {
-    return insertionOrder;
+    return orderEntriesByKey(insertionOrder);
   }
 }

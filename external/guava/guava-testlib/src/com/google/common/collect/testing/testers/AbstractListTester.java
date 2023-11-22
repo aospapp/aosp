@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing.testers;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.AbstractCollectionTester;
 import com.google.common.collect.testing.Helpers;
 
@@ -25,10 +26,9 @@ import java.util.List;
 /**
  * Base class for list testers.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public class AbstractListTester<E> extends AbstractCollectionTester<E> {
   /*
    * Previously we had a field named list that was initialized to the value of

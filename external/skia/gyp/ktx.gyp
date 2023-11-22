@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 {
   'variables': {
     'skia_warnings_as_errors': 0,
@@ -8,7 +12,10 @@
     'type': 'static_library',
     'include_dirs' : [
       '../third_party/ktx',
-      '../src/gpu'
+      '../include/gpu',
+      '../src/core',
+      '../src/gpu',
+      '../src/utils',
     ],
     'sources': [
       '../third_party/ktx/ktx.cpp',

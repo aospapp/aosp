@@ -4,26 +4,44 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_MODULE_
-#define _FPDF_MODULE_
-#ifndef _FXCRT_EXTENSION_
+#ifndef CORE_INCLUDE_FPDFAPI_FPDF_MODULE_H_
+#define CORE_INCLUDE_FPDFAPI_FPDF_MODULE_H_
+
 #include "../fxcrt/fx_ext.h"
-#endif
-class CPDF_ModuleMgr;
-class CPDF_PageModuleDef;
-class CPDF_RenderModuleDef;
-class CPDF_SecurityHandler;
+
 class CCodec_ModuleMgr;
+class CFX_AffineMatrix;
+class CFX_BitmapDevice;
+class CFX_DIBSource;
+class CPDF_ColorSpace;
 class CPDF_Dictionary;
+class CPDF_DocPageData;
+class CPDF_DocRenderData;
+class CPDF_Document;
+class CPDF_FontGlobals;
+class CPDF_Image;
+class CPDF_ModuleMgr;
+class CPDF_Page;
+class CPDF_PageModuleDef;
+class CPDF_PageObjects;
+class CPDF_PageRenderCache;
+class CPDF_RenderConfig;
+class CPDF_RenderModuleDef;
+class CPDF_RenderOptions;
+class CPDF_SecurityHandler;
+class CPDF_Stream;
+class ICodec_FaxModule;
+class ICodec_FlateModule;
+class ICodec_IccModule;
+class ICodec_Jbig2Module;
 class ICodec_JpegModule;
 class ICodec_JpxModule;
-class ICodec_FaxModule;
-class ICodec_Jbig2Module;
-class ICodec_IccModule;
-class ICodec_FlateModule;
+class IPDF_FontMapper;
+
 #define ADDIN_NAME_CJK			"Eastern Asian Language Support"
 #define ADDIN_NAME_DECODER		"JPEG2000 and JBIG2 Image Decoders"
-class CPDF_ModuleMgr : public CFX_Object
+
+class CPDF_ModuleMgr 
 {
 public:
 
@@ -47,11 +65,6 @@ public:
     void		InitPageModule();
 
     void		InitRenderModule();
-
-
-    void		SetModulePath(FX_LPCSTR module_name, FX_LPCSTR path);
-
-    CFX_ByteString GetModuleFilePath(FX_LPCSTR module_name, FX_LPCSTR name);
 
     void		SetDownloadCallback(FX_BOOL (*callback)(FX_LPCSTR module_name));
 
@@ -118,21 +131,11 @@ protected:
 
     FX_BOOL (*m_pDownloadCallback)(FX_LPCSTR module_name);
 
-    CFX_ByteString			m_DefaultModulePath;
-
-    CFX_CMapByteStringToPtr	m_ModulePathList;
-
     CFX_MapByteStringToPtr	m_SecurityHandlerMap;
 
     CFX_PrivateData			m_privateData;
 };
-class CPDF_Document;
-class CPDF_DocPageData;
-class CPDF_FontGlobals;
-class IPDF_FontMgr;
-class IPDF_FontMapper;
-class CPDF_ColorSpace;
-class CPDF_PageModuleDef : public CFX_Object
+class CPDF_PageModuleDef 
 {
 public:
     virtual ~CPDF_PageModuleDef() {}
@@ -159,18 +162,7 @@ public:
         return NULL;
     }
 };
-class CPDF_PageObjects;
-class CFX_AffineMatrix;
-class CPDF_RenderOptions;
-class CPDF_Page;
-class CPDF_DocRenderData;
-class CPDF_PageRenderCache;
-class CFX_BitmapDevice;
-class CPDF_Stream;
-class CFX_DIBSource;
-class CPDF_RenderConfig;
-class CPDF_Image;
-class CPDF_RenderModuleDef : public CFX_Object
+class CPDF_RenderModuleDef 
 {
 public:
     virtual ~CPDF_RenderModuleDef() {}
@@ -202,4 +194,5 @@ public:
         return NULL;
     }
 };
-#endif
+
+#endif  // CORE_INCLUDE_FPDFAPI_FPDF_MODULE_H_

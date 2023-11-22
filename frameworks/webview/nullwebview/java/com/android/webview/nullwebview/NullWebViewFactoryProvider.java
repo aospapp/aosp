@@ -23,12 +23,13 @@ import android.webkit.WebIconDatabase;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewDatabase;
+import android.webkit.WebViewDelegate;
 import android.webkit.WebViewFactoryProvider;
 import android.webkit.WebViewProvider;
 
 public class NullWebViewFactoryProvider implements WebViewFactoryProvider {
 
-    public NullWebViewFactoryProvider() {
+    public NullWebViewFactoryProvider(WebViewDelegate delegate) {
     }
 
     @Override

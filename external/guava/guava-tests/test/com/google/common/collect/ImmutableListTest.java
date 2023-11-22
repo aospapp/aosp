@@ -28,7 +28,6 @@ import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.ListTestSuiteBuilder;
 import com.google.common.collect.testing.MinimalCollection;
 import com.google.common.collect.testing.MinimalIterable;
-import com.google.common.collect.testing.TestStringListGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.google.ListGenerators.BuilderAddAllListGenerator;
@@ -49,6 +48,7 @@ import junit.framework.TestSuite;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -65,56 +65,53 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 @GwtCompatible(emulated = true)
 public class ImmutableListTest extends TestCase {
-  
+
   @GwtIncompatible("suite")
   public static Test suite() {
     TestSuite suite = new TestSuite();
     suite.addTest(ListTestSuiteBuilder.using(new ImmutableListOfGenerator())
         .named("ImmutableList")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(new BuilderAddAllListGenerator())
         .named("ImmutableList, built with Builder.add")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(new BuilderAddAllListGenerator())
         .named("ImmutableList, built with Builder.addAll")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(new BuilderReversedListGenerator())
         .named("ImmutableList, reversed")
         .withFeatures(CollectionSize.ANY,
-            CollectionFeature.ALLOWS_NULL_QUERIES)
-        .createTestSuite());
-    suite.addTest(ListTestSuiteBuilder.using(new TestStringListGenerator() {
-          @Override protected List<String> create(String[] elements) {
-            return SerializableTester.reserialize(
-                ImmutableList.copyOf(elements));
-          }
-        })
-        .named("ImmutableList, reserialized")
-        .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(
         new ImmutableListHeadSubListGenerator())
         .named("ImmutableList, head subList")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(
         new ImmutableListTailSubListGenerator())
         .named("ImmutableList, tail subList")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(
         new ImmutableListMiddleSubListGenerator())
         .named("ImmutableList, middle subList")
         .withFeatures(CollectionSize.ANY,
+            CollectionFeature.SERIALIZABLE,
             CollectionFeature.ALLOWS_NULL_QUERIES)
         .createTestSuite());
     suite.addTest(ListTestSuiteBuilder.using(
@@ -197,7 +194,7 @@ public class ImmutableListTest extends TestCase {
     }
 
     // Varargs versions
-    
+
     public void testCreation_twelveElements() {
       List<String> list = ImmutableList.of(
           "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l");
@@ -247,7 +244,7 @@ public class ImmutableListTest extends TestCase {
       String[] array = new String[] { "a" };
       List<String[]> list = ImmutableList.<String[]>of(array);
       assertEquals(Collections.singletonList(array), list);
-    }    
+    }
 
     public void testCopyOf_emptyArray() {
       String[] array = new String[0];
@@ -265,7 +262,7 @@ public class ImmutableListTest extends TestCase {
       try {
         ImmutableList.copyOf((String[]) null);
         fail();
-      } catch(NullPointerException expected) {        
+      } catch (NullPointerException expected) {
       }
     }
 
@@ -336,15 +333,15 @@ public class ImmutableListTest extends TestCase {
       } catch (NullPointerException expected) {
       }
     }
-    
+
     public void testCopyOf_iteratorNull() {
       try {
         ImmutableList.copyOf((Iterator<String>) null);
         fail();
-      } catch(NullPointerException expected) {
+      } catch (NullPointerException expected) {
       }
     }
-    
+
     public void testCopyOf_concurrentlyMutating() {
       List<String> sample = Lists.newArrayList("a", "b", "c");
       for (int delta : new int[] {-1, 0, 1}) {
@@ -395,10 +392,44 @@ public class ImmutableListTest extends TestCase {
       Collection<String> c = ImmutableList.of("a", "b", "c");
       assertSame(c, ImmutableList.copyOf(c));
     }
+
+    public void testBuilderAddArrayHandlesNulls() {
+      String[] elements = {"a", null, "b"};
+      ImmutableList.Builder<String> builder = ImmutableList.builder();
+      try {
+        builder.add(elements);
+        fail ("Expected NullPointerException");
+      } catch (NullPointerException expected) {
+      }
+      ImmutableList<String> result = builder.build();
+
+      /*
+       * Maybe it rejects all elements, or maybe it adds "a" before failing.
+       * Either way is fine with us.
+       */
+      if (result.isEmpty()) {
+        return;
+      }
+      assertTrue(ImmutableList.of("a").equals(result));
+      assertEquals(1, result.size());
+    }
+
+    public void testBuilderAddCollectionHandlesNulls() {
+      List<String> elements = Arrays.asList("a", null, "b");
+      ImmutableList.Builder<String> builder = ImmutableList.builder();
+      try {
+        builder.addAll(elements);
+        fail ("Expected NullPointerException");
+      } catch (NullPointerException expected) {
+      }
+      ImmutableList<String> result = builder.build();
+      assertEquals(ImmutableList.of("a"), result);
+      assertEquals(1, result.size());
+    }
   }
-  
+
   @GwtIncompatible("reflection")
-  public static class ConcurrentTests extends TestCase {  
+  public static class ConcurrentTests extends TestCase {
     enum WrapWithIterable { WRAP, NO_WRAP }
 
     private static void runConcurrentlyMutatedTest(
@@ -419,8 +450,9 @@ public class ImmutableListTest extends TestCase {
       assertTrue(concurrentlyMutatedList.getAllStates()
           .contains(copyOfIterable));
 
-      // Check that it's a RegularImmutableList iff it is nonempty:
-      assertEquals(copyOfIterable.size() == 0, copyOfIterable.isEmpty());
+      // Check that we didn't end up with a RegularImmutableList of size 1.
+      assertEquals(copyOfIterable.size() == 1,
+          copyOfIterable instanceof SingletonImmutableList);
     }
 
     private static void runConcurrentlyMutatedTest(WrapWithIterable wrap) {
@@ -505,7 +537,7 @@ public class ImmutableListTest extends TestCase {
       void perform(List<Integer> list);
     }
 
-    static final ListFrobber add(final int element) {
+    static ListFrobber add(final int element) {
       return new ListFrobber() {
         @Override
         public void perform(List<Integer> list) {
@@ -514,7 +546,7 @@ public class ImmutableListTest extends TestCase {
       };
     }
 
-    static final ListFrobber remove() {
+    static ListFrobber remove() {
       return new ListFrobber() {
         @Override
         public void perform(List<Integer> list) {
@@ -523,7 +555,7 @@ public class ImmutableListTest extends TestCase {
       };
     }
 
-    static final ListFrobber nop() {
+    static ListFrobber nop() {
       return new ListFrobber() {
         @Override
         public void perform(List<Integer> list) {
@@ -604,11 +636,11 @@ public class ImmutableListTest extends TestCase {
       return list;
     }
   }
-  
+
   public static class BasicTests extends TestCase {
 
     @GwtIncompatible("NullPointerTester")
-    public void testNullPointers() throws Exception {
+    public void testNullPointers() {
       NullPointerTester tester = new NullPointerTester();
       tester.testAllPublicStaticMethods(ImmutableList.class);
       tester.testAllPublicInstanceMethods(ImmutableList.of(1, 2, 3));
@@ -623,8 +655,7 @@ public class ImmutableListTest extends TestCase {
     @GwtIncompatible("SerializableTester")
     public void testSerialization_singleton() {
       Collection<String> c = ImmutableList.of("a");
-      ImmutableList<String> copy = (SingletonImmutableList<String>)
-          SerializableTester.reserializeAndAssert(c);
+      SerializableTester.reserializeAndAssert(c);
     }
 
     @GwtIncompatible("SerializableTester")

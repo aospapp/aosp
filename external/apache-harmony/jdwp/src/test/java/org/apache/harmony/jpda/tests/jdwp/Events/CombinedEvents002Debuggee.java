@@ -43,6 +43,9 @@ public class CombinedEvents002Debuggee extends SyncDebuggee {
     }
     
     public void run() {
+        // Force class loading so it is visible by the test.
+        new CombinedEvents002Debuggee_TestedClass();
+
         logWriter.println("--> CombinedEvents002Debuggee: Start...");
         
         logWriter.println("--> CombinedEvents002Debuggee: Send SGNL_READY signal to test...");

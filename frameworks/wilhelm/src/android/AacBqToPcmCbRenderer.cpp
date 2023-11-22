@@ -18,6 +18,7 @@
 
 #include "sles_allinclusive.h"
 #include "android/include/AacBqToPcmCbRenderer.h"
+#include "android/channels.h"
 #include <media/stagefright/foundation/ADebug.h>
 
 namespace android {
@@ -38,7 +39,7 @@ namespace android {
 static size_t getAdtsFrameSize(const uint8_t *data, off64_t offset, size_t size) {
     size_t frameSize = 0;
 
-    if (!(offset + ADTS_HEADER_SIZE_UP_TO_FRAMESIZE < size)) {
+    if (!(offset + ADTS_HEADER_SIZE_UP_TO_FRAMESIZE < (off64_t) size)) {
         SL_LOGE("AacBqToPcmCbRenderer::getAdtsFrameSize() returns 0 (can't read syncword or header)"
                 );
         return 0;
@@ -90,20 +91,22 @@ SLresult AacBqToPcmCbRenderer::validateBufferStartEndOnFrameBoundaries(void* dat
         return SL_RESULT_PARAMETER_INVALID;
     }
 
-    while (offset < size) {
+    while (offset < (off64_t) size) {
         if ((frameSize = getAdtsFrameSize((uint8_t *)data, offset, size)) == 0) {
-            SL_LOGE("found ADTS frame of size 0 at offset %llu", offset);
+            SL_LOGE("found ADTS frame of size 0 at offset %lld", (long long) offset);
             return SL_RESULT_CONTENT_CORRUPTED;
         }
         //SL_LOGV("last good offset %llu", offset);
         offset += frameSize;
-        if (offset > size) {
+        if (offset > (off64_t) size) {
             SL_LOGE("found incomplete ADTS frame at end of data");
             return SL_RESULT_CONTENT_CORRUPTED;
         }
     }
-    if (offset != size) { SL_LOGE("ADTS parsing error: reached end of incomplete frame"); }
-    assert(offset == size);
+    if (offset != (off64_t) size) {
+        SL_LOGE("ADTS parsing error: reached end of incomplete frame");
+    }
+    assert(offset == (off64_t) size);
     return SL_RESULT_SUCCESS;
 }
 

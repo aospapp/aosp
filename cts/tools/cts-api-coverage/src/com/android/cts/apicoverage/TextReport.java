@@ -27,7 +27,8 @@ import java.util.List;
  */
 class TextReport {
 
-    public static void printTextReport(ApiCoverage api, String packageFilter, OutputStream outputStream) {
+    public static void printTextReport(ApiCoverage api, PackageFilter packageFilter,
+            OutputStream outputStream) {
         PrintStream out = new PrintStream(outputStream);
 
         CoverageComparator comparator = new CoverageComparator();
@@ -35,8 +36,7 @@ class TextReport {
         Collections.sort(packages, comparator);
 
         for (ApiPackage apiPackage : packages) {
-            if (apiPackage.getName().startsWith(packageFilter)
-                    && apiPackage.getTotalMethods() > 0) {
+            if (packageFilter.accept(apiPackage.getName()) && apiPackage.getTotalMethods() > 0) {
                 printPackage(apiPackage, out);
             }
         }
@@ -45,7 +45,7 @@ class TextReport {
         out.println();
 
         for (ApiPackage apiPackage : packages) {
-            if (apiPackage.getName().startsWith(packageFilter)) {
+            if (packageFilter.accept(apiPackage.getName())) {
                 printPackage(apiPackage, out);
 
                 List<ApiClass> classes = new ArrayList<ApiClass>(apiPackage.getClasses());
@@ -103,7 +103,18 @@ class TextReport {
     private static void printMethod(ApiMethod method, PrintStream out) {
         StringBuilder builder = new StringBuilder("    [")
                 .append(method.isCovered() ? "X" : " ")
-                .append("] ").append(method.getReturnType()).append(" ")
+                .append("] ")
+                .append(method.getVisibility()).append(" ");
+        if (method.isAbstractMethod()) {
+            builder.append("abstract ");
+        }
+        if (method.isStaticMethod()) {
+            builder.append("static ");
+        }
+        if (method.isFinalMethod()) {
+            builder.append("final ");
+        }
+        builder.append(method.getReturnType()).append(" ")
                 .append(method.getName()).append("(");
         List<String> parameterTypes = method.getParameterTypes();
         int numParameterTypes = parameterTypes.size();

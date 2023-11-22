@@ -2,7 +2,7 @@ page.title=Submitting Patches
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -30,7 +30,10 @@ reviewing and tracking changes with <a href="https://android-review.googlesource
 <ul>
 <li>
 <p>Before you follow the instructions on this page, you need to <a href="{@docRoot}source/initializing.html">
-initialize your build environment</a> and <a href="{@docRoot}source/downloading.html">download the source</a>.</p>
+initialize your build environment</a>, <a
+href="{@docRoot}source/downloading.html">download the source</a>, <a
+href="https://android.googlesource.com/new-password">create a
+password</a>, and follow the instructions on the password generator page.</p>
 </li>
 <li>
 <p>For details about Repo and Git, see the <a href="{@docRoot}source/developing.html">Developing</a> section.</p>
@@ -50,20 +53,12 @@ made directly to that project, as described in <a href="#upstream-projects">Upst
 </ul>
 <h1 id="for-contributors">For contributors</h1>
 <h2 id="authenticate-with-the-server">Authenticate with the server</h2>
-<p>Before you can upload to Gerrit, you need to establish a password that
-will identify you with the server. You only need to do this once.</p>
-<ul>
-<li>
-<p>Sign in on the <a href="https://android-review.googlesource.com/">AOSP Gerrit Server</a>.</p>
-</li>
-<li>
-<p>Go to Settings -&gt; HTTP Password -&gt; Obtain Password</p>
-</li>
-<li>
-<p>Follow the instructions on the subsquent pages, and copy-paste your
-password in <code>~/.netrc</code>. If there are two password lines, copy both.</p>
-</li>
-</ul>
+<p>Before you can upload to Gerrit, you need to <a
+href="https://android.googlesource.com/new-password">establish a password</a>
+that will identify you with the server. Follow the instructions on the password
+generator page. You need to do this only once. See <a
+href="{@docRoot}source/downloading.html#using-authentication">Using
+Authentication</a> for additional details.</p>
 <h2 id="start-a-repo-branch">Start a repo branch</h2>
 <p>For each change you intend to make, start a new branch within the relevant git repository:</p>
 <pre><code>$ repo start NAME .
@@ -120,7 +115,7 @@ $ git commit --amend
 </code></pre>
 <p>This command first fetches the updates from the source server, then attempts to automatically rebase your HEAD onto the new remote HEAD.</p>
 <p>If the automatic rebase is unsuccessful, you will have to perform a manual rebase.</p>
-<pre><code>$ git rebase master
+<pre><code>$ repo rebase
 </code></pre>
 <p>Using <code>git mergetool</code> may help you deal with the rebase conflict. Once you have successfully merged the conflicting files,</p>
 <pre><code>$ git rebase --continue

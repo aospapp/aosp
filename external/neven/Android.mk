@@ -117,7 +117,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libnativehelper \
 	libutils \
 	liblog \
-	libskia \
+	libjnigraphics \
 	libcutils
 
 LOCAL_MODULE:= libFFTEm

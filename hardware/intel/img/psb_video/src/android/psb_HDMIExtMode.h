@@ -44,7 +44,6 @@
 #include "xf86drmMode.h"
 #include "psb_output_android.h"
 
-#define DRM_MODE_CONNECTOR_MIPI    15
 #define HDMI_MODE_OFF           0
 #define HDMI_MODE_CLONE         1
 #define HDMI_MODE_EXT_VIDEO         2

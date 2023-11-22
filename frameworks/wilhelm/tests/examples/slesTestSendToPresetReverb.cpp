@@ -51,10 +51,9 @@ void ExitOnErrorFunc( SLresult result , int line)
 
 SLboolean errorInPrefetchCallback = SL_BOOLEAN_FALSE;
 
-void prefetch_callback(SLPrefetchStatusItf caller, void *context, SLuint32 event)
+void prefetch_callback(SLPrefetchStatusItf caller, void *context __unused, SLuint32 event)
 {
     SLresult result;
-    assert(context == NULL);
     SLpermille level;
     result = (*caller)->GetFillLevel(caller, &level);
     ExitOnError(result);

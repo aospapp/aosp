@@ -14,7 +14,8 @@ llvm_objdump_SRC_FILES := \
   MachODump.cpp \
 
 llvm_objdump_STATIC_LIBRARIES := \
-  libLLVMDebugInfo \
+  libLLVMDebugInfoDWARF \
+  libLLVMDebugInfoPDB \
   libLLVMARMAsmParser \
   libLLVMARMInfo \
   libLLVMARMDesc \
@@ -34,14 +35,17 @@ llvm_objdump_STATIC_LIBRARIES := \
   libLLVMX86Info \
   libLLVMX86Desc \
   libLLVMX86AsmParser \
+  libLLVMX86CodeGen \
   libLLVMX86AsmPrinter \
   libLLVMX86Utils \
   libLLVMX86Disassembler \
   libLLVMAsmPrinter \
+  libLLVMCodeGen \
+  libLLVMTransformUtils \
   libLLVMTarget \
+  libLLVMAnalysis \
   libLLVMObject \
   libLLVMMCParser \
-  libLLVMMCAnalysis \
   libLLVMMC \
   libLLVMMCDisassembler \
   libLLVMBitReader \

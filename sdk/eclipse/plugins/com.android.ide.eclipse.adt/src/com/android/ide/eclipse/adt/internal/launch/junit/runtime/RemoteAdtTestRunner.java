@@ -448,17 +448,24 @@ public class RemoteAdtTestRunner extends RemoteTestRunner {
         }
 
         @Override
-        public void testFailed(TestFailure status, TestIdentifier test, String trace) {
-            String statusString;
-            if (status == TestFailure.ERROR) {
-                statusString = MessageIds.TEST_ERROR;
-            } else {
-                statusString = MessageIds.TEST_FAILED;
-            }
+        public void testFailed(TestIdentifier test, String trace) {
             TestReferenceFailure failure =
                 new TestReferenceFailure(new TestCaseReference(mDeviceName, test),
-                        statusString, trace, null);
+                        MessageIds.TEST_FAILED, trace, null);
             mNotifier.testFailed(failure);
+        }
+
+        @Override
+        public void testAssumptionFailure(TestIdentifier test, String trace) {
+            TestReferenceFailure failure =
+                new TestReferenceFailure(new TestCaseReference(mDeviceName, test),
+                        MessageIds.TEST_FAILED, trace, null);
+            mNotifier.testFailed(failure);
+        }
+
+        @Override
+        public void testIgnored(TestIdentifier test) {
+            // TODO: implement me?
         }
 
         @Override

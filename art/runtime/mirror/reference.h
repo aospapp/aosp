@@ -42,7 +42,7 @@ namespace mirror {
 class MANAGED Reference : public Object {
  public:
   // Size of java.lang.ref.Reference.class.
-  static uint32_t ClassSize();
+  static uint32_t ClassSize(size_t pointer_size);
 
   // Size of an instance of java.lang.ref.Reference.
   static constexpr uint32_t InstanceSize() {
@@ -99,8 +99,8 @@ class MANAGED Reference : public Object {
     return java_lang_ref_Reference_.Read<kReadBarrierOption>();
   }
   static void SetClass(Class* klass);
-  static void ResetClass(void);
-  static void VisitRoots(RootCallback* callback, void* arg);
+  static void ResetClass();
+  static void VisitRoots(RootVisitor* visitor) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  private:
   // Note: This avoids a read barrier, it should only be used by the GC.

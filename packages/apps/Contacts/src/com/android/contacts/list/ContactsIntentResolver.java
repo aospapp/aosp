@@ -16,13 +16,10 @@
 
 package com.android.contacts.list;
 
-import com.android.contacts.ContactsSearchManager;
-
 import android.app.Activity;
 import android.app.SearchManager;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Bundle;
 import android.provider.Contacts.ContactMethods;
 import android.provider.Contacts.People;
 import android.provider.Contacts.Phones;
@@ -33,7 +30,6 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredPostal;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.Intents.Insert;
-import android.provider.ContactsContract.Intents.UI;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -59,21 +55,21 @@ public class ContactsIntentResolver {
 
         Log.i(TAG, "Called with action: " + action);
 
-        if (UI.LIST_DEFAULT.equals(action) ) {
+        if (UiIntentActions.LIST_DEFAULT.equals(action) ) {
             request.setActionCode(ContactsRequest.ACTION_DEFAULT);
-        } else if (UI.LIST_ALL_CONTACTS_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_ALL_CONTACTS_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_ALL_CONTACTS);
-        } else if (UI.LIST_CONTACTS_WITH_PHONES_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_CONTACTS_WITH_PHONES_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_CONTACTS_WITH_PHONES);
-        } else if (UI.LIST_STARRED_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_STARRED_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_STARRED);
-        } else if (UI.LIST_FREQUENT_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_FREQUENT_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_FREQUENT);
-        } else if (UI.LIST_STREQUENT_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_STREQUENT_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_STREQUENT);
-        } else if (UI.LIST_GROUP_ACTION.equals(action)) {
+        } else if (UiIntentActions.LIST_GROUP_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_GROUP);
-            // We no longer support UI.GROUP_NAME_EXTRA_KEY
+            // We no longer support UiIntentActions.GROUP_NAME_EXTRA_KEY
         } else if (Intent.ACTION_PICK.equals(action)) {
             final String resolvedType = intent.resolveType(mContext);
             if (Contacts.CONTENT_TYPE.equals(resolvedType)) {
@@ -146,24 +142,6 @@ public class ContactsIntentResolver {
                 intent.setAction(Intent.ACTION_DEFAULT);
                 intent.setData(null);
             }
-        } else if (UI.FILTER_CONTACTS_ACTION.equals(action)) {
-            // When we get a FILTER_CONTACTS_ACTION, it represents search in the context
-            // of some other action. Let's retrieve the original action to provide proper
-            // context for the search queries.
-            request.setActionCode(ContactsRequest.ACTION_DEFAULT);
-            Bundle extras = intent.getExtras();
-            if (extras != null) {
-                request.setQueryString(extras.getString(UI.FILTER_TEXT_EXTRA_KEY));
-
-                ContactsRequest originalRequest =
-                        (ContactsRequest)extras.get(ContactsSearchManager.ORIGINAL_REQUEST_KEY);
-                if (originalRequest != null) {
-                    request.copyFrom(originalRequest);
-                }
-            }
-
-            request.setSearchMode(true);
-
         // Since this is the filter activity it receives all intents
         // dispatched from the SearchManager for security reasons
         // so we need to re-dispatch from here to the intended target.
@@ -173,11 +151,11 @@ public class ContactsIntentResolver {
             request.setContactUri(data);
             intent.setAction(Intent.ACTION_DEFAULT);
             intent.setData(null);
-        } else if (UI.PICK_JOIN_CONTACT_ACTION.equals(action)) {
+        } else if (UiIntentActions.PICK_JOIN_CONTACT_ACTION.equals(action)) {
             request.setActionCode(ContactsRequest.ACTION_PICK_JOIN);
         }
         // Allow the title to be set to a custom String using an extra on the intent
-        String title = intent.getStringExtra(UI.TITLE_EXTRA_KEY);
+        String title = intent.getStringExtra(UiIntentActions.TITLE_EXTRA_KEY);
         if (title != null) {
             request.setActivityTitle(title);
         }

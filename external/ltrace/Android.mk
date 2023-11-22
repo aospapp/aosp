@@ -63,9 +63,6 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/ \
     $(LOCAL_PATH)/sysdeps/ \
     $(LOCAL_PATH)/sysdeps/linux-gnu \
-    external/elfutils \
-    external/elfutils/0.153/libelf \
-    external/libunwind/include \
 
 arm_path := sysdeps/linux-gnu/arm
 LOCAL_C_INCLUDES_arm := $(LOCAL_PATH)/$(arm_path)
@@ -102,8 +99,6 @@ LOCAL_SRC_FILES_x86 := \
 # x86_64 uses the same source as x86.
 LOCAL_C_INCLUDES_x86_64 := $(LOCAL_C_INCLUDES_x86)
 LOCAL_SRC_FILES_x86_64 := $(LOCAL_SRC_FILES_x86)
-
-LOCAL_CFLAGS := -D_GNU_SOURCE=1 -D_POSIX_SOURCE=1
 
 LOCAL_CFLAGS += \
     -DELF_HASH_TAKES_CHARP=1 \
@@ -177,10 +172,8 @@ LOCAL_STATIC_LIBRARIES := libelf
 
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
-    libgccdemangle \
     libselinux \
     libunwind \
-    libunwind-ptrace \
 
 LOCAL_MODULE := ltrace
 

@@ -389,6 +389,7 @@ implements OnClickListener, SurfaceHolder.Callback {
         int targetWidth = w;
 
         boolean aspectRatio = true;
+        boolean maintainCeiling = true;
         while(true) {
             for (Camera.Size size : sizes) {
                 if(aspectRatio) {
@@ -399,20 +400,27 @@ implements OnClickListener, SurfaceHolder.Callback {
                 }
                 curDiff = Math.abs(size.height - targetHeight) +
                         Math.abs(size.width - targetWidth);
-                if (curDiff < minDiff
+                if (maintainCeiling && curDiff < minDiff
                         && size.height <= targetHeight
                         && size.width <= targetWidth) {
                     optimalSize = size;
                     minDiff = curDiff;
+                } else if (maintainCeiling == false
+                               && curDiff < minDiff) {
+                    //try to get as close as possible
+                    optimalSize = size;
+                    minDiff = curDiff;
                 }
             }
-            if (optimalSize == null) {
+            if (optimalSize == null && aspectRatio == true) {
                 // Cannot find a match, so repeat search and
                 // ignore aspect ratio requirement
                 aspectRatio = false;
-                continue;
-            }
-            else {
+            } else if (maintainCeiling == true) {
+                //Camera resolutions are greater than ceiling provided
+                //lets try to get as close as we can
+                maintainCeiling = false;
+            } else {
                 break;
             }
         }

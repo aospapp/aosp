@@ -130,8 +130,8 @@ void NfcAdaptation::Initialize ()
     {
         strlcpy (bcm_nfc_location, "/data/nfc", sizeof(bcm_nfc_location));
     }
-    if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
-        ScrProtocolTraceFlag = num;
+
+    initializeProtocolLogLevel ();
 
     if ( GetStrValue ( NAME_NFA_DM_CFG, (char*)nfa_dm_cfg, sizeof ( nfa_dm_cfg ) ) )
         p_nfa_dm_cfg = ( tNFA_DM_CFG * ) &nfa_dm_cfg[0];

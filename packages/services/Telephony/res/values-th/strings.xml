@@ -54,7 +54,9 @@
     <string name="unlock_success" msgid="6770085622238180152">"ปลดล็อกเครือข่ายไม่สำเร็จ"</string>
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"การตั้งค่าเครือข่ายมือถือไม่พร้อมใช้งานสำหรับผู้ใช้รายนี้"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"การตั้งค่าการโทร GSM"</string>
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"การตั้งค่าการโทร GSM (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"การตั้งค่าการโทร CDMA"</string>
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"การตั้งค่าการโทร CDMA (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"ชื่อจุดเข้าใช้งาน"</string>
     <string name="settings_label" msgid="3876743539816984008">"การตั้งค่าเครือข่าย"</string>
     <string name="phone_accounts" msgid="6376603393888116364">"บัญชีการโทร"</string>
@@ -66,18 +68,12 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"บัญชีโทรศัพท์"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"เพิ่มบัญชี SIP"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"กำหนดการตั้งค่าบัญชี"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"การโทรผ่าน Wi-Fi"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"ไม่ใช้การโทรผ่าน Wi-Fi"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"ไม่ใช้ผู้ช่วยโทร"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"ไม่มี"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"ผู้ช่วยโทร"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"ใช้ผู้ช่วยโทร"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"เลือกผู้ช่วยโทร"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"จัดการเครือข่ายที่ใช้สำหรับการโทรด้วย"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"ให้แอปหรือบริการจัดการเครือข่ายที่ใช้สำหรับการโทร"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"กำหนดค่า"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"บัญชีการโทรทั้งหมด"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"เลือกบัญชีที่สามารถโทรออก"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"การโทรผ่าน Wi-Fi"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"บริการเชื่อมต่อในตัว"</string>
     <string name="voicemail" msgid="8693759337917898954">"ข้อความเสียง"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"ข้อความเสียง (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="networks" msgid="8873030692174541976">"ผู้ให้บริการเครือข่าย"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"การเผยแพร่ข้อมูลฉุกเฉิน"</string>
@@ -105,17 +101,17 @@
     <string name="sum_cfu_enabled" msgid="2450052502198827927">"โอนสายทั้งหมดไปที่ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"หมายเลขใช้งานไม่ได้"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"ปิด"</string>
-    <string name="labelCFB" msgid="6139853033106283172">"เมื่อไม่ว่าง"</string>
+    <string name="labelCFB" msgid="6139853033106283172">"เมื่อสายไม่ว่าง"</string>
     <string name="messageCFB" msgid="3711089705936187129">"หมายเลขเมื่อสายไม่ว่าง"</string>
     <string name="sum_cfb_enabled" msgid="5984198104833116690">"โอนสายไปที่ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfb_disabled" msgid="4913145177320506827">"ปิด"</string>
     <string name="disable_cfb_forbidden" msgid="3506984333877998061">"ผู้ให้บริการของคุณไม่สนับสนุนการปิดใช้งานการโอนสายเมื่อสายไม่ว่าง"</string>
-    <string name="labelCFNRy" msgid="1736067178393744351">"เมื่อไม่มีการตอบ"</string>
+    <string name="labelCFNRy" msgid="1736067178393744351">"เมื่อไม่รับสาย"</string>
     <string name="messageCFNRy" msgid="672317899884380374">"หมายเลขเมื่อไม่ได้รับสาย"</string>
     <string name="sum_cfnry_enabled" msgid="6955775691317662910">"โอนสายไปที่ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnry_disabled" msgid="3884684060443538097">"ปิด"</string>
     <string name="disable_cfnry_forbidden" msgid="4308233959150658058">"ผู้ให้บริการของคุณไม่สนับสนุนการปิดใช้งานการโอนสายเมื่อไม่มีผู้รับสาย"</string>
-    <string name="labelCFNRc" msgid="2614827454402079766">"เมื่อไม่สามารถติดต่อได้"</string>
+    <string name="labelCFNRc" msgid="2614827454402079766">"เมื่อติดต่อไม่ได้"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"หมายเลขเมื่อติดต่อไม่ได้"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"โอนสายไปที่ <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"ถูกปิดใช้งาน"</string>
@@ -124,7 +120,7 @@
     <string name="call_settings_primary_user_only" msgid="5679923943740900965">"มีเพียงผู้ใช้หลักเท่านั้นที่สามารถเปลี่ยนการตั้งค่าการโทรได้"</string>
     <string name="call_settings_with_label" msgid="89359812614544532">"การตั้งค่าการโทร (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="7970259216988931777">"ข้อผิดพลาดในการตั้งค่าการโทร"</string>
-    <string name="reading_settings" msgid="1920291699287055284">"กำลังอ่านการตั้งค่า…"</string>
+    <string name="reading_settings" msgid="1920291699287055284">"กำลังประมวลการตั้งค่า…"</string>
     <string name="updating_settings" msgid="8171225533884883252">"กำลังอัปเดตการตั้งค่า..."</string>
     <string name="reverting_settings" msgid="4752151682666912828">"กำลังย้อนกลับการตั้งค่า…"</string>
     <string name="response_error" msgid="6674110501330139405">"พบการตอบกลับที่ไม่คาดหมายจากเครือข่าย"</string>
@@ -204,7 +200,8 @@
     <string name="roaming_enable" msgid="7331106985174381987">"เชื่อมต่อบริการข้อมูลขณะโรมมิ่ง"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"เชื่อมต่อบริการข้อมูลขณะโรมมิ่ง"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"การเชื่อมต่อข้อมูลของคุณหายไปเนื่องจากคุณออกจากเครือข่ายที่บ้านโดยปิดการโรมมิ่งข้อมูลไว้"</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"อนุญาตการใช้อินเทอร์เน็ตขณะโรมมิ่งไหม อาจมีการเรียกเก็บเงินจำนวนมาก"</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"คุณอาจต้องเสียค่าใช้จ่ายมาก"</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"อนุญาตการโรมมิ่งอินเทอร์เน็ตไหม"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"ตัวเลือก GSM//UMTS"</string>
     <string name="cdma_options" msgid="4016822858172249884">"ตัวเลือก CDMA"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"การใช้ข้อมูล"</string>
@@ -350,6 +347,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"ตั้งค่าโหมด TTY"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"ลองซ้ำอัตโนมัติ"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"เปิดใช้งานโหมดลองซ้ำอัตโนมัติ"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"ไม่อนุญาตการเปลี่ยนโหมด TTY ในระหว่างแฮงเอาท์วิดีโอ"</string>
     <string name="menu_add" msgid="1882023737425114762">"เพิ่มรายชื่อติดต่อ"</string>
     <string name="menu_edit" msgid="7143003705504672374">"แก้ไขรายชื่อติดต่อ"</string>
     <string name="menu_delete" msgid="3977150783449642851">"ลบรายชื่อติดต่อ"</string>
@@ -371,9 +369,9 @@
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"ไม่ได้อัปเดต FDN เพราะ PIN2 ไม่ถูกต้องหรือหมายเลขโทรศัพท์ถูกปฏิเสธ"</string>
     <string name="fdn_failed" msgid="540018079008319747">"การปลดล็อกด้วย FDN ล้มเหลว"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"กำลังอ่านจากซิมการ์ด…"</string>
-    <string name="simContacts_empty" msgid="5270660846489561932">"ไม่มีรายชื่อติดต่อบนซิมการ์ดของคุณ"</string>
-    <string name="simContacts_title" msgid="1861472842524839921">"เลือกสมุดโทรศัพท์ที่จะนำเข้า"</string>
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"ในการนำเข้าผู้ติดต่อจากซิมการ์ด ให้ปิดโหมดบนเครื่องบินก่อน"</string>
+    <string name="simContacts_empty" msgid="5270660846489561932">"ไม่มีรายชื่อติดต่อในซิมการ์ด"</string>
+    <string name="simContacts_title" msgid="1861472842524839921">"เลือกรายชื่อที่จะนำเข้า"</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"ปิดโหมดบนเครื่องบินเพื่อนำเข้ารายชื่อติดต่อจากซิมการ์ด"</string>
     <string name="enable_pin" msgid="5422767284133234860">"เปิด/ปิดใช้งาน PIN ของซิม"</string>
     <string name="change_pin" msgid="9174186126330785343">"เปลี่ยน PIN ของซิม"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"PIN ของซิม:"</string>
@@ -407,6 +405,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 ถูกบล็อกอย่างถาวร"</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"คุณพยายามได้อีก <xliff:g id="NUMBER">%d</xliff:g> ครั้ง"</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"ไม่มีการบล็อก PIN2 อีกต่อไป"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"เครือข่ายหรือซิมการ์ดเกิดข้อผิดพลาด"</string>
     <string name="doneButton" msgid="2859593360997984240">"เสร็จสิ้น"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"หมายเลขข้อความเสียง"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"กำลังโทรออก"</string>
@@ -417,26 +416,17 @@
     <string name="card_title_on_hold" msgid="821463117892339942">"พักสาย"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"กำลังวางสาย"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"กำลังใช้สาย"</string>
-    <string name="notification_dialing" msgid="2107666444937350731">"กำลังโทรออก"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"สายที่ไม่ได้รับ"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"สายที่ไม่ได้รับ"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"<xliff:g id="NUM_MISSED_CALLS">%s</xliff:g> สายที่ไม่ได้รับ"</string>
-    <string name="notification_missedCallTicker" msgid="504686252427747209">"สายที่ไม่ได้รับจาก <xliff:g id="MISSED_CALL_FROM">%s</xliff:g>"</string>
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"โทรต่อเนื่อง"</string>
-    <string name="notification_on_hold" msgid="3480694969511790465">"พักสาย"</string>
-    <string name="notification_incoming_call" msgid="2820429205043529642">"สายเรียกเข้า"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"ข้อความเสียงใหม่"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"ข้อความเสียงใหม่ (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"หมุนหมายเลข <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"ไม่ทราบหมายเลขข้อความเสียง"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"ไม่มีบริการ"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"เครือข่ายที่เลือกไว้ (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) ใช้งานไม่ได้"</string>
-    <string name="notification_action_end_call" msgid="6069460915123531620">"วางสาย"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"โทรกลับ"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"ข้อความ"</string>
-    <string name="incall_error_power_off" msgid="6550191216405193368">"หากต้องการโทรออก ให้ปิดโหมดใช้งานบนเครื่องบินก่อน"</string>
+    <string name="notification_network_selection_text" msgid="2607085729661923269">"เครือข่ายที่เลือกไว้ (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) ไม่พร้อมใช้งาน"</string>
+    <string name="incall_error_power_off" msgid="2947938060513306698">"ปิดโหมดบนเครื่องบินเพื่อโทรออก"</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"ปิดโหมดบนเครื่องบินหรือเชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"ยังไม่ได้ลงทะเบียนบนเครือข่าย"</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"เครือข่ายมือถือใช้งานไม่ได้"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"เครือข่ายมือถือไม่พร้อมใช้งาน โปรดเชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"หากต้องการโทรออก โปรดป้อนหมายเลขที่ถูกต้อง"</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"ไม่สามารถโทรได้"</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"กำลังเริ่มต้นลำดับ MMI..."</string>
@@ -447,6 +437,7 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"ประชุมทางโทรศัพท์ไม่ได้"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"ไม่สามารถปฏิเสธสายได้"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"ไม่สามารถเริ่มการโทรได้"</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"เชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"หมายเลขฉุกเฉิน"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"กำลังเปิดวิทยุ…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"ไม่มีบริการ โปรดลองอีกครั้ง…"</string>
@@ -508,18 +499,18 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"เข้าสู่โหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"โหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"ปิดใช้งานการเชื่อมต่อเครือข่าย"</string>
-  <plurals name="phone_in_ecm_notification_time">
-    <item quantity="one" msgid="4866221796252472622">"ไม่มีการเชื่อมต่อข้อมูลนาน <xliff:g id="COUNT">%s</xliff:g> นาที"</item>
-    <item quantity="other" msgid="3122217344579273583">"ไม่มีการเชื่อมต่อข้อมูลนาน <xliff:g id="COUNT">%s</xliff:g> นาที"</item>
-  </plurals>
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT">%s</xliff:g> นาที ในระหว่างที่อยู่ในโหมดนี้ จะไม่สามารถใช้แอปพลิเคชันที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการจะออกเดี๋ยวนี้หรือไม่"</item>
-    <item quantity="other" msgid="8617116564023933114">"โทรศัพท์จะอยู่ในโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT">%s</xliff:g> นาที ในระหว่างที่อยู่ในโหมดนี้ จะไม่สามารถใช้แอปพลิเคชันที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการจะออกเดี๋ยวนี้หรือไม่"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"การทำงานที่เลือกจะไม่สามารถใช้ได้เมื่ออยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะอยู่ในโหมดนี้เป็นเวลา <xliff:g id="COUNT">%s</xliff:g> นาที คุณต้องการจะออกเดี๋ยวนี้หรือไม่"</item>
-    <item quantity="other" msgid="6115622137771382224">"การทำงานที่เลือกจะไม่สามารถใช้ได้เมื่ออยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะอยู่ในโหมดนี้เป็นเวลา <xliff:g id="COUNT">%s</xliff:g> นาที คุณต้องการจะออกเดี๋ยวนี้หรือไม่"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="other">ไม่มีการเชื่อมต่อข้อมูลนาน <xliff:g id="COUNT_1">%s</xliff:g> นาที</item>
+      <item quantity="one">ไม่มีการเชื่อมต่อข้อมูลนาน <xliff:g id="COUNT_0">%s</xliff:g> นาที</item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="other">โทรศัพท์จะเข้าโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_1">%s</xliff:g> นาที ขณะใช้โหมดนี้ จะไม่สามารถใช้แอปพลิเคชันที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการออกตอนนี้ไหม</item>
+      <item quantity="one">โทรศัพท์จะเข้าโหมดติดต่อกลับฉุกเฉินเป็นเวลา <xliff:g id="COUNT_0">%s</xliff:g> นาที ขณะใช้โหมดนี้ จะไม่สามารถใช้แอปที่ใช้การเชื่อมต่อข้อมูลได้ คุณต้องการออกตอนนี้ไหม</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="other">ไม่สามารถทำงานที่เลือกนี้ได้ขณะอยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะใช้โหมดนี้เป็นเวลา <xliff:g id="COUNT_1">%s</xliff:g> นาที คุณต้องการออกตอนนี้ไหม</item>
+      <item quantity="one">ไม่สามารถทำงานที่เลือกนี้ได้ขณะอยู่ในโหมดติดต่อกลับฉุกเฉิน โทรศัพท์จะใช้โหมดนี้เป็นเวลา <xliff:g id="COUNT_0">%s</xliff:g> นาที คุณต้องการออกตอนนี้ไหม</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"การทำงานที่เลือกใช้ไม่ได้ในระหว่างโทรฉุกเฉิน"</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"กำลังออกจากโหมดติดต่อกลับฉุกเฉิน"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"ใช่"</string>
@@ -537,8 +528,8 @@
     <string name="description_dial_button" msgid="7459705245418435351">"หมุนหมายเลข"</string>
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"สั่น"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"สั่น"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"ข้อความเสียงพร้อมภาพ"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"เสียง"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"เติมหมายเลขอัตโนมัติบนแป้น"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"เสียงเรียกเข้าและสั่น"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"ซิมการ์ดในตัว"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"เปิดแฮงเอาท์วิดีโอ"</string>
@@ -548,4 +539,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"หมายเลขฉุกเฉิน"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"เฉพาะหมายเลขฉุกเฉินเท่านั้น"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"ซิมการ์ด ช่อง: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"การเข้าถึง"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"สายโทรเข้าผ่าน Wi-Fi"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"การโทรผ่าน Wi-Fi"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"แตะอีกครั้งเพื่อเปิด"</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"เกิดข้อผิดพลาดขณะถอดรหัสข้อความ"</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"ซิมการ์ดได้เปิดใช้บริการของคุณและอัปเดตความสามารถในการโรมมิ่งของโทรศัพท์"</string>
 </resources>

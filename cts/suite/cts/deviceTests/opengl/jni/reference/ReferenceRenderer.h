@@ -23,7 +23,7 @@ class ReferenceRenderer: public Renderer {
 public:
     ReferenceRenderer(ANativeWindow* window);
     virtual ~ReferenceRenderer() {};
-    bool setUp();
+    bool setUp(int workload);
     bool tearDown();
     bool update(int frame);
     void drawWorkload();

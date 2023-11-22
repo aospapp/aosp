@@ -24,35 +24,35 @@ using namespace android;
 using namespace RSC;
 
 android::RSC::sp<const Element> Element::getSubElement(uint32_t index) {
-    if (!mVisibleElementMap.size()) {
+    if (!mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Element contains no sub-elements");
-        return NULL;
+        return nullptr;
     }
-    if (index >= mVisibleElementMap.size()) {
+    if (index >= mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Illegal sub-element index");
-        return NULL;
+        return nullptr;
     }
     return mElements[mVisibleElementMap[index]];
 }
 
 const char * Element::getSubElementName(uint32_t index) {
-    if (!mVisibleElementMap.size()) {
+    if (!mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Element contains no sub-elements");
-        return NULL;
+        return nullptr;
     }
-    if (index >= mVisibleElementMap.size()) {
+    if (index >= mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Illegal sub-element index");
-        return NULL;
+        return nullptr;
     }
-    return mElementNames[mVisibleElementMap[index]].c_str();
+    return mElementNames[mVisibleElementMap[index]];
 }
 
 size_t Element::getSubElementArraySize(uint32_t index) {
-    if (!mVisibleElementMap.size()) {
+    if (!mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Element contains no sub-elements");
         return 0;
     }
-    if (index >= mVisibleElementMap.size()) {
+    if (index >= mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Illegal sub-element index");
         return 0;
     }
@@ -60,11 +60,11 @@ size_t Element::getSubElementArraySize(uint32_t index) {
 }
 
 uint32_t Element::getSubElementOffsetBytes(uint32_t index) {
-    if (mVisibleElementMap.size()) {
+    if (!mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Element contains no sub-elements");
         return 0;
     }
-    if (index >= mVisibleElementMap.size()) {
+    if (index >= mVisibleElementMapSize) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "Illegal sub-element index");
         return 0;
     }
@@ -73,7 +73,7 @@ uint32_t Element::getSubElementOffsetBytes(uint32_t index) {
 
 
 #define CREATE_USER(N, T) android::RSC::sp<const Element> Element::N(android::RSC::sp<RS> rs) { \
-    if (rs->mElements.N == NULL) {                                  \
+    if (rs->mElements.N == nullptr) {                               \
         rs->mElements.N = (createUser(rs, RS_TYPE_##T));            \
     }                                                               \
     return rs->mElements.N;                                         \
@@ -100,10 +100,10 @@ CREATE_USER(MATRIX_3X3, MATRIX_3X3);
 CREATE_USER(MATRIX_2X2, MATRIX_2X2);
 
 #define CREATE_PIXEL(N, T, K) android::RSC::sp<const Element> Element::N(android::RSC::sp<RS> rs) { \
-    if (rs->mElements.N == NULL) {                                  \
-        rs->mElements.N = createPixel(rs, RS_TYPE_##T, RS_KIND_##K);    \
-    }                                                                   \
-    return rs->mElements.N;                                             \
+    if (rs->mElements.N == nullptr) {                                \
+        rs->mElements.N = createPixel(rs, RS_TYPE_##T, RS_KIND_##K); \
+    }                                                                \
+    return rs->mElements.N;                                          \
 }
 
 CREATE_PIXEL(A_8, UNSIGNED_8, PIXEL_A);
@@ -115,22 +115,22 @@ CREATE_PIXEL(YUV, UNSIGNED_8, PIXEL_YUV);
 CREATE_PIXEL(RGBA_5551, UNSIGNED_5_5_5_1, PIXEL_RGBA);
 
 #define CREATE_VECTOR(N, T) android::RSC::sp<const Element> Element::N##_2(android::RSC::sp<RS> rs) { \
-    if (rs->mElements.N##_2 == NULL) {                                  \
-        rs->mElements.N##_2 = createVector(rs, RS_TYPE_##T, 2);         \
-    }                                                                   \
-    return rs->mElements.N##_2;                                         \
-}                                                                       \
+    if (rs->mElements.N##_2 == nullptr) {                                 \
+        rs->mElements.N##_2 = createVector(rs, RS_TYPE_##T, 2);           \
+    }                                                                     \
+    return rs->mElements.N##_2;                                           \
+}                                                                         \
 android::RSC::sp<const Element> Element::N##_3(android::RSC::sp<RS> rs) { \
-    if (rs->mElements.N##_3 == NULL) {                                  \
-        rs->mElements.N##_3 = createVector(rs, RS_TYPE_##T, 3);         \
-    }                                                                   \
-    return rs->mElements.N##_3;                                         \
+    if (rs->mElements.N##_3 == nullptr) {                                 \
+        rs->mElements.N##_3 = createVector(rs, RS_TYPE_##T, 3);           \
+    }                                                                     \
+    return rs->mElements.N##_3;                                           \
 } \
 android::RSC::sp<const Element> Element::N##_4(android::RSC::sp<RS> rs) { \
-    if (rs->mElements.N##_4 == NULL) {                                  \
-        rs->mElements.N##_4 = createVector(rs, RS_TYPE_##T, 4);         \
-    }                                                                   \
-    return rs->mElements.N##_4;                                         \
+    if (rs->mElements.N##_4 == nullptr) {                                 \
+        rs->mElements.N##_4 = createVector(rs, RS_TYPE_##T, 4);           \
+    }                                                                     \
+    return rs->mElements.N##_4;                                           \
 }
 CREATE_VECTOR(U8, UNSIGNED_8);
 CREATE_VECTOR(I8, SIGNED_8);
@@ -145,43 +145,68 @@ CREATE_VECTOR(F64, FLOAT_64);
 
 
 void Element::updateVisibleSubElements() {
-    if (!mElements.size()) {
+    if (!mElementsCount) {
         return;
     }
-    mVisibleElementMap.clear();
+    if (mVisibleElementMapSize) {
+        free(mVisibleElementMap);
+        mVisibleElementMapSize = 0;
+    }
+    mVisibleElementMap = (uint32_t*)calloc(mElementsCount, sizeof(uint32_t));
 
     int noPaddingFieldCount = 0;
-    size_t fieldCount = mElementNames.size();
+    size_t fieldCount = mElementsCount;
     // Find out how many elements are not padding
     for (size_t ct = 0; ct < fieldCount; ct ++) {
-        if (mElementNames[ct].c_str()[0] != '#') {
+        if (mElementNames[ct][0] != '#') {
             noPaddingFieldCount ++;
         }
     }
 
     // Make a map that points us at non-padding elements
+    size_t i = 0;
     for (size_t ct = 0; ct < fieldCount; ct ++) {
-        if (mElementNames[ct].c_str()[0] != '#') {
-            mVisibleElementMap.push_back((uint32_t)ct);
+        if (mElementNames[ct][0] != '#') {
+            mVisibleElementMap[i++] = (uint32_t)ct;
         }
     }
+    mVisibleElementMapSize = i;
 }
 
 Element::Element(void *id, android::RSC::sp<RS> rs,
-                 std::vector<android::RSC::sp<Element> > &elements,
-                 std::vector<std::string> &elementNames,
-                 std::vector<uint32_t> &arraySizes) : BaseObj(id, rs) {
+                 android::RSC::sp<const Element> * elements,
+                 size_t elementCount,
+                 const char ** elementNames,
+                 size_t * elementNameLengths,
+                 uint32_t * arraySizes) : BaseObj(id, rs) {
     mSizeBytes = 0;
     mVectorSize = 1;
-    mElements = elements;
-    mArraySizes = arraySizes;
-    mElementNames = elementNames;
+    mElementsCount = elementCount;
+    mVisibleElementMap = nullptr;
+    mVisibleElementMapSize = 0;
+
+    mElements = (android::RSC::sp<const Element> *)calloc(mElementsCount, sizeof(android::RSC::sp<Element>));
+    mElementNames = (char **)calloc(mElementsCount, sizeof(char *));
+    mElementNameLengths = (size_t*)calloc(mElementsCount, sizeof(size_t));
+    mArraySizes = (uint32_t*)calloc(mElementsCount, sizeof(uint32_t));
+    mOffsetInBytes = (uint32_t*)calloc(mElementsCount, sizeof(uint32_t));
+
+    memcpy(mElements, elements, mElementsCount * sizeof(android::RSC::sp<Element>));
+    memcpy(mArraySizes, arraySizes, mElementsCount * sizeof(uint32_t));
+
+    //copy strings (char array)
+    memcpy(mElementNameLengths, elementNameLengths, mElementsCount * sizeof(size_t));
+    for (size_t ct = 0; ct < mElementsCount; ct++ ) {
+        size_t elemNameLen = mElementNameLengths[ct];
+        mElementNames[ct] = (char *)calloc(elemNameLen, sizeof(char));
+        memcpy(mElementNames[ct], elementNames[ct], elemNameLen);
+    }
 
     mType = RS_TYPE_NONE;
     mKind = RS_KIND_USER;
 
-    for (size_t ct = 0; ct < mElements.size(); ct++ ) {
-        mOffsetInBytes.push_back(mSizeBytes);
+    for (size_t ct = 0; ct < mElementsCount; ct++ ) {
+        mOffsetInBytes[ct] = mSizeBytes;
         mSizeBytes += mElements[ct]->mSizeBytes * mArraySizes[ct];
     }
     updateVisibleSubElements();
@@ -261,9 +286,24 @@ Element::Element(void *id, android::RSC::sp<RS> rs,
     mKind = dk;
     mNormalized = norm;
     mVectorSize = size;
+    mElementsCount = 0;
+    mVisibleElementMap = 0;
 }
 
 Element::~Element() {
+    if (mElementsCount) {
+        free(mElements);
+        for (size_t ct = 0; ct < mElementsCount; ct++ ) {
+            free(mElementNames[ct]);
+        }
+        free(mElementNames);
+        free(mElementNameLengths);
+        free(mArraySizes);
+        free(mOffsetInBytes);
+    }
+    if (mVisibleElementMapSize) {
+        free(mVisibleElementMap);
+    }
 }
 
 void Element::updateFromNative() {
@@ -279,7 +319,7 @@ android::RSC::sp<const Element> Element::createUser(android::RSC::sp<RS> rs, RsD
 android::RSC::sp<const Element> Element::createVector(android::RSC::sp<RS> rs, RsDataType dt, uint32_t size) {
     if (size < 2 || size > 4) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Vector size out of range 2-4.");
-        return NULL;
+        return nullptr;
     }
     void *id = RS::dispatch->ElementCreate(rs->getContext(), dt, RS_KIND_USER, false, size);
     return new Element(id, rs, dt, RS_KIND_USER, false, size);
@@ -291,9 +331,10 @@ android::RSC::sp<const Element> Element::createPixel(android::RSC::sp<RS> rs, Rs
           dk == RS_KIND_PIXEL_LA ||
           dk == RS_KIND_PIXEL_RGB ||
           dk == RS_KIND_PIXEL_RGBA ||
-          dk == RS_KIND_PIXEL_DEPTH)) {
+          dk == RS_KIND_PIXEL_DEPTH ||
+          dk == RS_KIND_PIXEL_YUV)) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Unsupported DataKind");
-        return NULL;
+        return nullptr;
     }
     if (!(dt == RS_TYPE_UNSIGNED_8 ||
           dt == RS_TYPE_UNSIGNED_16 ||
@@ -301,23 +342,23 @@ android::RSC::sp<const Element> Element::createPixel(android::RSC::sp<RS> rs, Rs
           dt == RS_TYPE_UNSIGNED_4_4_4_4 ||
           dt == RS_TYPE_UNSIGNED_5_5_5_1)) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Unsupported DataType");
-        return NULL;
+        return nullptr;
     }
     if (dt == RS_TYPE_UNSIGNED_5_6_5 && dk != RS_KIND_PIXEL_RGB) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Bad kind and type combo");
-        return NULL;
+        return nullptr;
     }
     if (dt == RS_TYPE_UNSIGNED_5_5_5_1 && dk != RS_KIND_PIXEL_RGBA) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Bad kind and type combo");
-        return NULL;
+        return nullptr;
     }
     if (dt == RS_TYPE_UNSIGNED_4_4_4_4 && dk != RS_KIND_PIXEL_RGBA) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Bad kind and type combo");
-        return NULL;
+        return nullptr;
     }
     if (dt == RS_TYPE_UNSIGNED_16 && dk != RS_KIND_PIXEL_DEPTH) {
         rs->throwError(RS_ERROR_INVALID_PARAMETER, "Bad kind and type combo");
-        return NULL;
+        return nullptr;
     }
 
     int size = 1;
@@ -361,13 +402,31 @@ bool Element::isCompatible(android::RSC::sp<const Element>e) const {
 Element::Builder::Builder(android::RSC::sp<RS> rs) {
     mRS = rs.get();
     mSkipPadding = false;
+    mElementsVecSize = 8;
+    mElementsCount = 0;
+    // Initialize space
+    mElements = (android::RSC::sp<const Element> *)calloc(mElementsVecSize, sizeof(android::RSC::sp<Element>));
+    mElementNames = (char **)calloc(mElementsVecSize, sizeof(char *));
+    mElementNameLengths = (size_t*)calloc(mElementsVecSize, sizeof(size_t));
+    mArraySizes = (uint32_t*)calloc(mElementsVecSize, sizeof(uint32_t));
 }
 
-void Element::Builder::add(android::RSC::sp</*const*/ Element>e, std::string &name, uint32_t arraySize) {
+Element::Builder::~Builder() {
+    // free allocated space
+    free(mElements);
+    for (size_t ct = 0; ct < mElementsCount; ct++ ) {
+        free(mElementNames[ct]);
+    }
+    free(mElementNameLengths);
+    free(mElementNames);
+    free(mArraySizes);
+}
+
+void Element::Builder::add(android::RSC::sp<const Element>e, const char * name, uint32_t arraySize) {
     // Skip padding fields after a vector 3 type.
     if (mSkipPadding) {
         const char *s1 = "#padding_";
-        const char *s2 = name.c_str();
+        const char *s2 = name;
         size_t len = strlen(s1);
         if (strlen(s2) >= len) {
             if (!memcmp(s1, s2, len)) {
@@ -383,32 +442,55 @@ void Element::Builder::add(android::RSC::sp</*const*/ Element>e, std::string &na
         mSkipPadding = false;
     }
 
-    mElements.push_back(e);
-    mElementNames.push_back(name);
-    mArraySizes.push_back(arraySize);
+    if (mElementsCount >= mElementsVecSize) {
+        //if pre-allocated space is full, allocate a larger one.
+        mElementsVecSize += 8;
+
+        android::RSC::sp<const Element> * newElements = (android::RSC::sp<const Element> *)calloc(mElementsVecSize, sizeof(android::RSC::sp<Element>));
+        char ** newElementNames = (char **)calloc(mElementsVecSize, sizeof(char *));
+        size_t * newElementNameLengths = (size_t*)calloc(mElementsVecSize, sizeof(size_t));
+        uint32_t * newArraySizes = (uint32_t*)calloc(mElementsVecSize, sizeof(uint32_t));
+
+        memcpy(newElements, mElements, mElementsCount * sizeof(android::RSC::sp<Element>));
+        memcpy(newElementNames, mElementNames, mElementsCount * sizeof(char *));
+        memcpy(newElementNameLengths, mElementNameLengths, mElementsCount * sizeof(size_t));
+        memcpy(newArraySizes, mArraySizes, mElementsCount * sizeof(uint32_t));
+
+        //free the old arrays
+        free(mElements);
+        free(mElementNames);
+        free(mArraySizes);
+        free(mElementNameLengths);
+
+        mElements = newElements;
+        mElementNames = newElementNames;
+        mArraySizes = newArraySizes;
+        mElementNameLengths = newElementNameLengths;
+    }
+    mElements[mElementsCount] = e;
+    mArraySizes[mElementsCount] = arraySize;
+
+    size_t nameLen = strlen(name);
+    mElementNameLengths[mElementsCount] = nameLen + 1;
+    mElementNames[mElementsCount] = (char *)calloc(nameLen + 1, sizeof(char));
+    memcpy(mElementNames[mElementsCount], name, nameLen);
+    mElementNames[mElementsCount][nameLen] = 0;
+
+    mElementsCount++;
 }
 
 android::RSC::sp<const Element> Element::Builder::create() {
-    size_t fieldCount = mElements.size();
-    const char ** nameArray = (const char **)calloc(fieldCount, sizeof(char *));
-    const Element ** elementArray = (const Element **)calloc(fieldCount, sizeof(Element *));
-    size_t* sizeArray = (size_t*)calloc(fieldCount, sizeof(size_t));
+    size_t fieldCount = mElementsCount;
+    void ** elementArray = (void **)calloc(fieldCount, sizeof(void *));
 
     for (size_t ct = 0; ct < fieldCount; ct++) {
-        nameArray[ct] = mElementNames[ct].c_str();
-        elementArray[ct] = mElements[ct].get();
-        sizeArray[ct] = mElementNames[ct].length();
+        elementArray[ct] = mElements[ct]->getID();
     }
 
     void *id = RS::dispatch->ElementCreate2(mRS->getContext(),
-                                (RsElement *)elementArray, fieldCount,
-                                nameArray, fieldCount * sizeof(size_t),  sizeArray,
-                                (const uint32_t *)&mArraySizes[0], fieldCount);
-
-
-    free(nameArray);
-    free(sizeArray);
+                                            (RsElement *)elementArray, fieldCount,
+                                            (const char **)mElementNames, fieldCount, mElementNameLengths,
+                                            mArraySizes, fieldCount);
     free(elementArray);
-    return new Element(id, mRS, mElements, mElementNames, mArraySizes);
+    return new Element(id, mRS, mElements, mElementsCount, (const char **)mElementNames, mElementNameLengths, mArraySizes);
 }
-

@@ -14,19 +14,29 @@ class SK_API SkComposeImageFilter : public SkImageFilter {
 public:
     virtual ~SkComposeImageFilter();
 
-    static SkComposeImageFilter* Create(SkImageFilter* outer, SkImageFilter* inner) {
-        return SkNEW_ARGS(SkComposeImageFilter, (outer, inner));
+    static SkImageFilter* Create(SkImageFilter* outer, SkImageFilter* inner) {
+        if (NULL == outer) {
+            return SkSafeRef(inner);
+        }
+        if (NULL == inner) {
+            return SkRef(outer);
+        }
+        SkImageFilter* inputs[2] = { outer, inner };
+        return SkNEW_ARGS(SkComposeImageFilter, (inputs));
     }
+    void computeFastBounds(const SkRect& src, SkRect* dst) const override;
 
+    SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkComposeImageFilter)
 
 protected:
-    SkComposeImageFilter(SkImageFilter* outer, SkImageFilter* inner) : INHERITED(outer, inner) {}
-    explicit SkComposeImageFilter(SkReadBuffer& buffer);
-
+    explicit SkComposeImageFilter(SkImageFilter* inputs[2]) : INHERITED(2, inputs) {
+        SkASSERT(inputs[0]);
+        SkASSERT(inputs[1]);
+    }
     virtual bool onFilterImage(Proxy*, const SkBitmap& src, const Context&,
-                               SkBitmap* result, SkIPoint* loc) const SK_OVERRIDE;
-    virtual bool onFilterBounds(const SkIRect&, const SkMatrix&, SkIRect*) const SK_OVERRIDE;
+                               SkBitmap* result, SkIPoint* loc) const override;
+    bool onFilterBounds(const SkIRect&, const SkMatrix&, SkIRect*) const override;
 
 private:
     typedef SkImageFilter INHERITED;

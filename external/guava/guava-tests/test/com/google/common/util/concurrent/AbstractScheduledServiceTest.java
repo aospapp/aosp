@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.Service.State;
 
 import junit.framework.TestCase;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -28,7 +29,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,16 +58,14 @@ public class AbstractScheduledServiceTest extends TestCase {
 
   public void testServiceStartStop() throws Exception {
     NullService service = new NullService();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     assertFalse(future.isDone());
-    service.stopAndWait();
+    service.stopAsync().awaitTerminated();
     assertTrue(future.isCancelled());
   }
 
   private class NullService extends AbstractScheduledService {
-    @Override protected void runOneIteration() throws Exception { }
-    @Override protected void startUp() throws Exception { }
-    @Override protected void shutDown() throws Exception { }
+    @Override protected void runOneIteration() throws Exception {}
     @Override protected Scheduler scheduler() { return configuration; }
     @Override protected ScheduledExecutorService executor() { return executor; }
   }
@@ -75,7 +73,7 @@ public class AbstractScheduledServiceTest extends TestCase {
   public void testFailOnExceptionFromRun() throws Exception {
     TestService service = new TestService();
     service.runException = new Exception();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     service.runFirstBarrier.await();
     service.runSecondBarrier.await();
     try {
@@ -93,9 +91,9 @@ public class AbstractScheduledServiceTest extends TestCase {
     TestService service = new TestService();
     service.startUpException = new Exception();
     try {
-      service.startAndWait();
+      service.startAsync().awaitRunning();
       fail();
-    } catch (UncheckedExecutionException e) {
+    } catch (IllegalStateException e) {
       assertEquals(service.startUpException, e.getCause());
     }
     assertEquals(0, service.numberOfTimesRunCalled.get());
@@ -105,14 +103,14 @@ public class AbstractScheduledServiceTest extends TestCase {
   public void testFailOnExceptionFromShutDown() throws Exception {
     TestService service = new TestService();
     service.shutDownException = new Exception();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     service.runFirstBarrier.await();
-    ListenableFuture<Service.State> stopHandle = service.stop();
+    service.stopAsync();
     service.runSecondBarrier.await();
     try {
-      stopHandle.get();
+      service.awaitTerminated();
       fail();
-    } catch (ExecutionException e) {
+    } catch (IllegalStateException e) {
       assertEquals(service.shutDownException, e.getCause());
     }
     assertEquals(Service.State.FAILED, service.state());
@@ -120,21 +118,21 @@ public class AbstractScheduledServiceTest extends TestCase {
 
   public void testRunOneIterationCalledMultipleTimes() throws Exception {
     TestService service = new TestService();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     for (int i = 1; i < 10; i++) {
       service.runFirstBarrier.await();
       assertEquals(i, service.numberOfTimesRunCalled.get());
       service.runSecondBarrier.await();
     }
     service.runFirstBarrier.await();
-    service.stop();
+    service.stopAsync();
     service.runSecondBarrier.await();
-    service.stopAndWait();
+    service.stopAsync().awaitTerminated();
   }
 
   public void testExecutorOnlyCalledOnce() throws Exception {
     TestService service = new TestService();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     // It should be called once during startup.
     assertEquals(1, service.numberOfTimesExecutorCalled.get());
     for (int i = 1; i < 10; i++) {
@@ -143,16 +141,84 @@ public class AbstractScheduledServiceTest extends TestCase {
       service.runSecondBarrier.await();
     }
     service.runFirstBarrier.await();
-    service.stop();
+    service.stopAsync();
     service.runSecondBarrier.await();
-    service.stopAndWait();
+    service.stopAsync().awaitTerminated();
     // Only called once overall.
     assertEquals(1, service.numberOfTimesExecutorCalled.get());
   }
 
+  public void testDefaultExecutorIsShutdownWhenServiceIsStopped() throws Exception {
+    final CountDownLatch terminationLatch = new CountDownLatch(1);
+    AbstractScheduledService service = new AbstractScheduledService() {
+      volatile ScheduledExecutorService executorService;
+      @Override protected void runOneIteration() throws Exception {}
+
+      @Override protected ScheduledExecutorService executor() {
+        if (executorService == null) {
+          executorService = super.executor();
+          // Add a listener that will be executed after the listener that shuts down the executor.
+          addListener(new Listener() {
+            @Override public void terminated(State from) {
+              terminationLatch.countDown();
+            }
+            }, MoreExecutors.sameThreadExecutor());
+        }
+        return executorService;
+      }
+
+      @Override protected Scheduler scheduler() {
+        return Scheduler.newFixedDelaySchedule(0, 1, TimeUnit.MILLISECONDS);
+      }};
+
+      service.startAsync();
+      assertFalse(service.executor().isShutdown());
+      service.awaitRunning();
+      service.stopAsync();
+      terminationLatch.await();
+      assertTrue(service.executor().isShutdown());
+      assertTrue(service.executor().awaitTermination(100, TimeUnit.MILLISECONDS));
+  }
+
+  public void testDefaultExecutorIsShutdownWhenServiceFails() throws Exception {
+    final CountDownLatch failureLatch = new CountDownLatch(1);
+    AbstractScheduledService service = new AbstractScheduledService() {
+      volatile ScheduledExecutorService executorService;
+      @Override protected void runOneIteration() throws Exception {}
+
+      @Override protected void startUp() throws Exception {
+        throw new Exception("Failed");
+      }
+
+      @Override protected ScheduledExecutorService executor() {
+        if (executorService == null) {
+          executorService = super.executor();
+          // Add a listener that will be executed after the listener that shuts down the executor.
+          addListener(new Listener() {
+            @Override public void failed(State from, Throwable failure) {
+              failureLatch.countDown();
+            }
+            }, MoreExecutors.sameThreadExecutor());
+        }
+        return executorService;
+      }
+
+      @Override protected Scheduler scheduler() {
+        return Scheduler.newFixedDelaySchedule(0, 1, TimeUnit.MILLISECONDS);
+      }};
+
+      try {
+        service.startAsync().awaitRunning();
+        fail("Expected service to fail during startup");
+      } catch (IllegalStateException expected) {}
+      failureLatch.await();
+      assertTrue(service.executor().isShutdown());
+      assertTrue(service.executor().awaitTermination(100, TimeUnit.MILLISECONDS));
+  }
+
   public void testSchedulerOnlyCalledOnce() throws Exception {
     TestService service = new TestService();
-    service.startAndWait();
+    service.startAsync().awaitRunning();
     // It should be called once during startup.
     assertEquals(1, service.numberOfTimesSchedulerCalled.get());
     for (int i = 1; i < 10; i++) {
@@ -161,9 +227,9 @@ public class AbstractScheduledServiceTest extends TestCase {
       service.runSecondBarrier.await();
     }
     service.runFirstBarrier.await();
-    service.stop();
+    service.stopAsync();
     service.runSecondBarrier.await();
-    service.stopAndWait();
+    service.awaitTerminated();
     // Only called once overall.
     assertEquals(1, service.numberOfTimesSchedulerCalled.get());
   }
@@ -314,12 +380,12 @@ public class AbstractScheduledServiceTest extends TestCase {
 
     public void testCustomSchedulerServiceStop() throws Exception {
       TestAbstractScheduledCustomService service = new TestAbstractScheduledCustomService();
-      service.startAndWait();
+      service.startAsync().awaitRunning();
       service.firstBarrier.await();
       assertEquals(1, service.numIterations.get());
-      service.stop();
+      service.stopAsync();
       service.secondBarrier.await();
-      service.stopAndWait();
+      service.awaitTerminated();
       // Sleep for a while just to ensure that our task wasn't called again.
       Thread.sleep(unit.toMillis(3 * delay));
       assertEquals(1, service.numIterations.get());
@@ -328,7 +394,7 @@ public class AbstractScheduledServiceTest extends TestCase {
     public void testBig() throws Exception {
       TestAbstractScheduledCustomService service = new TestAbstractScheduledCustomService() {
         @Override protected Scheduler scheduler() {
-          return new AbstractScheduledService.CustomScheduler(){
+          return new AbstractScheduledService.CustomScheduler() {
             @Override
             protected Schedule getNextSchedule() throws Exception {
               // Explicitly yield to increase the probability of a pathological scheduling.
@@ -339,14 +405,14 @@ public class AbstractScheduledServiceTest extends TestCase {
         }
       };
       service.useBarriers = false;
-      service.startAndWait();
+      service.startAsync().awaitRunning();
       Thread.sleep(50);
       service.useBarriers = true;
       service.firstBarrier.await();
       int numIterations = service.numIterations.get();
-      service.stop();
+      service.stopAsync();
       service.secondBarrier.await();
-      service.stopAndWait();
+      service.awaitTerminated();
       assertEquals(numIterations, service.numIterations.get());
     }
 
@@ -369,9 +435,9 @@ public class AbstractScheduledServiceTest extends TestCase {
         return Executors.newScheduledThreadPool(10);
       }
 
-      @Override protected void startUp() throws Exception { }
+      @Override protected void startUp() throws Exception {}
 
-      @Override protected void shutDown() throws Exception { }
+      @Override protected void shutDown() throws Exception {}
 
       @Override protected Scheduler scheduler() {
         return new CustomScheduler() {
@@ -384,7 +450,7 @@ public class AbstractScheduledServiceTest extends TestCase {
 
     public void testCustomSchedulerFailure() throws Exception {
       TestFailingCustomScheduledService service = new TestFailingCustomScheduledService();
-      service.startAndWait();
+      service.startAsync().awaitRunning();
       for (int i = 1; i < 4; i++) {
         service.firstBarrier.await();
         assertEquals(i, service.numIterations.get());
@@ -392,9 +458,9 @@ public class AbstractScheduledServiceTest extends TestCase {
       }
       Thread.sleep(1000);
       try {
-        service.stop().get(100, TimeUnit.SECONDS);
+        service.stopAsync().awaitTerminated(100, TimeUnit.SECONDS);
         fail();
-      } catch (ExecutionException e) {
+      } catch (IllegalStateException e) {
         assertEquals(State.FAILED, service.state());
       }
     }
@@ -414,10 +480,6 @@ public class AbstractScheduledServiceTest extends TestCase {
         // use a bunch of threads so that weird overlapping schedules are more likely to happen.
         return Executors.newScheduledThreadPool(10);
       }
-
-      @Override protected void startUp() throws Exception { }
-
-      @Override protected void shutDown() throws Exception { }
 
       @Override protected Scheduler scheduler() {
         return new CustomScheduler() {

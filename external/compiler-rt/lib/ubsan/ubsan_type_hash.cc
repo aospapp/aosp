@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ubsan_platform.h"
+#if CAN_SANITIZE_UB
 #include "ubsan_type_hash.h"
 
 #include "sanitizer_common/sanitizer_common.h"
@@ -35,13 +37,13 @@ namespace __cxxabiv1 {
 /// Type info for classes with no bases, and base class for type info for
 /// classes with bases.
 class __class_type_info : public std::type_info {
-  virtual ~__class_type_info();
+  ~__class_type_info() override;
 };
 
 /// Type info for classes with simple single public inheritance.
 class __si_class_type_info : public __class_type_info {
 public:
-  virtual ~__si_class_type_info();
+  ~__si_class_type_info() override;
 
   const __class_type_info *__base_type;
 };
@@ -61,7 +63,7 @@ public:
 /// Type info for classes with multiple, virtual, or non-public inheritance.
 class __vmi_class_type_info : public __class_type_info {
 public:
-  virtual ~__vmi_class_type_info();
+  ~__vmi_class_type_info() override;
 
   unsigned int flags;
   unsigned int base_count;
@@ -248,3 +250,5 @@ __ubsan::DynamicTypeInfo __ubsan::getDynamicTypeInfo(void *Object) {
   return DynamicTypeInfo(Vtable->TypeInfo->__type_name, -Vtable->Offset,
                          ObjectType ? ObjectType->__type_name : "<unknown>");
 }
+
+#endif  // CAN_SANITIZE_UB

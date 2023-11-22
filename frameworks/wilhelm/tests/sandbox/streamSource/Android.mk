@@ -13,7 +13,6 @@ LOCAL_SRC_FILES:= \
 	slesTestPlayStream.cpp
 
 LOCAL_SHARED_LIBRARIES := \
-	libutils \
 	libOpenSLES
 
 ifeq ($(TARGET_OS),linux)

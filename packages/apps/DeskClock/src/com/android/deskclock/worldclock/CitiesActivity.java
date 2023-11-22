@@ -16,15 +16,16 @@
 
 package com.android.deskclock.worldclock;
 
-import android.app.ActionBar;
-import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.view.MenuItemCompat;
+import android.support.v7.widget.SearchView;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.TypedValue;
@@ -42,11 +43,10 @@ import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.Filter;
 import android.widget.Filterable;
 import android.widget.ListView;
-import android.widget.SearchView;
-import android.widget.SearchView.OnQueryTextListener;
 import android.widget.SectionIndexer;
 import android.widget.TextView;
 
+import com.android.deskclock.BaseActivity;
 import com.android.deskclock.R;
 import com.android.deskclock.SettingsActivity;
 import com.android.deskclock.Utils;
@@ -64,8 +64,8 @@ import java.util.TimeZone;
 /**
  * Cities chooser for the world clock
  */
-public class CitiesActivity extends Activity implements OnCheckedChangeListener,
-        View.OnClickListener, OnQueryTextListener {
+public class CitiesActivity extends BaseActivity implements OnCheckedChangeListener,
+        View.OnClickListener, SearchView.OnQueryTextListener {
 
     private static final String KEY_SEARCH_QUERY = "search_query";
     private static final String KEY_SEARCH_MODE = "search_mode";
@@ -143,9 +143,9 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                 FilterResults results = new FilterResults();
                 String modifiedQuery = constraint.toString().trim().toUpperCase();
 
-                ArrayList<CityObj> filteredList = new ArrayList<CityObj>();
-                ArrayList<String> sectionHeaders = new ArrayList<String>();
-                ArrayList<Integer> sectionPositions = new ArrayList<Integer>();
+                ArrayList<CityObj> filteredList = new ArrayList<>();
+                ArrayList<String> sectionHeaders = new ArrayList<>();
+                ArrayList<Integer> sectionPositions = new ArrayList<>();
 
                 // Update the list first when user using search filter
                 final Collection<CityObj> selectedCities = mUserSelectedCities.values();
@@ -156,8 +156,7 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                         sectionHeaders.add("+");
                         sectionPositions.add(0);
                         filteredList.add(new CityObj(mSelectedCitiesHeaderString,
-                                mSelectedCitiesHeaderString,
-                                null));
+                                mSelectedCitiesHeaderString, null, null));
                     }
                     for (CityObj city : mSelectedCities) {
                         city.isHeader = false;
@@ -184,11 +183,11 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                     // If the search query is empty, add section headers.
                     if (TextUtils.isEmpty(modifiedQuery)) {
                         if (!selectedCityIds.contains(city.mCityId)) {
-                            // If the list is sorted by name, and the city begins with a letter
-                            // different than the previous city's letter, insert a section header.
+                            // If the list is sorted by name, and the city has an index
+                            // different than the previous city's index, update the section header.
                             if (mSortType == SORT_BY_NAME
-                                    && !city.mCityName.substring(0, 1).equals(val)) {
-                                val = city.mCityName.substring(0, 1).toUpperCase();
+                                    && !city.mCityIndex.equals(val)) {
+                                val = city.mCityIndex.toUpperCase();
                                 sectionHeaders.add(val);
                                 sectionPositions.add(filteredList.size());
                                 city.isHeader = true;
@@ -203,7 +202,12 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                                 int newOffset = timezone.getOffset(currentTime);
                                 if (offset != newOffset) {
                                     offset = newOffset;
-                                    String offsetString = Utils.getGMTHourOffset(timezone, true);
+                                    // Because JB fastscroll only supports ~1 char strings
+                                    // and KK ellipsizes strings, trim section headers to the
+                                    // nearest hour.
+                                    final String offsetString = Utils.getGMTHourOffset(timezone,
+                                            Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT
+                                            /* useShortForm */ );
                                     sectionHeaders.add(offsetString);
                                     sectionPositions.add(filteredList.size());
                                     city.isHeader = true;
@@ -275,12 +279,17 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                 }
             }
 
-            mPattern24 = DateFormat.getBestDateTimePattern(Locale.getDefault(), "Hm");
+            mPattern24 = Utils.isJBMR2OrLater()
+                    ? DateFormat.getBestDateTimePattern(Locale.getDefault(), "Hm")
+                    : getString(R.string.time_format_24_mode);
 
             // There's an RTL layout bug that causes jank when fast-scrolling through
             // the list in 12-hour mode in an RTL locale. We can work around this by
             // ensuring the strings are the same length by using "hh" instead of "h".
-            String pattern12 = DateFormat.getBestDateTimePattern(Locale.getDefault(), "hma");
+            String pattern12 = Utils.isJBMR2OrLater()
+                    ? DateFormat.getBestDateTimePattern(Locale.getDefault(), "hma")
+                    : getString(R.string.time_format_12_mode);
+
             if (mLayoutDirection == View.LAYOUT_DIRECTION_RTL) {
                 pattern12 = pattern12.replaceAll("h", "hh");
             }
@@ -367,12 +376,12 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                 if (c.isHeader) {
                     holder.index.setVisibility(View.VISIBLE);
                     if (mSortType == SORT_BY_NAME) {
-                        holder.index.setText(c.mCityName.substring(0, 1));
+                        holder.index.setText(c.mCityIndex);
                         holder.index.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
                     } else { // SORT_BY_GMT_OFFSET
                         holder.index.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
                         holder.index.setText(Utils.getGMTHourOffset(
-                                TimeZone.getTimeZone(c.mTimeZone), true));
+                                TimeZone.getTimeZone(c.mTimeZone), false));
                     }
                 } else {
                     // If not a header, use the invisible index for left padding
@@ -484,10 +493,6 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
                 PreferenceManager.getDefaultSharedPreferences(this));
         mAdapter = new CityAdapter(this, mFactory);
         mCitiesList.setAdapter(mAdapter);
-        ActionBar actionBar = getActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayOptions(ActionBar.DISPLAY_HOME_AS_UP, ActionBar.DISPLAY_HOME_AS_UP);
-        }
     }
 
     private void setFastScroll(boolean enabled) {
@@ -503,8 +508,6 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
         if (mAdapter != null) {
             mAdapter.set24HoursMode(this);
         }
-
-        getWindow().getDecorView().setBackgroundColor(Utils.getCurrentHourColor());
     }
 
     @Override
@@ -556,7 +559,7 @@ public class CitiesActivity extends Activity implements OnCheckedChangeListener,
         }
 
         MenuItem searchMenu = menu.findItem(R.id.menu_item_search);
-        mSearchView = (SearchView) searchMenu.getActionView();
+        mSearchView = (SearchView) MenuItemCompat.getActionView(searchMenu);
         mSearchView.setImeOptions(EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         mSearchView.setOnSearchClickListener(new OnClickListener() {
 

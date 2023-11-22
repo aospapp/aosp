@@ -19,9 +19,11 @@ package android.hardware.cts;
 import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
+import android.content.pm.PackageManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -106,8 +108,13 @@ public class SingleSensorTests extends SensorTestCase {
     public void testSensorProperties() {
         // sensor type: [getMinDelay()]
         Map<Integer, Object[]> expectedProperties = new HashMap<>(3);
-        expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{10000});
-        expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{10000});
+        if(getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+                expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{20000});
+                expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{20000});
+        }else {
+                expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{10000});
+                expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{10000});
+        }
         expectedProperties.put(Sensor.TYPE_MAGNETIC_FIELD, new Object[]{100000});
 
         SensorManager sensorManager =
@@ -536,6 +543,7 @@ public class SingleSensorTests extends SensorTestCase {
     }
 
     private void runSensorTest(int sensorType, int rateUs) throws Throwable {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         TestSensorEnvironment environment = new TestSensorEnvironment(
                 getContext(),
                 sensorType,

@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,7 @@ void GenerateFactorial(MacroAssembler* masm) {
 
 
 #ifndef TEST_EXAMPLES
+#ifdef USE_SIMULATOR
 int main(void) {
   // Create and initialize the assembler and the simulator.
   byte assm_buf[BUF_SIZE];
@@ -69,9 +70,13 @@ int main(void) {
   // Run the example function.
   uint64_t input_val = 16;
   simulator.set_xreg(0, input_val);
-  simulator.RunFrom(factorial.target());
+  simulator.RunFrom(masm.GetLabelAddress<Instruction*>(&factorial));
   printf("factorial(%ld) = %ld\n", input_val, simulator.xreg(0));
 
   return 0;
 }
-#endif
+#else
+// Without the simulator there is nothing to test.
+int main(void) { return 0; }
+#endif  // USE_SIMULATOR
+#endif  // TEST_EXAMPLES

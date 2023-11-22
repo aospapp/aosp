@@ -1,48 +1,52 @@
 page.title=Download Android Studio and SDK Tools
 page.tags=sdk, android studio
 page.template=sdk
+page.image=images/cards/android-studio_2x.png
 header.hide=1
 page.metaDescription=Download the official Android IDE and developer tools to build apps for Android phones, tablets, wearables, TVs, and more.
 
-studio.version=1.0.1
+studio.version=1.3.2.0
 
-studio.linux_bundle_download=android-studio-ide-135.1641136-linux.zip
-studio.linux_bundle_bytes=243917559
-studio.linux_bundle_checksum=7c8f2d0cec21b98984cdba45ab5a25f26d67f23a
+studio.linux_bundle_download=android-studio-ide-141.2178183-linux.zip
+studio.linux_bundle_bytes=352010593
+studio.linux_bundle_checksum=cf780413f8c8223eb348bd27c19a9c04b75eaeb2
 
-studio.mac_bundle_download=android-studio-ide-1641136.dmg
-studio.mac_bundle_bytes=245729073
-studio.mac_bundle_checksum=49506ba2cf6b56be4f7d07e6a00c4ec3ba2249d5
+studio.mac_bundle_download=android-studio-ide-141.2178183-mac.dmg
+studio.mac_bundle_bytes=368335367
+studio.mac_bundle_checksum=75b67eb15a34a152a40e7189484ab0ebc375b877
 
-studio.win_bundle_exe_download=android-studio-bundle-135.1641136.exe
-studio.win_bundle_exe_bytes=868344232
-studio.win_bundle_exe_checksum=9c1c8ea6aa17fb74e0593c62fd48ee62a8950be7
-
-studio.win_notools_exe_download=android-studio-ide-135.1641136.exe
-studio.win_notools_exe_bytes=260272840
-studio.win_notools_exe_checksum=464d1c5497ab3d1bdef441365791ab36c89cd5ae
-
-studio.win_bundle_download=android-studio-ide-135.1641136-windows.zip
-studio.win_bundle_bytes=246249059
-studio.win_bundle_checksum=6d6856aca83f6ff747ca40b10f70edfbbcccd91c
+studio.win_bundle_download=android-studio-ide-141.2178183-windows.zip
+studio.win_bundle_bytes=344424713
+studio.win_bundle_checksum=3134f226b5f3c3f74d4fc2d9cff03a4458f01d69
 
 
+studio.win_bundle_exe_download=android-studio-bundle-141.2178183-windows.exe
+studio.win_bundle_exe_bytes=1136982712
+studio.win_bundle_exe_checksum=c7d39c529dd434489da9d086ff689d34dc791526
 
-sdk.linux_download=android-sdk_r24.0.2-linux.tgz
-sdk.linux_bytes=140097024
-sdk.linux_checksum=b6fd75e8b06b0028c2427e6da7d8a09d8f956a86
+studio.win_notools_exe_download=android-studio-ide-141.2178183-windows.exe
+studio.win_notools_exe_bytes=321810248
+studio.win_notools_exe_checksum=b5d1aaa000729c03a3cf980add79d1b93121c56d
 
-sdk.mac_download=android-sdk_r24.0.2-macosx.zip
-sdk.mac_bytes=87262823
-sdk.mac_checksum=3ab5e0ab0db5e7c45de9da7ff525dee6cfa97455
 
-sdk.win_download=android-sdk_r24.0.2-windows.zip
-sdk.win_bytes=139473113
-sdk.win_checksum=51269c8336f936fc9b9538f9b9ca236b78fb4e4b
 
-sdk.win_installer=installer_r24.0.2-windows.exe
-sdk.win_installer_bytes=91428280
-sdk.win_installer_checksum=edac14e1541e97d68821fa3a709b4ea8c659e676
+
+sdk.linux_download=android-sdk_r24.3.4-linux.tgz
+sdk.linux_bytes=309138331
+sdk.linux_checksum=fb293d7bca42e05580be56b1adc22055d46603dd
+
+sdk.mac_download=android-sdk_r24.3.4-macosx.zip
+sdk.mac_bytes=98340900
+sdk.mac_checksum=128f10fba668ea490cc94a08e505a48a608879b9
+
+sdk.win_download=android-sdk_r24.3.4-windows.zip
+sdk.win_bytes=187496897
+sdk.win_checksum=4a8718fb4a2bf2128d34b92f23ddd79fc65839e7
+
+
+sdk.win_installer=installer_r24.3.4-windows.exe
+sdk.win_installer_bytes=139477985
+sdk.win_installer_checksum=094dd45f98a31f839feae898b48f23704f2878dd
 
 
 
@@ -53,7 +57,6 @@ sdk.win_installer_checksum=edac14e1541e97d68821fa3a709b4ea8c659e676
 
 <style type="text/css">
   .offline {display:none;}
-  a.download-bundle-button {display:block;}
   h2.feature {
     padding-top:30px;
     margin-top:0;
@@ -61,20 +64,7 @@ sdk.win_installer_checksum=edac14e1541e97d68821fa3a709b4ea8c659e676
   }
   .feature-blurb {
   margin:0px; font-size:16px; font-weight:300;
-  padding:40px 0 0 0;
-  }
-
-  .landing-button.green {
-    font-size:16px;
-    background-color:#90c653;
-    padding:8px 10px 10px;
-    margin:0;
-    width:206px;
-    text-align:center;
-  }
-
-  .landing-button.green:hover {
-    background-color:#85b84f;
+  padding-top:40px;
   }
 
   .landing-button .small {
@@ -141,7 +131,7 @@ This is the Android Software Development Kit License Agreement
 
 3.2 You agree that Google or third parties own all legal right, title and interest in and to the SDK, including any Intellectual Property Rights that subsist in the SDK. "Intellectual Property Rights" means any and all rights under patent law, copyright law, trade secret law, trademark law, and any and all other proprietary rights. Google reserves all rights not expressly granted to you.
 
-3.3 You may not use the SDK for any purpose not expressly permitted by this License Agreement.  Except to the extent required by applicable third party licenses, you may not: (a) copy (except for backup purposes), modify, adapt, redistribute, decompile, reverse engineer, disassemble, or create derivative works of the SDK or any part of the SDK; or (b) load any part of the SDK onto a mobile handset or any other hardware device except a personal computer, combine any part of the SDK with other software, or distribute any software or device incorporating a part of the SDK.
+3.3 You may not use the SDK for any purpose not expressly permitted by this License Agreement. Except to the extent required by applicable third party licenses, you may not: (a) copy (except for backup purposes), modify, adapt, redistribute, decompile, reverse engineer, disassemble, or create derivative works of the SDK or any part of the SDK; or (b) load any part of the SDK onto a mobile handset or any other hardware device except a personal computer, combine any part of the SDK with other software, or distribute any software or device incorporating a part of the SDK.
 
 3.4 You agree that you will not take any actions that may cause or result in the fragmentation of Android, including but not limited to distributing, participating in the creation of, or promoting in any way a software development kit derived from the SDK.
 
@@ -244,7 +234,7 @@ This is the Android Software Development Kit License Agreement
 14.7 This License Agreement, and your relationship with Google under this License Agreement, shall be governed by the laws of the State of California without regard to its conflict of laws provisions. You and Google agree to submit to the exclusive jurisdiction of the courts located within the county of Santa Clara, California to resolve any legal matter arising from this License Agreement. Notwithstanding this, you agree that Google shall still be allowed to apply for injunctive remedies (or an equivalent type of urgent legal relief) in any jurisdiction.
 
 
-<em>November 13, 2012</em>
+<em>December 8, 2014</em>
 </div>
 
 
@@ -282,7 +272,7 @@ This is the Android Software Development Kit License Agreement
 
 <img src="{@docRoot}images/tools/studio-hero.png"
 srcset="{@docRoot}images/tools/studio-hero_2x.png 2x, {@docRoot}images/tools/studio-hero.png 1x"
-width="760" height="400" alt="" style="margin-bottom:80px" />
+width="760" alt="" />
 
 <div style="color: #fff; width:226px; height:0; overflow:visible; position:absolute; top:40px; left:25px">
 
@@ -291,24 +281,24 @@ width="760" height="400" alt="" style="margin-bottom:80px" />
 <p style="font-size: 16px; color:#bbb; position: absolute;left: 297px; top: 5px; display: block;
 width: 400px;text-align: center;">The official Android IDE</p>
 
-<ul style="font-size:12px">
+<ul style="font-size:12px;line-height:19px;">
 <li>Android Studio IDE</li>
 <li>Android SDK tools</li>
 <li>Android 5.0 (Lollipop) Platform</li>
 <li>Android 5.0 emulator system image with Google APIs</li>
 </ul>
 
-
-<a class="online landing-button green download-bundle-button" style="margin-top:30px;"
-href="#Other" >Download Android Studio</a>
+<a class="online landing-button green download-bundle-button"
+href="#Other" >Download Android Studio<br/><span class='small'></span></a>
 
 <!-- this appears when viewing the offline docs -->
 <p class="offline">
 To get Android Studio or stand-alone SDK tools, visit <a
 href="http://developer.android.com/sdk/index.html">developer.android.com/sdk/</a>
 </p>
+</div>
 
-<ul style="margin-top:50px;color:#444">
+<ul>
   <li><a href="#Requirements">System Requirements</a></li>
   <li><a href="#Other">Other Download Options</a></li>
   <li><a href="{@docRoot}sdk/installing/migrate.html">Migrating to Android Studio</a></li>
@@ -316,14 +306,13 @@ href="http://developer.android.com/sdk/index.html">developer.android.com/sdk/</a
 target="_blank">Take a Survey</a></li>
 </ul>
 
-</div>
 
 
 
+<div class="cols">
+<h2 class="feature norule col-13">Intelligent code editor</h2>
 
-<h2 class="feature norule" >Intelligent code editor</h2>
-
-<div class="col-9" style="margin:0 20px 0 0">
+<div class="col-9">
   <img src="{@docRoot}images/tools/studio-hero-code.png"
 srcset="{@docRoot}images/tools/studio-hero-code_2x.png 2x, {@docRoot}images/tools/studio-hero-code.png 1x" width="520" />
 </div><!-- end col-9 (left column) -->
@@ -338,9 +327,9 @@ srcset="{@docRoot}images/tools/studio-hero-code_2x.png 2x, {@docRoot}images/tool
 
 
 
-<h2 class="feature norule">Code templates and GitHub integration</h2>
+<h2 class="feature norule col-13">Code templates and GitHub integration</h2>
 
-<div class="col-9" style="margin:0 20px 0 0">
+<div class="col-9">
   <img src="{@docRoot}images/tools/studio-hero-import.png"
 srcset="{@docRoot}images/tools/studio-hero-import_2x.png 2x, {@docRoot}images/tools/studio-hero-import.png 1x" width="520" />
 </div><!-- end col-9 (left column) -->
@@ -355,9 +344,9 @@ srcset="{@docRoot}images/tools/studio-hero-import_2x.png 2x, {@docRoot}images/to
 
 
 
-<h2 class="feature norule">Multi-screen app development</h2>
+<h2 class="feature norule col-13">Multi-screen app development</h2>
 
-<div class="col-9" style="margin:0 20px 0 0">
+<div class="col-9">
   <img src="{@docRoot}images/tools/studio-hero-screens.png"
 srcset="{@docRoot}images/tools/studio-hero-screens_2x.png 2x, {@docRoot}images/tools/studio-hero-screens.png 1x" width="520" />
 </div><!-- end col-9 (left column) -->
@@ -372,9 +361,9 @@ srcset="{@docRoot}images/tools/studio-hero-screens_2x.png 2x, {@docRoot}images/t
 
 
 
-<h2 class="feature norule">Virtual devices for all shapes and sizes</h2>
+<h2 class="feature norule col-13">Virtual devices for all shapes and sizes</h2>
 
-<div class="col-9" style="margin:0 20px 0 0">
+<div class="col-9">
   <img src="{@docRoot}images/tools/studio-hero-avds.png"
 srcset="{@docRoot}images/tools/studio-hero-avds_2x.png 2x, {@docRoot}images/tools/studio-hero-avds.png 1x" width="520" />
 </div><!-- end col-9 (left column) -->
@@ -388,10 +377,10 @@ srcset="{@docRoot}images/tools/studio-hero-avds_2x.png 2x, {@docRoot}images/tool
 
 
 
-<h2 class="feature norule">
+<h2 class="feature norule col-13">
 Android builds evolved, with Gradle</h2>
 
-<div class="col-9" style="margin:0 20px 0 0">
+<div class="col-9">
   <img src="{@docRoot}images/tools/studio-hero-gradle.png"
 srcset="{@docRoot}images/tools/studio-hero-gradle_2x.png 2x, {@docRoot}images/tools/studio-hero-gradle.png 1x" width="520" />
 </div><!-- end col-9 (left column) -->
@@ -402,8 +391,7 @@ srcset="{@docRoot}images/tools/studio-hero-gradle_2x.png 2x, {@docRoot}images/to
   <p>Build APKs from Android Studio or the command line.</p>
 </div>
 
-
-
+</div>
 
 <h2 class="feature norule">More about Android Studio</h2>
 <div style="background:#424242;padding:30px; color:#fff;margin:0 0 15px;">
@@ -426,8 +414,7 @@ href="" >Download Android Studio</a>
 
 <p style="margin:0">
 For more details about features available in Android Studio,
-read the guide to <a href="{@docRoot}tools/studio/index.html"
-  >Android Studio Basics</a>.</p>
+read the overview at <a href="{@docRoot}tools/studio/index.html">Android Studio</a>.</p>
 </div>
 
 

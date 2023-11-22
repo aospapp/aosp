@@ -45,18 +45,4 @@ public final class IntentUtils {
             return false;
         }
     }
-
-    /**
-     * Returns {@code true} if the URI is a content URI pointed at a content provider.
-     */
-    public static boolean isContentUri(Uri uri) {
-        return "content".equals(uri.getScheme());
-    }
-
-    /**
-     * Returns {@code true} if the URI is a serialized intent.
-     */
-    public static boolean isIntentUri(Uri uri) {
-        return "intent".equals(uri.getScheme());
-    }
 }

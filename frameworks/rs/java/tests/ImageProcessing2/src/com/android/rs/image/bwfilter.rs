@@ -15,7 +15,7 @@
  */
 
 #include "ip.rsh"
-//#pragma rs_fp_relaxed
+#pragma rs_fp_relaxed
 
 static float sr = 0.f;
 static float sg = 0.f;

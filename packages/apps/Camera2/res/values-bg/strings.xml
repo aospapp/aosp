@@ -65,13 +65,18 @@
     <string name="try_to_set_local_album_available_offline" msgid="3363125545009254117">"Този елемент се съхранява локално и е налице офлайн."</string>
     <string name="please_wait" msgid="1416313324505140068">"Моля, изчакайте"</string>
     <string name="camera_error_title" msgid="6200558085072670067">"Грешка в камерата"</string>
-    <string name="cannot_connect_camera" msgid="4311259792784598381">"Не може да се установи връзка с камерата."</string>
-    <string name="camera_disabled" msgid="6963443549010040595">"Камерата е деактивирана заради правилата за сигурност."</string>
+    <string name="error_cannot_connect_camera" msgid="2713059773224193128">"Не може да се установи връзка с камерата."</string>
+    <string name="error_camera_disabled" msgid="5582398275657419692">"Камерата е деактивирана заради правилата за сигурност."</string>
+    <string name="error_media_storage_failure" msgid="7711687330673245629">"При запазването на снимката или видеоклипа ви възникна проблем."</string>
+    <string name="error_permissions" msgid="3454167403425651254">"Приложението няма критично важни разрешения, необходими, за да работи. Моля, проверете настройките си за разрешенията."</string>
+    <string name="reason_storage_failure" msgid="6818898304774654969">"Неуспех при съхраняването на снимките."</string>
     <string name="wait" msgid="765601745709933047">"Моля, изчакайте…"</string>
     <string name="no_storage" product="default" msgid="5922012950780548098">"Поставете SD карта, преди да използвате камерата."</string>
     <string name="preparing_sd" product="default" msgid="7435693655017362767">"SD картата се подготвя…"</string>
     <string name="access_sd_fail" product="default" msgid="2634861611082499811">"Няма достъп до SD картата."</string>
     <string name="time_lapse_title" msgid="3267978566401228497">"Запис на цайтрафера"</string>
+    <string name="feedback_description_camera_access" msgid="419090951070170132">"Приложението не можа да установи връзка с камерата"</string>
+    <string name="feedback_description_save_photo" msgid="8658767358989083228">"Снимката или видеоклипът не се запазиха на устройството."</string>
     <string name="capturing" msgid="5255164204641920893">"Заснема се"</string>
     <string name="pref_camera_id_title" msgid="4680648115225411185">"Избиране на камера"</string>
     <string name="pref_camera_id_entry_back" msgid="6386943973628160510">"Задна"</string>
@@ -153,6 +158,8 @@
     <string name="pref_camera_id_label_front" msgid="349308803062874842">"ЗАДНА КАМЕРА"</string>
     <string name="dialog_ok" msgid="774141340500181131">"ОK"</string>
     <string name="dialog_cancel" msgid="692365061128351656">"Отказ"</string>
+    <string name="dialog_report" msgid="7616428760369876209">"Сигнал"</string>
+    <string name="dialog_dismiss" msgid="1382550604990470119">"Отхвърляне"</string>
     <string name="spaceIsLow_content" product="default" msgid="4522771065344332702">"Мястото на SD картата ви привършва. Променете настройката за качество или изтрийте някои изображения или други файлове."</string>
     <string name="video_reach_size_limit" msgid="9196836111505731836">"Достигнато е ограничението за размер."</string>
     <string name="pano_too_fast_prompt" msgid="2503148095578052177">"Твърде бързо"</string>
@@ -212,6 +219,11 @@
     <string name="btn_mode_list_toggle" msgid="3986242443098400164">"Списък с режими"</string>
     <string name="accessibility_filmstrip_toggle" msgid="6966978483643396442">"Превключване на филмовата лента"</string>
     <string name="btn_filmstrip_toggle" msgid="3666693972882351490">"Филмова лента"</string>
+    <string name="accessibility_mode_zoom_plus" msgid="4967389173992713073">"Увеличаване на мащаба"</string>
+    <string name="btn_zoom_plus" msgid="4645138949375961656">"Увеличаване"</string>
+    <string name="accessibility_mode_zoom_minus" msgid="8850636036927992409">"Намаляване на мащаба"</string>
+    <string name="btn_zoom_minus" msgid="5436240345362098272">"Намаляване"</string>
+    <string name="accessibility_zoom_announcement" msgid="6976673411698319811">"Стойността на мащаба е %.1f"</string>
     <string name="capital_on" msgid="1118214824959797269">"ВКЛ."</string>
     <string name="capital_off" msgid="3020696135020167263">"ИЗКЛ."</string>
     <string name="video_control_play" msgid="6895236811408921715">"Пускане на видеоклипа"</string>
@@ -264,7 +276,7 @@
     <string name="set_duration" msgid="1638453882581604341">"Задаване на продължителността в секунди"</string>
     <string name="count_down_title_text" msgid="7586031110595513050">"Обратно отброяване до правенето на снимка"</string>
     <string name="remember_location_title" msgid="3045040613094030429">"Да се запомнят ли местоположенията на снимките?"</string>
-    <string name="remember_location_prompt" msgid="5104210757873140169">"Поставете в снимките и видеоклиповете си маркери с местоположенията, на които са направени.\n\nДругите приложения имат достъп до тази информация, както и до запазените ви изображения."</string>
+    <string name="remember_location_prompt" msgid="3006013504489919474">"Поставете в снимките и видеоклиповете си маркери с местоположенията, на които са направени."</string>
     <string name="remember_location_no" msgid="4412802756840226925">"Не, благодаря"</string>
     <string name="remember_location_yes" msgid="4339424460683531388">"Да"</string>
     <string name="camera_menu_more_label" msgid="7951917844735828365">"ОЩЕ ОПЦИИ"</string>
@@ -316,6 +328,7 @@
     <string name="cancel_button_description" msgid="3801167024006905033">"Отказ"</string>
     <string name="done_button_description" msgid="1334963435441544592">"Готово"</string>
     <string name="retake_button_description" msgid="4234613030674787714">"Презаснимане"</string>
+    <string name="review_button_description" msgid="7932122063748430080">"Преглед"</string>
     <string name="share_button_description" msgid="5108508790540832053">"Споделяне"</string>
     <string name="view_button_description" msgid="4985768837891362075">"Изглед"</string>
     <string name="edit_button_description" msgid="98550816724901925">"Редактиране"</string>
@@ -365,4 +378,5 @@
     <string name="cropped_sensor_16x9_aspect_ratio" msgid="4742161537633251795">"С подрязване \n(16:9)"</string>
     <string name="pref_boolean_false" msgid="461317129020087333">"0"</string>
     <string name="pref_boolean_true" msgid="4131945223998878009">"1"</string>
+    <string name="session_saving_image" msgid="8932315404486416826">"Запазва се…"</string>
 </resources>

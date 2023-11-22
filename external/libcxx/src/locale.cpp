@@ -1018,6 +1018,87 @@ extern "C" const int ** __ctype_tolower_loc();
 extern "C" const int ** __ctype_toupper_loc();
 #endif
 
+#ifdef _LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE
+const ctype<char>::mask*
+ctype<char>::classic_table()  _NOEXCEPT
+{
+    static _LIBCPP_CONSTEXPR const ctype<char>::mask builtin_table[table_size] = {
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl | space | blank,
+        cntrl | space,                  cntrl | space,
+        cntrl | space,                  cntrl | space,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        cntrl,                          cntrl,
+        space | blank | print,          punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        digit | print | xdigit,         digit | print | xdigit,
+        digit | print | xdigit,         digit | print | xdigit,
+        digit | print | xdigit,         digit | print | xdigit,
+        digit | print | xdigit,         digit | print | xdigit,
+        digit | print | xdigit,         digit | print | xdigit,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  upper | xdigit | print | alpha,
+        upper | xdigit | print | alpha, upper | xdigit | print | alpha,
+        upper | xdigit | print | alpha, upper | xdigit | print | alpha,
+        upper | xdigit | print | alpha, upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          upper | print | alpha,
+        upper | print | alpha,          punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  lower | xdigit | print | alpha,
+        lower | xdigit | print | alpha, lower | xdigit | print | alpha,
+        lower | xdigit | print | alpha, lower | xdigit | print | alpha,
+        lower | xdigit | print | alpha, lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          lower | print | alpha,
+        lower | print | alpha,          punct | print,
+        punct | print,                  punct | print,
+        punct | print,                  cntrl,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    return builtin_table;
+}
+#else
 const ctype<char>::mask*
 ctype<char>::classic_table()  _NOEXCEPT
 {
@@ -1035,10 +1116,11 @@ ctype<char>::classic_table()  _NOEXCEPT
 // going to end up dereferencing it later...
 #elif defined(__EMSCRIPTEN__)
     return *__ctype_b_loc();
+#elif defined(_NEWLIB_VERSION)
+    // Newlib has a 257-entry table in ctype_.c, where (char)0 starts at [1].
+    return _ctype_ + 1;
 #elif defined(_AIX)
     return (const unsigned int *)__lc_ctype_ptr->obj->mask;
-#elif defined(__ANDROID__)
-    return _ctype_ + 1;
 #else
     // Platform not supported: abort so the person doing the port knows what to
     // fix
@@ -1048,6 +1130,7 @@ ctype<char>::classic_table()  _NOEXCEPT
     return NULL;
 #endif
 }
+#endif
 
 #if defined(__GLIBC__)
 const int*

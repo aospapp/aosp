@@ -23,6 +23,7 @@
 
 #include "gluVarType.hpp"
 #include "deStringUtil.hpp"
+#include "deArrayUtil.hpp"
 
 namespace glu
 {
@@ -168,7 +169,7 @@ bool StructType::operator!= (const StructType& other) const
 
 const char* getStorageName (Storage storage)
 {
-	static const char* const s_names[] = { "in", "out", "const", "uniform", "buffer" };
+	static const char* const s_names[] = { "in", "out", "const", "uniform", "buffer", "patch in", "patch out" };
 
 	return de::getSizedArrayElement<STORAGE_LAST>(s_names, storage);
 }

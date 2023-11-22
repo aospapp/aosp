@@ -18,9 +18,9 @@
 <set xmlns:android="http://schemas.android.com/apk/res/android" >
 
     <objectAnimator
-        android:duration="3300"
+        android:duration="50"
         android:propertyName="rotation"
         android:valueFrom="0"
         android:valueTo="180"
-        android:repeatCount="-1" />
+        android:repeatCount="2" />
 </set>

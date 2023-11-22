@@ -29,6 +29,7 @@ import android.hardware.SensorEventListener2;
 import android.hardware.SensorManager;
 import android.hardware.TriggerEvent;
 import android.hardware.TriggerEventListener;
+import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorNotSupportedException;
 import android.hardware.cts.helpers.SensorTestStateNotSupportedException;
 import android.hardware.cts.helpers.TestSensorEnvironment;
@@ -47,6 +48,7 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -58,8 +60,10 @@ public class SensorTest extends SensorTestCase {
 
     private PowerManager.WakeLock mWakeLock;
     private SensorManager mSensorManager;
+    private TestSensorManager mTestSensorManager;
     private NullTriggerEventListener mNullTriggerEventListener;
     private NullSensorEventListener mNullSensorEventListener;
+    private Sensor mTriggerSensor;
     private List<Sensor> mSensorList;
 
     @Override
@@ -85,6 +89,20 @@ public class SensorTest extends SensorTestCase {
 
     @Override
     protected void tearDown(){
+        if (mSensorManager != null) {
+            // SensorManager will check listener and status, so just unregister listener
+            mSensorManager.unregisterListener(mNullSensorEventListener);
+            if (mTriggerSensor != null) {
+                mSensorManager.cancelTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
+                mTriggerSensor = null;
+            }
+        }
+
+        if (mTestSensorManager != null) {
+            mTestSensorManager.unregisterListener();
+            mTestSensorManager = null;
+        }
+
         if (mWakeLock != null && mWakeLock.isHeld()) {
             mWakeLock.release();
         }
@@ -234,20 +252,20 @@ public class SensorTest extends SensorTestCase {
     }
 
     public void testRequestTriggerWithNonTriggerSensor() {
-        Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (sensor == null) {
+        mTriggerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        if (mTriggerSensor == null) {
             throw new SensorNotSupportedException(Sensor.TYPE_ACCELEROMETER);
         }
-        boolean  result = mSensorManager.requestTriggerSensor(mNullTriggerEventListener, sensor);
+        boolean  result = mSensorManager.requestTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
         assertFalse(result);
     }
 
     public void testCancelTriggerWithNonTriggerSensor() {
-        Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (sensor == null) {
+        mTriggerSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        if (mTriggerSensor == null) {
             throw new SensorNotSupportedException(Sensor.TYPE_ACCELEROMETER);
         }
-        boolean result = mSensorManager.cancelTriggerSensor(mNullTriggerEventListener, sensor);
+        boolean result = mSensorManager.cancelTriggerSensor(mNullTriggerEventListener, mTriggerSensor);
         assertFalse(result);
     }
 
@@ -294,6 +312,7 @@ public class SensorTest extends SensorTestCase {
     // TODO: remove when parameterized tests are supported (see SensorBatchingTests.java)
     @TimeoutReq(minutes=20)
     public void testBatchAndFlush() throws Exception {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         ArrayList<Throwable> errorsFound = new ArrayList<>();
         for (Sensor sensor : mSensorList) {
             verifyRegisterListenerCallFlush(sensor, null /* handler */, errorsFound);
@@ -306,6 +325,7 @@ public class SensorTest extends SensorTestCase {
      */
     @TimeoutReq(minutes=10)
     public void testBatchAndFlushWithHandler() throws Exception {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         Sensor sensor = null;
         for (Sensor s : mSensorList) {
             if (s.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
@@ -323,23 +343,59 @@ public class SensorTest extends SensorTestCase {
                 sensor,
                 SensorManager.SENSOR_DELAY_FASTEST,
                 (int) TimeUnit.SECONDS.toMicros(5));
-        TestSensorManager sensorManager = new TestSensorManager(environment);
+        mTestSensorManager = new TestSensorManager(environment);
 
         HandlerThread handlerThread = new HandlerThread("sensorThread");
         handlerThread.start();
         Handler handler = new Handler(handlerThread.getLooper());
         TestSensorEventListener listener = new TestSensorEventListener(environment, handler);
 
-        CountDownLatch eventLatch = sensorManager.registerListener(listener, 1);
-        listener.waitForEvents(eventLatch, 1);
-        CountDownLatch flushLatch = sensorManager.requestFlush();
-        listener.waitForFlushComplete(flushLatch);
+        CountDownLatch eventLatch = mTestSensorManager.registerListener(listener, 1);
+        listener.waitForEvents(eventLatch, 1, true);
+        CountDownLatch flushLatch = mTestSensorManager.requestFlush();
+        listener.waitForFlushComplete(flushLatch, true);
+        listener.assertEventsReceivedInHandler();
+    }
+
+    /**
+     *  Explicit testing the SensorManager.registerListener(SensorEventListener, Sensor, int, int).
+     */
+    @TimeoutReq(minutes=10)
+    public void testBatchAndFlushUseDefaultHandler() throws Exception {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
+        Sensor sensor = null;
+        for (Sensor s : mSensorList) {
+            if (s.getReportingMode() == Sensor.REPORTING_MODE_CONTINUOUS) {
+                sensor = s;
+                break;
+            }
+        }
+        if (sensor == null) {
+            throw new SensorTestStateNotSupportedException(
+                    "There are no Continuous sensors in the device.");
+        }
+
+        TestSensorEnvironment environment = new TestSensorEnvironment(
+                getContext(),
+                sensor,
+                SensorManager.SENSOR_DELAY_FASTEST,
+                (int) TimeUnit.SECONDS.toMicros(5));
+        mTestSensorManager = new TestSensorManager(environment);
+
+        TestSensorEventListener listener = new TestSensorEventListener(environment, null);
+
+        // specifyHandler <= false, use the SensorManager API without Handler parameter
+        CountDownLatch eventLatch = mTestSensorManager.registerListener(listener, 1, false);
+        listener.waitForEvents(eventLatch, 1, true);
+        CountDownLatch flushLatch = mTestSensorManager.requestFlush();
+        listener.waitForFlushComplete(flushLatch, true);
         listener.assertEventsReceivedInHandler();
     }
 
     // TODO: after L release move to SensorBatchingTests and run in all sensors with default
     //       verifications enabled
-    public void testBatchAndFlushWithMutipleSensors() throws Exception {
+    public void testBatchAndFlushWithMultipleSensors() throws Exception {
+        SensorCtsHelper.sleep(3, TimeUnit.SECONDS);
         final int maxSensors = 3;
         final int maxReportLatencyUs = (int) TimeUnit.SECONDS.toMicros(10);
         List<Sensor> sensorsToTest = new ArrayList<Sensor>();
@@ -530,10 +586,10 @@ public class SensorTest extends SensorTestCase {
             try {
                 CountDownLatch eventLatch = sensorManager.registerListener(listener, mEventCount);
                 if (sensorReportingMode == Sensor.REPORTING_MODE_CONTINUOUS) {
-                    listener.waitForEvents(eventLatch, mEventCount);
+                    listener.waitForEvents(eventLatch, mEventCount, true);
                 }
                 CountDownLatch flushLatch = sensorManager.requestFlush();
-                listener.waitForFlushComplete(flushLatch);
+                listener.waitForFlushComplete(flushLatch, true);
             } finally {
                 sensorManager.unregisterListener();
             }
@@ -552,4 +608,5 @@ public class SensorTest extends SensorTestCase {
         @Override
         public void onAccuracyChanged(Sensor sensor, int accuracy) {}
     }
+
 }

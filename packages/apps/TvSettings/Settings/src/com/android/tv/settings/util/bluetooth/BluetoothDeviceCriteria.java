@@ -58,7 +58,7 @@ public class BluetoothDeviceCriteria {
             return false;
         }
 
-        if (!isMatchingDevieClass(device.getBluetoothClass().getDeviceClass())) {
+        if (!isMatchingDeviceClass(device.getBluetoothClass().getDeviceClass())) {
             return false;
         }
 
@@ -81,7 +81,7 @@ public class BluetoothDeviceCriteria {
      * Override this method to restrict specific device classes that match.
      * @param majorMinorClass constant from {@link BluetoothClass.Device}
      */
-    public boolean isMatchingDevieClass(int majorMinorClass) {
+    public boolean isMatchingDeviceClass(int majorMinorClass) {
         return true;
     }
 }

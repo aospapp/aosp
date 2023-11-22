@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CLANG_CODEGEN_CGRECORDLAYOUT_H
-#define CLANG_CODEGEN_CGRECORDLAYOUT_H
+#ifndef LLVM_CLANG_LIB_CODEGEN_CGRECORDLAYOUT_H
+#define LLVM_CLANG_LIB_CODEGEN_CGRECORDLAYOUT_H
 
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
@@ -109,8 +109,8 @@ struct CGBitFieldInfo {
 class CGRecordLayout {
   friend class CodeGenTypes;
 
-  CGRecordLayout(const CGRecordLayout &) LLVM_DELETED_FUNCTION;
-  void operator=(const CGRecordLayout &) LLVM_DELETED_FUNCTION;
+  CGRecordLayout(const CGRecordLayout &) = delete;
+  void operator=(const CGRecordLayout &) = delete;
 
 private:
   /// The LLVM type corresponding to this record layout; used when

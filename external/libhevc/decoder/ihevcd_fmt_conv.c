@@ -752,6 +752,24 @@ IHEVCD_ERROR_T ihevcd_fmt_conv(codec_t *ps_codec,
         pu1_y_src   = pu1_luma + cur_row * ps_codec->i4_strd;
         pu1_uv_src  = pu1_chroma + (cur_row / 2) * ps_codec->i4_strd;
 
+        /* In case of shared mode, with 420P output, get chroma destination */
+        if((1 == ps_codec->i4_share_disp_buf) && (IV_YUV_420P == ps_codec->e_chroma_fmt))
+        {
+            WORD32 i;
+            for(i = 0; i < ps_codec->i4_share_disp_buf_cnt; i++)
+            {
+                WORD32 diff = ps_disp_pic->pu1_luma - ps_codec->s_disp_buffer[i].pu1_bufs[0];
+                if(diff == (ps_codec->i4_strd * PAD_TOP + PAD_LEFT))
+                {
+                    pu1_u_dst = ps_codec->s_disp_buffer[i].pu1_bufs[1];
+                    pu1_u_dst += (ps_codec->i4_strd * PAD_TOP) / 4 + (PAD_LEFT / 2);
+
+                    pu1_v_dst = ps_codec->s_disp_buffer[i].pu1_bufs[2];
+                    pu1_v_dst += (ps_codec->i4_strd * PAD_TOP) / 4 + (PAD_LEFT / 2);
+                    break;
+                }
+            }
+        }
         pu2_rgb_dst_tmp  = (UWORD16 *)pu1_y_dst;
         pu2_rgb_dst_tmp  += cur_row * ps_codec->i4_disp_strd;
         pu4_rgb_dst_tmp  = (UWORD32 *)pu1_y_dst;

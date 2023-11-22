@@ -268,6 +268,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                 @Override
                 public void onCompletion(MediaPlayer mp) {
                     isPlayingBack = false;
+                    mPlaybackView.stopPlayback();
                     captureButton.setEnabled(true);
                     mStatusLabel.setText(getResources().getString(R.string.status_ready));
                 }
@@ -547,11 +548,22 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                 break;
             }
         }
-        // Second try to find one with similar if not the same aspect ratio
+        // Second try to find same ratio in size
+        if (matchedSize == null) {
+            for (int i = mPreviewSizes.size() - 1; i >= 0; i--) {
+                if (mPreviewSizes.get(i).width * recordSize.height ==
+                        mPreviewSizes.get(i).height * recordSize.width) {
+                    matchedSize = mCamera.new Size(mPreviewSizes.get(i).width,
+                            mPreviewSizes.get(i).height);
+                    break;
+                }
+            }
+        }
+        //Third try to find one with similar if not the same apect ratio
         if (matchedSize == null) {
             for (int i = mPreviewSizes.size() - 1; i >= 0; i--) {
                 if (Math.abs((float)mPreviewSizes.get(i).width * recordSize.height /
-                        mPreviewSizes.get(i).height / recordSize.width - 1) < 0.1) {
+                        mPreviewSizes.get(i).height / recordSize.width - 1) < 0.12) {
                     matchedSize = mCamera.new Size(mPreviewSizes.get(i).width,
                             mPreviewSizes.get(i).height);
                     break;

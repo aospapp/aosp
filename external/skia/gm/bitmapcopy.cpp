@@ -77,6 +77,8 @@ protected:
 
         canvas->clear(0xFFDDDDDD);
         paint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&paint);
+        
         SkScalar width = SkIntToScalar(40);
         SkScalar height = SkIntToScalar(40);
         if (paint.getFontSpacing() > height) {
@@ -111,9 +113,6 @@ protected:
             canvas->translate(horizOffset, 0);
         }
     }
-
-    virtual uint32_t onGetFlags() const { return kSkipPicture_Flag
-                                               | kSkipPipe_Flag; }
 
 private:
     typedef GM INHERITED;

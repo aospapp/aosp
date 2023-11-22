@@ -26,19 +26,6 @@ SkComposeShader::SkComposeShader(SkShader* sA, SkShader* sB, SkXfermode* mode) {
     SkSafeRef(mode);
 }
 
-SkComposeShader::SkComposeShader(SkReadBuffer& buffer) :
-    INHERITED(buffer) {
-    fShaderA = buffer.readShader();
-    if (NULL == fShaderA) {
-        fShaderA = SkNEW_ARGS(SkColorShader, ((SkColor)0));
-    }
-    fShaderB = buffer.readShader();
-    if (NULL == fShaderB) {
-        fShaderB = SkNEW_ARGS(SkColorShader, ((SkColor)0));
-    }
-    fMode = buffer.readXfermode();
-}
-
 SkComposeShader::~SkComposeShader() {
     SkSafeUnref(fMode);
     fShaderB->unref();
@@ -66,8 +53,17 @@ private:
 };
 #define SkAutoAlphaRestore(...) SK_REQUIRE_LOCAL_VAR(SkAutoAlphaRestore)
 
+SkFlattenable* SkComposeShader::CreateProc(SkReadBuffer& buffer) {
+    SkAutoTUnref<SkShader> shaderA(buffer.readShader());
+    SkAutoTUnref<SkShader> shaderB(buffer.readShader());
+    SkAutoTUnref<SkXfermode> mode(buffer.readXfermode());
+    if (!shaderA.get() || !shaderB.get()) {
+        return NULL;
+    }
+    return SkNEW_ARGS(SkComposeShader, (shaderA, shaderB, mode));
+}
+
 void SkComposeShader::flatten(SkWriteBuffer& buffer) const {
-    this->INHERITED::flatten(buffer);
     buffer.writeFlattenable(fShaderA);
     buffer.writeFlattenable(fShaderB);
     buffer.writeFlattenable(fMode);

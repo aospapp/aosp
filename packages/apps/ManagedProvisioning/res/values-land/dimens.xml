@@ -17,5 +17,6 @@
  */
 -->
 <resources>
-    <dimen name="main_text_padding_left_right">48dp</dimen>
+    <!-- Dialog Fragment text -->
+    <dimen name="dialog_fragment_width">356dp</dimen>
 </resources>

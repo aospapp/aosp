@@ -108,7 +108,8 @@ class HDMIAudioCaps {
     void getChannelMasksForAF(String8& masks);
     bool supportsFormat(audio_format_t format,
                                       uint32_t sampleRate,
-                                      uint32_t channelCount);
+                                      uint32_t channelCount,
+                                      bool isIec958NonAudio);
 
     bool basicAudioSupport() const { return mBasicAudioSupported; }
     uint16_t speakerAllocation() const { return mSpeakerAlloc; }

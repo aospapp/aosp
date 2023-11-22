@@ -16,6 +16,7 @@
 
 package org.ccil.cowan.tagsoup;
 import java.util.HashMap;
+import java.util.Locale;
 
 /**
 Abstract class representing a TSSL schema.
@@ -53,7 +54,7 @@ public abstract class Schema {
 
 	public void elementType(String name, int model, int memberOf, int flags) {
 		ElementType e = new ElementType(name, model, memberOf, flags, this);
-		theElementTypes.put(name.toLowerCase(), e);
+		theElementTypes.put(name.toLowerCase(Locale.ROOT), e);
 		if (memberOf == M_ROOT) theRoot = e;
 		}
 
@@ -119,7 +120,7 @@ public abstract class Schema {
 	**/
 
 	public ElementType getElementType(String name) {
-		return (ElementType)(theElementTypes.get(name.toLowerCase()));
+		return (ElementType)(theElementTypes.get(name.toLowerCase(Locale.ROOT)));
 		}
 
 	/**

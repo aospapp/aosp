@@ -42,7 +42,9 @@
 #include "./rate_hist.h"
 #include "./vpxstats.h"
 #include "./warnings.h"
+#if CONFIG_WEBM_IO
 #include "./webmenc.h"
+#endif
 #include "./y4minput.h"
 
 /* Swallow warnings about unused results of fread/fwrite */
@@ -123,55 +125,6 @@ int fourcc_is_ivf(const char detect[4]) {
   return 0;
 }
 
-#if CONFIG_WEBM_IO
-/* Murmur hash derived from public domain reference implementation at
- *   http:// sites.google.com/site/murmurhash/
- */
-static unsigned int murmur(const void *key, int len, unsigned int seed) {
-  const unsigned int m = 0x5bd1e995;
-  const int r = 24;
-
-  unsigned int h = seed ^ len;
-
-  const unsigned char *data = (const unsigned char *)key;
-
-  while (len >= 4) {
-    unsigned int k;
-
-    k  = (unsigned int)data[0];
-    k |= (unsigned int)data[1] << 8;
-    k |= (unsigned int)data[2] << 16;
-    k |= (unsigned int)data[3] << 24;
-
-    k *= m;
-    k ^= k >> r;
-    k *= m;
-
-    h *= m;
-    h ^= k;
-
-    data += 4;
-    len -= 4;
-  }
-
-  switch (len) {
-    case 3:
-      h ^= data[2] << 16;
-    case 2:
-      h ^= data[1] << 8;
-    case 1:
-      h ^= data[0];
-      h *= m;
-  };
-
-  h ^= h >> 13;
-  h *= m;
-  h ^= h >> 15;
-
-  return h;
-}
-#endif  // CONFIG_WEBM_IO
-
 static const arg_def_t debugmode = ARG_DEF("D", "debug", 0,
                                            "Debug mode (makes output deterministic)");
 static const arg_def_t outputfile = ARG_DEF("o", "output", 1,
@@ -180,6 +133,10 @@ static const arg_def_t use_yv12 = ARG_DEF(NULL, "yv12", 0,
                                           "Input file is YV12 ");
 static const arg_def_t use_i420 = ARG_DEF(NULL, "i420", 0,
                                           "Input file is I420 (default)");
+static const arg_def_t use_i422 = ARG_DEF(NULL, "i422", 0,
+                                          "Input file is I422");
+static const arg_def_t use_i444 = ARG_DEF(NULL, "i444", 0,
+                                          "Input file is I444");
 static const arg_def_t codecarg = ARG_DEF(NULL, "codec", 1,
                                           "Codec to use");
 static const arg_def_t passes           = ARG_DEF("p", "passes", 1,
@@ -188,6 +145,10 @@ static const arg_def_t pass_arg         = ARG_DEF(NULL, "pass", 1,
                                                   "Pass to execute (1/2)");
 static const arg_def_t fpf_name         = ARG_DEF(NULL, "fpf", 1,
                                                   "First pass statistics file name");
+#if CONFIG_FP_MB_STATS
+static const arg_def_t fpmbf_name         = ARG_DEF(NULL, "fpmbf", 1,
+                                      "First pass block statistics file name");
+#endif
 static const arg_def_t limit = ARG_DEF(NULL, "limit", 1,
                                        "Stop encoding after n input frames");
 static const arg_def_t skip = ARG_DEF(NULL, "skip", 1,
@@ -256,6 +217,7 @@ static const arg_def_t width            = ARG_DEF("w", "width", 1,
                                                   "Frame width");
 static const arg_def_t height           = ARG_DEF("h", "height", 1,
                                                   "Frame height");
+#if CONFIG_WEBM_IO
 static const struct arg_enum_list stereo_mode_enum[] = {
   {"mono", STEREO_FORMAT_MONO},
   {"left-right", STEREO_FORMAT_LEFT_RIGHT},
@@ -266,6 +228,7 @@ static const struct arg_enum_list stereo_mode_enum[] = {
 };
 static const arg_def_t stereo_mode      = ARG_DEF_ENUM(NULL, "stereo-mode", 1,
                                                        "Stereo 3D video format", stereo_mode_enum);
+#endif
 static const arg_def_t timebase         = ARG_DEF(NULL, "timebase", 1,
                                                   "Output timestamp precision (fractional seconds)");
 static const arg_def_t error_resilient  = ARG_DEF(NULL, "error-resilient", 1,
@@ -274,8 +237,13 @@ static const arg_def_t lag_in_frames    = ARG_DEF(NULL, "lag-in-frames", 1,
                                                   "Max number of frames to lag");
 
 static const arg_def_t *global_args[] = {
-  &use_yv12, &use_i420, &usage, &threads, &profile,
-  &width, &height, &stereo_mode, &timebase, &framerate,
+  &use_yv12, &use_i420, &use_i422, &use_i444,
+  &usage, &threads, &profile,
+  &width, &height,
+#if CONFIG_WEBM_IO
+  &stereo_mode,
+#endif
+  &timebase, &framerate,
   &error_resilient,
   &lag_in_frames, NULL
 };
@@ -284,6 +252,10 @@ static const arg_def_t dropframe_thresh   = ARG_DEF(NULL, "drop-frame", 1,
                                                     "Temporal resampling threshold (buf %)");
 static const arg_def_t resize_allowed     = ARG_DEF(NULL, "resize-allowed", 1,
                                                     "Spatial resampling enabled (bool)");
+static const arg_def_t resize_width       = ARG_DEF(NULL, "resize-width", 1,
+                                                    "Width of encoded frame");
+static const arg_def_t resize_height      = ARG_DEF(NULL, "resize-height", 1,
+                                                    "Height of encoded frame");
 static const arg_def_t resize_up_thresh   = ARG_DEF(NULL, "resize-up", 1,
                                                     "Upscale threshold (buf %)");
 static const arg_def_t resize_down_thresh = ARG_DEF(NULL, "resize-down", 1,
@@ -314,10 +286,10 @@ static const arg_def_t buf_initial_sz     = ARG_DEF(NULL, "buf-initial-sz", 1,
 static const arg_def_t buf_optimal_sz     = ARG_DEF(NULL, "buf-optimal-sz", 1,
                                                     "Client optimal buffer size (ms)");
 static const arg_def_t *rc_args[] = {
-  &dropframe_thresh, &resize_allowed, &resize_up_thresh, &resize_down_thresh,
-  &end_usage, &target_bitrate, &min_quantizer, &max_quantizer,
-  &undershoot_pct, &overshoot_pct, &buf_sz, &buf_initial_sz, &buf_optimal_sz,
-  NULL
+  &dropframe_thresh, &resize_allowed, &resize_width, &resize_height,
+  &resize_up_thresh, &resize_down_thresh, &end_usage, &target_bitrate,
+  &min_quantizer, &max_quantizer, &undershoot_pct, &overshoot_pct, &buf_sz,
+  &buf_initial_sz, &buf_optimal_sz, NULL
 };
 
 
@@ -400,17 +372,26 @@ static const arg_def_t frame_parallel_decoding = ARG_DEF(
     NULL, "frame-parallel", 1, "Enable frame parallel decodability features");
 static const arg_def_t aq_mode = ARG_DEF(
     NULL, "aq-mode", 1,
-    "Adaptive q mode (0: off (by default), 1: variance 2: complexity, "
+    "Adaptive quantization mode (0: off (default), 1: variance 2: complexity, "
     "3: cyclic refresh)");
 static const arg_def_t frame_periodic_boost = ARG_DEF(
     NULL, "frame_boost", 1,
-    "Enable frame periodic boost (0: off (by default), 1: on)");
+    "Enable frame periodic boost (0: off (default), 1: on)");
+
+static const struct arg_enum_list tune_content_enum[] = {
+  {"default", VP9E_CONTENT_DEFAULT},
+  {"screen", VP9E_CONTENT_SCREEN},
+  {NULL, 0}
+};
+
+static const arg_def_t tune_content = ARG_DEF_ENUM(
+    NULL, "tune-content", 1, "Tune content type", tune_content_enum);
 
 static const arg_def_t *vp9_args[] = {
   &cpu_used, &auto_altref, &noise_sens, &sharpness, &static_thresh,
   &tile_cols, &tile_rows, &arnr_maxframes, &arnr_strength, &arnr_type,
   &tune_ssim, &cq_level, &max_intra_rate_pct, &lossless,
-  &frame_parallel_decoding, &aq_mode, &frame_periodic_boost,
+  &frame_parallel_decoding, &aq_mode, &frame_periodic_boost, &tune_content,
   NULL
 };
 static const int vp9_arg_ctrl_map[] = {
@@ -420,7 +401,7 @@ static const int vp9_arg_ctrl_map[] = {
   VP8E_SET_ARNR_MAXFRAMES, VP8E_SET_ARNR_STRENGTH, VP8E_SET_ARNR_TYPE,
   VP8E_SET_TUNING, VP8E_SET_CQ_LEVEL, VP8E_SET_MAX_INTRA_BITRATE_PCT,
   VP9E_SET_LOSSLESS, VP9E_SET_FRAME_PARALLEL_DECODING, VP9E_SET_AQ_MODE,
-  VP9E_SET_FRAME_PERIODIC_BOOST,
+  VP9E_SET_FRAME_PERIODIC_BOOST, VP9E_SET_TUNE_CONTENT,
   0
 };
 #endif
@@ -459,7 +440,7 @@ void usage_exit() {
   for (i = 0; i < get_vpx_encoder_count(); ++i) {
     const VpxInterface *const encoder = get_vpx_encoder_by_index(i);
     fprintf(stderr, "    %-6s - %s\n",
-            encoder->name, vpx_codec_iface_name(encoder->interface()));
+            encoder->name, vpx_codec_iface_name(encoder->codec_interface()));
   }
 
   exit(EXIT_FAILURE);
@@ -599,11 +580,19 @@ static int compare_img(const vpx_image_t *const img1,
                              NELEMENTS(vp9_arg_ctrl_map))
 #endif
 
+#if !CONFIG_WEBM_IO
+typedef int stereo_format_t;
+struct EbmlGlobal { int debug; };
+#endif
+
 /* Per-stream configuration */
 struct stream_config {
   struct vpx_codec_enc_cfg  cfg;
   const char               *out_fn;
   const char               *stats_fn;
+#if CONFIG_FP_MB_STATS
+  const char               *fpmb_stats_fn;
+#endif
   stereo_format_t           stereo_fmt;
   int                       arg_ctrls[ARG_CTRL_CNT_MAX][2];
   int                       arg_ctrl_cnt;
@@ -619,7 +608,6 @@ struct stream_state {
   FILE                     *file;
   struct rate_hist         *rate_hist;
   struct EbmlGlobal         ebml;
-  uint32_t                  hash;
   uint64_t                  psnr_sse_total;
   uint64_t                  psnr_samples_total;
   double                    psnr_totals[4];
@@ -630,6 +618,9 @@ struct stream_state {
   uint64_t                  cx_time;
   size_t                    nbytes;
   stats_io_t                stats;
+#if CONFIG_FP_MB_STATS
+  stats_io_t                fpmb_stats;
+#endif
   struct vpx_image         *img;
   vpx_codec_ctx_t           decoder;
   int                       mismatch_seen;
@@ -659,7 +650,7 @@ static void parse_global_config(struct VpxEncoderConfig *global, char **argv) {
   memset(global, 0, sizeof(*global));
   global->codec = get_vpx_encoder_by_index(0);
   global->passes = 0;
-  global->use_i420 = 1;
+  global->color_type = I420;
   /* Assign default deadline to good quality */
   global->deadline = VPX_DL_GOOD_QUALITY;
 
@@ -692,9 +683,13 @@ static void parse_global_config(struct VpxEncoderConfig *global, char **argv) {
     else if (arg_match(&arg, &rt_dl, argi))
       global->deadline = VPX_DL_REALTIME;
     else if (arg_match(&arg, &use_yv12, argi))
-      global->use_i420 = 0;
+      global->color_type = YV12;
     else if (arg_match(&arg, &use_i420, argi))
-      global->use_i420 = 1;
+      global->color_type = I420;
+    else if (arg_match(&arg, &use_i422, argi))
+      global->color_type = I422;
+    else if (arg_match(&arg, &use_i444, argi))
+      global->color_type = I444;
     else if (arg_match(&arg, &quietarg, argi))
       global->quiet = 1;
     else if (arg_match(&arg, &verbosearg, argi))
@@ -788,7 +783,8 @@ void open_input_file(struct VpxInputContext *input) {
       input->height = input->y4m.pic_h;
       input->framerate.numerator = input->y4m.fps_n;
       input->framerate.denominator = input->y4m.fps_d;
-      input->use_i420 = 0;
+      input->fmt = input->y4m.vpx_fmt;
+      input->bit_depth = input->y4m.bit_depth;
     } else
       fatal("Unsupported Y4M stream.");
   } else if (input->detect.buf_read == 4 && fourcc_is_ivf(input->detect.buf)) {
@@ -820,7 +816,7 @@ static struct stream_state *new_stream(struct VpxEncoderConfig *global,
     vpx_codec_err_t  res;
 
     /* Populate encoder configuration */
-    res = vpx_codec_enc_config_default(global->codec->interface(),
+    res = vpx_codec_enc_config_default(global->codec->codec_interface(),
                                        &stream->config.cfg,
                                        global->usage);
     if (res)
@@ -838,10 +834,12 @@ static struct stream_state *new_stream(struct VpxEncoderConfig *global,
     stream->config.cfg.g_h = 0;
 
     /* Initialize remaining stream parameters */
-    stream->config.stereo_fmt = STEREO_FORMAT_MONO;
     stream->config.write_webm = 1;
 #if CONFIG_WEBM_IO
-    stream->ebml.last_pts_ms = -1;
+    stream->config.stereo_fmt = STEREO_FORMAT_MONO;
+    stream->ebml.last_pts_ns = -1;
+    stream->ebml.writer = NULL;
+    stream->ebml.segment = NULL;
 #endif
 
     /* Allows removal of the application version from the EBML tags */
@@ -903,6 +901,10 @@ static int parse_stream_params(struct VpxEncoderConfig *global,
       config->out_fn = arg.val;
     } else if (arg_match(&arg, &fpf_name, argi)) {
       config->stats_fn = arg.val;
+#if CONFIG_FP_MB_STATS
+    } else if (arg_match(&arg, &fpmbf_name, argi)) {
+      config->fpmb_stats_fn = arg.val;
+#endif
     } else if (arg_match(&arg, &use_ivf, argi)) {
       config->write_webm = 0;
     } else if (arg_match(&arg, &threads, argi)) {
@@ -913,8 +915,10 @@ static int parse_stream_params(struct VpxEncoderConfig *global,
       config->cfg.g_w = arg_parse_uint(&arg);
     } else if (arg_match(&arg, &height, argi)) {
       config->cfg.g_h = arg_parse_uint(&arg);
+#if CONFIG_WEBM_IO
     } else if (arg_match(&arg, &stereo_mode, argi)) {
       config->stereo_fmt = arg_parse_enum_or_int(&arg);
+#endif
     } else if (arg_match(&arg, &timebase, argi)) {
       config->cfg.g_timebase = arg_parse_rational(&arg);
       validate_positive_rational(arg.name, &config->cfg.g_timebase);
@@ -931,6 +935,10 @@ static int parse_stream_params(struct VpxEncoderConfig *global,
       config->cfg.rc_dropframe_thresh = arg_parse_uint(&arg);
     } else if (arg_match(&arg, &resize_allowed, argi)) {
       config->cfg.rc_resize_allowed = arg_parse_uint(&arg);
+    } else if (arg_match(&arg, &resize_width, argi)) {
+      config->cfg.rc_scaled_width = arg_parse_uint(&arg);
+    } else if (arg_match(&arg, &resize_height, argi)) {
+      config->cfg.rc_scaled_height = arg_parse_uint(&arg);
     } else if (arg_match(&arg, &resize_up_thresh, argi)) {
       config->cfg.rc_resize_up_thresh = arg_parse_uint(&arg);
     } else if (arg_match(&arg, &resize_down_thresh, argi)) {
@@ -989,8 +997,8 @@ static int parse_stream_params(struct VpxEncoderConfig *global,
               break;
 
           /* Update/insert */
-          assert(j < ARG_CTRL_CNT_MAX);
-          if (j < ARG_CTRL_CNT_MAX) {
+          assert(j < (int)ARG_CTRL_CNT_MAX);
+          if (j < (int)ARG_CTRL_CNT_MAX) {
             config->arg_ctrls[j][0] = ctrl_args_map[i];
             config->arg_ctrls[j][1] = arg_parse_enum_or_int(&arg);
             if (j == config->arg_ctrl_cnt)
@@ -1053,6 +1061,17 @@ static void validate_stream_config(const struct stream_state *stream,
         fatal("Stream %d: duplicate stats file (from stream %d)",
               streami->index, stream->index);
     }
+
+#if CONFIG_FP_MB_STATS
+    /* Check for two streams sharing a mb stats file. */
+    if (streami != stream) {
+      const char *a = stream->config.fpmb_stats_fn;
+      const char *b = streami->config.fpmb_stats_fn;
+      if (a && b && !strcmp(a, b))
+        fatal("Stream %d: duplicate mb stats file (from stream %d)",
+              streami->index, stream->index);
+    }
+#endif
   }
 }
 
@@ -1084,6 +1103,23 @@ static void set_default_kf_interval(struct stream_state *stream,
   }
 }
 
+static const char* file_type_to_string(enum VideoFileType t) {
+  switch (t) {
+    case FILE_TYPE_RAW: return "RAW";
+    case FILE_TYPE_Y4M: return "Y4M";
+    default: return "Other";
+  }
+}
+
+static const char* image_format_to_string(vpx_img_fmt_t f) {
+  switch (f) {
+    case VPX_IMG_FMT_I420: return "I420";
+    case VPX_IMG_FMT_I422: return "I422";
+    case VPX_IMG_FMT_I444: return "I444";
+    case VPX_IMG_FMT_YV12: return "YV12";
+    default: return "Other";
+  }
+}
 
 static void show_stream_config(struct stream_state *stream,
                                struct VpxEncoderConfig *global,
@@ -1094,9 +1130,11 @@ static void show_stream_config(struct stream_state *stream,
 
   if (stream->index == 0) {
     fprintf(stderr, "Codec: %s\n",
-            vpx_codec_iface_name(global->codec->interface()));
-    fprintf(stderr, "Source file: %s Format: %s\n", input->filename,
-            input->use_i420 ? "I420" : "YV12");
+            vpx_codec_iface_name(global->codec->codec_interface()));
+    fprintf(stderr, "Source file: %s File Type: %s Format: %s\n",
+            input->filename,
+            file_type_to_string(input->file_type),
+            image_format_to_string(input->fmt));
   }
   if (stream->next || stream->index)
     fprintf(stderr, "\nStream Index: %d\n", stream->index);
@@ -1115,6 +1153,8 @@ static void show_stream_config(struct stream_state *stream,
   SHOW(g_lag_in_frames);
   SHOW(rc_dropframe_thresh);
   SHOW(rc_resize_allowed);
+  SHOW(rc_scaled_width);
+  SHOW(rc_scaled_height);
   SHOW(rc_resize_up_thresh);
   SHOW(rc_resize_down_thresh);
   SHOW(rc_end_usage);
@@ -1176,9 +1216,7 @@ static void close_output_file(struct stream_state *stream,
 
 #if CONFIG_WEBM_IO
   if (stream->config.write_webm) {
-    write_webm_file_footer(&stream->ebml, stream->hash);
-    free(stream->ebml.cue_list);
-    stream->ebml.cue_list = NULL;
+    write_webm_file_footer(&stream->ebml);
   }
 #endif
 
@@ -1205,11 +1243,27 @@ static void setup_pass(struct stream_state *stream,
       fatal("Failed to open statistics store");
   }
 
+#if CONFIG_FP_MB_STATS
+  if (stream->config.fpmb_stats_fn) {
+    if (!stats_open_file(&stream->fpmb_stats,
+                         stream->config.fpmb_stats_fn, pass))
+      fatal("Failed to open mb statistics store");
+  } else {
+    if (!stats_open_mem(&stream->fpmb_stats, pass))
+      fatal("Failed to open mb statistics store");
+  }
+#endif
+
   stream->config.cfg.g_pass = global->passes == 2
                               ? pass ? VPX_RC_LAST_PASS : VPX_RC_FIRST_PASS
                             : VPX_RC_ONE_PASS;
-  if (pass)
+  if (pass) {
     stream->config.cfg.rc_twopass_stats_in = stats_get(&stream->stats);
+#if CONFIG_FP_MB_STATS
+    stream->config.cfg.rc_firstpass_mb_stats_in =
+        stats_get(&stream->fpmb_stats);
+#endif
+  }
 
   stream->cx_time = 0;
   stream->nbytes = 0;
@@ -1226,7 +1280,7 @@ static void initialize_encoder(struct stream_state *stream,
   flags |= global->out_part ? VPX_CODEC_USE_OUTPUT_PARTITION : 0;
 
   /* Construct Encoder Context */
-  vpx_codec_enc_init(&stream->encoder, global->codec->interface(),
+  vpx_codec_enc_init(&stream->encoder, global->codec->codec_interface(),
                      &stream->config.cfg, flags);
   ctx_exit_on_error(&stream->encoder, "Failed to initialize encoder");
 
@@ -1247,7 +1301,7 @@ static void initialize_encoder(struct stream_state *stream,
 #if CONFIG_DECODERS
   if (global->test_decode != TEST_DECODE_OFF) {
     const VpxInterface *decoder = get_vpx_decoder_by_name(global->codec->name);
-    vpx_codec_dec_init(&stream->decoder, decoder->interface(), NULL, 0);
+    vpx_codec_dec_init(&stream->decoder, decoder->codec_interface(), NULL, 0);
   }
 #endif
 }
@@ -1270,6 +1324,11 @@ static void encode_frame(struct stream_state *stream,
 
   /* Scale if necessary */
   if (img && (img->d_w != cfg->g_w || img->d_h != cfg->g_h)) {
+    if (img->fmt != VPX_IMG_FMT_I420 && img->fmt != VPX_IMG_FMT_YV12) {
+      fprintf(stderr, "%s can only scale 4:2:0 8bpp inputs\n", exec_name);
+      exit(EXIT_FAILURE);
+    }
+#if CONFIG_LIBYUV
     if (!stream->img)
       stream->img = vpx_img_alloc(NULL, VPX_IMG_FMT_I420,
                                   cfg->g_w, cfg->g_h, 16);
@@ -1285,8 +1344,15 @@ static void encode_frame(struct stream_state *stream,
               stream->img->stride[VPX_PLANE_V],
               stream->img->d_w, stream->img->d_h,
               kFilterBox);
-
     img = stream->img;
+#else
+    stream->encoder.err = 1;
+    ctx_exit_on_error(&stream->encoder,
+                      "Stream %d: Failed to encode frame.\n"
+                      "Scaling disabled in this configuration. \n"
+                      "To enable, configure with --enable-libyuv\n",
+                      stream->index);
+#endif
   }
 
   vpx_usec_timer_start(&timer);
@@ -1321,7 +1387,7 @@ static void get_cx_data(struct stream_state *stream,
   *got_data = 0;
   while ((pkt = vpx_codec_get_cx_data(&stream->encoder, &iter))) {
     static size_t fsize = 0;
-    static off_t ivf_header_pos = 0;
+    static int64_t ivf_header_pos = 0;
 
     switch (pkt->kind) {
       case VPX_CODEC_CX_FRAME_PKT:
@@ -1334,12 +1400,6 @@ static void get_cx_data(struct stream_state *stream,
         update_rate_histogram(stream->rate_hist, cfg, pkt);
 #if CONFIG_WEBM_IO
         if (stream->config.write_webm) {
-          /* Update the hash */
-          if (!stream->ebml.debug)
-            stream->hash = murmur(pkt->data.frame.buf,
-                                  (int)pkt->data.frame.sz,
-                                  stream->hash);
-
           write_webm_block(&stream->ebml, cfg, pkt);
         }
 #endif
@@ -1353,7 +1413,7 @@ static void get_cx_data(struct stream_state *stream,
             fsize += pkt->data.frame.sz;
 
             if (!(pkt->data.frame.flags & VPX_FRAME_IS_FRAGMENT)) {
-              off_t currpos = ftello(stream->file);
+              const int64_t currpos = ftello(stream->file);
               fseeko(stream->file, ivf_header_pos, SEEK_SET);
               ivf_write_frame_size(stream->file, fsize);
               fseeko(stream->file, currpos, SEEK_SET);
@@ -1387,6 +1447,14 @@ static void get_cx_data(struct stream_state *stream,
                     pkt->data.twopass_stats.sz);
         stream->nbytes += pkt->data.raw.sz;
         break;
+#if CONFIG_FP_MB_STATS
+      case VPX_CODEC_FPMB_STATS_PKT:
+        stats_write(&stream->fpmb_stats,
+                    pkt->data.firstpass_mb_stats.buf,
+                    pkt->data.firstpass_mb_stats.sz);
+        stream->nbytes += pkt->data.raw.sz;
+        break;
+#endif
       case VPX_CODEC_PSNR_PKT:
 
         if (global->show_psnr) {
@@ -1516,7 +1584,7 @@ int main(int argc, const char **argv_) {
   vpx_image_t raw;
   int frame_avail, got_data;
 
-  struct VpxInputContext input = {0};
+  struct VpxInputContext input;
   struct VpxEncoderConfig global;
   struct stream_state *streams = NULL;
   char **argv, **argi;
@@ -1524,6 +1592,7 @@ int main(int argc, const char **argv_) {
   int stream_cnt = 0;
   int res = 0;
 
+  memset(&input, 0, sizeof(input));
   exec_name = argv_[0];
 
   if (argc < 3)
@@ -1532,8 +1601,8 @@ int main(int argc, const char **argv_) {
   /* Setup default input stream settings */
   input.framerate.numerator = 30;
   input.framerate.denominator = 1;
-  input.use_i420 = 1;
   input.only_i420 = 1;
+  input.bit_depth = 0;
 
   /* First parse the global configuration values, because we want to apply
    * other parameters on top of the default configuration provided by the
@@ -1542,6 +1611,20 @@ int main(int argc, const char **argv_) {
   argv = argv_dup(argc - 1, argv_ + 1);
   parse_global_config(&global, argv);
 
+  switch (global.color_type) {
+    case I420:
+      input.fmt = VPX_IMG_FMT_I420;
+      break;
+    case I422:
+      input.fmt = VPX_IMG_FMT_I422;
+      break;
+    case I444:
+      input.fmt = VPX_IMG_FMT_I444;
+      break;
+    case YV12:
+      input.fmt = VPX_IMG_FMT_YV12;
+      break;
+  }
 
   {
     /* Now parse each stream's parameters. Using a local scope here
@@ -1580,7 +1663,7 @@ int main(int argc, const char **argv_) {
     int frames_in = 0, seen_frames = 0;
     int64_t estimated_time_left = -1;
     int64_t average_rate = -1;
-    off_t lagged_count = 0;
+    int64_t lagged_count = 0;
 
     open_input_file(&input);
 
@@ -1642,10 +1725,7 @@ int main(int argc, const char **argv_) {
            frames.*/
         memset(&raw, 0, sizeof(raw));
       else
-        vpx_img_alloc(&raw,
-                      input.use_i420 ? VPX_IMG_FMT_I420
-                      : VPX_IMG_FMT_YV12,
-                      input.width, input.height, 32);
+        vpx_img_alloc(&raw, input.fmt, input.width, input.height, 32);
 
       FOREACH_STREAM(stream->rate_hist =
                          init_rate_histogram(&stream->config.cfg,
@@ -1687,7 +1767,6 @@ int main(int argc, const char **argv_) {
                   fps >= 1.0 ? fps : fps * 60,
                   fps >= 1.0 ? "fps" : "fpm");
           print_time("ETA", estimated_time_left);
-          fprintf(stderr, "\033[K");
         }
 
       } else
@@ -1713,15 +1792,15 @@ int main(int argc, const char **argv_) {
           int64_t rate;
 
           if (global.limit) {
-            off_t frame_in_lagged = (seen_frames - lagged_count) * 1000;
+            const int64_t frame_in_lagged = (seen_frames - lagged_count) * 1000;
 
             rate = cx_time ? frame_in_lagged * (int64_t)1000000 / cx_time : 0;
             remaining = 1000 * (global.limit - global.skip_frames
                                 - seen_frames + lagged_count);
           } else {
-            off_t input_pos = ftello(input.file);
-            off_t input_pos_lagged = input_pos - lagged_count;
-            int64_t limit = input.length;
+            const int64_t input_pos = ftello(input.file);
+            const int64_t input_pos_lagged = input_pos - lagged_count;
+            const int64_t limit = input.length;
 
             rate = cx_time ? input_pos_lagged * (int64_t)1000000 / cx_time : 0;
             remaining = limit - input_pos + lagged_count;
@@ -1738,6 +1817,8 @@ int main(int argc, const char **argv_) {
       }
 
       fflush(stdout);
+      if (!global.quiet)
+        fprintf(stderr, "\033[K");
     }
 
     if (stream_cnt > 1)
@@ -1776,6 +1857,10 @@ int main(int argc, const char **argv_) {
     FOREACH_STREAM(close_output_file(stream, global.codec->fourcc));
 
     FOREACH_STREAM(stats_close(&stream->stats, global.passes - 1));
+
+#if CONFIG_FP_MB_STATS
+    FOREACH_STREAM(stats_close(&stream->fpmb_stats, global.passes - 1));
+#endif
 
     if (global.pass)
       break;

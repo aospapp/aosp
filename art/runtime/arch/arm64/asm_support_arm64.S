@@ -21,12 +21,6 @@
 
 // Define special registers.
 
-// Register holding suspend check count down.
-// 32-bit is enough for the suspend register.
-#define wSUSPEND w19
-// xSUSPEND is 64-bit view of wSUSPEND.
-// Used to save/restore the register scratched by managed code.
-#define xSUSPEND x19
 // Register holding Thread::Current().
 #define xSELF x18
 // x18 is not preserved by aapcs64, save it on xETR(External Thread reg) for restore and later use.
@@ -52,15 +46,6 @@
     .cfi_startproc
 .endm
 
-.macro ENTRY_NO_HIDE name
-    .type \name, #function
-    .global \name
-    /* Cache alignment for function entry */
-    .balign 16
-\name:
-    .cfi_startproc
-.endm
-
 .macro END name
     .cfi_endproc
     .size \name, .-\name
@@ -68,12 +53,6 @@
 
 .macro UNIMPLEMENTED name
     ENTRY \name
-    brk 0
-    END \name
-.endm
-
-.macro UNIMPLEMENTED_NO_HIDE name
-    ENTRY_NO_HIDE \name
     brk 0
     END \name
 .endm

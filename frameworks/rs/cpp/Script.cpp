@@ -28,12 +28,12 @@ void Script::invoke(uint32_t slot, const void *v, size_t len) const {
 
 void Script::forEach(uint32_t slot, sp<const Allocation> ain, sp<const Allocation> aout,
                        const void *usr, size_t usrLen) const {
-    if ((ain == NULL) && (aout == NULL)) {
+    if ((ain == nullptr) && (aout == nullptr)) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "At least one of ain or aout is required to be non-null.");
     }
     void *in_id = BaseObj::getObjID(ain);
     void *out_id = BaseObj::getObjID(aout);
-    tryDispatch(mRS, RS::dispatch->ScriptForEach(mRS->getContext(), getID(), slot, in_id, out_id, usr, usrLen, NULL, 0));
+    tryDispatch(mRS, RS::dispatch->ScriptForEach(mRS->getContext(), getID(), slot, in_id, out_id, usr, usrLen, nullptr, 0));
 }
 
 
@@ -47,7 +47,7 @@ void Script::bindAllocation(sp<Allocation> va, uint32_t slot) const {
 
 
 void Script::setVar(uint32_t index, sp<const BaseObj> o) const {
-    tryDispatch(mRS, RS::dispatch->ScriptSetVarObj(mRS->getContext(), getID(), index, (o == NULL) ? 0 : o->getID()));
+    tryDispatch(mRS, RS::dispatch->ScriptSetVarObj(mRS->getContext(), getID(), index, (o == nullptr) ? 0 : o->getID()));
 }
 
 void Script::setVar(uint32_t index, const void *v, size_t len) const {

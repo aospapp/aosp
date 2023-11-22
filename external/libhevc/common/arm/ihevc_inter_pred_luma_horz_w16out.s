@@ -109,7 +109,7 @@
 @r14 - loop_counter
 .text
 .align 4
-
+.syntax unified
 
 
 
@@ -277,8 +277,8 @@ height_residue_4:
     ldr         r7,[sp,#44]                 @loads ht
     and         r7,r7,#1                    @calculating ht_residue ht_residue = (ht & 1)
     cmp         r7,#0
-    @beq       end_loops
-    ldmeqfd     sp!,{r4-r12,r15}            @reload the registers from sp
+    @beq        end_loops
+    ldmfdeq     sp!,{r4-r12,r15}            @reload the registers from sp
 
 outer_loop_height_residue_4:
 

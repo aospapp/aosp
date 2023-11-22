@@ -988,6 +988,15 @@ public final class Telephony {
                     "android.provider.Telephony.SMS_CB_RECEIVED";
 
             /**
+             * Action: A SMS based carrier provision intent. Used to identify default
+             * carrier provisioning app on the device.
+             * @hide
+             */
+            @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+            public static final String SMS_CARRIER_PROVISION_ACTION =
+                    "android.provider.Telephony.SMS_CARRIER_PROVISION";
+
+            /**
              * Broadcast Action: A new Emergency Broadcast message has been received
              * by the device. The intent will have the following extra
              * values:</p>
@@ -1786,7 +1795,6 @@ public final class Telephony {
          * It's convenient for use with SMS messages.
          * @param context the context object to use.
          * @param recipient the recipient to send to.
-         * @hide
          */
         public static long getOrCreateThreadId(Context context, String recipient) {
             Set<String> recipients = new HashSet<String>();
@@ -1804,7 +1812,6 @@ public final class Telephony {
          * <p>Find the thread ID of the same set of recipients (in any order,
          * without any additions). If one is found, return it. Otherwise,
          * return a unique thread ID.</p>
-         * @hide
          */
         public static long getOrCreateThreadId(
                 Context context, Set<String> recipients) {
@@ -2589,6 +2596,17 @@ public final class Telephony {
         public static final String BEARER = "bearer";
 
         /**
+         * Radio Access Technology bitmask.
+         * To check what values can be contained, refer to {@link android.telephony.ServiceState}.
+         * 0 indicates all techs otherwise first bit refers to RAT/bearer 1, second bit refers to
+         * RAT/bearer 2 and so on.
+         * Bitmask for a radio tech R is (1 << (R - 1))
+         * <P>Type: INTEGER</P>
+         * @hide
+         */
+        public static final String BEARER_BITMASK = "bearer_bitmask";
+
+        /**
          * MVNO type:
          * {@code SPN (Service Provider Name), IMSI, GID (Group Identifier Level 1)}.
          * <P>Type: TEXT</P>
@@ -2654,6 +2672,48 @@ public final class Telephony {
          * @hide
          */
         public static final String MTU = "mtu";
+
+        /**
+         * Is this APN added/edited/deleted by a user or carrier?
+         * <p>Type: INTEGER </p>
+         * @hide
+         */
+        public static final String EDITED = "edited";
+
+        /**
+         * Following are possible values for the EDITED field
+         * @hide
+         */
+        public static final int UNEDITED = 0;
+        /**
+         *  @hide
+         */
+        public static final int USER_EDITED = 1;
+        /**
+         *  @hide
+         */
+        public static final int USER_DELETED = 2;
+        /**
+         * DELETED_BUT_PRESENT is an intermediate value used to indicate that an entry deleted
+         * by the user is still present in the new APN database and therefore must remain tagged
+         * as user deleted rather than completely removed from the database
+         * @hide
+         */
+        public static final int USER_DELETED_BUT_PRESENT_IN_XML = 3;
+        /**
+         *  @hide
+         */
+        public static final int CARRIER_EDITED = 4;
+        /**
+         * CARRIER_DELETED values are currently not used as there is no usecase. If they are used,
+         * delete() will have to change accordingly. Currently it is hardcoded to USER_DELETED.
+         * @hide
+         */
+        public static final int CARRIER_DELETED = 5;
+        /**
+         *  @hide
+         */
+        public static final int CARRIER_DELETED_BUT_PRESENT_IN_XML = 6;
     }
 
     /**

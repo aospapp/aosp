@@ -24,108 +24,102 @@ import android.os.Bundle;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.preference.PreferenceScreen;
 import android.view.Menu;
 import android.view.MenuItem;
 
-// TODO: Needed for move to system service: import com.android.internal.R;
+// TODO: This class is newly copied into Telecom (com.android.server.telecom) from it previous
+// location in Telephony (com.android.phone). User's preferences stored in the old location
+// will be lost. We need code here to migrate KLP -> LMP settings values.
 
 /**
- * Helper class to manage the "Respond via SMS Message" feature for incoming calls.
+ * Settings activity to manage the responses available for the "Respond via SMS Message" feature to
+ * respond to incoming calls.
  */
-public class RespondViaSmsSettings {
-    // TODO: This class is newly copied into Telecom (com.android.server.telecom) from it previous
-    // location in Telephony (com.android.phone). User's preferences stored in the old location
-    // will be lost. We need code here to migrate KLP -> LMP settings values.
+public class RespondViaSmsSettings extends PreferenceActivity
+        implements Preference.OnPreferenceChangeListener {
 
-    /**
-     * Settings activity under "Call settings" to let you manage the
-     * canned responses; see respond_via_sms_settings.xml
-     */
-    public static class Settings extends PreferenceActivity
-            implements Preference.OnPreferenceChangeListener {
-        @Override
-        protected void onCreate(Bundle icicle) {
-            super.onCreate(icicle);
-            Log.d(this, "Settings: onCreate()...");
+    private SharedPreferences mPrefs;
 
-            // This function guarantees that QuickResponses will be in our
-            // SharedPreferences with the proper values considering there may be
-            // old QuickResponses in Telephony pre L.
-            QuickResponseUtils.maybeMigrateLegacyQuickResponses(this);
+    @Override
+    protected void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+        Log.d(this, "Settings: onCreate()...");
 
-            getPreferenceManager().setSharedPreferencesName(
-                    QuickResponseUtils.SHARED_PREFERENCES_NAME);
+        // This function guarantees that QuickResponses will be in our
+        // SharedPreferences with the proper values considering there may be
+        // old QuickResponses in Telephony pre L.
+        QuickResponseUtils.maybeMigrateLegacyQuickResponses(this);
 
-            // This preference screen is ultra-simple; it's just 4 plain
-            // <EditTextPreference>s, one for each of the 4 "canned responses".
-            //
-            // The only nontrivial thing we do here is copy the text value of
-            // each of those EditTextPreferences and use it as the preference's
-            // "title" as well, so that the user will immediately see all 4
-            // strings when they arrive here.
-            //
-            // Also, listen for change events (since we'll need to update the
-            // title any time the user edits one of the strings.)
+        getPreferenceManager().setSharedPreferencesName(QuickResponseUtils.SHARED_PREFERENCES_NAME);
+        mPrefs = getPreferenceManager().getSharedPreferences();
+    }
 
-            addPreferencesFromResource(R.xml.respond_via_sms_settings);
+    @Override
+    public void onResume() {
+        super.onResume();
 
-            EditTextPreference pref;
-            pref = (EditTextPreference) findPreference(
-                    QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_1);
-            pref.setTitle(pref.getText());
-            pref.setOnPreferenceChangeListener(this);
-
-            pref = (EditTextPreference) findPreference(
-                    QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_2);
-            pref.setTitle(pref.getText());
-            pref.setOnPreferenceChangeListener(this);
-
-            pref = (EditTextPreference) findPreference(
-                    QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_3);
-            pref.setTitle(pref.getText());
-            pref.setOnPreferenceChangeListener(this);
-
-            pref = (EditTextPreference) findPreference(
-                    QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_4);
-            pref.setTitle(pref.getText());
-            pref.setOnPreferenceChangeListener(this);
-
-            ActionBar actionBar = getActionBar();
-            if (actionBar != null) {
-                // android.R.id.home will be triggered in onOptionsItemSelected()
-                actionBar.setDisplayHomeAsUpEnabled(true);
-            }
+        PreferenceScreen preferenceScreen = getPreferenceScreen();
+        if (preferenceScreen != null) {
+            preferenceScreen.removeAll();
         }
 
-        // Preference.OnPreferenceChangeListener implementation
-        @Override
-        public boolean onPreferenceChange(Preference preference, Object newValue) {
-            Log.d(this, "onPreferenceChange: key = %s", preference.getKey());
-            Log.d(this, "  preference = '%s'", preference);
-            Log.d(this, "  newValue = '%s'", newValue);
+        // This preference screen is ultra-simple; it's just 4 plain
+        // <EditTextPreference>s, one for each of the 4 "canned responses".
+        //
+        // The only nontrivial thing we do here is copy the text value of
+        // each of those EditTextPreferences and use it as the preference's
+        // "title" as well, so that the user will immediately see all 4
+        // strings when they arrive here.
+        //
+        // Also, listen for change events (since we'll need to update the
+        // title any time the user edits one of the strings.)
 
-            EditTextPreference pref = (EditTextPreference) preference;
+        addPreferencesFromResource(R.xml.respond_via_sms_settings);
+        initPref(findPreference(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_1));
+        initPref(findPreference(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_2));
+        initPref(findPreference(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_3));
+        initPref(findPreference(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_4));
 
-            // Copy the new text over to the title, just like in onCreate().
-            // (Watch out: onPreferenceChange() is called *before* the
-            // Preference itself gets updated, so we need to use newValue here
-            // rather than pref.getText().)
-            pref.setTitle((String) newValue);
-
-            return true;  // means it's OK to update the state of the Preference with the new value
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            // android.R.id.home will be triggered in onOptionsItemSelected()
+            actionBar.setDisplayHomeAsUpEnabled(true);
         }
+    }
 
-        @Override
-        public boolean onOptionsItemSelected(MenuItem item) {
-            final int itemId = item.getItemId();
-            switch (itemId) {
-                case android.R.id.home:
-                    goUpToTopLevelSetting(this);
-                    return true;
-                default:
-            }
-            return super.onOptionsItemSelected(item);
+    // Preference.OnPreferenceChangeListener implementation
+    @Override
+    public boolean onPreferenceChange(Preference preference, Object newValue) {
+        Log.d(this, "onPreferenceChange: key = %s", preference.getKey());
+        Log.d(this, "  preference = '%s'", preference);
+        Log.d(this, "  newValue = '%s'", newValue);
+
+        EditTextPreference pref = (EditTextPreference) preference;
+
+        // Copy the new text over to the title, just like in onCreate().
+        // (Watch out: onPreferenceChange() is called *before* the
+        // Preference itself gets updated, so we need to use newValue here
+        // rather than pref.getText().)
+        pref.setTitle((String) newValue);
+
+        // Save the new preference value.
+        SharedPreferences.Editor editor = mPrefs.edit();
+        editor.putString(pref.getKey(), (String) newValue).commit();
+
+        return true;  // means it's OK to update the state of the Preference with the new value
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        final int itemId = item.getItemId();
+        switch (itemId) {
+            case android.R.id.home:
+                goUpToTopLevelSetting(this);
+                return true;
+            default:
         }
+        return super.onOptionsItemSelected(item);
     }
 
     /**
@@ -133,5 +127,15 @@ public class RespondViaSmsSettings {
      */
     public static void goUpToTopLevelSetting(Activity activity) {
         activity.finish();
-     }
+    }
+
+    /**
+     * Initialize the preference to the persisted preference value or default text.
+     */
+    private void initPref(Preference preference) {
+        EditTextPreference pref = (EditTextPreference) preference;
+        pref.setText(mPrefs.getString(pref.getKey(), pref.getText()));
+        pref.setTitle(pref.getText());
+        pref.setOnPreferenceChangeListener(this);
+    }
 }

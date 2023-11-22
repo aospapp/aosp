@@ -7,11 +7,11 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.SubjectKeyIdentifier;
 import org.bouncycastle.asn1.x509.X509Extensions;
 import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.bouncycastle.x509.extension.AuthorityKeyIdentifierStructure;
-import org.bouncycastle.x509.extension.SubjectKeyIdentifierStructure;
 
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
@@ -83,7 +83,7 @@ public class CsrUtil {
 
         certGen.addExtension(X509Extensions.AuthorityKeyIdentifier, true, authIdentifier);
         certGen.addExtension(X509Extensions.SubjectKeyIdentifier, true,
-                new SubjectKeyIdentifierStructure(rootPair.getPublic()));
+                SubjectKeyIdentifier.getInstance(rootPair.getPublic().getEncoded()));
 
         certGen.addExtension(X509Extensions.SubjectAlternativeName, false, new GeneralNames(
                 new GeneralName(GeneralName.rfc822Name, EMAIL)));
@@ -139,7 +139,7 @@ public class CsrUtil {
                 new AuthorityKeyIdentifierStructure(rootCert));
         // Use provided public key for the subject
         certGen.addExtension(X509Extensions.SubjectKeyIdentifier, false,
-                new SubjectKeyIdentifierStructure(publicKey));
+                SubjectKeyIdentifier.getInstance(publicKey.getEncoded()));
         // This is not a CA certificate, do not allow
         certGen.addExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(false));
         // This can be used for signature and encryption

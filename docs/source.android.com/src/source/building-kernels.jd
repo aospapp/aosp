@@ -40,6 +40,24 @@ clone steps other than the step to download the actual kernel sources.</p>
     <th>Build configuration</th>
   </tr>
   <tr>
+    <td>shamu</td>
+    <td>device/moto/shamu-kernel</td>
+    <td>kernel/msm</td>
+    <td>shamu_defconfig</td>
+  </tr>
+  <tr>
+    <td>fugu</td>
+    <td>device/asus/fugu-kernel</td>
+    <td>kernel/x86_64</td>
+    <td>fugu_defconfig</td>
+  </tr>
+  <tr>
+    <td>volantis</td>
+    <td>device/htc/flounder-kernel</td>
+    <td>kernel/tegra</td>
+    <td>flounder_defconfig</td>
+  </tr>
+  <tr>
     <td>hammerhead</td>
     <td>device/lge/hammerhead-kernel</td>
     <td>kernel/msm</td>
@@ -148,13 +166,14 @@ $ dd if=kernel bs=1 skip=$(LC_ALL=C grep -a -b -o $'\x1f\x8b\x08\x00\x00\x00\x00
 </code></pre>
 <p>For Nexus 5 (hammerhead), this can be accomplished with:</p>
 <pre><code>
-$ bzgrep -a 'Linux version' vmlinux.bz2
+$ dd if=zImage-dtb bs=1 skip=$(LC_ALL=C od -Ad -x -w2 zImage-dtb | grep 8b1f | cut -d ' ' -f1 | head -1) | zgrep -a 'Linux version'
 </code></pre>
 
 
 <h2 id="downloading-sources">Downloading sources</h2>
 <p>Depending on which kernel you want,</p>
 <pre><code>$ git clone https://android.googlesource.com/kernel/common.git
+$ git clone https://android.googlesource.com/kernel/x86_64.git
 $ git clone https://android.googlesource.com/kernel/exynos.git
 $ git clone https://android.googlesource.com/kernel/goldfish.git
 $ git clone https://android.googlesource.com/kernel/msm.git
@@ -165,16 +184,18 @@ $ git clone https://android.googlesource.com/kernel/tegra.git
 <ul>
 <li>The <code>goldfish</code> project contains the kernel sources for the emulated
 platforms.</li>
-<li>The <code>msm</code> project has the sources for ADP1, ADP2, Nexus One, Nexus 4,
+<li>The <code>msm</code> project has the sources for ADP1, ADP2, Nexus One, Nexus 4, Nexus 5, Nexus 6,
 and can be used as a starting point for work on Qualcomm MSM chipsets.</li>
 <li>The <code>omap</code> project is used for PandaBoard and Galaxy Nexus,
 and can be used as a starting point for work on TI OMAP chipsets.</li>
 <li>The <code>samsung</code> project is used for Nexus S,
 and can be used as a starting point for work on Samsung Hummingbird chipsets.</li>
-<li>The <code>tegra</code> project is for Xoom and Nexus 7,
+<li>The <code>tegra</code> project is for Xoom, Nexus 7, Nexus 9,
 and can be used as a starting point for work on NVIDIA Tegra chipsets.</li>
 <li>The <code>exynos</code> project has the kernel sources for Nexus 10,
 and can be used as a starting point for work on Samsung Exynos chipsets.</li>
+<li>The <code>x86_64</code> project has the kernel sources for Nexus Player,
+and can be used as a starting point for work on Intel x86_64 chipsets.</li>
 </ul>
 <h2 id="downloading-a-prebuilt-gcc">Downloading a prebuilt gcc</h2>
 <p>Ensure that the prebuilt toolchain is in your path.</p>

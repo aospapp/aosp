@@ -46,6 +46,9 @@ class MirMethodInfo {
   const DexFile* DeclaringDexFile() const {
     return declaring_dex_file_;
   }
+  void SetDeclaringDexFile(const DexFile* dex_file) {
+    declaring_dex_file_ = dex_file;
+  }
 
   uint16_t DeclaringClassIndex() const {
     return declaring_class_idx_;
@@ -60,7 +63,7 @@ class MirMethodInfo {
     kBitIsStatic = 0,
     kMethodInfoBitEnd
   };
-  COMPILE_ASSERT(kMethodInfoBitEnd <= 16, too_many_flags);
+  static_assert(kMethodInfoBitEnd <= 16, "Too many flags");
   static constexpr uint16_t kFlagIsStatic = 1u << kBitIsStatic;
 
   MirMethodInfo(uint16_t method_idx, uint16_t flags)
@@ -85,7 +88,7 @@ class MirMethodInfo {
   // The type index of the class declaring the method, 0 if unresolved.
   uint16_t declaring_class_idx_;
   // The dex file that defines the class containing the method and the method,
-  // nullptr if unresolved.
+  // null if unresolved.
   const DexFile* declaring_dex_file_;
 };
 
@@ -98,11 +101,12 @@ class MirMethodLoweringInfo : public MirMethodInfo {
                       MirMethodLoweringInfo* method_infos, size_t count)
       LOCKS_EXCLUDED(Locks::mutator_lock_);
 
-  MirMethodLoweringInfo(uint16_t method_idx, InvokeType type)
+  MirMethodLoweringInfo(uint16_t method_idx, InvokeType type, bool is_quickened)
       : MirMethodInfo(method_idx,
                       ((type == kStatic) ? kFlagIsStatic : 0u) |
                       (static_cast<uint16_t>(type) << kBitInvokeTypeBegin) |
-                      (static_cast<uint16_t>(type) << kBitSharpTypeBegin)),
+                      (static_cast<uint16_t>(type) << kBitSharpTypeBegin) |
+                      (is_quickened ? kFlagQuickened : 0u)),
         direct_code_(0u),
         direct_method_(0u),
         target_dex_file_(nullptr),
@@ -123,8 +127,25 @@ class MirMethodLoweringInfo : public MirMethodInfo {
     return (flags_ & kFlagFastPath) != 0u;
   }
 
-  bool NeedsClassInitialization() const {
-    return (flags_ & kFlagNeedsClassInitialization) != 0u;
+  bool IsIntrinsic() const {
+    return (flags_ & kFlagIsIntrinsic) != 0u;
+  }
+
+  bool IsSpecial() const {
+    return (flags_ & kFlagIsSpecial) != 0u;
+  }
+
+  bool IsReferrersClass() const {
+    return (flags_ & kFlagIsReferrersClass) != 0;
+  }
+
+  bool IsClassInitialized() const {
+    return (flags_ & kFlagClassIsInitialized) != 0u;
+  }
+
+  // Returns true iff the method invoke is INVOKE_VIRTUAL_QUICK or INVOKE_VIRTUAL_RANGE_QUICK.
+  bool IsQuickened() const {
+    return (flags_ & kFlagQuickened) != 0u;
   }
 
   InvokeType GetInvokeType() const {
@@ -142,6 +163,9 @@ class MirMethodLoweringInfo : public MirMethodInfo {
   uint16_t VTableIndex() const {
     return vtable_idx_;
   }
+  void SetVTableIndex(uint16_t index) {
+    vtable_idx_ = index;
+  }
 
   uintptr_t DirectCode() const {
     return direct_code_;
@@ -155,29 +179,51 @@ class MirMethodLoweringInfo : public MirMethodInfo {
     return stats_flags_;
   }
 
+  void CheckEquals(const MirMethodLoweringInfo& info) const {
+    CHECK_EQ(method_idx_, info.method_idx_);
+    CHECK_EQ(flags_, info.flags_);
+    CHECK_EQ(declaring_method_idx_, info.declaring_method_idx_);
+    CHECK_EQ(declaring_class_idx_, info.declaring_class_idx_);
+    CHECK_EQ(declaring_dex_file_, info.declaring_dex_file_);
+    CHECK_EQ(direct_code_, info.direct_code_);
+    CHECK_EQ(direct_method_, info.direct_method_);
+    CHECK_EQ(target_dex_file_, info.target_dex_file_);
+    CHECK_EQ(target_method_idx_, info.target_method_idx_);
+    CHECK_EQ(vtable_idx_, info.vtable_idx_);
+    CHECK_EQ(stats_flags_, info.stats_flags_);
+  }
+
  private:
   enum {
     kBitFastPath = kMethodInfoBitEnd,
+    kBitIsIntrinsic,
+    kBitIsSpecial,
     kBitInvokeTypeBegin,
     kBitInvokeTypeEnd = kBitInvokeTypeBegin + 3,  // 3 bits for invoke type.
-    kBitSharpTypeBegin,
+    kBitSharpTypeBegin = kBitInvokeTypeEnd,
     kBitSharpTypeEnd = kBitSharpTypeBegin + 3,  // 3 bits for sharp type.
-    kBitNeedsClassInitialization = kBitSharpTypeEnd,
-    kMethodLoweringInfoEnd
+    kBitIsReferrersClass = kBitSharpTypeEnd,
+    kBitClassIsInitialized,
+    kBitQuickened,
+    kMethodLoweringInfoBitEnd
   };
-  COMPILE_ASSERT(kMethodLoweringInfoEnd <= 16, too_many_flags);
+  static_assert(kMethodLoweringInfoBitEnd <= 16, "Too many flags");
   static constexpr uint16_t kFlagFastPath = 1u << kBitFastPath;
-  static constexpr uint16_t kFlagNeedsClassInitialization = 1u << kBitNeedsClassInitialization;
+  static constexpr uint16_t kFlagIsIntrinsic = 1u << kBitIsIntrinsic;
+  static constexpr uint16_t kFlagIsSpecial = 1u << kBitIsSpecial;
+  static constexpr uint16_t kFlagIsReferrersClass = 1u << kBitIsReferrersClass;
+  static constexpr uint16_t kFlagClassIsInitialized = 1u << kBitClassIsInitialized;
+  static constexpr uint16_t kFlagQuickened = 1u << kBitQuickened;
   static constexpr uint16_t kInvokeTypeMask = 7u;
-  COMPILE_ASSERT((1u << (kBitInvokeTypeEnd - kBitInvokeTypeBegin)) - 1u == kInvokeTypeMask,
-                 assert_invoke_type_bits_ok);
-  COMPILE_ASSERT((1u << (kBitSharpTypeEnd - kBitSharpTypeBegin)) - 1u == kInvokeTypeMask,
-                 assert_sharp_type_bits_ok);
+  static_assert((1u << (kBitInvokeTypeEnd - kBitInvokeTypeBegin)) - 1u == kInvokeTypeMask,
+                "assert invoke type bits failed");
+  static_assert((1u << (kBitSharpTypeEnd - kBitSharpTypeBegin)) - 1u == kInvokeTypeMask,
+                "assert sharp type bits failed");
 
   uintptr_t direct_code_;
   uintptr_t direct_method_;
   // Before Resolve(), target_dex_file_ and target_method_idx_ hold the verification-based
-  // devirtualized invoke target if available, nullptr and 0u otherwise.
+  // devirtualized invoke target if available, null and 0u otherwise.
   // After Resolve() they hold the actual target method that will be called; it will be either
   // a devirtualized target method or the compilation's unit's dex file and MethodIndex().
   const DexFile* target_dex_file_;
@@ -185,7 +231,8 @@ class MirMethodLoweringInfo : public MirMethodInfo {
   uint16_t vtable_idx_;
   int stats_flags_;
 
-  friend class ClassInitCheckEliminationTest;
+  friend class MirOptimizationTest;
+  friend class TypeInferenceTest;
 };
 
 }  // namespace art

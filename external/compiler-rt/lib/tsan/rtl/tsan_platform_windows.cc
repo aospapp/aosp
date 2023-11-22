@@ -31,16 +31,7 @@ void FlushShadowMemory() {
 void WriteMemoryProfile(char *buf, uptr buf_size, uptr nthread, uptr nlive) {
 }
 
-uptr GetRSS() {
-  return 0;
-}
-
-const char *InitializePlatform() {
-  return GetEnv(kTsanOptionsEnv);
-}
-
-void FinalizePlatform() {
-  fflush(0);
+void InitializePlatform() {
 }
 
 }  // namespace __tsan

@@ -14,18 +14,21 @@
  * limitations under the License.
  *
  */
-#include <jni.h>
-#include <sys/prctl.h>
-#include <string.h>
+
+#include "jni.h"
+
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <linux/filter.h>
 #include <linux/seccomp.h>
 
-#include <sys/utsname.h>
+#include <sys/prctl.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 
 jint android_os_cts_OSFeatures_getNoNewPrivs(JNIEnv* env, jobject thiz)
@@ -81,8 +84,9 @@ jboolean android_os_cts_OSFeatures_hasSeccompSupport(JNIEnv* env, jobject)
 
 jboolean android_os_cts_OSFeatures_needsSeccompSupport(JNIEnv*, jobject)
 {
-#if !defined(__arm__) && !defined(__i386__) && !defined(__x86_64__)
+#if !defined(ARCH_SUPPORTS_SECCOMP)
     // Seccomp support is only available for ARM, x86, x86_64.
+    // This define is controlled by the Android.mk.
     return false;
 #endif
 

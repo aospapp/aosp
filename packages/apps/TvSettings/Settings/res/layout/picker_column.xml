@@ -13,8 +13,8 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<com.android.tv.settings.widget.ScrollAdapterView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:settings="http://schemas.android.com/apk/res-auto"
+<android.support.v17.leanback.widget.VerticalGridView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/column"
     android:layout_width="wrap_content"
     android:layout_height="@dimen/picker_column_height"
@@ -25,8 +25,4 @@
     android:paddingEnd="@dimen/picker_column_horizontal_padding"
     android:requiresFadingEdge="vertical"
     android:visibility="visible"
-    settings:navigateOutAllowed="false"
-    settings:navigateOutOfOffAxisAllowed="true"
-    settings:orientation="vertical"
-    settings:scrollCenterOffsetPercent="50"
-    settings:scrollCenterStrategy="fixedPercent" />
+    app:columnWidth="wrap_content" />

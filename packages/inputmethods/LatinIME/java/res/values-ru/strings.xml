@@ -21,18 +21,31 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="english_ime_input_options" msgid="3909945612939668554">"Настройки"</string>
-    <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"Поиск контактов"</string>
-    <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"Обращаться к списку контактов при проверке правописания"</string>
+    <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"Поиск в контактах"</string>
+    <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"Использовать имена контактов при проверке правописания"</string>
     <string name="vibrate_on_keypress" msgid="5258079494276955460">"Виброотклик клавиш"</string>
     <string name="sound_on_keypress" msgid="6093592297198243644">"Звук клавиш"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Увеличение нажатых"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Настройки"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Вид и раскладки"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Дополнительные языки"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Аккаунты"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Вид и раскладки"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Непрерывный ввод"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Исправление текста"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Дополнительные настройки"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Тема"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Включить разделенную клавиатуру"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Синхронизировать Клавиатуру"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Синхронизация включена"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Синхронизировать пользовательский словарь со всеми устройствами"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Синхронизировать"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Удалить данные с серверов Google"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Удаление синхронизированных данных из Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Синхронизированные данные будут удалены из облака. Продолжить?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Удалить"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Отменить"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Словарь будет сохраняться на серверах Google и синхронизироваться. Чтобы повысить качество наших сервисов, мы можем отслеживать статистику использования тех или иных слов. Вся информация обрабатывается в соответствии с "<a href="https://www.google.com/policies/privacy">"Политикой конфиденциальности"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Чтобы включить функцию, добавьте аккаунт Google на устройство"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Синхронизация на устройствах с аккаунтом Google Apps for Business запрещена"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Смена способов ввода"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Клавиша переключения языков также служит для смены способа ввода"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Клавиша смены языка"</string>
@@ -46,8 +59,8 @@
     <string name="use_contacts_dict_summary" msgid="6599983334507879959">"Подсказывать исправления на основе имен из списка контактов"</string>
     <string name="use_personalized_dicts" msgid="5167396352105467626">"Пользовательские словари"</string>
     <string name="enable_metrics_logging" msgid="5506372337118822837">"Помочь улучшить <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
-    <string name="use_double_space_period" msgid="8781529969425082860">"Ставить точки автоматически"</string>
-    <string name="use_double_space_period_summary" msgid="6532892187247952799">"Вводить точку с пробелом двойным нажатием кнопки \"Пробел\"."</string>
+    <string name="use_double_space_period" msgid="8781529969425082860">"Точки автоматически"</string>
+    <string name="use_double_space_period_summary" msgid="6532892187247952799">"Вводить точку с пробелом двойным нажатием пробела."</string>
     <string name="auto_cap" msgid="1719746674854628252">"Заглавные автоматически"</string>
     <string name="auto_cap_summary" msgid="7934452761022946874">"Писать первое слово предложения с прописной буквы"</string>
     <string name="edit_personal_dictionary" msgid="3996910038952940420">"Пользовательский словарь"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Нажмите, чтобы сохранить"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Доступен словарь"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Тема клавиатуры"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Сменить аккаунт"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Аккаунт не выбран"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Используется аккаунт <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ОК"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Отмена"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Выйти"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Выберите аккаунт"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"английский (Великобритания)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"английский (США)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Испанский (США)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Хинглиш"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Сербский (латиница)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Английский (Великобритания, <xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Английский (США, <xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Испанский (США, <xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Хинглиш (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Сербский (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (классическая)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (кириллица)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (латиница)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (компактная раскладка)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Язык не определен (латиница)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Латиница (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Латиница (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Такой стиль ввода уже существует: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Вибросигнал при нажатии клавиш"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Звук при нажатии клавиш"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Долгое нажатие"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Смайлики с внешней клавиатуры"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Открывать список смайликов нажатием клавиши ALT"</string>
     <string name="button_default" msgid="3988017840431881491">"По умолчанию"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Представляем приложение \"<xliff:g id="APPLICATION_NAME">%s</xliff:g>\""</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"с непрерывным вводом"</string>

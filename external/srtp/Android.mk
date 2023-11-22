@@ -34,7 +34,8 @@ common_CFLAGS := \
     -Wno-ignored-qualifiers \
     -Wno-sign-compare \
     -Wno-missing-field-initializers \
-    -Wno-unused-parameter
+    -Wno-unused-parameter \
+    -Wno-unused-but-set-variable
 
 common_C_INCLUDES = $(LOCAL_PATH)/include
 
@@ -47,7 +48,6 @@ include $(CLEAR_VARS)
 ifeq ($(TARGET_ARCH),arm)
     LOCAL_SDK_VERSION := 9
 endif
-
 
 LOCAL_SRC_FILES := $(common_SRC_FILES)
 LOCAL_CFLAGS += $(common_CFLAGS)

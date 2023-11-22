@@ -15,6 +15,7 @@
  *
  */
 
+#include <inttypes.h>
 
 #include <OMX_Component.h>
 #include "isv_omxcomponent.h"
@@ -23,9 +24,12 @@
 #include <OMX_IndexExt.h>
 #include <hal_public.h>
 
+#include "OMX_adaptor.h"
+
 //#define LOG_NDEBUG 0
 #undef LOG_TAG
 #define LOG_TAG "isv-omxil"
+
 
 using namespace android;
 
@@ -39,6 +43,8 @@ using namespace android;
         return OMX_ErrorBadParameter;
 
 Vector<ISVComponent*> ISVComponent::g_isv_components;
+
+extern MRM_OMX_Adaptor* g_mrm_omx_adaptor;
 
 #ifndef TARGET_VPP_USE_GEN
 //global, static
@@ -319,7 +325,15 @@ OMX_ERRORTYPE ISVComponent::ISV_SetParameter(
         return OMX_ErrorNone;
     }
 
-    OMX_ERRORTYPE err = OMX_SetParameter(mComponent, nIndex, pComponentParameterStructure);
+    // before setting param to real omx component, firstly set to media resource manager
+    OMX_ERRORTYPE err = g_mrm_omx_adaptor->MRM_OMX_SetParameter(mComponent,
+                                                                nIndex,
+                                                                pComponentParameterStructure); 
+    if (err == OMX_ErrorInsufficientResources) {
+        return OMX_ErrorInsufficientResources;
+    }
+
+    err = OMX_SetParameter(mComponent, nIndex, pComponentParameterStructure);
     if (err == OMX_ErrorNone && mVPPEnabled && mVPPOn) {
         if (nIndex == OMX_IndexParamPortDefinition) {
             OMX_PARAM_PORTDEFINITIONTYPE *def =
@@ -775,7 +789,9 @@ OMX_ERRORTYPE ISVComponent::ISV_EventHandler(
 
         default:
         {
-            ALOGD_IF(ISV_COMPONENT_DEBUG, "%s: EVENT(%d, %ld, %ld)", __func__, eEvent, nData1, nData2);
+            ALOGD_IF(
+                ISV_COMPONENT_DEBUG, "%s: EVENT(%d, %" PRId32 ", %" PRId32 ")",
+                __func__, eEvent, nData1, nData2);
             break;
         }
     }

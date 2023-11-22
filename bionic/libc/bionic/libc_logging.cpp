@@ -56,6 +56,7 @@ enum AndroidEventLogType {
   EVENT_TYPE_LONG     = 1,
   EVENT_TYPE_STRING   = 2,
   EVENT_TYPE_LIST     = 3,
+  EVENT_TYPE_FLOAT    = 4,
 };
 
 struct BufferOutputStream {
@@ -75,10 +76,12 @@ struct BufferOutputStream {
       len = strlen(data);
     }
 
+    total += len;
+
     while (len > 0) {
       int avail = end_ - pos_;
       if (avail == 0) {
-        break;
+        return;
       }
       if (avail > len) {
         avail = len;
@@ -87,11 +90,10 @@ struct BufferOutputStream {
       pos_ += avail;
       pos_[0] = '\0';
       len -= avail;
-      total += avail;
     }
   }
 
-  int total;
+  size_t total;
 
  private:
   char* buffer_;
@@ -109,18 +111,19 @@ struct FdOutputStream {
       len = strlen(data);
     }
 
+    total += len;
+
     while (len > 0) {
       int rc = TEMP_FAILURE_RETRY(write(fd_, data, len));
       if (rc == -1) {
-        break;
+        return;
       }
       data += rc;
       len -= rc;
-      total += rc;
     }
   }
 
-  int total;
+  size_t total;
 
  private:
   int fd_;
@@ -425,7 +428,7 @@ int __libc_format_fd(int fd, const char* format, ...) {
 }
 
 static int __libc_write_stderr(const char* tag, const char* msg) {
-  int fd = TEMP_FAILURE_RETRY(open("/dev/stderr", O_CLOEXEC | O_WRONLY));
+  int fd = TEMP_FAILURE_RETRY(open("/dev/stderr", O_CLOEXEC | O_WRONLY | O_APPEND));
   if (fd == -1) {
     return -1;
   }
@@ -436,7 +439,7 @@ static int __libc_write_stderr(const char* tag, const char* msg) {
   vec[1].iov_base = const_cast<char*>(": ");
   vec[1].iov_len = 2;
   vec[2].iov_base = const_cast<char*>(msg);
-  vec[2].iov_len = strlen(msg) + 1;
+  vec[2].iov_len = strlen(msg);
   vec[3].iov_base = const_cast<char*>("\n");
   vec[3].iov_len = 1;
 
@@ -446,8 +449,7 @@ static int __libc_write_stderr(const char* tag, const char* msg) {
 }
 
 #ifdef TARGET_USES_LOGD
-static int __libc_open_log_socket()
-{
+static int __libc_open_log_socket() {
   // ToDo: Ideally we want this to fail if the gid of the current
   // process is AID_LOGD, but will have to wait until we have
   // registered this in private/android_filesystem_config.h. We have
@@ -489,7 +491,6 @@ struct log_time { // Wire format
 static int __libc_write_log(int priority, const char* tag, const char* msg) {
 #ifdef TARGET_USES_LOGD
   int main_log_fd = __libc_open_log_socket();
-
   if (main_log_fd == -1) {
     // Try stderr instead.
     return __libc_write_stderr(tag, msg);
@@ -612,7 +613,7 @@ void __fortify_chk_fail(const char* msg, uint32_t tag) {
   if (tag != 0) {
     __libc_android_log_event_uid(tag);
   }
-  __libc_fatal("FORTIFY_SOURCE: %s. Calling abort().", msg);
+  __libc_fatal("FORTIFY: %s", msg);
 }
 
 static void __libc_fatal(const char* format, va_list args) {
@@ -620,12 +621,12 @@ static void __libc_fatal(const char* format, va_list args) {
   BufferOutputStream os(msg, sizeof(msg));
   out_vformat(os, format, args);
 
-  // log to stderr for the benefit of "adb shell" users.
+  // Log to stderr for the benefit of "adb shell" users.
   struct iovec iov[2] = {
-    {msg, strlen(msg)},
-    {const_cast<void*>(static_cast<const void*>("\n")), 1},
+    { msg, os.total },
+    { const_cast<char*>("\n"), 1 },
   };
-  writev(2, iov, 2);
+  TEMP_FAILURE_RETRY(writev(2, iov, 2));
 
   // Log to the log for the benefit of regular app developers (whose stdout and stderr are closed).
   __libc_write_log(ANDROID_LOG_FATAL, "libc", msg);

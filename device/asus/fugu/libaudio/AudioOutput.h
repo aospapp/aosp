@@ -71,7 +71,7 @@ class AudioOutput : public RefBase {
     // Send one chunk of data to ALSA, if state machine permits. This is called
     // for every chunk sent down, regardless of the state of the output.
     void                processOneChunk(const uint8_t* data, size_t len,
-                                        bool hasActiveOutputs);
+                                        bool hasActiveOutputs, audio_format_t format);
 
     status_t            getNextWriteTimestamp(int64_t* timestamp,
                                               bool* discon);
@@ -109,18 +109,12 @@ class AudioOutput : public RefBase {
   protected:
 
     void                pushSilence(uint32_t nFrames);
-    // Take nBytes of chunkData, convert to output format and write at
-    // sbuf. sbuf WILL point to enough space to convert from 16 to 32 bit
-    // if needed.
-    virtual void        stageChunk(const uint8_t* chunkData,
-                                   uint8_t* sbuf,
-                                   uint32_t inBytesPerSample,
-                                   uint32_t nSamples);
+
     virtual void        openPCMDevice();
     virtual void        reset();
     virtual status_t    getDMAStartData(int64_t* dma_start_time,
                                         int64_t* frames_queued_to_driver);
-    void                doPCMWrite(const uint8_t* data, size_t len);
+    void                doPCMWrite(const uint8_t* data, size_t len, audio_format_t format);
     void                setupInternal();
 
     // Current state machine state.
@@ -138,7 +132,10 @@ class AudioOutput : public RefBase {
     uint32_t            mBytesPerSample;
     uint32_t            mBytesPerFrame;
     uint32_t            mBytesPerChunk;
-    uint8_t*            mStagingBuf;
+    size_t              mStagingSize;
+    void*               mStagingBuf;
+    size_t              mSilenceSize;
+    void*               mSilenceBuf;
 
     // Get next write time stuff.
     bool                mLastNextWriteTimeValid;
@@ -159,6 +156,9 @@ class AudioOutput : public RefBase {
     int                 mALSACardID;
     uint64_t            mFramesQueuedToDriver;
     uint32_t            mPrimeTimeoutChunks;
+
+    // reduce log spew
+    bool                mReportedWriteFail;
 
     // Volume stuff
     Mutex               mVolumeLock;

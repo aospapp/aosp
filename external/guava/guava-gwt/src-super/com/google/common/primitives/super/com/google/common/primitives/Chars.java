@@ -38,6 +38,10 @@ import java.util.RandomAccess;
  * <p>All the operations in this class treat {@code char} values strictly
  * numerically; they are neither Unicode-aware nor locale-dependent.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/PrimitivesExplained">
+ * primitive utilities</a>.
+ *
  * @author Kevin Bourrillion
  * @since 1.0
  */
@@ -72,7 +76,10 @@ public final class Chars {
    */
   public static char checkedCast(long value) {
     char result = (char) value;
-    checkArgument(result == value, "Out of range: %s", value);
+    if (result != value) {
+      // don't use checkArgument here, to avoid boxing
+      throw new IllegalArgumentException("Out of range: " + value);
+    }
     return result;
   }
 
@@ -97,6 +104,9 @@ public final class Chars {
   /**
    * Compares the two specified {@code char} values. The sign of the value
    * returned is the same as that of {@code ((Character) a).compareTo(b)}.
+   *
+   * <p><b>Note:</b> projects using JDK 7 or later should use the equivalent
+   * {@link Character#compare} method instead.
    *
    * @param a the first {@code char} to compare
    * @param b the second {@code char} to compare
@@ -468,7 +478,8 @@ public final class Chars {
     @Override public Character set(int index, Character element) {
       checkElementIndex(index, size());
       char oldValue = array[start + index];
-      array[start + index] = checkNotNull(element);  // checkNotNull for GWT (do not optimize)
+      // checkNotNull for GWT (do not optimize)
+      array[start + index] = checkNotNull(element);
       return oldValue;
     }
 
@@ -519,7 +530,7 @@ public final class Chars {
     }
 
     char[] toCharArray() {
-      // Arrays.copyOfRange() requires Java 6
+      // Arrays.copyOfRange() is not available under GWT
       int size = size();
       char[] result = new char[size];
       System.arraycopy(array, start, result, 0, size);
@@ -529,4 +540,3 @@ public final class Chars {
     private static final long serialVersionUID = 0;
   }
 }
-

@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.gatt;
 
+import android.app.AppOpsManager;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -33,12 +34,16 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Intent;
+import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.util.Log;
 
+import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
@@ -110,7 +115,6 @@ public class GattService extends ProfileService {
     private List<UUID> mAdvertisingServiceUuids = new ArrayList<UUID>();
 
     private int mMaxScanFilters;
-    private Map<ScanClient, ScanResult> mOnFoundResults = new HashMap<ScanClient, ScanResult>();
 
     /**
      * Pending service declaration queue
@@ -149,6 +153,7 @@ public class GattService extends ProfileService {
 
     private AdvertiseManager mAdvertiseManager;
     private ScanManager mScanManager;
+    private AppOpsManager mAppOps;
 
     /**
      * Reliable write queue
@@ -170,6 +175,7 @@ public class GattService extends ProfileService {
     protected boolean start() {
         if (DBG) Log.d(TAG, "start()");
         initializeNative();
+        mAppOps = getSystemService(AppOpsManager.class);
         mAdvertiseManager = new AdvertiseManager(this, AdapterService.getAdapterService());
         mAdvertiseManager.start();
 
@@ -304,10 +310,10 @@ public class GattService extends ProfileService {
 
         @Override
         public void startScan(int appIf, boolean isServer, ScanSettings settings,
-                List<ScanFilter> filters, List storages) {
+                List<ScanFilter> filters, List storages, String callingPackage) {
             GattService service = getService();
             if (service == null) return;
-            service.startScan(appIf, isServer, settings, filters, storages);
+            service.startScan(appIf, isServer, settings, filters, storages, callingPackage);
         }
 
         public void stopScan(int appIf, boolean isServer) {
@@ -547,6 +553,27 @@ public class GattService extends ProfileService {
             if (service == null) return;
             service.stopMultiAdvertising(new AdvertiseClient(clientIf));
         }
+
+        @Override
+        public void disconnectAll() {
+            GattService service = getService();
+            if (service == null) return;
+            service.disconnectAll();
+        }
+
+        @Override
+        public void unregAll() {
+            GattService service = getService();
+            if (service == null) return;
+            service.unregAll();
+        }
+
+        @Override
+        public int numHwTrackFiltersAvailable() {
+            GattService service = getService();
+            if (service == null) return 0;
+            return service.numHwTrackFiltersAvailable();
+        }
     };
 
     /**************************************************************************
@@ -579,20 +606,11 @@ public class GattService extends ProfileService {
                             .getRemoteDevice(address);
                     ScanResult result = new ScanResult(device, ScanRecord.parseFromBytes(adv_data),
                             rssi, SystemClock.elapsedRealtimeNanos());
-                    if (matchesFilters(client, result)) {
+                    // Do no report if location mode is OFF or the client has no location permission
+                    // PEERS_MAC_ADDRESS permission holders always get results
+                    if (hasScanResultPermission(client) && matchesFilters(client, result)) {
                         try {
                             ScanSettings settings = client.settings;
-                            // framework detects the first match, hw signal is
-                            // used to detect the onlost
-                            // ToDo: make scanClient+result, 1 to many when hw
-                            // support is available
-                            if ((settings.getCallbackType() &
-                                    ScanSettings.CALLBACK_TYPE_FIRST_MATCH) != 0) {
-                                synchronized (mOnFoundResults) {
-                                    mOnFoundResults.put(client, result);
-                                }
-                                app.callback.onFoundOrLost(true, result);
-                            }
                             if ((settings.getCallbackType() &
                                     ScanSettings.CALLBACK_TYPE_ALL_MATCHES) != 0) {
                                 app.callback.onScanResult(result);
@@ -617,6 +635,18 @@ public class GattService extends ProfileService {
                 }
             }
         }
+    }
+
+    /** Determines if the given scan client has the appropriate permissions to receive callbacks. */
+    private boolean hasScanResultPermission(final ScanClient client) {
+        final boolean requiresLocationEnabled =
+                getResources().getBoolean(R.bool.strict_location_check);
+        final boolean locationEnabled = Settings.Secure.getInt(getContentResolver(),
+                Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF)
+                != Settings.Secure.LOCATION_MODE_OFF;
+
+        return (client.hasPeersMacAddressPermission ||
+                (client.hasLocationPermission && (!requiresLocationEnabled || locationEnabled)));
     }
 
     // Check if a scan record matches a specific filters.
@@ -1132,38 +1162,62 @@ public class GattService extends ProfileService {
         flushPendingBatchResults(clientIf, isServer);
     }
 
-    void onTrackAdvFoundLost(int filterIndex, int addrType, String address, int advState,
-            int clientIf) throws RemoteException {
-        if (DBG) Log.d(TAG, "onClientAdvertiserFoundLost() - clientIf="
-                + clientIf + "address = " + address + "adv_state = "
-                + advState + "client_if = " + clientIf);
-        ClientMap.App app = mClientMap.getById(clientIf);
+    AdvtFilterOnFoundOnLostInfo CreateonTrackAdvFoundLostObject(int client_if, int adv_pkt_len,
+                    byte[] adv_pkt, int scan_rsp_len, byte[] scan_rsp, int filt_index, int adv_state,
+                    int adv_info_present, String address, int addr_type, int tx_power, int rssi_value,
+                    int time_stamp) {
+
+        return new AdvtFilterOnFoundOnLostInfo(client_if, adv_pkt_len, adv_pkt,
+                    scan_rsp_len, scan_rsp, filt_index, adv_state,
+                    adv_info_present, address, addr_type, tx_power,
+                    rssi_value, time_stamp);
+    }
+
+    void onTrackAdvFoundLost(AdvtFilterOnFoundOnLostInfo trackingInfo) throws RemoteException {
+        if (DBG) Log.d(TAG, "onTrackAdvFoundLost() - clientIf= " + trackingInfo.getClientIf()
+                    + " address = " + trackingInfo.getAddress()
+                    + " adv_state = " + trackingInfo.getAdvState());
+
+        ClientMap.App app = mClientMap.getById(trackingInfo.getClientIf());
         if (app == null || app.callback == null) {
             Log.e(TAG, "app or callback is null");
             return;
         }
 
-        // use hw signal for only onlost reporting
-        if (advState != ADVT_STATE_ONLOST) {
-            return;
-        }
+        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter()
+                        .getRemoteDevice(trackingInfo.getAddress());
+        int advertiserState = trackingInfo.getAdvState();
+        ScanResult result = new ScanResult(device,
+                        ScanRecord.parseFromBytes(trackingInfo.getResult()),
+                        trackingInfo.getRSSIValue(), SystemClock.elapsedRealtimeNanos());
 
         for (ScanClient client : mScanManager.getRegularScanQueue()) {
-            if (client.clientIf == clientIf) {
+            if (client.clientIf == trackingInfo.getClientIf()) {
                 ScanSettings settings = client.settings;
-                if ((settings.getCallbackType() &
-                            ScanSettings.CALLBACK_TYPE_MATCH_LOST) != 0) {
-
-                    while (!mOnFoundResults.isEmpty()) {
-                        ScanResult result = mOnFoundResults.get(client);
-                        app.callback.onFoundOrLost(false, result);
-                        synchronized (mOnFoundResults) {
-                            mOnFoundResults.remove(client);
-                        }
-                    }
+                if ((advertiserState == ADVT_STATE_ONFOUND)
+                        && ((settings.getCallbackType()
+                                & ScanSettings.CALLBACK_TYPE_FIRST_MATCH) != 0)) {
+                    app.callback.onFoundOrLost(true, result);
+                } else if ((advertiserState == ADVT_STATE_ONLOST)
+                                && ((settings.getCallbackType()
+                                        & ScanSettings.CALLBACK_TYPE_MATCH_LOST) != 0)) {
+                    app.callback.onFoundOrLost(false, result);
+                } else {
+                    Log.d(TAG, "Not reporting onlost/onfound : " + advertiserState
+                                + " clientIf = " + client.clientIf
+                                + " callbackType " + settings.getCallbackType());
                 }
             }
         }
+    }
+
+    void onScanParamSetupCompleted(int status, int clientIf) throws RemoteException {
+        ClientMap.App app = mClientMap.getById(clientIf);
+        if (app == null || app.callback == null) {
+            Log.e(TAG, "Advertise app or callback is null");
+            return;
+        }
+        Log.d(TAG, "onScanParamSetupCompleted : " + status);
     }
 
     // callback from AdvertiseManager for advertise status dispatch.
@@ -1175,6 +1229,16 @@ public class GattService extends ProfileService {
             return;
         }
         app.callback.onMultiAdvertiseCallback(status, isStart, settings);
+    }
+
+    // callback from ScanManager for dispatch of errors apps.
+    void onScanManagerErrorCallback(int clientIf, int errorCode) throws RemoteException {
+        ClientMap.App app = mClientMap.getById(clientIf);
+        if (app == null || app.callback == null) {
+            Log.e(TAG, "App or callback is null");
+            return;
+        }
+        app.callback.onScanManagerErrorCallback(errorCode);
     }
 
     void onConfigureMTU(int connId, int status, int mtu) throws RemoteException {
@@ -1307,13 +1371,20 @@ public class GattService extends ProfileService {
     }
 
     void startScan(int appIf, boolean isServer, ScanSettings settings,
-            List<ScanFilter> filters, List<List<ResultStorageDescriptor>> storages) {
+            List<ScanFilter> filters, List<List<ResultStorageDescriptor>> storages,
+            String callingPackage) {
         if (DBG) Log.d(TAG, "start scan with filters");
         enforceAdminPermission();
         if (needsPrivilegedPermissionForScan(settings)) {
             enforcePrivilegedPermission();
         }
-        mScanManager.startScan(new ScanClient(appIf, isServer, settings, filters, storages));
+        boolean hasLocationPermission = Utils.checkCallerHasLocationPermission(this,
+                mAppOps, callingPackage);
+        final ScanClient scanClient = new ScanClient(appIf, isServer, settings, filters, storages);
+        scanClient.hasLocationPermission = hasLocationPermission;
+        scanClient.hasPeersMacAddressPermission = Utils.checkCallerHasPeersMacAddressPermission(
+                this);
+        mScanManager.startScan(scanClient);
     }
 
     void flushPendingBatchResults(int clientIf, boolean isServer) {
@@ -1328,6 +1399,23 @@ public class GattService extends ProfileService {
                 mScanManager.getRegularScanQueue().size();
         if (DBG) Log.d(TAG, "stopScan() - queue size =" + scanQueueSize);
         mScanManager.stopScan(client);
+    }
+
+    void disconnectAll() {
+        if (DBG) Log.d(TAG, "disconnectAll()");
+        Map<Integer, String> connMap = mClientMap.getConnectedMap();
+        for(Map.Entry<Integer, String> entry:connMap.entrySet()){
+            if (DBG) Log.d(TAG, "disconnecting addr:" + entry.getValue());
+            clientDisconnect(entry.getKey(), entry.getValue());
+            //clientDisconnect(int clientIf, String address)
+        }
+    }
+
+    void unregAll() {
+        for(ClientMap.App app:mClientMap.mApps){
+            if (DBG) Log.d(TAG, "unreg:" + app.id);
+            unregisterClient(app.id);
+        }
     }
 
     /**************************************************************************
@@ -1379,6 +1467,10 @@ public class GattService extends ProfileService {
         mAdvertiseManager.stopAdvertising(client);
     }
 
+    int numHwTrackFiltersAvailable() {
+        return (AdapterService.getAdapterService().getTotalNumOfTrackableAdvertisements()
+                    - mScanManager.getCurrentUsedTrackingAdvertisement());
+    }
 
     synchronized List<ParcelUuid> getRegisteredServiceUuids() {
         Utils.enforceAdminPermission(this);
@@ -1581,8 +1673,8 @@ public class GattService extends ProfileService {
         switch (connectionPriority)
         {
             case BluetoothGatt.CONNECTION_PRIORITY_HIGH:
-                minInterval = 6; // 7.5ms
-                maxInterval = 8; // 10ms
+                minInterval = 9; // 11.25ms
+                maxInterval = 12; // 15ms
                 break;
 
             case BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER:
@@ -2023,18 +2115,16 @@ public class GattService extends ProfileService {
     }
 
     private boolean needsPrivilegedPermissionForScan(ScanSettings settings) {
+        BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+        // BLE scan only mode needs special permission.
+        if (adapter.getState() != BluetoothAdapter.STATE_ON) return true;
+
         // Regular scan, no special permission.
-        if (settings == null) {
-            return false;
-        }
-        // Hidden API for onLost/onFound
-        if (settings.getCallbackType() != ScanSettings.CALLBACK_TYPE_ALL_MATCHES) {
-            return true;
-        }
+        if (settings == null) return false;
+
         // Regular scan, no special permission.
-        if (settings.getReportDelayMillis() == 0) {
-            return false;
-        }
+        if (settings.getReportDelayMillis() == 0) return false;
+
         // Batch scan, truncated mode needs permission.
         return settings.getScanResultType() == ScanSettings.SCAN_RESULT_TYPE_ABBREVIATED;
     }
@@ -2224,11 +2314,6 @@ public class GattService extends ProfileService {
         for (UUID uuid : mAdvertisingServiceUuids) {
             println(sb, "  " + uuid);
         }
-        println(sb, "mOnFoundResults:");
-        for (ScanResult result : mOnFoundResults.values()) {
-            println(sb, "  " + result);
-        }
-        println(sb, "mOnFoundResults:");
         for (ServiceDeclaration declaration : mServiceDeclarations) {
             println(sb, "  " + declaration);
         }

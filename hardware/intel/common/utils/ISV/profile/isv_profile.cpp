@@ -254,7 +254,7 @@ void ISVProfile::handleFilterParameter(const char *name, const char **atts)
     int attIndex = 0;
 
     if (!mCurrentFilter) {
-        ALOGE("\"%s\" must be in Filter element\n");
+        ALOGE("\"%s\" must be in Filter element\n", name);
         return;
     }
 

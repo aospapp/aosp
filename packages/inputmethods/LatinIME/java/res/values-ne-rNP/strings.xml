@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"कुञ्जी थिच्दा आवाज"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"कुञ्जी दबाउँदा पपअप"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"प्राथमिकताहरू"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"देखिने; रूपरेखा"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"बहुभाषी विकल्पहरू"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"खाताहरू तथा गोपनीयता"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"आवरण तथा लेआउटहरू"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"इशारा टाइपिङ"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"पाठ सुधार"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"उन्नत"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"विषयवस्तु"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"विभाजित कुञ्जीपाटी सक्षम गर्नुहोस्"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google किबोर्ड सिंक गर्नुहोस्"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"सिंक सक्रिय गरिएको छ"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"तपाईंको व्यक्तिगत शब्दकोषलाई यन्त्रहरूमा सिंक गर्नुहोस्"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"अहिले सिंक गर्नुहोस्"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"क्लाउड डेटा मेटाउनुहोस्"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google बाट तपाईँको सिङ्क गरिएको डाटा मेटाउँछ"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"तपाईंको सिंक गरिएको डेटालाई क्लाउडबाट मेटाइनेछ। के तपाईं निश्चित हुनुहुन्छ?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"मेटाउनुहोस्"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"रद्द गर्नुहोस्"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"तपाईँको व्यक्तिगत शब्दकोश सिंक गरेर Google सर्भरहरूमा जगेडा राखिने छ। शब्द आवृत्तिको तथ्याङ्क जानकारी हाम्रो उत्पादनहरू सुधार गर्न मद्दतका लागि संकलन हुन सक्छ। संग्रह र सबै जानकारीको प्रयोग  "<a href="https://www.google.com/policies/privacy">" Google को गोपनीयता नीति "</a>" अनुरूप हुने छ।"</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"कृपया यो सुविधा सक्षम गर्न यो यन्त्रमा एउटा Google खाता थप्नुहोस्"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"व्यापार खाताहरूको लागि Google Apps मार्फत यन्त्रको लागि सिंक उपलब्ध छैन"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"अन्य इनपुट विधिमा स्विच गर्नुहोस्"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"भाषा स्विच किले अन्य इनपुट विधि पनि समेट्छ"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"भाषा स्विच कुञ्जी"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"सुरक्षित गर्न यहाँ छुनुहोस्"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"उपलब्ध शब्दकोश"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"किबोर्ड थिम"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"खाताहरू स्विच गर्नुहोस्"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"कुनै खाता चयन गरिएको छैन"</string>
+    <string name="account_selected" msgid="2846876462199625974">"हाल प्रयोग गर्दै <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ठीक छ"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"रद्द गर्नुहोस्"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"बाहिर निकल्नुहोस्"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"प्रयोग गर्न खाता चयन गर्नुहोस्"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"अंग्रेजी (युके)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"अंग्रेजी (युएस्)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"स्पेनिस (युएस्)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"हिङ्लिस"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"सर्बियाई (ल्याटिन)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"अंग्रेजी (बेलायत) ( <xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g> )"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"अंग्रेजी (अमेरिका) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"स्पेनेली (अमेरिका) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"हिङ्लिस (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"सर्बियाई (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (परम्परागत)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (सिरिलिक)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ल्याटिन)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (संकुचित)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"कुनै भाषा होइन (वर्णमाला)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"वर्णमाला (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"वर्णमाला (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"यस्तो इनपुट शैली पहिले नै अवस्थित छ: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"कुञ्जी थिचाइ भाइब्रेसन अवधि"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"कुञ्जी थिचाइ आवाज भोल्युम"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"कुञ्जी लामो थिचाइ ढिलाइ"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"भौतिक किबोर्डको लागि इमोजी"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"भौतिक Alt कुञ्जीले इमोजी प्यालेट देखाउँछ"</string>
     <string name="button_default" msgid="3988017840431881491">"पूर्वनिर्धारित"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"तपाईँलाई स्वागत छ<xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"इशारा टाइप गर्नेसँग"</string>

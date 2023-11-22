@@ -14,8 +14,8 @@
 #ifndef LLVM_ANALYSIS_SCALAREVOLUTIONEXPRESSIONS_H
 #define LLVM_ANALYSIS_SCALAREVOLUTIONEXPRESSIONS_H
 
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -309,17 +309,17 @@ namespace llvm {
                               getLoop(), FlagAnyWrap);
     }
 
-    /// isAffine - Return true if this is an affine AddRec (i.e., it represents
-    /// an expressions A+B*x where A and B are loop invariant values.
+    /// isAffine - Return true if this represents an expression
+    /// A + B*x where A and B are loop invariant values.
     bool isAffine() const {
       // We know that the start value is invariant.  This expression is thus
       // affine iff the step is also invariant.
       return getNumOperands() == 2;
     }
 
-    /// isQuadratic - Return true if this is an quadratic AddRec (i.e., it
-    /// represents an expressions A+B*x+C*x^2 where A, B and C are loop
-    /// invariant values.  This corresponds to an addrec of the form {L,+,M,+,N}
+    /// isQuadratic - Return true if this represents an expression
+    /// A + B*x + C*x^2 where A, B and C are loop invariant values.
+    /// This corresponds to an addrec of the form {L,+,M,+,N}
     bool isQuadratic() const {
       return getNumOperands() == 3;
     }
@@ -577,7 +577,7 @@ namespace llvm {
     SmallPtrSet<const SCEV *, 8> Visited;
 
     void push(const SCEV *S) {
-      if (Visited.insert(S) && Visitor.follow(S))
+      if (Visited.insert(S).second && Visitor.follow(S))
         Worklist.push_back(S);
     }
   public:
@@ -624,7 +624,7 @@ namespace llvm {
     }
   };
 
-  /// Use SCEVTraversal to visit all nodes in the givien expression tree.
+  /// Use SCEVTraversal to visit all nodes in the given expression tree.
   template<typename SV>
   void visitAll(const SCEV *Root, SV& Visitor) {
     SCEVTraversal<SV> T(Visitor);

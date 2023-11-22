@@ -72,6 +72,9 @@ public class YuvTest extends RSBaseCompute {
         return Allocation.createTyped(mRS, Type.createXY(mRS, Element.RGBA_8888(mRS), width, height));
     }
 
+    public Allocation makeOutput_f4() {
+        return Allocation.createTyped(mRS, Type.createXY(mRS, Element.F32_4(mRS), width, height));
+    }
     // Test for the API 17 conversion path
     // This used a uchar buffer assuming nv21
     public void testV17() {
@@ -94,11 +97,11 @@ public class YuvTest extends RSBaseCompute {
         Allocation ta = Allocation.createSized(mRS, Element.U8(mRS), tmp.length);
         ta.copyFrom(tmp);
 
-
         ScriptIntrinsicYuvToRGB syuv = ScriptIntrinsicYuvToRGB.create(mRS, Element.U8(mRS));
         syuv.setInput(ta);
         syuv.forEach(aout);
-
+        
+        mVerify.set_gAllowedIntError(2); // this will allow for less strict implementation
         ScriptC_yuv script = new ScriptC_yuv(mRS);
         script.invoke_makeRef(ay, au, av, aref);
 
@@ -138,7 +141,8 @@ public class YuvTest extends RSBaseCompute {
         }
         ta.copyFrom(tmp);
         script.invoke_makeRef(ay, au, av, aref);
-
+        
+        mVerify.set_gAllowedIntError(2); // this will allow for less strict implementation
         syuv.setInput(ta);
         syuv.forEach(aout);
         mVerify.invoke_verify(aref, aout, ay);
@@ -183,6 +187,7 @@ public class YuvTest extends RSBaseCompute {
         }
         ta.copyFrom(tmp);
         script.invoke_makeRef(ay, au, av, aref);
+        mVerify.set_gAllowedIntError(2); // this will allow for less strict implementation
 
         syuv.setInput(ta);
         syuv.forEach(aout);
@@ -198,4 +203,84 @@ public class YuvTest extends RSBaseCompute {
         checkForErrors();
     }
 
+    // Test for the API conversion to float4 RGBA using rsYuvToRGBA, YV12.
+    public void test_YV12_Float4() {
+        mVerify = new ScriptC_verify(mRS);
+        ScriptC_yuv script = new ScriptC_yuv(mRS);
+
+        makeYuvBuffer(512, 512);
+        Allocation aout = makeOutput_f4();
+        Allocation aref = makeOutput_f4();
+
+
+        Type.Builder tb = new Type.Builder(mRS, Element.YUV(mRS));
+        tb.setX(width);
+        tb.setY(height);
+        tb.setYuvFormat(android.graphics.ImageFormat.YV12);
+        Allocation ta = Allocation.createTyped(mRS, tb.create(), Allocation.USAGE_SCRIPT);
+
+        byte tmp[] = new byte[(width * height) + (getCWidth() * getCHeight() * 2)];
+        int i = 0;
+        for (int j = 0; j < (width * height); j++) {
+            tmp[i++] = by[j];
+        }
+        for (int j = 0; j < (getCWidth() * getCHeight()); j++) {
+            tmp[i++] = bu[j];
+        }
+        for (int j = 0; j < (getCWidth() * getCHeight()); j++) {
+            tmp[i++] = bv[j];
+        }
+        ta.copyFrom(tmp);
+        script.invoke_makeRef_f4(ay, au, av, aref);
+
+        script.set_mInput(ta);
+        script.forEach_cvt_f4(aout);
+        mVerify.invoke_verify(aref, aout, ay);
+
+        mRS.finish();
+        mVerify.set_gAllowedFloatError(0.01f); // this will allow for less strict implementation
+        mVerify.invoke_checkError();
+        waitForMessage();
+        checkForErrors();
+    }
+
+    // Test for the API conversion to float4 RGBA using rsYuvToRGBA, NV21.
+    public void test_NV21_Float4() {
+        mVerify = new ScriptC_verify(mRS);
+        ScriptC_yuv script = new ScriptC_yuv(mRS);
+
+        makeYuvBuffer(512, 512);
+        Allocation aout = makeOutput_f4();
+        Allocation aref = makeOutput_f4();
+
+
+        Type.Builder tb = new Type.Builder(mRS, Element.YUV(mRS));
+        tb.setX(width);
+        tb.setY(height);
+        tb.setYuvFormat(android.graphics.ImageFormat.NV21);
+        Allocation ta = Allocation.createTyped(mRS, tb.create(), Allocation.USAGE_SCRIPT);
+
+        byte tmp[] = new byte[(width * height) + (getCWidth() * getCHeight() * 2)];
+        int i = 0;
+        for (int j = 0; j < (width * height); j++) {
+            tmp[i++] = by[j];
+        }
+        for (int j = 0; j < (getCWidth() * getCHeight()); j++) {
+            tmp[i++] = bv[j];
+            tmp[i++] = bu[j];
+        }
+
+        ta.copyFrom(tmp);
+        script.invoke_makeRef_f4(ay, au, av, aref);
+
+        script.set_mInput(ta);
+        script.forEach_cvt_f4(aout);
+        mVerify.set_gAllowedFloatError(0.01f); // this will allow for less strict implementation
+        mVerify.invoke_verify(aref, aout, ay);
+
+        mRS.finish();
+        mVerify.invoke_checkError();
+        waitForMessage();
+        checkForErrors();
+    }
 }

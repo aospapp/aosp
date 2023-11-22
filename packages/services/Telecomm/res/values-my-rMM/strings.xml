@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"ဖုန်း"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"ဖုန်းခေါ်ဆိုခြင်း စီမံမှု"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ဖုန်း"</string>
     <string name="unknown" msgid="6878797917991465859">"အကြောင်းအရာ မသိရှိ"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"လွဲသွားသော ဖုန်းခေါ်မှု"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"လွဲသွားသော ဖုန်းခေါ်မှုများ"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"အမြန်တုံ့ပြန်ချက်"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> ထံ စာတိုပို့လိုက်ပါပြီ"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"အရေးပေါ်ဖုန်းများကိုသာ ခေါ်ဆိုနိုင်ရန် စက်ကိရိယာပိုင်ရှင်က ခွင့်ပြုထား၏"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"ခေါ်ဆိုသော အကောင့်များ"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"အရေးပေါ်ဖုန်းများကိုသာ ခေါ်ဆိုနိုင်ရန် စက်ကိရိယာပိုင်ရှင်က ခွင့်ပြုထားသည်။"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"ဤအပ္ပလီကေးရှင်းသည် ဖုန်းခွင့်ပြုချက်မရှိဘဲ အထွက်ခေါ်ဆိုမှု ပြုလုပ်၍မရပါ။"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"ဖုန်းခေါ်ရန်အတွက်၊ သင့်လျော်သည့်နံပါတ် ရိုက်ထည့်ပါ။"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"ဗွီဒီယိုခေါ်နေစဉ် ထပ်ခေါ်မရပါ။"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"ဗီဒီယိုခေါ်ဆိုမှုများ ပြုလုပ်ရန် ကျေးဇူးပြု၍ TTY မုဒ်ကို ပိတ်ထားပါ။"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"အသံစာပို့စနစ် နံပါတ် ပျောက်နေပါသည်"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ဆင်းမ်ကဒ်ပေါ်တွင် အသံစာပို့စနစ် နံပါတ် သိမ်းဆည်ထားခြင်း မရှိပါ"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"နံပါတ်ထပ်ထည့်ရန်"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်ကိုပြောင်းလိုပါသလား"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"<xliff:g id="CURRENT_APP">%2$s</xliff:g> အစား <xliff:g id="NEW_APP">%1$s</xliff:g> ကိုသင့်ရဲ့ စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်အဖြစ် သုံးလိုပါသလား"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"<xliff:g id="NEW_APP">%s</xliff:g> ကိုသင့်ရဲ့စက်ရုံထုတ်ဖုန်းခေါ်အပ်ဖ်အဖြစ် သုံးလိုပါသလား"</string>
 </resources>

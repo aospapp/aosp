@@ -28,22 +28,6 @@
 #include "SkOSFile.h"
 #include "SkStream.h"
 
-static void check_for_nonwhite(const SkBitmap& bm, int alpha) {
-    if (bm.colorType() != kRGB_565_SkColorType) {
-        return;
-    }
-
-    for (int y = 0; y < bm.height(); y++) {
-        for (int x = 0; x < bm.width(); x++) {
-            uint16_t c = *bm.getAddr16(x, y);
-            if (c != 0xFFFF) {
-                SkDebugf("------ nonwhite alpha=%x [%d %d] %x\n", alpha, x, y, c);
-                return;
-            }
-        }
-    }
-}
-
 class TextAlphaView : public SampleView {
 public:
     TextAlphaView() {
@@ -52,7 +36,7 @@ public:
 
 protected:
     // overrides from SkEventSink
-    virtual bool onQuery(SkEvent* evt)  {
+    bool onQuery(SkEvent* evt) override {
         if (SampleCode::TitleQ(*evt)) {
             SampleCode::TitleR(evt, "TextAlpha");
             return true;
@@ -60,7 +44,7 @@ protected:
         return this->INHERITED::onQuery(evt);
     }
 
-    virtual void onDrawContent(SkCanvas* canvas) {
+    void onDrawContent(SkCanvas* canvas) override {
         const char* str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         SkPaint paint;
         SkScalar    x = SkIntToScalar(10);
@@ -83,23 +67,13 @@ protected:
             canvas->drawText(str, strlen(str), x, y, paint);
             y += paint.getFontMetrics(NULL);
         }
-        if (false) { // avoid bit rot, suppress warning
-            check_for_nonwhite(canvas->getDevice()->accessBitmap(false), fByte);
-            SkDebugf("------ byte %x\n", fByte);
-        }
-
-        if (false) {
-            fByte += 1;
-            fByte &= 0xFF;
-            this->inval(NULL);
-        }
     }
 
-    virtual SkView::Click* onFindClickHandler(SkScalar x, SkScalar y, unsigned) SK_OVERRIDE {
+    SkView::Click* onFindClickHandler(SkScalar x, SkScalar y, unsigned) override {
         return new Click(this);
     }
 
-    virtual bool onClick(Click* click) {
+    bool onClick(Click* click) override {
         int y = click->fICurr.fY;
         if (y < 0) {
             y = 0;

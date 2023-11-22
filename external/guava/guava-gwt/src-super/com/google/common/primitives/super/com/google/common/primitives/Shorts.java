@@ -21,7 +21,9 @@ import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
+import com.google.common.base.Converter;
 
 import java.io.Serializable;
 import java.util.AbstractList;
@@ -34,6 +36,10 @@ import java.util.RandomAccess;
 /**
  * Static utility methods pertaining to {@code short} primitives, that are not
  * already found in either {@link Short} or {@link Arrays}.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/PrimitivesExplained">
+ * primitive utilities</a>.
  *
  * @author Kevin Bourrillion
  * @since 1.0
@@ -77,7 +83,10 @@ public final class Shorts {
    */
   public static short checkedCast(long value) {
     short result = (short) value;
-    checkArgument(result == value, "Out of range: %s", value);
+    if (result != value) {
+      // don't use checkArgument here, to avoid boxing
+      throw new IllegalArgumentException("Out of range: " + value);
+    }
     return result;
   }
 
@@ -102,6 +111,9 @@ public final class Shorts {
   /**
    * Compares the two specified {@code short} values. The sign of the value
    * returned is the same as that of {@code ((Short) a).compareTo(b)}.
+   *
+   * <p><b>Note:</b> projects using JDK 7 or later should use the equivalent
+   * {@link Short#compare} method instead.
    *
    * @param a the first {@code short} to compare
    * @param b the second {@code short} to compare
@@ -269,6 +281,42 @@ public final class Shorts {
     return result;
   }
 
+  private static final class ShortConverter
+      extends Converter<String, Short> implements Serializable {
+    static final ShortConverter INSTANCE = new ShortConverter();
+
+    @Override
+    protected Short doForward(String value) {
+      return Short.decode(value);
+    }
+
+    @Override
+    protected String doBackward(Short value) {
+      return value.toString();
+    }
+
+    @Override
+    public String toString() {
+      return "Shorts.stringConverter()";
+    }
+
+    private Object readResolve() {
+      return INSTANCE;
+    }
+    private static final long serialVersionUID = 1;
+  }
+
+  /**
+   * Returns a serializable converter object that converts between strings and
+   * shorts using {@link Short#decode} and {@link Short#toString()}.
+   *
+   * @since 16.0
+   */
+  @Beta
+  public static Converter<String, Short> stringConverter() {
+    return ShortConverter.INSTANCE;
+  }
+
   /**
    * Returns an array containing the same values as {@code array}, but
    * guaranteed to be of a specified minimum length. If {@code array} already
@@ -362,20 +410,21 @@ public final class Shorts {
   }
 
   /**
-   * Copies a collection of {@code Short} instances into a new array of
-   * primitive {@code short} values.
+   * Returns an array containing each value of {@code collection}, converted to
+   * a {@code short} value in the manner of {@link Number#shortValue}.
    *
    * <p>Elements are copied from the argument collection as if by {@code
    * collection.toArray()}.  Calling this method is as thread-safe as calling
    * that method.
    *
-   * @param collection a collection of {@code Short} objects
+   * @param collection a collection of {@code Number} instances
    * @return an array containing the same values as {@code collection}, in the
    *     same order, converted to primitives
    * @throws NullPointerException if {@code collection} or any of its elements
    *     is null
+   * @since 1.0 (parameter was {@code Collection<Short>} before 12.0)
    */
-  public static short[] toArray(Collection<Short> collection) {
+  public static short[] toArray(Collection<? extends Number> collection) {
     if (collection instanceof ShortArrayAsList) {
       return ((ShortArrayAsList) collection).toShortArray();
     }
@@ -385,7 +434,7 @@ public final class Shorts {
     short[] array = new short[len];
     for (int i = 0; i < len; i++) {
       // checkNotNull for GWT (do not optimize)
-      array[i] = (Short) checkNotNull(boxedArray[i]);
+      array[i] = ((Number) checkNotNull(boxedArray[i])).shortValue();
     }
     return array;
   }
@@ -472,7 +521,8 @@ public final class Shorts {
     @Override public Short set(int index, Short element) {
       checkElementIndex(index, size());
       short oldValue = array[start + index];
-      array[start + index] = checkNotNull(element);  // checkNotNull for GWT (do not optimize)
+      // checkNotNull for GWT (do not optimize)
+      array[start + index] = checkNotNull(element);
       return oldValue;
     }
 
@@ -523,7 +573,7 @@ public final class Shorts {
     }
 
     short[] toShortArray() {
-      // Arrays.copyOfRange() requires Java 6
+      // Arrays.copyOfRange() is not available under GWT
       int size = size();
       short[] result = new short[size];
       System.arraycopy(array, start, result, 0, size);

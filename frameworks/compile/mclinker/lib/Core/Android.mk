@@ -2,14 +2,13 @@ LOCAL_PATH:= $(call my-dir)
 
 mcld_core_SRC_FILES := \
   AttributeOption.cpp \
-  BitcodeOption.cpp \
   Environment.cpp \
   GeneralOptions.cpp \
-  IRBuilder.cpp \
   InputTree.cpp \
-  LinkerConfig.cpp  \
-  LinkerScript.cpp  \
+  IRBuilder.cpp \
+  LinkerConfig.cpp \
   Linker.cpp \
+  LinkerScript.cpp \
   Module.cpp \
   TargetOptions.cpp
 

@@ -50,7 +50,6 @@ PRODUCT_PACKAGES += \
     liblog \
     libm \
     libstdc++ \
-    libstlport \
     libsysutils \
     libutils \
     linker \
@@ -66,6 +65,7 @@ PRODUCT_PACKAGES += \
     servicemanager \
     sh \
     toolbox \
+    toybox \
     vold \
 
 # SELinux packages

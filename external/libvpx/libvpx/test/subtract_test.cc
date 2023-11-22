@@ -18,11 +18,11 @@
 #include "vp8/encoder/block.h"
 #include "vpx_mem/vpx_mem.h"
 
-typedef void (*subtract_b_fn_t)(BLOCK *be, BLOCKD *bd, int pitch);
+typedef void (*SubtractBlockFunc)(BLOCK *be, BLOCKD *bd, int pitch);
 
 namespace {
 
-class SubtractBlockTest : public ::testing::TestWithParam<subtract_b_fn_t> {
+class SubtractBlockTest : public ::testing::TestWithParam<SubtractBlockFunc> {
  public:
   virtual void TearDown() {
     libvpx_test::ClearSystemState();
@@ -82,7 +82,7 @@ TEST_P(SubtractBlockTest, SimpleSubtract) {
       predictor += kDiffPredStride;
     }
 
-    REGISTER_STATE_CHECK(GetParam()(&be, &bd, kDiffPredStride));
+    ASM_REGISTER_STATE_CHECK(GetParam()(&be, &bd, kDiffPredStride));
 
     base_src = *be.base_src;
     src_diff = be.src_diff;
@@ -105,7 +105,7 @@ TEST_P(SubtractBlockTest, SimpleSubtract) {
 INSTANTIATE_TEST_CASE_P(C, SubtractBlockTest,
                         ::testing::Values(vp8_subtract_b_c));
 
-#if HAVE_NEON
+#if HAVE_NEON_ASM
 INSTANTIATE_TEST_CASE_P(NEON, SubtractBlockTest,
                         ::testing::Values(vp8_subtract_b_neon));
 #endif

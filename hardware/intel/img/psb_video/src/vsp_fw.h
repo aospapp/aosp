@@ -578,6 +578,8 @@ struct VssVp8encSequenceParameterBuffer {
 	uint32_t cyclic_intra_refresh;
 	uint32_t concatenate_partitions;
 	uint32_t recon_buffer_mode;
+	uint32_t generate_skip_frames;
+	uint32_t max_num_dropped_frames;
 	uint32_t ts_number_layers;
 	uint32_t ts_target_bitrate[3];
 	uint32_t ts_rate_decimator[3];
@@ -596,8 +598,9 @@ struct VssVp8encEncodedFrame {
 	uint32_t quantizer[4];
 	uint32_t frame_flags;
 	uint32_t partition_id;
-	uint32_t buffer_level;
+	uint32_t buffer_level[3];
 	uint32_t quality;
+	uint32_t overflow_bytes;
 	uint32_t surfaceId_of_ref_frame[4];
 	uint32_t reserved[15];
 	uint32_t coded_data[1];

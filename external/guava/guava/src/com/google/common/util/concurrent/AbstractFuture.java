@@ -70,6 +70,11 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
   // The execution list to hold our executors.
   private final ExecutionList executionList = new ExecutionList();
 
+  /**
+   * Constructor for use by subclasses.
+   */
+  protected AbstractFuture() {}
+
   /*
    * Improve the documentation of when InterruptedException is thrown. Our
    * behavior matches the JDK's, but the JDK's documentation is misleading.
@@ -123,7 +128,7 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
 
   @Override
   public boolean cancel(boolean mayInterruptIfRunning) {
-    if (!sync.cancel()) {
+    if (!sync.cancel(mayInterruptIfRunning)) {
       return false;
     }
     executionList.execute();
@@ -143,6 +148,16 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
    * @since 10.0
    */
   protected void interruptTask() {
+  }
+
+  /**
+   * Returns true if this future was cancelled with {@code
+   * mayInterruptIfRunning} set to {@code true}.
+   *
+   * @since 14.0
+   */
+  protected final boolean wasInterrupted() {
+    return sync.wasInterrupted();
   }
 
   /**
@@ -180,18 +195,11 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
    *
    * @param throwable the exception that the task failed with.
    * @return true if the state was successfully changed.
-   * @throws Error if the throwable was an {@link Error}.
    */
   protected boolean setException(Throwable throwable) {
     boolean result = sync.setException(checkNotNull(throwable));
     if (result) {
       executionList.execute();
-    }
-
-    // If it's an Error, we want to make sure it reaches the top of the
-    // call stack, so we rethrow it.
-    if (throwable instanceof Error) {
-      throw (Error) throwable;
     }
     return result;
   }
@@ -201,13 +209,14 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
    * private subclass to hold the synchronizer.  This synchronizer is used to
    * implement the blocking and waiting calls as well as to handle state changes
    * in a thread-safe manner.  The current state of the future is held in the
-   * Sync state, and the lock is released whenever the state changes to either
-   * {@link #COMPLETED} or {@link #CANCELLED}.
+   * Sync state, and the lock is released whenever the state changes to
+   * {@link #COMPLETED}, {@link #CANCELLED}, or {@link #INTERRUPTED}
    *
    * <p>To avoid races between threads doing release and acquire, we transition
    * to the final state in two steps.  One thread will successfully CAS from
    * RUNNING to COMPLETING, that thread will then set the result of the
-   * computation, and only then transition to COMPLETED or CANCELLED.
+   * computation, and only then transition to COMPLETED, CANCELLED, or
+   * INTERRUPTED.
    *
    * <p>We don't use the integer argument passed between acquire methods so we
    * pass around a -1 everywhere.
@@ -221,6 +230,7 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
     static final int COMPLETING = 1;
     static final int COMPLETED = 2;
     static final int CANCELLED = 4;
+    static final int INTERRUPTED = 8;
 
     private V value;
     private Throwable exception;
@@ -292,7 +302,9 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
           }
 
         case CANCELLED:
-          throw new CancellationException("Task was cancelled.");
+        case INTERRUPTED:
+          throw cancellationExceptionWithCause(
+              "Task was cancelled.", exception);
 
         default:
           throw new IllegalStateException(
@@ -301,17 +313,25 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
     }
 
     /**
-     * Checks if the state is {@link #COMPLETED} or {@link #CANCELLED}.
+     * Checks if the state is {@link #COMPLETED}, {@link #CANCELLED}, or {@link
+     * INTERRUPTED}.
      */
     boolean isDone() {
-      return (getState() & (COMPLETED | CANCELLED)) != 0;
+      return (getState() & (COMPLETED | CANCELLED | INTERRUPTED)) != 0;
     }
 
     /**
-     * Checks if the state is {@link #CANCELLED}.
+     * Checks if the state is {@link #CANCELLED} or {@link #INTERRUPTED}.
      */
     boolean isCancelled() {
-      return getState() == CANCELLED;
+      return (getState() & (CANCELLED | INTERRUPTED)) != 0;
+    }
+
+    /**
+     * Checks if the state is {@link #INTERRUPTED}.
+     */
+    boolean wasInterrupted() {
+      return getState() == INTERRUPTED;
     }
 
     /**
@@ -329,10 +349,10 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
     }
 
     /**
-     * Transition to the CANCELLED state.
+     * Transition to the CANCELLED or INTERRUPTED state.
      */
-    boolean cancel() {
-      return complete(null, null, CANCELLED);
+    boolean cancel(boolean interrupt) {
+      return complete(null, null, interrupt ? INTERRUPTED : CANCELLED);
     }
 
     /**
@@ -340,7 +360,8 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
      * be set but not both.  The {@code finalState} is the state to change to
      * from {@link #RUNNING}.  If the state is not in the RUNNING state we
      * return {@code false} after waiting for the state to be set to a valid
-     * final state ({@link #COMPLETED} or {@link #CANCELLED}).
+     * final state ({@link #COMPLETED}, {@link #CANCELLED}, or {@link
+     * #INTERRUPTED}).
      *
      * @param v the value to set as the result of the computation.
      * @param t the exception to set as the result of the computation.
@@ -353,7 +374,9 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
         // If this thread successfully transitioned to COMPLETING, set the value
         // and exception and then release to the final state.
         this.value = v;
-        this.exception = t;
+        // Don't actually construct a CancellationException until necessary.
+        this.exception = ((finalState & (CANCELLED | INTERRUPTED)) != 0)
+            ? new CancellationException("Future.cancel() was called.") : t;
         releaseShared(finalState);
       } else if (getState() == COMPLETING) {
         // If some other thread is currently completing the future, block until
@@ -362,5 +385,12 @@ public abstract class AbstractFuture<V> implements ListenableFuture<V> {
       }
       return doCompletion;
     }
+  }
+
+  static final CancellationException cancellationExceptionWithCause(
+      @Nullable String message, @Nullable Throwable cause) {
+    CancellationException exception = new CancellationException(message);
+    exception.initCause(cause);
+    return exception;
   }
 }

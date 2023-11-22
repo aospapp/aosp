@@ -273,17 +273,13 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetVideoEncoderParam() {
 
     Encode_Status ret = ENCODE_SUCCESS;
     PortVideo *port_in = NULL;
-    PortVideo *port_out = NULL;
-    OMX_VIDEO_CONTROLRATETYPE controlrate;
     const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput = NULL;
     LOGV("OMXVideoEncoderBase::SetVideoEncoderParam called\n");
 
     port_in = static_cast<PortVideo *>(ports[INPORT_INDEX]);
-    port_out = static_cast<PortVideo *>(ports[OUTPORT_INDEX]);
     paramPortDefinitionInput = port_in->GetPortDefinition();
     mEncoderParams->resolution.height = paramPortDefinitionInput->format.video.nFrameHeight;
     mEncoderParams->resolution.width = paramPortDefinitionInput->format.video.nFrameWidth;
-    const OMX_VIDEO_PARAM_BITRATETYPE *bitrate = port_out->GetPortBitrateParam();
 
     mEncoderParams->frameRate.frameRateDenom = 1;
     if(mConfigFramerate.xEncodeFramerate != 0) {
@@ -362,8 +358,6 @@ OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorInit(void) {
 }
 
 OMX_ERRORTYPE OMXVideoEncoderBase::ProcessorDeinit(void) {
-    OMX_ERRORTYPE ret;
-
     if(mVideoEncoder) {
         mVideoEncoder->stop();
     }
@@ -813,8 +807,6 @@ OMX_ERRORTYPE OMXVideoEncoderBase::SetStoreMetaDataInBuffers(OMX_PTR pStructure)
     StoreMetaDataInBuffersParams *p = (StoreMetaDataInBuffersParams *)pStructure;
     VideoParamsStoreMetaDataInBuffers StoreMetaDataInBuffers;
     PortVideo *port = static_cast<PortVideo *>(this->ports[INPORT_INDEX]);
-    PortVideo *output_port = static_cast<PortVideo *>(this->ports[OUTPORT_INDEX]);
-    uint32_t maxSize = 0;
 
     CHECK_TYPE_HEADER(p);
     CHECK_PORT_INDEX(p, INPORT_INDEX);

@@ -9,6 +9,7 @@
 #ifndef WPS_H
 #define WPS_H
 
+#include "common/ieee802_11_defs.h"
 #include "wps_defs.h"
 
 /**
@@ -44,7 +45,7 @@ struct wps_parse_attr;
  * @cred_attr_len: Length of cred_attr in octets
  */
 struct wps_credential {
-	u8 ssid[32];
+	u8 ssid[SSID_MAX_LEN];
 	size_t ssid_len;
 	u16 auth_type;
 	u16 encr_type;
@@ -78,7 +79,7 @@ struct wps_credential {
  * @sec_dev_type: Array of secondary device types
  * @num_sec_dev_type: Number of secondary device types
  * @os_version: OS Version
- * @rf_bands: RF bands (WPS_RF_24GHZ, WPS_RF_50GHZ flags)
+ * @rf_bands: RF bands (WPS_RF_24GHZ, WPS_RF_50GHZ, WPS_RF_60GHZ flags)
  * @p2p: Whether the device is a P2P device
  */
 struct wps_device_data {
@@ -623,7 +624,7 @@ struct wps_context {
 	 * Credentials. In addition, AP uses it when acting as an Enrollee to
 	 * notify Registrar of the current configuration.
 	 */
-	u8 ssid[32];
+	u8 ssid[SSID_MAX_LEN];
 
 	/**
 	 * ssid_len - Length of ssid in octets
@@ -819,6 +820,7 @@ int wps_registrar_add_nfc_pw_token(struct wps_registrar *reg,
 int wps_registrar_add_nfc_password_token(struct wps_registrar *reg,
 					 const u8 *oob_dev_pw,
 					 size_t oob_dev_pw_len);
+void wps_registrar_flush(struct wps_registrar *reg);
 
 int wps_build_credential_wrap(struct wpabuf *msg,
 			      const struct wps_credential *cred);

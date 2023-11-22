@@ -1,9 +1,9 @@
 package org.bouncycastle.util;
 
-public interface Selector
+public interface Selector<T>
     extends Cloneable
 {
-    boolean match(Object obj);
+    boolean match(T obj);
 
     Object clone();
 }

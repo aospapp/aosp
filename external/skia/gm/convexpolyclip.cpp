@@ -54,6 +54,7 @@ static SkBitmap make_bmp(int w, int h) {
     }
 
     paint.setAntiAlias(true);
+    sk_tool_utils::set_portable_typeface(&paint);
     paint.setTextSize(wScalar / 2.2f);
     paint.setShader(0);
     paint.setColor(SK_ColorLTGRAY);
@@ -78,11 +79,11 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("convex_poly_clip");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         // When benchmarking the saveLayer set of draws is skipped.
         int w = 435;
         if (kBench_Mode != this->getMode()) {
@@ -91,7 +92,7 @@ protected:
         return SkISize::Make(w, 540);
     }
 
-    virtual void onOnceBeforeDraw() SK_OVERRIDE {
+    void onOnceBeforeDraw() override {
         SkPath tri;
         tri.moveTo(5.f, 5.f);
         tri.lineTo(100.f, 20.f);
@@ -134,7 +135,7 @@ protected:
         fBmp = make_bmp(100, 100);
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         SkScalar y = 0;
         static const SkScalar kMargin = 10.f;
 
@@ -149,6 +150,7 @@ protected:
         SkPaint txtPaint;
         txtPaint.setTextSize(23.f);
         txtPaint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&txtPaint);
         txtPaint.setColor(SK_ColorDKGRAY);
         SkScalar textW = txtPaint.measureText(kTxt, SK_ARRAY_COUNT(kTxt)-1);
 
@@ -156,7 +158,7 @@ protected:
         int testLayers = kBench_Mode != this->getMode();
         for (int doLayer = 0; doLayer <= testLayers; ++doLayer) {
             for (SkTLList<Clip>::Iter iter(fClips, SkTLList<Clip>::Iter::kHead_IterStart);
-                 NULL != iter.get();
+                 iter.get();
                  iter.next()) {
                 const Clip* clip = iter.get();
                 SkScalar x = startX;
@@ -212,9 +214,7 @@ protected:
         }
     }
 
-    virtual uint32_t onGetFlags() const {
-        return kAsBench_Flag | kSkipTiled_Flag;
-    }
+    bool runAsBench() const override { return true; }
 
 private:
     class Clip {

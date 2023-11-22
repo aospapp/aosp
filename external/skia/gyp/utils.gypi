@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 # Include this gypi to include all 'utils' files
 # The parent gyp/gypi file must define
 #       'skia_src_path'     e.g. skia/trunk/src
@@ -8,12 +12,9 @@
 {
     'sources': [
         # Classes for a threadpool.
-        '<(skia_include_path)/utils/SkCondVar.h',
-        '<(skia_include_path)/utils/SkCountdown.h',
-        '<(skia_include_path)/utils/SkRunnable.h',
-        '<(skia_include_path)/utils/SkThreadPool.h',
+        '<(skia_src_path)/utils/SkCondVar.h',
+        '<(skia_src_path)/utils/SkRunnable.h',
         '<(skia_src_path)/utils/SkCondVar.cpp',
-        '<(skia_src_path)/utils/SkCountdown.cpp',
 
         '<(skia_include_path)/utils/SkBoundaryPatch.h',
         '<(skia_include_path)/utils/SkFrontBufferedStream.h',
@@ -33,14 +34,14 @@
         '<(skia_include_path)/utils/SkNoSaveLayerCanvas.h',
         '<(skia_include_path)/utils/SkNWayCanvas.h',
         '<(skia_include_path)/utils/SkNullCanvas.h',
+        '<(skia_include_path)/utils/SkPaintFilterCanvas.h',
         '<(skia_include_path)/utils/SkParse.h',
         '<(skia_include_path)/utils/SkParsePaint.h',
         '<(skia_include_path)/utils/SkParsePath.h',
         '<(skia_include_path)/utils/SkPictureUtils.h',
         '<(skia_include_path)/utils/SkRandom.h',
         '<(skia_include_path)/utils/SkRTConf.h',
-        '<(skia_include_path)/utils/SkProxyCanvas.h',
-        '<(skia_include_path)/utils/SkWGL.h',
+        '<(skia_include_path)/utils/SkTextBox.h',
 
         '<(skia_src_path)/utils/SkBase64.cpp',
         '<(skia_src_path)/utils/SkBase64.h',
@@ -62,8 +63,6 @@
         '<(skia_src_path)/utils/SkDumpCanvas.cpp',
         '<(skia_src_path)/utils/SkEventTracer.cpp',
         '<(skia_src_path)/utils/SkFloatUtils.h',
-        '<(skia_src_path)/utils/SkGatherPixelRefsAndRects.cpp',
-        '<(skia_src_path)/utils/SkGatherPixelRefsAndRects.h',
         '<(skia_src_path)/utils/SkInterpolator.cpp',
         '<(skia_src_path)/utils/SkLayer.cpp',
         '<(skia_src_path)/utils/SkMatrix22.cpp',
@@ -76,17 +75,29 @@
         '<(skia_src_path)/utils/SkNWayCanvas.cpp',
         '<(skia_src_path)/utils/SkNullCanvas.cpp',
         '<(skia_src_path)/utils/SkOSFile.cpp',
+        '<(skia_src_path)/utils/SkPaintFilterCanvas.cpp',
         '<(skia_src_path)/utils/SkParse.cpp',
         '<(skia_src_path)/utils/SkParseColor.cpp',
         '<(skia_src_path)/utils/SkParsePath.cpp',
         '<(skia_src_path)/utils/SkPictureUtils.cpp',
-        '<(skia_src_path)/utils/SkPathUtils.cpp',
-        '<(skia_src_path)/utils/SkProxyCanvas.cpp',
+        '<(skia_src_path)/utils/SkPatchGrid.cpp',
+        '<(skia_src_path)/utils/SkPatchGrid.h',
+        '<(skia_src_path)/utils/SkPatchUtils.cpp',
+        '<(skia_src_path)/utils/SkPatchUtils.h',
         '<(skia_src_path)/utils/SkSHA1.cpp',
         '<(skia_src_path)/utils/SkSHA1.h',
         '<(skia_src_path)/utils/SkRTConf.cpp',
+        '<(skia_src_path)/utils/SkTextBox.cpp',
         '<(skia_src_path)/utils/SkTextureCompressor.cpp',
         '<(skia_src_path)/utils/SkTextureCompressor.h',
+        '<(skia_src_path)/utils/SkTextureCompressor_Utils.h',
+        '<(skia_src_path)/utils/SkTextureCompressor_ASTC.cpp',
+        '<(skia_src_path)/utils/SkTextureCompressor_ASTC.h',
+        '<(skia_src_path)/utils/SkTextureCompressor_Blitter.h',
+        '<(skia_src_path)/utils/SkTextureCompressor_R11EAC.cpp',
+        '<(skia_src_path)/utils/SkTextureCompressor_R11EAC.h',
+        '<(skia_src_path)/utils/SkTextureCompressor_LATC.cpp',
+        '<(skia_src_path)/utils/SkTextureCompressor_LATC.h',
         '<(skia_src_path)/utils/SkThreadUtils.h',
         '<(skia_src_path)/utils/SkThreadUtils_pthread.cpp',
         '<(skia_src_path)/utils/SkThreadUtils_pthread.h',
@@ -116,10 +127,13 @@
         '<(skia_src_path)/utils/win/SkDWriteGeometrySink.h',
         '<(skia_src_path)/utils/win/SkHRESULT.cpp',
         '<(skia_src_path)/utils/win/SkIStream.cpp',
+        '<(skia_src_path)/utils/win/SkWGL.h',
         '<(skia_src_path)/utils/win/SkWGL_win.cpp',
 
         #testing
         '<(skia_src_path)/fonts/SkGScalerContext.cpp',
         '<(skia_src_path)/fonts/SkGScalerContext.h',
+        '<(skia_src_path)/fonts/SkTestScalerContext.cpp',
+        '<(skia_src_path)/fonts/SkTestScalerContext.h',
     ],
 }

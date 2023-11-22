@@ -63,6 +63,7 @@ define build-libart-disassembler
   	$(call set-target-local-cflags-vars,$(2))
   else # host
     LOCAL_CLANG := $(ART_HOST_CLANG)
+    LOCAL_LDLIBS := $(ART_HOST_LDLIBS)
     LOCAL_CFLAGS += $(ART_HOST_CFLAGS)
     ifeq ($$(art_ndebug_or_debug),debug)
       LOCAL_CFLAGS += $(ART_HOST_DEBUG_CFLAGS)
@@ -79,15 +80,21 @@ define build-libart-disassembler
   endif
 
   LOCAL_C_INCLUDES += $(ART_C_INCLUDES) art/runtime
+  LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+  LOCAL_MULTILIB := both
 
   LOCAL_ADDITIONAL_DEPENDENCIES := art/build/Android.common_build.mk
   LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
-  include external/libcxx/libcxx.mk
+  LOCAL_NATIVE_COVERAGE := $(ART_COVERAGE)
+  # For disassembler_arm64.
+  ifeq ($$(art_ndebug_or_debug),debug)
+     LOCAL_SHARED_LIBRARIES += libvixld
+  else
+     LOCAL_SHARED_LIBRARIES += libvixl
+  endif
   ifeq ($$(art_target_or_host),target)
-    LOCAL_SHARED_LIBRARIES += libcutils libvixl
     include $(BUILD_SHARED_LIBRARY)
   else # host
-    LOCAL_STATIC_LIBRARIES += libcutils libvixl
     include $(BUILD_HOST_SHARED_LIBRARY)
   endif
 endef
@@ -99,9 +106,9 @@ ifeq ($(ART_BUILD_TARGET_DEBUG),true)
   $(eval $(call build-libart-disassembler,target,debug))
 endif
 # We always build dex2oat and dependencies, even if the host build is otherwise disabled, since they are used to cross compile for the target.
-ifeq ($(ART_BUILD_NDEBUG),true)
+ifeq ($(ART_BUILD_HOST_NDEBUG),true)
   $(eval $(call build-libart-disassembler,host,ndebug))
 endif
-ifeq ($(ART_BUILD_DEBUG),true)
+ifeq ($(ART_BUILD_HOST_DEBUG),true)
   $(eval $(call build-libart-disassembler,host,debug))
 endif

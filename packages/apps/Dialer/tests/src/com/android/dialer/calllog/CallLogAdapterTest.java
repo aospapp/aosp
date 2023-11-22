@@ -18,11 +18,14 @@ package com.android.dialer.calllog;
 
 import android.content.Context;
 import android.database.MatrixCursor;
+import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.view.View;
 import android.widget.LinearLayout;
 
+import com.android.dialer.contactinfo.ContactInfoCache;
+import com.android.dialer.contactinfo.ContactInfoCache.OnContactInfoChangedListener;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -43,6 +46,7 @@ public class CallLogAdapterTest extends AndroidTestCase {
 
     private MatrixCursor mCursor;
     private View mView;
+    private ViewHolder mViewHolder;
 
     @Override
     protected void setUp() throws Exception {
@@ -70,7 +74,8 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mCursor.moveToFirst();
         // The views into which to store the data.
         mView = new LinearLayout(getContext());
-        mView.setTag(CallLogListItemViews.createForTest(getContext()));
+        mViewHolder = CallLogListItemViewHolder.createForTest(getContext());
+        mView.setTag(mViewHolder);
     }
 
     @Override
@@ -85,12 +90,13 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mCursor.addRow(createCallLogEntry());
 
         // Bind the views of a single row.
-        mAdapter.bindStandAloneView(mView, getContext(), mCursor);
+        mAdapter.changeCursor(mCursor);
+        mAdapter.onBindViewHolder(mViewHolder, 0);
 
         // There is one request for contact details.
-        assertEquals(1, mAdapter.requests.size());
+        assertEquals(1, mAdapter.getContactInfoCache().requests.size());
 
-        TestCallLogAdapter.Request request = mAdapter.requests.get(0);
+        TestContactInfoCache.Request request = mAdapter.getContactInfoCache().requests.get(0);
         // It is for the number we need to show.
         assertEquals(TEST_NUMBER, request.number);
         // It has the right country.
@@ -103,12 +109,13 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mCursor.addRow(createCallLogEntryWithCachedValues());
 
         // Bind the views of a single row.
-        mAdapter.bindStandAloneView(mView, getContext(), mCursor);
+        mAdapter.changeCursor(mCursor);
+        mAdapter.onBindViewHolder(mViewHolder, 0);
 
         // There is one request for contact details.
-        assertEquals(1, mAdapter.requests.size());
+        assertEquals(1, mAdapter.getContactInfoCache().requests.size());
 
-        TestCallLogAdapter.Request request = mAdapter.requests.get(0);
+        TestContactInfoCache.Request request = mAdapter.getContactInfoCache().requests.get(0);
         // The values passed to the request, match the ones in the call log cache.
         assertEquals(TEST_NAME, request.callLogInfo.name);
         assertEquals(1, request.callLogInfo.type);
@@ -121,12 +128,13 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mAdapter.injectContactInfoForTest(TEST_NUMBER, TEST_COUNTRY_ISO, createContactInfo());
 
         // Bind the views of a single row.
-        mAdapter.bindStandAloneView(mView, getContext(), mCursor);
+        mAdapter.changeCursor(mCursor);
+        mAdapter.onBindViewHolder(mViewHolder, 0);
 
         // There is one request for contact details.
-        assertEquals(1, mAdapter.requests.size());
+        assertEquals(1, mAdapter.getContactInfoCache().requests.size());
 
-        TestCallLogAdapter.Request request = mAdapter.requests.get(0);
+        TestContactInfoCache.Request request = mAdapter.getContactInfoCache().requests.get(0);
         // Since there is something in the cache, it is not an immediate request.
         assertFalse("should not be immediate", request.immediate);
     }
@@ -136,10 +144,11 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mAdapter.injectContactInfoForTest(TEST_NUMBER, TEST_COUNTRY_ISO, createContactInfo());
 
         // Bind the views of a single row.
-        mAdapter.bindStandAloneView(mView, getContext(), mCursor);
+        mAdapter.changeCursor(mCursor);
+        mAdapter.onBindViewHolder(mViewHolder, 0);
 
         // Cache and call log are up-to-date: no need to request update.
-        assertEquals(0, mAdapter.requests.size());
+        assertEquals(0, mAdapter.getContactInfoCache().requests.size());
     }
 
     public void testBindView_MismatchBetwenCallLogAndMemoryCache_EnqueueRequest() {
@@ -151,12 +160,13 @@ public class CallLogAdapterTest extends AndroidTestCase {
         mAdapter.injectContactInfoForTest(TEST_NUMBER, TEST_COUNTRY_ISO, info);
 
         // Bind the views of a single row.
-        mAdapter.bindStandAloneView(mView, getContext(), mCursor);
+        mAdapter.changeCursor(mCursor);
+        mAdapter.onBindViewHolder(mViewHolder, 0);
 
         // There is one request for contact details.
-        assertEquals(1, mAdapter.requests.size());
+        assertEquals(1, mAdapter.getContactInfoCache().requests.size());
 
-        TestCallLogAdapter.Request request = mAdapter.requests.get(0);
+        TestContactInfoCache.Request request = mAdapter.getContactInfoCache().requests.get(0);
         // Since there is something in the cache, it is not an immediate request.
         assertFalse("should not be immediate", request.immediate);
     }
@@ -191,9 +201,20 @@ public class CallLogAdapterTest extends AndroidTestCase {
     /**
      * Subclass of {@link CallLogAdapter} used in tests to intercept certain calls.
      */
-    // TODO: This would be better done by splitting the contact lookup into a collaborator class
-    // instead.
     private static final class TestCallLogAdapter extends CallLogAdapter {
+        public TestCallLogAdapter(Context context, CallFetcher callFetcher,
+                ContactInfoHelper contactInfoHelper) {
+            super(context, callFetcher, contactInfoHelper, null, false);
+            mContactInfoCache = new TestContactInfoCache(
+                    contactInfoHelper, mOnContactInfoChangedListener);
+        }
+
+        public TestContactInfoCache getContactInfoCache() {
+            return (TestContactInfoCache) mContactInfoCache;
+        }
+    }
+
+    private static final class TestContactInfoCache extends ContactInfoCache {
         public static class Request {
             public final String number;
             public final String countryIso;
@@ -211,9 +232,9 @@ public class CallLogAdapterTest extends AndroidTestCase {
 
         public final List<Request> requests = Lists.newArrayList();
 
-        public TestCallLogAdapter(Context context, CallFetcher callFetcher,
-                ContactInfoHelper contactInfoHelper) {
-            super(context, callFetcher, contactInfoHelper, null, null, false);
+        public TestContactInfoCache(
+                ContactInfoHelper contactInfoHelper, OnContactInfoChangedListener listener) {
+            super(contactInfoHelper, listener);
         }
 
         @Override

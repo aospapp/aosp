@@ -34,6 +34,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.ThumbnailUtils;
+import android.net.TrafficStats;
 import android.net.Uri;
 import android.net.Uri.Builder;
 import android.os.Handler;
@@ -56,15 +57,21 @@ import android.widget.ImageView;
 
 import com.android.contacts.common.lettertiles.LetterTileDrawable;
 import com.android.contacts.common.util.BitmapUtil;
+import com.android.contacts.common.util.PermissionsUtil;
+import com.android.contacts.common.util.TrafficStatsTags;
 import com.android.contacts.common.util.UriUtils;
+import com.android.contacts.commonbind.util.UserAgentGenerator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
@@ -102,11 +109,11 @@ public abstract class ContactPhotoManager implements ComponentCallbacks2 {
     private static final String DEFAULT_IMAGE_URI_SCHEME = "defaultimage";
     private static final Uri DEFAULT_IMAGE_URI = Uri.parse(DEFAULT_IMAGE_URI_SCHEME + "://");
 
-    public static final String CONTACT_PHOTO_SERVICE = "contactPhotos";
-
     // Static field used to cache the default letter avatar drawable that is created
     // using a null {@link DefaultImageRequest}
     private static Drawable sDefaultLetterAvatar = null;
+
+    private static ContactPhotoManager sInstance;
 
     /**
      * Given a {@link DefaultImageRequest}, returns a {@link Drawable}, that when drawn, will
@@ -426,18 +433,24 @@ public abstract class ContactPhotoManager implements ComponentCallbacks2 {
     public static final DefaultImageProvider DEFAULT_BLANK = new BlankDefaultImageProvider();
 
     public static ContactPhotoManager getInstance(Context context) {
-        Context applicationContext = context.getApplicationContext();
-        ContactPhotoManager service =
-                (ContactPhotoManager) applicationContext.getSystemService(CONTACT_PHOTO_SERVICE);
-        if (service == null) {
-            service = createContactPhotoManager(applicationContext);
-            Log.e(TAG, "No contact photo service in context: " + applicationContext);
+        if (sInstance == null) {
+            Context applicationContext = context.getApplicationContext();
+            sInstance = createContactPhotoManager(applicationContext);
+            applicationContext.registerComponentCallbacks(sInstance);
+            if (PermissionsUtil.hasContactsPermissions(context)) {
+                sInstance.preloadPhotosInBackground();
+            }
         }
-        return service;
+        return sInstance;
     }
 
     public static synchronized ContactPhotoManager createContactPhotoManager(Context context) {
         return new ContactPhotoManagerImpl(context);
+    }
+
+    @VisibleForTesting
+    public static void injectContactPhotoManagerForTesting(ContactPhotoManager photoManager) {
+        sInstance = photoManager;
     }
 
     /**
@@ -587,6 +600,17 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
     private static final String[] COLUMNS = new String[] { Photo._ID, Photo.PHOTO };
 
     /**
+     * Dummy object used to indicate that a bitmap for a given key could not be stored in the
+     * cache.
+     */
+    private static final BitmapHolder BITMAP_UNAVAILABLE;
+
+    static {
+        BITMAP_UNAVAILABLE = new BitmapHolder(new byte[0], 0);
+        BITMAP_UNAVAILABLE.bitmapRef = new SoftReference<Bitmap>(null);
+    }
+
+    /**
      * Maintains the state of a particular photo.
      */
     private static class BitmapHolder {
@@ -674,6 +698,11 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
     /** For debug: How many times we had to reload cached photo for a fresh entry.  Should be 0. */
     private final AtomicInteger mFreshCacheOverwrite = new AtomicInteger();
 
+    /**
+     * The user agent string to use when loading URI based photos.
+     */
+    private String mUserAgent;
+
     public ContactPhotoManagerImpl(Context context) {
         mContext = context;
 
@@ -713,6 +742,12 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
 
         mThumbnailSize = context.getResources().getDimensionPixelSize(
                 R.dimen.contact_browser_list_item_photo_size);
+
+        // Get a user agent string to use for URI photo requests.
+        mUserAgent = UserAgentGenerator.getUserAgent(context);
+        if (mUserAgent == null) {
+            mUserAgent = "";
+        }
     }
 
     /** Converts bytes to K bytes, rounding up.  Used only for debug log. */
@@ -881,7 +916,9 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
         if (DEBUG) Log.d(TAG, "refreshCache");
         mBitmapHolderCacheAllUnfresh = true;
         for (BitmapHolder holder : mBitmapHolderCache.snapshot().values()) {
-            holder.fresh = false;
+            if (holder != BITMAP_UNAVAILABLE) {
+                holder.fresh = false;
+            }
         }
     }
 
@@ -1164,7 +1201,16 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
             inflateBitmap(holder, requestedExtent);
         }
 
-        mBitmapHolderCache.put(key, holder);
+        if (bytes != null) {
+            mBitmapHolderCache.put(key, holder);
+            if (mBitmapHolderCache.get(key) != holder) {
+                Log.w(TAG, "Bitmap too big to fit in cache.");
+                mBitmapHolderCache.put(key, BITMAP_UNAVAILABLE);
+            }
+        } else {
+            mBitmapHolderCache.put(key, BITMAP_UNAVAILABLE);
+        }
+
         mBitmapHolderCacheAllUnfresh = false;
     }
 
@@ -1206,6 +1252,9 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
         while (iterator.hasNext()) {
             Request request = iterator.next();
             final BitmapHolder holder = mBitmapHolderCache.get(request.getKey());
+            if (holder == BITMAP_UNAVAILABLE) {
+                continue;
+            }
             if (holder != null && holder.bytes != null && holder.fresh &&
                     (holder.bitmapRef == null || holder.bitmapRef.get() == null)) {
                 // This was previously loaded but we don't currently have the inflated Bitmap
@@ -1407,6 +1456,10 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
         }
 
         private void loadPhotosInBackground() {
+            if (!PermissionsUtil.hasPermission(mContext,
+                    android.Manifest.permission.READ_CONTACTS)) {
+                return;
+            }
             obtainPhotoIdsAndUrisToLoad(mPhotoIds, mPhotoIdsAsStrings, mPhotoUris);
             loadThumbnails(false);
             loadUriBasedPhotos();
@@ -1515,7 +1568,21 @@ class ContactPhotoManagerImpl extends ContactPhotoManager implements Callback {
                     final String scheme = uri.getScheme();
                     InputStream is = null;
                     if (scheme.equals("http") || scheme.equals("https")) {
-                        is = new URL(uri.toString()).openStream();
+                        TrafficStats.setThreadStatsTag(TrafficStatsTags.CONTACT_PHOTO_DOWNLOAD_TAG);
+                        final HttpURLConnection connection =
+                                (HttpURLConnection) new URL(uri.toString()).openConnection();
+
+                        // Include the user agent if it is specified.
+                        if (!TextUtils.isEmpty(mUserAgent)) {
+                            connection.setRequestProperty("User-Agent", mUserAgent);
+                        }
+                        try {
+                            is = connection.getInputStream();
+                        } catch (IOException e) {
+                            connection.disconnect();
+                            is = null;
+                        }
+                        TrafficStats.clearThreadStatsTag();
                     } else {
                         is = mResolver.openInputStream(uri);
                     }

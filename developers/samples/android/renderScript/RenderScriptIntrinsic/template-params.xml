@@ -21,7 +21,7 @@
     <package>com.example.android.renderscriptintrinsic</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>8</minSdk>
+    <minSdk>13</minSdk>
 
     <dependency_external>'renderscript-v8.jar'</dependency_external>
 

@@ -121,8 +121,7 @@ int HaiInitializeLibrary (const bcm2079x_dev_t* device)
     }
 
     // Initialize protocol logging level
-    if ( GetNumValue ( NAME_PROTOCOL_TRACE_LEVEL, &num, sizeof ( num ) ) )
-        ScrProtocolTraceFlag = num;
+    InitializeProtocolLogLevel ();
 
     tUSERIAL_OPEN_CFG cfg;
     struct tUART_CONFIG  uart;

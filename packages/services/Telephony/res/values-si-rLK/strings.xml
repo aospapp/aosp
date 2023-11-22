@@ -54,7 +54,9 @@
     <string name="unlock_success" msgid="6770085622238180152">"ජාලය අඟුළු හරිම සාර්ථකයි."</string>
     <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"මෙම පරිශීලකයා සඳහා සෙලියුලර් ජාල සැකසීම් නැත"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"GSM ඇමතුම් සැකසුම්"</string>
+    <string name="labelGsmMore_with_label" msgid="2674012918829238901">"GSM ඇමතුම් සැකසීම් (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"CDMA ඇමතුම් සැකසුම්"</string>
+    <string name="labelCdmaMore_with_label" msgid="6333588719319970399">"CDMA ඇමතුම් සැකසීම් (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="apn_settings" msgid="9043423184895642077">"ප්‍රවේශ ලක්ෂ්‍ය නම්"</string>
     <string name="settings_label" msgid="3876743539816984008">"ජාල සැකසුම්"</string>
     <string name="phone_accounts" msgid="6376603393888116364">"ගිණුම් ඇමතීම"</string>
@@ -66,18 +68,12 @@
     <string name="phone_accounts_selection_header" msgid="1365215726106915865">"දුරකථන ගිණුම්"</string>
     <string name="phone_accounts_add_sip_account" msgid="2023821743341923271">"SIP ගිණුම් එකතු කරන්න"</string>
     <string name="phone_accounts_configure_account_settings" msgid="1361715069911607109">"ගිණුමේ සැකසීම් වින්‍යාස කරන්න"</string>
-    <string name="phone_account_wifi_calling" msgid="1840272538233414629">"Wi-Fi ඇමතීම"</string>
-    <string name="wifi_calling_do_not_use" msgid="7491443219113013323">"Wi-Fi ඇමතුම භාවිතා කරන්න එපා"</string>
-    <string name="wifi_calling_do_not_use_call_assistant" msgid="5420257095556091770">"ඇමතුම් සහායක භාවිතා කරන්න එපා"</string>
-    <string name="wifi_calling_call_assistant_none" msgid="6283702349285593683">"කිසිවක් නැත"</string>
-    <string name="wifi_calling_call_assistant" msgid="229102032881680320">"ඇමතුම් සහායක"</string>
-    <string name="wifi_calling_use_call_assistant" msgid="8460024827012666199">"ඇමතුම් සහායක භාවිතා කරන්න"</string>
-    <string name="wifi_calling_select_call_assistant" msgid="9296558058772293">"ඇමතුම් සහායක තෝරන්න"</string>
-    <string name="wifi_calling_select_call_assistant_summary" msgid="164985727137156474">"සමග ඇමතුම් සඳහා භාවිතා කළ ජාල කළමනාකරණය කරන්න"</string>
-    <string name="wifi_calling_use_call_assistant_summary" msgid="6599987137133339698">"ඇමතුම් සඳහා භාවිතා කළ ජාල කළමනාකරණය කිරීමට යෙදුමකට හෝ සේවාවකට ඉඩ දෙන්න"</string>
-    <string name="wifi_calling_call_assistant_configure" msgid="1092639708949670031">"වින්‍යාස කිරීම"</string>
+    <string name="phone_accounts_all_calling_accounts" msgid="207619531589278471">"සියලු ඇමතුම් ගිණුම්"</string>
+    <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"ඇමතුම් සිදු කළ හැකි ගිණුම් තෝරන්න"</string>
+    <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi ඇමතීම"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"තිළැලි සම්බන්ධතා සේවාව"</string>
     <string name="voicemail" msgid="8693759337917898954">"හඬ තැපෑල"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"හඬ තැපෑල (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
     <string name="networks" msgid="8873030692174541976">"ජාල ක්‍රියාකරුවන්"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"හදිසි විකාශන"</string>
@@ -204,7 +200,8 @@
     <string name="roaming_enable" msgid="7331106985174381987">"රෝමින් අතරතුර දත්ත සේවා වෙත සම්බන්ධ වන්න"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"රෝමින් අතරතුර දත්ත සේවා වෙත සම්බන්ධ වන්න"</string>
     <string name="roaming_reenable_message" msgid="8913735676127858115">"ඔබගේ නිවාස ජාලය ඔබ හැර ගිය විට දත්ත රෝමින් අක්‍රිය වන බැවින් දත්ත සම්බන්ධතාවය ඔබට නැති වෙයි"</string>
-    <string name="roaming_warning" msgid="7126227198294007907">"රෝමින් විට දත්ත භාවිතය ඉඩ දෙන්නද? සැලකිය යුතු වෙනස් කිරීම් ඇතැම් විට යෙදේ."</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"ඔබ සැලකිය යුතු ගාස්තු ඇති විය හැකිය."</string>
+    <string name="roaming_alert_title" msgid="3654815360303826008">"දත්ත රෝමින් සඳහා අවසර දෙන්න ද"</string>
     <string name="gsm_umts_options" msgid="6538311689850981686">"GSM/UMTS විකල්ප"</string>
     <string name="cdma_options" msgid="4016822858172249884">"CDMA විකල්ප"</string>
     <string name="throttle_data_usage" msgid="3715677828160555808">"දත්ත භාවිතය"</string>
@@ -350,6 +347,7 @@
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"TTY ආකාරය සකසන්න"</string>
     <string name="auto_retry_mode_title" msgid="4073265511427813322">"ස්වයංක්‍රීය නැවත උත්සාහ කිරීම"</string>
     <string name="auto_retry_mode_summary" msgid="4973886004067532288">"ස්වයංක්‍රීය නැවත උත්සාහ කිරීමේ ආකාරය සබල කරන්න"</string>
+    <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"වීඩියෝ ඇමතුමක් අතරතුර TTY මෝඩය වෙනස් වීමකට අවසර නැත"</string>
     <string name="menu_add" msgid="1882023737425114762">"සම්බන්ධතාවය එක් කරන්න"</string>
     <string name="menu_edit" msgid="7143003705504672374">"සම්බන්ධතාව සංස්කරණය කරන්න"</string>
     <string name="menu_delete" msgid="3977150783449642851">"සම්බන්ධතාවය මකා දමන්න"</string>
@@ -373,7 +371,7 @@
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIM කාඩ් පතෙන් කියවමින්…"</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"ඔබගේ SIM පතෙහි සම්බන්ධතා නොමැත."</string>
     <string name="simContacts_title" msgid="1861472842524839921">"ආයාත කිරීමට සම්බන්ධතා තෝරන්න"</string>
-    <string name="simContacts_airplaneMode" msgid="1846161429087789936">"SIM කාඩ් පත වෙතින් සම්බන්ධතා ආයාත කිරීමට, මුලින්ම ගුවන්යානා ආකාරය අක්‍රිය කරන්න."</string>
+    <string name="simContacts_airplaneMode" msgid="5254946758982621072">"සිම් කාඩ් සම්බන්ධතා ආනයනය කිරීමට ගුවන් යානා මෝඩය අක්‍රිය කරන්න."</string>
     <string name="enable_pin" msgid="5422767284133234860">"SIM PIN සබල/අබල කරන්න"</string>
     <string name="change_pin" msgid="9174186126330785343">"SIM PIN වෙනස් කරන්න"</string>
     <string name="enter_pin_text" msgid="8532615714751931951">"SIM PIN:"</string>
@@ -407,6 +405,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 සදාකාලිකවම අවහිරයි."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"ඔබට නැවත උත්සාහ කිරීම් <xliff:g id="NUMBER">%d</xliff:g> ක් තිබේ."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"තව දුරටත් PIN2 අවහිර කර නොතිබේ"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"ජාලයේ හෝ SIM කාඩ්පතෙහි දෝෂයක්"</string>
     <string name="doneButton" msgid="2859593360997984240">"හරි"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"හඬ තැපැල් අංකය"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"අමතමින්"</string>
@@ -417,26 +416,17 @@
     <string name="card_title_on_hold" msgid="821463117892339942">"රඳවා ගනිමින්"</string>
     <string name="card_title_hanging_up" msgid="3999101620995182450">"විසන්ධි කරමින්"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"ඇමතුමක"</string>
-    <string name="notification_dialing" msgid="2107666444937350731">"අමතමින්"</string>
-    <string name="notification_missedCallTitle" msgid="7554385905572364535">"මඟ හැරුණු ඇමතුම"</string>
-    <string name="notification_missedCallsTitle" msgid="1361677948941502522">"මඟ හැරුණු ඇමතුම්"</string>
-    <string name="notification_missedCallsMsg" msgid="4575787816055205600">"මඟ හැරුණු ඇමතුම් <xliff:g id="NUM_MISSED_CALLS">%s</xliff:g>"</string>
-    <string name="notification_missedCallTicker" msgid="504686252427747209">"<xliff:g id="MISSED_CALL_FROM">%s</xliff:g> වෙතින් මඟ හැරුණු ඇමතුම්"</string>
-    <string name="notification_ongoing_call" msgid="7068688957273482989">"කරගෙනය යන ඇමතුම"</string>
-    <string name="notification_on_hold" msgid="3480694969511790465">"රඳවා ගනිමින්"</string>
-    <string name="notification_incoming_call" msgid="2820429205043529642">"එන ඇමතුම"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"නව හඬතැපෑල"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"නව හඬ තැපැල් (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g> අමතන්න"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"හඬතැපැල් අංකය නොදනී"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"සේවාව නැත"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"තෝරා ඇති ජාලය (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) නොමැත"</string>
-    <string name="notification_action_end_call" msgid="6069460915123531620">"විසන්ධි කරන්න"</string>
-    <string name="notification_missedCall_call_back" msgid="2684890353590890187">"නැවත අමතන්න"</string>
-    <string name="notification_missedCall_message" msgid="3049928912736917988">"පණිවිඩය"</string>
-    <string name="incall_error_power_off" msgid="6550191216405193368">"ඇමතුමක් ගැනීමට, මුලින්ම ගුවන්යානා ආකාරය අක්‍රිය කරන්න."</string>
+    <string name="incall_error_power_off" msgid="2947938060513306698">"ඇමතුමක් ගැනීමට ගුවන් යානා මාදිලිය අක්‍රිය කරන්න."</string>
+    <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"ඇමතුමක් ලබා ගැනීමට ගුවන් යානා මෝඩය අක්‍රිය කරන්න හෝ රැහැන් රහිත ජාලයකට සම්බන්ධ වෙන්න."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"ජාලය මත ලියාපදිංචි වී නැත."</string>
     <string name="incall_error_out_of_service" msgid="4100065333878929223">"සෙලියුලර් ජාලය නොමැත"</string>
+    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"සෙලියුලර් ජාලය ලබාගත නොහැක. ඇමතුමක් ගැනීමට රැහැන් රහිත ජාලයකට සම්බන්ධ වෙන්න."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"ඇමතුමක් ලබාගැනීමට, වලංගු අංකයක් ලබාගන්න."</string>
     <string name="incall_error_call_failed" msgid="6302746943230078197">"ඇමතුම් ගැනීමට නොහැක."</string>
     <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"MMI අනුපිළිවෙල ආරම්භ කරමින්…"</string>
@@ -447,6 +437,7 @@
     <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"සම්මන්ත්‍රණ ඇමතුම් ලබාගත නොහැකි විය."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"ඇමතුම ප්‍රතික්ෂේප කළ නොහැක."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"ඇමතුම(ම්) මුදාහැරීම කළ නොහැක."</string>
+    <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"ඇමතුමක් ගැනීමට රැහැන් රහිත ජාලයක් වෙත සම්බන්ධ වෙන්න."</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"හදිසි ඇමතුම"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"රේඩියෝව ආරම්භ කරමින්…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"සේවා නැත. නැවත උත්සාහ කරන්න…"</string>
@@ -508,18 +499,18 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"හදිසි ආපසු ඇමතුම් ආකාරයට ඇතුලත් විණි"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"හදිසි ආපසු ඇමතුම් ආකාරය"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"දත්ත සම්බන්ධතාවය අබලයි"</string>
-  <plurals name="phone_in_ecm_notification_time">
-    <item quantity="one" msgid="4866221796252472622">"මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> සඳහා කිසිඳු දත්ත සම්බන්ධතාවයක් නොමැත"</item>
-    <item quantity="other" msgid="3122217344579273583">"මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> සඳහා කිසිඳු දත්ත සම්බන්ධතාවයක් නොමැත"</item>
-  </plurals>
-  <plurals name="alert_dialog_exit_ecm">
-    <item quantity="one" msgid="8060210887681426682">"දුරකථනය මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> සඳහා හදිසි පසු ඇමතුම් ආකාරයට පත්වේ. මෙම ආකාරයේ තිබෙන විට දත්ත සම්බන්ධතා භාවිතා කෙරෙන යෙදුම් භාවිතා කළ හැක. ඔබට දැන් පිටත්ව යාමට අවශ්‍යද?"</item>
-    <item quantity="other" msgid="8617116564023933114">"දුරකථනය මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> සඳහා හදිසි පසු ඇමතුම් ආකාරයට පත්වේ. මෙම ආකාරයේ තිබෙන විට දත්ත සම්බන්ධතා භාවිතා කෙරෙන යෙදුම් භාවිතා කළ හැක. ඔබට දැන් පිටත්ව යාමට අවශ්‍යද?"</item>
-  </plurals>
-  <plurals name="alert_dialog_not_avaialble_in_ecm">
-    <item quantity="one" msgid="2585506997024726599">"හදිසි පසු ඇමතුම් ආකාරයේ සිටින විට තෝරා ඇති ක්‍රියාව නොමැත. දුරකථනය මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> කට මෙම ආකාරයට පත්වේ. ඔබ දැන් පිටවීමට අවශ්‍යද?"</item>
-    <item quantity="other" msgid="6115622137771382224">"හදිසි පසු ඇමතුම් ආකාරයේ සිටින විට තෝරා ඇති ක්‍රියාව නොමැත. දුරකථනය මිනිත්තු <xliff:g id="COUNT">%s</xliff:g> කට මෙම ආකාරයට පත්වේ. ඔබ දැන් පිටවීමට අවශ්‍යද?"</item>
-  </plurals>
+    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
+      <item quantity="one">මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් දත්ත සම්බන්ධතාවයක් නැත</item>
+      <item quantity="other">මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් දත්ත සම්බන්ධතාවයක් නැත</item>
+    </plurals>
+    <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
+      <item quantity="one">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. මෙම ආකාරය තුළ සිටින අතරතුර දත්ත සම්බන්ධයක් භාවිත කරන යෙදුම් කිසිවක් භාවිත කළ නොහැකිය. ඔබට දැන් පිටවීමට අවශ්යද?</item>
+      <item quantity="other">දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. මෙම ආකාරය තුළ සිටින අතරතුර දත්ත සම්බන්ධයක් භාවිත කරන යෙදුම් කිසිවක් භාවිත කළ නොහැකිය. ඔබට දැන් පිටවීමට අවශ්යද?</item>
+    </plurals>
+    <plurals name="alert_dialog_not_avaialble_in_ecm" formatted="false" msgid="8042973425225093895">
+      <item quantity="one"> හදිසි ආපසු ඇමතුම් ආකාරය තුළ සිටියදී තෝරන ලද ක්‍රියාව ලබාගත නොහැක. දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. ඔබට දැන් පිටවීමට අවශ්යද?</item>
+      <item quantity="other"> හදිසි ආපසු ඇමතුම් ආකාරය තුළ සිටියදී තෝරන ලද ක්‍රියාව ලබාගත නොහැක. දුරකථනය මිනිත්තු <xliff:g id="COUNT_1">%s</xliff:g> ක් හදිසි ආපසු ඇමතුම් ආකාරය තුළ වනු ඇත. ඔබට දැන් පිටවීමට අවශ්යද?</item>
+    </plurals>
     <string name="alert_dialog_in_ecm_call" msgid="1886723687211887104">"හදිසි ඇමතුමක් අතර තුර තෝරන ලද ක්‍රියාව ලබාගත නොහැක."</string>
     <string name="progress_dialog_exiting_ecm" msgid="4835734101617817074">"හදිසි ආපසු ඇමතුම් ආකාරයෙන් පිට වෙමින්"</string>
     <string name="alert_dialog_yes" msgid="6674268047820703974">"ඔව්"</string>
@@ -537,8 +528,8 @@
     <string name="description_dial_button" msgid="7459705245418435351">"අමතන්න"</string>
     <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"කම්පනය වීම"</string>
     <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"කම්පනය වීම"</string>
+    <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"දෘශ්‍ය හඬ තැපෑල"</string>
     <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"ශබ්දය"</string>
-    <string name="dial_pad_autocomplete" msgid="7683489952557536398">"ඩයල් පැඩය ස්වයං සම්පුර්ණ කරන්න"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"රිගින් ටෝන් සහ කම්පනය කරන්න"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"තිළැලි SIM කාඩ් පත්"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"වීඩියෝ ඇමතීම සක්‍රිය කරමින්"</string>
@@ -548,4 +539,10 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"හදිස්සි ඇමතූම්"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"හදිස්සි ඇමතූම් පමණි"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM කාඩ්පත්, තව්ව: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"ප්‍රවේශ්‍යතාව"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"පැමිණෙන Wi-Fi ඇමතුම"</string>
+    <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi ඇමතුම"</string>
+    <string name="emergency_action_launch_hint" msgid="5841511849007540970">"විවෘත කිරීමට නැවත ස්පර්ශ කරන්න"</string>
+    <string name="message_decode_error" msgid="3456481534066924855">"පණිවිඩය විකේතනය කරන අතරතුර දෝෂයක් සිදු විය."</string>
+    <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM කාඩ්පතක් ඔබේ සේවාව සක්‍රිය කර ඔබේ දුරකථනයේ රෝමිං හැකියා යාවත්කාලීන කර තිබේ."</string>
 </resources>

@@ -78,16 +78,26 @@ public class CollectAllTests extends DescriptionGenerator {
         final String outputPathPrefix = args[0];
         File manifestFile = new File(args[1]);
         String jarFileName = args[2];
-        final String javaPackageFilter = args[3];
-        // Validate the javaPackageFilter value if non null.
-        if (javaPackageFilter.length() != 0) {
-            if (!isValidJavaPackage(javaPackageFilter)) {
-                System.err.println("Invalid " + ATTRIBUTE_JAVA_PACKAGE_FILTER + ": " +
-                        javaPackageFilter);
-                System.exit(1);
-                return;
+        final String javaPackageFilterArg = args[3] != null ? args[3].replaceAll("\\s+", "") : "";
+        final String[] javaPackagePrefixes;
+        // Validate the javaPackageFilter value if non-empty.
+        if (!javaPackageFilterArg.isEmpty()) {
+            javaPackagePrefixes = javaPackageFilterArg.split(":");
+            for (int i = 0; i < javaPackagePrefixes.length; ++i) {
+                final String javaPackageFilter = javaPackagePrefixes[i];
+                if (!isValidJavaPackage(javaPackageFilter)) {
+                    System.err.println("Invalid " + ATTRIBUTE_JAVA_PACKAGE_FILTER + ": " +
+                           javaPackageFilter);
+                    System.exit(1);
+                    return;
+                } else {
+                    javaPackagePrefixes[i] = javaPackageFilter.trim() + ".";
+                }
             }
+        } else {
+            javaPackagePrefixes = new String[0];
         }
+
         String architecture = args[4];
         if (architecture == null || architecture.equals("")) {
             System.err.println("Invalid architecture");
@@ -132,7 +142,7 @@ public class CollectAllTests extends DescriptionGenerator {
                     setAttribute(testPackageElem, ATTRIBUTE_RUNNER, runner);
                     setAttribute(testPackageElem, ATTRIBUTE_PACKAGE, packageName);
                     setAttribute(testPackageElem, ATTRIBUTE_NS, packageName);
-                    setAttribute(testPackageElem, ATTRIBUTE_JAVA_PACKAGE_FILTER, javaPackageFilter);
+                    setAttribute(testPackageElem, ATTRIBUTE_JAVA_PACKAGE_FILTER, javaPackageFilterArg);
 
                     if (testType.type == TestType.HOST_SIDE_ONLY) {
                         setAttribute(testPackageElem, ATTRIBUTE_HOST_SIDE_ONLY, "true");
@@ -185,8 +195,6 @@ public class CollectAllTests extends DescriptionGenerator {
 
         Map<String,TestClass> testCases = new LinkedHashMap<String, TestClass>();
 
-        String javaPackagePrefix = javaPackageFilter.isEmpty() ? "" : (javaPackageFilter + ".");
-
         Enumeration<JarEntry> jarEntries = jarFile.entries();
         while (jarEntries.hasMoreElements()) {
             JarEntry jarEntry = jarEntries.nextElement();
@@ -196,9 +204,22 @@ public class CollectAllTests extends DescriptionGenerator {
             }
             String className
                     = name.substring(0, name.length() - ".class".length()).replace('/', '.');
-            if (!className.startsWith(javaPackagePrefix)) {
+
+            boolean matchesPrefix = false;
+            if (javaPackagePrefixes.length > 0) {
+                for (String javaPackagePrefix : javaPackagePrefixes) {
+                    if (className.startsWith(javaPackagePrefix)) {
+                        matchesPrefix = true;
+                    }
+                }
+            } else {
+                matchesPrefix = true;
+            }
+
+            if (!matchesPrefix) {
                 continue;
             }
+
             try {
                 Class<?> klass = Class.forName(className,
                                                false,
@@ -426,6 +447,9 @@ public class CollectAllTests extends DescriptionGenerator {
                                                                     expectations,
                                                                     testClassName,
                                                                     testName);
+        int timeoutInMinutes = VogarUtils.timeoutInMinutes(expectations,
+                                                           testClassName,
+                                                           testName);
         TestClass testClass;
         if (testCases.containsKey(testClassName)) {
             testClass = testCases.get(testClassName);
@@ -435,7 +459,7 @@ public class CollectAllTests extends DescriptionGenerator {
         }
 
         testClass.mCases.add(new TestMethod(testName, "", "", supportedAbis,
-              knownFailure, false, false));
+              knownFailure, false, false, timeoutInMinutes));
     }
 
     private static boolean isJunit3Test(Class<?> klass) {

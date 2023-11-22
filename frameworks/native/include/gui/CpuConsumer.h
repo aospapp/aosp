@@ -53,6 +53,7 @@ class CpuConsumer : public ConsumerBase
         uint32_t    transform;
         uint32_t    scalingMode;
         int64_t     timestamp;
+        android_dataspace dataSpace;
         uint64_t    frameNumber;
         // this is the same as format, except for formats that are compatible with
         // a flexible format (e.g. HAL_PIXEL_FORMAT_YCbCr_420_888). In the latter
@@ -71,25 +72,13 @@ class CpuConsumer : public ConsumerBase
     // Create a new CPU consumer. The maxLockedBuffers parameter specifies
     // how many buffers can be locked for user access at the same time.
     CpuConsumer(const sp<IGraphicBufferConsumer>& bq,
-            uint32_t maxLockedBuffers, bool controlledByApp = false);
+            size_t maxLockedBuffers, bool controlledByApp = false);
 
     virtual ~CpuConsumer();
 
     // set the name of the CpuConsumer that will be used to identify it in
     // log messages.
     void setName(const String8& name);
-
-    // setDefaultBufferSize is used to set the size of buffers returned by
-    // requestBuffers when a width and height of zero is requested.
-    // A call to setDefaultBufferSize() may trigger requestBuffers() to
-    // be called from the client. Default size is 1x1.
-    status_t setDefaultBufferSize(uint32_t width, uint32_t height);
-
-    // setDefaultBufferFormat allows CpuConsumer's BufferQueue to create buffers
-    // of a defaultFormat if no format is specified by producer. Formats are
-    // enumerated in graphics.h; the initial default is
-    // HAL_PIXEL_FORMAT_RGBA_8888.
-    status_t setDefaultBufferFormat(uint32_t defaultFormat);
 
     // Gets the next graphics buffer from the producer and locks it for CPU use,
     // filling out the passed-in locked buffer structure with the native pointer
@@ -110,9 +99,9 @@ class CpuConsumer : public ConsumerBase
 
   private:
     // Maximum number of buffers that can be locked at a time
-    uint32_t mMaxLockedBuffers;
+    size_t mMaxLockedBuffers;
 
-    status_t releaseAcquiredBufferLocked(int lockedIdx);
+    status_t releaseAcquiredBufferLocked(size_t lockedIdx);
 
     virtual void freeBufferLocked(int slotIndex);
 
@@ -133,7 +122,7 @@ class CpuConsumer : public ConsumerBase
     Vector<AcquiredBuffer> mAcquiredBuffers;
 
     // Count of currently locked buffers
-    uint32_t mCurrentLockedBuffers;
+    size_t mCurrentLockedBuffers;
 
 };
 

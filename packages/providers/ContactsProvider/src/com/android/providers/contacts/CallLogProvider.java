@@ -39,6 +39,9 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -46,7 +49,6 @@ import com.android.providers.contacts.ContactsDatabaseHelper.DbProperties;
 import com.android.providers.contacts.ContactsDatabaseHelper.Tables;
 import com.android.providers.contacts.util.SelectionBuilder;
 import com.android.providers.contacts.util.UserUtils;
-
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.HashMap;
@@ -60,12 +62,16 @@ public class CallLogProvider extends ContentProvider {
     private static final String TAG = CallLogProvider.class.getSimpleName();
 
     private static final int BACKGROUND_TASK_INITIALIZE = 0;
+    private static final int BACKGROUND_TASK_ADJUST_PHONE_ACCOUNT = 1;
 
     /** Selection clause for selecting all calls that were made after a certain time */
     private static final String MORE_RECENT_THAN_SELECTION = Calls.DATE + "> ?";
     /** Selection clause to use to exclude voicemail records.  */
     private static final String EXCLUDE_VOICEMAIL_SELECTION = getInequalityClause(
             Calls.TYPE, Calls.VOICEMAIL_TYPE);
+    /** Selection clause to exclude hidden records. */
+    private static final String EXCLUDE_HIDDEN_SELECTION = getEqualityClause(
+            Calls.PHONE_ACCOUNT_HIDDEN, 0);
 
     @VisibleForTesting
     static final String[] CALL_LOG_SYNC_PROJECTION = new String[] {
@@ -80,11 +86,21 @@ public class CallLogProvider extends ContentProvider {
         Calls.PHONE_ACCOUNT_ID
     };
 
+    static final String[] MINIMAL_PROJECTION = new String[] { Calls._ID };
+
     private static final int CALLS = 1;
 
     private static final int CALLS_ID = 2;
 
     private static final int CALLS_FILTER = 3;
+
+    private static final String UNHIDE_BY_PHONE_ACCOUNT_QUERY =
+            "UPDATE " + Tables.CALLS + " SET " + Calls.PHONE_ACCOUNT_HIDDEN + "=0 WHERE " +
+            Calls.PHONE_ACCOUNT_COMPONENT_NAME + "=? AND " + Calls.PHONE_ACCOUNT_ID + "=?;";
+
+    private static final String UNHIDE_BY_ADDRESS_QUERY =
+            "UPDATE " + Tables.CALLS + " SET " + Calls.PHONE_ACCOUNT_HIDDEN + "=0 WHERE " +
+            Calls.PHONE_ACCOUNT_ADDRESS + "=?;";
 
     private static final UriMatcher sURIMatcher = new UriMatcher(UriMatcher.NO_MATCH);
     static {
@@ -108,6 +124,7 @@ public class CallLogProvider extends ContentProvider {
         sCallsProjectionMap.put(Calls.FEATURES, Calls.FEATURES);
         sCallsProjectionMap.put(Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.PHONE_ACCOUNT_COMPONENT_NAME);
         sCallsProjectionMap.put(Calls.PHONE_ACCOUNT_ID, Calls.PHONE_ACCOUNT_ID);
+        sCallsProjectionMap.put(Calls.PHONE_ACCOUNT_ADDRESS, Calls.PHONE_ACCOUNT_ADDRESS);
         sCallsProjectionMap.put(Calls.NEW, Calls.NEW);
         sCallsProjectionMap.put(Calls.VOICEMAIL_URI, Calls.VOICEMAIL_URI);
         sCallsProjectionMap.put(Calls.TRANSCRIPTION, Calls.TRANSCRIPTION);
@@ -121,6 +138,7 @@ public class CallLogProvider extends ContentProvider {
         sCallsProjectionMap.put(Calls.CACHED_MATCHED_NUMBER, Calls.CACHED_MATCHED_NUMBER);
         sCallsProjectionMap.put(Calls.CACHED_NORMALIZED_NUMBER, Calls.CACHED_NORMALIZED_NUMBER);
         sCallsProjectionMap.put(Calls.CACHED_PHOTO_ID, Calls.CACHED_PHOTO_ID);
+        sCallsProjectionMap.put(Calls.CACHED_PHOTO_URI, Calls.CACHED_PHOTO_URI);
         sCallsProjectionMap.put(Calls.CACHED_FORMATTED_NUMBER, Calls.CACHED_FORMATTED_NUMBER);
     }
 
@@ -154,13 +172,13 @@ public class CallLogProvider extends ContentProvider {
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper()) {
             @Override
             public void handleMessage(Message msg) {
-                performBackgroundTask(msg.what);
+                performBackgroundTask(msg.what, msg.obj);
             }
         };
 
         mReadAccessLatch = new CountDownLatch(1);
 
-        scheduleBackgroundTask(BACKGROUND_TASK_INITIALIZE);
+        scheduleBackgroundTask(BACKGROUND_TASK_INITIALIZE, null);
 
         if (Log.isLoggable(Constants.PERFORMANCE_TAG, Log.DEBUG)) {
             Log.d(Constants.PERFORMANCE_TAG, "CallLogProvider.onCreate finish");
@@ -189,6 +207,7 @@ public class CallLogProvider extends ContentProvider {
 
         final SelectionBuilder selectionBuilder = new SelectionBuilder(selection);
         checkVoicemailPermissionAndAddRestriction(uri, selectionBuilder, true /*isQuery*/);
+        selectionBuilder.addClause(EXCLUDE_HIDDEN_SELECTION);
 
         final int match = sURIMatcher.match(uri);
         switch (match) {
@@ -283,7 +302,7 @@ public class CallLogProvider extends ContentProvider {
         // permission and also requires the additional voicemail param set.
         if (hasVoicemailValue(values)) {
             checkIsAllowVoicemailRequest(uri);
-            mVoicemailPermissions.checkCallerHasWriteAccess();
+            mVoicemailPermissions.checkCallerHasWriteAccess(getCallingPackage());
         }
         if (mCallsInserter == null) {
             SQLiteDatabase db = mDbHelper.getWritableDatabase();
@@ -356,6 +375,10 @@ public class CallLogProvider extends ContentProvider {
         return getContext();
     }
 
+    void adjustForNewPhoneAccount(PhoneAccountHandle handle) {
+        scheduleBackgroundTask(BACKGROUND_TASK_ADJUST_PHONE_ACCOUNT, handle);
+    }
+
     /**
      * Returns a {@link DatabaseModifier} that takes care of sending necessary notifications
      * after the operation is performed.
@@ -387,9 +410,9 @@ public class CallLogProvider extends ContentProvider {
             SelectionBuilder selectionBuilder, boolean isQuery) {
         if (isAllowVoicemailRequest(uri)) {
             if (isQuery) {
-                mVoicemailPermissions.checkCallerHasReadAccess();
+                mVoicemailPermissions.checkCallerHasReadAccess(getCallingPackage());
             } else {
-                mVoicemailPermissions.checkCallerHasWriteAccess();
+                mVoicemailPermissions.checkCallerHasWriteAccess(getCallingPackage());
             }
         } else {
             selectionBuilder.addClause(EXCLUDE_VOICEMAIL_SELECTION);
@@ -463,6 +486,48 @@ public class CallLogProvider extends ContentProvider {
         } finally {
             cursor.close();
         }
+    }
+
+    /**
+     * Un-hides any hidden call log entries that are associated with the specified handle.
+     *
+     * @param handle The handle to the newly registered {@link android.telecom.PhoneAccount}.
+     */
+    private void adjustForNewPhoneAccountInternal(PhoneAccountHandle handle) {
+        String[] handleArgs =
+                new String[] { handle.getComponentName().flattenToString(), handle.getId() };
+
+        // Check to see if any entries exist for this handle. If so (not empty), run the un-hiding
+        // update. If not, then try to identify the call from the phone number.
+        Cursor cursor = query(Calls.CONTENT_URI, MINIMAL_PROJECTION,
+                Calls.PHONE_ACCOUNT_COMPONENT_NAME + " =? AND " + Calls.PHONE_ACCOUNT_ID + " =?",
+                handleArgs, null);
+
+        if (cursor != null) {
+            try {
+                if (cursor.getCount() >= 1) {
+                    // run un-hiding process based on phone account
+                    mDbHelper.getWritableDatabase().execSQL(
+                            UNHIDE_BY_PHONE_ACCOUNT_QUERY, handleArgs);
+                } else {
+                    TelecomManager tm = TelecomManager.from(getContext());
+                    if (tm != null) {
+
+                        PhoneAccount account = tm.getPhoneAccount(handle);
+                        if (account != null && account.getAddress() != null) {
+                            // We did not find any items for the specific phone account, so run the
+                            // query based on the phone number instead.
+                            mDbHelper.getWritableDatabase().execSQL(UNHIDE_BY_ADDRESS_QUERY,
+                                    new String[] { account.getAddress().toString() });
+                        }
+
+                    }
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+
     }
 
     /**
@@ -543,11 +608,11 @@ public class CallLogProvider extends ContentProvider {
         }
     }
 
-    private void scheduleBackgroundTask(int task) {
-        mBackgroundHandler.sendEmptyMessage(task);
+    private void scheduleBackgroundTask(int task, Object arg) {
+        mBackgroundHandler.obtainMessage(task, arg).sendToTarget();
     }
 
-    private void performBackgroundTask(int task) {
+    private void performBackgroundTask(int task, Object arg) {
         if (task == BACKGROUND_TASK_INITIALIZE) {
             try {
                 final Context context = getContext();
@@ -562,6 +627,8 @@ public class CallLogProvider extends ContentProvider {
                 mReadAccessLatch.countDown();
                 mReadAccessLatch = null;
             }
+        } else if (task == BACKGROUND_TASK_ADJUST_PHONE_ACCOUNT) {
+            adjustForNewPhoneAccountInternal((PhoneAccountHandle) arg);
         }
 
     }

@@ -22,7 +22,8 @@ LOCAL_SHARED_LIBRARIES := \
     libhardware \
     libexpat \
     libva \
-    libva-android
+    libva-android \
+    libmrm_omx_adaptor \
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/include \
@@ -32,6 +33,7 @@ LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/khronos/openmax \
     $(TARGET_OUT_HEADERS)/libva \
     $(TARGET_OUT_HEADERS)/pvr/hal \
+    $(TARGET_OUT_HEADERS)/media_resource_manager/ \
     $(call include-path-for, frameworks-native)/media/openmax
 
 ifeq ($(USE_MEDIASDK),true)

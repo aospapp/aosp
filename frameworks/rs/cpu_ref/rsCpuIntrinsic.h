@@ -26,45 +26,42 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsic : public RsdCpuScriptImpl {
 public:
-    virtual void populateScript(Script *) = 0;
+    void populateScript(Script *) override = 0;
 
-    virtual void invokeFunction(uint32_t slot, const void *params, size_t paramLength);
-    virtual int invokeRoot();
-    virtual void invokeForEach(uint32_t slot,
-                       const Allocation * ain,
-                       Allocation * aout,
-                       const void * usr,
-                       uint32_t usrLen,
-                       const RsScriptCall *sc);
+    void invokeFunction(uint32_t slot, const void * params, size_t paramLength) override;
+    int invokeRoot() override;
 
-    virtual void invokeForEachMulti(uint32_t slot,
+    void invokeForEach(uint32_t slot,
                        const Allocation ** ain,
                        uint32_t inLen,
                        Allocation * aout,
                        const void * usr,
                        uint32_t usrLen,
-                       const RsScriptCall *sc);
+                       const RsScriptCall *sc) override;
 
-    virtual void forEachKernelSetup(uint32_t slot, MTLaunchStruct *mtls);
-    virtual void invokeInit();
-    virtual void invokeFreeChildren();
+    void forEachKernelSetup(uint32_t slot, MTLaunchStruct * mtls) override;
+    void invokeInit() override;
+    void invokeFreeChildren() override;
 
-    virtual void preLaunch(uint32_t slot, const Allocation * ain,
-                           Allocation * aout, const void * usr,
-                           uint32_t usrLen, const RsScriptCall *sc);
-    virtual void postLaunch(uint32_t slot, const Allocation * ain,
-                            Allocation * aout, const void * usr,
-                            uint32_t usrLen, const RsScriptCall *sc);
+    void preLaunch(uint32_t slot, const Allocation ** ains,
+                   uint32_t inLen, Allocation * aout, const void * usr,
+                   uint32_t usrLen, const RsScriptCall * sc) override;
+    void postLaunch(uint32_t slot, const Allocation ** ains,
+                    uint32_t inLen, Allocation * aout,
+                    const void * usr, uint32_t usrLen,
+                    const RsScriptCall * sc) override;
 
-    virtual void setGlobalVar(uint32_t slot, const void *data, size_t dataLength);
-    virtual void setGlobalVarWithElemDims(uint32_t slot, const void *data, size_t dataLength,
-                                  const Element *e, const uint32_t *dims, size_t dimLength);
-    virtual void setGlobalBind(uint32_t slot, Allocation *data);
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalVar(uint32_t slot, const void * data, size_t dataLength) override;
+    void setGlobalVarWithElemDims(uint32_t slot, const void * data,
+                                  size_t dataLength, const Element * e,
+                                  const uint32_t * dims,
+                                  size_t dimLength) override;
+    void setGlobalBind(uint32_t slot, Allocation *data) override;
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsic();
-    RsdCpuScriptIntrinsic(RsdCpuReferenceImpl *ctx, const Script *s, const Element *,
-                          RsScriptIntrinsicID iid);
+    ~RsdCpuScriptIntrinsic() override;
+    RsdCpuScriptIntrinsic(RsdCpuReferenceImpl * ctx, const Script * s,
+                          const Element * e, RsScriptIntrinsicID iid);
 
 protected:
     RsScriptIntrinsicID mID;

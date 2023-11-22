@@ -18,14 +18,18 @@
 
     <application android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
-        <activity android:name=".MonkeyActivity">
+        <activity
+            android:name=".MonkeyActivity"
+            android:screenOrientation="locked">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
-        <activity android:name=".BaboonActivity">
+
+        <activity
+            android:name=".BaboonActivity"
+            android:screenOrientation="locked">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.MONKEY" />

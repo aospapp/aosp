@@ -261,9 +261,6 @@ int fill_dev_full_name_by_prefix(const char* dev_prefix,
 
 void dump_dmp_img(const char *outFile)
 {
-    FILE *fp;
-    int i;
-
     char sysfs_path[MAX_SYSFS_NAME_LEN];
     char dmp_path[MAX_SYSFS_NAME_LEN];
 

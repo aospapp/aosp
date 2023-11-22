@@ -136,7 +136,7 @@ public class DozeService extends DreamService {
                 mDozeParameters.getPulseOnPickup(), mDozeParameters.getVibrateOnPickup(),
                 DozeLog.PULSE_REASON_SENSOR_PICKUP);
         mPowerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
-        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, mTag);
+        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
         mWakeLock.setReferenceCounted(true);
         mAlarmManager = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
         mDisplayStateSupported = mDozeParameters.getDisplayStateSupported();
@@ -235,7 +235,7 @@ public class DozeService extends DreamService {
                 public void onProximityResult(int result) {
                     final boolean isNear = result == RESULT_NEAR;
                     final long end = SystemClock.uptimeMillis();
-                    DozeLog.traceProximityResult(isNear, end - start, reason);
+                    DozeLog.traceProximityResult(mContext, isNear, end - start, reason);
                     if (nonBlocking) {
                         // we already continued
                         return;

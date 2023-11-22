@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.util;
 
-import com.android.tv.settings.widget.RefcountBitmapDrawable;
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -30,6 +28,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
+
+import com.android.tv.settings.widget.RefcountBitmapDrawable;
 
 /**
  * Util widget that can animate the following factors
@@ -74,15 +74,15 @@ class TransitionImageView extends View {
     private boolean mBgHasDiff;
 
     private float mProgress;
-    private Rect mSrcRect = new Rect();
-    private RectF mSrcUnclipRect = new RectF();
-    private RectF mSrcClipRect = new RectF();
-    private Rect mDstRect = new Rect();
+    private final Rect mSrcRect = new Rect();
+    private final RectF mSrcUnclipRect = new RectF();
+    private final RectF mSrcClipRect = new RectF();
+    private final Rect mDstRect = new Rect();
 
-    private RectF mClipRect = new RectF();
-    private Rect mUnclipRect = new Rect();
+    private final RectF mClipRect = new RectF();
+    private final Rect mUnclipRect = new Rect();
     private int mSrcBgColor;
-    private ColorMatrix mColorMatrix = new ColorMatrix();
+    private final ColorMatrix mColorMatrix = new ColorMatrix();
 
     private RectF mExcludeRect;
 

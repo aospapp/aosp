@@ -4,8 +4,10 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _JS_GLOBALDATA_H_
-#define _JS_GLOBALDATA_H_
+#ifndef FPDFSDK_INCLUDE_JAVASCRIPT_JS_GLOBALDATA_H_
+#define FPDFSDK_INCLUDE_JAVASCRIPT_JS_GLOBALDATA_H_
+
+#include "../../../core/include/fxcrt/fx_basic.h"
 
 #define JS_GLOBALDATA_TYPE_NUMBER		0
 #define JS_GLOBALDATA_TYPE_BOOLEAN		1
@@ -14,8 +16,7 @@
 #define JS_GLOBALDATA_TYPE_NULL			4
 
 class CJS_KeyValue;
-class CJS_GlobalVariableArray;
-class CJS_GlobalData_Element;
+class CPDFDoc_Environment;
 
 class CJS_GlobalVariableArray
 {
@@ -91,7 +92,6 @@ private:
 private:
 	CFX_ArrayTemplate<CJS_GlobalData_Element*>	m_arrayGlobalData;
 	CFX_WideString								m_sFilePath;
-	CPDFDoc_Environment*								m_pApp;
 };
 
-#endif //_JS_GLOBALDATA_H_
+#endif  // FPDFSDK_INCLUDE_JAVASCRIPT_JS_GLOBALDATA_H_

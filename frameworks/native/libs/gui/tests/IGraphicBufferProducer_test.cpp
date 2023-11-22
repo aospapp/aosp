@@ -38,30 +38,31 @@
 #define TEST_CONTROLLED_BY_APP false
 #define TEST_PRODUCER_USAGE_BITS (0)
 
-// TODO: Make these public constants in a header
-enum {
-    // Default dimensions before setDefaultBufferSize is called
-    DEFAULT_WIDTH = 1,
-    DEFAULT_HEIGHT = 1,
-
-    // Default format before setDefaultBufferFormat is called
-    DEFAULT_FORMAT = HAL_PIXEL_FORMAT_RGBA_8888,
-
-    // Default transform hint before setTransformHint is called
-    DEFAULT_TRANSFORM_HINT = 0,
-};
-
 namespace android {
 
 namespace {
-// Parameters for a generic "valid" input for queueBuffer.
-const int64_t QUEUE_BUFFER_INPUT_TIMESTAMP = 1384888611;
-const bool QUEUE_BUFFER_INPUT_IS_AUTO_TIMESTAMP = false;
-const Rect QUEUE_BUFFER_INPUT_RECT = Rect(DEFAULT_WIDTH, DEFAULT_HEIGHT);
-const int QUEUE_BUFFER_INPUT_SCALING_MODE = 0;
-const int QUEUE_BUFFER_INPUT_TRANSFORM = 0;
-const bool QUEUE_BUFFER_INPUT_ASYNC = false;
-const sp<Fence> QUEUE_BUFFER_INPUT_FENCE = Fence::NO_FENCE;
+    // Default dimensions before setDefaultBufferSize is called
+    const uint32_t DEFAULT_WIDTH = 1;
+    const uint32_t DEFAULT_HEIGHT = 1;
+
+    // Default format before setDefaultBufferFormat is called
+    const PixelFormat DEFAULT_FORMAT = HAL_PIXEL_FORMAT_RGBA_8888;
+
+    // Default transform hint before setTransformHint is called
+    const uint32_t DEFAULT_TRANSFORM_HINT = 0;
+
+    // TODO: Make these constants in header
+    const int DEFAULT_CONSUMER_USAGE_BITS = 0;
+
+    // Parameters for a generic "valid" input for queueBuffer.
+    const int64_t QUEUE_BUFFER_INPUT_TIMESTAMP = 1384888611;
+    const bool QUEUE_BUFFER_INPUT_IS_AUTO_TIMESTAMP = false;
+    const android_dataspace QUEUE_BUFFER_INPUT_DATASPACE = HAL_DATASPACE_UNKNOWN;
+    const Rect QUEUE_BUFFER_INPUT_RECT = Rect(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    const int QUEUE_BUFFER_INPUT_SCALING_MODE = 0;
+    const int QUEUE_BUFFER_INPUT_TRANSFORM = 0;
+    const bool QUEUE_BUFFER_INPUT_ASYNC = false;
+    const sp<Fence> QUEUE_BUFFER_INPUT_FENCE = Fence::NO_FENCE;
 }; // namespace anonymous
 
 struct DummyConsumer : public BnConsumerListener {
@@ -126,6 +127,7 @@ protected:
         QueueBufferInputBuilder() {
            timestamp = QUEUE_BUFFER_INPUT_TIMESTAMP;
            isAutoTimestamp = QUEUE_BUFFER_INPUT_IS_AUTO_TIMESTAMP;
+           dataSpace = QUEUE_BUFFER_INPUT_DATASPACE;
            crop = QUEUE_BUFFER_INPUT_RECT;
            scalingMode = QUEUE_BUFFER_INPUT_SCALING_MODE;
            transform = QUEUE_BUFFER_INPUT_TRANSFORM;
@@ -137,6 +139,7 @@ protected:
             return IGraphicBufferProducer::QueueBufferInput(
                     timestamp,
                     isAutoTimestamp,
+                    dataSpace,
                     crop,
                     scalingMode,
                     transform,
@@ -151,6 +154,11 @@ protected:
 
         QueueBufferInputBuilder& setIsAutoTimestamp(bool isAutoTimestamp) {
             this->isAutoTimestamp = isAutoTimestamp;
+            return *this;
+        }
+
+        QueueBufferInputBuilder& setDataSpace(android_dataspace dataSpace) {
+            this->dataSpace = dataSpace;
             return *this;
         }
 
@@ -182,6 +190,7 @@ protected:
     private:
         int64_t timestamp;
         bool isAutoTimestamp;
+        android_dataspace dataSpace;
         Rect crop;
         int scalingMode;
         uint32_t transform;
@@ -264,15 +273,12 @@ TEST_F(IGraphicBufferProducerTest, Disconnect_ReturnsError) {
 TEST_F(IGraphicBufferProducerTest, Query_Succeeds) {
     ASSERT_NO_FATAL_FAILURE(ConnectProducer());
 
-    // TODO: Make these constants in header
-    const int DEFAULT_CONSUMER_USAGE_BITS = 0;
-
-    int value = -1;
+    int32_t value = -1;
     EXPECT_OK(mProducer->query(NATIVE_WINDOW_WIDTH, &value));
-    EXPECT_EQ(DEFAULT_WIDTH, value);
+    EXPECT_EQ(DEFAULT_WIDTH, static_cast<uint32_t>(value));
 
     EXPECT_OK(mProducer->query(NATIVE_WINDOW_HEIGHT, &value));
-    EXPECT_EQ(DEFAULT_HEIGHT, value);
+    EXPECT_EQ(DEFAULT_HEIGHT, static_cast<uint32_t>(value));
 
     EXPECT_OK(mProducer->query(NATIVE_WINDOW_FORMAT, &value));
     EXPECT_EQ(DEFAULT_FORMAT, value);
@@ -293,7 +299,7 @@ TEST_F(IGraphicBufferProducerTest, Query_ReturnsError) {
     ASSERT_NO_FATAL_FAILURE(ConnectProducer());
 
     // One past the end of the last 'query' enum value. Update this if we add more enums.
-    const int NATIVE_WINDOW_QUERY_LAST_OFF_BY_ONE = NATIVE_WINDOW_CONSUMER_USAGE_BITS + 1;
+    const int NATIVE_WINDOW_QUERY_LAST_OFF_BY_ONE = NATIVE_WINDOW_BUFFER_AGE + 1;
 
     int value;
     // What was out of range
@@ -360,7 +366,7 @@ TEST_F(IGraphicBufferProducerTest, Queue_Succeeds) {
         EXPECT_EQ(DEFAULT_WIDTH, width);
         EXPECT_EQ(DEFAULT_HEIGHT, height);
         EXPECT_EQ(DEFAULT_TRANSFORM_HINT, transformHint);
-        EXPECT_EQ(1, numPendingBuffers); // since queueBuffer was called exactly once
+        EXPECT_EQ(1u, numPendingBuffers); // since queueBuffer was called exactly once
     }
 
     // Buffer was not in the dequeued state

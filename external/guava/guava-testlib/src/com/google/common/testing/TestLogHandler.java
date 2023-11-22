@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
+import javax.annotation.Nullable;
+
 /**
  * Tests may use this to intercept messages that are logged by the code under
  * test.  Example:
@@ -61,15 +63,15 @@ public class TestLogHandler extends Handler {
    * Adds the most recently logged record to our list.
    */
   @Override
-  public void publish(LogRecord record) {
+  public void publish(@Nullable LogRecord record) {
     list.add(record);
   }
 
   @Override
-  public void flush() { }
+  public void flush() {}
 
   @Override
-  public void close() { }
+  public void close() {}
 
   public void clear() {
     list.clear();

@@ -19,8 +19,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_SEMA_DELAYED_DIAGNOSTIC_H
-#define LLVM_CLANG_SEMA_DELAYED_DIAGNOSTIC_H
+#ifndef LLVM_CLANG_SEMA_DELAYEDDIAGNOSTIC_H
+#define LLVM_CLANG_SEMA_DELAYEDDIAGNOSTIC_H
 
 #include "clang/Sema/Sema.h"
 
@@ -240,8 +240,8 @@ class DelayedDiagnosticPool {
   const DelayedDiagnosticPool *Parent;
   SmallVector<DelayedDiagnostic, 4> Diagnostics;
 
-  DelayedDiagnosticPool(const DelayedDiagnosticPool &) LLVM_DELETED_FUNCTION;
-  void operator=(const DelayedDiagnosticPool &) LLVM_DELETED_FUNCTION;
+  DelayedDiagnosticPool(const DelayedDiagnosticPool &) = delete;
+  void operator=(const DelayedDiagnosticPool &) = delete;
 public:
   DelayedDiagnosticPool(const DelayedDiagnosticPool *parent) : Parent(parent) {}
   ~DelayedDiagnosticPool() {

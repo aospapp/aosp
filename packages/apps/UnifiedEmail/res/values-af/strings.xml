@@ -438,7 +438,7 @@
     <string name="copyright" msgid="3121335168340432582">"©<xliff:g id="YEAR">%1$d</xliff:g> Google Inc."</string>
     <string name="version" msgid="1161745345056656547">"<xliff:g id="APP_NAME">%1$s</xliff:g> weergawe <xliff:g id="VERSION">%2$s</xliff:g>"</string>
     <string name="view_app_page" msgid="3241990517052398927"></string>
-    <string name="print_dialog" msgid="8895536548487605661">"Druk uit…"</string>
+    <string name="print_dialog" msgid="8895536548487605661">"Druk uit …"</string>
     <string name="copyright_information" msgid="971422874488783312">"Kopiereginligting"</string>
     <string name="privacy_policy" msgid="212094623396418302">"Privaatheidsbeleid"</string>
     <string name="open_source_licenses" msgid="8643615555920977752">"Oopbronlisensies"</string>

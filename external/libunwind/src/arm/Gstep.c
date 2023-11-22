@@ -35,12 +35,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 static inline int
 arm_exidx_step (struct cursor *c)
 {
-  unw_word_t old_ip, old_cfa;
   uint8_t buf[32];
   int ret;
-
-  old_ip = c->dwarf.ip;
-  old_cfa = c->dwarf.cfa;
 
   /* mark PC unsaved */
   c->dwarf.loc[UNW_ARM_R15] = DWARF_NULL_LOC;
@@ -60,13 +56,6 @@ arm_exidx_step (struct cursor *c)
   ret = arm_exidx_decode (buf, ret, &c->dwarf);
   if (ret < 0)
     return ret;
-
-  if (c->dwarf.ip == old_ip && c->dwarf.cfa == old_cfa)
-    {
-      Dprintf ("%s: ip and cfa unchanged; stopping here (ip=0x%lx)\n",
-	       __FUNCTION__, (long) c->dwarf.ip);
-      return -UNW_EBADFRAME;
-    }
 
   c->dwarf.pi_valid = 0;
 
@@ -208,6 +197,9 @@ unw_step (unw_cursor_t *cursor)
 
   Debug (1, "(cursor=%p)\n", c);
 
+  unw_word_t old_ip = c->dwarf.ip;
+  unw_word_t old_cfa = c->dwarf.cfa;
+
   /* Check if this is a signal frame. */
   if (unw_is_signal_frame (cursor))
     {
@@ -320,8 +312,14 @@ unw_step (unw_cursor_t *cursor)
 
   if (ret >= 0)
     {
-      c->dwarf.frame++;
       adjust_ip(c);
+      if (c->dwarf.ip == old_ip && c->dwarf.cfa == old_cfa)
+        {
+          Dprintf ("%s: ip and cfa unchanged; stopping here (ip=0x%lx)\n",
+                   __FUNCTION__, (long) c->dwarf.ip);
+          return -UNW_EBADFRAME;
+        }
+      c->dwarf.frame++;
     }
   return ret == -UNW_ENOINFO ? 0 : ret;
 }

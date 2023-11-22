@@ -48,18 +48,14 @@ DnsProxyListener::DnsProxyListener(const NetworkController* netCtrl) :
     registerCmd(new GetHostByNameCmd(this));
 }
 
-DnsProxyListener::GetAddrInfoHandler::GetAddrInfoHandler(SocketClient *c,
-                                                         char* host,
-                                                         char* service,
-                                                         struct addrinfo* hints,
-                                                         unsigned netId,
-                                                         uint32_t mark)
+DnsProxyListener::GetAddrInfoHandler::GetAddrInfoHandler(
+        SocketClient *c, char* host, char* service, struct addrinfo* hints,
+        const struct android_net_context& netcontext)
         : mClient(c),
           mHost(host),
           mService(service),
           mHints(hints),
-          mNetId(netId),
-          mMark(mark) {
+          mNetContext(netcontext) {
 }
 
 DnsProxyListener::GetAddrInfoHandler::~GetAddrInfoHandler() {
@@ -83,12 +79,15 @@ void* DnsProxyListener::GetAddrInfoHandler::threadStart(void* obj) {
     return NULL;
 }
 
+static bool sendBE32(SocketClient* c, uint32_t data) {
+    uint32_t be_data = htonl(data);
+    return c->sendData(&be_data, sizeof(be_data)) == 0;
+}
+
 // Sends 4 bytes of big-endian length, followed by the data.
 // Returns true on success.
-static bool sendLenAndData(SocketClient *c, const int len, const void* data) {
-    uint32_t len_be = htonl(len);
-    return c->sendData(&len_be, 4) == 0 &&
-        (len == 0 || c->sendData(data, len) == 0);
+static bool sendLenAndData(SocketClient* c, const int len, const void* data) {
+    return sendBE32(c, len) && (len == 0 || c->sendData(data, len) == 0);
 }
 
 // Returns true on success
@@ -119,13 +118,52 @@ static bool sendhostent(SocketClient *c, struct hostent *hp) {
     return success;
 }
 
+static bool sendaddrinfo(SocketClient* c, struct addrinfo* ai) {
+    // struct addrinfo {
+    //      int     ai_flags;       /* AI_PASSIVE, AI_CANONNAME, AI_NUMERICHOST */
+    //      int     ai_family;      /* PF_xxx */
+    //      int     ai_socktype;    /* SOCK_xxx */
+    //      int     ai_protocol;    /* 0 or IPPROTO_xxx for IPv4 and IPv6 */
+    //      socklen_t ai_addrlen;   /* length of ai_addr */
+    //      char    *ai_canonname;  /* canonical name for hostname */
+    //      struct  sockaddr *ai_addr;      /* binary address */
+    //      struct  addrinfo *ai_next;      /* next structure in linked list */
+    // };
+
+    // Write the struct piece by piece because we might be a 64-bit netd
+    // talking to a 32-bit process.
+    bool success =
+            sendBE32(c, ai->ai_flags) &&
+            sendBE32(c, ai->ai_family) &&
+            sendBE32(c, ai->ai_socktype) &&
+            sendBE32(c, ai->ai_protocol);
+    if (!success) {
+        return false;
+    }
+
+    // ai_addrlen and ai_addr.
+    if (!sendLenAndData(c, ai->ai_addrlen, ai->ai_addr)) {
+        return false;
+    }
+
+    // strlen(ai_canonname) and ai_canonname.
+    if (!sendLenAndData(c, ai->ai_canonname ? strlen(ai->ai_canonname) + 1 : 0, ai->ai_canonname)) {
+        return false;
+    }
+
+    return true;
+}
+
 void DnsProxyListener::GetAddrInfoHandler::run() {
     if (DBG) {
-        ALOGD("GetAddrInfoHandler, now for %s / %s / %u / %u", mHost, mService, mNetId, mMark);
+        ALOGD("GetAddrInfoHandler, now for %s / %s / {%u,%u,%u,%u,%u}", mHost, mService,
+                mNetContext.app_netid, mNetContext.app_mark,
+                mNetContext.dns_netid, mNetContext.dns_mark,
+                mNetContext.uid);
     }
 
     struct addrinfo* result = NULL;
-    uint32_t rv = android_getaddrinfofornet(mHost, mService, mHints, mNetId, mMark, &result);
+    uint32_t rv = android_getaddrinfofornetcontext(mHost, mService, mHints, &mNetContext, &result);
     if (rv) {
         // getaddrinfo failed
         mClient->sendBinaryMsg(ResponseCode::DnsProxyOperationFailed, &rv, sizeof(rv));
@@ -133,14 +171,10 @@ void DnsProxyListener::GetAddrInfoHandler::run() {
         bool success = !mClient->sendCode(ResponseCode::DnsProxyQueryResult);
         struct addrinfo* ai = result;
         while (ai && success) {
-            success = sendLenAndData(mClient, sizeof(struct addrinfo), ai)
-                && sendLenAndData(mClient, ai->ai_addrlen, ai->ai_addr)
-                && sendLenAndData(mClient,
-                                  ai->ai_canonname ? strlen(ai->ai_canonname) + 1 : 0,
-                                  ai->ai_canonname);
+            success = sendBE32(mClient, 1) && sendaddrinfo(mClient, ai);
             ai = ai->ai_next;
         }
-        success = success && sendLenAndData(mClient, 0, "");
+        success = success && sendBE32(mClient, 0);
         if (!success) {
             ALOGW("Error writing DNS result to client");
         }
@@ -194,7 +228,8 @@ int DnsProxyListener::GetAddrInfoCmd::runCommand(SocketClient *cli,
     unsigned netId = strtoul(argv[7], NULL, 10);
     uid_t uid = cli->getUid();
 
-    uint32_t mark = mDnsProxyListener->mNetCtrl->getNetworkForDns(&netId, uid);
+    struct android_net_context netcontext;
+    mDnsProxyListener->mNetCtrl->getNetworkContext(netId, uid, &netcontext);
 
     if (ai_flags != -1 || ai_family != -1 ||
         ai_socktype != -1 || ai_protocol != -1) {
@@ -207,21 +242,23 @@ int DnsProxyListener::GetAddrInfoCmd::runCommand(SocketClient *cli,
         // Only implement AI_ADDRCONFIG if application is using default network since our
         // implementation only works on the default network.
         if ((hints->ai_flags & AI_ADDRCONFIG) &&
-                netId != mDnsProxyListener->mNetCtrl->getDefaultNetwork()) {
+                netcontext.dns_netid != mDnsProxyListener->mNetCtrl->getDefaultNetwork()) {
             hints->ai_flags &= ~AI_ADDRCONFIG;
         }
     }
 
     if (DBG) {
-        ALOGD("GetAddrInfoHandler for %s / %s / %u / %d / %u",
+        ALOGD("GetAddrInfoHandler for %s / %s / {%u,%u,%u,%u,%u}",
              name ? name : "[nullhost]",
              service ? service : "[nullservice]",
-             netId, uid, mark);
+             netcontext.app_netid, netcontext.app_mark,
+             netcontext.dns_netid, netcontext.dns_mark,
+             netcontext.uid);
     }
 
     cli->incRef();
     DnsProxyListener::GetAddrInfoHandler* handler =
-            new DnsProxyListener::GetAddrInfoHandler(cli, name, service, hints, netId, mark);
+            new DnsProxyListener::GetAddrInfoHandler(cli, name, service, hints, netcontext);
     handler->start();
 
     return 0;

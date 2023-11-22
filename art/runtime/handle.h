@@ -20,6 +20,7 @@
 #include "base/casts.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/value_object.h"
 #include "stack.h"
 
 namespace art {
@@ -30,23 +31,23 @@ template<class T> class Handle;
 
 // Handles are memory locations that contain GC roots. As the mirror::Object*s within a handle are
 // GC visible then the GC may move the references within them, something that couldn't be done with
-// a wrap pointer. Handles are generally allocated within HandleScopes. ConstHandle is a super-class
-// of Handle and doesn't support assignment operations.
+// a wrap pointer. Handles are generally allocated within HandleScopes. Handle is a super-class
+// of MutableHandle and doesn't support assignment operations.
 template<class T>
-class ConstHandle {
+class Handle : public ValueObject {
  public:
-  ConstHandle() : reference_(nullptr) {
+  Handle() : reference_(nullptr) {
   }
 
-  ALWAYS_INLINE ConstHandle(const ConstHandle<T>& handle) : reference_(handle.reference_) {
+  ALWAYS_INLINE Handle(const Handle<T>& handle) : reference_(handle.reference_) {
   }
 
-  ALWAYS_INLINE ConstHandle<T>& operator=(const ConstHandle<T>& handle) {
+  ALWAYS_INLINE Handle<T>& operator=(const Handle<T>& handle) {
     reference_ = handle.reference_;
     return *this;
   }
 
-  ALWAYS_INLINE explicit ConstHandle(StackReference<T>* reference) : reference_(reference) {
+  ALWAYS_INLINE explicit Handle(StackReference<T>* reference) : reference_(reference) {
   }
 
   ALWAYS_INLINE T& operator*() const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
@@ -69,29 +70,31 @@ class ConstHandle {
     return reinterpret_cast<jobject>(reference_);
   }
 
- protected:
-  template<typename S>
-  explicit ConstHandle(StackReference<S>* reference)
-      : reference_(reference) {
-  }
-  template<typename S>
-  explicit ConstHandle(const ConstHandle<S>& handle)
-      : reference_(handle.reference_) {
-  }
-
-  StackReference<mirror::Object>* GetReference() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) ALWAYS_INLINE {
+  ALWAYS_INLINE StackReference<mirror::Object>* GetReference()
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     return reference_;
   }
+
   ALWAYS_INLINE const StackReference<mirror::Object>* GetReference() const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     return reference_;
+  }
+
+ protected:
+  template<typename S>
+  explicit Handle(StackReference<S>* reference)
+      : reference_(reference) {
+  }
+  template<typename S>
+  explicit Handle(const Handle<S>& handle)
+      : reference_(handle.reference_) {
   }
 
   StackReference<mirror::Object>* reference_;
 
  private:
   friend class BuildGenericJniFrameVisitor;
-  template<class S> friend class ConstHandle;
+  template<class S> friend class Handle;
   friend class HandleScope;
   template<class S> friend class HandleWrapper;
   template<size_t kNumReferences> friend class StackHandleScope;
@@ -99,24 +102,25 @@ class ConstHandle {
 
 // Handles that support assignment.
 template<class T>
-class Handle : public ConstHandle<T> {
+class MutableHandle : public Handle<T> {
  public:
-  Handle() {
+  MutableHandle() {
   }
 
-  ALWAYS_INLINE Handle(const Handle<T>& handle) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : ConstHandle<T>(handle.reference_) {
+  ALWAYS_INLINE MutableHandle(const MutableHandle<T>& handle)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      : Handle<T>(handle.reference_) {
   }
 
-  ALWAYS_INLINE Handle<T>& operator=(const Handle<T>& handle)
+  ALWAYS_INLINE MutableHandle<T>& operator=(const MutableHandle<T>& handle)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    ConstHandle<T>::operator=(handle);
+    Handle<T>::operator=(handle);
     return *this;
   }
 
-  ALWAYS_INLINE explicit Handle(StackReference<T>* reference)
+  ALWAYS_INLINE explicit MutableHandle(StackReference<T>* reference)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : ConstHandle<T>(reference) {
+      : Handle<T>(reference) {
   }
 
   ALWAYS_INLINE T* Assign(T* reference) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
@@ -127,13 +131,13 @@ class Handle : public ConstHandle<T> {
   }
 
   template<typename S>
-  explicit Handle(const Handle<S>& handle) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : ConstHandle<T>(handle) {
+  explicit MutableHandle(const MutableHandle<S>& handle) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      : Handle<T>(handle) {
   }
 
   template<typename S>
-  explicit Handle(StackReference<S>* reference) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : ConstHandle<T>(reference) {
+  explicit MutableHandle(StackReference<S>* reference) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      : Handle<T>(reference) {
   }
 
  private:

@@ -10,8 +10,8 @@
 
 #include "GrSingleTextureEffect.h"
 
-class GrEffectStage;
-class GrGLConfigConversionEffect;
+class GrFragmentStage;
+class GrInvariantOutput;
 
 /**
  * This class is used to perform config conversions. Clients may want to read/write data that is
@@ -34,18 +34,14 @@ public:
         kPMConversionCnt
     };
 
-    // Installs an effect in the GrEffectStage to perform a config conversion.
-    static const GrEffectRef* Create(GrTexture*,
-                                     bool swapRedAndBlue,
-                                     PMConversion pmConversion,
-                                     const SkMatrix& matrix);
+    static const GrFragmentProcessor* Create(GrTexture*, bool swapRedAndBlue, PMConversion,
+                                             const SkMatrix&);
 
-    static const char* Name() { return "Config Conversion"; }
-    typedef GrGLConfigConversionEffect GLEffect;
+    const char* name() const override { return "Config Conversion"; }
 
-    virtual const GrBackendEffectFactory& getFactory() const SK_OVERRIDE;
+    void getGLProcessorKey(const GrGLSLCaps&, GrProcessorKeyBuilder*) const override;
 
-    virtual void getConstantColorComponents(GrColor* color, uint32_t* validFlags) const SK_OVERRIDE;
+    GrGLFragmentProcessor* createGLInstance() const override;
 
     bool swapsRedAndBlue() const { return fSwapRedAndBlue; }
     PMConversion  pmConversion() const { return fPMConversion; }
@@ -65,12 +61,14 @@ private:
                             PMConversion pmConversion,
                             const SkMatrix& matrix);
 
-    virtual bool onIsEqual(const GrEffect&) const SK_OVERRIDE;
+    bool onIsEqual(const GrFragmentProcessor&) const override;
+
+    void onComputeInvariantOutput(GrInvariantOutput* inout) const override;
 
     bool            fSwapRedAndBlue;
     PMConversion    fPMConversion;
 
-    GR_DECLARE_EFFECT_TEST;
+    GR_DECLARE_FRAGMENT_PROCESSOR_TEST;
 
     typedef GrSingleTextureEffect INHERITED;
 };

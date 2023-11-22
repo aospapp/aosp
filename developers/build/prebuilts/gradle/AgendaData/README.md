@@ -1,3 +1,4 @@
+
 Android AgendaData Sample
 ===================================
 
@@ -21,8 +22,8 @@ success or failure. The sample shows implementations for both the success as wel
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Screenshots

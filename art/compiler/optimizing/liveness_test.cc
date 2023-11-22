@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
+#include "arch/x86/instruction_set_features_x86.h"
+#include "base/arena_allocator.h"
 #include "builder.h"
 #include "code_generator.h"
+#include "code_generator_x86.h"
 #include "dex_file.h"
 #include "dex_instruction.h"
+#include "driver/compiler_options.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
+#include "prepare_for_register_allocation.h"
 #include "ssa_liveness_analysis.h"
-#include "utils/arena_allocator.h"
 
 #include "gtest/gtest.h"
 
@@ -42,15 +46,18 @@ static void DumpBitVector(BitVector* vector,
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraphBuilder builder(&allocator);
+  HGraph* graph = CreateGraph(&allocator);
+  HGraphBuilder builder(graph);
   const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  HGraph* graph = builder.BuildGraph(*item);
-  ASSERT_NE(graph, nullptr);
-  graph->BuildDominatorTree();
-  graph->TransformToSSA();
-  graph->FindNaturalLoops();
-  CodeGenerator* codegen = CodeGenerator::Create(&allocator, graph, InstructionSet::kX86);
-  SsaLivenessAnalysis liveness(*graph, codegen);
+  bool graph_built = builder.BuildGraph(*item);
+  ASSERT_TRUE(graph_built);
+  graph->TryBuildingSsa();
+  // `Inline` conditions into ifs.
+  PrepareForRegisterAllocation(graph).Run();
+  std::unique_ptr<const X86InstructionSetFeatures> features_x86(
+      X86InstructionSetFeatures::FromCppDefines());
+  x86::CodeGeneratorX86 codegen(graph, *features_x86.get(), CompilerOptions());
+  SsaLivenessAnalysis liveness(graph, &codegen);
   liveness.Analyze();
 
   std::ostringstream buffer;
@@ -384,44 +391,44 @@ TEST(LivenessTest, Loop5) {
   // Make sure we create a preheader of a loop when a header originally has two
   // incoming blocks and one back edge.
   // Bitsets are made of:
-  // (constant0, constant4, constant5, phi in block 8, phi in block 4)
+  // (constant0, constant4, constant5, phi in block 8)
   const char* expected =
     "Block 0\n"
-    "  live in: (00000)\n"
-    "  live out: (11100)\n"
-    "  kill: (11100)\n"
+    "  live in: (0000)\n"
+    "  live out: (1110)\n"
+    "  kill: (1110)\n"
     "Block 1\n"
-    "  live in: (11100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00000)\n"
+    "  live in: (1110)\n"
+    "  live out: (0110)\n"
+    "  kill: (0000)\n"
     "Block 2\n"
-    "  live in: (01000)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0100)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n"
     "Block 3\n"
-    "  live in: (00100)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0010)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n"
     "Block 4\n"  // loop header
-    "  live in: (00000)\n"
-    "  live out: (00001)\n"
-    "  kill: (00001)\n"
+    "  live in: (0001)\n"
+    "  live out: (0001)\n"
+    "  kill: (0000)\n"
     "Block 5\n"  // back edge
-    "  live in: (00001)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0001)\n"
+    "  live out: (0001)\n"
+    "  kill: (0000)\n"
     "Block 6\n"  // return block
-    "  live in: (00001)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0001)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n"
     "Block 7\n"  // exit block
-    "  live in: (00000)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0000)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n"
     "Block 8\n"  // synthesized pre header
-    "  live in: (00000)\n"
-    "  live out: (00000)\n"
-    "  kill: (00010)\n";
+    "  live in: (0000)\n"
+    "  live out: (0001)\n"
+    "  kill: (0001)\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -438,44 +445,40 @@ TEST(LivenessTest, Loop5) {
 
 TEST(LivenessTest, Loop6) {
   // Bitsets are made of:
-  // (constant0, constant4, constant5, phi in block 2, phi in block 8)
+  // (constant0, constant4, constant5, phi in block 2)
   const char* expected =
     "Block 0\n"
-    "  live in: (00000)\n"
-    "  live out: (11100)\n"
-    "  kill: (11100)\n"
+    "  live in: (0000)\n"
+    "  live out: (1110)\n"
+    "  kill: (1110)\n"
     "Block 1\n"
-    "  live in: (11100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00000)\n"
+    "  live in: (1110)\n"
+    "  live out: (0110)\n"
+    "  kill: (0000)\n"
     "Block 2\n"  // loop header
-    "  live in: (01100)\n"
-    "  live out: (01110)\n"
-    "  kill: (00010)\n"
+    "  live in: (0110)\n"
+    "  live out: (0111)\n"
+    "  kill: (0001)\n"
     "Block 3\n"
-    "  live in: (01100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00000)\n"
-    "Block 4\n"  // original back edge
-    "  live in: (01100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00000)\n"
-    "Block 5\n"  // original back edge
-    "  live in: (01100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00000)\n"
+    "  live in: (0110)\n"
+    "  live out: (0110)\n"
+    "  kill: (0000)\n"
+    "Block 4\n"  // back edge
+    "  live in: (0110)\n"
+    "  live out: (0110)\n"
+    "  kill: (0000)\n"
+    "Block 5\n"  // back edge
+    "  live in: (0110)\n"
+    "  live out: (0110)\n"
+    "  kill: (0000)\n"
     "Block 6\n"  // return block
-    "  live in: (00010)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
+    "  live in: (0001)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n"
     "Block 7\n"  // exit block
-    "  live in: (00000)\n"
-    "  live out: (00000)\n"
-    "  kill: (00000)\n"
-    "Block 8\n"  // synthesized back edge
-    "  live in: (01100)\n"
-    "  live out: (01100)\n"
-    "  kill: (00001)\n";
+    "  live in: (0000)\n"
+    "  live out: (0000)\n"
+    "  kill: (0000)\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -540,6 +543,53 @@ TEST(LivenessTest, Loop7) {
     Instruction::CONST_4 | 5 << 12 | 0,
     Instruction::GOTO | 0x0200,
     Instruction::GOTO | 0xF900,
+    Instruction::RETURN | 0 << 8);
+
+  TestCode(data, expected);
+}
+
+TEST(LivenessTest, Loop8) {
+  // var a = 0;
+  // while (a == a) {
+  //   a = a + a;
+  // }
+  // return a;
+  //
+  // We want to test that the ins of the loop exit
+  // does contain the phi.
+  // Bitsets are made of:
+  // (constant0, phi, add)
+  const char* expected =
+    "Block 0\n"
+    "  live in: (000)\n"
+    "  live out: (100)\n"
+    "  kill: (100)\n"
+    "Block 1\n"  // pre loop header
+    "  live in: (100)\n"
+    "  live out: (000)\n"
+    "  kill: (000)\n"
+    "Block 2\n"  // loop header
+    "  live in: (000)\n"
+    "  live out: (010)\n"
+    "  kill: (010)\n"
+    "Block 3\n"  // back edge
+    "  live in: (010)\n"
+    "  live out: (000)\n"
+    "  kill: (001)\n"
+    "Block 4\n"  // return block
+    "  live in: (010)\n"
+    "  live out: (000)\n"
+    "  kill: (000)\n"
+    "Block 5\n"  // exit block
+    "  live in: (000)\n"
+    "  live out: (000)\n"
+    "  kill: (000)\n";
+
+  const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
+    Instruction::CONST_4 | 0 | 0,
+    Instruction::IF_EQ, 6,
+    Instruction::ADD_INT, 0, 0,
+    Instruction::GOTO | 0xFB00,
     Instruction::RETURN | 0 << 8);
 
   TestCode(data, expected);

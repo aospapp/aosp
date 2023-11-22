@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.SampleElements.Unhashables;
 
 import java.util.Collection;
@@ -24,10 +25,9 @@ import java.util.List;
 /**
  * Creates collections containing unhashable sample elements, to be tested.
  *
- * <p>This class is GWT compatible.
- *
  * @author Regina O'Dell
  */
+@GwtCompatible
 public abstract class
     TestUnhashableCollectionGenerator<T extends Collection<UnhashableObject>>
     implements TestCollectionGenerator<UnhashableObject> {

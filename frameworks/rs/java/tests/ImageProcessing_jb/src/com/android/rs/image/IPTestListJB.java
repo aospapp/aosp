@@ -75,7 +75,9 @@ public class IPTestListJB {
         RESIZE_BI_SCRIPT ("Resize BiCubic Script", RELAXED_FP, 253.f),
         RESIZE_BI_INTRINSIC ("Resize BiCubic Intrinsic", INTRINSIC, 255.f),
         POSTERIZE_INVOKE ("Posterize with invoke", RELAXED_FP, 215.f),
-        POSTERIZE_SET ("Posterize with set", INTRINSIC, 221.f);
+        POSTERIZE_SET ("Posterize with set", INTRINSIC, 221.f),
+        HISTOGRAM_SCRIPT ("Histogram script", RELAXED_FP, 20.f),
+        HISTOGRAM_INTRINSIC ("Histogram intrinsic", INTRINSIC, 18.f);
 
 
         private final String name;
@@ -189,6 +191,10 @@ public class IPTestListJB {
             return new Posterize(true);
         case POSTERIZE_SET:
             return new Posterize(false);
+        case HISTOGRAM_SCRIPT:
+            return new Histogram(false);
+        case HISTOGRAM_INTRINSIC:
+            return new Histogram(true);
         }
         return null;
     }

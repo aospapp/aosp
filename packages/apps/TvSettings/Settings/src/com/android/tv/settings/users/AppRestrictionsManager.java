@@ -16,24 +16,21 @@
 
 package com.android.tv.settings.users;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.DialogFragment;
-import com.android.tv.settings.dialog.DialogFragment.Action;
-
 import android.app.Activity;
 import android.app.Fragment;
-import android.app.FragmentManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.RestrictionEntry;
-import android.content.pm.IPackageManager;
 import android.os.Bundle;
-import android.os.ServiceManager;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.DialogFragment;
+import com.android.tv.settings.dialog.DialogFragment.Action;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,7 +66,6 @@ class AppRestrictionsManager implements Action.Listener {
     private final Fragment mFragment;
     private final UserManager mUserManager;
     private final UserHandle mUserHandle;
-    private final IPackageManager mIPm;
     private final String mPackageName;
     private final Listener mListener;
     private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -79,7 +75,7 @@ class AppRestrictionsManager implements Action.Listener {
         public void onReceive(Context context, Intent intent) {
             Bundle results = getResultExtras(true);
             mRestrictions = results.getParcelableArrayList(Intent.EXTRA_RESTRICTIONS_LIST);
-            mRestrictionsIntent = (Intent) results.getParcelable(CUSTOM_RESTRICTIONS_INTENT);
+            mRestrictionsIntent = results.getParcelable(CUSTOM_RESTRICTIONS_INTENT);
 
             if (mRestrictions != null && mRestrictionsIntent == null) {
                 saveRestrictions();
@@ -98,7 +94,7 @@ class AppRestrictionsManager implements Action.Listener {
      * @param userHandle the user whose app restrictions are being set.
      * @param userManager the user manager for setting app restrictions.
      * @param packageName settings' package name (for special case restrictions).
-     * @param listener a listener for when restriciton acitons are ready to be displayed.
+     * @param listener a listener for when restriction actions are ready to be displayed.
      */
     AppRestrictionsManager(Fragment fragment, UserHandle userHandle, UserManager userManager,
             String packageName, Listener listener) {
@@ -107,7 +103,6 @@ class AppRestrictionsManager implements Action.Listener {
         mUserManager = userManager;
         mPackageName = packageName;
         mListener = listener;
-        mIPm = IPackageManager.Stub.asInterface(ServiceManager.getService("package"));
     }
 
     void loadRestrictionActions() {
@@ -130,7 +125,7 @@ class AppRestrictionsManager implements Action.Listener {
         if (ACTION_CUSTOM_CONFIGURATION.equals(action.getKey())) {
             mFragment.startActivityForResult(action.getIntent(), 1);
         } else if (ACTION_CHANGE_RESTRICTION.equals(action.getKey())) {
-            ArrayList<Action> actions = new ArrayList<Action>();
+            ArrayList<Action> actions = new ArrayList<>();
             switch (entry.getType()) {
                 case RestrictionEntry.TYPE_BOOLEAN:
                     actions.add(new Action.Builder()
@@ -204,7 +199,7 @@ class AppRestrictionsManager implements Action.Listener {
                 mCurrentDialogFragment = new DialogFragment.Builder()
                         .title(entry.getTitle())
                         .description(entry.getDescription())
-                        .iconResourceId(RestrictedProfileActivity.getIconResource())
+                        .iconResourceId(RestrictedProfileDialogFragment.getIconResource())
                         .iconBackgroundColor(
                                 mFragment.getActivity().getResources()
                                         .getColor(R.color.icon_background))
@@ -228,7 +223,7 @@ class AppRestrictionsManager implements Action.Listener {
             if (mCurrentDialogFragment != null) {
                 mCurrentDialogFragment.setActions(mCurrentDialogFragment.getActions());
             }
-            HashSet<String> selectedChoiceValues = new HashSet<String>();
+            HashSet<String> selectedChoiceValues = new HashSet<>();
             selectedChoiceValues.addAll(Arrays.asList(entry.getAllSelectedStrings()));
 
             if (action.isChecked()) {
@@ -255,6 +250,7 @@ class AppRestrictionsManager implements Action.Listener {
                 // If there's a valid result, persist it to the user manager.
                 mUserManager.setApplicationRestrictions(mPackageName, bundle, mUserHandle);
             }
+            loadRestrictionActions();
         }
     }
 
@@ -274,8 +270,6 @@ class AppRestrictionsManager implements Action.Listener {
 
     /**
      * Send a broadcast to the app to query its restrictions
-     *
-     * @param packageName package name of the app with restrictions
      */
     private void requestRestrictionsForApp() {
         Bundle oldEntries = mUserManager.getApplicationRestrictions(mPackageName, mUserHandle);
@@ -288,7 +282,7 @@ class AppRestrictionsManager implements Action.Listener {
     }
 
     private void getRestrictionActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
+        ArrayList<Action> actions = new ArrayList<>();
 
         if (mRestrictionsIntent != null) {
             actions.add(new Action.Builder()

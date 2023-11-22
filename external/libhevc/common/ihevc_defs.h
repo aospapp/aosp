@@ -404,6 +404,8 @@ enum
 
 #define MAX_HEVC_QP_10bit 63  //FOR HBD Branch Encoder
 
+#define MAX_HEVC_QP_12bit 75  //FOR HBD Branch Encoder
+
 
 /**
  * @brief  Total number of transform sizes

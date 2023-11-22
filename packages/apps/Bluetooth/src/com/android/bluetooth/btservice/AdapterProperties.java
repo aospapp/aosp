@@ -64,6 +64,10 @@ class AdapterProperties {
     private int mNumOfOffloadedIrkSupported;
     private int mNumOfOffloadedScanFilterSupported;
     private int mOffloadedScanResultStorageBytes;
+    private int mVersSupported;
+    private int mTotNumOfTrackableAdv;
+    private boolean mIsExtendedScanSupported;
+    private boolean mIsDebugLogSupported;
     private boolean mIsActivityAndEnergyReporting;
 
     // Lock for all getters and setters.
@@ -258,6 +262,14 @@ class AdapterProperties {
     boolean isActivityAndEnergyReportingSupported() {
         return mIsActivityAndEnergyReporting;
     }
+
+    /**
+     * @return total number of trackable advertisements
+     */
+    int getTotalNumOfTrackableAdvertisements() {
+        return mTotNumOfTrackableAdv;
+    }
+
     /**
      * @return the mBondedDevices
      */
@@ -550,13 +562,19 @@ class AdapterProperties {
     }
 
     void updateFeatureSupport(byte[] val) {
-        mNumOfAdvertisementInstancesSupported = (0xFF & ((int)val[1]));
-        mRpaOffloadSupported = ((0xFF & ((int)val[2]))!= 0);
-        mNumOfOffloadedIrkSupported =  (0xFF & ((int)val[3]));
-        mNumOfOffloadedScanFilterSupported = (0xFF & ((int)val[4]));
-        mOffloadedScanResultStorageBytes = ((0xFF & ((int)val[6])) << 8)
-                            + (0xFF & ((int)val[5]));
+        mVersSupported = ((0xFF & ((int)val[1])) << 8)
+                            + (0xFF & ((int)val[0]));
+        mNumOfAdvertisementInstancesSupported = (0xFF & ((int)val[3]));
+        mRpaOffloadSupported = ((0xFF & ((int)val[4]))!= 0);
+        mNumOfOffloadedIrkSupported =  (0xFF & ((int)val[5]));
+        mNumOfOffloadedScanFilterSupported = (0xFF & ((int)val[6]));
         mIsActivityAndEnergyReporting = ((0xFF & ((int)val[7])) != 0);
+        mOffloadedScanResultStorageBytes = ((0xFF & ((int)val[9])) << 8)
+                            + (0xFF & ((int)val[8]));
+        mTotNumOfTrackableAdv = ((0xFF & ((int)val[11])) << 8)
+                            + (0xFF & ((int)val[10]));
+        mIsExtendedScanSupported = ((0xFF & ((int)val[12])) != 0);
+        mIsDebugLogSupported = ((0xFF & ((int)val[13])) != 0);
 
         Log.d(TAG, "BT_PROPERTY_LOCAL_LE_FEATURES: update from BT controller"
                 + " mNumOfAdvertisementInstancesSupported = "
@@ -569,7 +587,16 @@ class AdapterProperties {
                 + " mOffloadedScanResultStorageBytes= "
                 + mOffloadedScanResultStorageBytes
                 + " mIsActivityAndEnergyReporting = "
-                + mIsActivityAndEnergyReporting);
+                + mIsActivityAndEnergyReporting
+                +" mVersSupported = "
+                + mVersSupported
+                + " mTotNumOfTrackableAdv = "
+                + mTotNumOfTrackableAdv
+                + " mIsExtendedScanSupported = "
+                + mIsExtendedScanSupported
+                + " mIsDebugLogSupported = "
+                + mIsDebugLogSupported
+                );
     }
 
     void onBluetoothReady() {
@@ -594,9 +621,20 @@ class AdapterProperties {
         }
     }
 
-    private boolean mBluetoothDisabling=false;
+    private boolean mBluetoothDisabling = false;
+
+    void onBleDisable() {
+        // Sequence BLE_ON to STATE_OFF - that is _complete_ OFF state.
+        // When BT disable is invoked, set the scan_mode to NONE
+        // so no incoming connections are possible
+        debugLog("onBleDisable");
+        if (getState() == BluetoothAdapter.STATE_BLE_TURNING_OFF) {
+           setScanMode(AbstractionLayer.BT_SCAN_MODE_NONE);
+        }
+    }
 
     void onBluetoothDisable() {
+        // From STATE_ON to BLE_ON
         // When BT disable is invoked, set the scan_mode to NONE
         // so no incoming connections are possible
 
@@ -605,9 +643,12 @@ class AdapterProperties {
         debugLog("onBluetoothDisable()");
         mBluetoothDisabling = true;
         if (getState() == BluetoothAdapter.STATE_TURNING_OFF) {
+            // Turn off any Device Search/Inquiry
+            mService.cancelDiscovery();
             setScanMode(AbstractionLayer.BT_SCAN_MODE_NONE);
         }
     }
+
     void discoveryStateChangeCallback(int state) {
         infoLog("Callback:discoveryStateChangeCallback with state:" + state);
         synchronized (mObject) {

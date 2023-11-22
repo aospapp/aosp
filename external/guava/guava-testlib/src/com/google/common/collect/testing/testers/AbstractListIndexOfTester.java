@@ -19,6 +19,7 @@ package com.google.common.collect.testing.testers;
 import static com.google.common.collect.testing.features.CollectionFeature.ALLOWS_NULL_VALUES;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.WrongType;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
@@ -27,10 +28,9 @@ import com.google.common.collect.testing.features.CollectionSize;
  * Common parent class for {@link ListIndexOfTester} and
  * {@link ListLastIndexOfTester}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  */
+@GwtCompatible
 public abstract class AbstractListIndexOfTester<E>
     extends AbstractListTester<E> {
   /** Override to call {@code indexOf()} or {@code lastIndexOf()}. */
@@ -45,7 +45,7 @@ public abstract class AbstractListIndexOfTester<E>
   @CollectionSize.Require(absent = ZERO)
   public void testFind_yes() {
     assertEquals(getMethodName() + "(firstElement) should return 0",
-        0, find(samples.e0));
+        0, find(getOrderedElements().get(0)));
   }
 
   public void testFind_no() {

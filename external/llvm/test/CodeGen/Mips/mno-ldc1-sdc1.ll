@@ -111,7 +111,7 @@
 
 define double @test_ldc1() {
 entry:
-  %0 = load double* @g0, align 8
+  %0 = load double, double* @g0, align 8
   ret double %0
 }
 
@@ -123,7 +123,7 @@ entry:
 ; 32R1-LE-PIC-DAG:    sw $[[R1]], 4(${{[0-9]+}})
 
 ; 32R2-LE-PIC-DAG:    mfc1 $[[R0:[0-9]+]], $f12
-; 32R2-LE-PIC-DAG:    mfc1 $[[R1:[0-9]+]], $f13
+; 32R2-LE-PIC-DAG:    mfhc1 $[[R1:[0-9]+]], $f12
 ; 32R2-LE-PIC-DAG:    sw $[[R0]], 0(${{[0-9]+}})
 ; 32R2-LE-PIC-DAG:    sw $[[R1]], 4(${{[0-9]+}})
 
@@ -140,7 +140,7 @@ entry:
 ; 32R1-LE-STATIC-DAG: sw $[[R1]], 4($[[R3]])
 
 ; 32R2-LE-STATIC-DAG: mfc1 $[[R0:[0-9]+]], $f12
-; 32R2-LE-STATIC-DAG: mfc1 $[[R1:[0-9]+]], $f13
+; 32R2-LE-STATIC-DAG: mfhc1 $[[R1:[0-9]+]], $f12
 ; 32R2-LE-STATIC-DAG: lui $[[R2:[0-9]+]], %hi(g0)
 ; 32R2-LE-STATIC-DAG: sw $[[R0]], %lo(g0)($[[R2]])
 ; 32R2-LE-STATIC-DAG: addiu $[[R3:[0-9]+]], $[[R2]], %lo(g0)
@@ -159,7 +159,7 @@ entry:
 ; 32R1-BE-PIC-DAG:    sw $[[R0]], 4(${{[0-9]+}})
 
 ; 32R2-BE-PIC-DAG:    mfc1 $[[R0:[0-9]+]], $f12
-; 32R2-BE-PIC-DAG:    mfc1 $[[R1:[0-9]+]], $f13
+; 32R2-BE-PIC-DAG:    mfhc1 $[[R1:[0-9]+]], $f12
 ; 32R2-BE-PIC-DAG:    sw $[[R1]], 0(${{[0-9]+}})
 ; 32R2-BE-PIC-DAG:    sw $[[R0]], 4(${{[0-9]+}})
 
@@ -212,8 +212,8 @@ entry:
 
 define double @test_ldxc1(double* nocapture readonly %a, i32 %i) {
 entry:
-  %arrayidx = getelementptr inbounds double* %a, i32 %i
-  %0 = load double* %arrayidx, align 8
+  %arrayidx = getelementptr inbounds double, double* %a, i32 %i
+  %0 = load double, double* %arrayidx, align 8
   ret double %0
 }
 
@@ -225,7 +225,7 @@ entry:
 ; 32R1-DAG:      sw $[[R1]], 4(${{[0-9]+}})
 
 ; 32R2-DAG:      mfc1 $[[R0:[0-9]+]], $f12
-; 32R2-DAG:      mfc1 $[[R1:[0-9]+]], $f13
+; 32R2-DAG:      mfhc1 $[[R1:[0-9]+]], $f12
 ; 32R2-DAG:      sw $[[R0]], 0(${{[0-9]+}})
 ; 32R2-DAG:      sw $[[R1]], 4(${{[0-9]+}})
 
@@ -243,7 +243,7 @@ entry:
 
 define void @test_sdxc1(double %b, double* nocapture %a, i32 %i) {
 entry:
-  %arrayidx = getelementptr inbounds double* %a, i32 %i
+  %arrayidx = getelementptr inbounds double, double* %a, i32 %i
   store double %b, double* %arrayidx, align 8
   ret void
 }

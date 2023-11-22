@@ -16,7 +16,6 @@
 
 package com.android.camera;
 
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -25,16 +24,16 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.View.OnLayoutChangeListener;
 
+import com.android.camera.app.AppController;
 import com.android.camera.app.CameraProvider;
+import com.android.camera.app.OrientationManager;
 import com.android.camera.debug.Log;
-import com.android.camera.settings.Keys;
-import com.android.camera.settings.ResolutionUtil;
-import com.android.camera.settings.SettingsManager;
-import com.android.camera.settings.SettingsUtil;
+import com.android.camera.device.CameraId;
 import com.android.camera.ui.PreviewStatusListener;
+import com.android.camera.util.ApiHelper;
 import com.android.camera.util.CameraUtil;
+import com.android.camera2.R;
 import com.android.ex.camera2.portability.CameraDeviceInfo;
-import com.android.ex.camera2.portability.Size;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,19 +68,29 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     private CaptureLayoutHelper mCaptureLayoutHelper = null;
     private int mOrientation = UNSET;
 
+    // Hack to allow to know which module is running for b/20694189
+    private final AppController mAppController;
+    private final int mCameraModeId;
+    private final int mCaptureIntentModeId;
+
     public TextureViewHelper(TextureView preview, CaptureLayoutHelper helper,
-                             CameraProvider cameraProvider) {
+            CameraProvider cameraProvider, AppController appController) {
         mPreview = preview;
         mCameraProvider = cameraProvider;
         mPreview.addOnLayoutChangeListener(this);
         mPreview.setSurfaceTextureListener(this);
         mCaptureLayoutHelper = helper;
+        mAppController = appController;
+        mCameraModeId = appController.getAndroidContext().getResources()
+                .getInteger(R.integer.camera_mode_photo);
+        mCaptureIntentModeId = appController.getAndroidContext().getResources()
+                .getInteger(R.integer.camera_mode_capture_intent);
     }
 
     /**
      * If auto adjust transform is enabled, when there is a layout change, the
-     * transform matrix will be automatically adjusted based on the preview stream
-     * aspect ratio in the new layout.
+     * transform matrix will be automatically adjusted based on the preview
+     * stream aspect ratio in the new layout.
      *
      * @param enable whether or not auto adjustment should be enabled
      */
@@ -91,11 +100,11 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
 
     @Override
     public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft,
-                               int oldTop, int oldRight, int oldBottom) {
+            int oldTop, int oldRight, int oldBottom) {
         Log.v(TAG, "onLayoutChange");
         int width = right - left;
         int height = bottom - top;
-        int rotation = CameraUtil.getDisplayRotation(mPreview.getContext());
+        int rotation = CameraUtil.getDisplayRotation();
         if (mWidth != width || mHeight != height || mOrientation != rotation) {
             mWidth = width;
             mHeight = height;
@@ -111,9 +120,9 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     /**
-     * Transforms the preview with the identity matrix, ensuring there
-     * is no scaling on the preview.  It also calls onPreviewSizeChanged, to
-     * trigger any necessary preview size changing callbacks.
+     * Transforms the preview with the identity matrix, ensuring there is no
+     * scaling on the preview. It also calls onPreviewSizeChanged, to trigger
+     * any necessary preview size changing callbacks.
      */
     public void clearTransform() {
         mPreview.setTransform(new Matrix());
@@ -123,7 +132,7 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     public void updateAspectRatio(float aspectRatio) {
-        Log.v(TAG, "updateAspectRatio");
+        Log.v(TAG, "updateAspectRatio " + aspectRatio);
         if (aspectRatio <= 0) {
             Log.e(TAG, "Invalid aspect ratio: " + aspectRatio);
             return;
@@ -158,7 +167,6 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
             mAspectRatioChangedListeners.add(listener);
         }
     }
-
 
     /**
      * This returns the rect that is available to display the preview, and
@@ -215,7 +223,8 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     /**
-     * Calculates and updates the preview area rect using the latest transform matrix.
+     * Calculates and updates the preview area rect using the latest transform
+     * matrix.
      */
     private void updatePreviewArea(Matrix matrix) {
         mPreviewArea.set(0, 0, mWidth, mHeight);
@@ -232,12 +241,86 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     /**
-     * Updates the transform matrix based current width and height of TextureView
-     * and preview stream aspect ratio.
+     * Returns a transformation matrix that implements rotation that is
+     * consistent with CaptureLayoutHelper and TextureViewHelper. The magical
+     * invariant for CaptureLayoutHelper and TextureViewHelper that must be
+     * obeyed is that the bounding box of the view must be EXACTLY the bounding
+     * box of the surfaceDimensions AFTER the transformation has been applied.
      *
-     * <p>If not {@code mAutoAdjustTransform}, this does nothing except return
+     * @param currentDisplayOrientation The current display orientation,
+     *            measured counterclockwise from to the device's natural
+     *            orientation (in degrees, always a multiple of 90, and between
+     *            0 and 270, inclusive).
+     * @param surfaceDimensions The dimensions of the
+     *            {@link android.view.Surface} on which the preview image is
+     *            being rendered. It usually only makes sense for the upper-left
+     *            corner to be at the origin.
+     * @param desiredBounds The boundaries within the
+     *            {@link android.view.Surface} where the final image should
+     *            appear. These can be used to translate and scale the output,
+     *            but note that the image will be stretched to fit, possibly
+     *            changing its aspect ratio.
+     * @return The transform matrix that should be applied to the
+     *         {@link android.view.Surface} in order for the image to display
+     *         properly in the device's current orientation.
+     */
+    public Matrix getPreviewRotationalTransform(int currentDisplayOrientation,
+            RectF surfaceDimensions,
+            RectF desiredBounds) {
+        if (surfaceDimensions.equals(desiredBounds)) {
+            return new Matrix();
+        }
+
+        Matrix transform = new Matrix();
+        transform.setRectToRect(surfaceDimensions, desiredBounds, Matrix.ScaleToFit.FILL);
+
+        RectF normalRect = surfaceDimensions;
+        // Bounding box of 90 or 270 degree rotation.
+        RectF rotatedRect = new RectF(normalRect.width() / 2 - normalRect.height() / 2,
+                normalRect.height() / 2 - normalRect.width() / 2,
+                normalRect.width() / 2 + normalRect.height() / 2,
+                normalRect.height() / 2 + normalRect.width() / 2);
+
+        OrientationManager.DeviceOrientation deviceOrientation =
+                OrientationManager.DeviceOrientation.from(currentDisplayOrientation);
+
+        // This rotation code assumes that the aspect ratio of the content
+        // (not of necessarily the surface) equals the aspect ratio of view that is receiving
+        // the preview.  So, a 4:3 surface that contains 16:9 data will look correct as
+        // long as the view is also 16:9.
+        switch (deviceOrientation) {
+            case CLOCKWISE_90:
+                transform.setRectToRect(rotatedRect, desiredBounds, Matrix.ScaleToFit.FILL);
+                transform.preRotate(270, mWidth / 2, mHeight / 2);
+                break;
+            case CLOCKWISE_180:
+                transform.setRectToRect(normalRect, desiredBounds, Matrix.ScaleToFit.FILL);
+                transform.preRotate(180, mWidth / 2, mHeight / 2);
+                break;
+            case CLOCKWISE_270:
+                transform.setRectToRect(rotatedRect, desiredBounds, Matrix.ScaleToFit.FILL);
+                transform.preRotate(90, mWidth / 2, mHeight / 2);
+                break;
+            case CLOCKWISE_0:
+            default:
+                transform.setRectToRect(normalRect, desiredBounds, Matrix.ScaleToFit.FILL);
+                break;
+        }
+
+        return transform;
+    }
+
+    /**
+     * Updates the transform matrix based current width and height of
+     * TextureView and preview stream aspect ratio.
+     * <p>
+     * If not {@code mAutoAdjustTransform}, this does nothing except return
      * {@code false}. In all other cases, it returns {@code true}, regardless of
-     * whether the transform was changed.</p>
+     * whether the transform was changed.
+     * </p>
+     * In {@code mAutoAdjustTransform} and the CameraProvder is invalid, it is assumed
+     * that the CaptureModule/PhotoModule is Camera2 API-based and must implements its
+     * rotation via matrix transformation implemented in getPreviewRotationalTransform.
      *
      * @return Whether {@code mAutoAdjustTransform}.
      */
@@ -246,19 +329,43 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
         if (!mAutoAdjustTransform) {
             return false;
         }
+
         if (mAspectRatio == MATCH_SCREEN || mAspectRatio < 0 || mWidth == 0 || mHeight == 0) {
             return true;
         }
 
-        Matrix matrix;
-        int cameraId = mCameraProvider.getCurrentCameraId();
-        if (cameraId >= 0) {
+        Matrix matrix = new Matrix();
+        CameraId cameraKey = mCameraProvider.getCurrentCameraId();
+        int cameraId = -1;
+
+        try {
+            cameraId = cameraKey.getLegacyValue();
+        } catch (UnsupportedOperationException ignored) {
+            Log.e(TAG, "TransformViewHelper does not support Camera API2");
+        }
+
+
+        // Only apply this fix when Current Active Module is Photo module AND
+        // Phone is Nexus4 The enhancement fix b/20694189 to original fix to
+        // b/19271661 ensures that the fix should only be applied when:
+        // 1) the phone is a Nexus4 which requires the specific workaround
+        // 2) CaptureModule is enabled.
+        // 3) the Camera Photo Mode Or Capture Intent Photo Mode is active
+        if (ApiHelper.IS_NEXUS_4 && mAppController.getCameraFeatureConfig().isUsingCaptureModule()
+                && (mAppController.getCurrentModuleIndex() == mCameraModeId ||
+                mAppController.getCurrentModuleIndex() == mCaptureIntentModeId)) {
+            Log.v(TAG, "Applying Photo Mode, Capture Module, Nexus-4 specific fix for b/19271661");
+            mOrientation = CameraUtil.getDisplayRotation();
+            matrix = getPreviewRotationalTransform(mOrientation,
+                    new RectF(0, 0, mWidth, mHeight),
+                    mCaptureLayoutHelper.getPreviewRect());
+        } else if (cameraId >= 0) {
+            // Otherwise, do the default, legacy action.
             CameraDeviceInfo.Characteristics info = mCameraProvider.getCharacteristics(cameraId);
             matrix = info.getPreviewTransform(mOrientation, new RectF(0, 0, mWidth, mHeight),
                     mCaptureLayoutHelper.getPreviewRect());
         } else {
-            Log.w(TAG, "Unable to find current camera... defaulting to identity matrix");
-            matrix = new Matrix();
+            // Do Nothing
         }
 
         mPreview.setTransform(matrix);
@@ -284,8 +391,8 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     /**
-     * Returns a new copy of the preview area, to avoid internal data being modified
-     * from outside of the class.
+     * Returns a new copy of the preview area, to avoid internal data being
+     * modified from outside of the class.
      */
     public RectF getPreviewArea() {
         return new RectF(mPreviewArea);
@@ -315,17 +422,19 @@ public class TextureViewHelper implements TextureView.SurfaceTextureListener,
     }
 
     /**
-     * Adds a listener that will get notified when the preview area changed. This
-     * can be useful for UI elements or focus overlay to adjust themselves according
-     * to the preview area change.
+     * Adds a listener that will get notified when the preview area changed.
+     * This can be useful for UI elements or focus overlay to adjust themselves
+     * according to the preview area change.
      * <p/>
-     * Note that a listener will only be added once. A newly added listener will receive
-     * a notification of current preview area immediately after being added.
+     * Note that a listener will only be added once. A newly added listener will
+     * receive a notification of current preview area immediately after being
+     * added.
      * <p/>
-     * This function should be called on the UI thread and listeners will be notified
-     * on the UI thread.
+     * This function should be called on the UI thread and listeners will be
+     * notified on the UI thread.
      *
-     * @param listener the listener that will get notified of preview area change
+     * @param listener the listener that will get notified of preview area
+     *            change
      */
     public void addPreviewAreaSizeChangedListener(
             PreviewStatusListener.PreviewAreaChangedListener listener) {

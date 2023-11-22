@@ -29,6 +29,8 @@ clcore_base_files := \
     rs_sampler.c \
     rs_convert.c
 
+clcore_cflags := -Iframeworks/rs/cpu_ref -DRS_DECLARE_EXPIRED_APIS
+
 clcore_base_files_32 := \
     ll32/allocation.ll
 
@@ -71,6 +73,7 @@ include frameworks/compile/slang/rs_version.mk
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore.bc
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_base_files)
 LOCAL_SRC_FILES_32 := $(clcore_files_32)
 LOCAL_SRC_FILES_32 += arch/generic.c
@@ -89,6 +92,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_debug.bc
 rs_debug_runtime := 1
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_base_files)
 LOCAL_SRC_FILES_32 := $(clcore_files_32)
 LOCAL_SRC_FILES_32 += arch/generic.c
@@ -108,6 +112,7 @@ ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libclcore_x86.bc
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_x86_files)
 LOCAL_SRC_FILES_32 := $(clcore_base_files_32)
 LOCAL_SRC_FILES_64 := $(clcore_base_files_64)
@@ -123,6 +128,7 @@ ifeq ($(ARCH_ARM_HAVE_NEON),true)
   LOCAL_32_BIT_ONLY := true
 
   LOCAL_MODULE := libclcore_neon.bc
+  LOCAL_CFLAGS += $(clcore_cflags)
   LOCAL_SRC_FILES := $(clcore_neon_files)
   LOCAL_CFLAGS += -DARCH_ARM_HAVE_NEON
 
@@ -142,6 +148,7 @@ BCC_RS_TRIPLE := armv7-none-linux-gnueabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm.bc
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_32)
 include $(LOCAL_PATH)/build_bc_lib.mk
 
@@ -155,6 +162,7 @@ BCC_RS_TRIPLE := armv7-none-linux-gnueabi
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_mips.bc
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_32)
 include $(LOCAL_PATH)/build_bc_lib.mk
 
@@ -168,6 +176,7 @@ BCC_RS_TRIPLE := armv7-none-linux-gnueabi
 RS_TRIPLE_CFLAGS := -D__i386__
 LOCAL_MODULE := librsrt_x86.bc
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_x86_files) $(clcore_base_files_32)
 include $(LOCAL_PATH)/build_bc_lib.mk
 
@@ -177,5 +186,6 @@ BCC_RS_TRIPLE := aarch64-linux-android
 RS_TRIPLE_CFLAGS :=
 LOCAL_MODULE := librsrt_arm64.bc
 LOCAL_IS_HOST_MODULE := true
+LOCAL_CFLAGS += $(clcore_cflags)
 LOCAL_SRC_FILES := $(clcore_files) $(clcore_files_64)
 include $(LOCAL_PATH)/build_bc_lib.mk

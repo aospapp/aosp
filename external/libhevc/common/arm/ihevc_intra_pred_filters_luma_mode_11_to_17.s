@@ -98,7 +98,7 @@
 .extern gai4_ihevc_ang_table
 .extern gai4_ihevc_inv_ang_table
 .extern col_for_intra_luma
-.extern idx_11_17
+.extern idx_neg_idx_11_17
 
 gai4_ihevc_ang_table_addr:
 .long gai4_ihevc_ang_table - ulbl1 - 8

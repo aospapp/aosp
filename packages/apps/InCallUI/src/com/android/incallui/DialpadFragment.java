@@ -29,13 +29,11 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.android.contacts.common.util.MaterialColorMapUtils.MaterialPalette;
 import com.android.phone.common.dialpad.DialpadKeyButton;
 import com.android.phone.common.dialpad.DialpadView;
 
@@ -80,30 +78,6 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
 
         public void setYFraction(float yFraction) {
             setTranslationY(yFraction * getHeight());
-        }
-    }
-
-    /**
-     * LinearLayout that always returns true for onHoverEvent callbacks, to fix
-     * problems with accessibility due to the dialpad overlaying other fragments.
-     */
-    public static class HoverIgnoringLinearLayout extends LinearLayout {
-
-        public HoverIgnoringLinearLayout(Context context) {
-            super(context);
-        }
-
-        public HoverIgnoringLinearLayout(Context context, AttributeSet attrs) {
-            super(context, attrs);
-        }
-
-        public HoverIgnoringLinearLayout(Context context, AttributeSet attrs, int defStyle) {
-            super(context, attrs, defStyle);
-        }
-
-        @Override
-        public boolean onHoverEvent(MotionEvent event) {
-            return true;
         }
     }
 
@@ -435,25 +409,20 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
     // TODO(klp) Adds hardware keyboard listener
 
     @Override
-    DialpadPresenter createPresenter() {
+    public DialpadPresenter createPresenter() {
         return new DialpadPresenter();
     }
 
     @Override
-    DialpadPresenter.DialpadUi getUi() {
+    public DialpadPresenter.DialpadUi getUi() {
         return this;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         final View parent = inflater.inflate(
-                com.android.incallui.R.layout.dtmf_twelve_key_dialer_view, container, false);
+                R.layout.incall_dialpad_fragment, container, false);
         mDialpadView = (DialpadView) parent.findViewById(R.id.dialpad_view);
         mDialpadView.setCanDigitsBeEdited(false);
         mDialpadView.setBackgroundResource(R.color.incall_dialpad_background);
@@ -514,7 +483,7 @@ public class DialpadFragment extends BaseFragment<DialpadPresenter, DialpadPrese
      * @param text Text to set Dialpad EditText to.
      */
     public void setDtmfText(String text) {
-        mDtmfDialerField.setText(PhoneNumberUtils.ttsSpanAsPhoneNumber(text));
+        mDtmfDialerField.setText(PhoneNumberUtils.createTtsSpannable(text));
     }
 
     @Override

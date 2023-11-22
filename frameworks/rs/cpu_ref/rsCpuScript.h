@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef RSD_BCC_H
-#define RSD_BCC_H
+#ifndef RSD_CPU_SCRIPT_H
+#define RSD_CPU_SCRIPT_H
 
 #include <rs_hal.h>
 #include <rsRuntime.h>
 
 #ifndef RS_COMPATIBILITY_LIB
-#include <bcc/ExecutionEngine/CompilerRTSymbolResolver.h>
-#include <bcc/ExecutionEngine/SymbolResolverProxy.h>
-#include <vector>
 #include <utility>
 #endif
 
@@ -32,7 +29,6 @@
 namespace bcc {
     class BCCContext;
     class RSCompilerDriver;
-    class RSExecutable;
 }
 
 namespace bcinfo {
@@ -42,69 +38,64 @@ namespace bcinfo {
 namespace android {
 namespace renderscript {
 
-
+class ScriptExecutable;
 
 class RsdCpuScriptImpl : public RsdCpuReferenceImpl::CpuScript {
 public:
     typedef void (*outer_foreach_t)(
-        const RsForEachStubParamStruct *,
+        const RsExpandKernelDriverInfo *,
         uint32_t x1, uint32_t x2,
-        uint32_t instep, uint32_t outstep);
-#ifdef RS_COMPATIBILITY_LIB
+        uint32_t outstep);
+
     typedef void (* InvokeFunc_t)(void);
     typedef void (* ForEachFunc_t)(void);
     typedef int (* RootFunc_t)(void);
+#ifdef RS_COMPATIBILITY_LIB
     typedef void (*WorkerCallback_t)(void *usr, uint32_t idx);
 #endif
 
     bool init(char const *resName, char const *cacheDir,
               uint8_t const *bitcode, size_t bitcodeSize, uint32_t flags,
-              char const *bccPluginName = NULL);
-    virtual void populateScript(Script *);
+              char const *bccPluginName = nullptr);
+    void populateScript(Script *) override;
 
-    virtual void invokeFunction(uint32_t slot, const void *params, size_t paramLength);
-    virtual int invokeRoot();
-    virtual void preLaunch(uint32_t slot, const Allocation * ain,
-                           Allocation * aout, const void * usr,
+    void invokeFunction(uint32_t slot, const void *params, size_t paramLength) override;
+    int invokeRoot() override;
+    virtual void preLaunch(uint32_t slot, const Allocation ** ains,
+                           uint32_t inLen, Allocation * aout, const void * usr,
                            uint32_t usrLen, const RsScriptCall *sc);
-    virtual void postLaunch(uint32_t slot, const Allocation * ain,
-                            Allocation * aout, const void * usr,
-                            uint32_t usrLen, const RsScriptCall *sc);
-    virtual void invokeForEach(uint32_t slot,
-                       const Allocation * ain,
-                       Allocation * aout,
-                       const void * usr,
+    virtual void postLaunch(uint32_t slot, const Allocation ** ains,
+                            uint32_t inLen, Allocation * aout,
+                            const void * usr, uint32_t usrLen,
+                            const RsScriptCall *sc);
+
+    void invokeForEach(uint32_t slot,
+                       const Allocation ** ains,
+                       uint32_t inLen,
+                       Allocation* aout,
+                       const void* usr,
                        uint32_t usrLen,
-                       const RsScriptCall *sc);
+                       const RsScriptCall* sc) override;
 
-    virtual void invokeForEachMulti(uint32_t slot,
-                                     const Allocation** ains,
-                                     uint32_t inLen,
-                                     Allocation* aout,
-                                     const void* usr,
-                                     uint32_t usrLen,
-                                     const RsScriptCall* sc);
-    virtual void invokeInit();
-    virtual void invokeFreeChildren();
+    void invokeInit() override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalVar(uint32_t slot, const void *data, size_t dataLength);
-    virtual void getGlobalVar(uint32_t slot, void *data, size_t dataLength);
-    virtual void setGlobalVarWithElemDims(uint32_t slot, const void *data, size_t dataLength,
-                                  const Element *e, const uint32_t *dims, size_t dimLength);
-    virtual void setGlobalBind(uint32_t slot, Allocation *data);
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalVar(uint32_t slot, const void *data, size_t dataLength) override;
+    void getGlobalVar(uint32_t slot, void *data, size_t dataLength) override;
+    void setGlobalVarWithElemDims(uint32_t slot, const void *data, size_t dataLength,
+                                  const Element *e, const uint32_t *dims,
+                                  size_t dimLength) override;
+    void setGlobalBind(uint32_t slot, Allocation *data) override;
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
+    const char* getFieldName(uint32_t slot) const;
 
-    virtual ~RsdCpuScriptImpl();
+    ~RsdCpuScriptImpl() override;
     RsdCpuScriptImpl(RsdCpuReferenceImpl *ctx, const Script *s);
 
     const Script * getScript() {return mScript;}
 
-    void forEachMtlsSetup(const Allocation * ain, Allocation * aout,
-                          const void * usr, uint32_t usrLen,
-                          const RsScriptCall *sc, MTLaunchStruct *mtls);
-
-    void forEachMtlsSetup(const Allocation ** ains, uint32_t inLen,
+    bool forEachMtlsSetup(const Allocation ** ains, uint32_t inLen,
                           Allocation * aout, const void * usr, uint32_t usrLen,
                           const RsScriptCall *sc, MTLaunchStruct *mtls);
 
@@ -114,56 +105,46 @@ public:
     const RsdCpuReference::CpuSymbol * lookupSymbolMath(const char *sym);
     static void * lookupRuntimeStub(void* pContext, char const* name);
 
-    virtual Allocation * getAllocationForPointer(const void *ptr) const;
+    Allocation * getAllocationForPointer(const void *ptr) const override;
+    bool storeRSInfoFromSO();
 
-#ifndef RS_COMPATIBILITY_LIB
-    virtual  void * getRSExecutable() { return mExecutable; }
-#endif
+    int getGlobalEntries() const override;
+    const char * getGlobalName(int i) const override;
+    const void * getGlobalAddress(int i) const override;
+    size_t getGlobalSize(int i) const override;
+    uint32_t getGlobalProperties(int i) const override;
 
 protected:
     RsdCpuReferenceImpl *mCtx;
     const Script *mScript;
+    void *mScriptSO;
 
 #ifndef RS_COMPATIBILITY_LIB
     // Returns the path to the core library we'll use.
     const char* findCoreLib(const bcinfo::MetadataExtractor& bitCodeMetaData, const char* bitcode,
                             size_t bitcodeSize);
-    int (*mRoot)();
-    int (*mRootExpand)();
-    void (*mInit)();
-    void (*mFreeChildren)();
 
-    std::vector<std::pair<const char *, uint32_t> > mExportedForEachFuncList;
-
-    bcc::BCCContext *mCompilerContext;
     bcc::RSCompilerDriver *mCompilerDriver;
-    bcc::CompilerRTSymbolResolver mCompilerRuntime;
-    bcc::LookupFunctionSymbolResolver<void *> mRSRuntime;
-    bcc::SymbolResolverProxy mResolver;
-    bcc::RSExecutable *mExecutable;
-#else
-    void *mScriptSO;
+#endif
+
     RootFunc_t mRoot;
     RootFunc_t mRootExpand;
     InvokeFunc_t mInit;
     InvokeFunc_t mFreeChildren;
-    InvokeFunc_t *mInvokeFunctions;
-    ForEachFunc_t *mForEachFunctions;
-
-    void **mFieldAddress;
-    bool *mFieldIsObject;
-    uint32_t *mForEachSignatures;
-
-    // for populate script
-    //int mVersionMajor;
-    //int mVersionMinor;
-    size_t mExportedVariableCount;
-    size_t mExportedFunctionCount;
-#endif
+    ScriptExecutable* mScriptExec;
 
     Allocation **mBoundAllocs;
     void * mIntrinsicData;
     bool mIsThreadable;
+
+public:
+    static const char* BCC_EXE_PATH;
+    const char* getBitcodeFilePath() const { return mBitcodeFilePath.string(); }
+
+private:
+    String8 mBitcodeFilePath;
+    uint32_t mBuildChecksum;
+    bool mChecksumNeeded;
 };
 
 Allocation * rsdScriptGetAllocationForPointer(
@@ -171,9 +152,20 @@ Allocation * rsdScriptGetAllocationForPointer(
                         const Script *script,
                         const void *);
 
-
+uint32_t constructBuildChecksum(uint8_t const *bitcode, size_t bitcodeSize,
+                                const char *commandLine,
+                                const char ** bccFiles, size_t numFiles);
 
 }
-}
 
+#ifdef __LP64__
+#define SYSLIBPATH "/system/lib64"
+#define SYSLIBPATH_VENDOR "/system/vendor/lib64"
+#else
+#define SYSLIBPATH "/system/lib"
+#define SYSLIBPATH_VENDOR "/system/vendor/lib"
 #endif
+
+}
+
+#endif  // RSD_CPU_SCRIPT_H

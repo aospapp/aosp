@@ -35,6 +35,8 @@
 #include "hwdefs/msvdx_offsets.h"
 #include "hwdefs/msvdx_cmds_io2.h"
 
+#include <malloc.h>
+
 #define SURFACE(id)   ((object_surface_p) object_heap_lookup( &dec_ctx->obj_context->driver_data->surface_heap, id ))
 
 static void tng_yuv_processor_QueryConfigAttributes(

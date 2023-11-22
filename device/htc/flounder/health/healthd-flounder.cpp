@@ -41,6 +41,8 @@
 #define NORMAL_MAX_SOC_DEC (2)
 #define CRITICAL_LOW_FORCE_SOC_DROP (6)
 #define UPDATE_PERIOD_MINIMUM_S (55)
+#define BATTERY_OVERTEMP_THRESHOLD (550)
+#define BATTERY_UNDERTEMP_THRESHOLD (0)
 
 using namespace android;
 static bool first_update_done;
@@ -120,6 +122,13 @@ static void flounder_health_check(struct BatteryProperties *props)
         props->batteryHealth = BATTERY_HEALTH_DEAD;
     else
         props->batteryHealth = BATTERY_HEALTH_GOOD;
+
+    if (props->batteryHealth == BATTERY_HEALTH_GOOD){
+        if (props->batteryTemperature > BATTERY_OVERTEMP_THRESHOLD)
+            props->batteryHealth = BATTERY_HEALTH_OVERHEAT;
+        else if(props->batteryTemperature < BATTERY_UNDERTEMP_THRESHOLD)
+            props->batteryHealth = BATTERY_HEALTH_COLD;
+    }
 }
 
 static void flounder_voltage_monitor_check(struct BatteryProperties *props)

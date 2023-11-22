@@ -26,6 +26,6 @@
     <string name="action_call" msgid="6226253647953184035">"呼叫 <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"该标签是空的。"</string>
     <string name="import_vcard" msgid="5104299047930666528">"导入 ^1"</string>
-    <string name="mime_display_name" msgid="5926357152623764485">"NFC 标签的数据"</string>
+    <string name="mime_display_name" msgid="5926357152623764485">"来自NFC标签的数据"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1的联系人信息"</string>
 </resources>

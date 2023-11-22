@@ -32,17 +32,24 @@ import android.uirendering.cts.testinfrastructure.CanvasClient;
 import com.android.cts.uirendering.R;
 
 public class FontRenderingTests extends ActivityTestBase {
-    // Threshold is barely loose enough for differences between sw and hw renderers
-    static double MSSIM_THRESHOLD = 0.91;
-
-    private final BitmapComparer mFuzzyComparer = new MSSIMComparer(MSSIM_THRESHOLD);
+    // Thresholds are barely loose enough for differences between sw and hw renderers.
+    private static final double REGULAR_THRESHOLD = 0.92;
+    private static final double THIN_THRESHOLD = 0.87;
 
     // Representative characters including some from Unicode 7
-    private final String mTestString1 = "Hamburg \u20bd";
-    private final String mTestString2 = "\u20b9\u0186\u0254\u1e24\u1e43";
+    private static final String sTestString1 = "Hambu";
+    private static final String sTestString2 = "rg \u20bd";
+    private static final String sTestString3 = "\u20b9\u0186\u0254\u1e24\u1e43";
 
-    private void fontTestBody(final Typeface typeface, int id) {
+    private void fontTestBody(String family, int style, int id) {
         Bitmap goldenBitmap = BitmapFactory.decodeResource(getActivity().getResources(), id);
+
+        // adjust threshold based on thinness - more variance is expected in thin cases
+        boolean thinTestCase = family.endsWith("-thin") && ((style & Typeface.BOLD) == 0);
+        BitmapComparer comparer = new MSSIMComparer(
+                thinTestCase ? THIN_THRESHOLD : REGULAR_THRESHOLD);
+
+        final Typeface typeface = Typeface.create(family, style);
         createTest()
                 .addCanvasClient(new CanvasClient() {
                     @Override
@@ -50,174 +57,201 @@ public class FontRenderingTests extends ActivityTestBase {
                         Paint p = new Paint();
                         p.setAntiAlias(true);
                         p.setColor(Color.BLACK);
-                        p.setTextSize(30);
+                        p.setTextSize(26);
                         p.setTypeface(typeface);
-                        canvas.drawText(mTestString1, 10, 60, p);
-                        canvas.drawText(mTestString2, 10, 100, p);
+                        canvas.drawText(sTestString1, 1, 20, p);
+                        canvas.drawText(sTestString2, 1, 50, p);
+                        canvas.drawText(sTestString3, 1, 80, p);
                     }
                 })
-                .runWithVerifier(new GoldenImageVerifier(goldenBitmap, mFuzzyComparer));
+                .runWithVerifier(new GoldenImageVerifier(goldenBitmap, comparer));
     }
 
     @SmallTest
     public void testDefaultFont() {
-        Typeface tf = Typeface.create("sans-serif", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.hello1);
+        fontTestBody("sans-serif",
+                Typeface.NORMAL,
+                R.drawable.hello1);
     }
 
     @SmallTest
     public void testBoldFont() {
-        Typeface tf = Typeface.create("sans-serif", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.bold1);
+        fontTestBody("sans-serif",
+                Typeface.BOLD,
+                R.drawable.bold1);
     }
 
     @SmallTest
     public void testItalicFont() {
-        Typeface tf = Typeface.create("sans-serif", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.italic1);
+        fontTestBody("sans-serif",
+                Typeface.ITALIC,
+                R.drawable.italic1);
     }
 
     @SmallTest
     public void testBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.bolditalic1);
+        fontTestBody("sans-serif",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.bolditalic1);
     }
 
     @SmallTest
     public void testMediumFont() {
-        Typeface tf = Typeface.create("sans-serif-medium", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.medium1);
+        fontTestBody("sans-serif-medium",
+                Typeface.NORMAL,
+                R.drawable.medium1);
     }
 
     @SmallTest
     public void testMediumBoldFont() {
         // bold attribute on medium base font = black
-        Typeface tf = Typeface.create("sans-serif-medium", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.black1);
+        fontTestBody("sans-serif-medium",
+                Typeface.BOLD,
+                R.drawable.black1);
     }
 
     @SmallTest
     public void testMediumItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-medium", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.mediumitalic1);
+        fontTestBody("sans-serif-medium",
+                Typeface.ITALIC,
+                R.drawable.mediumitalic1);
     }
 
     @SmallTest
     public void testMediumBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-medium", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.blackitalic1);
+        fontTestBody("sans-serif-medium",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.blackitalic1);
     }
 
     @SmallTest
     public void testLightFont() {
-        Typeface tf = Typeface.create("sans-serif-light", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.light1);
+        fontTestBody("sans-serif-light",
+                Typeface.NORMAL,
+                R.drawable.light1);
     }
 
     @SmallTest
     public void testLightBoldFont() {
         // bold attribute on light base font = medium
-        Typeface tf = Typeface.create("sans-serif-light", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.medium1);
+        fontTestBody("sans-serif-light",
+                Typeface.BOLD,
+                R.drawable.medium1);
     }
 
     @SmallTest
     public void testLightItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-light", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.lightitalic1);
+        fontTestBody("sans-serif-light",
+                Typeface.ITALIC,
+                R.drawable.lightitalic1);
     }
 
     @SmallTest
     public void testLightBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-light", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.mediumitalic1);
+        fontTestBody("sans-serif-light",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.mediumitalic1);
     }
 
     @SmallTest
     public void testThinFont() {
-        Typeface tf = Typeface.create("sans-serif-thin", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.thin1);
+        fontTestBody("sans-serif-thin",
+                Typeface.NORMAL,
+                R.drawable.thin1);
     }
 
     @SmallTest
     public void testThinBoldFont() {
         // bold attribute on thin base font = normal
-        Typeface tf = Typeface.create("sans-serif-thin", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.hello1);
+        fontTestBody("sans-serif-thin",
+                Typeface.BOLD,
+                R.drawable.hello1);
     }
 
     @SmallTest
     public void testThinItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-thin", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.thinitalic1);
+        fontTestBody("sans-serif-thin",
+                Typeface.ITALIC,
+                R.drawable.thinitalic1);
     }
 
     @SmallTest
     public void testThinBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-thin", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.italic1);
+        fontTestBody("sans-serif-thin",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.italic1);
     }
 
     @SmallTest
     public void testBlackFont() {
-        Typeface tf = Typeface.create("sans-serif-black", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.black1);
+        fontTestBody("sans-serif-black",
+                Typeface.NORMAL,
+                R.drawable.black1);
     }
 
     @SmallTest
     public void testBlackBoldFont() {
         // bold attribute on black base font = black
-        Typeface tf = Typeface.create("sans-serif-black", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.black1);
+        fontTestBody("sans-serif-black",
+                Typeface.BOLD,
+                R.drawable.black1);
     }
 
     @SmallTest
     public void testBlackItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-black", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.blackitalic1);
+        fontTestBody("sans-serif-black",
+                Typeface.ITALIC,
+                R.drawable.blackitalic1);
     }
 
     @SmallTest
     public void testBlackBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-black", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.blackitalic1);
+        fontTestBody("sans-serif-black",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.blackitalic1);
     }
 
     /* condensed fonts */
 
     @SmallTest
     public void testCondensedFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.condensed1);
+        fontTestBody("sans-serif-condensed",
+                Typeface.NORMAL,
+                R.drawable.condensed1);
     }
 
     @SmallTest
     public void testCondensedBoldFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed", Typeface.BOLD);
-        fontTestBody(tf, R.drawable.condensedbold1);
+        fontTestBody("sans-serif-condensed",
+                Typeface.BOLD,
+                R.drawable.condensedbold1);
     }
 
     @SmallTest
     public void testCondensedItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.condenseditalic1);
+        fontTestBody("sans-serif-condensed",
+                Typeface.ITALIC,
+                R.drawable.condenseditalic1);
     }
 
     @SmallTest
     public void testCondensedBoldItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed", Typeface.BOLD | Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.condensedbolditalic1);
+        fontTestBody("sans-serif-condensed",
+                Typeface.BOLD | Typeface.ITALIC,
+                R.drawable.condensedbolditalic1);
     }
 
     @SmallTest
     public void testCondensedLightFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed-light", Typeface.NORMAL);
-        fontTestBody(tf, R.drawable.condensedlight1);
+        fontTestBody("sans-serif-condensed-light",
+                Typeface.NORMAL,
+                R.drawable.condensedlight1);
     }
 
     @SmallTest
     public void testCondensedLightItalicFont() {
-        Typeface tf = Typeface.create("sans-serif-condensed-light", Typeface.ITALIC);
-        fontTestBody(tf, R.drawable.condensedlightitalic1);
+        fontTestBody("sans-serif-condensed-light",
+                Typeface.ITALIC,
+                R.drawable.condensedlightitalic1);
     }
 }

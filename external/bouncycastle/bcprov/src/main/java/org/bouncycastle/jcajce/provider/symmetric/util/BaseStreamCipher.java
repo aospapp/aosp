@@ -5,6 +5,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.InvalidParameterException;
 import java.security.Key;
+import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
@@ -19,10 +20,8 @@ import javax.crypto.spec.PBEParameterSpec;
 // import javax.crypto.spec.RC5ParameterSpec;
 // END android-removed
 
-import org.bouncycastle.crypto.BlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.DataLengthException;
-import org.bouncycastle.crypto.StreamBlockCipher;
 import org.bouncycastle.crypto.StreamCipher;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
@@ -61,15 +60,6 @@ public class BaseStreamCipher
         this.ivLength = ivLength;
     }
 
-    protected BaseStreamCipher(
-        BlockCipher engine,
-        int ivLength)
-    {
-        this.ivLength = ivLength;
-
-        cipher = new StreamBlockCipher(engine);
-    }
-
     protected int engineGetBlockSize()
     {
         return 0;
@@ -100,7 +90,7 @@ public class BaseStreamCipher
             {
                 try
                 {
-                    AlgorithmParameters engineParams = AlgorithmParameters.getInstance(pbeAlgorithm, BouncyCastleProvider.PROVIDER_NAME);
+                    AlgorithmParameters engineParams = createParametersInstance(pbeAlgorithm);
                     engineParams.init(pbeSpec);
 
                     return engineParams;

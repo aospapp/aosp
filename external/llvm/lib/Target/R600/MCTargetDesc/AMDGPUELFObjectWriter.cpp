@@ -10,6 +10,7 @@
 
 #include "AMDGPUMCTargetDesc.h"
 #include "llvm/MC/MCELFObjectWriter.h"
+#include "llvm/MC/MCFixup.h"
 
 using namespace llvm;
 
@@ -21,7 +22,7 @@ public:
 protected:
   unsigned GetRelocType(const MCValue &Target, const MCFixup &Fixup,
                         bool IsPCRel) const override {
-    llvm_unreachable("Not implemented");
+    return Fixup.getKind();
   }
 
 };
@@ -32,7 +33,7 @@ protected:
 AMDGPUELFObjectWriter::AMDGPUELFObjectWriter()
   : MCELFObjectTargetWriter(false, 0, 0, false) { }
 
-MCObjectWriter *llvm::createAMDGPUELFObjectWriter(raw_ostream &OS) {
+MCObjectWriter *llvm::createAMDGPUELFObjectWriter(raw_pwrite_stream &OS) {
   MCELFObjectTargetWriter *MOTW = new AMDGPUELFObjectWriter();
   return createELFObjectWriter(MOTW, OS, true);
 }

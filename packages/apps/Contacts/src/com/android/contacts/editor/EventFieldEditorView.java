@@ -73,15 +73,18 @@ public class EventFieldEditorView extends LabeledEditorView {
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        Resources resources = mContext.getResources();
+        Resources resources = getContext().getResources();
         mPrimaryTextColor = resources.getColor(R.color.primary_text_color);
         mHintTextColor = resources.getColor(R.color.editor_disabled_text_color);
-        mNoDateString = mContext.getString(R.string.event_edit_field_hint_text);
+        mNoDateString = getContext().getString(R.string.event_edit_field_hint_text);
 
         mDateView = (Button) findViewById(R.id.date_view);
         mDateView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
+                if (!isTypeVisible()) {
+                    showType();
+                }
                 showDialog(R.id.dialog_event_date_picker);
             }
         });
@@ -129,6 +132,9 @@ public class EventFieldEditorView extends LabeledEditorView {
             mDateView.setText(data);
             mDateView.setTextColor(mPrimaryTextColor);
             setDeleteButtonVisible(true);
+            if (!isTypeVisible()) {
+                showType();
+            }
         }
     }
 
@@ -167,7 +173,7 @@ public class EventFieldEditorView extends LabeledEditorView {
         final int defaultYear = calendar.get(Calendar.YEAR);
 
         // Check whether the year is optional
-        final boolean isYearOptional = getType().isYearOptional();
+        final boolean isYearOptional = getType() != null && getType().isYearOptional();
 
         if (!isYearOptional && !TextUtils.isEmpty(oldValue)) {
             final ParsePosition position = new ParsePosition(0);

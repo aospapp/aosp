@@ -19,7 +19,7 @@
 struct myStruct {
     rs_allocation a;
     int i;
-    rs_font f[100];
+    rs_element e[100];
 };
 
 struct myStruct mS;

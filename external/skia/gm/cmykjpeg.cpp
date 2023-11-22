@@ -22,18 +22,12 @@ public:
     CMYKJpegGM() {}
 
 protected:
-    virtual void onOnceBeforeDraw() SK_OVERRIDE {
+    void onOnceBeforeDraw() override {
         // parameters to the "decode" call
         bool dither = false;
 
-        SkString resourcePath = GetResourcePath();
-        if (!resourcePath.endsWith("/") && !resourcePath.endsWith("\\")) {
-            resourcePath.append("/");
-        }
-
-        resourcePath.append("CMYK.jpg");
-
-        SkFILEStream stream(resourcePath.c_str());
+        SkString jpgFilename = GetResourcePath("CMYK.jpg");
+        SkFILEStream stream(jpgFilename.c_str());
         if (!stream.isValid()) {
             SkDebugf("Could not find CMYK.jpg, please set --resourcePath correctly.\n");
             return;
@@ -48,15 +42,15 @@ protected:
         }
     }
 
-    virtual SkString onShortName() {
+    virtual SkString onShortName() override {
         return SkString("cmykjpeg");
     }
 
-    virtual SkISize onISize() {
+    virtual SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) {
+    virtual void onDraw(SkCanvas* canvas) override {
 
         canvas->translate(20*SK_Scalar1, 20*SK_Scalar1);
         canvas->drawBitmap(fBitmap, 0, 0);

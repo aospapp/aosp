@@ -26,6 +26,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateEncodingException;
@@ -115,7 +116,7 @@ public class SSLParametersImpl implements Cloneable {
      */
     protected SSLParametersImpl(KeyManager[] kms, TrustManager[] tms,
             SecureRandom sr, ClientSessionContext clientSessionContext,
-            ServerSessionContext serverSessionContext)
+            ServerSessionContext serverSessionContext, String[] protocols)
             throws KeyManagementException {
         this.serverSessionContext = serverSessionContext;
         this.clientSessionContext = clientSessionContext;
@@ -145,7 +146,8 @@ public class SSLParametersImpl implements Cloneable {
         secureRandom = sr;
 
         // initialize the list of cipher suites and protocols enabled by default
-        enabledProtocols = getDefaultProtocols();
+        enabledProtocols = NativeCrypto.checkEnabledProtocols(
+                protocols == null ? NativeCrypto.DEFAULT_PROTOCOLS : protocols).clone();
         boolean x509CipherSuitesNeeded = (x509KeyManager != null) || (x509TrustManager != null);
         boolean pskCipherSuitesNeeded = pskKeyManager != null;
         enabledCipherSuites = getDefaultCipherSuites(
@@ -160,7 +162,8 @@ public class SSLParametersImpl implements Cloneable {
                                                                null,
                                                                null,
                                                                new ClientSessionContext(),
-                                                               new ServerSessionContext());
+                                                               new ServerSessionContext(),
+                                                               null);
         }
         return (SSLParametersImpl) result.clone();
     }
@@ -392,7 +395,7 @@ public class SSLParametersImpl implements Cloneable {
                     throw new SSLHandshakeException("Invalid TLS channel ID key specified");
                 }
                 NativeCrypto.SSL_set1_tls_channel_id(sslNativePointer,
-                        channelIdPrivateKey.getPkeyContext());
+                        channelIdPrivateKey.getNativeRef());
             } else {
                 // Server-side TLS Channel ID
                 NativeCrypto.SSL_enable_tls_channel_id(sslNativePointer);
@@ -417,6 +420,7 @@ public class SSLParametersImpl implements Cloneable {
         if (certificates == null) {
             return;
         }
+        PublicKey publicKey = (certificates.length > 0) ? certificates[0].getPublicKey() : null;
 
         /*
          * Make sure we keep a reference to the OpenSSLX509Certificate by using
@@ -439,8 +443,8 @@ public class SSLParametersImpl implements Cloneable {
 
         final OpenSSLKey key;
         try {
-            key = OpenSSLKey.fromPrivateKey(privateKey);
-            NativeCrypto.SSL_use_PrivateKey(sslNativePointer, key.getPkeyContext());
+            key = OpenSSLKey.fromPrivateKeyForTLSStackOnly(privateKey, publicKey);
+            NativeCrypto.SSL_use_PrivateKey(sslNativePointer, key.getNativeRef());
         } catch (InvalidKeyException e) {
             throw new SSLException(e);
         }
@@ -512,7 +516,7 @@ public class SSLParametersImpl implements Cloneable {
         }
 
         if (useSessionTickets) {
-            NativeCrypto.SSL_clear_options(sslNativePointer, NativeCrypto.SSL_OP_NO_TICKET);
+            NativeCrypto.SSL_clear_options(sslNativePointer, NativeConstants.SSL_OP_NO_TICKET);
         }
         if (getUseSni() && AddressUtils.isValidSniHostname(sniHostname)) {
             NativeCrypto.SSL_set_tlsext_host_name(sslNativePointer, sniHostname);
@@ -520,7 +524,7 @@ public class SSLParametersImpl implements Cloneable {
 
         // BEAST attack mitigation (1/n-1 record splitting for CBC cipher suites
         // with TLSv1 and SSLv3).
-        NativeCrypto.SSL_set_mode(sslNativePointer, NativeCrypto.SSL_MODE_CBC_RECORD_SPLITTING);
+        NativeCrypto.SSL_set_mode(sslNativePointer, NativeConstants.SSL_MODE_CBC_RECORD_SPLITTING);
 
         boolean enableSessionCreation = getEnableSessionCreation();
         if (!enableSessionCreation) {
@@ -529,32 +533,11 @@ public class SSLParametersImpl implements Cloneable {
     }
 
     /**
-     * Returns true when the supplied hostname is valid for SNI purposes.
-     */
-    private static boolean isValidSniHostname(String sniHostname) {
-        if (sniHostname == null) {
-            return false;
-        }
-
-        // Must be a FQDN.
-        if (sniHostname.indexOf('.') == -1) {
-            return false;
-        }
-
-        if (Platform.isLiteralIpAddress(sniHostname)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
      * Returns whether Server Name Indication (SNI) is enabled by default for
      * sockets. For more information on SNI, see RFC 6066 section 3.
      */
     private boolean isSniEnabledByDefault() {
-        String enableSNI = System.getProperty("jsse.enableSNIExtension",
-                Platform.isSniEnabledByDefault() ? "true" : "false");
+        String enableSNI = System.getProperty("jsse.enableSNIExtension", "true");
         if ("true".equalsIgnoreCase(enableSNI)) {
             return true;
         } else if ("false".equalsIgnoreCase(enableSNI)) {
@@ -633,10 +616,8 @@ public class SSLParametersImpl implements Cloneable {
     void chooseClientCertificate(byte[] keyTypeBytes, byte[][] asn1DerEncodedPrincipals,
             long sslNativePointer, AliasChooser chooser) throws SSLException,
             CertificateEncodingException {
-        String[] keyTypes = new String[keyTypeBytes.length];
-        for (int i = 0; i < keyTypeBytes.length; i++) {
-            keyTypes[i] = getClientKeyType(keyTypeBytes[i]);
-        }
+        Set<String> keyTypesSet = getSupportedClientKeyTypes(keyTypeBytes);
+        String[] keyTypes = keyTypesSet.toArray(new String[keyTypesSet.size()]);
 
         X500Principal[] issuers;
         if (asn1DerEncodedPrincipals == null) {
@@ -847,6 +828,10 @@ public class SSLParametersImpl implements Cloneable {
         for (KeyManager km : kms) {
             if (km instanceof PSKKeyManager) {
                 return (PSKKeyManager)km;
+            } else if (km != null) {
+                try {
+                    return DuckTypedPSKKeyManager.getInstance(km);
+                } catch (NoSuchMethodException ignored) {}
             }
         }
         return null;
@@ -910,25 +895,19 @@ public class SSLParametersImpl implements Cloneable {
         this.endpointIdentificationAlgorithm = endpointIdentificationAlgorithm;
     }
 
-    /** Key type: RSA. */
+    /** Key type: RSA certificate. */
     private static final String KEY_TYPE_RSA = "RSA";
 
-    /** Key type: DSA. */
-    private static final String KEY_TYPE_DSA = "DSA";
-
-    /** Key type: Diffie-Hellman with RSA signature. */
+    /** Key type: Diffie-Hellman certificate signed by issuer with RSA signature. */
     private static final String KEY_TYPE_DH_RSA = "DH_RSA";
 
-    /** Key type: Diffie-Hellman with DSA signature. */
-    private static final String KEY_TYPE_DH_DSA = "DH_DSA";
-
-    /** Key type: Elliptic Curve. */
+    /** Key type: Elliptic Curve certificate. */
     private static final String KEY_TYPE_EC = "EC";
 
-    /** Key type: Eliiptic Curve with ECDSA signature. */
+    /** Key type: Elliptic Curve certificate signed by issuer with ECDSA signature. */
     private static final String KEY_TYPE_EC_EC = "EC_EC";
 
-    /** Key type: Eliiptic Curve with RSA signature. */
+    /** Key type: Elliptic Curve certificate signed by issuer with RSA signature. */
     private static final String KEY_TYPE_EC_RSA = "EC_RSA";
 
     /**
@@ -937,44 +916,20 @@ public class SSLParametersImpl implements Cloneable {
      * do not use X.509 for server authentication.
      */
     private static String getServerX509KeyType(long sslCipherNative) throws SSLException {
-        int algorithm_mkey = NativeCrypto.get_SSL_CIPHER_algorithm_mkey(sslCipherNative);
-        int algorithm_auth = NativeCrypto.get_SSL_CIPHER_algorithm_auth(sslCipherNative);
-        switch (algorithm_mkey) {
-            case NativeCrypto.SSL_kRSA:
-                return KEY_TYPE_RSA;
-            case NativeCrypto.SSL_kEDH:
-                switch (algorithm_auth) {
-                    case NativeCrypto.SSL_aDSS:
-                        return KEY_TYPE_DSA;
-                    case NativeCrypto.SSL_aRSA:
-                        return KEY_TYPE_RSA;
-                    case NativeCrypto.SSL_aNULL:
-                        return null;
-                }
-                break;
-            case NativeCrypto.SSL_kECDHr:
-                return KEY_TYPE_EC_RSA;
-            case NativeCrypto.SSL_kECDHe:
-                return KEY_TYPE_EC_EC;
-            case NativeCrypto.SSL_kEECDH:
-                switch (algorithm_auth) {
-                    case NativeCrypto.SSL_aECDSA:
-                        return KEY_TYPE_EC_EC;
-                    case NativeCrypto.SSL_aRSA:
-                        return KEY_TYPE_RSA;
-                    case NativeCrypto.SSL_aPSK:
-                        return null;
-                    case NativeCrypto.SSL_aNULL:
-                        return null;
-                }
-                break;
-            case NativeCrypto.SSL_kPSK:
-                return null;
+        String kx_name = NativeCrypto.SSL_CIPHER_get_kx_name(sslCipherNative);
+        if (kx_name.equals("RSA") || kx_name.equals("DHE_RSA") || kx_name.equals("ECDHE_RSA")) {
+            return KEY_TYPE_RSA;
+        } else if (kx_name.equals("ECDHE_ECDSA")) {
+            return KEY_TYPE_EC;
+        } else if (kx_name.equals("ECDH_RSA")) {
+            return KEY_TYPE_EC_RSA;
+        } else if (kx_name.equals("ECDH_ECDSA")) {
+            return KEY_TYPE_EC_EC;
+        } else if (kx_name.equals("DH_RSA")) {
+            return KEY_TYPE_DH_RSA;
+        } else {
+            return null;
         }
-
-        throw new SSLException("Unsupported key exchange. "
-                + "mkey: 0x" + Long.toHexString(algorithm_mkey & 0xffffffffL)
-                + ", auth: 0x" + Long.toHexString(algorithm_auth & 0xffffffffL));
     }
 
     /**
@@ -982,27 +937,49 @@ public class SSLParametersImpl implements Cloneable {
      * ClientCertificateType byte values from a CertificateRequest
      * message for use with X509KeyManager.chooseClientAlias or
      * X509ExtendedKeyManager.chooseEngineClientAlias.
+     *
+     * Visible for testing.
      */
-    public static String getClientKeyType(byte keyType) {
+    public static String getClientKeyType(byte clientCertificateType) {
         // See also http://www.ietf.org/assignments/tls-parameters/tls-parameters.xml
-        switch (keyType) {
-            case NativeCrypto.TLS_CT_RSA_SIGN:
+        switch (clientCertificateType) {
+            case NativeConstants.TLS_CT_RSA_SIGN:
                 return KEY_TYPE_RSA; // RFC rsa_sign
-            case NativeCrypto.TLS_CT_DSS_SIGN:
-                return KEY_TYPE_DSA; // RFC dss_sign
-            case NativeCrypto.TLS_CT_RSA_FIXED_DH:
+            case NativeConstants.TLS_CT_RSA_FIXED_DH:
                 return KEY_TYPE_DH_RSA; // RFC rsa_fixed_dh
-            case NativeCrypto.TLS_CT_DSS_FIXED_DH:
-                return KEY_TYPE_DH_DSA; // RFC dss_fixed_dh
-            case NativeCrypto.TLS_CT_ECDSA_SIGN:
+            case NativeConstants.TLS_CT_ECDSA_SIGN:
                 return KEY_TYPE_EC; // RFC ecdsa_sign
-            case NativeCrypto.TLS_CT_RSA_FIXED_ECDH:
+            case NativeConstants.TLS_CT_RSA_FIXED_ECDH:
                 return KEY_TYPE_EC_RSA; // RFC rsa_fixed_ecdh
-            case NativeCrypto.TLS_CT_ECDSA_FIXED_ECDH:
+            case NativeConstants.TLS_CT_ECDSA_FIXED_ECDH:
                 return KEY_TYPE_EC_EC; // RFC ecdsa_fixed_ecdh
             default:
                 return null;
         }
+    }
+
+    /**
+     * Gets the supported key types for client certificates based on the
+     * {@code ClientCertificateType} values provided by the server.
+     *
+     * @param clientCertificateTypes {@code ClientCertificateType} values provided by the server.
+     *        See https://www.ietf.org/assignments/tls-parameters/tls-parameters.xml.
+     * @return supported key types that can be used in {@code X509KeyManager.chooseClientAlias} and
+     *         {@code X509ExtendedKeyManager.chooseEngineClientAlias}.
+     *
+     * Visible for testing.
+     */
+    public static Set<String> getSupportedClientKeyTypes(byte[] clientCertificateTypes) {
+        Set<String> result = new HashSet<String>(clientCertificateTypes.length);
+        for (byte keyTypeCode : clientCertificateTypes) {
+            String keyType = getClientKeyType(keyTypeCode);
+            if (keyType == null) {
+                // Unsupported client key type -- ignore
+                continue;
+            }
+            result.add(keyType);
+        }
+        return result;
     }
 
     private static String[] getDefaultCipherSuites(
@@ -1036,10 +1013,6 @@ public class SSLParametersImpl implements Cloneable {
             // Neither X.509 nor PSK cipher suites need to be listed.
             return new String[] {NativeCrypto.TLS_EMPTY_RENEGOTIATION_INFO_SCSV};
         }
-    }
-
-    private static String[] getDefaultProtocols() {
-        return NativeCrypto.DEFAULT_PROTOCOLS.clone();
     }
 
     private static String[] concat(String[]... arrays) {

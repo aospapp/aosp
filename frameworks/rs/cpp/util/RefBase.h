@@ -374,7 +374,7 @@ template<typename T>
 wp<T>& wp<T>::operator = (const sp<T>& other)
 {
     weakref_type* newRefs =
-        other != NULL ? other->createWeak(this) : 0;
+        other != NULL ? other->createWeak(this) : NULL;
     T* otherPtr(other.m_ptr);
     if (m_ptr) m_refs->decWeak(this);
     m_ptr = otherPtr;
@@ -386,7 +386,7 @@ template<typename T> template<typename U>
 wp<T>& wp<T>::operator = (U* other)
 {
     weakref_type* newRefs =
-        other ? other->createWeak(this) : 0;
+        other ? other->createWeak(this) : NULL;
     if (m_ptr) m_refs->decWeak(this);
     m_ptr = other;
     m_refs = newRefs;
@@ -409,7 +409,7 @@ template<typename T> template<typename U>
 wp<T>& wp<T>::operator = (const sp<U>& other)
 {
     weakref_type* newRefs =
-        other != NULL ? other->createWeak(this) : 0;
+        other != NULL ? other->createWeak(this) : NULL;
     U* otherPtr(other.m_ptr);
     if (m_ptr) m_refs->decWeak(this);
     m_ptr = otherPtr;

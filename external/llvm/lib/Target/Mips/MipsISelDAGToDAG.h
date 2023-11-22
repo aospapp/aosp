@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MIPSISELDAGTODAG_H
-#define MIPSISELDAGTODAG_H
+#ifndef LLVM_LIB_TARGET_MIPS_MIPSISELDAGTODAG_H
+#define LLVM_LIB_TARGET_MIPS_MIPSISELDAGTODAG_H
 
 #include "Mips.h"
 #include "MipsSubtarget.h"
@@ -32,7 +32,7 @@ namespace llvm {
 class MipsDAGToDAGISel : public SelectionDAGISel {
 public:
   explicit MipsDAGToDAGISel(MipsTargetMachine &TM)
-    : SelectionDAGISel(TM), Subtarget(&TM.getSubtarget<MipsSubtarget>()) {}
+      : SelectionDAGISel(TM), Subtarget(nullptr) {}
 
   // Pass Name
   const char *getPassName() const override {
@@ -72,6 +72,9 @@ private:
 
   virtual bool selectIntAddrMM(SDValue Addr, SDValue &Base,
                                SDValue &Offset) const;
+
+  virtual bool selectIntAddrLSL2MM(SDValue Addr, SDValue &Base,
+                                   SDValue &Offset) const;
 
   /// Match addr+simm10 and addr
   virtual bool selectIntAddrMSA(SDValue Addr, SDValue &Base,
@@ -122,14 +125,9 @@ private:
   virtual void processFunctionAfterISel(MachineFunction &MF) = 0;
 
   bool SelectInlineAsmMemoryOperand(const SDValue &Op,
-                                    char ConstraintCode,
+                                    unsigned ConstraintID,
                                     std::vector<SDValue> &OutOps) override;
 };
-
-/// createMipsISelDag - This pass converts a legalized DAG into a
-/// MIPS-specific DAG, ready for instruction scheduling.
-FunctionPass *createMipsISelDag(MipsTargetMachine &TM);
-
 }
 
 #endif

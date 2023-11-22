@@ -76,9 +76,7 @@ public class FrameSequenceDrawable extends Drawable implements Animatable, Runna
         }
 
         @Override
-        public void releaseBitmap(Bitmap bitmap) {
-            bitmap.recycle();
-        }
+        public void releaseBitmap(Bitmap bitmap) {}
     };
 
     /**
@@ -163,13 +161,26 @@ public class FrameSequenceDrawable extends Drawable implements Animatable, Runna
             int lastFrame = nextFrame - 2;
             long invalidateTimeMs = mFrameSequenceState.getFrame(nextFrame, bitmap, lastFrame);
 
+            boolean schedule = false;
+            Bitmap bitmapToRelease = null;
             synchronized (mLock) {
-                if (mNextFrameToDecode < 0 || mState != STATE_DECODING) return;
-                mNextSwap = invalidateTimeMs + mLastSwap;
-
-                mState = STATE_WAITING_TO_SWAP;
+                if (mDestroyed) {
+                    bitmapToRelease = mBackBitmap;
+                    mBackBitmap = null;
+                } else if (mNextFrameToDecode >= 0 && mState == STATE_DECODING) {
+                    schedule = true;
+                    mNextSwap = invalidateTimeMs + mLastSwap;
+                    mState = STATE_WAITING_TO_SWAP;
+                }
             }
-            scheduleSelf(FrameSequenceDrawable.this, mNextSwap);
+            if (schedule) {
+                scheduleSelf(FrameSequenceDrawable.this, mNextSwap);
+            }
+            if (bitmapToRelease != null) {
+                // destroy the bitmap here, since there's no safe way to get back to
+                // drawable thread - drawable is likely detached, so schedule is noop.
+                mBitmapProvider.releaseBitmap(bitmapToRelease);
+            }
         }
     };
 
@@ -240,39 +251,37 @@ public class FrameSequenceDrawable extends Drawable implements Animatable, Runna
      * If no BitmapProvider is attached to the drawable, recycle() is called on the Bitmaps.
      */
     public void destroy() {
-        destroy(mBitmapProvider);
-    }
-
-    private void destroy(BitmapProvider bitmapProvider) {
-        if (bitmapProvider == null) {
+        if (mBitmapProvider == null) {
             throw new IllegalStateException("BitmapProvider must be non-null");
         }
 
         Bitmap bitmapToReleaseA;
-        Bitmap bitmapToReleaseB;
+        Bitmap bitmapToReleaseB = null;
         synchronized (mLock) {
             checkDestroyedLocked();
 
             bitmapToReleaseA = mFrontBitmap;
-            bitmapToReleaseB = mBackBitmap;
-
             mFrontBitmap = null;
-            mBackBitmap = null;
+
+            if (mState != STATE_DECODING) {
+                bitmapToReleaseB = mBackBitmap;
+                mBackBitmap = null;
+            }
+
             mDestroyed = true;
         }
 
         // For simplicity and safety, we don't destroy the state object here
-        bitmapProvider.releaseBitmap(bitmapToReleaseA);
-        bitmapProvider.releaseBitmap(bitmapToReleaseB);
+        mBitmapProvider.releaseBitmap(bitmapToReleaseA);
+        if (bitmapToReleaseB != null) {
+            mBitmapProvider.releaseBitmap(bitmapToReleaseB);
+        }
     }
 
     @Override
     protected void finalize() throws Throwable {
         try {
             mFrameSequenceState.destroy();
-            if (!mDestroyed) {
-                destroy();
-            }
         } finally {
             super.finalize();
         }
@@ -327,12 +336,17 @@ public class FrameSequenceDrawable extends Drawable implements Animatable, Runna
 
     @Override
     public void run() {
-        // set ready to swap
+        // set ready to swap as necessary
+        boolean invalidate = false;
         synchronized (mLock) {
-            if (mState != STATE_WAITING_TO_SWAP || mNextFrameToDecode < 0) return;
-            mState = STATE_READY_TO_SWAP;
+            if (mNextFrameToDecode >= 0 && mState == STATE_WAITING_TO_SWAP) {
+                mState = STATE_READY_TO_SWAP;
+                invalidate = true;
+            }
         }
-        invalidateSelf();
+        if (invalidate) {
+            invalidateSelf();
+        }
     }
 
     @Override

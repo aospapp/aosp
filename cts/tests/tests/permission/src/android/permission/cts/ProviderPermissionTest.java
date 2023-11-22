@@ -16,9 +16,10 @@
 
 package android.permission.cts;
 
-import android.provider.Browser;
+import android.content.ContentValues;
 import android.provider.CallLog;
 import android.provider.Contacts;
+import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 
@@ -74,48 +75,19 @@ public class ProviderPermissionTest extends AndroidTestCase {
      *   {@link android.Manifest.permission#WRITE_SETTINGS}
      */
     public void testWriteSettings() {
-        assertWritingContentUriRequiresPermission(android.provider.Settings.System.CONTENT_URI,
-                android.Manifest.permission.WRITE_SETTINGS);
-    }
+        final String permission = android.Manifest.permission.WRITE_SETTINGS;
+        ContentValues value = new ContentValues();
+        value.put(Settings.System.NAME, "name");
+        value.put(Settings.System.VALUE, "value_insert");
 
-    /**
-     * Verify that read and write to browser bookmarks requires permissions.
-     * <p>Tests Permission:
-     *   {@link android.Manifest.permission#READ_HISTORY_BOOKMARKS}
-     */
-    public void testReadBookmarks() {
-        assertReadingContentUriRequiresPermission(Browser.BOOKMARKS_URI,
-                android.Manifest.permission.READ_HISTORY_BOOKMARKS);
-    }
-
-    /**
-     * Verify that read and write to browser bookmarks requires permissions.
-     * <p>Tests Permission:
-         {@link android.Manifest.permission#WRITE_HISTORY_BOOKMARKS}
-     */
-    public void testWriteBookmarks() {
-        assertWritingContentUriRequiresPermission(Browser.BOOKMARKS_URI,
-                android.Manifest.permission.WRITE_HISTORY_BOOKMARKS);
-    }
-
-    /**
-     * Verify that read and write to browser history requires permissions.
-     * <p>Tests Permission:
-     *   {@link android.Manifest.permission#READ_HISTORY_BOOKMARKS}
-     */
-    public void testReadBrowserHistory() {
-        assertReadingContentUriRequiresPermission(Browser.SEARCHES_URI,
-                android.Manifest.permission.READ_HISTORY_BOOKMARKS);
-    }
-
-    /**
-     * Verify that read and write to browser history requires permissions.
-     * <p>Tests Permission:
-         {@link android.Manifest.permission#WRITE_HISTORY_BOOKMARKS}
-     */
-    public void testWriteBrowserHistory() {
-        assertWritingContentUriRequiresPermission(Browser.SEARCHES_URI,
-                android.Manifest.permission.WRITE_HISTORY_BOOKMARKS);
+        try {
+            getContext().getContentResolver().insert(Settings.System.CONTENT_URI, value);
+            fail("expected SecurityException requiring " + permission);
+        } catch (SecurityException expected) {
+            assertNotNull("security exception's error message.", expected.getMessage());
+            assertTrue("error message should contain \"" + permission + "\". Got: \""
+                    + expected.getMessage() + "\".",
+                    expected.getMessage().contains(permission));
+        }
     }
 }
-

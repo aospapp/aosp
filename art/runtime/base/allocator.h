@@ -18,11 +18,12 @@
 #define ART_RUNTIME_BASE_ALLOCATOR_H_
 
 #include <map>
+#include <set>
 
 #include "atomic.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "utils.h"
+#include "base/type_static_if.h"
 
 namespace art {
 
@@ -62,34 +63,44 @@ enum AllocatorTag {
   kAllocatorTagRememberedSet,
   kAllocatorTagModUnionCardSet,
   kAllocatorTagModUnionReferenceArray,
-  kAllocatorTagJNILibrarires,
+  kAllocatorTagJNILibraries,
   kAllocatorTagCompileTimeClassPath,
   kAllocatorTagOatFile,
   kAllocatorTagDexFileVerifier,
+  kAllocatorTagRosAlloc,
   kAllocatorTagCount,  // Must always be last element.
 };
 std::ostream& operator<<(std::ostream& os, const AllocatorTag& tag);
 
-class TrackedAllocators {
- public:
-  static bool Add(uint32_t tag, AtomicInteger* bytes_used);
-  static void Dump(std::ostream& os);
-  static void RegisterAllocation(AllocatorTag tag, uint64_t bytes) {
-    total_bytes_used_[tag].FetchAndAddSequentiallyConsistent(bytes);
-    uint64_t new_bytes = bytes_used_[tag].FetchAndAddSequentiallyConsistent(bytes) + bytes;
-    max_bytes_used_[tag].StoreRelaxed(std::max(max_bytes_used_[tag].LoadRelaxed(), new_bytes));
-  }
-  static void RegisterFree(AllocatorTag tag, uint64_t bytes) {
-    bytes_used_[tag].FetchAndSubSequentiallyConsistent(bytes);
-  }
+namespace TrackedAllocators {
 
- private:
-  static Atomic<uint64_t> bytes_used_[kAllocatorTagCount];
-  static Atomic<uint64_t> max_bytes_used_[kAllocatorTagCount];
-  static Atomic<uint64_t> total_bytes_used_[kAllocatorTagCount];
-};
+// Running count of number of bytes used for this kind of allocation. Increased by allocations,
+// decreased by deallocations.
+extern Atomic<size_t> g_bytes_used[kAllocatorTagCount];
 
-// Tracking allocator, tracks how much memory is used.
+// Largest value of bytes used seen.
+extern volatile size_t g_max_bytes_used[kAllocatorTagCount];
+
+// Total number of bytes allocated of this kind.
+extern Atomic<uint64_t> g_total_bytes_used[kAllocatorTagCount];
+
+void Dump(std::ostream& os);
+
+inline void RegisterAllocation(AllocatorTag tag, size_t bytes) {
+  g_total_bytes_used[tag].FetchAndAddSequentiallyConsistent(bytes);
+  size_t new_bytes = g_bytes_used[tag].FetchAndAddSequentiallyConsistent(bytes) + bytes;
+  if (g_max_bytes_used[tag] < new_bytes) {
+    g_max_bytes_used[tag] = new_bytes;
+  }
+}
+
+inline void RegisterFree(AllocatorTag tag, size_t bytes) {
+  g_bytes_used[tag].FetchAndSubSequentiallyConsistent(bytes);
+}
+
+}  // namespace TrackedAllocators
+
+// Tracking allocator for use with STL types, tracks how much memory is used.
 template<class T, AllocatorTag kTag>
 class TrackingAllocatorImpl : public std::allocator<T> {
  public:
@@ -103,12 +114,13 @@ class TrackingAllocatorImpl : public std::allocator<T> {
 
   // Used internally by STL data structures.
   template <class U>
-  TrackingAllocatorImpl(const TrackingAllocatorImpl<U, kTag>& alloc) throw() {
+  TrackingAllocatorImpl(const TrackingAllocatorImpl<U, kTag>& alloc) noexcept {
+    UNUSED(alloc);
   }
 
   // Used internally by STL data structures.
-  TrackingAllocatorImpl() throw() {
-    COMPILE_ASSERT(kTag < kAllocatorTagCount, must_be_less_than_count);
+  TrackingAllocatorImpl() noexcept {
+    static_assert(kTag < kAllocatorTagCount, "kTag must be less than kAllocatorTagCount");
   }
 
   // Enables an allocator for objects of one type to allocate storage for objects of another type.
@@ -119,6 +131,7 @@ class TrackingAllocatorImpl : public std::allocator<T> {
   };
 
   pointer allocate(size_type n, const_pointer hint = 0) {
+    UNUSED(hint);
     const size_t size = n * sizeof(T);
     TrackedAllocators::RegisterAllocation(GetTag(), size);
     return reinterpret_cast<pointer>(malloc(size));
@@ -131,7 +144,7 @@ class TrackingAllocatorImpl : public std::allocator<T> {
     free(p);
   }
 
-  static AllocatorTag GetTag() {
+  static constexpr AllocatorTag GetTag() {
     return kTag;
   }
 };
@@ -147,6 +160,10 @@ class TrackingAllocator : public TypeStaticIf<kEnableTrackingAllocator,
 template<class Key, class T, AllocatorTag kTag, class Compare = std::less<Key>>
 class AllocationTrackingMultiMap : public std::multimap<
     Key, T, Compare, TrackingAllocator<std::pair<Key, T>, kTag>> {
+};
+
+template<class Key, AllocatorTag kTag, class Compare = std::less<Key>>
+class AllocationTrackingSet : public std::set<Key, Compare, TrackingAllocator<Key, kTag>> {
 };
 
 }  // namespace art

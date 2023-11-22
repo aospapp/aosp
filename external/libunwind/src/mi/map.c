@@ -41,7 +41,7 @@ unw_map_set (unw_addr_space_t as, unw_map_cursor_t *map_cursor)
 PROTECTED int
 unw_map_cursor_create (unw_map_cursor_t *map_cursor, pid_t pid)
 {
-  map_cursor->map_list = map_create_list (pid);
+  map_cursor->map_list = map_create_list (UNW_MAP_CREATE_REMOTE, pid);
 
   return map_cursor->map_list == NULL;
 }
@@ -75,6 +75,8 @@ unw_map_cursor_get_next (unw_map_cursor_t *map_cursor, unw_map_t *unw_map)
 
   unw_map->start = map_info->start;
   unw_map->end = map_info->end;
+  unw_map->offset = map_info->offset;
+  unw_map->load_base = map_info->load_base;
   unw_map->flags = map_info->flags;
   unw_map->path = map_info->path;
 
@@ -116,8 +118,8 @@ map_destroy_list (struct map_info *map_info)
     {
       map = map_info;
       map_info = map->next;
-      if (map->ei.image != MAP_FAILED && map->ei.image != NULL)
-        munmap (map->ei.image, map->ei.size);
+      if (map->ei.mapped)
+        munmap (map->ei.u.mapped.image, map->ei.u.mapped.size);
       if (map->path)
         free (map->path);
       map_free_info (map);

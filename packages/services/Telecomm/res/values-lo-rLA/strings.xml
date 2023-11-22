@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"ໂທລະສັບ"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"ການ​ຈັດ​ການການ​ໂທລະ​ສັບ"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ໂທລະສັບ"</string>
     <string name="unknown" msgid="6878797917991465859">"ບໍ່ຮູ້ຈັກ"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"ສາຍທີ່ບໍ່ໄດ້ຮັບ"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"ສາຍທີ່ບໍ່ໄດ້ຮັບ"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"ຕອບກັບດ່ວນ"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"ສົ່ງຂໍ້ຄວາມຫາ <xliff:g id="PHONE_NUMBER">%s</xliff:g> ແລ້ວ."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"ພຽງ​ແຕ່​ການ​ໂທ​ສຸກ​ເສີນ​ທີ່​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ​ຈາກ​ເຈົ້າ​ຂອງ​ອຸ​ປະ​ກອນ​ເທົ່າ​ນັ້ນ"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"ບັນ​ຊີ​ໂທ"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"ພຽງ​ແຕ່​ການ​ໂທ​ສຸກ​ເສີນ​ທີ່​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ​ຈາກ​ເຈົ້າ​ຂອງ​ອຸ​ປະ​ກອນ​ເທົ່າ​ນັ້ນ."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"ແອັບ​ພ​ລິ​ເຄ​ຊັນ​ນີ້​ບໍ່​ສາ​ມາດ​ໂທ​ອອກ​ໄດ້ ໂດຍ​ບໍ່​ມີ​ການ​ອະ​ນຸ​ຍາດ​ຂອງ​ໂທ​ລະ​ສັບ."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"ເພື່ອ​ທີ່​ຈະ​ໂທ, ປ້ອນ​ເບີ​ໂທ​ທີ່​ໃຊ້​ໄດ້​ເຂົ້າ​ໄປ."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"​ບໍ່​ສາ​ມາດ​ເພີ່ມ​ການ​ໂທ​ໄດ້​ໃນ​ເວ​ລາ​ນີ້."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"ກະ​ລຸ​ນາ​ປິດ​ໃຊ້​ງານ​ໂໝດ TTY ເພື່ອ​ໂທວິ​ດີ​ໂອ."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"ບໍ່ມີເບີຂໍ້ຄວາມສຽງ"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"ບໍ່ມີເບີຂໍ້ຄວາມສຽງຖືກບັນທຶກໃນ SIM card."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"ເພີ່ມໝາຍເລກ"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ປ່ຽນ​ແປງ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ໃຊ້ <xliff:g id="NEW_APP">%1$s</xliff:g> ແທນ <xliff:g id="CURRENT_APP">%2$s</xliff:g> ເປັນ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ​ຂອງ​ທ່ານ?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ໃຊ້ <xliff:g id="NEW_APP">%s</xliff:g> ເປັນ​ແອັບ​ແຜ່ນ​ກົດ​ມາດ​ຕະ​ຖານ​ຂອງ​ທ່ານ?"</string>
 </resources>

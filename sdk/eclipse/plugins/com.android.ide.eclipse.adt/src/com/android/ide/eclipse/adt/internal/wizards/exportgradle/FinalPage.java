@@ -96,7 +96,7 @@ public class FinalPage extends WizardPage {
                     sb.append("Exported project: ").append(mBuilder.getCommonRoot().toOSString());
                 }
 
-                sb.append("\n\n").append("Choose 'import project' in Android Studio").append('\n');
+                sb.append("\n\n").append("Choose 'Import Non-Android Studio project' in Android Studio").append('\n');
                 sb.append("and select the following file:").append("\n\t");
 
                 File bGradle = new File(

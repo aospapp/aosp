@@ -21,6 +21,8 @@ LOCAL_MODULE := android-common-framesequence
 LOCAL_SDK_VERSION := 8
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
+LOCAL_PROGUARD_FLAG_FILES := proguard.flags
+
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 include $(call all-makefiles-under, $(LOCAL_PATH))

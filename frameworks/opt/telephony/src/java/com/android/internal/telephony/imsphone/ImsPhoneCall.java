@@ -16,8 +16,10 @@
 
 package com.android.internal.telephony.imsphone;
 
+import android.telecom.ConferenceParticipant;
 import android.telephony.Rlog;
 import android.telephony.DisconnectCause;
+import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Call;
@@ -34,22 +36,40 @@ import java.util.List;
  * {@hide}
  */
 public class ImsPhoneCall extends Call {
-    /*************************** Instance Variables **************************/
-
     private static final String LOG_TAG = "ImsPhoneCall";
+
+    // This flag is meant to be used as a debugging tool to quickly see all logs
+    // regardless of the actual log level set on this component.
+    private static final boolean FORCE_DEBUG = false; /* STOPSHIP if true */
+    private static final boolean DBG = FORCE_DEBUG || Rlog.isLoggable(LOG_TAG, Log.DEBUG);
+    private static final boolean VDBG = FORCE_DEBUG || Rlog.isLoggable(LOG_TAG, Log.VERBOSE);
+
+    /*************************** Instance Variables **************************/
+    public static final String CONTEXT_UNKNOWN = "UK";
+    public static final String CONTEXT_RINGING = "RG";
+    public static final String CONTEXT_FOREGROUND = "FG";
+    public static final String CONTEXT_BACKGROUND = "BG";
+    public static final String CONTEXT_HANDOVER = "HO";
 
     /*package*/ ImsPhoneCallTracker mOwner;
 
     private boolean mRingbackTonePlayed = false;
 
+    // Determines what type of ImsPhoneCall this is.  ImsPhoneCallTracker uses instances of
+    // ImsPhoneCall to for fg, bg, etc calls.  This is used as a convenience for logging so that it
+    // can be made clear whether a call being logged is the foreground, background, etc.
+    private final String mCallContext;
+
     /****************************** Constructors *****************************/
     /*package*/
     ImsPhoneCall() {
+        mCallContext = CONTEXT_UNKNOWN;
     }
 
     /*package*/
-    ImsPhoneCall(ImsPhoneCallTracker owner) {
+    ImsPhoneCall(ImsPhoneCallTracker owner, String context) {
         mOwner = owner;
+        mCallContext = context;
     }
 
     public void dispose() {
@@ -101,21 +121,53 @@ public class ImsPhoneCall extends Call {
     }
 
     @Override
-    public String
-    toString() {
-        return mState.toString();
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ImsPhoneCall ");
+        sb.append(mCallContext);
+        sb.append(" state: ");
+        sb.append(mState.toString());
+        sb.append(" ");
+        if (mConnections.size() > 1) {
+            sb.append(" ERROR_MULTIPLE ");
+        }
+        for (Connection conn : mConnections) {
+            sb.append(conn);
+            sb.append(" ");
+        }
+
+        sb.append("]");
+        return sb.toString();
+    }
+
+    @Override
+    public List<ConferenceParticipant> getConferenceParticipants() {
+         ImsCall call = getImsCall();
+         if (call == null) {
+             return null;
+         }
+         return call.getConferenceParticipants();
     }
 
     //***** Called from ImsPhoneConnection
 
     /*package*/ void
     attach(Connection conn) {
+        if (VDBG) {
+            Rlog.v(LOG_TAG, "attach : " + mCallContext + " conn = " + conn);
+        }
         clearDisconnected();
         mConnections.add(conn);
+
+        mOwner.logState();
     }
 
     /*package*/ void
     attach(Connection conn, State state) {
+        if (VDBG) {
+            Rlog.v(LOG_TAG, "attach : " + mCallContext + " state = " +
+                    state.toString());
+        }
         this.attach(conn);
         mState = state;
     }
@@ -153,8 +205,13 @@ public class ImsPhoneCall extends Call {
 
     /*package*/ void
     detach(ImsPhoneConnection conn) {
+        if (VDBG) {
+            Rlog.v(LOG_TAG, "detach : " + mCallContext + " conn = " + conn);
+        }
         mConnections.remove(conn);
         clearDisconnected();
+
+        mOwner.logState();
     }
 
     /**
@@ -227,13 +284,15 @@ public class ImsPhoneCall extends Call {
             long conferenceConnectTime = imsPhoneConnection.getConferenceConnectTime();
             if (conferenceConnectTime > 0) {
                 imsPhoneConnection.setConnectTime(conferenceConnectTime);
+            } else {
+                if (DBG) {
+                    Rlog.d(LOG_TAG, "merge: conference connect time is 0");
+                }
             }
         }
-
-        ImsPhoneConnection[] cc = that.mConnections.toArray(
-                new ImsPhoneConnection[that.mConnections.size()]);
-        for (ImsPhoneConnection c : cc) {
-            c.update(null, state);
+        if (DBG) {
+            Rlog.d(LOG_TAG, "merge(" + mCallContext + "): " + that + "state = "
+                    + state);
         }
     }
 
@@ -302,12 +361,16 @@ public class ImsPhoneCall extends Call {
     }
 
     void switchWith(ImsPhoneCall that) {
+        if (VDBG) {
+            Rlog.v(LOG_TAG, "switchWith : switchCall = " + this + " withCall = " + that);
+        }
         synchronized (ImsPhoneCall.class) {
             ImsPhoneCall tmp = new ImsPhoneCall();
             tmp.takeOver(this);
             this.takeOver(that);
             that.takeOver(tmp);
         }
+        mOwner.logState();
     }
 
     private void takeOver(ImsPhoneCall that) {

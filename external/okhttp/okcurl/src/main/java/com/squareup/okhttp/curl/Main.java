@@ -15,16 +15,18 @@
  */
 package com.squareup.okhttp.curl;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.collect.Lists;
 import com.squareup.okhttp.ConnectionPool;
 import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Protocol;
 import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.internal.http.StatusLine;
+import com.squareup.okhttp.internal.spdy.Http2;
+
 import io.airlift.command.Arguments;
 import io.airlift.command.Command;
 import io.airlift.command.HelpOption;
@@ -34,13 +36,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Sink;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -70,12 +81,7 @@ public class Main extends HelpOption implements Runnable {
   }
 
   private static String protocols() {
-    return Joiner.on(", ").join(Lists.transform(Arrays.asList(Protocol.values()),
-        new Function<Protocol, String>() {
-          @Override public String apply(Protocol protocol) {
-            return protocol.name.utf8();
-          }
-        }));
+    return Joiner.on(", ").join(Protocol.values());
   }
 
   @Option(name = { "-X", "--request" }, description = "Specify request command to use")
@@ -106,6 +112,9 @@ public class Main extends HelpOption implements Runnable {
   @Option(name = { "-i", "--include" }, description = "Include protocol headers in the output")
   public boolean showHeaders;
 
+  @Option(name = "--frames", description = "Log HTTP/2 frames to STDERR")
+  public boolean showHttp2Frames;
+
   @Option(name = { "-e", "--referer" }, description = "Referer URL")
   public String referer;
 
@@ -127,29 +136,32 @@ public class Main extends HelpOption implements Runnable {
       return;
     }
 
+    if (showHttp2Frames) {
+      enableHttp2FrameLogging();
+    }
+
     client = createClient();
     Request request = createRequest();
     try {
-      Response response = client.execute(request);
+      Response response = client.newCall(request).execute();
       if (showHeaders) {
-        System.out.println(response.statusLine());
+        System.out.println(StatusLine.get(response));
         Headers headers = response.headers();
-        for (int i = 0, count = headers.size(); i < count; i++) {
+        for (int i = 0, size = headers.size(); i < size; i++) {
           System.out.println(headers.name(i) + ": " + headers.value(i));
         }
         System.out.println();
       }
 
-      Response.Body body = response.body();
-      byte[] buffer = new byte[1024];
-      while (body.ready()) {
-        int c = body.byteStream().read(buffer);
-        if (c == -1) {
-          return;
-        }
-        System.out.write(buffer, 0, c);
+      // Stream the response to the System.out as it is returned from the server.
+      Sink out = Okio.sink(System.out);
+      BufferedSource source = response.body().source();
+      while (!source.exhausted()) {
+        out.write(source.buffer(), source.buffer().size());
+        out.flush();
       }
-      body.close();
+
+      response.body().close();
     } catch (IOException e) {
       e.printStackTrace();
     } finally {
@@ -159,7 +171,7 @@ public class Main extends HelpOption implements Runnable {
 
   private OkHttpClient createClient() {
     OkHttpClient client = new OkHttpClient();
-    client.setFollowProtocolRedirects(followRedirects);
+    client.setFollowSslRedirects(followRedirects);
     if (connectTimeout != DEFAULT_TIMEOUT) {
       client.setConnectTimeout(connectTimeout, SECONDS);
     }
@@ -168,6 +180,7 @@ public class Main extends HelpOption implements Runnable {
     }
     if (allowInsecure) {
       client.setSslSocketFactory(createInsecureSslSocketFactory());
+      client.setHostnameVerifier(createInsecureHostnameVerifier());
     }
     // If we don't set this reference, there's no way to clean shutdown persistent connections.
     client.setConnectionPool(ConnectionPool.getDefault());
@@ -184,7 +197,7 @@ public class Main extends HelpOption implements Runnable {
     return "GET";
   }
 
-  private Request.Body getRequestBody() {
+  private RequestBody getRequestBody() {
     if (data == null) {
       return null;
     }
@@ -202,7 +215,7 @@ public class Main extends HelpOption implements Runnable {
       }
     }
 
-    return Request.Body.create(MediaType.parse(mimeType), bodyData);
+    return RequestBody.create(MediaType.parse(mimeType), bodyData);
   }
 
   Request createRequest() {
@@ -213,7 +226,7 @@ public class Main extends HelpOption implements Runnable {
 
     if (headers != null) {
       for (String header : headers) {
-        String[] parts = header.split(":", -1);
+        String[] parts = header.split(":", 2);
         request.header(parts[0], parts[1]);
       }
     }
@@ -250,5 +263,26 @@ public class Main extends HelpOption implements Runnable {
     } catch (Exception e) {
       throw new AssertionError(e);
     }
+  }
+
+  private static HostnameVerifier createInsecureHostnameVerifier() {
+    return new HostnameVerifier() {
+      @Override public boolean verify(String s, SSLSession sslSession) {
+        return true;
+      }
+    };
+  }
+
+  private static void enableHttp2FrameLogging() {
+    Logger logger = Logger.getLogger(Http2.class.getName() + "$FrameLogger");
+    logger.setLevel(Level.FINE);
+    ConsoleHandler handler = new ConsoleHandler();
+    handler.setLevel(Level.FINE);
+    handler.setFormatter(new SimpleFormatter() {
+      @Override public String format(LogRecord record) {
+        return String.format("%s%n", record.getMessage());
+      }
+    });
+    logger.addHandler(handler);
   }
 }

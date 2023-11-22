@@ -19,7 +19,10 @@ package android.permission.cts;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Environment;
+import android.os.SystemProperties;
+import android.system.Os;
 import android.system.OsConstants;
+import android.system.StructStatVfs;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.test.suitebuilder.annotation.LargeTest;
@@ -27,6 +30,7 @@ import android.test.suitebuilder.annotation.LargeTest;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FilenameFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -161,17 +165,13 @@ public class FileSystemPermissionTest extends AndroidTestCase {
     @MediumTest
     public void testDevMemSane() throws Exception {
         File f = new File("/dev/mem");
-        assertFalse(f.canRead());
-        assertFalse(f.canWrite());
-        assertFalse(f.canExecute());
+        assertFalse(f.exists());
     }
 
     @MediumTest
     public void testDevkmemSane() throws Exception {
         File f = new File("/dev/kmem");
-        assertFalse(f.canRead());
-        assertFalse(f.canWrite());
-        assertFalse(f.canExecute());
+        assertFalse(f.exists());
     }
 
     @MediumTest
@@ -246,6 +246,20 @@ public class FileSystemPermissionTest extends AndroidTestCase {
 
         assertFileOwnedBy(f, "root");
         assertFileOwnedByGroup(f, "net_bw_stats");
+    }
+
+    @MediumTest
+    public void testProcSelfOomAdjSane() {
+        File f = new File("/proc/self/oom_adj");
+        assertFalse(f.canWrite());
+        assertFalse(f.canExecute());
+    }
+
+    @MediumTest
+    public void testProcSelfOomScoreAdjSane() {
+        File f = new File("/proc/self/oom_score_adj");
+        assertFalse(f.canWrite());
+        assertFalse(f.canExecute());
     }
 
     @MediumTest
@@ -341,6 +355,36 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         assertFalse(f.canRead());
         assertFalse(f.canWrite());
         assertFalse(f.canExecute());
+    }
+
+    @MediumTest
+    public void testDeviceTreeCpuCurrent() throws Exception {
+        String arch = System.getProperty("os.arch");
+        String flavor = SystemProperties.get("ro.build.flavor");
+        String[] osVersion = System.getProperty("os.version").split("\\.");
+        /*
+         * Perform the test for only arm-based architecture and
+         * kernel version 3.10 and above.
+         */
+        if (!arch.contains("arm") ||
+            Integer.parseInt(osVersion[0]) < 2 ||
+            (Integer.parseInt(osVersion[0]) == 3 &&
+             Integer.parseInt(osVersion[1]) < 10))
+            return;
+        final File f = new File("/proc/device-tree/cpus");
+        if (!f.exists())
+            return;
+        String[] dir = f.list(new FilenameFilter() {
+            @Override
+            public boolean accept(File pathname, String name) {
+                return (pathname.isDirectory() && name.matches("cpu@[0-9]+"));
+            }
+        });
+
+        for(String cpuDir : dir) {
+            File fCpu = new File(cpuDir + "/current");
+            assertTrue(f.canRead());
+        }
     }
 
     private static boolean isDirectoryWritable(File directory) {
@@ -711,48 +755,20 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         return retval;
     }
 
-    public void testSystemMountedRO() throws IOException {
-        ParsedMounts pm = new ParsedMounts("/proc/self/mounts");
-        String mountPoint = pm.findMountPointContaining(new File("/system"));
-        assertTrue(mountPoint + " is not mounted read-only", pm.isMountReadOnly(mountPoint));
+    public void testSystemMountedRO() throws Exception {
+        StructStatVfs vfs = Os.statvfs("/system");
+        assertTrue("/system is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
     }
 
-    /**
-     * Test that the /system directory, as mounted by init, is mounted read-only.
-     * Different processes can have different mount namespaces, so init
-     * may be in a different mount namespace than Zygote spawned processes.
-     *
-     * This test assumes that init's filesystem layout is roughly identical
-     * to Zygote's filesystem layout. If this assumption ever changes, we should
-     * delete this test.
-     */
-    public void testSystemMountedRO_init() throws IOException {
-        ParsedMounts pm = new ParsedMounts("/proc/1/mounts");
-        String mountPoint = pm.findMountPointContaining(new File("/system"));
-        assertTrue(mountPoint + " is not mounted read-only", pm.isMountReadOnly(mountPoint));
+    public void testRootMountedRO() throws Exception {
+        StructStatVfs vfs = Os.statvfs("/");
+        assertTrue("rootfs is not mounted read-only", (vfs.f_flag & OsConstants.ST_RDONLY) != 0);
     }
 
-    public void testRootMountedRO() throws IOException {
-        ParsedMounts pm = new ParsedMounts("/proc/self/mounts");
-        String mountPoint = pm.findMountPointContaining(new File("/"));
-        assertTrue("The root directory \"" + mountPoint + "\" is not mounted read-only",
-                   pm.isMountReadOnly(mountPoint));
-    }
-
-    /**
-     * Test that the root directory, as mounted by init, is mounted read-only.
-     * Different processes can have different mount namespaces, so init
-     * may be in a different mount namespace than Zygote spawned processes.
-     *
-     * This test assumes that init's filesystem layout is roughly identical
-     * to Zygote's filesystem layout. If this assumption ever changes, we should
-     * delete this test.
-     */
-    public void testRootMountedRO_init() throws IOException {
-        ParsedMounts pm = new ParsedMounts("/proc/1/mounts");
-        String mountPoint = pm.findMountPointContaining(new File("/"));
-        assertTrue("The root directory \"" + mountPoint + "\" is not mounted read-only",
-                   pm.isMountReadOnly(mountPoint));
+    public void testDataMountedNoSuidNoDev() throws Exception {
+        StructStatVfs vfs = Os.statvfs(getContext().getFilesDir().getAbsolutePath());
+        assertTrue("/data is not mounted NOSUID", (vfs.f_flag & OsConstants.ST_NOSUID) != 0);
+        assertTrue("/data is not mounted NODEV", (vfs.f_flag & OsConstants.ST_NODEV) != 0);
     }
 
     public void testAllBlockDevicesAreSecure() throws Exception {
@@ -1049,48 +1065,4 @@ public class FileSystemPermissionTest extends AndroidTestCase {
         return !f.getAbsolutePath().equals(f.getCanonicalPath());
     }
 
-    private static class ParsedMounts {
-        private HashMap<String, Boolean> mFileReadOnlyMap = new HashMap<String, Boolean>();
-
-        private ParsedMounts(String filename) throws IOException {
-            BufferedReader br = new BufferedReader(new FileReader(filename));
-            try {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    String[] fields = line.split(" ");
-                    String mountPoint = fields[1];
-                    String all_options = fields[3];
-                    String[] options = all_options.split(",");
-                    boolean foundRo = false;
-                    for (String option : options) {
-                        if ("ro".equals(option)) {
-                            foundRo = true;
-                            break;
-                        }
-                    }
-                    mFileReadOnlyMap.put(mountPoint, foundRo);
-                }
-           } finally {
-               br.close();
-           }
-        }
-
-        private boolean isMountReadOnly(String s) {
-            return mFileReadOnlyMap.get(s).booleanValue();
-        }
-
-        private String findMountPointContaining(File f) throws IOException {
-            while (f != null) {
-                f = f.getCanonicalFile();
-                String path = f.getPath();
-                if (mFileReadOnlyMap.containsKey(path)) {
-                    return path;
-                }
-                f = f.getParentFile();
-            }
-            // This should NEVER be reached, as we'll eventually hit the
-            // root directory.
-            throw new AssertionError("Unable to find mount point");
-        }
-    }
 }

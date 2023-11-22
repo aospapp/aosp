@@ -16,16 +16,23 @@
 
 package com.google.common.collect;
 
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableSetMultimap.Builder;
+import com.google.common.collect.testing.features.CollectionFeature;
+import com.google.common.collect.testing.features.CollectionSize;
+import com.google.common.collect.testing.features.MapFeature;
+import com.google.common.collect.testing.google.SetMultimapTestSuiteBuilder;
+import com.google.common.collect.testing.google.TestStringSetMultimapGenerator;
 import com.google.common.collect.testing.google.UnmodifiableCollectionTests;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.SerializableTester;
 
+import junit.framework.Test;
 import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,6 +46,29 @@ import java.util.Map.Entry;
  */
 @GwtCompatible(emulated = true)
 public class ImmutableSetMultimapTest extends TestCase {
+  @GwtIncompatible("suite")
+  public static Test suite() {
+    TestSuite suite = new TestSuite();
+    suite.addTestSuite(ImmutableSetMultimapTest.class);
+    suite.addTest(SetMultimapTestSuiteBuilder.using(new TestStringSetMultimapGenerator() {
+        @Override
+        protected SetMultimap<String, String> create(Entry<String, String>[] entries) {
+          ImmutableSetMultimap.Builder<String, String> builder = ImmutableSetMultimap.builder();
+          for (Entry<String, String> entry : entries) {
+            builder.put(entry.getKey(), entry.getValue());
+          }
+          return builder.build();
+        }
+      })
+      .named("ImmutableSetMultimap")
+      .withFeatures(
+          MapFeature.ALLOWS_ANY_NULL_QUERIES,
+          CollectionFeature.KNOWN_ORDER,
+          CollectionFeature.SERIALIZABLE,
+          CollectionSize.ANY)
+      .createTestSuite());
+    return suite;
+  }
 
   public void testBuilder_withImmutableEntry() {
     ImmutableSetMultimap<String, Integer> multimap = new Builder<String, Integer>()
@@ -219,10 +249,35 @@ public class ImmutableSetMultimapTest extends TestCase {
     builder.put("a", 2);
     builder.put("b", 6);
     ImmutableSetMultimap<String, Integer> multimap = builder.build();
-    ASSERT.that(multimap.keySet()).hasContentsInOrder("d", "c", "b", "a");
-    ASSERT.that(multimap.values()).hasContentsInOrder(2, 4, 3, 6, 5, 2);
-    ASSERT.that(multimap.get("a")).hasContentsInOrder(5, 2);
-    ASSERT.that(multimap.get("b")).hasContentsInOrder(3, 6);
+    ASSERT.that(multimap.keySet()).has().exactly("d", "c", "b", "a").inOrder();
+    ASSERT.that(multimap.values()).has().exactly(2, 4, 3, 6, 5, 2).inOrder();
+    ASSERT.that(multimap.get("a")).has().exactly(5, 2).inOrder();
+    ASSERT.that(multimap.get("b")).has().exactly(3, 6).inOrder();
+    assertFalse(multimap.get("a") instanceof ImmutableSortedSet);
+    assertFalse(multimap.get("x") instanceof ImmutableSortedSet);
+    assertFalse(multimap.asMap().get("a") instanceof ImmutableSortedSet);
+  }
+
+  public void testBuilderOrderKeysByDuplicates() {
+    ImmutableSetMultimap.Builder<String, Integer> builder
+        = ImmutableSetMultimap.builder();
+    builder.put("bb", 3);
+    builder.put("d", 2);
+    builder.put("a", 5);
+    builder.orderKeysBy(new Ordering<String>() {
+      @Override
+      public int compare(String left, String right) {
+        return left.length() - right.length();
+      }
+    });
+    builder.put("cc", 4);
+    builder.put("a", 2);
+    builder.put("bb", 6);
+    ImmutableSetMultimap<String, Integer> multimap = builder.build();
+    ASSERT.that(multimap.keySet()).has().exactly("d", "a", "bb", "cc").inOrder();
+    ASSERT.that(multimap.values()).has().exactly(2, 5, 2, 3, 6, 4).inOrder();
+    ASSERT.that(multimap.get("a")).has().exactly(5, 2).inOrder();
+    ASSERT.that(multimap.get("bb")).has().exactly(3, 6).inOrder();
     assertFalse(multimap.get("a") instanceof ImmutableSortedSet);
     assertFalse(multimap.get("x") instanceof ImmutableSortedSet);
     assertFalse(multimap.asMap().get("a") instanceof ImmutableSortedSet);
@@ -239,18 +294,18 @@ public class ImmutableSetMultimapTest extends TestCase {
     builder.put("a", 2);
     builder.put("b", 6);
     ImmutableSetMultimap<String, Integer> multimap = builder.build();
-    ASSERT.that(multimap.keySet()).hasContentsInOrder("b", "d", "a", "c");
-    ASSERT.that(multimap.values()).hasContentsInOrder(6, 3, 2, 5, 2, 4);
-    ASSERT.that(multimap.get("a")).hasContentsInOrder(5, 2);
-    ASSERT.that(multimap.get("b")).hasContentsInOrder(6, 3);
+    ASSERT.that(multimap.keySet()).has().exactly("b", "d", "a", "c").inOrder();
+    ASSERT.that(multimap.values()).has().exactly(6, 3, 2, 5, 2, 4).inOrder();
+    ASSERT.that(multimap.get("a")).has().exactly(5, 2).inOrder();
+    ASSERT.that(multimap.get("b")).has().exactly(6, 3).inOrder();
     assertTrue(multimap.get("a") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.get("a")).comparator());
     assertTrue(multimap.get("x") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.get("x")).comparator());
     assertTrue(multimap.asMap().get("a") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.asMap().get("a")).comparator());
   }
 
@@ -266,21 +321,21 @@ public class ImmutableSetMultimapTest extends TestCase {
     builder.put("a", 2);
     builder.put("b", 6);
     ImmutableSetMultimap<String, Integer> multimap = builder.build();
-    ASSERT.that(multimap.keySet()).hasContentsInOrder("d", "c", "b", "a");
-    ASSERT.that(multimap.values()).hasContentsInOrder(2, 4, 6, 3, 5, 2);
-    ASSERT.that(multimap.get("a")).hasContentsInOrder(5, 2);
-    ASSERT.that(multimap.get("b")).hasContentsInOrder(6, 3);
+    ASSERT.that(multimap.keySet()).has().exactly("d", "c", "b", "a").inOrder();
+    ASSERT.that(multimap.values()).has().exactly(2, 4, 6, 3, 5, 2).inOrder();
+    ASSERT.that(multimap.get("a")).has().exactly(5, 2).inOrder();
+    ASSERT.that(multimap.get("b")).has().exactly(6, 3).inOrder();
     assertTrue(multimap.get("a") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.get("a")).comparator());
     assertTrue(multimap.get("x") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.get("x")).comparator());
     assertTrue(multimap.asMap().get("a") instanceof ImmutableSortedSet);
-    assertEquals(Collections.reverseOrder(), 
+    assertEquals(Collections.reverseOrder(),
         ((ImmutableSortedSet<Integer>) multimap.asMap().get("a")).comparator());
   }
-  
+
   public void testCopyOf() {
     HashMultimap<String, Integer> input = HashMultimap.create();
     input.put("foo", 1);
@@ -447,7 +502,7 @@ public class ImmutableSetMultimapTest extends TestCase {
       assertEquals(alternatingKeysAndValues[i++], entry.getKey());
       assertEquals(alternatingKeysAndValues[i++], entry.getValue());
     }
-  }  
+  }
 
   @GwtIncompatible("SerializableTester")
   public void testSerialization() {
@@ -457,7 +512,7 @@ public class ImmutableSetMultimapTest extends TestCase {
         SerializableTester.reserialize(multimap).size());
     SerializableTester.reserializeAndAssert(multimap.get("foo"));
     LenientSerializableTester.reserializeAndAssertLenient(multimap.keySet());
-    SerializableTester.reserializeAndAssert(multimap.keys());
+    LenientSerializableTester.reserializeAndAssertLenient(multimap.keys());
     SerializableTester.reserializeAndAssert(multimap.asMap());
     Collection<Integer> valuesCopy
         = SerializableTester.reserialize(multimap.values());
@@ -469,6 +524,24 @@ public class ImmutableSetMultimapTest extends TestCase {
   public void testEmptySerialization() {
     Multimap<String, Integer> multimap = ImmutableSetMultimap.of();
     assertSame(multimap, SerializableTester.reserialize(multimap));
+  }
+
+  @GwtIncompatible("SerializableTester")
+  public void testSortedSerialization() {
+    Multimap<String, Integer> multimap = new ImmutableSetMultimap.Builder<String, Integer>()
+        .orderKeysBy(Ordering.natural().reverse())
+        .orderValuesBy(Ordering.usingToString())
+        .put("a", 2)
+        .put("a", 10)
+        .put("b", 1)
+        .build();
+    multimap = SerializableTester.reserialize(multimap);
+    ASSERT.that(multimap.keySet()).has().exactly("b", "a").inOrder();
+    ASSERT.that(multimap.get("a")).has().exactly(10, 2).inOrder();
+    assertEquals(Ordering.usingToString(),
+        ((ImmutableSortedSet<Integer>) multimap.get("a")).comparator());
+    assertEquals(Ordering.usingToString(),
+        ((ImmutableSortedSet<Integer>) multimap.get("z")).comparator());
   }
 
   private ImmutableSetMultimap<String, Integer> createMultimap() {

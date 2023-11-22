@@ -71,7 +71,7 @@ void ComposerService::connectLocked() {
     };
 
     mDeathObserver = new DeathObserver(*const_cast<ComposerService*>(this));
-    mComposerService->asBinder()->linkToDeath(mDeathObserver);
+    IInterface::asBinder(mComposerService)->linkToDeath(mDeathObserver);
 }
 
 /*static*/ sp<ISurfaceComposer> ComposerService::getComposerService() {
@@ -143,7 +143,7 @@ public:
     status_t setSize(const sp<SurfaceComposerClient>& client, const sp<IBinder>& id,
             uint32_t w, uint32_t h);
     status_t setLayer(const sp<SurfaceComposerClient>& client, const sp<IBinder>& id,
-            int32_t z);
+            uint32_t z);
     status_t setFlags(const sp<SurfaceComposerClient>& client, const sp<IBinder>& id,
             uint32_t flags, uint32_t mask);
     status_t setTransparentRegionHint(
@@ -293,7 +293,7 @@ status_t Composer::setSize(const sp<SurfaceComposerClient>& client,
 }
 
 status_t Composer::setLayer(const sp<SurfaceComposerClient>& client,
-        const sp<IBinder>& id, int32_t z) {
+        const sp<IBinder>& id, uint32_t z) {
     Mutex::Autolock _l(mLock);
     layer_state_t* s = getLayerStateLocked(client, id);
     if (!s)
@@ -310,11 +310,10 @@ status_t Composer::setFlags(const sp<SurfaceComposerClient>& client,
     layer_state_t* s = getLayerStateLocked(client, id);
     if (!s)
         return BAD_INDEX;
-    if (mask & layer_state_t::eLayerOpaque) {
-        s->what |= layer_state_t::eOpacityChanged;
-    }
-    if (mask & layer_state_t::eLayerHidden) {
-        s->what |= layer_state_t::eVisibilityChanged;
+    if (mask & layer_state_t::eLayerOpaque ||
+            mask & layer_state_t::eLayerHidden ||
+            mask & layer_state_t::eLayerSecure) {
+        s->what |= layer_state_t::eFlagsChanged;
     }
     s->flags &= ~mask;
     s->flags |= (flags & mask);
@@ -395,7 +394,7 @@ DisplayState& Composer::getDisplayStateLocked(const sp<IBinder>& token) {
         s.what = 0;
         index = mDisplayStates.add(s);
     }
-    return mDisplayStates.editItemAt(index);
+    return mDisplayStates.editItemAt(static_cast<size_t>(index));
 }
 
 void Composer::setDisplaySurface(const sp<IBinder>& token,
@@ -462,14 +461,14 @@ status_t SurfaceComposerClient::initCheck() const {
 }
 
 sp<IBinder> SurfaceComposerClient::connection() const {
-    return (mClient != 0) ? mClient->asBinder() : 0;
+    return IInterface::asBinder(mClient);
 }
 
 status_t SurfaceComposerClient::linkToComposerDeath(
         const sp<IBinder::DeathRecipient>& recipient,
         void* cookie, uint32_t flags) {
     sp<ISurfaceComposer> sm(ComposerService::getComposerService());
-    return sm->asBinder()->linkToDeath(recipient, cookie, flags);
+    return IInterface::asBinder(sm)->linkToDeath(recipient, cookie, flags);
 }
 
 void SurfaceComposerClient::dispose() {
@@ -571,7 +570,7 @@ status_t SurfaceComposerClient::setSize(const sp<IBinder>& id, uint32_t w, uint3
     return getComposer().setSize(this, id, w, h);
 }
 
-status_t SurfaceComposerClient::setLayer(const sp<IBinder>& id, int32_t z) {
+status_t SurfaceComposerClient::setLayer(const sp<IBinder>& id, uint32_t z) {
     return getComposer().setLayer(this, id, z);
 }
 
@@ -657,7 +656,7 @@ status_t SurfaceComposerClient::getDisplayInfo(const sp<IBinder>& display,
         return NAME_NOT_FOUND;
     }
 
-    *info = configs[activeId];
+    *info = configs[static_cast<size_t>(activeId)];
     return NO_ERROR;
 }
 
@@ -752,14 +751,14 @@ status_t ScreenshotClient::update(const sp<IBinder>& display,
 
 status_t ScreenshotClient::update(const sp<IBinder>& display, Rect sourceCrop,
         bool useIdentityTransform) {
-    return ScreenshotClient::update(display, sourceCrop, 0, 0, 0, -1UL,
+    return ScreenshotClient::update(display, sourceCrop, 0, 0, 0, -1U,
             useIdentityTransform, ISurfaceComposer::eRotateNone);
 }
 
 status_t ScreenshotClient::update(const sp<IBinder>& display, Rect sourceCrop,
         uint32_t reqWidth, uint32_t reqHeight, bool useIdentityTransform) {
     return ScreenshotClient::update(display, sourceCrop, reqWidth, reqHeight,
-            0, -1UL, useIdentityTransform, ISurfaceComposer::eRotateNone);
+            0, -1U, useIdentityTransform, ISurfaceComposer::eRotateNone);
 }
 
 void ScreenshotClient::release() {

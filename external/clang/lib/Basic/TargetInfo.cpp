@@ -52,7 +52,6 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   SizeType = UnsignedLong;
   PtrDiffType = SignedLong;
   IntMaxType = SignedLongLong;
-  UIntMaxType = UnsignedLongLong;
   IntPtrType = SignedLong;
   WCharType = SignedInt;
   WIntType = SignedInt;
@@ -104,7 +103,7 @@ TargetInfo::~TargetInfo() {}
 const char *TargetInfo::getTypeName(IntType T) {
   switch (T) {
   default: llvm_unreachable("not an integer!");
-  case SignedChar:       return "char";
+  case SignedChar:       return "signed char";
   case UnsignedChar:     return "unsigned char";
   case SignedShort:      return "short";
   case UnsignedShort:    return "unsigned short";
@@ -119,7 +118,7 @@ const char *TargetInfo::getTypeName(IntType T) {
 
 /// getTypeConstantSuffix - Return the constant suffix for the specified
 /// integer type enum. For example, SignedLong -> "L".
-const char *TargetInfo::getTypeConstantSuffix(IntType T) {
+const char *TargetInfo::getTypeConstantSuffix(IntType T) const {
   switch (T) {
   default: llvm_unreachable("not an integer!");
   case SignedChar:
@@ -128,10 +127,33 @@ const char *TargetInfo::getTypeConstantSuffix(IntType T) {
   case SignedLong:       return "L";
   case SignedLongLong:   return "LL";
   case UnsignedChar:
+    if (getCharWidth() < getIntWidth())
+      return "";
   case UnsignedShort:
+    if (getShortWidth() < getIntWidth())
+      return "";
   case UnsignedInt:      return "U";
   case UnsignedLong:     return "UL";
   case UnsignedLongLong: return "ULL";
+  }
+}
+
+/// getTypeFormatModifier - Return the printf format modifier for the
+/// specified integer type enum. For example, SignedLong -> "l".
+
+const char *TargetInfo::getTypeFormatModifier(IntType T) {
+  switch (T) {
+  default: llvm_unreachable("not an integer!");
+  case SignedChar:
+  case UnsignedChar:     return "hh";
+  case SignedShort:
+  case UnsignedShort:    return "h";
+  case SignedInt:
+  case UnsignedInt:      return "";
+  case SignedLong:
+  case UnsignedLong:     return "l";
+  case SignedLongLong:
+  case UnsignedLongLong: return "ll";
   }
 }
 
@@ -278,7 +300,6 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     IntPtrType = Is32BitArch ? SignedInt : SignedLong;
 
     IntMaxType = SignedLongLong;
-    UIntMaxType = UnsignedLongLong;
     Int64Type = SignedLong;
 
     HalfFormat = &llvm::APFloat::IEEEhalf;
@@ -317,6 +338,8 @@ bool TargetInfo::isValidGCCRegisterName(StringRef Name) const {
 
   // Get rid of any register prefix.
   Name = removeGCCRegisterPrefix(Name);
+  if (Name.empty())
+      return false;
 
   getGCCRegNames(Names, NumNames);
 
@@ -436,7 +459,9 @@ bool TargetInfo::validateOutputConstraint(ConstraintInfo &Info) const {
         // Eventually, an unknown constraint should just be treated as 'g'.
         return false;
       }
+      break;
     case '&': // early clobber.
+      Info.setEarlyClobber();
       break;
     case '%': // commutative.
       // FIXME: Check that there is a another register after this one.
@@ -461,15 +486,23 @@ bool TargetInfo::validateOutputConstraint(ConstraintInfo &Info) const {
       if (Name[1] == '=' || Name[1] == '+')
         Name++;
       break;
+    case '#': // Ignore as constraint.
+      while (Name[1] && Name[1] != ',')
+        Name++;
+      break;
     case '?': // Disparage slightly code.
     case '!': // Disparage severely.
-    case '#': // Ignore as constraint.
     case '*': // Ignore for choosing register preferences.
       break;  // Pass them.
     }
 
     Name++;
   }
+
+  // Early clobber with a read-write constraint which doesn't permit registers
+  // is invalid.
+  if (Info.earlyClobber() && Info.isReadWrite() && !Info.allowsRegister())
+    return false;
 
   // If a constraint allows neither memory nor register operands it contains
   // only modifiers. Reject it.
@@ -513,11 +546,17 @@ bool TargetInfo::validateInputConstraint(ConstraintInfo *OutputConstraints,
     default:
       // Check if we have a matching constraint
       if (*Name >= '0' && *Name <= '9') {
-        unsigned i = *Name - '0';
+        const char *DigitStart = Name;
+        while (Name[1] >= '0' && Name[1] <= '9')
+          Name++;
+        const char *DigitEnd = Name;
+        unsigned i;
+        if (StringRef(DigitStart, DigitEnd - DigitStart + 1)
+                .getAsInteger(10, i))
+          return false;
 
         // Check if matching constraint is out of bounds.
-        if (i >= NumOutputs)
-          return false;
+        if (i >= NumOutputs) return false;
 
         // A number must refer to an output only operand.
         if (OutputConstraints[i].isReadWrite())
@@ -548,6 +587,10 @@ bool TargetInfo::validateInputConstraint(ConstraintInfo *OutputConstraints,
       if (Info.hasTiedOperand() && Info.getTiedOperand() != Index)
         return false;
 
+      // A number must refer to an output only operand.
+      if (OutputConstraints[Index].isReadWrite())
+        return false;
+
       Info.setTiedOperand(Index, OutputConstraints[Index]);
       break;
     }
@@ -565,6 +608,8 @@ bool TargetInfo::validateInputConstraint(ConstraintInfo *OutputConstraints,
     case 'N':
     case 'O':
     case 'P':
+      if (!validateAsmConstraint(Name, Info))
+        return false;
       break;
     case 'r': // general register.
       Info.setAllowsRegister();
@@ -587,9 +632,12 @@ bool TargetInfo::validateInputConstraint(ConstraintInfo *OutputConstraints,
       break;
     case ',': // multiple alternative constraint.  Ignore comma.
       break;
+    case '#': // Ignore as constraint.
+      while (Name[1] && Name[1] != ',')
+        Name++;
+      break;
     case '?': // Disparage slightly code.
     case '!': // Disparage severely.
-    case '#': // Ignore as constraint.
     case '*': // Ignore for choosing register preferences.
       break;  // Pass them.
     }
@@ -607,6 +655,7 @@ bool TargetCXXABI::tryParse(llvm::StringRef name) {
     .Case("ios", iOS)
     .Case("itanium", GenericItanium)
     .Case("microsoft", Microsoft)
+    .Case("mips", GenericMIPS)
     .Default(unknown);
   if (kind == unknown) return false;
 

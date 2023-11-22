@@ -187,7 +187,7 @@ Texture2DMipmapCase::Texture2DMipmapCase (tcu::TestContext&			testCtx,
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -532,7 +532,7 @@ TextureCubeMipmapCase::TextureCubeMipmapCase (tcu::TestContext&			testCtx,
 	, m_dataType		(dataType)
 	, m_size			(size)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -822,7 +822,7 @@ Texture2DGenMipmapCase::Texture2DGenMipmapCase (tcu::TestContext& testCtx, glu::
 	, m_width			(width)
 	, m_height			(height)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -855,7 +855,6 @@ Texture2DGenMipmapCase::IterateResult Texture2DGenMipmapCase::iterate (void)
 	const deUint32			wrapT				= GL_CLAMP_TO_EDGE;
 
 	const int				numLevels			= deLog2Floor32(de::max(m_width, m_height))+1;
-	const tcu::Sampler		sampler				= glu::mapGLSampler(wrapS, wrapT, minFilter, magFilter);
 
 	tcu::Texture2D			resultTexture		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_texture->getRefTexture().getWidth(), m_texture->getRefTexture().getHeight());
 
@@ -955,7 +954,7 @@ TextureCubeGenMipmapCase::TextureCubeGenMipmapCase (tcu::TestContext& testCtx, g
 	, m_hint			(hint)
 	, m_size			(size)
 	, m_texture			(DE_NULL)
-	, m_renderer		(renderCtx, testCtx, glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(renderCtx, testCtx.getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -993,10 +992,7 @@ TextureCubeGenMipmapCase::IterateResult TextureCubeGenMipmapCase::iterate (void)
 	tcu::TextureCube		resultTexture		(tcu::TextureFormat(tcu::TextureFormat::RGBA, tcu::TextureFormat::UNORM_INT8), m_size);
 
 	const int				numLevels			= deLog2Floor32(m_size)+1;
-	tcu::Sampler			sampler				= glu::mapGLSampler(wrapS, wrapT, minFilter, magFilter);
 	vector<float>			texCoord;
-
-	sampler.seamlessCubeMap = true;
 
 	// Initialize texture level 0 with colored grid.
 	for (int face = 0; face < tcu::CUBEFACE_LAST; face++)
@@ -1129,7 +1125,7 @@ Texture3DMipmapCase::Texture3DMipmapCase (Context& context, const char* name, co
 	, m_height			(height)
 	, m_depth			(depth)
 	, m_texture			(DE_NULL)
-	, m_renderer		(context.getRenderContext(), m_context.getTestContext(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(context.getRenderContext(), context.getTestContext().getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -1452,7 +1448,7 @@ Texture2DLodControlCase::Texture2DLodControlCase (Context& context, const char* 
 	, m_texHeight	(64)
 	, m_minFilter	(minFilter)
 	, m_texture		(DE_NULL)
-	, m_renderer	(context.getRenderContext(), m_context.getTestContext(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer	(context.getRenderContext(), context.getTestContext().getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -1752,7 +1748,7 @@ TextureCubeLodControlCase::TextureCubeLodControlCase (Context& context, const ch
 	, m_texSize			(64)
 	, m_minFilter		(minFilter)
 	, m_texture			(DE_NULL)
-	, m_renderer		(context.getRenderContext(), context.getTestContext(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(context.getRenderContext(), context.getTestContext().getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 
@@ -2071,7 +2067,7 @@ Texture3DLodControlCase::Texture3DLodControlCase (Context& context, const char* 
 	, m_texDepth		(32)
 	, m_minFilter		(minFilter)
 	, m_texture			(DE_NULL)
-	, m_renderer		(context.getRenderContext(), m_context.getTestContext(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
+	, m_renderer		(context.getRenderContext(), context.getTestContext().getLog(), glu::GLSL_VERSION_300_ES, glu::PRECISION_HIGHP)
 {
 }
 

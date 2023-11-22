@@ -27,15 +27,14 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsicBlend : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
+    void populateScript(Script *) override;
 
-    virtual ~RsdCpuScriptIntrinsicBlend();
+    ~RsdCpuScriptIntrinsicBlend() override;
     RsdCpuScriptIntrinsicBlend(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
-    static void kernel(const RsForEachStubParamStruct *p,
-                          uint32_t xstart, uint32_t xend,
-                          uint32_t instep, uint32_t outstep);
+    static void kernel(const RsExpandKernelDriverInfo *info, uint32_t xstart,
+                       uint32_t xend, uint32_t outstep);
 };
 
 }
@@ -96,38 +95,40 @@ extern "C" int rsdIntrinsicBlend_K(uchar4 *out, uchar4 const *in, int slot,
 #endif
 
 #if defined(ARCH_X86_HAVE_SSSE3)
-extern "C" void rsdIntrinsicBlendSrcOver_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendDstOver_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendSrcIn_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendDstIn_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendSrcOut_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendDstOut_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendSrcAtop_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendDstAtop_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendXor_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendMultiply_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendAdd_K(void *dst, const void *src, uint32_t count8);
-extern "C" void rsdIntrinsicBlendSub_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendSrcOver_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendDstOver_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendSrcIn_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendDstIn_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendSrcOut_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendDstOut_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendSrcAtop_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendDstAtop_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendXor_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendMultiply_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendAdd_K(void *dst, const void *src, uint32_t count8);
+extern void rsdIntrinsicBlendSub_K(void *dst, const void *src, uint32_t count8);
 #endif
 
-void RsdCpuScriptIntrinsicBlend::kernel(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicBlend::kernel(const RsExpandKernelDriverInfo *info,
                                         uint32_t xstart, uint32_t xend,
-                                        uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicBlend *cp = (RsdCpuScriptIntrinsicBlend *)p->usr;
+                                        uint32_t outstep) {
+    RsdCpuScriptIntrinsicBlend *cp = (RsdCpuScriptIntrinsicBlend *)info->usr;
 
     // instep/outstep can be ignored--sizeof(uchar4) known at compile time
-    uchar4 *out = (uchar4 *)p->out;
-    uchar4 *in = (uchar4 *)p->in;
+    uchar4 *out = (uchar4 *)info->outPtr[0];
+    uchar4 *in = (uchar4 *)info->inPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
 #if defined(ARCH_ARM_USE_INTRINSICS) && !defined(ARCH_ARM64_USE_INTRINSICS)
-    if (gArchUseSIMD) {
-        if (rsdIntrinsicBlend_K(out, in, p->slot, x1, x2) >= 0)
+    // Bug: 22047392 - Skip optimized version for BLEND_DST_ATOP until this
+    // been fixed.
+    if (gArchUseSIMD && info->slot != BLEND_DST_ATOP) {
+        if (rsdIntrinsicBlend_K(out, in, info->slot, x1, x2) >= 0)
             return;
     }
 #endif
-    switch (p->slot) {
+    switch (info->slot) {
     case BLEND_CLEAR:
         for (;x1 < x2; x1++, out++) {
             *out = 0;
@@ -272,6 +273,9 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsForEachStubParamStruct *p,
         }
         break;
     case BLEND_DST_ATOP:
+    // Bug: 22047392 - We need to make sure that "out->w = in->w;" in all
+    // accelerated versions before re-enabling optimizations.
+    #if false  // Bug: 22047392
     #if defined(ARCH_X86_HAVE_SSSE3)
         if (gArchUseSIMD) {
             if ((x1 + 8) < x2) {
@@ -283,11 +287,13 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsForEachStubParamStruct *p,
             }
         }
      #endif
+     #endif  // false for Bug: 22047392
         for (;x1 < x2; x1++, out++, in++) {
             short4 in_s = convert_short4(*in);
             short4 out_s = convert_short4(*out);
             out_s.xyz = ((out_s.xyz * in_s.w) +
               (in_s.xyz * ((short3)255 - (short3)out_s.w))) >> (short3)8;
+            out_s.w = in_s.w;
             *out = convert_uchar4(out_s);
         }
         break;
@@ -484,7 +490,7 @@ void RsdCpuScriptIntrinsicBlend::kernel(const RsForEachStubParamStruct *p,
         break;
 
     default:
-        ALOGE("Called unimplemented value %d", p->slot);
+        ALOGE("Called unimplemented value %d", info->slot);
         rsAssert(false);
 
     }
@@ -509,6 +515,3 @@ RsdCpuScriptImpl * rsdIntrinsic_Blend(RsdCpuReferenceImpl *ctx,
                                       const Script *s, const Element *e) {
     return new RsdCpuScriptIntrinsicBlend(ctx, s, e);
 }
-
-
-

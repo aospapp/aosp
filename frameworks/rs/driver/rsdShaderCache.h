@@ -25,6 +25,7 @@ class Context;
 }
 }
 
+
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
 #include <utils/String8.h>
 #include <utils/Vector.h>
@@ -78,16 +79,16 @@ protected:
         int32_t arraySize;
         uint32_t type;
         UniformQueryData(uint32_t maxName) {
-            name = NULL;
+            name = nullptr;
             nameLength = maxName;
             if (nameLength > 0 ) {
                 name = new char[nameLength];
             }
         }
         ~UniformQueryData() {
-            if (name != NULL) {
+            if (name != nullptr) {
                 delete[] name;
-                name = NULL;
+                name = nullptr;
             }
         }
     };
@@ -119,19 +120,19 @@ protected:
         ~ProgramEntry() {
             if (vtxAttrs) {
                 delete[] vtxAttrs;
-                vtxAttrs = NULL;
+                vtxAttrs = nullptr;
             }
             if (vtxUniforms) {
                 delete[] vtxUniforms;
-                vtxUniforms = NULL;
+                vtxUniforms = nullptr;
             }
             if (fragUniforms) {
                 delete[] fragUniforms;
-                fragUniforms = NULL;
+                fragUniforms = nullptr;
             }
             if (fragUniformIsSTO) {
                 delete[] fragUniformIsSTO;
-                fragUniformIsSTO = NULL;
+                fragUniformIsSTO = nullptr;
             }
         }
         uint32_t vtx;

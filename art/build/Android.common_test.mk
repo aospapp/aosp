@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-ifndef ANDROID_COMMON_TEST_MK
-ANDROID_COMMON_TEST_MK = true
+ifndef ART_ANDROID_COMMON_TEST_MK
+ART_ANDROID_COMMON_TEST_MK = true
 
 include art/build/Android.common_path.mk
 
@@ -25,27 +25,10 @@ ART_TARGET_CFLAGS += -DART_TARGET_NATIVETEST_DIR=${ART_TARGET_NATIVETEST_DIR}
 
 # List of known broken tests that we won't attempt to execute. The test name must be the full
 # rule name such as test-art-host-oat-optimizing-HelloWorld64.
-ART_TEST_KNOWN_BROKEN := \
-  test-art-host-run-test-gcstress-optimizing-no-prebuild-004-SignalTest32 \
-  test-art-host-run-test-gcstress-optimizing-prebuild-004-SignalTest32 \
-  test-art-host-run-test-gcstress-optimizing-norelocate-004-SignalTest32 \
-  test-art-host-run-test-gcstress-optimizing-relocate-004-SignalTest32 \
-  test-art-host-run-test-gcverify-optimizing-no-prebuild-004-SignalTest32 \
-  test-art-host-run-test-gcverify-optimizing-prebuild-004-SignalTest32 \
-  test-art-host-run-test-gcverify-optimizing-norelocate-004-SignalTest32 \
-  test-art-host-run-test-gcverify-optimizing-relocate-004-SignalTest32 \
-  test-art-host-run-test-optimizing-no-prebuild-004-SignalTest32 \
-  test-art-host-run-test-optimizing-prebuild-004-SignalTest32 \
-  test-art-host-run-test-optimizing-norelocate-004-SignalTest32 \
-  test-art-host-run-test-optimizing-relocate-004-SignalTest32 \
-  test-art-target-run-test-gcstress-optimizing-prebuild-004-SignalTest32 \
-  test-art-target-run-test-gcstress-optimizing-norelocate-004-SignalTest32 \
-  test-art-target-run-test-gcstress-default-prebuild-004-SignalTest32 \
-  test-art-target-run-test-gcstress-default-norelocate-004-SignalTest32 \
-  test-art-target-run-test-gcstress-optimizing-relocate-004-SignalTest32 \
-  test-art-target-run-test-gcstress-default-relocate-004-SignalTest32 \
-  test-art-target-run-test-gcstress-optimizing-no-prebuild-004-SignalTest32 \
-  test-art-target-run-test-gcstress-default-no-prebuild-004-SignalTest32
+ART_TEST_KNOWN_BROKEN :=
+
+# Failing valgrind tests.
+# Note: *all* 64b tests involving the runtime do not work currently. b/15170219.
 
 # List of known failing tests that when executed won't cause test execution to not finish.
 # The test name must be the full rule name such as test-art-host-oat-optimizing-HelloWorld64.
@@ -55,13 +38,31 @@ ART_TEST_KNOWN_FAILING :=
 ART_TEST_KEEP_GOING ?= true
 
 # Do you want all tests, even those that are time consuming?
-ART_TEST_FULL ?= true
+ART_TEST_FULL ?= false
+
+# Do you want default compiler tests run?
+ART_TEST_DEFAULT_COMPILER ?= true
+
+# Do you want interpreter tests run?
+ART_TEST_INTERPRETER ?= $(ART_TEST_FULL)
+
+# Do you want JIT tests run?
+ART_TEST_JIT ?= $(ART_TEST_FULL)
 
 # Do you want optimizing compiler tests run?
 ART_TEST_OPTIMIZING ?= $(ART_TEST_FULL)
 
+# Do we want to test a PIC-compiled core image?
+ART_TEST_PIC_IMAGE ?= $(ART_TEST_FULL)
+
+# Do we want to test PIC-compiled tests ("apps")?
+ART_TEST_PIC_TEST ?= $(ART_TEST_FULL)
+
 # Do you want tracing tests run?
 ART_TEST_TRACE ?= $(ART_TEST_FULL)
+
+# Do you want tracing tests (streaming mode) run?
+ART_TEST_TRACE_STREAM ?= $(ART_TEST_FULL)
 
 # Do you want tests with GC verification enabled run?
 ART_TEST_GC_VERIFY ?= $(ART_TEST_FULL)
@@ -69,20 +70,41 @@ ART_TEST_GC_VERIFY ?= $(ART_TEST_FULL)
 # Do you want tests with the GC stress mode enabled run?
 ART_TEST_GC_STRESS ?= $(ART_TEST_FULL)
 
-# Do you want run-tests with relocation enabled?
-ART_TEST_RUN_TEST_RELOCATE ?= $(ART_TEST_FULL)
+# Do you want tests with the JNI forcecopy mode enabled run?
+ART_TEST_JNI_FORCECOPY ?= $(ART_TEST_FULL)
 
-# Do you want run-tests with relocation disabled?
+# Do you want run-tests with relocation disabled run?
 ART_TEST_RUN_TEST_NO_RELOCATE ?= $(ART_TEST_FULL)
 
-# Do you want run-tests with prebuild disabled?
+# Do you want run-tests with prebuilding?
+ART_TEST_RUN_TEST_PREBUILD ?= true
+
+# Do you want run-tests with no prebuilding enabled run?
 ART_TEST_RUN_TEST_NO_PREBUILD ?= $(ART_TEST_FULL)
 
-# Do you want run-tests with prebuild enabled?
-ART_TEST_RUN_TEST_PREBUILD ?= true
+# Do you want run-tests without a pregenerated core.art?
+ART_TEST_RUN_TEST_NO_IMAGE ?= $(ART_TEST_FULL)
+
+# Do you want run-tests with relocation enabled but patchoat failing?
+ART_TEST_RUN_TEST_RELOCATE_NO_PATCHOAT ?= $(ART_TEST_FULL)
+
+# Do you want run-tests without a dex2oat?
+ART_TEST_RUN_TEST_NO_DEX2OAT ?= $(ART_TEST_FULL)
+
+# Do you want run-tests with libartd.so?
+ART_TEST_RUN_TEST_DEBUG ?= true
+
+# Do you want run-tests with libart.so?
+ART_TEST_RUN_TEST_NDEBUG ?= $(ART_TEST_FULL)
+
+# Do you want run-tests with the host/target's second arch?
+ART_TEST_RUN_TEST_2ND_ARCH ?= true
 
 # Do you want failed tests to have their artifacts cleaned up?
 ART_TEST_RUN_TEST_ALWAYS_CLEAN ?= true
+
+# Do you want run-tests with the --debuggable flag
+ART_TEST_RUN_TEST_DEBUGGABLE ?= $(ART_TEST_FULL)
 
 # Define the command run on test failure. $(1) is the name of the test. Executed by the shell.
 define ART_TEST_FAILED
@@ -141,6 +163,10 @@ endef
 # $(4): additional dependencies
 # $(5): a make variable used to collate target dependencies, e.g ART_TEST_TARGET_OAT_HelloWorld_DEX
 # $(6): a make variable used to collate host dependencies, e.g ART_TEST_HOST_OAT_HelloWorld_DEX
+#
+# If the input test directory contains a file called main.list and main.jpp,
+# then a multi-dex file is created passing main.list as the --main-dex-list
+# argument to dx and main.jpp for Jack.
 define build-art-test-dex
   ifeq ($(ART_BUILD_TARGET),true)
     include $(CLEAR_VARS)
@@ -153,6 +179,10 @@ define build-art-test-dex
     LOCAL_JAVA_LIBRARIES := $(TARGET_CORE_JARS)
     LOCAL_MODULE_PATH := $(3)
     LOCAL_DEX_PREOPT_IMAGE_LOCATION := $(TARGET_CORE_IMG_OUT)
+    ifneq ($(wildcard $(LOCAL_PATH)/$(2)/main.list),)
+      LOCAL_DX_FLAGS := --multi-dex --main-dex-list=$(LOCAL_PATH)/$(2)/main.list --minimal-main-dex
+      LOCAL_JACK_FLAGS := -D jack.dex.output.policy=minimal-multidex -D jack.preprocessor=true -D jack.preprocessor.file=$(LOCAL_PATH)/$(2)/main.jpp
+    endif
     include $(BUILD_JAVA_LIBRARY)
     $(5) := $$(LOCAL_INSTALLED_MODULE)
   endif
@@ -165,9 +195,13 @@ define build-art-test-dex
     LOCAL_ADDITIONAL_DEPENDENCIES := art/build/Android.common_test.mk $(4)
     LOCAL_JAVA_LIBRARIES := $(HOST_CORE_JARS)
     LOCAL_DEX_PREOPT_IMAGE := $(HOST_CORE_IMG_LOCATION)
+    ifneq ($(wildcard $(LOCAL_PATH)/$(2)/main.list),)
+      LOCAL_DX_FLAGS := --multi-dex --main-dex-list=$(LOCAL_PATH)/$(2)/main.list --minimal-main-dex
+      LOCAL_JACK_FLAGS := -D jack.dex.output.policy=minimal-multidex -D jack.preprocessor=true -D jack.preprocessor.file=$(LOCAL_PATH)/$(2)/main.jpp
+    endif
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
     $(6) := $$(LOCAL_INSTALLED_MODULE)
   endif
 endef
 
-endif # ANDROID_COMMON_TEST_MK
+endif # ART_ANDROID_COMMON_TEST_MK

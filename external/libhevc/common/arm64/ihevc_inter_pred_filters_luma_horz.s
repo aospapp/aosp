@@ -141,22 +141,22 @@ start_loop_count:
     //ble          end_loops
 
 
-    dup         v24.8b, v2.8b[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
+    dup         v24.8b, v2.b[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
     sub         x12,x0,#3                   //pu1_src - 3
-    dup         v25.8b, v2.8b[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
+    dup         v25.8b, v2.b[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
     add         x4,x12,x2                   //pu1_src_tmp2_8 = pu1_src + src_strd
-    dup         v26.8b, v2.8b[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
+    dup         v26.8b, v2.b[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
     sub         x20,x10,x2,lsl #1           //2*src_strd - wd
     neg         x9, x20
-    dup         v27.8b, v2.8b[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
+    dup         v27.8b, v2.b[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
     sub         x20,x10,x3,lsl #1           //2*dst_strd - wd
     neg         x8, x20
-    dup         v28.8b, v2.8b[4]            //coeffabs_4 = vdup_lane_u8(coeffabs, 4)
+    dup         v28.8b, v2.b[4]             //coeffabs_4 = vdup_lane_u8(coeffabs, 4)
 
-    dup         v29.8b, v2.8b[5]            //coeffabs_5 = vdup_lane_u8(coeffabs, 5)
+    dup         v29.8b, v2.b[5]             //coeffabs_5 = vdup_lane_u8(coeffabs, 5)
     // tst          x10,#7                            //checks wd for multiples
-    dup         v30.8b, v2.8b[6]            //coeffabs_6 = vdup_lane_u8(coeffabs, 6)
-    dup         v31.8b, v2.8b[7]            //coeffabs_7 = vdup_lane_u8(coeffabs, 7)
+    dup         v30.8b, v2.b[6]             //coeffabs_6 = vdup_lane_u8(coeffabs, 6)
+    dup         v31.8b, v2.b[7]             //coeffabs_7 = vdup_lane_u8(coeffabs, 7)
 
     mov         x7,x1
 

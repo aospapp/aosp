@@ -5,25 +5,26 @@
 <meta http-equiv="content-style-type" content="text/css">
 <link rel="stylesheet" type="text/css" href="style.css">
 <title>Gradle Task</title>
-<script type="text/javascript" language="JavaScript">
-<!--
-if (window.self==window.top) {
-  history.go(-1);
-  window.top.location.replace("../index.html#"+window.location.pathname+window.location.hash);
-} else {
-  var hash="#"+window.location.pathname.replace(window.top.location.pathname.replace("index.html", ""), "");
-  if (window.top.location.hash!=hash)
-    window.top.location.hash=hash;
-}
-//-->
-</script>
 </head>
 <body>
+
+<script type="text/javascript" language="JavaScript">
+<!--
+if (window.self==window.top)
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/gradle.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/">Saikoa</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
+//-->
+</script>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/gradle.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/">Saikoa</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
 
 <h2>Gradle Task</h2>
 
 <b>ProGuard</b> can be run as a task in the Java-based build tool Gradle
-(version 1.3 or higher).
+(version 2.1 or higher).
 <p>
 
 Before you can use the <code>proguard</code> task, you have to make sure
@@ -37,7 +38,7 @@ buildscript {
         flatDir dirs: '/usr/local/java/proguard/lib'
     }
     dependencies {
-        classpath ':proguard'
+        classpath ':proguard:'
     }
 }
 </pre>
@@ -85,19 +86,21 @@ The ProGuard task supports the following settings in its closure:
 
 <dt><a href="usage.html#injars"><code><b>injars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
-<dd>Specifies the program jars (or wars, ears, zips, or directories). The files
-    are resolved and read lazily, during the execution phase.</dd>
+<dd>Specifies the program jars (or aars, wars, ears, zips, apks, or
+    directories). The files are resolved and read lazily, during the execution
+    phase.</dd>
 
 <dt><a href="usage.html#outjars"><code><b>outjars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
-<dd>Specifies the names of the output jars (or wars, ears, zips, or
+<dd>Specifies the names of the output jars (or aars, wars, ears, zips, apks, or
     directories). The files are resolved and written lazily, during the
     execution phase.</dd>
 
 <dt><a href="usage.html#libraryjars"><code><b>libraryjars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
-<dd>Specifies the library jars (or wars, ears, zips, or directories). The files
-    are resolved and read lazily, during the execution phase.</dd>
+<dd>Specifies the library jars (or aars, wars, ears, zips, apks, or
+    directories). The files are resolved and read lazily, during the execution
+    phase.</dd>
 
 <dt><a href="usage.html#skipnonpubliclibraryclasses"><code><b>skipnonpubliclibraryclasses</b></code></a></dt>
 <dd>Ignore non-public library classes.</dd>
@@ -107,8 +110,8 @@ The ProGuard task supports the following settings in its closure:
 
 <dt><a href="usage.html#keepdirectories"><code><b>keepdirectories</b></code></a>
     ['<a href="usage.html#filefilters"><i>directory_filter</i></a>']</dt>
-<dd>Keep the specified directories in the output jars (or wars, ears, zips,
-    or directories).</dd>
+<dd>Keep the specified directories in the output jars (or aars, wars, ears,
+    zips, apks, or directories).</dd>
 
 <dt><a href="usage.html#target"><code><b>target</b></code></a>
     '<i>version</i>'</dt>
@@ -317,9 +320,17 @@ comma-separated named arguments after the file:
 <dd>An optional filter for all class file names and resource file names that
     are encountered.</dd>
 
+<dt><code><b>apkfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all apk names that are encountered.</dd>
+
 <dt><code><b>jarfilter:</b></code>
     '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
 <dd>An optional filter for all jar names that are encountered.</dd>
+
+<dt><code><b>aarfilter:</b></code>
+    '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
+<dd>An optional filter for all aar names that are encountered.</dd>
 
 <dt><code><b>warfilter:</b></code>
     '<a href="usage.html#filefilters"><i>file_filter</i></a>'</dt>
@@ -356,6 +367,12 @@ The keep settings can have the following named arguments that modify their
 behaviors:
 
 <dl>
+
+<dt><a href="usage.html#includedescriptorclasses"><code><b>includedescriptorclasses:</b></code></a>
+    <i>boolean</i>
+    (default = false)</dt>
+<dd>Specifies whether the classes of the fields and methods specified in the
+    keep tag must be kept as well.</dd>
 
 <dt><a href="usage.html#allowshrinking"><code><b>allowshrinking:</b></code></a>
     <i>boolean</i>
@@ -448,7 +465,7 @@ The named arguments are optional. Without any arguments, there are no
 constraints, so the settings match all classes.
 <p>
 
-<h3><a name="cl">Gradle-style Class Member Specifications</h3>
+<h3><a name="classmemberspecification">Gradle-style Class Member Specifications</a></h3>
 
 The closure of a Gradle-style class specification can specify class members
 with these settings:
@@ -536,10 +553,9 @@ task proguard << {
 <p>
 
 <hr />
-<noscript><div><a target="_top" href="../index.html" class="button">Show menu</a></div></noscript>
 <address>
-Copyright &copy; 2002-2013
-<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a>.
+Copyright &copy; 2002-2014
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.saikoa.com/">Saikoa</a>.
 </address>
 </body>
 </html>

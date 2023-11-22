@@ -5,6 +5,12 @@
 
 #include <stdarg.h>
 
+#if defined(__GNUC__)
+# define INTERNAL __attribute__((visibility("internal")))
+#else
+# define INTERNAL
+#endif
+
 typedef struct VTermEncoding VTermEncoding;
 
 typedef struct {
@@ -58,6 +64,10 @@ struct VTermState
   /* Bitvector of tab stops */
   unsigned char *tabstops;
 
+  VTermLineInfo *lineinfo;
+#define ROWWIDTH(state,row) ((state)->lineinfo[(row)].doublewidth ? ((state)->cols / 2) : (state)->cols)
+#define THISROWWIDTH(state) ROWWIDTH(state, (state)->pos.row)
+
   /* Mouse state */
   int mouse_col, mouse_row;
   int mouse_buttons;
@@ -92,6 +102,8 @@ struct VTermState
 
   VTermColor default_fg;
   VTermColor default_bg;
+  VTermColor colors[16]; // Store the 8 ANSI and the 8 ANSI high-brights only
+
   int fg_index;
   int bg_index;
   int bold_is_highbright;
@@ -172,6 +184,7 @@ void vterm_push_output_sprintf_dcs(VTerm *vt, const char *fmt, ...);
 
 void vterm_state_free(VTermState *state);
 
+void vterm_state_newpen(VTermState *state);
 void vterm_state_resetpen(VTermState *state);
 void vterm_state_setpen(VTermState *state, const long args[], int argcount);
 int  vterm_state_getpen(VTermState *state, long args[], int argcount);

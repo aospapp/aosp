@@ -51,7 +51,7 @@ static void player_handleMediaPlayerEventNotifications(int event, int data1, int
     u.i = event;
     SL_LOGV("player_handleMediaPlayerEventNotifications(event='%c%c%c%c' (%d), data1=%d, data2=%d, "
             "user=%p) from AVPlayer", u.c[3], u.c[2], u.c[1], u.c[0], event, data1, data2, user);
-    switch(event) {
+    switch (event) {
 
       case android::GenericPlayer::kEventPrepared: {
         SL_LOGV("Received GenericPlayer::kEventPrepared for CMediaPlayer %p", mp);
@@ -315,7 +315,7 @@ XAresult android_Player_checkSourceSink(CMediaPlayer *mp) {
     //const SLuint32 sinkFormatType = *(SLuint32 *)pAudioSnk->pFormat;
 
     // Source check
-    switch(sourceLocatorType) {
+    switch (sourceLocatorType) {
 
     case XA_DATALOCATOR_ANDROIDBUFFERQUEUE: {
         switch (sourceFormatType) {
@@ -345,7 +345,7 @@ XAresult android_Player_checkSourceSink(CMediaPlayer *mp) {
     }// switch (locatorType)
 
     // Audio sink check: only playback is supported here
-    switch(audioSinkLocatorType) {
+    switch (audioSinkLocatorType) {
 
     case XA_DATALOCATOR_OUTPUTMIX:
         break;
@@ -373,7 +373,7 @@ XAresult android_Player_create(CMediaPlayer *mp) {
     const SLDataSink *pVideoSnk = &mp->mImageVideoSink.u.mSink;
 
     XAuint32 sourceLocator = *(XAuint32 *)pDataSrc->pLocator;
-    switch(sourceLocator) {
+    switch (sourceLocator) {
     // FIXME support Android simple buffer queue as well
     case XA_DATALOCATOR_ANDROIDBUFFERQUEUE:
         mp->mAndroidObjType = AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE;
@@ -417,7 +417,7 @@ XAresult android_Player_realize(CMediaPlayer *mp, SLboolean async) {
     ap_params.sessionId = mp->mSessionId;
     ap_params.streamType = mp->mStreamType;
 
-    switch(mp->mAndroidObjType) {
+    switch (mp->mAndroidObjType) {
     case AUDIOVIDEOPLAYER_FROM_TS_ANDROIDBUFFERQUEUE: {
         mp->mAVPlayer = new android::StreamPlayer(&ap_params, true /*hasVideo*/,
                 &mp->mAndroidBufferQueue, mp->mCallbackProtector);
@@ -611,7 +611,7 @@ XAresult android_Player_setPlayState(const android::sp<android::GenericPlayer> &
          break;
      case SL_PLAYSTATE_PAUSED: {
          SL_LOGV("setting AVPlayer to SL_PLAYSTATE_PAUSED");
-         switch(objState) {
+         switch (objState) {
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              gp->prepare();
@@ -629,7 +629,7 @@ XAresult android_Player_setPlayState(const android::sp<android::GenericPlayer> &
          break;
      case SL_PLAYSTATE_PLAYING: {
          SL_LOGV("setting AVPlayer to SL_PLAYSTATE_PLAYING");
-         switch(objState) {
+         switch (objState) {
          case ANDROID_UNINITIALIZED:
              *pObjState = ANDROID_PREPARING;
              gp->prepare();

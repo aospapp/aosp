@@ -10,9 +10,12 @@ LOCAL_MODULE:= libclangFrontendTool
 LOCAL_MODULE_TAGS := optional
 
 TBLGEN_TABLES := \
+  DeclNodes.inc \
   DiagnosticCommonKinds.inc \
   DiagnosticFrontendKinds.inc \
-  CC1Options.inc
+  CC1Options.inc \
+  CommentCommandList.inc \
+  StmtNodes.inc
 
 clang_frontend_tool_SRC_FILES := \
   ExecuteCompilerInvocation.cpp

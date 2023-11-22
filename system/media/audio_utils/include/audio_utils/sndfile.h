@@ -53,6 +53,7 @@ typedef struct SNDFILE_ SNDFILE;
 #define SF_FORMAT_PCM_U8    4
 #define SF_FORMAT_FLOAT     6
 #define SF_FORMAT_PCM_32    8
+#define SF_FORMAT_PCM_24    10
 
 // Open stream
 SNDFILE *sf_open(const char *path, int mode, SF_INFO *info);
@@ -68,6 +69,7 @@ sf_count_t sf_readf_int(SNDFILE *handle, int *ptr, sf_count_t desired);
 // Write interleaved frames and return actual number of frames written
 sf_count_t sf_writef_short(SNDFILE *handle, const short *ptr, sf_count_t desired);
 sf_count_t sf_writef_float(SNDFILE *handle, const float *ptr, sf_count_t desired);
+sf_count_t sf_writef_int(SNDFILE *handle, const int *ptr, sf_count_t desired);
 
 __END_DECLS
 

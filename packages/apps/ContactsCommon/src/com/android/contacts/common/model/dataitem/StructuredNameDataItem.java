@@ -80,10 +80,6 @@ public class StructuredNameDataItem extends DataItem {
         return getContentValues().getAsString(StructuredName.FULL_NAME_STYLE);
     }
 
-    public String getPhoneticNameStyle() {
-        return getContentValues().getAsString(StructuredName.PHONETIC_NAME_STYLE);
-    }
-
     public void setPhoneticFamilyName(String name) {
         getContentValues().put(StructuredName.PHONETIC_FAMILY_NAME, name);
     }
@@ -94,5 +90,11 @@ public class StructuredNameDataItem extends DataItem {
 
     public void setPhoneticGivenName(String name) {
         getContentValues().put(StructuredName.PHONETIC_GIVEN_NAME, name);
+    }
+
+    public boolean isSuperPrimary() {
+        final ContentValues contentValues = getContentValues();
+        return contentValues == null || !contentValues.containsKey(StructuredName.IS_SUPER_PRIMARY)
+                ? false : contentValues.getAsBoolean(StructuredName.IS_SUPER_PRIMARY);
     }
 }

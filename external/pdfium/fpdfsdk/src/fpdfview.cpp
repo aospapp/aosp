@@ -5,48 +5,32 @@
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
 #include "../include/fsdk_define.h"
-#include "../include/fpdfview.h"
+#include "../include/fsdk_mgr.h"
 #include "../include/fsdk_rendercontext.h"
-#include "../include/fpdf_progressive.h"
-#include "../include/fpdf_ext.h"
-
+#include "../../public/fpdfview.h"
+#include "../../public/fpdf_progressive.h"
+#include "../../public/fpdf_ext.h"
+#include "../../core/src/fxcrt/fx_safe_types.h"
+#include "../../third_party/base/nonstd_unique_ptr.h"
+#include "../../third_party/base/numerics/safe_conversions_impl.h"
 
 CPDF_CustomAccess::CPDF_CustomAccess(FPDF_FILEACCESS* pFileAccess)
 {
-	m_FileAccess = *pFileAccess;
-	m_BufferOffset = (FX_DWORD)-1;
-}
-
-FX_BOOL CPDF_CustomAccess::GetByte(FX_DWORD pos, FX_BYTE& ch)
-{
-	if (pos >= m_FileAccess.m_FileLen) return FALSE;
-	if (m_BufferOffset == (FX_DWORD)-1 || pos < m_BufferOffset || pos >= m_BufferOffset + 512) {
-		// Need to read from file access
-		m_BufferOffset = pos;
-		int size = 512;
-		if (pos + 512 > m_FileAccess.m_FileLen)
-			size = m_FileAccess.m_FileLen - pos;
-		if (!m_FileAccess.m_GetBlock(m_FileAccess.m_Param, m_BufferOffset, m_Buffer, size))
-			return FALSE;
-	}
-	ch = m_Buffer[pos - m_BufferOffset];
-	return TRUE;
-}
-
-FX_BOOL CPDF_CustomAccess::GetBlock(FX_DWORD pos, FX_LPBYTE pBuf, FX_DWORD size)
-{
-	if (pos + size > m_FileAccess.m_FileLen) return FALSE;
-	return m_FileAccess.m_GetBlock(m_FileAccess.m_Param, pos, pBuf, size);
+	if (pFileAccess)
+		m_FileAccess = *pFileAccess;
 }
 
 FX_BOOL CPDF_CustomAccess::ReadBlock(void* buffer, FX_FILESIZE offset, size_t size)
 {
-	//	m_FileAccess = *pFileAccess;
-	//	m_BufferOffset = (FX_DWORD)-1;
-	if (offset + size > m_FileAccess.m_FileLen) return FALSE;
-	return m_FileAccess.m_GetBlock(m_FileAccess.m_Param, offset,(FX_LPBYTE) buffer, size);
-
-	//	return FALSE;
+    if (offset < 0) {
+        return FALSE;
+    }
+    FX_SAFE_FILESIZE newPos = pdfium::base::checked_cast<FX_FILESIZE, size_t>(size);
+    newPos += offset;
+    if (!newPos.IsValid() || newPos.ValueOrDie() > m_FileAccess.m_FileLen) {
+        return FALSE;
+    }
+    return m_FileAccess.m_GetBlock(m_FileAccess.m_Param, offset,(FX_LPBYTE) buffer, size);
 }
 
 //0 bit: FPDF_POLICY_MACHINETIME_ACCESS
@@ -96,9 +80,6 @@ FPDF_BOOL FSDK_IsSandBoxPolicyEnabled(FPDF_DWORD policy)
 	CPDF_ModuleMgr*	g_pModuleMgr = NULL;
 #else
 	CCodec_ModuleMgr*	g_pCodecModule = NULL;
-#ifdef _FXSDK_OPENSOURCE_
-	FXMEM_FoxitMgr* g_pFoxitMgr = NULL;
-#endif
 #endif
 
 //extern CPDFSDK_FormFillApp* g_pFormFillApp;
@@ -127,43 +108,8 @@ public:
 CFontMapper* g_pFontMapper = NULL;
 #endif		// #if _FX_OS_ == _FX_LINUX_EMBEDDED_
 
-DLLEXPORT void STDCALL FPDF_InitLibrary(FX_LPVOID hInstance)
+DLLEXPORT void STDCALL FPDF_InitLibrary()
 {
-#ifdef API5
-	CPDF_ModuleMgr::Create();
-	g_pModuleMgr = CPDF_ModuleMgr::Get();
-	 #if _FX_OS_ == _FX_WIN32_MOBILE_ || _FX_OS_ == _FX_LINUX_EMBEDDED_
-	 	g_pModuleMgr->InitEmbedded();
-	 #ifdef _GB1_CMAPS_
-	 	g_pModuleMgr->LoadEmbeddedGB1CMaps();
-	 #endif
-	 #ifdef _GB1_CMAPS_4_
-	 	g_pModuleMgr->LoadEmbeddedGB1CMaps_4();
-	 #endif
-	 #ifdef _CNS1_CMAPS_
-	 	g_pModuleMgr->LoadEmbeddedCNS1CMaps();
-	 #endif
-	 #ifdef _JAPAN1_CMAPS_
-	 	g_pModuleMgr->LoadEmbeddedJapan1CMaps();
-	 #endif
-	 #ifdef _JAPAN1_CMAPS_6_
-	 	g_pModuleMgr->LoadEmbeddedJapan1CMaps_6();
-	 #endif
-	 #ifdef _KOREA1_CMAPS_
-	 	g_pModuleMgr->LoadEmbeddedKorea1CMaps();
-	 #endif
-	 #ifdef _JPX_DECODER_
-	 	g_pModuleMgr->InitJpxModule();
-	 	g_pModuleMgr->InitJbig2Module();
-	 //	g_pModuleMgr->InitIccModule();
-	 #endif
-	 #else
-	 	g_pModuleMgr->InitDesktop();
-	 #endif
-#else
-#ifdef _FXSDK_OPENSOURCE_
-	g_pFoxitMgr = FXMEM_CreateMemoryMgr(1024 * 1024 * 32, TRUE);
-#endif
 	g_pCodecModule = CCodec_ModuleMgr::Create();
 	
 	CFX_GEModule::Create();
@@ -173,7 +119,6 @@ DLLEXPORT void STDCALL FPDF_InitLibrary(FX_LPVOID hInstance)
 	CPDF_ModuleMgr::Get()->SetCodecModule(g_pCodecModule);
 	CPDF_ModuleMgr::Get()->InitPageModule();
 	CPDF_ModuleMgr::Get()->InitRenderModule();
-#ifdef FOXIT_CHROME_BUILD
 	CPDF_ModuleMgr * pModuleMgr = CPDF_ModuleMgr::Get();
 	if ( pModuleMgr )
 	{
@@ -182,30 +127,6 @@ DLLEXPORT void STDCALL FPDF_InitLibrary(FX_LPVOID hInstance)
 		pModuleMgr->LoadEmbeddedCNS1CMaps();
 		pModuleMgr->LoadEmbeddedKorea1CMaps();
 	}
-#endif 
-#endif
-
-#ifdef _WIN32
-	// Get module path
-	TCHAR app_path[MAX_PATH];
-	::GetModuleFileName((HINSTANCE)hInstance, app_path, MAX_PATH);
-	size_t len = _tcslen(app_path);
-	for (size_t i = len; i >= 0; i --)
-		if (app_path[i] == '\\') {
-			app_path[i] = 0;
-			break;
-		}
-		
-#ifdef _UNICODE
-		#ifndef _FXSDK_OPENSOURCE_
-		CPDF_ModuleMgr::Get()->SetModulePath(NULL, CFX_ByteString::FromUnicode(app_path));
-		#endif
-#else
-#ifndef _FXSDK_OPENSOURCE_
-		CPDF_ModuleMgr::Get()->SetModulePath(NULL, app_path);
-#endif
-#endif
-#endif
 }
 
 
@@ -221,11 +142,6 @@ DLLEXPORT void STDCALL FPDF_DestroyLibrary()
 	CPDF_ModuleMgr::Destroy();
 	CFX_GEModule::Destroy();
 	g_pCodecModule->Destroy();
-#endif
-#ifndef _FXSDK_OPENSOURCE_
-	FXMEM_CollectAll(FXMEM_GetDefaultMgr());
-#else
-	FXMEM_DestroyFoxitMgr(g_pFoxitMgr);
 #endif
 }
 
@@ -269,19 +185,13 @@ DLLEXPORT void	STDCALL FPDF_SetSandBoxPolicy(FPDF_DWORD policy, FPDF_BOOL enable
 
 DLLEXPORT FPDF_DOCUMENT STDCALL FPDF_LoadDocument(FPDF_STRING file_path, FPDF_BYTESTRING password)
 {
-	CPDF_Parser* pParser = FX_NEW CPDF_Parser;
+	CPDF_Parser* pParser = new CPDF_Parser;
 	pParser->SetPassword(password);
-	try {
-		FX_DWORD err_code = pParser->StartParse((FX_LPCSTR)file_path);
-		if (err_code) {
-			delete pParser;
-			ProcessParseError(err_code);
-			return NULL;
-		}
-	}
-	catch (...) {
+
+	FX_DWORD err_code = pParser->StartParse((FX_LPCSTR)file_path);
+	if (err_code) {
 		delete pParser;
-		SetLastError(FPDF_ERR_UNKNOWN);
+		ProcessParseError(err_code);
 		return NULL;
 	}
 	return pParser->GetDocument();
@@ -289,7 +199,7 @@ DLLEXPORT FPDF_DOCUMENT STDCALL FPDF_LoadDocument(FPDF_STRING file_path, FPDF_BY
 
 extern void CheckUnSupportError(CPDF_Document * pDoc, FX_DWORD err_code);
 
-class CMemFile: public IFX_FileRead, public CFX_Object
+class CMemFile FX_FINAL: public IFX_FileRead
 {
 public:
 	CMemFile(FX_BYTE* pBuf, FX_FILESIZE size):m_pBuf(pBuf),m_size(size) {}
@@ -298,9 +208,16 @@ public:
 	virtual FX_FILESIZE		GetSize() {return m_size;}
 	virtual FX_BOOL			ReadBlock(void* buffer, FX_FILESIZE offset, size_t size) 
 	{
-		if(offset+size > (FX_DWORD)m_size) return FALSE;
-		FXSYS_memcpy(buffer, m_pBuf+offset, size);
-		return TRUE;
+            if (offset < 0) {
+                return FALSE;
+            }
+            FX_SAFE_FILESIZE newPos = pdfium::base::checked_cast<FX_FILESIZE, size_t>(size);
+            newPos += offset;
+            if (!newPos.IsValid() || newPos.ValueOrDie() > (FX_DWORD)m_size) {
+                return FALSE;
+            }
+	    FXSYS_memcpy(buffer, m_pBuf+offset, size);
+	    return TRUE;
 	}
 private:
 	FX_BYTE* m_pBuf;
@@ -308,49 +225,35 @@ private:
 };
 DLLEXPORT FPDF_DOCUMENT STDCALL FPDF_LoadMemDocument(const void* data_buf, int size, FPDF_BYTESTRING password)
 {
-	CPDF_Parser* pParser = FX_NEW CPDF_Parser;
+	CPDF_Parser* pParser = new CPDF_Parser;
 	pParser->SetPassword(password);
-	try {
-		CMemFile* pMemFile = FX_NEW CMemFile((FX_BYTE*)data_buf, size);
-		FX_DWORD err_code = pParser->StartParse(pMemFile);
-		if (err_code) {
-			delete pParser;
-			ProcessParseError(err_code);
-			return NULL;
-		}
-		CPDF_Document * pDoc = NULL;
-		pDoc = pParser?pParser->GetDocument():NULL;
-		CheckUnSupportError(pDoc, err_code);
-	}
-	catch (...) {
+	CMemFile* pMemFile = new CMemFile((FX_BYTE*)data_buf, size);
+	FX_DWORD err_code = pParser->StartParse(pMemFile);
+	if (err_code) {
 		delete pParser;
-		SetLastError(FPDF_ERR_UNKNOWN);
+		ProcessParseError(err_code);
 		return NULL;
 	}
+	CPDF_Document * pDoc = NULL;
+	pDoc = pParser?pParser->GetDocument():NULL;
+	CheckUnSupportError(pDoc, err_code);
 	return pParser->GetDocument();
 }
 
 DLLEXPORT FPDF_DOCUMENT STDCALL FPDF_LoadCustomDocument(FPDF_FILEACCESS* pFileAccess, FPDF_BYTESTRING password)
 {
-	CPDF_Parser* pParser = FX_NEW CPDF_Parser;
+	CPDF_Parser* pParser = new CPDF_Parser;
 	pParser->SetPassword(password);
-	CPDF_CustomAccess* pFile = FX_NEW CPDF_CustomAccess(pFileAccess);
-	try {
-		FX_DWORD err_code = pParser->StartParse(pFile);
-		if (err_code) {
-			delete pParser;
-			ProcessParseError(err_code);
-			return NULL;
-		}
-		CPDF_Document * pDoc = NULL;
-		pDoc = pParser?pParser->GetDocument():NULL;
-		CheckUnSupportError(pDoc, err_code);
-	}
-	catch (...) {
+	CPDF_CustomAccess* pFile = new CPDF_CustomAccess(pFileAccess);
+	FX_DWORD err_code = pParser->StartParse(pFile);
+	if (err_code) {
 		delete pParser;
-		SetLastError(FPDF_ERR_UNKNOWN);
+		ProcessParseError(err_code);
 		return NULL;
 	}
+	CPDF_Document * pDoc = NULL;
+	pDoc = pParser?pParser->GetDocument():NULL;
+	CheckUnSupportError(pDoc, err_code);
 	return pParser->GetDocument();
 }
 
@@ -378,6 +281,17 @@ DLLEXPORT unsigned long STDCALL FPDF_GetDocPermissions(FPDF_DOCUMENT document)
 	return pDict->GetInteger("P");
 }
 
+DLLEXPORT int STDCALL FPDF_GetSecurityHandlerRevision(FPDF_DOCUMENT document)
+{
+    if (document == NULL) return -1;
+    CPDF_Document*pDoc = (CPDF_Document*)document;
+    CPDF_Parser* pParser = (CPDF_Parser*)pDoc->GetParser();
+    CPDF_Dictionary* pDict = pParser->GetEncryptDict();
+    if (pDict == NULL) return -1;
+
+    return pDict->GetInteger("R");
+}
+
 DLLEXPORT int STDCALL FPDF_GetPageCount(FPDF_DOCUMENT document)
 {
 	if (document == NULL) return 0;
@@ -388,23 +302,14 @@ DLLEXPORT FPDF_PAGE STDCALL FPDF_LoadPage(FPDF_DOCUMENT document, int page_index
 {
 	if (document == NULL) return NULL;
 	if (page_index < 0 || page_index >= FPDF_GetPageCount(document)) return NULL;
-//	CPDF_Parser* pParser = (CPDF_Parser*)document;
+
 	CPDF_Document* pDoc = (CPDF_Document*)document;
 	if (pDoc == NULL) return NULL;
 	CPDF_Dictionary* pDict = pDoc->GetPage(page_index);
 	if (pDict == NULL) return NULL;
-	CPDF_Page* pPage = FX_NEW CPDF_Page;
+	CPDF_Page* pPage = new CPDF_Page;
 	pPage->Load(pDoc, pDict);
-	try {
-		pPage->ParseContent();
-	}
-	catch (...) {
-		delete pPage;
-		return NULL;
-	}
-	
-//	CheckUnSupportError(pDoc, 0);
-
+	pPage->ParseContent();
 	return pPage;
 }
 
@@ -442,7 +347,7 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 	if (page==NULL) return;
 	CPDF_Page* pPage = (CPDF_Page*)page;
 
-	CRenderContext* pContext = FX_NEW CRenderContext;
+	CRenderContext* pContext = new CRenderContext;
 	pPage->SetPrivateData((void*)1, pContext, DropContext);
 
 #ifndef _WIN32_WCE
@@ -452,27 +357,22 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 	if (bBackgroundAlphaNeeded)
 	{
 		
-		pBitmap = FX_NEW CFX_DIBitmap;
+		pBitmap = new CFX_DIBitmap;
 		pBitmap->Create(size_x, size_y, FXDIB_Argb);
 		pBitmap->Clear(0x00ffffff);
 #ifdef _SKIA_SUPPORT_
-		pContext->m_pDevice = FX_NEW CFX_SkiaDevice;
+		pContext->m_pDevice = new CFX_SkiaDevice;
 		((CFX_SkiaDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)pBitmap);
 #else
-		pContext->m_pDevice = FX_NEW CFX_FxgeDevice;
+		pContext->m_pDevice = new CFX_FxgeDevice;
 		((CFX_FxgeDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)pBitmap);
 #endif
 	}
 	else
-	pContext->m_pDevice = FX_NEW CFX_WindowsDevice(dc);
-	if (flags & FPDF_NO_CATCH)
-		Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
-	else {
-		try {
-			Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
-		} catch (...) {
-		}
-	}
+	    pContext->m_pDevice = new CFX_WindowsDevice(dc);
+
+	Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
+
 	if (bBackgroundAlphaNeeded) 
 	{
 		if (pBitmap)
@@ -481,11 +381,12 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 			
  			if (WinDC.GetDeviceCaps(FXDC_DEVICE_CLASS) == FXDC_PRINTER)
  			{
-				CFX_DIBitmap* pDst = FX_NEW CFX_DIBitmap;
-				pDst->Create(pBitmap->GetWidth(), pBitmap->GetHeight(),FXDIB_Rgb32);
-				FXSYS_memcpy(pDst->GetBuffer(), pBitmap->GetBuffer(), pBitmap->GetPitch()*pBitmap->GetHeight());
-//				WinDC.SetDIBits(pDst,0,0);
-				WinDC.StretchDIBits(pDst,0,0,size_x*2,size_y*2);
+				CFX_DIBitmap* pDst = new CFX_DIBitmap;
+				int pitch = pBitmap->GetPitch();
+				pDst->Create(size_x, size_y, FXDIB_Rgb32);
+				FXSYS_memset(pDst->GetBuffer(), -1, pitch*size_y);
+				pDst->CompositeBitmap(0, 0, size_x, size_y, pBitmap, 0, 0, FXDIB_BLEND_NORMAL, NULL, FALSE, NULL);
+				WinDC.StretchDIBits(pDst,0,0,size_x,size_y);
 				delete pDst;
  			}
  			else
@@ -508,7 +409,8 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 #ifdef DEBUG_TRACE
 	{
 		char str[128];
-		sprintf(str, "Rendering DIB %d x %d", width, height);
+		memset(str, 0, sizeof(str));
+		FXSYS_snprintf(str, sizeof(str) - 1, "Rendering DIB %d x %d", width, height);
 		CPDF_ModuleMgr::Get()->ReportError(999, str);
 	}
 #endif
@@ -526,7 +428,8 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 	if (pContext->m_hBitmap == NULL) {
 #if defined(DEBUG) || defined(_DEBUG)
 		char str[128];
-		sprintf(str, "Error CreateDIBSection: %d x %d, error code = %d", width, height, GetLastError());
+		memset(str, 0, sizeof(str));
+		FXSYS_snprintf(str, sizeof(str) - 1, "Error CreateDIBSection: %d x %d, error code = %d", width, height, GetLastError());
 		CPDF_ModuleMgr::Get()->ReportError(FPDFERR_OUT_OF_MEMORY, str);
 #else
 		CPDF_ModuleMgr::Get()->ReportError(FPDFERR_OUT_OF_MEMORY, NULL);
@@ -541,24 +444,17 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 #endif
 
 	// Create a device with this external buffer
-	pContext->m_pBitmap = FX_NEW CFX_DIBitmap;
+	pContext->m_pBitmap = new CFX_DIBitmap;
 	pContext->m_pBitmap->Create(width, height, FXDIB_Rgb, (FX_LPBYTE)pBuffer);
-	pContext->m_pDevice = FX_NEW CPDF_FxgeDevice;
+	pContext->m_pDevice = new CPDF_FxgeDevice;
 	((CPDF_FxgeDevice*)pContext->m_pDevice)->Attach(pContext->m_pBitmap);
-	
+
 #ifdef DEBUG_TRACE
 	CPDF_ModuleMgr::Get()->ReportError(999, "Ready for PDF rendering");
 #endif
 
 	// output to bitmap device
-	if (flags & FPDF_NO_CATCH)
-		Func_RenderPage(pContext, page, start_x - rect.left, start_y - rect.top, size_x, size_y, rotate, flags);
-	else {
-		try {
-			Func_RenderPage(pContext, page, start_x - rect.left, start_y - rect.top, size_x, size_y, rotate, flags);
-		} catch (...) {
-		}
-	}
+	Func_RenderPage(pContext, page, start_x - rect.left, start_y - rect.top, size_x, size_y, rotate, flags);
 
 #ifdef DEBUG_TRACE
 	CPDF_ModuleMgr::Get()->ReportError(999, "Finished PDF rendering");
@@ -569,7 +465,8 @@ DLLEXPORT void STDCALL FPDF_RenderPage(HDC dc, FPDF_PAGE page, int start_x, int 
 	if (hMemDC == NULL) {
 #if defined(DEBUG) || defined(_DEBUG)
 		char str[128];
-		sprintf(str, "Error CreateCompatibleDC. Error code = %d", GetLastError());
+		memset(str, 0, sizeof(str));
+		FXSYS_snprintf(str, sizeof(str) - 1, "Error CreateCompatibleDC. Error code = %d", GetLastError());
 		CPDF_ModuleMgr::Get()->ReportError(FPDFERR_OUT_OF_MEMORY, str);
 #else
 		CPDF_ModuleMgr::Get()->ReportError(FPDFERR_OUT_OF_MEMORY, NULL);
@@ -609,31 +506,25 @@ DLLEXPORT void STDCALL FPDF_RenderPageBitmap(FPDF_BITMAP bitmap, FPDF_PAGE page,
 	CPDF_Page* pPage = (CPDF_Page*)page;
 
 
-	CRenderContext* pContext = FX_NEW CRenderContext;
+	CRenderContext* pContext = new CRenderContext;
 	pPage->SetPrivateData((void*)1, pContext, DropContext);
 #ifdef _SKIA_SUPPORT_
-	pContext->m_pDevice = FX_NEW CFX_SkiaDevice;
+	pContext->m_pDevice = new CFX_SkiaDevice;
 
 	if (flags & FPDF_REVERSE_BYTE_ORDER)
 		((CFX_SkiaDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)bitmap,0,TRUE);
 	else
 		((CFX_SkiaDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)bitmap);
 #else
-	pContext->m_pDevice = FX_NEW CFX_FxgeDevice;
+	pContext->m_pDevice = new CFX_FxgeDevice;
 
 	if (flags & FPDF_REVERSE_BYTE_ORDER)
 		((CFX_FxgeDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)bitmap,0,TRUE);
 	else
 		((CFX_FxgeDevice*)pContext->m_pDevice)->Attach((CFX_DIBitmap*)bitmap);
 #endif
-	if (flags & FPDF_NO_CATCH)
-		Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
-	else {
-		try {
-			Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
-		} catch (...) {
-		}
-	}
+
+	Func_RenderPage(pContext, page, start_x, start_y, size_x, size_y, rotate, flags,TRUE,NULL);
 
 	delete pContext;
 	pPage->RemovePrivateData((void*)1);
@@ -642,6 +533,11 @@ DLLEXPORT void STDCALL FPDF_RenderPageBitmap(FPDF_BITMAP bitmap, FPDF_PAGE page,
 DLLEXPORT void STDCALL FPDF_ClosePage(FPDF_PAGE page)
 {
 	if (!page) return;
+        CPDFSDK_PageView* pPageView = (CPDFSDK_PageView*)(((CPDF_Page*)page))->GetPrivateData((FX_LPVOID)page);
+        if (pPageView && pPageView->IsLocked()) {
+            pPageView->TakeOverPage();
+            return;
+        }
 	delete (CPDF_Page*)page;
 
 }
@@ -702,9 +598,11 @@ DLLEXPORT void STDCALL FPDF_PageToDevice(FPDF_PAGE page, int start_x, int start_
 
 DLLEXPORT FPDF_BITMAP STDCALL FPDFBitmap_Create(int width, int height, int alpha)
 {
-	CFX_DIBitmap* pBitmap = FX_NEW CFX_DIBitmap;
-	pBitmap->Create(width, height, alpha ? FXDIB_Argb : FXDIB_Rgb32);
-	return pBitmap;
+    nonstd::unique_ptr<CFX_DIBitmap> pBitmap(new CFX_DIBitmap);
+    if (!pBitmap->Create(width, height, alpha ? FXDIB_Argb : FXDIB_Rgb32)) {
+        return NULL;
+    }
+    return pBitmap.release();
 }
 
 DLLEXPORT FPDF_BITMAP STDCALL FPDFBitmap_CreateEx(int width, int height, int format, void* first_scan, int stride)
@@ -726,13 +624,12 @@ DLLEXPORT FPDF_BITMAP STDCALL FPDFBitmap_CreateEx(int width, int height, int for
 		default:
 			return NULL;
 	}
-	CFX_DIBitmap* pBitmap = FX_NEW CFX_DIBitmap;
+	CFX_DIBitmap* pBitmap = new CFX_DIBitmap;
 	pBitmap->Create(width, height, fx_format, (FX_LPBYTE)first_scan, stride);
 	return pBitmap;
 }
 
-DLLEXPORT void STDCALL FPDFBitmap_FillRect(FPDF_BITMAP bitmap, int left, int top, int width, int height, 
-									int red, int green, int blue, int alpha)
+DLLEXPORT void STDCALL FPDFBitmap_FillRect(FPDF_BITMAP bitmap, int left, int top, int width, int height, FPDF_DWORD color)
 {
 	if (bitmap == NULL) return;
 #ifdef _SKIA_SUPPORT_
@@ -741,9 +638,9 @@ DLLEXPORT void STDCALL FPDFBitmap_FillRect(FPDF_BITMAP bitmap, int left, int top
 	CFX_FxgeDevice device;
 #endif
 	device.Attach((CFX_DIBitmap*)bitmap);
-	if (!((CFX_DIBitmap*)bitmap)->HasAlpha()) alpha = 255;
+	if (!((CFX_DIBitmap*)bitmap)->HasAlpha()) color |= 0xFF000000;
 	FX_RECT rect(left, top, left+width, top+height);
-	device.FillRect(&rect, FXARGB_MAKE(alpha, red, green, blue));
+	device.FillRect(&rect, color);
 }
 
 DLLEXPORT void* STDCALL FPDFBitmap_GetBuffer(FPDF_BITMAP bitmap)
@@ -779,7 +676,6 @@ DLLEXPORT void STDCALL FPDFBitmap_Destroy(FPDF_BITMAP bitmap)
 void FPDF_RenderPage_Retail(CRenderContext* pContext, FPDF_PAGE page, int start_x, int start_y, int size_x, int size_y,
 						int rotate, int flags,FX_BOOL bNeedToRestore, IFSDK_PAUSE_Adapter * pause )
 {
-//#ifdef _LICENSED_BUILD_
 	CPDF_Page* pPage = (CPDF_Page*)page;
 	if (pPage == NULL) return;
 
@@ -796,6 +692,12 @@ void FPDF_RenderPage_Retail(CRenderContext* pContext, FPDF_PAGE page, int start_
 		pContext->m_pOptions->m_Flags |= RENDER_LIMITEDIMAGECACHE;
 	if (flags & FPDF_RENDER_FORCEHALFTONE)
 		pContext->m_pOptions->m_Flags |= RENDER_FORCE_HALFTONE;
+	if (flags & FPDF_RENDER_NO_SMOOTHTEXT)
+		pContext->m_pOptions->m_Flags |= RENDER_NOTEXTSMOOTH;
+	if (flags & FPDF_RENDER_NO_SMOOTHIMAGE)
+		pContext->m_pOptions->m_Flags |= RENDER_NOIMAGESMOOTH;
+	if (flags & FPDF_RENDER_NO_SMOOTHPATH)
+		pContext->m_pOptions->m_Flags |= RENDER_NOPATHSMOOTH;
 	//Grayscale output
 	if (flags & FPDF_GRAYSCALE)
 	{
@@ -821,24 +723,22 @@ void FPDF_RenderPage_Retail(CRenderContext* pContext, FPDF_PAGE page, int start_
 	pContext->m_pDevice->SaveState();
 	pContext->m_pDevice->SetClip_Rect(&clip);
 
-	pContext->m_pContext = FX_NEW CPDF_RenderContext;
+	pContext->m_pContext = new CPDF_RenderContext;
 	pContext->m_pContext->Create(pPage);
 	pContext->m_pContext->AppendObjectList(pPage, &matrix);
 
 	if (flags & FPDF_ANNOT) {
-		pContext->m_pAnnots = FX_NEW CPDF_AnnotList(pPage);
+		pContext->m_pAnnots = new CPDF_AnnotList(pPage);
 		FX_BOOL bPrinting = pContext->m_pDevice->GetDeviceClass() != FXDC_DISPLAY;
 		pContext->m_pAnnots->DisplayAnnots(pPage, pContext->m_pContext, bPrinting, &matrix, TRUE, NULL);
 	}
 
-	pContext->m_pRenderer = FX_NEW CPDF_ProgressiveRenderer;
+	pContext->m_pRenderer = new CPDF_ProgressiveRenderer;
 	pContext->m_pRenderer->Start(pContext->m_pContext, pContext->m_pDevice, pContext->m_pOptions, pause);
 	if (bNeedToRestore)
 	{
 	  pContext->m_pDevice->RestoreState();
 	}
-	
-//#endif
 }
 
 DLLEXPORT int STDCALL FPDF_GetPageSizeByIndex(FPDF_DOCUMENT document, int page_index, double* width, double* height)
@@ -866,14 +766,111 @@ DLLEXPORT FPDF_BOOL STDCALL FPDF_VIEWERREF_GetPrintScaling(FPDF_DOCUMENT documen
 	return viewRef.PrintScaling();
 }
 
+DLLEXPORT int STDCALL FPDF_VIEWERREF_GetNumCopies(FPDF_DOCUMENT document)
+{
+    CPDF_Document* pDoc = (CPDF_Document*)document;
+    if (!pDoc) return 1;
+    CPDF_ViewerPreferences viewRef(pDoc);
+    return viewRef.NumCopies();
+}
+
+DLLEXPORT FPDF_PAGERANGE STDCALL FPDF_VIEWERREF_GetPrintPageRange(FPDF_DOCUMENT document)
+{
+    CPDF_Document* pDoc = (CPDF_Document*)document;
+    if (!pDoc) return NULL;
+    CPDF_ViewerPreferences viewRef(pDoc);
+    return viewRef.PrintPageRange();
+}
+
+DLLEXPORT FPDF_DUPLEXTYPE STDCALL FPDF_VIEWERREF_GetDuplex(FPDF_DOCUMENT document)
+{
+    CPDF_Document* pDoc = (CPDF_Document*)document;
+    if (!pDoc) return DuplexUndefined;
+    CPDF_ViewerPreferences viewRef(pDoc);
+    CFX_ByteString duplex = viewRef.Duplex();
+    if (FX_BSTRC("Simplex") == duplex)
+        return Simplex;
+    if (FX_BSTRC("DuplexFlipShortEdge") == duplex)
+        return DuplexFlipShortEdge;
+    if (FX_BSTRC("DuplexFlipLongEdge") == duplex)
+        return DuplexFlipLongEdge;
+    return DuplexUndefined;
+}
+
+DLLEXPORT FPDF_DWORD STDCALL FPDF_CountNamedDests(FPDF_DOCUMENT document)
+{
+    if (!document) return 0;
+    CPDF_Document* pDoc = (CPDF_Document*)document;
+
+    CPDF_Dictionary* pRoot = pDoc->GetRoot();
+    if (!pRoot) return 0;
+
+    CPDF_NameTree nameTree(pDoc, FX_BSTRC("Dests"));
+    int count = nameTree.GetCount();
+    CPDF_Dictionary* pDest = pRoot->GetDict(FX_BSTRC("Dests"));
+    if (pDest)
+        count += pDest->GetCount();
+    return count;
+}
+
 DLLEXPORT FPDF_DEST STDCALL FPDF_GetNamedDestByName(FPDF_DOCUMENT document,FPDF_BYTESTRING name)
 {
-	if (document == NULL)
+	if (!document)
 		return NULL;
-	if (name == NULL || name[0] == 0) 
+	if (!name || name[0] == 0) 
 		return NULL;
 
 	CPDF_Document* pDoc = (CPDF_Document*)document;
 	CPDF_NameTree name_tree(pDoc, FX_BSTRC("Dests"));
 	return name_tree.LookupNamedDest(pDoc, name);
+}
+
+DLLEXPORT FPDF_DEST STDCALL FPDF_GetNamedDest(FPDF_DOCUMENT document, int index, void* buffer, long* buflen)
+{
+    if (!buffer)
+        *buflen = 0;
+    if (!document || index < 0) return NULL;
+    CPDF_Document* pDoc = (CPDF_Document*)document;
+
+    CPDF_Dictionary* pRoot = pDoc->GetRoot();
+    if (!pRoot) return NULL;
+
+    CPDF_Object* pDestObj = NULL;
+    CFX_ByteString bsName;
+    CPDF_NameTree nameTree(pDoc, FX_BSTRC("Dests"));
+    int count = nameTree.GetCount();
+    if (index >= count) {
+        CPDF_Dictionary* pDest = pRoot->GetDict(FX_BSTRC("Dests"));
+        if (!pDest) return NULL;
+        if (index >= count + pDest->GetCount()) return NULL;
+        index -= count;
+        FX_POSITION pos = pDest->GetStartPos();
+        int i = 0;
+        while (pos) {
+            pDestObj = pDest->GetNextElement(pos, bsName);
+            if (!pDestObj) continue;
+            if (i == index) break;
+            i++;
+        }
+    } else {
+        pDestObj = nameTree.LookupValue(index, bsName);
+    }
+    if (!pDestObj) return NULL;
+    if (pDestObj->GetType() == PDFOBJ_DICTIONARY) {
+        pDestObj = ((CPDF_Dictionary*)pDestObj)->GetArray(FX_BSTRC("D"));
+        if (!pDestObj) return NULL;
+    }
+    if (pDestObj->GetType() != PDFOBJ_ARRAY) return NULL;
+    CFX_WideString wsName = PDF_DecodeText(bsName);
+    CFX_ByteString utf16Name = wsName.UTF16LE_Encode();
+    unsigned int len = utf16Name.GetLength();
+    if (!buffer) {
+        *buflen = len;
+    } else if (*buflen >= len) {
+        memcpy(buffer, utf16Name.c_str(), len);
+        *buflen = len;
+    } else {
+        *buflen = -1;
+    }
+    return (FPDF_DEST)pDestObj;
 }

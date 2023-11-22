@@ -4,11 +4,19 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FSDK_ACTIONHANDLER_H_
-#define _FSDK_ACTIONHANDLER_H_
+#ifndef FPDFSDK_INCLUDE_FSDK_ACTIONHANDLER_H_
+#define FPDFSDK_INCLUDE_FSDK_ACTIONHANDLER_H_
 
+#include "../../core/include/fpdfdoc/fpdf_doc.h"
+#include "../../core/include/fxcrt/fx_string.h"
+#include "fsdk_baseform.h"
 
+class CFX_PtrList;
 class CPDFDoc_Environment;
+class CPDFSDK_Annot;
+class CPDFSDK_Document;
+class CPDF_Bookmark;
+class CPDF_Dictionary;
 class IFXJS_Runtime;
 
 class CPDFSDK_FormActionHandler
@@ -73,10 +81,8 @@ private:
 	void				DoAction_SetOCGState(CPDFSDK_Document* pDocument, /*CReader_DocView* pDocView,*/ const CPDF_Action& action);
 	
 private:
-	CPDFDoc_Environment*			m_pEvi;
 	CPDFSDK_FormActionHandler*		m_pFormActionHandler;
 	CPDFSDK_MediaActionHandler*		m_pMediaActionHandler;
 };
 
-#endif //_BA_ACTIONHANDLER_H_
-
+#endif  // FPDFSDK_INCLUDE_FSDK_ACTIONHANDLER_H_

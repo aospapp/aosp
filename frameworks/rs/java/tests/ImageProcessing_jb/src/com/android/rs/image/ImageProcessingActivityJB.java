@@ -32,6 +32,7 @@ import android.view.TextureView;
 import android.view.Surface;
 import android.graphics.SurfaceTexture;
 import android.graphics.Point;
+import android.view.WindowManager;
 
 import android.util.Log;
 import android.renderscript.ScriptC;
@@ -624,6 +625,7 @@ public class ImageProcessingActivityJB extends Activity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         mDisplayView = (SizedTV) findViewById(R.id.display);
 

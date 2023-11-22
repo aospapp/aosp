@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.features.CollectionSize;
 
 import java.util.Collection;
@@ -28,10 +29,9 @@ import java.util.Collection;
  * {@link PerCollectionSizeTestSuiteBuilder} constructs instances of it from
  * a more general {@link TestCollectionGenerator}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public interface OneSizeTestContainerGenerator<T, E>
     extends TestSubjectGenerator<T>, TestContainerGenerator<T, E> {
   TestContainerGenerator<T, E> getInnerGenerator();

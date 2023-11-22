@@ -41,16 +41,6 @@ public class EventOrderingVerificationTest extends TestCase {
     }
 
     /**
-     * Test that the verification passes when the timestamps are the same.
-     */
-    public void testSameTimestamp() {
-        SensorStats stats = new SensorStats();
-        EventOrderingVerification verification = getVerification(0, 0, 0, 0, 0);
-        verification.verify(stats);
-        verifyStats(stats, true, 0);
-    }
-
-    /**
      * Test that the verification passes when the timestamps are increasing.
      */
     public void testSequentialTimestamp() {

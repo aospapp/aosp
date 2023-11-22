@@ -71,7 +71,7 @@ void CheckErr( SLresult res )
 
 //-----------------------------------------------------------------
 /* PrefetchStatusItf callback for an audio player */
-void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext, SLuint32 event)
+void PrefetchEventCallback( SLPrefetchStatusItf caller,  void *pContext __unused, SLuint32 event)
 {
     SLpermille level = 0;
     (*caller)->GetFillLevel(caller, &level);

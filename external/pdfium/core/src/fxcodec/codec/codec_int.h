@@ -4,7 +4,16 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
+#ifndef CORE_SRC_FXCODEC_CODEC_CODEC_INT_H_
+#define CORE_SRC_FXCODEC_CODEC_CODEC_INT_H_
+
 #include <limits.h>
+#include <list>
+
+#include "../../../include/fxcodec/fx_codec.h"
+#include "../jbig2/JBig2_Context.h"
+#include "../fx_libopenjpeg/libopenjpeg20/openjpeg.h"  // For OPJ_SIZE_T.
+
 class CCodec_BasicModule : public ICodec_BasicModule
 {
 public:
@@ -162,20 +171,22 @@ public:
                                             FX_DWORD dwPrfIntent = Icc_INTENT_ABSOLUTE_COLORIMETRIC,
                                             FX_DWORD dwPrfFlag = Icc_FLAGS_SOFTPROOFING
                                       );
-    virtual FX_LPVOID		CreateTransform_sRGB(FX_LPCBYTE pProfileData, unsigned int dwProfileSize, int nComponents, int intent = 0,
+    virtual FX_LPVOID		CreateTransform_sRGB(FX_LPCBYTE pProfileData, FX_DWORD dwProfileSize, FX_INT32& nComponents, FX_INT32 intent = 0,
             FX_DWORD dwSrcFormat = Icc_FORMAT_DEFAULT);
-    virtual FX_LPVOID		CreateTransform_CMYK(FX_LPCBYTE pSrcProfileData, unsigned int dwSrcProfileSize, int nSrcComponents,
-            FX_LPCBYTE pDstProfileData, unsigned int dwDstProfileSize, int intent = 0,
+    virtual FX_LPVOID		CreateTransform_CMYK(FX_LPCBYTE pSrcProfileData, FX_DWORD dwSrcProfileSize, FX_INT32& nSrcComponents,
+            FX_LPCBYTE pDstProfileData, FX_DWORD dwDstProfileSize, FX_INT32 intent = 0,
             FX_DWORD dwSrcFormat = Icc_FORMAT_DEFAULT,
             FX_DWORD dwDstFormat = Icc_FORMAT_DEFAULT
                                            );
     virtual void			DestroyTransform(FX_LPVOID pTransform);
     virtual void			Translate(FX_LPVOID pTransform, FX_FLOAT* pSrcValues, FX_FLOAT* pDestValues);
     virtual void			TranslateScanline(FX_LPVOID pTransform, FX_LPBYTE pDest, FX_LPCBYTE pSrc, int pixels);
+    virtual void                        SetComponents(FX_DWORD nComponents) {m_nComponents = nComponents;}
     virtual ~CCodec_IccModule();
 protected:
     CFX_MapByteStringToPtr		m_MapTranform;
     CFX_MapByteStringToPtr		m_MapProfile;
+    FX_DWORD                            m_nComponents;
     typedef enum {
         Icc_CLASS_INPUT = 0,
         Icc_CLASS_OUTPUT,
@@ -194,8 +205,7 @@ public:
     FX_BOOL		Decode(void* ctx, FX_LPBYTE dest_data, int pitch, FX_BOOL bTranslateColor, FX_LPBYTE offsets);
     void		DestroyDecoder(void* ctx);
 };
-#include "../jbig2/JBig2_Context.h"
-class CPDF_Jbig2Interface : public CFX_Object, public CJBig2_Module
+class CPDF_Jbig2Interface : public CJBig2_Module
 {
 public:
     virtual void *JBig2_Malloc(FX_DWORD dwSize)
@@ -229,7 +239,7 @@ public:
         FX_Free(pMem);
     }
 };
-class CCodec_Jbig2Context : public CFX_Object
+class CCodec_Jbig2Context 
 {
 public:
     CCodec_Jbig2Context();
@@ -266,5 +276,24 @@ public:
     FXCODEC_STATUS		ContinueDecode(void* pJbig2Context, IFX_Pause* pPause);
     void				DestroyJbig2Context(void* pJbig2Context);
     CPDF_Jbig2Interface	m_Module;
+    std::list<CJBig2_CachePair> m_SymbolDictCache;
 private:
 };
+
+struct DecodeData {
+public:
+    DecodeData(unsigned char* src_data, OPJ_SIZE_T src_size) :
+        src_data(src_data), src_size(src_size), offset(0) {
+    }
+    unsigned char* src_data;
+    OPJ_SIZE_T     src_size;
+    OPJ_SIZE_T     offset;
+};
+
+/* Wrappers for C-style callbacks. */
+OPJ_SIZE_T opj_read_from_memory (void* p_buffer, OPJ_SIZE_T nb_bytes,  void* p_user_data);
+OPJ_SIZE_T opj_write_from_memory (void* p_buffer, OPJ_SIZE_T nb_bytes, void* p_user_data);
+OPJ_OFF_T opj_skip_from_memory (OPJ_OFF_T nb_bytes, void* p_user_data);
+OPJ_BOOL opj_seek_from_memory (OPJ_OFF_T nb_bytes, void* p_user_data);
+
+#endif  // CORE_SRC_FXCODEC_CODEC_CODEC_INT_H_

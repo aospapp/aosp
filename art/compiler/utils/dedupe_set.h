@@ -26,6 +26,7 @@
 #include "base/mutex.h"
 #include "base/stl_util.h"
 #include "base/stringprintf.h"
+#include "base/time_utils.h"
 #include "utils/swap_space.h"
 
 namespace art {
@@ -40,8 +41,8 @@ class DedupeSet {
   struct HashedKey {
     StoreKey* store_ptr;
     union {
-      HashType store_hash;        // Valid if store_ptr != nullptr.
-      const HashedInKey* in_key;  // Valid if store_ptr == nullptr.
+      HashType store_hash;        // Valid if store_ptr != null.
+      const HashedInKey* in_key;  // Valid if store_ptr == null.
     };
   };
 

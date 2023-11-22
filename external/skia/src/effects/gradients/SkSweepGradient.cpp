@@ -8,13 +8,16 @@
 
 #include "SkSweepGradient.h"
 
-SkSweepGradient::SkSweepGradient(SkScalar cx, SkScalar cy,
-                                 const Descriptor& desc, const SkMatrix* localMatrix)
-    : SkGradientShaderBase(desc, localMatrix)
+static SkMatrix translate(SkScalar dx, SkScalar dy) {
+    SkMatrix matrix;
+    matrix.setTranslate(dx, dy);
+    return matrix;
+}
+
+SkSweepGradient::SkSweepGradient(SkScalar cx, SkScalar cy, const Descriptor& desc)
+    : SkGradientShaderBase(desc, translate(-cx, -cy))
     , fCenter(SkPoint::Make(cx, cy))
 {
-    fPtsToUnit.setTranslate(-cx, -cy);
-
     // overwrite the tilemode to a canonical value (since sweep ignores it)
     fTileMode = SkShader::kClamp_TileMode;
 }
@@ -42,9 +45,14 @@ SkShader::GradientType SkSweepGradient::asAGradient(GradientInfo* info) const {
     return kSweep_GradientType;
 }
 
-SkSweepGradient::SkSweepGradient(SkReadBuffer& buffer)
-    : INHERITED(buffer),
-      fCenter(buffer.readPoint()) {
+SkFlattenable* SkSweepGradient::CreateProc(SkReadBuffer& buffer) {
+    DescriptorScope desc;
+    if (!desc.unflatten(buffer)) {
+        return NULL;
+    }
+    const SkPoint center = buffer.readPoint();
+    return SkGradientShader::CreateSweep(center.x(), center.y(), desc.fColors, desc.fPos,
+                                         desc.fCount, desc.fGradFlags, desc.fLocalMatrix);
 }
 
 void SkSweepGradient::flatten(SkWriteBuffer& buffer) const {
@@ -173,26 +181,24 @@ void SkSweepGradient::SweepGradientContext::shadeSpan16(int x, int y, uint16_t* 
 
 #if SK_SUPPORT_GPU
 
-#include "GrTBackendEffectFactory.h"
 #include "SkGr.h"
+#include "gl/builders/GrGLProgramBuilder.h"
 
 class GrGLSweepGradient : public GrGLGradientEffect {
 public:
 
-    GrGLSweepGradient(const GrBackendEffectFactory& factory,
-                      const GrDrawEffect&) : INHERITED (factory) { }
+    GrGLSweepGradient(const GrProcessor&) {}
     virtual ~GrGLSweepGradient() { }
 
-    virtual void emitCode(GrGLShaderBuilder*,
-                          const GrDrawEffect&,
-                          EffectKey,
+    virtual void emitCode(GrGLFPBuilder*,
+                          const GrFragmentProcessor&,
                           const char* outputColor,
                           const char* inputColor,
                           const TransformedCoordsArray&,
-                          const TextureSamplerArray&) SK_OVERRIDE;
+                          const TextureSamplerArray&) override;
 
-    static EffectKey GenKey(const GrDrawEffect& drawEffect, const GrGLCaps&) {
-        return GenBaseGradientKey(drawEffect);
+    static void GenKey(const GrProcessor& processor, const GrGLSLCaps&, GrProcessorKeyBuilder* b) {
+        b->add32(GenBaseGradientKey(processor));
     }
 
 private:
@@ -205,39 +211,43 @@ private:
 
 class GrSweepGradient : public GrGradientEffect {
 public:
-    static GrEffectRef* Create(GrContext* ctx,
-                               const SkSweepGradient& shader,
-                               const SkMatrix& matrix) {
-        AutoEffectUnref effect(SkNEW_ARGS(GrSweepGradient, (ctx, shader, matrix)));
-        return CreateEffectRef(effect);
+    static GrFragmentProcessor* Create(GrContext* ctx, const SkSweepGradient& shader,
+                                       const SkMatrix& m) {
+        return SkNEW_ARGS(GrSweepGradient, (ctx, shader, m));
     }
     virtual ~GrSweepGradient() { }
 
-    static const char* Name() { return "Sweep Gradient"; }
-    virtual const GrBackendEffectFactory& getFactory() const SK_OVERRIDE {
-        return GrTBackendEffectFactory<GrSweepGradient>::getInstance();
+    const char* name() const override { return "Sweep Gradient"; }
+
+    virtual void getGLProcessorKey(const GrGLSLCaps& caps,
+                                   GrProcessorKeyBuilder* b) const override {
+        GrGLSweepGradient::GenKey(*this, caps, b);
     }
 
-    typedef GrGLSweepGradient GLEffect;
+    GrGLFragmentProcessor* createGLInstance() const override {
+        return SkNEW_ARGS(GrGLSweepGradient, (*this));
+    }
 
 private:
     GrSweepGradient(GrContext* ctx,
                     const SkSweepGradient& shader,
                     const SkMatrix& matrix)
-    : INHERITED(ctx, shader, matrix, SkShader::kClamp_TileMode) { }
-    GR_DECLARE_EFFECT_TEST;
+    : INHERITED(ctx, shader, matrix, SkShader::kClamp_TileMode) {
+        this->initClassID<GrSweepGradient>();
+    }
+    GR_DECLARE_FRAGMENT_PROCESSOR_TEST;
 
     typedef GrGradientEffect INHERITED;
 };
 
 /////////////////////////////////////////////////////////////////////
 
-GR_DEFINE_EFFECT_TEST(GrSweepGradient);
+GR_DEFINE_FRAGMENT_PROCESSOR_TEST(GrSweepGradient);
 
-GrEffectRef* GrSweepGradient::TestCreate(SkRandom* random,
-                                         GrContext* context,
-                                         const GrDrawTargetCaps&,
-                                         GrTexture**) {
+GrFragmentProcessor* GrSweepGradient::TestCreate(SkRandom* random,
+                                                 GrContext* context,
+                                                 const GrDrawTargetCaps&,
+                                                 GrTexture**) {
     SkPoint center = {random->nextUScalar1(), random->nextUScalar1()};
 
     SkColor colors[kMaxRandomGradientColors];
@@ -248,23 +258,25 @@ GrEffectRef* GrSweepGradient::TestCreate(SkRandom* random,
     SkAutoTUnref<SkShader> shader(SkGradientShader::CreateSweep(center.fX, center.fY,
                                                                 colors, stops, colorCount));
     SkPaint paint;
-    GrEffectRef* effect;
-    GrColor grColor;
-    shader->asNewEffect(context, paint, NULL, &grColor, &effect);
-    return effect;
+    GrFragmentProcessor* fp;
+    GrColor paintColor;
+    SkAssertResult(shader->asFragmentProcessor(context, paint,
+                                               GrTest::TestMatrix(random), NULL,
+                                               &paintColor, &fp));
+    return fp;
 }
 
 /////////////////////////////////////////////////////////////////////
 
-void GrGLSweepGradient::emitCode(GrGLShaderBuilder* builder,
-                                 const GrDrawEffect&,
-                                 EffectKey key,
+void GrGLSweepGradient::emitCode(GrGLFPBuilder* builder,
+                                 const GrFragmentProcessor& fp,
                                  const char* outputColor,
                                  const char* inputColor,
                                  const TransformedCoordsArray& coords,
                                  const TextureSamplerArray& samplers) {
-    this->emitUniforms(builder, key);
-    SkString coords2D = builder->ensureFSCoords2D(coords, 0);
+    const GrSweepGradient& ge = fp.cast<GrSweepGradient>();
+    this->emitUniforms(builder, ge);
+    SkString coords2D = builder->getFragmentShaderBuilder()->ensureFSCoords2D(coords, 0);
     const GrGLContextInfo ctxInfo = builder->ctxInfo();
     SkString t;
     // 0.1591549430918 is 1/(2*pi), used since atan returns values [-pi, pi]
@@ -277,16 +289,16 @@ void GrGLSweepGradient::emitCode(GrGLShaderBuilder* builder,
         t.printf("atan(- %s.y, -1.0 * %s.x) * 0.1591549430918 + 0.5",
                  coords2D.c_str(), coords2D.c_str());
     }
-    this->emitColor(builder, t.c_str(), key,
-                          outputColor, inputColor, samplers);
+    this->emitColor(builder, ge, t.c_str(), outputColor, inputColor, samplers);
 }
 
 /////////////////////////////////////////////////////////////////////
 
-bool SkSweepGradient::asNewEffect(GrContext* context, const SkPaint& paint,
-                                  const SkMatrix* localMatrix, GrColor* grColor,
-                                  GrEffectRef** grEffect)  const {
-    
+bool SkSweepGradient::asFragmentProcessor(GrContext* context, const SkPaint& paint,
+                                          const SkMatrix& viewM,
+                                          const SkMatrix* localMatrix, GrColor* paintColor,
+                                          GrFragmentProcessor** effect)  const {
+
     SkMatrix matrix;
     if (!this->getLocalMatrix().invert(&matrix)) {
         return false;
@@ -299,18 +311,18 @@ bool SkSweepGradient::asNewEffect(GrContext* context, const SkPaint& paint,
         matrix.postConcat(inv);
     }
     matrix.postConcat(fPtsToUnit);
-    
-    *grEffect = GrSweepGradient::Create(context, *this, matrix);
-    *grColor = SkColor2GrColorJustAlpha(paint.getColor());
-    
+
+    *effect = GrSweepGradient::Create(context, *this, matrix);
+    *paintColor = SkColor2GrColorJustAlpha(paint.getColor());
+
     return true;
 }
 
 #else
 
-bool SkSweepGradient::asNewEffect(GrContext* context, const SkPaint& paint,
-                                  const SkMatrix* localMatrix, GrColor* grColor,
-                                  GrEffectRef** grEffect)  const {
+bool SkSweepGradient::asFragmentProcessor(GrContext*, const SkPaint&, const SkMatrix&,
+                                          const SkMatrix*, GrColor*,
+                                          GrFragmentProcessor**)  const {
     SkDEBUGFAIL("Should not call in GPU-less build");
     return false;
 }

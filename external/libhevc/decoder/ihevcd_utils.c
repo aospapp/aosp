@@ -246,13 +246,14 @@ WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
                                      WORD32 level,
                                      WORD32 horz_pad,
                                      WORD32 vert_pad,
-                                     WORD32 num_ref_frames,
-                                     WORD32 num_reorder_frames)
+                                     WORD32 init_num_bufs,
+                                     WORD32 init_extra_bufs,
+                                     WORD32 chroma_only)
 {
     WORD32 size;
     WORD32 num_luma_samples;
     WORD32 lvl_idx;
-    WORD32 max_wd;
+    WORD32 max_wd, min_ht;
     WORD32 max_dpb_size;
     WORD32 num_samples;
     WORD32 max_num_bufs;
@@ -267,20 +268,29 @@ WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
     /* If num_ref_frames and num_reorder_frmaes is specified
      * Use minimum value
      */
-    max_num_bufs = MIN(max_num_bufs, (num_ref_frames + num_reorder_frames + 1));
+    max_num_bufs = MIN(max_num_bufs, init_num_bufs);
+
+    /*
+     * Add extra buffers if required
+     */
+    max_num_bufs += init_extra_bufs;
+    max_num_bufs = MIN(max_num_bufs, BUF_MGR_MAX_CNT);
 
     /* Get level index */
     lvl_idx = ihevcd_get_lvl_idx(level);
 
-    /* Maximum number of luma samples in a picture at given level */
-    num_luma_samples = gai4_ihevc_max_luma_pic_size[lvl_idx];
-
-    /* Account for chroma */
-    num_samples = num_luma_samples * 3 / 2;
 
     /* Maximum width of luma samples in a picture at given level */
-    max_wd = gai4_ihevc_max_wd_ht[lvl_idx];
+    max_wd = ALIGN64(gai4_ihevc_max_wd_ht[lvl_idx]);
 
+    /* Minimum height of luma samples in a picture at given level */
+    min_ht = ALIGN64(gai4_ihevc_min_wd_ht[lvl_idx]);
+
+    /* Use max_wd and min_ht to get maximum number of luma samples for given level */
+    /* Because max_wd and min_ht are aligned to 64, product will be higher than the
+     * value given by the spec for a given level
+     */
+    num_luma_samples = max_wd * min_ht;
 
     /* Allocation is required for
      * (Wd + horz_pad) * (Ht + vert_pad) * (2 * max_dpb_size + 1)
@@ -299,11 +309,19 @@ WORD32 ihevcd_get_total_pic_buf_size(WORD32 pic_size,
      * So use max_wd and min_ht
      */
 
+    /* Account for padding area */
+
+    num_luma_samples += (pad * pad) + pad * (max_wd + min_ht);
+
+    /* Account for chroma */
+    if(0 == chroma_only)
+        num_samples = num_luma_samples * 3 / 2;
+    else
+        num_samples = num_luma_samples / 2;
+
     /* Number of bytes in reference pictures */
     size = num_samples * max_num_bufs;
 
-    /* Account for padding area */
-    size += ((pad * pad) + pad * (max_wd + max_wd)) * max_num_bufs;
 
     return size;
 }
@@ -353,7 +371,6 @@ WORD32 ihevcd_get_pic_mv_bank_size(WORD32 num_luma_samples)
 
     /* Size for storing pu_t for each PU */
     mv_bank_size += num_pu * sizeof(pu_t);
-
 
     size =  mv_bank_size;
     return size;
@@ -683,9 +700,9 @@ IHEVCD_ERROR_T ihevcd_mv_buf_mgr_add_bufs(codec_t *ps_codec)
     pu1_buf = (UWORD8 *)ps_codec->pv_mv_bank_buf_base;
 
     ps_mv_buf = (mv_buf_t *)pu1_buf;
-    pu1_buf += BUF_MGR_MAX_CNT  * sizeof(mv_buf_t);
+    pu1_buf += (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
     ps_codec->ps_mv_buf = ps_mv_buf;
-    mv_bank_size_allocated = ps_codec->i4_total_mv_bank_size - BUF_MGR_MAX_CNT * sizeof(mv_buf_t);
+    mv_bank_size_allocated = ps_codec->i4_total_mv_bank_size - (MAX_DPB_SIZE + 1) * sizeof(mv_buf_t);
 
     /* Compute MV bank size per picture */
     pic_mv_bank_size = ihevcd_get_pic_mv_bank_size(ps_sps->i2_pic_width_in_luma_samples *

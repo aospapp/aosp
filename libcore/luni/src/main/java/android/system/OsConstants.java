@@ -95,6 +95,8 @@ public final class OsConstants {
 
     public static final int AF_INET = placeholder();
     public static final int AF_INET6 = placeholder();
+    /** @hide */ public static final int AF_NETLINK = placeholder();
+    /** @hide */ public static final int AF_PACKET = placeholder();
     public static final int AF_UNIX = placeholder();
     public static final int AF_UNSPEC = placeholder();
     public static final int AI_ADDRCONFIG = placeholder();
@@ -104,6 +106,8 @@ public final class OsConstants {
     public static final int AI_NUMERICSERV = placeholder();
     public static final int AI_PASSIVE = placeholder();
     public static final int AI_V4MAPPED = placeholder();
+    /** @hide */ public static final int ARPHRD_ETHER = placeholder();
+    /** @hide */ public static final int ARPHRD_LOOPBACK = placeholder();
     public static final int CAP_AUDIT_CONTROL = placeholder();
     public static final int CAP_AUDIT_WRITE = placeholder();
     public static final int CAP_BLOCK_SUSPEND = placeholder();
@@ -203,6 +207,7 @@ public final class OsConstants {
     public static final int ENOLINK = placeholder();
     public static final int ENOMEM = placeholder();
     public static final int ENOMSG = placeholder();
+    /** @hide */ public static final int ENONET = placeholder();
     public static final int ENOPROTOOPT = placeholder();
     public static final int ENOSPC = placeholder();
     public static final int ENOSR = placeholder();
@@ -227,6 +232,9 @@ public final class OsConstants {
     public static final int ESPIPE = placeholder();
     public static final int ESRCH = placeholder();
     public static final int ESTALE = placeholder();
+    /** @hide */ public static final int ETH_P_ARP = placeholder();
+    /** @hide */ public static final int ETH_P_IP = placeholder();
+    /** @hide */ public static final int ETH_P_IPV6 = placeholder();
     public static final int ETIME = placeholder();
     public static final int ETIMEDOUT = placeholder();
     public static final int ETXTBSY = placeholder();
@@ -324,6 +332,7 @@ public final class OsConstants {
     public static final int MS_ASYNC = placeholder();
     public static final int MS_INVALIDATE = placeholder();
     public static final int MS_SYNC = placeholder();
+    /** @hide */ public static final int NETLINK_ROUTE = placeholder();
     public static final int NI_DGRAM = placeholder();
     public static final int NI_NAMEREQD = placeholder();
     public static final int NI_NOFQDN = placeholder();
@@ -331,6 +340,7 @@ public final class OsConstants {
     public static final int NI_NUMERICSERV = placeholder();
     public static final int O_ACCMODE = placeholder();
     public static final int O_APPEND = placeholder();
+    /** @hide */ public static final int O_CLOEXEC = placeholder();
     public static final int O_CREAT = placeholder();
     public static final int O_EXCL = placeholder();
     public static final int O_NOCTTY = placeholder();
@@ -364,6 +374,19 @@ public final class OsConstants {
     public static final int RT_SCOPE_NOWHERE = placeholder();
     public static final int RT_SCOPE_SITE = placeholder();
     public static final int RT_SCOPE_UNIVERSE = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV4_IFADDR = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV4_MROUTE = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV4_ROUTE = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV4_RULE = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV6_IFADDR = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV6_IFINFO = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV6_MROUTE = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV6_PREFIX = placeholder();
+    /** @hide */ public static final int RTMGRP_IPV6_ROUTE = placeholder();
+    /** @hide */ public static final int RTMGRP_LINK = placeholder();
+    /** @hide */ public static final int RTMGRP_NEIGH = placeholder();
+    /** @hide */ public static final int RTMGRP_NOTIFY = placeholder();
+    /** @hide */ public static final int RTMGRP_TC = placeholder();
     public static final int SEEK_CUR = placeholder();
     public static final int SEEK_END = placeholder();
     public static final int SEEK_SET = placeholder();
@@ -433,6 +456,15 @@ public final class OsConstants {
     public static final int STDERR_FILENO = placeholder();
     public static final int STDIN_FILENO = placeholder();
     public static final int STDOUT_FILENO = placeholder();
+    public static final int ST_MANDLOCK = placeholder();
+    public static final int ST_NOATIME = placeholder();
+    public static final int ST_NODEV = placeholder();
+    public static final int ST_NODIRATIME = placeholder();
+    public static final int ST_NOEXEC = placeholder();
+    public static final int ST_NOSUID = placeholder();
+    public static final int ST_RDONLY = placeholder();
+    public static final int ST_RELATIME = placeholder();
+    public static final int ST_SYNCHRONOUS = placeholder();
     public static final int S_IFBLK = placeholder();
     public static final int S_IFCHR = placeholder();
     public static final int S_IFDIR = placeholder();
@@ -464,6 +496,8 @@ public final class OsConstants {
     public static final int WSTOPPED = placeholder();
     public static final int WUNTRACED = placeholder();
     public static final int W_OK = placeholder();
+    /** @hide */ public static final int XATTR_CREATE = placeholder();
+    /** @hide */ public static final int XATTR_REPLACE = placeholder();
     public static final int X_OK = placeholder();
     public static final int _SC_2_CHAR_TERM = placeholder();
     public static final int _SC_2_C_BIND = placeholder();
@@ -751,6 +785,9 @@ public final class OsConstants {
         }
         if (errno == ENOMSG) {
             return "ENOMSG";
+        }
+        if (errno == ENONET) {
+            return "ENONET";
         }
         if (errno == ENOPROTOOPT) {
             return "ENOPROTOOPT";

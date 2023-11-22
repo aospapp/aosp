@@ -6,23 +6,21 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Script/InputToken.h>
+#include "mcld/Script/InputToken.h"
 
-using namespace mcld;
+namespace mcld {
 
 //===----------------------------------------------------------------------===//
 // InputToken
 //===----------------------------------------------------------------------===//
-InputToken::InputToken()
-  : m_Type(Unknown), m_bAsNeeded(false)
-{
+InputToken::InputToken() : m_Type(Unknown), m_bAsNeeded(false) {
 }
 
 InputToken::InputToken(Type pType, const std::string& pName, bool pAsNeeded)
-  : StrToken(StrToken::Input, pName), m_Type(pType), m_bAsNeeded(pAsNeeded)
-{
+    : StrToken(StrToken::Input, pName), m_Type(pType), m_bAsNeeded(pAsNeeded) {
 }
 
-InputToken::~InputToken()
-{
+InputToken::~InputToken() {
 }
+
+}  // namespace mcld

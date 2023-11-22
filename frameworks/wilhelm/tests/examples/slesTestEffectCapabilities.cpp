@@ -151,7 +151,7 @@ void TestGenericFxCapabilities(  )
 }
 
 //-----------------------------------------------------------------
-int main(int argc, char* const argv[])
+int main(int argc __unused, char* const argv[])
 {
     SLresult    result;
     SLObjectItf sl;

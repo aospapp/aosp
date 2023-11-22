@@ -50,6 +50,7 @@ import com.android.contacts.common.model.account.ExchangeAccountType;
 import com.android.contacts.common.model.account.ExternalAccountType;
 import com.android.contacts.common.model.account.FallbackAccountType;
 import com.android.contacts.common.model.account.GoogleAccountType;
+import com.android.contacts.common.model.account.SamsungAccountType;
 import com.android.contacts.common.model.dataitem.DataKind;
 import com.android.contacts.common.testing.NeededForTesting;
 import com.android.contacts.common.util.Constants;
@@ -126,7 +127,10 @@ public abstract class AccountTypeManager {
     }
 
     public final AccountType getAccountTypeForAccount(AccountWithDataSet account) {
-        return getAccountType(account.getAccountTypeWithDataSet());
+        if (account != null) {
+            return getAccountType(account.getAccountTypeWithDataSet());
+        }
+        return getAccountType(null, null);
     }
 
     /**
@@ -243,20 +247,12 @@ class AccountTypeManagerImpl extends AccountTypeManager
     /* A latch that ensures that asynchronous initialization completes before data is used */
     private volatile CountDownLatch mInitializationLatch = new CountDownLatch(1);
 
-    private static final Comparator<Account> ACCOUNT_COMPARATOR = new Comparator<Account>() {
+    private static final Comparator<AccountWithDataSet> ACCOUNT_COMPARATOR =
+        new Comparator<AccountWithDataSet>() {
         @Override
-        public int compare(Account a, Account b) {
-            String aDataSet = null;
-            String bDataSet = null;
-            if (a instanceof AccountWithDataSet) {
-                aDataSet = ((AccountWithDataSet) a).dataSet;
-            }
-            if (b instanceof AccountWithDataSet) {
-                bDataSet = ((AccountWithDataSet) b).dataSet;
-            }
-
+        public int compare(AccountWithDataSet a, AccountWithDataSet b) {
             if (Objects.equal(a.name, b.name) && Objects.equal(a.type, b.type)
-                    && Objects.equal(aDataSet, bDataSet)) {
+                    && Objects.equal(a.dataSet, b.dataSet)) {
                 return 0;
             } else if (b.name == null || b.type == null) {
                 return -1;
@@ -273,8 +269,8 @@ class AccountTypeManagerImpl extends AccountTypeManager
                 }
 
                 // Accounts without data sets get sorted before those that have them.
-                if (aDataSet != null) {
-                    return bDataSet == null ? 1 : aDataSet.compareTo(bDataSet);
+                if (a.dataSet != null) {
+                    return b.dataSet == null ? 1 : a.dataSet.compareTo(b.dataSet);
                 } else {
                     return -1;
                 }
@@ -418,6 +414,9 @@ class AccountTypeManagerImpl extends AccountTypeManager
                 accountType = new GoogleAccountType(mContext, auth.packageName);
             } else if (ExchangeAccountType.isExchangeType(type)) {
                 accountType = new ExchangeAccountType(mContext, auth.packageName, type);
+            } else if (SamsungAccountType.isSamsungAccountType(mContext, type,
+                    auth.packageName)) {
+                accountType = new SamsungAccountType(mContext, auth.packageName, type);
             } else {
                 Log.d(TAG, "Registering external account type=" + type
                         + ", packageName=" + auth.packageName);

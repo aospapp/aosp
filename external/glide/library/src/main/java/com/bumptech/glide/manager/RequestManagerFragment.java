@@ -1,20 +1,52 @@
 package com.bumptech.glide.manager;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Fragment;
-import android.util.Log;
+import android.os.Build;
 
 import com.bumptech.glide.RequestManager;
 
-@TargetApi(11)
+/**
+ * A view-less {@link android.app.Fragment} used to safely store an {@link com.bumptech.glide.RequestManager} that
+ * can be used to start, stop and manage Glide requests started for targets the fragment or activity this fragment is a
+ * child of.
+ *
+ * @see com.bumptech.glide.manager.SupportRequestManagerFragment
+ * @see com.bumptech.glide.manager.RequestManagerRetriever
+ * @see com.bumptech.glide.RequestManager
+ */
+@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 public class RequestManagerFragment extends Fragment {
+    private final ActivityFragmentLifecycle lifecycle;
     private RequestManager requestManager;
-    private static String TAG = "RequestManagerFragment";
 
+    public RequestManagerFragment() {
+        this(new ActivityFragmentLifecycle());
+    }
+
+    // For testing only.
+    @SuppressLint("ValidFragment")
+    RequestManagerFragment(ActivityFragmentLifecycle lifecycle) {
+        this.lifecycle = lifecycle;
+    }
+
+    /**
+     * Sets the current {@link com.bumptech.glide.RequestManager}.
+     *
+     * @param requestManager The request manager to use.
+     */
     public void setRequestManager(RequestManager requestManager) {
         this.requestManager = requestManager;
     }
 
+    ActivityFragmentLifecycle getLifecycle() {
+        return lifecycle;
+    }
+
+    /**
+     * Returns the current {@link com.bumptech.glide.RequestManager} or null if none exists.
+     */
     public RequestManager getRequestManager() {
         return requestManager;
     }
@@ -22,32 +54,18 @@ public class RequestManagerFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        if (requestManager != null) {
-            requestManager.onStart();
-        }
+        lifecycle.onStart();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        if (requestManager != null) {
-            try {
-                requestManager.onStop();
-            } catch (RuntimeException e) {
-                Log.e(TAG, "exception during onStop", e);
-            }
-        }
+        lifecycle.onStop();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (requestManager != null) {
-            try {
-                requestManager.onDestroy();
-            } catch (RuntimeException e) {
-                Log.e(TAG, "exception during onDestroy", e);
-            }
-        }
+        lifecycle.onDestroy();
     }
 }

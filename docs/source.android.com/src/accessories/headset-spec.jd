@@ -24,7 +24,7 @@ page.title=Wired audio headset specification
   </div>
 </div>
 
-<p><em>Version 1.0</em></p>
+<p><em>Version 1.1</em></p>
 
 <p>This document specifies the requirements for headsets and mobile devices to
 function uniformly across the Android ecosystem. It is separated into two
@@ -127,7 +127,7 @@ accessory followed by the specifications for the mobile device.</p>
 <p>Optional</p>
 </td>
     <td>
-<p>Reserved (Nexus devices will use this reserved function to launch Google Now
+<p>Reserved (Nexus devices will use this reserved function to launch Google
 voice search)</p>
 </td>
  </tr>
@@ -284,25 +284,40 @@ current Android Compatibility Definition Document (CDD)</p>
  </tr>
 </table>
 
+<p>In the following diagrams, Button A is mapped to Function A, Button B to
+Function B, and so on.</p>
+
 <h3 id=reference_headset_test_circuit_1>Reference Headset Test Circuit 1</h3>
 
 <img src="images/headset-circuit1.png" alt="Reference Headset Test Circuit 1" />
 <p class="img-caption"><strong>Figure 1.</strong> Reference headset test circuit 1</p>
 
-<p class="note"><strong>Note:</strong> Four-segment plug shows CTIA pinout. For
-OMTP pinout, please swap MIC and GND segments.</p>
+<p class="note"><strong>Note:</strong> The above diagram shows the CTIA pinout
+for a 4-segment plug. For the OMTP pinout, switch the positions of the MIC and
+GND segments.</p>
 
 <h3 id=reference_headset_test_circuit_2>Reference Headset Test Circuit 2</h3>
+
+<p>The second reference circuit shows how the actual resistor values (R1 - R4)
+are altered to meet this specification.</p>
 
 <img src="images/headset-circuit2.png" alt="Reference Headset Test Circuit 2" />
 <p class="img-caption"><strong>Figure 2.</strong> Reference headset test circuit 2</p>
 
-<p class="note"><strong>Note:</strong> The second reference circuit above
-illustrates how the actual resistor values (R1 - R4) will change based on the
-microphone capsule resistance to achieve the equivalent impedance values as
-required by the specification. The example above assumes a 5 kOhm microphone
-impedance. Therefore, as an example, to achieve an equivalent R4 impedance of
-135 Ohm, the actual R4 resistor value needs to be 139 Ohms.</p>
+<p>The actual resistance of the buttons parallel with the microphone (R1-R4) is
+based on the microphone capsule resistance (Rmic) and the equivalent impedance
+values (ReqA-ReqD). Use the following formula:</p>
+
+<p><em>Rn=(Rmic*ReqN) / (ReqN-Rmic)</em></p>
+
+<p>Where R<em>n</em> is the actual resistance of a button, Req<em>N</em> is the
+equivalent impedance value of that button (provided), and Rmic is the
+microphone impedance value.</p>
+
+<p>The example above assumes a 5 kohm microphone impedance (Rmic). Therefore, to
+achieve an equivalent R4 impedance of 135 ohm (ReqD), the actual resistor value
+(R4) needs to be 139 ohms.</p>
+
 
 <h2 id=mobile_device_jack_specifications>Mobile Device (Jack) Specifications</h2>
 
@@ -548,7 +563,7 @@ detection due to slow insertion. </p>
  </tr>
  <tr>
     <td>
-<p>Minimum output voltage drive capacity </p>
+<p>Maximum output voltage drive</p>
 </td>
     <td>
 <p>150mV </p>

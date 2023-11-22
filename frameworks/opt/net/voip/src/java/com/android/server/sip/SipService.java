@@ -16,6 +16,7 @@
 
 package com.android.server.sip;
 
+import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -74,6 +75,8 @@ public final class SipService extends ISipService.Stub {
     private WifiManager.WifiLock mWifiLock;
     private boolean mSipOnWifiOnly;
 
+    private final AppOpsManager mAppOps;
+
     private SipKeepAliveProcessCallback mSipKeepAliveProcessCallback;
 
     private MyExecutor mExecutor = new MyExecutor();
@@ -118,12 +121,14 @@ public final class SipService extends ISipService.Stub {
                 context.getSystemService(Context.POWER_SERVICE));
 
         mTimer = new SipWakeupTimer(context, mExecutor);
+        mAppOps = mContext.getSystemService(AppOpsManager.class);
     }
 
     @Override
-    public synchronized SipProfile[] getListOfProfiles() {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized SipProfile[] getListOfProfiles(String opPackageName) {
+        if (!canUseSip(opPackageName, "getListOfProfiles")) {
+            return new SipProfile[0];
+        }
         boolean isCallerRadio = isCallerRadio();
         ArrayList<SipProfile> profiles = new ArrayList<SipProfile>();
         for (SipSessionGroupExt group : mSipGroups.values()) {
@@ -135,9 +140,10 @@ public final class SipService extends ISipService.Stub {
     }
 
     @Override
-    public synchronized void open(SipProfile localProfile) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized void open(SipProfile localProfile, String opPackageName) {
+        if (!canUseSip(opPackageName, "open")) {
+            return;
+        }
         localProfile.setCallingUid(Binder.getCallingUid());
         try {
             createGroup(localProfile);
@@ -150,9 +156,11 @@ public final class SipService extends ISipService.Stub {
     @Override
     public synchronized void open3(SipProfile localProfile,
             PendingIntent incomingCallPendingIntent,
-            ISipSessionListener listener) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+            ISipSessionListener listener,
+            String opPackageName) {
+        if (!canUseSip(opPackageName, "open3")) {
+            return;
+        }
         localProfile.setCallingUid(Binder.getCallingUid());
         if (incomingCallPendingIntent == null) {
             if (DBG) log("open3: incomingCallPendingIntent cannot be null; "
@@ -188,9 +196,10 @@ public final class SipService extends ISipService.Stub {
     }
 
     @Override
-    public synchronized void close(String localProfileUri) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized void close(String localProfileUri, String opPackageName) {
+        if (!canUseSip(opPackageName, "close")) {
+            return;
+        }
         SipSessionGroupExt group = mSipGroups.get(localProfileUri);
         if (group == null) return;
         if (!isCallerCreatorOrRadio(group)) {
@@ -206,9 +215,10 @@ public final class SipService extends ISipService.Stub {
     }
 
     @Override
-    public synchronized boolean isOpened(String localProfileUri) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized boolean isOpened(String localProfileUri, String opPackageName) {
+        if (!canUseSip(opPackageName, "isOpened")) {
+            return false;
+        }
         SipSessionGroupExt group = mSipGroups.get(localProfileUri);
         if (group == null) return false;
         if (isCallerCreatorOrRadio(group)) {
@@ -220,9 +230,10 @@ public final class SipService extends ISipService.Stub {
     }
 
     @Override
-    public synchronized boolean isRegistered(String localProfileUri) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized boolean isRegistered(String localProfileUri, String opPackageName) {
+        if (!canUseSip(opPackageName, "isRegistered")) {
+            return false;
+        }
         SipSessionGroupExt group = mSipGroups.get(localProfileUri);
         if (group == null) return false;
         if (isCallerCreatorOrRadio(group)) {
@@ -235,9 +246,10 @@ public final class SipService extends ISipService.Stub {
 
     @Override
     public synchronized void setRegistrationListener(String localProfileUri,
-            ISipSessionListener listener) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+            ISipSessionListener listener, String opPackageName) {
+        if (!canUseSip(opPackageName, "setRegistrationListener")) {
+            return;
+        }
         SipSessionGroupExt group = mSipGroups.get(localProfileUri);
         if (group == null) return;
         if (isCallerCreator(group)) {
@@ -249,10 +261,11 @@ public final class SipService extends ISipService.Stub {
 
     @Override
     public synchronized ISipSession createSession(SipProfile localProfile,
-            ISipSessionListener listener) {
+            ISipSessionListener listener, String opPackageName) {
         if (DBG) log("createSession: profile" + localProfile);
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+        if (!canUseSip(opPackageName, "createSession")) {
+            return null;
+        }
         localProfile.setCallingUid(Binder.getCallingUid());
         if (mNetworkType == -1) {
             if (DBG) log("createSession: mNetworkType==-1 ret=null");
@@ -268,9 +281,10 @@ public final class SipService extends ISipService.Stub {
     }
 
     @Override
-    public synchronized ISipSession getPendingSession(String callId) {
-        mContext.enforceCallingOrSelfPermission(
-                android.Manifest.permission.USE_SIP, null);
+    public synchronized ISipSession getPendingSession(String callId, String opPackageName) {
+        if (!canUseSip(opPackageName, "getPendingSession")) {
+            return null;
+        }
         if (callId == null) return null;
         return mPendingSessions.get(callId);
     }
@@ -447,6 +461,14 @@ public final class SipService extends ISipService.Stub {
             loge("isBehindAT()" + address, e);
         }
         return false;
+    }
+
+    private boolean canUseSip(String packageName, String message) {
+        mContext.enforceCallingOrSelfPermission(
+                android.Manifest.permission.USE_SIP, message);
+
+        return mAppOps.noteOp(AppOpsManager.OP_USE_SIP, Binder.getCallingUid(),
+                packageName) == AppOpsManager.MODE_ALLOWED;
     }
 
     private class SipSessionGroupExt extends SipSessionAdapter {

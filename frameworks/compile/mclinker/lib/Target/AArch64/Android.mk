@@ -3,14 +3,11 @@ LOCAL_PATH:= $(call my-dir)
 mcld_aarch64_target_SRC_FILES := \
   AArch64Diagnostic.cpp \
   AArch64ELFDynamic.cpp \
-  AArch64ELFMCLinker.cpp \
   AArch64Emulation.cpp \
   AArch64GOT.cpp \
   AArch64LDBackend.cpp \
-  AArch64MCLinker.cpp \
   AArch64PLT.cpp \
-  AArch64Relocator.cpp \
-  AArch64TargetMachine.cpp
+  AArch64Relocator.cpp
 
 # For the host
 # =====================================================

@@ -17,7 +17,6 @@ package com.google.common.cache;
 import static com.google.common.cache.CacheTesting.checkEmpty;
 import static com.google.common.cache.TestingCacheLoaders.identityLoader;
 import static java.util.Arrays.asList;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Function;
@@ -40,7 +39,9 @@ import java.util.concurrent.ExecutionException;
  *
  * @author mike nonemacher
  */
+
 public class EmptyCachesTest extends TestCase {
+
   public void testEmpty() {
     for (LoadingCache<Object, Object> cache : caches()) {
       checkEmpty(cache);
@@ -314,7 +315,7 @@ public class EmptyCachesTest extends TestCase {
       assertFalse(entrySet.remove(entryOf(6, 6)));
       assertFalse(entrySet.remove(entryOf(-6, -6)));
       assertFalse(entrySet.removeAll(asList(null, entryOf(0, 0), entryOf(15, 15))));
-      assertFalse(entrySet.retainAll( asList(null, entryOf(0, 0), entryOf(15, 15))));
+      assertFalse(entrySet.retainAll(asList(null, entryOf(0, 0), entryOf(15, 15))));
       checkEmpty(entrySet);
       checkEmpty(cache);
     }
@@ -367,14 +368,14 @@ public class EmptyCachesTest extends TestCase {
         .withExpireAfterWrites(ImmutableSet.of(
             DurationSpec.of(0, SECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(1, DAYS)))
+            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
         .withExpireAfterAccesses(ImmutableSet.of(
             DurationSpec.of(0, SECONDS),
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(1, DAYS)))
+            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)))
         .withRefreshes(ImmutableSet.of(
             DurationSpec.of(1, SECONDS),
-            DurationSpec.of(1, DAYS)));
+            DurationSpec.of(24 * 60 * 60 * 1, SECONDS)));
   }
 
   private void warmUp(LoadingCache<Object, Object> cache, int minimum, int maximum) {

@@ -71,17 +71,6 @@ allow $1 $2:{ file lnk_file } r_file_perms;
 ')
 
 #####################################
-# unconfined_domain(domain)
-# Allow the specified domain to perform more privileged operations
-# than would be typically allowed. Please see the comments at the
-# top of unconfined.te.
-#
-define(`unconfined_domain', `
-typeattribute $1 mlstrustedsubject;
-typeattribute $1 unconfineddomain;
-')
-
-#####################################
 # tmpfs_domain(domain)
 # Define and allow access to a unique type for
 # this domain when creating tmpfs / shmem / ashmem files.
@@ -129,9 +118,29 @@ typeattribute $1 bluetoothdomain;
 # unix_socket_connect(clientdomain, socket, serverdomain)
 # Allow a local socket connection from clientdomain via
 # socket to serverdomain.
+#
+# Note: If you see denial records that distill to the
+# following allow rules:
+# allow clientdomain property_socket:sock_file write;
+# allow clientdomain init:unix_stream_socket connectto;
+# allow clientdomain something_prop:property_service set;
+#
+# This sequence is indicative of attempting to set a property.
+# use set_prop(sourcedomain, targetproperty)
+#
 define(`unix_socket_connect', `
 allow $1 $2_socket:sock_file write;
 allow $1 $3:unix_stream_socket connectto;
+')
+
+#####################################
+# set_prop(sourcedomain, targetproperty)
+# Allows source domain to set the
+# targetproperty.
+#
+define(`set_prop', `
+unix_socket_connect($1, property, init)
+allow $1 $2:property_service set;
 ')
 
 #####################################
@@ -266,17 +275,6 @@ allow $1 kernel:system syslog_read;
 ')
 
 #####################################
-# write_klog(domain)
-# Ability to write to kernel log via
-# klog_write()
-# See system/core/libcutil/klog.c
-define(`write_klog', `
-type_transition $1 device:chr_file klog_device "__kmsg__";
-allow $1 klog_device:chr_file { create open write unlink };
-allow $1 device:dir { write add_name remove_name };
-')
-
-#####################################
 # create_pty(domain)
 # Allow domain to create and use a pty, isolated from any other domain ptys.
 define(`create_pty', `
@@ -308,32 +306,20 @@ define(`recovery_only', ifelse(target_recovery, `true', $1, ))
 define(`userdebug_or_eng', ifelse(target_build_variant, `eng', $1, ifelse(target_build_variant, `userdebug', $1)))
 
 #####################################
-# permissive_or_unconfined
-# Returns "permissive $1" if FORCE_PERMISSIVE_TO_UNCONFINED is false,
-# and "unconfined($1)" otherwise.
-#
-# This is used for experimental domains, where we want to ensure
-# the domain is unconfined+enforcing once new SELinux policy development
-# has ceased.
-#
-define(`permissive_or_unconfined', ifelse(force_permissive_to_unconfined, `false', permissive $1;, unconfined_domain($1)))
-
-#####################################
 # write_logd(domain)
 # Ability to write to android log
 # daemon via sockets
 define(`write_logd', `
-userdebug_or_eng(`
-  allow $1 logd_debug:file w_file_perms;
-')
 unix_socket_send($1, logdw, logd)
+allow $1 pmsg_device:chr_file w_file_perms;
 ')
 
 #####################################
 # read_logd(domain)
-# Ability to read from android
+# Ability to run logcat and read from android
 # log daemon via sockets
 define(`read_logd', `
+allow $1 logcat_exec:file rx_file_perms;
 unix_socket_connect($1, logdr, logd)
 ')
 
@@ -356,5 +342,16 @@ define(`use_keystore', `
   allow keystore $1:dir search;
   allow keystore $1:file { read open };
   allow keystore $1:process getattr;
+  allow $1 keystore_service:service_manager find;
   binder_call($1, keystore)
+')
+
+###########################################
+# use_drmservice(domain)
+# Ability to use DrmService which requires
+# DrmService to call getpidcon.
+define(`use_drmservice', `
+  allow drmserver $1:dir search;
+  allow drmserver $1:file { read open };
+  allow drmserver $1:process getattr;
 ')

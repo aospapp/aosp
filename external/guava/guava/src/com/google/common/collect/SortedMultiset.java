@@ -23,10 +23,13 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedSet;
+import java.util.Set;
 
 /**
  * A {@link Multiset} which maintains the ordering of its elements, according to
- * either their natural order or an explicit {@link Comparator}. In all cases,
+ * either their natural order or an explicit {@link Comparator}. This order is
+ * reflected when iterating over the sorted multiset, either directly, or through
+ * its {@code elementSet} or {@code entrySet} views.  In all cases,
  * this implementation uses {@link Comparable#compareTo} or
  * {@link Comparator#compare} instead of {@link Object#equals} to determine
  * equivalence of instances.
@@ -36,12 +39,16 @@ import java.util.SortedSet;
  * resulting multiset will violate the {@link Collection} contract, which it is
  * specified in terms of {@link Object#equals}.
  * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multiset">
+ * {@code Multiset}</a>.
+ * 
  * @author Louis Wasserman
  * @since 11.0
  */
 @Beta
-@GwtCompatible
-public interface SortedMultiset<E> extends Multiset<E>, SortedIterable<E> {
+@GwtCompatible(emulated = true)
+public interface SortedMultiset<E> extends SortedMultisetBridge<E>, SortedIterable<E> {
   /**
    * Returns the comparator that orders this multiset, or
    * {@link Ordering#natural()} if the natural ordering of the elements is used.
@@ -74,8 +81,18 @@ public interface SortedMultiset<E> extends Multiset<E>, SortedIterable<E> {
 
   /**
    * Returns a {@link SortedSet} view of the distinct elements in this multiset.
+   * 
+   * @since 14.0
    */
   @Override SortedSet<E> elementSet();
+  
+  /**
+   * {@inheritDoc}
+   *
+   * <p>The {@code entrySet}'s iterator returns entries in ascending element
+   * order according to the this multiset's comparator.
+   */
+  @Override Set<Entry<E>> entrySet();
 
   /**
    * {@inheritDoc}

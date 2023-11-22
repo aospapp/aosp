@@ -23,13 +23,18 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.SuggestionSpan;
 
+import com.android.inputmethod.annotations.UsedForTesting;
 import com.android.inputmethod.latin.SuggestedWords;
 import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
+import com.android.inputmethod.latin.common.LocaleUtils;
 import com.android.inputmethod.latin.define.DebugFlags;
-import com.android.inputmethod.latin.SuggestionSpanPickedNotificationReceiver;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Locale;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public final class SuggestionSpanUtils {
     // Note that SuggestionSpan.FLAG_AUTO_CORRECTION has been introduced
@@ -51,22 +56,23 @@ public final class SuggestionSpanUtils {
         // This utility class is not publicly instantiable.
     }
 
+    @UsedForTesting
     public static CharSequence getTextWithAutoCorrectionIndicatorUnderline(
-            final Context context, final String text) {
+            final Context context, final String text, @Nonnull final Locale locale) {
         if (TextUtils.isEmpty(text) || OBJ_FLAG_AUTO_CORRECTION == null) {
             return text;
         }
         final Spannable spannable = new SpannableString(text);
-        final SuggestionSpan suggestionSpan = new SuggestionSpan(context, null /* locale */,
-                new String[] {} /* suggestions */, OBJ_FLAG_AUTO_CORRECTION,
-                SuggestionSpanPickedNotificationReceiver.class);
+        final SuggestionSpan suggestionSpan = new SuggestionSpan(context, locale,
+                new String[] {} /* suggestions */, OBJ_FLAG_AUTO_CORRECTION, null);
         spannable.setSpan(suggestionSpan, 0, text.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE | Spanned.SPAN_COMPOSING);
         return spannable;
     }
 
+    @UsedForTesting
     public static CharSequence getTextWithSuggestionSpan(final Context context,
-            final String pickedWord, final SuggestedWords suggestedWords) {
+            final String pickedWord, final SuggestedWords suggestedWords, final Locale locale) {
         if (TextUtils.isEmpty(pickedWord) || suggestedWords.isEmpty()
                 || suggestedWords.isPrediction() || suggestedWords.isPunctuationSuggestions()) {
             return pickedWord;
@@ -86,11 +92,30 @@ public final class SuggestionSpanUtils {
                 suggestionsList.add(word.toString());
             }
         }
-        final SuggestionSpan suggestionSpan = new SuggestionSpan(context, null /* locale */,
-                suggestionsList.toArray(new String[suggestionsList.size()]), 0 /* flags */,
-                SuggestionSpanPickedNotificationReceiver.class);
+        final SuggestionSpan suggestionSpan = new SuggestionSpan(context, locale,
+                suggestionsList.toArray(new String[suggestionsList.size()]), 0 /* flags */, null);
         final Spannable spannable = new SpannableString(pickedWord);
         spannable.setSpan(suggestionSpan, 0, pickedWord.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return spannable;
+    }
+
+    /**
+     * Returns first {@link Locale} found in the given array of {@link SuggestionSpan}.
+     * @param suggestionSpans the array of {@link SuggestionSpan} to be examined.
+     * @return the first {@link Locale} found in {@code suggestionSpans}. {@code null} when not
+     * found.
+     */
+    @UsedForTesting
+    @Nullable
+    public static Locale findFirstLocaleFromSuggestionSpans(
+            final SuggestionSpan[] suggestionSpans) {
+        for (final SuggestionSpan suggestionSpan : suggestionSpans) {
+            final String localeString = suggestionSpan.getLocale();
+            if (TextUtils.isEmpty(localeString)) {
+                continue;
+            }
+            return LocaleUtils.constructLocaleFromString(localeString);
+        }
+        return null;
     }
 }

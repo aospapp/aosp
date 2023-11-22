@@ -42,6 +42,7 @@ import android.provider.ContactsContract.RawContacts;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Pair;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1552,6 +1553,7 @@ public class VCardEntry {
     private List<AndroidCustomData> mAndroidCustomDataList;
     private BirthdayData mBirthday;
     private AnniversaryData mAnniversary;
+    private List<Pair<String, String>> mUnknownXData;
 
     /**
      * Inner iterator interface.
@@ -2403,6 +2405,12 @@ public class VCardEntry {
             final List<String> customPropertyList = VCardUtils.constructListFromValue(propValue,
                     mVCardType);
             handleAndroidCustomProperty(customPropertyList);
+        } else if (propertyName.toUpperCase().startsWith("X-")) {
+            // Catch all for X- properties. The caller can decide what to do with these.
+            if (mUnknownXData == null) {
+                mUnknownXData = new ArrayList<Pair<String, String>>();
+            }
+            mUnknownXData.add(new Pair<String, String>(propertyName, propValue));
         } else {
         }
         // Be careful when adding some logic here, as some blocks above may use "return".
@@ -2646,5 +2654,9 @@ public class VCardEntry {
             mNameData.displayName = constructDisplayName();
         }
         return mNameData.displayName;
+    }
+
+    public List<Pair<String, String>> getUnknownXData() {
+        return mUnknownXData;
     }
 }

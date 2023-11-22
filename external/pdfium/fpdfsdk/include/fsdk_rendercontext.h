@@ -4,13 +4,14 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _RENDERCONTENT_H_
-#define _RENDERCONTENT_H_
-#include "../include/fsdk_define.h"
-#include "../include/fpdf_progressive.h"
+#ifndef FPDFSDK_INCLUDE_FSDK_RENDERCONTEXT_H_
+#define FPDFSDK_INCLUDE_FSDK_RENDERCONTEXT_H_
+
+#include "../../public/fpdf_progressive.h"
+#include "fsdk_define.h"
 
 // Everything about rendering is put here: for OOM recovery
-class CRenderContext : public CFX_Object
+class CRenderContext 
 {
 public:
 	CRenderContext() { Clear(); }
@@ -38,4 +39,5 @@ public:
 private:
 	IFSDK_PAUSE* m_IPause;
 };
-#endif
+
+#endif  // FPDFSDK_INCLUDE_FSDK_RENDERCONTEXT_H_

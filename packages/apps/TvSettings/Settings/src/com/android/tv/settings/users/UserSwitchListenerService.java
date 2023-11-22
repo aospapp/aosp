@@ -16,16 +16,13 @@
 
 package com.android.tv.settings.users;
 
-import android.app.Activity;
 import android.app.ActivityManagerNative;
 import android.app.IUserSwitchObserver;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
@@ -33,7 +30,6 @@ import android.os.IRemoteCallback;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.provider.Settings;
 import android.util.Log;
 
 public class UserSwitchListenerService extends Service {
@@ -63,11 +59,11 @@ public class UserSwitchListenerService extends Service {
                             + bootUserId);
                 }
                 if (UserHandle.myUserId() != bootUserId) {
-                    RestrictedProfileActivity.switchUserNow(bootUserId);
+                    RestrictedProfileDialogFragment.switchUserNow(bootUserId);
                 }
             }
 
-            updateLaunchPoint(context, null != RestrictedProfileActivity.findRestrictedUser(
+            updateLaunchPoint(context, null != RestrictedProfileDialogFragment.findRestrictedUser(
                     (UserManager) context.getSystemService(Context.USER_SERVICE)));
         }
     }
@@ -115,6 +111,11 @@ public class UserSwitchListenerService extends Service {
                                 Log.d(TAG, "user has been foregrounded: " + newUserId);
                             }
                             setBootUser(UserSwitchListenerService.this, newUserId);
+                        }
+
+                        @Override
+                        public void onForegroundProfileSwitch(int profileId)
+                            throws RemoteException {
                         }
                     });
         } catch (RemoteException e) {

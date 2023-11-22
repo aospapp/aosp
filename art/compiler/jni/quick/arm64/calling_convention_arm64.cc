@@ -16,12 +16,13 @@
 
 #include "base/logging.h"
 #include "calling_convention_arm64.h"
+#include "handle_scope-inl.h"
 #include "utils/arm64/managed_register_arm64.h"
 
 namespace art {
 namespace arm64 {
 
-static const Register kCoreArgumentRegisters[] = {
+static const XRegister kXArgumentRegisters[] = {
   X0, X1, X2, X3, X4, X5, X6, X7
 };
 
@@ -37,13 +38,17 @@ static const SRegister kSArgumentRegisters[] = {
   S0, S1, S2, S3, S4, S5, S6, S7
 };
 
+static const DRegister kDCalleeSaveRegisters[] = {
+  D8, D9, D10, D11, D12, D13, D14, D15
+};
+
 // Calling convention
 ManagedRegister Arm64ManagedRuntimeCallingConvention::InterproceduralScratchRegister() {
-  return Arm64ManagedRegister::FromCoreRegister(X20);  // saved on entry restored on exit
+  return Arm64ManagedRegister::FromXRegister(X20);  // saved on entry restored on exit
 }
 
 ManagedRegister Arm64JniCallingConvention::InterproceduralScratchRegister() {
-  return Arm64ManagedRegister::FromCoreRegister(X20);  // saved on entry restored on exit
+  return Arm64ManagedRegister::FromXRegister(X20);  // saved on entry restored on exit
 }
 
 static ManagedRegister ReturnRegisterForShorty(const char* shorty) {
@@ -52,7 +57,7 @@ static ManagedRegister ReturnRegisterForShorty(const char* shorty) {
   } else if (shorty[0] == 'D') {
     return Arm64ManagedRegister::FromDRegister(D0);
   } else if (shorty[0] == 'J') {
-    return Arm64ManagedRegister::FromCoreRegister(X0);
+    return Arm64ManagedRegister::FromXRegister(X0);
   } else if (shorty[0] == 'V') {
     return Arm64ManagedRegister::NoRegister();
   } else {
@@ -75,7 +80,7 @@ ManagedRegister Arm64JniCallingConvention::IntReturnRegister() {
 // Managed runtime calling convention
 
 ManagedRegister Arm64ManagedRuntimeCallingConvention::MethodRegister() {
-  return Arm64ManagedRegister::FromCoreRegister(X0);
+  return Arm64ManagedRegister::FromXRegister(X0);
 }
 
 bool Arm64ManagedRuntimeCallingConvention::IsCurrentParamInRegister() {
@@ -94,8 +99,8 @@ ManagedRegister Arm64ManagedRuntimeCallingConvention::CurrentParamRegister() {
 FrameOffset Arm64ManagedRuntimeCallingConvention::CurrentParamStackOffset() {
   CHECK(IsCurrentParamOnStack());
   FrameOffset result =
-      FrameOffset(displacement_.Int32Value() +   // displacement
-                  sizeof(StackReference<mirror::ArtMethod>) +  // Method ref
+      FrameOffset(displacement_.Int32Value() +  // displacement
+                  kFramePointerSize +  // Method ref
                   (itr_slots_ * sizeof(uint32_t)));  // offset into in args
   return result;
 }
@@ -129,7 +134,7 @@ const ManagedRegisterEntrySpills& Arm64ManagedRuntimeCallingConvention::EntrySpi
       } else {  // GP regs.
         if (gp_reg_index < 8) {
           if (IsCurrentParamALong() && (!IsCurrentParamAReference())) {
-            entry_spills_.push_back(Arm64ManagedRegister::FromCoreRegister(kCoreArgumentRegisters[gp_reg_index]));
+            entry_spills_.push_back(Arm64ManagedRegister::FromXRegister(kXArgumentRegisters[gp_reg_index]));
           } else {
             entry_spills_.push_back(Arm64ManagedRegister::FromWRegister(kWArgumentRegisters[gp_reg_index]));
           }
@@ -152,23 +157,26 @@ const ManagedRegisterEntrySpills& Arm64ManagedRuntimeCallingConvention::EntrySpi
 Arm64JniCallingConvention::Arm64JniCallingConvention(bool is_static, bool is_synchronized,
                                                      const char* shorty)
     : JniCallingConvention(is_static, is_synchronized, shorty, kFramePointerSize) {
-  // TODO: Ugly hard code...
-  // Should generate these according to the spill mask automatically.
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X20));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X21));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X22));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X23));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X24));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X25));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X26));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X27));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X28));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X29));
-  callee_save_regs_.push_back(Arm64ManagedRegister::FromCoreRegister(X30));
+  uint32_t core_spill_mask = CoreSpillMask();
+  DCHECK_EQ(XZR, kNumberOfXRegisters - 1);  // Exclude XZR from the loop (avoid 1 << 32).
+  for (int x_reg = 0; x_reg < kNumberOfXRegisters - 1; ++x_reg) {
+    if (((1 << x_reg) & core_spill_mask) != 0) {
+      callee_save_regs_.push_back(
+          Arm64ManagedRegister::FromXRegister(static_cast<XRegister>(x_reg)));
+    }
+  }
+
+  uint32_t fp_spill_mask = FpSpillMask();
+  for (int d_reg = 0; d_reg < kNumberOfDRegisters; ++d_reg) {
+    if (((1 << d_reg) & fp_spill_mask) != 0) {
+      callee_save_regs_.push_back(
+          Arm64ManagedRegister::FromDRegister(static_cast<DRegister>(d_reg)));
+    }
+  }
 }
 
 uint32_t Arm64JniCallingConvention::CoreSpillMask() const {
-  // Compute spill mask to agree with callee saves initialized in the constructor
+  // Compute spill mask to agree with callee saves initialized in the constructor.
   // Note: The native jni function may call to some VM runtime functions which may suspend
   // or trigger GC. And the jni method frame will become top quick frame in those cases.
   // So we need to satisfy GC to save LR and callee-save registers which is similar to
@@ -177,16 +185,19 @@ uint32_t Arm64JniCallingConvention::CoreSpillMask() const {
   // Jni method is the method that compiled by jni compiler.
   // Call chain: managed code(java) --> jni method --> jni function.
   // Thread register(X18, scratched by aapcs64) is not saved on stack, it is saved in ETR(X21).
-  // Suspend register(x19) is preserved by aapcs64 and it is not used in Jni method.
-  return 1 << X20 | 1 << X21 | 1 << X22 | 1 << X23 | 1 << X24 | 1 << X25 |
-         1 << X26 | 1 << X27 | 1 << X28 | 1 << X29 | 1 << LR;
+  return 1 << X19 | 1 << X20 | 1 << X21 | 1 << X22 | 1 << X23 | 1 << X24 |
+         1 << X25 | 1 << X26 | 1 << X27 | 1 << X28 | 1 << X29 | 1 << LR;
 }
 
 uint32_t Arm64JniCallingConvention::FpSpillMask() const {
-  // Compute spill mask to agree with callee saves initialized in the constructor
-  // Note: All callee-save fp registers will be preserved by aapcs64. And they are not used
-  // in the jni method.
-  return 0;
+  // Considering the case, java_method_1 --> jni method --> jni function --> java_method_2, we may
+  // break on java_method_2 and we still need to find out the values of DEX registers in
+  // java_method_1. So all callee-saves(in managed code) need to be saved.
+  uint32_t result = 0;
+  for (size_t i = 0; i < arraysize(kDCalleeSaveRegisters); ++i) {
+    result |= (1 << kDCalleeSaveRegisters[i]);
+  }
+  return result;
 }
 
 ManagedRegister Arm64JniCallingConvention::ReturnScratchRegister() const {
@@ -195,7 +206,7 @@ ManagedRegister Arm64JniCallingConvention::ReturnScratchRegister() const {
 
 size_t Arm64JniCallingConvention::FrameSize() {
   // Method*, callee save area size, local reference segment state
-  size_t frame_data_size = sizeof(StackReference<mirror::ArtMethod>) +
+  size_t frame_data_size = kFramePointerSize +
       CalleeSaveRegisters().size() * kFramePointerSize + sizeof(uint32_t);
   // References plus 2 words for HandleScope header
   size_t handle_scope_size = HandleScope::SizeOf(kFramePointerSize, ReferenceCount());
@@ -232,7 +243,7 @@ ManagedRegister Arm64JniCallingConvention::CurrentParamRegister() {
     int gp_reg = itr_args_ - itr_float_and_doubles_;
     CHECK_LT(static_cast<unsigned int>(gp_reg), 8u);
     if (IsCurrentParamALong() || IsCurrentParamAReference() || IsCurrentParamJniEnv())  {
-      return Arm64ManagedRegister::FromCoreRegister(kCoreArgumentRegisters[gp_reg]);
+      return Arm64ManagedRegister::FromXRegister(kXArgumentRegisters[gp_reg]);
     } else {
       return Arm64ManagedRegister::FromWRegister(kWArgumentRegisters[gp_reg]);
     }

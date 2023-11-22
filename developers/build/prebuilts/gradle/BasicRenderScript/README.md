@@ -1,9 +1,10 @@
+
 Android BasicRenderScript Sample
 ===================================
 
 This sample demonstrates using RenderScript to perform basic image manipulation. Specifically, it allows users
 to dynamically adjust the saturation for an image using a slider. A custom RenderScript kernel performs the saturation
-adjustment, running the computation on the device's GPU or other compute hardware as deemed appropriate by the system.
+adjustment, running the computation on the device\'s GPU or other compute hardware as deemed appropriate by the system.
 
 Introduction
 ------------
@@ -27,8 +28,8 @@ RGB value and it's luminance (black-and-white) value, weighted based on the user
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Screenshots

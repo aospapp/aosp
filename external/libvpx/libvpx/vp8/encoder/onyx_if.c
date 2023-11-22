@@ -98,6 +98,9 @@ extern double vp8_calc_ssimg
 #ifdef OUTPUT_YUV_SRC
 FILE *yuv_file;
 #endif
+#ifdef OUTPUT_YUV_DENOISED
+FILE *yuv_denoised_file;
+#endif
 
 #if 0
 FILE *framepsnr;
@@ -610,6 +613,24 @@ static void cyclic_background_refresh(VP8_COMP *cpi, int Q, int lf_adjustment)
         while(block_count && i != cpi->cyclic_refresh_mode_index);
 
         cpi->cyclic_refresh_mode_index = i;
+
+#if CONFIG_TEMPORAL_DENOISING
+        if (cpi->denoiser.denoiser_mode == kDenoiserOnYUVAggressive &&
+            Q < (int)cpi->denoiser.denoise_pars.qp_thresh) {
+          // Under aggressive denoising mode, use segmentation to turn off loop
+          // filter below some qp thresh. The loop filter is turned off for all
+          // blocks that have been encoded as ZEROMV LAST x frames in a row,
+          // where x is set by cpi->denoiser.denoise_pars.consec_zerolast.
+          // This is to avoid "dot" artifacts that can occur from repeated
+          // loop filtering on noisy input source.
+          cpi->cyclic_refresh_q = Q;
+          lf_adjustment = -MAX_LOOP_FILTER;
+          for (i = 0; i < mbs_in_frame; ++i) {
+            seg_map[i] = (cpi->consec_zero_last[i] >
+                          cpi->denoiser.denoise_pars.consec_zerolast) ? 1 : 0;
+          }
+        }
+#endif
     }
 
     /* Activate segmentation. */
@@ -1256,6 +1277,15 @@ void vp8_alloc_compressor_data(VP8_COMP *cpi)
 
     vpx_free(cpi->tplist);
     CHECK_MEM_ERROR(cpi->tplist, vpx_malloc(sizeof(TOKENLIST) * cm->mb_rows));
+
+#if CONFIG_TEMPORAL_DENOISING
+    if (cpi->oxcf.noise_sensitivity > 0) {
+      vp8_denoiser_free(&cpi->denoiser);
+      vp8_denoiser_allocate(&cpi->denoiser, width, height,
+                            cm->mb_rows, cm->mb_cols,
+                            cpi->oxcf.noise_sensitivity);
+    }
+#endif
 }
 
 
@@ -1402,7 +1432,7 @@ static void update_layer_contexts (VP8_COMP *cpi)
         double prev_layer_framerate=0;
 
         assert(oxcf->number_of_layers <= VPX_TS_MAX_LAYERS);
-        for (i=0; i<oxcf->number_of_layers; i++)
+        for (i = 0; i < oxcf->number_of_layers && i < VPX_TS_MAX_LAYERS; ++i)
         {
             LAYER_CONTEXT *lc = &cpi->layer_context[i];
 
@@ -1748,7 +1778,9 @@ void vp8_change_config(VP8_COMP *cpi, VP8_CONFIG *oxcf)
       {
         int width = (cpi->oxcf.Width + 15) & ~15;
         int height = (cpi->oxcf.Height + 15) & ~15;
-        vp8_denoiser_allocate(&cpi->denoiser, width, height);
+        vp8_denoiser_allocate(&cpi->denoiser, width, height,
+                              cm->mb_rows, cm->mb_cols,
+                              cpi->oxcf.noise_sensitivity);
       }
     }
 #endif
@@ -1761,8 +1793,11 @@ void vp8_change_config(VP8_COMP *cpi, VP8_CONFIG *oxcf)
 
 }
 
+#ifndef M_LOG2_E
 #define M_LOG2_E 0.693147180559945309417
+#endif
 #define log2f(x) (log (x) / (float) M_LOG2_E)
+
 static void cal_mvsadcosts(int *mvsadcost[2])
 {
     int i = 1;
@@ -1872,6 +1907,13 @@ struct VP8_COMP* vp8_create_compressor(VP8_CONFIG *oxcf)
      */
     cpi->cyclic_refresh_mode_enabled = cpi->oxcf.error_resilient_mode;
     cpi->cyclic_refresh_mode_max_mbs_perframe = (cpi->common.mb_rows * cpi->common.mb_cols) / 5;
+    if (cpi->oxcf.number_of_layers == 1) {
+        cpi->cyclic_refresh_mode_max_mbs_perframe =
+            (cpi->common.mb_rows * cpi->common.mb_cols) / 20;
+    } else if (cpi->oxcf.number_of_layers == 2) {
+        cpi->cyclic_refresh_mode_max_mbs_perframe =
+            (cpi->common.mb_rows * cpi->common.mb_cols) / 10;
+    }
     cpi->cyclic_refresh_mode_index = 0;
     cpi->cyclic_refresh_q = 32;
 
@@ -1881,6 +1923,9 @@ struct VP8_COMP* vp8_create_compressor(VP8_CONFIG *oxcf)
     }
     else
         cpi->cyclic_refresh_map = (signed char *) NULL;
+
+    CHECK_MEM_ERROR(cpi->consec_zero_last,
+                    vpx_calloc(cpi->common.mb_rows * cpi->common.mb_cols, 1));
 
 #ifdef VP8_ENTROPY_STATS
     init_context_counters();
@@ -1957,6 +2002,9 @@ struct VP8_COMP* vp8_create_compressor(VP8_CONFIG *oxcf)
 
 #ifdef OUTPUT_YUV_SRC
     yuv_file = fopen("bd.yuv", "ab");
+#endif
+#ifdef OUTPUT_YUV_DENOISED
+    yuv_denoised_file = fopen("denoised.yuv", "ab");
 #endif
 
 #if 0
@@ -2399,6 +2447,7 @@ void vp8_remove_compressor(VP8_COMP **ptr)
     vpx_free(cpi->mb.ss);
     vpx_free(cpi->tok);
     vpx_free(cpi->cyclic_refresh_map);
+    vpx_free(cpi->consec_zero_last);
 
     vp8_remove_common(&cpi->common);
     vpx_free(cpi);
@@ -2406,6 +2455,9 @@ void vp8_remove_compressor(VP8_COMP **ptr)
 
 #ifdef OUTPUT_YUV_SRC
     fclose(yuv_file);
+#endif
+#ifdef OUTPUT_YUV_DENOISED
+    fclose(yuv_denoised_file);
 #endif
 
 #if 0
@@ -2607,10 +2659,9 @@ int vp8_update_entropy(VP8_COMP *cpi, int update)
 }
 
 
-#if OUTPUT_YUV_SRC
-void vp8_write_yuv_frame(const char *name, YV12_BUFFER_CONFIG *s)
+#if defined(OUTPUT_YUV_SRC) || defined(OUTPUT_YUV_DENOISED)
+void vp8_write_yuv_frame(FILE *yuv_file, YV12_BUFFER_CONFIG *s)
 {
-    FILE *yuv_file = fopen(name, "ab");
     unsigned char *src = s->y_buffer;
     int h = s->y_height;
 
@@ -2640,11 +2691,8 @@ void vp8_write_yuv_frame(const char *name, YV12_BUFFER_CONFIG *s)
         src += s->uv_stride;
     }
     while (--h);
-
-    fclose(yuv_file);
 }
 #endif
-
 
 static void scale_and_extend_source(YV12_BUFFER_CONFIG *sd, VP8_COMP *cpi)
 {
@@ -3223,17 +3271,9 @@ static void update_reference_frames(VP8_COMP *cpi)
         if (cm->frame_type == KEY_FRAME)
         {
             int i;
-            vp8_yv12_copy_frame(
-                    cpi->Source,
-                    &cpi->denoiser.yv12_running_avg[LAST_FRAME]);
-
-            vp8_yv12_extend_frame_borders(
-                    &cpi->denoiser.yv12_running_avg[LAST_FRAME]);
-
-            for (i = 2; i < MAX_REF_FRAMES - 1; i++)
-                vp8_yv12_copy_frame(
-                        &cpi->denoiser.yv12_running_avg[LAST_FRAME],
-                        &cpi->denoiser.yv12_running_avg[i]);
+            for (i = LAST_FRAME; i < MAX_REF_FRAMES; ++i)
+              vp8_yv12_copy_frame(cpi->Source,
+                                  &cpi->denoiser.yv12_running_avg[i]);
         }
         else /* For non key frames */
         {
@@ -3470,6 +3510,9 @@ static void encode_frame_to_data_rate
         {
             cpi->mb.rd_thresh_mult[i] = 128;
         }
+
+        // Reset the zero_last counter to 0 on key frame.
+        vpx_memset(cpi->consec_zero_last, 0, cm->mb_rows * cm->mb_cols);
     }
 
 #if 0
@@ -3891,8 +3934,9 @@ static void encode_frame_to_data_rate
 
 #endif
 
+
 #ifdef OUTPUT_YUV_SRC
-    vp8_write_yuv_frame(cpi->Source);
+    vp8_write_yuv_frame(yuv_file, cpi->Source);
 #endif
 
     do
@@ -3986,6 +4030,8 @@ static void encode_frame_to_data_rate
                 else
                   disable_segmentation(cpi);
               }
+              // Reset the consec_zero_last counter on key frame.
+              vpx_memset(cpi->consec_zero_last, 0, cm->mb_rows * cm->mb_cols);
               vp8_set_quantizer(cpi, Q);
             }
 
@@ -4431,6 +4477,11 @@ static void encode_frame_to_data_rate
 
     update_reference_frames(cpi);
 
+#ifdef OUTPUT_YUV_DENOISED
+    vp8_write_yuv_frame(yuv_denoised_file,
+                        &cpi->denoiser.yv12_running_avg[INTRA_FRAME]);
+#endif
+
 #if !(CONFIG_REALTIME_ONLY & CONFIG_ONTHEFLY_BITPACKING)
     if (cpi->oxcf.error_resilient_mode)
     {
@@ -4817,32 +4868,10 @@ static void Pass2Encode(VP8_COMP *cpi, unsigned long *size, unsigned char *dest,
 }
 #endif
 
-/* For ARM NEON, d8-d15 are callee-saved registers, and need to be saved. */
-#if HAVE_NEON
-extern void vp8_push_neon(int64_t *store);
-extern void vp8_pop_neon(int64_t *store);
-#endif
-
-
 int vp8_receive_raw_frame(VP8_COMP *cpi, unsigned int frame_flags, YV12_BUFFER_CONFIG *sd, int64_t time_stamp, int64_t end_time)
 {
-#if HAVE_NEON
-    int64_t store_reg[8];
-#if CONFIG_RUNTIME_CPU_DETECT
-    VP8_COMMON            *cm = &cpi->common;
-#endif
-#endif
     struct vpx_usec_timer  timer;
     int                    res = 0;
-
-#if HAVE_NEON
-#if CONFIG_RUNTIME_CPU_DETECT
-    if (cm->cpu_caps & HAS_NEON)
-#endif
-    {
-        vp8_push_neon(store_reg);
-    }
-#endif
 
     vpx_usec_timer_start(&timer);
 
@@ -4859,15 +4888,6 @@ int vp8_receive_raw_frame(VP8_COMP *cpi, unsigned int frame_flags, YV12_BUFFER_C
         res = -1;
     vpx_usec_timer_mark(&timer);
     cpi->time_receive_data += vpx_usec_timer_elapsed(&timer);
-
-#if HAVE_NEON
-#if CONFIG_RUNTIME_CPU_DETECT
-    if (cm->cpu_caps & HAS_NEON)
-#endif
-    {
-        vp8_pop_neon(store_reg);
-    }
-#endif
 
     return res;
 }
@@ -4889,9 +4909,6 @@ static int frame_is_reference(const VP8_COMP *cpi)
 
 int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned long *size, unsigned char *dest, unsigned char *dest_end, int64_t *time_stamp, int64_t *time_end, int flush)
 {
-#if HAVE_NEON
-    int64_t store_reg[8];
-#endif
     VP8_COMMON *cm;
     struct vpx_usec_timer  tsctimer;
     struct vpx_usec_timer  ticktimer;
@@ -4906,19 +4923,11 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
     if (setjmp(cpi->common.error.jmp))
     {
         cpi->common.error.setjmp = 0;
+        vp8_clear_system_state();
         return VPX_CODEC_CORRUPT_FRAME;
     }
 
     cpi->common.error.setjmp = 1;
-
-#if HAVE_NEON
-#if CONFIG_RUNTIME_CPU_DETECT
-    if (cm->cpu_caps & HAS_NEON)
-#endif
-    {
-        vp8_push_neon(store_reg);
-    }
-#endif
 
     vpx_usec_timer_start(&cmptimer);
 
@@ -5002,14 +5011,6 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
 
 #endif
 
-#if HAVE_NEON
-#if CONFIG_RUNTIME_CPU_DETECT
-        if (cm->cpu_caps & HAS_NEON)
-#endif
-        {
-            vp8_pop_neon(store_reg);
-        }
-#endif
         return -1;
     }
 
@@ -5073,7 +5074,8 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
 
                 /* Update frame rates for each layer */
                 assert(cpi->oxcf.number_of_layers <= VPX_TS_MAX_LAYERS);
-                for (i=0; i<cpi->oxcf.number_of_layers; i++)
+                for (i = 0; i < cpi->oxcf.number_of_layers &&
+                     i < VPX_TS_MAX_LAYERS; ++i)
                 {
                     LAYER_CONTEXT *lc = &cpi->layer_context[i];
                     lc->framerate = cpi->ref_framerate /
@@ -5275,7 +5277,7 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
                 int y_samples = orig->y_height * orig->y_width ;
                 int uv_samples = orig->uv_height * orig->uv_width ;
                 int t_samples = y_samples + 2 * uv_samples;
-                double sq_error, sq_error2;
+                double sq_error;
 
                 ye = calc_plane_error(orig->y_buffer, orig->y_stride,
                   recon->y_buffer, recon->y_stride, orig->y_width, orig->y_height);
@@ -5298,6 +5300,7 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
 #if CONFIG_POSTPROC
                 {
                     YV12_BUFFER_CONFIG      *pp = &cm->post_proc_buffer;
+                    double sq_error2;
                     double frame_psnr2, frame_ssim2 = 0;
                     double weight = 0;
 
@@ -5411,15 +5414,6 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags, unsigned l
     }
 
 #endif
-#endif
-
-#if HAVE_NEON
-#if CONFIG_RUNTIME_CPU_DETECT
-    if (cm->cpu_caps & HAS_NEON)
-#endif
-    {
-        vp8_pop_neon(store_reg);
-    }
 #endif
 
     cpi->common.error.setjmp = 0;

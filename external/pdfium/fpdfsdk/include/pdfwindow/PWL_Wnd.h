@@ -4,18 +4,22 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_WND_H_
-#define _PWL_WND_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_WND_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_WND_H_
 
-class IPWL_Provider;
-class CPWL_Wnd;
+#include "../../../core/include/fxcrt/fx_basic.h"
+#include "../../../core/include/fpdfdoc/fpdf_doc.h"
+#include "../fx_systemhandler.h"
+
 class CPWL_MsgControl;
-class CPWL_Wnd;
 class CPWL_ScrollBar;
 class CPWL_Timer;
 class CPWL_TimerHandler;
-class IPWL_SpellCheck;
+class CPWL_Wnd;
+class IFX_Edit_FontMap;
 class IFX_SystemHandler;
+class IPWL_Provider;
+class IPWL_SpellCheck;
 
 #ifdef FX_READER_DLL
 	#ifdef PWL_EXPORT
@@ -168,6 +172,7 @@ inline FX_BOOL operator != (const CPWL_Color &c1, const CPWL_Color &c2)
 class IPWL_SpellCheck
 {
 public:
+        virtual ~IPWL_SpellCheck() { }
 	virtual FX_BOOL							CheckWord(FX_LPCSTR sWord) = 0;
 	virtual void							SuggestWords(FX_LPCSTR sWord, CFX_ByteStringArray & sSuggest) = 0;	
 };
@@ -175,6 +180,8 @@ public:
 class IPWL_Provider
 {
 public:
+        virtual ~IPWL_Provider() { }
+
 	//get a matrix which map user space to CWnd client space
 	virtual CPDF_Matrix						GetWindowMatrix(void* pAttachedData) = 0;
 
@@ -193,6 +200,7 @@ public:
 class IPWL_FocusHandler
 {
 public:
+        virtual ~IPWL_FocusHandler() { }
 	virtual void							OnSetFocus(CPWL_Wnd* pWnd) = 0;
 	virtual void							OnKillFocus(CPWL_Wnd* pWnd) = 0;
 };
@@ -466,28 +474,4 @@ private:
 	FX_BOOL							m_bEnabled;
 };
 
-// #ifndef VK_END
-// 
-// #define VK_END            0x23
-// #define VK_HOME           0x24
-// #define VK_LEFT           0x25
-// #define VK_UP             0x26
-// #define VK_RIGHT          0x27
-// #define VK_DOWN           0x28
-// #define VK_INSERT         0x2D
-// #define VK_DELETE         0x2E
-// 
-// #define VK_BACK           0x08
-// #define VK_TAB            0x09
-// 
-// #define VK_CLEAR          0x0C
-// #define VK_RETURN         0x0D
-// #define VK_ESCAPE         0x1B
-// #define VK_SPACE          0x20
-// #endif
-// 
-// #define VK_NONE			  0
-
-#endif // !defined(AFX_PWL_WND_H__D32812AD_A875_4E08_9D3C_0A57020987C6__INCLUDED_)
-
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_WND_H_

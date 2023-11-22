@@ -441,7 +441,7 @@
     <string name="print_dialog" msgid="8895536548487605661">"Tlačiť..."</string>
     <string name="copyright_information" msgid="971422874488783312">"Informácie o aut. právach"</string>
     <string name="privacy_policy" msgid="212094623396418302">"Pravidlá ochrany údajov"</string>
-    <string name="open_source_licenses" msgid="8643615555920977752">"Otvorený zdroj – licencie"</string>
+    <string name="open_source_licenses" msgid="8643615555920977752">"Licencie open source"</string>
     <string name="reply_choice_yes" msgid="3327633032975373220">"Áno"</string>
     <string name="reply_choice_no" msgid="7068775605915475207">"Nie"</string>
     <string name="reply_choice_ok" msgid="7881073621845053152">"OK"</string>

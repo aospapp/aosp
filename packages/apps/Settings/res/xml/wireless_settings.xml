@@ -24,18 +24,17 @@
         android:persistent="false"
         android:disableDependentsState="true" />
 
-    <com.android.settings.AppListPreference
-        android:key="sms_application"
-        android:title="@string/sms_application_title"
-        settings:keywords="@string/keywords_more_default_sms_app"
-        android:summary="%s"
-        android:persistent="false" />
-
     <SwitchPreference
         android:key="toggle_nfc"
         android:title="@string/nfc_quick_toggle_title"
         android:summary="@string/nfc_quick_toggle_summary"
         android:persistent="false" />
+
+    <PreferenceScreen
+        android:key="wifi_calling_settings"
+        android:title="@string/wifi_calling_settings_title"
+        settings:keywords="@string/keywords_wifi_calling"
+        android:fragment="com.android.settings.WifiCallingSettings" />
 
     <PreferenceScreen
         android:fragment="com.android.settings.nfc.AndroidBeam"

@@ -28,6 +28,9 @@ static bool basic_test(uint32_t index) {
     rs_matrix4x4 matrix4x4TestLocal;
     rs_matrix3x3 matrix3x3TestLocal;
     rs_matrix2x2 matrix2x2TestLocal;
+    (void) matrix4x4TestLocal;
+    (void) matrix3x3TestLocal;
+    (void) matrix2x2TestLocal;
 
     // This test focuses primarily on compilation-time, not run-time.
     rs_element elementTestLocal;
@@ -41,12 +44,26 @@ static bool basic_test(uint32_t index) {
     rs_program_raster program_rasterTestLocal;
     rs_program_store program_storeTestLocal;
     rs_font fontTestLocal;
+    (void) elementTestLocal;
+    (void) typeTestLocal;
+    (void) allocationTestLocal;
+    (void) samplerTestLocal;
+    (void) scriptTestLocal;
+    (void) meshTestLocal;
+    (void) program_fragmentTestLocal;
+    (void) program_vertexTestLocal;
+    (void) program_rasterTestLocal;
+    (void) program_storeTestLocal;
+    (void) fontTestLocal;
 
     rs_font fontTestLocalArray[4];
+    (void) fontTestLocalArray;
 
     rs_font fontTestLocalPreInit = fontTest;
+    (void) fontTestLocalPreInit;
 
     struct my_struct structTest;
+    (void) structTest;
 
     rsSetObject(&fontTestLocal, fontTest);
     //allocationTestLocal = allocationTest;
@@ -76,4 +93,3 @@ void test_rstypes(uint32_t index, int test_num) {
         rsDebug("rstypes_test PASSED", 0);
     }
 }
-

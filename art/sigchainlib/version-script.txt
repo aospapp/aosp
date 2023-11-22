@@ -1,10 +1,11 @@
 {
 global:
   ClaimSignalChain;
-  EnsureFrontOfChain;
   UnclaimSignalChain;
   InvokeUserSignalHandler;
   InitializeSignalChain;
+  EnsureFrontOfChain;
+  SetSpecialSignalHandlerFn;
   sigaction;
   signal;
   sigprocmask;

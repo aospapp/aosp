@@ -16,6 +16,9 @@
 
 package android.permission2.cts;
 
+import android.Manifest;
+import android.content.ContentValues;
+import android.provider.Settings;
 import android.test.AndroidTestCase;
 
 /**
@@ -30,7 +33,15 @@ public class NoWriteSecureSettingsPermissionTest extends AndroidTestCase {
      *   {@link android.Manifest.permission#WRITE_SECURE_SETTINGS}
      */
     public void testWriteSecureSettings() {
-        assertWritingContentUriRequiresPermission(android.provider.Settings.Secure.CONTENT_URI,
-                android.Manifest.permission.WRITE_SECURE_SETTINGS);
+        try {
+            ContentValues values = new ContentValues();
+            values.put(Settings.Secure.NAME, Settings.Secure.ACCESSIBILITY_ENABLED);
+            values.put(Settings.Secure.VALUE, Boolean.TRUE);
+            getContext().getContentResolver().insert(Settings.Secure.CONTENT_URI, values);
+            fail("expected SecurityException requiring "
+                    + Manifest.permission.WRITE_SECURE_SETTINGS);
+        } catch (SecurityException expected) {
+           /* do nothing */
+        }
     }
 }

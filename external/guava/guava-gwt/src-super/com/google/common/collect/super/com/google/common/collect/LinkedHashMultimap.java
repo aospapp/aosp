@@ -16,16 +16,21 @@
 
 package com.google.common.collect;
 
+import static com.google.common.collect.CollectPreconditions.checkNonnegative;
+import static com.google.common.collect.CollectPreconditions.checkRemove;
+
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.primitives.Ints;
+import com.google.common.base.Objects;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -61,29 +66,23 @@ import javax.annotation.Nullable;
  * update operations, wrap your multimap with a call to {@link
  * Multimaps#synchronizedSetMultimap}.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multimap">
+ * {@code Multimap}</a>.
+ *
  * @author Jared Levy
+ * @author Louis Wasserman
  * @since 2.0 (imported from Google Collections Library)
  */
 @GwtCompatible(serializable = true, emulated = true)
 public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
-  private static final int DEFAULT_VALUES_PER_KEY = 8;
-
-  @VisibleForTesting
-  transient int expectedValuesPerKey = DEFAULT_VALUES_PER_KEY;
-
-  /**
-   * Map entries with an iteration order corresponding to the order in which the
-   * key-value pairs were added to the multimap.
-   */
-  // package-private for GWT deserialization
-  transient Collection<Map.Entry<K, V>> linkedEntries;
 
   /**
    * Creates a new, empty {@code LinkedHashMultimap} with the default initial
    * capacities.
    */
   public static <K, V> LinkedHashMultimap<K, V> create() {
-    return new LinkedHashMultimap<K, V>();
+    return new LinkedHashMultimap<K, V>(DEFAULT_KEY_CAPACITY, DEFAULT_VALUE_SET_CAPACITY);
   }
 
   /**
@@ -97,7 +96,9 @@ public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
    */
   public static <K, V> LinkedHashMultimap<K, V> create(
       int expectedKeys, int expectedValuesPerKey) {
-    return new LinkedHashMultimap<K, V>(expectedKeys, expectedValuesPerKey);
+    return new LinkedHashMultimap<K, V>(
+        Maps.capacity(expectedKeys),
+        Maps.capacity(expectedValuesPerKey));
   }
 
   /**
@@ -111,29 +112,119 @@ public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
    */
   public static <K, V> LinkedHashMultimap<K, V> create(
       Multimap<? extends K, ? extends V> multimap) {
-    return new LinkedHashMultimap<K, V>(multimap);
+    LinkedHashMultimap<K, V> result = create(multimap.keySet().size(), DEFAULT_VALUE_SET_CAPACITY);
+    result.putAll(multimap);
+    return result;
   }
 
-  private LinkedHashMultimap() {
-    super(new LinkedHashMap<K, Collection<V>>());
-    linkedEntries = Sets.newLinkedHashSet();
+  private interface ValueSetLink<K, V> {
+    ValueSetLink<K, V> getPredecessorInValueSet();
+    ValueSetLink<K, V> getSuccessorInValueSet();
+
+    void setPredecessorInValueSet(ValueSetLink<K, V> entry);
+    void setSuccessorInValueSet(ValueSetLink<K, V> entry);
   }
 
-  private LinkedHashMultimap(int expectedKeys, int expectedValuesPerKey) {
-    super(new LinkedHashMap<K, Collection<V>>(expectedKeys));
-    Preconditions.checkArgument(expectedValuesPerKey >= 0);
-    this.expectedValuesPerKey = expectedValuesPerKey;
-    linkedEntries = new LinkedHashSet<Map.Entry<K, V>>(
-        (int) Math.min(Ints.MAX_POWER_OF_TWO,
-            ((long) expectedKeys) * expectedValuesPerKey));
+  private static <K, V> void succeedsInValueSet(ValueSetLink<K, V> pred, ValueSetLink<K, V> succ) {
+    pred.setSuccessorInValueSet(succ);
+    succ.setPredecessorInValueSet(pred);
   }
 
-  private LinkedHashMultimap(Multimap<? extends K, ? extends V> multimap) {
-    super(new LinkedHashMap<K, Collection<V>>(
-        Maps.capacity(multimap.keySet().size())));
-    linkedEntries
-        = new LinkedHashSet<Map.Entry<K, V>>(Maps.capacity(multimap.size()));
-    putAll(multimap);
+  private static <K, V> void succeedsInMultimap(
+      ValueEntry<K, V> pred, ValueEntry<K, V> succ) {
+    pred.setSuccessorInMultimap(succ);
+    succ.setPredecessorInMultimap(pred);
+  }
+
+  private static <K, V> void deleteFromValueSet(ValueSetLink<K, V> entry) {
+    succeedsInValueSet(entry.getPredecessorInValueSet(), entry.getSuccessorInValueSet());
+  }
+
+  private static <K, V> void deleteFromMultimap(ValueEntry<K, V> entry) {
+    succeedsInMultimap(entry.getPredecessorInMultimap(), entry.getSuccessorInMultimap());
+  }
+
+  /**
+   * LinkedHashMultimap entries are in no less than three coexisting linked lists:
+   * a bucket in the hash table for a Set<V> associated with a key, the linked list
+   * of insertion-ordered entries in that Set<V>, and the linked list of entries
+   * in the LinkedHashMultimap as a whole.
+   */
+  @VisibleForTesting
+  static final class ValueEntry<K, V> extends ImmutableEntry<K, V>
+      implements ValueSetLink<K, V> {
+    final int smearedValueHash;
+
+    @Nullable ValueEntry<K, V> nextInValueBucket;
+
+    ValueSetLink<K, V> predecessorInValueSet;
+    ValueSetLink<K, V> successorInValueSet;
+
+    ValueEntry<K, V> predecessorInMultimap;
+    ValueEntry<K, V> successorInMultimap;
+
+    ValueEntry(@Nullable K key, @Nullable V value, int smearedValueHash,
+        @Nullable ValueEntry<K, V> nextInValueBucket) {
+      super(key, value);
+      this.smearedValueHash = smearedValueHash;
+      this.nextInValueBucket = nextInValueBucket;
+    }
+    
+    boolean matchesValue(@Nullable Object v, int smearedVHash) {
+      return smearedValueHash == smearedVHash && Objects.equal(getValue(), v);
+    }
+
+    @Override
+    public ValueSetLink<K, V> getPredecessorInValueSet() {
+      return predecessorInValueSet;
+    }
+
+    @Override
+    public ValueSetLink<K, V> getSuccessorInValueSet() {
+      return successorInValueSet;
+    }
+
+    @Override
+    public void setPredecessorInValueSet(ValueSetLink<K, V> entry) {
+      predecessorInValueSet = entry;
+    }
+
+    @Override
+    public void setSuccessorInValueSet(ValueSetLink<K, V> entry) {
+      successorInValueSet = entry;
+    }
+
+    public ValueEntry<K, V> getPredecessorInMultimap() {
+      return predecessorInMultimap;
+    }
+
+    public ValueEntry<K, V> getSuccessorInMultimap() {
+      return successorInMultimap;
+    }
+
+    public void setSuccessorInMultimap(ValueEntry<K, V> multimapSuccessor) {
+      this.successorInMultimap = multimapSuccessor;
+    }
+
+    public void setPredecessorInMultimap(ValueEntry<K, V> multimapPredecessor) {
+      this.predecessorInMultimap = multimapPredecessor;
+    }
+  }
+
+  private static final int DEFAULT_KEY_CAPACITY = 16;
+  private static final int DEFAULT_VALUE_SET_CAPACITY = 2;
+  @VisibleForTesting static final double VALUE_SET_LOAD_FACTOR = 1.0;
+
+  @VisibleForTesting transient int valueSetCapacity = DEFAULT_VALUE_SET_CAPACITY;
+  private transient ValueEntry<K, V> multimapHeaderEntry;
+
+  private LinkedHashMultimap(int keyCapacity, int valueSetCapacity) {
+    super(new LinkedHashMap<K, Collection<V>>(keyCapacity));
+    checkNonnegative(valueSetCapacity, "expectedValuesPerKey");
+
+    this.valueSetCapacity = valueSetCapacity;
+    this.multimapHeaderEntry = new ValueEntry<K, V>(null, null, 0, null);
+    succeedsInMultimap(multimapHeaderEntry, multimapHeaderEntry);
   }
 
   /**
@@ -145,167 +236,23 @@ public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
    * @return a new {@code LinkedHashSet} containing a collection of values for
    *     one key
    */
-  @Override Set<V> createCollection() {
-    return new LinkedHashSet<V>(Maps.capacity(expectedValuesPerKey));
+  @Override
+  Set<V> createCollection() {
+    return new LinkedHashSet<V>(valueSetCapacity);
   }
 
   /**
    * {@inheritDoc}
    *
-   * <p>Creates a decorated {@code LinkedHashSet} that also keeps track of the
+   * <p>Creates a decorated insertion-ordered set that also keeps track of the
    * order in which key-value pairs are added to the multimap.
    *
    * @param key key to associate with values in the collection
-   * @return a new decorated {@code LinkedHashSet} containing a collection of
-   *     values for one key
+   * @return a new decorated set containing a collection of values for one key
    */
-  @Override Collection<V> createCollection(@Nullable K key) {
-    return new SetDecorator(key, createCollection());
-  }
-
-  private class SetDecorator extends ForwardingSet<V> {
-    final Set<V> delegate;
-    final K key;
-
-    SetDecorator(@Nullable K key, Set<V> delegate) {
-      this.delegate = delegate;
-      this.key = key;
-    }
-
-    @Override protected Set<V> delegate() {
-      return delegate;
-    }
-
-    <E> Map.Entry<K, E> createEntry(@Nullable E value) {
-      return Maps.immutableEntry(key, value);
-    }
-
-    <E> Collection<Map.Entry<K, E>> createEntries(Collection<E> values) {
-      // converts a collection of values into a list of key/value map entries
-      Collection<Map.Entry<K, E>> entries
-          = Lists.newArrayListWithExpectedSize(values.size());
-      for (E value : values) {
-        entries.add(createEntry(value));
-      }
-      return entries;
-    }
-
-    @Override public boolean add(@Nullable V value) {
-      boolean changed = delegate.add(value);
-      if (changed) {
-        linkedEntries.add(createEntry(value));
-      }
-      return changed;
-    }
-
-    @Override public boolean addAll(Collection<? extends V> values) {
-      boolean changed = delegate.addAll(values);
-      if (changed) {
-        linkedEntries.addAll(createEntries(delegate()));
-      }
-      return changed;
-    }
-
-    @Override public void clear() {
-      for (V value : delegate) {
-        linkedEntries.remove(createEntry(value));
-      }
-      delegate.clear();
-    }
-
-    @Override public Iterator<V> iterator() {
-      final Iterator<V> delegateIterator = delegate.iterator();
-      return new Iterator<V>() {
-        V value;
-
-        @Override
-        public boolean hasNext() {
-          return delegateIterator.hasNext();
-        }
-        @Override
-        public V next() {
-          value = delegateIterator.next();
-          return value;
-        }
-        @Override
-        public void remove() {
-          delegateIterator.remove();
-          linkedEntries.remove(createEntry(value));
-        }
-      };
-    }
-
-    @Override public boolean remove(@Nullable Object value) {
-      boolean changed = delegate.remove(value);
-      if (changed) {
-        /*
-         * linkedEntries.remove() will return false when this method is called
-         * by entries().iterator().remove()
-         */
-        linkedEntries.remove(createEntry(value));
-      }
-      return changed;
-    }
-
-    @Override public boolean removeAll(Collection<?> values) {
-      boolean changed = delegate.removeAll(values);
-      if (changed) {
-        linkedEntries.removeAll(createEntries(values));
-      }
-      return changed;
-    }
-
-    @Override public boolean retainAll(Collection<?> values) {
-      /*
-       * Calling linkedEntries.retainAll() would incorrectly remove values
-       * with other keys.
-       */
-      boolean changed = false;
-      Iterator<V> iterator = delegate.iterator();
-      while (iterator.hasNext()) {
-        V value = iterator.next();
-        if (!values.contains(value)) {
-          iterator.remove();
-          linkedEntries.remove(Maps.immutableEntry(key, value));
-          changed = true;
-        }
-      }
-      return changed;
-    }
-  }
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Generates an iterator across map entries that follows the ordering in
-   * which the key-value pairs were added to the multimap.
-   *
-   * @return a key-value iterator with the correct ordering
-   */
-  @Override Iterator<Map.Entry<K, V>> createEntryIterator() {
-    final Iterator<Map.Entry<K, V>> delegateIterator = linkedEntries.iterator();
-
-    return new Iterator<Map.Entry<K, V>>() {
-      Map.Entry<K, V> entry;
-
-      @Override
-      public boolean hasNext() {
-        return delegateIterator.hasNext();
-      }
-
-      @Override
-      public Map.Entry<K, V> next() {
-        entry = delegateIterator.next();
-        return entry;
-      }
-
-      @Override
-      public void remove() {
-        // Remove from iterator first to keep iterator valid.
-        delegateIterator.remove();
-        LinkedHashMultimap.this.remove(entry.getKey(), entry.getValue());
-      }
-    };
+  @Override
+  Collection<V> createCollection(K key) {
+    return new ValueSet(key, valueSetCapacity);
   }
 
   /**
@@ -316,8 +263,8 @@ public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
    * However, the provided values always come last in the {@link #entries()} and
    * {@link #values()} iteration orderings.
    */
-  @Override public Set<V> replaceValues(
-      @Nullable K key, Iterable<? extends V> values) {
+  @Override
+  public Set<V> replaceValues(@Nullable K key, Iterable<? extends V> values) {
     return super.replaceValues(key, values);
   }
 
@@ -348,7 +295,236 @@ public final class LinkedHashMultimap<K, V> extends AbstractSetMultimap<K, V> {
     return super.values();
   }
 
-  // Unfortunately, the entries() ordering does not determine the key ordering;
-  // see the example in the LinkedListMultimap class Javadoc.
+  @VisibleForTesting
+  final class ValueSet extends Sets.ImprovedAbstractSet<V> implements ValueSetLink<K, V> {
+    /*
+     * We currently use a fixed load factor of 1.0, a bit higher than normal to reduce memory
+     * consumption.
+     */
+
+    private final K key;
+    @VisibleForTesting ValueEntry<K, V>[] hashTable;
+    private int size = 0;
+    private int modCount = 0;
+
+    // We use the set object itself as the end of the linked list, avoiding an unnecessary
+    // entry object per key.
+    private ValueSetLink<K, V> firstEntry;
+    private ValueSetLink<K, V> lastEntry;
+
+    ValueSet(K key, int expectedValues) {
+      this.key = key;
+      this.firstEntry = this;
+      this.lastEntry = this;
+      // Round expected values up to a power of 2 to get the table size.
+      int tableSize = Hashing.closedTableSize(expectedValues, VALUE_SET_LOAD_FACTOR);
+      
+      @SuppressWarnings("unchecked")
+      ValueEntry<K, V>[] hashTable = new ValueEntry[tableSize];
+      this.hashTable = hashTable;
+    }
+    
+    private int mask() {
+      return hashTable.length - 1;
+    }
+
+    @Override
+    public ValueSetLink<K, V> getPredecessorInValueSet() {
+      return lastEntry;
+    }
+
+    @Override
+    public ValueSetLink<K, V> getSuccessorInValueSet() {
+      return firstEntry;
+    }
+
+    @Override
+    public void setPredecessorInValueSet(ValueSetLink<K, V> entry) {
+      lastEntry = entry;
+    }
+
+    @Override
+    public void setSuccessorInValueSet(ValueSetLink<K, V> entry) {
+      firstEntry = entry;
+    }
+
+    @Override
+    public Iterator<V> iterator() {
+      return new Iterator<V>() {
+        ValueSetLink<K, V> nextEntry = firstEntry;
+        ValueEntry<K, V> toRemove;
+        int expectedModCount = modCount;
+
+        private void checkForComodification() {
+          if (modCount != expectedModCount) {
+            throw new ConcurrentModificationException();
+          }
+        }
+
+        @Override
+        public boolean hasNext() {
+          checkForComodification();
+          return nextEntry != ValueSet.this;
+        }
+
+        @Override
+        public V next() {
+          if (!hasNext()) {
+            throw new NoSuchElementException();
+          }
+          ValueEntry<K, V> entry = (ValueEntry<K, V>) nextEntry;
+          V result = entry.getValue();
+          toRemove = entry;
+          nextEntry = entry.getSuccessorInValueSet();
+          return result;
+        }
+
+        @Override
+        public void remove() {
+          checkForComodification();
+          checkRemove(toRemove != null);
+          ValueSet.this.remove(toRemove.getValue());
+          expectedModCount = modCount;
+          toRemove = null;
+        }
+      };
+    }
+
+    @Override
+    public int size() {
+      return size;
+    }
+
+    @Override
+    public boolean contains(@Nullable Object o) {
+      int smearedHash = Hashing.smearedHash(o);
+      for (ValueEntry<K, V> entry = hashTable[smearedHash & mask()]; entry != null;
+          entry = entry.nextInValueBucket) {
+        if (entry.matchesValue(o, smearedHash)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public boolean add(@Nullable V value) {
+      int smearedHash = Hashing.smearedHash(value);
+      int bucket = smearedHash & mask();
+      ValueEntry<K, V> rowHead = hashTable[bucket];
+      for (ValueEntry<K, V> entry = rowHead; entry != null;
+          entry = entry.nextInValueBucket) {
+        if (entry.matchesValue(value, smearedHash)) {
+          return false;
+        }
+      }
+
+      ValueEntry<K, V> newEntry = new ValueEntry<K, V>(key, value, smearedHash, rowHead);
+      succeedsInValueSet(lastEntry, newEntry);
+      succeedsInValueSet(newEntry, this);
+      succeedsInMultimap(multimapHeaderEntry.getPredecessorInMultimap(), newEntry);
+      succeedsInMultimap(newEntry, multimapHeaderEntry);
+      hashTable[bucket] = newEntry;
+      size++;
+      modCount++;
+      rehashIfNecessary();
+      return true;
+    }
+
+    private void rehashIfNecessary() {
+      if (Hashing.needsResizing(size, hashTable.length, VALUE_SET_LOAD_FACTOR)) {
+        @SuppressWarnings("unchecked")
+        ValueEntry<K, V>[] hashTable = new ValueEntry[this.hashTable.length * 2];
+        this.hashTable = hashTable;
+        int mask = hashTable.length - 1;
+        for (ValueSetLink<K, V> entry = firstEntry;
+            entry != this; entry = entry.getSuccessorInValueSet()) {
+          ValueEntry<K, V> valueEntry = (ValueEntry<K, V>) entry;
+          int bucket = valueEntry.smearedValueHash & mask;
+          valueEntry.nextInValueBucket = hashTable[bucket];
+          hashTable[bucket] = valueEntry;
+        }
+      }
+    }
+
+    @Override
+    public boolean remove(@Nullable Object o) {
+      int smearedHash = Hashing.smearedHash(o);
+      int bucket = smearedHash & mask();
+      ValueEntry<K, V> prev = null;
+      for (ValueEntry<K, V> entry = hashTable[bucket]; entry != null;
+           prev = entry, entry = entry.nextInValueBucket) {
+        if (entry.matchesValue(o, smearedHash)) {
+          if (prev == null) {
+            // first entry in the bucket
+            hashTable[bucket] = entry.nextInValueBucket;
+          } else {
+            prev.nextInValueBucket = entry.nextInValueBucket;
+          }
+          deleteFromValueSet(entry);
+          deleteFromMultimap(entry);
+          size--;
+          modCount++;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    @Override
+    public void clear() {
+      Arrays.fill(hashTable, null);
+      size = 0;
+      for (ValueSetLink<K, V> entry = firstEntry;
+           entry != this; entry = entry.getSuccessorInValueSet()) {
+        ValueEntry<K, V> valueEntry = (ValueEntry<K, V>) entry;
+        deleteFromMultimap(valueEntry);
+      }
+      succeedsInValueSet(this, this);
+      modCount++;
+    }
+  }
+
+  @Override
+  Iterator<Map.Entry<K, V>> entryIterator() {
+    return new Iterator<Map.Entry<K, V>>() {
+      ValueEntry<K, V> nextEntry = multimapHeaderEntry.successorInMultimap;
+      ValueEntry<K, V> toRemove;
+
+      @Override
+      public boolean hasNext() {
+        return nextEntry != multimapHeaderEntry;
+      }
+
+      @Override
+      public Map.Entry<K, V> next() {
+        if (!hasNext()) {
+          throw new NoSuchElementException();
+        }
+        ValueEntry<K, V> result = nextEntry;
+        toRemove = result;
+        nextEntry = nextEntry.successorInMultimap;
+        return result;
+      }
+
+      @Override
+      public void remove() {
+        checkRemove(toRemove != null);
+        LinkedHashMultimap.this.remove(toRemove.getKey(), toRemove.getValue());
+        toRemove = null;
+      }
+    };
+  }
+  
+  @Override
+  Iterator<V> valueIterator() {
+    return Maps.valueIterator(entryIterator());
+  }
+
+  @Override
+  public void clear() {
+    super.clear();
+    succeedsInMultimap(multimapHeaderEntry, multimapHeaderEntry);
+  }
 }
 

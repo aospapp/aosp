@@ -44,10 +44,6 @@ public:
     NinePatchStretchGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
-
     virtual SkString onShortName() {
         return SkString("ninepatch-stretch");
     }
@@ -77,7 +73,7 @@ protected:
         SkScalar y = SkIntToScalar(100);
 
         SkPaint paint;
-        paint.setFilterLevel(SkPaint::kLow_FilterLevel);
+        paint.setFilterQuality(kLow_SkFilterQuality);
 
         for (int iy = 0; iy < 2; ++iy) {
             for (int ix = 0; ix < 2; ++ix) {

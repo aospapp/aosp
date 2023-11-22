@@ -16,15 +16,8 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.ActionBehavior;
-import com.android.tv.settings.ActionKey;
-import com.android.tv.settings.BaseSettingsActivity;
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ContentFragment;
-
 import android.content.Context;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
@@ -33,11 +26,17 @@ import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-
 import android.os.Bundle;
-import android.util.Log;
 import android.os.Handler;
-import android.content.Intent;
+import android.util.Log;
+
+import com.android.tv.settings.ActionBehavior;
+import com.android.tv.settings.ActionKey;
+import com.android.tv.settings.BaseSettingsActivity;
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.old.ContentFragment;
 
 /**
  * Activity to view the status and modify the configuration of the currently
@@ -60,7 +59,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
     private boolean mInetConnected;
     private Handler mHandler;
 
-    private Runnable mMainRefreshView = new Runnable() {
+    private final Runnable mMainRefreshView = new Runnable() {
         @Override
         public void run() {
             updateView();
@@ -107,7 +106,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
         if (intentAction.equals(ConnectivityManager.CONNECTIVITY_ACTION)
                 || intentAction.equals(ConnectivityManager.INET_CONDITION_ACTION)) {
             int connectionStatus = intent.getIntExtra(ConnectivityManager.EXTRA_INET_CONDITION, 0);
-            boolean ic = connectionStatus > INET_CONDITION_THRESHOLD ? true : false;
+            boolean ic = connectionStatus > INET_CONDITION_THRESHOLD;
             if (ic != mInetConnected) {
                 inetConnectedChanged = true;
                 mInetConnected = ic;
@@ -221,7 +220,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
 
             case CONECTIVITY_SETTINGS_FORGET_NETWORK: {
                 String okKey =
-                    new ActionKey<ActionType, ActionBehavior>(
+                    new ActionKey<>(
                         ActionType.CONECTIVITY_SETTINGS_FORGET_NETWORK, ActionBehavior.OK).getKey();
                 mActions.add(
                     new Action.Builder()
@@ -229,7 +228,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
                         .title(getString(R.string.wifi_forget_network))
                         .build());
                 String cancelKey =
-                    new ActionKey<ActionType, ActionBehavior>(
+                    new ActionKey<>(
                             ActionType.CONECTIVITY_SETTINGS_FORGET_NETWORK,
                             ActionBehavior.CANCEL).getKey();
                 mActions.add(
@@ -257,7 +256,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
     @Override
     protected void updateView() {
         refreshActionList();
-        if (DEBUG) Log.d(TAG, "updateView  mState " + (ActionType) mState);
+        if (DEBUG) Log.d(TAG, "updateView  mState " + mState);
         switch ((ActionType) mState) {
             case CONECTIVITY_SETTINGS_MAIN: {
                 setView(getNetworkName(), null, null,
@@ -309,7 +308,7 @@ public class WifiConfigurationActivity extends BaseSettingsActivity
         if (DEBUG) Log.d(TAG, "onActionClicked " + action.getKey());
 
         ActionKey<ActionType, ActionBehavior> actionKey =
-            new ActionKey<ActionType, ActionBehavior>(
+            new ActionKey<>(
                 ActionType.class, ActionBehavior.class, action.getKey());
         final ActionType type = actionKey.getType();
         final ActionBehavior behavior = actionKey.getBehavior();

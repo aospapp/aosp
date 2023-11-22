@@ -155,9 +155,12 @@ Summary:
 
 <div class="jd-descr">
 <?cs call:deprecated_warning(class) ?>
-<?cs if:subcount(class.descr) ?>
+<?cs if:subcount(class.descr) || subcount(class.annotationdocumentation) ?>
 <h2>Class Overview</h2>
-<p itemprop="articleBody"><?cs call:tag_list(class.descr) ?></p>
+<?cs if:subcount(class.descr) ?><p itemprop="articleBody"><?cs call:tag_list(class.descr) ?></p><?cs /if ?>
+<?cs if:subcount(class.annotationdocumentation) ?><?cs each:annodoc = class.annotationdocumentation ?>
+<p><?cs var:annodoc.text ?></p>
+<?cs /each ?><?cs /if ?>
 <?cs /if ?>
 
 <?cs call:see_also_tags(class.seeAlso) ?>

@@ -4,6 +4,7 @@
 
 {
   'variables': {
+    'skia_warnings_as_errors': 0,
     'conditions':[
       ['skia_android_framework == 1', {
         'use_system_libwebp': 1,
@@ -35,6 +36,7 @@
             '../third_party/externals/libwebp/src/dec/webp.c',
           ],
           'cflags': [ '-w' ],
+          'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
         },
         {
           'target_name': 'libwebp_demux',
@@ -46,6 +48,7 @@
             '../third_party/externals/libwebp/src/demux/demux.c',
           ],
           'cflags': [ '-w' ],
+          'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
         },
         {
           'target_name': 'libwebp_dsp',
@@ -65,6 +68,7 @@
             '../third_party/externals/libwebp/src/dsp/yuv.c',
           ],
           'cflags': [ '-w' ],
+          'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
           'conditions': [
             ['skia_os == "android"', {
               'dependencies' : [
@@ -122,6 +126,7 @@
             '../third_party/externals/libwebp/src/enc/webpenc.c',
           ],
           'cflags': [ '-w' ],
+          'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
         },
         {
           'target_name': 'libwebp_utils',
@@ -143,6 +148,7 @@
             '../third_party/externals/libwebp/src/utils/utils.c',
           ],
           'cflags': [ '-w' ],
+          'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
         },
         {
           'target_name': 'libwebp',
@@ -159,6 +165,8 @@
             'include_dirs': [
               '../third_party/externals/libwebp/src',
             ],
+            'cflags': [ '-w' ],
+            'xcode_settings': { 'WARNING_CFLAGS': [ '-w' ] },
           },
           'conditions': [
             ['OS!="win"', {'product_name': 'webp'}],

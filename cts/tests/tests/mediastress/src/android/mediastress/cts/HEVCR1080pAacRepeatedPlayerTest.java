@@ -16,19 +16,11 @@
 
 package android.mediastress.cts;
 
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder.AudioEncoder;
-import android.media.MediaRecorder.VideoEncoder;
-
 public class HEVCR1080pAacRepeatedPlayerTest extends MediaPlayerStressTest {
     private static final String VIDEO_PATH_MIDDLE = "bbb_short/1920x1080/mp4_libx265_libfaac/";
     private final String[] mMedias = {
         "bbb_short.fmpeg.1920x1080.mp4.libx265_6500kbps_30fps.libfaac_stereo_128kbps_48000hz.mp4",
     };
-
-    public HEVCR1080pAacRepeatedPlayerTest() {
-        super(CamcorderProfile.QUALITY_1080P, VideoEncoder.H264, AudioEncoder.AAC);
-    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackRepeated(0);

@@ -44,6 +44,12 @@ import java.util.regex.Matcher;
  * samples/ApiDemos/src/com/google/app/Notification1.java Bleh}
  */
 public class SampleTagInfo extends TagInfo {
+  public static final SampleTagInfo[] EMPTY_ARRAY = new SampleTagInfo[0];
+
+  public static SampleTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new SampleTagInfo[size];
+  }
+
   static final int STATE_BEGIN = 0;
   static final int STATE_MATCHING = 1;
 

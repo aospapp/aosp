@@ -24,7 +24,7 @@ public class RefcountObject<T> {
 
     private RefcountObject.RefcountListener mRefcountListener;
     private int mRefcount;
-    private T mObject;
+    private final T mObject;
 
     public RefcountObject(T object) {
         mObject = object;

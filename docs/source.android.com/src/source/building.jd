@@ -2,7 +2,7 @@ page.title=Downloading and Building
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ page.title=Downloading and Building
     limitations under the License.
 -->
 <p>The Android build is routinely tested in-house on recent versions of
-Ubuntu LTS (12.04), but most distributions should have the required
+Ubuntu LTS (14.04), but most distributions should have the required
 build tools available. We welcome reports of successes or failures on other
 distributions.</p>
 
@@ -25,19 +25,20 @@ distributions.</p>
 
 <ul>
 
-  <li>A Linux or Mac system. It is also possible
+  <li>A Linux or Mac OS system. It is also possible
   to build Android in a virtual machine on unsupported systems such as Windows.
   If you are running Linux in a virtual machine, you need at
-  least 16GB of RAM/swap and 30GB or more of disk space in order to
-  build the Android tree.
+  least 16GB of RAM/swap and 50GB or more of disk space in order to
+  build the Android tree. See disk size requirements below.
   </li>
 
   <li>A 64-bit environment is required for Gingerbread (2.3.x) and newer versions, including the master
   branch. You can compile older versions on 32-bit systems.
   </li>
 
-  <li>30GB of free disk space to complete a single build and
-  up to 100GB or more for a full set of builds.  The source download is approximately 8.5GB in size.</p>
+  <li>At least 50GB of free disk space for a checkout, 100GB for a single
+  build, and 150GB or more for multiple builds. If you employ ccache, you will
+  need even more space.</p>
   </li>
 
   <li>

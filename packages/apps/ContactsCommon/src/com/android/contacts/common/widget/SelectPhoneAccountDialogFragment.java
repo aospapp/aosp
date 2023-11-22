@@ -21,10 +21,11 @@ import android.telecom.PhoneAccountHandle;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
-import android.app.FragmentManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.ResultReceiver;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
@@ -41,6 +42,7 @@ import android.widget.TextView;
 
 import com.android.contacts.common.R;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -48,6 +50,12 @@ import java.util.List;
  * the choice to set the phone account as default.
  */
 public class SelectPhoneAccountDialogFragment extends DialogFragment {
+    private static final String ARG_TITLE_RES_ID = "title_res_id";
+    private static final String ARG_CAN_SET_DEFAULT = "can_set_default";
+    private static final String ARG_ACCOUNT_HANDLES = "account_handles";
+    private static final String ARG_IS_DEFAULT_CHECKED = "is_default_checked";
+    private static final String ARG_LISTENER = "listener";
+
     private int mTitleResId;
     private boolean mCanSetDefault;
     private List<PhoneAccountHandle> mAccountHandles;
@@ -57,58 +65,97 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
     private SelectPhoneAccountListener mListener;
 
     /**
-     * Shows the account selection dialog.
-     * This is the preferred way to show this dialog.
+     * Create new fragment instance with default title and no option to set as default.
      *
-     * @param fragmentManager The fragment manager.
      * @param accountHandles The {@code PhoneAccountHandle}s available to select from.
      * @param listener The listener for the results of the account selection.
      */
-    public static void showAccountDialog(FragmentManager fragmentManager,
+    public static SelectPhoneAccountDialogFragment newInstance(
             List<PhoneAccountHandle> accountHandles, SelectPhoneAccountListener listener) {
-        showAccountDialog(fragmentManager, R.string.select_account_dialog_title, false,
+        return newInstance(R.string.select_account_dialog_title, false,
                 accountHandles, listener);
     }
 
     /**
-     * Shows the account selection dialog.
-     * This is the preferred way to show this dialog.
+     * Create new fragment instance.
      * This method also allows specifying a custom title and "set default" checkbox.
      *
-     * @param fragmentManager The fragment manager.
      * @param titleResId The resource ID for the string to use in the title of the dialog.
      * @param canSetDefault {@code true} if the dialog should include an option to set the selection
      * as the default. False otherwise.
      * @param accountHandles The {@code PhoneAccountHandle}s available to select from.
      * @param listener The listener for the results of the account selection.
      */
-    public static void showAccountDialog(FragmentManager fragmentManager, int titleResId,
+    public static SelectPhoneAccountDialogFragment newInstance(int titleResId,
             boolean canSetDefault, List<PhoneAccountHandle> accountHandles,
             SelectPhoneAccountListener listener) {
-        SelectPhoneAccountDialogFragment fragment =
-                new SelectPhoneAccountDialogFragment(
-                        titleResId, canSetDefault, accountHandles, listener);
-        fragment.show(fragmentManager, "selectAccount");
+        ArrayList<PhoneAccountHandle> accountHandlesCopy = new ArrayList<PhoneAccountHandle>();
+        if (accountHandles != null) {
+            accountHandlesCopy.addAll(accountHandles);
+        }
+        SelectPhoneAccountDialogFragment fragment = new SelectPhoneAccountDialogFragment();
+        final Bundle args = new Bundle();
+        args.putInt(ARG_TITLE_RES_ID, titleResId);
+        args.putBoolean(ARG_CAN_SET_DEFAULT, canSetDefault);
+        args.putParcelableArrayList(ARG_ACCOUNT_HANDLES, accountHandlesCopy);
+        args.putParcelable(ARG_LISTENER, listener);
+        fragment.setArguments(args);
+        fragment.setListener(listener);
+        return fragment;
     }
 
-    public SelectPhoneAccountDialogFragment(int titleResId, boolean canSetDefault,
-            List<PhoneAccountHandle> accountHandles, SelectPhoneAccountListener listener) {
-        super();
-        mTitleResId = titleResId;
-        mCanSetDefault = canSetDefault;
-        mAccountHandles = accountHandles;
+    public SelectPhoneAccountDialogFragment() {
+    }
+
+    public void setListener(SelectPhoneAccountListener listener) {
         mListener = listener;
     }
 
-    public interface SelectPhoneAccountListener {
-        void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle, boolean setDefault);
-        void onDialogDismissed();
+    public static class SelectPhoneAccountListener extends ResultReceiver {
+        static final int RESULT_SELECTED = 1;
+        static final int RESULT_DISMISSED = 2;
+
+        static final String EXTRA_SELECTED_ACCOUNT_HANDLE = "extra_selected_account_handle";
+        static final String EXTRA_SET_DEFAULT = "extra_set_default";
+
+        public SelectPhoneAccountListener() {
+            super(new Handler());
+        }
+
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            if (resultCode == RESULT_SELECTED) {
+                onPhoneAccountSelected(
+                        (PhoneAccountHandle) resultData.getParcelable(
+                                EXTRA_SELECTED_ACCOUNT_HANDLE),
+                        resultData.getBoolean(EXTRA_SET_DEFAULT));
+            } else if (resultCode == RESULT_DISMISSED) {
+                onDialogDismissed();
+            }
+        }
+
+        public void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle,
+                boolean setDefault) {}
+
+        public void onDialogDismissed() {}
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(ARG_IS_DEFAULT_CHECKED, mIsDefaultChecked);
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
+        mTitleResId = getArguments().getInt(ARG_TITLE_RES_ID);
+        mCanSetDefault = getArguments().getBoolean(ARG_CAN_SET_DEFAULT);
+        mAccountHandles = getArguments().getParcelableArrayList(ARG_ACCOUNT_HANDLES);
+        mListener = getArguments().getParcelable(ARG_LISTENER);
+        if (savedInstanceState != null) {
+            mIsDefaultChecked = savedInstanceState.getBoolean(ARG_IS_DEFAULT_CHECKED);
+        }
         mIsSelected = false;
-        mIsDefaultChecked = false;
         mTelecomManager =
                 (TelecomManager) getActivity().getSystemService(Context.TELECOM_SERVICE);
 
@@ -118,7 +165,14 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
             public void onClick(DialogInterface dialog, int which) {
                 mIsSelected = true;
                 PhoneAccountHandle selectedAccountHandle = mAccountHandles.get(which);
-                mListener.onPhoneAccountSelected(selectedAccountHandle, mIsDefaultChecked);
+                final Bundle result = new Bundle();
+                result.putParcelable(SelectPhoneAccountListener.EXTRA_SELECTED_ACCOUNT_HANDLE,
+                        selectedAccountHandle);
+                result.putBoolean(SelectPhoneAccountListener.EXTRA_SET_DEFAULT,
+                        mIsDefaultChecked);
+                if (mListener != null) {
+                    mListener.onReceiveResult(SelectPhoneAccountListener.RESULT_SELECTED, result);
+                }
             }
         };
 
@@ -149,6 +203,7 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
             CheckBox cb =
                     (CheckBox) checkboxLayout.findViewById(R.id.default_account_checkbox_view);
             cb.setOnCheckedChangeListener(checkListener);
+            cb.setChecked(mIsDefaultChecked);
 
             dialog.getListView().addFooterView(checkboxLayout);
         }
@@ -189,6 +244,9 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
 
             PhoneAccountHandle accountHandle = getItem(position);
             PhoneAccount account = mTelecomManager.getPhoneAccount(accountHandle);
+            if (account == null) {
+                return rowView;
+            }
             holder.labelTextView.setText(account.getLabel());
             if (account.getAddress() == null ||
                     TextUtils.isEmpty(account.getAddress().getSchemeSpecificPart())) {
@@ -196,10 +254,11 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
             } else {
                 holder.numberTextView.setVisibility(View.VISIBLE);
                 holder.numberTextView.setText(
-                        PhoneNumberUtils.ttsSpanAsPhoneNumber(
+                        PhoneNumberUtils.createTtsSpannable(
                                 account.getAddress().getSchemeSpecificPart()));
             }
-            holder.imageView.setImageDrawable(account.createIconDrawable(getContext()));
+            holder.imageView.setImageDrawable(account.getIcon() != null
+                    ? account.getIcon().loadDrawable(getContext()) : null);
             return rowView;
         }
 
@@ -211,10 +270,10 @@ public class SelectPhoneAccountDialogFragment extends DialogFragment {
     }
 
     @Override
-    public void onPause() {
-        if (!mIsSelected) {
-            mListener.onDialogDismissed();
+    public void onStop() {
+        if (!mIsSelected && mListener != null) {
+            mListener.onReceiveResult(SelectPhoneAccountListener.RESULT_DISMISSED, null);
         }
-        super.onPause();
+        super.onStop();
     }
 }

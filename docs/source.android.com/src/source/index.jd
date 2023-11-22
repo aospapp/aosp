@@ -2,7 +2,7 @@ page.title=The Android Source Code
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,17 +22,23 @@ with different form factors. The primary purposes of Android are to create an
 open software platform available for carriers, OEMs, and developers to make
 their innovative ideas a reality and to introduce a successful,
 real-world product that improves the mobile experience for users.
+</p>
 
+<p>
 We also wanted to make sure there was
 no central point of failure, where one industry player could restrict or
 control the innovations of any other. The result is a full, production-quality
 consumer product with source code open for customization and porting.
 </p>
 
+<div class="figure" style="width:700px">
+  <img src="{@docRoot}images/android_framework_details.png" alt="Android framework details" height="483px" />
+  <p class="img-caption">
+    <strong>Figure 1.</strong> Android stack
+  </p>
+</div>
 
-
-
-<h2 id="governance-philosophy">Governance Philosophy</h2
+<h2 id="governance-philosophy">Governance Philosophy</h2>
 <p>Android was originated by a group of companies known as the Open
 Handset Alliance, led by Google. Today, many companies -- both original members
 of the OHA and others -- have invested heavily in Android. These companies have

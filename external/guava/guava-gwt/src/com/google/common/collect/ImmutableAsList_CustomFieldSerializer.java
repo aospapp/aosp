@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 The Guava Authors
+ * Copyright (C) 2009 The Guava Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,40 +16,10 @@
 
 package com.google.common.collect;
 
-import com.google.common.annotations.GwtCompatible;
-import com.google.gwt.user.client.rpc.SerializationException;
-import com.google.gwt.user.client.rpc.SerializationStreamReader;
-import com.google.gwt.user.client.rpc.SerializationStreamWriter;
-import com.google.gwt.user.client.rpc.core.java.util.Collection_CustomFieldSerializerBase;
-
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * This class implements the server-side GWT serialization of
- * {@link ImmutableAsList}.
+ * Even though {@link ImmutableAsList} cannot be instantiated, we still need
+ * a custom field serializer. TODO(cpovirk): why?
  *
  * @author Hayward Chan
  */
-@GwtCompatible(emulated = true)
-public class ImmutableAsList_CustomFieldSerializer {
-
-  public static void deserialize(SerializationStreamReader reader,
-      ImmutableAsList<?> instance) {
-  }
-
-  public static ImmutableAsList<Object> instantiate(
-      SerializationStreamReader reader) throws SerializationException {
-    List<Object> elements = new ArrayList<Object>();
-    Collection_CustomFieldSerializerBase.deserialize(reader, elements);
-    ImmutableList<Object> asImmutableList = ImmutableList.copyOf(elements);
-    return new ImmutableAsList<Object>(
-        asImmutableList.toArray(new Object[asImmutableList.size()]),
-        asImmutableList);
-  }
-
-  public static void serialize(SerializationStreamWriter writer,
-      ImmutableAsList<?> instance) throws SerializationException {
-    Collection_CustomFieldSerializerBase.serialize(writer, instance);
-  }
-}
+public final class ImmutableAsList_CustomFieldSerializer {}

@@ -293,7 +293,7 @@
     <string name="single_new_message_notification_big_text" msgid="2170154732664242904">"<xliff:g id="SUBJECT">%1$s</xliff:g>\n<xliff:g id="SNIPPET">%2$s</xliff:g>"</string>
     <string name="ignore_spam_warning" msgid="8760314545535838430">"Игнорирај, ѝ верувам на оваа порака"</string>
     <string name="via_domain" msgid="537951148511529082">"преку <xliff:g id="VIADOMAIN">%1$s</xliff:g>"</string>
-    <string name="signin" msgid="4699091478139791244">"Пријави се"</string>
+    <string name="signin" msgid="4699091478139791244">"Најави се"</string>
     <string name="info" msgid="1357564480946178121">"Информации"</string>
     <string name="report" msgid="4318141326014579036">"Пријави"</string>
     <!-- no translation found for show (2874876876336599985) -->

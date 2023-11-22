@@ -80,23 +80,15 @@ register_var_option "--visible-static" VISIBLE_STATIC "Do not use hidden visibil
 WITH_DEBUG_INFO=
 register_var_option "--with-debug-info" WITH_DEBUG_INFO "Build with -g.  STL is still built with optimization but with debug info"
 
-EXPLICIT_COMPILER_VERSION=
-
 GCC_VERSION=
-register_option "--gcc-version=<ver>" do_gcc_version "Specify GCC version"
-do_gcc_version() {
-    GCC_VERSION=$1
-    EXPLICIT_COMPILER_VERSION=true
-}
+register_var_option "--gcc-version=<ver>" GCC_VERSION "Specify GCC version"
 
 LLVM_VERSION=
-register_option "--llvm-version=<ver>" do_llvm_version "Specify LLVM version"
-do_llvm_version() {
-    LLVM_VERSION=$1
-    EXPLICIT_COMPILER_VERSION=true
-}
+register_var_option "--llvm-version=<ver>" LLVM_VERSION "Specify LLVM version"
 
 register_jobs_option
+
+register_try64_option
 
 extract_parameters "$@"
 
@@ -107,7 +99,7 @@ fi
 ABIS=$(commas_to_spaces $ABIS)
 UNKNOWN_ABIS=
 if [ "$ABIS" = "${ABIS%%64*}" ]; then
-    UNKNOWN_ABIS="$(filter_out "$PREBUILT_ABIS" "$ABIS" )"
+    UNKNOWN_ABIS="$(filter_out "$PREBUILT_ABIS mips32r6" "$ABIS" )"
     if [ -n "$UNKNOWN_ABIS" ] && [ -n "$(find_ndk_unknown_archs)" ]; then
         ABIS="$(filter_out "$UNKNOWN_ABIS" "$ABIS")"
         ABIS="$ABIS $(find_ndk_unknown_archs)"
@@ -198,7 +190,7 @@ fi
 
 if [ "$CXX_STL" = "libc++" ]; then
     # Use clang to build libc++ by default.
-    if [ "$EXPLICIT_COMPILER_VERSION" != "true" ]; then
+    if [ -z "$LLVM_VERSION" -a -z "$GCC_VERSION" ]; then
         LLVM_VERSION=$DEFAULT_LLVM_VERSION
     fi
 fi
@@ -259,7 +251,9 @@ src/cxa.c"
 LIBCXX_LINKER_SCRIPT=export_symbols.txt
 LIBCXX_CFLAGS="$COMMON_C_CXX_FLAGS $LIBCXX_INCLUDES -Drestrict=__restrict__"
 LIBCXX_CXXFLAGS="$LIBCXX_CFLAGS -DLIBCXXABI=1 -std=c++11"
-LIBCXX_LDFLAGS="-Wl,--version-script,\$_BUILD_SRCDIR/$LIBCXX_LINKER_SCRIPT"
+if [ -f "$_BUILD_SRCDIR/$LIBCXX_LINKER_SCRIPT" ]; then
+    LIBCXX_LDFLAGS="-Wl,--version-script,\$_BUILD_SRCDIR/$LIBCXX_LINKER_SCRIPT"
+fi
 LIBCXX_SOURCES=\
 "libcxx/src/algorithm.cpp \
 libcxx/src/bind.cpp \
@@ -328,16 +322,10 @@ SUPPORT32_SOURCES=\
 ../../android/support/src/locale/localeconv.c \
 ../../android/support/src/locale/newlocale.c \
 ../../android/support/src/locale/uselocale.c \
-../../android/support/src/stdio/fscanf.c \
-../../android/support/src/stdio/scanf.c \
-../../android/support/src/stdio/sscanf.c \
 ../../android/support/src/stdio/stdio_impl.c \
 ../../android/support/src/stdio/strtod.c \
 ../../android/support/src/stdio/vfprintf.c \
-../../android/support/src/stdio/vfscanf.c \
 ../../android/support/src/stdio/vfwprintf.c \
-../../android/support/src/stdio/vscanf.c \
-../../android/support/src/stdio/vsscanf.c \
 ../../android/support/src/msun/e_log2.c \
 ../../android/support/src/msun/e_log2f.c \
 ../../android/support/src/msun/s_nan.c \
@@ -449,33 +437,9 @@ SUPPORT32_SOURCES_x86=\
 
 # android/support files for libc++
 SUPPORT64_SOURCES=\
-"../../android/support/src/locale_support.c \
-../../android/support/src/musl-locale/catclose.c \
+"../../android/support/src/musl-locale/catclose.c \
 ../../android/support/src/musl-locale/catgets.c \
 ../../android/support/src/musl-locale/catopen.c \
-../../android/support/src/musl-locale/isdigit_l.c \
-../../android/support/src/musl-locale/islower_l.c \
-../../android/support/src/musl-locale/isupper_l.c \
-../../android/support/src/musl-locale/iswalpha_l.c \
-../../android/support/src/musl-locale/iswblank_l.c \
-../../android/support/src/musl-locale/iswcntrl_l.c \
-../../android/support/src/musl-locale/iswdigit_l.c \
-../../android/support/src/musl-locale/iswlower_l.c \
-../../android/support/src/musl-locale/iswprint_l.c \
-../../android/support/src/musl-locale/iswpunct_l.c \
-../../android/support/src/musl-locale/iswspace_l.c \
-../../android/support/src/musl-locale/iswupper_l.c \
-../../android/support/src/musl-locale/iswxdigit_l.c \
-../../android/support/src/musl-locale/isxdigit_l.c \
-../../android/support/src/musl-locale/strcoll_l.c \
-../../android/support/src/musl-locale/strftime_l.c \
-../../android/support/src/musl-locale/strxfrm_l.c \
-../../android/support/src/musl-locale/tolower_l.c \
-../../android/support/src/musl-locale/toupper_l.c \
-../../android/support/src/musl-locale/towlower_l.c \
-../../android/support/src/musl-locale/towupper_l.c \
-../../android/support/src/musl-locale/wcscoll_l.c \
-../../android/support/src/musl-locale/wcsxfrm_l.c \
 "
 
 # If the --no-makefile flag is not used, we're going to put all build
@@ -525,14 +489,20 @@ case $CXX_STL in
     ;;
 esac
 
+HIDDEN_VISIBILITY_FLAGS="-fvisibility=hidden -fvisibility-inlines-hidden"
+
 # By default, all static libraries include hidden ELF symbols, except
 # if one uses the --visible-static option.
 if [ -z "$VISIBLE_STATIC" ]; then
-    STATIC_CXXFLAGS="-fvisibility=hidden -fvisibility-inlines-hidden"
+    STATIC_CONLYFLAGS="$HIDDEN_VISIBILITY_FLAGS"
+    STATIC_CXXFLAGS="$HIDDEN_VISIBILITY_FLAGS"
 else
+    STATIC_CONLYFLAGS=
     STATIC_CXXFLAGS=
 fi
+SHARED_CONLYFLAGS="$HIDDEN_VISIBILITY_FLAGS"
 SHARED_CXXFLAGS=
+
 
 # build_stl_libs_for_abi
 # $1: ABI
@@ -555,21 +525,41 @@ build_stl_libs_for_abi ()
     EXTRA_CFLAGS=""
     EXTRA_CXXFLAGS=""
     EXTRA_LDFLAGS=""
-    if [ "$ABI" = "armeabi-v7a-hard" ]; then
-        EXTRA_CFLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1"
-        EXTRA_CXXFLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1"
-        EXTRA_LDFLAGS="-Wl,--no-warn-mismatch -lm_hard"
-        FLOAT_ABI="hard"
-    fi
+
+    case $ABI in
+        armeabi-v7a-hard)
+            EXTRA_CFLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1"
+            EXTRA_CXXFLAGS="-mhard-float -D_NDK_MATH_NO_SOFTFP=1"
+            EXTRA_LDFLAGS="-Wl,--no-warn-mismatch -lm_hard"
+            FLOAT_ABI="hard"
+            ;;
+        arm64-v8a)
+            EXTRA_CFLAGS="-mfix-cortex-a53-835769"
+            EXTRA_CXXFLAGS="-mfix-cortex-a53-835769"
+            ;;
+        x86|x86_64)
+            # ToDo: remove the following once all x86-based device call JNI function with
+            #       stack aligned to 16-byte
+            EXTRA_CFLAGS="-mstackrealign"
+            EXTRA_CXXFLAGS="-mstackrealign"
+            ;;
+        mips32r6)
+            EXTRA_CFLAGS="-mips32r6"
+            EXTRA_CXXFLAGS="-mips32r6"
+            EXTRA_LDFLAGS="-mips32r6"
+            ;;
+    esac
 
     if [ -n "$THUMB" ]; then
         EXTRA_CFLAGS="$EXTRA_CFLAGS -mthumb"
         EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS -mthumb"
     fi
 
-    if [ "$TYPE" = "static" -a -z "$VISIBLE_STATIC" ]; then
+    if [ "$TYPE" = "static" ]; then
+        EXTRA_CFLAGS="$EXTRA_CFLAGS $STATIC_CONLYFLAGS"
         EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS $STATIC_CXXFLAGS"
     else
+        EXTRA_CFLAGS="$EXTRA_CFLAGS $SHARED_CONLYFLAGS"
         EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS $SHARED_CXXFLAGS"
     fi
 
@@ -590,17 +580,25 @@ build_stl_libs_for_abi ()
     # libc++ built with clang (for ABI armeabi-only) produces
     # libc++_shared.so and libc++_static.a with undefined __atomic_fetch_add_4
     # Add -latomic.
-    if [ -n "$LLVM_VERSION" -a "$CXX_STL_LIB" = "libc++" -a "$ABI" = "armeabi" ]; then
-        # EHABI tables were added as experimental flags in llvm 3.4. In 3.5, these
-        # are now the defaults and the flags have been removed. Add these flags
-        # explicitly only for llvm 3.4.
-        if [ "$LLVM_VERSION" = "3.4" ]; then
-            EXTRA_CFLAGS="${EXTRA_CFLAGS} -mllvm -arm-enable-ehabi-descriptors \
-                          -mllvm -arm-enable-ehabi"
-            EXTRA_CXXFLAGS="${EXTRA_CXXFLAGS} -mllvm -arm-enable-ehabi-descriptors \
-                            -mllvm -arm-enable-ehabi"
+    if [ -n "$LLVM_VERSION" -a "$CXX_STL_LIB" = "libc++" ]; then
+        # clang3.5 use integrated-as as default, which has trouble compiling
+        # llvm-libc++abi/libcxxabi/src/Unwind/UnwindRegistersRestore.S
+        if [ "$LLVM_VERSION" = "3.5" ]; then
+            EXTRA_CFLAGS="${EXTRA_CFLAGS} -no-integrated-as"
+            EXTRA_CXXFLAGS="${EXTRA_CXXFLAGS} -no-integrated-as"
         fi
-        EXTRA_LDFLAGS="$EXTRA_LDFLAGS -latomic"
+        if [ "$ABI" = "armeabi" ]; then
+            # EHABI tables were added as experimental flags in llvm 3.4. In 3.5, these
+            # are now the defaults and the flags have been removed. Add these flags
+            # explicitly only for llvm 3.4.
+            if [ "$LLVM_VERSION" = "3.4" ]; then
+                EXTRA_CFLAGS="${EXTRA_CFLAGS} -mllvm -arm-enable-ehabi-descriptors \
+                              -mllvm -arm-enable-ehabi"
+                EXTRA_CXXFLAGS="${EXTRA_CXXFLAGS} -mllvm -arm-enable-ehabi-descriptors \
+                                -mllvm -arm-enable-ehabi"
+            fi
+            EXTRA_LDFLAGS="$EXTRA_LDFLAGS -latomic"
+        fi
     fi
 
     builder_begin_android $ABI "$BUILDDIR" "$GCCVER" "$LLVM_VERSION" "$MAKEFILE"
@@ -633,7 +631,7 @@ build_stl_libs_for_abi ()
       builder_cxxflags "$DEFAULT_CXXFLAGS $CXX_STL_CXXFLAGS $EXTRA_CXXFLAGS"
       builder_ldflags "$CXX_STL_LDFLAGS $EXTRA_LDFLAGS"
       builder_sources $CXX_STL_SOURCES
-      if [ "$CXX_SUPPORT_LIB" == "libc++abi" ]; then
+      if [ "$CXX_SUPPORT_LIB" = "libc++abi" ]; then
           builder_sources $LIBCXXABI_SOURCES
           builder_ldflags "-ldl"
       fi
@@ -667,12 +665,12 @@ build_stl_libs_for_abi ()
 }
 
 for ABI in $ABIS; do
-    build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/shared" "shared" "$OUT_DIR"
     build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/static" "static" "$OUT_DIR"
+    build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/shared" "shared" "$OUT_DIR"
     # build thumb version of libraries for 32-bit arm
     if [ "$ABI" != "${ABI%%arm*}" -a "$ABI" = "${ABI%%64*}" ] ; then
-        build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/shared" "shared" "$OUT_DIR" thumb
         build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/static" "static" "$OUT_DIR" thumb
+        build_stl_libs_for_abi $ABI "$BUILD_DIR/$ABI/shared" "shared" "$OUT_DIR" thumb
     fi
 done
 

@@ -29,6 +29,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <malloc.h>
 #include <memory.h>
 #include "psb_drv_video.h"
 #include "psb_drv_debug.h"

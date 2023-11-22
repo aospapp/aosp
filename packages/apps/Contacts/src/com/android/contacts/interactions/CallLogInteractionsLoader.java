@@ -26,7 +26,9 @@ import android.provider.CallLog.Calls;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 
-import com.android.internal.annotations.VisibleForTesting;
+import com.google.common.annotations.VisibleForTesting;
+
+import com.android.contacts.common.util.PermissionsUtil;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,7 +50,9 @@ public class CallLogInteractionsLoader extends AsyncTaskLoader<List<ContactInter
 
     @Override
     public List<ContactInteraction> loadInBackground() {
-        if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+        if (!PermissionsUtil.hasPhonePermissions(getContext())
+                || !getContext().getPackageManager()
+                        .hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
                 || mPhoneNumbers == null || mPhoneNumbers.length <= 0 || mMaxToRetrieve <= 0) {
             return Collections.emptyList();
         }

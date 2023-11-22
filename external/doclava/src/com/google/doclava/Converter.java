@@ -107,12 +107,14 @@ public class Converter {
     return (ClassInfo[]) mClasses.all();
   }
 
+  private static final MethodDoc[] EMPTY_METHOD_DOC = new MethodDoc[0];
+
   private static void initClass(ClassDoc c, ClassInfo cl) {
     MethodDoc[] annotationElements;
     if (c instanceof AnnotationTypeDoc) {
       annotationElements = ((AnnotationTypeDoc) c).elements();
     } else {
-      annotationElements = new MethodDoc[0];
+      annotationElements = EMPTY_METHOD_DOC;
     }
     cl.init(Converter.obtainType(c),
             new ArrayList<ClassInfo>(Arrays.asList(Converter.convertClasses(c.interfaces()))),
@@ -192,7 +194,7 @@ public class Converter {
 
   public static TagInfo[] convertTags(Tag[] tags, ContainerInfo base) {
     int len = tags.length;
-    TagInfo[] out = new TagInfo[len];
+    TagInfo[] out = TagInfo.getArray(len);
     for (int i = 0; i < len; i++) {
       Tag t = tags[i];
       /*

@@ -68,6 +68,7 @@ dependencies {
     compile project(':util')
     compile project(':dexlib2')
     compile depends.antlr_runtime
+    compile depends.stringtemplate
     compile depends.commons_cli
 
     testCompile depends.junit
@@ -168,15 +169,6 @@ uploadArchives {
             }
         }
     }
-}
-
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allJava
-}
-
-artifacts {
-    archives sourcesJar
 }
 
 task proguard(type: JavaExec, dependsOn: fatJar) {

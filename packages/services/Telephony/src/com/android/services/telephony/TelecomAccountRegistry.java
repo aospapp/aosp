@@ -18,12 +18,20 @@ package com.android.services.telephony;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.PersistableBundle;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
@@ -35,6 +43,7 @@ import android.text.TextUtils;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.PhoneProxy;
+import com.android.phone.PhoneGlobals;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 
@@ -51,23 +60,29 @@ final class TelecomAccountRegistry {
 
     // This icon is the one that is used when the Slot ID that we have for a particular SIM
     // is not supported, i.e. SubscriptionManager.INVALID_SLOT_ID or the 5th SIM in a phone.
-    private final static int defaultPhoneAccountIcon =  R.drawable.ic_multi_sim;
+    private final static int DEFAULT_SIM_ICON =  R.drawable.ic_multi_sim;
 
-    private final class AccountEntry {
+    final class AccountEntry implements PstnPhoneCapabilitiesNotifier.Listener {
         private final Phone mPhone;
         private final PhoneAccount mAccount;
         private final PstnIncomingCallNotifier mIncomingCallNotifier;
+        private final PstnPhoneCapabilitiesNotifier mPhoneCapabilitiesNotifier;
+        private boolean mIsVideoCapable;
+        private boolean mIsVideoPauseSupported;
 
         AccountEntry(Phone phone, boolean isEmergency, boolean isDummy) {
             mPhone = phone;
             mAccount = registerPstnPhoneAccount(isEmergency, isDummy);
-            Log.d(this, "Registered phoneAccount: %s with handle: %s",
+            Log.i(this, "Registered phoneAccount: %s with handle: %s",
                     mAccount, mAccount.getAccountHandle());
             mIncomingCallNotifier = new PstnIncomingCallNotifier((PhoneProxy) mPhone);
+            mPhoneCapabilitiesNotifier = new PstnPhoneCapabilitiesNotifier((PhoneProxy) mPhone,
+                    this);
         }
 
         void teardown() {
             mIncomingCallNotifier.teardown();
+            mPhoneCapabilitiesNotifier.teardown();
         }
 
         /**
@@ -89,14 +104,20 @@ final class TelecomAccountRegistry {
             if (line1Number == null) {
                 line1Number = "";
             }
-            String subNumber = mPhone.getPhoneSubInfo().getLine1Number();
+            String subNumber = mPhone.getPhoneSubInfo().getLine1Number(
+                    mPhone.getContext().getOpPackageName());
             if (subNumber == null) {
                 subNumber = "";
             }
 
             String label;
             String description;
-            Bitmap iconBitmap = null;
+            Icon icon = null;
+
+            // We can only get the real slotId from the SubInfoRecord, we can't calculate the
+            // slotId from the subId or the phoneId in all instances.
+            SubscriptionInfo record =
+                    mSubscriptionManager.getActiveSubscriptionInfo(subId);
 
             if (isEmergency) {
                 label = mContext.getResources().getString(R.string.sim_label_emergency_calls);
@@ -108,15 +129,12 @@ final class TelecomAccountRegistry {
                 description = label = mTelephonyManager.getNetworkOperatorName();
             } else {
                 CharSequence subDisplayName = null;
-                // We can only get the real slotId from the SubInfoRecord, we can't calculate the
-                // slotId from the subId or the phoneId in all instances.
-                SubscriptionInfo record =
-                        mSubscriptionManager.getActiveSubscriptionInfo(subId);
+
                 if (record != null) {
                     subDisplayName = record.getDisplayName();
                     slotId = record.getSimSlotIndex();
                     color = record.getIconTint();
-                    iconBitmap = record.createIconBitmap(mContext);
+                    icon = Icon.createWithBitmap(record.createIconBitmap(mContext));
                 }
 
                 String slotIdString;
@@ -146,10 +164,29 @@ final class TelecomAccountRegistry {
                     PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS |
                     PhoneAccount.CAPABILITY_MULTI_USER;
 
-            if (iconBitmap == null) {
-                iconBitmap = BitmapFactory.decodeResource(
-                        mContext.getResources(),
-                        defaultPhoneAccountIcon);
+            mIsVideoCapable = mPhone.isVideoEnabled();
+            if (mIsVideoCapable) {
+                capabilities |= PhoneAccount.CAPABILITY_VIDEO_CALLING;
+            }
+            if (record != null) {
+                updateVideoPauseSupport(record);
+            }
+
+            if (icon == null) {
+                // TODO: Switch to using Icon.createWithResource() once that supports tinting.
+                Resources res = mContext.getResources();
+                Drawable drawable = res.getDrawable(DEFAULT_SIM_ICON, null);
+                drawable.setTint(res.getColor(R.color.default_sim_icon_tint_color, null));
+                drawable.setTintMode(PorterDuff.Mode.SRC_ATOP);
+
+                int width = drawable.getIntrinsicWidth();
+                int height = drawable.getIntrinsicHeight();
+                Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+                drawable.draw(canvas);
+
+                icon = Icon.createWithBitmap(bitmap);
             }
 
             PhoneAccount account = PhoneAccount.builder(phoneAccountHandle, label)
@@ -157,7 +194,7 @@ final class TelecomAccountRegistry {
                     .setSubscriptionAddress(
                             Uri.fromParts(PhoneAccount.SCHEME_TEL, subNumber, null))
                     .setCapabilities(capabilities)
-                    .setIcon(iconBitmap)
+                    .setIcon(icon)
                     .setHighlightColor(color)
                     .setShortDescription(description)
                     .setSupportedUriSchemes(Arrays.asList(
@@ -171,6 +208,57 @@ final class TelecomAccountRegistry {
 
         public PhoneAccountHandle getPhoneAccountHandle() {
             return mAccount != null ? mAccount.getAccountHandle() : null;
+        }
+
+        /**
+         * Updates indicator for this {@link AccountEntry} to determine if the carrier supports
+         * pause/resume signalling for IMS video calls.  The carrier setting is stored in MNC/MCC
+         * configuration files.
+         *
+         * @param subscriptionInfo The subscription info.
+         */
+        private void updateVideoPauseSupport(SubscriptionInfo subscriptionInfo) {
+            // Get the configuration for the MNC/MCC specified in the current subscription info.
+            Configuration configuration = new Configuration();
+            if (subscriptionInfo.getMcc() == 0 && subscriptionInfo.getMnc() == 0) {
+                Configuration config = mContext.getResources().getConfiguration();
+                configuration.mcc = config.mcc;
+                configuration.mnc = config.mnc;
+                Log.i(this, "updateVideoPauseSupport -- no mcc/mnc for sub: " + subscriptionInfo +
+                        " using mcc/mnc from main context: " + configuration.mcc + "/" +
+                        configuration.mnc);
+            } else {
+                Log.i(this, "updateVideoPauseSupport -- mcc/mnc for sub: " + subscriptionInfo);
+
+                configuration.mcc = subscriptionInfo.getMcc();
+                configuration.mnc = subscriptionInfo.getMnc();
+            }
+
+            // Check if IMS video pause is supported.
+            PersistableBundle b =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
+            mIsVideoPauseSupported
+                    = b.getBoolean(CarrierConfigManager.KEY_SUPPORT_PAUSE_IMS_VIDEO_CALLS_BOOL);
+        }
+
+        /**
+         * Receives callback from {@link PstnPhoneCapabilitiesNotifier} when the video capabilities
+         * have changed.
+         *
+         * @param isVideoCapable {@code true} if video is capable.
+         */
+        @Override
+        public void onVideoCapabilitiesChanged(boolean isVideoCapable) {
+            mIsVideoCapable = isVideoCapable;
+        }
+
+        /**
+         * Indicates whether this account supports pausing video calls.
+         * @return {@code true} if the account supports pausing video calls, {@code false}
+         * otherwise.
+         */
+        public boolean isVideoPauseSupported() {
+            return mIsVideoCapable && mIsVideoPauseSupported;
         }
     }
 
@@ -231,6 +319,22 @@ final class TelecomAccountRegistry {
     }
 
     /**
+     * Determines if the {@link AccountEntry} associated with a {@link PhoneAccountHandle} supports
+     * pausing video calls.
+     *
+     * @param handle The {@link PhoneAccountHandle}.
+     * @return {@code True} if video pausing is supported.
+     */
+    boolean isVideoPauseSupported(PhoneAccountHandle handle) {
+        for (AccountEntry entry : mAccounts) {
+            if (entry.getPhoneAccountHandle().equals(handle)) {
+                return entry.isVideoPauseSupported();
+            }
+        }
+        return false;
+    }
+
+    /**
      * Sets up all the phone accounts for SIMs on first boot.
      */
     void setupOnBoot() {
@@ -248,6 +352,7 @@ final class TelecomAccountRegistry {
         // because this could signal a removal or addition of a SIM in a single SIM phone.
         mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_SERVICE_STATE);
     }
+
     /**
      * Determines if the list of {@link AccountEntry}(s) contains an {@link AccountEntry} with a
      * specified {@link PhoneAccountHandle}.
@@ -271,11 +376,12 @@ final class TelecomAccountRegistry {
     private void cleanupPhoneAccounts() {
         ComponentName telephonyComponentName =
                 new ComponentName(mContext, TelephonyConnectionService.class);
-        List<PhoneAccountHandle> accountHandles = mTelecomManager.getAllPhoneAccountHandles();
+        List<PhoneAccountHandle> accountHandles =
+                mTelecomManager.getCallCapablePhoneAccounts(true /* includeDisabled */);
         for (PhoneAccountHandle handle : accountHandles) {
             if (telephonyComponentName.equals(handle.getComponentName()) &&
                     !hasAccountEntryForPhoneAccount(handle)) {
-                Log.d(this, "Unregistering phone account %s.", handle);
+                Log.i(this, "Unregistering phone account %s.", handle);
                 mTelecomManager.unregisterPhoneAccount(handle);
             }
         }
@@ -309,6 +415,30 @@ final class TelecomAccountRegistry {
 
         // Clean up any PhoneAccounts that are no longer relevant
         cleanupPhoneAccounts();
+
+        // At some point, the phone account ID was switched from the subId to the iccId.
+        // If there is a default account, check if this is the case, and upgrade the default account
+        // from using the subId to iccId if so.
+        PhoneAccountHandle defaultPhoneAccount =
+                mTelecomManager.getUserSelectedOutgoingPhoneAccount();
+        ComponentName telephonyComponentName =
+                new ComponentName(mContext, TelephonyConnectionService.class);
+
+        if (defaultPhoneAccount != null &&
+                telephonyComponentName.equals(defaultPhoneAccount.getComponentName()) &&
+                !hasAccountEntryForPhoneAccount(defaultPhoneAccount)) {
+
+            String phoneAccountId = defaultPhoneAccount.getId();
+            if (!TextUtils.isEmpty(phoneAccountId) && TextUtils.isDigitsOnly(phoneAccountId)) {
+                PhoneAccountHandle upgradedPhoneAccount =
+                        PhoneUtils.makePstnPhoneAccountHandle(
+                                PhoneGlobals.getPhone(Integer.parseInt(phoneAccountId)));
+
+                if (hasAccountEntryForPhoneAccount(upgradedPhoneAccount)) {
+                    mTelecomManager.setUserSelectedOutgoingPhoneAccount(upgradedPhoneAccount);
+                }
+            }
+        }
     }
 
     private void tearDownAccounts() {

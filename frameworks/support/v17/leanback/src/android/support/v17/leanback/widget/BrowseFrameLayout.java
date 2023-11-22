@@ -20,19 +20,36 @@ import android.view.View;
 import android.widget.FrameLayout;
 
 /**
- * Top level implementation viewgroup for browse to manage transitions between
- * browse sub fragments.
- * @hide
+ * A ViewGroup for managing focus behavior between overlapping views.
  */
 public class BrowseFrameLayout extends FrameLayout {
 
+    /**
+     * Interface for selecting a focused view in a BrowseFrameLayout when the system focus finder
+     * couldn't find a view to focus.
+     */
     public interface OnFocusSearchListener {
+        /**
+         * Returns the view where focus should be requested given the current focused view and
+         * the direction of focus search.
+         */
         public View onFocusSearch(View focused, int direction);
     }
 
+    /**
+     * Interface for managing child focus in a BrowseFrameLayout.
+     */
     public interface OnChildFocusListener {
+        /**
+         * See {@link android.view.ViewGroup#onRequestFocusInDescendants(
+         * int, android.graphics.Rect)}.
+         */
         public boolean onRequestFocusInDescendants(int direction,
                 Rect previouslyFocusedRect);
+        /**
+         * See {@link android.view.ViewGroup#requestChildFocus(
+         * android.view.View, android.view.View)}.
+         */
         public void onRequestChildFocus(View child, View focused);
     }
 
@@ -51,12 +68,32 @@ public class BrowseFrameLayout extends FrameLayout {
     private OnFocusSearchListener mListener;
     private OnChildFocusListener mOnChildFocusListener;
 
+    /**
+     * Sets a {@link OnFocusSearchListener}.
+     */
     public void setOnFocusSearchListener(OnFocusSearchListener listener) {
         mListener = listener;
     }
 
+    /**
+     * Returns the {@link OnFocusSearchListener}.
+     */
+    public OnFocusSearchListener getOnFocusSearchListener() {
+        return mListener;
+    }
+
+    /**
+     * Sets a {@link OnChildFocusListener}.
+     */
     public void setOnChildFocusListener(OnChildFocusListener listener) {
         mOnChildFocusListener = listener;
+    }
+
+    /**
+     * Returns the {@link OnChildFocusListener}.
+     */
+    public OnChildFocusListener getOnChildFocusListener() {
+        return mOnChildFocusListener;
     }
 
     @Override

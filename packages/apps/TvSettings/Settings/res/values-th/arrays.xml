@@ -16,34 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="wifi_status">
-    <item msgid="6120109946893037801"></item>
-    <item msgid="5210943529756743284">"กำลังสแกน..."</item>
-    <item msgid="7895190850044173217">"กำลังเชื่อมต่อ…"</item>
-    <item msgid="7589307602609991992">"กำลังตรวจสอบสิทธิ์..."</item>
-    <item msgid="7439429469102224627">"กำลังรับที่อยู่ IP…"</item>
-    <item msgid="7079865889809010740">"เชื่อมต่อแล้ว"</item>
-    <item msgid="8018480471737227053">"ระงับการใช้งาน"</item>
-    <item msgid="9110004131358099530">"กำลังยกเลิกการเชื่อมต่อ..."</item>
-    <item msgid="2366780999250675263">"ยกเลิกการเชื่อมต่อแล้ว"</item>
-    <item msgid="944848437579938960">"ไม่สำเร็จ"</item>
-    <item msgid="6501589509838730555">"ถูกบล็อก"</item>
-    <item msgid="1877062378387320625">"หลีกเลี่ยงการเชื่อมต่อกับสัญญาณที่ไม่แรงพอชั่วคราว"</item>
-  </string-array>
-  <string-array name="wifi_status_with_ssid">
-    <item msgid="8339598300796362026"></item>
-    <item msgid="4703591207522320165">"กำลังสแกน..."</item>
-    <item msgid="7351421574703844779">"กำลังเชื่อมต่อกับ <xliff:g id="NETWORK_NAME">%1$s</xliff:g>..."</item>
-    <item msgid="874502389678205660">"กำลังตรวจสอบสิทธิ์กับ <xliff:g id="NETWORK_NAME">%1$s</xliff:g>..."</item>
-    <item msgid="7964187733783647040">"กำลังรับที่อยู่ IP จาก <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
-    <item msgid="4990222034464002805">"เชื่อมต่อกับ <xliff:g id="NETWORK_NAME">%1$s</xliff:g> แล้ว"</item>
-    <item msgid="5347651564202902346">"ระงับการใช้งาน"</item>
-    <item msgid="4812777464932254477">"กำลังยกเลิกการเชื่อมต่อจาก <xliff:g id="NETWORK_NAME">%1$s</xliff:g>..."</item>
-    <item msgid="4985746712759777559">"ยกเลิกการเชื่อมต่อแล้ว"</item>
-    <item msgid="6482743140170037710">"ไม่สำเร็จ"</item>
-    <item msgid="7486075980265993798">"ถูกบล็อก"</item>
-    <item msgid="6842213039083339420">"หลีกเลี่ยงการเชื่อมต่อกับสัญญาณที่ไม่แรงพอชั่วคราว"</item>
-  </string-array>
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 นาที"</item>
     <item msgid="3695675702735844029">"10 นาที"</item>
@@ -58,15 +30,6 @@
     <item msgid="4152882798140628647">"6 ชั่วโมง"</item>
     <item msgid="412984226950404956">"12 ชั่วโมง"</item>
     <item msgid="2178434662173258997">"ไม่เลย"</item>
-  </string-array>
-  <string-array name="debug_hw_overdraw_entries">
-    <item msgid="6733816499120044964">"ปิด"</item>
-    <item msgid="8974325215258674273">"แสดงพื้นที่การวาดทับ"</item>
-    <item msgid="5877416885028854162">"แสดงตัวนับการวาดทับ"</item>
-  </string-array>
-  <string-array name="hdmi_optimization_entries">
-    <item msgid="3490064566563023094">"ความละเอียดที่ดีที่สุด"</item>
-    <item msgid="8319005042985738916">"อัตราเฟรมที่ดีที่สุด"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="4410581208185456276">"ค่าเริ่มต้น"</item>

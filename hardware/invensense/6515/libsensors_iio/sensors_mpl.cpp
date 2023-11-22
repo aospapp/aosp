@@ -106,7 +106,7 @@ struct sensors_poll_context_t {
     int pollEvents(sensors_event_t* data, int count);
     int query(int what, int *value);
     int batch(int handle, int flags, int64_t period_ns, int64_t timeout);
-#if defined ANDROID_KITKAT
+#if defined ANDROID_KITKAT || defined ANDROID_LOLLIPOP
     int flush(int handle);
 #endif
 
@@ -340,7 +340,8 @@ int sensors_poll_context_t::batch(int handle, int flags, int64_t period_ns,
     return mSensor->batch(handle, flags, period_ns, timeout);
 }
 
-#if defined ANDROID_KITKAT
+#if defined ANDROID_KITKAT || defined ANDROID_LOLLIPOP
+
 void inv_pending_flush(int handle) {
     struct handle_entry *the_entry;
     pthread_mutex_lock(&flush_handles_mutex);
@@ -410,7 +411,7 @@ static int poll__batch(struct sensors_poll_device_1 *dev,
     return ctx->batch(handle, flags, period_ns, timeout);
 }
 
-#if defined ANDROID_KITKAT
+#if defined ANDROID_KITKAT || defined ANDROID_LOLLIPOP
 static int poll__flush(struct sensors_poll_device_1 *dev,
                       int handle)
 {
@@ -437,18 +438,14 @@ static int open_sensors(const struct hw_module_t* module, const char* id,
     memset(&dev->device, 0, sizeof(sensors_poll_device_1));
 
     dev->device.common.tag = HARDWARE_DEVICE_TAG;
-#if defined ANDROID_KITKAT
     dev->device.common.version  = SENSORS_DEVICE_API_VERSION_1_3;
     dev->device.flush           = poll__flush;
-#else
-    dev->device.common.version  = SENSORS_DEVICE_API_VERSION_1_0;
-#endif
     dev->device.common.module   = const_cast<hw_module_t*>(module);
     dev->device.common.close    = poll__close;
     dev->device.activate        = poll__activate;
     dev->device.setDelay        = poll__setDelay;
     dev->device.poll            = poll__poll;
-    dev->device.batch           = poll__batch; 
+    dev->device.batch           = poll__batch;
 
     *device = &dev->device.common;
     status = 0;

@@ -9,6 +9,7 @@
 #include "flist.h"
 #include "fio.h"
 #include "blktrace_api.h"
+#include "lib/linux-dev-lookup.h"
 
 #define TRACE_FIFO_SIZE	8192
 
@@ -108,67 +109,6 @@ int is_blktrace(const char *filename, int *need_swap)
 	return 0;
 }
 
-static int lookup_device(struct thread_data *td, char *path, unsigned int maj,
-			 unsigned int min)
-{
-	struct dirent *dir;
-	struct stat st;
-	int found = 0;
-	DIR *D;
-
-	D = opendir(path);
-	if (!D)
-		return 0;
-
-	while ((dir = readdir(D)) != NULL) {
-		char full_path[256];
-
-		if (!strcmp(dir->d_name, ".") || !strcmp(dir->d_name, ".."))
-			continue;
-
-		sprintf(full_path, "%s%s%s", path, FIO_OS_PATH_SEPARATOR, dir->d_name);
-		if (lstat(full_path, &st) == -1) {
-			perror("lstat");
-			break;
-		}
-
-		if (S_ISDIR(st.st_mode)) {
-			found = lookup_device(td, full_path, maj, min);
-			if (found) {
-				strcpy(path, full_path);
-				break;
-			}
-		}
-
-		if (!S_ISBLK(st.st_mode))
-			continue;
-
-		/*
-		 * If replay_redirect is set then always return this device
-		 * upon lookup which overrides the device lookup based on
-		 * major minor in the actual blktrace
-		 */
-		if (td->o.replay_redirect) {
-			dprint(FD_BLKTRACE, "device lookup: %d/%d\n overridden"
-					" with: %s\n", maj, min,
-					td->o.replay_redirect);
-			strcpy(path, td->o.replay_redirect);
-			found = 1;
-			break;
-		}
-
-		if (maj == major(st.st_rdev) && min == minor(st.st_rdev)) {
-			dprint(FD_BLKTRACE, "device lookup: %d/%d\n", maj, min);
-			strcpy(path, full_path);
-			found = 1;
-			break;
-		}
-	}
-
-	closedir(D);
-	return found;
-}
-
 #define FMINORBITS	20
 #define FMINORMASK	((1U << FMINORBITS) - 1)
 #define FMAJOR(dev)	((unsigned int) ((dev) >> FMINORBITS))
@@ -212,8 +152,15 @@ static int trace_add_file(struct thread_data *td, __u32 device)
 		}
 
 	strcpy(dev, "/dev");
-	if (lookup_device(td, dev, maj, min)) {
+	if (blktrace_lookup_device(td->o.replay_redirect, dev, maj, min)) {
 		int fileno;
+
+		if (td->o.replay_redirect)
+			dprint(FD_BLKTRACE, "device lookup: %d/%d\n overridden"
+					" with: %s\n", maj, min,
+					td->o.replay_redirect);
+		else
+			dprint(FD_BLKTRACE, "device lookup: %d/%d\n", maj, min);
 
 		dprint(FD_BLKTRACE, "add devices %s\n", dev);
 		fileno = add_file_exclusive(td, dev);
@@ -260,11 +207,11 @@ static void handle_trace_notify(struct blk_io_trace *t)
 {
 	switch (t->action) {
 	case BLK_TN_PROCESS:
-		log_info("blktrace: got process notify: %x, %d\n",
+		dprint(FD_BLKTRACE, "got process notify: %x, %d\n",
 				t->action, t->pid);
 		break;
 	case BLK_TN_TIMESTAMP:
-		log_info("blktrace: got timestamp notify: %x, %d\n",
+		dprint(FD_BLKTRACE, "got timestamp notify: %x, %d\n",
 				t->action, t->pid);
 		break;
 	case BLK_TN_MESSAGE:
@@ -275,8 +222,10 @@ static void handle_trace_notify(struct blk_io_trace *t)
 	}
 }
 
-static void handle_trace_discard(struct thread_data *td, struct blk_io_trace *t,
-				 unsigned long long ttime, unsigned long *ios)
+static void handle_trace_discard(struct thread_data *td,
+				 struct blk_io_trace *t,
+				 unsigned long long ttime,
+				 unsigned long *ios, unsigned int *bs)
 {
 	struct io_piece *ipo = malloc(sizeof(*ipo));
 	int fileno;
@@ -284,7 +233,10 @@ static void handle_trace_discard(struct thread_data *td, struct blk_io_trace *t,
 	init_ipo(ipo);
 	fileno = trace_add_file(td, t->device);
 
-	ios[DDIR_WRITE]++;
+	ios[DDIR_TRIM]++;
+	if (t->bytes > bs[DDIR_TRIM])
+		bs[DDIR_TRIM] = t->bytes;
+
 	td->o.size += t->bytes;
 
 	memset(ipo, 0, sizeof(*ipo));
@@ -329,20 +281,30 @@ static void handle_trace_fs(struct thread_data *td, struct blk_io_trace *t,
  * due to internal workings of the block layer.
  */
 static void handle_trace(struct thread_data *td, struct blk_io_trace *t,
-			 unsigned long long ttime, unsigned long *ios,
-			 unsigned int *bs)
+			 unsigned long *ios, unsigned int *bs)
 {
+	static unsigned long long last_ttime;
+	unsigned long long delay;
+
 	if ((t->action & 0xffff) != __BLK_TA_QUEUE)
 		return;
-	if (t->action & BLK_TC_ACT(BLK_TC_PC))
-		return;
+
+	if (!(t->action & BLK_TC_ACT(BLK_TC_NOTIFY))) {
+		if (!last_ttime || td->o.no_stall) {
+			last_ttime = t->time;
+			delay = 0;
+		} else {
+			delay = t->time - last_ttime;
+			last_ttime = t->time;
+		}
+	}
 
 	if (t->action & BLK_TC_ACT(BLK_TC_NOTIFY))
 		handle_trace_notify(t);
 	else if (t->action & BLK_TC_ACT(BLK_TC_DISCARD))
-		handle_trace_discard(td, t, ttime, ios);
+		handle_trace_discard(td, t, delay, ios, bs);
 	else
-		handle_trace_fs(td, t, ttime, ios, bs);
+		handle_trace_fs(td, t, delay, ios, bs);
 }
 
 static void byteswap_trace(struct blk_io_trace *t)
@@ -360,17 +322,20 @@ static void byteswap_trace(struct blk_io_trace *t)
 	t->pdu_len = fio_swap16(t->pdu_len);
 }
 
+static int t_is_write(struct blk_io_trace *t)
+{
+	return (t->action & BLK_TC_ACT(BLK_TC_WRITE | BLK_TC_DISCARD)) != 0;
+}
+
 /*
  * Load a blktrace file by reading all the blk_io_trace entries, and storing
  * them as io_pieces like the fio text version would do.
  */
 int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 {
-	unsigned long long ttime, delay;
 	struct blk_io_trace t;
-	unsigned long ios[2], skipped_writes;
-	unsigned int cpu;
-	unsigned int rw_bs[2];
+	unsigned long ios[DDIR_RWDIR_CNT], skipped_writes;
+	unsigned int rw_bs[DDIR_RWDIR_CNT];
 	struct fifo *fifo;
 	int fd, i, old_state;
 	struct fio_file *f;
@@ -388,8 +353,6 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 
 	td->o.size = 0;
 
-	cpu = 0;
-	ttime = 0;
 	ios[0] = ios[1] = 0;
 	rw_bs[0] = rw_bs[1] = 0;
 	skipped_writes = 0;
@@ -434,33 +397,14 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 				depth = max(depth, this_depth);
 				this_depth = 0;
 			}
-			if (!ttime) {
-				ttime = t.time;
-				cpu = t.cpu;
-			}
 
-			delay = 0;
-			if (cpu == t.cpu)
-				delay = t.time - ttime;
-			if ((t.action & BLK_TC_ACT(BLK_TC_WRITE)) && read_only)
+			if (t_is_write(&t) && read_only) {
 				skipped_writes++;
-			else {
-				/*
-				 * set delay to zero if no_stall enabled for
-				 * fast replay
-				 */
-				if (td->o.no_stall)
-					delay = 0;
-
-				handle_trace(td, &t, delay, ios, rw_bs);
+				continue;
 			}
-
-			ttime = t.time;
-			cpu = t.cpu;
-		} else {
-			delay = 0;
-			handle_trace(td, &t, delay, ios, rw_bs);
 		}
+
+		handle_trace(td, &t, ios, rw_bs);
 	} while (1);
 
 	for (i = 0; i < td->files_index; i++) {
@@ -492,7 +436,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 	if (!ios[DDIR_READ] && !ios[DDIR_WRITE]) {
 		log_err("fio: found no ios in blktrace data\n");
 		return 1;
-	} else if (ios[DDIR_READ] && !ios[DDIR_READ]) {
+	} else if (ios[DDIR_READ] && !ios[DDIR_WRITE]) {
 		td->o.td_ddir = TD_DDIR_READ;
 		td->o.max_bs[DDIR_READ] = rw_bs[DDIR_READ];
 	} else if (!ios[DDIR_READ] && ios[DDIR_WRITE]) {
@@ -502,6 +446,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 		td->o.td_ddir = TD_DDIR_RW;
 		td->o.max_bs[DDIR_READ] = rw_bs[DDIR_READ];
 		td->o.max_bs[DDIR_WRITE] = rw_bs[DDIR_WRITE];
+		td->o.max_bs[DDIR_TRIM] = rw_bs[DDIR_TRIM];
 	}
 
 	/*
@@ -514,8 +459,8 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 	 * we don't know if this option was set or not. it defaults to 1,
 	 * so we'll just guess that we should override it if it's still 1
 	 */
-	if (td->o.iodepth != 1)
-		td->o.iodepth = depth;
+	if (td->o.iodepth == 1)
+		td->o.iodepth = td->o.iodepth_low = depth;
 
 	return 0;
 err:

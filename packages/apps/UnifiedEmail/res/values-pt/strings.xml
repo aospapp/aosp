@@ -88,7 +88,7 @@
     <string name="add_bcc_label" msgid="963745641238037813">"Adicionar Cco"</string>
     <string name="quoted_text" msgid="977782904293216533">"Incluir texto das mensagens anteriores"</string>
     <string name="quoted_text_label" msgid="2296807722849923934">"Texto mensag. anteriores"</string>
-    <string name="respond_inline" msgid="6609746292081928078">"Responder em linha"</string>
+    <string name="respond_inline" msgid="6609746292081928078">"Responder inline"</string>
     <string name="bytes" msgid="651011686747499628">"<xliff:g id="COUNT">%s</xliff:g> B"</string>
     <string name="kilobytes" msgid="1523463964465770347">"<xliff:g id="COUNT">%s</xliff:g> KB"</string>
     <string name="megabytes" msgid="4309397368708773323">"<xliff:g id="COUNT">%s</xliff:g> MB"</string>

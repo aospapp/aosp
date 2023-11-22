@@ -19,10 +19,16 @@ sources {
 
 sdk {
     windows {
-        item( { getExeName("windows") } ) {
+        item( { getExeName("windows32FindJavaExecutable") } ) {
             into 'lib'
-            name 'find_java.exe'
-            builtBy 'findJavaExecutable'
+            name 'find_java32.exe'
+            builtBy 'windows32FindJavaExecutable'
+            notice 'NOTICE'
+        }
+        item( { getExeName("windows64FindJavaExecutable") } ) {
+            into 'lib'
+            name 'find_java64.exe'
+            builtBy 'windows64FindJavaExecutable'
             notice 'NOTICE'
         }
         item('find_java.bat') {
@@ -32,9 +38,9 @@ sdk {
     }
 }
 
-def getExeName(String platform) {
+def getExeName(String name) {
     // binaries will return a set of binaries
-    def binaries = executables.findJava.binaries.matching { it.name == "findJavaExecutable" }
+    def binaries = executables.findJava.binaries.matching { it.name == name }
     // calling .exeFile on the set returns an array with the result from each item in the set...
     return binaries.executableFile.get(0)
 }

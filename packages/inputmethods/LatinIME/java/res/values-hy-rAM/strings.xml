@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Ձայնը սեղմման ժամանակ"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Ելնող պատուհան՝ ստեղնի հպման դեպքում"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Նախընտրանքներ"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Արտաքին տեսք և դասավորություն"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Բազմալեզու ընտրանքներ"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Հաշիվներ և գաղտնիություն"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Արտաքին տեսք և դասավորություն"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Ժեստերով մուտքագրում"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Տեքստի ուղղում"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Հավելյալ"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Թեմա"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Միացնել բաժանված ստեղնաշարը"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google Ստեղնաշարի համաժամեցում"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Համաժամեցումը միացված է"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Համաժամեցնել ձեր անհատական բառարանը սարքերի միջև"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Համաժամացնել հիմա"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Ջնջել ամպի տվյալները"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google- ից ջնջում է ձեր համաժամեցրած տվյալները"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Ձեր համաժամեցրած տվյալները ջնջվելու են ամպից: Շարունակե՞լ:"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Ջնջել"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Չեղարկել"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Ձեր անհատական բառարանը համաժամեցվելու և կրկնօրինակվելու է Google սերվերներում: Կարող են հավաքվել բառերի օգտագործման հաճախականության վիճակագրական տվյալներ՝ մեր արտադրանքների որակը բարելավելու նպատակով: Բոլոր տվյալները հավաքվելու և օգտագործվելու են "<a href="https://www.google.com/policies/privacy">"Google-ի Գաղտնիության քաղաքականության"</a>" դրույթների համաձայն:"</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Այս հնարավորությունն ընձեռելու համար սարքում հավելեք Google հաշիվ"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Google Apps for Business հաշիվներով սարքերում համաժամացումը հասանելի չէ"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Անցնել մուտքագրման այլ եղանակների"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Լեզվի փոխարկման բանալին ընդգրկում է այլ մուտքագրման եղանակներ ևս"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Լեզվի փոխարկման ստեղն"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Պահելու համար հպեք այստեղ"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Բառարանն առկա է"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Ստեղնաշարի թեման"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Փոխարկել հաշիվները"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Հաշիվ չի ընտրվել"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Ներկայումս օգտագործում է՝ <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"Լավ"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Չեղարկել"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Դուրս գալ"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Ընտրեք հաշիվ՝ օգտագործելու համար"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Անգլերեն (ՄԹ)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Անգլերեն (ԱՄՆ)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Իսպաներեն (ԱՄՆ)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Հինգլիշ"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Սերբերեն (Լատինական)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Անգլերեն (ՄԹ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Անգլերեն (ԱՄՆ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Իսպաներեն (ԱՄՆ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Հինգլիշ (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Սերբերեն (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (ավանդական)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (կյուրեղյան)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (լատինական)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (սեղմ)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Ոչ մի լեզվով (Այբուբեն)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Այբուբեն (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Այբուբեն (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Մուտքագրման այսպիսի ոճ արդեն գոյություն ունի՝ <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Սեղմման թրթռոցի տևողություն"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Սեղմման ձայնի բարձրությունը"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Ստեղնի երկար սեղմման ուշացում"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Ֆիզիկական ստեղնաշարի զմայլիկ"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Alt ստեղնը ցուցադրում է զմայլիկների պնակը"</string>
     <string name="button_default" msgid="3988017840431881491">"Լռելյայնը"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Բարի գալուստ <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"Ժեստային մուտքագրմամբ"</string>
@@ -158,7 +184,7 @@
     <string name="cancel_download_dict" msgid="7843340278507019303">"Չեղարկել"</string>
     <string name="delete_dict" msgid="756853268088330054">"Ջնջել"</string>
     <string name="should_download_over_metered_prompt" msgid="1583881200688185508">"Ձեր բջջային սարքում ընտրված լեզվով առկա է բառարան:<br/> Խորհուրդ ենք տալիս &lt;b&gt;ներբեռնել&lt;/b&gt; <xliff:g id="LANGUAGE_NAME">%1$s</xliff:g> բառարանը՝ ձեր մուտքագրման հմտությունների բարելավման համար:&lt;br/&gt; &lt;br/&gt; Ներբեռնումը կարող է խլել մեկ կամ երկու րոպե 3G-ի դեպքում: Հնարավոր է գանձում կատարվի, եթե դուք չունեք &lt;b&gt;տվյալների անսահմանափակ փաթեթ&lt;/b&gt;.&lt;br/&gt; Եթե դուք վստահ չեք, թե տվյալների որ փաթեթն ունեք, խորհուրդ ենք տալիս գտնել Wi-Fi կապ՝ ներբեռնումն ավտոմատ սկսելու համար:&lt;br/&gt; &lt;br/&gt; Հուշում. դուք կարող եք ներբեռնել և հեռացնել բառարաններ՝ անցնելով ձեր բջջային սարքի &lt;b&gt;Կարգավորումներ ցանկի Լեզու և մուտքագրում&lt;/b&gt; բաժինը:"</string>
-    <string name="download_over_metered" msgid="1643065851159409546">"Ներբեռնել հիմա (<xliff:g id="SIZE_IN_MEGABYTES">%1$.1f</xliff:g>Մբ)"</string>
+    <string name="download_over_metered" msgid="1643065851159409546">"Ներբեռնել հիմա (<xliff:g id="SIZE_IN_MEGABYTES">%1$.1f</xliff:g>ՄԲ)"</string>
     <string name="do_not_download_over_metered" msgid="2176209579313941583">"Ներբեռնել Wi-Fi-ով"</string>
     <string name="dict_available_notification_title" msgid="4583842811218581658">"<xliff:g id="LANGUAGE_NAME">%1$s</xliff:g> լեզվի համար առկա է բառարան"</string>
     <string name="dict_available_notification_description" msgid="1075194169443163487">"Սեղմեք՝ վերանայելու և ներբեռնելու համար"</string>

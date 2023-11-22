@@ -65,6 +65,10 @@ public class RSTestCore {
         unitTests.add(new UT_array_alloc(this, mRes, mCtx));
         unitTests.add(new UT_kernel(this, mRes, mCtx));
         unitTests.add(new UT_kernel_struct(this, mRes, mCtx));
+        unitTests.add(new UT_kernel2d(this, mRes, mCtx));
+        unitTests.add(new UT_kernel3d(this, mRes, mCtx));
+        unitTests.add(new UT_kernel2d_oldstyle(this, mRes, mCtx));
+        unitTests.add(new UT_ctxt_default(this, mRes, mCtx));
         unitTests.add(new UT_bug_char(this, mRes, mCtx));
         unitTests.add(new UT_clamp(this, mRes, mCtx));
         unitTests.add(new UT_clamp_relaxed(this, mRes, mCtx));
@@ -81,6 +85,9 @@ public class RSTestCore {
         unitTests.add(new UT_foreach(this, mRes, mCtx));
         unitTests.add(new UT_foreach_bounds(this, mRes, mCtx));
         unitTests.add(new UT_noroot(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_pointwise(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_gatherscatter(this, mRes, mCtx));
+        unitTests.add(new UT_script_group2_nochain(this, mRes, mCtx));
         unitTests.add(new UT_atomic(this, mRes, mCtx));
         unitTests.add(new UT_struct(this, mRes, mCtx));
         unitTests.add(new UT_math(this, mRes, mCtx));
@@ -93,7 +100,7 @@ public class RSTestCore {
         /*unitTests.add(new UT_program_store(this, mRes, mCtx));
         unitTests.add(new UT_program_raster(this, mRes, mCtx));
         unitTests.add(new UT_mesh(this, mRes, mCtx));*/
-        //unitTests.add(new UT_foreach_multi(this, mRes, mCtx));
+        unitTests.add(new UT_foreach_multi(this, mRes, mCtx));
         unitTests.add(new UT_fp_mad(this, mRes, mCtx));
 
         /*

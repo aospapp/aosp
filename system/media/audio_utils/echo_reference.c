@@ -391,8 +391,8 @@ static int echo_reference_read(struct echo_reference_itfe *echo_reference,
 
             int64_t  deltaNs = delayNs - expectedDelayNs;
 
-            ALOGV("echo_reference_read(): EchoPathDelayDeviation between reference and DMA [%" PRId64 "]",
-                    deltaNs);
+            ALOGV("echo_reference_read(): EchoPathDelayDeviation between reference and DMA [%"
+                    PRId64 "]", deltaNs);
             if (abs(deltaNs) >= MIN_DELAY_DELTA_NS) {
                 // smooth the variation and update the reference buffer only
                 // if a deviation in the same direction is observed for more than MIN_DELTA_NUM

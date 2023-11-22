@@ -31,13 +31,12 @@ import android.view.ViewTreeObserver;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import com.android.tv.settings.R;
-import com.android.tv.settings.util.UriUtils;
 import com.android.tv.settings.util.TransitionImage;
 import com.android.tv.settings.util.TransitionImageAnimation;
+import com.android.tv.settings.util.UriUtils;
 import com.android.tv.settings.widget.FrameLayoutWithShadows;
 
 import java.util.List;
@@ -49,7 +48,6 @@ public class BaseDialogFragment {
 
     public static final int ANIMATE_IN_DURATION = 250;
     public static final int ANIMATE_DELAY = 550;
-    public static final int SLIDE_IN_STAGGER = 100;
     public static final int SLIDE_IN_DISTANCE = 120;
 
     public static final String TAG_CONTENT = "content";
@@ -62,7 +60,7 @@ public class BaseDialogFragment {
     public boolean mFirstOnStart = true;
     public boolean mIntroAnimationInProgress = false;
 
-    private LiteFragment mFragment;
+    private final LiteFragment mFragment;
 
     // Related to activity entry transition
     public ColorDrawable mBgDrawable = new ColorDrawable();
@@ -106,7 +104,7 @@ public class BaseDialogFragment {
             final TextView description, final TextView breadcrumb) {
         // Pull out the root layout of the dialog and set the background drawable, to be
         // faded in during the transition.
-        final RelativeLayout twoPane = (RelativeLayout) contentView.getChildAt(0);
+        final ViewGroup twoPane = (ViewGroup) contentView.getChildAt(0);
         twoPane.setVisibility(View.INVISIBLE);
 
         // If the appropriate data is embedded in the intent and there is an icon specified
@@ -114,8 +112,6 @@ public class BaseDialogFragment {
         // position. Otherwise, we perform a simpler transition in which the ActionFragment
         // slides in and the ContentFragment text fields slide in.
         mIntroAnimationInProgress = true;
-        boolean lShouldAnimateIcon = true;
-        boolean uriMatch = false;
         List<TransitionImage> images = TransitionImage.readMultipleFromIntent(
                 activity, activity.getIntent());
         TransitionImageAnimation ltransitionAnimation = null;
@@ -199,7 +195,8 @@ public class BaseDialogFragment {
                 // animation, in that way we can avoid the jittering of start animation
                 twoPane.postOnAnimationDelayed(mEntryAnimationRunnable, ANIMATE_DELAY);
             }
-            Runnable mEntryAnimationRunnable = new Runnable() {
+
+            final Runnable mEntryAnimationRunnable = new Runnable() {
                 @Override
                 public void run() {
                     if (!mFragment.isAdded()) {
@@ -219,7 +216,7 @@ public class BaseDialogFragment {
 
                     View actionFragmentView = activity.findViewById(mActionAreaId);
                     boolean isRtl = ViewCompat.getLayoutDirection(contentView) ==
-                            View.LAYOUT_DIRECTION_RTL;
+                            ViewCompat.LAYOUT_DIRECTION_RTL;
                     int startDist = isRtl ? SLIDE_IN_DISTANCE : -SLIDE_IN_DISTANCE;
                     int endDist = isRtl ? -actionFragmentView.getMeasuredWidth() :
                             actionFragmentView.getMeasuredWidth();

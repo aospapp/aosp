@@ -27,6 +27,7 @@ import android.view.ViewGroup;
 import android.webkit.HttpAuthHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -221,6 +222,37 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         mOnUiThread.loadUrlAndWaitForCompletion(wrongUri);
         assertEquals(WebViewClient.ERROR_UNSUPPORTED_SCHEME,
                 webViewClient.hasOnReceivedErrorCode());
+    }
+
+    public void testOnReceivedErrorForSubresource() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final MockWebViewClient webViewClient = new MockWebViewClient();
+        mOnUiThread.setWebViewClient(webViewClient);
+        mWebServer = new CtsTestServer(getActivity());
+
+        assertEquals(null, webViewClient.hasOnReceivedResourceError());
+        String url = mWebServer.getAssetUrl(TestHtmlConstants.BAD_IMAGE_PAGE_URL);
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        assertTrue(webViewClient.hasOnReceivedResourceError() != null);
+        assertEquals(WebViewClient.ERROR_UNSUPPORTED_SCHEME,
+                webViewClient.hasOnReceivedResourceError().getErrorCode());
+    }
+
+    public void testOnReceivedHttpError() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+        final MockWebViewClient webViewClient = new MockWebViewClient();
+        mOnUiThread.setWebViewClient(webViewClient);
+        mWebServer = new CtsTestServer(getActivity());
+
+        assertEquals(null, webViewClient.hasOnReceivedHttpError());
+        String url = mWebServer.getAssetUrl(TestHtmlConstants.NON_EXISTENT_PAGE_URL);
+        mOnUiThread.loadUrlAndWaitForCompletion(url);
+        assertTrue(webViewClient.hasOnReceivedHttpError() != null);
+        assertEquals(404, webViewClient.hasOnReceivedHttpError().getStatusCode());
     }
 
     public void testOnFormResubmission() throws Exception {
@@ -504,6 +536,8 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         private boolean mOnPageFinishedCalled;
         private boolean mOnLoadResourceCalled;
         private int mOnReceivedErrorCode;
+        private WebResourceError mOnReceivedResourceError;
+        private WebResourceResponse mOnReceivedHttpError;
         private boolean mOnFormResubmissionCalled;
         private boolean mDoUpdateVisitedHistoryCalled;
         private boolean mOnReceivedHttpAuthRequestCalled;
@@ -530,6 +564,14 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
 
         public int hasOnReceivedErrorCode() {
             return mOnReceivedErrorCode;
+        }
+
+        public WebResourceError hasOnReceivedResourceError() {
+            return mOnReceivedResourceError;
+        }
+
+        public WebResourceResponse hasOnReceivedHttpError() {
+            return mOnReceivedHttpError;
         }
 
         public boolean hasOnFormResubmissionCalled() {
@@ -586,6 +628,20 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
                 String description, String failingUrl) {
             super.onReceivedError(view, errorCode, description, failingUrl);
             mOnReceivedErrorCode = errorCode;
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request,
+                WebResourceError error) {
+            super.onReceivedError(view, request, error);
+            mOnReceivedResourceError = error;
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view,  WebResourceRequest request,
+                WebResourceResponse errorResponse) {
+            super.onReceivedHttpError(view, request, errorResponse);
+            mOnReceivedHttpError = errorResponse;
         }
 
         @Override

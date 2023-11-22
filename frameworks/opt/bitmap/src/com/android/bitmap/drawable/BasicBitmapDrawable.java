@@ -58,8 +58,6 @@ import java.util.concurrent.TimeUnit;
 public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
         Drawable.Callback, RequestKey.Callback {
 
-    protected static Rect sRect;
-
     protected RequestKey mCurrKey;
     protected RequestKey mPrevKey;
     protected int mDecodeWidth;
@@ -67,12 +65,15 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
 
     protected final Paint mPaint = new Paint();
     private final BitmapCache mCache;
+    private final Rect mRect = new Rect();
 
     private final boolean mLimitDensity;
     private final float mDensity;
     private ReusableBitmap mBitmap;
     private DecodeTask mTask;
     private Cancelable mCreateFileDescriptorFactoryTask;
+
+    private int mLayoutDirection;
 
     // based on framework CL:I015d77
     private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
@@ -86,6 +87,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
 
     private static final int MAX_BITMAP_DENSITY = DisplayMetrics.DENSITY_HIGH;
     private static final float VERTICAL_CENTER = 1f / 2;
+    private static final float HORIZONTAL_CENTER = 1f / 2;
     private static final float NO_MULTIPLIER = 1f;
 
     private static final String TAG = BasicBitmapDrawable.class.getSimpleName();
@@ -99,10 +101,6 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
         mPaint.setFilterBitmap(true);
         mPaint.setAntiAlias(true);
         mPaint.setDither(true);
-
-        if (sRect == null) {
-            sRect = new Rect();
-        }
     }
 
     public final RequestKey getKey() {
@@ -129,6 +127,40 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
             mDecodeHeight = height;
             setImage(mCurrKey);
         }
+    }
+
+    /**
+     * Set layout direction.
+     * It ends with Local so as not conflict with hidden Drawable.setLayoutDirection.
+     * @param layoutDirection the resolved layout direction for the drawable,
+     *                        either {@link android.view.View#LAYOUT_DIRECTION_LTR}
+     *                        or {@link android.view.View#LAYOUT_DIRECTION_RTL}
+     */
+    public void setLayoutDirectionLocal(int layoutDirection) {
+        if (mLayoutDirection != layoutDirection) {
+            mLayoutDirection = layoutDirection;
+            onLayoutDirectionChangeLocal(layoutDirection);
+        }
+    }
+
+    /**
+     * Called when the drawable's resolved layout direction changes.
+     * It ends with Local so as not conflict with hidden Drawable.onLayoutDirectionChange.
+     *
+     * @param layoutDirection the new resolved layout direction
+     */
+    public void onLayoutDirectionChangeLocal(int layoutDirection) {}
+
+    /**
+     * Returns the resolved layout direction for this Drawable.
+     * It ends with Local so as not conflict with hidden Drawable.getLayoutDirection.
+     *
+     * @return One of {@link android.view.View#LAYOUT_DIRECTION_LTR},
+     *         {@link android.view.View#LAYOUT_DIRECTION_RTL}
+     * @see #setLayoutDirectionLocal(int)
+     */
+    public int getLayoutDirectionLocal() {
+        return mLayoutDirection;
     }
 
     /**
@@ -203,7 +235,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
         }
 
         if (key == null) {
-            invalidateSelf();
+            onDecodeFailed();
             Trace.endSection();
             return;
         }
@@ -241,6 +273,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
      */
     protected void loadFileDescriptorFactory() {
         if (mCurrKey == null || mDecodeWidth == 0 || mDecodeHeight == 0) {
+            onDecodeFailed();
             return;
         }
 
@@ -258,6 +291,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
             final FileDescriptorFactory factory) {
         if (mCreateFileDescriptorFactoryTask == null) {
             // Cancelled.
+            onDecodeFailed();
             return;
         }
         mCreateFileDescriptorFactoryTask = null;
@@ -265,6 +299,13 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
         if (key.equals(mCurrKey)) {
             decode(factory);
         }
+    }
+
+    /**
+     * Called when the decode process is cancelled at any time.
+     */
+    protected void onDecodeFailed() {
+        invalidateSelf();
     }
 
     /**
@@ -288,11 +329,18 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
         if (mTask != null) {
             mTask.cancel();
         }
-        final DecodeOptions opts = new DecodeOptions(bufferW, bufferH, getDecodeVerticalCenter(),
-                DecodeOptions.STRATEGY_ROUND_NEAREST);
+        final DecodeOptions opts = new DecodeOptions(bufferW, bufferH, getDecodeHorizontalCenter(),
+                getDecodeVerticalCenter(), getDecodeStrategy());
         mTask = new DecodeTask(mCurrKey, opts, factory, this, mCache);
         mTask.executeOnExecutor(getExecutor());
         Trace.endSection();
+    }
+
+    /**
+     * Return one of the STRATEGY constants in {@link DecodeOptions}.
+     */
+    protected int getDecodeStrategy() {
+        return DecodeOptions.STRATEGY_ROUND_NEAREST;
     }
 
     protected Executor getExecutor() {
@@ -305,6 +353,14 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
 
     protected float getDrawVerticalOffsetMultiplier() {
         return NO_MULTIPLIER;
+    }
+
+    /**
+     * Clients can override this to specify which section of the source image to decode from.
+     * Possible applications include using face detection to always decode around facial features.
+     */
+    protected float getDecodeHorizontalCenter() {
+        return HORIZONTAL_CENTER;
     }
 
     /**
@@ -326,9 +382,9 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
             BitmapUtils.calculateCroppedSrcRect(
                     mBitmap.getLogicalWidth(), mBitmap.getLogicalHeight(),
                     bounds.width(), bounds.height(),
-                    bounds.height(), Integer.MAX_VALUE,
+                    bounds.height(), Integer.MAX_VALUE, getDecodeHorizontalCenter(),
                     getDrawVerticalCenter(), false /* absoluteFraction */,
-                    getDrawVerticalOffsetMultiplier(), sRect);
+                    getDrawVerticalOffsetMultiplier(), mRect);
 
             final int orientation = mBitmap.getOrientation();
             // calculateCroppedSrcRect() gave us the source rectangle "as if" the orientation has
@@ -336,7 +392,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
             // coordinates.
             RectUtils.rotateRectForOrientation(orientation,
                     new Rect(0, 0, mBitmap.getLogicalWidth(), mBitmap.getLogicalHeight()),
-                    sRect);
+                    mRect);
 
             // We may need to rotate the canvas, so we also have to rotate the bounds.
             final Rect rotatedBounds = new Rect(bounds);
@@ -345,7 +401,7 @@ public class BasicBitmapDrawable extends Drawable implements DecodeCallback,
             // Rotate the canvas.
             canvas.save();
             canvas.rotate(orientation, bounds.centerX(), bounds.centerY());
-            onDrawBitmap(canvas, sRect, rotatedBounds);
+            onDrawBitmap(canvas, mRect, rotatedBounds);
             canvas.restore();
         }
     }

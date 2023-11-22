@@ -55,7 +55,7 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
     public static final int LOAD_STATE_FAILED = 4;
 
     public static final boolean DEBUG = false;
-    public static final String TAG = ExtendedBitmapDrawable.class.getSimpleName();
+    private static final String TAG = ExtendedBitmapDrawable.class.getSimpleName();
 
     private final Resources mResources;
     private final ExtendedOptions mOpts;
@@ -102,18 +102,20 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
                 ConstantState constantState = mOpts.placeholder.getConstantState();
                 if (constantState != null) {
                     placeholder = constantState.newDrawable(mResources);
+                } else {
+                    placeholder = mOpts.placeholder;
+                }
 
-                    Rect bounds = mOpts.placeholder.getBounds();
-                    if (bounds.width() != 0) {
-                        placeholderWidth = bounds.width();
-                    } else if (placeholder.getIntrinsicWidth() != -1) {
-                        placeholderWidth = placeholder.getIntrinsicWidth();
-                    }
-                    if (bounds.height() != 0) {
-                        placeholderHeight = bounds.height();
-                    } else if (placeholder.getIntrinsicHeight() != -1) {
-                        placeholderHeight = placeholder.getIntrinsicHeight();
-                    }
+                Rect bounds = mOpts.placeholder.getBounds();
+                if (bounds.width() != 0) {
+                    placeholderWidth = bounds.width();
+                } else if (placeholder.getIntrinsicWidth() != -1) {
+                    placeholderWidth = placeholder.getIntrinsicWidth();
+                }
+                if (bounds.height() != 0) {
+                    placeholderHeight = bounds.height();
+                } else if (placeholder.getIntrinsicHeight() != -1) {
+                    placeholderHeight = placeholder.getIntrinsicHeight();
                 }
             }
 
@@ -198,7 +200,11 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
 
     @Override
     protected void setBitmap(ReusableBitmap bmp) {
-        setLoadState((bmp != null) ? LOAD_STATE_LOADED : LOAD_STATE_FAILED);
+        if (bmp != null) {
+            setLoadState(LOAD_STATE_LOADED);
+        } else {
+            onDecodeFailed();
+        }
 
         super.setBitmap(bmp);
     }
@@ -217,6 +223,13 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
         super.loadFileDescriptorFactory();
     }
 
+    @Override
+    protected void onDecodeFailed() {
+        super.onDecodeFailed();
+
+        setLoadState(LOAD_STATE_FAILED);
+    }
+
     protected boolean shouldExecuteStateChange() {
         // TODO: AttachmentDrawable should override this method to match prev and curr request keys.
         return /* opts.stateChanges */ true;
@@ -230,6 +243,11 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
     @Override
     protected final float getDrawVerticalOffsetMultiplier() {
         return mOpts.parallaxSpeedMultiplier;
+    }
+
+    @Override
+    protected float getDecodeHorizontalCenter() {
+        return mOpts.decodeHorizontalCenter;
     }
 
     @Override
@@ -677,6 +695,16 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
          * Optional field for general decoding.
          *
          * This field determines which section of the source image to decode from. A value of 0
+         * indicates a preference for the far left of the source, while a value of 1 indicates a
+         * preference for the far right of the source. A value of .5 will result in the center
+         * of the source being decoded.
+         */
+        public float decodeHorizontalCenter = 1f / 2;
+
+        /**
+         * Optional field for general decoding.
+         *
+         * This field determines which section of the source image to decode from. A value of 0
          * indicates a preference for the very top of the source, while a value of 1 indicates a
          * preference for the very bottom of the source. A value of .5 will result in the center
          * of the source being decoded.
@@ -684,11 +712,8 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
          * This should not be confused with {@link #setParallaxFraction(float)}. This field
          * determines the general section for decode. The parallax fraction then determines the
          * slice from within that section for display.
-         *
-         * The default value of 1f / 3 provides a good heuristic for the subject's face in a
-         * portrait photo.
          */
-        public float decodeVerticalCenter = 1f / 3;
+        public float decodeVerticalCenter = 1f / 2;
 
         /**
          * Required field if {@link #FEATURE_ORDERED_DISPLAY} is supported.
@@ -765,6 +790,11 @@ public class ExtendedBitmapDrawable extends BasicBitmapDrawable implements
          */
         private void validate()
                 throws IllegalStateException {
+            if (decodeHorizontalCenter < 0 || decodeHorizontalCenter > 1) {
+                throw new IllegalStateException(
+                        "ExtendedOptions: decodeHorizontalCenter must be within 0 and 1, " +
+                                "inclusive");
+            }
             if (decodeVerticalCenter < 0 || decodeVerticalCenter > 1) {
                 throw new IllegalStateException(
                         "ExtendedOptions: decodeVerticalCenter must be within 0 and 1, inclusive");

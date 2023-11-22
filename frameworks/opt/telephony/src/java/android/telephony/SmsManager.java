@@ -23,6 +23,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.BaseBundle;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -87,131 +88,163 @@ public final class SmsManager {
      * Whether to append transaction id to MMS WAP Push M-Notification.ind's content location URI
      * when constructing the download URL of a new MMS (boolean type)
      */
-    public static final String MMS_CONFIG_APPEND_TRANSACTION_ID = "enabledTransID";
+    public static final String MMS_CONFIG_APPEND_TRANSACTION_ID =
+            CarrierConfigManager.KEY_MMS_APPEND_TRANSACTION_ID_BOOL;
     /**
      * Whether MMS is enabled for the current carrier (boolean type)
      */
-    public static final String MMS_CONFIG_MMS_ENABLED = "enabledMMS";
+    public static final String
+        MMS_CONFIG_MMS_ENABLED = CarrierConfigManager.KEY_MMS_MMS_ENABLED_BOOL;
     /**
      * Whether group MMS is enabled for the current carrier (boolean type)
      */
-    public static final String MMS_CONFIG_GROUP_MMS_ENABLED = "enableGroupMms";
+    public static final String
+            MMS_CONFIG_GROUP_MMS_ENABLED = CarrierConfigManager.KEY_MMS_GROUP_MMS_ENABLED_BOOL;
     /**
-     * If this is enabled, M-NotifyResp.ind should be sent to the WAP Push content location
-     * instead of the default MMSC (boolean type)
+     * If this is enabled, M-NotifyResp.ind should be sent to the WAP Push content location instead
+     * of the default MMSC (boolean type)
      */
-    public static final String MMS_CONFIG_NOTIFY_WAP_MMSC_ENABLED = "enabledNotifyWapMMSC";
+    public static final String MMS_CONFIG_NOTIFY_WAP_MMSC_ENABLED =
+            CarrierConfigManager.KEY_MMS_NOTIFY_WAP_MMSC_ENABLED_BOOL;
     /**
      * Whether alias is enabled (boolean type)
      */
-    public static final String MMS_CONFIG_ALIAS_ENABLED = "aliasEnabled";
+    public static final String
+            MMS_CONFIG_ALIAS_ENABLED = CarrierConfigManager.KEY_MMS_ALIAS_ENABLED_BOOL;
     /**
      * Whether audio is allowed to be attached for MMS messages (boolean type)
      */
-    public static final String MMS_CONFIG_ALLOW_ATTACH_AUDIO = "allowAttachAudio";
+    public static final String
+            MMS_CONFIG_ALLOW_ATTACH_AUDIO = CarrierConfigManager.KEY_MMS_ALLOW_ATTACH_AUDIO_BOOL;
     /**
      * Whether multipart SMS is enabled (boolean type)
      */
-    public static final String MMS_CONFIG_MULTIPART_SMS_ENABLED = "enableMultipartSMS";
+    public static final String MMS_CONFIG_MULTIPART_SMS_ENABLED =
+            CarrierConfigManager.KEY_MMS_MULTIPART_SMS_ENABLED_BOOL;
     /**
      * Whether SMS delivery report is enabled (boolean type)
      */
-    public static final String MMS_CONFIG_SMS_DELIVERY_REPORT_ENABLED = "enableSMSDeliveryReports";
+    public static final String MMS_CONFIG_SMS_DELIVERY_REPORT_ENABLED =
+            CarrierConfigManager.KEY_MMS_SMS_DELIVERY_REPORT_ENABLED_BOOL;
     /**
      * Whether content-disposition field should be expected in an MMS PDU (boolean type)
      */
     public static final String MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION =
-            "supportMmsContentDisposition";
+            CarrierConfigManager.KEY_MMS_SUPPORT_MMS_CONTENT_DISPOSITION_BOOL;
     /**
      * Whether multipart SMS should be sent as separate messages
      */
     public static final String MMS_CONFIG_SEND_MULTIPART_SMS_AS_SEPARATE_MESSAGES =
-            "sendMultipartSmsAsSeparateMessages";
+            CarrierConfigManager.KEY_MMS_SEND_MULTIPART_SMS_AS_SEPARATE_MESSAGES_BOOL;
     /**
      * Whether MMS read report is enabled (boolean type)
      */
-    public static final String MMS_CONFIG_MMS_READ_REPORT_ENABLED = "enableMMSReadReports";
+    public static final String MMS_CONFIG_MMS_READ_REPORT_ENABLED =
+            CarrierConfigManager.KEY_MMS_MMS_READ_REPORT_ENABLED_BOOL;
     /**
      * Whether MMS delivery report is enabled (boolean type)
      */
-    public static final String MMS_CONFIG_MMS_DELIVERY_REPORT_ENABLED = "enableMMSDeliveryReports";
+    public static final String MMS_CONFIG_MMS_DELIVERY_REPORT_ENABLED =
+            CarrierConfigManager.KEY_MMS_MMS_DELIVERY_REPORT_ENABLED_BOOL;
     /**
      * Max MMS message size in bytes (int type)
      */
-    public static final String MMS_CONFIG_MAX_MESSAGE_SIZE = "maxMessageSize";
+    public static final String
+            MMS_CONFIG_MAX_MESSAGE_SIZE = CarrierConfigManager.KEY_MMS_MAX_MESSAGE_SIZE_INT;
     /**
      * Max MMS image width (int type)
      */
-    public static final String MMS_CONFIG_MAX_IMAGE_WIDTH = "maxImageWidth";
+    public static final String
+            MMS_CONFIG_MAX_IMAGE_WIDTH = CarrierConfigManager.KEY_MMS_MAX_IMAGE_WIDTH_INT;
     /**
      * Max MMS image height (int type)
      */
-    public static final String MMS_CONFIG_MAX_IMAGE_HEIGHT = "maxImageHeight";
+    public static final String
+            MMS_CONFIG_MAX_IMAGE_HEIGHT = CarrierConfigManager.KEY_MMS_MAX_IMAGE_HEIGHT_INT;
     /**
      * Limit of recipients of MMS messages (int type)
      */
-    public static final String MMS_CONFIG_RECIPIENT_LIMIT = "recipientLimit";
+    public static final String
+            MMS_CONFIG_RECIPIENT_LIMIT = CarrierConfigManager.KEY_MMS_RECIPIENT_LIMIT_INT;
     /**
      * Min alias character count (int type)
      */
-    public static final String MMS_CONFIG_ALIAS_MIN_CHARS = "aliasMinChars";
+    public static final String
+            MMS_CONFIG_ALIAS_MIN_CHARS = CarrierConfigManager.KEY_MMS_ALIAS_MIN_CHARS_INT;
     /**
      * Max alias character count (int type)
      */
-    public static final String MMS_CONFIG_ALIAS_MAX_CHARS = "aliasMaxChars";
+    public static final String
+            MMS_CONFIG_ALIAS_MAX_CHARS = CarrierConfigManager.KEY_MMS_ALIAS_MAX_CHARS_INT;
     /**
-     * When the number of parts of a multipart SMS reaches this threshold, it should be
-     * converted into an MMS (int type)
+     * When the number of parts of a multipart SMS reaches this threshold, it should be converted
+     * into an MMS (int type)
      */
-    public static final String MMS_CONFIG_SMS_TO_MMS_TEXT_THRESHOLD = "smsToMmsTextThreshold";
+    public static final String MMS_CONFIG_SMS_TO_MMS_TEXT_THRESHOLD =
+            CarrierConfigManager.KEY_MMS_SMS_TO_MMS_TEXT_THRESHOLD_INT;
     /**
      * Some carriers require SMS to be converted into MMS when text length reaches this threshold
      * (int type)
      */
     public static final String MMS_CONFIG_SMS_TO_MMS_TEXT_LENGTH_THRESHOLD =
-            "smsToMmsTextLengthThreshold";
+            CarrierConfigManager.KEY_MMS_SMS_TO_MMS_TEXT_LENGTH_THRESHOLD_INT;
     /**
      * Max message text size (int type)
      */
-    public static final String MMS_CONFIG_MESSAGE_TEXT_MAX_SIZE = "maxMessageTextSize";
+    public static final String MMS_CONFIG_MESSAGE_TEXT_MAX_SIZE =
+            CarrierConfigManager.KEY_MMS_MESSAGE_TEXT_MAX_SIZE_INT;
     /**
      * Max message subject length (int type)
      */
-    public static final String MMS_CONFIG_SUBJECT_MAX_LENGTH = "maxSubjectLength";
+    public static final String
+            MMS_CONFIG_SUBJECT_MAX_LENGTH = CarrierConfigManager.KEY_MMS_SUBJECT_MAX_LENGTH_INT;
     /**
      * MMS HTTP socket timeout in milliseconds (int type)
      */
-    public static final String MMS_CONFIG_HTTP_SOCKET_TIMEOUT = "httpSocketTimeout";
+    public static final String
+            MMS_CONFIG_HTTP_SOCKET_TIMEOUT = CarrierConfigManager.KEY_MMS_HTTP_SOCKET_TIMEOUT_INT;
     /**
      * The name of the UA Prof URL HTTP header for MMS HTTP request (String type)
      */
-    public static final String MMS_CONFIG_UA_PROF_TAG_NAME = "uaProfTagName";
+    public static final String
+            MMS_CONFIG_UA_PROF_TAG_NAME = CarrierConfigManager.KEY_MMS_UA_PROF_TAG_NAME_STRING;
     /**
      * The User-Agent header value for MMS HTTP request (String type)
      */
-    public static final String MMS_CONFIG_USER_AGENT = "userAgent";
+    public static final String
+            MMS_CONFIG_USER_AGENT = CarrierConfigManager.KEY_MMS_USER_AGENT_STRING;
     /**
      * The UA Profile URL header value for MMS HTTP request (String type)
      */
-    public static final String MMS_CONFIG_UA_PROF_URL = "uaProfUrl";
+    public static final String
+            MMS_CONFIG_UA_PROF_URL = CarrierConfigManager.KEY_MMS_UA_PROF_URL_STRING;
     /**
      * A list of HTTP headers to add to MMS HTTP request, separated by "|" (String type)
      */
-    public static final String MMS_CONFIG_HTTP_PARAMS = "httpParams";
+    public static final String
+            MMS_CONFIG_HTTP_PARAMS = CarrierConfigManager.KEY_MMS_HTTP_PARAMS_STRING;
     /**
      * Email gateway number (String type)
      */
-    public static final String MMS_CONFIG_EMAIL_GATEWAY_NUMBER = "emailGatewayNumber";
+    public static final String MMS_CONFIG_EMAIL_GATEWAY_NUMBER =
+            CarrierConfigManager.KEY_MMS_EMAIL_GATEWAY_NUMBER_STRING;
     /**
      * The suffix to append to the NAI header value for MMS HTTP request (String type)
      */
-    public static final String MMS_CONFIG_NAI_SUFFIX = "naiSuffix";
+    public static final String
+            MMS_CONFIG_NAI_SUFFIX = CarrierConfigManager.KEY_MMS_NAI_SUFFIX_STRING;
     /**
-     * If true, show the cell broadcast (amber alert) in the SMS settings. Some carriers
-     * don't want this shown. (Boolean type)
+     * If true, show the cell broadcast (amber alert) in the SMS settings. Some carriers don't want
+     * this shown. (Boolean type)
      */
     public static final String MMS_CONFIG_SHOW_CELL_BROADCAST_APP_LINKS =
-            "config_cellBroadcastAppLinks";
+            CarrierConfigManager.KEY_MMS_SHOW_CELL_BROADCAST_APP_LINKS_BOOL;
+    /**
+     * Whether the carrier MMSC supports charset field in Content-Type header. If this is false,
+     * then we don't add "charset" to "Content-Type"
+     */
+    public static final String MMS_CONFIG_SUPPORT_HTTP_CHARSET_HEADER =
+            CarrierConfigManager.KEY_MMS_SUPPORT_HTTP_CHARSET_HEADER_BOOL;
     /*
      * Forwarded constants from SimDialogActivity.
      */
@@ -257,6 +290,13 @@ public final class SmsManager {
     public void sendTextMessage(
             String destinationAddress, String scAddress, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent) {
+        sendTextMessageInternal(destinationAddress, scAddress, text,
+            sentIntent, deliveryIntent, true /* persistMessageForCarrierApp*/);
+    }
+
+    private void sendTextMessageInternal(String destinationAddress, String scAddress,
+            String text, PendingIntent sentIntent, PendingIntent deliveryIntent,
+            boolean persistMessageForCarrierApp) {
         if (TextUtils.isEmpty(destinationAddress)) {
             throw new IllegalArgumentException("Invalid destinationAddress");
         }
@@ -269,6 +309,50 @@ public final class SmsManager {
             ISms iccISms = getISmsServiceOrThrow();
             iccISms.sendTextForSubscriber(getSubscriptionId(), ActivityThread.currentPackageName(),
                     destinationAddress,
+                    scAddress, text, sentIntent, deliveryIntent,
+                    persistMessageForCarrierApp);
+        } catch (RemoteException ex) {
+            // ignore it
+        }
+    }
+
+    /**
+     * Send a text based SMS without writing it into the SMS Provider.
+     *
+     * <p>Only the carrier app can call this method.</p>
+     *
+     * @see #sendTextMessage(String, String, String, PendingIntent, PendingIntent)
+     * @hide
+     */
+    public void sendTextMessageWithoutPersisting(
+            String destinationAddress, String scAddress, String text,
+            PendingIntent sentIntent, PendingIntent deliveryIntent) {
+        sendTextMessageInternal(destinationAddress, scAddress, text,
+            sentIntent, deliveryIntent, false /* persistMessageForCarrierApp*/);
+    }
+
+    /**
+     * A variant of {@link SmsManager#sendTextMessage} that allows self to be the caller. This is
+     * for internal use only.
+     *
+     * @hide
+     */
+    public void sendTextMessageWithSelfPermissions(
+            String destinationAddress, String scAddress, String text,
+            PendingIntent sentIntent, PendingIntent deliveryIntent) {
+        if (TextUtils.isEmpty(destinationAddress)) {
+            throw new IllegalArgumentException("Invalid destinationAddress");
+        }
+
+        if (TextUtils.isEmpty(text)) {
+            throw new IllegalArgumentException("Invalid message body");
+        }
+
+        try {
+            ISms iccISms = getISmsServiceOrThrow();
+            iccISms.sendTextForSubscriberWithSelfPermissions(getSubscriptionId(),
+                    ActivityThread.currentPackageName(),
+                    destinationAddress,
                     scAddress, text, sentIntent, deliveryIntent);
         } catch (RemoteException ex) {
             // ignore it
@@ -279,7 +363,7 @@ public final class SmsManager {
      * Inject an SMS PDU into the android application framework.
      *
      * The caller should have carrier privileges.
-     * @see android.telephony.TelephonyManager.hasCarrierPrivileges
+     * @see android.telephony.TelephonyManager#hasCarrierPrivileges
      *
      * @param pdu is the byte array of pdu to be injected into android application framework
      * @param format is the format of SMS pdu (3gpp or 3gpp2)
@@ -301,7 +385,8 @@ public final class SmsManager {
         try {
             ISms iccISms = ISms.Stub.asInterface(ServiceManager.getService("isms"));
             if (iccISms != null) {
-                iccISms.injectSmsPdu(pdu, format, receivedIntent);
+                iccISms.injectSmsPduForSubscriber(
+                        getSubscriptionId(), pdu, format, receivedIntent);
             }
         } catch (RemoteException ex) {
           // ignore it
@@ -369,6 +454,14 @@ public final class SmsManager {
     public void sendMultipartTextMessage(
             String destinationAddress, String scAddress, ArrayList<String> parts,
             ArrayList<PendingIntent> sentIntents, ArrayList<PendingIntent> deliveryIntents) {
+        sendMultipartTextMessageInternal(destinationAddress, scAddress, parts,
+              sentIntents, deliveryIntents, true /* persistMessageForCarrierApp*/);
+    }
+
+    private void sendMultipartTextMessageInternal(
+            String destinationAddress, String scAddress, ArrayList<String> parts,
+            ArrayList<PendingIntent> sentIntents, ArrayList<PendingIntent> deliveryIntents,
+            boolean persistMessageForCarrierApp) {
         if (TextUtils.isEmpty(destinationAddress)) {
             throw new IllegalArgumentException("Invalid destinationAddress");
         }
@@ -382,7 +475,7 @@ public final class SmsManager {
                 iccISms.sendMultipartTextForSubscriber(getSubscriptionId(),
                         ActivityThread.currentPackageName(),
                         destinationAddress, scAddress, parts,
-                        sentIntents, deliveryIntents);
+                        sentIntents, deliveryIntents, persistMessageForCarrierApp);
             } catch (RemoteException ex) {
                 // ignore it
             }
@@ -398,6 +491,21 @@ public final class SmsManager {
             sendTextMessage(destinationAddress, scAddress, parts.get(0),
                     sentIntent, deliveryIntent);
         }
+    }
+
+    /**
+     * Send a multi-part text based SMS without writing it into the SMS Provider.
+     *
+     * <p>Only the carrier app can call this method.</p>
+     *
+     * @see #sendMultipartTextMessage(String, String, ArrayList, ArrayList, ArrayList)
+     * @hide
+     **/
+    public void sendMultipartTextMessageWithoutPersisting(
+            String destinationAddress, String scAddress, ArrayList<String> parts,
+            ArrayList<PendingIntent> sentIntents, ArrayList<PendingIntent> deliveryIntents) {
+        sendMultipartTextMessageInternal(destinationAddress, scAddress, parts,
+            sentIntents, deliveryIntents, false /* persistMessageForCarrierApp*/);
     }
 
     /**
@@ -450,6 +558,35 @@ public final class SmsManager {
             // ignore it
         }
     }
+
+    /**
+     * A variant of {@link SmsManager#sendDataMessage} that allows self to be the caller. This is
+     * for internal use only.
+     *
+     * @hide
+     */
+    public void sendDataMessageWithSelfPermissions(
+            String destinationAddress, String scAddress, short destinationPort,
+            byte[] data, PendingIntent sentIntent, PendingIntent deliveryIntent) {
+        if (TextUtils.isEmpty(destinationAddress)) {
+            throw new IllegalArgumentException("Invalid destinationAddress");
+        }
+
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("Invalid message data");
+        }
+
+        try {
+            ISms iccISms = getISmsServiceOrThrow();
+            iccISms.sendDataForSubscriberWithSelfPermissions(getSubscriptionId(),
+                    ActivityThread.currentPackageName(), destinationAddress, scAddress,
+                    destinationPort & 0xFFFF, data, sentIntent, deliveryIntent);
+        } catch (RemoteException ex) {
+            // ignore it
+        }
+    }
+
+
 
     /**
      * Get the SmsManager associated with the default subscription id. The instance will always be
@@ -1441,6 +1578,72 @@ public final class SmsManager {
             // ignore it
         }
         return null;
+    }
+
+    /**
+     * Filters a bundle to only contain MMS config variables.
+     *
+     * This is for use with bundles returned by {@link CarrierConfigManager} which contain MMS
+     * config and unrelated config. It is assumed that all MMS_CONFIG_* keys are present in the
+     * supplied bundle.
+     *
+     * @param config a Bundle that contains MMS config variables and possibly more.
+     * @return a new Bundle that only contains the MMS_CONFIG_* keys defined above.
+     * @hide
+     */
+    public static Bundle getMmsConfig(BaseBundle config) {
+        Bundle filtered = new Bundle();
+        filtered.putBoolean(MMS_CONFIG_APPEND_TRANSACTION_ID,
+                config.getBoolean(MMS_CONFIG_APPEND_TRANSACTION_ID));
+        filtered.putBoolean(MMS_CONFIG_MMS_ENABLED, config.getBoolean(MMS_CONFIG_MMS_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_GROUP_MMS_ENABLED,
+                config.getBoolean(MMS_CONFIG_GROUP_MMS_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_NOTIFY_WAP_MMSC_ENABLED,
+                config.getBoolean(MMS_CONFIG_NOTIFY_WAP_MMSC_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_ALIAS_ENABLED, config.getBoolean(MMS_CONFIG_ALIAS_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_ALLOW_ATTACH_AUDIO,
+                config.getBoolean(MMS_CONFIG_ALLOW_ATTACH_AUDIO));
+        filtered.putBoolean(MMS_CONFIG_MULTIPART_SMS_ENABLED,
+                config.getBoolean(MMS_CONFIG_MULTIPART_SMS_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_SMS_DELIVERY_REPORT_ENABLED,
+                config.getBoolean(MMS_CONFIG_SMS_DELIVERY_REPORT_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION,
+                config.getBoolean(MMS_CONFIG_SUPPORT_MMS_CONTENT_DISPOSITION));
+        filtered.putBoolean(MMS_CONFIG_SEND_MULTIPART_SMS_AS_SEPARATE_MESSAGES,
+                config.getBoolean(MMS_CONFIG_SEND_MULTIPART_SMS_AS_SEPARATE_MESSAGES));
+        filtered.putBoolean(MMS_CONFIG_MMS_READ_REPORT_ENABLED,
+                config.getBoolean(MMS_CONFIG_MMS_READ_REPORT_ENABLED));
+        filtered.putBoolean(MMS_CONFIG_MMS_DELIVERY_REPORT_ENABLED,
+                config.getBoolean(MMS_CONFIG_MMS_DELIVERY_REPORT_ENABLED));
+        filtered.putInt(MMS_CONFIG_MAX_MESSAGE_SIZE, config.getInt(MMS_CONFIG_MAX_MESSAGE_SIZE));
+        filtered.putInt(MMS_CONFIG_MAX_IMAGE_WIDTH, config.getInt(MMS_CONFIG_MAX_IMAGE_WIDTH));
+        filtered.putInt(MMS_CONFIG_MAX_IMAGE_HEIGHT, config.getInt(MMS_CONFIG_MAX_IMAGE_HEIGHT));
+        filtered.putInt(MMS_CONFIG_RECIPIENT_LIMIT, config.getInt(MMS_CONFIG_RECIPIENT_LIMIT));
+        filtered.putInt(MMS_CONFIG_ALIAS_MIN_CHARS, config.getInt(MMS_CONFIG_ALIAS_MIN_CHARS));
+        filtered.putInt(MMS_CONFIG_ALIAS_MAX_CHARS, config.getInt(MMS_CONFIG_ALIAS_MAX_CHARS));
+        filtered.putInt(MMS_CONFIG_SMS_TO_MMS_TEXT_THRESHOLD,
+                config.getInt(MMS_CONFIG_SMS_TO_MMS_TEXT_THRESHOLD));
+        filtered.putInt(MMS_CONFIG_SMS_TO_MMS_TEXT_LENGTH_THRESHOLD,
+                config.getInt(MMS_CONFIG_SMS_TO_MMS_TEXT_LENGTH_THRESHOLD));
+        filtered.putInt(MMS_CONFIG_MESSAGE_TEXT_MAX_SIZE,
+                config.getInt(MMS_CONFIG_MESSAGE_TEXT_MAX_SIZE));
+        filtered.putInt(MMS_CONFIG_SUBJECT_MAX_LENGTH,
+                config.getInt(MMS_CONFIG_SUBJECT_MAX_LENGTH));
+        filtered.putInt(MMS_CONFIG_HTTP_SOCKET_TIMEOUT,
+                config.getInt(MMS_CONFIG_HTTP_SOCKET_TIMEOUT));
+        filtered.putString(MMS_CONFIG_UA_PROF_TAG_NAME,
+                config.getString(MMS_CONFIG_UA_PROF_TAG_NAME));
+        filtered.putString(MMS_CONFIG_USER_AGENT, config.getString(MMS_CONFIG_USER_AGENT));
+        filtered.putString(MMS_CONFIG_UA_PROF_URL, config.getString(MMS_CONFIG_UA_PROF_URL));
+        filtered.putString(MMS_CONFIG_HTTP_PARAMS, config.getString(MMS_CONFIG_HTTP_PARAMS));
+        filtered.putString(MMS_CONFIG_EMAIL_GATEWAY_NUMBER,
+                config.getString(MMS_CONFIG_EMAIL_GATEWAY_NUMBER));
+        filtered.putString(MMS_CONFIG_NAI_SUFFIX, config.getString(MMS_CONFIG_NAI_SUFFIX));
+        filtered.putBoolean(MMS_CONFIG_SHOW_CELL_BROADCAST_APP_LINKS,
+                config.getBoolean(MMS_CONFIG_SHOW_CELL_BROADCAST_APP_LINKS));
+        filtered.putBoolean(MMS_CONFIG_SUPPORT_HTTP_CHARSET_HEADER,
+                config.getBoolean(MMS_CONFIG_SUPPORT_HTTP_CHARSET_HEADER));
+        return filtered;
     }
 
 }

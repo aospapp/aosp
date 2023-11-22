@@ -17,33 +17,25 @@
 package com.android.dialer;
 
 import android.app.Application;
+import android.os.Trace;
 
-import com.android.contacts.common.ContactPhotoManager;
 import com.android.contacts.common.extensions.ExtensionsFactory;
 import com.android.contacts.commonbind.analytics.AnalyticsUtil;
 
 public class DialerApplication extends Application {
 
-    private ContactPhotoManager mContactPhotoManager;
+    private static final String TAG = "DialerApplication";
 
     @Override
     public void onCreate() {
+        Trace.beginSection(TAG + " onCreate");
         super.onCreate();
+        Trace.beginSection(TAG + " ExtensionsFactory initialization");
         ExtensionsFactory.init(getApplicationContext());
+        Trace.endSection();
+        Trace.beginSection(TAG + " Analytics initialization");
         AnalyticsUtil.initialize(this);
-    }
-
-    @Override
-    public Object getSystemService(String name) {
-        if (ContactPhotoManager.CONTACT_PHOTO_SERVICE.equals(name)) {
-            if (mContactPhotoManager == null) {
-                mContactPhotoManager = ContactPhotoManager.createContactPhotoManager(this);
-                registerComponentCallbacks(mContactPhotoManager);
-                mContactPhotoManager.preloadPhotosInBackground();
-            }
-            return mContactPhotoManager;
-        }
-
-        return super.getSystemService(name);
+        Trace.endSection();
+        Trace.endSection();
     }
 }

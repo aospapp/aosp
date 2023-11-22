@@ -58,7 +58,7 @@ public class AbsSpinnerTest extends ActivityInstrumentationTestCase2<RelativeLay
 
         new Spinner(mContext, null);
 
-        new Spinner(mContext, null, com.android.internal.R.attr.spinnerStyle);
+        new Spinner(mContext, null, android.R.attr.spinnerStyle);
 
         new Gallery(mContext);
         new Gallery(mContext, null);

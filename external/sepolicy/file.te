@@ -6,6 +6,8 @@ type rootfs, fs_type;
 type proc, fs_type;
 # Security-sensitive proc nodes that should not be writable to most.
 type proc_security, fs_type;
+# Type for /proc/sys/vm/drop_caches
+type proc_drop_caches, fs_type;
 # proc, sysfs, or other nodes that permit configuration of kernel usermodehelpers.
 type usermodehelper, fs_type, sysfs_type;
 type qtaguid_proc, fs_type, mlstrustedobject;
@@ -13,7 +15,9 @@ type proc_bluetooth_writable, fs_type;
 type proc_cpuinfo, fs_type;
 type proc_net, fs_type;
 type proc_sysrq, fs_type;
-type selinuxfs, fs_type;
+type proc_uid_cputime_showstat, fs_type;
+type proc_uid_cputime_removeuid, fs_type;
+type selinuxfs, fs_type, mlstrustedobject;
 type cgroup, fs_type, mlstrustedobject;
 type sysfs, fs_type, sysfs_type, mlstrustedobject;
 type sysfs_writable, fs_type, sysfs_type, mlstrustedobject;
@@ -38,15 +42,20 @@ type pstorefs, fs_type;
 type functionfs, fs_type;
 type oemfs, fs_type, contextmount_type;
 type usbfs, fs_type;
+type binfmt_miscfs, fs_type;
 
 # File types
 type unlabeled, file_type;
 # Default type for anything under /system.
 type system_file, file_type;
+# Type for /system/bin/logcat.
+type logcat_exec, exec_type, file_type;
 # /cores for coredumps on userdebug / eng builds
 type coredump_file, file_type;
 # Default type for anything under /data.
 type system_data_file, file_type, data_file_type;
+# Unencrypted data
+type unencrypted_data_file, file_type, data_file_type;
 # /data/.layout_version or other installd-created files that
 # are created in a system_data_file directory.
 type install_data_file, file_type, data_file_type;
@@ -67,41 +76,58 @@ type apk_private_tmp_file, file_type, data_file_type, mlstrustedobject;
 # /data/dalvik-cache
 type dalvikcache_data_file, file_type, data_file_type;
 # /data/dalvik-cache/profiles
-type dalvikcache_profiles_data_file, file_type, data_file_type;
+type dalvikcache_profiles_data_file, file_type, data_file_type, mlstrustedobject;
 # /data/resource-cache
 type resourcecache_data_file, file_type, data_file_type;
 # /data/local - writable by shell
-type shell_data_file, file_type, data_file_type;
+type shell_data_file, file_type, data_file_type, mlstrustedobject;
 # /data/gps
 type gps_data_file, file_type, data_file_type;
 # /data/property
 type property_data_file, file_type, data_file_type;
+# /data/bootchart
+type bootchart_data_file, file_type, data_file_type;
+# /data/system/heapdump
+type heapdump_data_file, file_type, data_file_type, mlstrustedobject;
+
+# Mount locations managed by vold
+type mnt_media_rw_file, file_type;
+type mnt_user_file, file_type;
+type mnt_expand_file, file_type;
+type storage_file, file_type;
+
+# Label for storage dirs which are just mount stubs
+type mnt_media_rw_stub_file, file_type;
+type storage_stub_file, file_type;
 
 # /data/misc subdirectories
 type adb_keys_file, file_type, data_file_type;
 type audio_data_file, file_type, data_file_type;
 type bluetooth_data_file, file_type, data_file_type;
 type camera_data_file, file_type, data_file_type;
+type gatekeeper_data_file, file_type, data_file_type;
 type keychain_data_file, file_type, data_file_type;
 type keystore_data_file, file_type, data_file_type;
 type media_data_file, file_type, data_file_type;
-type media_rw_data_file, file_type, data_file_type;
+type media_rw_data_file, file_type, data_file_type, mlstrustedobject;
 type misc_user_data_file, file_type, data_file_type;
 type net_data_file, file_type, data_file_type;
 type nfc_data_file, file_type, data_file_type;
-type radio_data_file, file_type, data_file_type;
+type radio_data_file, file_type, data_file_type, mlstrustedobject;
 type shared_relro_file, file_type, data_file_type;
 type systemkeys_data_file, file_type, data_file_type;
 type vpn_data_file, file_type, data_file_type;
 type wifi_data_file, file_type, data_file_type;
 type zoneinfo_data_file, file_type, data_file_type;
+type vold_data_file, file_type, data_file_type;
+type perfprofd_data_file, file_type, data_file_type, mlstrustedobject;
 
 # Compatibility with type names used in vanilla Android 4.3 and 4.4.
 typealias audio_data_file alias audio_firmware_file;
 # /data/data subdirectories - app sandboxes
 type app_data_file, file_type, data_file_type;
 # /data/data subdirectory for system UID apps.
-type system_app_data_file, file_type, data_file_type;
+type system_app_data_file, file_type, data_file_type, mlstrustedobject;
 # Compatibility with type name used in Android 4.3 and 4.4.
 typealias app_data_file alias platform_app_data_file;
 typealias app_data_file alias download_file;
@@ -115,7 +141,7 @@ type efs_file, file_type;
 # Type for wallpaper file.
 type wallpaper_file, file_type, mlstrustedobject;
 # /mnt/asec
-type asec_apk_file, file_type, data_file_type;
+type asec_apk_file, file_type, data_file_type, mlstrustedobject;
 # Elements of asec files (/mnt/asec) that are world readable
 type asec_public_file, file_type, data_file_type;
 # /data/app-asec
@@ -128,6 +154,8 @@ type security_file, file_type;
 # vary per device, so this type is used in per
 # device policy
 type bluetooth_efs_file, file_type;
+# Type for fingerprint template file.
+type fingerprintd_data_file, file_type, data_file_type;
 
 # Socket types
 type adbd_socket, file_type;
@@ -138,12 +166,12 @@ type fwmarkd_socket, file_type, mlstrustedobject;
 type gps_socket, file_type;
 type installd_socket, file_type;
 type lmkd_socket, file_type;
-type logd_debug, file_type;
-type logd_socket, file_type;
-type logdr_socket, file_type;
-type logdw_socket, file_type;
+type logd_socket, file_type, mlstrustedobject;
+type logdr_socket, file_type, mlstrustedobject;
+type logdw_socket, file_type, mlstrustedobject;
 type mdns_socket, file_type;
-type mdnsd_socket, file_type;
+type mdnsd_socket, file_type, mlstrustedobject;
+type misc_logd_file, file_type;
 type mtpd_socket, file_type;
 type netd_socket, file_type;
 type property_socket, file_type;
@@ -155,7 +183,7 @@ type system_ndebug_socket, file_type;
 type vold_socket, file_type;
 type wpa_socket, file_type;
 type zygote_socket, file_type;
-
+type sap_uim_socket, file_type;
 # UART (for GPS) control proc file
 type gps_control, file_type;
 

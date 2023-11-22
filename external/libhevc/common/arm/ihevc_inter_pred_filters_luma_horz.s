@@ -342,6 +342,9 @@ inner_loop_16:
     vld1.u32    {q9},[r4],r11
     vmlal.u8    q5,d6,d27                   @mul_res = vmull_u8(src[0_3], coeffabs_3)@
 
+    pld         [r12, r2, lsl #2]
+    pld         [r4, r2, lsl #2]
+
     add         r4,#8
     vmlsl.u8    q5,d0,d24                   @mul_res = vmlsl_u8(src[0_0], coeffabs_0)@
 
@@ -373,10 +376,8 @@ inner_loop_16:
 @   cmp         r7, r0
     vmlsl.u8    q11,d5,d26
 
-    pld         [r12, r2, lsl #2]
     vmlal.u8    q11,d13,d28
 
-    pld         [r4, r2, lsl #2]
     vmlal.u8    q11,d17,d30
 
 @   mov         r0, r7

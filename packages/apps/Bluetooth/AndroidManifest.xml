@@ -19,6 +19,7 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_BLUETOOTH_SHARE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
@@ -27,8 +28,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- WRITE_CONTACTS is used for test cases only -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.NFC_HANDOVER_STATUS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
@@ -47,23 +50,27 @@
     <uses-permission android:name="android.permission.MANAGE_USERS"/>
     <uses-permission android:name="com.google.android.gallery3d.permission.GALLERY_PROVIDER"/>
     <uses-permission android:name="com.android.gallery3d.permission.GALLERY_PROVIDER"/>
-    <uses-permission android:name="android.permission.MMS_SEND_OUTBOX_MSG"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
     <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
+    <uses-permission android:name="android.permission.UPDATE_APP_OPS_STATS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
 
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <application
         android:name=".btservice.AdapterApp"
-        android:icon="@drawable/bt_share"
+        android:icon="@mipmap/bt_share"
         android:persistent="false"
-        android:label="@string/app_name">
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="false">
         <uses-library android:name="javax.obex" />
         <provider android:name=".opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"
@@ -117,7 +124,7 @@
         </receiver>
         <activity android:name=".opp.BluetoothOppLauncherActivity"
             android:process="@string/process"
-            android:theme="@android:style/Theme.Holo.Dialog"
+            android:theme="@android:style/Theme.Material.Light.Dialog"
             android:label="@string/bt_share_picker_label"
             android:enabled="@bool/profile_supported_opp">
             <intent-filter>
@@ -138,6 +145,7 @@
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+                <data android:mimeType="application/x-hwp" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
@@ -156,41 +164,31 @@
         <activity android:name=".opp.BluetoothOppBtEnableActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+                  android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
         <activity android:name=".opp.BluetoothOppBtErrorActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Holo.Dialog.Alert">
+                  android:theme="@android:style/Theme.Material.Light.Dialog.Alert">
         </activity>
         <activity android:name=".opp.BluetoothOppBtEnablingActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+                  android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
         <activity android:name=".opp.BluetoothOppIncomingFileConfirmActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+                  android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
         </activity>
         <activity android:name=".opp.BluetoothOppTransferActivity"
                   android:process="@string/process"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+                  android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
                   android:enabled="@bool/profile_supported_opp">
-        </activity>
-        <activity android:name=".opp.BluetoothOppLiveFolder"
-            android:process="@string/process"
-            android:icon="@drawable/ic_launcher_folder_bluetooth"
-            android:label="@string/btopp_live_folder"
-            android:enabled="@bool/profile_supported_opp">
-            <intent-filter>
-                <action android:name="android.intent.action.CREATE_LIVE_FOLDER" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
         <activity android:name=".opp.BluetoothOppTransferHistory"
                   android:process="@string/process"
@@ -202,7 +200,7 @@
         <activity android:name=".pbap.BluetoothPbapActivity"
             android:process="@string/process"
             android:excludeFromRecents="true"
-            android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+            android:theme="@android:style/Theme.Material.Light.Dialog.Alert"
             android:enabled="@bool/profile_supported_pbap">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />
@@ -234,17 +232,31 @@
             android:enabled="@bool/profile_supported_map" >
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothMap" />
-                <action android:name="android.btmap.intent.action.SHOW_MAPS_EMAIL_SETTINGS" />
+                <action android:name="android.btmap.intent.action.SHOW_MAPS_SETTINGS" />
                 <action android:name="com.android.bluetooth.map.USER_CONFIRM_TIMEOUT"/>
             </intent-filter>
         </service>
-         <activity android:name=".map.BluetoothMapEmailSettings"
+         <activity android:name=".map.BluetoothMapSettings"
                   android:process="@string/process"
-                  android:label="@string/bluetooth_map_email_settings_title"
+                  android:label="@string/bluetooth_map_settings_title"
                   android:excludeFromRecents="true"
                   android:configChanges="orientation|keyboardHidden"
                   android:enabled="@bool/profile_supported_map">
         </activity>
+        <provider android:name=".map.MmsFileProvider"
+                  android:authorities="com.android.bluetooth.map.MmsFileProvider"
+                  android:enabled="true"
+                  android:grantUriPermissions="true"
+                  android:exported="false">
+        </provider>
+        <service
+            android:process="@string/process"
+            android:name=".sap.SapService"
+            android:enabled="@bool/profile_supported_sap" >
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothSap" />
+            </intent-filter>
+        </service>
         <service
             android:process="@string/process"
             android:name = ".gatt.GattService"

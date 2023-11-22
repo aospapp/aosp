@@ -36,6 +36,8 @@
 #include "va/va_dec_jpeg.h"
 #include "va/va_dec_vp8.h"
 
+#include <malloc.h>
+
 #define GET_SURFACE_INFO_colocated_index(psb_surface) ((int) (psb_surface->extra_info[3]))
 #define SET_SURFACE_INFO_colocated_index(psb_surface, val) psb_surface->extra_info[3] = (uint32_t) val;
 

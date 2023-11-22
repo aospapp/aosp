@@ -44,7 +44,7 @@ def main():
     # Command line args, ignoring any args that will be passed down to the
     # ItsSession constructor.
     args = [s for s in sys.argv if s[:6] not in \
-            ["reboot", "camera", "target", "noinit"]]
+            ["reboot", "camera", "target", "device"]]
 
     if len(args) == 1:
         with its.device.ItsSession() as cam:

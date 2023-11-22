@@ -203,13 +203,58 @@ public:
         return nla_put(mMsg, attribute, sizeof(value), &value);
     }
 
-    int put_s32(int attribute, int32_t value) {
-        return nla_put(mMsg, attribute, sizeof(int32_t), &value);
-    }
-
     int put_u64(int attribute, uint64_t value) {
         return nla_put(mMsg, attribute, sizeof(value), &value);
     }
+
+    int put_s8(int attribute, s8 value) {
+        return nla_put(mMsg, attribute, sizeof(int8_t), &value);
+    }
+    int put_s16(int attribute, s16 value) {
+        return nla_put(mMsg, attribute, sizeof(int16_t), &value);
+    }
+    int put_s32(int attribute, s32 value) {
+        return nla_put(mMsg, attribute, sizeof(int32_t), &value);
+    }
+    int put_s64(int attribute, s64 value) {
+        return nla_put(mMsg, attribute, sizeof(int64_t), &value);
+    }
+
+    u8 get_u8(const struct nlattr *nla)
+    {
+        return *(u8 *) nla_data(nla);
+    }
+    u16 get_u16(const struct nlattr *nla)
+    {
+        return *(u16 *) nla_data(nla);
+    }
+    u32 get_u32(const struct nlattr *nla)
+    {
+        return *(u32 *) nla_data(nla);
+    }
+    u64 get_u64(const struct nlattr *nla)
+    {
+        return *(u64 *) nla_data(nla);
+    }
+
+    s8 get_s8(const struct nlattr *nla)
+    {
+        return *(s8 *) nla_data(nla);
+    }
+
+    s16 get_s16(const struct nlattr *nla)
+    {
+        return *(s16 *) nla_data(nla);
+    }
+    s32 get_s32(const struct nlattr *nla)
+    {
+        return *(s32 *) nla_data(nla);
+    }
+    s64 get_s64(const struct nlattr *nla)
+    {
+        return *(s64 *) nla_data(nla);
+    }
+
     int put_string(int attribute, const char *value) {
         return nla_put(mMsg, attribute, strlen(value) + 1, value);
     }
@@ -231,6 +276,7 @@ public:
     int put_bytes(int attribute, const char *data, int len) {
         return nla_put(mMsg, attribute, len, data);
     }
+
 private:
     WifiRequest(const WifiRequest&);        // hide copy constructor to prevent copies
 
@@ -365,6 +411,8 @@ public:
 
     virtual int create();
 
+    virtual int requestResponse();
+
     virtual int requestEvent();
 
     virtual int put_u8(int attribute, uint8_t value);
@@ -373,9 +421,25 @@ public:
 
     virtual int put_u32(int attribute, uint32_t value);
 
-    virtual int put_s32(int attribute, int32_t value);
-
     virtual int put_u64(int attribute, uint64_t value);
+
+    virtual int put_s8(int attribute, s8 value);
+
+    virtual int put_s16(int attribute, s16 value);
+
+    virtual int put_s32(int attribute, s32 value);
+
+    virtual int put_s64(int attribute, s64 value);
+
+    virtual u8 get_u8(const struct nlattr *nla);
+    virtual u16 get_u16(const struct nlattr *nla);
+    virtual u32 get_u32(const struct nlattr *nla);
+    virtual u64 get_u64(const struct nlattr *nla);
+
+    virtual s8 get_s8(const struct nlattr *nla);
+    virtual s16 get_s16(const struct nlattr *nla);
+    virtual s32 get_s32(const struct nlattr *nla);
+    virtual s64 get_s64(const struct nlattr *nla);
 
     virtual int put_string(int attribute, const char *value);
 
@@ -388,6 +452,10 @@ public:
     virtual int set_iface_id(const char* name);
 
     virtual int put_bytes(int attribute, const char *data, int len);
+
+    virtual wifi_error get_mac_addr(struct nlattr **tb_vendor,
+                                int attribute,
+                                mac_addr addr);
 
 protected:
 
@@ -406,4 +474,7 @@ protected:
         nla_ok(pos, rem); \
         pos = (nlattr *)nla_next(pos, &(rem)))
 
+wifi_error initialize_vendor_cmd(wifi_interface_handle iface,
+                                 u32 subcmd,
+                                 WifiVendorCommand **vCommand);
 #endif

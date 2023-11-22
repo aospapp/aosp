@@ -31,6 +31,8 @@ import android.view.ViewGroup;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 
@@ -66,6 +68,7 @@ public class TerminalView extends ListView {
 
         final Paint bgPaint = new Paint();
         final Paint textPaint = new Paint();
+        final Paint cursorPaint = new Paint();
 
         /** Run of cells used when drawing */
         final CellRun run;
@@ -108,6 +111,16 @@ public class TerminalView extends ListView {
         }
     }
 
+    private final AdapterView.OnItemClickListener mClickListener = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View v, int pos, long id) {
+            if (parent.requestFocus()) {
+                InputMethodManager imm = (InputMethodManager) parent.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+                imm.showSoftInput(parent, InputMethodManager.SHOW_IMPLICIT);
+            }
+        }
+    };
+
     private final Runnable mDamageRunnable = new Runnable() {
         @Override
         public void run() {
@@ -137,6 +150,8 @@ public class TerminalView extends ListView {
 
         setAdapter(mAdapter);
         setOnKeyListener(mKeyListener);
+
+        setOnItemClickListener(mClickListener);
     }
 
     private final BaseAdapter mAdapter = new BaseAdapter() {
@@ -184,6 +199,11 @@ public class TerminalView extends ListView {
         @Override
         public void onMoveRect(int destStartRow, int destEndRow, int destStartCol, int destEndCol,
                 int srcStartRow, int srcEndRow, int srcStartCol, int srcEndCol) {
+            post(mDamageRunnable);
+        }
+
+        @Override
+        public void onMoveCursor(int posRow, int posCol, int oldPosRow, int oldPosCol, int visible) {
             post(mDamageRunnable);
         }
 
@@ -262,6 +282,8 @@ public class TerminalView extends ListView {
         if (term != null) {
             term.setClient(mClient);
             mTermKeys.setTerminal(term);
+
+            mMetrics.cursorPaint.setColor(0xfff0f0f0);
 
             // Populate any current settings
             mRows = mTerm.getRows();

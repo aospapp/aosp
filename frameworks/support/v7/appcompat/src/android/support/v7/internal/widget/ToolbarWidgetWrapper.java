@@ -22,13 +22,14 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.view.ViewPropertyAnimatorCompat;
 import android.support.v4.view.ViewPropertyAnimatorListenerAdapter;
 import android.support.v7.appcompat.R;
-import android.support.v7.internal.app.WindowCallback;
 import android.support.v7.internal.view.menu.ActionMenuItem;
 import android.support.v7.internal.view.menu.MenuBuilder;
 import android.support.v7.internal.view.menu.MenuPresenter;
 import android.support.v7.widget.ActionMenuPresenter;
+import android.support.v7.widget.AppCompatSpinner;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Log;
@@ -39,6 +40,8 @@ import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.AdapterView;
+import android.widget.Spinner;
 import android.widget.SpinnerAdapter;
 
 /**
@@ -57,12 +60,14 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
 
     private static final int AFFECTS_LOGO_MASK =
             ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_USE_LOGO;
+    // Default fade duration for fading in/out tool bar.
+    private static final long DEFAULT_FADE_DURATION_MS = 200;
 
     private Toolbar mToolbar;
 
     private int mDisplayOpts;
     private View mTabView;
-    private SpinnerCompat mSpinner;
+    private Spinner mSpinner;
     private View mCustomView;
 
     private Drawable mIcon;
@@ -74,7 +79,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     private CharSequence mSubtitle;
     private CharSequence mHomeDescription;
 
-    private WindowCallback mWindowCallback;
+    private Window.Callback mWindowCallback;
     private boolean mMenuPrepared;
     private ActionMenuPresenter mActionMenuPresenter;
 
@@ -95,7 +100,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
         mTitle = toolbar.getTitle();
         mSubtitle = toolbar.getSubtitle();
         mTitleSet = mTitle != null;
-        mNavIcon = mToolbar.getNavigationIcon();
+        mNavIcon = toolbar.getNavigationIcon();
 
         if (style) {
             final TintTypedArray a = TintTypedArray.obtainStyledAttributes(toolbar.getContext(),
@@ -117,7 +122,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
             }
 
             final Drawable icon = a.getDrawable(R.styleable.ActionBar_icon);
-            if (icon != null) {
+            if (mNavIcon == null && icon != null) {
                 setIcon(icon);
             }
 
@@ -174,7 +179,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
         } else {
             mDisplayOpts = detectDisplayOptions();
             // Create a TintManager in case we need it later
-            mTintManager = new TintManager(toolbar.getContext());
+            mTintManager = TintManager.get(toolbar.getContext());
         }
 
         setDefaultNavigationContentDescription(defaultNavigationContentDescription);
@@ -242,11 +247,6 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     }
 
     @Override
-    public boolean isSplit() {
-        return false;
-    }
-
-    @Override
     public boolean hasExpandedActionView() {
         return mToolbar.hasExpandedActionView();
     }
@@ -257,7 +257,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     }
 
     @Override
-    public void setWindowCallback(WindowCallback cb) {
+    public void setWindowCallback(Window.Callback cb) {
         mWindowCallback = cb;
     }
 
@@ -308,27 +308,6 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     @Override
     public void initIndeterminateProgress() {
         Log.i(TAG, "Progress display unsupported");
-    }
-
-    @Override
-    public boolean canSplit() {
-        return false;
-    }
-
-    @Override
-    public void setSplitView(ViewGroup splitView) {
-    }
-
-    @Override
-    public void setSplitToolbar(boolean split) {
-        if (split) {
-            throw new UnsupportedOperationException("Cannot split an android.widget.Toolbar");
-        }
-    }
-
-    @Override
-    public void setSplitWhenNarrow(boolean splitWhenNarrow) {
-        // Ignore.
     }
 
     @Override
@@ -548,7 +527,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
 
     private void ensureSpinner() {
         if (mSpinner == null) {
-            mSpinner = new SpinnerCompat(getContext(), null, R.attr.actionDropDownStyle);
+            mSpinner = new AppCompatSpinner(getContext(), null, R.attr.actionDropDownStyle);
             Toolbar.LayoutParams lp = new Toolbar.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.CENTER_VERTICAL);
             mSpinner.setLayoutParams(lp);
@@ -557,7 +536,7 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
 
     @Override
     public void setDropdownParams(SpinnerAdapter adapter,
-            AdapterViewCompat.OnItemSelectedListener listener) {
+            AdapterView.OnItemSelectedListener listener) {
         ensureSpinner();
         mSpinner.setAdapter(adapter);
         mSpinner.setOnItemSelectedListener(listener);
@@ -600,31 +579,45 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
 
     @Override
     public void animateToVisibility(int visibility) {
-        if (visibility == View.GONE) {
-            ViewCompat.animate(mToolbar).alpha(0)
-                    .setListener(new ViewPropertyAnimatorListenerAdapter() {
-                        private boolean mCanceled = false;
-                        @Override
-                        public void onAnimationEnd(View view) {
-                            if (!mCanceled) {
-                                mToolbar.setVisibility(View.GONE);
-                            }
-                        }
-
-                        @Override
-                        public void onAnimationCancel(View view) {
-                            mCanceled = true;
-                        }
-                    });
-        } else if (visibility == View.VISIBLE) {
-            ViewCompat.animate(mToolbar).alpha(1)
-                    .setListener(new ViewPropertyAnimatorListenerAdapter() {
-                        @Override
-                        public void onAnimationStart(View view) {
-                            mToolbar.setVisibility(View.VISIBLE);
-                        }
-                    });
+        ViewPropertyAnimatorCompat anim = setupAnimatorToVisibility(visibility,
+                DEFAULT_FADE_DURATION_MS);
+        if (anim != null) {
+            anim.start();
         }
+    }
+
+    @Override
+    public ViewPropertyAnimatorCompat setupAnimatorToVisibility(int visibility, long duration) {
+        if (visibility == View.GONE) {
+            ViewPropertyAnimatorCompat anim = ViewCompat.animate(mToolbar).alpha(0f);
+            anim.setDuration(duration);
+            anim.setListener(new ViewPropertyAnimatorListenerAdapter() {
+                private boolean mCanceled = false;
+                @Override
+                public void onAnimationEnd(View view) {
+                    if (!mCanceled) {
+                        mToolbar.setVisibility(View.GONE);
+                    }
+                }
+
+                @Override
+                public void onAnimationCancel(View view) {
+                    mCanceled = true;
+                }
+            });
+            return anim;
+        } else if (visibility == View.VISIBLE) {
+            ViewPropertyAnimatorCompat anim = ViewCompat.animate(mToolbar).alpha(1f);
+            anim.setDuration(duration);
+            anim.setListener(new ViewPropertyAnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(View view) {
+                    mToolbar.setVisibility(View.VISIBLE);
+                }
+            });
+            return anim;
+        }
+        return null;
     }
 
     @Override
@@ -707,11 +700,6 @@ public class ToolbarWidgetWrapper implements DecorToolbar {
     @Override
     public Menu getMenu() {
         return mToolbar.getMenu();
-    }
-
-    @Override
-    public int getPopupTheme() {
-        return mToolbar.getPopupTheme();
     }
 
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 
-# Copyright 2013, ARM Limited
+# Copyright 2015, ARM Limited
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -31,65 +31,24 @@ import sys
 import argparse
 import re
 import platform
+import subprocess
+import multiprocessing
 
-import util
 import git
+import printer
+import test
+import util
 
-# Google's cpplint.py from depot_tools is the linter used here.
-CPP_LINTER_RULES = '''
-build/class
-build/deprecated
-build/endif_comment
-build/forward_decl
-build/include_order
-build/printf_format
-build/storage_class
-legal/copyright
-readability/boost
-readability/braces
-readability/casting
-readability/constructors
-readability/fn_size
-readability/function
-readability/multiline_comment
-readability/multiline_string
-readability/streams
-readability/utf8
-runtime/arrays
-runtime/casting
-runtime/deprecated_fn
-runtime/explicit
-runtime/int
-runtime/memset
-runtime/mutex
-runtime/nonconf
-runtime/printf
-runtime/printf_format
-runtime/references
-runtime/rtti
-runtime/sizeof
-runtime/string
-runtime/virtual
-runtime/vlog
-whitespace/blank_line
-whitespace/braces
-whitespace/comma
-whitespace/comments
-whitespace/end_of_line
-whitespace/ending_newline
-whitespace/indent
-whitespace/labels
-whitespace/line_length
-whitespace/newline
-whitespace/operators
-whitespace/parens
-whitespace/tab
-whitespace/todo
-'''.split()
+
+SUPPORTED_COMPILERS = ['g++', 'clang++']
+OBJ_DIR = './obj'
 
 
 def BuildOptions():
-  result = argparse.ArgumentParser(description='Run the linter and unit tests.')
+  result = argparse.ArgumentParser(
+          description='Run the linter and unit tests.',
+          # Print default values.
+          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   result.add_argument('--verbose', '-v', action='store_true',
                       help='Print all tests output at the end.')
   result.add_argument('--notest', action='store_true',
@@ -98,68 +57,99 @@ def BuildOptions():
                       help='Do not run the linter. Run the tests only.')
   result.add_argument('--noclean', action='store_true',
                       help='Do not clean before build.')
-  result.add_argument('--jobs', '-j', metavar='N', type=int, default=1,
-                      help='Allow N jobs at once.')
+  result.add_argument('--fast', action='store_true',
+                      help='Only test with one toolchain')
+  result.add_argument('--jobs', '-j', metavar='N', type=int, nargs='?',
+                      default=1, const=multiprocessing.cpu_count(),
+                      help='''Run the tests using N jobs. If the option is set
+                      but no value is provided, the script will use as many jobs
+                      as it thinks useful.''')
   sim_default = 'off' if platform.machine() == 'aarch64' else 'on'
   result.add_argument('--simulator', action='store', choices=['on', 'off'],
                       default=sim_default,
-                      help='''Explicitly enable or disable the simulator. On
-                      this system, the default is "''' + sim_default + '".')
+                      help='Explicitly enable or disable the simulator.')
   return result.parse_args()
 
 
-def CleanBuildSystem():
-  def clean(mode):
-    if args.verbose: print('Cleaning ' + mode + ' mode cctest...')
-    command = 'scons mode=%s simulator=%s target=cctest --clean' % \
-              (mode, args.simulator)
+def check_supported(compiler, mode, std):
+  if compiler not in SUPPORTED_COMPILERS:
+    print 'Invalid compiler.'
+    sys.exit(1)
+  if mode not in ['release', 'debug']:
+    print 'Invalid mode.'
+    sys.exit(1)
+  if std not in ['c++98', 'c++11']:
+    print 'Invalid c++ standard.'
+    sys.exit(1)
+
+
+def initalize_compiler_list():
+  compiler_list = []
+  for compiler in SUPPORTED_COMPILERS:
+    if util.has_compiler(compiler) and (len(compiler_list) == 0 or not args.fast):
+      compiler_list.append(compiler)
+    else:
+      # This warning suffices for args.fast too.
+      print 'WARNING: Skipping ' + compiler + ' tests.'
+  if len(compiler_list) == 0:
+    util.abort('Found no supported compilers')
+  return compiler_list
+
+
+def CleanBuildSystem(compiler):
+  def clean(compiler, mode, std):
+    check_supported(compiler, mode, std)
+    os.environ['CXX'] = compiler
+    if args.verbose:
+      print 'Cleaning ' + compiler + ' ' + std + ' ' \
+            + mode + ' mode test...'
+    command = 'scons mode=%s std=%s simulator=%s all --clean' % \
+              (mode, std, args.simulator)
     status, output = util.getstatusoutput(command)
     if status != 0:
       print(output)
-      util.abort('Failed cleaning cctest: ' + command)
-  clean('debug')
-  clean('release')
+      util.abort('Failed cleaning test: ' + command)
+
+  clean(compiler, 'debug',    'c++98')
+  clean(compiler, 'debug',    'c++11')
+  clean(compiler, 'release',  'c++98')
+  clean(compiler, 'release',  'c++11')
 
 
-def BuildRequiredObjects():
-  def build(mode):
-    if args.verbose: print('Building ' + mode + ' mode cctest...')
-    command = 'scons mode=%s simulator=%s target=cctest -j%u' % \
-              (mode, args.simulator, args.jobs)
+def BuildEverything(compiler):
+  def build(compiler, mode, std):
+    check_supported(compiler, mode, std)
+    os.environ['CXX'] = compiler
+    if args.verbose:
+      print 'Building ' + compiler + ' ' +  std + ' ' \
+            + mode + ' mode test...'
+    if args.jobs == 1:
+      print '- This may take a while. Pass `-j` to use multiple threads.'
+    command = 'scons mode=%s std=%s simulator=%s all -j%u' % \
+              (mode, std, args.simulator, args.jobs)
     status, output = util.getstatusoutput(command)
     if status != 0:
       print(output)
-      util.abort('Failed building cctest: ' + command)
-  build('debug')
-  build('release')
+      util.abort('Failed building test: ' + command)
+
+  print 'Building ' + compiler + ' tests...'
+  build(compiler, 'debug',    'c++98')
+  build(compiler, 'debug',    'c++11')
+  build(compiler, 'release',  'c++98')
+  build(compiler, 'release',  'c++11')
 
 
 NOT_RUN = 'NOT RUN'
 PASSED = 'PASSED'
 FAILED = 'FAILED'
 
-
 class Test:
-  def __init__(self, name, command, get_summary = util.last_line):
+  def __init__(self, name):
     self.name = name
-    self.command = command
-    self.get_summary = get_summary
-    self.output = NOT_RUN
     self.status = NOT_RUN
-    self.summary = NOT_RUN
 
-  def Run(self):
-    if args.verbose: print('Running ' + self.name + '...')
-    retcode, self.output = util.getstatusoutput(self.command)
-    self.status = PASSED if retcode == 0 else FAILED
-    self.summary = self.get_summary(self.output)
-
-  def PrintOutcome(self):
-    print(('%-26s : %s') % (self.name, self.summary))
-
-  def PrintOutput(self):
-    print('\n\n=== OUTPUT of: ' + self.command + '\n')
-    print(self.output)
+  def name_prefix(self):
+    return '%-40s : ' % self.name
 
 
 class Tester:
@@ -172,15 +162,93 @@ class Tester:
   def RunAll(self):
     result = PASSED
     for test in self.tests:
+      if args.verbose: print('Running ' + test.name + '...')
       test.Run()
       if test.status != PASSED: result = FAILED
-      test.PrintOutcome()
     print('Presubmit tests ' + result + '.')
 
-  def PrintFailedTestOutput(self):
-    for test in self.tests:
-      if test.status == FAILED:
-        test.PrintOutput();
+
+class VIXLTest(Test):
+  def __init__(self, compiler, mode, std, simulator, debugger = False, verbose = False):
+    check_supported(compiler, mode, std)
+    self.verbose = verbose
+    self.debugger = debugger
+    self.compiler = compiler
+    self.mode = mode
+    self.std = std
+
+    name = 'test ' + compiler + ' ' + std + ' ' + mode
+    if simulator:
+      name += ' (%s)' % ('debugger' if debugger else 'simulator')
+    Test.__init__(self, name)
+
+    self.exe = 'test-runner'
+    if simulator:
+        self.exe += '_sim'
+    if mode == 'debug':
+      self.exe += '_g'
+
+  def Run(self):
+    self.status = PASSED
+    command = os.path.join(OBJ_DIR, self.mode, self.compiler,
+                           self.std, self.exe)
+    manifest = test.ReadManifest(command, [], self.debugger, False, self.verbose)
+    retcode = test.RunTests(manifest, jobs = args.jobs,
+                            verbose = self.verbose, debugger = self.debugger,
+                            progress_prefix = self.name_prefix())
+    printer.EnsureNewLine()
+    if retcode != 0:
+      self.status = FAILED
+
+
+class LintTest(Test):
+  def __init__(self):
+    name = 'cpp lint'
+    Test.__init__(self, name)
+
+  def Run(self):
+    if not lint.IsCppLintAvailable():
+      self.status = FAILED
+      print self.name_prefix() + FAILED + '''
+cpplint.py not found. Please ensure the depot tools are installed and in your
+PATH. See http://dev.chromium.org/developers/how-tos/install-depot-tools for
+details.'''
+      return
+
+    n_errors = lint.LintFiles(lint.default_tracked_files,
+                              jobs = args.jobs, verbose = args.verbose,
+                              progress_prefix = self.name_prefix())
+    self.status = PASSED if n_errors == 0 else FAILED
+
+
+class BenchTest(Test):
+  def __init__(self, compiler, mode, std, simulator):
+    check_supported(compiler, mode, std)
+    self.compiler = compiler
+    self.mode = mode
+    self.std = std
+
+    name = 'benchmarks ' + compiler + ' ' + std + ' ' + mode
+    Test.__init__(self, name)
+    self.exe_suffix = ''
+    if simulator:
+      self.exe_suffix += '_sim'
+    if mode == 'debug':
+      self.exe_suffix += '_g'
+
+  def Run(self):
+    benchmarks = ['bench-dataop', 'bench-branch', 'bench-branch-link',
+                  'bench-branch-masm', 'bench-branch-link-masm']
+    self.status = PASSED
+    for bench in benchmarks:
+      command = os.path.join(OBJ_DIR, self.mode, self.compiler, self.std,
+                             bench + self.exe_suffix)
+      (rc, out) = util.getstatusoutput(command)
+      if rc != 0:
+        self.status = FAILED
+        print self.name_prefix() + 'Failed to run `' + command + '`'
+    print self.name_prefix() + self.status
+
 
 
 if __name__ == '__main__':
@@ -194,52 +262,44 @@ if __name__ == '__main__':
     print 'WARNING: This is not a Git repository. The linter will not run.'
     args.nolint = True
 
-  tester = Tester()
   if not args.nolint:
-    CPP_EXT_REGEXP = re.compile('\.(cc|h)$')
-    SIM_TRACES_REGEXP = re.compile('test-simulator-traces-a64\.h$')
-    def is_linter_input(filename):
-      # Don't lint the simulator traces file; it takes a very long time to check
-      # and it's (mostly) generated automatically anyway.
-      if SIM_TRACES_REGEXP.search(filename): return False
-      # Otherwise, lint all C++ files.
-      return CPP_EXT_REGEXP.search(filename) != None
-
-    lint_args = '--filter=-,+' + ',+'.join(CPP_LINTER_RULES) + ' '
-    tracked_files = git.get_tracked_files().split()
-    tracked_files = filter(is_linter_input, tracked_files)
-    tracked_files = ' '.join(tracked_files)
-    lint = Test('cpp lint', 'cpplint.py ' + lint_args + tracked_files)
-    tester.AddTest(lint)
+    import lint
+    LintTest().Run()
 
   if not args.notest:
-    if not args.noclean:
-      CleanBuildSystem()
-    BuildRequiredObjects()
+    tester = Tester()
+    compiler_list = initalize_compiler_list()
 
-    def command(*test_args):
-      if args.verbose:
-        return 'tools/test.py --verbose ' + ' '.join(test_args)
+    for compiler in compiler_list:
+      if not args.noclean:
+        CleanBuildSystem(compiler)
+      BuildEverything(compiler)
+
+      if args.simulator == 'on':
+        #                                 mode,       std,      sim,   debugger, verbose
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++98',  True,  True,     args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++98',  True,  True,     args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++98',  True,  False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++98',  True,  False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++11',  True,  True,     args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++11',  True,  True,     args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++11',  True,  False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++11',  True,  False,    args.verbose))
+        tester.AddTest(BenchTest(compiler,'release',  'c++98',  True))
+        tester.AddTest(BenchTest(compiler,'debug',    'c++98',  True))
+        tester.AddTest(BenchTest(compiler,'release',  'c++11',  True))
+        tester.AddTest(BenchTest(compiler,'debug',    'c++11',  True))
       else:
-        return 'tools/test.py ' + ' '.join(test_args)
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++98',  False, False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++98',  False, False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'release',  'c++11',  False, False,    args.verbose))
+        tester.AddTest(VIXLTest(compiler, 'debug',    'c++11',  False, False,    args.verbose))
+        tester.AddTest(BenchTest(compiler,'release',  'c++98',  False))
+        tester.AddTest(BenchTest(compiler,'debug',    'c++98',  False))
+        tester.AddTest(BenchTest(compiler,'release',  'c++11',  False))
+        tester.AddTest(BenchTest(compiler,'debug',    'c++11',  False))
 
-    if args.simulator == 'on':
-      tester.AddTest(Test('cctest release (debugger)',
-                          command('--cctest=cctest_sim', '--debugger')))
-      tester.AddTest(Test('cctest debug (debugger)',
-                          command('--cctest=cctest_sim_g', '--debugger')))
-      tester.AddTest(Test('cctest release (simulator)',
-                          command('--cctest=cctest_sim')))
-      tester.AddTest(Test('cctest debug (simulator)',
-                          command('--cctest=cctest_sim_g')))
-    else:
-      tester.AddTest(Test('cctest release', command('--cctest=cctest')))
-      tester.AddTest(Test('cctest debug', command('--cctest=cctest_g')))
-
-  tester.RunAll()
-
-  # If tests failed, print their output.
-  tester.PrintFailedTestOutput()
+    tester.RunAll()
 
   if git.is_git_repository_root():
     untracked_files = git.get_untracked_files()

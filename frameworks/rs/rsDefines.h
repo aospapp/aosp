@@ -33,6 +33,7 @@ typedef void * RsAdapter1D;
 typedef void * RsAdapter2D;
 typedef void * RsAllocation;
 typedef void * RsAnimation;
+typedef void * RsClosure;
 typedef void * RsContext;
 typedef void * RsDevice;
 typedef void * RsElement;
@@ -41,9 +42,11 @@ typedef void * RsFont;
 typedef void * RsSampler;
 typedef void * RsScript;
 typedef void * RsScriptKernelID;
+typedef void * RsScriptInvokeID;
 typedef void * RsScriptFieldID;
 typedef void * RsScriptMethodID;
 typedef void * RsScriptGroup;
+typedef void * RsScriptGroup2;
 typedef void * RsMesh;
 typedef void * RsPath;
 typedef void * RsType;
@@ -82,28 +85,6 @@ enum RsContextType {
     RS_CONTEXT_TYPE_PROFILE
 };
 
-typedef struct {
-    uint32_t colorMin;
-    uint32_t colorPref;
-    uint32_t alphaMin;
-    uint32_t alphaPref;
-    uint32_t depthMin;
-    uint32_t depthPref;
-    uint32_t stencilMin;
-    uint32_t stencilPref;
-    uint32_t samplesMin;
-    uint32_t samplesPref;
-    float samplesQ;
-} RsSurfaceConfig;
-
-enum RsMessageToClientType {
-    RS_MESSAGE_TO_CLIENT_NONE = 0,
-    RS_MESSAGE_TO_CLIENT_EXCEPTION = 1,
-    RS_MESSAGE_TO_CLIENT_RESIZE = 2,
-    RS_MESSAGE_TO_CLIENT_ERROR = 3,
-    RS_MESSAGE_TO_CLIENT_USER = 4,
-    RS_MESSAGE_TO_CLIENT_NEW_BUFFER = 5
-};
 
 enum RsAllocationUsageType {
     RS_ALLOCATION_USAGE_SCRIPT = 0x0001,
@@ -115,7 +96,8 @@ enum RsAllocationUsageType {
     RS_ALLOCATION_USAGE_IO_OUTPUT = 0x0040,
     RS_ALLOCATION_USAGE_SHARED = 0x0080,
 
-    RS_ALLOCATION_USAGE_ALL = 0x00FF
+    RS_ALLOCATION_USAGE_OEM = 0x8000,
+    RS_ALLOCATION_USAGE_ALL = 0x80FF
 };
 
 enum RsAllocationMipmapControl {
@@ -134,7 +116,7 @@ enum RsAllocationCubemapFace {
 };
 
 enum RsDataType {
-    RS_TYPE_NONE,
+    RS_TYPE_NONE = 0,
     RS_TYPE_FLOAT_16,
     RS_TYPE_FLOAT_32,
     RS_TYPE_FLOAT_64,
@@ -207,11 +189,6 @@ enum RsSamplerValue {
     RS_SAMPLER_INVALID = 100,
 };
 
-enum RsTextureTarget {
-    RS_TEXTURE_2D,
-    RS_TEXTURE_CUBE
-};
-
 enum RsDimension {
     RS_DIMENSION_X,
     RS_DIMENSION_Y,
@@ -226,71 +203,6 @@ enum RsDimension {
     RS_DIMENSION_MAX = RS_DIMENSION_ARRAY_3
 };
 
-enum RsDepthFunc {
-    RS_DEPTH_FUNC_ALWAYS,
-    RS_DEPTH_FUNC_LESS,
-    RS_DEPTH_FUNC_LEQUAL,
-    RS_DEPTH_FUNC_GREATER,
-    RS_DEPTH_FUNC_GEQUAL,
-    RS_DEPTH_FUNC_EQUAL,
-    RS_DEPTH_FUNC_NOTEQUAL
-};
-
-enum RsBlendSrcFunc {
-    RS_BLEND_SRC_ZERO,                  // 0
-    RS_BLEND_SRC_ONE,                   // 1
-    RS_BLEND_SRC_DST_COLOR,             // 2
-    RS_BLEND_SRC_ONE_MINUS_DST_COLOR,   // 3
-    RS_BLEND_SRC_SRC_ALPHA,             // 4
-    RS_BLEND_SRC_ONE_MINUS_SRC_ALPHA,   // 5
-    RS_BLEND_SRC_DST_ALPHA,             // 6
-    RS_BLEND_SRC_ONE_MINUS_DST_ALPHA,   // 7
-    RS_BLEND_SRC_SRC_ALPHA_SATURATE,    // 8
-    RS_BLEND_SRC_INVALID = 100,
-};
-
-enum RsBlendDstFunc {
-    RS_BLEND_DST_ZERO,                  // 0
-    RS_BLEND_DST_ONE,                   // 1
-    RS_BLEND_DST_SRC_COLOR,             // 2
-    RS_BLEND_DST_ONE_MINUS_SRC_COLOR,   // 3
-    RS_BLEND_DST_SRC_ALPHA,             // 4
-    RS_BLEND_DST_ONE_MINUS_SRC_ALPHA,   // 5
-    RS_BLEND_DST_DST_ALPHA,             // 6
-    RS_BLEND_DST_ONE_MINUS_DST_ALPHA,   // 7
-
-    RS_BLEND_DST_INVALID = 100,
-};
-
-enum RsTexEnvMode {
-    RS_TEX_ENV_MODE_NONE,
-    RS_TEX_ENV_MODE_REPLACE,
-    RS_TEX_ENV_MODE_MODULATE,
-    RS_TEX_ENV_MODE_DECAL
-};
-
-enum RsProgramParam {
-    RS_PROGRAM_PARAM_INPUT,
-    RS_PROGRAM_PARAM_OUTPUT,
-    RS_PROGRAM_PARAM_CONSTANT,
-    RS_PROGRAM_PARAM_TEXTURE_TYPE,
-};
-
-enum RsPrimitive {
-    RS_PRIMITIVE_POINT,
-    RS_PRIMITIVE_LINE,
-    RS_PRIMITIVE_LINE_STRIP,
-    RS_PRIMITIVE_TRIANGLE,
-    RS_PRIMITIVE_TRIANGLE_STRIP,
-    RS_PRIMITIVE_TRIANGLE_FAN,
-
-    RS_PRIMITIVE_INVALID = 100,
-};
-
-enum RsPathPrimitive {
-    RS_PATH_PRIMITIVE_QUADRATIC_BEZIER,
-    RS_PATH_PRIMITIVE_CUBIC_BEZIER
-};
 
 enum RsError {
     RS_ERROR_NONE = 0,
@@ -307,72 +219,6 @@ enum RsError {
     RS_ERROR_FATAL_DRIVER = 0x1001,
     RS_ERROR_FATAL_PROGRAM_LINK = 0x1002
 };
-
-enum RsAnimationInterpolation {
-    RS_ANIMATION_INTERPOLATION_STEP,
-    RS_ANIMATION_INTERPOLATION_LINEAR,
-    RS_ANIMATION_INTERPOLATION_BEZIER,
-    RS_ANIMATION_INTERPOLATION_CARDINAL,
-    RS_ANIMATION_INTERPOLATION_HERMITE,
-    RS_ANIMATION_INTERPOLATION_BSPLINE
-};
-
-enum RsAnimationEdge {
-    RS_ANIMATION_EDGE_UNDEFINED,
-    RS_ANIMATION_EDGE_CONSTANT,
-    RS_ANIMATION_EDGE_GRADIENT,
-    RS_ANIMATION_EDGE_CYCLE,
-    RS_ANIMATION_EDGE_OSCILLATE,
-    RS_ANIMATION_EDGE_CYLE_RELATIVE
-};
-
-enum RsA3DClassID {
-    RS_A3D_CLASS_ID_UNKNOWN,
-    RS_A3D_CLASS_ID_MESH,
-    RS_A3D_CLASS_ID_TYPE,
-    RS_A3D_CLASS_ID_ELEMENT,
-    RS_A3D_CLASS_ID_ALLOCATION,
-    RS_A3D_CLASS_ID_PROGRAM_VERTEX,
-    RS_A3D_CLASS_ID_PROGRAM_RASTER,
-    RS_A3D_CLASS_ID_PROGRAM_FRAGMENT,
-    RS_A3D_CLASS_ID_PROGRAM_STORE,
-    RS_A3D_CLASS_ID_SAMPLER,
-    RS_A3D_CLASS_ID_ANIMATION,
-    RS_A3D_CLASS_ID_ADAPTER_1D,
-    RS_A3D_CLASS_ID_ADAPTER_2D,
-    RS_A3D_CLASS_ID_SCRIPT_C,
-    RS_A3D_CLASS_ID_SCRIPT_KERNEL_ID,
-    RS_A3D_CLASS_ID_SCRIPT_FIELD_ID,
-    RS_A3D_CLASS_ID_SCRIPT_METHOD_ID,
-    RS_A3D_CLASS_ID_SCRIPT_GROUP
-};
-
-enum RsCullMode {
-    RS_CULL_BACK,
-    RS_CULL_FRONT,
-    RS_CULL_NONE,
-    RS_CULL_INVALID = 100,
-};
-
-enum RsScriptIntrinsicID {
-    RS_SCRIPT_INTRINSIC_ID_UNDEFINED = 0,
-    RS_SCRIPT_INTRINSIC_ID_CONVOLVE_3x3 = 1,
-    RS_SCRIPT_INTRINSIC_ID_COLOR_MATRIX = 2,
-    RS_SCRIPT_INTRINSIC_ID_LUT = 3,
-    RS_SCRIPT_INTRINSIC_ID_CONVOLVE_5x5 = 4,
-    RS_SCRIPT_INTRINSIC_ID_BLUR = 5,
-    RS_SCRIPT_INTRINSIC_ID_YUV_TO_RGB = 6,
-    RS_SCRIPT_INTRINSIC_ID_BLEND = 7,
-    RS_SCRIPT_INTRINSIC_ID_3DLUT = 8,
-    RS_SCRIPT_INTRINSIC_ID_HISTOGRAM = 9,
-    // unused 10, 11
-    RS_SCRIPT_INTRINSIC_ID_RESIZE = 12
-};
-
-typedef struct {
-    RsA3DClassID classID;
-    const char* objectName;
-} RsFileIndexEntry;
 
 enum RsForEachStrategy {
     RS_FOR_EACH_STRATEGY_SERIAL = 0,
@@ -394,22 +240,265 @@ typedef struct {
     uint32_t zEnd;
     uint32_t arrayStart;
     uint32_t arrayEnd;
+    uint32_t array2Start;
+    uint32_t array2End;
+    uint32_t array3Start;
+    uint32_t array3End;
+    uint32_t array4Start;
+    uint32_t array4End;
 
 } RsScriptCall;
 
 enum RsContextFlags {
     RS_CONTEXT_SYNCHRONOUS      = 0x0001,
     RS_CONTEXT_LOW_LATENCY      = 0x0002,
-    RS_CONTEXT_LOW_POWER        = 0x0004
+    RS_CONTEXT_LOW_POWER        = 0x0004,
+    RS_CONTEXT_WAIT_FOR_ATTACH  = 0x0008
 };
 
+enum RsBlasTranspose {
+    RsBlasNoTrans=111,
+    RsBlasTrans=112,
+    RsBlasConjTrans=113
+};
+
+enum RsBlasUplo {
+    RsBlasUpper=121,
+    RsBlasLower=122
+};
+
+enum RsBlasDiag {
+    RsBlasNonUnit=131,
+    RsBlasUnit=132
+};
+
+enum RsBlasSide {
+    RsBlasLeft=141,
+    RsBlasRight=142
+};
+
+enum RsBlasFunction {
+    RsBlas_nop = 0,
+    RsBlas_sdsdot = 1,
+    RsBlas_dsdot = 2,
+    RsBlas_sdot = 3,
+    RsBlas_ddot = 4,
+    RsBlas_cdotu_sub = 5,
+    RsBlas_cdotc_sub = 6,
+    RsBlas_zdotu_sub = 7,
+    RsBlas_zdotc_sub = 8,
+    RsBlas_snrm2 = 9,
+    RsBlas_sasum = 10,
+    RsBlas_dnrm2 = 11,
+    RsBlas_dasum = 12,
+    RsBlas_scnrm2 = 13,
+    RsBlas_scasum = 14,
+    RsBlas_dznrm2 = 15,
+    RsBlas_dzasum = 16,
+    RsBlas_isamax = 17,
+    RsBlas_idamax = 18,
+    RsBlas_icamax = 19,
+    RsBlas_izamax = 20,
+    RsBlas_sswap = 21,
+    RsBlas_scopy = 22,
+    RsBlas_saxpy = 23,
+    RsBlas_dswap = 24,
+    RsBlas_dcopy = 25,
+    RsBlas_daxpy = 26,
+    RsBlas_cswap = 27,
+    RsBlas_ccopy = 28,
+    RsBlas_caxpy = 29,
+    RsBlas_zswap = 30,
+    RsBlas_zcopy = 31,
+    RsBlas_zaxpy = 32,
+    RsBlas_srotg = 33,
+    RsBlas_srotmg = 34,
+    RsBlas_srot = 35,
+    RsBlas_srotm = 36,
+    RsBlas_drotg = 37,
+    RsBlas_drotmg = 38,
+    RsBlas_drot = 39,
+    RsBlas_drotm = 40,
+    RsBlas_sscal = 41,
+    RsBlas_dscal = 42,
+    RsBlas_cscal = 43,
+    RsBlas_zscal = 44,
+    RsBlas_csscal = 45,
+    RsBlas_zdscal = 46,
+    RsBlas_sgemv = 47,
+    RsBlas_sgbmv = 48,
+    RsBlas_strmv = 49,
+    RsBlas_stbmv = 50,
+    RsBlas_stpmv = 51,
+    RsBlas_strsv = 52,
+    RsBlas_stbsv = 53,
+    RsBlas_stpsv = 54,
+    RsBlas_dgemv = 55,
+    RsBlas_dgbmv = 56,
+    RsBlas_dtrmv = 57,
+    RsBlas_dtbmv = 58,
+    RsBlas_dtpmv = 59,
+    RsBlas_dtrsv = 60,
+    RsBlas_dtbsv = 61,
+    RsBlas_dtpsv = 62,
+    RsBlas_cgemv = 63,
+    RsBlas_cgbmv = 64,
+    RsBlas_ctrmv = 65,
+    RsBlas_ctbmv = 66,
+    RsBlas_ctpmv = 67,
+    RsBlas_ctrsv = 68,
+    RsBlas_ctbsv = 69,
+    RsBlas_ctpsv = 70,
+    RsBlas_zgemv = 71,
+    RsBlas_zgbmv = 72,
+    RsBlas_ztrmv = 73,
+    RsBlas_ztbmv = 74,
+    RsBlas_ztpmv = 75,
+    RsBlas_ztrsv = 76,
+    RsBlas_ztbsv = 77,
+    RsBlas_ztpsv = 78,
+    RsBlas_ssymv = 79,
+    RsBlas_ssbmv = 80,
+    RsBlas_sspmv = 81,
+    RsBlas_sger = 82,
+    RsBlas_ssyr = 83,
+    RsBlas_sspr = 84,
+    RsBlas_ssyr2 = 85,
+    RsBlas_sspr2 = 86,
+    RsBlas_dsymv = 87,
+    RsBlas_dsbmv = 88,
+    RsBlas_dspmv = 89,
+    RsBlas_dger = 90,
+    RsBlas_dsyr = 91,
+    RsBlas_dspr = 92,
+    RsBlas_dsyr2 = 93,
+    RsBlas_dspr2 = 94,
+    RsBlas_chemv = 95,
+    RsBlas_chbmv = 96,
+    RsBlas_chpmv = 97,
+    RsBlas_cgeru = 98,
+    RsBlas_cgerc = 99,
+    RsBlas_cher = 100,
+    RsBlas_chpr = 101,
+    RsBlas_cher2 = 102,
+    RsBlas_chpr2 = 103,
+    RsBlas_zhemv = 104,
+    RsBlas_zhbmv = 105,
+    RsBlas_zhpmv = 106,
+    RsBlas_zgeru = 107,
+    RsBlas_zgerc = 108,
+    RsBlas_zher = 109,
+    RsBlas_zhpr = 110,
+    RsBlas_zher2 = 111,
+    RsBlas_zhpr2 = 112,
+    RsBlas_sgemm = 113,
+    RsBlas_ssymm = 114,
+    RsBlas_ssyrk = 115,
+    RsBlas_ssyr2k = 116,
+    RsBlas_strmm = 117,
+    RsBlas_strsm = 118,
+    RsBlas_dgemm = 119,
+    RsBlas_dsymm = 120,
+    RsBlas_dsyrk = 121,
+    RsBlas_dsyr2k = 122,
+    RsBlas_dtrmm = 123,
+    RsBlas_dtrsm = 124,
+    RsBlas_cgemm = 125,
+    RsBlas_csymm = 126,
+    RsBlas_csyrk = 127,
+    RsBlas_csyr2k = 128,
+    RsBlas_ctrmm = 129,
+    RsBlas_ctrsm = 130,
+    RsBlas_zgemm = 131,
+    RsBlas_zsymm = 132,
+    RsBlas_zsyrk = 133,
+    RsBlas_zsyr2k = 134,
+    RsBlas_ztrmm = 135,
+    RsBlas_ztrsm = 136,
+    RsBlas_chemm = 137,
+    RsBlas_cherk = 138,
+    RsBlas_cher2k = 139,
+    RsBlas_zhemm = 140,
+    RsBlas_zherk = 141,
+    RsBlas_zher2k = 142,
+
+    // BLAS extensions start here
+    RsBlas_bnnm = 1000,
+};
+
+// custom complex types because of NDK support
+typedef struct {
+    float r;
+    float i;
+} RsFloatComplex;
+
+typedef struct {
+    double r;
+    double i;
+} RsDoubleComplex;
+
+typedef union {
+    float f;
+    RsFloatComplex c;
+    double d;
+    RsDoubleComplex z;
+} RsBlasScalar;
+
+typedef struct {
+    RsBlasFunction func;
+    RsBlasTranspose transA;
+    RsBlasTranspose transB;
+    RsBlasUplo uplo;
+    RsBlasDiag diag;
+    RsBlasSide side;
+    int M;
+    int N;
+    int K;
+    RsBlasScalar alpha;
+    RsBlasScalar beta;
+    int incX;
+    int incY;
+    int KL;
+    int KU;
+    uint8_t a_offset;
+    uint8_t b_offset;
+    int32_t c_offset;
+    int32_t c_mult_int;
+} RsBlasCall;
+
+enum RsGlobalProperty {
+    RS_GLOBAL_TYPE     = 0x0000FFFF,
+    RS_GLOBAL_CONSTANT = 0x00010000,
+    RS_GLOBAL_STATIC   = 0x00020000,
+    RS_GLOBAL_POINTER  = 0x00040000
+};
+
+// Special symbols embedded into a shared object compiled by bcc.
+static const char kRoot[] = "root";
+static const char kInit[] = "init";
+static const char kRsDtor[] = ".rs.dtor";
+static const char kRsInfo[] = ".rs.info";
+static const char kRsGlobalEntries[] = ".rs.global_entries";
+static const char kRsGlobalNames[] = ".rs.global_names";
+static const char kRsGlobalAddresses[] = ".rs.global_addresses";
+static const char kRsGlobalSizes[] = ".rs.global_sizes";
+static const char kRsGlobalProperties[] = ".rs.global_properties";
+
+static inline uint32_t getGlobalRsType(uint32_t properties) {
+    return properties & RS_GLOBAL_TYPE;
+}
+static inline bool isGlobalConstant(uint32_t properties) {
+    return properties & RS_GLOBAL_CONSTANT;
+}
+static inline bool isGlobalStatic(uint32_t properties) {
+    return properties & RS_GLOBAL_STATIC;
+}
+static inline bool isGlobalPointer(uint32_t properties) {
+    return properties & RS_GLOBAL_POINTER;
+}
 
 #ifdef __cplusplus
 };
 #endif
 
 #endif // RENDER_SCRIPT_DEFINES_H
-
-
-
-

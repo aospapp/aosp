@@ -25,6 +25,7 @@
     <string name="spoken_no_text_entered" msgid="1711276837961785646">"未輸入文字"</string>
     <string name="spoken_auto_correct" msgid="8989324692167993804">"按下「<xliff:g id="KEY_NAME">%1$s</xliff:g>」可將「<xliff:g id="ORIGINAL_WORD">%2$s</xliff:g>」修正為「<xliff:g id="CORRECTED_WORD">%3$s</xliff:g>」"</string>
     <string name="spoken_auto_correct_obscured" msgid="7769449372355268412">"按下「<xliff:g id="KEY_NAME">%1$s</xliff:g>」可執行自動修正"</string>
+    <string name="spoken_empty_suggestion" msgid="4250215619373459752">"沒有任何建議"</string>
     <string name="spoken_description_unknown" msgid="5139930082759824442">"未知的字元"</string>
     <string name="spoken_description_shift" msgid="7209798151676638728">"Shift 鍵"</string>
     <string name="spoken_description_symbols_shift" msgid="3483198879916435717">"更多符號"</string>
@@ -76,6 +77,12 @@
     <string name="spoken_letter_0130" msgid="4766619646231612274">"上方加點的大寫 I"</string>
     <string name="spoken_symbol_unknown" msgid="717298227061173706">"未知的符號"</string>
     <string name="spoken_emoji_unknown" msgid="5981009928135394306">"未知的表情符號"</string>
+    <string name="spoken_emoticon_3A_2D_21_20" msgid="2410905667389534573">"無聊"</string>
+    <string name="spoken_emoticon_3A_2D_24_20" msgid="2481260475945560438">"尷尬"</string>
+    <string name="spoken_emoticon_42_2D_29_20" msgid="1063205250387128068">"戴墨鏡"</string>
+    <string name="spoken_emoticon_3A_4F_20" msgid="532695091593447238">"驚訝"</string>
+    <string name="spoken_emoticon_3A_2D_2A_20" msgid="5612342617244114291">"親吻"</string>
+    <string name="spoken_emoticon_3A_2D_5B_20" msgid="2223507987759905920">"皺眉"</string>
     <string name="spoken_open_more_keys_keyboard" msgid="6832897688371903747">"有可用的替代字元"</string>
     <string name="spoken_close_more_keys_keyboard" msgid="3524914657934712026">"已關閉替代字元"</string>
     <string name="spoken_open_more_suggestions" msgid="4231720702882969760">"有可用的建議字詞"</string>

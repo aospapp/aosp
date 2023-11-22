@@ -16,6 +16,7 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.SampleElements.Strings;
 
 import java.util.List;
@@ -24,10 +25,9 @@ import java.util.Set;
 /**
  * Create string sets for collection tests.
  *
- * <p>This class is GWT compatible.
- *
  * @author Kevin Bourrillion
  */
+@GwtCompatible
 public abstract class TestStringSetGenerator implements TestSetGenerator<String>
 {
   @Override

@@ -1,4 +1,4 @@
-// Copyright 2013, ARM Limited
+// Copyright 2014, ARM Limited
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,13 +27,30 @@
 #ifndef VIXL_A64_TEST_UTILS_A64_H_
 #define VIXL_A64_TEST_UTILS_A64_H_
 
-#include "cctest.h"
-#include "a64/macro-assembler-a64.h"
-#include "a64/simulator-a64.h"
-#include "a64/disasm-a64.h"
-#include "a64/cpu-a64.h"
+#include "test-runner.h"
+#include "vixl/a64/macro-assembler-a64.h"
+#include "vixl/a64/simulator-a64.h"
+#include "vixl/a64/disasm-a64.h"
+#include "vixl/a64/cpu-a64.h"
 
 namespace vixl {
+
+// Signalling and quiet NaNs in double format, constructed such that the bottom
+// 32 bits look like a signalling or quiet NaN (as appropriate) when interpreted
+// as a float. These values are not architecturally significant, but they're
+// useful in tests for initialising registers.
+extern const double kFP64SignallingNaN;
+extern const double kFP64QuietNaN;
+
+// Signalling and quiet NaNs in float format.
+extern const float kFP32SignallingNaN;
+extern const float kFP32QuietNaN;
+
+// Structure representing Q registers in a RegisterDump.
+struct vec128_t {
+  uint64_t l;
+  uint64_t h;
+};
 
 // RegisterDump: Object allowing integer, floating point and flags registers
 // to be saved to itself for future reference.
@@ -46,6 +63,7 @@ class RegisterDump {
     VIXL_ASSERT(sizeof(dump_.s_[0]) == kWRegSizeInBytes);
     VIXL_ASSERT(sizeof(dump_.x_[0]) == kXRegSizeInBytes);
     VIXL_ASSERT(sizeof(dump_.w_[0]) == kWRegSizeInBytes);
+    VIXL_ASSERT(sizeof(dump_.q_[0]) == kQRegSizeInBytes);
   }
 
   // The Dump method generates code to store a snapshot of the register values.
@@ -91,6 +109,10 @@ class RegisterDump {
 
   inline double dreg(unsigned code) const {
     return rawbits_to_double(dreg_bits(code));
+  }
+
+  inline vec128_t qreg(unsigned code) const {
+    return dump_.q_[code];
   }
 
   // Stack pointer accessors.
@@ -152,6 +174,9 @@ class RegisterDump {
     uint64_t d_[kNumberOfFPRegisters];
     uint32_t s_[kNumberOfFPRegisters];
 
+    // Vector registers.
+    vec128_t q_[kNumberOfVRegisters];
+
     // The stack pointer.
     uint64_t sp_;
     uint64_t wsp_;
@@ -183,6 +208,8 @@ bool EqualFP64(double expected, const RegisterDump* core,
 
 bool Equal64(const Register& reg0, const RegisterDump* core,
              const Register& reg1);
+bool Equal128(uint64_t expected_h, uint64_t expected_l,
+              const RegisterDump* core, const VRegister& reg);
 
 bool EqualNzcv(uint32_t expected, uint32_t result);
 
@@ -224,7 +251,6 @@ void ClobberFP(MacroAssembler* masm, RegList reg_list,
 // using this method, the clobber value is always the default for the basic
 // Clobber or ClobberFP functions.
 void Clobber(MacroAssembler* masm, CPURegList reg_list);
-
 
 }  // namespace vixl
 

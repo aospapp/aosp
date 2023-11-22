@@ -103,7 +103,14 @@ typedef struct {
   const uint32_t *chars;
   int             width;
   unsigned int    protected_cell:1;  /* DECSCA-protected against DECSEL/DECSED */
+  unsigned int    dwl:1;             /* DECDWL or DECDHL double-width line */
+  unsigned int    dhl:2;             /* DECDHL double-height line (1=top 2=bottom) */
 } VTermGlyphInfo;
+
+typedef struct {
+  unsigned int    doublewidth:1;     /* DECDWL or DECDHL line */
+  unsigned int    doubleheight:2;    /* DECDHL line (1=top 2=bottom) */
+} VTermLineInfo;
 
 typedef struct {
   /* libvterm relies on this memory to be zeroed out before it is returned
@@ -187,6 +194,7 @@ typedef struct {
   int (*setmousefunc)(VTermMouseFunc func, void *data, void *user);
   int (*bell)(void *user);
   int (*resize)(int rows, int cols, VTermPos *delta, void *user);
+  int (*setlineinfo)(int row, const VTermLineInfo *newinfo, const VTermLineInfo *oldinfo, void *user);
 } VTermStateCallbacks;
 
 VTermState *vterm_obtain_state(VTerm *vt);
@@ -197,9 +205,11 @@ void vterm_state_get_cursorpos(const VTermState *state, VTermPos *cursorpos);
 void vterm_state_get_default_colors(const VTermState *state, VTermColor *default_fg, VTermColor *default_bg);
 void vterm_state_get_palette_color(const VTermState *state, int index, VTermColor *col);
 void vterm_state_set_default_colors(VTermState *state, const VTermColor *default_fg, const VTermColor *default_bg);
+void vterm_state_set_palette_color(VTermState *state, int index, const VTermColor *col);
 void vterm_state_set_bold_highbright(VTermState *state, int bold_is_highbright);
 int  vterm_state_get_penattr(const VTermState *state, VTermAttr attr, VTermValue *val);
 int  vterm_state_set_termprop(VTermState *state, VTermProp prop, VTermValue *val);
+const VTermLineInfo *vterm_state_get_lineinfo(const VTermState *state, int row);
 
 // ------------
 // Screen layer
@@ -217,6 +227,8 @@ typedef struct {
     unsigned int reverse   : 1;
     unsigned int strike    : 1;
     unsigned int font      : 4; /* 0 to 9 */
+    unsigned int dwl       : 1; /* On a DECDWL or DECDHL line */
+    unsigned int dhl       : 2; /* On a DECDHL line (1=top 2=bottom) */
   } attrs;
   VTermColor fg, bg;
 } VTermScreenCell;
@@ -249,6 +261,8 @@ void vterm_screen_flush_damage(VTermScreen *screen);
 void vterm_screen_set_damage_merge(VTermScreen *screen, VTermDamageSize size);
 
 void   vterm_screen_reset(VTermScreen *screen, int hard);
+
+/* Neither of these functions NUL-terminate the buffer */
 size_t vterm_screen_get_chars(const VTermScreen *screen, uint32_t *chars, size_t len, const VTermRect rect);
 size_t vterm_screen_get_text(const VTermScreen *screen, char *str, size_t len, const VTermRect rect);
 

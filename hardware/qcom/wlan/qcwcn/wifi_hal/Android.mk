@@ -18,13 +18,13 @@ LOCAL_PATH := $(call my-dir)
 # ============================================================
 include $(CLEAR_VARS)
 
-LOCAL_REQUIRED_MODULES :=
+LOCAL_CFLAGS := -Wno-unused-parameter
 
-LOCAL_CFLAGS += -Wno-unused-parameter -Wno-int-to-pointer-cast
-LOCAL_CFLAGS += -Wno-maybe-uninitialized -Wno-parentheses
-LOCAL_CPPFLAGS += -Wno-conversion-null
+# gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
+LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
 
 LOCAL_C_INCLUDES += \
+	$(LOCAL_PATH) \
 	external/libnl/include \
 	$(call include-path-for, libhardware_legacy)/hardware_legacy \
 	external/wpa_supplicant_8/src/drivers \
@@ -38,7 +38,19 @@ LOCAL_SRC_FILES := \
 	llstats.cpp \
 	gscan.cpp \
 	gscan_event_handler.cpp \
-	rtt.cpp
+	rtt.cpp \
+	ifaceeventhandler.cpp \
+	tdls.cpp \
+	nan.cpp \
+	nan_ind.cpp \
+	nan_req.cpp \
+	nan_rsp.cpp \
+	wificonfig.cpp \
+	wifilogger.cpp \
+	wifilogger_diag.cpp \
+	ring_buffer.cpp \
+	rb_wrapper.cpp \
+	rssi_monitor.cpp
 
 LOCAL_MODULE := libwifi-hal-qcom
 LOCAL_SHARED_LIBRARIES += libnetutils liblog
@@ -53,3 +65,56 @@ endif
 
 include $(BUILD_STATIC_LIBRARY)
 
+include $(CLEAR_VARS)
+
+LOCAL_REQUIRED_MODULES :=
+
+LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -DNAN_2_0
+LOCAL_CPPFLAGS += -Wno-conversion-null
+
+# gscan.cpp: address of array 'cached_results[i].results' will always evaluate to 'true'
+LOCAL_CLANG_CFLAGS := -Wno-pointer-bool-conversion
+
+LOCAL_C_INCLUDES += \
+	$(LOCAL_PATH) \
+	external/libnl/include \
+	$(call include-path-for, libhardware_legacy)/hardware_legacy \
+	external/wpa_supplicant_8/src/drivers \
+	$(TARGET_OUT_HEADERS)/libwpa_client \
+	$(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
+
+LOCAL_SRC_FILES := \
+	wifi_hal.cpp \
+	common.cpp \
+	cpp_bindings.cpp \
+	llstats.cpp \
+	gscan.cpp \
+	gscan_event_handler.cpp \
+	rtt.cpp \
+	ifaceeventhandler.cpp \
+	tdls.cpp \
+	nan.cpp \
+	nan_ind.cpp \
+	nan_req.cpp \
+	nan_rsp.cpp \
+	wificonfig.cpp \
+	wifilogger.cpp \
+	wifilogger_diag.cpp \
+	ring_buffer.cpp \
+	rb_wrapper.cpp \
+	rssi_monitor.cpp
+
+LOCAL_MODULE := libwifi-hal-qcom
+LOCAL_SHARED_LIBRARIES += libnetutils liblog
+LOCAL_SHARED_LIBRARIES += libdl libhardware_legacy
+
+ifneq ($(wildcard external/libnl),)
+LOCAL_SHARED_LIBRARIES += libnl
+LOCAL_C_INCLUDES += external/libnl/include
+else
+LOCAL_SHARED_LIBRARIES += libnl_2
+LOCAL_C_INCLUDES += external/libnl-headers
+endif
+
+include $(BUILD_SHARED_LIBRARY)

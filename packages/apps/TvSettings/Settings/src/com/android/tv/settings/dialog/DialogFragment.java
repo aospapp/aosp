@@ -22,8 +22,6 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.TimeInterpolator;
-import android.animation.ValueAnimator;
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
@@ -40,7 +38,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v17.leanback.R;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.RecyclerView;
@@ -48,22 +45,20 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
 import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
-import android.view.ViewGroup.LayoutParams;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.Interpolator;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.android.tv.settings.R;
 import com.android.tv.settings.util.AccessibilityHelper;
 import com.android.tv.settings.widget.BitmapWorkerOptions;
 import com.android.tv.settings.widget.DrawableDownloader;
 import com.android.tv.settings.widget.DrawableDownloader.BitmapCallback;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Displays content on the left and actions on the right.
@@ -85,7 +80,6 @@ public class DialogFragment extends Fragment {
     private static final int ANIMATE_IN_DURATION = 250;
     private static final int ANIMATE_DELAY = 550;
     private static final int SECONDARY_ANIMATE_DELAY = 120;
-    private static final int SLIDE_IN_STAGGER = 100;
     private static final int SLIDE_IN_DISTANCE = 120;
     private static final int ANIMATION_FRAGMENT_ENTER = 1;
     private static final int ANIMATION_FRAGMENT_EXIT = 2;
@@ -307,7 +301,7 @@ public class DialogFragment extends Fragment {
         View listView = (View) actionView.getTag(R.id.list);
         View selectorView = (View) actionView.getTag(R.id.selector);
 
-        ArrayList<Animator> animators = new ArrayList<Animator>();
+        ArrayList<Animator> animators = new ArrayList<>();
 
         switch (nextAnim) {
             case ANIMATION_FRAGMENT_ENTER:
@@ -580,7 +574,7 @@ public class DialogFragment extends Fragment {
 
         contentView.getViewTreeObserver().addOnGlobalLayoutListener(
                 new ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override
+                    @Override
                     public void onGlobalLayout() {
                         contentView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                         // if we buildLayer() at this time, the texture is
@@ -643,7 +637,7 @@ public class DialogFragment extends Fragment {
                 oa.start();
 
                 boolean isRtl = ViewCompat.getLayoutDirection(contentView) ==
-                        View.LAYOUT_DIRECTION_RTL;
+                        ViewCompat.LAYOUT_DIRECTION_RTL;
                 int startDist = isRtl ? SLIDE_IN_DISTANCE : -SLIDE_IN_DISTANCE;
                 int endDist = isRtl ? -actionContainerView.getMeasuredWidth() :
                         actionContainerView.getMeasuredWidth();
@@ -706,22 +700,22 @@ public class DialogFragment extends Fragment {
     }
 
     private Animator createSlideOutToStartAnimator(View v) {
-        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == ViewCompat.LAYOUT_DIRECTION_RTL;
         return createTranslateAlphaAnimator(v, 0, isRtl ? 200f : -200f, 1f, 0);
     }
 
     private Animator createSlideInFromEndAnimator(View v) {
-        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == ViewCompat.LAYOUT_DIRECTION_RTL;
         return createTranslateAlphaAnimator(v, isRtl ? -200f : 200f, 0, 0, 1f);
     }
 
     private Animator createSlideInFromStartAnimator(View v) {
-        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == ViewCompat.LAYOUT_DIRECTION_RTL;
         return createTranslateAlphaAnimator(v, isRtl ? 200f : -200f, 0, 0, 1f);
     }
 
     private Animator createSlideOutToEndAnimator(View v) {
-        boolean isRtl = ViewCompat.getLayoutDirection(v) == View.LAYOUT_DIRECTION_RTL;
+        boolean isRtl = ViewCompat.getLayoutDirection(v) == ViewCompat.LAYOUT_DIRECTION_RTL;
         return createTranslateAlphaAnimator(v, 0, isRtl ? -200f : 200f, 1f, 0);
     }
 
@@ -825,7 +819,7 @@ public class DialogFragment extends Fragment {
          * is in the process of animating.
          */
         private class Listener implements Animator.AnimatorListener {
-            private boolean mFadingOut;
+            private final boolean mFadingOut;
             private boolean mCanceled;
 
             public Listener(boolean fadingOut) {

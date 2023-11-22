@@ -14,3 +14,4 @@
 
 dir=`dirname $0`
 $dir/runtest.sh vg-v6intThumb
+$dir/runtest.sh vg-vfp

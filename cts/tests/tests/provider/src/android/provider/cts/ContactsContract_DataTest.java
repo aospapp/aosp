@@ -22,20 +22,22 @@ import static android.provider.ContactsContract.CommonDataKinds;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Callable;
 import android.provider.ContactsContract.CommonDataKinds.Contactables;
 import android.provider.ContactsContract.CommonDataKinds.Email;
+import android.provider.ContactsContract.CommonDataKinds.GroupMembership;
 import android.provider.ContactsContract.CommonDataKinds.Organization;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.SipAddress;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.Contacts;
+import android.provider.ContactsContract.Contacts.Entity;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.RawContacts;
+import android.provider.ContactsContract.RawContactsEntity;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestContact;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestData;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestRawContact;
@@ -50,6 +52,90 @@ import java.util.ArrayList;
 public class ContactsContract_DataTest extends InstrumentationTestCase {
     private ContentResolver mResolver;
     private ContactsContract_TestDataBuilder mBuilder;
+
+    static final String[] DATA_PROJECTION = new String[]{
+            Data._ID,
+            Data.RAW_CONTACT_ID,
+            Data.CONTACT_ID,
+            Data.NAME_RAW_CONTACT_ID,
+            RawContacts.RAW_CONTACT_IS_USER_PROFILE,
+            Data.DATA1,
+            Data.DATA2,
+            Data.DATA3,
+            Data.DATA4,
+            Data.DATA5,
+            Data.DATA6,
+            Data.DATA7,
+            Data.DATA8,
+            Data.DATA9,
+            Data.DATA10,
+            Data.DATA11,
+            Data.DATA12,
+            Data.DATA13,
+            Data.DATA14,
+            Data.DATA15,
+            Data.CARRIER_PRESENCE,
+            Data.DATA_VERSION,
+            Data.IS_PRIMARY,
+            Data.IS_SUPER_PRIMARY,
+            Data.MIMETYPE,
+            Data.RES_PACKAGE,
+            Data.SYNC1,
+            Data.SYNC2,
+            Data.SYNC3,
+            Data.SYNC4,
+            GroupMembership.GROUP_SOURCE_ID,
+            Data.PRESENCE,
+            Data.CHAT_CAPABILITY,
+            Data.STATUS,
+            Data.STATUS_TIMESTAMP,
+            Data.STATUS_RES_PACKAGE,
+            Data.STATUS_LABEL,
+            Data.STATUS_ICON,
+            RawContacts.ACCOUNT_NAME,
+            RawContacts.ACCOUNT_TYPE,
+            RawContacts.DATA_SET,
+            RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
+            RawContacts.DIRTY,
+            RawContacts.SOURCE_ID,
+            RawContacts.VERSION,
+            Contacts.CUSTOM_RINGTONE,
+            Contacts.DISPLAY_NAME,
+            Contacts.DISPLAY_NAME_ALTERNATIVE,
+            Contacts.DISPLAY_NAME_SOURCE,
+            Contacts.IN_DEFAULT_DIRECTORY,
+            Contacts.IN_VISIBLE_GROUP,
+            Contacts.LAST_TIME_CONTACTED,
+            Contacts.LOOKUP_KEY,
+            Contacts.PHONETIC_NAME,
+            Contacts.PHONETIC_NAME_STYLE,
+            Contacts.PHOTO_ID,
+            Contacts.PHOTO_FILE_ID,
+            Contacts.PHOTO_URI,
+            Contacts.PHOTO_THUMBNAIL_URI,
+            Contacts.SEND_TO_VOICEMAIL,
+            Contacts.SORT_KEY_ALTERNATIVE,
+            Contacts.SORT_KEY_PRIMARY,
+            Contacts.STARRED,
+            Contacts.PINNED,
+            Contacts.TIMES_CONTACTED,
+            Contacts.HAS_PHONE_NUMBER,
+            Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+            Contacts.CONTACT_PRESENCE,
+            Contacts.CONTACT_CHAT_CAPABILITY,
+            Contacts.CONTACT_STATUS,
+            Contacts.CONTACT_STATUS_TIMESTAMP,
+            Contacts.CONTACT_STATUS_RES_PACKAGE,
+            Contacts.CONTACT_STATUS_LABEL,
+            Contacts.CONTACT_STATUS_ICON,
+            Data.TIMES_USED,
+            Data.LAST_TIME_USED};
+
+    static final String[] RAW_CONTACTS_ENTITY_PROJECTION = new String[]{
+    };
+
+    static final String[] NTITY_PROJECTION = new String[]{
+    };
 
     private static ContentValues[] sContentValues = new ContentValues[7];
     static {
@@ -139,6 +225,184 @@ public class ContactsContract_DataTest extends InstrumentationTestCase {
         TestContact lookupContact = mBuilder.newContact().setUri(lookupUri).load();
         assertEquals("Lookup URI matched the wrong contact",
                 lookupContact.getId(), data.load().getRawContact().load().getContactId());
+    }
+
+    public void testDataProjection() throws Exception {
+        TestRawContact rawContact = mBuilder.newRawContact()
+                .with(RawContacts.ACCOUNT_TYPE, "test_type")
+                .with(RawContacts.ACCOUNT_NAME, "test_name")
+                .with(RawContacts.SOURCE_ID, "source_id")
+                .insert();
+        TestData data = rawContact.newDataRow(CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                .with(CommonDataKinds.StructuredName.DISPLAY_NAME, "test name")
+                .insert();
+
+        DatabaseAsserts.checkProjection(mResolver, Data.CONTENT_URI,
+                DATA_PROJECTION,
+                new long[]{data.load().getId()}
+        );
+    }
+
+    public void testRawContactsEntityProjection() throws Exception {
+        TestRawContact rawContact = mBuilder.newRawContact()
+                .with(RawContacts.ACCOUNT_TYPE, "test_type")
+                .with(RawContacts.ACCOUNT_NAME, "test_name")
+                .with(RawContacts.SOURCE_ID, "source_id")
+                .insert();
+        TestData data = rawContact.newDataRow(CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                .with(CommonDataKinds.StructuredName.DISPLAY_NAME, "test name")
+                .insert();
+
+        DatabaseAsserts.checkProjection(mResolver, RawContactsEntity.CONTENT_URI,
+                new String[]{
+                        RawContacts._ID,
+                        RawContacts.CONTACT_ID,
+                        RawContacts.Entity.DATA_ID,
+                        RawContacts.DELETED,
+                        RawContacts.STARRED,
+                        RawContacts.RAW_CONTACT_IS_USER_PROFILE,
+                        RawContacts.ACCOUNT_NAME,
+                        RawContacts.ACCOUNT_TYPE,
+                        RawContacts.DATA_SET,
+                        RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
+                        RawContacts.DIRTY,
+                        RawContacts.SOURCE_ID,
+                        RawContacts.BACKUP_ID,
+                        RawContacts.VERSION,
+                        RawContacts.SYNC1,
+                        RawContacts.SYNC2,
+                        RawContacts.SYNC3,
+                        RawContacts.SYNC4,
+                        Data.DATA1,
+                        Data.DATA2,
+                        Data.DATA3,
+                        Data.DATA4,
+                        Data.DATA5,
+                        Data.DATA6,
+                        Data.DATA7,
+                        Data.DATA8,
+                        Data.DATA9,
+                        Data.DATA10,
+                        Data.DATA11,
+                        Data.DATA12,
+                        Data.DATA13,
+                        Data.DATA14,
+                        Data.DATA15,
+                        Data.CARRIER_PRESENCE,
+                        Data.DATA_VERSION,
+                        Data.IS_PRIMARY,
+                        Data.IS_SUPER_PRIMARY,
+                        Data.MIMETYPE,
+                        Data.RES_PACKAGE,
+                        Data.SYNC1,
+                        Data.SYNC2,
+                        Data.SYNC3,
+                        Data.SYNC4,
+                        GroupMembership.GROUP_SOURCE_ID},
+                new long[]{rawContact.getId()}
+        );
+    }
+
+    public void testEntityProjection() throws Exception {
+        TestRawContact rawContact = mBuilder.newRawContact()
+                .with(RawContacts.ACCOUNT_TYPE, "test_type")
+                .with(RawContacts.ACCOUNT_NAME, "test_name")
+                .with(RawContacts.SOURCE_ID, "source_id")
+                .insert();
+        TestData data = rawContact.newDataRow(CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                .with(CommonDataKinds.StructuredName.DISPLAY_NAME, "test name")
+                .insert();
+        long contactId = rawContact.load().getContactId();
+
+        DatabaseAsserts.checkProjection(mResolver, Contacts.CONTENT_URI.buildUpon().appendPath(
+                        String.valueOf(contactId)).appendPath(
+                        Entity.CONTENT_DIRECTORY).build(),
+                new String[]{
+                        Contacts.Entity._ID,
+                        Contacts.Entity.CONTACT_ID,
+                        Contacts.Entity.RAW_CONTACT_ID,
+                        Contacts.Entity.DATA_ID,
+                        Contacts.Entity.NAME_RAW_CONTACT_ID,
+                        Contacts.Entity.DELETED,
+                        Contacts.IS_USER_PROFILE,
+                        Contacts.CUSTOM_RINGTONE,
+                        Contacts.DISPLAY_NAME,
+                        Contacts.DISPLAY_NAME_ALTERNATIVE,
+                        Contacts.DISPLAY_NAME_SOURCE,
+                        Contacts.IN_DEFAULT_DIRECTORY,
+                        Contacts.IN_VISIBLE_GROUP,
+                        Contacts.LAST_TIME_CONTACTED,
+                        Contacts.LOOKUP_KEY,
+                        Contacts.PHONETIC_NAME,
+                        Contacts.PHONETIC_NAME_STYLE,
+                        Contacts.PHOTO_ID,
+                        Contacts.PHOTO_FILE_ID,
+                        Contacts.PHOTO_URI,
+                        Contacts.PHOTO_THUMBNAIL_URI,
+                        Contacts.SEND_TO_VOICEMAIL,
+                        Contacts.SORT_KEY_ALTERNATIVE,
+                        Contacts.SORT_KEY_PRIMARY,
+                        Contacts.STARRED,
+                        Contacts.PINNED,
+                        Contacts.TIMES_CONTACTED,
+                        Contacts.HAS_PHONE_NUMBER,
+                        Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
+                        Contacts.CONTACT_PRESENCE,
+                        Contacts.CONTACT_CHAT_CAPABILITY,
+                        Contacts.CONTACT_STATUS,
+                        Contacts.CONTACT_STATUS_TIMESTAMP,
+                        Contacts.CONTACT_STATUS_RES_PACKAGE,
+                        Contacts.CONTACT_STATUS_LABEL,
+                        Contacts.CONTACT_STATUS_ICON,
+                        RawContacts.ACCOUNT_NAME,
+                        RawContacts.ACCOUNT_TYPE,
+                        RawContacts.DATA_SET,
+                        RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
+                        RawContacts.DIRTY,
+                        RawContacts.SOURCE_ID,
+                        RawContacts.BACKUP_ID,
+                        RawContacts.VERSION,
+                        RawContacts.SYNC1,
+                        RawContacts.SYNC2,
+                        RawContacts.SYNC3,
+                        RawContacts.SYNC4,
+                        Data.DATA1,
+                        Data.DATA2,
+                        Data.DATA3,
+                        Data.DATA4,
+                        Data.DATA5,
+                        Data.DATA6,
+                        Data.DATA7,
+                        Data.DATA8,
+                        Data.DATA9,
+                        Data.DATA10,
+                        Data.DATA11,
+                        Data.DATA12,
+                        Data.DATA13,
+                        Data.DATA14,
+                        Data.DATA15,
+                        Data.CARRIER_PRESENCE,
+                        Data.DATA_VERSION,
+                        Data.IS_PRIMARY,
+                        Data.IS_SUPER_PRIMARY,
+                        Data.MIMETYPE,
+                        Data.RES_PACKAGE,
+                        Data.SYNC1,
+                        Data.SYNC2,
+                        Data.SYNC3,
+                        Data.SYNC4,
+                        GroupMembership.GROUP_SOURCE_ID,
+                        Data.PRESENCE,
+                        Data.CHAT_CAPABILITY,
+                        Data.STATUS,
+                        Data.STATUS_TIMESTAMP,
+                        Data.STATUS_RES_PACKAGE,
+                        Data.STATUS_LABEL,
+                        Data.STATUS_ICON,
+                        Data.TIMES_USED,
+                        Data.LAST_TIME_USED},
+                new long[]{contactId}
+        );
     }
 
     public void testGetLookupUriByDisplayName() throws Exception {

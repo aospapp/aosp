@@ -1,6 +1,9 @@
 #ifndef _RS_STRUCTS_H_
 #define _RS_STRUCTS_H_
 
+#include "rs_core.rsh"
+#include "rs_graphics.rsh"
+
 /*****************************************************************************
  * CAUTION
  *
@@ -45,6 +48,15 @@ typedef struct Allocation {
             int32_t surfaceTextureID;
             void * nativeBuffer;
             int64_t timestamp;
+
+            // Allocation adapter state
+            const void *baseAlloc;
+            uint32_t originX;
+            uint32_t originY;
+            uint32_t originZ;
+            uint32_t originLOD;
+            uint32_t originFace;
+            uint32_t originArray[4/*Type::mMaxArrays*/];
         } state;
 
         struct DrvState {
@@ -63,6 +75,9 @@ typedef struct Allocation {
                 uint32_t shift;
                 uint32_t step;
             } yuv;
+
+            int grallocFlags;
+            uint32_t dimArray[4/*Type::mMaxArrays*/];
         } drvState;
     } mHal;
 } Allocation_t;
@@ -242,8 +257,10 @@ typedef struct Type {
             uint32_t *lodDimX;
             uint32_t *lodDimY;
             uint32_t *lodDimZ;
-            uint32_t *lodOffset;
+            uint32_t *arrays;
             uint32_t lodCount;
+            uint32_t dimYuv;
+            uint32_t arrayCount;
             bool faces;
         } state;
     } mHal;
@@ -275,7 +292,7 @@ typedef struct Mesh {
             void **vertexBuffers;
             uint32_t vertexBuffersCount;
 
-            // indexBuffers[i] could be NULL, in which case only primitives[i] is used
+            // indexBuffers[i] could be nullptr, in which case only primitives[i] is used
             void **indexBuffers;
             uint32_t indexBuffersCount;
             rs_primitive *primitives;

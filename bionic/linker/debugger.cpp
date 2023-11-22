@@ -30,9 +30,11 @@
 
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
@@ -41,8 +43,10 @@
 
 extern "C" int tgkill(int tgid, int tid, int sig);
 
-#if __LP64__
-#define DEBUGGER_SOCKET_NAME "android:debuggerd64"
+// Crash actions have to be sent to the proper debuggerd.
+// On 64 bit systems, the 32 bit debuggerd is named differently.
+#if defined(TARGET_IS_64_BIT) && !defined(__LP64__)
+#define DEBUGGER_SOCKET_NAME "android:debuggerd32"
 #else
 #define DEBUGGER_SOCKET_NAME "android:debuggerd"
 #endif
@@ -57,15 +61,10 @@ enum debugger_action_t {
 };
 
 /* message sent over the socket */
-struct debugger_msg_t {
-  // version 1 included:
-  debugger_action_t action;
+struct __attribute__((packed)) debugger_msg_t {
+  int32_t action;
   pid_t tid;
-
-  // version 2 added:
-  uintptr_t abort_msg_address;
-
-  // version 3 added:
+  uint64_t abort_msg_address;
   int32_t original_si_code;
 };
 
@@ -154,7 +153,7 @@ static void log_signal_summary(int signum, const siginfo_t* info) {
   }
 
   char thread_name[MAX_TASK_NAME_LEN + 1]; // one more for termination
-  if (prctl(PR_GET_NAME, (unsigned long)thread_name, 0, 0, 0) != 0) {
+  if (prctl(PR_GET_NAME, reinterpret_cast<unsigned long>(thread_name), 0, 0, 0) != 0) {
     strcpy(thread_name, "<name unknown>");
   } else {
     // short names are null terminated by prctl, but the man page
@@ -206,12 +205,20 @@ static bool have_siginfo(int signum) {
 }
 
 static void send_debuggerd_packet(siginfo_t* info) {
-  if (prctl(PR_GET_DUMPABLE, 0, 0, 0, 0) == 0) {
-    // process has disabled core dumps and PTRACE_ATTACH, and does not want to be dumped.
-    // Honor that intention by not connecting to debuggerd and asking it
-    // to dump our internal state.
-    __libc_format_log(ANDROID_LOG_INFO, "libc",
-                      "Suppressing debuggerd output because prctl(PR_GET_DUMPABLE)==0");
+  // Mutex to prevent multiple crashing threads from trying to talk
+  // to debuggerd at the same time.
+  static pthread_mutex_t crash_mutex = PTHREAD_MUTEX_INITIALIZER;
+  int ret = pthread_mutex_trylock(&crash_mutex);
+  if (ret != 0) {
+    if (ret == EBUSY) {
+      __libc_format_log(ANDROID_LOG_INFO, "libc",
+          "Another thread contacted debuggerd first; not contacting debuggerd.");
+      // This will never complete since the lock is never released.
+      pthread_mutex_lock(&crash_mutex);
+    } else {
+      __libc_format_log(ANDROID_LOG_INFO, "libc",
+                        "pthread_mutex_trylock failed: %s", strerror(ret));
+    }
     return;
   }
 
@@ -231,7 +238,7 @@ static void send_debuggerd_packet(siginfo_t* info) {
   msg.tid = gettid();
   msg.abort_msg_address = reinterpret_cast<uintptr_t>(g_abort_message);
   msg.original_si_code = (info != nullptr) ? info->si_code : 0;
-  int ret = TEMP_FAILURE_RETRY(write(s, &msg, sizeof(msg)));
+  ret = TEMP_FAILURE_RETRY(write(s, &msg, sizeof(msg)));
   if (ret == sizeof(msg)) {
     char debuggerd_ack;
     ret = TEMP_FAILURE_RETRY(read(s, &debuggerd_ack, 1));

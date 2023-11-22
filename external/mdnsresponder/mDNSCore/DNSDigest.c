@@ -194,6 +194,7 @@ typedef struct MD5state_st
 	int num;
 } MD5_CTX;
 
+#ifndef HAVE_MD5
 
 // from openssl/md5.h
 
@@ -1128,6 +1129,7 @@ void md5_block_data_order (MD5_CTX *c, const void *data_, int num)
 	}
 #endif
 
+#endif  // !HAVE_MD5
 
  // ***************************************************************************
 #if COMPILER_LIKES_PRAGMA_MARK

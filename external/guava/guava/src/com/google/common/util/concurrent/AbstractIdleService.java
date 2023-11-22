@@ -17,9 +17,12 @@
 package com.google.common.util.concurrent;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Base class for services that do not need a thread while "running"
@@ -34,36 +37,48 @@ import java.util.concurrent.Executor;
 @Beta
 public abstract class AbstractIdleService implements Service {
 
+  /* Thread names will look like {@code "MyService STARTING"}. */
+  private final Supplier<String> threadNameSupplier = new Supplier<String>() {
+    @Override public String get() {
+      return serviceName() + " " + state();
+    }
+  };
+
   /* use AbstractService for state management */
   private final Service delegate = new AbstractService() {
     @Override protected final void doStart() {
-      executor(State.STARTING).execute(new Runnable() {
-        @Override public void run() {
-          try {
-            startUp();
-            notifyStarted();
-          } catch (Throwable t) {
-            notifyFailed(t);
-            throw Throwables.propagate(t);
-          }
-        }
-      });
+      MoreExecutors.renamingDecorator(executor(), threadNameSupplier)
+          .execute(new Runnable() {
+            @Override public void run() {
+              try {
+                startUp();
+                notifyStarted();
+              } catch (Throwable t) {
+                notifyFailed(t);
+                throw Throwables.propagate(t);
+              }
+            }
+          });
     }
 
     @Override protected final void doStop() {
-      executor(State.STOPPING).execute(new Runnable() {
-        @Override public void run() {
-          try {
-            shutDown();
-            notifyStopped();
-          } catch (Throwable t) {
-            notifyFailed(t);
-            throw Throwables.propagate(t);
-          }
-        }
-      });
+      MoreExecutors.renamingDecorator(executor(), threadNameSupplier)
+          .execute(new Runnable() {
+            @Override public void run() {
+              try {
+                shutDown();
+                notifyStopped();
+              } catch (Throwable t) {
+                notifyFailed(t);
+                throw Throwables.propagate(t);
+              }
+            }
+          });
     }
   };
+
+  /** Constructor for use by subclasses. */
+  protected AbstractIdleService() {}
 
   /** Start the service. */
   protected abstract void startUp() throws Exception;
@@ -78,31 +93,30 @@ public abstract class AbstractIdleService implements Service {
    * priority. The returned executor's {@link Executor#execute(Runnable)
    * execute()} method is called when this service is started and stopped,
    * and should return promptly.
-   *
-   * @param state {@link Service.State#STARTING} or
-   *     {@link Service.State#STOPPING}, used by the default implementation for
-   *     naming the thread
    */
-  protected Executor executor(final State state) {
+  protected Executor executor() {
     return new Executor() {
-      @Override
-      public void execute(Runnable command) {
-        new Thread(command, getServiceName() + " " + state).start();
+      @Override public void execute(Runnable command) {
+        MoreExecutors.newThread(threadNameSupplier.get(), command).start();
       }
     };
   }
 
   @Override public String toString() {
-    return getServiceName() + " [" + state() + "]";
+    return serviceName() + " [" + state() + "]";
   }
 
   // We override instead of using ForwardingService so that these can be final.
 
-  @Override public final ListenableFuture<State> start() {
+  @Deprecated
+  @Override
+   public final ListenableFuture<State> start() {
     return delegate.start();
   }
 
-  @Override public final State startAndWait() {
+  @Deprecated
+  @Override
+   public final State startAndWait() {
     return delegate.startAndWait();
   }
 
@@ -114,15 +128,83 @@ public abstract class AbstractIdleService implements Service {
     return delegate.state();
   }
 
-  @Override public final ListenableFuture<State> stop() {
+  @Deprecated
+  @Override
+  public final ListenableFuture<State> stop() {
     return delegate.stop();
   }
 
-  @Override public final State stopAndWait() {
+  @Deprecated
+  @Override
+  public final State stopAndWait() {
     return delegate.stopAndWait();
   }
+
+  /**
+   * @since 13.0
+   */
+  @Override public final void addListener(Listener listener, Executor executor) {
+    delegate.addListener(listener, executor);
+  }
   
-  private String getServiceName() {
+  /**
+   * @since 14.0
+   */
+  @Override public final Throwable failureCause() {
+    return delegate.failureCause();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final Service startAsync() {
+    delegate.startAsync();
+    return this;
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final Service stopAsync() {
+    delegate.stopAsync();
+    return this;
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitRunning() {
+    delegate.awaitRunning();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitRunning(long timeout, TimeUnit unit) throws TimeoutException {
+    delegate.awaitRunning(timeout, unit);
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitTerminated() {
+    delegate.awaitTerminated();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitTerminated(long timeout, TimeUnit unit) throws TimeoutException {
+    delegate.awaitTerminated(timeout, unit);
+  }
+  
+  /**
+   * Returns the name of this service. {@link AbstractIdleService} may include the name in debugging
+   * output.
+   *
+   * @since 14.0
+   */
+  protected String serviceName() {
     return getClass().getSimpleName();
   }
 }

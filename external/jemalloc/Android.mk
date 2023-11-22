@@ -16,7 +16,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-common_cflags := \
+jemalloc_common_cflags := \
 	-std=gnu99 \
 	-D_REENTRANT \
 	-fvisibility=hidden \
@@ -39,18 +39,18 @@ common_cflags := \
 #     then large allocations will take longer to complete.
 #   ANDROID_LG_TCACHE_MAXCLASS_DEFAULT=XX
 #     1 << XX is the maximum sized allocation that will be in the tcache.
-common_cflags += \
+jemalloc_common_cflags += \
 	-DANDROID_ALWAYS_PURGE \
 	-DANDROID_MAX_ARENAS=2 \
 	-DANDROID_TCACHE_NSLOTS_SMALL_MAX=8 \
 	-DANDROID_TCACHE_NSLOTS_LARGE=16 \
 	-DANDROID_LG_TCACHE_MAXCLASS_DEFAULT=16 \
 
-common_c_includes := \
+jemalloc_common_c_includes := \
 	$(LOCAL_PATH)/src \
 	$(LOCAL_PATH)/include \
 
-lib_src_files := \
+jemalloc_lib_src_files := \
 	src/arena.c \
 	src/atomic.c \
 	src/base.c \
@@ -79,6 +79,11 @@ lib_src_files := \
 #-----------------------------------------------------------------------
 include $(CLEAR_VARS)
 
+# Temporarily disable clang build for this project:
+#   mips and arm64 do not compile with clang
+LOCAL_CLANG_arm64 := false
+LOCAL_CLANG_mips := false
+
 LOCAL_MODULE := libjemalloc
 LOCAL_MODULE_TAGS := optional
 
@@ -86,14 +91,14 @@ LOCAL_ADDITIONAL_DEPENDENCIES := \
 	$(LOCAL_PATH)/Android.mk \
 
 LOCAL_CFLAGS := \
-	$(common_cflags) \
+	$(jemalloc_common_cflags) \
+	-include bionic/libc/private/libc_logging.h \
 
 LOCAL_C_INCLUDES := \
-	$(common_c_includes) \
+	$(jemalloc_common_c_includes) \
 
 LOCAL_SRC_FILES := \
-	$(lib_src_files) \
-	android/src/je_mallinfo.c
+	$(jemalloc_lib_src_files) \
 
 include $(BUILD_STATIC_LIBRARY)
 
@@ -102,6 +107,9 @@ include $(BUILD_STATIC_LIBRARY)
 #-----------------------------------------------------------------------
 include $(CLEAR_VARS)
 
+LOCAL_CLANG_arm64 := false
+LOCAL_CLANG_mips := false
+
 LOCAL_MODULE := libjemalloc_jet
 LOCAL_MODULE_TAGS := optional
 
@@ -109,21 +117,36 @@ LOCAL_ADDITIONAL_DEPENDENCIES := \
 	$(LOCAL_PATH)/Android.mk \
 
 LOCAL_CFLAGS := \
-	$(common_cflags) \
+	$(jemalloc_common_cflags) \
 	-DJEMALLOC_JET \
+	-include $(LOCAL_PATH)/android/include/libc_logging.h \
 
 LOCAL_C_INCLUDES := \
-	$(common_c_includes) \
+	$(jemalloc_common_c_includes) \
 
 LOCAL_SRC_FILES := \
-	$(lib_src_files) \
+	$(jemalloc_lib_src_files) \
 
 include $(BUILD_STATIC_LIBRARY)
+
+jemalloc_testlib_srcs := \
+	test/src/btalloc.c \
+	test/src/btalloc_0.c \
+	test/src/btalloc_1.c \
+	test/src/math.c \
+	test/src/mtx.c \
+	test/src/SFMT.c \
+	test/src/test.c \
+	test/src/thd.c \
+	test/src/timer.c \
 
 #-----------------------------------------------------------------------
 # jemalloc unit test library
 #-----------------------------------------------------------------------
 include $(CLEAR_VARS)
+
+LOCAL_CLANG_arm64 := false
+LOCAL_CLANG_mips := false
 
 LOCAL_MODULE := libjemalloc_unittest
 LOCAL_MODULE_TAGS := optional
@@ -132,20 +155,16 @@ LOCAL_ADDITIONAL_DEPENDENCIES := \
 	$(LOCAL_PATH)/Android.mk \
 
 LOCAL_CFLAGS := \
-	$(common_cflags) \
+	$(jemalloc_common_cflags) \
 	-DJEMALLOC_UNIT_TEST \
+	-include $(LOCAL_PATH)/android/include/libc_logging.h \
 
 LOCAL_C_INCLUDES := \
-	$(common_c_includes) \
+	$(jemalloc_common_c_includes) \
 	$(LOCAL_PATH)/test/src \
 	$(LOCAL_PATH)/test/include \
 
-LOCAL_SRC_FILES := \
-	test/src/math.c \
-	test/src/mtx.c \
-	test/src/SFMT.c \
-	test/src/test.c \
-	test/src/thd.c \
+LOCAL_SRC_FILES := $(jemalloc_testlib_srcs)
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libjemalloc_jet
 
@@ -154,11 +173,15 @@ include $(BUILD_STATIC_LIBRARY)
 #-----------------------------------------------------------------------
 # jemalloc unit tests
 #-----------------------------------------------------------------------
-unit_tests := \
+jemalloc_unit_tests := \
+	test/unit/atomic.c \
 	test/unit/bitmap.c \
 	test/unit/ckh.c \
 	test/unit/hash.c \
 	test/unit/junk.c \
+	test/unit/junk_alloc.c \
+	test/unit/junk_free.c \
+	test/unit/lg_chunk.c \
 	test/unit/mallctl.c \
 	test/unit/math.c \
 	test/unit/mq.c \
@@ -166,18 +189,21 @@ unit_tests := \
 	test/unit/prof_accum.c \
 	test/unit/prof_gdump.c \
 	test/unit/prof_idump.c \
+	test/unit/prof_reset.c \
+	test/unit/prof_thread_name.c \
 	test/unit/ql.c \
 	test/unit/qr.c \
 	test/unit/quarantine.c \
 	test/unit/rb.c \
 	test/unit/rtree.c \
 	test/unit/SFMT.c \
+	test/unit/size_classes.c \
 	test/unit/stats.c \
 	test/unit/tsd.c \
 	test/unit/util.c \
 	test/unit/zero.c \
 
-$(foreach test,$(unit_tests), \
+$(foreach test,$(jemalloc_unit_tests), \
   $(eval test_name := $(basename $(notdir $(test)))); \
   $(eval test_src := $(test)); \
   $(eval test_cflags := -DJEMALLOC_UNIT_TEST); \
@@ -191,6 +217,9 @@ $(foreach test,$(unit_tests), \
 #-----------------------------------------------------------------------
 include $(CLEAR_VARS)
 
+LOCAL_CLANG_arm64 := false
+LOCAL_CLANG_mips := false
+
 LOCAL_MODULE := libjemalloc_integrationtest
 LOCAL_MODULE_TAGS := optional
 
@@ -198,32 +227,28 @@ LOCAL_ADDITIONAL_DEPENDENCIES := \
 	$(LOCAL_PATH)/Android.mk \
 
 LOCAL_CFLAGS := \
-	$(common_cflags) \
+	$(jemalloc_common_cflags) \
 	-DJEMALLOC_INTEGRATION_TEST \
+	-include $(LOCAL_PATH)/android/include/libc_logging.h \
 
 LOCAL_C_INCLUDES := \
-	$(common_c_includes) \
+	$(jemalloc_common_c_includes) \
 	$(LOCAL_PATH)/test/src \
 	$(LOCAL_PATH)/test/include \
 
 LOCAL_SRC_FILES := \
-	test/src/math.c \
-	test/src/mtx.c \
-	test/src/SFMT.c \
-	test/src/test.c \
-	test/src/thd.c \
-
-LOCAL_WHOLE_STATIC_LIBRARIES := libjemalloc
+	$(jemalloc_testlib_srcs) \
+	$(jemalloc_lib_src_files) \
 
 include $(BUILD_STATIC_LIBRARY)
 
 #-----------------------------------------------------------------------
 # jemalloc integration tests
 #-----------------------------------------------------------------------
-integration_tests := \
+jemalloc_integration_tests := \
 	test/integration/aligned_alloc.c \
 	test/integration/allocated.c \
-	test/integration/chunk.c \
+	test/integration/sdallocx.c \
 	test/integration/mallocx.c \
 	test/integration/MALLOCX_ARENA.c \
 	test/integration/posix_memalign.c \
@@ -231,8 +256,9 @@ integration_tests := \
 	test/integration/thread_arena.c \
 	test/integration/thread_tcache_enabled.c \
 	test/integration/xallocx.c \
+	test/integration/chunk.c \
 
-$(foreach test,$(integration_tests), \
+$(foreach test,$(jemalloc_integration_tests), \
   $(eval test_name := $(basename $(notdir $(test)))); \
   $(eval test_src := $(test)); \
   $(eval test_cflags := -DJEMALLOC_INTEGRATION_TEST); \

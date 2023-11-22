@@ -122,9 +122,9 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize, int is_local)
   sec_hdrs = calloc (ehdr.e_shnum, sizeof (Elf_W (Shdr)));
   if (fread (sec_hdrs, sizeof (Elf_W (Shdr)), ehdr.e_shnum, f) != ehdr.e_shnum)
     goto file_error;
-  
-  Debug (4, "loading string table of size %zd\n",
-	   sec_hdrs[shstrndx].sh_size);
+
+  Debug (4, "loading string table of size %ld\n",
+	   (long) sec_hdrs[shstrndx].sh_size);
   stringtab = malloc (sec_hdrs[shstrndx].sh_size);
   fseek (f, sec_hdrs[shstrndx].sh_offset, SEEK_SET);
   if (fread (stringtab, 1, sec_hdrs[shstrndx].sh_size, f) != sec_hdrs[shstrndx].sh_size)
@@ -143,8 +143,8 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize, int is_local)
 	  if (fread (*buf, 1, *bufsize, f) != *bufsize)
 	    goto file_error;
 
-	  Debug (4, "read %zd bytes of .debug_frame from offset %zd\n",
-		 *bufsize, sec_hdrs[i].sh_offset);
+	  Debug (4, "read %zd bytes of .debug_frame from offset %ld\n",
+		 *bufsize, (long) sec_hdrs[i].sh_offset);
 	}
       else if (strcmp (secname, ".gnu_debuglink") == 0)
 	{
@@ -155,8 +155,8 @@ load_debug_frame (const char *file, char **buf, size_t *bufsize, int is_local)
 	  if (fread (linkbuf, 1, linksize, f) != linksize)
 	    goto file_error;
 
-	  Debug (4, "read %zd bytes of .gnu_debuglink from offset %zd\n",
-		 linksize, sec_hdrs[i].sh_offset);
+	  Debug (4, "read %zd bytes of .gnu_debuglink from offset %ld\n",
+		 linksize, (long) sec_hdrs[i].sh_offset);
 	}
     }
 

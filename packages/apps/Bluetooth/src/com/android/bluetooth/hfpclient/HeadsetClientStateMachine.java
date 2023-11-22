@@ -94,6 +94,7 @@ final class HeadsetClientStateMachine extends StateMachine {
     static final int SEND_DTMF = 17;
     static final int EXPLICIT_CALL_TRANSFER = 18;
     static final int LAST_VTAG_NUMBER = 19;
+    static final int DISABLE_NREC = 20;
 
     // internal actions
     static final int QUERY_CURRENT_CALLS = 50;
@@ -215,8 +216,8 @@ final class HeadsetClientStateMachine extends StateMachine {
             id++;
         }
 
-        BluetoothHeadsetClientCall c = new BluetoothHeadsetClientCall(id, state, number, false,
-                outgoing);
+        BluetoothHeadsetClientCall c = new BluetoothHeadsetClientCall(mCurrentDevice, id, state,
+                number, false, outgoing);
         mCalls.put(id, c);
 
         sendCallChangedIntent(c);
@@ -769,8 +770,6 @@ final class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void updateClip(String number) {
-        Log.d(TAG, "updateClip number: " + number);
-
         BluetoothHeadsetClientCall c = getCall(BluetoothHeadsetClientCall.CALL_STATE_INCOMING);
 
         if (c == null) {
@@ -790,8 +789,6 @@ final class HeadsetClientStateMachine extends StateMachine {
     }
 
     private void addCallWaiting(String number) {
-        Log.d(TAG, "addCallWaiting number: " + number);
-
         if (getCall(BluetoothHeadsetClientCall.CALL_STATE_WAITING) == null) {
             addCall(BluetoothHeadsetClientCall.CALL_STATE_WAITING, number);
         }
@@ -885,8 +882,8 @@ final class HeadsetClientStateMachine extends StateMachine {
             return;
         }
 
-        mCallsUpdate.put(id, new BluetoothHeadsetClientCall(id, state, number, multiParty,
-                outgoing));
+        mCallsUpdate.put(id, new BluetoothHeadsetClientCall(mCurrentDevice, id, state, number,
+                multiParty, outgoing));
     }
 
     // helper function for determining if query calls should be looped
@@ -1496,9 +1493,15 @@ final class HeadsetClientStateMachine extends StateMachine {
                     broadcastConnectionState(mCurrentDevice, BluetoothProfile.STATE_CONNECTED,
                             BluetoothProfile.STATE_CONNECTING);
                     // Send AT+NREC to remote if supported by audio
-                    if (HeadsetClientHalConstants.HANDSFREECLIENT_NREC_SUPPORTED) {
-                        sendATCmdNative(HeadsetClientHalConstants.HANDSFREECLIENT_AT_CMD_NREC,
-                            1 , 0, null);
+                    if (HeadsetClientHalConstants.HANDSFREECLIENT_NREC_SUPPORTED &&
+                            ((mPeerFeatures & HeadsetClientHalConstants.PEER_FEAT_ECNR) ==
+                                    HeadsetClientHalConstants.PEER_FEAT_ECNR)) {
+                        if (sendATCmdNative(HeadsetClientHalConstants.HANDSFREECLIENT_AT_CMD_NREC,
+                            1 , 0, null)) {
+                            addQueuedAction(DISABLE_NREC);
+                        } else {
+                            Log.e(TAG, "Failed to send NREC");
+                        }
                     }
                     transitionTo(mConnected);
 
@@ -1939,6 +1942,11 @@ final class HeadsetClientStateMachine extends StateMachine {
                                 case LAST_VTAG_NUMBER:
                                     if (event.valueInt != BluetoothHeadsetClient.ACTION_RESULT_OK) {
                                         sendActionResultIntent(event);
+                                    }
+                                    break;
+                                case DISABLE_NREC:
+                                    if (event.valueInt != HeadsetClientHalConstants.CMD_COMPLETE_OK) {
+                                        Log.w(TAG, "Failed to disable AG's EC and NR");
                                     }
                                     break;
                                 case SET_MIC_VOLUME:

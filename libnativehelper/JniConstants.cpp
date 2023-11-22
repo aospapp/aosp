@@ -51,9 +51,11 @@ jclass JniConstants::longClass;
 jclass JniConstants::methodClass;
 jclass JniConstants::mutableIntClass;
 jclass JniConstants::mutableLongClass;
+jclass JniConstants::netlinkSocketAddressClass;
 jclass JniConstants::objectClass;
 jclass JniConstants::objectArrayClass;
 jclass JniConstants::outputStreamClass;
+jclass JniConstants::packetSocketAddressClass;
 jclass JniConstants::parsePositionClass;
 jclass JniConstants::patternSyntaxExceptionClass;
 jclass JniConstants::realToStringClass;
@@ -74,6 +76,7 @@ jclass JniConstants::structStatVfsClass;
 jclass JniConstants::structTimevalClass;
 jclass JniConstants::structUcredClass;
 jclass JniConstants::structUtsnameClass;
+jclass JniConstants::zipEntryClass;
 
 static jclass findClass(JNIEnv* env, const char* name) {
     ScopedLocalRef<jclass> localClass(env, env->FindClass(name));
@@ -115,9 +118,11 @@ void JniConstants::init(JNIEnv* env) {
     methodClass = findClass(env, "java/lang/reflect/Method");
     mutableIntClass = findClass(env, "android/util/MutableInt");
     mutableLongClass = findClass(env, "android/util/MutableLong");
+    netlinkSocketAddressClass = findClass(env, "android/system/NetlinkSocketAddress");
     objectClass = findClass(env, "java/lang/Object");
     objectArrayClass = findClass(env, "[Ljava/lang/Object;");
     outputStreamClass = findClass(env, "java/io/OutputStream");
+    packetSocketAddressClass = findClass(env, "android/system/PacketSocketAddress");
     parsePositionClass = findClass(env, "java/text/ParsePosition");
     patternSyntaxExceptionClass = findClass(env, "java/util/regex/PatternSyntaxException");
     realToStringClass = findClass(env, "java/lang/RealToString");
@@ -138,4 +143,5 @@ void JniConstants::init(JNIEnv* env) {
     structTimevalClass = findClass(env, "android/system/StructTimeval");
     structUcredClass = findClass(env, "android/system/StructUcred");
     structUtsnameClass = findClass(env, "android/system/StructUtsname");
+    zipEntryClass = findClass(env, "java/util/zip/ZipEntry");
 }

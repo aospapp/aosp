@@ -17,14 +17,68 @@
 package android.keystore.cts;
 
 import android.content.pm.PackageManager;
+import android.os.Handler;
 import android.security.KeyChain;
+import android.security.KeyChainException;
 import android.test.AndroidTestCase;
+
+import java.util.concurrent.CountDownLatch;
 
 public class KeyChainTest extends AndroidTestCase {
     public void testIsKeyAlgorithmSupported_RequiredAlgorithmsSupported() throws Exception {
-        assertTrue("DSA must be supported", KeyChain.isKeyAlgorithmSupported("DSA"));
+        assertFalse("DSA must not be supported", KeyChain.isKeyAlgorithmSupported("DSA"));
         assertTrue("EC must be supported", KeyChain.isKeyAlgorithmSupported("EC"));
         assertTrue("RSA must be supported", KeyChain.isKeyAlgorithmSupported("RSA"));
+    }
+
+    public void testNullPrivateKeyArgumentsFail()
+            throws KeyChainException, InterruptedException {
+        try {
+            KeyChain.getPrivateKey(null, null);
+            fail("NullPointerException was expected for null arguments to "
+                    + "KeyChain.getPrivateKey(Context, String)");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testNullPrivateKeyAliasArgumentFails()
+            throws KeyChainException, InterruptedException {
+        try {
+            KeyChain.getPrivateKey(getContext(), null);
+            fail("NullPointerException was expected with null String argument to "
+                        + "KeyChain.getPrivateKey(Context, String).");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testNullPrivateKeyContextArgumentFails()
+            throws KeyChainException, InterruptedException {
+        try {
+            KeyChain.getPrivateKey(null, "");
+            fail("NullPointerException was expected with null Context argument to "
+                    + "KeyChain.getPrivateKey(Context, String).");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testGetPrivateKeyOnMainThreadFails() throws InterruptedException {
+        final CountDownLatch waiter = new CountDownLatch(1);
+        new Handler(getContext().getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    KeyChain.getPrivateKey(getContext(), "");
+                    fail("IllegalStateException was expected for calling "
+                            + "KeyChain.getPrivateKey(Context, String) on main thread");
+                } catch (IllegalStateException expected) {
+                } catch (Exception invalid) {
+                    fail("Expected IllegalStateException, received " + invalid);
+                } finally {
+                    waiter.countDown();
+                }
+            }
+        });
+        waiter.await();
     }
 
     /**

@@ -111,7 +111,7 @@ public:
    * - opening the stream,
    * - writing out the license,
    * - writing a message that this file has been auto-generated.
-   * If optionalLicense is NULL, a default license is used.
+   * If optionalLicense is nullptr, a default license is used.
    */
   bool startFile(const std::string &outPath, const std::string &outFileName,
                  const std::string &sourceFileName,

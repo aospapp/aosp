@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 
@@ -185,7 +184,7 @@ void RegPressureTracker::init(const MachineFunction *mf,
   reset();
 
   MF = mf;
-  TRI = MF->getTarget().getRegisterInfo();
+  TRI = MF->getSubtarget().getRegisterInfo();
   RCI = rci;
   MRI = &MF->getRegInfo();
   MBB = mbb;
@@ -305,6 +304,7 @@ static bool containsReg(ArrayRef<unsigned> RegUnits, unsigned RegUnit) {
   return std::find(RegUnits.begin(), RegUnits.end(), RegUnit) != RegUnits.end();
 }
 
+namespace {
 /// Collect this instruction's unique uses and defs into SmallVectors for
 /// processing defs and uses in order.
 ///
@@ -355,6 +355,7 @@ protected:
     }
   }
 };
+} // namespace
 
 /// Collect physical and virtual register operands.
 static void collectOperands(const MachineInstr *MI,

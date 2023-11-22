@@ -4,8 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _PWL_COMBOBOX_H_
-#define _PWL_COMBOBOX_H_
+#ifndef FPDFSDK_INCLUDE_PDFWINDOW_PWL_COMBOBOX_H_
+#define FPDFSDK_INCLUDE_PDFWINDOW_PWL_COMBOBOX_H_
+
+#include "PWL_Edit.h"
+#include "PWL_ListBox.h"
+#include "PWL_Wnd.h"
 
 class CPWL_CBEdit : public CPWL_Edit
 {
@@ -23,8 +27,8 @@ public:
 public:
 	virtual FX_BOOL				OnLButtonUp(const CPDF_Point & point, FX_DWORD nFlag);
 
-	virtual FX_BOOL				OnKeyDown(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag);
-	virtual FX_BOOL				OnChar(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag);
+	FX_BOOL				OnKeyDownWithExit(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag);
+	FX_BOOL				OnCharWithExit(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag);
 };
 
 #define PWL_COMBOBOX_BUTTON_WIDTH		13
@@ -111,5 +115,4 @@ private:
 	void*							m_pFormFiller;
 };
 
-#endif // !defined(AFX_PWL_COMBOBOX_H__9D6645F8_64AA_4806_94E8_95FDEDD39C17__INCLUDED_)
-
+#endif  // FPDFSDK_INCLUDE_PDFWINDOW_PWL_COMBOBOX_H_

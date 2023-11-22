@@ -1,6 +1,6 @@
 # adbd seclabel is specified in init.rc since
 # it lives in the rootfs and has no unique file type.
-type adbd, domain;
+type adbd, domain, mlstrustedsubject;
 
 userdebug_or_eng(`
   allow adbd self:process setcurrent;
@@ -41,10 +41,10 @@ allow adbd sdcard_type:file create_file_perms;
 allow adbd anr_data_file:dir r_dir_perms;
 allow adbd anr_data_file:file r_file_perms;
 
-# Set service.adb.*, sys.powerctl properties.
-unix_socket_connect(adbd, property, init)
-allow adbd shell_prop:property_service set;
-allow adbd powerctl_prop:property_service set;
+# Set service.adb.*, sys.powerctl, and sys.usb.ffs.ready properties.
+set_prop(adbd, shell_prop)
+set_prop(adbd, powerctl_prop)
+set_prop(adbd, ffs_prop)
 
 # Run /system/bin/bu
 allow adbd system_file:file rx_file_perms;
@@ -73,12 +73,19 @@ allow adbd app_data_file:dir search;
 allow adbd app_data_file:sock_file write;
 allow adbd appdomain:unix_stream_socket connectto;
 
-# b/18078338 - allow read access to executable types on /system
-# to assist with debugging OTA issues.
-allow adbd exec_type:file r_file_perms;
-
 # ndk-gdb invokes adb pull of app_process, linker, and libc.so.
 allow adbd zygote_exec:file r_file_perms;
 allow adbd system_file:file r_file_perms;
 
 allow adbd kernel:security read_policy;
+
+allow adbd surfaceflinger_service:service_manager find;
+allow adbd bootchart_data_file:dir search;
+allow adbd bootchart_data_file:file r_file_perms;
+
+# Allow access to external storage; we have several visible mount points under /storage
+# and symlinks to primary storage at places like /storage/sdcard0 and /mnt/user/0/primary
+allow adbd storage_file:dir r_dir_perms;
+allow adbd storage_file:lnk_file r_file_perms;
+allow adbd mnt_user_file:dir r_dir_perms;
+allow adbd mnt_user_file:lnk_file r_file_perms;

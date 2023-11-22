@@ -17,8 +17,8 @@
 #ifndef ART_RUNTIME_NTH_CALLER_VISITOR_H_
 #define ART_RUNTIME_NTH_CALLER_VISITOR_H_
 
+#include "art_method.h"
 #include "base/mutex.h"
-#include "mirror/art_method.h"
 #include "stack.h"
 
 namespace art {
@@ -26,21 +26,24 @@ class Thread;
 
 // Walks up the stack 'n' callers, when used with Thread::WalkStack.
 struct NthCallerVisitor : public StackVisitor {
-  NthCallerVisitor(Thread* thread, size_t n, bool include_runtime_and_upcalls = false)
-      : StackVisitor(thread, NULL), n(n), include_runtime_and_upcalls_(include_runtime_and_upcalls),
-        count(0), caller(NULL) {}
+  NthCallerVisitor(Thread* thread, size_t n_in, bool include_runtime_and_upcalls = false)
+      : StackVisitor(thread, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
+        n(n_in),
+        include_runtime_and_upcalls_(include_runtime_and_upcalls),
+        count(0),
+        caller(nullptr) {}
 
   bool VisitFrame() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    mirror::ArtMethod* m = GetMethod();
+    ArtMethod* m = GetMethod();
     bool do_count = false;
-    if (m == NULL || m->IsRuntimeMethod()) {
+    if (m == nullptr || m->IsRuntimeMethod()) {
       // Upcall.
       do_count = include_runtime_and_upcalls_;
     } else {
       do_count = true;
     }
     if (do_count) {
-      DCHECK(caller == NULL);
+      DCHECK(caller == nullptr);
       if (count == n) {
         caller = m;
         return false;
@@ -53,7 +56,7 @@ struct NthCallerVisitor : public StackVisitor {
   const size_t n;
   const bool include_runtime_and_upcalls_;
   size_t count;
-  mirror::ArtMethod* caller;
+  ArtMethod* caller;
 };
 
 }  // namespace art

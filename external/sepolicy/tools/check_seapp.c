@@ -36,6 +36,12 @@ enum map_match {
 	map_matched
 };
 
+const char *map_match_str[] = {
+	"do not match",
+	"match on all inputs",
+	"match on everything"
+};
+
 /**
  * Whether or not the "key" from a key vaue pair is considered an
  * input or an output.
@@ -126,9 +132,6 @@ struct policy_info {
 /** Set to !0 to enable verbose logging */
 static int logging_verbose = 0;
 
-/** set to !0 to enable strict checking of duplicate entries */
-static int is_strict = 0;
-
 /** file handle to the output file */
 static FILE *output_file = NULL;
 
@@ -157,11 +160,11 @@ static policy_info pol = {
 key_map rules[] = {
                 /*Inputs*/
                 { .name = "isSystemServer", .type = dt_bool,   .dir = dir_in,  .data = NULL },
+                { .name = "isOwner",        .type = dt_bool,   .dir = dir_in,  .data = NULL },
                 { .name = "user",           .type = dt_string, .dir = dir_in,  .data = NULL },
                 { .name = "seinfo",         .type = dt_string, .dir = dir_in,  .data = NULL },
                 { .name = "name",           .type = dt_string, .dir = dir_in,  .data = NULL },
                 { .name = "path",           .type = dt_string, .dir = dir_in,  .data = NULL },
-                { .name = "sebool",         .type = dt_string, .dir = dir_in,  .data = NULL },
                 /*Outputs*/
                 { .name = "domain",         .type = dt_string, .dir = dir_out, .data = NULL },
                 { .name = "type",           .type = dt_string, .dir = dir_out, .data = NULL },
@@ -244,11 +247,9 @@ static int key_map_validate(key_map *m, int lineno) {
 
 	int rc = 1;
 	int ret = 1;
-	int resp;
 	char *key = m->name;
 	char *value = m->data;
 	data_type type = m->type;
-	sepol_bool_key_t *se_key;
 
 	log_info("Validating %s=%s\n", key, value);
 
@@ -279,34 +280,6 @@ static int key_map_validate(key_map *m, int lineno) {
 	 */
 	if (!pol.policy_file) {
 		goto out;
-	}
-	else if (!strcasecmp(key, "sebool")) {
-
-		ret = sepol_bool_key_create(pol.handle, value, &se_key);
-		if (ret < 0) {
-			log_error("Could not create selinux boolean key, error: %s\n",
-					strerror(errno));
-			rc = 0;
-			goto out;
-		}
-
-		ret = sepol_bool_exists(pol.handle, pol.db, se_key, &resp);
-		if (ret < 0) {
-			log_error("Could not check selinux boolean, error: %s\n",
-					strerror(errno));
-			rc = 0;
-			sepol_bool_key_free(se_key);
-			goto out;
-		}
-
-		if(!resp) {
-			log_error("Could not find selinux boolean \"%s\" on line: %d in file: %s\n",
-					value, lineno, out_file_name);
-			rc = 0;
-			sepol_bool_key_free(se_key);
-			goto out;
-		}
-		sepol_bool_key_free(se_key);
 	}
 	else if (!strcasecmp(key, "type") || !strcasecmp(key, "domain")) {
 
@@ -520,6 +493,10 @@ static rule_map *rule_map_new(kvp keys[], size_t num_of_keys, int lineno) {
 	rule_map *new_map = NULL;
 	kvp *k = NULL;
 	key_map *r = NULL, *x = NULL;
+	bool seen[KVP_NUM_OF_RULES];
+
+	for (i = 0; i < KVP_NUM_OF_RULES; i++)
+		seen[i] = false;
 
 	new_map = calloc(1, (num_of_keys * sizeof(key_map)) + sizeof(rule_map));
 	if (!new_map)
@@ -544,6 +521,12 @@ static rule_map *rule_map_new(kvp keys[], size_t num_of_keys, int lineno) {
 				}
 				continue;
 			}
+
+			if (seen[j]) {
+					log_error("Duplicated key: %s\n", k->key);
+					goto err;
+			}
+			seen[j] = true;
 
 			memcpy(r, x, sizeof(key_map));
 
@@ -608,7 +591,7 @@ err:
 			free_kvp(k);
 		}
 	}
-	exit(EXIT_FAILURE);
+	return NULL;
 }
 
 /**
@@ -621,7 +604,6 @@ static void usage() {
 		        "and allows later declarations to override previous ones on a match.\n"
 		        "Options:\n"
 		        "-h - print this help message\n"
-			"-s - enable strict checking of duplicates. This causes the program to exit on a duplicate entry with a non-zero exit status\n"
 		        "-v - enable verbose debugging informations\n"
 		        "-p policy file - specify policy file for strict checking of output selectors against the policy\n"
 		        "-o output file - specify output file, default is stdout\n");
@@ -721,9 +703,6 @@ static void handle_options(int argc, char *argv[]) {
 		case 'p':
 			pol.policy_file_name = optarg;
 			break;
-		case 's':
-			is_strict = 1;
-			break;
 		case 'v':
 			log_set_verbose();
 			break;
@@ -821,7 +800,6 @@ static void rule_add(rule_map *rm) {
 	ENTRY *f;
 	hash_entry *entry;
 	hash_entry *tmp;
-	char *preserved_key;
 
 	e.key = rm->key;
 
@@ -838,41 +816,12 @@ static void rule_add(rule_map *rm) {
 		log_info("Existing entry found!\n");
 		tmp = (hash_entry *)f->data;
 		cmp = rule_map_cmp(rm, tmp->r);
-		log_info("Comparing on rule map ret: %d\n", cmp);
-		/* Override be freeing the old rule map and updating
-		   the pointer */
-		if(cmp != map_matched) {
-
-			/*
-			 * DO NOT free key pointers given to the hash map, instead
-			 * free the new key. The ordering here is critical!
-			 */
-			preserved_key = tmp->r->key;
-			rule_map_free(tmp->r, rule_map_preserve_key);
-/*  hdestroy() frees comparsion keys for non glibc */
-#ifdef __GLIBC__
-			free(rm->key);
-#endif
-			rm->key = preserved_key;
-			tmp->r = rm;
-		}
-		/* Duplicate */
-		else {
-			/* if is_strict is set, then don't allow duplicates */
-			if(is_strict) {
-				log_error("Duplicate line detected in file: %s\n"
-					"Lines %d and %d match!\n",
-					out_file_name, tmp->r->lineno, rm->lineno);
-				rule_map_free(rm, rule_map_destroy_key);
-				goto err;
-			}
-
-			/* Allow duplicates, just drop the entry*/
-			log_info("Duplicate line detected in file: %s\n"
-					"Lines %d and %d match!\n",
-					out_file_name, tmp->r->lineno, rm->lineno);
-			rule_map_free(rm, rule_map_destroy_key);
-		}
+		log_error("Duplicate line detected in file: %s\n"
+			  "Lines %d and %d %s!\n",
+			  out_file_name, tmp->r->lineno, rm->lineno,
+			  map_match_str[cmp]);
+		rule_map_free(rm, rule_map_destroy_key);
+		goto err;
 	}
 	/* It wasn't found, just add the rule map to the table */
 	else {
@@ -966,6 +915,8 @@ static void parse() {
 		} /*End token parsing */
 
 		rule_map *r = rule_map_new(keys, token_cnt, lineno);
+		if (!r)
+			goto err;
 		rule_add(r);
 
 	} /* End file parsing */

@@ -30,19 +30,24 @@ llvm_nm_STATIC_LIBRARIES := \
   libLLVMMipsDesc \
   libLLVMMipsAsmPrinter \
   libLLVMMipsDisassembler \
-  libLLVMX86CodeGen \
   libLLVMX86Info \
   libLLVMX86Desc \
   libLLVMX86AsmPrinter \
   libLLVMX86AsmParser \
+  libLLVMX86CodeGen \
   libLLVMX86Utils \
   libLLVMX86Disassembler \
+  libLLVMCodeGen \
+  libLLVMTransformUtils \
+  libLLVMTarget \
+  libLLVMAnalysis \
   libLLVMObject             \
   libLLVMBitReader          \
   libLLVMMC                 \
   libLLVMMCParser           \
   libLLVMCore               \
   libLLVMSupport            \
+  libLLVMMCDisassembler \
 
 include $(CLEAR_VARS)
 

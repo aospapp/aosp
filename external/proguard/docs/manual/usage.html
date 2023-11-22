@@ -5,19 +5,21 @@
 <meta http-equiv="content-style-type" content="text/css">
 <link rel="stylesheet" type="text/css" href="style.css">
 <title>ProGuard Usage</title>
+</head>
+<body>
+
 <script type="text/javascript" language="JavaScript">
 <!--
 if (window.self==window.top)
-  window.top.location.replace("../index.html#"+window.location.pathname+window.location.hash);
-else {
-  var hash="#"+window.location.pathname.replace(window.top.location.pathname.replace("index.html", ""), "");
-  if (window.top.location.hash!=hash)
-    window.top.location.hash=hash;
-}
+  document.write('<a class="largebutton" target="_top" href="../index.html#manual/usage.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/">Saikoa</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
 //-->
 </script>
-</head>
-<body>
+<noscript>
+<a class="largebutton" target="_top"  href="../index.html#manual/usage.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/">Saikoa</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
 
 <h2>Usage</h2>
 
@@ -95,8 +97,8 @@ The sections below provide more details:
 <dt><a name="injars"><code><b>-injars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
 
-<dd>Specifies the input jars (or wars, ears, zips, or directories) of the
-    application to be processed. The class files in these jars will be
+<dd>Specifies the input jars (or aars, wars, ears, zips, apks, or directories)
+    of the application to be processed. The class files in these jars will be
     processed and written to the output jars. By default, any non-class files
     will be copied without changes. Please be aware of any temporary files
     (e.g. created by IDEs), especially if you are reading your input files
@@ -108,8 +110,8 @@ The sections below provide more details:
 <dt><a name="outjars"><code><b>-outjars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
 
-<dd>Specifies the names of the output jars (or wars, ears, zips, or
-    directories). The processed input of the preceding <code>-injars</code>
+<dd>Specifies the names of the output jars (or aars, wars, ears, zips, apks,
+    or directories). The processed input of the preceding <code>-injars</code>
     options will be written to the named jars. This allows you to collect the
     contents of groups of input jars into corresponding groups of output jars.
     In addition, the output entries can be filtered, as explained in
@@ -125,15 +127,16 @@ The sections below provide more details:
 <dt><a name="libraryjars"><code><b>-libraryjars</b></code></a>
     <a href="#classpath"><i>class_path</i></a></dt>
 
-<dd>Specifies the library jars (or wars, ears, zips, or directories) of the
-    application to be processed. The files in these jars will not be included
-    in the output jars. The specified library jars should at least contain the
-    class files that are <i>extended</i> by application class files. Library
-    class files that are only <i>called</i> needn't be present, although their
-    presence can improve the results of the optimization step. The entries in
-    the class path can be filtered, as explained in the <a
-    href="#filefilters">filters</a> section. For better readability, class path
-    entries can be specified using multiple <code>-libraryjars</code> options.
+<dd>Specifies the library jars (or aars, wars, ears, zips, apks, or
+    directories) of the application to be processed. The files in these jars
+    will not be included in the output jars. The specified library jars should
+    at least contain the class files that are <i>extended</i> by application
+    class files. Library class files that are only <i>called</i> needn't be
+    present, although their presence can improve the results of the
+    optimization step. The entries in the class path can be filtered, as
+    explained in the <a href="#filefilters">filters</a> section. For better
+    readability, class path entries can be specified using
+    multiple <code>-libraryjars</code> options.
     <p>
     Please note that the boot path and the class path set for running ProGuard
     are not considered when looking for library classes. This means that you
@@ -176,26 +179,34 @@ The sections below provide more details:
 <dt><a name="keepdirectories"><code><b>-keepdirectories</b></code></a>
     [<i><a href="#filefilters">directory_filter</a></i>]</dt>
 
-<dd>Specifies the directories to be kept in the output jars (or wars, ears,
-    zips, or directories). By default, directory entries are removed. This
-    reduces the jar size, but it may break your program if the code tries to
-    find them with constructs like
-    "<code>mypackage.MyClass.class.getResource("")</code>". You'll then want to
-    keep the directory corresponding to the package, "<code>-keepdirectories
-    mypackage</code>". If the option is specified without a filter, all
-    directories are kept. With a filter, only matching directories are
-    kept.</dd>
+<dd>Specifies the directories to be kept in the output jars (or aars, wars,
+    ears, zips, apks, or directories). By default, directory entries are
+    removed. This reduces the jar size, but it may break your program if the
+    code tries to find them with constructs like
+    "<code>mypackage.MyClass.class.getResource("")</code>". You'll then want
+    to keep the directory corresponding to the package,
+    "<code>-keepdirectories mypackage</code>". If the option is specified
+    without a filter, all directories are kept. With a filter, only matching
+    directories are kept. For instance,
+    "<code>-keepdirectories mydirectory</code>" matches the specified
+    directory, "<code>-keepdirectories mydirectory/*</code>" matches its
+    immediate subdirectories, and
+    "<code>-keepdirectories mydirectory/**</code>" matches all of its
+    subdirectories.</dd>
 
 <dt><a name="target"><code><b>-target</b></code></a> <i>version</i></dt>
 
 <dd>Specifies the version number to be set in the processed class files. The
     version number can be one of <code>1.0</code>, <code>1.1</code>,
     <code>1.2</code>, <code>1.3</code>, <code>1.4</code>, <code>1.5</code> (or
-    just <code>5</code>), <code>1.6</code> (or just <code>6</code>), or
-     <code>1.7</code> (or just <code>7</code>). By default, the version numbers
-    of the class files are left unchanged. For example, you may want to
+    just <code>5</code>), <code>1.6</code> (or just <code>6</code>),
+    <code>1.7</code> (or just <code>7</code>), or <code>1.8</code> (or
+    just <code>8</code>). By default, the version numbers of the class files
+    are left unchanged. For example, you may want to
     <a href="examples.html#upgrade">upgrade class files to Java 6</a>, by
-    changing their version numbers and having them preverified.</dd>
+    changing their version numbers and having them preverified. You probably
+    shouldn't downgrade the version numbers of class files, since the code
+    may contain constructs that are not supported in older versions.</dd>
 
 <dt><a name="forceprocessing"><code><b>-forceprocessing</b></code></a></dt>
 
@@ -380,9 +391,9 @@ The sections below provide more details:
     optimization step. For instance, when inlining a public getter, it may be
     necessary to make the accessed field public too. Although Java's binary
     compatibility specifications formally do not require this (cfr. <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/j.title.doc.html"
-    >The Java Language Specification, Second Edition</a>, <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/binaryComp.doc.html#47259"
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/j3TOC.html"
+    >The Java Language Specification, Third Edition</a>, <a href=
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/binaryComp.html#13.4.6"
     >Section 13.4.6</a>), some virtual machines would have problems with the
     processed code otherwise. Only applicable when optimizing (and when
     obfuscating with the <a
@@ -399,14 +410,14 @@ The sections below provide more details:
     classes don't implement all interface methods. This can reduce the size of
     the output by reducing the total number of classes. Note that Java's
     binary compatibility specifications allow such constructs (cfr. <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/j.title.doc.html"
-    >The Java Language Specification, Second Edition</a>, <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/binaryComp.doc.html#45347"
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/j3TOC.html"
+    >The Java Language Specification, Third Edition</a>, <a href=
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/binaryComp.html#13.5.3"
     >Section 13.5.3</a>), even if they are not allowed in the Java language
     (cfr. <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/j.title.doc.html"
-    >The Java Language Specification, Second Edition</a>, <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/classes.doc.html#34031"
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/j3TOC.html"
+    >The Java Language Specification, Third Edition</a>, <a href=
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/classes.html#8.1.4"
     >Section 8.1.4</a>). Only applicable when optimizing.
     <p>
     <i>Counter-indication:</i> setting this option can reduce the performance
@@ -500,26 +511,27 @@ The sections below provide more details:
 
 <dd>Specifies to apply aggressive overloading while obfuscating. Multiple
     fields and methods can then get the same names, as long as their arguments
-    and return types are different (not just their arguments). This option can
-    make the processed code even smaller (and less comprehensible). Only
-    applicable when obfuscating.
+    and return types are different, as required by Java bytecode (not just
+    their arguments, as required by the Java language). This option can make
+    the processed code even smaller (and less comprehensible). Only applicable
+    when obfuscating.
     <p>
     <i>Counter-indication:</i> the resulting class files fall within the Java
     bytecode specification (cfr. <a href=
-    "http://java.sun.com/docs/books/vmspec/2nd-edition/html/VMSpecTOC.doc.html"
+    "http://docs.oracle.com/javase/specs/jvms/se5.0/html/VMSpecTOC.doc.html"
     >The Java Virtual Machine Specification, Second Edition</a>, first
     paragraphs of <a href=
-    "http://java.sun.com/docs/books/vmspec/2nd-edition/html/ClassFile.doc.html#2877"
+    "http://docs.oracle.com/javase/specs/jvms/se5.0/html/ClassFile.doc.html#2877"
     >Section 4.5</a> and <a href=
-    "http://java.sun.com/docs/books/vmspec/2nd-edition/html/ClassFile.doc.html#1513"
+    "http://docs.oracle.com/javase/specs/jvms/se5.0/html/ClassFile.doc.html#1513"
     >Section 4.6</a>), even though this kind of overloading is not allowed in
     the Java language (cfr. <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/j.title.doc.html"
-    >The Java Language Specification, Second Edition</a>, <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/classes.doc.html#40898"
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/j3TOC.html"
+    >The Java Language Specification, Third Edition</a>, <a href=
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/classes.html#8.3"
     >Section 8.3</a> and <a href=
-    "http://java.sun.com/docs/books/jls/second_edition/html/classes.doc.html#227768"
-    >Section 8.4.7</a>). Still, some tools have problems with it. Notably:
+    "http://docs.oracle.com/javase/specs/jls/se5.0/html/classes.html#8.4.5"
+    >Section 8.4.5</a>). Still, some tools have problems with it. Notably:
     <ul>
     <li>Sun's JDK 1.2.2 <code>javac</code> compiler produces an exception when
         compiling with such a library (cfr. <a href=
@@ -529,6 +541,8 @@ The sections below provide more details:
         primitive fields.</li>
     <li>Sun's JRE 1.5 <code>pack200</code> tool reportedly has problems with
         overloaded class members.</li>
+    <li>The class <code>java.lang.reflect.Proxy</code> can't handle overloaded
+        methods.</li>
     <li>Google's Dalvik VM can't handle overloaded static fields.</li>
     </ul></dd>
 
@@ -591,7 +605,7 @@ The sections below provide more details:
 
 <dd>Specifies to repackage all class files that are renamed, by moving them
     into the single given package. Without argument or with an empty string
-    (''), the package is removed completely. This option option overrides the
+    (''), the package is removed completely. This option overrides the
     <a
     href="#flattenpackagehierarchy"><code>-flattenpackagehierarchy</code></a>
     option. It is another example of further <a
@@ -606,31 +620,21 @@ The sections below provide more details:
     this option.</dd>
 
 <dt><a name="keepattributes"><code><b>-keepattributes</b></code></a>
-    [<i><a href="#filters">attribute_filter</a></i>]</dt>
+    [<i><a href="attributes.html">attribute_filter</a></i>]</dt>
 
 <dd>Specifies any optional attributes to be preserved. The attributes can be
     specified with one or more <code>-keepattributes</code> directives. The
-    optional filter is a comma-separated list of attribute names. Attribute
-    names can contain <b>?</b>, <b>*</b>, and <b>**</b> wildcards, and they
-    can be preceded by the <b>!</b> negator. Typical optional attributes are
-    <code>Exceptions</code>, <code>Signature</code>, <code>Deprecated</code>,
-    <code>SourceFile</code>, <code>SourceDir</code>,
-    <code>LineNumberTable</code>, <code>LocalVariableTable</code>,
-    <code>LocalVariableTypeTable</code>, <code>Synthetic</code>,
-    <code>EnclosingMethod</code>, <code>RuntimeVisibleAnnotations</code>,
-    <code>RuntimeInvisibleAnnotations</code>,
-    <code>RuntimeVisibleParameterAnnotations</code>,
-    <code>RuntimeInvisibleParameterAnnotations</code>, and
-    <code>AnnotationDefault</code>. The <code>InnerClasses</code> attribute
-    name can be specified as well, referring to the source name part of this
-    attribute. For example, you should at least keep the
-    <code>Exceptions</code>, <code>InnerClasses</code>, and
-    <code>Signature</code> attributes
-    when <a href="examples.html#library">processing a library</a>. You should
-    also keep the <code>SourceFile</code> and
-    <code>LineNumberTable</code> attributes
-    for <a href="examples.html#stacktrace">producing useful obfuscated stack
-    traces</a>. Finally, you may want
+    optional filter is a comma-separated list
+    of <a href="attributes.html">attribute names</a> that Java virtual
+    machines and ProGuard support. Attribute names can
+    contain <b>?</b>, <b>*</b>, and <b>**</b> wildcards, and they can be
+    preceded by the <b>!</b> negator. For example, you should at least keep
+    the <code>Exceptions</code>, <code>InnerClasses</code>, and
+    <code>Signature</code> attributes when
+    <a href="examples.html#library">processing a library</a>. You should also
+    keep the <code>SourceFile</code> and <code>LineNumberTable</code>
+    attributes for <a href="examples.html#stacktrace">producing useful
+    obfuscated stack traces</a>. Finally, you may want
     to <a href="examples.html#annotations">keep annotations</a> if your code
     depends on them. Only applicable when obfuscating.</dd>
 
@@ -689,7 +693,13 @@ The sections below provide more details:
     by setting the environment variable <code>LANG</code> or the Java system
     property <code>file.encoding</code>. For an example,
     see <a href="examples.html#resourcefiles">processing resource files</a>.
-    Only applicable when obfuscating.</dd>
+    Only applicable when obfuscating.
+    <p>
+    <i>Caveat:</i> You probably only want to apply this option to text files,
+    since parsing and adapting binary files as text files can cause unexpected
+    problems. Therefore, make sure that you specify a sufficiently narrow
+    filter.</dd>
+
 
 </dl>
 <p>
@@ -732,7 +742,7 @@ The sections below provide more details:
     [<i><a href="#filters">class_filter</a></i>]</dt>
 
 <dd>Specifies not to print notes about potential mistakes or omissions in the
-    configuration, like typos in class names, or like missing options that
+    configuration, such as typos in class names or missing options that
     might be useful. The optional filter is a regular expression; ProGuard
     doesn't print notes about classes with matching names.</dd>
 
@@ -787,7 +797,9 @@ The order of the entries determines their priorities, in case of duplicates.
 Each input entry can be:
 <ul>
 <li>A class file or resource file,</li>
+<li>An apk file, containing any of the above,</li>
 <li>A jar file, containing any of the above,</li>
+<li>An aar file, containing any of the above,</li>
 <li>A war file, containing any of the above,</li>
 <li>An ear file, containing any of the above,</li>
 <li>A zip file, containing any of the above,</li>
@@ -795,15 +807,18 @@ Each input entry can be:
 </ul>
 <p>
 The paths of directly specified class files and resource files is ignored, so
-class files should generally be part of a jar file, a war file, an ear file, a
-zip file, or a directory. In addition, the paths of class files should not have
-any additional directory prefixes inside the archives or directories.
+class files should generally be part of a jar file, an aar file, a war file,
+an ear file, a zip file, or a directory. In addition, the paths of class files
+should not have any additional directory prefixes inside the archives or
+directories.
 
 <p>
 Each output entry can be:
 <ul>
-<li>A jar file, in which all processed class files and resource files will be
+<li>An apk file, in which all class files and resource files will be
     collected.</li>
+<li>A jar file, in which any and all of the above will be collected,</li>
+<li>An aar file, in which any and all of the above will be collected,</li>
 <li>A war file, in which any and all of the above will be collected,</li>
 <li>An ear file, in which any and all of the above will be collected,</li>
 <li>A zip file, in which any and all of the above will be collected,</li>
@@ -824,10 +839,12 @@ href="#filename">file names</a> below.
 <p>
 In addition, ProGuard provides the possibility to filter the class path
 entries and their contents, based on their full relative file names. Each
-class path entry can be followed by up to 5 types of <a
+class path entry can be followed by up to 7 types of <a
 href="#filefilters">file filters</a> between parentheses, separated by
 semi-colons:
 <ul>
+<li>A filter for all aar names that are encountered,</li>
+<li>A filter for all apk names that are encountered,</li>
 <li>A filter for all zip names that are encountered,</li>
 <li>A filter for all ear names that are encountered,</li>
 <li>A filter for all war names that are encountered,</li>
@@ -836,11 +853,11 @@ semi-colons:
     encountered.</li>
 </ul>
 <p>
-If fewer than 5 filters are specified, they are assumed to be the latter
+If fewer than 7 filters are specified, they are assumed to be the latter
 filters. Any empty filters are ignored. More formally, a filtered class path
 entry looks like this:
 <pre>
-<i>classpathentry</i><b>(</b>[[[[<i>zipfilter</i><b>;</b>]<i>earfilter</i><b>;</b>]<i>warfilter</i><b>;</b>]<i>jarfilter</i><b>;</b>]<i>filefilter</i><b>)</b>
+<i>classpathentry</i><b>(</b>[[[[[[<i>aarfilter</i><b>;</b>]<i>apkfilter</i><b>;</b>]<i>zipfilter</i><b>;</b>]<i>earfilter</i><b>;</b>]<i>warfilter</i><b>;</b>]<i>jarfilter</i><b>;</b>]<i>filefilter</i><b>)</b>
 </pre>
 <p>
 Square brackets "[]" mean that their contents are optional.
@@ -933,7 +950,7 @@ href="examples.html#filtering">filtering input and output</a>.
 
 ProGuard offers options with filters for many different aspects of the
 configuration: names of files, directories, classes, packages, attributes,
-optimizations, etc. 
+optimizations, etc.
 <p>
 A filter is a list of comma-separated names that can contain wildcards. Only
 names that match an item on the list pass the filter. The supported wildcards
@@ -1024,6 +1041,15 @@ are not removed in the shrinking step, and not renamed in the obfuscation step.
 <h2><a name="keepoptionmodifiers">Keep Option Modifiers</a></h2>
 
 <dl>
+<dt><a name="includedescriptorclasses"><code><b>includedescriptorclasses</b></code></a></dt>
+
+<dd>Specifies that any classes in the type descriptors of the methods and
+    fields that the <a href="#keep">-keep</a> option keeps should be kept as
+    well. This is typically useful when <a href="examples.html#native">keeping
+    native method names</a>, to make sure that the parameter types of native
+    methods aren't renamed either. Their signatures then remain completely
+    unchanged and compatible with the native libraries.</dd>
+
 <dt><a name="allowshrinking"><code><b>allowshrinking</b></code></a></dt>
 
 <dd>Specifies that the entry points specified in the <a href="#keep">-keep</a>
@@ -1237,10 +1263,9 @@ files.
 </ul>
 
 <hr />
-<noscript><div><a target="_top" href="../index.html" class="button">Show menu</a></div></noscript>
 <address>
-Copyright &copy; 2002-2013
-<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a>.
+Copyright &copy; 2002-2014
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.saikoa.com/">Saikoa</a>.
 </address>
 </body>
 </html>

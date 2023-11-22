@@ -6,6 +6,8 @@
 #include "neverallow.h"
 #include "perm.h"
 #include "typecmp.h"
+#include "booleans.h"
+#include "attribute.h"
 #include "utils.h"
 
 #define NUM_COMPONENTS (int) (sizeof(analyze_components)/sizeof(analyze_components[0]))
@@ -20,7 +22,9 @@ static struct {
     COMP(dups),
     COMP(neverallow),
     COMP(permissive),
-    COMP(typecmp)
+    COMP(typecmp),
+    COMP(booleans),
+    COMP(attribute)
 };
 
 void usage(char *arg0)

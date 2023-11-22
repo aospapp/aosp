@@ -19,7 +19,6 @@ package com.android.providers.contacts;
 import static com.android.providers.contacts.TestUtils.cv;
 
 import android.accounts.Account;
-import android.content.ContentProvider;
 import android.content.ContentProviderOperation;
 import android.content.ContentProviderResult;
 import android.content.ContentResolver;
@@ -27,14 +26,13 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Entity;
 import android.content.EntityIterator;
-import android.content.pm.UserInfo;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.UserManager;
+import android.os.Bundle;
 import android.provider.CallLog.Calls;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
@@ -94,6 +92,7 @@ import com.android.providers.contacts.testutil.DeletedContactUtil;
 import com.android.providers.contacts.testutil.RawContactUtil;
 import com.android.providers.contacts.testutil.TestUtil;
 import com.android.providers.contacts.tests.R;
+import com.android.providers.contacts.util.NullContentProvider;
 
 import com.google.android.collect.Lists;
 import com.google.android.collect.Sets;
@@ -309,6 +308,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.DATA_SET,
                 RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
                 RawContacts.SOURCE_ID,
+                RawContacts.BACKUP_ID,
                 RawContacts.VERSION,
                 RawContacts.RAW_CONTACT_IS_USER_PROFILE,
                 RawContacts.DIRTY,
@@ -318,7 +318,6 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.DISPLAY_NAME_SOURCE,
                 RawContacts.PHONETIC_NAME,
                 RawContacts.PHONETIC_NAME_STYLE,
-                RawContacts.NAME_VERIFIED,
                 RawContacts.SORT_KEY_PRIMARY,
                 RawContacts.SORT_KEY_ALTERNATIVE,
                 RawContactsColumns.PHONEBOOK_LABEL_PRIMARY,
@@ -343,6 +342,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertProjection(Data.CONTENT_URI, new String[]{
                 Data._ID,
                 Data.RAW_CONTACT_ID,
+                Data.HASH_ID,
                 Data.DATA_VERSION,
                 Data.IS_PRIMARY,
                 Data.IS_SUPER_PRIMARY,
@@ -363,6 +363,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 Data.DATA13,
                 Data.DATA14,
                 Data.DATA15,
+                Data.CARRIER_PRESENCE,
                 Data.SYNC1,
                 Data.SYNC2,
                 Data.SYNC3,
@@ -382,9 +383,9 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.DATA_SET,
                 RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
                 RawContacts.SOURCE_ID,
+                RawContacts.BACKUP_ID,
                 RawContacts.VERSION,
                 RawContacts.DIRTY,
-                RawContacts.NAME_VERIFIED,
                 RawContacts.RAW_CONTACT_IS_USER_PROFILE,
                 Contacts._ID,
                 Contacts.DISPLAY_NAME_PRIMARY,
@@ -449,6 +450,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 Data.DATA13,
                 Data.DATA14,
                 Data.DATA15,
+                Data.CARRIER_PRESENCE,
                 Data.SYNC1,
                 Data.SYNC2,
                 Data.SYNC3,
@@ -530,6 +532,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 Data.DATA13,
                 Data.DATA14,
                 Data.DATA15,
+                Data.CARRIER_PRESENCE,
                 Data.SYNC1,
                 Data.SYNC2,
                 Data.SYNC3,
@@ -547,10 +550,10 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.DATA_SET,
                 RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
                 RawContacts.SOURCE_ID,
+                RawContacts.BACKUP_ID,
                 RawContacts.VERSION,
                 RawContacts.DELETED,
                 RawContacts.DIRTY,
-                RawContacts.NAME_VERIFIED,
                 RawContacts.SYNC1,
                 RawContacts.SYNC2,
                 RawContacts.SYNC3,
@@ -607,9 +610,9 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 RawContacts.DATA_SET,
                 RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
                 RawContacts.SOURCE_ID,
+                RawContacts.BACKUP_ID,
                 RawContacts.VERSION,
                 RawContacts.DIRTY,
-                RawContacts.NAME_VERIFIED,
                 RawContacts.DELETED,
                 RawContacts.SYNC1,
                 RawContacts.SYNC2,
@@ -637,6 +640,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 Data.DATA13,
                 Data.DATA14,
                 Data.DATA15,
+                Data.CARRIER_PRESENCE,
                 Data.SYNC1,
                 Data.SYNC2,
                 Data.SYNC3,
@@ -1780,6 +1784,35 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     }
 
     /**
+     * Test for enterprise caller-id.  Corp profile exists, but it returns a null cursor.
+     */
+    public void testPhoneLookupEnterprise_withCorpProfile_nullResult() throws Exception {
+        setUpNullCorpProvider();
+
+        Uri uri1 = Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, "408-111-1111");
+
+        // No contacts profile, no data.
+        assertEquals(0, getCount(uri1));
+
+        // Insert a contact into the primary CP2.
+        long rawContactId = ContentUris.parseId(
+                mResolver.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Contact1", "Doe");
+        insertPhoneNumber(rawContactId, "408-111-1111");
+
+        // Do the query again and check the result.
+        Cursor c = mResolver.query(uri1, null, null, null, null);
+        try {
+            assertEquals(1, c.getCount());
+            c.moveToPosition(0);
+            long contactId = c.getLong(c.getColumnIndex(PhoneLookup._ID));
+            assertFalse(Contacts.isEnterpriseContactId(contactId)); // Make sure it's not rewritten.
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
      * Set up the corp user / CP2 and returns the corp CP2 instance.
      *
      * Create a second instance of CP2, and add it to the resolver, with the "user-id@" authority.
@@ -1789,9 +1822,142 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // Note here we use a standalone CP2 so it'll have its own db helper.
         // Also use AlteringUserContext here to report the corp user id.
-        return mActor.addProvider(StandaloneContactsProvider2.class,
+        SynchronousContactsProvider2 provider = mActor.addProvider(
+                StandaloneContactsProvider2.class,
                 "" + MockUserManager.CORP_USER.id + "@com.android.contacts",
                 new AlteringUserContext(mActor.getProviderContext(), MockUserManager.CORP_USER.id));
+        provider.wipeData();
+        return provider;
+    }
+
+    /**
+     * Similar to {@link setUpCorpProvider}, but the corp CP2 set up with this will always return
+     * null from query().
+     */
+    private void setUpNullCorpProvider() throws Exception {
+        mActor.mockUserManager.setUsers(MockUserManager.PRIMARY_USER, MockUserManager.CORP_USER);
+
+        mActor.addProvider(
+                NullContentProvider.class,
+                "" + MockUserManager.CORP_USER.id + "@com.android.contacts",
+                new AlteringUserContext(mActor.getProviderContext(), MockUserManager.CORP_USER.id));
+    }
+
+    /**
+     * Test for query of merged primary and work contacts.
+     * <p/>
+     * Note: in this test, we add one more provider instance for the authority
+     * "10@com.android.contacts" and use it as the corp cp2.
+     */
+    public void testQueryMergedDataPhones() throws Exception {
+        mActor.addPermissions("android.permission.INTERACT_ACROSS_USERS");
+
+        // Insert a contact to the primary CP2.
+        long rawContactId = ContentUris.parseId(
+                mResolver.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Contact1", "Primary");
+
+        insertPhoneNumber(rawContactId, "111-111-1111", false, false, Phone.TYPE_MOBILE);
+
+        // Insert a contact to the corp CP2, with different name and phone number.
+        final SynchronousContactsProvider2 corpCp2 = setUpCorpProvider();
+        rawContactId = ContentUris.parseId(
+                corpCp2.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        // Insert a name.
+        ContentValues cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE,
+                StructuredName.DISPLAY_NAME, "Contact2 Corp",
+                StructuredName.GIVEN_NAME, "Contact2",
+                StructuredName.FAMILY_NAME, "Corp");
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+        // Insert a number.
+        cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE,
+                Phone.NUMBER, "222-222-2222",
+                Phone.TYPE, Phone.TYPE_MOBILE);
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+
+        // Insert another contact to to corp CP2, with different name phone number and phone type
+        rawContactId = ContentUris.parseId(
+                corpCp2.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        // Insert a name.
+        cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE,
+                StructuredName.DISPLAY_NAME, "Contact3 Corp",
+                StructuredName.GIVEN_NAME, "Contact3",
+                StructuredName.FAMILY_NAME, "Corp");
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+        // Insert a number
+        cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE,
+                Phone.NUMBER, "333-333-3333",
+                Phone.TYPE, Phone.TYPE_HOME);
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+
+        // Execute the query to get the merged result.
+        Cursor c = mResolver.query(Phone.ENTERPRISE_CONTENT_URI, new String[]{Phone.CONTACT_ID,
+                Phone.DISPLAY_NAME, Phone.NUMBER}, Phone.TYPE + " = ?",
+                new String[]{String.valueOf(Phone.TYPE_MOBILE)}, null);
+        try {
+            // Verify the primary contact.
+            assertEquals(2, c.getCount());
+            assertEquals(3, c.getColumnCount());
+            c.moveToPosition(0);
+            assertEquals("Contact1 Primary", c.getString(c.getColumnIndex(Phone.DISPLAY_NAME)));
+            assertEquals("111-111-1111", c.getString(c.getColumnIndex(Phone.NUMBER)));
+            long contactId = c.getLong(c.getColumnIndex(Phone.CONTACT_ID));
+            assertFalse(Contacts.isEnterpriseContactId(contactId));
+
+            // Verify the enterprise contact.
+            c.moveToPosition(1);
+            assertEquals("Contact2 Corp", c.getString(c.getColumnIndex(Phone.DISPLAY_NAME)));
+            assertEquals("222-222-2222", c.getString(c.getColumnIndex(Phone.NUMBER)));
+            contactId = c.getLong(c.getColumnIndex(Phone.CONTACT_ID));
+            assertTrue(Contacts.isEnterpriseContactId(contactId));
+        } finally {
+            c.close();
+        }
+    }
+
+    /**
+     * Test for query of merged primary and work contacts.
+     * <p/>
+     * Note: in this test, we add one more provider instance for the authority
+     * "10@com.android.contacts" and use it as the corp cp2.
+     */
+    public void testQueryMergedDataPhones_nullCorp() throws Exception {
+        mActor.addPermissions("android.permission.INTERACT_ACROSS_USERS");
+
+        // Insert a contact to the primary CP2.
+        long rawContactId = ContentUris.parseId(
+                mResolver.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Contact1", "Primary");
+
+        insertPhoneNumber(rawContactId, "111-111-1111", false, false, Phone.TYPE_MOBILE);
+
+        // Insert a contact to the corp CP2, with different name and phone number.
+        setUpNullCorpProvider();
+
+        // Execute the query to get the merged result.
+        Cursor c = mResolver.query(Phone.ENTERPRISE_CONTENT_URI, new String[]{Phone.CONTACT_ID,
+                        Phone.DISPLAY_NAME, Phone.NUMBER}, Phone.TYPE + " = ?",
+                new String[]{String.valueOf(Phone.TYPE_MOBILE)}, null);
+        try {
+            // Verify the primary contact.
+            assertEquals(1, c.getCount());
+            assertEquals(3, c.getColumnCount());
+            c.moveToPosition(0);
+            assertEquals("Contact1 Primary", c.getString(c.getColumnIndex(Phone.DISPLAY_NAME)));
+            assertEquals("111-111-1111", c.getString(c.getColumnIndex(Phone.NUMBER)));
+            long contactId = c.getLong(c.getColumnIndex(Phone.CONTACT_ID));
+            assertFalse(Contacts.isEnterpriseContactId(contactId));
+        } finally {
+            c.close();
+        }
     }
 
     /**
@@ -1890,6 +2056,62 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         }
     }
 
+    public void testQueryRawContactEntitiesCorp_noCorpProfile() {
+        mActor.addPermissions("android.permission.INTERACT_ACROSS_USERS");
+
+        // Insert a contact into the primary CP2.
+        long rawContactId = ContentUris.parseId(
+                mResolver.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Contact1", "Doe");
+        insertPhoneNumber(rawContactId, "408-111-1111");
+
+        // No corp profile, no data.
+        assertEquals(0, getCount(RawContactsEntity.CORP_CONTENT_URI));
+    }
+
+    public void testQueryRawContactEntitiesCorp_withCorpProfile() throws Exception {
+        mActor.addPermissions("android.permission.INTERACT_ACROSS_USERS");
+
+        // Insert a contact into the primary CP2.
+        long rawContactId = ContentUris.parseId(
+                mResolver.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        DataUtil.insertStructuredName(mResolver, rawContactId, "Contact1", "Doe");
+        insertPhoneNumber(rawContactId, "408-111-1111");
+
+        // Insert a contact into corp CP2.
+        final SynchronousContactsProvider2 corpCp2 = setUpCorpProvider();
+        rawContactId = ContentUris.parseId(
+                corpCp2.insert(RawContacts.CONTENT_URI, new ContentValues()));
+        // Insert a name.
+        ContentValues cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE,
+                StructuredName.DISPLAY_NAME, "Contact2 Corp");
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+        // Insert a number.
+        cv = cv(
+                Data.RAW_CONTACT_ID, rawContactId,
+                Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE,
+                Phone.NUMBER, "222-222-2222",
+                Phone.TYPE, Phone.TYPE_MOBILE);
+        corpCp2.insert(ContactsContract.Data.CONTENT_URI, cv);
+
+        // Do the query
+        Cursor c = mResolver.query(RawContactsEntity.CORP_CONTENT_URI,
+                new String[]{RawContactsEntity._ID, RawContactsEntity.DATA1},
+                RawContactsEntity.MIMETYPE + "=?", new String[]{
+                        StructuredName.CONTENT_ITEM_TYPE}, null);
+        // The result should only contains corp data.
+        assertEquals(1, c.getCount());
+        assertEquals(2, c.getColumnCount());
+        c.moveToPosition(0);
+        long id = c.getLong(c.getColumnIndex(RawContactsEntity._ID));
+        String data1 = c.getString(c.getColumnIndex(RawContactsEntity.DATA1));
+        assertEquals("Contact2 Corp", data1);
+        assertEquals(rawContactId, id);
+        c.close();
+    }
+
     public void testUpgradeToVersion910_CallsDeletedForCorpProfileOnly() throws Exception {
         CallLogProvider provider =
                 (CallLogProvider) addProvider(TestCallLogProvider.class, CallLog.AUTHORITY);
@@ -1921,7 +2143,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertEquals(0, getCount(Calls.CONTENT_URI));
     }
 
-    public void testRewriteCorpPhoneLookup() {
+    public void testRewriteCorpLookup() {
         // 19 columns
         final MatrixCursor c = new MatrixCursor(new String[] {
                 PhoneLookup._ID,
@@ -1946,7 +2168,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         });
 
         // First, convert and make sure it returns an empty cursor.
-        Cursor rewritten = ContactsProvider2.rewriteCorpPhoneLookup(c);
+        Cursor rewritten = ContactsProvider2.rewriteCorpLookup(c.getColumnNames(), c,
+                PhoneLookup._ID);
         assertEquals(0, rewritten.getCount());
         assertEquals(19, rewritten.getColumnCount());
 
@@ -1993,8 +2216,10 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 "label", // PhoneLookup.LABEL,
                 "+1234", // PhoneLookup.NORMALIZED_NUMBER
         });
-        rewritten = ContactsProvider2.rewriteCorpPhoneLookup(c);
+        rewritten = ContactsProvider2.rewriteCorpLookup(c.getColumnNames(), c,
+                PhoneLookup._ID);
         assertEquals(2, rewritten.getCount());
+        assertEquals(19, rewritten.getColumnCount());
 
         rewritten.moveToPosition(0);
         int column = 0;
@@ -2022,7 +2247,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         rewritten.moveToNext();
         column = 0;
         assertEquals(1000000010L, rewritten.getLong(column++)); // With offset.
-        assertEquals("key", rewritten.getString(column++));
+        assertEquals("c-key", rewritten.getString(column++));
         assertEquals("name", rewritten.getString(column++));
         assertEquals(123, rewritten.getInt(column++));
         assertEquals(456, rewritten.getInt(column++));
@@ -2042,6 +2267,26 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertEquals(1, rewritten.getInt(column++));
         assertEquals("label", rewritten.getString(column++));
         assertEquals("+1234", rewritten.getString(column++));
+
+        // Use a narower projection.
+        rewritten = ContactsProvider2.rewriteCorpLookup(
+                new String[] {PhoneLookup.PHOTO_URI, PhoneLookup.PHOTO_THUMBNAIL_URI}, c,
+                        PhoneLookup._ID);
+        assertEquals(2, rewritten.getCount());
+        assertEquals(2, rewritten.getColumnCount());
+
+        rewritten.moveToPosition(0);
+        column = 0;
+        assertEquals(null, rewritten.getString(column++));
+        assertEquals(null, rewritten.getString(column++));
+
+
+        rewritten.moveToNext();
+        column = 0;
+        assertEquals("content://com.android.contacts/contacts_corp/10/display_photo",
+                rewritten.getString(column++));
+        assertEquals("content://com.android.contacts/contacts_corp/10/photo",
+                rewritten.getString(column++));
     }
 
     public void testPhoneUpdate() {
@@ -3192,6 +3437,20 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         c.close();
     }
 
+    private void expectNoSecurityException(String failureMessage, Uri uri, String[] projection,
+            String selection, String[] selectionArgs, String sortOrder) {
+        Cursor c = null;
+        try {
+            c = mResolver.query(uri, projection, selection, selectionArgs, sortOrder);
+        } catch (SecurityException expected) {
+            fail(failureMessage);
+        } finally {
+            if (c != null) {
+                c.close();
+            }
+        }
+    }
+
     private void expectSecurityException(String failureMessage, Uri uri, String[] projection,
             String selection, String[] selectionArgs, String sortOrder) {
         Cursor c = null;
@@ -3207,80 +3466,71 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         }
     }
 
-    public void testQueryProfileRequiresReadPermission() {
-        mActor.removePermissions("android.permission.READ_PROFILE");
-
+    public void testQueryProfileWithoutPermission() {
         createBasicProfileContact(new ContentValues());
 
         // Case 1: Retrieving profile contact.
-        expectSecurityException(
-                "Querying for the profile without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the profile without READ_PROFILE access should succeed.",
                 Profile.CONTENT_URI, null, null, null, Contacts._ID);
 
         // Case 2: Retrieving profile data.
-        expectSecurityException(
-                "Querying for the profile data without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the profile data without READ_PROFILE access should succeed.",
                 Profile.CONTENT_URI.buildUpon().appendPath("data").build(),
                 null, null, null, Contacts._ID);
 
         // Case 3: Retrieving profile entities.
-        expectSecurityException(
-                "Querying for the profile entities without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the profile entities without READ_PROFILE access should succeed.",
                 Profile.CONTENT_URI.buildUpon()
                         .appendPath("entities").build(), null, null, null, Contacts._ID);
     }
 
-    public void testQueryProfileByContactIdRequiresReadPermission() {
+    public void testQueryProfileByContactIdWithoutReadPermission() {
         long profileRawContactId = createBasicProfileContact(new ContentValues());
         long profileContactId = queryContactId(profileRawContactId);
 
-        mActor.removePermissions("android.permission.READ_PROFILE");
-
-        // A query for the profile contact by ID should fail.
-        expectSecurityException(
-                "Querying for the profile by contact ID without READ_PROFILE access should fail.",
+        // A query for the profile contact by ID should not require READ_PROFILE.
+        expectNoSecurityException(
+                "Querying for the profile by contact ID without READ_PROFILE access should succeed",
                 ContentUris.withAppendedId(Contacts.CONTENT_URI, profileContactId),
                 null, null, null, Contacts._ID);
     }
 
-    public void testQueryProfileByRawContactIdRequiresReadPermission() {
+    public void testQueryProfileByRawContactIdWithoutReadPermission() {
         long profileRawContactId = createBasicProfileContact(new ContentValues());
 
-        // Remove profile read permission and attempt to retrieve the raw contact.
-        mActor.removePermissions("android.permission.READ_PROFILE");
-        expectSecurityException(
-                "Querying for the raw contact profile without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the raw contact profile without READ_PROFILE access should succeed.",
                 ContentUris.withAppendedId(RawContacts.CONTENT_URI,
                         profileRawContactId), null, null, null, RawContacts._ID);
     }
 
-    public void testQueryProfileRawContactRequiresReadPermission() {
+    public void testQueryProfileRawContactWithoutReadPermission() {
         long profileRawContactId = createBasicProfileContact(new ContentValues());
 
-        // Remove profile read permission and attempt to retrieve the profile's raw contact data.
-        mActor.removePermissions("android.permission.READ_PROFILE");
-
         // Case 1: Retrieve the overall raw contact set for the profile.
-        expectSecurityException(
-                "Querying for the raw contact profile without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the raw contact profile without READ_PROFILE access should succeed.",
                 Profile.CONTENT_RAW_CONTACTS_URI, null, null, null, null);
 
         // Case 2: Retrieve the raw contact profile data for the inserted raw contact ID.
-        expectSecurityException(
-                "Querying for the raw profile data without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the raw profile data without READ_PROFILE access should succeed.",
                 ContentUris.withAppendedId(
                         Profile.CONTENT_RAW_CONTACTS_URI, profileRawContactId).buildUpon()
                         .appendPath("data").build(), null, null, null, null);
 
         // Case 3: Retrieve the raw contact profile entity for the inserted raw contact ID.
-        expectSecurityException(
-                "Querying for the raw profile entities without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the raw profile entities without READ_PROFILE access should succeed.",
                 ContentUris.withAppendedId(
                         Profile.CONTENT_RAW_CONTACTS_URI, profileRawContactId).buildUpon()
                         .appendPath("entity").build(), null, null, null, null);
     }
 
-    public void testQueryProfileDataByDataIdRequiresReadPermission() {
+    public void testQueryProfileDataByDataIdWithoutReadPermission() {
         createBasicProfileContact(new ContentValues());
         Cursor c = mResolver.query(Profile.CONTENT_URI.buildUpon().appendPath("data").build(),
                 new String[]{Data._ID, Data.MIMETYPE}, null, null, null);
@@ -3289,54 +3539,43 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         long profileDataId = c.getLong(0);
         c.close();
 
-        // Remove profile read permission and attempt to retrieve the data
-        mActor.removePermissions("android.permission.READ_PROFILE");
-        expectSecurityException(
-                "Querying for the data in the profile without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the data in the profile without READ_PROFILE access should succeed.",
                 ContentUris.withAppendedId(Data.CONTENT_URI, profileDataId),
                 null, null, null, null);
     }
 
-    public void testQueryProfileDataRequiresReadPermission() {
+    public void testQueryProfileDataWithoutReadPermission() {
         createBasicProfileContact(new ContentValues());
 
-        // Remove profile read permission and attempt to retrieve all profile data.
-        mActor.removePermissions("android.permission.READ_PROFILE");
-        expectSecurityException(
-                "Querying for the data in the profile without READ_PROFILE access should fail.",
+        expectNoSecurityException(
+                "Querying for the data in the profile without READ_PROFILE access should succeed.",
                 Profile.CONTENT_URI.buildUpon().appendPath("data").build(),
                 null, null, null, null);
     }
 
-    public void testInsertProfileRequiresWritePermission() {
-        mActor.removePermissions("android.permission.WRITE_PROFILE");
-
+    public void testInsertProfileWithoutWritePermission() {
         // Creating a non-profile contact should be fine.
         createBasicNonProfileContact(new ContentValues());
 
-        // Creating a profile contact should throw an exception.
         try {
             createBasicProfileContact(new ContentValues());
-            fail("Creating a profile contact should fail without WRITE_PROFILE access.");
         } catch (SecurityException expected) {
+            fail("Creating a profile contact should not require WRITE_PROFILE access.");
         }
     }
 
-    public void testInsertProfileDataRequiresWritePermission() {
+    public void testInsertProfileDataWithoutWritePermission() {
         long profileRawContactId = createBasicProfileContact(new ContentValues());
 
-        mActor.removePermissions("android.permission.WRITE_PROFILE");
         try {
             insertEmail(profileRawContactId, "foo@bar.net", false);
-            fail("Inserting data into a profile contact should fail without WRITE_PROFILE access.");
         } catch (SecurityException expected) {
+            fail("Inserting data into a profile contact should not require WRITE_PROFILE access.");
         }
     }
 
     public void testUpdateDataDoesNotRequireProfilePermission() {
-        mActor.removePermissions("android.permission.READ_PROFILE");
-        mActor.removePermissions("android.permission.WRITE_PROFILE");
-
         // Create a non-profile contact.
         long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "Domo", "Arigato");
         long dataId = getStoredLongValue(Data.CONTENT_URI,
@@ -5003,21 +5242,9 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     public void testInsertStreamItemInProfileRequiresWriteProfileAccess() {
         long profileRawContactId = createBasicProfileContact(new ContentValues());
 
-        // With our (default) write profile permission, we should be able to insert a stream item.
+        // Try inserting a stream item. It should still succeed even without the profile permission.
         ContentValues values = buildGenericStreamItemValues();
         insertStreamItem(profileRawContactId, values, null);
-
-        // Now take away write profile permission.
-        mActor.removePermissions("android.permission.WRITE_PROFILE");
-
-        // Try inserting another stream item.
-        try {
-            insertStreamItem(profileRawContactId, values, null);
-            fail("Should require WRITE_PROFILE access to insert a stream item in the profile.");
-        } catch (SecurityException expected) {
-            // Trying to insert a stream item in the profile without WRITE_PROFILE permission
-            // should fail.
-        }
     }
 
     public void testInsertStreamItemWithContentValues() {
@@ -5811,6 +6038,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         values.put(Data.DATA13, "old13");
         values.put(Data.DATA14, "old14");
         values.put(Data.DATA15, "old15");
+        values.put(Data.CARRIER_PRESENCE, 0);
         Uri uri = mResolver.insert(Data.CONTENT_URI, values);
         assertStoredValues(uri, values);
         assertNetworkNotified(true);
@@ -5834,6 +6062,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         values.put(Data.DATA13, "new13");
         values.put(Data.DATA14, "new14");
         values.put(Data.DATA15, "new15");
+        values.put(Data.CARRIER_PRESENCE, Data.CARRIER_PRESENCE_VT_CAPABLE);
         mResolver.update(Data.CONTENT_URI, values, Data.RAW_CONTACT_ID + "=" + rawContactId +
                 " AND " + Data.MIMETYPE + "='testmimetype'", null);
         assertNetworkNotified(true);
@@ -7229,7 +7458,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     }
 
     public void testProviderStatusNoContactsNoAccounts() throws Exception {
-        assertProviderStatus(ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS);
+        assertProviderStatus(ProviderStatus.STATUS_EMPTY);
     }
 
     public void testProviderStatusOnlyLocalContacts() throws Exception {
@@ -7237,25 +7466,25 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         assertProviderStatus(ProviderStatus.STATUS_NORMAL);
         mResolver.delete(
                 ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId), null, null);
-        assertProviderStatus(ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS);
+        assertProviderStatus(ProviderStatus.STATUS_EMPTY);
     }
 
     public void testProviderStatusWithAccounts() throws Exception {
-        assertProviderStatus(ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS);
+        assertProviderStatus(ProviderStatus.STATUS_EMPTY);
         mActor.setAccounts(new Account[]{TestUtil.ACCOUNT_1});
         ((ContactsProvider2)getProvider()).onAccountsUpdated(new Account[]{TestUtil.ACCOUNT_1});
         assertProviderStatus(ProviderStatus.STATUS_NORMAL);
         mActor.setAccounts(new Account[0]);
         ((ContactsProvider2)getProvider()).onAccountsUpdated(new Account[0]);
-        assertProviderStatus(ProviderStatus.STATUS_NO_ACCOUNTS_NO_CONTACTS);
+        assertProviderStatus(ProviderStatus.STATUS_EMPTY);
     }
 
     private void assertProviderStatus(int expectedProviderStatus) {
         Cursor cursor = mResolver.query(ProviderStatus.CONTENT_URI,
-                new String[]{ProviderStatus.DATA1, ProviderStatus.STATUS}, null, null, null);
+                new String[]{ProviderStatus.STATUS}, null, null,
+                null);
         assertTrue(cursor.moveToFirst());
-        assertEquals(0, cursor.getLong(0));
-        assertEquals(expectedProviderStatus, cursor.getInt(1));
+        assertEquals(expectedProviderStatus, cursor.getInt(0));
         cursor.close();
     }
 
@@ -8339,12 +8568,18 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     }
 
     public void testPinnedPositionsAfterJoinAndSplit() {
-        final DatabaseAsserts.ContactIdPair i1 = DatabaseAsserts.assertAndCreateContact(mResolver);
-        final DatabaseAsserts.ContactIdPair i2 = DatabaseAsserts.assertAndCreateContact(mResolver);
-        final DatabaseAsserts.ContactIdPair i3 = DatabaseAsserts.assertAndCreateContact(mResolver);
-        final DatabaseAsserts.ContactIdPair i4 = DatabaseAsserts.assertAndCreateContact(mResolver);
-        final DatabaseAsserts.ContactIdPair i5 = DatabaseAsserts.assertAndCreateContact(mResolver);
-        final DatabaseAsserts.ContactIdPair i6 = DatabaseAsserts.assertAndCreateContact(mResolver);
+        final DatabaseAsserts.ContactIdPair i1 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "A", "Smith");
+        final DatabaseAsserts.ContactIdPair i2 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "B", "Smith");
+        final DatabaseAsserts.ContactIdPair i3 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "C", "Smith");
+        final DatabaseAsserts.ContactIdPair i4 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "D", "Smith");
+        final DatabaseAsserts.ContactIdPair i5 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "E", "Smith");
+        final DatabaseAsserts.ContactIdPair i6 = DatabaseAsserts.assertAndCreateContactWithName(
+                mResolver, "F", "Smith");
 
         final ArrayList<ContentProviderOperation> operations =
                 new ArrayList<ContentProviderOperation>();
@@ -8414,7 +8649,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // raw contacts should be unpinned after being split, but still starred
         assertStoredValuesWithProjection(RawContacts.CONTENT_URI,
-                cv(RawContacts._ID, i1.mRawContactId, RawContacts.PINNED, PinnedPositions.UNPINNED,
+                cv(RawContacts._ID, i1.mRawContactId, RawContacts.PINNED, 1,
                         RawContacts.STARRED, 1),
                 cv(RawContacts._ID, i2.mRawContactId, RawContacts.PINNED, 2,
                         RawContacts.STARRED, 1),
@@ -8439,7 +8674,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         final long cId4 = RawContactUtil.queryContactIdByRawContactId(mResolver, i4.mRawContactId);
 
         assertStoredValuesWithProjection(Contacts.CONTENT_URI,
-                cv(Contacts._ID, cId1, Contacts.PINNED, PinnedPositions.UNPINNED),
+                cv(Contacts._ID, cId1, Contacts.PINNED, 1),
                 cv(Contacts._ID, i2.mContactId, Contacts.PINNED, 2),
                 cv(Contacts._ID, cId4, Contacts.PINNED, PinnedPositions.UNPINNED),
                 cv(Contacts._ID, i5.mContactId, Contacts.PINNED, PinnedPositions.DEMOTED),
@@ -8452,7 +8687,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
 
         // The resulting contact should have a pinned value of 6
         assertStoredValuesWithProjection(Contacts.CONTENT_URI,
-                cv(Contacts._ID, cId1, Contacts.PINNED, PinnedPositions.UNPINNED),
+                cv(Contacts._ID, cId1, Contacts.PINNED, 1),
                 cv(Contacts._ID, i2.mContactId, Contacts.PINNED, 2),
                 cv(Contacts._ID, cId4, Contacts.PINNED, PinnedPositions.UNPINNED),
                 cv(Contacts._ID, i5.mContactId, Contacts.PINNED, 6)
@@ -8618,6 +8853,102 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
      * End pinning support tests
      ******************************************************/
 
+    public void testAuthorization_authorize() throws Exception {
+        // Setup
+        ContentValues values = new ContentValues();
+        long id1 = createContact(values, "Noah", "Tever", "18004664411",
+                "email@email.com", StatusUpdates.OFFLINE, 0, 0, 0, 0);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, id1);
+
+        // Execute: pre authorize the contact
+        Uri authorizedUri = getPreAuthorizedUri(contactUri);
+
+        // Sanity check: URIs are different
+        assertNotSame(authorizedUri, contactUri);
+
+        // Verify: the URI is pre authorized
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        assertTrue(cp.isValidPreAuthorizedUri(authorizedUri));
+    }
+
+    public void testAuthorization_unauthorized() throws Exception {
+        // Setup
+        ContentValues values = new ContentValues();
+        long id1 = createContact(values, "Noah", "Tever", "18004664411",
+                "email@email.com", StatusUpdates.OFFLINE, 0, 0, 0, 0);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, id1);
+
+        // Verify: the URI is *not* pre authorized
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        assertFalse(cp.isValidPreAuthorizedUri(contactUri));
+    }
+
+    public void testAuthorization_invalidAuthorization() throws Exception {
+        // Setup
+        ContentValues values = new ContentValues();
+        long id1 = createContact(values, "Noah", "Tever", "18004664411",
+                "email@email.com", StatusUpdates.OFFLINE, 0, 0, 0, 0);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, id1);
+
+        // Execute: pre authorize the contact and then modify the resulting URI slightly
+        Uri authorizedUri = getPreAuthorizedUri(contactUri);
+        Uri almostAuthorizedUri = Uri.parse(authorizedUri.toString() + "2");
+
+        // Verify: the URI is not pre authorized
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        assertFalse(cp.isValidPreAuthorizedUri(almostAuthorizedUri));
+    }
+
+    public void testAuthorization_expired() throws Exception {
+        // Setup
+        ContentValues values = new ContentValues();
+        long id1 = createContact(values, "Noah", "Tever", "18004664411",
+                "email@email.com", StatusUpdates.OFFLINE, 0, 0, 0, 0);
+        Uri contactUri = ContentUris.withAppendedId(Contacts.CONTENT_URI, id1);
+        sMockClock.install();
+
+        // Execute: pre authorize the contact
+        Uri authorizedUri = getPreAuthorizedUri(contactUri);
+        sMockClock.setCurrentTimeMillis(sMockClock.currentTimeMillis() + 1000000);
+
+        // Verify: the authorization for the URI expired
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        assertFalse(cp.isValidPreAuthorizedUri(authorizedUri));
+    }
+
+    public void testAuthorization_contactUpgrade() throws Exception {
+        ContactsDatabaseHelper helper =
+                ((ContactsDatabaseHelper) ((ContactsProvider2) getProvider()).getDatabaseHelper());
+        SQLiteDatabase db = helper.getWritableDatabase();
+
+        // Perform the unit tests against an upgraded version of the database, instead of a freshly
+        // created version of the database.
+        helper.upgradeToVersion1002(db);
+        testAuthorization_authorize();
+        helper.upgradeToVersion1002(db);
+        testAuthorization_expired();
+        helper.upgradeToVersion1002(db);
+        testAuthorization_expired();
+        helper.upgradeToVersion1002(db);
+        testAuthorization_invalidAuthorization();
+    }
+
+    private Uri getPreAuthorizedUri(Uri uri) {
+        final Bundle uriBundle = new Bundle();
+        uriBundle.putParcelable(ContactsContract.Authorization.KEY_URI_TO_AUTHORIZE, uri);
+        final Bundle authResponse = mResolver.call(
+                ContactsContract.AUTHORITY_URI,
+                ContactsContract.Authorization.AUTHORIZATION_METHOD,
+                null,
+                uriBundle);
+        return (Uri) authResponse.getParcelable(
+                ContactsContract.Authorization.KEY_AUTHORIZED_URI);
+    }
+
+    /**
+     * End Authorization Tests
+     ******************************************************/
+
     private Cursor queryGroupMemberships(Account account) {
         Cursor c = mResolver.query(TestUtil.maybeAddAccountQueryParameters(Data.CONTENT_URI,
                 account),
@@ -8773,6 +9104,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         values.put(Data.DATA13, "thirteen");
         values.put(Data.DATA14, "fourteen");
         values.put(Data.DATA15, "fifteen");
+        values.put(Data.CARRIER_PRESENCE, Data.CARRIER_PRESENCE_VT_CAPABLE);
         values.put(Data.SYNC1, "sync1");
         values.put(Data.SYNC2, "sync2");
         values.put(Data.SYNC3, "sync3");

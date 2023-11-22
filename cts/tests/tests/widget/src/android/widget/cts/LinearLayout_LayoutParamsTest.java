@@ -17,8 +17,6 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.android.internal.util.XmlUtils;
-
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -27,6 +25,7 @@ import android.test.AndroidTestCase;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.LinearLayout;
+import android.widget.cts.util.XmlUtils;
 
 import java.io.IOException;
 

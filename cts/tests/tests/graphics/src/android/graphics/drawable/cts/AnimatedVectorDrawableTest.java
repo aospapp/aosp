@@ -19,9 +19,11 @@ package android.graphics.drawable.cts;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.AnimatedVectorDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.test.AndroidTestCase;
+import android.test.ActivityInstrumentationTestCase2;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
@@ -35,18 +37,23 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-public class AnimatedVectorDrawableTest extends AndroidTestCase {
+public class AnimatedVectorDrawableTest extends ActivityInstrumentationTestCase2<DrawableStubActivity> {
     private static final String LOGTAG = AnimatedVectorDrawableTest.class.getSimpleName();
 
     private static final int IMAGE_WIDTH = 64;
     private static final int IMAGE_HEIGHT = 64;
 
+    private DrawableStubActivity mActivity;
     private Resources mResources;
     private AnimatedVectorDrawable mAnimatedVectorDrawable;
     private Bitmap mBitmap;
     private Canvas mCanvas;
     private static final boolean DBG_DUMP_PNG = false;
     private int mResId = R.drawable.animation_vector_drawable_grouping_1;
+
+    public AnimatedVectorDrawableTest() {
+        super(DrawableStubActivity.class);
+    }
 
     @Override
     protected void setUp() throws Exception {
@@ -56,7 +63,8 @@ public class AnimatedVectorDrawableTest extends AndroidTestCase {
         mCanvas = new Canvas(mBitmap);
         mAnimatedVectorDrawable = new AnimatedVectorDrawable();
 
-        mResources = mContext.getResources();
+        mActivity = getActivity();
+        mResources = mActivity.getResources();
     }
 
     // This is only for debugging or golden image (re)generation purpose.
@@ -156,11 +164,9 @@ public class AnimatedVectorDrawableTest extends AndroidTestCase {
     }
 
     public void testMutate() {
-        Resources resources = mContext.getResources();
-
-        AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) resources.getDrawable(mResId);
-        AnimatedVectorDrawable d2 = (AnimatedVectorDrawable) resources.getDrawable(mResId);
-        AnimatedVectorDrawable d3 = (AnimatedVectorDrawable) resources.getDrawable(mResId);
+        AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+        AnimatedVectorDrawable d2 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+        AnimatedVectorDrawable d3 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
         int originalAlpha = d2.getAlpha();
         int newAlpha = (originalAlpha + 1) % 255;
 
@@ -182,5 +188,92 @@ public class AnimatedVectorDrawableTest extends AndroidTestCase {
         assertEquals(0x40, d1.getAlpha());
         assertEquals(0x20, d2.getAlpha());
         assertEquals(originalAlpha, d3.getAlpha());
+    }
+
+    public void testReset() {
+        final AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+        // The AVD has a duration as 100ms.
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                d1.reset();
+                assertFalse(d1.isRunning());
+            }
+        });
+
+    }
+
+    public void testAddCallback() throws InterruptedException {
+        MyCallback callback = new MyCallback();
+        final AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+
+        d1.registerAnimationCallback(callback);
+        // The AVD has a duration as 100ms.
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                d1.start();
+            }
+        });
+
+        Thread.sleep(200);
+
+        assertTrue(callback.mStart);
+        assertTrue(callback.mEnd);
+    }
+
+    public void testRemoveCallback() throws InterruptedException {
+        MyCallback callback = new MyCallback();
+        final AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+
+        d1.registerAnimationCallback(callback);
+        assertTrue(d1.unregisterAnimationCallback(callback));
+        // The AVD has a duration as 100ms.
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                d1.start();
+            }
+        });
+
+        Thread.sleep(200);
+
+        assertFalse(callback.mStart);
+        assertFalse(callback.mEnd);
+    }
+
+    public void testClearCallback() throws InterruptedException {
+        MyCallback callback = new MyCallback();
+        final AnimatedVectorDrawable d1 = (AnimatedVectorDrawable) mResources.getDrawable(mResId);
+
+        d1.registerAnimationCallback(callback);
+        d1.clearAnimationCallbacks();
+        // The AVD has a duration as 100ms.
+        mActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                d1.start();
+            }
+        });
+
+        Thread.sleep(200);
+
+        assertFalse(callback.mStart);
+        assertFalse(callback.mEnd);
+    }
+
+    class MyCallback extends Animatable2.AnimationCallback {
+        boolean mStart = false;
+        boolean mEnd = false;
+
+        @Override
+        public void onAnimationStart(Drawable drawable) {
+            mStart = true;
+        }
+
+        @Override
+        public void onAnimationEnd(Drawable drawable) {
+            mEnd = true;
+        }
     }
 }

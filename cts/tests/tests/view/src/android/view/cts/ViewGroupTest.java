@@ -16,7 +16,7 @@
 
 package android.view.cts;
 
-import com.android.internal.util.XmlUtils;
+import android.view.cts.util.XmlUtils;
 
 
 import android.content.Context;
@@ -36,8 +36,12 @@ import android.test.InstrumentationTestCase;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.SparseArray;
+import android.view.ActionMode;
 import android.view.Display;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -454,7 +458,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         MockTextView textView = new MockTextView(mContext);
         vg.addView(textView);
         vg.requestChildFocus(textView, null);
-        textView.setFrame(1, 1, 100, 100);
+        textView.layout(1, 1, 100, 100);
 
         assertTrue(vg.dispatchKeyEvent(event));
     }
@@ -525,7 +529,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         d.getMetrics(metrics);
         int screenWidth = metrics.widthPixels;
         int screenHeight = metrics.heightPixels;
-        vg.setFrame(0, 0, screenWidth, screenHeight);
+        vg.layout(0, 0, screenWidth, screenHeight);
         vg.setLayoutParams(new ViewGroup.LayoutParams(screenWidth, screenHeight));
 
         MockTextView textView = new MockTextView(mContext);
@@ -550,7 +554,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         assertFalse(vg.dispatchTouchEvent(me));
         assertNull(mMotionEvent);
 
-        textView.setFrame(0, 0, screenWidth, screenHeight);
+        textView.layout(0, 0, screenWidth, screenHeight);
         assertTrue(vg.dispatchTouchEvent(me));
         assertSame(me, mMotionEvent);
     }
@@ -564,7 +568,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
         MockTextView textView = new MockTextView(mContext);
         vg.addView(textView);
-        textView.setFrame(1, 1, 100, 100);
+        textView.layout(1, 1, 100, 100);
         vg.requestChildFocus(textView, null);
         assertTrue(vg.dispatchTrackballEvent(me));
     }
@@ -575,7 +579,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         assertFalse(vg.dispatchUnhandledMove(textView, View.FOCUS_DOWN));
 
         vg.addView(textView);
-        textView.setFrame(1, 1, 100, 100);
+        textView.layout(1, 1, 100, 100);
         vg.requestChildFocus(textView, null);
         assertTrue(vg.dispatchUnhandledMove(textView, View.FOCUS_DOWN));
     }
@@ -765,13 +769,13 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         MockViewGroup vg = new MockViewGroup(mContext);
         MockTextView textView = new MockTextView(mContext);
 
-        textView.setFrame(1, 1, 100, 100);
+        textView.layout(1, 1, 100, 100);
         Rect rect = new Rect(1, 1, 50, 50);
         Point p = new Point();
         assertFalse(vg.getChildVisibleRect(textView, rect, p));
 
-        textView.setFrame(0, 0, 0, 0);
-        vg.setFrame(20, 20, 60, 60);
+        textView.layout(0, 0, 0, 0);
+        vg.layout(20, 20, 60, 60);
         rect = new Rect(10, 10, 40, 40);
         p = new Point();
         assertTrue(vg.getChildVisibleRect(textView, rect, p));
@@ -994,7 +998,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
             // expected
         }
         vg.addView(textView);
-        textView.setFrame(1, 2, 3, 4);
+        textView.layout(1, 2, 3, 4);
         Rect rect = new Rect();
         vg.offsetDescendantRectToMyCoords(textView, rect);
         assertEquals(2, rect.bottom);
@@ -1005,7 +1009,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
     public void testOffsetRectIntoDescendantCoords() {
         MockViewGroup vg = new MockViewGroup(mContext);
-        vg.setFrame(10, 20, 30, 40);
+        vg.layout(10, 20, 30, 40);
         MockTextView textView = new MockTextView(mContext);
 
         try {
@@ -1015,7 +1019,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         } catch (RuntimeException e) {
             // expected
         }
-        textView.setFrame(1, 2, 3, 4);
+        textView.layout(1, 2, 3, 4);
         vg.addView(textView);
 
         Rect rect = new Rect(5, 6, 7, 8);
@@ -1372,8 +1376,8 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
 
         MockViewGroup vg = new MockViewGroup(mContext);
         MockTextView textView = new MockTextView(mContext);
-        textView.setFrame(1, 2, 30, 40);
-        vg.setFrame(1, 1, 100, 200);
+        textView.layout(1, 2, 30, 40);
+        vg.layout(1, 1, 100, 200);
         vg.setClipChildren(true);
 
         MockCanvas canvas = new MockCanvas(bitmap);
@@ -1430,7 +1434,7 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         final int frameRight = 100;
         final int frameBottom = 200;
         MockViewGroup vg = new MockViewGroup(mContext);
-        vg.setFrame(frameLeft, frameTop, frameRight, frameBottom);
+        vg.layout(frameLeft, frameTop, frameRight, frameBottom);
 
         vg.setClipToPadding(true);
         MockCanvas canvas = new MockCanvas();
@@ -1660,6 +1664,166 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         assertFalse(vg.isGetChildStaticTransformationCalled);
     }
 
+    public void testStartActionModeForChildRespectsSubclassModeOnPrimary() {
+        MockViewGroupSubclass vgParent = new MockViewGroupSubclass(mContext);
+        MockViewGroupSubclass vg = new MockViewGroupSubclass(mContext);
+        vg.shouldReturnOwnTypelessActionMode = true;
+        vgParent.addView(vg);
+        MockTextView textView = new MockTextView(mContext);
+        vg.addView(textView);
+
+        textView.startActionMode(NO_OP_ACTION_MODE_CALLBACK, ActionMode.TYPE_PRIMARY);
+
+        assertTrue(vg.isStartActionModeForChildTypedCalled);
+        assertTrue(vg.isStartActionModeForChildTypelessCalled);
+        // Call should not bubble up as we have an intercepting implementation.
+        assertFalse(vgParent.isStartActionModeForChildTypedCalled);
+    }
+
+    public void testStartActionModeForChildIgnoresSubclassModeOnFloating() {
+        MockViewGroupSubclass vgParent = new MockViewGroupSubclass(mContext);
+        MockViewGroupSubclass vg = new MockViewGroupSubclass(mContext);
+        vg.shouldReturnOwnTypelessActionMode = true;
+        vgParent.addView(vg);
+        MockTextView textView = new MockTextView(mContext);
+        vg.addView(textView);
+
+        textView.startActionMode(NO_OP_ACTION_MODE_CALLBACK, ActionMode.TYPE_FLOATING);
+
+        assertTrue(vg.isStartActionModeForChildTypedCalled);
+        assertFalse(vg.isStartActionModeForChildTypelessCalled);
+        // Call should bubble up as we have a floating type.
+        assertTrue(vgParent.isStartActionModeForChildTypedCalled);
+    }
+
+    public void testStartActionModeForChildTypedBubblesUpToParent() {
+        MockViewGroupSubclass vgParent = new MockViewGroupSubclass(mContext);
+        MockViewGroupSubclass vg = new MockViewGroupSubclass(mContext);
+        vgParent.addView(vg);
+        MockTextView textView = new MockTextView(mContext);
+        vg.addView(textView);
+
+        textView.startActionMode(NO_OP_ACTION_MODE_CALLBACK, ActionMode.TYPE_FLOATING);
+
+        assertTrue(vg.isStartActionModeForChildTypedCalled);
+        assertTrue(vgParent.isStartActionModeForChildTypedCalled);
+    }
+
+    public void testStartActionModeForChildTypelessBubblesUpToParent() {
+        MockViewGroupSubclass vgParent = new MockViewGroupSubclass(mContext);
+        MockViewGroupSubclass vg = new MockViewGroupSubclass(mContext);
+        vgParent.addView(vg);
+        MockTextView textView = new MockTextView(mContext);
+        vg.addView(textView);
+
+        textView.startActionMode(NO_OP_ACTION_MODE_CALLBACK);
+
+        assertTrue(vg.isStartActionModeForChildTypedCalled);
+        assertTrue(vg.isStartActionModeForChildTypelessCalled);
+        assertTrue(vgParent.isStartActionModeForChildTypedCalled);
+    }
+
+    private static final ActionMode.Callback NO_OP_ACTION_MODE_CALLBACK =
+            new ActionMode.Callback() {
+                @Override
+                public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                    return false;
+                }
+
+                @Override
+                public void onDestroyActionMode(ActionMode mode) {}
+
+                @Override
+                public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                    return false;
+                }
+
+                @Override
+                public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                    return false;
+                }
+            };
+
+    private static final ActionMode NO_OP_ACTION_MODE =
+            new ActionMode() {
+                @Override
+                public void setTitle(CharSequence title) {}
+
+                @Override
+                public void setTitle(int resId) {}
+
+                @Override
+                public void setSubtitle(CharSequence subtitle) {}
+
+                @Override
+                public void setSubtitle(int resId) {}
+
+                @Override
+                public void setCustomView(View view) {}
+
+                @Override
+                public void invalidate() {}
+
+                @Override
+                public void finish() {}
+
+                @Override
+                public Menu getMenu() {
+                    return null;
+                }
+
+                @Override
+                public CharSequence getTitle() {
+                    return null;
+                }
+
+                @Override
+                public CharSequence getSubtitle() {
+                    return null;
+                }
+
+                @Override
+                public View getCustomView() {
+                    return null;
+                }
+
+                @Override
+                public MenuInflater getMenuInflater() {
+                    return null;
+                }
+            };
+
+    private static class MockViewGroupSubclass extends ViewGroup {
+        boolean isStartActionModeForChildTypedCalled = false;
+        boolean isStartActionModeForChildTypelessCalled = false;
+        boolean shouldReturnOwnTypelessActionMode = false;
+
+        public MockViewGroupSubclass(Context context) {
+            super(context);
+        }
+
+        @Override
+        public ActionMode startActionModeForChild(View originalView, ActionMode.Callback callback) {
+            isStartActionModeForChildTypelessCalled = true;
+            if (shouldReturnOwnTypelessActionMode) {
+                return NO_OP_ACTION_MODE;
+            }
+            return super.startActionModeForChild(originalView, callback);
+        }
+
+        @Override
+        public ActionMode startActionModeForChild(
+                View originalView, ActionMode.Callback callback, int type) {
+            isStartActionModeForChildTypedCalled = true;
+            return super.startActionModeForChild(originalView, callback, type);
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            // no-op
+        }
+    }
+
     static public int resetRtlPropertiesCount;
     static public int resetResolvedLayoutDirectionCount;
     static public int resetResolvedTextDirectionCount;
@@ -1747,11 +1911,6 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         }
 
         @Override
-        public boolean setFrame(int l, int t, int r, int b) {
-            return super.setFrame(l, t, r, b);
-        }
-
-        @Override
         public void dispatchRestoreInstanceState(
                 SparseArray<Parcelable> container) {
             isDispatchRestoreInstanceStateCalled = true;
@@ -1778,11 +1937,6 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         public void refreshDrawableState() {
             mIsRefreshDrawableStateCalled = true;
             super.refreshDrawableState();
-        }
-
-        @Override
-        public boolean gatherTransparentRegion(Region region) {
-            return false;
         }
 
         @Override
@@ -1998,21 +2152,6 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         }
 
         @Override
-        public boolean setFrame(int left, int top, int right, int bottom) {
-            return super.setFrame(left, top, right, bottom);
-        }
-
-        @Override
-        public boolean isChildrenDrawnWithCacheEnabled() {
-            return super.isChildrenDrawnWithCacheEnabled();
-        }
-
-        @Override
-        public void setChildrenDrawnWithCacheEnabled(boolean enabled) {
-            super.setChildrenDrawnWithCacheEnabled(enabled);
-        }
-
-        @Override
         public void measureChild(View child, int parentWidthMeasureSpec,
                 int parentHeightMeasureSpec) {
             measureChildCalledTime++;
@@ -2162,6 +2301,21 @@ public class ViewGroupTest extends InstrumentationTestCase implements CTSResult{
         protected void resetResolvedDrawables() {
             super.resetResolvedDrawables();
             resetResolvedDrawablesCount++;
+        }
+
+        @Override
+        public boolean setFrame(int left, int top, int right, int bottom) {
+            return super.setFrame(left, top, right, bottom);
+        }
+
+        @Override
+        public void setChildrenDrawnWithCacheEnabled(boolean enabled) {
+            super.setChildrenDrawnWithCacheEnabled(enabled);
+        }
+
+        @Override
+        public boolean isChildrenDrawnWithCacheEnabled() {
+            return super.isChildrenDrawnWithCacheEnabled();
         }
     }
 

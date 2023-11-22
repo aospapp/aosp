@@ -2,7 +2,7 @@ page.title=Sensor stack
 @jd:body
 
 <!--
-    Copyright 2014 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ page.title=Sensor stack
   sensors can bypass the sensor hub when it is present. Control flows from the
   applications down to the sensors, and data flows from the sensors up to the
   applications.</p>
-<img src="images/sensor_layers.png" alt="Layers and owners of the Android sensor stack" />
+<img src="images/ape_fwk_sensors.png" alt="Layers and owners of the Android sensor stack" />
 <p class="img-caption"><strong>Figure 1.</strong> Layers of the Android sensor stack and their respective owners</p>
 
 <h2 id="sdk">SDK</h2>

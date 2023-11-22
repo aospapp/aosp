@@ -45,7 +45,7 @@ class Heap;
 
 namespace accounting {
   template <typename T> class AtomicStack;
-  typedef AtomicStack<mirror::Object*> ObjectStack;
+  typedef AtomicStack<mirror::Object> ObjectStack;
 }  // namespace accounting
 
 namespace space {
@@ -98,7 +98,7 @@ class SemiSpace : public GarbageCollector {
   // Find the default mark bitmap.
   void FindDefaultMarkBitmap();
 
-  // Returns the new address of the object.
+  // Updates obj_ptr if the object has moved.
   template<bool kPoisonReferences>
   void MarkObject(mirror::ObjectReference<kPoisonReferences, mirror::Object>* obj_ptr)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
@@ -133,8 +133,12 @@ class SemiSpace : public GarbageCollector {
   void SweepSystemWeaks()
       SHARED_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
-  static void MarkRootCallback(mirror::Object** root, void* arg, const RootInfo& root_info)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+  virtual void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) OVERRIDE
+      EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
+
+  virtual void VisitRoots(mirror::CompressedReference<mirror::Object>** roots, size_t count,
+                          const RootInfo& info) OVERRIDE
+      EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
 
   static mirror::Object* MarkObjectCallback(mirror::Object* root, void* arg)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
@@ -178,13 +182,13 @@ class SemiSpace : public GarbageCollector {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Expand mark stack to 2x its current size.
-  void ResizeMarkStack(size_t new_size);
+  void ResizeMarkStack(size_t new_size) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Returns true if we should sweep the space.
   virtual bool ShouldSweepSpace(space::ContinuousSpace* space) const;
 
   // Push an object onto the mark stack.
-  void MarkStackPush(mirror::Object* obj);
+  void MarkStackPush(mirror::Object* obj) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   void UpdateAndMarkModUnion()
       EXCLUSIVE_LOCKS_REQUIRED(Locks::heap_bitmap_lock_)
@@ -228,7 +232,7 @@ class SemiSpace : public GarbageCollector {
 
   // Used for the generational mode. the end/top of the bump
   // pointer space at the end of the last collection.
-  byte* last_gc_to_space_end_;
+  uint8_t* last_gc_to_space_end_;
 
   // Used for the generational mode. During a collection, keeps track
   // of how many bytes of objects have been copied so far from the
@@ -274,7 +278,7 @@ class SemiSpace : public GarbageCollector {
 
  private:
   friend class BitmapSetSlowPathVisitor;
-  DISALLOW_COPY_AND_ASSIGN(SemiSpace);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(SemiSpace);
 };
 
 }  // namespace collector

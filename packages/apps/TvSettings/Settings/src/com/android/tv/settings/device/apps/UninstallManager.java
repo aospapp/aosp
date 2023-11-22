@@ -132,6 +132,16 @@ class UninstallManager {
                 isSystemPackage(pm, packageInfo));
     }
 
+    boolean canUninstallUpdates() {
+        return mAppInfo.isUpdatedSystemApp();
+    }
+
+    void uninstallUpdates(int requestId) {
+        if (canUninstallUpdates()) {
+            uninstallPackage(true, requestId);
+        }
+    }
+
     void uninstall(int requestId) {
         if (canUninstall()) {
             uninstallPackage(!mAppInfo.isInstalled(), requestId);

@@ -17,13 +17,14 @@
 #include "barrier.h"
 
 #include "base/mutex.h"
+#include "base/time_utils.h"
 #include "thread.h"
 
 namespace art {
 
 Barrier::Barrier(int count)
     : count_(count),
-      lock_("GC barrier lock"),
+      lock_("GC barrier lock", kThreadSuspendCountLock),
       condition_("GC barrier condition", lock_) {
 }
 
@@ -57,34 +58,36 @@ void Barrier::Increment(Thread* self, int delta) {
   }
 }
 
-void Barrier::Increment(Thread* self, int delta, uint32_t timeout_ms) {
+bool Barrier::Increment(Thread* self, int delta, uint32_t timeout_ms) {
   MutexLock mu(self, lock_);
   SetCountLocked(self, count_ + delta);
+  bool timed_out = false;
   if (count_ != 0) {
     uint32_t timeout_ns = 0;
     uint64_t abs_timeout = NanoTime() + MsToNs(timeout_ms);
     for (;;) {
-      condition_.TimedWait(self, timeout_ms, timeout_ns);
-      if (count_ == 0) return;
+      timed_out = condition_.TimedWait(self, timeout_ms, timeout_ns);
+      if (timed_out || count_ == 0) return timed_out;
       // Compute time remaining on timeout.
       uint64_t now = NanoTime();
       int64_t time_left = abs_timeout - now;
-      if (time_left <= 0) return;
+      if (time_left <= 0) return true;
       timeout_ns = time_left % (1000*1000);
       timeout_ms = time_left / (1000*1000);
     }
   }
+  return timed_out;
 }
 
 void Barrier::SetCountLocked(Thread* self, int count) {
   count_ = count;
-  if (count_ == 0) {
+  if (count == 0) {
     condition_.Broadcast(self);
   }
 }
 
 Barrier::~Barrier() {
-  CHECK(!count_) << "Attempted to destroy barrier with non zero count";
+  CHECK_EQ(count_, 0) << "Attempted to destroy barrier with non zero count";
 }
 
 }  // namespace art

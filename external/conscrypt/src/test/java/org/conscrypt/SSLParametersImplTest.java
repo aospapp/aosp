@@ -17,6 +17,8 @@
 package org.conscrypt;
 
 import junit.framework.TestCase;
+import java.util.Arrays;
+import java.util.HashSet;
 
 public class SSLParametersImplTest extends TestCase {
 
@@ -30,14 +32,8 @@ public class SSLParametersImplTest extends TestCase {
         case 1:
           assertEquals(byteString, "RSA", keyType);
           break;
-        case 2:
-          assertEquals(byteString, "DSA", keyType);
-          break;
         case 3:
           assertEquals(byteString, "DH_RSA", keyType);
-          break;
-        case 4:
-          assertEquals(byteString, "DH_DSA", keyType);
           break;
         case 64:
           assertEquals(byteString, "EC", keyType);
@@ -53,5 +49,16 @@ public class SSLParametersImplTest extends TestCase {
       }
       b++;
     } while (b != Byte.MIN_VALUE);
+  }
+
+  public void testGetSupportedClientKeyTypes() throws Exception {
+      // Create an array with all possible values. Also, duplicate all values.
+      byte[] allClientCertificateTypes = new byte[512];
+      for (int i = 0; i < allClientCertificateTypes.length; i++) {
+          allClientCertificateTypes[i] = (byte) i;
+      }
+      assertEquals(
+              new HashSet<String>(Arrays.asList("RSA", "DH_RSA", "EC", "EC_RSA", "EC_EC")),
+              SSLParametersImpl.getSupportedClientKeyTypes(allClientCertificateTypes));
   }
 }

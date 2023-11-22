@@ -12,20 +12,31 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef LLVM_MC_CONSTANTPOOL_H
-#define LLVM_MC_CONSTANTPOOL_H
+#ifndef LLVM_MC_CONSTANTPOOLS_H
+#define LLVM_MC_CONSTANTPOOLS_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallVector.h"
+
 namespace llvm {
 class MCContext;
 class MCExpr;
 class MCSection;
 class MCStreamer;
 class MCSymbol;
+
+struct ConstantPoolEntry {
+  ConstantPoolEntry(MCSymbol *L, const MCExpr *Val, unsigned Sz)
+    : Label(L), Value(Val), Size(Sz) {}
+  MCSymbol *Label;
+  const MCExpr *Value;
+  unsigned Size;
+};
+
 // A class to keep track of assembler-generated constant pools that are use to
 // implement the ldr-pseudo.
 class ConstantPool {
-  typedef SmallVector<std::pair<MCSymbol *, const MCExpr *>, 4> EntryVecTy;
+  typedef SmallVector<ConstantPoolEntry, 4> EntryVecTy;
   EntryVecTy Entries;
 
 public:
@@ -34,9 +45,11 @@ public:
 
   // Add a new entry to the constant pool in the next slot.
   // \param Value is the new entry to put in the constant pool.
+  // \param Size is the size in bytes of the entry
   //
   // \returns a MCExpr that references the newly inserted value
-  const MCExpr *addEntry(const MCExpr *Value, MCContext &Context);
+  const MCExpr *addEntry(const MCExpr *Value, MCContext &Context,
+                         unsigned Size);
 
   // Emit the contents of the constant pool using the provided streamer.
   void emitEntries(MCStreamer &Streamer);
@@ -64,12 +77,10 @@ class AssemblerConstantPools {
   ConstantPoolMapTy ConstantPools;
 
 public:
-  AssemblerConstantPools() {}
-  ~AssemblerConstantPools() {}
-
   void emitAll(MCStreamer &Streamer);
   void emitForCurrentSection(MCStreamer &Streamer);
-  const MCExpr *addEntry(MCStreamer &Streamer, const MCExpr *Expr);
+  const MCExpr *addEntry(MCStreamer &Streamer, const MCExpr *Expr,
+                         unsigned Size);
 
 private:
   ConstantPool *getConstantPool(const MCSection *Section);

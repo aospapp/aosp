@@ -68,6 +68,11 @@ public class Fisheye extends TestBase {
         do_init();
     }
 
+    public void animateBars(float time) {
+        scale = time % 2.f;
+        do_init();
+    }
+
     private void do_init() {
         if (approx) {
             if (relaxed)

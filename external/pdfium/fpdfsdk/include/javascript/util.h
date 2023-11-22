@@ -4,8 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _UTIL_H_
-#define _UTIL_H_
+#ifndef FPDFSDK_INCLUDE_JAVASCRIPT_UTIL_H_
+#define FPDFSDK_INCLUDE_JAVASCRIPT_UTIL_H_
+
+#include <string>  // For std::wstring.
+
+#include "JS_Define.h"
 
 class util : public CJS_EmbedObj
 {
@@ -14,11 +18,11 @@ public:
 	virtual ~util(void);
 
 public:
-	FX_BOOL printd(OBJ_METHOD_PARAMS);
-	FX_BOOL printf(OBJ_METHOD_PARAMS);
-	FX_BOOL printx(OBJ_METHOD_PARAMS);
-	FX_BOOL scand(OBJ_METHOD_PARAMS);
-	FX_BOOL byteToChar(OBJ_METHOD_PARAMS);
+	FX_BOOL printd(IFXJS_Context* cc, const CJS_Parameters& params, CJS_Value& vRet, CFX_WideString& sError);
+	FX_BOOL printf(IFXJS_Context* cc, const CJS_Parameters& params, CJS_Value& vRet, CFX_WideString& sError);
+	FX_BOOL printx(IFXJS_Context* cc, const CJS_Parameters& params, CJS_Value& vRet, CFX_WideString& sError);
+	FX_BOOL scand(IFXJS_Context* cc, const CJS_Parameters& params, CJS_Value& vRet, CFX_WideString& sError);
+	FX_BOOL byteToChar(IFXJS_Context* cc, const CJS_Parameters& params, CJS_Value& vRet, CFX_WideString& sError);
 
 public:
 	static void		printd(const std::wstring &cFormat,CJS_Date Date,bool bXFAPicture, std::wstring &cPurpose);
@@ -42,4 +46,5 @@ public:
 };
 
 FX_INT64 FX_atoi64(const char *nptr);
-#endif //_UTIL_H_
+
+#endif  // FPDFSDK_INCLUDE_JAVASCRIPT_UTIL_H_

@@ -27,6 +27,7 @@
 #include <utils/AndroidThreads.h>
 #include <utils/RefBase.h>
 #include <utils/Looper.h>
+#include <utils/String8.h>
 
 #include <binder/BinderService.h>
 
@@ -37,6 +38,13 @@
 
 #include "SensorInterface.h"
 
+#if __clang__
+// Clang warns about SensorEventConnection::dump hiding BBinder::dump
+// The cause isn't fixable without changing the API, so let's tell clang
+// this is indeed intentional.
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+#endif
+
 // ---------------------------------------------------------------------------
 
 #define DEBUG_CONNECTIONS   false
@@ -44,6 +52,9 @@
 #define MAX_SOCKET_BUFFER_SIZE_BATCHED 100 * 1024
 // For older HALs which don't support batching, use a smaller socket buffer size.
 #define SOCKET_BUFFER_SIZE_NON_BATCHED 4 * 1024
+
+#define CIRCULAR_BUF_SIZE 10
+#define SENSOR_REGISTRATIONS_BUF_SIZE 20
 
 struct sensors_poll_device_t;
 struct sensors_module_t;
@@ -58,6 +69,51 @@ class SensorService :
 {
     friend class BinderService<SensorService>;
 
+    enum Mode {
+       // The regular operating mode where any application can register/unregister/call flush on
+       // sensors.
+       NORMAL = 0,
+       // This mode is only used for testing purposes. Not all HALs support this mode. In this
+       // mode, the HAL ignores the sensor data provided by physical sensors and accepts the data
+       // that is injected from the SensorService as if it were the real sensor data. This mode
+       // is primarily used for testing various algorithms like vendor provided SensorFusion,
+       // Step Counter and Step Detector etc. Typically in this mode, there will be a client
+       // (a SensorEventConnection) which will be injecting sensor data into the HAL. Normal apps
+       // can unregister and register for any sensor that supports injection. Registering to sensors
+       // that do not support injection will give an error.
+       // TODO(aakella) : Allow exactly one client to inject sensor data at a time.
+       DATA_INJECTION = 1,
+       // This mode is used only for testing sensors. Each sensor can be tested in isolation with
+       // the required sampling_rate and maxReportLatency parameters without having to think about
+       // the data rates requested by other applications. End user devices are always expected to be
+       // in NORMAL mode. When this mode is first activated, all active sensors from all connections
+       // are disabled. Calling flush() will return an error. In this mode, only the requests from
+       // selected apps whose package names are whitelisted are allowed (typically CTS apps).  Only
+       // these apps can register/unregister/call flush() on sensors. If SensorService switches to
+       // NORMAL mode again, all sensors that were previously registered to are activated with the
+       // corresponding paramaters if the application hasn't unregistered for sensors in the mean
+       // time.
+       // NOTE: Non whitelisted app whose sensors were previously deactivated may still receive
+       // events if a whitelisted app requests data from the same sensor.
+       RESTRICTED = 2
+
+      // State Transitions supported.
+      //     RESTRICTED   <---  NORMAL   ---> DATA_INJECTION
+      //                  --->           <---
+
+      // Shell commands to switch modes in SensorService.
+      // 1) Put SensorService in RESTRICTED mode with packageName .cts. If it is already in
+      // restricted mode it is treated as a NO_OP (and packageName is NOT changed).
+      // $ adb shell dumpsys sensorservice restrict .cts.
+      //
+      // 2) Put SensorService in DATA_INJECTION mode with packageName .xts. If it is already in
+      // data_injection mode it is treated as a NO_OP (and packageName is NOT changed).
+      // $ adb shell dumpsys sensorservice data_injection .xts.
+      //
+      // 3) Reset sensorservice back to NORMAL mode.
+      // $ adb shell dumpsys sensorservice enable
+    };
+
     static const char* WAKE_LOCK_NAME;
 
     static char const* getServiceName() ANDROID_API { return "sensorservice"; }
@@ -70,8 +126,10 @@ class SensorService :
     virtual bool threadLoop();
 
     // ISensorServer interface
-    virtual Vector<Sensor> getSensorList();
-    virtual sp<ISensorEventConnection> createSensorEventConnection();
+    virtual Vector<Sensor> getSensorList(const String16& opPackageName);
+    virtual sp<ISensorEventConnection> createSensorEventConnection(const String8& packageName,
+             int requestedMode, const String16& opPackageName);
+    virtual int isDataInjectionEnabled();
     virtual status_t dump(int fd, const Vector<String16>& args);
 
     class SensorEventConnection : public BnSensorEventConnection, public LooperCallback {
@@ -126,7 +184,6 @@ class SensorService :
         // connection FD may be added to the Looper. The flags to set are determined by the internal
         // state of the connection. FDs are added to the looper when wake-up sensors are registered
         // (to poll for acknowledgements) and when write fails on the socket when there are too many
-        // events (to poll when the FD is available for writing). FDs are removed when there is an
         // error and the other end hangs up or when this client unregisters for this connection.
         void updateLooperRegistration(const sp<Looper>& looper);
         void updateLooperRegistrationLocked(const sp<Looper>& looper);
@@ -149,6 +206,8 @@ class SensorService :
         // mWakeLockRefCount is reset to zero. needsWakeLock method will always return false, if
         // this flag is set.
         bool mDead;
+
+        bool mDataInjectionMode;
         struct FlushInfo {
             // The number of flush complete events dropped for this sensor is stored here.
             // They are sent separately before the next batch of events.
@@ -162,14 +221,16 @@ class SensorService :
         KeyedVector<int, FlushInfo> mSensorInfo;
         sensors_event_t *mEventCache;
         int mCacheSize, mMaxCacheSize;
-
+        String8 mPackageName;
+        const String16 mOpPackageName;
 #if DEBUG_CONNECTIONS
         int mEventsReceived, mEventsSent, mEventsSentFromCache;
         int mTotalAcksNeeded, mTotalAcksReceived;
 #endif
 
     public:
-        SensorEventConnection(const sp<SensorService>& service, uid_t uid);
+        SensorEventConnection(const sp<SensorService>& service, uid_t uid, String8 packageName,
+                 bool isDataInjectionMode, const String16& opPackageName);
 
         status_t sendEvents(sensors_event_t const* buffer, size_t count,
                 sensors_event_t* scratch,
@@ -183,6 +244,7 @@ class SensorService :
         void dump(String8& result);
         bool needsWakeLock();
         void resetWakeLockRefCount();
+        String8 getPackageName() const;
 
         uid_t getUid() const { return mUid; }
     };
@@ -201,6 +263,7 @@ class SensorService :
         void addPendingFlushConnection(const sp<SensorEventConnection>& connection);
         void removeFirstPendingFlushConnection();
         SensorEventConnection * getFirstPendingFlushConnection();
+        void clearAllPendingFlushConnections();
     };
 
     class SensorEventAckReceiver : public Thread {
@@ -210,6 +273,63 @@ class SensorService :
         SensorEventAckReceiver(const sp<SensorService>& service): mService(service) {}
     };
 
+    // sensor_event_t with only the data and the timestamp.
+    struct TrimmedSensorEvent {
+        union {
+            float *mData;
+            uint64_t mStepCounter;
+        };
+        // Timestamp from the sensor_event.
+        int64_t mTimestamp;
+        // HH:MM:SS local time at which this sensor event is read at SensorService. Useful
+        // for debugging.
+        int32_t mHour, mMin, mSec;
+
+        TrimmedSensorEvent(int sensorType);
+        static bool isSentinel(const TrimmedSensorEvent& event);
+
+        ~TrimmedSensorEvent() {
+            delete [] mData;
+        }
+    };
+
+    // A circular buffer of TrimmedSensorEvents. The size of this buffer is typically 10. The
+    // last N events generated from the sensor are stored in this buffer. The buffer is NOT
+    // cleared when the sensor unregisters and as a result one may see very old data in the
+    // dumpsys output but this is WAI.
+    class CircularBuffer {
+        int mNextInd;
+        int mSensorType;
+        int mBufSize;
+        TrimmedSensorEvent ** mTrimmedSensorEventArr;
+    public:
+        CircularBuffer(int sensor_event_type);
+        void addEvent(const sensors_event_t& sensor_event);
+        void printBuffer(String8& buffer) const;
+        bool populateLastEvent(sensors_event_t *event);
+        ~CircularBuffer();
+    };
+
+    struct SensorRegistrationInfo {
+        int32_t mSensorHandle;
+        String8 mPackageName;
+        bool mActivated;
+        int32_t mSamplingRateUs;
+        int32_t mMaxReportLatencyUs;
+        int32_t mHour, mMin, mSec;
+
+        SensorRegistrationInfo() : mPackageName() {
+            mSensorHandle = mSamplingRateUs = mMaxReportLatencyUs = INT32_MIN;
+            mHour = mMin = mSec = INT32_MIN;
+            mActivated = false;
+        }
+
+        static bool isSentinel(const SensorRegistrationInfo& info) {
+           return (info.mHour == INT32_MIN && info.mMin == INT32_MIN && info.mSec == INT32_MIN);
+        }
+    };
+
+    static int getNumEventsForSensorType(int sensor_event_type);
     String8 getSensorName(int handle) const;
     bool isVirtualSensor(int handle) const;
     Sensor getSensorFromHandle(int handle) const;
@@ -224,8 +344,8 @@ class SensorService :
             const sp<SensorEventConnection>& connection, int handle);
     void cleanupAutoDisabledSensorLocked(const sp<SensorEventConnection>& connection,
             sensors_event_t const* buffer, const int count);
-    static bool canAccessSensor(const Sensor& sensor);
-    static bool verifyCanAccessSensor(const Sensor& sensor, const char* operation);
+    static bool canAccessSensor(const Sensor& sensor, const char* operation,
+            const String16& opPackageName);
     // SensorService acquires a partial wakelock for delivering events from wake up sensors. This
     // method checks whether all the events from these wake up sensors have been delivered to the
     // corresponding applications, if yes the wakelock is released.
@@ -254,6 +374,15 @@ class SensorService :
     // to the output vector.
     void populateActiveConnections(SortedVector< sp<SensorEventConnection> >* activeConnections);
 
+    // If SensorService is operating in RESTRICTED mode, only select whitelisted packages are
+    // allowed to register for or call flush on sensors. Typically only cts test packages are
+    // allowed.
+    bool isWhiteListedPackage(const String8& packageName);
+
+    // Reset the state of SensorService to NORMAL mode.
+    status_t resetToNormalMode();
+    status_t resetToNormalModeLocked();
+
     // constants
     Vector<Sensor> mSensorList;
     Vector<Sensor> mUserSensorListDebug;
@@ -275,17 +404,28 @@ class SensorService :
     bool mWakeLockAcquired;
     sensors_event_t *mSensorEventBuffer, *mSensorEventScratch;
     SensorEventConnection const **mMapFlushEventsToConnections;
+    Mode mCurrentOperatingMode;
+    // This packagaName is set when SensorService is in RESTRICTED or DATA_INJECTION mode. Only
+    // applications with this packageName are allowed to activate/deactivate or call flush on
+    // sensors. To run CTS this is can be set to ".cts." and only CTS tests will get access to
+    // sensors.
+    String8 mWhiteListedPackage;
 
     // The size of this vector is constant, only the items are mutable
-    KeyedVector<int32_t, sensors_event_t> mLastEventSeen;
+    KeyedVector<int32_t, CircularBuffer *> mLastEventSeen;
 
+    int mNextSensorRegIndex;
+    Vector<SensorRegistrationInfo> mLastNSensorRegistrations;
 public:
     void cleanupConnection(SensorEventConnection* connection);
     status_t enable(const sp<SensorEventConnection>& connection, int handle,
-                    nsecs_t samplingPeriodNs,  nsecs_t maxBatchReportLatencyNs, int reservedFlags);
+                    nsecs_t samplingPeriodNs,  nsecs_t maxBatchReportLatencyNs, int reservedFlags,
+                    const String16& opPackageName);
     status_t disable(const sp<SensorEventConnection>& connection, int handle);
-    status_t setEventRate(const sp<SensorEventConnection>& connection, int handle, nsecs_t ns);
-    status_t flushSensor(const sp<SensorEventConnection>& connection);
+    status_t setEventRate(const sp<SensorEventConnection>& connection, int handle, nsecs_t ns,
+                          const String16& opPackageName);
+    status_t flushSensor(const sp<SensorEventConnection>& connection,
+                         const String16& opPackageName);
 };
 
 // ---------------------------------------------------------------------------

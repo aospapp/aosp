@@ -8,6 +8,7 @@
 #ifndef SkCachingPixelRef_DEFINED
 #define SkCachingPixelRef_DEFINED
 
+#include "SkBitmapCache.h"
 #include "SkImageInfo.h"
 #include "SkImageGenerator.h"
 #include "SkPixelRef.h"
@@ -41,25 +42,20 @@ public:
 
 protected:
     virtual ~SkCachingPixelRef();
-    virtual bool onNewLockPixels(LockRec*) SK_OVERRIDE;
-    virtual void onUnlockPixels() SK_OVERRIDE;
-    virtual bool onLockPixelsAreWritable() const SK_OVERRIDE { return false; }
+    bool onNewLockPixels(LockRec*) override;
+    void onUnlockPixels() override;
+    bool onLockPixelsAreWritable() const override { return false; }
 
-    virtual SkData* onRefEncodedData() SK_OVERRIDE {
+    SkData* onRefEncodedData() override {
         return fImageGenerator->refEncodedData();
     }
-    // No need to flatten this object. When flattening an SkBitmap,
-    // SkWriteBuffer will check the encoded data and write that
-    // instead.
-    // Future implementations of SkWriteBuffer will need to
-    // special case for onRefEncodedData as well.
-    SK_DECLARE_UNFLATTENABLE_OBJECT()
 
 private:
     SkImageGenerator* const fImageGenerator;
     bool                    fErrorInDecoding;
-    void*                   fScaledCacheId;
     const size_t            fRowBytes;
+
+    SkBitmap                fLockedBitmap;
 
     SkCachingPixelRef(const SkImageInfo&, SkImageGenerator*, size_t rowBytes);
 

@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"Přidat účet"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"Synchronizovat"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Odebrat účet"</string>
-    <string name="search_title" msgid="5474988613144349415">"Hledat"</string>
     <string name="account_sync" msgid="773808124331714965">"Vyberte synch. aplikace"</string>
     <string name="sync_now" msgid="8732244492880016471">"Synchronizovat"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"Zrušit synchronizaci"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"Synchronizace momentálně nefunguje. Brzy bude obnovena."</string>
     <string name="account_remove" msgid="4313580520737295272">"Odebrat účet"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Účet nelze odebrat"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"Jméno"</item>
-    <item msgid="6466271488216028049">"Fotka"</item>
-    <item msgid="5763918836533170723">"Zabezpečení"</item>
-    <item msgid="5219275476980441834">"Peněženka Google"</item>
-    <item msgid="5333563881963545303">"Historie nákupů"</item>
-    <item msgid="6174147587962184914">"Odebrat účet"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"Síť"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Vyhledávání je vždy k dispozici"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Povolit službě určování polohy Google a ostatním aplikacím hledat sítě, i když je síť Wi-Fi vypnutá."</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"Spořič obrazovky"</string>
     <string name="device_display" msgid="101455384386372747">"Displej"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systémové zvuky"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Záloha a obnovení"</string>
     <string name="device_reset" msgid="2827002349560023125">"Obnovení továrních dat"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrace"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vymazat data uložená v mezipaměti?"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Tímto vymažete z mezipaměti data všech aplikací."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"Stažené aplikace"</string>
     <string name="apps_system" msgid="2499191125802829425">"Systémové aplikace"</string>
     <string name="apps_running" msgid="6430310491739956228">"Spuštěné aplikace"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"Dálkové ovládání"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"Fotoaparát"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Přidat příslušenství"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Displej přes Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Párování..."</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"Příslušenství"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"Přejmenovat"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Zrušit párování"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"Baterie: <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Rušení párování zařízení…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Připojeno"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Vyhledávání příslušenství…"</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"Datum a čas"</string>
     <string name="system_language" msgid="2337138146114609247">"Jazyk"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Klávesnice"</string>
+    <string name="system_home" msgid="2858989138172296012">"Plocha"</string>
     <string name="system_search" msgid="2837264654143247611">"Vyhledávání"</string>
     <string name="system_security" msgid="8230080273993484407">"Zabezpečení a omezení"</string>
     <string name="system_speech" msgid="8128688499687306982">"Řeč"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"Název zařízení"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Restartovat"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Právní informace"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"Záruka"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Licence open source"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Právní informace společnosti Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Údaje o licenci jsou nedostupné."</string>
@@ -118,23 +109,15 @@
     <string name="about_version" msgid="1177287676732287266">"Verze"</string>
     <string name="about_serial" msgid="2723560490027171187">"Sériové číslo"</string>
     <string name="about_build" msgid="9148789767199785676">"Sestavení"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"Ještě <xliff:g id="STEP_COUNT">%1$d</xliff:g> krok a bude z vás vývojář."</item>
-    <item quantity="other" msgid="6907126743472136795">"Po dokončení dalších <xliff:g id="STEP_COUNT">%1$d</xliff:g> kroků z vás bude vývojář."</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="few">Ještě <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> kroky a budou z vás vývojáři</item>
+      <item quantity="many">Ještě <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> kroku a budou z vás vývojáři</item>
+      <item quantity="other">Ještě <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> kroků a budou z vás vývojáři</item>
+      <item quantity="one">Ještě <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> krok a budou z vás vývojáři</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Reklamy"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Voilà! Stal se z vás vývojář."</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Není potřeba, již jste vývojář."</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"Žádné"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"Uloženo"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"Vypnuto"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"Bylo zabráněno slabému připojení"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"Problém s ověřením"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"Mimo dosah"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"WPS je k dispozici"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" (WPS je k dispozici)"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"Zabezpečení: <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">", zabezpečení <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Slabá"</item>
     <item msgid="5986166866411161790">"Přijatelná"</item>
@@ -154,10 +137,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"DOSTUPNÉ SÍTĚ"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Připojit pomocí WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Přidat novou síť"</string>
-    <string name="add_network" msgid="2074883912462075625">"Přidat síť"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"Identifikátor SSID sítě"</string>
     <string name="security_type" msgid="524443802004143058">"Typ zabezpečení"</string>
-    <string name="password" msgid="1322790875762726719">"Heslo"</string>
     <string name="wps_network" msgid="1052148085426051873">"Připojit pomocí WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Jiná síť…"</string>
     <string name="skip_network" msgid="6380260543776712357">"Přeskočit"</string>
@@ -200,11 +180,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Žádný"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Ručně"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"Uložit"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Statická"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Informace o stavu"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Rozšířené možnosti"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>, <xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Zadejte platnou IP adresu."</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Zadejte platnou adresu brány."</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Zadejte platnou adresu DNS."</string>
@@ -227,19 +205,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Síť není připojena"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Již jste připojeni k síti <xliff:g id="SSID">%1$s</xliff:g>. Chcete se připojit k jiné síti?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"neznámá síť"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"Rozšířené možnosti"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>, <xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"Nastavení IP adresy"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"Otestovat připojení"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"Statická"</string>
-    <string name="gateway" msgid="2467496590891949814">"Brána"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"Délka síťové předpony"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"Server DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"Server DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"OK"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Zrušit"</string>
-    <string name="rename_device" msgid="8221482127562510757">"Přejmenovat zařízení"</string>
     <string name="storage_title" msgid="2132026108559493394">"Úložiště"</string>
     <string name="storage_available" msgid="1241005580092138871">"Dostupné"</string>
     <string name="storage_size" msgid="8958530823208352781">"Celková paměť: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +217,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"Zvuk"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Různé"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Data uložená v mezipaměti"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"Zrušit"</string>
+    <string name="storage_eject" msgid="113476702798691558">"Odpojit"</string>
+    <string name="storage_format" msgid="3759273736493279595">"Vymazat a naformátovat"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"Formátovat jako úložiště zařízení"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"Nepřipojeno"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"Migrovat data"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"Zapomenout toto interní úložiště"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Chcete-li používat aplikace a data na této jednotce, znovu ji zapojte. Pokud jednotka není k dispozici, můžete ji zapomenout.\n\nPokud zvolíte možnost Zapomenout, všechna data na jednotce budou navždy ztracena.\n\nAplikace můžete později znovu nainstalovat, avšak o data uložená na jednotce přijdete."</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"Úložiště zařízení"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"Vyměnitelné úložiště"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Resetovat"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"Úložiště <xliff:g id="NAME">%1$s</xliff:g> je připojeno"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"Připojení úložiště <xliff:g id="NAME">%1$s</xliff:g> se nezdařilo"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"Úložiště <xliff:g id="NAME">%1$s</xliff:g> bylo bezpečně odpojeno"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"Úložiště <xliff:g id="NAME">%1$s</xliff:g> nebylo možné bezpečně odpojit"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Jednotka, kterou jste chtěli odpojit, nebyla nalezena"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"Úložiště <xliff:g id="NAME">%1$s</xliff:g> je naformátováno"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"Formátování úložiště <xliff:g id="NAME">%1$s</xliff:g> se nezdařilo"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Formátovat jako interní úložiště"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"K této akci je potřeba, aby byla jednotka USB zabezpečena speciálním formátováním. Po bezpečnostním naformátování tato jednotka bude fungovat pouze v tomto zařízení. Při formátování se vymažou veškerá data, která jsou na jednotce uložena. Pokud o data nechcete přijít, doporučujeme je zálohovat."</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Vymazat a naformátovat"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Po naformátování tuto jednotku USB budete moci používat s jinými zařízeními. Veškerá data budou vymazána. Doporučujeme nejprve je zálohovat přesunutím aplikací do jiného interního úložiště."</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Formátování jednotky USB…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Tento proces může chvíli trvat. Jednotku neodpojujte."</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Přesunout data do úložiště <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Fotky, soubory a data aplikací přesuňte do úložiště <xliff:g id="NAME">%1$s</xliff:g>. Může to trvat několik minut. Některé aplikace během přesunu nebudou fungovat správně."</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Přesunout nyní"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Přesunout později"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Data byla migrována do úložiště <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Migrace dat do úložiště <xliff:g id="NAME">%1$s</xliff:g> se nezdařila"</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Přesouvání dat do úložiště <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Tento proces může chvíli trvat. Jednotku neodpojujte.\nNěkteré aplikace během přesunu nebudou fungovat správně."</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"Tato jednotka je pravděpodobně pomalá."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Můžete pokračovat, ale aplikace přesunuté do tohoto umístění budou mít prodlevy a přenosy dat mohou trvat delší dobu. Zkuste použít rychlejší jednotku, která zajistí vyšší výkon."</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"Formát"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Zálohování aplikací"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Aplikace uložené v úložišti <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Aplikace a data uložená v úložišti <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"K dispozici <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Vyjmout interní úložiště"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Aplikace v úložišti tohoto zařízení po jeho vyjmutí přestanou fungovat. Tato jednotka USB je naformátována tak, aby fungovala pouze v tomto zařízení. V žádném jiném zařízení fungovat nebude."</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Odpojování úložiště <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Využití úložiště"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Přesouvání aplikace <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Úložiště během přesunu nevysouvejte.\nAplikace <xliff:g id="APPNAME">%1$s</xliff:g> bude v tomto zařízení k dispozici až po dokončení přesunu."</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Zapomenout interní úložiště?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Pokud zvolíte možnost Zapomenout, veškerá data uložená na této jednotce budou navždy ztracena Chcete pokračovat?"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Zapomenout"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"Jednotka USB je připojena"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"Procházet"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Nastavit jako interní úložiště"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"Nastavit jako přenosné úložiště"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"Odpojit"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"Úložiště <xliff:g id="NAME">%1$s</xliff:g> bylo odebráno."</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"Dokud jednotka nebude znovu připojena, některé aplikace nebudou dostupné nebo nebudou fungovat správně."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"Nedostatek místa v úložišti."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"Aplikace neexistuje."</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikace je chráněna proti kopírování."</string>
+    <string name="invalid_location" msgid="5269044848535157307">"Umístění instalace není platné."</string>
+    <string name="system_package" msgid="9200255718634512790">"Aktualizace systému nelze nainstalovat na externí média."</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"Další informace"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Opakovat"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Hledání směrovače WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Stiskněte na směrovači tlačítko chráněného nastavení sítě.\nMůže být označeno textem „WPS“ nebo symbolem uvedeným vlevo."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Zadejte do směrovače Wi-Fi tento kód PIN: <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Po zadání kódu PIN bude nastavení dokončeno do dvou minut."</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"Nastavování WPS právě probíhá a dokončení procesu může trvat až dvě minuty."</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Nelze najít směrovač Wi-Fi"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Nastavení zabezpečení směrovače Wi-Fi (WEB) není podporováno."</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Nastavení zabezpečení směrovače Wi-Fi (TKIP) není podporováno."</string>
@@ -266,17 +291,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"Nastavení data"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Nastavení času"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Nastavení časového pásma"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Použít 24hodinový formát"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Automatické datum a čas"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"Použít čas ze sítě"</string>
     <string name="system_location" msgid="502463575930545806">"Poloha"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Povolit aplikacím, které o to požádaly, používat údaje o poloze"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"Poloha určená podle sítě Wi-Fi"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"Povolte, aby Google mohl aplikacím pomáhat s určováním polohy. To znamená, že budete do Googlu odesílat anonymní data o poloze, i když nebudou spuštěny žádné aplikace."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Souhlas se sběrem dat o poloze"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"Umožnit službě určování polohy Google shromažďovat anonymní data o poloze. Některá data se mohou ukládat do vašeho zařízení. Data mohou být shromažďována i v případě, že nejsou spuštěny žádné aplikace."</string>
-    <string name="location_title" msgid="7600163182794860262">"Moje poloha"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"Systém"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Režim"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Nedávné žádosti o polohu"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"V poslední době žádné aplikace o polohu nepožádaly."</string>
@@ -318,9 +340,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"Neprůhlednost textu"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Barva okna"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Neprůhlednost okna"</string>
-    <string name="color_none" msgid="5281446963475996688">"Žádná"</string>
     <string name="color_white" msgid="65537523012024751">"Bílá"</string>
-    <string name="color_gray" msgid="5637299846460438696">"Šedá"</string>
     <string name="color_black" msgid="8804213372565106403">"Černá"</string>
     <string name="color_red" msgid="5630553203246525989">"Červená"</string>
     <string name="color_green" msgid="3745551274773976763">"Zelená"</string>
@@ -346,8 +366,6 @@
     <string name="system_drawing" msgid="6573389872154957039">"Kresba"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Sledování"</string>
     <string name="system_apps" msgid="6293850468968494924">"Aplikace"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"Vytvořit chybové hlášení"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"Heslo pro zálohy"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"Nezamykat obrazovku"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"Kontrola HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"Optimalizace HDMI"</string>
@@ -365,7 +383,7 @@
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Ověřit aplikace instalované přes USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Kontrolovat škodlivost aplikací nainstalovaných pomocí nástroje ADB/ADT"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Podrobné protokolování Wi-Fi"</string>
-    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Povolit podrobné protokolování Wi‑Fi"</string>
+    <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Podrobné protokolování Wi‑Fi"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Zobrazit dotyky"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"Umístění ukazatele"</string>
     <string name="system_show_layout_bounds" msgid="645732439882291943">"Zobrazit ohraničení"</string>
@@ -383,8 +401,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Neukládat aktivity"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"Omezení procesů na pozadí"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"Zobrazit všechny ANR"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"Odeslat přehled na e-mailovou adresu"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"Chránit úplné zálohy v počítači"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Zakázat režim spánku"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Používat jen obsah DRM"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Optimalizace displeje pro maximální rozlišení nebo maximální frekvenci snímků. Má vliv pouze na displeje s rozlišením Ultra HD. Po změně tohoto nastavení bude zařízení restartováno."</string>
@@ -399,7 +415,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Blikání při dlouhých operacích hlavního vlákna"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Překryvná vrstva s aktuálním využitím procesoru"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Měřit čas vykreslování v adb shell dumpsys gfxinfo"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"Regionální (<xliff:g id="DATE">%s</xliff:g>)"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Zapnuto"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Vypnuto"</string>
     <string name="action_on_description" msgid="4559342592998850852">"Zapnuto"</string>
@@ -411,68 +426,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Vaše zařízení a osobní údaje jsou zranitelnější vůči útoku aplikací z neznámých zdrojů. Souhlasíte s tím, že nesete odpovědnost za jakékoli škody způsobené na vašem zařízení nebo za ztrátu dat v důsledku používání těchto aplikací."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Ověřování aplikací"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Zakázat instalaci škodlivých aplikací nebo na ně upozornit"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"Nikdy"</item>
-    <item msgid="5583820743908145007">"Pro obsah DRM"</item>
-    <item msgid="6148080515126921450">"Vždy"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Nikdy"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Pro obsah DRM"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Vždy"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"Nejlepší rozlišení"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"Nejlepší frekvence snímků"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"Vypnuto"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Zobrazit překreslované oblasti"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Zobrazit počítadlo překreslení"</string>
     <string name="no_application" msgid="1746564297589309465">"Nic"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"Žádné"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace (grafika)"</item>
-    <item msgid="6650537879885155020">"Zásobník volání funkce glGetError"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Žádné"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"Animace je vypnuta"</item>
+    <item msgid="8327257151534006014">"Měřítko animace 0,5x"</item>
+    <item msgid="2105786719544636780">"Měřítko animace 1x"</item>
+    <item msgid="5290554136790336403">"Měřítko animace 1,5x"</item>
+    <item msgid="1232929590838082483">"Měřítko animace 2x"</item>
+    <item msgid="1889239009419613796">"Měřítko animace 5x"</item>
+    <item msgid="7268894934484547297">"Měřítko animace 10x"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"Animace je vypnuta"</item>
-    <item msgid="5618283113978106483">"Měřítko animace 0,5x"</item>
-    <item msgid="397451685490290179">"Měřítko animace 1x"</item>
-    <item msgid="6331600473492644688">"Měřítko animace 1,5x"</item>
-    <item msgid="7004952449777104295">"Měřítko animace 2x"</item>
-    <item msgid="1063528777234221038">"Měřítko animace 5x"</item>
-    <item msgid="6926378938392529339">"Měřítko animace 10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"Animace je vypnuta"</item>
-    <item msgid="5578331490208019526">"Měřítko animace 0,5x"</item>
-    <item msgid="5338802612080069593">"Měřítko animace 1x"</item>
-    <item msgid="1309704285131661878">"Měřítko animace 1,5x"</item>
-    <item msgid="5654221040036850960">"Měřítko animace 2x"</item>
-    <item msgid="6092484055733043622">"Měřítko animace 5x"</item>
-    <item msgid="4049359393103906268">"Měřítko animace 10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"Animace je vypnuta"</item>
-    <item msgid="1302400121783768928">"Měřítko animace 0,5x"</item>
-    <item msgid="9088460595137551270">"Měřítko animace 1x"</item>
-    <item msgid="5640745580399155880">"Měřítko animace 1,5x"</item>
-    <item msgid="3320199023884342141">"Měřítko animace 2x"</item>
-    <item msgid="5620232666163371843">"Měřítko animace 5x"</item>
-    <item msgid="8580701701183364590">"Měřítko animace 10x"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"Vypnuto"</item>
-    <item msgid="6446688182396957172">"Na obrazovce ve formě sloupců"</item>
-    <item msgid="9080500692341488612">"adb shell dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"Standardní limit"</item>
-    <item msgid="6534728802931195545">"Procesy na pozadí deaktivovány"</item>
-    <item msgid="290172167371846384">"Maximálně 1 proces"</item>
-    <item msgid="4818593824413771192">"Maximálně 2 procesy"</item>
-    <item msgid="8337569181800165433">"Maximálně 3 procesy"</item>
-    <item msgid="8261219565766202947">"Maximálně 4 procesy"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"Velmi pomalá"</item>
-    <item msgid="3458529225374884970">"Pomalá"</item>
-    <item msgid="4131204219571166311">"Normální"</item>
-    <item msgid="786682416218616624">"Rychlá"</item>
-    <item msgid="1708844147149066133">"Velmi rychlá"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"Výběr typu účtu"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"Výběr účtu"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"Přidat nový účet"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"Vypnuto"</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"Na obrazovce ve formě sloupců"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"Standardní limit"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"Procesy na pozadí deaktivovány"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"Maximálně 1 proces"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"Maximálně 2 procesy"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"Maximálně 3 procesy"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"Maximálně 4 procesy"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Velmi pomalá"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"Pomalá"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"Normální"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"Rychlá"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Velmi rychlá"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Aktuální klávesnice"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfigurovat"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Možnosti klávesnice"</string>
@@ -481,9 +466,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Přejmenovat"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Displej přes Wi-Fi"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Vyžadovat PIN"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"Informace o dálkovém ovládání: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"Shromažďujeme hlášení o chybě.\nAž bude připraveno, požádáme vás o další informace."</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"Hlášení o chybě se nepodařilo shromáždit.\nZkuste to prosím znovu později."</string>
     <string name="whichApplication" msgid="8382179653567099571">"Dokončit akci pomocí aplikace"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Chcete pro tuto akci vždy použít tuto možnost?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Použít vždy"</string>
@@ -508,48 +490,47 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Vypnutí zařízení HDMI společně s televizí"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Automatické zapínání televize"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Zapnutí televize společně se zařízením HDMI"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"PŘIPOJENÝ VSTUP"</item>
-    <item quantity="other" msgid="280747600882155182">"PŘIPOJENÉ VSTUPY"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"VSTUP V ÚSPORNÉM REŽIMU"</item>
-    <item quantity="other" msgid="1673538341842385592">"VSTUPY V ÚSPORNÉM REŽIMU"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"NEPŘIPOJENÝ VSTUP"</item>
-    <item quantity="other" msgid="4526893384805247472">"NEPŘIPOJENÉ VSTUPY"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"Připojeno"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"Pohotovostní režim"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"Odpojeno"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="few">PŘIPOJENÉ VSTUPY</item>
+      <item quantity="many">PŘIPOJENÉ VSTUPY</item>
+      <item quantity="other">PŘIPOJENÉ VSTUPY</item>
+      <item quantity="one">PŘIPOJENÝ VSTUP</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="few">VSTUPY V ÚSPORNÉM REŽIMU</item>
+      <item quantity="many">VSTUPY V ÚSPORNÉM REŽIMU</item>
+      <item quantity="other">VSTUPY V ÚSPORNÉM REŽIMU</item>
+      <item quantity="one">VSTUP V ÚSPORNÉM REŽIMU</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="few">NEPŘIPOJENÉ VSTUPY</item>
+      <item quantity="many">NEPŘIPOJENÉ VSTUPY</item>
+      <item quantity="other">NEPŘIPOJENÉ VSTUPY</item>
+      <item quantity="one">NEPŘIPOJENÝ VSTUP</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Omezení přístupu k aplikacím a dalšímu obsahu v účtu"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Omezený profil"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"Přístup k aplikacím a obsahu"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Řízeno aplikací <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Tato aplikace v omezených profilech není podporována."</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Tato aplikace má přístup k vašim účtům"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Poloha"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Umožněte aplikacím používat údaje o vaší poloze"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"Vytvořit uživatele s omezenými oprávněními"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Vstoupit do omezeného profilu"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Ukončit omezený profil"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Smazat omezený profil"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Nastavení"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Povolené aplikace"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"1 povolená aplikace"</item>
-    <item quantity="other" msgid="5242661864373721262">"Povolené aplikace: %d"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="few">%d povolené aplikace</item>
+      <item quantity="many">%d povolené aplikace</item>
+      <item quantity="other">%d povolených aplikací</item>
+      <item quantity="one">1 povolená aplikace</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"Povoleno"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"Nepovoleno"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"Přizpůsobit omezení"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Chviličku..."</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Změnit PIN"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"Nastavte nový kód PIN k ukončení omezeného profilu"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"Potvrďte kód PIN k ukončení omezeného profilu."</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"Omezený profil ukončíte zadáním kódu PIN."</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"Odstranit uživatele s omezenými oprávněními?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Kanál můžete sledovat po zadání kódu PIN"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Program můžete sledovat po zadání kódu PIN"</string>
@@ -557,9 +538,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Nastavení nového kódu PIN"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Opětovné zadání nového kódu PIN"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Zadání původního kódu PIN"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"Zadali jste nesprávný kód PIN pětkrát.\nZkuste to znovu <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
-    <string name="pin_button_done" msgid="939191809977197451">"Hotovo"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"Zrušit"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Zadali jste pětkrát nesprávný kód PIN.\nZkuste to znovu za <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> s."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Nesprávný kód PIN, zkuste to znovu."</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Kód PIN nesouhlasí. Zkuste to znovu."</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Zadejte heslo pro síť <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Připojení bylo úspěšné."</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Úspěšně uloženo"</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"verze <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"Otevřít"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Vynutit zastavení"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Vynucené zastavení může způsobit nepředvídatelné chování aplikace."</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Odinstalovat"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Chcete tuto aplikaci odinstalovat?"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Odinstalovat aktualizace"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Všechny aktualizace této aplikace systému Android budou odinstalovány."</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Vypnout"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Chcete tuto aplikaci vypnout?"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Zapnout"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Chcete tuto aplikaci zapnout?"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Využití úložiště"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"Využito <xliff:g id="SIZE">%1$s</xliff:g> v úložišti <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Vymazat data"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Všechna data této aplikace budou trvale smazána.\nTýká se to všech souborů, nastavení, účtů, databází apod."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Vymazat výchozí nastavení"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Nastavit spuštění této aplikace pro akce"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Nejsou nastavena výchozí nastavení"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Vymazat mezipaměť"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Oznámení"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Oprávnění"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"Zrušit"</string>
+    <string name="settings_on" msgid="6892236264945435013">"Zapnuto"</string>
+    <string name="settings_off" msgid="449272161738237637">"Vypnuto"</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"Žádné"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"Spořič obrazovky"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"Začít"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Kdy spořič spustit"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Spořič obrazovky se spustí po této době nečinnosti. Pokud není vybrán žádný spořič obrazovky, displej se vypne."</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Po <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> nečinnosti"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Kdy spát"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Po této době neaktivity se vypne obrazovka."</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Záložní data nejsou momentálně ukládána do žádného účtu."</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Chcete ukončit zálohování hesel k sítím Wi-Fi, záložek, ostatních nastavení a dat aplikací a vymazat všechny kopie ze serverů Google?"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Zálohovat moje data"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Záložní účet"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatické obnovení"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"Resetovat zařízení"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Touto akcí smažete z interního úložiště zařízení všechna data, včetně následujících: svůj účet Google, data a nastavení systému a aplikací a stažené aplikace"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Chcete vymazat všechny osobní informace a stažené aplikace? Tuto akci nelze vrátit zpět."</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Vymazat vše"</string>
+    <string name="select_title" msgid="3905067953686121845">"Zvolte název zařízení ^1"</string>
+    <string name="select_description" msgid="4070142015460337658">"Název pomůže vaše zařízení ^1 identifikovat, když do něj budete přistupovat z jiných zařízení, například z telefonu, tabletu nebo počítače."</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"Obývací pokoj"</item>
+    <item msgid="3722089849939477581">"Multimediální místnost"</item>
+    <item msgid="6108590585438763574">"Společenská místnost"</item>
+    <item msgid="2581035245390468625">"Jídelna"</item>
+    <item msgid="3127487827308695324">"Pracovna"</item>
+    <item msgid="6172018430592195063">"Ložnice"</item>
+    <item msgid="8120010459866284578">"Kuchyně"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"Zadat vlastní název…"</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"Toto zařízení ^1 již má název"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"Název tohoto zařízení ^2 je ^1. Chcete jej změnit?"</string>
+    <string name="change_setting" msgid="2047402388786162246">"Změnit"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"Neměnit"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"Oprávnění"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Oprávnění aplikací"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"Povoleno u <xliff:g id="COUNT_0">%d</xliff:g> z <xliff:g id="COUNT_1">%d</xliff:g> aplikací"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Úroveň opravy zabezpečení Android"</string>
 </resources>

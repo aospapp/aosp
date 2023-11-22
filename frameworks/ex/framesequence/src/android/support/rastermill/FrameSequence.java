@@ -17,6 +17,7 @@
 package android.support.rastermill;
 
 import android.graphics.Bitmap;
+import java.nio.ByteBuffer;
 
 import java.io.InputStream;
 
@@ -40,6 +41,7 @@ public class FrameSequence {
 
     private static native FrameSequence nativeDecodeByteArray(byte[] data, int offset, int length);
     private static native FrameSequence nativeDecodeStream(InputStream is, byte[] tempStorage);
+    private static native FrameSequence nativeDecodeByteBuffer(ByteBuffer buffer, int offset, int capacity);
     private static native void nativeDestroyFrameSequence(long nativeFrameSequence);
     private static native long nativeCreateState(long nativeFrameSequence);
     private static native void nativeDestroyState(long nativeState);
@@ -67,6 +69,19 @@ public class FrameSequence {
             throw new IllegalArgumentException("invalid offset/length parameters");
         }
         return nativeDecodeByteArray(data, offset, length);
+    }
+
+    public static FrameSequence decodeByteBuffer(ByteBuffer buffer) {
+        if (buffer == null) throw new IllegalArgumentException();
+        if (!buffer.isDirect()) {
+            if (buffer.hasArray()) {
+                byte[] byteArray = buffer.array();
+                return decodeByteArray(byteArray, buffer.position(), buffer.remaining());
+            } else {
+                throw new IllegalArgumentException("Cannot have non-direct ByteBuffer with no byte array");
+            }
+        }
+        return nativeDecodeByteBuffer(buffer, buffer.position(), buffer.remaining());
     }
 
     public static FrameSequence decodeStream(InputStream stream) {

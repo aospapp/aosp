@@ -16,9 +16,11 @@
 
 package com.android.testingcamera;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.FragmentManager;
+import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
@@ -89,6 +91,7 @@ public class TestingCamera extends Activity
     private Spinner mPreviewSizeSpinner;
     private Spinner mPreviewFrameRateSpinner;
     private ToggleButton mPreviewToggle;
+    private ToggleButton mHDRToggle;
     private Spinner mAutofocusModeSpinner;
     private Button mAutofocusButton;
     private Button mCancelAutofocusButton;
@@ -112,6 +115,8 @@ public class TestingCamera extends Activity
     private SeekBar mZoomSeekBar;
 
     private TextView mLogView;
+
+    SnapshotDialogFragment mSnapshotDialog = null;
 
     private Set<View> mOpenOnlyControls = new HashSet<View>();
     private Set<View> mPreviewOnlyControls = new HashSet<View>();
@@ -171,7 +176,9 @@ public class TestingCamera extends Activity
     /** Misc variables */
 
     private static final String TAG = "TestingCamera";
-
+    private static final int PERMISSIONS_REQUEST_CAMERA = 1;
+    private static final int PERMISSIONS_REQUEST_RECORDING = 2;
+    static final int PERMISSIONS_REQUEST_SNAPSHOT = 3;
 
     /** Activity lifecycle */
 
@@ -204,6 +211,10 @@ public class TestingCamera extends Activity
         mPreviewFrameRateSpinner = (Spinner) findViewById(R.id.preview_frame_rate_spinner);
         mPreviewFrameRateSpinner.setOnItemSelectedListener(mPreviewFrameRateListener);
         mOpenOnlyControls.add(mPreviewFrameRateSpinner);
+
+        mHDRToggle = (ToggleButton) findViewById(R.id.hdr_mode);
+        mHDRToggle.setOnClickListener(mHDRToggleListener);
+        mOpenOnlyControls.add(mHDRToggle);
 
         mPreviewToggle = (ToggleButton) findViewById(R.id.start_preview);
         mPreviewToggle.setOnClickListener(mPreviewToggleListener);
@@ -326,7 +337,6 @@ public class TestingCamera extends Activity
     public void onResume() {
         super.onResume();
         log("onResume: Setting up");
-        mPreviewHolder = null;
         setUpCamera();
     }
 
@@ -351,6 +361,36 @@ public class TestingCamera extends Activity
             }
             mState = CAMERA_UNINITIALIZED;
         }
+    }
+
+    @Override
+    public void onRequestPermissionsResult (int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_CAMERA) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                log("Camera permission granted");
+                setUpCamera();
+            } else {
+                log("Camera permission denied, can't do anything");
+                finish();
+            }
+        } else if (requestCode == PERMISSIONS_REQUEST_RECORDING) {
+            mRecordToggle.setChecked(false);
+            for (int i = 0; i < grantResults.length; i++) {
+                if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                    log("Recording permission " + permissions[i] + " denied");
+                    return;
+                }
+                log("Recording permissions granted");
+                setUpCamera();
+            }
+        } else if (requestCode == PERMISSIONS_REQUEST_SNAPSHOT) {
+            if (mSnapshotDialog != null) {
+                mSnapshotDialog.onRequestPermissionsResult(requestCode, permissions,
+                    grantResults);
+            }
+        }
+
     }
 
     /** SurfaceHolder.Callback methods */
@@ -533,6 +573,26 @@ public class TestingCamera extends Activity
         @Override
         public void onNothingSelected(AdapterView<?> parent) {
 
+        }
+    };
+
+    private View.OnClickListener mHDRToggleListener =
+            new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (mState == CAMERA_TAKE_PICTURE) {
+                logE("Can't change preview state while taking picture!");
+                return;
+            }
+
+            if (mHDRToggle.isChecked()) {
+                log("Turning on HDR");
+                mParams.setSceneMode(Camera.Parameters.SCENE_MODE_HDR);
+            } else {
+                log("Turning off HDR");
+                mParams.setSceneMode(Camera.Parameters.SCENE_MODE_AUTO);
+            }
+            mCamera.setParameters(mParams);
         }
     };
 
@@ -835,10 +895,10 @@ public class TestingCamera extends Activity
         public void onPictureTaken(byte[] data, Camera camera) {
             log("JPEG picture callback received");
             FragmentManager fm = getFragmentManager();
-            SnapshotDialogFragment snapshotDialog = new SnapshotDialogFragment();
+            mSnapshotDialog = new SnapshotDialogFragment();
 
-            snapshotDialog.updateImage(data);
-            snapshotDialog.show(fm, "snapshot_dialog_fragment");
+            mSnapshotDialog.updateImage(data);
+            mSnapshotDialog.show(fm, "snapshot_dialog_fragment");
 
             mPreviewToggle.setEnabled(true);
 
@@ -920,6 +980,15 @@ public class TestingCamera extends Activity
         if (mState < CAMERA_OPEN) {
             log("Opening camera " + mCameraId);
 
+            if (checkSelfPermission(Manifest.permission.CAMERA)
+                    != PackageManager.PERMISSION_GRANTED) {
+                log("Requested camera permission");
+                requestPermissions(new String[] {Manifest.permission.CAMERA},
+                        PERMISSIONS_REQUEST_CAMERA);
+                return;
+            }
+
+
             try {
                 mCamera = Camera.open(mCameraId);
             } catch (RuntimeException e) {
@@ -936,6 +1005,20 @@ public class TestingCamera extends Activity
 
         setCameraDisplayOrientation();
         mParams = mCamera.getParameters();
+        mHDRToggle.setEnabled(false);
+        if (mParams != null) {
+            List<String> sceneModes = mParams.getSupportedSceneModes();
+            if (sceneModes != null) {
+                for (String mode : sceneModes) {
+                    if (Camera.Parameters.SCENE_MODE_HDR.equals(mode)){
+                        mHDRToggle.setEnabled(true);
+                        break;
+                    }
+                }
+            } else {
+                Log.i(TAG, "Supported scene modes is null");
+            }
+        }
 
         // Set up preview size selection
 
@@ -1488,6 +1571,19 @@ public class TestingCamera extends Activity
 
     private void startRecording() {
         log("Starting recording");
+
+        if  ((checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED)
+            || (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)) {
+            log("Requesting recording permissions (audio, storage)");
+            requestPermissions(new String[] {
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                PERMISSIONS_REQUEST_RECORDING);
+            return;
+        }
+
         logIndent(1);
         log("Configuring MediaRecoder");
 

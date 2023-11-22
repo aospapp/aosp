@@ -72,7 +72,7 @@ void Sampler::serialize(Context *rsc, OStream *stream) const {
 }
 
 Sampler *Sampler::createFromStream(Context *rsc, IStream *stream) {
-    return NULL;
+    return nullptr;
 }
 
 ObjectBaseRef<Sampler> Sampler::getSampler(Context *rsc,
@@ -101,7 +101,7 @@ ObjectBaseRef<Sampler> Sampler::getSampler(Context *rsc,
     void* allocMem = rsc->mHal.funcs.allocRuntimeMem(sizeof(Sampler), 0);
     if (!allocMem) {
         rsc->setError(RS_ERROR_FATAL_DRIVER, "Couldn't allocate memory for Allocation");
-        return NULL;
+        return nullptr;
     }
 
     Sampler *s = new (allocMem) Sampler(rsc, magFilter, minFilter, wrapS, wrapT, wrapR, aniso);

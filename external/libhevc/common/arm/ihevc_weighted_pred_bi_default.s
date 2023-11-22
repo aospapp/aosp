@@ -108,6 +108,7 @@
 @   r8 =>  ht
 @   r9 =>  wd
 .text
+.syntax unified
 .align 4
 
 
@@ -437,7 +438,7 @@ core_loop_16:
     vqadd.s16   q13,q7,q8
 
     addeq       r1,r1,r7
-    subeqs      r8,r8,#2                    @decrement the ht by 2
+    subseq      r8,r8,#2                    @decrement the ht by 2
     beq         epilog_16
 
 

@@ -83,12 +83,18 @@ namespace llvm {
     /*implicit*/ LLVM_CONSTEXPR ArrayRef(const T (&Arr)[N])
       : Data(Arr), Length(N) {}
 
-#if LLVM_HAS_INITIALIZER_LISTS
     /// Construct an ArrayRef from a std::initializer_list.
     /*implicit*/ ArrayRef(const std::initializer_list<T> &Vec)
     : Data(Vec.begin() == Vec.end() ? (T*)0 : Vec.begin()),
       Length(Vec.size()) {}
-#endif
+
+    /// Construct an ArrayRef<const T*> from ArrayRef<T*>. This uses SFINAE to
+    /// ensure that only ArrayRefs of pointers can be converted.
+    template <typename U>
+    ArrayRef(const ArrayRef<U *> &A,
+             typename std::enable_if<
+                 std::is_convertible<U *const *, T const *>::value>::type* = 0)
+      : Data(A.data()), Length(A.size()) {}
 
     /// @}
     /// @name Simple Operations
@@ -131,6 +137,8 @@ namespace llvm {
     bool equals(ArrayRef RHS) const {
       if (Length != RHS.Length)
         return false;
+      if (Length == 0)
+        return true;
       return std::equal(begin(), end(), RHS.begin());
     }
 

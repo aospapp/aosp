@@ -85,7 +85,7 @@
  * <ul>
  * <li>{@link com.google.common.collect.ImmutableSet}
  * <li>{@link com.google.common.collect.ImmutableSortedSet}
- * <li>{@link com.google.common.collect.ContiguousSet} (see {@code Ranges})
+ * <li>{@link com.google.common.collect.ContiguousSet} (see {@code Range})
  * </ul>
  *
  * <h3>of {@link java.util.Map}</h3>
@@ -147,10 +147,10 @@
  * <li>{@link com.google.common.collect.Iterables}
  * <li>{@link com.google.common.collect.Lists}
  * <li>{@link com.google.common.collect.Maps}
+ * <li>{@link com.google.common.collect.Queues}
  * <li>{@link com.google.common.collect.Sets}
  * <li>{@link com.google.common.collect.Multisets}
  * <li>{@link com.google.common.collect.Multimaps}
- * <li>{@link com.google.common.collect.SortedMaps}
  * <li>{@link com.google.common.collect.Tables}
  * <li>{@link com.google.common.collect.ObjectArrays}
  * </ul>
@@ -166,7 +166,7 @@
  *
  * <ul>
  * <li>{@link com.google.common.collect.AbstractIterator}
- * <li>{@link com.google.common.collect.AbstractLinkedIterator}
+ * <li>{@link com.google.common.collect.AbstractSequentialIterator}
  * <li>{@link com.google.common.collect.ImmutableCollection}
  * <li>{@link com.google.common.collect.UnmodifiableIterator}
  * <li>{@link com.google.common.collect.UnmodifiableListIterator}
@@ -176,9 +176,8 @@
  *
  * <ul>
  * <li>{@link com.google.common.collect.Range}
- * <li>{@link com.google.common.collect.Ranges}
+ * <li>{@link com.google.common.collect.RangeMap}
  * <li>{@link com.google.common.collect.DiscreteDomain}
- * <li>{@link com.google.common.collect.DiscreteDomains}
  * <li>{@link com.google.common.collect.ContiguousSet}
  * </ul>
  *
@@ -210,6 +209,8 @@
  * <li>{@link com.google.common.collect.ForwardingMapEntry}
  * <li>{@link com.google.common.collect.ForwardingMultimap}
  * <li>{@link com.google.common.collect.ForwardingMultiset}
+ * <li>{@link com.google.common.collect.ForwardingNavigableMap}
+ * <li>{@link com.google.common.collect.ForwardingNavigableSet}
  * <li>{@link com.google.common.collect.ForwardingObject}
  * <li>{@link com.google.common.collect.ForwardingQueue}
  * <li>{@link com.google.common.collect.ForwardingSet}

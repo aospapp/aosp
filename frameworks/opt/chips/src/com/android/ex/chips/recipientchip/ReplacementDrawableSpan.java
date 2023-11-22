@@ -11,8 +11,9 @@ import android.text.style.ReplacementSpan;
  * without changing the default text size or layout.
  */
 public class ReplacementDrawableSpan extends ReplacementSpan {
+    protected static final Paint sWorkPaint = new Paint();
+
     protected Drawable mDrawable;
-    private final Paint mWorkPaint = new Paint();
     private float mExtraMargin;
 
     public ReplacementDrawableSpan(Drawable drawable) {
@@ -25,9 +26,9 @@ public class ReplacementDrawableSpan extends ReplacementSpan {
     }
 
     private void setupFontMetrics(Paint.FontMetricsInt fm, Paint paint) {
-        mWorkPaint.set(paint);
+        sWorkPaint.set(paint);
         if (fm != null) {
-            mWorkPaint.getFontMetricsInt(fm);
+            sWorkPaint.getFontMetricsInt(fm);
 
             final Rect bounds = getBounds();
             final int textHeight = fm.descent - fm.ascent;

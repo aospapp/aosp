@@ -202,6 +202,7 @@ insert_file "$outdir/CameraMetadataEnums.java.part" "$fwkdir/CameraMetadata.java
 insert_file "$outdir/CameraCharacteristicsKeys.java.part" "$fwkdir/CameraCharacteristics.java" || exit 1
 insert_file "$outdir/CaptureRequestKeys.java.part" "$fwkdir/CaptureRequest.java" || exit 1
 insert_file "$outdir/CaptureResultKeys.java.part" "$fwkdir/CaptureResult.java" || exit 1
+insert_file "$outdir/CaptureResultTest.java.part" "$ctsdir/CaptureResultTest.java" || exit 1
 
 # Copy ./images directory into javadoc directory
 copy_directory "images" "$fwkdir_html" || exit 1

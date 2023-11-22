@@ -25,6 +25,9 @@
 
 #include "dns_sd.h"				// Defines the interface to the client layer above
 #include "mDNSEmbeddedAPI.h"		// The interface we're building on top of
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 extern mDNS mDNSStorage;		// We need to pass the address of this storage to the lower-layer functions
 
 #if MDNS_BUILDINGSHAREDLIBRARY || MDNS_BUILDINGSTUBLIBRARY
@@ -67,6 +70,14 @@ typedef struct
 	void                   *context;
 	DNSQuestion             q;
 	} mDNS_DirectOP_Browse;
+
+typedef struct
+	{
+	mDNS_DirectOP_Dispose        *disposefn;
+	DNSServiceRef                aQuery;
+	DNSServiceGetAddrInfoReply   callback;
+  	void                         *context;
+	} mDNS_DirectOP_GetAddrInfo;
 
 typedef struct
 	{
@@ -187,8 +198,12 @@ mDNSlocal void RegCallback(mDNS *const m, ServiceRecordSet *const sr, mStatus re
 		}
 	else if (result == mStatus_NameConflict)
 		{
-		if (x->autoname) mDNS_RenameAndReregisterService(m, sr, mDNSNULL);
-		else if (x->callback)
+			if (x->autoname) mDNS_RenameAndReregisterService(m, sr, mDNSNULL);
+			else if (x->autorename) {
+				IncrementLabelSuffix(&x->name, mDNStrue);
+				mDNS_RenameAndReregisterService(m, &x->s, &x->name);
+			}
+			else if (x->callback)
 				x->callback((DNSServiceRef)x, 0, result, namestr, typestr, domstr, x->context);
 		}
 	else if (result == mStatus_MemFree)
@@ -253,7 +268,7 @@ DNSServiceErrorType DNSServiceRegister
 	x->callback  = callback;
 	x->context   = context;
 	x->autoname = (!name[0]);
-	x->autorename = mDNSfalse;
+	x->autorename = !(flags & kDNSServiceFlagsNoAutoRename);
 	x->name = n;
 	x->host = h;
 
@@ -659,7 +674,7 @@ DNSServiceErrorType DNSServiceQueryRecord
 	x->q.ExpectUnique        = mDNSfalse;
 	x->q.ForceMCast          = (flags & kDNSServiceFlagsForceMulticast) != 0;
 	x->q.ReturnIntermed      = (flags & kDNSServiceFlagsReturnIntermediates) != 0;
-	x->q.SuppressUnsable     = (flags & kDNSServiceFlagsSuppressUnusable) != 0;
+	x->q.SuppressUnusable     = (flags & kDNSServiceFlagsSuppressUnusable) != 0;
 	x->q.SearchListIndex     = 0;
 	x->q.AppendSearchDomains = 0;
 	x->q.RetryWithSearchDomains = mDNSfalse;
@@ -705,7 +720,7 @@ static void DNSSD_API DNSServiceGetAddrInfoResponse(
 	{
 	mDNS_DirectOP_GetAddrInfo *		x = (mDNS_DirectOP_GetAddrInfo*)inContext;
 	struct sockaddr_in				sa4;
-	
+
 	mDNSPlatformMemZero(&sa4, sizeof(sa4));
 	if (inErrorCode == kDNSServiceErr_NoError && inRRType == kDNSServiceType_A)
 		{

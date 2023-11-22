@@ -16,13 +16,14 @@
 
 
 #include "fault_handler.h"
+
 #include <sys/ucontext.h>
+
+#include "art_method-inl.h"
 #include "base/macros.h"
 #include "globals.h"
 #include "base/logging.h"
 #include "base/hex_dump.h"
-#include "mirror/art_method.h"
-#include "mirror/art_method-inl.h"
 #include "thread.h"
 #include "thread-inl.h"
 
@@ -104,11 +105,17 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
   bool two_byte = false;
   uint32_t displacement_size = 0;
   uint32_t immediate_size = 0;
+  bool operand_size_prefix = false;
 
   // Prefixes.
   while (true) {
     bool prefix_present = false;
     switch (opcode) {
+      // Group 3
+      case 0x66:
+        operand_size_prefix = true;
+        FALLTHROUGH_INTENDED;
+
       // Group 1
       case 0xf0:
       case 0xf2:
@@ -121,9 +128,6 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
       case 0x26:
       case 0x64:
       case 0x65:
-
-      // Group 3
-      case 0x66:
 
       // Group 4
       case 0x67:
@@ -150,8 +154,8 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
 
   if (two_byte) {
     switch (opcode) {
-      case 0x10:            // vmovsd/ss
-      case 0x11:            // vmovsd/ss
+      case 0x10:        // vmovsd/ss
+      case 0x11:        // vmovsd/ss
       case 0xb6:        // movzx
       case 0xb7:
       case 0xbe:        // movsx
@@ -165,7 +169,8 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
     }
   } else {
     switch (opcode) {
-      case 0x89:            // mov
+      case 0x88:        // mov byte
+      case 0x89:        // mov
       case 0x8b:
       case 0x38:        // cmp with memory.
       case 0x39:
@@ -180,15 +185,17 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
 
       case 0x80:        // group 1, byte immediate.
       case 0x83:
+      case 0xc6:
         modrm = *pc++;
         has_modrm = true;
         immediate_size = 1;
         break;
 
       case 0x81:        // group 1, word immediate.
+      case 0xc7:        // mov
         modrm = *pc++;
         has_modrm = true;
-        immediate_size = 4;
+        immediate_size = operand_size_prefix ? 2 : 4;
         break;
 
       default:
@@ -203,18 +210,18 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
   }
 
   if (has_modrm) {
-    uint8_t mod = (modrm >> 6) & 0b11;
+    uint8_t mod = (modrm >> 6) & 3U /* 0b11 */;
 
     // Check for SIB.
-    if (mod != 0b11 && (modrm & 0b111) == 4) {
+    if (mod != 3U /* 0b11 */ && (modrm & 7U /* 0b111 */) == 4) {
       ++pc;     // SIB
     }
 
     switch (mod) {
-      case 0b00: break;
-      case 0b01: displacement_size = 1; break;
-      case 0b10: displacement_size = 4; break;
-      case 0b11:
+      case 0U /* 0b00 */: break;
+      case 1U /* 0b01 */: displacement_size = 1; break;
+      case 2U /* 0b10 */: displacement_size = 4; break;
+      case 3U /* 0b11 */:
         break;
     }
   }
@@ -226,7 +233,7 @@ static uint32_t GetInstructionSize(const uint8_t* pc) {
   return pc - startpc;
 }
 
-void FaultManager::HandleNestedSignal(int sig, siginfo_t* info, void* context) {
+void FaultManager::HandleNestedSignal(int, siginfo_t*, void* context) {
   // For the Intel architectures we need to go to an assembly language
   // stub.  This is because the 32 bit call to longjmp is much different
   // from the 64 bit ABI call and pushing things onto the stack inside this
@@ -234,7 +241,7 @@ void FaultManager::HandleNestedSignal(int sig, siginfo_t* info, void* context) {
   // this code the same for both 32 and 64 bit.
 
   Thread* self = Thread::Current();
-  CHECK(self != nullptr);       // This will cause a SIGABRT if self is nullptr.
+  CHECK(self != nullptr);  // This will cause a SIGABRT if self is null.
 
   struct ucontext* uc = reinterpret_cast<struct ucontext*>(context);
   uc->CTX_JMP_BUF = reinterpret_cast<uintptr_t>(*self->GetNestedSignalState());
@@ -242,7 +249,7 @@ void FaultManager::HandleNestedSignal(int sig, siginfo_t* info, void* context) {
 }
 
 void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
-                                             mirror::ArtMethod** out_method,
+                                             ArtMethod** out_method,
                                              uintptr_t* out_return_pc, uintptr_t* out_sp) {
   struct ucontext* uc = reinterpret_cast<struct ucontext*>(context);
   *out_sp = static_cast<uintptr_t>(uc->CTX_ESP);
@@ -261,14 +268,20 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
       reinterpret_cast<uint8_t*>(*out_sp) - GetStackOverflowReservedBytes(kX86));
 #endif
   if (overflow_addr == fault_addr) {
-    *out_method = reinterpret_cast<mirror::ArtMethod*>(uc->CTX_METHOD);
+    *out_method = reinterpret_cast<ArtMethod*>(uc->CTX_METHOD);
   } else {
     // The method is at the top of the stack.
-    *out_method = (reinterpret_cast<StackReference<mirror::ArtMethod>* >(*out_sp)[0]).AsMirrorPtr();
+    *out_method = *reinterpret_cast<ArtMethod**>(*out_sp);
   }
 
   uint8_t* pc = reinterpret_cast<uint8_t*>(uc->CTX_EIP);
   VLOG(signals) << HexDump(pc, 32, true, "PC ");
+
+  if (pc == nullptr) {
+    // Somebody jumped to 0x0. Definitely not ours, and will definitely segfault below.
+    *out_method = nullptr;
+    return;
+  }
 
   uint32_t instr_size = GetInstructionSize(pc);
   if (instr_size == 0) {
@@ -279,7 +292,7 @@ void FaultManager::GetMethodAndReturnPcAndSp(siginfo_t* siginfo, void* context,
   *out_return_pc = reinterpret_cast<uintptr_t>(pc + instr_size);
 }
 
-bool NullPointerHandler::Action(int sig, siginfo_t* info, void* context) {
+bool NullPointerHandler::Action(int, siginfo_t*, void* context) {
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   uint8_t* pc = reinterpret_cast<uint8_t*>(uc->CTX_EIP);
   uint8_t* sp = reinterpret_cast<uint8_t*>(uc->CTX_ESP);
@@ -319,7 +332,7 @@ bool NullPointerHandler::Action(int sig, siginfo_t* info, void* context) {
 // The offset from fs is Thread::ThreadSuspendTriggerOffset().
 // To check for a suspend check, we examine the instructions that caused
 // the fault.
-bool SuspensionHandler::Action(int sig, siginfo_t* info, void* context) {
+bool SuspensionHandler::Action(int, siginfo_t*, void* context) {
   // These are the instructions to check for.  The first one is the mov eax, fs:[xxx]
   // where xxx is the offset of the suspend trigger.
 #if defined(__x86_64__)
@@ -393,7 +406,7 @@ bool SuspensionHandler::Action(int sig, siginfo_t* info, void* context) {
 // This is done before any frame is established in the method.  The return
 // address for the previous method is on the stack at ESP.
 
-bool StackOverflowHandler::Action(int sig, siginfo_t* info, void* context) {
+bool StackOverflowHandler::Action(int, siginfo_t* info, void* context) {
   struct ucontext *uc = reinterpret_cast<struct ucontext*>(context);
   uintptr_t sp = static_cast<uintptr_t>(uc->CTX_ESP);
 

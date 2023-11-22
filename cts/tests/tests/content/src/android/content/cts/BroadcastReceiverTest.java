@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.test.ActivityInstrumentationTestCase2;
@@ -45,9 +46,15 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
             "android.content.cts.BroadcastReceiverTest.BROADCAST_MOCKTEST";
     private static final String ACTION_BROADCAST_TESTABORT =
             "android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT";
+    private static final String ACTION_BROADCAST_DISABLED =
+            "android.content.cts.BroadcastReceiverTest.BROADCAST_DISABLED";
 
     private static final long SEND_BROADCAST_TIMEOUT = 5000;
     private static final long START_SERVICE_TIMEOUT  = 3000;
+
+    private static final ComponentName DISABLEABLE_RECEIVER =
+            new ComponentName("com.android.cts.content",
+                    "android.content.cts.MockReceiverDisableable");
 
     public BroadcastReceiverTest() {
         super("com.android.cts.content", MockActivity.class);
@@ -127,6 +134,26 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
         }
     }
 
+    private class MockReceiverInternalVerifyUncalled extends MockReceiverInternal {
+        final int mExpectedInitialCode;
+
+        public MockReceiverInternalVerifyUncalled(int initialCode) {
+            mExpectedInitialCode = initialCode;
+        }
+
+        @Override
+        public synchronized void onReceive(Context context, Intent intent) {
+            // only update to the expected final values if we're still in the
+            // initial conditions.  The intermediate receiver would have
+            // updated the result code if it [inappropriately] ran.
+            if (getResultCode() == mExpectedInitialCode) {
+                setResultCode(RESULT_INTERNAL_FINAL_CODE);
+            }
+
+            super.onReceive(context, intent);
+        }
+    }
+
     public void testOnReceive () throws InterruptedException {
         final MockActivity activity = getActivity();
 
@@ -200,6 +227,26 @@ public class BroadcastReceiverTest extends ActivityInstrumentationTestCase2<Mock
                 resultExtras.getString(MockReceiverFirst.RESULT_EXTRAS_FIRST_KEY));
         assertEquals(MockReceiverAbort.RESULT_EXTRAS_ABORT_VALUE,
                 resultExtras.getString(MockReceiverAbort.RESULT_EXTRAS_ABORT_KEY));
+    }
+
+    public void testDisabledBroadcastReceiver() throws Exception {
+        final Context context = getInstrumentation().getContext();
+        PackageManager pm = context.getPackageManager();
+
+        MockReceiverInternalVerifyUncalled lastReceiver =
+                new MockReceiverInternalVerifyUncalled(RESULT_INITIAL_CODE);
+        assertEquals(0, lastReceiver.getResultCode());
+
+        pm.setComponentEnabledSetting(DISABLEABLE_RECEIVER,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP);
+
+        context.sendOrderedBroadcast(
+                new Intent(ACTION_BROADCAST_DISABLED), null, lastReceiver,
+                null, RESULT_INITIAL_CODE, RESULT_INITIAL_DATA, new Bundle());
+        lastReceiver.waitForReceiver(SEND_BROADCAST_TIMEOUT);
+
+        assertEquals(RESULT_INTERNAL_FINAL_CODE, lastReceiver.getResultCode());
     }
 
     public void testPeekService() throws InterruptedException {

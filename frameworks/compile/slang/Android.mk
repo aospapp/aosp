@@ -14,12 +14,13 @@
 # limitations under the License.
 #
 LOCAL_PATH := $(call my-dir)
+SLANG_ENABLE_ASSERTIONS := false
 
 # The prebuilt tools should be used when we are doing app-only build.
 ifeq ($(TARGET_BUILD_APPS),)
 
 
-local_cflags_for_slang := -Wno-sign-promo -Wall -Wno-unused-parameter -Wno-return-type -Werror
+local_cflags_for_slang := -Wall -Werror -std=c++11
 ifeq ($(TARGET_BUILD_VARIANT),eng)
 local_cflags_for_slang += -O0
 else
@@ -32,6 +33,10 @@ local_cflags_for_slang += -DTARGET_BUILD_VARIANT=$(TARGET_BUILD_VARIANT)
 
 include $(LOCAL_PATH)/rs_version.mk
 local_cflags_for_slang += $(RS_VERSION_DEFINE)
+
+ifeq ($(SLANG_ENABLE_ASSERTIONS),true)
+local_cflags_for_slang += -D_DEBUG -UNDEBUG
+endif
 
 static_libraries_needed_by_slang := \
 	libLLVMBitWriter_2_9 \
@@ -69,7 +74,6 @@ TBLGEN_TABLES :=    \
 
 LOCAL_SRC_FILES :=	\
 	slang.cpp	\
-	slang_utils.cpp	\
 	slang_backend.cpp	\
 	slang_pragma_recorder.cpp	\
 	slang_diagnostic_buffer.cpp
@@ -78,7 +82,7 @@ LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
 LOCAL_LDLIBS := -ldl -lpthread
 ifneq ($(HOST_OS),windows)
-LOCAL_LDLIBS += -lc++
+LOCAL_CXX_STL := libc++
 endif
 
 include $(CLANG_HOST_BUILD_MK)
@@ -139,12 +143,10 @@ TBLGEN_TABLES :=    \
 LOCAL_SRC_FILES :=	\
 	llvm-rs-cc.cpp	\
 	rs_cc_options.cpp \
-	slang_rs.cpp	\
 	slang_rs_ast_replace.cpp	\
 	slang_rs_check_ast.cpp	\
 	slang_rs_context.cpp	\
 	slang_rs_pragma_handler.cpp	\
-	slang_rs_backend.cpp	\
 	slang_rs_exportable.cpp	\
 	slang_rs_export_type.cpp	\
 	slang_rs_export_element.cpp	\
@@ -156,6 +158,8 @@ LOCAL_SRC_FILES :=	\
 	slang_rs_reflection_cpp.cpp \
 	slang_rs_reflect_utils.cpp \
 	strip_unknown_attributes.cpp
+
+LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
 
 LOCAL_STATIC_LIBRARIES :=	\
 	libslang \

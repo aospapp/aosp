@@ -16,15 +16,19 @@
 
 package com.android.inputmethod.latin.settings;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
+import android.provider.Settings.Secure;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import com.android.inputmethod.latin.R;
+import com.android.inputmethod.latin.define.ProductionFlags;
 import com.android.inputmethod.latin.utils.ApplicationUtils;
 import com.android.inputmethod.latin.utils.FeedbackUtils;
 import com.android.inputmethodcommon.InputMethodSettingsFragment;
@@ -47,9 +51,9 @@ public final class SettingsFragment extends InputMethodSettingsFragment {
         final PreferenceScreen preferenceScreen = getPreferenceScreen();
         preferenceScreen.setTitle(
                 ApplicationUtils.getActivityTitleResId(getActivity(), SettingsActivity.class));
-        if (!Settings.SHOW_MULTILINGUAL_SETTINGS) {
-            final Preference multilingualOptions = findPreference(Settings.SCREEN_MULTILINGUAL);
-            preferenceScreen.removePreference(multilingualOptions);
+        if (!ProductionFlags.ENABLE_ACCOUNT_SIGN_IN) {
+            final Preference accountsPreference = findPreference(Settings.SCREEN_ACCOUNTS);
+            preferenceScreen.removePreference(accountsPreference);
         }
     }
 
@@ -67,18 +71,31 @@ public final class SettingsFragment extends InputMethodSettingsFragment {
 
     @Override
     public boolean onOptionsItemSelected(final MenuItem item) {
+        final Activity activity = getActivity();
+        if (!isUserSetupComplete(activity)) {
+            // If setup is not complete, it's not safe to launch Help or other activities
+            // because they might go to the Play Store.  See b/19866981.
+            return true;
+        }
         final int itemId = item.getItemId();
         if (itemId == MENU_HELP_AND_FEEDBACK) {
-            FeedbackUtils.showHelpAndFeedbackForm(getActivity());
+            FeedbackUtils.showHelpAndFeedbackForm(activity);
             return true;
         }
         if (itemId == MENU_ABOUT) {
-            final Intent aboutIntent = FeedbackUtils.getAboutKeyboardIntent(getActivity());
+            final Intent aboutIntent = FeedbackUtils.getAboutKeyboardIntent(activity);
             if (aboutIntent != null) {
                 startActivity(aboutIntent);
                 return true;
             }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private static boolean isUserSetupComplete(final Activity activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return true;
+        }
+        return Secure.getInt(activity.getContentResolver(), "user_setup_complete", 0) != 0;
     }
 }

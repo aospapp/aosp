@@ -25,7 +25,8 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 /**
- * An activity to display information about the device, including density bucket and dimensions.
+ * An activity to display information about the device, including density
+ * bucket and dimensions.
  */
 public class DisplayInfoActivity extends Activity {
 
@@ -62,8 +63,14 @@ public class DisplayInfoActivity extends Activity {
             case DisplayMetrics.DENSITY_XHIGH:
                 return "xhdpi";
 
+            case DisplayMetrics.DENSITY_360:
+                return "360dpi";
+
             case DisplayMetrics.DENSITY_400:
                 return "400dpi";
+
+            case DisplayMetrics.DENSITY_420:
+                return "420dpi";
 
             case DisplayMetrics.DENSITY_XXHIGH:
                 return "xxhdpi";

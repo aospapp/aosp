@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
 import java.io.Serializable;
@@ -36,6 +37,10 @@ import java.util.RandomAccess;
 /**
  * Static utility methods pertaining to {@code boolean} primitives, that are not
  * already found in either {@link Boolean} or {@link Arrays}.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/PrimitivesExplained">
+ * primitive utilities</a>.
  *
  * @author Kevin Bourrillion
  * @since 1.0
@@ -59,6 +64,9 @@ public final class Booleans {
    * Compares the two specified {@code boolean} values in the standard way
    * ({@code false} is considered less than {@code true}). The sign of the
    * value returned is the same as that of {@code ((Boolean) a).compareTo(b)}.
+   *
+   * <p><b>Note:</b> projects using JDK 7 or later should use the equivalent
+   * {@link Boolean#compare} method instead.
    *
    * @param a the first {@code boolean} to compare
    * @param b the second {@code boolean} to compare
@@ -403,7 +411,8 @@ public final class Booleans {
     @Override public Boolean set(int index, Boolean element) {
       checkElementIndex(index, size());
       boolean oldValue = array[start + index];
-      array[start + index] = checkNotNull(element);  // checkNotNull for GWT (do not optimize)
+      // checkNotNull for GWT (do not optimize)
+      array[start + index] = checkNotNull(element);
       return oldValue;
     }
 
@@ -454,7 +463,7 @@ public final class Booleans {
     }
 
     boolean[] toBooleanArray() {
-      // Arrays.copyOfRange() requires Java 6
+      // Arrays.copyOfRange() is not available under GWT
       int size = size();
       boolean[] result = new boolean[size];
       System.arraycopy(array, start, result, 0, size);
@@ -462,5 +471,21 @@ public final class Booleans {
     }
 
     private static final long serialVersionUID = 0;
+  }
+
+  /**
+   * Returns the number of {@code values} that are {@code true}.
+   *
+   * @since 16.0
+   */
+  @Beta
+  public static int countTrue(boolean... values) {
+    int count = 0;
+    for (boolean value : values) {
+      if (value) {
+        count++;
+      }
+    }
+    return count;
   }
 }

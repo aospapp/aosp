@@ -66,6 +66,20 @@ public class KeySetHostTest extends DeviceTestCase implements IBuildReceiver {
             "CtsKeySetSigningAAndBUpgradeB.apk";
     private static final String A_AND_C_SIGNED_B_UPGRADE =
             "CtsKeySetSigningAAndCUpgradeB.apk";
+    private static final String SHARED_USR_A_SIGNED_B_UPGRADE =
+            "CtsKeySetSharedUserSigningAUpgradeB.apk";
+    private static final String SHARED_USR_B_SIGNED_B_UPGRADE =
+            "CtsKeySetSharedUserSigningBUpgradeB.apk";
+    private static final String A_SIGNED_BAD_B_B_UPGRADE =
+            "CtsKeySetSigningABadUpgradeB.apk";
+    private static final String C_SIGNED_BAD_A_AB_UPGRADE =
+            "CtsKeySetSigningCBadAUpgradeAB.apk";
+    private static final String A_SIGNED_NO_B_B_UPGRADE =
+            "CtsKeySetSigningANoDefUpgradeB.apk";
+    private static final String A_SIGNED_EC_A_UPGRADE =
+            "CtsKeySetSigningAUpgradeEcA.apk";
+    private static final String EC_A_SIGNED_A_UPGRADE =
+            "CtsKeySetSigningEcAUpgradeA.apk";
 
     /* package which defines the KEYSET_PERM_NAME signature permission */
     private static final String KEYSET_PERM_DEF_PKG =
@@ -431,5 +445,71 @@ public class KeySetHostTest extends DeviceTestCase implements IBuildReceiver {
     public void testUpgradeDefinerSigPermLost() throws Exception {
         testKeyRotationPerm(PERM_DEF_A_SIGNED, PERM_USE_A_SIGNED, PERM_DEF_B_SIGNED,
                 true, false);
+    }
+
+    /*
+     * Check if an apk which indicates it uses a sharedUserId and defines an
+     * upgrade keyset is allowed to rotate to that keyset.
+     */
+    public void testUpgradeSharedUser() throws Exception {
+        String installResult = testPackageUpgrade(KEYSET_PKG, SHARED_USR_A_SIGNED_B_UPGRADE,
+                SHARED_USR_B_SIGNED_B_UPGRADE);
+        assertNotNull("upgrade allowed for app with shareduserid!", installResult);
+    }
+
+    /*
+     * Check that an apk with an upgrade key represented by a bad public key
+     * fails to install.
+     */
+    public void testBadUpgradeBadPubKey() throws Exception {
+        mDevice.uninstallPackage(KEYSET_PKG);
+        String installResult = mDevice.installPackage(getTestAppFile(A_SIGNED_BAD_B_B_UPGRADE),
+                false);
+        assertNotNull("Installation of apk with upgrade key referring to a bad public key succeeded!",
+                installResult);
+    }
+
+    /*
+     * Check that an apk with an upgrade keyset that includes a bad public key fails to install.
+     */
+    public void testBadUpgradeMissingPubKey() throws Exception {
+        mDevice.uninstallPackage(KEYSET_PKG);
+        String installResult = mDevice.installPackage(getTestAppFile(C_SIGNED_BAD_A_AB_UPGRADE),
+                false);
+        assertNotNull("Installation of apk with upgrade key referring to a bad public key succeeded!",
+                installResult);
+    }
+
+    /*
+     * Check that an apk with an upgrade key that has no corresponding public key fails to install.
+     */
+    public void testBadUpgradeNoPubKey() throws Exception {
+        mDevice.uninstallPackage(KEYSET_PKG);
+        String installResult = mDevice.installPackage(getTestAppFile(A_SIGNED_NO_B_B_UPGRADE),
+                false);
+        assertNotNull("Installation of apk with upgrade key referring to a bad public key succeeded!",
+                installResult);
+    }
+
+    /*
+     * Check if an apk signed by RSA pub key can upgrade to apk signed by EC key.
+     */
+    public void testUpgradeKSRsaToEC() throws Exception {
+        String installResult = testPackageUpgrade(KEYSET_PKG, A_SIGNED_EC_A_UPGRADE,
+                EC_A_SIGNED_A_UPGRADE);
+        assertNull(String.format("failed to upgrade keyset app from one signed by RSA key"
+                 + "to version signed by EC upgrade-key-set, Reason: %s", installResult),
+                 installResult);
+    }
+
+    /*
+     * Check if an apk signed by EC pub key can upgrade to apk signed by RSA key.
+     */
+    public void testUpgradeKSECToRSA() throws Exception {
+        String installResult = testPackageUpgrade(KEYSET_PKG, EC_A_SIGNED_A_UPGRADE,
+                A_SIGNED_EC_A_UPGRADE);
+        assertNull(String.format("failed to upgrade keyset app from one signed by EC key"
+                 + "to version signed by RSA upgrade-key-set, Reason: %s", installResult),
+                 installResult);
     }
 }

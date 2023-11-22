@@ -24,8 +24,7 @@
 #include <RenderScript.h>
 
 #define  LOG_TAG    "rscpptest"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
+#define  LOGV(...)  __android_log_print(ANDROID_LOG_VERBOSE,LOG_TAG,__VA_ARGS__)
 
 using namespace android::RSC;
 
@@ -51,6 +50,18 @@ void aligned_free(void * memblk) {
     }
 }
 
+sp<const Element> makeElement(sp<RS> rs, RsDataType dt, int vecSize) {
+    if (vecSize > 1) {
+        return Element::createVector(rs, dt, vecSize);
+    } else {
+        if (dt == RS_TYPE_UNSIGNED_8) {
+            return Element::U8(rs);
+        } else {
+            return Element::F32(rs);
+        }
+    }
+}
+
 extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSInitTest_initTest(JNIEnv * env,
                                                                                  jclass obj,
                                                                                  jstring pathObj)
@@ -60,7 +71,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSInitTest_initTest
     for (int i = 0; i < 1000; i++) {
         sp<RS> rs = new RS();
         r &= rs->init(path);
-        LOGE("Native iteration %i, returned %i", i, (int)r);
+        LOGV("Native iteration %i, returned %i", i, (int)r);
     }
     env->ReleaseStringUTFChars(pathObj, path);
     return r;
@@ -371,4 +382,114 @@ Java_android_cts_rscpp_RSBlendTest_blendTest(JNIEnv * env, jclass obj, jstring p
 
 }
 
+extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSResizeTest_resizeTest(JNIEnv * env,
+                                                                                     jclass obj,
+                                                                                     jstring pathObj,
+                                                                                     jint X,
+                                                                                     jint Y,
+                                                                                     jfloat scaleX,
+                                                                                     jfloat scaleY,
+                                                                                     jboolean useByte,
+                                                                                     jint vecSize,
+                                                                                     jbyteArray inputByteArray,
+                                                                                     jbyteArray outputByteArray,
+                                                                                     jfloatArray inputFloatArray,
+                                                                                     jfloatArray outputFloatArray
+                                                                                     )
+{
+    const char * path = env->GetStringUTFChars(pathObj, NULL);
+
+    sp<RS> rs = new RS();
+    rs->init(path);
+
+    RsDataType dt = RS_TYPE_UNSIGNED_8;
+    if (!useByte) {
+        dt = RS_TYPE_FLOAT_32;
+    }
+    sp<const Element> e = makeElement(rs, dt, vecSize);
+    sp<Allocation> inputAlloc = Allocation::createSized2D(rs, e, X, Y);
+
+    int outX = (int) (X * scaleX);
+    int outY = (int) (Y * scaleY);
+    sp<Allocation> outputAlloc = Allocation::createSized2D(rs, e, outX, outY);
+    sp<ScriptIntrinsicResize> resize = ScriptIntrinsicResize::create(rs);
+
+    if (useByte) {
+        jbyte * input = (jbyte *) env->GetPrimitiveArrayCritical(inputByteArray, 0);
+        inputAlloc->copy2DRangeFrom(0, 0, X, Y, input);
+        env->ReleasePrimitiveArrayCritical(inputByteArray, input, 0);
+    } else {
+        jfloat * input = (jfloat *) env->GetPrimitiveArrayCritical(inputFloatArray, 0);
+        inputAlloc->copy2DRangeFrom(0, 0, X, Y, input);
+        env->ReleasePrimitiveArrayCritical(inputFloatArray, input, 0);
+    }
+
+    resize->setInput(inputAlloc);
+    resize->forEach_bicubic(outputAlloc);
+
+    if (useByte) {
+        jbyte * output = (jbyte *) env->GetPrimitiveArrayCritical(outputByteArray, 0);
+        outputAlloc->copy2DRangeTo(0, 0, outX, outY, output);
+        env->ReleasePrimitiveArrayCritical(outputByteArray, output, 0);
+    } else {
+        jfloat * output = (jfloat *) env->GetPrimitiveArrayCritical(outputFloatArray, 0);
+        outputAlloc->copy2DRangeTo(0, 0, outX, outY, output);
+        env->ReleasePrimitiveArrayCritical(outputFloatArray, output, 0);
+    }
+
+    env->ReleaseStringUTFChars(pathObj, path);
+    return (rs->getError() == RS_SUCCESS);
+
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSYuvTest_yuvTest(JNIEnv * env,
+                                                                               jclass obj,
+                                                                               jstring pathObj,
+                                                                               jint X,
+                                                                               jint Y,
+                                                                               jbyteArray inputByteArray,
+                                                                               jbyteArray outputByteArray,
+                                                                               jint yuvFormat
+                                                                               )
+{
+    const char * path = env->GetStringUTFChars(pathObj, NULL);
+    jbyte * input = (jbyte *) env->GetPrimitiveArrayCritical(inputByteArray, 0);
+    jbyte * output = (jbyte *) env->GetPrimitiveArrayCritical(outputByteArray, 0);
+
+    sp<RS> mRS = new RS();
+    mRS->init(path);
+
+    RSYuvFormat mYuvFormat = (RSYuvFormat)yuvFormat;
+    sp<ScriptIntrinsicYuvToRGB> syuv = ScriptIntrinsicYuvToRGB::create(mRS, Element::U8_4(mRS));;
+    sp<Allocation> inputAlloc = nullptr;
+
+    if (mYuvFormat != RS_YUV_NONE) {
+        //syuv = ScriptIntrinsicYuvToRGB::create(mRS, Element::YUV(mRS));
+        Type::Builder tb(mRS, Element::YUV(mRS));
+        tb.setX(X);
+        tb.setY(Y);
+        tb.setYuvFormat(mYuvFormat);
+        inputAlloc = Allocation::createTyped(mRS, tb.create());
+        inputAlloc->copy2DRangeFrom(0, 0, X, Y, input);
+    } else {
+        //syuv = ScriptIntrinsicYuvToRGB::create(mRS, Element::U8(mRS));
+        size_t arrLen = X * Y + ((X + 1) / 2) * ((Y + 1) / 2) * 2;
+        inputAlloc = Allocation::createSized(mRS, Element::U8(mRS), arrLen);
+        inputAlloc->copy1DRangeFrom(0, arrLen, input);
+    }
+
+    sp<const Type> tout = Type::create(mRS, Element::RGBA_8888(mRS), X, Y, 0);
+    sp<Allocation> outputAlloc = Allocation::createTyped(mRS, tout);
+
+    syuv->setInput(inputAlloc);
+    syuv->forEach(outputAlloc);
+
+    outputAlloc->copy2DRangeTo(0, 0, X, Y, output);
+
+    env->ReleasePrimitiveArrayCritical(inputByteArray, input, 0);
+    env->ReleasePrimitiveArrayCritical(outputByteArray, output, 0);
+    env->ReleaseStringUTFChars(pathObj, path);
+    return (mRS->getError() == RS_SUCCESS);
+
+}
 

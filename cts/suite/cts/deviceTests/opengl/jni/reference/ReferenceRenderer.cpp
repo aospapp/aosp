@@ -22,10 +22,10 @@
 #include <Trace.h>
 
 ReferenceRenderer::ReferenceRenderer(ANativeWindow* window) :
-        Renderer(window, false, 0) {
+        Renderer(window, false) {
 }
 
-bool ReferenceRenderer::setUp() {
+bool ReferenceRenderer::setUp(int workload) {
     SCOPED_TRACE();
     // Reset the times.
     for (int i = 0; i < NUM_SETUP_TIMES; i++) {
@@ -33,7 +33,7 @@ bool ReferenceRenderer::setUp() {
     }
     // Set up OpenGLES.
     double start = GLUtils::currentTimeMillis();
-    if (!Renderer::setUp()) {
+    if (!Renderer::setUp(workload)) {
         return false;
     }
     mSetUpTimes[0] = GLUtils::currentTimeMillis() - start;

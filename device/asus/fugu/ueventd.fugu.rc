@@ -4,6 +4,7 @@
 /dev/dri/card0                          0666   system     system
 /dev/pvr_sync                           0666   system     system
 /dev/sw_sync                            0666   system     system
+/dev/ion                                0666   system     system
 
 # hdmi cec
 /dev/it8566_hdmi_cec                    0660   system     system

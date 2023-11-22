@@ -18,22 +18,11 @@ package com.android.tv.settings.dialog;
 
 import android.app.Activity;
 import android.app.FragmentManager;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.res.Resources;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
-
-import com.android.tv.settings.dialog.SettingsLayoutFragment;
-import com.android.tv.settings.dialog.Layout;
-import com.android.tv.settings.dialog.Layout.Action;
-import com.android.tv.settings.dialog.Layout.LayoutRow;
+import android.view.View;
 
 import com.android.tv.settings.R;
-
-import java.util.ArrayList;
+import com.android.tv.settings.dialog.Layout.Action;
 
 /**
  * Activity to present settings menus and options.
@@ -54,6 +43,7 @@ public abstract class SettingsLayoutActivity extends Activity implements
         if (mSettingsLayoutFragment == null) {
             mSettingsLayoutFragment = new SettingsLayoutFragment.Builder()
                     .title(layout.getTitle())
+                    .description(layout.getDescription())
                     .breadcrumb(layout.getBreadcrumb())
                     .icon(layout.getIcon())
                     .iconBackgroundColor(getResources().getColor(R.color.icon_background))
@@ -65,7 +55,7 @@ public abstract class SettingsLayoutActivity extends Activity implements
 
     @Override
     public void onBackPressed() {
-        if (! mSettingsLayoutFragment.onBackPressed()) {
+        if (!mSettingsLayoutFragment.isVisible() || !mSettingsLayoutFragment.onBackPressed()) {
             super.onBackPressed();
         }
     }
@@ -82,13 +72,6 @@ public abstract class SettingsLayoutActivity extends Activity implements
 
     protected void goBackToTitle (String title) {
         mSettingsLayoutFragment.goBackToTitle (title);
-    }
-
-    /**
-     * Return true if the display view is rendered right to left.
-     */
-    protected boolean isLayoutRtl() {
-        return mSettingsLayoutFragment.getView().isLayoutRtl();
     }
 
     protected void setIcon(int resId) {

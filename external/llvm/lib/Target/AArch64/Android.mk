@@ -24,6 +24,7 @@ aarch64_codegen_SRC_FILES := \
   AArch64CleanupLocalDynamicTLSPass.cpp \
   AArch64CollectLOH.cpp \
   AArch64ConditionalCompares.cpp \
+  AArch64ConditionOptimizer.cpp \
   AArch64DeadRegisterDefinitionsPass.cpp \
   AArch64ExpandPseudoInsts.cpp \
   AArch64FastISel.cpp \
@@ -33,6 +34,7 @@ aarch64_codegen_SRC_FILES := \
   AArch64ISelLowering.cpp \
   AArch64LoadStoreOptimizer.cpp \
   AArch64MCInstLower.cpp \
+  AArch64PBQPRegAlloc.cpp \
   AArch64PromoteConstant.cpp \
   AArch64RegisterInfo.cpp \
   AArch64SelectionDAGInfo.cpp \

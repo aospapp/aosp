@@ -6,60 +6,47 @@
  */
 
 #include "GrGLTexture.h"
-#include "GrGpuGL.h"
+#include "GrGLGpu.h"
 
-#define GPUGL static_cast<GrGpuGL*>(getGpu())
-
+#define GPUGL static_cast<GrGLGpu*>(this->getGpu())
 #define GL_CALL(X) GR_GL_CALL(GPUGL->glInterface(), X)
 
-void GrGLTexture::init(GrGpuGL* gpu,
-                       const Desc& textureDesc,
-                       const GrGLRenderTarget::Desc* rtDesc) {
+// Because this class is virtually derived from GrSurface we must explicitly call its constructor.
+GrGLTexture::GrGLTexture(GrGLGpu* gpu, const GrSurfaceDesc& desc, const IDDesc& idDesc)
+    : GrSurface(gpu, idDesc.fLifeCycle, desc)
+    , INHERITED(gpu, idDesc.fLifeCycle, desc) {
+    this->init(desc, idDesc);
+    this->registerWithCache();
+}
 
-    SkASSERT(0 != textureDesc.fTextureID);
+GrGLTexture::GrGLTexture(GrGLGpu* gpu, const GrSurfaceDesc& desc, const IDDesc& idDesc, Derived)
+    : GrSurface(gpu, idDesc.fLifeCycle, desc)
+    , INHERITED(gpu, idDesc.fLifeCycle, desc) {
+    this->init(desc, idDesc);
+}
 
+void GrGLTexture::init(const GrSurfaceDesc& desc, const IDDesc& idDesc) {
+    SkASSERT(0 != idDesc.fTextureID);
     fTexParams.invalidate();
     fTexParamsTimestamp = GrGpu::kExpiredTimestamp;
-    fTexIDObj.reset(SkNEW_ARGS(GrGLTexID, (GPUGL->glInterface(),
-                                           textureDesc.fTextureID,
-                                           textureDesc.fIsWrapped)));
-
-    if (NULL != rtDesc) {
-        GrGLIRect vp;
-        vp.fLeft   = 0;
-        vp.fWidth  = textureDesc.fWidth;
-        vp.fBottom = 0;
-        vp.fHeight = textureDesc.fHeight;
-
-        fRenderTarget.reset(SkNEW_ARGS(GrGLRenderTarget, (gpu, *rtDesc, vp, fTexIDObj, this)));
-    }
-}
-
-GrGLTexture::GrGLTexture(GrGpuGL* gpu,
-                         const Desc& textureDesc)
-    : INHERITED(gpu, textureDesc.fIsWrapped, textureDesc) {
-    this->init(gpu, textureDesc, NULL);
-}
-
-GrGLTexture::GrGLTexture(GrGpuGL* gpu,
-                         const Desc& textureDesc,
-                         const GrGLRenderTarget::Desc& rtDesc)
-    : INHERITED(gpu, textureDesc.fIsWrapped, textureDesc) {
-    this->init(gpu, textureDesc, &rtDesc);
+    fTextureID = idDesc.fTextureID;
+    fIsWrapped = kWrapped_LifeCycle == idDesc.fLifeCycle;
 }
 
 void GrGLTexture::onRelease() {
-    GPUGL->notifyTextureDelete(this);
-    fTexIDObj.reset(NULL);
+    if (fTextureID) {
+        if (!fIsWrapped) {
+            GL_CALL(DeleteTextures(1, &fTextureID));
+        }
+        fTextureID = 0;
+        fIsWrapped = false;
+    }
     INHERITED::onRelease();
 }
 
 void GrGLTexture::onAbandon() {
-    if (NULL != fTexIDObj.get()) {
-        fTexIDObj->abandon();
-        fTexIDObj.reset(NULL);
-    }
-
+    fTextureID = 0;
+    fIsWrapped = false;
     INHERITED::onAbandon();
 }
 

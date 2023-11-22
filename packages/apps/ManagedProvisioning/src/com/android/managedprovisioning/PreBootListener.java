@@ -22,11 +22,11 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
 
 import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
+import com.android.managedprovisioning.task.DisableInstallShortcutListenersTask;
 
 import java.util.List;
 
@@ -50,10 +50,22 @@ public class PreBootListener extends BroadcastReceiver {
                     .shouldDeleteNonRequiredApps(context, UserHandle.USER_OWNER)) {
 
             // Delete new apps.
-                deleteNonRequiredApps(context, dpm.getDeviceOwner(), UserHandle.USER_OWNER,
-                        R.array.required_apps_managed_device,
-                        R.array.vendor_required_apps_managed_device,
-                        false /* Do not disable INSTALL_SHORTCUT listeners */);
+            new DeleteNonRequiredAppsTask(context, dpm.getDeviceOwner(),
+                    DeleteNonRequiredAppsTask.DEVICE_OWNER,
+                    false /* not creating new profile */,
+                    UserHandle.USER_OWNER,
+                    false /* delete non-required system apps */,
+                    new DeleteNonRequiredAppsTask.Callback() {
+
+                        @Override
+                        public void onSuccess() {}
+
+                        @Override
+                        public void onError() {
+                            ProvisionLogger.loge("Error while checking if there are new system "
+                                    + "apps that need to be deleted");
+                        }
+                    }).run();
         }
 
         // Check for managed profiles.
@@ -81,31 +93,37 @@ public class PreBootListener extends BroadcastReceiver {
                 ProvisionLogger.loge("No profile owner on managed profile " + userInfo.id);
                 continue;
             }
-            deleteNonRequiredApps(context, profileOwner.getPackageName(), userInfo.id,
-                    R.array.required_apps_managed_profile,
-                    R.array.vendor_required_apps_managed_profile,
-                    true /* Disable INSTALL_SHORTCUT listeners */);
+
+            // always set the DISALLOW_WALLPAPER user restriction
+            um.setUserRestriction(UserManager.DISALLOW_WALLPAPER, true, userInfo.getUserHandle());
+
+            final DeleteNonRequiredAppsTask deleteNonRequiredAppsTask;
+            final DisableInstallShortcutListenersTask disableInstallShortcutListenersTask;
+
+            disableInstallShortcutListenersTask = new DisableInstallShortcutListenersTask(context,
+                    userInfo.id);
+
+            deleteNonRequiredAppsTask = new DeleteNonRequiredAppsTask(context,
+                    profileOwner.getPackageName(),
+                    DeleteNonRequiredAppsTask.PROFILE_OWNER,
+                    false /* not creating new profile */,
+                    userInfo.id,
+                    false /* delete non-required system apps */,
+                    new DeleteNonRequiredAppsTask.Callback() {
+
+                        @Override
+                        public void onSuccess() {
+                            disableInstallShortcutListenersTask.run();
+                        }
+
+                        @Override
+                        public void onError() {
+                            ProvisionLogger.loge("Error while checking if there are new system "
+                                    + "apps that need to be deleted");
+                        }
+                    });
+
+            deleteNonRequiredAppsTask.run();
         }
-    }
-
-    private void deleteNonRequiredApps(Context context, String mdmPackageName, int userId,
-            int requiredAppsList, int vendorRequiredAppsList,
-            boolean disableInstallShortcutListeners) {
-        new DeleteNonRequiredAppsTask(context, mdmPackageName, userId,
-                requiredAppsList, vendorRequiredAppsList,
-                false /*we are not creating a new profile*/,
-                disableInstallShortcutListeners,
-                new DeleteNonRequiredAppsTask.Callback() {
-
-                    @Override
-                    public void onSuccess() {
-                    }
-
-                    @Override
-                    public void onError() {
-                        ProvisionLogger.loge("Error while checking if there are new system "
-                                + "apps that need to be deleted");
-                    }
-                }).run();
     }
 }

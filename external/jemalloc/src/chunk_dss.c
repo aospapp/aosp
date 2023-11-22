@@ -45,7 +45,7 @@ chunk_dss_prec_get(void)
 {
 	dss_prec_t ret;
 
-	if (have_dss == false)
+	if (!have_dss)
 		return (dss_prec_disabled);
 	malloc_mutex_lock(&dss_mtx);
 	ret = dss_prec_default;
@@ -57,7 +57,7 @@ bool
 chunk_dss_prec_set(dss_prec_t dss_prec)
 {
 
-	if (have_dss == false)
+	if (!have_dss)
 		return (dss_prec != dss_prec_disabled);
 	malloc_mutex_lock(&dss_mtx);
 	dss_prec_default = dss_prec;
@@ -66,7 +66,8 @@ chunk_dss_prec_set(dss_prec_t dss_prec)
 }
 
 void *
-chunk_alloc_dss(size_t size, size_t alignment, bool *zero)
+chunk_alloc_dss(arena_t *arena, void *new_addr, size_t size, size_t alignment,
+    bool *zero)
 {
 	void *ret;
 
@@ -93,8 +94,17 @@ chunk_alloc_dss(size_t size, size_t alignment, bool *zero)
 		 * malloc.
 		 */
 		do {
+			/* Avoid an unnecessary system call. */
+			if (new_addr != NULL && dss_max != new_addr)
+				break;
+
 			/* Get the current end of the DSS. */
 			dss_max = chunk_dss_sbrk(0);
+
+			/* Make sure the earlier condition still holds. */
+			if (new_addr != NULL && dss_max != new_addr)
+				break;
+
 			/*
 			 * Calculate how much padding is necessary to
 			 * chunk-align the end of the DSS.
@@ -123,8 +133,12 @@ chunk_alloc_dss(size_t size, size_t alignment, bool *zero)
 				/* Success. */
 				dss_max = dss_next;
 				malloc_mutex_unlock(&dss_mtx);
-				if (cpad_size != 0)
-					chunk_unmap(cpad, cpad_size);
+				if (cpad_size != 0) {
+					chunk_record(arena,
+					    &arena->chunks_szad_dss,
+					    &arena->chunks_ad_dss, false, cpad,
+					    cpad_size, false);
+				}
 				if (*zero) {
 					JEMALLOC_VALGRIND_MAKE_MEM_UNDEFINED(
 					    ret, size);

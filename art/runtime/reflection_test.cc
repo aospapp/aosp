@@ -20,8 +20,8 @@
 #include <limits.h>
 #include "ScopedLocalRef.h"
 
+#include "art_method-inl.h"
 #include "common_compiler_test.h"
-#include "mirror/art_method-inl.h"
 #include "scoped_thread_state_change.h"
 
 namespace art {
@@ -37,35 +37,35 @@ class ReflectionTest : public CommonCompilerTest {
     // Turn on -verbose:jni for the JNI tests.
     // gLogVerbosity.jni = true;
 
-    vm_->AttachCurrentThread(&env_, NULL);
+    vm_->AttachCurrentThread(&env_, nullptr);
 
     ScopedLocalRef<jclass> aioobe(env_,
                                   env_->FindClass("java/lang/ArrayIndexOutOfBoundsException"));
-    CHECK(aioobe.get() != NULL);
+    CHECK(aioobe.get() != nullptr);
     aioobe_ = reinterpret_cast<jclass>(env_->NewGlobalRef(aioobe.get()));
 
     ScopedLocalRef<jclass> ase(env_, env_->FindClass("java/lang/ArrayStoreException"));
-    CHECK(ase.get() != NULL);
+    CHECK(ase.get() != nullptr);
     ase_ = reinterpret_cast<jclass>(env_->NewGlobalRef(ase.get()));
 
     ScopedLocalRef<jclass> sioobe(env_,
                                   env_->FindClass("java/lang/StringIndexOutOfBoundsException"));
-    CHECK(sioobe.get() != NULL);
+    CHECK(sioobe.get() != nullptr);
     sioobe_ = reinterpret_cast<jclass>(env_->NewGlobalRef(sioobe.get()));
   }
 
   void CleanUpJniEnv() {
-    if (aioobe_ != NULL) {
+    if (aioobe_ != nullptr) {
       env_->DeleteGlobalRef(aioobe_);
-      aioobe_ = NULL;
+      aioobe_ = nullptr;
     }
-    if (ase_ != NULL) {
+    if (ase_ != nullptr) {
       env_->DeleteGlobalRef(ase_);
-      ase_ = NULL;
+      ase_ = nullptr;
     }
-    if (sioobe_ != NULL) {
+    if (sioobe_ != nullptr) {
       env_->DeleteGlobalRef(sioobe_);
-      sioobe_ = NULL;
+      sioobe_ = nullptr;
     }
   }
 
@@ -81,7 +81,7 @@ class ReflectionTest : public CommonCompilerTest {
     return soa.AddLocalReference<jclass>(c);
   }
 
-  void ReflectionTestMakeExecutable(mirror::ArtMethod** method,
+  void ReflectionTestMakeExecutable(ArtMethod** method,
                                     mirror::Object** receiver,
                                     bool is_static, const char* method_name,
                                     const char* method_signature)
@@ -105,19 +105,19 @@ class ReflectionTest : public CommonCompilerTest {
 
     mirror::Class* c = class_linker_->FindClass(self, DotToDescriptor(class_name).c_str(),
                                                 class_loader);
-    CHECK(c != NULL);
+    CHECK(c != nullptr);
 
-    *method = is_static ? c->FindDirectMethod(method_name, method_signature)
-                        : c->FindVirtualMethod(method_name, method_signature);
+    *method = is_static ? c->FindDirectMethod(method_name, method_signature, sizeof(void*))
+                        : c->FindVirtualMethod(method_name, method_signature, sizeof(void*));
     CHECK(method != nullptr);
 
     if (is_static) {
       *receiver = nullptr;
     } else {
       // Ensure class is initialized before allocating object
-      StackHandleScope<1> hs(self);
-      Handle<mirror::Class> h_class(hs.NewHandle(c));
-      bool initialized = class_linker_->EnsureInitialized(h_class, true, true);
+      StackHandleScope<1> hs2(self);
+      Handle<mirror::Class> h_class(hs2.NewHandle(c));
+      bool initialized = class_linker_->EnsureInitialized(self, h_class, true, true);
       CHECK(initialized);
       *receiver = c->AllocObject(self);
     }
@@ -130,198 +130,206 @@ class ReflectionTest : public CommonCompilerTest {
 
   void InvokeNopMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "nop", "()V");
-    InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), nullptr);
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
+    InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), nullptr);
   }
 
   void InvokeIdentityByteMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(B)B");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
     args[0].b = 0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(0, result.GetB());
 
     args[0].b = -1;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-1, result.GetB());
 
     args[0].b = SCHAR_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(SCHAR_MAX, result.GetB());
 
     args[0].b = (SCHAR_MIN << 24) >> 24;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(SCHAR_MIN, result.GetB());
   }
 
   void InvokeIdentityIntMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(I)I");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
     args[0].i = 0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(0, result.GetI());
 
     args[0].i = -1;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-1, result.GetI());
 
     args[0].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(INT_MAX, result.GetI());
 
     args[0].i = INT_MIN;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(INT_MIN, result.GetI());
   }
 
   void InvokeIdentityDoubleMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(D)D");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
     args[0].d = 0.0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(0.0, result.GetD());
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(0.0, result.GetD());
 
     args[0].d = -1.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(-1.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(-1.0, result.GetD());
 
     args[0].d = DBL_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(DBL_MAX, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(DBL_MAX, result.GetD());
 
     args[0].d = DBL_MIN;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(DBL_MIN, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(DBL_MIN, result.GetD());
   }
 
   void InvokeSumIntIntMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(II)I");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[2];
 
     args[0].i = 1;
     args[1].i = 2;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(3, result.GetI());
 
     args[0].i = -2;
     args[1].i = 5;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(3, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MIN;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-1, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-2, result.GetI());
   }
 
   void InvokeSumIntIntIntMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(III)I");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[3];
 
     args[0].i = 0;
     args[1].i = 0;
     args[2].i = 0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(0, result.GetI());
 
     args[0].i = 1;
     args[1].i = 2;
     args[2].i = 3;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(6, result.GetI());
 
     args[0].i = -1;
     args[1].i = 2;
     args[2].i = -3;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-2, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MIN;
     args[2].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(2147483646, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MAX;
     args[2].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(2147483645, result.GetI());
   }
 
   void InvokeSumIntIntIntIntMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(IIII)I");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[4];
 
     args[0].i = 0;
     args[1].i = 0;
     args[2].i = 0;
     args[3].i = 0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(0, result.GetI());
 
     args[0].i = 1;
     args[1].i = 2;
     args[2].i = 3;
     args[3].i = 4;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(10, result.GetI());
 
     args[0].i = -1;
     args[1].i = 2;
     args[2].i = -3;
     args[3].i = 4;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(2, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MIN;
     args[2].i = INT_MAX;
     args[3].i = INT_MIN;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-2, result.GetI());
 
     args[0].i = INT_MAX;
     args[1].i = INT_MAX;
     args[2].i = INT_MAX;
     args[3].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-4, result.GetI());
   }
 
   void InvokeSumIntIntIntIntIntMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(IIIII)I");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[5];
 
     args[0].i = 0;
@@ -329,7 +337,7 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].i = 0;
     args[3].i = 0;
     args[4].i = 0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(0, result.GetI());
 
     args[0].i = 1;
@@ -337,7 +345,7 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].i = 3;
     args[3].i = 4;
     args[4].i = 5;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(15, result.GetI());
 
     args[0].i = -1;
@@ -345,7 +353,7 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].i = -3;
     args[3].i = 4;
     args[4].i = -5;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(-3, result.GetI());
 
     args[0].i = INT_MAX;
@@ -353,7 +361,7 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].i = INT_MAX;
     args[3].i = INT_MIN;
     args[4].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(2147483645, result.GetI());
 
     args[0].i = INT_MAX;
@@ -361,103 +369,107 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].i = INT_MAX;
     args[3].i = INT_MAX;
     args[4].i = INT_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
     EXPECT_EQ(2147483643, result.GetI());
   }
 
   void InvokeSumDoubleDoubleMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DD)D");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[2];
 
     args[0].d = 0.0;
     args[1].d = 0.0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(0.0, result.GetD());
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(0.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = 2.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(3.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(3.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = -2.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(-1.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(-1.0, result.GetD());
 
     args[0].d = DBL_MAX;
     args[1].d = DBL_MIN;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(1.7976931348623157e308, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(1.7976931348623157e308, result.GetD());
 
     args[0].d = DBL_MAX;
     args[1].d = DBL_MAX;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(INFINITY, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(INFINITY, result.GetD());
   }
 
   void InvokeSumDoubleDoubleDoubleMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDD)D");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[3];
 
     args[0].d = 0.0;
     args[1].d = 0.0;
     args[2].d = 0.0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(0.0, result.GetD());
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(0.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = 2.0;
     args[2].d = 3.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(6.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(6.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = -2.0;
     args[2].d = 3.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(2.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(2.0, result.GetD());
   }
 
   void InvokeSumDoubleDoubleDoubleDoubleMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDDD)D");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[4];
 
     args[0].d = 0.0;
     args[1].d = 0.0;
     args[2].d = 0.0;
     args[3].d = 0.0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(0.0, result.GetD());
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(0.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = 2.0;
     args[2].d = 3.0;
     args[3].d = 4.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(10.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(10.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = -2.0;
     args[2].d = 3.0;
     args[3].d = -4.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(-2.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(-2.0, result.GetD());
   }
 
   void InvokeSumDoubleDoubleDoubleDoubleDoubleMethod(bool is_static) {
     ScopedObjectAccess soa(env_);
-    mirror::ArtMethod* method;
+    ArtMethod* method;
     mirror::Object* receiver;
     ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDDDD)D");
+    ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[5];
 
     args[0].d = 0.0;
@@ -465,24 +477,24 @@ class ReflectionTest : public CommonCompilerTest {
     args[2].d = 0.0;
     args[3].d = 0.0;
     args[4].d = 0.0;
-    JValue result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(0.0, result.GetD());
+    JValue result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(0.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = 2.0;
     args[2].d = 3.0;
     args[3].d = 4.0;
     args[4].d = 5.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(15.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(15.0, result.GetD());
 
     args[0].d = 1.0;
     args[1].d = -2.0;
     args[2].d = 3.0;
     args[3].d = -4.0;
     args[4].d = 5.0;
-    result = InvokeWithJValues(soa, receiver, soa.EncodeMethod(method), args);
-    EXPECT_EQ(3.0, result.GetD());
+    result = InvokeWithJValues(soa, receiver_ref.get(), soa.EncodeMethod(method), args);
+    EXPECT_DOUBLE_EQ(3.0, result.GetD());
   }
 
   JavaVMExt* vm_;
@@ -493,7 +505,6 @@ class ReflectionTest : public CommonCompilerTest {
 };
 
 TEST_F(ReflectionTest, StaticMainMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   ScopedObjectAccess soa(Thread::Current());
   jobject jclass_loader = LoadDex("Main");
   StackHandleScope<1> hs(soa.Self());
@@ -502,10 +513,10 @@ TEST_F(ReflectionTest, StaticMainMethod) {
   CompileDirectMethod(class_loader, "Main", "main", "([Ljava/lang/String;)V");
 
   mirror::Class* klass = class_linker_->FindClass(soa.Self(), "LMain;", class_loader);
-  ASSERT_TRUE(klass != NULL);
+  ASSERT_TRUE(klass != nullptr);
 
-  mirror::ArtMethod* method = klass->FindDirectMethod("main", "([Ljava/lang/String;)V");
-  ASSERT_TRUE(method != NULL);
+  ArtMethod* method = klass->FindDirectMethod("main", "([Ljava/lang/String;)V", sizeof(void*));
+  ASSERT_TRUE(method != nullptr);
 
   // Start runtime.
   bool started = runtime_->Start();
@@ -518,122 +529,98 @@ TEST_F(ReflectionTest, StaticMainMethod) {
 }
 
 TEST_F(ReflectionTest, StaticNopMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeNopMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticNopMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeNopMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticIdentityByteMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityByteMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticIdentityByteMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityByteMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticIdentityIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityIntMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticIdentityIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityIntMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticIdentityDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityDoubleMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticIdentityDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeIdentityDoubleMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumIntIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntIntMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumIntIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntIntMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumIntIntIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntIntIntMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumIntIntIntIntIntMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumIntIntIntIntIntMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumDoubleDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleDoubleMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumDoubleDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleDoubleMethod(false);
 }
 
 TEST_F(ReflectionTest, StaticSumDoubleDoubleDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleDoubleDoubleMethod(true);
 }
 
 TEST_F(ReflectionTest, NonStaticSumDoubleDoubleDoubleDoubleDoubleMethod) {
-  TEST_DISABLED_FOR_PORTABLE();
   InvokeSumDoubleDoubleDoubleDoubleDoubleMethod(false);
 }
 

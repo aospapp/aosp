@@ -20,7 +20,7 @@
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
-#include "llvm/MC/MCWin64EH.h"
+#include "llvm/MC/MCWinEH.h"
 #include "llvm/Support/DataTypes.h"
 #include <string>
 
@@ -49,14 +49,14 @@ typedef std::pair<const MCSection *, const MCExpr *> MCSectionSubPair;
 ///
 /// If target foo wants to use this, it should implement 3 classes:
 /// * FooTargetStreamer : public MCTargetStreamer
-/// * FooTargetAsmSreamer : public FooTargetStreamer
+/// * FooTargetAsmStreamer : public FooTargetStreamer
 /// * FooTargetELFStreamer : public FooTargetStreamer
 ///
 /// FooTargetStreamer should have a pure virtual method for each directive. For
 /// example, for a ".bar symbol_name" directive, it should have
 /// virtual emitBar(const MCSymbol &Symbol) = 0;
 ///
-/// The FooTargetAsmSreamer and FooTargetELFStreamer classes implement the
+/// The FooTargetAsmStreamer and FooTargetELFStreamer classes implement the
 /// method. The assembly streamer just prints ".bar symbol_name". The object
 /// streamer does whatever is needed to implement .bar in the object file.
 ///
@@ -66,8 +66,9 @@ typedef std::pair<const MCSection *, const MCExpr *> MCSectionSubPair;
 /// MCTargetStreamer &TS = OutStreamer.getTargetStreamer();
 /// FooTargetStreamer &ATS = static_cast<FooTargetStreamer &>(TS);
 ///
-/// The base classes FooTargetAsmSreamer and FooTargetELFStreamer should *never*
-/// be treated differently. Callers should always talk to a FooTargetStreamer.
+/// The base classes FooTargetAsmStreamer and FooTargetELFStreamer should
+/// *never* be treated differently. Callers should always talk to a
+/// FooTargetStreamer.
 class MCTargetStreamer {
 protected:
   MCStreamer &Streamer;
@@ -89,19 +90,21 @@ public:
 class AArch64TargetStreamer : public MCTargetStreamer {
 public:
   AArch64TargetStreamer(MCStreamer &S);
-  ~AArch64TargetStreamer();
-
+  ~AArch64TargetStreamer() override;
 
   void finish() override;
 
   /// Callback used to implement the ldr= pseudo.
   /// Add a new entry to the constant pool for the current section and return an
   /// MCExpr that can be used to refer to the constant pool location.
-  const MCExpr *addConstantPoolEntry(const MCExpr *);
+  const MCExpr *addConstantPoolEntry(const MCExpr *, unsigned Size);
 
   /// Callback used to implemnt the .ltorg directive.
   /// Emit contents of constant pool for the current section.
   void emitCurrentConstantPool();
+
+  /// Callback used to implement the .inst directive.
+  virtual void emitInst(uint32_t Inst);
 
 private:
   std::unique_ptr<AssemblerConstantPools> ConstantPools;
@@ -112,7 +115,7 @@ private:
 class ARMTargetStreamer : public MCTargetStreamer {
 public:
   ARMTargetStreamer(MCStreamer &S);
-  ~ARMTargetStreamer();
+  ~ARMTargetStreamer() override;
 
   virtual void emitFnStart();
   virtual void emitFnEnd();
@@ -136,6 +139,7 @@ public:
                                     StringRef StringValue = "");
   virtual void emitFPU(unsigned FPU);
   virtual void emitArch(unsigned Arch);
+  virtual void emitArchExtension(unsigned ArchExt);
   virtual void emitObjectArch(unsigned Arch);
   virtual void finishAttributeSection();
   virtual void emitInst(uint32_t Inst, char Suffix = '\0');
@@ -172,18 +176,18 @@ class MCStreamer {
   MCContext &Context;
   std::unique_ptr<MCTargetStreamer> TargetStreamer;
 
-  MCStreamer(const MCStreamer &) LLVM_DELETED_FUNCTION;
-  MCStreamer &operator=(const MCStreamer &) LLVM_DELETED_FUNCTION;
+  MCStreamer(const MCStreamer &) = delete;
+  MCStreamer &operator=(const MCStreamer &) = delete;
 
-  std::vector<MCDwarfFrameInfo> FrameInfos;
-  MCDwarfFrameInfo *getCurrentFrameInfo();
+  std::vector<MCDwarfFrameInfo> DwarfFrameInfos;
+  MCDwarfFrameInfo *getCurrentDwarfFrameInfo();
+  void EnsureValidDwarfFrame();
+
   MCSymbol *EmitCFICommon();
-  void EnsureValidFrame();
 
-  std::vector<MCWin64EHUnwindInfo *> W64UnwindInfos;
-  MCWin64EHUnwindInfo *CurrentW64UnwindInfo;
-  void setCurrentW64UnwindInfo(MCWin64EHUnwindInfo *Frame);
-  void EnsureValidW64UnwindInfo();
+  std::vector<WinEH::FrameInfo *> WinFrameInfos;
+  WinEH::FrameInfo *CurrentWinFrameInfo;
+  void EnsureValidWinFrameInfo();
 
   // SymbolOrdering - Tracks an index to represent the order
   // a symbol was emitted in. Zero means we did not emit that symbol.
@@ -196,18 +200,14 @@ class MCStreamer {
 protected:
   MCStreamer(MCContext &Ctx);
 
-  const MCExpr *BuildSymbolDiff(MCContext &Context, const MCSymbol *A,
-                                const MCSymbol *B);
-
-  const MCExpr *ForceExpAbs(const MCExpr *Expr);
-
   virtual void EmitCFIStartProcImpl(MCDwarfFrameInfo &Frame);
   virtual void EmitCFIEndProcImpl(MCDwarfFrameInfo &CurFrame);
 
-  MCWin64EHUnwindInfo *getCurrentW64UnwindInfo() {
-    return CurrentW64UnwindInfo;
+  WinEH::FrameInfo *getCurrentWinFrameInfo() {
+    return CurrentWinFrameInfo;
   }
-  void EmitW64Tables();
+
+  virtual void EmitWindowsUnwindTables();
 
   virtual void EmitRawTextImpl(StringRef String);
 
@@ -231,20 +231,14 @@ public:
     return TargetStreamer.get();
   }
 
-  unsigned getNumFrameInfos() { return FrameInfos.size(); }
-
-  const MCDwarfFrameInfo &getFrameInfo(unsigned i) { return FrameInfos[i]; }
-
-  ArrayRef<MCDwarfFrameInfo> getFrameInfos() const { return FrameInfos; }
-
-  unsigned getNumW64UnwindInfos() { return W64UnwindInfos.size(); }
-
-  MCWin64EHUnwindInfo &getW64UnwindInfo(unsigned i) {
-    return *W64UnwindInfos[i];
+  unsigned getNumFrameInfos() { return DwarfFrameInfos.size(); }
+  ArrayRef<MCDwarfFrameInfo> getDwarfFrameInfos() const {
+    return DwarfFrameInfos;
   }
 
-  ArrayRef<MCWin64EHUnwindInfo *> getW64UnwindInfos() const {
-    return W64UnwindInfos;
+  unsigned getNumWinFrameInfos() { return WinFrameInfos.size(); }
+  ArrayRef<WinEH::FrameInfo *> getWinFrameInfos() const {
+    return WinFrameInfos;
   }
 
   void generateCompactUnwindEncodings(MCAsmBackend *MAB);
@@ -350,20 +344,12 @@ public:
     return true;
   }
 
-  /// SwitchSection - Set the current section where code is being emitted to
-  /// @p Section.  This is required to update CurSection.
+  /// Set the current section where code is being emitted to @p Section.  This
+  /// is required to update CurSection.
   ///
   /// This corresponds to assembler directives like .section, .text, etc.
-  void SwitchSection(const MCSection *Section,
-                     const MCExpr *Subsection = nullptr) {
-    assert(Section && "Cannot switch to a null section!");
-    MCSectionSubPair curSection = SectionStack.back().first;
-    SectionStack.back().second = curSection;
-    if (MCSectionSubPair(Section, Subsection) != curSection) {
-      SectionStack.back().first = MCSectionSubPair(Section, Subsection);
-      ChangeSection(Section, Subsection);
-    }
-  }
+  virtual void SwitchSection(const MCSection *Section,
+                             const MCExpr *Subsection = nullptr);
 
   /// SwitchSectionNoChange - Set the current section where code is being
   /// emitted to @p Section.  This is required to update CurSection. This
@@ -378,7 +364,9 @@ public:
   }
 
   /// Create the default sections and set the initial one.
-  virtual void InitSections();
+  virtual void InitSections(bool NoExecStack);
+
+  MCSymbol *endSection(const MCSection *Section);
 
   /// AssignSection - Sets the symbol's section.
   ///
@@ -557,12 +545,6 @@ public:
   /// to pass in a MCExpr for constant integers.
   virtual void EmitIntValue(uint64_t Value, unsigned Size);
 
-  /// EmitAbsValue - Emit the Value, but try to avoid relocations. On MachO
-  /// this is done by producing
-  /// foo = value
-  /// .long foo
-  void EmitAbsValue(const MCExpr *Value, unsigned Size);
-
   virtual void EmitULEB128Value(const MCExpr *Value);
 
   virtual void EmitSLEB128Value(const MCExpr *Value);
@@ -577,7 +559,8 @@ public:
 
   /// EmitSymbolValue - Special case of EmitValue that avoids the client
   /// having to pass in a MCExpr for MCSymbols.
-  void EmitSymbolValue(const MCSymbol *Sym, unsigned Size);
+  void EmitSymbolValue(const MCSymbol *Sym, unsigned Size,
+                       bool IsSectionRelative = false);
 
   /// EmitGPRel64Value - Emit the expression @p Value into the output as a
   /// gprel64 (64-bit GP relative) value.
@@ -673,11 +656,6 @@ public:
                                      StringRef FileName);
 
   virtual MCSymbol *getDwarfLineTableSymbol(unsigned CUID);
-
-  void EmitDwarfSetLineAddr(int64_t LineDelta, const MCSymbol *Label,
-                            int PointerSize);
-
-  virtual void EmitCompactUnwindEncoding(uint32_t CompactUnwindEncoding);
   virtual void EmitCFISections(bool EH, bool Debug);
   void EmitCFIStartProc(bool IsSimple);
   void EmitCFIEndProc();
@@ -748,13 +726,12 @@ public:
   virtual bool mayHaveInstructions() const { return true; }
 };
 
-/// createNullStreamer - Create a dummy machine code streamer, which does
-/// nothing. This is useful for timing the assembler front end.
+/// Create a dummy machine code streamer, which does nothing. This is useful for
+/// timing the assembler front end.
 MCStreamer *createNullStreamer(MCContext &Ctx);
 
-/// createAsmStreamer - Create a machine code streamer which will print out
-/// assembly for the native target, suitable for compiling with a native
-/// assembler.
+/// Create a machine code streamer which will print out assembly for the native
+/// target, suitable for compiling with a native assembler.
 ///
 /// \param InstPrint - If given, the instruction printer to use. If not given
 /// the MCInst representation will be printed.  This method takes ownership of
@@ -769,26 +746,11 @@ MCStreamer *createNullStreamer(MCContext &Ctx);
 ///
 /// \param ShowInst - Whether to show the MCInst representation inline with
 /// the assembly.
-MCStreamer *createAsmStreamer(MCContext &Ctx, formatted_raw_ostream &OS,
+MCStreamer *createAsmStreamer(MCContext &Ctx,
+                              std::unique_ptr<formatted_raw_ostream> OS,
                               bool isVerboseAsm, bool useDwarfDirectory,
                               MCInstPrinter *InstPrint, MCCodeEmitter *CE,
                               MCAsmBackend *TAB, bool ShowInst);
-
-/// createMachOStreamer - Create a machine code streamer which will generate
-/// Mach-O format object files.
-///
-/// Takes ownership of \p TAB and \p CE.
-MCStreamer *createMachOStreamer(MCContext &Ctx, MCAsmBackend &TAB,
-                                raw_ostream &OS, MCCodeEmitter *CE,
-                                bool RelaxAll = false,
-                                bool LabelSections = false);
-
-/// createELFStreamer - Create a machine code streamer which will generate
-/// ELF format object files.
-MCStreamer *createELFStreamer(MCContext &Ctx, MCAsmBackend &TAB,
-                              raw_ostream &OS, MCCodeEmitter *CE, bool RelaxAll,
-                              bool NoExecStack);
-
 } // end namespace llvm
 
 #endif

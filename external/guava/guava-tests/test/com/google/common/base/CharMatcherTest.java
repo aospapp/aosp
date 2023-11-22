@@ -16,6 +16,8 @@
 
 package com.google.common.base;
 
+import static com.google.common.base.CharMatcher.BREAKING_WHITESPACE;
+import static com.google.common.base.CharMatcher.WHITESPACE;
 import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.CharMatcher.forPredicate;
 import static com.google.common.base.CharMatcher.inRange;
@@ -25,10 +27,17 @@ import static com.google.common.base.CharMatcher.noneOf;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.Sets;
 import com.google.common.testing.NullPointerTester;
 
 import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
+
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * Unit test for {@link CharMatcher}.
@@ -68,8 +77,16 @@ public class CharMatcherTest extends TestCase {
     assertSame(WHATEVER, CharMatcher.NONE.or(WHATEVER));
   }
 
-  // The rest of the behavior of ANY and NONE will be covered in the tests for
+  // The rest of the behavior of ANY and DEFAULT will be covered in the tests for
   // the text processing methods below.
+
+  public void testWhitespaceBreakingWhitespaceSubset() throws Exception {
+    for (int c = 0; c <= Character.MAX_VALUE; c++) {
+      if (BREAKING_WHITESPACE.apply((char) c)) {
+        assertTrue(Integer.toHexString(c), WHITESPACE.apply((char) c));
+      }
+    }
+  }
 
   // The next tests require ICU4J and have, at least for now, been sliced out
   // of the open-source view of the tests.
@@ -82,8 +99,6 @@ public class CharMatcherTest extends TestCase {
     }
   }
 
-  // There's no way to test LEGACY_WHITESPACE, really; it just is what it is.
-
   // Omitting tests for the rest of the JAVA_* constants as these are defined
   // as extremely straightforward pass-throughs to the JDK methods.
 
@@ -93,6 +108,35 @@ public class CharMatcherTest extends TestCase {
   // The organization of this test class is unusual, as it's not done by
   // method, but by overall "scenario". Also, the variety of actual tests we
   // do borders on absurd overkill. Better safe than sorry, though?
+
+  @GwtIncompatible("java.util.BitSet")
+  public void testSetBits() {
+    doTestSetBits(CharMatcher.ANY);
+    doTestSetBits(CharMatcher.NONE);
+    doTestSetBits(is('a'));
+    doTestSetBits(isNot('a'));
+    doTestSetBits(anyOf(""));
+    doTestSetBits(anyOf("x"));
+    doTestSetBits(anyOf("xy"));
+    doTestSetBits(anyOf("CharMatcher"));
+    doTestSetBits(noneOf("CharMatcher"));
+    doTestSetBits(inRange('n', 'q'));
+    doTestSetBits(forPredicate(Predicates.equalTo('c')));
+    doTestSetBits(CharMatcher.ASCII);
+    doTestSetBits(CharMatcher.DIGIT);
+    doTestSetBits(CharMatcher.INVISIBLE);
+    doTestSetBits(CharMatcher.WHITESPACE);
+    doTestSetBits(inRange('A', 'Z').and(inRange('F', 'K').negate()));
+  }
+
+  @GwtIncompatible("java.util.BitSet")
+  private void doTestSetBits(CharMatcher matcher) {
+    BitSet bitset = new BitSet();
+    matcher.setBits(bitset);
+    for (int i = Character.MIN_VALUE; i <= Character.MAX_VALUE; i++) {
+      assertEquals(matcher.matches((char) i), bitset.get(i));
+    }
+  }
 
   public void testEmpty() throws Exception {
     doTestEmpty(CharMatcher.ANY);
@@ -339,14 +383,11 @@ public class CharMatcherTest extends TestCase {
     assertFalse(matcher.matchesAllOf(s));
     assertTrue(matcher.matchesNoneOf(s));
 
-    // Note: only 'assertEquals' is promised by the API.  Although they could
-    // have been assertSame() on the server side, they have to be assertEquals
-    // in GWT, because of GWT issue 4491.
-    assertEquals(s, matcher.removeFrom(s));
-    assertEquals(s, matcher.replaceFrom(s, 'z'));
-    assertEquals(s, matcher.replaceFrom(s, "ZZ"));
-    assertEquals(s, matcher.trimFrom(s));
-    assertEquals(0, matcher.countIn(s));
+    assertSame(s, matcher.removeFrom(s));
+    assertSame(s, matcher.replaceFrom(s, 'z'));
+    assertSame(s, matcher.replaceFrom(s, "ZZ"));
+    assertSame(s, matcher.trimFrom(s));
+    assertSame(0, matcher.countIn(s));
   }
 
   private void reallyTestMatchThenNoMatch(CharMatcher matcher, String s) {
@@ -381,10 +422,23 @@ public class CharMatcherTest extends TestCase {
     assertEquals(1, matcher.countIn(s));
   }
 
+  /**
+   * Checks that expected is equals to out, and further, if in is
+   * equals to expected, then out is successfully optimized to be
+   * identical to in, i.e. that "in" is simply returned.
+   */
+  private void assertEqualsSame(String expected, String in, String out) {
+    if (expected.equals(in)) {
+      assertSame(in, out);
+    } else {
+      assertEquals(expected, out);
+    }
+  }
+
   // Test collapse() a little differently than the rest, as we really want to
   // cover lots of different configurations of input text
   public void testCollapse() {
-    // collapsing groups of - into _
+    // collapsing groups of '-' into '_' or '-'
     doTestCollapse("-", "_");
     doTestCollapse("x-", "x_");
     doTestCollapse("-x", "_x");
@@ -411,30 +465,29 @@ public class CharMatcherTest extends TestCase {
 
   private void doTestCollapse(String in, String out) {
     // Try a few different matchers which all match '-' and not 'x'
-    assertEquals(out, is('-').collapseFrom(in, '_'));
-    assertEquals(out, is('-').or(is('#')).collapseFrom(in, '_'));
-    assertEquals(out, isNot('x').collapseFrom(in, '_'));
-    assertEquals(out, is('x').negate().collapseFrom(in, '_'));
-    assertEquals(out, anyOf("-").collapseFrom(in, '_'));
-    assertEquals(out, anyOf("-#").collapseFrom(in, '_'));
-    assertEquals(out, anyOf("-#123").collapseFrom(in, '_'));
+    // Try replacement chars that both do and do not change the value.
+    for (char replacement : new char[] { '_', '-' }) {
+      String expected = out.replace('_', replacement);
+      assertEqualsSame(expected, in, is('-').collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, is('-').collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, is('-').or(is('#')).collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, isNot('x').collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, is('x').negate().collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-").collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-#").collapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-#123").collapseFrom(in, replacement));
+    }
   }
 
   private void doTestCollapseWithNoChange(String inout) {
-    /*
-     * Note: assertSame(), not promised by the spec, happens to work with the
-     * current implementation because String.toString() promises to return
-     * |this|. However, GWT bug 4491 keeps it from working there, so we stick
-     * with assertEquals().
-     */
-    assertEquals(inout, is('-').collapseFrom(inout, '_'));
-    assertEquals(inout, is('-').or(is('#')).collapseFrom(inout, '_'));
-    assertEquals(inout, isNot('x').collapseFrom(inout, '_'));
-    assertEquals(inout, is('x').negate().collapseFrom(inout, '_'));
-    assertEquals(inout, anyOf("-").collapseFrom(inout, '_'));
-    assertEquals(inout, anyOf("-#").collapseFrom(inout, '_'));
-    assertEquals(inout, anyOf("-#123").collapseFrom(inout, '_'));
-    assertEquals(inout, CharMatcher.NONE.collapseFrom(inout, '_'));
+    assertSame(inout, is('-').collapseFrom(inout, '_'));
+    assertSame(inout, is('-').or(is('#')).collapseFrom(inout, '_'));
+    assertSame(inout, isNot('x').collapseFrom(inout, '_'));
+    assertSame(inout, is('x').negate().collapseFrom(inout, '_'));
+    assertSame(inout, anyOf("-").collapseFrom(inout, '_'));
+    assertSame(inout, anyOf("-#").collapseFrom(inout, '_'));
+    assertSame(inout, anyOf("-#123").collapseFrom(inout, '_'));
+    assertSame(inout, CharMatcher.NONE.collapseFrom(inout, '_'));
   }
 
   public void testCollapse_any() {
@@ -548,7 +601,9 @@ public class CharMatcherTest extends TestCase {
   }
 
   public void testTrimAndCollapse() {
-    // collapsing groups of - into _
+    // collapsing groups of '-' into '_' or '-'
+    doTestTrimAndCollapse("", "");
+    doTestTrimAndCollapse("x", "x");
     doTestTrimAndCollapse("-", "");
     doTestTrimAndCollapse("x-", "x");
     doTestTrimAndCollapse("-x", "x");
@@ -571,13 +626,16 @@ public class CharMatcherTest extends TestCase {
 
   private void doTestTrimAndCollapse(String in, String out) {
     // Try a few different matchers which all match '-' and not 'x'
-    assertEquals(out, is('-').trimAndCollapseFrom(in, '_'));
-    assertEquals(out, is('-').or(is('#')).trimAndCollapseFrom(in, '_'));
-    assertEquals(out, isNot('x').trimAndCollapseFrom(in, '_'));
-    assertEquals(out, is('x').negate().trimAndCollapseFrom(in, '_'));
-    assertEquals(out, anyOf("-").trimAndCollapseFrom(in, '_'));
-    assertEquals(out, anyOf("-#").trimAndCollapseFrom(in, '_'));
-    assertEquals(out, anyOf("-#123").trimAndCollapseFrom(in, '_'));
+    for (char replacement : new char[] { '_', '-' }) {
+      String expected = out.replace('_', replacement);
+      assertEqualsSame(expected, in, is('-').trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, is('-').or(is('#')).trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, isNot('x').trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, is('x').negate().trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-").trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-#").trimAndCollapseFrom(in, replacement));
+      assertEqualsSame(expected, in, anyOf("-#123").trimAndCollapseFrom(in, replacement));
+    }
   }
 
   public void testReplaceFrom() {
@@ -594,14 +652,116 @@ public class CharMatcherTest extends TestCase {
     // build a precomputed version.
     CharMatcher m1 = is('x');
     assertSame(m1, m1.precomputed());
+    assertSame(m1.toString(), m1.precomputed().toString());
 
     CharMatcher m2 = anyOf("Az");
     assertSame(m2, m2.precomputed());
+    assertSame(m2.toString(), m2.precomputed().toString());
 
     CharMatcher m3 = inRange('A', 'Z');
     assertSame(m3, m3.precomputed());
+    assertSame(m3.toString(), m3.precomputed().toString());
 
     assertSame(CharMatcher.NONE, CharMatcher.NONE.precomputed());
     assertSame(CharMatcher.ANY, CharMatcher.ANY.precomputed());
+  }
+
+  @GwtIncompatible("java.util.BitSet")
+  private static BitSet bitSet(String chars) {
+    return bitSet(chars.toCharArray());
+  }
+
+  @GwtIncompatible("java.util.BitSet")
+  private static BitSet bitSet(char[] chars) {
+    BitSet tmp = new BitSet();
+    for (int i = 0; i < chars.length; i++) {
+      tmp.set(chars[i]);
+    }
+    return tmp;
+  }
+
+  @GwtIncompatible("java.util.Random, java.util.BitSet")
+  public void testSmallCharMatcher() {
+    CharMatcher len1 = SmallCharMatcher.from(bitSet("#"), "#");
+    CharMatcher len2 = SmallCharMatcher.from(bitSet("ab"), "ab");
+    CharMatcher len3 = SmallCharMatcher.from(bitSet("abc"), "abc");
+    CharMatcher len4 = SmallCharMatcher.from(bitSet("abcd"), "abcd");
+    assertTrue(len1.matches('#'));
+    assertFalse(len1.matches('!'));
+    assertTrue(len2.matches('a'));
+    assertTrue(len2.matches('b'));
+    for (char c = 'c'; c < 'z'; c++) {
+      assertFalse(len2.matches(c));
+    }
+    assertTrue(len3.matches('a'));
+    assertTrue(len3.matches('b'));
+    assertTrue(len3.matches('c'));
+    for (char c = 'd'; c < 'z'; c++) {
+      assertFalse(len3.matches(c));
+    }
+    assertTrue(len4.matches('a'));
+    assertTrue(len4.matches('b'));
+    assertTrue(len4.matches('c'));
+    assertTrue(len4.matches('d'));
+    for (char c = 'e'; c < 'z'; c++) {
+      assertFalse(len4.matches(c));
+    }
+
+    Random rand = new Random(1234);
+    for (int testCase = 0; testCase < 100; testCase++) {
+      char[] chars = randomChars(rand, rand.nextInt(63) + 1);
+      CharMatcher m = SmallCharMatcher.from(bitSet(chars), new String(chars));
+      checkExactMatches(m, chars);
+    }
+  }
+
+  static void checkExactMatches(CharMatcher m, char[] chars) {
+    Set<Character> positive = Sets.newHashSetWithExpectedSize(chars.length);
+    for (int i = 0; i < chars.length; i++) {
+      positive.add(chars[i]);
+    }
+    for (int c = 0; c <= Character.MAX_VALUE; c++) {
+      assertFalse(positive.contains(new Character((char) c)) ^ m.matches((char) c));
+    }
+  }
+
+  static char[] randomChars(Random rand, int size) {
+    Set<Character> chars = new HashSet<Character>(size);
+    for (int i = 0; i < size; i++) {
+      char c;
+      while (true) {
+        c = (char) rand.nextInt(Character.MAX_VALUE - Character.MIN_VALUE + 1);
+        if (!chars.contains(c)) {
+          break;
+        }
+      }
+      chars.add(c);
+    }
+    char[] retValue = new char[chars.size()];
+    int i = 0;
+    for (char c : chars) {
+      retValue[i++] = c;
+    }
+    Arrays.sort(retValue);
+    return retValue;
+  }
+
+  public void testToString() {
+    assertToStringWorks("CharMatcher.NONE", CharMatcher.anyOf(""));
+    assertToStringWorks("CharMatcher.is('\\u0031')", CharMatcher.anyOf("1"));
+    assertToStringWorks("CharMatcher.isNot('\\u0031')", CharMatcher.isNot('1'));
+    assertToStringWorks("CharMatcher.anyOf(\"\\u0031\\u0032\")", CharMatcher.anyOf("12"));
+    assertToStringWorks("CharMatcher.anyOf(\"\\u0031\\u0032\\u0033\")",
+        CharMatcher.anyOf("321"));
+    assertToStringWorks("CharMatcher.inRange('\\u0031', '\\u0033')",
+        CharMatcher.inRange('1', '3'));
+  }
+
+  private static void assertToStringWorks(String expected, CharMatcher matcher) {
+    assertEquals(expected, matcher.toString());
+    assertEquals(expected, matcher.precomputed().toString());
+    assertEquals(expected, matcher.negate().negate().toString());
+    assertEquals(expected, matcher.negate().precomputed().negate().toString());
+    assertEquals(expected, matcher.negate().precomputed().negate().precomputed().toString());
   }
 }

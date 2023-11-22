@@ -28,8 +28,6 @@ import android.telephony.PhoneNumberUtils;
  * differently from 3rd party services in some situations (emergency calls, audio focus, etc...).
  */
 public final class TelephonyUtil {
-    private static final String TAG = TelephonyUtil.class.getSimpleName();
-
     private static final String TELEPHONY_PACKAGE_NAME = "com.android.phone";
 
     private static final String PSTN_CALL_SERVICE_CLASS_NAME =
@@ -51,7 +49,9 @@ public final class TelephonyUtil {
         return PhoneAccount.builder(DEFAULT_EMERGENCY_PHONE_ACCOUNT_HANDLE, "E")
                 .setCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION |
                         PhoneAccount.CAPABILITY_CALL_PROVIDER |
-                        PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS).build();
+                        PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)
+                .setIsEnabled(true)
+                .build();
     }
 
     static boolean isPstnComponentName(ComponentName componentName) {
@@ -60,8 +60,8 @@ public final class TelephonyUtil {
         return pstnComponentName.equals(componentName);
     }
 
-    static boolean shouldProcessAsEmergency(Context context, Uri handle) {
-        return handle != null && PhoneNumberUtils.isPotentialLocalEmergencyNumber(
+    public static boolean shouldProcessAsEmergency(Context context, Uri handle) {
+        return handle != null && PhoneNumberUtils.isLocalEmergencyNumber(
                 context, handle.getSchemeSpecificPart());
     }
 }

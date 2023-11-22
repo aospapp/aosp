@@ -1,7 +1,7 @@
 
 LOCAL_PATH:=$(call my-dir)
 
-rs_base_CFLAGS := -Werror -Wall -Wno-unused-parameter -Wno-unused-variable -fno-exceptions
+rs_base_CFLAGS := -Werror -Wall -Wno-unused-parameter -Wno-unused-variable -fno-exceptions -std=c++11
 ifeq ($(TARGET_BUILD_PDK), true)
   rs_base_CFLAGS += -D__RS_PDK__
 endif
@@ -35,7 +35,6 @@ LOCAL_SRC_FILES:= \
 	driver/rsdGL.cpp \
 	driver/rsdMesh.cpp \
 	driver/rsdMeshObj.cpp \
-	driver/rsdPath.cpp \
 	driver/rsdProgram.cpp \
 	driver/rsdProgramRaster.cpp \
 	driver/rsdProgramStore.cpp \
@@ -48,15 +47,15 @@ LOCAL_SRC_FILES:= \
 	driver/rsdVertexArray.cpp
 
 
-LOCAL_SHARED_LIBRARIES += libRS libRSCpuRef libc++
+LOCAL_SHARED_LIBRARIES += libRS libRSCpuRef
 LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2
 LOCAL_SHARED_LIBRARIES += libui libgui libsync
 
 LOCAL_SHARED_LIBRARIES += libbcc libbcinfo libLLVM
 
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
-LOCAL_C_INCLUDES += frameworks/rs/cpu_ref/linkloader/include
-LOCAL_C_INCLUDES += external/libcxx/include
+
+LOCAL_CXX_STL := libc++
 
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
 LOCAL_CPPFLAGS += -fno-exceptions
@@ -81,6 +80,9 @@ LOCAL_SRC_FILES:= \
     spec.l \
     rsg_generator.c
 
+LOCAL_CXX_STL := none
+LOCAL_ADDRESS_SANITIZER := false
+
 include $(BUILD_HOST_EXECUTABLE)
 
 # TODO: This should go into build/core/config.mk
@@ -104,8 +106,8 @@ GEN := $(addprefix $(generated_sources)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec $(PRIVATE_PATH)/rs_native.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec $(LOCAL_PATH)/rs_native.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
 $(GEN): $(generated_sources)/%.h : $(LOCAL_PATH)/%.h.rsg
 	$(transform-generated-source)
 
@@ -121,8 +123,8 @@ GEN := $(addprefix $(generated_sources)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec $(PRIVATE_PATH)/rs_native.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec $(LOCAL_PATH)/rs_native.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
 $(GEN): $(generated_sources)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
 	$(transform-generated-source)
 
@@ -137,8 +139,10 @@ LOCAL_SRC_FILES:= \
 	rsAnimation.cpp \
 	rsComponent.cpp \
 	rsContext.cpp \
+	rsClosure.cpp \
 	rsCppUtils.cpp \
 	rsDevice.cpp \
+	rsDriverLoader.cpp \
 	rsElement.cpp \
 	rsFBOCache.cpp \
 	rsFifoSocket.cpp \
@@ -151,7 +155,6 @@ LOCAL_SRC_FILES:= \
 	rsMatrix4x4.cpp \
 	rsMesh.cpp \
 	rsMutex.cpp \
-	rsPath.cpp \
 	rsProgram.cpp \
 	rsProgramFragment.cpp \
 	rsProgramStore.cpp \
@@ -163,13 +166,14 @@ LOCAL_SRC_FILES:= \
 	rsScriptC_Lib.cpp \
 	rsScriptC_LibGL.cpp \
 	rsScriptGroup.cpp \
+	rsScriptGroup2.cpp \
 	rsScriptIntrinsic.cpp \
 	rsSignal.cpp \
 	rsStream.cpp \
 	rsThreadIO.cpp \
 	rsType.cpp
 
-LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2 libc++
+LOCAL_SHARED_LIBRARIES += liblog libcutils libutils libEGL libGLESv1_CM libGLESv2
 LOCAL_SHARED_LIBRARIES += libgui libsync libdl libui
 LOCAL_SHARED_LIBRARIES += libft2 libpng libz
 
@@ -177,9 +181,13 @@ LOCAL_SHARED_LIBRARIES += libbcc libbcinfo libLLVM
 
 LOCAL_C_INCLUDES += external/freetype/include
 LOCAL_C_INCLUDES += frameworks/compile/libbcc/include
-LOCAL_C_INCLUDES += external/libcxx/include
+
+LOCAL_CXX_STL := libc++
 
 LOCAL_CFLAGS += $(rs_base_CFLAGS)
+# TODO: external/freetype still uses the register keyword
+# Bug: 17163086
+LOCAL_CFLAGS += -Wno-deprecated-register
 
 LOCAL_CPPFLAGS += -fno-exceptions
 
@@ -204,8 +212,8 @@ GEN := $(addprefix $(intermediates)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec $(PRIVATE_PATH)/rs_native.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec $(LOCAL_PATH)/rs_native.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
 $(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.h.rsg
 	$(transform-generated-source)
 
@@ -219,8 +227,8 @@ GEN := $(addprefix $(intermediates)/, \
         )
 
 $(GEN) : PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec $(PRIVATE_PATH)/rs_native.spec | $(RSG_GENERATOR) $< $@
-$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec $(LOCAL_PATH)/rs_native.spec
+$(GEN) : PRIVATE_CUSTOM_TOOL = cat $(PRIVATE_PATH)/rs.spec $(PRIVATE_PATH)/rsg.spec | $(RSG_GENERATOR) $< $@
+$(GEN) : $(RSG_GENERATOR) $(LOCAL_PATH)/rs.spec $(LOCAL_PATH)/rsg.spec
 $(GEN): $(intermediates)/%.cpp : $(LOCAL_PATH)/%.cpp.rsg
 	$(transform-generated-source)
 
@@ -237,7 +245,9 @@ LOCAL_SRC_FILES:= \
 	rsAnimation.cpp \
 	rsComponent.cpp \
 	rsContext.cpp \
+	rsClosure.cpp \
 	rsDevice.cpp \
+	rsDriverLoader.cpp \
 	rsElement.cpp \
 	rsFBOCache.cpp \
 	rsFifoSocket.cpp \
@@ -249,7 +259,6 @@ LOCAL_SRC_FILES:= \
 	rsMatrix4x4.cpp \
 	rsMesh.cpp \
 	rsMutex.cpp \
-	rsPath.cpp \
 	rsProgram.cpp \
 	rsProgramFragment.cpp \
 	rsProgramStore.cpp \
@@ -261,6 +270,7 @@ LOCAL_SRC_FILES:= \
 	rsScriptC_Lib.cpp \
 	rsScriptC_LibGL.cpp \
 	rsScriptGroup.cpp \
+	rsScriptGroup2.cpp \
 	rsScriptIntrinsic.cpp \
 	rsSignal.cpp \
 	rsStream.cpp \
@@ -271,88 +281,6 @@ LOCAL_STATIC_LIBRARIES := libcutils libutils liblog
 
 LOCAL_CLANG := true
 
-include $(BUILD_HOST_STATIC_LIBRARY)
-
-LLVM_ROOT_PATH := external/llvm
-
-#=============================================================================
-# android librsloader for libbcc (Device)
-#-----------------------------------------------------------------------------
-
-rsloader_SRC_FILES := \
-  cpu_ref/linkloader/android/librsloader.cpp \
-  cpu_ref/linkloader/lib/ELFHeader.cpp \
-  cpu_ref/linkloader/lib/ELFSymbol.cpp \
-  cpu_ref/linkloader/lib/ELFSectionHeader.cpp \
-  cpu_ref/linkloader/lib/ELFTypes.cpp \
-  cpu_ref/linkloader/lib/GOT.cpp \
-  cpu_ref/linkloader/lib/MemChunk.cpp \
-  cpu_ref/linkloader/lib/StubLayout.cpp \
-  cpu_ref/linkloader/utils/helper.cpp \
-  cpu_ref/linkloader/utils/raw_ostream.cpp \
-  cpu_ref/linkloader/utils/rsl_assert.cpp
-
-include $(CLEAR_VARS)
-
-
-LOCAL_MODULE := librsloader
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_SRC_FILES := $(rsloader_SRC_FILES)
-
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-
-LOCAL_CFLAGS += $(rs_base_CFLAGS)
-LOCAL_CPPFLAGS += -fno-exceptions
-
-LOCAL_C_INCLUDES := \
-  $(LOCAL_PATH)/cpu_ref/linkloader \
-  $(LOCAL_PATH)/cpu_ref/linkloader/include \
-  external/libcxx/include \
-  $(LOCAL_C_INCLUDES)
-
-include $(LLVM_ROOT_PATH)/llvm-device-build.mk
-include $(BUILD_STATIC_LIBRARY)
-
-#=============================================================================
-# android librsloader for libbcc (Host)
-#-----------------------------------------------------------------------------
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := librsloader
-ifneq ($(HOST_OS),windows)
-LOCAL_CLANG := true
-endif
-
-LOCAL_MODULE_TAGS := optional
-
-LOCAL_SRC_FILES := $(rsloader_SRC_FILES)
-
-ifdef USE_MINGW
-LOCAL_SRC_FILES += cpu_ref/linkloader/lib/mmanWindows.cpp
-endif
-
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-
-LOCAL_CFLAGS += $(rs_base_CFLAGS)
-LOCAL_CFLAGS += -D__HOST__
-LOCAL_CPPFLAGS += -fno-exceptions
-
-ifeq ($(HOST_OS),windows)
-LOCAL_C_INCLUDES := \
-  $(LOCAL_PATH)/cpu_ref/linkloader \
-  $(LOCAL_PATH)/cpu_ref/linkloader/include \
-  $(LOCAL_C_INCLUDES)
-else
-LOCAL_C_INCLUDES := \
-  $(LOCAL_PATH)/cpu_ref/linkloader \
-  $(LOCAL_PATH)/cpu_ref/linkloader/include \
-  external/libcxx/include \
-  $(LOCAL_C_INCLUDES)
-endif
-
-include $(LLVM_ROOT_PATH)/llvm-host-build.mk
 include $(BUILD_HOST_STATIC_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

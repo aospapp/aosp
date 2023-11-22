@@ -37,6 +37,10 @@ import javax.annotation.Nullable;
  * <p>All methods returns serializable predicates as long as they're given
  * serializable parameters.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/FunctionalExplained">the
+ * use of {@code Predicate}</a>.
+ *
  * @author Kevin Bourrillion
  * @since 2.0 (imported from Google Collections Library)
  */
@@ -196,12 +200,12 @@ public final class Predicates {
   public static Predicate<Object> instanceOf(Class<?> clazz) {
     return new InstanceOfPredicate(clazz);
   }
-  
+
   /**
    * Returns a predicate that evaluates to {@code true} if the class being
    * tested is assignable from the given class.  The returned predicate
    * does not allow null inputs.
-   * 
+   *
    * @since 10.0
    */
   @GwtIncompatible("Class.isAssignableFrom")
@@ -249,7 +253,7 @@ public final class Predicates {
    */
   @GwtIncompatible(value = "java.util.regex.Pattern")
   public static Predicate<CharSequence> containsPattern(String pattern) {
-    return new ContainsPatternPredicate(pattern);
+    return new ContainsPatternFromStringPredicate(pattern);
   }
 
   /**
@@ -269,28 +273,44 @@ public final class Predicates {
 
   // Package private for GWT serialization.
   enum ObjectPredicate implements Predicate<Object> {
+    /** @see Predicates#alwaysTrue() */
     ALWAYS_TRUE {
       @Override public boolean apply(@Nullable Object o) {
         return true;
       }
+      @Override public String toString() {
+        return "Predicates.alwaysTrue()";
+      }
     },
+    /** @see Predicates#alwaysFalse() */
     ALWAYS_FALSE {
       @Override public boolean apply(@Nullable Object o) {
         return false;
       }
+      @Override public String toString() {
+        return "Predicates.alwaysFalse()";
+      }
     },
+    /** @see Predicates#isNull() */
     IS_NULL {
       @Override public boolean apply(@Nullable Object o) {
         return o == null;
       }
+      @Override public String toString() {
+        return "Predicates.isNull()";
+      }
     },
+    /** @see Predicates#notNull() */
     NOT_NULL {
       @Override public boolean apply(@Nullable Object o) {
         return o != null;
       }
+      @Override public String toString() {
+        return "Predicates.notNull()";
+      }
     };
-    
-    @SuppressWarnings("unchecked") // these Object predicates work for any T
+
+    @SuppressWarnings("unchecked") // safe contravariant cast
     <T> Predicate<T> withNarrowedType() {
       return (Predicate<T>) this;
     }
@@ -304,7 +324,7 @@ public final class Predicates {
       this.predicate = checkNotNull(predicate);
     }
     @Override
-    public boolean apply(T t) {
+    public boolean apply(@Nullable T t) {
       return !predicate.apply(t);
     }
     @Override public int hashCode() {
@@ -318,12 +338,12 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "Not(" + predicate.toString() + ")";
+      return "Predicates.not(" + predicate.toString() + ")";
     }
     private static final long serialVersionUID = 0;
   }
 
-  private static final Joiner COMMA_JOINER = Joiner.on(",");
+  private static final Joiner COMMA_JOINER = Joiner.on(',');
 
   /** @see Predicates#and(Iterable) */
   private static class AndPredicate<T> implements Predicate<T>, Serializable {
@@ -333,7 +353,8 @@ public final class Predicates {
       this.components = components;
     }
     @Override
-    public boolean apply(T t) {
+    public boolean apply(@Nullable T t) {
+      // Avoid using the Iterator to avoid generating garbage (issue 820).
       for (int i = 0; i < components.size(); i++) {
         if (!components.get(i).apply(t)) {
           return false;
@@ -342,7 +363,7 @@ public final class Predicates {
       return true;
     }
     @Override public int hashCode() {
-      // 0x12472c2c is a random number to help avoid collisions with OrPredicate
+      // add a random number to avoid collisions with OrPredicate
       return components.hashCode() + 0x12472c2c;
     }
     @Override public boolean equals(@Nullable Object obj) {
@@ -353,7 +374,7 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "And(" + COMMA_JOINER.join(components) + ")";
+      return "Predicates.and(" + COMMA_JOINER.join(components) + ")";
     }
     private static final long serialVersionUID = 0;
   }
@@ -366,7 +387,8 @@ public final class Predicates {
       this.components = components;
     }
     @Override
-    public boolean apply(T t) {
+    public boolean apply(@Nullable T t) {
+      // Avoid using the Iterator to avoid generating garbage (issue 820).
       for (int i = 0; i < components.size(); i++) {
         if (components.get(i).apply(t)) {
           return true;
@@ -375,7 +397,7 @@ public final class Predicates {
       return false;
     }
     @Override public int hashCode() {
-      // 0x053c91cf is a random number to help avoid collisions with AndPredicate
+      // add a random number to avoid collisions with AndPredicate
       return components.hashCode() + 0x053c91cf;
     }
     @Override public boolean equals(@Nullable Object obj) {
@@ -386,7 +408,7 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "Or(" + COMMA_JOINER.join(components) + ")";
+      return "Predicates.or(" + COMMA_JOINER.join(components) + ")";
     }
     private static final long serialVersionUID = 0;
   }
@@ -414,7 +436,7 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "IsEqualTo(" + target + ")";
+      return "Predicates.equalTo(" + target + ")";
     }
     private static final long serialVersionUID = 0;
   }
@@ -443,11 +465,11 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "IsInstanceOf(" + clazz.getName() + ")";
+      return "Predicates.instanceOf(" + clazz.getName() + ")";
     }
     private static final long serialVersionUID = 0;
   }
-  
+
   /** @see Predicates#assignableFrom(Class) */
   @GwtIncompatible("Class.isAssignableFrom")
   private static class AssignableFromPredicate
@@ -472,7 +494,7 @@ public final class Predicates {
       return false;
     }
     @Override public String toString() {
-      return "IsAssignableFrom(" + clazz.getName() + ")";
+      return "Predicates.assignableFrom(" + clazz.getName() + ")";
     }
     private static final long serialVersionUID = 0;
   }
@@ -486,7 +508,7 @@ public final class Predicates {
     }
 
     @Override
-    public boolean apply(T t) {
+    public boolean apply(@Nullable T t) {
       try {
         return target.contains(t);
       } catch (NullPointerException e) {
@@ -509,7 +531,7 @@ public final class Predicates {
     }
 
     @Override public String toString() {
-      return "In(" + target + ")";
+      return "Predicates.in(" + target + ")";
     }
     private static final long serialVersionUID = 0;
   }
@@ -526,7 +548,7 @@ public final class Predicates {
     }
 
     @Override
-    public boolean apply(A a) {
+    public boolean apply(@Nullable A a) {
       return p.apply(f.apply(a));
     }
 
@@ -549,10 +571,7 @@ public final class Predicates {
     private static final long serialVersionUID = 0;
   }
 
-  /**
-   * @see Predicates#contains(Pattern)
-   * @see Predicates#containsPattern(String)
-   */
+  /** @see Predicates#contains(Pattern) */
   @GwtIncompatible("Only used by other GWT-incompatible code.")
   private static class ContainsPatternPredicate
       implements Predicate<CharSequence>, Serializable {
@@ -560,10 +579,6 @@ public final class Predicates {
 
     ContainsPatternPredicate(Pattern pattern) {
       this.pattern = checkNotNull(pattern);
-    }
-
-    ContainsPatternPredicate(String patternStr) {
-      this(Pattern.compile(patternStr));
     }
 
     @Override
@@ -591,18 +606,35 @@ public final class Predicates {
     }
 
     @Override public String toString() {
-      return Objects.toStringHelper(this)
-          .add("pattern", pattern)
-          .add("pattern.flags", Integer.toHexString(pattern.flags()))
+      String patternString = Objects.toStringHelper(pattern)
+          .add("pattern", pattern.pattern())
+          .add("pattern.flags", pattern.flags())
           .toString();
+      return "Predicates.contains(" + patternString + ")";
     }
 
     private static final long serialVersionUID = 0;
   }
 
-  @SuppressWarnings("unchecked")
+  /** @see Predicates#containsPattern(String) */
+  @GwtIncompatible("Only used by other GWT-incompatible code.")
+  private static class ContainsPatternFromStringPredicate
+      extends ContainsPatternPredicate {
+
+    ContainsPatternFromStringPredicate(String string) {
+      super(Pattern.compile(string));
+    }
+
+    @Override public String toString() {
+      return "Predicates.containsPattern(" + pattern.pattern() + ")";
+    }
+
+    private static final long serialVersionUID = 0;
+  }
+
   private static <T> List<Predicate<? super T>> asList(
       Predicate<? super T> first, Predicate<? super T> second) {
+    // TODO(kevinb): understand why we still get a warning despite @SafeVarargs!
     return Arrays.<Predicate<? super T>>asList(first, second);
   }
 

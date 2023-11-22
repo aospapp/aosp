@@ -16,7 +16,7 @@
 
 package com.google.common.collect;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.CollectPreconditions.checkNonnegative;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.VisibleForTesting;
@@ -50,6 +50,10 @@ import java.util.List;
  * multimap. Concurrent read operations will work correctly. To allow concurrent
  * update operations, wrap your multimap with a call to {@link
  * Multimaps#synchronizedListMultimap}.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multimap">
+ * {@code Multimap}</a>.
  *
  * @author Jared Levy
  * @since 2.0 (imported from Google Collections Library)
@@ -57,7 +61,7 @@ import java.util.List;
 @GwtCompatible(serializable = true, emulated = true)
 public final class ArrayListMultimap<K, V> extends AbstractListMultimap<K, V> {
   // Default from ArrayList
-  private static final int DEFAULT_VALUES_PER_KEY = 10;
+  private static final int DEFAULT_VALUES_PER_KEY = 3;
 
   @VisibleForTesting transient int expectedValuesPerKey;
 
@@ -101,7 +105,7 @@ public final class ArrayListMultimap<K, V> extends AbstractListMultimap<K, V> {
 
   private ArrayListMultimap(int expectedKeys, int expectedValuesPerKey) {
     super(Maps.<K, Collection<V>>newHashMapWithExpectedSize(expectedKeys));
-    checkArgument(expectedValuesPerKey >= 0);
+    checkNonnegative(expectedValuesPerKey, "expectedValuesPerKey");
     this.expectedValuesPerKey = expectedValuesPerKey;
   }
 

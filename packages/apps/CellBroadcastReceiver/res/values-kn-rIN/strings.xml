@@ -67,7 +67,7 @@
     <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"ಎಚ್ಚರಿಕೆಗಾಗಿ ವೈಬ್ರೇಟ್‌"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"ಬ್ರೆಜಿಲ್‌ಗೆ ಸೆಟ್ಟಿಂಗ್‌ಗಳು"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"ಚಾನಲ್ 50 ಪ್ರಸಾರಗಳನ್ನು ತೋರಿಸು"</string>
-    <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ಪ್ರದೇಶ ನವೀಕರಣ ಮಾಹಿತಿಗಾಗಿ ಬ್ರೆಜಿಲ್‌ನಲ್ಲಿ ಚಾನೆಲ್ 50 ಅನ್ನು ಬಳಸಲಾಗುತ್ತದೆ"</string>
+    <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"ಪ್ರದೇಶ ಅಪ್‌ಡೇಟ್‌‌ ಮಾಹಿತಿಗಾಗಿ ಬ್ರೆಜಿಲ್‌ನಲ್ಲಿ ಚಾನೆಲ್ 50 ಅನ್ನು ಬಳಸಲಾಗುತ್ತದೆ"</string>
     <string name="category_dev_settings_title" msgid="6194393458398329994">"ಡೆವಲಪರ್ ಆಯ್ಕೆಗಳು"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"ಎಚ್ಚರಿಕೆ ವಿಭಾಗ:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"ಭೂಭೌತ"</string>

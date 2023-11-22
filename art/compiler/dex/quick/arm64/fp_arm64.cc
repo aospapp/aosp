@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include "arm64_lir.h"
 #include "codegen_arm64.h"
+
+#include "arm64_lir.h"
+#include "base/logging.h"
+#include "dex/mir_graph.h"
 #include "dex/quick/mir_to_lir-inl.h"
-#include "utils.h"
 
 namespace art {
 
@@ -112,7 +114,33 @@ void Arm64Mir2Lir::GenArithOpDouble(Instruction::Code opcode,
   rl_result = EvalLoc(rl_dest, kFPReg, true);
   DCHECK(rl_dest.wide);
   DCHECK(rl_result.wide);
-  NewLIR3(FWIDE(op), rl_result.reg.GetReg(), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
+  NewLIR3(WIDE(op), rl_result.reg.GetReg(), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
+  StoreValueWide(rl_dest, rl_result);
+}
+
+void Arm64Mir2Lir::GenMultiplyByConstantFloat(RegLocation rl_dest, RegLocation rl_src1,
+                                              int32_t constant) {
+  RegLocation rl_result;
+  RegStorage r_tmp = AllocTempSingle();
+  LoadConstantNoClobber(r_tmp, constant);
+  rl_src1 = LoadValue(rl_src1, kFPReg);
+  rl_result = EvalLoc(rl_dest, kFPReg, true);
+  NewLIR3(kA64Fmul3fff, rl_result.reg.GetReg(), rl_src1.reg.GetReg(), r_tmp.GetReg());
+  StoreValue(rl_dest, rl_result);
+}
+
+void Arm64Mir2Lir::GenMultiplyByConstantDouble(RegLocation rl_dest, RegLocation rl_src1,
+                                               int64_t constant) {
+  RegLocation rl_result;
+  RegStorage r_tmp = AllocTempDouble();
+  DCHECK(r_tmp.IsDouble());
+  LoadConstantWide(r_tmp, constant);
+  rl_src1 = LoadValueWide(rl_src1, kFPReg);
+  DCHECK(rl_src1.wide);
+  rl_result = EvalLocWide(rl_dest, kFPReg, true);
+  DCHECK(rl_dest.wide);
+  DCHECK(rl_result.wide);
+  NewLIR3(WIDE(kA64Fmul3fff), rl_result.reg.GetReg(), rl_src1.reg.GetReg(), r_tmp.GetReg());
   StoreValueWide(rl_dest, rl_result);
 }
 
@@ -145,17 +173,17 @@ void Arm64Mir2Lir::GenConversion(Instruction::Code opcode,
       dst_reg_class = kFPReg;
       break;
     case Instruction::INT_TO_DOUBLE:
-      op = FWIDE(kA64Scvtf2fw);
+      op = WIDE(kA64Scvtf2fw);
       src_reg_class = kCoreReg;
       dst_reg_class = kFPReg;
       break;
     case Instruction::DOUBLE_TO_INT:
-      op = FWIDE(kA64Fcvtzs2wf);
+      op = WIDE(kA64Fcvtzs2wf);
       src_reg_class = kFPReg;
       dst_reg_class = kCoreReg;
       break;
     case Instruction::LONG_TO_DOUBLE:
-      op = FWIDE(kA64Scvtf2fx);
+      op = WIDE(kA64Scvtf2fx);
       src_reg_class = kCoreReg;
       dst_reg_class = kFPReg;
       break;
@@ -170,7 +198,7 @@ void Arm64Mir2Lir::GenConversion(Instruction::Code opcode,
       dst_reg_class = kFPReg;
       break;
     case Instruction::DOUBLE_TO_LONG:
-      op = FWIDE(kA64Fcvtzs2xf);
+      op = WIDE(kA64Fcvtzs2xf);
       src_reg_class = kFPReg;
       dst_reg_class = kCoreReg;
       break;
@@ -208,7 +236,7 @@ void Arm64Mir2Lir::GenFusedFPCmpBranch(BasicBlock* bb, MIR* mir, bool gt_bias,
     rl_src2 = mir_graph_->GetSrcWide(mir, 2);
     rl_src1 = LoadValueWide(rl_src1, kFPReg);
     rl_src2 = LoadValueWide(rl_src2, kFPReg);
-    NewLIR2(FWIDE(kA64Fcmp2ff), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
+    NewLIR2(WIDE(kA64Fcmp2ff), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
   } else {
     rl_src1 = mir_graph_->GetSrc(mir, 0);
     rl_src2 = mir_graph_->GetSrc(mir, 1);
@@ -281,7 +309,7 @@ void Arm64Mir2Lir::GenCmpFP(Instruction::Code opcode, RegLocation rl_dest,
     ClobberSReg(rl_dest.s_reg_low);
     rl_result = EvalLoc(rl_dest, kCoreReg, true);
     LoadConstant(rl_result.reg, default_result);
-    NewLIR2(FWIDE(kA64Fcmp2ff), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
+    NewLIR2(WIDE(kA64Fcmp2ff), rl_src1.reg.GetReg(), rl_src2.reg.GetReg());
   } else {
     rl_src1 = LoadValue(rl_src1, kFPReg);
     rl_src2 = LoadValue(rl_src2, kFPReg);
@@ -318,7 +346,7 @@ void Arm64Mir2Lir::GenNegDouble(RegLocation rl_dest, RegLocation rl_src) {
   RegLocation rl_result;
   rl_src = LoadValueWide(rl_src, kFPReg);
   rl_result = EvalLoc(rl_dest, kFPReg, true);
-  NewLIR2(FWIDE(kA64Fneg2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+  NewLIR2(WIDE(kA64Fneg2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   StoreValueWide(rl_dest, rl_result);
 }
 
@@ -353,7 +381,8 @@ bool Arm64Mir2Lir::GenInlinedAbsFloat(CallInfo* info) {
   if (reg_class == kFPReg) {
     NewLIR2(kA64Fabs2ff, rl_result.reg.GetReg(), rl_src.reg.GetReg());
   } else {
-    NewLIR4(kA64Ubfm4rrdd, rl_result.reg.GetReg(), rl_src.reg.GetReg(), 0, 30);
+    // Clear the sign bit in an integer register.
+    OpRegRegImm(kOpAnd, rl_result.reg, rl_src.reg, 0x7fffffff);
   }
   StoreValue(rl_dest, rl_result);
   return true;
@@ -369,9 +398,10 @@ bool Arm64Mir2Lir::GenInlinedAbsDouble(CallInfo* info) {
   rl_src = LoadValueWide(rl_src, reg_class);
   RegLocation rl_result = EvalLoc(rl_dest, reg_class, true);
   if (reg_class == kFPReg) {
-    NewLIR2(FWIDE(kA64Fabs2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+    NewLIR2(WIDE(kA64Fabs2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   } else {
-    NewLIR4(WIDE(kA64Ubfm4rrdd), rl_result.reg.GetReg(), rl_src.reg.GetReg(), 0, 62);
+    // Clear the sign bit in an integer register.
+    OpRegRegImm64(kOpAnd, rl_result.reg, rl_src.reg, 0x7fffffffffffffff);
   }
   StoreValueWide(rl_dest, rl_result);
   return true;
@@ -382,7 +412,7 @@ bool Arm64Mir2Lir::GenInlinedSqrt(CallInfo* info) {
   RegLocation rl_dest = InlineTargetWide(info);  // double place for result
   rl_src = LoadValueWide(rl_src, kFPReg);
   RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
-  NewLIR2(FWIDE(kA64Fsqrt2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+  NewLIR2(WIDE(kA64Fsqrt2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   StoreValueWide(rl_dest, rl_result);
   return true;
 }
@@ -392,7 +422,7 @@ bool Arm64Mir2Lir::GenInlinedCeil(CallInfo* info) {
   RegLocation rl_dest = InlineTargetWide(info);
   rl_src = LoadValueWide(rl_src, kFPReg);
   RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
-  NewLIR2(FWIDE(kA64Frintp2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+  NewLIR2(WIDE(kA64Frintp2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   StoreValueWide(rl_dest, rl_result);
   return true;
 }
@@ -402,7 +432,7 @@ bool Arm64Mir2Lir::GenInlinedFloor(CallInfo* info) {
   RegLocation rl_dest = InlineTargetWide(info);
   rl_src = LoadValueWide(rl_src, kFPReg);
   RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
-  NewLIR2(FWIDE(kA64Frintm2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+  NewLIR2(WIDE(kA64Frintm2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   StoreValueWide(rl_dest, rl_result);
   return true;
 }
@@ -412,14 +442,14 @@ bool Arm64Mir2Lir::GenInlinedRint(CallInfo* info) {
   RegLocation rl_dest = InlineTargetWide(info);
   rl_src = LoadValueWide(rl_src, kFPReg);
   RegLocation rl_result = EvalLoc(rl_dest, kFPReg, true);
-  NewLIR2(FWIDE(kA64Frintn2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
+  NewLIR2(WIDE(kA64Frintn2ff), rl_result.reg.GetReg(), rl_src.reg.GetReg());
   StoreValueWide(rl_dest, rl_result);
   return true;
 }
 
 bool Arm64Mir2Lir::GenInlinedRound(CallInfo* info, bool is_double) {
-  int32_t encoded_imm = EncodeImmSingle(bit_cast<float, uint32_t>(0.5f));
-  ArmOpcode wide = (is_double) ? FWIDE(0) : FUNWIDE(0);
+  int32_t encoded_imm = EncodeImmSingle(bit_cast<uint32_t, float>(0.5f));
+  A64Opcode wide = (is_double) ? WIDE(0) : UNWIDE(0);
   RegLocation rl_src = info->args[0];
   RegLocation rl_dest = (is_double) ? InlineTargetWide(info) : InlineTarget(info);
   rl_src = (is_double) ? LoadValueWide(rl_src, kFPReg) : LoadValue(rl_src, kFPReg);
@@ -437,7 +467,7 @@ bool Arm64Mir2Lir::GenInlinedRound(CallInfo* info, bool is_double) {
 bool Arm64Mir2Lir::GenInlinedMinMaxFP(CallInfo* info, bool is_min, bool is_double) {
   DCHECK_EQ(cu_->instruction_set, kArm64);
   int op = (is_min) ? kA64Fmin3fff : kA64Fmax3fff;
-  ArmOpcode wide = (is_double) ? FWIDE(0) : FUNWIDE(0);
+  A64Opcode wide = (is_double) ? WIDE(0) : UNWIDE(0);
   RegLocation rl_src1 = info->args[0];
   RegLocation rl_src2 = (is_double) ? info->args[2] : info->args[1];
   rl_src1 = (is_double) ? LoadValueWide(rl_src1, kFPReg) : LoadValue(rl_src1, kFPReg);

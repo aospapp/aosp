@@ -23,9 +23,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fs_mgr.h>
+#include <stdio.h>
 #include <string.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #define LOG_TAG "VoldCmdListener"
+
+#include <base/stringprintf.h>
+#include <cutils/fs.h>
 #include <cutils/log.h>
 
 #include <sysutils/SocketClient.h>
@@ -33,12 +39,14 @@
 
 #include "CommandListener.h"
 #include "VolumeManager.h"
+#include "VolumeBase.h"
 #include "ResponseCode.h"
 #include "Process.h"
 #include "Loop.h"
 #include "Devmapper.h"
 #include "cryptfs.h"
-#include "fstrim.h"
+#include "MoveTask.h"
+#include "TrimTask.h"
 
 #define DUMP_ARGS 0
 
@@ -49,7 +57,6 @@ CommandListener::CommandListener() :
     registerCmd(new AsecCmd());
     registerCmd(new ObbCmd());
     registerCmd(new StorageCmd());
-    registerCmd(new CryptfsCmd());
     registerCmd(new FstrimCmd());
 }
 
@@ -84,6 +91,14 @@ void CommandListener::dumpArgs(int argc, char **argv, int argObscure) {
 #else
 void CommandListener::dumpArgs(int /*argc*/, char ** /*argv*/, int /*argObscure*/) { }
 #endif
+
+int CommandListener::sendGenericOkFail(SocketClient *cli, int cond) {
+    if (!cond) {
+        return cli->sendMsg(ResponseCode::CommandOkay, "Command succeeded", false);
+    } else {
+        return cli->sendMsg(ResponseCode::OperationFailed, "Command failed", false);
+    }
+}
 
 CommandListener::DumpCmd::DumpCmd() :
                  VoldCommand("dump") {
@@ -128,100 +143,135 @@ int CommandListener::VolumeCmd::runCommand(SocketClient *cli,
     }
 
     VolumeManager *vm = VolumeManager::Instance();
-    int rc = 0;
+    std::lock_guard<std::mutex> lock(vm->getLock());
 
-    if (!strcmp(argv[1], "list")) {
-        bool broadcast = argc >= 3 && !strcmp(argv[2], "broadcast");
-        return vm->listVolumes(cli, broadcast);
-    } else if (!strcmp(argv[1], "debug")) {
-        if (argc != 3 || (argc == 3 && (strcmp(argv[2], "off") && strcmp(argv[2], "on")))) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: volume debug <off/on>", false);
-            return 0;
-        }
-        vm->setDebug(!strcmp(argv[2], "on") ? true : false);
-    } else if (!strcmp(argv[1], "mount")) {
-        if (argc != 3) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: volume mount <path>", false);
-            return 0;
-        }
-        rc = vm->mountVolume(argv[2]);
-    } else if (!strcmp(argv[1], "unmount")) {
-        if (argc < 3 || argc > 4 ||
-           ((argc == 4 && strcmp(argv[3], "force")) &&
-            (argc == 4 && strcmp(argv[3], "force_and_revert")))) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: volume unmount <path> [force|force_and_revert]", false);
-            return 0;
+    // TODO: tease out methods not directly related to volumes
+
+    std::string cmd(argv[1]);
+    if (cmd == "reset") {
+        return sendGenericOkFail(cli, vm->reset());
+
+    } else if (cmd == "shutdown") {
+        return sendGenericOkFail(cli, vm->shutdown());
+
+    } else if (cmd == "debug") {
+        return sendGenericOkFail(cli, vm->setDebug(true));
+
+    } else if (cmd == "partition" && argc > 3) {
+        // partition [diskId] [public|private|mixed] [ratio]
+        std::string id(argv[2]);
+        auto disk = vm->findDisk(id);
+        if (disk == nullptr) {
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown disk", false);
         }
 
-        bool force = false;
-        bool revert = false;
-        if (argc >= 4 && !strcmp(argv[3], "force")) {
-            force = true;
-        } else if (argc >= 4 && !strcmp(argv[3], "force_and_revert")) {
-            force = true;
-            revert = true;
-        }
-        rc = vm->unmountVolume(argv[2], force, revert);
-    } else if (!strcmp(argv[1], "format")) {
-        if (argc < 3 || argc > 4 ||
-            (argc == 4 && strcmp(argv[3], "wipe"))) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: volume format <path> [wipe]", false);
-            return 0;
-        }
-        bool wipe = false;
-        if (argc >= 4 && !strcmp(argv[3], "wipe")) {
-            wipe = true;
-        }
-        rc = vm->formatVolume(argv[2], wipe);
-    } else if (!strcmp(argv[1], "share")) {
-        if (argc != 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError,
-                    "Usage: volume share <path> <method>", false);
-            return 0;
-        }
-        rc = vm->shareVolume(argv[2], argv[3]);
-    } else if (!strcmp(argv[1], "unshare")) {
-        if (argc != 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError,
-                    "Usage: volume unshare <path> <method>", false);
-            return 0;
-        }
-        rc = vm->unshareVolume(argv[2], argv[3]);
-    } else if (!strcmp(argv[1], "shared")) {
-        bool enabled = false;
-        if (argc != 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError,
-                    "Usage: volume shared <path> <method>", false);
-            return 0;
-        }
-
-        if (vm->shareEnabled(argv[2], argv[3], &enabled)) {
-            cli->sendMsg(
-                    ResponseCode::OperationFailed, "Failed to determine share enable state", true);
+        std::string type(argv[3]);
+        if (type == "public") {
+            return sendGenericOkFail(cli, disk->partitionPublic());
+        } else if (type == "private") {
+            return sendGenericOkFail(cli, disk->partitionPrivate());
+        } else if (type == "mixed") {
+            if (argc < 4) {
+                return cli->sendMsg(ResponseCode::CommandSyntaxError, nullptr, false);
+            }
+            int frac = atoi(argv[4]);
+            return sendGenericOkFail(cli, disk->partitionMixed(frac));
         } else {
-            cli->sendMsg(ResponseCode::ShareEnabledResult,
-                    (enabled ? "Share enabled" : "Share disabled"), false);
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, nullptr, false);
         }
-        return 0;
-    } else if (!strcmp(argv[1], "mkdirs")) {
-        if (argc != 3) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: volume mkdirs <path>", false);
-            return 0;
+
+    } else if (cmd == "mkdirs" && argc > 2) {
+        // mkdirs [path]
+        return sendGenericOkFail(cli, vm->mkdirs(argv[2]));
+
+    } else if (cmd == "user_added" && argc > 3) {
+        // user_added [user] [serial]
+        return sendGenericOkFail(cli, vm->onUserAdded(atoi(argv[2]), atoi(argv[3])));
+
+    } else if (cmd == "user_removed" && argc > 2) {
+        // user_removed [user]
+        return sendGenericOkFail(cli, vm->onUserRemoved(atoi(argv[2])));
+
+    } else if (cmd == "user_started" && argc > 2) {
+        // user_started [user]
+        return sendGenericOkFail(cli, vm->onUserStarted(atoi(argv[2])));
+
+    } else if (cmd == "user_stopped" && argc > 2) {
+        // user_stopped [user]
+        return sendGenericOkFail(cli, vm->onUserStopped(atoi(argv[2])));
+
+    } else if (cmd == "mount" && argc > 2) {
+        // mount [volId] [flags] [user]
+        std::string id(argv[2]);
+        auto vol = vm->findVolume(id);
+        if (vol == nullptr) {
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
         }
-        rc = vm->mkdirs(argv[2]);
-    } else {
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume cmd", false);
+
+        int mountFlags = (argc > 3) ? atoi(argv[3]) : 0;
+        userid_t mountUserId = (argc > 4) ? atoi(argv[4]) : -1;
+
+        vol->setMountFlags(mountFlags);
+        vol->setMountUserId(mountUserId);
+
+        int res = vol->mount();
+        if (mountFlags & android::vold::VolumeBase::MountFlags::kPrimary) {
+            vm->setPrimary(vol);
+        }
+        return sendGenericOkFail(cli, res);
+
+    } else if (cmd == "unmount" && argc > 2) {
+        // unmount [volId]
+        std::string id(argv[2]);
+        auto vol = vm->findVolume(id);
+        if (vol == nullptr) {
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
+        }
+
+        return sendGenericOkFail(cli, vol->unmount());
+
+    } else if (cmd == "format" && argc > 3) {
+        // format [volId] [fsType|auto]
+        std::string id(argv[2]);
+        std::string fsType(argv[3]);
+        auto vol = vm->findVolume(id);
+        if (vol == nullptr) {
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
+        }
+
+        return sendGenericOkFail(cli, vol->format(fsType));
+
+    } else if (cmd == "move_storage" && argc > 3) {
+        // move_storage [fromVolId] [toVolId]
+        auto fromVol = vm->findVolume(std::string(argv[2]));
+        auto toVol = vm->findVolume(std::string(argv[3]));
+        if (fromVol == nullptr || toVol == nullptr) {
+            return cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown volume", false);
+        }
+
+        (new android::vold::MoveTask(fromVol, toVol))->start();
+        return sendGenericOkFail(cli, 0);
+
+    } else if (cmd == "benchmark" && argc > 2) {
+        // benchmark [volId]
+        std::string id(argv[2]);
+        nsecs_t res = vm->benchmarkPrivate(id);
+        return cli->sendMsg(ResponseCode::CommandOkay,
+                android::base::StringPrintf("%" PRId64, res).c_str(), false);
+
+    } else if (cmd == "forget_partition" && argc > 2) {
+        // forget_partition [partGuid]
+        std::string partGuid(argv[2]);
+        return sendGenericOkFail(cli, vm->forgetPartition(partGuid));
+
+    } else if (cmd == "remount_uid" && argc > 3) {
+        // remount_uid [uid] [none|default|read|write]
+        uid_t uid = atoi(argv[2]);
+        std::string mode(argv[3]);
+        return sendGenericOkFail(cli, vm->remountUid(uid, mode));
     }
 
-    if (!rc) {
-        cli->sendMsg(ResponseCode::CommandOkay, "volume operation succeeded", false);
-    } else {
-        int erno = errno;
-        rc = ResponseCode::convertFromErrno();
-        cli->sendMsg(rc, "volume operation failed", true);
-    }
-
-    return 0;
+    return cli->sendMsg(ResponseCode::CommandSyntaxError, nullptr, false);
 }
 
 CommandListener::StorageCmd::StorageCmd() :
@@ -346,8 +396,8 @@ int CommandListener::AsecCmd::runCommand(SocketClient *cli,
     if (!strcmp(argv[1], "list")) {
         dumpArgs(argc, argv, -1);
 
-        listAsecsInDirectory(cli, Volume::SEC_ASECDIR_EXT);
-        listAsecsInDirectory(cli, Volume::SEC_ASECDIR_INT);
+        listAsecsInDirectory(cli, VolumeManager::SEC_ASECDIR_EXT);
+        listAsecsInDirectory(cli, VolumeManager::SEC_ASECDIR_INT);
     } else if (!strcmp(argv[1], "create")) {
         dumpArgs(argc, argv, 5);
         if (argc != 8) {
@@ -535,211 +585,6 @@ int CommandListener::ObbCmd::runCommand(SocketClient *cli,
     return 0;
 }
 
-CommandListener::CryptfsCmd::CryptfsCmd() :
-                 VoldCommand("cryptfs") {
-}
-
-static int getType(const char* type)
-{
-    if (!strcmp(type, "default")) {
-        return CRYPT_TYPE_DEFAULT;
-    } else if (!strcmp(type, "password")) {
-        return CRYPT_TYPE_PASSWORD;
-    } else if (!strcmp(type, "pin")) {
-        return CRYPT_TYPE_PIN;
-    } else if (!strcmp(type, "pattern")) {
-        return CRYPT_TYPE_PATTERN;
-    } else {
-        return -1;
-    }
-}
-
-int CommandListener::CryptfsCmd::runCommand(SocketClient *cli,
-                                                      int argc, char **argv) {
-    if ((cli->getUid() != 0) && (cli->getUid() != AID_SYSTEM)) {
-        cli->sendMsg(ResponseCode::CommandNoPermission, "No permission to run cryptfs commands", false);
-        return 0;
-    }
-
-    if (argc < 2) {
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing Argument", false);
-        return 0;
-    }
-
-    int rc = 0;
-
-    if (!strcmp(argv[1], "checkpw")) {
-        if (argc != 3) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs checkpw <passwd>", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, 2);
-        rc = cryptfs_check_passwd(argv[2]);
-    } else if (!strcmp(argv[1], "restart")) {
-        if (argc != 2) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs restart", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-        rc = cryptfs_restart();
-    } else if (!strcmp(argv[1], "cryptocomplete")) {
-        if (argc != 2) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs cryptocomplete", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-        rc = cryptfs_crypto_complete();
-    } else if (!strcmp(argv[1], "enablecrypto")) {
-        const char* syntax = "Usage: cryptfs enablecrypto <wipe|inplace> "
-                             "default|password|pin|pattern [passwd]";
-        if ( (argc != 4 && argc != 5)
-             || (strcmp(argv[2], "wipe") && strcmp(argv[2], "inplace")) ) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, syntax, false);
-            return 0;
-        }
-        dumpArgs(argc, argv, 4);
-
-        int tries;
-        for (tries = 0; tries < 2; ++tries) {
-            int type = getType(argv[3]);
-            if (type == -1) {
-                cli->sendMsg(ResponseCode::CommandSyntaxError, syntax,
-                             false);
-                return 0;
-            } else if (type == CRYPT_TYPE_DEFAULT) {
-              rc = cryptfs_enable_default(argv[2], /*allow_reboot*/false);
-            } else {
-                rc = cryptfs_enable(argv[2], type, argv[4],
-                                    /*allow_reboot*/false);
-            }
-
-            if (rc == 0) {
-                break;
-            } else if (tries == 0) {
-                Process::killProcessesWithOpenFiles(DATA_MNT_POINT, 2);
-            }
-        }
-    } else if (!strcmp(argv[1], "changepw")) {
-        const char* syntax = "Usage: cryptfs changepw "
-                             "default|password|pin|pattern [newpasswd]";
-        const char* password;
-        if (argc == 3) {
-            password = "";
-        } else if (argc == 4) {
-            password = argv[3];
-        } else {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, syntax, false);
-            return 0;
-        }
-        int type = getType(argv[2]);
-        if (type == -1) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, syntax, false);
-            return 0;
-        }
-        SLOGD("cryptfs changepw %s {}", argv[2]);
-        rc = cryptfs_changepw(type, password);
-    } else if (!strcmp(argv[1], "verifypw")) {
-        if (argc != 3) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs verifypw <passwd>", false);
-            return 0;
-        }
-        SLOGD("cryptfs verifypw {}");
-        rc = cryptfs_verify_passwd(argv[2]);
-    } else if (!strcmp(argv[1], "getfield")) {
-        char *valbuf;
-        int valbuf_len = PROPERTY_VALUE_MAX;
-
-        if (argc != 3) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs getfield <fieldname>", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-
-        // Increase the buffer size until it is big enough for the field value stored.
-        while (1) {
-            valbuf = (char*)malloc(valbuf_len);
-            if (valbuf == NULL) {
-                cli->sendMsg(ResponseCode::OperationFailed, "Failed to allocate memory", false);
-                return 0;
-            }
-            rc = cryptfs_getfield(argv[2], valbuf, valbuf_len);
-            if (rc != CRYPTO_GETFIELD_ERROR_BUF_TOO_SMALL) {
-                break;
-            }
-            free(valbuf);
-            valbuf_len *= 2;
-        }
-        if (rc == CRYPTO_GETFIELD_OK) {
-            cli->sendMsg(ResponseCode::CryptfsGetfieldResult, valbuf, false);
-        }
-        free(valbuf);
-    } else if (!strcmp(argv[1], "setfield")) {
-        if (argc != 4) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: cryptfs setfield <fieldname> <value>", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-        rc = cryptfs_setfield(argv[2], argv[3]);
-    } else if (!strcmp(argv[1], "mountdefaultencrypted")) {
-        SLOGD("cryptfs mountdefaultencrypted");
-        dumpArgs(argc, argv, -1);
-        rc = cryptfs_mount_default_encrypted();
-    } else if (!strcmp(argv[1], "getpwtype")) {
-        SLOGD("cryptfs getpwtype");
-        dumpArgs(argc, argv, -1);
-        switch(cryptfs_get_password_type()) {
-        case CRYPT_TYPE_PASSWORD:
-            cli->sendMsg(ResponseCode::PasswordTypeResult, "password", false);
-            return 0;
-        case CRYPT_TYPE_PATTERN:
-            cli->sendMsg(ResponseCode::PasswordTypeResult, "pattern", false);
-            return 0;
-        case CRYPT_TYPE_PIN:
-            cli->sendMsg(ResponseCode::PasswordTypeResult, "pin", false);
-            return 0;
-        case CRYPT_TYPE_DEFAULT:
-            cli->sendMsg(ResponseCode::PasswordTypeResult, "default", false);
-            return 0;
-        default:
-          /** @TODO better error and make sure handled by callers */
-            cli->sendMsg(ResponseCode::OpFailedStorageNotFound, "Error", false);
-            return 0;
-        }
-    } else if (!strcmp(argv[1], "getpw")) {
-        SLOGD("cryptfs getpw");
-        dumpArgs(argc, argv, -1);
-        char* password = cryptfs_get_password();
-        if (password) {
-            char* message = 0;
-            int size = asprintf(&message, "{{sensitive}} %s", password);
-            if (size != -1) {
-                cli->sendMsg(ResponseCode::CommandOkay, message, false);
-                memset(message, 0, size);
-                free (message);
-                return 0;
-            }
-        }
-        rc = -1;
-    } else if (!strcmp(argv[1], "clearpw")) {
-        SLOGD("cryptfs clearpw");
-        dumpArgs(argc, argv, -1);
-        cryptfs_clear_password();
-        rc = 0;
-    } else {
-        dumpArgs(argc, argv, -1);
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown cryptfs cmd", false);
-        return 0;
-    }
-
-    // Always report that the command succeeded and return the error code.
-    // The caller will check the return value to see what the error was.
-    char msg[255];
-    snprintf(msg, sizeof(msg), "%d", rc);
-    cli->sendMsg(ResponseCode::CommandOkay, msg, false);
-
-    return 0;
-}
-
 CommandListener::FstrimCmd::FstrimCmd() :
                  VoldCommand("fstrim") {
 }
@@ -755,32 +600,23 @@ int CommandListener::FstrimCmd::runCommand(SocketClient *cli,
         return 0;
     }
 
-    int rc = 0;
+    VolumeManager *vm = VolumeManager::Instance();
+    std::lock_guard<std::mutex> lock(vm->getLock());
 
-    if (!strcmp(argv[1], "dotrim")) {
-        if (argc != 2) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: fstrim dotrim", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-        rc = fstrim_filesystems(0);
-    } else if (!strcmp(argv[1], "dodtrim")) {
-        if (argc != 2) {
-            cli->sendMsg(ResponseCode::CommandSyntaxError, "Usage: fstrim dodtrim", false);
-            return 0;
-        }
-        dumpArgs(argc, argv, -1);
-        rc = fstrim_filesystems(1);   /* Do Deep Discard trim */
-    } else {
-        dumpArgs(argc, argv, -1);
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown fstrim cmd", false);
+    int flags = 0;
+
+    std::string cmd(argv[1]);
+    if (cmd == "dotrim") {
+        flags = 0;
+    } else if (cmd == "dotrimbench") {
+        flags = android::vold::TrimTask::Flags::kBenchmarkAfter;
+    } else if (cmd == "dodtrim") {
+        flags = android::vold::TrimTask::Flags::kDeepTrim;
+    } else if (cmd == "dodtrimbench") {
+        flags = android::vold::TrimTask::Flags::kDeepTrim
+                | android::vold::TrimTask::Flags::kBenchmarkAfter;
     }
 
-    // Always report that the command succeeded and return the error code.
-    // The caller will check the return value to see what the error was.
-    char msg[255];
-    snprintf(msg, sizeof(msg), "%d", rc);
-    cli->sendMsg(ResponseCode::CommandOkay, msg, false);
-
-    return 0;
+    (new android::vold::TrimTask(flags))->start();
+    return sendGenericOkFail(cli, 0);
 }

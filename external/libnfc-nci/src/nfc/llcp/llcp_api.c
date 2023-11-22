@@ -1533,6 +1533,28 @@ UINT8 LLCP_GetRemoteLSC (void)
 
 /*******************************************************************************
 **
+** Function         LLCP_GetRemoteVersion
+**
+** Description      Return LLCP version of connected device
+**
+**
+** Returns          LLCP version
+**
+*******************************************************************************/
+UINT8 LLCP_GetRemoteVersion (void)
+{
+    LLCP_TRACE_API1 ("LLCP_GetRemoteVersion () Version: 0x%x",
+                     (llcp_cb.lcb.link_state == LLCP_LINK_STATE_ACTIVATED)
+                     ? llcp_cb.lcb.peer_version : 0);
+
+    if (llcp_cb.lcb.link_state == LLCP_LINK_STATE_ACTIVATED)
+        return (llcp_cb.lcb.peer_version);
+    else
+        return 0;
+}
+
+/*******************************************************************************
+**
 ** Function         LLCP_GetLinkMIU
 **
 ** Description      Return local and remote link MIU

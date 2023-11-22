@@ -11,9 +11,8 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 
-public class EngineKey implements Key {
-    private static final String FORMAT = "UTF-8";
-
+@SuppressWarnings("rawtypes")
+class EngineKey implements Key {
     private final String id;
     private final int width;
     private final int height;
@@ -21,16 +20,18 @@ public class EngineKey implements Key {
     private final ResourceDecoder decoder;
     private final Transformation transformation;
     private final ResourceEncoder encoder;
-    private ResourceTranscoder transcoder;
-    private Encoder sourceEncoder;
+    private final ResourceTranscoder transcoder;
+    private final Encoder sourceEncoder;
+    private final Key signature;
     private String stringKey;
     private int hashCode;
-    private OriginalEngineKey originalKey;
+    private Key originalKey;
 
-    public EngineKey(String id, int width, int height, ResourceDecoder cacheDecoder, ResourceDecoder decoder,
-            Transformation transformation, ResourceEncoder encoder, ResourceTranscoder transcoder,
-            Encoder sourceEncoder) {
+    public EngineKey(String id, Key signature, int width, int height, ResourceDecoder cacheDecoder,
+            ResourceDecoder decoder, Transformation transformation, ResourceEncoder encoder,
+            ResourceTranscoder transcoder, Encoder sourceEncoder) {
         this.id = id;
+        this.signature = signature;
         this.width = width;
         this.height = height;
         this.cacheDecoder = cacheDecoder;
@@ -43,7 +44,7 @@ public class EngineKey implements Key {
 
     public Key getOriginalKey() {
         if (originalKey == null) {
-            originalKey = new OriginalEngineKey(id);
+            originalKey = new OriginalKey(id, signature);
         }
         return originalKey;
     }
@@ -61,39 +62,53 @@ public class EngineKey implements Key {
 
         if (!id.equals(engineKey.id)) {
             return false;
+        } else if (!signature.equals(engineKey.signature)) {
+            return false;
         } else if (height != engineKey.height) {
             return false;
         } else if (width != engineKey.width) {
             return false;
-        } else  if (!transformation.getId().equals(engineKey.transformation.getId())) {
+        } else if (transformation == null ^ engineKey.transformation == null) {
             return false;
-        } else if (!decoder.getId().equals(engineKey.decoder.getId())) {
+        } else if (transformation != null && !transformation.getId().equals(engineKey.transformation.getId())) {
             return false;
-        } else if (!cacheDecoder.getId().equals(engineKey.cacheDecoder.getId())) {
+        } else if (decoder == null ^ engineKey.decoder == null) {
             return false;
-        } else if (!encoder.getId().equals(engineKey.encoder.getId())) {
+        } else if (decoder != null && !decoder.getId().equals(engineKey.decoder.getId())) {
             return false;
-        } else if (!transcoder.getId().equals(engineKey.transcoder.getId())) {
+        } else if (cacheDecoder == null ^ engineKey.cacheDecoder == null) {
             return false;
-        } else if (!sourceEncoder.getId().equals(engineKey.sourceEncoder.getId())) {
+        } else if (cacheDecoder != null && !cacheDecoder.getId().equals(engineKey.cacheDecoder.getId())) {
             return false;
-        } else {
-            return true;
+        } else if (encoder == null ^ engineKey.encoder == null) {
+            return false;
+        } else if (encoder != null && !encoder.getId().equals(engineKey.encoder.getId())) {
+            return false;
+        } else if (transcoder == null ^ engineKey.transcoder == null) {
+            return false;
+        } else if (transcoder != null && !transcoder.getId().equals(engineKey.transcoder.getId())) {
+            return false;
+        } else if (sourceEncoder == null ^ engineKey.sourceEncoder == null) {
+            return false;
+        } else if (sourceEncoder != null && !sourceEncoder.getId().equals(engineKey.sourceEncoder.getId())) {
+            return false;
         }
+        return true;
     }
 
     @Override
     public int hashCode() {
         if (hashCode == 0) {
             hashCode = id.hashCode();
+            hashCode = 31 * hashCode + signature.hashCode();
             hashCode = 31 * hashCode + width;
             hashCode = 31 * hashCode + height;
-            hashCode = 31 * hashCode + cacheDecoder.getId().hashCode();
-            hashCode = 31 * hashCode + decoder.getId().hashCode();
-            hashCode = 31 * hashCode + transformation.getId().hashCode();
-            hashCode = 31 * hashCode + encoder.getId().hashCode();
-            hashCode = 31 * hashCode + transcoder.getId().hashCode();
-            hashCode = 31 * hashCode + sourceEncoder.getId().hashCode();
+            hashCode = 31 * hashCode + (cacheDecoder   != null ? cacheDecoder  .getId().hashCode() : 0);
+            hashCode = 31 * hashCode + (decoder        != null ? decoder       .getId().hashCode() : 0);
+            hashCode = 31 * hashCode + (transformation != null ? transformation.getId().hashCode() : 0);
+            hashCode = 31 * hashCode + (encoder        != null ? encoder       .getId().hashCode() : 0);
+            hashCode = 31 * hashCode + (transcoder     != null ? transcoder    .getId().hashCode() : 0);
+            hashCode = 31 * hashCode + (sourceEncoder  != null ? sourceEncoder .getId().hashCode() : 0);
         }
         return hashCode;
     }
@@ -103,14 +118,15 @@ public class EngineKey implements Key {
         if (stringKey == null) {
             stringKey = new StringBuilder()
                 .append(id)
+                .append(signature)
                 .append(width)
                 .append(height)
-                .append(cacheDecoder.getId())
-                .append(decoder.getId())
-                .append(transformation.getId())
-                .append(encoder.getId())
-                .append(transcoder.getId())
-                .append(sourceEncoder)
+                .append(cacheDecoder   != null ? cacheDecoder  .getId() : "")
+                .append(decoder        != null ? decoder       .getId() : "")
+                .append(transformation != null ? transformation.getId() : "")
+                .append(encoder        != null ? encoder       .getId() : "")
+                .append(transcoder     != null ? transcoder    .getId() : "")
+                .append(sourceEncoder  != null ? sourceEncoder .getId() : "")
                 .toString();
         }
         return stringKey;
@@ -122,12 +138,14 @@ public class EngineKey implements Key {
                 .putInt(width)
                 .putInt(height)
                 .array();
-        messageDigest.update(id.getBytes(FORMAT));
+        signature.updateDiskCacheKey(messageDigest);
+        messageDigest.update(id.getBytes(STRING_CHARSET_NAME));
         messageDigest.update(dimensions);
-        messageDigest.update(cacheDecoder.getId().getBytes(FORMAT));
-        messageDigest.update(decoder.getId().getBytes(FORMAT));
-        messageDigest.update(transformation.getId().getBytes(FORMAT));
-        messageDigest.update(encoder.getId().getBytes(FORMAT));
-        messageDigest.update(sourceEncoder.getId().getBytes(FORMAT));
+        messageDigest.update((cacheDecoder   != null ? cacheDecoder  .getId() : "").getBytes(STRING_CHARSET_NAME));
+        messageDigest.update((decoder        != null ? decoder       .getId() : "").getBytes(STRING_CHARSET_NAME));
+        messageDigest.update((transformation != null ? transformation.getId() : "").getBytes(STRING_CHARSET_NAME));
+        messageDigest.update((encoder        != null ? encoder       .getId() : "").getBytes(STRING_CHARSET_NAME));
+        // The Transcoder is not included in the disk cache key because its result is not cached.
+        messageDigest.update((sourceEncoder  != null ? sourceEncoder .getId() : "").getBytes(STRING_CHARSET_NAME));
     }
 }

@@ -28,6 +28,7 @@
     be_BY: Belarusian (Belarus)/east_slavic
     bg: Bulgarian/bulgarian
     bg: Bulgarian/bulgarian_bds
+    bn_BD: Bengali (Bangladesh)/bengali_akkhor
     bn_IN: Bengali (India)/bengali
     ca: Catalan/spanish
     cs: Czech/qwertz
@@ -52,6 +53,7 @@
     gl_ES: Galician (Spain)/spanish
     hi: Hindi/hindi
     hi: Hindi/hindi_compact
+    hi_ZZ: Hinglish/qwerty  # This is a preliminary keyboard layout.
     hr: Croatian/qwertz
     hu: Hungarian/qwertz
     hy_AM: Armenian (Armenia) Phonetic/armenian_phonetic
@@ -73,7 +75,6 @@
     mn_MN: Mongolian (Mongolia)/mongolian
     mr_IN: Marathi (India)/marathi
     ms_MY: Malay (Malaysia)/qwerty
-    (my_MM: Myanmar (Myanmar)/myanmar) # This is a preliminary keyboard layout.
     nb: Norwegian Bokmål/nordic
     ne_NP: Nepali (Nepal) Romanized/nepali_romanized
     ne_NP: Nepali (Nepal) Traditional/nepali_traditional
@@ -84,21 +85,22 @@
     pt_PT: Portuguese (Portugal)/qwerty
     ro: Romanian/qwerty
     ru: Russian/east_slavic
-    (si_LK: Sinhala (Sri Lanka)/sinhala) # This is a preliminary keyboard layout.
+    si_LK: Sinhala (Sri Lanka)/sinhala # This is a preliminary keyboard layout.
     sk: Slovak/qwerty
     sl: Slovenian/qwerty
     sr: Serbian/south_slavic
-    (sr-Latn: Serbian/qwerty) # not yet implemented.
+    sr_ZZ: Serbian (Latin)/serbian_qwertz # This is a preliminary keyboard layout.
     sv: Swedish/nordic
     sw: Swahili/qwerty
     ta_IN: Tamil (India)/tamil
-    (ta_LK: Tamil (Sri Lanka)/tamil) # Disabled in conjunction with si_LK.
+    ta_LK: Tamil (Sri Lanka)/tamil # Disabled in conjunction with si_LK.
     ta_SG: Tamil (Singapore)/tamil
     te_IN: Telugu (India)/telugu
     th: Thai/thai
     tl: Tagalog/spanish
     tr: Turkish/qwerty
     uk: Ukrainian/east_slavic
+    uz_UZ: Uzbek (Uzbekistan)/uzbek # This is a preliminary keyboard layout.
     vi: Vietnamese/qwerty
     zu: Zulu/qwerty
     zz: QWERTY/qwerty
@@ -176,6 +178,14 @@
             android:imeSubtypeLocale="bg"
             android:imeSubtypeMode="keyboard"
             android:imeSubtypeExtraValue="KeyboardLayoutSet=bulgarian_bds,EmojiCapable"
+            android:isAsciiCapable="false"
+    />
+    <subtype android:icon="@drawable/ic_ime_switcher_dark"
+            android:label="@string/subtype_generic"
+            android:subtypeId="0xa2144b0c"
+            android:imeSubtypeLocale="bn_BD"
+            android:imeSubtypeMode="keyboard"
+            android:imeSubtypeExtraValue="KeyboardLayoutSet=bengali_akkhor,EmojiCapable"
             android:isAsciiCapable="false"
     />
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
@@ -354,6 +364,18 @@
             android:imeSubtypeExtraValue="KeyboardLayoutSet=hindi_compact,EmojiCapable"
             android:isAsciiCapable="false"
     />
+    <!-- TODO: This Hinglish keyboard is a preliminary layout.
+               This isn't based on the final specification. -->
+    <!--  Disabled because there is no LM yet, and this layout does not offer anything different.
+    <subtype android:icon="@drawable/ic_ime_switcher_dark"
+            android:label="@string/subtype_hi_ZZ"
+            android:subtypeId="0x352eb37c"
+            android:imeSubtypeLocale="hi_ZZ"
+            android:imeSubtypeMode="keyboard"
+            android:imeSubtypeExtraValue="AsciiCapable,KeyboardLayoutSet=qwerty,EmojiCapable"
+            android:isAsciiCapable="true"
+    />
+    -->
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x35b7526a"
@@ -524,18 +546,6 @@
             android:imeSubtypeExtraValue="KeyboardLayoutSet=qwerty,AsciiCapable,EmojiCapable"
             android:isAsciiCapable="true"
     />
-    <!-- TODO: This Myanmar keyboard is a preliminary layout.
-               This isn't based on the final specification. -->
-    <!--
-    <subtype android:icon="@drawable/ic_ime_switcher_dark"
-            android:label="@string/subtype_generic"
-            android:subtypeId="0xea266ea4"
-            android:imeSubtypeLocale="my_MM"
-            android:imeSubtypeMode="keyboard"
-            android:imeSubtypeExtraValue="KeyboardLayoutSet=myanmar,EmojiCapable,CombiningRules=MyanmarReordering"
-            android:isAsciiCapable="false"
-    />
-    -->
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x3f12ee14"
@@ -618,7 +628,7 @@
     />
     <!-- TODO: This Sinhala keyboard is a preliminary layout.
                This isn't based on the final specification. -->
-    <!--
+    <!-- si_LK is currently disabled due to lack of combination rules.
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x5c6b3bde"
@@ -652,24 +662,16 @@
             android:imeSubtypeExtraValue="SupportTouchPositionCorrection,EmojiCapable"
             android:isAsciiCapable="false"
     />
-    <!-- TODO: Uncomment once we can handle IETF language tag with script name specified.
+    <!-- TODO: This Serbian Latin keyboard is a preliminary layout.
+               This isn't based on the final specification. -->
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
-            android:label="@string/subtype_serbian_cyrillic"
-            android:subtypeId="0xXXXXXXXX"
-            android:imeSubtypeLocale="sr"
+            android:label="@string/subtype_sr_ZZ"
+            android:subtypeId="0xf4a5569c"
+            android:imeSubtypeLocale="sr_ZZ"
             android:imeSubtypeMode="keyboard"
-            android:imeSubtypeExtraValue="SupportTouchPositionCorrection,EmojiCapable"
-            android:isAsciiCapable="false"
-    />
-    <subtype android:icon="@drawable/ic_ime_switcher_dark"
-            android:label="@string/subtype_serbian_latin"
-            android:subtypeId="0xXXXXXXXX"
-            android:imeSubtypeLocale="sr-Latn"
-            android:imeSubtypeMode="keyboard"
-            android:imeSubtypeExtraValue="KeyboardLayoutSet=qwerty,AsciiCapable,EmojiCapable"
+            android:imeSubtypeExtraValue="KeyboardLayoutSet=serbian_qwertz,AsciiCapable,EmojiCapable"
             android:isAsciiCapable="true"
     />
-    -->
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x48b4ff43"
@@ -694,8 +696,8 @@
             android:imeSubtypeExtraValue="KeyboardLayoutSet=tamil,EmojiCapable"
             android:isAsciiCapable="false"
     />
-    <!-- TODO: Enable ta_LK subtype when si_LK subtype is ready -->
-    <!--
+    <!-- TODO: Enabling/Disabling ta_LK subtype must be aligned with si_LK subtype. -->
+    <!-- ta_LK disabled alongside si_LK subtype due to lack of combination rules.
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x6ca12d84"
@@ -704,7 +706,7 @@
             android:imeSubtypeExtraValue="KeyboardLayoutSet=tamil,EmojiCapable"
             android:isAsciiCapable="false"
     />
-    -->
+    !-->
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"
             android:subtypeId="0x785abbd9"
@@ -752,6 +754,16 @@
             android:imeSubtypeMode="keyboard"
             android:imeSubtypeExtraValue="KeyboardLayoutSet=east_slavic,EmojiCapable"
             android:isAsciiCapable="false"
+    />
+    <!-- TODO: This Uzbek keyboard is a preliminary layout.
+               This isn't based on the final specification. -->
+    <subtype android:icon="@drawable/ic_ime_switcher_dark"
+            android:label="@string/subtype_generic"
+            android:subtypeId="0xad5cf7f6"
+            android:imeSubtypeLocale="uz_UZ"
+            android:imeSubtypeMode="keyboard"
+            android:imeSubtypeExtraValue="KeyboardLayoutSet=uzbek,AsciiCapable,EmojiCapable"
+            android:isAsciiCapable="true"
     />
     <subtype android:icon="@drawable/ic_ime_switcher_dark"
             android:label="@string/subtype_generic"

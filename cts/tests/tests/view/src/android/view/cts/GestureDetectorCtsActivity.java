@@ -25,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.View.OnTouchListener;
+import android.view.View.OnGenericMotionListener;
 import android.widget.Button;
 
 public class GestureDetectorCtsActivity extends Activity {
@@ -38,6 +39,7 @@ public class GestureDetectorCtsActivity extends Activity {
     public boolean onDoubleTap;
     public boolean onDoubleTapEvent;
     public boolean onSingleTapConfirmed;
+    public boolean onContextClick;
 
     private GestureDetector mGestureDetector;
     private MockOnGestureListener mOnGestureListener;
@@ -56,6 +58,7 @@ public class GestureDetectorCtsActivity extends Activity {
 
         mGestureDetector = new GestureDetector(this, mOnGestureListener, mHandler);
         mGestureDetector.setOnDoubleTapListener(mOnGestureListener);
+        mGestureDetector.setContextClickListener(mOnGestureListener);
         mView = new View(this);
         mButton = new Button(this);
         mTop = new Button(this);
@@ -86,7 +89,13 @@ public class GestureDetectorCtsActivity extends Activity {
         return mGestureDetector;
     }
 
+    public MockOnGestureListener getListener() {
+        return mOnGestureListener;
+    }
+
     public class MockOnGestureListener extends SimpleOnGestureListener {
+        private MotionEvent mPreviousContextClickEvent;
+
         public boolean onDown(MotionEvent e) {
             isDown = true;
             return true;
@@ -129,12 +138,27 @@ public class GestureDetectorCtsActivity extends Activity {
             onSingleTapConfirmed = true;
             return false;
         }
+
+        public boolean onContextClick(MotionEvent e) {
+            onContextClick = true;
+            mPreviousContextClickEvent = e;
+            return false;
+        }
+
+        public MotionEvent getPreviousContextClickEvent() {
+            return mPreviousContextClickEvent;
+        }
     }
 
-    class MockOnTouchListener implements OnTouchListener {
+    class MockOnTouchListener implements OnTouchListener, OnGenericMotionListener {
 
         public boolean onTouch(View v, MotionEvent event) {
             mGestureDetector.onTouchEvent(event);
+            return true;
+        }
+
+        public boolean onGenericMotion(View v, MotionEvent event) {
+            mGestureDetector.onGenericMotionEvent(event);
             return true;
         }
     }

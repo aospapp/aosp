@@ -1,14 +1,16 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FXCRT_WINDOWS_
-#define _FXCRT_WINDOWS_
+#ifndef CORE_SRC_FXCRT_FXCRT_WINDOWS_H_
+#define CORE_SRC_FXCRT_FXCRT_WINDOWS_H_
+
 #include "extension.h"
+
 #if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_
-class CFXCRT_FileAccess_Win64 : public IFXCRT_FileAccess, public CFX_Object
+class CFXCRT_FileAccess_Win64 : public IFXCRT_FileAccess
 {
 public:
     CFXCRT_FileAccess_Win64();
@@ -16,7 +18,7 @@ public:
     virtual FX_BOOL		Open(FX_BSTR fileName, FX_DWORD dwMode);
     virtual FX_BOOL		Open(FX_WSTR fileName, FX_DWORD dwMode);
     virtual void		Close();
-    virtual void		Release(IFX_Allocator* pAllocator = NULL);
+    virtual void		Release();
     virtual FX_FILESIZE	GetSize() const;
     virtual FX_FILESIZE	GetPosition() const;
     virtual FX_FILESIZE	SetPosition(FX_FILESIZE pos);
@@ -30,4 +32,5 @@ protected:
     FX_LPVOID	m_hFile;
 };
 #endif
-#endif
+
+#endif  // CORE_SRC_FXCRT_FXCRT_WINDOWS_H_

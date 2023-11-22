@@ -43,20 +43,20 @@ src_files := \
 # This is necessary to guarantee that the FDLIBM functions are in
 # "IEEE spirit", i.e. to guarantee that the IEEE 754 core functions
 # are used.
-cflags := "-D_IEEE_LIBM"
+cflags := -D_IEEE_LIBM
 
 # Android only supports little-endian.
-cflags += "-D__LITTLE_ENDIAN"
+cflags += -D__LITTLE_ENDIAN
 
 # Disable GCC optimizations that interact badly with this crufty
 # library (see their own admission in 'readme'). Without this, we
 # fail StrictMath tests on x86.
-cflags += "-fno-strict-aliasing"
-cflags += "-ffloat-store"
+cflags += -fno-strict-aliasing
+cflags += -ffloat-store
 
 # c99 specifies a less relaxed floating point model that does not enable
 # floating point expession contraction (e.g: fused multiply-add operations).
-cflags += "-std=c99"
+cflags += -std=c99
 
 #
 # Build for the target (device).

@@ -46,20 +46,20 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Basic usage:
  * <pre>
- *   Stopwatch stopwatch = new Stopwatch().{@link #start start}();
+ *   Stopwatch stopwatch = Stopwatch.{@link #createStarted createStarted}();
  *   doSomething();
  *   stopwatch.{@link #stop stop}(); // optional
  *
- *   long millis = stopwatch.{@link #elapsedMillis elapsedMillis}();
+ *   long millis = stopwatch.elapsed(MILLISECONDS);
  *
- *   log.info("that took: " + stopwatch); // formatted string like "12.3 ms"
- * </pre>
+ *   log.info("time: " + stopwatch); // formatted string like "12.3 ms"</pre>
  *
  * <p>Stopwatch methods are not idempotent; it is an error to start or stop a
  * stopwatch that is already in the desired state.
  *
- * <p>When testing code that uses this class, use the {@linkplain
- * #Stopwatch(Ticker) alternate constructor} to supply a fake or mock ticker.
+ * <p>When testing code that uses this class, use
+ * {@link #createUnstarted(Ticker)} or {@link #createStarted(Ticker)} to
+ * supply a fake or mock ticker.
  * <!-- TODO(kevinb): restore the "such as" --> This allows you to
  * simulate any valid behavior of the stopwatch.
  *
@@ -69,7 +69,7 @@ import java.util.concurrent.TimeUnit;
  * @since 10.0
  */
 @Beta
-@GwtCompatible(emulated=true)
+@GwtCompatible(emulated = true)
 public final class Stopwatch {
   private final Ticker ticker;
   private boolean isRunning;
@@ -79,7 +79,51 @@ public final class Stopwatch {
   /**
    * Creates (but does not start) a new stopwatch using {@link System#nanoTime}
    * as its time source.
+   *
+   * @since 15.0
    */
+  public static Stopwatch createUnstarted() {
+    return new Stopwatch();
+  }
+
+  /**
+   * Creates (but does not start) a new stopwatch, using the specified time
+   * source.
+   *
+   * @since 15.0
+   */
+  public static Stopwatch createUnstarted(Ticker ticker) {
+    return new Stopwatch(ticker);
+  }
+
+  /**
+   * Creates (and starts) a new stopwatch using {@link System#nanoTime}
+   * as its time source.
+   *
+   * @since 15.0
+   */
+  public static Stopwatch createStarted() {
+    return new Stopwatch().start();
+  }
+
+  /**
+   * Creates (and starts) a new stopwatch, using the specified time
+   * source.
+   *
+   * @since 15.0
+   */
+  public static Stopwatch createStarted(Ticker ticker) {
+    return new Stopwatch(ticker).start();
+  }
+
+  /**
+   * Creates (but does not start) a new stopwatch using {@link System#nanoTime}
+   * as its time source.
+   *
+   * @deprecated Use {@link Stopwatch#createUnstarted()} instead. This
+   *     constructor is scheduled to be removed in Guava release 17.0.
+   */
+  @Deprecated
   public Stopwatch() {
     this(Ticker.systemTicker());
   }
@@ -87,9 +131,13 @@ public final class Stopwatch {
   /**
    * Creates (but does not start) a new stopwatch, using the specified time
    * source.
+   *
+   * @deprecated Use {@link Stopwatch#createUnstarted(Ticker)} instead. This
+   *     constructor is scheduled to be removed in Guava release 17.0.
    */
+  @Deprecated
   public Stopwatch(Ticker ticker) {
-    this.ticker = checkNotNull(ticker);
+    this.ticker = checkNotNull(ticker, "ticker");
   }
 
   /**
@@ -108,7 +156,7 @@ public final class Stopwatch {
    * @throws IllegalStateException if the stopwatch is already running.
    */
   public Stopwatch start() {
-    checkState(!isRunning);
+    checkState(!isRunning, "This stopwatch is already running.");
     isRunning = true;
     startTick = ticker.read();
     return this;
@@ -123,7 +171,7 @@ public final class Stopwatch {
    */
   public Stopwatch stop() {
     long tick = ticker.read();
-    checkState(isRunning);
+    checkState(isRunning, "This stopwatch is already stopped.");
     isRunning = false;
     elapsedNanos += tick - startTick;
     return this;
@@ -152,45 +200,25 @@ public final class Stopwatch {
    * <p>Note that the overhead of measurement can be more than a microsecond, so
    * it is generally not useful to specify {@link TimeUnit#NANOSECONDS}
    * precision here.
+   *
+   * @since 14.0 (since 10.0 as {@code elapsedTime()})
    */
-  public long elapsedTime(TimeUnit desiredUnit) {
+  public long elapsed(TimeUnit desiredUnit) {
     return desiredUnit.convert(elapsedNanos(), NANOSECONDS);
   }
 
   /**
-   * Returns the current elapsed time shown on this stopwatch, expressed
-   * in milliseconds, with any fraction rounded down. This is identical to
-   * {@code elapsedTime(TimeUnit.MILLISECONDS}.
-   */
-  public long elapsedMillis() {
-    return elapsedTime(MILLISECONDS);
-  }
-
-  /**
-   * Returns a string representation of the current elapsed time; equivalent to
-   * {@code toString(4)} (four significant figures).
+   * Returns a string representation of the current elapsed time.
    */
   @GwtIncompatible("String.format()")
   @Override public String toString() {
-    return toString(4);
-  }
-
-  /**
-   * Returns a string representation of the current elapsed time, choosing an
-   * appropriate unit and using the specified number of significant figures.
-   * For example, at the instant when {@code elapsedTime(NANOSECONDS)} would
-   * return {1234567}, {@code toString(4)} returns {@code "1.235 ms"}.
-   */
-  @GwtIncompatible("String.format()")
-  public String toString(int significantDigits) {
     long nanos = elapsedNanos();
 
     TimeUnit unit = chooseUnit(nanos);
     double value = (double) nanos / NANOSECONDS.convert(1, unit);
 
     // Too bad this functionality is not exposed as a regular method call
-    return String.format("%." + significantDigits + "g %s",
-        value, abbreviate(unit));
+    return String.format("%.4g %s", value, abbreviate(unit));
   }
 
   private static TimeUnit chooseUnit(long nanos) {

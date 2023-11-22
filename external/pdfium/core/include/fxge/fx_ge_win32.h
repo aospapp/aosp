@@ -4,8 +4,9 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_GE_WIN32_H_
-#define _FX_GE_WIN32_H_
+#ifndef CORE_INCLUDE_FXGE_FX_GE_WIN32_H_
+#define CORE_INCLUDE_FXGE_FX_GE_WIN32_H_
+
 #ifdef _WIN32
 #ifndef _WINDOWS_
 #include <windows.h>
@@ -38,7 +39,7 @@ public:
 
     static CFX_DIBitmap* LoadFromFile(FX_LPCSTR filename)
     {
-        return LoadFromFile(CFX_WideString::FromLocal(filename));
+        return LoadFromFile(CFX_WideString::FromLocal(filename).c_str());
     }
 
     static CFX_DIBitmap* LoadDIBitmap(WINDIB_Open_Args_ args);
@@ -102,4 +103,5 @@ protected:
     HDC		m_hDC;
 };
 #endif
-#endif
+
+#endif  // CORE_INCLUDE_FXGE_FX_GE_WIN32_H_

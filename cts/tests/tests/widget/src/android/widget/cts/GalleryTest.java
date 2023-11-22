@@ -17,16 +17,17 @@
 package android.widget.cts;
 
 import com.android.cts.widget.R;
-import com.android.internal.view.menu.ContextMenuBuilder;
-
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.cts.util.WidgetTestUtils;
+import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
@@ -36,7 +37,8 @@ import android.util.Xml;
 import android.view.ContextMenu;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.view.MenuItem;
+import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -303,35 +305,6 @@ public class GalleryTest extends ActivityInstrumentationTestCase2<GalleryCtsActi
         childCount = 5;
         index = 3;
         assertEquals(index + 1, gallery.getChildDrawingOrder(childCount, index));
-    }
-
-    @UiThreadTest
-    public void testGetContextMenuInfo() {
-        MockOnCreateContextMenuListener listener = new MockOnCreateContextMenuListener();
-        MyGallery gallery = new MyGallery(mContext);
-        gallery.setOnCreateContextMenuListener(listener);
-        assertFalse(listener.hasCreatedContextMenu());
-        gallery.createContextMenu(new ContextMenuBuilder(mContext));
-        assertTrue(listener.hasCreatedContextMenu());
-        assertSame(gallery.getContextMenuInfo(), listener.getContextMenuInfo());
-    }
-
-    private static class MockOnCreateContextMenuListener implements OnCreateContextMenuListener {
-        private boolean hasCreatedContextMenu;
-        private ContextMenuInfo mContextMenuInfo;
-
-        public boolean hasCreatedContextMenu() {
-            return hasCreatedContextMenu;
-        }
-
-        public ContextMenuInfo getContextMenuInfo() {
-            return mContextMenuInfo;
-        }
-
-        public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-            hasCreatedContextMenu = true;
-            mContextMenuInfo = menuInfo;
-        }
     }
 
     private static class ImageAdapter extends BaseAdapter {

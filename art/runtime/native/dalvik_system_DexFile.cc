@@ -14,16 +14,7 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <set>
-#include <fcntl.h>
-#ifdef __linux__
-#include <sys/sendfile.h>
-#else
-#include <sys/socket.h>
-#endif
-#include <sys/stat.h>
-#include <unistd.h>
+#include "dalvik_system_DexFile.h"
 
 #include "base/logging.h"
 #include "base/stl_util.h"
@@ -31,19 +22,15 @@
 #include "class_linker.h"
 #include "common_throws.h"
 #include "dex_file-inl.h"
-#include "gc/space/image_space.h"
-#include "gc/space/space-inl.h"
-#include "image.h"
 #include "jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "mirror/string.h"
-#include "oat.h"
+#include "oat_file_assistant.h"
 #include "os.h"
 #include "profiler.h"
 #include "runtime.h"
 #include "scoped_thread_state_change.h"
-#include "ScopedFd.h"
 #include "ScopedLocalRef.h"
 #include "ScopedUtfChars.h"
 #include "utils.h"
@@ -52,13 +39,77 @@
 
 namespace art {
 
+static std::unique_ptr<std::vector<const DexFile*>>
+ConvertJavaArrayToNative(JNIEnv* env, jobject arrayObject) {
+  jarray array = reinterpret_cast<jarray>(arrayObject);
+
+  jsize array_size = env->GetArrayLength(array);
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return std::unique_ptr<std::vector<const DexFile*>>();
+  }
+
+  // TODO: Optimize. On 32bit we can use an int array.
+  jboolean is_long_data_copied;
+  jlong* long_data = env->GetLongArrayElements(reinterpret_cast<jlongArray>(array),
+                                               &is_long_data_copied);
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return std::unique_ptr<std::vector<const DexFile*>>();
+  }
+
+  std::unique_ptr<std::vector<const DexFile*>> ret(new std::vector<const DexFile*>());
+  ret->reserve(array_size);
+  for (jsize i = 0; i < array_size; ++i) {
+    ret->push_back(reinterpret_cast<const DexFile*>(static_cast<uintptr_t>(*(long_data + i))));
+  }
+
+  env->ReleaseLongArrayElements(reinterpret_cast<jlongArray>(array), long_data, JNI_ABORT);
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return std::unique_ptr<std::vector<const DexFile*>>();
+  }
+
+  return ret;
+}
+
+static jlongArray ConvertNativeToJavaArray(JNIEnv* env,
+                                           std::vector<std::unique_ptr<const DexFile>>& vec) {
+  size_t vec_size = vec.size();
+  jlongArray long_array = env->NewLongArray(static_cast<jsize>(vec_size));
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return nullptr;
+  }
+
+  jboolean is_long_data_copied;
+  jlong* long_data = env->GetLongArrayElements(long_array, &is_long_data_copied);
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return nullptr;
+  }
+
+  jlong* tmp = long_data;
+  for (auto& dex_file : vec) {
+    *tmp = reinterpret_cast<uintptr_t>(dex_file.get());
+    tmp++;
+  }
+
+  env->ReleaseLongArrayElements(long_array, long_data, 0);
+  if (env->ExceptionCheck() == JNI_TRUE) {
+    return nullptr;
+  }
+
+  // Now release all the unique_ptrs.
+  for (auto& dex_file : vec) {
+    dex_file.release();
+  }
+
+  return long_array;
+}
+
 // A smart pointer that provides read-only access to a Java string's UTF chars.
 // Unlike libcore's NullableScopedUtfChars, this will *not* throw NullPointerException if
 // passed a null jstring. The correct idiom is:
 //
 //   NullableScopedUtfChars name(env, javaName);
 //   if (env->ExceptionCheck()) {
-//       return NULL;
+//       return null;
 //   }
 //   // ... use name.c_str()
 //
@@ -66,7 +117,7 @@ namespace art {
 class NullableScopedUtfChars {
  public:
   NullableScopedUtfChars(JNIEnv* env, jstring s) : mEnv(env), mString(s) {
-    mUtfChars = (s != NULL) ? env->GetStringUTFChars(s, NULL) : NULL;
+    mUtfChars = (s != nullptr) ? env->GetStringUTFChars(s, nullptr) : nullptr;
   }
 
   ~NullableScopedUtfChars() {
@@ -98,9 +149,10 @@ class NullableScopedUtfChars {
   void operator=(const NullableScopedUtfChars&);
 };
 
-static jlong DexFile_openDexFileNative(JNIEnv* env, jclass, jstring javaSourceName, jstring javaOutputName, jint) {
+static jobject DexFile_openDexFileNative(
+    JNIEnv* env, jclass, jstring javaSourceName, jstring javaOutputName, jint) {
   ScopedUtfChars sourceName(env, javaSourceName);
-  if (sourceName.c_str() == NULL) {
+  if (sourceName.c_str() == nullptr) {
     return 0;
   }
   NullableScopedUtfChars outputName(env, javaOutputName);
@@ -109,20 +161,23 @@ static jlong DexFile_openDexFileNative(JNIEnv* env, jclass, jstring javaSourceNa
   }
 
   ClassLinker* linker = Runtime::Current()->GetClassLinker();
-  std::unique_ptr<std::vector<const DexFile*>> dex_files(new std::vector<const DexFile*>());
+  std::vector<std::unique_ptr<const DexFile>> dex_files;
   std::vector<std::string> error_msgs;
 
-  bool success = linker->OpenDexFilesFromOat(sourceName.c_str(), outputName.c_str(), &error_msgs,
-                                             dex_files.get());
+  dex_files = linker->OpenDexFilesFromOat(sourceName.c_str(), outputName.c_str(), &error_msgs);
 
-  if (success || !dex_files->empty()) {
-    // In the case of non-success, we have not found or could not generate the oat file.
-    // But we may still have found a dex file that we can use.
-    return static_cast<jlong>(reinterpret_cast<uintptr_t>(dex_files.release()));
+  if (!dex_files.empty()) {
+    jlongArray array = ConvertNativeToJavaArray(env, dex_files);
+    if (array == nullptr) {
+      ScopedObjectAccess soa(env);
+      for (auto& dex_file : dex_files) {
+        if (Runtime::Current()->GetClassLinker()->IsDexFileRegistered(*dex_file)) {
+          dex_file.release();
+        }
+      }
+    }
+    return array;
   } else {
-    // The vector should be empty after a failed loading attempt.
-    DCHECK_EQ(0U, dex_files->size());
-
     ScopedObjectAccess soa(env);
     CHECK(!error_msgs.empty());
     // The most important message is at the end. So set up nesting by going forward, which will
@@ -133,54 +188,50 @@ static jlong DexFile_openDexFileNative(JNIEnv* env, jclass, jstring javaSourceNa
       ThrowWrappedIOException("%s", it->c_str());
     }
 
-    return 0;
+    return nullptr;
   }
 }
 
-static std::vector<const DexFile*>* toDexFiles(jlong dex_file_address, JNIEnv* env) {
-  std::vector<const DexFile*>* dex_files = reinterpret_cast<std::vector<const DexFile*>*>(
-      static_cast<uintptr_t>(dex_file_address));
-  if (UNLIKELY(dex_files == nullptr)) {
-    ScopedObjectAccess soa(env);
-    ThrowNullPointerException(NULL, "dex_file == null");
-  }
-  return dex_files;
-}
-
-static void DexFile_closeDexFile(JNIEnv* env, jclass, jlong cookie) {
-  std::unique_ptr<std::vector<const DexFile*>> dex_files(toDexFiles(cookie, env));
+static void DexFile_closeDexFile(JNIEnv* env, jclass, jobject cookie) {
+  std::unique_ptr<std::vector<const DexFile*>> dex_files = ConvertJavaArrayToNative(env, cookie);
   if (dex_files.get() == nullptr) {
+    DCHECK(env->ExceptionCheck());
     return;
   }
+
   ScopedObjectAccess soa(env);
 
-  size_t index = 0;
-  for (const DexFile* dex_file : *dex_files) {
-    if (Runtime::Current()->GetClassLinker()->IsDexFileRegistered(*dex_file)) {
-      (*dex_files)[index] = nullptr;
+  // The Runtime currently never unloads classes, which means any registered
+  // dex files must be kept around forever in case they are used. We
+  // accomplish this here by explicitly leaking those dex files that are
+  // registered.
+  //
+  // TODO: The Runtime should support unloading of classes and freeing of the
+  // dex files for those unloaded classes rather than leaking dex files here.
+  for (auto& dex_file : *dex_files) {
+    if (!Runtime::Current()->GetClassLinker()->IsDexFileRegistered(*dex_file)) {
+      delete dex_file;
     }
-    index++;
   }
-
-  STLDeleteElements(dex_files.get());
-  // Unique_ptr will delete the vector itself.
 }
 
 static jclass DexFile_defineClassNative(JNIEnv* env, jclass, jstring javaName, jobject javaLoader,
-                                        jlong cookie) {
-  std::vector<const DexFile*>* dex_files = toDexFiles(cookie, env);
-  if (dex_files == NULL) {
+                                        jobject cookie) {
+  std::unique_ptr<std::vector<const DexFile*>> dex_files = ConvertJavaArrayToNative(env, cookie);
+  if (dex_files.get() == nullptr) {
     VLOG(class_linker) << "Failed to find dex_file";
-    return NULL;
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
   }
+
   ScopedUtfChars class_name(env, javaName);
-  if (class_name.c_str() == NULL) {
+  if (class_name.c_str() == nullptr) {
     VLOG(class_linker) << "Failed to find class_name";
-    return NULL;
+    return nullptr;
   }
   const std::string descriptor(DotToDescriptor(class_name.c_str()));
   const size_t hash(ComputeModifiedUtf8Hash(descriptor.c_str()));
-  for (const DexFile* dex_file : *dex_files) {
+  for (auto& dex_file : *dex_files) {
     const DexFile::ClassDef* dex_class_def = dex_file->FindClassDef(descriptor.c_str(), hash);
     if (dex_class_def != nullptr) {
       ScopedObjectAccess soa(env);
@@ -192,12 +243,13 @@ static jclass DexFile_defineClassNative(JNIEnv* env, jclass, jstring javaName, j
       mirror::Class* result = class_linker->DefineClass(soa.Self(), descriptor.c_str(), hash,
                                                         class_loader, *dex_file, *dex_class_def);
       if (result != nullptr) {
-        VLOG(class_linker) << "DexFile_defineClassNative returning " << result;
+        VLOG(class_linker) << "DexFile_defineClassNative returning " << result
+                           << " for " << class_name.c_str();
         return soa.AddLocalReference<jclass>(result);
       }
     }
   }
-  VLOG(class_linker) << "Failed to find dex_class_def";
+  VLOG(class_linker) << "Failed to find dex_class_def " << class_name.c_str();
   return nullptr;
 }
 
@@ -209,296 +261,52 @@ struct CharPointerComparator {
 };
 
 // Note: this can be an expensive call, as we sort out duplicates in MultiDex files.
-static jobjectArray DexFile_getClassNameList(JNIEnv* env, jclass, jlong cookie) {
-  jobjectArray result = nullptr;
-  std::vector<const DexFile*>* dex_files = toDexFiles(cookie, env);
+static jobjectArray DexFile_getClassNameList(JNIEnv* env, jclass, jobject cookie) {
+  std::unique_ptr<std::vector<const DexFile*>> dex_files = ConvertJavaArrayToNative(env, cookie);
+  if (dex_files.get() == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
 
-  if (dex_files != nullptr) {
-    // Push all class descriptors into a set. Use set instead of unordered_set as we want to
-    // retrieve all in the end.
-    std::set<const char*, CharPointerComparator> descriptors;
-    for (const DexFile* dex_file : *dex_files) {
-      for (size_t i = 0; i < dex_file->NumClassDefs(); ++i) {
-        const DexFile::ClassDef& class_def = dex_file->GetClassDef(i);
-        const char* descriptor = dex_file->GetClassDescriptor(class_def);
-        descriptors.insert(descriptor);
-      }
+  // Push all class descriptors into a set. Use set instead of unordered_set as we want to
+  // retrieve all in the end.
+  std::set<const char*, CharPointerComparator> descriptors;
+  for (auto& dex_file : *dex_files) {
+    for (size_t i = 0; i < dex_file->NumClassDefs(); ++i) {
+      const DexFile::ClassDef& class_def = dex_file->GetClassDef(i);
+      const char* descriptor = dex_file->GetClassDescriptor(class_def);
+      descriptors.insert(descriptor);
     }
+  }
 
-    // Now create output array and copy the set into it.
-    result = env->NewObjectArray(descriptors.size(), WellKnownClasses::java_lang_String, nullptr);
-    if (result != nullptr) {
-      auto it = descriptors.begin();
-      auto it_end = descriptors.end();
-      jsize i = 0;
-      for (; it != it_end; it++, ++i) {
-        std::string descriptor(DescriptorToDot(*it));
-        ScopedLocalRef<jstring> jdescriptor(env, env->NewStringUTF(descriptor.c_str()));
-        if (jdescriptor.get() == nullptr) {
-          return nullptr;
-        }
-        env->SetObjectArrayElement(result, i, jdescriptor.get());
+  // Now create output array and copy the set into it.
+  jobjectArray result = env->NewObjectArray(descriptors.size(), WellKnownClasses::java_lang_String,
+                                            nullptr);
+  if (result != nullptr) {
+    auto it = descriptors.begin();
+    auto it_end = descriptors.end();
+    jsize i = 0;
+    for (; it != it_end; it++, ++i) {
+      std::string descriptor(DescriptorToDot(*it));
+      ScopedLocalRef<jstring> jdescriptor(env, env->NewStringUTF(descriptor.c_str()));
+      if (jdescriptor.get() == nullptr) {
+        return nullptr;
       }
+      env->SetObjectArrayElement(result, i, jdescriptor.get());
     }
   }
   return result;
 }
 
-static void CopyProfileFile(const char* oldfile, const char* newfile) {
-  ScopedFd src(open(oldfile, O_RDONLY));
-  if (src.get() == -1) {
-    PLOG(ERROR) << "Failed to open profile file " << oldfile
-      << ". My uid:gid is " << getuid() << ":" << getgid();
-    return;
-  }
-
-  struct stat stat_src;
-  if (fstat(src.get(), &stat_src) == -1) {
-    PLOG(ERROR) << "Failed to get stats for profile file  " << oldfile
-      << ". My uid:gid is " << getuid() << ":" << getgid();
-    return;
-  }
-
-  // Create the copy with rw------- (only accessible by system)
-  ScopedFd dst(open(newfile, O_WRONLY|O_CREAT|O_TRUNC, 0600));
-  if (dst.get()  == -1) {
-    PLOG(ERROR) << "Failed to create/write prev profile file " << newfile
-      << ".  My uid:gid is " << getuid() << ":" << getgid();
-    return;
-  }
-
-#ifdef __linux__
-  if (sendfile(dst.get(), src.get(), nullptr, stat_src.st_size) == -1) {
-#else
-  off_t len;
-  if (sendfile(dst.get(), src.get(), 0, &len, nullptr, 0) == -1) {
-#endif
-    PLOG(ERROR) << "Failed to copy profile file " << oldfile << " to " << newfile
-      << ". My uid:gid is " << getuid() << ":" << getgid();
-  }
-}
-
-// Java: dalvik.system.DexFile.UP_TO_DATE
-static const jbyte kUpToDate = 0;
-// Java: dalvik.system.DexFile.DEXOPT_NEEDED
-static const jbyte kPatchoatNeeded = 1;
-// Java: dalvik.system.DexFile.PATCHOAT_NEEDED
-static const jbyte kDexoptNeeded = 2;
-
-template <const bool kVerboseLogging, const bool kReasonLogging>
-static jbyte IsDexOptNeededForFile(const std::string& oat_filename, const char* filename,
-                                   InstructionSet target_instruction_set,
-                                   bool* oat_is_pic) {
-  std::string error_msg;
-  std::unique_ptr<const OatFile> oat_file(OatFile::Open(oat_filename, oat_filename, nullptr,
-                                                        nullptr,
-                                                        false, &error_msg));
-  if (oat_file.get() == nullptr) {
-    // Note that even though this is kDexoptNeeded, we use
-    // kVerboseLogging instead of the usual kReasonLogging since it is
-    // the common case on first boot and very spammy.
-    if (kVerboseLogging) {
-      LOG(INFO) << "DexFile_isDexOptNeeded failed to open oat file '" << oat_filename
-          << "' for file location '" << filename << "': " << error_msg;
-    }
-    error_msg.clear();
-    return kDexoptNeeded;
-  }
-
-  // Pass-up the information about if this is PIC.
-  // TODO: Refactor this function to be less complicated.
-  *oat_is_pic = oat_file->IsPic();
-
-  bool should_relocate_if_possible = Runtime::Current()->ShouldRelocate();
-  uint32_t location_checksum = 0;
-  const art::OatFile::OatDexFile* oat_dex_file = oat_file->GetOatDexFile(filename, nullptr,
-                                                                          kReasonLogging);
-  if (oat_dex_file != nullptr) {
-    // If its not possible to read the classes.dex assume up-to-date as we won't be able to
-    // compile it anyway.
-    if (!DexFile::GetChecksum(filename, &location_checksum, &error_msg)) {
-      if (kVerboseLogging) {
-        LOG(INFO) << "DexFile_isDexOptNeeded found precompiled stripped file: "
-            << filename << " for " << oat_filename << ": " << error_msg;
-      }
-      if (ClassLinker::VerifyOatChecksums(oat_file.get(), target_instruction_set, &error_msg)) {
-        if (kVerboseLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " is up-to-date for " << filename;
-        }
-        return kUpToDate;
-      } else if (should_relocate_if_possible &&
-                  ClassLinker::VerifyOatImageChecksum(oat_file.get(), target_instruction_set)) {
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " needs to be relocated for " << filename;
-        }
-        return kPatchoatNeeded;
-      } else {
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " is out of date for " << filename;
-        }
-        return kDexoptNeeded;
-      }
-      // If we get here the file is out of date and we should use the system one to relocate.
-    } else {
-      if (ClassLinker::VerifyOatAndDexFileChecksums(oat_file.get(), filename, location_checksum,
-                                                    target_instruction_set, &error_msg)) {
-        if (kVerboseLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " is up-to-date for " << filename;
-        }
-        return kUpToDate;
-      } else if (location_checksum == oat_dex_file->GetDexFileLocationChecksum()
-                  && should_relocate_if_possible
-                  && ClassLinker::VerifyOatImageChecksum(oat_file.get(), target_instruction_set)) {
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " needs to be relocated for " << filename;
-        }
-        return kPatchoatNeeded;
-      } else {
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                    << " is out of date for " << filename;
-        }
-        return kDexoptNeeded;
-      }
-    }
-  } else {
-    if (kReasonLogging) {
-      LOG(INFO) << "DexFile_isDexOptNeeded file " << oat_filename
-                << " does not contain " << filename;
-    }
-    return kDexoptNeeded;
-  }
-}
-
-static jbyte IsDexOptNeededInternal(JNIEnv* env, const char* filename,
+static jint GetDexOptNeeded(JNIEnv* env, const char* filename,
     const char* pkgname, const char* instruction_set, const jboolean defer) {
-  // Spammy logging for kUpToDate
-  const bool kVerboseLogging = false;
-  // Logging of reason for returning kDexoptNeeded or kPatchoatNeeded.
-  const bool kReasonLogging = true;
 
   if ((filename == nullptr) || !OS::FileExists(filename)) {
-    LOG(ERROR) << "DexFile_isDexOptNeeded file '" << filename << "' does not exist";
+    LOG(ERROR) << "DexFile_getDexOptNeeded file '" << filename << "' does not exist";
     ScopedLocalRef<jclass> fnfe(env, env->FindClass("java/io/FileNotFoundException"));
     const char* message = (filename == nullptr) ? "<empty file name>" : filename;
     env->ThrowNew(fnfe.get(), message);
-    return kUpToDate;
-  }
-
-  // Always treat elements of the bootclasspath as up-to-date.  The
-  // fact that code is running at all means that this should be true.
-  Runtime* runtime = Runtime::Current();
-  ClassLinker* class_linker = runtime->GetClassLinker();
-  // TODO: We're assuming that the 64 and 32 bit runtimes have identical
-  // class paths. isDexOptNeeded will not necessarily be called on a runtime
-  // that has the same instruction set as the file being dexopted.
-  const std::vector<const DexFile*>& boot_class_path = class_linker->GetBootClassPath();
-  for (size_t i = 0; i < boot_class_path.size(); i++) {
-    if (boot_class_path[i]->GetLocation() == filename) {
-      if (kVerboseLogging) {
-        LOG(INFO) << "DexFile_isDexOptNeeded ignoring boot class path file: " << filename;
-      }
-      return kUpToDate;
-    }
-  }
-
-  bool force_system_only = false;
-  bool require_system_version = false;
-
-  // Check the profile file.  We need to rerun dex2oat if the profile has changed significantly
-  // since the last time, or it's new.
-  // If the 'defer' argument is true then this will be retried later.  In this case we
-  // need to make sure that the profile file copy is not made so that we will get the
-  // same result second time.
-  std::string profile_file;
-  std::string prev_profile_file;
-  bool should_copy_profile = false;
-  if (Runtime::Current()->GetProfilerOptions().IsEnabled() && (pkgname != nullptr)) {
-    profile_file = GetDalvikCacheOrDie("profiles", false /* create_if_absent */)
-        + std::string("/") + pkgname;
-    prev_profile_file = profile_file + std::string("@old");
-
-    struct stat profstat, prevstat;
-    int e1 = stat(profile_file.c_str(), &profstat);
-    int e1_errno = errno;
-    int e2 = stat(prev_profile_file.c_str(), &prevstat);
-    int e2_errno = errno;
-    if (e1 < 0) {
-      if (e1_errno != EACCES) {
-        // No profile file, need to run dex2oat, unless we find a file in system
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeededInternal profile file " << profile_file << " doesn't exist. "
-                    << "Will check odex to see if we can find a working version.";
-        }
-        // Force it to only accept system files/files with versions in system.
-        require_system_version = true;
-      } else {
-        LOG(INFO) << "DexFile_isDexOptNeededInternal recieved EACCES trying to stat profile file "
-                  << profile_file;
-      }
-    } else if (e2 == 0) {
-      // There is a previous profile file.  Check if the profile has changed significantly.
-      // A change in profile is considered significant if X% (change_thr property) of the top K%
-      // (compile_thr property) samples has changed.
-      double top_k_threshold = Runtime::Current()->GetProfilerOptions().GetTopKThreshold();
-      double change_threshold = Runtime::Current()->GetProfilerOptions().GetTopKChangeThreshold();
-      double change_percent = 0.0;
-      ProfileFile new_profile, old_profile;
-      bool new_ok = new_profile.LoadFile(profile_file);
-      bool old_ok = old_profile.LoadFile(prev_profile_file);
-      if (!new_ok || !old_ok) {
-        if (kVerboseLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeededInternal Ignoring invalid profiles: "
-                    << (new_ok ?  "" : profile_file) << " " << (old_ok ? "" : prev_profile_file);
-        }
-      } else {
-        std::set<std::string> new_top_k, old_top_k;
-        new_profile.GetTopKSamples(new_top_k, top_k_threshold);
-        old_profile.GetTopKSamples(old_top_k, top_k_threshold);
-        if (new_top_k.empty()) {
-          if (kVerboseLogging) {
-            LOG(INFO) << "DexFile_isDexOptNeededInternal empty profile: " << profile_file;
-          }
-          // If the new topK is empty we shouldn't optimize so we leave the change_percent at 0.0.
-        } else {
-          std::set<std::string> diff;
-          std::set_difference(new_top_k.begin(), new_top_k.end(), old_top_k.begin(), old_top_k.end(),
-            std::inserter(diff, diff.end()));
-          // TODO: consider using the usedPercentage instead of the plain diff count.
-          change_percent = 100.0 * static_cast<double>(diff.size()) / static_cast<double>(new_top_k.size());
-          if (kVerboseLogging) {
-            std::set<std::string>::iterator end = diff.end();
-            for (std::set<std::string>::iterator it = diff.begin(); it != end; it++) {
-              LOG(INFO) << "DexFile_isDexOptNeededInternal new in topK: " << *it;
-            }
-          }
-        }
-      }
-
-      if (change_percent > change_threshold) {
-        if (kReasonLogging) {
-          LOG(INFO) << "DexFile_isDexOptNeededInternal size of new profile file " << profile_file <<
-          " is significantly different from old profile file " << prev_profile_file << " (top "
-          << top_k_threshold << "% samples changed in proportion of " << change_percent << "%)";
-        }
-        should_copy_profile = !defer;
-        // Force us to only accept system files.
-        force_system_only = true;
-      }
-    } else if (e2_errno == ENOENT) {
-      // Previous profile does not exist.  Make a copy of the current one.
-      if (kVerboseLogging) {
-        LOG(INFO) << "DexFile_isDexOptNeededInternal previous profile doesn't exist: " << prev_profile_file;
-      }
-      should_copy_profile = !defer;
-    } else {
-      PLOG(INFO) << "Unable to stat previous profile file " << prev_profile_file;
-    }
+    return OatFileAssistant::kNoDexOptNeeded;
   }
 
   const InstructionSet target_instruction_set = GetInstructionSetFromString(instruction_set);
@@ -509,78 +317,40 @@ static jbyte IsDexOptNeededInternal(JNIEnv* env, const char* filename,
     return 0;
   }
 
-  // Get the filename for odex file next to the dex file.
-  std::string odex_filename(DexFilenameToOdexFilename(filename, target_instruction_set));
-  // Get the filename for the dalvik-cache file
-  std::string cache_dir;
-  bool have_android_data = false;
-  bool dalvik_cache_exists = false;
-  bool is_global_cache = false;
-  GetDalvikCache(instruction_set, false, &cache_dir, &have_android_data, &dalvik_cache_exists,
-                 &is_global_cache);
-  std::string cache_filename;  // was cache_location
-  bool have_cache_filename = false;
-  if (dalvik_cache_exists) {
-    std::string error_msg;
-    have_cache_filename = GetDalvikCacheFilename(filename, cache_dir.c_str(), &cache_filename,
-                                                 &error_msg);
-    if (!have_cache_filename && kVerboseLogging) {
-      LOG(INFO) << "DexFile_isDexOptNeededInternal failed to find cache file for dex file " << filename
-                << ": " << error_msg;
+  // TODO: Verify the dex location is well formed, and throw an IOException if
+  // not?
+
+  OatFileAssistant oat_file_assistant(filename, target_instruction_set, false, pkgname);
+
+  // Always treat elements of the bootclasspath as up-to-date.
+  if (oat_file_assistant.IsInBootClassPath()) {
+    return OatFileAssistant::kNoDexOptNeeded;
+  }
+
+  // TODO: Checking the profile should probably be done in the GetStatus()
+  // function. We have it here because GetStatus() should not be copying
+  // profile files. But who should be copying profile files?
+  if (oat_file_assistant.OdexFileIsOutOfDate()) {
+    // Needs recompile if profile has changed significantly.
+    if (Runtime::Current()->GetProfilerOptions().IsEnabled()) {
+      if (oat_file_assistant.IsProfileChangeSignificant()) {
+        if (!defer) {
+          oat_file_assistant.CopyProfileFile();
+        }
+        return OatFileAssistant::kDex2OatNeeded;
+      } else if (oat_file_assistant.ProfileExists()
+          && !oat_file_assistant.OldProfileExists()) {
+        if (!defer) {
+          oat_file_assistant.CopyProfileFile();
+        }
+      }
     }
   }
 
-  bool should_relocate_if_possible = Runtime::Current()->ShouldRelocate();
-
-  jbyte dalvik_cache_decision = -1;
-  // Lets try the cache first (since we want to load from there since thats where the relocated
-  // versions will be).
-  if (have_cache_filename && !force_system_only) {
-    bool oat_is_pic;
-    // We can use the dalvik-cache if we find a good file.
-    dalvik_cache_decision =
-        IsDexOptNeededForFile<kVerboseLogging, kReasonLogging>(cache_filename, filename,
-                                                               target_instruction_set, &oat_is_pic);
-
-    // Apps that are compiled with --compile-pic never need to be patchoat-d
-    if (oat_is_pic && dalvik_cache_decision == kPatchoatNeeded) {
-      dalvik_cache_decision = kUpToDate;
-    }
-    // We will only return DexOptNeeded if both the cache and system return it.
-    if (dalvik_cache_decision != kDexoptNeeded && !require_system_version) {
-      CHECK(!(dalvik_cache_decision == kPatchoatNeeded && !should_relocate_if_possible))
-          << "May not return PatchoatNeeded when patching is disabled.";
-      return dalvik_cache_decision;
-    }
-    // We couldn't find one thats easy. We should now try the system.
-  }
-
-  bool oat_is_pic;
-  jbyte system_decision =
-      IsDexOptNeededForFile<kVerboseLogging, kReasonLogging>(odex_filename, filename,
-                                                             target_instruction_set, &oat_is_pic);
-  CHECK(!(system_decision == kPatchoatNeeded && !should_relocate_if_possible))
-      << "May not return PatchoatNeeded when patching is disabled.";
-
-  // Apps that are compiled with --compile-pic never need to be patchoat-d
-  if (oat_is_pic && system_decision == kPatchoatNeeded) {
-    system_decision = kUpToDate;
-  }
-
-  if (require_system_version && system_decision == kPatchoatNeeded
-                             && dalvik_cache_decision == kUpToDate) {
-    // We have a version from system relocated to the cache. Return it.
-    return dalvik_cache_decision;
-  }
-
-  if (should_copy_profile && system_decision == kDexoptNeeded) {
-    CopyProfileFile(profile_file.c_str(), prev_profile_file.c_str());
-  }
-
-  return system_decision;
+  return oat_file_assistant.GetDexOptNeeded();
 }
 
-static jbyte DexFile_isDexOptNeededInternal(JNIEnv* env, jclass, jstring javaFilename,
+static jint DexFile_getDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename,
     jstring javaPkgname, jstring javaInstructionSet, jboolean defer) {
   ScopedUtfChars filename(env, javaFilename);
   if (env->ExceptionCheck()) {
@@ -594,26 +364,29 @@ static jbyte DexFile_isDexOptNeededInternal(JNIEnv* env, jclass, jstring javaFil
     return 0;
   }
 
-  return IsDexOptNeededInternal(env, filename.c_str(), pkgname.c_str(),
-                                instruction_set.c_str(), defer);
+  return GetDexOptNeeded(env, filename.c_str(), pkgname.c_str(),
+                         instruction_set.c_str(), defer);
 }
 
-// public API, NULL pkgname
+// public API, null pkgname
 static jboolean DexFile_isDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename) {
   const char* instruction_set = GetInstructionSetString(kRuntimeISA);
   ScopedUtfChars filename(env, javaFilename);
-  return kUpToDate != IsDexOptNeededInternal(env, filename.c_str(), nullptr /* pkgname */,
-                                             instruction_set, false /* defer */);
+  jint status = GetDexOptNeeded(env, filename.c_str(), nullptr /* pkgname */,
+                                instruction_set, false /* defer */);
+  return (status != OatFileAssistant::kNoDexOptNeeded) ? JNI_TRUE : JNI_FALSE;
 }
 
-
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(DexFile, closeDexFile, "(J)V"),
-  NATIVE_METHOD(DexFile, defineClassNative, "(Ljava/lang/String;Ljava/lang/ClassLoader;J)Ljava/lang/Class;"),
-  NATIVE_METHOD(DexFile, getClassNameList, "(J)[Ljava/lang/String;"),
+  NATIVE_METHOD(DexFile, closeDexFile, "(Ljava/lang/Object;)V"),
+  NATIVE_METHOD(DexFile, defineClassNative,
+                "(Ljava/lang/String;Ljava/lang/ClassLoader;Ljava/lang/Object;)Ljava/lang/Class;"),
+  NATIVE_METHOD(DexFile, getClassNameList, "(Ljava/lang/Object;)[Ljava/lang/String;"),
   NATIVE_METHOD(DexFile, isDexOptNeeded, "(Ljava/lang/String;)Z"),
-  NATIVE_METHOD(DexFile, isDexOptNeededInternal, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)B"),
-  NATIVE_METHOD(DexFile, openDexFileNative, "(Ljava/lang/String;Ljava/lang/String;I)J"),
+  NATIVE_METHOD(DexFile, getDexOptNeeded,
+                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)I"),
+  NATIVE_METHOD(DexFile, openDexFileNative,
+                "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/Object;"),
 };
 
 void register_dalvik_system_DexFile(JNIEnv* env) {

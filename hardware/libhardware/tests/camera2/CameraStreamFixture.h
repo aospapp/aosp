@@ -111,7 +111,7 @@ private:
             mHeight = entry.data.i32[1];
         } else {
             buildOutputResolutions();
-            const int32_t *implDefResolutions;
+            const int32_t *implDefResolutions = NULL;
             size_t   implDefResolutionsCount;
 
             int format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
@@ -131,7 +131,7 @@ private:
         CameraModuleFixture::TearDown();
 
         deleteOutputResolutions();
-        mNativeWindow.clear();
+        mSurface.clear();
         mCpuConsumer.clear();
         mFrameListener.clear();
     }
@@ -250,13 +250,15 @@ protected:
         mCpuConsumer = new CpuConsumer(consumer, p.mHeapCount);
         mCpuConsumer->setName(String8("CameraStreamTest::mCpuConsumer"));
 
-        mNativeWindow = new Surface(producer);
+        mSurface = new Surface(producer);
 
         int format = MapAutoFormat(p.mFormat);
 
         ASSERT_EQ(OK,
-            device->createStream(mNativeWindow,
+            device->createStream(mSurface,
                 mWidth, mHeight, format,
+                HAL_DATASPACE_UNKNOWN,
+                CAMERA3_STREAM_ROTATION_0,
                 &mStreamId));
 
         ASSERT_NE(-1, mStreamId);
@@ -362,7 +364,7 @@ protected:
 
     android::sp<FrameListener>       mFrameListener;
     android::sp<CpuConsumer>         mCpuConsumer;
-    android::sp<ANativeWindow>       mNativeWindow;
+    android::sp<Surface>             mSurface;
     KeyedVector<int32_t, Vector<int32_t>* > mOutputResolutions;
 
 private:

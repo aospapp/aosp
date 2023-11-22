@@ -25,10 +25,12 @@ import android.os.AsyncTask;
 import android.provider.MediaStore.Video;
 
 import com.android.camera.app.MediaSaver;
+import com.android.camera.data.FilmstripItemData;
 import com.android.camera.debug.Log;
 import com.android.camera.exif.ExifInterface;
 
 import java.io.File;
+import java.io.IOException;
 
 /**
  * A class implementing {@link com.android.camera.app.MediaSaver}.
@@ -37,15 +39,24 @@ public class MediaSaverImpl implements MediaSaver {
     private static final Log.Tag TAG = new Log.Tag("MediaSaverImpl");
     private static final String VIDEO_BASE_URI = "content://media/external/video/media";
 
-    /** The memory limit for unsaved image is 20MB. */
-    private static final int SAVE_TASK_MEMORY_LIMIT = 20 * 1024 * 1024;
+    /** The memory limit for unsaved image is 30MB. */
+    // TODO: Revert this back to 20 MB when CaptureSession API supports saving
+    // bursts.
+    private static final int SAVE_TASK_MEMORY_LIMIT = 30 * 1024 * 1024;
 
-    private QueueListener mQueueListener;
+    private final ContentResolver mContentResolver;
 
     /** Memory used by the total queued save request, in bytes. */
     private long mMemoryUse;
 
-    public MediaSaverImpl() {
+    private QueueListener mQueueListener;
+
+    /**
+     * @param contentResolver The {@link android.content.ContentResolver} to be
+     *                 updated.
+     */
+    public MediaSaverImpl(ContentResolver contentResolver) {
+        mContentResolver = contentResolver;
         mMemoryUse = 0;
     }
 
@@ -56,15 +67,22 @@ public class MediaSaverImpl implements MediaSaver {
 
     @Override
     public void addImage(final byte[] data, String title, long date, Location loc, int width,
+            int height, int orientation, ExifInterface exif, OnMediaSavedListener l) {
+        addImage(data, title, date, loc, width, height, orientation, exif, l,
+                FilmstripItemData.MIME_TYPE_JPEG);
+    }
+
+    @Override
+    public void addImage(final byte[] data, String title, long date, Location loc, int width,
             int height, int orientation, ExifInterface exif, OnMediaSavedListener l,
-            ContentResolver resolver) {
+            String mimeType) {
         if (isQueueFull()) {
             Log.e(TAG, "Cannot add image when the queue is full");
             return;
         }
         ImageSaveTask t = new ImageSaveTask(data, title, date,
                 (loc == null) ? null : new Location(loc),
-                width, height, orientation, exif, resolver, l);
+                width, height, orientation, mimeType, exif, mContentResolver, l);
 
         mMemoryUse += data.length;
         if (isQueueFull()) {
@@ -75,25 +93,24 @@ public class MediaSaverImpl implements MediaSaver {
 
     @Override
     public void addImage(final byte[] data, String title, long date, Location loc, int orientation,
-            ExifInterface exif, OnMediaSavedListener l, ContentResolver resolver) {
+            ExifInterface exif, OnMediaSavedListener l) {
         // When dimensions are unknown, pass 0 as width and height,
         // and decode image for width and height later in a background thread
-        addImage(data, title, date, loc, 0, 0, orientation, exif, l, resolver);
+        addImage(data, title, date, loc, 0, 0, orientation, exif, l,
+                FilmstripItemData.MIME_TYPE_JPEG);
     }
     @Override
     public void addImage(final byte[] data, String title, Location loc, int width, int height,
-            int orientation, ExifInterface exif, OnMediaSavedListener l,
-            ContentResolver resolver) {
-        addImage(data, title, System.currentTimeMillis(), loc, width, height,
-                orientation, exif, l, resolver);
+            int orientation, ExifInterface exif, OnMediaSavedListener l) {
+        addImage(data, title, System.currentTimeMillis(), loc, width, height, orientation, exif, l,
+                FilmstripItemData.MIME_TYPE_JPEG);
     }
 
     @Override
-    public void addVideo(String path, ContentValues values, OnMediaSavedListener l,
-                         ContentResolver resolver) {
+    public void addVideo(String path, ContentValues values, OnMediaSavedListener l) {
         // We don't set a queue limit for video saving because the file
         // is already in the storage. Only updating the database.
-        new VideoSaveTask(path, values, l, resolver).execute();
+        new VideoSaveTask(path, values, l, mContentResolver).execute();
     }
 
     @Override
@@ -124,13 +141,15 @@ public class MediaSaverImpl implements MediaSaver {
         private final Location loc;
         private int width, height;
         private final int orientation;
+        private final String mimeType;
         private final ExifInterface exif;
         private final ContentResolver resolver;
         private final OnMediaSavedListener listener;
 
         public ImageSaveTask(byte[] data, String title, long date, Location loc,
-                             int width, int height, int orientation, ExifInterface exif,
-                             ContentResolver resolver, OnMediaSavedListener listener) {
+                             int width, int height, int orientation, String mimeType,
+                             ExifInterface exif, ContentResolver resolver,
+                             OnMediaSavedListener listener) {
             this.data = data;
             this.title = title;
             this.date = date;
@@ -138,6 +157,7 @@ public class MediaSaverImpl implements MediaSaver {
             this.width = width;
             this.height = height;
             this.orientation = orientation;
+            this.mimeType = mimeType;
             this.exif = exif;
             this.resolver = resolver;
             this.listener = listener;
@@ -158,13 +178,19 @@ public class MediaSaverImpl implements MediaSaver {
                 width = options.outWidth;
                 height = options.outHeight;
             }
-            return Storage.addImage(
-                    resolver, title, date, loc, orientation, exif, data, width, height);
+            try {
+                return Storage.addImage(
+                        resolver, title, date, loc, orientation, exif, data, width, height,
+                        mimeType);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to write data", e);
+                return null;
+            }
         }
 
         @Override
         protected void onPostExecute(Uri uri) {
-            if (listener != null && uri != null) {
+            if (listener != null) {
                 listener.onMediaSaved(uri);
             }
             boolean previouslyFull = isQueueFull();

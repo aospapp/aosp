@@ -22,7 +22,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.InputType;
-import android.text.TextUtils;
 import android.text.method.PasswordTransformationMethod;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -30,7 +29,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.tv.settings.R;
@@ -86,11 +84,15 @@ public class TextInputWizardFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle icicle) {
         mHandler = new Handler();
-        View view = inflater.inflate(R.layout.account_content_area, container, false);
-        View content = inflater.inflate(R.layout.wifi_content, null);
-        View action = inflater.inflate(R.layout.wifi_text_input, null);
-        ((ViewGroup) view.findViewById(R.id.description)).addView(content);
-        ((ViewGroup) view.findViewById(R.id.action)).addView(action);
+        final View view = inflater.inflate(R.layout.account_content_area, container, false);
+
+        final ViewGroup descriptionArea = (ViewGroup) view.findViewById(R.id.description);
+        final View content = inflater.inflate(R.layout.wifi_content, descriptionArea, false);
+        descriptionArea.addView(content);
+
+        final ViewGroup actionArea = (ViewGroup) view.findViewById(R.id.action);
+        final View action = inflater.inflate(R.layout.wifi_text_input, actionArea, false);
+        actionArea.addView(action);
 
         TextView titleText = (TextView) content.findViewById(R.id.title_text);
         TextView descriptionText = (TextView) content.findViewById(R.id.description_text);

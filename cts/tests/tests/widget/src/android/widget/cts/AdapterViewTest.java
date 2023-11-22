@@ -37,6 +37,7 @@ import android.widget.ListView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
+import android.provider.Settings;
 
 import com.android.cts.widget.R;
 
@@ -211,8 +212,12 @@ public class AdapterViewTest extends ActivityInstrumentationTestCase2<AdapterVie
         setArrayAdapter(mAdapterView);
 
         // LastVisiblePosition should be adapter's getCount - 1,by mocking method
+        float fontScale = Settings.System.getFloat(mActivity.getContentResolver(), Settings.System.FONT_SCALE, 1);
+        if (fontScale < 1) {
+            fontScale = 1;
+        }
         float density = mActivity.getResources().getDisplayMetrics().density;
-        int bottom = (int) (LAYOUT_HEIGHT * density);
+        int bottom = (int) (LAYOUT_HEIGHT * density * fontScale);
         mAdapterView.layout(0, 0, LAYOUT_WIDTH, bottom);
         assertEquals(FRUIT.length - 1, mAdapterView.getLastVisiblePosition());
     }
@@ -312,13 +317,8 @@ public class AdapterViewTest extends ActivityInstrumentationTestCase2<AdapterVie
             //expected
         }
 
-        try {
-            assertEquals(AdapterView.INVALID_POSITION,
-                    mAdapterView.getPositionForView(new ImageView(mActivity)));
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            //expected
-        }
+        assertEquals(AdapterView.INVALID_POSITION,
+                mAdapterView.getPositionForView(new ImageView(mActivity)));
     }
 
     public void testChangeFocusable() {

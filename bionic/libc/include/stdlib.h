@@ -25,16 +25,16 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#ifndef _STDLIB_H_
-#define _STDLIB_H_
+
+#ifndef _STDLIB_H
+#define _STDLIB_H
 
 #include <sys/cdefs.h>
+#include <xlocale.h>
 
-#include <stddef.h>
-#include <string.h>
 #include <alloca.h>
-#include <strings.h>
-#include <memory.h>
+#include <malloc.h>
+#include <stddef.h>
 
 __BEGIN_DECLS
 
@@ -58,9 +58,16 @@ extern int unsetenv(const char*);
 extern int clearenv(void);
 
 extern char* mkdtemp(char*);
-extern char* mktemp(char*) __warnattr("mktemp possibly used unsafely; consider using mkstemp");
-extern int mkstemp(char*);
+extern char* mktemp(char*) __attribute__((deprecated("mktemp is unsafe, use mkstemp or tmpfile instead")));
+
+extern int mkostemp64(char*, int);
+extern int mkostemp(char*, int);
+extern int mkostemps64(char*, int, int);
+extern int mkostemps(char*, int, int);
 extern int mkstemp64(char*);
+extern int mkstemp(char*);
+extern int mkstemps64(char*, int);
+extern int mkstemps(char*, int);
 
 extern long strtol(const char *, char **, int);
 extern long long strtoll(const char *, char **, int);
@@ -69,10 +76,10 @@ extern unsigned long long strtoull(const char *, char **, int);
 
 extern int posix_memalign(void **memptr, size_t alignment, size_t size);
 
-extern double atof(const char*);
+_BIONIC_NOT_BEFORE_21(extern double atof(const char*);)
 
 extern double strtod(const char*, char**) __LIBC_ABI_PUBLIC__;
-extern float strtof(const char*, char**) __LIBC_ABI_PUBLIC__;
+_BIONIC_NOT_BEFORE_21(extern float strtof(const char*, char**) __LIBC_ABI_PUBLIC__;)
 extern long double strtold(const char*, char**) __LIBC_ABI_PUBLIC__;
 
 extern long double strtold_l(const char *, char **, locale_t) __LIBC_ABI_PUBLIC__;
@@ -83,12 +90,12 @@ extern int atoi(const char*) __purefunc;
 extern long atol(const char*) __purefunc;
 extern long long atoll(const char*) __purefunc;
 
-extern int abs(int) __pure2;
-extern long labs(long) __pure2;
-extern long long llabs(long long) __pure2;
+_BIONIC_NOT_BEFORE_21(extern int abs(int) __pure2;)
+_BIONIC_NOT_BEFORE_21(extern long labs(long) __pure2;)
+_BIONIC_NOT_BEFORE_21(extern long long llabs(long long) __pure2;)
 
 extern char * realpath(const char *path, char *resolved);
-extern int system(const char * string);
+extern int system(const char *string);
 
 extern void * bsearch(const void *key, const void *base0,
 	size_t nmemb, size_t size,
@@ -96,34 +103,35 @@ extern void * bsearch(const void *key, const void *base0,
 
 extern void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 
-extern long jrand48(unsigned short *);
-extern long mrand48(void);
-extern long nrand48(unsigned short *);
-extern long lrand48(void);
-extern unsigned short *seed48(unsigned short*);
-extern double erand48(unsigned short xsubi[3]);
-extern double drand48(void);
-extern void srand48(long);
-
-unsigned int arc4random(void);
-unsigned int arc4random_uniform(unsigned int);
+uint32_t arc4random(void);
+uint32_t arc4random_uniform(uint32_t);
 void arc4random_buf(void*, size_t);
 
 #define RAND_MAX 0x7fffffff
 
-int rand(void);
+_BIONIC_NOT_BEFORE_21(int rand(void);)
 int rand_r(unsigned int*);
-void srand(unsigned int);
+_BIONIC_NOT_BEFORE_21(void srand(unsigned int);)
+
+double drand48(void);
+double erand48(unsigned short[3]);
+long jrand48(unsigned short[3]);
+void lcong48(unsigned short[7]);
+long lrand48(void);
+long mrand48(void);
+long nrand48(unsigned short[3]);
+unsigned short* seed48(unsigned short[3]);
+void srand48(long);
 
 char* initstate(unsigned int, char*, size_t);
-long random(void);
+_BIONIC_NOT_BEFORE_21(long random(void);)
 char* setstate(char*);
-void srandom(unsigned int);
+_BIONIC_NOT_BEFORE_21(void srandom(unsigned int);)
 
 int getpt(void);
-int grantpt(int);
+_BIONIC_NOT_BEFORE_21(int grantpt(int);)
 int posix_openpt(int);
-char* ptsname(int) __warnattr("ptsname is not thread-safe; use ptsname_r instead");
+char* ptsname(int);
 int ptsname_r(int, char*, size_t);
 int unlockpt(int);
 
@@ -164,6 +172,31 @@ extern size_t	wcstombs(char *, const wchar_t *, size_t);
 extern size_t __ctype_get_mb_cur_max(void);
 #define MB_CUR_MAX __ctype_get_mb_cur_max()
 
+#if __ANDROID_API__ < 21
+#include <android/legacy_stdlib_inlines.h>
+#endif
+
+#if defined(__BIONIC_FORTIFY)
+
+extern char* __realpath_real(const char*, char*) __RENAME(realpath);
+__errordecl(__realpath_size_error, "realpath output parameter must be NULL or a >= PATH_MAX bytes buffer");
+
+#if !defined(__clang__)
+__BIONIC_FORTIFY_INLINE
+char* realpath(const char* path, char* resolved) {
+    size_t bos = __bos(resolved);
+
+    /* PATH_MAX is unavailable without polluting the namespace, but it's always 4096 on Linux */
+    if (bos != __BIONIC_FORTIFY_UNKNOWN_SIZE && bos < 4096) {
+        __realpath_size_error();
+    }
+
+    return __realpath_real(path, resolved);
+}
+#endif
+
+#endif /* defined(__BIONIC_FORTIFY) */
+
 __END_DECLS
 
-#endif /* _STDLIB_H_ */
+#endif /* _STDLIB_H */

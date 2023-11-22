@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <machine/cpu-features.h>
-
 #define SNIP_START(x) \
     .globl x; x:
 

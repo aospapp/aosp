@@ -13,14 +13,14 @@ page.tags="design","Auto"
 <div class="sidebox">
   <h2><strong>UI Guidelines</strong></h2>
   <ul>
-  <li><a href="{@docRoot}shareables/auto/AndroidAuto-media-apps.pdf">
-    <strong>Auto Media Apps (PDF)</strong></a>
+  <li><a href="{@docRoot}shareables/auto/AndroidAuto-audio-apps.pdf">
+    <strong>Auto Audio Apps</strong></a>
   </li>
   <li><a href="{@docRoot}shareables/auto/AndroidAuto-messaging-apps.pdf">
-    <strong>Auto Messaging Apps (PDF)</strong></a>
+    <strong>Auto Messaging Apps</strong></a>
   </li>
   <li><a href="{@docRoot}shareables/auto/AndroidAuto-custom-colors.pdf">
-    <strong>Auto Color Customization (PDF)</strong></a>
+    <strong>Auto Color Customization</strong></a>
   </li>
  </ul>
 </div>

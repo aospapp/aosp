@@ -23,7 +23,6 @@
 #include "ScopedPrimitiveArray.h"
 #include "ScopedStringChars.h"
 #include "ScopedUtfChars.h"
-#include "UniquePtr.h"
 #include "cutils/log.h"
 #include "toStringArray.h"
 #include "unicode/ucnv.h"
@@ -32,6 +31,7 @@
 #include "unicode/ustring.h"
 #include "unicode/utypes.h"
 
+#include <memory>
 #include <vector>
 
 #include <stdlib.h>
@@ -64,7 +64,7 @@ static UConverter* toUConverter(jlong address) {
 static bool collectStandardNames(JNIEnv* env, const char* canonicalName, const char* standard,
                                  std::vector<std::string>& result) {
   UErrorCode status = U_ZERO_ERROR;
-  UStringEnumeration e(ucnv_openStandardNames(canonicalName, standard, &status));
+  icu::UStringEnumeration e(ucnv_openStandardNames(canonicalName, standard, &status));
   if (maybeThrowIcuException(env, "ucnv_openStandardNames", status)) {
     return false;
   }
@@ -75,7 +75,7 @@ static bool collectStandardNames(JNIEnv* env, const char* canonicalName, const c
   }
 
   for (int32_t i = 0; i < count; ++i) {
-    const UnicodeString* string = e.snext(status);
+    const icu::UnicodeString* string = e.snext(status);
     if (maybeThrowIcuException(env, "StringEnumeration::snext", status)) {
       return false;
     }
@@ -104,7 +104,7 @@ static const char* getICUCanonicalName(const char* name) {
   } else if (strstr(name, "x-") == name) {
     // Check if the converter can be opened with the name given.
     error = U_ZERO_ERROR;
-    LocalUConverterPointer cnv(ucnv_open(name + 2, &error));
+    icu::LocalUConverterPointer cnv(ucnv_open(name + 2, &error));
     if (U_SUCCESS(error)) {
       return name + 2;
     }
@@ -150,7 +150,7 @@ static jstring getJavaCanonicalName(JNIEnv* env, const char* icuCanonicalName) {
   if (name == NULL) {
     name = icuCanonicalName;
   }
-  UniquePtr<char[]> result(new char[2 + strlen(name) + 1]);
+  std::unique_ptr<char[]> result(new char[2 + strlen(name) + 1]);
   strcpy(&result[0], "x-");
   strcat(&result[0], name);
   return env->NewStringUTF(&result[0]);
@@ -537,12 +537,12 @@ static jboolean NativeConverter_contains(JNIEnv* env, jclass, jstring name1, jst
     }
 
     UErrorCode errorCode = U_ZERO_ERROR;
-    LocalUConverterPointer converter1(ucnv_open(name1Chars.c_str(), &errorCode));
-    UnicodeSet set1;
+    icu::LocalUConverterPointer converter1(ucnv_open(name1Chars.c_str(), &errorCode));
+    icu::UnicodeSet set1;
     ucnv_getUnicodeSet(&*converter1, set1.toUSet(), UCNV_ROUNDTRIP_SET, &errorCode);
 
-    LocalUConverterPointer converter2(ucnv_open(name2Chars.c_str(), &errorCode));
-    UnicodeSet set2;
+    icu::LocalUConverterPointer converter2(ucnv_open(name2Chars.c_str(), &errorCode));
+    icu::UnicodeSet set2;
     ucnv_getUnicodeSet(&*converter2, set2.toUSet(), UCNV_ROUNDTRIP_SET, &errorCode);
 
     return U_SUCCESS(errorCode) && set1.containsAll(set2);
@@ -570,7 +570,7 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
     {
         // ICU doesn't offer any "isSupported", so we just open and immediately close.
         UErrorCode error = U_ZERO_ERROR;
-        LocalUConverterPointer cnv(ucnv_open(icuCanonicalName, &error));
+        icu::LocalUConverterPointer cnv(ucnv_open(icuCanonicalName, &error));
         if (!U_SUCCESS(error)) {
             return NULL;
         }

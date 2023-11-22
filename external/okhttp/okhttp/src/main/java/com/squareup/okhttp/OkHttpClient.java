@@ -15,22 +15,21 @@
  */
 package com.squareup.okhttp;
 
+import com.squareup.okhttp.internal.Internal;
+import com.squareup.okhttp.internal.InternalCache;
+import com.squareup.okhttp.internal.Network;
+import com.squareup.okhttp.internal.RouteDatabase;
 import com.squareup.okhttp.internal.Util;
-import com.squareup.okhttp.internal.http.HttpAuthenticator;
-import com.squareup.okhttp.internal.http.HttpURLConnectionImpl;
-import com.squareup.okhttp.internal.http.HttpsURLConnectionImpl;
-import com.squareup.okhttp.internal.http.ResponseCacheAdapter;
+import com.squareup.okhttp.internal.http.AuthenticatorAdapter;
+import com.squareup.okhttp.internal.http.HttpEngine;
+import com.squareup.okhttp.internal.http.RouteException;
+import com.squareup.okhttp.internal.http.Transport;
 import com.squareup.okhttp.internal.tls.OkHostnameVerifier;
 import java.io.IOException;
 import java.net.CookieHandler;
-import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.ProxySelector;
-import java.net.ResponseCache;
-import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLStreamHandler;
-import java.net.URLStreamHandlerFactory;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,60 +37,204 @@ import java.util.concurrent.TimeUnit;
 import javax.net.SocketFactory;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import okio.ByteString;
+import okio.BufferedSink;
+import okio.BufferedSource;
 
 /**
  * Configures and creates HTTP connections. Most applications can use a single
  * OkHttpClient for all of their HTTP requests - benefiting from a shared
  * response cache, thread pool, connection re-use, etc.
  *
- * Instances of OkHttpClient are intended to be fully configured before they're
+ * <p>Instances of OkHttpClient are intended to be fully configured before they're
  * shared - once shared they should be treated as immutable and can safely be used
  * to concurrently open new connections. If required, threads can call
  * {@link #clone()} to make a shallow copy of the OkHttpClient that can be
  * safely modified with further configuration changes.
  */
-public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
+public class OkHttpClient implements Cloneable {
+  private static final List<Protocol> DEFAULT_PROTOCOLS = Util.immutableList(
+      Protocol.HTTP_2, Protocol.SPDY_3, Protocol.HTTP_1_1);
+
+  private static final List<ConnectionSpec> DEFAULT_CONNECTION_SPECS = Util.immutableList(
+      ConnectionSpec.MODERN_TLS, ConnectionSpec.COMPATIBLE_TLS, ConnectionSpec.CLEARTEXT);
+
+  static {
+    Internal.instance = new Internal() {
+      @Override public Transport newTransport(
+          Connection connection, HttpEngine httpEngine) throws IOException {
+        return connection.newTransport(httpEngine);
+      }
+
+      @Override public boolean clearOwner(Connection connection) {
+        return connection.clearOwner();
+      }
+
+      @Override public void closeIfOwnedBy(Connection connection, Object owner) throws IOException {
+        connection.closeIfOwnedBy(owner);
+      }
+
+      @Override public int recycleCount(Connection connection) {
+        return connection.recycleCount();
+      }
+
+      @Override public void setProtocol(Connection connection, Protocol protocol) {
+        connection.setProtocol(protocol);
+      }
+
+      @Override public void setOwner(Connection connection, HttpEngine httpEngine) {
+        connection.setOwner(httpEngine);
+      }
+
+      @Override public boolean isReadable(Connection pooled) {
+        return pooled.isReadable();
+      }
+
+      @Override public void addLenient(Headers.Builder builder, String line) {
+        builder.addLenient(line);
+      }
+
+      @Override public void addLenient(Headers.Builder builder, String name, String value) {
+        builder.addLenient(name, value);
+      }
+
+      @Override public void setCache(OkHttpClient client, InternalCache internalCache) {
+        client.setInternalCache(internalCache);
+      }
+
+      @Override public InternalCache internalCache(OkHttpClient client) {
+        return client.internalCache();
+      }
+
+      @Override public void recycle(ConnectionPool pool, Connection connection) {
+        pool.recycle(connection);
+      }
+
+      @Override public RouteDatabase routeDatabase(OkHttpClient client) {
+        return client.routeDatabase();
+      }
+
+      @Override public Network network(OkHttpClient client) {
+        return client.network;
+      }
+
+      @Override public void setNetwork(OkHttpClient client, Network network) {
+        client.network = network;
+      }
+
+      @Override public void connectAndSetOwner(OkHttpClient client, Connection connection,
+          HttpEngine owner, Request request) throws RouteException {
+        connection.connectAndSetOwner(client, owner, request);
+      }
+
+      @Override
+      public void callEnqueue(Call call, Callback responseCallback, boolean forWebSocket) {
+        call.enqueue(responseCallback, forWebSocket);
+      }
+
+      @Override public void callEngineReleaseConnection(Call call) throws IOException {
+        call.engine.releaseConnection();
+      }
+
+      @Override public Connection callEngineGetConnection(Call call) {
+        return call.engine.getConnection();
+      }
+
+      @Override public BufferedSource connectionRawSource(Connection connection) {
+        return connection.rawSource();
+      }
+
+      @Override public BufferedSink connectionRawSink(Connection connection) {
+        return connection.rawSink();
+      }
+
+      @Override public void connectionSetOwner(Connection connection, Object owner) {
+        connection.setOwner(owner);
+      }
+
+      @Override
+      public void apply(ConnectionSpec tlsConfiguration, SSLSocket sslSocket, boolean isFallback) {
+        tlsConfiguration.apply(sslSocket, isFallback);
+      }
+    };
+  }
+
+  /** Lazily-initialized. */
+  private static SSLSocketFactory defaultSslSocketFactory;
 
   private final RouteDatabase routeDatabase;
   private Dispatcher dispatcher;
   private Proxy proxy;
   private List<Protocol> protocols;
+  private List<ConnectionSpec> connectionSpecs;
+  private final List<Interceptor> interceptors = new ArrayList<>();
+  private final List<Interceptor> networkInterceptors = new ArrayList<>();
   private ProxySelector proxySelector;
   private CookieHandler cookieHandler;
-  private OkResponseCache responseCache;
+
+  /** Non-null if this client is caching; possibly by {@code cache}. */
+  private InternalCache internalCache;
+  private Cache cache;
+
   private SocketFactory socketFactory;
   private SSLSocketFactory sslSocketFactory;
   private HostnameVerifier hostnameVerifier;
-  private OkAuthenticator authenticator;
+  private CertificatePinner certificatePinner;
+  private Authenticator authenticator;
   private ConnectionPool connectionPool;
-  private HostResolver hostResolver;
-  private boolean followProtocolRedirects = true;
+  private Network network;
+  private boolean followSslRedirects = true;
+  private boolean followRedirects = true;
+  private boolean retryOnConnectionFailure = true;
   private int connectTimeout;
   private int readTimeout;
+  private int writeTimeout;
 
   public OkHttpClient() {
     routeDatabase = new RouteDatabase();
     dispatcher = new Dispatcher();
   }
 
+  private OkHttpClient(OkHttpClient okHttpClient) {
+    this.routeDatabase = okHttpClient.routeDatabase;
+    this.dispatcher = okHttpClient.dispatcher;
+    this.proxy = okHttpClient.proxy;
+    this.protocols = okHttpClient.protocols;
+    this.connectionSpecs = okHttpClient.connectionSpecs;
+    this.interceptors.addAll(okHttpClient.interceptors);
+    this.networkInterceptors.addAll(okHttpClient.networkInterceptors);
+    this.proxySelector = okHttpClient.proxySelector;
+    this.cookieHandler = okHttpClient.cookieHandler;
+    this.cache = okHttpClient.cache;
+    this.internalCache = cache != null ? cache.internalCache : okHttpClient.internalCache;
+    this.socketFactory = okHttpClient.socketFactory;
+    this.sslSocketFactory = okHttpClient.sslSocketFactory;
+    this.hostnameVerifier = okHttpClient.hostnameVerifier;
+    this.certificatePinner = okHttpClient.certificatePinner;
+    this.authenticator = okHttpClient.authenticator;
+    this.connectionPool = okHttpClient.connectionPool;
+    this.network = okHttpClient.network;
+    this.followSslRedirects = okHttpClient.followSslRedirects;
+    this.followRedirects = okHttpClient.followRedirects;
+    this.retryOnConnectionFailure = okHttpClient.retryOnConnectionFailure;
+    this.connectTimeout = okHttpClient.connectTimeout;
+    this.readTimeout = okHttpClient.readTimeout;
+    this.writeTimeout = okHttpClient.writeTimeout;
+  }
+
   /**
-   * Sets the default connect timeout for new connections. A value of 0 means no timeout.
+   * Sets the default connect timeout for new connections. A value of 0 means no timeout, otherwise
+   * values must be between 1 and {@link Integer#MAX_VALUE} when converted to milliseconds.
    *
    * @see URLConnection#setConnectTimeout(int)
    */
   public void setConnectTimeout(long timeout, TimeUnit unit) {
-    if (timeout < 0) {
-      throw new IllegalArgumentException("timeout < 0");
-    }
-    if (unit == null) {
-      throw new IllegalArgumentException("unit == null");
-    }
+    if (timeout < 0) throw new IllegalArgumentException("timeout < 0");
+    if (unit == null) throw new IllegalArgumentException("unit == null");
     long millis = unit.toMillis(timeout);
-    if (millis > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException("Timeout too large.");
-    }
+    if (millis > Integer.MAX_VALUE) throw new IllegalArgumentException("Timeout too large.");
+    if (millis == 0 && timeout > 0) throw new IllegalArgumentException("Timeout too small.");
     connectTimeout = (int) millis;
   }
 
@@ -101,27 +244,41 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
   }
 
   /**
-   * Sets the default read timeout for new connections. A value of 0 means no timeout.
+   * Sets the default read timeout for new connections. A value of 0 means no timeout, otherwise
+   * values must be between 1 and {@link Integer#MAX_VALUE} when converted to milliseconds.
    *
    * @see URLConnection#setReadTimeout(int)
    */
   public void setReadTimeout(long timeout, TimeUnit unit) {
-    if (timeout < 0) {
-      throw new IllegalArgumentException("timeout < 0");
-    }
-    if (unit == null) {
-      throw new IllegalArgumentException("unit == null");
-    }
+    if (timeout < 0) throw new IllegalArgumentException("timeout < 0");
+    if (unit == null) throw new IllegalArgumentException("unit == null");
     long millis = unit.toMillis(timeout);
-    if (millis > Integer.MAX_VALUE) {
-      throw new IllegalArgumentException("Timeout too large.");
-    }
+    if (millis > Integer.MAX_VALUE) throw new IllegalArgumentException("Timeout too large.");
+    if (millis == 0 && timeout > 0) throw new IllegalArgumentException("Timeout too small.");
     readTimeout = (int) millis;
   }
 
   /** Default read timeout (in milliseconds). */
   public int getReadTimeout() {
     return readTimeout;
+  }
+
+  /**
+   * Sets the default write timeout for new connections. A value of 0 means no timeout, otherwise
+   * values must be between 1 and {@link Integer#MAX_VALUE} when converted to milliseconds.
+   */
+  public void setWriteTimeout(long timeout, TimeUnit unit) {
+    if (timeout < 0) throw new IllegalArgumentException("timeout < 0");
+    if (unit == null) throw new IllegalArgumentException("unit == null");
+    long millis = unit.toMillis(timeout);
+    if (millis > Integer.MAX_VALUE) throw new IllegalArgumentException("Timeout too large.");
+    if (millis == 0 && timeout > 0) throw new IllegalArgumentException("Timeout too small.");
+    writeTimeout = (int) millis;
+  }
+
+  /** Default write timeout (in milliseconds). */
+  public int getWriteTimeout() {
+    return writeTimeout;
   }
 
   /**
@@ -173,26 +330,24 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
     return cookieHandler;
   }
 
-  /**
-   * Sets the response cache to be used to read and write cached responses.
-   */
-  public OkHttpClient setResponseCache(ResponseCache responseCache) {
-    return setOkResponseCache(toOkResponseCache(responseCache));
+  /** Sets the response cache to be used to read and write cached responses. */
+  void setInternalCache(InternalCache internalCache) {
+    this.internalCache = internalCache;
+    this.cache = null;
   }
 
-  public ResponseCache getResponseCache() {
-    return responseCache instanceof ResponseCacheAdapter
-        ? ((ResponseCacheAdapter) responseCache).getDelegate()
-        : null;
+  InternalCache internalCache() {
+    return internalCache;
   }
 
-  public OkHttpClient setOkResponseCache(OkResponseCache responseCache) {
-    this.responseCache = responseCache;
+  public OkHttpClient setCache(Cache cache) {
+    this.cache = cache;
+    this.internalCache = null;
     return this;
   }
 
-  public OkResponseCache getOkResponseCache() {
-    return responseCache;
+  public Cache getCache() {
+    return cache;
   }
 
   /**
@@ -228,9 +383,7 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
    * Sets the verifier used to confirm that response certificates apply to
    * requested hostnames for HTTPS connections.
    *
-   * <p>If unset, the
-   * {@link javax.net.ssl.HttpsURLConnection#getDefaultHostnameVerifier()
-   * system-wide default} hostname verifier will be used.
+   * <p>If unset, a default hostname verifier will be used.
    */
   public OkHttpClient setHostnameVerifier(HostnameVerifier hostnameVerifier) {
     this.hostnameVerifier = hostnameVerifier;
@@ -242,18 +395,33 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
   }
 
   /**
+   * Sets the certificate pinner that constrains which certificates are trusted.
+   * By default HTTPS connections rely on only the {@link #setSslSocketFactory
+   * SSL socket factory} to establish trust. Pinning certificates avoids the
+   * need to trust certificate authorities.
+   */
+  public OkHttpClient setCertificatePinner(CertificatePinner certificatePinner) {
+    this.certificatePinner = certificatePinner;
+    return this;
+  }
+
+  public CertificatePinner getCertificatePinner() {
+    return certificatePinner;
+  }
+
+  /**
    * Sets the authenticator used to respond to challenges from the remote web
    * server or proxy server.
    *
    * <p>If unset, the {@link java.net.Authenticator#setDefault system-wide default}
    * authenticator will be used.
    */
-  public OkHttpClient setAuthenticator(OkAuthenticator authenticator) {
+  public OkHttpClient setAuthenticator(Authenticator authenticator) {
     this.authenticator = authenticator;
     return this;
   }
 
-  public OkAuthenticator getAuthenticator() {
+  public Authenticator getAuthenticator() {
     return authenticator;
   }
 
@@ -279,16 +447,51 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
    * <p>If unset, protocol redirects will be followed. This is different than
    * the built-in {@code HttpURLConnection}'s default.
    */
-  public OkHttpClient setFollowProtocolRedirects(boolean followProtocolRedirects) {
-    this.followProtocolRedirects = followProtocolRedirects;
+  public OkHttpClient setFollowSslRedirects(boolean followProtocolRedirects) {
+    this.followSslRedirects = followProtocolRedirects;
     return this;
   }
 
-  public boolean getFollowProtocolRedirects() {
-    return followProtocolRedirects;
+  public boolean getFollowSslRedirects() {
+    return followSslRedirects;
   }
 
-  public RouteDatabase getRoutesDatabase() {
+  /** Configure this client to follow redirects. If unset, redirects be followed. */
+  public void setFollowRedirects(boolean followRedirects) {
+    this.followRedirects = followRedirects;
+  }
+
+  public boolean getFollowRedirects() {
+    return followRedirects;
+  }
+
+  /**
+   * Configure this client to retry or not when a connectivity problem is encountered. By default,
+   * this client silently recovers from the following problems:
+   *
+   * <ul>
+   *   <li><strong>Unreachable IP addresses.</strong> If the URL's host has multiple IP addresses,
+   *       failure to reach any individual IP address doesn't fail the overall request. This can
+   *       increase availability of multi-homed services.
+   *   <li><strong>Stale pooled connections.</strong> The {@link ConnectionPool} reuses sockets
+   *       to decrease request latency, but these connections will occasionally time out.
+   *   <li><strong>Unreachable proxy servers.</strong> A {@link ProxySelector} can be used to
+   *       attempt multiple proxy servers in sequence, eventually falling back to a direct
+   *       connection.
+   * </ul>
+   *
+   * Set this to false to avoid retrying requests when doing so is destructive. In this case the
+   * calling application should do its own recovery of connectivity failures.
+   */
+  public void setRetryOnConnectionFailure(boolean retryOnConnectionFailure) {
+    this.retryOnConnectionFailure = retryOnConnectionFailure;
+  }
+
+  public boolean getRetryOnConnectionFailure() {
+    return retryOnConnectionFailure;
+  }
+
+  RouteDatabase routeDatabase() {
     return routeDatabase;
   }
 
@@ -307,25 +510,6 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
   }
 
   /**
-   * @deprecated OkHttp 1.5 enforces an enumeration of {@link Protocol
-   *     protocols} that can be selected. Please switch to {@link
-   *     #setProtocols(java.util.List)}.
-   */
-  @Deprecated
-  public OkHttpClient setTransports(List<String> transports) {
-    List<Protocol> protocols = new ArrayList<Protocol>(transports.size());
-    for (int i = 0, size = transports.size(); i < size; i++) {
-      try {
-        Protocol protocol = Protocol.find(ByteString.encodeUtf8(transports.get(i)));
-        protocols.add(protocol);
-      } catch (IOException e) {
-        throw new IllegalArgumentException(e);
-      }
-    }
-    return setProtocols(protocols);
-  }
-
-  /**
    * Configure the protocols used by this client to communicate with remote
    * servers. By default this client will prefer the most efficient transport
    * available, falling back to more ubiquitous protocols. Applications should
@@ -336,27 +520,32 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
    * <ul>
    *   <li><a href="http://www.w3.org/Protocols/rfc2616/rfc2616.html">http/1.1</a>
    *   <li><a href="http://www.chromium.org/spdy/spdy-protocol/spdy-protocol-draft3-1">spdy/3.1</a>
-   *   <li><a href="http://tools.ietf.org/html/draft-ietf-httpbis-http2-09">HTTP-draft-09/2.0</a>
+   *   <li><a href="http://tools.ietf.org/html/draft-ietf-httpbis-http2-17">h2</a>
    * </ul>
    *
-   * <p><strong>This is an evolving set.</strong> Future releases may drop
-   * support for transitional protocols (like spdy/3.1), in favor of their
-   * successors (spdy/4 or http/2.0). The http/1.1 transport will never be
+   * <p><strong>This is an evolving set.</strong> Future releases include
+   * support for transitional protocols. The http/1.1 transport will never be
    * dropped.
    *
    * <p>If multiple protocols are specified, <a
-   * href="https://technotes.googlecode.com/git/nextprotoneg.html">NPN</a> will
-   * be used to negotiate a transport. Future releases may use another mechanism
-   * (such as <a href="http://tools.ietf.org/html/draft-friedl-tls-applayerprotoneg-02">ALPN</a>)
-   * to negotiate a transport.
+   * href="http://tools.ietf.org/html/draft-ietf-tls-applayerprotoneg">ALPN</a>
+   * will be used to negotiate a transport.
+   *
+   * <p>{@link Protocol#HTTP_1_0} is not supported in this set. Requests are
+   * initiated with {@code HTTP/1.1} only. If the server responds with {@code
+   * HTTP/1.0}, that will be exposed by {@link Response#protocol()}.
    *
    * @param protocols the protocols to use, in order of preference. The list
-   *     must contain "http/1.1". It must not contain null.
+   *     must contain {@link Protocol#HTTP_1_1}. It must not contain null or
+   *     {@link Protocol#HTTP_1_0}.
    */
   public OkHttpClient setProtocols(List<Protocol> protocols) {
     protocols = Util.immutableList(protocols);
-    if (!protocols.contains(Protocol.HTTP_11)) {
+    if (!protocols.contains(Protocol.HTTP_1_1)) {
       throw new IllegalArgumentException("protocols doesn't contain http/1.1: " + protocols);
+    }
+    if (protocols.contains(Protocol.HTTP_1_0)) {
+      throw new IllegalArgumentException("protocols must not contain http/1.0: " + protocols);
     }
     if (protocols.contains(null)) {
       throw new IllegalArgumentException("protocols must not contain null");
@@ -365,111 +554,51 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
     return this;
   }
 
-  /**
-   * @deprecated OkHttp 1.5 enforces an enumeration of {@link Protocol
-   *     protocols} that can be selected. Please switch to {@link
-   *     #getProtocols()}.
-   */
-  @Deprecated
-  public List<String> getTransports() {
-    List<String> transports = new ArrayList<String>(protocols.size());
-    for (int i = 0, size = protocols.size(); i < size; i++) {
-      transports.add(protocols.get(i).name.utf8());
-    }
-    return transports;
-  }
-
   public List<Protocol> getProtocols() {
     return protocols;
   }
 
-  /*
-   * Sets the {@code HostResolver} that will be used by this client to resolve
-   * hostnames to IP addresses.
-   */
-  public OkHttpClient setHostResolver(HostResolver hostResolver) {
-    this.hostResolver = hostResolver;
+  public OkHttpClient setConnectionSpecs(List<ConnectionSpec> connectionSpecs) {
+    this.connectionSpecs = Util.immutableList(connectionSpecs);
     return this;
   }
 
-  public HostResolver getHostResolver() {
-    return hostResolver;
+  public List<ConnectionSpec> getConnectionSpecs() {
+    return connectionSpecs;
   }
 
   /**
-   * Invokes {@code request} immediately, and blocks until the response can be
-   * processed or is in error.
-   *
-   * <p>The caller may read the response body with the response's
-   * {@link Response#body} method.  To facilitate connection recycling, callers
-   * should always {@link Response.Body#close() close the response body}.
-   *
-   * <p>Note that transport-layer success (receiving a HTTP response code,
-   * headers and body) does not necessarily indicate application-layer
-   * success: {@code response} may still indicate an unhappy HTTP response
-   * code like 404 or 500.
-   *
-   * <h3>Non-blocking responses</h3>
-   *
-   * <p>Receivers do not need to block while waiting for the response body to
-   * download. Instead, they can get called back as data arrives. Use {@link
-   * Response.Body#ready} to check if bytes should be read immediately. While
-   * there is data ready, read it.
-   *
-   * <p>The current implementation of {@link Response.Body#ready} always
-   * returns true when the underlying transport is HTTP/1. This results in
-   * blocking on that transport. For effective non-blocking your server must
-   * support {@link Protocol#SPDY_3} or {@link Protocol#HTTP_2}.
-   *
-   * @throws IOException when the request could not be executed due to a
-   * connectivity problem or timeout. Because networks can fail during an
-   * exchange, it is possible that the remote server accepted the request
-   * before the failure.
+   * Returns a modifiable list of interceptors that observe the full span of each call: from before
+   * the connection is established (if any) until after the response source is selected (either the
+   * origin server, cache, or both).
    */
-  public Response execute(Request request) throws IOException {
-    // Copy the client. Otherwise changes (socket factory, redirect policy,
-    // etc.) may incorrectly be reflected in the request when it is executed.
-    OkHttpClient client = copyWithDefaults();
-    Job job = new Job(dispatcher, client, request, null);
-    Response result = job.getResponse(); // Since we don't cancel, this won't be null.
-    job.engine.releaseConnection(); // Transfer ownership of the body to the caller.
-    return result;
+  public List<Interceptor> interceptors() {
+    return interceptors;
   }
 
   /**
-   * Schedules {@code request} to be executed at some point in the future. The
-   * {@link #getDispatcher dispatcher} defines when the request will run:
-   * usually immediately unless there are several other requests currently being
-   * executed.
-   *
-   * <p>This client will later call back {@code responseReceiver} with either an
-   * HTTP response or a failure exception. If you {@link #cancel} a request
-   * before it completes the receiver will not be called back.
+   * Returns a modifiable list of interceptors that observe a single network request and response.
+   * These interceptors must call {@link Interceptor.Chain#proceed} exactly once: it is an error for
+   * a network interceptor to short-circuit or repeat a network request.
    */
-  public void enqueue(Request request, Response.Receiver responseReceiver) {
-    dispatcher.enqueue(this, request, responseReceiver);
+  public List<Interceptor> networkInterceptors() {
+    return networkInterceptors;
   }
 
   /**
-   * Cancels all scheduled tasks tagged with {@code tag}. Requests that are already
-   * complete cannot be canceled.
+   * Prepares the {@code request} to be executed at some point in the future.
    */
-  public void cancel(Object tag) {
-    dispatcher.cancel(tag);
+  public Call newCall(Request request) {
+    return new Call(this, request);
   }
 
-  public HttpURLConnection open(URL url) {
-    return open(url, proxy);
-  }
-
-  HttpURLConnection open(URL url, Proxy proxy) {
-    String protocol = url.getProtocol();
-    OkHttpClient copy = copyWithDefaults();
-    copy.proxy = proxy;
-
-    if (protocol.equals("http")) return new HttpURLConnectionImpl(url, copy);
-    if (protocol.equals("https")) return new HttpsURLConnectionImpl(url, copy);
-    throw new IllegalArgumentException("Unexpected protocol: " + protocol);
+  /**
+   * Cancels all scheduled or in-flight calls tagged with {@code tag}. Requests
+   * that are already complete cannot be canceled.
+   */
+  public OkHttpClient cancel(Object tag) {
+    getDispatcher().cancel(tag);
+    return this;
   }
 
   /**
@@ -477,15 +606,12 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
    * default for each field that hasn't been explicitly configured.
    */
   OkHttpClient copyWithDefaults() {
-    OkHttpClient result = clone();
+    OkHttpClient result = new OkHttpClient(this);
     if (result.proxySelector == null) {
       result.proxySelector = ProxySelector.getDefault();
     }
     if (result.cookieHandler == null) {
       result.cookieHandler = CookieHandler.getDefault();
-    }
-    if (result.responseCache == null) {
-      result.responseCache = toOkResponseCache(ResponseCache.getDefault());
     }
     if (result.socketFactory == null) {
       result.socketFactory = SocketFactory.getDefault();
@@ -496,17 +622,23 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
     if (result.hostnameVerifier == null) {
       result.hostnameVerifier = OkHostnameVerifier.INSTANCE;
     }
+    if (result.certificatePinner == null) {
+      result.certificatePinner = CertificatePinner.DEFAULT;
+    }
     if (result.authenticator == null) {
-      result.authenticator = HttpAuthenticator.SYSTEM_DEFAULT;
+      result.authenticator = AuthenticatorAdapter.INSTANCE;
     }
     if (result.connectionPool == null) {
       result.connectionPool = ConnectionPool.getDefault();
     }
     if (result.protocols == null) {
-      result.protocols = Protocol.HTTP2_SPDY3_AND_HTTP;
+      result.protocols = DEFAULT_PROTOCOLS;
     }
-    if (result.hostResolver == null) {
-      result.hostResolver = HostResolver.DEFAULT;
+    if (result.connectionSpecs == null) {
+      result.connectionSpecs = DEFAULT_CONNECTION_SPECS;
+    }
+    if (result.network == null) {
+      result.network = Network.DEFAULT;
     }
     return result;
   }
@@ -514,69 +646,29 @@ public final class OkHttpClient implements URLStreamHandlerFactory, Cloneable {
   /**
    * Java and Android programs default to using a single global SSL context,
    * accessible to HTTP clients as {@link SSLSocketFactory#getDefault()}. If we
-   * used the shared SSL context, when OkHttp enables NPN for its SPDY-related
-   * stuff, it would also enable NPN for other usages, which might crash them
-   * because NPN is enabled when it isn't expected to be.
-   * <p>
-   * This code avoids that by defaulting to an OkHttp created SSL context. The
-   * significant drawback of this approach is that apps that customize the
-   * global SSL context will lose these customizations.
+   * used the shared SSL context, when OkHttp enables ALPN for its SPDY-related
+   * stuff, it would also enable ALPN for other usages, which might crash them
+   * because ALPN is enabled when it isn't expected to be.
+   *
+   * <p>This code avoids that by defaulting to an OkHttp-created SSL context.
+   * The drawback of this approach is that apps that customize the global SSL
+   * context will lose these customizations.
    */
   private synchronized SSLSocketFactory getDefaultSSLSocketFactory() {
-    if (sslSocketFactory == null) {
+    if (defaultSslSocketFactory == null) {
       try {
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, null, null);
-        sslSocketFactory = sslContext.getSocketFactory();
+        defaultSslSocketFactory = sslContext.getSocketFactory();
       } catch (GeneralSecurityException e) {
         throw new AssertionError(); // The system has no TLS. Just give up.
       }
     }
-    return sslSocketFactory;
+    return defaultSslSocketFactory;
   }
 
   /** Returns a shallow copy of this OkHttpClient. */
   @Override public OkHttpClient clone() {
-    try {
-      return (OkHttpClient) super.clone();
-    } catch (CloneNotSupportedException e) {
-      throw new AssertionError();
-    }
-  }
-
-  private OkResponseCache toOkResponseCache(ResponseCache responseCache) {
-    return responseCache == null || responseCache instanceof OkResponseCache
-        ? (OkResponseCache) responseCache
-        : new ResponseCacheAdapter(responseCache);
-  }
-
-  /**
-   * Creates a URLStreamHandler as a {@link URL#setURLStreamHandlerFactory}.
-   *
-   * <p>This code configures OkHttp to handle all HTTP and HTTPS connections
-   * created with {@link URL#openConnection()}: <pre>   {@code
-   *
-   *   OkHttpClient okHttpClient = new OkHttpClient();
-   *   URL.setURLStreamHandlerFactory(okHttpClient);
-   * }</pre>
-   */
-  public URLStreamHandler createURLStreamHandler(final String protocol) {
-    if (!protocol.equals("http") && !protocol.equals("https")) return null;
-
-    return new URLStreamHandler() {
-      @Override protected URLConnection openConnection(URL url) {
-        return open(url);
-      }
-
-      @Override protected URLConnection openConnection(URL url, Proxy proxy) {
-        return open(url, proxy);
-      }
-
-      @Override protected int getDefaultPort() {
-        if (protocol.equals("http")) return 80;
-        if (protocol.equals("https")) return 443;
-        throw new AssertionError();
-      }
-    };
+    return new OkHttpClient(this);
   }
 }

@@ -20,16 +20,13 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.v17.leanback.R;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.text.TextUtils;
@@ -46,7 +43,7 @@ import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.tv.settings.dialog.Layout;
+import com.android.tv.settings.R;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
@@ -68,7 +65,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
         /**
          * Called when the user clicks on an action.
          */
-        public void onRowClicked(Layout.LayoutRow item);
+        void onRowClicked(Layout.LayoutRow item);
     }
 
     public interface OnFocusListener {
@@ -76,7 +73,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
         /**
          * Called when the user focuses on an action.
          */
-        public void onActionFocused(Layout.LayoutRow item);
+        void onActionFocused(Layout.LayoutRow item);
     }
 
     private final ActionOnKeyPressAnimator mActionOnKeyPressAnimator;
@@ -127,7 +124,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
             mInflater = (LayoutInflater) parent.getContext().getSystemService(
                     Context.LAYOUT_INFLATER_SERVICE);
         }
-        View v = null;
+        final View v;
         switch (viewType) {
             case Layout.LayoutRow.VIEW_TYPE_ACTION:
                 v = mInflater.inflate(R.layout.lb_dialog_action_list_item, parent, false);
@@ -135,6 +132,11 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
             case Layout.LayoutRow.VIEW_TYPE_STATIC:
                 v = mInflater.inflate(R.layout.lb_dialog_static_list_item, parent, false);
                 break;
+            case Layout.LayoutRow.VIEW_TYPE_WALLOFTEXT:
+                v = mInflater.inflate(R.layout.lb_dialog_walloftext_list_item, parent, false);
+                break;
+            default:
+                throw new IllegalStateException("View type not found: " + viewType);
         }
         v.setTag(R.layout.lb_dialog_action_list_item, parent);
         LayoutRowViewHolder viewHolder = new LayoutRowViewHolder(v, mActionOnKeyPressAnimator,
@@ -147,7 +149,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
     public void onBindViewHolder(RecyclerView.ViewHolder baseHolder, int position) {
         LayoutRowViewHolder holder = (LayoutRowViewHolder) baseHolder;
         if (position < mLayoutRows.size()) {
-            holder.bind(mLayoutRows.get(position));
+            holder.bind(mLayoutRows.get(position), position);
         }
     }
 
@@ -193,6 +195,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
         private ImageView mIndicatorView;
         private View mContent;
         private ImageView mChevronView;
+        private View mHairlineView;
         private int mViewType;
         private RefreshDescription mRefreshDescription;
 
@@ -219,6 +222,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
             mIndicatorView = (ImageView) itemView.findViewById(R.id.action_icon);
             mContent = itemView.findViewById(R.id.action_content);
             mChevronView = (ImageView) itemView.findViewById(R.id.action_next_chevron);
+            mHairlineView = itemView.findViewById(R.id.static_hairline);
             itemView.setTag(R.id.action_title, this);
             itemView.setOnKeyListener(mActionOnKeyPressAnimator);
             itemView.setOnClickListener(mViewOnClickListener);
@@ -240,7 +244,7 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
             }
         }
 
-        public void bind(Layout.LayoutRow layoutRow) {
+        public void bind(Layout.LayoutRow layoutRow, int position) {
             mLayoutRow = layoutRow;
             if (mViewType != layoutRow.getViewType()) {
                 throw new InvalidParameterException("view type does not match");
@@ -258,44 +262,36 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
                 } else {
                     mDescription.setVisibility(View.GONE);
                 }
+            } else if (mViewType == Layout.LayoutRow.VIEW_TYPE_STATIC && mHairlineView != null) {
+                mHairlineView.setVisibility(position == 0 ? View.GONE : View.VISIBLE);
             }
 
             mTitle.setText(layoutRow.getTitle());
-            mCheckmarkView.setVisibility(layoutRow.isChecked() ? View.VISIBLE : View.INVISIBLE);
-
-            ViewGroup.LayoutParams contentLp = mContent.getLayoutParams();
-            if (setIndicator(mIndicatorView, layoutRow)) {
-                contentLp.width = itemView.getContext().getResources()
-                        .getDimensionPixelSize(R.dimen.lb_action_text_width);
-            } else {
-                contentLp.width = itemView.getContext().getResources()
-                        .getDimensionPixelSize(R.dimen.lb_action_text_width_no_icon);
+            if (mCheckmarkView != null) {
+                mCheckmarkView.setVisibility(layoutRow.isChecked() ? View.VISIBLE : View.INVISIBLE);
             }
-            mContent.setLayoutParams(contentLp);
+            layoutRow.getChecked().setListener(this);
 
-            mChevronView.setVisibility(layoutRow.hasNext() ? View.VISIBLE : View.INVISIBLE);
+            if (mContent != null) {
+                ViewGroup.LayoutParams contentLp = mContent.getLayoutParams();
+                if (mIndicatorView != null && setIndicator(mIndicatorView, layoutRow)) {
+                    contentLp.width = itemView.getContext().getResources()
+                            .getDimensionPixelSize(R.dimen.lb_action_text_width);
+                } else {
+                    contentLp.width = itemView.getContext().getResources()
+                            .getDimensionPixelSize(R.dimen.lb_action_text_width_no_icon);
+                }
+                mContent.setLayoutParams(contentLp);
+            }
 
-            final Resources res = itemView.getContext().getResources();
-            if (layoutRow.hasMultilineDescription()) {
-                mTitle.setMaxLines(res.getInteger(R.integer.lb_dialog_action_title_max_lines));
-                if (mViewType == Layout.LayoutRow.VIEW_TYPE_ACTION) {
-                    mDescription.setMaxHeight(
-                            getDescriptionMaxHeight(itemView.getContext(), mTitle));
-                }
-            } else {
-                mTitle.setMaxLines(res.getInteger(R.integer.lb_dialog_action_title_min_lines));
-                if (mViewType == Layout.LayoutRow.VIEW_TYPE_ACTION) {
-                    mDescription.setMaxLines(
-                            res.getInteger(R.integer.lb_dialog_action_description_min_lines));
-                }
+            if (mChevronView != null) {
+                mChevronView.setVisibility(layoutRow.hasNext() ? View.VISIBLE : View.INVISIBLE);
             }
 
             mActionOnFocusAnimator.unFocus(itemView);
         }
 
         private boolean setIndicator(final ImageView indicatorView, Layout.LayoutRow action) {
-
-            Context context = indicatorView.getContext();
             Drawable indicator = action.getIcon();
             if (indicator != null) {
                 indicatorView.setImageDrawable(indicator);
@@ -448,22 +444,30 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
                 chevronAlpha = 0;
             }
 
-            TextView title = (TextView) v.findViewById(R.id.action_title);
-            setAlpha(title, shouldAnimate, titleAlpha);
+            final View title = v.findViewById(R.id.action_title);
+            if (title != null) {
+                setAlpha(title, shouldAnimate, titleAlpha);
+            }
 
-            TextView description = (TextView) v.findViewById(R.id.action_description);
+            final View description = v.findViewById(R.id.action_description);
             if (description != null) {
                 setAlpha(description, shouldAnimate, descriptionAlpha);
             }
 
-            ImageView checkmark = (ImageView) v.findViewById(R.id.action_checkmark);
-            setAlpha(checkmark, shouldAnimate, titleAlpha);
+            final View checkmark = v.findViewById(R.id.action_checkmark);
+            if (checkmark != null) {
+                setAlpha(checkmark, shouldAnimate, titleAlpha);
+            }
 
-            ImageView icon = (ImageView) v.findViewById(R.id.action_icon);
-            setAlpha(icon, shouldAnimate, titleAlpha);
+            final View icon = v.findViewById(R.id.action_icon);
+            if (icon != null) {
+                setAlpha(icon, shouldAnimate, titleAlpha);
+            }
 
-            ImageView chevron = (ImageView) v.findViewById(R.id.action_next_chevron);
-            setAlpha(chevron, shouldAnimate, chevronAlpha);
+            final View chevron = v.findViewById(R.id.action_next_chevron);
+            if (chevron != null) {
+                setAlpha(chevron, shouldAnimate, chevronAlpha);
+            }
         }
 
         private void setAlpha(View view, boolean shouldAnimate, float alpha) {
@@ -621,17 +625,19 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
                         if (viewToAnimateOut != null) {
                             final View checkView = viewToAnimateOut.findViewById(
                                     R.id.action_checkmark);
-                            checkView.animate().alpha(CHECKMARK_ANIM_UNSELECTED_ALPHA)
-                                    .setDuration(duration).setStartDelay(delay);
-                            if (interpolator != null) {
-                                checkView.animate().setInterpolator(interpolator);
-                            }
-                            checkView.animate().setListener(new AnimatorListenerAdapter() {
-                                    @Override
-                                public void onAnimationEnd(Animator animation) {
-                                    checkView.setVisibility(View.INVISIBLE);
+                            if (checkView != null) {
+                                checkView.animate().alpha(CHECKMARK_ANIM_UNSELECTED_ALPHA)
+                                        .setDuration(duration).setStartDelay(delay);
+                                if (interpolator != null) {
+                                    checkView.animate().setInterpolator(interpolator);
                                 }
-                            });
+                                checkView.animate().setListener(new AnimatorListenerAdapter() {
+                                    @Override
+                                    public void onAnimationEnd(Animator animation) {
+                                        checkView.setVisibility(View.INVISIBLE);
+                                    }
+                                });
+                            }
                         }
                     }
                 }
@@ -640,14 +646,17 @@ class SettingsLayoutAdapter extends RecyclerView.Adapter {
                 if (!action.isChecked()) {
                     action.setChecked(true);
                     final View checkView = v.findViewById(R.id.action_checkmark);
-                    checkView.setVisibility(View.VISIBLE);
-                    checkView.setAlpha(CHECKMARK_ANIM_UNSELECTED_ALPHA);
-                    checkView.animate().alpha(CHECKMARK_ANIM_SELECTED_ALPHA).setDuration(duration)
-                            .setStartDelay(delay);
-                    if (interpolator != null) {
-                        checkView.animate().setInterpolator(interpolator);
+                    if (checkView != null) {
+                        checkView.setVisibility(View.VISIBLE);
+                        checkView.setAlpha(CHECKMARK_ANIM_UNSELECTED_ALPHA);
+                        checkView.animate().alpha(CHECKMARK_ANIM_SELECTED_ALPHA)
+                                .setDuration(duration)
+                                .setStartDelay(delay);
+                        if (interpolator != null) {
+                            checkView.animate().setInterpolator(interpolator);
+                        }
+                        checkView.animate().setListener(null);
                     }
-                    checkView.animate().setListener(null);
                 }
             }
         }

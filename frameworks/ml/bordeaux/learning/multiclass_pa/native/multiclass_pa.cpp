@@ -21,6 +21,8 @@
 
 #include "native/multiclass_pa.h"
 
+#include <stdlib.h>
+
 using std::vector;
 using std::pair;
 

@@ -16,34 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="wifi_status">
-    <item msgid="6120109946893037801"></item>
-    <item msgid="5210943529756743284">"Որոնում…"</item>
-    <item msgid="7895190850044173217">"Միացում…"</item>
-    <item msgid="7589307602609991992">"Նույնականացում…"</item>
-    <item msgid="7439429469102224627">"IP հասցեի ստացում…"</item>
-    <item msgid="7079865889809010740">"Միացված է"</item>
-    <item msgid="8018480471737227053">"Անջատված է"</item>
-    <item msgid="9110004131358099530">"Անջատում…"</item>
-    <item msgid="2366780999250675263">"Անջատված"</item>
-    <item msgid="944848437579938960">"Ձախողում"</item>
-    <item msgid="6501589509838730555">"Արգելափակված"</item>
-    <item msgid="1877062378387320625">"Թույլ կապի պատճառով ժամանակավոր չի օգտագործվում"</item>
-  </string-array>
-  <string-array name="wifi_status_with_ssid">
-    <item msgid="8339598300796362026"></item>
-    <item msgid="4703591207522320165">"Որոնում…"</item>
-    <item msgid="7351421574703844779">"Միացում <xliff:g id="NETWORK_NAME">%1$s</xliff:g>-ին…"</item>
-    <item msgid="874502389678205660">"Նույնականացում <xliff:g id="NETWORK_NAME">%1$s</xliff:g>-ի հետ…"</item>
-    <item msgid="7964187733783647040">"IP հասցեի ստացում <xliff:g id="NETWORK_NAME">%1$s</xliff:g>-ից…"</item>
-    <item msgid="4990222034464002805">"Միացված է <xliff:g id="NETWORK_NAME">%1$s</xliff:g>-ին"</item>
-    <item msgid="5347651564202902346">"Անջատված"</item>
-    <item msgid="4812777464932254477">"Անջատվում է <xliff:g id="NETWORK_NAME">%1$s</xliff:g>-ից…"</item>
-    <item msgid="4985746712759777559">"Անջատված է"</item>
-    <item msgid="6482743140170037710">"Ձախողում"</item>
-    <item msgid="7486075980265993798">"Արգելափակված"</item>
-    <item msgid="6842213039083339420">"Թույլ կապի պատճառով ժամանակավորապես չի աշխատում"</item>
-  </string-array>
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 րոպե"</item>
     <item msgid="3695675702735844029">"10 րոպե"</item>
@@ -58,15 +30,6 @@
     <item msgid="4152882798140628647">"6 ժամ"</item>
     <item msgid="412984226950404956">"12 ժամ"</item>
     <item msgid="2178434662173258997">"Երբեք"</item>
-  </string-array>
-  <string-array name="debug_hw_overdraw_entries">
-    <item msgid="6733816499120044964">"Անջատել"</item>
-    <item msgid="8974325215258674273">"Ցույց տալ գերազանցված հատվածները"</item>
-    <item msgid="5877416885028854162">"Ցույց տալ տարրերի թիվը"</item>
-  </string-array>
-  <string-array name="hdmi_optimization_entries">
-    <item msgid="3490064566563023094">"Լավագույն լուծաչափը"</item>
-    <item msgid="8319005042985738916">"Շրջանակի լավագույն դիրքը"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="4410581208185456276">"Կանխադրված"</item>

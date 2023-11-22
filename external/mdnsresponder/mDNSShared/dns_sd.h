@@ -1978,11 +1978,11 @@ typedef void (DNSSD_API *DNSHostnameChangedReply)
 
 DNSServiceErrorType DNSSD_API DNSSetHostname
     (
-    DNSServiceRef            *sdRef,
-    DNSServiceFlags          flags,
-    const char               *hostname,
-    DNSHostnameChangedReply  callBack,
-    void                     *context
+    DNSServiceRef                    *sdRef,
+    DNSServiceFlags                  flags,
+    const char                       *hostname,
+    DNSHostnameChangedReply          callBack,
+    void                             *context
     );
 
 /*********************************************************************************************

@@ -1,16 +1,17 @@
+
 Android WatchFace Sample
 ===================================
 
 This sample demonstrates how to create watch faces for android wear and includes a phone app
 and a wearable app. The wearable app has a variety of watch faces including analog, digital,
-opengl, calendar, etc. It also includes a watch-side configuration example. The phone app
-includes a phone-side configuration example.
+opengl, calendar, interactive, etc. It also includes a watch-side configuration example.
+The phone app includes a phone-side configuration example.
 
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Getting Started

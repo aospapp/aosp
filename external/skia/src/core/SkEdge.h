@@ -36,8 +36,7 @@ struct SkEdge {
     uint8_t fCubicDShift;   // applied to fCDx and fCDy only in cubic
     int8_t  fWinding;       // 1 or -1
 
-    int setLine(const SkPoint& p0, const SkPoint& p1, const SkIRect* clip,
-                int shiftUp);
+    int setLine(const SkPoint& p0, const SkPoint& p1, const SkIRect* clip, int shiftUp);
     // call this version if you know you don't have a clip
     inline int setLine(const SkPoint& p0, const SkPoint& p1, int shiftUp);
     inline int updateLine(SkFixed ax, SkFixed ay, SkFixed bx, SkFixed by);
@@ -81,7 +80,7 @@ struct SkCubicEdge : public SkEdge {
     SkFixed fCDDDx, fCDDDy;
     SkFixed fCLastX, fCLastY;
 
-    int setCubic(const SkPoint pts[4], const SkIRect* clip, int shiftUp);
+    int setCubic(const SkPoint pts[4], int shiftUp);
     int updateCubic();
 };
 
@@ -89,11 +88,18 @@ int SkEdge::setLine(const SkPoint& p0, const SkPoint& p1, int shift) {
     SkFDot6 x0, y0, x1, y1;
 
     {
+#ifdef SK_RASTERIZE_EVEN_ROUNDING
+        x0 = SkScalarRoundToFDot6(p0.fX, shift);
+        y0 = SkScalarRoundToFDot6(p0.fY, shift);
+        x1 = SkScalarRoundToFDot6(p1.fX, shift);
+        y1 = SkScalarRoundToFDot6(p1.fY, shift);
+#else
         float scale = float(1 << (shift + 6));
         x0 = int(p0.fX * scale);
         y0 = int(p0.fY * scale);
         x1 = int(p1.fX * scale);
         y1 = int(p1.fY * scale);
+#endif
     }
 
     int winding = 1;
@@ -113,7 +119,7 @@ int SkEdge::setLine(const SkPoint& p0, const SkPoint& p1, int shift) {
     }
 
     SkFixed slope = SkFDot6Div(x1 - x0, y1 - y0);
-    const int dy  = SkEdge_Compute_DY(top, y0);
+    const SkFDot6 dy  = SkEdge_Compute_DY(top, y0);
 
     fX          = SkFDot6ToFixed(x0 + SkFixedMul(slope, dy));   // + SK_Fixed1/2
     fDX         = slope;

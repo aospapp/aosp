@@ -1,3 +1,7 @@
+# Copyright 2015 Google Inc.
+#
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
 #
 {
   'variables': {
@@ -24,7 +28,9 @@
         'gmslides.gypi',
       ],
       'sources': [
+        '../gm/gm.cpp',
         '../samplecode/GMSampleView.h',
+        '../samplecode/GMSampleView.cpp',
         '../samplecode/ClockFaceView.cpp',
         '../samplecode/OverView.cpp',
         '../samplecode/OverView.h',
@@ -37,7 +43,6 @@
         '../samplecode/SampleAnimBlur.cpp',
         '../samplecode/SampleApp.cpp',
         '../samplecode/SampleArc.cpp',
-        '../samplecode/SampleAvoid.cpp',
         '../samplecode/SampleBigBlur.cpp',
         '../samplecode/SampleBigGradient.cpp',
         '../samplecode/SampleBitmapRect.cpp',
@@ -45,8 +50,9 @@
         '../samplecode/SampleCamera.cpp',
         '../samplecode/SampleChart.cpp',
         '../samplecode/SampleCircle.cpp',
-        '../samplecode/SampleClock.cpp',
         '../samplecode/SampleClip.cpp',
+        '../samplecode/SampleClipDrawMatch.cpp',
+        '../samplecode/SampleClock.cpp',
         '../samplecode/SampleCode.h',
         '../samplecode/SampleColorFilter.cpp',
         '../samplecode/SampleComplexClip.cpp',
@@ -63,6 +69,7 @@
         '../samplecode/SampleFillType.cpp',
         '../samplecode/SampleFilter.cpp',
         '../samplecode/SampleFilter2.cpp',
+        '../samplecode/SampleFilterQuality.cpp',
         '../samplecode/SampleFilterFuzz.cpp',
         '../samplecode/SampleFontCache.cpp',
         '../samplecode/SampleFontScalerTest.cpp',
@@ -71,6 +78,8 @@
         '../samplecode/SampleHairCurves.cpp',
         '../samplecode/SampleHairline.cpp',
         '../samplecode/SampleHairModes.cpp',
+        '../samplecode/SampleHT.cpp',
+        '../samplecode/SampleIdentityScale.cpp',
         '../samplecode/SampleLayerMask.cpp',
         '../samplecode/SampleLayers.cpp',
         '../samplecode/SampleLCD.cpp',
@@ -78,22 +87,19 @@
         '../samplecode/SampleLua.cpp',
         '../samplecode/SampleManyRects.cpp',
         '../samplecode/SampleMeasure.cpp',
-        '../samplecode/SampleMipMap.cpp',
-        '../samplecode/SampleMovie.cpp',
-        '../samplecode/SampleOvalTest.cpp',
         '../samplecode/SamplePatch.cpp',
         '../samplecode/SamplePath.cpp',
         '../samplecode/SamplePathClip.cpp',
-        '../samplecode/SamplePathUtils.cpp',
+        '../samplecode/SamplePathFuzz.cpp',
         '../samplecode/SamplePathEffects.cpp',
         '../samplecode/SamplePicture.cpp',
         '../samplecode/SamplePictFile.cpp',
         '../samplecode/SamplePoints.cpp',
         '../samplecode/SamplePolyToPoly.cpp',
+        '../samplecode/SampleQuadStroker.cpp',
         '../samplecode/SampleRectanizer.cpp',
         '../samplecode/SampleRegion.cpp',
         '../samplecode/SampleRepeatTile.cpp',
-        '../samplecode/SampleRotateCircles.cpp',
         '../samplecode/SampleShaders.cpp',
         '../samplecode/SampleShaderText.cpp',
         '../samplecode/SampleSkLayer.cpp',
@@ -111,8 +117,6 @@
         '../samplecode/SampleUnpremul.cpp',
         '../samplecode/SampleVertices.cpp',
         '../samplecode/SampleXfermodesBlur.cpp',
-        '../samplecode/TransitionView.cpp',
-        '../samplecode/TransitionView.h',
 
         # DrawingBoard
         #'../experimental/DrawingBoard/SkColorPalette.h',
@@ -134,13 +138,9 @@
         # Lua
         '../src/utils/SkLuaCanvas.cpp',
         '../src/utils/SkLua.cpp',
-
-        # tools
-        '../tools/sk_tool_utils.cpp',
       ],
       'sources!': [
         '../samplecode/SampleSkLayer.cpp', #relies on SkMatrix44 which doesn't compile
-        '../samplecode/SampleWarp.cpp',
         '../samplecode/SampleFontCache.cpp',
       ],
       'dependencies': [
@@ -152,6 +152,7 @@
         'pdf.gyp:pdf',
         'skia_lib.gyp:skia_lib',
         'tools.gyp:resources',
+        'tools.gyp:sk_tool_utils',
         'views.gyp:views',
         'views_animated.gyp:views_animated',
         'xml.gyp:xml',
@@ -213,6 +214,7 @@
           # TODO: This doesn't build properly yet, but it's getting there.
           'sources!': [
             '../samplecode/SampleDecode.cpp',
+            '../experimental/SimpleiOSApp/SimpleApp.mm',
           ],
           'sources': [
             '../src/views/mac/SkEventNotifier.mm',
@@ -239,7 +241,6 @@
             '../experimental/iOSSampleApp/iPhone/MainWindow_iPhone.xib',
 
             '../src/views/ios/SkOSWindow_iOS.mm',
-            '../src/utils/ios/SkImageDecoder_iOS.mm',
             '../src/utils/ios/SkStream_NSData.mm',
             # Not fully implemented yet
             # '../src/utils/ios/SkOSFile_iOS.mm',
@@ -293,11 +294,6 @@
         [ 'skia_gpu == 1', {
           'dependencies': [
             'gputest.gyp:skgputest',
-          ],
-        }],
-        [ 'skia_os == "nacl"', {
-          'sources': [
-            '../../nacl/src/nacl_sample.cpp',
           ],
         }],
       ],

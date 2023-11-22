@@ -47,7 +47,7 @@ struct SyncVar {
   SyncClock clock;
 
   void Init(ThreadState *thr, uptr pc, uptr addr, u64 uid);
-  void Reset();
+  void Reset(ThreadState *thr);
 
   u64 GetId() const {
     // 47 lsb is addr, then 14 bits is low part of uid, then 3 zero bits.
@@ -73,7 +73,8 @@ class MetaMap {
 
   void AllocBlock(ThreadState *thr, uptr pc, uptr p, uptr sz);
   uptr FreeBlock(ThreadState *thr, uptr pc, uptr p);
-  void FreeRange(ThreadState *thr, uptr pc, uptr p, uptr sz);
+  bool FreeRange(ThreadState *thr, uptr pc, uptr p, uptr sz);
+  void ResetRange(ThreadState *thr, uptr pc, uptr p, uptr sz);
   MBlock* GetBlock(uptr p);
 
   SyncVar* GetOrCreateAndLock(ThreadState *thr, uptr pc,

@@ -2,7 +2,7 @@ page.title=Downloading the Source
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ $ cd WORKING_DIRECTORY
 $ repo init -u https://android.googlesource.com/platform/manifest
 </pre>
     <p>
-      To check out a branch other than "master", specify it with -b:
+      To check out a branch other than "master", specify it with <code>-b</code>. For a list of branches, see <a href="build-numbers.html#source-code-tags-and-builds">Source Code Tags and Builds</a>.
     </p>
 <pre>
 $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.1_r1
@@ -151,9 +151,9 @@ $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0
   for each user, regardless of the IP address.
 </p>
 <p>
-  The first step is to create a password from <a href= 
-  "https://android.googlesource.com/new-password">the password generator</a> and to save it in
-  <code>~/.netrc</code> according to the instructions on that page.
+  The first step is to create a password with <a href=
+  "https://android.googlesource.com/new-password">the password generator</a>
+  and follow the instructions on the password generator page.
 </p>
 <p>
   The second step is to force authenticated access, by using the following manifest URI:
@@ -196,9 +196,8 @@ $ repo sync -j1
 </p>
 <p>
   These instructions assume that the mirror is created in <code>/usr/local/aosp/mirror</code>.
-  The first step is to create and sync the mirror itself, which uses close to 13GB of network
-  bandwidth and a similar amount of disk space. Notice the <code>--mirror</code> flag, which
-  can only be specified when creating a new client:
+  The first step is to create and sync the mirror itself. Notice the <code>--mirror</code> flag, which
+  can be specified only when creating a new client:
 </p>
 <pre>
 $ mkdir -p /usr/local/aosp/mirror

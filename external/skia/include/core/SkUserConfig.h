@@ -117,14 +117,6 @@
  */
 //#define SK_DEFAULT_IMAGE_CACHE_LIMIT (1024 * 1024)
 
-/*  If zlib is available and you want to support the flate compression
-    algorithm (used in PDF generation), define SK_ZLIB_INCLUDE to be the
-    include path. Alternatively, define SK_SYSTEM_ZLIB to use the system zlib
-    library specified as "#include <zlib.h>".
- */
-//#define SK_ZLIB_INCLUDE <zlib.h>
-//#define SK_SYSTEM_ZLIB
-
 /*  Define this to allow PDF scalars above 32k.  The PDF/A spec doesn't allow
     them, but modern PDF interpreters should handle them just fine.
  */
@@ -169,24 +161,14 @@
 //#define SK_SUPPORT_GPU 1
 
 
-/* The PDF generation code uses Path Ops to generate inverse fills and complex
- * clipping paths, but at this time, Path Ops is not release ready yet. So,
- * the code is hidden behind this #define guard. If you are feeling adventurous
- * and want the latest and greatest PDF generation code, uncomment the #define.
+/* The PDF generation code uses Path Ops to handle complex clipping paths,
+ * but at this time, Path Ops is not release ready yet. So, the code is
+ * hidden behind this #define guard. If you are feeling adventurous and
+ * want the latest and greatest PDF generation code, uncomment the #define.
  * When Path Ops is release ready, the define guards and this user config
  * define should be removed entirely.
  */
-//#define SK_PDF_USE_PATHOPS
-
-/* Skia uses these defines as the target of include preprocessor directives.
- * The header files pointed to by these defines provide declarations and
- * possibly inline implementations of threading primitives.
- *
- * See SkThread.h for documentation on what these includes must contain.
- */
-//#define SK_ATOMICS_PLATFORM_H "SkAtomics_xxx.h"
-//#define SK_MUTEX_PLATFORM_H "SkMutex_xxx.h"
-//#define SK_BARRIERS_PLATFORM_H "SkBarriers_xxx.h"
+//#define SK_PDF_USE_PATHOPS_CLIPPING
 
 #endif
 
@@ -205,40 +187,36 @@
     #undef  SK_CPU_BENDIAN
 #endif
 
-#define SK_INTERNAL
-#define SK_GAMMA_APPLY_TO_A8
-#define SK_SCALAR_TO_FLOAT_EXCLUDED
-#define SK_ALLOW_STATIC_GLOBAL_INITIALIZERS 0
-#define SK_SUPPORT_GPU 1
-#define SK_SUPPORT_OPENCL 0
-#define SK_FORCE_DISTANCEFIELD_FONTS 0
-#define SK_SCALAR_IS_FLOAT
 #define DCT_IFAST_SUPPORTED
-#define SK_USE_FREETYPE_EMBOLDEN
-#define SK_SFNTLY_SUBSETTER "sample/chromium/font_subsetter.h"
-#define SK_BUILD_FOR_ANDROID_FRAMEWORK
 #define GR_GL_CUSTOM_SETUP_HEADER "gl/GrGLConfig_chrome.h"
+#define GR_GL_USE_NEW_SHADER_SOURCE_SIGNATURE 1
 #define IGNORE_ROT_AA_RECT_OPT
-#define SK_DISABLE_PIXELREF_LOCKCOUNT_BALANCE_CHECK
-#define SkLONGLONG int64_t
-#define SK_DEFAULT_FONT_CACHE_LIMIT   (768 * 1024)
-#define SK_ATOMICS_PLATFORM_H "../../src/ports/SkAtomics_sync.h"
-#define SK_MUTEX_PLATFORM_H "../../src/ports/SkMutex_pthread.h"
-#define SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG
-#define SK_ATTR_DEPRECATED SK_NOTHING_ARG1
-#define SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX
-#define SK_DEFAULT_GLOBAL_DISCARDABLE_MEMORY_POOL_SIZE (512 * 1024)
-#define SK_IGNORE_ETC1_SUPPORT
-#define SK_SUPPORT_LEGACY_BITMAP_CONFIG
+#define SKIA_DLL
+#define SK_ALLOW_STATIC_GLOBAL_INITIALIZERS 0
 #define SK_BUILD_FOR_ANDROID
-#define SK_FONTHOST_DOES_NOT_USE_FONTMGR
-#define SK_GAMMA_EXPONENT 1.4
-#define SK_GAMMA_CONTRAST 0.0
-#define SK_USE_POSIX_THREADS
-#define SK_FONTHOST_FREETYPE_RUNTIME_VERSION 0x020400
+#define SK_BUILD_FOR_ANDROID_FRAMEWORK
 #define SK_CAN_USE_DLOPEN 0
-#define GR_COMPRESS_ALPHA_MASK 0
+#define SK_DEFAULT_FONT_CACHE_LIMIT   (768 * 1024)
+#define SK_DEFAULT_GLOBAL_DISCARDABLE_MEMORY_POOL_SIZE (512 * 1024)
+#define SK_EGL 1
+#define SK_FONTHOST_FREETYPE_RUNTIME_VERSION 0x020400
+#define SK_FORCE_DISTANCE_FIELD_TEXT 0
+#define SK_GAMMA_APPLY_TO_A8
+#define SK_GAMMA_CONTRAST 0.0
+#define SK_GAMMA_EXPONENT 1.4
+#define SK_IGNORE_ETC1_SUPPORT
+#define SK_IGNORE_LINEONLY_AA_CONVEX_PATH_OPTS
+#define SK_INTERNAL
+#define SK_PRINT_CODEC_MESSAGES
+#define SK_SCALAR_TO_FLOAT_EXCLUDED
+#define SK_SFNTLY_SUBSETTER "sample/chromium/font_subsetter.h"
+#define SK_SUPPORT_GPU 1
+#define SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG
+#define SK_SUPPORT_LEGACY_GETDEVICE
+#define SK_SUPPORT_LEGACY_PUBLIC_IMAGEINFO_FIELDS
+#define SK_SUPPORT_LEGACY_SCALAR_DIV
+#define SK_SUPPORT_OPENCL 0
 #define SK_SUPPORT_PDF
-#define SK_SUPPORT_LEGACY_SHADER_LOCALMATRIX
+#define SK_USE_FREETYPE_EMBOLDEN
 
 #endif // SkUserConfig_Android_DEFINED

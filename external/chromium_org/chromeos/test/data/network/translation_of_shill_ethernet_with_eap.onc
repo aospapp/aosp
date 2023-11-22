@@ -1,8 +1,0 @@
-{
-  "Ethernet":{
-    "Authentication":"8021X"
-  },
-  "GUID":"guid",
-  "Name":"",
-  "Type":"Ethernet"
-}

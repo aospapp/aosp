@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "org_apache_harmony_dalvik_ddmc_DdmVmInternal.h"
+
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "debugger.h"
@@ -41,7 +43,7 @@ static jboolean DdmVmInternal_getRecentAllocationStatus(JNIEnv*, jclass) {
 
 /*
  * Get a stack trace as an array of StackTraceElement objects.  Returns
- * NULL on failure, e.g. if the threadId couldn't be found.
+ * nullptr on failure, e.g. if the threadId couldn't be found.
  */
 static jobjectArray DdmVmInternal_getStackTraceById(JNIEnv* env, jclass, jint thin_lock_id) {
   jobjectArray trace = nullptr;
@@ -61,12 +63,7 @@ static jobjectArray DdmVmInternal_getStackTraceById(JNIEnv* env, jclass, jint th
     }
 
     // Suspend thread to build stack trace.
-    Thread* thread;
-    {
-      // Take suspend thread lock to avoid races with threads trying to suspend this one.
-      MutexLock mu(self, *Locks::thread_list_suspend_thread_lock_);
-      thread = thread_list->SuspendThreadByThreadId(thin_lock_id, false, &timed_out);
-    }
+    Thread* thread = thread_list->SuspendThreadByThreadId(thin_lock_id, false, &timed_out);
     if (thread != nullptr) {
       {
         ScopedObjectAccess soa(env);
@@ -148,7 +145,7 @@ static jbyteArray DdmVmInternal_getThreadStats(JNIEnv* env, jclass) {
   }
 
   jbyteArray result = env->NewByteArray(bytes.size());
-  if (result != NULL) {
+  if (result != nullptr) {
     env->SetByteArrayRegion(result, 0, bytes.size(), reinterpret_cast<const jbyte*>(&bytes[0]));
   }
   return result;

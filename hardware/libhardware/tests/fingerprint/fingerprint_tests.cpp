@@ -24,9 +24,34 @@ TEST_F(FingerprintDevice, isThereEnroll) {
         << "enroll() function is not implemented";
 }
 
+TEST_F(FingerprintDevice, isTherePreEnroll) {
+    ASSERT_TRUE(NULL != fp_device()->pre_enroll)
+        << "pre_enroll() function is not implemented";
+}
+
+TEST_F(FingerprintDevice, isThereGetAuthenticatorId) {
+    ASSERT_TRUE(NULL != fp_device()->get_authenticator_id)
+        << "get_authenticator_id() function is not implemented";
+}
+
+TEST_F(FingerprintDevice, isThereCancel) {
+    ASSERT_TRUE(NULL != fp_device()->cancel)
+        << "cancel() function is not implemented";
+}
+
 TEST_F(FingerprintDevice, isThereRemove) {
     ASSERT_TRUE(NULL != fp_device()->remove)
         << "remove() function is not implemented";
+}
+
+TEST_F(FingerprintDevice, isThereAuthenticate) {
+    ASSERT_TRUE(NULL != fp_device()->authenticate)
+        << "authenticate() function is not implemented";
+}
+
+TEST_F(FingerprintDevice, isThereSetActiveGroup) {
+    ASSERT_TRUE(NULL != fp_device()->set_active_group)
+        << "set_active_group() function is not implemented";
 }
 
 TEST_F(FingerprintDevice, isThereSetNotify) {

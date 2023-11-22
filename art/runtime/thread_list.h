@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_THREAD_LIST_H_
 #define ART_RUNTIME_THREAD_LIST_H_
 
+#include "base/histogram.h"
 #include "base/mutex.h"
 #include "gc_root.h"
 #include "jni.h"
@@ -26,6 +27,11 @@
 #include <list>
 
 namespace art {
+namespace gc {
+  namespace collector {
+    class GarbageCollector;
+  }  // namespac collector
+}  // namespace gc
 class Closure;
 class Thread;
 class TimingLogger;
@@ -40,11 +46,10 @@ class ThreadList {
   ~ThreadList();
 
   void DumpForSigQuit(std::ostream& os)
-      LOCKS_EXCLUDED(Locks::thread_list_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
-  void DumpLocked(std::ostream& os)  // For thread suspend timeout dumps.
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::thread_list_lock_)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+      LOCKS_EXCLUDED(Locks::thread_list_lock_, Locks::mutator_lock_);
+  // For thread suspend timeout dumps.
+  void Dump(std::ostream& os)
+      LOCKS_EXCLUDED(Locks::thread_list_lock_, Locks::thread_suspend_count_lock_);
   pid_t GetLockOwner();  // For SignalCatcher.
 
   // Thread suspension support.
@@ -56,30 +61,30 @@ class ThreadList {
       LOCKS_EXCLUDED(Locks::thread_suspend_count_lock_);
 
   // Suspends all threads and gets exclusive access to the mutator_lock_.
-  void SuspendAll()
+  // If long suspend is true, then other people who try to suspend will never timeout. Long suspend
+  // is currenly used for hprof since large heaps take a long time.
+  void SuspendAll(const char* cause, bool long_suspend = false)
       EXCLUSIVE_LOCK_FUNCTION(Locks::mutator_lock_)
       LOCKS_EXCLUDED(Locks::thread_list_lock_,
                      Locks::thread_suspend_count_lock_);
 
 
   // Suspend a thread using a peer, typically used by the debugger. Returns the thread on success,
-  // else NULL. The peer is used to identify the thread to avoid races with the thread terminating.
+  // else null. The peer is used to identify the thread to avoid races with the thread terminating.
   // If the thread should be suspended then value of request_suspension should be true otherwise
   // the routine will wait for a previous suspend request. If the suspension times out then *timeout
   // is set to true.
   Thread* SuspendThreadByPeer(jobject peer, bool request_suspension, bool debug_suspension,
                               bool* timed_out)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::thread_list_suspend_thread_lock_)
       LOCKS_EXCLUDED(Locks::mutator_lock_,
                      Locks::thread_list_lock_,
                      Locks::thread_suspend_count_lock_);
 
   // Suspend a thread using its thread id, typically used by lock/monitor inflation. Returns the
-  // thread on success else NULL. The thread id is used to identify the thread to avoid races with
+  // thread on success else null. The thread id is used to identify the thread to avoid races with
   // the thread terminating. Note that as thread ids are recycled this may not suspend the expected
   // thread, that may be terminating. If the suspension times out then *timeout is set to true.
   Thread* SuspendThreadByThreadId(uint32_t thread_id, bool debug_suspension, bool* timed_out)
-      EXCLUSIVE_LOCKS_REQUIRED(Locks::thread_list_suspend_thread_lock_)
       LOCKS_EXCLUDED(Locks::mutator_lock_,
                      Locks::thread_list_lock_,
                      Locks::thread_suspend_count_lock_);
@@ -94,7 +99,16 @@ class ThreadList {
                      Locks::thread_suspend_count_lock_);
 
   size_t RunCheckpointOnRunnableThreads(Closure* checkpoint_function)
-      LOCKS_EXCLUDED(Locks::thread_list_lock_, Locks::thread_suspend_count_lock_);
+  LOCKS_EXCLUDED(Locks::thread_list_lock_,
+                 Locks::thread_suspend_count_lock_);
+
+  // Flip thread roots from from-space refs to to-space refs. Used by
+  // the concurrent copying collector.
+  size_t FlipThreadRoots(Closure* thread_flip_visitor, Closure* flip_callback,
+                         gc::collector::GarbageCollector* collector)
+      LOCKS_EXCLUDED(Locks::mutator_lock_,
+                     Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
 
   // Suspends all threads
   void SuspendAllForDebugger()
@@ -124,7 +138,7 @@ class ThreadList {
       LOCKS_EXCLUDED(Locks::mutator_lock_, Locks::thread_list_lock_);
   void Unregister(Thread* self) LOCKS_EXCLUDED(Locks::mutator_lock_, Locks::thread_list_lock_);
 
-  void VisitRoots(RootCallback* callback, void* arg) const
+  void VisitRoots(RootVisitor* visitor) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   // Return a copy of the thread list.
@@ -152,7 +166,7 @@ class ThreadList {
       LOCKS_EXCLUDED(Locks::thread_list_lock_,
                      Locks::thread_suspend_count_lock_);
 
-  void AssertThreadsAreSuspended(Thread* self, Thread* ignore1, Thread* ignore2 = NULL)
+  void AssertThreadsAreSuspended(Thread* self, Thread* ignore1, Thread* ignore2 = nullptr)
       LOCKS_EXCLUDED(Locks::thread_list_lock_,
                      Locks::thread_suspend_count_lock_);
 
@@ -165,8 +179,15 @@ class ThreadList {
   int suspend_all_count_ GUARDED_BY(Locks::thread_suspend_count_lock_);
   int debug_suspend_all_count_ GUARDED_BY(Locks::thread_suspend_count_lock_);
 
-  // Signaled when threads terminate. Used to determine when all non-daemons have terminated.
-  ConditionVariable thread_exit_cond_ GUARDED_BY(Locks::thread_list_lock_);
+  // Number of threads unregistering, ~ThreadList blocks until this hits 0.
+  int unregistering_count_ GUARDED_BY(Locks::thread_list_lock_);
+
+  // Thread suspend time histogram. Only modified when all the threads are suspended, so guarding
+  // by mutator lock ensures no thread can read when another thread is modifying it.
+  Histogram<uint64_t> suspend_all_historam_ GUARDED_BY(Locks::mutator_lock_);
+
+  // Whether or not the current thread suspension is long.
+  bool long_suspend_;
 
   friend class Thread;
 

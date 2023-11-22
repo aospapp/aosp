@@ -39,7 +39,7 @@ struct DrvProgramStore {
 
 bool rsdProgramStoreInit(const Context *rsc, const ProgramStore *ps) {
     DrvProgramStore *drv = (DrvProgramStore *)calloc(1, sizeof(DrvProgramStore));
-    if (drv == NULL) {
+    if (drv == nullptr) {
         return false;
     }
 
@@ -149,7 +149,7 @@ bool rsdProgramStoreInit(const Context *rsc, const ProgramStore *ps) {
 
 error:
     free(drv);
-    ps->mHal.drv = NULL;
+    ps->mHal.drv = nullptr;
     return false;
 }
 
@@ -198,7 +198,7 @@ void rsdProgramStoreSetActive(const Context *rsc, const ProgramStore *ps) {
 
 void rsdProgramStoreDestroy(const Context *rsc, const ProgramStore *ps) {
     free(ps->mHal.drv);
-    ps->mHal.drv = NULL;
+    ps->mHal.drv = nullptr;
 }
 
 

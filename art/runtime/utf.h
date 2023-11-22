@@ -59,10 +59,11 @@ ALWAYS_INLINE int CompareModifiedUtf8ToModifiedUtf8AsUtf16CodePointValues(const 
                                                                           const char* utf8_2);
 
 /*
- * Compare a modified UTF-8 string with a UTF-16 string as code point values in a non-locale
- * sensitive manner.
+ * Compare a null-terminated modified UTF-8 string with a UTF-16 string (not null-terminated)
+ * as code point values in a non-locale sensitive manner.
  */
-int CompareModifiedUtf8ToUtf16AsCodePointValues(const char* utf8_1, const uint16_t* utf8_2);
+int CompareModifiedUtf8ToUtf16AsCodePointValues(const char* utf8, const uint16_t* utf16,
+                                                size_t utf16_length);
 
 /*
  * Convert from UTF-16 to Modified UTF-8. Note that the output is _not_
@@ -84,12 +85,16 @@ int32_t ComputeUtf16Hash(const uint16_t* chars, size_t char_count);
 size_t ComputeModifiedUtf8Hash(const char* chars);
 
 /*
- * Retrieve the next UTF-16 character from a UTF-8 string.
+ * Retrieve the next UTF-16 character or surrogate pair from a UTF-8 string.
+ * single byte, 2-byte and 3-byte UTF-8 sequences result in a single UTF-16
+ * character (possibly one half of a surrogate) whereas 4-byte UTF-8 sequences
+ * result in a surrogate pair. Use GetLeadingUtf16Char and GetTrailingUtf16Char
+ * to process the return value of this function.
  *
  * Advances "*utf8_data_in" to the start of the next character.
  *
  * WARNING: If a string is corrupted by dropping a '\0' in the middle
- * of a 3-byte sequence, you can end up overrunning the buffer with
+ * of a multi byte sequence, you can end up overrunning the buffer with
  * reads (and possibly with the writes if the length was computed and
  * cached before the damage). For performance reasons, this function
  * assumes that the string being parsed is known to be valid (e.g., by
@@ -97,7 +102,19 @@ size_t ComputeModifiedUtf8Hash(const char* chars);
  * out of dex files or other internal translations, so the only real
  * risk comes from the JNI NewStringUTF call.
  */
-uint16_t GetUtf16FromUtf8(const char** utf8_data_in);
+uint32_t GetUtf16FromUtf8(const char** utf8_data_in);
+
+/**
+ * Gets the leading UTF-16 character from a surrogate pair, or the sole
+ * UTF-16 character from the return value of GetUtf16FromUtf8.
+ */
+ALWAYS_INLINE uint16_t GetLeadingUtf16Char(uint32_t maybe_pair);
+
+/**
+ * Gets the trailing UTF-16 character from a surrogate pair, or 0 otherwise
+ * from the return value of GetUtf16FromUtf8.
+ */
+ALWAYS_INLINE uint16_t GetTrailingUtf16Char(uint32_t maybe_pair);
 
 }  // namespace art
 

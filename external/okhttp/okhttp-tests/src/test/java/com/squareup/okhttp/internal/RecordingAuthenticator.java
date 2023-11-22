@@ -24,7 +24,7 @@ public final class RecordingAuthenticator extends Authenticator {
   /** base64("username:password") */
   public static final String BASE_64_CREDENTIALS = "dXNlcm5hbWU6cGFzc3dvcmQ=";
 
-  public final List<String> calls = new ArrayList<String>();
+  public final List<String> calls = new ArrayList<>();
   public final PasswordAuthentication authentication;
 
   public RecordingAuthenticator(PasswordAuthentication authentication) {
@@ -36,23 +36,14 @@ public final class RecordingAuthenticator extends Authenticator {
   }
 
   @Override protected PasswordAuthentication getPasswordAuthentication() {
-    this.calls
-        .add("host="
-            + getRequestingHost()
-            + " port="
-            + getRequestingPort()
-            + " site="
-            + getRequestingSite()
-            + " url="
-            + getRequestingURL()
-            + " type="
-            + getRequestorType()
-            + " prompt="
-            + getRequestingPrompt()
-            + " protocol="
-            + getRequestingProtocol()
-            + " scheme="
-            + getRequestingScheme());
+    this.calls.add("host=" + getRequestingHost()
+        + " port=" + getRequestingPort()
+        + " site=" + getRequestingSite().getHostName()
+        + " url=" + getRequestingURL()
+        + " type=" + getRequestorType()
+        + " prompt=" + getRequestingPrompt()
+        + " protocol=" + getRequestingProtocol()
+        + " scheme=" + getRequestingScheme());
     return authentication;
   }
 }

@@ -62,8 +62,7 @@ SkScalar SkInterpolatorBase::ComputeRelativeT(SkMSec time, SkMSec prevTime,
                                   SkMSec nextTime, const SkScalar blend[4]) {
     SkASSERT(time > prevTime && time < nextTime);
 
-    SkScalar t = SkScalarDiv((SkScalar)(time - prevTime),
-                             (SkScalar)(nextTime - prevTime));
+    SkScalar t = (SkScalar)(time - prevTime) / (SkScalar)(nextTime - prevTime);
     return blend ?
             SkUnitCubicInterp(t, blend[0], blend[1], blend[2], blend[3]) : t;
 }
@@ -269,59 +268,3 @@ SkScalar SkUnitCubicInterp(SkScalar value, SkScalar bx, SkScalar by,
     C = 3*(b - c) + Dot14_ONE;
     return SkFixedToScalar(eval_cubic(t, A, B, C) << 2);
 }
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-#ifdef SK_DEBUG
-
-#ifdef SK_SUPPORT_UNITTEST
-    static SkScalar* iset(SkScalar array[3], int a, int b, int c) {
-        array[0] = SkIntToScalar(a);
-        array[1] = SkIntToScalar(b);
-        array[2] = SkIntToScalar(c);
-        return array;
-    }
-#endif
-
-void SkInterpolator::UnitTest() {
-#ifdef SK_SUPPORT_UNITTEST
-    SkInterpolator  inter(3, 2);
-    SkScalar        v1[3], v2[3], v[3], vv[3];
-    Result          result;
-
-    inter.setKeyFrame(0, 100, iset(v1, 10, 20, 30), 0);
-    inter.setKeyFrame(1, 200, iset(v2, 110, 220, 330));
-
-    result = inter.timeToValues(0, v);
-    SkASSERT(result == kFreezeStart_Result);
-    SkASSERT(memcmp(v, v1, sizeof(v)) == 0);
-
-    result = inter.timeToValues(99, v);
-    SkASSERT(result == kFreezeStart_Result);
-    SkASSERT(memcmp(v, v1, sizeof(v)) == 0);
-
-    result = inter.timeToValues(100, v);
-    SkASSERT(result == kNormal_Result);
-    SkASSERT(memcmp(v, v1, sizeof(v)) == 0);
-
-    result = inter.timeToValues(200, v);
-    SkASSERT(result == kNormal_Result);
-    SkASSERT(memcmp(v, v2, sizeof(v)) == 0);
-
-    result = inter.timeToValues(201, v);
-    SkASSERT(result == kFreezeEnd_Result);
-    SkASSERT(memcmp(v, v2, sizeof(v)) == 0);
-
-    result = inter.timeToValues(150, v);
-    SkASSERT(result == kNormal_Result);
-    SkASSERT(memcmp(v, iset(vv, 60, 120, 180), sizeof(v)) == 0);
-
-    result = inter.timeToValues(125, v);
-    SkASSERT(result == kNormal_Result);
-    result = inter.timeToValues(175, v);
-    SkASSERT(result == kNormal_Result);
-#endif
-}
-
-#endif

@@ -39,8 +39,6 @@ import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.ArtField;
-import java.lang.reflect.ArtMethod;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.GenericDeclaration;
@@ -55,6 +53,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import libcore.reflect.AnnotationAccess;
 import libcore.reflect.GenericSignatureParser;
@@ -124,35 +123,22 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
 
     private static final long serialVersionUID = 3206093459760846163L;
 
-    /** defining class loader, or NULL for the "bootstrap" system loader. */
+    /** defining class loader, or null for the "bootstrap" system loader. */
     private transient ClassLoader classLoader;
 
     /**
      * For array classes, the component class object for instanceof/checkcast (for String[][][],
-     * this will be String[][]). NULL for non-array classes.
+     * this will be String[][]). null for non-array classes.
      */
     private transient Class<?> componentType;
     /**
-     * DexCache of resolved constant pool entries. Will be null for certain VM-generated classes
+     * DexCache of resolved constant pool entries. Will be null for certain runtime-generated classes
      * e.g. arrays and primitive classes.
      */
     private transient DexCache dexCache;
 
     /** Short-cut to dexCache.strings */
     private transient String[] dexCacheStrings;
-
-    /** static, private, and &lt;init&gt; methods. */
-    private transient ArtMethod[] directMethods;
-
-    /**
-     * Instance fields. These describe the layout of the contents of an Object. Note that only the
-     * fields directly declared by this class are listed in iFields; fields declared by a
-     * superclass are listed in the superclass's Class.iFields.
-     *
-     * All instance fields that refer to objects are guaranteed to be at the beginning of the field
-     * list.  {@link Class#numReferenceInstanceFields} specifies the number of reference fields.
-     */
-    private transient ArtField[] iFields;
 
     /**
      * The interface table (iftable_) contains pairs of a interface class and an array of the
@@ -173,17 +159,11 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     /** Lazily computed name of this class; always prefer calling getName(). */
     private transient String name;
 
-    /** Static fields */
-    private transient ArtField[] sFields;
-
-    /** The superclass, or NULL if this is java.lang.Object, an interface or primitive type. */
+    /** The superclass, or null if this is java.lang.Object, an interface or primitive type. */
     private transient Class<? super T> superClass;
 
     /** If class verify fails, we must return same error on subsequent tries. */
     private transient Class<?> verifyErrorClass;
-
-    /** Virtual methods defined in this class; invoked through vtable. */
-    private transient ArtMethod[] virtualMethods;
 
     /**
      * Virtual method table (vtable), for use by "invoke-virtual". The vtable from the superclass
@@ -191,10 +171,29 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * appended. For abstract classes, methods may be created in the vtable that aren't in
      * virtual_ methods_ for miranda methods.
      */
-    private transient ArtMethod[] vtable;
+    private transient Object vtable;
 
     /** access flags; low 16 bits are defined by VM spec */
     private transient int accessFlags;
+
+    /** static, private, and &lt;init&gt; methods. */
+    private transient long directMethods;
+
+    /**
+     * Instance fields. These describe the layout of the contents of an Object. Note that only the
+     * fields directly declared by this class are listed in iFields; fields declared by a
+     * superclass are listed in the superclass's Class.iFields.
+     *
+     * All instance fields that refer to objects are guaranteed to be at the beginning of the field
+     * list.  {@link Class#numReferenceInstanceFields} specifies the number of reference fields.
+     */
+    private transient long iFields;
+
+    /** Static fields */
+    private transient long sFields;
+
+    /** Virtual methods defined in this class; invoked through vtable. */
+    private transient long virtualMethods;
 
     /**
      * Total size of the Class instance; used when allocating storage on GC heap.
@@ -221,11 +220,23 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      */
     private transient volatile int dexTypeIndex;
 
+    /** Number of direct methods. */
+    private transient int numDirectMethods;
+
+    /** Number of instance fields. */
+    private transient int numInstanceFields;
+
     /** Number of instance fields that are object references. */
     private transient int numReferenceInstanceFields;
 
     /** Number of static fields that are object references. */
     private transient int numReferenceStaticFields;
+
+    /** Number of static fields. */
+    private transient int numStaticFields;
+
+    /** Number of virtual methods. */
+    private transient int numVirtualMethods;
 
     /**
      * Total object size; used when allocating storage on GC heap. For interfaces and abstract
@@ -233,20 +244,21 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      */
     private transient int objectSize;
 
-    /** Primitive type value, or 0 if not a primitive type; set for generated primitive classes. */
+    /**
+     * The lower 16 bits is the primitive type value, or 0 if not a primitive type; set for
+     * generated primitive classes.
+     */
     private transient int primitiveType;
 
     /** Bitmap of offsets of iFields. */
     private transient int referenceInstanceOffsets;
 
-    /** Bitmap of offsets of sFields. */
-    private transient int referenceStaticOffsets;
-
     /** State of class initialization */
     private transient int status;
 
     private Class() {
-        // Prevent this class to be instantiated, instance should be created by JVM only
+        // Prevent this class from being instantiated,
+        // instances should be created by the runtime only.
     }
 
     /**
@@ -284,6 +296,9 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * If the class has not yet been initialized and {@code shouldInitialize} is true,
      * the class will be initialized.
      *
+     * <p>If the provided {@code classLoader} is {@code null}, the bootstrap
+     * class loader will be used to load the class.
+     *
      * @throws ClassNotFoundException
      *             if the requested class cannot be found.
      * @throws LinkageError
@@ -296,7 +311,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
             ClassLoader classLoader) throws ClassNotFoundException {
 
         if (classLoader == null) {
-            classLoader = ClassLoader.getSystemClassLoader();
+            classLoader = BootClassLoader.getInstance();
         }
         // Catch an Exception thrown by the underlying native code. It wraps
         // up everything inside a ClassNotFoundException, even if e.g. an
@@ -407,24 +422,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
             return null;
         }
 
-        ClassLoader loader = getClassLoaderImpl();
-        if (loader == null) {
-            loader = BootClassLoader.getInstance();
-        }
-        return loader;
-    }
-
-    /**
-     * This must be provided by the VM vendor, as it is used by other provided
-     * class implementations in this package. Outside of this class, it is used
-     * by SecurityManager.classLoaderDepth(),
-     * currentClassLoader() and currentLoadedClass(). Return the ClassLoader for
-     * this Class without doing any security checks. The bootstrap ClassLoader
-     * is returned, unlike getClassLoader() which returns null in place of the
-     * bootstrap ClassLoader.
-     */
-    ClassLoader getClassLoaderImpl() {
-        ClassLoader loader = classLoader;
+        final ClassLoader loader = classLoader;
         return loader == null ? BootClassLoader.getInstance() : loader;
     }
 
@@ -456,10 +454,10 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @hide
      */
     public String getDexCacheString(Dex dex, int dexStringIndex) {
-        String s = dexCacheStrings[dexStringIndex];
+        String s = dexCache.getResolvedString(dexStringIndex);
         if (s == null) {
             s = dex.strings().get(dexStringIndex).intern();
-            dexCacheStrings[dexStringIndex] = s;
+            dexCache.setResolvedString(dexStringIndex, s);
         }
         return s;
     }
@@ -471,13 +469,12 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @hide
      */
     public Class<?> getDexCacheType(Dex dex, int dexTypeIndex) {
-        Class<?>[] dexCacheResolvedTypes = dexCache.resolvedTypes;
-        Class<?> resolvedType = dexCacheResolvedTypes[dexTypeIndex];
+        Class<?> resolvedType = dexCache.getResolvedType(dexTypeIndex);
         if (resolvedType == null) {
             int descriptorIndex = dex.typeIds().get(dexTypeIndex);
             String descriptor = getDexCacheString(dex, descriptorIndex);
             resolvedType = InternalNames.getClass(getClassLoader(), descriptor);
-            dexCacheResolvedTypes[dexTypeIndex] = resolvedType;
+            dexCache.setResolvedType(dexTypeIndex, resolvedType);
         }
         return resolvedType;
     }
@@ -534,30 +531,12 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns the constructor with the given parameters if it is defined by this class; null
-     * otherwise. This may return a non-public member.
+     * Returns the constructor with the given parameters if it is defined by this class;
+     * {@code null} otherwise. This may return a non-public member.
      *
      * @param args the types of the parameters to the constructor.
      */
-    private Constructor<T> getDeclaredConstructorInternal(Class<?>[] args) {
-        if (directMethods != null) {
-            for (ArtMethod m : directMethods) {
-                int modifiers = m.getAccessFlags();
-                if (Modifier.isStatic(modifiers)) {
-                    // skip <clinit> which is a static constructor
-                    continue;
-                }
-                if (!Modifier.isConstructor(modifiers)) {
-                    continue;
-                }
-                if (!ArtMethod.equalConstructorParameters(m, args)) {
-                    continue;
-                }
-                return new Constructor<T>(m);
-            }
-        }
-        return null;
-    }
+    private native Constructor<T> getDeclaredConstructorInternal(Class<?>[] args);
 
     /**
      * Returns an array containing {@code Constructor} objects for all public
@@ -568,9 +547,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @see #getDeclaredConstructors()
      */
     public Constructor<?>[] getConstructors() {
-        ArrayList<Constructor<T>> constructors = new ArrayList();
-        getDeclaredConstructors(true, constructors);
-        return constructors.toArray(new Constructor[constructors.size()]);
+        return getDeclaredConstructorsInternal(true);
     }
 
     /**
@@ -582,27 +559,10 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @see #getConstructors()
      */
     public Constructor<?>[] getDeclaredConstructors() {
-        ArrayList<Constructor<T>> constructors = new ArrayList();
-        getDeclaredConstructors(false, constructors);
-        return constructors.toArray(new Constructor[constructors.size()]);
+        return getDeclaredConstructorsInternal(false);
     }
 
-    private void getDeclaredConstructors(boolean publicOnly, List<Constructor<T>> constructors) {
-        if (directMethods != null) {
-            for (ArtMethod m : directMethods) {
-                int modifiers = m.getAccessFlags();
-                if (!publicOnly || Modifier.isPublic(modifiers)) {
-                    if (Modifier.isStatic(modifiers)) {
-                        // skip <clinit> which is a static constructor
-                        continue;
-                    }
-                    if (Modifier.isConstructor(modifiers)) {
-                        constructors.add(new Constructor<T>(m));
-                    }
-                }
-            }
-        }
-    }
+    private native Constructor<?>[] getDeclaredConstructorsInternal(boolean publicOnly);
 
     /**
      * Returns a {@code Method} object which represents the method matching the
@@ -689,68 +649,13 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns the method if it is defined by this class; null otherwise. This may return a
+     * Returns the method if it is defined by this class; {@code null} otherwise. This may return a
      * non-public member.
      *
      * @param name the method name
      * @param args the method's parameter types
      */
-    private Method getDeclaredMethodInternal(String name, Class<?>[] args) {
-        // Covariant return types permit the class to define multiple
-        // methods with the same name and parameter types. Prefer to
-        // return a non-synthetic method in such situations. We may
-        // still return a synthetic method to handle situations like
-        // escalated visibility. We never return miranda methods that
-        // were synthesized by the VM.
-        int skipModifiers = Modifier.MIRANDA | Modifier.SYNTHETIC;
-        ArtMethod artMethodResult = null;
-        if (virtualMethods != null) {
-            for (ArtMethod m : virtualMethods) {
-                String methodName = ArtMethod.getMethodName(m);
-                if (!name.equals(methodName)) {
-                    continue;
-                }
-                if (!ArtMethod.equalMethodParameters(m, args)) {
-                    continue;
-                }
-                int modifiers = m.getAccessFlags();
-                if ((modifiers & skipModifiers) == 0) {
-                    return new Method(m);
-                }
-                if ((modifiers & Modifier.MIRANDA) == 0) {
-                    // Remember as potential result if it's not a miranda method.
-                    artMethodResult = m;
-                }
-            }
-        }
-        if (artMethodResult == null) {
-            if (directMethods != null) {
-                for (ArtMethod m : directMethods) {
-                    int modifiers = m.getAccessFlags();
-                    if (Modifier.isConstructor(modifiers)) {
-                        continue;
-                    }
-                    String methodName = ArtMethod.getMethodName(m);
-                    if (!name.equals(methodName)) {
-                        continue;
-                    }
-                    if (!ArtMethod.equalMethodParameters(m, args)) {
-                        continue;
-                    }
-                    if ((modifiers & skipModifiers) == 0) {
-                        return new Method(m);
-                    }
-                    // Direct methods cannot be miranda methods,
-                    // so this potential result must be synthetic.
-                    artMethodResult = m;
-                }
-            }
-        }
-        if (artMethodResult == null) {
-            return null;
-        }
-        return new Method(artMethodResult);
-    }
+    private native Method getDeclaredMethodInternal(String name, Class<?>[] args);
 
     /**
      * Returns an array containing {@code Method} objects for all methods
@@ -761,11 +666,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @see #getMethods()
      */
     public Method[] getDeclaredMethods() {
-        int initial_size = virtualMethods == null ? 0 : virtualMethods.length;
-        initial_size += directMethods == null ? 0 : directMethods.length;
-        ArrayList<Method> methods = new ArrayList<Method>(initial_size);
-        getDeclaredMethodsUnchecked(false, methods);
-        Method[] result = methods.toArray(new Method[methods.size()]);
+        Method[] result = getDeclaredMethodsUnchecked(false);
         for (Method m : result) {
             // Throw NoClassDefFoundError if types cannot be resolved.
             m.getReturnType();
@@ -783,30 +684,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @param methods A list to populate with declared methods.
      * @hide
      */
-    public void getDeclaredMethodsUnchecked(boolean publicOnly, List<Method> methods) {
-        if (virtualMethods != null) {
-            for (ArtMethod m : virtualMethods) {
-                int modifiers = m.getAccessFlags();
-                if (!publicOnly || Modifier.isPublic(modifiers)) {
-                    // Add non-miranda virtual methods.
-                    if ((modifiers & Modifier.MIRANDA) == 0) {
-                        methods.add(new Method(m));
-                    }
-                }
-            }
-        }
-        if (directMethods != null) {
-            for (ArtMethod m : directMethods) {
-                int modifiers = m.getAccessFlags();
-                if (!publicOnly || Modifier.isPublic(modifiers)) {
-                    // Add non-constructor direct/static methods.
-                    if (!Modifier.isConstructor(modifiers)) {
-                        methods.add(new Method(m));
-                    }
-                }
-            }
-        }
-    }
+    public native Method[] getDeclaredMethodsUnchecked(boolean publicOnly);
 
     /**
      * Returns an array containing {@code Method} objects for all public methods
@@ -836,11 +714,11 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * superclasses, and all implemented interfaces, including overridden methods.
      */
     private void getPublicMethodsInternal(List<Method> result) {
-        getDeclaredMethodsUnchecked(true, result);
+        Collections.addAll(result, getDeclaredMethodsUnchecked(true));
         if (!isInterface()) {
             // Search superclasses, for interfaces don't search java.lang.Object.
             for (Class<?> c = superClass; c != null; c = c.superClass) {
-                c.getDeclaredMethodsUnchecked(true, result);
+                Collections.addAll(result, c.getDeclaredMethodsUnchecked(true));
             }
         }
         // Search iftable which has a flattened and uniqued list of interfaces.
@@ -848,7 +726,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
         if (iftable != null) {
             for (int i = 0; i < iftable.length; i += 2) {
                 Class<?> ifc = (Class<?>) iftable[i];
-                ifc.getDeclaredMethodsUnchecked(true, result);
+                Collections.addAll(result, ifc.getDeclaredMethodsUnchecked(true));
             }
         }
     }
@@ -881,18 +759,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @throws NoSuchFieldException if the requested field can not be found.
      * @see #getField(String)
      */
-    public Field getDeclaredField(String name) throws NoSuchFieldException {
-        if (name == null) {
-            throw new NullPointerException("name == null");
-        }
-        Field result = getDeclaredFieldInternal(name);
-        if (result == null) {
-            throw new NoSuchFieldException(name);
-        } else {
-            result.getType();  // Throw NoClassDefFoundError if type cannot be resolved.
-        }
-        return result;
-    }
+    public native Field getDeclaredField(String name) throws NoSuchFieldException;
 
     /**
      * Returns an array containing {@code Field} objects for all fields declared
@@ -902,17 +769,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      *
      * @see #getFields()
      */
-    public Field[] getDeclaredFields() {
-        int initial_size = sFields == null ? 0 : sFields.length;
-        initial_size += iFields == null ? 0 : iFields.length;
-        ArrayList<Field> fields = new ArrayList(initial_size);
-        getDeclaredFieldsUnchecked(false, fields);
-        Field[] result = fields.toArray(new Field[fields.size()]);
-        for (Field f : result) {
-            f.getType();  // Throw NoClassDefFoundError if type cannot be resolved.
-        }
-        return result;
-    }
+    public native Field[] getDeclaredFields();
 
     /**
      * Populates a list of fields without performing any security or type
@@ -922,66 +779,18 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @param fields A list to populate with declared fields.
      * @hide
      */
-    public void getDeclaredFieldsUnchecked(boolean publicOnly, List<Field> fields) {
-        if (iFields != null) {
-            for (ArtField f : iFields) {
-                if (!publicOnly || Modifier.isPublic(f.getAccessFlags())) {
-                    fields.add(new Field(f));
-                }
-            }
-        }
-        if (sFields != null) {
-            for (ArtField f : sFields) {
-                if (!publicOnly || Modifier.isPublic(f.getAccessFlags())) {
-                    fields.add(new Field(f));
-                }
-            }
-        }
-    }
+    public native Field[] getDeclaredFieldsUnchecked(boolean publicOnly);
 
     /**
-     * Returns the field if it is defined by this class; null otherwise. This
+     * Returns the field if it is defined by this class; {@code null} otherwise. This
      * may return a non-public member.
      */
-    private Field getDeclaredFieldInternal(String name) {
-
-        if (iFields != null) {
-            final ArtField matched = findByName(name, iFields);
-            if (matched != null) {
-                return new Field(matched);
-            }
-        }
-        if (sFields != null) {
-            final ArtField matched = findByName(name, sFields);
-            if (matched != null) {
-                return new Field(matched);
-            }
-        }
-
-        return null;
-    }
+    private native Field getDeclaredFieldInternal(String name);
 
     /**
-     * Performs a binary search through {@code fields} for a field whose name
-     * is {@code name}. Returns {@code null} if no matching field exists.
+     * Returns the subset of getDeclaredFields which are public.
      */
-    private static ArtField findByName(String name, ArtField[] fields) {
-        int low = 0, high = fields.length - 1;
-        while (low <= high) {
-            final int mid = (low + high) >>> 1;
-            final ArtField f = fields[mid];
-            final int result = f.getName().compareTo(name);
-            if (result < 0) {
-                low = mid + 1;
-            } else if (result == 0) {
-                return f;
-            } else {
-                high = mid - 1;
-            }
-        }
-
-        return null;
-    }
+    private native Field[] getPublicDeclaredFields();
 
     /**
      * Returns the class that this class is a member of, or {@code null} if this
@@ -1080,8 +889,6 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
         Field result = getPublicFieldRecursive(name);
         if (result == null) {
             throw new NoSuchFieldException(name);
-        } else {
-            result.getType();  // Throw NoClassDefFoundError if type cannot be resolved.
         }
         return result;
     }
@@ -1098,8 +905,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
         // search iftable which has a flattened and uniqued list of interfaces
         if (ifTable != null) {
             for (int i = 0; i < ifTable.length; i += 2) {
-                Class<?> ifc = (Class<?>) ifTable[i];
-                Field result = ifc.getPublicFieldRecursive(name);
+                Field result = ((Class<?>) ifTable[i]).getPublicFieldRecursive(name);
                 if (result != null && (result.getModifiers() & Modifier.PUBLIC) != 0) {
                     return result;
                 }
@@ -1123,11 +929,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     public Field[] getFields() {
         List<Field> fields = new ArrayList<Field>();
         getPublicFieldsRecursive(fields);
-        Field[] result = fields.toArray(new Field[fields.size()]);
-        for (Field f : result) {
-            f.getType();  // Throw NoClassDefFoundError if type cannot be resolved.
-        }
-        return result;
+        return fields.toArray(new Field[fields.size()]);
     }
 
     /**
@@ -1137,15 +939,14 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     private void getPublicFieldsRecursive(List<Field> result) {
         // search superclasses
         for (Class<?> c = this; c != null; c = c.superClass) {
-            c.getDeclaredFieldsUnchecked(true, result);
+            Collections.addAll(result, c.getPublicDeclaredFields());
         }
 
         // search iftable which has a flattened and uniqued list of interfaces
         Object[] iftable = ifTable;
         if (iftable != null) {
             for (int i = 0; i < iftable.length; i += 2) {
-                Class<?> ifc = (Class<?>) iftable[i];
-                ifc.getDeclaredFieldsUnchecked(true, result);
+                Collections.addAll(result, ((Class<?>) iftable[i]).getPublicDeclaredFields());
             }
         }
     }
@@ -1295,21 +1096,21 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns the simple name of a member or local class, or null otherwise.
+     * Returns the simple name of a member or local class, or {@code null} otherwise.
      */
     private String getInnerClassName() {
         return AnnotationAccess.getInnerClassName(this);
     }
 
     /**
-     * Returns null.
+     * Returns {@code null}.
      */
     public ProtectionDomain getProtectionDomain() {
         return null;
     }
 
     /**
-     * Returns the URL of the given resource, or null if the resource is not found.
+     * Returns the URL of the given resource, or {@code null} if the resource is not found.
      * The mapping between the resource name and the URL is managed by the class' class loader.
      *
      * @see ClassLoader
@@ -1340,8 +1141,8 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns a read-only stream for the contents of the given resource, or null if the resource
-     * is not found.
+     * Returns a read-only stream for the contents of the given resource, or {@code null} if the
+     * resource is not found.
      * The mapping between the resource name and the stream is managed by the class' class loader.
      *
      * @see ClassLoader
@@ -1372,8 +1173,8 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns null. (On Android, a {@code ClassLoader} can load classes from multiple dex files.
-     * All classes from any given dex file will have the same signers, but different dex
+     * Returns {@code null}. (On Android, a {@code ClassLoader} can load classes from multiple dex
+     * files. All classes from any given dex file will have the same signers, but different dex
      * files may have different signers. This does not fit well with the original
      * {@code ClassLoader}-based model of {@code getSigners}.)
      */
@@ -1475,8 +1276,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
             Object[] iftable = c.ifTable;
             if (iftable != null) {
                 for (int i = 0; i < iftable.length; i += 2) {
-                    Class<?> ifc = (Class<?>) iftable[i];
-                    if (ifc == this) {
+                    if (iftable[i] == this) {
                         return true;
                     }
                 }
@@ -1547,7 +1347,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * Tests whether this {@code Class} represents a primitive type.
      */
     public boolean isPrimitive() {
-      return primitiveType != 0;
+      return (primitiveType & 0xFFFF) != 0;
     }
 
     /**
@@ -1582,33 +1382,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * @throws InstantiationException
      *             if the instance cannot be created.
      */
-    public T newInstance() throws InstantiationException, IllegalAccessException {
-        if (isPrimitive() || isInterface() || isArray() || Modifier.isAbstract(accessFlags)) {
-            throw new InstantiationException(this + " cannot be instantiated");
-        }
-        Class<?> caller = VMStack.getStackClass1();
-        if (!caller.canAccess(this)) {
-          throw new IllegalAccessException(this + " is not accessible from " + caller);
-        }
-        Constructor<T> init;
-        try {
-            init = getDeclaredConstructor();
-        } catch (NoSuchMethodException e) {
-            InstantiationException t =
-                new InstantiationException(this + " has no zero argument constructor");
-            t.initCause(e);
-            throw t;
-        }
-        if (!caller.canAccessMember(this, init.getAccessFlags())) {
-          throw new IllegalAccessException(init + " is not accessible from " + caller);
-        }
-        try {
-          return init.newInstance(null, init.isAccessible());
-        } catch (InvocationTargetException e) {
-          SneakyThrow.sneakyThrow(e.getCause());
-          return null;  // Unreachable.
-        }
-    }
+    public native T newInstance() throws InstantiationException, IllegalAccessException;
 
     private boolean canAccess(Class<?> c) {
         if(Modifier.isPublic(c.accessFlags)) {
@@ -1664,7 +1438,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
      * object was created by the class loader of the class.
      */
     public Package getPackage() {
-        // TODO This might be a hack, but the VM doesn't have the necessary info.
+        // TODO This might be a hack, but the runtime doesn't have the necessary info.
         ClassLoader loader = getClassLoader();
         if (loader != null) {
             String packageName = getPackageName$();
@@ -1674,7 +1448,7 @@ public final class Class<T> implements Serializable, AnnotatedElement, GenericDe
     }
 
     /**
-     * Returns the package name of this class. This returns null for classes in
+     * Returns the package name of this class. This returns {@code null} for classes in
      * the default package.
      *
      * @hide

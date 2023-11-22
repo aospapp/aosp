@@ -34,7 +34,7 @@ import libcore.io.Libcore;
  * read-only by the VM.
  */
 public final class DexFile {
-    private long mCookie;
+    private Object mCookie;
     private final String mFileName;
     private final CloseGuard guard = CloseGuard.get();
 
@@ -175,10 +175,10 @@ public final class DexFile {
      *             normally should not happen
      */
     public void close() throws IOException {
-        if (mCookie != 0) {
+        if (mCookie != null) {
             guard.close();
             closeDexFile(mCookie);
-            mCookie = 0;
+            mCookie = null;
         }
     }
 
@@ -219,7 +219,7 @@ public final class DexFile {
         return defineClass(name, loader, mCookie, suppressed);
     }
 
-    private static Class defineClass(String name, ClassLoader loader, long cookie,
+    private static Class defineClass(String name, ClassLoader loader, Object cookie,
                                      List<Throwable> suppressed) {
         Class result = null;
         try {
@@ -290,22 +290,22 @@ public final class DexFile {
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
-    private static long openDexFile(String sourceName, String outputName, int flags) throws IOException {
+    private static Object openDexFile(String sourceName, String outputName, int flags) throws IOException {
         // Use absolute paths to enable the use of relative paths when testing on host.
         return openDexFileNative(new File(sourceName).getAbsolutePath(),
                                  (outputName == null) ? null : new File(outputName).getAbsolutePath(),
                                  flags);
     }
 
-    private static native void closeDexFile(long cookie);
-    private static native Class defineClassNative(String name, ClassLoader loader, long cookie)
+    private static native void closeDexFile(Object cookie);
+    private static native Class defineClassNative(String name, ClassLoader loader, Object cookie)
             throws ClassNotFoundException, NoClassDefFoundError;
-    private static native String[] getClassNameList(long cookie);
+    private static native String[] getClassNameList(Object cookie);
     /*
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
-    private static native long openDexFileNative(String sourceName, String outputName, int flags);
+    private static native Object openDexFileNative(String sourceName, String outputName, int flags);
 
     /**
      * Returns true if the VM believes that the apk/jar file is out of date
@@ -318,55 +318,58 @@ public final class DexFile {
      * @throws java.io.IOException if fileName is not a valid apk/jar file or
      *         if problems occur while parsing it.
      * @throws java.lang.NullPointerException if fileName is null.
-     * @throws dalvik.system.StaleDexCacheError if the optimized dex file
-     *         is stale but exists on a read-only partition.
      */
     public static native boolean isDexOptNeeded(String fileName)
             throws FileNotFoundException, IOException;
 
     /**
-     * See {@link #isDexOptNeededInternal(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
      *
      * @hide
      */
-    public static final byte UP_TO_DATE = 0;
+    public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
-     * See {@link #isDexOptNeededInternal(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
      *
      * @hide
      */
-    public static final byte PATCHOAT_NEEDED = 1;
+    public static final int DEX2OAT_NEEDED = 1;
 
     /**
-     * See {@link #isDexOptNeededInternal(String, String, String, boolean)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
      *
      * @hide
      */
-    public static final byte DEXOPT_NEEDED = 2;
+    public static final int PATCHOAT_NEEDED = 2;
 
     /**
-     * Returns UP_TO_DATE if the VM believes that the apk/jar file
-     * is up to date, PATCHOAT_NEEDED if it believes that the file is up
-     * to date but it must be relocated to match the base address offset,
-     * and DEXOPT_NEEDED if it believes that it is out of date and should
-     * be passed through "dexopt" again.
+     * See {@link #getDexOptNeeded(String, String, String, boolean)}.
+     *
+     * @hide
+     */
+    public static final int SELF_PATCHOAT_NEEDED = 3;
+
+    /**
+     * Returns the VM's opinion of what kind of dexopt is needed to make the
+     * apk/jar file up to date.
      *
      * @param fileName the absolute path to the apk/jar file to examine.
-     * @return DEXOPT_NEEDED if dexopt should be called on the file,
-     *         PATCHOAT_NEEDED if we need to run "patchoat" on it and
-     *         UP_TO_DATE otherwise.
+     * @return NO_DEXOPT_NEEDED if the apk/jar is already up to date.
+     *         DEX2OAT_NEEDED if dex2oat should be called on the apk/jar file.
+     *         PATCHOAT_NEEDED if patchoat should be called on the apk/jar
+     *         file to patch the odex file along side the apk/jar.
+     *         SELF_PATCHOAT_NEEDED if selfpatchoat should be called on the
+     *         apk/jar file to patch the oat file in the dalvik cache.
      * @throws java.io.FileNotFoundException if fileName is not readable,
      *         not a file, or not present.
      * @throws java.io.IOException if fileName is not a valid apk/jar file or
      *         if problems occur while parsing it.
      * @throws java.lang.NullPointerException if fileName is null.
-     * @throws dalvik.system.StaleDexCacheError if the optimized dex file
-     *         is stale but exists on a read-only partition.
      *
      * @hide
      */
-    public static native byte isDexOptNeededInternal(String fileName, String pkgname,
+    public static native int getDexOptNeeded(String fileName, String pkgname,
             String instructionSet, boolean defer)
             throws FileNotFoundException, IOException;
 }

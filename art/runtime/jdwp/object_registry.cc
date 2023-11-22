@@ -17,12 +17,11 @@
 #include "object_registry.h"
 
 #include "handle_scope-inl.h"
+#include "jni_internal.h"
 #include "mirror/class.h"
 #include "scoped_thread_state_change.h"
 
 namespace art {
-
-mirror::Object* const ObjectRegistry::kInvalidObject = reinterpret_cast<mirror::Object*>(1);
 
 std::ostream& operator<<(std::ostream& os, const ObjectRegistryEntry& rhs) {
   os << "ObjectRegistryEntry[" << rhs.jni_reference_type
@@ -37,21 +36,52 @@ ObjectRegistry::ObjectRegistry()
 }
 
 JDWP::RefTypeId ObjectRegistry::AddRefType(mirror::Class* c) {
-  return InternalAdd(c);
+  return Add(c);
+}
+
+JDWP::RefTypeId ObjectRegistry::AddRefType(Handle<mirror::Class> c_h) {
+  return Add(c_h);
 }
 
 JDWP::ObjectId ObjectRegistry::Add(mirror::Object* o) {
-  return InternalAdd(o);
-}
-
-JDWP::ObjectId ObjectRegistry::InternalAdd(mirror::Object* o) {
   if (o == nullptr) {
     return 0;
   }
-
   Thread* const self = Thread::Current();
   StackHandleScope<1> hs(self);
-  Handle<mirror::Object> obj_h(hs.NewHandle(o));
+  return InternalAdd(hs.NewHandle(o));
+}
+
+// Template instantiations must be declared below.
+template<class T>
+JDWP::ObjectId ObjectRegistry::Add(Handle<T> obj_h) {
+  if (obj_h.Get() == nullptr) {
+    return 0;
+  }
+  return InternalAdd(obj_h);
+}
+
+// Explicit template instantiation.
+template
+SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+LOCKS_EXCLUDED(Locks::thread_list_lock_, Locks::thread_suspend_count_lock_)
+JDWP::ObjectId ObjectRegistry::Add(Handle<mirror::Object> obj_h);
+
+template
+SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+LOCKS_EXCLUDED(Locks::thread_list_lock_, Locks::thread_suspend_count_lock_)
+JDWP::ObjectId ObjectRegistry::Add(Handle<mirror::Throwable> obj_h);
+
+template<class T>
+JDWP::ObjectId ObjectRegistry::InternalAdd(Handle<T> obj_h) {
+  CHECK(obj_h.Get() != nullptr);
+
+  Thread* const self = Thread::Current();
+  self->AssertNoPendingException();
+  // Object::IdentityHashCode may cause these locks to be held so check we do not already
+  // hold them.
+  Locks::thread_list_lock_->AssertNotHeld(self);
+  Locks::thread_suspend_count_lock_->AssertNotHeld(self);
 
   // Call IdentityHashCode here to avoid a lock level violation between lock_ and monitor_lock.
   int32_t identity_hash_code = obj_h->IdentityHashCode();
@@ -105,7 +135,20 @@ bool ObjectRegistry::ContainsLocked(Thread* self, mirror::Object* o, int32_t ide
 }
 
 void ObjectRegistry::Clear() {
-  Thread* self = Thread::Current();
+  Thread* const self = Thread::Current();
+
+  // We must not hold the mutator lock exclusively if we want to delete weak global
+  // references. Otherwise this can lead to a deadlock with a running GC:
+  // 1. GC thread disables access to weak global references, then releases
+  //    mutator lock.
+  // 2. JDWP thread takes mutator lock exclusively after suspending all
+  //    threads.
+  // 3. GC thread waits for shared mutator lock which is held by JDWP
+  //    thread.
+  // 4. JDWP thread clears weak global references but need to wait for GC
+  //    thread to re-enable access to them.
+  Locks::mutator_lock_->AssertNotExclusiveHeld(self);
+
   MutexLock mu(self, lock_);
   VLOG(jdwp) << "Object registry contained " << object_to_entry_.size() << " entries";
   // Delete all the JNI references.
@@ -124,20 +167,22 @@ void ObjectRegistry::Clear() {
   id_to_entry_.clear();
 }
 
-mirror::Object* ObjectRegistry::InternalGet(JDWP::ObjectId id) {
+mirror::Object* ObjectRegistry::InternalGet(JDWP::ObjectId id, JDWP::JdwpError* error) {
   Thread* self = Thread::Current();
   MutexLock mu(self, lock_);
   auto it = id_to_entry_.find(id);
   if (it == id_to_entry_.end()) {
-    return kInvalidObject;
+    *error = JDWP::ERR_INVALID_OBJECT;
+    return nullptr;
   }
   ObjectRegistryEntry& entry = *it->second;
+  *error = JDWP::ERR_NONE;
   return self->DecodeJObject(entry.jni_reference);
 }
 
 jobject ObjectRegistry::GetJObject(JDWP::ObjectId id) {
   if (id == 0) {
-    return NULL;
+    return nullptr;
   }
   Thread* self = Thread::Current();
   MutexLock mu(self, lock_);
@@ -193,7 +238,7 @@ bool ObjectRegistry::IsCollected(JDWP::ObjectId id) {
   ObjectRegistryEntry& entry = *it->second;
   if (entry.jni_reference_type == JNIWeakGlobalRefType) {
     JNIEnv* env = self->GetJniEnv();
-    return env->IsSameObject(entry.jni_reference, NULL);  // Has the jweak been collected?
+    return env->IsSameObject(entry.jni_reference, nullptr);  // Has the jweak been collected?
   } else {
     return false;  // We hold a strong reference, so we know this is live.
   }
@@ -213,10 +258,10 @@ void ObjectRegistry::DisposeObject(JDWP::ObjectId id, uint32_t reference_count) 
     // Erase the object from the maps. Note object may be null if it's
     // a weak ref and the GC has cleared it.
     int32_t hash_code = entry->identity_hash_code;
-    for (auto it = object_to_entry_.lower_bound(hash_code), end = object_to_entry_.end();
-         it != end && it->first == hash_code; ++it) {
-      if (entry == it->second) {
-        object_to_entry_.erase(it);
+    for (auto inner_it = object_to_entry_.lower_bound(hash_code), end = object_to_entry_.end();
+         inner_it != end && inner_it->first == hash_code; ++inner_it) {
+      if (entry == inner_it->second) {
+        object_to_entry_.erase(inner_it);
         break;
       }
     }

@@ -20,6 +20,7 @@ import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.InstrumentationTest;
@@ -35,7 +36,11 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Container for CTS test info.
@@ -49,14 +54,6 @@ class TestPackageDef implements ITestPackageDef {
     public static final String WRAPPED_NATIVE_TEST = "wrappednative";
     public static final String VM_HOST_TEST = "vmHostTest";
     public static final String DEQP_TEST = "deqpTest";
-    public static final String ACCESSIBILITY_TEST =
-            "com.android.cts.tradefed.testtype.AccessibilityTestRunner";
-    public static final String ACCESSIBILITY_SERVICE_TEST =
-            "com.android.cts.tradefed.testtype.AccessibilityServiceTestRunner";
-    public static final String PRINT_TEST =
-            "com.android.cts.tradefed.testtype.PrintTestRunner";
-    public static final String DISPLAY_TEST =
-            "com.android.cts.tradefed.testtype.DisplayTestRunner";
     public static final String UIAUTOMATOR_TEST = "uiAutomator";
     public static final String JUNIT_DEVICE_TEST = "jUnitDeviceTest";
 
@@ -70,12 +67,16 @@ class TestPackageDef implements ITestPackageDef {
     private String mTestPackageName = null;
     private String mDigest = null;
     private IAbi mAbi = null;
+    private List<ITargetPreparer> mPreparers = null;
 
     // use a LinkedHashSet for predictable iteration insertion-order, and fast
     // lookups
     private Collection<TestIdentifier> mTests = new LinkedHashSet<TestIdentifier>();
     // also maintain an index of known test classes
     private Collection<String> mTestClasses = new LinkedHashSet<String>();
+    // store instance arguments in order too for consistency
+    private Map<TestIdentifier, List<Map<String, String>>> mTestInstanceArguments =
+            new LinkedHashMap<>();
 
     // dynamic options, not parsed from package xml
     private String mClassName;
@@ -210,6 +211,22 @@ class TestPackageDef implements ITestPackageDef {
     }
 
     /**
+     * Setter for injecting a list of {@link ITargetPreparer}s as configured in module test config.
+     * @param preparers
+     */
+    void setPackagePreparers(List<ITargetPreparer> preparers) {
+        mPreparers = preparers;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<ITargetPreparer> getPackagePreparers() {
+        return mPreparers;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -240,7 +257,8 @@ class TestPackageDef implements ITestPackageDef {
             mDigest = generateDigest(testCaseDir, mJarPath);
             return vmHostTest;
         } else if (DEQP_TEST.equals(mTestType)) {
-            DeqpTestRunner deqpTest = new DeqpTestRunner(mAppPackageName, mName, mTests);
+            DeqpTestRunner deqpTest =
+                    new DeqpTestRunner(mAppPackageName, mName, mTests, mTestInstanceArguments);
             deqpTest.setAbi(mAbi);
             return deqpTest;
         } else if (NATIVE_TEST.equals(mTestType)) {
@@ -252,19 +270,6 @@ class TestPackageDef implements ITestPackageDef {
             WrappedGTest wrappedGeeTest = new WrappedGTest(mAppNameSpace, mAppPackageName, mName, mRunner);
             wrappedGeeTest.setAbi(mAbi);
             return wrappedGeeTest;
-        } else if (ACCESSIBILITY_TEST.equals(mTestType)) {
-            AccessibilityTestRunner test = new AccessibilityTestRunner();
-            return setInstrumentationTest(test, testCaseDir);
-        } else if (PRINT_TEST.equals(mTestType)) {
-            PrintTestRunner test = new PrintTestRunner();
-            return setPrintTest(test, testCaseDir);
-        } else if (ACCESSIBILITY_SERVICE_TEST.equals(mTestType)) {
-            @SuppressWarnings("deprecation")
-            AccessibilityServiceTestRunner test = new AccessibilityServiceTestRunner();
-            return setInstrumentationTest(test, testCaseDir);
-        } else if (DISPLAY_TEST.equals(mTestType)) {
-            DisplayTestRunner test = new DisplayTestRunner();
-            return setInstrumentationTest(test, testCaseDir);
         } else if (UIAUTOMATOR_TEST.equals(mTestType)) {
             UiAutomatorJarTest uiautomatorTest = new UiAutomatorJarTest();
             return setUiAutomatorTest(uiautomatorTest);
@@ -291,19 +296,6 @@ class TestPackageDef implements ITestPackageDef {
         }
     }
 
-    private PrintTestRunner setPrintTest(PrintTestRunner printTest,
-            File testCaseDir) {
-        printTest.setRunName(mAppPackageName);
-        printTest.setPackageName(mAppNameSpace);
-        printTest.setRunnerName(mRunner);
-        printTest.setTestPackageName(mTestPackageName);
-        printTest.setClassName(mClassName);
-        printTest.setMethodName(mMethodName);
-        printTest.setAbi(mAbi);
-        mDigest = generateDigest(testCaseDir, String.format("%s.apk", mName));
-        return printTest;
-    }
-
     /**
      * Populates given {@link CtsInstrumentationApkTest} with data from the package xml.
      *
@@ -316,9 +308,6 @@ class TestPackageDef implements ITestPackageDef {
         instrTest.setRunName(mAppPackageName);
         instrTest.setPackageName(mAppNameSpace);
         instrTest.setRunnerName(mRunner);
-        instrTest.setTestPackageName(mTestPackageName);
-        instrTest.setClassName(mClassName);
-        instrTest.setMethodName(mMethodName);
         instrTest.setAbi(mAbi);
         instrTest.setTestsToRun(mTests, false
             /* force batch mode off to always run using testFile */);
@@ -379,10 +368,21 @@ class TestPackageDef implements ITestPackageDef {
     void addTest(TestIdentifier testDef, int timeout) {
         mTests.add(testDef);
         mTestClasses.add(testDef.getClassName());
+        mTestInstanceArguments.put(testDef, new LinkedList<Map<String, String>>());
         // 0 means no timeout, so keep 0 if already is.
         if ((timeout > mTimeoutInMins) && (mTimeoutInMins != 0)) {
             mTimeoutInMins = timeout;
         }
+    }
+
+    /**
+     * Add a test instance to an existing {@link TestIdentifier}.
+     */
+    void addTestInstance(TestIdentifier testDef, Map<String, String> instanceArguments) {
+        if (!mTestInstanceArguments.containsKey(testDef)) {
+            throw new IllegalStateException("test id does not name an existing test");
+        }
+        mTestInstanceArguments.get(testDef).add(instanceArguments);
     }
 
     /**
@@ -391,6 +391,15 @@ class TestPackageDef implements ITestPackageDef {
     @Override
     public Collection<TestIdentifier> getTests() {
         return mTests;
+    }
+
+    /**
+     * Get the instance argument map for tests.
+     * <p/>
+     * Exposed for unit testing.
+     */
+    public Map<TestIdentifier, List<Map<String, String>>> getTestInstanceArguments() {
+        return mTestInstanceArguments;
     }
 
     /**
@@ -427,8 +436,8 @@ class TestPackageDef implements ITestPackageDef {
         } catch (IOException e) {
             CLog.e(e);
         } finally {
-            StreamUtil.closeStream(d);
-            StreamUtil.closeStream(fileStream);
+            StreamUtil.close(d);
+            StreamUtil.close(fileStream);
         }
         return "failed to generate digest";
     }

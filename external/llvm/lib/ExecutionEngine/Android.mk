@@ -7,7 +7,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
 	ExecutionEngineBindings.cpp \
 	ExecutionEngine.cpp \
-	RTDyldMemoryManager.cpp \
+	GDBRegistrationListener.cpp \
+	SectionMemoryManager.cpp \
 	TargetSelect.cpp
 
 LOCAL_MODULE:= libLLVMExecutionEngine

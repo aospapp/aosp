@@ -16,8 +16,12 @@
 
 package com.google.common.base;
 
+import com.google.common.annotations.VisibleForTesting;
+
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.reflect.Method;
@@ -34,10 +38,58 @@ import java.util.logging.Logger;
  * finalized. If this object is garbage collected earlier, the backing thread will not invoke {@code
  * finalizeReferent()} on the remaining references.
  *
+ * <p>As an example of how this is used, imagine you have a class {@code MyServer} that creates a
+ * a {@link java.net.ServerSocket ServerSocket}, and you would like to ensure that the
+ * {@code ServerSocket} is closed even if the {@code MyServer} object is garbage-collected without
+ * calling its {@code close} method. You <em>could</em> use a finalizer to accomplish this, but
+ * that has a number of well-known problems. Here is how you might use this class instead:
+ *
+ * <pre>
+ * public class MyServer implements Closeable {
+ *   private static final FinalizableReferenceQueue frq = new FinalizableReferenceQueue();
+ *   // You might also share this between several objects.
+ *
+ *   private static final Set&lt;Reference&lt;?>> references = Sets.newConcurrentHashSet();
+ *   // This ensures that the FinalizablePhantomReference itself is not garbage-collected.
+ *
+ *   private final ServerSocket serverSocket;
+ *
+ *   private MyServer(...) {
+ *     ...
+ *     this.serverSocket = new ServerSocket(...);
+ *     ...
+ *   }
+ *
+ *   public static MyServer create(...) {
+ *     MyServer myServer = new MyServer(...);
+ *     final ServerSocket serverSocket = myServer.serverSocket;
+ *     Reference&lt;?> reference = new FinalizablePhantomReference&lt;MyServer>(myServer, frq) {
+ *       &#64;Override public void finalizeReferent() {
+ *         references.remove(this):
+ *         if (!serverSocket.isClosed()) {
+ *           ...log a message about how nobody called close()...
+ *           try {
+ *             serverSocket.close();
+ *           } catch (IOException e) {
+ *             ...
+ *           }
+ *         }
+ *       }
+ *     };
+ *     references.add(reference);
+ *     return myServer;
+ *   }
+ *
+ *   &#64;Override public void close() {
+ *     serverSocket.close();
+ *   }
+ * }
+ * </pre>
+ *
  * @author Bob Lee
  * @since 2.0 (imported from Google Collections Library)
  */
-public class FinalizableReferenceQueue {
+public class FinalizableReferenceQueue implements Closeable {
   /*
    * The Finalizer thread keeps a phantom reference to this object. When the client (for example, a
    * map built by MapMaker) no longer has a strong reference to this object, the garbage collector
@@ -91,6 +143,8 @@ public class FinalizableReferenceQueue {
    */
   final ReferenceQueue<Object> queue;
 
+  final PhantomReference<Object> frqRef;
+
   /**
    * Whether or not the background thread started successfully.
    */
@@ -99,25 +153,28 @@ public class FinalizableReferenceQueue {
   /**
    * Constructs a new queue.
    */
-  @SuppressWarnings("unchecked")
   public FinalizableReferenceQueue() {
     // We could start the finalizer lazily, but I'd rather it blow up early.
-    ReferenceQueue<Object> queue;
+    queue = new ReferenceQueue<Object>();
+    frqRef = new PhantomReference<Object>(this, queue);
     boolean threadStarted = false;
     try {
-      queue = (ReferenceQueue<Object>)
-          startFinalizer.invoke(null, FinalizableReference.class, this);
+      startFinalizer.invoke(null, FinalizableReference.class, queue, frqRef);
       threadStarted = true;
     } catch (IllegalAccessException impossible) {
       throw new AssertionError(impossible); // startFinalizer() is public
     } catch (Throwable t) {
       logger.log(Level.INFO, "Failed to start reference finalizer thread."
           + " Reference cleanup will only occur when new references are created.", t);
-      queue = new ReferenceQueue<Object>();
     }
 
-    this.queue = queue;
     this.threadStarted = threadStarted;
+  }
+
+  @Override
+  public void close() {
+    frqRef.enqueue();
+    cleanUp();
   }
 
   /**
@@ -179,8 +236,16 @@ public class FinalizableReferenceQueue {
    * we needn't create a separate loader.
    */
   static class SystemLoader implements FinalizerLoader {
+    // This is used by the ClassLoader-leak test in FinalizableReferenceQueueTest to disable
+    // finding Finalizer on the system class path even if it is there.
+    @VisibleForTesting
+    static boolean disabled;
+
     @Override
     public Class<?> loadFinalizer() {
+      if (disabled) {
+        return null;
+      }
       ClassLoader systemLoader;
       try {
         systemLoader = ClassLoader.getSystemClassLoader();
@@ -254,7 +319,10 @@ public class FinalizableReferenceQueue {
 
     /** Creates a class loader with the given base URL as its classpath. */
     URLClassLoader newLoader(URL base) {
-      return new URLClassLoader(new URL[] {base});
+      // We use the bootstrap class loader as the parent because Finalizer by design uses
+      // only standard Java classes. That also means that FinalizableReferenceQueueTest
+      // doesn't pick up the wrong version of the Finalizer class.
+      return new URLClassLoader(new URL[] {base}, null);
     }
   }
 
@@ -278,7 +346,11 @@ public class FinalizableReferenceQueue {
    */
   static Method getStartFinalizer(Class<?> finalizer) {
     try {
-      return finalizer.getMethod("startFinalizer", Class.class, Object.class);
+      return finalizer.getMethod(
+          "startFinalizer",
+          Class.class,
+          ReferenceQueue.class,
+          PhantomReference.class);
     } catch (NoSuchMethodException e) {
       throw new AssertionError(e);
     }

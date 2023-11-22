@@ -37,25 +37,21 @@ import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import com.android.providers.contacts.BaseContactsProvider2Test;
+import com.android.providers.contacts.ContactsProvider2;
 import com.android.providers.contacts.TestUtils;
 import com.android.providers.contacts.tests.R;
 import com.android.providers.contacts.testutil.DataUtil;
 import com.android.providers.contacts.testutil.RawContactUtil;
 
 import com.google.android.collect.Lists;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Unit tests for {@link ContactAggregator}.
  *
  * Run the test like this:
  * <code>
- * adb shell am instrument -e class com.android.providers.contacts.ContactAggregatorTest -w \
+ * adb shell am instrument -e \
+ *         class com.android.providers.contacts.aggregation.ContactAggregatorTest -w \
  *         com.android.providers.contacts.tests/android.test.InstrumentationTestRunner
  * </code>
  */
@@ -71,6 +67,13 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
             AggregationExceptions.RAW_CONTACT_ID1,
             AggregationExceptions.RAW_CONTACT_ID2
     };
+
+    protected void setUp() throws Exception {
+        super.setUp();
+        final ContactsProvider2 cp = (ContactsProvider2) getProvider();
+        // Make sure to use ContactAggregator.java class
+        cp.setNewAggregatorForTest(false);
+    }
 
     public void testCrudAggregationExceptions() throws Exception {
         long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "zz", "top");
@@ -850,28 +853,6 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         assertNotAggregated(rawContactId1, rawContactId2);
     }
 
-    public void testAggregationFromSameAccountEmailSame_IgnoreCase() {
-        long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe",
-                ACCOUNT_1);
-        insertEmail(rawContactId1, "lightning@android.com");
-
-        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe",
-                ACCOUNT_1);
-        insertEmail(rawContactId2, "lightning@android.com");
-
-        assertAggregated(rawContactId1, rawContactId2);
-
-        long rawContactId3 = RawContactUtil.createRawContactWithName(mResolver, "Jane", "Doe",
-                ACCOUNT_1);
-        insertEmail(rawContactId3, "jane@android.com");
-
-        long rawContactId4 = RawContactUtil.createRawContactWithName(mResolver, "Jane", "Doe",
-                ACCOUNT_1);
-        insertEmail(rawContactId4, "JANE@ANDROID.COM");
-
-        assertAggregated(rawContactId3, rawContactId4);
-    }
-
     public void testNonAggregationFromSameAccountEmailDifferent() {
         long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe",
                 ACCOUNT_1);
@@ -1314,34 +1295,79 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         assertEquals("Eclair Android", queryDisplayName(contactId));
     }
 
-    public void testVerifiedName() {
-        long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, "test1", "TEST1",
-                ACCOUNT_1);
-        storeValue(RawContacts.CONTENT_URI, rawContactId1, RawContacts.NAME_VERIFIED, "1");
-        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, "test2", "TEST2",
-                ACCOUNT_2);
-        long rawContactId3 = RawContactUtil.createRawContactWithName(mResolver, "test3",
-                "TEST3 LONG", ACCOUNT_3);
+    public void testMergeSuperPrimaryName_rawContact1() {
+        // Setup: raw contact #1 has a super primary name. #2 doesn't.
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        DataUtil.insertStructuredName(mResolver, rawContactId1, "name1", null, null,
+                /* isSuperPrimary = */ true);
+        long rawContactId2 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        DataUtil.insertStructuredName(mResolver, rawContactId2, "name2", null, null,
+                /* isSuperPrimary = */ false);
 
+        // Action: aggregate
         setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
                 rawContactId2);
-        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
-                rawContactId3);
 
+        // Verify: the aggregate's name comes from raw contact #1
         long contactId = queryContactId(rawContactId1);
+        assertEquals("name1", queryDisplayName(contactId));
+    }
 
-        // Should be the verified name
-        assertEquals("test1 TEST1", queryDisplayName(contactId));
+    public void testMergeSuperPrimaryName_rawContact2AndEdit() {
+        // Setup: raw contact #2 has a super primary name. #1 doesn't.
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        final Uri nameUri1 = DataUtil.insertStructuredName(mResolver, rawContactId1, "name1",
+                null, null, /* isSuperPrimary = */ false);
+        long rawContactId2 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        final Uri nameUri2 = DataUtil.insertStructuredName(mResolver, rawContactId2, "name2", null,
+                null, /* isSuperPrimary = */ true);
 
-        // Mark a different name as verified - this should reset the NAME_VERIFIED field
-        // for the other rawContacts
-        storeValue(RawContacts.CONTENT_URI, rawContactId2, RawContacts.NAME_VERIFIED, "1");
-        assertStoredValue(RawContacts.CONTENT_URI, rawContactId1, RawContacts.NAME_VERIFIED, 0);
-        assertEquals("test2 TEST2", queryDisplayName(contactId));
+        // Action: aggregate
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
 
-        // Reset the NAME_VERIFIED flag - now the most complex of the three names should win
-        storeValue(RawContacts.CONTENT_URI, rawContactId2, RawContacts.NAME_VERIFIED, "0");
-        assertEquals("test3 TEST3 LONG", queryDisplayName(contactId));
+        // Verify: the aggregate's name comes from raw contact #2. This is the opposite of the check
+        // inside testMergeSuperPrimaryName_rawContact1().
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name2", queryDisplayName(contactId));
+
+        // Action: edit the super primary name
+        final ContentValues values = new ContentValues();
+        values.put(StructuredName.GIVEN_NAME, "edited name");
+        mResolver.update(nameUri2, values, null, null);
+
+        // Verify: editing the super primary name affects aggregate name
+        assertEquals("edited name", queryDisplayName(contactId));
+
+        // Action: edit the non primary name
+        values.put(StructuredName.GIVEN_NAME, "edited name2");
+        mResolver.update(nameUri1, values, null, null);
+
+        // Verify: aggregate name is still based off the primary name
+        assertEquals("edited name", queryDisplayName(contactId));
+    }
+
+    public void testMergedSuperPrimaryName_changeSuperPrimary() {
+        // Setup: aggregated contact where raw contact #1 has a super primary name. #2 doesn't.
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        final Uri nameUri1 = DataUtil.insertStructuredName(mResolver, rawContactId1, "name1",
+                null, null, /* isSuperPrimary = */ true);
+        long rawContactId2 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        final Uri nameUri2 = DataUtil.insertStructuredName(mResolver, rawContactId2, "name2", null,
+                null, /* isSuperPrimary = */ false);
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
+
+        // Action: make raw contact 2's name super primary
+        storeValue(nameUri2, Data.IS_SUPER_PRIMARY, 1);
+
+        // Sanity check.
+        assertStoredValue(nameUri1, Data.IS_SUPER_PRIMARY, 0);
+        assertStoredValue(nameUri2, Data.IS_SUPER_PRIMARY, 1);
+
+        // Verify: aggregate name is based off of the newly super primary name
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name2", queryDisplayName(contactId));
     }
 
     public void testAggregationModeSuspendedSeparateTransactions() {
@@ -1514,22 +1540,14 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
 
     public void testAggregationSuggestionsQueryBuilderWithValues() throws Exception {
         Uri uri = AggregationSuggestions.builder()
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_NAME, "name1")
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_NAME, "name2")
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_EMAIL, "email1")
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_EMAIL, "email2")
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_PHONE, "phone1")
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_NICKNAME, "nickname1")
+                .addNameParameter("name1")
+                .addNameParameter("name2")
                 .setLimit(7)
                 .build();
         assertEquals("content://com.android.contacts/contacts/0/suggestions?"
                 + "limit=7"
                 + "&query=name%3Aname1"
-                + "&query=name%3Aname2"
-                + "&query=email%3Aemail1"
-                + "&query=email%3Aemail2"
-                + "&query=phone%3Aphone1"
-                + "&query=nickname%3Anickname1", uri.toString());
+                + "&query=name%3Aname2", uri.toString());
     }
 
     public void testAggregatedStatusUpdate() {
@@ -1563,7 +1581,7 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, "first2", "last2");
 
         Uri uri = AggregationSuggestions.builder()
-                .addParameter(AggregationSuggestions.PARAMETER_MATCH_NAME, "last1 first1")
+                .addNameParameter("last1 first1")
                 .build();
 
         Cursor cursor = mResolver.query(
@@ -1580,6 +1598,74 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         cursor.close();
     }
 
+    public void testAggregation_phoneticNamePriority1() {
+        // Setup: one raw contact has a complex phonetic name and the other a simple given name
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        DataUtil.insertPhoneticName(mResolver, rawContactId1, "name phonetic");
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name", ACCOUNT_1);
+
+        // Action: aggregate
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
+
+        // Verify: given name is used instead of phonetic, contrary to results of
+        // testAggregation_nameComplexity
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name", queryDisplayName(contactId));
+    }
+
+    // Same as testAggregation_phoneticNamePriority1, but with setup order reversed
+    public void testAggregation_phoneticNamePriority2() {
+        // Setup: one raw contact has a complex phonetic name and the other a simple given name
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name", ACCOUNT_1);
+        long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
+        DataUtil.insertPhoneticName(mResolver, rawContactId1, "name phonetic");
+
+        // Action: aggregate
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
+
+        // Verify: given name is used instead of phonetic, contrary to results of
+        // testAggregation_nameComplexity
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name", queryDisplayName(contactId));
+    }
+
+    public void testAggregation_nameComplexity1() {
+        // Setup: two names, one of which is unambiguously more complex
+        long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name", ACCOUNT_1);
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name phonetic", ACCOUNT_1);
+
+        // Action: aggregate
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
+
+        // Verify: more complex name is used
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name phonetic", queryDisplayName(contactId));
+    }
+
+    // Same as testAggregation_nameComplexity1, but with setup order reversed
+    public void testAggregation_nameComplexity2() {
+        // Setup: two names, one of which is unambiguously more complex
+        long rawContactId2 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name phonetic", ACCOUNT_1);
+        long rawContactId1 = RawContactUtil.createRawContactWithName(mResolver, null,
+                "name", ACCOUNT_1);
+
+        // Action: aggregate
+        setAggregationException(AggregationExceptions.TYPE_KEEP_TOGETHER, rawContactId1,
+                rawContactId2);
+
+        // Verify: more complex name is used
+        long contactId = queryContactId(rawContactId1);
+        assertEquals("name phonetic", queryDisplayName(contactId));
+    }
+
     public void testAggregation_clearSuperPrimary() {
         // Three types of mime-type super primary merging are tested here
         // 1. both raw contacts have super primary phone numbers
@@ -1587,7 +1673,8 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         // 3. only raw contact1 has organizations and it has set the super primary organization
         ContentValues values = new ContentValues();
         long rawContactId1 = RawContactUtil.createRawContact(mResolver, ACCOUNT_1);
-        Uri uri_phone1 = insertPhoneNumber(rawContactId1, "(222)222-2222", false, false);
+        Uri uri_phone1a = insertPhoneNumber(rawContactId1, "(222)222-2222", true, true);
+        Uri uri_phone1b = insertPhoneNumber(rawContactId1, "(555)555-5555", false, false);
         Uri uri_email1 = insertEmail(rawContactId1, "one@gmail.com", true, true);
         values.clear();
         values.put(Organization.COMPANY, "Monsters Inc");
@@ -1597,23 +1684,24 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         Uri uri_org2 = insertOrganization(rawContactId1, values, false, false);
 
         long rawContactId2 = RawContactUtil.createRawContact(mResolver, ACCOUNT_2);
-        Uri uri_phone2 = insertPhoneNumber(rawContactId2, "(333)333-3333", false, false);
+        Uri uri_phone2 = insertPhoneNumber(rawContactId2, "(333)333-3333", true, true);
         Uri uri_email2 = insertEmail(rawContactId2, "two@gmail.com", false, false);
 
         // Two raw contacts with same phone number will trigger the aggregation
         Uri uri_phone3 = insertPhoneNumber(rawContactId1, "(111)111-1111", true, true);
         Uri uri_phone4 = insertPhoneNumber(rawContactId2, "1(111)111-1111", true, true);
 
-        // After aggregation, the super primary flag should be cleared for both case 1 and case 2,
-        // i.e., phone and email mime-types. Only case 3, i.e. organization mime-type, has the
-        // super primary flag unchanged.
+        // After aggregation, the super primary flag should only be cleared for case 1,
+        // i.e., phone mime-type. Both case 2 and 3, i.e. organization and email mime-types,
+        // have the super primary flag unchanged.
         assertAggregated(rawContactId1, rawContactId2);
-        assertSuperPrimary(ContentUris.parseId(uri_phone1), false);
+        assertSuperPrimary(ContentUris.parseId(uri_phone1a), false);
+        assertSuperPrimary(ContentUris.parseId(uri_phone1b), false);
         assertSuperPrimary(ContentUris.parseId(uri_phone2), false);
         assertSuperPrimary(ContentUris.parseId(uri_phone3), false);
         assertSuperPrimary(ContentUris.parseId(uri_phone4), false);
 
-        assertSuperPrimary(ContentUris.parseId(uri_email1), false);
+        assertSuperPrimary(ContentUris.parseId(uri_email1), true);
         assertSuperPrimary(ContentUris.parseId(uri_email2), false);
 
         assertSuperPrimary(ContentUris.parseId(uri_org1), true);
@@ -1655,44 +1743,6 @@ public class ContactAggregatorTest extends BaseContactsProvider2Test {
         DataUtil.insertStructuredName(mResolver, newId, "John", "Doe");
         assertNotAggregated(preId, newId);
         assertTrue(queryContactId(newId) > 0);
-    }
-
-    public void testFindConnectedRawContacts() {
-        Set<Long> rawContactIdSet = new HashSet<Long>();
-        rawContactIdSet.addAll(Arrays.asList(1l, 2l, 3l, 4l, 5l, 6l, 7l, 8l, 9l));
-
-        Multimap<Long, Long> matchingrawIdPairs = HashMultimap.create();
-        matchingrawIdPairs.put(1l, 2l);
-        matchingrawIdPairs.put(2l, 1l);
-
-        matchingrawIdPairs.put(1l, 7l);
-        matchingrawIdPairs.put(7l, 1l);
-
-        matchingrawIdPairs.put(2l, 3l);
-        matchingrawIdPairs.put(3l, 2l);
-
-        matchingrawIdPairs.put(2l, 8l);
-        matchingrawIdPairs.put(8l, 2l);
-
-        matchingrawIdPairs.put(8l, 9l);
-        matchingrawIdPairs.put(9l, 8l);
-
-        matchingrawIdPairs.put(4l, 5l);
-        matchingrawIdPairs.put(5l, 4l);
-
-        Set<Set<Long>> actual = ContactAggregator.findConnectedComponents(rawContactIdSet,
-                matchingrawIdPairs);
-
-        Set<Set<Long>> expected = new HashSet<Set<Long>>();
-        Set<Long> result1 = new HashSet<Long>();
-        result1.addAll(Arrays.asList(1l, 2l, 3l, 7l, 8l, 9l));
-        Set<Long> result2 = new HashSet<Long>();
-        result2.addAll(Arrays.asList(4l, 5l));
-        Set<Long> result3 = new HashSet<Long>();
-        result3.addAll(Arrays.asList(6l));
-        expected.addAll(Arrays.asList(result1, result2, result3));
-
-        assertEquals(expected, actual);
     }
 
     private void assertSuggestions(long contactId, long... suggestions) {

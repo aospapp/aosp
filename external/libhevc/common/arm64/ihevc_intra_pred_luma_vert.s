@@ -122,7 +122,7 @@ copy_32:
     ld1         {v22.8b, v23.8b}, [x6]      //16 loads (col 16:31)
     lsl         x11, x3, #2
 
-    add         x11, x11, #-16
+    sub         x11, x11, #16
     st1         {v20.8b, v21.8b}, [x2],#16
     st1         {v20.8b, v21.8b}, [x5],#16
     st1         {v20.8b, v21.8b}, [x8],#16
@@ -183,7 +183,7 @@ blk_16:
     sxtw        x12,w12
 
     ld1         {v16.8b, v17.8b}, [x6]      //ld for repl to cols src[2nt+1+col(0:15)] (0 ignored for stores)
-    add         x6, x6, #-17                //subtract -9 to take it to src[2nt-1-row(15)]
+    sub         x6, x6, #17                 //subtract -9 to take it to src[2nt-1-row(15)]
 
     dup         v24.16b,w12                 //src[2nt+1]
     dup         v30.8h,w12
@@ -323,7 +323,7 @@ blk_4_8:
     sxtw        x12,w12
 
     ld1         {v16.8b},[x6]               //ld for repl to cols src[2nt+1+col(0:3 or 0:7)](0 ignored for st)
-    add         x6, x6, #-9                 //subtract -9 to take it to src[2nt-1-row(15)]
+    sub         x6, x6, #9                  //subtract -9 to take it to src[2nt-1-row(15)]
 
     dup         v24.8b,w12                  //src[2nt+1]
     dup         v30.8h,w12

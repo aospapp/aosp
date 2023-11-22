@@ -1,5 +1,5 @@
 ; RUN: llc -mtriple=aarch64-none-linux-gnu -relocation-model=pic -o - %s | FileCheck %s
-; RUN: llc -mtriple=arm64_be-none-linux-gnu -relocation-model=pic -o - %s | FileCheck %s
+; RUN: llc -mtriple=aarch64_be-none-linux-gnu -relocation-model=pic -o - %s | FileCheck %s
 
 ; Make sure exception-handling PIC code can be linked correctly. An alternative
 ; to the sequence described below would have .gcc_except_table itself writable
@@ -38,7 +38,7 @@ catch:                                            ; preds = %lpad
   %3 = extractvalue { i8*, i32 } %0, 0
   %4 = tail call i8* @__cxa_begin_catch(i8* %3) nounwind
   %5 = bitcast i8* %4 to i32*
-  %exn.scalar = load i32* %5, align 4
+  %exn.scalar = load i32, i32* %5, align 4
   tail call void @__cxa_end_catch() nounwind
   br label %return
 

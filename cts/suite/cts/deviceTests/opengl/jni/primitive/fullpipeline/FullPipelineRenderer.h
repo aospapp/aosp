@@ -22,9 +22,9 @@
 
 class FullPipelineRenderer: public Renderer {
 public:
-    FullPipelineRenderer(ANativeWindow* window, bool offscreen, int workload);
+    FullPipelineRenderer(ANativeWindow* window, bool offscreen);
     virtual ~FullPipelineRenderer() {};
-    bool setUp();
+    bool setUp(int workload);
     bool tearDown();
     void drawWorkload();
 private:

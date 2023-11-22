@@ -13,17 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "mir_to_lir-inl.h"
+
+#include <functional>
+
+#include "arch/arm/instruction_set_features_arm.h"
+#include "base/bit_utils.h"
+#include "base/macros.h"
 #include "dex/compiler_ir.h"
-#include "dex/compiler_internals.h"
+#include "dex/mir_graph.h"
 #include "dex/quick/arm/arm_lir.h"
-#include "dex/quick/mir_to_lir-inl.h"
+#include "driver/compiler_driver.h"
+#include "driver/compiler_options.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "mirror/array.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_reference.h"
+#include "utils/dex_cache_arrays_layout-inl.h"
 #include "verifier/method_verifier.h"
-#include <functional>
 
 namespace art {
 
@@ -36,6 +45,127 @@ typedef mirror::ObjectArray<mirror::Class> ClassArray;
  * be applicable to most targets.  Only mid-level support utilities
  * and "op" calls may be used here.
  */
+
+ALWAYS_INLINE static inline bool ForceSlowFieldPath(CompilationUnit* cu) {
+  return (cu->enable_debug & (1 << kDebugSlowFieldPath)) != 0;
+}
+
+ALWAYS_INLINE static inline bool ForceSlowStringPath(CompilationUnit* cu) {
+  return (cu->enable_debug & (1 << kDebugSlowStringPath)) != 0;
+}
+
+ALWAYS_INLINE static inline bool ForceSlowTypePath(CompilationUnit* cu) {
+  return (cu->enable_debug & (1 << kDebugSlowTypePath)) != 0;
+}
+
+void Mir2Lir::GenIfNullUseHelperImm(RegStorage r_result, QuickEntrypointEnum trampoline, int imm) {
+  class CallHelperImmMethodSlowPath : public LIRSlowPath {
+   public:
+    CallHelperImmMethodSlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont,
+                                QuickEntrypointEnum trampoline_in, int imm_in,
+                                RegStorage r_result_in)
+        : LIRSlowPath(m2l, fromfast, cont), trampoline_(trampoline_in),
+          imm_(imm_in), r_result_(r_result_in) {
+    }
+
+    void Compile() {
+      GenerateTargetLabel();
+      m2l_->CallRuntimeHelperImm(trampoline_, imm_, true);
+      m2l_->OpRegCopy(r_result_,  m2l_->TargetReg(kRet0, kRef));
+      m2l_->OpUnconditionalBranch(cont_);
+    }
+
+   private:
+    QuickEntrypointEnum trampoline_;
+    const int imm_;
+    const RegStorage r_result_;
+  };
+
+  LIR* branch = OpCmpImmBranch(kCondEq, r_result, 0, nullptr);
+  LIR* cont = NewLIR0(kPseudoTargetLabel);
+
+  AddSlowPath(new (arena_) CallHelperImmMethodSlowPath(this, branch, cont, trampoline, imm,
+                                                       r_result));
+}
+
+RegStorage Mir2Lir::GenGetOtherTypeForSgetSput(const MirSFieldLoweringInfo& field_info,
+                                               int opt_flags) {
+  DCHECK_NE(field_info.StorageIndex(), DexFile::kDexNoIndex);
+  // May do runtime call so everything to home locations.
+  FlushAllRegs();
+  RegStorage r_base = TargetReg(kArg0, kRef);
+  LockTemp(r_base);
+  if (CanUseOpPcRelDexCacheArrayLoad()) {
+    uint32_t offset = dex_cache_arrays_layout_.TypeOffset(field_info.StorageIndex());
+    OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, r_base, false);
+  } else {
+    // Using fixed register to sync with possible call to runtime support.
+    RegStorage r_method = LoadCurrMethodWithHint(r_base);
+    LoadRefDisp(r_method, ArtMethod::DexCacheResolvedTypesOffset().Int32Value(), r_base,
+                kNotVolatile);
+    int32_t offset_of_field = ObjArray::OffsetOfElement(field_info.StorageIndex()).Int32Value();
+    LoadRefDisp(r_base, offset_of_field, r_base, kNotVolatile);
+  }
+  // r_base now points at static storage (Class*) or null if the type is not yet resolved.
+  LIR* unresolved_branch = nullptr;
+  if (!field_info.IsClassInDexCache() && (opt_flags & MIR_CLASS_IS_IN_DEX_CACHE) == 0) {
+    // Check if r_base is null.
+    unresolved_branch = OpCmpImmBranch(kCondEq, r_base, 0, nullptr);
+  }
+  LIR* uninit_branch = nullptr;
+  if (!field_info.IsClassInitialized() && (opt_flags & MIR_CLASS_IS_INITIALIZED) == 0) {
+    // Check if r_base is not yet initialized class.
+    RegStorage r_tmp = TargetReg(kArg2, kNotWide);
+    LockTemp(r_tmp);
+    uninit_branch = OpCmpMemImmBranch(kCondLt, r_tmp, r_base,
+                                      mirror::Class::StatusOffset().Int32Value(),
+                                      mirror::Class::kStatusInitialized, nullptr, nullptr);
+    FreeTemp(r_tmp);
+  }
+  if (unresolved_branch != nullptr || uninit_branch != nullptr) {
+    //
+    // Slow path to ensure a class is initialized for sget/sput.
+    //
+    class StaticFieldSlowPath : public Mir2Lir::LIRSlowPath {
+     public:
+      // There are up to two branches to the static field slow path, the "unresolved" when the type
+      // entry in the dex cache is null, and the "uninit" when the class is not yet initialized.
+      // At least one will be non-null here, otherwise we wouldn't generate the slow path.
+      StaticFieldSlowPath(Mir2Lir* m2l, LIR* unresolved, LIR* uninit, LIR* cont, int storage_index,
+                          RegStorage r_base_in)
+          : LIRSlowPath(m2l, unresolved != nullptr ? unresolved : uninit, cont),
+            second_branch_(unresolved != nullptr ? uninit : nullptr),
+            storage_index_(storage_index), r_base_(r_base_in) {
+      }
+
+      void Compile() {
+        LIR* target = GenerateTargetLabel();
+        if (second_branch_ != nullptr) {
+          second_branch_->target = target;
+        }
+        m2l_->CallRuntimeHelperImm(kQuickInitializeStaticStorage, storage_index_, true);
+        // Copy helper's result into r_base, a no-op on all but MIPS.
+        m2l_->OpRegCopy(r_base_,  m2l_->TargetReg(kRet0, kRef));
+
+        m2l_->OpUnconditionalBranch(cont_);
+      }
+
+     private:
+      // Second branch to the slow path, or null if there's only one branch.
+      LIR* const second_branch_;
+
+      const int storage_index_;
+      const RegStorage r_base_;
+    };
+
+    // The slow path is invoked if the r_base is null or the class pointed
+    // to by it is not initialized.
+    LIR* cont = NewLIR0(kPseudoTargetLabel);
+    AddSlowPath(new (arena_) StaticFieldSlowPath(this, unresolved_branch, uninit_branch, cont,
+                                                 field_info.StorageIndex(), r_base));
+  }
+  return r_base;
+}
 
 /*
  * Generate a kPseudoBarrier marker to indicate the boundary of special
@@ -66,8 +196,8 @@ void Mir2Lir::GenDivZeroCheck(RegStorage reg) {
 void Mir2Lir::AddDivZeroCheckSlowPath(LIR* branch) {
   class DivZeroCheckSlowPath : public Mir2Lir::LIRSlowPath {
    public:
-    DivZeroCheckSlowPath(Mir2Lir* m2l, LIR* branch)
-        : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch) {
+    DivZeroCheckSlowPath(Mir2Lir* m2l, LIR* branch_in)
+        : LIRSlowPath(m2l, branch_in) {
     }
 
     void Compile() OVERRIDE {
@@ -84,9 +214,10 @@ void Mir2Lir::AddDivZeroCheckSlowPath(LIR* branch) {
 void Mir2Lir::GenArrayBoundsCheck(RegStorage index, RegStorage length) {
   class ArrayBoundsCheckSlowPath : public Mir2Lir::LIRSlowPath {
    public:
-    ArrayBoundsCheckSlowPath(Mir2Lir* m2l, LIR* branch, RegStorage index, RegStorage length)
-        : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch),
-          index_(index), length_(length) {
+    ArrayBoundsCheckSlowPath(Mir2Lir* m2l, LIR* branch_in, RegStorage index_in,
+                             RegStorage length_in)
+        : LIRSlowPath(m2l, branch_in),
+          index_(index_in), length_(length_in) {
     }
 
     void Compile() OVERRIDE {
@@ -108,9 +239,9 @@ void Mir2Lir::GenArrayBoundsCheck(RegStorage index, RegStorage length) {
 void Mir2Lir::GenArrayBoundsCheck(int index, RegStorage length) {
   class ArrayBoundsCheckSlowPath : public Mir2Lir::LIRSlowPath {
    public:
-    ArrayBoundsCheckSlowPath(Mir2Lir* m2l, LIR* branch, int index, RegStorage length)
-        : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch),
-          index_(index), length_(length) {
+    ArrayBoundsCheckSlowPath(Mir2Lir* m2l, LIR* branch_in, int index_in, RegStorage length_in)
+        : LIRSlowPath(m2l, branch_in),
+          index_(index_in), length_(length_in) {
     }
 
     void Compile() OVERRIDE {
@@ -139,7 +270,7 @@ LIR* Mir2Lir::GenNullCheck(RegStorage reg) {
   class NullCheckSlowPath : public Mir2Lir::LIRSlowPath {
    public:
     NullCheckSlowPath(Mir2Lir* m2l, LIR* branch)
-        : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch) {
+        : LIRSlowPath(m2l, branch) {
     }
 
     void Compile() OVERRIDE {
@@ -170,7 +301,7 @@ LIR* Mir2Lir::GenNullCheck(RegStorage m_reg, int opt_flags) {
 /* Perform an explicit null-check on a register.  */
 LIR* Mir2Lir::GenExplicitNullCheck(RegStorage m_reg, int opt_flags) {
   if (!(cu_->disable_opt & (1 << kNullCheckElimination)) && (opt_flags & MIR_IGNORE_NULL_CHECK)) {
-    return NULL;
+    return nullptr;
   }
   return GenNullCheck(m_reg);
 }
@@ -216,11 +347,9 @@ void Mir2Lir::ForceImplicitNullCheck(RegStorage reg, int opt_flags) {
 }
 
 void Mir2Lir::GenCompareAndBranch(Instruction::Code opcode, RegLocation rl_src1,
-                                  RegLocation rl_src2, LIR* taken,
-                                  LIR* fall_through) {
-  DCHECK(!rl_src1.fp);
-  DCHECK(!rl_src2.fp);
+                                  RegLocation rl_src2, LIR* taken) {
   ConditionCode cond;
+  RegisterClass reg_class = (rl_src1.ref || rl_src2.ref) ? kRefReg : kCoreReg;
   switch (opcode) {
     case Instruction::IF_EQ:
       cond = kCondEq;
@@ -253,7 +382,7 @@ void Mir2Lir::GenCompareAndBranch(Instruction::Code opcode, RegLocation rl_src1,
     cond = FlipComparisonOrder(cond);
   }
 
-  rl_src1 = LoadValue(rl_src1);
+  rl_src1 = LoadValue(rl_src1, reg_class);
   // Is this really an immediate comparison?
   if (rl_src2.is_const) {
     // If it's already live in a register or not easily materialized, just keep going
@@ -277,15 +406,14 @@ void Mir2Lir::GenCompareAndBranch(Instruction::Code opcode, RegLocation rl_src1,
     }
   }
 
-  rl_src2 = LoadValue(rl_src2);
+  rl_src2 = LoadValue(rl_src2, reg_class);
   OpCmpBranch(cond, rl_src1.reg, rl_src2.reg, taken);
 }
 
-void Mir2Lir::GenCompareZeroAndBranch(Instruction::Code opcode, RegLocation rl_src, LIR* taken,
-                                      LIR* fall_through) {
+void Mir2Lir::GenCompareZeroAndBranch(Instruction::Code opcode, RegLocation rl_src, LIR* taken) {
   ConditionCode cond;
-  DCHECK(!rl_src.fp);
-  rl_src = LoadValue(rl_src);
+  RegisterClass reg_class = rl_src.ref ? kRefReg : kCoreReg;
+  rl_src = LoadValue(rl_src, reg_class);
   switch (opcode) {
     case Instruction::IF_EQZ:
       cond = kCondEq;
@@ -321,6 +449,12 @@ void Mir2Lir::GenIntToLong(RegLocation rl_dest, RegLocation rl_src) {
   }
   OpRegRegImm(kOpAsr, rl_result.reg.GetHigh(), rl_result.reg.GetLow(), 31);
   StoreValueWide(rl_dest, rl_result);
+}
+
+void Mir2Lir::GenLongToInt(RegLocation rl_dest, RegLocation rl_src) {
+  rl_src = UpdateLocWide(rl_src);
+  rl_src = NarrowRegLoc(rl_src);
+  StoreValue(rl_dest, rl_src);
 }
 
 void Mir2Lir::GenIntNarrowing(Instruction::Code opcode, RegLocation rl_dest,
@@ -365,20 +499,20 @@ void Mir2Lir::GenNewArray(uint32_t type_idx, RegLocation rl_dest,
                                    &direct_type_ptr, &is_finalizable)) {
       // The fast path.
       if (!use_direct_type_ptr) {
-        LoadClassType(type_idx, kArg0);
-        CallRuntimeHelperRegMethodRegLocation(kQuickAllocArrayResolved, TargetReg(kArg0, kNotWide),
+        LoadClassType(*dex_file, type_idx, kArg0);
+        CallRuntimeHelperRegRegLocationMethod(kQuickAllocArrayResolved, TargetReg(kArg0, kNotWide),
                                               rl_src, true);
       } else {
         // Use the direct pointer.
-        CallRuntimeHelperImmMethodRegLocation(kQuickAllocArrayResolved, direct_type_ptr, rl_src,
+        CallRuntimeHelperImmRegLocationMethod(kQuickAllocArrayResolved, direct_type_ptr, rl_src,
                                               true);
       }
     } else {
       // The slow path.
-      CallRuntimeHelperImmMethodRegLocation(kQuickAllocArray, type_idx, rl_src, true);
+      CallRuntimeHelperImmRegLocationMethod(kQuickAllocArray, type_idx, rl_src, true);
     }
   } else {
-    CallRuntimeHelperImmMethodRegLocation(kQuickAllocArrayWithAccessCheck, type_idx, rl_src, true);
+    CallRuntimeHelperImmRegLocationMethod(kQuickAllocArrayWithAccessCheck, type_idx, rl_src, true);
   }
   StoreValue(rl_dest, GetReturn(kRefReg));
 }
@@ -390,7 +524,7 @@ void Mir2Lir::GenNewArray(uint32_t type_idx, RegLocation rl_dest,
  * Current code also throws internal unimp if not 'L', '[' or 'I'.
  */
 void Mir2Lir::GenFilledNewArray(CallInfo* info) {
-  int elems = info->num_arg_words;
+  size_t elems = info->num_arg_words;
   int type_idx = info->index;
   FlushAllRegs();  /* Everything to home location */
   QuickEntrypointEnum target;
@@ -400,7 +534,7 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
   } else {
     target = kQuickCheckAndAllocArrayWithAccessCheck;
   }
-  CallRuntimeHelperImmMethodImm(target, type_idx, elems, true);
+  CallRuntimeHelperImmImmMethod(target, type_idx, elems, true);
   FreeTemp(TargetReg(kArg2, kNotWide));
   FreeTemp(TargetReg(kArg1, kNotWide));
   /*
@@ -417,8 +551,8 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
   // share array alignment with ints (see comment at head of function)
   size_t component_size = sizeof(int32_t);
 
-  // Having a range of 0 is legal
-  if (info->is_range && (elems > 0)) {
+  if (elems > 5) {
+    DCHECK(info->is_range);  // Non-range insn can't encode more than 5 elems.
     /*
      * Bit of ugliness here.  We're going generate a mem copy loop
      * on the register range, but it is possible that some regs
@@ -427,11 +561,15 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
      * of any regs in the source range that have been promoted to
      * home location.
      */
-    for (int i = 0; i < elems; i++) {
+    for (size_t i = 0; i < elems; i++) {
       RegLocation loc = UpdateLoc(info->args[i]);
       if (loc.location == kLocPhysReg) {
         ScopedMemRefType mem_ref_type(this, ResourceMask::kDalvikReg);
-        Store32Disp(TargetPtrReg(kSp), SRegOffset(loc.s_reg_low), loc.reg);
+        if (loc.ref) {
+          StoreRefDisp(TargetPtrReg(kSp), SRegOffset(loc.s_reg_low), loc.reg, kNotVolatile);
+        } else {
+          Store32Disp(TargetPtrReg(kSp), SRegOffset(loc.s_reg_low), loc.reg);
+        }
       }
     }
     /*
@@ -455,6 +593,7 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
         r_val = AllocTemp();
         break;
       case kMips:
+      case kMips64:
         r_val = AllocTemp();
         break;
       default: LOG(FATAL) << "Unexpected instruction set: " << cu_->instruction_set;
@@ -466,9 +605,9 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
     OpRegRegImm(kOpAdd, r_dst, ref_reg,
                 mirror::Array::DataOffset(component_size).Int32Value());
     // Set up the loop counter (known to be > 0)
-    LoadConstant(r_idx, elems - 1);
+    LoadConstant(r_idx, static_cast<int>(elems - 1));
     // Generate the copy loop.  Going backwards for convenience
-    LIR* target = NewLIR0(kPseudoTargetLabel);
+    LIR* loop_head_target = NewLIR0(kPseudoTargetLabel);
     // Copy next element
     {
       ScopedMemRefType mem_ref_type(this, ResourceMask::kDalvikReg);
@@ -478,21 +617,42 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
     }
     StoreBaseIndexed(r_dst, r_idx, r_val, 2, k32);
     FreeTemp(r_val);
-    OpDecAndBranch(kCondGe, r_idx, target);
+    OpDecAndBranch(kCondGe, r_idx, loop_head_target);
     if (cu_->instruction_set == kX86 || cu_->instruction_set == kX86_64) {
       // Restore the target pointer
       OpRegRegImm(kOpAdd, ref_reg, r_dst,
                   -mirror::Array::DataOffset(component_size).Int32Value());
     }
-  } else if (!info->is_range) {
+    FreeTemp(r_idx);
+    FreeTemp(r_dst);
+    FreeTemp(r_src);
+  } else {
+    DCHECK_LE(elems, 5u);  // Usually but not necessarily non-range.
     // TUNING: interleave
-    for (int i = 0; i < elems; i++) {
-      RegLocation rl_arg = LoadValue(info->args[i], kCoreReg);
-      Store32Disp(ref_reg,
-                  mirror::Array::DataOffset(component_size).Int32Value() + i * 4, rl_arg.reg);
+    for (size_t i = 0; i < elems; i++) {
+      RegLocation rl_arg;
+      if (info->args[i].ref) {
+        rl_arg = LoadValue(info->args[i], kRefReg);
+        StoreRefDisp(ref_reg,
+                    mirror::Array::DataOffset(component_size).Int32Value() + i * 4, rl_arg.reg,
+                    kNotVolatile);
+      } else {
+        rl_arg = LoadValue(info->args[i], kCoreReg);
+        Store32Disp(ref_reg,
+                    mirror::Array::DataOffset(component_size).Int32Value() + i * 4, rl_arg.reg);
+      }
       // If the LoadValue caused a temp to be allocated, free it
       if (IsTemp(rl_arg.reg)) {
         FreeTemp(rl_arg.reg);
+      }
+    }
+  }
+  if (elems != 0 && info->args[0].ref) {
+    // If there is at least one potentially non-null value, unconditionally mark the GC card.
+    for (size_t i = 0; i < elems; i++) {
+      if (!mir_graph_->IsConstantNullRef(info->args[i])) {
+        UnconditionallyMarkGCCard(ref_reg);
+        break;
       }
     }
   }
@@ -501,86 +661,46 @@ void Mir2Lir::GenFilledNewArray(CallInfo* info) {
   }
 }
 
-//
-// Slow path to ensure a class is initialized for sget/sput.
-//
-class StaticFieldSlowPath : public Mir2Lir::LIRSlowPath {
- public:
-  StaticFieldSlowPath(Mir2Lir* m2l, LIR* unresolved, LIR* uninit, LIR* cont, int storage_index,
-                      RegStorage r_base) :
-    LIRSlowPath(m2l, m2l->GetCurrentDexPc(), unresolved, cont), uninit_(uninit),
-               storage_index_(storage_index), r_base_(r_base) {
+/*
+ * Array data table format:
+ *  ushort ident = 0x0300   magic value
+ *  ushort width            width of each element in the table
+ *  uint   size             number of elements in the table
+ *  ubyte  data[size*width] table of data values (may contain a single-byte
+ *                          padding at the end)
+ *
+ * Total size is 4+(width * size + 1)/2 16-bit code units.
+ */
+void Mir2Lir::GenFillArrayData(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
+  if (kIsDebugBuild) {
+    const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
+    const Instruction::ArrayDataPayload* payload =
+        reinterpret_cast<const Instruction::ArrayDataPayload*>(table);
+    CHECK_EQ(payload->ident, static_cast<uint16_t>(Instruction::kArrayDataSignature));
   }
+  uint32_t table_offset_from_start = mir->offset + static_cast<int32_t>(table_offset);
+  CallRuntimeHelperImmRegLocation(kQuickHandleFillArrayData, table_offset_from_start, rl_src, true);
+}
 
-  void Compile() {
-    LIR* unresolved_target = GenerateTargetLabel();
-    uninit_->target = unresolved_target;
-    m2l_->CallRuntimeHelperImm(kQuickInitializeStaticStorage, storage_index_, true);
-    // Copy helper's result into r_base, a no-op on all but MIPS.
-    m2l_->OpRegCopy(r_base_,  m2l_->TargetReg(kRet0, kRef));
-
-    m2l_->OpUnconditionalBranch(cont_);
-  }
-
- private:
-  LIR* const uninit_;
-  const int storage_index_;
-  const RegStorage r_base_;
-};
-
-void Mir2Lir::GenSput(MIR* mir, RegLocation rl_src, bool is_long_or_double,
-                      bool is_object) {
+void Mir2Lir::GenSput(MIR* mir, RegLocation rl_src, OpSize size) {
   const MirSFieldLoweringInfo& field_info = mir_graph_->GetSFieldLoweringInfo(mir);
+  DCHECK_EQ(SPutMemAccessType(mir->dalvikInsn.opcode), field_info.MemAccessType());
   cu_->compiler_driver->ProcessedStaticField(field_info.FastPut(), field_info.IsReferrersClass());
-  OpSize store_size = LoadStoreOpSize(is_long_or_double, is_object);
-  if (!SLOW_FIELD_PATH && field_info.FastPut()) {
+  if (!ForceSlowFieldPath(cu_) && field_info.FastPut()) {
     DCHECK_GE(field_info.FieldOffset().Int32Value(), 0);
     RegStorage r_base;
     if (field_info.IsReferrersClass()) {
       // Fast path, static storage base is this method's class
-      RegLocation rl_method = LoadCurrMethod();
       r_base = AllocTempRef();
-      LoadRefDisp(rl_method.reg, mirror::ArtMethod::DeclaringClassOffset().Int32Value(), r_base,
+      RegStorage r_method = LoadCurrMethodWithHint(r_base);
+      LoadRefDisp(r_method, ArtMethod::DeclaringClassOffset().Int32Value(), r_base,
                   kNotVolatile);
-      if (IsTemp(rl_method.reg)) {
-        FreeTemp(rl_method.reg);
-      }
     } else {
       // Medium path, static storage base in a different class which requires checks that the other
       // class is initialized.
-      // TODO: remove initialized check now that we are initializing classes in the compiler driver.
-      DCHECK_NE(field_info.StorageIndex(), DexFile::kDexNoIndex);
-      // May do runtime call so everything to home locations.
-      FlushAllRegs();
-      // Using fixed register to sync with possible call to runtime support.
-      RegStorage r_method = TargetReg(kArg1, kRef);
-      LockTemp(r_method);
-      LoadCurrMethodDirect(r_method);
-      r_base = TargetReg(kArg0, kRef);
-      LockTemp(r_base);
-      LoadRefDisp(r_method, mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value(), r_base,
-                  kNotVolatile);
-      int32_t offset_of_field = ObjArray::OffsetOfElement(field_info.StorageIndex()).Int32Value();
-      LoadRefDisp(r_base, offset_of_field, r_base, kNotVolatile);
-      // r_base now points at static storage (Class*) or NULL if the type is not yet resolved.
-      if (!field_info.IsInitialized() &&
-          (mir->optimization_flags & MIR_IGNORE_CLINIT_CHECK) == 0) {
-        // Check if r_base is NULL or a not yet initialized class.
-
-        // The slow path is invoked if the r_base is NULL or the class pointed
-        // to by it is not initialized.
-        LIR* unresolved_branch = OpCmpImmBranch(kCondEq, r_base, 0, NULL);
-        RegStorage r_tmp = TargetReg(kArg2, kNotWide);
-        LockTemp(r_tmp);
-        LIR* uninit_branch = OpCmpMemImmBranch(kCondLt, r_tmp, r_base,
-                                          mirror::Class::StatusOffset().Int32Value(),
-                                          mirror::Class::kStatusInitialized, nullptr, nullptr);
-        LIR* cont = NewLIR0(kPseudoTargetLabel);
-
-        AddSlowPath(new (arena_) StaticFieldSlowPath(this, unresolved_branch, uninit_branch, cont,
-                                                     field_info.StorageIndex(), r_base));
-
-        FreeTemp(r_tmp);
+      r_base = GenGetOtherTypeForSgetSput(field_info, mir->optimization_flags);
+      if (!field_info.IsClassInitialized() &&
+          (mir->optimization_flags & MIR_CLASS_IS_INITIALIZED) == 0) {
         // Ensure load of status and store of value don't re-order.
         // TODO: Presumably the actual value store is control-dependent on the status load,
         // and will thus not be reordered in any case, since stores are never speculated.
@@ -588,117 +708,138 @@ void Mir2Lir::GenSput(MIR* mir, RegLocation rl_src, bool is_long_or_double,
         // need the barrier to guard later static loads.
         GenMemBarrier(kLoadAny);
       }
-      FreeTemp(r_method);
     }
     // rBase now holds static storage base
-    RegisterClass reg_class = RegClassForFieldLoadStore(store_size, field_info.IsVolatile());
-    if (is_long_or_double) {
+    RegisterClass reg_class = RegClassForFieldLoadStore(size, field_info.IsVolatile());
+    if (IsWide(size)) {
       rl_src = LoadValueWide(rl_src, reg_class);
     } else {
       rl_src = LoadValue(rl_src, reg_class);
     }
-    if (is_object) {
+    if (IsRef(size)) {
       StoreRefDisp(r_base, field_info.FieldOffset().Int32Value(), rl_src.reg,
                    field_info.IsVolatile() ? kVolatile : kNotVolatile);
     } else {
-      StoreBaseDisp(r_base, field_info.FieldOffset().Int32Value(), rl_src.reg, store_size,
+      StoreBaseDisp(r_base, field_info.FieldOffset().Int32Value(), rl_src.reg, size,
                     field_info.IsVolatile() ? kVolatile : kNotVolatile);
     }
-    if (is_object && !mir_graph_->IsConstantNullRef(rl_src)) {
-      MarkGCCard(rl_src.reg, r_base);
+    if (IsRef(size) && !mir_graph_->IsConstantNullRef(rl_src)) {
+      MarkGCCard(mir->optimization_flags, rl_src.reg, r_base);
     }
     FreeTemp(r_base);
   } else {
     FlushAllRegs();  // Everything to home locations
-    QuickEntrypointEnum target =
-        is_long_or_double ? kQuickSet64Static
-            : (is_object ? kQuickSetObjStatic : kQuickSet32Static);
+    QuickEntrypointEnum target;
+    switch (size) {
+      case kReference:
+        target = kQuickSetObjStatic;
+        break;
+      case k64:
+      case kDouble:
+        target = kQuickSet64Static;
+        break;
+      case k32:
+      case kSingle:
+        target = kQuickSet32Static;
+        break;
+      case kSignedHalf:
+      case kUnsignedHalf:
+        target = kQuickSet16Static;
+        break;
+      case kSignedByte:
+      case kUnsignedByte:
+        target = kQuickSet8Static;
+        break;
+      case kWord:  // Intentional fallthrough.
+      default:
+        LOG(FATAL) << "Can't determine entrypoint for: " << size;
+        target = kQuickSet32Static;
+    }
     CallRuntimeHelperImmRegLocation(target, field_info.FieldIndex(), rl_src, true);
   }
 }
 
-void Mir2Lir::GenSget(MIR* mir, RegLocation rl_dest,
-                      bool is_long_or_double, bool is_object) {
+void Mir2Lir::GenSget(MIR* mir, RegLocation rl_dest, OpSize size, Primitive::Type type) {
   const MirSFieldLoweringInfo& field_info = mir_graph_->GetSFieldLoweringInfo(mir);
+  DCHECK_EQ(SGetMemAccessType(mir->dalvikInsn.opcode), field_info.MemAccessType());
   cu_->compiler_driver->ProcessedStaticField(field_info.FastGet(), field_info.IsReferrersClass());
-  OpSize load_size = LoadStoreOpSize(is_long_or_double, is_object);
-  if (!SLOW_FIELD_PATH && field_info.FastGet()) {
+
+  if (!ForceSlowFieldPath(cu_) && field_info.FastGet()) {
     DCHECK_GE(field_info.FieldOffset().Int32Value(), 0);
     RegStorage r_base;
     if (field_info.IsReferrersClass()) {
       // Fast path, static storage base is this method's class
-      RegLocation rl_method  = LoadCurrMethod();
       r_base = AllocTempRef();
-      LoadRefDisp(rl_method.reg, mirror::ArtMethod::DeclaringClassOffset().Int32Value(), r_base,
+      RegStorage r_method = LoadCurrMethodWithHint(r_base);
+      LoadRefDisp(r_method, ArtMethod::DeclaringClassOffset().Int32Value(), r_base,
                   kNotVolatile);
     } else {
       // Medium path, static storage base in a different class which requires checks that the other
       // class is initialized
-      DCHECK_NE(field_info.StorageIndex(), DexFile::kDexNoIndex);
-      // May do runtime call so everything to home locations.
-      FlushAllRegs();
-      // Using fixed register to sync with possible call to runtime support.
-      RegStorage r_method = TargetReg(kArg1, kRef);
-      LockTemp(r_method);
-      LoadCurrMethodDirect(r_method);
-      r_base = TargetReg(kArg0, kRef);
-      LockTemp(r_base);
-      LoadRefDisp(r_method, mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value(), r_base,
-                  kNotVolatile);
-      int32_t offset_of_field = ObjArray::OffsetOfElement(field_info.StorageIndex()).Int32Value();
-      LoadRefDisp(r_base, offset_of_field, r_base, kNotVolatile);
-      // r_base now points at static storage (Class*) or NULL if the type is not yet resolved.
-      if (!field_info.IsInitialized() &&
-          (mir->optimization_flags & MIR_IGNORE_CLINIT_CHECK) == 0) {
-        // Check if r_base is NULL or a not yet initialized class.
-
-        // The slow path is invoked if the r_base is NULL or the class pointed
-        // to by it is not initialized.
-        LIR* unresolved_branch = OpCmpImmBranch(kCondEq, r_base, 0, NULL);
-        RegStorage r_tmp = TargetReg(kArg2, kNotWide);
-        LockTemp(r_tmp);
-        LIR* uninit_branch = OpCmpMemImmBranch(kCondLt, r_tmp, r_base,
-                                          mirror::Class::StatusOffset().Int32Value(),
-                                          mirror::Class::kStatusInitialized, nullptr, nullptr);
-        LIR* cont = NewLIR0(kPseudoTargetLabel);
-
-        AddSlowPath(new (arena_) StaticFieldSlowPath(this, unresolved_branch, uninit_branch, cont,
-                                                     field_info.StorageIndex(), r_base));
-
-        FreeTemp(r_tmp);
+      r_base = GenGetOtherTypeForSgetSput(field_info, mir->optimization_flags);
+      if (!field_info.IsClassInitialized() &&
+          (mir->optimization_flags & MIR_CLASS_IS_INITIALIZED) == 0) {
         // Ensure load of status and load of value don't re-order.
         GenMemBarrier(kLoadAny);
       }
-      FreeTemp(r_method);
     }
     // r_base now holds static storage base
-    RegisterClass reg_class = RegClassForFieldLoadStore(load_size, field_info.IsVolatile());
+    RegisterClass reg_class = RegClassForFieldLoadStore(size, field_info.IsVolatile());
     RegLocation rl_result = EvalLoc(rl_dest, reg_class, true);
 
     int field_offset = field_info.FieldOffset().Int32Value();
-    if (is_object) {
+    if (IsRef(size)) {
+      // TODO: DCHECK?
       LoadRefDisp(r_base, field_offset, rl_result.reg, field_info.IsVolatile() ? kVolatile :
           kNotVolatile);
     } else {
-      LoadBaseDisp(r_base, field_offset, rl_result.reg, load_size, field_info.IsVolatile() ?
+      LoadBaseDisp(r_base, field_offset, rl_result.reg, size, field_info.IsVolatile() ?
           kVolatile : kNotVolatile);
     }
     FreeTemp(r_base);
 
-    if (is_long_or_double) {
+    if (IsWide(size)) {
       StoreValueWide(rl_dest, rl_result);
     } else {
       StoreValue(rl_dest, rl_result);
     }
   } else {
+    DCHECK(SizeMatchesTypeForEntrypoint(size, type));
     FlushAllRegs();  // Everything to home locations
-    QuickEntrypointEnum target =
-        is_long_or_double ? kQuickGet64Static
-            : (is_object ? kQuickGetObjStatic : kQuickGet32Static);
+    QuickEntrypointEnum target;
+    switch (type) {
+      case Primitive::kPrimNot:
+        target = kQuickGetObjStatic;
+        break;
+      case Primitive::kPrimLong:
+      case Primitive::kPrimDouble:
+        target = kQuickGet64Static;
+        break;
+      case Primitive::kPrimInt:
+      case Primitive::kPrimFloat:
+        target = kQuickGet32Static;
+        break;
+      case Primitive::kPrimShort:
+        target = kQuickGetShortStatic;
+        break;
+      case Primitive::kPrimChar:
+        target = kQuickGetCharStatic;
+        break;
+      case Primitive::kPrimByte:
+        target = kQuickGetByteStatic;
+        break;
+      case Primitive::kPrimBoolean:
+        target = kQuickGetBooleanStatic;
+        break;
+      case Primitive::kPrimVoid:  // Intentional fallthrough.
+      default:
+        LOG(FATAL) << "Can't determine entrypoint for: " << type;
+        target = kQuickGet32Static;
+    }
     CallRuntimeHelperImm(target, field_info.FieldIndex(), true);
 
     // FIXME: pGetXXStatic always return an int or int64 regardless of rl_dest.fp.
-    if (is_long_or_double) {
+    if (IsWide(size)) {
       RegLocation rl_result = GetReturnWide(kCoreReg);
       StoreValueWide(rl_dest, rl_result);
     } else {
@@ -712,21 +853,24 @@ void Mir2Lir::GenSget(MIR* mir, RegLocation rl_dest,
 void Mir2Lir::HandleSlowPaths() {
   // We should check slow_paths_.Size() every time, because a new slow path
   // may be created during slowpath->Compile().
-  for (size_t i = 0; i < slow_paths_.Size(); ++i) {
-    LIRSlowPath* slowpath = slow_paths_.Get(i);
+  for (LIRSlowPath* slowpath : slow_paths_) {
     slowpath->Compile();
   }
-  slow_paths_.Reset();
+  slow_paths_.clear();
 }
 
-void Mir2Lir::GenIGet(MIR* mir, int opt_flags, OpSize size,
-                      RegLocation rl_dest, RegLocation rl_obj, bool is_long_or_double,
-                      bool is_object) {
+void Mir2Lir::GenIGet(MIR* mir, int opt_flags, OpSize size, Primitive::Type type,
+                      RegLocation rl_dest, RegLocation rl_obj) {
   const MirIFieldLoweringInfo& field_info = mir_graph_->GetIFieldLoweringInfo(mir);
+  if (kIsDebugBuild) {
+    auto mem_access_type = IsInstructionIGetQuickOrIPutQuick(mir->dalvikInsn.opcode) ?
+        IGetQuickOrIPutQuickMemAccessType(mir->dalvikInsn.opcode) :
+        IGetMemAccessType(mir->dalvikInsn.opcode);
+    DCHECK_EQ(mem_access_type, field_info.MemAccessType()) << mir->dalvikInsn.opcode;
+  }
   cu_->compiler_driver->ProcessedInstanceField(field_info.FastGet());
-  OpSize load_size = LoadStoreOpSize(is_long_or_double, is_object);
-  if (!SLOW_FIELD_PATH && field_info.FastGet()) {
-    RegisterClass reg_class = RegClassForFieldLoadStore(load_size, field_info.IsVolatile());
+  if (!ForceSlowFieldPath(cu_) && field_info.FastGet()) {
+    RegisterClass reg_class = RegClassForFieldLoadStore(size, field_info.IsVolatile());
     // A load of the class will lead to an iget with offset 0.
     DCHECK_GE(field_info.FieldOffset().Int32Value(), 0);
     rl_obj = LoadValue(rl_obj, kRefReg);
@@ -734,29 +878,57 @@ void Mir2Lir::GenIGet(MIR* mir, int opt_flags, OpSize size,
     RegLocation rl_result = EvalLoc(rl_dest, reg_class, true);
     int field_offset = field_info.FieldOffset().Int32Value();
     LIR* load_lir;
-    if (is_object) {
+    if (IsRef(size)) {
       load_lir = LoadRefDisp(rl_obj.reg, field_offset, rl_result.reg, field_info.IsVolatile() ?
           kVolatile : kNotVolatile);
     } else {
-      load_lir = LoadBaseDisp(rl_obj.reg, field_offset, rl_result.reg, load_size,
+      load_lir = LoadBaseDisp(rl_obj.reg, field_offset, rl_result.reg, size,
                               field_info.IsVolatile() ? kVolatile : kNotVolatile);
     }
     MarkPossibleNullPointerExceptionAfter(opt_flags, load_lir);
-    if (is_long_or_double) {
+    if (IsWide(size)) {
       StoreValueWide(rl_dest, rl_result);
     } else {
       StoreValue(rl_dest, rl_result);
     }
   } else {
-    QuickEntrypointEnum target =
-        is_long_or_double ? kQuickGet64Instance
-            : (is_object ? kQuickGetObjInstance : kQuickGet32Instance);
+    DCHECK(SizeMatchesTypeForEntrypoint(size, type));
+    QuickEntrypointEnum target;
+    switch (type) {
+      case Primitive::kPrimNot:
+        target = kQuickGetObjInstance;
+        break;
+      case Primitive::kPrimLong:
+      case Primitive::kPrimDouble:
+        target = kQuickGet64Instance;
+        break;
+      case Primitive::kPrimFloat:
+      case Primitive::kPrimInt:
+        target = kQuickGet32Instance;
+        break;
+      case Primitive::kPrimShort:
+        target = kQuickGetShortInstance;
+        break;
+      case Primitive::kPrimChar:
+        target = kQuickGetCharInstance;
+        break;
+      case Primitive::kPrimByte:
+        target = kQuickGetByteInstance;
+        break;
+      case Primitive::kPrimBoolean:
+        target = kQuickGetBooleanInstance;
+        break;
+      case Primitive::kPrimVoid:  // Intentional fallthrough.
+      default:
+        LOG(FATAL) << "Can't determine entrypoint for: " << type;
+        target = kQuickGet32Instance;
+    }
     // Second argument of pGetXXInstance is always a reference.
     DCHECK_EQ(static_cast<unsigned int>(rl_obj.wide), 0U);
     CallRuntimeHelperImmRegLocation(target, field_info.FieldIndex(), rl_obj, true);
 
     // FIXME: pGetXXInstance always return an int or int64 regardless of rl_dest.fp.
-    if (is_long_or_double) {
+    if (IsWide(size)) {
       RegLocation rl_result = GetReturnWide(kCoreReg);
       StoreValueWide(rl_dest, rl_result);
     } else {
@@ -767,18 +939,22 @@ void Mir2Lir::GenIGet(MIR* mir, int opt_flags, OpSize size,
 }
 
 void Mir2Lir::GenIPut(MIR* mir, int opt_flags, OpSize size,
-                      RegLocation rl_src, RegLocation rl_obj, bool is_long_or_double,
-                      bool is_object) {
+                      RegLocation rl_src, RegLocation rl_obj) {
   const MirIFieldLoweringInfo& field_info = mir_graph_->GetIFieldLoweringInfo(mir);
+  if (kIsDebugBuild) {
+    auto mem_access_type = IsInstructionIGetQuickOrIPutQuick(mir->dalvikInsn.opcode) ?
+        IGetQuickOrIPutQuickMemAccessType(mir->dalvikInsn.opcode) :
+        IPutMemAccessType(mir->dalvikInsn.opcode);
+    DCHECK_EQ(mem_access_type, field_info.MemAccessType());
+  }
   cu_->compiler_driver->ProcessedInstanceField(field_info.FastPut());
-  OpSize store_size = LoadStoreOpSize(is_long_or_double, is_object);
-  if (!SLOW_FIELD_PATH && field_info.FastPut()) {
-    RegisterClass reg_class = RegClassForFieldLoadStore(store_size, field_info.IsVolatile());
+  if (!ForceSlowFieldPath(cu_) && field_info.FastPut()) {
+    RegisterClass reg_class = RegClassForFieldLoadStore(size, field_info.IsVolatile());
     // Dex code never writes to the class field.
     DCHECK_GE(static_cast<uint32_t>(field_info.FieldOffset().Int32Value()),
               sizeof(mirror::HeapReference<mirror::Class>));
     rl_obj = LoadValue(rl_obj, kRefReg);
-    if (is_long_or_double) {
+    if (IsWide(size)) {
       rl_src = LoadValueWide(rl_src, reg_class);
     } else {
       rl_src = LoadValue(rl_src, reg_class);
@@ -786,21 +962,44 @@ void Mir2Lir::GenIPut(MIR* mir, int opt_flags, OpSize size,
     GenNullCheck(rl_obj.reg, opt_flags);
     int field_offset = field_info.FieldOffset().Int32Value();
     LIR* null_ck_insn;
-    if (is_object) {
+    if (IsRef(size)) {
       null_ck_insn = StoreRefDisp(rl_obj.reg, field_offset, rl_src.reg, field_info.IsVolatile() ?
           kVolatile : kNotVolatile);
     } else {
-      null_ck_insn = StoreBaseDisp(rl_obj.reg, field_offset, rl_src.reg, store_size,
+      null_ck_insn = StoreBaseDisp(rl_obj.reg, field_offset, rl_src.reg, size,
                                    field_info.IsVolatile() ? kVolatile : kNotVolatile);
     }
     MarkPossibleNullPointerExceptionAfter(opt_flags, null_ck_insn);
-    if (is_object && !mir_graph_->IsConstantNullRef(rl_src)) {
-      MarkGCCard(rl_src.reg, rl_obj.reg);
+    if (IsRef(size) && !mir_graph_->IsConstantNullRef(rl_src)) {
+      MarkGCCard(opt_flags, rl_src.reg, rl_obj.reg);
     }
   } else {
-    QuickEntrypointEnum target =
-        is_long_or_double ? kQuickSet64Instance
-            : (is_object ? kQuickSetObjInstance : kQuickSet32Instance);
+    QuickEntrypointEnum target;
+    switch (size) {
+      case kReference:
+        target = kQuickSetObjInstance;
+        break;
+      case k64:
+      case kDouble:
+        target = kQuickSet64Instance;
+        break;
+      case k32:
+      case kSingle:
+        target = kQuickSet32Instance;
+        break;
+      case kSignedHalf:
+      case kUnsignedHalf:
+        target = kQuickSet16Instance;
+        break;
+      case kSignedByte:
+      case kUnsignedByte:
+        target = kQuickSet8Instance;
+        break;
+      case kWord:  // Intentional fallthrough.
+      default:
+        LOG(FATAL) << "Can't determine entrypoint for: " << size;
+        target = kQuickSet32Instance;
+    }
     CallRuntimeHelperImmRegLocationRegLocation(target, field_info.FieldIndex(), rl_obj, rl_src,
                                                true);
   }
@@ -819,157 +1018,85 @@ void Mir2Lir::GenArrayObjPut(int opt_flags, RegLocation rl_array, RegLocation rl
 }
 
 void Mir2Lir::GenConstClass(uint32_t type_idx, RegLocation rl_dest) {
-  RegLocation rl_method = LoadCurrMethod();
-  CheckRegLocation(rl_method);
-  RegStorage res_reg = AllocTempRef();
-  RegLocation rl_result = EvalLoc(rl_dest, kRefReg, true);
+  RegLocation rl_result;
   if (!cu_->compiler_driver->CanAccessTypeWithoutChecks(cu_->method_idx,
                                                         *cu_->dex_file,
                                                         type_idx)) {
     // Call out to helper which resolves type and verifies access.
     // Resolved type returned in kRet0.
-    CallRuntimeHelperImmReg(kQuickInitializeTypeAndVerifyAccess, type_idx, rl_method.reg, true);
-    RegLocation rl_result = GetReturn(kRefReg);
-    StoreValue(rl_dest, rl_result);
+    CallRuntimeHelperImm(kQuickInitializeTypeAndVerifyAccess, type_idx, true);
+    rl_result = GetReturn(kRefReg);
   } else {
-    // We're don't need access checks, load type from dex cache
-    int32_t dex_cache_offset =
-        mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value();
-    LoadRefDisp(rl_method.reg, dex_cache_offset, res_reg, kNotVolatile);
-    int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
-    LoadRefDisp(res_reg, offset_of_type, rl_result.reg, kNotVolatile);
+    rl_result = EvalLoc(rl_dest, kRefReg, true);
+    // We don't need access checks, load type from dex cache
+    if (CanUseOpPcRelDexCacheArrayLoad()) {
+      size_t offset = dex_cache_arrays_layout_.TypeOffset(type_idx);
+      OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, rl_result.reg, false);
+    } else {
+      int32_t dex_cache_offset =
+          ArtMethod::DexCacheResolvedTypesOffset().Int32Value();
+      RegStorage res_reg = AllocTempRef();
+      RegStorage r_method = LoadCurrMethodWithHint(res_reg);
+      LoadRefDisp(r_method, dex_cache_offset, res_reg, kNotVolatile);
+      int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
+      LoadRefDisp(res_reg, offset_of_type, rl_result.reg, kNotVolatile);
+      FreeTemp(res_reg);
+    }
     if (!cu_->compiler_driver->CanAssumeTypeIsPresentInDexCache(*cu_->dex_file,
-        type_idx) || SLOW_TYPE_PATH) {
+        type_idx) || ForceSlowTypePath(cu_)) {
       // Slow path, at runtime test if type is null and if so initialize
       FlushAllRegs();
-      LIR* branch = OpCmpImmBranch(kCondEq, rl_result.reg, 0, NULL);
-      LIR* cont = NewLIR0(kPseudoTargetLabel);
-
-      // Object to generate the slow path for class resolution.
-      class SlowPath : public LIRSlowPath {
-       public:
-        SlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont, const int type_idx,
-                 const RegLocation& rl_method, const RegLocation& rl_result) :
-                   LIRSlowPath(m2l, m2l->GetCurrentDexPc(), fromfast, cont), type_idx_(type_idx),
-                   rl_method_(rl_method), rl_result_(rl_result) {
-        }
-
-        void Compile() {
-          GenerateTargetLabel();
-
-          m2l_->CallRuntimeHelperImmReg(kQuickInitializeType, type_idx_, rl_method_.reg, true);
-          m2l_->OpRegCopy(rl_result_.reg,  m2l_->TargetReg(kRet0, kRef));
-          m2l_->OpUnconditionalBranch(cont_);
-        }
-
-       private:
-        const int type_idx_;
-        const RegLocation rl_method_;
-        const RegLocation rl_result_;
-      };
-
-      // Add to list for future.
-      AddSlowPath(new (arena_) SlowPath(this, branch, cont, type_idx, rl_method, rl_result));
-
-      StoreValue(rl_dest, rl_result);
-     } else {
-      // Fast path, we're done - just store result
-      StoreValue(rl_dest, rl_result);
+      GenIfNullUseHelperImm(rl_result.reg, kQuickInitializeType, type_idx);
     }
   }
+  StoreValue(rl_dest, rl_result);
 }
 
 void Mir2Lir::GenConstString(uint32_t string_idx, RegLocation rl_dest) {
   /* NOTE: Most strings should be available at compile time */
-  const int32_t offset_of_string =
-      mirror::ObjectArray<mirror::String>::OffsetOfElement(string_idx).Int32Value();
+  int32_t offset_of_string = mirror::ObjectArray<mirror::String>::OffsetOfElement(string_idx).
+                                                                                      Int32Value();
   if (!cu_->compiler_driver->CanAssumeStringIsPresentInDexCache(
-      *cu_->dex_file, string_idx) || SLOW_STRING_PATH) {
+      *cu_->dex_file, string_idx) || ForceSlowStringPath(cu_)) {
     // slow path, resolve string if not in dex cache
     FlushAllRegs();
     LockCallTemps();  // Using explicit registers
 
-    // If the Method* is already in a register, we can save a copy.
-    RegLocation rl_method = mir_graph_->GetMethodLoc();
-    RegStorage r_method;
-    if (rl_method.location == kLocPhysReg) {
-      // A temp would conflict with register use below.
-      DCHECK(!IsTemp(rl_method.reg));
-      r_method = rl_method.reg;
-    } else {
-      r_method = TargetReg(kArg2, kRef);
-      LoadCurrMethodDirect(r_method);
-    }
-    // Method to declaring class.
-    LoadRefDisp(r_method, mirror::ArtMethod::DeclaringClassOffset().Int32Value(),
-                TargetReg(kArg0, kRef), kNotVolatile);
-    // Declaring class to dex cache strings.
-    LoadRefDisp(TargetReg(kArg0, kRef), mirror::Class::DexCacheStringsOffset().Int32Value(),
-                TargetReg(kArg0, kRef), kNotVolatile);
-
     // Might call out to helper, which will return resolved string in kRet0
-    LoadRefDisp(TargetReg(kArg0, kRef), offset_of_string, TargetReg(kRet0, kRef), kNotVolatile);
-    LIR* fromfast = OpCmpImmBranch(kCondEq, TargetReg(kRet0, kRef), 0, NULL);
-    LIR* cont = NewLIR0(kPseudoTargetLabel);
+    RegStorage ret0 = TargetReg(kRet0, kRef);
+    if (CanUseOpPcRelDexCacheArrayLoad()) {
+      size_t offset = dex_cache_arrays_layout_.StringOffset(string_idx);
+      OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, ret0, false);
+    } else {
+      // Method to declaring class.
+      RegStorage arg0 = TargetReg(kArg0, kRef);
+      RegStorage r_method = LoadCurrMethodWithHint(arg0);
+      LoadRefDisp(r_method, ArtMethod::DeclaringClassOffset().Int32Value(), arg0, kNotVolatile);
+      // Declaring class to dex cache strings.
+      LoadRefDisp(arg0, mirror::Class::DexCacheStringsOffset().Int32Value(), arg0, kNotVolatile);
 
-    {
-      // Object to generate the slow path for string resolution.
-      class SlowPath : public LIRSlowPath {
-       public:
-        SlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont, RegStorage r_method, int32_t string_idx) :
-          LIRSlowPath(m2l, m2l->GetCurrentDexPc(), fromfast, cont),
-          r_method_(r_method), string_idx_(string_idx) {
-        }
-
-        void Compile() {
-          GenerateTargetLabel();
-          m2l_->CallRuntimeHelperRegImm(kQuickResolveString, r_method_, string_idx_, true);
-          m2l_->OpUnconditionalBranch(cont_);
-        }
-
-       private:
-         const RegStorage r_method_;
-         const int32_t string_idx_;
-      };
-
-      AddSlowPath(new (arena_) SlowPath(this, fromfast, cont, r_method, string_idx));
+      LoadRefDisp(arg0, offset_of_string, ret0, kNotVolatile);
     }
+    GenIfNullUseHelperImm(ret0, kQuickResolveString, string_idx);
 
     GenBarrier();
     StoreValue(rl_dest, GetReturn(kRefReg));
   } else {
-    // Try to see if we can embed a direct pointer.
-    bool use_direct_ptr = false;
-    size_t direct_ptr = 0;
-    bool embed_string = false;
-    // TODO: Implement for X86.
-    if (cu_->instruction_set != kX86 && cu_->instruction_set != kX86_64) {
-      embed_string = cu_->compiler_driver->CanEmbedStringInCode(*cu_->dex_file, string_idx,
-                                                                &use_direct_ptr, &direct_ptr);
-    }
-    if (embed_string) {
-      RegLocation rl_result = EvalLoc(rl_dest, kRefReg, true);
-      if (!use_direct_ptr) {
-        LoadString(string_idx, rl_result.reg);
-      } else {
-        LoadConstant(rl_result.reg, static_cast<int32_t>(direct_ptr));
-      }
-      StoreValue(rl_dest, rl_result);
+    RegLocation rl_result = EvalLoc(rl_dest, kRefReg, true);
+    if (CanUseOpPcRelDexCacheArrayLoad()) {
+      size_t offset = dex_cache_arrays_layout_.StringOffset(string_idx);
+      OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, rl_result.reg, false);
     } else {
       RegLocation rl_method = LoadCurrMethod();
       RegStorage res_reg = AllocTempRef();
-      RegLocation rl_result = EvalLoc(rl_dest, kRefReg, true);
-
-      // Method to declaring class.
-      LoadRefDisp(rl_method.reg, mirror::ArtMethod::DeclaringClassOffset().Int32Value(),
-                  res_reg, kNotVolatile);
-      // Declaring class to dex cache strings.
+      LoadRefDisp(rl_method.reg, ArtMethod::DeclaringClassOffset().Int32Value(), res_reg,
+                  kNotVolatile);
       LoadRefDisp(res_reg, mirror::Class::DexCacheStringsOffset().Int32Value(), res_reg,
                   kNotVolatile);
-
       LoadRefDisp(res_reg, offset_of_string, rl_result.reg, kNotVolatile);
-      StoreValue(rl_dest, rl_result);
+      FreeTemp(res_reg);
     }
+    StoreValue(rl_dest, rl_result);
   }
 }
 
@@ -994,7 +1121,7 @@ void Mir2Lir::GenNewInstance(uint32_t type_idx, RegLocation rl_dest) {
                                    !is_finalizable) {
       // The fast path.
       if (!use_direct_type_ptr) {
-        LoadClassType(type_idx, kArg0);
+        LoadClassType(*dex_file, type_idx, kArg0);
         if (!is_type_initialized) {
           CallRuntimeHelperRegMethod(kQuickAllocObjectResolved, TargetReg(kArg0, kRef), true);
         } else {
@@ -1038,19 +1165,25 @@ void Mir2Lir::GenInstanceofFinal(bool use_declaring_class, uint32_t type_idx, Re
     DCHECK(!IsSameReg(result_reg, object.reg));
   }
   LoadConstant(result_reg, 0);     // assume false
-  LIR* null_branchover = OpCmpImmBranch(kCondEq, object.reg, 0, NULL);
+  LIR* null_branchover = OpCmpImmBranch(kCondEq, object.reg, 0, nullptr);
 
   RegStorage check_class = AllocTypedTemp(false, kRefReg);
   RegStorage object_class = AllocTypedTemp(false, kRefReg);
 
-  LoadCurrMethodDirect(check_class);
   if (use_declaring_class) {
-    LoadRefDisp(check_class, mirror::ArtMethod::DeclaringClassOffset().Int32Value(), check_class,
+    RegStorage r_method = LoadCurrMethodWithHint(check_class);
+    LoadRefDisp(r_method, ArtMethod::DeclaringClassOffset().Int32Value(), check_class,
                 kNotVolatile);
     LoadRefDisp(object.reg,  mirror::Object::ClassOffset().Int32Value(), object_class,
                 kNotVolatile);
+  } else if (CanUseOpPcRelDexCacheArrayLoad()) {
+    size_t offset = dex_cache_arrays_layout_.TypeOffset(type_idx);
+    OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, check_class, false);
+    LoadRefDisp(object.reg,  mirror::Object::ClassOffset().Int32Value(), object_class,
+                kNotVolatile);
   } else {
-    LoadRefDisp(check_class, mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
+    RegStorage r_method = LoadCurrMethodWithHint(check_class);
+    LoadRefDisp(r_method, ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
                 check_class, kNotVolatile);
     LoadRefDisp(object.reg,  mirror::Object::ClassOffset().Int32Value(), object_class,
                 kNotVolatile);
@@ -1086,20 +1219,19 @@ void Mir2Lir::GenInstanceofCallingHelper(bool needs_access_check, bool type_know
   FlushAllRegs();
   // May generate a call - use explicit registers
   LockCallTemps();
-  RegStorage method_reg = TargetReg(kArg1, kRef);
-  LoadCurrMethodDirect(method_reg);   // kArg1 <= current Method*
   RegStorage class_reg = TargetReg(kArg2, kRef);  // kArg2 will hold the Class*
   RegStorage ref_reg = TargetReg(kArg0, kRef);  // kArg0 will hold the ref.
   RegStorage ret_reg = GetReturn(kRefReg).reg;
   if (needs_access_check) {
     // Check we have access to type_idx and if not throw IllegalAccessError,
     // returns Class* in kArg0
-    CallRuntimeHelperImm(kQuickInitializeTypeAndVerifyAccess, type_idx, true);
+    CallRuntimeHelperImmMethod(kQuickInitializeTypeAndVerifyAccess, type_idx, true);
     OpRegCopy(class_reg, ret_reg);  // Align usage with fast path
     LoadValueDirectFixed(rl_src, ref_reg);  // kArg0 <= ref
   } else if (use_declaring_class) {
+    RegStorage r_method = LoadCurrMethodWithHint(TargetReg(kArg1, kRef));
     LoadValueDirectFixed(rl_src, ref_reg);  // kArg0 <= ref
-    LoadRefDisp(method_reg, mirror::ArtMethod::DeclaringClassOffset().Int32Value(),
+    LoadRefDisp(r_method, ArtMethod::DeclaringClassOffset().Int32Value(),
                 class_reg, kNotVolatile);
   } else {
     if (can_assume_type_is_in_dex_cache) {
@@ -1107,42 +1239,22 @@ void Mir2Lir::GenInstanceofCallingHelper(bool needs_access_check, bool type_know
       LoadValueDirectFixed(rl_src, ref_reg);  // kArg0 <= ref
     }
 
-    // Load dex cache entry into class_reg (kArg2)
-    LoadRefDisp(method_reg, mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
-                class_reg, kNotVolatile);
-    int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
-    LoadRefDisp(class_reg, offset_of_type, class_reg, kNotVolatile);
+    if (CanUseOpPcRelDexCacheArrayLoad()) {
+      size_t offset = dex_cache_arrays_layout_.TypeOffset(type_idx);
+      OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, class_reg, false);
+    } else {
+      RegStorage r_method = LoadCurrMethodWithHint(class_reg);
+      // Load dex cache entry into class_reg (kArg2)
+      LoadRefDisp(r_method, ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
+                  class_reg, kNotVolatile);
+      int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
+      LoadRefDisp(class_reg, offset_of_type, class_reg, kNotVolatile);
+    }
     if (!can_assume_type_is_in_dex_cache) {
-      LIR* slow_path_branch = OpCmpImmBranch(kCondEq, class_reg, 0, NULL);
-      LIR* slow_path_target = NewLIR0(kPseudoTargetLabel);
+      GenIfNullUseHelperImm(class_reg, kQuickInitializeType, type_idx);
 
       // Should load value here.
       LoadValueDirectFixed(rl_src, ref_reg);  // kArg0 <= ref
-
-      class InitTypeSlowPath : public Mir2Lir::LIRSlowPath {
-       public:
-        InitTypeSlowPath(Mir2Lir* m2l, LIR* branch, LIR* cont, uint32_t type_idx,
-                         RegLocation rl_src)
-            : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch, cont), type_idx_(type_idx),
-              rl_src_(rl_src) {
-        }
-
-        void Compile() OVERRIDE {
-          GenerateTargetLabel();
-
-          m2l_->CallRuntimeHelperImm(kQuickInitializeType, type_idx_, true);
-          m2l_->OpRegCopy(m2l_->TargetReg(kArg2, kRef),
-                          m2l_->TargetReg(kRet0, kRef));  // Align usage with fast path
-          m2l_->OpUnconditionalBranch(cont_);
-        }
-
-       private:
-        uint32_t type_idx_;
-        RegLocation rl_src_;
-      };
-
-      AddSlowPath(new (arena_) InitTypeSlowPath(this, slow_path_branch, slow_path_target,
-                                                type_idx, rl_src));
     }
   }
   /* kArg0 is ref, kArg2 is class. If ref==null, use directly as bool result */
@@ -1151,7 +1263,7 @@ void Mir2Lir::GenInstanceofCallingHelper(bool needs_access_check, bool type_know
     // On MIPS and x86_64 rArg0 != rl_result, place false in result if branch is taken.
     LoadConstant(rl_result.reg, 0);
   }
-  LIR* branch1 = OpCmpImmBranch(kCondEq, ref_reg, 0, NULL);
+  LIR* branch1 = OpCmpImmBranch(kCondEq, ref_reg, 0, nullptr);
 
   /* load object->klass_ */
   RegStorage ref_class_reg = TargetReg(kArg1, kRef);  // kArg1 will hold the Class* of ref.
@@ -1159,7 +1271,7 @@ void Mir2Lir::GenInstanceofCallingHelper(bool needs_access_check, bool type_know
   LoadRefDisp(ref_reg, mirror::Object::ClassOffset().Int32Value(),
               ref_class_reg, kNotVolatile);
   /* kArg0 is ref, kArg1 is ref->klass_, kArg2 is class */
-  LIR* branchover = NULL;
+  LIR* branchover = nullptr;
   if (type_known_final) {
     // rl_result == ref == class.
     GenSelectConst32(ref_class_reg, class_reg, kCondEq, 1, 0, rl_result.reg,
@@ -1184,7 +1296,7 @@ void Mir2Lir::GenInstanceofCallingHelper(bool needs_access_check, bool type_know
       if (!type_known_abstract) {
         /* Uses branchovers */
         LoadConstant(rl_result.reg, 1);     // assume true
-        branchover = OpCmpBranch(kCondEq, TargetReg(kArg1, kRef), TargetReg(kArg2, kRef), NULL);
+        branchover = OpCmpBranch(kCondEq, TargetReg(kArg1, kRef), TargetReg(kArg2, kRef), nullptr);
       }
 
       OpRegCopy(TargetReg(kArg0, kRef), class_reg);    // .ne case - arg0 <= class
@@ -1222,7 +1334,12 @@ void Mir2Lir::GenInstanceof(uint32_t type_idx, RegLocation rl_dest, RegLocation 
   }
 }
 
-void Mir2Lir::GenCheckCast(uint32_t insn_idx, uint32_t type_idx, RegLocation rl_src) {
+void Mir2Lir::GenCheckCast(int opt_flags, uint32_t insn_idx, uint32_t type_idx,
+                           RegLocation rl_src) {
+  if ((opt_flags & MIR_IGNORE_CHECK_CAST) != 0) {
+    // Compiler analysis proved that this check-cast would never cause an exception.
+    return;
+  }
   bool type_known_final, type_known_abstract, use_declaring_class;
   bool needs_access_check = !cu_->compiler_driver->CanAccessTypeWithoutChecks(cu_->method_idx,
                                                                               *cu_->dex_file,
@@ -1240,55 +1357,33 @@ void Mir2Lir::GenCheckCast(uint32_t insn_idx, uint32_t type_idx, RegLocation rl_
   FlushAllRegs();
   // May generate a call - use explicit registers
   LockCallTemps();
-  RegStorage method_reg = TargetReg(kArg1, kRef);
-  LoadCurrMethodDirect(method_reg);  // kArg1 <= current Method*
   RegStorage class_reg = TargetReg(kArg2, kRef);  // kArg2 will hold the Class*
   if (needs_access_check) {
     // Check we have access to type_idx and if not throw IllegalAccessError,
     // returns Class* in kRet0
     // InitializeTypeAndVerifyAccess(idx, method)
-    CallRuntimeHelperImm(kQuickInitializeTypeAndVerifyAccess, type_idx, true);
+    CallRuntimeHelperImmMethod(kQuickInitializeTypeAndVerifyAccess, type_idx, true);
     OpRegCopy(class_reg, TargetReg(kRet0, kRef));  // Align usage with fast path
   } else if (use_declaring_class) {
-    LoadRefDisp(method_reg, mirror::ArtMethod::DeclaringClassOffset().Int32Value(),
+    RegStorage method_reg = LoadCurrMethodWithHint(TargetReg(kArg1, kRef));
+    LoadRefDisp(method_reg, ArtMethod::DeclaringClassOffset().Int32Value(),
                 class_reg, kNotVolatile);
   } else {
     // Load dex cache entry into class_reg (kArg2)
-    LoadRefDisp(method_reg, mirror::ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
-                class_reg, kNotVolatile);
-    int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
-    LoadRefDisp(class_reg, offset_of_type, class_reg, kNotVolatile);
+    if (CanUseOpPcRelDexCacheArrayLoad()) {
+      size_t offset = dex_cache_arrays_layout_.TypeOffset(type_idx);
+      OpPcRelDexCacheArrayLoad(cu_->dex_file, offset, class_reg, false);
+    } else {
+      RegStorage r_method = LoadCurrMethodWithHint(class_reg);
+
+      LoadRefDisp(r_method, ArtMethod::DexCacheResolvedTypesOffset().Int32Value(),
+                  class_reg, kNotVolatile);
+      int32_t offset_of_type = ClassArray::OffsetOfElement(type_idx).Int32Value();
+      LoadRefDisp(class_reg, offset_of_type, class_reg, kNotVolatile);
+    }
     if (!cu_->compiler_driver->CanAssumeTypeIsPresentInDexCache(*cu_->dex_file, type_idx)) {
       // Need to test presence of type in dex cache at runtime
-      LIR* hop_branch = OpCmpImmBranch(kCondEq, class_reg, 0, NULL);
-      LIR* cont = NewLIR0(kPseudoTargetLabel);
-
-      // Slow path to initialize the type.  Executed if the type is NULL.
-      class SlowPath : public LIRSlowPath {
-       public:
-        SlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont, const int type_idx,
-                 const RegStorage class_reg) :
-                   LIRSlowPath(m2l, m2l->GetCurrentDexPc(), fromfast, cont), type_idx_(type_idx),
-                   class_reg_(class_reg) {
-        }
-
-        void Compile() {
-          GenerateTargetLabel();
-
-          // Call out to helper, which will return resolved type in kArg0
-          // InitializeTypeFromCode(idx, method)
-          m2l_->CallRuntimeHelperImmReg(kQuickInitializeType, type_idx_,
-                                        m2l_->TargetReg(kArg1, kRef), true);
-          m2l_->OpRegCopy(class_reg_, m2l_->TargetReg(kRet0, kRef));  // Align usage with fast path
-          m2l_->OpUnconditionalBranch(cont_);
-        }
-
-       public:
-        const int type_idx_;
-        const RegStorage class_reg_;
-      };
-
-      AddSlowPath(new (arena_) SlowPath(this, hop_branch, cont, type_idx, class_reg));
+      GenIfNullUseHelperImm(class_reg, kQuickInitializeType, type_idx);
     }
   }
   // At this point, class_reg (kArg2) has class
@@ -1298,8 +1393,8 @@ void Mir2Lir::GenCheckCast(uint32_t insn_idx, uint32_t type_idx, RegLocation rl_
   // to call a helper function to do the check.
   class SlowPath : public LIRSlowPath {
    public:
-    SlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont, bool load):
-               LIRSlowPath(m2l, m2l->GetCurrentDexPc(), fromfast, cont), load_(load) {
+    SlowPath(Mir2Lir* m2l, LIR* fromfast, LIR* cont, bool load)
+        : LIRSlowPath(m2l, fromfast, cont), load_(load) {
     }
 
     void Compile() {
@@ -1419,7 +1514,7 @@ void Mir2Lir::GenShiftOpLong(Instruction::Code opcode, RegLocation rl_dest,
 
 
 void Mir2Lir::GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest,
-                            RegLocation rl_src1, RegLocation rl_src2) {
+                            RegLocation rl_src1, RegLocation rl_src2, int flags) {
   DCHECK(cu_->instruction_set != kX86 && cu_->instruction_set != kX86_64);
   OpKind op = kOpBkpt;
   bool is_div_rem = false;
@@ -1515,21 +1610,23 @@ void Mir2Lir::GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest,
     StoreValue(rl_dest, rl_result);
   } else {
     bool done = false;      // Set to true if we happen to find a way to use a real instruction.
-    if (cu_->instruction_set == kMips || cu_->instruction_set == kArm64) {
+    if (cu_->instruction_set == kMips || cu_->instruction_set == kMips64 ||
+        cu_->instruction_set == kArm64) {
       rl_src1 = LoadValue(rl_src1, kCoreReg);
       rl_src2 = LoadValue(rl_src2, kCoreReg);
-      if (check_zero) {
+      if (check_zero && (flags & MIR_IGNORE_DIV_ZERO_CHECK) == 0) {
         GenDivZeroCheck(rl_src2.reg);
       }
       rl_result = GenDivRem(rl_dest, rl_src1.reg, rl_src2.reg, op == kOpDiv);
       done = true;
     } else if (cu_->instruction_set == kThumb2) {
-      if (cu_->GetInstructionSetFeatures().HasDivideInstruction()) {
+      if (cu_->compiler_driver->GetInstructionSetFeatures()->AsArmInstructionSetFeatures()->
+              HasDivideInstruction()) {
         // Use ARM SDIV instruction for division.  For remainder we also need to
         // calculate using a MUL and subtract.
         rl_src1 = LoadValue(rl_src1, kCoreReg);
         rl_src2 = LoadValue(rl_src2, kCoreReg);
-        if (check_zero) {
+        if (check_zero && (flags & MIR_IGNORE_DIV_ZERO_CHECK) == 0) {
           GenDivZeroCheck(rl_src2.reg);
         }
         rl_result = GenDivRem(rl_dest, rl_src1.reg, rl_src2.reg, op == kOpDiv);
@@ -1543,7 +1640,7 @@ void Mir2Lir::GenArithOpInt(Instruction::Code opcode, RegLocation rl_dest,
       LoadValueDirectFixed(rl_src2, TargetReg(kArg1, kNotWide));
       RegStorage r_tgt = CallHelperSetup(kQuickIdivmod);
       LoadValueDirectFixed(rl_src1, TargetReg(kArg0, kNotWide));
-      if (check_zero) {
+      if (check_zero && (flags & MIR_IGNORE_DIV_ZERO_CHECK) == 0) {
         GenDivZeroCheck(TargetReg(kArg1, kNotWide));
       }
       // NOTE: callout here is not a safepoint.
@@ -1571,16 +1668,12 @@ static bool IsPopCountLE2(unsigned int x) {
 
 // Returns true if it added instructions to 'cu' to divide 'rl_src' by 'lit'
 // and store the result in 'rl_dest'.
-bool Mir2Lir::HandleEasyDivRem(Instruction::Code dalvik_opcode, bool is_div,
+bool Mir2Lir::HandleEasyDivRem(Instruction::Code dalvik_opcode ATTRIBUTE_UNUSED, bool is_div,
                                RegLocation rl_src, RegLocation rl_dest, int lit) {
-  if ((lit < 2) || ((cu_->instruction_set != kThumb2) && !IsPowerOfTwo(lit))) {
+  if ((lit < 2) || (!IsPowerOfTwo(lit))) {
     return false;
   }
-  // No divide instruction for Arm, so check for more special cases
-  if ((cu_->instruction_set == kThumb2) && !IsPowerOfTwo(lit)) {
-    return SmallLiteralDivRem(dalvik_opcode, is_div, rl_src, rl_dest, lit);
-  }
-  int k = LowestSetBit(lit);
+  int k = CTZ(lit);
   if (k >= 30) {
     // Avoid special cases.
     return false;
@@ -1660,22 +1753,50 @@ bool Mir2Lir::HandleEasyMultiply(RegLocation rl_src, RegLocation rl_dest, int li
   RegLocation rl_result = EvalLoc(rl_dest, kCoreReg, true);
   if (power_of_two) {
     // Shift.
-    OpRegRegImm(kOpLsl, rl_result.reg, rl_src.reg, LowestSetBit(lit));
+    OpRegRegImm(kOpLsl, rl_result.reg, rl_src.reg, CTZ(lit));
   } else if (pop_count_le2) {
     // Shift and add and shift.
-    int first_bit = LowestSetBit(lit);
-    int second_bit = LowestSetBit(lit ^ (1 << first_bit));
+    int first_bit = CTZ(lit);
+    int second_bit = CTZ(lit ^ (1 << first_bit));
     GenMultiplyByTwoBitMultiplier(rl_src, rl_result, lit, first_bit, second_bit);
   } else {
     // Reverse subtract: (src << (shift + 1)) - src.
     DCHECK(power_of_two_minus_one);
-    // TUNING: rsb dst, src, src lsl#LowestSetBit(lit + 1)
+    // TUNING: rsb dst, src, src lsl#CTZ(lit + 1)
     RegStorage t_reg = AllocTemp();
-    OpRegRegImm(kOpLsl, t_reg, rl_src.reg, LowestSetBit(lit + 1));
+    OpRegRegImm(kOpLsl, t_reg, rl_src.reg, CTZ(lit + 1));
     OpRegRegReg(kOpSub, rl_result.reg, t_reg, rl_src.reg);
   }
   StoreValue(rl_dest, rl_result);
   return true;
+}
+
+// Returns true if it generates instructions.
+bool Mir2Lir::HandleEasyFloatingPointDiv(RegLocation rl_dest, RegLocation rl_src1,
+                                         RegLocation rl_src2) {
+  if (!rl_src2.is_const ||
+      ((cu_->instruction_set != kThumb2) && (cu_->instruction_set != kArm64))) {
+    return false;
+  }
+
+  if (!rl_src2.wide) {
+    int32_t divisor = mir_graph_->ConstantValue(rl_src2);
+    if (CanDivideByReciprocalMultiplyFloat(divisor)) {
+      // Generate multiply by reciprocal instead of div.
+      float recip = 1.0f/bit_cast<float, int32_t>(divisor);
+      GenMultiplyByConstantFloat(rl_dest, rl_src1, bit_cast<int32_t, float>(recip));
+      return true;
+    }
+  } else {
+    int64_t divisor = mir_graph_->ConstantValueWide(rl_src2);
+    if (CanDivideByReciprocalMultiplyDouble(divisor)) {
+      // Generate multiply by reciprocal instead of div.
+      double recip = 1.0/bit_cast<double, int64_t>(divisor);
+      GenMultiplyByConstantDouble(rl_dest, rl_src1, bit_cast<int64_t, double>(recip));
+      return true;
+    }
+  }
+  return false;
 }
 
 void Mir2Lir::GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src,
@@ -1703,7 +1824,7 @@ void Mir2Lir::GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest, Re
     case Instruction::SUB_INT:
     case Instruction::SUB_INT_2ADDR:
       lit = -lit;
-      // Intended fallthrough
+      FALLTHROUGH_INTENDED;
     case Instruction::ADD_INT:
     case Instruction::ADD_INT_2ADDR:
     case Instruction::ADD_INT_LIT8:
@@ -1785,7 +1906,8 @@ void Mir2Lir::GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest, Re
       }
 
       bool done = false;
-      if (cu_->instruction_set == kMips || cu_->instruction_set == kArm64) {
+      if (cu_->instruction_set == kMips || cu_->instruction_set == kMips64 ||
+          cu_->instruction_set == kArm64) {
         rl_src = LoadValue(rl_src, kCoreReg);
         rl_result = GenDivRemLit(rl_dest, rl_src.reg, lit, is_div);
         done = true;
@@ -1793,7 +1915,8 @@ void Mir2Lir::GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest, Re
         rl_result = GenDivRemLit(rl_dest, rl_src, lit, is_div);
         done = true;
       } else if (cu_->instruction_set == kThumb2) {
-        if (cu_->GetInstructionSetFeatures().HasDivideInstruction()) {
+        if (cu_->compiler_driver->GetInstructionSetFeatures()->AsArmInstructionSetFeatures()->
+                HasDivideInstruction()) {
           // Use ARM SDIV instruction for division.  For remainder we also need to
           // calculate using a MUL and subtract.
           rl_src = LoadValue(rl_src, kCoreReg);
@@ -1830,7 +1953,7 @@ void Mir2Lir::GenArithOpIntLit(Instruction::Code opcode, RegLocation rl_dest, Re
 }
 
 void Mir2Lir::GenArithOpLong(Instruction::Code opcode, RegLocation rl_dest,
-                             RegLocation rl_src1, RegLocation rl_src2) {
+                             RegLocation rl_src1, RegLocation rl_src2, int flags) {
   RegLocation rl_result;
   OpKind first_op = kOpBkpt;
   OpKind second_op = kOpBkpt;
@@ -1915,7 +2038,9 @@ void Mir2Lir::GenArithOpLong(Instruction::Code opcode, RegLocation rl_dest,
       RegStorage r_tmp2 = TargetReg(kArg2, kWide);
       LoadValueDirectWideFixed(rl_src2, r_tmp2);
       RegStorage r_tgt = CallHelperSetup(target);
-      GenDivZeroCheckWide(r_tmp2);
+      if ((flags & MIR_IGNORE_DIV_ZERO_CHECK) == 0) {
+        GenDivZeroCheckWide(r_tmp2);
+      }
       LoadValueDirectWideFixed(rl_src1, r_tmp1);
       // NOTE: callout here is not a safepoint
       CallHelper(r_tgt, target, false /* not safepoint */);
@@ -1935,13 +2060,10 @@ void Mir2Lir::GenConst(RegLocation rl_dest, int value) {
   RegLocation rl_result = EvalLoc(rl_dest, kAnyReg, true);
   LoadConstantNoClobber(rl_result.reg, value);
   StoreValue(rl_dest, rl_result);
-  if (value == 0) {
-    Workaround7250540(rl_dest, rl_result.reg);
-  }
 }
 
 void Mir2Lir::GenConversionCall(QuickEntrypointEnum trampoline, RegLocation rl_dest,
-                                RegLocation rl_src) {
+                                RegLocation rl_src, RegisterClass return_reg_class) {
   /*
    * Don't optimize the register usage since it calls out to support
    * functions
@@ -1950,20 +2072,18 @@ void Mir2Lir::GenConversionCall(QuickEntrypointEnum trampoline, RegLocation rl_d
   FlushAllRegs();   /* Send everything to home location */
   CallRuntimeHelperRegLocation(trampoline, rl_src, false);
   if (rl_dest.wide) {
-    RegLocation rl_result;
-    rl_result = GetReturnWide(LocToRegClass(rl_dest));
+    RegLocation rl_result = GetReturnWide(return_reg_class);
     StoreValueWide(rl_dest, rl_result);
   } else {
-    RegLocation rl_result;
-    rl_result = GetReturn(LocToRegClass(rl_dest));
+    RegLocation rl_result = GetReturn(return_reg_class);
     StoreValue(rl_dest, rl_result);
   }
 }
 
-class SuspendCheckSlowPath : public Mir2Lir::LIRSlowPath {
+class Mir2Lir::SuspendCheckSlowPath : public Mir2Lir::LIRSlowPath {
  public:
   SuspendCheckSlowPath(Mir2Lir* m2l, LIR* branch, LIR* cont)
-      : LIRSlowPath(m2l, m2l->GetCurrentDexPc(), branch, cont) {
+      : LIRSlowPath(m2l, branch, cont) {
   }
 
   void Compile() OVERRIDE {
@@ -1979,18 +2099,15 @@ class SuspendCheckSlowPath : public Mir2Lir::LIRSlowPath {
 
 /* Check if we need to check for pending suspend request */
 void Mir2Lir::GenSuspendTest(int opt_flags) {
+  if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK) != 0) {
+    return;
+  }
   if (!cu_->compiler_driver->GetCompilerOptions().GetImplicitSuspendChecks()) {
-    if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK)) {
-      return;
-    }
     FlushAllRegs();
-    LIR* branch = OpTestSuspend(NULL);
+    LIR* branch = OpTestSuspend(nullptr);
     LIR* cont = NewLIR0(kPseudoTargetLabel);
     AddSlowPath(new (arena_) SuspendCheckSlowPath(this, branch, cont));
   } else {
-    if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK)) {
-      return;
-    }
     FlushAllRegs();     // TODO: needed?
     LIR* inst = CheckSuspendUsingLoad();
     MarkSafepointPC(inst);
@@ -1999,11 +2116,11 @@ void Mir2Lir::GenSuspendTest(int opt_flags) {
 
 /* Check if we need to check for pending suspend request */
 void Mir2Lir::GenSuspendTestAndBranch(int opt_flags, LIR* target) {
+  if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK) != 0) {
+    OpUnconditionalBranch(target);
+    return;
+  }
   if (!cu_->compiler_driver->GetCompilerOptions().GetImplicitSuspendChecks()) {
-    if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK)) {
-      OpUnconditionalBranch(target);
-      return;
-    }
     OpTestSuspend(target);
     FlushAllRegs();
     LIR* branch = OpUnconditionalBranch(nullptr);
@@ -2011,10 +2128,6 @@ void Mir2Lir::GenSuspendTestAndBranch(int opt_flags, LIR* target) {
   } else {
     // For the implicit suspend check, just perform the trigger
     // load and branch to the target.
-    if (NO_SUSPEND || (opt_flags & MIR_IGNORE_SUSPEND_CHECK)) {
-      OpUnconditionalBranch(target);
-      return;
-    }
     FlushAllRegs();
     LIR* inst = CheckSuspendUsingLoad();
     MarkSafepointPC(inst);
@@ -2024,12 +2137,14 @@ void Mir2Lir::GenSuspendTestAndBranch(int opt_flags, LIR* target) {
 
 /* Call out to helper assembly routine that will null check obj and then lock it. */
 void Mir2Lir::GenMonitorEnter(int opt_flags, RegLocation rl_src) {
+  UNUSED(opt_flags);  // TODO: avoid null check with specialized non-null helper.
   FlushAllRegs();
   CallRuntimeHelperRegLocation(kQuickLockObject, rl_src, true);
 }
 
 /* Call out to helper assembly routine that will null check obj and then unlock it. */
 void Mir2Lir::GenMonitorExit(int opt_flags, RegLocation rl_src) {
+  UNUSED(opt_flags);  // TODO: avoid null check with specialized non-null helper.
   FlushAllRegs();
   CallRuntimeHelperRegLocation(kQuickUnlockObject, rl_src, true);
 }
@@ -2042,52 +2157,62 @@ void Mir2Lir::GenConstWide(RegLocation rl_dest, int64_t value) {
 }
 
 void Mir2Lir::GenSmallPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  BasicBlock* bb = mir_graph_->GetBasicBlock(mir->bb);
+  DCHECK(bb != nullptr);
+  ArenaVector<SuccessorBlockInfo*>::const_iterator succ_bb_iter = bb->successor_blocks.cbegin();
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   const uint16_t entries = table[1];
   // Chained cmp-and-branch.
   const int32_t* as_int32 = reinterpret_cast<const int32_t*>(&table[2]);
-  int32_t current_key = as_int32[0];
-  const int32_t* targets = &as_int32[1];
+  int32_t starting_key = as_int32[0];
   rl_src = LoadValue(rl_src, kCoreReg);
   int i = 0;
-  for (; i < entries; i++, current_key++) {
-    if (!InexpensiveConstantInt(current_key, Instruction::Code::IF_EQ)) {
+  for (; i < entries; ++i, ++succ_bb_iter) {
+    if (!InexpensiveConstantInt(starting_key + i, Instruction::Code::IF_EQ)) {
       // Switch to using a temp and add.
       break;
     }
-    BasicBlock* case_block =
-        mir_graph_->FindBlock(current_dalvik_offset_ + targets[i]);
-    OpCmpImmBranch(kCondEq, rl_src.reg, current_key, &block_label_list_[case_block->id]);
+    SuccessorBlockInfo* successor_block_info = *succ_bb_iter;
+    DCHECK(successor_block_info != nullptr);
+    int case_block_id = successor_block_info->block;
+    DCHECK_EQ(starting_key + i, successor_block_info->key);
+    OpCmpImmBranch(kCondEq, rl_src.reg, starting_key + i, &block_label_list_[case_block_id]);
   }
   if (i < entries) {
     // The rest do not seem to be inexpensive. Try to allocate a temp and use add.
     RegStorage key_temp = AllocTypedTemp(false, kCoreReg, false);
     if (key_temp.Valid()) {
-      LoadConstantNoClobber(key_temp, current_key);
-      for (; i < entries - 1; i++, current_key++) {
-        BasicBlock* case_block =
-            mir_graph_->FindBlock(current_dalvik_offset_ + targets[i]);
-        OpCmpBranch(kCondEq, rl_src.reg, key_temp, &block_label_list_[case_block->id]);
+      LoadConstantNoClobber(key_temp, starting_key + i);
+      for (; i < entries - 1; ++i, ++succ_bb_iter) {
+        SuccessorBlockInfo* successor_block_info = *succ_bb_iter;
+        DCHECK(successor_block_info != nullptr);
+        int case_block_id = successor_block_info->block;
+        DCHECK_EQ(starting_key + i, successor_block_info->key);
+        OpCmpBranch(kCondEq, rl_src.reg, key_temp, &block_label_list_[case_block_id]);
         OpRegImm(kOpAdd, key_temp, 1);  // Increment key.
       }
-      BasicBlock* case_block =
-          mir_graph_->FindBlock(current_dalvik_offset_ + targets[i]);
-      OpCmpBranch(kCondEq, rl_src.reg, key_temp, &block_label_list_[case_block->id]);
+      SuccessorBlockInfo* successor_block_info = *succ_bb_iter;
+      DCHECK(successor_block_info != nullptr);
+      int case_block_id = successor_block_info->block;
+      DCHECK_EQ(starting_key + i, successor_block_info->key);
+      OpCmpBranch(kCondEq, rl_src.reg, key_temp, &block_label_list_[case_block_id]);
     } else {
       // No free temp, just finish the old loop.
-      for (; i < entries; i++, current_key++) {
-        BasicBlock* case_block =
-            mir_graph_->FindBlock(current_dalvik_offset_ + targets[i]);
-        OpCmpImmBranch(kCondEq, rl_src.reg, current_key, &block_label_list_[case_block->id]);
+      for (; i < entries; ++i, ++succ_bb_iter) {
+        SuccessorBlockInfo* successor_block_info = *succ_bb_iter;
+        DCHECK(successor_block_info != nullptr);
+        int case_block_id = successor_block_info->block;
+        DCHECK_EQ(starting_key + i, successor_block_info->key);
+        OpCmpImmBranch(kCondEq, rl_src.reg, starting_key + i, &block_label_list_[case_block_id]);
       }
     }
   }
 }
 
 void Mir2Lir::GenPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   if (cu_->verbose) {
-    DumpSparseSwitchTable(table);
+    DumpPackedSwitchTable(table);
   }
 
   const uint16_t entries = table[1];
@@ -2100,22 +2225,24 @@ void Mir2Lir::GenPackedSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_s
 }
 
 void Mir2Lir::GenSmallSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  BasicBlock* bb = mir_graph_->GetBasicBlock(mir->bb);
+  DCHECK(bb != nullptr);
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   const uint16_t entries = table[1];
   // Chained cmp-and-branch.
-  const int32_t* keys = reinterpret_cast<const int32_t*>(&table[2]);
-  const int32_t* targets = &keys[entries];
   rl_src = LoadValue(rl_src, kCoreReg);
-  for (int i = 0; i < entries; i++) {
-    int key = keys[i];
-    BasicBlock* case_block =
-        mir_graph_->FindBlock(current_dalvik_offset_ + targets[i]);
-    OpCmpImmBranch(kCondEq, rl_src.reg, key, &block_label_list_[case_block->id]);
+  int i = 0;
+  for (SuccessorBlockInfo* successor_block_info : bb->successor_blocks) {
+    int case_block_id = successor_block_info->block;
+    int key = successor_block_info->key;
+    OpCmpImmBranch(kCondEq, rl_src.reg, key, &block_label_list_[case_block_id]);
+    i++;
   }
+  DCHECK_EQ(i, entries);
 }
 
 void Mir2Lir::GenSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_src) {
-  const uint16_t* table = cu_->insns + current_dalvik_offset_ + table_offset;
+  const uint16_t* table = mir_graph_->GetTable(mir, table_offset);
   if (cu_->verbose) {
     DumpSparseSwitchTable(table);
   }
@@ -2126,6 +2253,30 @@ void Mir2Lir::GenSparseSwitch(MIR* mir, DexOffset table_offset, RegLocation rl_s
   } else {
     // Use the backend-specific implementation.
     GenLargeSparseSwitch(mir, table_offset, rl_src);
+  }
+}
+
+bool Mir2Lir::SizeMatchesTypeForEntrypoint(OpSize size, Primitive::Type type) {
+  switch (size) {
+    case kReference:
+      return type == Primitive::kPrimNot;
+    case k64:
+    case kDouble:
+      return type == Primitive::kPrimLong || type == Primitive::kPrimDouble;
+    case k32:
+    case kSingle:
+      return type == Primitive::kPrimInt || type == Primitive::kPrimFloat;
+    case kSignedHalf:
+      return type == Primitive::kPrimShort;
+    case kUnsignedHalf:
+      return type == Primitive::kPrimChar;
+    case kSignedByte:
+      return type == Primitive::kPrimByte;
+    case kUnsignedByte:
+      return type == Primitive::kPrimBoolean;
+    case kWord:  // Intentional fallthrough.
+    default:
+      return false;  // There are no sane types with this op size.
   }
 }
 

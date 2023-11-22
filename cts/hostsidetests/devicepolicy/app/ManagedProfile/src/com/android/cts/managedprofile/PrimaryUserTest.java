@@ -20,6 +20,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
 
 /**
  * Test for {@link DevicePolicyManager#addCrossProfileIntentFilter} API, for
@@ -43,6 +44,10 @@ public class PrimaryUserTest extends ActivityInstrumentationTestCase2<TestActivi
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        // As the way to access Instrumentation is changed in the new runner, we need to inject it
+        // manually into ActivityInstrumentationTestCase2. ActivityInstrumentationTestCase2 will
+        // be marked as deprecated and replaced with ActivityTestRule.
+        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
         mPackageManager = getActivity().getPackageManager();
     }
 

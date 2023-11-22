@@ -136,6 +136,11 @@ TARGET_CXXFLAGS = $(TARGET_CFLAGS) -fno-exceptions -fno-rtti
 TARGET_RS_CC    = $(RENDERSCRIPT_TOOLCHAIN_PREFIX)llvm-rs-cc
 TARGET_RS_BCC   = $(RENDERSCRIPT_TOOLCHAIN_PREFIX)bcc_compat
 TARGET_RS_FLAGS = -Wall -Werror
+ifeq (,$(findstring 64,$(TARGET_ARCH_ABI)))
+TARGET_RS_FLAGS += -m32
+else
+TARGET_RS_FLAGS += -m64
+endif
 
 TARGET_ASM      = $(HOST_PREBUILT)/yasm
 TARGET_ASMFLAGS =
@@ -143,7 +148,14 @@ TARGET_ASMFLAGS =
 TARGET_LD       = $(TOOLCHAIN_PREFIX)ld
 TARGET_LDFLAGS :=
 
+# Use *-gcc-ar instead of *-ar for better LTO support, except for
+# gcc4.6 which doesn't have gcc-ar
+ifneq (4.6,$(NDK_TOOLCHAIN_VERSION))
+TARGET_AR       = $(TOOLCHAIN_PREFIX)gcc-ar
+else
 TARGET_AR       = $(TOOLCHAIN_PREFIX)ar
+endif
+
 TARGET_ARFLAGS := crsD
 
 TARGET_STRIP    = $(TOOLCHAIN_PREFIX)strip

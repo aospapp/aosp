@@ -39,7 +39,6 @@ vp8/common/onyxc_int.h
 vp8/common/onyxd.h
 vp8/common/onyx.h
 vp8/common/ppflags.h
-vp8/common/pragmas.h
 vp8/common/quant_common.c
 vp8/common/quant_common.h
 vp8/common/reconinter.c
@@ -154,7 +153,6 @@ vp9/common/vp9_mvref_common.c
 vp9/common/vp9_mvref_common.h
 vp9/common/vp9_onyxc_int.h
 vp9/common/vp9_ppflags.h
-vp9/common/vp9_pragmas.h
 vp9/common/vp9_pred_common.c
 vp9/common/vp9_pred_common.h
 vp9/common/vp9_prob.c
@@ -175,6 +173,8 @@ vp9/common/vp9_seg_common.c
 vp9/common/vp9_seg_common.h
 vp9/common/vp9_systemdependent.h
 vp9/common/vp9_textblit.h
+vp9/common/vp9_thread.c
+vp9/common/vp9_thread.h
 vp9/common/vp9_tile_common.c
 vp9/common/vp9_tile_common.h
 vp9/decoder/vp9_decodeframe.c
@@ -193,8 +193,6 @@ vp9/decoder/vp9_read_bit_buffer.c
 vp9/decoder/vp9_read_bit_buffer.h
 vp9/decoder/vp9_reader.c
 vp9/decoder/vp9_reader.h
-vp9/decoder/vp9_thread.c
-vp9/decoder/vp9_thread.h
 vp9/encoder/vp9_aq_complexity.c
 vp9/encoder/vp9_aq_complexity.h
 vp9/encoder/vp9_aq_cyclicrefresh.c
@@ -204,6 +202,8 @@ vp9/encoder/vp9_aq_variance.h
 vp9/encoder/vp9_bitstream.c
 vp9/encoder/vp9_bitstream.h
 vp9/encoder/vp9_block.h
+vp9/encoder/vp9_context_tree.c
+vp9/encoder/vp9_context_tree.h
 vp9/encoder/vp9_cost.c
 vp9/encoder/vp9_cost.h
 vp9/encoder/vp9_dct.c
@@ -213,6 +213,8 @@ vp9/encoder/vp9_encodemb.c
 vp9/encoder/vp9_encodemb.h
 vp9/encoder/vp9_encodemv.c
 vp9/encoder/vp9_encodemv.h
+vp9/encoder/vp9_encoder.c
+vp9/encoder/vp9_encoder.h
 vp9/encoder/vp9_extend.c
 vp9/encoder/vp9_extend.h
 vp9/encoder/vp9_firstpass.c
@@ -223,8 +225,6 @@ vp9/encoder/vp9_mbgraph.c
 vp9/encoder/vp9_mbgraph.h
 vp9/encoder/vp9_mcomp.c
 vp9/encoder/vp9_mcomp.h
-vp9/encoder/vp9_onyx_if.c
-vp9/encoder/vp9_onyx_int.h
 vp9/encoder/vp9_picklpf.c
 vp9/encoder/vp9_picklpf.h
 vp9/encoder/vp9_pickmode.c
@@ -233,6 +233,8 @@ vp9/encoder/vp9_quantize.c
 vp9/encoder/vp9_quantize.h
 vp9/encoder/vp9_ratectrl.c
 vp9/encoder/vp9_ratectrl.h
+vp9/encoder/vp9_rd.c
+vp9/encoder/vp9_rd.h
 vp9/encoder/vp9_rdopt.c
 vp9/encoder/vp9_rdopt.h
 vp9/encoder/vp9_resize.c
@@ -289,13 +291,11 @@ vpx_scale/vpx_scale.mk
 vpx_scale/vpx_scale_rtcd.c
 vpx_scale/vpx_scale_rtcd.pl
 vpx_scale/yv12config.h
-vpx/src/svc_encodeframe.c
 vpx/src/vpx_codec.c
 vpx/src/vpx_decoder.c
 vpx/src/vpx_encoder.c
 vpx/src/vpx_image.c
 vpx/src/vpx_psnr.c
-vpx/svc_context.h
 vpx/vp8cx.h
 vpx/vp8dx.h
 vpx/vp8.h

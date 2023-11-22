@@ -28,13 +28,13 @@ public class ViewClippingTests extends ActivityTestBase {
 
     final ViewInitializer BOUNDS_CLIP_INIT = new ViewInitializer() {
         @Override
-        public void intializeView(View rootView) {
+        public void initializeView(View rootView) {
             ((ViewGroup)rootView).setClipChildren(true);
         }
     };
     final ViewInitializer PADDING_CLIP_INIT = new ViewInitializer() {
         @Override
-        public void intializeView(View rootView) {
+        public void initializeView(View rootView) {
             ViewGroup child = (ViewGroup) rootView.findViewById(R.id.child);
             child.setClipToPadding(true);
             child.setWillNotDraw(true);
@@ -43,7 +43,7 @@ public class ViewClippingTests extends ActivityTestBase {
     };
     final ViewInitializer OUTLINE_CLIP_INIT = new ViewInitializer() {
         @Override
-        public void intializeView(View rootView) {
+        public void initializeView(View rootView) {
             View child = rootView.findViewById(R.id.child);
             child.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
@@ -56,7 +56,7 @@ public class ViewClippingTests extends ActivityTestBase {
     };
     final ViewInitializer CLIP_BOUNDS_CLIP_INIT = new ViewInitializer() {
         @Override
-        public void intializeView(View view) {
+        public void initializeView(View view) {
             view.setClipBounds(CLIP_BOUNDS_RECT);
         }
     };

@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 namespace llvm {
+  class Function;
   class Module;
   class NamedMDNode;
 }
@@ -30,6 +31,18 @@ namespace bcinfo {
 enum RSFloatPrecision {
   RS_FP_Full = 0,
   RS_FP_Relaxed = 1,
+};
+
+enum MetadataSignatureBitval {
+  MD_SIG_None        = 0,
+  MD_SIG_In          = 0x000001,
+  MD_SIG_Out         = 0x000002,
+  MD_SIG_Usr         = 0x000004,
+  MD_SIG_X           = 0x000008,
+  MD_SIG_Y           = 0x000010,
+  MD_SIG_Kernel      = 0x000020,
+  MD_SIG_Z           = 0x000040,
+  MD_SIG_Ctxt        = 0x000080,
 };
 
 class MetadataExtractor {
@@ -46,6 +59,8 @@ class MetadataExtractor {
   const char **mExportForEachNameList;
   const uint32_t *mExportForEachSignatureList;
 
+  const uint32_t *mExportForEachInputCountList;
+
   size_t mPragmaCount;
   const char **mPragmaKeyList;
   const char **mPragmaValueList;
@@ -53,10 +68,16 @@ class MetadataExtractor {
   size_t mObjectSlotCount;
   const uint32_t *mObjectSlotList;
 
+  uint32_t mTargetAPI;
   uint32_t mCompilerVersion;
   uint32_t mOptimizationLevel;
 
   enum RSFloatPrecision mRSFloatPrecision;
+
+  // Flag to mark that script is threadable.  True by default.
+  bool mIsThreadable;
+
+  const char *mBuildChecksum;
 
   // Helper functions for extraction
   bool populateVarNameMetadata(const llvm::NamedMDNode *VarNameMetadata);
@@ -65,6 +86,11 @@ class MetadataExtractor {
                                const llvm::NamedMDNode *Signatures);
   bool populateObjectSlotMetadata(const llvm::NamedMDNode *ObjectSlotMetadata);
   void populatePragmaMetadata(const llvm::NamedMDNode *PragmaMetadata);
+  void readThreadableFlag(const llvm::NamedMDNode *ThreadableMetadata);
+  void readBuildChecksumMetadata(const llvm::NamedMDNode *ChecksumMetadata);
+
+  uint32_t calculateNumInputs(const llvm::Function *Function,
+                              uint32_t Signature);
 
  public:
   /**
@@ -90,6 +116,16 @@ class MetadataExtractor {
    * \return true on success and false if an error occurred.
    */
   bool extract();
+
+  /**
+   * \return target API level of this bitcode.
+   *
+   * The target API is used during the SDK compilation to provide proper
+   * visibility of the RenderScript runtime API functions.
+   */
+  uint32_t getTargetAPI() const {
+    return mTargetAPI;
+  }
 
   /**
    * \return number of exported global variables (slots) in this script/module.
@@ -138,6 +174,13 @@ class MetadataExtractor {
    */
   const char **getExportForEachNameList() const {
     return mExportForEachNameList;
+  }
+
+  /**
+   * \return array of input parameter counts.
+   */
+  const uint32_t *getExportForEachInputCountList() const {
+    return mExportForEachInputCountList;
   }
 
   /**
@@ -204,7 +247,7 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureIn(uint32_t sig) {
-    return sig & 0x01;
+    return sig & MD_SIG_In;
   }
 
   /**
@@ -214,7 +257,7 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureOut(uint32_t sig) {
-    return sig & 0x02;
+    return sig & MD_SIG_Out;
   }
 
   /**
@@ -224,7 +267,7 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureUsrData(uint32_t sig) {
-    return sig & 0x04;
+    return sig & MD_SIG_Usr;
   }
 
   /**
@@ -234,7 +277,7 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureX(uint32_t sig) {
-    return sig & 0x08;
+    return sig & MD_SIG_X;
   }
 
   /**
@@ -244,7 +287,7 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureY(uint32_t sig) {
-    return sig & 0x10;
+    return sig & MD_SIG_Y;
   }
 
   /**
@@ -254,7 +297,43 @@ class MetadataExtractor {
    * \param sig - ForEach function signature to check.
    */
   static bool hasForEachSignatureKernel(uint32_t sig) {
-    return sig & 0x20;
+    return sig & MD_SIG_Kernel;
+  }
+
+  /**
+   * \return whether or not this ForEach function signature has a "Z"
+   * parameter.
+   *
+   * \param sig - ForEach function signature to check.
+   */
+  static bool hasForEachSignatureZ(uint32_t sig) {
+    return sig & MD_SIG_Z;
+  }
+
+  /**
+   * \return whether or not this ForEach function signature has a "Ctxt"
+   * parameter.
+   *
+   * \param sig - ForEach function signature to check.
+   */
+  static bool hasForEachSignatureCtxt(uint32_t sig) {
+    return sig & MD_SIG_Ctxt;
+  }
+
+  /**
+   * \return whether "Kernels" in this script can be processed
+   * by multiple threads
+   */
+
+  bool isThreadable() const {
+    return mIsThreadable;
+  }
+
+  /**
+   * \return the build checksum extracted from the LLVM metadata
+   */
+  const char *getBuildChecksum() const {
+    return mBuildChecksum;
   }
 };
 

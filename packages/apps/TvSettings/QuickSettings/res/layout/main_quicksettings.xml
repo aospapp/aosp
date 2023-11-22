@@ -16,7 +16,6 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:lb="http://schemas.android.com/apk/res-auto"
     android:id="@+id/main_panel"
     android:layout_width="@dimen/main_panel_width"
     android:layout_height="@dimen/main_panel_height"

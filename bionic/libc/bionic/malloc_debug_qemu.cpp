@@ -45,6 +45,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/param.h>
@@ -606,7 +607,7 @@ extern "C" bool malloc_debug_initialize(HashTable*, const MallocDebug* malloc_di
      * the memory mapped spaces into writes to an I/O port that emulator
      * "listens to" on the other end. Note that until we open and map that
      * device, logging to emulator's stdout will not be available. */
-    int fd = open("/dev/qemu_trace", O_RDWR);
+    int fd = open("/dev/qemu_trace", O_CLOEXEC | O_RDWR);
     if (fd < 0) {
         error_log("Unable to open /dev/qemu_trace");
         return false;

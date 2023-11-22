@@ -18,20 +18,31 @@ package com.google.common.collect;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.and;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.CollectPreconditions.checkNonnegative;
+import static com.google.common.math.LongMath.binomial;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.math.IntMath;
 import com.google.common.primitives.Ints;
 
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * Provides static methods for working with {@code Collection} instances.
@@ -89,17 +100,38 @@ public final class Collections2 {
 
   /**
    * Delegates to {@link Collection#contains}. Returns {@code false} if the
-   * {@code contains} method throws a {@code ClassCastException}.
+   * {@code contains} method throws a {@code ClassCastException} or
+   * {@code NullPointerException}.
    */
-  static boolean safeContains(Collection<?> collection, Object object) {
+  static boolean safeContains(
+      Collection<?> collection, @Nullable Object object) {
+    checkNotNull(collection);
     try {
       return collection.contains(object);
     } catch (ClassCastException e) {
       return false;
+    } catch (NullPointerException e) {
+      return false;
     }
   }
 
-  static class FilteredCollection<E> implements Collection<E> {
+  /**
+   * Delegates to {@link Collection#remove}. Returns {@code false} if the
+   * {@code remove} method throws a {@code ClassCastException} or
+   * {@code NullPointerException}.
+   */
+  static boolean safeRemove(Collection<?> collection, @Nullable Object object) {
+    checkNotNull(collection);
+    try {
+      return collection.remove(object);
+    } catch (ClassCastException e) {
+      return false;
+    } catch (NullPointerException e) {
+      return false;
+    }
+  }
+
+  static class FilteredCollection<E> extends AbstractCollection<E> {
     final Collection<E> unfiltered;
     final Predicate<? super E> predicate;
 
@@ -135,39 +167,23 @@ public final class Collections2 {
     }
 
     @Override
-    public boolean contains(Object element) {
-      try {
-        // unsafe cast can result in a CCE from predicate.apply(), which we
-        // will catch
-        @SuppressWarnings("unchecked")
+    public boolean contains(@Nullable Object element) {
+      if (safeContains(unfiltered, element)) {
+        @SuppressWarnings("unchecked") // element is in unfiltered, so it must be an E
         E e = (E) element;
-
-        /*
-         * We check whether e satisfies the predicate, when we really mean to
-         * check whether the element contained in the set does. This is ok as
-         * long as the predicate is consistent with equals, as required.
-         */
-        return predicate.apply(e) && unfiltered.contains(element);
-      } catch (NullPointerException e) {
-        return false;
-      } catch (ClassCastException e) {
-        return false;
+        return predicate.apply(e);
       }
+      return false;
     }
 
     @Override
     public boolean containsAll(Collection<?> collection) {
-      for (Object element : collection) {
-        if (!contains(element)) {
-          return false;
-        }
-      }
-      return true;
+      return containsAllImpl(this, collection);
     }
 
     @Override
     public boolean isEmpty() {
-      return !Iterators.any(unfiltered.iterator(), predicate);
+      return !Iterables.any(unfiltered, predicate);
     }
 
     @Override
@@ -177,44 +193,17 @@ public final class Collections2 {
 
     @Override
     public boolean remove(Object element) {
-      try {
-        // unsafe cast can result in a CCE from predicate.apply(), which we
-        // will catch
-        @SuppressWarnings("unchecked")
-        E e = (E) element;
-
-        // See comment in contains() concerning predicate.apply(e)
-        return predicate.apply(e) && unfiltered.remove(element);
-      } catch (NullPointerException e) {
-        return false;
-      } catch (ClassCastException e) {
-        return false;
-      }
+      return contains(element) && unfiltered.remove(element);
     }
 
     @Override
     public boolean removeAll(final Collection<?> collection) {
-      checkNotNull(collection);
-      Predicate<E> combinedPredicate = new Predicate<E>() {
-        @Override
-        public boolean apply(E input) {
-          return predicate.apply(input) && collection.contains(input);
-        }
-      };
-      return Iterables.removeIf(unfiltered, combinedPredicate);
+      return Iterables.removeIf(unfiltered, and(predicate, in(collection)));
     }
 
     @Override
     public boolean retainAll(final Collection<?> collection) {
-      checkNotNull(collection);
-      Predicate<E> combinedPredicate = new Predicate<E>() {
-        @Override
-        public boolean apply(E input) {
-          // See comment in contains() concerning predicate.apply(e)
-          return predicate.apply(input) && !collection.contains(input);
-        }
-      };
-      return Iterables.removeIf(unfiltered, combinedPredicate);
+      return Iterables.removeIf(unfiltered, and(predicate, not(in(collection))));
     }
 
     @Override
@@ -231,10 +220,6 @@ public final class Collections2 {
     @Override
     public <T> T[] toArray(T[] array) {
       return Lists.newArrayList(iterator()).toArray(array);
-    }
-
-    @Override public String toString() {
-      return Iterators.toString(iterator());
     }
   }
 
@@ -302,13 +287,7 @@ public final class Collections2 {
    * @param c a collection whose elements might be contained by {@code self}
    */
   static boolean containsAllImpl(Collection<?> self, Collection<?> c) {
-    checkNotNull(self);
-    for (Object o : c) {
-      if (!self.contains(o)) {
-        return false;
-      }
-    }
-    return true;
+    return Iterables.all(c, Predicates.in(self));
   }
 
   /**
@@ -330,7 +309,7 @@ public final class Collections2 {
    * Returns best-effort-sized StringBuilder based on the given collection size.
    */
   static StringBuilder newStringBuilderForCollection(int size) {
-    checkArgument(size >= 0, "size must be non-negative");
+    checkNonnegative(size, "size");
     return new StringBuilder((int) Math.min(size * 8L, Ints.MAX_POWER_OF_TWO));
   }
 
@@ -341,8 +320,355 @@ public final class Collections2 {
     return (Collection<T>) iterable;
   }
 
-  static final Joiner STANDARD_JOINER = Joiner.on(", ");
+  static final Joiner STANDARD_JOINER = Joiner.on(", ").useForNull("null");
 
-  // TODO(user): Maybe move the mathematical methods to a separate
-  // package-permission class.
+  /**
+   * Returns a {@link Collection} of all the permutations of the specified
+   * {@link Iterable}.
+   *
+   * <p><i>Notes:</i> This is an implementation of the algorithm for
+   * Lexicographical Permutations Generation, described in Knuth's "The Art of
+   * Computer Programming", Volume 4, Chapter 7, Section 7.2.1.2. The
+   * iteration order follows the lexicographical order. This means that
+   * the first permutation will be in ascending order, and the last will be in
+   * descending order.
+   *
+   * <p>Duplicate elements are considered equal. For example, the list [1, 1]
+   * will have only one permutation, instead of two. This is why the elements
+   * have to implement {@link Comparable}.
+   *
+   * <p>An empty iterable has only one permutation, which is an empty list.
+   *
+   * <p>This method is equivalent to
+   * {@code Collections2.orderedPermutations(list, Ordering.natural())}.
+   *
+   * @param elements the original iterable whose elements have to be permuted.
+   * @return an immutable {@link Collection} containing all the different
+   *     permutations of the original iterable.
+   * @throws NullPointerException if the specified iterable is null or has any
+   *     null elements.
+   * @since 12.0
+   */
+  @Beta public static <E extends Comparable<? super E>>
+      Collection<List<E>> orderedPermutations(Iterable<E> elements) {
+    return orderedPermutations(elements, Ordering.natural());
+  }
+
+  /**
+   * Returns a {@link Collection} of all the permutations of the specified
+   * {@link Iterable} using the specified {@link Comparator} for establishing
+   * the lexicographical ordering.
+   *
+   * <p>Examples: <pre>   {@code
+   *
+   *   for (List<String> perm : orderedPermutations(asList("b", "c", "a"))) {
+   *     println(perm);
+   *   }
+   *   // -> ["a", "b", "c"]
+   *   // -> ["a", "c", "b"]
+   *   // -> ["b", "a", "c"]
+   *   // -> ["b", "c", "a"]
+   *   // -> ["c", "a", "b"]
+   *   // -> ["c", "b", "a"]
+   *
+   *   for (List<Integer> perm : orderedPermutations(asList(1, 2, 2, 1))) {
+   *     println(perm);
+   *   }
+   *   // -> [1, 1, 2, 2]
+   *   // -> [1, 2, 1, 2]
+   *   // -> [1, 2, 2, 1]
+   *   // -> [2, 1, 1, 2]
+   *   // -> [2, 1, 2, 1]
+   *   // -> [2, 2, 1, 1]}</pre>
+   *
+   * <p><i>Notes:</i> This is an implementation of the algorithm for
+   * Lexicographical Permutations Generation, described in Knuth's "The Art of
+   * Computer Programming", Volume 4, Chapter 7, Section 7.2.1.2. The
+   * iteration order follows the lexicographical order. This means that
+   * the first permutation will be in ascending order, and the last will be in
+   * descending order.
+   *
+   * <p>Elements that compare equal are considered equal and no new permutations
+   * are created by swapping them.
+   *
+   * <p>An empty iterable has only one permutation, which is an empty list.
+   *
+   * @param elements the original iterable whose elements have to be permuted.
+   * @param comparator a comparator for the iterable's elements.
+   * @return an immutable {@link Collection} containing all the different
+   *     permutations of the original iterable.
+   * @throws NullPointerException If the specified iterable is null, has any
+   *     null elements, or if the specified comparator is null.
+   * @since 12.0
+   */
+  @Beta public static <E> Collection<List<E>> orderedPermutations(
+      Iterable<E> elements, Comparator<? super E> comparator) {
+    return new OrderedPermutationCollection<E>(elements, comparator);
+  }
+
+  private static final class OrderedPermutationCollection<E>
+      extends AbstractCollection<List<E>> {
+    final ImmutableList<E> inputList;
+    final Comparator<? super E> comparator;
+    final int size;
+
+    OrderedPermutationCollection(Iterable<E> input,
+        Comparator<? super E> comparator) {
+      this.inputList = Ordering.from(comparator).immutableSortedCopy(input);
+      this.comparator = comparator;
+      this.size = calculateSize(inputList, comparator);
+    }
+
+    /**
+     * The number of permutations with repeated elements is calculated as
+     * follows:
+     * <ul>
+     * <li>For an empty list, it is 1 (base case).</li>
+     * <li>When r numbers are added to a list of n-r elements, the number of
+     * permutations is increased by a factor of (n choose r).</li>
+     * </ul>
+     */
+    private static <E> int calculateSize(
+        List<E> sortedInputList, Comparator<? super E> comparator) {
+      long permutations = 1;
+      int n = 1;
+      int r = 1;
+      while (n < sortedInputList.size()) {
+        int comparison = comparator.compare(
+            sortedInputList.get(n - 1), sortedInputList.get(n));
+        if (comparison < 0) {
+          // We move to the next non-repeated element.
+          permutations *= binomial(n, r);
+          r = 0;
+          if (!isPositiveInt(permutations)) {
+            return Integer.MAX_VALUE;
+          }
+        }
+        n++;
+        r++;
+      }
+      permutations *= binomial(n, r);
+      if (!isPositiveInt(permutations)) {
+        return Integer.MAX_VALUE;
+      }
+      return (int) permutations;
+    }
+
+    @Override public int size() {
+      return size;
+    }
+
+    @Override public boolean isEmpty() {
+      return false;
+    }
+
+    @Override public Iterator<List<E>> iterator() {
+      return new OrderedPermutationIterator<E>(inputList, comparator);
+    }
+
+    @Override public boolean contains(@Nullable Object obj) {
+      if (obj instanceof List) {
+        List<?> list = (List<?>) obj;
+        return isPermutation(inputList, list);
+      }
+      return false;
+    }
+
+    @Override public String toString() {
+      return "orderedPermutationCollection(" + inputList + ")";
+    }
+  }
+
+  private static final class OrderedPermutationIterator<E>
+      extends AbstractIterator<List<E>> {
+
+    List<E> nextPermutation;
+    final Comparator<? super E> comparator;
+
+    OrderedPermutationIterator(List<E> list,
+        Comparator<? super E> comparator) {
+      this.nextPermutation = Lists.newArrayList(list);
+      this.comparator = comparator;
+    }
+
+    @Override protected List<E> computeNext() {
+      if (nextPermutation == null) {
+        return endOfData();
+      }
+      ImmutableList<E> next = ImmutableList.copyOf(nextPermutation);
+      calculateNextPermutation();
+      return next;
+    }
+
+    void calculateNextPermutation() {
+      int j = findNextJ();
+      if (j == -1) {
+        nextPermutation = null;
+        return;
+      }
+
+      int l = findNextL(j);
+      Collections.swap(nextPermutation, j, l);
+      int n = nextPermutation.size();
+      Collections.reverse(nextPermutation.subList(j + 1, n));
+    }
+
+    int findNextJ() {
+      for (int k = nextPermutation.size() - 2; k >= 0; k--) {
+        if (comparator.compare(nextPermutation.get(k),
+            nextPermutation.get(k + 1)) < 0) {
+          return k;
+        }
+      }
+      return -1;
+    }
+
+    int findNextL(int j) {
+      E ak = nextPermutation.get(j);
+      for (int l = nextPermutation.size() - 1; l > j; l--) {
+        if (comparator.compare(ak, nextPermutation.get(l)) < 0) {
+          return l;
+        }
+      }
+      throw new AssertionError("this statement should be unreachable");
+    }
+  }
+
+  /**
+   * Returns a {@link Collection} of all the permutations of the specified
+   * {@link Collection}.
+   *
+   * <p><i>Notes:</i> This is an implementation of the Plain Changes algorithm
+   * for permutations generation, described in Knuth's "The Art of Computer
+   * Programming", Volume 4, Chapter 7, Section 7.2.1.2.
+   *
+   * <p>If the input list contains equal elements, some of the generated
+   * permutations will be equal.
+   *
+   * <p>An empty collection has only one permutation, which is an empty list.
+   *
+   * @param elements the original collection whose elements have to be permuted.
+   * @return an immutable {@link Collection} containing all the different
+   *     permutations of the original collection.
+   * @throws NullPointerException if the specified collection is null or has any
+   *     null elements.
+   * @since 12.0
+   */
+  @Beta public static <E> Collection<List<E>> permutations(
+      Collection<E> elements) {
+    return new PermutationCollection<E>(ImmutableList.copyOf(elements));
+  }
+
+  private static final class PermutationCollection<E>
+      extends AbstractCollection<List<E>> {
+    final ImmutableList<E> inputList;
+
+    PermutationCollection(ImmutableList<E> input) {
+      this.inputList = input;
+    }
+
+    @Override public int size() {
+      return IntMath.factorial(inputList.size());
+    }
+
+    @Override public boolean isEmpty() {
+      return false;
+    }
+
+    @Override public Iterator<List<E>> iterator() {
+      return new PermutationIterator<E>(inputList);
+    }
+
+    @Override public boolean contains(@Nullable Object obj) {
+      if (obj instanceof List) {
+        List<?> list = (List<?>) obj;
+        return isPermutation(inputList, list);
+      }
+      return false;
+    }
+
+    @Override public String toString() {
+      return "permutations(" + inputList + ")";
+    }
+  }
+
+  private static class PermutationIterator<E>
+      extends AbstractIterator<List<E>> {
+    final List<E> list;
+    final int[] c;
+    final int[] o;
+    int j;
+
+    PermutationIterator(List<E> list) {
+      this.list = new ArrayList<E>(list);
+      int n = list.size();
+      c = new int[n];
+      o = new int[n];
+      Arrays.fill(c, 0);
+      Arrays.fill(o, 1);
+      j = Integer.MAX_VALUE;
+    }
+
+    @Override protected List<E> computeNext() {
+      if (j <= 0) {
+        return endOfData();
+      }
+      ImmutableList<E> next = ImmutableList.copyOf(list);
+      calculateNextPermutation();
+      return next;
+    }
+
+    void calculateNextPermutation() {
+      j = list.size() - 1;
+      int s = 0;
+
+      // Handle the special case of an empty list. Skip the calculation of the
+      // next permutation.
+      if (j == -1) {
+        return;
+      }
+
+      while (true) {
+        int q = c[j] + o[j];
+        if (q < 0) {
+          switchDirection();
+          continue;
+        }
+        if (q == j + 1) {
+          if (j == 0) {
+            break;
+          }
+          s++;
+          switchDirection();
+          continue;
+        }
+
+        Collections.swap(list, j - c[j] + s, j - q + s);
+        c[j] = q;
+        break;
+      }
+    }
+
+    void switchDirection() {
+      o[j] = -o[j];
+      j--;
+    }
+  }
+
+  /**
+   * Returns {@code true} if the second list is a permutation of the first.
+   */
+  private static boolean isPermutation(List<?> first,
+      List<?> second) {
+    if (first.size() != second.size()) {
+      return false;
+    }
+    Multiset<?> firstMultiset = HashMultiset.create(first);
+    Multiset<?> secondMultiset = HashMultiset.create(second);
+    return firstMultiset.equals(secondMultiset);
+  }
+
+  private static boolean isPositiveInt(long n) {
+    return n >= 0 && n <= Integer.MAX_VALUE;
+  }
 }

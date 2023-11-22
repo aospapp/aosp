@@ -24,6 +24,7 @@
 # Live Wallpapers
 PRODUCT_PACKAGES += \
         rild \
+        CarrierConfig \
         Launcher3
 
 PRODUCT_PROPERTY_OVERRIDES := \

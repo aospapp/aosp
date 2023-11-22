@@ -453,10 +453,7 @@ void CFX_Edit_Undo::RemoveHeads()
 {
 	ASSERT(m_UndoItemStack.GetSize() > 1);
 
-	IFX_Edit_UndoItem* pItem = m_UndoItemStack.GetAt(0);
-	ASSERT(pItem != NULL);
-
-	pItem->Release();
+	delete m_UndoItemStack.GetAt(0);
 	m_UndoItemStack.RemoveAt(0);
 }
 
@@ -464,10 +461,7 @@ void CFX_Edit_Undo::RemoveTails()
 {
 	for (FX_INT32 i = m_UndoItemStack.GetSize()-1; i >= m_nCurUndoPos; i--)
 	{
-		IFX_Edit_UndoItem* pItem = m_UndoItemStack.GetAt(i);
-		ASSERT(pItem != NULL);
-
-		pItem->Release();
+		delete m_UndoItemStack.GetAt(i);
 		m_UndoItemStack.RemoveAt(i);
 	}
 }
@@ -476,10 +470,7 @@ void CFX_Edit_Undo::Reset()
 {
 	for (FX_INT32 i=0, sz=m_UndoItemStack.GetSize(); i < sz; i++)
 	{
-		IFX_Edit_UndoItem * pItem = m_UndoItemStack.GetAt(i);
-		ASSERT(pItem != NULL);
-
-		pItem->Release();
+		delete m_UndoItemStack.GetAt(i);
 	}
 	m_nCurUndoPos = 0;
 	m_UndoItemStack.RemoveAll();
@@ -495,10 +486,7 @@ CFX_Edit_GroupUndoItem::~CFX_Edit_GroupUndoItem()
 {
 	for (int i=0,sz=m_Items.GetSize(); i<sz; i++)
 	{
-		CFX_Edit_UndoItem* pUndoItem = m_Items[i];
-		ASSERT(pUndoItem != NULL);
-
-		pUndoItem->Release();
+		delete m_Items[i];
 	}
 
 	m_Items.RemoveAll();
@@ -556,11 +544,6 @@ void CFX_Edit_GroupUndoItem::Redo()
 CFX_WideString CFX_Edit_GroupUndoItem::GetUndoTitle()
 {
 	return m_sTitle;
-}
-
-void CFX_Edit_GroupUndoItem::Release()
-{
-	delete this;
 }
 
 /* ------------------------------------- CFX_Edit_UndoItem derived classes ------------------------------------- */
@@ -762,7 +745,7 @@ void CFXEU_Clear::Undo()
 	{
 		m_pEdit->SelectNone();
 		m_pEdit->SetCaret(m_wrSel.BeginPos);
-		m_pEdit->InsertText(m_swText, DEFAULT_CHARSET, NULL,NULL,FALSE,TRUE);
+		m_pEdit->InsertText(m_swText.c_str(), DEFAULT_CHARSET, NULL, NULL, FALSE, TRUE);
 		m_pEdit->SetSel(m_wrSel.BeginPos,m_wrSel.EndPos);
 	}
 }
@@ -850,7 +833,7 @@ void CFXEU_InsertText::Redo()
 	{
 		m_pEdit->SelectNone();
 		m_pEdit->SetCaret(m_wpOld);
-		m_pEdit->InsertText(m_swText, m_nCharset,&m_SecProps, &m_WordProps,FALSE,TRUE);
+		m_pEdit->InsertText(m_swText.c_str(), m_nCharset, &m_SecProps, &m_WordProps, FALSE, TRUE);
 	}
 }
 
@@ -871,12 +854,12 @@ CFXEU_SetSecProps::CFXEU_SetSecProps(CFX_Edit * pEdit, const CPVT_WordPlace & pl
 		const CPVT_SecProps & newsecprops, const CPVT_WordProps & newwordprops, const CPVT_WordRange & range)
 		: m_pEdit(pEdit),
 		m_wpPlace(place),
+		m_wrPlace(range),
 		m_eProps(ep),
 		m_OldSecProps(oldsecprops),
 		m_NewSecProps(newsecprops),
 		m_OldWordProps(oldwordprops),
-		m_NewWordProps(newwordprops),
-		m_wrPlace(range)
+		m_NewWordProps(newwordprops)
 {
 }
 
@@ -918,10 +901,10 @@ CFXEU_SetWordProps::CFXEU_SetWordProps(CFX_Edit * pEdit, const CPVT_WordPlace & 
 		const CPVT_WordProps & oldprops, const CPVT_WordProps & newprops, const CPVT_WordRange & range)
 		: m_pEdit(pEdit),
 		m_wpPlace(place),
+		m_wrPlace(range),
 		m_eProps(ep),
 		m_OldWordProps(oldprops),
-		m_NewWordProps(newprops),
-		m_wrPlace(range)
+		m_NewWordProps(newprops)
 {
 }
 
@@ -963,19 +946,19 @@ CFX_Edit::CFX_Edit(IPDF_VariableText * pVT) :
 	m_pVT(pVT),
 	m_pNotify(NULL),
 	m_pOprNotify(NULL),
+	m_pVTProvide(NULL),
 	m_wpCaret(-1,-1,-1),
 	m_wpOldCaret(-1,-1,-1),
+	m_SelState(),
 	m_ptScrollPos(0,0),
 	m_ptRefreshScrollPos(0,0),
 	m_bEnableScroll(FALSE),
-	m_bEnableOverflow(FALSE),
-	m_pVTProvide(NULL),
 	m_pIterator(NULL),
-	m_SelState(),
 	m_ptCaret(0.0f,0.0f),
 	m_Undo(FX_EDIT_UNDO_MAXITEM),
 	m_nAlignment(0),
 	m_bNotifyFlag(FALSE),
+	m_bEnableOverflow(FALSE),
 	m_bEnableRefresh(TRUE),
 	m_rcOldContent(0.0f,0.0f,0.0f,0.0f),
 	m_bEnableUndo(TRUE),

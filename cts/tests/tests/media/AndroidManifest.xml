@@ -28,6 +28,7 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
+        <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
         <activity android:name="android.media.cts.AudioManagerStub"
             android:label="AudioManagerStub"/>
@@ -51,6 +52,21 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
+        <activity android:name="android.media.cts.ResourceManagerStubActivity"
+            android:label="ResourceManagerStubActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+        <activity android:name="android.media.cts.ResourceManagerTestActivity1"
+            android:label="ResourceManagerTestActivity1"
+            android:process=":mediaCodecTestProcess1">
+        </activity>
+        <activity android:name="android.media.cts.ResourceManagerTestActivity2"
+            android:label="ResourceManagerTestActivity2"
+            android:process=":mediaCodecTestProcess2">
+        </activity>
         <activity android:name="android.media.cts.RingtonePickerActivity"
             android:label="RingtonePickerActivity">
             <intent-filter>
@@ -62,6 +78,11 @@
             android:process=":remoteService" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+            </intent-filter>
+        </service>
+        <service android:name="android.media.cts.StubMediaBrowserService">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
     </application>

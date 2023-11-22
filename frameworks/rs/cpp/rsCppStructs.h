@@ -19,11 +19,9 @@
 
 #include "rsDefines.h"
 #include "util/RefBase.h"
-#include "rsDispatch.h"
 
-#include <vector>
-#include <string>
 #include <pthread.h>
+
 
 /**
  * Every row in an RS allocation is guaranteed to be aligned by this amount, and
@@ -31,8 +29,13 @@
  */
 #define RS_CPU_ALLOCATION_ALIGNMENT 16
 
+struct dispatchTable;
+
 namespace android {
+class Surface;
+
 namespace RSC {
+
 
 typedef void (*ErrorHandlerFunc_t)(uint32_t errorNum, const char *errorText);
 typedef void (*MessageHandlerFunc_t)(uint32_t msgNum, const void *msgData, size_t msgLen);
@@ -77,7 +80,9 @@ class Sampler;
  enum RSInitFlags {
      RS_INIT_SYNCHRONOUS = 1, ///< All RenderScript calls will be synchronous. May reduce latency.
      RS_INIT_LOW_LATENCY = 2, ///< Prefer low latency devices over potentially higher throughput devices.
-     RS_INIT_MAX = 4
+     // Bitflag 4 is reserved for the context flag low power
+     RS_INIT_WAIT_FOR_ATTACH = 8,   ///< Kernel execution will hold to give time for a debugger to be attached
+     RS_INIT_MAX = 16
  };
 
  /**
@@ -96,7 +101,7 @@ class Sampler;
      * @param[in] flags Optional flags for this context.
      * @return true on success
      */
-    bool init(std::string name, uint32_t flags = 0);
+    bool init(const char * name, uint32_t flags = 0);
 
     /**
      * Sets the error handler function for this context. This error handler is
@@ -150,7 +155,7 @@ class Sampler;
     static bool usingNative;
     static bool initDispatch(int targetApi);
 
-    bool init(std::string &name, int targetApi, uint32_t flags);
+    bool init(const char * name, int targetApi, uint32_t flags);
     static void * threadProc(void *);
 
     static bool gInitialized;
@@ -168,7 +173,8 @@ class Sampler;
     MessageHandlerFunc_t mMessageFunc;
     bool mInit;
 
-    std::string mCacheDir;
+    char mCacheDir[PATH_MAX+1];
+    uint32_t mCacheDirLen;
 
     struct {
         sp<const Element> U8;
@@ -267,7 +273,7 @@ public:
 protected:
     void *mID;
     RS* mRS;
-    std::string mName;
+    const char * mName;
 
     BaseObj(void *id, sp<RS> rs);
     void checkValid();
@@ -303,6 +309,7 @@ protected:
     bool mConstrainedZ;
     bool mReadAllowed;
     bool mWriteAllowed;
+    bool mAutoPadding;
     uint32_t mSelectedY;
     uint32_t mSelectedZ;
     uint32_t mSelectedLOD;
@@ -318,10 +325,12 @@ protected:
 
     Allocation(void *id, sp<RS> rs, sp<const Type> t, uint32_t usage);
 
+    void validateIsInt64();
     void validateIsInt32();
     void validateIsInt16();
     void validateIsInt8();
     void validateIsFloat32();
+    void validateIsFloat64();
     void validateIsObject();
 
     virtual void updateFromNative();
@@ -341,12 +350,49 @@ public:
     }
 
     /**
+     * Enable/Disable AutoPadding for Vec3 elements.
+     *
+     * @param useAutoPadding True: enable AutoPadding; flase: disable AutoPadding
+     *
+     */
+    void setAutoPadding(bool useAutoPadding) {
+        mAutoPadding = useAutoPadding;
+    }
+
+    /**
      * Propagate changes from one usage of the Allocation to other usages of the Allocation.
      * @param[in] srcLocation source location with changes to propagate elsewhere
      */
     void syncAll(RsAllocationUsageType srcLocation);
+
+    /**
+     * Send a buffer to the output stream.  The contents of the Allocation will
+     * be undefined after this operation. This operation is only valid if
+     * USAGE_IO_OUTPUT is set on the Allocation.
+     */
     void ioSendOutput();
+
+    /**
+     * Receive the latest input into the Allocation. This operation
+     * is only valid if USAGE_IO_INPUT is set on the Allocation.
+     */
     void ioGetInput();
+
+#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
+    /**
+     * Returns the handle to a raw buffer that is being managed by the screen
+     * compositor. This operation is only valid for Allocations with USAGE_IO_INPUT.
+     * @return Surface associated with allocation
+     */
+    sp<Surface> getSurface();
+
+    /**
+     * Associate a Surface with this Allocation. This
+     * operation is only valid for Allocations with USAGE_IO_OUTPUT.
+     * @param[in] s Surface to associate with allocation
+     */
+    void setSurface(sp<Surface> s);
+#endif
 
     /**
      * Generate a mipmap chain. This is only valid if the Type of the Allocation
@@ -503,6 +549,20 @@ public:
                          uint32_t dataXoff, uint32_t dataYoff, uint32_t dataZoff);
 
     /**
+     * Copy a 3D region in this Allocation into an array. The
+     * array is assumed to be tightly packed.
+     * @param[in] xoff X offset of region to update in this Allocation
+     * @param[in] yoff Y offset of region to update in this Allocation
+     * @param[in] zoff Z offset of region to update in this Allocation
+     * @param[in] w Width of region to update
+     * @param[in] h Height of region to update
+     * @param[in] d Depth of region to update
+     * @param[in] data Array from which to copy
+     */
+    void copy3DRangeTo(uint32_t xoff, uint32_t yoff, uint32_t zoff, uint32_t w,
+                         uint32_t h, uint32_t d, void* data);
+
+    /**
      * Creates an Allocation for use by scripts with a given Type.
      * @param[in] rs Context to which the Allocation will belong
      * @param[in] type Type of the Allocation
@@ -601,7 +661,7 @@ public:
      * @return number of sub-elements
      */
     size_t getSubElementCount() {
-        return mVisibleElementMap.size();
+        return mVisibleElementMapSize;
     }
 
     /**
@@ -1045,23 +1105,28 @@ public:
     class Builder {
     private:
         RS* mRS;
-        std::vector<sp<Element> > mElements;
-        std::vector<std::string> mElementNames;
-        std::vector<uint32_t> mArraySizes;
+        size_t mElementsCount;
+        size_t mElementsVecSize;
+        sp<const Element> * mElements;
+        char ** mElementNames;
+        size_t * mElementNameLengths;
+        uint32_t * mArraySizes;
         bool mSkipPadding;
 
     public:
         Builder(sp<RS> rs);
         ~Builder();
-        void add(sp<Element> e, std::string &name, uint32_t arraySize = 1);
+        void add(sp<const Element> e, const char * name, uint32_t arraySize = 1);
         sp<const Element> create();
     };
 
 protected:
     Element(void *id, sp<RS> rs,
-            std::vector<sp<Element> > &elements,
-            std::vector<std::string> &elementNames,
-            std::vector<uint32_t> &arraySizes);
+            sp<const Element> * elements,
+            size_t elementCount,
+            const char ** elementNames,
+            size_t * elementNameLengths,
+            uint32_t * arraySizes);
     Element(void *id, sp<RS> rs, RsDataType dt, RsDataKind dk, bool norm, uint32_t size);
     Element(sp<RS> rs);
     virtual ~Element();
@@ -1069,11 +1134,15 @@ protected:
 private:
     void updateVisibleSubElements();
 
-    std::vector<sp<Element> > mElements;
-    std::vector<std::string> mElementNames;
-    std::vector<uint32_t> mArraySizes;
-    std::vector<uint32_t> mVisibleElementMap;
-    std::vector<uint32_t> mOffsetInBytes;
+    size_t mElementsCount;
+    size_t mVisibleElementMapSize;
+
+    sp<const Element> * mElements;
+    char ** mElementNames;
+    size_t * mElementNameLengths;
+    uint32_t * mArraySizes;
+    uint32_t * mVisibleElementMap;
+    uint32_t * mOffsetInBytes;
 
     RsDataType mType;
     RsDataKind mKind;
@@ -1347,6 +1416,9 @@ protected:
         setVar(index, &v, sizeof(v));
     }
     void setVar(uint32_t index, int32_t v) const {
+        setVar(index, &v, sizeof(v));
+    }
+    void setVar(uint32_t index, uint32_t v) const {
         setVar(index, &v, sizeof(v));
     }
     void setVar(uint32_t index, int64_t v) const {
@@ -1720,7 +1792,7 @@ class ScriptIntrinsicHistogram : public ScriptIntrinsic {
      *
      * @return ScriptIntrinsicHistogram
      */
-    static sp<ScriptIntrinsicHistogram> create(sp<RS> rs);
+    static sp<ScriptIntrinsicHistogram> create(sp<RS> rs, sp<const Element> e);
     /**
      * Set the output of the histogram.  32 bit integer types are
      * supported.
@@ -1831,6 +1903,38 @@ class ScriptIntrinsicLUT : public ScriptIntrinsic {
 };
 
 /**
+ * Intrinsic for performing a resize of a 2D allocation.
+ */
+class ScriptIntrinsicResize : public ScriptIntrinsic {
+ private:
+    sp<Allocation> mInput;
+    ScriptIntrinsicResize(sp<RS> rs, sp<const Element> e);
+ public:
+    /**
+     * Supported Element types are U8_4. Default lookup table is identity.
+     * @param[in] rs RenderScript context
+     * @param[in] e Element
+     * @return new ScriptIntrinsic
+     */
+    static sp<ScriptIntrinsicResize> create(sp<RS> rs);
+
+    /**
+     * Resize copy the input allocation to the output specified. The
+     * Allocation is rescaled if necessary using bi-cubic
+     * interpolation.
+     * @param[in] ain input Allocation
+     * @param[in] aout output Allocation
+     */
+    void forEach_bicubic(sp<Allocation> aout);
+
+    /**
+     * Set the input of the resize.
+     * @param[in] lut new lookup table
+     */
+    void setInput(sp<Allocation> ain);
+};
+
+/**
  * Intrinsic for converting an Android YUV buffer to RGB.
  *
  * The input allocation should be supplied in a supported YUV format
@@ -1882,11 +1986,12 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
  class Sampler : public BaseObj {
  private:
     Sampler(sp<RS> rs, void* id);
+    Sampler(sp<RS> rs, void* id, RsSamplerValue min, RsSamplerValue mag,
+            RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy);
     RsSamplerValue mMin;
     RsSamplerValue mMag;
     RsSamplerValue mWrapS;
     RsSamplerValue mWrapT;
-    RsSamplerValue mWrapR;
     float mAniso;
 
  public:

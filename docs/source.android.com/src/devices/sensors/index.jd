@@ -2,7 +2,7 @@ page.title=Sensors
 @jd:body
 
 <!--
-    Copyright 2014 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,27 +23,14 @@ page.title=Sensors
     </ol>
   </div>
 </div>
+<img style="float: right; margin: 0px 15px 15px 15px;" src="images/ape_fwk_hal_sensors.png" alt="Android Sensors HAL icon"/>
 
-    <h2 id="what_are_“android_sensors”">What are Android sensors?</h2>
-    <p>Android sensors give applications access to a mobile device's underlying
-      physical sensors. They are data-providing virtual devices defined by the
-      implementation of <a
-      href="{@docRoot}devices/halref/sensors_8h.html">sensors.h</a>,
-      the sensor Hardware Abstraction Layer (HAL).</p>
-    <ul>
-      <li> Those virtual devices provide data coming from a set of physical sensors:
-        accelerometers, gyroscopes, magnetometers, barometer, humidity, pressure,
-        light, proximity and heart rate sensors.</li>
-      <li> Notably, camera, fingerprint sensor, microphone and touch screen are currently
-        not in the list of physical devices providing data through “Android sensors.”
-        They have their own reporting mechanism.</li>
-      <li> The separation is arbitrary, but in general, Android sensors provide lower
-        bandwidth data. For example, “100hz x 3 channels” for an accelerometer versus
-        “25hz x 8 MP x 3 channels” for a camera or “44kHz x 1 channel” for a
-        microphone.</li>
-    </ul>
-    <p>How the different physical sensors are connected to the system on chip
-       (SoC) is not defined by Android.</p>
+<p>Android sensors give applications access to a mobile device's underlying physical sensors. They are data-providing virtual devices defined by <a href="{@docRoot}devices/halref/sensors_8h.html">sensors.h</a>, the sensor Hardware Abstraction Layer (HAL).</p>
+
+<h2 id="what_are_“android_sensors”">What are Android sensors?</h2>
+<p>Android sensors are virtual devices that provide data coming from a set of physical sensors: accelerometers, gyroscopes, magnetometers, barometer, humidity, pressure, light, proximity and heart rate sensors.</p>
+<p>Not included in the list of physical devices providing data are camera, fingerprint sensor, microphone, and touch screen. These devices have their own reporting mechanism; the separation is arbitrary, but in general, Android sensors provide lower bandwidth data. For example, “100hz x 3 channels” for an accelerometer versus “25hz x 8 MP x 3 channels” for a camera or “44kHz x 1 channel” for a microphone.</p>
+    <p>Android does not define how the different physical sensors are connected to the system on chip (SoC).</p>
     <ul>
       <li> Often, sensor chips are connected to the SoC through a <a href="sensor-stack.html#sensor_hub">sensor hub</a>, allowing some low-power monitoring and processing of the data. </li>
       <li> Often, Inter-Integrated Circuit (I2C) or Serial Peripheral Interface

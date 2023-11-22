@@ -27,13 +27,13 @@ Java_com_example_android_rs_hellocomputendk_HelloComputeNDK_nativeMono(JNIEnv * 
                                                                        )
 {
 
-    void* inputPtr = NULL;
-    void* outputPtr = NULL;
+    void* inputPtr = nullptr;
+    void* outputPtr = nullptr;
 
     AndroidBitmap_lockPixels(env, jbitmapIn, &inputPtr);
     AndroidBitmap_lockPixels(env, jbitmapOut, &outputPtr);
 
-    const char * path = env->GetStringUTFChars(pathObj, NULL);
+    const char * path = env->GetStringUTFChars(pathObj, nullptr);
     sp<RS> rs = new RS();
     rs->init(path);
     env->ReleaseStringUTFChars(pathObj, path);

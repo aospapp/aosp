@@ -52,8 +52,7 @@ static void test_rev(SkCanvas* canvas) {
 
     SkPaint paint;
     paint.setTextSize(SkIntToScalar(100));
-    SkTypeface* hira = SkTypeface::CreateFromName("Hiragino Maru Gothic Pro", SkTypeface::kNormal);
-    SkSafeUnref(paint.setTypeface(hira));
+    sk_tool_utils::set_portable_typeface(&paint, "Hiragino Maru Gothic Pro");
     path.reset();
     paint.getTextPath("e", 1, 50, 50, &path);
     canvas->translate(0, 100);
@@ -69,19 +68,16 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
-    virtual SkString onShortName() {
+    SkString onShortName() override {
         return SkString("path-reverse");
     }
 
-    virtual SkISize onISize() {
+    SkISize onISize() override {
         return SkISize::Make(640, 480);
     }
 
-    virtual void onDraw(SkCanvas* canvas) {
+    void onDraw(SkCanvas* canvas) override {
         if (false) test_rev(canvas); // avoid bit rot, suppress warning
         SkRect r = { 10, 10, 100, 60 };
 
@@ -103,8 +99,7 @@ protected:
 
         SkPaint paint;
         paint.setTextSize(SkIntToScalar(100));
-        SkTypeface* hira = SkTypeface::CreateFromName("Hiragino Maru Gothic Pro", SkTypeface::kNormal);
-        SkSafeUnref(paint.setTypeface(hira));
+        sk_tool_utils::set_portable_typeface(&paint, "Hiragino Maru Gothic Pro");
         path.reset();
         paint.getTextPath("e", 1, 50, 50, &path);
         canvas->translate(0, 100);

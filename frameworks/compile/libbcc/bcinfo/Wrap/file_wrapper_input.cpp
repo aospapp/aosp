@@ -22,7 +22,7 @@
 FileWrapperInput::FileWrapperInput(const char* name) :
     _name(name), _at_eof(false), _size_found(false), _size(0) {
   _file = fopen(name, "rb");
-  if (NULL == _file) {
+  if (_file == nullptr) {
     fprintf(stderr, "Unable to open: %s\n", name);
     exit(1);
   }
@@ -47,7 +47,7 @@ bool FileWrapperInput::AtEof() {
 off_t FileWrapperInput::Size() {
   if (_size_found) return _size;
   struct stat st;
-  if (0 == stat(_name, &st)) {
+  if (stat(_name, &st) == 0) {
     _size_found = true;
     _size = st.st_size;
     return _size;
@@ -60,5 +60,5 @@ off_t FileWrapperInput::Size() {
 }
 
 bool FileWrapperInput::Seek(uint32_t pos) {
-  return 0 == fseek(_file, (long) pos, SEEK_SET);
+  return fseek(_file, (long) pos, SEEK_SET) == 0;
 }

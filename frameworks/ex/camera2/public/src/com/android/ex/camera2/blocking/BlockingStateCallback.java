@@ -56,7 +56,7 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
         if (VERBOSE) Log.v(TAG, "Camera device state now " + stateToString(state));
         try {
             mRecentStates.put(state);
-        } catch(InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new RuntimeException("Unable to set device state", e);
         }
     }
@@ -97,7 +97,7 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
     /**
      * Total number of reachable states
      */
-    private static int NUM_STATES = 4;
+    private static final int NUM_STATES = 4;
 
     public BlockingStateCallback() {
         mProxy = null;
@@ -109,25 +109,33 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
 
     @Override
     public void onOpened(CameraDevice camera) {
-        if (mProxy != null) mProxy.onOpened(camera);
+        if (mProxy != null) {
+            mProxy.onOpened(camera);
+        }
         setCurrentState(STATE_OPENED);
     }
 
     @Override
     public void onDisconnected(CameraDevice camera) {
-        if (mProxy != null) mProxy.onDisconnected(camera);
+        if (mProxy != null) {
+            mProxy.onDisconnected(camera);
+        }
         setCurrentState(STATE_DISCONNECTED);
     }
 
     @Override
     public void onError(CameraDevice camera, int error) {
-        if (mProxy != null) mProxy.onError(camera, error);
+        if (mProxy != null) {
+            mProxy.onError(camera, error);
+        }
         setCurrentState(STATE_ERROR);
     }
 
     @Override
     public void onClosed(CameraDevice camera) {
-        if (mProxy != null) mProxy.onClosed(camera);
+        if (mProxy != null) {
+            mProxy.onClosed(camera);
+        }
         setCurrentState(STATE_CLOSED);
     }
 
@@ -137,7 +145,7 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
      *
      * <p>Note: Only one waiter allowed at a time!</p>
      *
-     * @param desired state to observe a transition to
+     * @param state state to observe a transition to
      * @param timeout how long to wait in milliseconds
      *
      * @throws TimeoutRuntimeException if the desired state is not observed before timeout.
@@ -162,8 +170,10 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
      *
      */
     public int waitForAnyOfStates(Collection<Integer> states, final long timeout) {
-        synchronized(mLock) {
-            if (mWaiting) throw new IllegalStateException("Only one waiter allowed at a time");
+        synchronized (mLock) {
+            if (mWaiting) {
+                throw new IllegalStateException("Only one waiter allowed at a time");
+            }
             mWaiting = true;
         }
         if (VERBOSE) {
@@ -190,7 +200,7 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
             throw new UnsupportedOperationException("Does not support interrupts on waits", e);
         }
 
-        synchronized(mLock) {
+        synchronized (mLock) {
             mWaiting = false;
         }
 
@@ -218,7 +228,7 @@ public class BlockingStateCallback extends CameraDevice.StateCallback {
      */
     public static void appendStates(StringBuilder s, Collection<Integer> states) {
         boolean start = true;
-        for (Integer state: states) {
+        for (Integer state : states) {
             if (!start) s.append(" ");
             s.append(stateToString(state));
             start = false;

@@ -26,7 +26,7 @@
       template-params.xml are Strings, even those that are human-readable as ints.
 
       Also, there's no way to check if it's a number or not without spamming output with
-      try/catch stacktraces, so we can't silently wrap a string in quotes and leave a number 
+      try/catch stacktraces, so we can't silently wrap a string in quotes and leave a number
       alone.
 -->
 <#if (samples.compileSdkVersion)?? && (sample.compileSdkVersion)?is_string>
@@ -39,7 +39,7 @@
 <#elseif (sample.compileSdkVersion)?has_content>
     <#assign compile_sdk = sample.compileSdkVersion/>
 <#else>
-    <#assign compile_sdk = "21"/>
+    <#assign compile_sdk = "23"/>
 </#if>
 <#-- Set the MinSDK version. This is more complicated than it should be, because
       the version can be either a number or a string (e.g. KeyLimePie) so we need to test
@@ -47,7 +47,7 @@
       template-params.xml are Strings, even those that are human-readable as ints.
 
       Also, there's no way to check if it's a number or not without spamming output with
-      try/catch stacktraces, so we can't silently wrap a string in quotes and leave a number 
+      try/catch stacktraces, so we can't silently wrap a string in quotes and leave a number
       alone.
 -->
 <#if (samples.minSdk)?? && (sample.minSdk)?is_string>
@@ -60,13 +60,29 @@
 <#elseif (sample.minSdk)?has_content>
     <#assign min_sdk = sample.minSdk/>
 <#else>
-    <#assign min_sdk = "21"/>
+    <#assign min_sdk = "23"/>
 </#if>
+
+<#-- Global macros -->
+
+<#-- Check if dependency is a play services dependency and if it doesn't
+     have a version number attached use the global value
+     play_services_version -->
+<#macro update_play_services_dependency dep>
+    <#if "${dep}"?starts_with("com.google.android.gms:play-services")
+            && "${dep}"?index_of(":") == "${dep}"?last_index_of(":")>
+    compile '${dep}:${play_services_version}'
+    <#else>
+    compile '${dep}'
+    </#if>
+</#macro>
+
 <#-- Set the global build tools version -->
-<#assign build_tools_version='"21.1.1"'/>
+<#assign build_tools_version='"23.0.0"'/>
 
-<#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:6.5.+'"/>
+<#assign play_services_version="7.3.0"/>
+<#assign play_services_wearable_dependency="'com.google.android.gms:play-services-wearable:${play_services_version}'"/>
 
-<#assign android_support_v13_dependency="'com.android.support:support-v13:21.0.+'"/>
+<#assign android_support_v13_dependency="'com.android.support:support-v13:23.0.0'"/>
 
-<#assign wearable_support_dependency="'com.google.android.support:wearable:1.1.+'"/>
+<#assign wearable_support_dependency="'com.google.android.support:wearable:1.3.0'"/>

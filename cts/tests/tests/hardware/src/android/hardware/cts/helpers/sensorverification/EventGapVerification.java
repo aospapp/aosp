@@ -28,6 +28,10 @@ public class EventGapVerification extends AbstractSensorVerification {
     // Number of events to truncate (discard) from the initial events received
     private static final int TRUNCATE_EVENTS_COUNT = 1;
 
+    // Number of event gaps to tolerate is the minimum of 1% of total events received or 10.
+    private static final int EVENT_GAP_TOLERANCE_COUNT = 10;
+    private static final double EVENT_GAP_TOLERANCE_PERCENT = 0.01;
+
     private final int mExpectedDelayUs;
 
     private final List<IndexedEventPair> mEventGaps = new LinkedList<IndexedEventPair>();
@@ -68,24 +72,26 @@ public class EventGapVerification extends AbstractSensorVerification {
         }
 
         final int count = mEventGaps.size();
-        stats.addValue(PASSED_KEY, count == 0);
+        // Ensure that eventGapTolerance is at least 1.
+        int eventGapTolerance = (int)Math.max(1, Math.min(EVENT_GAP_TOLERANCE_COUNT,
+                    EVENT_GAP_TOLERANCE_PERCENT * mIndex));
+        stats.addValue(PASSED_KEY, count <= eventGapTolerance);
         stats.addValue(SensorStats.EVENT_GAP_COUNT_KEY, count);
         stats.addValue(SensorStats.EVENT_GAP_POSITIONS_KEY, getIndexArray(mEventGaps));
 
-        if (count > 0) {
+        if (count > eventGapTolerance) {
             StringBuilder sb = new StringBuilder();
             sb.append(count).append(" events gaps: ");
             for (int i = 0; i < Math.min(count, TRUNCATE_MESSAGE_LENGTH); i++) {
                 IndexedEventPair info = mEventGaps.get(i);
-                sb.append(String.format("position=%d, delta_time=%dns; ", info.index,
-                        info.event.timestamp - info.previousEvent.timestamp));
+                sb.append(String.format("position=%d, delta_time=%.2fms; ", info.index,
+                        nanosToMillis(info.event.timestamp - info.previousEvent.timestamp)));
             }
             if (count > TRUNCATE_MESSAGE_LENGTH) {
                 sb.append(count - TRUNCATE_MESSAGE_LENGTH).append(" more; ");
             }
-            sb.append(String.format("(expected <%dns)",
-                    TimeUnit.NANOSECONDS.convert((int) (THRESHOLD * mExpectedDelayUs),
-                            TimeUnit.MICROSECONDS)));
+            sb.append(String.format("(expected <%.2fms)",
+                    (double)(THRESHOLD * mExpectedDelayUs)/1000.0));
             Assert.fail(sb.toString());
         }
     }

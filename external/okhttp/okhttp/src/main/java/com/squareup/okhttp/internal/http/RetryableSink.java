@@ -18,10 +18,9 @@ package com.squareup.okhttp.internal.http;
 
 import java.io.IOException;
 import java.net.ProtocolException;
-import okio.BufferedSink;
-import okio.Deadline;
-import okio.OkBuffer;
+import okio.Buffer;
 import okio.Sink;
+import okio.Timeout;
 
 import static com.squareup.okhttp.internal.Util.checkOffsetAndCount;
 
@@ -30,10 +29,10 @@ import static com.squareup.okhttp.internal.Util.checkOffsetAndCount;
  * the post body to be transparently re-sent if the HTTP request must be
  * sent multiple times.
  */
-final class RetryableSink implements Sink {
+public final class RetryableSink implements Sink {
   private boolean closed;
   private final int limit;
-  private final OkBuffer content = new OkBuffer();
+  private final Buffer content = new Buffer();
 
   public RetryableSink(int limit) {
     this.limit = limit;
@@ -52,7 +51,7 @@ final class RetryableSink implements Sink {
     }
   }
 
-  @Override public void write(OkBuffer source, long byteCount) throws IOException {
+  @Override public void write(Buffer source, long byteCount) throws IOException {
     if (closed) throw new IllegalStateException("closed");
     checkOffsetAndCount(source.size(), 0, byteCount);
     if (limit != -1 && content.size() > limit - byteCount) {
@@ -64,16 +63,18 @@ final class RetryableSink implements Sink {
   @Override public void flush() throws IOException {
   }
 
-  @Override public Sink deadline(Deadline deadline) {
-    return this;
+  @Override public Timeout timeout() {
+    return Timeout.NONE;
   }
 
   public long contentLength() throws IOException {
     return content.size();
   }
 
-  public void writeToSocket(BufferedSink socketOut) throws IOException {
-    // Clone the content; otherwise we won't have data to retry.
-    socketOut.write(content.clone(), content.size());
+  public void writeToSocket(Sink socketOut) throws IOException {
+    // Copy the content; otherwise we won't have data to retry.
+    Buffer buffer = new Buffer();
+    content.copyTo(buffer, 0, content.size());
+    socketOut.write(buffer, buffer.size());
   }
 }

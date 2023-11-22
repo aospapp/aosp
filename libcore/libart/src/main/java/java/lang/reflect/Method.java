@@ -57,8 +57,7 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
             }
             int comparison = a.getName().compareTo(b.getName());
             if (comparison == 0) {
-                comparison = a.artMethod.findOverriddenMethodIfProxy().compareParameters(
-                        b.getParameterTypes());
+                comparison = a.compareParameters(b.getParameterTypes());
                 if (comparison == 0) {
                     // This is necessary for methods that have covariant return types.
                     Class<?> aReturnType = a.getReturnType();
@@ -77,12 +76,7 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
     /**
      * @hide
      */
-    public Method(ArtMethod artMethod) {
-        super(artMethod);
-    }
-
-    ArtMethod getArtMethod() {
-        return artMethod;
+    private Method() {
     }
 
     public Annotation[] getAnnotations() {
@@ -136,7 +130,9 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @return the name of this method
      */
     @Override public String getName() {
-        return ArtMethod.getMethodName(artMethod);
+        Dex dex = declaringClassOfOverriddenMethod.getDex();
+        int nameIndex = dex.nameIndexFromMethodIndex(dexMethodIndex);
+        return declaringClassOfOverriddenMethod.getDexCacheString(dex, nameIndex);
     }
 
     /**
@@ -171,7 +167,7 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @return the parameter types
      */
     @Override public Class<?>[] getParameterTypes() {
-        return artMethod.findOverriddenMethodIfProxy().getParameterTypes();
+        return super.getParameterTypes();
     }
 
     /**
@@ -181,8 +177,12 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @return the return type
      */
     public Class<?> getReturnType() {
-        return artMethod.findOverriddenMethodIfProxy().getReturnType();
+        Dex dex = declaringClassOfOverriddenMethod.getDex();
+        int returnTypeIndex = dex.returnTypeIndexFromMethodIndex(dexMethodIndex);
+        // Note, in the case of a Proxy the dex cache types are equal.
+        return declaringClassOfOverriddenMethod.getDexCacheType(dex, returnTypeIndex);
     }
+
 
     /**
      * {@inheritDoc}
@@ -209,8 +209,7 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @hide needed by Proxy
      */
     boolean equalNameAndParameters(Method m) {
-        return getName().equals(m.getName()) &&
-                ArtMethod.equalMethodParameters(artMethod,m.getParameterTypes());
+        return getName().equals(m.getName()) && equalMethodParameters(m.getParameterTypes());
     }
 
     /**
@@ -310,7 +309,8 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @return an array of arrays of {@code Annotation} instances
      */
     public Annotation[][] getParameterAnnotations() {
-        return artMethod.findOverriddenMethodIfProxy().getParameterAnnotations();
+        return AnnotationAccess.getParameterAnnotations(
+            declaringClassOfOverriddenMethod, dexMethodIndex);
     }
 
     /**
@@ -367,12 +367,7 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      * @throws InvocationTargetException
      *             if an exception was thrown by the invoked method
      */
-    public Object invoke(Object receiver, Object... args)
-            throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        return invoke(receiver, args, isAccessible());
-    }
-
-    private native Object invoke(Object receiver, Object[] args, boolean accessible)
+    public native Object invoke(Object receiver, Object... args)
             throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
 
     /**
@@ -398,7 +393,8 @@ public final class Method extends AbstractMethod implements GenericDeclaration, 
      */
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder(Modifier.toString(getModifiers()));
+        StringBuilder result = new StringBuilder(
+                Modifier.getDeclarationMethodModifiers(getModifiers()));
 
         if (result.length() != 0) {
             result.append(' ');

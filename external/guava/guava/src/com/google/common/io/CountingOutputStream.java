@@ -22,6 +22,8 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import javax.annotation.Nullable;
+
 /**
  * An OutputStream that counts the number of bytes written.
  *
@@ -38,7 +40,7 @@ public final class CountingOutputStream extends FilterOutputStream {
    *
    * @param out the output stream to be wrapped
    */
-  public CountingOutputStream(OutputStream out) {
+  public CountingOutputStream(@Nullable OutputStream out) {
     super(out);
   }
 
@@ -55,5 +57,12 @@ public final class CountingOutputStream extends FilterOutputStream {
   @Override public void write(int b) throws IOException {
     out.write(b);
     count++;
+  }
+
+  // Overriding close() because FilterOutputStream's close() method pre-JDK8 has bad behavior:
+  // it silently ignores any exception thrown by flush(). Instead, just close the delegate stream.
+  // It should flush itself if necessary.
+  @Override public void close() throws IOException {
+    out.close();
   }
 }

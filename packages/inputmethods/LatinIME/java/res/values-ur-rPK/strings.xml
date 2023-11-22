@@ -22,17 +22,30 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="english_ime_input_options" msgid="3909945612939668554">"ان پٹ اختیارات"</string>
     <string name="use_contacts_for_spellchecking_option_title" msgid="5374120998125353898">"رابطوں میں سے نام ڈھونڈیں"</string>
-    <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"ہجے چیک کنندہ آپ کی رابطہ فہرست سے اندراجات کا استعمال کرتا ہے"</string>
+    <string name="use_contacts_for_spellchecking_option_summary" msgid="8754413382543307713">"سپیل چیکر آپ کی رابطہ فہرست سے اندراجات کا استعمال کرتا ہے"</string>
     <string name="vibrate_on_keypress" msgid="5258079494276955460">"کلید دبانے پر وائبریٹ کریں"</string>
     <string name="sound_on_keypress" msgid="6093592297198243644">"کلید دبانے پر آواز"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"کلید دبانے پر پاپ اپ"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"ترجیحات"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"ظہور اور لے آؤٹس"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"کثیر لسانی اختیارات"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"اکاؤنٹس اور رازداری"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"ظہور اور لے آؤٹس"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"اشارہ جاتی ٹائپنگ"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"متن کی اصلاح"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"جدید ترین"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"تھیم"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"الگ ہونے والا کی بورڈ فعال کریں"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"‏Google کی بورڈ کی مطابقت پذیری"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"مطابقت پذیری آن کر دی گئی"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"سبھی آلات پر اپنی ذاتی لغت کی مطابقت پذیری کریں"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"ابھی مطابقت پذیری کریں"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"کلاؤڈ ڈیٹا حذف کریں"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"‏Google سے آپ کے مطابقت پذیر ڈیٹا کو حذف کر دیتا ہے"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"آپ کا مطابقت پذیر ڈيٹا کلاؤڈ سے حذف ہو جائے گا۔ کیا آپ تیار ہیں؟"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"حذف کریں"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"منسوخ کریں"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"‏آپ کی ذاتی لغت کی مطابقت پذیری کی جائے گی اور Google سرورز میں اس کا بیک اپ لیا جائے گا۔ ہمارے پروڈکٹس کو بہتر بنانے میں مدد کرنے کیلئے الفاظ کی فریکوئنسی کے اعداد و شمار کی معلومات کو جمع کیا جا سکتا ہے۔ سبھی معلومات کی جمع آوری اور استعمال "<a href="https://www.google.com/policies/privacy">"Google کی رازداری کی پالیسی"</a>" کے مطابق ہوگا۔"</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"‏یہ خصوصیت فعال کرنے کیلئے اس آلہ پر ایک Google اکاؤنٹ شامل کریں"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"‏Google Apps برائے کاروبار اکاؤنٹس کے ساتھ آلات کیلئے مطابقت پذیری دستیاب نہیں ہے"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"دیگر اندراج طریقوں پر سوئچ کریں"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"زبان سوئچ کرنے کی کلید اندراج کے دیگر طریقوں کا بھی احاطہ کرتی ہے"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"زبان سوئچ کرنے کی کلید"</string>
@@ -58,14 +71,14 @@
     <string name="prefs_block_potentially_offensive_title" msgid="5078480071057408934">"ناگوار الفاظ مسدود کریں"</string>
     <string name="prefs_block_potentially_offensive_summary" msgid="2371835479734991364">"ممکنہ طور پر ناگوار الفاظ تجویز نہ کریں"</string>
     <string name="auto_correction" msgid="7630720885194996950">"خود کار اصلاح"</string>
-    <string name="auto_correction_summary" msgid="5625751551134658006">"اسپیس بار اور رموز اوقاف غلط ٹائپ کردہ الفاظ کی اصلاح کریں"</string>
+    <string name="auto_correction_summary" msgid="5625751551134658006">"اسپیس بار اور رموز اوقاف غلط ٹائپ کردہ الفاظ کی اصلاح کرتے ہیں"</string>
     <string name="auto_correction_threshold_mode_off" msgid="8470882665417944026">"آف"</string>
     <string name="auto_correction_threshold_mode_modest" msgid="8788366690620799097">"معتدل"</string>
     <string name="auto_correction_threshold_mode_aggressive" msgid="7319007299148899623">"پر جوش"</string>
     <string name="auto_correction_threshold_mode_very_aggressive" msgid="1853309024129480416">"بہت پر جوش"</string>
     <string name="bigram_prediction" msgid="1084449187723948550">"اگلے الفاظ کی تجاویز"</string>
     <string name="bigram_prediction_summary" msgid="3896362682751109677">"تجاویز پیش کرتے وقت گزشتہ لفظ استعمال کریں"</string>
-    <string name="gesture_input" msgid="826951152254563827">"اشارہ ٹائپنگ کو فعال کریں"</string>
+    <string name="gesture_input" msgid="826951152254563827">"اشارہ جاتی ٹائپنگ کو فعال کریں"</string>
     <string name="gesture_input_summary" msgid="9180350639305731231">"حروف پر سلائیڈ کر کے ایک لفظ درج کریں"</string>
     <string name="gesture_preview_trail" msgid="3802333369335722221">"اشارہ ٹریل دکھائیں"</string>
     <string name="gesture_floating_preview_text" msgid="4443240334739381053">"ڈائنیمک فلوٹنگ پیش منظر"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"محفوظ کرنے کیلئے یہاں ٹچ کریں"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"لغت دستیاب ہے"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"کی بورڈ تھیم"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"اکاؤنٹس سوئچ کریں"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"کوئی اکاؤنٹس منتخب نہیں کیے گئے"</string>
+    <string name="account_selected" msgid="2846876462199625974">"فی الحال <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> استعمال کیا جا رہا ہے"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"ٹھیک ہے"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"منسوخ کریں"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"سائن آؤٹ کریں"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"استعمال کرنے کیلئے ایک اکاؤنٹ منتخب کریں"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"انگریزی (برطانیہ)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"انگریزی (امریکہ)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"ہسپانوی (امریکہ)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"ہنگلش"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"سربیائی (لاطینی)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"انگریزی (برطانیہ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"انگریزی (امریکہ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"ہسپانوی (امریکہ) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"ہنگلش (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"سربیائی (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (روایتی)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (سیریلک)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (لاطینی)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (کمپیکٹ)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"کوئی زبان نہیں (الفابیٹ)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"‏حروف تہجی (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"‏حروف تہجی (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"ایسا ہی ان پٹ اسٹائل پہلے سے موجود ہے: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"کلید دبانے پر وائبریشن کا دورانیہ"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"کلید دبانے پر آواز کا والیوم"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"کلید کو دیر تک دبانے کی تاخیر"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"‏فزیکل کی بورڈ کیلئے Emoji"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"‏فزیکل Alt کی کے ذریعے emoji پیلٹ نظر آتا ہے"</string>
     <string name="button_default" msgid="3988017840431881491">"ڈیفالٹ"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> میں خوش آمدید"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"اشارہ ٹائپنگ کے ساتھ"</string>

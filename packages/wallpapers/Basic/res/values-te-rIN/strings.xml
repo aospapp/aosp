@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wallpapers" msgid="7890805662847963863">"Android ప్రదర్శిత వాల్‌పేపర్‌లు"</string>
+    <string name="wallpapers" msgid="7890805662847963863">"Android లైవ్ వాల్‌పేపర్‌లు"</string>
     <string name="wallpaper_walkaround" msgid="5548084303782181478">"ఇందులో చూడండి"</string>
     <string name="wallpaper_walkaround_author" msgid="7292960549371044078">"Google"</string>
     <string name="wallpaper_walkaround_desc" msgid="1714824320382778730">"మీ ఫోన్ ద్వారా చూడండి మరియు ప్రమాదాలు సంభవించే అవకాశం లేకుండా ముందుకు సాగండి."</string>

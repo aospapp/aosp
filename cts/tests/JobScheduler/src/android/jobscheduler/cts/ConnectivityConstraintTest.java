@@ -51,6 +51,8 @@ public class ConnectivityConstraintTest extends ConstraintTest {
     private boolean mHasWifi;
     /** Whether the device running these tests supports telephony. */
     private boolean mHasTelephony;
+    /** Track whether WiFi was enabled in case we turn it off. */
+    private boolean mInitialWiFiState;
 
     private JobInfo.Builder mBuilder;
 
@@ -67,6 +69,14 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         mHasTelephony = packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
         mBuilder =
                 new JobInfo.Builder(CONNECTIVITY_JOB_ID, kJobServiceComponent);
+
+        mInitialWiFiState = mWifiManager.isWifiEnabled();
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        // Ensure that we leave WiFi in its previous state.
+        mWifiManager.setWifiEnabled(mInitialWiFiState);
     }
 
     // --------------------------------------------------------------------------------------------
@@ -202,6 +212,14 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         }
     }
 
+    /**
+     * Disconnect from WiFi in an attempt to connect to cellular data. Worth noting that this is
+     * best effort - there are no public APIs to force connecting to cell data. We disable WiFi
+     * and wait for a broadcast that we're connected to cell.
+     * We will not call into this function if the device doesn't support telephony.
+     * @see #mHasTelephony
+     * @see #checkDeviceSupportsMobileData()
+     */
     private void disconnectWifiToConnectToMobile() throws InterruptedException {
         if (mHasWifi && mWifiManager.isWifiEnabled()) {
             ConnectivityActionReceiver connectMobileReceiver =

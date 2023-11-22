@@ -91,9 +91,19 @@ public class ItsUtils {
         }
     }
 
-    public static Size[] getRawOutputSizes(CameraCharacteristics ccs)
+    public static Size[] getRaw16OutputSizes(CameraCharacteristics ccs)
             throws ItsException {
         return getOutputSizes(ccs, ImageFormat.RAW_SENSOR);
+    }
+
+    public static Size[] getRaw10OutputSizes(CameraCharacteristics ccs)
+            throws ItsException {
+        return getOutputSizes(ccs, ImageFormat.RAW10);
+    }
+
+    public static Size[] getRaw12OutputSizes(CameraCharacteristics ccs)
+            throws ItsException {
+        return getOutputSizes(ccs, ImageFormat.RAW12);
     }
 
     public static Size[] getJpegOutputSizes(CameraCharacteristics ccs)
@@ -106,6 +116,11 @@ public class ItsUtils {
         return getOutputSizes(ccs, ImageFormat.YUV_420_888);
     }
 
+    public static Size getMaxOutputSize(CameraCharacteristics ccs, int format)
+            throws ItsException {
+        return getMaxSize(getOutputSizes(ccs, format));
+    }
+
     private static Size[] getOutputSizes(CameraCharacteristics ccs, int format)
             throws ItsException {
         StreamConfigurationMap configMap = ccs.get(
@@ -113,7 +128,37 @@ public class ItsUtils {
         if (configMap == null) {
             throw new ItsException("Failed to get stream config");
         }
-        return configMap.getOutputSizes(format);
+        Size[] normalSizes = configMap.getOutputSizes(format);
+        Size[] slowSizes = configMap.getHighResolutionOutputSizes(format);
+        Size[] allSizes = null;
+        if (normalSizes != null && slowSizes != null) {
+            allSizes = new Size[normalSizes.length + slowSizes.length];
+            System.arraycopy(normalSizes, 0, allSizes, 0,
+                    normalSizes.length);
+            System.arraycopy(slowSizes, 0, allSizes, normalSizes.length,
+                    slowSizes.length);
+        } else if (normalSizes != null) {
+            allSizes = normalSizes;
+        } else if (slowSizes != null) {
+            allSizes = slowSizes;
+        }
+        return allSizes;
+    }
+
+    public static Size getMaxSize(Size[] sizes) {
+        if (sizes == null || sizes.length == 0) {
+            throw new IllegalArgumentException("sizes was empty");
+        }
+
+        Size maxSize = sizes[0];
+        for (int i = 1; i < sizes.length; i++) {
+            if (sizes[i].getWidth() * sizes[i].getHeight() >
+                    maxSize.getWidth() * maxSize.getHeight()) {
+                maxSize = sizes[i];
+            }
+        }
+
+        return maxSize;
     }
 
     public static byte[] getDataFromImage(Image image)
@@ -139,7 +184,7 @@ public class ItsUtils {
             buffer.get(data);
             return data;
         } else if (format == ImageFormat.YUV_420_888 || format == ImageFormat.RAW_SENSOR
-                || format == ImageFormat.RAW10) {
+                || format == ImageFormat.RAW10 || format == ImageFormat.RAW12) {
             int offset = 0;
             data = new byte[width * height * ImageFormat.getBitsPerPixel(format) / 8];
             int maxRowSize = planes[0].getRowStride();
@@ -213,6 +258,7 @@ public class ItsUtils {
                 return 3 == planes.length;
             case ImageFormat.RAW_SENSOR:
             case ImageFormat.RAW10:
+            case ImageFormat.RAW12:
             case ImageFormat.JPEG:
                 return 1 == planes.length;
             default:
@@ -220,4 +266,3 @@ public class ItsUtils {
         }
     }
 }
-

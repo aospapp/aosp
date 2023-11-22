@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This empty file is here solely for the purpose of optimizing the Android build
-# Please keep it there, and empty, thanks.
+LOCAL_PATH:=$(call my-dir)
+include $(LOCAL_PATH)/blas/Android.mk

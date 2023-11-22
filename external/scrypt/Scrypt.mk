@@ -1,6 +1,6 @@
 local_c_flags := -DUSE_OPENSSL_PBKDF2
 
-local_c_includes := $(log_c_includes) external/openssl/include
+local_c_includes := $(log_c_includes)
 
 local_additional_dependencies := $(LOCAL_PATH)/android-config.mk $(LOCAL_PATH)/Scrypt.mk
 
@@ -11,7 +11,7 @@ include $(LOCAL_PATH)/Scrypt-config.mk
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/android-config.mk
 
-LOCAL_SHARED_LIBRARIES := $(log_shared_libraries)
+LOCAL_SHARED_LIBRARIES := $(log_shared_libraries) libcrypto
 
 # If we're building an unbundled build, don't try to use clang since it's not
 # in the NDK yet. This can be removed when a clang version that is fast enough
@@ -35,7 +35,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/android-config.mk
-LOCAL_SHARED_LIBRARIES := $(log_shared_libraries)
+LOCAL_SHARED_LIBRARIES := $(log_shared_libraries) libcrypto-host
 LOCAL_SRC_FILES += $(host_src_files)
 LOCAL_CFLAGS += $(host_c_flags)
 LOCAL_C_INCLUDES += $(host_c_includes)

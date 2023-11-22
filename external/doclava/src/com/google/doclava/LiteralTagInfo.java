@@ -17,6 +17,12 @@
 package com.google.doclava;
 
 public class LiteralTagInfo extends TagInfo {
+  public static final LiteralTagInfo[] EMPTY_ARRAY = new LiteralTagInfo[0];
+
+  public static LiteralTagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new LiteralTagInfo[size];
+  }
+
   private static String encode(String t) {
     t = t.replace("&", "&amp;");
     t = t.replace("<", "&lt;");

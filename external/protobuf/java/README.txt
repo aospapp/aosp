@@ -101,7 +101,7 @@ extensions.
 To create a jar file for the runtime and run tests invoke
 "mvn package -P micro" from the <protobuf-root>/java
 directory. The generated jar file is
-<protobuf-root>java/target/protobuf-java-2.2.0-micro.jar.
+<protobuf-root>java/target/protobuf-java-2.6.0-micro.jar.
 
 If you wish to compile the MICRO_RUNTIME your self, place
 the 7 files below, in <root>/com/google/protobuf and
@@ -593,6 +593,28 @@ ignore_services={true,false} (default: false)
 parcelable_messages={true,false} (default: false)
   Android-specific option to generate Parcelable messages.
 
+generate_intdefs={true,false} (default: false)
+  Android-specific option to generate @IntDef annotations for enums.
+
+  If turned on, an @IntDef annotation (a public @interface) will be
+  generated for each enum, and every integer parameter and return
+  value in the generated code meant for this enum will be annotated
+  with it. This interface is generated with the same name and at the
+  same place as the enum members' container interfaces described
+  above under enum_style=java, regardless of the enum_style option
+  used. When this is combined with enum_style=java, the interface
+  will be both the @IntDef annotation and the container of the enum
+  members; otherwise the interface has an empty body.
+
+  Your app must declare a compile-time dependency on the
+  android-support-annotations library.
+
+  For more information on how these @IntDef annotations help with
+  compile-time type safety, see:
+  https://sites.google.com/a/android.com/tools/tech-docs/support-annotations
+  and
+  https://developer.android.com/reference/android/support/annotation/IntDef.html
+
 
 To use nano protobufs within the Android repo:
 
@@ -621,7 +643,7 @@ To use nano protobufs within the Android repo:
 To use nano protobufs outside of Android repo:
 
 - Link with the generated jar file
-  <protobuf-root>java/target/protobuf-java-2.3.0-nano.jar.
+  <protobuf-root>java/target/protobuf-java-2.6.0-nano.jar.
 - Invoke with --javanano_out, e.g.:
 
 ./protoc '--javanano_out=\
@@ -643,10 +665,10 @@ Please run the following steps to test:
 - cd ../../..
 - . build/envsetup.sh
 - lunch 1
-- "make -j12 aprotoc libprotobuf-java-2.3.0-nano aprotoc-test-nano-params NanoAndroidTest" and
+- "make -j12 aprotoc libprotobuf-java-nano aprotoc-test-nano-params NanoAndroidTest" and
   check for build errors.
 - Plug in an Android device or start an emulator.
-- adb install -r out/target/product/generic/data/app/NanoAndroidTest.apk
+- adb install -r out/target/product/generic/data/app/NanoAndroidTest/NanoAndroidTest.apk
 - Run:
   "adb shell am instrument -w com.google.protobuf.nano.test/android.test.InstrumentationTestRunner"
   and verify all tests pass.
@@ -660,4 +682,4 @@ Usage
 The complete documentation for Protocol Buffers is available via the
 web at:
 
-  http://code.google.com/apis/protocolbuffers/
+  https://developers.google.com/protocol-buffers/

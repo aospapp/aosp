@@ -16,7 +16,7 @@
 
 package android.widget.cts;
 
-import com.android.internal.R;
+import android.R;
 
 
 import android.content.Context;

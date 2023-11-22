@@ -9,3 +9,11 @@ allow pvrsrvctl gpu_device:chr_file rw_file_perms;
 
 # allow graphics driver initialization
 allow pvrsrvctl self:capability sys_admin;
+
+# enable pipe communication between appdomain processes and
+# surfaceflinger for gralloc subchannel feature (dynamic fbc)
+allow bootanim surfaceflinger:fifo_file rw_file_perms;
+allow system_server surfaceflinger:fifo_file rw_file_perms;
+allow appdomain surfaceflinger:fifo_file rw_file_perms;
+allow mediaserver surfaceflinger:fifo_file rw_file_perms;
+allow dumpstate surfaceflinger:fifo_file rw_file_perms;

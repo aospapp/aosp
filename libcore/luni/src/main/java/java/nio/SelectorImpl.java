@@ -38,7 +38,6 @@ import libcore.io.IoBridge;
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
 
-import static android.system.OsConstants.EINTR;
 import static android.system.OsConstants.POLLERR;
 import static android.system.OsConstants.POLLHUP;
 import static android.system.OsConstants.POLLIN;
@@ -94,7 +93,7 @@ final class SelectorImpl extends AbstractSelector {
          * configure the pipe so we can fully drain it without blocking.
          */
         try {
-            FileDescriptor[] pipeFds = Libcore.os.pipe();
+            FileDescriptor[] pipeFds = Libcore.os.pipe2(0);
             wakeupIn = pipeFds[0];
             wakeupOut = pipeFds[1];
             IoUtils.setBlocking(wakeupIn, false);
@@ -183,9 +182,7 @@ final class SelectorImpl extends AbstractSelector {
                         try {
                             rc = Libcore.os.poll(pollFds.array(), (int) timeout);
                         } catch (ErrnoException errnoException) {
-                            if (errnoException.errno != EINTR) {
-                                throw errnoException.rethrowAsIOException();
-                            }
+                            throw errnoException.rethrowAsIOException();
                         }
                     } finally {
                         if (isBlocking) {

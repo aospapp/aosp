@@ -13,13 +13,11 @@ mc_SRC_FILES := \
   MCCodeEmitter.cpp \
   MCCodeGenInfo.cpp \
   MCContext.cpp \
-  MCDisassembler.cpp \
   MCDwarf.cpp \
   MCELF.cpp \
   MCELFObjectTargetWriter.cpp \
   MCELFStreamer.cpp \
   MCExpr.cpp \
-  MCExternalSymbolizer.cpp \
   MCInst.cpp \
   MCInstPrinter.cpp \
   MCInstrAnalysis.cpp \
@@ -32,7 +30,6 @@ mc_SRC_FILES := \
   MCObjectStreamer.cpp \
   MCObjectWriter.cpp \
   MCRegisterInfo.cpp \
-  MCRelocationInfo.cpp \
   MCSection.cpp \
   MCSectionCOFF.cpp \
   MCSectionELF.cpp \
@@ -44,6 +41,7 @@ mc_SRC_FILES := \
   MCTargetOptions.cpp \
   MCValue.cpp \
   MCWin64EH.cpp \
+  MCWinEH.cpp \
   MachObjectWriter.cpp \
   StringTableBuilder.cpp \
   SubtargetFeature.cpp \

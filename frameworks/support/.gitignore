@@ -1,1 +1,8 @@
+.classpath
 .gradle
+.idea/
+.project
+.settings/
+project.properties
+**/bin
+**/gen

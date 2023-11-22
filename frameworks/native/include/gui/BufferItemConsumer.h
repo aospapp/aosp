@@ -42,8 +42,6 @@ class BufferItemConsumer: public ConsumerBase
   public:
     typedef ConsumerBase::FrameAvailableListener FrameAvailableListener;
 
-    typedef BufferQueue::BufferItem BufferItem;
-
     enum { DEFAULT_MAX_BUFFERS = -1 };
     enum { INVALID_BUFFER_SLOT = BufferQueue::INVALID_BUFFER_SLOT };
     enum { NO_BUFFER_AVAILABLE = BufferQueue::NO_BUFFER_AVAILABLE };
@@ -76,8 +74,8 @@ class BufferItemConsumer: public ConsumerBase
     //
     // If waitForFence is true, and the acquired BufferItem has a valid fence object,
     // acquireBuffer will wait on the fence with no timeout before returning.
-    status_t acquireBuffer(BufferItem *item, nsecs_t presentWhen,
-        bool waitForFence = true);
+    status_t acquireBuffer(BufferItem* item, nsecs_t presentWhen,
+            bool waitForFence = true);
 
     // Returns an acquired buffer to the queue, allowing it to be reused. Since
     // only a fixed number of buffers may be acquired at a time, old buffers
@@ -88,14 +86,6 @@ class BufferItemConsumer: public ConsumerBase
     status_t releaseBuffer(const BufferItem &item,
             const sp<Fence>& releaseFence = Fence::NO_FENCE);
 
-    // setDefaultBufferSize is used to set the size of buffers returned by
-    // requestBuffers when a with and height of zero is requested.
-    status_t setDefaultBufferSize(uint32_t w, uint32_t h);
-
-    // setDefaultBufferFormat allows the BufferQueue to create
-    // GraphicBuffers of a defaultFormat if no format is specified
-    // in dequeueBuffer
-    status_t setDefaultBufferFormat(uint32_t defaultFormat);
 };
 
 } // namespace android

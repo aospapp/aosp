@@ -2,6 +2,11 @@
 <resources>
     <bool name="partner_show_live_tv_on_start_up">true</bool>
 
+    <bool name="disable_disconnected_inputs">false</bool>
+    <bool name="show_physical_tuners_separately">true</bool>
+    <string name="bundled_tuner_title">All Channels</string>
+    <item type="drawable" name="bundled_tuner_banner">@drawable/ic_bundled_tuner_banner</item>
+
     <!-- DO NOT TRANSLATE -->
     <string name="partner_app_sorting_mode" translatable="false">fixed</string>
     <!-- DO NOT TRANSLATE -->

@@ -47,7 +47,7 @@ public:
     // returned.  The presentation time is in nanoseconds, and the time base
     // is CLOCK_MONOTONIC.
     virtual status_t acquireBuffer(BufferItem* outBuffer,
-            nsecs_t expectedPresent);
+            nsecs_t expectedPresent, uint64_t maxFrameNumber = 0) override;
 
     // See IGraphicBufferConsumer::detachBuffer
     virtual status_t detachBuffer(int slot);
@@ -125,9 +125,15 @@ public:
 
     // setDefaultBufferFormat allows the BufferQueue to create
     // GraphicBuffers of a defaultFormat if no format is specified
-    // in dequeueBuffer.  Formats are enumerated in graphics.h; the
-    // initial default is HAL_PIXEL_FORMAT_RGBA_8888.
-    virtual status_t setDefaultBufferFormat(uint32_t defaultFormat);
+    // in dequeueBuffer. The initial default is HAL_PIXEL_FORMAT_RGBA_8888.
+    virtual status_t setDefaultBufferFormat(PixelFormat defaultFormat);
+
+    // setDefaultBufferDataSpace allows the BufferQueue to create
+    // GraphicBuffers of a defaultDataSpace if no data space is specified
+    // in queueBuffer.
+    // The initial default is HAL_DATASPACE_UNKNOWN
+    virtual status_t setDefaultBufferDataSpace(
+            android_dataspace defaultDataSpace);
 
     // setConsumerUsageBits will turn on additional usage bits for dequeueBuffer.
     // These are merged with the bits passed to dequeueBuffer.  The values are

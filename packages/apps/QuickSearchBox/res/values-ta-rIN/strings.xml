@@ -20,7 +20,7 @@
     <string name="remove_from_history_failed" msgid="1200923379897420942">"வரலாற்றிலிருந்து உருப்படியை அகற்ற முடியவில்லை."</string>
     <string name="corpus_selection_heading" msgid="6673422146423301360">"தேடல்"</string>
     <string name="menu_settings" msgid="5600043319144155953">"தேடல் அமைப்பு"</string>
-    <string name="system_search_category_title" msgid="1507902891285388819">"மொபைல்"</string>
+    <string name="system_search_category_title" msgid="1507902891285388819">"ஃபோன்"</string>
     <string name="clear_shortcuts_summary" msgid="7407553488405249541">"சமீபத்தில் தேர்வுசெய்த தேடல் பரிந்துரைகளின் குறுக்குவழிகளை அழி"</string>
     <string name="menu_help" msgid="8466596486018760239">"உதவி"</string>
     <string name="google_search_label" msgid="2312345472131797361">"Google"</string>

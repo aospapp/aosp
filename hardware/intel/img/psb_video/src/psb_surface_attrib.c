@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <malloc.h>
 #ifdef ANDROID
 #include <linux/ion.h>
 #endif
@@ -55,6 +56,7 @@ VAStatus psb_surface_create_from_ub(
     VASurfaceAttributeTPI *graphic_buffers,
     psb_surface_p psb_surface, /* out */
     void *vaddr,
+    int fd,
     unsigned flags
 )
 {
@@ -74,12 +76,6 @@ VAStatus psb_surface_create_from_ub(
             psb_surface->stride_mode = STRIDE_1024;
         } else if (1280 == graphic_buffers->luma_stride) {
             psb_surface->stride_mode = STRIDE_1280;
-#ifdef PSBVIDEO_MSVDX_DEC_TILING
-            if (graphic_buffers->tiling) {
-                psb_surface->stride_mode = STRIDE_2048;
-                psb_surface->stride = 2048;
-            }
-#endif
         } else if (2048 == graphic_buffers->luma_stride) {
             psb_surface->stride_mode = STRIDE_2048;
         } else if (4096 == graphic_buffers->luma_stride) {
@@ -120,12 +116,12 @@ VAStatus psb_surface_create_from_ub(
     if (graphic_buffers->tiling)
         ret = psb_buffer_create_from_ub(driver_data, psb_surface->size,
                 psb_bt_mmu_tiling, &psb_surface->buf,
-                vaddr, 0);
+                vaddr, fd, 0);
     else
 #endif
         ret = psb_buffer_create_from_ub(driver_data, psb_surface->size,
                 psb_bt_surface, &psb_surface->buf,
-                vaddr, flags);
+                vaddr, fd, flags);
 
     return ret ? VA_STATUS_ERROR_ALLOCATION_FAILED : VA_STATUS_SUCCESS;
 }
@@ -605,10 +601,12 @@ VAStatus  psb_CreateSurfaceFromUserspace(
 
         if (attribute_tpi->type == VAExternalMemoryNoneCacheUserPointer)
             vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
-                    attribute_tpi, psb_surface, vaddr, PSB_USER_BUFFER_UNCACHED);
-        else
+                    attribute_tpi, psb_surface, vaddr, -1, PSB_USER_BUFFER_UNCACHED);
+        else {
             vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
-                    attribute_tpi, psb_surface, vaddr, 0);
+                    attribute_tpi, psb_surface, vaddr, -1,  0);
+            psb_surface->buf.unfence_flag = 2;
+        }
         obj_surface->psb_surface = psb_surface;
 
         if (VA_STATUS_SUCCESS != vaStatus) {
@@ -726,7 +724,7 @@ VAStatus  psb_CreateSurfaceFromION(
         }
 
         vaStatus = psb_surface_create_from_ub(driver_data, width, height, fourcc,
-                attribute_tpi, psb_surface, vaddr, 0);
+                attribute_tpi, psb_surface, vaddr, ion_source_share.fd, 0);
         obj_surface->psb_surface = psb_surface;
 
         if (VA_STATUS_SUCCESS != vaStatus) {

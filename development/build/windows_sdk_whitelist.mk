@@ -46,6 +46,7 @@ subdirs += \
 	external/compiler-rt \
 	external/libpng \
 	external/llvm \
+	external/protobuf \
 	external/sqlite/dist \
 	external/zlib \
 	external/zopfli \
@@ -55,12 +56,12 @@ subdirs += \
 	frameworks/rs \
 	frameworks/tools \
 	system/core/adb \
+	system/core/base \
 	system/core/fastboot \
 	system/core/libcutils \
 	system/core/liblog \
 	system/core/libsparse \
 	system/core/libziparchive \
-	system/core/libzipfile \
 	system/core/libutils \
 	system/extras/ext4_utils
 

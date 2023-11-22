@@ -18,6 +18,7 @@
 package android.support.v7.widget;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.database.Observable;
 import android.graphics.Canvas;
 import android.graphics.PointF;
@@ -26,9 +27,16 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.CallSuper;
+import android.os.SystemClock;
 import android.support.annotation.Nullable;
+import android.support.v4.os.TraceCompat;
 import android.support.v4.util.ArrayMap;
+import android.support.v4.view.InputDeviceCompat;
 import android.support.v4.view.MotionEventCompat;
+import android.support.v4.view.NestedScrollingChild;
+import android.support.v4.view.NestedScrollingChildHelper;
+import android.support.v4.view.ScrollingView;
 import android.support.v4.view.VelocityTrackerCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewConfigurationCompat;
@@ -37,13 +45,12 @@ import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
 import android.support.v4.view.accessibility.AccessibilityRecordCompat;
 import android.support.v4.widget.EdgeEffectCompat;
 import android.support.v4.widget.ScrollerCompat;
-import static android.support.v7.widget.AdapterHelper.UpdateOp;
-import static android.support.v7.widget.AdapterHelper.Callback;
-
+import android.support.v7.recyclerview.R;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
+import android.util.TypedValue;
 import android.view.FocusFinder;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -55,9 +62,14 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.animation.Interpolator;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import static android.support.v7.widget.AdapterHelper.Callback;
+import static android.support.v7.widget.AdapterHelper.UpdateOp;
 
 /**
  * A flexible view for providing a limited window into a large data set.
@@ -123,21 +135,24 @@ import java.util.List;
  * <p>
  * When writing a {@link LayoutManager} you almost always want to use layout positions whereas when
  * writing an {@link Adapter}, you probably want to use adapter positions.
+ *
+ * @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_layoutManager
  */
-public class RecyclerView extends ViewGroup {
+public class RecyclerView extends ViewGroup implements ScrollingView, NestedScrollingChild {
+
     private static final String TAG = "RecyclerView";
 
     private static final boolean DEBUG = false;
 
     /**
-     * On Kitkat, there is a bug which prevents DisplayList from being invalidated if a View is two
-     * levels deep(wrt to ViewHolder.itemView). DisplayList can be invalidated by setting
-     * View's visibility to INVISIBLE when View is detached. On Kitkat, Recycler recursively
-     * traverses itemView and invalidates display list for each ViewGroup that matches this
-     * criteria.
+     * On Kitkat and JB MR2, there is a bug which prevents DisplayList from being invalidated if
+     * a View is two levels deep(wrt to ViewHolder.itemView). DisplayList can be invalidated by
+     * setting View's visibility to INVISIBLE when View is detached. On Kitkat and JB MR2, Recycler
+     * recursively traverses itemView and invalidates display list for each ViewGroup that matches
+     * this criteria.
      */
-    private static final boolean FORCE_INVALIDATE_DISPLAY_LIST = Build.VERSION.SDK_INT == 19 ||
-            Build.VERSION.SDK_INT == 20;
+    private static final boolean FORCE_INVALIDATE_DISPLAY_LIST = Build.VERSION.SDK_INT == 18
+            || Build.VERSION.SDK_INT == 19 || Build.VERSION.SDK_INT == 20;
 
     private static final boolean DISPATCH_TEMP_DETACH = false;
     public static final int HORIZONTAL = 0;
@@ -163,6 +178,61 @@ public class RecyclerView extends ViewGroup {
 
     private static final int MAX_SCROLL_DURATION = 2000;
 
+    /**
+     * RecyclerView is calculating a scroll.
+     * If there are too many of these in Systrace, some Views inside RecyclerView might be causing
+     * it. Try to avoid using EditText, focusable views or handle them with care.
+     */
+    private static final String TRACE_SCROLL_TAG = "RV Scroll";
+
+    /**
+     * OnLayout has been called by the View system.
+     * If this shows up too many times in Systrace, make sure the children of RecyclerView do not
+     * update themselves directly. This will cause a full re-layout but when it happens via the
+     * Adapter notifyItemChanged, RecyclerView can avoid full layout calculation.
+     */
+    private static final String TRACE_ON_LAYOUT_TAG = "RV OnLayout";
+
+    /**
+     * NotifyDataSetChanged or equal has been called.
+     * If this is taking a long time, try sending granular notify adapter changes instead of just
+     * calling notifyDataSetChanged or setAdapter / swapAdapter. Adding stable ids to your adapter
+     * might help.
+     */
+    private static final String TRACE_ON_DATA_SET_CHANGE_LAYOUT_TAG = "RV FullInvalidate";
+
+    /**
+     * RecyclerView is doing a layout for partial adapter updates (we know what has changed)
+     * If this is taking a long time, you may have dispatched too many Adapter updates causing too
+     * many Views being rebind. Make sure all are necessary and also prefer using notify*Range
+     * methods.
+     */
+    private static final String TRACE_HANDLE_ADAPTER_UPDATES_TAG = "RV PartialInvalidate";
+
+    /**
+     * RecyclerView is rebinding a View.
+     * If this is taking a lot of time, consider optimizing your layout or make sure you are not
+     * doing extra operations in onBindViewHolder call.
+     */
+    private static final String TRACE_BIND_VIEW_TAG = "RV OnBindView";
+
+    /**
+     * RecyclerView is creating a new View.
+     * If too many of these present in Systrace:
+     * - There might be a problem in Recycling (e.g. custom Animations that set transient state and
+     * prevent recycling or ItemAnimator not implementing the contract properly. ({@link
+     * > Adapter#onFailedToRecycleView(ViewHolder)})
+     *
+     * - There might be too many item view types.
+     * > Try merging them
+     *
+     * - There might be too many itemChange animations and not enough space in RecyclerPool.
+     * >Try increasing your pool size and item cache size.
+     */
+    private static final String TRACE_CREATE_VIEW_TAG = "RV CreateView";
+    private static final Class<?>[] LAYOUT_MANAGER_CONSTRUCTOR_SIGNATURE =
+            new Class[]{Context.class, AttributeSet.class, int.class, int.class};
+
     private final RecyclerViewDataObserver mObserver = new RecyclerViewDataObserver();
 
     final Recycler mRecycler = new Recycler();
@@ -172,9 +242,6 @@ public class RecyclerView extends ViewGroup {
     AdapterHelper mAdapterHelper;
 
     ChildHelper mChildHelper;
-
-    // we use this like a set
-    final List<View> mDisappearingViewsInLayoutPass = new ArrayList<View>();
 
     /**
      * Prior to L, there is no way to query this variable which is why we override the setter and
@@ -195,8 +262,11 @@ public class RecyclerView extends ViewGroup {
                 return;
             }
             if (mDataSetHasChangedAfterLayout) {
+                TraceCompat.beginSection(TRACE_ON_DATA_SET_CHANGE_LAYOUT_TAG);
                 dispatchLayout();
+                TraceCompat.endSection();
             } else if (mAdapterHelper.hasPendingUpdates()) {
+                TraceCompat.beginSection(TRACE_HANDLE_ADAPTER_UPDATES_TAG);
                 eatRequestLayout();
                 mAdapterHelper.preProcess();
                 if (!mLayoutRequestEaten) {
@@ -205,6 +275,7 @@ public class RecyclerView extends ViewGroup {
                     rebindUpdatedViewHolders();
                 }
                 resumeRequestLayout(true);
+                TraceCompat.endSection();
             }
         }
     };
@@ -222,9 +293,15 @@ public class RecyclerView extends ViewGroup {
     private boolean mFirstLayoutComplete;
     private boolean mEatRequestLayout;
     private boolean mLayoutRequestEaten;
+    private boolean mLayoutFrozen;
+    private boolean mIgnoreMotionEventTillDown;
+
+    // binary OR of change events that were eaten during a layout or scroll.
+    private int mEatenAccessibilityChangeFlags;
     private boolean mAdapterUpdateDuringMeasure;
     private final boolean mPostUpdatesOnAnimation;
     private final AccessibilityManager mAccessibilityManager;
+    private List<OnChildAttachStateChangeListener> mOnChildAttachStateListeners;
 
     /**
      * Set to true when an adapter data set changed notification is received.
@@ -233,14 +310,14 @@ public class RecyclerView extends ViewGroup {
     private boolean mDataSetHasChangedAfterLayout = false;
 
     /**
-     * This variable is set to true during a dispatchLayout and/or scroll.
+     * This variable is incremented during a dispatchLayout and/or scroll.
      * Some methods should not be called during these periods (e.g. adapter data change).
      * Doing so will create hard to find bugs so we better check it and throw an exception.
      *
      * @see #assertInLayoutOrScroll(String)
      * @see #assertNotInLayoutOrScroll(String)
      */
-    private boolean mRunningLayoutOrScroll = false;
+    private int mLayoutOrScrollCounter = 0;
 
     private EdgeEffectCompat mLeftGlow, mTopGlow, mRightGlow, mBottomGlow;
 
@@ -279,12 +356,15 @@ public class RecyclerView extends ViewGroup {
     private int mTouchSlop;
     private final int mMinFlingVelocity;
     private final int mMaxFlingVelocity;
+    // This value is used when handling generic motion events.
+    private float mScrollFactor = Float.MIN_VALUE;
 
     private final ViewFlinger mViewFlinger = new ViewFlinger();
 
     final State mState = new State();
 
     private OnScrollListener mScrollListener;
+    private List<OnScrollListener> mScrollListeners;
 
     // For use in item animations
     boolean mItemsAddedOrRemoved = false;
@@ -293,10 +373,16 @@ public class RecyclerView extends ViewGroup {
             new ItemAnimatorRestoreListener();
     private boolean mPostedAnimatorRunner = false;
     private RecyclerViewAccessibilityDelegate mAccessibilityDelegate;
+    private ChildDrawingOrderCallback mChildDrawingOrderCallback;
 
     // simple array to keep min and max child position during a layout calculation
     // preserved not to create a new one in each layout pass
     private final int[] mMinMaxLayoutPositions = new int[2];
+
+    private final NestedScrollingChildHelper mScrollingChildHelper;
+    private final int[] mScrollOffset = new int[2];
+    private final int[] mScrollConsumed = new int[2];
+    private final int[] mNestedOffsets = new int[2];
 
     private Runnable mItemAnimatorRunner = new Runnable() {
         @Override
@@ -319,13 +405,14 @@ public class RecyclerView extends ViewGroup {
         this(context, null);
     }
 
-    public RecyclerView(Context context, AttributeSet attrs) {
+    public RecyclerView(Context context, @Nullable AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public RecyclerView(Context context, AttributeSet attrs, int defStyle) {
+    public RecyclerView(Context context, @Nullable AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-
+        setScrollContainer(true);
+        setFocusableInTouchMode(true);
         final int version = Build.VERSION.SDK_INT;
         mPostUpdatesOnAnimation = version >= 16;
 
@@ -347,6 +434,18 @@ public class RecyclerView extends ViewGroup {
         mAccessibilityManager = (AccessibilityManager) getContext()
                 .getSystemService(Context.ACCESSIBILITY_SERVICE);
         setAccessibilityDelegateCompat(new RecyclerViewAccessibilityDelegate(this));
+        // Create the layoutManager if specified.
+        if (attrs != null) {
+            int defStyleRes = 0;
+            TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.RecyclerView,
+                    defStyle, defStyleRes);
+            String layoutManagerName = a.getString(R.styleable.RecyclerView_layoutManager);
+            a.recycle();
+            createLayoutManager(context, layoutManagerName, attrs, defStyle, defStyleRes);
+        }
+
+        mScrollingChildHelper = new NestedScrollingChildHelper(this);
+        setNestedScrollingEnabled(true);
     }
 
     /**
@@ -365,6 +464,72 @@ public class RecyclerView extends ViewGroup {
             RecyclerViewAccessibilityDelegate accessibilityDelegate) {
         mAccessibilityDelegate = accessibilityDelegate;
         ViewCompat.setAccessibilityDelegate(this, mAccessibilityDelegate);
+    }
+
+    /**
+     * Instantiate and set a LayoutManager, if specified in the attributes.
+     */
+    private void createLayoutManager(Context context, String className, AttributeSet attrs,
+            int defStyleAttr, int defStyleRes) {
+        if (className != null) {
+            className = className.trim();
+            if (className.length() != 0) {  // Can't use isEmpty since it was added in API 9.
+                className = getFullClassName(context, className);
+                try {
+                    ClassLoader classLoader;
+                    if (isInEditMode()) {
+                        // Stupid layoutlib cannot handle simple class loaders.
+                        classLoader = this.getClass().getClassLoader();
+                    } else {
+                        classLoader = context.getClassLoader();
+                    }
+                    Class<? extends LayoutManager> layoutManagerClass =
+                            classLoader.loadClass(className).asSubclass(LayoutManager.class);
+                    Constructor<? extends LayoutManager> constructor;
+                    Object[] constructorArgs = null;
+                    try {
+                        constructor = layoutManagerClass
+                                .getConstructor(LAYOUT_MANAGER_CONSTRUCTOR_SIGNATURE);
+                        constructorArgs = new Object[]{context, attrs, defStyleAttr, defStyleRes};
+                    } catch (NoSuchMethodException e) {
+                        try {
+                            constructor = layoutManagerClass.getConstructor();
+                        } catch (NoSuchMethodException e1) {
+                            e1.initCause(e);
+                            throw new IllegalStateException(attrs.getPositionDescription() +
+                                    ": Error creating LayoutManager " + className, e1);
+                        }
+                    }
+                    constructor.setAccessible(true);
+                    setLayoutManager(constructor.newInstance(constructorArgs));
+                } catch (ClassNotFoundException e) {
+                    throw new IllegalStateException(attrs.getPositionDescription()
+                            + ": Unable to find LayoutManager " + className, e);
+                } catch (InvocationTargetException e) {
+                    throw new IllegalStateException(attrs.getPositionDescription()
+                            + ": Could not instantiate the LayoutManager: " + className, e);
+                } catch (InstantiationException e) {
+                    throw new IllegalStateException(attrs.getPositionDescription()
+                            + ": Could not instantiate the LayoutManager: " + className, e);
+                } catch (IllegalAccessException e) {
+                    throw new IllegalStateException(attrs.getPositionDescription()
+                            + ": Cannot access non-public constructor " + className, e);
+                } catch (ClassCastException e) {
+                    throw new IllegalStateException(attrs.getPositionDescription()
+                            + ": Class is not a LayoutManager " + className, e);
+                }
+            }
+        }
+    }
+
+    private String getFullClassName(Context context, String className) {
+        if (className.charAt(0) == '.') {
+            return context.getPackageName() + className;
+        }
+        if (className.contains(".")) {
+            return className;
+        }
+        return RecyclerView.class.getPackage().getName() + '.' + className;
     }
 
     private void initChildrenHelper() {
@@ -448,6 +613,22 @@ public class RecyclerView extends ViewGroup {
                 }
                 RecyclerView.this.detachViewFromParent(offset);
             }
+
+            @Override
+            public void onEnteredHiddenState(View child) {
+                final ViewHolder vh = getChildViewHolderInt(child);
+                if (vh != null) {
+                    vh.onEnteredHiddenState();
+                }
+            }
+
+            @Override
+            public void onLeftHiddenState(View child) {
+                final ViewHolder vh = getChildViewHolderInt(child);
+                if (vh != null) {
+                    vh.onLeftHiddenState();
+                }
+            }
         });
     }
 
@@ -455,7 +636,19 @@ public class RecyclerView extends ViewGroup {
         mAdapterHelper = new AdapterHelper(new Callback() {
             @Override
             public ViewHolder findViewHolder(int position) {
-                return findViewHolderForPosition(position, true);
+                final ViewHolder vh = findViewHolderForPosition(position, true);
+                if (vh == null) {
+                    return null;
+                }
+                // ensure it is not hidden because for adapter helper, the only thing matter is that
+                // LM thinks view is a child.
+                if (mChildHelper.isHidden(vh.itemView)) {
+                    if (DEBUG) {
+                        Log.d(TAG, "assuming view holder cannot be find because it is hidden");
+                    }
+                    return null;
+                }
+                return vh;
             }
 
             @Override
@@ -472,8 +665,8 @@ public class RecyclerView extends ViewGroup {
             }
 
             @Override
-            public void markViewHoldersUpdated(int positionStart, int itemCount) {
-                viewRangeUpdate(positionStart, itemCount);
+            public void markViewHoldersUpdated(int positionStart, int itemCount, Object payload) {
+                viewRangeUpdate(positionStart, itemCount, payload);
                 mItemsChanged = true;
             }
 
@@ -491,7 +684,8 @@ public class RecyclerView extends ViewGroup {
                         mLayout.onItemsRemoved(RecyclerView.this, op.positionStart, op.itemCount);
                         break;
                     case UpdateOp.UPDATE:
-                        mLayout.onItemsUpdated(RecyclerView.this, op.positionStart, op.itemCount);
+                        mLayout.onItemsUpdated(RecyclerView.this, op.positionStart, op.itemCount,
+                                op.payload);
                         break;
                     case UpdateOp.MOVE:
                         mLayout.onItemsMoved(RecyclerView.this, op.positionStart, op.itemCount, 1);
@@ -591,6 +785,8 @@ public class RecyclerView extends ViewGroup {
      * @see #setAdapter(Adapter)
      */
     public void swapAdapter(Adapter adapter, boolean removeAndRecycleExistingViews) {
+        // bail out if layout is frozen
+        setLayoutFrozen(false);
         setAdapterInternal(adapter, true, removeAndRecycleExistingViews);
         setDataSetChangedAfterLayout();
         requestLayout();
@@ -605,6 +801,8 @@ public class RecyclerView extends ViewGroup {
      * @see #swapAdapter(Adapter, boolean)
      */
     public void setAdapter(Adapter adapter) {
+        // bail out if layout is frozen
+        setLayoutFrozen(false);
         setAdapterInternal(adapter, false, true);
         requestLayout();
     }
@@ -680,6 +878,63 @@ public class RecyclerView extends ViewGroup {
     }
 
     /**
+     * <p>Return the offset of the RecyclerView's text baseline from the its top
+     * boundary. If the LayoutManager of this RecyclerView does not support baseline alignment,
+     * this method returns -1.</p>
+     *
+     * @return the offset of the baseline within the RecyclerView's bounds or -1
+     *         if baseline alignment is not supported
+     */
+    @Override
+    public int getBaseline() {
+        if (mLayout != null) {
+            return mLayout.getBaseline();
+        } else {
+            return super.getBaseline();
+        }
+    }
+
+    /**
+     * Register a listener that will be notified whenever a child view is attached to or detached
+     * from RecyclerView.
+     *
+     * <p>This listener will be called when a LayoutManager or the RecyclerView decides
+     * that a child view is no longer needed. If an application associates expensive
+     * or heavyweight data with item views, this may be a good place to release
+     * or free those resources.</p>
+     *
+     * @param listener Listener to register
+     */
+    public void addOnChildAttachStateChangeListener(OnChildAttachStateChangeListener listener) {
+        if (mOnChildAttachStateListeners == null) {
+            mOnChildAttachStateListeners = new ArrayList<OnChildAttachStateChangeListener>();
+        }
+        mOnChildAttachStateListeners.add(listener);
+    }
+
+    /**
+     * Removes the provided listener from child attached state listeners list.
+     *
+     * @param listener Listener to unregister
+     */
+    public void removeOnChildAttachStateChangeListener(OnChildAttachStateChangeListener listener) {
+        if (mOnChildAttachStateListeners == null) {
+            return;
+        }
+        mOnChildAttachStateListeners.remove(listener);
+    }
+
+    /**
+     * Removes all listeners that were added via
+     * {@link #addOnChildAttachStateChangeListener(OnChildAttachStateChangeListener)}.
+     */
+    public void clearOnChildAttachStateChangeListeners() {
+        if (mOnChildAttachStateListeners != null) {
+            mOnChildAttachStateListeners.clear();
+        }
+    }
+
+    /**
      * Set the {@link LayoutManager} that this RecyclerView will use.
      *
      * <p>In contrast to other adapter-backed views such as {@link android.widget.ListView}
@@ -699,7 +954,7 @@ public class RecyclerView extends ViewGroup {
         // chance that LayoutManagers will re-use views.
         if (mLayout != null) {
             if (mIsAttached) {
-                mLayout.onDetachedFromWindow(this, mRecycler);
+                mLayout.dispatchDetachedFromWindow(this, mRecycler);
             }
             mLayout.setRecyclerView(null);
         }
@@ -713,7 +968,7 @@ public class RecyclerView extends ViewGroup {
             }
             mLayout.setRecyclerView(this);
             if (mIsAttached) {
-                mLayout.onAttachedToWindow(this);
+                mLayout.dispatchAttachedToWindow(this);
             }
         }
         requestLayout();
@@ -740,6 +995,22 @@ public class RecyclerView extends ViewGroup {
         if (mLayout != null && mPendingSavedState.mLayoutState != null) {
             mLayout.onRestoreInstanceState(mPendingSavedState.mLayoutState);
         }
+    }
+
+    /**
+     * Override to prevent freezing of any views created by the adapter.
+     */
+    @Override
+    protected void dispatchSaveInstanceState(SparseArray<Parcelable> container) {
+        dispatchFreezeSelfOnly(container);
+    }
+
+    /**
+     * Override to prevent thawing of any views created by the adapter.
+     */
+    @Override
+    protected void dispatchRestoreInstanceState(SparseArray<Parcelable> container) {
+        dispatchThawSelfOnly(container);
     }
 
     /**
@@ -860,18 +1131,14 @@ public class RecyclerView extends ViewGroup {
             return;
         }
         if (DEBUG) {
-            Log.d(TAG, "setting scroll state to " + state + " from " + mScrollState, new Exception());
+            Log.d(TAG, "setting scroll state to " + state + " from " + mScrollState,
+                    new Exception());
         }
         mScrollState = state;
         if (state != SCROLL_STATE_SETTLING) {
             stopScrollersInternal();
         }
-        if (mScrollListener != null) {
-            mScrollListener.onScrollStateChanged(this, state);
-        }
-        if (mLayout != null) {
-            mLayout.onScrollStateChanged(state);
-        }
+        dispatchOnScrollStateChanged(state);
     }
 
     /**
@@ -944,12 +1211,72 @@ public class RecyclerView extends ViewGroup {
     }
 
     /**
+     * Sets the {@link ChildDrawingOrderCallback} to be used for drawing children.
+     * <p>
+     * See {@link ViewGroup#getChildDrawingOrder(int, int)} for details. Calling this method will
+     * always call {@link ViewGroup#setChildrenDrawingOrderEnabled(boolean)}. The parameter will be
+     * true if childDrawingOrderCallback is not null, false otherwise.
+     * <p>
+     * Note that child drawing order may be overridden by View's elevation.
+     *
+     * @param childDrawingOrderCallback The ChildDrawingOrderCallback to be used by the drawing
+     *                                  system.
+     */
+    public void setChildDrawingOrderCallback(ChildDrawingOrderCallback childDrawingOrderCallback) {
+        if (childDrawingOrderCallback == mChildDrawingOrderCallback) {
+            return;
+        }
+        mChildDrawingOrderCallback = childDrawingOrderCallback;
+        setChildrenDrawingOrderEnabled(mChildDrawingOrderCallback != null);
+    }
+
+    /**
      * Set a listener that will be notified of any changes in scroll state or position.
      *
      * @param listener Listener to set or null to clear
+     *
+     * @deprecated Use {@link #addOnScrollListener(OnScrollListener)} and
+     *             {@link #removeOnScrollListener(OnScrollListener)}
      */
+    @Deprecated
     public void setOnScrollListener(OnScrollListener listener) {
         mScrollListener = listener;
+    }
+
+    /**
+     * Add a listener that will be notified of any changes in scroll state or position.
+     *
+     * <p>Components that add a listener should take care to remove it when finished.
+     * Other components that take ownership of a view may call {@link #clearOnScrollListeners()}
+     * to remove all attached listeners.</p>
+     *
+     * @param listener listener to set or null to clear
+     */
+    public void addOnScrollListener(OnScrollListener listener) {
+        if (mScrollListeners == null) {
+            mScrollListeners = new ArrayList<OnScrollListener>();
+        }
+        mScrollListeners.add(listener);
+    }
+
+    /**
+     * Remove a listener that was notified of any changes in scroll state or position.
+     *
+     * @param listener listener to set or null to clear
+     */
+    public void removeOnScrollListener(OnScrollListener listener) {
+        if (mScrollListeners != null) {
+            mScrollListeners.remove(listener);
+        }
+    }
+
+    /**
+     * Remove all secondary listener that were notified of any changes in scroll state or position.
+     */
+    public void clearOnScrollListeners() {
+        if (mScrollListeners != null) {
+            mScrollListeners.clear();
+        }
     }
 
     /**
@@ -961,10 +1288,21 @@ public class RecyclerView extends ViewGroup {
      * @see android.support.v7.widget.RecyclerView.LayoutManager#scrollToPosition(int)
      */
     public void scrollToPosition(int position) {
+        if (mLayoutFrozen) {
+            return;
+        }
         stopScroll();
         if (mLayout == null) {
             Log.e(TAG, "Cannot scroll to position a LayoutManager set. " +
                     "Call setLayoutManager with a non-null argument.");
+            return;
+        }
+        mLayout.scrollToPosition(position);
+        awakenScrollBars();
+    }
+
+    private void jumpToPositionForSmoothScroller(int position) {
+        if (mLayout == null) {
             return;
         }
         mLayout.scrollToPosition(position);
@@ -987,6 +1325,9 @@ public class RecyclerView extends ViewGroup {
      * @see LayoutManager#smoothScrollToPosition(RecyclerView, State, int)
      */
     public void smoothScrollToPosition(int position) {
+        if (mLayoutFrozen) {
+            return;
+        }
         if (mLayout == null) {
             Log.e(TAG, "Cannot smooth scroll without a LayoutManager set. " +
                     "Call setLayoutManager with a non-null argument.");
@@ -1008,10 +1349,13 @@ public class RecyclerView extends ViewGroup {
                     "Call setLayoutManager with a non-null argument.");
             return;
         }
+        if (mLayoutFrozen) {
+            return;
+        }
         final boolean canScrollHorizontal = mLayout.canScrollHorizontally();
         final boolean canScrollVertical = mLayout.canScrollVertically();
         if (canScrollHorizontal || canScrollVertical) {
-            scrollByInternal(canScrollHorizontal ? x : 0, canScrollVertical ? y : 0);
+            scrollByInternal(canScrollHorizontal ? x : 0, canScrollVertical ? y : 0, null);
         }
     }
 
@@ -1029,24 +1373,33 @@ public class RecyclerView extends ViewGroup {
 
     /**
      * Does not perform bounds checking. Used by internal methods that have already validated input.
+     * <p>
+     * It also reports any unused scroll request to the related EdgeEffect.
+     *
+     * @param x The amount of horizontal scroll request
+     * @param y The amount of vertical scroll request
+     * @param ev The originating MotionEvent, or null if not from a touch event.
      *
      * @return Whether any scroll was consumed in either direction.
      */
-    boolean scrollByInternal(int x, int y) {
-        int overscrollX = 0, overscrollY = 0;
-        int hresult = 0, vresult = 0;
+    boolean scrollByInternal(int x, int y, MotionEvent ev) {
+        int unconsumedX = 0, unconsumedY = 0;
+        int consumedX = 0, consumedY = 0;
+
         consumePendingUpdateOperations();
         if (mAdapter != null) {
             eatRequestLayout();
-            mRunningLayoutOrScroll = true;
+            onEnterLayoutOrScroll();
+            TraceCompat.beginSection(TRACE_SCROLL_TAG);
             if (x != 0) {
-                hresult = mLayout.scrollHorizontallyBy(x, mRecycler, mState);
-                overscrollX = x - hresult;
+                consumedX = mLayout.scrollHorizontallyBy(x, mRecycler, mState);
+                unconsumedX = x - consumedX;
             }
             if (y != 0) {
-                vresult = mLayout.scrollVerticallyBy(y, mRecycler, mState);
-                overscrollY = y - vresult;
+                consumedY = mLayout.scrollVerticallyBy(y, mRecycler, mState);
+                unconsumedY = y - consumedY;
             }
+            TraceCompat.endSection();
             if (supportsChangeAnimations()) {
                 // Fix up shadow views used by changing animations
                 int count = mChildHelper.getChildCount();
@@ -1068,23 +1421,35 @@ public class RecyclerView extends ViewGroup {
                     }
                 }
             }
-            mRunningLayoutOrScroll = false;
+            onExitLayoutOrScroll();
             resumeRequestLayout(false);
         }
         if (!mItemDecorations.isEmpty()) {
             invalidate();
         }
-        if (ViewCompat.getOverScrollMode(this) != ViewCompat.OVER_SCROLL_NEVER) {
+
+        if (dispatchNestedScroll(consumedX, consumedY, unconsumedX, unconsumedY, mScrollOffset)) {
+            // Update the last touch co-ords, taking any scroll offset into account
+            mLastTouchX -= mScrollOffset[0];
+            mLastTouchY -= mScrollOffset[1];
+            if (ev != null) {
+                ev.offsetLocation(mScrollOffset[0], mScrollOffset[1]);
+            }
+            mNestedOffsets[0] += mScrollOffset[0];
+            mNestedOffsets[1] += mScrollOffset[1];
+        } else if (ViewCompat.getOverScrollMode(this) != ViewCompat.OVER_SCROLL_NEVER) {
+            if (ev != null) {
+                pullGlows(ev.getX(), unconsumedX, ev.getY(), unconsumedY);
+            }
             considerReleasingGlowsOnScroll(x, y);
-            pullGlows(overscrollX, overscrollY);
         }
-        if (hresult != 0 || vresult != 0) {
-            notifyOnScrolled(hresult, vresult);
+        if (consumedX != 0 || consumedY != 0) {
+            dispatchOnScrolled(consumedX, consumedY);
         }
         if (!awakenScrollBars()) {
             invalidate();
         }
-        return hresult != 0 || vresult != 0;
+        return consumedX != 0 || consumedY != 0;
     }
 
     /**
@@ -1106,7 +1471,7 @@ public class RecyclerView extends ViewGroup {
      * (RecyclerView.Adapter)
      */
     @Override
-    protected int computeHorizontalScrollOffset() {
+    public int computeHorizontalScrollOffset() {
         return mLayout.canScrollHorizontally() ? mLayout.computeHorizontalScrollOffset(mState)
                 : 0;
     }
@@ -1129,7 +1494,7 @@ public class RecyclerView extends ViewGroup {
      * @see RecyclerView.LayoutManager#computeHorizontalScrollExtent(RecyclerView.State)
      */
     @Override
-    protected int computeHorizontalScrollExtent() {
+    public int computeHorizontalScrollExtent() {
         return mLayout.canScrollHorizontally() ? mLayout.computeHorizontalScrollExtent(mState) : 0;
     }
 
@@ -1149,7 +1514,7 @@ public class RecyclerView extends ViewGroup {
      * @see RecyclerView.LayoutManager#computeHorizontalScrollRange(RecyclerView.State)
      */
     @Override
-    protected int computeHorizontalScrollRange() {
+    public int computeHorizontalScrollRange() {
         return mLayout.canScrollHorizontally() ? mLayout.computeHorizontalScrollRange(mState) : 0;
     }
 
@@ -1171,7 +1536,7 @@ public class RecyclerView extends ViewGroup {
      * (RecyclerView.Adapter)
      */
     @Override
-    protected int computeVerticalScrollOffset() {
+    public int computeVerticalScrollOffset() {
         return mLayout.canScrollVertically() ? mLayout.computeVerticalScrollOffset(mState) : 0;
     }
 
@@ -1192,7 +1557,7 @@ public class RecyclerView extends ViewGroup {
      * @see RecyclerView.LayoutManager#computeVerticalScrollExtent(RecyclerView.State)
      */
     @Override
-    protected int computeVerticalScrollExtent() {
+    public int computeVerticalScrollExtent() {
         return mLayout.canScrollVertically() ? mLayout.computeVerticalScrollExtent(mState) : 0;
     }
 
@@ -1212,7 +1577,7 @@ public class RecyclerView extends ViewGroup {
      * @see RecyclerView.LayoutManager#computeVerticalScrollRange(RecyclerView.State)
      */
     @Override
-    protected int computeVerticalScrollRange() {
+    public int computeVerticalScrollRange() {
         return mLayout.canScrollVertically() ? mLayout.computeVerticalScrollRange(mState) : 0;
     }
 
@@ -1220,19 +1585,77 @@ public class RecyclerView extends ViewGroup {
     void eatRequestLayout() {
         if (!mEatRequestLayout) {
             mEatRequestLayout = true;
-            mLayoutRequestEaten = false;
+            if (!mLayoutFrozen) {
+                mLayoutRequestEaten = false;
+            }
         }
     }
 
     void resumeRequestLayout(boolean performLayoutChildren) {
         if (mEatRequestLayout) {
-            if (performLayoutChildren && mLayoutRequestEaten &&
+            // when layout is frozen we should delay dispatchLayout()
+            if (performLayoutChildren && mLayoutRequestEaten && !mLayoutFrozen &&
                     mLayout != null && mAdapter != null) {
                 dispatchLayout();
             }
             mEatRequestLayout = false;
-            mLayoutRequestEaten = false;
+            if (!mLayoutFrozen) {
+                mLayoutRequestEaten = false;
+            }
         }
+    }
+
+    /**
+     * Enable or disable layout and scroll.  After <code>setLayoutFrozen(true)</code> is called,
+     * Layout requests will be postponed until <code>setLayoutFrozen(false)</code> is called;
+     * child views are not updated when RecyclerView is frozen, {@link #smoothScrollBy(int, int)},
+     * {@link #scrollBy(int, int)}, {@link #scrollToPosition(int)} and
+     * {@link #smoothScrollToPosition(int)} are dropped; TouchEvents and GenericMotionEvents are
+     * dropped; {@link LayoutManager#onFocusSearchFailed(View, int, Recycler, State)} will not be
+     * called.
+     *
+     * <p>
+     * <code>setLayoutFrozen(true)</code> does not prevent app from directly calling {@link
+     * LayoutManager#scrollToPosition(int)}, {@link LayoutManager#smoothScrollToPosition(
+     * RecyclerView, State, int)}.
+     * <p>
+     * {@link #setAdapter(Adapter)} and {@link #swapAdapter(Adapter, boolean)} will automatically
+     * stop frozen.
+     * <p>
+     * Note: Running ItemAnimator is not stopped automatically,  it's caller's
+     * responsibility to call ItemAnimator.end().
+     *
+     * @param frozen   true to freeze layout and scroll, false to re-enable.
+     */
+    public void setLayoutFrozen(boolean frozen) {
+        if (frozen != mLayoutFrozen) {
+            assertNotInLayoutOrScroll("Do not setLayoutFrozen in layout or scroll");
+            if (!frozen) {
+                mLayoutFrozen = frozen;
+                if (mLayoutRequestEaten && mLayout != null && mAdapter != null) {
+                    requestLayout();
+                }
+                mLayoutRequestEaten = false;
+            } else {
+                final long now = SystemClock.uptimeMillis();
+                MotionEvent cancelEvent = MotionEvent.obtain(now, now,
+                        MotionEvent.ACTION_CANCEL, 0.0f, 0.0f, 0);
+                onTouchEvent(cancelEvent);
+                mLayoutFrozen = frozen;
+                mIgnoreMotionEventTillDown = true;
+                stopScroll();
+            }
+        }
+    }
+
+    /**
+     * Returns true if layout and scroll are frozen.
+     *
+     * @return true if layout and scroll are frozen
+     * @see #setLayoutFrozen(boolean)
+     */
+    public boolean isLayoutFrozen() {
+        return mLayoutFrozen;
     }
 
     /**
@@ -1245,6 +1668,9 @@ public class RecyclerView extends ViewGroup {
         if (mLayout == null) {
             Log.e(TAG, "Cannot smooth scroll without a LayoutManager set. " +
                     "Call setLayoutManager with a non-null argument.");
+            return;
+        }
+        if (mLayoutFrozen) {
             return;
         }
         if (!mLayout.canScrollHorizontally()) {
@@ -1277,19 +1703,34 @@ public class RecyclerView extends ViewGroup {
                     "Call setLayoutManager with a non-null argument.");
             return false;
         }
+        if (mLayoutFrozen) {
+            return false;
+        }
+
         final boolean canScrollHorizontal = mLayout.canScrollHorizontally();
         final boolean canScrollVertical = mLayout.canScrollVertically();
+
         if (!canScrollHorizontal || Math.abs(velocityX) < mMinFlingVelocity) {
             velocityX = 0;
         }
         if (!canScrollVertical || Math.abs(velocityY) < mMinFlingVelocity) {
             velocityY = 0;
         }
-        velocityX = Math.max(-mMaxFlingVelocity, Math.min(velocityX, mMaxFlingVelocity));
-        velocityY = Math.max(-mMaxFlingVelocity, Math.min(velocityY, mMaxFlingVelocity));
-        if (velocityX != 0 || velocityY != 0) {
-            mViewFlinger.fling(velocityX, velocityY);
-            return true;
+        if (velocityX == 0 && velocityY == 0) {
+            // If we don't have any velocity, return false
+            return false;
+        }
+
+        if (!dispatchNestedPreFling(velocityX, velocityY)) {
+            final boolean canScroll = canScrollHorizontal || canScrollVertical;
+            dispatchNestedFling(velocityX, velocityY, canScroll);
+
+            if (canScroll) {
+                velocityX = Math.max(-mMaxFlingVelocity, Math.min(velocityX, mMaxFlingVelocity));
+                velocityY = Math.max(-mMaxFlingVelocity, Math.min(velocityY, mMaxFlingVelocity));
+                mViewFlinger.fling(velocityX, velocityY);
+                return true;
+            }
         }
         return false;
     }
@@ -1314,26 +1755,54 @@ public class RecyclerView extends ViewGroup {
     }
 
     /**
+     * Returns the minimum velocity to start a fling.
+     *
+     * @return The minimum velocity to start a fling
+     */
+    public int getMinFlingVelocity() {
+        return mMinFlingVelocity;
+    }
+
+
+    /**
+     * Returns the maximum fling velocity used by this RecyclerView.
+     *
+     * @return The maximum fling velocity used by this RecyclerView.
+     */
+    public int getMaxFlingVelocity() {
+        return mMaxFlingVelocity;
+    }
+
+    /**
      * Apply a pull to relevant overscroll glow effects
      */
-    private void pullGlows(int overscrollX, int overscrollY) {
+    private void pullGlows(float x, float overscrollX, float y, float overscrollY) {
+        boolean invalidate = false;
         if (overscrollX < 0) {
             ensureLeftGlow();
-            mLeftGlow.onPull(-overscrollX / (float) getWidth());
+            if (mLeftGlow.onPull(-overscrollX / getWidth(), 1f - y  / getHeight())) {
+                invalidate = true;
+            }
         } else if (overscrollX > 0) {
             ensureRightGlow();
-            mRightGlow.onPull(overscrollX / (float) getWidth());
+            if (mRightGlow.onPull(overscrollX / getWidth(), y / getHeight())) {
+                invalidate = true;
+            }
         }
 
         if (overscrollY < 0) {
             ensureTopGlow();
-            mTopGlow.onPull(-overscrollY / (float) getHeight());
+            if (mTopGlow.onPull(-overscrollY / getHeight(), x / getWidth())) {
+                invalidate = true;
+            }
         } else if (overscrollY > 0) {
             ensureBottomGlow();
-            mBottomGlow.onPull(overscrollY / (float) getHeight());
+            if (mBottomGlow.onPull(overscrollY / getHeight(), 1f - x / getWidth())) {
+                invalidate = true;
+            }
         }
 
-        if (overscrollX != 0 || overscrollY != 0) {
+        if (invalidate || overscrollX != 0 || overscrollY != 0) {
             ViewCompat.postInvalidateOnAnimation(this);
         }
     }
@@ -1457,7 +1926,8 @@ public class RecyclerView extends ViewGroup {
         }
         final FocusFinder ff = FocusFinder.getInstance();
         result = ff.findNextFocus(this, focused, direction);
-        if (result == null && mAdapter != null && mLayout != null) {
+        if (result == null && mAdapter != null && mLayout != null && !isComputingLayout()
+                && !mLayoutFrozen) {
             eatRequestLayout();
             result = mLayout.onFocusSearchFailed(focused, direction, mRecycler, mState);
             resumeRequestLayout(false);
@@ -1469,6 +1939,23 @@ public class RecyclerView extends ViewGroup {
     public void requestChildFocus(View child, View focused) {
         if (!mLayout.onRequestChildFocus(this, mState, child, focused) && focused != null) {
             mTempRect.set(0, 0, focused.getWidth(), focused.getHeight());
+
+            // get item decor offsets w/o refreshing. If they are invalid, there will be another
+            // layout pass to fix them, then it is LayoutManager's responsibility to keep focused
+            // View in viewport.
+            final ViewGroup.LayoutParams focusedLayoutParams = focused.getLayoutParams();
+            if (focusedLayoutParams instanceof LayoutParams) {
+                // if focused child has item decors, use them. Otherwise, ignore.
+                final LayoutParams lp = (LayoutParams) focusedLayoutParams;
+                if (!lp.mInsetsDirty) {
+                    final Rect insets = lp.mDecorInsets;
+                    mTempRect.left -= insets.left;
+                    mTempRect.right += insets.right;
+                    mTempRect.top -= insets.top;
+                    mTempRect.bottom += insets.bottom;
+                }
+            }
+
             offsetDescendantRectToMyCoords(focused, mTempRect);
             offsetRectIntoDescendantCoords(child, mTempRect);
             requestChildRectangleOnScreen(child, mTempRect, !mFirstLayoutComplete);
@@ -1483,7 +1970,7 @@ public class RecyclerView extends ViewGroup {
 
     @Override
     public void addFocusables(ArrayList<View> views, int direction, int focusableMode) {
-        if (!mLayout.onAddFocusables(this, views, direction, focusableMode)) {
+        if (mLayout == null || !mLayout.onAddFocusables(this, views, direction, focusableMode)) {
             super.addFocusables(views, direction, focusableMode);
         }
     }
@@ -1491,10 +1978,11 @@ public class RecyclerView extends ViewGroup {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        mLayoutOrScrollCounter = 0;
         mIsAttached = true;
         mFirstLayoutComplete = false;
         if (mLayout != null) {
-            mLayout.onAttachedToWindow(this);
+            mLayout.dispatchAttachedToWindow(this);
         }
         mPostedAnimatorRunner = false;
     }
@@ -1510,9 +1998,17 @@ public class RecyclerView extends ViewGroup {
         stopScroll();
         mIsAttached = false;
         if (mLayout != null) {
-            mLayout.onDetachedFromWindow(this, mRecycler);
+            mLayout.dispatchDetachedFromWindow(this, mRecycler);
         }
         removeCallbacks(mItemAnimatorRunner);
+    }
+
+    /**
+     * Returns true if RecyclerView is attached to window.
+     */
+    // @override
+    public boolean isAttachedToWindow() {
+        return mIsAttached;
     }
 
     /**
@@ -1523,7 +2019,7 @@ public class RecyclerView extends ViewGroup {
      * @see #assertNotInLayoutOrScroll(String)
      */
     void assertInLayoutOrScroll(String message) {
-        if (!mRunningLayoutOrScroll) {
+        if (!isComputingLayout()) {
             if (message == null) {
                 throw new IllegalStateException("Cannot call this method unless RecyclerView is "
                         + "computing a layout or scrolling");
@@ -1541,7 +2037,7 @@ public class RecyclerView extends ViewGroup {
      * @see #assertInLayoutOrScroll(String)
      */
     void assertNotInLayoutOrScroll(String message) {
-        if (mRunningLayoutOrScroll) {
+        if (isComputingLayout()) {
             if (message == null) {
                 throw new IllegalStateException("Cannot call this method while RecyclerView is "
                         + "computing a layout or scrolling");
@@ -1561,6 +2057,7 @@ public class RecyclerView extends ViewGroup {
      * for each incoming MotionEvent until the end of the gesture.</p>
      *
      * @param listener Listener to add
+     * @see SimpleOnItemTouchListener
      */
     public void addOnItemTouchListener(OnItemTouchListener listener) {
         mOnItemTouchListeners.add(listener);
@@ -1628,9 +2125,18 @@ public class RecyclerView extends ViewGroup {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent e) {
+        if (mLayoutFrozen) {
+            // When layout is frozen,  RV does not intercept the motion event.
+            // A child view e.g. a button may still get the click.
+            return false;
+        }
         if (dispatchOnItemTouchIntercept(e)) {
             cancelTouch();
             return true;
+        }
+
+        if (mLayout == null) {
+            return false;
         }
 
         final boolean canScrollHorizontally = mLayout.canScrollHorizontally();
@@ -1646,6 +2152,9 @@ public class RecyclerView extends ViewGroup {
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
+                if (mIgnoreMotionEventTillDown) {
+                    mIgnoreMotionEventTillDown = false;
+                }
                 mScrollPointerId = MotionEventCompat.getPointerId(e, 0);
                 mInitialTouchX = mLastTouchX = (int) (e.getX() + 0.5f);
                 mInitialTouchY = mLastTouchY = (int) (e.getY() + 0.5f);
@@ -1654,6 +2163,15 @@ public class RecyclerView extends ViewGroup {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     setScrollState(SCROLL_STATE_DRAGGING);
                 }
+
+                int nestedScrollAxis = ViewCompat.SCROLL_AXIS_NONE;
+                if (canScrollHorizontally) {
+                    nestedScrollAxis |= ViewCompat.SCROLL_AXIS_HORIZONTAL;
+                }
+                if (canScrollVertically) {
+                    nestedScrollAxis |= ViewCompat.SCROLL_AXIS_VERTICAL;
+                }
+                startNestedScroll(nestedScrollAxis);
                 break;
 
             case MotionEventCompat.ACTION_POINTER_DOWN:
@@ -1685,6 +2203,10 @@ public class RecyclerView extends ViewGroup {
                         startScroll = true;
                     }
                     if (startScroll) {
+                        final ViewParent parent = getParent();
+                        if (parent != null) {
+                            parent.requestDisallowInterceptTouchEvent(true);
+                        }
                         setScrollState(SCROLL_STATE_DRAGGING);
                     }
                 }
@@ -1696,6 +2218,7 @@ public class RecyclerView extends ViewGroup {
 
             case MotionEvent.ACTION_UP: {
                 mVelocityTracker.clear();
+                stopNestedScroll();
             } break;
 
             case MotionEvent.ACTION_CANCEL: {
@@ -1706,10 +2229,27 @@ public class RecyclerView extends ViewGroup {
     }
 
     @Override
+    public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+        final int listenerCount = mOnItemTouchListeners.size();
+        for (int i = 0; i < listenerCount; i++) {
+            final OnItemTouchListener listener = mOnItemTouchListeners.get(i);
+            listener.onRequestDisallowInterceptTouchEvent(disallowIntercept);
+        }
+        super.requestDisallowInterceptTouchEvent(disallowIntercept);
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (mLayoutFrozen || mIgnoreMotionEventTillDown) {
+            return false;
+        }
         if (dispatchOnItemTouch(e)) {
             cancelTouch();
             return true;
+        }
+
+        if (mLayout == null) {
+            return false;
         }
 
         final boolean canScrollHorizontally = mLayout.canScrollHorizontally();
@@ -1718,16 +2258,31 @@ public class RecyclerView extends ViewGroup {
         if (mVelocityTracker == null) {
             mVelocityTracker = VelocityTracker.obtain();
         }
-        mVelocityTracker.addMovement(e);
+        boolean eventAddedToVelocityTracker = false;
 
+        final MotionEvent vtev = MotionEvent.obtain(e);
         final int action = MotionEventCompat.getActionMasked(e);
         final int actionIndex = MotionEventCompat.getActionIndex(e);
+
+        if (action == MotionEvent.ACTION_DOWN) {
+            mNestedOffsets[0] = mNestedOffsets[1] = 0;
+        }
+        vtev.offsetLocation(mNestedOffsets[0], mNestedOffsets[1]);
 
         switch (action) {
             case MotionEvent.ACTION_DOWN: {
                 mScrollPointerId = MotionEventCompat.getPointerId(e, 0);
                 mInitialTouchX = mLastTouchX = (int) (e.getX() + 0.5f);
                 mInitialTouchY = mLastTouchY = (int) (e.getY() + 0.5f);
+
+                int nestedScrollAxis = ViewCompat.SCROLL_AXIS_NONE;
+                if (canScrollHorizontally) {
+                    nestedScrollAxis |= ViewCompat.SCROLL_AXIS_HORIZONTAL;
+                }
+                if (canScrollVertically) {
+                    nestedScrollAxis |= ViewCompat.SCROLL_AXIS_VERTICAL;
+                }
+                startNestedScroll(nestedScrollAxis);
             } break;
 
             case MotionEventCompat.ACTION_POINTER_DOWN: {
@@ -1746,32 +2301,56 @@ public class RecyclerView extends ViewGroup {
 
                 final int x = (int) (MotionEventCompat.getX(e, index) + 0.5f);
                 final int y = (int) (MotionEventCompat.getY(e, index) + 0.5f);
+                int dx = mLastTouchX - x;
+                int dy = mLastTouchY - y;
+
+                if (dispatchNestedPreScroll(dx, dy, mScrollConsumed, mScrollOffset)) {
+                    dx -= mScrollConsumed[0];
+                    dy -= mScrollConsumed[1];
+                    vtev.offsetLocation(mScrollOffset[0], mScrollOffset[1]);
+                    // Updated the nested offsets
+                    mNestedOffsets[0] += mScrollOffset[0];
+                    mNestedOffsets[1] += mScrollOffset[1];
+                }
+
                 if (mScrollState != SCROLL_STATE_DRAGGING) {
-                    final int dx = x - mInitialTouchX;
-                    final int dy = y - mInitialTouchY;
                     boolean startScroll = false;
                     if (canScrollHorizontally && Math.abs(dx) > mTouchSlop) {
-                        mLastTouchX = mInitialTouchX + mTouchSlop * (dx < 0 ? -1 : 1);
+                        if (dx > 0) {
+                            dx -= mTouchSlop;
+                        } else {
+                            dx += mTouchSlop;
+                        }
                         startScroll = true;
                     }
                     if (canScrollVertically && Math.abs(dy) > mTouchSlop) {
-                        mLastTouchY = mInitialTouchY + mTouchSlop * (dy < 0 ? -1 : 1);
+                        if (dy > 0) {
+                            dy -= mTouchSlop;
+                        } else {
+                            dy += mTouchSlop;
+                        }
                         startScroll = true;
                     }
                     if (startScroll) {
+                        final ViewParent parent = getParent();
+                        if (parent != null) {
+                            parent.requestDisallowInterceptTouchEvent(true);
+                        }
                         setScrollState(SCROLL_STATE_DRAGGING);
                     }
                 }
+
                 if (mScrollState == SCROLL_STATE_DRAGGING) {
-                    final int dx = x - mLastTouchX;
-                    final int dy = y - mLastTouchY;
+                    mLastTouchX = x - mScrollOffset[0];
+                    mLastTouchY = y - mScrollOffset[1];
+
                     if (scrollByInternal(
-                            canScrollHorizontally ? -dx : 0, canScrollVertically ? -dy : 0)) {
+                            canScrollHorizontally ? dx : 0,
+                            canScrollVertically ? dy : 0,
+                            vtev)) {
                         getParent().requestDisallowInterceptTouchEvent(true);
                     }
                 }
-                mLastTouchX = x;
-                mLastTouchY = y;
             } break;
 
             case MotionEventCompat.ACTION_POINTER_UP: {
@@ -1779,6 +2358,8 @@ public class RecyclerView extends ViewGroup {
             } break;
 
             case MotionEvent.ACTION_UP: {
+                mVelocityTracker.addMovement(vtev);
+                eventAddedToVelocityTracker = true;
                 mVelocityTracker.computeCurrentVelocity(1000, mMaxFlingVelocity);
                 final float xvel = canScrollHorizontally ?
                         -VelocityTrackerCompat.getXVelocity(mVelocityTracker, mScrollPointerId) : 0;
@@ -1787,8 +2368,7 @@ public class RecyclerView extends ViewGroup {
                 if (!((xvel != 0 || yvel != 0) && fling((int) xvel, (int) yvel))) {
                     setScrollState(SCROLL_STATE_IDLE);
                 }
-                mVelocityTracker.clear();
-                releaseGlows();
+                resetTouch();
             } break;
 
             case MotionEvent.ACTION_CANCEL: {
@@ -1796,14 +2376,24 @@ public class RecyclerView extends ViewGroup {
             } break;
         }
 
+        if (!eventAddedToVelocityTracker) {
+            mVelocityTracker.addMovement(vtev);
+        }
+        vtev.recycle();
+
         return true;
     }
 
-    private void cancelTouch() {
+    private void resetTouch() {
         if (mVelocityTracker != null) {
             mVelocityTracker.clear();
         }
+        stopNestedScroll();
         releaseGlows();
+    }
+
+    private void cancelTouch() {
+        resetTouch();
         setScrollState(SCROLL_STATE_IDLE);
     }
 
@@ -1816,6 +2406,60 @@ public class RecyclerView extends ViewGroup {
             mInitialTouchX = mLastTouchX = (int) (MotionEventCompat.getX(e, newIndex) + 0.5f);
             mInitialTouchY = mLastTouchY = (int) (MotionEventCompat.getY(e, newIndex) + 0.5f);
         }
+    }
+
+    // @Override
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if (mLayout == null) {
+            return false;
+        }
+        if (mLayoutFrozen) {
+            return false;
+        }
+        if ((MotionEventCompat.getSource(event) & InputDeviceCompat.SOURCE_CLASS_POINTER) != 0) {
+            if (event.getAction() == MotionEventCompat.ACTION_SCROLL) {
+                final float vScroll, hScroll;
+                if (mLayout.canScrollVertically()) {
+                    // Inverse the sign of the vertical scroll to align the scroll orientation
+                    // with AbsListView.
+                    vScroll = -MotionEventCompat
+                            .getAxisValue(event, MotionEventCompat.AXIS_VSCROLL);
+                } else {
+                    vScroll = 0f;
+                }
+                if (mLayout.canScrollHorizontally()) {
+                    hScroll = MotionEventCompat
+                            .getAxisValue(event, MotionEventCompat.AXIS_HSCROLL);
+                } else {
+                    hScroll = 0f;
+                }
+
+                if (vScroll != 0 || hScroll != 0) {
+                    final float scrollFactor = getScrollFactor();
+                    scrollByInternal((int) (hScroll * scrollFactor),
+                            (int) (vScroll * scrollFactor), event);
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Ported from View.getVerticalScrollFactor.
+     */
+    private float getScrollFactor() {
+        if (mScrollFactor == Float.MIN_VALUE) {
+            TypedValue outValue = new TypedValue();
+            if (getContext().getTheme().resolveAttribute(
+                    android.R.attr.listPreferredItemHeight, outValue, true)) {
+                mScrollFactor = outValue.getDimension(
+                        getContext().getResources().getDisplayMetrics());
+            } else {
+                return 0; //listPreferredItemHeight is not defined, no generic scrolling
+            }
+
+        }
+        return mScrollFactor;
     }
 
     @Override
@@ -1920,6 +2564,91 @@ public class RecyclerView extends ViewGroup {
         }
     }
 
+    private void onEnterLayoutOrScroll() {
+        mLayoutOrScrollCounter ++;
+    }
+
+    private void onExitLayoutOrScroll() {
+        mLayoutOrScrollCounter --;
+        if (mLayoutOrScrollCounter < 1) {
+            if (DEBUG && mLayoutOrScrollCounter < 0) {
+                throw new IllegalStateException("layout or scroll counter cannot go below zero."
+                        + "Some calls are not matching");
+            }
+            mLayoutOrScrollCounter = 0;
+            dispatchContentChangedIfNecessary();
+        }
+    }
+
+    boolean isAccessibilityEnabled() {
+        return mAccessibilityManager != null && mAccessibilityManager.isEnabled();
+    }
+
+    private void dispatchContentChangedIfNecessary() {
+        final int flags = mEatenAccessibilityChangeFlags;
+        mEatenAccessibilityChangeFlags = 0;
+        if (flags != 0 && isAccessibilityEnabled()) {
+            final AccessibilityEvent event = AccessibilityEvent.obtain();
+            event.setEventType(AccessibilityEventCompat.TYPE_WINDOW_CONTENT_CHANGED);
+            AccessibilityEventCompat.setContentChangeTypes(event, flags);
+            sendAccessibilityEventUnchecked(event);
+        }
+    }
+
+    /**
+     * Returns whether RecyclerView is currently computing a layout.
+     * <p>
+     * If this method returns true, it means that RecyclerView is in a lockdown state and any
+     * attempt to update adapter contents will result in an exception because adapter contents
+     * cannot be changed while RecyclerView is trying to compute the layout.
+     * <p>
+     * It is very unlikely that your code will be running during this state as it is
+     * called by the framework when a layout traversal happens or RecyclerView starts to scroll
+     * in response to system events (touch, accessibility etc).
+     * <p>
+     * This case may happen if you have some custom logic to change adapter contents in
+     * response to a View callback (e.g. focus change callback) which might be triggered during a
+     * layout calculation. In these cases, you should just postpone the change using a Handler or a
+     * similar mechanism.
+     *
+     * @return <code>true</code> if RecyclerView is currently computing a layout, <code>false</code>
+     *         otherwise
+     */
+    public boolean isComputingLayout() {
+        return mLayoutOrScrollCounter > 0;
+    }
+
+    /**
+     * Returns true if an accessibility event should not be dispatched now. This happens when an
+     * accessibility request arrives while RecyclerView does not have a stable state which is very
+     * hard to handle for a LayoutManager. Instead, this method records necessary information about
+     * the event and dispatches a window change event after the critical section is finished.
+     *
+     * @return True if the accessibility event should be postponed.
+     */
+    boolean shouldDeferAccessibilityEvent(AccessibilityEvent event) {
+        if (isComputingLayout()) {
+            int type = 0;
+            if (event != null) {
+                type = AccessibilityEventCompat.getContentChangeTypes(event);
+            }
+            if (type == 0) {
+                type = AccessibilityEventCompat.CONTENT_CHANGE_TYPE_UNDEFINED;
+            }
+            mEatenAccessibilityChangeFlags |= type;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void sendAccessibilityEventUnchecked(AccessibilityEvent event) {
+        if (shouldDeferAccessibilityEvent(event)) {
+            return;
+        }
+        super.sendAccessibilityEventUnchecked(event);
+    }
+
     /**
      * Gets the current ItemAnimator for this RecyclerView. A null return value
      * indicates that there is no animator and that item changes will happen without
@@ -2016,9 +2745,9 @@ public class RecyclerView extends ViewGroup {
             Log.e(TAG, "No layout manager attached; skipping layout");
             return;
         }
-        mDisappearingViewsInLayoutPass.clear();
+        mState.mDisappearingViewsInLayoutPass.clear();
         eatRequestLayout();
-        mRunningLayoutOrScroll = true;
+        onEnterLayoutOrScroll();
 
         processAdapterUpdatesAndSetAnimationFlags();
 
@@ -2218,7 +2947,7 @@ public class RecyclerView extends ViewGroup {
         mDataSetHasChangedAfterLayout = false;
         mState.mRunSimpleAnimations = false;
         mState.mRunPredictiveAnimations = false;
-        mRunningLayoutOrScroll = false;
+        onExitLayoutOrScroll();
         mLayout.mRequestedSimpleAnimations = false;
         if (mRecycler.mChangedScrap != null) {
             mRecycler.mChangedScrap.clear();
@@ -2226,7 +2955,7 @@ public class RecyclerView extends ViewGroup {
         mState.mOldChangedHolders = null;
 
         if (didChildRangeChange(mMinMaxLayoutPositions[0], mMinMaxLayoutPositions[1])) {
-            notifyOnScrolled(0, 0);
+            dispatchOnScrolled(0, 0);
         }
     }
 
@@ -2302,9 +3031,9 @@ public class RecyclerView extends ViewGroup {
      * This method handles those views and triggers remove animation on them.
      */
     private void processDisappearingList(ArrayMap<View, Rect> appearingViews) {
-        final int count = mDisappearingViewsInLayoutPass.size();
-        for (int i = 0; i < count; i ++) {
-            View view = mDisappearingViewsInLayoutPass.get(i);
+        final List<View> disappearingList = mState.mDisappearingViewsInLayoutPass;
+        for (int i = disappearingList.size() - 1; i >= 0; i --) {
+            View view = disappearingList.get(i);
             ViewHolder vh = getChildViewHolderInt(view);
             final ItemHolderInfo info = mState.mPreLayoutHolderMap.remove(vh);
             if (!mState.isPreLayout()) {
@@ -2322,7 +3051,7 @@ public class RecyclerView extends ViewGroup {
                         view.getRight(), view.getBottom()));
             }
         }
-        mDisappearingViewsInLayoutPass.clear();
+        disappearingList.clear();
     }
 
     private void animateAppearance(ViewHolder itemHolder, Rect beforeBounds, int afterLeft,
@@ -2358,7 +3087,7 @@ public class RecyclerView extends ViewGroup {
         int oldTop = disappearingItem.top;
         int newLeft = disappearingItemView.getLeft();
         int newTop = disappearingItemView.getTop();
-        if (oldLeft != newLeft || oldTop != newTop) {
+        if (!disappearingItem.holder.isRemoved() && (oldLeft != newLeft || oldTop != newTop)) {
             disappearingItem.holder.setIsRecyclable(false);
             disappearingItemView.layout(newLeft, newTop,
                     newLeft + disappearingItemView.getWidth(),
@@ -2412,14 +3141,16 @@ public class RecyclerView extends ViewGroup {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         eatRequestLayout();
+        TraceCompat.beginSection(TRACE_ON_LAYOUT_TAG);
         dispatchLayout();
+        TraceCompat.endSection();
         resumeRequestLayout(false);
         mFirstLayoutComplete = true;
     }
 
     @Override
     public void requestLayout() {
-        if (!mEatRequestLayout) {
+        if (!mEatRequestLayout && !mLayoutFrozen) {
             super.requestLayout();
         } else {
             mLayoutRequestEaten = true;
@@ -2535,6 +3266,18 @@ public class RecyclerView extends ViewGroup {
         return mLayout.generateLayoutParams(p);
     }
 
+    /**
+     * Returns true if RecyclerView is currently running some animations.
+     * <p>
+     * If you want to be notified when animations are finished, use
+     * {@link ItemAnimator#isRunning(ItemAnimator.ItemAnimatorFinishedListener)}.
+     *
+     * @return True if there are some item animations currently running or waiting to be started.
+     */
+    public boolean isAnimating() {
+        return mItemAnimator != null && mItemAnimator.isRunning();
+    }
+
     void saveOldPositions() {
         final int childCount = mChildHelper.getUnfilteredChildCount();
         for (int i = 0; i < childCount; i++) {
@@ -2647,7 +3390,7 @@ public class RecyclerView extends ViewGroup {
      * @param positionStart Adapter position to start at
      * @param itemCount Number of views that must explicitly be rebound
      */
-    void viewRangeUpdate(int positionStart, int itemCount) {
+    void viewRangeUpdate(int positionStart, int itemCount, Object payload) {
         final int childCount = mChildHelper.getUnfilteredChildCount();
         final int positionEnd = positionStart + itemCount;
 
@@ -2661,6 +3404,7 @@ public class RecyclerView extends ViewGroup {
                 // We re-bind these view holders after pre-processing is complete so that
                 // ViewHolders have their final positions assigned.
                 holder.addFlags(ViewHolder.FLAG_UPDATE);
+                holder.addChangePayload(payload);
                 if (supportsChangeAnimations()) {
                     holder.addFlags(ViewHolder.FLAG_CHANGED);
                 }
@@ -2696,8 +3440,8 @@ public class RecyclerView extends ViewGroup {
                 } else {
                     // binding to a new view will need re-layout anyways. We can as well trigger
                     // it here so that it happens during layout
-                    holder.addFlags(ViewHolder.FLAG_INVALID);
                     requestLayout();
+                    break;
                 }
             }
         }
@@ -2944,6 +3688,11 @@ public class RecyclerView extends ViewGroup {
         return null;
     }
 
+    @Override
+    public boolean drawChild(Canvas canvas, View child, long drawingTime) {
+        return super.drawChild(canvas, child, drawingTime);
+    }
+
     /**
      * Offset the bounds of all child views by <code>dy</code> pixels.
      * Useful for implementing simple scrolling in {@link LayoutManager LayoutManagers}.
@@ -3016,6 +3765,106 @@ public class RecyclerView extends ViewGroup {
         return insets;
     }
 
+    /**
+     * Called when the scroll position of this RecyclerView changes. Subclasses should use
+     * this method to respond to scrolling within the adapter's data set instead of an explicit
+     * listener.
+     *
+     * <p>This method will always be invoked before listeners. If a subclass needs to perform
+     * any additional upkeep or bookkeeping after scrolling but before listeners run,
+     * this is a good place to do so.</p>
+     *
+     * <p>This differs from {@link View#onScrollChanged(int, int, int, int)} in that it receives
+     * the distance scrolled in either direction within the adapter's data set instead of absolute
+     * scroll coordinates. Since RecyclerView cannot compute the absolute scroll position from
+     * any arbitrary point in the data set, <code>onScrollChanged</code> will always receive
+     * the current {@link View#getScrollX()} and {@link View#getScrollY()} values which
+     * do not correspond to the data set scroll position. However, some subclasses may choose
+     * to use these fields as special offsets.</p>
+     *
+     * @param dx horizontal distance scrolled in pixels
+     * @param dy vertical distance scrolled in pixels
+     */
+    public void onScrolled(int dx, int dy) {
+        // Do nothing
+    }
+
+    void dispatchOnScrolled(int hresult, int vresult) {
+        // Pass the current scrollX/scrollY values; no actual change in these properties occurred
+        // but some general-purpose code may choose to respond to changes this way.
+        final int scrollX = getScrollX();
+        final int scrollY = getScrollY();
+        onScrollChanged(scrollX, scrollY, scrollX, scrollY);
+
+        // Pass the real deltas to onScrolled, the RecyclerView-specific method.
+        onScrolled(hresult, vresult);
+
+        // Invoke listeners last. Subclassed view methods always handle the event first.
+        // All internal state is consistent by the time listeners are invoked.
+        if (mScrollListener != null) {
+            mScrollListener.onScrolled(this, hresult, vresult);
+        }
+        if (mScrollListeners != null) {
+            for (int i = mScrollListeners.size() - 1; i >= 0; i--) {
+                mScrollListeners.get(i).onScrolled(this, hresult, vresult);
+            }
+        }
+    }
+
+    /**
+     * Called when the scroll state of this RecyclerView changes. Subclasses should use this
+     * method to respond to state changes instead of an explicit listener.
+     *
+     * <p>This method will always be invoked before listeners, but after the LayoutManager
+     * responds to the scroll state change.</p>
+     *
+     * @param state the new scroll state, one of {@link #SCROLL_STATE_IDLE},
+     *              {@link #SCROLL_STATE_DRAGGING} or {@link #SCROLL_STATE_SETTLING}
+     */
+    public void onScrollStateChanged(int state) {
+        // Do nothing
+    }
+
+    void dispatchOnScrollStateChanged(int state) {
+        // Let the LayoutManager go first; this allows it to bring any properties into
+        // a consistent state before the RecyclerView subclass responds.
+        if (mLayout != null) {
+            mLayout.onScrollStateChanged(state);
+        }
+
+        // Let the RecyclerView subclass handle this event next; any LayoutManager property
+        // changes will be reflected by this time.
+        onScrollStateChanged(state);
+
+        // Listeners go last. All other internal state is consistent by this point.
+        if (mScrollListener != null) {
+            mScrollListener.onScrollStateChanged(this, state);
+        }
+        if (mScrollListeners != null) {
+            for (int i = mScrollListeners.size() - 1; i >= 0; i--) {
+                mScrollListeners.get(i).onScrollStateChanged(this, state);
+            }
+        }
+    }
+
+    /**
+     * Returns whether there are pending adapter updates which are not yet applied to the layout.
+     * <p>
+     * If this method returns <code>true</code>, it means that what user is currently seeing may not
+     * reflect them adapter contents (depending on what has changed).
+     * You may use this information to defer or cancel some operations.
+     * <p>
+     * This method returns true if RecyclerView has not yet calculated the first layout after it is
+     * attached to the Window or the Adapter has been replaced.
+     *
+     * @return True if there are some adapter updates which are not yet reflected to layout or false
+     * if layout is up to date.
+     */
+    public boolean hasPendingAdapterUpdates() {
+        return !mFirstLayoutComplete || mDataSetHasChangedAfterLayout
+                || mAdapterHelper.hasPendingUpdates();
+    }
+
     private class ViewFlinger implements Runnable {
         private int mLastFlingX;
         private int mLastFlingY;
@@ -3053,7 +3902,8 @@ public class RecyclerView extends ViewGroup {
                 int overscrollX = 0, overscrollY = 0;
                 if (mAdapter != null) {
                     eatRequestLayout();
-                    mRunningLayoutOrScroll = true;
+                    onEnterLayoutOrScroll();
+                    TraceCompat.beginSection(TRACE_SCROLL_TAG);
                     if (dx != 0) {
                         hresult = mLayout.scrollHorizontallyBy(dx, mRecycler, mState);
                         overscrollX = dx - hresult;
@@ -3062,6 +3912,7 @@ public class RecyclerView extends ViewGroup {
                         vresult = mLayout.scrollVerticallyBy(dy, mRecycler, mState);
                         overscrollY = dy - vresult;
                     }
+                    TraceCompat.endSection();
                     if (supportsChangeAnimations()) {
                         // Fix up shadow views used by changing animations
                         int count = mChildHelper.getChildCount();
@@ -3081,6 +3932,8 @@ public class RecyclerView extends ViewGroup {
                             }
                         }
                     }
+                    onExitLayoutOrScroll();
+                    resumeRequestLayout(false);
 
                     if (smoothScroller != null && !smoothScroller.isPendingInitialRun() &&
                             smoothScroller.isRunning()) {
@@ -3094,8 +3947,6 @@ public class RecyclerView extends ViewGroup {
                             smoothScroller.onAnimation(dx - overscrollX, dy - overscrollY);
                         }
                     }
-                    mRunningLayoutOrScroll = false;
-                    resumeRequestLayout(false);
                 }
                 if (!mItemDecorations.isEmpty()) {
                     invalidate();
@@ -3127,7 +3978,7 @@ public class RecyclerView extends ViewGroup {
                     }
                 }
                 if (hresult != 0 || vresult != 0) {
-                    notifyOnScrolled(hresult, vresult);
+                    dispatchOnScrolled(hresult, vresult);
                 }
 
                 if (!awakenScrollBars()) {
@@ -3148,8 +3999,13 @@ public class RecyclerView extends ViewGroup {
                 }
             }
             // call this after the onAnimation is complete not to have inconsistent callbacks etc.
-            if (smoothScroller != null && smoothScroller.isPendingInitialRun()) {
-                smoothScroller.onAnimation(0, 0);
+            if (smoothScroller != null) {
+                if (smoothScroller.isPendingInitialRun()) {
+                    smoothScroller.onAnimation(0, 0);
+                }
+                if (!mReSchedulePostAnimationCallback) {
+                    smoothScroller.stop(); //stop if it does not trigger any scroll
+                }
             }
             enableRunOnAnimationRequests();
         }
@@ -3241,14 +4097,6 @@ public class RecyclerView extends ViewGroup {
 
     }
 
-    private void notifyOnScrolled(int hresult, int vresult) {
-        // dummy values, View's implementation does not use these.
-        onScrollChanged(0, 0, 0, 0);
-        if (mScrollListener != null) {
-            mScrollListener.onScrolled(this, hresult, vresult);
-        }
-    }
-
     private class RecyclerViewDataObserver extends AdapterDataObserver {
         @Override
         public void onChanged() {
@@ -3269,9 +4117,9 @@ public class RecyclerView extends ViewGroup {
         }
 
         @Override
-        public void onItemRangeChanged(int positionStart, int itemCount) {
+        public void onItemRangeChanged(int positionStart, int itemCount, Object payload) {
             assertNotInLayoutOrScroll(null);
-            if (mAdapterHelper.onItemRangeChanged(positionStart, itemCount)) {
+            if (mAdapterHelper.onItemRangeChanged(positionStart, itemCount, payload)) {
                 triggerUpdateProcessor();
             }
         }
@@ -3368,6 +4216,9 @@ public class RecyclerView extends ViewGroup {
             final ArrayList scrapHeap = getScrapHeapForType(viewType);
             if (mMaxScrap.get(viewType) <= scrapHeap.size()) {
                 return;
+            }
+            if (DEBUG && scrapHeap.contains(scrap)) {
+                throw new IllegalArgumentException("this scrap item already exists");
             }
             scrap.resetInternal();
             scrapHeap.add(scrap);
@@ -3539,6 +4390,7 @@ public class RecyclerView extends ViewGroup {
                         + "position " + position + "(offset:" + offsetPosition + ")."
                         + "state:" + mState.getItemCount());
             }
+            holder.mOwnerRecyclerView = RecyclerView.this;
             mAdapter.bindViewHolder(holder, offsetPosition);
             attachAccessibilityDelegate(view);
             if (mState.isPreLayout()) {
@@ -3687,8 +4539,7 @@ public class RecyclerView extends ViewGroup {
                         Log.d(TAG, "getViewForPosition(" + position + ") fetching from shared "
                                 + "pool");
                     }
-                    holder = getRecycledViewPool()
-                            .getRecycledView(mAdapter.getItemViewType(offsetPosition));
+                    holder = getRecycledViewPool().getRecycledView(type);
                     if (holder != null) {
                         holder.resetInternal();
                         if (FORCE_INVALIDATE_DISPLAY_LIST) {
@@ -3697,8 +4548,7 @@ public class RecyclerView extends ViewGroup {
                     }
                 }
                 if (holder == null) {
-                    holder = mAdapter.createViewHolder(RecyclerView.this,
-                            mAdapter.getItemViewType(offsetPosition));
+                    holder = mAdapter.createViewHolder(RecyclerView.this, type);
                     if (DEBUG) {
                         Log.d(TAG, "getViewForPosition created new ViewHolder");
                     }
@@ -3714,6 +4564,7 @@ public class RecyclerView extends ViewGroup {
                             + " come here only in pre-layout. Holder: " + holder);
                 }
                 final int offsetPosition = mAdapterHelper.findPositionOffset(position);
+                holder.mOwnerRecyclerView = RecyclerView.this;
                 mAdapter.bindViewHolder(holder, offsetPosition);
                 attachAccessibilityDelegate(holder.itemView);
                 bound = true;
@@ -3739,7 +4590,7 @@ public class RecyclerView extends ViewGroup {
         }
 
         private void attachAccessibilityDelegate(View itemView) {
-            if (mAccessibilityManager != null && mAccessibilityManager.isEnabled()) {
+            if (isAccessibilityEnabled()) {
                 if (ViewCompat.getImportantForAccessibility(itemView) ==
                         ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_AUTO) {
                     ViewCompat.setImportantForAccessibility(itemView,
@@ -3867,13 +4718,20 @@ public class RecyclerView extends ViewGroup {
                         + " should first call stopIgnoringView(view) before calling recycle.");
             }
             //noinspection unchecked
+            final boolean transientStatePreventsRecycling = holder
+                    .doesTransientStatePreventRecycling();
             final boolean forceRecycle = mAdapter != null
-                    && holder.doesTransientStatePreventRecycling()
+                    && transientStatePreventsRecycling
                     && mAdapter.onFailedToRecycleView(holder);
+            boolean cached = false;
+            boolean recycled = false;
+            if (DEBUG && mCachedViews.contains(holder)) {
+                throw new IllegalArgumentException("cached view received recycle internal? " +
+                        holder);
+            }
             if (forceRecycle || holder.isRecyclable()) {
-                boolean cached = false;
-                if (!holder.isInvalid() && (mState.mInPreLayout || !holder.isRemoved()) &&
-                        !holder.isChanged()) {
+                if (!holder.hasAnyOfTheFlags(ViewHolder.FLAG_INVALID | ViewHolder.FLAG_REMOVED |
+                        ViewHolder.FLAG_CHANGED | ViewHolder.FLAG_UPDATE)) {
                     // Retire oldest cached view
                     final int cachedViewSize = mCachedViews.size();
                     if (cachedViewSize == mViewCacheMax && cachedViewSize > 0) {
@@ -3886,20 +4744,25 @@ public class RecyclerView extends ViewGroup {
                 }
                 if (!cached) {
                     addViewHolderToRecycledViewPool(holder);
+                    recycled = true;
                 }
             } else if (DEBUG) {
                 Log.d(TAG, "trying to recycle a non-recycleable holder. Hopefully, it will "
-                        + "re-visit here. We are stil removing it from animation lists");
+                        + "re-visit here. We are still removing it from animation lists");
             }
             // even if the holder is not removed, we still call this method so that it is removed
             // from view holder lists.
             mState.onViewRecycled(holder);
+            if (!cached && !recycled && transientStatePreventsRecycling) {
+                holder.mOwnerRecyclerView = null;
+            }
         }
 
         void addViewHolderToRecycledViewPool(ViewHolder holder) {
             ViewCompat.setAccessibilityDelegate(holder.itemView, null);
-            getRecycledViewPool().putRecycledView(holder);
             dispatchViewRecycled(holder);
+            holder.mOwnerRecyclerView = null;
+            getRecycledViewPool().putRecycledView(holder);
         }
 
         /**
@@ -4189,6 +5052,7 @@ public class RecyclerView extends ViewGroup {
                         holder.offsetPosition(-count, applyToPreLayout);
                     } else if (holder.getLayoutPosition() >= removedFrom) {
                         // Item for this view was removed. Dump it from the cache.
+                        holder.addFlags(ViewHolder.FLAG_REMOVED);
                         recycleCachedViewAt(i);
                     }
                 }
@@ -4219,7 +5083,7 @@ public class RecyclerView extends ViewGroup {
         void viewRangeUpdate(int positionStart, int itemCount) {
             final int positionEnd = positionStart + itemCount;
             final int cachedCount = mCachedViews.size();
-            for (int i = 0; i < cachedCount; i++) {
+            for (int i = cachedCount - 1; i >= 0; i--) {
                 final ViewHolder holder = mCachedViews.get(i);
                 if (holder == null) {
                     continue;
@@ -4228,6 +5092,7 @@ public class RecyclerView extends ViewGroup {
                 final int pos = holder.getLayoutPosition();
                 if (pos >= positionStart && pos < positionEnd) {
                     holder.addFlags(ViewHolder.FLAG_UPDATE);
+                    recycleCachedViewAt(i);
                     // cached views should not be flagged as changed because this will cause them
                     // to animate when they are returned from cache.
                 }
@@ -4251,6 +5116,7 @@ public class RecyclerView extends ViewGroup {
                     final ViewHolder holder = mCachedViews.get(i);
                     if (holder != null) {
                         holder.addFlags(ViewHolder.FLAG_UPDATE | ViewHolder.FLAG_INVALID);
+                        holder.addChangePayload(null);
                     }
                 }
             } else {
@@ -4342,9 +5208,9 @@ public class RecyclerView extends ViewGroup {
          * layout file.
          * <p>
          * The new ViewHolder will be used to display items of the adapter using
-         * {@link #onBindViewHolder(ViewHolder, int)}. Since it will be re-used to display different
-         * items in the data set, it is a good idea to cache references to sub views of the View to
-         * avoid unnecessary {@link View#findViewById(int)} calls.
+         * {@link #onBindViewHolder(ViewHolder, int, List)}. Since it will be re-used to display
+         * different items in the data set, it is a good idea to cache references to sub views of
+         * the View to avoid unnecessary {@link View#findViewById(int)} calls.
          *
          * @param parent The ViewGroup into which the new View will be added after it is bound to
          *               an adapter position.
@@ -4357,23 +5223,59 @@ public class RecyclerView extends ViewGroup {
         public abstract VH onCreateViewHolder(ViewGroup parent, int viewType);
 
         /**
+         * Called by RecyclerView to display the data at the specified position. This method should
+         * update the contents of the {@link ViewHolder#itemView} to reflect the item at the given
+         * position.
+         * <p>
+         * Note that unlike {@link android.widget.ListView}, RecyclerView will not call this method
+         * again if the position of the item changes in the data set unless the item itself is
+         * invalidated or the new position cannot be determined. For this reason, you should only
+         * use the <code>position</code> parameter while acquiring the related data item inside
+         * this method and should not keep a copy of it. If you need the position of an item later
+         * on (e.g. in a click listener), use {@link ViewHolder#getAdapterPosition()} which will
+         * have the updated adapter position.
+         *
+         * Override {@link #onBindViewHolder(ViewHolder, int, List)} instead if Adapter can
+         * handle effcient partial bind.
+         *
+         * @param holder The ViewHolder which should be updated to represent the contents of the
+         *        item at the given position in the data set.
+         * @param position The position of the item within the adapter's data set.
+         */
+        public abstract void onBindViewHolder(VH holder, int position);
+
+        /**
          * Called by RecyclerView to display the data at the specified position. This method
          * should update the contents of the {@link ViewHolder#itemView} to reflect the item at
          * the given position.
          * <p>
-         * Note that unlike {@link android.widget.ListView}, RecyclerView will not call this
-         * method again if the position of the item changes in the data set unless the item itself
-         * is invalidated or the new position cannot be determined. For this reason, you should only
-         * use the <code>position</code> parameter while acquiring the related data item inside this
-         * method and should not keep a copy of it. If you need the position of an item later on
-         * (e.g. in a click listener), use {@link ViewHolder#getAdapterPosition()} which will have
-         * the updated adapter position.
+         * Note that unlike {@link android.widget.ListView}, RecyclerView will not call this method
+         * again if the position of the item changes in the data set unless the item itself is
+         * invalidated or the new position cannot be determined. For this reason, you should only
+         * use the <code>position</code> parameter while acquiring the related data item inside
+         * this method and should not keep a copy of it. If you need the position of an item later
+         * on (e.g. in a click listener), use {@link ViewHolder#getAdapterPosition()} which will
+         * have the updated adapter position.
+         * <p>
+         * Partial bind vs full bind:
+         * <p>
+         * The payloads parameter is a merge list from {@link #notifyItemChanged(int, Object)} or
+         * {@link #notifyItemRangeChanged(int, int, Object)}.  If the payloads list is not empty,
+         * the ViewHolder is currently bound to old data and Adapter may run an efficient partial
+         * update using the payload info.  If the payload is empty,  Adapter must run a full bind.
+         * Adapter should not assume that the payload passed in notify methods will be received by
+         * onBindViewHolder().  For example when the view is not attached to the screen, the
+         * payload in notifyItemChange() will be simply dropped.
          *
          * @param holder The ViewHolder which should be updated to represent the contents of the
          *               item at the given position in the data set.
          * @param position The position of the item within the adapter's data set.
+         * @param payloads A non-null list of merged payloads. Can be empty list if requires full
+         *                 update.
          */
-        public abstract void onBindViewHolder(VH holder, int position);
+        public void onBindViewHolder(VH holder, int position, List<Object> payloads) {
+            onBindViewHolder(holder, position);
+        }
 
         /**
          * This method calls {@link #onCreateViewHolder(ViewGroup, int)} to create a new
@@ -4382,8 +5284,10 @@ public class RecyclerView extends ViewGroup {
          * @see #onCreateViewHolder(ViewGroup, int)
          */
         public final VH createViewHolder(ViewGroup parent, int viewType) {
+            TraceCompat.beginSection(TRACE_CREATE_VIEW_TAG);
             final VH holder = onCreateViewHolder(parent, viewType);
             holder.mItemViewType = viewType;
+            TraceCompat.endSection();
             return holder;
         }
 
@@ -4399,10 +5303,13 @@ public class RecyclerView extends ViewGroup {
             if (hasStableIds()) {
                 holder.mItemId = getItemId(position);
             }
-            onBindViewHolder(holder, position);
             holder.setFlags(ViewHolder.FLAG_BOUND,
                     ViewHolder.FLAG_BOUND | ViewHolder.FLAG_UPDATE | ViewHolder.FLAG_INVALID
-                    | ViewHolder.FLAG_ADAPTER_POSITION_UNKNOWN);
+                            | ViewHolder.FLAG_ADAPTER_POSITION_UNKNOWN);
+            TraceCompat.beginSection(TRACE_BIND_VIEW_TAG);
+            onBindViewHolder(holder, position, holder.getUnmodifiedPayloads());
+            holder.clearPayload();
+            TraceCompat.endSection();
         }
 
         /**
@@ -4476,6 +5383,11 @@ public class RecyclerView extends ViewGroup {
          * attached to the parent RecyclerView. If an item view has large or expensive data
          * bound to it such as large bitmaps, this may be a good place to release those
          * resources.</p>
+         * <p>
+         * RecyclerView calls this method right before clearing ViewHolder's internal data and
+         * sending it to RecycledViewPool. This way, if ViewHolder was holding valid information
+         * before being recycled, you can call {@link ViewHolder#getAdapterPosition()} to get
+         * its adapter position.
          *
          * @param holder The ViewHolder for the view being recycled
          */
@@ -4643,6 +5555,7 @@ public class RecyclerView extends ViewGroup {
 
         /**
          * Notify any registered observers that the item at <code>position</code> has changed.
+         * Equivalent to calling <code>notifyItemChanged(position, null);</code>.
          *
          * <p>This is an item change event, not a structural change event. It indicates that any
          * reflection of the data at <code>position</code> is out of date and should be updated.
@@ -4657,8 +5570,37 @@ public class RecyclerView extends ViewGroup {
         }
 
         /**
+         * Notify any registered observers that the item at <code>position</code> has changed with an
+         * optional payload object.
+         *
+         * <p>This is an item change event, not a structural change event. It indicates that any
+         * reflection of the data at <code>position</code> is out of date and should be updated.
+         * The item at <code>position</code> retains the same identity.
+         * </p>
+         *
+         * <p>
+         * Client can optionally pass a payload for partial change. These payloads will be merged
+         * and may be passed to adapter's {@link #onBindViewHolder(ViewHolder, int, List)} if the
+         * item is already represented by a ViewHolder and it will be rebound to the same
+         * ViewHolder. A notifyItemRangeChanged() with null payload will clear all existing
+         * payloads on that item and prevent future payload until
+         * {@link #onBindViewHolder(ViewHolder, int, List)} is called. Adapter should not assume
+         * that the payload will always be passed to onBindViewHolder(), e.g. when the view is not
+         * attached, the payload will be simply dropped.
+         *
+         * @param position Position of the item that has changed
+         * @param payload Optional parameter, use null to identify a "full" update
+         *
+         * @see #notifyItemRangeChanged(int, int)
+         */
+        public final void notifyItemChanged(int position, Object payload) {
+            mObservable.notifyItemRangeChanged(position, 1, payload);
+        }
+
+        /**
          * Notify any registered observers that the <code>itemCount</code> items starting at
          * position <code>positionStart</code> have changed.
+         * Equivalent to calling <code>notifyItemRangeChanged(position, itemCount, null);</code>.
          *
          * <p>This is an item change event, not a structural change event. It indicates that
          * any reflection of the data in the given position range is out of date and should
@@ -4671,6 +5613,36 @@ public class RecyclerView extends ViewGroup {
          */
         public final void notifyItemRangeChanged(int positionStart, int itemCount) {
             mObservable.notifyItemRangeChanged(positionStart, itemCount);
+        }
+
+        /**
+         * Notify any registered observers that the <code>itemCount</code> items starting at
+         * position<code>positionStart</code> have changed. An optional payload can be
+         * passed to each changed item.
+         *
+         * <p>This is an item change event, not a structural change event. It indicates that any
+         * reflection of the data in the given position range is out of date and should be updated.
+         * The items in the given range retain the same identity.
+         * </p>
+         *
+         * <p>
+         * Client can optionally pass a payload for partial change. These payloads will be merged
+         * and may be passed to adapter's {@link #onBindViewHolder(ViewHolder, int, List)} if the
+         * item is already represented by a ViewHolder and it will be rebound to the same
+         * ViewHolder. A notifyItemRangeChanged() with null payload will clear all existing
+         * payloads on that item and prevent future payload until
+         * {@link #onBindViewHolder(ViewHolder, int, List)} is called. Adapter should not assume
+         * that the payload will always be passed to onBindViewHolder(), e.g. when the view is not
+         * attached, the payload will be simply dropped.
+         *
+         * @param positionStart Position of the first item that has changed
+         * @param itemCount Number of items that have changed
+         * @param payload  Optional parameter, use null to identify a "full" update
+         *
+         * @see #notifyItemChanged(int)
+         */
+        public final void notifyItemRangeChanged(int positionStart, int itemCount, Object payload) {
+            mObservable.notifyItemRangeChanged(positionStart, itemCount, payload);
         }
 
         /**
@@ -4760,17 +5732,32 @@ public class RecyclerView extends ViewGroup {
     }
 
     private void dispatchChildDetached(View child) {
-        if (mAdapter != null) {
-            mAdapter.onViewDetachedFromWindow(getChildViewHolderInt(child));
-        }
+        final ViewHolder viewHolder = getChildViewHolderInt(child);
         onChildDetachedFromWindow(child);
+        if (mAdapter != null && viewHolder != null) {
+            mAdapter.onViewDetachedFromWindow(viewHolder);
+        }
+        if (mOnChildAttachStateListeners != null) {
+            final int cnt = mOnChildAttachStateListeners.size();
+            for (int i = cnt - 1; i >= 0; i--) {
+                mOnChildAttachStateListeners.get(i).onChildViewDetachedFromWindow(child);
+            }
+        }
     }
 
     private void dispatchChildAttached(View child) {
-        if (mAdapter != null) {
-            mAdapter.onViewAttachedToWindow(getChildViewHolderInt(child));
-        }
+        final ViewHolder viewHolder = getChildViewHolderInt(child);
         onChildAttachedToWindow(child);
+        if (mAdapter != null && viewHolder != null) {
+            mAdapter.onViewAttachedToWindow(viewHolder);
+        }
+        if (mOnChildAttachStateListeners != null) {
+            final int cnt = mOnChildAttachStateListeners.size();
+            for (int i = cnt - 1; i >= 0; i--) {
+                mOnChildAttachStateListeners.get(i).onChildViewAttachedToWindow(child);
+            }
+        }
+
     }
 
     /**
@@ -4780,6 +5767,14 @@ public class RecyclerView extends ViewGroup {
      * a <code>RecyclerView</code> can be used to implement a standard vertically scrolling list,
      * a uniform grid, staggered grids, horizontally scrolling collections and more. Several stock
      * layout managers are provided for general use.
+     * <p/>
+     * If the LayoutManager specifies a default constructor or one with the signature
+     * ({@link Context}, {@link AttributeSet}, {@code int}, {@code int}), RecyclerView will
+     * instantiate and set the LayoutManager when being inflated. Most used properties can
+     * be then obtained from {@link #getProperties(Context, AttributeSet, int, int)}. In case
+     * a LayoutManager specifies both constructors, the non-default constructor will take
+     * precedence.
+     *
      */
     public static abstract class LayoutManager {
         ChildHelper mChildHelper;
@@ -4789,6 +5784,8 @@ public class RecyclerView extends ViewGroup {
         SmoothScroller mSmoothScroller;
 
         private boolean mRequestedSimpleAnimations = false;
+
+        private boolean mIsAttachedToWindow = false;
 
         void setRecyclerView(RecyclerView recyclerView) {
             if (recyclerView == null) {
@@ -4860,6 +5857,63 @@ public class RecyclerView extends ViewGroup {
             return false;
         }
 
+        void dispatchAttachedToWindow(RecyclerView view) {
+            mIsAttachedToWindow = true;
+            onAttachedToWindow(view);
+        }
+
+        void dispatchDetachedFromWindow(RecyclerView view, Recycler recycler) {
+            mIsAttachedToWindow = false;
+            onDetachedFromWindow(view, recycler);
+        }
+
+        /**
+         * Returns whether LayoutManager is currently attached to a RecyclerView which is attached
+         * to a window.
+         *
+         * @return True if this LayoutManager is controlling a RecyclerView and the RecyclerView
+         * is attached to window.
+         */
+        public boolean isAttachedToWindow() {
+            return mIsAttachedToWindow;
+        }
+
+        /**
+         * Causes the Runnable to execute on the next animation time step.
+         * The runnable will be run on the user interface thread.
+         * <p>
+         * Calling this method when LayoutManager is not attached to a RecyclerView has no effect.
+         *
+         * @param action The Runnable that will be executed.
+         *
+         * @see #removeCallbacks
+         */
+        public void postOnAnimation(Runnable action) {
+            if (mRecyclerView != null) {
+                ViewCompat.postOnAnimation(mRecyclerView, action);
+            }
+        }
+
+        /**
+         * Removes the specified Runnable from the message queue.
+         * <p>
+         * Calling this method when LayoutManager is not attached to a RecyclerView has no effect.
+         *
+         * @param action The Runnable to remove from the message handling queue
+         *
+         * @return true if RecyclerView could ask the Handler to remove the Runnable,
+         *         false otherwise. When the returned value is true, the Runnable
+         *         may or may not have been actually removed from the message queue
+         *         (for instance, if the Runnable was not in the queue already.)
+         *
+         * @see #postOnAnimation
+         */
+        public boolean removeCallbacks(Runnable action) {
+            if (mRecyclerView != null) {
+                return mRecyclerView.removeCallbacks(action);
+            }
+            return false;
+        }
         /**
          * Called when this LayoutManager is both attached to a RecyclerView and that RecyclerView
          * is attached to a window.
@@ -4869,6 +5923,7 @@ public class RecyclerView extends ViewGroup {
          *
          * @param view The RecyclerView this LayoutManager is bound to
          */
+        @CallSuper
         public void onAttachedToWindow(RecyclerView view) {
         }
 
@@ -4892,6 +5947,7 @@ public class RecyclerView extends ViewGroup {
          * @param recycler The recycler to use if you prefer to recycle your children instead of
          *                 keeping them around.
          */
+        @CallSuper
         public void onDetachedFromWindow(RecyclerView view, Recycler recycler) {
             onDetachedFromWindow(view);
         }
@@ -4917,7 +5973,7 @@ public class RecyclerView extends ViewGroup {
          * normal layout operation during {@link #onLayoutChildren(Recycler, State)}, the
          * RecyclerView will have enough information to run those animations in a simple
          * way. For example, the default ItemAnimator, {@link DefaultItemAnimator}, will
-         * simple fade views in and out, whether they are actuall added/removed or whether
+         * simply fade views in and out, whether they are actually added/removed or whether
          * they are moved on or off the screen due to other add/remove operations.
          *
          * <p>A LayoutManager wanting a better item animation experience, where items can be
@@ -5220,14 +6276,14 @@ public class RecyclerView extends ViewGroup {
             final ViewHolder holder = getChildViewHolderInt(child);
             if (disappearing || holder.isRemoved()) {
                 // these views will be hidden at the end of the layout pass.
-                mRecyclerView.addToDisappearingList(child);
+                mRecyclerView.mState.addToDisappearingList(child);
             } else {
                 // This may look like unnecessary but may happen if layout manager supports
                 // predictive layouts and adapter removed then re-added the same item.
                 // In this case, added version will be visible in the post layout (because add is
                 // deferred) but RV will still bind it to the same View.
                 // So if a View re-appears in post layout pass, remove it from disappearing list.
-                mRecyclerView.removeFromDisappearingList(child);
+                mRecyclerView.mState.removeFromDisappearingList(child);
             }
             final LayoutParams lp = (LayoutParams) child.getLayoutParams();
             if (holder.wasReturnedFromScrap() || holder.isScrap()) {
@@ -5307,6 +6363,16 @@ public class RecyclerView extends ViewGroup {
             for (int i = childCount - 1; i >= 0; i--) {
                 mChildHelper.removeViewAt(i);
             }
+        }
+
+        /**
+         * Returns offset of the RecyclerView's text baseline from the its top boundary.
+         *
+         * @return The offset of the RecyclerView's text baseline from the its top boundary; -1 if
+         * there is no baseline.
+         */
+        public int getBaseline() {
+            return -1;
         }
 
         /**
@@ -5419,9 +6485,9 @@ public class RecyclerView extends ViewGroup {
         public void attachView(View child, int index, LayoutParams lp) {
             ViewHolder vh = getChildViewHolderInt(child);
             if (vh.isRemoved()) {
-                mRecyclerView.addToDisappearingList(child);
+                mRecyclerView.mState.addToDisappearingList(child);
             } else {
-                mRecyclerView.removeFromDisappearingList(child);
+                mRecyclerView.mState.removeFromDisappearingList(child);
             }
             mChildHelper.attachViewToParent(child, index, lp, vh.isRemoved());
             if (DISPATCH_TEMP_DETACH)  {
@@ -5782,15 +6848,26 @@ public class RecyclerView extends ViewGroup {
          */
         void removeAndRecycleScrapInt(Recycler recycler) {
             final int scrapCount = recycler.getScrapCount();
-            for (int i = 0; i < scrapCount; i++) {
+            // Loop backward, recycler might be changed by removeDetachedView()
+            for (int i = scrapCount - 1; i >= 0; i--) {
                 final View scrap = recycler.getScrapViewAt(i);
                 final ViewHolder vh = getChildViewHolderInt(scrap);
                 if (vh.shouldIgnore()) {
                     continue;
                 }
+                // If the scrap view is animating, we need to cancel them first. If we cancel it
+                // here, ItemAnimator callback may recycle it which will cause double recycling.
+                // To avoid this, we mark it as not recycleable before calling the item animator.
+                // Since removeDetachedView calls a user API, a common mistake (ending animations on
+                // the view) may recycle it too, so we guard it before we call user APIs.
+                vh.setIsRecyclable(false);
                 if (vh.isTmpDetached()) {
                     mRecyclerView.removeDetachedView(scrap, false);
                 }
+                if (mRecyclerView.mItemAnimator != null) {
+                    mRecyclerView.mItemAnimator.endAnimation(vh);
+                }
+                vh.setIsRecyclable(true);
                 recycler.quickRecycleScrapView(scrap);
             }
             recycler.clearScrap();
@@ -6111,6 +7188,7 @@ public class RecyclerView extends ViewGroup {
          * @param state     Transient state of RecyclerView
          * @return The chosen view to be focused
          */
+        @Nullable
         public View onFocusSearchFailed(View focused, int direction, Recycler recycler,
                 State state) {
             return null;
@@ -6168,16 +7246,21 @@ public class RecyclerView extends ViewGroup {
             final int offScreenBottom = Math.max(0, childBottom - parentBottom);
 
             // Favor the "start" layout direction over the end when bringing one side or the other
-            // of a large rect into view.
+            // of a large rect into view. If we decide to bring in end because start is already
+            // visible, limit the scroll such that start won't go out of bounds.
             final int dx;
-            if (ViewCompat.getLayoutDirection(parent) == ViewCompat.LAYOUT_DIRECTION_RTL) {
-                dx = offScreenRight != 0 ? offScreenRight : offScreenLeft;
+            if (getLayoutDirection() == ViewCompat.LAYOUT_DIRECTION_RTL) {
+                dx = offScreenRight != 0 ? offScreenRight
+                        : Math.max(offScreenLeft, childRight - parentRight);
             } else {
-                dx = offScreenLeft != 0 ? offScreenLeft : offScreenRight;
+                dx = offScreenLeft != 0 ? offScreenLeft
+                        : Math.min(childLeft - parentLeft, offScreenRight);
             }
 
-            // Favor bringing the top into view over the bottom
-            final int dy = offScreenTop != 0 ? offScreenTop : offScreenBottom;
+            // Favor bringing the top into view over the bottom. If top is already visible and
+            // we should scroll to make bottom visible, make sure top does not go out of bounds.
+            final int dy = offScreenTop != 0 ? offScreenTop
+                    : Math.min(childTop - parentTop, offScreenBottom);
 
             if (dx != 0 || dy != 0) {
                 if (immediate) {
@@ -6196,7 +7279,7 @@ public class RecyclerView extends ViewGroup {
         @Deprecated
         public boolean onRequestChildFocus(RecyclerView parent, View child, View focused) {
             // eat the request if we are in the middle of a scroll or layout
-            return isSmoothScrolling() || parent.mRunningLayoutOrScroll;
+            return isSmoothScrolling() || parent.isComputingLayout();
         }
 
         /**
@@ -6298,12 +7381,28 @@ public class RecyclerView extends ViewGroup {
 
         /**
          * Called when items have been changed in the adapter.
+         * To receive payload,  override {@link #onItemsUpdated(RecyclerView, int, int, Object)}
+         * instead, then this callback will not be invoked.
          *
          * @param recyclerView
          * @param positionStart
          * @param itemCount
          */
         public void onItemsUpdated(RecyclerView recyclerView, int positionStart, int itemCount) {
+        }
+
+        /**
+         * Called when items have been changed in the adapter and with optional payload.
+         * Default implementation calls {@link #onItemsUpdated(RecyclerView, int, int)}.
+         *
+         * @param recyclerView
+         * @param positionStart
+         * @param itemCount
+         * @param payload
+         */
+        public void onItemsUpdated(RecyclerView recyclerView, int positionStart, int itemCount,
+                Object payload) {
+            onItemsUpdated(recyclerView, positionStart, itemCount);
         }
 
         /**
@@ -6517,8 +7616,7 @@ public class RecyclerView extends ViewGroup {
 
         // called by accessibility delegate
         void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfoCompat info) {
-            onInitializeAccessibilityNodeInfo(mRecyclerView.mRecycler, mRecyclerView.mState,
-                    info);
+            onInitializeAccessibilityNodeInfo(mRecyclerView.mRecycler, mRecyclerView.mState, info);
         }
 
         /**
@@ -6548,7 +7646,6 @@ public class RecyclerView extends ViewGroup {
          */
         public void onInitializeAccessibilityNodeInfo(Recycler recycler, State state,
                 AccessibilityNodeInfoCompat info) {
-            info.setClassName(RecyclerView.class.getName());
             if (ViewCompat.canScrollVertically(mRecyclerView, -1) ||
                     ViewCompat.canScrollHorizontally(mRecyclerView, -1)) {
                 info.addAction(AccessibilityNodeInfoCompat.ACTION_SCROLL_BACKWARD);
@@ -6605,7 +7702,7 @@ public class RecyclerView extends ViewGroup {
         void onInitializeAccessibilityNodeInfoForItem(View host, AccessibilityNodeInfoCompat info) {
             final ViewHolder vh = getChildViewHolderInt(host);
             // avoid trying to create accessibility node info for removed children
-            if (vh != null && !vh.isRemoved()) {
+            if (vh != null && !vh.isRemoved() && !mChildHelper.isHidden(vh.itemView)) {
                 onInitializeAccessibilityNodeInfoForItem(mRecyclerView.mRecycler,
                         mRecyclerView.mState, host, info);
             }
@@ -6792,15 +7889,42 @@ public class RecyclerView extends ViewGroup {
                 int action, Bundle args) {
             return false;
         }
-    }
 
-    private void removeFromDisappearingList(View child) {
-        mDisappearingViewsInLayoutPass.remove(child);
-    }
+        /**
+         * Parse the xml attributes to get the most common properties used by layout managers.
+         *
+         * @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_android_orientation
+         * @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_spanCount
+         * @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_reverseLayout
+         * @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_stackFromEnd
+         *
+         * @return an object containing the properties as specified in the attrs.
+         */
+        public static Properties getProperties(Context context, AttributeSet attrs,
+                int defStyleAttr, int defStyleRes) {
+            Properties properties = new Properties();
+            TypedArray a = context.obtainStyledAttributes(attrs, R.styleable.RecyclerView,
+                    defStyleAttr, defStyleRes);
+            properties.orientation = a.getInt(R.styleable.RecyclerView_android_orientation, VERTICAL);
+            properties.spanCount = a.getInt(R.styleable.RecyclerView_spanCount, 1);
+            properties.reverseLayout = a.getBoolean(R.styleable.RecyclerView_reverseLayout, false);
+            properties.stackFromEnd = a.getBoolean(R.styleable.RecyclerView_stackFromEnd, false);
+            a.recycle();
+            return properties;
+        }
 
-    private void addToDisappearingList(View child) {
-        if (!mDisappearingViewsInLayoutPass.contains(child)) {
-            mDisappearingViewsInLayoutPass.add(child);
+        /**
+         * Some general properties that a LayoutManager may want to use.
+         */
+        public static class Properties {
+            /** @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_android_orientation */
+            public int orientation;
+            /** @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_spanCount */
+            public int spanCount;
+            /** @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_reverseLayout */
+            public boolean reverseLayout;
+            /** @attr ref android.support.v7.recyclerview.R.styleable#RecyclerView_stackFromEnd */
+            public boolean stackFromEnd;
         }
     }
 
@@ -6902,8 +8026,10 @@ public class RecyclerView extends ViewGroup {
      * manipulation of item views within the RecyclerView. OnItemTouchListeners may intercept
      * a touch interaction already in progress even if the RecyclerView is already handling that
      * gesture stream itself for the purposes of scrolling.</p>
+     *
+     * @see SimpleOnItemTouchListener
      */
-    public interface OnItemTouchListener {
+    public static interface OnItemTouchListener {
         /**
          * Silently observe and/or take over touch events sent to the RecyclerView
          * before they are handled by either the RecyclerView itself or its child views.
@@ -6928,15 +8054,57 @@ public class RecyclerView extends ViewGroup {
          *          the RecyclerView's coordinate system.
          */
         public void onTouchEvent(RecyclerView rv, MotionEvent e);
+
+        /**
+         * Called when a child of RecyclerView does not want RecyclerView and its ancestors to
+         * intercept touch events with
+         * {@link ViewGroup#onInterceptTouchEvent(MotionEvent)}.
+         *
+         * @param disallowIntercept True if the child does not want the parent to
+         *            intercept touch events.
+         * @see ViewParent#requestDisallowInterceptTouchEvent(boolean)
+         */
+        public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept);
     }
+
+    /**
+     * An implementation of {@link RecyclerView.OnItemTouchListener} that has empty method bodies and
+     * default return values.
+     * <p>
+     * You may prefer to extend this class if you don't need to override all methods. Another
+     * benefit of using this class is future compatibility. As the interface may change, we'll
+     * always provide a default implementation on this class so that your code won't break when
+     * you update to a new version of the support library.
+     */
+    public static class SimpleOnItemTouchListener implements RecyclerView.OnItemTouchListener {
+        @Override
+        public boolean onInterceptTouchEvent(RecyclerView rv, MotionEvent e) {
+            return false;
+        }
+
+        @Override
+        public void onTouchEvent(RecyclerView rv, MotionEvent e) {
+        }
+
+        @Override
+        public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+        }
+    }
+
 
     /**
      * An OnScrollListener can be set on a RecyclerView to receive messages
      * when a scrolling event has occurred on that RecyclerView.
      *
-     * @see RecyclerView#setOnScrollListener(OnScrollListener)
+     * @see RecyclerView#setOnScrollListener(OnScrollListener) and
+     * RecyclerView#addOnScrollListener(OnScrollListener)
+     *
+     * If you are planning to have several listeners at the same time, use
+     * RecyclerView#addOnScrollListener. If there will be only one listener at the time and you
+     * want your components to be able to easily replace the listener use
+     * RecyclerView#setOnScrollListener.
      */
-    abstract static public class OnScrollListener {
+    public abstract static class OnScrollListener {
         /**
          * Callback method to be invoked when RecyclerView's scroll state changes.
          *
@@ -6971,9 +8139,35 @@ public class RecyclerView extends ViewGroup {
         /**
          * This method is called whenever the view in the ViewHolder is recycled.
          *
+         * RecyclerView calls this method right before clearing ViewHolder's internal data and
+         * sending it to RecycledViewPool. This way, if ViewHolder was holding valid information
+         * before being recycled, you can call {@link ViewHolder#getAdapterPosition()} to get
+         * its adapter position.
+         *
          * @param holder The ViewHolder containing the view that was recycled
          */
         public void onViewRecycled(ViewHolder holder);
+    }
+
+    /**
+     * A Listener interface that can be attached to a RecylcerView to get notified
+     * whenever a ViewHolder is attached to or detached from RecyclerView.
+     */
+    public interface OnChildAttachStateChangeListener {
+
+        /**
+         * Called when a view is attached to the RecyclerView.
+         *
+         * @param view The View which is attached to the RecyclerView
+         */
+        public void onChildViewAttachedToWindow(View view);
+
+        /**
+         * Called when a view is detached from RecyclerView.
+         *
+         * @param view The View which is being detached from the RecyclerView
+         */
+        public void onChildViewDetachedFromWindow(View view);
     }
 
     /**
@@ -7069,13 +8263,34 @@ public class RecyclerView extends ViewGroup {
          */
         static final int FLAG_ADAPTER_POSITION_UNKNOWN = 1 << 9;
 
+        /**
+         * Set when a addChangePayload(null) is called
+         */
+        static final int FLAG_ADAPTER_FULLUPDATE = 1 << 10;
+
         private int mFlags;
+
+        private static final List<Object> FULLUPDATE_PAYLOADS = Collections.EMPTY_LIST;
+
+        List<Object> mPayloads = null;
+        List<Object> mUnmodifiedPayloads = null;
 
         private int mIsRecyclableCount = 0;
 
         // If non-null, view is currently considered scrap and may be reused for other data by the
         // scrap container.
         private Recycler mScrapContainer = null;
+
+        // Saves isImportantForAccessibility value for the view item while it's in hidden state and
+        // marked as unimportant for accessibility.
+        private int mWasImportantForAccessibilityBeforeHidden =
+                ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
+
+        /**
+         * Is set when VH is bound from the adapter and cleaned right before it is sent to
+         * {@link RecycledViewPool}.
+         */
+        RecyclerView mOwnerRecyclerView;
 
         public ViewHolder(View itemView) {
             if (itemView == null) {
@@ -7180,15 +8395,13 @@ public class RecyclerView extends ViewGroup {
          * @return The adapter position of the item if it still exists in the adapter.
          * {@link RecyclerView#NO_POSITION} if item has been removed from the adapter,
          * {@link RecyclerView.Adapter#notifyDataSetChanged()} has been called after the last
-         * layout pass or the ViewHolder has been removed from the RecyclerView.
+         * layout pass or the ViewHolder has already been recycled.
          */
         public final int getAdapterPosition() {
-            final ViewParent parent = itemView.getParent();
-            if (!(parent instanceof RecyclerView)) {
-                return -1;
+            if (mOwnerRecyclerView == null) {
+                return NO_POSITION;
             }
-            final RecyclerView rv = (RecyclerView) parent;
-            return rv.getAdapterPositionFor(this);
+            return mOwnerRecyclerView.getAdapterPositionFor(this);
         }
 
         /**
@@ -7280,7 +8493,7 @@ public class RecyclerView extends ViewGroup {
         }
 
         boolean isAdapterPositionUnknown() {
-            return (mFlags & FLAG_ADAPTER_POSITION_UNKNOWN) != 0;
+            return (mFlags & FLAG_ADAPTER_POSITION_UNKNOWN) != 0 || isInvalid();
         }
 
         void setFlags(int flags, int mask) {
@@ -7289,6 +8502,43 @@ public class RecyclerView extends ViewGroup {
 
         void addFlags(int flags) {
             mFlags |= flags;
+        }
+
+        void addChangePayload(Object payload) {
+            if (payload == null) {
+                addFlags(FLAG_ADAPTER_FULLUPDATE);
+            } else if ((mFlags & FLAG_ADAPTER_FULLUPDATE) == 0) {
+                createPayloadsIfNeeded();
+                mPayloads.add(payload);
+            }
+        }
+
+        private void createPayloadsIfNeeded() {
+            if (mPayloads == null) {
+                mPayloads = new ArrayList<Object>();
+                mUnmodifiedPayloads = Collections.unmodifiableList(mPayloads);
+            }
+        }
+
+        void clearPayload() {
+            if (mPayloads != null) {
+                mPayloads.clear();
+            }
+            mFlags = mFlags & ~FLAG_ADAPTER_FULLUPDATE;
+        }
+
+        List<Object> getUnmodifiedPayloads() {
+            if ((mFlags & FLAG_ADAPTER_FULLUPDATE) == 0) {
+                if (mPayloads == null || mPayloads.size() == 0) {
+                    // Initial state,  no update being called.
+                    return FULLUPDATE_PAYLOADS;
+                }
+                // there are none-null payloads
+                return mUnmodifiedPayloads;
+            } else {
+                // a full update has been called.
+                return FULLUPDATE_PAYLOADS;
+            }
         }
 
         void resetInternal() {
@@ -7300,6 +8550,28 @@ public class RecyclerView extends ViewGroup {
             mIsRecyclableCount = 0;
             mShadowedHolder = null;
             mShadowingHolder = null;
+            clearPayload();
+            mWasImportantForAccessibilityBeforeHidden = ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
+        }
+
+        /**
+         * Called when the child view enters the hidden state
+         */
+        private void onEnteredHiddenState() {
+            // While the view item is in hidden state, make it invisible for the accessibility.
+            mWasImportantForAccessibilityBeforeHidden =
+                    ViewCompat.getImportantForAccessibility(itemView);
+            ViewCompat.setImportantForAccessibility(itemView,
+                    ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        }
+
+        /**
+         * Called when the child view leaves the hidden state
+         */
+        private void onLeftHiddenState() {
+            ViewCompat.setImportantForAccessibility(
+                    itemView, mWasImportantForAccessibilityBeforeHidden);
+            mWasImportantForAccessibilityBeforeHidden = ViewCompat.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
         }
 
         @Override
@@ -7316,7 +8588,7 @@ public class RecyclerView extends ViewGroup {
             if (isChanged()) sb.append(" changed");
             if (isTmpDetached()) sb.append(" tmpDetached");
             if (!isRecyclable()) sb.append(" not recyclable(" + mIsRecyclableCount + ")");
-            if (!isAdapterPositionUnknown()) sb.append("undefined adapter position");
+            if (isAdapterPositionUnknown()) sb.append("undefined adapter position");
 
             if (itemView.getParent() == null) sb.append(" no parent");
             sb.append("}");
@@ -7382,11 +8654,61 @@ public class RecyclerView extends ViewGroup {
     }
 
     private int getAdapterPositionFor(ViewHolder viewHolder) {
-        if (viewHolder.hasAnyOfTheFlags(
-                ViewHolder.FLAG_REMOVED | ViewHolder.FLAG_ADAPTER_POSITION_UNKNOWN)) {
+        if (viewHolder.hasAnyOfTheFlags( ViewHolder.FLAG_INVALID |
+                ViewHolder.FLAG_REMOVED | ViewHolder.FLAG_ADAPTER_POSITION_UNKNOWN)
+                || !viewHolder.isBound()) {
             return RecyclerView.NO_POSITION;
         }
         return mAdapterHelper.applyPendingUpdatesToPosition(viewHolder.mPosition);
+    }
+
+    // NestedScrollingChild
+
+    @Override
+    public void setNestedScrollingEnabled(boolean enabled) {
+        mScrollingChildHelper.setNestedScrollingEnabled(enabled);
+    }
+
+    @Override
+    public boolean isNestedScrollingEnabled() {
+        return mScrollingChildHelper.isNestedScrollingEnabled();
+    }
+
+    @Override
+    public boolean startNestedScroll(int axes) {
+        return mScrollingChildHelper.startNestedScroll(axes);
+    }
+
+    @Override
+    public void stopNestedScroll() {
+        mScrollingChildHelper.stopNestedScroll();
+    }
+
+    @Override
+    public boolean hasNestedScrollingParent() {
+        return mScrollingChildHelper.hasNestedScrollingParent();
+    }
+
+    @Override
+    public boolean dispatchNestedScroll(int dxConsumed, int dyConsumed, int dxUnconsumed,
+            int dyUnconsumed, int[] offsetInWindow) {
+        return mScrollingChildHelper.dispatchNestedScroll(dxConsumed, dyConsumed,
+                dxUnconsumed, dyUnconsumed, offsetInWindow);
+    }
+
+    @Override
+    public boolean dispatchNestedPreScroll(int dx, int dy, int[] consumed, int[] offsetInWindow) {
+        return mScrollingChildHelper.dispatchNestedPreScroll(dx, dy, consumed, offsetInWindow);
+    }
+
+    @Override
+    public boolean dispatchNestedFling(float velocityX, float velocityY, boolean consumed) {
+        return mScrollingChildHelper.dispatchNestedFling(velocityX, velocityY, consumed);
+    }
+
+    @Override
+    public boolean dispatchNestedPreFling(float velocityX, float velocityY) {
+        return mScrollingChildHelper.dispatchNestedPreFling(velocityX, velocityY);
     }
 
     /**
@@ -7509,6 +8831,12 @@ public class RecyclerView extends ViewGroup {
             // do nothing
         }
 
+        public void onItemRangeChanged(int positionStart, int itemCount, Object payload) {
+            // fallback to onItemRangeChanged(positionStart, itemCount) if app
+            // does not override this method.
+            onItemRangeChanged(positionStart, itemCount);
+        }
+
         public void onItemRangeInserted(int positionStart, int itemCount) {
             // do nothing
         }
@@ -7579,8 +8907,10 @@ public class RecyclerView extends ViewGroup {
         }
 
         /**
-         * @return The LayoutManager to which this SmoothScroller is attached
+         * @return The LayoutManager to which this SmoothScroller is attached. Will return
+         * <code>null</code> after the SmoothScroller is stopped.
          */
+        @Nullable
         public LayoutManager getLayoutManager() {
             return mLayoutManager;
         }
@@ -7638,15 +8968,16 @@ public class RecyclerView extends ViewGroup {
         }
 
         private void onAnimation(int dx, int dy) {
-            if (!mRunning || mTargetPosition == RecyclerView.NO_POSITION) {
+            final RecyclerView recyclerView = mRecyclerView;
+            if (!mRunning || mTargetPosition == RecyclerView.NO_POSITION || recyclerView == null) {
                 stop();
             }
             mPendingInitialRun = false;
             if (mTargetView != null) {
                 // verify target position
                 if (getChildPosition(mTargetView) == mTargetPosition) {
-                    onTargetFound(mTargetView, mRecyclerView.mState, mRecyclingAction);
-                    mRecyclingAction.runIfNecessary(mRecyclerView);
+                    onTargetFound(mTargetView, recyclerView.mState, mRecyclingAction);
+                    mRecyclingAction.runIfNecessary(recyclerView);
                     stop();
                 } else {
                     Log.e(TAG, "Passed over target position while smooth scrolling.");
@@ -7654,8 +8985,18 @@ public class RecyclerView extends ViewGroup {
                 }
             }
             if (mRunning) {
-                onSeekTargetStep(dx, dy, mRecyclerView.mState, mRecyclingAction);
-                mRecyclingAction.runIfNecessary(mRecyclerView);
+                onSeekTargetStep(dx, dy, recyclerView.mState, mRecyclingAction);
+                boolean hadJumpTarget = mRecyclingAction.hasJumpTarget();
+                mRecyclingAction.runIfNecessary(recyclerView);
+                if (hadJumpTarget) {
+                    // It is not stopped so needs to be restarted
+                    if (mRunning) {
+                        mPendingInitialRun = true;
+                        recyclerView.mViewFlinger.postOnAnimation();
+                    } else {
+                        stop(); // done
+                    }
+                }
             }
         }
 
@@ -7682,7 +9023,9 @@ public class RecyclerView extends ViewGroup {
 
         /**
          * @see RecyclerView#scrollToPosition(int)
+         * @deprecated Use {@link Action#jumpTo(int)}.
          */
+        @Deprecated
         public void instantScrollToPosition(int position) {
             mRecyclerView.scrollToPosition(position);
         }
@@ -7756,6 +9099,8 @@ public class RecyclerView extends ViewGroup {
 
             private int mDuration;
 
+            private int mJumpToPosition = NO_POSITION;
+
             private Interpolator mInterpolator;
 
             private boolean changed = false;
@@ -7794,7 +9139,38 @@ public class RecyclerView extends ViewGroup {
                 mDuration = duration;
                 mInterpolator = interpolator;
             }
+
+            /**
+             * Instead of specifying pixels to scroll, use the target position to jump using
+             * {@link RecyclerView#scrollToPosition(int)}.
+             * <p>
+             * You may prefer using this method if scroll target is really far away and you prefer
+             * to jump to a location and smooth scroll afterwards.
+             * <p>
+             * Note that calling this method takes priority over other update methods such as
+             * {@link #update(int, int, int, Interpolator)}, {@link #setX(float)},
+             * {@link #setY(float)} and #{@link #setInterpolator(Interpolator)}. If you call
+             * {@link #jumpTo(int)}, the other changes will not be considered for this animation
+             * frame.
+             *
+             * @param targetPosition The target item position to scroll to using instant scrolling.
+             */
+            public void jumpTo(int targetPosition) {
+                mJumpToPosition = targetPosition;
+            }
+
+            boolean hasJumpTarget() {
+                return mJumpToPosition >= 0;
+            }
+
             private void runIfNecessary(RecyclerView recyclerView) {
+                if (mJumpToPosition >= 0) {
+                    final int position = mJumpToPosition;
+                    mJumpToPosition = NO_POSITION;
+                    recyclerView.jumpToPositionForSmoothScroller(position);
+                    changed = false;
+                    return;
+                }
                 if (changed) {
                     validate();
                     if (mInterpolator == null) {
@@ -7904,12 +9280,16 @@ public class RecyclerView extends ViewGroup {
         }
 
         public void notifyItemRangeChanged(int positionStart, int itemCount) {
+            notifyItemRangeChanged(positionStart, itemCount, null);
+        }
+
+        public void notifyItemRangeChanged(int positionStart, int itemCount, Object payload) {
             // since onItemRangeChanged() is implemented by the app, it could do anything, including
             // removing itself from {@link mObservers} - and that could cause problems if
             // an iterator is used on the ArrayList {@link mObservers}.
             // to avoid such problems, just march thru the list in the reverse order.
             for (int i = mObservers.size() - 1; i >= 0; i--) {
-                mObservers.get(i).onItemRangeChanged(positionStart, itemCount);
+                mObservers.get(i).onItemRangeChanged(positionStart, itemCount, payload);
             }
         }
 
@@ -8001,6 +9381,9 @@ public class RecyclerView extends ViewGroup {
                 new ArrayMap<ViewHolder, ItemHolderInfo>();
         // nullable
         ArrayMap<Long, ViewHolder> mOldChangedHolders = new ArrayMap<Long, ViewHolder>();
+
+        // we use this like a set
+        final List<View> mDisappearingViewsInLayoutPass = new ArrayList<View>();
 
         private SparseArray<Object> mData;
 
@@ -8164,12 +9547,13 @@ public class RecyclerView extends ViewGroup {
                     mItemCount;
         }
 
-        public void onViewRecycled(ViewHolder holder) {
+        void onViewRecycled(ViewHolder holder) {
             mPreLayoutHolderMap.remove(holder);
             mPostLayoutHolderMap.remove(holder);
             if (mOldChangedHolders != null) {
                 removeFrom(mOldChangedHolders, holder);
             }
+            mDisappearingViewsInLayoutPass.remove(holder.itemView);
             // holder cannot be in new list.
         }
 
@@ -8183,6 +9567,16 @@ public class RecyclerView extends ViewGroup {
                     holderMap.removeAt(i);
                     return;
                 }
+            }
+        }
+
+        void removeFromDisappearingList(View child) {
+            mDisappearingViewsInLayoutPass.remove(child);
+        }
+
+        void addToDisappearingList(View child) {
+            if (!mDisappearingViewsInLayoutPass.contains(child)) {
+                mDisappearingViewsInLayoutPass.add(child);
             }
         }
 
@@ -8830,5 +10224,36 @@ public class RecyclerView extends ViewGroup {
             this.right = right;
             this.bottom = bottom;
         }
+    }
+
+    @Override
+    protected int getChildDrawingOrder(int childCount, int i) {
+        if (mChildDrawingOrderCallback == null) {
+            return super.getChildDrawingOrder(childCount, i);
+        } else {
+            return mChildDrawingOrderCallback.onGetChildDrawingOrder(childCount, i);
+        }
+    }
+
+    /**
+     * A callback interface that can be used to alter the drawing order of RecyclerView children.
+     * <p>
+     * It works using the {@link ViewGroup#getChildDrawingOrder(int, int)} method, so any case
+     * that applies to that method also applies to this callback. For example, changing the drawing
+     * order of two views will not have any effect if their elevation values are different since
+     * elevation overrides the result of this callback.
+     */
+    public static interface ChildDrawingOrderCallback {
+        /**
+         * Returns the index of the child to draw for this iteration. Override this
+         * if you want to change the drawing order of children. By default, it
+         * returns i.
+         *
+         * @param i The current iteration.
+         * @return The index of the child to draw this iteration.
+         *
+         * @see RecyclerView#setChildDrawingOrderCallback(RecyclerView.ChildDrawingOrderCallback)
+         */
+        public int onGetChildDrawingOrder(int childCount, int i);
     }
 }

@@ -8,9 +8,21 @@ LLVM_ROOT_PATH := $(LOCAL_PATH)/../..
 #===---------------------------------------------------------------===
 
 llvm_cov_SRC_FILES := \
-  llvm-cov.cpp
+  CodeCoverage.cpp \
+  CoverageFilters.cpp \
+  CoverageReport.cpp \
+  CoverageSummaryInfo.cpp \
+  gcov.cpp \
+  llvm-cov.cpp \
+  SourceCoverageView.cpp \
+  TestingSupport.cpp
 
 llvm_cov_STATIC_LIBRARIES := \
+  libLLVMObject              \
+  libLLVMProfileData         \
+  libLLVMMC                  \
+  libLLVMMCParser            \
+  libLLVMBitReader           \
   libLLVMCore                \
   libLLVMSupport             \
 

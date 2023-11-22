@@ -7,12 +7,12 @@
 #   make clean
 #
 #   # Build and run tests (in Debug mode)
-#   make tests
-#   out/Debug/tests
+#   make dm
+#   out/Debug/dm
 #
 #   # Build and run tests (in Release mode)
-#   make tests BUILDTYPE=Release
-#   out/Release/tests
+#   make dm BUILDTYPE=Release
+#   out/Release/dm
 #
 #   # Build bench and SampleApp (both in Release mode), and then run them
 #   make SampleApp bench BUILDTYPE=Release
@@ -25,7 +25,7 @@
 # If you want more fine-grained control, you can run gyp and then build the
 # gyp-generated projects yourself.
 #
-# See https://sites.google.com/site/skiadocs/ for complete documentation.
+# See https://skia.org for complete documentation.
 
 SKIA_OUT ?= out
 BUILDTYPE ?= Debug
@@ -40,11 +40,10 @@ CWD := $(shell pwd)
 # TODO(epoger): I'm not sure if the above comment is still valid in a ninja
 # world.
 VALID_TARGETS := \
-                 bench \
+                 nanobench \
                  debugger \
                  dm \
                  everything \
-                 gm \
                  most \
                  pathops_unittest \
                  pdfviewer \
@@ -53,7 +52,6 @@ VALID_TARGETS := \
                  skhello \
                  skia_lib \
                  skpskgr_test \
-                 tests \
                  tools \
                  skpdiff
 
@@ -69,7 +67,7 @@ default: most
 
 uname := $(shell uname)
 ifneq (,$(findstring CYGWIN, $(uname)))
-  $(error Cannot build using Make on Windows. See https://sites.google.com/site/skiadocs/user-documentation/quick-start-guides/windows)
+  $(error Cannot build using Make on Windows. See https://skia.org/user/quick/windows)
 endif
 
 # If user requests "make all", chain to our explicitly-declared "everything"
@@ -88,7 +86,7 @@ endif
 # Run gyp no matter what.
 .PHONY: gyp
 gyp:
-	$(CWD)/gyp_skia
+	$(CWD)/gyp_skia --no-parallel -G config=$(BUILDTYPE)
 
 # For all specific targets: run gyp if necessary, and then pass control to
 # the gyp-generated buildfiles.

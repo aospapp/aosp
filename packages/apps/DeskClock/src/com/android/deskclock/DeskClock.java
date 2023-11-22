@@ -16,40 +16,33 @@
 
 package com.android.deskclock;
 
-import android.animation.ArgbEvaluator;
-import android.animation.ObjectAnimator;
-import android.app.ActionBar;
-import android.app.ActionBar.Tab;
-import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
-import android.graphics.Outline;
 import android.media.AudioManager;
 import android.os.Bundle;
-import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.support.annotation.VisibleForTesting;
 import android.support.v13.app.FragmentPagerAdapter;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.ViewPager;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBar.Tab;
+import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnTouchListener;
-import android.view.ViewOutlineProvider;
 import android.widget.ImageButton;
-import android.widget.TextView;
 
 import com.android.deskclock.alarms.AlarmStateManager;
+import com.android.deskclock.events.Events;
 import com.android.deskclock.provider.Alarm;
 import com.android.deskclock.stopwatch.StopwatchFragment;
 import com.android.deskclock.stopwatch.StopwatchService;
@@ -66,70 +59,42 @@ import java.util.TimeZone;
 /**
  * DeskClock clock view for desk docks.
  */
-public class DeskClock extends Activity implements LabelDialogFragment.TimerLabelDialogHandler,
+public class DeskClock extends BaseActivity
+        implements LabelDialogFragment.TimerLabelDialogHandler,
         LabelDialogFragment.AlarmLabelDialogHandler {
+
     private static final boolean DEBUG = false;
     private static final String LOG_TAG = "DeskClock";
+
     // Alarm action for midnight (so we can update the date display).
     private static final String KEY_SELECTED_TAB = "selected_tab";
-    private static final String KEY_LAST_HOUR_COLOR = "last_hour_color";
-    // Check whether to change background every minute
-    private static final long BACKGROUND_COLOR_CHECK_DELAY_MILLIS = DateUtils.MINUTE_IN_MILLIS;
-    private static final int BACKGROUND_COLOR_INITIAL_ANIMATION_DURATION_MILLIS = 3000;
-    private static final int UNKNOWN_COLOR_ID = 0;
+    public static final String SELECT_TAB_INTENT_EXTRA = "deskclock.select.tab";
 
-    private boolean mIsFirstLaunch = true;
-    private ActionBar mActionBar;
-    private Tab mAlarmTab;
-    private Tab mClockTab;
-    private Tab mTimerTab;
-    private Tab mStopwatchTab;
-    private Menu mMenu;
-    private ViewPager mViewPager;
-    private TabsAdapter mTabsAdapter;
-    private Handler mHander;
-    private ImageButton mFab;
-    private ImageButton mLeftButton;
-    private ImageButton mRightButton;
-    private int mSelectedTab;
-    private int mLastHourColor = UNKNOWN_COLOR_ID;
-    private final Runnable mBackgroundColorChanger = new Runnable() {
-        @Override
-        public void run() {
-            setBackgroundColor();
-            mHander.postDelayed(this, BACKGROUND_COLOR_CHECK_DELAY_MILLIS);
-        }
-    };
+    // Request code used when SettingsActivity is launched.
+    private static final int REQUEST_CHANGE_SETTINGS = 1;
 
     public static final int ALARM_TAB_INDEX = 0;
     public static final int CLOCK_TAB_INDEX = 1;
     public static final int TIMER_TAB_INDEX = 2;
     public static final int STOPWATCH_TAB_INDEX = 3;
+
     // Tabs indices are switched for right-to-left since there is no
     // native support for RTL in the ViewPager.
     public static final int RTL_ALARM_TAB_INDEX = 3;
     public static final int RTL_CLOCK_TAB_INDEX = 2;
     public static final int RTL_TIMER_TAB_INDEX = 1;
     public static final int RTL_STOPWATCH_TAB_INDEX = 0;
-    public static final String SELECT_TAB_INTENT_EXTRA = "deskclock.select.tab";
 
-    // TODO(rachelzhang): adding a broadcast receiver to adjust color when the timezone/time
-    // changes in the background.
+    private ActionBar mActionBar;
+    private Menu mMenu;
+    private ViewPager mViewPager;
+    private ImageButton mFab;
+    private ImageButton mLeftButton;
+    private ImageButton mRightButton;
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if (mHander == null) {
-            mHander = new Handler();
-        }
-        mHander.postDelayed(mBackgroundColorChanger, BACKGROUND_COLOR_CHECK_DELAY_MILLIS);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        mHander.removeCallbacks(mBackgroundColorChanger);
-    }
+    private TabsAdapter mTabsAdapter;
+    private int mSelectedTab;
+    private boolean mActivityResumed;
 
     @Override
     public void onNewIntent(Intent newIntent) {
@@ -149,23 +114,18 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         }
     }
 
-    private static final ViewOutlineProvider OVAL_OUTLINE_PROVIDER = new ViewOutlineProvider() {
-        @Override
-        public void getOutline(View view, Outline outline) {
-            outline.setOval(0, 0, view.getWidth(), view.getHeight());
-        }
-    };
-
     private void initViews() {
         setContentView(R.layout.desk_clock);
         mFab = (ImageButton) findViewById(R.id.fab);
-        mFab.setOutlineProvider(OVAL_OUTLINE_PROVIDER);
         mLeftButton = (ImageButton) findViewById(R.id.left_button);
         mRightButton = (ImageButton) findViewById(R.id.right_button);
         if (mTabsAdapter == null) {
             mViewPager = (ViewPager) findViewById(R.id.desk_clock_pager);
             // Keep all four tabs to minimize jank.
             mViewPager.setOffscreenPageLimit(3);
+            // Set Accessibility Delegate to null so ViewPager doesn't intercept movements and
+            // prevent the fab from being selected.
+            mViewPager.setAccessibilityDelegate(null);
             mTabsAdapter = new TabsAdapter(this, mViewPager);
             createTabs(mSelectedTab);
         }
@@ -192,36 +152,42 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         mActionBar.setSelectedNavigationItem(mSelectedTab);
     }
 
-    private DeskClockFragment getSelectedFragment() {
+    @VisibleForTesting
+    DeskClockFragment getSelectedFragment() {
         return (DeskClockFragment) mTabsAdapter.getItem(getRtlPosition(mSelectedTab));
     }
 
     private void createTabs(int selectedIndex) {
-        mActionBar = getActionBar();
+        mActionBar = getSupportActionBar();
 
         if (mActionBar != null) {
             mActionBar.setDisplayOptions(0);
             mActionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 
-            mAlarmTab = mActionBar.newTab();
-            mAlarmTab.setIcon(R.drawable.ic_alarm_animation);
-            mAlarmTab.setContentDescription(R.string.menu_alarm);
-            mTabsAdapter.addTab(mAlarmTab, AlarmClockFragment.class, ALARM_TAB_INDEX);
+            final Tab alarmTab = mActionBar.newTab();
 
-            mClockTab = mActionBar.newTab();
-            mClockTab.setIcon(R.drawable.ic_clock_animation);
-            mClockTab.setContentDescription(R.string.menu_clock);
-            mTabsAdapter.addTab(mClockTab, ClockFragment.class, CLOCK_TAB_INDEX);
+            alarmTab.setIcon(R.drawable.ic_tab_alarm);
+            alarmTab.setContentDescription(R.string.menu_alarm);
+            mTabsAdapter.addTab(alarmTab,
+                    Utils.isLOrLater()
+                            ? AlarmClockFragmentPostL.class
+                            : AlarmClockFragmentPreL.class,
+                    ALARM_TAB_INDEX);
 
-            mTimerTab = mActionBar.newTab();
-            mTimerTab.setIcon(R.drawable.ic_timer_animation);
-            mTimerTab.setContentDescription(R.string.menu_timer);
-            mTabsAdapter.addTab(mTimerTab, TimerFragment.class, TIMER_TAB_INDEX);
+            final Tab clockTab = mActionBar.newTab();
+            clockTab.setIcon(R.drawable.ic_tab_clock);
+            clockTab.setContentDescription(R.string.menu_clock);
+            mTabsAdapter.addTab(clockTab, ClockFragment.class, CLOCK_TAB_INDEX);
 
-            mStopwatchTab = mActionBar.newTab();
-            mStopwatchTab.setIcon(R.drawable.ic_stopwatch_animation);
-            mStopwatchTab.setContentDescription(R.string.menu_stopwatch);
-            mTabsAdapter.addTab(mStopwatchTab, StopwatchFragment.class, STOPWATCH_TAB_INDEX);
+            final Tab timerTab = mActionBar.newTab();
+            timerTab.setIcon(R.drawable.ic_tab_timer);
+            timerTab.setContentDescription(R.string.menu_timer);
+            mTabsAdapter.addTab(timerTab, TimerFragment.class, TIMER_TAB_INDEX);
+
+            final Tab stopwatchTab = mActionBar.newTab();
+            stopwatchTab.setIcon(R.drawable.ic_tab_stopwatch);
+            stopwatchTab.setContentDescription(R.string.menu_stopwatch);
+            mTabsAdapter.addTab(stopwatchTab, StopwatchFragment.class, STOPWATCH_TAB_INDEX);
 
             mActionBar.setSelectedNavigationItem(selectedIndex);
             mTabsAdapter.notifySelectedPage(selectedIndex);
@@ -233,17 +199,15 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         super.onCreate(icicle);
         setVolumeControlStream(AudioManager.STREAM_ALARM);
 
-        mIsFirstLaunch = (icicle == null);
-        getWindow().setBackgroundDrawable(null);
-
-        mIsFirstLaunch = true;
-        mSelectedTab = CLOCK_TAB_INDEX;
         if (icicle != null) {
             mSelectedTab = icicle.getInt(KEY_SELECTED_TAB, CLOCK_TAB_INDEX);
-            mLastHourColor = icicle.getInt(KEY_LAST_HOUR_COLOR, UNKNOWN_COLOR_ID);
-            if (mLastHourColor != UNKNOWN_COLOR_ID) {
-                getWindow().getDecorView().setBackgroundColor(mLastHourColor);
-            }
+        } else {
+            mSelectedTab = CLOCK_TAB_INDEX;
+
+            // Set the background color to initially match the theme value so that we can
+            // smoothly transition to the dynamic color.
+            setBackgroundColor(getResources().getColor(R.color.default_background),
+                    false /* animate */);
         }
 
         // Timer receiver may ask the app to go to the timer fragment if a timer expired
@@ -260,14 +224,11 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         // We need to update the system next alarm time on app startup because the
         // user might have clear our data.
         AlarmStateManager.updateNextAlarm(this);
-        ExtensionsFactory.init(getAssets());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        setBackgroundColor();
 
         // We only want to show notifications for stopwatch/timer when the app is closed so
         // that we don't have to worry about keeping the notifications in perfect sync with
@@ -283,10 +244,12 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         Intent timerIntent = new Intent();
         timerIntent.setAction(Timers.NOTIF_IN_USE_CANCEL);
         sendBroadcast(timerIntent);
+        mActivityResumed = true;
     }
 
     @Override
     public void onPause() {
+        mActivityResumed = false;
         Intent intent = new Intent(getApplicationContext(), StopwatchService.class);
         intent.setAction(Stopwatches.SHOW_NOTIF);
         startService(intent);
@@ -304,7 +267,6 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_SELECTED_TAB, mActionBar.getSelectedNavigationIndex());
-        outState.putInt(KEY_LAST_HOUR_COLOR, mLastHourColor);
     }
 
     @Override
@@ -357,10 +319,19 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Recreate the activity if any settings have been changed
+        if (requestCode == REQUEST_CHANGE_SETTINGS && resultCode == RESULT_OK) {
+            recreate();
+        }
+    }
+
     private boolean processMenuClick(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_item_settings:
-                startActivity(new Intent(DeskClock.this, SettingsActivity.class));
+                startActivityForResult(new Intent(DeskClock.this, SettingsActivity.class),
+                        REQUEST_CHANGE_SETTINGS);
                 return true;
             case R.id.menu_item_help:
                 Intent i = item.getIntent();
@@ -408,25 +379,6 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         }
     }
 
-    private void setBackgroundColor() {
-        final int duration;
-        if (mLastHourColor == UNKNOWN_COLOR_ID) {
-            mLastHourColor = getResources().getColor(R.color.default_background);
-            duration = BACKGROUND_COLOR_INITIAL_ANIMATION_DURATION_MILLIS;
-        } else {
-            duration = getResources().getInteger(android.R.integer.config_longAnimTime);
-        }
-        final int currHourColor = Utils.getCurrentHourColor();
-        if (mLastHourColor != currHourColor) {
-            final ObjectAnimator animator = ObjectAnimator.ofInt(getWindow().getDecorView(),
-                    "backgroundColor", mLastHourColor, currHourColor);
-            animator.setDuration(duration);
-            animator.setEvaluator(new ArgbEvaluator());
-            animator.start();
-            mLastHourColor = currHourColor;
-        }
-    }
-
     /**
      * Adapter for wrapping together the ActionBar's tab with the ViewPager
      */
@@ -457,10 +409,10 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         // Used for doing callbacks to fragments.
         HashSet<String> mFragmentTags = new HashSet<String>();
 
-        public TabsAdapter(Activity activity, ViewPager pager) {
+        public TabsAdapter(AppCompatActivity activity, ViewPager pager) {
             super(activity.getFragmentManager());
             mContext = activity;
-            mMainActionBar = activity.getActionBar();
+            mMainActionBar = activity.getSupportActionBar();
             mPager = pager;
             mPager.setAdapter(this);
             mPager.setOnPageChangeListener(this);
@@ -546,15 +498,25 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
             final int rtlSafePosition = getRtlPosition(position);
             mSelectedTab = position;
 
-            if (mIsFirstLaunch && isClockTab(rtlSafePosition)) {
-                mLeftButton.setVisibility(View.INVISIBLE);
-                mRightButton.setVisibility(View.INVISIBLE);
-                mFab.setVisibility(View.VISIBLE);
-                mFab.setImageResource(R.drawable.ic_globe);
-                mFab.setContentDescription(getString(R.string.button_cities));
-                mIsFirstLaunch = false;
-            } else {
-                DeskClockFragment f = (DeskClockFragment) getItem(rtlSafePosition);
+            if (mActivityResumed) {
+                switch (mSelectedTab) {
+                    case ALARM_TAB_INDEX:
+                        Events.sendAlarmEvent(R.string.action_show, R.string.label_deskclock);
+                        break;
+                    case CLOCK_TAB_INDEX:
+                        Events.sendClockEvent(R.string.action_show, R.string.label_deskclock);
+                        break;
+                    case TIMER_TAB_INDEX:
+                        Events.sendTimerEvent(R.string.action_show, R.string.label_deskclock);
+                        break;
+                    case STOPWATCH_TAB_INDEX:
+                        Events.sendStopwatchEvent(R.string.action_show, R.string.label_deskclock);
+                        break;
+                }
+            }
+
+            final DeskClockFragment f = (DeskClockFragment) getItem(rtlSafePosition);
+            if (f != null) {
                 f.setFabAppearance();
                 f.setLeftRightButtonAppearance();
             }
@@ -564,11 +526,6 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
         @Override
         public void onTabUnselected(Tab arg0, FragmentTransaction arg1) {
             // Do nothing
-        }
-
-        private boolean isClockTab(int rtlSafePosition) {
-            final int clockTabIndex = isRtl() ? RTL_CLOCK_TAB_INDEX : CLOCK_TAB_INDEX;
-            return rtlSafePosition == clockTabIndex;
         }
 
         public void notifySelectedPage(int page) {
@@ -601,72 +558,6 @@ public class DeskClock extends Activity implements LabelDialogFragment.TimerLabe
             mFragmentTags.remove(frag.getTag());
         }
 
-    }
-
-    public static abstract class OnTapListener implements OnTouchListener {
-        private float mLastTouchX;
-        private float mLastTouchY;
-        private long mLastTouchTime;
-        private final TextView mMakePressedTextView;
-        private final int mPressedColor, mGrayColor;
-        private final float MAX_MOVEMENT_ALLOWED = 20;
-        private final long MAX_TIME_ALLOWED = 500;
-
-        public OnTapListener(Activity activity, TextView makePressedView) {
-            mMakePressedTextView = makePressedView;
-            mPressedColor = activity.getResources().getColor(Utils.getPressedColorId());
-            mGrayColor = activity.getResources().getColor(Utils.getGrayColorId());
-        }
-
-        @Override
-        public boolean onTouch(View v, MotionEvent e) {
-            switch (e.getAction()) {
-                case (MotionEvent.ACTION_DOWN):
-                    mLastTouchTime = Utils.getTimeNow();
-                    mLastTouchX = e.getX();
-                    mLastTouchY = e.getY();
-                    if (mMakePressedTextView != null) {
-                        mMakePressedTextView.setTextColor(mPressedColor);
-                    }
-                    break;
-                case (MotionEvent.ACTION_UP):
-                    float xDiff = Math.abs(e.getX() - mLastTouchX);
-                    float yDiff = Math.abs(e.getY() - mLastTouchY);
-                    long timeDiff = (Utils.getTimeNow() - mLastTouchTime);
-                    if (xDiff < MAX_MOVEMENT_ALLOWED && yDiff < MAX_MOVEMENT_ALLOWED
-                            && timeDiff < MAX_TIME_ALLOWED) {
-                        if (mMakePressedTextView != null) {
-                            v = mMakePressedTextView;
-                        }
-                        processClick(v);
-                        resetValues();
-                        return true;
-                    }
-                    resetValues();
-                    break;
-                case (MotionEvent.ACTION_MOVE):
-                    xDiff = Math.abs(e.getX() - mLastTouchX);
-                    yDiff = Math.abs(e.getY() - mLastTouchY);
-                    if (xDiff >= MAX_MOVEMENT_ALLOWED || yDiff >= MAX_MOVEMENT_ALLOWED) {
-                        resetValues();
-                    }
-                    break;
-                default:
-                    resetValues();
-            }
-            return false;
-        }
-
-        private void resetValues() {
-            mLastTouchX = -1 * MAX_MOVEMENT_ALLOWED + 1;
-            mLastTouchY = -1 * MAX_MOVEMENT_ALLOWED + 1;
-            mLastTouchTime = -1 * MAX_TIME_ALLOWED + 1;
-            if (mMakePressedTextView != null) {
-                mMakePressedTextView.setTextColor(mGrayColor);
-            }
-        }
-
-        protected abstract void processClick(View v);
     }
 
     /**

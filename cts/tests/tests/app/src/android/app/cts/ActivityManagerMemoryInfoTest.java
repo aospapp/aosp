@@ -34,7 +34,7 @@ public class ActivityManagerMemoryInfoTest extends AndroidTestCase {
     }
 
     public void testWriteToParcel() throws Exception {
-        final long AVAILMEM = Process.getFreeMemory();
+        final long AVAILMEM = 1000l;
         mMemory.availMem = AVAILMEM;
         final long THRESHOLD = 500l;
         mMemory.threshold = THRESHOLD;
@@ -59,7 +59,7 @@ public class ActivityManagerMemoryInfoTest extends AndroidTestCase {
     }
 
     public void testReadFromParcel() throws Exception {
-        final long AVAILMEM = Process.getFreeMemory();
+        final long AVAILMEM = 1000l;
         mMemory.availMem = AVAILMEM;
         final long THRESHOLD = 500l;
         mMemory.threshold = THRESHOLD;

@@ -22,36 +22,26 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
+#include "arch/instruction_set.h"
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "globals.h"
-#include "instruction_set.h"
 #include "primitive.h"
-
-#ifdef HAVE_ANDROID_OS
-#include "cutils/properties.h"
-#endif
 
 namespace art {
 
+class ArtField;
+class ArtMethod;
 class DexFile;
 
 namespace mirror {
-class ArtField;
-class ArtMethod;
 class Class;
 class Object;
 class String;
 }  // namespace mirror
-
-enum TimeUnit {
-  kTimeUnitNanosecond,
-  kTimeUnitMicrosecond,
-  kTimeUnitMillisecond,
-  kTimeUnitSecond,
-};
 
 template <typename T>
 bool ParseUint(const char *in, T* out) {
@@ -81,200 +71,16 @@ bool ParseInt(const char* in, T* out) {
   return true;
 }
 
-template<typename T>
-static constexpr bool IsPowerOfTwo(T x) {
-  return (x & (x - 1)) == 0;
+// Return whether x / divisor == x * (1.0f / divisor), for every float x.
+static constexpr bool CanDivideByReciprocalMultiplyFloat(int32_t divisor) {
+  // True, if the most significant bits of divisor are 0.
+  return ((divisor & 0x7fffff) == 0);
 }
 
-template<int n, typename T>
-static inline bool IsAligned(T x) {
-  COMPILE_ASSERT((n & (n - 1)) == 0, n_not_power_of_two);
-  return (x & (n - 1)) == 0;
-}
-
-template<int n, typename T>
-static inline bool IsAligned(T* x) {
-  return IsAligned<n>(reinterpret_cast<const uintptr_t>(x));
-}
-
-template<typename T>
-static inline bool IsAlignedParam(T x, int n) {
-  return (x & (n - 1)) == 0;
-}
-
-#define CHECK_ALIGNED(value, alignment) \
-  CHECK(::art::IsAligned<alignment>(value)) << reinterpret_cast<const void*>(value)
-
-#define DCHECK_ALIGNED(value, alignment) \
-  DCHECK(::art::IsAligned<alignment>(value)) << reinterpret_cast<const void*>(value)
-
-#define DCHECK_ALIGNED_PARAM(value, alignment) \
-  DCHECK(::art::IsAlignedParam(value, alignment)) << reinterpret_cast<const void*>(value)
-
-// Check whether an N-bit two's-complement representation can hold value.
-static inline bool IsInt(int N, word value) {
-  CHECK_LT(0, N);
-  CHECK_LT(N, kBitsPerWord);
-  word limit = static_cast<word>(1) << (N - 1);
-  return (-limit <= value) && (value < limit);
-}
-
-static inline bool IsUint(int N, word value) {
-  CHECK_LT(0, N);
-  CHECK_LT(N, kBitsPerWord);
-  word limit = static_cast<word>(1) << N;
-  return (0 <= value) && (value < limit);
-}
-
-static inline bool IsAbsoluteUint(int N, word value) {
-  CHECK_LT(0, N);
-  CHECK_LT(N, kBitsPerWord);
-  if (value < 0) value = -value;
-  return IsUint(N, value);
-}
-
-static inline uint16_t Low16Bits(uint32_t value) {
-  return static_cast<uint16_t>(value);
-}
-
-static inline uint16_t High16Bits(uint32_t value) {
-  return static_cast<uint16_t>(value >> 16);
-}
-
-static inline uint32_t Low32Bits(uint64_t value) {
-  return static_cast<uint32_t>(value);
-}
-
-static inline uint32_t High32Bits(uint64_t value) {
-  return static_cast<uint32_t>(value >> 32);
-}
-
-// A static if which determines whether to return type A or B based on the condition boolean.
-template <bool condition, typename A, typename B>
-struct TypeStaticIf {
-  typedef A type;
-};
-
-// Specialization to handle the false case.
-template <typename A, typename B>
-struct TypeStaticIf<false, A,  B> {
-  typedef B type;
-};
-
-// Type identity.
-template <typename T>
-struct TypeIdentity {
-  typedef T type;
-};
-
-// Like sizeof, but count how many bits a type takes. Pass type explicitly.
-template <typename T>
-static constexpr size_t BitSizeOf() {
-  return sizeof(T) * CHAR_BIT;
-}
-
-// Like sizeof, but count how many bits a type takes. Infers type from parameter.
-template <typename T>
-static constexpr size_t BitSizeOf(T x) {
-  return sizeof(T) * CHAR_BIT;
-}
-
-// For rounding integers.
-template<typename T>
-static constexpr T RoundDown(T x, typename TypeIdentity<T>::type n) WARN_UNUSED;
-
-template<typename T>
-static constexpr T RoundDown(T x, typename TypeIdentity<T>::type n) {
-  return
-      DCHECK_CONSTEXPR(IsPowerOfTwo(n), , T(0))
-      (x & -n);
-}
-
-template<typename T>
-static constexpr T RoundUp(T x, typename TypeIdentity<T>::type n) WARN_UNUSED;
-
-template<typename T>
-static constexpr T RoundUp(T x, typename TypeIdentity<T>::type n) {
-  return RoundDown(x + n - 1, n);
-}
-
-// For aligning pointers.
-template<typename T>
-static inline T* AlignDown(T* x, uintptr_t n) WARN_UNUSED;
-
-template<typename T>
-static inline T* AlignDown(T* x, uintptr_t n) {
-  return reinterpret_cast<T*>(RoundDown(reinterpret_cast<uintptr_t>(x), n));
-}
-
-template<typename T>
-static inline T* AlignUp(T* x, uintptr_t n) WARN_UNUSED;
-
-template<typename T>
-static inline T* AlignUp(T* x, uintptr_t n) {
-  return reinterpret_cast<T*>(RoundUp(reinterpret_cast<uintptr_t>(x), n));
-}
-
-namespace utils {
-namespace detail {  // Private, implementation-specific namespace. Do not poke outside of this file.
-template <typename T>
-static constexpr inline T RoundUpToPowerOfTwoRecursive(T x, size_t bit) {
-  return bit == (BitSizeOf<T>()) ? x: RoundUpToPowerOfTwoRecursive(x | x >> bit, bit << 1);
-}
-}  // namespace detail
-}  // namespace utils
-
-// Recursive implementation is from "Hacker's Delight" by Henry S. Warren, Jr.,
-// figure 3-3, page 48, where the function is called clp2.
-template <typename T>
-static constexpr inline T RoundUpToPowerOfTwo(T x) {
-  return art::utils::detail::RoundUpToPowerOfTwoRecursive(x - 1, 1) + 1;
-}
-
-// Implementation is from "Hacker's Delight" by Henry S. Warren, Jr.,
-// figure 3-3, page 48, where the function is called clp2.
-static inline uint32_t RoundUpToPowerOfTwo(uint32_t x) {
-  x = x - 1;
-  x = x | (x >> 1);
-  x = x | (x >> 2);
-  x = x | (x >> 4);
-  x = x | (x >> 8);
-  x = x | (x >> 16);
-  return x + 1;
-}
-
-// Find the bit position of the most significant bit (0-based), or -1 if there were no bits set.
-template <typename T>
-static constexpr ssize_t MostSignificantBit(T value) {
-  return (value == 0) ? -1 : (MostSignificantBit(value >> 1) + 1);
-}
-
-// How many bits (minimally) does it take to store the constant 'value'? i.e. 1 for 1, 3 for 5, etc.
-template <typename T>
-static constexpr size_t MinimumBitsToStore(T value) {
-  return static_cast<size_t>(MostSignificantBit(value) + 1);
-}
-
-template<typename T>
-static constexpr int CLZ(T x) {
-  static_assert(sizeof(T) <= sizeof(long long), "T too large, must be smaller than long long");  // NOLINT [runtime/int] [4]
-  return (sizeof(T) == sizeof(uint32_t))
-      ? __builtin_clz(x)  // TODO: __builtin_clz[ll] has undefined behavior for x=0
-      : __builtin_clzll(x);
-}
-
-template<typename T>
-static constexpr int CTZ(T x) {
-  return (sizeof(T) == sizeof(uint32_t))
-      ? __builtin_ctz(x)
-      : __builtin_ctzll(x);
-}
-
-template<typename T>
-static constexpr int POPCOUNT(T x) {
-  return (sizeof(T) == sizeof(uint32_t))
-      ? __builtin_popcount(x)
-      : __builtin_popcountll(x);
+// Return whether x / divisor == x * (1.0 / divisor), for every double x.
+static constexpr bool CanDivideByReciprocalMultiplyDouble(int64_t divisor) {
+  // True, if the most significant bits of divisor are 0.
+  return ((divisor & ((UINT64_C(1) << 52) - 1)) == 0);
 }
 
 static inline uint32_t PointerToLowMemUInt32(const void* p) {
@@ -287,19 +93,6 @@ static inline bool NeedsEscaping(uint16_t ch) {
   return (ch < ' ' || ch > '~');
 }
 
-// Interpret the bit pattern of input (type U) as type V. Requires the size
-// of V >= size of U (compile-time checked).
-template<typename U, typename V>
-static inline V bit_cast(U in) {
-  COMPILE_ASSERT(sizeof(U) <= sizeof(V), size_of_u_not_le_size_of_v);
-  union {
-    U u;
-    V v;
-  } tmp;
-  tmp.u = in;
-  return tmp.v;
-}
-
 std::string PrintableChar(uint16_t ch);
 
 // Returns an ASCII string corresponding to the given UTF-8 string.
@@ -309,7 +102,7 @@ std::string PrintableString(const char* utf8);
 // Tests whether 's' starts with 'prefix'.
 bool StartsWith(const std::string& s, const char* prefix);
 
-// Tests whether 's' starts with 'suffix'.
+// Tests whether 's' ends with 'suffix'.
 bool EndsWith(const std::string& s, const char* suffix);
 
 // Used to implement PrettyClass, PrettyField, PrettyMethod, and PrettyTypeOf,
@@ -326,13 +119,13 @@ std::string PrettyDescriptor(Primitive::Type type);
 
 // Returns a human-readable signature for 'f'. Something like "a.b.C.f" or
 // "int a.b.C.f" (depending on the value of 'with_type').
-std::string PrettyField(mirror::ArtField* f, bool with_type = true)
+std::string PrettyField(ArtField* f, bool with_type = true)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 std::string PrettyField(uint32_t field_idx, const DexFile& dex_file, bool with_type = true);
 
 // Returns a human-readable signature for 'm'. Something like "a.b.C.m" or
 // "a.b.C.m(II)V" (depending on the value of 'with_signature').
-std::string PrettyMethod(mirror::ArtMethod* m, bool with_signature = true)
+std::string PrettyMethod(ArtMethod* m, bool with_signature = true)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with_signature = true);
 
@@ -356,23 +149,12 @@ std::string PrettyClass(mirror::Class* c)
 std::string PrettyClassAndClassLoader(mirror::Class* c)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
+// Returns a human-readable version of the Java part of the access flags, e.g., "private static "
+// (note the trailing whitespace).
+std::string PrettyJavaAccessFlags(uint32_t access_flags);
+
 // Returns a human-readable size string such as "1MB".
 std::string PrettySize(int64_t size_in_bytes);
-
-// Returns a human-readable time string which prints every nanosecond while trying to limit the
-// number of trailing zeros. Prints using the largest human readable unit up to a second.
-// e.g. "1ms", "1.000000001s", "1.001us"
-std::string PrettyDuration(uint64_t nano_duration, size_t max_fraction_digits = 3);
-
-// Format a nanosecond time to specified units.
-std::string FormatDuration(uint64_t nano_duration, TimeUnit time_unit,
-                           size_t max_fraction_digits);
-
-// Get the appropriate unit for a nanosecond duration.
-TimeUnit GetAppropriateTimeUnit(uint64_t nano_duration);
-
-// Get the divisor to convert from a nanoseconds to a time unit.
-uint64_t GetNsToTimeUnitDivisor(TimeUnit time_unit);
 
 // Performs JNI name mangling as described in section 11.3 "Linking Native Methods"
 // of the JNI spec.
@@ -399,60 +181,24 @@ bool IsValidDescriptor(const char* s);       // "Ljava/lang/String;"
 bool IsValidMemberName(const char* s);
 
 // Returns the JNI native function name for the non-overloaded method 'm'.
-std::string JniShortName(mirror::ArtMethod* m)
+std::string JniShortName(ArtMethod* m)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 // Returns the JNI native function name for the overloaded method 'm'.
-std::string JniLongName(mirror::ArtMethod* m)
+std::string JniLongName(ArtMethod* m)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
 bool ReadFileToString(const std::string& file_name, std::string* result);
-
-// Returns the current date in ISO yyyy-mm-dd hh:mm:ss format.
-std::string GetIsoDate();
-
-// Returns the monotonic time since some unspecified starting point in milliseconds.
-uint64_t MilliTime();
-
-// Returns the monotonic time since some unspecified starting point in microseconds.
-uint64_t MicroTime();
-
-// Returns the monotonic time since some unspecified starting point in nanoseconds.
-uint64_t NanoTime();
-
-// Returns the thread-specific CPU-time clock in nanoseconds or -1 if unavailable.
-uint64_t ThreadCpuNanoTime();
-
-// Converts the given number of nanoseconds to milliseconds.
-static constexpr inline uint64_t NsToMs(uint64_t ns) {
-  return ns / 1000 / 1000;
-}
-
-// Converts the given number of milliseconds to nanoseconds
-static constexpr inline uint64_t MsToNs(uint64_t ns) {
-  return ns * 1000 * 1000;
-}
-
-#if defined(__APPLE__)
-// No clocks to specify on OS/X, fake value to pass to routines that require a clock.
-#define CLOCK_REALTIME 0xebadf00d
-#endif
-
-// Sleep for the given number of nanoseconds, a bad way to handle contention.
-void NanoSleep(uint64_t ns);
-
-// Initialize a timespec to either a relative time (ms,ns), or to the absolute
-// time corresponding to the indicated clock value plus the supplied offset.
-void InitTimeSpec(bool absolute, int clock, int64_t ms, int32_t ns, timespec* ts);
+bool PrintFileToLog(const std::string& file_name, LogSeverity level);
 
 // Splits a string using the given separator character into a vector of
 // strings. Empty strings will be omitted.
-void Split(const std::string& s, char separator, std::vector<std::string>& result);
+void Split(const std::string& s, char separator, std::vector<std::string>* result);
 
 // Trims whitespace off both ends of the given string.
-std::string Trim(std::string s);
+std::string Trim(const std::string& s);
 
 // Joins a vector of strings into a single string, using the given separator.
-template <typename StringT> std::string Join(std::vector<StringT>& strings, char separator);
+template <typename StringT> std::string Join(const std::vector<StringT>& strings, char separator);
 
 // Returns the calling thread's tid. (The C libraries don't expose this.)
 pid_t GetTid();
@@ -475,7 +221,7 @@ void SetThreadName(const char* thread_name);
 
 // Dumps the native stack for thread 'tid' to 'os'.
 void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix = "",
-    mirror::ArtMethod* current_method = nullptr)
+    ArtMethod* current_method = nullptr, void* ucontext = nullptr)
     NO_THREAD_SAFETY_ANALYSIS;
 
 // Dumps the kernel stack for thread 'tid' to 'os'. Note that this is only available on linux-x86.
@@ -486,9 +232,12 @@ const char* GetAndroidRoot();
 
 // Find $ANDROID_DATA, /data, or abort.
 const char* GetAndroidData();
-// Find $ANDROID_DATA, /data, or return nullptr.
+// Find $ANDROID_DATA, /data, or return null.
 const char* GetAndroidDataSafe(std::string* error_msg);
 
+// Returns the dalvik-cache location, with subdir appended. Returns the empty string if the cache
+// could not be found (or created).
+std::string GetDalvikCache(const char* subdir, bool create_if_absent = true);
 // Returns the dalvik-cache location, or dies trying. subdir will be
 // appended to the cache location.
 std::string GetDalvikCacheOrDie(const char* subdir, bool create_if_absent = true);
@@ -511,11 +260,6 @@ std::string GetDalvikCacheFilenameOrDie(const char* file_location,
 // Returns the system location for an image
 std::string GetSystemImageFilename(const char* location, InstructionSet isa);
 
-// Returns an .odex file name next adjacent to the dex location.
-// For example, for "/foo/bar/baz.jar", return "/foo/bar/<isa>/baz.odex".
-// Note: does not support multidex location strings.
-std::string DexFilenameToOdexFilename(const std::string& location, InstructionSet isa);
-
 // Check whether the given magic matches a known file type.
 bool IsZipMagic(uint32_t magic);
 bool IsDexMagic(uint32_t magic);
@@ -533,17 +277,25 @@ class VoidFunctor {
 
   template <typename A, typename B>
   inline void operator() (A a, B b) const {
-    UNUSED(a);
-    UNUSED(b);
+    UNUSED(a, b);
   }
 
   template <typename A, typename B, typename C>
   inline void operator() (A a, B b, C c) const {
-    UNUSED(a);
-    UNUSED(b);
-    UNUSED(c);
+    UNUSED(a, b, c);
   }
 };
+
+template <typename Alloc>
+void Push32(std::vector<uint8_t, Alloc>* buf, int32_t data) {
+  buf->push_back(data & 0xff);
+  buf->push_back((data >> 8) & 0xff);
+  buf->push_back((data >> 16) & 0xff);
+  buf->push_back((data >> 24) & 0xff);
+}
+
+void EncodeUnsignedLeb128(uint32_t data, std::vector<uint8_t>* buf);
+void EncodeSignedLeb128(int32_t data, std::vector<uint8_t>* buf);
 
 // Deleter using free() for use with std::unique_ptr<>. See also UniqueCPtr<> below.
 struct FreeDelete {
@@ -556,6 +308,21 @@ struct FreeDelete {
 // Alias for std::unique_ptr<> that uses the C function free() to delete objects.
 template <typename T>
 using UniqueCPtr = std::unique_ptr<T, FreeDelete>;
+
+// C++14 from-the-future import (std::make_unique)
+// Invoke the constructor of 'T' with the provided args, and wrap the result in a unique ptr.
+template <typename T, typename ... Args>
+std::unique_ptr<T> MakeUnique(Args&& ... args) {
+  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
+inline bool TestBitmap(size_t idx, const uint8_t* bitmap) {
+  return ((bitmap[idx / kBitsPerByte] >> (idx % kBitsPerByte)) & 0x01) != 0;
+}
+
+static inline constexpr bool ValidPointerSize(size_t pointer_size) {
+  return pointer_size == 4 || pointer_size == 8;
+}
 
 }  // namespace art
 

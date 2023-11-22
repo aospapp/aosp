@@ -29,6 +29,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.ServerSocket;
 
@@ -157,12 +159,14 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
     }
 
     /**
-     * Returns socket port to be used for connection.
+     * Returns socket address for connecting to the server.
      * 
-     * @return port number
+     * @return socket address
      */
-    public int getSyncPortNumber() {
-        return settings.getSyncPortNumber();
+    public InetSocketAddress getSyncServerAddress() {
+        // Use the LOOPBACK directly instead of doing a DNS lookup.
+        int port = settings.getSyncPortNumber();
+        return new InetSocketAddress(InetAddress.getLoopbackAddress(), port);
     }
 
     /**
@@ -171,13 +175,12 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
      * @return port number
      */
     public synchronized int bindServer() {
-        int port = getSyncPortNumber();
+        InetSocketAddress serverAddress = getSyncServerAddress();
         try {
-            logWriter.println("[SYNC] Binding socket on port: " + port);
-            serverSocket = new ServerSocket(port);
-            port = serverSocket.getLocalPort();
-            logWriter.println("[SYNC] Bound socket on port: " + port);
-            return port;
+            logWriter.println("[SYNC] Binding socket on: " + serverAddress);
+            serverSocket = new ServerSocket(serverAddress.getPort(), 0, serverAddress.getAddress());
+            logWriter.println("[SYNC] Bound socket on: " + serverAddress);
+            return serverAddress.getPort();
         } catch (IOException e) {
             throw new TestErrorException(
                     "[SYNC] Exception in binding for socket sync connection", e);
@@ -209,11 +212,10 @@ public class JPDADebuggeeSynchronizer implements DebuggeeSynchronizer {
      */
     public synchronized void startClient() {
         long timeout = settings.getTimeout();
-        String host = "localhost";
-        int port = getSyncPortNumber();
+        InetSocketAddress serverAddress = getSyncServerAddress();
         try {
-            logWriter.println("[SYNC] Attaching socket to: " + host + ":" + port);
-            clientSocket = new Socket(host, port);
+            logWriter.println("[SYNC] Attaching socket to: " + serverAddress);
+            clientSocket = new Socket(serverAddress.getAddress(), serverAddress.getPort());
             logWriter.println("[SYNC] Attached socket");
 
             clientSocket.setSoTimeout((int) timeout);

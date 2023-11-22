@@ -1,11 +1,9 @@
-
 /*
  * Copyright 2006 The Android Open Source Project
  *
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 
 #ifndef SkBlitter_DEFINED
 #define SkBlitter_DEFINED
@@ -33,6 +31,7 @@ public:
     /// zero-terminated run-length encoding of spans of constant alpha values.
     virtual void blitAntiH(int x, int y, const SkAlpha antialias[],
                            const int16_t runs[]);
+
     /// Blit a vertical run of pixels with a constant alpha value.
     virtual void blitV(int x, int y, int height, SkAlpha alpha);
     /// Blit a solid rectangle one or more pixels wide.
@@ -54,6 +53,35 @@ public:
     */
     virtual const SkBitmap* justAnOpaqueColor(uint32_t* value);
 
+    // (x, y), (x + 1, y)
+    virtual void blitAntiH2(int x, int y, U8CPU a0, U8CPU a1) {
+        int16_t runs[3];
+        uint8_t aa[2];
+        
+        runs[0] = 1;
+        runs[1] = 1;
+        runs[2] = 0;
+        aa[0] = SkToU8(a0);
+        aa[1] = SkToU8(a1);
+        this->blitAntiH(x, y, aa, runs);
+    }
+
+    // (x, y), (x, y + 1)
+    virtual void blitAntiV2(int x, int y, U8CPU a0, U8CPU a1) {
+        int16_t runs[2];
+        uint8_t aa[1];
+        
+        runs[0] = 1;
+        runs[1] = 0;
+        aa[0] = SkToU8(a0);
+        this->blitAntiH(x, y, aa, runs);
+        // reset in case the clipping blitter modified runs
+        runs[0] = 1;
+        runs[1] = 0;
+        aa[0] = SkToU8(a1);
+        this->blitAntiH(x, y + 1, aa, runs);
+    }
+    
     /**
      *  Special method just to identify the null blitter, which is returned
      *  from Choose() if the request cannot be fulfilled. Default impl
@@ -66,6 +94,24 @@ public:
      */
     virtual bool resetShaderContext(const SkShader::ContextRec&);
     virtual SkShader::Context* getShaderContext() const;
+
+    /**
+     * Special methods for blitters that can blit more than one row at a time.
+     * This function returns the number of rows that this blitter could optimally
+     * process at a time. It is still required to support blitting one scanline
+     * at a time.
+     */
+    virtual int requestRowsPreserved() const { return 1; }
+
+    /**
+     * This function allocates memory for the blitter that the blitter then owns.
+     * The memory can be used by the calling function at will, but it will be
+     * released when the blitter's destructor is called. This function returns
+     * NULL if no persistent memory is needed by the blitter.
+     */
+    virtual void* allocBlitMemory(size_t sz) {
+        return fBlitMemory.reset(sz, SkAutoMalloc::kReuse_OnShrink);
+    }
 
     ///@name non-virtual helpers
     void blitMaskRegion(const SkMask& mask, const SkRegion& clip);
@@ -89,6 +135,10 @@ public:
                                    SkTBlitterAllocator*);
     ///@}
 
+protected:
+
+    SkAutoMalloc fBlitMemory;
+    
 private:
 };
 
@@ -96,14 +146,14 @@ private:
 */
 class SkNullBlitter : public SkBlitter {
 public:
-    virtual void blitH(int x, int y, int width) SK_OVERRIDE;
+    void blitH(int x, int y, int width) override;
     virtual void blitAntiH(int x, int y, const SkAlpha[],
-                           const int16_t runs[]) SK_OVERRIDE;
-    virtual void blitV(int x, int y, int height, SkAlpha alpha) SK_OVERRIDE;
-    virtual void blitRect(int x, int y, int width, int height) SK_OVERRIDE;
-    virtual void blitMask(const SkMask&, const SkIRect& clip) SK_OVERRIDE;
-    virtual const SkBitmap* justAnOpaqueColor(uint32_t* value) SK_OVERRIDE;
-    virtual bool isNullBlitter() const SK_OVERRIDE;
+                           const int16_t runs[]) override;
+    void blitV(int x, int y, int height, SkAlpha alpha) override;
+    void blitRect(int x, int y, int width, int height) override;
+    void blitMask(const SkMask&, const SkIRect& clip) override;
+    const SkBitmap* justAnOpaqueColor(uint32_t* value) override;
+    bool isNullBlitter() const override;
 };
 
 /** Wraps another (real) blitter, and ensures that the real blitter is only
@@ -118,15 +168,23 @@ public:
         fClipRect = clipRect;
     }
 
-    virtual void blitH(int x, int y, int width) SK_OVERRIDE;
+    void blitH(int x, int y, int width) override;
     virtual void blitAntiH(int x, int y, const SkAlpha[],
-                           const int16_t runs[]) SK_OVERRIDE;
-    virtual void blitV(int x, int y, int height, SkAlpha alpha) SK_OVERRIDE;
-    virtual void blitRect(int x, int y, int width, int height) SK_OVERRIDE;
+                           const int16_t runs[]) override;
+    void blitV(int x, int y, int height, SkAlpha alpha) override;
+    void blitRect(int x, int y, int width, int height) override;
     virtual void blitAntiRect(int x, int y, int width, int height,
-                     SkAlpha leftAlpha, SkAlpha rightAlpha) SK_OVERRIDE;
-    virtual void blitMask(const SkMask&, const SkIRect& clip) SK_OVERRIDE;
-    virtual const SkBitmap* justAnOpaqueColor(uint32_t* value) SK_OVERRIDE;
+                     SkAlpha leftAlpha, SkAlpha rightAlpha) override;
+    void blitMask(const SkMask&, const SkIRect& clip) override;
+    const SkBitmap* justAnOpaqueColor(uint32_t* value) override;
+
+    int requestRowsPreserved() const override {
+        return fBlitter->requestRowsPreserved();
+    }
+
+    void* allocBlitMemory(size_t sz) override {
+        return fBlitter->allocBlitMemory(sz);
+    }
 
 private:
     SkBlitter*  fBlitter;
@@ -145,15 +203,23 @@ public:
         fRgn = clipRgn;
     }
 
-    virtual void blitH(int x, int y, int width) SK_OVERRIDE;
+    void blitH(int x, int y, int width) override;
     virtual void blitAntiH(int x, int y, const SkAlpha[],
-                           const int16_t runs[]) SK_OVERRIDE;
-    virtual void blitV(int x, int y, int height, SkAlpha alpha) SK_OVERRIDE;
-    virtual void blitRect(int x, int y, int width, int height) SK_OVERRIDE;
+                           const int16_t runs[]) override;
+    void blitV(int x, int y, int height, SkAlpha alpha) override;
+    void blitRect(int x, int y, int width, int height) override;
     virtual void blitAntiRect(int x, int y, int width, int height,
-                     SkAlpha leftAlpha, SkAlpha rightAlpha) SK_OVERRIDE;
-    virtual void blitMask(const SkMask&, const SkIRect& clip) SK_OVERRIDE;
-    virtual const SkBitmap* justAnOpaqueColor(uint32_t* value) SK_OVERRIDE;
+                     SkAlpha leftAlpha, SkAlpha rightAlpha) override;
+    void blitMask(const SkMask&, const SkIRect& clip) override;
+    const SkBitmap* justAnOpaqueColor(uint32_t* value) override;
+
+    int requestRowsPreserved() const override {
+        return fBlitter->requestRowsPreserved();
+    }
+
+    void* allocBlitMemory(size_t sz) override {
+        return fBlitter->allocBlitMemory(sz);
+    }
 
 private:
     SkBlitter*      fBlitter;

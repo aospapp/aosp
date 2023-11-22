@@ -169,6 +169,24 @@ FX_FLOAT FX_atof(FX_BSTR strc)
     }
     return bNegative ? -value : value;
 }
+
+#if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_ && _MSC_VER < 1900
+void FXSYS_snprintf(char *str, size_t size, _Printf_format_string_ const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    FXSYS_vsnprintf(str, size, fmt, ap);
+    va_end(ap);
+}
+void FXSYS_vsnprintf(char *str, size_t size, const char* fmt, va_list ap)
+{
+    (void) _vsnprintf(str, size, fmt, ap);
+    if (size) {
+        str[size - 1] = 0;
+    }
+}
+#endif  // _FXM_PLATFORM_WINDOWS_ && _MSC_VER < 1900
+
 static FX_BOOL FX_IsDigit(FX_BYTE ch)
 {
     return (ch >= '0' && ch <= '9') ? TRUE : FALSE;
@@ -273,10 +291,10 @@ CFX_WideString FX_DecodeURI(const CFX_ByteString& bsURI)
             rURI += bsURI[i];
         }
     }
-    return CFX_WideString::FromUTF8(rURI);
+    return CFX_WideString::FromUTF8(rURI, rURI.GetLength());
 }
 #if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_
-class CFindFileData : public CFX_Object
+class CFindFileData 
 {
 public:
     virtual ~CFindFileData() {}
@@ -300,20 +318,14 @@ void* FX_OpenFolder(FX_LPCSTR path)
 {
 #if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_
 #ifndef _WIN32_WCE
-    CFindFileDataA* pData = FX_NEW CFindFileDataA;
-    if (!pData) {
-        return NULL;
-    }
+    CFindFileDataA* pData = new CFindFileDataA;
 #ifdef _FX_WINAPI_PARTITION_DESKTOP_
     pData->m_Handle = FindFirstFileA(CFX_ByteString(path) + "/*.*", &pData->m_FindData);
 #else
     pData->m_Handle = FindFirstFileExA(CFX_ByteString(path) + "/*.*", FindExInfoStandard, &pData->m_FindData, FindExSearchNameMatch, NULL, 0);
 #endif
 #else
-    CFindFileDataW* pData = FX_NEW CFindFileDataW;
-    if (!pData) {
-        return NULL;
-    }
+    CFindFileDataW* pData = new CFindFileDataW;
     pData->m_Handle = FindFirstFileW(CFX_WideString::FromLocal(path) + L"/*.*", &pData->m_FindData);
 #endif
     if (pData->m_Handle == INVALID_HANDLE_VALUE) {
@@ -330,14 +342,11 @@ void* FX_OpenFolder(FX_LPCSTR path)
 void* FX_OpenFolder(FX_LPCWSTR path)
 {
 #if _FXM_PLATFORM_ == _FXM_PLATFORM_WINDOWS_
-    CFindFileDataW* pData = FX_NEW CFindFileDataW;
-    if (!pData) {
-        return NULL;
-    }
+    CFindFileDataW* pData = new CFindFileDataW;
 #ifdef _FX_WINAPI_PARTITION_DESKTOP_
-    pData->m_Handle = FindFirstFileW(CFX_WideString(path) + L"/*.*", &pData->m_FindData);
+    pData->m_Handle = FindFirstFileW((CFX_WideString(path) + L"/*.*").c_str(), &pData->m_FindData);
 #else
-    pData->m_Handle = FindFirstFileExW(CFX_WideString(path) + L"/*.*", FindExInfoStandard, &pData->m_FindData, FindExSearchNameMatch, NULL, 0);
+    pData->m_Handle = FindFirstFileExW((CFX_WideString(path) + L"/*.*").c_str(), FindExInfoStandard, &pData->m_FindData, FindExSearchNameMatch, NULL, 0);
 #endif
     if (pData->m_Handle == INVALID_HANDLE_VALUE) {
         delete pData;
@@ -441,4 +450,47 @@ FX_WCHAR FX_GetFolderSeparator()
 #else
     return '/';
 #endif
+}
+
+CFX_Matrix_3by3 CFX_Matrix_3by3::Inverse()
+{
+    FX_FLOAT det = a*(e*i - f*h) - b*(i*d - f*g) + c*(d*h - e*g);
+    if (FXSYS_fabs(det) < 0.0000001)
+        return CFX_Matrix_3by3();
+    else
+        return CFX_Matrix_3by3(
+            (e*i - f*h) / det,
+            -(b*i - c*h) / det,
+            (b*f - c*e) / det,
+            -(d*i - f*g) / det,
+            (a*i - c*g) / det,
+            -(a*f - c*d) / det,
+            (d*h - e*g) / det,
+            -(a*h - b*g) / det,
+            (a*e - b*d) / det
+        );
+}
+
+CFX_Matrix_3by3 CFX_Matrix_3by3::Multiply(const CFX_Matrix_3by3 &m)
+{
+    return CFX_Matrix_3by3(
+        a*m.a + b*m.d + c*m.g,
+        a*m.b + b*m.e + c*m.h,
+        a*m.c + b*m.f + c*m.i,
+        d*m.a + e*m.d + f*m.g,
+        d*m.b + e*m.e + f*m.h,
+        d*m.c + e*m.f + f*m.i,
+        g*m.a + h*m.d + i*m.g,
+        g*m.b + h*m.e + i*m.h,
+        g*m.c + h*m.f + i*m.i
+      );
+}
+
+CFX_Vector_3by1 CFX_Matrix_3by3::TransformVector(const CFX_Vector_3by1 &v)
+{
+    return CFX_Vector_3by1(
+        a * v.a + b * v.b + c * v.c,
+        d * v.a + e * v.b + f * v.c,
+        g * v.a + h * v.b + i * v.c
+    );
 }

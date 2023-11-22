@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #ifdef HAVE_ANDROID_OS
 #include <android/log.h>
 #else
@@ -21,10 +24,14 @@
 #include <iostream>
 #endif
 
-#include <stdlib.h>
-#include <stdio.h>
-
 #include "sigchain.h"
+
+#define ATTRIBUTE_UNUSED __attribute__((__unused__))
+
+// We cannot annotate the declarations, as they are not no-return in the non-dummy version.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
+#pragma GCC diagnostic ignored "-Wmissing-noreturn"
 
 static void log(const char* format, ...) {
   char buf[256];
@@ -39,22 +46,23 @@ static void log(const char* format, ...) {
   va_end(ap);
 }
 
-extern "C" void ClaimSignalChain(int signal, struct sigaction* oldaction) {
+namespace art {
+
+
+extern "C" void ClaimSignalChain(int signal ATTRIBUTE_UNUSED,
+                                 struct sigaction* oldaction ATTRIBUTE_UNUSED) {
   log("ClaimSignalChain is not exported by the main executable.");
   abort();
 }
 
-extern "C" void EnsureFrontOfChain(int signal, struct sigaction* expected_action) {
-  log("EnsureFrontOfChain is not exported by the main executable.");
-  abort();
-}
-
-extern "C" void UnclaimSignalChain(int signal) {
+extern "C" void UnclaimSignalChain(int signal ATTRIBUTE_UNUSED) {
   log("UnclaimSignalChain is not exported by the main executable.");
   abort();
 }
 
-extern "C" void InvokeUserSignalHandler(int sig, siginfo_t* info, void* context) {
+extern "C" void InvokeUserSignalHandler(int sig ATTRIBUTE_UNUSED,
+                                        siginfo_t* info ATTRIBUTE_UNUSED,
+                                        void* context ATTRIBUTE_UNUSED) {
   log("InvokeUserSignalHandler is not exported by the main executable.");
   abort();
 }
@@ -63,3 +71,19 @@ extern "C" void InitializeSignalChain() {
   log("InitializeSignalChain is not exported by the main executable.");
   abort();
 }
+
+extern "C" void EnsureFrontOfChain(int signal ATTRIBUTE_UNUSED,
+                                   struct sigaction* expected_action ATTRIBUTE_UNUSED) {
+  log("EnsureFrontOfChain is not exported by the main executable.");
+  abort();
+}
+
+extern "C" void SetSpecialSignalHandlerFn(int signal ATTRIBUTE_UNUSED,
+                                          SpecialSignalHandlerFn fn ATTRIBUTE_UNUSED) {
+  log("SetSpecialSignalHandlerFn is not exported by the main executable.");
+  abort();
+}
+
+#pragma GCC diagnostic pop
+
+}  // namespace art

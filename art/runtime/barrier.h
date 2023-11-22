@@ -51,10 +51,11 @@ class Barrier {
   // to sleep, resulting in a deadlock.
 
   // Increment the count by delta, wait on condition if count is non zero.
-  void Increment(Thread* self, int delta);
+  void Increment(Thread* self, int delta) LOCKS_EXCLUDED(lock_);
 
-  // Increment the count by delta, wait on condition if count is non zero, with a timeout
-  void Increment(Thread* self, int delta, uint32_t timeout_ms) LOCKS_EXCLUDED(lock_);
+  // Increment the count by delta, wait on condition if count is non zero, with a timeout. Returns
+  // true if time out occurred.
+  bool Increment(Thread* self, int delta, uint32_t timeout_ms) LOCKS_EXCLUDED(lock_);
 
   // Set the count to a new value.  This should only be used if there is no possibility that
   // another thread is still in Wait().  See above.
@@ -66,7 +67,7 @@ class Barrier {
   // Counter, when this reaches 0 all people blocked on the barrier are signalled.
   int count_ GUARDED_BY(lock_);
 
-  Mutex lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
+  Mutex lock_ ACQUIRED_AFTER(Locks::abort_lock_);
   ConditionVariable condition_ GUARDED_BY(lock_);
 };
 

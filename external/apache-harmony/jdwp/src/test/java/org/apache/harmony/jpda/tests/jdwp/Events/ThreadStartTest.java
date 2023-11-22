@@ -69,29 +69,36 @@ public class ThreadStartTest extends JDWPEventTestCase {
         // wait for thread start and finish
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
 
-        logWriter.println("=> vmMirror.receiveEvent()...");
-        CommandPacket event = debuggeeWrapper.vmMirror.receiveEvent();
+        // The runtime may start internal threads before starting the debuggee's thread.
+        // We loop until receiving a THREAD_START event for our thread.
+        boolean receivedExpectedThreadStartEvent = false;
+        while (!receivedExpectedThreadStartEvent) {
+            logWriter.println("=> vmMirror.receiveEvent()...");
+            CommandPacket event = debuggeeWrapper.vmMirror.receiveEvent();
 
-        assertNotNull("Invalid (null) event received", event);
-        logWriter.println("=> Event received!");
+            assertNotNull("Invalid (null) event received", event);
+            logWriter.println("=> Event received!");
 
-        ParsedEvent[] parsedEvents = ParsedEvent.parseEventPacket(event);
-        logWriter.println("=> Number of events = " + parsedEvents.length);
-        assertEquals("Invalid number of events,", 1, parsedEvents.length);
-        logWriter.println("=> EventKind() = " + parsedEvents[0].getEventKind()
-                + " (" + JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()) + ")");
-        assertEquals("Invalid event kind,",
-                JDWPConstants.EventKind.THREAD_START,
-                parsedEvents[0].getEventKind(),
-                JDWPConstants.EventKind.getName(JDWPConstants.EventKind.THREAD_START),
-                JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
-        logWriter.println("=> EventRequestID() = " + parsedEvents[0].getRequestID());
+            ParsedEvent[] parsedEvents = ParsedEvent.parseEventPacket(event);
+            logWriter.println("=> Number of events = " + parsedEvents.length);
+            assertEquals("Invalid number of events,", 1, parsedEvents.length);
+            logWriter.println("=> EventKind() = " + parsedEvents[0].getEventKind()
+                    + " (" + JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()) + ")");
+            assertEquals("Invalid event kind,",
+                    JDWPConstants.EventKind.THREAD_START,
+                    parsedEvents[0].getEventKind(),
+                    JDWPConstants.EventKind.getName(JDWPConstants.EventKind.THREAD_START),
+                    JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
+            logWriter.println("=> EventRequestID() = " + parsedEvents[0].getRequestID());
 
-        long threadID = ((Event_THREAD_START)parsedEvents[0]).getThreadID();
-        logWriter.println("=> threadID = " + threadID);
-        String threadName = debuggeeWrapper.vmMirror.getThreadName(threadID);
-        logWriter.println("=> threadName = " + threadName);
-        assertEquals("Invalid thread name", EventDebuggee.testedThreadName, threadName);
+            long threadID = ((Event_THREAD_START)parsedEvents[0]).getThreadID();
+            logWriter.println("=> threadID = " + threadID);
+            String threadName = debuggeeWrapper.vmMirror.getThreadName(threadID);
+            logWriter.println("=> threadName = " + threadName);
+
+            // Is it the debuggee's thread ?
+            receivedExpectedThreadStartEvent = threadName.equals(EventDebuggee.testedThreadName);
+        }
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
         logWriter.println("==> testThreadStartEvent001 - OK");

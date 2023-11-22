@@ -49,6 +49,11 @@ public class IntentReceiverActivity extends Activity {
     private static final String ACTION_WRITE_TO_URI =
             "com.android.cts.action.WRITE_TO_URI";
 
+    private static final String ACTION_JUST_CREATE =
+            "com.android.cts.action.JUST_CREATE";
+
+    public static final String RECEIVING_ACTIVITY_CREATED_ACTION
+            = "com.android.cts.deviceowner.RECEIVING_ACTIVITY_CREATED_ACTION";
 
     private static final String EXTRA_CAUGHT_SECURITY_EXCEPTION = "extra_caught_security_exception";
 
@@ -98,6 +103,8 @@ public class IntentReceiverActivity extends Activity {
                 Log.i(TAG, "Caught a IOException while trying to write to " + uri, e);
             }
             setResult(Activity.RESULT_OK, result);
+        } else if (ACTION_JUST_CREATE.equals(action)) {
+            sendBroadcast(new Intent(RECEIVING_ACTIVITY_CREATED_ACTION));
         }
         finish();
     }

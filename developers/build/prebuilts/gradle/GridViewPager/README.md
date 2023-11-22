@@ -1,3 +1,4 @@
+
 Android GridViewPager Sample
 ===================================
 
@@ -6,8 +7,8 @@ Demonstrates how to implement a GridViewPager in your wearable app.
 Pre-requisites
 --------------
 
-- Android SDK v21
-- Android Build Tools v21.1.1
+- Android SDK v23
+- Android Build Tools v23.0.0
 - Android Support Repository
 
 Getting Started

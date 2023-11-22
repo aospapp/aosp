@@ -17,10 +17,12 @@
 package com.google.common.primitives;
 
 import static java.lang.Double.NaN;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.base.Converter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.testing.Helpers;
 import com.google.common.testing.NullPointerTester;
 import com.google.common.testing.SerializableTester;
@@ -48,11 +50,13 @@ public class DoublesTest extends TestCase {
 
   private static final double LEAST = Double.NEGATIVE_INFINITY;
   private static final double GREATEST = Double.POSITIVE_INFINITY;
+  private static final double MIN_NORMAL = 2.2250738585072014E-308; // Doubles.MIN_NORMAL from 1.6
 
   private static final double[] NUMBERS = new double[] {
-      LEAST, -Double.MAX_VALUE, -1.0, -0.0, 0.0, 1.0, Double.MAX_VALUE, GREATEST,
-      Double.MIN_NORMAL, -Double.MIN_NORMAL,  Double.MIN_VALUE, -Double.MIN_VALUE,
-      Integer.MIN_VALUE, Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE
+      LEAST, -Double.MAX_VALUE, -1.0, -0.5, -0.1, -0.0, 0.0, 0.1, 0.5, 1.0,
+      Double.MAX_VALUE, GREATEST, MIN_NORMAL, -MIN_NORMAL,
+      Double.MIN_VALUE, -Double.MIN_VALUE, Integer.MIN_VALUE,
+      Integer.MAX_VALUE, Long.MIN_VALUE, Long.MAX_VALUE
   };
 
   private static final double[] VALUES
@@ -296,6 +300,11 @@ public class DoublesTest extends TestCase {
     assertSame(comparator, SerializableTester.reserialize(comparator));
   }
 
+  @GwtIncompatible("SerializableTester")
+  public void testStringConverterSerialization() {
+    SerializableTester.reserializeAndAssert(Doubles.stringConverter());
+  }
+
   public void testToArray() {
     // need explicit type parameter to avoid javac warning!?
     List<Double> none = Arrays.<Double>asList();
@@ -337,13 +346,31 @@ public class DoublesTest extends TestCase {
     }
   }
 
+  public void testToArray_withConversion() {
+    double[] array = {(double) 0, (double) 1, (double) 2};
+
+    List<Byte> bytes = Arrays.asList((byte) 0, (byte) 1, (byte) 2);
+    List<Short> shorts = Arrays.asList((short) 0, (short) 1, (short) 2);
+    List<Integer> ints = Arrays.asList(0, 1, 2);
+    List<Float> floats = Arrays.asList((float) 0, (float) 1, (float) 2);
+    List<Long> longs = Arrays.asList((long) 0, (long) 1, (long) 2);
+    List<Double> doubles = Arrays.asList((double) 0, (double) 1, (double) 2);
+
+    assertTrue(Arrays.equals(array, Doubles.toArray(bytes)));
+    assertTrue(Arrays.equals(array, Doubles.toArray(shorts)));
+    assertTrue(Arrays.equals(array, Doubles.toArray(ints)));
+    assertTrue(Arrays.equals(array, Doubles.toArray(floats)));
+    assertTrue(Arrays.equals(array, Doubles.toArray(longs)));
+    assertTrue(Arrays.equals(array, Doubles.toArray(doubles)));
+  }
+
   public void testAsList_isAView() {
     double[] array = {(double) 0, (double) 1};
     List<Double> list = Doubles.asList(array);
     list.set(0, (double) 2);
     assertTrue(Arrays.equals(new double[] {(double) 2, (double) 1}, array));
     array[1] = (double) 3;
-    ASSERT.that(list).hasContentsInOrder((double) 2, (double) 3);
+    ASSERT.that(list).has().exactly((double) 2, (double) 3).inOrder();
   }
 
   public void testAsList_toArray_roundTrip() {
@@ -373,10 +400,149 @@ public class DoublesTest extends TestCase {
     assertSame(Collections.emptyList(), Doubles.asList(EMPTY));
   }
 
+  /**
+   * A reference implementation for {@code tryParse} that just catches the exception from
+   * {@link Double#valueOf}.
+   */
+  private static Double referenceTryParse(String input) {
+    if (input.trim().length() < input.length()) {
+      return null;
+    }
+    try {
+      return Double.valueOf(input);
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  private static void checkTryParse(String input) {
+    Double expected = referenceTryParse(input);
+    assertEquals(expected, Doubles.tryParse(input));
+    assertEquals(expected != null,
+        Doubles.FLOATING_POINT_PATTERN.matcher(input).matches());
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  private static void checkTryParse(double expected, String input) {
+    assertEquals(Double.valueOf(expected), Doubles.tryParse(input));
+    assertTrue(Doubles.FLOATING_POINT_PATTERN.matcher(input).matches());
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseHex() {
+    for (String signChar : ImmutableList.of("", "+", "-")) {
+      for (String hexPrefix : ImmutableList.of("0x", "0X")) {
+        for (String iPart : ImmutableList.of("", "0", "1", "F", "f", "c4", "CE")) {
+          for (String fPart : ImmutableList.of("", ".", ".F", ".52", ".a")) {
+            for (String expMarker : ImmutableList.of("p", "P")) {
+              for (String exponent : ImmutableList.of("0", "-5", "+20", "52")) {
+                for (String typePart : ImmutableList.of("", "D", "F", "d", "f")) {
+                  checkTryParse(
+                      signChar + hexPrefix + iPart + fPart + expMarker + exponent + typePart);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseAllCodePoints() {
+    // Exercise non-ASCII digit test cases and the like.
+    char[] tmp = new char[2];
+    for (int i = Character.MIN_CODE_POINT; i < Character.MAX_CODE_POINT; i++) {
+      Character.toChars(i, tmp, 0);
+      checkTryParse(String.copyValueOf(tmp, 0, Character.charCount(i)));
+    }
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseOfToStringIsOriginal() {
+    for (double d : NUMBERS) {
+      checkTryParse(d, Double.toString(d));
+    }
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseOfToHexStringIsOriginal() {
+    for (double d : NUMBERS) {
+      checkTryParse(d, Double.toHexString(d));
+    }
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseNaN() {
+    checkTryParse("NaN");
+    checkTryParse("+NaN");
+    checkTryParse("-NaN");
+  }
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseInfinity() {
+    checkTryParse(Double.POSITIVE_INFINITY, "Infinity");
+    checkTryParse(Double.POSITIVE_INFINITY, "+Infinity");
+    checkTryParse(Double.NEGATIVE_INFINITY, "-Infinity");
+  }
+
+  private static final String[] BAD_TRY_PARSE_INPUTS =
+    { "", "+-", "+-0", " 5", "32 ", " 55 ", "infinity", "POSITIVE_INFINITY", "0x9A", "0x9A.bE-5",
+      ".", ".e5", "NaNd", "InfinityF" };
+
+  @GwtIncompatible("Doubles.tryParse")
+  public void testTryParseFailures() {
+    for (String badInput : BAD_TRY_PARSE_INPUTS) {
+      assertFalse(Doubles.FLOATING_POINT_PATTERN.matcher(badInput).matches());
+      assertEquals(referenceTryParse(badInput), Doubles.tryParse(badInput));
+      assertNull(Doubles.tryParse(badInput));
+    }
+  }
+
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(Doubles.class);
+  }
+
+  public void testStringConverter_convert() {
+    Converter<String, Double> converter = Doubles.stringConverter();
+    assertEquals((Double) 1.0, converter.convert("1.0"));
+    assertEquals((Double) 0.0, converter.convert("0.0"));
+    assertEquals((Double) (-1.0), converter.convert("-1.0"));
+    assertEquals((Double) 1.0, converter.convert("1"));
+    assertEquals((Double) 0.0, converter.convert("0"));
+    assertEquals((Double) (-1.0), converter.convert("-1"));
+    assertEquals((Double) 1e6, converter.convert("1e6"));
+    assertEquals((Double) 1e-6, converter.convert("1e-6"));
+  }
+
+  public void testStringConverter_convertError() {
+    try {
+      Doubles.stringConverter().convert("notanumber");
+      fail();
+    } catch (NumberFormatException expected) {
+    }
+  }
+
+  public void testStringConverter_nullConversions() {
+    assertNull(Doubles.stringConverter().convert(null));
+    assertNull(Doubles.stringConverter().reverse().convert(null));
+  }
+
+  @GwtIncompatible("Double.toString returns different value in GWT.")
+  public void testStringConverter_reverse() {
+    Converter<String, Double> converter = Doubles.stringConverter();
+    assertEquals("1.0", converter.reverse().convert(1.0));
+    assertEquals("0.0", converter.reverse().convert(0.0));
+    assertEquals("-1.0", converter.reverse().convert(-1.0));
+    assertEquals("1000000.0", converter.reverse().convert(1e6));
+    assertEquals("1.0E-6", converter.reverse().convert(1e-6));
+  }
+
+  @GwtIncompatible("NullPointerTester")
+  public void testStringConverter_nullPointerTester() throws Exception {
     NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(double[].class, new double[0]);
-    tester.testAllPublicStaticMethods(Doubles.class);
+    tester.testAllPublicInstanceMethods(Doubles.stringConverter());
   }
 }

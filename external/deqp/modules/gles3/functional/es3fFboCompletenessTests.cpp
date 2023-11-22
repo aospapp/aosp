@@ -136,26 +136,47 @@ static const FormatKey s_extOESTextureStencil8[] =
 	GL_STENCIL_INDEX8,
 };
 
+// GL_EXT_render_snorm
+static const FormatKey s_extRenderSnorm[] =
+{
+	GL_R8_SNORM, GL_RG8_SNORM, GL_RGBA8_SNORM,
+};
 
 static const FormatExtEntry s_es3ExtFormats[] =
 {
-	{ "GL_EXT_color_buffer_float",
-	  // These are already texture-valid in ES3, the extension just adds RBO
-	  // support and makes them color-renderable.
-	  REQUIRED_RENDERABLE | COLOR_RENDERABLE | RENDERBUFFER_VALID,
-	  GLS_ARRAY_RANGE(s_extColorBufferFloatFormats) },
-	{ "GL_OES_texture_stencil8",
-	  // Note: es3 RBO tests actually cover the first two requirements
-      // - kept here for completeness
-      REQUIRED_RENDERABLE | STENCIL_RENDERABLE | TEXTURE_VALID,
-	  GLS_ARRAY_RANGE(s_extOESTextureStencil8) }
+	{
+		"GL_EXT_color_buffer_float",
+		// These are already texture-valid in ES3, the extension just adds RBO
+		// support and makes them color-renderable.
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | RENDERBUFFER_VALID,
+		GLS_ARRAY_RANGE(s_extColorBufferFloatFormats)
+	},
+	{
+		"GL_OES_texture_stencil8",
+		// \note: es3 RBO tests actually cover the first two requirements
+		// - kept here for completeness
+		REQUIRED_RENDERABLE | STENCIL_RENDERABLE | TEXTURE_VALID,
+		GLS_ARRAY_RANGE(s_extOESTextureStencil8)
+	},
+
+	// Since GLES31 is backwards compatible to GLES3, we might actually be running on a GLES31.
+	// Add rule changes of GLES31 that have no corresponding GLES3 extension.
+	//
+	// \note Not all feature changes are listed here but only those that alter GLES3 subset of
+	//       the formats
+	{
+		"DEQP_gles31_core_compatible GL_EXT_render_snorm",
+		REQUIRED_RENDERABLE | COLOR_RENDERABLE | TEXTURE_VALID | RENDERBUFFER_VALID,
+		GLS_ARRAY_RANGE(s_extRenderSnorm)
+	},
 };
 
 class ES3Checker : public Checker
 {
 public:
-				ES3Checker	(void)
-					: m_numSamples			(-1)
+				ES3Checker	(const glu::RenderContext& ctx)
+					: Checker				(ctx)
+					, m_numSamples			(-1)
 					, m_depthStencilImage	(0)
 					, m_depthStencilType	(GL_NONE) {}
 	void		check 		(GLenum attPoint, const Attachment& att, const Image* image);
@@ -191,16 +212,16 @@ void ES3Checker::check (GLenum attPoint, const Attachment& att, const Image* ima
 
 		// Either all attachments are zero-sample renderbuffers and/or
 		// textures, or none of them are.
-		require((m_numSamples == 0) == (imgSamples == 0),
-				GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
+		if ((m_numSamples == 0) != (imgSamples == 0))
+			addFBOStatus(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, "Mixed multi- and single-sampled attachments");
 
 		// If the attachments requested a different number of samples, the
 		// implementation is allowed to report this as incomplete. However, it
 		// is also possible that despite the different requests, the
 		// implementation allocated the same number of samples to both. Hence
 		// reporting the framebuffer as complete is also legal.
-		canRequire(m_numSamples == imgSamples,
-				   GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
+		if (m_numSamples != imgSamples)
+			addPotentialFBOStatus(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE, "Number of samples differ");
 	}
 
 	// "Depth and stencil attachments, if present, are the same image."
@@ -212,9 +233,10 @@ void ES3Checker::check (GLenum attPoint, const Attachment& att, const Image* ima
 			m_depthStencilType = attachmentType(att);
 		}
 		else
-			require(m_depthStencilImage == att.imageName &&
-					m_depthStencilType == attachmentType(att),
-					GL_FRAMEBUFFER_UNSUPPORTED);
+		{
+			if (m_depthStencilImage != att.imageName || m_depthStencilType != attachmentType(att))
+				addFBOStatus(GL_FRAMEBUFFER_UNSUPPORTED, "Depth and stencil attachments are not the same image");
+		}
 	}
 }
 
@@ -413,7 +435,7 @@ IterateResult NumSamplesTest::build (FboBuilder& builder)
 class ES3CheckerFactory : public CheckerFactory
 {
 public:
-	Checker*			createChecker	(void) { return new ES3Checker(); }
+	Checker*			createChecker	(const glu::RenderContext& ctx) { return new ES3Checker(ctx); }
 };
 
 class TestGroup : public TestCaseGroup

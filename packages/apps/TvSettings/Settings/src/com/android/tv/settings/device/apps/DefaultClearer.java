@@ -16,19 +16,17 @@
 
 package com.android.tv.settings.device.apps;
 
-import com.android.tv.settings.R;
-
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.IPackageDataObserver;
 import android.content.pm.PackageManager;
 import android.hardware.usb.IUsbManager;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+
+import com.android.tv.settings.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,9 +56,12 @@ class DefaultClearer {
         packageManager.clearPackagePreferredActivities(mAppInfo.getPackageName());
         try {
             IBinder b = ServiceManager.getService(Context.USB_SERVICE);
-            IUsbManager usbManager = IUsbManager.Stub.asInterface(b);
-            usbManager.clearDefaults(mAppInfo.getPackageName(), UserHandle.myUserId());
+            if (b != null) {
+                IUsbManager usbManager = IUsbManager.Stub.asInterface(b);
+                usbManager.clearDefaults(mAppInfo.getPackageName(), UserHandle.myUserId());
+            }
         } catch (RemoteException e) {
+            // Ignore
         }
 
         mIsDefault = false;
@@ -72,22 +73,25 @@ class DefaultClearer {
             PackageManager packageManager = context.getPackageManager();
 
             // Get list of preferred activities
-            List<ComponentName> prefActList = new ArrayList<ComponentName>();
+            List<ComponentName> prefActList = new ArrayList<>();
 
-            List<IntentFilter> intentList = new ArrayList<IntentFilter>();
+            List<IntentFilter> intentList = new ArrayList<>();
             packageManager.getPreferredActivities(
                     intentList, prefActList, mAppInfo.getPackageName());
 
             boolean hasUsbDefaults = false;
             try {
                 IBinder b = ServiceManager.getService(Context.USB_SERVICE);
-                IUsbManager usbManager = IUsbManager.Stub.asInterface(b);
-                hasUsbDefaults =
-                        usbManager.hasDefaults(mAppInfo.getPackageName(), UserHandle.myUserId());
+                if (b != null) {
+                    IUsbManager usbManager = IUsbManager.Stub.asInterface(b);
+                    hasUsbDefaults =
+                            usbManager
+                                    .hasDefaults(mAppInfo.getPackageName(), UserHandle.myUserId());
+                }
             } catch (RemoteException e) {
+                // Ignore
             }
 
-            boolean autoLaunchEnabled = prefActList.size() > 0 || hasUsbDefaults;
             if (prefActList.size() <= 0 && !hasUsbDefaults) {
                 mIsDefault = false;
             }

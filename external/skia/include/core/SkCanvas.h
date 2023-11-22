@@ -16,25 +16,25 @@
 #include "SkRefCnt.h"
 #include "SkPath.h"
 #include "SkRegion.h"
+#include "SkSurfaceProps.h"
 #include "SkXfermode.h"
 
-#ifdef SK_SUPPORT_LEGACY_DRAWTEXT_VIRTUAL
-    #define SK_LEGACY_DRAWTEXT_VIRTUAL  virtual
-#else
-    #define SK_LEGACY_DRAWTEXT_VIRTUAL
-#endif
-
-class SkCanvasClipVisitor;
 class SkBaseDevice;
+class SkCanvasClipVisitor;
 class SkDraw;
+class SkDrawable;
 class SkDrawFilter;
+class SkImage;
 class SkMetaData;
 class SkPicture;
 class SkRRect;
 class SkSurface;
 class SkSurface_Base;
+class SkTextBlob;
 class GrContext;
 class GrRenderTarget;
+
+class SkCanvasState;
 
 /** \class SkCanvas
 
@@ -56,35 +56,6 @@ public:
     SK_DECLARE_INST_COUNT(SkCanvas)
 
     /**
-     *  Attempt to allocate an offscreen raster canvas, matching the ImageInfo.
-     *  On success, return a new canvas that will draw into that offscreen.
-     *
-     *  The caller can access the pixels after drawing into this canvas by
-     *  calling readPixels() or peekPixels().
-     *
-     *  If the requested ImageInfo is opaque (either the colortype is
-     *  intrinsically opaque like RGB_565, or the info's alphatype is kOpaque)
-     *  then the pixel memory may be uninitialized. Otherwise, the pixel memory
-     *  will be initialized to 0, which is interpreted as transparent.
-     *
-     *  On failure, return NULL. This can fail for several reasons:
-     *  1. the memory allocation failed (e.g. request is too large)
-     *  2. invalid ImageInfo (e.g. negative dimensions)
-     *  3. unsupported ImageInfo for a canvas
-     *      - kUnknown_SkColorType, kIndex_8_SkColorType
-     *      - kIgnore_SkAlphaType
-     *      - this list is not complete, so others may also be unsupported
-     *
-     *  Note: it is valid to request a supported ImageInfo, but with zero
-     *  dimensions.
-     */
-    static SkCanvas* NewRaster(const SkImageInfo&);
-
-    static SkCanvas* NewRasterN32(int width, int height) {
-        return NewRaster(SkImageInfo::MakeN32Premul(width, height));
-    }
-
-    /**
      *  Attempt to allocate raster canvas, matching the ImageInfo, that will draw directly into the
      *  specified pixels. To access the pixels after drawing to them, the caller should call
      *  flush() or call peekPixels(...).
@@ -93,7 +64,7 @@ public:
      *  1. invalid ImageInfo (e.g. negative dimensions)
      *  2. unsupported ImageInfo for a canvas
      *      - kUnknown_SkColorType, kIndex_8_SkColorType
-     *      - kIgnore_SkAlphaType
+     *      - kUnknown_SkAlphaType
      *      - this list is not complete, so others may also be unsupported
      *
      *  Note: it is valid to request a supported ImageInfo, but with zero
@@ -116,7 +87,7 @@ public:
      *  by any device/pixels. Typically this use used by subclasses who handle
      *  the draw calls in some other way.
      */
-    SkCanvas(int width, int height);
+    SkCanvas(int width, int height, const SkSurfaceProps* = NULL);
 
     /** Construct a canvas with the specified device to draw into.
 
@@ -129,6 +100,14 @@ public:
                         structure are copied to the canvas.
     */
     explicit SkCanvas(const SkBitmap& bitmap);
+
+    /** Construct a canvas with the specified bitmap to draw into.
+        @param bitmap   Specifies a bitmap for the canvas to draw into. Its
+                        structure are copied to the canvas.
+        @param props    New canvas surface properties.
+    */
+    SkCanvas(const SkBitmap& bitmap, const SkSurfaceProps& props);
+
     virtual ~SkCanvas();
 
     SkMetaData& getMetaData();
@@ -151,7 +130,7 @@ public:
      * origin of the base layer is always (0,0). The current drawable area may be
      * smaller (due to clipping or saveLayer).
      */
-    SkISize getBaseLayerSize() const;
+    virtual SkISize getBaseLayerSize() const;
 
     /**
      *  DEPRECATED: call getBaseLayerSize
@@ -164,7 +143,11 @@ public:
      *  the bitmap of the pixels that the canvas draws into. The reference count
      *  of the returned device is not changed by this call.
      */
+#ifndef SK_SUPPORT_LEGACY_GETDEVICE
+protected:  // Can we make this private?
+#endif
     SkBaseDevice* getDevice() const;
+public:
 
     /**
      *  saveLayer() can create another device (which is later drawn onto
@@ -189,8 +172,12 @@ public:
      *  Create a new surface matching the specified info, one that attempts to
      *  be maximally compatible when used with this canvas. If there is no matching Surface type,
      *  NULL is returned.
+     *
+     *  If surfaceprops is specified, those are passed to the new surface, otherwise the new surface
+     *  inherits the properties of the surface that owns this canvas. If this canvas has no parent
+     *  surface, then the new surface is created with default properties.
      */
-    SkSurface* newSurface(const SkImageInfo&);
+    SkSurface* newSurface(const SkImageInfo&, const SkSurfaceProps* = NULL);
 
     /**
      * Return the GPU context of the device that is associated with the canvas.
@@ -230,30 +217,31 @@ public:
     /**
      *  Copy the pixels from the base-layer into the specified buffer (pixels + rowBytes),
      *  converting them into the requested format (SkImageInfo). The base-layer pixels are read
-     *  starting at the specified (x,y) location in the coordinate system of the base-layer.
+     *  starting at the specified (srcX,srcY) location in the coordinate system of the base-layer.
      *
-     *  The specified ImageInfo and (x,y) offset specifies a source rectangle
+     *  The specified ImageInfo and (srcX,srcY) offset specifies a source rectangle
      *
-     *      srcR(x, y, info.width(), info.height());
+     *      srcR.setXYWH(srcX, srcY, dstInfo.width(), dstInfo.height());
      *
-     *  SrcR is intersected with the bounds of the base-layer. If this intersection is not empty,
-     *  then we have two sets of pixels (of equal size), the "src" specified by base-layer at (x,y)
-     *  and the "dst" by info+pixels+rowBytes. Replace the dst pixels with the corresponding src
-     *  pixels, performing any colortype/alphatype transformations needed (in the case where the
-     *  src and dst have different colortypes or alphatypes).
+     *  srcR is intersected with the bounds of the base-layer. If this intersection is not empty,
+     *  then we have two sets of pixels (of equal size). Replace the dst pixels with the
+     *  corresponding src pixels, performing any colortype/alphatype transformations needed
+     *  (in the case where the src and dst have different colortypes or alphatypes).
      *
      *  This call can fail, returning false, for several reasons:
+     *  - If srcR does not intersect the base-layer bounds.
      *  - If the requested colortype/alphatype cannot be converted from the base-layer's types.
      *  - If this canvas is not backed by pixels (e.g. picture or PDF)
      */
-    bool readPixels(const SkImageInfo&, void* pixels, size_t rowBytes, int x, int y);
+    bool readPixels(const SkImageInfo& dstInfo, void* dstPixels, size_t dstRowBytes,
+                    int srcX, int srcY);
 
     /**
      *  Helper for calling readPixels(info, ...). This call will check if bitmap has been allocated.
      *  If not, it will attempt to call allocPixels(). If this fails, it will return false. If not,
      *  it calls through to readPixels(info, ...) and returns its result.
      */
-    bool readPixels(SkBitmap* bitmap, int x, int y);
+    bool readPixels(SkBitmap* bitmap, int srcX, int srcY);
 
     /**
      *  Helper for allocating pixels and then calling readPixels(info, ...). The bitmap is resized
@@ -293,8 +281,10 @@ public:
 
     enum SaveFlags {
         /** save the matrix state, restoring it on restore() */
+        // [deprecated] kMatrix_SaveFlag            = 0x01,
         kMatrix_SaveFlag            = 0x01,
         /** save the clip state, restoring it on restore() */
+        // [deprecated] kClip_SaveFlag              = 0x02,
         kClip_SaveFlag              = 0x02,
         /** the layer needs to support per-pixel alpha */
         kHasAlphaLayer_SaveFlag     = 0x04,
@@ -308,6 +298,7 @@ public:
         kClipToLayer_SaveFlag       = 0x10,
 
         // helper masks for common choices
+        // [deprecated] kMatrixClip_SaveFlag        = 0x03,
         kMatrixClip_SaveFlag        = 0x03,
 #ifdef SK_SUPPORT_LEGACY_CLIPTOLAYERFLAG
         kARGB_NoClipLayer_SaveFlag  = 0x0F,
@@ -325,22 +316,6 @@ public:
         @return The value to pass to restoreToCount() to balance this save()
     */
     int save();
-
-    /** DEPRECATED - use save() instead.
-
-        This behaves the same as save(), but it allows fine-grained control of
-        which state bits to be saved (and subsequently restored).
-
-        @param flags The flags govern what portion of the Matrix/Clip/drawFilter
-                     state the save (and matching restore) effect. For example,
-                     if only kMatrix is specified, then only the matrix state
-                     will be pushed and popped. Likewise for the clip if kClip
-                     is specified.  However, the drawFilter is always affected
-                     by calls to save/restore.
-        @return The value to pass to restoreToCount() to balance this save()
-    */
-    SK_ATTR_EXTERNALLY_DEPRECATED("SaveFlags use is deprecated")
-    int save(SaveFlags flags);
 
     /** This behaves the same as save(), but in addition it allocates an
         offscreen bitmap. All drawing calls are directed there, and only when
@@ -424,11 +399,6 @@ public:
         @param saveCount    The number of save() levels to restore from
     */
     void restoreToCount(int saveCount);
-
-    /** Returns true if drawing is currently going to a layer (from saveLayer)
-     *  rather than to the root device.
-     */
-    virtual bool isDrawingToLayer() const;
 
     /** Preconcat the current matrix with the specified translation
         @param dx   The distance to translate in X
@@ -617,24 +587,15 @@ public:
         @param color    the color to draw with
         @param mode the mode to apply the color in (defaults to SrcOver)
     */
-    void drawColor(SkColor color,
-                   SkXfermode::Mode mode = SkXfermode::kSrcOver_Mode);
+    void drawColor(SkColor color, SkXfermode::Mode mode = SkXfermode::kSrcOver_Mode);
 
     /**
-     *  This erases the entire drawing surface to the specified color,
-     *  irrespective of the clip. It does not blend with the previous pixels,
-     *  but always overwrites them.
-     *
-     *  It is roughly equivalent to the following:
-     *      canvas.save();
-     *      canvas.clipRect(hugeRect, kReplace_Op);
-     *      paint.setColor(color);
-     *      paint.setXfermodeMode(kSrc_Mode);
-     *      canvas.drawPaint(paint);
-     *      canvas.restore();
-     *  though it is almost always much more efficient.
+     *  Helper method for drawing a color in SRC mode, completely replacing all the pixels
+     *  in the current clip with this color.
      */
-    virtual void clear(SkColor);
+    void clear(SkColor color) {
+        this->drawColor(color, SkXfermode::kSrc_Mode);
+    }
 
     /**
      * This makes the contents of the canvas undefined. Subsequent calls that
@@ -655,7 +616,7 @@ public:
      *  specified paint.
      *  @param paint    The paint used to fill the canvas
      */
-    virtual void drawPaint(const SkPaint& paint);
+    void drawPaint(const SkPaint& paint);
 
     enum PointMode {
         /** drawPoints draws each point separately */
@@ -687,8 +648,7 @@ public:
         @param pts      Array of points to draw
         @param paint    The paint used to draw the points
     */
-    virtual void drawPoints(PointMode mode, size_t count, const SkPoint pts[],
-                            const SkPaint& paint);
+    void drawPoints(PointMode mode, size_t count, const SkPoint pts[], const SkPaint& paint);
 
     /** Helper method for drawing a single point. See drawPoints() for a more
         details.
@@ -719,7 +679,7 @@ public:
         @param rect     The rect to be drawn
         @param paint    The paint used to draw the rect
     */
-    virtual void drawRect(const SkRect& rect, const SkPaint& paint);
+    void drawRect(const SkRect& rect, const SkPaint& paint);
 
     /** Draw the specified rectangle using the specified paint. The rectangle
         will be filled or framed based on the Style in the paint.
@@ -748,7 +708,7 @@ public:
         @param oval     The rectangle bounds of the oval to be drawn
         @param paint    The paint used to draw the oval
     */
-    virtual void drawOval(const SkRect& oval, const SkPaint&);
+    void drawOval(const SkRect& oval, const SkPaint&);
 
     /**
      *  Draw the specified RRect using the specified paint The rrect will be filled or stroked
@@ -757,7 +717,7 @@ public:
      *  @param rrect    The round-rect to draw
      *  @param paint    The paint used to draw the round-rect
      */
-    virtual void drawRRect(const SkRRect& rrect, const SkPaint& paint);
+    void drawRRect(const SkRRect& rrect, const SkPaint& paint);
 
     /**
      *  Draw the annulus formed by the outer and inner rrects. The results
@@ -805,7 +765,28 @@ public:
         @param path     The path to be drawn
         @param paint    The paint used to draw the path
     */
-    virtual void drawPath(const SkPath& path, const SkPaint& paint);
+    void drawPath(const SkPath& path, const SkPaint& paint);
+
+    /** Draw the specified image, with its top/left corner at (x,y), using the
+        specified paint, transformed by the current matrix.
+
+        @param image    The image to be drawn
+        @param left     The position of the left side of the image being drawn
+        @param top      The position of the top side of the image being drawn
+        @param paint    The paint used to draw the image, or NULL
+     */
+    void drawImage(const SkImage* image, SkScalar left, SkScalar top, const SkPaint* paint = NULL);
+    /** Draw the specified image, with the specified matrix applied (before the
+        canvas' matrix is applied).
+
+        @param image   The image to be drawn
+        @param src      Optional: specify the subset of the image to be drawn
+        @param dst      The destination rectangle where the scaled/translated
+                        image will be drawn
+        @param paint    The paint used to draw the image, or NULL
+    */
+    void drawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
+                       const SkPaint* paint = NULL);
 
     /** Draw the specified bitmap, with its top/left corner at (x,y), using the
         specified paint, transformed by the current matrix. Note: if the paint
@@ -823,8 +804,8 @@ public:
         @param top      The position of the top side of the bitmap being drawn
         @param paint    The paint used to draw the bitmap, or NULL
     */
-    virtual void drawBitmap(const SkBitmap& bitmap, SkScalar left, SkScalar top,
-                            const SkPaint* paint = NULL);
+    void drawBitmap(const SkBitmap& bitmap, SkScalar left, SkScalar top,
+                    const SkPaint* paint = NULL);
 
     enum DrawBitmapRectFlags {
         kNone_DrawBitmapRectFlag            = 0x0,
@@ -844,10 +825,9 @@ public:
                         image will be drawn
         @param paint    The paint used to draw the bitmap, or NULL
     */
-    virtual void drawBitmapRectToRect(const SkBitmap& bitmap, const SkRect* src,
-                                      const SkRect& dst,
-                                      const SkPaint* paint = NULL,
-                                      DrawBitmapRectFlags flags = kNone_DrawBitmapRectFlag);
+    void drawBitmapRectToRect(const SkBitmap& bitmap, const SkRect* src, const SkRect& dst,
+                              const SkPaint* paint = NULL,
+                              DrawBitmapRectFlags flags = kNone_DrawBitmapRectFlag);
 
     void drawBitmapRect(const SkBitmap& bitmap, const SkRect& dst,
                         const SkPaint* paint = NULL) {
@@ -866,9 +846,6 @@ public:
         this->drawBitmapRectToRect(bitmap, realSrcPtr, dst, paint, flags);
     }
 
-    virtual void drawBitmapMatrix(const SkBitmap& bitmap, const SkMatrix& m,
-                                  const SkPaint* paint = NULL);
-
     /**
      *  Draw the bitmap stretched differentially to fit into dst.
      *  center is a rect within the bitmap, and logically divides the bitmap
@@ -883,8 +860,8 @@ public:
      *  - The corners shrink proportionally
      *  - The sides (along the shrink axis) and center are not drawn
      */
-    virtual void drawBitmapNine(const SkBitmap& bitmap, const SkIRect& center,
-                                const SkRect& dst, const SkPaint* paint = NULL);
+    void drawBitmapNine(const SkBitmap& bitmap, const SkIRect& center, const SkRect& dst,
+                        const SkPaint* paint = NULL);
 
     /** Draw the specified bitmap, with its top/left corner at (x,y),
         NOT transformed by the current matrix. Note: if the paint
@@ -897,8 +874,7 @@ public:
         @param top      The position of the top side of the bitmap being drawn
         @param paint    The paint used to draw the bitmap, or NULL
     */
-    virtual void drawSprite(const SkBitmap& bitmap, int left, int top,
-                            const SkPaint* paint = NULL);
+    void drawSprite(const SkBitmap& bitmap, int left, int top, const SkPaint* paint = NULL);
 
     /** Draw the text, with origin at (x,y), using the specified paint.
         The origin is interpreted based on the Align setting in the paint.
@@ -908,8 +884,8 @@ public:
         @param y        The y-coordinate of the origin of the text being drawn
         @param paint    The paint used for the text (e.g. color, size, style)
     */
-    SK_LEGACY_DRAWTEXT_VIRTUAL void drawText(const void* text, size_t byteLength, SkScalar x,
-                          SkScalar y, const SkPaint& paint);
+    void drawText(const void* text, size_t byteLength, SkScalar x, SkScalar y,
+                  const SkPaint& paint);
 
     /** Draw the text, with each character/glyph origin specified by the pos[]
         array. The origin is interpreted by the Align setting in the paint.
@@ -918,8 +894,8 @@ public:
         @param pos      Array of positions, used to position each character
         @param paint    The paint used for the text (e.g. color, size, style)
         */
-    SK_LEGACY_DRAWTEXT_VIRTUAL void drawPosText(const void* text, size_t byteLength,
-                             const SkPoint pos[], const SkPaint& paint);
+    void drawPosText(const void* text, size_t byteLength, const SkPoint pos[],
+                     const SkPaint& paint);
 
     /** Draw the text, with each character/glyph origin specified by the x
         coordinate taken from the xpos[] array, and the y from the constY param.
@@ -930,9 +906,8 @@ public:
         @param constY   The shared Y coordinate for all of the positions
         @param paint    The paint used for the text (e.g. color, size, style)
         */
-    SK_LEGACY_DRAWTEXT_VIRTUAL void drawPosTextH(const void* text, size_t byteLength,
-                              const SkScalar xpos[], SkScalar constY,
-                              const SkPaint& paint);
+    void drawPosTextH(const void* text, size_t byteLength, const SkScalar xpos[], SkScalar constY,
+                      const SkPaint& paint);
 
     /** Draw the text, with origin at (x,y), using the specified paint, along
         the specified path. The paint's Align setting determins where along the
@@ -946,8 +921,7 @@ public:
                             position the text
         @param paint        The paint used for the text
     */
-    void drawTextOnPathHV(const void* text, size_t byteLength,
-                          const SkPath& path, SkScalar hOffset,
+    void drawTextOnPathHV(const void* text, size_t byteLength, const SkPath& path, SkScalar hOffset,
                           SkScalar vOffset, const SkPaint& paint);
 
     /** Draw the text, with origin at (x,y), using the specified paint, along
@@ -960,23 +934,16 @@ public:
                             mapped onto the path
         @param paint        The paint used for the text
         */
-    SK_LEGACY_DRAWTEXT_VIRTUAL void drawTextOnPath(const void* text, size_t byteLength,
-                                const SkPath& path, const SkMatrix* matrix,
-                                const SkPaint& paint);
+    void drawTextOnPath(const void* text, size_t byteLength, const SkPath& path,
+                        const SkMatrix* matrix, const SkPaint& paint);
 
-    /** PRIVATE / EXPERIMENTAL -- do not call
-        Perform back-end analysis/optimization of a picture. This may attach
-        optimization data to the picture which can be used by a later
-        drawPicture call.
-        @param picture The recorded drawing commands to analyze/optimize
+    /** Draw the text blob, offset by (x,y), using the specified paint.
+        @param blob     The text blob to be drawn
+        @param x        The x-offset of the text being drawn
+        @param y        The y-offset of the text being drawn
+        @param paint    The paint used for the text (e.g. color, size, style)
     */
-    void EXPERIMENTAL_optimize(const SkPicture* picture);
-
-    /** PRIVATE / EXPERIMENTAL -- do not call
-        Purge all the discardable optimization information associated with
-        'picture'. If NULL is passed in, purge all discardable information.
-    */
-    void EXPERIMENTAL_purge(const SkPicture* picture);
+    void drawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y, const SkPaint& paint);
 
     /** Draw the picture into this canvas. This method effective brackets the
         playback of the picture's draw calls with save/restore, so the state
@@ -984,7 +951,23 @@ public:
         @param picture The recorded drawing commands to playback into this
                        canvas.
     */
-    void drawPicture(const SkPicture* picture);
+    void drawPicture(const SkPicture* picture) {
+        this->drawPicture(picture, NULL, NULL);
+    }
+
+    /**
+     *  Draw the picture into this canvas.
+     *
+     *  If matrix is non-null, apply that matrix to the CTM when drawing this picture. This is
+     *  logically equivalent to
+     *      save/concat/drawPicture/restore
+     *
+     *  If paint is non-null, draw the picture into a temporary buffer, and then apply the paint's
+     *  alpha/colorfilter/imagefilter/xfermode to that buffer as it is drawn to the canvas.
+     *  This is logically equivalent to
+     *      saveLayer(paint)/drawPicture/restore
+     */
+    void drawPicture(const SkPicture*, const SkMatrix* matrix, const SkPaint* paint);
 
     enum VertexMode {
         kTriangles_VertexMode,
@@ -1015,48 +998,51 @@ public:
         @param indexCount number of entries in the indices array (if not null)
         @param paint Specifies the shader/texture if present.
     */
-    virtual void drawVertices(VertexMode vmode, int vertexCount,
-                              const SkPoint vertices[], const SkPoint texs[],
-                              const SkColor colors[], SkXfermode* xmode,
-                              const uint16_t indices[], int indexCount,
-                              const SkPaint& paint);
+    void drawVertices(VertexMode vmode, int vertexCount,
+                      const SkPoint vertices[], const SkPoint texs[],
+                      const SkColor colors[], SkXfermode* xmode,
+                      const uint16_t indices[], int indexCount,
+                      const SkPaint& paint);
 
-    /** Send a blob of data to the canvas.
-        For canvases that draw, this call is effectively a no-op, as the data
-        is not parsed, but just ignored. However, this call exists for
-        subclasses like SkPicture's recording canvas, that can store the data
-        and then play it back later (via another call to drawData).
+    /**
+     Draw a cubic coons patch
+
+     @param cubic specifies the 4 bounding cubic bezier curves of a patch with clockwise order
+                    starting at the top left corner.
+     @param colors specifies the colors for the corners which will be bilerp across the patch,
+                    their order is clockwise starting at the top left corner.
+     @param texCoords specifies the texture coordinates that will be bilerp across the patch,
+                    their order is the same as the colors.
+     @param xmode specifies how are the colors and the textures combined if both of them are
+                    present.
+     @param paint Specifies the shader/texture if present.
      */
-    virtual void drawData(const void* data, size_t length) {
-        // do nothing. Subclasses may do something with the data
-    }
+    void drawPatch(const SkPoint cubics[12], const SkColor colors[4],
+                   const SkPoint texCoords[4], SkXfermode* xmode, const SkPaint& paint);
+
+    /**
+     *  Draw the contents of this drawable into the canvas. If the canvas is async
+     *  (e.g. it is recording into a picture) then the drawable will be referenced instead,
+     *  to have its draw() method called when the picture is finalized.
+     *
+     *  If the intent is to force the contents of the drawable into this canvas immediately,
+     *  then drawable->draw(canvas) may be called.
+     */
+    void drawDrawable(SkDrawable* drawable);
 
     /** Add comments. beginCommentGroup/endCommentGroup open/close a new group.
         Each comment added via addComment is notionally attached to its
         enclosing group. Top-level comments simply belong to no group.
      */
-    virtual void beginCommentGroup(const char* description) {
+    virtual void beginCommentGroup(const char* /*description*/) {
         // do nothing. Subclasses may do something
     }
-    virtual void addComment(const char* kywd, const char* value) {
+    virtual void addComment(const char* /*kywd*/, const char* /*value*/) {
         // do nothing. Subclasses may do something
     }
     virtual void endCommentGroup() {
         // do nothing. Subclasses may do something
     }
-
-    /**
-     *  With this call the client asserts that subsequent draw operations (up to the
-     *  matching popCull()) are fully contained within the given bounding box. The assertion
-     *  is not enforced, but the information might be used to quick-reject command blocks,
-     *  so an incorrect bounding box may result in incomplete rendering.
-     */
-    void pushCull(const SkRect& cullRect);
-
-    /**
-     *  Terminates the current culling block, and restores the previous one (if any).
-     */
-    void popCull();
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -1099,34 +1085,13 @@ public:
     */
     const SkMatrix& getTotalMatrix() const;
 
-#ifdef SK_SUPPORT_LEGACY_GETCLIPTYPE
-    enum ClipType {
-        kEmpty_ClipType = 0,
-        kRect_ClipType,
-        kComplex_ClipType
-    };
-    /** Returns a description of the total clip; may be cheaper than
-        getting the clip and querying it directly.
-    */
-    virtual ClipType getClipType() const;
-#endif
-
-#ifdef SK_SUPPORT_LEGACY_GETTOTALCLIP
-    /** DEPRECATED -- need to move this guy to private/friend
-     *  Return the current device clip (concatenation of all clip calls).
-     *  This does not account for the translate in any of the devices.
-     *  @return the current device clip (concatenation of all clip calls).
-     */
-    const SkRegion& getTotalClip() const;
-#endif
-
     /** Return the clip stack. The clip stack stores all the individual
      *  clips organized by the save/restore frame in which they were
      *  added.
      *  @return the current clip stack ("list" of individual clip elements)
      */
     const SkClipStack* getClipStack() const {
-        return &fClipStack;
+        return fClipStack;
     }
 
     typedef SkCanvasClipVisitor ClipVisitor;
@@ -1178,15 +1143,17 @@ public:
     };
 
     // don't call
-    const SkRegion& internal_private_getTotalClip() const;
-    // don't call
-    void internal_private_getTotalClipAsPath(SkPath*) const;
-    // don't call
     GrRenderTarget* internal_private_accessTopLayerRenderTarget();
+
+    // don't call
+    static void Internal_Private_SetIgnoreSaveLayerBounds(bool);
+    static bool Internal_Private_GetIgnoreSaveLayerBounds();
+    static void Internal_Private_SetTreatSpriteAsBitmap(bool);
+    static bool Internal_Private_GetTreatSpriteAsBitmap();
 
 protected:
     // default impl defers to getDevice()->newSurface(info)
-    virtual SkSurface* onNewSurface(const SkImageInfo&);
+    virtual SkSurface* onNewSurface(const SkImageInfo&, const SkSurfaceProps&);
 
     // default impl defers to its device
     virtual const void* onPeekPixels(SkImageInfo*, size_t* rowBytes);
@@ -1200,14 +1167,12 @@ protected:
         kNoLayer_SaveLayerStrategy
     };
 
-    // Transitional, pending external clients cleanup.
-    virtual void willSave(SaveFlags) { this->willSave(); }
-
     virtual void willSave() {}
     virtual SaveLayerStrategy willSaveLayer(const SkRect*, const SkPaint*, SaveFlags) {
         return kFullLayer_SaveLayerStrategy;
     }
     virtual void willRestore() {}
+    virtual void didRestore() {}
     virtual void didConcat(const SkMatrix&) {}
     virtual void didSetMatrix(const SkMatrix&) {}
 
@@ -1227,6 +1192,32 @@ protected:
                                   const SkPath& path, const SkMatrix* matrix,
                                   const SkPaint& paint);
 
+    virtual void onDrawTextBlob(const SkTextBlob* blob, SkScalar x, SkScalar y,
+                                const SkPaint& paint);
+
+    virtual void onDrawPatch(const SkPoint cubics[12], const SkColor colors[4],
+                           const SkPoint texCoords[4], SkXfermode* xmode, const SkPaint& paint);
+
+    virtual void onDrawDrawable(SkDrawable*);
+
+    virtual void onDrawPaint(const SkPaint&);
+    virtual void onDrawRect(const SkRect&, const SkPaint&);
+    virtual void onDrawOval(const SkRect&, const SkPaint&);
+    virtual void onDrawRRect(const SkRRect&, const SkPaint&);
+    virtual void onDrawPoints(PointMode, size_t count, const SkPoint pts[], const SkPaint&);
+    virtual void onDrawVertices(VertexMode, int vertexCount, const SkPoint vertices[],
+                                const SkPoint texs[], const SkColor colors[], SkXfermode*,
+                                const uint16_t indices[], int indexCount, const SkPaint&);
+    virtual void onDrawPath(const SkPath&, const SkPaint&);
+    virtual void onDrawImage(const SkImage*, SkScalar dx, SkScalar dy, const SkPaint*);
+    virtual void onDrawImageRect(const SkImage*, const SkRect*, const SkRect&, const SkPaint*);
+    virtual void onDrawBitmap(const SkBitmap&, SkScalar dx, SkScalar dy, const SkPaint*);
+    virtual void onDrawBitmapRect(const SkBitmap&, const SkRect*, const SkRect&, const SkPaint*,
+                                  DrawBitmapRectFlags);
+    virtual void onDrawBitmapNine(const SkBitmap&, const SkIRect& center, const SkRect& dst,
+                                  const SkPaint*);
+    virtual void onDrawSprite(const SkBitmap&, int left, int top, const SkPaint*);
+
     enum ClipEdgeStyle {
         kHard_ClipEdgeStyle,
         kSoft_ClipEdgeStyle
@@ -1239,7 +1230,7 @@ protected:
 
     virtual void onDiscard();
 
-    virtual void onDrawPicture(const SkPicture* picture);
+    virtual void onDrawPicture(const SkPicture*, const SkMatrix*, const SkPaint*);
 
     // Returns the canvas to be used by DrawIter. Default implementation
     // returns this. Subclasses that encapsulate an indirect canvas may
@@ -1255,30 +1246,29 @@ protected:
                         SkIRect* intersection,
                         const SkImageFilter* imageFilter = NULL);
 
-    // Called by child classes that override clipPath and clipRRect to only
-    // track fast conservative clip bounds, rather than exact clips.
-    void updateClipConservativelyUsingBounds(const SkRect&, SkRegion::Op,
-                                             bool inverseFilled);
-
     // notify our surface (if we have one) that we are about to draw, so it
     // can perform copy-on-write or invalidate any cached images
     void predrawNotify();
 
-    virtual void onPushCull(const SkRect& cullRect);
-    virtual void onPopCull();
-
 private:
     class MCRec;
 
-    SkClipStack fClipStack;
+    SkAutoTUnref<SkClipStack> fClipStack;
     SkDeque     fMCStack;
     // points to top of stack
     MCRec*      fMCRec;
     // the first N recs that can fit here mean we won't call malloc
-    uint32_t    fMCRecStorage[32];
+    enum {
+        kMCRecSize      = 128,  // most recent measurement
+        kMCRecCount     = 8,    // common depth for save/restores
+        kDeviceCMSize   = 136,  // most recent measurement
+    };
+    intptr_t fMCRecStorage[kMCRecSize * kMCRecCount / sizeof(intptr_t)];
+    intptr_t fDeviceCMStorage[kDeviceCMSize / sizeof(intptr_t)];
 
-    int         fSaveLayerCount;    // number of successful saveLayer calls
-    int         fCullCount;         // number of active culls
+    const SkSurfaceProps fProps;
+
+    int         fSaveCount;         // value returned by getSaveCount()
 
     SkMetaData* fMetaData;
 
@@ -1293,24 +1283,37 @@ private:
     bool fDeviceCMDirty;            // cleared by updateDeviceCMCache()
     void updateDeviceCMCache();
 
+    void doSave();
+    void checkForDeferredSave();
+
     friend class SkDrawIter;        // needs setupDrawForLayerDevice()
     friend class AutoDrawLooper;
     friend class SkLua;             // needs top layer size and offset
     friend class SkDebugCanvas;     // needs experimental fAllowSimplifyClip
     friend class SkDeferredDevice;  // needs getTopDevice()
+    friend class SkSurface_Raster;  // needs getDevice()
+    friend class SkRecorder;        // InitFlags
+    friend class SkNoSaveLayerCanvas;   // InitFlags
+    friend class SkPictureImageFilter;  // SkCanvas(SkBaseDevice*, SkSurfaceProps*, InitFlags)
 
-    SkBaseDevice* createLayerDevice(const SkImageInfo&);
+    enum InitFlags {
+        kDefault_InitFlags                  = 0,
+        kConservativeRasterClip_InitFlag    = 1 << 0,
+    };
+    SkCanvas(const SkIRect& bounds, InitFlags);
+    SkCanvas(SkBaseDevice*, const SkSurfaceProps*, InitFlags);
 
-    SkBaseDevice* init(SkBaseDevice*);
+    void resetForNextPicture(const SkIRect& bounds);
 
-    /**
-     *  DEPRECATED
-     *
-     *  Specify a device for this canvas to draw into. If it is not null, its
-     *  reference count is incremented. If the canvas was already holding a
-     *  device, its reference count is decremented. The new device is returned.
-     */
-    SkBaseDevice* setRootDevice(SkBaseDevice* device);
+    // needs gettotalclip()
+    friend class SkCanvasStateUtils;
+
+    // call this each time we attach ourselves to a device
+    //  - constructor
+    //  - internalSaveLayer
+    void setupDevice(SkBaseDevice*);
+
+    SkBaseDevice* init(SkBaseDevice*, InitFlags);
 
     /**
      * Gets the size/origin of the top level layer in global canvas coordinates. We don't want this
@@ -1328,18 +1331,20 @@ private:
     void internalDrawBitmapNine(const SkBitmap& bitmap, const SkIRect& center,
                                 const SkRect& dst, const SkPaint* paint);
     void internalDrawPaint(const SkPaint& paint);
-    int internalSaveLayer(const SkRect* bounds, const SkPaint* paint,
-                          SaveFlags, bool justForImageFilter, SaveLayerStrategy strategy);
-    void internalDrawDevice(SkBaseDevice*, int x, int y, const SkPaint*);
+    void internalSaveLayer(const SkRect* bounds, const SkPaint*, SaveFlags, SaveLayerStrategy);
+    void internalDrawDevice(SkBaseDevice*, int x, int y, const SkPaint*, bool isBitmapDevice);
 
     // shared by save() and saveLayer()
-    int internalSave(SaveFlags flags);
+    void internalSave();
     void internalRestore();
     static void DrawRect(const SkDraw& draw, const SkPaint& paint,
                          const SkRect& r, SkScalar textSize);
     static void DrawTextDecorations(const SkDraw& draw, const SkPaint& paint,
                                     const char text[], size_t byteLength,
                                     SkScalar x, SkScalar y);
+
+    // only for canvasutils
+    const SkRegion& internal_private_getTotalClip() const;
 
     /*  These maintain a cache of the clip bounds in local coordinates,
         (converted to 2s-compliment if floats are slow).
@@ -1348,6 +1353,7 @@ private:
     mutable bool   fCachedLocalClipBoundsDirty;
     bool fAllowSoftClip;
     bool fAllowSimplifyClip;
+    bool fConservativeRasterClip;
 
     const SkRect& getLocalClipBounds() const {
         if (fCachedLocalClipBoundsDirty) {
@@ -1371,9 +1377,6 @@ private:
     };
 
 #ifdef SK_DEBUG
-    // The cull stack rects are in device-space
-    SkTDArray<SkIRect> fCullStack;
-    void validateCull(const SkIRect&);
     void validateClip() const;
 #else
     void validateClip() const {}
@@ -1425,13 +1428,13 @@ class SkAutoCommentBlock : SkNoncopyable {
 public:
     SkAutoCommentBlock(SkCanvas* canvas, const char* description) {
         fCanvas = canvas;
-        if (NULL != fCanvas) {
+        if (fCanvas) {
             fCanvas->beginCommentGroup(description);
         }
     }
 
     ~SkAutoCommentBlock() {
-        if (NULL != fCanvas) {
+        if (fCanvas) {
             fCanvas->endCommentGroup();
         }
     }

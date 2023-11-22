@@ -81,7 +81,7 @@ $ fio job_file
 and it will start doing what the job_file tells it to do. You can give
 more than one job file on the command line, fio will serialize the running
 of those files. Internally that is the same as using the 'stonewall'
-parameter described the the parameter section.
+parameter described in the parameter section.
 
 If the job file contains only one job, you may as well just give the
 parameters on the command line. The command line parameters are identical
@@ -159,6 +159,41 @@ specify:
 
 $ fio --name=random-writers --ioengine=libaio --iodepth=4 --rw=randwrite --bs=32k --direct=0 --size=64m --numjobs=4
 
+When fio is utilized as a basis of any reasonably large test suite, it might be
+desirable to share a set of standardized settings across multiple job files.
+Instead of copy/pasting such settings, any section may pull in an external
+.fio file with 'include filename' directive, as in the following example:
+
+; -- start job file including.fio --
+[global]
+filename=/tmp/test
+filesize=1m
+include glob-include.fio
+
+[test]
+rw=randread
+bs=4k
+time_based=1
+runtime=10
+include test-include.fio
+; -- end job file including.fio --
+
+; -- start job file glob-include.fio --
+thread=1
+group_reporting=1
+; -- end job file glob-include.fio --
+
+; -- start job file test-include.fio --
+ioengine=libaio
+iodepth=4
+; -- end job file test-include.fio --
+
+Settings pulled into a section apply to that section only (except global
+section). Include directives may be nested in that any included file may
+contain further include directive(s). Include files may not contain []
+sections.
+
+
 4.1 Environment variables
 -------------------------
 
@@ -218,7 +253,20 @@ machine.
 
 This section describes in details each parameter associated with a job.
 Some parameters take an option of a given type, such as an integer or
-a string. The following types are used:
+a string. Anywhere a numeric value is required, an arithmetic expression
+may be used, provided it is surrounded by parentheses. Supported operators
+are:
+
+	addition (+)
+	subtraction (-)
+	multiplication (*)
+	division (/)
+	modulus (%)
+	exponentiation (^)
+
+For time values in expressions, units are microseconds by default. This is
+different than for time values not in expressions (not enclosed in
+parentheses). The following types are used:
 
 str	String. This is a sequence of alpha characters.
 time	Integer with possible time suffix. In seconds unless otherwise
@@ -344,7 +392,7 @@ rw=str		Type of io pattern. Accepted values are:
 		For certain types of io the result may still be skewed a bit,
 		since the speed may be different. It is possible to specify
 		a number of IO's to do before getting a new offset, this is
-		one by appending a ':<nr>' to the end of the string given.
+		done by appending a ':<nr>' to the end of the string given.
 		For a random read, it would look like 'rw=randread:8' for
 		passing in an offset modifier with a value of 8. If the
 		suffix is used with a sequential IO pattern, then the value
@@ -391,12 +439,6 @@ randseed=int	Seed the random number generators based on this seed value, to
 		If not set, the random sequence depends on the randrepeat
 		setting.
 
-use_os_rand=bool Fio can either use the random generator supplied by the OS
-		to generator random offsets, or it can use it's own internal
-		generator (based on Tausworthe). Default is to use the
-		internal generator, which is often of better quality and
-		faster.
-
 fallocate=str	Whether pre-allocation is performed when laying down files.
 		Accepted values are:
 
@@ -420,23 +462,26 @@ fadvise_hint=bool By default, fio will use fadvise() to advise the kernel
 
 size=int	The total size of file io for this job. Fio will run until
 		this many bytes has been transferred, unless runtime is
-		limited by other options (such as 'runtime', for instance).
-		Unless specific nrfiles and filesize options are given,
-		fio will divide this size between the available files
-		specified by the job. If not set, fio will use the full
-		size of the given files or devices. If the the files
-		do not exist, size must be given. It is also possible to
-		give size as a percentage between 1 and 100. If size=20%
-		is given, fio will use 20% of the full size of the given
-		files or devices.
+		limited by other options (such as 'runtime', for instance,
+		or increased/decreased by 'io_size'). Unless specific nrfiles
+		and filesize options are given, fio will divide this size
+		between the available files specified by the job. If not set,
+		fio will use the full size of the given files or devices.
+		If the files do not exist, size must be given. It is also
+		possible to give size as a percentage between 1 and 100. If
+		size=20% is given, fio will use 20% of the full size of the
+		given files or devices.
 
+io_size=int
 io_limit=int	Normally fio operates within the region set by 'size', which
 		means that the 'size' option sets both the region and size of
 		IO to be performed. Sometimes that is not what you want. With
 		this option, it is possible to define just the amount of IO
 		that fio should do. For instance, if 'size' is set to 20G and
-		'io_limit' is set to 5G, fio will perform IO within the first
-		20G but exit when 5G have been done.
+		'io_size' is set to 5G, fio will perform IO within the first
+		20G but exit when 5G have been done. The opposite is also
+		possible - if 'size' is set to 20G, and 'io_size' is set to
+		40G, then fio will do 40G of IO within the 0..20G region.
 
 filesize=int	Individual file sizes. May be a range, in which case fio
 		will select sizes for files at random within the given range
@@ -519,7 +564,7 @@ bssplit=str	Sometimes you want even finer grained control of the
 		while having 90% 4k writes and 10% 8k writes, you would
 		specify:
 
-		bssplit=2k/50:4k/50,4k/90,8k/10
+		bssplit=2k/50:4k/50,4k/90:8k/10
 
 blocksize_unaligned
 bs_unaligned	If this option is given, any byte size value within bsrange
@@ -552,9 +597,12 @@ scramble_buffers=bool	If refill_buffers is too costly and the target is
 buffer_compress_percentage=int	If this is set, then fio will attempt to
 		provide IO buffer content (on WRITEs) that compress to
 		the specified level. Fio does this by providing a mix of
-		random data and zeroes. Note that this is per block size
-		unit, for file/disk wide compression level that matches
-		this setting, you'll also want to set refill_buffers.
+		random data and a fixed pattern. The fixed pattern is either
+		zeroes, or the pattern specified by buffer_pattern. If the
+		pattern option is used, it might skew the compression ratio
+		slightly. Note that this is per block size unit, for file/disk
+		wide compression level that matches this setting, you'll also
+		want to set refill_buffers.
 
 buffer_compress_chunk=int	See buffer_compress_percentage. This
 		setting allows fio to manage how big the ranges of random
@@ -565,10 +613,20 @@ buffer_compress_chunk=int	See buffer_compress_percentage. This
 		alternate random and zeroed data throughout the IO
 		buffer.
 
-buffer_pattern=str	If set, fio will fill the io buffers with this pattern.
-		If not set, the contents of io buffers is defined by the other
-		options related to buffer contents. The setting can be any
-		pattern of bytes, and can be prefixed with 0x for hex values.
+buffer_pattern=str	If set, fio will fill the io buffers with this
+		pattern. If not set, the contents of io buffers is defined by
+		the other options related to buffer contents. The setting can
+		be any pattern of bytes, and can be prefixed with 0x for hex
+		values. It may also be a string, where the string must then
+		be wrapped with "".
+
+dedupe_percentage=int	If set, fio will generate this percentage of
+		identical buffers when writing. These buffers will be
+		naturally dedupable. The contents of the buffers depend on
+		what other buffer compression settings have been set. It's
+		possible to have the individual buffers either fully
+		compressible, or not at all. This option only controls the
+		distribution of unique buffers.
 
 nrfiles=int	Number of files to use for this job. Defaults to 1.
 
@@ -670,15 +728,45 @@ ioengine=str	Defines how the job issues io to the file. The following
 				channel semantics (Send/Recv) for the
 				InfiniBand, RoCE and iWARP protocols.
 
-			falloc   IO engine that does regular fallocate to
-				 simulate data transfer as fio ioengine.
-				 DDIR_READ  does fallocate(,mode = keep_size,)
-				 DDIR_WRITE does fallocate(,mode = 0)
-				 DDIR_TRIM  does fallocate(,mode = punch_hole)
+			falloc	IO engine that does regular fallocate to
+				simulate data transfer as fio ioengine.
+				DDIR_READ  does fallocate(,mode = keep_size,)
+				DDIR_WRITE does fallocate(,mode = 0)
+				DDIR_TRIM  does fallocate(,mode = punch_hole)
 
 			e4defrag IO engine that does regular EXT4_IOC_MOVE_EXT
-				 ioctls to simulate defragment activity in
-				 request to DDIR_WRITE event
+				ioctls to simulate defragment activity in
+				request to DDIR_WRITE event
+
+			rbd	IO engine supporting direct access to Ceph
+				Rados Block Devices (RBD) via librbd without
+				the need to use the kernel rbd driver. This
+				ioengine defines engine specific options.
+
+			gfapi	Using Glusterfs libgfapi sync interface to
+				direct access to Glusterfs volumes without
+				options.
+
+			gfapi_async Using Glusterfs libgfapi async interface
+				to direct access to Glusterfs volumes without
+				having to go through FUSE. This ioengine
+				defines engine specific options.
+
+			libhdfs	Read and write through Hadoop (HDFS).
+				The 'filename' option is used to specify host,
+				port of the hdfs name-node to connect. This
+				engine interprets offsets a little
+				differently. In HDFS, files once created
+				cannot be modified. So random writes are not
+				possible. To imitate this, libhdfs engine
+				expects bunch of small files to be created
+				over HDFS, and engine will randomly pick a
+				file out of those files based on the offset
+				generated by fio backend. (see the example
+				job file to create such files, use rw=write
+				option). Please note, you might want to set
+				necessary environment variables to work with
+				hdfs/libhdfs properly.
 
 			external Prefix to specify loading an external
 				IO engine object file. Append the engine
@@ -736,18 +824,21 @@ offset=int	Start io at the given offset in the file. The data before
 		caps the file size at real_size - offset.
 
 offset_increment=int	If this is provided, then the real offset becomes
-		the offset + offset_increment * thread_number, where the
-		thread number is a counter that starts at 0 and is incremented
-		for each job. This option is useful if there are several jobs
-		which are intended to operate on a file in parallel in disjoint
-		segments, with even spacing between the starting points.
+		offset + offset_increment * thread_number, where the thread
+		number is a counter that starts at 0 and is incremented for
+		each sub-job (i.e. when numjobs option is specified). This
+		option is useful if there are several jobs which are intended
+		to operate on a file in parallel disjoint segments, with
+		even spacing between the starting points.
 
 number_ios=int	Fio will normally perform IOs until it has exhausted the size
 		of the region set by size=, or if it exhaust the allocated
 		time (or hits an error condition). With this setting, the
 		range/size can be set independently of the number of IOs to
 		perform. When fio reaches this number, it will exit normally
-		and report status.
+		and report status. Note that this does not extend the amount
+		of IO that will be done, it will only stop fio if this
+		condition is met before other end-of-job criteria.
 
 fsync=int	If writing to a file, issue a sync of the dirty data
 		for every number of blocks given. For example, if you give
@@ -828,10 +919,10 @@ norandommap	Normally fio will cover every block of the file when doing
 		random IO. If this option is given, fio will just get a
 		new random offset without looking at past io history. This
 		means that some blocks may not be read or written, and that
-		some blocks may be read/written more than once. This option
-		is mutually exclusive with verify= if and only if multiple
-		blocksizes (via bsrange=) are used, since fio only tracks
-		complete rewrites of blocks.
+		some blocks may be read/written more than once. If this option
+		is used with verify= and multiple blocksizes (via bsrange=),
+		only intact blocks are verified, i.e., partially-overwritten
+		blocks are ignored.
 
 softrandommap=bool See norandommap. If fio runs with the random block map
 		enabled and it fails to allocate the map, if this option is
@@ -1231,6 +1322,21 @@ verify_backlog_batch=int	Control how many blocks fio will verify
 		if verify_backlog_batch is larger than verify_backlog, some
 		blocks will be verified more than once.
 
+verify_state_save=bool	When a job exits during the write phase of a verify
+		workload, save its current state. This allows fio to replay
+		up until that point, if the verify state is loaded for the
+		verify read phase. The format of the filename is, roughly,
+		<type>-<jobname>-<jobindex>-verify.state. <type> is "local"
+		for a local run, "sock" for a client/server socket connection,
+		and "ip" (192.168.0.1, for instance) for a networked
+		client/server connection.
+
+verify_state_load=bool	If a verify termination trigger was used, fio stores
+		the current write state of each thread. This can be used at
+		verification time so that fio knows how far it should verify.
+		Without this information, fio will run a full verification
+		pass, according to the settings in the job file used.
+
 stonewall
 wait_for_previous Wait for preceding jobs in the job file to exit, before
 		starting this one. Can be used to insert serialization
@@ -1307,7 +1413,9 @@ write_bw_log=str If given, write a bandwidth log of the jobs in this job
 		jobs in their lifetime. The included fio_generate_plots
 		script uses gnuplot to turn these text files into nice
 		graphs. See write_lat_log for behaviour of given
-		filename. For this option, the suffix is _bw.log.
+		filename. For this option, the suffix is _bw.x.log, where
+		x is the index of the job (1..N, where N is the number of
+		jobs).
 
 write_lat_log=str Same as write_bw_log, except that this option stores io
 		submission, completion, and total latencies instead. If no
@@ -1317,14 +1425,16 @@ write_lat_log=str Same as write_bw_log, except that this option stores io
 
 		write_lat_log=foo
 
-		The actual log names will be foo_slat.log, foo_clat.log,
-		and foo_lat.log. This helps fio_generate_plot fine the logs
-		automatically.
+		The actual log names will be foo_slat.x.log, foo_clat.x.log,
+		and foo_lat.x.log, where x is the index of the job (1..N,
+		where N is the number of jobs). This helps fio_generate_plot
+		fine the logs automatically.
 
 write_iops_log=str Same as write_bw_log, but writes IOPS. If no filename is
 		given with this option, the default filename of
-		"jobname_type.log" is used. Even if the filename is given,
-		fio will still append the type of log.
+		"jobname_type.x.log" is used,where x is the index of the job
+		(1..N, where N is the number of jobs). Even if the filename
+		is given, fio will still append the type of log.
 
 log_avg_msec=int By default, fio will log an entry in the iops, latency,
 		or bw log for every IO that completes. When writing to the
@@ -1332,6 +1442,29 @@ log_avg_msec=int By default, fio will log an entry in the iops, latency,
 		this option makes fio average the each log entry over the
 		specified period of time, reducing the resolution of the log.
 		Defaults to 0.
+
+log_offset=int	If this is set, the iolog options will include the byte
+		offset for the IO entry as well as the other data values.
+
+log_compression=int	If this is set, fio will compress the IO logs as
+		it goes, to keep the memory footprint lower. When a log
+		reaches the specified size, that chunk is removed and
+		compressed in the background. Given that IO logs are
+		fairly highly compressible, this yields a nice memory
+		savings for longer runs. The downside is that the
+		compression will consume some background CPU cycles, so
+		it may impact the run. This, however, is also true if
+		the logging ends up consuming most of the system memory.
+		So pick your poison. The IO logs are saved normally at the
+		end of a run, by decompressing the chunks and storing them
+		in the specified log file. This feature depends on the
+		availability of zlib.
+
+log_store_compressed=bool	If set, and log_compression is also set,
+		fio will store the log files in a compressed format. They
+		can be decompressed with fio, using the --inflate-log
+		command line parameter. The files will be stored with a
+		.fz suffix.
 
 lockmem=int	Pin down the specified amount of memory with mlock(2). Can
 		potentially be used instead of removing memory or booting
@@ -1522,7 +1655,9 @@ that defines them is selected.
 		address.
 
 [netsplice] port=int
-[net] port=int	The TCP or UDP port to bind to or connect to.
+[net] port=int	The TCP or UDP port to bind to or connect to. If this is used
+with numjobs to spawn multiple instances of the same job type, then this will
+be the starting port number since fio will use a range of ports.
 
 [netsplice] interface=str
 [net] interface=str  The IP address of the network interface used to send or
@@ -1554,6 +1689,7 @@ that defines them is selected.
 [net] listen	For TCP network connections, tell fio to listen for incoming
 		connections rather than initiating an outgoing connection. The
 		hostname must be omitted if this option is used.
+
 [net] pingpong	Normaly a network writer will just continue writing data, and
 		a network reader will just consume packages. If pingpong=1
 		is set, a writer will send its normal payload to the reader,
@@ -1565,6 +1701,10 @@ that defines them is selected.
 		For UDP multicast traffic pingpong=1 should only be set for a
 		single reader when multiple readers are listening to the same
 		address.
+
+[net] window_size	Set the desired socket buffer size for the connection.
+
+[net] mss	Set the TCP maximum segment size (TCP_MAXSEG).
 
 [e4defrag] donorname=str
 	        File will be used as a block donor(swap extents between files)
@@ -1606,6 +1746,15 @@ E		Thread exited, not reaped by main thread yet.
 _		Thread reaped, or
 X		Thread reaped, exited with an error.
 K		Thread reaped, exited due to signal.
+
+Fio will condense the thread string as not to take up more space on the
+command line as is needed. For instance, if you have 10 readers and 10
+writers running, the output would look like this:
+
+Jobs: 20 (f=20): [R(10),W(10)] [4.0% done] [2103MB/0KB/0KB /s] [538K/0/0 iops] [eta 57m:36s]
+
+Fio will still maintain the ordering, though. So the above means that jobs
+1..10 are readers, and 11..20 are writers.
 
 The other values are fairly self explanatory - number of threads
 currently running and doing io, rate of io since last check (read speed
@@ -1850,3 +1999,81 @@ An unit work is defined as touching a full page of unsigned characters. Mean
 and standard deviation of time to complete an unit work is reported in "unit
 work" section. Options can be chosen to report detailed percpu idleness or
 overall system idleness by aggregating percpu stats.
+
+
+10.0 Verification and triggers
+------------------------------
+Fio is usually run in one of two ways, when data verification is done. The
+first is a normal write job of some sort with verify enabled. When the
+write phase has completed, fio switches to reads and verifies everything
+it wrote. The second model is running just the write phase, and then later
+on running the same job (but with reads instead of writes) to repeat the
+same IO patterns and verify the contents. Both of these methods depend
+on the write phase being completed, as fio otherwise has no idea how much
+data was written.
+
+With verification triggers, fio supports dumping the current write state
+to local files. Then a subsequent read verify workload can load this state
+and know exactly where to stop. This is useful for testing cases where
+power is cut to a server in a managed fashion, for instance.
+
+A verification trigger consists of two things:
+
+1) Storing the write state of each job
+2) Executing a trigger command
+
+The write state is relatively small, on the order of hundreds of bytes
+to single kilobytes. It contains information on the number of completions
+done, the last X completions, etc.
+
+A trigger is invoked either through creation ('touch') of a specified
+file in the system, or through a timeout setting. If fio is run with
+--trigger-file=/tmp/trigger-file, then it will continually check for
+the existence of /tmp/trigger-file. When it sees this file, it will
+fire off the trigger (thus saving state, and executing the trigger
+command).
+
+For client/server runs, there's both a local and remote trigger. If
+fio is running as a server backend, it will send the job states back
+to the client for safe storage, then execute the remote trigger, if
+specified. If a local trigger is specified, the server will still send
+back the write state, but the client will then execute the trigger.
+
+10.1 Verification trigger example
+---------------------------------
+Lets say we want to run a powercut test on the remote machine 'server'.
+Our write workload is in write-test.fio. We want to cut power to 'server'
+at some point during the run, and we'll run this test from the safety
+or our local machine, 'localbox'. On the server, we'll start the fio
+backend normally:
+
+server# fio --server
+
+and on the client, we'll fire off the workload:
+
+localbox$ fio --client=server --trigger-file=/tmp/my-trigger --trigger-remote="bash -c \"echo b > /proc/sysrq-triger\""
+
+We set /tmp/my-trigger as the trigger file, and we tell fio to execute
+
+echo b > /proc/sysrq-trigger
+
+on the server once it has received the trigger and sent us the write
+state. This will work, but it's not _really_ cutting power to the server,
+it's merely abruptly rebooting it. If we have a remote way of cutting
+power to the server through IPMI or similar, we could do that through
+a local trigger command instead. Lets assume we have a script that does
+IPMI reboot of a given hostname, ipmi-reboot. On localbox, we could
+then have run fio with a local trigger instead:
+
+localbox$ fio --client=server --trigger-file=/tmp/my-trigger --trigger="ipmi-reboot server"
+
+For this case, fio would wait for the server to send us the write state,
+then execute 'ipmi-reboot server' when that happened.
+
+10.1 Loading verify state
+-------------------------
+To load store write state, read verification job file must contain
+the verify_state_load option. If that is set, fio will load the previously
+stored state. For a local fio run this is done by loading the files directly,
+and on a client/server run, the server backend will ask the client to send
+the files over and load them from there.

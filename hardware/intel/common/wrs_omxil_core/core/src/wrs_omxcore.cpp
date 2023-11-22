@@ -122,8 +122,6 @@ static struct list *destruct_components(struct list *head)
 
 OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init(void)
 {
-    int ret;
-
     LOGV("%s(): enter", __FUNCTION__);
 
     pthread_mutex_lock(&g_module_lock);
@@ -169,7 +167,6 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_ComponentNameEnum(
     OMX_IN OMX_U32 nIndex)
 {
     CModule *cmodule;
-    ComponentBase *cbase;
     struct list *entry;
     OMX_STRING cname;
 
@@ -358,9 +355,7 @@ OMX_API OMX_ERRORTYPE OMX_GetRolesOfComponent (
     pthread_mutex_lock(&g_module_lock);
     list_foreach(g_module_list, entry) {
         CModule *cmodule;
-        ComponentBase *cbase;
         OMX_STRING cname;
-        OMX_ERRORTYPE ret;
 
         cmodule = static_cast<CModule *>(entry->data);
 
@@ -370,6 +365,7 @@ OMX_API OMX_ERRORTYPE OMX_GetRolesOfComponent (
 #if LOG_NDEBUG
             return cmodule->GetComponentRoles(pNumRoles, roles);
 #else
+            OMX_ERRORTYPE ret;
             ret = cmodule->GetComponentRoles(pNumRoles, roles);
             if (ret != OMX_ErrorNone) {
                 OMX_U32 i;

@@ -15,6 +15,8 @@
  *
  */
 
+#include <inttypes.h>
+
 #include <OMX_Core.h>
 #include <OMX_Component.h>
 #include <dlfcn.h>
@@ -22,6 +24,8 @@
 #include "isv_omxcore.h"
 #include "isv_omxcomponent.h"
 #include "isv_profile.h"
+
+#include "OMX_adaptor.h"
 
 //#define LOG_NDEBUG 0
 #undef LOG_TAG
@@ -45,6 +49,8 @@ static unsigned int g_nr_comp = 0;
 static pthread_mutex_t g_module_lock = PTHREAD_MUTEX_INITIALIZER;
 static ISVOMXCore g_cores[CORE_NUMBER];
 static Vector<ISVComponent*> g_isv_components;
+
+MRM_OMX_Adaptor* g_mrm_omx_adaptor = NULL;
 
 /**********************************************************************************
  * core entry
@@ -93,13 +99,17 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init(void)
                     }
                     g_cores[i].mNumComponents = tmpIndex;
                     g_nr_comp += g_cores[i].mNumComponents;
-                    ALOGD_IF(ISV_CORE_DEBUG, "OMX IL core: contains %ld components", g_cores[i].mNumComponents);
+                    ALOGD_IF(ISV_CORE_DEBUG,
+                             "OMX IL core: contains %" PRIu32 " components",
+                             g_cores[i].mNumComponents);
                 }
             } else {
                 pthread_mutex_unlock(&g_module_lock);
                 ALOGW("OMX IL core not found");
             }
         }
+        g_mrm_omx_adaptor = MRM_OMX_Adaptor::getInstance();
+        g_mrm_omx_adaptor->MRM_OMX_Init();
         g_initialized = 1;
     }
     pthread_mutex_unlock(&g_module_lock);
@@ -124,6 +134,10 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Deinit(void)
         }
     }
     pthread_mutex_unlock(&g_module_lock);
+
+    if (g_mrm_omx_adaptor != NULL) {
+        g_mrm_omx_adaptor = NULL;
+    }
 
     g_initialized = 0;
 
@@ -151,7 +165,8 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_ComponentNameEnum(
         }
         if (relativeIndex < g_cores[i].mNumComponents) {
             pthread_mutex_unlock(&g_module_lock);
-            ALOGD_IF(ISV_CORE_DEBUG, "%s: found %luth component %s", __func__, nIndex, cComponentName);
+            ALOGD_IF(ISV_CORE_DEBUG, "%s: found %" PRIu32 "th component %s",
+                     __func__, nIndex, cComponentName);
             return ((*(g_cores[i].mComponentNameEnum))(cComponentName, nNameLength, relativeIndex));
         } else relativeIndex -= g_cores[i].mNumComponents;
     }
@@ -187,6 +202,14 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
         return OMX_ErrorInsufficientResources;
     }
 
+    ret = g_mrm_omx_adaptor->MRM_OMX_CheckIfFullLoad(cComponentName);
+    if (ret == OMX_ErrorInsufficientResources) {
+        ALOGE("OMX_GetHandle failed. codec under full load status from media resource manager.\
+               return OMX_ErrorInsufficientResources");
+        pthread_mutex_unlock(&g_module_lock);
+        return OMX_ErrorInsufficientResources;
+    }
+
     /* find the real component*/
     for (OMX_U32 i = 0; i < CORE_NUMBER; i++) {
         if (g_cores[i].mLibHandle == NULL) {
@@ -203,8 +226,17 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
             *pHandle = pISVComponent->getBaseComponent();
 
             ALOGD_IF(ISV_CORE_DEBUG, "%s: found component %s, pHandle %p", __func__, cComponentName, *pHandle);
+
+            // set component into media resource manager adaptor
+            g_mrm_omx_adaptor->MRM_OMX_SetComponent(tempHandle, cComponentName);
+
             pthread_mutex_unlock(&g_module_lock);
             return OMX_ErrorNone;
+        } else if(omx_res == OMX_ErrorInsufficientResources) {
+            pthread_mutex_unlock(&g_module_lock);
+            delete pISVComponent;
+            pISVComponent = NULL;
+            return OMX_ErrorInsufficientResources;
         }
     }
     pthread_mutex_unlock(&g_module_lock);
@@ -235,6 +267,9 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
             delete pComp;
             g_isv_components.removeAt(i);
             ALOGD_IF(ISV_CORE_DEBUG, "%s: free component %p success", __func__, hComponent);
+
+            // remove it in media resource manager
+            g_mrm_omx_adaptor->MRM_OMX_RemoveComponent(pComp->getComponent());
             pthread_mutex_unlock(&g_module_lock);
             return OMX_ErrorNone;
         }

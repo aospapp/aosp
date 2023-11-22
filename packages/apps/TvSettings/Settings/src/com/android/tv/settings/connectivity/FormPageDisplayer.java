@@ -16,15 +16,6 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
-import com.android.tv.settings.connectivity.setup.PasswordInputWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
-import com.android.tv.settings.R;
-
 import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
@@ -32,6 +23,14 @@ import android.content.Context;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
+import com.android.tv.settings.connectivity.setup.PasswordInputWizardFragment;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
+import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
 
 import java.util.ArrayList;
 
@@ -88,7 +87,7 @@ public class FormPageDisplayer
     private TextInputWizardFragment.Listener mTextInputWizardFragmentListener;
     private PasswordInputWizardFragment.Listener mPasswordInputWizardFragmentListener;
     private SelectFromListWizardFragment.Listener mSelectFromListWizardFragmentListener;
-    private int mContentViewId;
+    private final int mContentViewId;
 
     public FormPageDisplayer(Context context, FragmentManager fragmentManager, int contentViewId) {
         mContext = context;
@@ -234,7 +233,7 @@ public class FormPageDisplayer
             final boolean emptyAllowed) {
         Fragment fragment = PasswordInputWizardFragment.newInstance(
                 getTitle(formPageInfo, titleArgument),
-                getDescription(formPageInfo, descriptionArgument), formPageInfo.getInputType(),
+                getDescription(formPageInfo, descriptionArgument),
                 lastPage == null ? null : lastPage.getDataSummary());
         displayFragment(fragment, forward);
 

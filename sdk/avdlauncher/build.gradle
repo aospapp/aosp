@@ -19,17 +19,17 @@ sources {
 
 sdk {
     windows {
-        item( { getExeName("windows") } ) {
+        item( { getExeName("windows32AvdLauncherExecutable") } ) {
             into 'lib'
             name 'AVD Manager.exe'
-            builtBy 'avdLauncherExecutable'
+            builtBy 'windows32AvdLauncherExecutable'
         }
     }
 }
 
-def getExeName(String platform) {
+def getExeName(String name) {
     // binaries will return a set of binaries
-    def binaries = executables.avdLauncher.binaries.matching { it.name == "avdLauncherExecutable" }
+    def binaries = executables.avdLauncher.binaries.matching { it.name == name }
     // calling .exeFile on the set returns an array with the result from each item in the set...
     return binaries.executableFile.get(0)
 }

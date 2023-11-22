@@ -2,9 +2,9 @@
 *.bak
 *.class
 bin/
-*.properties
+local.properties
 *.project
 *.cproject
 *.settings
 *.pyc
-
+.gradle

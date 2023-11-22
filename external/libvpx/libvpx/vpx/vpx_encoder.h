@@ -155,7 +155,11 @@ extern "C" {
   enum vpx_codec_cx_pkt_kind {
     VPX_CODEC_CX_FRAME_PKT,    /**< Compressed video frame */
     VPX_CODEC_STATS_PKT,       /**< Two-pass statistics for this frame */
+    VPX_CODEC_FPMB_STATS_PKT,  /**< first pass mb statistics for this frame */
     VPX_CODEC_PSNR_PKT,        /**< PSNR statistics for this frame */
+#if CONFIG_SPATIAL_SVC
+    VPX_CODEC_SPATIAL_SVC_LAYER_SIZES, /**< Sizes for each layer in this frame*/
+#endif
     VPX_CODEC_CUSTOM_PKT = 256 /**< Algorithm extensions  */
   };
 
@@ -185,12 +189,16 @@ extern "C" {
 
       } frame;  /**< data for compressed frame packet */
       struct vpx_fixed_buf twopass_stats;  /**< data for two-pass packet */
+      struct vpx_fixed_buf firstpass_mb_stats; /**< first pass mb packet */
       struct vpx_psnr_pkt {
         unsigned int samples[4];  /**< Number of samples, total/y/u/v */
         uint64_t     sse[4];      /**< sum squared error, total/y/u/v */
         double       psnr[4];     /**< PSNR, total/y/u/v */
       } psnr;                       /**< data for PSNR packet */
       struct vpx_fixed_buf raw;     /**< data for arbitrary packets */
+#if CONFIG_SPATIAL_SVC
+      size_t layer_sizes[VPX_SS_MAX_LAYERS];
+#endif
 
       /* This packet size is fixed to allow codecs to extend this
        * interface without having to manage storage for raw packets,
@@ -396,6 +404,19 @@ extern "C" {
      */
     unsigned int           rc_resize_allowed;
 
+    /*!\brief Internal coded frame width.
+     *
+     * If spatial resampling is enabled this specifies the width of the
+     * encoded frame.
+     */
+    unsigned int           rc_scaled_width;
+
+    /*!\brief Internal coded frame height.
+     *
+     * If spatial resampling is enabled this specifies the height of the
+     * encoded frame.
+     */
+    unsigned int           rc_scaled_height;
 
     /*!\brief Spatial resampling up watermark.
      *
@@ -433,6 +454,12 @@ extern "C" {
      */
     struct vpx_fixed_buf   rc_twopass_stats_in;
 
+    /*!\brief first pass mb stats buffer.
+     *
+     * A buffer containing all of the first pass mb stats packets produced
+     * in the first pass, concatenated.
+     */
+    struct vpx_fixed_buf   rc_firstpass_mb_stats_in;
 
     /*!\brief Target data rate
      *
@@ -610,6 +637,13 @@ extern "C" {
      */
     unsigned int           ss_number_layers;
 
+    /*!\brief Enable auto alt reference flags for each spatial layer.
+     *
+     * These values specify if auto alt reference frame is enabled for each
+     * spatial layer.
+     */
+    int                    ss_enable_auto_alt_ref[VPX_SS_MAX_LAYERS];
+
     /*!\brief Target bitrate for each spatial layer.
      *
      * These values specify the target coding bitrate to be used for each
@@ -668,10 +702,6 @@ extern "C" {
    * is not thread safe and should be guarded with a lock if being used
    * in a multithreaded context.
    *
-   * In XMA mode (activated by setting VPX_CODEC_USE_XMA in the flags
-   * parameter), the storage pointed to by the cfg parameter must be
-   * kept readable and stable until all memory maps have been set.
-   *
    * \param[in]    ctx     Pointer to this instance's context.
    * \param[in]    iface   Pointer to the algorithm interface to use.
    * \param[in]    cfg     Configuration to use, if known. May be NULL.
@@ -704,10 +734,6 @@ extern "C" {
    * Applications should call the vpx_codec_enc_init_multi convenience macro
    * instead of this function directly, to ensure that the ABI version number
    * parameter is properly initialized.
-   *
-   * In XMA mode (activated by setting VPX_CODEC_USE_XMA in the flags
-   * parameter), the storage pointed to by the cfg parameter must be
-   * kept readable and stable until all memory maps have been set.
    *
    * \param[in]    ctx     Pointer to this instance's context.
    * \param[in]    iface   Pointer to the algorithm interface to use.

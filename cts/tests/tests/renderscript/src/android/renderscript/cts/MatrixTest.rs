@@ -268,11 +268,13 @@ static bool testMatrixVectorMultiply() {
   const float2 f2r = rsMatrixMultiply(&m2, f2);
   const float3 f3r = rsMatrixMultiply(&m3, f3);
   const float4 f4r = rsMatrixMultiply(&m4, f4);
+  const float4 f3m4r = rsMatrixMultiply(&m4, f3);
 
   // rsMatrixMultiply returns (matrix * vector)
   const float2 f2rExpectedValues = { 14.f, 24.f };
   const float3 f3rExpectedValues = { 21.f, 31.f, 41.f };
   const float4 f4rExpectedValues = {168.f, 298.f, 428.f, 558.f};
+  const float4 f3m4rExpectedValues = {35.0, 55.0, 75.0, 95.0};
 
   for (int row = 0; row < 2; row++) {
     EXPECT(row, 0, f2r[row], f2rExpectedValues[row]);
@@ -284,6 +286,10 @@ static bool testMatrixVectorMultiply() {
 
   for (int row = 0; row < 4; row++) {
     EXPECT(row, 0, f4r[row], f4rExpectedValues[row]);
+  }
+
+  for (int row = 0; row < 4; row++) {
+    EXPECT(row, 0, f3m4r[row], f3m4rExpectedValues[row]);
   }
 
   return failed;

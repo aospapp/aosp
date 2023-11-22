@@ -16,8 +16,6 @@
 
 package com.android.server.telecom;
 
-import android.telecom.CallState;
-
 import com.android.internal.util.Preconditions;
 
 /**
@@ -89,7 +87,6 @@ class RingbackPlayer extends CallsManagerListenerBase {
      */
     private void startRingbackForCall(Call call) {
         Preconditions.checkState(call.getState() == CallState.DIALING);
-        ThreadUtil.checkOnMainThread();
 
         if (mCall == call) {
             Log.w(this, "Ignoring duplicate requests to ring for %s.", call);
@@ -116,8 +113,6 @@ class RingbackPlayer extends CallsManagerListenerBase {
      * @param call The call for which to stop ringback.
      */
     private void stopRingbackForCall(Call call) {
-        ThreadUtil.checkOnMainThread();
-
         if (mCall == call) {
             // The foreground call is no longer dialing or is no longer the foreground call. In
             // either case, stop the ringback tone.

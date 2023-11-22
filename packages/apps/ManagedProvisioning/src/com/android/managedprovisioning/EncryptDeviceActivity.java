@@ -15,18 +15,14 @@
  */
 package com.android.managedprovisioning;
 
-import com.android.internal.widget.LockPatternUtils;
-
-import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.ServiceManager;
 import android.os.storage.IMountService;
 import android.os.RemoteException;
 import android.view.View;
-import android.widget.Button;
+import android.widget.TextView;
 
 /**
  * Activity to ask for permission to activate full-filesystem encryption.
@@ -34,43 +30,36 @@ import android.widget.Button;
  * Pressing 'settings' will launch settings to prompt the user to encrypt
  * the device.
  */
-public class EncryptDeviceActivity extends Activity {
+public class EncryptDeviceActivity extends SetupLayoutActivity {
     protected static final String EXTRA_RESUME = "com.android.managedprovisioning.RESUME";
     protected static final String EXTRA_RESUME_TARGET =
             "com.android.managedprovisioning.RESUME_TARGET";
     protected static final String TARGET_PROFILE_OWNER = "profile_owner";
     protected static final String TARGET_DEVICE_OWNER = "device_owner";
 
-    private Button mCancelButton;
-    private Button mEncryptButton;
+    private Bundle mResumeInfo;
+    private String mResumeTarget;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        final View contentView = getLayoutInflater().inflate(R.layout.encrypt_device, null);
-        mEncryptButton = (Button) contentView.findViewById(R.id.accept_button);
-        mCancelButton = (Button) contentView.findViewById(R.id.cancel_button);
-        setContentView(contentView);
-        mEncryptButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                final Bundle resumeInfo = getIntent().getBundleExtra(EXTRA_RESUME);
-                BootReminder.setProvisioningReminder(EncryptDeviceActivity.this, resumeInfo);
-                // Use settings so user confirms password/pattern and its passed
-                // to encryption tool.
-                Intent intent = new Intent();
-                intent.setAction(DevicePolicyManager.ACTION_START_ENCRYPTION);
-                startActivity(intent);
-            }
-        });
+        mResumeInfo = getIntent().getBundleExtra(EXTRA_RESUME);
+        mResumeTarget = mResumeInfo.getString(EXTRA_RESUME_TARGET);
 
-        mCancelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                finish();
-            }
-        });
+        if (TARGET_PROFILE_OWNER.equals(mResumeTarget)) {
+            initializeLayoutParams(R.layout.encrypt_device, R.string.setup_work_profile, false);
+            setTitle(R.string.setup_profile_encryption);
+            ((TextView) findViewById(R.id.encrypt_main_text)).setText(
+                    R.string.encrypt_device_text_for_profile_owner_setup);
+        } else if (TARGET_DEVICE_OWNER.equals(mResumeTarget)) {
+            initializeLayoutParams(R.layout.encrypt_device, R.string.setup_work_device, false);
+            setTitle(R.string.setup_device_encryption);
+            ((TextView) findViewById(R.id.encrypt_main_text)).setText(
+                    R.string.encrypt_device_text_for_device_owner_setup);
+        }
+        configureNavigationButtons(R.string.encrypt_device_launch_settings,
+            View.VISIBLE, View.VISIBLE);
     }
 
     public static boolean isDeviceEncrypted() {
@@ -82,5 +71,15 @@ public class EncryptDeviceActivity extends Activity {
         } catch (RemoteException e) {
             return false;
         }
+    }
+
+    @Override
+    public void onNavigateNext() {
+        BootReminder.setProvisioningReminder(EncryptDeviceActivity.this, mResumeInfo);
+        // Use settings so user confirms password/pattern and its passed
+        // to encryption tool.
+        Intent intent = new Intent();
+        intent.setAction(DevicePolicyManager.ACTION_START_ENCRYPTION);
+        startActivity(intent);
     }
 }

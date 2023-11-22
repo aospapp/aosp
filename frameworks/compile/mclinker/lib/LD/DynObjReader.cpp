@@ -7,10 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mcld/LD/DynObjReader.h"
-#include "mcld/Target/TargetLDBackend.h"
-#include "mcld/MC/Input.h"
 
-using namespace mcld;
+#include "mcld/MC/Input.h"
+#include "mcld/Target/TargetLDBackend.h"
+
+namespace mcld {
 
 //==========================
 // ObjectReader
+
+}  // namespace mcld

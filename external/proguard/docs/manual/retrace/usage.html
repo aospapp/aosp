@@ -5,19 +5,21 @@
 <meta http-equiv="content-style-type" content="text/css">
 <link rel="stylesheet" type="text/css" href="../style.css">
 <title>ReTrace Usage</title>
+</head>
+<body>
+
 <script type="text/javascript" language="JavaScript">
 <!--
 if (window.self==window.top)
-  window.top.location.replace("../../index.html#"+window.location.pathname+window.location.hash);
-else {
-  var hash="#"+window.location.pathname.replace(window.top.location.pathname.replace("index.html", ""), "");
-  if (window.top.location.hash!=hash)
-    window.top.location.hash=hash;
-}
+  document.write('<a class="largebutton" target="_top" href="../../index.html#manual/retrace/usage.html">ProGuard index</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/dexguard">DexGuard</a> <a class="largebutton" target="_top" href="http://www.saikoa.com/">Saikoa</a> <a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>')
 //-->
 </script>
-</head>
-<body>
+<noscript>
+<a class="largebutton" target="_top"  href="../../index.html#manual/retrace/usage.html">ProGuard index</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/dexguard">DexGuard</a>
+<a class="largebutton" target="_top"  href="http://www.saikoa.com/">Saikoa</a>
+<a class="largebutton" target="other" href="http://sourceforge.net/projects/proguard/">Sourceforge</a>
+</noscript>
 
 <h2>Usage</h2>
 
@@ -60,7 +62,7 @@ The following options are supported:
     de-obfuscate more general types of input than just stack traces. The
     default is suitable for stack traces produced by most JVMs:
     <pre>
-    (?:.*?\bat\s+%c.%m\s*\(.*?(?::%l)?\)\s*)|(?:(?:.*?[:"]\s+)?%c(?::.*)?)
+    (?:.*?\bat\s+%c\.%m\s*\(.*?(?::%l)?\)\s*)|(?:(?:.*?[:"]\s+)?%c(?::.*)?)
     </pre>
     The regular expression is a Java regular expression (cfr. the documentation
     of <code>java.util.regex.Pattern</code>), with a few additional wildcards:
@@ -118,10 +120,9 @@ Unobfuscated elements and obfuscated elements for which no mapping is available
 will be left unchanged.
 
 <hr />
-<noscript><div><a target="_top" href="../../index.html" class="button">Show menu</a></div></noscript>
 <address>
-Copyright &copy; 2002-2013
-<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a>.
+Copyright &copy; 2002-2014
+<a target="other" href="http://www.lafortune.eu/">Eric Lafortune</a> @ <a target="top" href="http://www.saikoa.com/">Saikoa</a>.
 </address>
 </body>
 </html>

@@ -22,7 +22,7 @@
     <string name="application_name" msgid="4119979710394894209">"Selector de fons de pantalla animat"</string>
     <string name="live_wallpaper_picker_title" msgid="4811278937634144675">"Selecció del fons de pantalla animat"</string>
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"Fons de pantalla animats"</string>
-    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Visualització prèvia del fons de pantalla animat"</string>
+    <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"Previsualització del fons de pantalla animat"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"Configuració…"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"Estableix el fons de pantalla"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"No hi ha cap fons de pantalla animat."</string>

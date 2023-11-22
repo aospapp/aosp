@@ -35,9 +35,9 @@ sdk {
         }
     }
     windows {
-        item( { getExeName("windows") } ) {
+        item( { getExeName("windows32") } ) {
             name 'mksdcard.exe'
-            builtBy 'windowsMksdcardExecutable'
+            builtBy 'windows32MksdcardExecutable'
         }
     }
 }

@@ -6,45 +6,63 @@
  */
 
 #include "Benchmark.h"
-#include "SkScaledImageCache.h"
+#include "SkResourceCache.h"
+
+namespace {
+static void* gGlobalAddress;
+class TestKey : public SkResourceCache::Key {
+public:
+    intptr_t fValue;
+
+    TestKey(intptr_t value) : fValue(value) {
+        this->init(&gGlobalAddress, 0, sizeof(fValue));
+    }
+};
+struct TestRec : public SkResourceCache::Rec {
+    TestKey     fKey;
+    intptr_t    fValue;
+
+    TestRec(const TestKey& key, intptr_t value) : fKey(key), fValue(value) {}
+
+    const Key& getKey() const override { return fKey; }
+    size_t bytesUsed() const override { return sizeof(fKey) + sizeof(fValue); }
+
+    static bool Visitor(const SkResourceCache::Rec&, void*) {
+        return true;
+    }
+};
+}
 
 class ImageCacheBench : public Benchmark {
-    SkScaledImageCache  fCache;
-    SkBitmap            fBM;
+    SkResourceCache fCache;
 
     enum {
-        DIM = 1,
         CACHE_COUNT = 500
     };
 public:
-    ImageCacheBench()  : fCache(CACHE_COUNT * 100) {
-        fBM.allocN32Pixels(DIM, DIM);
-    }
+    ImageCacheBench()  : fCache(CACHE_COUNT * 100) {}
 
     void populateCache() {
-        SkScalar scale = 1;
         for (int i = 0; i < CACHE_COUNT; ++i) {
-            SkBitmap tmp;
-            tmp.allocN32Pixels(1, 1);
-            fCache.unlock(fCache.addAndLock(fBM, scale, scale, tmp));
-            scale += 1;
+            fCache.add(SkNEW_ARGS(TestRec, (TestKey(i), i)));
         }
     }
 
 protected:
-    virtual const char* onGetName() SK_OVERRIDE {
+    const char* onGetName() override {
         return "imagecache";
     }
 
-    virtual void onDraw(const int loops, SkCanvas*) SK_OVERRIDE {
+    void onDraw(const int loops, SkCanvas*) override {
         if (fCache.getTotalBytesUsed() == 0) {
             this->populateCache();
         }
 
-        SkBitmap tmp;
-        // search for a miss (-1 scale)
+        TestKey key(-1);
+        // search for a miss (-1)
         for (int i = 0; i < loops; ++i) {
-            (void)fCache.findAndLock(fBM, -1, -1, &tmp);
+            SkDEBUGCODE(bool found =) fCache.find(key, TestRec::Visitor, NULL);
+            SkASSERT(!found);
         }
     }
 

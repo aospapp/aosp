@@ -9,3 +9,5 @@
 - 9/13: Fix memleak in WebPIDelete() (change#Id4faef1b)
 - 1/14: Release version 0.4.0-rc1 (change#I22be12d8)
 - 7/14: Release version 0.4.1-rc1 (change#I5346984d2)
+- 1/15: Release version 0.4.2 (change#I32a22786f)
+- 3/17: Release version 0.4.3 (tag: v0.4.3)

@@ -17,6 +17,7 @@
 #ifndef ANDROID_GUI_BUFFERQUEUECORE_H
 #define ANDROID_GUI_BUFFERQUEUECORE_H
 
+#include <gui/BufferItem.h>
 #include <gui/BufferQueueDefs.h>
 #include <gui/BufferSlot.h>
 
@@ -29,11 +30,14 @@
 #include <utils/Trace.h>
 #include <utils/Vector.h>
 
-#define BQ_LOGV(x, ...) ALOGV("[%s] "x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGD(x, ...) ALOGD("[%s] "x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGI(x, ...) ALOGI("[%s] "x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGW(x, ...) ALOGW("[%s] "x, mConsumerName.string(), ##__VA_ARGS__)
-#define BQ_LOGE(x, ...) ALOGE("[%s] "x, mConsumerName.string(), ##__VA_ARGS__)
+#include <list>
+#include <set>
+
+#define BQ_LOGV(x, ...) ALOGV("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
+#define BQ_LOGD(x, ...) ALOGD("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
+#define BQ_LOGI(x, ...) ALOGI("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
+#define BQ_LOGW(x, ...) ALOGW("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
+#define BQ_LOGE(x, ...) ALOGE("[%s] " x, mConsumerName.string(), ##__VA_ARGS__)
 
 #define ATRACE_BUFFER_INDEX(index)                                   \
     if (ATRACE_ENABLED()) {                                          \
@@ -45,7 +49,6 @@
 
 namespace android {
 
-class BufferItem;
 class IConsumerListener;
 class IGraphicBufferAlloc;
 class IProducerListener;
@@ -58,7 +61,7 @@ class BufferQueueCore : public virtual RefBase {
 public:
     // Used as a placeholder slot number when the value isn't pointing to an
     // existing buffer.
-    enum { INVALID_BUFFER_SLOT = -1 }; // TODO: Extract from IGBC::BufferItem
+    enum { INVALID_BUFFER_SLOT = BufferItem::INVALID_BUFFER_SLOT };
 
     // We reserve two slots in order to guarantee that the producer and
     // consumer can run asynchronously.
@@ -123,6 +126,10 @@ private:
     // waitWhileAllocatingLocked blocks until mIsAllocating is false.
     void waitWhileAllocatingLocked() const;
 
+    // validateConsistencyLocked ensures that the free lists are in sync with
+    // the information stored in mSlots
+    void validateConsistencyLocked() const;
+
     // mAllocator is the connection to SurfaceFlinger that is used to allocate
     // new GraphicBuffer objects.
     sp<IGraphicBufferAlloc> mAllocator;
@@ -177,6 +184,14 @@ private:
     // mQueue is a FIFO of queued buffers used in synchronous mode.
     Fifo mQueue;
 
+    // mFreeSlots contains all of the slots which are FREE and do not currently
+    // have a buffer attached
+    std::set<int> mFreeSlots;
+
+    // mFreeBuffers contains all of the slots which are FREE and currently have
+    // a buffer attached
+    std::list<int> mFreeBuffers;
+
     // mOverrideMaxBufferCount is the limit on the number of buffers that will
     // be allocated at one time. This value is set by the producer by calling
     // setBufferCount. The default is 0, which means that the producer doesn't
@@ -199,15 +214,20 @@ private:
 
     // mDefaultBufferFormat can be set so it will override the buffer format
     // when it isn't specified in dequeueBuffer.
-    uint32_t mDefaultBufferFormat;
+    PixelFormat mDefaultBufferFormat;
 
     // mDefaultWidth holds the default width of allocated buffers. It is used
     // in dequeueBuffer if a width and height of 0 are specified.
-    int mDefaultWidth;
+    uint32_t mDefaultWidth;
 
     // mDefaultHeight holds the default height of allocated buffers. It is used
     // in dequeueBuffer if a width and height of 0 are specified.
-    int mDefaultHeight;
+    uint32_t mDefaultHeight;
+
+    // mDefaultBufferDataSpace holds the default dataSpace of queued buffers.
+    // It is used in queueBuffer if a dataspace of 0 (HAL_DATASPACE_UNKNOWN)
+    // is specified.
+    android_dataspace mDefaultBufferDataSpace;
 
     // mDefaultMaxBufferCount is the default limit on the number of buffers that
     // will be allocated at one time. This default limit is set by the consumer.
@@ -246,6 +266,20 @@ private:
     // mIsAllocatingCondition is a condition variable used by producers to wait until mIsAllocating
     // becomes false.
     mutable Condition mIsAllocatingCondition;
+
+    // mAllowAllocation determines whether dequeueBuffer is allowed to allocate
+    // new buffers
+    bool mAllowAllocation;
+
+    // mBufferAge tracks the age of the contents of the most recently dequeued
+    // buffer as the number of frames that have elapsed since it was last queued
+    uint64_t mBufferAge;
+
+    // mGenerationNumber stores the current generation number of the attached
+    // producer. Any attempt to attach a buffer with a different generation
+    // number will fail.
+    uint32_t mGenerationNumber;
+
 }; // class BufferQueueCore
 
 } // namespace android

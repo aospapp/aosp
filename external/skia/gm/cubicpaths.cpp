@@ -16,9 +16,6 @@ public:
     ClippedCubicGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("clippedcubic");
@@ -59,9 +56,6 @@ public:
     CubicPathGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("cubicpath");
@@ -130,6 +124,7 @@ protected:
         SkPaint titlePaint;
         titlePaint.setColor(SK_ColorBLACK);
         titlePaint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&titlePaint);
         titlePaint.setLCDRenderText(true);
         titlePaint.setTextSize(15 * SK_Scalar1);
         const char title[] = "Cubic Drawn Into Rectangle Clips With "
@@ -139,7 +134,7 @@ protected:
                             20 * SK_Scalar1,
                             titlePaint);
 
-        SkLCGRandom rand;
+        SkRandom rand;
         SkRect rect = SkRect::MakeWH(100*SK_Scalar1, 30*SK_Scalar1);
         canvas->save();
         canvas->translate(10 * SK_Scalar1, 30 * SK_Scalar1);
@@ -174,6 +169,7 @@ protected:
                     SkPaint labelPaint;
                     labelPaint.setColor(color);
                     labelPaint.setAntiAlias(true);
+                    sk_tool_utils::set_portable_typeface(&labelPaint);
                     labelPaint.setLCDRenderText(true);
                     labelPaint.setTextSize(10 * SK_Scalar1);
                     canvas->drawText(gStyles[style].fName,
@@ -206,9 +202,6 @@ public:
     CubicClosePathGM() {}
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
     SkString onShortName() {
         return SkString("cubicclosepath");
@@ -278,6 +271,7 @@ protected:
         SkPaint titlePaint;
         titlePaint.setColor(SK_ColorBLACK);
         titlePaint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&titlePaint);
         titlePaint.setLCDRenderText(true);
         titlePaint.setTextSize(15 * SK_Scalar1);
         const char title[] = "Cubic Closed Drawn Into Rectangle Clips With "
@@ -287,7 +281,7 @@ protected:
                             20 * SK_Scalar1,
                             titlePaint);
 
-        SkLCGRandom rand;
+        SkRandom rand;
         SkRect rect = SkRect::MakeWH(100*SK_Scalar1, 30*SK_Scalar1);
         canvas->save();
         canvas->translate(10 * SK_Scalar1, 30 * SK_Scalar1);
@@ -322,6 +316,7 @@ protected:
                     SkPaint labelPaint;
                     labelPaint.setColor(color);
                     labelPaint.setAntiAlias(true);
+                    sk_tool_utils::set_portable_typeface(&labelPaint);
                     labelPaint.setLCDRenderText(true);
                     labelPaint.setTextSize(10 * SK_Scalar1);
                     canvas->drawText(gStyles[style].fName,

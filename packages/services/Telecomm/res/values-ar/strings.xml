@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"الهاتف"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"إدارة المكالمات الهاتفية"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"الهاتف"</string>
     <string name="unknown" msgid="6878797917991465859">"غير معروف"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"مكالمة فائتة"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"المكالمات الفائتة"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"رد سريع"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"تم إرسال الرسالة إلى <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"مسموح لمالك الجهاز بمكالمات الطوارئ فقط"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"حسابات الاتصال"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"لم يسمح مالك الجهاز إلا بإجراء مكالمات الطوارئ فقط."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"يتعذر على هذا التطبيق إجراء مكالمات صادرة بدون إذن من الهاتف."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"لإجراء مكالمة، أدخل رقمًا صالحًا."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"لا يمكن إضافة مكالمة في الوقت الحالي."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"‏يُرجى تعطيل وضع TTY لإجراء مكالمات فيديو."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"رقم البريد الصوتي مفقود"</string>
-    <string name="no_vm_number_msg" msgid="1300729501030053828">"‏لم يتم تخزين رقم بريد صوتي على بطاقة SIM."</string>
+    <string name="no_vm_number_msg" msgid="1300729501030053828">"‏لم يتم تخزين رقم بريد صوتي على شريحة SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"إضافة رقم"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"هل تريد تغيير التطبيق الافتراضي لبرنامج الاتصال؟"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"هل تريد استخدام <xliff:g id="NEW_APP">%1$s</xliff:g> بدلاً من <xliff:g id="CURRENT_APP">%2$s</xliff:g> تطبيقًا افتراضيًا لبرنامج الاتصال؟"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"هل تريد استخدام <xliff:g id="NEW_APP">%s</xliff:g> تطبيقًا افتراضيًا لبرنامج الاتصال؟"</string>
 </resources>

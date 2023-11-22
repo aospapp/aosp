@@ -128,16 +128,16 @@ ihevc_inter_pred_chroma_horz_w16out_av8:
 
     ble         end_loops
 
-    dup         v24.8b, v2.8b[0]            //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
+    dup         v24.8b, v2.b[0]             //coeffabs_0 = vdup_lane_u8(coeffabs, 0)
     sub         x12,x0,#2                   //pu1_src - 2
-    dup         v25.8b, v2.8b[1]            //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
+    dup         v25.8b, v2.b[1]             //coeffabs_1 = vdup_lane_u8(coeffabs, 1)
     add         x4,x12,x2                   //pu1_src_tmp2_8 = pu1_src + src_strd
-    dup         v26.8b, v2.8b[2]            //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
+    dup         v26.8b, v2.b[2]             //coeffabs_2 = vdup_lane_u8(coeffabs, 2)
 
     tst         x10,#3                      //checks wd for multiples of 4
     lsl         x5, x10, #1                 //2wd
 
-    dup         v27.8b, v2.8b[3]            //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
+    dup         v27.8b, v2.b[3]             //coeffabs_3 = vdup_lane_u8(coeffabs, 3)
 
     and         x7,x14,#1                   //added                //calculating ht_residue ht_residue = (ht & 1)
     sub         x14,x14,x7                  //added                //decrement height by ht_residue(residue value is calculated outside)

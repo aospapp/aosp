@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Klikləmə səsi"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Klikləmədə popup"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Seçimlər"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Görünüş və düzənlər"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Çoxdilli seçimlər"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Hesablar &amp; Məxfilik"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Görünüş &amp; Düzümlər"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Jest ilə yazma"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Mətn korreksiyası"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Qabaqcıl"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Tema"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Klaviaturanı ayırmağa icazə verin"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google Klaviatura Sinxronlaşması"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Sinxronlaşdırma yandırılıb"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Cihazlarda şəxsi lüğətinizi sinxronlaşdırın"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"İndi sinxronizə edin"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Bulud datanı silin"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google\'dan olan sinx datanızı siləcək."</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Sinxronlaşdırılmış verilənləriniz buluddan silinəcək. Əminsiniz?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Silin"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Ləğv et"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Şəxsi lüğətiniz sinxronlaşdırılacaq və Google serverlərinə ehtiyat nüsxəsi çıxarılacaq. Söz tezliyinin statistik məlumatı məhsullarımızı təkmilləşdirməyə kömək üçün toplana bilər. Bütün məlumatın toplanması və istifadəsi "<a href="https://www.google.com/policies/privacy">"Google Məxfilik Siyasətinə"</a>" uyğun olmalıdır."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Bu funksiyanı aktivləşdirmək üçün cihaza Google hesabı əlavə edin"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Biznes hesablarına aid Google Tətbiqləri olan cihazlarda sinxronizasiya əlçatan deyil"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Digər daxiletmə metodlarına keçin"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Dil keçid düyməsi başqa daxiletmə metodlarını da əhatə edir"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Dil keçidi düyməsi"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Yadda saxlamaq üçün buraya toxunun"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Lüğət mövcuddur"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Klaviatura teması"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Hesablar arasında keçid edin"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Heç bir hesab seçilməyib"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Hazırda istifadə olunur: <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"Ok"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Ləğv et"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Çıxış"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"İşlətmək üçün hesab seçin"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"İngilis (BK)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"İngilis (ABŞ)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"İspan (ABŞ)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hingilis"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Serb (Latın)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"İngilis (Britaniya) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"İngilis (Amerika) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"İspan (Amerika) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hingilis (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Serb (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Ənənəvi)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Kiril)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Latın)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Kompakt)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Dil yoxdur (Əlifba)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Əlifba (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Əlifba (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Eyni daxiletmə üslubu artıq mövcuddur: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Vibrasiyalı klikləmə müddəti"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Səsli klikləmə səsi"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Klavişi uzun müddət basmada gecikmə"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Fiziki klaviatura üçün emoji"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Fiziki ALt düyməsi emoji palletini göstərir"</string>
     <string name="button_default" msgid="3988017840431881491">"Defolt"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g> təbiqinə xoş gəlmisiniz"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"Jest Yazısı ilə"</string>

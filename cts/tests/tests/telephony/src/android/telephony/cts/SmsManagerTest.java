@@ -49,6 +49,10 @@ public class SmsManagerTest extends AndroidTestCase {
         "three separate messages.This is a very long text. This text should be broken " +
         "into three separate messages.This is a very long text. This text should be " +
         "broken into three separate messages.";;
+    private static final String LONG_TEXT_WITH_32BIT_CHARS =
+        "Long dkkshsh jdjsusj kbsksbdf jfkhcu hhdiwoqiwyrygrvn?*?*!\";:'/,."
+        + "__?9#9292736&4;\"$+$+((]\\[\\℅©℅™^®°¥°¥=¢£}}£∆~¶~÷|√×."
+        + " 😯😆😉😇😂😀👕🎓😀👙🐕🐀🐶🐰🐩⛪⛲ ";
 
     private static final String SMS_SEND_ACTION = "CTS_SMS_SEND_ACTION";
     private static final String SMS_DELIVERY_ACTION = "CTS_SMS_DELIVERY_ACTION";
@@ -66,6 +70,7 @@ public class SmsManagerTest extends AndroidTestCase {
                     "311660",   // MetroPCS
                     "310120",   // Sprint
                     "44050",    // KDDI
+                    "44051",    // KDDI
                     "44053",    // KDDI
                     "44054",    // KDDI
                     "44070",    // KDDI
@@ -79,6 +84,8 @@ public class SmsManagerTest extends AndroidTestCase {
                     "51502",    // Globe Telecoms
                     "51503",    // Smart Communications
                     "51505",    // Sun Cellular
+                    "53001",    // Vodafone New Zealand
+                    "53024",    // NZC
                     "311870",   // Boost Mobile
                     "311220",   // USCC
                     "311225",   // USCC LTE
@@ -95,6 +102,7 @@ public class SmsManagerTest extends AndroidTestCase {
                     "310600",    // Cellcom
                     "31000",     // Republic Wireless US
                     "310026",     // T-Mobile US
+                    "330120", // OpenMobile communication
                     // Verizon
                     "310004",
                     "310012",
@@ -125,6 +133,7 @@ public class SmsManagerTest extends AndroidTestCase {
             Arrays.asList(
                     "44010",    // NTT DOCOMO
                     "44020",    // SBM
+                    "44051",    // KDDI
                     "302720",   // Rogers
                     "30272",    // Rogers
                     "302370",   // Fido
@@ -163,6 +172,7 @@ public class SmsManagerTest extends AndroidTestCase {
             Arrays.asList(
                     "44010",    // NTT DOCOMO
                     "44020",    // SBM
+                    "44051",    // KDDI
                     "302720",   // Rogers
                     "30272",    // Rogers
                     "302370",   // Fido
@@ -209,17 +219,28 @@ public class SmsManagerTest extends AndroidTestCase {
     public void testDivideMessage() {
         ArrayList<String> dividedMessages = divideMessage(LONG_TEXT);
         assertNotNull(dividedMessages);
-        int numParts;
         if (TelephonyUtils.isSkt(mTelephonyManager)) {
-            assertTrue(isComplete(dividedMessages, 5) || isComplete(dividedMessages, 3));
+            assertTrue(isComplete(dividedMessages, 5, LONG_TEXT)
+                    || isComplete(dividedMessages, 3, LONG_TEXT));
         } else if (TelephonyUtils.isKt(mTelephonyManager)) {
-            assertTrue(isComplete(dividedMessages, 4) || isComplete(dividedMessages, 3));
+            assertTrue(isComplete(dividedMessages, 4, LONG_TEXT)
+                    || isComplete(dividedMessages, 3, LONG_TEXT));
         } else {
-            assertTrue(isComplete(dividedMessages, 3));
+            assertTrue(isComplete(dividedMessages, 3, LONG_TEXT));
         }
     }
 
-    private boolean isComplete(List<String> dividedMessages, int numParts) {
+    public void testDivideUnicodeMessage() {
+        ArrayList<String> dividedMessages = divideMessage(LONG_TEXT_WITH_32BIT_CHARS);
+        assertNotNull(dividedMessages);
+        assertTrue(isComplete(dividedMessages, 3, LONG_TEXT_WITH_32BIT_CHARS));
+        for (String messagePiece : dividedMessages) {
+            assertFalse(Character.isHighSurrogate(
+                    messagePiece.charAt(messagePiece.length() - 1)));
+        }
+    }
+
+    private boolean isComplete(List<String> dividedMessages, int numParts, String longText) {
         if (dividedMessages.size() != numParts) {
             return false;
         }
@@ -228,7 +249,7 @@ public class SmsManagerTest extends AndroidTestCase {
         for (int i = 0; i < numParts; i++) {
             actualMessage += dividedMessages.get(i);
         }
-        return LONG_TEXT.equals(actualMessage);
+        return longText.equals(actualMessage);
     }
 
     public void testSendMessages() throws InterruptedException {
@@ -369,9 +390,10 @@ public class SmsManagerTest extends AndroidTestCase {
                 Bundle bundle = intent.getExtras();
                 if (bundle != null) {
                     Object[] obj = (Object[]) bundle.get("pdus");
+                    String format = bundle.getString("format");
                     SmsMessage[] message = new SmsMessage[obj.length];
                     for (int i = 0; i < obj.length; i++) {
-                        message[i] = SmsMessage.createFromPdu((byte[]) obj[i]);
+                        message[i] = SmsMessage.createFromPdu((byte[]) obj[i], format);
                     }
 
                     for (SmsMessage currentMessage : message) {

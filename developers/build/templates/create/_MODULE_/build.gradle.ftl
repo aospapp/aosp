@@ -21,11 +21,11 @@ to recognize this as an Android project and start the template engine. -->
 
 buildscript {
     repositories {
-        mavenCentral()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.0.0'
+        classpath 'com.android.tools.build:gradle:1.2.0'
     }
 }
 
@@ -37,11 +37,6 @@ android {
           to always use the most current SDK as their target. -->
     compileSdkVersion ${compile_sdk}
     buildToolsVersion ${build_tools_version}
-
-    defaultConfig {
-        testPackageName "${sample.package}.test"
-        testInstrumentationRunner "android.test.InstrumentationTestRunner"
-    }
 }
 
 task preflight (dependsOn: parent.preflight) {

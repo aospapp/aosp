@@ -1017,18 +1017,17 @@ public class AndroidJUnitLaunchConfigurationTab extends AbstractLaunchConfigurat
      */
     private void loadInstrumentations(IProject project) {
         try {
-        mInstrValidator = new InstrumentationRunnerValidator(project);
-        mInstrumentations = (mInstrValidator == null ? null :
-            mInstrValidator.getInstrumentationNames());
-        if (mInstrumentations != null) {
-            mInstrumentationCombo.removeAll();
-            for (String instrumentation : mInstrumentations) {
-                mInstrumentationCombo.add(instrumentation);
+            mInstrValidator = new InstrumentationRunnerValidator(project);
+            mInstrumentations = mInstrValidator.getInstrumentationNames();
+            if (mInstrumentations.length > 0) {
+                mInstrumentationCombo.removeAll();
+                for (String instrumentation : mInstrumentations) {
+                    mInstrumentationCombo.add(instrumentation);
+                }
+                // the selection will be set when we update the ui from the current
+                // config object.
+                return;
             }
-            // the selection will be set when we update the ui from the current
-            // config object.
-            return;
-        }
         } catch (CoreException e) {
             AdtPlugin.logAndPrintError(e, project.getName(),
                     LaunchMessages.AndroidJUnitTab_LoadInstrError_s,

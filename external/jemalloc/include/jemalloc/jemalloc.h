@@ -12,7 +12,9 @@ extern "C" {
  * present on the system.
  */
 #define	JEMALLOC_OVERRIDE_MEMALIGN
+#if !defined(__LP64__)
 #define	JEMALLOC_OVERRIDE_VALLOC
+#endif
 
 /*
  * At least Linux omits the "const" in:
@@ -49,6 +51,7 @@ extern "C" {
 #  define je_xallocx je_xallocx
 #  define je_sallocx je_sallocx
 #  define je_dallocx je_dallocx
+#  define je_sdallocx je_sdallocx
 #  define je_nallocx je_nallocx
 #  define je_mallctl je_mallctl
 #  define je_mallctlnametomib je_mallctlnametomib
@@ -59,15 +62,18 @@ extern "C" {
 #  define je_valloc je_valloc
 #endif
 
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <limits.h>
 #include <strings.h>
 
-#define	JEMALLOC_VERSION ""
-#define	JEMALLOC_VERSION_MAJOR
-#define	JEMALLOC_VERSION_MINOR
-#define	JEMALLOC_VERSION_BUGFIX
-#define	JEMALLOC_VERSION_NREV
-#define	JEMALLOC_VERSION_GID ""
+#define	JEMALLOC_VERSION "3.6.0-129-g3cae39166d1fc58873c5df3c0c96b45d49cb5778"
+#define	JEMALLOC_VERSION_MAJOR 3
+#define	JEMALLOC_VERSION_MINOR 6
+#define	JEMALLOC_VERSION_BUGFIX 0
+#define	JEMALLOC_VERSION_NREV 129
+#define	JEMALLOC_VERSION_GID "3cae39166d1fc58873c5df3c0c96b45d49cb5778"
 
 #  define MALLOCX_LG_ALIGN(la)	(la)
 #  if LG_SIZEOF_PTR == 2
@@ -77,15 +83,20 @@ extern "C" {
 	 ((a < (size_t)INT_MAX) ? ffs(a)-1 : ffs(a>>32)+31)
 #  endif
 #  define MALLOCX_ZERO	((int)0x40)
-/* Bias arena index bits so that 0 encodes "MALLOCX_ARENA() unspecified". */
-#  define MALLOCX_ARENA(a)	((int)(((a)+1) << 8))
+/*
+ * Bias tcache index bits so that 0 encodes "automatic tcache management", and 1
+ * encodes MALLOCX_TCACHE_NONE.
+ */
+#  define MALLOCX_TCACHE(tc)	((int)(((tc)+2) << 8))
+#  define MALLOCX_TCACHE_NONE	MALLOCX_TCACHE(-1)
+/*
+ * Bias arena index bits so that 0 encodes "use an automatically chosen arena".
+ */
+#  define MALLOCX_ARENA(a)	((int)(((a)+1) << 20))
 
 #ifdef JEMALLOC_HAVE_ATTR
 #  define JEMALLOC_ATTR(s) __attribute__((s))
-#  if defined(__ANDROID__)
-/* None of these functions should be public on ANDROID. */
-#    define JEMALLOC_EXPORT
-#  else
+#  ifndef JEMALLOC_EXPORT
 #    define JEMALLOC_EXPORT JEMALLOC_ATTR(visibility("default"))
 #  endif
 #  define JEMALLOC_ALIGNED(s) JEMALLOC_ATTR(aligned(s))
@@ -93,10 +104,12 @@ extern "C" {
 #  define JEMALLOC_NOINLINE JEMALLOC_ATTR(noinline)
 #elif _MSC_VER
 #  define JEMALLOC_ATTR(s)
-#  ifdef DLLEXPORT
-#    define JEMALLOC_EXPORT __declspec(dllexport)
-#  else
-#    define JEMALLOC_EXPORT __declspec(dllimport)
+#  ifndef JEMALLOC_EXPORT
+#    ifdef DLLEXPORT
+#      define JEMALLOC_EXPORT __declspec(dllexport)
+#    else
+#      define JEMALLOC_EXPORT __declspec(dllimport)
+#    endif
 #  endif
 #  define JEMALLOC_ALIGNED(s) __declspec(align(s))
 #  define JEMALLOC_SECTION(s) __declspec(allocate(s))
@@ -128,13 +141,17 @@ JEMALLOC_EXPORT void	*je_aligned_alloc(size_t alignment, size_t size)
 JEMALLOC_EXPORT void	*je_realloc(void *ptr, size_t size);
 JEMALLOC_EXPORT void	je_free(void *ptr);
 
-JEMALLOC_EXPORT void	*je_mallocx(size_t size, int flags);
+JEMALLOC_EXPORT void	*je_mallocx(size_t size, int flags)
+    JEMALLOC_ATTR(malloc);
 JEMALLOC_EXPORT void	*je_rallocx(void *ptr, size_t size, int flags);
 JEMALLOC_EXPORT size_t	je_xallocx(void *ptr, size_t size, size_t extra,
     int flags);
-JEMALLOC_EXPORT size_t	je_sallocx(const void *ptr, int flags);
+JEMALLOC_EXPORT size_t	je_sallocx(const void *ptr, int flags)
+    JEMALLOC_ATTR(pure);
 JEMALLOC_EXPORT void	je_dallocx(void *ptr, int flags);
-JEMALLOC_EXPORT size_t	je_nallocx(size_t size, int flags);
+JEMALLOC_EXPORT void	je_sdallocx(void *ptr, size_t size, int flags);
+JEMALLOC_EXPORT size_t	je_nallocx(size_t size, int flags)
+    JEMALLOC_ATTR(pure);
 
 JEMALLOC_EXPORT int	je_mallctl(const char *name, void *oldp,
     size_t *oldlenp, void *newp, size_t newlen);
@@ -156,8 +173,9 @@ JEMALLOC_EXPORT void *	je_memalign(size_t alignment, size_t size)
 JEMALLOC_EXPORT void *	je_valloc(size_t size) JEMALLOC_ATTR(malloc);
 #endif
 
-typedef void *(chunk_alloc_t)(size_t, size_t, bool *, unsigned);
+typedef void *(chunk_alloc_t)(void *, size_t, size_t, bool *, unsigned);
 typedef bool (chunk_dalloc_t)(void *, size_t, unsigned);
+typedef bool (chunk_purge_t)(void *, size_t, size_t, unsigned);
 
 /*
  * By default application code must explicitly refer to mangled symbol names,
@@ -183,6 +201,7 @@ typedef bool (chunk_dalloc_t)(void *, size_t, unsigned);
 #  define xallocx je_xallocx
 #  define sallocx je_sallocx
 #  define dallocx je_dallocx
+#  define sdallocx je_sdallocx
 #  define nallocx je_nallocx
 #  define mallctl je_mallctl
 #  define mallctlnametomib je_mallctlnametomib
@@ -214,6 +233,7 @@ typedef bool (chunk_dalloc_t)(void *, size_t, unsigned);
 #  undef je_xallocx
 #  undef je_sallocx
 #  undef je_dallocx
+#  undef je_sdallocx
 #  undef je_nallocx
 #  undef je_mallctl
 #  undef je_mallctlnametomib

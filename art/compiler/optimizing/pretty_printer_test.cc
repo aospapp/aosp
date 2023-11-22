@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "base/arena_allocator.h"
 #include "base/stringprintf.h"
 #include "builder.h"
 #include "dex_file.h"
@@ -21,7 +22,6 @@
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 #include "pretty_printer.h"
-#include "utils/arena_allocator.h"
 
 #include "gtest/gtest.h"
 
@@ -30,10 +30,11 @@ namespace art {
 static void TestCode(const uint16_t* data, const char* expected) {
   ArenaPool pool;
   ArenaAllocator allocator(&pool);
-  HGraphBuilder builder(&allocator);
+  HGraph* graph = CreateGraph(&allocator);
+  HGraphBuilder builder(graph);
   const DexFile::CodeItem* item = reinterpret_cast<const DexFile::CodeItem*>(data);
-  HGraph* graph = builder.BuildGraph(*item);
-  ASSERT_NE(graph, nullptr);
+  bool graph_built = builder.BuildGraph(*item);
+  ASSERT_TRUE(graph_built);
   StringPrettyPrinter printer(graph);
   printer.VisitInsertionOrder();
   ASSERT_STREQ(expected, printer.str().c_str());
@@ -45,7 +46,8 @@ TEST(PrettyPrinterTest, ReturnVoid) {
 
   const char* expected =
       "BasicBlock 0, succ: 1\n"
-      "  2: Goto 1\n"
+      "  2: SuspendCheck\n"
+      "  3: Goto 1\n"
       "BasicBlock 1, pred: 0, succ: 2\n"
       "  0: ReturnVoid\n"
       "BasicBlock 2, pred: 1\n"
@@ -57,7 +59,8 @@ TEST(PrettyPrinterTest, ReturnVoid) {
 TEST(PrettyPrinterTest, CFG1) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  3: Goto 1\n"
+    "  3: SuspendCheck\n"
+    "  4: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 2\n"
     "  0: Goto 2\n"
     "BasicBlock 2, pred: 1, succ: 3\n"
@@ -76,7 +79,8 @@ TEST(PrettyPrinterTest, CFG1) {
 TEST(PrettyPrinterTest, CFG2) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  4: Goto 1\n"
+    "  4: SuspendCheck\n"
+    "  5: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 2\n"
     "  0: Goto 2\n"
     "BasicBlock 2, pred: 1, succ: 3\n"
@@ -97,7 +101,8 @@ TEST(PrettyPrinterTest, CFG2) {
 TEST(PrettyPrinterTest, CFG3) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  4: Goto 1\n"
+    "  4: SuspendCheck\n"
+    "  5: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 3\n"
     "  0: Goto 3\n"
     "BasicBlock 2, pred: 3, succ: 4\n"
@@ -132,11 +137,13 @@ TEST(PrettyPrinterTest, CFG3) {
 TEST(PrettyPrinterTest, CFG4) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  2: Goto 1\n"
+    "  3: SuspendCheck\n"
+    "  4: Goto 1\n"
     "BasicBlock 1, pred: 0, 1, succ: 1\n"
-    "  0: Goto 1\n"
+    "  0: SuspendCheck\n"
+    "  1: Goto 1\n"
     "BasicBlock 2\n"
-    "  1: Exit\n";
+    "  2: Exit\n";
 
   const uint16_t data1[] = ZERO_REGISTER_CODE_ITEM(
     Instruction::NOP,
@@ -153,7 +160,8 @@ TEST(PrettyPrinterTest, CFG4) {
 TEST(PrettyPrinterTest, CFG5) {
   const char* expected =
     "BasicBlock 0, succ: 1\n"
-    "  3: Goto 1\n"
+    "  3: SuspendCheck\n"
+    "  4: Goto 1\n"
     "BasicBlock 1, pred: 0, 2, succ: 3\n"
     "  0: ReturnVoid\n"
     "BasicBlock 2, succ: 1\n"
@@ -174,7 +182,8 @@ TEST(PrettyPrinterTest, CFG6) {
     "BasicBlock 0, succ: 1\n"
     "  0: Local [4, 3, 2]\n"
     "  1: IntConstant [2]\n"
-    "  10: Goto 1\n"
+    "  10: SuspendCheck\n"
+    "  11: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  2: StoreLocal(0, 1)\n"
     "  3: LoadLocal(0) [5]\n"
@@ -202,7 +211,8 @@ TEST(PrettyPrinterTest, CFG7) {
     "BasicBlock 0, succ: 1\n"
     "  0: Local [4, 3, 2]\n"
     "  1: IntConstant [2]\n"
-    "  10: Goto 1\n"
+    "  11: SuspendCheck\n"
+    "  12: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 3, 2\n"
     "  2: StoreLocal(0, 1)\n"
     "  3: LoadLocal(0) [5]\n"
@@ -212,9 +222,10 @@ TEST(PrettyPrinterTest, CFG7) {
     "BasicBlock 2, pred: 1, 3, succ: 3\n"
     "  7: Goto 3\n"
     "BasicBlock 3, pred: 1, 2, succ: 2\n"
-    "  8: Goto 2\n"
+    "  8: SuspendCheck\n"
+    "  9: Goto 2\n"
     "BasicBlock 4\n"
-    "  9: Exit\n";
+    "  10: Exit\n";
 
   const uint16_t data[] = ONE_REGISTER_CODE_ITEM(
     Instruction::CONST_4 | 0 | 0,
@@ -230,7 +241,8 @@ TEST(PrettyPrinterTest, IntConstant) {
     "BasicBlock 0, succ: 1\n"
     "  0: Local [2]\n"
     "  1: IntConstant [2]\n"
-    "  5: Goto 1\n"
+    "  5: SuspendCheck\n"
+    "  6: Goto 1\n"
     "BasicBlock 1, pred: 0, succ: 2\n"
     "  2: StoreLocal(0, 1)\n"
     "  3: ReturnVoid\n"

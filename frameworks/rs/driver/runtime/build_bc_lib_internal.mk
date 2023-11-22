@@ -26,7 +26,12 @@ include $(BUILD_SYSTEM)/base_rules.mk
 
 BCC_STRIP_ATTR := $(BUILD_OUT_EXECUTABLES)/bcc_strip_attr$(BUILD_EXECUTABLE_SUFFIX)
 
-bc_clang_cc1_cflags :=
+bc_clang := $(CLANG)
+ifdef RS_DRIVER_CLANG_EXE
+bc_clang := $(RS_DRIVER_CLANG_EXE)
+endif
+
+bc_clang_cc1_cflags := -fnative-half-type -fallow-half-arguments-and-returns
 ifeq ($(BCC_RS_TRIPLE),armv7-none-linux-gnueabi)
 # We need to pass the +long64 flag to the underlying version of Clang, since
 # we are generating a library for use with Renderscript (64-bit long type,
@@ -70,17 +75,19 @@ $(c_bc_files): PRIVATE_INCLUDES := \
     external/clang/lib/Headers
 $(c_bc_files): PRIVATE_CFLAGS := $(bc_cflags)
 
-$(c_bc_files): $(intermediates)/%.bc: $(LOCAL_PATH)/%.c  $(CLANG)
+$(c_bc_files): $(intermediates)/%.bc: $(LOCAL_PATH)/%.c $(bc_clang)
 	@echo "bc: $(PRIVATE_MODULE) <= $<"
 	@mkdir -p $(dir $@)
-	$(hide) $(CLANG) $(addprefix -I, $(PRIVATE_INCLUDES)) $(PRIVATE_CFLAGS) $< -o $@
+	$(hide) $(bc_clang) $(addprefix -I, $(PRIVATE_INCLUDES)) $(PRIVATE_CFLAGS) $< -o $@
+	$(call transform-d-to-p-args,$(@:%.bc=%.d),$(@:%.bc=%.P))
 
 $(ll_bc_files): $(intermediates)/%.bc: $(LOCAL_PATH)/%.ll $(LLVM_AS)
 	@mkdir -p $(dir $@)
 	$(hide) $(LLVM_AS) $< -o $@
+	$(call transform-d-to-p-args,$(@:%.bc=%.d),$(@:%.bc=%.P))
 
--include $(c_bc_files:%.bc=%.d)
--include $(ll_bc_files:%.bc=%.d)
+-include $(c_bc_files:%.bc=%.P)
+-include $(ll_bc_files:%.bc=%.P)
 
 $(LOCAL_BUILT_MODULE): PRIVATE_BC_FILES := $(c_bc_files) $(ll_bc_files)
 $(LOCAL_BUILT_MODULE): $(c_bc_files) $(ll_bc_files)

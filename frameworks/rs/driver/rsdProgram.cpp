@@ -67,7 +67,7 @@ void rsdProgramVertexSetActive(const Context *rsc, const ProgramVertex *pv) {
 void rsdProgramVertexDestroy(const Context *rsc, const ProgramVertex *pv) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
-    RsdShader *drv = NULL;
+    RsdShader *drv = nullptr;
     if(pv->mHal.drv) {
         drv = (RsdShader*)pv->mHal.drv;
         if (rsc->props.mLogShaders) {
@@ -101,7 +101,7 @@ void rsdProgramFragmentSetActive(const Context *rsc, const ProgramFragment *pf) 
 void rsdProgramFragmentDestroy(const Context *rsc, const ProgramFragment *pf) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
-    RsdShader *drv = NULL;
+    RsdShader *drv = nullptr;
     if(pf->mHal.drv) {
         drv = (RsdShader*)pf->mHal.drv;
         if (rsc->props.mLogShaders) {

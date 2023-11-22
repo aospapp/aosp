@@ -372,9 +372,9 @@
     <string name="preference_swipe_description" msgid="3036560323237015010">"In conversation list"</string>
     <string name="preference_sender_image_title" msgid="7890813537985591865">"Sender image"</string>
     <string name="preference_sender_image_description" msgid="3586817690132199889">"Show beside name in conversation list"</string>
-    <string name="empty_trash" msgid="3385937024924728399">"Empty Trash"</string>
+    <string name="empty_trash" msgid="3385937024924728399">"Empty Bin"</string>
     <string name="empty_spam" msgid="2911988289997281371">"Empty Spam"</string>
-    <string name="empty_trash_dialog_title" msgid="2104898489663621508">"Empty Trash?"</string>
+    <string name="empty_trash_dialog_title" msgid="2104898489663621508">"Empty Bin?"</string>
     <string name="empty_spam_dialog_title" msgid="1130319045917820569">"Empty Spam?"</string>
   <plurals name="empty_folder_dialog_message">
     <item quantity="one" msgid="3315412388217832914">"<xliff:g id="COUNT">%1$d</xliff:g> message will be permanently deleted."</item>

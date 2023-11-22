@@ -4,8 +4,8 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FSDK_BASEANNOT_H_
-#define _FSDK_BASEANNOT_H_
+#ifndef FPDFSDK_INCLUDE_FSDK_BASEANNOT_H_
+#define FPDFSDK_INCLUDE_FSDK_BASEANNOT_H_
 
 #if _FX_OS_ == _FX_ANDROID_
 #include "time.h"
@@ -13,10 +13,21 @@
 #include <ctime>
 #endif
 
+#include "../../core/include/fpdfdoc/fpdf_doc.h"
+#include "../../core/include/fxcrt/fx_basic.h"
+#include "fx_systemhandler.h"
+
 class CPDFSDK_PageView;
+class CPDF_Annot;
+class CPDF_Page;
+class CPDF_Rect;
+class CPDF_Matrix;
+class CPDF_RenderOptions;
+class CFX_RenderDevice;
+
 #define CFX_IntArray				CFX_ArrayTemplate<int>
 
-class  CPDFSDK_DateTime : public CFX_Object
+class  CPDFSDK_DateTime 
 {
 public:
 	CPDFSDK_DateTime();
@@ -53,7 +64,7 @@ public:
 		FX_BYTE		hour;
 		FX_BYTE		minute;
 		FX_BYTE		second;
-		FX_CHAR		tzHour;
+		FX_INT8 	tzHour;
 		FX_BYTE		tzMinute;
 	}dt;
 };
@@ -160,7 +171,6 @@ public:
 	
 	void						ClearCachedAP();
 	
-	virtual void				ResetAppearance();
 	void						WriteAppearance(const CFX_ByteString& sAPType, const CPDF_Rect& rcBBox, 
 		const CPDF_Matrix& matrix, const CFX_ByteString& sContents,
 		const CFX_ByteString& sAPState = "");
@@ -180,7 +190,4 @@ protected:
 	
 };
 
-
-
-#endif
-
+#endif  // FPDFSDK_INCLUDE_FSDK_BASEANNOT_H_

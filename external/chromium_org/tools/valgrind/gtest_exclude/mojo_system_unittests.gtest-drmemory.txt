@@ -1,2 +1,0 @@
-# bug_372452
-RemoteMessagePipeTest.HandlePassing

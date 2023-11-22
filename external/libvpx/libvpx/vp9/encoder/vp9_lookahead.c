@@ -14,18 +14,9 @@
 
 #include "vp9/common/vp9_common.h"
 
+#include "vp9/encoder/vp9_encoder.h"
 #include "vp9/encoder/vp9_extend.h"
 #include "vp9/encoder/vp9_lookahead.h"
-#include "vp9/encoder/vp9_onyx_int.h"
-
-struct lookahead_ctx {
-  unsigned int max_sz;         /* Absolute size of the queue */
-  unsigned int sz;             /* Number of buffers currently in the queue */
-  unsigned int read_idx;       /* Read index */
-  unsigned int write_idx;      /* Write index */
-  struct lookahead_entry *buf; /* Buffer list */
-};
-
 
 /* Return the buffer at the given absolute index and increment the index */
 static struct lookahead_entry *pop(struct lookahead_ctx *ctx,

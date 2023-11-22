@@ -33,26 +33,20 @@
 #include <sys/types.h>
 #include <linux/fadvise.h>
 #include <linux/fcntl.h>
+#include <linux/stat.h>
 #include <linux/uio.h>
-#include <unistd.h>  /* this is not required, but makes client code much happier */
 
 __BEGIN_DECLS
 
 #ifdef __LP64__
-/* LP64 kernels don't have flock64 because their flock is 64-bit. */
-struct flock64 {
-  short l_type;
-  short l_whence;
-  off64_t l_start;
-  off64_t l_len;
-  pid_t l_pid;
-};
+/* LP64 kernels don't have F_*64 defines because their flock is 64-bit. */
 #define F_GETLK64  F_GETLK
 #define F_SETLK64  F_SETLK
 #define F_SETLKW64 F_SETLKW
 #endif
 
 #define O_ASYNC FASYNC
+#define O_RSYNC O_SYNC
 
 #define SPLICE_F_MOVE 1
 #define SPLICE_F_NONBLOCK 2
@@ -65,21 +59,28 @@ struct flock64 {
 
 extern int creat(const char*, mode_t);
 extern int creat64(const char*, mode_t);
-extern int fallocate64(int, int, off64_t, off64_t);
-extern int fallocate(int, int, off_t, off_t);
 extern int fcntl(int, int, ...);
 extern int openat(int, const char*, int, ...);
 extern int openat64(int, const char*, int, ...);
 extern int open(const char*, int, ...);
 extern int open64(const char*, int, ...);
-extern int posix_fadvise64(int, off64_t, off64_t, int);
-extern int posix_fadvise(int, off_t, off_t, int);
-extern int posix_fallocate64(int, off64_t, off64_t);
-extern int posix_fallocate(int, off_t, off_t);
 extern ssize_t splice(int, off64_t*, int, off64_t*, size_t, unsigned int);
 extern ssize_t tee(int, int, size_t, unsigned int);
 extern int unlinkat(int, const char*, int);
 extern ssize_t vmsplice(int, const struct iovec*, size_t, unsigned int);
+
+#if defined(__USE_FILE_OFFSET64)
+extern int fallocate(int, int, off_t, off_t) __RENAME(fallocate64);
+extern int posix_fadvise(int, off_t, off_t, int) __RENAME(posix_fadvise64);
+extern int posix_fallocate(int, off_t, off_t) __RENAME(posix_fallocate);
+#else
+extern int fallocate(int, int, off_t, off_t);
+extern int posix_fadvise(int, off_t, off_t, int);
+extern int posix_fallocate(int, off_t, off_t);
+#endif
+extern int fallocate64(int, int, off64_t, off64_t);
+extern int posix_fadvise64(int, off64_t, off64_t, int);
+extern int posix_fallocate64(int, off64_t, off64_t);
 
 extern int __open_2(const char*, int);
 extern int __open_real(const char*, int, ...) __RENAME(open);

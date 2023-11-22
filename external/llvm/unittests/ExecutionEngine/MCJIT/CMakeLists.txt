@@ -3,8 +3,9 @@ set(LLVM_LINK_COMPONENTS
   Core
   ExecutionEngine
   IPO
-  JIT
+  MC
   MCJIT
+  RuntimeDyld
   ScalarOpts
   Support
   Target

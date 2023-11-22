@@ -1318,7 +1318,11 @@ get_proppair(sa, mode)
 			"failed to get buffer.\n");
 		goto bad;
 	}
+#if defined(ANDROID_CHANGES)
+	memset(pair, 0, MAXPROPPAIRLEN * sizeof(*pair));
+#else
 	memset(pair, 0, sizeof(pair));
+#endif
 
 	bp = (caddr_t)(sab + 1);
 	tlen = sa->l - sizeof(*sab);
@@ -4008,17 +4012,27 @@ set_identifier_qual(vpp, type, value, qual)
 			BIO *bio;
 			unsigned char *ptr = (unsigned char *) new->v, *buf;
 			size_t len;
+#if defined(ANDROID_CHANGES)
+			char *bio_contents;
+#else
 			char save;
+#endif
 
 			xn = d2i_X509_NAME(NULL, (void *)&ptr, new->l);
 			bio = BIO_new(BIO_s_mem());
 			
 			X509_NAME_print_ex(bio, xn, 0, 0);
+#if defined(ANDROID_CHANGES)
+			BIO_write(bio, "\x00", 1);
+			BIO_get_mem_data(bio, &bio_contents);
+			plog(LLV_DEBUG, LOCATION, NULL, "Parsed DN: %s\n", bio_contents);
+#else
 			len = BIO_get_mem_data(bio, &ptr);
 			save = ptr[len];
 			ptr[len] = 0;
 			plog(LLV_DEBUG, LOCATION, NULL, "Parsed DN: %s\n", ptr);
 			ptr[len] = save;
+#endif
 			X509_NAME_free(xn);
 			BIO_free(bio);
 		}

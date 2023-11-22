@@ -28,7 +28,7 @@
     <string name="menu_delete" msgid="128380070910799366">"அலைபரப்பை நீக்கு"</string>
     <string name="view_details_title" msgid="1780427629491781473">"விழிப்பூட்டல் விவரங்கள்"</string>
     <string name="confirm_delete_broadcast" msgid="2540199303730232322">"இந்த அலைபரப்பை நீக்கவா?"</string>
-    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"பெறப்பட்ட எல்லா அலைபரப்பு செய்திகளையும் நீக்கவா?"</string>
+    <string name="confirm_delete_all_broadcasts" msgid="2924444089047280871">"பெற்ற எல்லா அலைபரப்பு செய்திகளையும் நீக்கவா?"</string>
     <string name="button_delete" msgid="4672451757925194350">"நீக்கு"</string>
     <string name="button_cancel" msgid="7479958360523246140">"ரத்துசெய்"</string>
     <string name="etws_earthquake_warning" msgid="6428741104423152511">"பூகம்ப எச்சரிக்கை"</string>

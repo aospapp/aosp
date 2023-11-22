@@ -25,7 +25,10 @@ import com.android.internal.telephony.uicc.RuimRecords;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
+import com.android.internal.telephony.dataconnection.DcTrackerBase;
+import com.android.internal.telephony.PhoneConstants;
 
 import android.telephony.CellInfo;
 import android.telephony.CellInfoLte;
@@ -276,8 +279,10 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
                 setSignalStrengthDefaultValues();
                 mGotCountryCode = false;
 
-                pollStateDone();
-                break;
+                if (ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN
+                        != mSS.getRilDataRadioTechnology()) {
+                    pollStateDone();
+                }
 
             default:
                 // Issue all poll-related commands at once, then count
@@ -303,22 +308,7 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
 
     @Override
     protected void pollStateDone() {
-        log("pollStateDone: lte 1 ss=[" + mSS + "] newSS=[" + mNewSS + "]");
-
-        if (mPhone.isMccMncMarkedAsNonRoaming(mNewSS.getOperatorNumeric()) ||
-                mPhone.isSidMarkedAsNonRoaming(mNewSS.getSystemId())) {
-            log("pollStateDone: override - marked as non-roaming.");
-            mNewSS.setVoiceRoaming(false);
-            mNewSS.setDataRoaming(false);
-            mNewSS.setCdmaEriIconIndex(EriInfo.ROAMING_INDICATOR_OFF);
-        } else if (mPhone.isMccMncMarkedAsRoaming(mNewSS.getOperatorNumeric()) ||
-                mPhone.isSidMarkedAsRoaming(mNewSS.getSystemId())) {
-            log("pollStateDone: override - marked as roaming.");
-            mNewSS.setVoiceRoaming(true);
-            mNewSS.setDataRoaming(true);
-            mNewSS.setCdmaEriIconIndex(EriInfo.ROAMING_INDICATOR_ON);
-            mNewSS.setCdmaEriIconMode(EriInfo.ROAMING_ICON_MODE_NORMAL);
-        }
+        updateRoamingState();
 
         if (Build.IS_DEBUGGABLE && SystemProperties.getBoolean(PROP_FORCE_ROAMING, false)) {
             mNewSS.setVoiceRoaming(true);
@@ -326,6 +316,8 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
         }
 
         useDataRegStateForDataOnlyDevices();
+        resetServiceStateInIwlanMode();
+        log("pollStateDone: lte 1 ss=[" + mSS + "] newSS=[" + mNewSS + "]");
 
         boolean hasRegistered = mSS.getVoiceRegState() != ServiceState.STATE_IN_SERVICE
                 && mNewSS.getVoiceRegState() == ServiceState.STATE_IN_SERVICE;
@@ -427,7 +419,12 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
 
         if (hasDataRadioTechnologyChanged) {
             tm.setDataNetworkTypeForPhone(mPhone.getPhoneId(), mSS.getRilDataRadioTechnology());
-        }
+        
+			if (ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN
+                        == mSS.getRilDataRadioTechnology()) {
+                log("pollStateDone: IWLAN enabled");
+            }
+		}
 
         if (hasRegistered) {
             mNetworkAttachedRegistrants.notifyRegistrants();
@@ -463,9 +460,11 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
             }
 
             if (mUiccApplcation != null && mUiccApplcation.getState() == AppState.APPSTATE_READY &&
-                    mIccRecords != null && (mSS.getVoiceRegState() == ServiceState.STATE_IN_SERVICE)) {
+                    mIccRecords != null && (mSS.getVoiceRegState() == ServiceState.STATE_IN_SERVICE)
+                    && mSS.getRilVoiceRadioTechnology() != ServiceState.RIL_RADIO_TECHNOLOGY_LTE) {
                 // SIM is found on the device. If ERI roaming is OFF, and SID/NID matches
-                // one configured in SIM, use operator name from CSIM record.
+                // one configured in SIM, use operator name from CSIM record. Note that ERI, SID,
+                // and NID are CDMA only, not applicable to LTE.
                 boolean showSpn =
                     ((RuimRecords)mIccRecords).getCsimSpnDisplayCondition();
                 int iconIndex = mSS.getCdmaEriIconIndex();
@@ -538,7 +537,12 @@ public class CdmaLteServiceStateTracker extends CdmaServiceStateTracker {
 
         if ((hasCdmaDataConnectionChanged || hasDataRadioTechnologyChanged)) {
             notifyDataRegStateRilRadioTechnologyChanged();
-            mPhone.notifyDataConnection(null);
+            if (ServiceState.RIL_RADIO_TECHNOLOGY_IWLAN
+                        == mSS.getRilDataRadioTechnology()) {
+                mPhone.notifyDataConnection(Phone.REASON_IWLAN_AVAILABLE);
+            } else {
+                mPhone.notifyDataConnection(null);
+            }
         }
 
         if (hasVoiceRoamingOn) {

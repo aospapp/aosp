@@ -116,7 +116,7 @@ ihevc_intra_pred_chroma_mode2_av8:
     add         x0,x0,x4,lsl #2
 
     sub         x0,x0,#0x12                 //src[1]
-    add         x10,x0,#-2
+    sub         x10,x0,#2
 
 prologue_cpy_32:
 
@@ -223,7 +223,7 @@ kernel_mode2:
     rev64       v23.8b,  v7.8b
 
     rev64       v24.8b,  v8.8b
-    add         x10,x0,#-2
+    sub         x10,x0,#2
     rev64       v25.8b,  v9.8b
 
     rev64       v26.8b,  v10.8b

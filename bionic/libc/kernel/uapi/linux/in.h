@@ -22,71 +22,71 @@
 #include <linux/socket.h>
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 enum {
- IPPROTO_IP = 0,
+  IPPROTO_IP = 0,
 #define IPPROTO_IP IPPROTO_IP
- IPPROTO_ICMP = 1,
+  IPPROTO_ICMP = 1,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_ICMP IPPROTO_ICMP
- IPPROTO_IGMP = 2,
+  IPPROTO_IGMP = 2,
 #define IPPROTO_IGMP IPPROTO_IGMP
- IPPROTO_IPIP = 4,
+  IPPROTO_IPIP = 4,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_IPIP IPPROTO_IPIP
- IPPROTO_TCP = 6,
+  IPPROTO_TCP = 6,
 #define IPPROTO_TCP IPPROTO_TCP
- IPPROTO_EGP = 8,
+  IPPROTO_EGP = 8,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_EGP IPPROTO_EGP
- IPPROTO_PUP = 12,
+  IPPROTO_PUP = 12,
 #define IPPROTO_PUP IPPROTO_PUP
- IPPROTO_UDP = 17,
+  IPPROTO_UDP = 17,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_UDP IPPROTO_UDP
- IPPROTO_IDP = 22,
+  IPPROTO_IDP = 22,
 #define IPPROTO_IDP IPPROTO_IDP
- IPPROTO_TP = 29,
+  IPPROTO_TP = 29,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_TP IPPROTO_TP
- IPPROTO_DCCP = 33,
+  IPPROTO_DCCP = 33,
 #define IPPROTO_DCCP IPPROTO_DCCP
- IPPROTO_IPV6 = 41,
+  IPPROTO_IPV6 = 41,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_IPV6 IPPROTO_IPV6
- IPPROTO_RSVP = 46,
+  IPPROTO_RSVP = 46,
 #define IPPROTO_RSVP IPPROTO_RSVP
- IPPROTO_GRE = 47,
+  IPPROTO_GRE = 47,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_GRE IPPROTO_GRE
- IPPROTO_ESP = 50,
+  IPPROTO_ESP = 50,
 #define IPPROTO_ESP IPPROTO_ESP
- IPPROTO_AH = 51,
+  IPPROTO_AH = 51,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_AH IPPROTO_AH
- IPPROTO_MTP = 92,
+  IPPROTO_MTP = 92,
 #define IPPROTO_MTP IPPROTO_MTP
- IPPROTO_BEETPH = 94,
+  IPPROTO_BEETPH = 94,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_BEETPH IPPROTO_BEETPH
- IPPROTO_ENCAP = 98,
+  IPPROTO_ENCAP = 98,
 #define IPPROTO_ENCAP IPPROTO_ENCAP
- IPPROTO_PIM = 103,
+  IPPROTO_PIM = 103,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_PIM IPPROTO_PIM
- IPPROTO_COMP = 108,
+  IPPROTO_COMP = 108,
 #define IPPROTO_COMP IPPROTO_COMP
- IPPROTO_SCTP = 132,
+  IPPROTO_SCTP = 132,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_SCTP IPPROTO_SCTP
- IPPROTO_UDPLITE = 136,
+  IPPROTO_UDPLITE = 136,
 #define IPPROTO_UDPLITE IPPROTO_UDPLITE
- IPPROTO_RAW = 255,
+  IPPROTO_RAW = 255,
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 #define IPPROTO_RAW IPPROTO_RAW
- IPPROTO_MAX
+  IPPROTO_MAX
 };
 struct in_addr {
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __be32 s_addr;
+  __be32 s_addr;
 };
 #define IP_TOS 1
 #define IP_TTL 2
@@ -124,99 +124,99 @@ struct in_addr {
 #define IP_PMTUDISC_DO 2
 #define IP_PMTUDISC_PROBE 3
 #define IP_PMTUDISC_INTERFACE 4
-#define IP_MULTICAST_IF 32
+#define IP_PMTUDISC_OMIT 5
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define IP_MULTICAST_IF 32
 #define IP_MULTICAST_TTL 33
 #define IP_MULTICAST_LOOP 34
 #define IP_ADD_MEMBERSHIP 35
-#define IP_DROP_MEMBERSHIP 36
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define IP_DROP_MEMBERSHIP 36
 #define IP_UNBLOCK_SOURCE 37
 #define IP_BLOCK_SOURCE 38
 #define IP_ADD_SOURCE_MEMBERSHIP 39
-#define IP_DROP_SOURCE_MEMBERSHIP 40
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define IP_DROP_SOURCE_MEMBERSHIP 40
 #define IP_MSFILTER 41
 #define MCAST_JOIN_GROUP 42
 #define MCAST_BLOCK_SOURCE 43
-#define MCAST_UNBLOCK_SOURCE 44
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define MCAST_UNBLOCK_SOURCE 44
 #define MCAST_LEAVE_GROUP 45
 #define MCAST_JOIN_SOURCE_GROUP 46
 #define MCAST_LEAVE_SOURCE_GROUP 47
-#define MCAST_MSFILTER 48
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define MCAST_MSFILTER 48
 #define IP_MULTICAST_ALL 49
 #define IP_UNICAST_IF 50
 #define MCAST_EXCLUDE 0
-#define MCAST_INCLUDE 1
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define MCAST_INCLUDE 1
 #define IP_DEFAULT_MULTICAST_TTL 1
 #define IP_DEFAULT_MULTICAST_LOOP 1
 struct ip_mreq {
- struct in_addr imr_multiaddr;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct in_addr imr_interface;
+  struct in_addr imr_multiaddr;
+  struct in_addr imr_interface;
 };
 struct ip_mreqn {
- struct in_addr imr_multiaddr;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct in_addr imr_address;
- int imr_ifindex;
+  struct in_addr imr_multiaddr;
+  struct in_addr imr_address;
+  int imr_ifindex;
 };
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct ip_mreq_source {
+  __be32 imr_multiaddr;
+  __be32 imr_interface;
+  __be32 imr_sourceaddr;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __be32 imr_multiaddr;
- __be32 imr_interface;
- __be32 imr_sourceaddr;
 };
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct ip_msfilter {
- __be32 imsf_multiaddr;
- __be32 imsf_interface;
- __u32 imsf_fmode;
+  __be32 imsf_multiaddr;
+  __be32 imsf_interface;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u32 imsf_numsrc;
- __be32 imsf_slist[1];
+  __u32 imsf_fmode;
+  __u32 imsf_numsrc;
+  __be32 imsf_slist[1];
 };
-#define IP_MSFILTER_SIZE(numsrc)   (sizeof(struct ip_msfilter) - sizeof(__u32)   + (numsrc) * sizeof(__u32))
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+#define IP_MSFILTER_SIZE(numsrc) (sizeof(struct ip_msfilter) - sizeof(__u32) + (numsrc) * sizeof(__u32))
 struct group_req {
- __u32 gr_interface;
- struct __kernel_sockaddr_storage gr_group;
+  __u32 gr_interface;
+  struct __kernel_sockaddr_storage gr_group;
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct group_source_req {
- __u32 gsr_interface;
- struct __kernel_sockaddr_storage gsr_group;
- struct __kernel_sockaddr_storage gsr_source;
+  __u32 gsr_interface;
+  struct __kernel_sockaddr_storage gsr_group;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
+  struct __kernel_sockaddr_storage gsr_source;
 };
 struct group_filter {
- __u32 gf_interface;
- struct __kernel_sockaddr_storage gf_group;
+  __u32 gf_interface;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __u32 gf_fmode;
- __u32 gf_numsrc;
- struct __kernel_sockaddr_storage gf_slist[1];
+  struct __kernel_sockaddr_storage gf_group;
+  __u32 gf_fmode;
+  __u32 gf_numsrc;
+  struct __kernel_sockaddr_storage gf_slist[1];
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 };
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
-#define GROUP_FILTER_SIZE(numsrc)   (sizeof(struct group_filter) - sizeof(struct __kernel_sockaddr_storage)   + (numsrc) * sizeof(struct __kernel_sockaddr_storage))
+#define GROUP_FILTER_SIZE(numsrc) (sizeof(struct group_filter) - sizeof(struct __kernel_sockaddr_storage) + (numsrc) * sizeof(struct __kernel_sockaddr_storage))
 struct in_pktinfo {
- int ipi_ifindex;
- struct in_addr ipi_spec_dst;
+  int ipi_ifindex;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- struct in_addr ipi_addr;
+  struct in_addr ipi_spec_dst;
+  struct in_addr ipi_addr;
 };
 #define __SOCK_SIZE__ 16
+/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
 struct sockaddr_in {
+  __kernel_sa_family_t sin_family;
+  __be16 sin_port;
+  struct in_addr sin_addr;
 /* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- __kernel_sa_family_t sin_family;
- __be16 sin_port;
- struct in_addr sin_addr;
- unsigned char __pad[__SOCK_SIZE__ - sizeof(short int) -
-/* WARNING: DO NOT EDIT, AUTO-GENERATED CODE - SEE TOP FOR INSTRUCTIONS */
- sizeof(unsigned short int) - sizeof(struct in_addr)];
+  unsigned char __pad[__SOCK_SIZE__ - sizeof(short int) - sizeof(unsigned short int) - sizeof(struct in_addr)];
 };
 #define sin_zero __pad
 #define IN_CLASSA(a) ((((long int) (a)) & 0x80000000) == 0)

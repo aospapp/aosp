@@ -84,7 +84,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
 
         // long methodID = getMethodID(refTypeID, breakpointMethodName);
         logWriter.println("=> Set breakpoint at the beginning of " + breakpointMethodName);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, breakpointMethodName);
 
         // release debuggee
@@ -209,7 +209,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
 
         logWriter.println("=> Set breakpoint at the beginning of " + breakpointMethodName);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, breakpointMethodName);
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
@@ -305,7 +305,7 @@ public class PopFrames002Test extends JDWPStackFrameTestCase {
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
 
         logWriter.println("=> Set breakpoint at the beginning of " + breakpointMethodName);
-        long requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
+        int requestID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(
                 refTypeID, breakpointMethodName);
 
         // release debuggee

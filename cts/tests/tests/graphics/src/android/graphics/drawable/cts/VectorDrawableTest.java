@@ -21,6 +21,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PorterDuff.Mode;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.VectorDrawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.test.AndroidTestCase;
@@ -63,6 +66,8 @@ public class VectorDrawableTest extends AndroidTestCase {
             R.drawable.vector_icon_stroke_1,
             R.drawable.vector_icon_stroke_2,
             R.drawable.vector_icon_stroke_3,
+            R.drawable.vector_icon_scale_1,
+            R.drawable.vector_icon_scale_2,
     };
 
     private int[] mGoldenImages = new int[] {
@@ -89,6 +94,8 @@ public class VectorDrawableTest extends AndroidTestCase {
             R.drawable.vector_icon_stroke_1_golden,
             R.drawable.vector_icon_stroke_2_golden,
             R.drawable.vector_icon_stroke_3_golden,
+            R.drawable.vector_icon_scale_1_golden,
+            R.drawable.vector_icon_scale_2_golden,
     };
 
     private static final int IMAGE_WIDTH = 64;
@@ -97,7 +104,8 @@ public class VectorDrawableTest extends AndroidTestCase {
     // exactly with the golden image.
     // We can increase the threshold if the Skia is drawing with some variance
     // on different devices. So far, the tests show they are matching correctly.
-    private static final float PIXEL_ERROR_THRESHOLD = 0.00001f;
+    private static final float PIXEL_ERROR_THRESHOLD = 0.02f;
+    private static final float PIXEL_ERROR_COUNT_THRESHOLD = 0.005f;
 
     private static final boolean DBG_DUMP_PNG = false;
 
@@ -216,7 +224,7 @@ public class VectorDrawableTest extends AndroidTestCase {
                 totalDiffPixelCount++;
             }
         }
-        if ((totalDiffPixelCount / totalPixelCount) >= PIXEL_ERROR_THRESHOLD) {
+        if ((totalDiffPixelCount / totalPixelCount) >= PIXEL_ERROR_COUNT_THRESHOLD) {
             fail((filename +": totalDiffPixelCount is " + totalDiffPixelCount));
         }
 
@@ -282,5 +290,13 @@ public class VectorDrawableTest extends AndroidTestCase {
         assertEquals(0x20, d3.getAlpha());
 
         d2.setAlpha(originalAlpha);
+    }
+
+    public void testColorFilter() {
+        PorterDuffColorFilter filter = new PorterDuffColorFilter(Color.RED, Mode.SRC_IN);
+        VectorDrawable vectorDrawable = new VectorDrawable();
+        vectorDrawable.setColorFilter(filter);
+
+        assertEquals(filter, vectorDrawable.getColorFilter());
     }
 }

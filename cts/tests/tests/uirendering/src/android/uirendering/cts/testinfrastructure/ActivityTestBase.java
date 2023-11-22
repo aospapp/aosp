@@ -17,6 +17,7 @@ package android.uirendering.cts.testinfrastructure;
 
 import android.annotation.Nullable;
 import android.graphics.Bitmap;
+import android.graphics.Point;
 import android.renderscript.Allocation;
 import android.renderscript.RenderScript;
 import android.test.ActivityInstrumentationTestCase2;
@@ -26,6 +27,8 @@ import android.uirendering.cts.differencevisualizers.DifferenceVisualizer;
 import android.uirendering.cts.differencevisualizers.PassFailVisualizer;
 import android.uirendering.cts.util.BitmapDumper;
 import android.util.Log;
+
+import android.support.test.InstrumentationRegistry;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,6 +80,10 @@ public abstract class ActivityTestBase extends
      */
     @Override
     public void setUp() {
+        // As the way to access Instrumentation is changed in the new runner, we need to inject it
+        // manually into ActivityInstrumentationTestCase2. ActivityInstrumentationTestCase2 will
+        // be marked as deprecated and replaced with ActivityTestRule.
+        injectInstrumentation(InstrumentationRegistry.getInstrumentation());
         mDifferenceVisualizer = new PassFailVisualizer();
         if (USE_RS) {
             mRenderScript = RenderScript.create(getActivity().getApplicationContext());
@@ -123,21 +130,19 @@ public abstract class ActivityTestBase extends
         return pixels;
     }
 
-    private Bitmap takeScreenshotImpl() {
+    private Bitmap takeScreenshotImpl(Point testOffset) {
         Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
-        int x = (source.getWidth() - TEST_WIDTH) / 2;
-        int y = (source.getHeight() - TEST_HEIGHT) / 2;
-        return Bitmap.createBitmap(source, x, y, TEST_WIDTH, TEST_HEIGHT);
+        return Bitmap.createBitmap(source, testOffset.x, testOffset.y, TEST_WIDTH, TEST_HEIGHT);
     }
 
-    public Bitmap takeScreenshot() {
+    public Bitmap takeScreenshot(Point testOffset) {
         getInstrumentation().waitForIdleSync();
-        Bitmap bitmap1 = takeScreenshotImpl();
+        Bitmap bitmap1 = takeScreenshotImpl(testOffset);
         Bitmap bitmap2;
         int count = 0;
         do  {
             bitmap2 = bitmap1;
-            bitmap1 = takeScreenshotImpl();
+            bitmap1 = takeScreenshotImpl(testOffset);
             count++;
         } while (count < MAX_SCREEN_SHOTS &&
                 !Arrays.equals(getBitmapPixels(bitmap2), getBitmapPixels(bitmap1)));
@@ -155,10 +160,11 @@ public abstract class ActivityTestBase extends
      * Used to execute a specific part of a test and get the resultant bitmap
      */
     protected Bitmap captureRenderSpec(TestCase testCase) {
-        getActivity().enqueueRenderSpecAndWait(testCase.layoutID, testCase.canvasClient,
+        Point testOffset = getActivity().enqueueRenderSpecAndWait(
+                testCase.layoutID, testCase.canvasClient,
                 testCase.webViewUrl, testCase.viewInitializer, testCase.useHardware);
         testCase.wasTestRan = true;
-        return takeScreenshot();
+        return takeScreenshot(testOffset);
     }
 
     /**
@@ -229,11 +235,6 @@ public abstract class ActivityTestBase extends
          * every test case is tested against it.
          */
         public void runWithComparer(BitmapComparer bitmapComparer) {
-            if (getActivity().getOnWatch()) {
-                Log.d(TAG, getName() + "skipped");
-                return;
-            }
-
             if (mTestCases.size() == 0) {
                 throw new IllegalStateException("Need at least one test to run");
             }
@@ -252,11 +253,6 @@ public abstract class ActivityTestBase extends
          * the verifier given.
          */
         public void runWithVerifier(BitmapVerifier bitmapVerifier) {
-            if (getActivity().getOnWatch()) {
-                Log.d(TAG, getName() + "skipped");
-                return;
-            }
-
             if (mTestCases.size() == 0) {
                 throw new IllegalStateException("Need at least one test to run");
             }
@@ -265,6 +261,20 @@ public abstract class ActivityTestBase extends
                 Bitmap testCaseBitmap = captureRenderSpec(testCase);
                 assertBitmapIsVerified(testCaseBitmap, bitmapVerifier, testCase.getDebugString());
             }
+        }
+
+        /**
+         * Runs a test where each testcase is run without verification. Should only be used
+         * where custom CanvasClients, Views, or ViewInitializers do their own internal
+         * test assertions.
+         */
+        public void runWithoutVerification() {
+            runWithVerifier(new BitmapVerifier() {
+                @Override
+                public boolean verify(int[] bitmap, int offset, int stride, int width, int height) {
+                    return true;
+                }
+            });
         }
 
         public TestCaseBuilder addWebView(String webViewUrl,

@@ -96,6 +96,7 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libOpenMAXAL.so:system/lib/arm/libOpenMAXAL.so:intel \
     vendor/intel/fugu/proprietary/libOpenSLES.so:system/lib/arm/libOpenSLES.so:intel \
     vendor/intel/fugu/proprietary/libopus.so:system/lib/arm/libopus.so:intel \
+    vendor/intel/fugu/proprietary/libpcre.so:system/lib/arm/libpcre.so:intel \
     vendor/intel/fugu/proprietary/libpdfium.so:system/lib/arm/libpdfium.so:intel \
     vendor/intel/fugu/proprietary/libpixelflinger.so:system/lib/arm/libpixelflinger.so:intel \
     vendor/intel/fugu/proprietary/libpng.so:system/lib/arm/libpng.so:intel \
@@ -121,9 +122,9 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libstagefright.so:system/lib/arm/libstagefright.so:intel \
     vendor/intel/fugu/proprietary/libstagefright_yuv.so:system/lib/arm/libstagefright_yuv.so:intel \
     vendor/intel/fugu/proprietary/libstdc++.so:system/lib/arm/libstdc++.so:intel \
-    vendor/intel/fugu/proprietary/libstlport.so:system/lib/arm/libstlport.so:intel \
     vendor/intel/fugu/proprietary/libsurfaceflinger.so:system/lib/arm/libsurfaceflinger.so:intel \
     vendor/intel/fugu/proprietary/libsync.so:system/lib/arm/libsync.so:intel \
+    vendor/intel/fugu/proprietary/libsysutils.so:system/lib/arm/libsysutils.so:intel \
     vendor/intel/fugu/proprietary/libui.so:system/lib/arm/libui.so:intel \
     vendor/intel/fugu/proprietary/libunwind-ptrace.so:system/lib/arm/libunwind-ptrace.so:intel \
     vendor/intel/fugu/proprietary/libunwind.so:system/lib/arm/libunwind.so:intel \
@@ -134,6 +135,41 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libwilhelm.so:system/lib/arm/libwilhelm.so:intel \
     vendor/intel/fugu/proprietary/libz.so:system/lib/arm/libz.so:intel \
     vendor/intel/fugu/proprietary/linker:system/lib/arm/linker:intel \
+    vendor/intel/fugu/proprietary/armnb/libandroid_runtime.so:system/lib/arm/nb/libandroid_runtime.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libandroid.so:system/lib/arm/nb/libandroid.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libart.so:system/lib/arm/nb/libart.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libaudioflinger.so:system/lib/arm/nb/libaudioflinger.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libbinder.so:system/lib/arm/nb/libbinder.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libcamera_client.so:system/lib/arm/nb/libcamera_client.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libc.so:system/lib/arm/nb/libc.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libcutils.so:system/lib/arm/nb/libcutils.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libdl.so:system/lib/arm/nb/libdl.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libEGL.so:system/lib/arm/nb/libEGL.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libft2.so:system/lib/arm/nb/libft2.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libGLESv1_CM.so:system/lib/arm/nb/libGLESv1_CM.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libGLESv2.so:system/lib/arm/nb/libGLESv2.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libGLESv3.so:system/lib/arm/nb/libGLESv3.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libgui.so:system/lib/arm/nb/libgui.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libhardware_legacy.so:system/lib/arm/nb/libhardware_legacy.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libhwui.so:system/lib/arm/nb/libhwui.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libicui18n.so:system/lib/arm/nb/libicui18n.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libicuuc.so:system/lib/arm/nb/libicuuc.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libjnigraphics.so:system/lib/arm/nb/libjnigraphics.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libmediandk.so:system/lib/arm/nb/libmediandk.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libmedia.so:system/lib/arm/nb/libmedia.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libm.so:system/lib/arm/nb/libm.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libnativehelper.so:system/lib/arm/nb/libnativehelper.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libOpenMAXAL.so:system/lib/arm/nb/libOpenMAXAL.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libOpenSLES.so:system/lib/arm/nb/libOpenSLES.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libpixelflinger.so:system/lib/arm/nb/libpixelflinger.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libskia.so:system/lib/arm/nb/libskia.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libsqlite.so:system/lib/arm/nb/libsqlite.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libstagefright.so:system/lib/arm/nb/libstagefright.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libsurfaceflinger.so:system/lib/arm/nb/libsurfaceflinger.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libui.so:system/lib/arm/nb/libui.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libutils.so:system/lib/arm/nb/libutils.so:intel \
+    vendor/intel/fugu/proprietary/armnb/libz.so:system/lib/arm/nb/libz.so:intel \
+    vendor/intel/fugu/proprietary/keystore.moorefield.so:system/lib/hw/keystore.moorefield.so:intel \
     vendor/intel/fugu/proprietary/libDecoderVP9Hybrid.so:system/lib/libDecoderVP9Hybrid.so:intel \
     vendor/intel/fugu/proprietary/libdx_cc7.so:system/lib/libdx_cc7.so:intel \
     vendor/intel/fugu/proprietary/libgabi++-mfx.so:system/lib/libgabi++-mfx.so:intel \
@@ -152,7 +188,7 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libOMXVideoDecoderAVCSecure.so:system/lib/libOMXVideoDecoderAVCSecure.so:intel \
     vendor/intel/fugu/proprietary/libsepdrm_cc54.so:system/lib/libsepdrm_cc54.so:intel \
     vendor/intel/fugu/proprietary/libstlport-mfx.so:system/lib/libstlport-mfx.so:intel \
-    vendor/intel/fugu/proprietary/librscruntime.bc:system/usr/share/librscruntime.bc:intel \
+    vendor/intel/fugu/proprietary/librscruntime.bc:system/vendor/lib/librscruntime.bc:intel \
     vendor/intel/fugu/proprietary/bcc.moorefield:system/vendor/bin/bcc.moorefield:intel \
     vendor/intel/fugu/proprietary/framebuffer_test:system/vendor/bin/framebuffer_test:intel \
     vendor/intel/fugu/proprietary/hwperfbin2jsont:system/vendor/bin/hwperfbin2jsont:intel \
@@ -160,6 +196,10 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/pvrhwperf:system/vendor/bin/pvrhwperf:intel \
     vendor/intel/fugu/proprietary/pvrsrvctl:system/vendor/bin/pvrsrvctl:intel \
     vendor/intel/fugu/proprietary/pvrtld:system/vendor/bin/pvrtld:intel \
+    vendor/intel/fugu/proprietary/game_controller.hex:system/vendor/firmware/game_controller.hex:intel \
+    vendor/intel/fugu/proprietary/nexus_tv_gamepad.hex:system/vendor/firmware/nexus_tv_gamepad.hex:intel \
+    vendor/intel/fugu/proprietary/nexus_tv_remote.hex:system/vendor/firmware/nexus_tv_remote.hex:intel \
+    vendor/intel/fugu/proprietary/PR-ModelCert:system/vendor/firmware/PR-ModelCert:intel \
     vendor/intel/fugu/proprietary/libEGL_POWERVR_ROGUE.so:system/vendor/lib/egl/libEGL_POWERVR_ROGUE.so:intel \
     vendor/intel/fugu/proprietary/libGLESv1_CM_POWERVR_ROGUE.so:system/vendor/lib/egl/libGLESv1_CM_POWERVR_ROGUE.so:intel \
     vendor/intel/fugu/proprietary/libGLESv2_POWERVR_ROGUE.so:system/vendor/lib/egl/libGLESv2_POWERVR_ROGUE.so:intel \
@@ -178,10 +218,11 @@ PRODUCT_COPY_FILES := \
     vendor/intel/fugu/proprietary/libPVRRS.so:system/vendor/lib/libPVRRS.so:intel \
     vendor/intel/fugu/proprietary/libPVRScopeServices.so:system/vendor/lib/libPVRScopeServices.so:intel \
     vendor/intel/fugu/proprietary/librsccompiler.so:system/vendor/lib/librsccompiler.so:intel \
-    vendor/intel/fugu/proprietary/libRS.moorefield.so:system/vendor/lib/libRS.moorefield.so:intel \
+    vendor/intel/fugu/proprietary/memtrack.moorefield.so:system/vendor/lib/hw/memtrack.moorefield.so:intel \
     vendor/intel/fugu/proprietary/libseppr_hal.so:system/vendor/lib/libseppr_hal.so:intel \
     vendor/intel/fugu/proprietary/libsrv_init.so:system/vendor/lib/libsrv_init.so:intel \
     vendor/intel/fugu/proprietary/libsrv_um.so:system/vendor/lib/libsrv_um.so:intel \
     vendor/intel/fugu/proprietary/libufwriter.so:system/vendor/lib/libufwriter.so:intel \
     vendor/intel/fugu/proprietary/libusc.so:system/vendor/lib/libusc.so:intel \
+    vendor/intel/fugu/proprietary/iperf3:system/xbin/iperf3:intel \
 

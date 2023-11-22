@@ -18,10 +18,10 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="timezone_rename_labels">
-    <item msgid="4609638052107641231">"آسٹریلین سنٹرل - NT"</item>
-    <item msgid="4345275500159159867">"آسٹریلین سنٹرل - SA"</item>
-    <item msgid="6771274300523132094">"آسٹریلین ایسٹرن - QLD"</item>
-    <item msgid="4685547681424666687">"آسٹریلین ایسٹرن - NSW"</item>
+    <item msgid="4609638052107641231">"‏آسٹریلین سنٹرل - NT"</item>
+    <item msgid="4345275500159159867">"‏آسٹریلین سنٹرل - SA"</item>
+    <item msgid="6771274300523132094">"‏آسٹریلین ایسٹرن - QLD"</item>
+    <item msgid="4685547681424666687">"‏آسٹریلین ایسٹرن - NSW"</item>
     <item msgid="5259393186526893961">"ماؤنٹین اسٹینڈرڈ - ڈاؤسن کریک"</item>
     <item msgid="5984634754870859705">"سنٹرل اسٹینڈرڈ - سسکیچؤن"</item>
     <item msgid="5340374311583423836">"ایسٹرن اسٹینڈرڈ - اٹیکوکن"</item>

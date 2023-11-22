@@ -134,12 +134,12 @@ SkMemcpy32Proc choose_memcpy32() {
 
 }  // namespace
 
-void sk_memset16(uint16_t dst[], uint16_t value, int count) {
+void sk_memset16_large(uint16_t dst[], uint16_t value, int count) {
     SK_DECLARE_STATIC_LAZY_FN_PTR(SkMemset16Proc, proc, choose_memset16);
     proc.get()(dst, value, count);
 }
 
-void sk_memset32(uint32_t dst[], uint32_t value, int count) {
+void sk_memset32_large(uint32_t dst[], uint32_t value, int count) {
     SK_DECLARE_STATIC_LAZY_FN_PTR(SkMemset32Proc, proc, choose_memset32);
     proc.get()(dst, value, count);
 }
@@ -193,7 +193,7 @@ int SkUTF8_CountUnichars(const char utf8[]) {
 }
 
 int SkUTF8_CountUnichars(const char utf8[], size_t byteLength) {
-    SkASSERT(NULL != utf8 || 0 == byteLength);
+    SkASSERT(utf8 || 0 == byteLength);
 
     int         count = 0;
     const char* stop = utf8 + byteLength;
@@ -206,7 +206,7 @@ int SkUTF8_CountUnichars(const char utf8[], size_t byteLength) {
 }
 
 SkUnichar SkUTF8_ToUnichar(const char utf8[]) {
-    SkASSERT(NULL != utf8);
+    SkASSERT(utf8);
 
     const uint8_t*  p = (const uint8_t*)utf8;
     int             c = *p;
@@ -227,7 +227,7 @@ SkUnichar SkUTF8_ToUnichar(const char utf8[]) {
 }
 
 SkUnichar SkUTF8_NextUnichar(const char** ptr) {
-    SkASSERT(NULL != ptr && NULL != *ptr);
+    SkASSERT(ptr && *ptr);
 
     const uint8_t*  p = (const uint8_t*)*ptr;
     int             c = *p;
@@ -249,7 +249,7 @@ SkUnichar SkUTF8_NextUnichar(const char** ptr) {
 }
 
 SkUnichar SkUTF8_PrevUnichar(const char** ptr) {
-    SkASSERT(NULL != ptr && NULL != *ptr);
+    SkASSERT(ptr && *ptr);
 
     const char* p = *ptr;
 

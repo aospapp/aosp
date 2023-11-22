@@ -19,7 +19,6 @@ arm_codegen_SRC_FILES := \
   ARMAsmPrinter.cpp \
   ARMBaseInstrInfo.cpp \
   ARMBaseRegisterInfo.cpp \
-  ARMCodeEmitter.cpp \
   ARMConstantIslandPass.cpp \
   ARMConstantPoolValue.cpp \
   ARMExpandPseudoInsts.cpp \
@@ -29,7 +28,6 @@ arm_codegen_SRC_FILES := \
   ARMISelDAGToDAG.cpp \
   ARMISelLowering.cpp \
   ARMInstrInfo.cpp \
-  ARMJITInfo.cpp \
   ARMLoadStoreOptimizer.cpp \
   ARMMCInstLower.cpp \
   ARMMachineFunctionInfo.cpp \
@@ -43,10 +41,9 @@ arm_codegen_SRC_FILES := \
   MLxExpansionPass.cpp \
   Thumb1FrameLowering.cpp \
   Thumb1InstrInfo.cpp \
-  Thumb1RegisterInfo.cpp \
+  ThumbRegisterInfo.cpp \
   Thumb2ITBlockPass.cpp \
   Thumb2InstrInfo.cpp \
-  Thumb2RegisterInfo.cpp \
   Thumb2SizeReduction.cpp
 
 # For the host

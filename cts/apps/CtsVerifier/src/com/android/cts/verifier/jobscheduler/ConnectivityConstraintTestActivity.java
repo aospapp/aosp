@@ -31,6 +31,8 @@ public class ConnectivityConstraintTestActivity extends ConstraintTestActivity {
             ConnectivityConstraintTestActivity.class.hashCode() + 1;
     private static final int NO_CONNECTIVITY_JOB_ID =
             ConnectivityConstraintTestActivity.class.hashCode() + 2;
+    private static final int NO_CONNECTIVITY_JOB_ID_2 =
+            ConnectivityConstraintTestActivity.class.hashCode() + 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,18 +91,25 @@ public class ConnectivityConstraintTestActivity extends ConstraintTestActivity {
     }
 
     private void testNoConnectivityConstraintExecutes_noConnectivity() {
-        JobInfo testJob = new JobInfo.Builder(NO_CONNECTIVITY_JOB_ID, mMockComponent)
+        JobInfo testJob1 = new JobInfo.Builder(NO_CONNECTIVITY_JOB_ID, mMockComponent)
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
                 .setOverrideDeadline(100000L)  // Will not expire.
                 .build();
+        JobInfo testJob2 = new JobInfo.Builder(NO_CONNECTIVITY_JOB_ID_2, mMockComponent)
+        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
+        .setOverrideDeadline(100000L)  // Will not expire.
+        .build();
 
         mTestEnvironment.setUp();
-        mTestEnvironment.setExpectedExecutions(1);
+        mTestEnvironment.setExpectedExecutions(2);
 
-        mJobScheduler.schedule(testJob);
+        mJobScheduler.schedule(testJob1);
+        mJobScheduler.schedule(testJob2);
 
+        /*
         // Send intent to kick off ready jobs that the JobScheduler might be lazily holding on to.
         sendBroadcastAndBlockForResult(EXPEDITE_STABLE_CHARGING);
+        */
 
         boolean testPassed;
         try {

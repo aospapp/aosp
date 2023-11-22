@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <termios.h>
+#include <unistd.h>
 #include <cutils/sockets.h>
 
 /*

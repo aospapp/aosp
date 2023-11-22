@@ -14,17 +14,18 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include <android/native_window.h>
-
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
 class Renderer {
 public:
-    Renderer(ANativeWindow* window, bool offscreen, int workload);
-    virtual bool setUp();
+    Renderer(EGLNativeWindowType window, bool offscreen);
+    virtual bool setUp(int workload);
     virtual bool tearDown();
+    bool eglSetUp();
+    void eglTearDown();
+
     bool draw();
     virtual void drawWorkload() = 0;
     virtual ~Renderer() {};
@@ -32,7 +33,6 @@ public:
     static const int OFFSCREEN_GRID_SIZE = 10;
     bool mOffscreen;
 protected:
-    ANativeWindow* mWindow;
     EGLDisplay mEglDisplay;
     EGLSurface mEglSurface;
     EGLContext mEglContext;
@@ -40,7 +40,6 @@ protected:
     GLuint mProgramId;
     EGLint mWidth;
     EGLint mHeight;
-    int mWorkload;
     int mFboWidth;// Frame buffer width
     int mFboHeight;// Frame buffer height
     GLuint mFboId;// Frame buffer id
@@ -52,5 +51,7 @@ protected:
     GLuint mFboYOffsetUniformHandle;// Frame buffer y offset uniform handle
     GLuint mFboPositionHandle;// Frame buffer position handle
     GLuint mFboTexCoordHandle;// Frame buffer texture coordinate handle
+private:
+    EGLNativeWindowType mWindow;
 };
 #endif

@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN ja rakendused"</item>
     <item msgid="692322974985472861">"WiFi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"WiFi profiil"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"Üksuse %s üksikasjad"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"Üksikasjad"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"Installi"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"Installimine"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"Tühista"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Loobu"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Puudub"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"Nimi: %1$s\nFQDN: %2$s\nRoaming Consortiums: %3$s\nRealm: %4$s\nAutentimismeetod: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Kasutajanimi: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"Kliendi sertifikaat:\n%1$s\nVõti: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM-kaart: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"Usaldusväärne sertifikaat:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"Installitud mandaat"</string>
+    <string name="install_done" msgid="1522718684172097080">"Üksuse <xliff:g id="NAME">%1$s</xliff:g> mandaat on lisatud salvestatud WiFi-võrkudele."</string>
+    <string name="done_label" msgid="5597425930652904250">"VALMIS"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Installige WiFi-mandaat, et üksuse <xliff:g id="NAME">%1$s</xliff:g> kaudu saadaolevate võrkudega ühendus luua."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Allalaaditud failiga on probleeme ja seda ei saa alla laadida. Veenduge, kas laadisite faili alla õigest allikast."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"WiFi-mandaati ei saa alla laadida. Proovige fail uuesti alla laadida."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Installimine tühistati"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Ei saa installida"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Lülitage WiFi sisse ja proovige uuesti."</string>
 </resources>

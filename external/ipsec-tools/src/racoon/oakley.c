@@ -38,10 +38,14 @@
 #include <sys/socket.h>	/* XXX for subjectaltname */
 #include <netinet/in.h>	/* XXX for subjectaltname */
 
-#include <openssl/pkcs7.h>
 #include <openssl/x509.h>
-#ifdef ANDROID_CHANGES
+#include <openssl/err.h>
+
+#if !defined(OPENSSL_IS_BORINGSSL)
 #include <openssl/engine.h>
+#include <openssl/pkcs7.h>
+#else
+#include <openssl/bytestring.h>
 #endif
 
 #include <stdlib.h>
@@ -1803,38 +1807,57 @@ end:
 #endif
 
 #ifdef ANDROID_CHANGES
+
+#if defined(OPENSSL_IS_BORINGSSL)
+/* EVP_PKEY_from_keystore is from system/security/keystore-engine. */
+extern EVP_PKEY* EVP_PKEY_from_keystore(const char *key_id);
+#endif
+
 static vchar_t* keystore_sign(vchar_t* src, const char* path) {
 	vchar_t* sig = NULL;
+	EVP_PKEY *evp = NULL;
 
-	ENGINE* e = ENGINE_by_id("keystore");
-	if (!e) {
+#if !defined(OPENSSL_IS_BORINGSSL)
+	ENGINE *engine = ENGINE_by_id("keystore");
+	if (!engine) {
 		return NULL;
 	}
-
-	if (!ENGINE_init(e)) {
-		ENGINE_free(e);
+	if (!ENGINE_init(engine)) {
+		ENGINE_free(engine);
 		return NULL;
 	}
+#endif
 
 	const char *key_id;
 	if (sscanf(path, pname, &key_id) != 1) {
 		do_plog(LLV_ERROR, "couldn't read private key info\n");
-		return NULL;
+		goto out;
 	}
 
-	EVP_PKEY* evp = ENGINE_load_private_key(e, key_id, NULL, NULL);
+#if !defined(OPENSSL_IS_BORINGSSL)
+	evp = ENGINE_load_private_key(engine, key_id, NULL, NULL);
+#else
+	evp = EVP_PKEY_from_keystore(key_id);
+#endif
 	if (!evp) {
 		do_plog(LLV_ERROR, "couldn't retrieve private key");
-		ERR_clear_error();
-		return NULL;
+		ERR_remove_thread_state(NULL);
+		goto out;
 	}
 
-	sig = eay_rsa_sign(src, evp->pkey.rsa);
+	if (EVP_PKEY_id(evp) == EVP_PKEY_RSA) {
+		sig = eay_rsa_sign(src, evp->pkey.rsa);
+	}
 
-	EVP_PKEY_free(evp);
+out:
+	if (evp) {
+		EVP_PKEY_free(evp);
+	}
 
-	ENGINE_finish(e);
-	ENGINE_free(e);
+#if !defined(OPENSSL_IS_BORINGSSL)
+	ENGINE_finish(engine);
+	ENGINE_free(engine);
+#endif
 
 	return sig;
 }
@@ -2126,7 +2149,9 @@ oakley_savecert(iph1, gen)
 	cert_t **c;
 	u_int8_t type;
 	STACK_OF(X509) *certs=NULL;
+#if !defined(OPENSSL_IS_BORINGSSL)
 	PKCS7 *p7;
+#endif
 
 	type = *(u_int8_t *)(gen + 1) & 0xff;
 
@@ -2168,7 +2193,13 @@ oakley_savecert(iph1, gen)
 
 	if (type == ISAKMP_CERT_PKCS7) {
 		u_char *bp;
+#if defined(OPENSSL_IS_BORINGSSL)
+		size_t i;
+		STACK_OF(X509) *certs = sk_X509_new_null();
+		CBS cbs;
+#else
 		int i;
+#endif
 
 		/* Skip the header */
 		bp = (u_char *)(gen + 1);
@@ -2176,7 +2207,23 @@ oakley_savecert(iph1, gen)
 		 * we know that already
 		 */
 		bp++;
-		p7 = d2i_PKCS7(NULL, (void *)&bp, 
+#if defined(OPENSSL_IS_BORINGSSL)
+		CBS_init(&cbs, bp, ntohs(gen->len) - sizeof(*gen) - 1);
+		if (!PKCS7_get_certificates(certs, &cbs)) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			     "Failed to parse PKCS#7 CERT.\n");
+			sk_X509_pop_free(certs, X509_free);
+			return -1;
+		}
+
+		if (sk_X509_num(certs) == 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			     "CERT PKCS#7 bundle contains no certs.\n");
+			sk_X509_pop_free(certs, X509_free);
+			return -1;
+		}
+#else
+		p7 = d2i_PKCS7(NULL, (void *)&bp,
 		    ntohs(gen->len) - sizeof(*gen) - 1);
 
 		if (!p7) {
@@ -2208,6 +2255,7 @@ oakley_savecert(iph1, gen)
 			PKCS7_free(p7);
 			return -1;
 		}
+#endif
 
 		for (i = 0; i < sk_X509_num(certs); i++) {
 			int len;
@@ -2249,7 +2297,12 @@ oakley_savecert(iph1, gen)
 			}
 			break;
 		}
+
+#if defined(OPENSSL_IS_BORINGSSL)
+		sk_X509_pop_free(certs, X509_free);
+#else
 		PKCS7_free(p7);
+#endif
 
 	} else {
 		*c = save_certbuf(gen);
@@ -2455,8 +2508,9 @@ oakley_getcr(iph1)
 		plog(LLV_DEBUG, LOCATION, NULL, "create my CR: %s\n",
 		s_isakmp_certtype(iph1->rmconf->certtype));
 	}
-	if (buf->l > 1)
+	if (buf->l > 1) {
 		plogdump(LLV_DEBUG, buf->v, buf->l);
+	}
 
 	return buf;
 }

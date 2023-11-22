@@ -102,6 +102,10 @@ public class Collections {
             throw new IndexOutOfBoundsException();
         }
 
+        @Override public Iterator iterator() {
+            return EMPTY_ITERATOR;
+        }
+
         private Object readResolve() {
             return Collections.EMPTY_LIST;
         }
@@ -1422,21 +1426,21 @@ public class Collections {
         if (!(list instanceof RandomAccess)) {
             ListIterator<? extends Comparable<? super T>> it = list.listIterator();
             while (it.hasNext()) {
-                int result;
-                if ((result = -it.next().compareTo(object)) <= 0) {
-                    if (result == 0) {
-                        return it.previousIndex();
-                    }
+                final int result = it.next().compareTo(object);
+                if (result == 0) {
+                    return it.previousIndex();
+                } else if (result > 0) {
                     return -it.previousIndex() - 1;
                 }
             }
             return -list.size() - 1;
         }
 
-        int low = 0, mid = list.size(), high = mid - 1, result = -1;
+        int low = 0, mid = list.size(), high = mid - 1, result = 1;
         while (low <= high) {
             mid = (low + high) >>> 1;
-            if ((result = -list.get(mid).compareTo(object)) > 0) {
+            result = list.get(mid).compareTo(object);
+            if (result < 0) {
                 low = mid + 1;
             } else if (result == 0) {
                 return mid;
@@ -1444,7 +1448,7 @@ public class Collections {
                 high = mid - 1;
             }
         }
-        return -mid - (result < 0 ? 1 : 2);
+        return -mid - (result > 0 ? 1 : 2);
     }
 
     /**
@@ -1477,21 +1481,21 @@ public class Collections {
         if (!(list instanceof RandomAccess)) {
             ListIterator<? extends T> it = list.listIterator();
             while (it.hasNext()) {
-                int result;
-                if ((result = -comparator.compare(it.next(), object)) <= 0) {
-                    if (result == 0) {
-                        return it.previousIndex();
-                    }
+                final int result = comparator.compare(it.next(), object);
+                if (result == 0) {
+                    return it.previousIndex();
+                } else if (result > 0) {
                     return -it.previousIndex() - 1;
                 }
             }
             return -list.size() - 1;
         }
 
-        int low = 0, mid = list.size(), high = mid - 1, result = -1;
+        int low = 0, mid = list.size(), high = mid - 1, result = 1;
         while (low <= high) {
             mid = (low + high) >>> 1;
-            if ((result = -comparator.compare(list.get(mid), object)) > 0) {
+            result = comparator.compare(list.get(mid), object);
+            if (result < 0) {
                 low = mid + 1;
             } else if (result == 0) {
                 return mid;
@@ -1499,7 +1503,7 @@ public class Collections {
                 high = mid - 1;
             }
         }
-        return -mid - (result < 0 ? 1 : 2);
+        return -mid - (result > 0 ? 1 : 2);
     }
 
     /**
@@ -1860,13 +1864,23 @@ public class Collections {
      */
     @SuppressWarnings("unchecked")
     public static <T extends Comparable<? super T>> void sort(List<T> list) {
-        Object[] array = list.toArray();
-        Arrays.sort(array);
-        int i = 0;
-        ListIterator<T> it = list.listIterator();
-        while (it.hasNext()) {
-            it.next();
-            it.set((T) array[i++]);
+        // Note that we can't use instanceof here since ArrayList isn't final and
+        // subclasses might make arbitrary use of array and modCount.
+        if (list.getClass() == ArrayList.class) {
+            ArrayList<T> arrayList = (ArrayList<T>) list;
+            Object[] array = arrayList.array;
+            int end = arrayList.size();
+            Arrays.sort(array, 0, end);
+            arrayList.modCount++;
+        } else {
+            Object[] array = list.toArray();
+            Arrays.sort(array);
+            int i = 0;
+            ListIterator<T> it = list.listIterator();
+            while (it.hasNext()) {
+                it.next();
+                it.set((T) array[i++]);
+            }
         }
     }
 
@@ -1879,13 +1893,21 @@ public class Collections {
      */
     @SuppressWarnings("unchecked")
     public static <T> void sort(List<T> list, Comparator<? super T> comparator) {
-        T[] array = list.toArray((T[]) new Object[list.size()]);
-        Arrays.sort(array, comparator);
-        int i = 0;
-        ListIterator<T> it = list.listIterator();
-        while (it.hasNext()) {
-            it.next();
-            it.set(array[i++]);
+        if (list.getClass() == ArrayList.class) {
+            ArrayList<T> arrayList = (ArrayList<T>) list;
+            T[] array = (T[]) arrayList.array;
+            int end = arrayList.size();
+            Arrays.sort(array, 0, end, comparator);
+            arrayList.modCount++;
+        } else {
+            T[] array = list.toArray((T[]) new Object[list.size()]);
+            Arrays.sort(array, comparator);
+            int i = 0;
+            ListIterator<T> it = list.listIterator();
+            while (it.hasNext()) {
+                it.next();
+                it.set(array[i++]);
+            }
         }
     }
 

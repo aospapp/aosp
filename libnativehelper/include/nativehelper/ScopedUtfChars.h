@@ -59,13 +59,11 @@ class ScopedUtfChars {
   }
 
  private:
-  JNIEnv* env_;
-  jstring string_;
+  JNIEnv* const env_;
+  const jstring string_;
   const char* utf_chars_;
 
-  // Disallow copy and assignment.
-  ScopedUtfChars(const ScopedUtfChars&);
-  void operator=(const ScopedUtfChars&);
+  DISALLOW_COPY_AND_ASSIGN(ScopedUtfChars);
 };
 
 #endif  // SCOPED_UTF_CHARS_H_included

@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef HexagonREGISTERINFO_H
-#define HexagonREGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_HEXAGON_HEXAGONREGISTERINFO_H
+#define LLVM_LIB_TARGET_HEXAGON_HEXAGONREGISTERINFO_H
 
 #include "llvm/MC/MachineLocation.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -37,19 +37,11 @@
 #define HEXAGON_RESERVED_REG_2 Hexagon::R11
 
 namespace llvm {
-
-class HexagonSubtarget;
-class HexagonInstrInfo;
-class Type;
-
 struct HexagonRegisterInfo : public HexagonGenRegisterInfo {
-  HexagonSubtarget &Subtarget;
-
-  HexagonRegisterInfo(HexagonSubtarget &st);
+  HexagonRegisterInfo();
 
   /// Code Generation virtual methods...
-  const MCPhysReg *
-  getCalleeSavedRegs(const MachineFunction *MF = nullptr) const override;
+  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
 
   const TargetRegisterClass* const*
   getCalleeSavedRegClasses(const MachineFunction *MF = nullptr) const;

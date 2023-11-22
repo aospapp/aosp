@@ -15,11 +15,12 @@
 ** limitations under the License.
 */
 
-#define LOG_TAG "AudioHAL:HDMIAudioOutput"
+#define LOG_TAG "AudioHAL_HDMIAudioOutput"
 
 #include <utils/Log.h>
 
 #include <stdint.h>
+#include <sound/asound.h> // bionic
 
 #include "AudioHardwareOutput.h"
 #include "AudioStreamOut.h"
@@ -50,30 +51,68 @@ status_t HDMIAudioOutput::setupForStream(const AudioStreamOut& stream)
     if (!gAudioHardwareOutput.getHDMIAudioCaps().supportsFormat(
             stream.format(),
             stream.sampleRate(),
-            mChannelCnt)) {
+            mChannelCnt,
+            stream.isIec958NonAudio())) {
         ALOGE("HDMI Sink does not support format = 0x%0X, srate = %d, #channels = 0%d",
                 stream.format(), mFramesPerSec, mChannelCnt);
         return BAD_VALUE;
     }
 
-    if (stream.isEncoded()) {
-        ALOGI("HDMIAudioOutput::setupForStream() use %d channels for playing encoded data!",
-            SPDIF_ENCODED_CHANNEL_COUNT);
-        mChannelCnt = SPDIF_ENCODED_CHANNEL_COUNT;
-    }
-
     setupInternal();
 
-    // TODO Maybe set SPDIF channel status to compressed mode.
-    // Some receivers do not need the bit set. But some might.
+    setChannelStatusToCompressed(stream.isIec958NonAudio());
 
     return initCheck();
 }
 
-#define IEC958_AES0_NONAUDIO      (1<<1)   /* 0 = audio, 1 = non-audio */
-
 void HDMIAudioOutput::applyPendingVolParams()
 {
+}
+
+#define IEC958_AES0_NONAUDIO      (1<<1)   /* 0 = audio, 1 = non-audio */
+
+void HDMIAudioOutput::setChannelStatusToCompressed(bool compressed)
+{
+    struct snd_aes_iec958  iec958;
+    struct mixer* mixer;
+    int err;
+    const size_t count = 1;
+
+    ALOGI("setChannelStatusToCompressed %d", compressed);
+
+    mixer = mixer_open(mALSACardID);
+    if (mixer == NULL) {
+        ALOGE("Couldn't open mixer on alsa id %d", mALSACardID);
+        return;
+    }
+
+    const char *ctlName = "IEC958 Playback Default";
+    struct mixer_ctl *ctl = mixer_get_ctl_by_name(mixer, ctlName);
+    if (ctl == NULL) {
+        ALOGE("Couldn't get mixer ctl %s", ctlName);
+        goto finish;
+    }
+
+    // Set count to 1 so we get one complete iec958 structure.
+    err = mixer_ctl_get_array(ctl, &iec958, count);
+    if (err < 0) {
+        ALOGE("Channel Status bit get has failed\n");
+        goto finish;
+    }
+
+    if (compressed) {
+        iec958.status[0] |= IEC958_AES0_NONAUDIO;
+    } else {
+        iec958.status[0] &= ~IEC958_AES0_NONAUDIO;
+    }
+
+    err = mixer_ctl_set_array(ctl, &iec958, count);
+    if (err < 0) {
+        ALOGE("Channel Status bit set has failed\n");
+    }
+
+finish:
+    mixer_close(mixer);
 }
 
 void HDMIAudioOutput::dump(String8& result)

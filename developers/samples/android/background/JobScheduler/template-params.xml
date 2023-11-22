@@ -23,7 +23,7 @@
     <package>com.example.android.jobscheduler</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>18</minSdk>
+    <minSdk>21</minSdk>
     <compileSdkVersion>21</compileSdkVersion>
 
     <strings>

@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Phone"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Phone Call Management"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Telephone"</string>
     <string name="unknown" msgid="6878797917991465859">"Unknown"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Missed call"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Missed calls"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Quick response"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Message sent to <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Only emergency calls are allowed by the device owner"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Calling accounts"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Only emergency calls are allowed by the device owner."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"This application cannot make outgoing calls without Phone permission."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"To place a call, enter a valid number."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Call cannot be added at this time."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Please disable TTY Mode to make video calls."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Missing voicemail number"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"No voicemail number is stored on the SIM card."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Add number"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Change default Dialer app?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Use <xliff:g id="NEW_APP">%1$s</xliff:g> instead of <xliff:g id="CURRENT_APP">%2$s</xliff:g> as your default dialler app?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Use <xliff:g id="NEW_APP">%s</xliff:g> as your default dialler app?"</string>
 </resources>

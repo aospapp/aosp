@@ -28,6 +28,9 @@ public:
 
     size_t peek(void* buffer, size_t size);
     size_t read(void* buffer, size_t size);
+    virtual uint8_t* getRawBufferAddr();
+    virtual jobject getRawBuffer();
+    virtual int getRawBufferSize();
 
 protected:
     virtual size_t doRead(void* buffer, size_t size) = 0;
@@ -40,16 +43,21 @@ private:
 
 class MemoryStream : public Stream {
 public:
-    MemoryStream(void* buffer, size_t size) :
-            mBuffer((char*)buffer),
-            mRemaining(size) {}
+    MemoryStream(void* buffer, size_t size, jobject buf) :
+            mBuffer((uint8_t*)buffer),
+            mRemaining(size),
+            mRawBuffer(buf) {}
+    virtual uint8_t* getRawBufferAddr();
+    virtual jobject getRawBuffer();
+    virtual int getRawBufferSize();
 
 protected:
     virtual size_t doRead(void* buffer, size_t size);
 
 private:
-    char* mBuffer;
+    uint8_t* mBuffer;
     size_t mRemaining;
+    jobject mRawBuffer;
 };
 
 class FileStream : public Stream {

@@ -32,7 +32,7 @@ import java.net.UnknownHostException;
  */
 public class InetAddressesTest extends TestCase {
 
-  public void testNulls() throws Exception {
+  public void testNulls() {
     NullPointerTester tester = new NullPointerTester();
 
     tester.testAllPublicStaticMethods(InetAddresses.class);
@@ -241,9 +241,15 @@ public class InetAddressesTest extends TestCase {
     assertEquals(expected, InetAddresses.forUriString("[3ffe:0:0:0:0:0:0:1]"));
   }
 
+  public void testForUriStringIPv4Mapped() {
+    Inet4Address expected = (Inet4Address) InetAddresses.forString("192.0.2.1");
+    assertEquals(expected, InetAddresses.forUriString("[::ffff:192.0.2.1]"));
+  }
+
   public void testIsUriInetAddress() {
     assertTrue(InetAddresses.isUriInetAddress("192.168.1.1"));
     assertTrue(InetAddresses.isUriInetAddress("[3ffe:0:0:0:0:0:0:1]"));
+    assertTrue(InetAddresses.isUriInetAddress("[::ffff:192.0.2.1]"));
 
     assertFalse(InetAddresses.isUriInetAddress("[192.168.1.1"));
     assertFalse(InetAddresses.isUriInetAddress("192.168.1.1]"));
@@ -253,6 +259,8 @@ public class InetAddressesTest extends TestCase {
     assertFalse(InetAddresses.isUriInetAddress("1:2e"));
     assertFalse(InetAddresses.isUriInetAddress("[3ffe:0:0:0:0:0:0:1"));
     assertFalse(InetAddresses.isUriInetAddress("3ffe:0:0:0:0:0:0:1]"));
+    assertFalse(InetAddresses.isUriInetAddress("3ffe:0:0:0:0:0:0:1"));
+    assertFalse(InetAddresses.isUriInetAddress("::ffff:192.0.2.1"));
   }
 
   public void testForUriStringBad() {
@@ -314,6 +322,20 @@ public class InetAddressesTest extends TestCase {
 
     try {
       InetAddresses.forUriString("3ffe:0:0:0:0:0:0:1]");
+      fail("expected IllegalArgumentException");  // COV_NF_LINE
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try {
+      InetAddresses.forUriString("3ffe:0:0:0:0:0:0:1");
+      fail("expected IllegalArgumentException");  // COV_NF_LINE
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    try {
+      InetAddresses.forUriString("::ffff:192.0.2.1");
       fail("expected IllegalArgumentException");  // COV_NF_LINE
     } catch (IllegalArgumentException e) {
       // expected
@@ -467,6 +489,14 @@ public class InetAddressesTest extends TestCase {
     assertEquals(flags, teredo.getFlags());
   }
 
+  public void testTeredoAddress_nullServer() {
+    InetAddresses.TeredoInfo info = new InetAddresses.TeredoInfo(null, null, 80, 1000);
+    assertEquals(InetAddresses.forString("0.0.0.0"), info.getServer());
+    assertEquals(InetAddresses.forString("0.0.0.0"), info.getClient());
+    assertEquals(80, info.getPort());
+    assertEquals(1000, info.getFlags());
+  }
+
   public void testIsatapAddresses() {
     InetAddress ipv4 = InetAddresses.forString("1.2.3.4");
     String[] validIsatapAddresses = {
@@ -607,14 +637,6 @@ public class InetAddressesTest extends TestCase {
     assertTrue(InetAddresses.coerceToInteger(coerced) <= 0xfffffffe);
   }
 
-  public void testHash64To32() {
-    // Make sure the output looks reasonably sane.
-    assertEquals(532412650, InetAddresses.hash64To32(-1));
-    assertEquals(720020139, InetAddresses.hash64To32(0));
-    assertEquals(357654460, InetAddresses.hash64To32(1));
-    assertEquals(-1977349188, InetAddresses.hash64To32(0x7fffffffffffffffL));
-  }
-
   public void testToInteger() {
     InetAddress ipv4Addr = InetAddresses.forString("127.0.0.1");
     assertEquals(0x7f000001, InetAddresses.coerceToInteger(ipv4Addr));
@@ -677,7 +699,7 @@ public class InetAddressesTest extends TestCase {
     try {
       address = InetAddresses.increment(address);
       fail();
-    } catch (IllegalArgumentException expected) { }
+    } catch (IllegalArgumentException expected) {}
   }
 
   public void testIncrementIPv6() throws UnknownHostException {
@@ -700,6 +722,6 @@ public class InetAddressesTest extends TestCase {
     try {
       address = InetAddresses.increment(address);
       fail();
-    } catch (IllegalArgumentException expected) { }
+    } catch (IllegalArgumentException expected) {}
   }
 }

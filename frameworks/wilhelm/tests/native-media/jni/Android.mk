@@ -8,7 +8,6 @@ LOCAL_SRC_FILES := native-media-jni.c
 LOCAL_CFLAGS += -I$(call include-path-for, wilhelm)
 LOCAL_CFLAGS += -UNDEBUG
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_SHARED_LIBRARIES += libutils liblog libOpenMAXAL libandroid
 
 

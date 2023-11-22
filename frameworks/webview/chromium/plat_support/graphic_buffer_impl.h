@@ -22,7 +22,7 @@
 
 #include <ui/GraphicBuffer.h>
 
-#include "android_webview/public/browser/draw_gl.h"
+#include "draw_gl.h"
 
 namespace android {
 

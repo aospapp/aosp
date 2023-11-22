@@ -32,8 +32,6 @@ public:
 
 protected:
     SkRasterizer() {}
-    SkRasterizer(SkReadBuffer& buffer) : INHERITED(buffer) {}
-
     virtual bool onRasterize(const SkPath& path, const SkMatrix& matrix,
                              const SkIRect* clipBounds,
                              SkMask* mask, SkMask::CreateMode mode) const;

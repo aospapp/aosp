@@ -55,6 +55,7 @@ public class RingtoneManagerTest
         mActivity = getActivity();
         mInstrumentation = getInstrumentation();
         mContext = mInstrumentation.getContext();
+        Utils.enableAppOps(mContext.getPackageName(), "android:write_settings", mInstrumentation);
         mRingtoneManager = new RingtoneManager(mActivity);
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         // backup ringer settings
@@ -74,6 +75,7 @@ public class RingtoneManagerTest
         }
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE,
                 mDefaultUri);
+        Utils.disableAppOps(mContext.getPackageName(), "android:write_settings", mInstrumentation);
         super.tearDown();
     }
 

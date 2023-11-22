@@ -16,7 +16,6 @@
 
 package com.google.common.collect;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
 import java.util.Collection;
@@ -40,6 +39,10 @@ import javax.annotation.Nullable;
  * <p><b>Note:</b> Although this class is not final, it cannot be subclassed as
  * it has no public or protected constructors. Thus, instances of this class
  * are guaranteed to be immutable.
+ *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/ImmutableCollectionsExplained">
+ * immutable collections</a>.
  *
  * @author Jared Levy
  * @since 2.0 (imported from Google Collections Library)
@@ -141,7 +144,7 @@ public class ImmutableListMultimap<K, V>
    *           .putAll("many", 1, 2, 3, 4, 5)
    *           .build();}</pre>
    *
-   * Builder instances can be reused; it is safe to call {@link #build} multiple
+   * <p>Builder instances can be reused; it is safe to call {@link #build} multiple
    * times to build multiple multimaps in series. Each multimap contains the
    * key-value mappings in the previously created multimaps.
    *
@@ -192,7 +195,7 @@ public class ImmutableListMultimap<K, V>
      *
      * @since 8.0
      */
-    @Beta @Override
+    @Override
     public Builder<K, V> orderKeysBy(Comparator<? super K> keyComparator) {
       super.orderKeysBy(keyComparator);
       return this;
@@ -203,7 +206,7 @@ public class ImmutableListMultimap<K, V>
      *
      * @since 8.0
      */
-    @Beta @Override
+    @Override
     public Builder<K, V> orderValuesBy(Comparator<? super V> valueComparator) {
       super.orderValuesBy(valueComparator);
       return this;
@@ -283,13 +286,14 @@ public class ImmutableListMultimap<K, V>
   /**
    * {@inheritDoc}
    *
-   * <p>Because an inverse of a list multimap can contain multiple pairs with the same key and
-   * value, this method returns an {@code ImmutableListMultimap} rather than the
-   * {@code ImmutableMultimap} specified in the {@code ImmutableMultimap} class.
+   * <p>Because an inverse of a list multimap can contain multiple pairs with
+   * the same key and value, this method returns an {@code
+   * ImmutableListMultimap} rather than the {@code ImmutableMultimap} specified
+   * in the {@code ImmutableMultimap} class.
    *
-   * @since 11
+   * @since 11.0
    */
-  @Beta
+  @Override
   public ImmutableListMultimap<V, K> inverse() {
     ImmutableListMultimap<V, K> result = inverse;
     return (result == null) ? (inverse = invert()) : result;
@@ -309,8 +313,9 @@ public class ImmutableListMultimap<K, V>
    * Guaranteed to throw an exception and leave the multimap unmodified.
    *
    * @throws UnsupportedOperationException always
+   * @deprecated Unsupported operation.
    */
-  @Override public ImmutableList<V> removeAll(Object key) {
+  @Deprecated @Override public ImmutableList<V> removeAll(Object key) {
     throw new UnsupportedOperationException();
   }
 
@@ -318,8 +323,9 @@ public class ImmutableListMultimap<K, V>
    * Guaranteed to throw an exception and leave the multimap unmodified.
    *
    * @throws UnsupportedOperationException always
+   * @deprecated Unsupported operation.
    */
-  @Override public ImmutableList<V> replaceValues(
+  @Deprecated @Override public ImmutableList<V> replaceValues(
       K key, Iterable<? extends V> values) {
     throw new UnsupportedOperationException();
   }

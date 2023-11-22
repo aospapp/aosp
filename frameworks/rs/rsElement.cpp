@@ -24,7 +24,7 @@ using namespace android::renderscript;
 Element::Element(Context *rsc) : ObjectBase(rsc) {
     mBits = 0;
     mBitsUnpadded = 0;
-    mFields = NULL;
+    mFields = nullptr;
     mFieldCount = 0;
     mHasReference = false;
     memset(&mHal, 0, sizeof(mHal));
@@ -57,7 +57,7 @@ void Element::clear() {
         }
         delete [] mFields;
     }
-    mFields = NULL;
+    mFields = nullptr;
     mFieldCount = 0;
     mHasReference = false;
 
@@ -125,7 +125,7 @@ Element *Element::createFromStream(Context *rsc, IStream *stream) {
     RsA3DClassID classID = (RsA3DClassID)stream->loadU32();
     if (classID != RS_A3D_CLASS_ID_ELEMENT) {
         ALOGE("element loading skipped due to invalid class id\n");
-        return NULL;
+        return nullptr;
     }
 
     const char *name = stream->loadString();
@@ -249,7 +249,7 @@ ObjectBaseRef<const Element> Element::createRef(Context *rsc, RsDataType dt, RsD
     void* allocMem = rsc->mHal.funcs.allocRuntimeMem(sizeof(Element), 0);
     if (!allocMem) {
         rsc->setError(RS_ERROR_FATAL_DRIVER, "Couldn't allocate memory for Element");
-        return NULL;
+        return nullptr;
     }
 
     Element *e = new (allocMem) Element(rsc);
@@ -313,7 +313,7 @@ ObjectBaseRef<const Element> Element::createRef(Context *rsc, size_t count, cons
     void* allocMem = rsc->mHal.funcs.allocRuntimeMem(sizeof(Element), 0);
     if (!allocMem) {
         rsc->setError(RS_ERROR_FATAL_DRIVER, "Couldn't allocate memory for Element");
-        return NULL;
+        return nullptr;
     }
 
     Element *e = new (allocMem) Element(rsc);
@@ -390,7 +390,7 @@ void Element::decRefs(const void *ptr) const {
 }
 
 void Element::callUpdateCacheObject(const Context *rsc, void *dstObj) const {
-    if (rsc->mHal.funcs.element.updateCachedObject != NULL) {
+    if (rsc->mHal.funcs.element.updateCachedObject != nullptr) {
         rsc->mHal.funcs.element.updateCachedObject(rsc, this, (rs_element *)dstObj);
     } else {
         *((const void **)dstObj) = this;

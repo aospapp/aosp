@@ -26,7 +26,7 @@
     <!-- no translation found for requesting_server (5832565605998634370) -->
     <skip />
     <string name="install_new_cert_message" msgid="4451971501142085495">"Unaweza kusakinisha vyeti kutoka katika faili PKCS#12 kwa kirefusho %1$s au %2$s kilicho katika hifadhi ya nje."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Sakinisha"</string>
+    <string name="install_new_cert_button_label" msgid="510732745267546907">"Weka"</string>
     <string name="allow_button" msgid="5340501035618157678">"Ruhusu"</string>
     <string name="deny_button" msgid="3766539809121892584">"Kana"</string>
 </resources>

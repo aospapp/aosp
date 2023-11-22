@@ -29,6 +29,10 @@
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
     </style>
+    <style name="PhotoViewTheme.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
     <style name="AppCompat.ActionBar" parent="Widget.AppCompat.ActionBar">
         <item name="background">@drawable/actionbar_translucent</item>
     </style>

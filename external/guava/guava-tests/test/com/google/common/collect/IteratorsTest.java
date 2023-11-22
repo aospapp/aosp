@@ -16,15 +16,15 @@
 
 package com.google.common.collect;
 
+import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Iterators.get;
 import static com.google.common.collect.Iterators.getLast;
-import static com.google.common.collect.Iterators.skip;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.testing.IteratorFeature.MODIFIABLE;
 import static com.google.common.collect.testing.IteratorFeature.UNMODIFIABLE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -40,11 +40,11 @@ import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.ListFeature;
 import com.google.common.testing.NullPointerTester;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,6 +52,7 @@ import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.Set;
@@ -85,6 +86,54 @@ public class IteratorsTest extends TestCase {
       iterator.remove();
       fail("no exception thrown");
     } catch (UnsupportedOperationException expected) {
+    }
+  }
+
+  public void testEmptyListIterator() {
+    ListIterator<String> iterator = Iterators.emptyListIterator();
+    assertFalse(iterator.hasNext());
+    assertFalse(iterator.hasPrevious());
+    assertEquals(0, iterator.nextIndex());
+    assertEquals(-1, iterator.previousIndex());
+    try {
+      iterator.next();
+      fail("no exception thrown");
+    } catch (NoSuchElementException expected) {
+    }
+    try {
+      iterator.previous();
+      fail("no exception thrown");
+    } catch (NoSuchElementException expected) {
+    }
+    try {
+      iterator.remove();
+      fail("no exception thrown");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      iterator.set("a");
+      fail("no exception thrown");
+    } catch (UnsupportedOperationException expected) {
+    }
+    try {
+      iterator.add("a");
+      fail("no exception thrown");
+    } catch (UnsupportedOperationException expected) {
+    }
+  }
+
+  public void testEmptyModifiableIterator() {
+    Iterator<String> iterator = Iterators.emptyModifiableIterator();
+    assertFalse(iterator.hasNext());
+    try {
+      iterator.next();
+      fail("Expected NoSuchElementException");
+    } catch (NoSuchElementException expected) {
+    }
+    try {
+      iterator.remove();
+      fail("Expected IllegalStateException");
+    } catch (IllegalStateException expected) {
     }
   }
 
@@ -257,8 +306,7 @@ public class IteratorsTest extends TestCase {
         new Predicate<String>() {
           @Override
           public boolean apply(String s) {
-            fail("Should never be evaluated");
-            return false;
+            throw new AssertionFailedError("Should never be evaluated");
           }
         });
 
@@ -267,7 +315,7 @@ public class IteratorsTest extends TestCase {
     assertEquals(expected, actual);
   }
 
-  @GwtIncompatible("unreasonable slow")
+  @GwtIncompatible("unreasonably slow")
   public void testFilterUsingIteratorTester() {
     final List<Integer> list = asList(1, 2, 3, 4, 5);
     final Predicate<Integer> isEven = new Predicate<Integer>() {
@@ -591,7 +639,7 @@ public class IteratorsTest extends TestCase {
     } catch (NoSuchElementException expected) {}
   }
 
-  @GwtIncompatible("unreasonable slow")
+  @GwtIncompatible("unreasonably slow")
   public void testCycleUsingIteratorTester() {
     new IteratorTester<Integer>(5, UNMODIFIABLE, asList(1, 2, 1, 2, 1,
         2, 1, 2, 1, 2, 1, 2), IteratorTester.KnownOrder.KNOWN_ORDER) {
@@ -717,7 +765,7 @@ public class IteratorsTest extends TestCase {
 
     boolean changed = Iterators.addAll(alreadyThere,
                                        Iterators.<String>emptyIterator());
-    ASSERT.that(alreadyThere).hasContentsInOrder("already", "there");
+    ASSERT.that(alreadyThere).has().exactly("already", "there").inOrder();
     assertFalse(changed);
   }
 
@@ -727,7 +775,7 @@ public class IteratorsTest extends TestCase {
 
     boolean changed = Iterators.addAll(alreadyThere, freshlyAdded.iterator());
 
-    ASSERT.that(alreadyThere).hasContentsInOrder("already", "there", "freshly", "added");
+    ASSERT.that(alreadyThere).has().exactly("already", "there", "freshly", "added");
     assertTrue(changed);
   }
 
@@ -737,12 +785,12 @@ public class IteratorsTest extends TestCase {
     List<String> oneMore = Lists.newArrayList("there");
 
     boolean changed = Iterators.addAll(alreadyThere, oneMore.iterator());
-    ASSERT.that(alreadyThere).hasContentsInOrder("already", "there");
+    ASSERT.that(alreadyThere).has().exactly("already", "there").inOrder();
     assertFalse(changed);
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointerExceptions() throws Exception {
+  public void testNullPointerExceptions() {
     NullPointerTester tester = new NullPointerTester();
     tester.testAllPublicStaticMethods(Iterators.class);
   }
@@ -999,34 +1047,34 @@ public class IteratorsTest extends TestCase {
 
   public void testForArrayOffset() {
     String[] array = {"foo", "bar", "cat", "dog"};
-    Iterator<String> iterator = Iterators.forArray(array, 1, 2);
+    Iterator<String> iterator = Iterators.forArray(array, 1, 2, 0);
     assertTrue(iterator.hasNext());
     assertEquals("bar", iterator.next());
     assertTrue(iterator.hasNext());
     assertEquals("cat", iterator.next());
     assertFalse(iterator.hasNext());
     try {
-      Iterators.forArray(array, 2, 3);
+      Iterators.forArray(array, 2, 3, 0);
       fail();
     } catch (IndexOutOfBoundsException expected) {}
   }
 
   public void testForArrayLength0() {
     String[] array = {"foo", "bar"};
-    assertFalse(Iterators.forArray(array, 0, 0).hasNext());
-    assertFalse(Iterators.forArray(array, 1, 0).hasNext());
-    assertFalse(Iterators.forArray(array, 2, 0).hasNext());
+    assertFalse(Iterators.forArray(array, 0, 0, 0).hasNext());
+    assertFalse(Iterators.forArray(array, 1, 0, 0).hasNext());
+    assertFalse(Iterators.forArray(array, 2, 0, 0).hasNext());
     try {
-      Iterators.forArray(array, -1, 0);
+      Iterators.forArray(array, -1, 0, 0);
       fail();
     } catch (IndexOutOfBoundsException expected) {}
     try {
-      Iterators.forArray(array, 3, 0);
+      Iterators.forArray(array, 3, 0, 0);
       fail();
     } catch (IndexOutOfBoundsException expected) {}
   }
 
-  @GwtIncompatible("unreasonable slow")
+  @GwtIncompatible("unreasonably slow")
   public void testForArrayUsingTester() {
     new IteratorTester<Integer>(6, UNMODIFIABLE, asList(1, 2, 3),
         IteratorTester.KnownOrder.KNOWN_ORDER) {
@@ -1036,12 +1084,12 @@ public class IteratorsTest extends TestCase {
     }.test();
   }
 
-  @GwtIncompatible("unreasonable slow")
+  @GwtIncompatible("unreasonably slow")
   public void testForArrayWithOffsetUsingTester() {
     new IteratorTester<Integer>(6, UNMODIFIABLE, asList(1, 2, 3),
         IteratorTester.KnownOrder.KNOWN_ORDER) {
       @Override protected Iterator<Integer> newTargetIterator() {
-        return Iterators.forArray(new Integer[] { 0, 1, 2, 3, 4 }, 1, 3);
+        return Iterators.forArray(new Integer[] { 0, 1, 2, 3, 4 }, 1, 3, 0);
       }
     }.test();
   }
@@ -1138,11 +1186,18 @@ public class IteratorsTest extends TestCase {
   }
 
   public void testToString() {
-    List<String> list = Collections.emptyList();
-    assertEquals("[]", Iterators.toString(list.iterator()));
+    Iterator<String> iterator = Lists.newArrayList("yam", "bam", "jam", "ham").iterator();
+    assertEquals("[yam, bam, jam, ham]", Iterators.toString(iterator));
+  }
 
-    list = Lists.newArrayList("yam", "bam", "jam", "ham");
-    assertEquals("[yam, bam, jam, ham]", Iterators.toString(list.iterator()));
+  public void testToStringWithNull() {
+    Iterator<String> iterator = Lists.newArrayList("hello", null, "world").iterator();
+    assertEquals("[hello, null, world]", Iterators.toString(iterator));
+  }
+
+  public void testToStringEmptyIterator() {
+    Iterator<String> iterator = Collections.<String>emptyList().iterator();
+    assertEquals("[]", Iterators.toString(iterator));
   }
 
   public void testLimit() {
@@ -1342,29 +1397,29 @@ public class IteratorsTest extends TestCase {
     assertTrue(iterator.hasNext());
   }
 
-  public void testSkip_basic() {
+  public void testAdvance_basic() {
     List<String> list = newArrayList();
     list.add("a");
     list.add("b");
     Iterator<String> iterator = list.iterator();
-    skip(iterator, 1);
+    advance(iterator, 1);
     assertEquals("b", iterator.next());
   }
 
-  public void testSkip_pastEnd() {
+  public void testAdvance_pastEnd() {
     List<String> list = newArrayList();
     list.add("a");
     list.add("b");
     Iterator<String> iterator = list.iterator();
-    skip(iterator, 5);
+    advance(iterator, 5);
     assertFalse(iterator.hasNext());
   }
 
-  public void testSkip_illegalArgument() {
+  public void testAdvance_illegalArgument() {
     List<String> list = newArrayList("a", "b", "c");
     Iterator<String> iterator = list.iterator();
     try {
-      skip(iterator, -1);
+      advance(iterator, -1);
       fail();
     } catch (IllegalArgumentException expected) {}
   }
@@ -1466,12 +1521,14 @@ public class IteratorsTest extends TestCase {
     Iterator<String> consumingIterator =
         Iterators.consumingIterator(list.iterator());
 
-    ASSERT.that(list).hasContentsInOrder("a", "b");
+    assertEquals("Iterators.consumingIterator(...)", consumingIterator.toString());
+
+    ASSERT.that(list).has().exactly("a", "b").inOrder();
 
     assertTrue(consumingIterator.hasNext());
-    ASSERT.that(list).hasContentsInOrder("a", "b");
+    ASSERT.that(list).has().exactly("a", "b").inOrder();
     assertEquals("a", consumingIterator.next());
-    ASSERT.that(list).hasContentsInOrder("b");
+    ASSERT.that(list).has().item("b");
 
     assertTrue(consumingIterator.hasNext());
     assertEquals("b", consumingIterator.next());

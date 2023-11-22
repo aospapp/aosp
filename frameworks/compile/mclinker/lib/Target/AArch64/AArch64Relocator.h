@@ -6,38 +6,22 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef TARGET_AARCH64_AARCH64RELOCATOR_H
-#define TARGET_AARCH64_AARCH64RELOCATOR_H
+#ifndef TARGET_AARCH64_AARCH64RELOCATOR_H_
+#define TARGET_AARCH64_AARCH64RELOCATOR_H_
 
-#include <mcld/LD/Relocator.h>
-#include <mcld/Target/GOT.h>
-#include <mcld/Target/KeyEntryMap.h>
+#include "mcld/LD/Relocator.h"
+#include "mcld/Target/GOT.h"
+#include "mcld/Target/KeyEntryMap.h"
 #include "AArch64LDBackend.h"
 
 namespace mcld {
-// FIXME: llvm::ELF doesn't define AArch64 dynamic relocation types
-enum {
-  // static relocations
-  R_AARCH64_ADR_PREL_PG_HI21_NC = 0x114,
-  // dyanmic rlocations
-  R_AARCH64_COPY                = 1024,
-  R_AARCH64_GLOB_DAT            = 1025,
-  R_AARCH64_JUMP_SLOT           = 1026,
-  R_AARCH64_RELATIVE            = 1027,
-  R_AARCH64_TLS_DTPREL64        = 1028,
-  R_AARCH64_TLS_DTPMOD64        = 1029,
-  R_AARCH64_TLS_TPREL64         = 1030,
-  R_AARCH64_TLSDESC             = 1031,
-  R_AARCH64_IRELATIVE           = 1032
-};
 
 /** \class AArch64Relocator
  *  \brief AArch64Relocator creates and destroys the AArch64 relocations.
  *
  */
-class AArch64Relocator : public Relocator
-{
-public:
+class AArch64Relocator : public Relocator {
+ public:
   typedef KeyEntryMap<ResolveInfo, AArch64GOTEntry> SymGOTMap;
   typedef KeyEntryMap<ResolveInfo, AArch64PLT1> SymPLTMap;
   typedef KeyEntryMap<Relocation, Relocation> RelRelMap;
@@ -61,10 +45,10 @@ public:
    *
    */
   enum ReservedEntryType {
-    None         = 0,
-    ReserveRel   = 1,
-    ReserveGOT   = 2,
-    ReservePLT   = 4,
+    None = 0,
+    ReserveRel = 1,
+    ReserveGOT = 2,
+    ReservePLT = 4,
   };
 
   /** \enum EntryValue
@@ -72,38 +56,33 @@ public:
    *  layout, so we mark the entry during scanRelocation and fill up the actual
    *  value when applying relocations.
    */
-  enum EntryValue {
-    Default = 0,
-    SymVal  = 1
-  };
+  enum EntryValue { Default = 0, SymVal = 1 };
 
-public:
+ public:
   AArch64Relocator(AArch64GNULDBackend& pParent, const LinkerConfig& pConfig);
   ~AArch64Relocator();
 
   Result applyRelocation(Relocation& pRelocation);
 
-  AArch64GNULDBackend& getTarget()
-  { return m_Target; }
+  AArch64GNULDBackend& getTarget() { return m_Target; }
 
-  const AArch64GNULDBackend& getTarget() const
-  { return m_Target; }
+  const AArch64GNULDBackend& getTarget() const { return m_Target; }
 
   const char* getName(Relocation::Type pType) const;
 
   Size getSize(Relocation::Type pType) const;
 
   const SymGOTMap& getSymGOTMap() const { return m_SymGOTMap; }
-  SymGOTMap&       getSymGOTMap()       { return m_SymGOTMap; }
+  SymGOTMap& getSymGOTMap() { return m_SymGOTMap; }
 
   const SymPLTMap& getSymPLTMap() const { return m_SymPLTMap; }
-  SymPLTMap&       getSymPLTMap()       { return m_SymPLTMap; }
+  SymPLTMap& getSymPLTMap() { return m_SymPLTMap; }
 
   const SymGOTMap& getSymGOTPLTMap() const { return m_SymGOTPLTMap; }
-  SymGOTMap&       getSymGOTPLTMap()       { return m_SymGOTPLTMap; }
+  SymGOTMap& getSymGOTPLTMap() { return m_SymGOTPLTMap; }
 
   const RelRelMap& getRelRelMap() const { return m_RelRelMap; }
-  RelRelMap&       getRelRelMap()       { return m_RelRelMap; }
+  RelRelMap& getRelRelMap() { return m_RelRelMap; }
 
   /// scanRelocation - determine the empty entries are needed or not and create
   /// the empty entries if needed.
@@ -117,7 +96,15 @@ public:
                       LDSection& pSection,
                       Input& pInput);
 
-private:
+  /// getDebugStringOffset - get the offset from the relocation target. This is
+  /// used to get the debug string offset.
+  uint32_t getDebugStringOffset(Relocation& pReloc) const;
+
+  /// applyDebugStringOffset - apply the relocation target to specific offset.
+  /// This is used to set the debug string offset.
+  void applyDebugStringOffset(Relocation& pReloc, uint32_t pOffset);
+
+ private:
   void scanLocalReloc(Relocation& pReloc, const LDSection& pSection);
 
   void scanGlobalReloc(Relocation& pReloc,
@@ -134,7 +121,7 @@ private:
   LDSymbol& defineSymbolforCopyReloc(IRBuilder& pLinker,
                                      const ResolveInfo& pSym);
 
-private:
+ private:
   AArch64GNULDBackend& m_Target;
   SymGOTMap m_SymGOTMap;
   SymPLTMap m_SymPLTMap;
@@ -142,7 +129,6 @@ private:
   RelRelMap m_RelRelMap;
 };
 
-} // namespace of mcld
+}  // namespace mcld
 
-#endif
-
+#endif  // TARGET_AARCH64_AARCH64RELOCATOR_H_

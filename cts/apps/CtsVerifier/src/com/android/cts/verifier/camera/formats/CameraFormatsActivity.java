@@ -236,8 +236,15 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
     public void onSurfaceTextureAvailable(SurfaceTexture surface,
             int width, int height) {
         mPreviewTexture = surface;
-        mPreviewTexWidth = width;
-        mPreviewTexHeight = height;
+        if (mFormatView.getMeasuredWidth() != width
+                || mFormatView.getMeasuredHeight() != height) {
+            mPreviewTexWidth = mFormatView.getMeasuredWidth();
+            mPreviewTexHeight = mFormatView.getMeasuredHeight();
+         } else {
+            mPreviewTexWidth = width;
+            mPreviewTexHeight = height;
+        }
+
         if (mCamera != null) {
             startPreview();
         }

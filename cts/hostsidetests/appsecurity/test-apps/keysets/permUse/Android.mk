@@ -24,7 +24,7 @@ LOCAL_PACKAGE_NAME := CtsKeySetPermUseSigningA
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-a
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 #apks signed cts-keyset-test-b
 include $(CLEAR_VARS)
@@ -36,4 +36,4 @@ LOCAL_PACKAGE_NAME := CtsKeySetPermUseSigningB
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/keysets/cts-keyset-test-b
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)

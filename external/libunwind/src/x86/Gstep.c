@@ -122,7 +122,11 @@ unw_step (unw_cursor_t *cursor)
       /* If the decode yields the exact same ip/cfa as before, then indicate
          the unwind is complete. */
       if (old_ip == c->dwarf.ip && old_cfa == c->dwarf.cfa)
-        return 0;
+        {
+          Dprintf ("%s: ip and cfa unchanged; stopping here (ip=0x%lx)\n",
+                   __FUNCTION__, (long) c->dwarf.ip);
+          return -UNW_EBADFRAME;
+        }
       c->dwarf.frame++;
     }
   /* End of ANDROID update. */

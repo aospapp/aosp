@@ -1,13 +1,14 @@
 # dumpstate
-type dumpstate, domain;
+type dumpstate, domain, mlstrustedsubject;
 type dumpstate_exec, exec_type, file_type;
 
 init_daemon_domain(dumpstate)
 net_domain(dumpstate)
 binder_use(dumpstate)
 
-# Drop privileges by switching UID / GID
-allow dumpstate self:capability { setuid setgid };
+# Allow setting process priority, protect from OOM killer, and dropping
+# privileges by switching UID / GID
+allow dumpstate self:capability { setuid setgid sys_resource };
 
 # Allow dumpstate to scan through /proc/pid for all processes
 r_dir_file(dumpstate, domain)
@@ -48,6 +49,8 @@ allow dumpstate { appdomain system_server }:process signal;
 # Signal native processes to dump their stack.
 # This list comes from native_processes_to_dump in dumpstate/utils.c
 allow dumpstate { drmserver mediaserver sdcardd surfaceflinger }:process signal;
+# Ask debuggerd for the backtraces of these processes.
+allow dumpstate { drmserver mediaserver sdcardd surfaceflinger }:debuggerd dump_backtrace;
 
 # Execute and transition to the vdc domain
 domain_auto_trans(dumpstate, vdc_exec, vdc)
@@ -60,6 +63,8 @@ allow dumpstate sysfs:file w_file_perms;
 # Other random bits of data we want to collect
 allow dumpstate qtaguid_proc:file r_file_perms;
 allow dumpstate debugfs:file r_file_perms;
+# df for /storage/emulated needs search
+allow dumpstate storage_file:dir search;
 
 # Allow dumpstate to make binder calls to any binder service
 binder_call(dumpstate, binderservicedomain)
@@ -85,6 +90,7 @@ allow dumpstate dumpstate_tmpfs:file execute;
 allow dumpstate self:process execmem;
 # For art.
 allow dumpstate dalvikcache_data_file:file execute;
+allow dumpstate dalvikcache_data_file:lnk_file r_file_perms;
 
 # Dumpstate calls screencap, which grabs a screenshot. Needs gpu access
 allow dumpstate gpu_device:chr_file rw_file_perms;
@@ -101,5 +107,7 @@ allow dumpstate net_data_file:file r_file_perms;
 allow dumpstate tombstone_data_file:dir r_dir_perms;
 allow dumpstate tombstone_data_file:file r_file_perms;
 
-# Access /system/bin executables to determine type of executable.
-allow dumpstate {drmserver_exec mediaserver_exec sdcardd_exec surfaceflinger_exec}:file r_file_perms;
+allow dumpstate { service_manager_type -gatekeeper_service }:service_manager find;
+allow dumpstate servicemanager:service_manager list;
+
+allow dumpstate devpts:chr_file rw_file_perms;

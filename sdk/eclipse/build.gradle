@@ -46,6 +46,7 @@ def artifacts = [
         'lint-api'            : "com.android.tools.lint:lint-api:$ext.baseVersion",
         'lint-checks'         : "com.android.tools.lint:lint-checks:$ext.baseVersion",
         'asset-studio'        : "com.android.tools:asset-studio:$ext.baseVersion",
+        'annotations'         : "com.android.tools:annotations:$ext.baseVersion",
         'common'              : "com.android.tools:common:$ext.baseVersion",
         'dvlib'               : "com.android.tools:dvlib:$ext.baseVersion",
         'hierarchyviewer2lib' : "com.android.tools:hierarchyviewer2lib:$ext.baseVersion",
@@ -62,15 +63,15 @@ def artifacts = [
 
         // prebuilts
         'ant-glob'                         : 'com.android.tools.external:ant-glob:1.0',
-        'asm-4.0'                          : 'org.ow2.asm:asm:4.0',
-        'asm-analysis-4.0'                 : 'org.ow2.asm:asm-analysis:4.0',
-        'asm-tree-4.0'                     : 'org.ow2.asm:asm-tree:4.0',
+        'asm-5.0.3'                        : 'org.ow2.asm:asm:5.0.3',
+        'asm-analysis-5.0.3'               : 'org.ow2.asm:asm-analysis:5.0.3',
+        'asm-tree-5.0.3'                   : 'org.ow2.asm:asm-tree:5.0.3',
         'commons-codec-1.4'                : 'commons-codec:commons-codec:1.4',
         'commons-compress-1.0'             : 'org.apache.commons:commons-compress:1.8.1',
         'commons-logging-1.1.1'            : 'commons-logging:commons-logging:1.1.1',
-        'easymock'                         : 'org.easymock:easymock:2.4',
+        'easymock'                         : 'org.easymock:easymock:3.3',
         'freemarker-2.3.20'                : 'org.freemarker:freemarker:2.3.20',
-        'guava-15.0'                       : 'com.google.guava:guava:15.0',
+        'guava-17.0'                       : 'com.google.guava:guava:17.0',
         'host-libprotobuf-java-2.3.0-lite' : 'com.android.tools.external:libprotobuf-java-lite:2.3.0',
         'httpclient-4.1.1'                 : 'org.apache.httpcomponents:httpclient:4.1.1',
         'httpcore-4.1'                     : 'org.apache.httpcomponents:httpcore:4.1',
@@ -80,7 +81,7 @@ def artifacts = [
         'jfreechart-swt-1.0.9'             : 'jfree:jfreechart-swt:1.0.9',
         'kxml2-2.3.0'                      : 'net.sf.kxml:kxml2:2.3.0',
         'liblzf-1.0'                       : 'com.android.tools.external:liblzf:1.0',
-        'lombok-ast-0.2.2'                 : 'com.android.tools.external.lombok:lombok-ast:0.2.2',
+        'lombok-ast-0.2.3'                 : 'com.android.tools.external.lombok:lombok-ast:0.2.3',
         'propertysheet'                    : 'com.android.tools.external:propertysheet:1.0',
 ]
 

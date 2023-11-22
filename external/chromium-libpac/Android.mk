@@ -1,5 +1,6 @@
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_CPP_EXTENSION := .cc
 
@@ -18,18 +19,12 @@ LOCAL_CFLAGS += \
   -Wno-format \
   -Wno-unused-parameter \
 
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/src \
-                    external/chromium_org/v8 \
-                    external/chromium_org/src/v8 \
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/src
 
-# Depend on V8 from WebView
-# DO NOT COPY without permission from WebView Owners
-LOCAL_STATIC_LIBRARIES := v8_tools_gyp_v8_base_gyp \
-			  v8_tools_gyp_v8_libbase_gyp \
-                          v8_tools_gyp_v8_snapshot_gyp
+LOCAL_STATIC_LIBRARIES := libv8
 
-LOCAL_SHARED_LIBRARIES := libutils libstlport liblog libicui18n libicuuc
+LOCAL_SHARED_LIBRARIES := libutils liblog
 
-include external/stlport/libstlport.mk
+LOCAL_CXX_STL := libc++
 
 include $(BUILD_SHARED_LIBRARY)

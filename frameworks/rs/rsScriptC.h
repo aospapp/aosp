@@ -44,24 +44,16 @@ public:
 
     virtual void runForEach(Context *rsc,
                             uint32_t slot,
-                            const Allocation * ain,
-                            Allocation * aout,
-                            const void * usr,
-                            size_t usrBytes,
-                            const RsScriptCall *sc = NULL);
-
-    virtual void runForEach(Context *rsc,
-                            uint32_t slot,
                             const Allocation ** ains,
                             size_t inLen,
                             Allocation * aout,
                             const void * usr,
                             size_t usrBytes,
-                            const RsScriptCall *sc = NULL);
+                            const RsScriptCall *sc = nullptr);
 
     virtual void serialize(Context *rsc, OStream *stream) const {    }
     virtual RsA3DClassID getClassId() const { return RS_A3D_CLASS_ID_SCRIPT_C; }
-    static Type *createFromStream(Context *rsc, IStream *stream) { return NULL; }
+    static Type *createFromStream(Context *rsc, IStream *stream) { return nullptr; }
 
     bool runCompiler(Context *rsc, const char *resName, const char *cacheDir,
                      const uint8_t *bitcode, size_t bitcodeLen);
@@ -69,13 +61,13 @@ public:
 //protected:
     void setupScript(Context *);
     void setupGLState(Context *);
+
+#if !defined(RS_COMPATIBILITY_LIB)
+    static bool createCacheDir(const char *cacheDir);
+#endif
 private:
 #if !defined(RS_COMPATIBILITY_LIB) && !defined(ANDROID_RS_SERIALIZE)
     bcinfo::BitcodeTranslator *BT;
-#endif
-
-#if !defined(RS_COMPATIBILITY_LIB)
-    bool createCacheDir(const char *cacheDir);
 #endif
 };
 

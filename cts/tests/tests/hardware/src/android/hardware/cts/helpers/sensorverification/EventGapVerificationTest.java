@@ -62,7 +62,7 @@ public class EventGapVerificationTest extends TestCase {
     public void testVerify_missing_events() {
         // Timestamps in ns, expected in us
         long[] timestamps = {1000000, 2000000, 3000000, 5000000, 6000000};
-        runVerification(1000, timestamps, false, new int[]{3});
+        runVerification(1000, timestamps, true, new int[]{3});
     }
 
     private void runVerification(int expected, long[] timestamps, boolean pass,

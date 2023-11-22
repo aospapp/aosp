@@ -188,7 +188,7 @@ public class SipManager {
      */
     public void open(SipProfile localProfile) throws SipException {
         try {
-            mSipService.open(localProfile);
+            mSipService.open(localProfile, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("open()", e);
         }
@@ -232,7 +232,8 @@ public class SipManager {
         }
         try {
             mSipService.open3(localProfile, incomingCallPendingIntent,
-                    createRelay(listener, localProfile.getUriString()));
+                    createRelay(listener, localProfile.getUriString()),
+                    mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("open()", e);
         }
@@ -251,7 +252,8 @@ public class SipManager {
             SipRegistrationListener listener) throws SipException {
         try {
             mSipService.setRegistrationListener(
-                    localProfileUri, createRelay(listener, localProfileUri));
+                    localProfileUri, createRelay(listener, localProfileUri),
+                    mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("setRegistrationListener()", e);
         }
@@ -266,7 +268,7 @@ public class SipManager {
      */
     public void close(String localProfileUri) throws SipException {
         try {
-            mSipService.close(localProfileUri);
+            mSipService.close(localProfileUri, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("close()", e);
         }
@@ -282,7 +284,7 @@ public class SipManager {
      */
     public boolean isOpened(String localProfileUri) throws SipException {
         try {
-            return mSipService.isOpened(localProfileUri);
+            return mSipService.isOpened(localProfileUri, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("isOpened()", e);
         }
@@ -303,7 +305,7 @@ public class SipManager {
      */
     public boolean isRegistered(String localProfileUri) throws SipException {
         try {
-            return mSipService.isRegistered(localProfileUri);
+            return mSipService.isRegistered(localProfileUri, mContext.getOpPackageName());
         } catch (RemoteException e) {
             throw new SipException("isRegistered()", e);
         }
@@ -405,7 +407,8 @@ public class SipManager {
         }
 
         try {
-            ISipSession session = mSipService.getPendingSession(callId);
+            ISipSession session = mSipService.getPendingSession(callId,
+                    mContext.getOpPackageName());
             if (session == null) {
                 throw new SipException("No pending session for the call");
             }
@@ -487,7 +490,8 @@ public class SipManager {
             SipRegistrationListener listener) throws SipException {
         try {
             ISipSession session = mSipService.createSession(localProfile,
-                    createRelay(listener, localProfile.getUriString()));
+                    createRelay(listener, localProfile.getUriString()),
+                    mContext.getOpPackageName());
             if (session == null) {
                 throw new SipException(
                         "SipService.createSession() returns null");
@@ -512,7 +516,8 @@ public class SipManager {
             SipRegistrationListener listener) throws SipException {
         try {
             ISipSession session = mSipService.createSession(localProfile,
-                    createRelay(listener, localProfile.getUriString()));
+                    createRelay(listener, localProfile.getUriString()),
+                    mContext.getOpPackageName());
             if (session == null) {
                 throw new SipException(
                         "SipService.createSession() returns null");
@@ -537,7 +542,8 @@ public class SipManager {
             throws SipException {
         try {
             String callId = getCallId(incomingCallIntent);
-            ISipSession s = mSipService.getPendingSession(callId);
+            ISipSession s = mSipService.getPendingSession(callId,
+                    mContext.getOpPackageName());
             return ((s == null) ? null : new SipSession(s));
         } catch (RemoteException e) {
             throw new SipException("getSessionFor()", e);
@@ -560,7 +566,8 @@ public class SipManager {
     public SipSession createSipSession(SipProfile localProfile,
             SipSession.Listener listener) throws SipException {
         try {
-            ISipSession s = mSipService.createSession(localProfile, null);
+            ISipSession s = mSipService.createSession(localProfile, null,
+                    mContext.getOpPackageName());
             if (s == null) {
                 throw new SipException(
                         "Failed to create SipSession; network unavailable?");
@@ -578,7 +585,7 @@ public class SipManager {
      */
     public SipProfile[] getListOfProfiles() {
         try {
-            return mSipService.getListOfProfiles();
+            return mSipService.getListOfProfiles(mContext.getOpPackageName());
         } catch (RemoteException e) {
             return new SipProfile[0];
         }

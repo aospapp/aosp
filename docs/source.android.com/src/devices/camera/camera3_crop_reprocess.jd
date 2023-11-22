@@ -96,27 +96,38 @@ isn't yet finalized.</p>
 </p>
   Crop region: (500, 375, 1000, 750) (4:3 aspect ratio)<br/>
   640x480 stream crop: (500, 375, 1000, 750) (equal to crop region)<br/>
-  1280x720 stream crop: (500, 469, 1000, 562)<br/>
-  <img src="images/crop-region-43-ratio.png" alt="crop-region-43-ratio"/>
+  1280x720 stream crop: (500, 469, 1000, 562)
+</p>
+  <img src="images/crop-region-43-ratio.png" alt="crop-region-43-ratio" id="figure1" />
+<p class="img-caption">
+  <strong>Figure 1.</strong> 4:3 aspect ratio
 </p>
 <p>Crop region: (500, 375, 1333, 750) (16:9 aspect ratio)<br/>
   640x480 stream crop: (666, 375, 1000, 750)<br/>
-  1280x720 stream crop: (500, 375, 1333, 750) (equal to crop region)<br/>
-  <img src="images/crop-region-169-ratio.png" alt="crop-region-169-ratio"/>
-  <!-- TODO: Fix alt text and URL -->
+  1280x720 stream crop: (500, 375, 1333, 750) (equal to crop region)
+</p>
+  <img src="images/crop-region-169-ratio.png" alt="crop-region-169-ratio" id="figure2" />
+<p class="img-caption">
+  <strong>Figure 2.</strong> 16:9 aspect ratio
 </p>
 <p>Crop region: (500, 375, 750, 750) (1:1 aspect ratio)<br/>
   640x480 stream crop: (500, 469, 750, 562)<br/>
-  1280x720 stream crop: (500, 543, 750, 414)<br/>
-  <img src="images/crop-region-11-ratio.png" alt="crop-region-11-ratio"/>
-  <br/>
+  1280x720 stream crop: (500, 543, 750, 414)
+</p>
+  <img src="images/crop-region-11-ratio.png" alt="crop-region-11-ratio" id="figure3" />
+<p class="img-caption">
+  <strong>Figure 3.</strong> 1:1 aspect ratio
+</p>
+<p>
   And a final example, a 1024x1024 square aspect ratio stream instead of the 480p 
   stream:<br/>
   Crop region: (500, 375, 1000, 750) (4:3 aspect ratio)<br/>
   1024x1024 stream crop: (625, 375, 750, 750)<br/>
-  1280x720 stream crop: (500, 469, 1000, 562)<br/>
-  <img src="images/crop-region-43-square-ratio.png"
-alt="crop-region-43-square-ratio"/>
+  1280x720 stream crop: (500, 469, 1000, 562)
+</p>
+  <img src="images/crop-region-43-square-ratio.png" alt="crop-region-43-square-ratio" id="figure4" />
+<p class="img-caption">
+  <strong>Figure 4.</strong> 4:3 aspect ratio, square
 </p>
 <h2 id="reprocessing">Reprocessing</h2>
 <p> Additional support for raw image files is provided by reprocessing support for RAW Bayer 

@@ -26,6 +26,8 @@ public class UnitTests extends TestSuite {
     public UnitTests() {
         super();
 
+        addTestSuite(MetricsStoreTest.class);
         addTestSuite(MetricsXmlSerializerTest.class);
+        addTestSuite(ReportLogTest.class);
     }
 }

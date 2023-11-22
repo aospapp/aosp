@@ -39,23 +39,23 @@ public class Action implements Parcelable {
     public static final int NO_CHECK_SET = 0;
     public static final int DEFAULT_CHECK_SET_ID = 1;
 
-    private String mKey;
-    private String mTitle;
-    private String mDescription;
-    private Intent mIntent;
+    private final String mKey;
+    private final String mTitle;
+    private final String mDescription;
+    private final Intent mIntent;
 
     /**
      * If not {@code null}, the package name to use to retrieve {{@link #mDrawableResource}.
      */
-    private String mResourcePackageName;
+    private final String mResourcePackageName;
 
-    private int mDrawableResource;
-    private Uri mIconUri;
+    private final int mDrawableResource;
+    private final Uri mIconUri;
     private boolean mChecked;
-    private boolean mMultilineDescription;
-    private boolean mHasNext;
-    private boolean mInfoOnly;
-    private int mCheckSetId;
+    private final boolean mMultilineDescription;
+    private final boolean mHasNext;
+    private final boolean mInfoOnly;
+    private final int mCheckSetId;
     private boolean mEnabled;
 
     /**
@@ -77,21 +77,20 @@ public class Action implements Parcelable {
         private boolean mEnabled = true;
 
         public Action build() {
-            Action action = new Action();
-            action.mKey = mKey;
-            action.mTitle = mTitle;
-            action.mDescription = mDescription;
-            action.mIntent = mIntent;
-            action.mResourcePackageName = mResourcePackageName;
-            action.mDrawableResource = mDrawableResource;
-            action.mIconUri = mIconUri;
-            action.mChecked = mChecked;
-            action.mMultilineDescription = mMultilineDescription;
-            action.mHasNext = mHasNext;
-            action.mInfoOnly = mInfoOnly;
-            action.mCheckSetId = mCheckSetId;
-            action.mEnabled = mEnabled;
-            return action;
+            return new Action(
+                    mKey,
+                    mTitle,
+                    mDescription,
+                    mResourcePackageName,
+                    mDrawableResource,
+                    mIconUri,
+                    mChecked,
+                    mMultilineDescription,
+                    mHasNext,
+                    mInfoOnly,
+                    mIntent,
+                    mCheckSetId,
+                    mEnabled);
         }
 
         public Builder key(String key) {
@@ -160,24 +159,22 @@ public class Action implements Parcelable {
         }
     }
 
-    private Action() {
-    }
-
     protected Action(String key, String title, String description, String resourcePackageName,
-            int drawableResource, boolean checked, boolean multilineDescription, boolean hasNext,
-            boolean infoOnly, Intent intent, int checkSetId) {
+            int drawableResource, Uri iconUri, boolean checked, boolean multilineDescription,
+            boolean hasNext, boolean infoOnly, Intent intent, int checkSetId, boolean enabled) {
         mKey = key;
         mTitle = title;
         mDescription = description;
         mResourcePackageName = resourcePackageName;
         mDrawableResource = drawableResource;
+        mIconUri = iconUri;
         mChecked = checked;
         mMultilineDescription = multilineDescription;
         mHasNext = hasNext;
         mInfoOnly = infoOnly;
         mIntent = intent;
         mCheckSetId = checkSetId;
-        mEnabled = true;
+        mEnabled = enabled;
     }
 
     /**
@@ -188,28 +185,6 @@ public class Action implements Parcelable {
      */
     public static ArrayList<Action> createActionsFromArrays(String[] keys, String[] titles) {
         return createActionsFromArrays(keys, titles, NO_CHECK_SET, null);
-    }
-
-    /**
-     * Returns a list of {@link Action} with the specified keys and titles
-     * matched up.
-     * <p>
-     * The key and title arrays must be of equal length.
-     */
-    public static ArrayList<Action> createActionsFromArrays(
-            String[] keys, String[] titles, String checkedItemKey) {
-        return createActionsFromArrays(keys, titles, DEFAULT_CHECK_SET_ID, checkedItemKey);
-    }
-
-    /**
-     * Returns a list of {@link Action} with the specified keys and titles
-     * matched up and a given check set ID so that they are related.
-     * <p>
-     * The key and title arrays must be of equal length.
-     */
-    public static ArrayList<Action> createActionsFromArrays(String[] keys, String[] titles,
-            int checkSetId) {
-        return createActionsFromArrays(keys, titles, checkSetId, null);
     }
 
     /**
@@ -264,16 +239,8 @@ public class Action implements Parcelable {
         return mChecked;
     }
 
-    public int getDrawableResource() {
-        return mDrawableResource;
-    }
-
     public Uri getIconUri() {
         return mIconUri;
-    }
-
-    public String getResourcePackageName() {
-        return mResourcePackageName;
     }
 
     /**
@@ -333,13 +300,13 @@ public class Action implements Parcelable {
             return null;
         }
         if (mResourcePackageName == null) {
-            return context.getResources().getDrawable(mDrawableResource);
+            return context.getDrawable(mDrawableResource);
         }
         // If we get to here, need to load the resources.
         Drawable icon = null;
         try {
             Context packageContext = context.createPackageContext(mResourcePackageName, 0);
-            icon = packageContext.getResources().getDrawable(mDrawableResource);
+            icon = packageContext.getDrawable(mDrawableResource);
         } catch (PackageManager.NameNotFoundException e) {
             if (Log.isLoggable(TAG, Log.WARN)) {
                 Log.w(TAG, "No icon for this action.");

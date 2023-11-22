@@ -180,8 +180,8 @@ core_loop_add:
 
 epil_add_loop:
 
-    smov        x1, v18.2s[0]
-    smov        x11, v17.2s[0]
+    smov        x1, v18.s[0]
+    smov        x11, v17.s[0]
 
     add         x1,x1,x4
     add         x11,x11,x4
@@ -204,7 +204,7 @@ prologue_cpy_32:
     beq         epilogue_copy
 
     st2         {v16.8b, v17.8b}, [x2],#16
-    add         x6, x6, #-16
+    sub         x6, x6, #16
 
     st2         {v16.8b, v17.8b}, [x5],#16
     st2         {v16.8b, v17.8b}, [x8],#16
@@ -274,8 +274,8 @@ dc_4:
     uadalp      v17.1d,  v3.2s
     uadalp      v18.1d,  v2.2s
 
-    smov        x10, v17.2s[0]
-    smov        x11, v18.2s[0]
+    smov        x10, v17.s[0]
+    smov        x11, v18.s[0]
 
     add         x10,x10,x4
     add         x11,x11,x4

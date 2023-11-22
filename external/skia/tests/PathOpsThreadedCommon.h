@@ -33,17 +33,13 @@ struct PathOpsThreadState {
 
 class PathOpsThreadedTestRunner {
 public:
-    PathOpsThreadedTestRunner(skiatest::Reporter* reporter, int threadCount)
-        : fNumThreads(threadCount)
-        , fReporter(reporter) {
-    }
+    PathOpsThreadedTestRunner(skiatest::Reporter* reporter) : fReporter(reporter) {}
 
     ~PathOpsThreadedTestRunner();
 
     void render();
 
 public:
-    int fNumThreads;
     SkTDArray<PathOpsThreadedRunnable*> fRunnables;
     skiatest::Reporter* fReporter;
 };
@@ -77,7 +73,7 @@ public:
         fTestFun = testFun;
     }
 
-    virtual void run() SK_OVERRIDE {
+    void run() override {
         SkBitmap bitmap;
         fState.fBitmap = &bitmap;
         char pathStr[PATH_STR_SIZE];

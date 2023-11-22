@@ -22,4 +22,6 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE := ctstestserver
 
+LOCAL_SDK_VERSION := 16
+
 include $(BUILD_STATIC_JAVA_LIBRARY)

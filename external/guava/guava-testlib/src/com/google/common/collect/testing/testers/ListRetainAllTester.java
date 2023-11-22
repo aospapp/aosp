@@ -16,26 +16,29 @@
 
 package com.google.common.collect.testing.testers;
 
-import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_RETAIN_ALL;
+import static com.google.common.collect.testing.features.CollectionFeature.SUPPORTS_REMOVE;
 import static com.google.common.collect.testing.features.CollectionSize.ONE;
 import static com.google.common.collect.testing.features.CollectionSize.SEVERAL;
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
+import static org.truth0.Truth.ASSERT;
 
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.testing.MinimalCollection;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
+
+import java.util.Arrays;
 
 /**
  * A generic JUnit test which tests {@code retainAll} operations on a list.
  * Can't be invoked directly; please see
  * {@link com.google.common.collect.testing.ListTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author Chris Povirk
  */
+@GwtCompatible
 public class ListRetainAllTester<E> extends AbstractListTester<E> {
-  @CollectionFeature.Require(SUPPORTS_RETAIN_ALL)
+  @CollectionFeature.Require(SUPPORTS_REMOVE)
   @CollectionSize.Require(absent = {ZERO, ONE})
   public void testRetainAll_duplicatesKept() {
     E[] array = createSamplesArray();
@@ -47,7 +50,7 @@ public class ListRetainAllTester<E> extends AbstractListTester<E> {
   }
 
   @SuppressWarnings("unchecked")
-  @CollectionFeature.Require(SUPPORTS_RETAIN_ALL)
+  @CollectionFeature.Require(SUPPORTS_REMOVE)
   @CollectionSize.Require(SEVERAL)
   public void testRetainAll_duplicatesRemoved() {
     E[] array = createSamplesArray();
@@ -56,5 +59,14 @@ public class ListRetainAllTester<E> extends AbstractListTester<E> {
     assertTrue("containsDuplicates.retainAll(subset) should return true",
         collection.retainAll(MinimalCollection.of(samples.e2)));
     expectContents(samples.e2);
+  }
+  
+  @SuppressWarnings("unchecked")
+  @CollectionFeature.Require(SUPPORTS_REMOVE)
+  @CollectionSize.Require(SEVERAL)
+  public void testRetainAll_countIgnored() {
+    resetContainer(getSubjectGenerator().create(samples.e0, samples.e2, samples.e1, samples.e0));
+    assertTrue(getList().retainAll(Arrays.asList(samples.e0, samples.e1)));
+    ASSERT.that(getList()).has().exactly(samples.e0, samples.e1, samples.e0).inOrder();
   }
 }

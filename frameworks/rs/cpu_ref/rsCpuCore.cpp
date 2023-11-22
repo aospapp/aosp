@@ -17,6 +17,7 @@
 #include "rsCpuCore.h"
 #include "rsCpuScript.h"
 #include "rsCpuScriptGroup.h"
+#include "rsCpuScriptGroup2.h"
 
 #include <malloc.h>
 #include "rsContext.h"
@@ -25,12 +26,9 @@
 #include <sys/resource.h>
 #include <sched.h>
 #include <sys/syscall.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
 
 #if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
 #include <cutils/properties.h>
@@ -48,9 +46,8 @@ using namespace android;
 using namespace android::renderscript;
 
 typedef void (*outer_foreach_t)(
-    const android::renderscript::RsForEachStubParamStruct *,
-    uint32_t x1, uint32_t x2,
-    uint32_t instep, uint32_t outstep);
+    const RsExpandKernelDriverInfo *,
+    uint32_t x1, uint32_t x2, uint32_t outstep);
 
 
 static pthread_key_t gThreadTLSKey = 0;
@@ -64,29 +61,25 @@ RsdCpuReference::~RsdCpuReference() {
 
 RsdCpuReference * RsdCpuReference::create(Context *rsc, uint32_t version_major,
         uint32_t version_minor, sym_lookup_t lfn, script_lookup_t slfn
-#ifndef RS_COMPATIBILITY_LIB
         , bcc::RSLinkRuntimeCallback pLinkRuntimeCallback,
         RSSelectRTCallback pSelectRTCallback,
         const char *pBccPluginName
-#endif
         ) {
 
     RsdCpuReferenceImpl *cpu = new RsdCpuReferenceImpl(rsc);
     if (!cpu) {
-        return NULL;
+        return nullptr;
     }
     if (!cpu->init(version_major, version_minor, lfn, slfn)) {
         delete cpu;
-        return NULL;
+        return nullptr;
     }
 
-#ifndef RS_COMPATIBILITY_LIB
     cpu->setLinkRuntimeCallback(pLinkRuntimeCallback);
     cpu->setSelectRTCallback(pSelectRTCallback);
     if (pBccPluginName) {
         cpu->setBccPluginName(pBccPluginName);
     }
-#endif
 
     return cpu;
 }
@@ -116,11 +109,11 @@ RsdCpuReferenceImpl::RsdCpuReferenceImpl(Context *rsc) {
     memset(&mWorkers, 0, sizeof(mWorkers));
     memset(&mTlsStruct, 0, sizeof(mTlsStruct));
     mExit = false;
-#ifndef RS_COMPATIBILITY_LIB
-    mLinkRuntimeCallback = NULL;
-    mSelectRTCallback = NULL;
-    mSetupCompilerCallback = NULL;
-#endif
+    mLinkRuntimeCallback = nullptr;
+    mSelectRTCallback = nullptr;
+    mSetupCompilerCallback = nullptr;
+    mEmbedGlobalInfo = true;
+    mEmbedGlobalInfoSkipConstant = true;
 }
 
 
@@ -161,7 +154,7 @@ void * RsdCpuReferenceImpl::helperThreadProc(void *vrsc) {
     }
 
     //ALOGV("RS helperThread exited %p idx=%i", dc, idx);
-    return NULL;
+    return nullptr;
 }
 
 void RsdCpuReferenceImpl::launchThreads(WorkerCallback_t cbk, void *data) {
@@ -170,7 +163,7 @@ void RsdCpuReferenceImpl::launchThreads(WorkerCallback_t cbk, void *data) {
 
     // fast path for very small launches
     MTLaunchStruct *mtls = (MTLaunchStruct *)data;
-    if (mtls && mtls->fep.dimY <= 1 && mtls->xEnd <= mtls->xStart + mtls->mSliceSize) {
+    if (mtls && mtls->fep.dim.y <= 1 && mtls->end.x <= mtls->start.x + mtls->mSliceSize) {
         if (mWorkers.mLaunchCallback) {
             mWorkers.mLaunchCallback(mWorkers.mLaunchData, 0);
         }
@@ -204,39 +197,29 @@ void RsdCpuReferenceImpl::unlockMutex() {
     pthread_mutex_unlock(&gInitMutex);
 }
 
-static int
-read_file(const char*  pathname, char*  buffer, size_t  buffsize)
-{
-    int  fd, len;
-
-    fd = open(pathname, O_RDONLY);
-    if (fd < 0)
-        return -1;
-
-    do {
-        len = read(fd, buffer, buffsize);
-    } while (len < 0 && errno == EINTR);
-
-    close(fd);
-
-    return len;
-}
-
+// Determine if the CPU we're running on supports SIMD instructions.
 static void GetCpuInfo() {
-    char cpuinfo[4096];
-    int  cpuinfo_len;
+    // Read the CPU flags from /proc/cpuinfo.
+    FILE *cpuinfo = fopen("/proc/cpuinfo", "r");
 
-    cpuinfo_len = read_file("/proc/cpuinfo", cpuinfo, sizeof cpuinfo);
-    if (cpuinfo_len < 0)  /* should not happen */ {
+    if (!cpuinfo) {
         return;
     }
 
+    char cpuinfostr[4096];
+    // fgets() ends with newline or EOF, need to check the whole
+    // "cpuinfo" file to make sure we can use SIMD or not.
+    while (fgets(cpuinfostr, sizeof(cpuinfostr), cpuinfo)) {
 #if defined(ARCH_ARM_HAVE_VFP) || defined(ARCH_ARM_USE_INTRINSICS)
-    gArchUseSIMD = (!!strstr(cpuinfo, " neon")) ||
-                   (!!strstr(cpuinfo, " asimd"));
+        gArchUseSIMD = strstr(cpuinfostr, " neon") || strstr(cpuinfostr, " asimd");
 #elif defined(ARCH_X86_HAVE_SSSE3)
-    gArchUseSIMD = !!strstr(cpuinfo, " ssse3");
+        gArchUseSIMD = strstr(cpuinfostr, " ssse3");
 #endif
+        if (gArchUseSIMD) {
+            break;
+        }
+    }
+    fclose(cpuinfo);
 }
 
 bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
@@ -247,7 +230,7 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
 
     lockMutex();
     if (!gThreadTLSKeyCount) {
-        int status = pthread_key_create(&gThreadTLSKey, NULL);
+        int status = pthread_key_create(&gThreadTLSKey, nullptr);
         if (status) {
             ALOGE("Failed to init thread tls key.");
             unlockMutex();
@@ -258,7 +241,7 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
     unlockMutex();
 
     mTlsStruct.mContext = mRSC;
-    mTlsStruct.mScript = NULL;
+    mTlsStruct.mScript = nullptr;
     int status = pthread_setspecific(gThreadTLSKey, &mTlsStruct);
     if (status) {
         ALOGE("pthread_setspecific %i", status);
@@ -283,7 +266,7 @@ bool RsdCpuReferenceImpl::init(uint32_t version_major, uint32_t version_minor,
     mWorkers.mThreadId = (pthread_t *) calloc(mWorkers.mCount, sizeof(pthread_t));
     mWorkers.mNativeThreadId = (pid_t *) calloc(mWorkers.mCount, sizeof(pid_t));
     mWorkers.mLaunchSignals = new Signal[mWorkers.mCount];
-    mWorkers.mLaunchCallback = NULL;
+    mWorkers.mLaunchCallback = nullptr;
 
     mWorkers.mCompleteSignal.init();
 
@@ -323,8 +306,8 @@ void RsdCpuReferenceImpl::setPriority(int32_t priority) {
 
 RsdCpuReferenceImpl::~RsdCpuReferenceImpl() {
     mExit = true;
-    mWorkers.mLaunchData = NULL;
-    mWorkers.mLaunchCallback = NULL;
+    mWorkers.mLaunchData = nullptr;
+    mWorkers.mLaunchCallback = nullptr;
     mWorkers.mRunningCount = mWorkers.mCount;
     __sync_synchronize();
     for (uint32_t ct = 0; ct < mWorkers.mCount; ct++) {
@@ -349,82 +332,163 @@ RsdCpuReferenceImpl::~RsdCpuReferenceImpl() {
 
 }
 
-typedef void (*rs_t)(const void *, void *, const void *, uint32_t, uint32_t, uint32_t, uint32_t);
+static inline void FepPtrSetup(const MTLaunchStruct *mtls, RsExpandKernelDriverInfo *fep,
+                               uint32_t x, uint32_t y,
+                               uint32_t z = 0, uint32_t lod = 0,
+                               RsAllocationCubemapFace face = RS_ALLOCATION_CUBEMAP_FACE_POSITIVE_X,
+                               uint32_t a1 = 0, uint32_t a2 = 0, uint32_t a3 = 0, uint32_t a4 = 0) {
 
-static void wc_xy(void *usr, uint32_t idx) {
+    for (uint32_t i = 0; i < fep->inLen; i++) {
+        fep->inPtr[i] = (const uint8_t *)mtls->ains[i]->getPointerUnchecked(x, y, z, lod, face, a1, a2, a3, a4);
+    }
+
+    if (mtls->aout[0] != nullptr) {
+        fep->outPtr[0] = (uint8_t *)mtls->aout[0]->getPointerUnchecked(x, y, z, lod, face, a1, a2, a3, a4);
+    }
+}
+
+static uint32_t sliceInt(uint32_t *p, uint32_t val, uint32_t start, uint32_t end) {
+    if (start >= end) {
+        *p = start;
+        return val;
+    }
+
+    uint32_t div = end - start;
+
+    uint32_t n = val / div;
+    *p = (val - (n * div)) + start;
+    return n;
+}
+
+static bool SelectOuterSlice(const MTLaunchStruct *mtls, RsExpandKernelDriverInfo* fep, uint32_t sliceNum) {
+
+    uint32_t r = sliceNum;
+    r = sliceInt(&fep->current.z, r, mtls->start.z, mtls->end.z);
+    r = sliceInt(&fep->current.lod, r, mtls->start.lod, mtls->end.lod);
+    r = sliceInt(&fep->current.face, r, mtls->start.face, mtls->end.face);
+    r = sliceInt(&fep->current.array[0], r, mtls->start.array[0], mtls->end.array[0]);
+    r = sliceInt(&fep->current.array[1], r, mtls->start.array[1], mtls->end.array[1]);
+    r = sliceInt(&fep->current.array[2], r, mtls->start.array[2], mtls->end.array[2]);
+    r = sliceInt(&fep->current.array[3], r, mtls->start.array[3], mtls->end.array[3]);
+    return r == 0;
+}
+
+
+static void walk_general(void *usr, uint32_t idx) {
     MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
-    RsForEachStubParamStruct p;
-    memcpy(&p, &mtls->fep, sizeof(p));
-    p.lid = idx;
-    uint32_t sig = mtls->sig;
-
+    RsExpandKernelDriverInfo fep = mtls->fep;
+    fep.lid = idx;
     outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
-    while (1) {
+
+
+    while(1) {
         uint32_t slice = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
-        uint32_t yStart = mtls->yStart + slice * mtls->mSliceSize;
-        uint32_t yEnd = yStart + mtls->mSliceSize;
-        yEnd = rsMin(yEnd, mtls->yEnd);
+
+        if (!SelectOuterSlice(mtls, &fep, slice)) {
+            return;
+        }
+
+        for (fep.current.y = mtls->start.y; fep.current.y < mtls->end.y;
+             fep.current.y++) {
+
+            FepPtrSetup(mtls, &fep, mtls->start.x,
+                        fep.current.y, fep.current.z, fep.current.lod,
+                        (RsAllocationCubemapFace)fep.current.face,
+                        fep.current.array[0], fep.current.array[1],
+                        fep.current.array[2], fep.current.array[3]);
+
+            fn(&fep, mtls->start.x, mtls->end.x, mtls->fep.outStride[0]);
+        }
+    }
+
+}
+
+static void walk_2d(void *usr, uint32_t idx) {
+    MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
+    RsExpandKernelDriverInfo fep = mtls->fep;
+    fep.lid = idx;
+    outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
+
+    while (1) {
+        uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
+        uint32_t yStart = mtls->start.y + slice * mtls->mSliceSize;
+        uint32_t yEnd   = yStart + mtls->mSliceSize;
+
+        yEnd = rsMin(yEnd, mtls->end.y);
+
         if (yEnd <= yStart) {
             return;
         }
 
-        //ALOGE("usr idx %i, x %i,%i  y %i,%i", idx, mtls->xStart, mtls->xEnd, yStart, yEnd);
-        //ALOGE("usr ptr in %p,  out %p", mtls->fep.ptrIn, mtls->fep.ptrOut);
+        for (fep.current.y = yStart; fep.current.y < yEnd; fep.current.y++) {
+            FepPtrSetup(mtls, &fep, mtls->start.x, fep.current.y);
 
-        for (p.y = yStart; p.y < yEnd; p.y++) {
-            p.out = mtls->fep.ptrOut + (mtls->fep.yStrideOut * p.y) +
-                    (mtls->fep.eStrideOut * mtls->xStart);
-            p.in = mtls->fep.ptrIn + (mtls->fep.yStrideIn * p.y) +
-                   (mtls->fep.eStrideIn * mtls->xStart);
-            fn(&p, mtls->xStart, mtls->xEnd, mtls->fep.eStrideIn, mtls->fep.eStrideOut);
+            fn(&fep, mtls->start.x, mtls->end.x, fep.outStride[0]);
         }
     }
 }
 
-static void wc_x(void *usr, uint32_t idx) {
+static void walk_1d(void *usr, uint32_t idx) {
     MTLaunchStruct *mtls = (MTLaunchStruct *)usr;
-    RsForEachStubParamStruct p;
-    memcpy(&p, &mtls->fep, sizeof(p));
-    p.lid = idx;
-    uint32_t sig = mtls->sig;
-
+    RsExpandKernelDriverInfo fep = mtls->fep;
+    fep.lid = idx;
     outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
+
     while (1) {
-        uint32_t slice = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
-        uint32_t xStart = mtls->xStart + slice * mtls->mSliceSize;
-        uint32_t xEnd = xStart + mtls->mSliceSize;
-        xEnd = rsMin(xEnd, mtls->xEnd);
+        uint32_t slice  = (uint32_t)__sync_fetch_and_add(&mtls->mSliceNum, 1);
+        uint32_t xStart = mtls->start.x + slice * mtls->mSliceSize;
+        uint32_t xEnd   = xStart + mtls->mSliceSize;
+
+        xEnd = rsMin(xEnd, mtls->end.x);
+
         if (xEnd <= xStart) {
             return;
         }
 
-        //ALOGE("usr slice %i idx %i, x %i,%i", slice, idx, xStart, xEnd);
-        //ALOGE("usr ptr in %p,  out %p", mtls->fep.ptrIn, mtls->fep.ptrOut);
+        FepPtrSetup(mtls, &fep, xStart, 0);
 
-        p.out = mtls->fep.ptrOut + (mtls->fep.eStrideOut * xStart);
-        p.in = mtls->fep.ptrIn + (mtls->fep.eStrideIn * xStart);
-        fn(&p, xStart, xEnd, mtls->fep.eStrideIn, mtls->fep.eStrideOut);
+        fn(&fep, xStart, xEnd, fep.outStride[0]);
     }
 }
 
-void RsdCpuReferenceImpl::launchThreads(const Allocation * ain, Allocation * aout,
-                                     const RsScriptCall *sc, MTLaunchStruct *mtls) {
+void RsdCpuReferenceImpl::launchThreads(const Allocation ** ains,
+                                        uint32_t inLen,
+                                        Allocation* aout,
+                                        const RsScriptCall* sc,
+                                        MTLaunchStruct* mtls) {
 
     //android::StopWatch kernel_time("kernel time");
+
+    bool outerDims = (mtls->start.z != mtls->end.z) ||
+                     (mtls->start.face != mtls->end.face) ||
+                     (mtls->start.lod != mtls->end.lod) ||
+                     (mtls->start.array[0] != mtls->end.array[0]) ||
+                     (mtls->start.array[1] != mtls->end.array[1]) ||
+                     (mtls->start.array[2] != mtls->end.array[2]) ||
+                     (mtls->start.array[3] != mtls->end.array[3]);
 
     if ((mWorkers.mCount >= 1) && mtls->isThreadable && !mInForEach) {
         const size_t targetByteChunk = 16 * 1024;
         mInForEach = true;
-        if (mtls->fep.dimY > 1) {
-            uint32_t s1 = mtls->fep.dimY / ((mWorkers.mCount + 1) * 4);
+
+        if (outerDims) {
+            // No fancy logic for chunk size
+            mtls->mSliceSize = 1;
+            launchThreads(walk_general, mtls);
+        } else if (mtls->fep.dim.y > 1) {
+            uint32_t s1 = mtls->fep.dim.y / ((mWorkers.mCount + 1) * 4);
             uint32_t s2 = 0;
 
             // This chooses our slice size to rate limit atomic ops to
             // one per 16k bytes of reads/writes.
-            if (mtls->fep.yStrideOut) {
-                s2 = targetByteChunk / mtls->fep.yStrideOut;
+            if ((mtls->aout[0] != nullptr) && mtls->aout[0]->mHal.drvState.lod[0].stride) {
+                s2 = targetByteChunk / mtls->aout[0]->mHal.drvState.lod[0].stride;
+            } else if (mtls->ains[0]) {
+                s2 = targetByteChunk / mtls->ains[0]->mHal.drvState.lod[0].stride;
             } else {
-                s2 = targetByteChunk / mtls->fep.yStrideIn;
+                // Launch option only case
+                // Use s1 based only on the dimensions
+                s2 = s1;
             }
             mtls->mSliceSize = rsMin(s1, s2);
 
@@ -432,90 +496,21 @@ void RsdCpuReferenceImpl::launchThreads(const Allocation * ain, Allocation * aou
                 mtls->mSliceSize = 1;
             }
 
-         //   mtls->mSliceSize = 2;
-            launchThreads(wc_xy, mtls);
+            launchThreads(walk_2d, mtls);
         } else {
-            uint32_t s1 = mtls->fep.dimX / ((mWorkers.mCount + 1) * 4);
+            uint32_t s1 = mtls->fep.dim.x / ((mWorkers.mCount + 1) * 4);
             uint32_t s2 = 0;
 
             // This chooses our slice size to rate limit atomic ops to
             // one per 16k bytes of reads/writes.
-            if (mtls->fep.eStrideOut) {
-                s2 = targetByteChunk / mtls->fep.eStrideOut;
+            if ((mtls->aout[0] != nullptr) && mtls->aout[0]->getType()->getElementSizeBytes()) {
+                s2 = targetByteChunk / mtls->aout[0]->getType()->getElementSizeBytes();
+            } else if (mtls->ains[0]) {
+                s2 = targetByteChunk / mtls->ains[0]->getType()->getElementSizeBytes();
             } else {
-                s2 = targetByteChunk / mtls->fep.eStrideIn;
-            }
-            mtls->mSliceSize = rsMin(s1, s2);
-
-            if(mtls->mSliceSize < 1) {
-                mtls->mSliceSize = 1;
-            }
-
-            launchThreads(wc_x, mtls);
-        }
-        mInForEach = false;
-
-        //ALOGE("launch 1");
-    } else {
-        RsForEachStubParamStruct p;
-        memcpy(&p, &mtls->fep, sizeof(p));
-        uint32_t sig = mtls->sig;
-
-        //ALOGE("launch 3");
-        outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
-        for (p.ar[0] = mtls->arrayStart; p.ar[0] < mtls->arrayEnd; p.ar[0]++) {
-            for (p.z = mtls->zStart; p.z < mtls->zEnd; p.z++) {
-                for (p.y = mtls->yStart; p.y < mtls->yEnd; p.y++) {
-                    uint32_t offset = mtls->fep.dimY * mtls->fep.dimZ * p.ar[0] +
-                                      mtls->fep.dimY * p.z + p.y;
-                    p.out = mtls->fep.ptrOut + (mtls->fep.yStrideOut * offset) +
-                            (mtls->fep.eStrideOut * mtls->xStart);
-                    p.in = mtls->fep.ptrIn + (mtls->fep.yStrideIn * offset) +
-                           (mtls->fep.eStrideIn * mtls->xStart);
-                    fn(&p, mtls->xStart, mtls->xEnd, mtls->fep.eStrideIn, mtls->fep.eStrideOut);
-                }
-            }
-        }
-    }
-}
-
-void RsdCpuReferenceImpl::launchThreads(const Allocation** ains, uint32_t inLen, Allocation* aout,
-                                        const RsScriptCall* sc, MTLaunchStruct* mtls) {
-
-    //android::StopWatch kernel_time("kernel time");
-
-    if ((mWorkers.mCount >= 1) && mtls->isThreadable && !mInForEach) {
-        const size_t targetByteChunk = 16 * 1024;
-        mInForEach = true;
-        if (mtls->fep.dimY > 1) {
-            uint32_t s1 = mtls->fep.dimY / ((mWorkers.mCount + 1) * 4);
-            uint32_t s2 = 0;
-
-            // This chooses our slice size to rate limit atomic ops to
-            // one per 16k bytes of reads/writes.
-            if (mtls->fep.yStrideOut) {
-                s2 = targetByteChunk / mtls->fep.yStrideOut;
-            } else {
-                s2 = targetByteChunk / mtls->fep.yStrideIn;
-            }
-            mtls->mSliceSize = rsMin(s1, s2);
-
-            if(mtls->mSliceSize < 1) {
-                mtls->mSliceSize = 1;
-            }
-
-         //   mtls->mSliceSize = 2;
-            launchThreads(wc_xy, mtls);
-        } else {
-            uint32_t s1 = mtls->fep.dimX / ((mWorkers.mCount + 1) * 4);
-            uint32_t s2 = 0;
-
-            // This chooses our slice size to rate limit atomic ops to
-            // one per 16k bytes of reads/writes.
-            if (mtls->fep.eStrideOut) {
-                s2 = targetByteChunk / mtls->fep.eStrideOut;
-            } else {
-                s2 = targetByteChunk / mtls->fep.eStrideIn;
+                // Launch option only case
+                // Use s1 based only on the dimensions
+                s2 = s1;
             }
             mtls->mSliceSize = rsMin(s1, s2);
 
@@ -523,62 +518,29 @@ void RsdCpuReferenceImpl::launchThreads(const Allocation** ains, uint32_t inLen,
                 mtls->mSliceSize = 1;
             }
 
-            launchThreads(wc_x, mtls);
+            launchThreads(walk_1d, mtls);
         }
         mInForEach = false;
 
-        //ALOGE("launch 1");
     } else {
-        RsForEachStubParamStruct p;
-        memcpy(&p, &mtls->fep, sizeof(p));
-        uint32_t sig = mtls->sig;
-
-        // Allocate space for our input base pointers.
-        p.ins = new const void*[inLen];
-
-        // Allocate space for our input stride information.
-        p.eStrideIns = new uint32_t[inLen];
-
-        // Fill our stride information.
-        for (int index = inLen; --index >= 0;) {
-          p.eStrideIns[index] = mtls->fep.inStrides[index].eStride;
-        }
-
-        //ALOGE("launch 3");
         outer_foreach_t fn = (outer_foreach_t) mtls->kernel;
-        uint32_t offset_invariant = mtls->fep.dimY * mtls->fep.dimZ * p.ar[0];
+        uint32_t slice = 0;
 
-        for (p.ar[0] = mtls->arrayStart; p.ar[0] < mtls->arrayEnd; p.ar[0]++) {
-            uint32_t offset_part = offset_invariant * p.ar[0];
 
-            for (p.z = mtls->zStart; p.z < mtls->zEnd; p.z++) {
-                for (p.y = mtls->yStart; p.y < mtls->yEnd; p.y++) {
-                    uint32_t offset = offset_part + mtls->fep.dimY * p.z + p.y;
+        while(SelectOuterSlice(mtls, &mtls->fep, slice++)) {
+            for (mtls->fep.current.y = mtls->start.y;
+                 mtls->fep.current.y < mtls->end.y;
+                 mtls->fep.current.y++) {
 
-                    p.out = mtls->fep.ptrOut + (mtls->fep.yStrideOut * offset) +
-                            (mtls->fep.eStrideOut * mtls->xStart);
+                FepPtrSetup(mtls, &mtls->fep, mtls->start.x,
+                            mtls->fep.current.y, mtls->fep.current.z, mtls->fep.current.lod,
+                            (RsAllocationCubemapFace) mtls->fep.current.face,
+                            mtls->fep.current.array[0], mtls->fep.current.array[1],
+                            mtls->fep.current.array[2], mtls->fep.current.array[3]);
 
-                    for (int index = inLen; --index >= 0;) {
-                        StridePair &strides = mtls->fep.inStrides[index];
-
-                        p.ins[index] = mtls->fep.ptrIns[index] +
-                                       (strides.yStride * offset) +
-                                       (strides.eStride * mtls->xStart);
-                    }
-
-                    /*
-                     * The fourth argument is zero here because multi-input
-                     * kernels get their stride information from a member of p
-                     * that points to an array.
-                     */
-                    fn(&p, mtls->xStart, mtls->xEnd, 0, mtls->fep.eStrideOut);
-                }
+                fn(&mtls->fep, mtls->start.x, mtls->end.x, mtls->fep.outStride[0]);
             }
         }
-
-        // Free our arrays.
-        delete[] p.ins;
-        delete[] p.eStrideIns;
     }
 }
 
@@ -592,7 +554,7 @@ RsdCpuScriptImpl * RsdCpuReferenceImpl::setTLS(RsdCpuScriptImpl *sc) {
     if (sc) {
         tls->mScript = sc->getScript();
     } else {
-        tls->mScript = NULL;
+        tls->mScript = nullptr;
     }
     return old;
 }
@@ -609,12 +571,10 @@ RsdCpuReference::CpuScript * RsdCpuReferenceImpl::createScript(const ScriptC *s,
 
     RsdCpuScriptImpl *i = new RsdCpuScriptImpl(this, s);
     if (!i->init(resName, cacheDir, bitcode, bitcodeSize, flags
-#ifndef RS_COMPATIBILITY_LIB
         , getBccPluginName()
-#endif
         )) {
         delete i;
-        return NULL;
+        return nullptr;
     }
     return i;
 }
@@ -639,11 +599,13 @@ extern RsdCpuScriptImpl * rsdIntrinsic_Histogram(RsdCpuReferenceImpl *ctx,
                                                  const Script *s, const Element *e);
 extern RsdCpuScriptImpl * rsdIntrinsic_Resize(RsdCpuReferenceImpl *ctx,
                                               const Script *s, const Element *e);
+extern RsdCpuScriptImpl * rsdIntrinsic_BLAS(RsdCpuReferenceImpl *ctx,
+                                              const Script *s, const Element *e);
 
 RsdCpuReference::CpuScript * RsdCpuReferenceImpl::createIntrinsic(const Script *s,
                                     RsScriptIntrinsicID iid, Element *e) {
 
-    RsdCpuScriptImpl *i = NULL;
+    RsdCpuScriptImpl *i = nullptr;
     switch (iid) {
     case RS_SCRIPT_INTRINSIC_ID_3DLUT:
         i = rsdIntrinsic_3DLUT(this, s, e);
@@ -675,6 +637,9 @@ RsdCpuReference::CpuScript * RsdCpuReferenceImpl::createIntrinsic(const Script *
     case RS_SCRIPT_INTRINSIC_ID_RESIZE:
         i = rsdIntrinsic_Resize(this, s, e);
         break;
+    case RS_SCRIPT_INTRINSIC_ID_BLAS:
+        i = rsdIntrinsic_BLAS(this, s, e);
+        break;
 
     default:
         rsAssert(0);
@@ -683,11 +648,19 @@ RsdCpuReference::CpuScript * RsdCpuReferenceImpl::createIntrinsic(const Script *
     return i;
 }
 
-RsdCpuReference::CpuScriptGroup * RsdCpuReferenceImpl::createScriptGroup(const ScriptGroup *sg) {
-    CpuScriptGroupImpl *sgi = new CpuScriptGroupImpl(this, sg);
-    if (!sgi->init()) {
+void* RsdCpuReferenceImpl::createScriptGroup(const ScriptGroupBase *sg) {
+  switch (sg->getApiVersion()) {
+    case ScriptGroupBase::SG_V1: {
+      CpuScriptGroupImpl *sgi = new CpuScriptGroupImpl(this, sg);
+      if (!sgi->init()) {
         delete sgi;
-        return NULL;
+        return nullptr;
+      }
+      return sgi;
     }
-    return sgi;
+    case ScriptGroupBase::SG_V2: {
+      return new CpuScriptGroup2Impl(this, sg);
+    }
+  }
+  return nullptr;
 }

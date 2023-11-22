@@ -186,10 +186,10 @@ col_loop_8_16_32:
     ld1         {v3.8b},[x14]               //(1-8)load 8 src[2nt+1+col]
     umlal       v27.8h, v17.8b, v1.8b       //(1)(col+1)    *    src[3nt+1]
 
-    dup         v20.8b, v4.8b[7]            //(1)
+    dup         v20.8b, v4.b[7]             //(1)
     umlal       v27.8h, v6.8b, v3.8b        //(1)(nt-1-row)    *    src[2nt+1+col]
 
-    dup         v21.8b, v4.8b[6]            //(2)
+    dup         v21.8b, v4.b[6]             //(2)
     umlal       v27.8h, v19.8b, v20.8b      //(1)(nt-1-col)    *    src[2nt-1-row]
 
     dup         v30.8h,w4                   //(2)
@@ -197,7 +197,7 @@ col_loop_8_16_32:
 
     sub         v6.8b,  v6.8b ,  v7.8b      //(1)
 
-    dup         v22.8b, v4.8b[5]            //(3)
+    dup         v22.8b, v4.b[5]             //(3)
     umlal       v30.8h, v5.8b, v0.8b        //(2)
 
     dup         v28.8h,w4                   //(3)
@@ -214,7 +214,7 @@ col_loop_8_16_32:
     xtn         v27.8b,  v27.8h             //(1)
     umlal       v28.8h, v5.8b, v0.8b        //(3)
 
-    dup         v23.8b, v4.8b[4]            //(4)
+    dup         v23.8b, v4.b[4]             //(4)
     umlal       v28.8h, v17.8b, v1.8b       //(3)
 
     dup         v25.8h,w4                   //(4)
@@ -231,7 +231,7 @@ col_loop_8_16_32:
     xtn         v30.8b,  v30.8h             //(2)
     umlal       v25.8h, v5.8b, v0.8b        //(4)
 
-    dup         v20.8b, v4.8b[3]            //(5)
+    dup         v20.8b, v4.b[3]             //(5)
     umlal       v25.8h, v17.8b, v1.8b       //(4)
 
     dup         v16.8h,w4                   //(5)
@@ -248,7 +248,7 @@ col_loop_8_16_32:
     xtn         v28.8b,  v28.8h             //(3)
     umlal       v16.8h, v5.8b, v0.8b        //(5)
 
-    dup         v21.8b, v4.8b[2]            //(6)
+    dup         v21.8b, v4.b[2]             //(6)
     umlal       v16.8h, v17.8b, v1.8b       //(5)
 
     dup         v18.8h,w4                   //(6)
@@ -264,7 +264,7 @@ col_loop_8_16_32:
     xtn         v25.8b,  v25.8h             //(4)
     umlal       v18.8h, v5.8b, v0.8b        //(6)
 
-    dup         v22.8b, v4.8b[1]            //(7)
+    dup         v22.8b, v4.b[1]             //(7)
     umlal       v18.8h, v17.8b, v1.8b       //(6)
 
     dup         v26.8h,w4                   //(7)
@@ -281,7 +281,7 @@ col_loop_8_16_32:
     xtn         v16.8b,  v16.8h             //(5)
     umlal       v26.8h, v5.8b, v0.8b        //(7)
 
-    dup         v23.8b, v4.8b[0]            //(8)
+    dup         v23.8b, v4.b[0]             //(8)
     umlal       v26.8h, v17.8b, v1.8b       //(7)
 
     dup         v24.8h,w4                   //(8)
@@ -337,7 +337,7 @@ col_loop_8_16_32:
     ld1         {v4.8b},[x6]                //(1n)(1-8)src[2nt-1-row]
     sub         v19.8b,  v2.8b ,  v17.8b    //(1n)(1-8)[nt-1-col]
 
-    dup         v20.8b, v4.8b[7]            //(1n)(1)
+    dup         v20.8b, v4.b[7]             //(1n)(1)
     sub         v6.8b,  v2.8b ,  v5.8b
 
     beq         epilog
@@ -353,7 +353,7 @@ kernel_plnr:
     xtn         v24.8b,  v24.8h             //(8)
     umlal       v27.8h, v17.8b, v1.8b       //(1)(col+1)    *    src[3nt+1]
 
-    dup         v21.8b, v4.8b[6]            //(2)
+    dup         v21.8b, v4.b[6]             //(2)
     umlal       v27.8h, v6.8b, v3.8b        //(1)(nt-1-row)    *    src[2nt+1+col]
 
     dup         v30.8h,w4                   //(2)
@@ -373,7 +373,7 @@ kernel_plnr:
     csel        x2, x20, x2,le
     umlal       v30.8h, v17.8b, v1.8b       //(2)
 
-    dup         v22.8b, v4.8b[5]            //(3)
+    dup         v22.8b, v4.b[5]             //(3)
     umlal       v30.8h, v6.8b, v3.8b        //(2)
 
     dup         v28.8h,w4                   //(3)
@@ -390,7 +390,7 @@ kernel_plnr:
     xtn         v27.8b,  v27.8h             //(1)
     umlal       v28.8h, v5.8b, v0.8b        //(3)
 
-    dup         v23.8b, v4.8b[4]            //(4)
+    dup         v23.8b, v4.b[4]             //(4)
     umlal       v28.8h, v17.8b, v1.8b       //(3)
 
     dup         v25.8h,w4                   //(4)
@@ -408,7 +408,7 @@ kernel_plnr:
     xtn         v30.8b,  v30.8h             //(2)
     umlal       v25.8h, v5.8b, v0.8b        //(4)
 
-    dup         v20.8b, v4.8b[3]            //(5)
+    dup         v20.8b, v4.b[3]             //(5)
     umlal       v25.8h, v17.8b, v1.8b       //(4)
 
     dup         v16.8h,w4                   //(5)
@@ -426,7 +426,7 @@ kernel_plnr:
     xtn         v28.8b,  v28.8h             //(3)
     umlal       v16.8h, v5.8b, v0.8b        //(5)
 
-    dup         v21.8b, v4.8b[2]            //(6)
+    dup         v21.8b, v4.b[2]             //(6)
     umlal       v16.8h, v17.8b, v1.8b       //(5)
 
     dup         v18.8h,w4                   //(6)
@@ -450,7 +450,7 @@ kernel_plnr:
     xtn         v25.8b,  v25.8h             //(4)
     umlal       v18.8h, v5.8b, v0.8b        //(6)
 
-    dup         v22.8b, v4.8b[1]            //(7)
+    dup         v22.8b, v4.b[1]             //(7)
     umlal       v18.8h, v17.8b, v1.8b       //(6)
 
     dup         v26.8h,w4                   //(7)
@@ -473,7 +473,7 @@ kernel_plnr:
     xtn         v16.8b,  v16.8h             //(5)
     umlal       v26.8h, v5.8b, v0.8b        //(7)
 
-    dup         v23.8b, v4.8b[0]            //(8)
+    dup         v23.8b, v4.b[0]             //(8)
     umlal       v26.8h, v17.8b, v1.8b       //(7)
 
     dup         v24.8h,w4                   //(8)
@@ -495,7 +495,7 @@ kernel_plnr:
     ld1         {v5.8b},[x5]                //(row+1 value)
     umlal       v24.8h, v17.8b, v1.8b       //(8)
 
-    dup         v20.8b, v4.8b[7]            //(1n)(1)
+    dup         v20.8b, v4.b[7]             //(1n)(1)
     umlal       v24.8h, v6.8b, v3.8b        //(8)
 
     st1         {v18.8b},[x2], x3           //(6)str 8 values

@@ -38,6 +38,10 @@
 #include <pwd.h>
 #include <sys/types.h>
 
+#ifdef __ANDROID__
+#include "cutils/sockets.h"
+#endif
+
 #if __APPLE__
 #undef daemon
 extern int daemon(int, int);
@@ -51,10 +55,6 @@ extern int daemon(int, int);
 
 #ifndef MDNS_USERNAME
 #define MDNS_USERNAME "nobody"
-#endif
-
-#ifdef __ANDROID__
-#include <cutils/sockets.h>
 #endif
 
 #define CONFIG_FILE "/etc/mdnsd.conf"

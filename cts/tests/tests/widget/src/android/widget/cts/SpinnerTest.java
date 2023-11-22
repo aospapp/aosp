@@ -23,8 +23,10 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources.NotFoundException;
+import android.content.res.Resources.Theme;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.view.ContextThemeWrapper;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 
@@ -50,7 +52,18 @@ public class SpinnerTest extends ActivityInstrumentationTestCase2<RelativeLayout
 
         new Spinner(mTargetContext, null);
 
-        new Spinner(mTargetContext, null, com.android.internal.R.attr.spinnerStyle);
+        new Spinner(mTargetContext, null, android.R.attr.spinnerStyle);
+
+        new Spinner(mTargetContext, Spinner.MODE_DIALOG);
+
+        new Spinner(mTargetContext, null, android.R.attr.spinnerStyle,
+                Spinner.MODE_DIALOG);
+
+        new Spinner(mTargetContext, null, android.R.attr.spinnerStyle, 0,
+                Spinner.MODE_DIALOG);
+
+        new Spinner(mTargetContext, null, android.R.attr.spinnerStyle, 0,
+                Spinner.MODE_DIALOG, mTargetContext.getTheme());
 
         Spinner spinner = (Spinner) getActivity().findViewById(R.id.spinner1);
         assertEquals(mTargetContext.getString(R.string.text_view_hello), spinner.getPrompt());
@@ -154,6 +167,18 @@ public class SpinnerTest extends ActivityInstrumentationTestCase2<RelativeLayout
         }
 
         // TODO: find the dialog and get its title to assert whether setPromptId() takes effect?
+    }
+
+    @UiThreadTest
+    public void testGetPopupContext() {
+        Theme theme = mTargetContext.getResources().newTheme();
+        Spinner themeSpinner = new Spinner(mTargetContext, null,
+                android.R.attr.spinnerStyle, 0, Spinner.MODE_DIALOG, theme);
+        assertNotSame(mTargetContext, themeSpinner.getPopupContext());
+        assertSame(theme, themeSpinner.getPopupContext().getTheme());
+
+        ContextThemeWrapper context = (ContextThemeWrapper)themeSpinner.getPopupContext();
+        assertSame(mTargetContext, context.getBaseContext());
     }
 
     public void testOnLayout() {

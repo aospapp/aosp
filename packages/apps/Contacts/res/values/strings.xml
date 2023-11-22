@@ -114,6 +114,9 @@
     <!-- Menu item used to delete a specific contact -->
     <string name="menu_deleteContact">Delete</string>
 
+    <!-- Menu item used to change the photo for a specific contact [CHAR LIMIT=30]-->
+    <string name="menu_change_photo">Change photo</string>
+
     <!-- Menu item used to create a contact shortcut when viewing contact details. [CHAR LIMIT=30] -->
     <string name="menu_create_contact_shortcut">Place on Home screen</string>
 
@@ -145,7 +148,10 @@
     <string name="splitConfirmation">This contact will be separated into multiple contacts.</string>
 
     <!-- Menu item that joins an aggregate with another aggregate -->
-    <string name="menu_joinAggregate">Join</string>
+    <string name="menu_joinAggregate">Merge</string>
+
+    <!-- Menu item (in the action bar) to indicate that changes should be saved [CHAR LIMIT=20] -->
+    <string name="menu_save">Save</string>
 
     <!-- Heading of the Join Contact screen -->
     <string name="titleJoinContactDataWith">Join contacts</string>
@@ -162,8 +168,11 @@
     <!-- List separator for the Join Contact list: A-Z -->
     <string name="separatorJoinAggregateAll">All contacts</string>
 
-    <!-- Toast shown after two contacts have been joined by a user action -->
-    <string name="contactsJoinedMessage">Contacts joined</string>
+    <!-- Toast shown after two contacts have been joined by a user action. [CHAR LIMIT=NONE] -->
+    <string name="contactsJoinedMessage">Contacts merged</string>
+
+    <!-- Toast shown after contacts that the user has selected are deleted by a user action. [CHAR LIMIT=NONE] -->
+    <string name="contacts_deleted_toast">Contacts deleted</string>
 
     <!-- Menu item that opens the Options activity for a given contact [CHAR LIMIT=15] -->
     <string name="menu_set_ring_tone">Set ringtone</string>
@@ -176,6 +185,21 @@
 
     <!-- Warning dialog contents after users selects to delete a contact with ReadOnly and Writable sources. -->
     <string name="readOnlyContactDeleteConfirmation">This contact contains information from multiple accounts. Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
+
+    <!-- Warning dialog. Shown if user selects a single contact to merge. [CHAR LIMIT=NONE]  -->
+    <string name="batch_merge_single_contact_warning">You need at least two contacts selected to perform a merge.</string>
+
+    <!-- Confirmation dialog. Shown after user selects to merge contacts. [CHAR LIMIT=NONE]  -->
+    <string name="batch_merge_confirmation">The selected contacts will be merged into a single contact.</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete writable contacts. [CHAR LIMIT=NONE]  -->
+    <string name="batch_delete_confirmation">The selected contacts will be deleted.</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete readonly contacts. [CHAR LIMIT=NONE] -->
+    <string name="batch_delete_read_only_contact_confirmation">Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
+
+    <!-- Confirmation dialog. Shown after user selects to delete contacts from multiple accounts. [CHAR LIMIT=NONE]  -->
+    <string name="batch_delete_multiple_accounts_confirmation">These contacts contains information from multiple accounts. Information from read-only accounts will be hidden in your contacts lists, not deleted.</string>
 
     <!-- Warning dialog contents after users selects to delete a contact with multiple Writable sources. -->
     <string name="multipleContactDeleteConfirmation">Deleting this contact will delete information from multiple accounts.</string>
@@ -253,6 +277,9 @@
 
     <!-- Toast displayed when saving a contact failed. [CHAR LIMIT=NONE] -->
     <string name="contactSavedErrorToast">Couldn\'t save contact changes.</string>
+
+    <!-- Toast displayed when saving a contact photo failed. [CHAR LIMIT=NONE] -->
+    <string name="contactPhotoSavedErrorToast">Couldn\'t save contact photo changes.</string>
 
     <!-- Toast displayed when a group is saved [CHAR LIMIT=NONE] -->
     <string name="groupSavedToast">Group saved.</string>
@@ -370,6 +397,9 @@
     <!-- String describing which account type a contact came from when editing it -->
     <string name="account_type_format"><xliff:g id="source" example="Gmail">%1$s</xliff:g> contact</string>
 
+    <!-- String describing that a contact came from the google account type when editing it.  -->
+    <string name="google_account_type_format"><xliff:g id="source" example="Google">%1$s</xliff:g> account</string>
+
     <!-- String describing which account a contact came from when editing it -->
     <string name="from_account_format"><xliff:g id="source" example="user@gmail.com">%1$s</xliff:g></string>
 
@@ -391,22 +421,8 @@
     <!-- An option in the 'Contact photo' dialog, if there is already a photo [CHAR LIMIT=50] -->
     <string name="pick_new_photo">Select new photo</string>
 
-    <!-- Text shown in the contacts app while the background process updates contacts after a locale change [CHAR LIMIT=300] -->
-    <string name="locale_change_in_progress">Contact list is being updated to reflect the change of language.</string>
-
     <!-- Text shown in the contacts app while the background process updates contacts after a system upgrade [CHAR LIMIT=300] -->
     <string name="upgrade_in_progress">Contact list is being updated.</string>
-
-    <!-- Text shown in the contacts app if the background process updating contacts fails because of memory shortage [CHAR LIMIT=300] -->
-    <string name="upgrade_out_of_memory">Contacts are in the process of being upgraded.
-    \n\nThe upgrade process requires approximately <xliff:g id="size_in_megabytes">%s</xliff:g>
-    MB of internal storage.\n\nChoose one of the following options:</string>
-
-    <!-- Button shown in the contacts app if the background process updating contacts fails because of memory shortage [CHAR LIMIT=50] -->
-    <string name="upgrade_out_of_memory_uninstall">Uninstall some applications</string>
-
-    <!-- Button shown in the contacts app if the background process updating contacts fails because of memory shortage [CHAR LIMIT=50] -->
-    <string name="upgrade_out_of_memory_retry">Retry upgrade</string>
 
     <!-- Title shown in the search result activity of contacts app while searching.  [CHAR LIMIT=20] -->
     <string name="search_results_searching">Searching\u2026</string>
@@ -438,7 +454,7 @@
     <!-- Button used for changing a photo in the Raw Contact Editor [CHAR LIMIT=15] -->
     <string name="change_photo">Change</string>
 
-    <!-- RadioButton that determines whether a raw contact's photo should be used for the entire contact [CHAR LIMIT=15] -->
+    <!-- RadioButton that determines whether a raw contact's photo should be used for the entire contact [CHAR LIMIT=25] -->
     <string name="primary_photo">Primary photo</string>
 
     <!-- String describing the Star/Favorite checkbox
@@ -488,8 +504,8 @@
     <!-- Menu item for the settings activity [CHAR LIMIT=64] -->
     <string name="menu_settings" msgid="377929915873428211">Settings</string>
 
-    <!-- Menu item for invoking contextual help [CHAR LIMIT=64] -->
-    <string name="menu_help">Help</string>
+    <!-- Menu item for invoking contextual Help & Feedback [CHAR LIMIT=64] -->
+    <string name="menu_help">Help &amp; feedback</string>
 
     <!-- The preference section title for contact display options [CHAR LIMIT=128] -->
     <string name="preference_displayOptions">Display options</string>
@@ -745,4 +761,13 @@
 
     <!-- When a user tries to create an IM Hangouts field, an alert dialog pops up displaying this message. We don't want users entering email addresses of phone numbers into the IM field. [CHAR LIMIT=200] -->
     <string name="contact_editor_hangouts_im_alert">Hangouts works better when you enter the person\'s Hangouts identifier into the email field or phone field.</string>
+
+    <!-- Button to expand the compact contact editor to show all available input fields. [CHAR LIMIT=60] -->
+    <string name="compact_editor_more_fields">More Fields</string>
+
+    <!-- Content description for the compact contact editor photo overlay which, when clicked, shows a dialog with the options for changing the contact photo. [CHAR LIMIT=30] -->
+    <string name="compact_editor_change_photo_content_description">Change photo</string>
+
+    <!-- Quick contact display name with phonetic name -->
+    <string name="quick_contact_display_name_with_phonetic"><xliff:g id="display_name">%s</xliff:g> (<xliff:g id="phonetic_name">%s</xliff:g>)</string>
 </resources>

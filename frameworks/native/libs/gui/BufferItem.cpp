@@ -28,6 +28,7 @@ BufferItem::BufferItem() :
     mScalingMode(NATIVE_WINDOW_SCALING_MODE_FREEZE),
     mTimestamp(0),
     mIsAutoTimestamp(false),
+    mDataSpace(HAL_DATASPACE_UNKNOWN),
     mFrameNumber(0),
     mSlot(INVALID_BUFFER_SLOT),
     mIsDroppable(false),
@@ -38,66 +39,67 @@ BufferItem::BufferItem() :
 
 BufferItem::~BufferItem() {}
 
-BufferItem::operator IGraphicBufferConsumer::BufferItem() const {
-    IGraphicBufferConsumer::BufferItem bufferItem;
-    bufferItem.mGraphicBuffer = mGraphicBuffer;
-    bufferItem.mFence = mFence;
-    bufferItem.mCrop = mCrop;
-    bufferItem.mTransform = mTransform;
-    bufferItem.mScalingMode = mScalingMode;
-    bufferItem.mTimestamp = mTimestamp;
-    bufferItem.mIsAutoTimestamp = mIsAutoTimestamp;
-    bufferItem.mFrameNumber = mFrameNumber;
-    bufferItem.mBuf = mSlot;
-    bufferItem.mIsDroppable = mIsDroppable;
-    bufferItem.mAcquireCalled = mAcquireCalled;
-    bufferItem.mTransformToDisplayInverse = mTransformToDisplayInverse;
-    return bufferItem;
+template <typename T>
+static void addAligned(size_t& size, T /* value */) {
+    size = FlattenableUtils::align<sizeof(T)>(size);
+    size += sizeof(T);
 }
 
 size_t BufferItem::getPodSize() const {
-    size_t c =  sizeof(mCrop) +
-            sizeof(mTransform) +
-            sizeof(mScalingMode) +
-            sizeof(mTimestamp) +
-            sizeof(mIsAutoTimestamp) +
-            sizeof(mFrameNumber) +
-            sizeof(mSlot) +
-            sizeof(mIsDroppable) +
-            sizeof(mAcquireCalled) +
-            sizeof(mTransformToDisplayInverse);
-    return c;
+    size_t size = 0;
+    addAligned(size, mCrop);
+    addAligned(size, mTransform);
+    addAligned(size, mScalingMode);
+    addAligned(size, mTimestampLo);
+    addAligned(size, mTimestampHi);
+    addAligned(size, mIsAutoTimestamp);
+    addAligned(size, mDataSpace);
+    addAligned(size, mFrameNumberLo);
+    addAligned(size, mFrameNumberHi);
+    addAligned(size, mSlot);
+    addAligned(size, mIsDroppable);
+    addAligned(size, mAcquireCalled);
+    addAligned(size, mTransformToDisplayInverse);
+    return size;
 }
 
 size_t BufferItem::getFlattenedSize() const {
-    size_t c = 0;
+    size_t size = sizeof(uint32_t); // Flags
     if (mGraphicBuffer != 0) {
-        c += mGraphicBuffer->getFlattenedSize();
-        FlattenableUtils::align<4>(c);
+        size += mGraphicBuffer->getFlattenedSize();
+        FlattenableUtils::align<4>(size);
     }
     if (mFence != 0) {
-        c += mFence->getFlattenedSize();
-        FlattenableUtils::align<4>(c);
+        size += mFence->getFlattenedSize();
+        FlattenableUtils::align<4>(size);
     }
-    return sizeof(int32_t) + c + getPodSize();
+    size += mSurfaceDamage.getFlattenedSize();
+    size = FlattenableUtils::align<8>(size);
+    return size + getPodSize();
 }
 
 size_t BufferItem::getFdCount() const {
-    size_t c = 0;
+    size_t count = 0;
     if (mGraphicBuffer != 0) {
-        c += mGraphicBuffer->getFdCount();
+        count += mGraphicBuffer->getFdCount();
     }
     if (mFence != 0) {
-        c += mFence->getFdCount();
+        count += mFence->getFdCount();
     }
-    return c;
+    return count;
+}
+
+template <typename T>
+static void writeAligned(void*& buffer, size_t& size, T value) {
+    size -= FlattenableUtils::align<alignof(T)>(buffer);
+    FlattenableUtils::write(buffer, size, value);
 }
 
 status_t BufferItem::flatten(
         void*& buffer, size_t& size, int*& fds, size_t& count) const {
 
     // make sure we have enough space
-    if (count < BufferItem::getFlattenedSize()) {
+    if (size < BufferItem::getFlattenedSize()) {
         return NO_MEMORY;
     }
 
@@ -121,30 +123,44 @@ status_t BufferItem::flatten(
         flags |= 2;
     }
 
-    // check we have enough space (in case flattening the fence/graphicbuffer lied to us)
+    status_t err = mSurfaceDamage.flatten(buffer, size);
+    if (err) return err;
+    FlattenableUtils::advance(buffer, size, mSurfaceDamage.getFlattenedSize());
+
+    // Check we still have enough space
     if (size < getPodSize()) {
         return NO_MEMORY;
     }
 
-    FlattenableUtils::write(buffer, size, mCrop);
-    FlattenableUtils::write(buffer, size, mTransform);
-    FlattenableUtils::write(buffer, size, mScalingMode);
-    FlattenableUtils::write(buffer, size, mTimestamp);
-    FlattenableUtils::write(buffer, size, mIsAutoTimestamp);
-    FlattenableUtils::write(buffer, size, mFrameNumber);
-    FlattenableUtils::write(buffer, size, mSlot);
-    FlattenableUtils::write(buffer, size, mIsDroppable);
-    FlattenableUtils::write(buffer, size, mAcquireCalled);
-    FlattenableUtils::write(buffer, size, mTransformToDisplayInverse);
+    writeAligned(buffer, size, mCrop);
+    writeAligned(buffer, size, mTransform);
+    writeAligned(buffer, size, mScalingMode);
+    writeAligned(buffer, size, mTimestampLo);
+    writeAligned(buffer, size, mTimestampHi);
+    writeAligned(buffer, size, mIsAutoTimestamp);
+    writeAligned(buffer, size, mDataSpace);
+    writeAligned(buffer, size, mFrameNumberLo);
+    writeAligned(buffer, size, mFrameNumberHi);
+    writeAligned(buffer, size, mSlot);
+    writeAligned(buffer, size, mIsDroppable);
+    writeAligned(buffer, size, mAcquireCalled);
+    writeAligned(buffer, size, mTransformToDisplayInverse);
 
     return NO_ERROR;
+}
+
+template <typename T>
+static void readAligned(const void*& buffer, size_t& size, T& value) {
+    size -= FlattenableUtils::align<alignof(T)>(buffer);
+    FlattenableUtils::read(buffer, size, value);
 }
 
 status_t BufferItem::unflatten(
         void const*& buffer, size_t& size, int const*& fds, size_t& count) {
 
-    if (size < sizeof(uint32_t))
+    if (size < sizeof(uint32_t)) {
         return NO_MEMORY;
+    }
 
     uint32_t flags = 0;
     FlattenableUtils::read(buffer, size, flags);
@@ -163,21 +179,28 @@ status_t BufferItem::unflatten(
         size -= FlattenableUtils::align<4>(buffer);
     }
 
-    // check we have enough space
+    status_t err = mSurfaceDamage.unflatten(buffer, size);
+    if (err) return err;
+    FlattenableUtils::advance(buffer, size, mSurfaceDamage.getFlattenedSize());
+
+    // Check we still have enough space
     if (size < getPodSize()) {
         return NO_MEMORY;
     }
 
-    FlattenableUtils::read(buffer, size, mCrop);
-    FlattenableUtils::read(buffer, size, mTransform);
-    FlattenableUtils::read(buffer, size, mScalingMode);
-    FlattenableUtils::read(buffer, size, mTimestamp);
-    FlattenableUtils::read(buffer, size, mIsAutoTimestamp);
-    FlattenableUtils::read(buffer, size, mFrameNumber);
-    FlattenableUtils::read(buffer, size, mSlot);
-    FlattenableUtils::read(buffer, size, mIsDroppable);
-    FlattenableUtils::read(buffer, size, mAcquireCalled);
-    FlattenableUtils::read(buffer, size, mTransformToDisplayInverse);
+    readAligned(buffer, size, mCrop);
+    readAligned(buffer, size, mTransform);
+    readAligned(buffer, size, mScalingMode);
+    readAligned(buffer, size, mTimestampLo);
+    readAligned(buffer, size, mTimestampHi);
+    readAligned(buffer, size, mIsAutoTimestamp);
+    readAligned(buffer, size, mDataSpace);
+    readAligned(buffer, size, mFrameNumberLo);
+    readAligned(buffer, size, mFrameNumberHi);
+    readAligned(buffer, size, mSlot);
+    readAligned(buffer, size, mIsDroppable);
+    readAligned(buffer, size, mAcquireCalled);
+    readAligned(buffer, size, mTransformToDisplayInverse);
 
     return NO_ERROR;
 }

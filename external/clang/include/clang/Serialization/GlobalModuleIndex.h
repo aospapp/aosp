@@ -13,8 +13,8 @@
 // queries such as "do any modules know about this identifier?"
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_CLANG_SERIALIZATION_GLOBAL_MODULE_INDEX_H
-#define LLVM_CLANG_SERIALIZATION_GLOBAL_MODULE_INDEX_H
+#ifndef LLVM_CLANG_SERIALIZATION_GLOBALMODULEINDEX_H
+#define LLVM_CLANG_SERIALIZATION_GLOBALMODULEINDEX_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -115,11 +115,11 @@ class GlobalModuleIndex {
   unsigned NumIdentifierLookupHits;
   
   /// \brief Internal constructor. Use \c readIndex() to read an index.
-  explicit GlobalModuleIndex(llvm::MemoryBuffer *Buffer,
+  explicit GlobalModuleIndex(std::unique_ptr<llvm::MemoryBuffer> Buffer,
                              llvm::BitstreamCursor Cursor);
 
-  GlobalModuleIndex(const GlobalModuleIndex &) LLVM_DELETED_FUNCTION;
-  GlobalModuleIndex &operator=(const GlobalModuleIndex &) LLVM_DELETED_FUNCTION;
+  GlobalModuleIndex(const GlobalModuleIndex &) = delete;
+  GlobalModuleIndex &operator=(const GlobalModuleIndex &) = delete;
 
 public:
   ~GlobalModuleIndex();

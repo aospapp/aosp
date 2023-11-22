@@ -74,7 +74,7 @@ float4 __attribute__((kernel)) vert(uint32_t x, uint32_t y) {
     float4 blurredPixel = 0;
     int gi = 0;
     for (int r = -radius; r <= radius; r ++) {
-        int validH = rsClamp((int)y + r, (int)0, (int)(height - 1));
+        int validH = clamp((int)y + r, (int)0, (int)(height - 1));
         float4 i = rsGetElementAt_float4(ScratchPixel2, x, validH);
         blurredPixel += i * gaussian[gi++];
     }
@@ -86,11 +86,9 @@ float4 __attribute__((kernel)) horz(uint32_t x, uint32_t y) {
     int gi = 0;
     for (int r = -radius; r <= radius; r ++) {
         // Stepping left and right away from the pixel
-        int validX = rsClamp((int)x + r, (int)0, (int)(width - 1));
+        int validX = clamp((int)x + r, (int)0, (int)(width - 1));
         float4 i = rsGetElementAt_float4(ScratchPixel1, validX, y);
         blurredPixel += i * gaussian[gi++];
     }
     return blurredPixel;
 }
-
-

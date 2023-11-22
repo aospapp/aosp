@@ -16,8 +16,10 @@
 
 package android.app;
 
+import android.Manifest;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -26,6 +28,7 @@ import android.os.BatteryStats;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 
+import android.util.Log;
 import com.android.internal.app.ProcessStats;
 import com.android.internal.os.TransferPipe;
 import com.android.internal.util.FastPrintWriter;
@@ -84,6 +87,13 @@ public class ActivityManager {
      * signed with the same certificate as the one declaring the {@code &lt;meta-data>}.
      */
     public static final String META_HOME_ALTERNATE = "android.app.home.alternate";
+
+    /**
+     * Result for IActivityManager.startActivity: trying to start a background user
+     * activity that shouldn't be displayed for all users.
+     * @hide
+     */
+    public static final int START_NOT_CURRENT_USER_ACTIVITY = -8;
 
     /**
      * Result for IActivityManager.startActivity: trying to start an activity under voice
@@ -256,6 +266,9 @@ public class ActivityManager {
     /** @hide User operation call: given user id is the current user, can't be stopped. */
     public static final int USER_OP_IS_CURRENT = -2;
 
+    /** @hide Process does not exist. */
+    public static final int PROCESS_STATE_NONEXISTENT = -1;
+
     /** @hide Process is a persistent system process. */
     public static final int PROCESS_STATE_PERSISTENT = 0;
 
@@ -266,45 +279,75 @@ public class ActivityManager {
      * all activities that are visible to the user. */
     public static final int PROCESS_STATE_TOP = 2;
 
+    /** @hide Process is hosting a foreground service due to a system binding. */
+    public static final int PROCESS_STATE_BOUND_FOREGROUND_SERVICE = 3;
+
+    /** @hide Process is hosting a foreground service. */
+    public static final int PROCESS_STATE_FOREGROUND_SERVICE = 4;
+
+    /** @hide Same as {@link #PROCESS_STATE_TOP} but while device is sleeping. */
+    public static final int PROCESS_STATE_TOP_SLEEPING = 5;
+
     /** @hide Process is important to the user, and something they are aware of. */
-    public static final int PROCESS_STATE_IMPORTANT_FOREGROUND = 3;
+    public static final int PROCESS_STATE_IMPORTANT_FOREGROUND = 6;
 
     /** @hide Process is important to the user, but not something they are aware of. */
-    public static final int PROCESS_STATE_IMPORTANT_BACKGROUND = 4;
+    public static final int PROCESS_STATE_IMPORTANT_BACKGROUND = 7;
 
     /** @hide Process is in the background running a backup/restore operation. */
-    public static final int PROCESS_STATE_BACKUP = 5;
+    public static final int PROCESS_STATE_BACKUP = 8;
 
     /** @hide Process is in the background, but it can't restore its state so we want
      * to try to avoid killing it. */
-    public static final int PROCESS_STATE_HEAVY_WEIGHT = 6;
+    public static final int PROCESS_STATE_HEAVY_WEIGHT = 9;
 
     /** @hide Process is in the background running a service.  Unlike oom_adj, this level
      * is used for both the normal running in background state and the executing
      * operations state. */
-    public static final int PROCESS_STATE_SERVICE = 7;
+    public static final int PROCESS_STATE_SERVICE = 10;
 
     /** @hide Process is in the background running a receiver.   Note that from the
      * perspective of oom_adj receivers run at a higher foreground level, but for our
      * prioritization here that is not necessary and putting them below services means
      * many fewer changes in some process states as they receive broadcasts. */
-    public static final int PROCESS_STATE_RECEIVER = 8;
+    public static final int PROCESS_STATE_RECEIVER = 11;
 
     /** @hide Process is in the background but hosts the home activity. */
-    public static final int PROCESS_STATE_HOME = 9;
+    public static final int PROCESS_STATE_HOME = 12;
 
     /** @hide Process is in the background but hosts the last shown activity. */
-    public static final int PROCESS_STATE_LAST_ACTIVITY = 10;
+    public static final int PROCESS_STATE_LAST_ACTIVITY = 13;
 
     /** @hide Process is being cached for later use and contains activities. */
-    public static final int PROCESS_STATE_CACHED_ACTIVITY = 11;
+    public static final int PROCESS_STATE_CACHED_ACTIVITY = 14;
 
     /** @hide Process is being cached for later use and is a client of another cached
      * process that contains activities. */
-    public static final int PROCESS_STATE_CACHED_ACTIVITY_CLIENT = 12;
+    public static final int PROCESS_STATE_CACHED_ACTIVITY_CLIENT = 15;
 
     /** @hide Process is being cached for later use and is empty. */
-    public static final int PROCESS_STATE_CACHED_EMPTY = 13;
+    public static final int PROCESS_STATE_CACHED_EMPTY = 16;
+
+    /** @hide requestType for assist context: only basic information. */
+    public static final int ASSIST_CONTEXT_BASIC = 0;
+
+    /** @hide requestType for assist context: generate full AssistStructure. */
+    public static final int ASSIST_CONTEXT_FULL = 1;
+
+    /**
+     * Lock task mode is not active.
+     */
+    public static final int LOCK_TASK_MODE_NONE = 0;
+
+    /**
+     * Full lock task mode is active.
+     */
+    public static final int LOCK_TASK_MODE_LOCKED = 1;
+
+    /**
+     * App pinning mode is active.
+     */
+    public static final int LOCK_TASK_MODE_PINNED = 2;
 
     Point mAppTaskThumbnailSize;
 
@@ -422,7 +465,7 @@ public class ActivityManager {
     public int getMemoryClass() {
         return staticGetMemoryClass();
     }
-    
+
     /** @hide */
     static public int staticGetMemoryClass() {
         // Really brain dead right now -- just take this from the configured
@@ -433,7 +476,7 @@ public class ActivityManager {
         }
         return staticGetLargeMemoryClass();
     }
-    
+
     /**
      * Return the approximate per-application memory class of the current
      * device when an application is running with a large heap.  This is the
@@ -450,7 +493,7 @@ public class ActivityManager {
     public int getLargeMemoryClass() {
         return staticGetLargeMemoryClass();
     }
-    
+
     /** @hide */
     static public int staticGetLargeMemoryClass() {
         // Really brain dead right now -- just take this from the configured
@@ -769,7 +812,7 @@ public class ActivityManager {
          * The true identifier of this task, valid even if it is not running.
          */
         public int persistentId;
-        
+
         /**
          * The original Intent used to launch the task.  You can use this
          * Intent to re-launch the task (if it is no longer running) or bring
@@ -832,6 +875,23 @@ public class ActivityManager {
          */
         public int affiliatedTaskColor;
 
+        /**
+         * The component launched as the first activity in the task.
+         * This can be considered the "application" of this task.
+         */
+        public ComponentName baseActivity;
+
+        /**
+         * The activity component at the top of the history stack of the task.
+         * This is what the user is currently doing.
+         */
+        public ComponentName topActivity;
+
+        /**
+         * Number of activities in this task.
+         */
+        public int numActivities;
+
         public RecentTaskInfo() {
         }
 
@@ -865,6 +925,9 @@ public class ActivityManager {
             dest.writeLong(lastActiveTime);
             dest.writeInt(affiliatedTaskId);
             dest.writeInt(affiliatedTaskColor);
+            ComponentName.writeToParcel(baseActivity, dest);
+            ComponentName.writeToParcel(topActivity, dest);
+            dest.writeInt(numActivities);
         }
 
         public void readFromParcel(Parcel source) {
@@ -881,6 +944,9 @@ public class ActivityManager {
             lastActiveTime = source.readLong();
             affiliatedTaskId = source.readInt();
             affiliatedTaskColor = source.readInt();
+            baseActivity = ComponentName.readFromParcel(source);
+            topActivity = ComponentName.readFromParcel(source);
+            numActivities = source.readInt();
         }
 
         public static final Creator<RecentTaskInfo> CREATOR
@@ -951,7 +1017,7 @@ public class ActivityManager {
      * user has started and the maximum number the system can remember.
      * @param flags Information about what to return.  May be any combination
      * of {@link #RECENT_WITH_EXCLUDED} and {@link #RECENT_IGNORE_UNAVAILABLE}.
-     * 
+     *
      * @return Returns a list of RecentTaskInfo records describing each of
      * the recent tasks.
      */
@@ -1083,7 +1149,7 @@ public class ActivityManager {
             numActivities = source.readInt();
             numRunning = source.readInt();
         }
-        
+
         public static final Creator<RunningTaskInfo> CREATOR = new Creator<RunningTaskInfo>() {
             public RunningTaskInfo createFromParcel(Parcel source) {
                 return new RunningTaskInfo(source);
@@ -1406,100 +1472,100 @@ public class ActivityManager {
          * If non-zero, this is the process the service is running in.
          */
         public int pid;
-        
+
         /**
          * The UID that owns this service.
          */
         public int uid;
-        
+
         /**
          * The name of the process this service runs in.
          */
         public String process;
-        
+
         /**
          * Set to true if the service has asked to run as a foreground process.
          */
         public boolean foreground;
-        
+
         /**
          * The time when the service was first made active, either by someone
          * starting or binding to it.  This
          * is in units of {@link android.os.SystemClock#elapsedRealtime()}.
          */
         public long activeSince;
-        
+
         /**
          * Set to true if this service has been explicitly started.
          */
         public boolean started;
-        
+
         /**
          * Number of clients connected to the service.
          */
         public int clientCount;
-        
+
         /**
          * Number of times the service's process has crashed while the service
          * is running.
          */
         public int crashCount;
-        
+
         /**
          * The time when there was last activity in the service (either
          * explicit requests to start it or clients binding to it).  This
          * is in units of {@link android.os.SystemClock#uptimeMillis()}.
          */
         public long lastActivityTime;
-        
+
         /**
          * If non-zero, this service is not currently running, but scheduled to
          * restart at the given time.
          */
         public long restarting;
-        
+
         /**
          * Bit for {@link #flags}: set if this service has been
          * explicitly started.
          */
         public static final int FLAG_STARTED = 1<<0;
-        
+
         /**
          * Bit for {@link #flags}: set if the service has asked to
          * run as a foreground process.
          */
         public static final int FLAG_FOREGROUND = 1<<1;
-        
+
         /**
          * Bit for {@link #flags): set if the service is running in a
          * core system process.
          */
         public static final int FLAG_SYSTEM_PROCESS = 1<<2;
-        
+
         /**
          * Bit for {@link #flags): set if the service is running in a
          * persistent process.
          */
         public static final int FLAG_PERSISTENT_PROCESS = 1<<3;
-        
+
         /**
          * Running flags.
          */
         public int flags;
-        
+
         /**
          * For special services that are bound to by system code, this is
          * the package that holds the binding.
          */
         public String clientPackage;
-        
+
         /**
          * For special services that are bound to by system code, this is
          * a string resource providing a user-visible label for who the
          * client is.
          */
         public int clientLabel;
-        
+
         public RunningServiceInfo() {
         }
 
@@ -1540,7 +1606,7 @@ public class ActivityManager {
             clientPackage = source.readString();
             clientLabel = source.readInt();
         }
-        
+
         public static final Creator<RunningServiceInfo> CREATOR = new Creator<RunningServiceInfo>() {
             public RunningServiceInfo createFromParcel(Parcel source) {
                 return new RunningServiceInfo(source);
@@ -1564,7 +1630,7 @@ public class ActivityManager {
      * @param maxNum The maximum number of entries to return in the list.  The
      * actual number returned may be smaller, depending on how many services
      * are running.
-     * 
+     *
      * @return Returns a list of RunningServiceInfo records describing each of
      * the running tasks.
      */
@@ -1578,7 +1644,7 @@ public class ActivityManager {
             return null;
         }
     }
-    
+
     /**
      * Returns a PendingIntent you can start to show a control panel for the
      * given running service.  If the service does not have a control panel,
@@ -1594,7 +1660,7 @@ public class ActivityManager {
             return null;
         }
     }
-    
+
     /**
      * Information you can retrieve about the available memory through
      * {@link ActivityManager#getMemoryInfo}.
@@ -1621,7 +1687,7 @@ public class ActivityManager {
          * processes.
          */
         public long threshold;
-        
+
         /**
          * Set to true if the system considers itself to currently be in a low
          * memory situation.
@@ -1654,7 +1720,7 @@ public class ActivityManager {
             dest.writeLong(visibleAppThreshold);
             dest.writeLong(foregroundAppThreshold);
         }
-        
+
         public void readFromParcel(Parcel source) {
             availMem = source.readLong();
             totalMem = source.readLong();
@@ -1778,7 +1844,7 @@ public class ActivityManager {
      */
     public boolean clearApplicationUserData(String packageName, IPackageDataObserver observer) {
         try {
-            return ActivityManagerNative.getDefault().clearApplicationUserData(packageName, 
+            return ActivityManagerNative.getDefault().clearApplicationUserData(packageName,
                     observer, UserHandle.myUserId());
         } catch (RemoteException e) {
             return false;
@@ -1819,7 +1885,7 @@ public class ActivityManager {
          * The process name in which the crash or error occurred.
          */
         public String processName;
-        
+
         /**
          * The pid of this process; 0 if none
          */
@@ -1831,7 +1897,7 @@ public class ActivityManager {
          * the same uid).
          */
         public int uid;
-        
+
         /**
          * The activity name associated with the error, if known.  May be null.
          */
@@ -1887,8 +1953,8 @@ public class ActivityManager {
             longMsg = source.readString();
             stackTrace = source.readString();
         }
-        
-        public static final Creator<ProcessErrorStateInfo> CREATOR = 
+
+        public static final Creator<ProcessErrorStateInfo> CREATOR =
                 new Creator<ProcessErrorStateInfo>() {
             public ProcessErrorStateInfo createFromParcel(Parcel source) {
                 return new ProcessErrorStateInfo(source);
@@ -1902,11 +1968,11 @@ public class ActivityManager {
             readFromParcel(source);
         }
     }
-    
+
     /**
-     * Returns a list of any processes that are currently in an error condition.  The result 
+     * Returns a list of any processes that are currently in an error condition.  The result
      * will be null if all processes are running properly at this time.
-     * 
+     *
      * @return Returns a list of ProcessErrorStateInfo records, or null if there are no
      * current error conditions (it will not return an empty list).  This list ordering is not
      * specified.
@@ -1922,7 +1988,7 @@ public class ActivityManager {
     /**
      * Information you can retrieve about a running process.
      */
-    public static class RunningAppProcessInfo implements Parcelable {        
+    public static class RunningAppProcessInfo implements Parcelable {
         /**
          * The name of the process that this object is associated with
          */
@@ -1932,17 +1998,17 @@ public class ActivityManager {
          * The pid of this process; 0 if none
          */
         public int pid;
-        
+
         /**
          * The user id of this process.
          */
         public int uid;
-        
+
         /**
          * All packages that have been loaded into the process.
          */
         public String pkgList[];
-        
+
         /**
          * Constant for {@link #flags}: this is an app that is unable to
          * correctly save its state when going to the background,
@@ -1950,7 +2016,7 @@ public class ActivityManager {
          * @hide
          */
         public static final int FLAG_CANT_SAVE_STATE = 1<<0;
-        
+
         /**
          * Constant for {@link #flags}: this process is associated with a
          * persistent system app.
@@ -1980,70 +2046,99 @@ public class ActivityManager {
         public int lastTrimLevel;
 
         /**
-         * Constant for {@link #importance}: this process is running the
-         * foreground UI.
+         * Constant for {@link #importance}: This process is running the
+         * foreground UI; that is, it is the thing currently at the top of the screen
+         * that the user is interacting with.
          */
         public static final int IMPORTANCE_FOREGROUND = 100;
-        
+
         /**
-         * Constant for {@link #importance}: this process is running something
+         * Constant for {@link #importance}: This process is running a foreground
+         * service, for example to perform music playback even while the user is
+         * not immediately in the app.  This generally indicates that the process
+         * is doing something the user actively cares about.
+         */
+        public static final int IMPORTANCE_FOREGROUND_SERVICE = 125;
+
+        /**
+         * Constant for {@link #importance}: This process is running the foreground
+         * UI, but the device is asleep so it is not visible to the user.  This means
+         * the user is not really aware of the process, because they can not see or
+         * interact with it, but it is quite important because it what they expect to
+         * return to once unlocking the device.
+         */
+        public static final int IMPORTANCE_TOP_SLEEPING = 150;
+
+        /**
+         * Constant for {@link #importance}: This process is running something
          * that is actively visible to the user, though not in the immediate
-         * foreground.
+         * foreground.  This may be running a window that is behind the current
+         * foreground (so paused and with its state saved, not interacting with
+         * the user, but visible to them to some degree); it may also be running
+         * other services under the system's control that it inconsiders important.
          */
         public static final int IMPORTANCE_VISIBLE = 200;
-        
+
         /**
-         * Constant for {@link #importance}: this process is running something
-         * that is considered to be actively perceptible to the user.  An
-         * example would be an application performing background music playback.
+         * Constant for {@link #importance}: This process is not something the user
+         * is directly aware of, but is otherwise perceptable to them to some degree.
          */
         public static final int IMPORTANCE_PERCEPTIBLE = 130;
-        
+
         /**
-         * Constant for {@link #importance}: this process is running an
+         * Constant for {@link #importance}: This process is running an
          * application that can not save its state, and thus can't be killed
          * while in the background.
          * @hide
          */
         public static final int IMPORTANCE_CANT_SAVE_STATE = 170;
-        
+
         /**
-         * Constant for {@link #importance}: this process is contains services
-         * that should remain running.
+         * Constant for {@link #importance}: This process is contains services
+         * that should remain running.  These are background services apps have
+         * started, not something the user is aware of, so they may be killed by
+         * the system relatively freely (though it is generally desired that they
+         * stay running as long as they want to).
          */
         public static final int IMPORTANCE_SERVICE = 300;
-        
+
         /**
-         * Constant for {@link #importance}: this process process contains
+         * Constant for {@link #importance}: This process process contains
          * background code that is expendable.
          */
         public static final int IMPORTANCE_BACKGROUND = 400;
-        
+
         /**
-         * Constant for {@link #importance}: this process is empty of any
+         * Constant for {@link #importance}: This process is empty of any
          * actively running code.
          */
         public static final int IMPORTANCE_EMPTY = 500;
 
         /**
-         * Constant for {@link #importance}: this process does not exist.
+         * Constant for {@link #importance}: This process does not exist.
          */
         public static final int IMPORTANCE_GONE = 1000;
 
         /** @hide */
         public static int procStateToImportance(int procState) {
-            if (procState >= ActivityManager.PROCESS_STATE_HOME) {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND;
-            } else if (procState >= ActivityManager.PROCESS_STATE_SERVICE) {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE;
-            } else if (procState > ActivityManager.PROCESS_STATE_HEAVY_WEIGHT) {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_CANT_SAVE_STATE;
-            } else if (procState >= ActivityManager.PROCESS_STATE_IMPORTANT_BACKGROUND) {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE;
-            } else if (procState >= ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND) {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE;
+            if (procState == PROCESS_STATE_NONEXISTENT) {
+                return IMPORTANCE_GONE;
+            } else if (procState >= PROCESS_STATE_HOME) {
+                return IMPORTANCE_BACKGROUND;
+            } else if (procState >= PROCESS_STATE_SERVICE) {
+                return IMPORTANCE_SERVICE;
+            } else if (procState > PROCESS_STATE_HEAVY_WEIGHT) {
+                return IMPORTANCE_CANT_SAVE_STATE;
+            } else if (procState >= PROCESS_STATE_IMPORTANT_BACKGROUND) {
+                return IMPORTANCE_PERCEPTIBLE;
+            } else if (procState >= PROCESS_STATE_IMPORTANT_FOREGROUND) {
+                return IMPORTANCE_VISIBLE;
+            } else if (procState >= PROCESS_STATE_TOP_SLEEPING) {
+                return IMPORTANCE_TOP_SLEEPING;
+            } else if (procState >= PROCESS_STATE_FOREGROUND_SERVICE) {
+                return IMPORTANCE_FOREGROUND_SERVICE;
             } else {
-                return ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+                return IMPORTANCE_FOREGROUND;
             }
         }
 
@@ -2056,7 +2151,7 @@ public class ActivityManager {
          * smaller than "less important" values.
          */
         public int importance;
-        
+
         /**
          * An additional ordering within a particular {@link #importance}
          * category, providing finer-grained information about the relative
@@ -2073,7 +2168,7 @@ public class ActivityManager {
          * been specified for the reason for this level.
          */
         public static final int REASON_UNKNOWN = 0;
-        
+
         /**
          * Constant for {@link #importanceReasonCode}: one of the application's
          * content providers is being used by another process.  The pid of
@@ -2082,7 +2177,7 @@ public class ActivityManager {
          * {@link #importanceReasonComponent}.
          */
         public static final int REASON_PROVIDER_IN_USE = 1;
-        
+
         /**
          * Constant for {@link #importanceReasonCode}: one of the application's
          * content providers is being used by another process.  The pid of
@@ -2091,25 +2186,25 @@ public class ActivityManager {
          * {@link #importanceReasonComponent}.
          */
         public static final int REASON_SERVICE_IN_USE = 2;
-        
+
         /**
          * The reason for {@link #importance}, if any.
          */
         public int importanceReasonCode;
-        
+
         /**
          * For the specified values of {@link #importanceReasonCode}, this
          * is the process ID of the other process that is a client of this
          * process.  This will be 0 if no other process is using this one.
          */
         public int importanceReasonPid;
-        
+
         /**
          * For the specified values of {@link #importanceReasonCode}, this
          * is the name of the component that is being used in this process.
          */
         public ComponentName importanceReasonComponent;
-        
+
         /**
          * When {@link #importanceReasonPid} is non-0, this is the importance
          * of the other pid. @hide
@@ -2127,7 +2222,7 @@ public class ActivityManager {
             importanceReasonCode = REASON_UNKNOWN;
             processState = PROCESS_STATE_IMPORTANT_FOREGROUND;
         }
-        
+
         public RunningAppProcessInfo(String pProcessName, int pPid, String pArr[]) {
             processName = pProcessName;
             pid = pPid;
@@ -2170,7 +2265,7 @@ public class ActivityManager {
             processState = source.readInt();
         }
 
-        public static final Creator<RunningAppProcessInfo> CREATOR = 
+        public static final Creator<RunningAppProcessInfo> CREATOR =
             new Creator<RunningAppProcessInfo>() {
             public RunningAppProcessInfo createFromParcel(Parcel source) {
                 return new RunningAppProcessInfo(source);
@@ -2184,7 +2279,7 @@ public class ActivityManager {
             readFromParcel(source);
         }
     }
-    
+
     /**
      * Returns a list of application processes installed on external media
      * that are running on the device.
@@ -2205,6 +2300,23 @@ public class ActivityManager {
     }
 
     /**
+     * Sets the memory trim mode for a process and schedules a memory trim operation.
+     *
+     * <p><b>Note: this method is only intended for testing framework.</b></p>
+     *
+     * @return Returns true if successful.
+     * @hide
+     */
+    public boolean setProcessMemoryTrimLevel(String process, int userId, int level) {
+        try {
+            return ActivityManagerNative.getDefault().setProcessMemoryTrimLevel(process, userId,
+                    level);
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
+    /**
      * Returns a list of application processes that are running on the device.
      *
      * <p><b>Note: this method is only intended for debugging or building
@@ -2219,6 +2331,25 @@ public class ActivityManager {
             return ActivityManagerNative.getDefault().getRunningAppProcesses();
         } catch (RemoteException e) {
             return null;
+        }
+    }
+
+    /**
+     * Return the importance of a given package name, based on the processes that are
+     * currently running.  The return value is one of the importance constants defined
+     * in {@link RunningAppProcessInfo}, giving you the highest importance of all the
+     * processes that this package has code running inside of.  If there are no processes
+     * running its code, {@link RunningAppProcessInfo#IMPORTANCE_GONE} is returned.
+     * @hide
+     */
+    @SystemApi
+    public int getPackageImportance(String packageName) {
+        try {
+            int procState = ActivityManagerNative.getDefault().getPackageProcessState(packageName,
+                    mContext.getOpPackageName());
+            return RunningAppProcessInfo.procStateToImportance(procState);
+        } catch (RemoteException e) {
+            return RunningAppProcessInfo.IMPORTANCE_GONE;
         }
     }
 
@@ -2258,7 +2389,7 @@ public class ActivityManager {
             return null;
         }
     }
-    
+
     /**
      * @deprecated This is now just a wrapper for
      * {@link #killBackgroundProcesses(String)}; the previous behavior here
@@ -2270,17 +2401,17 @@ public class ActivityManager {
     public void restartPackage(String packageName) {
         killBackgroundProcesses(packageName);
     }
-    
+
     /**
      * Have the system immediately kill all background processes associated
      * with the given package.  This is the same as the kernel killing those
      * processes to reclaim memory; the system will take care of restarting
      * these processes in the future as needed.
-     * 
+     *
      * <p>You must hold the permission
      * {@link android.Manifest.permission#KILL_BACKGROUND_PROCESSES} to be able to
      * call this method.
-     * 
+     *
      * @param packageName The name of the package whose processes are to
      * be killed.
      */
@@ -2291,7 +2422,24 @@ public class ActivityManager {
         } catch (RemoteException e) {
         }
     }
-    
+
+    /**
+     * Kills the specified UID.
+     * @param uid The UID to kill.
+     * @param reason The reason for the kill.
+     *
+     * @hide
+     */
+    @RequiresPermission(Manifest.permission.KILL_UID)
+    public void killUid(int uid, String reason) {
+        try {
+            ActivityManagerNative.getDefault().killUid(UserHandle.getAppId(uid),
+                    UserHandle.getUserId(uid), reason);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Couldn't kill uid:" + uid, e);
+        }
+    }
+
     /**
      * Have the system perform a force stop of everything associated with
      * the given application package.  All processes that share its uid
@@ -2299,14 +2447,14 @@ public class ActivityManager {
      * removed, etc.  In addition, a {@link Intent#ACTION_PACKAGE_RESTARTED}
      * broadcast will be sent, so that any of its registered alarms can
      * be stopped, notifications removed, etc.
-     * 
+     *
      * <p>You must hold the permission
      * {@link android.Manifest.permission#FORCE_STOP_PACKAGES} to be able to
      * call this method.
-     * 
+     *
      * @param packageName The name of the package to be stopped.
      * @param userId The user for which the running package is to be stopped.
-     * 
+     *
      * @hide This is not available to third party applications due to
      * it allowing them to break other applications by stopping their
      * services, removing their alarms, etc.
@@ -2469,7 +2617,8 @@ public class ActivityManager {
     public static int checkComponentPermission(String permission, int uid,
             int owningUid, boolean exported) {
         // Root, system server get to do everything.
-        if (uid == 0 || uid == Process.SYSTEM_UID) {
+        final int appId = UserHandle.getAppId(uid);
+        if (appId == Process.ROOT_UID || appId == Process.SYSTEM_UID) {
             return PackageManager.PERMISSION_GRANTED;
         }
         // Isolated processes don't get any permissions.
@@ -2569,7 +2718,7 @@ public class ActivityManager {
     }
 
     /**
-     * @param userid the user's id. Zero indicates the default user 
+     * @param userid the user's id. Zero indicates the default user.
      * @hide
      */
     public boolean switchUser(int userid) {
@@ -2657,6 +2806,49 @@ public class ActivityManager {
     }
 
     /**
+     * Request that the system start watching for the calling process to exceed a pss
+     * size as given here.  Once called, the system will look for any occasions where it
+     * sees the associated process with a larger pss size and, when this happens, automatically
+     * pull a heap dump from it and allow the user to share the data.  Note that this request
+     * continues running even if the process is killed and restarted.  To remove the watch,
+     * use {@link #clearWatchHeapLimit()}.
+     *
+     * <p>This API only work if the calling process has been marked as
+     * {@link ApplicationInfo#FLAG_DEBUGGABLE} or this is running on a debuggable
+     * (userdebug or eng) build.</p>
+     *
+     * <p>Callers can optionally implement {@link #ACTION_REPORT_HEAP_LIMIT} to directly
+     * handle heap limit reports themselves.</p>
+     *
+     * @param pssSize The size in bytes to set the limit at.
+     */
+    public void setWatchHeapLimit(long pssSize) {
+        try {
+            ActivityManagerNative.getDefault().setDumpHeapDebugLimit(null, 0, pssSize,
+                    mContext.getPackageName());
+        } catch (RemoteException e) {
+        }
+    }
+
+    /**
+     * Action an app can implement to handle reports from {@link #setWatchHeapLimit(long)}.
+     * If your package has an activity handling this action, it will be launched with the
+     * heap data provided to it the same way as {@link Intent#ACTION_SEND}.  Note that to
+     * match the activty must support this action and a MIME type of "*&#47;*".
+     */
+    public static final String ACTION_REPORT_HEAP_LIMIT = "android.app.action.REPORT_HEAP_LIMIT";
+
+    /**
+     * Clear a heap watch limit previously set by {@link #setWatchHeapLimit(long)}.
+     */
+    public void clearWatchHeapLimit() {
+        try {
+            ActivityManagerNative.getDefault().setDumpHeapDebugLimit(null, 0, 0, null);
+        } catch (RemoteException e) {
+        }
+    }
+
+    /**
      * @hide
      */
     public void startLockTaskMode(int taskId) {
@@ -2681,12 +2873,25 @@ public class ActivityManager {
      * no new tasks can be created or switched to.
      *
      * @see Activity#startLockTask()
+     *
+     * @deprecated Use {@link #getLockTaskModeState} instead.
      */
     public boolean isInLockTaskMode() {
+        return getLockTaskModeState() != LOCK_TASK_MODE_NONE;
+    }
+
+    /**
+     * Return the current state of task locking. The three possible outcomes
+     * are {@link #LOCK_TASK_MODE_NONE}, {@link #LOCK_TASK_MODE_LOCKED}
+     * and {@link #LOCK_TASK_MODE_PINNED}.
+     *
+     * @see Activity#startLockTask()
+     */
+    public int getLockTaskModeState() {
         try {
-            return ActivityManagerNative.getDefault().isInLockTaskMode();
+            return ActivityManagerNative.getDefault().getLockTaskModeState();
         } catch (RemoteException e) {
-            return false;
+            return ActivityManager.LOCK_TASK_MODE_NONE;
         }
     }
 

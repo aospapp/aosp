@@ -2,7 +2,7 @@ page.title=Report Bugs
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2015 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,38 +23,41 @@ page.title=Report Bugs
     </ol>
   </div>
 </div>
-<p>Thanks for your interest in Android! One of the best ways you can help us
+
+<p>Thank you for your interest in Android! One of the best ways you can help us
 improve Android is to let us know about any problems you find with it.</p>
-<p>First, though: if you think you've found a security vulnerability,
-<em>please don't use the forms below</em>. Using the public forms below may
+<h2 id="report-issues">Report Issues</h2>
+<p class="note"><strong>Note:</strong> For security vulnerabilities, please see
+<a href="{@docRoot}devices/tech/security/overview/updates-resources.html#reporting-security-issues">Reporting Security Issues</a>. If you think you've found
+a security vulnerability, <em>please don't use the forms below</em>. Using a public form may
 allow anyone to see your report, which may put users at risk until the bug is
-fixed. Please visit
-<a href="{@docRoot}source/faqs.html">our
-security faq</a> for more information on reporting security vulnerabilities
-to the Android security team.</p>
-<p>Here's how to report non-security bugs:</p>
+fixed. Instead, please send an email detailing the issue to security@android.com.</p>
+<p>Here's how to report <strong>non-security</strong> bugs:</p>
 <ul>
-<li>
+<li> 
 <p><a href="https://code.google.com/p/android/issues/advsearch">Search for
 your bug</a> to see if anyone has already reported it. Don't forget to
 search for all issues, not just open ones, as your issue might already
-have been reported and closed. To help find the most popular results,
+have been reported and closed. To help you find the most popular results,
 sort the result by number of stars.</p>
 </li>
 <li>
 <p>If you find your issue and it's important to you, star it! That's how we know which bugs are most important to fix.</p>
 </li>
 <li>
-<p>If no one's reported your bug, file the bug. You can use one of these templates:</p>
+<p>If no one has reported your bug, file the bug. You can use one of these templates:</p>
 <ul>
 <li>
-<p><a href="https://code.google.com/p/android/issues/entry?template=User%20bug%20report">Bug in your Device</a> - use this if you are a user reporting a bug in a device you own</p>
+<p><a href="https://code.google.com/p/android/issues/entry?template=User%20bug%20report">Bug in your Device</a> - 
+use this if you are a user reporting a bug in a device you own</p>
 </li>
 <li>
-<p><a href="https://code.google.com/p/android/issues/entry?template=Developer%20bug%20report">Bug in the Software</a> - use this if you found a bug in the course of developing an app</p>
+<p><a href="https://code.google.com/p/android/issues/entry?template=Developer%20bug%20report">Bug in the Software</a> - 
+use this if you found a bug in the course of developing an app</p>
 </li>
 <li>
-<p><a href="https://code.google.com/p/android/issues/entry?template=Feature%20request">Feature Request</a> - use this for a feature you'd like to see in a future verison</p>
+<p><a href="https://code.google.com/p/android/issues/entry?template=Feature%20request">Feature Request</a> - 
+use this for a feature you'd like to see in a future verison</p>
 </li>
 </ul>
 </li>

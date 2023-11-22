@@ -1,5 +1,4 @@
-#pragma version(1)
-#pragma rs java_package_name(android.renderscript.cts)
+#include "shared.rsh"
 
 rs_allocation aInt;
 
@@ -10,3 +9,4 @@ void write_i(int value, uint32_t x) {
 void __attribute__((kernel)) write_k(int unused) {
     rsSetElementAt_int(aInt, 1, 1);
 }
+

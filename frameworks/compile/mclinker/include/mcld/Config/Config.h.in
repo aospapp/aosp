@@ -13,6 +13,9 @@
 #define MCLD_CONFIG_H
 
 
+/* Define to 1 if you have the <cxxabi.h> header file. */
+#undef HAVE_CXXABI_H
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
@@ -51,6 +54,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
@@ -102,12 +108,17 @@
 /* Version number of package */
 #undef VERSION
 
+/* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
+   `char[]'. */
+#undef YYTEXT_POINTER
+
 
 #define MCLD_REGION_CHUNK_SIZE 32
 #define MCLD_NUM_OF_INPUTS 32
 #define MCLD_SECTIONS_PER_INPUT 16
 #define MCLD_SYMBOLS_PER_INPUT 128
 #define MCLD_RELOCATIONS_PER_INPUT 1024
+
 #define MCLD_SEGMENTS_PER_OUTPUT 8
 
 #endif

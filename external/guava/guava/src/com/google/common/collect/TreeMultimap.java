@@ -25,11 +25,14 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
+import javax.annotation.Nullable;
 
 /**
  * Implementation of {@code Multimap} whose keys and values are ordered by
@@ -64,11 +67,16 @@ import java.util.TreeSet;
  * update operations, wrap your multimap with a call to {@link
  * Multimaps#synchronizedSortedSetMultimap}.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multimap">
+ * {@code Multimap}</a>.
+ *
  * @author Jared Levy
+ * @author Louis Wasserman
  * @since 2.0 (imported from Google Collections Library)
  */
 @GwtCompatible(serializable = true, emulated = true)
-public class TreeMultimap<K, V> extends AbstractSortedSetMultimap<K, V> {
+public class TreeMultimap<K, V> extends AbstractSortedKeySortedSetMultimap<K, V> {
   private transient Comparator<? super K> keyComparator;
   private transient Comparator<? super V> valueComparator;
 
@@ -134,6 +142,14 @@ public class TreeMultimap<K, V> extends AbstractSortedSetMultimap<K, V> {
     return new TreeSet<V>(valueComparator);
   }
 
+  @Override
+  Collection<V> createCollection(@Nullable K key) {
+    if (key == null) {
+      keyComparator().compare(key, key);
+    }
+    return super.createCollection(key);
+  }
+
   /**
    * Returns the comparator that orders the multimap keys.
    */
@@ -146,15 +162,52 @@ public class TreeMultimap<K, V> extends AbstractSortedSetMultimap<K, V> {
     return valueComparator;
   }
 
+  /*
+   * The following @GwtIncompatible methods override the methods in 
+   * AbstractSortedKeySortedSetMultimap, so GWT will fall back to the ASKSSM implementations,
+   * which return SortedSets and SortedMaps.
+   */
+  
+  @Override
+  SortedMap<K, Collection<V>> backingMap() {
+    return (SortedMap<K, Collection<V>>) super.backingMap();
+  }
+  
+  /**
+   * @since 14.0 (present with return type {@code SortedSet} since 2.0)
+   */
+  @Override
+  public SortedSet<V> get(@Nullable K key) {
+    return (SortedSet<V>) super.get(key);
+  }
+
+  @Override
+  Collection<V> unmodifiableCollectionSubclass(Collection<V> collection) {
+    return Collections.unmodifiableSortedSet((SortedSet<V>) collection);
+  }
+
+  @Override
+  Collection<V> wrapCollection(K key, Collection<V> collection) {
+    return new WrappedSortedSet(key, (SortedSet<V>) collection, null);
+  }
+
   /**
    * {@inheritDoc}
    *
    * <p>Because a {@code TreeMultimap} has unique sorted keys, this method
    * returns a {@link SortedSet}, instead of the {@link java.util.Set} specified
    * in the {@link Multimap} interface.
+   * 
+   * @since 14.0 (present with return type {@code SortedSet} since 2.0)
    */
-  @Override public SortedSet<K> keySet() {
+  @Override
+  public SortedSet<K> keySet() {
     return (SortedSet<K>) super.keySet();
+  }
+
+  @Override
+  SortedSet<K> createKeySet() {
+    return new SortedKeySet(backingMap());
   }
 
   /**
@@ -163,9 +216,17 @@ public class TreeMultimap<K, V> extends AbstractSortedSetMultimap<K, V> {
    * <p>Because a {@code TreeMultimap} has unique sorted keys, this method
    * returns a {@link SortedMap}, instead of the {@link java.util.Map} specified
    * in the {@link Multimap} interface.
+   * 
+   * @since 14.0 (present with return type {@code SortedMap} since 2.0)
    */
-  @Override public SortedMap<K, Collection<V>> asMap() {
+  @Override 
+  public SortedMap<K, Collection<V>> asMap() {
     return (SortedMap<K, Collection<V>>) super.asMap();
+  }
+
+  @Override
+  SortedMap<K, Collection<V>> createAsMap() {
+    return new SortedAsMap(backingMap());
   }
 
   /**

@@ -27,6 +27,8 @@
 #include "callbacks.h"
 #include "selinux_internal.h"
 #include "label_internal.h"
+#include <fnmatch.h>
+#include <limits.h>
 
 /*
  * XXX Where should this configuration file be located?
@@ -48,6 +50,12 @@ static const char *const sepolicy_file[] = {
 	"/sepolicy",
 	"/data/security/current/sepolicy",
 	NULL };
+
+static const struct selinux_opt seopts_prop[] = {
+        { SELABEL_OPT_PATH, "/property_contexts" },
+        { SELABEL_OPT_PATH, "/data/security/current/property_contexts" },
+        { 0, NULL }
+};
 
 static const struct selinux_opt seopts_service[] = {
     { SELABEL_OPT_PATH, "/service_contexts" },
@@ -79,58 +87,56 @@ static void set_policy_index(void)
 	if (fd_base < 0)
 		return;
 
-	if (fstat(fd_base, &sb_base) < 0) {
-		close(fd_base);
-		return;
-	}
+	if (fstat(fd_base, &sb_base) < 0)
+		goto close_base;
 
 	fd_override = open(POLICY_OVERRIDE_VERSION, O_RDONLY | O_NOFOLLOW);
-	if (fd_override < 0) {
-		close(fd_base);
-		return;
-	}
+	if (fd_override < 0)
+		goto close_base;
 
-	if (fstat(fd_override, &sb_override) < 0) {
-		close(fd_base);
-		close(fd_override);
-		return;
-	}
+	if (fstat(fd_override, &sb_override) < 0)
+		goto close_override;
 
-	if (sb_base.st_size != sb_override.st_size) {
-		close(fd_base);
-		close(fd_override);
-		return;
-	}
+	if (sb_base.st_size != sb_override.st_size)
+		goto close_override;
 
 	map_base = mmap(NULL, sb_base.st_size, PROT_READ, MAP_PRIVATE, fd_base, 0);
-	if (map_base == MAP_FAILED) {
-		close(fd_base);
-		close(fd_override);
-		return;
-	}
+	if (map_base == MAP_FAILED)
+		goto close_override;
 
 	map_override = mmap(NULL, sb_override.st_size, PROT_READ, MAP_PRIVATE, fd_override, 0);
-	if (map_override == MAP_FAILED) {
-		munmap(map_base, sb_base.st_size);
-		close(fd_base);
-		close(fd_override);
-		return;
-	}
+	if (map_override == MAP_FAILED)
+		goto unmap_base;
 
-	if (memcmp(map_base, map_override, sb_base.st_size) == 0)
-		policy_index = 1;
+	if (memcmp(map_base, map_override, sb_base.st_size) != 0)
+		goto unmap_override;
 
+	if (access(sepolicy_file[1], R_OK) != 0)
+		goto unmap_override;
 
-	close(fd_base);
-	close(fd_override);
-	munmap(map_base, sb_base.st_size);
+	if (access(seopts[1].value, R_OK) != 0)
+		goto unmap_override;
+
+	if (access(seopts_prop[1].value, R_OK) != 0)
+		goto unmap_override;
+
+	if (access(seopts_service[1].value, R_OK) != 0)
+		goto unmap_override;
+
+	if (access(seapp_contexts_file[1], R_OK) != 0)
+		goto unmap_override;
+
+	policy_index = 1;
+
+unmap_override:
 	munmap(map_override, sb_override.st_size);
-}
-
-bool selinux_android_use_data_policy(void)
-{
-	set_policy_index();
-	return (policy_index == 1);
+unmap_base:
+	munmap(map_base, sb_base.st_size);
+close_override:
+	close(fd_override);
+close_base:
+	close(fd_base);
+	return;
 }
 
 #if DEBUG
@@ -157,7 +163,9 @@ static void free_prefix_str(struct prefix_str *p)
 
 struct seapp_context {
 	/* input selectors */
-	char isSystemServer;
+	bool isSystemServer;
+	bool isOwnerSet;
+	bool isOwner;
 	struct prefix_str user;
 	char *seinfo;
 	struct prefix_str name;
@@ -166,7 +174,6 @@ struct seapp_context {
 	char *domain;
 	char *type;
 	char *level;
-	char *sebool;
 	enum levelFrom levelFrom;
 };
 
@@ -182,18 +189,24 @@ static void free_seapp_context(struct seapp_context *s)
 	free(s->domain);
 	free(s->type);
 	free(s->level);
-	free(s->sebool);
 }
+
+static bool seapp_contexts_dup = false;
 
 static int seapp_context_cmp(const void *A, const void *B)
 {
 	const struct seapp_context *const *sp1 = (const struct seapp_context *const *) A;
 	const struct seapp_context *const *sp2 = (const struct seapp_context *const *) B;
 	const struct seapp_context *s1 = *sp1, *s2 = *sp2;
+	bool dup;
 
 	/* Give precedence to isSystemServer=true. */
 	if (s1->isSystemServer != s2->isSystemServer)
 		return (s1->isSystemServer ? -1 : 1);
+
+	/* Give precedence to a specified isOwner= over an unspecified isOwner=. */
+	if (s1->isOwnerSet != s2->isOwnerSet)
+		return (s1->isOwnerSet ? -1 : 1);
 
 	/* Give precedence to a specified user= over an unspecified user=. */
 	if (s1->user.str && !s2->user.str)
@@ -249,11 +262,28 @@ static int seapp_context_cmp(const void *A, const void *B)
 			return (s1->path.len > s2->path.len) ? -1 : 1;
 	}
 
-        /* Give precedence to a specified sebool= over an unspecified sebool=. */
-        if (s1->sebool && !s2->sebool)
-                return -1;
-        if (!s1->sebool && s2->sebool)
-                return 1;
+	/*
+	 * Check for a duplicated entry on the input selectors.
+	 * We already compared isSystemServer, isOwnerSet, and isOwner above.
+	 * We also have already checked that both entries specify the same
+	 * string fields, so if s1 has a non-NULL string, then so does s2.
+	 */
+	dup = (!s1->user.str || !strcmp(s1->user.str, s2->user.str)) &&
+		(!s1->seinfo || !strcmp(s1->seinfo, s2->seinfo)) &&
+		(!s1->name.str || !strcmp(s1->name.str, s2->name.str)) &&
+		(!s1->path.str || !strcmp(s1->path.str, s2->path.str));
+	if (dup) {
+		seapp_contexts_dup = true;
+		selinux_log(SELINUX_ERROR, "seapp_contexts:  Duplicated entry\n");
+		if (s1->user.str)
+			selinux_log(SELINUX_ERROR, " user=%s\n", s1->user.str);
+		if (s1->seinfo)
+			selinux_log(SELINUX_ERROR, " seinfo=%s\n", s1->seinfo);
+		if (s1->name.str)
+			selinux_log(SELINUX_ERROR, " name=%s\n", s1->name.str);
+		if (s1->path.str)
+			selinux_log(SELINUX_ERROR, " path=%s\n", s1->path.str);
+	}
 
 	/* Anything else has equal precedence. */
 	return 0;
@@ -346,14 +376,28 @@ int selinux_android_seapp_context_reload(void)
 
 			if (!strcasecmp(name, "isSystemServer")) {
 				if (!strcasecmp(value, "true"))
-					cur->isSystemServer = 1;
+					cur->isSystemServer = true;
 				else if (!strcasecmp(value, "false"))
-					cur->isSystemServer = 0;
+					cur->isSystemServer = false;
+				else {
+					free_seapp_context(cur);
+					goto err;
+				}
+			} else if (!strcasecmp(name, "isOwner")) {
+				cur->isOwnerSet = true;
+				if (!strcasecmp(value, "true"))
+					cur->isOwner = true;
+				else if (!strcasecmp(value, "false"))
+					cur->isOwner = false;
 				else {
 					free_seapp_context(cur);
 					goto err;
 				}
 			} else if (!strcasecmp(name, "user")) {
+				if (cur->user.str) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->user.str = strdup(value);
 				if (!cur->user.str) {
 					free_seapp_context(cur);
@@ -363,12 +407,20 @@ int selinux_android_seapp_context_reload(void)
 				if (cur->user.str[cur->user.len-1] == '*')
 					cur->user.is_prefix = 1;
 			} else if (!strcasecmp(name, "seinfo")) {
+				if (cur->seinfo) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->seinfo = strdup(value);
 				if (!cur->seinfo) {
 					free_seapp_context(cur);
 					goto oom;
 				}
 			} else if (!strcasecmp(name, "name")) {
+				if (cur->name.str) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->name.str = strdup(value);
 				if (!cur->name.str) {
 					free_seapp_context(cur);
@@ -378,18 +430,30 @@ int selinux_android_seapp_context_reload(void)
 				if (cur->name.str[cur->name.len-1] == '*')
 					cur->name.is_prefix = 1;
 			} else if (!strcasecmp(name, "domain")) {
+				if (cur->domain) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->domain = strdup(value);
 				if (!cur->domain) {
 					free_seapp_context(cur);
 					goto oom;
 				}
 			} else if (!strcasecmp(name, "type")) {
+				if (cur->type) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->type = strdup(value);
 				if (!cur->type) {
 					free_seapp_context(cur);
 					goto oom;
 				}
 			} else if (!strcasecmp(name, "levelFromUid")) {
+				if (cur->levelFrom) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				if (!strcasecmp(value, "true"))
 					cur->levelFrom = LEVELFROM_APP;
 				else if (!strcasecmp(value, "false"))
@@ -399,6 +463,10 @@ int selinux_android_seapp_context_reload(void)
 					goto err;
 				}
 			} else if (!strcasecmp(name, "levelFrom")) {
+				if (cur->levelFrom) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				if (!strcasecmp(value, "none"))
 					cur->levelFrom = LEVELFROM_NONE;
 				else if (!strcasecmp(value, "app"))
@@ -412,12 +480,20 @@ int selinux_android_seapp_context_reload(void)
 					goto err;
 				}
 			} else if (!strcasecmp(name, "level")) {
+				if (cur->level) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->level = strdup(value);
 				if (!cur->level) {
 					free_seapp_context(cur);
 					goto oom;
 				}
 			} else if (!strcasecmp(name, "path")) {
+				if (cur->path.str) {
+					free_seapp_context(cur);
+					goto err;
+				}
 				cur->path.str = strdup(value);
 				if (!cur->path.str) {
 					free_seapp_context(cur);
@@ -426,12 +502,6 @@ int selinux_android_seapp_context_reload(void)
 				cur->path.len = strlen(cur->path.str);
 				if (cur->path.str[cur->path.len-1] == '*')
 					cur->path.is_prefix = 1;
-			} else if (!strcasecmp(name, "sebool")) {
-				cur->sebool = strdup(value);
-				if (!cur->sebool) {
-					free_seapp_context(cur);
-					goto oom;
-				}
 			} else {
 				free_seapp_context(cur);
 				goto err;
@@ -458,17 +528,22 @@ int selinux_android_seapp_context_reload(void)
 	qsort(seapp_contexts, nspec, sizeof(struct seapp_context *),
 	      seapp_context_cmp);
 
+	if (seapp_contexts_dup)
+		goto err;
+
 #if DEBUG
 	{
 		int i;
 		for (i = 0; i < nspec; i++) {
 			cur = seapp_contexts[i];
-			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s user=%s seinfo=%s name=%s path=%s sebool=%s -> domain=%s type=%s level=%s levelFrom=%s",
-			__FUNCTION__,
-			cur->isSystemServer ? "true" : "false", cur->user.str,
-			cur->seinfo, cur->name.str, cur->path.str, cur->sebool, cur->domain,
-			cur->type, cur->level,
-			levelFromName[cur->levelFrom]);
+			selinux_log(SELINUX_INFO, "%s:  isSystemServer=%s isOwner=%s user=%s seinfo=%s name=%s path=%s -> domain=%s type=%s level=%s levelFrom=%s",
+                        __FUNCTION__,
+                        cur->isSystemServer ? "true" : "false",
+                        cur->isOwnerSet ? (cur->isOwner ? "true" : "false") : "null",
+                        cur->user.str,
+                        cur->seinfo, cur->name.str, cur->path.str, cur->domain,
+                        cur->type, cur->level,
+                        levelFromName[cur->levelFrom]);
 		}
 	}
 #endif
@@ -514,12 +589,13 @@ enum seapp_kind {
 
 static int seapp_context_lookup(enum seapp_kind kind,
 				uid_t uid,
-				int isSystemServer,
+				bool isSystemServer,
 				const char *seinfo,
 				const char *pkgname,
 				const char *path,
 				context_t ctx)
 {
+	bool isOwner;
 	const char *username = NULL;
 	struct seapp_context *cur = NULL;
 	int i;
@@ -530,6 +606,7 @@ static int seapp_context_lookup(enum seapp_kind kind,
 	__selinux_once(once, seapp_context_init);
 
 	userid = uid / AID_USER;
+	isOwner = (userid == 0);
 	appid = uid % AID_USER;
 	if (appid < AID_APP) {
 		for (n = 0; n < android_id_count; n++) {
@@ -555,6 +632,9 @@ static int seapp_context_lookup(enum seapp_kind kind,
 		cur = seapp_contexts[i];
 
 		if (cur->isSystemServer != isSystemServer)
+			continue;
+
+		if (cur->isOwnerSet && cur->isOwner != isOwner)
 			continue;
 
 		if (cur->user.str) {
@@ -602,17 +682,6 @@ static int seapp_context_lookup(enum seapp_kind kind,
 			continue;
 		else if (kind == SEAPP_DOMAIN && !cur->domain)
 			continue;
-
-		if (cur->sebool) {
-			int value = security_get_boolean_active(cur->sebool);
-			if (value == 0)
-				continue;
-			else if (value == -1) {
-				selinux_log(SELINUX_ERROR, \
-				"Could not find boolean: %s ", cur->sebool);
-				goto err;
-			}
-		}
 
 		if (kind == SEAPP_TYPE) {
 			if (context_type_set(ctx, cur->type))
@@ -734,7 +803,7 @@ oom:
 }
 
 int selinux_android_setcontext(uid_t uid,
-			       int isSystemServer,
+			       bool isSystemServer,
 			       const char *seinfo,
 			       const char *pkgname)
 {
@@ -798,92 +867,49 @@ oom:
 	goto out;
 }
 
-static struct selabel_handle *sehandle = NULL;
+static struct selabel_handle *fc_sehandle = NULL;
 #define FC_DIGEST_SIZE SHA_DIGEST_SIZE
 static uint8_t fc_digest[FC_DIGEST_SIZE];
 
-static struct selabel_handle *get_selabel_handle(const struct selinux_opt opts[])
+static bool compute_contexts_hash(const struct selinux_opt opts[], uint8_t c_digest[])
 {
-    struct selabel_handle *h;
     int fd;
     struct stat sb;
     void *map;
 
-    set_policy_index();
-
-    h = selabel_open(SELABEL_CTX_FILE, &opts[policy_index], 1);
-    if (!h)
-        return NULL;
-
-    fd = open(opts[policy_index].value, O_RDONLY | O_NOFOLLOW);
+    fd = open(opts[policy_index].value, O_CLOEXEC | O_RDONLY | O_NOFOLLOW);
     if (fd < 0) {
         selinux_log(SELINUX_ERROR, "SELinux:  Could not open %s:  %s\n",
                     opts[policy_index].value, strerror(errno));
-        goto err;
+        return false;
     }
     if (fstat(fd, &sb) < 0) {
         selinux_log(SELINUX_ERROR, "SELinux:  Could not stat %s:  %s\n",
                     opts[policy_index].value, strerror(errno));
         close(fd);
-        goto err;
+        return false;
     }
     map = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (map == MAP_FAILED) {
         selinux_log(SELINUX_ERROR, "SELinux:  Could not map %s:  %s\n",
                     opts[policy_index].value, strerror(errno));
         close(fd);
-        goto err;
+        return false;
     }
-    SHA_hash(map, sb.st_size, fc_digest);
+    SHA_hash(map, sb.st_size, c_digest);
     munmap(map, sb.st_size);
     close(fd);
 
-    selinux_log(SELINUX_INFO, "SELinux: Loaded file_contexts from %s\n",
-                opts[policy_index].value);
-
-    return h;
-
-err:
-    selabel_close(h);
-    return NULL;
-}
-
-static struct selabel_handle *file_context_open(void)
-{
-	struct selabel_handle *h;
-
-	h = get_selabel_handle(seopts);
-
-	if (!h)
-		selinux_log(SELINUX_ERROR, "%s: Error getting file context handle (%s)\n",
-				__FUNCTION__, strerror(errno));
-	return h;
+    return true;
 }
 
 static void file_context_init(void)
 {
-    if (!sehandle)
-        sehandle = file_context_open();
+    if (!fc_sehandle)
+        fc_sehandle = selinux_android_file_context_handle();
 }
 
-static struct selabel_handle *service_context_open(void)
-{
-    struct selabel_handle *handle = NULL;
 
-    set_policy_index();
-    handle = selabel_open(SELABEL_CTX_ANDROID_PROP,
-            &seopts_service[policy_index], 1);
-
-    if (!handle) {
-        selinux_log(SELINUX_ERROR, "%s: Error getting service context handle (%s)\n",
-                __FUNCTION__, strerror(errno));
-    } else {
-        selinux_log(SELINUX_INFO, "SELinux: Loaded service contexts from %s.\n",
-                seopts_service[policy_index].value);
-    }
-
-    return handle;
-}
 
 static pthread_once_t fc_once = PTHREAD_ONCE_INIT;
 
@@ -1031,6 +1057,7 @@ struct pkgInfo *package_info_lookup(const char *name)
 /* The path prefixes of package data directories. */
 #define DATA_DATA_PATH "/data/data"
 #define DATA_USER_PATH "/data/user"
+#define EXPAND_USER_PATH "/mnt/expand/\?\?\?\?\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?-\?\?\?\?\?\?\?\?\?\?\?\?/user"
 #define DATA_DATA_PREFIX DATA_DATA_PATH "/"
 #define DATA_USER_PREFIX DATA_USER_PATH "/"
 
@@ -1050,6 +1077,14 @@ static int pkgdir_selabel_lookup(const char *pathname,
         pathname += sizeof(DATA_DATA_PREFIX) - 1;
     } else if (!strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1)) {
         pathname += sizeof(DATA_USER_PREFIX) - 1;
+        while (isdigit(*pathname))
+            pathname++;
+        if (*pathname == '/')
+            pathname++;
+        else
+            return 0;
+    } else if (!fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
+        pathname += sizeof(EXPAND_USER_PATH);
         while (isdigit(*pathname))
             pathname++;
         if (*pathname == '/')
@@ -1131,7 +1166,7 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
     char *oldsecontext = NULL;
     int rc = 0;
 
-    if (selabel_lookup(sehandle, &secontext, pathname, sb->st_mode) < 0)
+    if (selabel_lookup(fc_sehandle, &secontext, pathname, sb->st_mode) < 0)
         return 0;  /* no match, but not an error */
 
     if (lgetfilecon(pathname, &oldsecontext) < 0)
@@ -1144,7 +1179,8 @@ static int restorecon_sb(const char *pathname, const struct stat *sb,
      * installd is responsible for managing these labels instead of init.
      */
     if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1)) {
+        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
+        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME)) {
         if (pkgdir_selabel_lookup(pathname, seinfo, uid, &secontext) < 0)
             goto err;
     }
@@ -1177,7 +1213,7 @@ err:
 #define SYS_PATH "/sys"
 #define SYS_PREFIX SYS_PATH "/"
 
-static int selinux_android_restorecon_common(const char* pathname,
+static int selinux_android_restorecon_common(const char* pathname_orig,
                                              const char *seinfo,
                                              uid_t uid,
                                              unsigned int flags)
@@ -1187,13 +1223,14 @@ static int selinux_android_restorecon_common(const char* pathname,
     bool recurse = (flags & SELINUX_ANDROID_RESTORECON_RECURSE) ? true : false;
     bool force = (flags & SELINUX_ANDROID_RESTORECON_FORCE) ? true : false;
     bool datadata = (flags & SELINUX_ANDROID_RESTORECON_DATADATA) ? true : false;
-    bool issys = (!strcmp(pathname, SYS_PATH) || !strncmp(pathname, SYS_PREFIX, sizeof(SYS_PREFIX)-1)) ? true : false;
+    bool issys;
     bool setrestoreconlast = true;
     struct stat sb;
     FTS *fts;
     FTSENT *ftsent;
-    char *const paths[2] = { __UNCONST(pathname), NULL };
-    int ftsflags = FTS_COMFOLLOW | FTS_NOCHDIR | FTS_XDEV | FTS_PHYSICAL;
+    char *pathname;
+    char * paths[2] = { NULL , NULL };
+    int ftsflags = FTS_NOCHDIR | FTS_XDEV | FTS_PHYSICAL;
     int error, sverrno;
     char xattr_value[FC_DIGEST_SIZE];
     ssize_t size;
@@ -1203,14 +1240,31 @@ static int selinux_android_restorecon_common(const char* pathname,
 
     __selinux_once(fc_once, file_context_init);
 
-    if (!sehandle)
+    if (!fc_sehandle)
         return 0;
 
-    if (!recurse) {
-        if (lstat(pathname, &sb) < 0)
-            return -1;
+    // convert passed-in pathname to canonical pathname
+    pathname = realpath(pathname_orig, NULL);
+    if (!pathname) {
+        sverrno = errno;
+        selinux_log(SELINUX_ERROR, "SELinux: Could not get canonical path %s restorecon: %s.\n",
+                pathname_orig, strerror(errno));
+        errno = sverrno;
+        error = -1;
+        goto cleanup;
+    }
+    paths[0] = pathname;
+    issys = (!strcmp(pathname, SYS_PATH)
+            || !strncmp(pathname, SYS_PREFIX, sizeof(SYS_PREFIX)-1)) ? true : false;
 
-        return restorecon_sb(pathname, &sb, nochange, verbose, seinfo, uid);
+    if (!recurse) {
+        if (lstat(pathname, &sb) < 0) {
+            error = -1;
+            goto cleanup;
+        }
+
+        error = restorecon_sb(pathname, &sb, nochange, verbose, seinfo, uid);
+        goto cleanup;
     }
 
     /*
@@ -1220,7 +1274,8 @@ static int selinux_android_restorecon_common(const char* pathname,
      * installd rather than init.
      */
     if (!strncmp(pathname, DATA_DATA_PREFIX, sizeof(DATA_DATA_PREFIX)-1) ||
-        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1))
+        !strncmp(pathname, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
+        !fnmatch(EXPAND_USER_PATH, pathname, FNM_LEADING_DIR|FNM_PATHNAME))
         setrestoreconlast = false;
 
     /* Also ignore on /sys since it is regenerated on each boot regardless. */
@@ -1233,13 +1288,16 @@ static int selinux_android_restorecon_common(const char* pathname,
             selinux_log(SELINUX_INFO,
                         "SELinux: Skipping restorecon_recursive(%s)\n",
                         pathname);
-            return 0;
+            error = 0;
+            goto cleanup;
         }
     }
 
     fts = fts_open(paths, ftsflags, NULL);
-    if (!fts)
-        return -1;
+    if (!fts) {
+        error = -1;
+        goto cleanup;
+    }
 
     error = 0;
     while ((ftsent = fts_read(fts)) != NULL) {
@@ -1268,13 +1326,15 @@ static int selinux_android_restorecon_common(const char* pathname,
             fts_set(fts, ftsent, FTS_SKIP);
             continue;
         case FTS_D:
-            if (issys && !selabel_partial_match(sehandle, ftsent->fts_path)) {
+            if (issys && !selabel_partial_match(fc_sehandle, ftsent->fts_path)) {
                 fts_set(fts, ftsent, FTS_SKIP);
                 continue;
             }
+
             if (!datadata &&
                 (!strcmp(ftsent->fts_path, DATA_DATA_PATH) ||
-                 !strncmp(ftsent->fts_path, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1))) {
+                 !strncmp(ftsent->fts_path, DATA_USER_PREFIX, sizeof(DATA_USER_PREFIX)-1) ||
+                 !fnmatch(EXPAND_USER_PATH, ftsent->fts_path, FNM_LEADING_DIR|FNM_PATHNAME))) {
                 // Don't label anything below this directory.
                 fts_set(fts, ftsent, FTS_SKIP);
                 // but fall through and make sure we label the directory itself
@@ -1294,6 +1354,8 @@ out:
     sverrno = errno;
     (void) fts_close(fts);
     errno = sverrno;
+cleanup:
+    free(pathname);
     return error;
 }
 
@@ -1312,17 +1374,66 @@ int selinux_android_restorecon_pkgdir(const char *pkgdir,
 
 struct selabel_handle* selinux_android_file_context_handle(void)
 {
-    return file_context_open();
+    struct selabel_handle *sehandle;
+
+    set_policy_index();
+    sehandle = selabel_open(SELABEL_CTX_FILE, &seopts[policy_index], 1);
+
+    if (!sehandle) {
+        selinux_log(SELINUX_ERROR, "%s: Error getting file context handle (%s)\n",
+                __FUNCTION__, strerror(errno));
+        return NULL;
+    }
+    if (!compute_contexts_hash(seopts, fc_digest)) {
+        selabel_close(sehandle);
+        return NULL;
+    }
+    selinux_log(SELINUX_INFO, "SELinux: Loaded file_contexts contexts from %s.\n",
+            seopts[policy_index].value);
+
+    return sehandle;
+}
+
+struct selabel_handle* selinux_android_prop_context_handle(void)
+{
+    struct selabel_handle* sehandle;
+
+    set_policy_index();
+    sehandle = selabel_open(SELABEL_CTX_ANDROID_PROP,
+            &seopts_prop[policy_index], 1);
+    if (!sehandle) {
+        selinux_log(SELINUX_ERROR, "%s: Error getting property context handle (%s)\n",
+                __FUNCTION__, strerror(errno));
+        return NULL;
+    }
+    selinux_log(SELINUX_INFO, "SELinux: Loaded property_contexts from %s.\n",
+            seopts_prop[policy_index].value);
+
+    return sehandle;
 }
 
 struct selabel_handle* selinux_android_service_context_handle(void)
 {
-    return service_context_open();
+    struct selabel_handle* sehandle;
+
+    set_policy_index();
+    sehandle = selabel_open(SELABEL_CTX_ANDROID_PROP,
+            &seopts_service[policy_index], 1);
+
+    if (!sehandle) {
+        selinux_log(SELINUX_ERROR, "%s: Error getting service context handle (%s)\n",
+                __FUNCTION__, strerror(errno));
+        return NULL;
+    }
+    selinux_log(SELINUX_INFO, "SELinux: Loaded service_contexts from %s.\n",
+            seopts_service[policy_index].value);
+
+    return sehandle;
 }
 
 void selinux_android_set_sehandle(const struct selabel_handle *hndl)
 {
-    sehandle = (struct selabel_handle *) hndl;
+    fc_sehandle = (struct selabel_handle *) hndl;
 }
 
 static int selinux_android_load_policy_helper(bool reload)
@@ -1330,14 +1441,16 @@ static int selinux_android_load_policy_helper(bool reload)
 	int fd = -1, rc;
 	struct stat sb;
 	void *map = NULL;
+	int old_policy_index = policy_index;
 
 	/*
 	 * If reloading policy and there is no /data policy or
-	 * that /data policy has the wrong version or the /data
-	 * policy is disabled via safe mode, then just return.
+	 * that /data policy has the wrong version and our prior
+	 * load was from the / policy, then just return.
 	 * There is no point in reloading policy from / a second time.
 	 */
-	if (reload && !selinux_android_use_data_policy())
+	set_policy_index();
+	if (reload && !policy_index && !old_policy_index)
 		return 0;
 
 	fd = open(sepolicy_file[policy_index], O_RDONLY | O_NOFOLLOW);
@@ -1355,7 +1468,7 @@ static int selinux_android_load_policy_helper(bool reload)
 	map = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (map == MAP_FAILED) {
 		selinux_log(SELINUX_ERROR, "SELinux:  Could not map %s:  %s\n",
-			sepolicy_file[policy_index], strerror(errno));
+				sepolicy_file[policy_index], strerror(errno));
 		close(fd);
 		return -1;
 	}
@@ -1363,7 +1476,7 @@ static int selinux_android_load_policy_helper(bool reload)
 	rc = security_load_policy(map, sb.st_size);
 	if (rc < 0) {
 		selinux_log(SELINUX_ERROR, "SELinux:  Could not load policy:  %s\n",
-			strerror(errno));
+				strerror(errno));
 		munmap(map, sb.st_size);
 		close(fd);
 		return -1;

@@ -16,6 +16,7 @@
 
 package com.android.layoutlib.bridge.bars;
 
+import com.android.ide.common.rendering.api.LayoutLog;
 import com.android.ide.common.rendering.api.RenderResources;
 import com.android.ide.common.rendering.api.ResourceValue;
 import com.android.ide.common.rendering.api.StyleResourceValue;
@@ -26,11 +27,12 @@ import com.android.layoutlib.bridge.impl.ParserFactory;
 import com.android.layoutlib.bridge.impl.ResourceHelper;
 import com.android.resources.Density;
 import com.android.resources.LayoutDirection;
+import com.android.resources.ResourceType;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
-import android.content.Context;
+import android.annotation.NonNull;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap_Delegate;
@@ -46,6 +48,8 @@ import android.widget.TextView;
 
 import java.io.IOException;
 import java.io.InputStream;
+
+import static android.os.Build.VERSION_CODES.LOLLIPOP;
 
 /**
  * Base "bar" class for the window decor around the the edited layout.
@@ -63,8 +67,8 @@ abstract class CustomBar extends LinearLayout {
 
     protected abstract TextView getStyleableTextView();
 
-    protected CustomBar(Context context, int orientation, String layoutPath,
-            String name, int simulatedPlatformVersion) throws XmlPullParserException {
+    protected CustomBar(BridgeContext context, int orientation, String layoutPath,
+            String name, int simulatedPlatformVersion) {
         super(context);
         mSimulatedPlatformVersion = simulatedPlatformVersion;
         setOrientation(orientation);
@@ -74,14 +78,18 @@ abstract class CustomBar extends LinearLayout {
             setGravity(Gravity.CENTER_HORIZONTAL);
         }
 
-        LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(
-                Context.LAYOUT_INFLATER_SERVICE);
+        LayoutInflater inflater = LayoutInflater.from(mContext);
 
-        XmlPullParser parser = ParserFactory.create(getClass().getResourceAsStream(layoutPath),
-                name);
+        XmlPullParser parser;
+        try {
+            parser = ParserFactory.create(getClass().getResourceAsStream(layoutPath), name);
+        } catch (XmlPullParserException e) {
+            // Should not happen as the resource is bundled with the jar, and  ParserFactory should
+            // have been initialized.
+            throw new AssertionError(e);
+        }
 
-        BridgeXmlBlockParser bridgeParser = new BridgeXmlBlockParser(
-                parser, (BridgeContext) context, false /*platformFile*/);
+        BridgeXmlBlockParser bridgeParser = new BridgeXmlBlockParser(parser, context, false);
 
         try {
             inflater.inflate(bridgeParser, this, true);
@@ -150,7 +158,7 @@ abstract class CustomBar extends LinearLayout {
 
     protected void setStyle(String themeEntryName) {
 
-        BridgeContext bridgeContext = (BridgeContext) mContext;
+        BridgeContext bridgeContext = getContext();
         RenderResources res = bridgeContext.getRenderResources();
 
         ResourceValue value = res.findItemInTheme(themeEntryName, true /*isFrameworkAttr*/);
@@ -197,7 +205,7 @@ abstract class CustomBar extends LinearLayout {
 
 
                 ResourceValue textColor = res.findItemInStyle(textStyle, "textColor",
-                        true /*isFrameworkAttr*/);
+                        true);
                 textColor = res.resolveResValue(textColor);
                 if (textColor != null) {
                     ColorStateList stateList = ResourceHelper.getColorStateList(
@@ -210,12 +218,71 @@ abstract class CustomBar extends LinearLayout {
         }
     }
 
+    @Override
+    public BridgeContext getContext() {
+        return (BridgeContext) mContext;
+    }
+
+    /**
+     * Find the background color for this bar from the theme attributes. Only relevant to StatusBar
+     * and NavigationBar.
+     * <p/>
+     * Returns 0 if not found.
+     *
+     * @param colorAttrName the attribute name for the background color
+     * @param translucentAttrName the attribute name for the translucency property of the bar.
+     *
+     * @throws NumberFormatException if color resolved to an invalid string.
+     */
+    protected int getBarColor(@NonNull String colorAttrName, @NonNull String translucentAttrName) {
+        if (!Config.isGreaterOrEqual(mSimulatedPlatformVersion, LOLLIPOP)) {
+            return 0;
+        }
+        RenderResources renderResources = getContext().getRenderResources();
+        // First check if the bar is translucent.
+        boolean translucent = ResourceHelper.getBooleanThemeValue(renderResources,
+                translucentAttrName, true, false);
+        if (translucent) {
+            // Keep in sync with R.color.system_bar_background_semi_transparent from system ui.
+            return 0x66000000;  // 40% black.
+        }
+        boolean transparent = ResourceHelper.getBooleanThemeValue(renderResources,
+                "windowDrawsSystemBarBackgrounds", true, false);
+        if (transparent) {
+            return getColor(renderResources, colorAttrName);
+        }
+        return 0;
+    }
+
+    private static int getColor(RenderResources renderResources, String attr) {
+        // From ?attr/foo to @color/bar. This is most likely an ItemResourceValue.
+        ResourceValue resource = renderResources.findItemInTheme(attr, true);
+        // Form @color/bar to the #AARRGGBB
+        resource = renderResources.resolveResValue(resource);
+        if (resource != null) {
+            ResourceType type = resource.getResourceType();
+            if (type == null || type == ResourceType.COLOR) {
+                // if no type is specified, the value may have been specified directly in the style
+                // file, rather than referencing a color resource value.
+                try {
+                    return ResourceHelper.getColor(resource.getValue());
+                } catch (NumberFormatException e) {
+                    // Conversion failed.
+                    Bridge.getLog().warning(LayoutLog.TAG_RESOURCES_FORMAT,
+                            "Theme attribute @android:" + attr +
+                                    " does not reference a color, instead is '" +
+                                    resource.getValue() + "'.", resource);
+                }
+            }
+        }
+        return 0;
+    }
+
     private ResourceValue getResourceValue(String reference) {
-        BridgeContext bridgeContext = (BridgeContext) mContext;
-        RenderResources res = bridgeContext.getRenderResources();
+        RenderResources res = getContext().getRenderResources();
 
         // find the resource
-        ResourceValue value = res.findResValue(reference, false /*isFramework*/);
+        ResourceValue value = res.findResValue(reference, false);
 
         // resolve it if needed
         return res.resolveResValue(value);

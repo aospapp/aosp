@@ -1025,14 +1025,14 @@ static bool readBufferTextureWithMappingAndVerify (const RenderContext&			render
 {
 	tcu::TextureLevel			result			(textureFormat, imageSize, 1);
 	const PixelBufferAccess		resultAccess	= result.getAccess();
-	DE_ASSERT(resultAccess.getDataSize() == imageSize * textureFormat.getPixelSize());
+	const int					dataSize		= imageSize * textureFormat.getPixelSize();
 
 	const tcu::ScopedLogSection section(glLog.getLog(), "Verification", "Result verification (read texture's buffer with a mapping)");
 	glLog.glBindBuffer(GL_TEXTURE_BUFFER, bufferGL);
 
 	{
-		const BufferMemMap bufMap(renderCtx.getFunctions(), GL_TEXTURE_BUFFER, 0, resultAccess.getDataSize(), GL_MAP_READ_BIT);
-		deMemcpy(resultAccess.getDataPtr(), bufMap.getPtr(), resultAccess.getDataSize());
+		const BufferMemMap bufMap(renderCtx.getFunctions(), GL_TEXTURE_BUFFER, 0, dataSize, GL_MAP_READ_BIT);
+		deMemcpy(resultAccess.getDataPtr(), bufMap.getPtr(), dataSize);
 	}
 
 	return verifyLayer(glLog.getLog(), resultAccess, 0);
@@ -2458,11 +2458,6 @@ AtomicCompSwapCase::IterateResult AtomicCompSwapCase::iterate (void)
 																		: m_caseType == ATOMIC_OPERATION_CASE_TYPE_RETURN_VALUES	? *returnValueTextureBuf
 																		: (deUint32)-1;
 
-		// Actual size of the texture being checked.
-		const IVec3									textureToCheckSize	= imageSize * (m_caseType == ATOMIC_OPERATION_CASE_TYPE_END_RESULT	? IVec3(1,							1,							1)
-																					 : m_imageType == TEXTURETYPE_CUBE						? IVec3(NUM_INVOCATIONS_PER_PIXEL,	NUM_INVOCATIONS_PER_PIXEL,	1)
-																					 :														  IVec3(NUM_INVOCATIONS_PER_PIXEL,	1,							1));
-
 		// The relevant region of the texture being checked (potentially
 		// different from actual texture size for cube maps, because cube maps
 		// may have unused pixels due to square size restriction).
@@ -2942,7 +2937,6 @@ EarlyFragmentTestsCase::IterateResult EarlyFragmentTestsCase::iterate (void)
 	const int						viewportHeight		= RENDER_SIZE;
 	const int						viewportX			= (m_renderTarget == RENDERTARGET_DEFAULT) ? (rnd.getInt(0, renderCtx.getRenderTarget().getWidth() - viewportWidth))	: (0);
 	const int						viewportY			= (m_renderTarget == RENDERTARGET_DEFAULT) ? (rnd.getInt(0, renderCtx.getRenderTarget().getHeight() - viewportHeight))	: (0);
-	const IVec3						imageSize			= defaultImageSize(TEXTURETYPE_2D);
 	const glu::Texture				texture				(renderCtx);
 	de::MovePtr<glu::Framebuffer>	fbo;
 	de::MovePtr<glu::Renderbuffer> 	colorAttachment;

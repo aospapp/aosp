@@ -62,6 +62,9 @@ do
     if [[ $ONE_FILE == */lib64/* ]]
     then
       FILEDIR_NEW=$FILEDIR/lib64
+    elif [[ $ONE_FILE == */arm/nb/* ]]
+    then
+      FILEDIR_NEW=$FILEDIR/armnb
     else
       FILEDIR_NEW=$FILEDIR
     fi
@@ -81,6 +84,11 @@ do
       echo "LOCAL_MODULE_CLASS := APPS" >> ${APK_MAKEFILE}
       echo "LOCAL_SRC_FILES := \$(LOCAL_MODULE).apk" >> ${APK_MAKEFILE}
       echo "LOCAL_CERTIFICATE := PRESIGNED" >> ${APK_MAKEFILE}
+
+      if [[ ${ONE_FILE} == *priv-app/* ]]
+      then
+        echo "LOCAL_PRIVILEGED_MODULE := true" >> ${APK_MAKEFILE}
+      fi
 
       if [[ ${TMP_ONE_FILE_NAME} == "LeanbackLauncher" ]]
       then

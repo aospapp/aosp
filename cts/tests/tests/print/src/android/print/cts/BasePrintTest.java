@@ -28,6 +28,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.cts.util.SystemUtil;
 import android.graphics.pdf.PdfDocument;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -59,9 +60,13 @@ import org.hamcrest.Description;
 import org.mockito.InOrder;
 import org.mockito.stubbing.Answer;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeoutException;
@@ -73,11 +78,17 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
 
     private static final long OPERATION_TIMEOUT = 100000000;
 
-    private static final String ARG_PRIVILEGED_OPS = "ARG_PRIVILEGED_OPS";
-
     private static final String PRINT_SPOOLER_PACKAGE_NAME = "com.android.printspooler";
 
     protected static final String PRINT_JOB_NAME = "Test";
+
+    private static final String PM_CLEAR_SUCCESS_OUTPUT = "Success";
+
+    private static final String COMMAND_LIST_ENABLED_IME_COMPONENTS = "ime list -s";
+
+    private static final String COMMAND_PREFIX_ENABLE_IME = "ime enable ";
+
+    private static final String COMMAND_PREFIX_DISABLE_IME = "ime disable ";
 
     private PrintDocumentActivity mActivity;
 
@@ -90,10 +101,49 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
     private CallCounter mPrintJobQueuedCallCounter;
     private CallCounter mDestroySessionCallCounter;
 
+    private String[] mEnabledImes;
+
+    private String[] getEnabledImes() throws IOException {
+        List<String> imeList = new ArrayList<>();
+
+        ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
+                .executeShellCommand(COMMAND_LIST_ENABLED_IME_COMPONENTS);
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(pfd.getFileDescriptor())));
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            imeList.add(line);
+        }
+
+        String[] imeArray = new String[imeList.size()];
+        imeList.toArray(imeArray);
+
+        return imeArray;
+    }
+
+    private void disableImes() throws Exception {
+        mEnabledImes = getEnabledImes();
+        for (String ime : mEnabledImes) {
+            String disableImeCommand = COMMAND_PREFIX_DISABLE_IME + ime;
+            SystemUtil.runShellCommand(getInstrumentation(), disableImeCommand);
+        }
+    }
+
+    private void enableImes() throws Exception {
+        for (String ime : mEnabledImes) {
+            String enableImeCommand = COMMAND_PREFIX_ENABLE_IME + ime;
+            SystemUtil.runShellCommand(getInstrumentation(), enableImeCommand);
+        }
+        mEnabledImes = null;
+    }
+
     @Override
     public void setUp() throws Exception {
         // Make sure we start with a clean slate.
         clearPrintSpoolerData();
+        enablePrintServices();
+        disableImes();
 
         // Workaround for dexmaker bug: https://code.google.com/p/dexmaker/issues/detail?id=2
         // Dexmaker is used by mockito.
@@ -128,6 +178,7 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
     public void tearDown() throws Exception {
         // Done with the activity.
         getActivity().finish();
+        enableImes();
 
         // Restore the locale if needed.
         if (mOldLocale != null) {
@@ -139,6 +190,7 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
             resources.updateConfiguration(newConfiguration, displayMetrics);
         }
 
+        disablePrintServices();
         // Make sure the spooler is cleaned.
         clearPrintSpoolerData();
     }
@@ -272,6 +324,19 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
         }
     }
 
+    protected void changeDuplex(String duplex) throws UiObjectNotFoundException {
+        try {
+            UiObject duplexSpinner = new UiObject(new UiSelector().resourceId(
+                    "com.android.printspooler:id/duplex_spinner"));
+            duplexSpinner.click();
+            UiObject duplexOption = new UiObject(new UiSelector().text(duplex));
+            duplexOption.click();
+        } catch (UiObjectNotFoundException e) {
+            dumpWindowHierarchy();
+            throw new UiObjectNotFoundException(e);
+        }
+    }
+
     protected void clickPrintButton() throws UiObjectNotFoundException {
         try {
             UiObject printButton = new UiObject(new UiSelector().resourceId(
@@ -306,9 +371,24 @@ public abstract class BasePrintTest extends UiAutomatorTestCase {
     }
 
     protected void clearPrintSpoolerData() throws Exception {
-        IPrivilegedOperations privilegedOps = IPrivilegedOperations.Stub.asInterface(
-                getParams().getBinder(ARG_PRIVILEGED_OPS));
-        privilegedOps.clearApplicationUserData(PRINT_SPOOLER_PACKAGE_NAME);
+        assertTrue("failed to clear print spooler data",
+                SystemUtil.runShellCommand(getInstrumentation(),
+                        String.format("pm clear %s", PRINT_SPOOLER_PACKAGE_NAME))
+                            .contains(PM_CLEAR_SUCCESS_OUTPUT));
+    }
+
+    private void enablePrintServices() throws Exception {
+        String pkgName = getInstrumentation().getContext().getPackageName();
+        String enabledServicesValue = String.format("%s/%s:%s/%s",
+                pkgName, FirstPrintService.class.getCanonicalName(),
+                pkgName, SecondPrintService.class.getCanonicalName());
+        SystemUtil.runShellCommand(getInstrumentation(),
+                "settings put secure enabled_print_services " + enabledServicesValue);
+    }
+
+    private void disablePrintServices() throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(),
+                "settings put secure enabled_print_services \"\"");
     }
 
     protected void verifyLayoutCall(InOrder inOrder, PrintDocumentAdapter mock,

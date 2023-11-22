@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"키를 누를 때 소리 발생"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"키를 누를 때 팝업"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"환경설정"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"모양 및 레이아웃"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"다국어 옵션"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"계정 및 개인정보 보호"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"모양 및 레이아웃"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"제스처 타이핑"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"텍스트 수정"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"고급"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"테마"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"분할 키보드 사용"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google 키보드 동기화"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"동기화가 사용 설정됩니다."</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"개인 사전을 기기 간에 동기화합니다."</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"지금 동기화"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"클라우드 데이터 삭제"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Google에서 동기화된 데이터 삭제"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"동기화된 데이터가 클라우드에서 삭제됩니다. 계속하시겠습니까?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"삭제"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"취소"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"개인 사전이 Google 서버에 동기화되며 백업됩니다. Google의 제품 개선을 위해 단어 빈도에 관한 통계 정보가 수집될 수 있습니다. 모든 정보는 "<a href="https://www.google.com/policies/privacy">"Google 개인정보취급방침"</a>"에 따라 수집되고 사용됩니다."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"이 기능을 사용하려면 기기에 Google 계정을 추가하세요."</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Google Apps for Work 계정을 사용하는 기기에서는 동기화할 수 없습니다."</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"다른 입력 방법으로 전환"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"언어 전환 키가 제공하는 기타 입력 방법"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"언어 전환 키"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"저장하려면 여기를 터치하세요."</string>
     <string name="has_dictionary" msgid="6071847973466625007">"사전 사용 가능"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"키보드 테마"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"계정 전환"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"선택한 계정이 없습니다."</string>
+    <string name="account_selected" msgid="2846876462199625974">"현재 <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>을(를) 사용 중입니다."</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"확인"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"취소"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"로그아웃"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"사용할 계정 선택"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"영어(영국)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"영어(미국)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"스페인어(미국)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"인도 영어"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"세르비아어(라틴 문자)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"영어(영국)(<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"영어(미국)(<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"스페인어(미국)(<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"인도 영어(<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"세르비아어(<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>(번체)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>(키릴어)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>(라틴어)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g>(컴팩트)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"언어 없음(알파벳)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"알파벳(QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"알파벳(QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"같은 입력 스타일이 다음과 같이 이미 존재합니다. <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"키를 누를 때 진동 시간"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"키를 누를 때 소리 볼륨"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"키 길게 누르기 지연"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"물리적 키보드용 그림 이모티콘"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"물리적 Alt 키로 그림 이모티콘 팔레트 표시"</string>
     <string name="button_default" msgid="3988017840431881491">"기본값"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"<xliff:g id="APPLICATION_NAME">%s</xliff:g>에 오신 것을 환영합니다."</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"제스처 타이핑 사용"</string>

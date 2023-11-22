@@ -58,6 +58,7 @@ public class Terminal {
         public void onDamage(int startRow, int endRow, int startCol, int endCol);
         public void onMoveRect(int destStartRow, int destEndRow, int destStartCol, int destEndCol,
                 int srcStartRow, int srcEndRow, int srcStartCol, int srcEndCol);
+        public void onMoveCursor(int posRow, int posCol, int oldPosRow, int oldPosCol, int visible);
         public void onBell();
     }
 
@@ -67,6 +68,10 @@ public class Terminal {
     private String mTitle;
 
     private TerminalClient mClient;
+
+    private boolean mCursorVisible;
+    private int mCursorRow;
+    private int mCursorCol;
 
     private final TerminalCallbacks mCallbacks = new TerminalCallbacks() {
         @Override
@@ -88,6 +93,17 @@ public class Terminal {
         }
 
         @Override
+        public int moveCursor(int posRow, int posCol, int oldPosRow, int oldPosCol, int visible) {
+            mCursorVisible = (visible != 0);
+            mCursorRow = posRow;
+            mCursorCol = posCol;
+            if (mClient != null) {
+                mClient.onMoveCursor(posRow, posCol, oldPosRow, oldPosCol, visible);
+            }
+            return 1;
+        }
+
+        @Override
         public int bell() {
             if (mClient != null) {
                 mClient.onBell();
@@ -97,7 +113,7 @@ public class Terminal {
     };
 
     public Terminal() {
-        mNativePtr = nativeInit(mCallbacks, 25, 80);
+        mNativePtr = nativeInit(mCallbacks);
         key = sNumber++;
         mTitle = TAG + " " + key;
         mThread = new Thread(mTitle) {
@@ -149,6 +165,18 @@ public class Terminal {
         }
     }
 
+    public boolean getCursorVisible() {
+        return mCursorVisible;
+    }
+
+    public int getCursorRow() {
+        return mCursorRow;
+    }
+
+    public int getCursorCol() {
+        return mCursorCol;
+    }
+
     public String getTitle() {
         // TODO: hook up to title passed through termprop
         return mTitle;
@@ -162,7 +190,7 @@ public class Terminal {
         return nativeDispatchCharacter(mNativePtr, modifiers, character);
     }
 
-    private static native long nativeInit(TerminalCallbacks callbacks, int rows, int cols);
+    private static native long nativeInit(TerminalCallbacks callbacks);
     private static native int nativeDestroy(long ptr);
 
     private static native int nativeRun(long ptr);

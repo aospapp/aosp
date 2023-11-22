@@ -17,7 +17,7 @@
 #include "slang_rs_check_ast.h"
 
 #include "slang_assert.h"
-#include "slang_rs.h"
+#include "slang.h"
 #include "slang_rs_export_foreach.h"
 #include "slang_rs_export_type.h"
 
@@ -148,26 +148,23 @@ void RSCheckAST::ValidateFunctionDecl(clang::FunctionDecl *FD) {
     return;
   }
 
-  if (mIsFilterscript) {
-    // Validate parameters for Filterscript.
-    size_t numParams = FD->getNumParams();
+  clang::QualType resultType = FD->getReturnType().getCanonicalType();
+  bool isExtern = (FD->getFormalLinkage() == clang::ExternalLinkage);
 
-    clang::QualType resultType = FD->getReturnType().getCanonicalType();
+  // We use FD as our NamedDecl in the case of a bad return type.
+  if (!RSExportType::ValidateType(Context, C, resultType, FD,
+                                  FD->getLocStart(), mTargetAPI,
+                                  mIsFilterscript, isExtern)) {
+    mValid = false;
+  }
 
-    // We use FD as our NamedDecl in the case of a bad return type.
-    if (!RSExportType::ValidateType(Context, C, resultType, FD,
-                                    FD->getLocStart(), mTargetAPI,
-                                    mIsFilterscript)) {
+  size_t numParams = FD->getNumParams();
+  for (size_t i = 0; i < numParams; i++) {
+    clang::ParmVarDecl *PVD = FD->getParamDecl(i);
+    clang::QualType QT = PVD->getType().getCanonicalType();
+    if (!RSExportType::ValidateType(Context, C, QT, PVD, PVD->getLocStart(),
+                                    mTargetAPI, mIsFilterscript, isExtern)) {
       mValid = false;
-    }
-
-    for (size_t i = 0; i < numParams; i++) {
-      clang::ParmVarDecl *PVD = FD->getParamDecl(i);
-      clang::QualType QT = PVD->getType().getCanonicalType();
-      if (!RSExportType::ValidateType(Context, C, QT, PVD, PVD->getLocStart(),
-                                      mTargetAPI, mIsFilterscript)) {
-        mValid = false;
-      }
     }
   }
 
@@ -218,7 +215,7 @@ void RSCheckAST::ValidateVarDecl(clang::VarDecl *VD) {
 
 
 void RSCheckAST::VisitDeclStmt(clang::DeclStmt *DS) {
-  if (!SlangRS::IsLocInRSHeaderFile(DS->getLocStart(), mSM)) {
+  if (!Slang::IsLocInRSHeaderFile(DS->getLocStart(), mSM)) {
     for (clang::DeclStmt::decl_iterator I = DS->decl_begin(),
                                         E = DS->decl_end();
          I != E;
@@ -258,10 +255,14 @@ void RSCheckAST::VisitExpr(clang::Expr *E) {
   // First we skip implicit casts (things like function calls and explicit
   // array accesses rely heavily on them and they are valid.
   E = E->IgnoreImpCasts();
+
+  // Expressions at this point in the checker are not externally visible.
+  static const bool kIsExtern = false;
+
   if (mIsFilterscript &&
-      !SlangRS::IsLocInRSHeaderFile(E->getExprLoc(), mSM) &&
-      !RSExportType::ValidateType(Context, C, E->getType(), NULL, E->getExprLoc(),
-                                  mTargetAPI, mIsFilterscript)) {
+      !Slang::IsLocInRSHeaderFile(E->getExprLoc(), mSM) &&
+      !RSExportType::ValidateType(Context, C, E->getType(), nullptr, E->getExprLoc(),
+                                  mTargetAPI, mIsFilterscript, kIsExtern)) {
     mValid = false;
   } else {
     // Only visit sub-expressions if we haven't already seen a violation.
@@ -276,7 +277,7 @@ bool RSCheckAST::Validate() {
           DE = TUDecl->decls_end();
        DI != DE;
        DI++) {
-    if (!SlangRS::IsLocInRSHeaderFile(DI->getLocStart(), mSM)) {
+    if (!Slang::IsLocInRSHeaderFile(DI->getLocStart(), mSM)) {
       if (clang::VarDecl *VD = llvm::dyn_cast<clang::VarDecl>(*DI)) {
         ValidateVarDecl(VD);
       } else if (clang::FunctionDecl *FD =

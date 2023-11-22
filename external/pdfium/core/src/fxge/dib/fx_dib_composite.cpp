@@ -2951,7 +2951,6 @@ inline void _CompositeRow_Argb2Rgb_Blend_RgbByteOrder(FX_LPBYTE dest_scan, FX_LP
 }
 inline void _CompositeRow_Rgb2Argb_NoBlend_NoClip_RgbByteOrder(FX_LPBYTE dest_scan, FX_LPCBYTE src_scan, int width, int src_Bpp)
 {
-    int src_gap = src_Bpp - 3;
     for (int col = 0; col < width; col ++) {
         if (src_Bpp == 4) {
             FXARGB_SETRGBORDERDIB(dest_scan, 0xff000000 | FXARGB_GETDIB(src_scan));
@@ -3602,9 +3601,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             if ((dest_format & 0xff) == 8) {
                 int pal_count = 1 << (src_format & 0xff);
                 FX_LPBYTE gray_pal = FX_Alloc(FX_BYTE, pal_count);
-                if (!gray_pal) {
-                    return;
-                }
                 pDestPalette = (FX_DWORD*)gray_pal;
                 for (int i = 0; i < pal_count; i ++) {
                     FX_DWORD color = isSrcCmyk ? FXCMYK_TODIB(pSrcPalette[i]) : FXARGB_TODIB(pSrcPalette[i]);
@@ -3614,9 +3610,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             } else {
                 int palsize = 1 << (src_format & 0xff);
                 pDestPalette = FX_Alloc(FX_DWORD, palsize);
-                if (!pDestPalette) {
-                    return;
-                }
                 for (int i = 0; i < palsize; i ++) {
                     FX_DWORD color = isSrcCmyk ? FXCMYK_TODIB(pSrcPalette[i]) : FXARGB_TODIB(pSrcPalette[i]);
                     pIccModule->TranslateScanline(pIccTransform, (FX_LPBYTE)&color, (FX_LPCBYTE)&color, 1);
@@ -3626,9 +3619,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
         } else {
             int pal_count = 1 << (src_format & 0xff);
             FX_LPBYTE gray_pal = FX_Alloc(FX_BYTE, pal_count);
-            if (!gray_pal) {
-                return;
-            }
             if (pal_count == 2) {
                 gray_pal[0] = 0;
                 gray_pal[1] = 255;
@@ -3642,10 +3632,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
                 pDestPalette = (FX_DWORD*)gray_pal;
             } else {
                 pDestPalette = FX_Alloc(FX_DWORD, pal_count);
-                if (!pDestPalette) {
-                    FX_Free(gray_pal);
-                    return;
-                }
                 for (int i = 0; i < pal_count; i ++) {
                     pIccModule->TranslateScanline(pIccTransform, (FX_LPBYTE)&pDestPalette[i], &gray_pal[i], 1);
                     pDestPalette[i] = isDstCmyk ? FXCMYK_TODIB(pDestPalette[i]) : FXARGB_TODIB(pDestPalette[i]);
@@ -3658,9 +3644,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             if ((dest_format & 0xff) == 8) {
                 int pal_count = 1 << (src_format & 0xff);
                 FX_LPBYTE gray_pal = FX_Alloc(FX_BYTE, pal_count);
-                if (!gray_pal) {
-                    return;
-                }
                 pDestPalette = (FX_DWORD*)gray_pal;
                 if (isSrcCmyk) {
                     for (int i = 0; i < pal_count; i ++) {
@@ -3678,9 +3661,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             } else {
                 int palsize = 1 << (src_format & 0xff);
                 pDestPalette = FX_Alloc(FX_DWORD, palsize);
-                if (!pDestPalette) {
-                    return;
-                }
                 if (isDstCmyk == isSrcCmyk) {
                     FXSYS_memcpy32(pDestPalette, pSrcPalette, palsize * sizeof(FX_DWORD));
                 } else {
@@ -3697,9 +3677,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             if ((dest_format & 0xff) == 8) {
                 int pal_count = 1 << (src_format & 0xff);
                 FX_LPBYTE gray_pal = FX_Alloc(FX_BYTE, pal_count);
-                if (!gray_pal) {
-                    return;
-                }
                 if (pal_count == 2) {
                     gray_pal[0] = 0;
                     gray_pal[1] = 255;
@@ -3712,9 +3689,6 @@ inline void _ScanlineCompositor_InitSourcePalette(FXDIB_Format src_format, FXDIB
             } else {
                 int palsize = 1 << (src_format & 0xff);
                 pDestPalette = FX_Alloc(FX_DWORD, palsize);
-                if (!pDestPalette) {
-                    return;
-                }
                 if (palsize == 2) {
                     pDestPalette[0] = isSrcCmyk ? 255 : 0xff000000;
                     pDestPalette[1] = isSrcCmyk ? 0 : 0xffffffff;
@@ -3805,7 +3779,6 @@ void CFX_ScanlineCompositor::CompositeRgbBitmapLine(FX_LPBYTE dest_scan, FX_LPCB
 {
     int src_Bpp = (m_SrcFormat & 0xff) >> 3;
     int dest_Bpp = (m_DestFormat & 0xff) >> 3;
-    int dest_Size = width * dest_Bpp + 4;
     if (m_bRgbByteOrder) {
         switch (m_Transparency) {
             case 0:
@@ -3886,6 +3859,7 @@ void CFX_ScanlineCompositor::CompositeRgbBitmapLine(FX_LPBYTE dest_scan, FX_LPCB
             }
         }
     } else {
+        int dest_Size = width * dest_Bpp + 4;
         if (dest_Size > m_CacheSize) {
             m_pCacheScanline = FX_Realloc(FX_BYTE, m_pCacheScanline, dest_Size);
             if (!m_pCacheScanline) {
@@ -4149,15 +4123,7 @@ FX_BOOL CFX_DIBitmap::CompositeBitmap(int dest_left, int dest_top, int width, in
     }
     int dest_Bpp = m_bpp / 8;
     int src_Bpp = pSrcBitmap->GetBPP() / 8;
-    FX_BOOL bRgb = FALSE;
-    FX_BOOL bCmyk = FALSE;
-    if (src_Bpp > 1) {
-        if (pSrcBitmap->IsCmykImage()) {
-            bCmyk = TRUE;
-        } else {
-            bRgb = TRUE;
-        }
-    }
+    FX_BOOL bRgb = src_Bpp > 1 && !pSrcBitmap->IsCmykImage();
     CFX_DIBitmap* pSrcAlphaMask = pSrcBitmap->m_pAlphaMask;
     for (int row = 0; row < height; row ++) {
         FX_LPBYTE dest_scan = m_pBuffer + (dest_top + row) * m_Pitch + dest_left * dest_Bpp;
@@ -4472,25 +4438,13 @@ FX_BOOL CFX_BitmapComposer::SetInfo(int width, int height, FXDIB_Format src_form
     }
     if (m_bVertical) {
         m_pScanlineV = FX_Alloc(FX_BYTE, m_pBitmap->GetBPP() / 8 * width + 4);
-        if (!m_pScanlineV) {
-            return FALSE;
-        }
         m_pClipScanV = FX_Alloc(FX_BYTE, m_pBitmap->GetHeight());
-        if (!m_pClipScanV) {
-            return FALSE;
-        }
         if (m_pBitmap->m_pAlphaMask) {
             m_pScanlineAlphaV = FX_Alloc(FX_BYTE, width + 4);
-            if (!m_pScanlineAlphaV) {
-                return FALSE;
-            }
         }
     }
     if (m_BitmapAlpha < 255) {
         m_pAddClipScan = FX_Alloc(FX_BYTE, m_bVertical ? m_pBitmap->GetHeight() : m_pBitmap->GetWidth());
-        if (!m_pAddClipScan) {
-            return FALSE;
-        }
     }
     return TRUE;
 }

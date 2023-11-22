@@ -19,6 +19,7 @@
 
 namespace llvm {
   class ModulePass;
+  class FunctionPass;
 }
 
 namespace bcc {
@@ -26,7 +27,21 @@ namespace bcc {
 llvm::ModulePass *
 createRSForEachExpandPass(bool pEnableStepOpt);
 
+llvm::FunctionPass *
+createRSInvariantPass();
+
+llvm::FunctionPass *
+createRSInvokeHelperPass();
+
 llvm::ModulePass * createRSEmbedInfoPass();
+
+llvm::ModulePass * createRSGlobalInfoPass(bool pSkipConstants);
+
+llvm::ModulePass * createRSScreenFunctionsPass();
+
+llvm::ModulePass * createRSIsThreadablePass();
+
+llvm::ModulePass * createRSX86_64CallConvPass();
 
 } // end namespace bcc
 

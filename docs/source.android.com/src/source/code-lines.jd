@@ -71,10 +71,10 @@ page.title=Codelines, Branches, and Releases
 	</p>
   </li>
 </ol>
-<p>
-  <img src="{@docRoot}images/code-lines.png" alt="code-line diagram">
+  <img src="{@docRoot}images/code-lines.png" alt="code-line diagram" id="figure1" >
+<p class="img-caption">
+  <strong>Figure 1.</strong> AOSP code and releases
 </p>
-
 <h2 id="terms-and-caveats">
   Terms and Caveats
 </h2>

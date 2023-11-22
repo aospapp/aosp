@@ -104,6 +104,7 @@ public class ScreenPinningTestActivity extends PassFailButtons.Activity {
         TextView tv = new TextView(this);
         tv.setPadding(10, 10, 10, 30);
         tv.setText(id);
+        mInstructions.removeAllViews();
         mInstructions.addView(tv);
     }
 

@@ -85,6 +85,7 @@ public class AttentionManagementVerifierActivity
         tests.add(new InsertContactsTest());
         tests.add(new SetModeNoneTest());
         tests.add(new NoneInterceptsAllTest());
+        tests.add(new SetModeAllTest());
         tests.add(new SetModePriorityTest());
         tests.add(new PriorityInterceptsSomeTest());
         tests.add(new SetModeAllTest());

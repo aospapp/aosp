@@ -18,8 +18,12 @@
     package="com.android.dialer"
     coreApp="true">
 
+    <uses-sdk
+        android:minSdkVersion="23"
+        android:targetSdkVersion="23" />
+
+
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
@@ -49,6 +53,7 @@
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- This tells the activity manager to not delay any of our activity
      start requests, even if they happen immediately after the user
      presses home. -->
@@ -60,7 +65,8 @@
         android:icon="@mipmap/ic_launcher_phone"
         android:hardwareAccelerated="true"
         android:supportsRtl="true"
-        android:backupAgent='com.android.dialer.DialerBackupAgent'>
+        android:backupAgent='com.android.dialer.DialerBackupAgent'
+        android:usesCleartextTraffic="false">
 
         <meta-data android:name="com.google.android.backup.api_key"
             android:value="AEdPqrEAAAAIBXgtCEKQ6W0PXVnW-ZVia2KmlV2AxsTw3GjAeQ" />
@@ -107,6 +113,12 @@
                 <data android:scheme="tel" />
             </intent-filter>
             <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:mimeType="vnd.android.cursor.dir/calls" />
+            </intent-filter>
+            <intent-filter>
                 <action android:name="android.intent.action.CALL_BUTTON" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -139,12 +151,6 @@
             android:label="@string/call_log_activity_title"
             android:theme="@style/DialtactsThemeWithoutActionBarOverlay"
             android:icon="@mipmap/ic_launcher_phone">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:mimeType="vnd.android.cursor.dir/calls" />
-            </intent-filter>
         </activity>
 
         <activity android:name="com.android.dialer.CallDetailActivity"
@@ -195,6 +201,12 @@
             android:name="com.android.contacts.common.list.CustomContactListFilterActivity"
             android:label="@string/custom_list_filter"
             android:theme="@style/ContactListFilterTheme"/>
+
+        <activity
+            android:name="com.android.contacts.common.activity.RequestImportVCardPermissionsActivity"
+            android:label="@string/launcherActivityLabel"
+            android:theme="@style/BackgroundOnlyTheme"
+            android:exported="false"/>
 
         <!-- vCard related -->
         <activity android:name="com.android.contacts.common.vcard.ImportVCardActivity"
@@ -273,25 +285,13 @@
                   android:screenOrientation="nosensor" >
         </activity>
 
-        <activity android:name="com.android.incallui.CircularRevealActivity"
-                  android:theme="@style/Theme.CircularRevealAnimation"
-                  android:exported="false"
-                  android:configChanges="keyboardHidden|orientation"
-                  android:launchMode="singleInstance"
-                  android:noHistory="true"
-                  android:excludeFromRecents="true"
-                  android:screenOrientation="nosensor" />
-
         <!-- BroadcastReceiver for receiving Intents from Notification mechanism. -->
-        <receiver android:name="com.android.incallui.InCallApp$NotificationBroadcastReceiver"
-                  android:exported="false">
-            <intent-filter>
-                <action android:name="com.android.incallui.ACTION_HANG_UP_ONGOING_CALL" />
-            </intent-filter>
-        </receiver>
+        <receiver android:name="com.android.incallui.NotificationBroadcastReceiver"
+                  android:exported="false" />
 
         <service android:name="com.android.incallui.InCallServiceImpl"
                  android:permission="android.permission.BIND_INCALL_SERVICE" >
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>

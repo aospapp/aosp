@@ -19,17 +19,29 @@ include $(CLEAR_VARS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
         android-ex-camera2 \
+        android-support-v4 \
         guava \
-        mockito-target \
+        mockito-target
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := \
+        $(call all-java-files-under, src) \
+        $(call all-java-files-under, ../src)
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
-LOCAL_PACKAGE_NAME := TelecomTests
+LOCAL_RESOURCE_DIR := \
+    $(LOCAL_PATH)/res \
+    $(LOCAL_PATH)/../res
+
+LOCAL_JAVA_LIBRARIES := \
+        android.test.runner \
+        telephony-common
+
+LOCAL_AAPT_FLAGS := \
+    --auto-add-overlay \
+    --extra-packages com.android.server.telecom
+
+LOCAL_PACKAGE_NAME := TelecomUnitTests
 LOCAL_CERTIFICATE := platform
 
 LOCAL_MODULE_TAGS := tests
-
-LOCAL_INSTRUMENTATION_FOR := Telecom
 
 include $(BUILD_PACKAGE)

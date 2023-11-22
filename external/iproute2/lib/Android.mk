@@ -1,6 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+# clang cannot compile 'variable length array in structure' in ipxfrm.c
+LOCAL_CLANG := false
 LOCAL_SRC_FILES := utils.c rt_names.c ll_types.c ll_proto.c ll_addr.c inet_proto.c
 LOCAL_MODULE := libiprouteutil
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
@@ -30,11 +32,17 @@ LOCAL_CFLAGS := -O2 -g -W -Wall \
 	-DHAVE_TYPE_SSIZE_T \
 	-Wno-pointer-arith \
 	-Wno-sign-compare \
+	-Wno-unused-parameter \
 	-Werror
+
+# This is a work around for b/18403920
+LOCAL_LDFLAGS := -Wl,--no-gc-sections
 
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
+# clang cannot compile 'variable length array in structure' in ipxfrm.c
+LOCAL_CLANG := false
 LOCAL_SRC_FILES := ll_map.c libnetlink.c
 LOCAL_MODULE := libnetlink
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
@@ -63,6 +71,7 @@ LOCAL_CFLAGS := -O2 -g -W -Wall \
 	-DHAVE_TYPE_SSIZE_T \
 	-Wno-pointer-arith \
 	-Wno-sign-compare \
+	-Wno-unused-parameter \
 	-Werror
 
 include $(BUILD_SHARED_LIBRARY)

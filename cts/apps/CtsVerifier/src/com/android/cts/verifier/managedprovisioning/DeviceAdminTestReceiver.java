@@ -22,9 +22,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.util.Log;
-import android.widget.Toast;
 
 /**
  * Profile owner receiver for BYOD flow test.
@@ -32,6 +30,16 @@ import android.widget.Toast;
  */
 public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         private static final String TAG = "DeviceAdminTestReceiver";
+        private static final String DEVICE_OWNER_PKG =
+                "com.android.cts.verifier";
+        private static final String ADMIN_RECEIVER_TEST_CLASS =
+                DEVICE_OWNER_PKG + ".managedprovisioning.DeviceAdminTestReceiver";
+        private static final ComponentName RECEIVER_COMPONENT_NAME = new ComponentName(
+                DEVICE_OWNER_PKG, ADMIN_RECEIVER_TEST_CLASS);
+
+        public static ComponentName getReceiverComponentName() {
+            return RECEIVER_COMPONENT_NAME;
+        }
 
         @Override
         public void onProfileProvisioningComplete(Context context, Intent intent) {
@@ -49,15 +57,30 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
             filter.addAction(ByodHelperActivity.ACTION_QUERY_PROFILE_OWNER);
             filter.addAction(ByodHelperActivity.ACTION_REMOVE_PROFILE_OWNER);
             filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK);
-            filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE);
+            filter.addAction(ByodHelperActivity.ACTION_CHECK_INTENT_FILTERS);
+            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_IMAGE);
+            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO);
+            filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_AUDIO);
+            filter.addAction(ByodHelperActivity.ACTION_KEYGUARD_DISABLED_FEATURES);
+            filter.addAction(ByodHelperActivity.ACTION_LOCKNOW);
+            filter.addAction(ByodHelperActivity.ACTION_TEST_NFC_BEAM);
+            filter.addAction(ByodHelperActivity.ACTION_TEST_CROSS_PROFILE_INTENTS_DIALOG);
+            filter.addAction(ByodHelperActivity.ACTION_TEST_APP_LINKING_DIALOG);
+            filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_WORK);
             filter.addAction(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION);
+            filter.addAction(WorkNotificationTestActivity.ACTION_WORK_NOTIFICATION_ON_LOCKSCREEN);
             filter.addAction(WorkNotificationTestActivity.ACTION_CLEAR_WORK_NOTIFICATION);
+            filter.addAction(WorkStatusTestActivity.ACTION_WORK_STATUS_TOAST);
+            filter.addAction(WorkStatusTestActivity.ACTION_WORK_STATUS_ICON);
+            filter.addAction(
+                    PermissionLockdownTestActivity.ACTION_MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN);
             dpm.addCrossProfileIntentFilter(getWho(context), filter,
                     DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT);
 
             // Work -> primary direction
             filter = new IntentFilter();
             filter.addAction(ByodHelperActivity.ACTION_PROFILE_OWNER_STATUS);
+            filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_PERSONAL);
             dpm.addCrossProfileIntentFilter(getWho(context), filter,
                     DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED);
 

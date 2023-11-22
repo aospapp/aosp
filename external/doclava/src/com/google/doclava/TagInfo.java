@@ -19,6 +19,12 @@ package com.google.doclava;
 import com.google.clearsilver.jsilver.data.Data;
 
 public class TagInfo {
+  public static final TagInfo[] EMPTY_ARRAY = new TagInfo[0];
+
+  public static TagInfo[] getArray(int size) {
+      return size == 0 ? EMPTY_ARRAY : new TagInfo[size];
+  }
+
   private String mName;
   private String mText;
   private String mKind;

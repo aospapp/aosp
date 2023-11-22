@@ -18,11 +18,16 @@ package android.hardware.cts.helpers.sensorverification;
 
 import junit.framework.Assert;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
+import android.hardware.cts.helpers.SensorCtsHelper;
+import android.util.Log;
 
+import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,10 +68,51 @@ public class StandardDeviationVerification extends AbstractSensorVerification {
      */
     public static StandardDeviationVerification getDefault(TestSensorEnvironment environment) {
         int sensorType = environment.getSensor().getType();
+        float graceFactorAccelGyro = 2.0f;
+        float graceFactorMagPressure = 4.0f;
+        float currOperatingFreq = (float) environment.getFrequencyHz();
+        float maxBandWidth = (float)SensorCtsHelper.getFrequency(
+                environment.getSensor().getMinDelay(), TimeUnit.MICROSECONDS);
+        float minBandWidth = (float) SensorCtsHelper.getFrequency(
+                environment.getSensor().getMaxDelay(), TimeUnit.MICROSECONDS);
+
+        if (Float.isInfinite(currOperatingFreq)) {
+            currOperatingFreq = maxBandWidth;
+        }
+
+        if (currOperatingFreq > maxBandWidth && !Float.isInfinite(maxBandWidth)) {
+            currOperatingFreq = maxBandWidth;
+        }
+
+        if (currOperatingFreq < minBandWidth && !Float.isInfinite(minBandWidth)) {
+            currOperatingFreq = minBandWidth;
+        }
+
+        float mAccelNoise = (float)(graceFactorAccelGyro * Math.sqrt(currOperatingFreq) *
+                (9.81 * 0.0004));
+        float mGyroNoise = (float)(graceFactorAccelGyro * Math.sqrt(currOperatingFreq) *
+                (Math.PI/180.0 * 0.014));
+        float mMagNoise = (float)((graceFactorMagPressure) * 0.5); // Allow extra grace for mag
+        float mPressureNoise = (float)(graceFactorMagPressure * 0.02 *
+                (float)Math.sqrt(currOperatingFreq)); // Allow extra grace for pressure
+
         if (!DEFAULTS.containsKey(sensorType)) {
             return null;
         }
+        boolean hasHifiSensors = environment.getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_HIFI_SENSORS);
 
+        if (hasHifiSensors) {
+
+            DEFAULTS.put(Sensor.TYPE_ACCELEROMETER, new float[]{mAccelNoise, mAccelNoise, mAccelNoise});
+            // Max gyro deviation: 0.014°/s/√Hz
+            DEFAULTS.put(Sensor.TYPE_GYROSCOPE,
+                    new float[]{mGyroNoise, mGyroNoise, mGyroNoise});
+            // Max magnetometer deviation: 0.1uT/√Hz
+            DEFAULTS.put(Sensor.TYPE_MAGNETIC_FIELD, new float[]{mMagNoise, mMagNoise, mMagNoise});
+            // Max pressure deviation: 2Pa/√Hz
+            DEFAULTS.put(Sensor.TYPE_PRESSURE, new float[]{mPressureNoise,mPressureNoise,mPressureNoise});
+        }
         return new StandardDeviationVerification(DEFAULTS.get(sensorType));
     }
 
@@ -107,9 +153,9 @@ public class StandardDeviationVerification extends AbstractSensorVerification {
             if (stdDevs[i] > mThreshold[i]) {
                 failed = true;
             }
-            stddevSb.append(String.format("%.2f", stdDevs[i]));
+            stddevSb.append(String.format("%.6f", stdDevs[i]));
             if (i != stdDevs.length - 1) stddevSb.append(", ");
-            expectedSb.append(String.format("<%.2f", mThreshold[i]));
+            expectedSb.append(String.format("<%.6f", mThreshold[i]));
             if (i != stdDevs.length - 1) expectedSb.append(", ");
         }
         if (stdDevs.length > 1) {

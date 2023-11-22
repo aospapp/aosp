@@ -20,6 +20,9 @@ import static com.google.common.collect.testing.features.CollectionFeature.ALLOW
 import static com.google.common.collect.testing.features.CollectionSize.ZERO;
 import static com.google.common.collect.testing.features.ListFeature.SUPPORTS_SET;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.ListFeature;
@@ -31,10 +34,9 @@ import java.lang.reflect.Method;
  * invoked directly; please see
  * {@link com.google.common.collect.testing.ListTestSuiteBuilder}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible(emulated = true)
 public class ListSetTester<E> extends AbstractListTester<E> {
   @ListFeature.Require(SUPPORTS_SET)
   @CollectionSize.Require(absent = ZERO)
@@ -145,7 +147,8 @@ public class ListSetTester<E> extends AbstractListTester<E> {
    * seems more likely that code would depend on that behavior than on the
    * other. Thus, we say the bug is in set(), which fails to support null.
    */
+  @GwtIncompatible("reflection")
   public static Method getSetNullSupportedMethod() {
-    return Platform.getMethod(ListSetTester.class, "testSet_null");
+    return Helpers.getMethod(ListSetTester.class, "testSet_null");
   }
 }

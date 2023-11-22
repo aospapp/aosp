@@ -39,10 +39,16 @@ public class InputDeviceCriteria extends BluetoothDeviceCriteria {
     }
 
     @Override
-    public boolean isMatchingDevieClass(int majorMinorClass) {
+    public boolean isMatchingDeviceClass(int majorMinorClass) {
         int acceptableDevicesMask = MINOR_DEVICE_CLASS_POINTING | MINOR_DEVICE_CLASS_JOYSTICK |
-                MINOR_DEVICE_CLASS_GAMEPAD | MINOR_DEVICE_CLASS_KEYBOARD | MINOR_DEVICE_CLASS_REMOTE;
+                MINOR_DEVICE_CLASS_GAMEPAD | MINOR_DEVICE_CLASS_KEYBOARD |
+                MINOR_DEVICE_CLASS_REMOTE;
 
         return (acceptableDevicesMask & majorMinorClass) != 0;
+    }
+
+    public boolean isInputDevice(BluetoothClass bluetoothClass) {
+        return isMatchingMajorDeviceClass(bluetoothClass.getMajorDeviceClass()) &&
+                isMatchingDeviceClass(bluetoothClass.getDeviceClass());
     }
 }

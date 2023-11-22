@@ -16,146 +16,152 @@
 
 package com.google.common.testing;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.Iterators;
+import com.google.common.base.Converter;
+import com.google.common.base.Objects;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.common.reflect.Invokable;
+import com.google.common.reflect.Parameter;
+import com.google.common.reflect.Reflection;
+import com.google.common.reflect.TypeToken;
 
 import junit.framework.Assert;
 import junit.framework.AssertionFailedError;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
+import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
 
 /**
- * A test utility that verifies that your methods throw {@link
- * NullPointerException} or {@link UnsupportedOperationException} whenever any
- * of their parameters are null. To use it, you must first provide valid default
- * values for the parameter types used by the class.
+ * A test utility that verifies that your methods and constructors throw {@link
+ * NullPointerException} or {@link UnsupportedOperationException} whenever null
+ * is passed to a parameter that isn't annotated with {@link Nullable}.
+ *
+ * <p>The tested methods and constructors are invoked -- each time with one
+ * parameter being null and the rest not null -- and the test fails if no
+ * expected exception is thrown. {@code NullPointerTester} uses best effort to
+ * pick non-null default values for many common JDK and Guava types, and also
+ * for interfaces and public classes that have public parameter-less
+ * constructors. When the non-null default value for a particular parameter type
+ * cannot be provided by {@code NullPointerTester}, the caller can provide a
+ * custom non-null default value for the parameter type via {@link #setDefault}.
  *
  * @author Kevin Bourrillion
  * @since 10.0
  */
 @Beta
 public final class NullPointerTester {
-  private final Map<Class<?>, Object> defaults = Maps.newHashMap();
+
+  private final ClassToInstanceMap<Object> defaults =
+      MutableClassToInstanceMap.create();
   private final List<Member> ignoredMembers = Lists.newArrayList();
 
-  public NullPointerTester() {
-    setCommonDefaults();
-  }
-
-  private final void setCommonDefaults() {
-    setDefault(Appendable.class, new StringBuilder());
-    setDefault(CharSequence.class, "");
-    setDefault(Class.class, Class.class);
-    setDefault(Collection.class, Collections.emptySet());
-    setDefault(Comparable.class, 0);
-    setDefault(Comparator.class, Collections.reverseOrder());
-    setDefault(Function.class, Functions.identity());
-    setDefault(Integer.class, 0);
-    setDefault(Iterable.class, Collections.emptySet());
-    setDefault(Iterator.class, Iterators.emptyIterator());
-    setDefault(List.class, Collections.emptyList());
-    setDefault(Map.class, Collections.emptyMap());
-    setDefault(Object.class, new Object());
-    setDefault(Object[].class, new Object[0]);
-    setDefault(Pattern.class, Pattern.compile(""));
-    setDefault(Predicate.class, Predicates.alwaysTrue());
-    setDefault(Set.class, Collections.emptySet());
-    setDefault(SortedSet.class, new TreeSet());
-    setDefault(String.class, "");
-    setDefault(Supplier.class, Suppliers.ofInstance(1));
-    setDefault(Throwable.class, new Exception());
-    setDefault(TimeUnit.class, TimeUnit.SECONDS);
-    setDefault(int.class, 0);
-    setDefault(long.class, 0L);
-    setDefault(short.class, (short) 0);
-    setDefault(char.class, 'a');
-    setDefault(byte.class, (byte) 0);
-    setDefault(float.class, 0.0f);
-    setDefault(double.class, 0.0d);
-    setDefault(boolean.class, false);
-  }
+  private ExceptionTypePolicy policy = ExceptionTypePolicy.NPE_OR_UOE;
 
   /**
    * Sets a default value that can be used for any parameter of type
    * {@code type}. Returns this object.
    */
   public <T> NullPointerTester setDefault(Class<T> type, T value) {
-    defaults.put(type, value);
+    defaults.putInstance(type, checkNotNull(value));
     return this;
   }
 
   /**
-   * Ignore a member (constructor or method) in testAllXxx methods. Returns
-   * this object.
+   * Ignore {@code method} in the tests that follow. Returns this object.
+   *
+   * @since 13.0
    */
-  public NullPointerTester ignore(Member member) {
-    ignoredMembers.add(member);
+  public NullPointerTester ignore(Method method) {
+    ignoredMembers.add(checkNotNull(method));
     return this;
   }
 
   /**
-   * Runs {@link #testConstructor} on every public constructor in class {@code
-   * c}.
+   * Runs {@link #testConstructor} on every constructor in class {@code c} that
+   * has at least {@code minimalVisibility}.
    */
-  public void testAllPublicConstructors(Class<?> c) throws Exception {
+  public void testConstructors(Class<?> c, Visibility minimalVisibility) {
     for (Constructor<?> constructor : c.getDeclaredConstructors()) {
-      if (isPublic(constructor) && !isStatic(constructor)
-          && !isIgnored(constructor)) {
+      if (minimalVisibility.isVisible(constructor) && !isIgnored(constructor)) {
         testConstructor(constructor);
       }
     }
   }
 
   /**
-   * Runs {@link #testMethod} on every public static method in class
-   * {@code c}.
+   * Runs {@link #testConstructor} on every public constructor in class {@code
+   * c}.
    */
-  public void testAllPublicStaticMethods(Class<?> c) throws Exception {
-    for (Method method : c.getDeclaredMethods()) {
-      if (isPublic(method) && isStatic(method) && !isIgnored(method)) {
+  public void testAllPublicConstructors(Class<?> c) {
+    testConstructors(c, Visibility.PUBLIC);
+  }
+
+  /**
+   * Runs {@link #testMethod} on every static method of class {@code c} that has
+   * at least {@code minimalVisibility}, including those "inherited" from
+   * superclasses of the same package.
+   */
+  public void testStaticMethods(Class<?> c, Visibility minimalVisibility) {
+    for (Method method : minimalVisibility.getStaticMethods(c)) {
+      if (!isIgnored(method)) {
         testMethod(null, method);
       }
     }
   }
 
   /**
-   * Runs {@link #testMethod} on every public instance method of
-   * {@code instance}.
+   * Runs {@link #testMethod} on every public static method of class {@code c},
+   * including those "inherited" from superclasses of the same package.
    */
-  public void testAllPublicInstanceMethods(Object instance) throws Exception {
-    Class<?> c = instance.getClass();
-    for (Method method : c.getDeclaredMethods()) {
-      if (isPublic(method) && !isStatic(method) && !isIgnored(method)) {
-        testMethod(instance, method);
+  public void testAllPublicStaticMethods(Class<?> c) {
+    testStaticMethods(c, Visibility.PUBLIC);
+  }
+
+  /**
+   * Runs {@link #testMethod} on every instance method of the class of
+   * {@code instance} with at least {@code minimalVisibility}, including those
+   * inherited from superclasses of the same package.
+   */
+  public void testInstanceMethods(Object instance, Visibility minimalVisibility) {
+    for (Method method : getInstanceMethodsToTest(instance.getClass(), minimalVisibility)) {
+      testMethod(instance, method);
+    }
+  }
+
+  ImmutableList<Method> getInstanceMethodsToTest(Class<?> c, Visibility minimalVisibility) {
+    ImmutableList.Builder<Method> builder = ImmutableList.builder();
+    for (Method method : minimalVisibility.getInstanceMethods(c)) {
+      if (!isIgnored(method)) {
+        builder.add(method);
       }
     }
+    return builder.build();
+  }
+
+  /**
+   * Runs {@link #testMethod} on every public instance method of the class of
+   * {@code instance}, including those inherited from superclasses of the same
+   * package.
+   */
+  public void testAllPublicInstanceMethods(Object instance) {
+    testInstanceMethods(instance, Visibility.PUBLIC);
   }
 
   /**
@@ -166,7 +172,7 @@ public final class NullPointerTester {
    * @param instance the instance to invoke {@code method} on, or null if
    *     {@code method} is static
    */
-  public void testMethod(Object instance, Method method) throws Exception {
+  public void testMethod(@Nullable Object instance, Method method) {
     Class<?>[] types = method.getParameterTypes();
     for (int nullIndex = 0; nullIndex < types.length; nullIndex++) {
       testMethodParameter(instance, method, nullIndex);
@@ -178,7 +184,11 @@ public final class NullPointerTester {
    * {@link UnsupportedOperationException} whenever <i>any</i> of its
    * non-{@link Nullable} parameters are null.
    */
-  public void testConstructor(Constructor<?> ctor) throws Exception {
+  public void testConstructor(Constructor<?> ctor) {
+    Class<?> declaringClass = ctor.getDeclaringClass();
+    checkArgument(Modifier.isStatic(declaringClass.getModifiers())
+        || declaringClass.getEnclosingClass() == null,
+        "Cannot test constructor of non-static inner class: %s", declaringClass.getName());
     Class<?>[] types = ctor.getParameterTypes();
     for (int nullIndex = 0; nullIndex < types.length; nullIndex++) {
       testConstructorParameter(ctor, nullIndex);
@@ -194,25 +204,10 @@ public final class NullPointerTester {
    * @param instance the instance to invoke {@code method} on, or null if
    *     {@code method} is static
    */
-  public void testMethodParameter(Object instance, final Method method,
-      int paramIndex) throws Exception {
+  public void testMethodParameter(
+      @Nullable final Object instance, final Method method, int paramIndex) {
     method.setAccessible(true);
-    testFunctorParameter(instance, new Functor() {
-        @Override public Class<?>[] getParameterTypes() {
-          return method.getParameterTypes();
-        }
-        @Override public Annotation[][] getParameterAnnotations() {
-          return method.getParameterAnnotations();
-        }
-        @Override public void invoke(Object instance, Object[] params)
-            throws InvocationTargetException, IllegalAccessException {
-          method.invoke(instance, params);
-        }
-        @Override public String toString() {
-          return method.getName()
-              + "(" + Arrays.toString(getParameterTypes()) + ")";
-        }
-      }, paramIndex, method.getDeclaringClass());
+    testParameter(instance, invokable(instance, method), paramIndex, method.getDeclaringClass());
   }
 
   /**
@@ -221,101 +216,297 @@ public final class NullPointerTester {
    * paramIndex} is null.  If this parameter is marked {@link Nullable}, this
    * method does nothing.
    */
-  public void testConstructorParameter(final Constructor<?> ctor,
-      int paramIndex) throws Exception {
+  public void testConstructorParameter(Constructor<?> ctor, int paramIndex) {
     ctor.setAccessible(true);
-    testFunctorParameter(null, new Functor() {
-        @Override public Class<?>[] getParameterTypes() {
-          return ctor.getParameterTypes();
+    testParameter(null, Invokable.from(ctor), paramIndex, ctor.getDeclaringClass());
+  }
+
+  /** Visibility of any method or constructor. */
+  public enum Visibility {
+
+    PACKAGE {
+      @Override boolean isVisible(int modifiers) {
+        return !Modifier.isPrivate(modifiers);
+      }
+    },
+
+    PROTECTED {
+      @Override boolean isVisible(int modifiers) {
+        return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers);
+      }
+    },
+
+    PUBLIC {
+      @Override boolean isVisible(int modifiers) {
+        return Modifier.isPublic(modifiers);
+      }
+    };
+
+    abstract boolean isVisible(int modifiers);
+
+    /**
+     * Returns {@code true} if {@code member} is visible under {@code this}
+     * visibility.
+     */
+    final boolean isVisible(Member member) {
+      return isVisible(member.getModifiers());
+    }
+
+    final Iterable<Method> getStaticMethods(Class<?> cls) {
+      ImmutableList.Builder<Method> builder = ImmutableList.builder();
+      for (Method method : getVisibleMethods(cls)) {
+        if (Invokable.from(method).isStatic()) {
+          builder.add(method);
         }
-        @Override public Annotation[][] getParameterAnnotations() {
-          return ctor.getParameterAnnotations();
+      }
+      return builder.build();
+    }
+
+    final Iterable<Method> getInstanceMethods(Class<?> cls) {
+      ConcurrentMap<Signature, Method> map = Maps.newConcurrentMap();
+      for (Method method : getVisibleMethods(cls)) {
+        if (!Invokable.from(method).isStatic()) {
+          map.putIfAbsent(new Signature(method), method);
         }
-        @Override public void invoke(Object instance, Object[] params)
-            throws InvocationTargetException, IllegalAccessException,
-            InstantiationException {
-          ctor.newInstance(params);
+      }
+      return map.values();
+    }
+
+    private ImmutableList<Method> getVisibleMethods(Class<?> cls) {
+      // Don't use cls.getPackage() because it does nasty things like reading
+      // a file.
+      String visiblePackage = Reflection.getPackageName(cls);
+      ImmutableList.Builder<Method> builder = ImmutableList.builder();
+      for (Class<?> type : TypeToken.of(cls).getTypes().classes().rawTypes()) {
+        if (!Reflection.getPackageName(type).equals(visiblePackage)) {
+          break;
         }
-      }, paramIndex, ctor.getDeclaringClass());
+        for (Method method : type.getDeclaredMethods()) {
+          if (!method.isSynthetic() && isVisible(method)) {
+            builder.add(method);
+          }
+        }
+      }
+      return builder.build();
+    }
+  }
+
+  // TODO(benyu): Use labs/reflect/Signature if it graduates.
+  private static final class Signature {
+    private final String name;
+    private final ImmutableList<Class<?>> parameterTypes;
+
+    Signature(Method method) {
+      this(method.getName(), ImmutableList.copyOf(method.getParameterTypes()));
+    }
+
+    Signature(String name, ImmutableList<Class<?>> parameterTypes) {
+      this.name = name;
+      this.parameterTypes = parameterTypes;
+    }
+
+    @Override public boolean equals(Object obj) {
+      if (obj instanceof Signature) {
+        Signature that = (Signature) obj;
+        return name.equals(that.name)
+            && parameterTypes.equals(that.parameterTypes);
+      }
+      return false;
+    }
+
+    @Override public int hashCode() {
+      return Objects.hashCode(name, parameterTypes);
+    }
   }
 
   /**
-   * Verifies that {@code func} produces a {@link NullPointerException} or
+   * Verifies that {@code invokable} produces a {@link NullPointerException} or
    * {@link UnsupportedOperationException} when the parameter in position {@code
    * paramIndex} is null.  If this parameter is marked {@link Nullable}, this
    * method does nothing.
    *
-   * @param instance the instance to invoke {@code func} on, or null if
-   *     {@code func} is static
+   * @param instance the instance to invoke {@code invokable} on, or null if
+   *     {@code invokable} is static
    */
-  private void testFunctorParameter(Object instance, Functor func,
-      int paramIndex, Class<?> testedClass) throws Exception {
-    if (parameterIsPrimitiveOrNullable(func, paramIndex)) {
+  private void testParameter(Object instance, Invokable<?, ?> invokable,
+      int paramIndex, Class<?> testedClass) {
+    if (isPrimitiveOrNullable(invokable.getParameters().get(paramIndex))) {
       return; // there's nothing to test
     }
-    Object[] params = buildParamList(func, paramIndex);
+    Object[] params = buildParamList(invokable, paramIndex);
     try {
-      func.invoke(instance, params);
-      Assert.fail("No exception thrown from " + func +
-          Arrays.toString(params) + " for " + testedClass);
+      @SuppressWarnings("unchecked") // We'll get a runtime exception if the type is wrong.
+      Invokable<Object, ?> unsafe = (Invokable<Object, ?>) invokable;
+      unsafe.invoke(instance, params);
+      Assert.fail("No exception thrown for parameter at index " + paramIndex
+          + " from " + invokable + Arrays.toString(params) + " for " + testedClass);
     } catch (InvocationTargetException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof NullPointerException ||
-          cause instanceof UnsupportedOperationException) {
+      if (policy.isExpectedType(cause)) {
         return;
       }
       AssertionFailedError error = new AssertionFailedError(
-          "wrong exception thrown from " + func + ": " + cause);
+          "wrong exception thrown from " + invokable + ": " + cause);
       error.initCause(cause);
       throw error;
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
     }
   }
 
-  private static boolean parameterIsPrimitiveOrNullable(
-      Functor func, int paramIndex) {
-    if (func.getParameterTypes()[paramIndex].isPrimitive()) {
-      return true;
+  private static String bestAvailableString(
+      TypeToken type, int position, Invokable<?, ?> invokable) {
+    checkNotNull(type);
+    try {
+      return type.toString();
+    } catch (NullPointerException androidBug6636) {
+      // http://stackoverflow.com/a/8169250/28465
+      return String.format("unknown (arg %s of %s)", position, invokable);
     }
-    Annotation[] annotations = func.getParameterAnnotations()[paramIndex];
-    for (Annotation annotation : annotations) {
-      if (annotation instanceof Nullable) {
-        return true;
-      }
-    }
-    return false;
   }
 
-  private Object[] buildParamList(Functor func, int indexOfParamToSetToNull) {
-    Class<?>[] types = func.getParameterTypes();
-    Object[] params = new Object[types.length];
+  private Object[] buildParamList(Invokable<?, ?> invokable, int indexOfParamToSetToNull) {
+    ImmutableList<Parameter> params = invokable.getParameters();
+    Object[] args = new Object[params.size()];
 
-    for (int i = 0; i < types.length; i++) {
+    for (int i = 0; i < args.length; i++) {
+      Parameter param = params.get(i);
       if (i != indexOfParamToSetToNull) {
-        params[i] = defaults.get(types[i]);
-        if (!parameterIsPrimitiveOrNullable(func, i)) {
-          Assert.assertTrue("No default value found for " + types[i].getName(),
-              params[i] != null);
-        }
+        args[i] = getDefaultValue(param.getType());
+        Assert.assertTrue(
+            "Can't find or create a sample instance for type '"
+                + bestAvailableString(param.getType(), i, invokable)
+                + "'; please provide one using NullPointerTester.setDefault()",
+            args[i] != null || isNullable(param));
       }
     }
-    return params;
+    return args;
   }
 
-  private interface Functor {
-    Class<?>[] getParameterTypes();
-    Annotation[][] getParameterAnnotations();
-    void invoke(Object o, Object[] params) throws Exception;
+  private <T> T getDefaultValue(TypeToken<T> type) {
+    // We assume that all defaults are generics-safe, even if they aren't,
+    // we take the risk.
+    @SuppressWarnings("unchecked")
+    T defaultValue = (T) defaults.getInstance(type.getRawType());
+    if (defaultValue != null) {
+      return defaultValue;
+    }
+    @SuppressWarnings("unchecked") // All arbitrary instances are generics-safe
+    T arbitrary = (T) ArbitraryInstances.get(type.getRawType());
+    if (arbitrary != null) {
+      return arbitrary;
+    }
+    if (type.getRawType() == Class.class) {
+      // If parameter is Class<? extends Foo>, we return Foo.class
+      @SuppressWarnings("unchecked")
+      T defaultClass = (T) getFirstTypeParameter(type.getType()).getRawType();
+      return defaultClass;
+    }
+    if (type.getRawType() == TypeToken.class) {
+      // If parameter is TypeToken<? extends Foo>, we return TypeToken<Foo>.
+      @SuppressWarnings("unchecked")
+      T defaultType = (T) getFirstTypeParameter(type.getType());
+      return defaultType;
+    }
+    if (type.getRawType() == Converter.class) {
+      TypeToken<?> convertFromType = type.resolveType(
+          Converter.class.getTypeParameters()[0]);
+      TypeToken<?> convertToType = type.resolveType(
+          Converter.class.getTypeParameters()[1]);
+      @SuppressWarnings("unchecked") // returns default for both F and T
+      T defaultConverter = (T) defaultConverter(convertFromType, convertToType);
+      return defaultConverter;
+    }
+    if (type.getRawType().isInterface()) {
+      return newDefaultReturningProxy(type);
+    }
+    return null;
   }
 
-  private static boolean isPublic(Member member) {
-    return Modifier.isPublic(member.getModifiers());
+  private <F, T> Converter<F, T> defaultConverter(
+      final TypeToken<F> convertFromType, final TypeToken<T> convertToType) {
+    return new Converter<F, T>() {
+      @Override protected T doForward(F a) {
+        return doConvert(convertToType);
+      }
+      @Override protected F doBackward(T b) {
+        return doConvert(convertFromType);
+      }
+
+      private /*static*/ <S> S doConvert(TypeToken<S> type) {
+        return checkNotNull(getDefaultValue(type));
+      }
+    };
   }
 
-  private static boolean isStatic(Member member) {
-    return Modifier.isStatic(member.getModifiers());
+  private static TypeToken<?> getFirstTypeParameter(Type type) {
+    if (type instanceof ParameterizedType) {
+      return TypeToken.of(
+          ((ParameterizedType) type).getActualTypeArguments()[0]);
+    } else {
+      return TypeToken.of(Object.class);
+    }
+  }
+
+  private <T> T newDefaultReturningProxy(final TypeToken<T> type) {
+    return new DummyProxy() {
+      @Override <R> R dummyReturnValue(TypeToken<R> returnType) {
+        return getDefaultValue(returnType);
+      }
+    }.newProxy(type);
+  }
+
+  private static Invokable<?, ?> invokable(@Nullable Object instance, Method method) {
+    if (instance == null) {
+      return Invokable.from(method);
+    } else {
+      return TypeToken.of(instance.getClass()).method(method);
+    }
+  }
+
+  static boolean isPrimitiveOrNullable(Parameter param) {
+    return param.getType().getRawType().isPrimitive() || isNullable(param);
+  }
+
+  private static boolean isNullable(Parameter param) {
+    return param.isAnnotationPresent(Nullable.class);
   }
 
   private boolean isIgnored(Member member) {
     return member.isSynthetic() || ignoredMembers.contains(member);
+  }
+
+  /**
+   * Strategy for exception type matching used by {@link NullPointerTester}.
+   */
+  private enum ExceptionTypePolicy {
+
+    /**
+     * Exceptions should be {@link NullPointerException} or
+     * {@link UnsupportedOperationException}.
+     */
+    NPE_OR_UOE() {
+      @Override
+      public boolean isExpectedType(Throwable cause) {
+        return cause instanceof NullPointerException
+            || cause instanceof UnsupportedOperationException;
+      }
+    },
+
+    /**
+     * Exceptions should be {@link NullPointerException},
+     * {@link IllegalArgumentException}, or
+     * {@link UnsupportedOperationException}.
+     */
+    NPE_IAE_OR_UOE() {
+      @Override
+      public boolean isExpectedType(Throwable cause) {
+        return cause instanceof NullPointerException
+            || cause instanceof IllegalArgumentException
+            || cause instanceof UnsupportedOperationException;
+      }
+    };
+
+    public abstract boolean isExpectedType(Throwable cause);
   }
 }

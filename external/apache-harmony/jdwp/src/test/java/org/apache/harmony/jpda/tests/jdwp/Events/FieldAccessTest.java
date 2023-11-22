@@ -30,6 +30,7 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.TaggedObject;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -77,6 +78,10 @@ public class FieldAccessTest extends JDWPEventTestCase {
                 parsedEvents[0].getEventKind(),
                 JDWPConstants.EventKind.getName(JDWPConstants.EventKind.FIELD_ACCESS),
                 JDWPConstants.EventKind.getName(parsedEvents[0].getEventKind()));
+
+        long eventThreadID = ((EventThread) parsedEvents[0]).getThreadID();
+        checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+                JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
 
         TaggedObject accessedField =((ParsedEvent.Event_FIELD_ACCESS)parsedEvents[0]).getObject();
 

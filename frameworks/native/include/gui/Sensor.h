@@ -67,12 +67,14 @@ public:
     int32_t getMinDelay() const;
     nsecs_t getMinDelayNs() const;
     int32_t getVersion() const;
-    int32_t getFifoReservedEventCount() const;
-    int32_t getFifoMaxEventCount() const;
+    uint32_t getFifoReservedEventCount() const;
+    uint32_t getFifoMaxEventCount() const;
     const String8& getStringType() const;
     const String8& getRequiredPermission() const;
+    bool isRequiredPermissionRuntime() const;
+    int32_t getRequiredAppOp() const;
     int32_t getMaxDelay() const;
-    int32_t getFlags() const;
+    uint32_t getFlags() const;
     bool isWakeUpSensor() const;
     int32_t getReportingMode() const;
 
@@ -93,12 +95,14 @@ private:
     float   mPower;
     int32_t mMinDelay;
     int32_t mVersion;
-    int32_t mFifoReservedEventCount;
-    int32_t mFifoMaxEventCount;
+    uint32_t mFifoReservedEventCount;
+    uint32_t mFifoMaxEventCount;
     String8 mStringType;
     String8 mRequiredPermission;
+    bool mRequiredPermissionRuntime = false;
+    int32_t mRequiredAppOp;
     int32_t mMaxDelay;
-    int32_t mFlags;
+    uint32_t mFlags;
     static void flattenString8(void*& buffer, size_t& size, const String8& string8);
     static bool unflattenString8(void const*& buffer, size_t& size, String8& outputString8);
 };

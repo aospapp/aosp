@@ -387,9 +387,9 @@ public class DialerFilterTest extends ActivityInstrumentationTestCase2<DialerFil
         final MockDialerFilter dialerFilter = new MockDialerFilter(mActivity);
 
         final EditText text1 = new EditText(mActivity);
-        text1.setId(com.android.internal.R.id.hint);
+        text1.setId(android.R.id.hint);
         final EditText text2 = new EditText(mActivity);
-        text2.setId(com.android.internal.R.id.primary);
+        text2.setId(android.R.id.primary);
 
         dialerFilter.addView(text1, new RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,

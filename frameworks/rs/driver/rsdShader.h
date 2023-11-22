@@ -17,7 +17,7 @@
 #ifndef ANDROID_RSD_SHADER_H
 #define ANDROID_RSD_SHADER_H
 
-#include <utils/String8.h>
+#include <string>
 
 // ---------------------------------------------------------------------------
 namespace android {
@@ -54,11 +54,11 @@ public:
 
     uint32_t getAttribCount() const {return mAttribCount;}
     uint32_t getUniformCount() const {return mUniformCount;}
-    const android::String8 & getAttribName(uint32_t i) const {return mAttribNames[i];}
-    const android::String8 & getUniformName(uint32_t i) const {return mUniformNames[i];}
+    const std::string & getAttribName(uint32_t i) const {return mAttribNames[i];}
+    const std::string & getUniformName(uint32_t i) const {return mUniformNames[i];}
     uint32_t getUniformArraySize(uint32_t i) const {return mUniformArraySizes[i];}
 
-    android::String8 getGLSLInputString() const;
+    std::string getGLSLInputString() const;
 
     bool isValid() const {return mIsValid;}
     void forceDirty() const {mDirty = true;}
@@ -91,7 +91,7 @@ protected:
     void setupUserConstants(const android::renderscript::Context *rsc,
                             RsdShaderCache *sc, bool isFragment);
     void initAddUserElement(const android::renderscript::Element *e,
-                            android::String8 *names, uint32_t *arrayLengths,
+                            std::string *names, uint32_t *arrayLengths,
                             uint32_t *count, const char *prefix);
     void setupTextures(const android::renderscript::Context *rsc, RsdShaderCache *sc);
     void setupSampler(const android::renderscript::Context *rsc,
@@ -104,16 +104,16 @@ protected:
     void initAttribAndUniformArray();
 
     mutable bool mDirty;
-    android::String8 mShader;
-    android::String8 mUserShader;
+    std::string mShader;
+    std::string mUserShader;
     uint32_t mType;
 
     uint32_t mTextureCount;
     StateBasedKey *mCurrentState;
     uint32_t mAttribCount;
     uint32_t mUniformCount;
-    android::String8 *mAttribNames;
-    android::String8 *mUniformNames;
+    std::string *mAttribNames;
+    std::string *mUniformNames;
     uint32_t *mUniformArraySizes;
 
     android::Vector<android::String8> mTextureNames;

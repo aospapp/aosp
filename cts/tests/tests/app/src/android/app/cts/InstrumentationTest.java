@@ -540,7 +540,6 @@ public class InstrumentationTest extends InstrumentationTestCase {
             public void openPanel(int featureId, KeyEvent event) {
             }
 
-            @Override
             public void alwaysReadCloseOnTouchAttr() {
             }
 

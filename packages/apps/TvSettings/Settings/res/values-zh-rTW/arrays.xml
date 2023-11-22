@@ -16,34 +16,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-  <string-array name="wifi_status">
-    <item msgid="6120109946893037801"></item>
-    <item msgid="5210943529756743284">"掃描中…"</item>
-    <item msgid="7895190850044173217">"連線中…"</item>
-    <item msgid="7589307602609991992">"驗證中…"</item>
-    <item msgid="7439429469102224627">"正在取得 IP 位址…"</item>
-    <item msgid="7079865889809010740">"已連線"</item>
-    <item msgid="8018480471737227053">"已暫停"</item>
-    <item msgid="9110004131358099530">"正在中斷連線…"</item>
-    <item msgid="2366780999250675263">"已中斷連線"</item>
-    <item msgid="944848437579938960">"失敗"</item>
-    <item msgid="6501589509838730555">"已封鎖"</item>
-    <item msgid="1877062378387320625">"正在暫時避開狀況不穩定的連線"</item>
-  </string-array>
-  <string-array name="wifi_status_with_ssid">
-    <item msgid="8339598300796362026"></item>
-    <item msgid="4703591207522320165">"掃描中…"</item>
-    <item msgid="7351421574703844779">"正在連線至 <xliff:g id="NETWORK_NAME">%1$s</xliff:g>…"</item>
-    <item msgid="874502389678205660">"正在取得 <xliff:g id="NETWORK_NAME">%1$s</xliff:g> 的授權…"</item>
-    <item msgid="7964187733783647040">"正在從 <xliff:g id="NETWORK_NAME">%1$s</xliff:g> 取得 IP 位址…"</item>
-    <item msgid="4990222034464002805">"已連線到 <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</item>
-    <item msgid="5347651564202902346">"已暫停"</item>
-    <item msgid="4812777464932254477">"正在中斷 <xliff:g id="NETWORK_NAME">%1$s</xliff:g> 的連線…"</item>
-    <item msgid="4985746712759777559">"已中斷連線"</item>
-    <item msgid="6482743140170037710">"失敗"</item>
-    <item msgid="7486075980265993798">"已封鎖"</item>
-    <item msgid="6842213039083339420">"正在暫時避開狀況不穩定的連線"</item>
-  </string-array>
   <string-array name="sleep_timeout_entries">
     <item msgid="1213527366819650274">"5 分鐘"</item>
     <item msgid="3695675702735844029">"10 分鐘"</item>
@@ -58,15 +30,6 @@
     <item msgid="4152882798140628647">"6 小時"</item>
     <item msgid="412984226950404956">"12 小時"</item>
     <item msgid="2178434662173258997">"永不"</item>
-  </string-array>
-  <string-array name="debug_hw_overdraw_entries">
-    <item msgid="6733816499120044964">"關閉"</item>
-    <item msgid="8974325215258674273">"顯示透支區域"</item>
-    <item msgid="5877416885028854162">"顯示透支計數器"</item>
-  </string-array>
-  <string-array name="hdmi_optimization_entries">
-    <item msgid="3490064566563023094">"最佳解析度"</item>
-    <item msgid="8319005042985738916">"最佳畫面速率"</item>
   </string-array>
   <string-array name="captioning_typeface_selector_titles">
     <item msgid="4410581208185456276">"預設"</item>

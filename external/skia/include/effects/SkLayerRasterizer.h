@@ -64,42 +64,20 @@ public:
         SkDeque* fLayers;
     };
 
-#ifdef SK_SUPPORT_LEGACY_LAYERRASTERIZER_API
-    void addLayer(const SkPaint& paint) {
-        this->addLayer(paint, 0, 0);
-    }
-
-    /**    Add a new layer (above any previous layers) to the rasterizer.
-        The layer will extract those fields that affect the mask from
-        the specified paint, but will not retain a reference to the paint
-        object itself, so it may be reused without danger of side-effects.
-    */
-    void addLayer(const SkPaint& paint, SkScalar dx, SkScalar dy);
-#endif
-
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkLayerRasterizer)
 
 protected:
+    SkLayerRasterizer();
     SkLayerRasterizer(SkDeque* layers);
-    SkLayerRasterizer(SkReadBuffer&);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
+    void flatten(SkWriteBuffer&) const override;
 
     // override from SkRasterizer
     virtual bool onRasterize(const SkPath& path, const SkMatrix& matrix,
                              const SkIRect* clipBounds,
-                             SkMask* mask, SkMask::CreateMode mode) const;
-
-#ifdef SK_SUPPORT_LEGACY_LAYERRASTERIZER_API
-public:
-#endif
-    SkLayerRasterizer();
+                             SkMask* mask, SkMask::CreateMode mode) const override;
 
 private:
-#ifdef SK_SUPPORT_LEGACY_LAYERRASTERIZER_API
-    SkDeque* fLayers;
-#else
     const SkDeque* const fLayers;
-#endif
 
     static SkDeque* ReadLayers(SkReadBuffer& buffer);
 

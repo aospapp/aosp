@@ -20,8 +20,10 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class CharsetEncoderTest extends junit.framework.TestCase {
@@ -160,5 +162,72 @@ public class CharsetEncoderTest extends junit.framework.TestCase {
         cr = e.flush(bb);
         assertEquals(CoderResult.UNDERFLOW, cr);
         assertEquals(8, bb.position());
+    }
+
+    // Discards all input. Outputs a single byte 'X' on flush.
+    private static final class MockCharset extends Charset {
+        static final Charset INSTANCE = new MockCharset();
+
+        private MockCharset() {
+            super("MockCharset", new String[0]);
+        }
+
+        public boolean contains(Charset charset) {
+            return false;
+        }
+
+        public CharsetEncoder newEncoder() {
+            return new CharsetEncoder(INSTANCE, 1.f, 1.f) {
+                protected CoderResult encodeLoop(CharBuffer in, ByteBuffer out) {
+                    in.position(in.limit());
+                    return CoderResult.UNDERFLOW;
+                }
+
+                protected CoderResult implFlush(ByteBuffer out) {
+                    out.put((byte) 'X');
+                    return CoderResult.UNDERFLOW;
+                }
+            };
+        }
+
+        public CharsetDecoder newDecoder() {
+            return new CharsetDecoder(INSTANCE, 1.f, 1.f) {
+                protected CoderResult decodeLoop(ByteBuffer in, CharBuffer out) {
+                    in.position(in.limit());
+                    return CoderResult.UNDERFLOW;
+                }
+            };
+        }
+    }
+
+    // Repeated calls to flush() should not result in repeated calls to implFlush().
+    public void testFlushNotCallingImplFlushRepeatedly() {
+        CharsetEncoder e = MockCharset.INSTANCE.newEncoder();
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        CoderResult cr = e.encode(CharBuffer.allocate(0), bb, true);
+        assertEquals(CoderResult.UNDERFLOW, cr);
+        cr = e.flush(bb);
+        assertEquals(CoderResult.UNDERFLOW, cr);
+        cr = e.flush(bb);
+        assertEquals(CoderResult.UNDERFLOW, cr);
+        assertEquals(1, bb.position());
+        assertEquals((byte) 'X', bb.get(0));
+        assertEquals(0x00, bb.get(1));
+        assertEquals(0x00, bb.get(2));
+        assertEquals(0x00, bb.get(3));
+    }
+
+    // http://b/19185235
+    public void testFlushWithIncompleteInput() {
+        CharsetEncoder encoder = StandardCharsets.UTF_8.newEncoder();
+        ByteBuffer output = ByteBuffer.allocate(10);
+        CoderResult result = encoder.encode(CharBuffer.wrap("\ud800"), output,
+                true /* endOfInput */);
+        assertTrue(result.isUnderflow());
+
+        result = encoder.flush(output);
+        assertTrue(result.isMalformed());
+        assertEquals(1, result.length());
+        assertEquals(0, output.position());
     }
 }

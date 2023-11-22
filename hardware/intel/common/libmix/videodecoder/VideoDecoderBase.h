@@ -42,6 +42,24 @@ typedef unsigned int Display;
 // POC: 4P,  8P,  10P,  6B and mNextOutputPOC = 5
 #define OUTPUT_WINDOW_SIZE 8
 
+/*
+ * ITU-R BT.601, BT.709  transfer matrices from VA 2.0
+ * Video Color Field definitions Design Spec(Version 0.03).
+ * [R', G', B'] values are in the range [0, 1], Y' is in the range [0,1]
+ * and [Pb, Pr] components are in the range [-0.5, 0.5].
+*/
+static float s601[9] = {
+    1, -0.000001, 1.402,
+    1, -0.344136, -0.714136,
+    1, 1.772, 0
+};
+
+static float s709[9] = {
+    1, 0, 1.5748,
+    1, -0.187324, -0.468124,
+    1, 1.8556, 0
+};
+
 class VideoDecoderBase : public IVideoDecoder {
 public:
     VideoDecoderBase(const char *mimeType, _vbp_parser_type type);
@@ -54,10 +72,11 @@ public:
     virtual void flush(void);
     virtual void freeSurfaceBuffers(void);
     virtual const VideoRenderBuffer* getOutput(bool draining = false, VideoErrorBuffer *output_buf = NULL);
-    virtual Decode_Status signalRenderDone(void * graphichandler);
+    virtual Decode_Status signalRenderDone(void * graphichandler, bool isNew = false);
     virtual const VideoFormatInfo* getFormatInfo(void);
     virtual bool checkBufferAvail();
     virtual void enableErrorReport(bool enabled = false) {mErrReportEnabled = enabled; };
+    virtual int getOutputQueueLength(void);
 
 protected:
     // each acquireSurfaceBuffer must be followed by a corresponding outputSurfaceBuffer or releaseSurfaceBuffer.
@@ -90,6 +109,7 @@ protected:
     virtual Decode_Status getCodecSpecificConfigs(VAProfile profile, VAConfigID *config);
 #endif
     virtual Decode_Status checkHardwareCapability();
+    Decode_Status createSurfaceFromHandle(int32_t index);
 private:
     Decode_Status mapSurface(void);
     void initSurfaceBuffer(bool reset);
@@ -101,6 +121,7 @@ private:
 
 protected:
     bool mLowDelay; // when true, decoded frame is immediately output for rendering
+    bool mStoreMetaData; // when true, meta data mode is enabled for adaptive playback
     VideoFormatInfo mVideoFormatInfo;
     Display *mDisplay;
     VADisplay mVADisplay;
@@ -122,6 +143,7 @@ protected:
 
     int32_t mOutputWindowSize; // indicate limit of number of outstanding frames for output
     int32_t mRotationDegrees;
+    pthread_mutex_t mFormatLock;
 
     bool mErrReportEnabled;
     bool mWiDiOn;
@@ -173,6 +195,7 @@ private:
     void *mSignalBufferPre[MAX_GRAPHIC_BUFFER_NUM];
     uint32 mSignalBufferSize;
     bool mUseGEN;
+    uint32_t mMetaDataBuffersNum;
 protected:
     void ManageReference(bool enable) {mManageReference = enable;}
     void setOutputMethod(OUTPUT_METHOD method) {mOutputMethod = method;}
@@ -181,6 +204,7 @@ protected:
     void enableLowDelayMode(bool enable) {mLowDelay = enable;}
     void setRotationDegrees(int32_t rotationDegrees);
     void setRenderRect(void);
+    void setColorSpaceInfo(int32_t colorMatrix, int32_t videoRange);
 };
 
 

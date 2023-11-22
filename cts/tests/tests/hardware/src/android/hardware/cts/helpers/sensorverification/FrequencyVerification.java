@@ -128,9 +128,9 @@ public class FrequencyVerification extends AbstractSensorVerification {
         stats.addValue(SensorStats.FREQUENCY_KEY, measuredFrequencyHz);
         stats.addValue(PASSED_KEY, !failed);
         String resultString = String.format(
-                "Requested \"%s\" at %.2fHz (expecting between %.2fHz and %.2fHz, measured %.2fHz)",
+                "Requested \"%s\" at %s (expecting between %.2fHz and %.2fHz, measured %.2fHz)",
                 environment.getSensor().getName(),
-                environment.getFrequencyHz(),
+                environment.getFrequencyString(),
                 mLowerThresholdHz,
                 mUpperThresholdHz,
                 measuredFrequencyHz);

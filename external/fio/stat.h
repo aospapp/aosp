@@ -12,7 +12,7 @@ struct group_run_stats {
 	uint32_t unit_base;
 	uint32_t groupid;
 	uint32_t unified_rw_rep;
-};
+} __attribute__((packed));
 
 /*
  * How many depth levels to log
@@ -158,8 +158,11 @@ struct thread_stat {
 	uint32_t io_u_lat_u[FIO_IO_U_LAT_U_NR];
 	uint32_t io_u_lat_m[FIO_IO_U_LAT_M_NR];
 	uint32_t io_u_plat[DDIR_RWDIR_CNT][FIO_IO_U_PLAT_NR];
+	uint32_t pad;
+
 	uint64_t total_io_u[3];
 	uint64_t short_io_u[3];
+	uint64_t drop_io_u[3];
 	uint64_t total_submit;
 	uint64_t total_complete;
 
@@ -170,7 +173,10 @@ struct thread_stat {
 	/*
 	 * IO Error related stats
 	 */
-	uint16_t continue_on_error;
+	union {
+		uint16_t continue_on_error;
+		uint64_t pad2;
+	};
 	uint64_t total_err_count;
 	uint32_t first_error;
 
@@ -181,14 +187,17 @@ struct thread_stat {
 	uint64_t latency_target;
 	fio_fp64_t latency_percentile;
 	uint64_t latency_window;
-};
+} __attribute__((packed));
 
 struct jobs_eta {
 	uint32_t nr_running;
 	uint32_t nr_ramp;
+
 	uint32_t nr_pending;
 	uint32_t nr_setting_up;
+
 	uint32_t files_open;
+
 	uint32_t m_rate[DDIR_RWDIR_CNT], t_rate[DDIR_RWDIR_CNT];
 	uint32_t m_iops[DDIR_RWDIR_CNT], t_iops[DDIR_RWDIR_CNT];
 	uint32_t rate[DDIR_RWDIR_CNT];
@@ -203,7 +212,11 @@ struct jobs_eta {
 	 */
 	uint32_t nr_threads;
 	uint8_t run_str[];
-};
+} __attribute__((packed));
+
+extern struct fio_mutex *stat_mutex;
+
+extern struct jobs_eta *get_jobs_eta(int force, size_t *size);
 
 extern void stat_init(void);
 extern void stat_exit(void);
@@ -213,6 +226,8 @@ extern void show_group_stats(struct group_run_stats *rs);
 extern int calc_thread_status(struct jobs_eta *je, int force);
 extern void display_thread_status(struct jobs_eta *je);
 extern void show_run_stats(void);
+extern void __show_run_stats(void);
+extern void __show_running_run_stats(void);
 extern void show_running_run_stats(void);
 extern void check_for_running_stats(void);
 extern void sum_thread_stats(struct thread_stat *dst, struct thread_stat *src, int nr);
@@ -240,5 +255,10 @@ static inline int usec_to_msec(unsigned long *min, unsigned long *max,
 
 	return 1;
 }
+/*
+ * Worst level condensing would be 1:5, so allow enough room for that
+ */
+#define __THREAD_RUNSTR_SZ(nr)	((nr) * 5)
+#define THREAD_RUNSTR_SZ	__THREAD_RUNSTR_SZ(thread_number)
 
 #endif

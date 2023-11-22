@@ -18,12 +18,11 @@ package com.squareup.okhttp.internal.http;
 
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
 import java.io.IOException;
-import java.net.CacheRequest;
 import okio.Sink;
-import okio.Source;
 
-interface Transport {
+public interface Transport {
   /**
    * The timeout to use while discarding a stream of input data. Since this is
    * used for connection reuse, this timeout should be significantly less than
@@ -31,23 +30,8 @@ interface Transport {
    */
   int DISCARD_STREAM_TIMEOUT_MILLIS = 100;
 
-  /**
-   * Returns an output stream where the request body can be written. The
-   * returned stream will of one of two types:
-   * <ul>
-   * <li><strong>Direct.</strong> Bytes are written to the socket and
-   * forgotten. This is most efficient, particularly for large request
-   * bodies. The returned stream may be buffered; the caller must call
-   * {@link #flushRequest} before reading the response.</li>
-   * <li><strong>Buffered.</strong> Bytes are written to an in memory
-   * buffer, and must be explicitly flushed with a call to {@link
-   * #writeRequestBody}. This allows HTTP authorization (401, 407)
-   * responses to be retransmitted transparently.</li>
-   * </ul>
-   */
-  // TODO: don't bother retransmitting the request body? It's quite a corner
-  // case and there's uncertainty whether Firefox or Chrome do this
-  Sink createRequestBody(Request request) throws IOException;
+  /** Returns an output stream where the request body can be streamed. */
+  Sink createRequestBody(Request request, long contentLength) throws IOException;
 
   /** This should update the HTTP engine's sentRequestMillis field. */
   void writeRequestHeaders(Request request) throws IOException;
@@ -58,17 +42,14 @@ interface Transport {
    */
   void writeRequestBody(RetryableSink requestBody) throws IOException;
 
-  /** Flush the request body to the underlying socket. */
-  void flushRequest() throws IOException;
+  /** Flush the request to the underlying socket. */
+  void finishRequest() throws IOException;
 
-  /** Read response headers and update the cookie manager. */
+  /** Read and return response headers. */
   Response.Builder readResponseHeaders() throws IOException;
 
-  /** Notify the transport that no response body will be read. */
-  void emptyTransferStream() throws IOException;
-
-  // TODO: make this the content stream?
-  Source getTransferStream(CacheRequest cacheRequest) throws IOException;
+  /** Returns a stream that reads the response body. */
+  ResponseBody openResponseBody(Response response) throws IOException;
 
   /**
    * Configures the response body to pool or close the socket connection when

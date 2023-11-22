@@ -284,14 +284,14 @@ static bool gpu_blur_path(GrContextFactory* factory, const SkPath& path,
         return false;
     }
 
-    GrTextureDesc desc;
+    GrSurfaceDesc desc;
     desc.fConfig = kSkia8888_GrPixelConfig;
-    desc.fFlags = kRenderTarget_GrTextureFlagBit;
+    desc.fFlags = kRenderTarget_GrSurfaceFlag;
     desc.fWidth = resultCount;
     desc.fHeight = 30;
     desc.fSampleCnt = 0;
 
-    SkAutoTUnref<GrTexture> texture(grContext->createUncachedTexture(desc, NULL, 0));
+    SkAutoTUnref<GrTexture> texture(grContext->createTexture(desc, false, NULL, 0));
     SkAutoTUnref<SkGpuDevice> device(SkNEW_ARGS(SkGpuDevice, (grContext, texture.get())));
     SkCanvas canvas(device.get());
 

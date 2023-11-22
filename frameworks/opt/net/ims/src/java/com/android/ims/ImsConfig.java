@@ -36,7 +36,6 @@ public class ImsConfig {
     private boolean DBG = true;
     private final IImsConfig miConfig;
     private Context mContext;
-    private static final String MODIFY_PHONE_STATE = android.Manifest.permission.MODIFY_PHONE_STATE;
 
     /**
     * Defines IMS service/capability feature constants.
@@ -216,9 +215,20 @@ public class ImsConfig {
          * Value is in Integer format.
          */
         public static final int EAB_SETTING_ENABLED = 24;
+        /**
+         * Wi-Fi calling roaming status.
+         * Value is in Integer format. ON (1), OFF(0).
+         */
+        public static final int VOICE_OVER_WIFI_ROAMING = 25;
+        /**
+         * Wi-Fi calling modem - WfcModeFeatureValueConstants.
+         * Value is in Integer format.
+         */
+        public static final int VOICE_OVER_WIFI_MODE = 26;
+
         // Expand the operator config items as needed here, need to change
         // PROVISIONED_CONFIG_END after that.
-        public static final int PROVISIONED_CONFIG_END = EAB_SETTING_ENABLED;
+        public static final int PROVISIONED_CONFIG_END = VOICE_OVER_WIFI_MODE;
 
         // Expand the operator config items as needed here.
     }
@@ -235,12 +245,33 @@ public class ImsConfig {
         public static final int UNSUPPORTED_CAUSE_DISABLED = 4;
     }
 
+    /**
+     * Defines IMS get operation values.
+     */
+    public static class OperationValuesConstants {
+        /**
+         * Values related to Video Quality
+         */
+        public static final int VIDEO_QUALITY_UNKNOWN = -1;
+        public static final int VIDEO_QUALITY_LOW = 0;
+        public static final int VIDEO_QUALITY_HIGH = 1;
+    }
+
    /**
     * Defines IMS feature value.
     */
     public static class FeatureValueConstants {
         public static final int OFF = 0;
         public static final int ON = 1;
+    }
+
+    /**
+     * Defines IMS feature value.
+     */
+    public static class WfcModeFeatureValueConstants {
+        public static final int WIFI_ONLY = 0;
+        public static final int CELLULAR_PREFERRED = 1;
+        public static final int WIFI_PREFERRED = 2;
     }
 
     public ImsConfig(IImsConfig iconfig, Context context) {
@@ -309,7 +340,6 @@ public class ImsConfig {
      */
     public int setProvisionedValue(int item, int value)
             throws ImsException {
-        mContext.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
         int ret = ImsConfig.OperationStatusConstants.UNKNOWN;
         if (DBG) {
             Rlog.d(TAG, "setProvisionedValue(): item = " + item +
@@ -342,7 +372,6 @@ public class ImsConfig {
      */
     public int setProvisionedStringValue(int item, String value)
             throws ImsException {
-        mContext.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
         int ret = ImsConfig.OperationStatusConstants.UNKNOWN;
         try {
             ret = miConfig.setProvisionedStringValue(item, value);
@@ -394,7 +423,6 @@ public class ImsConfig {
      */
     public void setFeatureValue(int feature, int network, int value,
             ImsConfigListener listener) throws ImsException {
-        mContext.enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
         if (DBG) {
             Rlog.d(TAG, "setFeatureValue: feature = " + feature + ", network =" + network +
                     ", value =" + value + ", listener =" + listener);
@@ -423,4 +451,39 @@ public class ImsConfig {
                     ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
         }
     }
+
+    /**
+     * Gets the value for IMS feature item for video call quality.
+     *
+     * @param listener, provided if caller needs to be notified for set result.
+     * @return void
+     *
+     * @throws ImsException if calling the IMS service results in an error.
+     */
+    public void getVideoQuality(ImsConfigListener listener) throws ImsException {
+        try {
+            miConfig.getVideoQuality(listener);
+        } catch (RemoteException e) {
+            throw new ImsException("getVideoQuality()", e,
+                    ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
+        }
+    }
+
+    /**
+     * Sets the value for IMS feature item video quality.
+     *
+     * @param quality, defines the value of video quality.
+     * @param listener, provided if caller needs to be notified for set result.
+     * @return void
+     *
+     * @throws ImsException if calling the IMS service results in an error.
+     */
+     public void setVideoQuality(int quality, ImsConfigListener listener) throws ImsException {
+        try {
+            miConfig.setVideoQuality(quality, listener);
+        } catch (RemoteException e) {
+            throw new ImsException("setVideoQuality()", e,
+                    ImsReasonInfo.CODE_LOCAL_SERVICE_UNAVAILABLE);
+        }
+     }
 }

@@ -17,8 +17,19 @@
 #ifndef SYSTEM_KEYMASTER_OPENSSL_UTILS_H_
 #define SYSTEM_KEYMASTER_OPENSSL_UTILS_H_
 
-#include <openssl/evp.h>
 #include <openssl/bn.h>
+#include <openssl/evp.h>
+#include <openssl/ec.h>
+#include <openssl/rsa.h>
+#include <openssl/x509.h>
+
+#include <UniquePtr.h>
+
+#include <hardware/keymaster_defs.h>
+
+namespace keymaster {
+
+struct KeymasterKeyBlob;
 
 struct EVP_PKEY_Delete {
     void operator()(EVP_PKEY* p) const { EVP_PKEY_free(p); }
@@ -26,6 +37,26 @@ struct EVP_PKEY_Delete {
 
 struct BIGNUM_Delete {
     void operator()(BIGNUM* p) const { BN_free(p); }
+};
+
+struct BN_CTX_Delete {
+    void operator()(BN_CTX* p) const { BN_CTX_free(p); }
+};
+
+struct PKCS8_PRIV_KEY_INFO_Delete {
+    void operator()(PKCS8_PRIV_KEY_INFO* p) const { PKCS8_PRIV_KEY_INFO_free(p); }
+};
+
+struct RSA_Delete {
+    void operator()(RSA* p) { RSA_free(p); }
+};
+
+struct EC_GROUP_Delete {
+    void operator()(EC_GROUP* p) { EC_GROUP_free(p); }
+};
+
+struct EC_Delete {
+    void operator()(EC_KEY* p) { EC_KEY_free(p); }
 };
 
 /**
@@ -38,10 +69,17 @@ inline void release_because_ownership_transferred(UniquePtr<T, Delete_T>& p) {
     T* val __attribute__((unused)) = p.release();
 }
 
-inline void convert_bn_to_blob(BIGNUM* bn, keymaster_blob_t* blob) {
-    blob->data_length = BN_num_bytes(bn);
-    blob->data = new uint8_t[blob->data_length];
-    BN_bn2bin(bn, const_cast<uint8_t*>(blob->data));
-}
+keymaster_error_t convert_pkcs8_blob_to_evp(const uint8_t* key_data, size_t key_length,
+                                            keymaster_algorithm_t expected_algorithm,
+                                            UniquePtr<EVP_PKEY, EVP_PKEY_Delete>* pkey);
+
+keymaster_error_t KeyMaterialToEvpKey(keymaster_key_format_t key_format,
+                                      const KeymasterKeyBlob& key_material,
+                                      keymaster_algorithm_t expected_algorithm,
+                                      UniquePtr<EVP_PKEY, EVP_PKEY_Delete>* evp_pkey);
+
+keymaster_error_t EvpKeyToKeyMaterial(const EVP_PKEY* evp_pkey, KeymasterKeyBlob* key_blob);
+
+}  // namespace keymaster
 
 #endif  // SYSTEM_KEYMASTER_OPENSSL_UTILS_H_

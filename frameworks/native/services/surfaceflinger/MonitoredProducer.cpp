@@ -49,7 +49,7 @@ MonitoredProducer::~MonitoredProducer() {
         wp<IBinder> mProducer;
     };
 
-    mFlinger->postMessageAsync(new MessageCleanUpList(mFlinger, asBinder()));
+    mFlinger->postMessageAsync(new MessageCleanUpList(mFlinger, asBinder(this)));
 }
 
 status_t MonitoredProducer::requestBuffer(int slot, sp<GraphicBuffer>* buf) {
@@ -61,7 +61,7 @@ status_t MonitoredProducer::setBufferCount(int bufferCount) {
 }
 
 status_t MonitoredProducer::dequeueBuffer(int* slot, sp<Fence>* fence,
-        bool async, uint32_t w, uint32_t h, uint32_t format, uint32_t usage) {
+        bool async, uint32_t w, uint32_t h, PixelFormat format, uint32_t usage) {
     return mProducer->dequeueBuffer(slot, fence, async, w, h, format, usage);
 }
 
@@ -106,12 +106,24 @@ status_t MonitoredProducer::setSidebandStream(const sp<NativeHandle>& stream) {
 }
 
 void MonitoredProducer::allocateBuffers(bool async, uint32_t width,
-        uint32_t height, uint32_t format, uint32_t usage) {
+        uint32_t height, PixelFormat format, uint32_t usage) {
     mProducer->allocateBuffers(async, width, height, format, usage);
 }
 
+status_t MonitoredProducer::allowAllocation(bool allow) {
+    return mProducer->allowAllocation(allow);
+}
+
+status_t MonitoredProducer::setGenerationNumber(uint32_t generationNumber) {
+    return mProducer->setGenerationNumber(generationNumber);
+}
+
+String8 MonitoredProducer::getConsumerName() const {
+    return mProducer->getConsumerName();
+}
+
 IBinder* MonitoredProducer::onAsBinder() {
-    return mProducer->asBinder().get();
+    return IInterface::asBinder(mProducer).get();
 }
 
 // ---------------------------------------------------------------------------

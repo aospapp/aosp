@@ -7,16 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <mcld/Target/ELFAttributeValue.h>
+#include "mcld/Target/ELFAttributeValue.h"
 
 #include <llvm/Support/ErrorHandling.h>
 
-#include <mcld/Support/LEB128.h>
+#include "mcld/Support/LEB128.h"
 
-using namespace mcld;
+namespace mcld {
 
-size_t ELFAttributeValue::getSize() const
-{
+size_t ELFAttributeValue::getSize() const {
   size_t size = 0;
 
   if (isIntValue())
@@ -32,8 +31,7 @@ size_t ELFAttributeValue::getSize() const
   return size;
 }
 
-bool ELFAttributeValue::isDefaultValue() const
-{
+bool ELFAttributeValue::isDefaultValue() const {
   if (isUninitialized()) {
     // Uninitialized attribute means default value
     return true;
@@ -51,8 +49,7 @@ bool ELFAttributeValue::isDefaultValue() const
   // unreachable
 }
 
-bool ELFAttributeValue::equals(const ELFAttributeValue& pValue) const
-{
+bool ELFAttributeValue::equals(const ELFAttributeValue& pValue) const {
   if ((pValue.type() != m_Type) || isUninitialized())
     return false;
 
@@ -64,3 +61,5 @@ bool ELFAttributeValue::equals(const ELFAttributeValue& pValue) const
 
   return true;
 }
+
+}  // namespace mcld

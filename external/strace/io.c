@@ -30,12 +30,9 @@
 
 #include "defs.h"
 #include <fcntl.h>
-#if HAVE_SYS_UIO_H
-# include <sys/uio.h>
-#endif
+#include <sys/uio.h>
 
-int
-sys_read(struct tcb *tcp)
+SYS_FUNC(read)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -50,8 +47,7 @@ sys_read(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_write(struct tcb *tcp)
+SYS_FUNC(write)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -62,7 +58,6 @@ sys_write(struct tcb *tcp)
 	return 0;
 }
 
-#if HAVE_SYS_UIO_H
 /*
  * data_size limits the cumulative size of printed data.
  * Example: recvmsg returing a short read.
@@ -115,7 +110,7 @@ tprint_iov_upto(struct tcb *tcp, unsigned long len, unsigned long addr, int deco
 			tprints("...");
 			break;
 		}
-		if (umoven(tcp, cur, sizeof_iov, (char *) &iov) < 0) {
+		if (umoven(tcp, cur, sizeof_iov, &iov) < 0) {
 			tprints("?");
 			failed = 1;
 			break;
@@ -145,8 +140,7 @@ tprint_iov(struct tcb *tcp, unsigned long len, unsigned long addr, int decode_io
 	tprint_iov_upto(tcp, len, addr, decode_iov, (unsigned long) -1L);
 }
 
-int
-sys_readv(struct tcb *tcp)
+SYS_FUNC(readv)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -163,8 +157,7 @@ sys_readv(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_writev(struct tcb *tcp)
+SYS_FUNC(writev)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -174,7 +167,6 @@ sys_writev(struct tcb *tcp)
 	}
 	return 0;
 }
-#endif
 
 /* The SH4 ABI does allow long longs in odd-numbered registers, but
    does not allow them to be split between registers and memory - and
@@ -187,8 +179,7 @@ sys_writev(struct tcb *tcp)
 #define PREAD_OFFSET_ARG 3
 #endif
 
-int
-sys_pread(struct tcb *tcp)
+SYS_FUNC(pread)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -199,27 +190,50 @@ sys_pread(struct tcb *tcp)
 		else
 			printstr(tcp, tcp->u_arg[1], tcp->u_rval);
 		tprintf(", %lu, ", tcp->u_arg[2]);
-		printllval_aligned(tcp, "%llu", PREAD_OFFSET_ARG);
+		printllval(tcp, "%llu", PREAD_OFFSET_ARG);
 	}
 	return 0;
 }
 
-int
-sys_pwrite(struct tcb *tcp)
+SYS_FUNC(pwrite)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
 		tprints(", ");
 		printstr(tcp, tcp->u_arg[1], tcp->u_arg[2]);
 		tprintf(", %lu, ", tcp->u_arg[2]);
-		printllval_aligned(tcp, "%llu", PREAD_OFFSET_ARG);
+		printllval(tcp, "%llu", PREAD_OFFSET_ARG);
 	}
 	return 0;
 }
 
-#if HAVE_SYS_UIO_H
-int
-sys_preadv(struct tcb *tcp)
+static void
+print_llu_from_low_high_val(struct tcb *tcp, int arg)
+{
+#if SIZEOF_LONG == SIZEOF_LONG_LONG
+# if SUPPORTED_PERSONALITIES > 1
+	if (current_wordsize == sizeof(long))
+# endif
+		tprintf("%lu", (unsigned long) tcp->u_arg[arg]);
+# if SUPPORTED_PERSONALITIES > 1
+	else
+		tprintf("%lu",
+			((unsigned long) tcp->u_arg[arg + 1] << current_wordsize * 8)
+			| (unsigned long) tcp->u_arg[arg]);
+# endif
+#else
+# ifdef X32
+	if (current_personality == 0)
+		tprintf("%llu", (unsigned long long) tcp->ext_arg[arg]);
+	else
+# endif
+	tprintf("%llu",
+		((unsigned long long) (unsigned long) tcp->u_arg[arg + 1] << sizeof(long) * 8)
+		| (unsigned long long) (unsigned long) tcp->u_arg[arg]);
+#endif
+}
+
+SYS_FUNC(preadv)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -231,24 +245,22 @@ sys_preadv(struct tcb *tcp)
 		}
 		tprint_iov(tcp, tcp->u_arg[2], tcp->u_arg[1], 1);
 		tprintf(", %lu, ", tcp->u_arg[2]);
-		printllval_unaligned(tcp, "%llu", 3);
+		print_llu_from_low_high_val(tcp, 3);
 	}
 	return 0;
 }
 
-int
-sys_pwritev(struct tcb *tcp)
+SYS_FUNC(pwritev)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
 		tprints(", ");
 		tprint_iov(tcp, tcp->u_arg[2], tcp->u_arg[1], 1);
 		tprintf(", %lu, ", tcp->u_arg[2]);
-		printllval_unaligned(tcp, "%llu", 3);
+		print_llu_from_low_high_val(tcp, 3);
 	}
 	return 0;
 }
-#endif /* HAVE_SYS_UIO_H */
 
 static void
 print_off_t(struct tcb *tcp, long addr)
@@ -276,8 +288,7 @@ print_off_t(struct tcb *tcp, long addr)
 		tprintf("[%lu]", offset);
 }
 
-int
-sys_sendfile(struct tcb *tcp)
+SYS_FUNC(sendfile)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -303,8 +314,7 @@ print_loff_t(struct tcb *tcp, long addr)
 		tprintf("[%llu]", (unsigned long long int) offset);
 }
 
-int
-sys_sendfile64(struct tcb *tcp)
+SYS_FUNC(sendfile64)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -319,8 +329,7 @@ sys_sendfile64(struct tcb *tcp)
 
 #include "xlat/splice_flags.h"
 
-int
-sys_tee(struct tcb *tcp)
+SYS_FUNC(tee)
 {
 	if (entering(tcp)) {
 		/* int fd_in */
@@ -337,8 +346,7 @@ sys_tee(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_splice(struct tcb *tcp)
+SYS_FUNC(splice)
 {
 	if (entering(tcp)) {
 		/* int fd_in */
@@ -361,8 +369,7 @@ sys_splice(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_vmsplice(struct tcb *tcp)
+SYS_FUNC(vmsplice)
 {
 	if (entering(tcp)) {
 		/* int fd */
@@ -377,21 +384,23 @@ sys_vmsplice(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_ioctl(struct tcb *tcp)
+SYS_FUNC(ioctl)
 {
 	const struct_ioctlent *iop;
 
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
 		tprints(", ");
-		iop = ioctl_lookup(tcp->u_arg[1]);
-		if (iop) {
-			tprints(iop->symbol);
-			while ((iop = ioctl_next_match(iop)))
-				tprintf(" or %s", iop->symbol);
-		} else
-			tprintf("%#lx", tcp->u_arg[1]);
+		if (!ioctl_decode_command_number(tcp->u_arg[1])) {
+			iop = ioctl_lookup(tcp->u_arg[1]);
+			if (iop) {
+				tprints(iop->symbol);
+				while ((iop = ioctl_next_match(iop)))
+					tprintf(" or %s", iop->symbol);
+			} else {
+				ioctl_print_code(tcp->u_arg[1]);
+			}
+		}
 		ioctl_decode(tcp, tcp->u_arg[1], tcp->u_arg[2]);
 	}
 	else {

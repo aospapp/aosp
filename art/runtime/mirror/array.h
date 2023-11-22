@@ -31,15 +31,14 @@ namespace mirror {
 class MANAGED Array : public Object {
  public:
   // The size of a java.lang.Class representing an array.
-  static uint32_t ClassSize();
+  static uint32_t ClassSize(size_t pointer_size);
 
-  // Allocates an array with the given properties, if fill_usable is true the array will be of at
+  // Allocates an array with the given properties, if kFillUsable is true the array will be of at
   // least component_count size, however, if there's usable space at the end of the allocation the
   // array will fill it.
-  template <bool kIsInstrumented>
-  static Array* Alloc(Thread* self, Class* array_class, int32_t component_count,
-                      size_t component_size, gc::AllocatorType allocator_type,
-                      bool fill_usable = false)
+  template <bool kIsInstrumented, bool kFillUsable = false>
+  ALWAYS_INLINE static Array* Alloc(Thread* self, Class* array_class, int32_t component_count,
+                                    size_t component_size_shift, gc::AllocatorType allocator_type)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   static Array* CreateMultiArray(Thread* self, Handle<Class> element_class,
@@ -55,7 +54,7 @@ class MANAGED Array : public Object {
   }
 
   void SetLength(int32_t length) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    CHECK_GE(length, 0);
+    DCHECK_GE(length, 0);
     // We use non transactional version since we can't undo this write. We also disable checking
     // since it would fail during a transaction.
     SetField32<false, false, kVerifyNone>(OFFSET_OF_OBJECT_MEMBER(Array, length_), length);
@@ -65,14 +64,7 @@ class MANAGED Array : public Object {
     return OFFSET_OF_OBJECT_MEMBER(Array, length_);
   }
 
-  static MemberOffset DataOffset(size_t component_size) {
-    if (component_size != sizeof(int64_t)) {
-      return OFFSET_OF_OBJECT_MEMBER(Array, first_element_);
-    } else {
-      // Align longs and doubles.
-      return MemberOffset(OFFSETOF_MEMBER(Array, first_element_) + 4);
-    }
-  }
+  static MemberOffset DataOffset(size_t component_size);
 
   void* GetRawData(size_t component_size, int32_t index)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
@@ -91,6 +83,8 @@ class MANAGED Array : public Object {
   // returns false.
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   ALWAYS_INLINE bool CheckIsValidIndex(int32_t index) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
+  Array* CopyOf(Thread* self, int32_t new_length) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  protected:
   void ThrowArrayStoreException(Object* object) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
@@ -174,13 +168,24 @@ class MANAGED PrimitiveArray : public Array {
     array_class_ = GcRoot<Class>(nullptr);
   }
 
-  static void VisitRoots(RootCallback* callback, void* arg)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  static void VisitRoots(RootVisitor* visitor) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  private:
   static GcRoot<Class> array_class_;
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(PrimitiveArray);
+};
+
+// Either an IntArray or a LongArray.
+class PointerArray : public Array {
+ public:
+  template<typename T>
+  T GetElementPtrSize(uint32_t idx, size_t ptr_size)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
+  template<bool kTransactionActive = false, bool kUnchecked = false, typename T>
+  void SetElementPtrSize(uint32_t idx, T element, size_t ptr_size)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 };
 
 }  // namespace mirror

@@ -45,11 +45,7 @@ LOCAL_SHARED_LIBRARIES := \
     libpower    \
     libalsa-intf
 
-ifeq ($(TARGET_SIMULATOR),true)
- LOCAL_LDLIBS += -ldl
-else
- LOCAL_SHARED_LIBRARIES += libdl
-endif
+LOCAL_SHARED_LIBRARIES += libdl
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-alsa
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/libalsa-intf
@@ -61,7 +57,7 @@ LOCAL_C_INCLUDES += system/core/include
 
 
 LOCAL_MODULE := audio.primary.msm8960
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
@@ -78,7 +74,7 @@ LOCAL_SRC_FILES := \
     AudioPolicyManagerALSA.cpp
 
 LOCAL_MODULE := audio_policy.msm8960
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_STATIC_LIBRARIES := \
@@ -97,9 +93,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_PRELINK_MODULE := false
 
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_RELATIVE_PATH := hw
 
 LOCAL_CFLAGS := -D_POSIX_SOURCE -Wno-multichar
 LOCAL_CFLAGS += -DQCOM_ACDB_ENABLED
@@ -128,11 +123,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog    \
     libalsa-intf
 
-ifeq ($(TARGET_SIMULATOR),true)
- LOCAL_LDLIBS += -ldl
-else
- LOCAL_SHARED_LIBRARIES += libdl
-endif
+LOCAL_SHARED_LIBRARIES += libdl
 
 LOCAL_MODULE:= alsa.msm8960
 LOCAL_MODULE_TAGS := optional

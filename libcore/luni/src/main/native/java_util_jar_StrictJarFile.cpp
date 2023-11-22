@@ -17,49 +17,26 @@
 
 #define LOG_TAG "StrictJarFile"
 
+#include <memory>
 #include <string>
 
 #include "JNIHelp.h"
 #include "JniConstants.h"
 #include "ScopedLocalRef.h"
 #include "ScopedUtfChars.h"
-#include "UniquePtr.h"
 #include "jni.h"
 #include "ziparchive/zip_archive.h"
 #include "cutils/log.h"
+
+// The method ID for ZipEntry.<init>(String,String,JJJIII[BJJ)
+static jmethodID zipEntryCtor;
 
 static void throwIoException(JNIEnv* env, const int32_t errorCode) {
   jniThrowException(env, "java/io/IOException", ErrorCodeString(errorCode));
 }
 
-// Constructs a string out of |name| with the default charset (UTF-8 on android).
-// We prefer this to JNI's NewStringUTF because the string constructor will
-// replace unmappable and malformed bytes instead of throwing. See b/18584205
-//
-// Returns |NULL| iff. we couldn't allocate the string object or its constructor
-// arguments.
-//
-// TODO: switch back to NewStringUTF after libziparchive is modified to reject
-// files whose names aren't valid UTF-8.
-static jobject constructString(JNIEnv* env, const char* name, const uint16_t nameLength) {
-  jbyteArray javaNameBytes = env->NewByteArray(nameLength);
-  if (javaNameBytes == NULL) {
-      return NULL;
-  }
-  env->SetByteArrayRegion(javaNameBytes, 0, nameLength, reinterpret_cast<const jbyte*>(name));
-
-  ScopedLocalRef<jclass> stringClass(env, env->FindClass("java/lang/String"));
-  const jmethodID stringCtor = env->GetMethodID(stringClass.get(), "<init>", "([B)V");
-  return env->NewObject(stringClass.get(), stringCtor, javaNameBytes);
-}
-
-static jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, const jobject entryName,
-                           const uint16_t nameLength) {
-  ScopedLocalRef<jclass> zipEntryClass(env, env->FindClass("java/util/zip/ZipEntry"));
-  const jmethodID zipEntryCtor = env->GetMethodID(zipEntryClass.get(), "<init>",
-                                   "(Ljava/lang/String;Ljava/lang/String;JJJIII[BIJJ)V");
-
-  return env->NewObject(zipEntryClass.get(),
+static jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, jstring entryName) {
+  return env->NewObject(JniConstants::zipEntryClass,
                         zipEntryCtor,
                         entryName,
                         NULL,  // comment
@@ -70,14 +47,8 @@ static jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, const jobject ent
                         static_cast<jint>(0),  // time
                         static_cast<jint>(0),  // modData
                         NULL,  // byte[] extra
-                        static_cast<jint>(nameLength),
                         static_cast<jlong>(-1),  // local header offset
                         static_cast<jlong>(entry.offset));
-}
-
-static jobject newZipEntry(JNIEnv* env, const ZipEntry& entry, const char* name,
-                           const uint16_t nameLength) {
-  return newZipEntry(env, entry, constructString(env, name, nameLength), nameLength);
 }
 
 static jlong StrictJarFile_nativeOpenJarFile(JNIEnv* env, jobject, jstring fileName) {
@@ -89,6 +60,7 @@ static jlong StrictJarFile_nativeOpenJarFile(JNIEnv* env, jobject, jstring fileN
   ZipArchiveHandle handle;
   int32_t error = OpenArchive(fileChars.c_str(), &handle);
   if (error) {
+    CloseArchive(handle);
     throwIoException(env, error);
     return static_cast<jlong>(-1);
   }
@@ -98,25 +70,20 @@ static jlong StrictJarFile_nativeOpenJarFile(JNIEnv* env, jobject, jstring fileN
 
 class IterationHandle {
  public:
-  IterationHandle(const char* prefix) :
-    cookie_(NULL), prefix_(strdup(prefix)) {
+  IterationHandle() :
+    cookie_(NULL) {
   }
 
   void** CookieAddress() {
     return &cookie_;
   }
 
-  const char* Prefix() const {
-    return prefix_;
-  }
-
   ~IterationHandle() {
-    free(prefix_);
+    EndIteration(cookie_);
   }
 
  private:
   void* cookie_;
-  char* prefix_;
 };
 
 
@@ -127,14 +94,15 @@ static jlong StrictJarFile_nativeStartIteration(JNIEnv* env, jobject, jlong nati
     return static_cast<jlong>(-1);
   }
 
-  IterationHandle* handle = new IterationHandle(prefixChars.c_str());
+  IterationHandle* handle = new IterationHandle();
   int32_t error = 0;
   if (prefixChars.size() == 0) {
     error = StartIteration(reinterpret_cast<ZipArchiveHandle>(nativeHandle),
                            handle->CookieAddress(), NULL);
   } else {
+    ZipEntryName entry_name(prefixChars.c_str());
     error = StartIteration(reinterpret_cast<ZipArchiveHandle>(nativeHandle),
-                           handle->CookieAddress(), handle->Prefix());
+                           handle->CookieAddress(), &entry_name);
   }
 
   if (error) {
@@ -156,11 +124,12 @@ static jobject StrictJarFile_nativeNextEntry(JNIEnv* env, jobject, jlong iterati
     return NULL;
   }
 
-  UniquePtr<char[]> entryNameCString(new char[entryName.name_length + 1]);
+  std::unique_ptr<char[]> entryNameCString(new char[entryName.name_length + 1]);
   memcpy(entryNameCString.get(), entryName.name, entryName.name_length);
   entryNameCString[entryName.name_length] = '\0';
+  ScopedLocalRef<jstring> entryNameString(env, env->NewStringUTF(entryNameCString.get()));
 
-  return newZipEntry(env, data, entryNameCString.get(), entryName.name_length);
+  return newZipEntry(env, data, entryNameString.get());
 }
 
 static jobject StrictJarFile_nativeFindEntry(JNIEnv* env, jobject, jlong nativeHandle,
@@ -172,12 +141,12 @@ static jobject StrictJarFile_nativeFindEntry(JNIEnv* env, jobject, jlong nativeH
 
   ZipEntry data;
   const int32_t error = FindEntry(reinterpret_cast<ZipArchiveHandle>(nativeHandle),
-                                  entryNameChars.c_str(), &data);
+                                  ZipEntryName(entryNameChars.c_str()), &data);
   if (error) {
     return NULL;
   }
 
-  return newZipEntry(env, data, entryName, entryNameChars.size());
+  return newZipEntry(env, data, entryName);
 }
 
 static void StrictJarFile_nativeClose(JNIEnv*, jobject, jlong nativeHandle) {
@@ -194,4 +163,8 @@ static JNINativeMethod gMethods[] = {
 
 void register_java_util_jar_StrictJarFile(JNIEnv* env) {
   jniRegisterNativeMethods(env, "java/util/jar/StrictJarFile", gMethods, NELEM(gMethods));
+
+  zipEntryCtor = env->GetMethodID(JniConstants::zipEntryClass, "<init>",
+      "(Ljava/lang/String;Ljava/lang/String;JJJIII[BJJ)V");
+  LOG_ALWAYS_FATAL_IF(zipEntryCtor == NULL, "Unable to find ZipEntry.<init>");
 }

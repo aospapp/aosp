@@ -36,8 +36,16 @@ import java.util.concurrent.TimeUnit;
  * @param <V0> the base type for all value types of maps built by this map maker
  * @author Kevin Bourrillion
  * @since 7.0
+ * @deprecated This class existed only to support the generic paramterization necessary for the
+ *     caching functionality in {@code MapMaker}. That functionality has been moved to {@link
+ *     com.google.common.cache.CacheBuilder}, which is a properly generified class and thus needs no
+ *     "Generic" equivalent; simple use {@code CacheBuilder} naturally. For general migration
+ *     instructions, see the <a
+ *     href="http://code.google.com/p/guava-libraries/wiki/MapMakerMigration">MapMaker Migration
+ *     Guide</a>. This class is scheduled for removal in Guava 16.0.
  */
 @Beta
+@Deprecated
 @GwtCompatible(emulated = true)
 public abstract class GenericMapMaker<K0, V0> {
   @GwtIncompatible("To be supported")
@@ -62,12 +70,6 @@ public abstract class GenericMapMaker<K0, V0> {
   abstract GenericMapMaker<K0, V0> keyEquivalence(Equivalence<Object> equivalence);
 
   /**
-   * See {@link MapMaker#valueEquivalence}.
-   */
-  @GwtIncompatible("To be supported")
-  abstract GenericMapMaker<K0, V0> valueEquivalence(Equivalence<Object> equivalence);
-
-  /**
    * See {@link MapMaker#initialCapacity}.
    */
   public abstract GenericMapMaker<K0, V0> initialCapacity(int initialCapacity);
@@ -76,11 +78,6 @@ public abstract class GenericMapMaker<K0, V0> {
    * See {@link MapMaker#maximumSize}.
    */
   abstract GenericMapMaker<K0, V0> maximumSize(int maximumSize);
-
-  /**
-   * See {@link MapMaker#strongKeys}.
-   */
-  abstract GenericMapMaker<K0, V0> strongKeys();
 
   /**
    * See {@link MapMaker#concurrencyLevel}.
@@ -94,18 +91,6 @@ public abstract class GenericMapMaker<K0, V0> {
   public abstract GenericMapMaker<K0, V0> weakKeys();
 
   /**
-   * See {@link MapMaker#strongValues}.
-   */
-  abstract GenericMapMaker<K0, V0> strongValues();
-
-  /**
-   * See {@link MapMaker#softKeys}.
-   */
-  @Deprecated
-  @GwtIncompatible("java.lang.ref.SoftReference")
-  public abstract GenericMapMaker<K0, V0> softKeys();
-
-  /**
    * See {@link MapMaker#weakValues}.
    */
   @GwtIncompatible("java.lang.ref.WeakReference")
@@ -113,16 +98,16 @@ public abstract class GenericMapMaker<K0, V0> {
 
   /**
    * See {@link MapMaker#softValues}.
-   */
-  @GwtIncompatible("java.lang.ref.SoftReference")
-  public abstract GenericMapMaker<K0, V0> softValues();
-
-  /**
-   * See {@link MapMaker#expiration}.
+   *
+   * @deprecated Caching functionality in {@code MapMaker} has been moved to {@link
+   *     com.google.common.cache.CacheBuilder}, with {@link #softValues} being replaced by {@link
+   *     com.google.common.cache.CacheBuilder#softValues}. Note that {@code CacheBuilder} is simply
+   *     an enhanced API for an implementation which was branched from {@code MapMaker}. <b>This
+   *     method is scheduled for deletion in August 2014.</b>
    */
   @Deprecated
-  public
-  abstract GenericMapMaker<K0, V0> expiration(long duration, TimeUnit unit);
+  @GwtIncompatible("java.lang.ref.SoftReference")
+  public abstract GenericMapMaker<K0, V0> softValues();
 
   /**
    * See {@link MapMaker#expireAfterWrite}.

@@ -31,6 +31,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Contacts.PeopleColumns;
 import android.provider.Contacts.PhonesColumns;
+import android.provider.ContactsContract.CommonDataKinds;
 import android.telephony.PhoneNumberUtils;
 import android.text.Selection;
 import android.text.Spannable;
@@ -50,7 +51,6 @@ import android.widget.Toast;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
-import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 
 /**
@@ -90,13 +90,13 @@ public class EditFdnContactScreen extends Activity {
     /** request code when invoking subactivity */
     private static final int CONTACTS_PICKER_CODE = 200;
     /** projection for phone number query */
-    private static final String NUM_PROJECTION[] = {PeopleColumns.DISPLAY_NAME,
-        PhonesColumns.NUMBER};
+    private static final String[] NUM_PROJECTION = new String[] {CommonDataKinds.Phone.DISPLAY_NAME,
+            CommonDataKinds.Phone.NUMBER};
     /** static intent to invoke phone number picker */
     private static final Intent CONTACT_IMPORT_INTENT;
     static {
         CONTACT_IMPORT_INTENT = new Intent(Intent.ACTION_GET_CONTENT);
-        CONTACT_IMPORT_INTENT.setType(android.provider.Contacts.Phones.CONTENT_ITEM_TYPE);
+        CONTACT_IMPORT_INTENT.setType(CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
     }
     /** flag to track saving state */
     private boolean mDataBusy;

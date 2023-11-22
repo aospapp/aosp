@@ -139,13 +139,23 @@ bool JavaNanoGenerator::Generate(const FileDescriptor* file,
       params.set_java_enum_style(option_value == "java");
     } else if (option_name == "optional_field_style") {
       params.set_optional_field_accessors(option_value == "accessors");
-      params.set_use_reference_types_for_primitives(option_value == "reftypes");
+      params.set_use_reference_types_for_primitives(option_value == "reftypes"
+          || option_value == "reftypes_compat_mode");
+      params.set_reftypes_primitive_enums(
+          option_value == "reftypes_compat_mode");
+      if (option_value == "reftypes_compat_mode") {
+        params.set_generate_clear(false);
+      }
     } else if (option_name == "generate_equals") {
       params.set_generate_equals(option_value == "true");
     } else if (option_name == "ignore_services") {
       params.set_ignore_services(option_value == "true");
     } else if (option_name == "parcelable_messages") {
       params.set_parcelable_messages(option_value == "true");
+    } else if (option_name == "generate_clone") {
+      params.set_generate_clone(option_value == "true");
+    } else if (option_name == "generate_intdefs") {
+      params.set_generate_intdefs(option_value == "true");
     } else {
       *error = "Ignore unknown javanano generator option: " + option_name;
     }

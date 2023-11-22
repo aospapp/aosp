@@ -24,7 +24,7 @@
 #include "base/casts.h"
 #include "base/mutex-inl.h"
 #include "gc/heap.h"
-#include "jni_internal.h"
+#include "jni_env_ext.h"
 
 namespace art {
 
@@ -35,13 +35,33 @@ static inline Thread* ThreadForEnv(JNIEnv* env) {
 }
 
 inline Thread* Thread::Current() {
-  // We rely on Thread::Current returning NULL for a detached thread, so it's not obvious
+  // We rely on Thread::Current returning null for a detached thread, so it's not obvious
   // that we can replace this with a direct %fs access on x86.
   if (!is_started_) {
-    return NULL;
+    return nullptr;
   } else {
     void* thread = pthread_getspecific(Thread::pthread_key_self_);
     return reinterpret_cast<Thread*>(thread);
+  }
+}
+
+inline void Thread::AllowThreadSuspension() {
+  DCHECK_EQ(Thread::Current(), this);
+  if (UNLIKELY(TestAllFlags())) {
+    CheckSuspend();
+  }
+}
+
+inline void Thread::CheckSuspend() {
+  DCHECK_EQ(Thread::Current(), this);
+  for (;;) {
+    if (ReadFlag(kCheckpointRequest)) {
+      RunCheckpointFunction();
+    } else if (ReadFlag(kSuspendRequest)) {
+      FullSuspendCheck();
+    } else {
+      break;
+    }
   }
 }
 
@@ -49,7 +69,12 @@ inline ThreadState Thread::SetState(ThreadState new_state) {
   // Cannot use this code to change into Runnable as changing to Runnable should fail if
   // old_state_and_flags.suspend_request is true.
   DCHECK_NE(new_state, kRunnable);
-  DCHECK_EQ(this, Thread::Current());
+  if (kIsDebugBuild && this != Thread::Current()) {
+    std::string name;
+    GetThreadName(name);
+    LOG(FATAL) << "Thread \"" << name << "\"(" << this << " != Thread::Current()="
+               << Thread::Current() << ") changing state to " << new_state;
+  }
   union StateAndFlags old_state_and_flags;
   old_state_and_flags.as_int = tls32_.state_and_flags.as_int;
   tls32_.state_and_flags.as_struct.state = new_state;
@@ -58,21 +83,25 @@ inline ThreadState Thread::SetState(ThreadState new_state) {
 
 inline void Thread::AssertThreadSuspensionIsAllowable(bool check_locks) const {
   if (kIsDebugBuild) {
-    CHECK_EQ(0u, tls32_.no_thread_suspension) << tlsPtr_.last_no_thread_suspension_cause;
+    if (gAborting == 0) {
+      CHECK_EQ(0u, tls32_.no_thread_suspension) << tlsPtr_.last_no_thread_suspension_cause;
+    }
     if (check_locks) {
       bool bad_mutexes_held = false;
       for (int i = kLockLevelCount - 1; i >= 0; --i) {
         // We expect no locks except the mutator_lock_ or thread list suspend thread lock.
-        if (i != kMutatorLock && i != kThreadListSuspendThreadLock) {
+        if (i != kMutatorLock) {
           BaseMutex* held_mutex = GetHeldMutex(static_cast<LockLevel>(i));
-          if (held_mutex != NULL) {
+          if (held_mutex != nullptr) {
             LOG(ERROR) << "holding \"" << held_mutex->GetName()
                       << "\" at point where thread suspension is expected";
             bad_mutexes_held = true;
           }
         }
       }
-      CHECK(!bad_mutexes_held);
+      if (gAborting == 0) {
+        CHECK(!bad_mutexes_held);
+      }
     }
   }
 }
@@ -149,6 +178,11 @@ inline ThreadState Thread::TransitionFromSuspendedToRunnable() {
       // Failed to transition to Runnable. Release shared mutator_lock_ access and try again.
       Locks::mutator_lock_->SharedUnlock(this);
     } else {
+      // Run the flip function, if set.
+      Closure* flip_func = GetFlipFunction();
+      if (flip_func != nullptr) {
+        flip_func->Run(this);
+      }
       return static_cast<ThreadState>(old_state);
     }
   } while (true);
@@ -178,23 +212,24 @@ inline bool Thread::PushOnThreadLocalAllocationStack(mirror::Object* obj) {
   DCHECK_LE(tlsPtr_.thread_local_alloc_stack_top, tlsPtr_.thread_local_alloc_stack_end);
   if (tlsPtr_.thread_local_alloc_stack_top < tlsPtr_.thread_local_alloc_stack_end) {
     // There's room.
-    DCHECK_LE(reinterpret_cast<byte*>(tlsPtr_.thread_local_alloc_stack_top) +
-                  sizeof(mirror::Object*),
-              reinterpret_cast<byte*>(tlsPtr_.thread_local_alloc_stack_end));
-    DCHECK(*tlsPtr_.thread_local_alloc_stack_top == nullptr);
-    *tlsPtr_.thread_local_alloc_stack_top = obj;
+    DCHECK_LE(reinterpret_cast<uint8_t*>(tlsPtr_.thread_local_alloc_stack_top) +
+              sizeof(StackReference<mirror::Object>),
+              reinterpret_cast<uint8_t*>(tlsPtr_.thread_local_alloc_stack_end));
+    DCHECK(tlsPtr_.thread_local_alloc_stack_top->AsMirrorPtr() == nullptr);
+    tlsPtr_.thread_local_alloc_stack_top->Assign(obj);
     ++tlsPtr_.thread_local_alloc_stack_top;
     return true;
   }
   return false;
 }
 
-inline void Thread::SetThreadLocalAllocationStack(mirror::Object** start, mirror::Object** end) {
+inline void Thread::SetThreadLocalAllocationStack(StackReference<mirror::Object>* start,
+                                                  StackReference<mirror::Object>* end) {
   DCHECK(Thread::Current() == this) << "Should be called by self";
   DCHECK(start != nullptr);
   DCHECK(end != nullptr);
-  DCHECK_ALIGNED(start, sizeof(mirror::Object*));
-  DCHECK_ALIGNED(end, sizeof(mirror::Object*));
+  DCHECK_ALIGNED(start, sizeof(StackReference<mirror::Object>));
+  DCHECK_ALIGNED(end, sizeof(StackReference<mirror::Object>));
   DCHECK_LT(start, end);
   tlsPtr_.thread_local_alloc_stack_end = end;
   tlsPtr_.thread_local_alloc_stack_top = start;

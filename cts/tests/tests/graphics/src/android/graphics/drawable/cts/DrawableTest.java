@@ -16,6 +16,7 @@
 
 package android.graphics.drawable.cts;
 
+import android.view.View;
 import com.android.cts.graphics.R;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -545,11 +546,59 @@ public class DrawableTest extends AndroidTestCase {
         mockDrawable.setDither(false);
     }
 
+    public void testSetHotspotBounds() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        // setHotspotBounds is a non-operation function.
+        mockDrawable.setHotspotBounds(10, 15, 100, 150);
+    }
+
+    public void testGetHotspotBounds() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        // getHotspotBounds doesn't do anything interesting in the Drawable superclass
+        mockDrawable.getHotspotBounds(new Rect());
+    }
+
+    public void testSetLayoutDirection() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        assertEquals(View.LAYOUT_DIRECTION_LTR, mockDrawable.getLayoutDirection());
+
+        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        assertEquals(View.LAYOUT_DIRECTION_RTL, mockDrawable.getLayoutDirection());
+    }
+
+    public void testGetLayoutDirection() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        assertEquals(View.LAYOUT_DIRECTION_LTR, mockDrawable.getLayoutDirection());
+
+        mockDrawable.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        assertEquals(View.LAYOUT_DIRECTION_RTL, mockDrawable.getLayoutDirection());
+    }
+
+    public void testOnLayoutDirectionChanged() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        // onLayoutDirectionChanged is a non-operation function.
+        mockDrawable.onLayoutDirectionChanged(View.LAYOUT_DIRECTION_LTR);
+    }
+
     public void testSetFilterBitmap() {
         MockDrawable mockDrawable = new MockDrawable();
 
         // setFilterBitmap is a non-operation function.
         mockDrawable.setFilterBitmap(false);
+    }
+
+    public void testIsFilterBitmap() {
+        MockDrawable mockDrawable = new MockDrawable();
+
+        // setFilterBitmap is a non-operation function.
+        mockDrawable.isFilterBitmap();
     }
 
     public void testUnscheduleSelf() {

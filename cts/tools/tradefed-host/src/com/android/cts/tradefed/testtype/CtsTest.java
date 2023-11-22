@@ -37,12 +37,18 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.targetprep.BuildError;
+import com.android.tradefed.targetprep.ITargetCleaner;
+import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IResumableTest;
 import com.android.tradefed.testtype.IShardableTest;
+import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.AbiFormatter;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.xml.AbstractXmlParser.ParseException;
@@ -63,6 +69,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -82,6 +89,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
     private static final String TEST_OPTION = "test";
     public static final String CONTINUE_OPTION = "continue-session";
     public static final String RUN_KNOWN_FAILURES_OPTION = "run-known-failures";
+    private static final String INCLUDE_FILTERS_OPTION = "include";
+    private static final String EXCLUDE_FILTERS_OPTION = "exclude";
 
     public static final String PACKAGE_NAME_METRIC = "packageName";
     public static final String PACKAGE_ABI_METRIC = "packageAbi";
@@ -180,9 +189,14 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
             "Collect dEQP logs from the device.")
     private boolean mCollectDeqpLogs = false;
 
+    @Option(name = INCLUDE_FILTERS_OPTION, description = "Positive filters to pass to tests.")
+    private List<String> mPositiveFilters = new ArrayList<> ();
+
+    @Option(name = EXCLUDE_FILTERS_OPTION, description = "Negative filters to pass to tests.")
+    private List<String> mNegativeFilters = new ArrayList<> ();
+
     @Option(name = "min-pre-reboot-package-count", description =
             "The minimum number of packages to require a pre test reboot")
-
     private int mMinPreRebootPackageCount = 2;
     private final int mShardAssignment;
     private final int mTotalShards;
@@ -275,9 +289,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
         @Override
         public void testFailed(TestIdentifier test, String trace) {
             super.testFailed(test, trace);
-            // sleep a small amount of time to ensure test failure stack trace makes it into logcat
-            // capture
-            RunUtil.getDefault().sleep(10);
+            // sleep 2s to ensure test failure stack trace makes it into logcat capture
+            RunUtil.getDefault().sleep(2 * 1000);
             InputStreamSource logSource = mDevice.getLogcat(mNumLogcatBytes);
             super.testLog(String.format("logcat-%s_%s", test.getClassName(), test.getTestName()),
                     LogDataType.TEXT, logSource);
@@ -525,9 +538,33 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
                 if (test instanceof DeqpTestRunner) {
                     ((DeqpTestRunner)test).setCollectLogs(mCollectDeqpLogs);
                 }
+                if (test instanceof GeeTest) {
+                    if (!mPositiveFilters.isEmpty()) {
+                        String positivePatterns = join(mPositiveFilters, ":");
+                        ((GeeTest)test).setPositiveFilters(positivePatterns);
+                    }
+                    if (!mNegativeFilters.isEmpty()) {
+                        String negativePatterns = join(mNegativeFilters, ":");
+                        ((GeeTest)test).setPositiveFilters(negativePatterns);
+                    }
+                }
+                if (test instanceof InstrumentationTest) {
+                    if (!mPositiveFilters.isEmpty()) {
+                        String annotation = join(mPositiveFilters, ",");
+                        ((InstrumentationTest)test).addInstrumentationArg(
+                                "annotation", annotation);
+                    }
+                    if (!mNegativeFilters.isEmpty()) {
+                        String notAnnotation = join(mNegativeFilters, ",");
+                        ((InstrumentationTest)test).addInstrumentationArg(
+                                "notAnnotation", notAnnotation);
+                    }
+                }
 
                 forwardPackageDetails(testPackage.getPackageDef(), listener);
+                performPackagePrepareSetup(testPackage.getPackageDef());
                 test.run(filterMap.get(testPackage.getPackageDef().getId()));
+                performPackagePreparerTearDown(testPackage.getPackageDef());
                 if (i < mTestPackageList.size() - 1) {
                     TestPackage nextPackage = mTestPackageList.get(i + 1);
                     rebootIfNecessary(testPackage, nextPackage);
@@ -559,6 +596,79 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
                 filter.reportUnexecutedTests();
             }
         }
+    }
+
+    /**
+     * Invokes {@link ITargetPreparer}s configured for the test package. {@link TargetSetupError}s
+     * thrown by any preparer will be rethrown as {@link RuntimeException} so that the entire test
+     * package will be skipped for execution. Note that preparers will be invoked in the same order
+     * as they are defined in the module test config.
+     * @param packageDef definition for the test package
+     * @throws DeviceNotAvailableException
+     */
+    private void performPackagePrepareSetup(ITestPackageDef packageDef)
+            throws DeviceNotAvailableException {
+        List<ITargetPreparer> preparers = packageDef.getPackagePreparers();
+        if (preparers != null) {
+            for (ITargetPreparer preparer : preparers) {
+                if (preparer instanceof IAbiReceiver) {
+                    ((IAbiReceiver) preparer).setAbi(packageDef.getAbi());
+                }
+                try {
+                    preparer.setUp(getDevice(), mBuildInfo);
+                } catch (BuildError e) {
+                    // This should only happen for flashing new build
+                    CLog.e("Unexpected BuildError from preparer: %s",
+                        preparer.getClass().getCanonicalName());
+                } catch (TargetSetupError e) {
+                    // log preparer class then rethrow & let caller handle
+                    CLog.e("TargetSetupError in preparer: %s",
+                        preparer.getClass().getCanonicalName());
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Invokes clean up step for {@link ITargetCleaner}s configured for the test package. Note that
+     * the cleaners will be invoked in the reverse order as they are defined in module test config.
+     * @param packageDef definition for the test package
+     * @throws DeviceNotAvailableException
+     */
+    private void performPackagePreparerTearDown(ITestPackageDef packageDef)
+            throws DeviceNotAvailableException {
+        List<ITargetPreparer> preparers = packageDef.getPackagePreparers();
+        if (preparers != null) {
+            ListIterator<ITargetPreparer> itr = preparers.listIterator(preparers.size());
+            // do teardown in reverse order
+            while (itr.hasPrevious()) {
+                ITargetPreparer preparer = itr.previous();
+                if (preparer instanceof ITargetCleaner) {
+                    ((ITargetCleaner) preparer).tearDown(getDevice(), mBuildInfo, null);
+                }
+            }
+        }
+    }
+
+    /**
+     * Helper method to join strings. Exposed for unit tests
+     * @param input
+     * @param conjunction
+     * @return string with elements of the input list with interleaved conjunction.
+     */
+    protected static String join(List<String> input, String conjunction) {
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (String item : input) {
+            if (first) {
+                first = false;
+            } else {
+                sb.append(conjunction);
+            }
+            sb.append(item);
+        }
+        return sb.toString();
     }
 
     /**
@@ -947,6 +1057,8 @@ public class CtsTest implements IDeviceTest, IResumableTest, IShardableTest, IBu
         if (!mSkipDeviceInfo) {
             String abi = AbiFormatter.getDefaultAbi(device, "");
             DeviceInfoCollector.collectDeviceInfo(device, abi, ctsBuild.getTestCasesDir(), listener);
+            DeviceInfoCollector.collectExtendedDeviceInfo(
+                device, abi, ctsBuild.getTestCasesDir(), listener, mBuildInfo);
         }
     }
 

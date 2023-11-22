@@ -1,6 +1,7 @@
 package com.android.ex.photo;
 
 import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
 
 
 /**
@@ -31,15 +32,16 @@ public interface ActionBarInterface {
      */
     public void setDisplayOptionsShowTitle();
 
+    @Nullable
     public CharSequence getTitle();
 
-    public void setTitle(CharSequence title);
+    public void setTitle(@Nullable CharSequence title);
 
-    public void setSubtitle(CharSequence subtitle);
+    public void setSubtitle(@Nullable CharSequence subtitle);
 
     public void show();
 
     public void hide();
 
-    public void setLogo(Drawable logo);
+    public void setLogo(@Nullable Drawable logo);
 }

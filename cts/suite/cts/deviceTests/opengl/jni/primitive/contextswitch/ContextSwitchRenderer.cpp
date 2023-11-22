@@ -74,13 +74,14 @@ static const char* CS_FRAGMENT =
         "  gl_FragColor = texture2D(u_Texture, v_TexCoord);"
         "}";
 
-ContextSwitchRenderer::ContextSwitchRenderer(ANativeWindow* window, bool offscreen, int workload) :
-        Renderer(window, offscreen, workload), mContexts(NULL) {
+ContextSwitchRenderer::ContextSwitchRenderer(ANativeWindow* window, bool offscreen) :
+        Renderer(window, offscreen), mContexts(NULL), mWorkload(0) {
 }
 
-bool ContextSwitchRenderer::setUp() {
+bool ContextSwitchRenderer::setUp(int workload) {
     SCOPED_TRACE();
-    if (!Renderer::setUp()) {
+    mWorkload = workload;
+    if (!Renderer::setUp(workload)) {
         return false;
     }
 
@@ -137,7 +138,7 @@ bool ContextSwitchRenderer::setUp() {
 bool ContextSwitchRenderer::tearDown() {
     SCOPED_TRACE();
     if (mContexts) {
-        // Destroy the contexts, the main one will be handled by Renderer::tearDown().
+        // Destroy the contexts, the main one will be handled by Renderer::eglTearDown().
         for (int i = 0; i < NUM_WORKER_CONTEXTS; i++) {
             if (mOffscreen) {
                 if (mFboIds[i] != 0) {
@@ -146,6 +147,7 @@ bool ContextSwitchRenderer::tearDown() {
                     mFboIds[i] = 0;
                 }
             }
+            eglMakeCurrent(mEglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
             eglDestroyContext(mEglDisplay, mContexts[i]);
         }
         delete[] mContexts;
@@ -163,6 +165,11 @@ bool ContextSwitchRenderer::tearDown() {
 
 void ContextSwitchRenderer::drawWorkload() {
     SCOPED_TRACE();
+
+    if (mWorkload > 8) {
+        return; // This test does not support higher workloads.
+    }
+
     // Set the background clear color to black.
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -216,6 +223,7 @@ void ContextSwitchRenderer::drawWorkload() {
         }
     }
 
+    eglWaitSyncKHR(mEglDisplay, fence, 0);
     eglDestroySyncKHR(mEglDisplay, fence);
 
     // Switch back to the main context.

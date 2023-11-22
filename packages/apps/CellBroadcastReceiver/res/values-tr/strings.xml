@@ -56,13 +56,13 @@
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"ETWS test yayınlarını göster"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Deprem Tsunami Uyarı Sistemi için test yayınlarını görüntüle"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="215650211797464620">"Ekstrem tehditleri göster"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Cana ve mala karşı ekstrem tehditlerle ilgili uyarıları göster"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="2493139961243300290">"Cana ve mala karşı ekstrem tehditlerle ilgili uyarıları görüntüle"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="8008941231371565775">"Şiddetli tehditleri göster"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Can ve mala karşı şiddetli tehditlerle ilgili uyarıları göster"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="4089299793459943222">"Cana ve mala karşı şiddetli tehditlerle ilgili uyarıları görüntüle"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="997138378272381777">"AMBER uyarıları göster"</string>
     <string name="enable_cmas_amber_alerts_summary" msgid="8423617548641801387">"Çocuk kaçırma acil durum (AMBER uyarı) bültenlerini görüntüle"</string>
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"CMAS test yayınlarını göster"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"Ticari Mobil Uyarı Sistemi (CMAS) test yayınlarını göster"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"Ticari Mobil Uyarı Sistemi (CMAS) test yayınlarını görüntüle"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"Titreşim"</string>
     <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"Uyarı geldiğinde titreşimle bildir"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Brezilya için Ayarlar"</string>
@@ -104,7 +104,7 @@
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> okunmamış uyarı."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Yeni uyarılar"</string>
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"İlk CMAS uyarısı (Başkanlık Düzeyinde Uyarı hariç) görüntülendikten sonra devre dışı bırakma iletişim kutusu gösterilir."</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Devre dışı bırakma iletişim kutusunu göster"</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Devre dışı bır. ile. kut. göster"</string>
     <string name="cmas_opt_out_dialog_text" msgid="7529010670998259128">"Şu anda Acil Durum uyarılarını alabiliyorsunuz. Acil Durum Uyarılarını almaya devam etmek istiyor musunuz?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Evet"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Hayır"</string>

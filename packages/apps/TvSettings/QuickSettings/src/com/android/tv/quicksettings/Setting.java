@@ -13,50 +13,40 @@
  */
 package com.android.tv.quicksettings;
 
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Parcel;
-import android.os.Parcelable;
+import android.content.SharedPreferences;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class Setting implements Parcelable {
+public class Setting {
 
     static final int TYPE_UNKNOWN = 0;
     static final int TYPE_INT = 1;
     static final int TYPE_STRING = 2;
 
     private String mTitle;
-    private int mIntValue;
-    private String mStringValue;
+    private String mKey;
     private int mSettingType;
 
     private int mMaxValue;
-    private List<String> mStringChoices = new ArrayList<String>();
 
-    public Setting() {
-    }
+    private final SharedPreferences mSharedPreferences;
 
     public Setting(String title) {
         mTitle = title;
         mSettingType = TYPE_UNKNOWN;
+        mSharedPreferences = null;
     }
 
-    public Setting(String title, int value) {
-        this(title, value, 0);
-    }
-
-    public Setting(String title, int value, int max) {
-        this(title);
-        mIntValue = value;
+    public Setting(SharedPreferences sharedPreferences, String key, String title, int max) {
+        mSharedPreferences = sharedPreferences;
+        mTitle = title;
+        mKey = key;
         mMaxValue = max;
         mSettingType = TYPE_INT;
     }
 
-    public Setting(String title, String value) {
-        this(title);
-        mStringValue = value;
+    public Setting(SharedPreferences sharedPreferences, String key, String title) {
+        mSharedPreferences = sharedPreferences;
+        mTitle = title;
+        mKey = key;
         mSettingType = TYPE_STRING;
     }
 
@@ -72,77 +62,29 @@ public class Setting implements Parcelable {
         mTitle = title;
     }
 
+    public String getKey() {
+        return mKey;
+    }
+
     public int getMaxValue() {
         return mMaxValue;
     }
 
-    public void setMaxValue(int max) {
-        mMaxValue = max;
-        mSettingType = TYPE_INT;
-    }
-
-    public List<String> getStringChoices() {
-        return mStringChoices;
-    }
-
-    public void setStringChoices(List<String> choices) {
-        mStringChoices = choices;
-        mSettingType = TYPE_STRING;
-    }
-
-    public void addStringChoice(String choice) {
-        mStringChoices.add(choice);
-    }
-
     public int getIntValue() {
-        return mIntValue;
+        return mSharedPreferences.getInt(mKey, -1);
     }
 
     public String getStringValue() {
-        return mStringValue;
+        return mSharedPreferences.getString(mKey, "");
     }
 
     public void setValue(int value) {
-        mIntValue = value;
+        mSharedPreferences.edit().putInt(mKey, value).apply();
         mSettingType = TYPE_INT;
     }
 
     public void setValue(String value) {
-        mStringValue = value;
+        mSharedPreferences.edit().putString(mKey, value).apply();
         mSettingType = TYPE_STRING;
-    }
-
-    public static Parcelable.Creator<Setting> CREATOR = new Parcelable.Creator<Setting>() {
-        @Override
-        public Setting createFromParcel(Parcel source) {
-            Setting setting = new Setting();
-            setting.mTitle = source.readString();
-            setting.mIntValue = source.readInt();
-            setting.mStringValue = source.readString();
-            setting.mSettingType = source.readInt();
-            setting.mMaxValue = source.readInt();
-            source.readStringList(setting.mStringChoices);
-            return setting;
-        }
-
-        @Override
-        public Setting[] newArray(int size) {
-            return new Setting[size];
-        }
-    };
-
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(mTitle);
-        dest.writeInt(mIntValue);
-        dest.writeString(mStringValue);
-        dest.writeInt(mSettingType);
-        dest.writeInt(mMaxValue);
-        dest.writeStringList(mStringChoices);
     }
 }

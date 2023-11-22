@@ -92,6 +92,7 @@ InterfaceController *CommandListener::sInterfaceCtrl = NULL;
 ResolverController *CommandListener::sResolverCtrl = NULL;
 FirewallController *CommandListener::sFirewallCtrl = NULL;
 ClatdController *CommandListener::sClatdCtrl = NULL;
+StrictController *CommandListener::sStrictCtrl = NULL;
 
 /**
  * List of module chains to be created, along with explicit ordering. ORDERING
@@ -116,6 +117,7 @@ static const char* FILTER_FORWARD[] = {
 static const char* FILTER_OUTPUT[] = {
         OEM_IPTABLES_FILTER_OUTPUT,
         FirewallController::LOCAL_OUTPUT,
+        StrictController::LOCAL_OUTPUT,
         BandwidthController::LOCAL_OUTPUT,
         NULL,
 };
@@ -182,6 +184,7 @@ CommandListener::CommandListener() :
     registerCmd(new FirewallCmd());
     registerCmd(new ClatdCmd());
     registerCmd(new NetworkCommand());
+    registerCmd(new StrictCmd());
 
     if (!sNetCtrl)
         sNetCtrl = new NetworkController();
@@ -205,6 +208,8 @@ CommandListener::CommandListener() :
         sInterfaceCtrl = new InterfaceController();
     if (!sClatdCtrl)
         sClatdCtrl = new ClatdController(sNetCtrl);
+    if (!sStrictCtrl)
+        sStrictCtrl = new StrictController();
 
     /*
      * This is the only time we touch top-level chains in iptables; controllers
@@ -469,7 +474,7 @@ int CommandListener::InterfaceCmd::runCommand(SocketClient *cli,
                 cli->sendMsg(ResponseCode::CommandOkay, "MTU changed", false);
             } else {
                 cli->sendMsg(ResponseCode::OperationFailed,
-                        "Failed to get MTU", true);
+                        "Failed to set MTU", true);
             }
             return 0;
         } else {
@@ -502,37 +507,59 @@ CommandListener::IpFwdCmd::IpFwdCmd() :
                  NetdCommand("ipfwd") {
 }
 
-int CommandListener::IpFwdCmd::runCommand(SocketClient *cli,
-                                                      int argc, char **argv) {
-    int rc = 0;
+int CommandListener::IpFwdCmd::runCommand(SocketClient *cli, int argc, char **argv) {
+    bool matched = false;
+    bool success;
 
-    if (argc < 2) {
-        cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing argument", false);
-        return 0;
+    if (argc == 2) {
+        //   0     1
+        // ipfwd status
+        if (!strcmp(argv[1], "status")) {
+            char *tmp = NULL;
+
+            asprintf(&tmp, "Forwarding %s",
+                     ((sTetherCtrl->forwardingRequestCount() > 0) ? "enabled" : "disabled"));
+            cli->sendMsg(ResponseCode::IpFwdStatusResult, tmp, false);
+            free(tmp);
+            return 0;
+        }
+    } else if (argc == 3) {
+        //  0      1         2
+        // ipfwd enable  <requester>
+        // ipfwd disable <requester>
+        if (!strcmp(argv[1], "enable")) {
+            matched = true;
+            success = sTetherCtrl->enableForwarding(argv[2]);
+        } else if (!strcmp(argv[1], "disable")) {
+            matched = true;
+            success = sTetherCtrl->disableForwarding(argv[2]);
+        }
+    } else if (argc == 4) {
+        //  0      1      2     3
+        // ipfwd  add   wlan0 dummy0
+        // ipfwd remove wlan0 dummy0
+        int ret = 0;
+        if (!strcmp(argv[1], "add")) {
+            matched = true;
+            ret = RouteController::enableTethering(argv[2], argv[3]);
+        } else if (!strcmp(argv[1], "remove")) {
+            matched = true;
+            ret = RouteController::disableTethering(argv[2], argv[3]);
+        }
+        success = (ret == 0);
+        errno = -ret;
     }
 
-    if (!strcmp(argv[1], "status")) {
-        char *tmp = NULL;
-
-        asprintf(&tmp, "Forwarding %s", (sTetherCtrl->getIpFwdEnabled() ? "enabled" : "disabled"));
-        cli->sendMsg(ResponseCode::IpFwdStatusResult, tmp, false);
-        free(tmp);
-        return 0;
-    } else if (!strcmp(argv[1], "enable")) {
-        rc = sTetherCtrl->setIpFwdEnabled(true);
-    } else if (!strcmp(argv[1], "disable")) {
-        rc = sTetherCtrl->setIpFwdEnabled(false);
-    } else {
+    if (!matched) {
         cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown ipfwd cmd", false);
         return 0;
     }
 
-    if (!rc) {
+    if (success) {
         cli->sendMsg(ResponseCode::CommandOkay, "ipfwd operation succeeded", false);
     } else {
         cli->sendMsg(ResponseCode::OperationFailed, "ipfwd operation failed", true);
     }
-
     return 0;
 }
 
@@ -792,15 +819,19 @@ int CommandListener::ResolverCmd::runCommand(SocketClient *cli, int argc, char *
     int rc = 0;
     const char **argv = const_cast<const char **>(margv);
 
-    if (argc < 2) {
+    if (argc < 3) {
         cli->sendMsg(ResponseCode::CommandSyntaxError, "Resolver missing arguments", false);
         return 0;
     }
 
+    unsigned netId = stringToNetId(argv[2]);
+    // TODO: Consider making NetworkController.isValidNetwork() public
+    // and making that check here.
+
     if (!strcmp(argv[1], "setnetdns")) {
         // "resolver setnetdns <netId> <domains> <dns1> <dns2> ..."
         if (argc >= 5) {
-            rc = sResolverCtrl->setDnsServers(strtoul(argv[2], NULL, 0), argv[3], &argv[4], argc - 4);
+            rc = sResolverCtrl->setDnsServers(netId, argv[3], &argv[4], argc - 4);
         } else {
             cli->sendMsg(ResponseCode::CommandSyntaxError,
                     "Wrong number of arguments to resolver setnetdns", false);
@@ -808,7 +839,7 @@ int CommandListener::ResolverCmd::runCommand(SocketClient *cli, int argc, char *
         }
     } else if (!strcmp(argv[1], "clearnetdns")) { // "resolver clearnetdns <netId>"
         if (argc == 3) {
-            rc = sResolverCtrl->clearDnsServers(strtoul(argv[2], NULL, 0));
+            rc = sResolverCtrl->clearDnsServers(netId);
         } else {
             cli->sendMsg(ResponseCode::CommandSyntaxError,
                     "Wrong number of arguments to resolver clearnetdns", false);
@@ -816,7 +847,7 @@ int CommandListener::ResolverCmd::runCommand(SocketClient *cli, int argc, char *
         }
     } else if (!strcmp(argv[1], "flushnet")) { // "resolver flushnet <netId>"
         if (argc == 3) {
-            rc = sResolverCtrl->flushDnsCache(strtoul(argv[2], NULL, 0));
+            rc = sResolverCtrl->flushDnsCache(netId);
         } else {
             cli->sendMsg(ResponseCode::CommandSyntaxError,
                     "Wrong number of arguments to resolver flushnet", false);
@@ -1244,8 +1275,35 @@ int CommandListener::FirewallCmd::sendGenericOkFail(SocketClient *cli, int cond)
 FirewallRule CommandListener::FirewallCmd::parseRule(const char* arg) {
     if (!strcmp(arg, "allow")) {
         return ALLOW;
-    } else {
+    } else if (!strcmp(arg, "deny")) {
         return DENY;
+    } else {
+        ALOGE("failed to parse uid rule (%s)", arg);
+        return ALLOW;
+    }
+}
+
+FirewallType CommandListener::FirewallCmd::parseFirewallType(const char* arg) {
+    if (!strcmp(arg, "whitelist")) {
+        return WHITELIST;
+    } else if (!strcmp(arg, "blacklist")) {
+        return BLACKLIST;
+    } else {
+        ALOGE("failed to parse firewall type (%s)", arg);
+        return BLACKLIST;
+    }
+}
+
+ChildChain CommandListener::FirewallCmd::parseChildChain(const char* arg) {
+    if (!strcmp(arg, "dozable")) {
+        return DOZABLE;
+    } else if (!strcmp(arg, "standby")) {
+        return STANDBY;
+    } else if (!strcmp(arg, "none")) {
+        return NONE;
+    } else {
+        ALOGE("failed to parse child firewall chain (%s)", arg);
+        return INVALID_CHAIN;
     }
 }
 
@@ -1257,7 +1315,14 @@ int CommandListener::FirewallCmd::runCommand(SocketClient *cli, int argc,
     }
 
     if (!strcmp(argv[1], "enable")) {
-        int res = sFirewallCtrl->enableFirewall();
+        if (argc != 3) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError,
+                        "Usage: firewall enable <whitelist|blacklist>", false);
+            return 0;
+        }
+        FirewallType firewallType = parseFirewallType(argv[2]);
+
+        int res = sFirewallCtrl->enableFirewall(firewallType);
         return sendGenericOkFail(cli, res);
     }
     if (!strcmp(argv[1], "disable")) {
@@ -1317,17 +1382,49 @@ int CommandListener::FirewallCmd::runCommand(SocketClient *cli, int argc,
     }
 
     if (!strcmp(argv[1], "set_uid_rule")) {
-        if (argc != 4) {
+        if (argc != 5) {
             cli->sendMsg(ResponseCode::CommandSyntaxError,
-                         "Usage: firewall set_uid_rule <1000> <allow|deny>",
+                         "Usage: firewall set_uid_rule <dozable|standby|none> <1000> <allow|deny>",
                          false);
             return 0;
         }
 
-        int uid = atoi(argv[2]);
-        FirewallRule rule = parseRule(argv[3]);
+        ChildChain childChain = parseChildChain(argv[2]);
+        if (childChain == INVALID_CHAIN) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError,
+                         "Invalid chain name. Valid names are: <dozable|standby|none>",
+                         false);
+            return 0;
+        }
+        int uid = atoi(argv[3]);
+        FirewallRule rule = parseRule(argv[4]);
+        int res = sFirewallCtrl->setUidRule(childChain, uid, rule);
+        return sendGenericOkFail(cli, res);
+    }
 
-        int res = sFirewallCtrl->setUidRule(uid, rule);
+    if (!strcmp(argv[1], "enable_chain")) {
+        if (argc != 3) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError,
+                         "Usage: firewall enable_chain <dozable|standby>",
+                         false);
+            return 0;
+        }
+
+        ChildChain childChain = parseChildChain(argv[2]);
+        int res = sFirewallCtrl->enableChildChains(childChain, true);
+        return sendGenericOkFail(cli, res);
+    }
+
+    if (!strcmp(argv[1], "disable_chain")) {
+        if (argc != 3) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError,
+                         "Usage: firewall disable_chain <dozable|standby>",
+                         false);
+            return 0;
+        }
+
+        ChildChain childChain = parseChildChain(argv[2]);
+        int res = sFirewallCtrl->enableChildChains(childChain, false);
         return sendGenericOkFail(cli, res);
     }
 
@@ -1368,6 +1465,76 @@ int CommandListener::ClatdCmd::runCommand(SocketClient *cli, int argc,
         cli->sendMsg(ResponseCode::OperationFailed, "Clatd operation failed", false);
     }
 
+    return 0;
+}
+
+CommandListener::StrictCmd::StrictCmd() :
+    NetdCommand("strict") {
+}
+
+int CommandListener::StrictCmd::sendGenericOkFail(SocketClient *cli, int cond) {
+    if (!cond) {
+        cli->sendMsg(ResponseCode::CommandOkay, "Strict command succeeded", false);
+    } else {
+        cli->sendMsg(ResponseCode::OperationFailed, "Strict command failed", false);
+    }
+    return 0;
+}
+
+StrictPenalty CommandListener::StrictCmd::parsePenalty(const char* arg) {
+    if (!strcmp(arg, "reject")) {
+        return REJECT;
+    } else if (!strcmp(arg, "log")) {
+        return LOG;
+    } else if (!strcmp(arg, "accept")) {
+        return ACCEPT;
+    } else {
+        return INVALID;
+    }
+}
+
+int CommandListener::StrictCmd::runCommand(SocketClient *cli, int argc,
+        char **argv) {
+    if (argc < 2) {
+        cli->sendMsg(ResponseCode::CommandSyntaxError, "Missing command", false);
+        return 0;
+    }
+
+    if (!strcmp(argv[1], "enable")) {
+        int res = sStrictCtrl->enableStrict();
+        return sendGenericOkFail(cli, res);
+    }
+    if (!strcmp(argv[1], "disable")) {
+        int res = sStrictCtrl->disableStrict();
+        return sendGenericOkFail(cli, res);
+    }
+
+    if (!strcmp(argv[1], "set_uid_cleartext_policy")) {
+        if (argc != 4) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError,
+                         "Usage: strict set_uid_cleartext_policy <uid> <accept|log|reject>",
+                         false);
+            return 0;
+        }
+
+        errno = 0;
+        unsigned long int uid = strtoul(argv[2], NULL, 0);
+        if (errno || uid > UID_MAX) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError, "Invalid UID", false);
+            return 0;
+        }
+
+        StrictPenalty penalty = parsePenalty(argv[3]);
+        if (penalty == INVALID) {
+            cli->sendMsg(ResponseCode::CommandSyntaxError, "Invalid penalty argument", false);
+            return 0;
+        }
+
+        int res = sStrictCtrl->setUidCleartextPenalty((uid_t) uid, penalty);
+        return sendGenericOkFail(cli, res);
+    }
+
+    cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown command", false);
     return 0;
 }
 
@@ -1558,24 +1725,36 @@ int CommandListener::NetworkCommand::runCommand(SocketClient* client, int argc, 
         if (nextArg == argc) {
             return syntaxError(client, "Missing id");
         }
+
+        bool userPermissions = !strcmp(argv[2], "user");
+        bool networkPermissions = !strcmp(argv[2], "network");
+        if (!userPermissions && !networkPermissions) {
+            return syntaxError(client, "Unknown argument");
+        }
+
         std::vector<unsigned> ids;
         for (; nextArg < argc; ++nextArg) {
-            char* endPtr;
-            unsigned id = strtoul(argv[nextArg], &endPtr, 0);
-            if (!*argv[nextArg] || *endPtr) {
-                return syntaxError(client, "Invalid id");
+            if (userPermissions) {
+                char* endPtr;
+                unsigned id = strtoul(argv[nextArg], &endPtr, 0);
+                if (!*argv[nextArg] || *endPtr) {
+                    return syntaxError(client, "Invalid id");
+                }
+                ids.push_back(id);
+            } else {
+                // networkPermissions
+                ids.push_back(stringToNetId(argv[nextArg]));
             }
-            ids.push_back(id);
         }
-        if (!strcmp(argv[2], "user")) {
+        if (userPermissions) {
             sNetCtrl->setPermissionForUsers(permission, ids);
-        } else if (!strcmp(argv[2], "network")) {
+        } else {
+            // networkPermissions
             if (int ret = sNetCtrl->setPermissionForNetworks(permission, ids)) {
                 return operationError(client, "setPermissionForNetworks() failed", ret);
             }
-        } else {
-            return syntaxError(client, "Unknown argument");
         }
+
         return success(client);
     }
 

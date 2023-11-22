@@ -83,6 +83,9 @@ public class DateUtilsTest extends AndroidTestCase {
         assertEquals("PM", DateUtils.getAMPMString(Calendar.PM));
     }
 
+    // This is to test the mapping between DateUtils' public API and
+    // libcore/icu4c's implementation. More tests, in different locales, are
+    // in libcore's CTS tests.
     public void test_getRelativeTimeSpanString() {
         if (!LocaleUtils.isCurrentLocale(mContext, Locale.US)) {
             return;
@@ -90,22 +93,15 @@ public class DateUtilsTest extends AndroidTestCase {
 
         final long ONE_SECOND_IN_MS = 1000;
         assertEquals("0 minutes ago",
-                     DateUtils.getRelativeTimeSpanString(mBaseTime - ONE_SECOND_IN_MS));
+                DateUtils.getRelativeTimeSpanString(mBaseTime - ONE_SECOND_IN_MS));
         assertEquals("in 0 minutes",
-                     DateUtils.getRelativeTimeSpanString(mBaseTime + ONE_SECOND_IN_MS));
+                DateUtils.getRelativeTimeSpanString(mBaseTime + ONE_SECOND_IN_MS));
 
         final long ONE_MINUTE_IN_MS = 60 * ONE_SECOND_IN_MS;
-        assertEquals("1 minute ago",
-                     DateUtils.getRelativeTimeSpanString(0, ONE_MINUTE_IN_MS, DateUtils.MINUTE_IN_MILLIS));
-        assertEquals("in 1 minute",
-                     DateUtils.getRelativeTimeSpanString(ONE_MINUTE_IN_MS, 0, DateUtils.MINUTE_IN_MILLIS));
-
-        assertEquals("42 minutes ago",
-                     DateUtils.getRelativeTimeSpanString(mBaseTime - (42 * ONE_MINUTE_IN_MS),
-                                                         mBaseTime, DateUtils.MINUTE_IN_MILLIS));
-        assertEquals("in 42 minutes",
-                     DateUtils.getRelativeTimeSpanString(mBaseTime + (42 * ONE_MINUTE_IN_MS),
-                                                         mBaseTime, DateUtils.MINUTE_IN_MILLIS));
+        assertEquals("1 minute ago", DateUtils.getRelativeTimeSpanString(0, ONE_MINUTE_IN_MS,
+                DateUtils.MINUTE_IN_MILLIS));
+        assertEquals("in 1 minute", DateUtils.getRelativeTimeSpanString(ONE_MINUTE_IN_MS, 0,
+                DateUtils.MINUTE_IN_MILLIS));
 
         final long ONE_HOUR_IN_MS = 60 * 60 * 1000;
         final long TWO_HOURS_IN_MS = 2 * ONE_HOUR_IN_MS;
@@ -113,33 +109,16 @@ public class DateUtilsTest extends AndroidTestCase {
                 mBaseTime, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_NUMERIC_DATE));
         assertEquals("in 2 hours", DateUtils.getRelativeTimeSpanString(mBaseTime + TWO_HOURS_IN_MS,
                 mBaseTime, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_NUMERIC_DATE));
-
-        assertEquals("in 42 mins", DateUtils.getRelativeTimeSpanString(mBaseTime + (42 * ONE_MINUTE_IN_MS),
-                mBaseTime, DateUtils.MINUTE_IN_MILLIS,
-                DateUtils.FORMAT_ABBREV_RELATIVE));
-
-        final long ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;
-        assertEquals("Tomorrow",
-                     DateUtils.getRelativeTimeSpanString(ONE_DAY_IN_MS, 0, DateUtils.DAY_IN_MILLIS, 0));
-        assertEquals("in 2 days",
-                     DateUtils.getRelativeTimeSpanString(2 * ONE_DAY_IN_MS, 0, DateUtils.DAY_IN_MILLIS, 0));
-        assertEquals("Yesterday",
-                     DateUtils.getRelativeTimeSpanString(0, ONE_DAY_IN_MS, DateUtils.DAY_IN_MILLIS, 0));
-        assertEquals("2 days ago",
-                     DateUtils.getRelativeTimeSpanString(0, 2 * ONE_DAY_IN_MS, DateUtils.DAY_IN_MILLIS, 0));
-
-        final long DAY_DURATION = 5 * 24 * 60 * 60 * 1000;
-        assertNotNull(DateUtils.getRelativeTimeSpanString(mContext, mBaseTime - DAY_DURATION, true));
-        assertNotNull(DateUtils.getRelativeTimeSpanString(mContext, mBaseTime - DAY_DURATION));
     }
 
+    // Similar to test_getRelativeTimeSpanString(). The function here is to
+    // test the mapping between DateUtils's public API and libcore/icu4c's
+    // implementation. More tests, in different locales, are in libcore's
+    // CTS tests.
     public void test_getRelativeDateTimeString() {
         final long DAY_DURATION = 5 * 24 * 60 * 60 * 1000;
-        assertNotNull(DateUtils.getRelativeDateTimeString(mContext,
-                                                          mBaseTime - DAY_DURATION,
-                                                          DateUtils.MINUTE_IN_MILLIS,
-                                                          DateUtils.DAY_IN_MILLIS,
-                                                          DateUtils.FORMAT_NUMERIC_DATE));
+        assertNotNull(DateUtils.getRelativeDateTimeString(mContext, mBaseTime - DAY_DURATION,
+                DateUtils.MINUTE_IN_MILLIS, DateUtils.DAY_IN_MILLIS, DateUtils.FORMAT_NUMERIC_DATE));
     }
 
     public void test_formatElapsedTime() {
@@ -211,7 +190,7 @@ public class DateUtilsTest extends AndroidTestCase {
         long fixedTime = date.getTime();
         final long HOUR_DURATION = 2 * 60 * 60 * 1000;
         assertEquals("Monday", DateUtils.formatDateRange(mContext, fixedTime,
-                     fixedTime + HOUR_DURATION, DateUtils.FORMAT_SHOW_WEEKDAY));
+                fixedTime + HOUR_DURATION, DateUtils.FORMAT_SHOW_WEEKDAY));
     }
 
     public void testIsToday() {
@@ -221,15 +200,19 @@ public class DateUtilsTest extends AndroidTestCase {
     }
 
     public void test_bug_7548161() {
+        if (!LocaleUtils.isCurrentLocale(mContext, Locale.US)) {
+            return;
+        }
+
         long now = System.currentTimeMillis();
         long today = now;
         long tomorrow = now + DateUtils.DAY_IN_MILLIS;
         long yesterday = now - DateUtils.DAY_IN_MILLIS;
         assertEquals("Tomorrow", DateUtils.getRelativeTimeSpanString(tomorrow, now,
-                                                                     DateUtils.DAY_IN_MILLIS, 0));
+                DateUtils.DAY_IN_MILLIS, 0));
         assertEquals("Yesterday", DateUtils.getRelativeTimeSpanString(yesterday, now,
-                                                                      DateUtils.DAY_IN_MILLIS, 0));
+                DateUtils.DAY_IN_MILLIS, 0));
         assertEquals("Today", DateUtils.getRelativeTimeSpanString(today, now,
-                                                                  DateUtils.DAY_IN_MILLIS, 0));
+                DateUtils.DAY_IN_MILLIS, 0));
     }
 }

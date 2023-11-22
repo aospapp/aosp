@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <SLES/OpenSLES.h>
 
-int main(int argc, char **argv)
+int main(int argc __unused, char **argv __unused)
 {
     SLresult result;
     SLObjectItf engineObject;

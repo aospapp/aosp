@@ -34,10 +34,13 @@ public class RSBase extends AndroidTestCase {
     Resources mRes;
 
     private int result;
-    private boolean msgHandled;
+    // msgHandled is used to synchronize between waitForMessage() and the
+    // RSMessageHandler thread.
+    private volatile boolean msgHandled;
 
-    private static final int RS_MSG_TEST_PASSED = 100;
-    private static final int RS_MSG_TEST_FAILED = 101;
+    protected static final int RS_MSG_TEST_PASSED = 100;
+    protected static final int RS_MSG_TEST_FAILED = 101;
+    protected static final int RS_MSG_TEST_FLUSH = 102;
 
     RSMessageHandler mRsMessage = new RSMessageHandler() {
         public void run() {
@@ -46,6 +49,8 @@ public class RSBase extends AndroidTestCase {
                     case RS_MSG_TEST_PASSED:
                     case RS_MSG_TEST_FAILED:
                         result = mID;
+                        break;
+                    case RS_MSG_TEST_FLUSH:
                         break;
                     default:
                         fail("Got unexpected RS message");

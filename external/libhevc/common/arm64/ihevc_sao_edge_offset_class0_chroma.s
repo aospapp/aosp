@@ -141,20 +141,20 @@ WIDTH_LOOP_16:
     CMP         x8,x9                       //if(col == wd)
     BNE         AU1_MASK_FF                 //jump to else part
     LDRB        w12,[x7]                    //pu1_avail[0]
-    mov         v3.8b[0], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
-    mov         v3.8b[1], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 1)
+    mov         v3.b[0], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
+    mov         v3.b[1], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 1)
     B           SKIP_AU1_MASK_FF            //Skip the else part
 
 AU1_MASK_FF:
     MOV         x12,#-1                     //move -1 to x12
-    mov         v3.4h[0], w12               //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
+    mov         v3.h[0], w12                //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
 
 SKIP_AU1_MASK_FF:
     CMP         x8,#16                      //If col == 16
     BNE         SKIP_MASKING_IF_NOT16       //If not skip masking
     LDRB        w12,[x7,#1]                 //pu1_avail[1]
-    mov         v3.8b[14], w12              //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 14)
-    mov         v3.8b[15], w12              //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
+    mov         v3.b[14], w12               //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 14)
+    mov         v3.b[15], w12               //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
 
 SKIP_MASKING_IF_NOT16:
     MOV         x12,x0                      //pu1_src_cpy = pu1_src
@@ -168,7 +168,7 @@ PU1_SRC_LOOP:
     SUB         x5,x9,x8                    //wd - col
 
     SUB         x14,x10,x4                  //ht - row
-    mov         v21.4h[7], w11              //vsetq_lane_u16(pu1_src_left[ht - row], pu1_cur_row_tmp, 14,15)
+    mov         v21.h[7], w11               //vsetq_lane_u16(pu1_src_left[ht - row], pu1_cur_row_tmp, 14,15)
     mul         x14, x14, x1                //(ht - row) * src_strd
 
     LD1         {v30.16b},[x12]             //II Iteration pu1_cur_row = vld1q_u8(pu1_src_cpy)
@@ -181,7 +181,7 @@ PU1_SRC_LOOP:
     cmhi        v16.16b,  v19.16b ,  v21.16b //vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
     ADD         x5,x14,x5                   //(ht - row) * src_strd + (wd - col)
 
-    mov         v28.4h[7], w11              //II vsetq_lane_u16(pu1_src_left[ht - row], pu1_cur_row_tmp, 14,15)
+    mov         v28.h[7], w11               //II vsetq_lane_u16(pu1_src_left[ht - row], pu1_cur_row_tmp, 14,15)
     cmhi        v18.16b,  v21.16b ,  v19.16b //vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
 
     LDRH        w14,[x6,x5]                 //pu1_src_org[(ht - row) * src_strd + 14 + (wd - col)]
@@ -191,7 +191,7 @@ PU1_SRC_LOOP:
     LDRB        w11,[x12,#16]               //pu1_src_cpy[16]
     EXT         v28.16b,  v28.16b ,  v30.16b,#14 //II pu1_cur_row_tmp = vextq_u8(pu1_cur_row_tmp, pu1_cur_row, 14)
 
-    mov         v21.8b[0], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v21.b[0], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
     cmhi        v26.16b,  v30.16b ,  v28.16b //II vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
 
     LDRB        w11,[x12,#17]               //pu1_src_cpy[17]
@@ -199,18 +199,18 @@ PU1_SRC_LOOP:
     STRH        w14,[x2],#2                 //pu1_src_left[(ht - row)] = au1_src_left_tmp[(ht - row)]
 
     ADD         x12,x12,x1
-    mov         v21.8b[1], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
+    mov         v21.b[1], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
     LDRB        w11,[x12,#16]               //II pu1_src_cpy[16]
 
     EXT         v21.16b,  v19.16b ,  v21.16b,#2 //pu1_cur_row_tmp = vextq_u8(pu1_cur_row, pu1_cur_row_tmp, 2)
-    mov         v28.8b[0], w11              //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v28.b[0], w11               //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
 
     LDRB        w11,[x12,#17]               //II pu1_src_cpy[17]
     cmhi        v16.16b,  v19.16b ,  v21.16b //vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
     SUB         x12,x12,x1
 
     cmhi        v18.16b,  v21.16b ,  v19.16b //vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
-    mov         v28.8b[1], w11              //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
+    mov         v28.b[1], w11               //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
 
     SUB         v22.16b,  v18.16b ,  v16.16b //sign_right = vreinterpretq_s8_u8(vsubq_u8(cmp_lt, cmp_gt))
     EXT         v28.16b,  v30.16b ,  v28.16b,#2 //II pu1_cur_row_tmp = vextq_u8(pu1_cur_row, pu1_cur_row_tmp, 2)
@@ -328,18 +328,18 @@ WIDTH_RESIDUE:
     CMP         x8,x9                       //if(wd_rem == wd)
     BNE         AU1_MASK_FF_RESIDUE         //jump to else part
     LDRB        w12,[x7]                    //pu1_avail[0]
-    mov         v3.8b[0], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
-    mov         v3.8b[1], w12               //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
+    mov         v3.b[0], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
+    mov         v3.b[1], w12                //vsetq_lane_s8(pu1_avail[0], au1_mask, 0)
     B           SKIP_AU1_MASK_FF_RESIDUE    //Skip the else part
 
 AU1_MASK_FF_RESIDUE:
     MOV         x12,#-1                     //move -1 to x12
-    mov         v3.4h[0], w12               //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
+    mov         v3.h[0], w12                //au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
 
 SKIP_AU1_MASK_FF_RESIDUE:
     LDRB        w12,[x7,#1]                 //pu1_avail[1]
-    mov         v3.8b[6], w12               //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
-    mov         v3.8b[7], w12               //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
+    mov         v3.b[6], w12                //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
+    mov         v3.b[7], w12                //au1_mask = vsetq_lane_s8(pu1_avail[1], au1_mask, 15)
 
     MOV         x12,x0                      //pu1_src_cpy = pu1_src
     MOV         x4,x10                      //move ht to x4 for loop count
@@ -352,7 +352,7 @@ PU1_SRC_LOOP_RESIDUE:
     SUB         x5,x9,#2                    //wd - 2
 
     SUB         x14,x10,x4                  //(ht - row)
-    mov         v21.4h[7], w11              //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
+    mov         v21.h[7], w11               //vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
     LSL         x14,x14,#1                  //(ht - row) * 2
 
     LD1         {v30.16b},[x12]             //II pu1_cur_row = vld1q_u8(pu1_src_cpy)
@@ -366,20 +366,20 @@ PU1_SRC_LOOP_RESIDUE:
     mul         x14, x14, x1                //(ht - row) * 2 * src_strd
 
     cmhi        v18.16b,  v21.16b ,  v19.16b //vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
-    mov         v28.4h[7], w11              //II vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
+    mov         v28.h[7], w11               //II vsetq_lane_u8(pu1_src_left[ht - row], pu1_cur_row_tmp, 15)
 
     LDRB        w11,[x12,#16]               //pu1_src_cpy[16]
     SUB         v20.16b,  v18.16b ,  v16.16b //sign_left = vreinterpretq_s8_u8(vsubq_u8(cmp_lt, cmp_gt))
     ADD         x5,x14,x5                   //(ht - row) * 2 * src_strd + (wd - 2)
 
-    mov         v21.8b[0], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v21.b[0], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
     EXT         v28.16b,  v28.16b ,  v30.16b,#14 //II pu1_cur_row_tmp = vextq_u8(pu1_cur_row_tmp, pu1_cur_row, 15)
 
     LDRB        w11,[x12,#17]               //pu1_src_cpy[17]
     cmhi        v26.16b,  v30.16b ,  v28.16b //II vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
     LDRH        w14,[x6, x5]                //pu1_src_org[(ht - row)  * 2* src_strd + (wd - 2)]
 
-    mov         v21.8b[1], w11              //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
+    mov         v21.b[1], w11               //pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
     cmhi        v24.16b,  v28.16b ,  v30.16b //II vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
     ADD         x12,x12,x1
 
@@ -388,14 +388,14 @@ PU1_SRC_LOOP_RESIDUE:
     LDRB        w11,[x12,#16]               //II pu1_src_cpy[16]
 
     cmhi        v16.16b,  v19.16b ,  v21.16b //vcgtq_u8(pu1_cur_row, pu1_cur_row_tmp)
-    mov         v28.8b[0], w11              //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
+    mov         v28.b[0], w11               //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[16], pu1_cur_row_tmp, 0)
 
     LDRB        w11,[x12,#17]               //II pu1_src_cpy[17]
     cmhi        v18.16b,  v21.16b ,  v19.16b //vcltq_u8(pu1_cur_row, pu1_cur_row_tmp)
     SUB         x4,x4,#1                    //II Decrement row by 1
 
     SUB         v22.16b,  v18.16b ,  v16.16b //sign_right = vreinterpretq_s8_u8(vsubq_u8(cmp_lt, cmp_gt))
-    mov         v28.8b[1], w11              //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
+    mov         v28.b[1], w11               //II pu1_cur_row_tmp = vsetq_lane_u8(pu1_src_cpy[17], pu1_cur_row_tmp, 1)
     SUB         x12,x12,x1
 
     ADD         v21.16b,  v2.16b ,  v20.16b //edge_idx = vaddq_s8(const_2, sign_left)

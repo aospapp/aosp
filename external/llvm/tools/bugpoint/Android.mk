@@ -35,6 +35,7 @@ bugpoint_STATIC_LIBRARIES := \
   libLLVMTarget \
   libLLVMCore \
   libLLVMMC \
+  libLLVMProfileData \
   libLLVMTransformUtils \
   libLLVMVectorize \
   libLLVMSupport \
@@ -51,6 +52,11 @@ LOCAL_SRC_FILES := $(bugpoint_SRC_FILES)
 LOCAL_STATIC_LIBRARIES := $(bugpoint_STATIC_LIBRARIES)
 
 LOCAL_LDLIBS += -lpthread -lm -ldl
+ifeq ($(HOST_OS),darwin)
+LOCAL_LDFLAGS += -Wl,-export_dynamic
+else
+LOCAL_LDFLAGS += -Wl,--export-dynamic
+endif
 
 include $(LLVM_ROOT_PATH)/llvm.mk
 include $(LLVM_HOST_BUILD_MK)

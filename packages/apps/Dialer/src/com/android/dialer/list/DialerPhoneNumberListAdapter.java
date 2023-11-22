@@ -3,6 +3,8 @@ package com.android.dialer.list;
 import android.content.Context;
 import android.content.res.Resources;
 import android.telephony.PhoneNumberUtils;
+import android.text.BidiFormatter;
+import android.text.TextDirectionHeuristics;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -27,22 +29,21 @@ public class DialerPhoneNumberListAdapter extends PhoneNumberListAdapter {
 
     public final static int SHORTCUT_INVALID = -1;
     public final static int SHORTCUT_DIRECT_CALL = 0;
-    public final static int SHORTCUT_ADD_NUMBER_TO_CONTACTS = 1;
-    public final static int SHORTCUT_MAKE_VIDEO_CALL = 2;
+    public final static int SHORTCUT_CREATE_NEW_CONTACT = 1;
+    public final static int SHORTCUT_ADD_TO_EXISTING_CONTACT = 2;
+    public final static int SHORTCUT_SEND_SMS_MESSAGE = 3;
+    public final static int SHORTCUT_MAKE_VIDEO_CALL = 4;
 
-    public final static int SHORTCUT_COUNT = 3;
+    public final static int SHORTCUT_COUNT = 5;
 
     private final boolean[] mShortcutEnabled = new boolean[SHORTCUT_COUNT];
+
+    private final BidiFormatter mBidiFormatter = BidiFormatter.getInstance();
 
     public DialerPhoneNumberListAdapter(Context context) {
         super(context);
 
         mCountryIso = GeoUtil.getCurrentCountryIso(context);
-
-        // Enable all shortcuts by default
-        for (int i = 0; i < mShortcutEnabled.length; i++) {
-            mShortcutEnabled[i] = true;
-        }
     }
 
     @Override
@@ -59,6 +60,12 @@ public class DialerPhoneNumberListAdapter extends PhoneNumberListAdapter {
             if (mShortcutEnabled[i]) count++;
         }
         return count;
+    }
+
+    public void disableAllShortcuts() {
+        for (int i = 0; i < mShortcutEnabled.length; i++) {
+            mShortcutEnabled[i] = false;
+        }
     }
 
     @Override
@@ -139,12 +146,22 @@ public class DialerPhoneNumberListAdapter extends PhoneNumberListAdapter {
         final String number = getFormattedQueryString();
         switch (shortcutType) {
             case SHORTCUT_DIRECT_CALL:
-                text = resources.getString(R.string.search_shortcut_call_number, number);
+                text = resources.getString(
+                        R.string.search_shortcut_call_number,
+                        mBidiFormatter.unicodeWrap(number, TextDirectionHeuristics.LTR));
                 drawableId = R.drawable.ic_search_phone;
                 break;
-            case SHORTCUT_ADD_NUMBER_TO_CONTACTS:
-                text = resources.getString(R.string.search_shortcut_add_to_contacts);
+            case SHORTCUT_CREATE_NEW_CONTACT:
+                text = resources.getString(R.string.search_shortcut_create_new_contact);
                 drawableId = R.drawable.ic_search_add_contact;
+                break;
+            case SHORTCUT_ADD_TO_EXISTING_CONTACT:
+                text = resources.getString(R.string.search_shortcut_add_to_contact);
+                drawableId = R.drawable.ic_person_24dp;
+                break;
+            case SHORTCUT_SEND_SMS_MESSAGE:
+                text = resources.getString(R.string.search_shortcut_send_sms_message);
+                drawableId = R.drawable.ic_message_24dp;
                 break;
             case SHORTCUT_MAKE_VIDEO_CALL:
                 text = resources.getString(R.string.search_shortcut_make_video_call);
@@ -153,7 +170,7 @@ public class DialerPhoneNumberListAdapter extends PhoneNumberListAdapter {
             default:
                 throw new IllegalArgumentException("Invalid shortcut type");
         }
-        v.setDrawableResource(R.drawable.search_shortcut_background, drawableId);
+        v.setDrawableResource(drawableId);
         v.setDisplayName(text);
         v.setPhotoPosition(super.getPhotoPosition());
         v.setAdjustSelectionBoundsEnabled(false);

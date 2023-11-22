@@ -18,7 +18,6 @@ package android.widget.cts;
 
 import com.android.cts.widget.R;
 
-
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.ViewAsserts;
 import android.view.View;
@@ -186,11 +185,13 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_START]);
         assertEquals(R.id.relative_view21, rules[RelativeLayout.ALIGN_LEFT]);
         assertEquals(0, rules[RelativeLayout.ALIGN_RIGHT]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(R.id.relative_view21, rules[RelativeLayout.BELOW]);
         assertEquals(0, rules[RelativeLayout.ALIGN_START]);
         assertEquals(0, rules[RelativeLayout.ALIGN_LEFT]);
         assertEquals(R.id.relative_view21, rules[RelativeLayout.ALIGN_RIGHT]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view3, has same top position with view1 and same bottom position with view2,
         // and on the right of view1.1.
@@ -206,12 +207,14 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.END_OF]);
         assertEquals(0, rules[RelativeLayout.LEFT_OF]);
         assertEquals(R.id.relative_view21, rules[RelativeLayout.RIGHT_OF]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(R.id.relative_view21, rules[RelativeLayout.ALIGN_TOP]);
         assertEquals(R.id.relative_view22, rules[RelativeLayout.ALIGN_BOTTOM]);
         assertEquals(0, rules[RelativeLayout.END_OF]);
         assertEquals(R.id.relative_view21, rules[RelativeLayout.LEFT_OF]);
         assertEquals(0, rules[RelativeLayout.RIGHT_OF]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view4, has same right position with view3 and above view3.
         // TEST: android:layout_alignEnd; android:layout_above
@@ -224,11 +227,13 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_LEFT]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_RIGHT]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ABOVE]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(0, rules[RelativeLayout.ALIGN_END]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_LEFT]);
         assertEquals(0, rules[RelativeLayout.ALIGN_RIGHT]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ABOVE]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view5 goes on the left-bottom.
         // TEST: android:layout_alignParentBottom; android:layout_alignParentStart
@@ -241,11 +246,13 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_START]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_LEFT]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_RIGHT]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_BOTTOM]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_START]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_LEFT]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_RIGHT]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view6 goes on the top-right.
         // TEST: android:layout_alignParentTop; android:layout_alignParentEnd
@@ -258,11 +265,13 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_END]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_LEFT]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_RIGHT]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_TOP]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_END]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_PARENT_LEFT]);
         assertEquals(0, rules[RelativeLayout.ALIGN_PARENT_RIGHT]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view7, has same baseline with view6 and centered horizontally within its parent.
         // TEST: android:layout_alignBaseline; android:layout_centerHorizontal
@@ -273,9 +282,11 @@ public class RelativeLayout_LayoutParamsTest extends
         rules = layoutParams.getRules();
         assertEquals(R.id.relative_view26, rules[RelativeLayout.ALIGN_BASELINE]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.CENTER_HORIZONTAL]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(R.id.relative_view26, rules[RelativeLayout.ALIGN_BASELINE]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.CENTER_HORIZONTAL]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view8, centered vertically within its parent and on the left of view1.
         // TEST: android:layout_toStartOf; android:layout_centerVertical
@@ -288,11 +299,13 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(R.id.relative_view21, rules[RelativeLayout.LEFT_OF]);
         assertEquals(0, rules[RelativeLayout.RIGHT_OF]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.CENTER_VERTICAL]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(0, rules[RelativeLayout.START_OF]);
         assertEquals(0, rules[RelativeLayout.LEFT_OF]);
         assertEquals(R.id.relative_view21, rules[RelativeLayout.RIGHT_OF]);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.CENTER_VERTICAL]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         // view9, has same top and bottom position with view3 and same left position with its parent
         // TEST: android:layout_alignStart; android:layout_alignTop; android:layout_alignBottom;
@@ -308,12 +321,14 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_RIGHT]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_TOP]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_BOTTOM]);
-        rules = layoutParams.getRules(View.LAYOUT_DIRECTION_RTL);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        rules = layoutParams.getRules();
         assertEquals(0, rules[RelativeLayout.ALIGN_START]);
         assertEquals(0, rules[RelativeLayout.ALIGN_LEFT]);
         assertEquals(R.id.gravity_bottom, rules[RelativeLayout.ALIGN_RIGHT]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_TOP]);
         assertEquals(R.id.relative_view23, rules[RelativeLayout.ALIGN_BOTTOM]);
+        layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
     }
 
     public void testAccessRule1() {

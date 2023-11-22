@@ -16,12 +16,23 @@
 
 package com.google.common.collect;
 
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
+
+import com.google.common.collect.testing.features.CollectionFeature;
+import com.google.common.collect.testing.features.CollectionSize;
+import com.google.common.collect.testing.features.MapFeature;
+import com.google.common.collect.testing.google.SetMultimapTestSuiteBuilder;
+import com.google.common.collect.testing.google.TestStringSetMultimapGenerator;
+
+import junit.framework.Test;
+import junit.framework.TestCase;
+import junit.framework.TestSuite;
 
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.RandomAccess;
 import java.util.Set;
 
@@ -32,20 +43,40 @@ import javax.annotation.Nullable;
  *
  * @author Mike Bostock
  */
-public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
-
-  @Override protected Multimap<String, Integer> create() {
-    TestMultimap<String, Integer> inner = new TestMultimap<String, Integer>();
-    Multimap<String, Integer> outer = Synchronized.multimap(inner, inner.mutex);
-    return outer;
+public class SynchronizedMultimapTest extends TestCase {
+  
+  public static Test suite() {
+    TestSuite suite = new TestSuite();
+    suite.addTestSuite(SynchronizedMultimapTest.class);
+    suite.addTest(SetMultimapTestSuiteBuilder.using(new TestStringSetMultimapGenerator() {
+        @Override
+        protected SetMultimap<String, String> create(Entry<String, String>[] entries) {
+          TestMultimap<String, String> inner = new TestMultimap<String, String>();
+          SetMultimap<String, String> outer = Synchronized.setMultimap(inner, inner.mutex);
+          for (Entry<String, String> entry : entries) {
+            outer.put(entry.getKey(), entry.getValue());
+          }
+          return outer;
+        }
+      })
+      .named("Synchronized.setMultimap")
+      .withFeatures(MapFeature.GENERAL_PURPOSE,
+          CollectionSize.ANY,
+          CollectionFeature.SERIALIZABLE,
+          CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+          MapFeature.ALLOWS_NULL_KEYS,
+          MapFeature.ALLOWS_NULL_VALUES,
+          MapFeature.ALLOWS_ANY_NULL_QUERIES)
+      .createTestSuite());
+    return suite;
   }
 
-  private static final class TestMultimap<K, V> extends ForwardingMultimap<K, V>
+  private static final class TestMultimap<K, V> extends ForwardingSetMultimap<K, V>
       implements Serializable {
-    final Multimap<K, V> delegate = HashMultimap.create();
+    final SetMultimap<K, V> delegate = HashMultimap.create();
     public final Object mutex = new Integer(1); // something Serializable
 
-    @Override protected Multimap<K, V> delegate() {
+    @Override protected SetMultimap<K, V> delegate() {
       return delegate;
     }
 
@@ -90,7 +121,7 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
       return super.containsEntry(key, value);
     }
 
-    @Override public Collection<V> get(@Nullable K key) {
+    @Override public Set<V> get(@Nullable K key) {
       assertTrue(Thread.holdsLock(mutex));
       /* TODO: verify that the Collection is also synchronized? */
       return super.get(key);
@@ -112,7 +143,7 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
       return super.putAll(map);
     }
 
-    @Override public Collection<V> replaceValues(@Nullable K key,
+    @Override public Set<V> replaceValues(@Nullable K key,
         Iterable<? extends V> values) {
       assertTrue(Thread.holdsLock(mutex));
       return super.replaceValues(key, values);
@@ -124,7 +155,7 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
       return super.remove(key, value);
     }
 
-    @Override public Collection<V> removeAll(@Nullable Object key) {
+    @Override public Set<V> removeAll(@Nullable Object key) {
       assertTrue(Thread.holdsLock(mutex));
       return super.removeAll(key);
     }
@@ -152,7 +183,7 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
       return super.values();
     }
 
-    @Override public Collection<Map.Entry<K, V>> entries() {
+    @Override public Set<Map.Entry<K, V>> entries() {
       assertTrue(Thread.holdsLock(mutex));
       /* TODO: verify that the Collection is also synchronized? */
       return super.entries();
@@ -173,11 +204,11 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
             ArrayListMultimap.<String, Integer>create());
     multimap.putAll("foo", Arrays.asList(3, -1, 2, 4, 1));
     multimap.putAll("bar", Arrays.asList(1, 2, 3, 1));
-    ASSERT.that(multimap.removeAll("foo")).hasContentsInOrder(3, -1, 2, 4, 1);
+    ASSERT.that(multimap.removeAll("foo")).has().exactly(3, -1, 2, 4, 1).inOrder();
     assertFalse(multimap.containsKey("foo"));
     ASSERT.that(multimap.replaceValues("bar", Arrays.asList(6, 5)))
-        .hasContentsInOrder(1, 2, 3, 1);
-    ASSERT.that(multimap.get("bar")).hasContentsInOrder(6, 5);
+        .has().exactly(1, 2, 3, 1).inOrder();
+    ASSERT.that(multimap.get("bar")).has().exactly(6, 5).inOrder();
   }
 
   public void testSynchronizedSortedSetMultimap() {
@@ -186,11 +217,11 @@ public class SynchronizedMultimapTest extends AbstractSetMultimapTest {
             TreeMultimap.<String, Integer>create());
     multimap.putAll("foo", Arrays.asList(3, -1, 2, 4, 1));
     multimap.putAll("bar", Arrays.asList(1, 2, 3, 1));
-    ASSERT.that(multimap.removeAll("foo")).hasContentsInOrder(-1, 1, 2, 3, 4);
+    ASSERT.that(multimap.removeAll("foo")).has().exactly(-1, 1, 2, 3, 4).inOrder();
     assertFalse(multimap.containsKey("foo"));
     ASSERT.that(multimap.replaceValues("bar", Arrays.asList(6, 5)))
-        .hasContentsInOrder(1, 2, 3);
-    ASSERT.that(multimap.get("bar")).hasContentsInOrder(5, 6);
+        .has().exactly(1, 2, 3).inOrder();
+    ASSERT.that(multimap.get("bar")).has().exactly(5, 6).inOrder();
   }
 
   public void testSynchronizedArrayListMultimapRandomAccess() {

@@ -728,7 +728,12 @@ public class AllocationTest extends AndroidTestCase {
                             mCameraIds[i]));
                     continue;
                 }
-
+                if (!staticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, String.format(
+                        "Skipping this test for camera %s, does not support regular outputs",
+                        mCameraIds[i]));
+                    continue;
+                }
                 // Open camera and execute test
                 Log.i(TAG, "Testing Camera " + mCameraIds[i]);
                 try {

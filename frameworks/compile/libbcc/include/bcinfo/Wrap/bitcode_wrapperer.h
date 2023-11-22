@@ -102,7 +102,7 @@ class BitcodeWrapperer {
 
   // Returns the number of bytes in infile.
   off_t GetInFileSize() {
-    if (infile_ != NULL) {
+    if (infile_ != nullptr) {
       return infile_->Size();
     } else {
       return 0;

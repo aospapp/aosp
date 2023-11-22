@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.testing.NullPointerTester;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.TestCase;
 
 import java.io.IOException;
@@ -210,51 +211,10 @@ public class JoinerTest extends TestCase {
     }
   }
 
-  public void testIterableIterator() {
-    Joiner onChar = Joiner.on('-');
-    checkIterableIterator(onChar, "1-2-3-4");
-
-    Joiner skipNulls = J.skipNulls();
-    checkIterableIterator(skipNulls, "1-2-3-4");
-
-    Joiner zeroForNull = J.useForNull("0");
-    checkIterableIterator(zeroForNull, "1-2-3-4");
-  }
-  
-  private static void checkIterableIterator(Joiner joiner, String expected) {
-    assertEquals(expected, joiner.join(new IterableIterator()));
-
-    StringBuilder sb1 = new StringBuilder().append('x');
-    joiner.appendTo(sb1, new IterableIterator());
-    assertEquals("x" + expected, sb1.toString());
-
-    Integer[] partsArray =
-        Lists.newArrayList(new IterableIterator().iterator()).toArray(new Integer[0]);
-    assertEquals(expected, joiner.join(partsArray));
-
-    StringBuilder sb2 = new StringBuilder().append('x');
-    joiner.appendTo(sb2, partsArray);
-    assertEquals("x" + expected, sb2.toString());
-
-    int num = partsArray.length - 2;
-    if (num >= 0) {
-      Object[] rest = new Integer[num];
-      for (int i = 0; i < num; i++) {
-        rest[i] = partsArray[i + 2];
-      }
-
-      assertEquals(expected, joiner.join(partsArray[0], partsArray[1], rest));
-
-      StringBuilder sb3 = new StringBuilder().append('x');
-      joiner.appendTo(sb3, partsArray[0], partsArray[1], rest);
-      assertEquals("x" + expected, sb3.toString());
-    }
-  }
-
   public void test_useForNull_skipNulls() {
     Joiner j = Joiner.on("x").useForNull("y");
     try {
-      j.skipNulls();
+      j = j.skipNulls();
       fail();
     } catch (UnsupportedOperationException expected) {
     }
@@ -263,7 +223,7 @@ public class JoinerTest extends TestCase {
   public void test_skipNulls_useForNull() {
     Joiner j = Joiner.on("x").skipNulls();
     try {
-      j.useForNull("y");
+      j = j.useForNull("y");
       fail();
     } catch (UnsupportedOperationException expected) {
     }
@@ -272,7 +232,7 @@ public class JoinerTest extends TestCase {
   public void test_useForNull_twice() {
     Joiner j = Joiner.on("x").useForNull("y");
     try {
-      j.useForNull("y");
+      j = j.useForNull("y");
       fail();
     } catch (UnsupportedOperationException expected) {
     }
@@ -338,6 +298,7 @@ public class JoinerTest extends TestCase {
     assertEquals("1:2;1:3;3:4;5:6;5:10", sb2.toString());
   }
 
+  @SuppressWarnings("ReturnValueIgnored") // testing for exception
   public void test_skipNulls_onMap() {
     Joiner j = Joiner.on(",").skipNulls();
     try {
@@ -361,8 +322,7 @@ public class JoinerTest extends TestCase {
       return "foo".subSequence(start, end);
     }
     @Override public String toString() {
-      fail("shouldn't be invoked");
-      return null;
+      throw new AssertionFailedError("shouldn't be invoked");
     }
   }
 
@@ -396,17 +356,17 @@ public class JoinerTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNullPointers() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(StringBuilder.class, new StringBuilder());
-    // This is necessary because of the generics hackery we have to temporarily support parameters
-    // which implement both Iterator and Iterable.
-    tester.setDefault(Object.class, Iterators.emptyIterator());
+  public void testNullPointers() {
+    NullPointerTester tester = new NullPointerTester()
+        // This is necessary because of the generics hackery we have to temporarily support
+        // parameters which implement both Iterator and Iterable.;
+        .setDefault(Object.class, Iterators.emptyIterator());
     tester.testAllPublicStaticMethods(Joiner.class);
-    tester.testAllPublicInstanceMethods(Joiner.on(","));
-    tester.testAllPublicInstanceMethods(Joiner.on(",").skipNulls());
-    tester.testAllPublicInstanceMethods(Joiner.on(",").useForNull("x"));
-    tester.testAllPublicInstanceMethods(
-        Joiner.on(",").withKeyValueSeparator("="));
+    tester.testInstanceMethods(Joiner.on(","), NullPointerTester.Visibility.PACKAGE);
+    tester.testInstanceMethods(Joiner.on(",").skipNulls(), NullPointerTester.Visibility.PACKAGE);
+    tester.testInstanceMethods(
+        Joiner.on(",").useForNull("x"), NullPointerTester.Visibility.PACKAGE);
+    tester.testInstanceMethods(
+        Joiner.on(",").withKeyValueSeparator("="), NullPointerTester.Visibility.PACKAGE);
   }
 }

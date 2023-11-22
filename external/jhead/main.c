@@ -657,7 +657,7 @@ static jstring getAttributes(JNIEnv *env, jobject jobj, jstring jfilename)
     }
 
     if (ImageInfo.ApertureFNumber){
-        bufLen = addKeyValueDouble(&buf, bufLen, "FNumber", (double)ImageInfo.ApertureFNumber, "%3.1f");
+        bufLen = addKeyValueDouble(&buf, bufLen, "FNumber", (double)ImageInfo.ApertureFNumber, "%3.3f");
         if (bufLen == 0) return NULL;
     }
 

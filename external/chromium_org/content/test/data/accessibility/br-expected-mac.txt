@@ -1,4 +1,0 @@
-AXWebArea
-    AXGroup
-        AXStaticText AXValue='Text line 1 '
-        AXStaticText AXValue='Text line 2'

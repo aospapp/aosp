@@ -63,6 +63,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
 
     protected void setButtonEnabled(View item, boolean enabled) {
         View button = item.findViewById(R.id.user_action_button);
+        button.setFocusable(enabled);
         button.setClickable(enabled);
         button.setEnabled(enabled);
     }
@@ -70,9 +71,7 @@ public abstract class TvAppVerifierActivity extends PassFailButtons.Activity {
     protected void setPassState(View item, boolean passed) {
         ImageView status = (ImageView) item.findViewById(R.id.status);
         status.setImageResource(passed ? R.drawable.fs_good : R.drawable.fs_error);
-        View button = item.findViewById(R.id.user_action_button);
-        button.setClickable(false);
-        button.setEnabled(false);
+        setButtonEnabled(item, false);
         status.invalidate();
     }
 

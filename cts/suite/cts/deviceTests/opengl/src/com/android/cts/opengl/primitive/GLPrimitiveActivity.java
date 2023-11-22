@@ -102,19 +102,12 @@ public class GLPrimitiveActivity extends Activity {
         }
     }
 
-    private static native void setupFullPipelineBenchmark(
-            Surface surface, boolean offscreen, int workload);
+    private static native boolean setupBenchmark(
+            Surface surface, int benchmark, boolean offscreen);
 
-    private static native void setupPixelOutputBenchmark(
-            Surface surface, boolean offscreen, int workload);
+    private static native boolean startBenchmark(int workload, int numFrames, double[] frameTimes);
 
-    private static native void setupShaderPerfBenchmark(
-            Surface surface, boolean offscreen, int workload);
-
-    private static native void setupContextSwitchBenchmark(
-            Surface surface, boolean offscreen, int workload);
-
-    private static native boolean startBenchmark(int numFrames, double[] frameTimes);
+    private static native void tearDownBenchmark();
 
     /**
      * This thread runs the benchmarks, freeing the UI thread.
@@ -138,36 +131,29 @@ public class GLPrimitiveActivity extends Activity {
             watchDog = new WatchDog(mTimeout, this);
             // Used to record the start and end time of the iteration.
             double[] times = new double[2];
-            for (int i = 0; i < mNumIterations && success; i++) {
-                // The workload to use for this iteration.
-                int workload = i + 1;
+            try {
                 // Setup the benchmark.
-                switch (mBenchmark) {
-                    case FullPipeline:
-                        setupFullPipelineBenchmark(mSurface, mOffscreen, workload);
-                        break;
-                    case PixelOutput:
-                        setupPixelOutputBenchmark(mSurface, mOffscreen, workload);
-                        break;
-                    case ShaderPerf:
-                        setupShaderPerfBenchmark(mSurface, mOffscreen, workload);
-                        break;
-                    case ContextSwitch:
-                        setupContextSwitchBenchmark(mSurface, mOffscreen, workload);
-                        break;
-                }
-                watchDog.start();
-                // Start benchmark.
-                success = startBenchmark(mNumFrames, times);
-                watchDog.stop();
-
-                if (!success) {
-                    setException(new Exception("Benchmark failed to run"));
-                } else {
-                    // Calculate FPS.
-                    mFpsValues[i] = mNumFrames * 1000.0f / (times[1] - times[0]);
+                setupBenchmark(mSurface, mBenchmark.ordinal(), mOffscreen);
+                for (int i = 0; i < mNumIterations && success; i++) {
+                    // The workload to use for this iteration.
+                    int workload = i + 1;
+                    watchDog.start();
+                    // Start benchmark.
+                    success = startBenchmark(workload, mNumFrames, times);
+                    watchDog.stop();
+                    if (!success) {
+                        setException(new Exception("Benchmark failed to run"));
+                    } else {
+                        // Calculate FPS.
+                        mFpsValues[i] = mNumFrames * 1000.0f / (times[1] - times[0]);
+                    }
                 }
             }
+            finally
+            {
+                tearDownBenchmark();
+            }
+
             complete();
             Log.i(TAG, mBenchmark + " Benchmark Completed");
         }

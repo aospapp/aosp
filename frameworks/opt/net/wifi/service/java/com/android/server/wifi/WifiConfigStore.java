@@ -16,32 +16,34 @@
 
 package com.android.server.wifi;
 
+import android.app.AppGlobals;
+import android.app.admin.DeviceAdminInfo;
+import android.app.admin.DevicePolicyManagerInternal;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
-import android.net.LinkAddress;
 import android.net.NetworkInfo.DetailedState;
 import android.net.ProxyInfo;
-import android.net.RouteInfo;
 import android.net.StaticIpConfiguration;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.KeyMgmt;
 import android.net.wifi.WifiConfiguration.Status;
-import static android.net.wifi.WifiConfiguration.INVALID_NETWORK_ID;
-
 import android.net.wifi.WifiEnterpriseConfig;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.WpsResult;
-import android.net.wifi.ScanResult;
-import android.net.wifi.WifiInfo;
-
 import android.os.Environment;
 import android.os.FileObserver;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -53,12 +55,24 @@ import android.util.LocalLog;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.server.LocalServices;
+import com.android.internal.R;
 import com.android.server.net.DelayedDiskWrite;
 import com.android.server.net.IpConfigStore;
-import com.android.internal.R;
+import com.android.server.wifi.anqp.ANQPElement;
+import com.android.server.wifi.anqp.Constants;
+import com.android.server.wifi.hotspot2.ANQPData;
+import com.android.server.wifi.hotspot2.AnqpCache;
+import com.android.server.wifi.hotspot2.NetworkDetail;
+import com.android.server.wifi.hotspot2.PasspointMatch;
+import com.android.server.wifi.hotspot2.SupplicantBridge;
+import com.android.server.wifi.hotspot2.Utils;
+import com.android.server.wifi.hotspot2.omadm.MOManager;
+import com.android.server.wifi.hotspot2.pps.Credential;
+import com.android.server.wifi.hotspot2.pps.HomeSP;
 
-import java.io.BufferedReader;
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -69,19 +83,31 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigInteger;
-import java.net.InetAddress;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import java.text.SimpleDateFormat;
-import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.*;
-import java.util.zip.Checksum;
 import java.util.zip.CRC32;
+import java.util.zip.Checksum;
+
+import static android.net.wifi.WifiConfiguration.INVALID_NETWORK_ID;
+
 
 /**
  * This class provides the API to manage configured
@@ -131,16 +157,17 @@ import java.util.zip.CRC32;
 public class WifiConfigStore extends IpConfigStore {
 
     private Context mContext;
-    private static final String TAG = "WifiConfigStore";
+    public static final String TAG = "WifiConfigStore";
     private static final boolean DBG = true;
     private static boolean VDBG = false;
     private static boolean VVDBG = false;
 
     private static final String SUPPLICANT_CONFIG_FILE = "/data/misc/wifi/wpa_supplicant.conf";
+    private static final String SUPPLICANT_CONFIG_FILE_BACKUP = SUPPLICANT_CONFIG_FILE + ".tmp";
+    private static final String PPS_FILE = "/data/misc/wifi/PerProviderSubscription.conf";
 
     /* configured networks with network id as the key */
-    private HashMap<Integer, WifiConfiguration> mConfiguredNetworks =
-            new HashMap<Integer, WifiConfiguration>();
+    private final ConfigurationMap mConfiguredNetworks = new ConfigurationMap();
 
     /* A network id is a unique identifier for a network configured in the
      * supplicant. Network ids are generated when the supplicant reads
@@ -149,8 +176,9 @@ public class WifiConfigStore extends IpConfigStore {
      * that is generated from SSID and security type of the network. A mapping
      * from the generated unique id to network id of the network is needed to
      * map supplicant config to IP configuration. */
-    private HashMap<Integer, Integer> mNetworkIds =
-            new HashMap<Integer, Integer>();
+
+    /* Stores a map of NetworkId to ScanCache */
+    private HashMap<Integer, ScanDetailCache> mScanDetailCaches;
 
     /**
      * Framework keeps a list of (the CRC32 hashes of) all SSIDs that where deleted by user,
@@ -180,142 +208,144 @@ public class WifiConfigStore extends IpConfigStore {
             "/misc/wifi/autojoinconfig.txt";
 
     /* Network History Keys */
-    private static final String SSID_KEY = "SSID:  ";
-    private static final String CONFIG_KEY = "CONFIG:  ";
-    private static final String CHOICE_KEY = "CHOICE:  ";
-    private static final String LINK_KEY = "LINK:  ";
-    private static final String BSSID_KEY = "BSSID:  ";
-    private static final String BSSID_KEY_END = "/BSSID:  ";
-    private static final String RSSI_KEY = "RSSI:  ";
-    private static final String FREQ_KEY = "FREQ:  ";
-    private static final String DATE_KEY = "DATE:  ";
-    private static final String MILLI_KEY = "MILLI:  ";
-    private static final String BLACKLIST_MILLI_KEY = "BLACKLIST_MILLI:  ";
-    private static final String NETWORK_ID_KEY = "ID:  ";
-    private static final String PRIORITY_KEY = "PRIORITY:  ";
-    private static final String DEFAULT_GW_KEY = "DEFAULT_GW:  ";
-    private static final String AUTH_KEY = "AUTH:  ";
-    private static final String SEPARATOR_KEY = "\n";
-    private static final String STATUS_KEY = "AUTO_JOIN_STATUS:  ";
-    private static final String BSSID_STATUS_KEY = "BSSID_STATUS:  ";
-    private static final String SELF_ADDED_KEY = "SELF_ADDED:  ";
-    private static final String FAILURE_KEY = "FAILURE:  ";
-    private static final String DID_SELF_ADD_KEY = "DID_SELF_ADD:  ";
-    private static final String PEER_CONFIGURATION_KEY = "PEER_CONFIGURATION:  ";
-    private static final String CREATOR_UID_KEY = "CREATOR_UID_KEY:  ";
-    private static final String CONNECT_UID_KEY = "CONNECT_UID_KEY:  ";
-    private static final String UPDATE_UID_KEY = "UPDATE_UID:  ";
-    private static final String SUPPLICANT_STATUS_KEY = "SUP_STATUS:  ";
-    private static final String SUPPLICANT_DISABLE_REASON_KEY = "SUP_DIS_REASON:  ";
-    private static final String FQDN_KEY = "FQDN:  ";
-    private static final String NUM_CONNECTION_FAILURES_KEY = "CONNECT_FAILURES:  ";
-    private static final String NUM_IP_CONFIG_FAILURES_KEY = "IP_CONFIG_FAILURES:  ";
-    private static final String NUM_AUTH_FAILURES_KEY = "AUTH_FAILURES:  ";
-    private static final String SCORER_OVERRIDE_KEY = "SCORER_OVERRIDE:  ";
-    private static final String SCORER_OVERRIDE_AND_SWITCH_KEY = "SCORER_OVERRIDE_AND_SWITCH:  ";
-    private static final String VALIDATED_INTERNET_ACCESS_KEY = "VALIDATED_INTERNET_ACCESS:  ";
-    private static final String NO_INTERNET_ACCESS_REPORTS_KEY = "NO_INTERNET_ACCESS_REPORTS :   ";
-    private static final String EPHEMERAL_KEY = "EPHEMERAL:   ";
-    private static final String NUM_ASSOCIATION_KEY = "NUM_ASSOCIATION:  ";
-    private static final String DELETED_CRC32_KEY = "DELETED_CRC32:  ";
-    private static final String DELETED_EPHEMERAL_KEY = "DELETED_EPHEMERAL:  ";
+    private static final String SSID_KEY = "SSID";
+    private static final String CONFIG_KEY = "CONFIG";
+    private static final String CHOICE_KEY = "CHOICE";
+    private static final String LINK_KEY = "LINK";
+    private static final String BSSID_KEY = "BSSID";
+    private static final String BSSID_KEY_END = "/BSSID";
+    private static final String RSSI_KEY = "RSSI";
+    private static final String FREQ_KEY = "FREQ";
+    private static final String DATE_KEY = "DATE";
+    private static final String MILLI_KEY = "MILLI";
+    private static final String BLACKLIST_MILLI_KEY = "BLACKLIST_MILLI";
+    private static final String NETWORK_ID_KEY = "ID";
+    private static final String PRIORITY_KEY = "PRIORITY";
+    private static final String DEFAULT_GW_KEY = "DEFAULT_GW";
+    private static final String AUTH_KEY = "AUTH";
+    private static final String STATUS_KEY = "AUTO_JOIN_STATUS";
+    private static final String BSSID_STATUS_KEY = "BSSID_STATUS";
+    private static final String SELF_ADDED_KEY = "SELF_ADDED";
+    private static final String FAILURE_KEY = "FAILURE";
+    private static final String DID_SELF_ADD_KEY = "DID_SELF_ADD";
+    private static final String PEER_CONFIGURATION_KEY = "PEER_CONFIGURATION";
+    private static final String CREATOR_UID_KEY = "CREATOR_UID_KEY";
+    private static final String CONNECT_UID_KEY = "CONNECT_UID_KEY";
+    private static final String UPDATE_UID_KEY = "UPDATE_UID";
+    private static final String SUPPLICANT_STATUS_KEY = "SUP_STATUS";
+    private static final String SUPPLICANT_DISABLE_REASON_KEY = "SUP_DIS_REASON";
+    private static final String FQDN_KEY = "FQDN";
+    private static final String NUM_CONNECTION_FAILURES_KEY = "CONNECT_FAILURES";
+    private static final String NUM_IP_CONFIG_FAILURES_KEY = "IP_CONFIG_FAILURES";
+    private static final String NUM_AUTH_FAILURES_KEY = "AUTH_FAILURES";
+    private static final String SCORER_OVERRIDE_KEY = "SCORER_OVERRIDE";
+    private static final String SCORER_OVERRIDE_AND_SWITCH_KEY = "SCORER_OVERRIDE_AND_SWITCH";
+    private static final String VALIDATED_INTERNET_ACCESS_KEY = "VALIDATED_INTERNET_ACCESS";
+    private static final String NO_INTERNET_ACCESS_REPORTS_KEY = "NO_INTERNET_ACCESS_REPORTS";
+    private static final String EPHEMERAL_KEY = "EPHEMERAL";
+    private static final String NUM_ASSOCIATION_KEY = "NUM_ASSOCIATION";
+    private static final String DELETED_CRC32_KEY = "DELETED_CRC32";
+    private static final String DELETED_EPHEMERAL_KEY = "DELETED_EPHEMERAL";
+    private static final String JOIN_ATTEMPT_BOOST_KEY = "JOIN_ATTEMPT_BOOST";
+    private static final String CREATOR_NAME_KEY = "CREATOR_NAME";
+    private static final String UPDATE_NAME_KEY = "UPDATE_NAME";
+    private static final String USER_APPROVED_KEY = "USER_APPROVED";
+    private static final String CREATION_TIME_KEY = "CREATION_TIME";
+    private static final String UPDATE_TIME_KEY = "UPDATE_TIME";
 
-    private static final String JOIN_ATTEMPT_BOOST_KEY = "JOIN_ATTEMPT_BOOST:  ";
+    private static final String SEPARATOR = ":  ";
+    private static final String NL = "\n";
+
     private static final String THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G_KEY
-            = "THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G:  ";
+            = "THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G";
     private static final String THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G_KEY
-            = "THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G:  ";
+            = "THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G";
     private static final String THRESHOLD_UNBLACKLIST_HARD_5G_KEY
-            = "THRESHOLD_UNBLACKLIST_HARD_5G:  ";
+            = "THRESHOLD_UNBLACKLIST_HARD_5G";
     private static final String THRESHOLD_UNBLACKLIST_SOFT_5G_KEY
-            = "THRESHOLD_UNBLACKLIST_SOFT_5G:  ";
+            = "THRESHOLD_UNBLACKLIST_SOFT_5G";
     private static final String THRESHOLD_UNBLACKLIST_HARD_24G_KEY
-            = "THRESHOLD_UNBLACKLIST_HARD_24G:  ";
+            = "THRESHOLD_UNBLACKLIST_HARD_24G";
     private static final String THRESHOLD_UNBLACKLIST_SOFT_24G_KEY
-            = "THRESHOLD_UNBLACKLIST_SOFT_24G:  ";
+            = "THRESHOLD_UNBLACKLIST_SOFT_24G";
     private static final String THRESHOLD_GOOD_RSSI_5_KEY
-            = "THRESHOLD_GOOD_RSSI_5:  ";
+            = "THRESHOLD_GOOD_RSSI_5";
     private static final String THRESHOLD_LOW_RSSI_5_KEY
-            = "THRESHOLD_LOW_RSSI_5:  ";
+            = "THRESHOLD_LOW_RSSI_5";
     private static final String THRESHOLD_BAD_RSSI_5_KEY
-            = "THRESHOLD_BAD_RSSI_5:  ";
+            = "THRESHOLD_BAD_RSSI_5";
     private static final String THRESHOLD_GOOD_RSSI_24_KEY
-            = "THRESHOLD_GOOD_RSSI_24:  ";
+            = "THRESHOLD_GOOD_RSSI_24";
     private static final String THRESHOLD_LOW_RSSI_24_KEY
-            = "THRESHOLD_LOW_RSSI_24:  ";
+            = "THRESHOLD_LOW_RSSI_24";
     private static final String THRESHOLD_BAD_RSSI_24_KEY
-            = "THRESHOLD_BAD_RSSI_24:  ";
+            = "THRESHOLD_BAD_RSSI_24";
 
     private static final String THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING_KEY
-            = "THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING:   ";
+            = "THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING";
     private static final String THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING_KEY
-            = "THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING:   ";
+            = "THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING";
 
     private static final String THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS_KEY
-            = "THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS:   ";
+            = "THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS";
     private static final String THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS_KEY
-            = "THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS:   ";
+            = "THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS";
 
     private static final String THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS_KEY
-            = "THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS:   ";
+            = "THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS";
     private static final String THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS_KEY
-            = "THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS:   ";
+            = "THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS";
 
     private static final String MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY
-            = "MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS:   ";
+            = "MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS";
     private static final String MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY
-            = "MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS:   ";
+            = "MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS";
 
     private static final String A_BAND_PREFERENCE_RSSI_THRESHOLD_LOW_KEY =
-            "A_BAND_PREFERENCE_RSSI_THRESHOLD_LOW:   ";
+            "A_BAND_PREFERENCE_RSSI_THRESHOLD_LOW";
     private static final String A_BAND_PREFERENCE_RSSI_THRESHOLD_KEY =
-            "A_BAND_PREFERENCE_RSSI_THRESHOLD:   ";
+            "A_BAND_PREFERENCE_RSSI_THRESHOLD";
     private static final String G_BAND_PREFERENCE_RSSI_THRESHOLD_KEY =
-            "G_BAND_PREFERENCE_RSSI_THRESHOLD:   ";
+            "G_BAND_PREFERENCE_RSSI_THRESHOLD";
 
     private static final String ENABLE_AUTOJOIN_WHILE_ASSOCIATED_KEY
             = "ENABLE_AUTOJOIN_WHILE_ASSOCIATED:   ";
 
     private static final String ASSOCIATED_PARTIAL_SCAN_PERIOD_KEY
-            = "ASSOCIATED_PARTIAL_SCAN_PERIOD:   ";
+            = "ASSOCIATED_PARTIAL_SCAN_PERIOD";
     private static final String ASSOCIATED_FULL_SCAN_BACKOFF_KEY
-            = "ASSOCIATED_FULL_SCAN_BACKOFF_PERIOD:   ";
+            = "ASSOCIATED_FULL_SCAN_BACKOFF_PERIOD";
     private static final String ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED_KEY
-            = "ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED:   ";
+            = "ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED";
     private static final String ONLY_LINK_SAME_CREDENTIAL_CONFIGURATIONS_KEY
-            = "ONLY_LINK_SAME_CREDENTIAL_CONFIGURATIONS:   ";
+            = "ONLY_LINK_SAME_CREDENTIAL_CONFIGURATIONS";
 
     private static final String ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED_KEY
-            = "ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED:   ";
+            = "ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED";
+
+    private static final String ENABLE_HAL_BASED_PNO
+            = "ENABLE_HAL_BASED_PNO";
 
     // The three below configurations are mainly for power stats and CPU usage tracking
     // allowing to incrementally disable framework features
-    private static final String ENABLE_AUTO_JOIN_SCAN_WHILE_ASSOCIATED_KEY
-            = "ENABLE_AUTO_JOIN_SCAN_WHILE_ASSOCIATED:   ";
     private static final String ENABLE_AUTO_JOIN_WHILE_ASSOCIATED_KEY
-            = "ENABLE_AUTO_JOIN_WHILE_ASSOCIATED:   ";
+            = "ENABLE_AUTO_JOIN_WHILE_ASSOCIATED";
     private static final String ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED_KEY
-            = "ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED:   ";
+            = "ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED";
     private static final String ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY
-            = "ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY:   ";
+            = "ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY";
+
+    public static final String idStringVarName = "id_str";
 
     // The Wifi verbose log is provided as a way to persist the verbose logging settings
     // for testing purpose.
     // It is not intended for normal use.
     private static final String WIFI_VERBOSE_LOGS_KEY
-            = "WIFI_VERBOSE_LOGS:   ";
+            = "WIFI_VERBOSE_LOGS";
 
     // As we keep deleted PSK WifiConfiguration for a while, the PSK of
     // those deleted WifiConfiguration is set to this random unused PSK
     private static final String DELETED_CONFIG_PSK = "Mjkd86jEMGn79KhKll298Uu7-deleted";
-
-    public boolean enableAutoJoinScanWhenAssociated = true;
-    public boolean enableAutoJoinWhenAssociated = true;
-    public boolean enableChipWakeUpWhenAssociated = true;
-    public boolean enableRssiPollWhenAssociated = true;
-
-    public int maxTxPacketForNetworkSwitching = 40;
-    public int maxRxPacketForNetworkSwitching = 80;
 
     public int maxTxPacketForFullScans = 8;
     public int maxRxPacketForFullScans = 16;
@@ -323,24 +353,7 @@ public class WifiConfigStore extends IpConfigStore {
     public int maxTxPacketForPartialScans = 40;
     public int maxRxPacketForPartialScans = 80;
 
-    public boolean enableFullBandScanWhenAssociated = true;
-
-    public int thresholdInitialAutoJoinAttemptMin5RSSI
-            = WifiConfiguration.INITIAL_AUTO_JOIN_ATTEMPT_MIN_5;
-    public int thresholdInitialAutoJoinAttemptMin24RSSI
-            = WifiConfiguration.INITIAL_AUTO_JOIN_ATTEMPT_MIN_24;
-
-    public int thresholdBadRssi5 = WifiConfiguration.BAD_RSSI_5;
-    public int thresholdLowRssi5 = WifiConfiguration.LOW_RSSI_5;
-    public int thresholdGoodRssi5 = WifiConfiguration.GOOD_RSSI_5;
-    public int thresholdBadRssi24 = WifiConfiguration.BAD_RSSI_24;
-    public int thresholdLowRssi24 = WifiConfiguration.LOW_RSSI_24;
-    public int thresholdGoodRssi24 = WifiConfiguration.GOOD_RSSI_24;
-
-    public int associatedFullScanBackoff = 12; // Will be divided by 8 by WifiStateMachine
     public int associatedFullScanMaxIntervalMilli = 300000;
-
-    public int associatedPartialScanPeriodMilli;
 
     // Sane value for roam blacklisting (not switching to a network if already associated)
     // 2 days
@@ -348,8 +361,6 @@ public class WifiConfigStore extends IpConfigStore {
 
     public int bandPreferenceBoostFactor5 = 5; // Boost by 5 dB per dB above threshold
     public int bandPreferencePenaltyFactor5 = 2; // Penalize by 2 dB per dB below threshold
-    public int bandPreferencePenaltyThreshold5 = WifiConfiguration.G_BAND_PREFERENCE_RSSI_THRESHOLD;
-    public int bandPreferenceBoostThreshold5 = WifiConfiguration.A_BAND_PREFERENCE_RSSI_THRESHOLD;
 
     public int badLinkSpeed24 = 6;
     public int badLinkSpeed5 = 12;
@@ -367,21 +378,7 @@ public class WifiConfigStore extends IpConfigStore {
     public int associatedHysteresisHigh = +14;
     public int associatedHysteresisLow = +8;
 
-    public int thresholdUnblacklistThreshold5Hard
-            = WifiConfiguration.UNBLACKLIST_THRESHOLD_5_HARD;
-    public int thresholdUnblacklistThreshold5Soft
-            = WifiConfiguration.UNBLACKLIST_THRESHOLD_5_SOFT;
-    public int thresholdUnblacklistThreshold24Hard
-            = WifiConfiguration.UNBLACKLIST_THRESHOLD_24_HARD;
-    public int thresholdUnblacklistThreshold24Soft
-            = WifiConfiguration.UNBLACKLIST_THRESHOLD_24_SOFT;
-    public int enableVerboseLogging = 0;
     boolean showNetworks = true; // TODO set this back to false, used for debugging 17516271
-
-    public int alwaysEnableScansWhileAssociated = 0;
-
-    public int maxNumActiveChannelsForPartialScans = 6;
-    public int maxNumPassiveChannelsForPartialScans = 2;
 
     public boolean roamOnAny = false;
     public boolean onlyLinkSameCredentialConfigurations = true;
@@ -394,6 +391,51 @@ public class WifiConfigStore extends IpConfigStore {
     public int scanResultRssiLevelPatchUp = -85;
 
     public static final int maxNumScanCacheEntries = 128;
+
+    public final AtomicBoolean enableHalBasedPno = new AtomicBoolean(true);
+    public final AtomicBoolean enableSsidWhitelist = new AtomicBoolean(true);
+    public final AtomicBoolean enableAutoJoinWhenAssociated = new AtomicBoolean(true);
+    public final AtomicBoolean enableFullBandScanWhenAssociated = new AtomicBoolean(true);
+    public final AtomicBoolean enableChipWakeUpWhenAssociated = new AtomicBoolean(true);
+    public final AtomicBoolean enableRssiPollWhenAssociated = new AtomicBoolean(true);
+    public final AtomicInteger thresholdInitialAutoJoinAttemptMin5RSSI =
+            new AtomicInteger(WifiConfiguration.INITIAL_AUTO_JOIN_ATTEMPT_MIN_5);
+    public final AtomicInteger thresholdInitialAutoJoinAttemptMin24RSSI =
+            new AtomicInteger(WifiConfiguration.INITIAL_AUTO_JOIN_ATTEMPT_MIN_24);
+    public final AtomicInteger thresholdUnblacklistThreshold5Hard
+            = new AtomicInteger(WifiConfiguration.UNBLACKLIST_THRESHOLD_5_HARD);
+    public final AtomicInteger thresholdUnblacklistThreshold5Soft
+            = new AtomicInteger(WifiConfiguration.UNBLACKLIST_THRESHOLD_5_SOFT);
+    public final AtomicInteger thresholdUnblacklistThreshold24Hard
+            = new AtomicInteger(WifiConfiguration.UNBLACKLIST_THRESHOLD_24_HARD);
+    public final AtomicInteger thresholdUnblacklistThreshold24Soft
+            = new AtomicInteger(WifiConfiguration.UNBLACKLIST_THRESHOLD_24_SOFT);
+    public final AtomicInteger thresholdGoodRssi5 =
+            new AtomicInteger(WifiConfiguration.GOOD_RSSI_5);
+    public final AtomicInteger thresholdLowRssi5 = new AtomicInteger(WifiConfiguration.LOW_RSSI_5);
+    public final AtomicInteger thresholdBadRssi5 = new AtomicInteger(WifiConfiguration.BAD_RSSI_5);
+    public final AtomicInteger thresholdGoodRssi24 =
+            new AtomicInteger(WifiConfiguration.GOOD_RSSI_24);
+    public final AtomicInteger thresholdLowRssi24 = new AtomicInteger(WifiConfiguration.LOW_RSSI_24);
+    public final AtomicInteger thresholdBadRssi24 = new AtomicInteger(WifiConfiguration.BAD_RSSI_24);
+    public final AtomicInteger maxTxPacketForNetworkSwitching = new AtomicInteger(40);
+    public final AtomicInteger maxRxPacketForNetworkSwitching = new AtomicInteger(80);
+    public final AtomicInteger enableVerboseLogging = new AtomicInteger(0);
+    public final AtomicInteger bandPreferenceBoostThreshold5 =
+            new AtomicInteger(WifiConfiguration.A_BAND_PREFERENCE_RSSI_THRESHOLD);
+    public final AtomicInteger associatedFullScanBackoff =
+            new AtomicInteger(12); // Will be divided by 8 by WifiStateMachine
+    public final AtomicInteger bandPreferencePenaltyThreshold5 =
+            new AtomicInteger(WifiConfiguration.G_BAND_PREFERENCE_RSSI_THRESHOLD);
+    public final AtomicInteger alwaysEnableScansWhileAssociated = new AtomicInteger(0);
+    public final AtomicInteger maxNumPassiveChannelsForPartialScans = new AtomicInteger(2);
+    public final AtomicInteger maxNumActiveChannelsForPartialScans = new AtomicInteger(6);
+    public final AtomicInteger wifiDisconnectedShortScanIntervalMilli = new AtomicInteger(15000);
+    public final AtomicInteger wifiDisconnectedLongScanIntervalMilli = new AtomicInteger(120000);
+    public final AtomicInteger wifiAssociatedShortScanIntervalMilli = new AtomicInteger(20000);
+    public final AtomicInteger wifiAssociatedLongScanIntervalMilli = new AtomicInteger(180000);
+
+    private static final Map<String, Object> sKeyMap = new HashMap<>();
 
     /**
      * Regex pattern for extracting a connect choice.
@@ -426,7 +468,9 @@ public class WifiConfigStore extends IpConfigStore {
             WifiEnterpriseConfig.PASSWORD_KEY, WifiEnterpriseConfig.CLIENT_CERT_KEY,
             WifiEnterpriseConfig.CA_CERT_KEY, WifiEnterpriseConfig.SUBJECT_MATCH_KEY,
             WifiEnterpriseConfig.ENGINE_KEY, WifiEnterpriseConfig.ENGINE_ID_KEY,
-            WifiEnterpriseConfig.PRIVATE_KEY_ID_KEY };
+            WifiEnterpriseConfig.PRIVATE_KEY_ID_KEY, WifiEnterpriseConfig.ALTSUBJECT_MATCH_KEY,
+            WifiEnterpriseConfig.DOM_SUFFIX_MATCH_KEY
+    };
 
 
     /**
@@ -460,9 +504,70 @@ public class WifiConfigStore extends IpConfigStore {
      */
     private String lastSelectedConfiguration = null;
 
-    WifiConfigStore(Context c, WifiNative wn) {
+    /**
+     * Cached PNO list, it is updated when WifiConfiguration changes due to user input.
+     */
+    ArrayList<WifiNative.WifiPnoNetwork> mCachedPnoList
+            = new ArrayList<WifiNative.WifiPnoNetwork>();
+
+    /*
+     * BSSID blacklist, i.e. list of BSSID we want to avoid
+     */
+    HashSet<String> mBssidBlacklist = new HashSet<String>();
+
+    /*
+     * Lost config list, whenever we read a config from networkHistory.txt that was not in
+     * wpa_supplicant.conf
+     */
+    HashSet<String> mLostConfigsDbg = new HashSet<String>();
+
+    private final AnqpCache mAnqpCache;
+    private final SupplicantBridge mSupplicantBridge;
+    private final MOManager mMOManager;
+    private final SIMAccessor mSIMAccessor;
+
+    private WifiStateMachine mWifiStateMachine;
+
+    WifiConfigStore(Context c,  WifiStateMachine w, WifiNative wn) {
         mContext = c;
         mWifiNative = wn;
+        mWifiStateMachine = w;
+
+        // A map for value setting in readAutoJoinConfig() - replacing the replicated code.
+        sKeyMap.put(ENABLE_AUTO_JOIN_WHILE_ASSOCIATED_KEY, enableAutoJoinWhenAssociated);
+        sKeyMap.put(ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED_KEY, enableFullBandScanWhenAssociated);
+        sKeyMap.put(ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED_KEY, enableChipWakeUpWhenAssociated);
+        sKeyMap.put(ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY, enableRssiPollWhenAssociated);
+        sKeyMap.put(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G_KEY, thresholdInitialAutoJoinAttemptMin5RSSI);
+        sKeyMap.put(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G_KEY, thresholdInitialAutoJoinAttemptMin24RSSI);
+        sKeyMap.put(THRESHOLD_UNBLACKLIST_HARD_5G_KEY, thresholdUnblacklistThreshold5Hard);
+        sKeyMap.put(THRESHOLD_UNBLACKLIST_SOFT_5G_KEY, thresholdUnblacklistThreshold5Soft);
+        sKeyMap.put(THRESHOLD_UNBLACKLIST_HARD_24G_KEY, thresholdUnblacklistThreshold24Hard);
+        sKeyMap.put(THRESHOLD_UNBLACKLIST_SOFT_24G_KEY, thresholdUnblacklistThreshold24Soft);
+        sKeyMap.put(THRESHOLD_GOOD_RSSI_5_KEY, thresholdGoodRssi5);
+        sKeyMap.put(THRESHOLD_LOW_RSSI_5_KEY, thresholdLowRssi5);
+        sKeyMap.put(THRESHOLD_BAD_RSSI_5_KEY, thresholdBadRssi5);
+        sKeyMap.put(THRESHOLD_GOOD_RSSI_24_KEY, thresholdGoodRssi24);
+        sKeyMap.put(THRESHOLD_LOW_RSSI_24_KEY, thresholdLowRssi24);
+        sKeyMap.put(THRESHOLD_BAD_RSSI_24_KEY, thresholdBadRssi24);
+        sKeyMap.put(THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING_KEY, maxTxPacketForNetworkSwitching);
+        sKeyMap.put(THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING_KEY, maxRxPacketForNetworkSwitching);
+        sKeyMap.put(THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS_KEY, maxTxPacketForNetworkSwitching);
+        sKeyMap.put(THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS_KEY, maxRxPacketForNetworkSwitching);
+        sKeyMap.put(THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS_KEY, maxTxPacketForNetworkSwitching);
+        sKeyMap.put(THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS_KEY, maxRxPacketForNetworkSwitching);
+        sKeyMap.put(WIFI_VERBOSE_LOGS_KEY, enableVerboseLogging);
+        sKeyMap.put(A_BAND_PREFERENCE_RSSI_THRESHOLD_KEY, bandPreferenceBoostThreshold5);
+        sKeyMap.put(ASSOCIATED_PARTIAL_SCAN_PERIOD_KEY, wifiAssociatedShortScanIntervalMilli);
+        sKeyMap.put(ASSOCIATED_PARTIAL_SCAN_PERIOD_KEY, wifiAssociatedShortScanIntervalMilli);
+
+        sKeyMap.put(ASSOCIATED_FULL_SCAN_BACKOFF_KEY, associatedFullScanBackoff);
+        sKeyMap.put(G_BAND_PREFERENCE_RSSI_THRESHOLD_KEY, bandPreferencePenaltyThreshold5);
+        sKeyMap.put(ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED_KEY, alwaysEnableScansWhileAssociated);
+        sKeyMap.put(MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY, maxNumPassiveChannelsForPartialScans);
+        sKeyMap.put(MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY, maxNumActiveChannelsForPartialScans);
+        sKeyMap.put(ENABLE_HAL_BASED_PNO, enableHalBasedPno);
+        sKeyMap.put(ENABLE_HAL_BASED_PNO, enableSsidWhitelist);
 
         if (showNetworks) {
             mLocalLog = mWifiNative.getLocalLog();
@@ -473,20 +578,25 @@ public class WifiConfigStore extends IpConfigStore {
             mFileObserver = null;
         }
 
-        associatedPartialScanPeriodMilli = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_associated_scan_interval);
-        loge("associatedPartialScanPeriodMilli set to " + associatedPartialScanPeriodMilli);
+        wifiAssociatedShortScanIntervalMilli.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_associated_short_scan_interval));
+        wifiAssociatedLongScanIntervalMilli.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_associated_short_scan_interval));
+        wifiDisconnectedShortScanIntervalMilli.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_disconnected_short_scan_interval));
+        wifiDisconnectedLongScanIntervalMilli.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_disconnected_long_scan_interval));
 
         onlyLinkSameCredentialConfigurations = mContext.getResources().getBoolean(
                 R.bool.config_wifi_only_link_same_credential_configurations);
-        maxNumActiveChannelsForPartialScans = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_associated_partial_scan_max_num_active_channels);
-        maxNumPassiveChannelsForPartialScans = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_associated_partial_scan_max_num_passive_channels);
+        maxNumActiveChannelsForPartialScans.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_associated_partial_scan_max_num_active_channels));
+        maxNumPassiveChannelsForPartialScans.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_associated_partial_scan_max_num_passive_channels));
         associatedFullScanMaxIntervalMilli = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_associated_full_scan_max_interval);
-        associatedFullScanBackoff = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_associated_full_scan_backoff);
+        associatedFullScanBackoff.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_associated_full_scan_backoff));
         enableLinkDebouncing = mContext.getResources().getBoolean(
                 R.bool.config_wifi_enable_disconnection_debounce);
 
@@ -498,28 +608,28 @@ public class WifiConfigStore extends IpConfigStore {
         bandPreferencePenaltyFactor5 = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_5GHz_preference_penalty_factor);
 
-        bandPreferencePenaltyThreshold5 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_5GHz_preference_penalty_threshold);
-        bandPreferenceBoostThreshold5 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_5GHz_preference_boost_threshold);
+        bandPreferencePenaltyThreshold5.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_5GHz_preference_penalty_threshold));
+        bandPreferenceBoostThreshold5.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_5GHz_preference_boost_threshold));
 
         associatedHysteresisHigh = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_current_association_hysteresis_high);
         associatedHysteresisLow = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_current_association_hysteresis_low);
 
-        thresholdBadRssi5 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_bad_rssi_threshold_5GHz);
-        thresholdLowRssi5 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_5GHz);
-        thresholdGoodRssi5 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_5GHz);
-        thresholdBadRssi24 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz);
-        thresholdLowRssi24 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_24GHz);
-        thresholdGoodRssi24 = mContext.getResources().getInteger(
-                R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_24GHz);
+        thresholdBadRssi5.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_bad_rssi_threshold_5GHz));
+        thresholdLowRssi5.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_5GHz));
+        thresholdGoodRssi5.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_5GHz));
+        thresholdBadRssi24.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_bad_rssi_threshold_24GHz));
+        thresholdLowRssi24.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_low_rssi_threshold_24GHz));
+        thresholdGoodRssi24.set(mContext.getResources().getInteger(
+                R.integer.config_wifi_framework_wifi_score_good_rssi_threshold_24GHz));
 
         enableWifiCellularHandoverUserTriggeredAdjustment = mContext.getResources().getBoolean(
                 R.bool.config_wifi_framework_cellular_handover_enable_user_triggered_adjustment);
@@ -540,12 +650,8 @@ public class WifiConfigStore extends IpConfigStore {
         wifiConfigBlacklistMinTimeMilli = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_network_black_list_min_time_milli);
 
-
-        enableAutoJoinScanWhenAssociated = mContext.getResources().getBoolean(
-                R.bool.config_wifi_framework_enable_associated_autojoin_scan);
-
-        enableAutoJoinWhenAssociated = mContext.getResources().getBoolean(
-                R.bool.config_wifi_framework_enable_associated_network_selection);
+        enableAutoJoinWhenAssociated.set(mContext.getResources().getBoolean(
+                R.bool.config_wifi_framework_enable_associated_network_selection));
 
         currentNetworkBoost = mContext.getResources().getInteger(
                 R.integer.config_wifi_framework_current_network_boost);
@@ -555,10 +661,33 @@ public class WifiConfigStore extends IpConfigStore {
 
         networkSwitchingBlackListPeriodMilli = mContext.getResources().getInteger(
                 R.integer.config_wifi_network_switching_blacklist_time);
+
+        enableHalBasedPno.set(mContext.getResources().getBoolean(
+                        R.bool.config_wifi_hal_pno_enable));
+
+        enableSsidWhitelist.set(mContext.getResources().getBoolean(
+                R.bool.config_wifi_ssid_white_list_enable));
+        if (!enableHalBasedPno.get() && enableSsidWhitelist.get()) {
+            enableSsidWhitelist.set(false);
+        }
+
+        boolean hs2on = mContext.getResources().getBoolean(R.bool.config_wifi_hotspot2_enabled);
+        Log.d(Utils.hs2LogTag(getClass()), "Passpoint is " + (hs2on ? "enabled" : "disabled"));
+
+        mMOManager = new MOManager(new File(PPS_FILE), hs2on);
+        mAnqpCache = new AnqpCache();
+        mSupplicantBridge = new SupplicantBridge(mWifiNative, this);
+        mScanDetailCaches = new HashMap<>();
+
+        mSIMAccessor = new SIMAccessor(mContext);
+    }
+
+    public void trimANQPCache(boolean all) {
+        mAnqpCache.clear(all, DBG);
     }
 
     void enableVerboseLogging(int verbose) {
-        enableVerboseLogging = verbose;
+        enableVerboseLogging.set(verbose);
         if (verbose > 0) {
             VDBG = true;
             showNetworks = true;
@@ -602,7 +731,8 @@ public class WifiConfigStore extends IpConfigStore {
         return mConfiguredNetworks.size();
     }
 
-    private List<WifiConfiguration> getConfiguredNetworks(Map<String, String> pskMap) {
+    private List<WifiConfiguration>
+    getConfiguredNetworks(Map<String, String> pskMap) {
         List<WifiConfiguration> networks = new ArrayList<>();
         for(WifiConfiguration config : mConfiguredNetworks.values()) {
             WifiConfiguration newConfig = new WifiConfiguration(config);
@@ -627,6 +757,19 @@ public class WifiConfigStore extends IpConfigStore {
     }
 
     /**
+     * This function returns all configuration, and is used for cebug and creating bug reports.
+     */
+    private List<WifiConfiguration>
+    getAllConfiguredNetworks() {
+        List<WifiConfiguration> networks = new ArrayList<>();
+        for(WifiConfiguration config : mConfiguredNetworks.values()) {
+            WifiConfiguration newConfig = new WifiConfiguration(config);
+            networks.add(newConfig);
+        }
+        return networks;
+    }
+
+    /**
      * Fetch the list of currently configured networks
      * @return List of networks
      */
@@ -644,17 +787,30 @@ public class WifiConfigStore extends IpConfigStore {
     }
 
     /**
+     * Find matching network for this scanResult
+     */
+    WifiConfiguration getMatchingConfig(ScanResult scanResult) {
+
+        for (Map.Entry entry : mScanDetailCaches.entrySet()) {
+            Integer netId = (Integer) entry.getKey();
+            ScanDetailCache cache = (ScanDetailCache) entry.getValue();
+            WifiConfiguration config = getWifiConfiguration(netId);
+            if (config == null)
+                continue;
+            if (cache.get(scanResult.BSSID) != null) {
+                return config;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Fetch the preSharedKeys for all networks.
      * @return a map from Ssid to preSharedKey.
      */
     private Map<String, String> getCredentialsBySsidMap() {
         return readNetworkVariablesFromSupplicantFile("psk");
-    }
-
-    int getconfiguredNetworkSize() {
-        if (mConfiguredNetworks == null)
-            return 0;
-        return mConfiguredNetworks.size();
     }
 
     /**
@@ -674,7 +830,11 @@ public class WifiConfigStore extends IpConfigStore {
             }
 
             // Calculate the RSSI for scan results that are more recent than milli
-            config.setVisibility(milli);
+            ScanDetailCache cache = getScanDetailCache(config);
+            if (cache == null) {
+                continue;
+            }
+            config.setVisibility(cache.getVisibility(milli));
             if (config.visibility == null) {
                 continue;
             }
@@ -696,14 +856,15 @@ public class WifiConfigStore extends IpConfigStore {
      */
     void updateConfiguration(WifiInfo info) {
         WifiConfiguration config = getWifiConfiguration(info.getNetworkId());
-        if (config != null && config.scanResultCache != null) {
-            ScanResult result = config.scanResultCache.get(info.getBSSID());
-            if (result != null) {
+        if (config != null && getScanDetailCache(config) != null) {
+            ScanDetail scanDetail = getScanDetailCache(config).getScanDetail(info.getBSSID());
+            if (scanDetail != null) {
+                ScanResult result = scanDetail.getScanResult();
                 long previousSeen = result.seen;
                 int previousRssi = result.level;
 
                 // Update the scan result
-                result.seen = System.currentTimeMillis();
+                scanDetail.setSeen();
                 result.level = info.getRssi();
 
                 // Average the RSSI value
@@ -725,8 +886,6 @@ public class WifiConfigStore extends IpConfigStore {
      * @return Wificonfiguration
      */
     WifiConfiguration getWifiConfiguration(int netId) {
-        if (mConfiguredNetworks == null)
-            return null;
         return mConfiguredNetworks.get(netId);
     }
 
@@ -735,16 +894,7 @@ public class WifiConfigStore extends IpConfigStore {
      * @return Wificonfiguration
      */
     WifiConfiguration getWifiConfiguration(String key) {
-        if (key == null)
-            return null;
-        int hash = key.hashCode();
-        if (mNetworkIds == null)
-            return null;
-        Integer n = mNetworkIds.get(hash);
-        if (n == null)
-            return null;
-        int netId = n.intValue();
-        return getWifiConfiguration(netId);
+        return mConfiguredNetworks.getByConfigKey(key);
     }
 
     /**
@@ -786,6 +936,7 @@ public class WifiConfigStore extends IpConfigStore {
                     config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_ENABLED);
                 } else {
                     loge("Enable network failed on " + config.networkId);
+
                 }
             }
         }
@@ -796,6 +947,26 @@ public class WifiConfigStore extends IpConfigStore {
         }
     }
 
+    private boolean setNetworkPriorityNative(int netId, int priority) {
+        return mWifiNative.setNetworkVariable(netId,
+                WifiConfiguration.priorityVarName, Integer.toString(priority));
+    }
+
+    private boolean setSSIDNative(int netId, String ssid) {
+        return mWifiNative.setNetworkVariable(netId, WifiConfiguration.ssidVarName,
+                encodeSSID(ssid));
+    }
+
+    public boolean updateLastConnectUid(WifiConfiguration config, int uid) {
+        if (config != null) {
+            if (config.lastConnectUid != uid) {
+                config.lastConnectUid = uid;
+                config.dirty = true;
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * Selects the specified network for connection. This involves
@@ -806,34 +977,61 @@ public class WifiConfigStore extends IpConfigStore {
      * a call to enableAllNetworks() needs to be issued upon a connection
      * or a failure event from supplicant
      *
-     * @param netId network to select for connection
+     * @param config network to select for connection
+     * @param updatePriorities makes config highest priority network
      * @return false if the network id is invalid
      */
-    boolean selectNetwork(int netId) {
-        if (VDBG) localLog("selectNetwork", netId);
-        if (netId == INVALID_NETWORK_ID) return false;
+    boolean selectNetwork(WifiConfiguration config, boolean updatePriorities, int uid) {
+        if (VDBG) localLog("selectNetwork", config.networkId);
+        if (config.networkId == INVALID_NETWORK_ID) return false;
 
         // Reset the priority of each network at start or if it goes too high.
         if (mLastPriority == -1 || mLastPriority > 1000000) {
-            for(WifiConfiguration config : mConfiguredNetworks.values()) {
-                if (config.networkId != INVALID_NETWORK_ID) {
-                    config.priority = 0;
-                    addOrUpdateNetworkNative(config, -1);
+            for(WifiConfiguration config2 : mConfiguredNetworks.values()) {
+                if (updatePriorities) {
+                    if (config2.networkId != INVALID_NETWORK_ID) {
+                        config2.priority = 0;
+                        setNetworkPriorityNative(config2.networkId, config.priority);
+                    }
                 }
             }
             mLastPriority = 0;
         }
 
         // Set to the highest priority and save the configuration.
-        WifiConfiguration config = new WifiConfiguration();
-        config.networkId = netId;
-        config.priority = ++mLastPriority;
+        if (updatePriorities) {
+            config.priority = ++mLastPriority;
+            setNetworkPriorityNative(config.networkId, config.priority);
+            buildPnoList();
+        }
 
-        addOrUpdateNetworkNative(config, -1);
-        mWifiNative.saveConfig();
+        if (config.isPasspoint()) {
+            /* need to slap on the SSID of selected bssid to work */
+            if (getScanDetailCache(config).size() != 0) {
+                ScanDetail result = getScanDetailCache(config).getFirst();
+                if (result == null) {
+                    loge("Could not find scan result for " + config.BSSID);
+                } else {
+                    log("Setting SSID for " + config.networkId + " to" + result.getSSID());
+                    setSSIDNative(config.networkId, result.getSSID());
+                    config.SSID = result.getSSID();
+                }
+
+            } else {
+                loge("Could not find bssid for " + config);
+            }
+        }
+
+        if (updatePriorities)
+            mWifiNative.saveConfig();
+        else
+            mWifiNative.selectNetwork(config.networkId);
+
+        updateLastConnectUid(config, uid);
+        writeKnownNetworkHistory(false);
 
         /* Enable the given network while disabling all other networks */
-        enableNetworkWithoutBroadcast(netId, true);
+        enableNetworkWithoutBroadcast(config.networkId, true);
 
        /* Avoid saving the config & sending a broadcast to prevent settings
         * from displaying a disabled list of networks */
@@ -922,11 +1120,11 @@ public class WifiConfigStore extends IpConfigStore {
         if (info != null
             && info.getBSSID() != null
             && ScanResult.is5GHz(info.getFrequency())
-            && info.getRssi() > (bandPreferenceBoostThreshold5 + 3)) {
+            && info.getRssi() > (bandPreferenceBoostThreshold5.get() + 3)) {
             WifiConfiguration config = getWifiConfiguration(info.getNetworkId());
             if (config != null) {
-                if (config.scanResultCache != null) {
-                    ScanResult result = config.scanResultCache.get(info.getBSSID());
+                if (getScanDetailCache(config) != null) {
+                    ScanResult result = getScanDetailCache(config).get(info.getBSSID());
                     if (result != null) {
                         result.setAutoJoinStatus(ScanResult.AUTO_ROAM_DISABLED + 1);
                     }
@@ -1017,16 +1215,13 @@ public class WifiConfigStore extends IpConfigStore {
             return null;
         }
 
-        WifiConfiguration foundConfig = null;
+        WifiConfiguration foundConfig = mConfiguredNetworks.getEphemeral(SSID);
 
         mDeletedEphemeralSSIDs.add(SSID);
         loge("Forget ephemeral SSID " + SSID + " num=" + mDeletedEphemeralSSIDs.size());
 
-        for (WifiConfiguration config : mConfiguredNetworks.values()) {
-            if (SSID.equals(config.SSID) && config.ephemeral) {
-                loge("Found ephemeral config in disableEphemeralNetwork: " + config.networkId);
-                foundConfig = config;
-            }
+        if (foundConfig != null) {
+            loge("Found ephemeral config in disableEphemeralNetwork: " + foundConfig.networkId);
         }
 
         // Force a write, because the mDeletedEphemeralSSIDs list has changed even though the
@@ -1045,13 +1240,18 @@ public class WifiConfigStore extends IpConfigStore {
     boolean forgetNetwork(int netId) {
         if (showNetworks) localLog("forgetNetwork", netId);
 
+        WifiConfiguration config = mConfiguredNetworks.get(netId);
         boolean remove = removeConfigAndSendBroadcastIfNeeded(netId);
         if (!remove) {
             //success but we dont want to remove the network from supplicant conf file
             return true;
         }
         if (mWifiNative.removeNetwork(netId)) {
+            if (config != null && config.isPasspoint()) {
+                writePasspointConfigs(config.FQDN, null);
+            }
             mWifiNative.saveConfig();
+            writeKnownNetworkHistory(true);
             return true;
         } else {
             loge("Failed to remove network " + netId);
@@ -1074,6 +1274,14 @@ public class WifiConfigStore extends IpConfigStore {
         Log.e(TAG, " key=" + config.configKey() + " netId=" + Integer.toString(config.networkId)
                 + " uid=" + Integer.toString(config.creatorUid)
                 + "/" + Integer.toString(config.lastUpdateUid));
+
+        if (config.isPasspoint()) {
+            /* create a temporary SSID with providerFriendlyName */
+            Long csum = getChecksum(config.FQDN);
+            config.SSID = csum.toString();
+            config.enterpriseConfig.setDomainSuffixMatch(config.FQDN);
+        }
+
         NetworkUpdateResult result = addOrUpdateNetworkNative(config, uid);
         if (result.getNetworkId() != WifiConfiguration.INVALID_NETWORK_ID) {
             WifiConfiguration conf = mConfiguredNetworks.get(result.getNetworkId());
@@ -1083,7 +1291,101 @@ public class WifiConfigStore extends IpConfigStore {
                             WifiManager.CHANGE_REASON_CONFIG_CHANGE);
             }
         }
+
         return result.getNetworkId();
+    }
+
+
+    /**
+     * Get the Wifi PNO list
+     *
+     * @return list of WifiNative.WifiPnoNetwork
+     */
+    private void buildPnoList() {
+        mCachedPnoList = new ArrayList<WifiNative.WifiPnoNetwork>();
+
+        ArrayList<WifiConfiguration> sortedWifiConfigurations
+                = new ArrayList<WifiConfiguration>(getConfiguredNetworks());
+        Log.e(TAG, "buildPnoList sortedWifiConfigurations size " + sortedWifiConfigurations.size());
+        if (sortedWifiConfigurations.size() != 0) {
+            // Sort by descending priority
+            Collections.sort(sortedWifiConfigurations, new Comparator<WifiConfiguration>() {
+                public int compare(WifiConfiguration a, WifiConfiguration b) {
+                    return a.priority >= b.priority ? 1 : -1;
+                }
+            });
+        }
+
+        for (WifiConfiguration config : sortedWifiConfigurations) {
+            // Initialize the RSSI threshold with sane value:
+            // Use the 2.4GHz threshold since most WifiConfigurations are dual bands
+            // There is very little penalty with triggering too soon, i.e. if PNO finds a network
+            // that has an RSSI too low for us to attempt joining it.
+            int threshold = thresholdInitialAutoJoinAttemptMin24RSSI.get();
+            Log.e(TAG, "found sortedWifiConfigurations : " + config.configKey());
+            WifiNative.WifiPnoNetwork network = mWifiNative.new WifiPnoNetwork(config, threshold);
+            mCachedPnoList.add(network);
+        }
+    }
+
+    String[] getWhiteListedSsids(WifiConfiguration config) {
+        int num_ssids = 0;
+        String nonQuoteSSID;
+        int length;
+        if (enableSsidWhitelist.get() == false)
+            return null;
+        List<String> list = new ArrayList<String>();
+        if (config == null)
+            return null;
+        if (config.linkedConfigurations == null) {
+            return null;
+        }
+        if (config.SSID == null || TextUtils.isEmpty(config.SSID)) {
+            return null;
+        }
+        for (String configKey : config.linkedConfigurations.keySet()) {
+
+            // Sanity check that the linked configuration is still valid
+            WifiConfiguration link = getWifiConfiguration(configKey);
+            if (link == null) {
+                continue;
+            }
+
+            if (link.autoJoinStatus != WifiConfiguration.AUTO_JOIN_ENABLED) {
+                continue;
+            }
+
+            if (link.hiddenSSID == true) {
+                continue;
+            }
+
+            if (link.SSID == null || TextUtils.isEmpty(link.SSID)) {
+                continue;
+            }
+
+            length = link.SSID.length();
+            if (length > 2 && (link.SSID.charAt(0) == '"') && link.SSID.charAt(length - 1) == '"') {
+                nonQuoteSSID = link.SSID.substring(1, length - 1);
+            } else {
+                nonQuoteSSID = link.SSID;
+            }
+
+            list.add(nonQuoteSSID);
+        }
+
+        if (list.size() != 0) {
+            length = config.SSID.length();
+            if (length > 2 && (config.SSID.charAt(0) == '"')
+                    && config.SSID.charAt(length - 1) == '"') {
+                nonQuoteSSID = config.SSID.substring(1, length - 1);
+            } else {
+                nonQuoteSSID = config.SSID;
+            }
+
+            list.add(nonQuoteSSID);
+        }
+
+        return (String[])list.toArray(new String[0]);
     }
 
     /**
@@ -1097,11 +1399,22 @@ public class WifiConfigStore extends IpConfigStore {
      */
     boolean removeNetwork(int netId) {
         if (showNetworks) localLog("removeNetwork", netId);
+        WifiConfiguration config = mConfiguredNetworks.get(netId);
         boolean ret = mWifiNative.removeNetwork(netId);
         if (ret) {
             removeConfigAndSendBroadcastIfNeeded(netId);
+            if (config != null && config.isPasspoint()) {
+                writePasspointConfigs(config.FQDN, null);
+            }
         }
         return ret;
+    }
+
+
+    static private Long getChecksum(String source) {
+        Checksum csum = new CRC32();
+        csum.update(source.getBytes(), 0, source.getBytes().length);
+        return csum.getValue();
     }
 
     private boolean removeConfigAndSendBroadcastIfNeeded(int netId) {
@@ -1126,26 +1439,80 @@ public class WifiConfigStore extends IpConfigStore {
                     || config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
                 if (!TextUtils.isEmpty(config.SSID)) {
                     /* Remember that we deleted this PSK SSID */
-                    Checksum csum = new CRC32();
                     if (config.SSID != null) {
-                        csum.update(config.SSID.getBytes(), 0, config.SSID.getBytes().length);
-                        mDeletedSSIDs.add(csum.getValue());
+                        Long csum = getChecksum(config.SSID);
+                        mDeletedSSIDs.add(csum);
+                        loge("removeNetwork " + Integer.toString(netId)
+                                + " key=" + config.configKey()
+                                + " config.id=" + Integer.toString(config.networkId)
+                                + "  crc=" + csum);
+                    } else {
+                        loge("removeNetwork " + Integer.toString(netId)
+                                + " key=" + config.configKey()
+                                + " config.id=" + Integer.toString(config.networkId));
                     }
-                    loge("removeNetwork " + Integer.toString(netId)
-                            + " key=" + config.configKey()
-                            + " config.id=" + Integer.toString(config.networkId)
-                            + "  crc=" + csum.getValue());
                 }
             }
 
             mConfiguredNetworks.remove(netId);
-            mNetworkIds.remove(configKey(config));
+            mScanDetailCaches.remove(netId);
 
             writeIpAndProxyConfigurations();
             sendConfiguredNetworksChangedBroadcast(config, WifiManager.CHANGE_REASON_REMOVED);
             writeKnownNetworkHistory(true);
         }
         return true;
+    }
+
+    /*
+     * Remove all networks associated with an application
+     *
+     * @param packageName name of the package of networks to remove
+     * @return {@code true} if all networks removed successfully, {@code false} otherwise
+     */
+    boolean removeNetworksForApp(ApplicationInfo app) {
+        if (app == null || app.packageName == null) {
+            return false;
+        }
+
+        boolean success = true;
+
+        WifiConfiguration [] copiedConfigs =
+                mConfiguredNetworks.values().toArray(new WifiConfiguration[0]);
+        for (WifiConfiguration config : copiedConfigs) {
+            if (app.uid != config.creatorUid || !app.packageName.equals(config.creatorName)) {
+                continue;
+            }
+            if (showNetworks) {
+                localLog("Removing network " + config.SSID
+                         + ", application \"" + app.packageName + "\" uninstalled"
+                         + " from user " + UserHandle.getUserId(app.uid));
+            }
+            success &= removeNetwork(config.networkId);
+        }
+
+        mWifiNative.saveConfig();
+
+        return success;
+    }
+
+    boolean removeNetworksForUser(int userId) {
+        boolean success = true;
+
+        WifiConfiguration[] copiedConfigs =
+                mConfiguredNetworks.values().toArray(new WifiConfiguration[0]);
+        for (WifiConfiguration config : copiedConfigs) {
+            if (userId != UserHandle.getUserId(config.creatorUid)) {
+                continue;
+            }
+            success &= removeNetwork(config.networkId);
+            if (showNetworks) {
+                localLog("Removing network " + config.SSID
+                        + ", user " + userId + " removed");
+            }
+        }
+
+        return success;
     }
 
     /**
@@ -1157,15 +1524,17 @@ public class WifiConfigStore extends IpConfigStore {
      * @param netId network to be enabled
      * @return {@code true} if it succeeds, {@code false} otherwise
      */
-    boolean enableNetwork(int netId, boolean disableOthers) {
+    boolean enableNetwork(int netId, boolean disableOthers, int uid) {
         boolean ret = enableNetworkWithoutBroadcast(netId, disableOthers);
         if (disableOthers) {
-            if (VDBG) localLog("enableNetwork(disableOthers=true) ", netId);
+            if (VDBG) localLog("enableNetwork(disableOthers=true, uid=" + uid + ") ", netId);
+            updateLastConnectUid(getWifiConfiguration(netId), uid);
+            writeKnownNetworkHistory(false);
             sendConfiguredNetworksChangedBroadcast();
         } else {
             if (VDBG) localLog("enableNetwork(disableOthers=false) ", netId);
-            WifiConfiguration enabledNetwork = null;
-            synchronized(mConfiguredNetworks) {
+            WifiConfiguration enabledNetwork;
+            synchronized(mConfiguredNetworks) {                     // !!! Useless synchronization!
                 enabledNetwork = mConfiguredNetworks.get(netId);
             }
             // check just in case the network was removed by someone else.
@@ -1192,14 +1561,12 @@ public class WifiConfigStore extends IpConfigStore {
     void disableAllNetworks() {
         if (VDBG) localLog("disableAllNetworks");
         boolean networkDisabled = false;
-        for(WifiConfiguration config : mConfiguredNetworks.values()) {
-            if(config != null && config.status != Status.DISABLED) {
-                if(mWifiNative.disableNetwork(config.networkId)) {
-                    networkDisabled = true;
-                    config.status = Status.DISABLED;
-                } else {
-                    loge("Disable network failed on " + config.networkId);
-                }
+        for (WifiConfiguration enabled : mConfiguredNetworks.getEnabledNetworks()) {
+            if(mWifiNative.disableNetwork(enabled.networkId)) {
+                networkDisabled = true;
+                enabled.status = Status.DISABLED;
+            } else {
+                loge("Disable network failed on " + enabled.networkId);
             }
         }
 
@@ -1213,7 +1580,11 @@ public class WifiConfigStore extends IpConfigStore {
      * @return {@code true} if it succeeds, {@code false} otherwise
      */
     boolean disableNetwork(int netId) {
-        return disableNetwork(netId, WifiConfiguration.DISABLED_UNKNOWN_REASON);
+        boolean ret = disableNetwork(netId, WifiConfiguration.DISABLED_UNKNOWN_REASON);
+        if (ret) {
+            mWifiStateMachine.registerNetworkDisabled(netId);
+        }
+        return ret;
     }
 
     /**
@@ -1359,7 +1730,7 @@ public class WifiConfigStore extends IpConfigStore {
 
     /**
      * Fetch the proxy properties for a given network id
-     * @param network id
+     * @param netId id
      * @return ProxyInfo for the network id
      */
     ProxyInfo getProxyProperties(int netId) {
@@ -1372,7 +1743,7 @@ public class WifiConfigStore extends IpConfigStore {
 
     /**
      * Return if the specified network is using static IP
-     * @param network id
+     * @param netId id
      * @return {@code true} if using static ip for netId
      */
     boolean isUsingStaticIp(int netId) {
@@ -1381,6 +1752,11 @@ public class WifiConfigStore extends IpConfigStore {
             return true;
         }
         return false;
+    }
+
+    boolean isEphemeral(int netId) {
+        WifiConfiguration config = mConfiguredNetworks.get(netId);
+        return config != null && config.ephemeral;
     }
 
     /**
@@ -1414,7 +1790,6 @@ public class WifiConfigStore extends IpConfigStore {
         mLastPriority = 0;
 
         mConfiguredNetworks.clear();
-        mNetworkIds.clear();
 
         int last_id = -1;
         boolean done = false;
@@ -1474,12 +1849,11 @@ public class WifiConfigStore extends IpConfigStore {
                 config.setIpAssignment(IpAssignment.DHCP);
                 config.setProxySettings(ProxySettings.NONE);
 
-                if (mNetworkIds.containsKey(configKey(config))) {
+                if (mConfiguredNetworks.getByConfigKey(config.configKey()) != null) {
                     // That SSID is already known, just ignore this duplicate entry
                     if (showNetworks) localLog("discarded duplicate network ", config.networkId);
-                } else if(config.isValid()){
+                } else if(WifiServiceImpl.isValid(config)){
                     mConfiguredNetworks.put(config.networkId, config);
-                    mNetworkIds.put(configKey(config), config.networkId);
                     if (showNetworks) localLog("loaded configured network", config.networkId);
                 } else {
                     if (showNetworks) log("Ignoring loaded configured for network " + config.networkId
@@ -1490,40 +1864,48 @@ public class WifiConfigStore extends IpConfigStore {
             done = (lines.length == 1);
         }
 
+        readPasspointConfig();
         readIpAndProxyConfigurations();
         readNetworkHistory();
         readAutoJoinConfig();
 
+        buildPnoList();
+
         sendConfiguredNetworksChangedBroadcast();
 
-        if (showNetworks) localLog("loadConfiguredNetworks loaded " + mNetworkIds.size() + " networks");
+        if (showNetworks) localLog("loadConfiguredNetworks loaded " + mConfiguredNetworks.size() + " networks");
 
-        if (mNetworkIds.size() == 0) {
-            // no networks? Lets log if the wpa_supplicant.conf file contents
-            BufferedReader reader = null;
+        if (mConfiguredNetworks.isEmpty()) {
+            // no networks? Lets log if the file contents
+            logKernelTime();
+            logContents(SUPPLICANT_CONFIG_FILE);
+            logContents(SUPPLICANT_CONFIG_FILE_BACKUP);
+            logContents(networkHistoryConfigFile);
+        }
+    }
+
+    private void logContents(String file) {
+        localLog("--- Begin " + file + " ---", true);
+        BufferedReader reader = null;
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                localLog(line, true);
+            }
+        } catch (FileNotFoundException e) {
+            localLog("Could not open " + file + ", " + e, true);
+        } catch (IOException e) {
+            localLog("Could not read " + file + ", " + e, true);
+        } finally {
             try {
-                reader = new BufferedReader(new FileReader(SUPPLICANT_CONFIG_FILE));
-                if (DBG) {
-                    localLog("--- Begin wpa_supplicant.conf Contents ---", true);
-                    for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-                        localLog(line, true);
-                    }
-                    localLog("--- End wpa_supplicant.conf Contents ---", true);
+                if (reader != null) {
+                    reader.close();
                 }
-            } catch (FileNotFoundException e) {
-                localLog("Could not open " + SUPPLICANT_CONFIG_FILE + ", " + e, true);
             } catch (IOException e) {
-                localLog("Could not read " + SUPPLICANT_CONFIG_FILE + ", " + e, true);
-            } finally {
-                try {
-                    if (reader != null) {
-                        reader.close();
-                    }
-                } catch (IOException e) {
-                    // Just ignore the fact that we couldn't close
-                }
+                // Just ignore the fact that we couldn't close
             }
         }
+        localLog("--- End " + file + " Contents ---", true);
     }
 
     private Map<String, String> readNetworkVariablesFromSupplicantFile(String key) {
@@ -1627,6 +2009,37 @@ public class WifiConfigStore extends IpConfigStore {
         return false;
     }
 
+    void readPasspointConfig() {
+
+        List<HomeSP> homeSPs;
+        try {
+            homeSPs = mMOManager.loadAllSPs();
+        } catch (IOException e) {
+            loge("Could not read " + PPS_FILE + " : " + e);
+            return;
+        }
+
+        mConfiguredNetworks.populatePasspointData(homeSPs, mWifiNative);
+    }
+
+    public void writePasspointConfigs(final String fqdn, final HomeSP homeSP) {
+        mWriter.write(PPS_FILE, new DelayedDiskWrite.Writer() {
+            @Override
+            public void onWriteCalled(DataOutputStream out) throws IOException {
+                try {
+                    if (homeSP != null) {
+                        mMOManager.addSP(homeSP);
+                    }
+                    else {
+                        mMOManager.removeSP(fqdn);
+                    }
+                } catch (IOException e) {
+                    loge("Could not write " + PPS_FILE + " : " + e);
+                }
+            }
+        }, false);
+    }
+
     public void writeKnownNetworkHistory(boolean force) {
         boolean needUpdate = force;
 
@@ -1675,7 +2088,7 @@ public class WifiConfigStore extends IpConfigStore {
                                 + " nid:" + Integer.toString(config.networkId));
                     }
 
-                    if (config.isValid() == false)
+                    if (!WifiServiceImpl.isValid(config))
                         continue;
 
                     if (config.SSID == null) {
@@ -1687,133 +2100,142 @@ public class WifiConfigStore extends IpConfigStore {
                     if (VDBG) {
                         loge("writeKnownNetworkHistory write config " + config.configKey());
                     }
-                    out.writeUTF(CONFIG_KEY + config.configKey() + SEPARATOR_KEY);
+                    out.writeUTF(CONFIG_KEY + SEPARATOR + config.configKey() + NL);
 
-                    out.writeUTF(SSID_KEY + config.SSID + SEPARATOR_KEY);
-                    out.writeUTF(FQDN_KEY + config.FQDN + SEPARATOR_KEY);
-
-                    out.writeUTF(PRIORITY_KEY + Integer.toString(config.priority) + SEPARATOR_KEY);
-                    out.writeUTF(STATUS_KEY + Integer.toString(config.autoJoinStatus)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(SUPPLICANT_STATUS_KEY + Integer.toString(config.status)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(SUPPLICANT_DISABLE_REASON_KEY
-                            + Integer.toString(config.disableReason)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(NETWORK_ID_KEY + Integer.toString(config.networkId)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(SELF_ADDED_KEY + Boolean.toString(config.selfAdded)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(DID_SELF_ADD_KEY + Boolean.toString(config.didSelfAdd)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(NO_INTERNET_ACCESS_REPORTS_KEY
-                            + Integer.toString(config.numNoInternetAccessReports)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(VALIDATED_INTERNET_ACCESS_KEY
-                            + Boolean.toString(config.validatedInternetAccess)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(EPHEMERAL_KEY
-                            + Boolean.toString(config.ephemeral)
-                            + SEPARATOR_KEY);
-                    if (config.peerWifiConfiguration != null) {
-                        out.writeUTF(PEER_CONFIGURATION_KEY + config.peerWifiConfiguration
-                                + SEPARATOR_KEY);
+                    if (config.SSID != null) {
+                        out.writeUTF(SSID_KEY + SEPARATOR + config.SSID + NL);
                     }
-                    out.writeUTF(NUM_CONNECTION_FAILURES_KEY
-                            + Integer.toString(config.numConnectionFailures)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(NUM_AUTH_FAILURES_KEY
-                            + Integer.toString(config.numAuthFailures)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(NUM_IP_CONFIG_FAILURES_KEY
-                            + Integer.toString(config.numIpConfigFailures)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(SCORER_OVERRIDE_KEY + Integer.toString(config.numScorerOverride)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(SCORER_OVERRIDE_AND_SWITCH_KEY
-                            + Integer.toString(config.numScorerOverrideAndSwitchedNetwork)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(NUM_ASSOCIATION_KEY
-                            + Integer.toString(config.numAssociation)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(JOIN_ATTEMPT_BOOST_KEY
-                            + Integer.toString(config.autoJoinUseAggressiveJoinAttemptThreshold)
-                            + SEPARATOR_KEY);
-                    //out.writeUTF(BLACKLIST_MILLI_KEY + Long.toString(config.blackListTimestamp)
-                    //        + SEPARATOR_KEY);
-                    out.writeUTF(CREATOR_UID_KEY + Integer.toString(config.creatorUid)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(CONNECT_UID_KEY + Integer.toString(config.lastConnectUid)
-                            + SEPARATOR_KEY);
-                    out.writeUTF(UPDATE_UID_KEY + Integer.toString(config.lastUpdateUid)
-                            + SEPARATOR_KEY);
+                    if (config.FQDN != null) {
+                        out.writeUTF(FQDN_KEY + SEPARATOR + config.FQDN + NL);
+                    }
+
+                    out.writeUTF(PRIORITY_KEY + SEPARATOR +
+                            Integer.toString(config.priority) + NL);
+                    out.writeUTF(STATUS_KEY + SEPARATOR +
+                            Integer.toString(config.autoJoinStatus) + NL);
+                    out.writeUTF(SUPPLICANT_STATUS_KEY + SEPARATOR +
+                            Integer.toString(config.status) + NL);
+                    out.writeUTF(SUPPLICANT_DISABLE_REASON_KEY + SEPARATOR +
+                            Integer.toString(config.disableReason) + NL);
+                    out.writeUTF(NETWORK_ID_KEY + SEPARATOR +
+                            Integer.toString(config.networkId) + NL);
+                    out.writeUTF(SELF_ADDED_KEY + SEPARATOR +
+                            Boolean.toString(config.selfAdded) + NL);
+                    out.writeUTF(DID_SELF_ADD_KEY + SEPARATOR +
+                            Boolean.toString(config.didSelfAdd) + NL);
+                    out.writeUTF(NO_INTERNET_ACCESS_REPORTS_KEY + SEPARATOR +
+                            Integer.toString(config.numNoInternetAccessReports) + NL);
+                    out.writeUTF(VALIDATED_INTERNET_ACCESS_KEY + SEPARATOR +
+                            Boolean.toString(config.validatedInternetAccess) + NL);
+                    out.writeUTF(EPHEMERAL_KEY + SEPARATOR +
+                            Boolean.toString(config.ephemeral) + NL);
+                    if (config.creationTime != null) {
+                        out.writeUTF(CREATION_TIME_KEY + SEPARATOR + config.creationTime + NL);
+                    }
+                    if (config.updateTime != null) {
+                        out.writeUTF(UPDATE_TIME_KEY + SEPARATOR + config.updateTime + NL);
+                    }
+                    if (config.peerWifiConfiguration != null) {
+                        out.writeUTF(PEER_CONFIGURATION_KEY + SEPARATOR +
+                                config.peerWifiConfiguration + NL);
+                    }
+                    out.writeUTF(NUM_CONNECTION_FAILURES_KEY + SEPARATOR +
+                            Integer.toString(config.numConnectionFailures) + NL);
+                    out.writeUTF(NUM_AUTH_FAILURES_KEY + SEPARATOR +
+                            Integer.toString(config.numAuthFailures) + NL);
+                    out.writeUTF(NUM_IP_CONFIG_FAILURES_KEY + SEPARATOR +
+                            Integer.toString(config.numIpConfigFailures) + NL);
+                    out.writeUTF(SCORER_OVERRIDE_KEY + SEPARATOR +
+                            Integer.toString(config.numScorerOverride) + NL);
+                    out.writeUTF(SCORER_OVERRIDE_AND_SWITCH_KEY + SEPARATOR +
+                            Integer.toString(config.numScorerOverrideAndSwitchedNetwork) + NL);
+                    out.writeUTF(NUM_ASSOCIATION_KEY + SEPARATOR +
+                            Integer.toString(config.numAssociation) + NL);
+                    out.writeUTF(JOIN_ATTEMPT_BOOST_KEY + SEPARATOR +
+                            Integer.toString(config.autoJoinUseAggressiveJoinAttemptThreshold)+ NL);
+                    //out.writeUTF(BLACKLIST_MILLI_KEY + SEPARATOR +
+                    // Long.toString(config.blackListTimestamp) + NL);
+                    out.writeUTF(CREATOR_UID_KEY + SEPARATOR +
+                            Integer.toString(config.creatorUid) + NL);
+                    out.writeUTF(CONNECT_UID_KEY + SEPARATOR +
+                            Integer.toString(config.lastConnectUid) + NL);
+                    out.writeUTF(UPDATE_UID_KEY + SEPARATOR +
+                            Integer.toString(config.lastUpdateUid) + NL);
+                    out.writeUTF(CREATOR_NAME_KEY + SEPARATOR +
+                            config.creatorName + NL);
+                    out.writeUTF(UPDATE_NAME_KEY + SEPARATOR +
+                            config.lastUpdateName + NL);
+                    out.writeUTF(USER_APPROVED_KEY + SEPARATOR +
+                            Integer.toString(config.userApproved) + NL);
                     String allowedKeyManagementString =
                             makeString(config.allowedKeyManagement,
                                     WifiConfiguration.KeyMgmt.strings);
-                    out.writeUTF(AUTH_KEY + allowedKeyManagementString + SEPARATOR_KEY);
+                    out.writeUTF(AUTH_KEY + SEPARATOR +
+                            allowedKeyManagementString + NL);
 
                     if (config.connectChoices != null) {
                         for (String key : config.connectChoices.keySet()) {
                             Integer choice = config.connectChoices.get(key);
-                            out.writeUTF(CHOICE_KEY + key + "="
-                                    + choice.toString() + SEPARATOR_KEY);
+                            out.writeUTF(CHOICE_KEY + SEPARATOR +
+                                    key + "=" + choice.toString() + NL);
                         }
                     }
                     if (config.linkedConfigurations != null) {
-                        loge("writeKnownNetworkHistory write linked "
+                        log("writeKnownNetworkHistory write linked "
                                 + config.linkedConfigurations.size());
 
                         for (String key : config.linkedConfigurations.keySet()) {
-                            out.writeUTF(LINK_KEY + key + SEPARATOR_KEY);
+                            out.writeUTF(LINK_KEY + SEPARATOR + key + NL);
                         }
                     }
 
                     String macAddress = config.defaultGwMacAddress;
                     if (macAddress != null) {
-                        out.writeUTF(DEFAULT_GW_KEY + macAddress + SEPARATOR_KEY);
+                        out.writeUTF(DEFAULT_GW_KEY + SEPARATOR + macAddress + NL);
                     }
 
-                    if (config.scanResultCache != null) {
-                        for (ScanResult result : config.scanResultCache.values()) {
-                            out.writeUTF(BSSID_KEY + result.BSSID + SEPARATOR_KEY);
+                    if (getScanDetailCache(config) != null) {
+                        for (ScanDetail scanDetail : getScanDetailCache(config).values()) {
+                            ScanResult result = scanDetail.getScanResult();
+                            out.writeUTF(BSSID_KEY + SEPARATOR +
+                                    result.BSSID + NL);
 
-                            out.writeUTF(FREQ_KEY + Integer.toString(result.frequency)
-                                    + SEPARATOR_KEY);
+                            out.writeUTF(FREQ_KEY + SEPARATOR +
+                                    Integer.toString(result.frequency) + NL);
 
-                            out.writeUTF(RSSI_KEY + Integer.toString(result.level)
-                                    + SEPARATOR_KEY);
+                            out.writeUTF(RSSI_KEY + SEPARATOR +
+                                    Integer.toString(result.level) + NL);
 
-                            out.writeUTF(BSSID_STATUS_KEY
-                                    + Integer.toString(result.autoJoinStatus)
-                                    + SEPARATOR_KEY);
+                            out.writeUTF(BSSID_STATUS_KEY + SEPARATOR +
+                                    Integer.toString(result.autoJoinStatus) + NL);
 
                             //if (result.seen != 0) {
-                            //    out.writeUTF(MILLI_KEY + Long.toString(result.seen)
-                            //            + SEPARATOR_KEY);
+                            //    out.writeUTF(MILLI_KEY + SEPARATOR + Long.toString(result.seen)
+                            //            + NL);
                             //}
-                            out.writeUTF(BSSID_KEY_END + SEPARATOR_KEY);
+                            out.writeUTF(BSSID_KEY_END + NL);
                         }
                     }
                     if (config.lastFailure != null) {
-                        out.writeUTF(FAILURE_KEY + config.lastFailure + SEPARATOR_KEY);
+                        out.writeUTF(FAILURE_KEY + SEPARATOR + config.lastFailure + NL);
                     }
-                    out.writeUTF(SEPARATOR_KEY);
+                    out.writeUTF(NL);
                     // Add extra blank lines for clarity
-                    out.writeUTF(SEPARATOR_KEY);
-                    out.writeUTF(SEPARATOR_KEY);
+                    out.writeUTF(NL);
+                    out.writeUTF(NL);
                 }
                 if (mDeletedSSIDs != null && mDeletedSSIDs.size() > 0) {
                     for (Long i : mDeletedSSIDs) {
                         out.writeUTF(DELETED_CRC32_KEY);
                         out.writeUTF(String.valueOf(i));
-                        out.writeUTF(SEPARATOR_KEY);
+                        out.writeUTF(NL);
                     }
                 }
                 if (mDeletedEphemeralSSIDs != null && mDeletedEphemeralSSIDs.size() > 0) {
                     for (String ssid : mDeletedEphemeralSSIDs) {
                         out.writeUTF(DELETED_EPHEMERAL_KEY);
                         out.writeUTF(ssid);
-                        out.writeUTF(SEPARATOR_KEY);
+                        out.writeUTF(NL);
                     }
                 }
             }
@@ -1857,719 +2279,278 @@ public class WifiConfigStore extends IpConfigStore {
         if (showNetworks) {
             localLog("readNetworkHistory() path:" + networkHistoryConfigFile);
         }
-        DataInputStream in = null;
-        try {
-            in = new DataInputStream(new BufferedInputStream(new FileInputStream(
-                    networkHistoryConfigFile)));
+
+        try (DataInputStream in =
+                     new DataInputStream(new BufferedInputStream(
+                             new FileInputStream(networkHistoryConfigFile)))) {
+
+            String bssid = null;
+            String ssid = null;
+
+            int freq = 0;
+            int status = 0;
+            long seen = 0;
+            int rssi = WifiConfiguration.INVALID_RSSI;
+            String caps = null;
+
             WifiConfiguration config = null;
             while (true) {
-                int id = -1;
-                String key = in.readUTF();
-                String bssid = null;
-                String ssid = null;
+                String line = in.readUTF();
+                if (line == null) {
+                    break;
+                }
+                int colon = line.indexOf(':');
+                if (colon < 0) {
+                    continue;
+                }
 
-                int freq = 0;
-                int status = 0;
-                long seen = 0;
-                int rssi = WifiConfiguration.INVALID_RSSI;
-                String caps = null;
-                if (key.startsWith(CONFIG_KEY)) {
+                String key = line.substring(0, colon).trim();
+                String value = line.substring(colon + 1).trim();
 
-                    if (config != null) {
-                        config = null;
-                    }
-                    String configKey = key.replace(CONFIG_KEY, "");
-                    configKey = configKey.replace(SEPARATOR_KEY, "");
-                    // get the networkId for that config Key
-                    Integer n = mNetworkIds.get(configKey.hashCode());
+                if (key.equals(CONFIG_KEY)) {
+
+                    config = mConfiguredNetworks.getByConfigKey(value);
+                    
                     // skip reading that configuration data
                     // since we don't have a corresponding network ID
-                    if (n == null) {
-                        localLog("readNetworkHistory didnt find netid for hash="
-                                + Integer.toString(configKey.hashCode())
-                                + " key: " + configKey);
-                        continue;
-                    }
-                    config = mConfiguredNetworks.get(n);
                     if (config == null) {
-                        localLog("readNetworkHistory didnt find config for netid="
-                                + n.toString()
-                                + " key: " + configKey);
-                    }
-                    status = 0;
-                    ssid = null;
-                    bssid = null;
-                    freq = 0;
-                    seen = 0;
-                    rssi = WifiConfiguration.INVALID_RSSI;
-                    caps = null;
+                        localLog("readNetworkHistory didnt find netid for hash="
+                                + Integer.toString(value.hashCode())
+                                + " key: " + value);
+                        mLostConfigsDbg.add(value);
+                        continue;
+                    } else {
+                        // After an upgrade count old connections as owned by system
+                        if (config.creatorName == null || config.lastUpdateName == null) {
+                            config.creatorName =
+                                mContext.getPackageManager().getNameForUid(Process.SYSTEM_UID);
+                            config.lastUpdateName = config.creatorName;
 
+                            if (DBG) Log.w(TAG, "Upgrading network " + config.networkId
+                                    + " to " + config.creatorName);
+                        }
+                    }
                 } else if (config != null) {
-                    if (key.startsWith(SSID_KEY)) {
-                        ssid = key.replace(SSID_KEY, "");
-                        ssid = ssid.replace(SEPARATOR_KEY, "");
-                        if (config.SSID != null && !config.SSID.equals(ssid)) {
-                            loge("Error parsing network history file, mismatched SSIDs");
-                            config = null; //error
-                            ssid = null;
-                        } else {
-                            config.SSID = ssid;
-                        }
-                    }
-
-                    if (key.startsWith(FQDN_KEY)) {
-                        String fqdn = key.replace(FQDN_KEY, "");
-                        fqdn = fqdn.replace(SEPARATOR_KEY, "");
-                        config.FQDN = fqdn;
-                    }
-
-                    if (key.startsWith(DEFAULT_GW_KEY)) {
-                        String gateway = key.replace(DEFAULT_GW_KEY, "");
-                        gateway = gateway.replace(SEPARATOR_KEY, "");
-                        config.defaultGwMacAddress = gateway;
-                    }
-
-                    if (key.startsWith(STATUS_KEY)) {
-                        String st = key.replace(STATUS_KEY, "");
-                        st = st.replace(SEPARATOR_KEY, "");
-                        config.autoJoinStatus = Integer.parseInt(st);
-                    }
-
-                    if (key.startsWith(SUPPLICANT_DISABLE_REASON_KEY)) {
-                        String reason = key.replace(SUPPLICANT_DISABLE_REASON_KEY, "");
-                        reason = reason.replace(SEPARATOR_KEY, "");
-                        config.disableReason = Integer.parseInt(reason);
-                    }
-
-                    if (key.startsWith(SELF_ADDED_KEY)) {
-                        String selfAdded = key.replace(SELF_ADDED_KEY, "");
-                        selfAdded = selfAdded.replace(SEPARATOR_KEY, "");
-                        config.selfAdded = Boolean.parseBoolean(selfAdded);
-                    }
-
-                    if (key.startsWith(DID_SELF_ADD_KEY)) {
-                        String didSelfAdd = key.replace(DID_SELF_ADD_KEY, "");
-                        didSelfAdd = didSelfAdd.replace(SEPARATOR_KEY, "");
-                        config.didSelfAdd = Boolean.parseBoolean(didSelfAdd);
-                    }
-
-                    if (key.startsWith(NO_INTERNET_ACCESS_REPORTS_KEY)) {
-                        String access = key.replace(NO_INTERNET_ACCESS_REPORTS_KEY, "");
-                        access = access.replace(SEPARATOR_KEY, "");
-                        config.numNoInternetAccessReports = Integer.parseInt(access);
-                    }
-
-                    if (key.startsWith(VALIDATED_INTERNET_ACCESS_KEY)) {
-                        String access = key.replace(VALIDATED_INTERNET_ACCESS_KEY, "");
-                        access = access.replace(SEPARATOR_KEY, "");
-                        config.validatedInternetAccess = Boolean.parseBoolean(access);
-                    }
-
-                    if (key.startsWith(EPHEMERAL_KEY)) {
-                        String access = key.replace(EPHEMERAL_KEY, "");
-                        access = access.replace(SEPARATOR_KEY, "");
-                        config.ephemeral = Boolean.parseBoolean(access);
-                    }
-
-                    if (key.startsWith(CREATOR_UID_KEY)) {
-                        String uid = key.replace(CREATOR_UID_KEY, "");
-                        uid = uid.replace(SEPARATOR_KEY, "");
-                        config.creatorUid = Integer.parseInt(uid);
-                    }
-
-                    if (key.startsWith(BLACKLIST_MILLI_KEY)) {
-                        String milli = key.replace(BLACKLIST_MILLI_KEY, "");
-                        milli = milli.replace(SEPARATOR_KEY, "");
-                        config.blackListTimestamp = Long.parseLong(milli);
-                    }
-
-                    if (key.startsWith(NUM_CONNECTION_FAILURES_KEY)) {
-                        String num = key.replace(NUM_CONNECTION_FAILURES_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numConnectionFailures = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(NUM_IP_CONFIG_FAILURES_KEY)) {
-                        String num = key.replace(NUM_IP_CONFIG_FAILURES_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numIpConfigFailures = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(NUM_AUTH_FAILURES_KEY)) {
-                        String num = key.replace(NUM_AUTH_FAILURES_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numIpConfigFailures = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(SCORER_OVERRIDE_KEY)) {
-                        String num = key.replace(SCORER_OVERRIDE_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numScorerOverride = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(SCORER_OVERRIDE_AND_SWITCH_KEY)) {
-                        String num = key.replace(SCORER_OVERRIDE_AND_SWITCH_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numScorerOverrideAndSwitchedNetwork = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(NUM_ASSOCIATION_KEY)) {
-                        String num = key.replace(NUM_ASSOCIATION_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.numAssociation = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(JOIN_ATTEMPT_BOOST_KEY)) {
-                        String num = key.replace(JOIN_ATTEMPT_BOOST_KEY, "");
-                        num = num.replace(SEPARATOR_KEY, "");
-                        config.autoJoinUseAggressiveJoinAttemptThreshold = Integer.parseInt(num);
-                    }
-
-                    if (key.startsWith(CONNECT_UID_KEY)) {
-                        String uid = key.replace(CONNECT_UID_KEY, "");
-                        uid = uid.replace(SEPARATOR_KEY, "");
-                        config.lastConnectUid = Integer.parseInt(uid);
-                    }
-
-                    if (key.startsWith(UPDATE_UID_KEY)) {
-                        String uid = key.replace(UPDATE_UID_KEY, "");
-                        uid = uid.replace(SEPARATOR_KEY, "");
-                        config.lastUpdateUid = Integer.parseInt(uid);
-                    }
-
-                    if (key.startsWith(FAILURE_KEY)) {
-                        config.lastFailure = key.replace(FAILURE_KEY, "");
-                        config.lastFailure = config.lastFailure.replace(SEPARATOR_KEY, "");
-                    }
-
-                    if (key.startsWith(PEER_CONFIGURATION_KEY)) {
-                        config.peerWifiConfiguration = key.replace(PEER_CONFIGURATION_KEY, "");
-                        config.peerWifiConfiguration =
-                                config.peerWifiConfiguration.replace(SEPARATOR_KEY, "");
-                    }
-
-                    if (key.startsWith(CHOICE_KEY)) {
-                        String choiceStr = key.replace(CHOICE_KEY, "");
-                        choiceStr = choiceStr.replace(SEPARATOR_KEY, "");
-                        String configKey = "";
-                        int choice = 0;
-                        Matcher match = mConnectChoice.matcher(choiceStr);
-                        if (!match.find()) {
-                            if (DBG) Log.d(TAG, "WifiConfigStore: connectChoice: " +
-                                    " Couldnt match pattern : " + choiceStr);
-                        } else {
-                            configKey = match.group(1);
-                            try {
-                                choice = Integer.parseInt(match.group(2));
-                            } catch (NumberFormatException e) {
-                                choice = 0;
+                    switch (key) {
+                        case SSID_KEY:
+                            if (config.isPasspoint()) {
+                                break;
                             }
-                            if (choice > 0) {
-                                if (config.connectChoices == null) {
-                                    config.connectChoices = new HashMap<String, Integer>();
+                            ssid = value;
+                            if (config.SSID != null && !config.SSID.equals(ssid)) {
+                                loge("Error parsing network history file, mismatched SSIDs");
+                                config = null; //error
+                                ssid = null;
+                            } else {
+                                config.SSID = ssid;
+                            }
+                            break;
+                        case FQDN_KEY:
+                            // Check for literal 'null' to be backwards compatible.
+                            config.FQDN = value.equals("null") ? null : value;
+                            break;
+                        case DEFAULT_GW_KEY:
+                            config.defaultGwMacAddress = value;
+                            break;
+                        case STATUS_KEY:
+                            config.autoJoinStatus = Integer.parseInt(value);
+                            break;
+                        case SUPPLICANT_DISABLE_REASON_KEY:
+                            config.disableReason = Integer.parseInt(value);
+                            break;
+                        case SELF_ADDED_KEY:
+                            config.selfAdded = Boolean.parseBoolean(value);
+                            break;
+                        case DID_SELF_ADD_KEY:
+                            config.didSelfAdd = Boolean.parseBoolean(value);
+                            break;
+                        case NO_INTERNET_ACCESS_REPORTS_KEY:
+                            config.numNoInternetAccessReports = Integer.parseInt(value);
+                            break;
+                        case VALIDATED_INTERNET_ACCESS_KEY:
+                            config.validatedInternetAccess = Boolean.parseBoolean(value);
+                            break;
+                        case CREATION_TIME_KEY:
+                            config.creationTime = value;
+                            break;
+                        case UPDATE_TIME_KEY:
+                            config.updateTime = value;
+                            break;
+                        case EPHEMERAL_KEY:
+                            config.ephemeral = Boolean.parseBoolean(value);
+                            break;
+                        case CREATOR_UID_KEY:
+                            config.creatorUid = Integer.parseInt(value);
+                            break;
+                        case BLACKLIST_MILLI_KEY:
+                            config.blackListTimestamp = Long.parseLong(value);
+                            break;
+                        case NUM_CONNECTION_FAILURES_KEY:
+                            config.numConnectionFailures = Integer.parseInt(value);
+                            break;
+                        case NUM_IP_CONFIG_FAILURES_KEY:
+                            config.numIpConfigFailures = Integer.parseInt(value);
+                            break;
+                        case NUM_AUTH_FAILURES_KEY:
+                            config.numIpConfigFailures = Integer.parseInt(value);
+                            break;
+                        case SCORER_OVERRIDE_KEY:
+                            config.numScorerOverride = Integer.parseInt(value);
+                            break;
+                        case SCORER_OVERRIDE_AND_SWITCH_KEY:
+                            config.numScorerOverrideAndSwitchedNetwork = Integer.parseInt(value);
+                            break;
+                        case NUM_ASSOCIATION_KEY:
+                            config.numAssociation = Integer.parseInt(value);
+                            break;
+                        case JOIN_ATTEMPT_BOOST_KEY:
+                            config.autoJoinUseAggressiveJoinAttemptThreshold =
+                                    Integer.parseInt(value);
+                            break;
+                        case CONNECT_UID_KEY:
+                            config.lastConnectUid = Integer.parseInt(value);
+                            break;
+                        case UPDATE_UID_KEY:
+                            config.lastUpdateUid = Integer.parseInt(value);
+                            break;
+                        case FAILURE_KEY:
+                            config.lastFailure = value;
+                            break;
+                        case PEER_CONFIGURATION_KEY:
+                            config.peerWifiConfiguration = value;
+                            break;
+                        case CHOICE_KEY:
+                            String configKey = "";
+                            int choice = 0;
+                            Matcher match = mConnectChoice.matcher(value);
+                            if (!match.find()) {
+                                if (DBG) Log.d(TAG, "WifiConfigStore: connectChoice: " +
+                                        " Couldnt match pattern : " + value);
+                            } else {
+                                configKey = match.group(1);
+                                try {
+                                    choice = Integer.parseInt(match.group(2));
+                                } catch (NumberFormatException e) {
+                                    choice = 0;
                                 }
-                                config.connectChoices.put(configKey, choice);
+                                if (choice > 0) {
+                                    if (config.connectChoices == null) {
+                                        config.connectChoices = new HashMap<>();
+                                    }
+                                    config.connectChoices.put(configKey, choice);
+                                }
                             }
-                        }
-                    }
-
-                    if (key.startsWith(LINK_KEY)) {
-                        String configKey = key.replace(LINK_KEY, "");
-                        configKey = configKey.replace(SEPARATOR_KEY, "");
-                        if (config.linkedConfigurations == null) {
-                            config.linkedConfigurations = new HashMap<String, Integer>();
-                        }
-                        if (config.linkedConfigurations != null) {
-                            config.linkedConfigurations.put(configKey, -1);
-                        }
-                    }
-
-                    if (key.startsWith(BSSID_KEY)) {
-                        if (key.startsWith(BSSID_KEY)) {
-                            bssid = key.replace(BSSID_KEY, "");
-                            bssid = bssid.replace(SEPARATOR_KEY, "");
+                            break;
+                        case LINK_KEY:
+                            if (config.linkedConfigurations == null) {
+                                config.linkedConfigurations = new HashMap<>();
+                            }
+                            else {
+                                config.linkedConfigurations.put(value, -1);
+                            }
+                            break;
+                        case BSSID_KEY:
+                            status = 0;
+                            ssid = null;
+                            bssid = null;
                             freq = 0;
                             seen = 0;
                             rssi = WifiConfiguration.INVALID_RSSI;
                             caps = "";
-                            status = 0;
-                        }
-
-                        if (key.startsWith(RSSI_KEY)) {
-                            String lvl = key.replace(RSSI_KEY, "");
-                            lvl = lvl.replace(SEPARATOR_KEY, "");
-                            rssi = Integer.parseInt(lvl);
-                        }
-
-                        if (key.startsWith(BSSID_STATUS_KEY)) {
-                            String st = key.replace(BSSID_STATUS_KEY, "");
-                            st = st.replace(SEPARATOR_KEY, "");
-                            status = Integer.parseInt(st);
-                        }
-
-                        if (key.startsWith(FREQ_KEY)) {
-                            String channel = key.replace(FREQ_KEY, "");
-                            channel = channel.replace(SEPARATOR_KEY, "");
-                            freq = Integer.parseInt(channel);
-                        }
-
-                        if (key.startsWith(DATE_KEY)) {
-                        /*
-                         * when reading the configuration from file we don't update the date
-                         * so as to avoid reading back stale or non-sensical data that would
-                         * depend on network time.
-                         * The date of a WifiConfiguration should only come from actual scan result.
-                         *
-                        String s = key.replace(FREQ_KEY, "");
-                        seen = Integer.getInteger(s);
-                        */
-                        }
-
-                        if (key.startsWith(BSSID_KEY_END)) {
+                            break;
+                        case RSSI_KEY:
+                            rssi = Integer.parseInt(value);
+                            break;
+                        case BSSID_STATUS_KEY:
+                            status = Integer.parseInt(value);
+                            break;
+                        case FREQ_KEY:
+                            freq = Integer.parseInt(value);
+                            break;
+                        case DATE_KEY:
+                            /*
+                             * when reading the configuration from file we don't update the date
+                             * so as to avoid reading back stale or non-sensical data that would
+                             * depend on network time.
+                             * The date of a WifiConfiguration should only come from actual scan result.
+                             *
+                            String s = key.replace(FREQ_KEY, "");
+                            seen = Integer.getInteger(s);
+                            */
+                            break;
+                        case BSSID_KEY_END:
                             if ((bssid != null) && (ssid != null)) {
 
-                                if (config.scanResultCache == null) {
-                                    config.scanResultCache = new HashMap<String, ScanResult>();
+                                if (getScanDetailCache(config) != null) {
+                                    WifiSsid wssid = WifiSsid.createFromAsciiEncoded(ssid);
+                                    ScanDetail scanDetail = new ScanDetail(wssid, bssid,
+                                            caps, rssi, freq, (long) 0, seen);
+                                    getScanDetailCache(config).put(scanDetail);
+                                    scanDetail.getScanResult().autoJoinStatus = status;
                                 }
-                                WifiSsid wssid = WifiSsid.createFromAsciiEncoded(ssid);
-                                ScanResult result = new ScanResult(wssid, bssid,
-                                        caps, rssi, freq, (long) 0);
-                                result.seen = seen;
-                                config.scanResultCache.put(bssid, result);
-                                result.autoJoinStatus = status;
                             }
-                        }
-
-                        if (key.startsWith(DELETED_CRC32_KEY)) {
-                            String crc = key.replace(DELETED_CRC32_KEY, "");
-                            Long c = Long.parseLong(crc);
-                            mDeletedSSIDs.add(c);
-                        }
-                        if (key.startsWith(DELETED_EPHEMERAL_KEY)) {
-                            String s = key.replace(DELETED_EPHEMERAL_KEY, "");
-                            if (!TextUtils.isEmpty(s)) {
-                                s = s.replace(SEPARATOR_KEY, "");
-                                mDeletedEphemeralSSIDs.add(s);
+                            break;
+                        case DELETED_CRC32_KEY:
+                            mDeletedSSIDs.add(Long.parseLong(value));
+                            break;
+                        case DELETED_EPHEMERAL_KEY:
+                            if (!TextUtils.isEmpty(value)) {
+                                mDeletedEphemeralSSIDs.add(value);
                             }
-                        }
+                            break;
+                        case CREATOR_NAME_KEY:
+                            config.creatorName = value;
+                            break;
+                        case UPDATE_NAME_KEY:
+                            config.lastUpdateName = value;
+                            break;
+                        case USER_APPROVED_KEY:
+                            config.userApproved = Integer.parseInt(value);
+                            break;
                     }
                 }
             }
-        } catch (EOFException ignore) {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (Exception e) {
-                    loge("readNetworkHistory: Error reading file" + e);
-                }
-            }
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "readNetworkHistory: failed to read, revert to default, " + e, e);
+        } catch (EOFException e) {
+            // do nothing
         } catch (IOException e) {
-            loge("readNetworkHistory: No config file, revert to default" + e);
-        }
-
-        if(in!=null) {
-            try {
-                in.close();
-            } catch (Exception e) {
-                loge("readNetworkHistory: Error closing file" + e);
-            }
+            Log.e(TAG, "readNetworkHistory: No config file, revert to default, " + e, e);
         }
     }
 
     private void readAutoJoinConfig() {
-        BufferedReader reader = null;
-        try {
-
-            reader = new BufferedReader(new FileReader(autoJoinConfigFile));
-
+        try (BufferedReader reader = new BufferedReader(new FileReader(autoJoinConfigFile))) {
             for (String key = reader.readLine(); key != null; key = reader.readLine()) {
-                if (key != null) {
-                    Log.d(TAG, "readAutoJoinConfig line: " + key);
-                }
-                if (key.startsWith(ENABLE_AUTO_JOIN_WHILE_ASSOCIATED_KEY)) {
-                    String st = key.replace(ENABLE_AUTO_JOIN_WHILE_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableAutoJoinWhenAssociated = Integer.parseInt(st) != 0;
-                        Log.d(TAG,"readAutoJoinConfig: enabled = " + enableAutoJoinWhenAssociated);
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
+                Log.d(TAG, "readAutoJoinConfig line: " + key);
+
+                int split = key.indexOf(':');
+                if (split < 0) {
+                    continue;
                 }
 
-                if (key.startsWith(ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED_KEY)) {
-                    String st = key.replace(ENABLE_FULL_BAND_SCAN_WHEN_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableFullBandScanWhenAssociated = Integer.parseInt(st) != 0;
-                        Log.d(TAG,"readAutoJoinConfig: enableFullBandScanWhenAssociated = "
-                                + enableFullBandScanWhenAssociated);
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
+                String name = key.substring(0, split);
+                Object reference = sKeyMap.get(name);
+                if (reference == null) {
+                    continue;
                 }
 
-                if (key.startsWith(ENABLE_AUTO_JOIN_SCAN_WHILE_ASSOCIATED_KEY)) {
-                    String st = key.replace(ENABLE_AUTO_JOIN_SCAN_WHILE_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableAutoJoinScanWhenAssociated = Integer.parseInt(st) != 0;
-                        Log.d(TAG,"readAutoJoinConfig: enabled = "
-                                + enableAutoJoinScanWhenAssociated);
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED_KEY)) {
-                    String st = key.replace(ENABLE_CHIP_WAKE_UP_WHILE_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableChipWakeUpWhenAssociated = Integer.parseInt(st) != 0;
-                        Log.d(TAG,"readAutoJoinConfig: enabled = "
-                                + enableChipWakeUpWhenAssociated);
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY)) {
-                    String st = key.replace(ENABLE_RSSI_POLL_WHILE_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableRssiPollWhenAssociated = Integer.parseInt(st) != 0;
-                        Log.d(TAG,"readAutoJoinConfig: enabled = "
-                                + enableRssiPollWhenAssociated);
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G_KEY)) {
-                    String st =
-                            key.replace(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_5G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdInitialAutoJoinAttemptMin5RSSI = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdInitialAutoJoinAttemptMin5RSSI = "
-                                + Integer.toString(thresholdInitialAutoJoinAttemptMin5RSSI));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G_KEY)) {
-                    String st =
-                            key.replace(THRESHOLD_INITIAL_AUTO_JOIN_ATTEMPT_RSSI_MIN_24G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdInitialAutoJoinAttemptMin24RSSI = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdInitialAutoJoinAttemptMin24RSSI = "
-                                + Integer.toString(thresholdInitialAutoJoinAttemptMin24RSSI));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_UNBLACKLIST_HARD_5G_KEY)) {
-                    String st = key.replace(THRESHOLD_UNBLACKLIST_HARD_5G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdUnblacklistThreshold5Hard = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdUnblacklistThreshold5Hard = "
-                            + Integer.toString(thresholdUnblacklistThreshold5Hard));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_UNBLACKLIST_SOFT_5G_KEY)) {
-                    String st = key.replace(THRESHOLD_UNBLACKLIST_SOFT_5G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdUnblacklistThreshold5Soft = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdUnblacklistThreshold5Soft = "
-                            + Integer.toString(thresholdUnblacklistThreshold5Soft));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_UNBLACKLIST_HARD_24G_KEY)) {
-                    String st = key.replace(THRESHOLD_UNBLACKLIST_HARD_24G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdUnblacklistThreshold24Hard = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdUnblacklistThreshold24Hard = "
-                            + Integer.toString(thresholdUnblacklistThreshold24Hard));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_UNBLACKLIST_SOFT_24G_KEY)) {
-                    String st = key.replace(THRESHOLD_UNBLACKLIST_SOFT_24G_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdUnblacklistThreshold24Soft = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdUnblacklistThreshold24Soft = "
-                            + Integer.toString(thresholdUnblacklistThreshold24Soft));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_GOOD_RSSI_5_KEY)) {
-                    String st = key.replace(THRESHOLD_GOOD_RSSI_5_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdGoodRssi5 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdGoodRssi5 = "
-                            + Integer.toString(thresholdGoodRssi5));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_LOW_RSSI_5_KEY)) {
-                    String st = key.replace(THRESHOLD_LOW_RSSI_5_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdLowRssi5 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdLowRssi5 = "
-                            + Integer.toString(thresholdLowRssi5));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_BAD_RSSI_5_KEY)) {
-                    String st = key.replace(THRESHOLD_BAD_RSSI_5_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdBadRssi5 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdBadRssi5 = "
-                            + Integer.toString(thresholdBadRssi5));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_GOOD_RSSI_24_KEY)) {
-                    String st = key.replace(THRESHOLD_GOOD_RSSI_24_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdGoodRssi24 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdGoodRssi24 = "
-                            + Integer.toString(thresholdGoodRssi24));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_LOW_RSSI_24_KEY)) {
-                    String st = key.replace(THRESHOLD_LOW_RSSI_24_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdLowRssi24 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdLowRssi24 = "
-                            + Integer.toString(thresholdLowRssi24));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_BAD_RSSI_24_KEY)) {
-                    String st = key.replace(THRESHOLD_BAD_RSSI_24_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        thresholdBadRssi24 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: thresholdBadRssi24 = "
-                            + Integer.toString(thresholdBadRssi24));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_TX_PACKETS_FOR_NETWORK_SWITCHING_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxTxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxTxPacketForNetworkSwitching = "
-                            + Integer.toString(maxTxPacketForNetworkSwitching));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_RX_PACKETS_FOR_NETWORK_SWITCHING_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxRxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxRxPacketForNetworkSwitching = "
-                            + Integer.toString(maxRxPacketForNetworkSwitching));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_TX_PACKETS_FOR_FULL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxTxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxTxPacketForFullScans = "
-                                + Integer.toString(maxTxPacketForFullScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_RX_PACKETS_FOR_FULL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxRxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxRxPacketForFullScans = "
-                                + Integer.toString(maxRxPacketForFullScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_TX_PACKETS_FOR_PARTIAL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxTxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxTxPacketForPartialScans = "
-                                + Integer.toString(maxTxPacketForPartialScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS_KEY)) {
-                    String st = key.replace(THRESHOLD_MAX_RX_PACKETS_FOR_PARTIAL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxRxPacketForNetworkSwitching = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxRxPacketForPartialScans = "
-                                + Integer.toString(maxRxPacketForPartialScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-
-                if (key.startsWith(WIFI_VERBOSE_LOGS_KEY)) {
-                    String st = key.replace(WIFI_VERBOSE_LOGS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        enableVerboseLogging = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: enable verbose logs = "
-                                + Integer.toString(enableVerboseLogging));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(A_BAND_PREFERENCE_RSSI_THRESHOLD_KEY)) {
-                    String st = key.replace(A_BAND_PREFERENCE_RSSI_THRESHOLD_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        bandPreferenceBoostThreshold5 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: bandPreferenceBoostThreshold5 = "
-                            + Integer.toString(bandPreferenceBoostThreshold5));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(ASSOCIATED_PARTIAL_SCAN_PERIOD_KEY)) {
-                    String st = key.replace(ASSOCIATED_PARTIAL_SCAN_PERIOD_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        associatedPartialScanPeriodMilli = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: associatedScanPeriod = "
-                                + Integer.toString(associatedPartialScanPeriodMilli));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(ASSOCIATED_FULL_SCAN_BACKOFF_KEY)) {
-                    String st = key.replace(ASSOCIATED_FULL_SCAN_BACKOFF_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        associatedFullScanBackoff = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: associatedFullScanBackoff = "
-                                + Integer.toString(associatedFullScanBackoff));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(G_BAND_PREFERENCE_RSSI_THRESHOLD_KEY)) {
-                    String st = key.replace(G_BAND_PREFERENCE_RSSI_THRESHOLD_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        bandPreferencePenaltyThreshold5 = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: bandPreferencePenaltyThreshold5 = "
-                            + Integer.toString(bandPreferencePenaltyThreshold5));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED_KEY)) {
-                    String st = key.replace(ALWAYS_ENABLE_SCAN_WHILE_ASSOCIATED_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        alwaysEnableScansWhileAssociated = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: alwaysEnableScansWhileAssociated = "
-                                + Integer.toString(alwaysEnableScansWhileAssociated));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY)) {
-                    String st = key.replace(MAX_NUM_PASSIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxNumPassiveChannelsForPartialScans = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxNumPassiveChannelsForPartialScans = "
-                                + Integer.toString(maxNumPassiveChannelsForPartialScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-                if (key.startsWith(MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY)) {
-                    String st = key.replace(MAX_NUM_ACTIVE_CHANNELS_FOR_PARTIAL_SCANS_KEY, "");
-                    st = st.replace(SEPARATOR_KEY, "");
-                    try {
-                        maxNumActiveChannelsForPartialScans = Integer.parseInt(st);
-                        Log.d(TAG,"readAutoJoinConfig: maxNumActiveChannelsForPartialScans = "
-                                + Integer.toString(maxNumActiveChannelsForPartialScans));
-                    } catch (NumberFormatException e) {
-                        Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
-                    }
-                }
-            }
-        } catch (EOFException ignore) {
-            if (reader != null) {
                 try {
-                    reader.close();
-                    reader = null;
-                } catch (Exception e) {
-                    loge("readAutoJoinStatus: Error closing file" + e);
+                    int value = Integer.parseInt(key.substring(split+1).trim());
+                    if (reference.getClass() == AtomicBoolean.class) {
+                        ((AtomicBoolean)reference).set(value != 0);
+                    }
+                    else {
+                        ((AtomicInteger)reference).set(value);
+                    }
+                    Log.d(TAG,"readAutoJoinConfig: " + name + " = " + value);
                 }
-            }
-        } catch (FileNotFoundException ignore) {
-            if (reader != null) {
-                try {
-                    reader.close();
-                    reader = null;
-                } catch (Exception e) {
-                    loge("readAutoJoinStatus: Error closing file" + e);
+                catch (NumberFormatException nfe) {
+                    Log.d(TAG,"readAutoJoinConfig: incorrect format :" + key);
                 }
             }
         } catch (IOException e) {
             loge("readAutoJoinStatus: Error parsing configuration" + e);
-        }
-
-        if (reader!=null) {
-           try {
-               reader.close();
-           } catch (Exception e) {
-               loge("readAutoJoinStatus: Error closing file" + e);
-           }
         }
     }
 
@@ -2595,8 +2576,8 @@ public class WifiConfigStore extends IpConfigStore {
 
         for (int i = 0; i < networks.size(); i++) {
             int id = networks.keyAt(i);
-            WifiConfiguration config = mConfiguredNetworks.get(mNetworkIds.get(id));
-
+            WifiConfiguration config = mConfiguredNetworks.getByConfigKeyID(id);
+            // This is the only place the map is looked up through a (dangerous) hash-value!
 
             if (config == null || config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED ||
                     config.ephemeral) {
@@ -2615,9 +2596,8 @@ public class WifiConfigStore extends IpConfigStore {
      * and that can confuses the supplicant because it uses space charaters as delimiters
      */
 
-    private String encodeSSID(String str){
-        String tmp = removeDoubleQuotes(str);
-        return String.format("%x", new BigInteger(1, tmp.getBytes(Charset.forName("UTF-8"))));
+    public static String encodeSSID(String str){
+        return Utils.toHex(removeDoubleQuotes(str).getBytes(StandardCharsets.UTF_8));
     }
 
     private NetworkUpdateResult addOrUpdateNetworkNative(WifiConfiguration config, int uid) {
@@ -2628,27 +2608,23 @@ public class WifiConfigStore extends IpConfigStore {
          */
 
         if (VDBG) localLog("addOrUpdateNetworkNative " + config.getPrintableSsid());
+        if (config.isPasspoint() && !mMOManager.isEnabled()) {
+            Log.e(TAG, "Passpoint is not enabled");
+            return new NetworkUpdateResult(INVALID_NETWORK_ID);
+        }
 
         int netId = config.networkId;
         boolean newNetwork = false;
         // networkId of INVALID_NETWORK_ID means we want to create a new network
         if (netId == INVALID_NETWORK_ID) {
-            Integer savedNetId = mNetworkIds.get(configKey(config));
-            // Check if either we have a network Id or a WifiConfiguration
-            // matching the one we are trying to add.
-            if (savedNetId == null) {
-                for (WifiConfiguration test : mConfiguredNetworks.values()) {
-                    if (test.configKey().equals(config.configKey())) {
-                        savedNetId = test.networkId;
-                        loge("addOrUpdateNetworkNative " + config.configKey()
-                                + " was found, but no network Id");
-                        break;
-                    }
-                }
-            }
-            if (savedNetId != null) {
-                netId = savedNetId;
+            WifiConfiguration savedConfig = mConfiguredNetworks.getByConfigKey(config.configKey());
+            if (savedConfig != null) {
+                netId = savedConfig.networkId;
             } else {
+                if (mMOManager.getHomeSP(config.FQDN) != null) {
+                    loge("addOrUpdateNetworkNative passpoint " + config.FQDN
+                            + " was found, but no network Id");
+                }
                 newNetwork = true;
                 netId = mWifiNative.addNetwork();
                 if (netId < 0) {
@@ -2673,8 +2649,18 @@ public class WifiConfigStore extends IpConfigStore {
                 break setVariables;
             }
 
+            if (config.isPasspoint()) {
+                if (!mWifiNative.setNetworkVariable(
+                            netId,
+                            idStringVarName,
+                            '"' + config.FQDN + '"')) {
+                    loge("failed to set id_str: " + config.FQDN);
+                    break setVariables;
+                }
+            }
+
             if (config.BSSID != null) {
-                loge("Setting BSSID for " + config.configKey() + " to " + config.BSSID);
+                log("Setting BSSID for " + config.configKey() + " to " + config.BSSID);
                 if (!mWifiNative.setNetworkVariable(
                         netId,
                         WifiConfiguration.bssidVarName,
@@ -2862,6 +2848,11 @@ public class WifiConfigStore extends IpConfigStore {
                             // No need to try to set an obfuscated password, which will fail
                             continue;
                         }
+                        if (key.equals(WifiEnterpriseConfig.REALM_KEY)
+                                || key.equals(WifiEnterpriseConfig.PLMN_KEY)) {
+                            // No need to save realm or PLMN in supplicant
+                            continue;
+                        }
                         if (!mWifiNative.setNetworkVariable(
                                     netId,
                                     key,
@@ -2907,15 +2898,54 @@ public class WifiConfigStore extends IpConfigStore {
                 currentConfig.lastConnectUid = config.lastConnectUid;
                 currentConfig.lastUpdateUid = config.lastUpdateUid;
                 currentConfig.creatorUid = config.creatorUid;
+                currentConfig.creatorName = config.creatorName;
+                currentConfig.lastUpdateName = config.lastUpdateName;
                 currentConfig.peerWifiConfiguration = config.peerWifiConfiguration;
+                currentConfig.FQDN = config.FQDN;
+                currentConfig.providerFriendlyName = config.providerFriendlyName;
+                currentConfig.roamingConsortiumIds = config.roamingConsortiumIds;
+                currentConfig.validatedInternetAccess = config.validatedInternetAccess;
+                currentConfig.numNoInternetAccessReports = config.numNoInternetAccessReports;
+                currentConfig.updateTime = config.updateTime;
+                currentConfig.creationTime = config.creationTime;
             }
             if (DBG) {
-                loge("created new config netId=" + Integer.toString(netId)
-                        + " uid=" + Integer.toString(currentConfig.creatorUid));
+                log("created new config netId=" + Integer.toString(netId)
+                        + " uid=" + Integer.toString(currentConfig.creatorUid)
+                        + " name=" + currentConfig.creatorName);
             }
         }
 
-        if (uid >= 0) {
+        /* save HomeSP object for passpoint networks */
+        HomeSP homeSP = null;
+
+        if (config.isPasspoint()) {
+            try {
+                Credential credential =
+                        new Credential(config.enterpriseConfig, mKeyStore, !newNetwork);
+                HashSet<Long> roamingConsortiumIds = new HashSet<Long>();
+                for (Long roamingConsortiumId : config.roamingConsortiumIds) {
+                    roamingConsortiumIds.add(roamingConsortiumId);
+                }
+
+                homeSP = new HomeSP(Collections.<String, Long>emptyMap(), config.FQDN,
+                        roamingConsortiumIds, Collections.<String>emptySet(),
+                        Collections.<Long>emptySet(), Collections.<Long>emptyList(),
+                        config.providerFriendlyName, null, credential);
+
+                log("created a homeSP object for " + config.networkId + ":" + config.SSID);
+
+                /* fix enterprise config properties for passpoint */
+                currentConfig.enterpriseConfig.setRealm(config.enterpriseConfig.getRealm());
+                currentConfig.enterpriseConfig.setPlmn(config.enterpriseConfig.getPlmn());
+            }
+            catch (IOException ioe) {
+                Log.e(TAG, "Failed to create Passpoint config: " + ioe);
+                return new NetworkUpdateResult(INVALID_NETWORK_ID);
+            }
+        }
+
+        if (uid != WifiConfiguration.UNKNOWN_UID) {
             if (newNetwork) {
                 currentConfig.creatorUid = uid;
             } else {
@@ -2923,8 +2953,18 @@ public class WifiConfigStore extends IpConfigStore {
             }
         }
 
+        // For debug, record the time the configuration was modified
+        StringBuilder sb = new StringBuilder();
+        sb.append("time=");
+        Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(System.currentTimeMillis());
+        sb.append(String.format("%tm-%td %tH:%tM:%tS.%tL", c, c, c, c, c, c));
+
         if (newNetwork) {
             currentConfig.dirty = true;
+            currentConfig.creationTime = sb.toString();
+        } else {
+            currentConfig.updateTime = sb.toString();
         }
 
         if (currentConfig.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED) {
@@ -2934,7 +2974,7 @@ public class WifiConfigStore extends IpConfigStore {
             currentConfig.selfAdded = false;
             currentConfig.didSelfAdd = false;
             if (DBG) {
-                loge("remove deleted status netId=" + Integer.toString(netId)
+                log("remove deleted status netId=" + Integer.toString(netId)
                         + " " + currentConfig.configKey());
             }
         }
@@ -2948,26 +2988,59 @@ public class WifiConfigStore extends IpConfigStore {
                 currentConfig.ephemeral) {
             // Make the config non-ephemeral since the user just explicitly clicked it.
             currentConfig.ephemeral = false;
-            if (DBG) loge("remove ephemeral status netId=" + Integer.toString(netId)
+            if (DBG) log("remove ephemeral status netId=" + Integer.toString(netId)
                     + " " + currentConfig.configKey());
         }
 
-        if (DBG) loge("will read network variables netId=" + Integer.toString(netId));
+        if (VDBG) log("will read network variables netId=" + Integer.toString(netId));
 
         readNetworkVariables(currentConfig);
 
+        // Persist configuration paramaters that are not saved by supplicant.
+        if (config.lastUpdateName != null) {
+            currentConfig.lastUpdateName = config.lastUpdateName;
+        }
+        if (config.lastUpdateUid != WifiConfiguration.UNKNOWN_UID) {
+            currentConfig.lastUpdateUid = config.lastUpdateUid;
+        }
+
         mConfiguredNetworks.put(netId, currentConfig);
-        mNetworkIds.put(configKey(currentConfig), netId);
 
         NetworkUpdateResult result = writeIpAndProxyConfigurationsOnChange(currentConfig, config);
         result.setIsNewNetwork(newNetwork);
         result.setNetworkId(netId);
 
+        if (homeSP != null) {
+            writePasspointConfigs(null, homeSP);
+        }
         writeKnownNetworkHistory(false);
 
         return result;
     }
 
+    public WifiConfiguration getWifiConfigForHomeSP(HomeSP homeSP) {
+        WifiConfiguration config = mConfiguredNetworks.getByFQDN(homeSP.getFQDN());
+        if (config == null) {
+            Log.e(TAG, "Could not find network for homeSP " + homeSP.getFQDN());
+        }
+        return config;
+    }
+
+    private HomeSP getHomeSPForConfig(WifiConfiguration config) {
+        WifiConfiguration storedConfig = mConfiguredNetworks.get(config.networkId);
+        return storedConfig != null && storedConfig.isPasspoint() ?
+                mMOManager.getHomeSP(storedConfig.FQDN) : null;
+    }
+
+    public ScanDetailCache getScanDetailCache(WifiConfiguration config) {
+        if (config == null) return null;
+        ScanDetailCache cache = mScanDetailCaches.get(config.networkId);
+        if (cache == null && config.networkId != WifiConfiguration.INVALID_NETWORK_ID) {
+            cache = new ScanDetailCache(config);
+            mScanDetailCaches.put(config.networkId, cache);
+        }
+        return cache;
+    }
 
     /**
      * This function run thru the Saved WifiConfigurations and check if some should be linked.
@@ -2975,7 +3048,7 @@ public class WifiConfigStore extends IpConfigStore {
      */
     public void linkConfiguration(WifiConfiguration config) {
 
-        if (config.scanResultCache != null && config.scanResultCache.size() > 6) {
+        if (getScanDetailCache(config) != null && getScanDetailCache(config).size() > 6) {
             // Ignore configurations with large number of BSSIDs
             return;
         }
@@ -3000,7 +3073,8 @@ public class WifiConfigStore extends IpConfigStore {
                 continue;
             }
 
-            if (link.scanResultCache != null && link.scanResultCache.size() > 6) {
+            ScanDetailCache linkedScanDetailCache = getScanDetailCache(link);
+            if (linkedScanDetailCache != null && linkedScanDetailCache.size() > 6) {
                 // Ignore configurations with large number of BSSIDs
                 continue;
             }
@@ -3019,10 +3093,11 @@ public class WifiConfigStore extends IpConfigStore {
                 // hoping that WifiConfigurations are indeed behind the same gateway.
                 // once both WifiConfiguration have been tried and thus once both efault gateways
                 // are known we will revisit the choice of linking them
-                if ((config.scanResultCache != null) && (config.scanResultCache.size() <= 6)
-                        && (link.scanResultCache != null) && (link.scanResultCache.size() <= 6)) {
-                    for (String abssid : config.scanResultCache.keySet()) {
-                        for (String bbssid : link.scanResultCache.keySet()) {
+                if ((getScanDetailCache(config) != null)
+                        && (getScanDetailCache(config).size() <= 6)) {
+
+                    for (String abssid : getScanDetailCache(config).keySet()) {
+                        for (String bbssid : linkedScanDetailCache.keySet()) {
                             if (VVDBG) {
                                 loge("linkConfiguration try to link due to DBDC BSSID match "
                                         + link.SSID +
@@ -3052,8 +3127,8 @@ public class WifiConfigStore extends IpConfigStore {
 
             if (doLink) {
                 if (VDBG) {
-                   loge("linkConfiguration: will link " + link.configKey()
-                           + " and " + config.configKey());
+                    loge("linkConfiguration: will link " + link.configKey()
+                            + " and " + config.configKey());
                 }
                 if (link.linkedConfigurations == null) {
                     link.linkedConfigurations = new HashMap<String, Integer>();
@@ -3092,139 +3167,6 @@ public class WifiConfigStore extends IpConfigStore {
         }
     }
 
-    /*
-     * We try to link a scan result with a WifiConfiguration for which SSID and
-     * key management dont match,
-     * for instance, we try identify the 5GHz SSID of a DBDC AP,
-     * even though we know only of the 2.4GHz
-     *
-     * Obviously, this function is not optimal since it is used to compare every scan
-     * result with every Saved WifiConfiguration, with a string.equals operation.
-     * As a speed up, might be better to implement the mConfiguredNetworks store as a
-     * <String, WifiConfiguration> object instead of a <Integer, WifiConfiguration> object
-     * so as to speed this up. Also to prevent the tiny probability of hash collision.
-     *
-     */
-    public WifiConfiguration associateWithConfiguration(ScanResult result) {
-        boolean doNotAdd = false;
-        String configKey = WifiConfiguration.configKey(result);
-        if (configKey == null) {
-            if (DBG) loge("associateWithConfiguration(): no config key " );
-            return null;
-        }
-
-        // Need to compare with quoted string
-        String SSID = "\"" + result.SSID + "\"";
-
-        if (VVDBG) {
-            loge("associateWithConfiguration(): try " + configKey);
-        }
-
-        Checksum csum = new CRC32();
-        csum.update(SSID.getBytes(), 0, SSID.getBytes().length);
-        if (mDeletedSSIDs.contains(csum.getValue())) {
-            doNotAdd = true;
-        }
-
-        WifiConfiguration config = null;
-        for (WifiConfiguration link : mConfiguredNetworks.values()) {
-            boolean doLink = false;
-
-            if (link.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DELETED || link.selfAdded ||
-                    link.ephemeral) {
-                if (VVDBG) loge("associateWithConfiguration(): skip selfadd " + link.configKey() );
-                // Make sure we dont associate the scan result to a deleted config
-                continue;
-            }
-
-            if (!link.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
-                if (VVDBG) loge("associateWithConfiguration(): skip non-PSK " + link.configKey() );
-                // Make sure we dont associate the scan result to a non-PSK config
-                continue;
-            }
-
-            if (configKey.equals(link.configKey())) {
-                if (VVDBG) loge("associateWithConfiguration(): found it!!! " + configKey );
-                return link; // Found it exactly
-            }
-
-            if (!doNotAdd && (link.scanResultCache != null) && (link.scanResultCache.size() <= 6)) {
-                for (String bssid : link.scanResultCache.keySet()) {
-                    if (result.BSSID.regionMatches(true, 0, bssid, 0, 16)
-                            && SSID.regionMatches(false, 0, link.SSID, 0, 4)) {
-                        // If first 16 ascii characters of BSSID matches, and first 3
-                        // characters of SSID match, we assume this is a home setup
-                        // and thus we will try to transfer the password from the known
-                        // BSSID/SSID to the recently found BSSID/SSID
-
-                        // If (VDBG)
-                        //    loge("associateWithConfiguration OK " );
-                        doLink = true;
-                        break;
-                    }
-                }
-            }
-
-            if (doLink) {
-                // Try to make a non verified WifiConfiguration, but only if the original
-                // configuration was not self already added
-                if (VDBG) {
-                    loge("associateWithConfiguration: try to create " +
-                            result.SSID + " and associate it with: " + link.SSID
-                            + " key " + link.configKey());
-                }
-                config = wifiConfigurationFromScanResult(result);
-                if (config != null) {
-                    config.selfAdded = true;
-                    config.didSelfAdd = true;
-                    config.dirty = true;
-                    config.peerWifiConfiguration = link.configKey();
-                    if (config.allowedKeyManagement.equals(link.allowedKeyManagement) &&
-                            config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
-                        if (VDBG && config != null) {
-                            loge("associateWithConfiguration: got a config from beacon"
-                                    + config.SSID + " key " + config.configKey());
-                        }
-                        // Transfer the credentials from the configuration we are linking from
-                        String psk = readNetworkVariableFromSupplicantFile(link.SSID, "psk");
-                        if (psk != null) {
-                            config.preSharedKey = psk;
-                            if (VDBG) {
-                                if (config.preSharedKey != null)
-                                    loge(" transfer PSK : " + config.preSharedKey);
-                            }
-
-                            // Link configurations
-                            if (link.linkedConfigurations == null) {
-                                link.linkedConfigurations = new HashMap<String, Integer>();
-                            }
-                            if (config.linkedConfigurations == null) {
-                                config.linkedConfigurations = new HashMap<String, Integer>();
-                            }
-                            link.linkedConfigurations.put(config.configKey(), Integer.valueOf(1));
-                            config.linkedConfigurations.put(link.configKey(), Integer.valueOf(1));
-
-                            // Carry over the Ip configuration
-                            if (link.getIpConfiguration() != null) {
-                                config.setIpConfiguration(link.getIpConfiguration());
-                            }
-                        } else {
-                            config = null;
-                        }
-                    } else {
-                        config = null;
-                    }
-                    if (config != null) break;
-                }
-                if (VDBG && config != null) {
-                    loge("associateWithConfiguration: success, created: " + config.SSID
-                            + " key " + config.configKey());
-                }
-            }
-        }
-        return config;
-    }
-
     public HashSet<Integer> makeChannelList(WifiConfiguration config, int age, boolean restrict) {
         if (config == null)
             return null;
@@ -3233,7 +3175,7 @@ public class WifiConfigStore extends IpConfigStore {
         HashSet<Integer> channels = new HashSet<Integer>();
 
         //get channels for this configuration, if there are at least 2 BSSIDs
-        if (config.scanResultCache == null && config.linkedConfigurations == null) {
+        if (getScanDetailCache(config) == null && config.linkedConfigurations == null) {
             return null;
         }
 
@@ -3242,8 +3184,8 @@ public class WifiConfigStore extends IpConfigStore {
             dbg.append("makeChannelList age=" + Integer.toString(age)
                     + " for " + config.configKey()
                     + " max=" + maxNumActiveChannelsForPartialScans);
-            if (config.scanResultCache != null) {
-                dbg.append(" bssids=" + config.scanResultCache.size());
+            if (getScanDetailCache(config) != null) {
+                dbg.append(" bssids=" + getScanDetailCache(config).size());
             }
             if (config.linkedConfigurations != null) {
                 dbg.append(" linked=" + config.linkedConfigurations.size());
@@ -3252,10 +3194,11 @@ public class WifiConfigStore extends IpConfigStore {
         }
 
         int numChannels = 0;
-        if (config.scanResultCache != null && config.scanResultCache.size() > 0) {
-            for (ScanResult result : config.scanResultCache.values()) {
+        if (getScanDetailCache(config) != null && getScanDetailCache(config).size() > 0) {
+            for (ScanDetail scanDetail : getScanDetailCache(config).values()) {
+                ScanResult result = scanDetail.getScanResult();
                 //TODO : cout active and passive channels separately
-                if (numChannels > maxNumActiveChannelsForPartialScans) {
+                if (numChannels > maxNumActiveChannelsForPartialScans.get()) {
                     break;
                 }
                 if (VDBG) {
@@ -3276,16 +3219,17 @@ public class WifiConfigStore extends IpConfigStore {
                 WifiConfiguration linked = getWifiConfiguration(key);
                 if (linked == null)
                     continue;
-                if (linked.scanResultCache == null) {
+                if (getScanDetailCache(linked) == null) {
                     continue;
                 }
-                for (ScanResult result : linked.scanResultCache.values()) {
+                for (ScanDetail scanDetail : getScanDetailCache(linked).values()) {
+                    ScanResult result = scanDetail.getScanResult();
                     if (VDBG) {
                         loge("has link: " + result.BSSID
                                 + " freq=" + Integer.toString(result.frequency)
                                 + " age=" + Long.toString(now_ms - result.seen));
                     }
-                    if (numChannels > maxNumActiveChannelsForPartialScans) {
+                    if (numChannels > maxNumActiveChannelsForPartialScans.get()) {
                         break;
                     }
                     if (((now_ms - result.seen) < age)/*||(!restrict || result.is24GHz())*/) {
@@ -3298,14 +3242,213 @@ public class WifiConfigStore extends IpConfigStore {
         return channels;
     }
 
+    private Map<HomeSP, PasspointMatch> matchPasspointNetworks(ScanDetail scanDetail) {
+        if (!mMOManager.isConfigured()) {
+            return null;
+        }
+        NetworkDetail networkDetail = scanDetail.getNetworkDetail();
+        if (!networkDetail.hasInterworking()) {
+            return null;
+        }
+        updateAnqpCache(scanDetail, networkDetail.getANQPElements());
+
+        Map<HomeSP, PasspointMatch> matches = matchNetwork(scanDetail, true);
+        Log.d(Utils.hs2LogTag(getClass()), scanDetail.getSSID() +
+                " pass 1 matches: " + toMatchString(matches));
+        return matches;
+    }
+
+    private Map<HomeSP, PasspointMatch> matchNetwork(ScanDetail scanDetail, boolean query) {
+        NetworkDetail networkDetail = scanDetail.getNetworkDetail();
+
+        ANQPData anqpData = mAnqpCache.getEntry(networkDetail);
+
+        Map<Constants.ANQPElementType, ANQPElement> anqpElements =
+                anqpData != null ? anqpData.getANQPElements() : null;
+
+        boolean queried = !query;
+        Collection<HomeSP> homeSPs = mMOManager.getLoadedSPs().values();
+        Map<HomeSP, PasspointMatch> matches = new HashMap<>(homeSPs.size());
+        Log.d(Utils.hs2LogTag(getClass()), "match nwk " + scanDetail.toKeyString() +
+                ", anqp " + ( anqpData != null ? "present" : "missing" ) +
+                ", query " + query + ", home sps: " + homeSPs.size());
+
+        for (HomeSP homeSP : homeSPs) {
+            PasspointMatch match = homeSP.match(networkDetail, anqpElements, mSIMAccessor);
+
+            Log.d(Utils.hs2LogTag(getClass()), " -- " +
+                    homeSP.getFQDN() + ": match " + match + ", queried " + queried);
+
+            if (match == PasspointMatch.Incomplete && !queried) {
+                if (mAnqpCache.initiate(networkDetail)) {
+                    mSupplicantBridge.startANQP(scanDetail);
+                }
+                queried = true;
+            }
+            matches.put(homeSP, match);
+        }
+        return matches;
+    }
+
+    public void notifyANQPDone(Long bssid, boolean success) {
+        mSupplicantBridge.notifyANQPDone(bssid, success);
+    }
+
+    public void notifyANQPResponse(ScanDetail scanDetail,
+                                   Map<Constants.ANQPElementType, ANQPElement> anqpElements) {
+
+        updateAnqpCache(scanDetail, anqpElements);
+        if (anqpElements == null || anqpElements.isEmpty()) {
+            return;
+        }
+        scanDetail.propagateANQPInfo(anqpElements);
+
+        Map<HomeSP, PasspointMatch> matches = matchNetwork(scanDetail, false);
+        Log.d(Utils.hs2LogTag(getClass()), scanDetail.getSSID() +
+                " pass 2 matches: " + toMatchString(matches));
+
+        cacheScanResultForPasspointConfigs(scanDetail, matches);
+    }
+
+
+    private void updateAnqpCache(ScanDetail scanDetail,
+                                 Map<Constants.ANQPElementType,ANQPElement> anqpElements)
+    {
+        NetworkDetail networkDetail = scanDetail.getNetworkDetail();
+
+        if (anqpElements == null) {
+            // Try to pull cached data if query failed.
+            ANQPData data = mAnqpCache.getEntry(networkDetail);
+            if (data != null) {
+                scanDetail.propagateANQPInfo(data.getANQPElements());
+            }
+            return;
+        }
+
+        mAnqpCache.update(networkDetail, anqpElements);
+    }
+
+    private static String toMatchString(Map<HomeSP, PasspointMatch> matches) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<HomeSP, PasspointMatch> entry : matches.entrySet()) {
+            sb.append(' ').append(entry.getKey().getFQDN()).append("->").append(entry.getValue());
+        }
+        return sb.toString();
+    }
+
+    private void cacheScanResultForPasspointConfigs(ScanDetail scanDetail,
+                                           Map<HomeSP,PasspointMatch> matches) {
+
+        for (Map.Entry<HomeSP, PasspointMatch> entry : matches.entrySet()) {
+            PasspointMatch match = entry.getValue();
+            if (match == PasspointMatch.HomeProvider || match == PasspointMatch.RoamingProvider) {
+                WifiConfiguration config = getWifiConfigForHomeSP(entry.getKey());
+                if (config != null) {
+                    cacheScanResultForConfig(config, scanDetail, entry.getValue());
+                } else {
+		            Log.w(Utils.hs2LogTag(getClass()), "Failed to find config for '" +
+                            entry.getKey().getFQDN() + "'");
+                    /* perhaps the configuration was deleted?? */
+                }
+            }
+        }
+    }
+
+    private void cacheScanResultForConfig(
+            WifiConfiguration config, ScanDetail scanDetail, PasspointMatch passpointMatch) {
+
+        ScanResult scanResult = scanDetail.getScanResult();
+
+        if (config.autoJoinStatus >= WifiConfiguration.AUTO_JOIN_DELETED) {
+            if (VVDBG) {
+                loge("updateSavedNetworkHistory(): found a deleted, skip it...  "
+                        + config.configKey());
+            }
+            // The scan result belongs to a deleted config:
+            //   - increment numConfigFound to remember that we found a config
+            //            matching for this scan result
+            //   - dont do anything since the config was deleted, just skip...
+            return;
+        }
+
+        ScanDetailCache scanDetailCache = getScanDetailCache(config);
+        if (scanDetailCache == null) {
+            Log.w(TAG, "Could not allocate scan cache for " + config.SSID);
+            return;
+        }
+
+        // Adding a new BSSID
+        ScanResult result = scanDetailCache.get(scanResult.BSSID);
+        if (result != null) {
+            // transfer the black list status
+            scanResult.autoJoinStatus = result.autoJoinStatus;
+            scanResult.blackListTimestamp = result.blackListTimestamp;
+            scanResult.numIpConfigFailures = result.numIpConfigFailures;
+            scanResult.numConnection = result.numConnection;
+            scanResult.isAutoJoinCandidate = result.isAutoJoinCandidate;
+        }
+
+        if (config.ephemeral) {
+            // For an ephemeral Wi-Fi config, the ScanResult should be considered
+            // untrusted.
+            scanResult.untrusted = true;
+        }
+
+        if (scanDetailCache.size() > (maxNumScanCacheEntries + 64)) {
+            long now_dbg = 0;
+            if (VVDBG) {
+                loge(" Will trim config " + config.configKey()
+                        + " size " + scanDetailCache.size());
+
+                for (ScanDetail sd : scanDetailCache.values()) {
+                    loge("     " + sd.getBSSIDString() + " " + sd.getSeen());
+                }
+                now_dbg = SystemClock.elapsedRealtimeNanos();
+            }
+            // Trim the scan result cache to maxNumScanCacheEntries entries max
+            // Since this operation is expensive, make sure it is not performed
+            // until the cache has grown significantly above the trim treshold
+            scanDetailCache.trim(maxNumScanCacheEntries);
+            if (VVDBG) {
+                long diff = SystemClock.elapsedRealtimeNanos() - now_dbg;
+                loge(" Finished trimming config, time(ns) " + diff);
+                for (ScanDetail sd : scanDetailCache.values()) {
+                    loge("     " + sd.getBSSIDString() + " " + sd.getSeen());
+                }
+            }
+        }
+
+        // Add the scan result to this WifiConfiguration
+        if (passpointMatch != null)
+            scanDetailCache.put(scanDetail, passpointMatch, getHomeSPForConfig(config));
+        else
+            scanDetailCache.put(scanDetail);
+
+        // Since we added a scan result to this configuration, re-attempt linking
+        linkConfiguration(config);
+    }
+
+
     // Update the WifiConfiguration database with the new scan result
     // A scan result can be associated to multiple WifiConfigurations
-    public boolean updateSavedNetworkHistory(ScanResult scanResult) {
+    public boolean updateSavedNetworkHistory(ScanDetail scanDetail) {
+
+        ScanResult scanResult = scanDetail.getScanResult();
+        NetworkDetail networkDetail = scanDetail.getNetworkDetail();
+
         int numConfigFound = 0;
         if (scanResult == null)
             return false;
 
         String SSID = "\"" + scanResult.SSID + "\"";
+
+        if (networkDetail.hasInterworking()) {
+            Map<HomeSP, PasspointMatch> matches = matchPasspointNetworks(scanDetail);
+            if (matches != null) {
+                cacheScanResultForPasspointConfigs(scanDetail, matches);
+                return matches.size() != 0;
+            }
+        }
 
         for (WifiConfiguration config : mConfiguredNetworks.values()) {
             boolean found = false;
@@ -3344,70 +3487,7 @@ public class WifiConfigStore extends IpConfigStore {
 
             if (found) {
                 numConfigFound ++;
-
-                if (config.autoJoinStatus >= WifiConfiguration.AUTO_JOIN_DELETED) {
-                    if (VVDBG) {
-                        loge("updateSavedNetworkHistory(): found a deleted, skip it...  "
-                                + config.configKey());
-                    }
-                    // The scan result belongs to a deleted config:
-                    //   - increment numConfigFound to remember that we found a config
-                    //            matching for this scan result
-                    //   - dont do anything since the config was deleted, just skip...
-                    continue;
-                }
-
-                if (config.scanResultCache == null) {
-                    config.scanResultCache = new HashMap<String, ScanResult>();
-                }
-
-                // Adding a new BSSID
-                ScanResult result = config.scanResultCache.get(scanResult.BSSID);
-                if (result == null) {
-                    config.dirty = true;
-                } else {
-                    // transfer the black list status
-                    scanResult.autoJoinStatus = result.autoJoinStatus;
-                    scanResult.blackListTimestamp = result.blackListTimestamp;
-                    scanResult.numIpConfigFailures = result.numIpConfigFailures;
-                    scanResult.numConnection = result.numConnection;
-                    scanResult.isAutoJoinCandidate = result.isAutoJoinCandidate;
-                }
-
-                if (config.ephemeral) {
-                    // For an ephemeral Wi-Fi config, the ScanResult should be considered
-                    // untrusted.
-                    scanResult.untrusted = true;
-                }
-
-                if (config.scanResultCache.size() > (maxNumScanCacheEntries + 64)) {
-                    long now_dbg = 0;
-                    if (VVDBG) {
-                        loge(" Will trim config " + config.configKey()
-                                + " size " + config.scanResultCache.size());
-
-                        for (ScanResult r : config.scanResultCache.values()) {
-                            loge("     " + result.BSSID + " " + result.seen);
-                        }
-                        now_dbg = SystemClock.elapsedRealtimeNanos();
-                    }
-                    // Trim the scan result cache to maxNumScanCacheEntries entries max
-                    // Since this operation is expensive, make sure it is not performed
-                    // until the cache has grown significantly above the trim treshold
-                    config.trimScanResultsCache(maxNumScanCacheEntries);
-                    if (VVDBG) {
-                        long diff = SystemClock.elapsedRealtimeNanos() - now_dbg;
-                        loge(" Finished trimming config, time(ns) " + diff);
-                        for (ScanResult r : config.scanResultCache.values()) {
-                            loge("     " + r.BSSID + " " + r.seen);
-                        }
-                    }
-                }
-
-                // Add the scan result to this WifiConfiguration
-                config.scanResultCache.put(scanResult.BSSID, scanResult);
-                // Since we added a scan result to this configuration, re-attempt linking
-                linkConfiguration(config);
+                cacheScanResultForConfig(config, scanDetail, null);
             }
 
             if (VDBG && found) {
@@ -3418,7 +3498,7 @@ public class WifiConfigStore extends IpConfigStore {
                 loge("        got known scan result " +
                         scanResult.BSSID + " key : "
                         + config.configKey() + " num: " +
-                        Integer.toString(config.scanResultCache.size())
+                        Integer.toString(getScanDetailCache(config).size())
                         + " rssi=" + Integer.toString(scanResult.level)
                         + " freq=" + Integer.toString(scanResult.frequency)
                         + status);
@@ -3609,70 +3689,20 @@ public class WifiConfigStore extends IpConfigStore {
             config.preSharedKey = null;
         }
 
-        value = mWifiNative.getNetworkVariable(config.networkId,
-                WifiConfiguration.Protocol.varName);
-        if (!TextUtils.isEmpty(value)) {
-            String vals[] = value.split(" ");
-            for (String val : vals) {
-                int index =
-                    lookupString(val, WifiConfiguration.Protocol.strings);
-                if (0 <= index) {
-                    config.allowedProtocols.set(index);
-                }
-            }
-        }
+        readNetworkBitsetVariable(config.networkId, config.allowedProtocols,
+                WifiConfiguration.Protocol.varName, WifiConfiguration.Protocol.strings);
 
-        value = mWifiNative.getNetworkVariable(config.networkId,
-                WifiConfiguration.KeyMgmt.varName);
-        if (!TextUtils.isEmpty(value)) {
-            String vals[] = value.split(" ");
-            for (String val : vals) {
-                int index =
-                    lookupString(val, WifiConfiguration.KeyMgmt.strings);
-                if (0 <= index) {
-                    config.allowedKeyManagement.set(index);
-                }
-            }
-        }
+        readNetworkBitsetVariable(config.networkId, config.allowedKeyManagement,
+                WifiConfiguration.KeyMgmt.varName, WifiConfiguration.KeyMgmt.strings);
 
-        value = mWifiNative.getNetworkVariable(config.networkId,
-                WifiConfiguration.AuthAlgorithm.varName);
-        if (!TextUtils.isEmpty(value)) {
-            String vals[] = value.split(" ");
-            for (String val : vals) {
-                int index =
-                    lookupString(val, WifiConfiguration.AuthAlgorithm.strings);
-                if (0 <= index) {
-                    config.allowedAuthAlgorithms.set(index);
-                }
-            }
-        }
+        readNetworkBitsetVariable(config.networkId, config.allowedAuthAlgorithms,
+                WifiConfiguration.AuthAlgorithm.varName, WifiConfiguration.AuthAlgorithm.strings);
 
-        value = mWifiNative.getNetworkVariable(config.networkId,
-                WifiConfiguration.PairwiseCipher.varName);
-        if (!TextUtils.isEmpty(value)) {
-            String vals[] = value.split(" ");
-            for (String val : vals) {
-                int index =
-                    lookupString(val, WifiConfiguration.PairwiseCipher.strings);
-                if (0 <= index) {
-                    config.allowedPairwiseCiphers.set(index);
-                }
-            }
-        }
+        readNetworkBitsetVariable(config.networkId, config.allowedPairwiseCiphers,
+                WifiConfiguration.PairwiseCipher.varName, WifiConfiguration.PairwiseCipher.strings);
 
-        value = mWifiNative.getNetworkVariable(config.networkId,
-                WifiConfiguration.GroupCipher.varName);
-        if (!TextUtils.isEmpty(value)) {
-            String vals[] = value.split(" ");
-            for (String val : vals) {
-                int index =
-                    lookupString(val, WifiConfiguration.GroupCipher.strings);
-                if (0 <= index) {
-                    config.allowedGroupCiphers.set(index);
-                }
-            }
-        }
+        readNetworkBitsetVariable(config.networkId, config.allowedGroupCiphers,
+                WifiConfiguration.GroupCipher.varName, WifiConfiguration.GroupCipher.strings);
 
         if (config.enterpriseConfig == null) {
             config.enterpriseConfig = new WifiEnterpriseConfig();
@@ -3746,7 +3776,9 @@ public class WifiConfigStore extends IpConfigStore {
 
     /* return the allowed key management based on a scan result */
 
-    public WifiConfiguration wifiConfigurationFromScanResult(ScanResult result) {
+    public WifiConfiguration wifiConfigurationFromScanResult(ScanDetail scanDetail) {
+
+        ScanResult result = scanDetail.getScanResult();
         WifiConfiguration config = new WifiConfiguration();
 
         config.SSID = "\"" + result.SSID + "\"";
@@ -3771,10 +3803,7 @@ public class WifiConfigStore extends IpConfigStore {
             config.allowedKeyManagement.set(KeyMgmt.IEEE8021X);
         }
 
-        config.scanResultCache = new HashMap<String, ScanResult>();
-        if (config.scanResultCache == null)
-            return null;
-        config.scanResultCache.put(result.BSSID, result);
+        /* getScanDetailCache(config).put(scanDetail); */
 
         return config;
     }
@@ -3790,15 +3819,25 @@ public class WifiConfigStore extends IpConfigStore {
         pw.println("Dump of WifiConfigStore");
         pw.println("mLastPriority " + mLastPriority);
         pw.println("Configured networks");
-        for (WifiConfiguration conf : getConfiguredNetworks()) {
+        for (WifiConfiguration conf : getAllConfiguredNetworks()) {
             pw.println(conf);
         }
         pw.println();
-
+        if (mLostConfigsDbg != null && mLostConfigsDbg.size() > 0) {
+            pw.println("LostConfigs: ");
+            for (String s : mLostConfigsDbg) {
+                pw.println(s);
+            }
+        }
         if (mLocalLog != null) {
             pw.println("WifiConfigStore - Log Begin ----");
             mLocalLog.dump(fd, pw, args);
             pw.println("WifiConfigStore - Log End ----");
+        }
+        if (mMOManager.isConfigured()) {
+            pw.println("Begin dump of ANQP Cache");
+            mAnqpCache.dump(pw);
+            pw.println("End dump of ANQP Cache");
         }
     }
 
@@ -3819,6 +3858,14 @@ public class WifiConfigStore extends IpConfigStore {
         } else {
             Log.e(TAG, s);
         }
+    }
+
+    private void logKernelTime() {
+        long kernelTimeMs = System.nanoTime()/(1000*1000);
+        StringBuilder builder = new StringBuilder();
+        builder.append("kernel time = ").append(kernelTimeMs/1000).append(".").append
+                (kernelTimeMs%1000).append("\n");
+        localLog(builder.toString());
     }
 
     protected void log(String s) {
@@ -3842,7 +3889,7 @@ public class WifiConfigStore extends IpConfigStore {
         }
 
         WifiConfiguration config;
-        synchronized(mConfiguredNetworks) {
+        synchronized(mConfiguredNetworks) {             // !!! Useless synchronization
             config = mConfiguredNetworks.get(netId);
         }
 
@@ -3928,6 +3975,112 @@ public class WifiConfigStore extends IpConfigStore {
         return false;
     }
 
+    boolean isNetworkConfigured(WifiConfiguration config) {
+        // Check if either we have a network Id or a WifiConfiguration
+        // matching the one we are trying to add.
+
+        if(config.networkId != INVALID_NETWORK_ID) {
+            return (mConfiguredNetworks.get(config.networkId) != null);
+        }
+
+        return (mConfiguredNetworks.getByConfigKey(config.configKey()) != null);
+    }
+
+    /**
+     * Checks if uid has access to modify the configuration corresponding to networkId.
+     *
+     * Factors involved in modifiability of a config are as follows.
+     *    If uid is a Device Owner app then it has full control over the device, including WiFi
+     * configs.
+     *    If the modification is only for administrative annotation (e.g. when connecting) or the
+     * config is not lockdown eligible (currently that means any config not last updated by the DO)
+     * then the creator of config or an app holding OVERRIDE_CONFIG_WIFI can modify the config.
+     *    If the config is lockdown eligible and the modification is substantial (not annotation)
+     * then the requirement to be able to modify the config by the uid is as follows:
+     *    a) the uid has to hold OVERRIDE_CONFIG_WIFI and
+     *    b) the lockdown feature should be disabled.
+     */
+    boolean canModifyNetwork(int uid, int networkId, boolean onlyAnnotate) {
+        WifiConfiguration config = mConfiguredNetworks.get(networkId);
+
+        if (config == null) {
+            loge("canModifyNetwork: cannot find config networkId " + networkId);
+            return false;
+        }
+
+        final DevicePolicyManagerInternal dpmi = LocalServices.getService(
+                DevicePolicyManagerInternal.class);
+
+        final boolean isUidDeviceOwner = dpmi != null && dpmi.isActiveAdminWithPolicy(uid,
+                DeviceAdminInfo.USES_POLICY_DEVICE_OWNER);
+
+        if (isUidDeviceOwner) {
+            // Device Owner has full control over the device, including WiFi Configs
+            return true;
+        }
+
+        final boolean isCreator = (config.creatorUid == uid);
+
+        if (onlyAnnotate) {
+            return isCreator || checkConfigOverridePermission(uid);
+        }
+
+        // Check if device has DPM capability. If it has and dpmi is still null, then we
+        // treat this case with suspicion and bail out.
+        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_DEVICE_ADMIN)
+                && dpmi == null) {
+            return false;
+        }
+
+        // WiFi config lockdown related logic. At this point we know uid NOT to be a Device Owner.
+
+        final boolean isConfigEligibleForLockdown = dpmi != null && dpmi.isActiveAdminWithPolicy(
+                config.creatorUid, DeviceAdminInfo.USES_POLICY_DEVICE_OWNER);
+        if (!isConfigEligibleForLockdown) {
+            return isCreator || checkConfigOverridePermission(uid);
+        }
+
+        final ContentResolver resolver = mContext.getContentResolver();
+        final boolean isLockdownFeatureEnabled = Settings.Global.getInt(resolver,
+                Settings.Global.WIFI_DEVICE_OWNER_CONFIGS_LOCKDOWN, 0) != 0;
+        return !isLockdownFeatureEnabled && checkConfigOverridePermission(uid);
+    }
+
+    /**
+     * Checks if uid has access to modify config.
+     */
+    boolean canModifyNetwork(int uid, WifiConfiguration config, boolean onlyAnnotate) {
+        if (config == null) {
+            loge("canModifyNetowrk recieved null configuration");
+            return false;
+        }
+
+        // Resolve the correct network id.
+        int netid;
+        if (config.networkId != INVALID_NETWORK_ID){
+            netid = config.networkId;
+        } else {
+            WifiConfiguration test = mConfiguredNetworks.getByConfigKey(config.configKey());
+            if (test == null) {
+                return false;
+            } else {
+                netid = test.networkId;
+            }
+        }
+
+        return canModifyNetwork(uid, netid, onlyAnnotate);
+    }
+
+    boolean checkConfigOverridePermission(int uid) {
+        try {
+            return (AppGlobals.getPackageManager().checkUidPermission(
+                    android.Manifest.permission.OVERRIDE_WIFI_CONFIG, uid)
+                    == PackageManager.PERMISSION_GRANTED);
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+
     /** called when CS ask WiFistateMachine to disconnect the current network
      * because the score is bad.
      */
@@ -3962,16 +4115,17 @@ public class WifiConfigStore extends IpConfigStore {
 
         // Look for the BSSID in our config store
         for (WifiConfiguration config : mConfiguredNetworks.values()) {
-            if (config.scanResultCache != null) {
-                for (ScanResult result: config.scanResultCache.values()) {
-                    if (result.BSSID.equals(BSSID)) {
+            if (getScanDetailCache(config) != null) {
+                for (ScanDetail scanDetail : getScanDetailCache(config).values()) {
+                    if (scanDetail.getBSSIDString().equals(BSSID)) {
                         if (enable) {
-                            result.setAutoJoinStatus(ScanResult.ENABLED);
+                            scanDetail.getScanResult().setAutoJoinStatus(ScanResult.ENABLED);
                         } else {
                             // Black list the BSSID we were trying to join
                             // so as the Roam state machine
                             // doesn't pick it up over and over
-                            result.setAutoJoinStatus(ScanResult.AUTO_ROAM_DISABLED);
+                            scanDetail.getScanResult().setAutoJoinStatus(
+                                    ScanResult.AUTO_ROAM_DISABLED);
                             found = true;
                         }
                     }
@@ -3987,20 +4141,48 @@ public class WifiConfigStore extends IpConfigStore {
                 DEFAULT_MAX_DHCP_RETRIES);
     }
 
+    void clearBssidBlacklist() {
+        if (!mWifiStateMachine.useHalBasedAutoJoinOffload()) {
+            if(DBG) {
+                Log.d(TAG, "No blacklist allowed without epno enabled");
+            }
+            return;
+        }
+        mBssidBlacklist = new HashSet<String>();
+        mWifiNative.clearBlacklist();
+        mWifiNative.setBssidBlacklist(null);
+    }
+
+    void blackListBssid(String BSSID) {
+        if (!mWifiStateMachine.useHalBasedAutoJoinOffload()) {
+            if(DBG) {
+                Log.d(TAG, "No blacklist allowed without epno enabled");
+            }
+            return;
+        }
+        if (BSSID == null)
+            return;
+        mBssidBlacklist.add(BSSID);
+        // Blacklist at wpa_supplicant
+        mWifiNative.addToBlacklist(BSSID);
+        // Blacklist at firmware
+        String list[] = new String[mBssidBlacklist.size()];
+        int count = 0;
+        for (String bssid : mBssidBlacklist) {
+            list[count++] = bssid;
+        }
+        mWifiNative.setBssidBlacklist(list);
+    }
+
     void handleSSIDStateChange(int netId, boolean enabled, String message, String BSSID) {
         WifiConfiguration config = mConfiguredNetworks.get(netId);
         if (config != null) {
             if (enabled) {
-                loge("SSID re-enabled for  " + config.configKey() +
+                loge("Ignoring SSID re-enabled from supplicant:  " + config.configKey() +
                         " had autoJoinStatus=" + Integer.toString(config.autoJoinStatus)
                         + " self added " + config.selfAdded + " ephemeral " + config.ephemeral);
-                //TODO: http://b/16381983 Fix Wifi Network Blacklisting
-                //TODO: really I don't know if re-enabling is right but we
-                //TODO: should err on the side of trying to connect
-                //TODO: even if the attempt will fail
-                if (config.autoJoinStatus == WifiConfiguration.AUTO_JOIN_DISABLED_ON_AUTH_FAILURE) {
-                    config.setAutoJoinStatus(WifiConfiguration.AUTO_JOIN_ENABLED);
-                }
+                //We should not re-enable the BSSID based on Supplicant reanable.
+                // Framework will re-enable it after its own blacklist timer expires
             } else {
                 loge("SSID temp disabled for  " + config.configKey() +
                         " had autoJoinStatus=" + Integer.toString(config.autoJoinStatus)
@@ -4059,8 +4241,8 @@ public class WifiConfigStore extends IpConfigStore {
                             // Also blacklist the BSSId if we find it
                             ScanResult result = null;
                             String bssidDbg = "";
-                            if (config.scanResultCache != null && BSSID != null) {
-                                result = config.scanResultCache.get(BSSID);
+                            if (getScanDetailCache(config) != null && BSSID != null) {
+                                result = getScanDetailCache(config).get(BSSID);
                             }
                             if (result != null) {
                                 result.numIpConfigFailures ++;
@@ -4130,7 +4312,7 @@ public class WifiConfigStore extends IpConfigStore {
             ret = putCertInKeyStore(userCertName, config.getClientCertificate());
             if (ret == false) {
                 // Remove private key installed
-                mKeyStore.delKey(privKeyName, Process.WIFI_UID);
+                mKeyStore.delete(privKeyName, Process.WIFI_UID);
                 return ret;
             }
         }
@@ -4140,7 +4322,7 @@ public class WifiConfigStore extends IpConfigStore {
             if (ret == false) {
                 if (config.getClientCertificate() != null) {
                     // Remove client key+cert
-                    mKeyStore.delKey(privKeyName, Process.WIFI_UID);
+                    mKeyStore.delete(privKeyName, Process.WIFI_UID);
                     mKeyStore.delete(userCertName, Process.WIFI_UID);
                 }
                 return ret;
@@ -4179,7 +4361,7 @@ public class WifiConfigStore extends IpConfigStore {
         // a valid client certificate is configured
         if (!TextUtils.isEmpty(client)) {
             if (DBG) Log.d(TAG, "removing client private key and user cert");
-            mKeyStore.delKey(Credentials.USER_PRIVATE_KEY + client, Process.WIFI_UID);
+            mKeyStore.delete(Credentials.USER_PRIVATE_KEY + client, Process.WIFI_UID);
             mKeyStore.delete(Credentials.USER_CERTIFICATE + client, Process.WIFI_UID);
         }
 
@@ -4269,4 +4451,18 @@ public class WifiConfigStore extends IpConfigStore {
         }
     }
 
+    private void readNetworkBitsetVariable(int netId, BitSet variable, String varName,
+            String[] strings) {
+        String value = mWifiNative.getNetworkVariable(netId, varName);
+        if (!TextUtils.isEmpty(value)) {
+            variable.clear();
+            String vals[] = value.split(" ");
+            for (String val : vals) {
+                int index = lookupString(val, strings);
+                if (0 <= index) {
+                    variable.set(index);
+                }
+            }
+        }
+    }
 }

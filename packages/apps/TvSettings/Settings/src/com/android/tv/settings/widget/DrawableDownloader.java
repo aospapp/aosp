@@ -27,9 +27,9 @@ import android.util.Log;
 import android.util.LruCache;
 import android.widget.ImageView;
 
-import com.android.tv.settings.util.UriUtils;
-import com.android.tv.settings.util.AccountImageChangeObserver;
 import com.android.tv.settings.R;
+import com.android.tv.settings.util.AccountImageChangeObserver;
+import com.android.tv.settings.util.UriUtils;
 
 import java.lang.ref.SoftReference;
 import java.util.ArrayList;
@@ -78,9 +78,9 @@ public class DrawableDownloader {
      * bitmap cache item structure saved in LruCache
      */
     private static class BitmapItem {
-        int mOriginalWidth;
-        int mOriginalHeight;
-        ArrayList<BitmapDrawable> mBitmaps = new ArrayList<BitmapDrawable>(3);
+        final int mOriginalWidth;
+        final int mOriginalHeight;
+        final ArrayList<BitmapDrawable> mBitmaps = new ArrayList<>(3);
         int mByteCount;
         public BitmapItem(int originalWidth, int originalHeight) {
             mOriginalWidth = originalWidth;
@@ -145,9 +145,9 @@ public class DrawableDownloader {
         public abstract void onBitmapRetrieved(Drawable bitmap);
     }
 
-    private Context mContext;
-    private LruCache<String, BitmapItem> mMemoryCache;
-    private RecycleBitmapPool mRecycledBitmaps;
+    private final Context mContext;
+    private final LruCache<String, BitmapItem> mMemoryCache;
+    private final RecycleBitmapPool mRecycledBitmaps;
 
     private static DrawableDownloader sBitmapDownloader;
 

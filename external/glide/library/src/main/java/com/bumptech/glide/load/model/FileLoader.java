@@ -1,12 +1,16 @@
 package com.bumptech.glide.load.model;
 
 import android.net.Uri;
+
 import com.bumptech.glide.load.data.DataFetcher;
 
 import java.io.File;
 
 /**
- * A simple model loader for {@link File}
+ * A simple model loader for loading data from {@link File}s.
+ *
+ * @param <T> The type of data loaded from the given {@link java.io.File} ({@link java.io.InputStream} or
+ *           {@link java.io.FileDescriptor} etc).
  */
 public class FileLoader<T> implements ModelLoader<File, T> {
 

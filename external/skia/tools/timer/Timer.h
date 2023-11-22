@@ -8,6 +8,7 @@
 #define Timer_DEFINED
 
 #include "SkTypes.h"
+#include "SkString.h"
 
 #if defined(SK_BUILD_FOR_WIN32)
     #include "SysTimer_windows.h"
@@ -21,7 +22,7 @@
     #include "GpuTimer.h"
 #endif
 
-class SkGLContextHelper;
+class SkGLContext;
 
 /**
  * SysTimers and GpuTimers are implemented orthogonally.
@@ -34,7 +35,7 @@ class SkGLContextHelper;
  */
 class Timer {
 public:
-    explicit Timer(SkGLContextHelper* gl = NULL);
+    explicit Timer(SkGLContext* gl = NULL);
 
     void start();
     void truncatedEnd();
@@ -69,5 +70,7 @@ public:
 private:
     SysTimer fSysTimer;
 };
+
+SkString HumanizeMs(double);
 
 #endif

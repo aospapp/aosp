@@ -30,33 +30,23 @@
                 android:orientation="vertical"
                 android:layout_width="fill_parent"
                 android:layout_height="fill_parent">
+            <view class="com.android.rs.image2.ImageProcessingActivity2$SizedTV"
+                android:id="@+id/display2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
             <ImageView
                 android:id="@+id/display"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
             <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:orientation="horizontal"
-                android:layout_width="fill_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
-                    <Button
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/benchmark"
-                        android:onClick="benchmark"/>
-                    <TextView
-                        android:id="@+id/benchmarkText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textSize="8pt"
-                        android:text="@string/saturation"/>
             </LinearLayout>
-            <Spinner
-                android:id="@+id/filterselection"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"/>
+
             <Spinner
                 android:id="@+id/spinner1"
-                android:layout_width="fill_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"/>
             <TextView
                 android:id="@+id/slider1Text"
@@ -128,11 +118,6 @@
                 android:layout_marginRight="10sp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"/>
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/benchmark_all"
-                    android:onClick="benchmark_all"/>
             </LinearLayout>
     </ScrollView>
 </LinearLayout>

@@ -22,6 +22,8 @@
 
 #include <map>
 
+#include "base/casts.h"
+#include "handle.h"
 #include "jdwp/jdwp.h"
 #include "safe_map.h"
 
@@ -61,15 +63,33 @@ class ObjectRegistry {
   ObjectRegistry();
 
   JDWP::ObjectId Add(mirror::Object* o)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::thread_list_lock_);
-  JDWP::RefTypeId AddRefType(mirror::Class* c)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) LOCKS_EXCLUDED(Locks::thread_list_lock_);
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      LOCKS_EXCLUDED(Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
 
-  template<typename T> T Get(JDWP::ObjectId id) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  JDWP::RefTypeId AddRefType(mirror::Class* c)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      LOCKS_EXCLUDED(Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
+
+  template<class T>
+  JDWP::ObjectId Add(Handle<T> obj_h)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      LOCKS_EXCLUDED(Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
+
+  JDWP::RefTypeId AddRefType(Handle<mirror::Class> c_h)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      LOCKS_EXCLUDED(Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
+
+  template<typename T> T Get(JDWP::ObjectId id, JDWP::JdwpError* error)
+      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
     if (id == 0) {
-      return NULL;
+      *error = JDWP::ERR_NONE;
+      return nullptr;
     }
-    return reinterpret_cast<T>(InternalGet(id));
+    return down_cast<T>(InternalGet(id, error));
   }
 
   void Clear() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
@@ -86,19 +106,19 @@ class ObjectRegistry {
   void DisposeObject(JDWP::ObjectId id, uint32_t reference_count)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  // Returned by Get when passed an invalid object id.
-  static mirror::Object* const kInvalidObject;
-
   // This is needed to get the jobject instead of the Object*.
   // Avoid using this and use standard Get when possible.
   jobject GetJObject(JDWP::ObjectId id) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  private:
-  JDWP::ObjectId InternalAdd(mirror::Object* o)
+  template<class T>
+  JDWP::ObjectId InternalAdd(Handle<T> obj_h)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      LOCKS_EXCLUDED(lock_, Locks::thread_list_lock_);
+      LOCKS_EXCLUDED(lock_,
+                     Locks::thread_list_lock_,
+                     Locks::thread_suspend_count_lock_);
 
-  mirror::Object* InternalGet(JDWP::ObjectId id)
+  mirror::Object* InternalGet(JDWP::ObjectId id, JDWP::JdwpError* error)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
       LOCKS_EXCLUDED(lock_);
 

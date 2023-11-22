@@ -1,39 +1,44 @@
 package com.bumptech.glide.load.engine;
 
-import android.os.Handler;
 import android.os.Looper;
 import android.os.MessageQueue;
 import android.util.Log;
 
 import com.bumptech.glide.Priority;
-import com.bumptech.glide.load.Encoder;
 import com.bumptech.glide.load.Key;
-import com.bumptech.glide.load.ResourceDecoder;
-import com.bumptech.glide.load.ResourceEncoder;
 import com.bumptech.glide.load.Transformation;
 import com.bumptech.glide.load.data.DataFetcher;
 import com.bumptech.glide.load.engine.cache.DiskCache;
 import com.bumptech.glide.load.engine.cache.MemoryCache;
 import com.bumptech.glide.load.resource.transcode.ResourceTranscoder;
+import com.bumptech.glide.provider.DataLoadProvider;
 import com.bumptech.glide.request.ResourceCallback;
 import com.bumptech.glide.util.LogTime;
+import com.bumptech.glide.util.Util;
 
-import java.io.InputStream;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
-public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedListener, Resource.ResourceListener {
+/**
+ * Responsible for starting loads and managing active and cached resources.
+ */
+public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedListener, EngineResource.ResourceListener {
     private static final String TAG = "Engine";
-    private final Map<Key, ResourceRunner> runners;
-    private final ResourceRunnerFactory factory;
+    private final Map<Key, EngineJob> jobs;
     private final EngineKeyFactory keyFactory;
     private final MemoryCache cache;
-    private final Map<Key, WeakReference<Resource>> activeResources;
-    private final ReferenceQueue<Resource> resourceReferenceQueue;
+    private final DiskCache diskCache;
+    private final EngineJobFactory engineJobFactory;
+    private final Map<Key, WeakReference<EngineResource<?>>> activeResources;
+    private final ReferenceQueue<EngineResource<?>> resourceReferenceQueue;
+    private final ResourceRecycler resourceRecycler;
 
+    /**
+     * Allows a request to indicate it no longer is interested in a given load.
+     */
     public static class LoadStatus {
         private final EngineJob engineJob;
         private final ResourceCallback cb;
@@ -48,18 +53,21 @@ public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedLis
         }
     }
 
-    public Engine(MemoryCache memoryCache, DiskCache diskCache, ExecutorService resizeService,
-            ExecutorService diskCacheService) {
-        this(null, memoryCache, diskCache, resizeService, diskCacheService, null, null, null);
+    public Engine(MemoryCache memoryCache, DiskCache diskCache, ExecutorService diskCacheService,
+            ExecutorService sourceService) {
+        this(memoryCache, diskCache, diskCacheService, sourceService, null, null, null, null, null);
     }
 
-    Engine(ResourceRunnerFactory factory, MemoryCache cache, DiskCache diskCache, ExecutorService resizeService,
-            ExecutorService diskCacheService, Map<Key, ResourceRunner> runners, EngineKeyFactory keyFactory,
-            Map<Key, WeakReference<Resource>> activeResources) {
+    // Visible for testing.
+    Engine(MemoryCache cache, DiskCache diskCache, ExecutorService diskCacheService, ExecutorService sourceService,
+            Map<Key, EngineJob> jobs, EngineKeyFactory keyFactory,
+            Map<Key, WeakReference<EngineResource<?>>> activeResources, EngineJobFactory engineJobFactory,
+            ResourceRecycler resourceRecycler) {
         this.cache = cache;
+        this.diskCache = diskCache;
 
         if (activeResources == null) {
-            activeResources = new HashMap<Key, WeakReference<Resource>>();
+            activeResources = new HashMap<Key, WeakReference<EngineResource<?>>>();
         }
         this.activeResources = activeResources;
 
@@ -68,66 +76,97 @@ public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedLis
         }
         this.keyFactory = keyFactory;
 
-        if (runners == null) {
-            runners = new HashMap<Key, ResourceRunner>();
+        if (jobs == null) {
+            jobs = new HashMap<Key, EngineJob>();
         }
-        this.runners = runners;
+        this.jobs = jobs;
 
-        if (factory == null) {
-            factory = new DefaultResourceRunnerFactory(diskCache, new Handler(Looper.getMainLooper()),
-                    diskCacheService, resizeService);
+        if (engineJobFactory == null) {
+            engineJobFactory = new EngineJobFactory(diskCacheService, sourceService, this);
         }
-        this.factory = factory;
+        this.engineJobFactory = engineJobFactory;
 
-        resourceReferenceQueue = new ReferenceQueue<Resource>();
+        if (resourceRecycler == null) {
+            resourceRecycler = new ResourceRecycler();
+        }
+        this.resourceRecycler = resourceRecycler;
+
+        resourceReferenceQueue = new ReferenceQueue<EngineResource<?>>();
         MessageQueue queue = Looper.myQueue();
         queue.addIdleHandler(new RefQueueIdleHandler(activeResources, resourceReferenceQueue));
         cache.setResourceRemovedListener(this);
     }
 
     /**
-     * @param cacheDecoder
-     * @param fetcher
-     * @param decoder
-     * @param encoder
-     * @param transcoder
-     * @param priority
-     * @param <T>          The type of data the resource will be decoded from.
-     * @param <Z>          The type of the resource that will be decoded.
-     * @param <R>          The type of the resource that will be transcoded from the decoded resource.
+     * Starts a load for the given arguments. Must be called on the main thread.
+     *
+     * <p>
+     *     The flow for any request is as follows:
+     *     <ul>
+     *         <li>Check the memory cache and provide the cached resource if present</li>
+     *         <li>Check the current set of actively used resources and return the active resource if present</li>
+     *         <li>Check the current set of in progress loads and add the cb to the in progress load if present</li>
+     *         <li>Start a new load</li>
+     *     </ul>
+     * </p>
+     *
+     * <p>
+     *     Active resources are those that have been provided to at least one request and have not yet been released.
+     *     Once all consumers of a resource have released that resource, the resource then goes to cache. If the
+     *     resource is ever returned to a new consumer from cache, it is re-added to the active resources. If the
+     *     resource is evicted from the cache, its resources are recycled and re-used if possible and the resource is
+     *     discarded. There is no strict requirement that consumers release their resources so active resources are
+     *     held weakly.
+     * </p>
+     *
+     * @param signature A non-null unique key to be mixed into the cache key that identifies the version of the data to
+     *                  be loaded.
+     * @param width The target width in pixels of the desired resource.
+     * @param height The target height in pixels of the desired resource.
+     * @param fetcher The fetcher to use to retrieve data not in the disk cache.
+     * @param loadProvider The load provider containing various encoders and decoders use to decode and encode data.
+     * @param transformation The transformation to use to transform the decoded resource.
+     * @param transcoder The transcoder to use to transcode the decoded and transformed resource.
+     * @param priority The priority with which the request should run.
+     * @param isMemoryCacheable True if the transcoded resource can be cached in memory.
+     * @param diskCacheStrategy The strategy to use that determines what type of data, if any,
+     *                          will be cached in the local disk cache.
+     * @param cb The callback that will be called when the load completes.
+     *
+     * @param <T> The type of data the resource will be decoded from.
+     * @param <Z> The type of the resource that will be decoded.
+     * @param <R> The type of the resource that will be transcoded from the decoded resource.
      */
-    public <T, Z, R> LoadStatus load(int width, int height, ResourceDecoder<InputStream, Z> cacheDecoder,
-            DataFetcher<T> fetcher, boolean cacheSource, Encoder<T> sourceEncoder,
-            ResourceDecoder<T, Z> decoder, Transformation<Z> transformation, ResourceEncoder<Z> encoder,
-            ResourceTranscoder<Z, R> transcoder, Priority priority, boolean isMemoryCacheable, ResourceCallback cb) {
+    public <T, Z, R> LoadStatus load(Key signature, int width, int height, DataFetcher<T> fetcher,
+            DataLoadProvider<T, Z> loadProvider, Transformation<Z> transformation, ResourceTranscoder<Z, R> transcoder,
+            Priority priority, boolean isMemoryCacheable, DiskCacheStrategy diskCacheStrategy, ResourceCallback cb) {
+        Util.assertMainThread();
         long startTime = LogTime.getLogTime();
 
         final String id = fetcher.getId();
-        EngineKey key = keyFactory.buildKey(id, width, height, cacheDecoder, decoder, transformation, encoder,
-                transcoder, sourceEncoder);
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "loading: " + key);
-        }
+        EngineKey key = keyFactory.buildKey(id, signature, width, height, loadProvider.getCacheDecoder(),
+                loadProvider.getSourceDecoder(), transformation, loadProvider.getEncoder(),
+                transcoder, loadProvider.getSourceEncoder());
 
-        Resource cached = cache.remove(key);
+        EngineResource<?> cached = getFromCache(key);
         if (cached != null) {
-            cached.acquire(1);
+            cached.acquire();
             activeResources.put(key, new ResourceWeakReference(key, cached, resourceReferenceQueue));
             cb.onResourceReady(cached);
             if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "loaded resource from cache in " + LogTime.getElapsedMillis(startTime));
+                logWithTimeAndKey("Loaded resource from cache", startTime, key);
             }
             return null;
         }
 
-        WeakReference<Resource> activeRef = activeResources.get(key);
+        WeakReference<EngineResource<?>> activeRef = activeResources.get(key);
         if (activeRef != null) {
-            Resource active = activeRef.get();
+            EngineResource<?> active = activeRef.get();
             if (active != null) {
-                active.acquire(1);
+                active.acquire();
                 cb.onResourceReady(active);
                 if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                    Log.v(TAG, "loaded resource from active resources in " + LogTime.getElapsedMillis(startTime));
+                    logWithTimeAndKey("Loaded resource from active resources", startTime, key);
                 }
                 return null;
             } else {
@@ -135,85 +174,108 @@ public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedLis
             }
         }
 
-        ResourceRunner current = runners.get(key);
+        EngineJob current = jobs.get(key);
         if (current != null) {
-            EngineJob job = current.getJob();
-            job.addCallback(cb);
+            current.addCallback(cb);
             if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "added to existing load in " + LogTime.getElapsedMillis(startTime));
+                logWithTimeAndKey("Added to existing load", startTime, key);
             }
-            return new LoadStatus(cb, job);
+            return new LoadStatus(cb, current);
         }
 
-        long start = LogTime.getLogTime();
-        ResourceRunner<Z, R> runner = factory.build(key, width, height, cacheDecoder, fetcher, cacheSource,
-                sourceEncoder, decoder, transformation, encoder, transcoder, priority, isMemoryCacheable, this);
-        runner.getJob().addCallback(cb);
-        runners.put(key, runner);
-        runner.queue();
+        EngineJob engineJob = engineJobFactory.build(key, isMemoryCacheable);
+        DecodeJob<T, Z, R> decodeJob = new DecodeJob<T, Z, R>(key, width, height, fetcher, loadProvider, transformation,
+                transcoder, diskCache, diskCacheStrategy, priority);
+        EngineRunnable runnable = new EngineRunnable(engineJob, decodeJob, priority);
+        jobs.put(key, engineJob);
+        engineJob.addCallback(cb);
+        engineJob.start(runnable);
+
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "queued new load in " + LogTime.getElapsedMillis(start));
-            Log.v(TAG, "finished load in engine in " + LogTime.getElapsedMillis(startTime));
+            logWithTimeAndKey("Started new load", startTime, key);
         }
-        return new LoadStatus(cb, runner.getJob());
+        return new LoadStatus(cb, engineJob);
     }
 
+    private static void logWithTimeAndKey(String log, long startTime, Key key) {
+        Log.v(TAG, log + " in " + LogTime.getElapsedMillis(startTime) + "ms, key: " + key);
+    }
+
+    @SuppressWarnings("unchecked")
+    private EngineResource<?> getFromCache(Key key) {
+        Resource<?> cached = cache.remove(key);
+
+        final EngineResource result;
+        if (cached == null) {
+            result = null;
+        } else if (cached instanceof EngineResource) {
+            // Save an object allocation if we've cached an EngineResource (the typical case).
+            result = (EngineResource) cached;
+        } else {
+            result = new EngineResource(cached, true /*isCacheable*/);
+        }
+        return result;
+    }
+
+    public void release(Resource resource) {
+        if (resource instanceof EngineResource) {
+            ((EngineResource) resource).release();
+        } else {
+            throw new IllegalArgumentException("Cannot release anything but an EngineResource");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
     @Override
-    public void onEngineJobComplete(Key key, Resource resource) {
+    public void onEngineJobComplete(Key key, EngineResource<?> resource) {
         // A null resource indicates that the load failed, usually due to an exception.
         if (resource != null) {
             resource.setResourceListener(key, this);
             activeResources.put(key, new ResourceWeakReference(key, resource, resourceReferenceQueue));
         }
-        runners.remove(key);
+        // TODO: should this check that the engine job is still current?
+        jobs.remove(key);
     }
 
     @Override
-    public void onEngineJobCancelled(Key key) {
-        ResourceRunner runner = runners.remove(key);
-        runner.cancel();
-    }
-
-    @Override
-    public void onResourceRemoved(Resource resource) {
-        resource.recycle();
-    }
-
-    @Override
-    public void onResourceReleased(Key cacheKey, Resource resource) {
-        if (Log.isLoggable(TAG, Log.VERBOSE)) {
-            Log.v(TAG, "released: " + cacheKey);
+    public void onEngineJobCancelled(EngineJob engineJob, Key key) {
+        EngineJob current = jobs.get(key);
+        if (engineJob.equals(current)) {
+            jobs.remove(key);
         }
+    }
+
+    @Override
+    public void onResourceRemoved(final Resource<?> resource) {
+        resourceRecycler.recycle(resource);
+    }
+
+    @Override
+    public void onResourceReleased(Key cacheKey, EngineResource resource) {
         activeResources.remove(cacheKey);
         if (resource.isCacheable()) {
-            if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "recaching: " + cacheKey);
-            }
             cache.put(cacheKey, resource);
         } else {
-            if (Log.isLoggable(TAG, Log.VERBOSE)) {
-                Log.v(TAG, "recycling: " + cacheKey);
-            }
-            resource.recycle();
+            resourceRecycler.recycle(resource);
         }
     }
 
-    private static class ResourceWeakReference extends WeakReference<Resource> {
-        public final Object resource;
-        public final Key key;
+    private static class ResourceWeakReference extends WeakReference<EngineResource<?>> {
+        private final Key key;
 
-        public ResourceWeakReference(Key key, Resource r, ReferenceQueue<? super Resource> q) {
+        public ResourceWeakReference(Key key, EngineResource<?> r, ReferenceQueue<? super EngineResource<?>> q) {
             super(r, q);
             this.key = key;
-            resource = r.get();
         }
     }
 
+    // Responsible for cleaning up the active resource map by remove weak references that have been cleared.
     private static class RefQueueIdleHandler implements MessageQueue.IdleHandler {
-        private Map<Key, WeakReference<Resource>> activeResources;
-        private ReferenceQueue<Resource> queue;
+        private final Map<Key, WeakReference<EngineResource<?>>> activeResources;
+        private final ReferenceQueue<EngineResource<?>> queue;
 
-        public RefQueueIdleHandler(Map<Key, WeakReference<Resource>> activeResources, ReferenceQueue<Resource> queue) {
+        public RefQueueIdleHandler(Map<Key, WeakReference<EngineResource<?>>> activeResources,
+                ReferenceQueue<EngineResource<?>> queue) {
             this.activeResources = activeResources;
             this.queue = queue;
         }
@@ -223,12 +285,27 @@ public class Engine implements EngineJobListener, MemoryCache.ResourceRemovedLis
             ResourceWeakReference ref = (ResourceWeakReference) queue.poll();
             if (ref != null) {
                 activeResources.remove(ref.key);
-                if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    Log.d(TAG, "Maybe leaked a resource: " + ref.resource);
-                }
             }
 
             return true;
+        }
+    }
+
+    // Visible for testing.
+    static class EngineJobFactory {
+        private final ExecutorService diskCacheService;
+        private final ExecutorService sourceService;
+        private final EngineJobListener listener;
+
+        public EngineJobFactory(ExecutorService diskCacheService, ExecutorService sourceService,
+                EngineJobListener listener) {
+            this.diskCacheService = diskCacheService;
+            this.sourceService = sourceService;
+            this.listener = listener;
+        }
+
+        public EngineJob build(Key key, boolean isMemoryCacheable) {
+            return new EngineJob(key, diskCacheService, sourceService, isMemoryCacheable, listener);
         }
     }
 }

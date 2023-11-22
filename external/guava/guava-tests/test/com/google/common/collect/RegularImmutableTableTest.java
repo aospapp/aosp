@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc.
+ * Copyright (C) 2009 The Guava Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,15 @@
 
 package com.google.common.collect;
 
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
-import com.google.common.collect.RegularImmutableTable.DenseImmutableTable;
-import com.google.common.collect.RegularImmutableTable.SparseImmutableTable;
+import com.google.common.annotations.GwtCompatible;
 import com.google.common.collect.Table.Cell;
 
 /**
- * @author gak@google.com (Gregory Kick)
+ * @author Gregory Kick
  */
+@GwtCompatible
 public class RegularImmutableTableTest extends AbstractImmutableTableTest {
   private static final ImmutableSet<Cell<Character, Integer, String>> CELLS =
     ImmutableSet.of(
@@ -39,11 +39,11 @@ public class RegularImmutableTableTest extends AbstractImmutableTableTest {
       ImmutableSet.of(1, 2);
 
   private static final SparseImmutableTable<Character, Integer, String> SPARSE =
-      new SparseImmutableTable<Character, Integer, String>(CELLS, ROW_SPACE,
+      new SparseImmutableTable<Character, Integer, String>(CELLS.asList(), ROW_SPACE,
           COLUMN_SPACE);
 
   private static final DenseImmutableTable<Character, Integer, String> DENSE =
-      new DenseImmutableTable<Character, Integer, String>(CELLS, ROW_SPACE,
+      new DenseImmutableTable<Character, Integer, String>(CELLS.asList(), ROW_SPACE,
           COLUMN_SPACE);
 
   @Override Iterable<ImmutableTable<Character, Integer, String>>
@@ -62,8 +62,9 @@ public class RegularImmutableTableTest extends AbstractImmutableTableTest {
   public void testValues() {
     for (ImmutableTable<Character, Integer, String> testInstance :
         getTestInstances()) {
-      ASSERT.that(testInstance.values()).hasContentsInOrder("foo", "bar",
-          "baz");
+      ASSERT.that(testInstance.values())
+          .has().exactly("foo", "bar", "baz")
+          .inOrder();
     }
   }
 

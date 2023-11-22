@@ -22,6 +22,8 @@
 #include <linux/fs.h>
 #endif
 
+#define ATRACE_TAG ATRACE_TAG_DALVIK
+#include <cutils/trace.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <valgrind.h>
@@ -29,76 +31,123 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
-#include <memory>
+#include <memory_representation.h>
 #include <vector>
 #include <fcntl.h>
 
+#include "JniConstants.h"
+#include "ScopedLocalRef.h"
 #include "arch/arm/quick_method_frame_info_arm.h"
 #include "arch/arm/registers_arm.h"
 #include "arch/arm64/quick_method_frame_info_arm64.h"
 #include "arch/arm64/registers_arm64.h"
+#include "arch/instruction_set_features.h"
 #include "arch/mips/quick_method_frame_info_mips.h"
 #include "arch/mips/registers_mips.h"
+#include "arch/mips64/quick_method_frame_info_mips64.h"
+#include "arch/mips64/registers_mips64.h"
 #include "arch/x86/quick_method_frame_info_x86.h"
 #include "arch/x86/registers_x86.h"
 #include "arch/x86_64/quick_method_frame_info_x86_64.h"
 #include "arch/x86_64/registers_x86_64.h"
+#include "art_field-inl.h"
+#include "art_method-inl.h"
+#include "asm_support.h"
 #include "atomic.h"
-#include "class_linker.h"
+#include "base/arena_allocator.h"
+#include "base/dumpable.h"
+#include "base/unix_file/fd_file.h"
+#include "class_linker-inl.h"
+#include "compiler_callbacks.h"
 #include "debugger.h"
 #include "elf_file.h"
+#include "entrypoints/runtime_asm_entrypoints.h"
 #include "fault_handler.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
-#include "gc/space/space.h"
+#include "gc/space/space-inl.h"
+#include "handle_scope-inl.h"
 #include "image.h"
 #include "instrumentation.h"
 #include "intern_table.h"
+#include "interpreter/interpreter.h"
+#include "jit/jit.h"
 #include "jni_internal.h"
-#include "mirror/art_field-inl.h"
-#include "mirror/art_method-inl.h"
+#include "linear_alloc.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
+#include "mirror/field.h"
+#include "mirror/method.h"
 #include "mirror/stack_trace_element.h"
 #include "mirror/throwable.h"
 #include "monitor.h"
+#include "native/dalvik_system_DexFile.h"
+#include "native/dalvik_system_VMDebug.h"
+#include "native/dalvik_system_VMRuntime.h"
+#include "native/dalvik_system_VMStack.h"
+#include "native/dalvik_system_ZygoteHooks.h"
+#include "native/java_lang_Class.h"
+#include "native/java_lang_DexCache.h"
+#include "native/java_lang_Object.h"
+#include "native/java_lang_Runtime.h"
+#include "native/java_lang_String.h"
+#include "native/java_lang_StringFactory.h"
+#include "native/java_lang_System.h"
+#include "native/java_lang_Thread.h"
+#include "native/java_lang_Throwable.h"
+#include "native/java_lang_VMClassLoader.h"
+#include "native/java_lang_ref_FinalizerReference.h"
+#include "native/java_lang_ref_Reference.h"
+#include "native/java_lang_reflect_Array.h"
+#include "native/java_lang_reflect_Constructor.h"
+#include "native/java_lang_reflect_Field.h"
+#include "native/java_lang_reflect_Method.h"
+#include "native/java_lang_reflect_Proxy.h"
+#include "native/java_util_concurrent_atomic_AtomicLong.h"
+#include "native/libcore_util_CharsetUtils.h"
+#include "native/org_apache_harmony_dalvik_ddmc_DdmServer.h"
+#include "native/org_apache_harmony_dalvik_ddmc_DdmVmInternal.h"
+#include "native/sun_misc_Unsafe.h"
 #include "native_bridge_art_interface.h"
-#include "parsed_options.h"
 #include "oat_file.h"
 #include "os.h"
+#include "parsed_options.h"
+#include "profiler.h"
 #include "quick/quick_method_frame_info.h"
 #include "reflection.h"
+#include "runtime_options.h"
 #include "ScopedLocalRef.h"
 #include "scoped_thread_state_change.h"
 #include "sigchain.h"
 #include "signal_catcher.h"
 #include "signal_set.h"
-#include "handle_scope-inl.h"
 #include "thread.h"
 #include "thread_list.h"
 #include "trace.h"
 #include "transaction.h"
-#include "profiler.h"
 #include "verifier/method_verifier.h"
 #include "well_known_classes.h"
 
-#include "JniConstants.h"  // Last to avoid LOG redefinition in ics-mr1-plus-art.
-
-#ifdef HAVE_ANDROID_OS
-#include "cutils/properties.h"
-#endif
-
 namespace art {
 
+// If a signal isn't handled properly, enable a handler that attempts to dump the Java stack.
 static constexpr bool kEnableJavaStackTraceHandler = false;
-const char* Runtime::kDefaultInstructionSetFeatures =
-    STRINGIFY(ART_DEFAULT_INSTRUCTION_SET_FEATURES);
-Runtime* Runtime::instance_ = NULL;
+Runtime* Runtime::instance_ = nullptr;
+
+struct TraceConfig {
+  Trace::TraceMode trace_mode;
+  Trace::TraceOutputMode trace_output_mode;
+  std::string trace_file;
+  size_t trace_file_size;
+};
 
 Runtime::Runtime()
-    : instruction_set_(kNone),
+    : resolution_method_(nullptr),
+      imt_conflict_method_(nullptr),
+      imt_unimplemented_method_(nullptr),
+      instruction_set_(kNone),
       compiler_callbacks_(nullptr),
       is_zygote_(false),
       must_relocate_(false),
@@ -118,7 +167,6 @@ Runtime::Runtime()
       java_vm_(nullptr),
       fault_message_lock_("Fault message lock"),
       fault_message_(""),
-      method_verifier_lock_("Method verifiers lock"),
       threads_being_born_(0),
       shutdown_cond_(new ConditionVariable("Runtime shutdown", *Locks::runtime_shutdown_lock_)),
       shutting_down_(false),
@@ -131,24 +179,22 @@ Runtime::Runtime()
       stats_enabled_(false),
       running_on_valgrind_(RUNNING_ON_VALGRIND > 0),
       profiler_started_(false),
-      method_trace_(false),
-      method_trace_file_size_(0),
       instrumentation_(),
-      use_compile_time_class_path_(false),
       main_thread_group_(nullptr),
       system_thread_group_(nullptr),
       system_class_loader_(nullptr),
       dump_gc_performance_on_shutdown_(false),
       preinitialization_transaction_(nullptr),
-      null_pointer_handler_(nullptr),
-      suspend_handler_(nullptr),
-      stack_overflow_handler_(nullptr),
       verify_(false),
+      allow_dex_file_fallback_(true),
       target_sdk_version_(0),
       implicit_null_checks_(false),
       implicit_so_checks_(false),
       implicit_suspend_checks_(false),
-      is_native_bridge_loaded_(false) {
+      is_native_bridge_loaded_(false),
+      zygote_max_failed_boots_(0) {
+  CheckAsmSupportOffsetsAndSizes();
+  std::fill(callee_save_methods_, callee_save_methods_ + arraysize(callee_save_methods_), 0u);
 }
 
 Runtime::~Runtime() {
@@ -163,6 +209,14 @@ Runtime::~Runtime() {
   }
 
   Thread* self = Thread::Current();
+  const bool attach_shutdown_thread = self == nullptr;
+  if (attach_shutdown_thread) {
+    CHECK(AttachCurrentThread("Shutdown thread", false, nullptr, false));
+    self = Thread::Current();
+  } else {
+    LOG(WARNING) << "Current thread not detached in Runtime shutdown";
+  }
+
   {
     MutexLock mu(self, *Locks::runtime_shutdown_lock_);
     shutting_down_started_ = true;
@@ -171,6 +225,18 @@ Runtime::~Runtime() {
     }
     shutting_down_ = true;
   }
+  // Shutdown and wait for the daemons.
+  CHECK(self != nullptr);
+  if (IsFinishedStarting()) {
+    self->ClearException();
+    self->GetJniEnv()->CallStaticVoidMethod(WellKnownClasses::java_lang_Daemons,
+                                            WellKnownClasses::java_lang_Daemons_stop);
+  }
+  if (attach_shutdown_thread) {
+    DetachCurrentThread();
+    self = nullptr;
+  }
+
   // Shut down background profiler before the runtime exits.
   if (profiler_started_) {
     BackgroundMethodSamplingProfiler::Shutdown();
@@ -181,6 +247,12 @@ Runtime::~Runtime() {
   // Make sure to let the GC complete if it is running.
   heap_->WaitForGcToComplete(gc::kGcCauseBackground, self);
   heap_->DeleteThreadPool();
+  if (jit_.get() != nullptr) {
+    VLOG(jit) << "Deleting jit thread pool";
+    // Delete thread pool before the thread list since we don't want to wait forever on the
+    // JIT compiler threads.
+    jit_->DeleteThreadPool();
+  }
 
   // Make sure our internal threads are dead before we start tearing down things they're using.
   Dbg::StopJdwp();
@@ -188,6 +260,16 @@ Runtime::~Runtime() {
 
   // Make sure all other non-daemon threads have terminated, and all daemon threads are suspended.
   delete thread_list_;
+
+  // Delete the JIT after thread list to ensure that there is no remaining threads which could be
+  // accessing the instrumentation when we delete it.
+  if (jit_.get() != nullptr) {
+    VLOG(jit) << "Deleting jit";
+    jit_.reset(nullptr);
+  }
+  linear_alloc_.reset();
+  arena_pool_.reset();
+  low_4gb_arena_pool_.reset();
 
   // Shutdown the fault manager if it was initialized.
   fault_manager.Shutdown();
@@ -205,21 +287,17 @@ Runtime::~Runtime() {
   // TODO: acquire a static mutex on Runtime to avoid racing.
   CHECK(instance_ == nullptr || instance_ == this);
   instance_ = nullptr;
-
-  delete null_pointer_handler_;
-  delete suspend_handler_;
-  delete stack_overflow_handler_;
 }
 
 struct AbortState {
-  void Dump(std::ostream& os) NO_THREAD_SAFETY_ANALYSIS {
+  void Dump(std::ostream& os) const {
     if (gAborting > 1) {
       os << "Runtime aborting --- recursively, so no thread-specific detail!\n";
       return;
     }
     gAborting++;
     os << "Runtime aborting...\n";
-    if (Runtime::Current() == NULL) {
+    if (Runtime::Current() == nullptr) {
       os << "(Runtime does not yet exist!)\n";
       return;
     }
@@ -242,18 +320,17 @@ struct AbortState {
     DumpAllThreads(os, self);
   }
 
-  void DumpThread(std::ostream& os, Thread* self) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
+  // No thread-safety analysis as we do explicitly test for holding the mutator lock.
+  void DumpThread(std::ostream& os, Thread* self) const NO_THREAD_SAFETY_ANALYSIS {
+    DCHECK(Locks::mutator_lock_->IsExclusiveHeld(self) || Locks::mutator_lock_->IsSharedHeld(self));
     self->Dump(os);
     if (self->IsExceptionPending()) {
-      ThrowLocation throw_location;
-      mirror::Throwable* exception = self->GetException(&throw_location);
-      os << "Pending exception " << PrettyTypeOf(exception)
-          << " thrown by '" << throw_location.Dump() << "'\n"
-          << exception->Dump();
+      mirror::Throwable* exception = self->GetException();
+      os << "Pending exception " << exception->Dump();
     }
   }
 
-  void DumpAllThreads(std::ostream& os, Thread* self) NO_THREAD_SAFETY_ANALYSIS {
+  void DumpAllThreads(std::ostream& os, Thread* self) const {
     Runtime* runtime = Runtime::Current();
     if (runtime != nullptr) {
       ThreadList* thread_list = runtime->GetThreadList();
@@ -267,7 +344,7 @@ struct AbortState {
               << "\n";
         }
         os << "All threads:\n";
-        thread_list->DumpLocked(os);
+        thread_list->Dump(os);
       }
     }
   }
@@ -281,7 +358,7 @@ void Runtime::Abort() {
   MutexLock mu(Thread::Current(), *Locks::abort_lock_);
 
   // Get any pending output out of the way.
-  fflush(NULL);
+  fflush(nullptr);
 
   // Many people have difficulty distinguish aborts from crashes,
   // so be explicit.
@@ -289,7 +366,7 @@ void Runtime::Abort() {
   LOG(INTERNAL_FATAL) << Dumpable<AbortState>(state);
 
   // Call the abort hook if we have one.
-  if (Runtime::Current() != NULL && Runtime::Current()->abort_ != NULL) {
+  if (Runtime::Current() != nullptr && Runtime::Current()->abort_ != nullptr) {
     LOG(INTERNAL_FATAL) << "Calling abort hook...";
     Runtime::Current()->abort_();
     // notreached
@@ -317,7 +394,7 @@ void Runtime::PreZygoteFork() {
 }
 
 void Runtime::CallExitHook(jint status) {
-  if (exit_ != NULL) {
+  if (exit_ != nullptr) {
     ScopedThreadStateChange tsc(Thread::Current(), kNative);
     exit_(status);
     LOG(WARNING) << "Exit hook returned instead of exiting!";
@@ -332,57 +409,57 @@ void Runtime::SweepSystemWeaks(IsMarkedCallback* visitor, void* arg) {
 
 bool Runtime::Create(const RuntimeOptions& options, bool ignore_unrecognized) {
   // TODO: acquire a static mutex on Runtime to avoid racing.
-  if (Runtime::instance_ != NULL) {
+  if (Runtime::instance_ != nullptr) {
     return false;
   }
-  InitLogging(NULL);  // Calls Locks::Init() as a side effect.
+  InitLogging(nullptr);  // Calls Locks::Init() as a side effect.
   instance_ = new Runtime;
   if (!instance_->Init(options, ignore_unrecognized)) {
-    delete instance_;
-    instance_ = NULL;
+    // TODO: Currently deleting the instance will abort the runtime on destruction. Now This will
+    // leak memory, instead. Fix the destructor. b/19100793.
+    // delete instance_;
+    instance_ = nullptr;
     return false;
   }
   return true;
 }
 
-jobject CreateSystemClassLoader() {
-  if (Runtime::Current()->UseCompileTimeClassPath()) {
-    return NULL;
+static jobject CreateSystemClassLoader(Runtime* runtime) {
+  if (runtime->IsAotCompiler() && !runtime->GetCompilerCallbacks()->IsBootImage()) {
+    return nullptr;
   }
 
   ScopedObjectAccess soa(Thread::Current());
   ClassLinker* cl = Runtime::Current()->GetClassLinker();
+  auto pointer_size = cl->GetImagePointerSize();
 
-  StackHandleScope<3> hs(soa.Self());
+  StackHandleScope<2> hs(soa.Self());
   Handle<mirror::Class> class_loader_class(
       hs.NewHandle(soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_ClassLoader)));
-  CHECK(cl->EnsureInitialized(class_loader_class, true, true));
+  CHECK(cl->EnsureInitialized(soa.Self(), class_loader_class, true, true));
 
-  mirror::ArtMethod* getSystemClassLoader =
-      class_loader_class->FindDirectMethod("getSystemClassLoader", "()Ljava/lang/ClassLoader;");
-  CHECK(getSystemClassLoader != NULL);
+  ArtMethod* getSystemClassLoader = class_loader_class->FindDirectMethod(
+      "getSystemClassLoader", "()Ljava/lang/ClassLoader;", pointer_size);
+  CHECK(getSystemClassLoader != nullptr);
 
   JValue result = InvokeWithJValues(soa, nullptr, soa.EncodeMethod(getSystemClassLoader), nullptr);
-  Handle<mirror::ClassLoader> class_loader(
-      hs.NewHandle(down_cast<mirror::ClassLoader*>(result.GetL())));
-  CHECK(class_loader.Get() != nullptr);
   JNIEnv* env = soa.Self()->GetJniEnv();
-  ScopedLocalRef<jobject> system_class_loader(env,
-                                              soa.AddLocalReference<jobject>(class_loader.Get()));
+  ScopedLocalRef<jobject> system_class_loader(env, soa.AddLocalReference<jobject>(result.GetL()));
   CHECK(system_class_loader.get() != nullptr);
 
-  soa.Self()->SetClassLoaderOverride(class_loader.Get());
+  soa.Self()->SetClassLoaderOverride(system_class_loader.get());
 
   Handle<mirror::Class> thread_class(
       hs.NewHandle(soa.Decode<mirror::Class*>(WellKnownClasses::java_lang_Thread)));
-  CHECK(cl->EnsureInitialized(thread_class, true, true));
+  CHECK(cl->EnsureInitialized(soa.Self(), thread_class, true, true));
 
-  mirror::ArtField* contextClassLoader =
+  ArtField* contextClassLoader =
       thread_class->FindDeclaredInstanceField("contextClassLoader", "Ljava/lang/ClassLoader;");
-  CHECK(contextClassLoader != NULL);
+  CHECK(contextClassLoader != nullptr);
 
   // We can't run in a transaction yet.
-  contextClassLoader->SetObject<false>(soa.Self()->GetPeer(), class_loader.Get());
+  contextClassLoader->SetObject<false>(soa.Self()->GetPeer(),
+                                       soa.Decode<mirror::ClassLoader*>(system_class_loader.get()));
 
   return env->NewGlobalRef(system_class_loader.get());
 }
@@ -391,9 +468,9 @@ std::string Runtime::GetPatchoatExecutable() const {
   if (!patchoat_executable_.empty()) {
     return patchoat_executable_;
   }
-  std::string patchoat_executable_(GetAndroidRoot());
-  patchoat_executable_ += (kIsDebugBuild ? "/bin/patchoatd" : "/bin/patchoat");
-  return patchoat_executable_;
+  std::string patchoat_executable(GetAndroidRoot());
+  patchoat_executable += (kIsDebugBuild ? "/bin/patchoatd" : "/bin/patchoat");
+  return patchoat_executable;
 }
 
 std::string Runtime::GetCompilerExecutable() const {
@@ -415,32 +492,45 @@ bool Runtime::Start() {
 
   started_ = true;
 
-  if (IsZygote()) {
+  // Use !IsAotCompiler so that we get test coverage, tests are never the zygote.
+  if (!IsAotCompiler()) {
     ScopedObjectAccess soa(self);
     gc::space::ImageSpace* image_space = heap_->GetImageSpace();
     if (image_space != nullptr) {
-      Runtime::Current()->GetInternTable()->AddImageStringsToTable(image_space);
-      Runtime::Current()->GetClassLinker()->MoveImageClassesToClassTable();
+      ATRACE_BEGIN("AddImageStringsToTable");
+      GetInternTable()->AddImageStringsToTable(image_space);
+      ATRACE_END();
+      ATRACE_BEGIN("MoveImageClassesToClassTable");
+      GetClassLinker()->MoveImageClassesToClassTable();
+      ATRACE_END();
     }
   }
 
-  if (!IsImageDex2OatEnabled() || !Runtime::Current()->GetHeap()->HasImageSpace()) {
+  // If we are the zygote then we need to wait until after forking to create the code cache
+  // due to SELinux restrictions on r/w/x memory regions.
+  if (!IsZygote() && jit_options_->UseJIT()) {
+    CreateJit();
+  }
+
+  if (!IsImageDex2OatEnabled() || !GetHeap()->HasImageSpace()) {
     ScopedObjectAccess soa(self);
     StackHandleScope<1> hs(soa.Self());
     auto klass(hs.NewHandle<mirror::Class>(mirror::Class::GetJavaLangClass()));
-    class_linker_->EnsureInitialized(klass, true, true);
+    class_linker_->EnsureInitialized(soa.Self(), klass, true, true);
   }
 
   // InitNativeMethods needs to be after started_ so that the classes
   // it touches will have methods linked to the oat file if necessary.
+  ATRACE_BEGIN("InitNativeMethods");
   InitNativeMethods();
+  ATRACE_END();
 
   // Initialize well known thread group values that may be accessed threads while attaching.
   InitThreadGroups(self);
 
   Thread::FinishStartup();
 
-  system_class_loader_ = CreateSystemClassLoader();
+  system_class_loader_ = CreateSystemClassLoader(this);
 
   if (is_zygote_) {
     if (!InitZygote()) {
@@ -454,7 +544,9 @@ bool Runtime::Start() {
                       GetInstructionSetString(kRuntimeISA));
   }
 
+  ATRACE_BEGIN("StartDaemonThreads");
   StartDaemonThreads();
+  ATRACE_END();
 
   {
     ScopedObjectAccess soa(self);
@@ -475,6 +567,17 @@ bool Runtime::Start() {
       return true;
     }
     StartProfiler(profile_output_filename_.c_str());
+  }
+
+  if (trace_config_.get() != nullptr && trace_config_->trace_file != "") {
+    ScopedThreadStateChange tsc(self, kWaitingForMethodTracingStart);
+    Trace::Start(trace_config_->trace_file.c_str(),
+                 -1,
+                 static_cast<int>(trace_config_->trace_file_size),
+                 0,
+                 trace_config_->trace_output_mode,
+                 trace_config_->trace_mode,
+                 0);
   }
 
   return true;
@@ -503,7 +606,7 @@ bool Runtime::InitZygote() {
 
   // Mark rootfs as being a slave so that changes from default
   // namespace only flow into our children.
-  if (mount("rootfs", "/", NULL, (MS_SLAVE | MS_REC), NULL) == -1) {
+  if (mount("rootfs", "/", nullptr, (MS_SLAVE | MS_REC), nullptr) == -1) {
     PLOG(WARNING) << "Failed to mount() rootfs as MS_SLAVE";
     return false;
   }
@@ -512,7 +615,7 @@ bool Runtime::InitZygote() {
   // bind mount storage into their respective private namespaces, which
   // are isolated from each other.
   const char* target_base = getenv("EMULATED_STORAGE_TARGET");
-  if (target_base != NULL) {
+  if (target_base != nullptr) {
     if (mount("tmpfs", target_base, "tmpfs", MS_NOSUID | MS_NODEV,
               "uid=0,gid=1028,mode=0751") == -1) {
       LOG(WARNING) << "Failed to mount tmpfs to " << target_base;
@@ -543,8 +646,16 @@ void Runtime::DidForkFromZygote(JNIEnv* env, NativeBridgeAction action, const ch
     }
   }
 
-  // Create the thread pool.
+  // Create the thread pools.
   heap_->CreateThreadPool();
+  // Reset the gc performance data at zygote fork so that the GCs
+  // before fork aren't attributed to an app.
+  heap_->ResetGcPerformanceInfo();
+
+  if (jit_.get() == nullptr && jit_options_->UseJIT()) {
+    // Create the JIT if the flag is set and we haven't already create it (happens for run-tests).
+    CreateJit();
+  }
 
   StartSignalCatcher();
 
@@ -583,10 +694,10 @@ void Runtime::StartDaemonThreads() {
   VLOG(startup) << "Runtime::StartDaemonThreads exiting";
 }
 
-static bool OpenDexFilesFromImage(const std::vector<std::string>& dex_filenames,
-                                  const std::string& image_location,
-                                  std::vector<const DexFile*>& dex_files,
+static bool OpenDexFilesFromImage(const std::string& image_location,
+                                  std::vector<std::unique_ptr<const DexFile>>* dex_files,
                                   size_t* failures) {
+  DCHECK(dex_files != nullptr) << "OpenDexFilesFromImage: out-param is nullptr";
   std::string system_filename;
   bool has_system = false;
   std::string cache_filename_unused;
@@ -619,7 +730,7 @@ static bool OpenDexFilesFromImage(const std::vector<std::string>& dex_filenames,
     return false;
   }
   std::unique_ptr<OatFile> oat_file(OatFile::OpenWithElfFile(elf_file.release(), oat_location,
-                                                             &error_msg));
+                                                             nullptr, &error_msg));
   if (oat_file.get() == nullptr) {
     LOG(INFO) << "Unable to use '" << oat_filename << "' because " << error_msg;
     return false;
@@ -630,11 +741,11 @@ static bool OpenDexFilesFromImage(const std::vector<std::string>& dex_filenames,
       *failures += 1;
       continue;
     }
-    const DexFile* dex_file = oat_dex_file->OpenDexFile(&error_msg);
-    if (dex_file == nullptr) {
+    std::unique_ptr<const DexFile> dex_file = oat_dex_file->OpenDexFile(&error_msg);
+    if (dex_file.get() == nullptr) {
       *failures += 1;
     } else {
-      dex_files.push_back(dex_file);
+      dex_files->push_back(std::move(dex_file));
     }
   }
   Runtime::Current()->GetClassLinker()->RegisterOatFile(oat_file.release());
@@ -643,22 +754,24 @@ static bool OpenDexFilesFromImage(const std::vector<std::string>& dex_filenames,
 
 
 static size_t OpenDexFiles(const std::vector<std::string>& dex_filenames,
+                           const std::vector<std::string>& dex_locations,
                            const std::string& image_location,
-                           std::vector<const DexFile*>& dex_files) {
+                           std::vector<std::unique_ptr<const DexFile>>* dex_files) {
+  DCHECK(dex_files != nullptr) << "OpenDexFiles: out-param is nullptr";
   size_t failure_count = 0;
-  if (!image_location.empty() && OpenDexFilesFromImage(dex_filenames, image_location, dex_files,
-                                                       &failure_count)) {
+  if (!image_location.empty() && OpenDexFilesFromImage(image_location, dex_files, &failure_count)) {
     return failure_count;
   }
   failure_count = 0;
   for (size_t i = 0; i < dex_filenames.size(); i++) {
     const char* dex_filename = dex_filenames[i].c_str();
+    const char* dex_location = dex_locations[i].c_str();
     std::string error_msg;
     if (!OS::FileExists(dex_filename)) {
       LOG(WARNING) << "Skipping non-existent dex file '" << dex_filename << "'";
       continue;
     }
-    if (!DexFile::Open(dex_filename, dex_filename, &error_msg, &dex_files)) {
+    if (!DexFile::Open(dex_filename, dex_location, &error_msg, dex_files)) {
       LOG(WARNING) << "Failed to open .dex from file '" << dex_filename << "': " << error_msg;
       ++failure_count;
     }
@@ -667,87 +780,138 @@ static size_t OpenDexFiles(const std::vector<std::string>& dex_filenames,
 }
 
 bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) {
+  ATRACE_BEGIN("Runtime::Init");
   CHECK_EQ(sysconf(_SC_PAGE_SIZE), kPageSize);
 
   MemMap::Init();
 
-  std::unique_ptr<ParsedOptions> options(ParsedOptions::Create(raw_options, ignore_unrecognized));
-  if (options.get() == nullptr) {
+  using Opt = RuntimeArgumentMap;
+  RuntimeArgumentMap runtime_options;
+  std::unique_ptr<ParsedOptions> parsed_options(
+      ParsedOptions::Create(raw_options, ignore_unrecognized, &runtime_options));
+  if (parsed_options.get() == nullptr) {
     LOG(ERROR) << "Failed to parse options";
+    ATRACE_END();
     return false;
   }
   VLOG(startup) << "Runtime::Init -verbose:startup enabled";
 
   QuasiAtomic::Startup();
 
-  Monitor::Init(options->lock_profiling_threshold_, options->hook_is_sensitive_thread_);
+  Monitor::Init(runtime_options.GetOrDefault(Opt::LockProfThreshold),
+                runtime_options.GetOrDefault(Opt::HookIsSensitiveThread));
 
-  boot_class_path_string_ = options->boot_class_path_string_;
-  class_path_string_ = options->class_path_string_;
-  properties_ = options->properties_;
+  boot_class_path_string_ = runtime_options.ReleaseOrDefault(Opt::BootClassPath);
+  class_path_string_ = runtime_options.ReleaseOrDefault(Opt::ClassPath);
+  properties_ = runtime_options.ReleaseOrDefault(Opt::PropertiesList);
 
-  compiler_callbacks_ = options->compiler_callbacks_;
-  patchoat_executable_ = options->patchoat_executable_;
-  must_relocate_ = options->must_relocate_;
-  is_zygote_ = options->is_zygote_;
-  is_explicit_gc_disabled_ = options->is_explicit_gc_disabled_;
-  dex2oat_enabled_ = options->dex2oat_enabled_;
-  image_dex2oat_enabled_ = options->image_dex2oat_enabled_;
+  compiler_callbacks_ = runtime_options.GetOrDefault(Opt::CompilerCallbacksPtr);
+  patchoat_executable_ = runtime_options.ReleaseOrDefault(Opt::PatchOat);
+  must_relocate_ = runtime_options.GetOrDefault(Opt::Relocate);
+  is_zygote_ = runtime_options.Exists(Opt::Zygote);
+  is_explicit_gc_disabled_ = runtime_options.Exists(Opt::DisableExplicitGC);
+  dex2oat_enabled_ = runtime_options.GetOrDefault(Opt::Dex2Oat);
+  image_dex2oat_enabled_ = runtime_options.GetOrDefault(Opt::ImageDex2Oat);
 
-  vfprintf_ = options->hook_vfprintf_;
-  exit_ = options->hook_exit_;
-  abort_ = options->hook_abort_;
+  vfprintf_ = runtime_options.GetOrDefault(Opt::HookVfprintf);
+  exit_ = runtime_options.GetOrDefault(Opt::HookExit);
+  abort_ = runtime_options.GetOrDefault(Opt::HookAbort);
 
-  default_stack_size_ = options->stack_size_;
-  stack_trace_file_ = options->stack_trace_file_;
+  default_stack_size_ = runtime_options.GetOrDefault(Opt::StackSize);
+  stack_trace_file_ = runtime_options.ReleaseOrDefault(Opt::StackTraceFile);
 
-  compiler_executable_ = options->compiler_executable_;
-  compiler_options_ = options->compiler_options_;
-  image_compiler_options_ = options->image_compiler_options_;
-  image_location_ = options->image_;
+  compiler_executable_ = runtime_options.ReleaseOrDefault(Opt::Compiler);
+  compiler_options_ = runtime_options.ReleaseOrDefault(Opt::CompilerOptions);
+  image_compiler_options_ = runtime_options.ReleaseOrDefault(Opt::ImageCompilerOptions);
+  image_location_ = runtime_options.GetOrDefault(Opt::Image);
 
-  max_spins_before_thin_lock_inflation_ = options->max_spins_before_thin_lock_inflation_;
+  max_spins_before_thin_lock_inflation_ =
+      runtime_options.GetOrDefault(Opt::MaxSpinsBeforeThinLockInflation);
 
   monitor_list_ = new MonitorList;
   monitor_pool_ = MonitorPool::Create();
   thread_list_ = new ThreadList;
   intern_table_ = new InternTable;
 
-  verify_ = options->verify_;
+  verify_ = runtime_options.GetOrDefault(Opt::Verify);
+  allow_dex_file_fallback_ = !runtime_options.Exists(Opt::NoDexFileFallback);
 
-  if (options->interpreter_only_) {
+  Split(runtime_options.GetOrDefault(Opt::CpuAbiList), ',', &cpu_abilist_);
+
+  fingerprint_ = runtime_options.ReleaseOrDefault(Opt::Fingerprint);
+
+  if (runtime_options.GetOrDefault(Opt::Interpret)) {
     GetInstrumentation()->ForceInterpretOnly();
   }
 
-  heap_ = new gc::Heap(options->heap_initial_size_,
-                       options->heap_growth_limit_,
-                       options->heap_min_free_,
-                       options->heap_max_free_,
-                       options->heap_target_utilization_,
-                       options->foreground_heap_growth_multiplier_,
-                       options->heap_maximum_size_,
-                       options->heap_non_moving_space_capacity_,
-                       options->image_,
-                       options->image_isa_,
-                       options->collector_type_,
-                       options->background_collector_type_,
-                       options->parallel_gc_threads_,
-                       options->conc_gc_threads_,
-                       options->low_memory_mode_,
-                       options->long_pause_log_threshold_,
-                       options->long_gc_log_threshold_,
-                       options->ignore_max_footprint_,
-                       options->use_tlab_,
-                       options->verify_pre_gc_heap_,
-                       options->verify_pre_sweeping_heap_,
-                       options->verify_post_gc_heap_,
-                       options->verify_pre_gc_rosalloc_,
-                       options->verify_pre_sweeping_rosalloc_,
-                       options->verify_post_gc_rosalloc_,
-                       options->use_homogeneous_space_compaction_for_oom_,
-                       options->min_interval_homogeneous_space_compaction_by_oom_);
+  zygote_max_failed_boots_ = runtime_options.GetOrDefault(Opt::ZygoteMaxFailedBoots);
 
-  dump_gc_performance_on_shutdown_ = options->dump_gc_performance_on_shutdown_;
+  XGcOption xgc_option = runtime_options.GetOrDefault(Opt::GcOption);
+  ATRACE_BEGIN("CreateHeap");
+  heap_ = new gc::Heap(runtime_options.GetOrDefault(Opt::MemoryInitialSize),
+                       runtime_options.GetOrDefault(Opt::HeapGrowthLimit),
+                       runtime_options.GetOrDefault(Opt::HeapMinFree),
+                       runtime_options.GetOrDefault(Opt::HeapMaxFree),
+                       runtime_options.GetOrDefault(Opt::HeapTargetUtilization),
+                       runtime_options.GetOrDefault(Opt::ForegroundHeapGrowthMultiplier),
+                       runtime_options.GetOrDefault(Opt::MemoryMaximumSize),
+                       runtime_options.GetOrDefault(Opt::NonMovingSpaceCapacity),
+                       runtime_options.GetOrDefault(Opt::Image),
+                       runtime_options.GetOrDefault(Opt::ImageInstructionSet),
+                       xgc_option.collector_type_,
+                       runtime_options.GetOrDefault(Opt::BackgroundGc),
+                       runtime_options.GetOrDefault(Opt::LargeObjectSpace),
+                       runtime_options.GetOrDefault(Opt::LargeObjectThreshold),
+                       runtime_options.GetOrDefault(Opt::ParallelGCThreads),
+                       runtime_options.GetOrDefault(Opt::ConcGCThreads),
+                       runtime_options.Exists(Opt::LowMemoryMode),
+                       runtime_options.GetOrDefault(Opt::LongPauseLogThreshold),
+                       runtime_options.GetOrDefault(Opt::LongGCLogThreshold),
+                       runtime_options.Exists(Opt::IgnoreMaxFootprint),
+                       runtime_options.GetOrDefault(Opt::UseTLAB),
+                       xgc_option.verify_pre_gc_heap_,
+                       xgc_option.verify_pre_sweeping_heap_,
+                       xgc_option.verify_post_gc_heap_,
+                       xgc_option.verify_pre_gc_rosalloc_,
+                       xgc_option.verify_pre_sweeping_rosalloc_,
+                       xgc_option.verify_post_gc_rosalloc_,
+                       xgc_option.gcstress_,
+                       runtime_options.GetOrDefault(Opt::EnableHSpaceCompactForOOM),
+                       runtime_options.GetOrDefault(Opt::HSpaceCompactForOOMMinIntervalsMs));
+  ATRACE_END();
+
+  if (heap_->GetImageSpace() == nullptr && !allow_dex_file_fallback_) {
+    LOG(ERROR) << "Dex file fallback disabled, cannot continue without image.";
+    ATRACE_END();
+    return false;
+  }
+
+  dump_gc_performance_on_shutdown_ = runtime_options.Exists(Opt::DumpGCPerformanceOnShutdown);
+
+  if (runtime_options.Exists(Opt::JdwpOptions)) {
+    Dbg::ConfigureJdwp(runtime_options.GetOrDefault(Opt::JdwpOptions));
+  }
+
+  jit_options_.reset(jit::JitOptions::CreateFromRuntimeArguments(runtime_options));
+  if (IsAotCompiler()) {
+    // If we are already the compiler at this point, we must be dex2oat. Don't create the jit in
+    // this case.
+    // If runtime_options doesn't have UseJIT set to true then CreateFromRuntimeArguments returns
+    // null and we don't create the jit.
+    jit_options_->SetUseJIT(false);
+  }
+
+  // Use MemMap arena pool for jit, malloc otherwise. Malloc arenas are faster to allocate but
+  // can't be trimmed as easily.
+  const bool use_malloc = IsAotCompiler();
+  arena_pool_.reset(new ArenaPool(use_malloc, false));
+  if (IsCompiler() && Is64BitInstructionSet(kRuntimeISA)) {
+    // 4gb, no malloc. Explanation in header.
+    low_4gb_arena_pool_.reset(new ArenaPool(false, true));
+    linear_alloc_.reset(new LinearAlloc(low_4gb_arena_pool_.get()));
+  } else {
+    linear_alloc_.reset(new LinearAlloc(arena_pool_.get()));
+  }
 
   BlockSignals();
   InitPlatformSignalHandlers();
@@ -759,7 +923,10 @@ bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) 
     case kX86:
     case kArm64:
     case kX86_64:
+    case kMips:
+    case kMips64:
       implicit_null_checks_ = true;
+      // Installing stack protection does not play well with valgrind.
       implicit_so_checks_ = (RUNNING_ON_VALGRIND == 0);
       break;
     default:
@@ -777,16 +944,19 @@ bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) 
 
     // These need to be in a specific order.  The null point check handler must be
     // after the suspend check and stack overflow check handlers.
+    //
+    // Note: the instances attach themselves to the fault manager and are handled by it. The manager
+    //       will delete the instance on Shutdown().
     if (implicit_suspend_checks_) {
-      suspend_handler_ = new SuspensionHandler(&fault_manager);
+      new SuspensionHandler(&fault_manager);
     }
 
     if (implicit_so_checks_) {
-      stack_overflow_handler_ = new StackOverflowHandler(&fault_manager);
+      new StackOverflowHandler(&fault_manager);
     }
 
     if (implicit_null_checks_) {
-      null_pointer_handler_ = new NullPointerHandler(&fault_manager);
+      new NullPointerHandler(&fault_manager);
     }
 
     if (kEnableJavaStackTraceHandler) {
@@ -794,7 +964,7 @@ bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) 
     }
   }
 
-  java_vm_ = new JavaVMExt(this, options.get());
+  java_vm_ = new JavaVMExt(this, runtime_options);
 
   Thread::Startup();
 
@@ -814,60 +984,105 @@ bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) 
   CHECK_GE(GetHeap()->GetContinuousSpaces().size(), 1U);
   class_linker_ = new ClassLinker(intern_table_);
   if (GetHeap()->HasImageSpace()) {
+    ATRACE_BEGIN("InitFromImage");
     class_linker_->InitFromImage();
+    ATRACE_END();
     if (kIsDebugBuild) {
       GetHeap()->GetImageSpace()->VerifyImageAllocations();
     }
-  } else if (!IsCompiler() || !image_dex2oat_enabled_) {
+    if (boot_class_path_string_.empty()) {
+      // The bootclasspath is not explicitly specified: construct it from the loaded dex files.
+      const std::vector<const DexFile*>& boot_class_path = GetClassLinker()->GetBootClassPath();
+      std::vector<std::string> dex_locations;
+      dex_locations.reserve(boot_class_path.size());
+      for (const DexFile* dex_file : boot_class_path) {
+        dex_locations.push_back(dex_file->GetLocation());
+      }
+      boot_class_path_string_ = Join(dex_locations, ':');
+    }
+  } else {
     std::vector<std::string> dex_filenames;
-    Split(boot_class_path_string_, ':', dex_filenames);
-    std::vector<const DexFile*> boot_class_path;
-    OpenDexFiles(dex_filenames, options->image_, boot_class_path);
-    class_linker_->InitWithoutImage(boot_class_path);
+    Split(boot_class_path_string_, ':', &dex_filenames);
+
+    std::vector<std::string> dex_locations;
+    if (!runtime_options.Exists(Opt::BootClassPathLocations)) {
+      dex_locations = dex_filenames;
+    } else {
+      dex_locations = runtime_options.GetOrDefault(Opt::BootClassPathLocations);
+      CHECK_EQ(dex_filenames.size(), dex_locations.size());
+    }
+
+    std::vector<std::unique_ptr<const DexFile>> boot_class_path;
+    OpenDexFiles(dex_filenames,
+                 dex_locations,
+                 runtime_options.GetOrDefault(Opt::Image),
+                 &boot_class_path);
+    instruction_set_ = runtime_options.GetOrDefault(Opt::ImageInstructionSet);
+    class_linker_->InitWithoutImage(std::move(boot_class_path));
+
     // TODO: Should we move the following to InitWithoutImage?
-    SetInstructionSet(kRuntimeISA);
+    SetInstructionSet(instruction_set_);
     for (int i = 0; i < Runtime::kLastCalleeSaveType; i++) {
       Runtime::CalleeSaveType type = Runtime::CalleeSaveType(i);
       if (!HasCalleeSaveMethod(type)) {
-        SetCalleeSaveMethod(CreateCalleeSaveMethod(type), type);
+        SetCalleeSaveMethod(CreateCalleeSaveMethod(), type);
       }
     }
-  } else {
-    CHECK(options->boot_class_path_ != nullptr);
-    CHECK_NE(options->boot_class_path_->size(), 0U);
-    class_linker_->InitWithoutImage(*options->boot_class_path_);
   }
+
   CHECK(class_linker_ != nullptr);
+
+  // Initialize the special sentinel_ value early.
+  sentinel_ = GcRoot<mirror::Object>(class_linker_->AllocObject(self));
+  CHECK(sentinel_.Read() != nullptr);
+
   verifier::MethodVerifier::Init();
 
-  method_trace_ = options->method_trace_;
-  method_trace_file_ = options->method_trace_file_;
-  method_trace_file_size_ = options->method_trace_file_size_;
-
-  profile_output_filename_ = options->profile_output_filename_;
-  profiler_options_ = options->profiler_options_;
-
-  // TODO: move this to just be an Trace::Start argument
-  Trace::SetDefaultClockSource(options->profile_clock_source_);
-
-  if (options->method_trace_) {
-    ScopedThreadStateChange tsc(self, kWaitingForMethodTracingStart);
-    Trace::Start(options->method_trace_file_.c_str(), -1, options->method_trace_file_size_, 0,
-                 false, false, 0);
+  if (runtime_options.Exists(Opt::MethodTrace)) {
+    trace_config_.reset(new TraceConfig());
+    trace_config_->trace_file = runtime_options.ReleaseOrDefault(Opt::MethodTraceFile);
+    trace_config_->trace_file_size = runtime_options.ReleaseOrDefault(Opt::MethodTraceFileSize);
+    trace_config_->trace_mode = Trace::TraceMode::kMethodTracing;
+    trace_config_->trace_output_mode = runtime_options.Exists(Opt::MethodTraceStreaming) ?
+        Trace::TraceOutputMode::kStreaming :
+        Trace::TraceOutputMode::kFile;
   }
 
+  {
+    auto&& profiler_options = runtime_options.ReleaseOrDefault(Opt::ProfilerOpts);
+    profile_output_filename_ = profiler_options.output_file_name_;
+
+    // TODO: Don't do this, just change ProfilerOptions to include the output file name?
+    ProfilerOptions other_options(
+        profiler_options.enabled_,
+        profiler_options.period_s_,
+        profiler_options.duration_s_,
+        profiler_options.interval_us_,
+        profiler_options.backoff_coefficient_,
+        profiler_options.start_immediately_,
+        profiler_options.top_k_threshold_,
+        profiler_options.top_k_change_threshold_,
+        profiler_options.profile_type_,
+        profiler_options.max_stack_depth_);
+
+    profiler_options_ = other_options;
+  }
+
+  // TODO: move this to just be an Trace::Start argument
+  Trace::SetDefaultClockSource(runtime_options.GetOrDefault(Opt::ProfileClock));
+
   // Pre-allocate an OutOfMemoryError for the double-OOME case.
-  self->ThrowNewException(ThrowLocation(), "Ljava/lang/OutOfMemoryError;",
+  self->ThrowNewException("Ljava/lang/OutOfMemoryError;",
                           "OutOfMemoryError thrown while trying to throw OutOfMemoryError; "
-                          "no stack available");
-  pre_allocated_OutOfMemoryError_ = GcRoot<mirror::Throwable>(self->GetException(NULL));
+                          "no stack trace available");
+  pre_allocated_OutOfMemoryError_ = GcRoot<mirror::Throwable>(self->GetException());
   self->ClearException();
 
   // Pre-allocate a NoClassDefFoundError for the common case of failing to find a system class
   // ahead of checking the application's class loader.
-  self->ThrowNewException(ThrowLocation(), "Ljava/lang/NoClassDefFoundError;",
-                          "Class not found using the boot class loader; no stack available");
-  pre_allocated_NoClassDefFoundError_ = GcRoot<mirror::Throwable>(self->GetException(NULL));
+  self->ThrowNewException("Ljava/lang/NoClassDefFoundError;",
+                          "Class not found using the boot class loader; no stack trace available");
+  pre_allocated_NoClassDefFoundError_ = GcRoot<mirror::Throwable>(self->GetException());
   self->ClearException();
 
   // Look for a native bridge.
@@ -897,9 +1112,15 @@ bool Runtime::Init(const RuntimeOptions& raw_options, bool ignore_unrecognized) 
   // Runtime::Start():
   //   DidForkFromZygote(kInitialize) -> try to initialize any native bridge given.
   //   No-op wrt native bridge.
-  is_native_bridge_loaded_ = LoadNativeBridge(options->native_bridge_library_filename_);
+  {
+    std::string native_bridge_file_name = runtime_options.ReleaseOrDefault(Opt::NativeBridge);
+    is_native_bridge_loaded_ = LoadNativeBridge(native_bridge_file_name);
+  }
 
   VLOG(startup) << "Runtime::Init exiting";
+
+  ATRACE_END();
+
   return true;
 }
 
@@ -923,15 +1144,10 @@ void Runtime::InitNativeMethods() {
   // Most JNI libraries can just use System.loadLibrary, but libcore can't because it's
   // the library that implements System.loadLibrary!
   {
-    std::string mapped_name(StringPrintf(OS_SHARED_LIB_FORMAT_STR, "javacore"));
     std::string reason;
-    self->TransitionFromSuspendedToRunnable();
-    StackHandleScope<1> hs(self);
-    auto class_loader(hs.NewHandle<mirror::ClassLoader>(nullptr));
-    if (!instance_->java_vm_->LoadNativeLibrary(mapped_name, class_loader, &reason)) {
-      LOG(FATAL) << "LoadNativeLibrary failed for \"" << mapped_name << "\": " << reason;
+    if (!java_vm_->LoadNativeLibrary(env, "libjavacore.so", nullptr, &reason)) {
+      LOG(FATAL) << "LoadNativeLibrary failed for \"libjavacore.so\": " << reason;
     }
-    self->TransitionFromRunnableToSuspended(kNative);
   }
 
   // Initialize well known classes that may invoke runtime native methods.
@@ -947,58 +1163,57 @@ void Runtime::InitThreadGroups(Thread* self) {
       env->NewGlobalRef(env->GetStaticObjectField(
           WellKnownClasses::java_lang_ThreadGroup,
           WellKnownClasses::java_lang_ThreadGroup_mainThreadGroup));
-  CHECK(main_thread_group_ != NULL || IsCompiler());
+  CHECK(main_thread_group_ != nullptr || IsAotCompiler());
   system_thread_group_ =
       env->NewGlobalRef(env->GetStaticObjectField(
           WellKnownClasses::java_lang_ThreadGroup,
           WellKnownClasses::java_lang_ThreadGroup_systemThreadGroup));
-  CHECK(system_thread_group_ != NULL || IsCompiler());
+  CHECK(system_thread_group_ != nullptr || IsAotCompiler());
 }
 
 jobject Runtime::GetMainThreadGroup() const {
-  CHECK(main_thread_group_ != NULL || IsCompiler());
+  CHECK(main_thread_group_ != nullptr || IsAotCompiler());
   return main_thread_group_;
 }
 
 jobject Runtime::GetSystemThreadGroup() const {
-  CHECK(system_thread_group_ != NULL || IsCompiler());
+  CHECK(system_thread_group_ != nullptr || IsAotCompiler());
   return system_thread_group_;
 }
 
 jobject Runtime::GetSystemClassLoader() const {
-  CHECK(system_class_loader_ != NULL || IsCompiler());
+  CHECK(system_class_loader_ != nullptr || IsAotCompiler());
   return system_class_loader_;
 }
 
 void Runtime::RegisterRuntimeNativeMethods(JNIEnv* env) {
-#define REGISTER(FN) extern void FN(JNIEnv*); FN(env)
-  // Register Throwable first so that registration of other native methods can throw exceptions
-  REGISTER(register_java_lang_Throwable);
-  REGISTER(register_dalvik_system_DexFile);
-  REGISTER(register_dalvik_system_VMDebug);
-  REGISTER(register_dalvik_system_VMRuntime);
-  REGISTER(register_dalvik_system_VMStack);
-  REGISTER(register_dalvik_system_ZygoteHooks);
-  REGISTER(register_java_lang_Class);
-  REGISTER(register_java_lang_DexCache);
-  REGISTER(register_java_lang_Object);
-  REGISTER(register_java_lang_Runtime);
-  REGISTER(register_java_lang_String);
-  REGISTER(register_java_lang_System);
-  REGISTER(register_java_lang_Thread);
-  REGISTER(register_java_lang_VMClassLoader);
-  REGISTER(register_java_lang_ref_FinalizerReference);
-  REGISTER(register_java_lang_ref_Reference);
-  REGISTER(register_java_lang_reflect_Array);
-  REGISTER(register_java_lang_reflect_Constructor);
-  REGISTER(register_java_lang_reflect_Field);
-  REGISTER(register_java_lang_reflect_Method);
-  REGISTER(register_java_lang_reflect_Proxy);
-  REGISTER(register_java_util_concurrent_atomic_AtomicLong);
-  REGISTER(register_org_apache_harmony_dalvik_ddmc_DdmServer);
-  REGISTER(register_org_apache_harmony_dalvik_ddmc_DdmVmInternal);
-  REGISTER(register_sun_misc_Unsafe);
-#undef REGISTER
+  register_dalvik_system_DexFile(env);
+  register_dalvik_system_VMDebug(env);
+  register_dalvik_system_VMRuntime(env);
+  register_dalvik_system_VMStack(env);
+  register_dalvik_system_ZygoteHooks(env);
+  register_java_lang_Class(env);
+  register_java_lang_DexCache(env);
+  register_java_lang_Object(env);
+  register_java_lang_ref_FinalizerReference(env);
+  register_java_lang_reflect_Array(env);
+  register_java_lang_reflect_Constructor(env);
+  register_java_lang_reflect_Field(env);
+  register_java_lang_reflect_Method(env);
+  register_java_lang_reflect_Proxy(env);
+  register_java_lang_ref_Reference(env);
+  register_java_lang_Runtime(env);
+  register_java_lang_String(env);
+  register_java_lang_StringFactory(env);
+  register_java_lang_System(env);
+  register_java_lang_Thread(env);
+  register_java_lang_Throwable(env);
+  register_java_lang_VMClassLoader(env);
+  register_java_util_concurrent_atomic_AtomicLong(env);
+  register_libcore_util_CharsetUtils(env);
+  register_org_apache_harmony_dalvik_ddmc_DdmServer(env);
+  register_org_apache_harmony_dalvik_ddmc_DdmVmInternal(env);
+  register_sun_misc_Unsafe(env);
 }
 
 void Runtime::DumpForSigQuit(std::ostream& os) {
@@ -1095,12 +1310,12 @@ void Runtime::BlockSignals() {
 
 bool Runtime::AttachCurrentThread(const char* thread_name, bool as_daemon, jobject thread_group,
                                   bool create_peer) {
-  return Thread::Attach(thread_name, as_daemon, thread_group, create_peer) != NULL;
+  return Thread::Attach(thread_name, as_daemon, thread_group, create_peer) != nullptr;
 }
 
 void Runtime::DetachCurrentThread() {
   Thread* self = Thread::Current();
-  if (self == NULL) {
+  if (self == nullptr) {
     LOG(FATAL) << "attempting to detach thread that is not attached";
   }
   if (self->HasManagedStack()) {
@@ -1125,145 +1340,143 @@ mirror::Throwable* Runtime::GetPreAllocatedNoClassDefFoundError() {
   return ncdfe;
 }
 
-void Runtime::VisitConstantRoots(RootCallback* callback, void* arg) {
+void Runtime::VisitConstantRoots(RootVisitor* visitor) {
   // Visit the classes held as static in mirror classes, these can be visited concurrently and only
   // need to be visited once per GC since they never change.
-  mirror::ArtField::VisitRoots(callback, arg);
-  mirror::ArtMethod::VisitRoots(callback, arg);
-  mirror::Class::VisitRoots(callback, arg);
-  mirror::Reference::VisitRoots(callback, arg);
-  mirror::StackTraceElement::VisitRoots(callback, arg);
-  mirror::String::VisitRoots(callback, arg);
-  mirror::Throwable::VisitRoots(callback, arg);
+  mirror::Class::VisitRoots(visitor);
+  mirror::Constructor::VisitRoots(visitor);
+  mirror::Reference::VisitRoots(visitor);
+  mirror::Method::VisitRoots(visitor);
+  mirror::StackTraceElement::VisitRoots(visitor);
+  mirror::String::VisitRoots(visitor);
+  mirror::Throwable::VisitRoots(visitor);
+  mirror::Field::VisitRoots(visitor);
   // Visit all the primitive array types classes.
-  mirror::PrimitiveArray<uint8_t>::VisitRoots(callback, arg);   // BooleanArray
-  mirror::PrimitiveArray<int8_t>::VisitRoots(callback, arg);    // ByteArray
-  mirror::PrimitiveArray<uint16_t>::VisitRoots(callback, arg);  // CharArray
-  mirror::PrimitiveArray<double>::VisitRoots(callback, arg);    // DoubleArray
-  mirror::PrimitiveArray<float>::VisitRoots(callback, arg);     // FloatArray
-  mirror::PrimitiveArray<int32_t>::VisitRoots(callback, arg);   // IntArray
-  mirror::PrimitiveArray<int64_t>::VisitRoots(callback, arg);   // LongArray
-  mirror::PrimitiveArray<int16_t>::VisitRoots(callback, arg);   // ShortArray
-}
-
-void Runtime::VisitConcurrentRoots(RootCallback* callback, void* arg, VisitRootFlags flags) {
-  intern_table_->VisitRoots(callback, arg, flags);
-  class_linker_->VisitRoots(callback, arg, flags);
-  if ((flags & kVisitRootFlagNewRoots) == 0) {
-    // Guaranteed to have no new roots in the constant roots.
-    VisitConstantRoots(callback, arg);
+  mirror::PrimitiveArray<uint8_t>::VisitRoots(visitor);   // BooleanArray
+  mirror::PrimitiveArray<int8_t>::VisitRoots(visitor);    // ByteArray
+  mirror::PrimitiveArray<uint16_t>::VisitRoots(visitor);  // CharArray
+  mirror::PrimitiveArray<double>::VisitRoots(visitor);    // DoubleArray
+  mirror::PrimitiveArray<float>::VisitRoots(visitor);     // FloatArray
+  mirror::PrimitiveArray<int32_t>::VisitRoots(visitor);   // IntArray
+  mirror::PrimitiveArray<int64_t>::VisitRoots(visitor);   // LongArray
+  mirror::PrimitiveArray<int16_t>::VisitRoots(visitor);   // ShortArray
+  // Visiting the roots of these ArtMethods is not currently required since all the GcRoots are
+  // null.
+  BufferedRootVisitor<16> buffered_visitor(visitor, RootInfo(kRootVMInternal));
+  if (HasResolutionMethod()) {
+    resolution_method_->VisitRoots(buffered_visitor);
   }
-}
-
-void Runtime::VisitNonThreadRoots(RootCallback* callback, void* arg) {
-  java_vm_->VisitRoots(callback, arg);
-  pre_allocated_OutOfMemoryError_.VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
-  resolution_method_.VisitRoot(callback, arg, RootInfo(kRootVMInternal));
-  pre_allocated_NoClassDefFoundError_.VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
-  imt_conflict_method_.VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
-  imt_unimplemented_method_.VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
-  default_imt_.VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
-  for (int i = 0; i < Runtime::kLastCalleeSaveType; i++) {
-    callee_save_methods_[i].VisitRootIfNonNull(callback, arg, RootInfo(kRootVMInternal));
+  if (HasImtConflictMethod()) {
+    imt_conflict_method_->VisitRoots(buffered_visitor);
   }
-  verifier::MethodVerifier::VisitStaticRoots(callback, arg);
-  {
-    MutexLock mu(Thread::Current(), method_verifier_lock_);
-    for (verifier::MethodVerifier* verifier : method_verifiers_) {
-      verifier->VisitRoots(callback, arg);
+  if (imt_unimplemented_method_ != nullptr) {
+    imt_unimplemented_method_->VisitRoots(buffered_visitor);
+  }
+  for (size_t i = 0; i < kLastCalleeSaveType; ++i) {
+    auto* m = reinterpret_cast<ArtMethod*>(callee_save_methods_[i]);
+    if (m != nullptr) {
+      m->VisitRoots(buffered_visitor);
     }
   }
+}
+
+void Runtime::VisitConcurrentRoots(RootVisitor* visitor, VisitRootFlags flags) {
+  intern_table_->VisitRoots(visitor, flags);
+  class_linker_->VisitRoots(visitor, flags);
+  if ((flags & kVisitRootFlagNewRoots) == 0) {
+    // Guaranteed to have no new roots in the constant roots.
+    VisitConstantRoots(visitor);
+  }
+}
+
+void Runtime::VisitTransactionRoots(RootVisitor* visitor) {
   if (preinitialization_transaction_ != nullptr) {
-    preinitialization_transaction_->VisitRoots(callback, arg);
+    preinitialization_transaction_->VisitRoots(visitor);
   }
-  instrumentation_.VisitRoots(callback, arg);
 }
 
-void Runtime::VisitNonConcurrentRoots(RootCallback* callback, void* arg) {
-  thread_list_->VisitRoots(callback, arg);
-  VisitNonThreadRoots(callback, arg);
+void Runtime::VisitNonThreadRoots(RootVisitor* visitor) {
+  java_vm_->VisitRoots(visitor);
+  sentinel_.VisitRootIfNonNull(visitor, RootInfo(kRootVMInternal));
+  pre_allocated_OutOfMemoryError_.VisitRootIfNonNull(visitor, RootInfo(kRootVMInternal));
+  pre_allocated_NoClassDefFoundError_.VisitRootIfNonNull(visitor, RootInfo(kRootVMInternal));
+  verifier::MethodVerifier::VisitStaticRoots(visitor);
+  VisitTransactionRoots(visitor);
 }
 
-void Runtime::VisitRoots(RootCallback* callback, void* arg, VisitRootFlags flags) {
-  VisitNonConcurrentRoots(callback, arg);
-  VisitConcurrentRoots(callback, arg, flags);
+void Runtime::VisitNonConcurrentRoots(RootVisitor* visitor) {
+  thread_list_->VisitRoots(visitor);
+  VisitNonThreadRoots(visitor);
 }
 
-mirror::ObjectArray<mirror::ArtMethod>* Runtime::CreateDefaultImt(ClassLinker* cl) {
-  Thread* self = Thread::Current();
-  StackHandleScope<1> hs(self);
-  Handle<mirror::ObjectArray<mirror::ArtMethod>> imtable(
-      hs.NewHandle(cl->AllocArtMethodArray(self, 64)));
-  mirror::ArtMethod* imt_conflict_method = Runtime::Current()->GetImtConflictMethod();
-  for (size_t i = 0; i < static_cast<size_t>(imtable->GetLength()); i++) {
-    imtable->Set<false>(i, imt_conflict_method);
+void Runtime::VisitThreadRoots(RootVisitor* visitor) {
+  thread_list_->VisitRoots(visitor);
+}
+
+size_t Runtime::FlipThreadRoots(Closure* thread_flip_visitor, Closure* flip_callback,
+                                gc::collector::GarbageCollector* collector) {
+  return thread_list_->FlipThreadRoots(thread_flip_visitor, flip_callback, collector);
+}
+
+void Runtime::VisitRoots(RootVisitor* visitor, VisitRootFlags flags) {
+  VisitNonConcurrentRoots(visitor);
+  VisitConcurrentRoots(visitor, flags);
+}
+
+void Runtime::VisitImageRoots(RootVisitor* visitor) {
+  for (auto* space : GetHeap()->GetContinuousSpaces()) {
+    if (space->IsImageSpace()) {
+      auto* image_space = space->AsImageSpace();
+      const auto& image_header = image_space->GetImageHeader();
+      for (size_t i = 0; i < ImageHeader::kImageRootsMax; ++i) {
+        auto* obj = image_header.GetImageRoot(static_cast<ImageHeader::ImageRoot>(i));
+        if (obj != nullptr) {
+          auto* after_obj = obj;
+          visitor->VisitRoot(&after_obj, RootInfo(kRootStickyClass));
+          CHECK_EQ(after_obj, obj);
+        }
+      }
+    }
   }
-  return imtable.Get();
 }
 
-mirror::ArtMethod* Runtime::CreateImtConflictMethod() {
-  Thread* self = Thread::Current();
-  Runtime* runtime = Runtime::Current();
-  ClassLinker* class_linker = runtime->GetClassLinker();
-  StackHandleScope<1> hs(self);
-  Handle<mirror::ArtMethod> method(hs.NewHandle(class_linker->AllocArtMethod(self)));
-  method->SetDeclaringClass(mirror::ArtMethod::GetJavaLangReflectArtMethod());
-  // TODO: use a special method for imt conflict method saves.
-  method->SetDexMethodIndex(DexFile::kDexNoIndex);
+ArtMethod* Runtime::CreateImtConflictMethod() {
+  auto* method = Runtime::Current()->GetClassLinker()->CreateRuntimeMethod();
   // When compiling, the code pointer will get set later when the image is loaded.
-  if (runtime->IsCompiler()) {
-#if defined(ART_USE_PORTABLE_COMPILER)
-    method->SetEntryPointFromPortableCompiledCode(nullptr);
-#endif
-    method->SetEntryPointFromQuickCompiledCode(nullptr);
+  if (IsAotCompiler()) {
+    size_t pointer_size = GetInstructionSetPointerSize(instruction_set_);
+    method->SetEntryPointFromQuickCompiledCodePtrSize(nullptr, pointer_size);
   } else {
-#if defined(ART_USE_PORTABLE_COMPILER)
-    method->SetEntryPointFromPortableCompiledCode(class_linker->GetPortableImtConflictTrampoline());
-#endif
-    method->SetEntryPointFromQuickCompiledCode(class_linker->GetQuickImtConflictTrampoline());
+    method->SetEntryPointFromQuickCompiledCode(GetQuickImtConflictStub());
   }
-  return method.Get();
+  return method;
 }
 
-mirror::ArtMethod* Runtime::CreateResolutionMethod() {
-  Thread* self = Thread::Current();
-  Runtime* runtime = Runtime::Current();
-  ClassLinker* class_linker = runtime->GetClassLinker();
-  StackHandleScope<1> hs(self);
-  Handle<mirror::ArtMethod> method(hs.NewHandle(class_linker->AllocArtMethod(self)));
-  method->SetDeclaringClass(mirror::ArtMethod::GetJavaLangReflectArtMethod());
-  // TODO: use a special method for resolution method saves
-  method->SetDexMethodIndex(DexFile::kDexNoIndex);
+void Runtime::SetImtConflictMethod(ArtMethod* method) {
+  CHECK(method != nullptr);
+  CHECK(method->IsRuntimeMethod());
+  imt_conflict_method_ = method;
+}
+
+ArtMethod* Runtime::CreateResolutionMethod() {
+  auto* method = Runtime::Current()->GetClassLinker()->CreateRuntimeMethod();
   // When compiling, the code pointer will get set later when the image is loaded.
-  if (runtime->IsCompiler()) {
-#if defined(ART_USE_PORTABLE_COMPILER)
-    method->SetEntryPointFromPortableCompiledCode(nullptr);
-#endif
-    method->SetEntryPointFromQuickCompiledCode(nullptr);
+  if (IsAotCompiler()) {
+    size_t pointer_size = GetInstructionSetPointerSize(instruction_set_);
+    method->SetEntryPointFromQuickCompiledCodePtrSize(nullptr, pointer_size);
   } else {
-#if defined(ART_USE_PORTABLE_COMPILER)
-    method->SetEntryPointFromPortableCompiledCode(class_linker->GetPortableResolutionTrampoline());
-#endif
-    method->SetEntryPointFromQuickCompiledCode(class_linker->GetQuickResolutionTrampoline());
+    method->SetEntryPointFromQuickCompiledCode(GetQuickResolutionStub());
   }
-  return method.Get();
+  return method;
 }
 
-mirror::ArtMethod* Runtime::CreateCalleeSaveMethod(CalleeSaveType type) {
-  Thread* self = Thread::Current();
-  Runtime* runtime = Runtime::Current();
-  ClassLinker* class_linker = runtime->GetClassLinker();
-  StackHandleScope<1> hs(self);
-  Handle<mirror::ArtMethod> method(hs.NewHandle(class_linker->AllocArtMethod(self)));
-  method->SetDeclaringClass(mirror::ArtMethod::GetJavaLangReflectArtMethod());
-  // TODO: use a special method for callee saves
-  method->SetDexMethodIndex(DexFile::kDexNoIndex);
-#if defined(ART_USE_PORTABLE_COMPILER)
-  method->SetEntryPointFromPortableCompiledCode(nullptr);
-#endif
-  method->SetEntryPointFromQuickCompiledCode(nullptr);
+ArtMethod* Runtime::CreateCalleeSaveMethod() {
+  auto* method = Runtime::Current()->GetClassLinker()->CreateRuntimeMethod();
+  size_t pointer_size = GetInstructionSetPointerSize(instruction_set_);
+  method->SetEntryPointFromQuickCompiledCodePtrSize(nullptr, pointer_size);
   DCHECK_NE(instruction_set_, kNone);
-  return method.Get();
+  DCHECK(method->IsRuntimeMethod());
+  return method;
 }
 
 void Runtime::DisallowNewSystemWeaks() {
@@ -1278,6 +1491,14 @@ void Runtime::AllowNewSystemWeaks() {
   java_vm_->AllowNewWeakGlobals();
 }
 
+void Runtime::EnsureNewSystemWeaksDisallowed() {
+  // Lock and unlock the system weak locks once to ensure that no
+  // threads are still in the middle of adding new system weaks.
+  monitor_list_->EnsureNewMonitorsDisallowed();
+  intern_table_->EnsureNewInternsDisallowed();
+  java_vm_->EnsureNewWeakGlobalsDisallowed();
+}
+
 void Runtime::SetInstructionSet(InstructionSet instruction_set) {
   instruction_set_ = instruction_set;
   if ((instruction_set_ == kThumb2) || (instruction_set_ == kArm)) {
@@ -1289,6 +1510,11 @@ void Runtime::SetInstructionSet(InstructionSet instruction_set) {
     for (int i = 0; i != kLastCalleeSaveType; ++i) {
       CalleeSaveType type = static_cast<CalleeSaveType>(i);
       callee_save_method_frame_infos_[i] = mips::MipsCalleeSaveMethodFrameInfo(type);
+    }
+  } else if (instruction_set_ == kMips64) {
+    for (int i = 0; i != kLastCalleeSaveType; ++i) {
+      CalleeSaveType type = static_cast<CalleeSaveType>(i);
+      callee_save_method_frame_infos_[i] = mips64::Mips64CalleeSaveMethodFrameInfo(type);
     }
   } else if (instruction_set_ == kX86) {
     for (int i = 0; i != kLastCalleeSaveType; ++i) {
@@ -1310,109 +1536,133 @@ void Runtime::SetInstructionSet(InstructionSet instruction_set) {
   }
 }
 
-void Runtime::SetCalleeSaveMethod(mirror::ArtMethod* method, CalleeSaveType type) {
+void Runtime::SetCalleeSaveMethod(ArtMethod* method, CalleeSaveType type) {
   DCHECK_LT(static_cast<int>(type), static_cast<int>(kLastCalleeSaveType));
-  callee_save_methods_[type] = GcRoot<mirror::ArtMethod>(method);
-}
-
-const std::vector<const DexFile*>& Runtime::GetCompileTimeClassPath(jobject class_loader) {
-  if (class_loader == NULL) {
-    return GetClassLinker()->GetBootClassPath();
-  }
-  CHECK(UseCompileTimeClassPath());
-  CompileTimeClassPaths::const_iterator it = compile_time_class_paths_.find(class_loader);
-  CHECK(it != compile_time_class_paths_.end());
-  return it->second;
-}
-
-void Runtime::SetCompileTimeClassPath(jobject class_loader,
-                                      std::vector<const DexFile*>& class_path) {
-  CHECK(!IsStarted());
-  use_compile_time_class_path_ = true;
-  compile_time_class_paths_.Put(class_loader, class_path);
-}
-
-void Runtime::AddMethodVerifier(verifier::MethodVerifier* verifier) {
-  DCHECK(verifier != nullptr);
-  MutexLock mu(Thread::Current(), method_verifier_lock_);
-  method_verifiers_.insert(verifier);
-}
-
-void Runtime::RemoveMethodVerifier(verifier::MethodVerifier* verifier) {
-  DCHECK(verifier != nullptr);
-  MutexLock mu(Thread::Current(), method_verifier_lock_);
-  auto it = method_verifiers_.find(verifier);
-  CHECK(it != method_verifiers_.end());
-  method_verifiers_.erase(it);
+  CHECK(method != nullptr);
+  callee_save_methods_[type] = reinterpret_cast<uintptr_t>(method);
 }
 
 void Runtime::StartProfiler(const char* profile_output_filename) {
   profile_output_filename_ = profile_output_filename;
   profiler_started_ =
-    BackgroundMethodSamplingProfiler::Start(profile_output_filename_, profiler_options_);
+      BackgroundMethodSamplingProfiler::Start(profile_output_filename_, profiler_options_);
 }
 
 // Transaction support.
 void Runtime::EnterTransactionMode(Transaction* transaction) {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(transaction != nullptr);
   DCHECK(!IsActiveTransaction());
   preinitialization_transaction_ = transaction;
 }
 
 void Runtime::ExitTransactionMode() {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_ = nullptr;
 }
 
+bool Runtime::IsTransactionAborted() const {
+  if (!IsActiveTransaction()) {
+    return false;
+  } else {
+    DCHECK(IsAotCompiler());
+    return preinitialization_transaction_->IsAborted();
+  }
+}
+
+void Runtime::AbortTransactionAndThrowAbortError(Thread* self, const std::string& abort_message) {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  // Throwing an exception may cause its class initialization. If we mark the transaction
+  // aborted before that, we may warn with a false alarm. Throwing the exception before
+  // marking the transaction aborted avoids that.
+  preinitialization_transaction_->ThrowAbortError(self, &abort_message);
+  preinitialization_transaction_->Abort(abort_message);
+}
+
+void Runtime::ThrowTransactionAbortError(Thread* self) {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  // Passing nullptr means we rethrow an exception with the earlier transaction abort message.
+  preinitialization_transaction_->ThrowAbortError(self, nullptr);
+}
+
+void Runtime::RecordWriteFieldBoolean(mirror::Object* obj, MemberOffset field_offset,
+                                      uint8_t value, bool is_volatile) const {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  preinitialization_transaction_->RecordWriteFieldBoolean(obj, field_offset, value, is_volatile);
+}
+
+void Runtime::RecordWriteFieldByte(mirror::Object* obj, MemberOffset field_offset,
+                                   int8_t value, bool is_volatile) const {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  preinitialization_transaction_->RecordWriteFieldByte(obj, field_offset, value, is_volatile);
+}
+
+void Runtime::RecordWriteFieldChar(mirror::Object* obj, MemberOffset field_offset,
+                                   uint16_t value, bool is_volatile) const {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  preinitialization_transaction_->RecordWriteFieldChar(obj, field_offset, value, is_volatile);
+}
+
+void Runtime::RecordWriteFieldShort(mirror::Object* obj, MemberOffset field_offset,
+                                    int16_t value, bool is_volatile) const {
+  DCHECK(IsAotCompiler());
+  DCHECK(IsActiveTransaction());
+  preinitialization_transaction_->RecordWriteFieldShort(obj, field_offset, value, is_volatile);
+}
+
 void Runtime::RecordWriteField32(mirror::Object* obj, MemberOffset field_offset,
                                  uint32_t value, bool is_volatile) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWriteField32(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteField64(mirror::Object* obj, MemberOffset field_offset,
                                  uint64_t value, bool is_volatile) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWriteField64(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteFieldReference(mirror::Object* obj, MemberOffset field_offset,
                                         mirror::Object* value, bool is_volatile) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWriteFieldReference(obj, field_offset, value, is_volatile);
 }
 
 void Runtime::RecordWriteArray(mirror::Array* array, size_t index, uint64_t value) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWriteArray(array, index, value);
 }
 
 void Runtime::RecordStrongStringInsertion(mirror::String* s) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordStrongStringInsertion(s);
 }
 
 void Runtime::RecordWeakStringInsertion(mirror::String* s) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWeakStringInsertion(s);
 }
 
 void Runtime::RecordStrongStringRemoval(mirror::String* s) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordStrongStringRemoval(s);
 }
 
 void Runtime::RecordWeakStringRemoval(mirror::String* s) const {
-  DCHECK(IsCompiler());
+  DCHECK(IsAotCompiler());
   DCHECK(IsActiveTransaction());
   preinitialization_transaction_->RecordWeakStringRemoval(s);
 }
@@ -1424,7 +1674,7 @@ void Runtime::SetFaultMessage(const std::string& message) {
 
 void Runtime::AddCurrentRuntimeFeaturesAsDex2OatArguments(std::vector<std::string>* argv)
     const {
-  if (GetInstrumentation()->InterpretOnly()) {
+  if (GetInstrumentation()->InterpretOnly() || UseJit()) {
     argv->push_back("--compiler-filter=interpret-only");
   }
 
@@ -1435,12 +1685,51 @@ void Runtime::AddCurrentRuntimeFeaturesAsDex2OatArguments(std::vector<std::strin
   instruction_set += GetInstructionSetString(kRuntimeISA);
   argv->push_back(instruction_set);
 
-  std::string features("--instruction-set-features=");
-  features += GetDefaultInstructionSetFeatures();
-  argv->push_back(features);
+  std::unique_ptr<const InstructionSetFeatures> features(InstructionSetFeatures::FromCppDefines());
+  std::string feature_string("--instruction-set-features=");
+  feature_string += features->GetFeatureString();
+  argv->push_back(feature_string);
 }
 
 void Runtime::UpdateProfilerState(int state) {
   VLOG(profiler) << "Profiler state updated to " << state;
 }
+
+void Runtime::CreateJit() {
+  CHECK(!IsAotCompiler());
+  if (GetInstrumentation()->IsForcedInterpretOnly()) {
+    // Don't create JIT if forced interpret only.
+    return;
+  }
+  std::string error_msg;
+  jit_.reset(jit::Jit::Create(jit_options_.get(), &error_msg));
+  if (jit_.get() != nullptr) {
+    compiler_callbacks_ = jit_->GetCompilerCallbacks();
+    jit_->CreateInstrumentationCache(jit_options_->GetCompileThreshold());
+    jit_->CreateThreadPool();
+  } else {
+    LOG(WARNING) << "Failed to create JIT " << error_msg;
+  }
+}
+
+bool Runtime::CanRelocate() const {
+  return !IsAotCompiler() || compiler_callbacks_->IsRelocationPossible();
+}
+
+bool Runtime::IsCompilingBootImage() const {
+  return IsCompiler() && compiler_callbacks_->IsBootImage();
+}
+
+void Runtime::SetResolutionMethod(ArtMethod* method) {
+  CHECK(method != nullptr);
+  CHECK(method->IsRuntimeMethod()) << method;
+  resolution_method_ = method;
+}
+
+void Runtime::SetImtUnimplementedMethod(ArtMethod* method) {
+  CHECK(method != nullptr);
+  CHECK(method->IsRuntimeMethod());
+  imt_unimplemented_method_ = method;
+}
+
 }  // namespace art

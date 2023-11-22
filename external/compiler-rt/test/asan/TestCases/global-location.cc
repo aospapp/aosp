@@ -1,6 +1,3 @@
-// FIXME: https://code.google.com/p/address-sanitizer/issues/detail?id=264
-// XFAIL: android
-
 // RUN: %clangxx_asan -O2 %s -o %t
 // RUN: not %run %t g 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=GLOB
 // RUN: not %run %t c 2>&1 | FileCheck %s --check-prefix=CHECK --check-prefix=CLASS_STATIC
@@ -27,7 +24,7 @@ int main(int argc, char **argv) {
   case 'c': return C::array[one * 11];
   case 'f':
     static int array[10];
-    // FUNC_STATIC: 0x{{.*}} is located 4 bytes to the right of global variable 'main::array' defined in '{{.*}}global-location.cc:[[@LINE-1]]:16' {{.*}} of size 40
+    // FUNC_STATIC: 0x{{.*}} is located 4 bytes to the right of global variable 'array' defined in '{{.*}}global-location.cc:[[@LINE-1]]:16' {{.*}} of size 40
     memset(array, 0, 10);
     return array[one * 11];
   case 'l':

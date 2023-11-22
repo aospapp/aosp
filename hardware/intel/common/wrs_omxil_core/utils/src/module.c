@@ -123,7 +123,6 @@ const char *module_error(void)
 struct module *module_open(const char *file, int flag)
 {
     struct module *new, *existing;
-    void *handle;
     const char *dlerr;
     int init_ret = 0;
 
@@ -207,7 +206,6 @@ free_new:
 
 int module_close(struct module *module)
 {
-    const char *dlerr;
     int ret = 0;
 
     if (!module || !module->handle)

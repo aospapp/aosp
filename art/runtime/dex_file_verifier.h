@@ -26,7 +26,7 @@ namespace art {
 
 class DexFileVerifier {
  public:
-  static bool Verify(const DexFile* dex_file, const byte* begin, size_t size,
+  static bool Verify(const DexFile* dex_file, const uint8_t* begin, size_t size,
                      const char* location, std::string* error_msg);
 
   const std::string& FailureReason() const {
@@ -34,9 +34,9 @@ class DexFileVerifier {
   }
 
  private:
-  DexFileVerifier(const DexFile* dex_file, const byte* begin, size_t size, const char* location)
+  DexFileVerifier(const DexFile* dex_file, const uint8_t* begin, size_t size, const char* location)
       : dex_file_(dex_file), begin_(begin), size_(size), location_(location),
-        header_(&dex_file->GetHeader()), ptr_(NULL), previous_item_(NULL)  {
+        header_(&dex_file->GetHeader()), ptr_(nullptr), previous_item_(nullptr)  {
   }
 
   bool Verify();
@@ -45,7 +45,7 @@ class DexFileVerifier {
   bool CheckListSize(const void* start, size_t count, size_t element_size, const char* label);
   // Check a list. The head is assumed to be at *ptr, and elements to be of size element_size. If
   // successful, the ptr will be moved forward the amount covered by the list.
-  bool CheckList(size_t element_size, const char* label, const byte* *ptr);
+  bool CheckList(size_t element_size, const char* label, const uint8_t* *ptr);
   // Checks whether the offset is zero (when size is zero) or that the offset falls within the area
   // claimed by the file.
   bool CheckValidOffsetAndSize(uint32_t offset, uint32_t size, const char* label);
@@ -81,8 +81,8 @@ class DexFileVerifier {
 
   // Note: as sometimes kDexNoIndex16, being 0xFFFF, is a valid return value, we need an
   // additional out parameter to signal any errors loading an index.
-  uint16_t FindFirstClassDataDefiner(const byte* ptr, bool* success);
-  uint16_t FindFirstAnnotationsDirectoryDefiner(const byte* ptr, bool* success);
+  uint16_t FindFirstClassDataDefiner(const uint8_t* ptr, bool* success);
+  uint16_t FindFirstAnnotationsDirectoryDefiner(const uint8_t* ptr, bool* success);
 
   bool CheckInterStringIdItem();
   bool CheckInterTypeIdItem();
@@ -99,12 +99,12 @@ class DexFileVerifier {
   bool CheckInterSection();
 
   // Load a string by (type) index. Checks whether the index is in bounds, printing the error if
-  // not. If there is an error, nullptr is returned.
+  // not. If there is an error, null is returned.
   const char* CheckLoadStringByIdx(uint32_t idx, const char* error_fmt);
   const char* CheckLoadStringByTypeIdx(uint32_t type_idx, const char* error_fmt);
 
   // Load a field/method Id by index. Checks whether the index is in bounds, printing the error if
-  // not. If there is an error, nullptr is returned.
+  // not. If there is an error, null is returned.
   const DexFile::FieldId* CheckLoadFieldId(uint32_t idx, const char* error_fmt);
   const DexFile::MethodId* CheckLoadMethodId(uint32_t idx, const char* error_fmt);
 
@@ -112,13 +112,13 @@ class DexFileVerifier {
       __attribute__((__format__(__printf__, 2, 3))) COLD_ATTR;
 
   const DexFile* const dex_file_;
-  const byte* const begin_;
+  const uint8_t* const begin_;
   const size_t size_;
   const char* const location_;
   const DexFile::Header* const header_;
 
   AllocationTrackingSafeMap<uint32_t, uint16_t, kAllocatorTagDexFileVerifier> offset_to_type_map_;
-  const byte* ptr_;
+  const uint8_t* ptr_;
   const void* previous_item_;
 
   std::string failure_reason_;

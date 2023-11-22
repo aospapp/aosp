@@ -41,43 +41,38 @@
 #define FINAL
 #endif
 
-// The COMPILE_ASSERT macro can be used to verify that a compile time
-// expression is true. For example, you could use it to verify the
-// size of a static array:
-//
-//   COMPILE_ASSERT(ARRAYSIZE(content_type_names) == CONTENT_NUM_TYPES,
-//                  content_type_names_incorrect_size);
-//
-// or to make sure a struct is smaller than a certain size:
-//
-//   COMPILE_ASSERT(sizeof(foo) < 128, foo_too_large);
-//
-// The second argument to the macro is the name of the variable. If
-// the expression is false, most compilers will issue a warning/error
-// containing the name of the variable.
+// Declare a friend relationship in a class with a test. Used rather that FRIEND_TEST to avoid
+// globally importing gtest/gtest.h into the main ART header files.
+#define ART_FRIEND_TEST(test_set_name, individual_test)\
+friend class test_set_name##_##individual_test##_Test
 
-template <bool>
-struct CompileAssert {
-};
+// Declare a friend relationship in a class with a typed test.
+#define ART_FRIEND_TYPED_TEST(test_set_name, individual_test)\
+template<typename T> ART_FRIEND_TEST(test_set_name, individual_test)
 
-#define COMPILE_ASSERT(expr, msg) \
-  typedef CompileAssert<(bool(expr))> msg[bool(expr) ? 1 : -1] // NOLINT
-
-// DISALLOW_COPY_AND_ASSIGN disallows the copy and operator= functions.
-// It goes in the private: declarations in a class.
+// DISALLOW_COPY_AND_ASSIGN disallows the copy and operator= functions. It goes in the private:
+// declarations in a class.
+#if !defined(DISALLOW_COPY_AND_ASSIGN)
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
-  TypeName(const TypeName&);               \
-  void operator=(const TypeName&)
+  TypeName(const TypeName&) = delete;  \
+  void operator=(const TypeName&) = delete
+#endif
 
-// A macro to disallow all the implicit constructors, namely the
-// default constructor, copy constructor and operator= functions.
+// A macro to disallow all the implicit constructors, namely the default constructor, copy
+// constructor and operator= functions.
 //
-// This should be used in the private: declarations for a class
-// that wants to prevent anyone from instantiating it. This is
-// especially useful for classes containing only static methods.
+// This should be used in the private: declarations for a class that wants to prevent anyone from
+// instantiating it. This is especially useful for classes containing only static methods.
 #define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName) \
-  TypeName();                                    \
+  TypeName() = delete;  \
   DISALLOW_COPY_AND_ASSIGN(TypeName)
+
+// A macro to disallow new and delete operators for a class. It goes in the private: declarations.
+#define DISALLOW_ALLOCATION() \
+  public: \
+    NO_RETURN ALWAYS_INLINE void operator delete(void*, size_t) { UNREACHABLE(); } \
+  private: \
+    void* operator new(size_t) = delete
 
 // The arraysize(arr) macro returns the # of elements in an array arr.
 // The expression is a compile-time constant, and therefore can be
@@ -167,6 +162,8 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
 #define ALWAYS_INLINE_LAMBDA ALWAYS_INLINE
 #endif
 
+#define NO_INLINE __attribute__ ((noinline))
+
 #if defined (__APPLE__)
 #define HOT_ATTR
 #define COLD_ATTR
@@ -178,7 +175,65 @@ char (&ArraySizeHelper(T (&array)[N]))[N];
 #define PURE __attribute__ ((__pure__))
 #define WARN_UNUSED __attribute__((warn_unused_result))
 
-template<typename T> void UNUSED(const T&) {}
+// A deprecated function to call to create a false use of the parameter, for example:
+//   int foo(int x) { UNUSED(x); return 10; }
+// to avoid compiler warnings. Going forward we prefer ATTRIBUTE_UNUSED.
+template<typename... T> void UNUSED(const T&...) {}
+
+// An attribute to place on a parameter to a function, for example:
+//   int foo(int x ATTRIBUTE_UNUSED) { return 10; }
+// to avoid compiler warnings.
+#define ATTRIBUTE_UNUSED __attribute__((__unused__))
+
+// Define that a position within code is unreachable, for example:
+//   int foo () { LOG(FATAL) << "Don't call me"; UNREACHABLE(); }
+// without the UNREACHABLE a return statement would be necessary.
+#define UNREACHABLE  __builtin_unreachable
+
+// Add the C++11 noreturn attribute.
+#define NO_RETURN [[ noreturn ]]  // NOLINT[whitespace/braces] [5]
+
+// The FALLTHROUGH_INTENDED macro can be used to annotate implicit fall-through
+// between switch labels:
+//  switch (x) {
+//    case 40:
+//    case 41:
+//      if (truth_is_out_there) {
+//        ++x;
+//        FALLTHROUGH_INTENDED;  // Use instead of/along with annotations in
+//                               // comments.
+//      } else {
+//        return x;
+//      }
+//    case 42:
+//      ...
+//
+//  As shown in the example above, the FALLTHROUGH_INTENDED macro should be
+//  followed by a semicolon. It is designed to mimic control-flow statements
+//  like 'break;', so it can be placed in most places where 'break;' can, but
+//  only if there are no statements on the execution path between it and the
+//  next switch label.
+//
+//  When compiled with clang in C++11 mode, the FALLTHROUGH_INTENDED macro is
+//  expanded to [[clang::fallthrough]] attribute, which is analysed when
+//  performing switch labels fall-through diagnostic ('-Wimplicit-fallthrough').
+//  See clang documentation on language extensions for details:
+//  http://clang.llvm.org/docs/LanguageExtensions.html#clang__fallthrough
+//
+//  When used with unsupported compilers, the FALLTHROUGH_INTENDED macro has no
+//  effect on diagnostics.
+//
+//  In either case this macro has no effect on runtime behavior and performance
+//  of code.
+#if defined(__clang__) && __cplusplus >= 201103L && defined(__has_warning)
+#if __has_feature(cxx_attributes) && __has_warning("-Wimplicit-fallthrough")
+#define FALLTHROUGH_INTENDED [[clang::fallthrough]]  // NOLINT
+#endif
+#endif
+
+#ifndef FALLTHROUGH_INTENDED
+#define FALLTHROUGH_INTENDED do { } while (0)
+#endif
 
 // Annotalysis thread-safety analysis support.
 #if defined(__SUPPORT_TS_ANNOTATION__) || defined(__clang__)

@@ -68,7 +68,11 @@ public class VoicemailContentTable implements VoicemailTable.Delegate {
             .add(Voicemails.SOURCE_DATA)
             .add(Voicemails.SOURCE_PACKAGE)
             .add(Voicemails.HAS_CONTENT)
+            .add(Voicemails.PHONE_ACCOUNT_COMPONENT_NAME)
+            .add(Voicemails.PHONE_ACCOUNT_ID)
             .add(Voicemails.MIME_TYPE)
+            .add(Voicemails.DIRTY)
+            .add(Voicemails.DELETED)
             .add(OpenableColumns.DISPLAY_NAME)
             .add(OpenableColumns.SIZE)
             .build();
@@ -99,6 +103,10 @@ public class VoicemailContentTable implements VoicemailTable.Delegate {
                 .add(Voicemails.HAS_CONTENT)
                 .add(Voicemails.MIME_TYPE)
                 .add(Voicemails._DATA)
+                .add(Voicemails.PHONE_ACCOUNT_COMPONENT_NAME)
+                .add(Voicemails.PHONE_ACCOUNT_ID)
+                .add(Voicemails.DIRTY)
+                .add(Voicemails.DELETED)
                 .add(OpenableColumns.DISPLAY_NAME, createDisplayName(context))
                 .add(OpenableColumns.SIZE, "NULL")
                 .build();
@@ -132,9 +140,11 @@ public class VoicemailContentTable implements VoicemailTable.Delegate {
 
         // call type is always voicemail.
         copiedValues.put(Calls.TYPE, Calls.VOICEMAIL_TYPE);
-        // By default marked as new, unless explicitly overridden.
+        // A voicemail is marked as new unless it is marked as read or explicitly overridden.
+        boolean isRead = values.containsKey(Calls.IS_READ) ?
+                values.getAsBoolean(Calls.IS_READ) : false;
         if (!values.containsKey(Calls.NEW)) {
-            copiedValues.put(Calls.NEW, 1);
+            copiedValues.put(Calls.NEW, !isRead);
         }
 
         SQLiteDatabase db = mDbHelper.getWritableDatabase();

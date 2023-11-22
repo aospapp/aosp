@@ -3,6 +3,17 @@ LIBRARY = $(LIB_PREFIX)$(MPL_LIB_NAME).$(SHARED_LIB_EXT)
 
 MK_NAME = $(notdir $(CURDIR)/$(firstword $(MAKEFILE_LIST)))
 
+# ANDROID version check
+BUILD_ANDROID_LOLLIPOP = $(shell test -d $(ANDROID_ROOT)/bionic/libc/kernel/uapi && echo 1)
+$(info YD>>BUILD_ANDROID_LOLLIPOP = $(BUILD_ANDROID_LOLLIPOP))
+#ANDROID version check END
+
+ifeq ($(BUILD_ANDROID_LOLLIPOP),1)
+CFLAGS += -DANDROID_LOLLIPOP
+else
+CFLAGS += -DANDROID_KITKAT
+endif
+
 CROSS ?= $(ANDROID_ROOT)/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-
 COMP  ?= $(CROSS)gcc
 LINK  ?= $(CROSS)gcc
@@ -25,7 +36,9 @@ CFLAGS += -DNDEBUG
 CFLAGS += -D_REENTRANT
 CFLAGS += -DLINUX
 CFLAGS += -DANDROID
+ifeq ($(ARCH),arm)
 CFLAGS += -mthumb-interwork
+endif
 CFLAGS += -fno-exceptions
 CFLAGS += -ffunction-sections
 CFLAGS += -funwind-tables
@@ -42,12 +55,17 @@ LLINK += -lcutils
 LLINK += -lgcc 
 LLINK += -ldl
 
+
 LFLAGS += $(CMDLINE_LFLAGS)
 LFLAGS += -shared 
 LFLAGS += -Wl,-soname,$(LIBRARY)
 LFLAGS += -Wl,-shared,-Bsymbolic 
 LFLAGS += $(ANDROID_LINK)
+ifeq ($(ARCH),arm64)
+LFLAGS += -Wl,-rpath,$(ANDROID_ROOT)/out/target/product/$(PRODUCT)/obj/lib
+else
 LFLAGS += -Wl,-rpath,$(ANDROID_ROOT)/out/target/product/$(PRODUCT)/obj/lib:$(ANDROID_ROOT)/out/target/product/$(PRODUCT)/system/lib
+endif
 
 ####################################################################################################
 ## sources

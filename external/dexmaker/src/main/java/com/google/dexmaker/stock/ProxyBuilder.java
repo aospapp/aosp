@@ -38,6 +38,7 @@ import static java.lang.reflect.Modifier.STATIC;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -115,6 +116,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
  * This class is <b>not thread safe</b>.
  */
 public final class ProxyBuilder<T> {
+    // Version of ProxyBuilder. It should be updated if the implementation
+    // of the generated proxy class changes.
+    public static final int VERSION = 1;
+
     private static final String FIELD_NAME_HANDLER = "$__handler";
     private static final String FIELD_NAME_METHODS = "$__methodArray";
 
@@ -162,8 +167,9 @@ public final class ProxyBuilder<T> {
      * DexMaker#generateAndLoad DexMaker.generateAndLoad()} for guidance on
      * choosing a secure location for the dex cache.
      */
-    public ProxyBuilder<T> dexCache(File dexCache) {
-        this.dexCache = dexCache;
+    public ProxyBuilder<T> dexCache(File dexCacheParent) {
+        dexCache = new File(dexCacheParent, "v" + Integer.toString(VERSION));
+        dexCache.mkdir();
         return this;
     }
     
@@ -608,6 +614,16 @@ public final class ProxyBuilder<T> {
         for (MethodSetEntry entry : methodsToProxy) {
             results[i++] = entry.originalMethod;
         }
+
+        // Sort the results array so that they are returned by this method
+        // in a deterministic fashion.
+        Arrays.sort(results, new Comparator<Method>() {
+            @Override
+            public int compare(Method method1, Method method2) {
+                return method1.toString().compareTo(method2.toString());
+            }
+        });
+
         return results;
     }
 

@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include <cstddef>
+#include <new>
 
 #include <UniquePtr.h>
 
@@ -109,6 +110,9 @@ inline uint8_t* append_size_and_data_to_buf(uint8_t* buf, const uint8_t* end, co
 template <typename T>
 inline uint8_t* append_uint32_array_to_buf(uint8_t* buf, const uint8_t* end, const T* data,
                                            size_t count) {
+    // Check for overflow
+    if (count >= (UINT32_MAX / sizeof(uint32_t)) || buf + count * sizeof(uint32_t) < buf)
+        return buf;
     buf = append_uint32_to_buf(buf, end, count);
     for (size_t i = 0; i < count; ++i)
         buf = append_uint32_to_buf(buf, end, static_cast<uint32_t>(data[i]));
@@ -165,9 +169,16 @@ inline bool copy_uint64_from_buf(const uint8_t** buf_ptr, const uint8_t* end, ui
 template <typename T>
 inline bool copy_uint32_array_from_buf(const uint8_t** buf_ptr, const uint8_t* end,
                                        UniquePtr<T[]>* data, size_t* count) {
-    if (!copy_uint32_from_buf(buf_ptr, end, count) || *buf_ptr + *count * sizeof(uint32_t) > end)
+    if (!copy_uint32_from_buf(buf_ptr, end, count))
         return false;
-    data->reset(new T[*count]);
+
+    const uint8_t* array_end = *buf_ptr + *count * sizeof(uint32_t);
+    if (*count >= UINT32_MAX / sizeof(uint32_t) || array_end < *buf_ptr || array_end > end)
+        return false;
+
+    data->reset(new (std::nothrow) T[*count]);
+    if (!data->get())
+        return false;
     for (size_t i = 0; i < *count; ++i)
         if (!copy_uint32_from_buf(buf_ptr, end, &(*data)[i]))
             return false;
@@ -194,6 +205,9 @@ class Buffer : public Serializable {
         return Reinitialize(buffer.peek_read(), buffer.available_read());
     }
 
+    const uint8_t* begin() const { return peek_read(); }
+    const uint8_t* end() const { return peek_read() + available_read(); }
+
     void Clear();
 
     size_t available_write() const;
@@ -203,9 +217,21 @@ class Buffer : public Serializable {
     bool write(const uint8_t* src, size_t write_length);
     bool read(uint8_t* dest, size_t read_length);
     const uint8_t* peek_read() const { return buffer_.get() + read_position_; }
-    void advance_read(int distance) { read_position_ += distance; }
+    bool advance_read(int distance) {
+        if (static_cast<size_t>(read_position_ + distance) <= write_position_) {
+            read_position_ += distance;
+            return true;
+        }
+        return false;
+    }
     uint8_t* peek_write() { return buffer_.get() + write_position_; }
-    void advance_write(int distance) { write_position_ += distance; }
+    bool advance_write(int distance) {
+        if (static_cast<size_t>(write_position_ + distance) <= buffer_size_) {
+            write_position_ += distance;
+            return true;
+        }
+        return false;
+    }
 
     size_t SerializedSize() const;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const;
@@ -218,8 +244,8 @@ class Buffer : public Serializable {
 
     UniquePtr<uint8_t[]> buffer_;
     size_t buffer_size_;
-    int read_position_;
-    int write_position_;
+    size_t read_position_;
+    size_t write_position_;
 };
 
 }  // namespace keymaster

@@ -31,12 +31,9 @@
 namespace art {
 namespace mirror {
 
-void DexCache::Init(const DexFile* dex_file,
-                    String* location,
-                    ObjectArray<String>* strings,
-                    ObjectArray<Class>* resolved_types,
-                    ObjectArray<ArtMethod>* resolved_methods,
-                    ObjectArray<ArtField>* resolved_fields) {
+void DexCache::Init(const DexFile* dex_file, String* location, ObjectArray<String>* strings,
+                    ObjectArray<Class>* resolved_types, PointerArray* resolved_methods,
+                    PointerArray* resolved_fields, size_t pointer_size) {
   CHECK(dex_file != nullptr);
   CHECK(location != nullptr);
   CHECK(strings != nullptr);
@@ -44,32 +41,28 @@ void DexCache::Init(const DexFile* dex_file,
   CHECK(resolved_methods != nullptr);
   CHECK(resolved_fields != nullptr);
 
-  SetFieldPtr<false>(OFFSET_OF_OBJECT_MEMBER(DexCache, dex_file_), dex_file);
+  SetDexFile(dex_file);
   SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(DexCache, location_), location);
   SetFieldObject<false>(StringsOffset(), strings);
+  SetFieldObject<false>(ResolvedFieldsOffset(), resolved_fields);
   SetFieldObject<false>(OFFSET_OF_OBJECT_MEMBER(DexCache, resolved_types_), resolved_types);
   SetFieldObject<false>(ResolvedMethodsOffset(), resolved_methods);
-  SetFieldObject<false>(ResolvedFieldsOffset(), resolved_fields);
 
-  Runtime* runtime = Runtime::Current();
+  Runtime* const runtime = Runtime::Current();
   if (runtime->HasResolutionMethod()) {
     // Initialize the resolve methods array to contain trampolines for resolution.
-    ArtMethod* trampoline = runtime->GetResolutionMethod();
-    size_t length = resolved_methods->GetLength();
-    for (size_t i = 0; i < length; i++) {
-      resolved_methods->SetWithoutChecks<false>(i, trampoline);
-    }
+    Fixup(runtime->GetResolutionMethod(), pointer_size);
   }
 }
 
-void DexCache::Fixup(ArtMethod* trampoline) {
+void DexCache::Fixup(ArtMethod* trampoline, size_t pointer_size) {
   // Fixup the resolve methods array to contain trampoline for resolution.
   CHECK(trampoline != nullptr);
-  ObjectArray<ArtMethod>* resolved_methods = GetResolvedMethods();
-  size_t length = resolved_methods->GetLength();
-  for (size_t i = 0; i < length; i++) {
-    if (resolved_methods->GetWithoutChecks(i) == nullptr) {
-      resolved_methods->SetWithoutChecks<false>(i, trampoline);
+  CHECK(trampoline->IsRuntimeMethod());
+  auto* resolved_methods = GetResolvedMethods();
+  for (size_t i = 0, length = resolved_methods->GetLength(); i < length; i++) {
+    if (resolved_methods->GetElementPtrSize<ArtMethod*>(i, pointer_size) == nullptr) {
+      resolved_methods->SetElementPtrSize(i, trampoline, pointer_size);
     }
   }
 }

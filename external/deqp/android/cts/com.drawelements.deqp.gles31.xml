@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<TestPackage name="dEQP-GLES31" appPackageName="com.drawelements.deqp.gles31" testType="deqpTest">
+<TestPackage name="dEQP-GLES31" appPackageName="com.drawelements.deqp.gles31" testType="deqpTest" xmlns:deqp="http://drawelements.com/deqp" deqp:glesVersion="196609">
 <TestSuite name="dEQP-GLES31">
 <TestCase name="info">
 <Test name="renderer" />
@@ -6332,23 +6332,6 @@
 </TestCase>
 </TestSuite>
 <TestSuite name="user_defined_io">
-<TestSuite name="per_patch">
-<TestCase name="vertex_io_array_size_implicit">
-<Test name="triangles" />
-<Test name="quads" />
-<Test name="isolines" />
-</TestCase>
-<TestCase name="vertex_io_array_size_shader_builtin">
-<Test name="triangles" />
-<Test name="quads" />
-<Test name="isolines" />
-</TestCase>
-<TestCase name="vertex_io_array_size_query">
-<Test name="triangles" />
-<Test name="quads" />
-<Test name="isolines" />
-</TestCase>
-</TestSuite>
 <TestSuite name="per_vertex_block">
 <TestCase name="vertex_io_array_size_implicit">
 <Test name="triangles" />
@@ -9520,7 +9503,6 @@
 <Test name="exchange_r32ui_result" />
 <Test name="exchange_r32ui_return_value" />
 <Test name="comp_swap_r32ui_result" />
-<Test name="comp_swap_r32ui_return_value" />
 <Test name="add_r32i_result" />
 <Test name="add_r32i_return_value" />
 <Test name="min_r32i_result" />
@@ -9536,7 +9518,6 @@
 <Test name="exchange_r32i_result" />
 <Test name="exchange_r32i_return_value" />
 <Test name="comp_swap_r32i_result" />
-<Test name="comp_swap_r32i_return_value" />
 </TestCase>
 <TestCase name="qualifiers">
 <Test name="coherent_r32f" />
@@ -9693,7 +9674,6 @@
 <Test name="exchange_r32ui_result" />
 <Test name="exchange_r32ui_return_value" />
 <Test name="comp_swap_r32ui_result" />
-<Test name="comp_swap_r32ui_return_value" />
 <Test name="add_r32i_result" />
 <Test name="add_r32i_return_value" />
 <Test name="min_r32i_result" />
@@ -9709,7 +9689,6 @@
 <Test name="exchange_r32i_result" />
 <Test name="exchange_r32i_return_value" />
 <Test name="comp_swap_r32i_result" />
-<Test name="comp_swap_r32i_return_value" />
 </TestCase>
 <TestCase name="qualifiers">
 <Test name="coherent_r32f" />
@@ -9866,7 +9845,6 @@
 <Test name="exchange_r32ui_result" />
 <Test name="exchange_r32ui_return_value" />
 <Test name="comp_swap_r32ui_result" />
-<Test name="comp_swap_r32ui_return_value" />
 <Test name="add_r32i_result" />
 <Test name="add_r32i_return_value" />
 <Test name="min_r32i_result" />
@@ -9882,7 +9860,6 @@
 <Test name="exchange_r32i_result" />
 <Test name="exchange_r32i_return_value" />
 <Test name="comp_swap_r32i_result" />
-<Test name="comp_swap_r32i_return_value" />
 </TestCase>
 <TestCase name="qualifiers">
 <Test name="coherent_r32f" />
@@ -10039,7 +10016,6 @@
 <Test name="exchange_r32ui_result" />
 <Test name="exchange_r32ui_return_value" />
 <Test name="comp_swap_r32ui_result" />
-<Test name="comp_swap_r32ui_return_value" />
 <Test name="add_r32i_result" />
 <Test name="add_r32i_return_value" />
 <Test name="min_r32i_result" />
@@ -10055,7 +10031,6 @@
 <Test name="exchange_r32i_result" />
 <Test name="exchange_r32i_return_value" />
 <Test name="comp_swap_r32i_result" />
-<Test name="comp_swap_r32i_return_value" />
 </TestCase>
 <TestCase name="qualifiers">
 <Test name="coherent_r32f" />
@@ -10184,7 +10159,6 @@
 <Test name="exchange_r32ui_result" />
 <Test name="exchange_r32ui_return_value" />
 <Test name="comp_swap_r32ui_result" />
-<Test name="comp_swap_r32ui_return_value" />
 <Test name="add_r32i_result" />
 <Test name="add_r32i_return_value" />
 <Test name="min_r32i_result" />
@@ -10200,7 +10174,6 @@
 <Test name="exchange_r32i_result" />
 <Test name="exchange_r32i_return_value" />
 <Test name="comp_swap_r32i_result" />
-<Test name="comp_swap_r32i_return_value" />
 </TestCase>
 <TestCase name="qualifiers">
 <Test name="coherent_r32f" />
@@ -13425,7 +13398,6 @@
 </TestSuite>
 <TestSuite name="state_query">
 <TestCase name="integer">
-<Test name="sample_mask_value" />
 <Test name="max_color_texture_samples_getboolean" />
 <Test name="max_color_texture_samples_getinteger" />
 <Test name="max_color_texture_samples_getinteger64" />
@@ -13463,46 +13435,45 @@
 <Test name="shader_storage_buffer_offset_alignment_getinteger64" />
 <Test name="shader_storage_buffer_offset_alignment_getfloat" />
 </TestCase>
-<TestSuite name="texture_level">
-<TestCase name="integer">
-<Test name="texture_samples" />
-<Test name="texture_fixed_sample_locations" />
-<Test name="texture_width" />
-<Test name="texture_height" />
-<Test name="texture_depth" />
-<Test name="texture_red_size" />
-<Test name="texture_green_size" />
-<Test name="texture_blue_size" />
-<Test name="texture_alpha_size" />
-<Test name="texture_depth_size" />
-<Test name="texture_stencil_size" />
-<Test name="texture_shared_size" />
-<Test name="texture_red_type" />
-<Test name="texture_green_type" />
-<Test name="texture_blue_type" />
-<Test name="texture_alpha_type" />
-<Test name="texture_depth_type" />
-<Test name="texture_compressed" />
+<TestCase name="indexed">
+<Test name="sample_mask_value_getintegeri_v" />
 </TestCase>
-<TestCase name="float">
-<Test name="texture_samples" />
-<Test name="texture_fixed_sample_locations" />
-<Test name="texture_width" />
-<Test name="texture_height" />
-<Test name="texture_depth" />
-<Test name="texture_red_size" />
-<Test name="texture_green_size" />
-<Test name="texture_blue_size" />
-<Test name="texture_alpha_size" />
-<Test name="texture_depth_size" />
-<Test name="texture_stencil_size" />
-<Test name="texture_shared_size" />
-<Test name="texture_red_type" />
-<Test name="texture_green_type" />
-<Test name="texture_blue_type" />
-<Test name="texture_alpha_type" />
-<Test name="texture_depth_type" />
-<Test name="texture_compressed" />
+<TestSuite name="texture_level">
+<TestCase name="texture_2d">
+<Test name="samples_integer" />
+<Test name="samples_float" />
+<Test name="fixed_sample_locations_integer" />
+<Test name="fixed_sample_locations_float" />
+<Test name="width_integer" />
+<Test name="width_float" />
+<Test name="height_integer" />
+<Test name="height_float" />
+<Test name="red_size_integer" />
+<Test name="red_size_float" />
+<Test name="green_size_integer" />
+<Test name="green_size_float" />
+<Test name="blue_size_integer" />
+<Test name="blue_size_float" />
+<Test name="alpha_size_integer" />
+<Test name="alpha_size_float" />
+<Test name="depth_size_integer" />
+<Test name="depth_size_float" />
+<Test name="stencil_size_integer" />
+<Test name="stencil_size_float" />
+<Test name="shared_size_integer" />
+<Test name="shared_size_float" />
+<Test name="red_type_integer" />
+<Test name="red_type_float" />
+<Test name="green_type_integer" />
+<Test name="green_type_float" />
+<Test name="blue_type_integer" />
+<Test name="blue_type_float" />
+<Test name="alpha_type_integer" />
+<Test name="alpha_type_float" />
+<Test name="depth_type_integer" />
+<Test name="depth_type_float" />
+<Test name="compressed_integer" />
+<Test name="compressed_float" />
 </TestCase>
 </TestSuite>
 <TestCase name="shader">
@@ -15474,7 +15445,6 @@
 <Test name="mismatch_member_type" />
 <Test name="mismatch_member_name" />
 <Test name="mismatch_member_precision" />
-<Test name="match_different_member_interpolation" />
 <Test name="mismatch_member_array_size" />
 <Test name="match_different_member_struct_names" />
 <Test name="mismatch_member_struct_member_name" />
@@ -17075,37 +17045,37 @@
 <Test name="var_array_array_array_array" />
 </TestCase>
 <TestCase name="block_array">
+<Test name="var" />
+<Test name="var_struct" />
+<Test name="var_struct_struct" />
+<Test name="var_struct_struct_struct" />
+<Test name="var_struct_struct_struct_struct" />
+<Test name="var_array_struct_struct_struct" />
+<Test name="var_array_struct_struct" />
+<Test name="var_struct_array_struct_struct" />
+<Test name="var_array_array_struct_struct" />
+<Test name="var_array_struct" />
+<Test name="var_struct_array_struct" />
+<Test name="var_struct_struct_array_struct" />
+<Test name="var_array_struct_array_struct" />
+<Test name="var_array_array_struct" />
+<Test name="var_struct_array_array_struct" />
+<Test name="var_array_array_array_struct" />
 <Test name="var_array" />
 <Test name="var_struct_array" />
 <Test name="var_struct_struct_array" />
 <Test name="var_struct_struct_struct_array" />
-<Test name="var_struct_struct_struct_struct_array" />
-<Test name="var_array_struct_struct_struct_array" />
 <Test name="var_array_struct_struct_array" />
-<Test name="var_struct_array_struct_struct_array" />
-<Test name="var_array_array_struct_struct_array" />
 <Test name="var_array_struct_array" />
 <Test name="var_struct_array_struct_array" />
-<Test name="var_struct_struct_array_struct_array" />
-<Test name="var_array_struct_array_struct_array" />
 <Test name="var_array_array_struct_array" />
-<Test name="var_struct_array_array_struct_array" />
-<Test name="var_array_array_array_struct_array" />
 <Test name="var_array_array" />
 <Test name="var_struct_array_array" />
 <Test name="var_struct_struct_array_array" />
-<Test name="var_struct_struct_struct_array_array" />
-<Test name="var_array_struct_struct_array_array" />
 <Test name="var_array_struct_array_array" />
-<Test name="var_struct_array_struct_array_array" />
-<Test name="var_array_array_struct_array_array" />
 <Test name="var_array_array_array" />
 <Test name="var_struct_array_array_array" />
-<Test name="var_struct_struct_array_array_array" />
-<Test name="var_array_struct_array_array_array" />
 <Test name="var_array_array_array_array" />
-<Test name="var_struct_array_array_array_array" />
-<Test name="var_array_array_array_array_array" />
 </TestCase>
 </TestSuite>
 <TestSuite name="array_size">
@@ -19237,29 +19207,29 @@
 <Test name="var_array_array_array_array" />
 </TestCase>
 <TestCase name="block_array">
+<Test name="var" />
+<Test name="var_struct" />
+<Test name="var_struct_struct" />
+<Test name="var_struct_struct_struct" />
+<Test name="var_struct_struct_struct_struct" />
+<Test name="var_array_struct_struct_struct" />
+<Test name="var_array_struct_struct" />
+<Test name="var_array_struct" />
 <Test name="var_array" />
 <Test name="var_struct_array" />
 <Test name="var_struct_struct_array" />
 <Test name="var_struct_struct_struct_array" />
-<Test name="var_struct_struct_struct_struct_array" />
-<Test name="var_array_struct_struct_struct_array" />
 <Test name="var_array_struct_struct_array" />
 <Test name="var_array_struct_array" />
+<Test name="var_struct_array_struct_array" />
+<Test name="var_array_array_struct_array" />
 <Test name="var_array_array" />
 <Test name="var_struct_array_array" />
 <Test name="var_struct_struct_array_array" />
-<Test name="var_struct_struct_struct_array_array" />
-<Test name="var_array_struct_struct_array_array" />
 <Test name="var_array_struct_array_array" />
-<Test name="var_struct_array_struct_array_array" />
-<Test name="var_array_array_struct_array_array" />
 <Test name="var_array_array_array" />
 <Test name="var_struct_array_array_array" />
-<Test name="var_struct_struct_array_array_array" />
-<Test name="var_array_struct_array_array_array" />
 <Test name="var_array_array_array_array" />
-<Test name="var_struct_array_array_array_array" />
-<Test name="var_array_array_array_array_array" />
 </TestCase>
 </TestSuite>
 <TestSuite name="array_size">

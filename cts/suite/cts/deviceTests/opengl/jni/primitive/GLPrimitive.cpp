@@ -28,16 +28,24 @@
 
 // Holds the current benchmark's renderer.
 Renderer* gRenderer = NULL;
+ANativeWindow* gNativeWindow = NULL;
+
+enum {
+    FULL_PIPELINE_BENCHMARK = 0,
+    PIXEL_OUTPUT_BENCHMARK = 1,
+    SHADER_PERF_BENCHMARK = 2,
+    CONTEXT_SWITCH_BENCHMARK = 3
+};
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_startBenchmark(
-        JNIEnv* env, jclass clazz, jint numFrames, jdoubleArray frameTimes) {
+        JNIEnv* env, jclass /*clazz*/, jint workload, jint numFrames, jdoubleArray frameTimes) {
     if (gRenderer == NULL) {
         return false;
     }
 
     // Sets up the renderer.
-    bool success = gRenderer->setUp();
+    bool success = gRenderer->setUp(workload);
 
     // Records the start time.
     double start = GLUtils::currentTimeMillis();
@@ -60,41 +68,56 @@ Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_startBenchmark(
     double times[] = {start, end};
     env->SetDoubleArrayRegion(frameTimes, 0, 2, times);
 
-    // Tears down and deletes the renderer.
     success = gRenderer->tearDown() && success;
-    delete gRenderer;
-    gRenderer = NULL;
     return success;
 }
 
 // The following functions create the renderers for the various benchmarks.
 extern "C" JNIEXPORT void JNICALL
-Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_setupFullPipelineBenchmark(
-        JNIEnv* env, jclass clazz, jobject surface, jboolean offscreen, jint workload) {
-    gRenderer = new FullPipelineRenderer(
-            ANativeWindow_fromSurface(env, surface), offscreen, workload);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_setupPixelOutputBenchmark(
-        JNIEnv* env, jclass clazz, jobject surface, jboolean offscreen, jint workload) {
-    gRenderer = new PixelOutputRenderer(
-            ANativeWindow_fromSurface(env, surface), offscreen, workload);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_setupShaderPerfBenchmark(
-        JNIEnv* env, jclass clazz, jobject surface, jboolean offscreen, jint workload) {
-    gRenderer = new ShaderPerfRenderer(
-            ANativeWindow_fromSurface(env, surface), offscreen, workload);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_setupContextSwitchBenchmark(
-        JNIEnv* env, jclass clazz, jobject surface, jboolean offscreen, jint workload) {
-    if (workload <= 8) {
-        // This test uses 8 iterations, so workload can't be more than 8.
-        gRenderer = new ContextSwitchRenderer(
-                ANativeWindow_fromSurface(env, surface), offscreen, workload);
+Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_setupBenchmark(
+        JNIEnv* env, jclass /*clazz*/, jobject surface, jint benchmark,
+        jboolean offscreen) {
+    gNativeWindow = ANativeWindow_fromSurface(env, surface);
+    switch (benchmark) {
+        case FULL_PIPELINE_BENCHMARK:
+            gRenderer = new FullPipelineRenderer(gNativeWindow, offscreen);
+            break;
+        case PIXEL_OUTPUT_BENCHMARK:
+            gRenderer = new PixelOutputRenderer(gNativeWindow, offscreen);
+            break;
+        case SHADER_PERF_BENCHMARK:
+            gRenderer = new ShaderPerfRenderer(gNativeWindow, offscreen);
+            break;
+        case CONTEXT_SWITCH_BENCHMARK:
+            gRenderer = new ContextSwitchRenderer(gNativeWindow, offscreen);
+            break;
+        default:
+            ALOGE("Unknown benchmark '%d'", benchmark);
+            ANativeWindow_release(gNativeWindow);
+            gNativeWindow = NULL;
+            return;
     }
+
+    // Set up call will log error conditions
+    if (!gRenderer->eglSetUp()) {
+        delete gRenderer;
+        gRenderer = NULL;
+
+        ANativeWindow_release(gNativeWindow);
+        gNativeWindow = NULL;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_android_cts_opengl_primitive_GLPrimitiveActivity_tearDownBenchmark(
+        JNIEnv* /*env*/, jclass /*clazz*/) {
+    if (gRenderer == NULL) {
+        return;
+    }
+    gRenderer->eglTearDown();
+    delete gRenderer;
+    gRenderer = NULL;
+
+    ANativeWindow_release(gNativeWindow);
+    gNativeWindow = NULL;
 }

@@ -79,7 +79,7 @@ void ThreadIO::coreRead(void *data, size_t len) {
 
 void ThreadIO::coreSetReturn(const void *data, size_t dataLen) {
     uint32_t buf;
-    if (data == NULL) {
+    if (data == nullptr) {
         data = &buf;
         dataLen = sizeof(buf);
     }
@@ -89,7 +89,7 @@ void ThreadIO::coreSetReturn(const void *data, size_t dataLen) {
 
 void ThreadIO::coreGetReturn(void *data, size_t dataLen) {
     uint32_t buf;
-    if (data == NULL) {
+    if (data == nullptr) {
         data = &buf;
         dataLen = sizeof(buf);
     }

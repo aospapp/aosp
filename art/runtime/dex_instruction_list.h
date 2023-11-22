@@ -133,7 +133,7 @@
   V(0x70, INVOKE_DIRECT, "invoke-direct", k35c, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArgNonZero) \
   V(0x71, INVOKE_STATIC, "invoke-static", k35c, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArg) \
   V(0x72, INVOKE_INTERFACE, "invoke-interface", k35c, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArgNonZero) \
-  V(0x73, RETURN_VOID_BARRIER, "return-void-barrier", k10x, false, kNone, kReturn, kVerifyNone) \
+  V(0x73, RETURN_VOID_NO_BARRIER, "return-void-no-barrier", k10x, false, kNone, kReturn, kVerifyNone) \
   V(0x74, INVOKE_VIRTUAL_RANGE, "invoke-virtual/range", k3rc, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArgRangeNonZero) \
   V(0x75, INVOKE_SUPER_RANGE, "invoke-super/range", k3rc, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArgRangeNonZero) \
   V(0x76, INVOKE_DIRECT_RANGE, "invoke-direct/range", k3rc, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyRegBMethod | kVerifyVarArgRangeNonZero) \
@@ -253,14 +253,14 @@
   V(0xE8, IPUT_OBJECT_QUICK, "iput-object-quick", k22c, false, kFieldRef, kContinue | kThrow | kStore | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
   V(0xE9, INVOKE_VIRTUAL_QUICK, "invoke-virtual-quick", k35c, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyVarArgNonZero | kVerifyRuntimeOnly) \
   V(0xEA, INVOKE_VIRTUAL_RANGE_QUICK, "invoke-virtual/range-quick", k3rc, false, kMethodRef, kContinue | kThrow | kInvoke, kVerifyVarArgRangeNonZero | kVerifyRuntimeOnly) \
-  V(0xEB, UNUSED_EB, "unused-eb", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xEC, UNUSED_EC, "unused-ec", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xED, UNUSED_ED, "unused-ed", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xEE, UNUSED_EE, "unused-ee", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xEF, UNUSED_EF, "unused-ef", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xF0, UNUSED_F0, "unused-f0", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xF1, UNUSED_F1, "unused-f1", k10x, false, kUnknown, 0, kVerifyError) \
-  V(0xF2, UNUSED_F2, "unused-f2", k10x, false, kUnknown, 0, kVerifyError) \
+  V(0xEB, IPUT_BOOLEAN_QUICK, "iput-boolean-quick", k22c, false, kFieldRef, kContinue | kThrow | kStore | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xEC, IPUT_BYTE_QUICK, "iput-byte-quick", k22c, false, kFieldRef, kContinue | kThrow | kStore | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xED, IPUT_CHAR_QUICK, "iput-char-quick", k22c, false, kFieldRef, kContinue | kThrow | kStore | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xEE, IPUT_SHORT_QUICK, "iput-short-quick", k22c, false, kFieldRef, kContinue | kThrow | kStore | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xEF, IGET_BOOLEAN_QUICK, "iget-boolean-quick", k22c, true, kFieldRef, kContinue | kThrow | kLoad | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xF0, IGET_BYTE_QUICK, "iget-byte-quick", k22c, true, kFieldRef, kContinue | kThrow | kLoad | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xF1, IGET_CHAR_QUICK, "iget-char-quick", k22c, true, kFieldRef, kContinue | kThrow | kLoad | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
+  V(0xF2, IGET_SHORT_QUICK, "iget-short-quick", k22c, true, kFieldRef, kContinue | kThrow | kLoad | kRegCFieldOrConstant, kVerifyRegA | kVerifyRegB | kVerifyRuntimeOnly) \
   V(0xF3, UNUSED_F3, "unused-f3", k10x, false, kUnknown, 0, kVerifyError) \
   V(0xF4, UNUSED_F4, "unused-f4", k10x, false, kUnknown, 0, kVerifyError) \
   V(0xF5, UNUSED_F5, "unused-f5", k10x, false, kUnknown, 0, kVerifyError) \

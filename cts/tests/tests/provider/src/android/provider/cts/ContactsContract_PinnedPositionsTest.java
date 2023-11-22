@@ -203,9 +203,9 @@ public class ContactsContract_PinnedPositionsTest extends AndroidTestCase {
         ContactUtil.setAggregationException(mResolver, AggregationExceptions.TYPE_KEEP_SEPARATE,
             i1.mRawContactId, i4.mRawContactId);
 
-        // Raw contacts should be unpinned after being split, but still starred.
+        // Raw contacts should keep the pinned position after re-grouping, and still starred.
         assertValuesForRawContact(i1.mRawContactId,
-                newContentValues(RawContacts.PINNED, PinnedPositions.UNPINNED, RawContacts.STARRED,
+                newContentValues(RawContacts.PINNED, 1, RawContacts.STARRED,
                         1));
         assertValuesForRawContact(i2.mRawContactId,
                 newContentValues(RawContacts.PINNED, 2, RawContacts.STARRED, 1));
@@ -229,7 +229,7 @@ public class ContactsContract_PinnedPositionsTest extends AndroidTestCase {
         final long cId1 = RawContactUtil.queryContactIdByRawContactId(mResolver, i1.mRawContactId);
         final long cId4 = RawContactUtil.queryContactIdByRawContactId(mResolver, i4.mRawContactId);
 
-        assertValuesForContact(cId1, newContentValues(Contacts.PINNED, PinnedPositions.UNPINNED));
+        assertValuesForContact(cId1, newContentValues(Contacts.PINNED, 1));
         assertValuesForContact(i2.mContactId, newContentValues(Contacts.PINNED, 2));
         assertValuesForContact(cId4, newContentValues(Contacts.PINNED, PinnedPositions.UNPINNED));
         assertValuesForContact(i5.mContactId,
@@ -241,7 +241,7 @@ public class ContactsContract_PinnedPositionsTest extends AndroidTestCase {
                 i5.mRawContactId, i6.mRawContactId);
 
         // The resulting contact should have a pinned value of 6.
-        assertValuesForContact(cId1, newContentValues(Contacts.PINNED, PinnedPositions.UNPINNED));
+        assertValuesForContact(cId1, newContentValues(Contacts.PINNED, 1));
         assertValuesForContact(i2.mContactId, newContentValues(Contacts.PINNED, 2));
         assertValuesForContact(cId4, newContentValues(Contacts.PINNED, PinnedPositions.UNPINNED));
         assertValuesForContact(i5.mContactId, newContentValues(Contacts.PINNED, 6));

@@ -423,7 +423,7 @@ public class FieldInfo extends MemberInfo {
     boolean consistent = true;
     if (!mType.equals(fInfo.mType)) {
       Errors.error(Errors.CHANGED_TYPE, fInfo.position(), "Field " + fInfo.qualifiedName()
-          + " has changed type");
+          + " has changed type from " + mType + " to " + fInfo.mType);
       consistent = false;
     } else if (!this.valueEquals(fInfo)) {
       Errors.error(Errors.CHANGED_VALUE, fInfo.position(), "Field " + fInfo.qualifiedName()
@@ -467,7 +467,7 @@ public class FieldInfo extends MemberInfo {
 
     if (isDeprecated() != fInfo.isDeprecated()) {
       Errors.error(Errors.CHANGED_DEPRECATED, fInfo.position(), "Field " + fInfo.qualifiedName()
-          + " has changed deprecation state");
+          + " has changed deprecation state " + isDeprecated() + " --> " + fInfo.isDeprecated());
       consistent = false;
     }
 

@@ -21,6 +21,9 @@ import android.os.Build;
 import java.lang.reflect.Field;
 
 public class ApiHelper {
+    // Documented value of CPU_ABI on x86 architectures
+    private static final String X86ABI = "x86";
+
     public static final boolean AT_LEAST_16 = Build.VERSION.SDK_INT >= 16;
 
     public static final boolean HAS_APP_GALLERY =
@@ -55,6 +58,10 @@ public class ApiHelper {
 
     public static final boolean HAS_HIDEYBARS = isKitKatOrHigher();
 
+    // Don't use renderscript for x86 K, L is OK. See b/18435492
+    public static final boolean HAS_RENDERSCRIPT =
+            !(Build.VERSION.SDK_INT == Build.VERSION_CODES.KITKAT && X86ABI.equals(Build.CPU_ABI));
+
     public static final boolean IS_NEXUS_4 = "mako".equalsIgnoreCase(Build.DEVICE);
     public static final boolean IS_NEXUS_5 = "LGE".equalsIgnoreCase(Build.MANUFACTURER)
             && "hammerhead".equalsIgnoreCase(Build.DEVICE);
@@ -63,7 +70,6 @@ public class ApiHelper {
     public static final boolean IS_NEXUS_9 = "htc".equalsIgnoreCase(Build.MANUFACTURER)
             && ("flounder".equalsIgnoreCase(Build.DEVICE)
                  || "flounder_lte".equalsIgnoreCase(Build.DEVICE));
-    public static final boolean IS_HTC = "htc".equalsIgnoreCase(Build.MANUFACTURER);
 
     public static final boolean HAS_CAMERA_2_API = isLOrHigher();
 
@@ -89,8 +95,26 @@ public class ApiHelper {
                        ("4.4.4".equals(Build.VERSION.RELEASE) || "4.4.3".equals(Build.VERSION.RELEASE)));
     }
 
+    public static boolean isLollipop() {
+        return Build.VERSION.SDK_INT == Build.VERSION_CODES.LOLLIPOP;
+    }
+
     public static boolean isLOrHigher() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
-                || "L".equals(Build.VERSION.CODENAME);
+                || "L".equals(Build.VERSION.CODENAME) || "LOLLIPOP".equals(Build.VERSION.CODENAME);
+    }
+
+    public static boolean isLMr1OrHigher() {
+        return Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP;
+    }
+
+    public static boolean isLorLMr1() {
+        return Build.VERSION.SDK_INT == Build.VERSION_CODES.LOLLIPOP
+                || Build.VERSION.SDK_INT == 22; // Lollipop MR1
+    }
+
+    public static boolean isMOrHigher() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                || "MNC".equals(Build.VERSION.CODENAME);
     }
 }

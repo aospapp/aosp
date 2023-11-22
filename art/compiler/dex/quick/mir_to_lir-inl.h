@@ -19,7 +19,9 @@
 
 #include "mir_to_lir.h"
 
-#include "dex/compiler_internals.h"
+#include "base/logging.h"
+#include "dex/compiler_ir.h"
+#include "utils.h"
 
 namespace art {
 
@@ -97,7 +99,7 @@ inline LIR* Mir2Lir::NewLIR2(int opcode, int dest, int src1) {
 }
 
 inline LIR* Mir2Lir::NewLIR2NoDest(int opcode, int src, int info) {
-  DCHECK(IsPseudoLirOp(opcode) || (GetTargetInstFlags(opcode) & IS_UNARY_OP))
+  DCHECK(IsPseudoLirOp(opcode) || (GetTargetInstFlags(opcode) & IS_BINARY_OP))
       << GetTargetInstName(opcode) << " " << opcode << " "
       << PrettyMethod(cu_->method_idx, *cu_->dex_file) << " "
       << current_dalvik_offset_;
@@ -142,8 +144,9 @@ inline LIR* Mir2Lir::NewLIR5(int opcode, int dest, int src1, int src2, int info1
  */
 inline void Mir2Lir::SetupRegMask(ResourceMask* mask, int reg) {
   DCHECK_EQ((reg & ~RegStorage::kRegValMask), 0);
-  DCHECK(reginfo_map_.Get(reg) != nullptr) << "No info for 0x" << reg;
-  *mask = mask->Union(reginfo_map_.Get(reg)->DefUseMask());
+  DCHECK_LT(static_cast<size_t>(reg), reginfo_map_.size());
+  DCHECK(reginfo_map_[reg] != nullptr) << "No info for 0x" << reg;
+  *mask = mask->Union(reginfo_map_[reg]->DefUseMask());
 }
 
 /*
@@ -151,8 +154,9 @@ inline void Mir2Lir::SetupRegMask(ResourceMask* mask, int reg) {
  */
 inline void Mir2Lir::ClearRegMask(ResourceMask* mask, int reg) {
   DCHECK_EQ((reg & ~RegStorage::kRegValMask), 0);
-  DCHECK(reginfo_map_.Get(reg) != nullptr) << "No info for 0x" << reg;
-  *mask = mask->ClearBits(reginfo_map_.Get(reg)->DefUseMask());
+  DCHECK_LT(static_cast<size_t>(reg), reginfo_map_.size());
+  DCHECK(reginfo_map_[reg] != nullptr) << "No info for 0x" << reg;
+  *mask = mask->ClearBits(reginfo_map_[reg]->DefUseMask());
 }
 
 /*
@@ -256,8 +260,7 @@ inline void Mir2Lir::SetupResourceMasks(LIR* lir) {
 }
 
 inline art::Mir2Lir::RegisterInfo* Mir2Lir::GetRegInfo(RegStorage reg) {
-  RegisterInfo* res = reg.IsPair() ? reginfo_map_.Get(reg.GetLowReg()) :
-      reginfo_map_.Get(reg.GetReg());
+  RegisterInfo* res = reg.IsPair() ? reginfo_map_[reg.GetLowReg()] : reginfo_map_[reg.GetReg()];
   DCHECK(res != nullptr);
   return res;
 }
@@ -273,6 +276,24 @@ inline void Mir2Lir::CheckRegStorage(RegStorage rs, WidenessCheck wide, RefCheck
   if (kFailOnSizeError || kReportSizeError) {
     CheckRegStorageImpl(rs, wide, ref, fp, kFailOnSizeError, kReportSizeError);
   }
+}
+
+inline Mir2Lir::ShortyIterator::ShortyIterator(const char* shorty, bool is_static)
+    : cur_(shorty + 1), pending_this_(!is_static), initialized_(false) {
+  DCHECK(shorty != nullptr);
+  DCHECK_NE(*shorty, 0);
+}
+
+inline bool Mir2Lir::ShortyIterator::Next() {
+  if (!initialized_) {
+    initialized_ = true;
+  } else if (pending_this_) {
+    pending_this_ = false;
+  } else if (*cur_ != 0) {
+    cur_++;
+  }
+
+  return *cur_ != 0 || pending_this_;
 }
 
 }  // namespace art

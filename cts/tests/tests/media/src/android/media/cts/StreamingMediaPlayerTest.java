@@ -18,12 +18,16 @@ package android.media.cts;
 import android.cts.util.MediaUtils;
 import android.media.MediaFormat;
 import android.media.MediaPlayer;
+import android.media.MediaPlayer.TrackInfo;
+import android.media.TimedMetaData;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.cts.CtsTestServer;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Tests of MediaPlayer streaming capabilities.
@@ -305,6 +309,94 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
         localHlsTest("hls.m3u8", false, true);
+    }
+
+    public void testPlayHlsStreamWithTimedId3() throws Throwable {
+        mServer = new CtsTestServer(mContext);
+        try {
+            // counter must be final if we want to access it inside onTimedMetaData;
+            // use AtomicInteger so we can have a final counter object with mutable integer value.
+            final AtomicInteger counter = new AtomicInteger();
+            String stream_url = mServer.getAssetUrl("prog_index.m3u8");
+            mMediaPlayer.setDataSource(stream_url);
+            mMediaPlayer.setDisplay(getActivity().getSurfaceHolder());
+            mMediaPlayer.setScreenOnWhilePlaying(true);
+            mMediaPlayer.setWakeMode(mContext, PowerManager.PARTIAL_WAKE_LOCK);
+            mMediaPlayer.setOnTimedMetaDataAvailableListener(new MediaPlayer.OnTimedMetaDataAvailableListener() {
+                @Override
+                public void onTimedMetaDataAvailable(MediaPlayer mp, TimedMetaData md) {
+                    counter.incrementAndGet();
+                    int pos = mp.getCurrentPosition();
+                    long timeUs = md.getTimestamp();
+                    byte[] rawData = md.getMetaData();
+                    // Raw data contains an id3 tag holding the decimal string representation of
+                    // the associated time stamp rounded to the closest half second.
+
+                    int offset = 0;
+                    offset += 3; // "ID3"
+                    offset += 2; // version
+                    offset += 1; // flags
+                    offset += 4; // size
+                    offset += 4; // "TXXX"
+                    offset += 4; // frame size
+                    offset += 2; // frame flags
+                    offset += 1; // "\x03" : UTF-8 encoded Unicode
+                    offset += 1; // "\x00" : null-terminated empty description
+
+                    int length = rawData.length;
+                    length -= offset;
+                    length -= 1; // "\x00" : terminating null
+
+                    String data = new String(rawData, offset, length);
+                    int dataTimeUs = Integer.parseInt(data);
+                    assertTrue("Timed ID3 timestamp does not match content",
+                            Math.abs(dataTimeUs - timeUs) < 500000);
+                    assertTrue("Timed ID3 arrives after timestamp", pos * 1000 < timeUs);
+                }
+            });
+
+            final Object completion = new Object();
+            mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+                int run;
+                @Override
+                public void onCompletion(MediaPlayer mp) {
+                    if (run++ == 0) {
+                        mMediaPlayer.seekTo(0);
+                        mMediaPlayer.start();
+                    } else {
+                        mMediaPlayer.stop();
+                        synchronized (completion) {
+                            completion.notify();
+                        }
+                    }
+                }
+            });
+
+            mMediaPlayer.prepare();
+            mMediaPlayer.start();
+            assertTrue("MediaPlayer not playing", mMediaPlayer.isPlaying());
+
+            int i = -1;
+            TrackInfo[] trackInfos = mMediaPlayer.getTrackInfo();
+            for (i = 0; i < trackInfos.length; i++) {
+                TrackInfo trackInfo = trackInfos[i];
+                if (trackInfo.getTrackType() == TrackInfo.MEDIA_TRACK_TYPE_METADATA) {
+                    break;
+                }
+            }
+            assertTrue("Stream has no timed ID3 track", i >= 0);
+            mMediaPlayer.selectTrack(i);
+
+            synchronized (completion) {
+                completion.wait();
+            }
+
+            // There are a total of 19 metadata access units in the test stream; every one of them
+            // should be received twice: once before the seek and once after.
+            assertTrue("Incorrect number of timed ID3s recieved", counter.get() == 38);
+        } finally {
+            mServer.shutdown();
+        }
     }
 
     private static class WorkerWithPlayer implements Runnable {

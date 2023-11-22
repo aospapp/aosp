@@ -289,7 +289,7 @@ extern void *tdep_uc_addr (unw_tdep_context_t *uc, int reg);
 extern int tdep_get_elf_image (unw_addr_space_t as, struct elf_image *ei,
 			       pid_t pid, unw_word_t ip,
 			       unsigned long *segbase, unsigned long *mapoff,
-			       char **path);
+			       char **path, void *as_arg);
 /* End of ANDROID update. */
 extern int tdep_access_reg (struct cursor *c, unw_regnum_t reg,
 			    unw_word_t *valp, int write);

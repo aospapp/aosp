@@ -879,7 +879,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                     ps_mv_buf = (mv_buf_t *)ps_codec->ps_mv_buf;
                     for(i = 0; i < BUF_MGR_MAX_CNT; i++)
                     {
-                        if(ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
+                        if(ps_mv_buf && ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
                         {
                             ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, i, BUF_MGR_REF);
                             break;
@@ -907,11 +907,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         }
         else
         {
-            WORD32 ret;
-            ret = ihevcd_ref_list(ps_codec, ps_pps, ps_sps, ps_slice_hdr);
+            ihevcd_ref_list(ps_codec, ps_pps, ps_sps, ps_slice_hdr);
 
-            if(IHEVCD_REF_PIC_NOT_FOUND == ret)
-                return IHEVCD_IGNORE_SLICE;
         }
 
     }

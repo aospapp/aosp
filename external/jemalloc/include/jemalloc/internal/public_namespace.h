@@ -11,6 +11,7 @@
 #define	je_xallocx JEMALLOC_N(xallocx)
 #define	je_sallocx JEMALLOC_N(sallocx)
 #define	je_dallocx JEMALLOC_N(dallocx)
+#define	je_sdallocx JEMALLOC_N(sdallocx)
 #define	je_nallocx JEMALLOC_N(nallocx)
 #define	je_mallctl JEMALLOC_N(mallctl)
 #define	je_mallctlnametomib JEMALLOC_N(mallctlnametomib)

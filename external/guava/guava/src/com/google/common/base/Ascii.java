@@ -16,8 +16,13 @@
 
 package com.google.common.base;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
+
+import javax.annotation.CheckReturnValue;
 
 /**
  * Static methods pertaining to ASCII characters (those in the range of values
@@ -214,7 +219,7 @@ public final class Ascii {
   public static final byte DLE = 16;
 
   /**
-   * Device Controls: Characters for the control
+   * Device Control 1. Characters for the control
    * of ancillary devices associated with data processing or
    * telecommunication systems, more especially switching devices "on" or
    * "off."  (If a single "stop" control is required to interrupt or turn
@@ -225,7 +230,7 @@ public final class Ascii {
   public static final byte DC1 = 17; // aka XON
 
   /**
-   * Transmission on/off: Although originally defined as DC1, this ASCII
+   * Transmission On: Although originally defined as DC1, this ASCII
    * control character is now better known as the XON code used for software
    * flow control in serial communications.  The main use is restarting
    * the transmission after the communication has been stopped by the XOFF
@@ -236,28 +241,40 @@ public final class Ascii {
   public static final byte XON = 17; // aka DC1
 
   /**
-   * @see #DC1
+   * Device Control 2. Characters for the control
+   * of ancillary devices associated with data processing or
+   * telecommunication systems, more especially switching devices "on" or
+   * "off."  (If a single "stop" control is required to interrupt or turn
+   * off ancillary devices, DC4 is the preferred assignment.)
    *
    * @since 8.0
    */
   public static final byte DC2 = 18;
 
   /**
-   * @see #DC1
+   * Device Control 3. Characters for the control
+   * of ancillary devices associated with data processing or
+   * telecommunication systems, more especially switching devices "on" or
+   * "off."  (If a single "stop" control is required to interrupt or turn
+   * off ancillary devices, DC4 is the preferred assignment.)
    *
    * @since 8.0
    */
   public static final byte DC3 = 19; // aka XOFF
 
   /**
-   * Transmission off. @see #XON
+   * Transmission off. See {@link #XON} for explanation.
    *
    * @since 8.0
    */
   public static final byte XOFF = 19; // aka DC3
 
   /**
-   * @see #DC1
+   * Device Control 4. Characters for the control
+   * of ancillary devices associated with data processing or
+   * telecommunication systems, more especially switching devices "on" or
+   * "off."  (If a single "stop" control is required to interrupt or turn
+   * off ancillary devices, DC4 is the preferred assignment.)
    *
    * @since 8.0
    */
@@ -330,7 +347,7 @@ public final class Ascii {
   public static final byte ESC = 27;
 
   /**
-   * File/Group/Record/Unit Separator: These information separators may be
+   * File Separator: These four information separators may be
    * used within data in optional fashion, except that their hierarchical
    * relationship shall be: FS is the most inclusive, then GS, then RS,
    * and US is least inclusive.  (The content and length of a File, Group,
@@ -341,21 +358,33 @@ public final class Ascii {
   public static final byte FS = 28;
 
   /**
-   * @see #FS
+   * Group Separator: These four information separators may be
+   * used within data in optional fashion, except that their hierarchical
+   * relationship shall be: FS is the most inclusive, then GS, then RS,
+   * and US is least inclusive.  (The content and length of a File, Group,
+   * Record, or Unit are not specified.)
    *
    * @since 8.0
    */
   public static final byte GS = 29;
 
   /**
-   * @see #FS
+   * Record Separator: These four information separators may be
+   * used within data in optional fashion, except that their hierarchical
+   * relationship shall be: FS is the most inclusive, then GS, then RS,
+   * and US is least inclusive.  (The content and length of a File, Group,
+   * Record, or Unit are not specified.)
    *
    * @since 8.0
    */
   public static final byte RS = 30;
 
   /**
-   * @see #FS
+   * Unit Separator: These four information separators may be
+   * used within data in optional fashion, except that their hierarchical
+   * relationship shall be: FS is the most inclusive, then GS, then RS,
+   * and US is least inclusive.  (The content and length of a File, Group,
+   * Record, or Unit are not specified.)
    *
    * @since 8.0
    */
@@ -389,18 +418,16 @@ public final class Ascii {
   /**
    * The minimum value of an ASCII character.
    *
-   * @since 9.0
+   * @since 9.0 (was type {@code int} before 12.0)
    */
-  @Beta
-  public static final int MIN = 0;
+  public static final char MIN = 0;
 
   /**
    * The maximum value of an ASCII character.
    *
-   * @since 9.0
+   * @since 9.0 (was type {@code int} before 12.0)
    */
-  @Beta
-  public static final int MAX = 127;
+  public static final char MAX = 127;
 
   /**
    * Returns a copy of the input string in which all {@linkplain #isUpperCase(char) uppercase ASCII
@@ -409,9 +436,36 @@ public final class Ascii {
    */
   public static String toLowerCase(String string) {
     int length = string.length();
+    for (int i = 0; i < length; i++) {
+      if (isUpperCase(string.charAt(i))) {
+        char[] chars = string.toCharArray();
+        for (; i < length; i++) {
+          char c = chars[i];
+          if (isUpperCase(c)) {
+            chars[i] = (char) (c ^ 0x20);
+          }
+        }
+        return String.valueOf(chars);
+      }
+    }
+    return string;
+  }
+
+  /**
+   * Returns a copy of the input character sequence in which all {@linkplain #isUpperCase(char)
+   * uppercase ASCII characters} have been converted to lowercase. All other characters are copied
+   * without modification.
+   *
+   * @since 14.0
+   */
+  public static String toLowerCase(CharSequence chars) {
+    if (chars instanceof String) {
+      return toLowerCase((String) chars);
+    }
+    int length = chars.length();
     StringBuilder builder = new StringBuilder(length);
     for (int i = 0; i < length; i++) {
-      builder.append(toLowerCase(string.charAt(i)));
+      builder.append(toLowerCase(chars.charAt(i)));
     }
     return builder.toString();
   }
@@ -431,9 +485,36 @@ public final class Ascii {
    */
   public static String toUpperCase(String string) {
     int length = string.length();
+    for (int i = 0; i < length; i++) {
+      if (isLowerCase(string.charAt(i))) {
+        char[] chars = string.toCharArray();
+        for (; i < length; i++) {
+          char c = chars[i];
+          if (isLowerCase(c)) {
+            chars[i] = (char) (c & 0x5f);
+          }
+        }
+        return String.valueOf(chars);
+      }
+    }
+    return string;
+  }
+
+  /**
+   * Returns a copy of the input character sequence in which all {@linkplain #isLowerCase(char)
+   * lowercase ASCII characters} have been converted to uppercase. All other characters are copied
+   * without modification.
+   *
+   * @since 14.0
+   */
+  public static String toUpperCase(CharSequence chars) {
+    if (chars instanceof String) {
+      return toUpperCase((String) chars);
+    }
+    int length = chars.length();
     StringBuilder builder = new StringBuilder(length);
     for (int i = 0; i < length; i++) {
-      builder.append(toUpperCase(string.charAt(i)));
+      builder.append(toUpperCase(chars.charAt(i)));
     }
     return builder.toString();
   }
@@ -452,6 +533,8 @@ public final class Ascii {
    * return {@code false}.
    */
   public static boolean isLowerCase(char c) {
+    // Note: This was benchmarked against the alternate expression "(char)(c - 'a') < 26" (Nov '13)
+    // and found to perform at least as well, or better.
     return (c >= 'a') && (c <= 'z');
   }
 
@@ -462,5 +545,123 @@ public final class Ascii {
    */
   public static boolean isUpperCase(char c) {
     return (c >= 'A') && (c <= 'Z');
+  }
+
+  /**
+   * Truncates the given character sequence to the given maximum length. If the length of the
+   * sequence is greater than {@code maxLength}, the returned string will be exactly
+   * {@code maxLength} chars in length and will end with the given {@code truncationIndicator}.
+   * Otherwise, the sequence will be returned as a string with no changes to the content.
+   *
+   * <p>Examples:
+   *
+   * <pre>   {@code
+   *   Ascii.truncate("foobar", 7, "..."); // returns "foobar"
+   *   Ascii.truncate("foobar", 5, "..."); // returns "fo..." }</pre>
+   *
+   * <p><b>Note:</b> This method <i>may</i> work with certain non-ASCII text but is not safe for
+   * use with arbitrary Unicode text. It is mostly intended for use with text that is known to be
+   * safe for use with it (such as all-ASCII text) and for simple debugging text. When using this
+   * method, consider the following:
+   *
+   * <ul>
+   *   <li>it may split surrogate pairs</li>
+   *   <li>it may split characters and combining characters</li>
+   *   <li>it does not consider word boundaries</li>
+   *   <li>if truncating for display to users, there are other considerations that must be taken
+   *   into account</li>
+   *   <li>the appropriate truncation indicator may be locale-dependent</li>
+   *   <li>it is safe to use non-ASCII characters in the truncation indicator</li>
+   * </ul>
+   *
+   *
+   * @throws IllegalArgumentException if {@code maxLength} is less than the length of
+   *     {@code truncationIndicator}
+   * @since 16.0
+   */
+  @Beta
+  @CheckReturnValue
+  public static String truncate(CharSequence seq, int maxLength, String truncationIndicator) {
+    checkNotNull(seq);
+
+    // length to truncate the sequence to, not including the truncation indicator
+    int truncationLength = maxLength - truncationIndicator.length();
+
+    // in this worst case, this allows a maxLength equal to the length of the truncationIndicator,
+    // meaning that a string will be truncated to just the truncation indicator itself
+    checkArgument(truncationLength >= 0,
+        "maxLength (%s) must be >= length of the truncation indicator (%s)",
+        maxLength, truncationIndicator.length());
+
+    if (seq.length() <= maxLength) {
+      String string = seq.toString();
+      if (string.length() <= maxLength) {
+        return string;
+      }
+      // if the length of the toString() result was > maxLength for some reason, truncate that
+      seq = string;
+    }
+
+    return new StringBuilder(maxLength)
+        .append(seq, 0, truncationLength)
+        .append(truncationIndicator)
+        .toString();
+  }
+
+  /**
+   * Indicates whether the contents of the given character sequences {@code s1} and {@code s2} are
+   * equal, ignoring the case of any ASCII alphabetic characters between {@code 'a'} and {@code 'z'}
+   * or {@code 'A'} and {@code 'Z'} inclusive.
+   *
+   * <p>This method is significantly faster than {@link String#equalsIgnoreCase} and should be used
+   * in preference if at least one of the parameters is known to contain only ASCII characters.
+   *
+   * <p>Note however that this method does not always behave identically to expressions such as:
+   * <ul>
+   * <li>{@code string.toUpperCase().equals("UPPER CASE ASCII")}
+   * <li>{@code string.toLowerCase().equals("lower case ascii")}
+   * </ul>
+   * <p>due to case-folding of some non-ASCII characters (which does not occur in
+   * {@link String#equalsIgnoreCase}). However in almost all cases that ASCII strings are used,
+   * the author probably wanted the behavior provided by this method rather than the subtle and
+   * sometimes surprising behavior of {@code toUpperCase()} and {@code toLowerCase()}.
+   *
+   * @since 16.0
+   */
+  @Beta
+  public static boolean equalsIgnoreCase(CharSequence s1, CharSequence s2) {
+    // Calling length() is the null pointer check (so do it before we can exit early).
+    int length = s1.length();
+    if (s1 == s2) {
+      return true;
+    }
+    if (length != s2.length()) {
+      return false;
+    }
+    for (int i = 0; i < length; i++) {
+      char c1 = s1.charAt(i);
+      char c2 = s2.charAt(i);
+      if (c1 == c2) {
+        continue;
+      }
+      int alphaIndex = getAlphaIndex(c1);
+      // This was also benchmarked using '&' to avoid branching (but always evaluate the rhs),
+      // however this showed no obvious improvement.
+      if (alphaIndex < 26 && alphaIndex == getAlphaIndex(c2)) {
+        continue;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Returns the non-negative index value of the alpha character {@code c}, regardless of case.
+   * Ie, 'a'/'A' returns 0 and 'z'/'Z' returns 25. Non-alpha characters return a value of 26 or
+   * greater.
+   */
+  private static int getAlphaIndex(char c) {
+    // Fold upper-case ASCII to lower-case and make zero-indexed and unsigned (by casting to char).
+    return (char) ((c | 0x20) - 'a');
   }
 }

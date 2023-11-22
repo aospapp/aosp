@@ -37,6 +37,7 @@ import android.os.Build;
 import android.os.ConditionVariable;
 import android.os.Environment;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.MoreAsserts;
 import android.test.UiThreadTest;
@@ -44,6 +45,7 @@ import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import com.android.cts.util.TimeoutReq;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -64,7 +66,7 @@ import junit.framework.AssertionFailedError;
  */
 @LargeTest
 public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivity> {
-    private static String TAG = "CameraTest";
+    private static final String TAG = "CameraTest";
     private static final String PACKAGE = "com.android.cts.hardware";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
     private final String JPEG_PATH = Environment.getExternalStorageDirectory().getPath() +
@@ -860,14 +862,15 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
     }
 
     private void testJpegExifByCamera(boolean recording) throws Exception {
-        Camera.Parameters parameters = mCamera.getParameters();
         if (!recording) mCamera.startPreview();
-        double focalLength = parameters.getFocalLength();
         Date date = new Date(System.currentTimeMillis());
         String localDatetime = new SimpleDateFormat("yyyy:MM:dd HH:").format(date);
 
         mCamera.takePicture(mShutterCallback, mRawPictureCallback, mJpegPictureCallback);
         waitForSnapshotDone();
+
+        Camera.Parameters parameters = mCamera.getParameters();
+        double focalLength = parameters.getFocalLength();
 
         // Test various exif tags.
         ExifInterface exif = new ExifInterface(JPEG_PATH);
@@ -1768,6 +1771,7 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
     }
 
     @UiThreadTest
+    @TimeoutReq(minutes = 30)
     public void testPreviewPictureSizesCombination() throws Exception {
         int nCameras = Camera.getNumberOfCameras();
         for (int id = 0; id < nCameras; id++) {
@@ -1975,7 +1979,7 @@ public class CameraTest extends ActivityInstrumentationTestCase2<CameraCtsActivi
         // This method tests if the actual fps is between minimum and maximum.
         // It also tests if the frame interval is too long.
         public void onPreviewFrame(byte[] data, android.hardware.Camera camera) {
-            long arrivalTime = System.currentTimeMillis();
+            long arrivalTime = SystemClock.elapsedRealtime();
             camera.addCallbackBuffer(data);
             if (firstFrameArrivalTime == 0) firstFrameArrivalTime = arrivalTime;
 

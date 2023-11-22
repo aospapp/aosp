@@ -41,6 +41,11 @@ namespace {
 void* gReservedAddress = NULL;
 size_t gReservedSize = 0;
 
+jint LIBLOAD_SUCCESS;
+jint LIBLOAD_FAILED_TO_OPEN_RELRO_FILE;
+jint LIBLOAD_FAILED_TO_LOAD_LIBRARY;
+jint LIBLOAD_FAILED_JNI_CALL;
+
 jboolean DoReserveAddressSpace(jlong size) {
   size_t vsize = static_cast<size_t>(size);
 
@@ -98,11 +103,11 @@ jboolean DoCreateRelroFile(const char* lib, const char* relro) {
   return JNI_TRUE;
 }
 
-jboolean DoLoadWithRelroFile(const char* lib, const char* relro) {
+jint DoLoadWithRelroFile(const char* lib, const char* relro) {
   int relro_fd = TEMP_FAILURE_RETRY(open(relro, O_RDONLY));
   if (relro_fd == -1) {
     ALOGE("Failed to open relro file %s: %s", relro, strerror(errno));
-    return JNI_FALSE;
+    return LIBLOAD_FAILED_TO_OPEN_RELRO_FILE;
   }
   android_dlextinfo extinfo;
   extinfo.flags = ANDROID_DLEXT_RESERVED_ADDRESS | ANDROID_DLEXT_USE_RELRO;
@@ -113,10 +118,10 @@ jboolean DoLoadWithRelroFile(const char* lib, const char* relro) {
   close(relro_fd);
   if (handle == NULL) {
     ALOGE("Failed to load library %s: %s", lib, dlerror());
-    return JNI_FALSE;
+    return LIBLOAD_FAILED_TO_LOAD_LIBRARY;
   }
   ALOGV("Loaded library %s with relro file %s", lib, relro);
-  return JNI_TRUE;
+  return LIBLOAD_SUCCESS;
 }
 
 /******************************************************************************/
@@ -151,7 +156,7 @@ jboolean CreateRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
   return ret;
 }
 
-jboolean LoadWithRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
+jint LoadWithRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
                            jstring relro32, jstring relro64) {
 #ifdef __LP64__
   jstring lib = lib64;
@@ -162,7 +167,7 @@ jboolean LoadWithRelroFile(JNIEnv* env, jclass, jstring lib32, jstring lib64,
   jstring relro = relro32;
   (void)lib64; (void)relro64;
 #endif
-  jboolean ret = JNI_FALSE;
+  jint ret = LIBLOAD_FAILED_JNI_CALL;
   const char* lib_utf8 = env->GetStringUTFChars(lib, NULL);
   if (lib_utf8 != NULL) {
     const char* relro_utf8 = env->GetStringUTFChars(relro, NULL);
@@ -183,7 +188,7 @@ const JNINativeMethod kJniMethods[] = {
       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
       reinterpret_cast<void*>(CreateRelroFile) },
   { "nativeLoadWithRelroFile",
-      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Z",
+      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I",
       reinterpret_cast<void*>(LoadWithRelroFile) },
 };
 
@@ -195,6 +200,22 @@ void RegisterWebViewFactory(JNIEnv* env) {
   jclass clazz = env->FindClass(kClassName);
   if (clazz) {
     env->RegisterNatives(clazz, kJniMethods, NELEM(kJniMethods));
+
+    LIBLOAD_SUCCESS = env->GetStaticIntField(
+        clazz,
+        env->GetStaticFieldID(clazz, "LIBLOAD_SUCCESS", "I"));
+
+    LIBLOAD_FAILED_TO_OPEN_RELRO_FILE = env->GetStaticIntField(
+        clazz,
+        env->GetStaticFieldID(clazz, "LIBLOAD_FAILED_TO_OPEN_RELRO_FILE", "I"));
+
+    LIBLOAD_FAILED_TO_LOAD_LIBRARY = env->GetStaticIntField(
+        clazz,
+        env->GetStaticFieldID(clazz, "LIBLOAD_FAILED_TO_LOAD_LIBRARY", "I"));
+
+    LIBLOAD_FAILED_JNI_CALL = env->GetStaticIntField(
+        clazz,
+        env->GetStaticFieldID(clazz, "LIBLOAD_FAILED_JNI_CALL", "I"));
   }
 }
 

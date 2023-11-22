@@ -43,8 +43,19 @@ __BEGIN_DECLS
 #define MREMAP_MAYMOVE  1
 #define MREMAP_FIXED    2
 
+#define POSIX_MADV_NORMAL     MADV_NORMAL
+#define POSIX_MADV_RANDOM     MADV_RANDOM
+#define POSIX_MADV_SEQUENTIAL MADV_SEQUENTIAL
+#define POSIX_MADV_WILLNEED   MADV_WILLNEED
+#define POSIX_MADV_DONTNEED   MADV_DONTNEED
+
+#if defined(__USE_FILE_OFFSET64)
+extern void* mmap(void*, size_t, int, int, int, off_t) __RENAME(mmap64);
+#else
 extern void* mmap(void*, size_t, int, int, int, off_t);
+#endif
 extern void* mmap64(void*, size_t, int, int, int, off64_t);
+
 extern int munmap(void*, size_t);
 extern int msync(const void*, size_t, int);
 extern int mprotect(const void*, size_t, int);
@@ -54,12 +65,14 @@ extern int mlockall(int);
 extern int munlockall(void);
 extern int mlock(const void*, size_t);
 extern int munlock(const void*, size_t);
-extern int madvise(const void*, size_t, int);
+extern int madvise(void*, size_t, int);
 
 extern int mlock(const void*, size_t);
 extern int munlock(const void*, size_t);
 
 extern int mincore(void*, size_t, unsigned char*);
+
+extern int posix_madvise(void*, size_t, int);
 
 __END_DECLS
 

@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout
+<android.support.v17.leanback.widget.NonOverlappingLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="@dimen/list_item_height"
@@ -29,4 +29,4 @@
         android:layout_height="wrap_content"
         android:id="@+id/list_item_text"
         android:textAppearance="?android:attr/textAppearanceListItem" />
-</LinearLayout>
+</android.support.v17.leanback.widget.NonOverlappingLinearLayout>

@@ -28,15 +28,6 @@ static void makebm(SkBitmap* bm, int w, int h) {
     canvas.drawPaint(paint);
 }
 
-static SkShader* MakeBitmapShader(SkShader::TileMode tx, SkShader::TileMode ty,
-                           int w, int h) {
-    static SkBitmap bmp;
-    if (bmp.isNull()) {
-        makebm(&bmp, w/2, h/4);
-    }
-    return SkShader::CreateBitmapShader(bmp, tx, ty);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 struct GradData {
@@ -73,13 +64,13 @@ static SkShader* MakeSweep(const SkPoint pts[2], const GradData& data, SkShader:
     return SkGradientShader::CreateSweep(center.fX, center.fY, data.fColors, data.fPos, data.fCount);
 }
 
-static SkShader* Make2Radial(const SkPoint pts[2], const GradData& data, SkShader::TileMode tm) {
+static SkShader* Make2Conical(const SkPoint pts[2], const GradData& data, SkShader::TileMode tm) {
     SkPoint center0, center1;
     center0.set(SkScalarAve(pts[0].fX, pts[1].fX),
                 SkScalarAve(pts[0].fY, pts[1].fY));
     center1.set(SkScalarInterp(pts[0].fX, pts[1].fX, SkIntToScalar(3)/5),
                 SkScalarInterp(pts[0].fY, pts[1].fY, SkIntToScalar(1)/4));
-    return SkGradientShader::CreateTwoPointRadial(
+    return SkGradientShader::CreateTwoPointConical(
                             center1, (pts[1].fX - pts[0].fX) / 7,
                             center0, (pts[1].fX - pts[0].fX) / 2,
                             data.fColors, data.fPos, data.fCount, tm);
@@ -88,7 +79,7 @@ static SkShader* Make2Radial(const SkPoint pts[2], const GradData& data, SkShade
 typedef SkShader* (*GradMaker)(const SkPoint pts[2], const GradData& data, SkShader::TileMode tm);
 
 static const GradMaker gGradMakers[] = {
-    MakeLinear, MakeRadial, MakeSweep, Make2Radial
+    MakeLinear, MakeRadial, MakeSweep, Make2Conical
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,23 +91,20 @@ public:
     }
 
 protected:
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        return kSkipTiled_Flag;
-    }
 
-    SkString onShortName() {
+    SkString onShortName() override {
         return SkString("shadertext");
     }
 
-    SkISize onISize() { return SkISize::Make(1450, 500); }
+    SkISize onISize() override { return SkISize::Make(1450, 500); }
 
-    virtual void onDraw(SkCanvas* canvas) {
+    void onDraw(SkCanvas* canvas) override {
         const char text[] = "Shaded Text";
         const int textLen = SK_ARRAY_COUNT(text) - 1;
         const int pointSize = 36;
 
-        int w = pointSize * textLen;
-        int h = pointSize;
+        const int w = pointSize * textLen;
+        const int h = pointSize;
 
         SkPoint pts[2] = {
             { 0, 0 },
@@ -144,17 +132,19 @@ protected:
                                                    SkShader::kClamp_TileMode);
             }
         }
+        
+        SkBitmap bm;
+        makebm(&bm, w/16, h/4);
         for (size_t tx = 0; tx < SK_ARRAY_COUNT(tileModes); ++tx) {
             for (size_t ty = 0; ty < SK_ARRAY_COUNT(tileModes); ++ty) {
-                shaders[shdIdx++] = MakeBitmapShader(tileModes[tx],
-                                                     tileModes[ty],
-                                                     w/8, h);
+                shaders[shdIdx++] = SkShader::CreateBitmapShader(bm, tileModes[tx], tileModes[ty]);
             }
         }
 
         SkPaint paint;
         paint.setDither(true);
         paint.setAntiAlias(true);
+        sk_tool_utils::set_portable_typeface(&paint);
         paint.setTextSize(SkIntToScalar(pointSize));
 
         canvas->save();

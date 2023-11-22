@@ -181,26 +181,27 @@ static glu::ShaderProgram* createProgram (const glu::RenderContext& context, con
 		const FragmentOutput&	output		= outputs[outNdx];
 		bool					isArray		= output.arrayLength > 0;
 		const char*				typeName	= glu::getDataTypeName(output.type);
-		const char*				precName	= glu::getPrecisionName(output.precision);
+		const char*				outputPrec	= glu::getPrecisionName(output.precision);
 		bool					isFloat		= glu::isDataTypeFloatOrVec(output.type);
 		const char*				interp		= isFloat ? "smooth" : "flat";
+		const char*				interpPrec	= isFloat ? "highp" : outputPrec;
 
 		if (isArray)
 		{
 			for (int elemNdx = 0; elemNdx < output.arrayLength; elemNdx++)
 			{
-				vtx << "in " << precName << " " << typeName << " in" << outNdx << "_" << elemNdx << ";\n"
-					<< interp << " out " << precName << " " << typeName << " var" << outNdx << "_" << elemNdx << ";\n";
-				frag << interp << " in " << precName << " " << typeName << " var" << outNdx << "_" << elemNdx << ";\n";
+				vtx << "in " << interpPrec << " " << typeName << " in" << outNdx << "_" << elemNdx << ";\n"
+					<< interp << " out " << interpPrec << " " << typeName << " var" << outNdx << "_" << elemNdx << ";\n";
+				frag << interp << " in " << interpPrec << " " << typeName << " var" << outNdx << "_" << elemNdx << ";\n";
 			}
-			frag << "layout(location = " << output.location << ") out " << precName << " " << typeName << " out" << outNdx << "[" << output.arrayLength << "];\n";
+			frag << "layout(location = " << output.location << ") out " << outputPrec << " " << typeName << " out" << outNdx << "[" << output.arrayLength << "];\n";
 		}
 		else
 		{
-			vtx << "in " << precName << " " << typeName << " in" << outNdx << ";\n"
-				<< interp << " out " << precName << " " << typeName << " var" << outNdx << ";\n";
-			frag << interp << " in " << precName << " " << typeName << " var" << outNdx << ";\n"
-				 << "layout(location = " << output.location << ") out " << precName << " " << typeName << " out" << outNdx << ";\n";
+			vtx << "in " << interpPrec << " " << typeName << " in" << outNdx << ";\n"
+				<< interp << " out " << interpPrec << " " << typeName << " var" << outNdx << ";\n";
+			frag << interp << " in " << interpPrec << " " << typeName << " var" << outNdx << ";\n"
+				 << "layout(location = " << output.location << ") out " << outputPrec << " " << typeName << " out" << outNdx << ";\n";
 		}
 	}
 
@@ -395,7 +396,7 @@ static inline IVec4 readIVec4 (const int* ptr, int numComponents)
 
 static void renderFloatReference (const tcu::PixelBufferAccess& dst, int gridWidth, int gridHeight, int numComponents, const float* vertices)
 {
-	const bool	isSRGB		= dst.getFormat().order == tcu::TextureFormat::sRGB ||dst.getFormat().order == tcu::TextureFormat::sRGBA;
+	const bool	isSRGB		= tcu::isSRGB(dst.getFormat());
 	const float	cellW		= (float)dst.getWidth() / (float)(gridWidth-1);
 	const float	cellH		= (float)dst.getHeight() / (float)(gridHeight-1);
 
@@ -474,6 +475,70 @@ struct AttachmentData
 	vector<deUint8>			renderedData;
 	vector<deUint8>			referenceData;
 };
+
+template<typename Type>
+string valueRangeToString (int numValidChannels, const tcu::Vector<Type, 4>& minValue, const tcu::Vector<Type, 4>& maxValue)
+{
+	std::ostringstream stream;
+
+	stream << "(";
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (i != 0)
+			stream << ", ";
+
+		if (i < numValidChannels)
+			stream << minValue[i] << " -> " << maxValue[i];
+		else
+			stream << "Undef";
+	}
+
+	stream << ")";
+
+	return stream.str();
+}
+
+void clearUndefined (const tcu::PixelBufferAccess& access, int numValidChannels)
+{
+	for (int y = 0; y < access.getHeight(); y++)
+	for (int x = 0; x < access.getWidth(); x++)
+	{
+		switch (tcu::getTextureChannelClass(access.getFormat().type))
+		{
+			case tcu::TEXTURECHANNELCLASS_FLOATING_POINT:
+			{
+				const Vec4	srcPixel	= access.getPixel(x, y);
+				Vec4		dstPixel	(0.0f, 0.0f, 0.0f, 1.0f);
+
+				for (int channelNdx = 0; channelNdx < numValidChannels; channelNdx++)
+					dstPixel[channelNdx] = srcPixel[channelNdx];
+
+				access.setPixel(dstPixel, x, y);
+				break;
+			}
+
+			case tcu::TEXTURECHANNELCLASS_UNSIGNED_INTEGER:
+			case tcu::TEXTURECHANNELCLASS_SIGNED_INTEGER:
+			case tcu::TEXTURECHANNELCLASS_SIGNED_FIXED_POINT:
+			case tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT:
+			{
+				const IVec4	bitDepth	= tcu::getTextureFormatBitDepth(access.getFormat());
+				const IVec4	srcPixel	= access.getPixelInt(x, y);
+				IVec4		dstPixel	(0, 0, 0, (0x1u << (deUint64)bitDepth.w()) - 1);
+
+				for (int channelNdx = 0; channelNdx < numValidChannels; channelNdx++)
+					dstPixel[channelNdx] = srcPixel[channelNdx];
+
+				access.setPixel(dstPixel, x, y);
+				break;
+			}
+
+			default:
+				DE_ASSERT(false);
+		}
+	}
+}
 
 } // anonymous
 
@@ -591,7 +656,7 @@ FragmentOutputCase::IterateResult FragmentOutputCase::iterate (void)
 						maxVal = tcu::min(maxVal, fmtInfo.valueMax);
 					}
 
-					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: " << minVal << " -> " << maxVal << TestLog::EndMessage;
+					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: " << valueRangeToString(numScalars, minVal, maxVal) << TestLog::EndMessage;
 
 					for (int y = 0; y < gridHeight; y++)
 					{
@@ -629,7 +694,7 @@ FragmentOutputCase::IterateResult FragmentOutputCase::iterate (void)
 						maxVal = select(maxVal, tcu::min(maxVal, fmtMaxVal), isZero);
 					}
 
-					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: " << minVal << " -> " << maxVal << TestLog::EndMessage;
+					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: " << valueRangeToString(numScalars, minVal, maxVal) << TestLog::EndMessage;
 
 					const IVec4	rangeDiv	= swizzleVec((IVec4(gridWidth, gridHeight, gridWidth, gridHeight)-1), curInVec);
 					const IVec4	step		= ((maxVal.cast<deInt64>() - minVal.cast<deInt64>()) / (rangeDiv.cast<deInt64>())).asInt();
@@ -665,7 +730,7 @@ FragmentOutputCase::IterateResult FragmentOutputCase::iterate (void)
 						maxVal = tcu::min(maxVal, fmtMaxVal);
 					}
 
-					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: " << UVec4(0) << " -> " << maxVal << TestLog::EndMessage;
+					m_testCtx.getLog() << TestLog::Message << "out" << curInVec << " value range: "  << valueRangeToString(numScalars, UVec4(0), maxVal) << TestLog::EndMessage;
 
 					const IVec4	rangeDiv	= swizzleVec((IVec4(gridWidth, gridHeight, gridWidth, gridHeight)-1), curInVec);
 					const UVec4	step		= maxVal / rangeDiv.asUint();
@@ -754,11 +819,17 @@ FragmentOutputCase::IterateResult FragmentOutputCase::iterate (void)
 	// Read all attachment points.
 	for (int ndx = 0; ndx < numAttachments; ndx++)
 	{
-		const glu::TransferFormat		transferFmt		= glu::getTransferFormat(attachments[ndx].readFormat);
-		void*							dst				= &attachments[ndx].renderedData[0];
+		const glu::TransferFormat		transferFmt			= glu::getTransferFormat(attachments[ndx].readFormat);
+		void*							dst					= &attachments[ndx].renderedData[0];
+		const int						attachmentW			= m_fboSpec[ndx].width;
+		const int						attachmentH			= m_fboSpec[ndx].height;
+		const int						numValidChannels	= attachments[ndx].numWrittenChannels;
+		const tcu::PixelBufferAccess	rendered			(attachments[ndx].readFormat, attachmentW, attachmentH, 1, deAlign32(attachments[ndx].readFormat.getPixelSize()*attachmentW, readAlignment), 0, &attachments[ndx].renderedData[0]);
 
 		gl.readBuffer(GL_COLOR_ATTACHMENT0+ndx);
 		gl.readPixels(0, 0, minBufSize.x(), minBufSize.y(), transferFmt.format, transferFmt.dataType, dst);
+
+		clearUndefined(rendered, numValidChannels);
 	}
 
 	// Render reference images.
@@ -821,30 +892,33 @@ FragmentOutputCase::IterateResult FragmentOutputCase::iterate (void)
 		{
 			case tcu::TEXTURECHANNELCLASS_FLOATING_POINT:
 			{
-				UVec4		formatThreshold;		//!< Threshold computed based on format.
-				deUint32	precThreshold	= 0;	//!< Threshold computed based on output type precision
-				UVec4		finalThreshold;
+				const deUint32	interpThreshold		= 4;	//!< 4 ULP interpolation threshold (interpolation always in highp)
+				deUint32		outTypeThreshold	= 0;	//!< Threshold based on output type
+				UVec4			formatThreshold;			//!< Threshold computed based on format.
+				UVec4			finalThreshold;
 
+				// 1 ULP rounding error is allowed for smaller floating-point formats
 				switch (format.type)
 				{
-					case tcu::TextureFormat::FLOAT:							formatThreshold = UVec4(4);										break;
-					case tcu::TextureFormat::HALF_FLOAT:					formatThreshold = UVec4((1<<13) + 4);							break;
-					case tcu::TextureFormat::UNSIGNED_INT_11F_11F_10F_REV:	formatThreshold = UVec4((1<<17) + 4, (1<<17)+4, (1<<18)+4, 4);	break;
+					case tcu::TextureFormat::FLOAT:							formatThreshold = UVec4(0);											break;
+					case tcu::TextureFormat::HALF_FLOAT:					formatThreshold = UVec4((1<<(23-10)));								break;
+					case tcu::TextureFormat::UNSIGNED_INT_11F_11F_10F_REV:	formatThreshold = UVec4((1<<(23-6)), (1<<(23-6)), (1<<(23-5)), 0);	break;
 					default:
 						DE_ASSERT(false);
 						break;
 				}
 
+				// 1 ULP rounding error for highp -> output precision cast
 				switch (outPrecision)
 				{
-					case glu::PRECISION_LOWP:		precThreshold	= (1<<21);	break;
-					case glu::PRECISION_MEDIUMP:	precThreshold	= (1<<13);	break;
-					case glu::PRECISION_HIGHP:		precThreshold	= 0;		break;
+					case glu::PRECISION_LOWP:		outTypeThreshold	= (1<<(23-8));	break;
+					case glu::PRECISION_MEDIUMP:	outTypeThreshold	= (1<<(23-10));	break;
+					case glu::PRECISION_HIGHP:		outTypeThreshold	= 0;			break;
 					default:
 						DE_ASSERT(false);
 				}
 
-				finalThreshold = select(max(formatThreshold, UVec4(precThreshold)), UVec4(~0u), cmpMask);
+				finalThreshold = select(max(formatThreshold, UVec4(deMax32(interpThreshold, outTypeThreshold))), UVec4(~0u), cmpMask);
 
 				isOk = tcu::floatUlpThresholdCompare(log, name.c_str(), desc.c_str(), reference, rendered, finalThreshold, tcu::COMPARE_LOG_RESULT);
 				break;

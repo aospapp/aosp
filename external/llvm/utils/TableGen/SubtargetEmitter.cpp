@@ -128,41 +128,28 @@ void SubtargetEmitter::Enumeration(raw_ostream &OS,
 
   OS << "namespace " << Target << " {\n";
 
-  // For bit flag enumerations with more than 32 items, emit constants.
-  // Emit an enum for everything else.
-  if (isBits && N > 32) {
-    // For each record
-    for (unsigned i = 0; i < N; i++) {
-      // Next record
-      Record *Def = DefList[i];
+  // Open enumeration. Use a 64-bit underlying type.
+  OS << "enum : uint64_t {\n";
 
-      // Get and emit name and expression (1 << i)
-      OS << "  const uint64_t " << Def->getName() << " = 1ULL << " << i << ";\n";
-    }
-  } else {
-    // Open enumeration
-    OS << "enum {\n";
+  // For each record
+  for (unsigned i = 0; i < N;) {
+    // Next record
+    Record *Def = DefList[i];
 
-    // For each record
-    for (unsigned i = 0; i < N;) {
-      // Next record
-      Record *Def = DefList[i];
+    // Get and emit name
+    OS << "  " << Def->getName();
 
-      // Get and emit name
-      OS << "  " << Def->getName();
+    // If bit flags then emit expression (1 << i)
+    if (isBits)  OS << " = " << " 1ULL << " << i;
 
-      // If bit flags then emit expression (1 << i)
-      if (isBits)  OS << " = " << " 1ULL << " << i;
+    // Depending on 'if more in the list' emit comma
+    if (++i < N) OS << ",";
 
-      // Depending on 'if more in the list' emit comma
-      if (++i < N) OS << ",";
-
-      OS << "\n";
-    }
-
-    // Close enumeration
-    OS << "};\n";
+    OS << "\n";
   }
+
+  // Close enumeration
+  OS << "};\n";
 
   OS << "}\n";
 }
@@ -386,7 +373,7 @@ EmitStageAndOperandCycleData(raw_ostream &OS,
   for (CodeGenSchedModels::ProcIter PI = SchedModels.procModelBegin(),
          PE = SchedModels.procModelEnd(); PI != PE; ++PI) {
 
-    if (!ItinsDefSet.insert(PI->ItinsDef))
+    if (!ItinsDefSet.insert(PI->ItinsDef).second)
       continue;
 
     std::vector<Record*> FUs = PI->ItinsDef->getValueAsListOfDefs("FU");
@@ -404,7 +391,7 @@ EmitStageAndOperandCycleData(raw_ostream &OS,
     OS << "}\n";
 
     std::vector<Record*> BPs = PI->ItinsDef->getValueAsListOfDefs("BP");
-    if (BPs.size()) {
+    if (!BPs.empty()) {
       OS << "\n// Pipeline forwarding pathes for itineraries \"" << Name
          << "\"\n" << "namespace " << Name << "Bypass {\n";
 
@@ -565,7 +552,7 @@ EmitItineraries(raw_ostream &OS,
          PE = SchedModels.procModelEnd(); PI != PE; ++PI, ++ProcItinListsIter) {
 
     Record *ItinsDef = PI->ItinsDef;
-    if (!ItinsDefSet.insert(ItinsDef))
+    if (!ItinsDefSet.insert(ItinsDef).second)
       continue;
 
     // Get processor itinerary name
@@ -575,12 +562,13 @@ EmitItineraries(raw_ostream &OS,
     assert(ProcItinListsIter != ProcItinLists.end() && "bad iterator");
     std::vector<InstrItinerary> &ItinList = *ProcItinListsIter;
 
+    // Empty itineraries aren't referenced anywhere in the tablegen output
+    // so don't emit them.
+    if (ItinList.empty())
+      continue;
+
     OS << "\n";
     OS << "static const llvm::InstrItinerary ";
-    if (ItinList.empty()) {
-      OS << '*' << Name << " = nullptr;\n";
-      continue;
-    }
 
     // Begin processor itinerary table
     OS << Name << "[] = {\n";
@@ -1192,13 +1180,17 @@ void SubtargetEmitter::EmitProcessorModels(raw_ostream &OS) {
 
     // Begin processor itinerary properties
     OS << "\n";
-    OS << "static const llvm::MCSchedModel " << PI->ModelName << "(\n";
+    OS << "static const llvm::MCSchedModel " << PI->ModelName << " = {\n";
     EmitProcessorProp(OS, PI->ModelDef, "IssueWidth", ',');
     EmitProcessorProp(OS, PI->ModelDef, "MicroOpBufferSize", ',');
     EmitProcessorProp(OS, PI->ModelDef, "LoopMicroOpBufferSize", ',');
     EmitProcessorProp(OS, PI->ModelDef, "LoadLatency", ',');
     EmitProcessorProp(OS, PI->ModelDef, "HighLatency", ',');
     EmitProcessorProp(OS, PI->ModelDef, "MispredictPenalty", ',');
+
+    OS << "  " << (bool)(PI->ModelDef ?
+                         PI->ModelDef->getValueAsBit("PostRAScheduler") : 0)
+       << ", // " << "PostRAScheduler\n";
 
     OS << "  " << (bool)(PI->ModelDef ?
                          PI->ModelDef->getValueAsBit("CompleteModel") : 0)
@@ -1213,10 +1205,10 @@ void SubtargetEmitter::EmitProcessorModels(raw_ostream &OS) {
                      - SchedModels.schedClassBegin()) << ",\n";
     else
       OS << "  0, 0, 0, 0, // No instruction-level machine model.\n";
-    if (SchedModels.hasItineraries())
-      OS << "  " << PI->ItinsDef->getName() << ");\n";
+    if (PI->hasItineraries())
+      OS << "  " << PI->ItinsDef->getName() << "};\n";
     else
-      OS << "  0); // No Itinerary\n";
+      OS << "  nullptr}; // No Itinerary\n";
   }
 }
 
@@ -1482,6 +1474,7 @@ void SubtargetEmitter::run(raw_ostream &OS) {
   OS << "#undef GET_SUBTARGETINFO_TARGET_DESC\n";
 
   OS << "#include \"llvm/Support/Debug.h\"\n";
+  OS << "#include \"llvm/Support/raw_ostream.h\"\n";
   ParseFeaturesFunction(OS, NumFeatures, NumProcs);
 
   OS << "#endif // GET_SUBTARGETINFO_TARGET_DESC\n\n";

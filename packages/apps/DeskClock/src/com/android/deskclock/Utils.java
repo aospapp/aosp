@@ -27,6 +27,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
+import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
@@ -37,6 +38,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -53,15 +55,20 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.TextClock;
 import android.widget.TextView;
 
+import com.android.deskclock.provider.AlarmInstance;
+import com.android.deskclock.provider.DaysOfWeek;
 import com.android.deskclock.stopwatch.Stopwatches;
 import com.android.deskclock.timer.Timers;
 import com.android.deskclock.worldclock.CityObj;
 
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 
 
@@ -78,20 +85,56 @@ public class Utils {
      */
     private static String sCachedVersionCode = null;
 
-    /**
-     * Array of single-character day of week symbols {'S', 'M', 'T', 'W', 'T', 'F', 'S'}
-     */
+    // Single-char version of day name, e.g.: 'S', 'M', 'T', 'W', 'T', 'F', 'S'
     private static String[] sShortWeekdays = null;
+    private static final String DATE_FORMAT_SHORT = isJBMR2OrLater() ? "ccccc" : "ccc";
+
+    // Long-version of day name, e.g.: 'Sunday', 'Monday', 'Tuesday', etc
+    private static String[] sLongWeekdays = null;
+    private static final String DATE_FORMAT_LONG = "EEEE";
+
+    public static final int DEFAULT_WEEK_START = Calendar.getInstance().getFirstDayOfWeek();
+
+    private static Locale sLocaleUsedForWeekdays;
 
     /** Types that may be used for clock displays. **/
     public static final String CLOCK_TYPE_DIGITAL = "digital";
     public static final String CLOCK_TYPE_ANALOG = "analog";
 
-    /** The background colors of the app, it changes thru out the day to mimic the sky. **/
-    public static final String[] BACKGROUND_SPECTRUM = { "#212121", "#27232e", "#2d253a",
-            "#332847", "#382a53", "#3e2c5f", "#442e6c", "#393a7a", "#2e4687", "#235395", "#185fa2",
-            "#0d6baf", "#0277bd", "#0d6cb1", "#1861a6", "#23569b", "#2d4a8f", "#383f84", "#433478",
-            "#3d3169", "#382e5b", "#322b4d", "#2c273e", "#272430" };
+    /**
+     * Temporary array used by {@link #obtainStyledColor(Context, int, int)}.
+     */
+    private static final int[] TEMP_ARRAY = new int[1];
+
+    /**
+     * The background colors of the app - it changes throughout out the day to mimic the sky.
+     */
+    private static final int[] BACKGROUND_SPECTRUM = {
+            0xFF212121 /* 12 AM */,
+            0xFF20222A /*  1 AM */,
+            0xFF202233 /*  2 AM */,
+            0xFF1F2242 /*  3 AM */,
+            0xFF1E224F /*  4 AM */,
+            0xFF1D225C /*  5 AM */,
+            0xFF1B236B /*  6 AM */,
+            0xFF1A237E /*  7 AM */,
+            0xFF1D2783 /*  8 AM */,
+            0xFF232E8B /*  9 AM */,
+            0xFF283593 /* 10 AM */,
+            0xFF2C3998 /* 11 AM */,
+            0xFF303F9F /* 12 PM */,
+            0xFF2C3998 /*  1 PM */,
+            0xFF283593 /*  2 PM */,
+            0xFF232E8B /*  3 PM */,
+            0xFF1D2783 /*  4 PM */,
+            0xFF1A237E /*  5 PM */,
+            0xFF1B236B /*  6 PM */,
+            0xFF1D225C /*  7 PM */,
+            0xFF1E224F /*  8 PM */,
+            0xFF1F2242 /*  9 PM */,
+            0xFF202233 /* 10 PM */,
+            0xFF20222A /* 11 PM */
+    };
 
     /**
      * Returns whether the SDK is KitKat or later
@@ -100,6 +143,33 @@ public class Utils {
         return Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2;
     }
 
+    /**
+     * @return {@code true} if the device is {@link Build.VERSION_CODES#JELLY_BEAN_MR2} or later
+     */
+    public static boolean isJBMR2OrLater() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2;
+    }
+
+    /**
+     * @return {@code true} if the device is {@link Build.VERSION_CODES#LOLLIPOP} or later
+     */
+    public static boolean isLOrLater() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
+    }
+
+    /**
+     * @return {@code true} if the device is {@link Build.VERSION_CODES#LOLLIPOP_MR1} or later
+     */
+    public static boolean isLMR1OrLater() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1;
+    }
+
+    /**
+     * @return {@code true} if the device is {@link Build.VERSION_CODES#M} or later
+     */
+    public static boolean isMOrLater() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M;
+    }
 
     public static void prepareHelpMenuItem(Context context, MenuItem helpMenuItem) {
         String helpUrlString = context.getResources().getString(R.string.desk_clock_help_url);
@@ -185,20 +255,6 @@ public class Utils {
         } else {
             return 0f;
         }
-    }
-
-    /**  The pressed color used throughout the app. If this method is changed, it will not have
-     *   any effect on the button press states, and those must be changed separately.
-    **/
-    public static int getPressedColorId() {
-        return R.color.hot_pink;
-    }
-
-    /**  The un-pressed color used throughout the app. If this method is changed, it will not have
-     *   any effect on the button press states, and those must be changed separately.
-    **/
-    public static int getGrayColorId() {
-        return R.color.clock_gray;
     }
 
     /**
@@ -360,14 +416,20 @@ public class Utils {
 
     /** Setup to find out when the quarter-hour changes (e.g. Kathmandu is GMT+5:45) **/
     public static long getAlarmOnQuarterHour() {
-        Calendar nextQuarter = Calendar.getInstance();
+        final Calendar calendarInstance = Calendar.getInstance();
+        final long now = System.currentTimeMillis();
+        return getAlarmOnQuarterHour(calendarInstance, now);
+    }
+
+    static long getAlarmOnQuarterHour(Calendar calendar, long now) {
         //  Set 1 second to ensure quarter-hour threshold passed.
-        nextQuarter.set(Calendar.SECOND, 1);
-        nextQuarter.set(Calendar.MILLISECOND, 0);
-        int minute = nextQuarter.get(Calendar.MINUTE);
-        nextQuarter.add(Calendar.MINUTE, 15 - (minute % 15));
-        long alarmOnQuarterHour = nextQuarter.getTimeInMillis();
-        long now = System.currentTimeMillis();
+        calendar.set(Calendar.SECOND, 1);
+        calendar.set(Calendar.MILLISECOND, 0);
+        int minute = calendar.get(Calendar.MINUTE);
+        calendar.add(Calendar.MINUTE, 15 - (minute % 15));
+        long alarmOnQuarterHour = calendar.getTimeInMillis();
+
+        // Verify that alarmOnQuarterHour is within the next 15 minutes
         long delta = alarmOnQuarterHour - now;
         if (0 >= delta || delta > 901000) {
             // Something went wrong in the calculation, schedule something that is
@@ -464,15 +526,26 @@ public class Utils {
      */
     public static String getNextAlarm(Context context) {
         String timeString = null;
-        final AlarmManager.AlarmClockInfo info = ((AlarmManager) context.getSystemService(
-                Context.ALARM_SERVICE)).getNextAlarmClock();
-        if (info != null) {
-            final long triggerTime = info.getTriggerTime();
-            final Calendar alarmTime = Calendar.getInstance();
-            alarmTime.setTimeInMillis(triggerTime);
-            timeString = AlarmUtils.getFormattedTime(context, alarmTime);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            timeString = Settings.System.getString(context.getContentResolver(),
+                    Settings.System.NEXT_ALARM_FORMATTED);
+        } else {
+            final AlarmManager.AlarmClockInfo info = ((AlarmManager) context.getSystemService(
+                    Context.ALARM_SERVICE)).getNextAlarmClock();
+            if (info != null) {
+                final long triggerTime = info.getTriggerTime();
+                final Calendar alarmTime = Calendar.getInstance();
+                alarmTime.setTimeInMillis(triggerTime);
+                timeString = AlarmUtils.getFormattedTime(context, alarmTime);
+            }
         }
         return timeString;
+    }
+
+    public static boolean isAlarmWithin24Hours(AlarmInstance alarmInstance) {
+        final Calendar nextAlarmTime = alarmInstance.getAlarmTime();
+        final long nextAlarmTimeMillis = nextAlarmTime.getTimeInMillis();
+        return nextAlarmTimeMillis - System.currentTimeMillis() <= DateUtils.DAY_IN_MILLIS;
     }
 
     /** Clock views can call this to refresh their alarm to the next upcoming value. **/
@@ -500,38 +573,44 @@ public class Utils {
         dateDisplay = (TextView) clock.findViewById(R.id.date);
         if (dateDisplay != null) {
             final Locale l = Locale.getDefault();
-            String fmt = DateFormat.getBestDateTimePattern(l, dateFormat);
-            SimpleDateFormat sdf = new SimpleDateFormat(fmt, l);
-            dateDisplay.setText(sdf.format(now));
+            dateDisplay.setText(isJBMR2OrLater()
+                    ? new SimpleDateFormat(
+                            DateFormat.getBestDateTimePattern(l, dateFormat), l).format(now)
+                    : SimpleDateFormat.getDateInstance().format(now));
             dateDisplay.setVisibility(View.VISIBLE);
-            fmt = DateFormat.getBestDateTimePattern(l, dateFormatForAccessibility);
-            sdf = new SimpleDateFormat(fmt, l);
-            dateDisplay.setContentDescription(sdf.format(now));
+            dateDisplay.setContentDescription(isJBMR2OrLater()
+                    ? new SimpleDateFormat(
+                    DateFormat.getBestDateTimePattern(l, dateFormatForAccessibility), l)
+                    .format(now)
+                    : SimpleDateFormat.getDateInstance(java.text.DateFormat.FULL).format(now));
         }
     }
 
     /***
      * Formats the time in the TextClock according to the Locale with a special
      * formatting treatment for the am/pm label.
+     * @param context - Context used to get user's locale and time preferences
      * @param clock - TextClock to format
      * @param amPmFontSize - size of the am/pm label since it is usually smaller
-     *        than the clock time size.
      */
-    public static void setTimeFormat(TextClock clock, int amPmFontSize) {
+    public static void setTimeFormat(Context context, TextClock clock, int amPmFontSize) {
         if (clock != null) {
             // Get the best format for 12 hours mode according to the locale
-            clock.setFormat12Hour(get12ModeFormat(amPmFontSize));
+            clock.setFormat12Hour(get12ModeFormat(context, amPmFontSize));
             // Get the best format for 24 hours mode according to the locale
             clock.setFormat24Hour(get24ModeFormat());
         }
     }
     /***
+     * @param context - context used to get time format string resource
      * @param amPmFontSize - size of am/pm label (label removed is size is 0).
      * @return format string for 12 hours mode time
      */
-    public static CharSequence get12ModeFormat(int amPmFontSize) {
-        String skeleton = "hma";
-        String pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton);
+    public static CharSequence get12ModeFormat(Context context, int amPmFontSize) {
+        String pattern = isJBMR2OrLater()
+                ? DateFormat.getBestDateTimePattern(Locale.getDefault(), "hma")
+                : context.getString(R.string.time_format_12_mode);
+
         // Remove the am/pm
         if (amPmFontSize <= 0) {
             pattern.replaceAll("a", "").trim();
@@ -554,84 +633,186 @@ public class Utils {
     }
 
     public static CharSequence get24ModeFormat() {
-        String skeleton = "Hm";
-        return DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton);
+        return isJBMR2OrLater()
+                ? DateFormat.getBestDateTimePattern(Locale.getDefault(), "Hm")
+                : (new SimpleDateFormat("k:mm", Locale.getDefault())).toLocalizedPattern();
     }
 
     public static CityObj[] loadCitiesFromXml(Context c) {
         Resources r = c.getResources();
         // Read strings array of name,timezone, id
         // make sure the list are the same length
-        String[] cities = r.getStringArray(R.array.cities_names);
+        String[] cityNames = r.getStringArray(R.array.cities_names);
         String[] timezones = r.getStringArray(R.array.cities_tz);
         String[] ids = r.getStringArray(R.array.cities_id);
-        int minLength = cities.length;
-        if (cities.length != timezones.length || ids.length != cities.length) {
-            minLength = Math.min(cities.length, Math.min(timezones.length, ids.length));
+        int minLength = cityNames.length;
+        if (cityNames.length != timezones.length || ids.length != cityNames.length) {
+            minLength = Math.min(cityNames.length, Math.min(timezones.length, ids.length));
             LogUtils.e("City lists sizes are not the same, truncating");
         }
-        CityObj[] tempList = new CityObj[minLength];
+        CityObj[] cities = new CityObj[minLength];
         for (int i = 0; i < cities.length; i++) {
-            tempList[i] = new CityObj(cities[i], timezones[i], ids[i]);
+            // Default to using the first character of the city name as the index unless one is
+            // specified. The indicator for a specified index is the addition of character(s)
+            // before the "=" separator.
+            final String parseString = cityNames[i];
+            final int separatorIndex = parseString.indexOf("=");
+            final String index;
+            final String cityName;
+            if (parseString.length() <= 1 && separatorIndex >= 0) {
+                LogUtils.w("Cannot parse city name %s; skipping", parseString);
+                continue;
+            }
+            if (separatorIndex == 0) {
+                // Default to using second character (the first character after the = separator)
+                // as the index.
+                index = parseString.substring(1, 2);
+                cityName = parseString.substring(1);
+            } else if (separatorIndex == -1) {
+                // Default to using the first character as the index
+                index = parseString.substring(0, 1);
+                cityName = parseString;
+                LogUtils.e("Missing expected separator character =");
+            } else {
+                 index = parseString.substring(0, separatorIndex);
+                 cityName = parseString.substring(separatorIndex + 1);
+            }
+            cities[i] = new CityObj(cityName, timezones[i], ids[i], index);
         }
-        return tempList;
+        return cities;
+    }
+    // Returns a map of cities where the key is lowercase
+    public static Map<String, CityObj> loadCityMapFromXml(Context c) {
+        CityObj[] cities = loadCitiesFromXml(c);
+
+        final Map<String, CityObj> map = new HashMap<>(cities.length);
+        for (CityObj city : cities) {
+            map.put(city.mCityName.toLowerCase(), city);
+        }
+        return map;
     }
 
     /**
-     * Returns string denoting the timezone hour offset (e.g. GMT-8:00)
+     * Returns string denoting the timezone hour offset (e.g. GMT -8:00)
+     * @param useShortForm Whether to return a short form of the header that rounds to the
+     *                     nearest hour and excludes the "GMT" prefix
      */
-    public static String getGMTHourOffset(TimeZone timezone, boolean showMinutes) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("GMT  ");
-        int gmtOffset = timezone.getRawOffset();
-        if (gmtOffset < 0) {
-            sb.append('-');
+    public static String getGMTHourOffset(TimeZone timezone, boolean useShortForm) {
+        final int gmtOffset = timezone.getRawOffset();
+        final long hour = gmtOffset / DateUtils.HOUR_IN_MILLIS;
+        final long min = (Math.abs(gmtOffset) % DateUtils.HOUR_IN_MILLIS) /
+                DateUtils.MINUTE_IN_MILLIS;
+
+        if (useShortForm) {
+            return String.format("%+d", hour);
         } else {
-            sb.append('+');
+            return String.format("GMT %+d:%02d", hour, min);
         }
-        sb.append(Math.abs(gmtOffset) / DateUtils.HOUR_IN_MILLIS); // Hour
-
-        if (showMinutes) {
-            final int min = (Math.abs(gmtOffset) / (int) DateUtils.MINUTE_IN_MILLIS) % 60;
-            sb.append(':');
-            if (min < 10) {
-                sb.append('0');
-            }
-            sb.append(min);
-        }
-
-        return sb.toString();
     }
 
     public static String getCityName(CityObj city, CityObj dbCity) {
         return (city.mCityId == null || dbCity == null) ? city.mCityName : dbCity.mCityName;
     }
 
-    public static int getCurrentHourColor() {
-        final int hourOfDay = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        return Color.parseColor(BACKGROUND_SPECTRUM[hourOfDay]);
-    }
-
-    public static int getNextHourColor() {
-        final int currHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        return Color.parseColor(BACKGROUND_SPECTRUM[currHour < 24 ? currHour + 1 : 1]);
+    /**
+     * Convenience method for retrieving a themed color value.
+     *
+     * @param context  the {@link Context} to resolve the theme attribute against
+     * @param attr     the attribute corresponding to the color to resolve
+     * @param defValue the default color value to use if the attribute cannot be resolved
+     * @return the color value of the resolve attribute
+     */
+    public static int obtainStyledColor(Context context, int attr, int defValue) {
+        TEMP_ARRAY[0] = attr;
+        final TypedArray a = context.obtainStyledAttributes(TEMP_ARRAY);
+        try {
+            return a.getColor(0, defValue);
+        } finally {
+            a.recycle();
+        }
     }
 
     /**
-     * To get an array of single-character day of week symbols {'S', 'M', 'T', 'W', 'T', 'F', 'S'}
-     * @return the array of symbols
+     * Returns the background color to use based on the current time.
      */
-    public static String[] getShortWeekdays() {
-        if (sShortWeekdays == null) {
-            final String[] shortWeekdays = new String[7];
-            final SimpleDateFormat format = new SimpleDateFormat("EEEEE");
-            // Create a date (2014/07/20) that is a Sunday
-            long aSunday = new GregorianCalendar(2014, Calendar.JULY, 20).getTimeInMillis();
-            for (int day = 0; day < 7; day++) {
-                shortWeekdays[day] = format.format(new Date(aSunday + day * DateUtils.DAY_IN_MILLIS));
-            }
-            sShortWeekdays = shortWeekdays;
+    public static int getCurrentHourColor() {
+        return BACKGROUND_SPECTRUM[Calendar.getInstance().get(Calendar.HOUR_OF_DAY)];
+    }
+
+    /**
+     * @param firstDay is the result from getZeroIndexedFirstDayOfWeek
+     * @return Single-char version of day name, e.g.: 'S', 'M', 'T', 'W', 'T', 'F', 'S'
+     */
+    public static String getShortWeekday(int position, int firstDay) {
+        generateShortAndLongWeekdaysIfNeeded();
+        return sShortWeekdays[(position + firstDay) % DaysOfWeek.DAYS_IN_A_WEEK];
+    }
+
+    /**
+     * @param firstDay is the result from getZeroIndexedFirstDayOfWeek
+     * @return Long-version of day name, e.g.: 'Sunday', 'Monday', 'Tuesday', etc
+     */
+    public static String getLongWeekday(int position, int firstDay) {
+        generateShortAndLongWeekdaysIfNeeded();
+        return sLongWeekdays[(position + firstDay) % DaysOfWeek.DAYS_IN_A_WEEK];
+    }
+
+    // Return the first day of the week value corresponding to Calendar.<WEEKDAY> value, which is
+    // 1-indexed starting with Sunday.
+    public static int getFirstDayOfWeek(Context context) {
+        return Integer.parseInt(PreferenceManager
+                .getDefaultSharedPreferences(context)
+                .getString(SettingsActivity.KEY_WEEK_START, String.valueOf(DEFAULT_WEEK_START)));
+    }
+
+    // Return the first day of the week value corresponding to a week with Sunday at 0 index.
+    public static int getZeroIndexedFirstDayOfWeek(Context context) {
+        return getFirstDayOfWeek(context) - 1;
+    }
+
+    private static boolean localeHasChanged() {
+        return sLocaleUsedForWeekdays != Locale.getDefault();
+    }
+
+    /**
+     * Generate arrays of short and long weekdays, starting from Sunday
+     */
+    private static void generateShortAndLongWeekdaysIfNeeded() {
+        if (sShortWeekdays != null && sLongWeekdays != null && !localeHasChanged()) {
+            // nothing to do
+            return;
         }
-        return sShortWeekdays;
+        if (sShortWeekdays == null) {
+            sShortWeekdays = new String[DaysOfWeek.DAYS_IN_A_WEEK];
+        }
+        if (sLongWeekdays == null) {
+            sLongWeekdays = new String[DaysOfWeek.DAYS_IN_A_WEEK];
+        }
+
+        final SimpleDateFormat shortFormat = new SimpleDateFormat(DATE_FORMAT_SHORT);
+        final SimpleDateFormat longFormat = new SimpleDateFormat(DATE_FORMAT_LONG);
+
+        // Create a date (2014/07/20) that is a Sunday
+        final long aSunday = new GregorianCalendar(2014, Calendar.JULY, 20).getTimeInMillis();
+
+        for (int i = 0; i < DaysOfWeek.DAYS_IN_A_WEEK; i++) {
+            final long dayMillis = aSunday + i * DateUtils.DAY_IN_MILLIS;
+            sShortWeekdays[i] = shortFormat.format(new Date(dayMillis));
+            sLongWeekdays[i] = longFormat.format(new Date(dayMillis));
+        }
+
+        // Track the Locale used to generate these weekdays
+        sLocaleUsedForWeekdays = Locale.getDefault();
+    }
+
+    /**
+     * @param context
+     * @param id Resource id of the plural
+     * @param quantity integer value
+     * @return string with properly localized numbers
+     */
+    public static String getNumberFormattedQuantityString(Context context, int id, int quantity) {
+        final String localizedQuantity = NumberFormat.getInstance().format(quantity);
+        return context.getResources().getQuantityString(id, quantity, localizedQuantity);
     }
 }

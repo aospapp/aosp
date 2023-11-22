@@ -8,7 +8,7 @@
 #if _FX_OS_ == _FX_WIN32_DESKTOP_ || _FX_OS_ == _FX_WIN64_
 #include "../../../include/fxge/fx_ge_win32.h"
 #include "dwrite_int.h"
-#include "../Microsoft SDK/include/DWrite.h"
+#include <dwrite.h>
 typedef HRESULT  (__stdcall *FuncType_DWriteCreateFactory)(__in DWRITE_FACTORY_TYPE, __in REFIID, __out IUnknown **);
 template <typename InterfaceType>
 inline void SafeRelease(InterfaceType** currentObject)
@@ -26,7 +26,7 @@ inline InterfaceType* SafeAcquire(InterfaceType* newObject)
     }
     return newObject;
 }
-class CDwFontFileStream : public IDWriteFontFileStream, public CFX_Object
+class CDwFontFileStream FX_FINAL : public IDWriteFontFileStream
 {
 public:
     explicit CDwFontFileStream(void const* fontFileReferenceKey, UINT32 fontFileReferenceKeySize);
@@ -46,7 +46,7 @@ private:
     void const* resourcePtr_;
     DWORD resourceSize_;
 };
-class CDwFontFileLoader : public IDWriteFontFileLoader, public CFX_Object
+class CDwFontFileLoader FX_FINAL : public IDWriteFontFileLoader
 {
 public:
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject);
@@ -57,8 +57,7 @@ public:
     static IDWriteFontFileLoader* GetLoader()
     {
         if (instance_ == NULL) {
-            instance_ = FX_NEW CDwFontFileLoader();
-            return instance_;
+            instance_ = new CDwFontFileLoader();
         }
         return instance_;
     }
@@ -71,7 +70,7 @@ private:
     ULONG refCount_;
     static IDWriteFontFileLoader* instance_;
 };
-class CDwFontContext : public CFX_Object
+class CDwFontContext 
 {
 public:
     CDwFontContext(IDWriteFactory* dwriteFactory);
@@ -83,7 +82,7 @@ private:
     HRESULT hr_;
     IDWriteFactory* dwriteFactory_;
 };
-class CDwGdiTextRenderer : public CFX_Object
+class CDwGdiTextRenderer 
 {
 public:
     CDwGdiTextRenderer(
@@ -209,10 +208,7 @@ FX_BOOL CDWriteExt::DwCreateRenderingTarget(CFX_DIBitmap* pBitmap, void** render
     if (FAILED(hr)) {
         goto failed;
     }
-    *(CDwGdiTextRenderer**)renderTarget = FX_NEW CDwGdiTextRenderer(pBitmap, pBitmapRenderTarget, pRenderingParams);
-    if (*(CDwGdiTextRenderer**)renderTarget == NULL) {
-        goto failed;
-    }
+    *(CDwGdiTextRenderer**)renderTarget = new CDwGdiTextRenderer(pBitmap, pBitmapRenderTarget, pRenderingParams);
     SafeRelease(&pGdiInterop);
     SafeRelease(&pBitmapRenderTarget);
     SafeRelease(&pRenderingParams);
@@ -372,10 +368,7 @@ HRESULT STDMETHODCALLTYPE CDwFontFileLoader::CreateStreamFromKey(
 )
 {
     *fontFileStream = NULL;
-    CDwFontFileStream* stream = FX_NEW CDwFontFileStream(fontFileReferenceKey, fontFileReferenceKeySize);
-    if (stream == NULL)	{
-        return E_OUTOFMEMORY;
-    }
+    CDwFontFileStream* stream = new CDwFontFileStream(fontFileReferenceKey, fontFileReferenceKeySize);
     if (!stream->IsInitialized()) {
         delete stream;
         return E_FAIL;

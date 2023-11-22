@@ -18,11 +18,9 @@ package com.android.server.telecom;
 
 import android.content.Context;
 import android.content.Intent;
-import android.Manifest.permission;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.provider.CallLog.Calls;
-import android.telecom.CallState;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.VideoProfile;
@@ -30,7 +28,6 @@ import android.telephony.PhoneNumberUtils;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 import com.android.internal.telephony.CallerInfo;
-import com.android.internal.telephony.PhoneConstants;
 
 /**
  * Helper class that provides functionality to write information about calls and their associated
@@ -108,7 +105,7 @@ final class CallLogManager extends CallsManagerListenerBase {
         // 2) It is a conference call
         // 3) Call was not explicitly canceled
         if (isNewlyDisconnected &&
-                (oldState != CallState.PRE_DIAL_WAIT &&
+                (oldState != CallState.SELECT_PHONE_ACCOUNT &&
                  !call.isConference() &&
                  !isCallCanceled)) {
             int type;
@@ -140,7 +137,13 @@ final class CallLogManager extends CallsManagerListenerBase {
 
         Log.d(TAG, "logNumber set to: %s", Log.pii(logNumber));
 
-        final PhoneAccountHandle accountHandle = call.getTargetPhoneAccount();
+        final PhoneAccountHandle emergencyAccountHandle =
+                TelephonyUtil.getDefaultEmergencyPhoneAccount().getAccountHandle();
+
+        PhoneAccountHandle accountHandle = call.getTargetPhoneAccount();
+        if (emergencyAccountHandle.equals(accountHandle)) {
+            accountHandle = null;
+        }
 
         // TODO(vt): Once data usage is available, wire it up here.
         int callFeatures = getCallFeatures(call.getVideoStateHistory());
@@ -202,8 +205,7 @@ final class CallLogManager extends CallsManagerListenerBase {
      * @return The call features.
      */
     private static int getCallFeatures(int videoState) {
-        if ((videoState & VideoProfile.VideoState.TX_ENABLED)
-                == VideoProfile.VideoState.TX_ENABLED) {
+        if (VideoProfile.isVideo(videoState)) {
             return Calls.FEATURES_VIDEO;
         }
         return 0;

@@ -29,8 +29,9 @@
 #include <EGL/egl.h>
 
 #include <hardware/hardware.h>
-#include <gui/Surface.h>
+#include <gui/BufferItem.h>
 #include <gui/GraphicBufferAlloc.h>
+#include <gui/Surface.h>
 #include <ui/GraphicBuffer.h>
 
 #include "FramebufferSurface.h"
@@ -86,7 +87,7 @@ status_t FramebufferSurface::advanceFrame() {
 status_t FramebufferSurface::nextBuffer(sp<GraphicBuffer>& outBuffer, sp<Fence>& outFence) {
     Mutex::Autolock lock(mMutex);
 
-    BufferQueue::BufferItem item;
+    BufferItem item;
     status_t err = acquireBufferLocked(&item, 0);
     if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
         outBuffer = mCurrentBuffer;
@@ -160,23 +161,7 @@ status_t FramebufferSurface::compositionComplete()
     return mHwc.fbCompositionComplete();
 }
 
-// Since DisplaySurface and ConsumerBase both have a method with this
-// signature, results will vary based on the static pointer type the caller is
-// using:
-//   void dump(FrameBufferSurface* fbs, String8& s) {
-//       // calls FramebufferSurface::dump()
-//       fbs->dump(s);
-//
-//       // calls ConsumerBase::dump() since it is non-virtual
-//       static_cast<ConsumerBase*>(fbs)->dump(s);
-//
-//       // calls FramebufferSurface::dump() since it is virtual
-//       static_cast<DisplaySurface*>(fbs)->dump(s);
-//   }
-// To make sure that all of these end up doing the same thing, we just redirect
-// to ConsumerBase::dump() here. It will take the internal lock, and then call
-// virtual dumpLocked(), which is where the real work happens.
-void FramebufferSurface::dump(String8& result) const {
+void FramebufferSurface::dumpAsString(String8& result) const {
     ConsumerBase::dump(result);
 }
 

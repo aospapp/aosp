@@ -2,7 +2,7 @@
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
- *		 2011, 2012, 2013, 2014
+ *		 2011, 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -28,7 +28,7 @@
 #include <sys/sysctl.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/var.c,v 1.183 2014/10/04 11:47:19 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/var.c,v 1.183.2.4 2015/04/19 19:18:23 tg Exp $");
 
 /*-
  * Variables
@@ -308,7 +308,6 @@ local(const char *n, bool copy)
 	 * dereference namerefs; must come first
 	 */
 	n = array_index_calc(n, &array, &val);
-	mkssert(n != NULL);
 	h = hash(n);
 	if (!ksh_isalphx(*n)) {
 		vp = &vtemp;
@@ -482,41 +481,57 @@ setint(struct tbl *vq, mksh_ari_t n)
 static int
 getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 {
-	mksh_uari_t c, num, base;
+	mksh_uari_t c, num = 0, base = 10;
 	const char *s;
 	bool have_base = false, neg = false;
 
-	if (vp->flag&SPECIAL)
+	if (vp->flag & SPECIAL)
 		getspec(vp);
 	/* XXX is it possible for ISSET to be set and val.s to be NULL? */
-	if (!(vp->flag&ISSET) || (!(vp->flag&INTEGER) && vp->val.s == NULL))
+	if (!(vp->flag & ISSET) || (!(vp->flag & INTEGER) && vp->val.s == NULL))
 		return (-1);
-	if (vp->flag&INTEGER) {
+	if (vp->flag & INTEGER) {
 		nump->i = vp->val.i;
 		return (vp->type);
 	}
 	s = vp->val.s + vp->type;
-	base = 10;
-	num = 0;
-	if (arith && s[0] == '0' && (s[1] | 0x20) == 'x') {
-		s += 2;
-		base = 16;
-		have_base = true;
+
+	do {
+		c = (unsigned char)*s++;
+	} while (ksh_isspace(c));
+
+	switch (c) {
+	case '-':
+		neg = true;
+		/* FALLTHROUGH */
+	case '+':
+		c = (unsigned char)*s++;
+		break;
 	}
-	if (Flag(FPOSIX) && arith && s[0] == '0' && ksh_isdigit(s[1]) &&
-	    !(vp->flag & ZEROFIL)) {
-		/* interpret as octal (deprecated) */
-		base = 8;
-		have_base = true;
+
+	if (c == '0' && arith) {
+		if ((s[0] | 0x20) == 'x') {
+			/* interpret as hexadecimal */
+			base = 16;
+			++s;
+			goto getint_c_style_base;
+		} else if (Flag(FPOSIX) && ksh_isdigit(s[0]) &&
+		    !(vp->flag & ZEROFIL)) {
+			/* interpret as octal (deprecated) */
+			base = 8;
+ getint_c_style_base:
+			have_base = true;
+			c = (unsigned char)*s++;
+		}
 	}
-	while ((c = (unsigned char)*s++)) {
-		if (c == '-') {
-			neg = true;
-			continue;
-		} else if (c == '#') {
-			if (have_base || num < 1 || num > 36)
+
+	do {
+		if (c == '#') {
+			/* ksh-style base determination */
+			if (have_base || num < 1)
 				return (-1);
 			if ((base = num) == 1) {
+				/* mksh-specific extension */
 				unsigned int wc;
 
 				if (!UTFMODE)
@@ -531,22 +546,26 @@ getint(struct tbl *vp, mksh_ari_u *nump, bool arith)
 					wc = 0xEF00 + *(const unsigned char *)s;
 				nump->u = (mksh_uari_t)wc;
 				return (1);
-			}
+			} else if (base > 36)
+				return (-1);
 			num = 0;
 			have_base = true;
 			continue;
-		} else if (ksh_isdigit(c))
+		}
+		if (ksh_isdigit(c))
 			c -= '0';
-		else if (ksh_islower(c))
+		else {
+			c |= 0x20;
+			if (!ksh_islower(c))
+				return (-1);
 			c -= 'a' - 10;
-		else if (ksh_isupper(c))
-			c -= 'A' - 10;
-		else
-			return (-1);
+		}
 		if (c >= base)
 			return (-1);
+		/* handle overflow as truncation */
 		num = num * base + c;
-	}
+	} while ((c = (unsigned char)*s++));
+
 	if (neg)
 		num = -num;
 	nump->u = num;
@@ -678,8 +697,6 @@ exportprep(struct tbl *vp, const char *val)
 	char *xp;
 	char *op = (vp->flag&ALLOC) ? vp->val.s : NULL;
 	size_t namelen, vallen;
-
-	mkssert(val != NULL);
 
 	namelen = strlen(vp->name);
 	vallen = strlen(val) + 1;
@@ -1114,6 +1131,8 @@ makenv(void)
 				}
 				XPput(denv, vp->val.s);
 			}
+		if (l->flags & BF_STOPENV)
+			break;
 	}
 	XPput(denv, NULL);
 	return ((char **)XPclose(denv));
@@ -1145,7 +1164,7 @@ unspecial(const char *name)
 }
 
 static time_t seconds;		/* time SECONDS last set */
-static int user_lineno;		/* what user set $LINENO to */
+static mksh_uari_t user_lineno;	/* what user set $LINENO to */
 
 static void
 getspec(struct tbl *vp)
@@ -1179,7 +1198,7 @@ getspec(struct tbl *vp)
 		num.i = histsize;
 		break;
 	case V_LINENO:
-		num.i = current_lineno + user_lineno;
+		num.u = (mksh_uari_t)current_lineno + user_lineno;
 		break;
 	case V_LINES:
 		num.i = x_lins;
@@ -1309,7 +1328,7 @@ setspec(struct tbl *vp)
 		break;
 	case V_LINENO:
 		/* The -1 is because line numbering starts at 1. */
-		user_lineno = num.u - current_lineno - 1;
+		user_lineno = num.u - (mksh_uari_t)current_lineno - 1;
 		break;
 	case V_LINES:
 		if (num.i >= MIN_LINS)
@@ -1351,6 +1370,11 @@ unsetspec(struct tbl *vp)
 	 */
 
 	switch (special(vp->name)) {
+#if HAVE_PERSISTENT_HISTORY
+	case V_HISTFILE:
+		sethistfile(NULL);
+		return;
+#endif
 	case V_IFS:
 		setctypes(TC_IFSWS, C_IFS);
 		ifs0 = ' ';

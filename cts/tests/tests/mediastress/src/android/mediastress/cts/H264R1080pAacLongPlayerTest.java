@@ -16,19 +16,11 @@
 
 package android.mediastress.cts;
 
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder.AudioEncoder;
-import android.media.MediaRecorder.VideoEncoder;
-
 public class H264R1080pAacLongPlayerTest extends MediaPlayerStressTest {
     private static final String VIDEO_PATH_MIDDLE = "bbb_full/1920x1080/mp4_libx264_libfaac/";
     private final String[] mMedias = {
         "bbb_full.ffmpeg.1920x1080.mp4.libx264_10000kbps_30fps.libfaac_stereo_192kbps_48000Hz.mp4"
     };
-
-    public H264R1080pAacLongPlayerTest() {
-        super(CamcorderProfile.QUALITY_1080P, VideoEncoder.H264, AudioEncoder.AAC);
-    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackLong(0);

@@ -14,8 +14,6 @@
      limitations under the License.
 -->
 <resources>
-    <string name="holo_test_utilities">Holo Test Utilities</string>
-
     <string name="display_info">Display Info</string>
     <string name="display_info_text">Density DPI: %1$d\nDensity Bucket: %2$s\nWidth DP: %3$d\nHeight DP: %4$d</string>
 

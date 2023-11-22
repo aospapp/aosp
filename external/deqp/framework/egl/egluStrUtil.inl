@@ -1,5 +1,7 @@
-/* WARNING! THIS IS A PROGRAMMATICALLY GENERATED CODE. DO NOT MODIFY THE CODE,
- * SINCE THE CHANGES WILL BE LOST! MODIFY THE GENERATING PYTHON INSTEAD.
+/* WARNING: This is auto-generated file. Do not modify, since changes will
+ * be lost! Modify the generating script instead.
+ *
+ * Generated from Khronos EGL API description (egl.xml) revision 31042.
  */
 
 const char* getBooleanName (int value)
@@ -124,8 +126,8 @@ const char* getSurfaceAttribName (int value)
 		case EGL_SWAP_BEHAVIOR:			return "EGL_SWAP_BEHAVIOR";
 		case EGL_TEXTURE_FORMAT:		return "EGL_TEXTURE_FORMAT";
 		case EGL_TEXTURE_TARGET:		return "EGL_TEXTURE_TARGET";
-		case EGL_VG_ALPHA_FORMAT:		return "EGL_VG_ALPHA_FORMAT";
-		case EGL_VG_COLORSPACE:			return "EGL_VG_COLORSPACE";
+		case EGL_ALPHA_FORMAT:			return "EGL_ALPHA_FORMAT";
+		case EGL_COLORSPACE:			return "EGL_COLORSPACE";
 		default:						return DE_NULL;
 	}
 }
@@ -222,23 +224,23 @@ const char* getTextureTargetName (int value)
 	}
 }
 
-const char* getVGAlphaFormatName (int value)
+const char* getAlphaFormatName (int value)
 {
 	switch (value)
 	{
-		case EGL_VG_ALPHA_FORMAT_NONPRE:	return "EGL_VG_ALPHA_FORMAT_NONPRE";
-		case EGL_VG_ALPHA_FORMAT_PRE:		return "EGL_VG_ALPHA_FORMAT_PRE";
-		default:							return DE_NULL;
+		case EGL_ALPHA_FORMAT_NONPRE:	return "EGL_ALPHA_FORMAT_NONPRE";
+		case EGL_ALPHA_FORMAT_PRE:		return "EGL_ALPHA_FORMAT_PRE";
+		default:						return DE_NULL;
 	}
 }
 
-const char* getVGColorspaceName (int value)
+const char* getColorspaceName (int value)
 {
 	switch (value)
 	{
-		case EGL_VG_COLORSPACE_sRGB:	return "EGL_VG_COLORSPACE_sRGB";
-		case EGL_VG_COLORSPACE_LINEAR:	return "EGL_VG_COLORSPACE_LINEAR";
-		default:						return DE_NULL;
+		case EGL_COLORSPACE_sRGB:	return "EGL_COLORSPACE_sRGB";
+		case EGL_COLORSPACE_LINEAR:	return "EGL_COLORSPACE_LINEAR";
+		default:					return DE_NULL;
 	}
 }
 
@@ -250,7 +252,7 @@ tcu::Format::Bitfield<16> getAPIBitsStr (int value)
 		tcu::Format::BitDesc(EGL_OPENGL_ES_BIT,			"EGL_OPENGL_ES_BIT"),
 		tcu::Format::BitDesc(EGL_OPENGL_ES2_BIT,		"EGL_OPENGL_ES2_BIT"),
 		tcu::Format::BitDesc(EGL_OPENGL_ES3_BIT_KHR,	"EGL_OPENGL_ES3_BIT_KHR"),
-		tcu::Format::BitDesc(EGL_OPENVG_BIT,			"EGL_OPENVG_BIT")
+		tcu::Format::BitDesc(EGL_OPENVG_BIT,			"EGL_OPENVG_BIT"),
 	};
 	return tcu::Format::Bitfield<16>(value, &s_desc[0], &s_desc[DE_LENGTH_OF_ARRAY(s_desc)]);
 }
@@ -267,7 +269,7 @@ tcu::Format::Bitfield<16> getSurfaceBitsStr (int value)
 		tcu::Format::BitDesc(EGL_VG_ALPHA_FORMAT_PRE_BIT,		"EGL_VG_ALPHA_FORMAT_PRE_BIT"),
 		tcu::Format::BitDesc(EGL_VG_COLORSPACE_LINEAR_BIT,		"EGL_VG_COLORSPACE_LINEAR_BIT"),
 		tcu::Format::BitDesc(EGL_LOCK_SURFACE_BIT_KHR,			"EGL_LOCK_SURFACE_BIT_KHR"),
-		tcu::Format::BitDesc(EGL_OPTIMAL_FORMAT_BIT_KHR,		"EGL_OPTIMAL_FORMAT_BIT_KHR")
+		tcu::Format::BitDesc(EGL_OPTIMAL_FORMAT_BIT_KHR,		"EGL_OPTIMAL_FORMAT_BIT_KHR"),
 	};
 	return tcu::Format::Bitfield<16>(value, &s_desc[0], &s_desc[DE_LENGTH_OF_ARRAY(s_desc)]);
 }

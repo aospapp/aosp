@@ -81,5 +81,13 @@ public class TerminalLineView extends View {
 
             col += m.run.colSize;
         }
+
+        if (mTerm.getCursorVisible() && mTerm.getCursorRow() == row) {
+            canvas.save();
+            canvas.translate(mTerm.getCursorCol() * m.charWidth, 0);
+            canvas.drawRect(0, 0, m.charWidth, m.charHeight, m.cursorPaint);
+            canvas.restore();
+        }
+
     }
 }

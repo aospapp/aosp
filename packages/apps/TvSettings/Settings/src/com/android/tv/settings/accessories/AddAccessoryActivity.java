@@ -16,12 +16,6 @@
 
 package com.android.tv.settings.accessories;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.bluetooth.BluetoothDevice;
@@ -36,17 +30,25 @@ import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.service.dreams.DreamService;
 import android.service.dreams.IDreamManager;
+import android.support.annotation.NonNull;
 import android.support.v4.view.ViewCompat;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.old.Action;
+import com.android.tv.settings.dialog.old.ActionAdapter;
+import com.android.tv.settings.dialog.old.ActionFragment;
+import com.android.tv.settings.dialog.old.DialogActivity;
+
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 /**
@@ -54,10 +56,10 @@ import java.util.ArrayList;
  */
 public class AddAccessoryActivity extends DialogActivity
         implements ActionAdapter.Listener,
-        InputPairer.EventListener {
+        BluetoothDevicePairer.EventListener {
 
     private static final boolean DEBUG = false;
-    private static final String TAG = "aah.AddAccessoryActivity";
+    private static final String TAG = "AddAccessoryActivity";
 
     private static final String ACTION_CONNECT_INPUT =
             "com.google.android.intent.action.CONNECT_INPUT";
@@ -97,8 +99,8 @@ public class AddAccessoryActivity extends DialogActivity
     private AddAccessoryContentFragment mContentFragment;
 
     // members related to Bluetooth pairing
-    private InputPairer mBtPairer;
-    private int mPreviousStatus = InputPairer.STATUS_NONE;
+    private BluetoothDevicePairer mBtPairer;
+    private int mPreviousStatus = BluetoothDevicePairer.STATUS_NONE;
     private boolean mPairingSuccess = false;
     private boolean mPairingBluetooth = false;
     private ArrayList<BluetoothDevice> mBtDevices;
@@ -108,7 +110,7 @@ public class AddAccessoryActivity extends DialogActivity
     private boolean mPairingInBackground = false;
 
     private boolean mActionsVisible = false;
-    private FrameLayout mTopLayout;
+    private ViewGroup mTopLayout;
     private View mActionView;
     private View mContentView;
     private boolean mShowingMultiFragment;
@@ -122,7 +124,6 @@ public class AddAccessoryActivity extends DialogActivity
     private final Object mLock = new Object();
 
     private FragmentManager mFragmentManager;
-    private FragmentTransaction mFragmentTransaction;
 
     private IDreamManager mDreamManager;
     private boolean mHwKeyDown;
@@ -132,68 +133,81 @@ public class AddAccessoryActivity extends DialogActivity
     private boolean mFragmentTransactionPending;
 
     // Internal message handler
-    private Handler mMsgHandler = new Handler() {
+    private final MessageHandler mMsgHandler = new MessageHandler();
+
+    private static class MessageHandler extends Handler {
+
+        private WeakReference<AddAccessoryActivity> mActivityRef = new WeakReference<>(null);
+
+        public void setActivity(AddAccessoryActivity activity) {
+            mActivityRef = new WeakReference<>(activity);
+        }
+
         @Override
         public void handleMessage(Message msg) {
+            final AddAccessoryActivity activity = mActivityRef.get();
+            if (activity == null) {
+                return;
+            }
             switch (msg.what) {
                 case MSG_UPDATE_VIEW:
-                    updateView();
+                    activity.updateView();
                     break;
                 case MSG_REMOVE_CANCELED:
-                    mCancelledAddress = ADDRESS_NONE;
-                    updateView();
+                    activity.mCancelledAddress = ADDRESS_NONE;
+                    activity.updateView();
                     break;
                 case MSG_PAIRING_COMPLETE:
-                    AddAccessoryActivity.this.finish();
+                    activity.finish();
                     break;
                 case MSG_OP_TIMEOUT:
-                    handlePairingTimeout();
+                    activity.handlePairingTimeout();
                     break;
                 case MSG_RESTART:
-                    if (mBtPairer != null) {
-                        mBtPairer.start();
-                        mBtPairer.cancelPairing();
+                    if (activity.mBtPairer != null) {
+                        activity.mBtPairer.start();
+                        activity.mBtPairer.cancelPairing();
                     }
                     break;
                 case MSG_TRIGGER_SELECT_DOWN:
-                    sendKeyEvent(KeyEvent.KEYCODE_DPAD_CENTER, true);
-                    mHwKeyDidSelect = true;
+                    activity.sendKeyEvent(KeyEvent.KEYCODE_DPAD_CENTER, true);
+                    activity.mHwKeyDidSelect = true;
                     sendEmptyMessageDelayed(MSG_TRIGGER_SELECT_UP, KEY_DOWN_TIME);
-                    cancelPairingCountdown();
+                    activity.cancelPairingCountdown();
                     break;
                 case MSG_TRIGGER_SELECT_UP:
-                    sendKeyEvent(KeyEvent.KEYCODE_DPAD_CENTER, false);
+                    activity.sendKeyEvent(KeyEvent.KEYCODE_DPAD_CENTER, false);
                     break;
                 case MSG_START_AUTOPAIR_COUNTDOWN:
-                    mAutoPairText.setVisibility(View.VISIBLE);
-                    mAutoPairText.setText(String.format(
-                            getString(R.string.accessories_autopair_msg), AUTOPAIR_COUNT));
-                    sendMessageDelayed(mMsgHandler.obtainMessage(MSG_AUTOPAIR_TICK,
+                    activity.mAutoPairText.setVisibility(View.VISIBLE);
+                    activity.mAutoPairText.setText(String.format(
+                            activity.getString(R.string.accessories_autopair_msg), AUTOPAIR_COUNT));
+                    sendMessageDelayed(obtainMessage(MSG_AUTOPAIR_TICK,
                             AUTOPAIR_COUNT, 0, null), 1000);
                     break;
                 case MSG_AUTOPAIR_TICK:
                     int countToAutoPair = msg.arg1 - 1;
-                    if (mAutoPairText != null) {
+                    if (activity.mAutoPairText != null) {
                         if (countToAutoPair <= 0) {
-                            mAutoPairText.setVisibility(View.GONE);
+                            activity.mAutoPairText.setVisibility(View.GONE);
                             // AutoPair
-                            startAutoPairing();
+                            activity.startAutoPairing();
                         } else {
-                            mAutoPairText.setText(String.format(
-                                    getString(R.string.accessories_autopair_msg),
+                            activity.mAutoPairText.setText(String.format(
+                                    activity.getString(R.string.accessories_autopair_msg),
                                     countToAutoPair));
-                            sendMessageDelayed(mMsgHandler.obtainMessage(MSG_AUTOPAIR_TICK,
+                            sendMessageDelayed(obtainMessage(MSG_AUTOPAIR_TICK,
                                     countToAutoPair, 0, null), 1000);
                         }
                     }
                     break;
                 case MSG_MULTIPAIR_BLINK:
                     // Kick off the blinking animation
-                    ImageView backImage = (ImageView) findViewById(R.id.back_panel_image);
+                    ImageView backImage = (ImageView) activity.findViewById(R.id.back_panel_image);
                     if (backImage != null) {
-                        mAnimation = (AnimationDrawable) backImage.getDrawable();
-                        if (mAnimation != null) {
-                            mAnimation.start();
+                        activity.mAnimation = (AnimationDrawable) backImage.getDrawable();
+                        if (activity.mAnimation != null) {
+                            activity.mAnimation.start();
                         }
                     }
                     break;
@@ -201,7 +215,7 @@ public class AddAccessoryActivity extends DialogActivity
                     super.handleMessage(msg);
             }
         }
-    };
+    }
 
     private final Handler mAutoExitHandler = new Handler();
 
@@ -214,19 +228,19 @@ public class AddAccessoryActivity extends DialogActivity
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        setLayoutProperties(R.layout.add_accessory_custom_two_pane_dialog, R.id.content_fragment,
-                R.id.action_fragment);
-
         super.onCreate(savedInstanceState);
 
+        mMsgHandler.setActivity(this);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mDreamManager = IDreamManager.Stub.asInterface(ServiceManager.checkService(
                 DreamService.DREAM_SERVICE));
 
         mFragmentManager = getFragmentManager();
 
-        mBtDevices = new ArrayList<BluetoothDevice>();
+        mBtDevices = new ArrayList<>();
 
-        mActions = new ArrayList<Action>();
+        mActions = new ArrayList<>();
 
         mNoInputMode = getIntent().getBooleanExtra(INTENT_EXTRA_NO_INPUT_MODE, false);
         mHwKeyDown = false;
@@ -256,13 +270,13 @@ public class AddAccessoryActivity extends DialogActivity
             if (mAnimateOnStart) {
                 mAnimateOnStart = false;
                 ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
-                mTopLayout = (FrameLayout) contentView.getChildAt(0);
+                mTopLayout = (ViewGroup) contentView.getChildAt(0);
 
                 // Fade out the old activity, and fade in the new activity.
                 overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
 
                 // Set the activity background
-                int bgColor = getResources().getColor(R.color.dialog_activity_background);
+                int bgColor = getColor(R.color.dialog_activity_background);
                 getBackgroundDrawable().setColor(bgColor);
                 mTopLayout.setBackground(getBackgroundDrawable());
 
@@ -279,7 +293,8 @@ public class AddAccessoryActivity extends DialogActivity
                                 if (mActionView != null) {
                                     mViewOffset = mActionView.getMeasuredWidth();
                                     int offset = (ViewCompat.getLayoutDirection(mActionView) ==
-                                            View.LAYOUT_DIRECTION_RTL) ? -mViewOffset : mViewOffset;
+                                            ViewCompat.LAYOUT_DIRECTION_RTL) ?
+                                            -mViewOffset : mViewOffset;
                                     mActionView.setTranslationX(offset);
                                     mContentView.setTranslationX(offset / 2);
                                 }
@@ -334,7 +349,7 @@ public class AddAccessoryActivity extends DialogActivity
     }
 
     @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
+    public boolean onKeyUp(int keyCode, @NonNull KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_HOME) {
             if (mPairingBluetooth && !mDone) {
                 cancelBtPairing();
@@ -563,7 +578,7 @@ public class AddAccessoryActivity extends DialogActivity
 
     private void btDeviceClicked(String clickedAddress) {
         if (mBtPairer != null && !mBtPairer.isInProgress()) {
-            if (mBtPairer.getStatus() == InputPairer.STATUS_WAITING_TO_PAIR &&
+            if (mBtPairer.getStatus() == BluetoothDevicePairer.STATUS_WAITING_TO_PAIR &&
                     mBtPairer.getTargetDevice() != null) {
                 cancelBtPairing();
             } else {
@@ -610,11 +625,10 @@ public class AddAccessoryActivity extends DialogActivity
 
     private void startBluetoothPairer() {
         stopBluetoothPairer();
-        mBtPairer = new InputPairer(this, this);
+        mBtPairer = new BluetoothDevicePairer(this, this);
         mBtPairer.start();
 
-        // Disable auto-pairing
-        mBtPairer.cancelPairing();
+        mBtPairer.disableAutoPairing();
 
         mPairingSuccess = false;
         statusChanged();
@@ -629,18 +643,18 @@ public class AddAccessoryActivity extends DialogActivity
     }
 
     private String getMessageForStatus(int status) {
-        int msgId = 0;
+        final int msgId;
         String msg;
 
         switch (status) {
-            case InputPairer.STATUS_WAITING_TO_PAIR:
-            case InputPairer.STATUS_PAIRING:
+            case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
+            case BluetoothDevicePairer.STATUS_PAIRING:
                 msgId = R.string.accessory_state_pairing;
                 break;
-            case InputPairer.STATUS_CONNECTING:
+            case BluetoothDevicePairer.STATUS_CONNECTING:
                 msgId = R.string.accessory_state_connecting;
                 break;
-            case InputPairer.STATUS_ERROR:
+            case BluetoothDevicePairer.STATUS_ERROR:
                 msgId = R.string.accessory_state_error;
                 break;
             default:
@@ -668,23 +682,23 @@ public class AddAccessoryActivity extends DialogActivity
             if (DEBUG) {
                 String state = "?";
                 switch (status) {
-                    case InputPairer.STATUS_NONE:
-                        state = "InputPairer.STATUS_NONE";
+                    case BluetoothDevicePairer.STATUS_NONE:
+                        state = "BluetoothDevicePairer.STATUS_NONE";
                         break;
-                    case InputPairer.STATUS_SCANNING:
-                        state = "InputPairer.STATUS_SCANNING";
+                    case BluetoothDevicePairer.STATUS_SCANNING:
+                        state = "BluetoothDevicePairer.STATUS_SCANNING";
                         break;
-                    case InputPairer.STATUS_WAITING_TO_PAIR:
-                        state = "InputPairer.STATUS_WAITING_TO_PAIR";
+                    case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
+                        state = "BluetoothDevicePairer.STATUS_WAITING_TO_PAIR";
                         break;
-                    case InputPairer.STATUS_PAIRING:
-                        state = "InputPairer.STATUS_PAIRING";
+                    case BluetoothDevicePairer.STATUS_PAIRING:
+                        state = "BluetoothDevicePairer.STATUS_PAIRING";
                         break;
-                    case InputPairer.STATUS_CONNECTING:
-                        state = "InputPairer.STATUS_CONNECTING";
+                    case BluetoothDevicePairer.STATUS_CONNECTING:
+                        state = "BluetoothDevicePairer.STATUS_CONNECTING";
                         break;
-                    case InputPairer.STATUS_ERROR:
-                        state = "InputPairer.STATUS_ERROR";
+                    case BluetoothDevicePairer.STATUS_ERROR:
+                        state = "BluetoothDevicePairer.STATUS_ERROR";
                         break;
                 }
                 long time = mBtPairer.getNextStageTime() - SystemClock.elapsedRealtime();
@@ -700,11 +714,11 @@ public class AddAccessoryActivity extends DialogActivity
             cancelTimeout();
 
             switch (status) {
-                case InputPairer.STATUS_NONE:
+                case BluetoothDevicePairer.STATUS_NONE:
                     // if we just connected to something or just tried to connect
                     // to something, restart scanning just in case the user wants
                     // to pair another device.
-                    if (oldStatus == InputPairer.STATUS_CONNECTING) {
+                    if (oldStatus == BluetoothDevicePairer.STATUS_CONNECTING) {
                         if (mPairingSuccess) {
                             // Pairing complete
                             mCurrentTargetStatus = getString(R.string.accessory_state_paired);
@@ -731,26 +745,26 @@ public class AddAccessoryActivity extends DialogActivity
 
                         // if this looks like a successful connection run, reflect
                         // this in the UI, otherwise use the default message
-                        if (!mPairingSuccess && InputPairer.hasValidInputDevice(this)) {
+                        if (!mPairingSuccess && BluetoothDevicePairer.hasValidInputDevice(this)) {
                             mPairingSuccess = true;
                         }
                     }
                     break;
-                case InputPairer.STATUS_SCANNING:
+                case BluetoothDevicePairer.STATUS_SCANNING:
                     mPairingSuccess = false;
                     break;
-                case InputPairer.STATUS_WAITING_TO_PAIR:
+                case BluetoothDevicePairer.STATUS_WAITING_TO_PAIR:
                     break;
-                case InputPairer.STATUS_PAIRING:
+                case BluetoothDevicePairer.STATUS_PAIRING:
                     // reset the pairing success value since this is now a new
                     // pairing run
                     mPairingSuccess = true;
                     setTimeout(PAIR_OPERATION_TIMEOUT);
                     break;
-                case InputPairer.STATUS_CONNECTING:
+                case BluetoothDevicePairer.STATUS_CONNECTING:
                     setTimeout(CONNECT_OPERATION_TIMEOUT);
                     break;
-                case InputPairer.STATUS_ERROR:
+                case BluetoothDevicePairer.STATUS_ERROR:
                     mPairingSuccess = false;
                     setPairingBluetooth(false);
                     if (mNoInputMode) {

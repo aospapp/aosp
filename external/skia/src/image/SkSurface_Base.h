@@ -8,13 +8,14 @@
 #ifndef SkSurface_Base_DEFINED
 #define SkSurface_Base_DEFINED
 
-#include "SkSurface.h"
 #include "SkCanvas.h"
+#include "SkSurface.h"
+#include "SkSurfacePriv.h"
 
 class SkSurface_Base : public SkSurface {
 public:
-    SkSurface_Base(int width, int height);
-    explicit SkSurface_Base(const SkImageInfo&);
+    SkSurface_Base(int width, int height, const SkSurfaceProps*);
+    SkSurface_Base(const SkImageInfo&, const SkSurfaceProps*);
     virtual ~SkSurface_Base();
 
     /**
@@ -31,9 +32,9 @@ public:
      *  Allocate an SkImage that represents the current contents of the surface.
      *  This needs to be able to outlive the surface itself (if need be), and
      *  must faithfully represent the current contents, even if the surface
-     *  is chaged after this calle (e.g. it is drawn to via its canvas).
+     *  is changed after this called (e.g. it is drawn to via its canvas).
      */
-    virtual SkImage* onNewImageSnapshot() = 0;
+    virtual SkImage* onNewImageSnapshot(Budgeted) = 0;
 
     /**
      *  Default implementation:
@@ -60,7 +61,7 @@ public:
     virtual void onCopyOnWrite(ContentChangeMode) = 0;
 
     inline SkCanvas* getCachedCanvas();
-    inline SkImage* getCachedImage();
+    inline SkImage* getCachedImage(Budgeted);
 
     // called by SkSurface to compute a new genID
     uint32_t newGenerationID();
@@ -79,16 +80,16 @@ private:
 SkCanvas* SkSurface_Base::getCachedCanvas() {
     if (NULL == fCachedCanvas) {
         fCachedCanvas = this->onNewCanvas();
-        if (NULL != fCachedCanvas) {
+        if (fCachedCanvas) {
             fCachedCanvas->setSurfaceBase(this);
         }
     }
     return fCachedCanvas;
 }
 
-SkImage* SkSurface_Base::getCachedImage() {
+SkImage* SkSurface_Base::getCachedImage(Budgeted budgeted) {
     if (NULL == fCachedImage) {
-        fCachedImage = this->onNewImageSnapshot();
+        fCachedImage = this->onNewImageSnapshot(budgeted);
         SkASSERT(!fCachedCanvas || fCachedCanvas->getSurfaceBase() == this);
     }
     return fCachedImage;

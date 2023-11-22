@@ -17,19 +17,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define LOG_TAG "utils_test"
-#include <utils/Log.h>
-
 #include <gtest/gtest.h>
 
-extern "C" {
 #include "installd.h"
-}
+
+#undef LOG_TAG
+#define LOG_TAG "utils_test"
 
 #define TEST_DATA_DIR "/data/"
 #define TEST_APP_DIR "/data/app/"
 #define TEST_APP_PRIVATE_DIR "/data/app-private/"
 #define TEST_ASEC_DIR "/mnt/asec/"
+#define TEST_EXPAND_DIR "/mnt/expand/"
 
 #define TEST_SYSTEM_DIR1 "/system/app/"
 #define TEST_SYSTEM_DIR2 "/vendor/app/"
@@ -49,25 +48,28 @@ namespace android {
 class UtilsTest : public testing::Test {
 protected:
     virtual void SetUp() {
-        android_app_dir.path = TEST_APP_DIR;
+        android_app_dir.path = (char*) TEST_APP_DIR;
         android_app_dir.len = strlen(TEST_APP_DIR);
 
-        android_app_private_dir.path = TEST_APP_PRIVATE_DIR;
+        android_app_private_dir.path = (char*) TEST_APP_PRIVATE_DIR;
         android_app_private_dir.len = strlen(TEST_APP_PRIVATE_DIR);
 
-        android_data_dir.path = TEST_DATA_DIR;
+        android_data_dir.path = (char*) TEST_DATA_DIR;
         android_data_dir.len = strlen(TEST_DATA_DIR);
 
-        android_asec_dir.path = TEST_ASEC_DIR;
+        android_asec_dir.path = (char*) TEST_ASEC_DIR;
         android_asec_dir.len = strlen(TEST_ASEC_DIR);
+
+        android_mnt_expand_dir.path = (char*) TEST_EXPAND_DIR;
+        android_mnt_expand_dir.len = strlen(TEST_EXPAND_DIR);
 
         android_system_dirs.count = 2;
 
         android_system_dirs.dirs = (dir_rec_t*) calloc(android_system_dirs.count, sizeof(dir_rec_t));
-        android_system_dirs.dirs[0].path = TEST_SYSTEM_DIR1;
+        android_system_dirs.dirs[0].path = (char*) TEST_SYSTEM_DIR1;
         android_system_dirs.dirs[0].len = strlen(TEST_SYSTEM_DIR1);
 
-        android_system_dirs.dirs[1].path = TEST_SYSTEM_DIR2;
+        android_system_dirs.dirs[1].path = (char*) TEST_SYSTEM_DIR2;
         android_system_dirs.dirs[1].len = strlen(TEST_SYSTEM_DIR2);
     }
 
@@ -319,6 +321,7 @@ TEST_F(UtilsTest, CreatePkgPath_LongPkgNameSuccess) {
 
     const char *prefix = TEST_DATA_DIR PRIMARY_USER_PREFIX;
     size_t offset = strlen(prefix);
+
     EXPECT_STREQ(pkgname, path + offset)
              << "Package path should be a really long string of a's";
 }
@@ -369,40 +372,6 @@ TEST_F(UtilsTest, CreatePkgPath_SecondaryUser) {
             << "Package path should be in /data/user/";
 }
 
-TEST_F(UtilsTest, CreatePkgPathInDir_ProtectedDir) {
-    char path[PKG_PATH_MAX];
-
-    dir_rec_t dir;
-    dir.path = "/data/app-private/";
-    dir.len = strlen(dir.path);
-
-    EXPECT_EQ(0, create_pkg_path_in_dir(path, &dir, "com.example.package", ".apk"))
-            << "Should successfully create package path.";
-
-    EXPECT_STREQ("/data/app-private/com.example.package.apk", path)
-            << "Package path should be in /data/app-private/";
-}
-
-TEST_F(UtilsTest, CreatePersonaPath_Primary) {
-    char path[PKG_PATH_MAX];
-
-    EXPECT_EQ(0, create_user_path(path, 0))
-            << "Should successfully build primary user path.";
-
-    EXPECT_STREQ("/data/data/", path)
-            << "Primary user should have correct path";
-}
-
-TEST_F(UtilsTest, CreatePersonaPath_Secondary) {
-    char path[PKG_PATH_MAX];
-
-    EXPECT_EQ(0, create_user_path(path, 1))
-            << "Should successfully build primary user path.";
-
-    EXPECT_STREQ("/data/user/1/", path)
-            << "Primary user should have correct path";
-}
-
 TEST_F(UtilsTest, CreateMovePath_Primary) {
     char path[PKG_PATH_MAX];
 
@@ -432,7 +401,7 @@ TEST_F(UtilsTest, CopyAndAppend_Normal) {
     dir_rec_t dst;
     dir_rec_t src;
 
-    src.path = "/data/";
+    src.path = (char*) "/data/";
     src.len = strlen(src.path);
 
     EXPECT_EQ(0, copy_and_append(&dst, &src, "app/"))
@@ -478,6 +447,56 @@ TEST_F(UtilsTest, AppendAndIncrement_TooBig) {
 
     EXPECT_EQ(-1, append_and_increment(&dstp, src, &dst_size))
             << "String should fail because it's too large to fit";
+}
+
+TEST_F(UtilsTest, CreateDataPath) {
+    EXPECT_EQ("/data", create_data_path(nullptr));
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b",
+            create_data_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b"));
+}
+
+TEST_F(UtilsTest, CreateDataAppPath) {
+    EXPECT_EQ("/data/app", create_data_app_path(nullptr));
+
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/app",
+            create_data_app_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b"));
+}
+
+TEST_F(UtilsTest, CreateDataUserPath) {
+    EXPECT_EQ("/data/data", create_data_user_path(nullptr, 0));
+    EXPECT_EQ("/data/user/10", create_data_user_path(nullptr, 10));
+
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/user/0",
+            create_data_user_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 0));
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/user/10",
+            create_data_user_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 10));
+}
+
+TEST_F(UtilsTest, CreateDataMediaPath) {
+    EXPECT_EQ("/data/media/0", create_data_media_path(nullptr, 0));
+    EXPECT_EQ("/data/media/10", create_data_media_path(nullptr, 10));
+
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/media/0",
+            create_data_media_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 0));
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/media/10",
+            create_data_media_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 10));
+}
+
+TEST_F(UtilsTest, CreateDataAppPackagePath) {
+    EXPECT_EQ("/data/app/com.example", create_data_app_package_path(nullptr, "com.example"));
+
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/app/com.example",
+            create_data_app_package_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", "com.example"));
+}
+
+TEST_F(UtilsTest, CreateDataUserPackagePath) {
+    EXPECT_EQ("/data/data/com.example", create_data_user_package_path(nullptr, 0, "com.example"));
+    EXPECT_EQ("/data/user/10/com.example", create_data_user_package_path(nullptr, 10, "com.example"));
+
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/user/0/com.example",
+            create_data_user_package_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 0, "com.example"));
+    EXPECT_EQ("/mnt/expand/57f8f4bc-abf4-655f-bf67-946fc0f9f25b/user/10/com.example",
+            create_data_user_package_path("57f8f4bc-abf4-655f-bf67-946fc0f9f25b", 10, "com.example"));
 }
 
 }

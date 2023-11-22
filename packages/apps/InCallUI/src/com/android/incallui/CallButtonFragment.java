@@ -16,6 +16,8 @@
 
 package com.android.incallui;
 
+import static com.android.incallui.CallButtonFragment.Buttons.*;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -25,7 +27,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Bundle;
-import android.telecom.AudioState;
+import android.telecom.CallAudioState;
+import android.util.SparseIntArray;
 import android.view.ContextThemeWrapper;
 import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
@@ -39,7 +42,6 @@ import android.widget.PopupMenu;
 import android.widget.PopupMenu.OnDismissListener;
 import android.widget.PopupMenu.OnMenuItemClickListener;
 
-import com.android.contacts.common.util.MaterialColorMapUtils;
 import com.android.contacts.common.util.MaterialColorMapUtils.MaterialPalette;
 
 /**
@@ -49,8 +51,33 @@ public class CallButtonFragment
         extends BaseFragment<CallButtonPresenter, CallButtonPresenter.CallButtonUi>
         implements CallButtonPresenter.CallButtonUi, OnMenuItemClickListener, OnDismissListener,
         View.OnClickListener {
+    private static final int INVALID_INDEX = -1;
+    private int mButtonMaxVisible;
+    // The button is currently visible in the UI
+    private static final int BUTTON_VISIBLE = 1;
+    // The button is hidden in the UI
+    private static final int BUTTON_HIDDEN = 2;
+    // The button has been collapsed into the overflow menu
+    private static final int BUTTON_MENU = 3;
+
+    public interface Buttons {
+        public static final int BUTTON_AUDIO = 0;
+        public static final int BUTTON_MUTE = 1;
+        public static final int BUTTON_DIALPAD = 2;
+        public static final int BUTTON_HOLD = 3;
+        public static final int BUTTON_SWAP = 4;
+        public static final int BUTTON_UPGRADE_TO_VIDEO = 5;
+        public static final int BUTTON_SWITCH_CAMERA = 6;
+        public static final int BUTTON_ADD_CALL = 7;
+        public static final int BUTTON_MERGE = 8;
+        public static final int BUTTON_PAUSE_VIDEO = 9;
+        public static final int BUTTON_MANAGE_VIDEO_CONFERENCE = 10;
+        public static final int BUTTON_COUNT = 11;
+    }
+
+    private SparseIntArray mButtonVisibilityMap = new SparseIntArray(BUTTON_COUNT);
+
     private CompoundButton mAudioButton;
-    private ImageButton mChangeToVoiceButton;
     private CompoundButton mMuteButton;
     private CompoundButton mShowDialpadButton;
     private CompoundButton mHoldButton;
@@ -61,6 +88,7 @@ public class CallButtonFragment
     private ImageButton mMergeButton;
     private CompoundButton mPauseVideoButton;
     private ImageButton mOverflowButton;
+    private ImageButton mManageVideoCallConferenceButton;
 
     private PopupMenu mAudioModePopup;
     private boolean mAudioModePopupVisible;
@@ -76,19 +104,25 @@ public class CallButtonFragment
     private MaterialPalette mCurrentThemeColors;
 
     @Override
-    CallButtonPresenter createPresenter() {
+    public CallButtonPresenter createPresenter() {
         // TODO: find a cleaner way to include audio mode provider than having a singleton instance.
         return new CallButtonPresenter();
     }
 
     @Override
-    CallButtonPresenter.CallButtonUi getUi() {
+    public CallButtonPresenter.CallButtonUi getUi() {
         return this;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        for (int i = 0; i < BUTTON_COUNT; i++) {
+            mButtonVisibilityMap.put(i, BUTTON_HIDDEN);
+        }
+
+        mButtonMaxVisible = getResources().getInteger(R.integer.call_card_max_buttons);
     }
 
     @Override
@@ -98,8 +132,6 @@ public class CallButtonFragment
 
         mAudioButton = (CompoundButton) parent.findViewById(R.id.audioButton);
         mAudioButton.setOnClickListener(this);
-        mChangeToVoiceButton = (ImageButton) parent.findViewById(R.id.changeToVoiceButton);
-        mChangeToVoiceButton. setOnClickListener(this);
         mMuteButton = (CompoundButton) parent.findViewById(R.id.muteButton);
         mMuteButton.setOnClickListener(this);
         mShowDialpadButton = (CompoundButton) parent.findViewById(R.id.dialpadButton);
@@ -120,7 +152,9 @@ public class CallButtonFragment
         mPauseVideoButton.setOnClickListener(this);
         mOverflowButton = (ImageButton) parent.findViewById(R.id.overflowButton);
         mOverflowButton.setOnClickListener(this);
-
+        mManageVideoCallConferenceButton = (ImageButton) parent.findViewById(
+            R.id.manageVideoCallConferenceButton);
+        mManageVideoCallConferenceButton.setOnClickListener(this);
         return parent;
     }
 
@@ -147,16 +181,12 @@ public class CallButtonFragment
         int id = view.getId();
         Log.d(this, "onClick(View " + view + ", id " + id + ")...");
 
-        boolean isClickHandled = true;
         switch(id) {
             case R.id.audioButton:
                 onAudioButtonClicked();
                 break;
             case R.id.addButton:
                 getPresenter().addCallClicked();
-                break;
-            case R.id.changeToVoiceButton:
-                getPresenter().changeToVoiceClicked();
                 break;
             case R.id.muteButton: {
                 getPresenter().muteClicked(!mMuteButton.isSelected());
@@ -188,19 +218,21 @@ public class CallButtonFragment
                         !mPauseVideoButton.isSelected() /* pause */);
                 break;
             case R.id.overflowButton:
-                mOverflowPopup.show();
+                if (mOverflowPopup != null) {
+                    mOverflowPopup.show();
+                }
+                break;
+            case R.id.manageVideoCallConferenceButton:
+                onManageVideoCallConferenceClicked();
                 break;
             default:
-                isClickHandled = false;
                 Log.wtf(this, "onClick: unexpected");
-                break;
+                return;
         }
 
-        if (isClickHandled) {
-            view.performHapticFeedback(
-                    HapticFeedbackConstants.VIRTUAL_KEY,
-                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-        }
+        view.performHapticFeedback(
+                HapticFeedbackConstants.VIRTUAL_KEY,
+                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
     }
 
     public void updateColors() {
@@ -210,7 +242,6 @@ public class CallButtonFragment
             return;
         }
 
-        Resources res = getActivity().getResources();
         View[] compoundButtons = {
                 mAudioButton,
                 mMuteButton,
@@ -227,7 +258,6 @@ public class CallButtonFragment
         }
 
         ImageButton[] normalButtons = {
-            mChangeToVoiceButton,
             mSwapButton,
             mChangeToVideoButton,
             mAddCallButton,
@@ -312,13 +342,8 @@ public class CallButtonFragment
     @Override
     public void setEnabled(boolean isEnabled) {
         mIsEnabled = isEnabled;
-        View view = getView();
-        if (view.getVisibility() != View.VISIBLE) {
-            view.setVisibility(View.VISIBLE);
-        }
 
         mAudioButton.setEnabled(isEnabled);
-        mChangeToVoiceButton.setEnabled(isEnabled);
         mMuteButton.setEnabled(isEnabled);
         mShowDialpadButton.setEnabled(isEnabled);
         mHoldButton.setEnabled(isEnabled);
@@ -329,6 +354,70 @@ public class CallButtonFragment
         mMergeButton.setEnabled(isEnabled);
         mPauseVideoButton.setEnabled(isEnabled);
         mOverflowButton.setEnabled(isEnabled);
+        mManageVideoCallConferenceButton.setEnabled(isEnabled);
+    }
+
+    @Override
+    public void showButton(int buttonId, boolean show) {
+        mButtonVisibilityMap.put(buttonId, show ? BUTTON_VISIBLE : BUTTON_HIDDEN);
+    }
+
+    @Override
+    public void enableButton(int buttonId, boolean enable) {
+        final View button = getButtonById(buttonId);
+        if (button != null) {
+            button.setEnabled(enable);
+        }
+    }
+
+    private View getButtonById(int id) {
+        switch (id) {
+            case BUTTON_AUDIO:
+                return mAudioButton;
+            case BUTTON_MUTE:
+                return mMuteButton;
+            case BUTTON_DIALPAD:
+                return mShowDialpadButton;
+            case BUTTON_HOLD:
+                return mHoldButton;
+            case BUTTON_SWAP:
+                return mSwapButton;
+            case BUTTON_UPGRADE_TO_VIDEO:
+                return mChangeToVideoButton;
+            case BUTTON_SWITCH_CAMERA:
+                return mSwitchCameraButton;
+            case BUTTON_ADD_CALL:
+                return mAddCallButton;
+            case BUTTON_MERGE:
+                return mMergeButton;
+            case BUTTON_PAUSE_VIDEO:
+                return mPauseVideoButton;
+            case BUTTON_MANAGE_VIDEO_CONFERENCE:
+                return mManageVideoCallConferenceButton;
+            default:
+                Log.w(this, "Invalid button id");
+                return null;
+        }
+    }
+
+    @Override
+    public void setHold(boolean value) {
+        if (mHoldButton.isSelected() != value) {
+            mHoldButton.setSelected(value);
+            mHoldButton.setContentDescription(getContext().getString(
+                    value ? R.string.onscreenHoldText_selected
+                            : R.string.onscreenHoldText_unselected));
+        }
+    }
+
+    @Override
+    public void setCameraSwitched(boolean isBackFacingCamera) {
+        mSwitchCameraButton.setSelected(isBackFacingCamera);
+    }
+
+    @Override
+    public void setVideoPaused(boolean isPaused) {
+        mPauseVideoButton.setSelected(isPaused);
     }
 
     @Override
@@ -338,152 +427,68 @@ public class CallButtonFragment
         }
     }
 
-    @Override
-    public void showAudioButton(boolean show) {
-        mAudioButton.setVisibility(show ? View.VISIBLE : View.GONE);
+    private void addToOverflowMenu(int id, View button, PopupMenu menu) {
+        button.setVisibility(View.GONE);
+        menu.getMenu().add(Menu.NONE, id, Menu.NONE, button.getContentDescription());
+        mButtonVisibilityMap.put(id, BUTTON_MENU);
     }
 
-    @Override
-    public void showChangeToVoiceButton(boolean show) {
-        mChangeToVoiceButton.setVisibility(show ? View.VISIBLE : View.GONE);
+    private PopupMenu getPopupMenu() {
+        return new PopupMenu(new ContextThemeWrapper(getActivity(), R.style.InCallPopupMenuStyle),
+                mOverflowButton);
     }
 
+    /**
+     * Iterates through the list of buttons and toggles their visibility depending on the
+     * setting configured by the CallButtonPresenter. If there are more visible buttons than
+     * the allowed maximum, the excess buttons are collapsed into a single overflow menu.
+     */
     @Override
-    public void enableMute(boolean enabled) {
-        mMuteButton.setEnabled(enabled);
-    }
-
-    @Override
-    public void showDialpadButton(boolean show) {
-        mShowDialpadButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void setHold(boolean value) {
-        if (mHoldButton.isSelected() != value) {
-            mHoldButton.setSelected(value);
+    public void updateButtonStates() {
+        View prevVisibleButton = null;
+        int prevVisibleId = -1;
+        PopupMenu menu = null;
+        int visibleCount = 0;
+        for (int i = 0; i < BUTTON_COUNT; i++) {
+            final int visibility = mButtonVisibilityMap.get(i);
+            final View button = getButtonById(i);
+            if (visibility == BUTTON_VISIBLE) {
+                visibleCount++;
+                if (visibleCount <= mButtonMaxVisible) {
+                    button.setVisibility(View.VISIBLE);
+                    prevVisibleButton = button;
+                    prevVisibleId = i;
+                } else {
+                    if (menu == null) {
+                        menu = getPopupMenu();
+                    }
+                    // Collapse the current button into the overflow menu. If is the first visible
+                    // button that exceeds the threshold, also collapse the previous visible button
+                    // so that the total number of visible buttons will never exceed the threshold.
+                    if (prevVisibleButton != null) {
+                        addToOverflowMenu(prevVisibleId, prevVisibleButton, menu);
+                        prevVisibleButton = null;
+                        prevVisibleId = -1;
+                    }
+                    addToOverflowMenu(i, button, menu);
+                }
+            } else if (visibility == BUTTON_HIDDEN){
+                button.setVisibility(View.GONE);
+            }
         }
-    }
 
-    @Override
-    public void showHoldButton(boolean show) {
-        mHoldButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void enableHold(boolean enabled) {
-        mHoldButton.setEnabled(enabled);
-    }
-
-    @Override
-    public void showSwapButton(boolean show) {
-        mSwapButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void showChangeToVideoButton(boolean show) {
-        mChangeToVideoButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void enableChangeToVideoButton(boolean enable) {
-        mChangeToVideoButton.setEnabled(enable);
-    }
-
-    @Override
-    public void showSwitchCameraButton(boolean show) {
-        mSwitchCameraButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void setSwitchCameraButton(boolean isBackFacingCamera) {
-        mSwitchCameraButton.setSelected(isBackFacingCamera);
-    }
-
-    @Override
-    public void showAddCallButton(boolean show) {
-        Log.d(this, "show Add call button: " + show);
-        mAddCallButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void showMergeButton(boolean show) {
-        mMergeButton.setVisibility(show ? View.VISIBLE : View.GONE);
-
-        // If the merge button was disabled, re-enable it when hiding it.
-        if (!show) {
-            mMergeButton.setEnabled(true);
-        }
-    }
-
-    @Override
-    public void showPauseVideoButton(boolean show) {
-        mPauseVideoButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void setPauseVideoButton(boolean isPaused) {
-        mPauseVideoButton.setSelected(isPaused);
-    }
-
-    @Override
-    public void showOverflowButton(boolean show) {
-        mOverflowButton.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    @Override
-    public void configureOverflowMenu(boolean showMergeMenuOption, boolean showAddMenuOption,
-            boolean showHoldMenuOption, boolean showSwapMenuOption) {
-        if (mOverflowPopup == null) {
-            final ContextThemeWrapper contextWrapper = new ContextThemeWrapper(getActivity(),
-                    R.style.InCallPopupMenuStyle);
-            mOverflowPopup = new PopupMenu(contextWrapper, mOverflowButton);
-            mOverflowPopup.getMenuInflater().inflate(R.menu.incall_overflow_menu,
-                    mOverflowPopup.getMenu());
+        mOverflowButton.setVisibility(menu != null ? View.VISIBLE : View.GONE);
+        if (menu != null) {
+            mOverflowPopup = menu;
             mOverflowPopup.setOnMenuItemClickListener(new OnMenuItemClickListener() {
                 @Override
                 public boolean onMenuItemClick(MenuItem item) {
-                    switch (item.getItemId()) {
-                        case R.id.overflow_merge_menu_item:
-                            getPresenter().mergeClicked();
-                            break;
-                        case R.id.overflow_add_menu_item:
-                            getPresenter().addCallClicked();
-                            break;
-                        case R.id.overflow_hold_menu_item:
-                            getPresenter().holdClicked(true /* checked */);
-                            break;
-                        case R.id.overflow_resume_menu_item:
-                            getPresenter().holdClicked(false /* checked */);
-                            break;
-                        case R.id.overflow_swap_menu_item:
-                            getPresenter().addCallClicked();
-                            break;
-                        default:
-                            Log.wtf(this, "onMenuItemClick: unexpected overflow menu click");
-                            break;
-                    }
+                    final int id = item.getItemId();
+                    getButtonById(id).performClick();
                     return true;
                 }
             });
-            mOverflowPopup.setOnDismissListener(new OnDismissListener() {
-                @Override
-                public void onDismiss(PopupMenu popupMenu) {
-                    popupMenu.dismiss();
-                }
-            });
         }
-
-        final Menu menu = mOverflowPopup.getMenu();
-        menu.findItem(R.id.overflow_merge_menu_item).setVisible(showMergeMenuOption);
-        menu.findItem(R.id.overflow_add_menu_item).setVisible(showAddMenuOption);
-        menu.findItem(R.id.overflow_hold_menu_item).setVisible(
-                showHoldMenuOption && !mHoldButton.isSelected());
-        menu.findItem(R.id.overflow_resume_menu_item).setVisible(
-                showHoldMenuOption && mHoldButton.isSelected());
-        menu.findItem(R.id.overflow_swap_menu_item).setVisible(showSwapMenuOption);
-
-        mOverflowButton.setEnabled(menu.hasVisibleItems());
     }
 
     @Override
@@ -509,20 +514,20 @@ public class CallButtonFragment
         Log.d(this, "  id: " + item.getItemId());
         Log.d(this, "  title: '" + item.getTitle() + "'");
 
-        int mode = AudioState.ROUTE_WIRED_OR_EARPIECE;
+        int mode = CallAudioState.ROUTE_WIRED_OR_EARPIECE;
 
         switch (item.getItemId()) {
             case R.id.audio_mode_speaker:
-                mode = AudioState.ROUTE_SPEAKER;
+                mode = CallAudioState.ROUTE_SPEAKER;
                 break;
             case R.id.audio_mode_earpiece:
             case R.id.audio_mode_wired_headset:
-                // InCallAudioState.ROUTE_EARPIECE means either the handset earpiece,
+                // InCallCallAudioState.ROUTE_EARPIECE means either the handset earpiece,
                 // or the wired headset (if connected.)
-                mode = AudioState.ROUTE_WIRED_OR_EARPIECE;
+                mode = CallAudioState.ROUTE_WIRED_OR_EARPIECE;
                 break;
             case R.id.audio_mode_bluetooth:
-                mode = AudioState.ROUTE_BLUETOOTH;
+                mode = CallAudioState.ROUTE_BLUETOOTH;
                 break;
             default:
                 Log.e(this, "onMenuItemClick:  unexpected View ID " + item.getItemId()
@@ -552,13 +557,18 @@ public class CallButtonFragment
      */
     private void onAudioButtonClicked() {
         Log.d(this, "onAudioButtonClicked: " +
-                AudioState.audioRouteToString(getPresenter().getSupportedAudio()));
+                CallAudioState.audioRouteToString(getPresenter().getSupportedAudio()));
 
-        if (isSupported(AudioState.ROUTE_BLUETOOTH)) {
+        if (isSupported(CallAudioState.ROUTE_BLUETOOTH)) {
             showAudioModePopup();
         } else {
             getPresenter().toggleSpeakerphone();
         }
+    }
+
+    private void onManageVideoCallConferenceClicked() {
+        Log.d(this, "onManageVideoCallConferenceClicked");
+        InCallPresenter.getInstance().showConferenceCallManager(true);
     }
 
     /**
@@ -584,8 +594,8 @@ public class CallButtonFragment
      * are visible based on the supported audio formats.
      */
     private void updateAudioButtons(int supportedModes) {
-        final boolean bluetoothSupported = isSupported(AudioState.ROUTE_BLUETOOTH);
-        final boolean speakerSupported = isSupported(AudioState.ROUTE_SPEAKER);
+        final boolean bluetoothSupported = isSupported(CallAudioState.ROUTE_BLUETOOTH);
+        final boolean speakerSupported = isSupported(CallAudioState.ROUTE_SPEAKER);
 
         boolean audioButtonEnabled = false;
         boolean audioButtonChecked = false;
@@ -605,9 +615,9 @@ public class CallButtonFragment
             showMoreIndicator = true;
 
             // Update desired layers:
-            if (isAudio(AudioState.ROUTE_BLUETOOTH)) {
+            if (isAudio(CallAudioState.ROUTE_BLUETOOTH)) {
                 showBluetoothIcon = true;
-            } else if (isAudio(AudioState.ROUTE_SPEAKER)) {
+            } else if (isAudio(CallAudioState.ROUTE_SPEAKER)) {
                 showSpeakerphoneIcon = true;
             } else {
                 showHandsetIcon = true;
@@ -626,7 +636,7 @@ public class CallButtonFragment
 
             // The audio button *is* a toggle in this state, and indicated the
             // current state of the speakerphone.
-            audioButtonChecked = isAudio(AudioState.ROUTE_SPEAKER);
+            audioButtonChecked = isAudio(CallAudioState.ROUTE_SPEAKER);
             mAudioButton.setSelected(audioButtonChecked);
 
             // update desired layers:
@@ -687,20 +697,20 @@ public class CallButtonFragment
 
         // If bluetooth is not supported, the audio buttion will toggle, so use the label "speaker".
         // Otherwise, use the label of the currently selected audio mode.
-        if (!isSupported(AudioState.ROUTE_BLUETOOTH)) {
+        if (!isSupported(CallAudioState.ROUTE_BLUETOOTH)) {
             stringId = R.string.audio_mode_speaker;
         } else {
             switch (mode) {
-                case AudioState.ROUTE_EARPIECE:
+                case CallAudioState.ROUTE_EARPIECE:
                     stringId = R.string.audio_mode_earpiece;
                     break;
-                case AudioState.ROUTE_BLUETOOTH:
+                case CallAudioState.ROUTE_BLUETOOTH:
                     stringId = R.string.audio_mode_bluetooth;
                     break;
-                case AudioState.ROUTE_WIRED_HEADSET:
+                case CallAudioState.ROUTE_WIRED_HEADSET:
                     stringId = R.string.audio_mode_wired_headset;
                     break;
-                case AudioState.ROUTE_SPEAKER:
+                case CallAudioState.ROUTE_SPEAKER:
                     stringId = R.string.audio_mode_speaker;
                     break;
             }
@@ -730,7 +740,7 @@ public class CallButtonFragment
         // See comments below for the exact logic.
 
         final MenuItem speakerItem = menu.findItem(R.id.audio_mode_speaker);
-        speakerItem.setEnabled(isSupported(AudioState.ROUTE_SPEAKER));
+        speakerItem.setEnabled(isSupported(CallAudioState.ROUTE_SPEAKER));
         // TODO: Show speakerItem as initially "selected" if
         // speaker is on.
 
@@ -739,7 +749,7 @@ public class CallButtonFragment
         final MenuItem earpieceItem = menu.findItem(R.id.audio_mode_earpiece);
         final MenuItem wiredHeadsetItem = menu.findItem(R.id.audio_mode_wired_headset);
 
-        final boolean usingHeadset = isSupported(AudioState.ROUTE_WIRED_HEADSET);
+        final boolean usingHeadset = isSupported(CallAudioState.ROUTE_WIRED_HEADSET);
         earpieceItem.setVisible(!usingHeadset);
         earpieceItem.setEnabled(!usingHeadset);
         wiredHeadsetItem.setVisible(usingHeadset);
@@ -749,7 +759,7 @@ public class CallButtonFragment
         // bluetoothIndicatorOn are both false.
 
         final MenuItem bluetoothItem = menu.findItem(R.id.audio_mode_bluetooth);
-        bluetoothItem.setEnabled(isSupported(AudioState.ROUTE_BLUETOOTH));
+        bluetoothItem.setEnabled(isSupported(CallAudioState.ROUTE_BLUETOOTH));
         // TODO: Show bluetoothItem as initially "selected" if
         // bluetoothIndicatorOn is true.
 
@@ -773,7 +783,7 @@ public class CallButtonFragment
     public void displayDialpad(boolean value, boolean animate) {
         mShowDialpadButton.setSelected(value);
         if (getActivity() != null && getActivity() instanceof InCallActivity) {
-            ((InCallActivity) getActivity()).displayDialpad(value, animate);
+            ((InCallActivity) getActivity()).showDialpadFragment(value, animate);
         }
     }
 

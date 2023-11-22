@@ -19,6 +19,7 @@
 #define __CONFIG_H__
 
 #include <netinet/in.h>
+#include <linux/if.h>
 
 #define DEFAULT_IPV4_LOCAL_SUBNET "192.0.0.4"
 #define DEFAULT_IPV4_LOCAL_PREFIXLEN "29"

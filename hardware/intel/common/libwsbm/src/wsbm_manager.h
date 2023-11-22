@@ -95,7 +95,7 @@ extern int wsbmBOData(struct _WsbmBufferObject *r_buf,
 
 extern int wsbmBODataUB(struct _WsbmBufferObject *buf,
             unsigned size, const void *data, struct _WsbmBufferPool *newPool,
-            uint32_t placement, const unsigned long *user_ptr);
+            uint32_t placement, const unsigned long *user_ptr, int fd);
 
 extern int wsbmBOSetStatus(struct _WsbmBufferObject *buf,
 			   uint32_t setPlacement, uint32_t clrPlacement);

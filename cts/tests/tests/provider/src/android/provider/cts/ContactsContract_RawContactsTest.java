@@ -23,6 +23,7 @@ import android.content.ContentValues;
 import android.net.Uri;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
+import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.RawContacts;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestContact;
 import android.provider.cts.ContactsContract_TestDataBuilder.TestRawContact;
@@ -37,6 +38,39 @@ import android.test.MoreAsserts;
 public class ContactsContract_RawContactsTest extends AndroidTestCase {
     private ContentResolver mResolver;
     private ContactsContract_TestDataBuilder mBuilder;
+
+    private static final String[] RAW_CONTACTS_PROJECTION = new String[]{
+            RawContacts._ID,
+            RawContacts.CONTACT_ID,
+            RawContacts.DELETED,
+            RawContacts.DISPLAY_NAME_PRIMARY,
+            RawContacts.DISPLAY_NAME_ALTERNATIVE,
+            RawContacts.DISPLAY_NAME_SOURCE,
+            RawContacts.PHONETIC_NAME,
+            RawContacts.PHONETIC_NAME_STYLE,
+            RawContacts.SORT_KEY_PRIMARY,
+            RawContacts.SORT_KEY_ALTERNATIVE,
+            RawContacts.TIMES_CONTACTED,
+            RawContacts.LAST_TIME_CONTACTED,
+            RawContacts.CUSTOM_RINGTONE,
+            RawContacts.SEND_TO_VOICEMAIL,
+            RawContacts.STARRED,
+            RawContacts.PINNED,
+            RawContacts.AGGREGATION_MODE,
+            RawContacts.RAW_CONTACT_IS_USER_PROFILE,
+            RawContacts.ACCOUNT_NAME,
+            RawContacts.ACCOUNT_TYPE,
+            RawContacts.DATA_SET,
+            RawContacts.ACCOUNT_TYPE_AND_DATA_SET,
+            RawContacts.DIRTY,
+            RawContacts.SOURCE_ID,
+            RawContacts.BACKUP_ID,
+            RawContacts.VERSION,
+            RawContacts.SYNC1,
+            RawContacts.SYNC2,
+            RawContacts.SYNC3,
+            RawContacts.SYNC4
+    };
 
     @Override
     protected void setUp() throws Exception {
@@ -186,5 +220,20 @@ public class ContactsContract_RawContactsTest extends AndroidTestCase {
         MoreAsserts.assertNotEqual(CommonDatabaseUtils.NOT_FOUND, contactId);
 
         return ContactUtil.queryContactLastUpdatedTimestamp(mResolver, contactId);
+    }
+
+    public void testProjection() throws Exception {
+        TestRawContact rawContact = mBuilder.newRawContact()
+                .with(RawContacts.ACCOUNT_TYPE, "test_type")
+                .with(RawContacts.ACCOUNT_NAME, "test_name")
+                .insert();
+        rawContact.newDataRow(StructuredName.CONTENT_ITEM_TYPE)
+                .with(StructuredName.DISPLAY_NAME, "test name")
+                .insert();
+
+        DatabaseAsserts.checkProjection(mResolver, RawContacts.CONTENT_URI,
+                RAW_CONTACTS_PROJECTION,
+                new long[]{rawContact.getId()}
+        );
     }
 }

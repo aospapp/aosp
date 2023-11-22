@@ -25,19 +25,19 @@ import android.net.sip.SipProfile;
  * {@hide}
  */
 interface ISipService {
-    void open(in SipProfile localProfile);
+    void open(in SipProfile localProfile, String opPackageName);
     void open3(in SipProfile localProfile,
             in PendingIntent incomingCallPendingIntent,
-            in ISipSessionListener listener);
-    void close(in String localProfileUri);
-    boolean isOpened(String localProfileUri);
-    boolean isRegistered(String localProfileUri);
+            in ISipSessionListener listener, String opPackageName);
+    void close(in String localProfileUri, String opPackageName);
+    boolean isOpened(String localProfileUri, String opPackageName);
+    boolean isRegistered(String localProfileUri, String opPackageName);
     void setRegistrationListener(String localProfileUri,
-            ISipSessionListener listener);
+            ISipSessionListener listener, String opPackageName);
 
     ISipSession createSession(in SipProfile localProfile,
-            in ISipSessionListener listener);
-    ISipSession getPendingSession(String callId);
+            in ISipSessionListener listener, String opPackageName);
+    ISipSession getPendingSession(String callId, String opPackageName);
 
-    SipProfile[] getListOfProfiles();
+    SipProfile[] getListOfProfiles(String opPackageName);
 }

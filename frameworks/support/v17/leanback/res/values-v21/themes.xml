@@ -21,5 +21,8 @@
         <item name="playbackControlsIconHighlightColor">?android:attr/colorAccent</item>
         <item name="defaultBrandColor">?android:attr/colorPrimary</item>
         <item name="android:colorPrimary">@color/lb_default_brand_color</item>
+
+        <item name="android:windowOverscan">true</item>
+        <item name="guidedStepTheme">@style/Theme.Leanback.GuidedStep</item>
     </style>
 </resources>

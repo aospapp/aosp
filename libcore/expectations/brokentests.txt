@@ -67,7 +67,6 @@
   result: EXEC_FAILED,
   names: [
     "org.apache.harmony.tests.java.net.Inet6AddressTest#test_getByNameLjava_lang_String",
-    "org.apache.harmony.tests.java.net.InetAddressTest#test_equalsLjava_lang_Object",
     "org.apache.harmony.tests.java.net.InetAddressTest#test_getByNameLjava_lang_String",
     "org.apache.harmony.tests.java.net.InetAddressTest#test_isReachableLjava_net_NetworkInterfaceII_loopbackInterface"
   ]
@@ -91,8 +90,8 @@
 },
 {
   description: "The ResourceBundle code under test is probably not used much on Android and needs a lot of attention.",
+  modes: [device],
   bug: 13747957,
-  result: EXEC_FAILED,
   names: [
       "org.apache.harmony.tests.java.util.ControlTest#test_needsReload_LStringLLocaleLStringLClassLoaderResourceBundleJ"
   ]
@@ -100,6 +99,7 @@
 {
   description: "Fails in CTS, passes in CoreTestRunner.",
   result: EXEC_FAILED,
+  modes: [device],
   names: [
       "org.apache.harmony.tests.java.net.URLConnection#test_getContentEncoding",
       "libcore.java.text.OldNumberFormatTest#test_parseLjava_lang_String",
@@ -151,7 +151,7 @@
 },
 {
   description: "Causes open dex file error",
-  result: EXEC_FAILED,
+  modes: [device],
   names: [
       "org.apache.harmony.tests.java.lang.reflect.GenericSignatureFormatErrorTest#test_signatureFormatError"
   ]

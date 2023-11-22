@@ -6,36 +6,36 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef MCLD_SUPPORT_TARGETREGISTRY_H
-#define MCLD_SUPPORT_TARGETREGISTRY_H
-#include <mcld/Support/Target.h>
+#ifndef MCLD_SUPPORT_TARGETREGISTRY_H_
+#define MCLD_SUPPORT_TARGETREGISTRY_H_
+#include "mcld/Support/Target.h"
+
 #include <llvm/ADT/Triple.h>
 
-#include <string>
 #include <list>
+#include <string>
 
 namespace llvm {
 class TargetMachine;
 class MCCodeEmitter;
 class MCContext;
 class AsmPrinter;
-} // namespace of llvm
+}  // namespace llvm
 
 namespace mcld {
 
 /** \class TargetRegistry
  *  \brief TargetRegistry is an object adapter of llvm::TargetRegistry
  */
-class TargetRegistry
-{
-public:
+class TargetRegistry {
+ public:
   typedef std::list<mcld::Target*> TargetListTy;
   typedef TargetListTy::iterator iterator;
 
-private:
+ private:
   static TargetListTy s_TargetList;
 
-public:
+ public:
   static iterator begin() { return s_TargetList.begin(); }
   static iterator end() { return s_TargetList.end(); }
 
@@ -54,36 +54,13 @@ public:
                              const char* pName,
                              Target::TripleMatchQualityFnTy pQualityFn);
 
-  /// RegisterTargetMachine - Register a TargetMachine implementation for the
-  /// given target.
-  ///
-  /// @param T - The target being registered.
-  /// @param Fn - A function to construct a TargetMachine for the target.
-  static void RegisterTargetMachine(mcld::Target &T, mcld::Target::TargetMachineCtorTy Fn)
-  {
-    // Ignore duplicate registration.
-    if (!T.TargetMachineCtorFn)
-      T.TargetMachineCtorFn = Fn;
-  }
-
-  /// RegisterMCLinker - Register a MCLinker implementation for the given
-  /// target.
-  ///
-  /// @param T - the target being registered
-  /// @param Fn - A function to create MCLinker for the target
-  static void RegisterMCLinker(mcld::Target &T, mcld::Target::MCLinkerCtorTy Fn)
-  {
-    if (!T.MCLinkerCtorFn)
-      T.MCLinkerCtorFn = Fn;
-  }
-
   /// RegisterEmulation - Register a emulation function for the target.
   /// target.
   ///
   /// @param T - the target being registered
   /// @param Fn - A emulation function
-  static void RegisterEmulation(mcld::Target &T, mcld::Target::EmulationFnTy Fn)
-  {
+  static void RegisterEmulation(mcld::Target& T,
+                                mcld::Target::EmulationFnTy Fn) {
     if (!T.EmulationFn)
       T.EmulationFn = Fn;
   }
@@ -93,8 +70,8 @@ public:
   ///
   /// @param T - The target being registered
   /// @param Fn - A function to create TargetLDBackend for the target
-  static void RegisterTargetLDBackend(mcld::Target &T, mcld::Target::TargetLDBackendCtorTy Fn)
-  {
+  static void RegisterTargetLDBackend(mcld::Target& T,
+                                      mcld::Target::TargetLDBackendCtorTy Fn) {
     if (!T.TargetLDBackendCtorFn)
       T.TargetLDBackendCtorFn = Fn;
   }
@@ -104,10 +81,9 @@ public:
   ///
   /// @param T - The target being registered
   /// @param Fn - A function to create DiagnosticLineInfo for the target
-  static void
-  RegisterDiagnosticLineInfo(mcld::Target &T,
-                             mcld::Target::DiagnosticLineInfoCtorTy Fn)
-  {
+  static void RegisterDiagnosticLineInfo(
+      mcld::Target& T,
+      mcld::Target::DiagnosticLineInfoCtorTy Fn) {
     if (!T.DiagnosticLineInfoCtorFn)
       T.DiagnosticLineInfoCtorFn = Fn;
   }
@@ -116,7 +92,7 @@ public:
   ///
   /// @param Triple - The Triple string
   /// @param Error  - The returned error message
-  static const mcld::Target *lookupTarget(const std::string& pTriple,
+  static const mcld::Target* lookupTarget(const std::string& pTriple,
                                           std::string& pError);
 
   /// lookupTarget - Look up MCLinker target by an architecture name
@@ -127,9 +103,9 @@ public:
   /// @param pArch   - The architecture name
   /// @param pTriple - The target triple
   /// @param pError  - The returned error message
-  static const mcld::Target *lookupTarget(const std::string& pArchName,
+  static const mcld::Target* lookupTarget(const std::string& pArchName,
                                           llvm::Triple& pTriple,
-                                          std::string &Error);
+                                          std::string& Error);
 };
 
 /// RegisterTarget - Helper function for registering a target, for use in the
@@ -140,15 +116,14 @@ public:
 /// extern "C" void MCLDInitializeFooTargetInfo() {
 ///   RegisterTarget<llvm::Foo> X(TheFooTarget, "foo", "Foo description");
 /// }
-template<llvm::Triple::ArchType TargetArchType = llvm::Triple::UnknownArch>
-struct RegisterTarget
-{
-public:
-  RegisterTarget(mcld::Target &pTarget, const char* pName) {
+template <llvm::Triple::ArchType TargetArchType = llvm::Triple::UnknownArch>
+struct RegisterTarget {
+ public:
+  RegisterTarget(mcld::Target& pTarget, const char* pName) {
     // if we've registered one, then return immediately.
     TargetRegistry::iterator target, ie = TargetRegistry::end();
     for (target = TargetRegistry::begin(); target != ie; ++target) {
-      if (0 == strcmp((*target)->name(), pName))
+      if (strcmp((*target)->name(), pName) == 0)
         return;
     }
 
@@ -162,31 +137,6 @@ public:
   }
 };
 
-/// RegisterTargetMachine - Helper template for registering a target machine
-/// implementation, for use in the target machine initialization
-/// function. Usage:
-///
-/// extern "C" void MCLDInitializeFooTarget() {
-///   extern mcld::Target TheFooTarget;
-///   RegisterTargetMachine<mcld::FooTargetMachine> X(TheFooTarget);
-/// }
-template<class TargetMachineImpl>
-struct RegisterTargetMachine
-{
-  RegisterTargetMachine(mcld::Target &T) {
-    TargetRegistry::RegisterTargetMachine(T, &Allocator);
-  }
+}  // namespace mcld
 
-private:
-  static MCLDTargetMachine *Allocator(const llvm::Target& pLLVMTarget,
-                                      const mcld::Target& pMCLDTarget,
-                                      llvm::TargetMachine& pTM,
-                                      const std::string& pTriple) {
-    return new TargetMachineImpl(pTM, pLLVMTarget, pMCLDTarget, pTriple);
-  }
-};
-
-} //end namespace mcld
-
-#endif
-
+#endif  // MCLD_SUPPORT_TARGETREGISTRY_H_

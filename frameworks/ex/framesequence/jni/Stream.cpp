@@ -79,6 +79,34 @@ size_t Stream::read(void* buffer, size_t size) {
     return bytes_read;
 }
 
+uint8_t* Stream::getRawBufferAddr() {
+    return NULL;
+}
+
+jobject Stream::getRawBuffer() {
+    return NULL;
+}
+
+int Stream::getRawBufferSize() {
+    return 0;
+}
+
+uint8_t* MemoryStream::getRawBufferAddr() {
+    return mBuffer;
+}
+
+jobject MemoryStream::getRawBuffer() {
+    return mRawBuffer;
+}
+
+int MemoryStream::getRawBufferSize() {
+    if (mRawBuffer != NULL) {
+        return mRemaining;
+    } else {
+        return 0;
+    }
+}
+
 size_t MemoryStream::doRead(void* buffer, size_t size) {
     size = min(size, mRemaining);
     memcpy(buffer, mBuffer, size);

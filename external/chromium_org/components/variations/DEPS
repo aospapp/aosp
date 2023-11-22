@@ -1,5 +1,0 @@
-include_rules = [
-  "+components/google",
-  "+net",
-  "+third_party/mt19937ar",
-]

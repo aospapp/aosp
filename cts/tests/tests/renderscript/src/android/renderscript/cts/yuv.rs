@@ -56,6 +56,20 @@ static uchar4 yuvToRGBA4(uchar y, uchar u, uchar v) {
     return (uchar4){p.x, p.y, p.z, p.w};
 }
 
+static float4 yuvToRGBA_f4(uchar y, uchar u, uchar v) {
+    float4 yuv_U_values = {0.f, -0.392f * 0.003921569f, +2.02 * 0.003921569f, 0.f};
+    float4 yuv_V_values = {1.603f * 0.003921569f, -0.815f * 0.003921569f, 0.f, 0.f};
+
+    float4 color = (float)y * 0.003921569f;
+    float4 fU = ((float)u) - 128.f;
+    float4 fV = ((float)v) - 128.f;
+
+    color += fU * yuv_U_values;
+    color += fV * yuv_V_values;
+    color = clamp(color, 0.f, 1.f);
+    return color;
+}
+
 void makeRef(rs_allocation ay, rs_allocation au, rs_allocation av, rs_allocation aout) {
     uint32_t w = rsAllocationGetDimX(ay);
     uint32_t h = rsAllocationGetDimY(ay);
@@ -80,6 +94,29 @@ void makeRef(rs_allocation ay, rs_allocation au, rs_allocation av, rs_allocation
     }
 }
 
+void makeRef_f4(rs_allocation ay, rs_allocation au, rs_allocation av, rs_allocation aout) {
+    uint32_t w = rsAllocationGetDimX(ay);
+    uint32_t h = rsAllocationGetDimY(ay);
+
+    for (int y = 0; y < h; y++) {
+        //rsDebug("y", y);
+        for (int x = 0; x < w; x++) {
+
+            uchar py = rsGetElementAt_uchar(ay, x, y);
+            uchar pu = rsGetElementAt_uchar(au, x >> 1, y >> 1);
+            uchar pv = rsGetElementAt_uchar(av, x >> 1, y >> 1);
+
+            //rsDebug("py", py);
+            //rsDebug(" u", pu);
+            //rsDebug(" v", pv);
+
+            float4 rgb = yuvToRGBA_f4(py, pu, pv);
+            //rsDebug("  ", rgb);
+
+            rsSetElementAt_float4(aout, rgb, x, y);
+        }
+    }
+}
 
 uchar4 __attribute__((kernel)) cvt(uint32_t x, uint32_t y) {
 
@@ -94,4 +131,16 @@ uchar4 __attribute__((kernel)) cvt(uint32_t x, uint32_t y) {
     return yuvToRGBA4(py, pu, pv);
 }
 
+float4 __attribute__((kernel)) cvt_f4(uint32_t x, uint32_t y) {
+
+    uchar py = rsGetElementAtYuv_uchar_Y(mInput, x, y);
+    uchar pu = rsGetElementAtYuv_uchar_U(mInput, x, y);
+    uchar pv = rsGetElementAtYuv_uchar_V(mInput, x, y);
+
+    //rsDebug("py2", py);
+    //rsDebug(" u2", pu);
+    //rsDebug(" v2", pv);
+
+    return rsYuvToRGBA_float4(py, pu, pv);
+}
 

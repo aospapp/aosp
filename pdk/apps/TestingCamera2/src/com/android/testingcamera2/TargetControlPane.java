@@ -25,6 +25,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
+import android.widget.Button;
 import android.widget.ToggleButton;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -75,6 +76,7 @@ public class TargetControlPane extends ControlPane {
 
     private Spinner mCameraSpinner;
     private ToggleButton mCameraConfigureToggle;
+    private Button mPrepareButton;
 
     private Spinner mOutputSpinner;
 
@@ -136,6 +138,7 @@ public class TargetControlPane extends ControlPane {
         boolean isMyTarget =
                 paneName.equals(mCameraSpinner.getSelectedItem()) &&
                 mCameraConfigureToggle.isChecked();
+        mPrepareButton.setEnabled(isMyTarget);
         return isMyTarget ? mCurrentOutput.getOutputSurface() : null;
     }
 
@@ -177,6 +180,9 @@ public class TargetControlPane extends ControlPane {
         mCameraSpinner.setOnItemSelectedListener(mCameraSpinnerListener);
         mCameraConfigureToggle = (ToggleButton) findViewById(R.id.target_pane_configure_toggle);
         mCameraConfigureToggle.setChecked(true);
+        mPrepareButton = (Button) findViewById(R.id.target_pane_prepare_button);
+        mPrepareButton.setEnabled(false);
+        mPrepareButton.setOnClickListener(mPrepareButtonListener);
 
         mOutputSpinner = (Spinner) findViewById(R.id.target_pane_output_spinner);
         mOutputSpinner.setOnItemSelectedListener(mOutputSpinnerListener);
@@ -226,9 +232,19 @@ public class TargetControlPane extends ControlPane {
         }
     };
 
+    private final OnClickListener mPrepareButtonListener = new OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            CameraControlPane currentCameraPane = mCameraPanes.get(
+                    mCameraSpinner.getSelectedItemPosition());
+            currentCameraPane.prepareSurface(mCurrentOutput.getOutputSurface());
+        }
+    };
+
     private OnItemSelectedListener mOutputSpinnerListener = new OnItemSelectedListener() {
         @Override
         public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+            mPrepareButton.setEnabled(false);
             if (mCurrentOutput != null) {
                 TargetControlPane.this.removeView(mCurrentOutput);
             }
@@ -244,6 +260,7 @@ public class TargetControlPane extends ControlPane {
 
         @Override
         public void onNothingSelected(AdapterView<?> arg0) {
+            mPrepareButton.setEnabled(false);
             if (mCurrentOutput != null) {
                 TargetControlPane.this.removeView(mCurrentOutput);
                 mCurrentOutput = null;

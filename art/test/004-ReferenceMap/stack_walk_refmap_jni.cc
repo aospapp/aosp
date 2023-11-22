@@ -14,138 +14,65 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <memory>
-
-#include "class_linker.h"
-#include "dex_file-inl.h"
-#include "gc_map.h"
-#include "mirror/art_method-inl.h"
-#include "mirror/class-inl.h"
-#include "mirror/object_array-inl.h"
-#include "mirror/object-inl.h"
-#include "scoped_thread_state_change.h"
-#include "thread.h"
+#include "check_reference_map_visitor.h"
 #include "jni.h"
-#include "verifier/method_verifier.h"
 
 namespace art {
 
-#define IS_IN_REF_BITMAP(ref_bitmap, reg) \
-    (((reg) < m->GetCodeItem()->registers_size_) && \
-     ((*((ref_bitmap) + (reg)/8) >> ((reg) % 8) ) & 0x01))
+#define CHECK_REGS_CONTAIN_REFS(dex_pc, abort_if_not_found, ...) do { \
+  int t[] = {__VA_ARGS__}; \
+  int t_size = sizeof(t) / sizeof(*t); \
+  uintptr_t native_quick_pc = m->ToNativeQuickPc(dex_pc, abort_if_not_found); \
+  if (native_quick_pc != UINTPTR_MAX) { \
+    CheckReferences(t, t_size, m->NativeQuickPcOffset(native_quick_pc)); \
+  } \
+} while (false);
 
-#define CHECK_REGS_CONTAIN_REFS(...)     \
-  do {                                   \
-    int t[] = {__VA_ARGS__};             \
-    int t_size = sizeof(t) / sizeof(*t);      \
-    for (int i = 0; i < t_size; ++i)          \
-      CHECK(IS_IN_REF_BITMAP(ref_bitmap, t[i])) \
-          << "Error: Reg @ " << i << "-th argument is not in GC map"; \
-  } while (false)
-
-struct ReferenceMap2Visitor : public StackVisitor {
-  explicit ReferenceMap2Visitor(Thread* thread)
-      SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
-      : StackVisitor(thread, NULL) {
-  }
+struct ReferenceMap2Visitor : public CheckReferenceMapVisitor {
+  explicit ReferenceMap2Visitor(Thread* thread) SHARED_LOCKS_REQUIRED(Locks::mutator_lock_)
+      : CheckReferenceMapVisitor(thread) {}
 
   bool VisitFrame() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    mirror::ArtMethod* m = GetMethod();
-    if (!m || m->IsNative() || m->IsRuntimeMethod() || IsShadowFrame()) {
+    if (CheckReferenceMapVisitor::VisitFrame()) {
       return true;
     }
-    LOG(INFO) << "At " << PrettyMethod(m, false);
-
-    NativePcOffsetToReferenceMap map(m->GetNativeGcMap(sizeof(void*)));
-
-    if (m->IsCalleeSaveMethod()) {
-      LOG(WARNING) << "no PC for " << PrettyMethod(m);
-      return true;
-    }
-
-    const uint8_t* ref_bitmap = NULL;
+    ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
     // Given the method name and the number of times the method has been called,
     // we know the Dex registers with live reference values. Assert that what we
     // find is what is expected.
     if (m_name.compare("f") == 0) {
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x03U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8);  // v8: this
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x06U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 1);  // v8: this, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x08U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x0cU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x0eU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x10U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 3, 1);  // v8: this, v3: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x13U)));
-      CHECK(ref_bitmap);
+      CHECK_REGS_CONTAIN_REFS(0x03U, true, 8);  // v8: this
+      CHECK_REGS_CONTAIN_REFS(0x06U, true, 8, 1);  // v8: this, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x08U, true, 8, 3, 1);  // v8: this, v3: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x0cU, true, 8, 3, 1);  // v8: this, v3: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x0eU, true, 8, 3, 1);  // v8: this, v3: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x10U, true, 8, 3, 1);  // v8: this, v3: y, v1: x
       // v2 is added because of the instruction at DexPC 0024. Object merges with 0 is Object. See:
       //   0024: move-object v3, v2
       //   0025: goto 0013
-      // Detaled dex instructions for ReferenceMap.java are at the end of this function.
+      // Detailed dex instructions for ReferenceMap.java are at the end of this function.
       // CHECK_REGS_CONTAIN_REFS(8, 3, 2, 1);  // v8: this, v3: y, v2: y, v1: x
-      // We eliminate the non-live registers at a return, so only v3 is live:
-      CHECK_REGS_CONTAIN_REFS(3);  // v3: y
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x18U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1aU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1, 0);  // v8: this, v5: x[1], v2: y, v1: x, v0: ex
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1dU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 5, 2, 1, 0);  // v8: this, v5: x[1], v2: y, v1: x, v0: ex
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x1fU)));
-      CHECK(ref_bitmap);
+      // We eliminate the non-live registers at a return, so only v3 is live.
+      // Note that it is OK for a compiler to not have a dex map at this dex PC because
+      // a return is not necessarily a safepoint.
+      CHECK_REGS_CONTAIN_REFS(0x13U, false, 3);  // v3: y
+      // Note that v0: ex can be eliminated because it's a dead merge of two different exceptions.
+      CHECK_REGS_CONTAIN_REFS(0x18U, true, 8, 2, 1);  // v8: this, v2: y, v1: x (dead v0: ex)
+      CHECK_REGS_CONTAIN_REFS(0x1aU, true, 8, 5, 2, 1);  // v8: this, v5: x[1], v2: y, v1: x (dead v0: ex)
+      CHECK_REGS_CONTAIN_REFS(0x1dU, true, 8, 5, 2, 1);  // v8: this, v5: x[1], v2: y, v1: x (dead v0: ex)
       // v5 is removed from the root set because there is a "merge" operation.
       // See 0015: if-nez v2, 001f.
-      CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x21U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 2, 1, 0);  // v8: this, v2: y, v1: x, v0: ex
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x27U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x29U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x2cU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x2fU)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 4, 3, 2, 1);  // v8: this, v4: ex, v3: y, v2: y, v1: x
-
-      ref_bitmap = map.FindBitMap(m->NativePcOffset(m->ToNativePc(0x32U)));
-      CHECK(ref_bitmap);
-      CHECK_REGS_CONTAIN_REFS(8, 3, 2, 1, 0);  // v8: this, v3: y, v2: y, v1: x, v0: ex
+      CHECK_REGS_CONTAIN_REFS(0x1fU, true, 8, 2, 1);  // v8: this, v2: y, v1: x (dead v0: ex)
+      CHECK_REGS_CONTAIN_REFS(0x21U, true, 8, 2, 1);  // v8: this, v2: y, v1: x (dead v0: ex)
+      CHECK_REGS_CONTAIN_REFS(0x27U, true, 8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x29U, true, 8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x2cU, true, 8, 4, 2, 1);  // v8: this, v4: ex, v2: y, v1: x
+      // Note that it is OK for a compiler to not have a dex map at these two dex PCs because
+      // a goto is not necessarily a safepoint.
+      CHECK_REGS_CONTAIN_REFS(0x2fU, false, 8, 4, 3, 2, 1);  // v8: this, v4: ex, v3: y, v2: y, v1: x
+      CHECK_REGS_CONTAIN_REFS(0x32U, false, 8, 3, 2, 1, 0);  // v8: this, v3: y, v2: y, v1: x, v0: ex
     }
 
     return true;

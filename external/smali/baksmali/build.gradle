@@ -40,6 +40,7 @@ dependencies {
     compile depends.guava
 
     testCompile depends.junit
+    testCompile project(':smali')
 
     proguard depends.proguard
 }
@@ -78,15 +79,6 @@ uploadArchives {
             }
         }
     }
-}
-
-task sourcesJar(type: Jar) {
-    classifier = 'sources'
-    from sourceSets.main.allJava
-}
-
-artifacts {
-    archives sourcesJar
 }
 
 task proguard(type: JavaExec, dependsOn: fatJar) {

@@ -27,20 +27,20 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsicLUT : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
-    virtual void invokeFreeChildren();
+    void populateScript(Script *) override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsicLUT();
+    ~RsdCpuScriptIntrinsicLUT() override;
     RsdCpuScriptIntrinsicLUT(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
     ObjectBaseRef<Allocation> lut;
 
-    static void kernel(const RsForEachStubParamStruct *p,
+    static void kernel(const RsExpandKernelDriverInfo *info,
                        uint32_t xstart, uint32_t xend,
-                       uint32_t instep, uint32_t outstep);
+                       uint32_t outstep);
 };
 
 }
@@ -53,13 +53,13 @@ void RsdCpuScriptIntrinsicLUT::setGlobalObj(uint32_t slot, ObjectBase *data) {
 }
 
 
-void RsdCpuScriptIntrinsicLUT::kernel(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicLUT::kernel(const RsExpandKernelDriverInfo *info,
                                       uint32_t xstart, uint32_t xend,
-                                      uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicLUT *cp = (RsdCpuScriptIntrinsicLUT *)p->usr;
+                                      uint32_t outstep) {
+    RsdCpuScriptIntrinsicLUT *cp = (RsdCpuScriptIntrinsicLUT *)info->usr;
 
-    uchar *out = (uchar *)p->out;
-    const uchar *in = (uchar *)p->in;
+    uchar *out = (uchar *)info->outPtr[0];
+    const uchar *in = (uchar *)info->inPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
@@ -103,5 +103,3 @@ RsdCpuScriptImpl * rsdIntrinsic_LUT(RsdCpuReferenceImpl *ctx,
 
     return new RsdCpuScriptIntrinsicLUT(ctx, s, e);
 }
-
-

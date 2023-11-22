@@ -23,16 +23,23 @@
     <ScrollView
         android:layout_weight="1"
         android:layout_height="0dp"
-        style="@style/ScrollView">
+        style="@style/DialogFragmentScrollView">
 
         <LinearLayout
             android:layout_height="wrap_content"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:orientation="vertical">
 
             <TextView
                 android:id="@+id/learn_more_text1"
-                style="@style/MainText"/>
+                style="@style/MainText"
+                android:paddingTop="@dimen/row_padding_top"/>
+
+            <TextView
+                android:id="@+id/learn_more_frp_warning"
+                style="@style/MainText"
+                android:text="@string/theft_protection_disabled_warning"
+                android:visibility="gone"/>
 
             <TextView
                 android:id="@+id/learn_more_text2"
@@ -43,23 +50,22 @@
                 android:id="@+id/learn_more_link"
                 android:textColor="@color/colored_button"
                 android:text="@string/learn_more_link"
-                style="@style/MainText"/>
+                android:contentDescription="@string/learn_more_label"
+                style="@style/MainText" />
 
         </LinearLayout>
 
     </ScrollView>
 
     <RelativeLayout
-        android:layout_width="fill_parent"
-        android:layout_height="@dimen/row_height"
-        android:paddingTop="@dimen/row_padding_top">
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/row_height">
 
         <Button
             android:id="@+id/positive_button"
             android:layout_alignParentRight="true"
             android:layout_alignParentBottom="true"
             android:text="@string/ok_setup"
-            android:textColor="@color/colored_button"
             style="@style/TransparentButton" />
 
         <Button

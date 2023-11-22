@@ -163,6 +163,7 @@ public class SIMRecords extends IccRecords {
     private static final int EVENT_GET_CSP_CPHS_DONE = 33;
     private static final int EVENT_GET_GID1_DONE = 34;
     private static final int EVENT_APP_LOCKED = 35;
+    private static final int EVENT_GET_GID2_DONE = 36;
 
     // Lookup table for carriers known to produce SIMs which incorrectly indicate MNC length.
 
@@ -242,6 +243,7 @@ public class SIMRecords extends IccRecords {
         mSpdiNetworks = null;
         mPnnHomeName = null;
         mGid1 = null;
+        mGid2 = null;
 
         mAdnCache.reset();
 
@@ -279,8 +281,30 @@ public class SIMRecords extends IccRecords {
     }
 
     @Override
+    public String getGid2() {
+        return mGid2;
+    }
+
+    @Override
     public UsimServiceTable getUsimServiceTable() {
         return mUsimServiceTable;
+    }
+
+    private int getExtFromEf(int ef) {
+        int ext;
+        switch (ef) {
+            case EF_MSISDN:
+                /* For USIM apps use EXT5. (TS 31.102 Section 4.2.37) */
+                if (mParentApp.getType() == AppType.APPTYPE_USIM) {
+                    ext = EF_EXT5;
+                } else {
+                    ext = EF_EXT1;
+                }
+                break;
+            default:
+                ext = EF_EXT1;
+        }
+        return ext;
     }
 
     /**
@@ -309,10 +333,9 @@ public class SIMRecords extends IccRecords {
 
         if(DBG) log("Set MSISDN: " + mNewMsisdnTag + " " + /*mNewMsisdn*/ "xxxxxxx");
 
-
         AdnRecord adn = new AdnRecord(mNewMsisdnTag, mNewMsisdn);
 
-        new AdnRecordLoader(mFh).updateEF(adn, EF_MSISDN, EF_EXT1, 1, null,
+        new AdnRecordLoader(mFh).updateEF(adn, EF_MSISDN, getExtFromEf(EF_MSISDN), 1, null,
                 obtainMessage(EVENT_SET_MSISDN_DONE, onComplete));
     }
 
@@ -1196,6 +1219,22 @@ public class SIMRecords extends IccRecords {
 
                 break;
 
+            case EVENT_GET_GID2_DONE:
+                isRecordLoadResponse = true;
+
+                ar = (AsyncResult)msg.obj;
+                data =(byte[])ar.result;
+
+                if (ar.exception != null) {
+                    loge("Exception in get GID2 " + ar.exception);
+                    mGid2 = null;
+                    break;
+                }
+                mGid2 = IccUtils.bytesToHexString(data);
+                log("GID2: " + mGid2);
+
+                break;
+
             default:
                 super.handleMessage(msg);   // IccRecords handles generic record load responses
 
@@ -1253,6 +1292,24 @@ public class SIMRecords extends IccRecords {
             case EF_FDN:
                 if (DBG) log("SIM Refresh called for EF_FDN");
                 mParentApp.queryFdn();
+                break;
+            case EF_MSISDN:
+                mRecordsToLoad++;
+                log("SIM Refresh called for EF_MSISDN");
+                new AdnRecordLoader(mFh).loadFromEF(EF_MSISDN, getExtFromEf(EF_MSISDN), 1,
+                        obtainMessage(EVENT_GET_MSISDN_DONE));
+                break;
+            case EF_CFIS:
+                mRecordsToLoad++;
+                log("SIM Refresh called for EF_CFIS");
+                mFh.loadEFLinearFixed(EF_CFIS,
+                        1, obtainMessage(EVENT_GET_CFIS_DONE));
+                break;
+            case EF_CFF_CPHS:
+                mRecordsToLoad++;
+                log("SIM Refresh called for EF_CFF_CPHS");
+                mFh.loadEFTransparent(EF_CFF_CPHS,
+                        obtainMessage(EVENT_GET_CFF_DONE));
                 break;
             default:
                 // For now, fetch all records if this is not a
@@ -1362,56 +1419,6 @@ public class SIMRecords extends IccRecords {
         }
     }
 
-    private String findBestLanguage(byte[] languages) {
-        String bestMatch = null;
-        String[] locales = mContext.getAssets().getLocales();
-
-        if ((languages == null) || (locales == null)) return null;
-
-        // Each 2-bytes consists of one language
-        for (int i = 0; (i + 1) < languages.length; i += 2) {
-            try {
-                String lang = new String(languages, i, 2, "ISO-8859-1");
-                if (DBG) log ("languages from sim = " + lang);
-                for (int j = 0; j < locales.length; j++) {
-                    if (locales[j] != null && locales[j].length() >= 2 &&
-                            locales[j].substring(0, 2).equalsIgnoreCase(lang)) {
-                        return lang;
-                    }
-                }
-                if (bestMatch != null) break;
-            } catch(java.io.UnsupportedEncodingException e) {
-                log ("Failed to parse USIM language records" + e);
-            }
-        }
-        // no match found. return null
-        return null;
-    }
-
-    private void setLocaleFromUsim() {
-        String prefLang = null;
-        // check EFli then EFpl
-        prefLang = findBestLanguage(mEfLi);
-
-        if (prefLang == null) {
-            prefLang = findBestLanguage(mEfPl);
-        }
-
-        if (prefLang != null) {
-            // check country code from SIM
-            String imsi = getIMSI();
-            String country = null;
-            if (imsi != null) {
-                country = MccTable.countryCodeForMcc(
-                                    Integer.parseInt(imsi.substring(0,3)));
-            }
-            if (DBG) log("Setting locale to " + prefLang + "_" + country);
-            MccTable.setSystemLocale(mContext, prefLang, country);
-        } else {
-            if (DBG) log ("No suitable USIM selected locale");
-        }
-    }
-
     @Override
     protected void onRecordLoaded() {
         // One record loaded successfully or failed, In either case
@@ -1431,7 +1438,12 @@ public class SIMRecords extends IccRecords {
     protected void onAllRecordsLoaded() {
         if (DBG) log("record load complete");
 
-        setLocaleFromUsim();
+        Resources resource = Resources.getSystem();
+        if (resource.getBoolean(com.android.internal.R.bool.config_use_sim_language_file)) {
+            setSimLanguage(mEfLi, mEfPl);
+        } else {
+            if (DBG) log ("Not using EF LI/EF PL");
+        }
 
         if (mParentApp.getState() == AppState.APPSTATE_PIN ||
                mParentApp.getState() == AppState.APPSTATE_PUK) {
@@ -1457,7 +1469,7 @@ public class SIMRecords extends IccRecords {
         }
 
         if (!TextUtils.isEmpty(mImsi)) {
-            log("onAllRecordsLoaded set mcc imsi=" + mImsi);
+            log("onAllRecordsLoaded set mcc imsi" + (VDBG ? ("=" + mImsi) : ""));
             mTelephonyManager.setSimCountryIsoForPhone(
                     mParentApp.getPhoneId(), MccTable.countryCodeForMcc(
                     Integer.parseInt(mImsi.substring(0,3))));
@@ -1502,12 +1514,6 @@ public class SIMRecords extends IccRecords {
     }
 
     private void loadEfLiAndEfPl() {
-        Resources resource = Resources.getSystem();
-        if (!resource.getBoolean(com.android.internal.R.bool.config_use_sim_language_file)) {
-            if (DBG) log ("Not using EF LI/EF PL");
-            return;
-        }
-
         if (mParentApp.getType() == AppType.APPTYPE_USIM) {
             mRecordsRequested = true;
             mFh.loadEFTransparent(EF_LI,
@@ -1533,7 +1539,7 @@ public class SIMRecords extends IccRecords {
 
         // FIXME should examine EF[MSISDN]'s capability configuration
         // to determine which is the voice/data/fax line
-        new AdnRecordLoader(mFh).loadFromEF(EF_MSISDN, EF_EXT1, 1,
+        new AdnRecordLoader(mFh).loadFromEF(EF_MSISDN, getExtFromEf(EF_MSISDN), 1,
                     obtainMessage(EVENT_GET_MSISDN_DONE));
         mRecordsToLoad++;
 
@@ -1584,6 +1590,9 @@ public class SIMRecords extends IccRecords {
         mRecordsToLoad++;
 
         mFh.loadEFTransparent(EF_GID1, obtainMessage(EVENT_GET_GID1_DONE));
+        mRecordsToLoad++;
+
+        mFh.loadEFTransparent(EF_GID2, obtainMessage(EVENT_GET_GID2_DONE));
         mRecordsToLoad++;
 
         loadEfLiAndEfPl();
@@ -1920,6 +1929,7 @@ public class SIMRecords extends IccRecords {
         pw.println(" mPnnHomeName=" + mPnnHomeName);
         pw.println(" mUsimServiceTable=" + mUsimServiceTable);
         pw.println(" mGid1=" + mGid1);
+        pw.println(" mGid2=" + mGid2);
         pw.flush();
     }
 }

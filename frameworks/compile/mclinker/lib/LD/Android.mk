@@ -16,6 +16,7 @@ mcld_ld_SRC_FILES := \
   DiagnosticInfos.cpp \
   DiagnosticLineInfo.cpp  \
   DiagnosticPrinter.cpp \
+  DebugString.cpp \
   DynObjReader.cpp  \
   ELFBinaryReader.cpp  \
   ELFSegment.cpp  \
@@ -25,11 +26,13 @@ mcld_ld_SRC_FILES := \
   EhFrameReader.cpp  \
   GarbageCollection.cpp \
   GroupReader.cpp \
+  IdenticalCodeFolding.cpp \
   LDContext.cpp \
   LDFileFormat.cpp  \
   LDReader.cpp  \
   LDSection.cpp \
   LDSymbol.cpp  \
+  MergedStringTable.cpp \
   MsgHandler.cpp  \
   NamePool.cpp  \
   ObjectWriter.cpp  \
@@ -48,6 +51,7 @@ mcld_ld_SRC_FILES := \
 # =====================================================
 include $(CLEAR_VARS)
 
+LOCAL_C_INCLUDES += external/zlib
 LOCAL_SRC_FILES := $(mcld_ld_SRC_FILES)
 LOCAL_MODULE:= libmcldLD
 
@@ -60,6 +64,7 @@ include $(BUILD_HOST_STATIC_LIBRARY)
 # =====================================================
 include $(CLEAR_VARS)
 
+LOCAL_C_INCLUDES += external/zlib
 LOCAL_SRC_FILES := $(mcld_ld_SRC_FILES)
 LOCAL_MODULE:= libmcldLD
 

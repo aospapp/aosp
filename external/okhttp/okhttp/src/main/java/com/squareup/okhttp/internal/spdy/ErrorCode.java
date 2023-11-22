@@ -1,7 +1,21 @@
+/*
+ * Copyright (C) 2013 Square, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.squareup.okhttp.internal.spdy;
 
-// TODO: revisit for http/2 draft 9
-// http://tools.ietf.org/html/draft-ietf-httpbis-http2-09#section-7
+// http://tools.ietf.org/html/draft-ietf-httpbis-http2-17#section-7
 public enum ErrorCode {
   /** Not an error! For SPDY stream resets, prefer null over NO_ERROR. */
   NO_ERROR(0, -1, 0),
@@ -33,6 +47,14 @@ public enum ErrorCode {
   CANCEL(8, 5, -1),
 
   COMPRESSION_ERROR(9, -1, -1),
+
+  CONNECT_ERROR(10, -1, -1),
+
+  ENHANCE_YOUR_CALM(11, -1, -1),
+
+  INADEQUATE_SECURITY(12, -1, -1),
+
+  HTTP_1_1_REQUIRED(13, -1, -1),
 
   INVALID_CREDENTIALS(-1, 10, -1);
 

@@ -24,7 +24,7 @@
     <string name="meeting_updated" msgid="5960663236439072658">"Eguneratua: <xliff:g id="SUBJECT">%s</xliff:g>"</string>
     <string name="meeting_when" msgid="1905576664682173880">"Data: <xliff:g id="WHEN">%s</xliff:g>"</string>
     <string name="meeting_where" msgid="6498631574145121862">"Kokapena: <xliff:g id="WHERE">%s</xliff:g>"</string>
-    <string name="meeting_recurring" msgid="2752008481765880928">"Data: <xliff:g id="EVENTDATE">%s</xliff:g> (errepikakorra)"</string>
+    <string name="meeting_recurring" msgid="2752008481765880928">"Data: <xliff:g id="EVENTDATE">%s</xliff:g> (errepikaria)"</string>
     <string name="meeting_allday" msgid="7251209063071628040">"Noiz: <xliff:g id="EVENTDATE">%s</xliff:g> (egun osoa)"</string>
     <string name="meeting_allday_recurring" msgid="4545762363537362545">"Noiz: <xliff:g id="EVENTDATE">%s</xliff:g> (egun osoa, errepikaria)"</string>
     <string name="app_name" msgid="1707639359526090662">"Exchange zerbitzuak"</string>

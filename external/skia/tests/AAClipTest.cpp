@@ -34,7 +34,6 @@ static bool operator==(const SkMask& a, const SkMask& b) {
         case SkMask::kLCD16_Format:
             wbytes <<= 1;
             break;
-        case SkMask::kLCD32_Format:
         case SkMask::kARGB32_Format:
             wbytes <<= 2;
             break;
@@ -318,6 +317,30 @@ static void test_path_with_hole(skiatest::Reporter* reporter) {
     }
 }
 
+static void test_really_a_rect(skiatest::Reporter* reporter) {
+    SkRRect rrect;
+    rrect.setRectXY(SkRect::MakeWH(100, 100), 5, 5);
+
+    SkPath path;
+    path.addRRect(rrect);
+
+    SkAAClip clip;
+    clip.setPath(path);
+
+    REPORTER_ASSERT(reporter, clip.getBounds() == SkIRect::MakeWH(100, 100));
+    REPORTER_ASSERT(reporter, !clip.isRect());
+
+    // This rect should intersect the clip, but slice-out all of the "soft" parts,
+    // leaving just a rect.
+    const SkIRect ir = SkIRect::MakeLTRB(10, -10, 50, 90);
+    
+    clip.op(ir, SkRegion::kIntersect_Op);
+
+    REPORTER_ASSERT(reporter, clip.getBounds() == SkIRect::MakeLTRB(10, 0, 50, 90));
+    // the clip recognized that that it is just a rect!
+    REPORTER_ASSERT(reporter, clip.isRect());
+}
+
 #include "SkRasterClip.h"
 
 static void copyToMask(const SkRasterClip& rc, SkMask* mask) {
@@ -347,6 +370,7 @@ static bool operator==(const SkRasterClip& a, const SkRasterClip& b) {
 
 static void did_dx_affect(skiatest::Reporter* reporter, const SkScalar dx[],
                           size_t count, bool changed) {
+    const SkISize baseSize = SkISize::Make(10, 10);
     SkIRect ir = { 0, 0, 10, 10 };
 
     for (size_t i = 0; i < count; ++i) {
@@ -357,11 +381,11 @@ static void did_dx_affect(skiatest::Reporter* reporter, const SkScalar dx[],
         SkRasterClip rc1(ir);
         SkRasterClip rc2(ir);
 
-        rc0.op(r, SkRegion::kIntersect_Op, false);
+        rc0.op(r, baseSize, SkRegion::kIntersect_Op, false);
         r.offset(dx[i], 0);
-        rc1.op(r, SkRegion::kIntersect_Op, true);
+        rc1.op(r, baseSize, SkRegion::kIntersect_Op, true);
         r.offset(-2*dx[i], 0);
-        rc2.op(r, SkRegion::kIntersect_Op, true);
+        rc2.op(r, baseSize, SkRegion::kIntersect_Op, true);
 
         REPORTER_ASSERT(reporter, changed != (rc0 == rc1));
         REPORTER_ASSERT(reporter, changed != (rc0 == rc2));
@@ -396,6 +420,20 @@ static void test_regressions() {
     }
 }
 
+// Building aaclip meant aa-scan-convert a path into a huge clip.
+// the old algorithm sized the supersampler to the size of the clip, which overflowed
+// its internal 16bit coordinates. The fix was to intersect the clip+path_bounds before
+// sizing the supersampler.
+//
+// Before the fix, the following code would assert in debug builds.
+//
+static void test_crbug_422693(skiatest::Reporter* reporter) {
+    SkRasterClip rc(SkIRect::MakeLTRB(-25000, -25000, 25000, 25000));
+    SkPath path;
+    path.addCircle(50, 50, 50);
+    rc.op(path, rc.getBounds().size(), SkRegion::kIntersect_Op, true);
+}
+
 DEF_TEST(AAClip, reporter) {
     test_empty(reporter);
     test_path_bounds(reporter);
@@ -404,4 +442,6 @@ DEF_TEST(AAClip, reporter) {
     test_path_with_hole(reporter);
     test_regressions();
     test_nearly_integral(reporter);
+    test_really_a_rect(reporter);
+    test_crbug_422693(reporter);
 }

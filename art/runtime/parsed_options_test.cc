@@ -22,52 +22,64 @@
 
 namespace art {
 
-class ParsedOptionsTest : public CommonRuntimeTest {};
+class ParsedOptionsTest : public ::testing::Test {
+ public:
+  static void SetUpTestCase() {
+    CommonRuntimeTest::SetUpAndroidRoot();
+  }
+};
 
 TEST_F(ParsedOptionsTest, ParsedOptions) {
   void* test_vfprintf = reinterpret_cast<void*>(0xa);
   void* test_abort = reinterpret_cast<void*>(0xb);
   void* test_exit = reinterpret_cast<void*>(0xc);
-  void* null = reinterpret_cast<void*>(NULL);
 
-  std::string lib_core(GetLibCoreDexFileName());
+  std::string lib_core(CommonRuntimeTest::GetLibCoreDexFileName());
 
   std::string boot_class_path;
   boot_class_path += "-Xbootclasspath:";
   boot_class_path += lib_core;
 
   RuntimeOptions options;
-  options.push_back(std::make_pair(boot_class_path.c_str(), null));
-  options.push_back(std::make_pair("-classpath", null));
-  options.push_back(std::make_pair(lib_core.c_str(), null));
-  options.push_back(std::make_pair("-cp", null));
-  options.push_back(std::make_pair(lib_core.c_str(), null));
-  options.push_back(std::make_pair("-Ximage:boot_image", null));
-  options.push_back(std::make_pair("-Xcheck:jni", null));
-  options.push_back(std::make_pair("-Xms2048", null));
-  options.push_back(std::make_pair("-Xmx4k", null));
-  options.push_back(std::make_pair("-Xss1m", null));
-  options.push_back(std::make_pair("-XX:HeapTargetUtilization=0.75", null));
-  options.push_back(std::make_pair("-Dfoo=bar", null));
-  options.push_back(std::make_pair("-Dbaz=qux", null));
-  options.push_back(std::make_pair("-verbose:gc,class,jni", null));
+  options.push_back(std::make_pair(boot_class_path.c_str(), nullptr));
+  options.push_back(std::make_pair("-classpath", nullptr));
+  options.push_back(std::make_pair(lib_core.c_str(), nullptr));
+  options.push_back(std::make_pair("-cp", nullptr));
+  options.push_back(std::make_pair(lib_core.c_str(), nullptr));
+  options.push_back(std::make_pair("-Ximage:boot_image", nullptr));
+  options.push_back(std::make_pair("-Xcheck:jni", nullptr));
+  options.push_back(std::make_pair("-Xms2048", nullptr));
+  options.push_back(std::make_pair("-Xmx4k", nullptr));
+  options.push_back(std::make_pair("-Xss1m", nullptr));
+  options.push_back(std::make_pair("-XX:HeapTargetUtilization=0.75", nullptr));
+  options.push_back(std::make_pair("-Dfoo=bar", nullptr));
+  options.push_back(std::make_pair("-Dbaz=qux", nullptr));
+  options.push_back(std::make_pair("-verbose:gc,class,jni", nullptr));
   options.push_back(std::make_pair("vfprintf", test_vfprintf));
   options.push_back(std::make_pair("abort", test_abort));
   options.push_back(std::make_pair("exit", test_exit));
-  std::unique_ptr<ParsedOptions> parsed(ParsedOptions::Create(options, false));
-  ASSERT_TRUE(parsed.get() != NULL);
 
-  EXPECT_EQ(lib_core, parsed->boot_class_path_string_);
-  EXPECT_EQ(lib_core, parsed->class_path_string_);
-  EXPECT_EQ(std::string("boot_image"), parsed->image_);
-  EXPECT_EQ(true, parsed->check_jni_);
-  EXPECT_EQ(2048U, parsed->heap_initial_size_);
-  EXPECT_EQ(4 * KB, parsed->heap_maximum_size_);
-  EXPECT_EQ(1 * MB, parsed->stack_size_);
-  EXPECT_EQ(0.75, parsed->heap_target_utilization_);
-  EXPECT_TRUE(test_vfprintf == parsed->hook_vfprintf_);
-  EXPECT_TRUE(test_exit == parsed->hook_exit_);
-  EXPECT_TRUE(test_abort == parsed->hook_abort_);
+  RuntimeArgumentMap map;
+  std::unique_ptr<ParsedOptions> parsed(ParsedOptions::Create(options, false, &map));
+  ASSERT_TRUE(parsed.get() != nullptr);
+  ASSERT_NE(0u, map.Size());
+
+  using Opt = RuntimeArgumentMap;
+
+#define EXPECT_PARSED_EQ(expected, actual_key) EXPECT_EQ(expected, map.GetOrDefault(actual_key))
+#define EXPECT_PARSED_EXISTS(actual_key) EXPECT_TRUE(map.Exists(actual_key))
+
+  EXPECT_PARSED_EQ(lib_core, Opt::BootClassPath);
+  EXPECT_PARSED_EQ(lib_core, Opt::ClassPath);
+  EXPECT_PARSED_EQ(std::string("boot_image"), Opt::Image);
+  EXPECT_PARSED_EXISTS(Opt::CheckJni);
+  EXPECT_PARSED_EQ(2048U, Opt::MemoryInitialSize);
+  EXPECT_PARSED_EQ(4 * KB, Opt::MemoryMaximumSize);
+  EXPECT_PARSED_EQ(1 * MB, Opt::StackSize);
+  EXPECT_DOUBLE_EQ(0.75, map.GetOrDefault(Opt::HeapTargetUtilization));
+  EXPECT_TRUE(test_vfprintf == map.GetOrDefault(Opt::HookVfprintf));
+  EXPECT_TRUE(test_exit == map.GetOrDefault(Opt::HookExit));
+  EXPECT_TRUE(test_abort == map.GetOrDefault(Opt::HookAbort));
   EXPECT_TRUE(VLOG_IS_ON(class_linker));
   EXPECT_FALSE(VLOG_IS_ON(compiler));
   EXPECT_FALSE(VLOG_IS_ON(heap));
@@ -78,9 +90,27 @@ TEST_F(ParsedOptionsTest, ParsedOptions) {
   EXPECT_FALSE(VLOG_IS_ON(startup));
   EXPECT_FALSE(VLOG_IS_ON(third_party_jni));
   EXPECT_FALSE(VLOG_IS_ON(threads));
-  ASSERT_EQ(2U, parsed->properties_.size());
-  EXPECT_EQ("foo=bar", parsed->properties_[0]);
-  EXPECT_EQ("baz=qux", parsed->properties_[1]);
+
+  auto&& properties_list = map.GetOrDefault(Opt::PropertiesList);
+  ASSERT_EQ(2U, properties_list.size());
+  EXPECT_EQ("foo=bar", properties_list[0]);
+  EXPECT_EQ("baz=qux", properties_list[1]);
 }
+
+TEST_F(ParsedOptionsTest, ParsedOptionsGc) {
+  RuntimeOptions options;
+  options.push_back(std::make_pair("-Xgc:MC", nullptr));
+
+  RuntimeArgumentMap map;
+  std::unique_ptr<ParsedOptions> parsed(ParsedOptions::Create(options, false, &map));
+  ASSERT_TRUE(parsed.get() != nullptr);
+  ASSERT_NE(0u, map.Size());
+
+  using Opt = RuntimeArgumentMap;
+
+  EXPECT_TRUE(map.Exists(Opt::GcOption));
+
+  XGcOption xgc = map.GetOrDefault(Opt::GcOption);
+  EXPECT_EQ(gc::kCollectorTypeMC, xgc.collector_type_);}
 
 }  // namespace art

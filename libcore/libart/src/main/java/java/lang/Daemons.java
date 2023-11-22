@@ -16,6 +16,8 @@
 
 package java.lang;
 
+import android.system.Os;
+import android.system.OsConstants;
 import dalvik.system.VMRuntime;
 import java.lang.ref.FinalizerReference;
 import java.lang.ref.Reference;
@@ -40,16 +42,14 @@ public final class Daemons {
         ReferenceQueueDaemon.INSTANCE.start();
         FinalizerDaemon.INSTANCE.start();
         FinalizerWatchdogDaemon.INSTANCE.start();
-        HeapTrimmerDaemon.INSTANCE.start();
-        GCDaemon.INSTANCE.start();
+        HeapTaskDaemon.INSTANCE.start();
     }
 
     public static void stop() {
+        HeapTaskDaemon.INSTANCE.stop();
         ReferenceQueueDaemon.INSTANCE.stop();
         FinalizerDaemon.INSTANCE.stop();
         FinalizerWatchdogDaemon.INSTANCE.stop();
-        HeapTrimmerDaemon.INSTANCE.stop();
-        GCDaemon.INSTANCE.stop();
     }
 
     /**
@@ -59,12 +59,17 @@ public final class Daemons {
      */
     private static abstract class Daemon implements Runnable {
         private Thread thread;
+        private String name;
+
+        protected Daemon(String name) {
+            this.name = name;
+        }
 
         public synchronized void start() {
             if (thread != null) {
                 throw new IllegalStateException("already running");
             }
-            thread = new Thread(ThreadGroup.systemThreadGroup, this, getClass().getSimpleName());
+            thread = new Thread(ThreadGroup.systemThreadGroup, this, name);
             thread.setDaemon(true);
             thread.start();
         }
@@ -80,6 +85,10 @@ public final class Daemons {
         }
 
         public synchronized void interrupt() {
+            interrupt(thread);
+        }
+
+        public synchronized void interrupt(Thread thread) {
             if (thread == null) {
                 throw new IllegalStateException("not running");
             }
@@ -99,7 +108,7 @@ public final class Daemons {
             if (threadToStop == null) {
                 throw new IllegalStateException("not running");
             }
-            threadToStop.interrupt();
+            interrupt(threadToStop);
             while (true) {
                 try {
                     threadToStop.join();
@@ -125,6 +134,10 @@ public final class Daemons {
     private static class ReferenceQueueDaemon extends Daemon {
         private static final ReferenceQueueDaemon INSTANCE = new ReferenceQueueDaemon();
 
+        ReferenceQueueDaemon() {
+            super("ReferenceQueueDaemon");
+        }
+
         @Override public void run() {
             while (isRunning()) {
                 Reference<?> list;
@@ -144,20 +157,14 @@ public final class Daemons {
         }
 
         private void enqueue(Reference<?> list) {
-            while (list != null) {
-                Reference<?> reference;
-                // pendingNext is owned by the GC so no synchronization is required
-                if (list == list.pendingNext) {
-                    reference = list;
-                    reference.pendingNext = null;
-                    list = null;
-                } else {
-                    reference = list.pendingNext;
-                    list.pendingNext = reference.pendingNext;
-                    reference.pendingNext = null;
-                }
-                reference.enqueueInternal();
-            }
+            Reference<?> start = list;
+            do {
+                // pendingNext is owned by the GC so no synchronization is required.
+                Reference<?> next = list.pendingNext;
+                list.pendingNext = null;
+                list.enqueueInternal();
+                list = next;
+            } while (list != start);
         }
     }
 
@@ -166,6 +173,10 @@ public final class Daemons {
         private final ReferenceQueue<Object> queue = FinalizerReference.queue;
         private volatile Object finalizingObject;
         private volatile long finalizingStartedNanos;
+
+        FinalizerDaemon() {
+            super("FinalizerDaemon");
+        }
 
         @Override public void run() {
             while (isRunning()) {
@@ -206,6 +217,10 @@ public final class Daemons {
      */
     private static class FinalizerWatchdogDaemon extends Daemon {
         private static final FinalizerWatchdogDaemon INSTANCE = new FinalizerWatchdogDaemon();
+
+        FinalizerWatchdogDaemon() {
+            super("FinalizerWatchdogDaemon");
+        }
 
         @Override public void run() {
             while (isRunning()) {
@@ -282,6 +297,14 @@ public final class Daemons {
             // We use the stack from where finalize() was running to show where it was stuck.
             syntheticException.setStackTrace(FinalizerDaemon.INSTANCE.getStackTrace());
             Thread.UncaughtExceptionHandler h = Thread.getDefaultUncaughtExceptionHandler();
+            // Send SIGQUIT to get native stack traces.
+            try {
+                Os.kill(Os.getpid(), OsConstants.SIGQUIT);
+                // Sleep a few seconds to let the stack traces print.
+                Thread.sleep(5000);
+            } catch (Exception e) {
+                System.logE("failed to send SIGQUIT", e);
+            }
             if (h == null) {
                 // If we have no handler, log and exit.
                 System.logE(message, syntheticException);
@@ -294,59 +317,42 @@ public final class Daemons {
         }
     }
 
-    // Invoked by the GC to request that the HeapTrimmerDaemon thread attempt to trim the heap.
+    // Adds a heap trim task ot the heap event processor, not called from java. Left for
+    // compatibility purposes due to reflection.
     public static void requestHeapTrim() {
-        synchronized (HeapTrimmerDaemon.INSTANCE) {
-            HeapTrimmerDaemon.INSTANCE.notify();
-        }
+        VMRuntime.getRuntime().requestHeapTrim();
     }
 
-    private static class HeapTrimmerDaemon extends Daemon {
-        private static final HeapTrimmerDaemon INSTANCE = new HeapTrimmerDaemon();
-
-        @Override public void run() {
-            while (isRunning()) {
-                try {
-                    synchronized (this) {
-                        wait();
-                    }
-                    VMRuntime.getRuntime().trimHeap();
-                } catch (InterruptedException ignored) {
-                }
-            }
-        }
-    }
-
-    // Invoked by the GC to request that the HeapTrimmerDaemon thread attempt to trim the heap.
+    // Adds a concurrent GC request task ot the heap event processor, not called from java. Left
+    // for compatibility purposes due to reflection.
     public static void requestGC() {
-        GCDaemon.INSTANCE.requestGC();
+        VMRuntime.getRuntime().requestConcurrentGC();
     }
 
-    private static class GCDaemon extends Daemon {
-        private static final GCDaemon INSTANCE = new GCDaemon();
-        private static final AtomicBoolean atomicBoolean = new AtomicBoolean();
+    private static class HeapTaskDaemon extends Daemon {
+        private static final HeapTaskDaemon INSTANCE = new HeapTaskDaemon();
 
-        public void requestGC() {
-            if (atomicBoolean.getAndSet(true)) {
-              return;
-            }
-            synchronized (this) {
-                notify();
-            }
-            atomicBoolean.set(false);
+        HeapTaskDaemon() {
+            super("HeapTaskDaemon");
+        }
+
+        // Overrides the Daemon.interupt method which is called from Daemons.stop.
+        public synchronized void interrupt(Thread thread) {
+            VMRuntime.getRuntime().stopHeapTaskProcessor();
         }
 
         @Override public void run() {
-            while (isRunning()) {
-                try {
-                    synchronized (this) {
-                        // Wait until a request comes in.
-                        wait();
-                    }
-                    VMRuntime.getRuntime().concurrentGC();
-                } catch (InterruptedException ignored) {
+            synchronized (this) {
+                if (isRunning()) {
+                  // Needs to be synchronized or else we there is a race condition where we start
+                  // the thread, call stopHeapTaskProcessor before we start the heap task
+                  // processor, resulting in a deadlock since startHeapTaskProcessor restarts it
+                  // while the other thread is waiting in Daemons.stop().
+                  VMRuntime.getRuntime().startHeapTaskProcessor();
                 }
             }
+            // This runs tasks until we are stopped and there is no more pending task.
+            VMRuntime.getRuntime().runHeapTasks();
         }
     }
 }

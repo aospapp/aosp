@@ -16,22 +16,16 @@
 
 package com.google.common.collect;
 
-import com.google.common.annotations.GwtCompatible;
-
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Nullable;
 
 /**
- * A {@link BiMap} backed by two {@link HashMap} instances. This implementation
- * allows null keys and values. A {@code HashBiMap} and its inverse are both
- * serializable.
+ * GWT emulation of {@code HashBiMap} that just delegates to two HashMaps.
  *
  * @author Mike Bostock
- * @since 2.0 (imported from Google Collections Library)
  */
-@GwtCompatible(emulated = true)
 public final class HashBiMap<K, V> extends AbstractBiMap<K, V> {
 
   /**
@@ -85,4 +79,3 @@ public final class HashBiMap<K, V> extends AbstractBiMap<K, V> {
     return super.forcePut(key, value);
   }
 }
-

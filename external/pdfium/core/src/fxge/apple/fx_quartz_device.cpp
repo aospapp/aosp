@@ -853,7 +853,6 @@ FX_BOOL CFX_QuartzDeviceDriver::CG_DrawGlypRun(int                        nChars
                              a / 255.f);
     SaveState();
     if (pGlyphMatrix) {
-        CGAffineTransform ctm = CGContextGetCTM(_context);
         CGPoint origin = CGPointMake( glyph_positions[0].x,  glyph_positions[0].y);
         origin = CGPointApplyAffineTransform(origin, matrix_cg);
         CGContextTranslateCTM(_context, origin.x, origin.y);
@@ -1098,10 +1097,7 @@ FX_BOOL CFX_QuartzDevice::Attach(CGContextRef context, FX_INT32 nDeviceClass)
     }
     m_pContext = context;
     CGContextRetain(m_pContext);
-    IFX_RenderDeviceDriver* pDriver = FX_NEW CFX_QuartzDeviceDriver(m_pContext, nDeviceClass);
-    if (!pDriver) {
-        return FALSE;
-    }
+    IFX_RenderDeviceDriver* pDriver = new CFX_QuartzDeviceDriver(m_pContext, nDeviceClass);
     SetDeviceDriver(pDriver);
     return TRUE;
 }
@@ -1112,10 +1108,7 @@ FX_BOOL CFX_QuartzDevice::Attach(CFX_DIBitmap* pBitmap)
     if (NULL == m_pContext) {
         return FALSE;
     }
-    IFX_RenderDeviceDriver* pDriver = FX_NEW CFX_QuartzDeviceDriver(m_pContext, FXDC_DISPLAY);
-    if (!pDriver) {
-        return FALSE;
-    }
+    IFX_RenderDeviceDriver* pDriver = new CFX_QuartzDeviceDriver(m_pContext, FXDC_DISPLAY);
     SetDeviceDriver(pDriver);
     return TRUE;
 }
@@ -1124,10 +1117,7 @@ FX_BOOL CFX_QuartzDevice::Create(FX_INT32 width, FX_INT32 height, FXDIB_Format f
     if ((FX_BYTE)format < 32) {
         return FALSE;
     }
-    CFX_DIBitmap* pBitmap = FX_NEW CFX_DIBitmap;
-    if (!pBitmap) {
-        return FALSE;
-    }
+    CFX_DIBitmap* pBitmap = new CFX_DIBitmap;
     if (!pBitmap->Create(width, height, format)) {
         delete pBitmap;
         return FALSE;

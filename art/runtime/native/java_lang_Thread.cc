@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "java_lang_Thread.h"
+
 #include "common_throws.h"
 #include "debugger.h"
 #include "jni_internal.h"
@@ -41,7 +43,7 @@ static jboolean Thread_isInterrupted(JNIEnv* env, jobject java_thread) {
   ScopedFastNativeObjectAccess soa(env);
   MutexLock mu(soa.Self(), *Locks::thread_list_lock_);
   Thread* thread = Thread::FromManagedThread(soa, java_thread);
-  return (thread != NULL) ? thread->IsInterrupted() : JNI_FALSE;
+  return (thread != nullptr) ? thread->IsInterrupted() : JNI_FALSE;
 }
 
 static void Thread_nativeCreate(JNIEnv* env, jclass, jobject java_thread, jlong stack_size,
@@ -62,7 +64,7 @@ static jint Thread_nativeGetStatus(JNIEnv* env, jobject java_thread, jboolean ha
   ThreadState internal_thread_state = (has_been_started ? kTerminated : kStarting);
   MutexLock mu(soa.Self(), *Locks::thread_list_lock_);
   Thread* thread = Thread::FromManagedThread(soa, java_thread);
-  if (thread != NULL) {
+  if (thread != nullptr) {
     internal_thread_state = thread->GetState();
   }
   switch (internal_thread_state) {
@@ -82,10 +84,12 @@ static jint Thread_nativeGetStatus(JNIEnv* env, jobject java_thread, jboolean ha
     case kWaitingInMainDebuggerLoop:      return kJavaWaiting;
     case kWaitingForDebuggerSuspension:   return kJavaWaiting;
     case kWaitingForDeoptimization:       return kJavaWaiting;
+    case kWaitingForGetObjectsAllocated:  return kJavaWaiting;
     case kWaitingForJniOnLoad:            return kJavaWaiting;
     case kWaitingForSignalCatcherOutput:  return kJavaWaiting;
     case kWaitingInMainSignalCatcherLoop: return kJavaWaiting;
     case kWaitingForMethodTracingStart:   return kJavaWaiting;
+    case kWaitingForVisitObjects:         return kJavaWaiting;
     case kSuspended:                      return kJavaRunnable;
     // Don't add a 'default' here so the compiler can spot incompatible enum changes.
   }
@@ -96,8 +100,8 @@ static jint Thread_nativeGetStatus(JNIEnv* env, jobject java_thread, jboolean ha
 static jboolean Thread_nativeHoldsLock(JNIEnv* env, jobject java_thread, jobject java_object) {
   ScopedObjectAccess soa(env);
   mirror::Object* object = soa.Decode<mirror::Object*>(java_object);
-  if (object == NULL) {
-    ThrowNullPointerException(NULL, "object == null");
+  if (object == nullptr) {
+    ThrowNullPointerException("object == null");
     return JNI_FALSE;
   }
   MutexLock mu(soa.Self(), *Locks::thread_list_lock_);
@@ -109,21 +113,19 @@ static void Thread_nativeInterrupt(JNIEnv* env, jobject java_thread) {
   ScopedFastNativeObjectAccess soa(env);
   MutexLock mu(soa.Self(), *Locks::thread_list_lock_);
   Thread* thread = Thread::FromManagedThread(soa, java_thread);
-  if (thread != NULL) {
+  if (thread != nullptr) {
     thread->Interrupt(soa.Self());
   }
 }
 
 static void Thread_nativeSetName(JNIEnv* env, jobject peer, jstring java_name) {
   ScopedUtfChars name(env, java_name);
-  Thread* self;
   {
     ScopedObjectAccess soa(env);
     if (soa.Decode<mirror::Object*>(peer) == soa.Self()->GetPeer()) {
       soa.Self()->SetThreadName(name.c_str());
       return;
     }
-    self = soa.Self();
   }
   // Suspend thread to avoid it from killing itself while we set its name. We don't just hold the
   // thread list lock to avoid this, as setting the thread name causes mutator to lock/unlock
@@ -131,12 +133,8 @@ static void Thread_nativeSetName(JNIEnv* env, jobject peer, jstring java_name) {
   ThreadList* thread_list = Runtime::Current()->GetThreadList();
   bool timed_out;
   // Take suspend thread lock to avoid races with threads trying to suspend this one.
-  Thread* thread;
-  {
-    MutexLock mu(self, *Locks::thread_list_suspend_thread_lock_);
-    thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
-  }
-  if (thread != NULL) {
+  Thread* thread = thread_list->SuspendThreadByPeer(peer, true, false, &timed_out);
+  if (thread != nullptr) {
     {
       ScopedObjectAccess soa(env);
       thread->SetThreadName(name.c_str());
@@ -157,7 +155,7 @@ static void Thread_nativeSetPriority(JNIEnv* env, jobject java_thread, jint new_
   ScopedObjectAccess soa(env);
   MutexLock mu(soa.Self(), *Locks::thread_list_lock_);
   Thread* thread = Thread::FromManagedThread(soa, java_thread);
-  if (thread != NULL) {
+  if (thread != nullptr) {
     thread->SetNativePriority(new_priority);
   }
 }

@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Hangjelzés gombnyomásra"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Nagyobb billentyű gombnyomásra"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Beállítások"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Megjelenés és elrendezés"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Többnyelvű beállítások"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Fiókok és adatvédelem"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Megjelenés és elrendezés"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Kézmozdulatokkal történő gépelés"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Szövegjavítás"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Speciális"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Téma"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Megosztott billentyűzet bekapcsolása"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google-billentyűzet szinkronizálása"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"A szinkronizálás be van kapcsolva"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Szinkronizálja személyes szótárát eszközei között"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Szinkronizálás most"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Adatok törlése a felhőből"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Törli a Google rendszeréből a szinkronizált adatokat"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"A szinkronizált adatok törlődnek a felhőből. Biztosan folytatja?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Törlés"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Mégse"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"A rendszer szinkronizálni fogja az Ön személyes szótárát, és biztonsági mentést készít róla a Google szerverein. Termékeink továbbfejlesztése érdekében a rendszer a szavak előfordulási gyakoriságára vonatkozó statisztikai adatokat gyűjthet. Ezen információkat a "<a href="https://www.google.com/policies/privacy">"Google adatvédelmi irányelveivel"</a>" összhangban gyűjtjük és használjuk fel."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"A funkció engedélyezéséhez adjon egy Google-fiókot az eszközhöz"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"A Google Apps cégeknek-fiókkal rendelkező eszközökön nem érhető el a szinkronizálás"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Váltás más beviteli módra"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"A nyelvkapcsoló gomb egyéb beviteli módokat is tartalmaz"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"A nyelvkapcsoló"</string>
@@ -58,7 +71,7 @@
     <string name="prefs_block_potentially_offensive_title" msgid="5078480071057408934">"Sértő szavak kizárása"</string>
     <string name="prefs_block_potentially_offensive_summary" msgid="2371835479734991364">"Ne javasoljon esetlegesen sértő szavakat"</string>
     <string name="auto_correction" msgid="7630720885194996950">"Automatikus javítás"</string>
-    <string name="auto_correction_summary" msgid="5625751551134658006">"Szóköz és központozás automatikusan javítja az elgépelést"</string>
+    <string name="auto_correction_summary" msgid="5625751551134658006">"A szóköz és központozás automatikusan javítja az elgépelést"</string>
     <string name="auto_correction_threshold_mode_off" msgid="8470882665417944026">"Ki"</string>
     <string name="auto_correction_threshold_mode_modest" msgid="8788366690620799097">"Mérsékelt"</string>
     <string name="auto_correction_threshold_mode_aggressive" msgid="7319007299148899623">"Agresszív"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"A mentéshez érintse meg itt"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Van elérhető szótár"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Billentyűzettéma"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Fiókváltás"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Nem választott fiókot"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Jelenleg használt fiók: <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"OK"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Mégse"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Kijelentkezés"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Válassza ki a használni kívánt fiókot"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"angol (brit)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"angol (amerikai)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"spanyol (USA)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hinglish (hindi-angol)"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Szerb (latin)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"angol (UK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"angol (USA) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"spanyol (USA) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hinglish (hindi-angol, <xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Szerb (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (hagyományos)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (cirill)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (latin)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (kompakt)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Nincs nyelv (ábécé)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Ábécé (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Ábécé (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Ugyanez a bemenetstílus már létezik: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Gombnyomás rezgési időtartama"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Gombnyomás hangereje"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Hosszú nyomás késleltetése"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Hangulatjelek listája"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Az Alt billentyű lenyomásával megjelenik a hangultjelek listája"</string>
     <string name="button_default" msgid="3988017840431881491">"Alapértelmezett"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Üdvözli a(z) <xliff:g id="APPLICATION_NAME">%s</xliff:g>!"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"kézmozdulatokkal történő bevitellel"</string>

@@ -99,6 +99,7 @@ public class TerminalActivity extends Activity {
             }
 
             container.addView(view);
+            view.requestFocus();
             return view;
         }
 

@@ -19,12 +19,15 @@ package com.google.doclava;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Comment {
   static final Pattern FIRST_SENTENCE =
       Pattern.compile("((.*?)\\.)[ \t\r\n\\<](.*)", Pattern.DOTALL);
 
-  private static final String[] KNOWN_TAGS = new String[] {
+  private static final Set<String> KNOWN_TAGS = new HashSet<String>(Arrays.asList(new String[] {
           "@author",
           "@since",
           "@version",
@@ -38,7 +41,7 @@ public class Comment {
           "@sample",
           "@include",
           "@serial",
-      };
+      }));
 
   public Comment(String text, ContainerInfo base, SourcePositionInfo sp) {
     mText = text;
@@ -296,7 +299,14 @@ public class Comment {
   }
 
   private boolean isWhitespaceChar(char c) {
-      return c == ' ' || c == '\r' || c == '\t' || c == '\n';
+      switch (c) {
+          case ' ':
+          case '\r':
+          case '\t':
+          case '\n':
+              return true;
+      }
+      return false;
   }
 
   private void tag(String name, String text, boolean isInline, SourcePositionInfo pos) {
@@ -330,7 +340,8 @@ public class Comment {
       mInlineTagsList.add(new LiteralTagInfo(text, pos));
     } else if (name.equals("@code")) {
       mInlineTagsList.add(new CodeTagInfo(text, pos));
-    } else if (name.equals("@hide") || name.equals("@pending") || name.equals("@doconly")) {
+    } else if (name.equals("@hide") || name.equals("@removed")
+            || name.equals("@pending") || name.equals("@doconly")) {
       // nothing
     } else if (name.equals("@attr")) {
       AttrTagInfo tag = new AttrTagInfo("@attr", "@attr", text, mBase, pos);
@@ -346,13 +357,7 @@ public class Comment {
     } else if (name.equals("@include") || name.equals("@sample")) {
       mInlineTagsList.add(new SampleTagInfo(name, "@include", text, mBase, pos));
     } else {
-      boolean known = false;
-      for (String s : KNOWN_TAGS) {
-        if (s.equals(name)) {
-          known = true;
-          break;
-        }
-      }
+      boolean known = KNOWN_TAGS.contains(name);
       if (!known) {
         known = Doclava.knownTags.contains(name);
       }
@@ -416,7 +421,7 @@ public class Comment {
         results.add(t);
       }
     }
-    return results.toArray(new TagInfo[results.size()]);
+    return results.toArray(TagInfo.getArray(results.size()));
   }
 
   public ParamTagInfo[] paramTags() {
@@ -516,18 +521,17 @@ public class Comment {
     mText = null;
     mInitialized = true;
 
-    mInlineTags = mInlineTagsList.toArray(new TagInfo[mInlineTagsList.size()]);
-    mParamTags = mParamTagsList.toArray(new ParamTagInfo[mParamTagsList.size()]);
-    mSeeTags = mSeeTagsList.toArray(new SeeTagInfo[mSeeTagsList.size()]);
-    mThrowsTags = mThrowsTagsList.toArray(new ThrowsTagInfo[mThrowsTagsList.size()]);
-    mReturnTags =
-        ParsedTagInfo.joinTags(mReturnTagsList.toArray(new ParsedTagInfo[mReturnTagsList.size()]));
-    mDeprecatedTags =
-        ParsedTagInfo.joinTags(mDeprecatedTagsList.toArray(new ParsedTagInfo[mDeprecatedTagsList
-            .size()]));
-    mUndeprecateTags = mUndeprecateTagsList.toArray(new TagInfo[mUndeprecateTagsList.size()]);
-    mAttrTags = mAttrTagsList.toArray(new AttrTagInfo[mAttrTagsList.size()]);
-    mBriefTags = mBriefTagsList.toArray(new TagInfo[mBriefTagsList.size()]);
+    mInlineTags = mInlineTagsList.toArray(TagInfo.getArray(mInlineTagsList.size()));
+    mParamTags = mParamTagsList.toArray(ParamTagInfo.getArray(mParamTagsList.size()));
+    mSeeTags = mSeeTagsList.toArray(SeeTagInfo.getArray(mSeeTagsList.size()));
+    mThrowsTags = mThrowsTagsList.toArray(ThrowsTagInfo.getArray(mThrowsTagsList.size()));
+    mReturnTags = ParsedTagInfo.joinTags(
+        mReturnTagsList.toArray(ParsedTagInfo.getArray(mReturnTagsList.size())));
+    mDeprecatedTags = ParsedTagInfo.joinTags(
+        mDeprecatedTagsList.toArray(ParsedTagInfo.getArray(mDeprecatedTagsList.size())));
+    mUndeprecateTags = mUndeprecateTagsList.toArray(TagInfo.getArray(mUndeprecateTagsList.size()));
+    mAttrTags = mAttrTagsList.toArray(AttrTagInfo.getArray(mAttrTagsList.size()));
+    mBriefTags = mBriefTagsList.toArray(TagInfo.getArray(mBriefTagsList.size()));
 
     mParamTagsList = null;
     mSeeTagsList = null;

@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.crypto.Cipher;
@@ -160,7 +161,7 @@ public class ProviderTest extends TestCase {
     public void test_Provider_Properties() throws Exception {
         /*
          * A useful reference on Provider properties
-         * <a href="http://java.sun.com/javase/6/docs/technotes/guides/security/crypto/HowToImplAProvider.html>
+         * <a href="http://java.sun.com/javase/6/docs/technotes/guides/security/crypto/HowToImplAProvider.html">
          * How to Implement a Provider in the Java &trade; Cryptography Architecture
          * </a>
          */
@@ -178,8 +179,8 @@ public class ProviderTest extends TestCase {
                          provider.get("Provider.id className"));
 
             // build map of all known aliases and implementations
-            Map<String,String> aliases = new HashMap<String,String>();
-            Map<String,String> implementations = new HashMap<String,String>();
+            Map<String,String> aliases = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+            Map<String,String> implementations = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
             for (Entry<Object,Object> entry : provider.entrySet()) {
                 Object k = entry.getKey();
                 Object v = entry.getValue();
@@ -218,7 +219,8 @@ public class ProviderTest extends TestCase {
                 } catch (ClassNotFoundException e) {
                     // Sun forgot their own class
                     if (!className.equals("sun.security.pkcs11.P11MAC")) {
-                        fail("Could not find class " + className + " for " + typeAndAlgorithm);
+                        fail("Could not find class " + className + " for " + typeAndAlgorithm
+                        + " [provider=" + provider.getName() + "]");
                     }
                 }
             }
@@ -227,8 +229,9 @@ public class ProviderTest extends TestCase {
             for (Entry<String,String> entry : aliases.entrySet()) {
                 String alias  = entry.getKey();
                 String actual = entry.getValue();
-                assertTrue("Could not find implementation " + actual + " for alias " + alias,
-                           implementations.containsKey(actual));
+                assertTrue("Could not find implementation " + actual + " for alias " + alias +
+                        " [provider=" + provider.getName() + "]",
+                        implementations.containsKey(actual));
             }
         }
     }
@@ -545,6 +548,15 @@ public class ProviderTest extends TestCase {
         } finally {
             Security.removeProvider(provider.getName());
         }
+    }
+
+    public void testProvider_removeProvider_Success() throws Exception {
+        MockProvider provider = new MockProvider("MockProvider");
+        assertNull(Security.getProvider(provider.getName()));
+        Security.addProvider(provider);
+        assertNotNull(Security.getProvider(provider.getName()));
+        Security.removeProvider(provider.getName());
+        assertNull(Security.getProvider(provider.getName()));
     }
 
     public static class MyCertStoreSpi extends CertStoreSpi {

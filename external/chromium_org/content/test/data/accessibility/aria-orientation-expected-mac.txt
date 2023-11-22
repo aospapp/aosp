@@ -1,3 +1,0 @@
-AXWebArea
-    AXScrollBar AXValue='14' AXOrientation='AXHorizontalOrientation'
-    AXScrollBar AXValue='14' AXOrientation='AXVerticalOrientation'

@@ -9,7 +9,6 @@ TARGET_NO_KERNEL := true
 TARGET_ARCH := mips
 TARGET_ARCH_VARIANT := mips32-fp
 TARGET_CPU_ABI := mips
-TARGET_CPU_SMP := true
 
 SMALLER_FONT_FOOTPRINT := true
 MINIMAL_FONT_FOOTPRINT := true
@@ -37,14 +36,3 @@ BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE := ext4
 BOARD_FLASH_BLOCK_SIZE := 512
 TARGET_USERIMAGES_SPARSE_EXT_DISABLED := true
 BOARD_SEPOLICY_DIRS += build/target/board/generic/sepolicy
-BOARD_SEPOLICY_UNION += \
-        bootanim.te \
-        device.te \
-        domain.te \
-        file.te \
-        file_contexts \
-        qemud.te \
-        rild.te \
-        shell.te \
-        surfaceflinger.te \
-        system_server.te

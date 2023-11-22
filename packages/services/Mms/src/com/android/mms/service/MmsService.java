@@ -29,11 +29,7 @@ import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
@@ -43,7 +39,6 @@ import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.IMms;
@@ -64,7 +59,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -74,8 +68,6 @@ import java.util.concurrent.TimeUnit;
  * System service to process MMS API requests
  */
 public class MmsService extends Service implements MmsRequest.RequestManager {
-    public static final String TAG = "MmsService";
-
     public static final int QUEUE_INDEX_SEND = 0;
     public static final int QUEUE_INDEX_DOWNLOAD = 1;
 
@@ -89,6 +81,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     // specific size limit should not be used (as it could be lower on some carriers).
     private static final int MAX_MMS_FILE_SIZE = 8 * 1024 * 1024;
 
+    // The default number of threads allowed to run MMS requests in each queue
+    public static final int THREAD_POOL_SIZE = 4;
+
     // Pending requests that are waiting for the SIM to be available
     // If a different SIM is currently used by previous requests, the following
     // requests will stay in this queue until that SIM finishes its current requests in
@@ -99,7 +94,8 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     // TODO: persist this in case MmsService crashes
     private final Queue<MmsRequest> mPendingSimRequestQueue = new ArrayDeque<>();
 
-    private final ExecutorService mExecutor = Executors.newCachedThreadPool();
+    // Thread pool for transferring PDU with MMS apps
+    private final ExecutorService mPduTransferExecutor = Executors.newCachedThreadPool();
 
     // A cache of MmsNetworkManager for SIMs
     private final SparseArray<MmsNetworkManager> mNetworkManagerCache = new SparseArray<>();
@@ -109,33 +105,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     // The current running MmsRequest count.
     private int mRunningRequestCount;
 
-    /**
-     * A thread-based request queue for executing the MMS requests in serial order
-     */
-    private class RequestQueue extends Handler {
-        public RequestQueue(Looper looper) {
-            super(looper);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            final MmsRequest request = (MmsRequest) msg.obj;
-            if (request != null) {
-                try {
-                    request.execute(MmsService.this, getNetworkManager(request.getSubId()));
-                } finally {
-                    synchronized (MmsService.this) {
-                        mRunningRequestCount--;
-                        if (mRunningRequestCount <= 0) {
-                            movePendingSimRequestsToRunningSynchronized();
-                        }
-                    }
-                }
-            } else {
-                Log.e(TAG, "RequestQueue: handling empty request");
-            }
-        }
-    }
+    // Running request queues, one thread pool per queue
+    // 0: send queue
+    // 1: download queue
+    private final ExecutorService[] mRunningRequestExecutors = new ExecutorService[2];
 
     private MmsNetworkManager getNetworkManager(int subId) {
         synchronized (mNetworkManagerCache) {
@@ -183,17 +156,25 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         public void sendMessage(int subId, String callingPkg, Uri contentUri,
                 String locationUrl, Bundle configOverrides, PendingIntent sentIntent)
                         throws RemoteException {
-            Log.d(TAG, "sendMessage");
+            LogUtil.d("sendMessage");
             enforceSystemUid();
+
             // Make sure the subId is correct
             subId = checkSubId(subId);
+
+            // Make sure the subId is active
+            if (!isActiveSubId(subId)) {
+                sendErrorInPendingIntent(sentIntent);
+                return;
+            }
+
             final SendRequest request = new SendRequest(MmsService.this, subId, contentUri,
-                    locationUrl, sentIntent, callingPkg, configOverrides);
+                    locationUrl, sentIntent, callingPkg, configOverrides, MmsService.this);
 
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists();
             if (carrierMessagingServicePackage != null) {
-                Log.d(TAG, "sending message by carrier app");
+                LogUtil.d(request.toString(), "sending message by carrier app");
                 request.trySendingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
             } else {
                 addSimRequest(request);
@@ -204,16 +185,23 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         public void downloadMessage(int subId, String callingPkg, String locationUrl,
                 Uri contentUri, Bundle configOverrides,
                 PendingIntent downloadedIntent) throws RemoteException {
-            Log.d(TAG, "downloadMessage: " + locationUrl);
+            LogUtil.d("downloadMessage: " + MmsHttpClient.redactUrlForNonVerbose(locationUrl));
             enforceSystemUid();
+
             // Make sure the subId is correct
             subId = checkSubId(subId);
-            final DownloadRequest request = new DownloadRequest(MmsService.this, subId,
-                    locationUrl, contentUri, downloadedIntent, callingPkg, configOverrides);
+
+            // If the subId is no longer active it could be caused by
+            // an MVNO using multiple subIds, so we should try to
+            // download anyway.
+            // TODO: Fail fast when downloading will fail (i.e. SIM swapped)
+
+            final DownloadRequest request = new DownloadRequest(MmsService.this, subId, locationUrl,
+                    contentUri, downloadedIntent, callingPkg, configOverrides, MmsService.this);
             final String carrierMessagingServicePackage =
                     getCarrierMessagingServicePackageIfExists();
             if (carrierMessagingServicePackage != null) {
-                Log.d(TAG, "downloading message by carrier app");
+                LogUtil.d(request.toString(), "downloading message by carrier app");
                 request.tryDownloadingByCarrierApp(MmsService.this, carrierMessagingServicePackage);
             } else {
                 addSimRequest(request);
@@ -221,20 +209,20 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         }
 
         public Bundle getCarrierConfigValues(int subId) {
-            Log.d(TAG, "getCarrierConfigValues");
+            LogUtil.d("getCarrierConfigValues");
             // Make sure the subId is correct
             subId = checkSubId(subId);
-            final MmsConfig mmsConfig = MmsConfigManager.getInstance().getMmsConfigBySubId(subId);
+            final Bundle mmsConfig = MmsConfigManager.getInstance().getMmsConfigBySubId(subId);
             if (mmsConfig == null) {
                 return new Bundle();
             }
-            return mmsConfig.getCarrierConfigValues();
+            return mmsConfig;
         }
 
         @Override
         public Uri importTextMessage(String callingPkg, String address, int type, String text,
                 long timestampMillis, boolean seen, boolean read) {
-            Log.d(TAG, "importTextMessage");
+            LogUtil.d("importTextMessage");
             enforceSystemUid();
             return importSms(address, type, text, timestampMillis, seen, read, callingPkg);
         }
@@ -242,7 +230,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public Uri importMultimediaMessage(String callingPkg, Uri contentUri,
                 String messageId, long timestampSecs, boolean seen, boolean read) {
-            Log.d(TAG, "importMultimediaMessage");
+            LogUtil.d("importMultimediaMessage");
             enforceSystemUid();
             return importMms(contentUri, messageId, timestampSecs, seen, read, callingPkg);
         }
@@ -250,10 +238,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public boolean deleteStoredMessage(String callingPkg, Uri messageUri)
                 throws RemoteException {
-            Log.d(TAG, "deleteStoredMessage " + messageUri);
+            LogUtil.d("deleteStoredMessage " + messageUri);
             enforceSystemUid();
             if (!isSmsMmsContentUri(messageUri)) {
-                Log.e(TAG, "deleteStoredMessage: invalid message URI: " + messageUri.toString());
+                LogUtil.e("deleteStoredMessage: invalid message URI: " + messageUri.toString());
                 return false;
             }
             // Clear the calling identity and query the database using the phone user id
@@ -263,11 +251,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             try {
                 if (getContentResolver().delete(
                         messageUri, null/*where*/, null/*selectionArgs*/) != 1) {
-                    Log.e(TAG, "deleteStoredMessage: failed to delete");
+                    LogUtil.e("deleteStoredMessage: failed to delete");
                     return false;
                 }
             } catch (SQLiteException e) {
-                Log.e(TAG, "deleteStoredMessage: failed to delete", e);
+                LogUtil.e("deleteStoredMessage: failed to delete", e);
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }
@@ -277,10 +265,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public boolean deleteStoredConversation(String callingPkg, long conversationId)
                 throws RemoteException {
-            Log.d(TAG, "deleteStoredConversation " + conversationId);
+            LogUtil.d("deleteStoredConversation " + conversationId);
             enforceSystemUid();
             if (conversationId == -1) {
-                Log.e(TAG, "deleteStoredConversation: invalid thread id");
+                LogUtil.e("deleteStoredConversation: invalid thread id");
                 return false;
             }
             final Uri uri = ContentUris.withAppendedId(
@@ -291,11 +279,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             final long identity = Binder.clearCallingIdentity();
             try {
                 if (getContentResolver().delete(uri, null, null) != 1) {
-                    Log.e(TAG, "deleteStoredConversation: failed to delete");
+                    LogUtil.e("deleteStoredConversation: failed to delete");
                     return false;
                 }
             } catch (SQLiteException e) {
-                Log.e(TAG, "deleteStoredConversation: failed to delete", e);
+                LogUtil.e("deleteStoredConversation: failed to delete", e);
             } finally {
                 Binder.restoreCallingIdentity(identity);
             }
@@ -305,7 +293,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public boolean updateStoredMessageStatus(String callingPkg, Uri messageUri,
                 ContentValues statusValues) throws RemoteException {
-            Log.d(TAG, "updateStoredMessageStatus " + messageUri);
+            LogUtil.d("updateStoredMessageStatus " + messageUri);
             enforceSystemUid();
             return updateMessageStatus(messageUri, statusValues);
         }
@@ -313,9 +301,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public boolean archiveStoredConversation(String callingPkg, long conversationId,
                 boolean archived) throws RemoteException {
-            Log.d(TAG, "archiveStoredConversation " + conversationId + " " + archived);
+            LogUtil.d("archiveStoredConversation " + conversationId + " " + archived);
             if (conversationId == -1) {
-                Log.e(TAG, "archiveStoredConversation: invalid thread id");
+                LogUtil.e("archiveStoredConversation: invalid thread id");
                 return false;
             }
             return archiveConversation(conversationId, archived);
@@ -324,7 +312,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public Uri addTextMessageDraft(String callingPkg, String address, String text)
                 throws RemoteException {
-            Log.d(TAG, "addTextMessageDraft");
+            LogUtil.d("addTextMessageDraft");
             enforceSystemUid();
             return addSmsDraft(address, text, callingPkg);
         }
@@ -332,7 +320,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         @Override
         public Uri addMultimediaMessageDraft(String callingPkg, Uri contentUri)
                 throws RemoteException {
-            Log.d(TAG, "addMultimediaMessageDraft");
+            LogUtil.d("addMultimediaMessageDraft");
             enforceSystemUid();
             return addMmsDraft(contentUri, callingPkg);
         }
@@ -345,7 +333,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
         @Override
         public void setAutoPersisting(String callingPkg, boolean enabled) throws RemoteException {
-            Log.d(TAG, "setAutoPersisting " + enabled);
+            LogUtil.d("setAutoPersisting " + enabled);
             enforceSystemUid();
             final SharedPreferences preferences = getSharedPreferences(
                     SHARED_PREFERENCES_NAME, MODE_PRIVATE);
@@ -356,54 +344,48 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
         @Override
         public boolean getAutoPersisting() throws RemoteException {
-            Log.d(TAG, "getAutoPersisting");
+            LogUtil.d("getAutoPersisting");
             return getAutoPersistingPref();
         }
-    };
 
-    // Running request queues, one thread per queue
-    // 0: send queue
-    // 1: download queue
-    private final RequestQueue[] mRunningRequestQueues = new RequestQueue[2];
-
-    /**
-     * Lazy start the request queue threads
-     *
-     * @param queueIndex index of the queue to start
-     */
-    private void startRequestQueueIfNeeded(int queueIndex) {
-        if (queueIndex < 0 || queueIndex >= mRunningRequestQueues.length) {
-            Log.e(TAG, "Start request queue if needed: invalid queue " + queueIndex);
-            return;
+        /*
+         * @return true if the subId is active.
+         */
+        private boolean isActiveSubId(int subId) {
+            return SubscriptionManager.from(MmsService.this).isActiveSubId(subId);
         }
-        synchronized (this) {
-            if (mRunningRequestQueues[queueIndex] == null) {
-                final HandlerThread thread =
-                        new HandlerThread("MmsService RequestQueue " + queueIndex);
-                thread.start();
-                mRunningRequestQueues[queueIndex] = new RequestQueue(thread.getLooper());
+
+        /*
+         * Calls the pending intent with <code>MMS_ERROR_NO_DATA_NETWORK</code>.
+         */
+        private void sendErrorInPendingIntent(@Nullable PendingIntent intent) {
+            if (intent != null) {
+                try {
+                    intent.send(SmsManager.MMS_ERROR_NO_DATA_NETWORK);
+                } catch (PendingIntent.CanceledException ex) {
+                }
             }
         }
-    }
+    };
 
     @Override
     public void addSimRequest(MmsRequest request) {
         if (request == null) {
-            Log.e(TAG, "Add running or pending: empty request");
+            LogUtil.e("Add running or pending: empty request");
             return;
         }
-        Log.d(TAG, "Current running=" + mRunningRequestCount + ", "
+        LogUtil.d("Current running=" + mRunningRequestCount + ", "
                 + "current subId=" + mCurrentSubId + ", "
                 + "pending=" + mPendingSimRequestQueue.size());
         synchronized (this) {
             if (mPendingSimRequestQueue.size() > 0 ||
                     (mRunningRequestCount > 0 && request.getSubId() != mCurrentSubId)) {
-                Log.d(TAG, "Add request to pending queue."
+                LogUtil.d("Add request to pending queue."
                         + " Request subId=" + request.getSubId() + ","
                         + " current subId=" + mCurrentSubId);
                 mPendingSimRequestQueue.add(request);
                 if (mRunningRequestCount <= 0) {
-                    Log.e(TAG, "Nothing's running but queue's not empty");
+                    LogUtil.e("Nothing's running but queue's not empty");
                     // Nothing is running but we are accumulating on pending queue.
                     // This should not happen. But just in case...
                     movePendingSimRequestsToRunningSynchronized();
@@ -414,21 +396,36 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         }
     }
 
-    private void addToRunningRequestQueueSynchronized(MmsRequest request) {
-        Log.d(TAG, "Add request to running queue for subId " + request.getSubId());
+    private void addToRunningRequestQueueSynchronized(final MmsRequest request) {
+        LogUtil.d("Add request to running queue for subId " + request.getSubId());
         // Update current state of running requests
-        mCurrentSubId = request.getSubId();
-        mRunningRequestCount++;
-        // Send to the corresponding request queue for execution
         final int queue = request.getQueueType();
-        startRequestQueueIfNeeded(queue);
-        final Message message = Message.obtain();
-        message.obj = request;
-        mRunningRequestQueues[queue].sendMessage(message);
+        if (queue < 0 || queue >= mRunningRequestExecutors.length) {
+            LogUtil.e("Invalid request queue index for running request");
+            return;
+        }
+        mRunningRequestCount++;
+        mCurrentSubId = request.getSubId();
+        // Send to the corresponding request queue for execution
+        mRunningRequestExecutors[queue].execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    request.execute(MmsService.this, getNetworkManager(request.getSubId()));
+                } finally {
+                    synchronized (MmsService.this) {
+                        mRunningRequestCount--;
+                        if (mRunningRequestCount <= 0) {
+                            movePendingSimRequestsToRunningSynchronized();
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private void movePendingSimRequestsToRunningSynchronized() {
-        Log.d(TAG, "Schedule requests pending on SIM");
+        LogUtil.d("Schedule requests pending on SIM");
         mCurrentSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         while (mPendingSimRequestQueue.size() > 0) {
             final MmsRequest request = mPendingSimRequestQueue.peek();
@@ -443,7 +440,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     break;
                 }
             } else {
-                Log.e(TAG, "Schedule pending: found empty request");
+                LogUtil.e("Schedule pending: found empty request");
                 mPendingSimRequestQueue.remove();
             }
         }
@@ -461,13 +458,25 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "onCreate");
+        LogUtil.d("onCreate");
         // Load mms_config
         MmsConfigManager.getInstance().init(this);
         // Initialize running request state
+        for (int i = 0; i < mRunningRequestExecutors.length; i++) {
+            mRunningRequestExecutors[i] = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        }
         synchronized (this) {
             mCurrentSubId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
             mRunningRequestCount = 0;
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        LogUtil.d("onDestroy");
+        for (ExecutorService executor : mRunningRequestExecutors) {
+            executor.shutdown();
         }
     }
 
@@ -484,7 +493,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 break;
         }
         if (insertUri == null) {
-            Log.e(TAG, "importTextMessage: invalid message type for importing: " + type);
+            LogUtil.e("importTextMessage: invalid message type for importing: " + type);
             return null;
         }
         final ContentValues values = new ContentValues(6);
@@ -503,7 +512,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             return getContentResolver().insert(insertUri, values);
         } catch (SQLiteException e) {
-            Log.e(TAG, "importTextMessage: failed to persist imported text message", e);
+            LogUtil.e("importTextMessage: failed to persist imported text message", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -514,7 +523,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             boolean seen, boolean read, String creator) {
         byte[] pduData = readPduFromContentUri(contentUri, MAX_MMS_FILE_SIZE);
         if (pduData == null || pduData.length < 1) {
-            Log.e(TAG, "importMessage: empty PDU");
+            LogUtil.e("importMessage: empty PDU");
             return null;
         }
         // Clear the calling identity and query the database using the phone user id
@@ -524,7 +533,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             final GenericPdu pdu = parsePduForAnyCarrier(pduData);
             if (pdu == null) {
-                Log.e(TAG, "importMessage: can't parse input PDU");
+                LogUtil.e("importMessage: can't parse input PDU");
                 return null;
             }
             Uri insertUri = null;
@@ -537,7 +546,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                 insertUri = Telephony.Mms.Inbox.CONTENT_URI;
             }
             if (insertUri == null) {
-                Log.e(TAG, "importMessage; invalid MMS type: " + pdu.getClass().getCanonicalName());
+                LogUtil.e("importMessage; invalid MMS type: " + pdu.getClass().getCanonicalName());
                 return null;
             }
             final PduPersister persister = PduPersister.getPduPersister(this);
@@ -548,7 +557,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     true/*groupMmsEnabled*/,
                     null/*preOpenedFiles*/);
             if (uri == null) {
-                Log.e(TAG, "importMessage: failed to persist message");
+                LogUtil.e("importMessage: failed to persist message");
                 return null;
             }
             final ContentValues values = new ContentValues(5);
@@ -565,13 +574,13 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
             if (SqliteWrapper.update(this, getContentResolver(), uri, values,
                     null/*where*/, null/*selectionArg*/) != 1) {
-                Log.e(TAG, "importMessage: failed to update message");
+                LogUtil.e("importMessage: failed to update message");
             }
             return uri;
         } catch (RuntimeException e) {
-            Log.e(TAG, "importMessage: failed to parse input PDU", e);
+            LogUtil.e("importMessage: failed to parse input PDU", e);
         } catch (MmsException e) {
-            Log.e(TAG, "importMessage: failed to persist message", e);
+            LogUtil.e("importMessage: failed to persist message", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -591,11 +600,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
 
     private boolean updateMessageStatus(Uri messageUri, ContentValues statusValues) {
         if (!isSmsMmsContentUri(messageUri)) {
-            Log.e(TAG, "updateMessageStatus: invalid messageUri: " + messageUri.toString());
+            LogUtil.e("updateMessageStatus: invalid messageUri: " + messageUri.toString());
             return false;
         }
         if (statusValues == null) {
-            Log.w(TAG, "updateMessageStatus: empty values to update");
+            LogUtil.w("updateMessageStatus: empty values to update");
             return false;
         }
         final ContentValues values = new ContentValues();
@@ -613,7 +622,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
         }
         if (values.size() < 1) {
-            Log.w(TAG, "updateMessageStatus: no value to update");
+            LogUtil.w("updateMessageStatus: no value to update");
             return false;
         }
         // Clear the calling identity and query the database using the phone user id
@@ -623,12 +632,12 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             if (getContentResolver().update(
                     messageUri, values, null/*where*/, null/*selectionArgs*/) != 1) {
-                Log.e(TAG, "updateMessageStatus: failed to update database");
+                LogUtil.e("updateMessageStatus: failed to update database");
                 return false;
             }
             return true;
         } catch (SQLiteException e) {
-            Log.e(TAG, "updateMessageStatus: failed to update database", e);
+            LogUtil.e("updateMessageStatus: failed to update database", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -649,12 +658,12 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     values,
                     ARCHIVE_CONVERSATION_SELECTION,
                     new String[] { Long.toString(conversationId)}) != 1) {
-                Log.e(TAG, "archiveConversation: failed to update database");
+                LogUtil.e("archiveConversation: failed to update database");
                 return false;
             }
             return true;
         } catch (SQLiteException e) {
-            Log.e(TAG, "archiveConversation: failed to update database", e);
+            LogUtil.e("archiveConversation: failed to update database", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -677,7 +686,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             return getContentResolver().insert(Telephony.Sms.Draft.CONTENT_URI, values);
         } catch (SQLiteException e) {
-            Log.e(TAG, "addSmsDraft: failed to store draft message", e);
+            LogUtil.e("addSmsDraft: failed to store draft message", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -687,7 +696,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
     private Uri addMmsDraft(Uri contentUri, String creator) {
         byte[] pduData = readPduFromContentUri(contentUri, MAX_MMS_FILE_SIZE);
         if (pduData == null || pduData.length < 1) {
-            Log.e(TAG, "addMmsDraft: empty PDU");
+            LogUtil.e("addMmsDraft: empty PDU");
             return null;
         }
         // Clear the calling identity and query the database using the phone user id
@@ -697,11 +706,11 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             final GenericPdu pdu = parsePduForAnyCarrier(pduData);
             if (pdu == null) {
-                Log.e(TAG, "addMmsDraft: can't parse input PDU");
+                LogUtil.e("addMmsDraft: can't parse input PDU");
                 return null;
             }
             if (!(pdu instanceof SendReq)) {
-                Log.e(TAG, "addMmsDraft; invalid MMS type: " + pdu.getClass().getCanonicalName());
+                LogUtil.e("addMmsDraft; invalid MMS type: " + pdu.getClass().getCanonicalName());
                 return null;
             }
             final PduPersister persister = PduPersister.getPduPersister(this);
@@ -712,7 +721,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     true/*groupMmsEnabled*/,
                     null/*preOpenedFiles*/);
             if (uri == null) {
-                Log.e(TAG, "addMmsDraft: failed to persist message");
+                LogUtil.e("addMmsDraft: failed to persist message");
                 return null;
             }
             final ContentValues values = new ContentValues(3);
@@ -723,13 +732,13 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
             if (SqliteWrapper.update(this, getContentResolver(), uri, values,
                     null/*where*/, null/*selectionArg*/) != 1) {
-                Log.e(TAG, "addMmsDraft: failed to update message");
+                LogUtil.e("addMmsDraft: failed to update message");
             }
             return uri;
         } catch (RuntimeException e) {
-            Log.e(TAG, "addMmsDraft: failed to parse input PDU", e);
+            LogUtil.e("addMmsDraft: failed to parse input PDU", e);
         } catch (MmsException e) {
-            Log.e(TAG, "addMmsDraft: failed to persist message", e);
+            LogUtil.e("addMmsDraft: failed to persist message", e);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -748,13 +757,13 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
         try {
             pdu = (new PduParser(data, true/*parseContentDisposition*/)).parse();
         } catch (RuntimeException e) {
-            Log.d(TAG, "parsePduForAnyCarrier: Failed to parse PDU with content disposition", e);
+            LogUtil.w("parsePduForAnyCarrier: Failed to parse PDU with content disposition", e);
         }
         if (pdu == null) {
             try {
                 pdu = (new PduParser(data, false/*parseContentDisposition*/)).parse();
             } catch (RuntimeException e) {
-                Log.d(TAG, "parsePduForAnyCarrier: Failed to parse PDU without content disposition",
+                LogUtil.w("parsePduForAnyCarrier: Failed to parse PDU without content disposition",
                         e);
             }
         }
@@ -775,6 +784,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
      * @return pdu bytes if succeeded else null
      */
     public byte[] readPduFromContentUri(final Uri contentUri, final int maxSize) {
+        if (contentUri == null) {
+            return null;
+        }
         Callable<byte[]> copyPduToArray = new Callable<byte[]>() {
             public byte[] call() {
                 ParcelFileDescriptor.AutoCloseInputStream inStream = null;
@@ -786,17 +798,16 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     byte[] tempBody = new byte[maxSize+1];
                     int bytesRead = inStream.read(tempBody, 0, maxSize+1);
                     if (bytesRead == 0) {
-                        Log.e(MmsService.TAG, "MmsService.readPduFromContentUri: empty PDU");
+                        LogUtil.e("Read empty PDU");
                         return null;
                     }
                     if (bytesRead <= maxSize) {
                         return Arrays.copyOf(tempBody, bytesRead);
                     }
-                    Log.e(MmsService.TAG, "MmsService.readPduFromContentUri: PDU too large");
+                    LogUtil.e("PDU read is too large");
                     return null;
                 } catch (IOException ex) {
-                    Log.e(MmsService.TAG,
-                            "MmsService.readPduFromContentUri: IO exception reading PDU", ex);
+                    LogUtil.e("IO exception reading PDU", ex);
                     return null;
                 } finally {
                     if (inStream != null) {
@@ -809,10 +820,9 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
         };
 
-        Future<byte[]> pendingResult = mExecutor.submit(copyPduToArray);
+        final Future<byte[]> pendingResult = mPduTransferExecutor.submit(copyPduToArray);
         try {
-            byte[] pdu = pendingResult.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            return pdu;
+            return pendingResult.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             // Typically a timeout occurred - cancel task
             pendingResult.cancel(true);
@@ -827,7 +837,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
      * @return true if all bytes successfully written else false
      */
     public boolean writePduToContentUri(final Uri contentUri, final byte[] pdu) {
-        Callable<Boolean> copyDownloadedPduToOutput = new Callable<Boolean>() {
+        if (contentUri == null || pdu == null) {
+            return false;
+        }
+        final Callable<Boolean> copyDownloadedPduToOutput = new Callable<Boolean>() {
             public Boolean call() {
                 ParcelFileDescriptor.AutoCloseOutputStream outStream = null;
                 try {
@@ -837,6 +850,7 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
                     outStream.write(pdu);
                     return Boolean.TRUE;
                 } catch (IOException ex) {
+                    LogUtil.e("IO exception writing PDU", ex);
                     return Boolean.FALSE;
                 } finally {
                     if (outStream != null) {
@@ -849,10 +863,10 @@ public class MmsService extends Service implements MmsRequest.RequestManager {
             }
         };
 
-        Future<Boolean> pendingResult = mExecutor.submit(copyDownloadedPduToOutput);
+        final Future<Boolean> pendingResult =
+                mPduTransferExecutor.submit(copyDownloadedPduToOutput);
         try {
-            Boolean succeeded = pendingResult.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            return succeeded == Boolean.TRUE;
+            return pendingResult.get(TASK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             // Typically a timeout occurred - cancel task
             pendingResult.cancel(true);

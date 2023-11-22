@@ -140,6 +140,16 @@
                 android:layout_weight="1" />
 
             <ToggleButton
+                android:id="@+id/hdr_mode"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1"
+                android:textColorLink="@android:color/holo_blue_light"
+                android:textOff="@string/hdr_off_label"
+                android:textOn="@string/hdr_on_label" />
+
+            <ToggleButton
                 android:id="@+id/start_preview"
                 android:layout_width="fill_parent"
                 android:layout_height="wrap_content"

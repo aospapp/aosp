@@ -388,7 +388,7 @@
     <string name="add_account" msgid="5905863370226612377">"Přidat účet"</string>
     <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"Zavřít tip"</string>
     <string name="auto_sync_off" msgid="3691189864057581214">"Automatická synchronizace je vypnutá. Zapnete ji klepnutím."</string>
-    <string name="account_sync_off" msgid="5720018952998097061">"Synchronizace účtu je vypnutá. Zapnout ji můžete v &lt;a href=\'http://www.example.com\'&gt;Nastaveních účtu.&lt;/a&gt;"</string>
+    <string name="account_sync_off" msgid="5720018952998097061">"Synchronizace účtů je vypnutá. Zapnout ji můžete v &lt;a href=\'http://www.example.com\'&gt;Nastaveních účtu.&lt;/a&gt;"</string>
     <string name="unsent_messages_in_outbox" msgid="146722891559469589">"Neodeslané zprávy ve složce <xliff:g id="OUTBOX">%2$s</xliff:g>: <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
     <string name="turn_auto_sync_on_dialog_title" msgid="543412762396502297">"Zapnout automatickou synchronizaci?"</string>
     <string name="turn_auto_sync_on_dialog_body" msgid="614939812938149398">"Změny, které provedete ve všech aplikacích a účtech (nikoli jen v Gmailu), budou synchronizovány mezi webem, ostatními zařízeními a zařízením <xliff:g id="PHONE_OR_TABLET">%1$s</xliff:g>."</string>

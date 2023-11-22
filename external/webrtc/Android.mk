@@ -34,17 +34,12 @@ LOCAL_WHOLE_STATIC_LIBRARIES_arm += \
     libwebrtc_ns_neon
 endif
 
-LOCAL_STATIC_LIBRARIES := \
-    libprotobuf-cpp-2.3.0-lite
-
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
-    libstlport
+    libprotobuf-cpp-lite \
 
-LOCAL_PRELINK_MODULE := false
 
-include external/stlport/libstlport.mk
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -66,15 +61,12 @@ LOCAL_WHOLE_STATIC_LIBRARIES_arm += \
 endif
 
 LOCAL_STATIC_LIBRARIES := \
-    libprotobuf-cpp-2.3.0-lite
+    libprotobuf-cpp-lite
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl \
-    libstlport
 
-LOCAL_PRELINK_MODULE := false
 
-include external/stlport/libstlport.mk
 include $(BUILD_SHARED_LIBRARY)
 
 
@@ -96,12 +88,11 @@ LOCAL_WHOLE_STATIC_LIBRARIES_arm += \
 endif
 
 LOCAL_STATIC_LIBRARIES := \
-    libprotobuf-cpp-2.3.0-lite
+    libprotobuf-cpp-lite
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libdl
 
-LOCAL_PRELINK_MODULE := false
 
 LOCAL_NDK_STL_VARIANT := gnustl_static
 LOCAL_SDK_VERSION := 14

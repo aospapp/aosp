@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.0.0'
+        classpath 'com.android.tools.build:gradle:1.2.0'
     }
 }
 
@@ -38,14 +38,14 @@ repositories {
 }
 
 dependencies {
-
 <#list sample.dependency as dep>
-    compile "${dep}"
+    <#-- Output dependency after checking if it is a play services depdency and
+    needs the latest version number attached. -->
+    <@update_play_services_dependency dep="${dep}" />
 </#list>
 <#list sample.dependency_external as dep>
     compile files(${dep})
 </#list>
-
     compile ${play_services_wearable_dependency}
     compile ${android_support_v13_dependency}
     compile project(':Shared')
@@ -70,6 +70,11 @@ android {
         targetSdkVersion ${compile_sdk}
         versionCode 1
         versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
     }
 
     sourceSets {

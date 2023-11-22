@@ -18,15 +18,14 @@
 
 package org.apache.harmony.jpda.tests.jdwp.Events;
 
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
+import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent.EventThread;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 /**
  * JDWP Unit test for BREAKPOINT event in methods possibly inlined.
  */
 public class Breakpoint002Test extends JDWPEventTestCase {
-    private static final String debuggeeSignature =
-        "Lorg/apache/harmony/jpda/tests/jdwp/Events/Breakpoint002Debuggee;";
-
     protected String getDebuggeeClassName() {
         return Breakpoint002Debuggee.class.getName();
     }
@@ -158,15 +157,18 @@ public class Breakpoint002Test extends JDWPEventTestCase {
 
     private void testBreakpointIn(String testName, String methodName) {
       logWriter.println(testName + " started");
-      long classID = debuggeeWrapper.vmMirror.getClassID(debuggeeSignature);
+      long classID = debuggeeWrapper.vmMirror.getClassID(getDebuggeeClassSignature());
       assertTrue("Failed to find debuggee class", classID != -1);
 
       synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-      long breakpointReqID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(classID, methodName);
+      int breakpointReqID = debuggeeWrapper.vmMirror.setBreakpointAtMethodBegin(classID, methodName);
       assertTrue("Failed to install breakpoint in method " + methodName, breakpointReqID != -1);
       synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
 
-      debuggeeWrapper.vmMirror.waitForBreakpoint(breakpointReqID);
+      long eventThreadID = debuggeeWrapper.vmMirror.waitForBreakpoint(breakpointReqID);
+      checkThreadState(eventThreadID, JDWPConstants.ThreadStatus.RUNNING,
+              JDWPConstants.SuspendStatus.SUSPEND_STATUS_SUSPENDED);
+
       logWriter.println(testName + " done");
     }
 }

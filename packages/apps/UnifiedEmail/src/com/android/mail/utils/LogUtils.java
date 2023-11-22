@@ -64,7 +64,8 @@ public class LogUtils {
      * production releases.  This should be set to DEBUG for production releases, and VERBOSE for
      * internal builds.
      */
-    private static final int MAX_ENABLED_LOG_LEVEL = DEBUG;
+    // STOPSHIP: ship with DEBUG set
+    private static final int MAX_ENABLED_LOG_LEVEL = VERBOSE;
 
     private static Boolean sDebugLoggingEnabledForTests = null;
 

@@ -17,6 +17,7 @@
 #ifndef _FRAMEWORKS_COMPILE_SLANG_SLANG_DIAGNOSTIC_BUFFER_H_  // NOLINT
 #define _FRAMEWORKS_COMPILE_SLANG_SLANG_DIAGNOSTIC_BUFFER_H_
 
+#include <set>
 #include <string>
 
 #include "clang/Basic/Diagnostic.h"
@@ -31,22 +32,20 @@ namespace slang {
 
 // The diagnostics consumer instance (for reading the processed diagnostics)
 class DiagnosticBuffer : public clang::DiagnosticConsumer {
- private:
+private:
+  // We keed track of the messages that have been already added to this
+  // diagnostic buffer, to avoid duplicates.  This can happen because for a
+  // given script we'll usually compile for both 32 and 64 bit targets.
+  std::set<std::string> mIncludedMessages;
   std::string mDiags;
   std::unique_ptr<llvm::raw_string_ostream> mSOS;
 
- public:
+public:
   DiagnosticBuffer();
-
-  explicit DiagnosticBuffer(DiagnosticBuffer const &src);
-
   virtual ~DiagnosticBuffer();
 
   virtual void HandleDiagnostic(clang::DiagnosticsEngine::Level DiagLevel,
-                                const clang::Diagnostic& Info);
-
-  virtual clang::DiagnosticConsumer *
-    clone(clang::DiagnosticsEngine &Diags) const;
+                                const clang::Diagnostic &Info) override;
 
   inline const std::string &str() const {
     mSOS->flush();
@@ -54,7 +53,9 @@ class DiagnosticBuffer : public clang::DiagnosticConsumer {
   }
 
   inline void reset() {
-    this->mSOS->str().clear();
+    mIncludedMessages.clear();
+    mSOS.reset();
+    mDiags.clear();
   }
 };
 

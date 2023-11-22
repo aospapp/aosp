@@ -93,7 +93,6 @@ public class CornerPathEffectTest extends TestCase {
         // rounded corner must have less pixels than a sharp corner
         assertTrue(cornerPixels < 2 * RADIUS);
         // ... but not as few as a diagonal
-        // ToBeFixed: The following should be assertTrue (see bug 2037365)
-        assertFalse(cornerPixels > RADIUS);
+        assertTrue(cornerPixels > Math.sqrt(2 * Math.pow(RADIUS, 2)));
     }
 }

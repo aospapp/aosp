@@ -12,19 +12,19 @@
 #include "SkImageDecoder.h"
 #include "SkScaledBitmapSampler.h"
 #include "SkStream.h"
-#include "SkStreamHelpers.h"
+#include "SkStreamPriv.h"
 #include "SkTDArray.h"
 
 class SkBMPImageDecoder : public SkImageDecoder {
 public:
     SkBMPImageDecoder() {}
 
-    virtual Format getFormat() const SK_OVERRIDE {
+    Format getFormat() const override {
         return kBMP_Format;
     }
 
 protected:
-    virtual Result onDecode(SkStream* stream, SkBitmap* bm, Mode mode) SK_OVERRIDE;
+    Result onDecode(SkStream* stream, SkBitmap* bm, Mode mode) override;
 
 private:
     typedef SkImageDecoder INHERITED;
@@ -99,7 +99,7 @@ SkImageDecoder::Result SkBMPImageDecoder::onDecode(SkStream* stream, SkBitmap* b
     // Allocated space used to hold the data.
     SkAutoMalloc storage;
     // Byte length of all of the data.
-    const size_t length = CopyStreamToStorage(&storage, stream);
+    const size_t length = SkCopyStreamToStorage(&storage, stream);
     if (0 == length) {
         return kFailure;
     }

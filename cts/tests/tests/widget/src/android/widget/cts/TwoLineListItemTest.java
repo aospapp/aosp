@@ -91,9 +91,9 @@ public class TwoLineListItemTest extends
     public void testOnFinishInflate() {
         MockTwoLineListItem twoLineListItem = new MockTwoLineListItem(mActivity);
         TextView text1 = new TextView(mActivity);
-        text1.setId(com.android.internal.R.id.text1);
+        text1.setId(android.R.id.text1);
         TextView text2 = new TextView(mActivity);
-        text2.setId(com.android.internal.R.id.text2);
+        text2.setId(android.R.id.text2);
         LayoutParams params = new LayoutParams(LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT);
         twoLineListItem.addView(text1, params);

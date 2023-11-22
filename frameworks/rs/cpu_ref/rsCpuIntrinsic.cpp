@@ -73,67 +73,43 @@ void RsdCpuScriptIntrinsic::invokeFreeChildren() {
 }
 
 
-void RsdCpuScriptIntrinsic::preLaunch(uint32_t slot, const Allocation * ain,
-                                      Allocation * aout, const void * usr,
-                                      uint32_t usrLen, const RsScriptCall *sc) {
+void RsdCpuScriptIntrinsic::preLaunch(uint32_t slot, const Allocation ** ains,
+                                      uint32_t inLen, Allocation * aout,
+                                      const void * usr, uint32_t usrLen,
+                                      const RsScriptCall *sc) {
 }
 
-void RsdCpuScriptIntrinsic::postLaunch(uint32_t slot, const Allocation * ain,
-                                       Allocation * aout, const void * usr,
-                                       uint32_t usrLen, const RsScriptCall *sc) {
+void RsdCpuScriptIntrinsic::postLaunch(uint32_t slot, const Allocation ** ains,
+                                       uint32_t inLen, Allocation * aout,
+                                       const void * usr, uint32_t usrLen,
+                                       const RsScriptCall *sc) {
 }
 
 void RsdCpuScriptIntrinsic::invokeForEach(uint32_t slot,
-                                          const Allocation * ain,
+                                          const Allocation ** ains,
+                                          uint32_t inLen,
                                           Allocation * aout,
                                           const void * usr,
                                           uint32_t usrLen,
                                           const RsScriptCall *sc) {
 
     MTLaunchStruct mtls;
-    preLaunch(slot, ain, aout, usr, usrLen, sc);
 
-    forEachMtlsSetup(ain, aout, usr, usrLen, sc, &mtls);
-    mtls.script = this;
-    mtls.fep.slot = slot;
+    preLaunch(slot, ains, inLen, aout, usr, usrLen, sc);
 
-    mtls.kernel = (void (*)())mRootPtr;
-    mtls.fep.usr = this;
+    if (forEachMtlsSetup(ains, inLen, aout, usr, usrLen, sc, &mtls)) {
+        mtls.script = this;
+        mtls.fep.slot = slot;
 
-    RsdCpuScriptImpl * oldTLS = mCtx->setTLS(this);
-    mCtx->launchThreads(ain, aout, sc, &mtls);
-    mCtx->setTLS(oldTLS);
+        mtls.kernel = (void (*)())mRootPtr;
+        mtls.fep.usr = this;
 
-    postLaunch(slot, ain, aout, usr, usrLen, sc);
-}
+        RsdCpuScriptImpl * oldTLS = mCtx->setTLS(this);
+        mCtx->launchThreads(ains, inLen, aout, sc, &mtls);
+        mCtx->setTLS(oldTLS);
+    }
 
-void RsdCpuScriptIntrinsic::invokeForEachMulti(uint32_t slot,
-                                               const Allocation ** ains,
-                                               uint32_t inLen,
-                                               Allocation * aout,
-                                               const void * usr,
-                                               uint32_t usrLen,
-                                               const RsScriptCall *sc) {
-
-    MTLaunchStruct mtls;
-    /*
-     * FIXME: Possibly create new preLaunch and postLaunch functions that take
-     *        all of the input allocation pointers.
-     */
-    preLaunch(slot, ains[0], aout, usr, usrLen, sc);
-
-    forEachMtlsSetup(ains, inLen, aout, usr, usrLen, sc, &mtls);
-    mtls.script = this;
-    mtls.fep.slot = slot;
-
-    mtls.kernel = (void (*)())mRootPtr;
-    mtls.fep.usr = this;
-
-    RsdCpuScriptImpl * oldTLS = mCtx->setTLS(this);
-    mCtx->launchThreads(ains, inLen, aout, sc, &mtls);
-    mCtx->setTLS(oldTLS);
-
-    postLaunch(slot, ains[0], aout, usr, usrLen, sc);
+    postLaunch(slot, ains, inLen, aout, usr, usrLen, sc);
 }
 
 void RsdCpuScriptIntrinsic::forEachKernelSetup(uint32_t slot, MTLaunchStruct *mtls) {

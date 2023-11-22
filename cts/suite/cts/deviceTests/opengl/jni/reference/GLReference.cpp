@@ -23,7 +23,7 @@
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_android_cts_opengl_reference_GLGameActivity_startBenchmark(
-        JNIEnv* env, jclass clazz, jobject assetManager, jobject surface, jint numFrames,
+    JNIEnv* env, jclass /*clazz*/, jobject assetManager, jobject surface, jint numFrames,
         jdoubleArray setUpTimes, jdoubleArray updateTimes, jdoubleArray renderTimes) {
 
     GLUtils::setEnvAndAssetManager(env, assetManager);
@@ -32,9 +32,10 @@ Java_com_android_cts_opengl_reference_GLGameActivity_startBenchmark(
         return false;
     }
 
-    ReferenceRenderer* renderer = new ReferenceRenderer(ANativeWindow_fromSurface(env, surface));
-
-    bool success = renderer->setUp();
+    ANativeWindow* nativeWindow = ANativeWindow_fromSurface(env, surface);
+    ReferenceRenderer* renderer = new ReferenceRenderer(nativeWindow);
+    bool success = renderer->eglSetUp();
+    success = renderer->setUp(0) && success;
     env->SetDoubleArrayRegion(
             setUpTimes, 0, ReferenceRenderer::NUM_SETUP_TIMES, renderer->mSetUpTimes);
 
@@ -54,7 +55,11 @@ Java_com_android_cts_opengl_reference_GLGameActivity_startBenchmark(
     env->SetDoubleArrayRegion(renderTimes, 0, numFrames, renders);
 
     success = renderer->tearDown() && success;
+    renderer->eglTearDown();
     delete renderer;
     renderer = NULL;
+
+    ANativeWindow_release(nativeWindow);
+
     return success;
 }

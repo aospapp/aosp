@@ -16,18 +16,24 @@
 #if defined(ARCH_HAVE_CPU_CLOCK) && !defined(ARCH_CPU_CLOCK_CYCLES_PER_USEC)
 static unsigned long cycles_per_usec;
 static unsigned long inv_cycles_per_usec;
+static uint64_t max_cycles_for_mult;
+#endif
+#ifdef ARCH_CPU_CLOCK_WRAPS
+static unsigned long long cycles_start, cycles_wrap;
 #endif
 int tsc_reliable = 0;
 
 struct tv_valid {
-	struct timeval last_tv;
 	uint64_t last_cycles;
 	int last_tv_valid;
+	int warned;
 };
+#ifdef ARCH_HAVE_CPU_CLOCK
 #ifdef CONFIG_TLS_THREAD
 static __thread struct tv_valid static_tv_valid;
 #else
 static pthread_key_t tv_tls_key;
+#endif
 #endif
 
 enum fio_cs fio_clock_source = FIO_PREFERRED_CLOCK_SOURCE;
@@ -64,7 +70,7 @@ static struct gtod_log *find_hash(void *caller)
 	return NULL;
 }
 
-static struct gtod_log *find_log(void *caller)
+static void inc_caller(void *caller)
 {
 	struct gtod_log *log = find_hash(caller);
 
@@ -80,16 +86,13 @@ static struct gtod_log *find_log(void *caller)
 		flist_add_tail(&log->list, &hash[h]);
 	}
 
-	return log;
+	log->calls++;
 }
 
 static void gtod_log_caller(void *caller)
 {
-	if (gtod_inited) {
-		struct gtod_log *log = find_log(caller);
-
-		log->calls++;
-	}
+	if (gtod_inited)
+		inc_caller(caller);
 }
 
 static void fio_exit fio_dump_gtod(void)
@@ -136,16 +139,8 @@ static int fill_clock_gettime(struct timespec *ts)
 }
 #endif
 
-static void *__fio_gettime(struct timeval *tp)
+static void __fio_gettime(struct timeval *tp)
 {
-	struct tv_valid *tv;
-
-#ifdef CONFIG_TLS_THREAD
-	tv = &static_tv_valid;
-#else
-	tv = pthread_getspecific(tv_tls_key);
-#endif
-
 	switch (fio_clock_source) {
 #ifdef CONFIG_GETTIMEOFDAY
 	case CS_GTOD:
@@ -169,18 +164,34 @@ static void *__fio_gettime(struct timeval *tp)
 #ifdef ARCH_HAVE_CPU_CLOCK
 	case CS_CPUCLOCK: {
 		uint64_t usecs, t;
+		struct tv_valid *tv;
+
+#ifdef CONFIG_TLS_THREAD
+		tv = &static_tv_valid;
+#else
+		tv = pthread_getspecific(tv_tls_key);
+#endif
 
 		t = get_cpu_clock();
-		if (tv && t < tv->last_cycles) {
-			dprint(FD_TIME, "CPU clock going back in time\n");
-			t = tv->last_cycles;
-		} else if (tv)
-			tv->last_cycles = t;
+#ifdef ARCH_CPU_CLOCK_WRAPS
+		if (t < cycles_start && !cycles_wrap)
+			cycles_wrap = 1;
+		else if (cycles_wrap && t >= cycles_start && !tv->warned) {
+			log_err("fio: double CPU clock wrap\n");
+			tv->warned = 1;
+		}
 
+		t -= cycles_start;
+#endif
+		tv->last_cycles = t;
+		tv->last_tv_valid = 1;
 #ifdef ARCH_CPU_CLOCK_CYCLES_PER_USEC
 		usecs = t / ARCH_CPU_CLOCK_CYCLES_PER_USEC;
 #else
-		usecs = (t * inv_cycles_per_usec) / 16777216UL;
+		if (t < max_cycles_for_mult)
+			usecs = (t * inv_cycles_per_usec) / 16777216UL;
+		else
+			usecs = t / cycles_per_usec;
 #endif
 		tp->tv_sec = usecs / 1000000;
 		tp->tv_usec = usecs % 1000000;
@@ -191,8 +202,6 @@ static void *__fio_gettime(struct timeval *tp)
 		log_err("fio: invalid clock source %d\n", fio_clock_source);
 		break;
 	}
-
-	return tv;
 }
 
 #ifdef FIO_DEBUG_TIME
@@ -201,36 +210,16 @@ void fio_gettime(struct timeval *tp, void *caller)
 void fio_gettime(struct timeval *tp, void fio_unused *caller)
 #endif
 {
-	struct tv_valid *tv;
-
 #ifdef FIO_DEBUG_TIME
 	if (!caller)
 		caller = __builtin_return_address(0);
 
 	gtod_log_caller(caller);
 #endif
-	if (fio_unlikely(fio_tv)) {
-		memcpy(tp, fio_tv, sizeof(*tp));
+	if (fio_unlikely(fio_gettime_offload(tp)))
 		return;
-	}
 
-	tv = __fio_gettime(tp);
-
-	/*
-	 * If Linux is using the tsc clock on non-synced processors,
-	 * sometimes time can appear to drift backwards. Fix that up.
-	 */
-	if (tv) {
-		if (tv->last_tv_valid) {
-			if (tp->tv_sec < tv->last_tv.tv_sec)
-				tp->tv_sec = tv->last_tv.tv_sec;
-			else if (tv->last_tv.tv_sec == tp->tv_sec &&
-				 tp->tv_usec < tv->last_tv.tv_usec)
-				tp->tv_usec = tv->last_tv.tv_usec;
-		}
-		tv->last_tv_valid = 1;
-		memcpy(&tv->last_tv, tp, sizeof(*tp));
-	}
+	__fio_gettime(tp);
 }
 
 #if defined(ARCH_HAVE_CPU_CLOCK) && !defined(ARCH_CPU_CLOCK_CYCLES_PER_USEC)
@@ -269,7 +258,7 @@ static unsigned long get_cycles_per_usec(void)
 static int calibrate_cpu_clock(void)
 {
 	double delta, mean, S;
-	uint64_t avg, cycles[NR_TIME_ITERS];
+	uint64_t minc, maxc, avg, cycles[NR_TIME_ITERS];
 	int i, samples;
 
 	cycles[0] = get_cycles_per_usec();
@@ -292,9 +281,13 @@ static int calibrate_cpu_clock(void)
 
 	S = sqrt(S / (NR_TIME_ITERS - 1.0));
 
-	samples = avg = 0;
+	minc = -1ULL;
+	maxc = samples = avg = 0;
 	for (i = 0; i < NR_TIME_ITERS; i++) {
 		double this = cycles[i];
+
+		minc = min(cycles[i], minc);
+		maxc = max(cycles[i], maxc);
 
 		if ((fmax(this, mean) - fmin(this, mean)) > S)
 			continue;
@@ -311,12 +304,21 @@ static int calibrate_cpu_clock(void)
 
 	avg /= samples;
 	avg = (avg + 5) / 10;
+	minc /= 10;
+	maxc /= 10;
 	dprint(FD_TIME, "avg: %llu\n", (unsigned long long) avg);
-	dprint(FD_TIME, "mean=%f, S=%f\n", mean, S);
+	dprint(FD_TIME, "min=%llu, max=%llu, mean=%f, S=%f\n",
+			(unsigned long long) minc,
+			(unsigned long long) maxc, mean, S);
 
 	cycles_per_usec = avg;
 	inv_cycles_per_usec = 16777216UL / cycles_per_usec;
+	max_cycles_for_mult = ~0ULL / inv_cycles_per_usec;
 	dprint(FD_TIME, "inv_cycles_per_usec=%lu\n", inv_cycles_per_usec);
+#ifdef ARCH_CPU_CLOCK_WRAPS
+	cycles_start = get_cpu_clock();
+	dprint(FD_TIME, "cycles_start=%llu\n", cycles_start);
+#endif
 	return 0;
 }
 #else
@@ -336,8 +338,10 @@ void fio_local_clock_init(int is_thread)
 	struct tv_valid *t;
 
 	t = calloc(1, sizeof(*t));
-	if (pthread_setspecific(tv_tls_key, t))
+	if (pthread_setspecific(tv_tls_key, t)) {
 		log_err("fio: can't set TLS key\n");
+		assert(0);
+	}
 }
 
 static void kill_tv_tls_key(void *data)
@@ -371,13 +375,13 @@ void fio_clock_init(void)
 	 * runs at a constant rate and is synced across CPU cores.
 	 */
 	if (tsc_reliable) {
-		if (!fio_clock_source_set)
+		if (!fio_clock_source_set && !fio_monotonic_clocktest(0))
 			fio_clock_source = CS_CPUCLOCK;
 	} else if (fio_clock_source == CS_CPUCLOCK)
 		log_info("fio: clocksource=cpu may not be reliable\n");
 }
 
-uint64_t utime_since(struct timeval *s, struct timeval *e)
+uint64_t utime_since(const struct timeval *s, const struct timeval *e)
 {
 	long sec, usec;
 	uint64_t ret;
@@ -400,7 +404,7 @@ uint64_t utime_since(struct timeval *s, struct timeval *e)
 	return ret;
 }
 
-uint64_t utime_since_now(struct timeval *s)
+uint64_t utime_since_now(const struct timeval *s)
 {
 	struct timeval t;
 
@@ -408,7 +412,7 @@ uint64_t utime_since_now(struct timeval *s)
 	return utime_since(s, &t);
 }
 
-uint64_t mtime_since(struct timeval *s, struct timeval *e)
+uint64_t mtime_since(const struct timeval *s, const struct timeval *e)
 {
 	long sec, usec, ret;
 
@@ -429,7 +433,7 @@ uint64_t mtime_since(struct timeval *s, struct timeval *e)
 	return ret;
 }
 
-uint64_t mtime_since_now(struct timeval *s)
+uint64_t mtime_since_now(const struct timeval *s)
 {
 	struct timeval t;
 	void *p = __builtin_return_address(0);
@@ -438,7 +442,7 @@ uint64_t mtime_since_now(struct timeval *s)
 	return mtime_since(s, &t);
 }
 
-uint64_t time_since_now(struct timeval *s)
+uint64_t time_since_now(const struct timeval *s)
 {
 	return mtime_since_now(s) / 1000;
 }
@@ -446,7 +450,8 @@ uint64_t time_since_now(struct timeval *s)
 #if defined(FIO_HAVE_CPU_AFFINITY) && defined(ARCH_HAVE_CPU_CLOCK)  && \
     defined(CONFIG_SFAA)
 
-#define CLOCK_ENTRIES	100000
+#define CLOCK_ENTRIES_DEBUG	100000
+#define CLOCK_ENTRIES_TEST	10000
 
 struct clock_entry {
 	uint32_t seq;
@@ -457,8 +462,10 @@ struct clock_entry {
 struct clock_thread {
 	pthread_t thread;
 	int cpu;
+	int debug;
 	pthread_mutex_t lock;
 	pthread_mutex_t started;
+	unsigned long nr_entries;
 	uint32_t *seq;
 	struct clock_entry *entries;
 };
@@ -476,12 +483,20 @@ static void *clock_thread_fn(void *data)
 	uint32_t last_seq;
 	int i;
 
-	memset(&cpu_mask, 0, sizeof(cpu_mask));
+	if (fio_cpuset_init(&cpu_mask)) {
+		int __err = errno;
+
+		log_err("clock cpuset init failed: %s\n", strerror(__err));
+		goto err_out;
+	}
+
 	fio_cpu_set(&cpu_mask, t->cpu);
 
 	if (fio_setaffinity(gettid(), cpu_mask) == -1) {
-		log_err("clock setaffinity failed\n");
-		return (void *) 1;
+		int __err = errno;
+
+		log_err("clock setaffinity failed: %s\n", strerror(__err));
+		goto err;
 	}
 
 	pthread_mutex_lock(&t->lock);
@@ -489,7 +504,7 @@ static void *clock_thread_fn(void *data)
 
 	last_seq = 0;
 	c = &t->entries[0];
-	for (i = 0; i < CLOCK_ENTRIES; i++, c++) {
+	for (i = 0; i < t->nr_entries; i++, c++) {
 		uint32_t seq;
 		uint64_t tsc;
 
@@ -505,17 +520,26 @@ static void *clock_thread_fn(void *data)
 		c->tsc = tsc;
 	}
 
-	log_info("cs: cpu%3d: %llu clocks seen\n", t->cpu,
-		(unsigned long long) t->entries[i - 1].tsc - t->entries[0].tsc);
+	if (t->debug) {
+		unsigned long long clocks;
+
+		clocks = t->entries[i - 1].tsc - t->entries[0].tsc;
+		log_info("cs: cpu%3d: %llu clocks seen\n", t->cpu, clocks);
+	}
 
 	/*
 	 * The most common platform clock breakage is returning zero
 	 * indefinitely. Check for that and return failure.
 	 */
 	if (!t->entries[i - 1].tsc && !t->entries[0].tsc)
-		return (void *) 1;
+		goto err;
 
+	fio_cpuset_exit(&cpu_mask);
 	return NULL;
+err:
+	fio_cpuset_exit(&cpu_mask);
+err_out:
+	return (void *) 1;
 }
 
 static int clock_cmp(const void *p1, const void *p2)
@@ -529,34 +553,49 @@ static int clock_cmp(const void *p1, const void *p2)
 	return c1->seq - c2->seq;
 }
 
-int fio_monotonic_clocktest(void)
+int fio_monotonic_clocktest(int debug)
 {
-	struct clock_thread *threads;
+	struct clock_thread *cthreads;
 	unsigned int nr_cpus = cpus_online();
 	struct clock_entry *entries;
-	unsigned long tentries, failed = 0;
+	unsigned long nr_entries, tentries, failed = 0;
 	struct clock_entry *prev, *this;
 	uint32_t seq = 0;
 	unsigned int i;
 
-	log_info("cs: reliable_tsc: %s\n", tsc_reliable ? "yes" : "no");
+	if (debug) {
+		log_info("cs: reliable_tsc: %s\n", tsc_reliable ? "yes" : "no");
 
-	fio_debug |= 1U << FD_TIME;
+#ifdef FIO_INC_DEBUG
+		fio_debug |= 1U << FD_TIME;
+#endif
+		nr_entries = CLOCK_ENTRIES_DEBUG;
+	} else
+		nr_entries = CLOCK_ENTRIES_TEST;
+
 	calibrate_cpu_clock();
-	fio_debug &= ~(1U << FD_TIME);
 
-	threads = malloc(nr_cpus * sizeof(struct clock_thread));
-	tentries = CLOCK_ENTRIES * nr_cpus;
+	if (debug) {
+#ifdef FIO_INC_DEBUG
+		fio_debug &= ~(1U << FD_TIME);
+#endif
+	}
+
+	cthreads = malloc(nr_cpus * sizeof(struct clock_thread));
+	tentries = nr_entries * nr_cpus;
 	entries = malloc(tentries * sizeof(struct clock_entry));
 
-	log_info("cs: Testing %u CPUs\n", nr_cpus);
+	if (debug)
+		log_info("cs: Testing %u CPUs\n", nr_cpus);
 
 	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &threads[i];
+		struct clock_thread *t = &cthreads[i];
 
 		t->cpu = i;
+		t->debug = debug;
 		t->seq = &seq;
-		t->entries = &entries[i * CLOCK_ENTRIES];
+		t->nr_entries = nr_entries;
+		t->entries = &entries[i * nr_entries];
 		pthread_mutex_init(&t->lock, NULL);
 		pthread_mutex_init(&t->started, NULL);
 		pthread_mutex_lock(&t->lock);
@@ -568,29 +607,30 @@ int fio_monotonic_clocktest(void)
 	}
 
 	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &threads[i];
+		struct clock_thread *t = &cthreads[i];
 
 		pthread_mutex_lock(&t->started);
 	}
 
 	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &threads[i];
+		struct clock_thread *t = &cthreads[i];
 
 		pthread_mutex_unlock(&t->lock);
 	}
 
 	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &threads[i];
+		struct clock_thread *t = &cthreads[i];
 		void *ret;
 
 		pthread_join(t->thread, &ret);
 		if (ret)
 			failed++;
 	}
-	free(threads);
+	free(cthreads);
 
 	if (failed) {
-		log_err("Clocksource test: %lu threads failed\n", failed);
+		if (debug)
+			log_err("Clocksource test: %lu threads failed\n", failed);
 		goto err;
 	}
 
@@ -607,6 +647,11 @@ int fio_monotonic_clocktest(void)
 		if (prev->tsc > this->tsc) {
 			uint64_t diff = prev->tsc - this->tsc;
 
+			if (!debug) {
+				failed++;
+				break;
+			}
+
 			log_info("cs: CPU clock mismatch (diff=%llu):\n",
 						(unsigned long long) diff);
 			log_info("\t CPU%3u: TSC=%llu, SEQ=%u\n", prev->cpu, (unsigned long long) prev->tsc, prev->seq);
@@ -617,11 +662,12 @@ int fio_monotonic_clocktest(void)
 		prev = this;
 	}
 
-	if (failed)
-		log_info("cs: Failed: %lu\n", failed);
-	else
-		log_info("cs: Pass!\n");
-
+	if (debug) {
+		if (failed)
+			log_info("cs: Failed: %lu\n", failed);
+		else
+			log_info("cs: Pass!\n");
+	}
 err:
 	free(entries);
 	return !!failed;
@@ -629,10 +675,11 @@ err:
 
 #else /* defined(FIO_HAVE_CPU_AFFINITY) && defined(ARCH_HAVE_CPU_CLOCK) */
 
-int fio_monotonic_clocktest(void)
+int fio_monotonic_clocktest(int debug)
 {
-	log_info("cs: current platform does not support CPU clocks\n");
-	return 0;
+	if (debug)
+		log_info("cs: current platform does not support CPU clocks\n");
+	return 1;
 }
 
 #endif

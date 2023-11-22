@@ -49,6 +49,10 @@ public:
         return mLoopCount;
     }
 
+    virtual jobject getRawByteBuffer() const {
+        return NULL;
+    }
+
     virtual FrameSequenceState* createState() const;
 
     GifFileType* getGif() const { return mGif; }

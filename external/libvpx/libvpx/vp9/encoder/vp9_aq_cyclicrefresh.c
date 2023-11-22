@@ -16,7 +16,6 @@
 #include "vp9/common/vp9_seg_common.h"
 
 #include "vp9/encoder/vp9_ratectrl.h"
-#include "vp9/encoder/vp9_rdopt.h"
 #include "vp9/encoder/vp9_segmentation.h"
 
 struct CYCLIC_REFRESH {
@@ -72,7 +71,7 @@ static int apply_cyclic_refresh_bitrate(const VP9_COMMON *cm,
   // Turn off cyclic refresh if bits available per frame is not sufficiently
   // larger than bit cost of segmentation. Segment map bit cost should scale
   // with number of seg blocks, so compare available bits to number of blocks.
-  // Average bits available per frame = av_per_frame_bandwidth
+  // Average bits available per frame = avg_frame_bandwidth
   // Number of (8x8) blocks in frame = mi_rows * mi_cols;
   const float factor  = 0.5;
   const int number_blocks = cm->mi_rows  * cm->mi_cols;
@@ -80,7 +79,7 @@ static int apply_cyclic_refresh_bitrate(const VP9_COMMON *cm,
   // ~24kbps for CIF, 72kbps for VGA (at 30fps).
   // Also turn off at very small frame sizes, to avoid too large fraction of
   // superblocks to be refreshed per frame. Threshold below is less than QCIF.
-  if (rc->av_per_frame_bandwidth < factor * number_blocks ||
+  if (rc->avg_frame_bandwidth < factor * number_blocks ||
       number_blocks / 64 < 5)
     return 0;
   else
@@ -136,7 +135,8 @@ void vp9_cyclic_refresh_update_segment(VP9_COMP *const cpi,
   const int xmis = MIN(cm->mi_cols - mi_col, bw);
   const int ymis = MIN(cm->mi_rows - mi_row, bh);
   const int block_index = mi_row * cm->mi_cols + mi_col;
-  const int refresh_this_block = candidate_refresh_aq(cr, mbmi, bsize, use_rd);
+  const int refresh_this_block = cpi->mb.in_static_area ||
+                                 candidate_refresh_aq(cr, mbmi, bsize, use_rd);
   // Default is to not update the refresh map.
   int new_map_value = cr->map[block_index];
   int x = 0; int y = 0;
@@ -200,6 +200,7 @@ void vp9_cyclic_refresh_setup(VP9_COMP *const cpi) {
 
     // Rate target ratio to set q delta.
     const float rate_ratio_qdelta = 2.0;
+    const double q = vp9_convert_qindex_to_q(cm->base_qindex);
     vp9_clear_system_state();
     // Some of these parameters may be set via codec-control function later.
     cr->max_sbs_perframe = 10;
@@ -209,14 +210,12 @@ void vp9_cyclic_refresh_setup(VP9_COMP *const cpi) {
     // Set rate threshold to some fraction of target (and scaled by 256).
     cr->thresh_rate_sb = (rc->sb64_target_rate * 256) >> 2;
     // Distortion threshold, quadratic in Q, scale factor to be adjusted.
-    cr->thresh_dist_sb = 8 * (int)(vp9_convert_qindex_to_q(cm->base_qindex) *
-        vp9_convert_qindex_to_q(cm->base_qindex));
+    cr->thresh_dist_sb = 8 * (int)(q * q);
     if (cpi->sf.use_nonrd_pick_mode) {
       // May want to be more conservative with thresholds in non-rd mode for now
       // as rate/distortion are derived from model based on prediction residual.
       cr->thresh_rate_sb = (rc->sb64_target_rate * 256) >> 3;
-      cr->thresh_dist_sb = 4 * (int)(vp9_convert_qindex_to_q(cm->base_qindex) *
-          vp9_convert_qindex_to_q(cm->base_qindex));
+      cr->thresh_dist_sb = 4 * (int)(q * q);
     }
 
     cr->num_seg_blocks = 0;

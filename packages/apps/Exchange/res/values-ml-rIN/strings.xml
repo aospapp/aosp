@@ -33,7 +33,7 @@
     <string name="policy_dont_allow_storage_cards" msgid="1305111581282078881">"സംഭരണ കാർഡുകൾ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_unsigned_apps" msgid="7663879438028397642">"സൈൻ ചെയ്‌തിട്ടില്ലാത്ത അപ്ലിക്കേഷനുകളെ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_unsigned_installers" msgid="8227232531632246827">"സൈൻ ചെയ്‌തിട്ടില്ലാത്ത അപ്ലിക്കേഷൻ ഇൻസ്റ്റാളറുകളെ അനുവദിക്കരുത്"</string>
-    <string name="policy_dont_allow_wifi" msgid="8501275982154914194">"Wi-Fi അനുവദിക്കരുത്"</string>
+    <string name="policy_dont_allow_wifi" msgid="8501275982154914194">"വൈഫൈ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_text_messaging" msgid="860590081742537792">"വാചക സന്ദേശം അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_pop_imap" msgid="5772539239469636191">"POP3 അല്ലെങ്കിൽ IMAP അക്കൗണ്ടുകൾ അനുവദിക്കരുത്"</string>
     <string name="policy_dont_allow_irda" msgid="8230803019935893114">"ഇൻഫ്രാറെഡ് ആശയവിനിമയങ്ങൾ അനുവദിക്കരുത്"</string>

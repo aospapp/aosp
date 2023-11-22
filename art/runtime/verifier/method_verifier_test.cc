@@ -31,23 +31,22 @@ class MethodVerifierTest : public CommonRuntimeTest {
  protected:
   void VerifyClass(const std::string& descriptor)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    ASSERT_TRUE(descriptor != NULL);
-    mirror::Class* klass = class_linker_->FindSystemClass(Thread::Current(), descriptor.c_str());
+    ASSERT_TRUE(descriptor != nullptr);
+    Thread* self = Thread::Current();
+    mirror::Class* klass = class_linker_->FindSystemClass(self, descriptor.c_str());
 
     // Verify the class
     std::string error_msg;
-    ASSERT_TRUE(MethodVerifier::VerifyClass(klass, true, &error_msg) == MethodVerifier::kNoFailure)
+    ASSERT_TRUE(MethodVerifier::VerifyClass(self, klass, true, &error_msg) == MethodVerifier::kNoFailure)
         << error_msg;
   }
 
-  void VerifyDexFile(const DexFile* dex)
+  void VerifyDexFile(const DexFile& dex)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    ASSERT_TRUE(dex != NULL);
-
     // Verify all the classes defined in this file
-    for (size_t i = 0; i < dex->NumClassDefs(); i++) {
-      const DexFile::ClassDef& class_def = dex->GetClassDef(i);
-      const char* descriptor = dex->GetClassDescriptor(class_def);
+    for (size_t i = 0; i < dex.NumClassDefs(); i++) {
+      const DexFile::ClassDef& class_def = dex.GetClassDef(i);
+      const char* descriptor = dex.GetClassDescriptor(class_def);
       VerifyClass(descriptor);
     }
   }
@@ -55,7 +54,8 @@ class MethodVerifierTest : public CommonRuntimeTest {
 
 TEST_F(MethodVerifierTest, LibCore) {
   ScopedObjectAccess soa(Thread::Current());
-  VerifyDexFile(java_lang_dex_file_);
+  ASSERT_TRUE(java_lang_dex_file_ != nullptr);
+  VerifyDexFile(*java_lang_dex_file_);
 }
 
 }  // namespace verifier

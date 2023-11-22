@@ -1,8 +1,8 @@
-/*	$OpenBSD: jobs.c,v 1.40 2013/09/04 15:49:18 millert Exp $	*/
+/*	$OpenBSD: jobs.c,v 1.41 2015/04/18 18:28:36 deraadt Exp $	*/
 
 /*-
  * Copyright (c) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2011,
- *		 2012, 2013, 2014
+ *		 2012, 2013, 2014, 2015
  *	Thorsten Glaser <tg@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -23,7 +23,7 @@
 
 #include "sh.h"
 
-__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.105 2014/10/03 12:32:48 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/jobs.c,v 1.105.2.2 2015/04/19 19:18:18 tg Exp $");
 
 #if HAVE_KILLPG
 #define mksh_killpg		killpg
@@ -1047,7 +1047,7 @@ j_async(void)
 static void
 j_set_async(Job *j)
 {
-	Job	*jl, *oldest;
+	Job *jl, *oldest;
 
 	if (async_job && (async_job->flags & (JF_KNOWN|JF_ZOMBIE)) == JF_ZOMBIE)
 		remove_job(async_job, "async");
@@ -1084,7 +1084,7 @@ j_set_async(Job *j)
 static void
 j_startjob(Job *j)
 {
-	Proc	*p;
+	Proc *p;
 
 	j->flags |= JF_STARTED;
 	for (p = j->proc_list; p->next; p = p->next)
@@ -1111,6 +1111,7 @@ j_waitj(Job *j,
     int flags,
     const char *where)
 {
+	Proc *p;
 	int rv;
 #ifdef MKSH_NO_SIGSUSPEND
 	sigset_t omask;
@@ -1238,9 +1239,10 @@ j_waitj(Job *j,
 	j_systime = j->systime;
 	rv = j->status;
 
-	if ((flags & JW_PIPEST) && (j->proc_list != NULL)) {
+	if (!(p = j->proc_list)) {
+		;	/* nothing */
+	} else if (flags & JW_PIPEST) {
 		uint32_t num = 0;
-		Proc *p = j->proc_list;
 		struct tbl *vp;
 
 		unset(vp_pipest, 1);
@@ -1270,15 +1272,13 @@ j_waitj(Job *j,
 				rv = vp->val.i;
 			p = p->next;
 		}
-	} else if (Flag(FPIPEFAIL) && (j->proc_list != NULL)) {
-		Proc *p = j->proc_list;
-		int i;
+	} else if (Flag(FPIPEFAIL)) {
+		do {
+			int i = proc_errorlevel(p);
 
-		while (p != NULL) {
-			if ((i = proc_errorlevel(p)))
+			if (i)
 				rv = i;
-			p = p->next;
-		}
+		} while ((p = p->next));
 	}
 
 	if (!(flags & JW_ASYNCNOTIFY)
@@ -1421,8 +1421,8 @@ j_sigchld(int sig MKSH_A_UNUSED)
 static void
 check_job(Job *j)
 {
-	int	jstate;
-	Proc	*p;
+	int jstate;
+	Proc *p;
 
 	/* XXX debugging (nasty - interrupt routine using shl_out) */
 	if (!(j->flags & JF_STARTED)) {
@@ -1524,14 +1524,14 @@ check_job(Job *j)
 static void
 j_print(Job *j, int how, struct shf *shf)
 {
-	Proc	*p;
-	int	state;
-	int	status;
-	int	coredumped;
-	char	jobchar = ' ';
-	char	buf[64];
+	Proc *p;
+	int state;
+	int status;
+	int coredumped;
+	char jobchar = ' ';
+	char buf[64];
 	const char *filler;
-	int	output = 0;
+	int output = 0;
 
 	if (how == JP_PGRP) {
 		/*
@@ -1644,8 +1644,7 @@ j_lookup(const char *cp, int *ecodep)
 	size_t len;
 	int job = 0;
 
-	if (ksh_isdigit(*cp)) {
-		getn(cp, &job);
+	if (ksh_isdigit(*cp) && getn(cp, &job)) {
 		/* Look for last_proc->pid (what $! returns) first... */
 		for (j = job_list; j != NULL; j = j->next)
 			if (j->last_proc && j->last_proc->pid == job)
@@ -1657,11 +1656,10 @@ j_lookup(const char *cp, int *ecodep)
 		for (j = job_list; j != NULL; j = j->next)
 			if (j->pgrp && j->pgrp == job)
 				return (j);
-		if (ecodep)
-			*ecodep = JL_NOSUCH;
-		return (NULL);
+		goto j_lookup_nosuch;
 	}
 	if (*cp != '%') {
+ j_lookup_invalid:
 		if (ecodep)
 			*ecodep = JL_INVALID;
 		return (NULL);
@@ -1681,7 +1679,8 @@ j_lookup(const char *cp, int *ecodep)
 
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-		getn(cp, &job);
+		if (!getn(cp, &job))
+			goto j_lookup_invalid;
 		for (j = job_list; j != NULL; j = j->next)
 			if (j->job == job)
 				return (j);
@@ -1721,6 +1720,7 @@ j_lookup(const char *cp, int *ecodep)
 			return (last_match);
 		break;
 	}
+ j_lookup_nosuch:
 	if (ecodep)
 		*ecodep = JL_NOSUCH;
 	return (NULL);
@@ -1737,8 +1737,8 @@ static Proc	*free_procs;
 static Job *
 new_job(void)
 {
-	int	i;
-	Job	*newj, *j;
+	int i;
+	Job *newj, *j;
 
 	if (free_jobs != NULL) {
 		newj = free_jobs;
@@ -1766,7 +1766,7 @@ new_job(void)
 static Proc *
 new_proc(void)
 {
-	Proc	*p;
+	Proc *p;
 
 	if (free_procs != NULL) {
 		p = free_procs;
@@ -1786,10 +1786,9 @@ new_proc(void)
 static void
 remove_job(Job *j, const char *where)
 {
-	Proc	*p, *tmp;
-	Job	**prev, *curr;
+	Proc *p, *tmp;
+	Job **prev, *curr;
 
-	mkssert(j != NULL);
 	prev = &job_list;
 	curr = job_list;
 	while (curr && curr != j) {
@@ -1830,9 +1829,8 @@ remove_job(Job *j, const char *where)
 static void
 put_job(Job *j, int where)
 {
-	Job	**prev, *curr;
+	Job **prev, *curr;
 
-	mkssert(j != NULL);
 	/* Remove job from list (if there) */
 	prev = &job_list;
 	curr = job_list;
@@ -1869,8 +1867,8 @@ put_job(Job *j, int where)
 static int
 kill_job(Job *j, int sig)
 {
-	Proc	*p;
-	int	rval = 0;
+	Proc *p;
+	int rval = 0;
 
 	for (p = j->proc_list; p != NULL; p = p->next)
 		if (p->pid != 0)

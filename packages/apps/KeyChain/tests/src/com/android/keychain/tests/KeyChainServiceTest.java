@@ -145,7 +145,7 @@ public class KeyChainServiceTest extends Service {
             Log.d(TAG, "test_KeyChainService setup keystore");
             KeyStore keyStore = KeyStore.getInstance();
             assertTrue(mSupport.keystoreReset());
-            assertTrue(mSupport.keystorePassword("newpasswd"));
+            assertTrue(mSupport.keystoreSetPassword("newpasswd"));
 
             String intermediate = "-intermediate";
             String root = "-root";

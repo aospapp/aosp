@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Հեռախոս"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Հեռախոսային զանգերի կառավարում"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Հեռախոս"</string>
     <string name="unknown" msgid="6878797917991465859">"Անհայտ"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Բաց թողնված զանգ"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Բաց թողնված զանգեր"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Արագ պատասխան"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Հաղորդագրությունն ուղարկվել է <xliff:g id="PHONE_NUMBER">%s</xliff:g>-ին:"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Սարքի սեփականատերը թույլատրում է միայն արտակարգ իրավիճակի զանգերը"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Հաշիվներ զանգերի համար"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Սարքի սեփականատերը թույլատրում է միայն արտակարգ իրավիճակի զանգերը:"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Առանց Հեռախոսի թույլտվության այս ծրագիրը չի կարող ելքային զանգեր կատարել:"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Զանգ կատարելու համար մուտքագրեք ճիշտ համար:"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Հնարավոր չէ ևս մեկ զանգ ավելացնել այս պահին:"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Տեսազանգեր կատարելու համար անջատեք TTY ռեժիմը:"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Բացակայում է ձայնային փոստի համարը"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"SIM քարտում ձայնային փոստի ոչ մի համար գրանցված չէ:"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Ավելացնել համար"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Փոխե՞լ կանխադրված Համարհավաքի հավելվածը:"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Օգտագործե՞լ <xliff:g id="NEW_APP">%1$s</xliff:g> հավելվածը <xliff:g id="CURRENT_APP">%2$s</xliff:g>-ի փոխարեն որպես համարհավաքի կանխադրված հավելված:"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Դարձնե՞լ <xliff:g id="NEW_APP">%s</xliff:g> հավելվածը համարհավաքի կանխադրված հավելված:"</string>
 </resources>

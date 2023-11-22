@@ -56,8 +56,9 @@ MemMap* ZipEntry::ExtractToMemMap(const char* zip_filename, const char* entry_fi
   name += " extracted in memory from ";
   name += zip_filename;
   std::unique_ptr<MemMap> map(MemMap::MapAnonymous(name.c_str(),
-                                                   NULL, GetUncompressedLength(),
-                                                   PROT_READ | PROT_WRITE, false, error_msg));
+                                                   nullptr, GetUncompressedLength(),
+                                                   PROT_READ | PROT_WRITE, false, false,
+                                                   error_msg));
   if (map.get() == nullptr) {
     DCHECK(!error_msg->empty());
     return nullptr;
@@ -123,7 +124,7 @@ ZipEntry* ZipArchive::Find(const char* name, std::string* error_msg) const {
 
   // Resist the urge to delete the space. <: is a bigraph sequence.
   std::unique_ptr< ::ZipEntry> zip_entry(new ::ZipEntry);
-  const int32_t error = FindEntry(handle_, name, zip_entry.get());
+  const int32_t error = FindEntry(handle_, ZipEntryName(name), zip_entry.get());
   if (error) {
     *error_msg = std::string(ErrorCodeString(error));
     return nullptr;

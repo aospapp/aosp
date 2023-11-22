@@ -1,15 +1,24 @@
 package com.squareup.okhttp.internal.http;
 
+import com.squareup.okhttp.Authenticator;
+import com.squareup.okhttp.Challenge;
 import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.internal.Platform;
+import java.io.IOException;
+import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
+
+import static com.squareup.okhttp.internal.Util.equal;
+import static java.net.HttpURLConnection.HTTP_PROXY_AUTH;
 
 /** Headers and utilities for internal use by OkHttp. */
 public final class OkHeaders {
@@ -39,12 +48,6 @@ public final class OkHeaders {
    * Synthetic response header: the local time when the response was received.
    */
   public static final String RECEIVED_MILLIS = PREFIX + "-Received-Millis";
-
-  /**
-   * Synthetic response header: the response source and status code like
-   * "CONDITIONAL_CACHE 304".
-   */
-  public static final String RESPONSE_SOURCE = PREFIX + "-Response-Source";
 
   /**
    * Synthetic response header: the selected
@@ -83,12 +86,12 @@ public final class OkHeaders {
    *     for responses. If non-null, this value is mapped to the null key.
    */
   public static Map<String, List<String>> toMultimap(Headers headers, String valueForNullKey) {
-    Map<String, List<String>> result = new TreeMap<String, List<String>>(FIELD_NAME_COMPARATOR);
-    for (int i = 0; i < headers.size(); i++) {
+    Map<String, List<String>> result = new TreeMap<>(FIELD_NAME_COMPARATOR);
+    for (int i = 0, size = headers.size(); i < size; i++) {
       String fieldName = headers.name(i);
       String value = headers.value(i);
 
-      List<String> allValues = new ArrayList<String>();
+      List<String> allValues = new ArrayList<>();
       List<String> otherValues = result.get(fieldName);
       if (otherValues != null) {
         allValues.addAll(otherValues);
@@ -119,10 +122,166 @@ public final class OkHeaders {
   private static String buildCookieHeader(List<String> cookies) {
     if (cookies.size() == 1) return cookies.get(0);
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < cookies.size(); i++) {
+    for (int i = 0, size = cookies.size(); i < size; i++) {
       if (i > 0) sb.append("; ");
       sb.append(cookies.get(i));
     }
     return sb.toString();
+  }
+
+  /**
+   * Returns true if none of the Vary headers have changed between {@code
+   * cachedRequest} and {@code newRequest}.
+   */
+  public static boolean varyMatches(
+      Response cachedResponse, Headers cachedRequest, Request newRequest) {
+    for (String field : varyFields(cachedResponse)) {
+      if (!equal(cachedRequest.values(field), newRequest.headers(field))) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if a Vary header contains an asterisk. Such responses cannot
+   * be cached.
+   */
+  public static boolean hasVaryAll(Response response) {
+    return hasVaryAll(response.headers());
+  }
+
+  /**
+   * Returns true if a Vary header contains an asterisk. Such responses cannot
+   * be cached.
+   */
+  public static boolean hasVaryAll(Headers responseHeaders) {
+    return varyFields(responseHeaders).contains("*");
+  }
+
+  private static Set<String> varyFields(Response response) {
+    return varyFields(response.headers());
+  }
+
+  /**
+   * Returns the names of the request headers that need to be checked for
+   * equality when caching.
+   */
+  public static Set<String> varyFields(Headers responseHeaders) {
+    Set<String> result = Collections.emptySet();
+    for (int i = 0, size = responseHeaders.size(); i < size; i++) {
+      if (!"Vary".equalsIgnoreCase(responseHeaders.name(i))) continue;
+
+      String value = responseHeaders.value(i);
+      if (result.isEmpty()) {
+        result = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+      }
+      for (String varyField : value.split(",")) {
+        result.add(varyField.trim());
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Returns the subset of the headers in {@code response}'s request that
+   * impact the content of response's body.
+   */
+  public static Headers varyHeaders(Response response) {
+    // Use the request headers sent over the network, since that's what the
+    // response varies on. Otherwise OkHttp-supplied headers like
+    // "Accept-Encoding: gzip" may be lost.
+    Headers requestHeaders = response.networkResponse().request().headers();
+    Headers responseHeaders = response.headers();
+    return varyHeaders(requestHeaders, responseHeaders);
+  }
+
+  /**
+   * Returns the subset of the headers in {@code requestHeaders} that
+   * impact the content of response's body.
+   */
+  public static Headers varyHeaders(Headers requestHeaders, Headers responseHeaders) {
+    Set<String> varyFields = varyFields(responseHeaders);
+    if (varyFields.isEmpty()) return new Headers.Builder().build();
+
+    Headers.Builder result = new Headers.Builder();
+    for (int i = 0, size = requestHeaders.size(); i < size; i++) {
+      String fieldName = requestHeaders.name(i);
+      if (varyFields.contains(fieldName)) {
+        result.add(fieldName, requestHeaders.value(i));
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * Returns true if {@code fieldName} is an end-to-end HTTP header, as
+   * defined by RFC 2616, 13.5.1.
+   */
+  static boolean isEndToEnd(String fieldName) {
+    return !"Connection".equalsIgnoreCase(fieldName)
+        && !"Keep-Alive".equalsIgnoreCase(fieldName)
+        && !"Proxy-Authenticate".equalsIgnoreCase(fieldName)
+        && !"Proxy-Authorization".equalsIgnoreCase(fieldName)
+        && !"TE".equalsIgnoreCase(fieldName)
+        && !"Trailers".equalsIgnoreCase(fieldName)
+        && !"Transfer-Encoding".equalsIgnoreCase(fieldName)
+        && !"Upgrade".equalsIgnoreCase(fieldName);
+  }
+
+  /**
+   * Parse RFC 2617 challenges. This API is only interested in the scheme
+   * name and realm.
+   */
+  public static List<Challenge> parseChallenges(Headers responseHeaders, String challengeHeader) {
+    // auth-scheme = token
+    // auth-param  = token "=" ( token | quoted-string )
+    // challenge   = auth-scheme 1*SP 1#auth-param
+    // realm       = "realm" "=" realm-value
+    // realm-value = quoted-string
+    List<Challenge> result = new ArrayList<>();
+    for (int i = 0, size = responseHeaders.size(); i < size; i++) {
+      if (!challengeHeader.equalsIgnoreCase(responseHeaders.name(i))) {
+        continue;
+      }
+      String value = responseHeaders.value(i);
+      int pos = 0;
+      while (pos < value.length()) {
+        int tokenStart = pos;
+        pos = HeaderParser.skipUntil(value, pos, " ");
+
+        String scheme = value.substring(tokenStart, pos).trim();
+        pos = HeaderParser.skipWhitespace(value, pos);
+
+        // TODO: This currently only handles schemes with a 'realm' parameter;
+        //       It needs to be fixed to handle any scheme and any parameters
+        //       http://code.google.com/p/android/issues/detail?id=11140
+
+        if (!value.regionMatches(true, pos, "realm=\"", 0, "realm=\"".length())) {
+          break; // Unexpected challenge parameter; give up!
+        }
+
+        pos += "realm=\"".length();
+        int realmStart = pos;
+        pos = HeaderParser.skipUntil(value, pos, "\"");
+        String realm = value.substring(realmStart, pos);
+        pos++; // Consume '"' close quote.
+        pos = HeaderParser.skipUntil(value, pos, ",");
+        pos++; // Consume ',' comma.
+        pos = HeaderParser.skipWhitespace(value, pos);
+        result.add(new Challenge(scheme, realm));
+      }
+    }
+    return result;
+  }
+
+  /**
+   * React to a failed authorization response by looking up new credentials.
+   * Returns a request for a subsequent attempt, or null if no further attempts
+   * should be made.
+   */
+  public static Request processAuthHeader(Authenticator authenticator, Response response,
+      Proxy proxy) throws IOException {
+    return response.code() == HTTP_PROXY_AUTH
+        ? authenticator.authenticateProxy(proxy, response)
+        : authenticator.authenticate(proxy, response);
   }
 }

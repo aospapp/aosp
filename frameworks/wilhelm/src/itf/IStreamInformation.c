@@ -247,7 +247,7 @@ static XAresult IStreamInformation_QueryActiveStreams( XAStreamInformationItf se
 
     result = XA_RESULT_SUCCESS;
     *numStreams = thiz->mStreamInfoTable.itemAt(0).containerInfo.numStreams;
-    activeStreams = thiz->mActiveStreams;
+    // FIXME not setting activeStreams
 
     interface_unlock_shared(thiz);
 #else

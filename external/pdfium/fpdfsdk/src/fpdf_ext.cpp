@@ -4,8 +4,8 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
+#include "../../public/fpdf_ext.h"
 #include "../include/fsdk_define.h"
-#include "../include/fpdf_ext.h"
 
 #define  FPDFSDK_UNSUPPORT_CALL 100
 
@@ -172,15 +172,15 @@ void CheckUnSupportError(CPDF_Document * pDoc, FX_DWORD err_code)
 		if(pRootDict->KeyExist("Names"))
 		{
 			CPDF_Dictionary* pNameDict = pRootDict->GetDict("Names");
-			if(pNameDict->KeyExist("EmbeddedFiles"))
+			if (pNameDict && pNameDict->KeyExist("EmbeddedFiles"))
 			{
 				FPDF_UnSupportError(FPDF_UNSP_DOC_ATTACHMENT);
 				return;
 			}
-			else if(pNameDict->KeyExist("JavaScript"))
+			else if (pNameDict && pNameDict->KeyExist("JavaScript"))
 			{
 				CPDF_Dictionary* pJSDict = pNameDict->GetDict("JavaScript");
-				CPDF_Array * pArray = pJSDict->GetArray("Names");
+				CPDF_Array * pArray = pJSDict ? pJSDict->GetArray("Names") : NULL;
 				if (pArray) {
 					int nCount = pArray->GetCount();
 					for(int i=0; i<nCount; i++)
@@ -204,25 +204,21 @@ void CheckUnSupportError(CPDF_Document * pDoc, FX_DWORD err_code)
 	if(pElement)
 		CheckSharedForm(pElement, "workflowType");
 
-	
 	// XFA Forms
-	CPDF_InterForm * pInterForm = FX_NEW CPDF_InterForm(pDoc,FALSE);
-	if (pInterForm)
+	CPDF_InterForm * pInterForm = new CPDF_InterForm(pDoc,FALSE);
+	if (pInterForm->HasXFAForm())
 	{
-		if(pInterForm->HasXFAForm())
-		{
-			FPDF_UnSupportError(FPDF_UNSP_DOC_XFAFORM);
-		}
-		delete pInterForm;
+		FPDF_UnSupportError(FPDF_UNSP_DOC_XFAFORM);
 	}
+	delete pInterForm;
 }
 
 DLLEXPORT int FPDFDoc_GetPageMode(FPDF_DOCUMENT document)
 {
-	if (!document) return PAGEMODE_UNKONOWN;
+	if (!document) return PAGEMODE_UNKNOWN;
 	CPDF_Dictionary *pRoot = ((CPDF_Document*)document)->GetRoot();
 	if (!pRoot)
-		return PAGEMODE_UNKONOWN;
+		return PAGEMODE_UNKNOWN;
 	CPDF_Object* pName = pRoot->GetElement("PageMode");
 	if (!pName)
 		return PAGEMODE_USENONE;
@@ -241,5 +237,5 @@ DLLEXPORT int FPDFDoc_GetPageMode(FPDF_DOCUMENT document)
 	else if (strPageMode.EqualNoCase(FX_BSTR("UseAttachments")))
 		return PAGEMODE_USEATTACHMENTS;
 
-	return PAGEMODE_UNKONOWN;
+	return PAGEMODE_UNKNOWN;
 }

@@ -48,10 +48,12 @@ public final class Posix implements Os {
     public native boolean access(String path, int mode) throws ErrnoException;
     public native InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException;
     public native void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException;
+    public native void bind(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException;
     public native void chmod(String path, int mode) throws ErrnoException;
     public native void chown(String path, int uid, int gid) throws ErrnoException;
     public native void close(FileDescriptor fd) throws ErrnoException;
     public native void connect(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException;
+    public native void connect(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException;
     public native FileDescriptor dup(FileDescriptor oldFd) throws ErrnoException;
     public native FileDescriptor dup2(FileDescriptor oldFd, int newFd) throws ErrnoException;
     public native String[] environ();
@@ -59,9 +61,9 @@ public final class Posix implements Os {
     public native void execve(String filename, String[] argv, String[] envp) throws ErrnoException;
     public native void fchmod(FileDescriptor fd, int mode) throws ErrnoException;
     public native void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException;
-    public native int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
-    public native int fcntlLong(FileDescriptor fd, int cmd, long arg) throws ErrnoException;
     public native int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException;
+    public native int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException;
+    public native int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
     public native void fdatasync(FileDescriptor fd) throws ErrnoException;
     public native StructStat fstat(FileDescriptor fd) throws ErrnoException;
     public native StructStatVfs fstatvfs(FileDescriptor fd) throws ErrnoException;
@@ -74,6 +76,7 @@ public final class Posix implements Os {
     public native String getenv(String name);
     public native String getnameinfo(InetAddress address, int flags) throws GaiException;
     public native SocketAddress getpeername(FileDescriptor fd) throws ErrnoException;
+    public native int getpgid(int pid);
     public native int getpid();
     public native int getppid();
     public native StructPasswd getpwnam(String name) throws ErrnoException;
@@ -87,6 +90,7 @@ public final class Posix implements Os {
     public native StructUcred getsockoptUcred(FileDescriptor fd, int level, int option) throws ErrnoException;
     public native int gettid();
     public native int getuid();
+    public native int getxattr(String path, String name, byte[] outValue) throws ErrnoException;
     public native String if_indextoname(int index);
     public native InetAddress inet_pton(int family, String address);
     public native InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
@@ -107,7 +111,7 @@ public final class Posix implements Os {
     public native void munlock(long address, long byteCount) throws ErrnoException;
     public native void munmap(long address, long byteCount) throws ErrnoException;
     public native FileDescriptor open(String path, int flags, int mode) throws ErrnoException;
-    public native FileDescriptor[] pipe() throws ErrnoException;
+    public native FileDescriptor[] pipe2(int flags) throws ErrnoException;
     public native int poll(StructPollfd[] fds, int timeoutMs) throws ErrnoException;
     public native void posix_fallocate(FileDescriptor fd, long offset, long length) throws ErrnoException;
     public native int prctl(int option, long arg2, long arg3, long arg4, long arg5) throws ErrnoException;
@@ -186,6 +190,7 @@ public final class Posix implements Os {
     }
     private native int recvfromBytes(FileDescriptor fd, Object buffer, int byteOffset, int byteCount, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
     public native void remove(String path) throws ErrnoException;
+    public native void removexattr(String path, String name) throws ErrnoException;
     public native void rename(String oldPath, String newPath) throws ErrnoException;
     public native long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException;
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {
@@ -205,11 +210,18 @@ public final class Posix implements Os {
         // This indirection isn't strictly necessary, but ensures that our public interface is type safe.
         return sendtoBytes(fd, bytes, byteOffset, byteCount, flags, inetAddress, port);
     }
+    public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException {
+        return sendtoBytes(fd, bytes, byteOffset, byteCount, flags, address);
+    }
     private native int sendtoBytes(FileDescriptor fd, Object buffer, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
+    private native int sendtoBytes(FileDescriptor fd, Object buffer, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException;
     public native void setegid(int egid) throws ErrnoException;
     public native void setenv(String name, String value, boolean overwrite) throws ErrnoException;
     public native void seteuid(int euid) throws ErrnoException;
     public native void setgid(int gid) throws ErrnoException;
+    public native void setpgid(int pid, int pgid) throws ErrnoException;
+    public native void setregid(int rgid, int egid) throws ErrnoException;
+    public native void setreuid(int ruid, int euid) throws ErrnoException;
     public native int setsid() throws ErrnoException;
     public native void setsockoptByte(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public native void setsockoptIfreq(FileDescriptor fd, int level, int option, String value) throws ErrnoException;
@@ -220,6 +232,7 @@ public final class Posix implements Os {
     public native void setsockoptLinger(FileDescriptor fd, int level, int option, StructLinger value) throws ErrnoException;
     public native void setsockoptTimeval(FileDescriptor fd, int level, int option, StructTimeval value) throws ErrnoException;
     public native void setuid(int uid) throws ErrnoException;
+    public native void setxattr(String path, String name, byte[] value, int flags) throws ErrnoException;
     public native void shutdown(FileDescriptor fd, int how) throws ErrnoException;
     public native FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException;
     public native void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException;

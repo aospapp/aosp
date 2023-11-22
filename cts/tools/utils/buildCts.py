@@ -30,6 +30,12 @@ def GetSubDirectories(root):
   """Return all directories under the given root directory."""
   return [x for x in os.listdir(root) if os.path.isdir(os.path.join(root, x))]
 
+def ReadFileLines(filePath):
+  """Reads a file and returns its contents as a line list."""
+  f = open(filePath, 'r');
+  lines = [line.strip() for line in f.readlines()]
+  f.close()
+  return lines
 
 def GetMakeFileVars(makefile_path):
   """Extracts variable definitions from the given make file.
@@ -153,12 +159,16 @@ class CtsBuilder(object):
     plan.Include('com\.android\.cts\..*')#TODO(stuartscott): Should PDK have all these?
     self.__WritePlan(plan, 'PDK')
 
+    temporarily_known_failure_tests = BuildCtsTemporarilyKnownFailureList();
     flaky_tests = BuildCtsFlakyTestList()
+    releasekey_tests = BuildListForReleaseBuildTest()
 
     # CTS Stable plan
     plan = tools.TestPlan(packages)
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-stable')
 
@@ -183,7 +193,10 @@ class CtsBuilder(object):
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-kitkat-small')
+    self.__WritePlan(plan, 'CTS-public-small')
 
     # CTS - sub plan for public, medium size tests
     plan = tools.TestPlan(packages)
@@ -193,7 +206,10 @@ class CtsBuilder(object):
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-kitkat-medium')
+    self.__WritePlan(plan, 'CTS-public-medium')
 
     # CTS - sub plan for hardware tests which is public, large
     plan = tools.TestPlan(packages)
@@ -201,6 +217,8 @@ class CtsBuilder(object):
     plan.Include(r'android\.hardware$')
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-hardware')
 
@@ -212,6 +230,8 @@ class CtsBuilder(object):
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-media')
 
     # CTS - sub plan for mediastress tests which is public, large
@@ -220,6 +240,8 @@ class CtsBuilder(object):
     plan.Include(r'android\.mediastress$')
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
       plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-mediastress')
 
@@ -231,9 +253,17 @@ class CtsBuilder(object):
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-l-tests')
 
-    #CTS - sub plan for new test packages added for staging
+    # CTS - sub plan for tests in drawelement packages
+    plan = tools.TestPlan(packages)
+    plan.Exclude('.*')
+    plan.Include(r'com\.drawelements\.')
+    self.__WritePlan(plan, 'CTS-DEQP')
+
+    # CTS - sub plan for new test packages added for staging
     plan = tools.TestPlan(packages)
     for package, test_list in small_tests.iteritems():
       plan.Exclude(package+'$')
@@ -241,6 +271,7 @@ class CtsBuilder(object):
       plan.Exclude(package+'$')
     for package, tests_list in new_test_packages.iteritems():
       plan.Exclude(package+'$')
+    plan.Exclude(r'com\.drawelements\.')
     plan.Exclude(r'android\.hardware$')
     plan.Exclude(r'android\.media$')
     plan.Exclude(r'android\.view$')
@@ -248,16 +279,21 @@ class CtsBuilder(object):
     plan.Exclude(r'com\.android\.cts\.browserbench')
     for package, test_list in flaky_tests.iteritems():
       plan.ExcludeTests(package, test_list)
+    for package, test_list in releasekey_tests.iteritems():
+      plan.ExcludeTests(package, test_list)
+    self.__WritePlan(plan, 'CTS-m-tests')
+
+
+    # CTS - sub plan for new test packages added for staging
+    plan = tools.TestPlan(packages)
+    plan.Exclude('.*')
+    for package, test_list in temporarily_known_failure_tests.iteritems():
+      plan.Include(package+'$')
+      plan.IncludeTests(package, test_list)
     self.__WritePlan(plan, 'CTS-staging')
 
     plan = tools.TestPlan(packages)
     plan.Exclude('.*')
-    plan.Include(r'com\.drawelements\.')
-    self.__WritePlan(plan, 'CTS-DEQP')
-
-    plan = tools.TestPlan(packages)
-    plan.Exclude('.*')
-    plan.Include(r'android\.webgl')
     self.__WritePlan(plan, 'CTS-webview')
 
 
@@ -281,7 +317,7 @@ def BuildAospMediumSizeTestList():
       'com.android.cts.browserbench' : []}
 
 def BuildAospSmallSizeTestList():
-  """ Construct a defaultdict that lists packages names of small tests
+  """ Construct a default dict that lists packages names of small tests
       already published to aosp. """
   return {
       'android.aadb' : [],
@@ -335,6 +371,7 @@ def BuildAospSmallSizeTestList():
       'com.android.cts.dram' : [],
       'com.android.cts.filesystemperf' : [],
       'com.android.cts.jank' : [],
+      'com.android.cts.jank2' : [],
       'com.android.cts.opengl' : [],
       'com.android.cts.simplecpu' : [],
       'com.android.cts.ui' : [],
@@ -370,52 +407,98 @@ def BuildCtsVettedNewPackagesList():
       'android.signature' : [],
       'android.tv' : [],
       'android.uiautomation' : [],
-      'android.uirendering' : [],
-      'android.webgl' : [],
-      'com.drawelements.deqp.gles3' : [],
-      'com.drawelements.deqp.gles31' : []}
+      'android.uirendering' : []}
+
+def BuildListForReleaseBuildTest():
+  """ Construct a defaultdict that maps package name to a list of tests
+      that are expected to pass only when running against a user/release-key build. """
+  return {
+      'android.app' : [
+          'android.app.cts.ActivityManagerTest#testIsRunningInTestHarness',],
+      'android.dpi' : [
+          'android.dpi.cts.DefaultManifestAttributesSdkTest#testPackageHasExpectedSdkVersion',],
+      'android.host.security' : [
+          'android.cts.security.SELinuxHostTest#testAllEnforcing',
+          'android.cts.security.SELinuxHostTest#testSuDomain',],
+      'android.os' : [
+          'android.os.cts.BuildVersionTest#testReleaseVersion',
+          'android.os.cts.BuildTest#testIsSecureUserBuild',],
+      'android.security' : [
+          'android.security.cts.BannedFilesTest#testNoSu',
+          'android.security.cts.BannedFilesTest#testNoSuInPath',
+          'android.security.cts.PackageSignatureTest#testPackageSignatures',
+          'android.security.cts.SELinuxDomainTest#testSuDomain',],
+      '' : []}
 
 def BuildCtsFlakyTestList():
   """ Construct a defaultdict that maps package name to a list of tests
-      that are known to be flaky in the lab or not passing on userdebug builds. """
+      that flaky during dev cycle and cause other subsequent tests to fail. """
   return {
-      'android.app' : [
-          'cts.ActivityManagerTest#testIsRunningInTestHarness',],
-      'android.dpi' : [
-          'cts.DefaultManifestAttributesSdkTest#testPackageHasExpectedSdkVersion',],
       'android.hardware' : [
-          'cts.CameraTest#testVideoSnapshot',
-          'cts.CameraGLTest#testCameraToSurfaceTextureMetadata',
-          'cts.CameraGLTest#testSetPreviewTextureBothCallbacks',
-          'cts.CameraGLTest#testSetPreviewTexturePreviewCallback',],
+          'android.hardware.cts.CameraTest#testVideoSnapshot',
+          'android.hardware.cts.CameraGLTest#testCameraToSurfaceTextureMetadata',
+          'android.hardware.cts.CameraGLTest#testSetPreviewTextureBothCallbacks',
+          'android.hardware.cts.CameraGLTest#testSetPreviewTexturePreviewCallback',],
       'android.media' : [
-          'cts.DecoderTest#testCodecResetsH264WithSurface',
-          'cts.StreamingMediaPlayerTest#testHLS',],
+          'android.media.cts.DecoderTest#testCodecResetsH264WithSurface',
+          'android.media.cts.StreamingMediaPlayerTest#testHLS',],
       'android.net' : [
-          'cts.ConnectivityManagerTest#testStartUsingNetworkFeature_enableHipri',
-          'cts.DnsTest#testDnsWorks',
-          'cts.SSLCertificateSocketFactoryTest#testCreateSocket',
-          'cts.SSLCertificateSocketFactoryTest#test_createSocket_bind',
-          'cts.SSLCertificateSocketFactoryTest#test_createSocket_simple',
-          'cts.SSLCertificateSocketFactoryTest#test_createSocket_wrapping',
-          'cts.TrafficStatsTest#testTrafficStatsForLocalhost',
-          'wifi.cts.NsdManagerTest#testAndroidTestCaseSetupProperly',],
-      'android.os' : [
-          'cts.BuildVersionTest#testReleaseVersion',
-          'cts.BuildTest#testIsSecureUserBuild',],
+          'android.net.cts.ConnectivityManagerTest#testStartUsingNetworkFeature_enableHipri',
+          'android.net.cts.DnsTest#testDnsWorks',
+          'android.net.cts.SSLCertificateSocketFactoryTest#testCreateSocket',
+          'android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_bind',
+          'android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_simple',
+          'android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_wrapping',
+          'android.net.cts.TrafficStatsTest#testTrafficStatsForLocalhost',
+          'android.net.wifi.cts.NsdManagerTest#testAndroidTestCaseSetupProperly',],
       'android.security' : [
-          'cts.BannedFilesTest#testNoSu',
-          'cts.BannedFilesTest#testNoSuInPath',
-          'cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdp6Ports',
-          'cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdpPorts',
-          'cts.PackageSignatureTest#testPackageSignatures',
-          'cts.SELinuxDomainTest#testSuDomain',
-          'cts.SELinuxHostTest#testAllEnforcing',],
+          'android.security.cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdp6Ports',
+          'android.security.cts.ListeningPortsTest#testNoRemotelyAccessibleListeningUdpPorts',],
       'android.webkit' : [
-          'cts.WebViewClientTest#testOnUnhandledKeyEvent',],
+          'android.webkit.cts.WebViewClientTest#testOnUnhandledKeyEvent',],
       'com.android.cts.filesystemperf' : [
-          'RandomRWTest#testRandomRead',
-          'RandomRWTest#testRandomUpdate',],
+          'com.android.cts.filesystemperf.RandomRWTest#testRandomRead',
+          'com.android.cts.filesystemperf.RandomRWTest#testRandomUpdate',],
+      '' : []}
+
+def BuildCtsTemporarilyKnownFailureList():
+  """ Construct a defaultdict that maps package name to a list of tests
+      that are known failures during dev cycle but expected to be fixed before launch """
+  return {
+      'android.alarmclock' : [
+          'android.alarmclock.cts.DismissAlarmTest#testAll',
+          'android.alarmclock.cts.SetAlarmTest#testAll',
+          'android.alarmclock.cts.SnoozeAlarmTest#testAll',
+      ],
+      'android.assist' : [
+          'android.assist.cts.ExtraAssistDataTest',
+          'android.assist.cts.AssistantContentViewTest',
+          'android.assist.cts.ScreenshotTest',
+      ],
+      'android.calllog' : [
+          'android.calllog.cts.CallLogBackupTest#testSingleCallBackup',
+      ],
+      'android.dumpsys' : [
+          'android.dumpsys.cts.DumpsysHostTest#testBatterystatsOutput',
+          'android.dumpsys.cts.DumpsysHostTest#testGfxinfoFramestats',
+      ],
+      'android.telecom' : [
+          'android.telecom.cts.ExtendedInCallServiceTest#testAddNewOutgoingCallAndThenDisconnect',
+          'android.telecom.cts.RemoteConferenceTest#testRemoteConferenceCallbacks_ConferenceableConnections',
+      ],
+      'android.transition' : [
+          'android.transition.cts.ChangeScrollTest#testChangeScroll',
+      ],
+      'android.voicesettings' : [
+          'android.voicesettings.cts.ZenModeTest#testAll',
+      ],
+      'com.android.cts.app.os' : [
+          'com.android.cts.app.os.OsHostTests#testNonExportedActivities',
+      ],
+      'com.android.cts.devicepolicy' : [
+          'com.android.cts.devicepolicy.MixedDeviceOwnerTest#testPackageInstallUserRestrictions',
+          'com.android.cts.devicepolicy.MixedProfileOwnerTest#testPackageInstallUserRestrictions',
+      ],
       '' : []}
 
 def LogGenerateDescription(name):

@@ -68,6 +68,7 @@ public class Vignette extends TestBase {
         return true;
     }
 
+
     public void onBar1Changed(int progress) {
         scale = progress / 50.0f;
         do_init();
@@ -86,6 +87,11 @@ public class Vignette extends TestBase {
     }
     public void onBar5Changed(int progress) {
         center_y = progress / 100.0f;
+        do_init();
+    }
+
+    public void animateBars(float time) {
+        scale = time % 2.f;
         do_init();
     }
 

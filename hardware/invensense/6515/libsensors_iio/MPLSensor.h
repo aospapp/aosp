@@ -188,6 +188,7 @@ public:
     int checkBatchEnabled();
     int setBatch(int en, int toggleEnable);
     int writeBatchTimeout(int en);
+    int writeBatchTimeout(int en, int64_t timeoutInMs);
     int32_t getEnableMask() { return mEnabled; }
     void getHandle(int32_t handle, int &what, android::String8 &sname);
 
@@ -294,6 +295,8 @@ protected:
     void enable_iio_sysfs(void);
     int setDmpFeature(int en);
     int computeAndSetDmpState(void);
+    int computeDmpState(bool* dmp_state);
+    int SetDmpState(bool dmpState);
     int enablePedometer(int);
     int enablePedIndicator(int en);
     int checkPedStandaloneBatched(void);
@@ -413,6 +416,23 @@ protected:
     int64_t mCompassTimestamp;
     int64_t mPressureTimestamp;
 
+    int64_t mGyroBatchRate;
+    int64_t mAccelBatchRate;
+    int64_t mCompassBatchRate;
+    int64_t mPressureBatchRate;
+    int64_t mQuatBatchRate;
+    int64_t mGyroRate;
+    int64_t mAccelRate;
+    int64_t mCompassRate;
+    int64_t mPressureRate;
+    int64_t mQuatRate;
+    int64_t mResetRate;
+
+    uint32_t mDataInterrupt;
+
+    bool mFirstBatchCall;
+    bool mEnableCalled;
+
     struct sysfs_attrbs {
        char *chip_enable;
        char *power_state;
@@ -519,6 +539,7 @@ protected:
     uint32_t mSkipReadEvents;
     bool mDataMarkerDetected;
     bool mEmptyDataMarkerDetected;
+    int mDmpState;
 
 private:
     /* added for dynamic get sensor list */
@@ -551,10 +572,15 @@ private:
     void setAccelBias();
     int isCompassDisabled();
     int setBatchDataRates();
+    int calcBatchDataRates(int64_t *gyro_rate, int64_t *accel_rate, int64_t *compass_rate, int64_t *pressure_rate, int64_t *quat_rate);
+    int setBatchDataRates(int64_t gyroRate, int64_t accelRate, int64_t compassRate, int64_t pressureRate, int64_t quatRate);
     int resetDataRates();
+    int calctDataRates(int64_t *resetRate, int64_t *gyroRate, int64_t *accelRate, int64_t *compassRate, int64_t *pressureRate);
+    int resetDataRates(int64_t resetRate, int64_t gyroRate, int64_t accelRate, int64_t compassRate, int64_t pressureRate);
     void initBias();
     void resetMplStates();
     void sys_dump(bool fileMode);
+    int calcBatchTimeout(int en, int64_t *out);
 };
 
 extern "C" {

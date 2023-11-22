@@ -16,6 +16,7 @@
 
 package android.widget.cts;
 
+import android.graphics.drawable.Icon;
 import android.test.UiThreadTest;
 import com.android.cts.widget.R;
 
@@ -152,6 +153,33 @@ public class RemoteViewsTest extends ActivityInstrumentationTestCase2<RemoteView
         }
     }
 
+    public void testSetIcon() {
+        ImageView image = (ImageView) mResult.findViewById(R.id.remoteView_image);
+        assertNull(image.getDrawable());
+
+        Icon iconBlack = Icon.createWithResource(mActivity, R.drawable.icon_black);
+        mRemoteViews.setIcon(R.id.remoteView_image, "setImageIcon", iconBlack);
+        mRemoteViews.reapply(mActivity, mResult);
+        assertNotNull(image.getDrawable());
+        BitmapDrawable dBlack = (BitmapDrawable) mActivity.getDrawable(R.drawable.icon_black);
+        WidgetTestUtils.assertEquals(dBlack.getBitmap(),
+                ((BitmapDrawable) image.getDrawable()).getBitmap());
+    }
+
+    public void testSetImageViewIcon() {
+        ImageView image = (ImageView) mResult.findViewById(R.id.remoteView_image);
+        assertNull(image.getDrawable());
+
+        Icon iconBlue = Icon.createWithResource(mActivity, R.drawable.icon_blue);
+        mRemoteViews.setImageViewIcon(R.id.remoteView_image, iconBlue);
+        mRemoteViews.reapply(mActivity, mResult);
+        assertNotNull(image.getDrawable());
+        BitmapDrawable dBlue = (BitmapDrawable) mActivity.getDrawable(R.drawable.icon_blue);
+        WidgetTestUtils.assertEquals(dBlue.getBitmap(),
+                ((BitmapDrawable) image.getDrawable()).getBitmap());
+
+    }
+
     public void testSetImageViewResource() {
         ImageView image = (ImageView) mResult.findViewById(R.id.remoteView_image);
         assertNull(image.getDrawable());
@@ -159,8 +187,7 @@ public class RemoteViewsTest extends ActivityInstrumentationTestCase2<RemoteView
         mRemoteViews.setImageViewResource(R.id.remoteView_image, R.drawable.testimage);
         mRemoteViews.reapply(mActivity, mResult);
         assertNotNull(image.getDrawable());
-        BitmapDrawable d = (BitmapDrawable) mActivity
-                .getResources().getDrawable(R.drawable.testimage);
+        BitmapDrawable d = (BitmapDrawable) mActivity.getDrawable(R.drawable.testimage);
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) image.getDrawable()).getBitmap());
 

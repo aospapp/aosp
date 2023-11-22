@@ -20,8 +20,6 @@ import java.io.FileDescriptor;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import android.content.pm.Signature;
 import android.os.BadParcelableException;
@@ -2969,5 +2967,122 @@ public class ParcelTest extends AndroidTestCase {
         public IBinder asBinder() {
             return binder;
         }
+    }
+
+    private static boolean parcelableWithBadCreatorInitializerHasRun;
+    private static boolean invalidCreatorIntializerHasRun;
+
+    /**
+     * A class that would be Parcelable except that it doesn't have a CREATOR field declared to be
+     * of the correct type.
+     */
+    @SuppressWarnings("unused") // Referenced via reflection only
+    private static class ParcelableWithBadCreator implements Parcelable {
+
+        static {
+            ParcelTest.parcelableWithBadCreatorInitializerHasRun = true;
+        }
+
+        private static class InvalidCreator
+                implements Parcelable.Creator<ParcelableWithBadCreator> {
+
+            static {
+                invalidCreatorIntializerHasRun = true;
+            }
+
+            @Override
+            public ParcelableWithBadCreator createFromParcel(Parcel source) {
+                return null;
+            }
+
+            @Override
+            public ParcelableWithBadCreator[] newArray(int size) {
+                return new ParcelableWithBadCreator[0];
+            }
+
+        }
+
+        // Invalid declaration: Must be declared as Parcelable.Creator or a subclass.
+        public static Object CREATOR = new InvalidCreator();
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+
+        }
+    }
+
+    // http://b/1171613
+    public void testBadStream_invalidCreator() {
+        Parcel parcel = Parcel.obtain();
+        // Create an invalid stream by manipulating the Parcel.
+        parcel.writeString(getClass().getName() + "$ParcelableWithBadCreator");
+        byte[] badData = parcel.marshall();
+        parcel.recycle();
+
+        // Now try to read the bad data.
+        parcel = Parcel.obtain();
+        parcel.unmarshall(badData, 0, badData.length);
+        parcel.setDataPosition(0);
+        try {
+            parcel.readParcelable(getClass().getClassLoader());
+            fail();
+        } catch (BadParcelableException expected) {
+        } finally {
+            parcel.recycle();
+        }
+
+        assertFalse(invalidCreatorIntializerHasRun);
+        assertFalse(parcelableWithBadCreatorInitializerHasRun);
+    }
+
+    private static boolean doesNotImplementParcelableInitializerHasRun;
+
+    /** A class that would be Parcelable except that it does not implement Parcelable. */
+    @SuppressWarnings("unused") // Referenced via reflection only
+    private static class DoesNotImplementParcelable {
+
+        static {
+            doesNotImplementParcelableInitializerHasRun = true;
+        }
+
+        public static Parcelable.Creator<Object> CREATOR = new Parcelable.Creator<Object>() {
+            @Override
+            public Object createFromParcel(Parcel source) {
+                return new DoesNotImplementParcelable();
+            }
+
+            @Override
+            public Object[] newArray(int size) {
+                return new Object[size];
+            }
+        };
+    }
+
+    // http://b/1171613
+    public void testBadStream_objectDoesNotImplementParcelable() {
+        Parcel parcel = Parcel.obtain();
+        // Create an invalid stream by manipulating the Parcel.
+        parcel.writeString(getClass().getName() + "$DoesNotImplementParcelable");
+        byte[] badData = parcel.marshall();
+        parcel.recycle();
+
+        // Now try to read the bad data.
+        parcel = Parcel.obtain();
+        parcel.unmarshall(badData, 0, badData.length);
+        parcel.setDataPosition(0);
+        try {
+            parcel.readParcelable(getClass().getClassLoader());
+            fail();
+        } catch (BadParcelableException expected) {
+        } finally {
+            parcel.recycle();
+        }
+
+        assertFalse(doesNotImplementParcelableInitializerHasRun);
     }
 }

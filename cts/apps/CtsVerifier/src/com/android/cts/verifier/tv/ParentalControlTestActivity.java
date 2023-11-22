@@ -17,7 +17,7 @@
 package com.android.cts.verifier.tv;
 
 import com.android.cts.verifier.R;
-
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.database.Cursor;
 import android.media.tv.TvContentRating;
@@ -35,6 +35,7 @@ import android.widget.Toast;
 /**
  * Tests for verifying TV app behavior on parental control.
  */
+@SuppressLint("NewApi")
 public class ParentalControlTestActivity extends TvAppVerifierActivity
         implements View.OnClickListener {
     private static final String TAG = "ParentalControlTestActivity";
@@ -110,7 +111,8 @@ public class ParentalControlTestActivity extends TvAppVerifierActivity
         }
         if (mTvAppIntent == null) {
             String[] projection = { TvContract.Channels._ID };
-            try (Cursor cursor = getContentResolver().query(TvContract.Channels.CONTENT_URI,
+            try (Cursor cursor = getContentResolver().query(
+                    TvContract.buildChannelsUriForInput(MockTvInputService.getInputId(this)),
                     projection, null, null, null)) {
                 if (cursor != null && cursor.moveToNext()) {
                     mTvAppIntent = new Intent(Intent.ACTION_VIEW,

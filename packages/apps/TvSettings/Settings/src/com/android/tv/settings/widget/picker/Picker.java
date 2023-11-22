@@ -20,9 +20,14 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.annotation.DimenRes;
 import android.app.Fragment;
 import android.content.Context;
 import android.os.Bundle;
+import android.support.v17.leanback.widget.OnChildSelectedListener;
+import android.support.v17.leanback.widget.VerticalGridView;
+import android.support.v7.widget.RecyclerView;
+import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -32,12 +37,9 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.android.tv.settings.widget.ScrollAdapterView;
-import com.android.tv.settings.widget.ScrollArrayAdapter;
 import com.android.tv.settings.R;
 
 import java.util.ArrayList;
@@ -47,7 +49,7 @@ import java.util.List;
 /**
  * Picker class
  */
-public class Picker extends Fragment {
+public abstract class Picker extends Fragment {
 
     /**
      * Object listening for adapter events.
@@ -57,14 +59,9 @@ public class Picker extends Fragment {
     }
 
     private Context mContext;
-    private String mSeparator;
-    private ViewGroup mRootView;
-    private ViewGroup mPickerView;
-    private List<ScrollAdapterView> mColumnViews;
+    private List<VerticalGridView> mColumnViews;
     private ResultListener mResultListener;
-    private ChangeTextColorOnFocus mColumnChangeListener;
-    private ArrayList<PickerColumn> mColumns = new ArrayList<PickerColumn>();
-    protected PickerConstant mConstant;
+    private ArrayList<PickerColumn> mColumns = new ArrayList<>();
 
     private float mUnfocusedAlpha;
     private float mFocusedAlpha;
@@ -81,101 +78,28 @@ public class Picker extends Fragment {
      */
     private List<String> mResult;
 
-    private OnItemClickListener mOnClickListener = new OnItemClickListener() {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            if (mKeyDown) {
-                mKeyDown = false;
-                mClicked = true;
-                updateAllColumnsForClick(true);
-            }
-        }
-    };
-
-    public static Picker newInstance() {
-        return new Picker();
-    }
-
     /**
      * Classes extending {@link Picker} should override this method to supply
      * the columns
      */
-    protected ArrayList<PickerColumn> getColumns() {
-        return null;
-    }
+    protected abstract ArrayList<PickerColumn> getColumns();
 
     /**
      * Classes extending {@link Picker} can choose to override this method to
      * supply the separator string
      */
-    protected String getSeparator() {
-        return mSeparator;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s root layout id
-     */
-    protected int getRootLayoutId() {
-        return R.layout.picker;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s id from within the layout provided by
-     * {@link Picker#getRootLayoutId()}
-     */
-    protected int getPickerId() {
-        return R.id.picker;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s separator's layout id
-     */
-    protected int getPickerSeparatorLayoutId() {
-        return R.layout.picker_separator;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s item's layout id
-     */
-    protected int getPickerItemLayoutId() {
-        return R.layout.picker_item;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s item's {@link TextView}'s id from within the
-     * layout provided by {@link Picker#getPickerItemLayoutId()} or 0 if the
-     * layout provided by {@link Picker#getPickerItemLayoutId()} is a {link
-     * TextView}.
-     */
-    protected int getPickerItemTextViewId() {
-        return 0;
-    }
-
-    /**
-     * Classes extending {@link Picker} can choose to override this method to
-     * supply the {@link Picker}'s column's height in pixels.
-     */
-    protected int getPickerColumnHeightPixels() {
-        return getActivity().getResources().getDimensionPixelSize(R.dimen.picker_column_height);
-    }
+    protected abstract String getSeparator();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mContext = getActivity();
-        mConstant = PickerConstant.getInstance(mContext.getResources());
 
         mFocusedAlpha = getFloat(R.dimen.list_item_selected_title_text_alpha);
         mUnfocusedAlpha = getFloat(R.dimen.list_item_unselected_text_alpha);
         mVisibleColumnAlpha = getFloat(R.dimen.picker_item_visible_column_item_alpha);
         mInvisibleColumnAlpha = getFloat(R.dimen.picker_item_invisible_column_item_alpha);
 
-        mColumnChangeListener = new ChangeTextColorOnFocus();
         mAlphaAnimDuration = mContext.getResources().getInteger(
                 R.integer.dialog_animation_duration);
 
@@ -192,33 +116,31 @@ public class Picker extends Fragment {
             return null;
         }
 
-        mRootView = (ViewGroup) inflater.inflate(getRootLayoutId(), null);
-        mPickerView = (ViewGroup) mRootView.findViewById(getPickerId());
-        mColumnViews = new ArrayList<ScrollAdapterView>();
-        mResult = new ArrayList<String>();
+        final ViewGroup rootView = (ViewGroup) inflater.inflate(R.layout.picker, container, false);
+        final PickerLayout pickerView = (PickerLayout) rootView.findViewById(R.id.picker);
+        pickerView.setChildFocusListener(this);
+        mColumnViews = new ArrayList<>();
+        mResult = new ArrayList<>();
 
         int totalCol = mColumns.size();
         for (int i = 0; i < totalCol; i++) {
-            final int colIndex = i;
             final String[] col = mColumns.get(i).getItems();
             mResult.add(col[0]);
-            final ScrollAdapterView columnView = (ScrollAdapterView) inflater.inflate(
-                    R.layout.picker_column, mPickerView, false);
-            LayoutParams lp = columnView.getLayoutParams();
-            lp.height = getPickerColumnHeightPixels();
-            columnView.setLayoutParams(lp);
+            final VerticalGridView columnView = (VerticalGridView) inflater.inflate(
+                    R.layout.picker_column, pickerView, false);
+            columnView.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_NO_EDGE);
             mColumnViews.add(columnView);
-            columnView.setTag(Integer.valueOf(colIndex));
+            columnView.setTag(i);
 
             // add view to root
-            mPickerView.addView(columnView);
+            pickerView.addView(columnView);
 
             // add a separator if not the last element
             if (i != totalCol - 1 && getSeparator() != null) {
-                TextView separator = (TextView) inflater.inflate(
-                        getPickerSeparatorLayoutId(), mPickerView, false);
+                final TextView separator =
+                        (TextView) inflater.inflate(R.layout.picker_separator, pickerView, false);
                 separator.setText(getSeparator());
-                mPickerView.addView(separator);
+                pickerView.addView(separator);
             }
         }
         initAdapters();
@@ -227,24 +149,18 @@ public class Picker extends Fragment {
         mClicked = false;
         mKeyDown = false;
 
-        return mRootView;
+        return rootView;
     }
 
     private void initAdapters() {
         final int totalCol = mColumns.size();
         for (int i = 0; i < totalCol; i++) {
-            final int colIndex = i;
-            ScrollAdapterView columnView = mColumnViews.get(i);
-            final String[] col = mColumns.get(i).getItems();
-            setAdapter(columnView, col, colIndex);
-            columnView.setOnFocusChangeListener(mColumnChangeListener);
-            columnView.setOnItemSelectedListener(mColumnChangeListener);
-            columnView.setOnItemClickListener(mOnClickListener);
-
-            columnView.setOnKeyListener(new View.OnKeyListener() {
+            VerticalGridView gridView = mColumnViews.get(i);
+            gridView.setAdapter(new Adapter(i, Arrays.asList(mColumns.get(i).getItems())));
+            gridView.setOnKeyInterceptListener(new VerticalGridView.OnKeyInterceptListener() {
                 @Override
-                public boolean onKey(View v, int keyCode, KeyEvent event) {
-                    switch (keyCode) {
+                public boolean onInterceptKeyEvent(KeyEvent event) {
+                    switch (event.getKeyCode()) {
                         case KeyEvent.KEYCODE_DPAD_CENTER:
                         case KeyEvent.KEYCODE_ENTER:
                             if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -264,46 +180,25 @@ public class Picker extends Fragment {
         }
     }
 
-    private void unregisterListeners() {
-        final int totalCol = mColumns.size();
-        for (int i = 0; i < totalCol; i++) {
-            ScrollAdapterView columnView = mColumnViews.get(i);
-            columnView.setOnFocusChangeListener(null);
-            columnView.setOnItemSelectedListener(null);
-            columnView.setOnItemClickListener(null);
-            columnView.setOnKeyListener(null);
-        }
-    }
+    protected void updateAdapter(int index, PickerColumn pickerColumn) {
+        final VerticalGridView gridView = mColumnViews.get(index);
+        final Adapter adapter = (Adapter) gridView.getAdapter();
 
-    private void setAdapter(ScrollAdapterView columnView, final String[] col, final int colIndex) {
-        List<String> arrayList = new ArrayList<String>(Arrays.asList(col));
-        PickerScrollArrayAdapter pickerScrollArrayAdapter = (getPickerItemTextViewId() == 0) ?
-                new PickerScrollArrayAdapter(mContext, getPickerItemLayoutId(), arrayList, colIndex)
-                : new PickerScrollArrayAdapter(mContext, getPickerItemLayoutId(),
-                        getPickerItemTextViewId(), arrayList, colIndex);
-        columnView.setAdapter(pickerScrollArrayAdapter);
-    }
-
-    protected void updateAdapter(final int index, PickerColumn pickerColumn) {
-        ScrollAdapterView columnView = mColumnViews.get(index);
-        final String[] col = pickerColumn.getItems();
-
-        ScrollArrayAdapter<String> adapter = (ScrollArrayAdapter<String>)(columnView.getAdapter());
-        if (adapter != null) {
-            adapter.setNotifyOnChange(false);
-            adapter.clear();
-            adapter.addAll(col);
-            adapter.notifyDataSetChanged();
-        }
-
-        updateColumn(columnView, false, null);
         mColumns.set(index, pickerColumn);
+        adapter.setItems(Arrays.asList(pickerColumn.getItems()));
+
+        gridView.post(new Runnable() {
+            @Override
+            public void run() {
+                updateColumn(gridView, false, null);
+            }
+        });
     }
 
     protected void updateSelection(int columnIndex, int selectedIndex) {
-        ScrollAdapterView columnView = mColumnViews.get(columnIndex);
+        VerticalGridView columnView = mColumnViews.get(columnIndex);
         if (columnView != null) {
-            columnView.setSelection(selectedIndex);
+            columnView.setSelectedPosition(selectedIndex);
             String text = mColumns.get(columnIndex).getItems()[selectedIndex];
             mResult.set(columnIndex, text);
         }
@@ -314,35 +209,36 @@ public class Picker extends Fragment {
     }
 
     private void updateAllColumnsForClick(boolean keyUp) {
-        ArrayList<Animator> animList = null;
-        animList = new ArrayList<Animator>();
-        View item;
+        final ArrayList<Animator> animList = new ArrayList<>();
 
-        for (int j = 0; j < mColumnViews.size(); j++) {
-            ScrollAdapterView column = mColumnViews.get(j);
-            int selected = column.getSelectedItemPosition();
-            for (int i = 0; i < column.getAdapter().getCount(); i++) {
-                item = column.getItemView(i);
+        for (final VerticalGridView column : mColumnViews) {
+            final int selected = column.getSelectedPosition();
+
+            final RecyclerView.LayoutManager manager = column.getLayoutManager();
+            final int size = manager.getChildCount();
+
+            for (int i = 0; i < size; i++) {
+                final View item = manager.getChildAt(i);
                 if (item != null) {
                     if (selected == i) {
                         // set alpha for main item (selected) in the column
                         if (keyUp) {
-                            setOrAnimateAlpha(item, true, mFocusedAlpha, mUnfocusedAlpha, animList,
-                                    mAccelerateInterpolator);
+                            setOrAnimateAlphaInternal(item, true, mFocusedAlpha, mUnfocusedAlpha,
+                                    animList, mAccelerateInterpolator);
                         } else {
-                            setOrAnimateAlpha(item, true, mUnfocusedAlpha, -1, animList,
+                            setOrAnimateAlphaInternal(item, true, mUnfocusedAlpha, -1, animList,
                                     mDecelerateInterpolator);
                         }
                     } else if (!keyUp) {
                         // hide all non selected items on key down
-                        setOrAnimateAlpha(item, true, mInvisibleColumnAlpha, -1, animList,
+                        setOrAnimateAlphaInternal(item, true, mInvisibleColumnAlpha, -1, animList,
                                 mDecelerateInterpolator);
                     }
                 }
             }
         }
 
-        if (animList != null && animList.size() > 0) {
+        if (!animList.isEmpty()) {
             AnimatorSet animSet = new AnimatorSet();
             animSet.playTogether(animList);
 
@@ -360,29 +256,47 @@ public class Picker extends Fragment {
         }
     }
 
-    private void updateColumn(ScrollAdapterView column, boolean animateAlpha,
+    public void childFocusChanged() {
+        final ArrayList<Animator> animList = new ArrayList<>();
+
+        for (final VerticalGridView column : mColumnViews) {
+            updateColumn(column, column.hasFocus(), animList);
+        }
+
+        if (!animList.isEmpty()) {
+            AnimatorSet animSet = new AnimatorSet();
+            animSet.playTogether(animList);
+            animSet.start();
+        }
+    }
+
+    private void updateColumn(VerticalGridView column, boolean animateAlpha,
             ArrayList<Animator> animList) {
         if (column == null) {
             return;
         }
 
-        int selected = column.getSelectedItemPosition();
-        View item;
-        boolean focused = column.hasFocus();
+        final int selected = column.getSelectedPosition();
+        final boolean focused = column.hasFocus();
 
         ArrayList<Animator> localAnimList = animList;
         if (animateAlpha && localAnimList == null) {
             // no global animation list, create a local one for the current set
-            localAnimList = new ArrayList<Animator>();
+            localAnimList = new ArrayList<>();
         }
 
-        for (int i = 0; i < column.getAdapter().getCount(); i++) {
-            item = column.getItemView(i);
+        // Iterate through the visible views
+        final RecyclerView.LayoutManager manager = column.getLayoutManager();
+        final int size = manager.getChildCount();
+
+        for (int i = 0; i < size; i++) {
+            final View item = manager.getChildAt(i);
             if (item != null) {
-                setOrAnimateAlpha(item, (selected == i), focused, animateAlpha, localAnimList);
+                setOrAnimateAlpha(item, (selected == column.getChildAdapterPosition(item)), focused,
+                        animateAlpha, localAnimList);
             }
         }
-        if (animateAlpha && animList == null && localAnimList != null && localAnimList.size() > 0) {
+        if (animateAlpha && animList == null && !localAnimList.isEmpty()) {
             // No global animation list, so play these start the current set of animations now
             AnimatorSet animSet = new AnimatorSet();
             animSet.playTogether(localAnimList);
@@ -395,26 +309,26 @@ public class Picker extends Fragment {
         if (selected) {
             // set alpha for main item (selected) in the column
             if ((focused && !mKeyDown) || mClicked) {
-                setOrAnimateAlpha(view, animate, mFocusedAlpha, -1, animList,
+                setOrAnimateAlphaInternal(view, animate, mFocusedAlpha, -1, animList,
                         mDecelerateInterpolator);
             } else {
-                setOrAnimateAlpha(view, animate, mUnfocusedAlpha, -1, animList,
+                setOrAnimateAlphaInternal(view, animate, mUnfocusedAlpha, -1, animList,
                         mDecelerateInterpolator);
             }
         } else {
             // set alpha for remaining items in the column
             if (focused && !mClicked && !mKeyDown) {
-                setOrAnimateAlpha(view, animate, mVisibleColumnAlpha, -1, animList,
+                setOrAnimateAlphaInternal(view, animate, mVisibleColumnAlpha, -1, animList,
                         mDecelerateInterpolator);
             } else {
-                setOrAnimateAlpha(view, animate, mInvisibleColumnAlpha, -1, animList,
+                setOrAnimateAlphaInternal(view, animate, mInvisibleColumnAlpha, -1, animList,
                         mDecelerateInterpolator);
             }
         }
     }
 
-    private void setOrAnimateAlpha(View view, boolean animate, float destAlpha, float startAlpha,
-            ArrayList<Animator> animList, Interpolator interpolator) {
+    private void setOrAnimateAlphaInternal(View view, boolean animate, float destAlpha,
+            float startAlpha, ArrayList<Animator> animList, Interpolator interpolator) {
         view.clearAnimation();
         if (!animate) {
             view.setAlpha(destAlpha);
@@ -441,112 +355,140 @@ public class Picker extends Fragment {
      * Classes extending {@link Picker} can override this function to supply the
      * behavior when a list has been scrolled
      */
-    protected void onScroll(View v) {
-    }
+    protected void onScroll(int column, View v, int position) {}
 
-    @Override
-    public void onDestroyView() {
-        unregisterListeners();
-        if (mColumnChangeListener != null) {
-            mColumnChangeListener.setDisabled();
-        }
-        super.onDestroyView();
-    }
-
-    private float getFloat(int resourceId) {
+    private float getFloat(@DimenRes int resourceId) {
         TypedValue buffer = new TypedValue();
         mContext.getResources().getValue(resourceId, buffer, true);
         return buffer.getFloat();
     }
 
-    private class PickerScrollArrayAdapter extends ScrollArrayAdapter<String> {
+    private class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+        private final TextView mTextView;
 
-        private final int mColIndex;
-        private final int mTextViewResourceId;
-
-        PickerScrollArrayAdapter(Context context, int resource,
-                List<String> objects, int colIndex) {
-            super(context, resource, objects);
-            mColIndex = colIndex;
-            mTextViewResourceId = 0;
+        public ViewHolder(View itemView) {
+            super(itemView);
+            mTextView = (TextView) itemView.findViewById(R.id.list_item);
+            itemView.setOnClickListener(this);
         }
 
-        PickerScrollArrayAdapter(Context context, int resource, int textViewResourceId,
-                List<String> objects, int colIndex) {
-            super(context, resource, textViewResourceId, objects);
-            mColIndex = colIndex;
-            mTextViewResourceId = textViewResourceId;
+        public TextView getTextView() {
+            return mTextView;
         }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view = super.getView(position, convertView, parent);
-            view.setTag(Integer.valueOf(mColIndex));
-            setOrAnimateAlpha(view,
-                    (mColumnViews.get(mColIndex).getSelectedItemPosition() == position), false,
-                    false, null);
-            return view;
-        }
-
-        TextView getTextViewFromAdapterView(View adapterView) {
-            if (mTextViewResourceId != 0) {
-                return (TextView) adapterView.findViewById(mTextViewResourceId);
-            } else {
-                return (TextView) adapterView;
+        public void onClick(View v) {
+            if (mKeyDown) {
+                mKeyDown = false;
+                mClicked = true;
+                updateAllColumnsForClick(true);
             }
         }
     }
 
+    private class Adapter extends RecyclerView.Adapter<ViewHolder>
+            implements OnChildSelectedListener {
 
-    private class ChangeTextColorOnFocus implements View.OnFocusChangeListener,
-            AdapterView.OnItemSelectedListener {
-        private boolean mDisabled;
+        private final int mColumnId;
 
-        ChangeTextColorOnFocus() {
-            mDisabled = false;
-        }
+        private List<String> mItems;
+        private VerticalGridView mGridView;
 
-        public void setDisabled() {
-            mDisabled = true;
+        public Adapter(int columnId, List<String> items) {
+            mColumnId = columnId;
+            mItems = items;
+            setHasStableIds(true);
         }
 
         @Override
-        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-            if (mDisabled) {
-                // If the listener has been disabled (because the view is being destroyed)
-                // then just ignore this call.
+        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            final View view = getLayoutInflater(null).inflate(R.layout.picker_item, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(ViewHolder holder, int position) {
+            final TextView textView = holder.getTextView();
+            textView.setText(mItems.get(position));
+            setOrAnimateAlpha(textView, mGridView.getSelectedPosition() == position,
+                    mGridView.hasFocus(), false, null);
+        }
+
+        @Override
+        public int getItemCount() {
+            return mItems.size();
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+            mGridView = (VerticalGridView) recyclerView;
+            mGridView.setOnChildSelectedListener(this);
+        }
+
+        @Override
+        public void onDetachedFromRecyclerView(RecyclerView recyclerView) {
+            mGridView = null;
+        }
+
+        @Override
+        public void onChildSelected(ViewGroup parent, View view, int position, long id) {
+            if (mGridView == null) {
                 return;
             }
+            final ViewHolder vh = (ViewHolder) mGridView.getChildViewHolder(view);
+            final TextView textView = vh.getTextView();
 
-            PickerScrollArrayAdapter pickerScrollArrayAdapter = (PickerScrollArrayAdapter) parent
-                    .getAdapter();
+            updateColumn(mGridView, mGridView.hasFocus(), null);
+            mResult.set(mColumnId, textView.getText().toString());
+            onScroll(mColumnId, textView, position);
+        }
 
-            TextView textView = pickerScrollArrayAdapter.getTextViewFromAdapterView(view);
+        public void setItems(List<String> items) {
+            final List<String> oldItems = mItems;
+            mItems = items;
+            if (oldItems.size() < items.size()) {
+                notifyItemRangeInserted(oldItems.size(), oldItems.size() - items.size());
+            } else if (items.size() < oldItems.size()) {
+                notifyItemRangeRemoved(items.size(), items.size() - oldItems.size());
+            }
+        }
+    }
 
-            int colIndex = (Integer) parent.getTag();
+    public static class PickerLayout extends LinearLayout {
 
-            updateColumn((ScrollAdapterView) parent, parent.hasFocus(), null);
+        private Picker mChildFocusListener;
 
-            mResult.set(colIndex, textView.getText().toString());
-            onScroll(textView);
+        public PickerLayout(Context context) {
+            super(context);
+        }
+
+        public PickerLayout(Context context, AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public PickerLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+            super(context, attrs, defStyleAttr);
+        }
+
+        public PickerLayout(Context context, AttributeSet attrs, int defStyleAttr,
+                int defStyleRes) {
+            super(context, attrs, defStyleAttr, defStyleRes);
         }
 
         @Override
-        public void onNothingSelected(AdapterView<?> parent) {
-            // N/A
+        public void requestChildFocus(View child, View focused) {
+            super.requestChildFocus(child, focused);
+
+            mChildFocusListener.childFocusChanged();
         }
 
-        @Override
-        public void onFocusChange(View view, boolean hasFocus) {
-            if (mDisabled) {
-                // If the listener has been disabled (because the view is being destroyed)
-                // then just ignore this call.
-                return;
-            }
-
-            if (view instanceof ScrollAdapterView) {
-                updateColumn((ScrollAdapterView) view, true, null);
-            }
+        public void setChildFocusListener(Picker childFocusListener) {
+            mChildFocusListener = childFocusListener;
         }
     }
 }

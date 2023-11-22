@@ -26,14 +26,24 @@ LOCAL_MULTILIB := both
 LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-Iaidl-files-under, src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2 \
+                               android-support-v4 \
                                compatibility-common-util-devicesidelib_v2 \
                                cts-sensors-tests \
                                ctstestrunner \
+                               apache-commons-math \
+                               androidplot \
+                               ctsverifier-opencv \
+                               core-tests \
+                               android-support-v4  \
+                               mockito-target \
+                               mockwebserver \
+                               compatibility-device-util_v2 \
 
 LOCAL_PACKAGE_NAME := CtsVerifier
 
-LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni \
-	#libcameraanalyzer # Needed for the disabled CameraAnalyzer tests
+LOCAL_AAPT_FLAGS += --version-name "6.0_r0 $(BUILD_NUMBER)"
+
+LOCAL_JNI_SHARED_LIBRARIES := libctsverifier_jni libaudioloopback_jni
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
@@ -43,13 +53,25 @@ LOCAL_DEX_PREOPT := false
 
 include $(BUILD_PACKAGE)
 
+
+# opencv library
+include $(CLEAR_VARS)
+
+LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
+        ctsverifier-opencv:libs/opencv-android.jar
+
+include $(BUILD_MULTI_PREBUILT)
+
+
 notification-bot := $(call intermediates-dir-for,APPS,NotificationBot)/package.apk
+permission-app := $(call intermediates-dir-for,APPS,CtsPermissionApp)/package.apk
 
 # Builds and launches CTS Verifier on a device.
 .PHONY: cts-verifier
-cts-verifier: CtsVerifier adb NotificationBot
+cts-verifier: CtsVerifier adb NotificationBot CtsPermissionApp
 	adb install -r $(PRODUCT_OUT)/data/app/CtsVerifier/CtsVerifier.apk \
 		&& adb install -r $(notification-bot) \
+		&& adb install -r $(permission-app) \
 		&& adb shell "am start -n com.android.cts.verifier/.CtsVerifierActivity"
 
 #
@@ -86,10 +108,12 @@ $(verifier-zip) : $(HOST_OUT)/bin/cts-usb-accessory
 endif
 $(verifier-zip) : $(HOST_OUT)/CameraITS
 $(verifier-zip) : $(notification-bot)
+$(verifier-zip) : $(permission-app)
 $(verifier-zip) : $(call intermediates-dir-for,APPS,CtsVerifier)/package.apk | $(ACP)
 		$(hide) mkdir -p $(verifier-dir)
 		$(hide) $(ACP) -fp $< $(verifier-dir)/CtsVerifier.apk
 		$(ACP) -fp $(notification-bot) $(verifier-dir)/NotificationBot.apk
+		$(ACP) -fp $(permission-app) $(verifier-dir)/CtsPermissionApp.apk
 ifeq ($(HOST_OS),linux)
 		$(hide) $(ACP) -fp $(HOST_OUT)/bin/cts-usb-accessory $(verifier-dir)/cts-usb-accessory
 endif

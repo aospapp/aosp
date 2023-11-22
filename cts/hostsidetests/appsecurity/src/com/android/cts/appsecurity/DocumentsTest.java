@@ -24,6 +24,10 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 
+/**
+ * Set of tests that verify behavior of
+ * {@link android.provider.DocumentsContract} and related intents.
+ */
 public class DocumentsTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     private static final String PROVIDER_PKG = "com.android.cts.documentprovider";
     private static final String PROVIDER_APK = "CtsDocumentProvider.apk";

@@ -60,12 +60,12 @@ public class PhoneUtils {
             if (phoneNumberUtil.isValidNumber(phoneNumber)) {
                 return phoneNumber;
             } else {
-                Log.e(MmsService.TAG, "getParsedNumber: not a valid phone number " + phoneText
+                LogUtil.e("getParsedNumber: not a valid phone number"
                         + " for country " + country);
                 return null;
             }
         } catch (final NumberParseException e) {
-            Log.e(MmsService.TAG, "getParsedNumber: Not able to parse phone number " + phoneText);
+            LogUtil.e("getParsedNumber: Not able to parse phone number", e);
             return null;
         }
     }

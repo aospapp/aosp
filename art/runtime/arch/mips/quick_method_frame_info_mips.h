@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_ARCH_MIPS_QUICK_METHOD_FRAME_INFO_MIPS_H_
 #define ART_RUNTIME_ARCH_MIPS_QUICK_METHOD_FRAME_INFO_MIPS_H_
 
+#include "base/bit_utils.h"
 #include "quick/quick_method_frame_info.h"
 #include "registers_mips.h"
 #include "runtime.h"  // for Runtime::CalleeSaveType.
@@ -31,6 +32,10 @@ static constexpr uint32_t kMipsCalleeSaveArgSpills =
     (1 << art::mips::A1) | (1 << art::mips::A2) | (1 << art::mips::A3);
 static constexpr uint32_t kMipsCalleeSaveAllSpills =
     (1 << art::mips::S0) | (1 << art::mips::S1);
+static constexpr uint32_t kMipsCalleeSaveAllFPSpills =
+    (1 << art::mips::F20) | (1 << art::mips::F21) | (1 << art::mips::F22) | (1 << art::mips::F23) |
+    (1 << art::mips::F24) | (1 << art::mips::F25) | (1 << art::mips::F26) | (1 << art::mips::F27) |
+    (1 << art::mips::F28) | (1 << art::mips::F29) | (1 << art::mips::F30) | (1 << art::mips::F31);
 
 constexpr uint32_t MipsCalleeSaveCoreSpills(Runtime::CalleeSaveType type) {
   return kMipsCalleeSaveRefSpills |
@@ -38,16 +43,20 @@ constexpr uint32_t MipsCalleeSaveCoreSpills(Runtime::CalleeSaveType type) {
       (type == Runtime::kSaveAll ? kMipsCalleeSaveAllSpills : 0) | (1 << art::mips::RA);
 }
 
+constexpr uint32_t MipsCalleeSaveFPSpills(Runtime::CalleeSaveType type) {
+  return type == Runtime::kSaveAll ? kMipsCalleeSaveAllFPSpills : 0;
+}
+
 constexpr uint32_t MipsCalleeSaveFrameSize(Runtime::CalleeSaveType type) {
   return RoundUp((POPCOUNT(MipsCalleeSaveCoreSpills(type)) /* gprs */ +
-                  (type == Runtime::kRefsAndArgs ? 0 : 3) + 1 /* Method* */) *
-                 kMipsPointerSize, kStackAlignment);
+                  POPCOUNT(MipsCalleeSaveFPSpills(type))   /* fprs */ +
+                  1 /* Method* */) * kMipsPointerSize, kStackAlignment);
 }
 
 constexpr QuickMethodFrameInfo MipsCalleeSaveMethodFrameInfo(Runtime::CalleeSaveType type) {
   return QuickMethodFrameInfo(MipsCalleeSaveFrameSize(type),
                               MipsCalleeSaveCoreSpills(type),
-                              0u);
+                              MipsCalleeSaveFPSpills(type));
 }
 
 }  // namespace mips

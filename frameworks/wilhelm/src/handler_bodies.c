@@ -117,7 +117,7 @@ unsigned handler_MediaPlayer_play_state(IObject *thiz)
     CMediaPlayer *mp = (CMediaPlayer *) thiz;
     android::GenericPlayer* avp = mp->mAVPlayer.get();
     if (avp != NULL) {
-        android_Player_setPlayState(avp, mp->mPlay.mState, &(mp->mAndroidObjState));
+        android_Player_setPlayState(avp, mp->mPlay.mState, &mp->mAndroidObjState);
     }
     return ATTR_PLAY_STATE;
 }

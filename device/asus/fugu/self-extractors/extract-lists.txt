@@ -107,6 +107,7 @@
             system/lib/arm/libOpenMAXAL.so \
             system/lib/arm/libOpenSLES.so \
             system/lib/arm/libopus.so \
+            system/lib/arm/libpcre.so \
             system/lib/arm/libpdfium.so \
             system/lib/arm/libpixelflinger.so \
             system/lib/arm/libpng.so \
@@ -132,9 +133,9 @@
             system/lib/arm/libstagefright.so \
             system/lib/arm/libstagefright_yuv.so \
             system/lib/arm/libstdc++.so \
-            system/lib/arm/libstlport.so \
             system/lib/arm/libsurfaceflinger.so \
             system/lib/arm/libsync.so \
+            system/lib/arm/libsysutils.so \
             system/lib/arm/libui.so \
             system/lib/arm/libunwind-ptrace.so \
             system/lib/arm/libunwind.so \
@@ -145,6 +146,41 @@
             system/lib/arm/libwilhelm.so \
             system/lib/arm/libz.so \
             system/lib/arm/linker \
+            system/lib/arm/nb/libandroid_runtime.so \
+            system/lib/arm/nb/libandroid.so \
+            system/lib/arm/nb/libart.so \
+            system/lib/arm/nb/libaudioflinger.so \
+            system/lib/arm/nb/libbinder.so \
+            system/lib/arm/nb/libcamera_client.so \
+            system/lib/arm/nb/libc.so \
+            system/lib/arm/nb/libcutils.so \
+            system/lib/arm/nb/libdl.so \
+            system/lib/arm/nb/libEGL.so \
+            system/lib/arm/nb/libft2.so \
+            system/lib/arm/nb/libGLESv1_CM.so \
+            system/lib/arm/nb/libGLESv2.so \
+            system/lib/arm/nb/libGLESv3.so \
+            system/lib/arm/nb/libgui.so \
+            system/lib/arm/nb/libhardware_legacy.so \
+            system/lib/arm/nb/libhwui.so \
+            system/lib/arm/nb/libicui18n.so \
+            system/lib/arm/nb/libicuuc.so \
+            system/lib/arm/nb/libjnigraphics.so \
+            system/lib/arm/nb/libmediandk.so \
+            system/lib/arm/nb/libmedia.so \
+            system/lib/arm/nb/libm.so \
+            system/lib/arm/nb/libnativehelper.so \
+            system/lib/arm/nb/libOpenMAXAL.so \
+            system/lib/arm/nb/libOpenSLES.so \
+            system/lib/arm/nb/libpixelflinger.so \
+            system/lib/arm/nb/libskia.so \
+            system/lib/arm/nb/libsqlite.so \
+            system/lib/arm/nb/libstagefright.so \
+            system/lib/arm/nb/libsurfaceflinger.so \
+            system/lib/arm/nb/libui.so \
+            system/lib/arm/nb/libutils.so \
+            system/lib/arm/nb/libz.so \
+            system/lib/hw/keystore.moorefield.so \
             system/lib/libDecoderVP9Hybrid.so \
             system/lib/libdx_cc7.so \
             system/lib/libgabi++-mfx.so \
@@ -163,7 +199,7 @@
             system/lib/libOMXVideoDecoderAVCSecure.so \
             system/lib/libsepdrm_cc54.so \
             system/lib/libstlport-mfx.so \
-            system/usr/share/librscruntime.bc \
+            system/vendor/lib/librscruntime.bc \
             system/vendor/bin/bcc.moorefield \
             system/vendor/bin/framebuffer_test \
             system/vendor/bin/hwperfbin2jsont \
@@ -171,6 +207,10 @@
             system/vendor/bin/pvrhwperf \
             system/vendor/bin/pvrsrvctl \
             system/vendor/bin/pvrtld \
+            system/vendor/firmware/game_controller.hex \
+            system/vendor/firmware/nexus_tv_gamepad.hex \
+            system/vendor/firmware/nexus_tv_remote.hex \
+            system/vendor/firmware/PR-ModelCert \
             system/vendor/lib/egl/libEGL_POWERVR_ROGUE.so \
             system/vendor/lib/egl/libGLESv1_CM_POWERVR_ROGUE.so \
             system/vendor/lib/egl/libGLESv2_POWERVR_ROGUE.so \
@@ -189,12 +229,13 @@
             system/vendor/lib/libPVRRS.so \
             system/vendor/lib/libPVRScopeServices.so \
             system/vendor/lib/librsccompiler.so \
-            system/vendor/lib/libRS.moorefield.so \
+            system/vendor/lib/hw/memtrack.moorefield.so \
             system/vendor/lib/libseppr_hal.so \
             system/vendor/lib/libsrv_init.so \
             system/vendor/lib/libsrv_um.so \
             system/vendor/lib/libufwriter.so \
             system/vendor/lib/libusc.so \
+            system/xbin/iperf3 \
             "
     ;;
   widevine)

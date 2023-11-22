@@ -14,16 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef _VOLUMEMANAGER_H
-#define _VOLUMEMANAGER_H
+#ifndef ANDROID_VOLD_VOLUME_MANAGER_H
+#define ANDROID_VOLD_VOLUME_MANAGER_H
 
 #include <pthread.h>
+#include <fnmatch.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
-#include <utils/List.h>
-#include <sysutils/SocketListener.h>
 
-#include "Volume.h"
+#include <list>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+
+#include <cutils/multiuser.h>
+#include <utils/List.h>
+#include <utils/Timers.h>
+#include <sysutils/SocketListener.h>
+#include <sysutils/NetlinkEvent.h>
+
+#include "Disk.h"
+#include "VolumeBase.h"
 
 /* The length of an MD5 hash when encoded into ASCII hex characters */
 #define MD5_ASCII_LENGTH_PLUS_NULL ((MD5_DIGEST_LENGTH*2)+1)
@@ -51,13 +64,17 @@ public:
 typedef android::List<ContainerData*> AsecIdCollection;
 
 class VolumeManager {
+public:
+    static const char *SEC_ASECDIR_EXT;
+    static const char *SEC_ASECDIR_INT;
+    static const char *ASECDIR;
+    static const char *LOOPDIR;
+
 private:
     static VolumeManager *sInstance;
 
-private:
     SocketListener        *mBroadcaster;
 
-    VolumeCollection      *mVolumes;
     AsecIdCollection      *mActiveContainers;
     bool                   mDebug;
 
@@ -65,26 +82,63 @@ private:
     int                    mUmsSharingCount;
     int                    mSavedDirtyRatio;
     int                    mUmsDirtyRatio;
-    int                    mVolManagerDisabled;
 
 public:
     virtual ~VolumeManager();
+
+    // TODO: pipe all requests through VM to avoid exposing this lock
+    std::mutex& getLock() { return mLock; }
 
     int start();
     int stop();
 
     void handleBlockEvent(NetlinkEvent *evt);
 
-    int addVolume(Volume *v);
+    class DiskSource {
+    public:
+        DiskSource(const std::string& sysPattern, const std::string& nickname, int flags) :
+                mSysPattern(sysPattern), mNickname(nickname), mFlags(flags) {
+        }
 
-    int listVolumes(SocketClient *cli, bool broadcast);
-    int mountVolume(const char *label);
-    int unmountVolume(const char *label, bool force, bool revert);
-    int shareVolume(const char *label, const char *method);
-    int unshareVolume(const char *label, const char *method);
-    int shareEnabled(const char *path, const char *method, bool *enabled);
-    int formatVolume(const char *label, bool wipe);
-    void disableVolumeManager(void) { mVolManagerDisabled = 1; }
+        bool matches(const std::string& sysPath) {
+            return !fnmatch(mSysPattern.c_str(), sysPath.c_str(), 0);
+        }
+
+        const std::string& getNickname() { return mNickname; }
+        int getFlags() { return mFlags; }
+
+    private:
+        std::string mSysPattern;
+        std::string mNickname;
+        int mFlags;
+    };
+
+    void addDiskSource(const std::shared_ptr<DiskSource>& diskSource);
+
+    std::shared_ptr<android::vold::Disk> findDisk(const std::string& id);
+    std::shared_ptr<android::vold::VolumeBase> findVolume(const std::string& id);
+
+    void listVolumes(android::vold::VolumeBase::Type type, std::list<std::string>& list);
+
+    nsecs_t benchmarkPrivate(const std::string& id);
+
+    int forgetPartition(const std::string& partGuid);
+
+    int onUserAdded(userid_t userId, int userSerialNumber);
+    int onUserRemoved(userid_t userId);
+    int onUserStarted(userid_t userId);
+    int onUserStopped(userid_t userId);
+
+    int setPrimary(const std::shared_ptr<android::vold::VolumeBase>& vol);
+
+    int remountUid(uid_t uid, const std::string& mode);
+
+    /* Reset all internal state, typically during framework boot */
+    int reset();
+    /* Prepare for device shutdown, safely unmounting all devices */
+    int shutdown();
+    /* Unmount all volumes, usually for encryption */
+    int unmountAll();
 
     /* ASEC */
     int findAsec(const char *id, char *asecPath = NULL, size_t asecPathLen = 0,
@@ -118,16 +172,11 @@ public:
     int unmountObb(const char *fileName, bool force);
     int getObbMountPath(const char *id, char *buffer, int maxlen);
 
-    Volume* getVolumeForFile(const char *fileName);
-
     /* Shared between ASEC and Loopback images */
     int unmountLoopImage(const char *containerId, const char *loopId,
             const char *fileName, const char *mountPoint, bool force);
 
-    void setDebug(bool enable);
-
-    // XXX: Post froyo this should be moved and cleaned up
-    int cleanupAsec(Volume *v, bool force);
+    int setDebug(bool enable);
 
     void setBroadcaster(SocketListener *sl) { mBroadcaster = sl; }
     SocketListener *getBroadcaster() { return mBroadcaster; }
@@ -135,11 +184,6 @@ public:
     static VolumeManager *Instance();
 
     static char *asecHash(const char *id, char *buffer, size_t len);
-
-    Volume *lookupVolume(const char *label);
-    int getNumDirectVolumes(void);
-    int getDirectVolumeList(struct volume_info *vol_list);
-    int unmountAllAsecsInDir(const char *directory);
 
     /*
      * Ensure that all directories along given path exist, creating parent
@@ -156,15 +200,25 @@ private:
     bool isMountpointMounted(const char *mp);
     bool isAsecInDirectory(const char *dir, const char *asec) const;
     bool isLegalAsecId(const char *id) const;
+
+    int linkPrimary(userid_t userId);
+
+    std::mutex mLock;
+
+    std::list<std::shared_ptr<DiskSource>> mDiskSources;
+    std::list<std::shared_ptr<android::vold::Disk>> mDisks;
+
+    std::unordered_map<userid_t, int> mAddedUsers;
+    std::unordered_set<userid_t> mStartedUsers;
+
+    std::shared_ptr<android::vold::VolumeBase> mInternalEmulated;
+    std::shared_ptr<android::vold::VolumeBase> mPrimary;
 };
 
 extern "C" {
 #endif /* __cplusplus */
 #define UNMOUNT_NOT_MOUNTED_ERR -2
-    int vold_disableVol(const char *label);
-    int vold_getNumDirectVolumes(void);
-    int vold_getDirectVolumeList(struct volume_info *v);
-    int vold_unmountAllAsecs(void);
+    int vold_unmountAll(void);
 #ifdef __cplusplus
 }
 #endif

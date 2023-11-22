@@ -57,8 +57,9 @@ class RSExportForEach : public RSExportable {
   llvm::SmallVector<const clang::ParmVarDecl*, 16> mIns;
   const clang::ParmVarDecl *mOut;
   const clang::ParmVarDecl *mUsrData;
-  const clang::ParmVarDecl *mX;
-  const clang::ParmVarDecl *mY;
+
+  // Accumulator for metadata bits corresponding to special parameters.
+  unsigned int mSpecialParameterSignatureMetadata;
 
   clang::QualType mResultType;  // return type (if present).
   bool mHasReturnType;  // does this kernel have a return type?
@@ -69,9 +70,9 @@ class RSExportForEach : public RSExportable {
   // TODO(all): Add support for LOD/face when we have them
   RSExportForEach(RSContext *Context, const llvm::StringRef &Name)
     : RSExportable(Context, RSExportable::EX_FOREACH),
-      mName(Name.data(), Name.size()), mParamPacketType(NULL),
-      mOutType(NULL), numParams(0), mSignatureMetadata(0),
-      mOut(NULL), mUsrData(NULL), mX(NULL), mY(NULL),
+      mName(Name.data(), Name.size()), mParamPacketType(nullptr),
+      mOutType(nullptr), numParams(0), mSignatureMetadata(0),
+      mOut(nullptr), mUsrData(nullptr), mSpecialParameterSignatureMetadata(0),
       mResultType(clang::QualType()), mHasReturnType(false),
       mIsKernelStyle(false), mDummyRoot(false) {
   }
@@ -85,9 +86,9 @@ class RSExportForEach : public RSExportable {
   bool validateAndConstructKernelParams(RSContext *Context,
                                         const clang::FunctionDecl *FD);
 
-  bool validateIterationParameters(RSContext *Context,
-                                   const clang::FunctionDecl *FD,
-                                   size_t *IndexOfFirstIterator);
+  bool processSpecialParameters(RSContext *Context,
+                                const clang::FunctionDecl *FD,
+                                size_t *IndexOfFirstSpecialParameter);
 
   bool setSignatureMetadata(RSContext *Context,
                             const clang::FunctionDecl *FD);
@@ -110,11 +111,11 @@ class RSExportForEach : public RSExportable {
   }
 
   inline bool hasOut() const {
-    return (mOut != NULL);
+    return (mOut != nullptr);
   }
 
   inline bool hasUsrData() const {
-    return (mUsrData != NULL);
+    return (mUsrData != nullptr);
   }
 
   inline bool hasReturn() const {
@@ -148,13 +149,13 @@ class RSExportForEach : public RSExportable {
   typedef RSExportRecordType::const_field_iterator const_param_iterator;
 
   inline const_param_iterator params_begin() const {
-    slangAssert((mParamPacketType != NULL) &&
+    slangAssert((mParamPacketType != nullptr) &&
                 "Get parameter from export foreach having no parameter!");
     return mParamPacketType->fields_begin();
   }
 
   inline const_param_iterator params_end() const {
-    slangAssert((mParamPacketType != NULL) &&
+    slangAssert((mParamPacketType != nullptr) &&
                 "Get parameter from export foreach having no parameter!");
     return mParamPacketType->fields_end();
   }

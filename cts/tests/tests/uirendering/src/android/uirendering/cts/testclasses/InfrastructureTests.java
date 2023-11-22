@@ -15,6 +15,7 @@
  */
 package android.uirendering.cts.testclasses;
 
+import android.graphics.Point;
 import com.android.cts.uirendering.R;
 
 import android.graphics.Canvas;
@@ -22,7 +23,6 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
-import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
@@ -35,7 +35,7 @@ public class InfrastructureTests extends ActivityTestBase {
     @SmallTest
     public void testScreenshot() {
         for (int i = 0 ; i < 500 ; i ++) {
-            takeScreenshot();
+            takeScreenshot(new Point());
             System.gc();
         }
     }
@@ -75,7 +75,7 @@ public class InfrastructureTests extends ActivityTestBase {
         final Rect clipRect = new Rect(0, 0, 50, 50);
         ViewInitializer viewInitializer = new ViewInitializer() {
             @Override
-            public void intializeView(View view) {
+            public void initializeView(View view) {
                 view.setClipBounds(clipRect);
             }
         };

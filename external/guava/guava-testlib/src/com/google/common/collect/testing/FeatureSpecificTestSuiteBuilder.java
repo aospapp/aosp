@@ -34,10 +34,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -77,7 +76,7 @@ public abstract class FeatureSpecificTestSuiteBuilder<
     return self();
   }
 
-  protected G getSubjectGenerator() {
+  public G getSubjectGenerator() {
     return subjectGenerator;
   }
 
@@ -101,22 +100,25 @@ public abstract class FeatureSpecificTestSuiteBuilder<
 
   // Features
 
-  private Set<Feature<?>> features;
+  private Set<Feature<?>> features = new LinkedHashSet<Feature<?>>();
 
   /**
    * Configures this builder to produce tests appropriate for the given
-   * features.
+   * features.  This method may be called more than once to add features
+   * in multiple groups.
    */
   public B withFeatures(Feature<?>... features) {
     return withFeatures(Arrays.asList(features));
   }
 
   public B withFeatures(Iterable<? extends Feature<?>> features) {
-    this.features = Helpers.copyToSet(features);
+    for (Feature<?> feature : features) {
+      this.features.add(feature);
+    }
     return self();
   }
 
-  protected Set<Feature<?>> getFeatures() {
+  public Set<Feature<?>> getFeatures() {
     return Collections.unmodifiableSet(features);
   }
 
@@ -134,7 +136,7 @@ public abstract class FeatureSpecificTestSuiteBuilder<
     return self();
   }
 
-  protected String getName() {
+  public String getName() {
     return name;
   }
 
@@ -159,7 +161,7 @@ public abstract class FeatureSpecificTestSuiteBuilder<
     return self();
   }
 
-  protected Set<Method> getSuppressedTests() {
+  public Set<Method> getSuppressedTests() {
     return suppressedTests;
   }
 
@@ -272,10 +274,10 @@ public abstract class FeatureSpecificTestSuiteBuilder<
   private static Method extractMethod(Test test) {
     if (test instanceof AbstractTester) {
       AbstractTester<?> tester = (AbstractTester<?>) test;
-      return Platform.getMethod(tester.getClass(), tester.getTestMethodName());
+      return Helpers.getMethod(tester.getClass(), tester.getTestMethodName());
     } else if (test instanceof TestCase) {
       TestCase testCase = (TestCase) test;
-      return Platform.getMethod(testCase.getClass(), testCase.getName());
+      return Helpers.getMethod(testCase.getClass(), testCase.getName());
     } else {
       throw new IllegalArgumentException(
           "unable to extract method from test: not a TestCase.");
@@ -284,7 +286,7 @@ public abstract class FeatureSpecificTestSuiteBuilder<
 
   protected TestSuite makeSuiteForTesterClass(
       Class<? extends AbstractTester<?>> testerClass) {
-    final TestSuite candidateTests = getTemplateSuite(testerClass);
+    final TestSuite candidateTests = new TestSuite(testerClass);
     final TestSuite suite = filterSuite(candidateTests);
 
     Enumeration<?> allTests = suite.tests();
@@ -298,22 +300,6 @@ public abstract class FeatureSpecificTestSuiteBuilder<
     }
 
     return suite;
-  }
-
-  private static final Map<Class<? extends AbstractTester<?>>, TestSuite>
-      templateSuiteForClass =
-          new HashMap<Class<? extends AbstractTester<?>>, TestSuite>();
-
-  private static TestSuite getTemplateSuite(
-      Class<? extends AbstractTester<?>> testerClass) {
-    synchronized (templateSuiteForClass) {
-      TestSuite suite = templateSuiteForClass.get(testerClass);
-      if (suite == null) {
-        suite = new TestSuite(testerClass);
-        templateSuiteForClass.put(testerClass, suite);
-      }
-      return suite;
-    }
   }
 
   private TestSuite filterSuite(TestSuite suite) {

@@ -38,6 +38,7 @@ __BEGIN_DECLS
  *
  * AUDIO_FORMAT_PCM_16_BIT
  * AUDIO_FORMAT_PCM_FLOAT
+ * AUDIO_FORMAT_PCM_8_BIT
  * AUDIO_FORMAT_PCM_24_BIT_PACKED
  * AUDIO_FORMAT_PCM_32_BIT
  * AUDIO_FORMAT_PCM_8_24_BIT
@@ -53,6 +54,25 @@ __BEGIN_DECLS
  */
 void memcpy_by_audio_format(void *dst, audio_format_t dst_format,
         const void *src, audio_format_t src_format, size_t count);
+
+
+/* This function creates an index array for converting audio data with different
+ * channel position and index masks, used by memcpy_by_index_array().
+ * Returns the number of array elements required.
+ * This may be greater than idxcount, so the return value should be checked
+ * if idxary size is less than 32. Returns zero if the input masks are unrecognized.
+ *
+ * Note that idxary is a caller allocated array
+ * of at least as many channels as present in the dst_mask.
+ *
+ * Parameters:
+ *  idxary      Updated array of indices of channels in the src frame for the dst frame
+ *  idxcount    Number of caller allocated elements in idxary
+ *  dst_mask    Bit mask corresponding to destination channels present
+ *  src_mask    Bit mask corresponding to source channels present
+ */
+size_t memcpy_by_index_array_initialization_from_channel_mask(int8_t *idxary, size_t arysize,
+        audio_channel_mask_t dst_channel_mask, audio_channel_mask_t src_channel_mask);
 
 __END_DECLS
 

@@ -29,7 +29,7 @@ import org.apache.harmony.jpda.tests.framework.TestOptions;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ParsedEvent;
-import org.apache.harmony.jpda.tests.jdwp.Events.ExceptionDebuggee;
+import org.apache.harmony.jpda.tests.jdwp.Events.ExceptionCaughtDebuggee;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -40,7 +40,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 public class ExceptionTest extends JDWPEventTestCase {
 
     protected String getDebuggeeClassName() {
-        return ExceptionDebuggee.class.getName();
+        return ExceptionCaughtDebuggee.class.getName();
     }
 
     /**

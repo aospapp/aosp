@@ -28,13 +28,16 @@
 .limit regs 6
 
        const v4, 5
-       move-object v1, v5
-Label0:
-       move-object v0, v1
+       goto LabelEntry
+
+LabelBwd:
+       invoke-virtual {v1}, java/lang/Object/hashCode()I
+
+LabelEntry:
        new-instance v1, java/lang/Integer
-       
+
        add-int/lit8 v4, v4, -1
-       if-nez v4, Label0
+       if-nez v4, LabelBwd
 
        invoke-direct {v1, v4}, java/lang/Integer/<init>(I)V
        return-void

@@ -1,6 +1,15 @@
 #
-# This file is to be included in makefiles that use the navigation bar
-# Please include this just before building the package
+# Include this make file to build your application against this module.
+#
+# Make sure to include it after you've set all your desired LOCAL variables.
+# Note that you must explicitly set your LOCAL_RESOURCE_DIR before including this file.
+#
+# For example:
+#
+#   LOCAL_RESOURCE_DIR := \
+#        $(LOCAL_PATH)/res
+#
+#   include frameworks/opt/setupwizard/navigationbar/common.mk
 #
 
 LOCAL_RESOURCE_DIR += $(call my-dir)/res

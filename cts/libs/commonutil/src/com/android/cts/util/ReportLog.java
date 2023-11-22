@@ -42,26 +42,55 @@ public class ReportLog {
 
     /**
      * print array of values to output log
+     * <p>Note: test identifier is inferred from call stack trace based on class and method name
      */
     public void printArray(String message, double[] values, ResultType type, ResultUnit unit) {
         doPrintArray(message, values, type, unit);
     }
 
     /**
+     * print array of values to output log
+     */
+    public void printArray(String testId, String message,
+            double[] values, ResultType type, ResultUnit unit) {
+        doPrintArray(testId, message, values, type, unit);
+    }
+
+    /**
      * Print a value to output log
+     * <p>Note: test identifier is inferred from call stack trace based on class and method name
      */
     public void printValue(String message, double value, ResultType type, ResultUnit unit) {
         double[] vals = { value };
         doPrintArray(message, vals, type, unit);
     }
 
+    /**
+     * Print a value to output log
+     */
+    public void printValue(String testId, String message,
+            double value, ResultType type, ResultUnit unit) {
+        double[] vals = { value };
+        doPrintArray(testId, message, vals, type, unit);
+    }
+
     private void doPrintArray(String message, double[] values, ResultType type, ResultUnit unit) {
+        doPrintArray(getClassMethodNames(mDepth + 1, true), message, values, type, unit);
+    }
+
+    private void doPrintArray(String testId, String message,
+            double[] values, ResultType type, ResultUnit unit) {
         StringBuilder builder = new StringBuilder();
         // note mDepth + 1 as this function will be called by printVaue or printArray
         // and we need caller of printValue / printArray
-        builder.append(getClassMethodNames(mDepth + 1, true) + LOG_ELEM_SEPARATOR + message +
-                LOG_ELEM_SEPARATOR + type.getXmlString() + LOG_ELEM_SEPARATOR +
-                unit.getXmlString() + LOG_ELEM_SEPARATOR);
+        builder.append(testId);
+        builder.append(LOG_ELEM_SEPARATOR);
+        builder.append(message);
+        builder.append(LOG_ELEM_SEPARATOR);
+        builder.append(type.getXmlString());
+        builder.append(LOG_ELEM_SEPARATOR);
+        builder.append(unit.getXmlString());
+        builder.append(LOG_ELEM_SEPARATOR);
         for (double v : values) {
             builder.append(v);
             builder.append(" ");

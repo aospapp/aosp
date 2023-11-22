@@ -396,10 +396,9 @@ static bool Sample_Index_D8888_SkipZ(void* SK_RESTRICT dstRow,
 
 static SkScaledBitmapSampler::RowProc
 get_index_to_8888_proc(const SkScaledBitmapSampler::Options& opts) {
-    if (!opts.fPremultiplyAlpha) {
-        // Unpremultiplied is not supported for an index source.
-        return NULL;
-    }
+    // The caller is expected to have created the source colortable
+    // properly with respect to opts.fPremultiplyAlpha, so premul makes
+    // no difference here.
     // Dither makes no difference
     if (opts.fSkipZeros) {
         return Sample_Index_D8888_SkipZ;
@@ -763,7 +762,9 @@ bool SkScaledBitmapSampler::sampleInterlaced(const uint8_t* SK_RESTRICT src, int
     // of the destination bitmap's pixels, which is used to calculate the destination row
     // each time this function is called.
     const int dstY = srcYMinusY0 / fDY;
-    SkASSERT(dstY < fScaledHeight);
+    if (dstY >= fScaledHeight) {
+        return false;
+    }
     char* dstRow = fDstRow + dstY * fDstRowBytes;
     return fRowProc(dstRow, src + fX0 * fSrcPixelSize, fScaledWidth,
                     fDX * fSrcPixelSize, dstY, fCTable);
@@ -803,7 +804,7 @@ SkScaledBitmapSampler::RowProc gTestProcs[] = {
     Sample_Index_DI,    Sample_Index_DI,        NULL,                       NULL,                       // to Index8
     Sample_Index_D565,  Sample_Index_D565_D,    Sample_Index_D565,          Sample_Index_D565_D,        // to 565
     Sample_Index_D4444, Sample_Index_D4444_D,   NULL,                       NULL,                       // to 4444
-    Sample_Index_D8888, Sample_Index_D8888,     NULL,                       NULL,                       // to 8888
+    Sample_Index_D8888, Sample_Index_D8888,     Sample_Index_D8888,         Sample_Index_D8888,         // to 8888
     // RGB
     NULL,               NULL,                   NULL,                       NULL,                       // to A8
     NULL,               NULL,                   NULL,                       NULL,                       // to Index8
@@ -835,7 +836,7 @@ class DummyDecoder : public SkImageDecoder {
 public:
     DummyDecoder() {}
 protected:
-    virtual Result onDecode(SkStream*, SkBitmap*, SkImageDecoder::Mode) SK_OVERRIDE {
+    Result onDecode(SkStream*, SkBitmap*, SkImageDecoder::Mode) override {
         return kFailure;
     }
 };

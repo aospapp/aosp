@@ -29,12 +29,13 @@
 #include "tcuSurface.hpp"
 #include "tcuTexture.hpp"
 #include "tcuVector.hpp"
-#include "gluRenderContext.hpp"
 #include "rrFragmentOperations.hpp"
 #include "rrRenderState.hpp"
 #include "rrRenderer.hpp"
 #include "rrMultisamplePixelBufferAccess.hpp"
+#include "gluRenderContext.hpp"
 #include "gluShaderUtil.hpp"
+#include "deArrayBuffer.hpp"
 
 #include <map>
 #include <vector>
@@ -117,20 +118,24 @@ public:
 										TextureLevelArray	(void);
 										~TextureLevelArray	(void);
 
-	bool								hasLevel			(int level) const	{ return level < DE_LENGTH_OF_ARRAY(m_data) && m_data[level];	}
-	const tcu::PixelBufferAccess&		getLevel			(int level)			{ DE_ASSERT(hasLevel(level)); return m_access[level];			}
-	const tcu::ConstPixelBufferAccess&	getLevel			(int level) const	{ DE_ASSERT(hasLevel(level)); return m_access[level];			}
+	bool								hasLevel			(int level) const	{ return deInBounds32(level, 0, DE_LENGTH_OF_ARRAY(m_data)) && !m_data[level].empty();	}
+	const tcu::PixelBufferAccess&		getLevel			(int level)			{ DE_ASSERT(hasLevel(level)); return m_access[level];									}
+	const tcu::ConstPixelBufferAccess&	getLevel			(int level) const	{ DE_ASSERT(hasLevel(level)); return m_access[level];									}
 
-	const tcu::ConstPixelBufferAccess*	getLevels			(void) const		{ return &m_access[0];											}
+	const tcu::ConstPixelBufferAccess*	getLevels			(void) const		{ return &m_access[0];																	}
+	const tcu::ConstPixelBufferAccess*	getEffectiveLevels	(void) const		{ return &m_effectiveAccess[0];															}
 
 	void								allocLevel			(int level, const tcu::TextureFormat& format, int width, int height, int depth);
 	void								clearLevel			(int level);
 
 	void								clear				(void);
 
+	void								updateSamplerMode	(tcu::Sampler::DepthStencilMode);
+
 private:
-	deUint8*							m_data[MAX_TEXTURE_SIZE_LOG2];
+	de::ArrayBuffer<deUint8>			m_data[MAX_TEXTURE_SIZE_LOG2];
 	tcu::PixelBufferAccess				m_access[MAX_TEXTURE_SIZE_LOG2];
+	tcu::ConstPixelBufferAccess			m_effectiveAccess[MAX_TEXTURE_SIZE_LOG2];	//!< the currently effective sampling mode. For Depth-stencil texture always either Depth or stencil.
 };
 
 class Texture1D : public Texture
@@ -149,7 +154,7 @@ public:
 
 	bool								isComplete		(void) const;
 
-	void								updateView		(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView		(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample			(float s, float lod) const;
 	void								sample4			(tcu::Vec4 output[4], const float packetTexcoords[4], float lodBias = 0.0f) const;
@@ -175,7 +180,7 @@ public:
 
 	bool								isComplete		(void) const;
 
-	void								updateView		(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView		(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample			(float s, float t, float lod) const;
 	void								sample4			(tcu::Vec4 output[4], const tcu::Vec2 packetTexcoords[4], float lodBias = 0.0f) const;
@@ -200,7 +205,7 @@ public:
 	void								allocFace		(int level, tcu::CubeFace face, const tcu::TextureFormat& format, int width, int height);
 
 	bool								isComplete		(void) const;
-	void								updateView		(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView		(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample			(float s, float t, float p, float lod) const;
 	void								sample4			(tcu::Vec4 output[4], const tcu::Vec3 packetTexcoords[4], float lodBias = 0.0f) const;
@@ -226,7 +231,7 @@ public:
 
 	bool								isComplete		(void) const;
 
-	void								updateView		(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView		(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample			(float s, float t, float r, float lod) const;
 	void								sample4			(tcu::Vec4 output[4], const tcu::Vec3 packetTexcoords[4], float lodBias = 0.0f) const;
@@ -252,7 +257,7 @@ public:
 
 	bool								isComplete		(void) const;
 
-	void								updateView		(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView		(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample			(float s, float t, float r, float lod) const;
 	void								sample4			(tcu::Vec4 output[4], const tcu::Vec3 packetTexcoords[4], float lodBias = 0.0f) const;
@@ -278,7 +283,7 @@ public:
 
 	bool								isComplete			(void) const;
 
-	void								updateView			(void); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
+	void								updateView			(tcu::Sampler::DepthStencilMode mode); // \note View must be refreshed after texture parameter/size changes, before calling sample*()
 
 	tcu::Vec4							sample				(float s, float t, float r, float q, float lod) const;
 	void								sample4				(tcu::Vec4 output[4], const tcu::Vec4 packetTexcoords[4], float lodBias = 0.0f) const;
@@ -959,7 +964,7 @@ private:
 	rr::FragmentProcessor						m_fragmentProcessor;
 	std::vector<rr::Fragment>					m_fragmentBuffer;
 	std::vector<float>							m_fragmentDepths;
-};
+} DE_WARN_UNUSED_TYPE;
 
 } // sglr
 

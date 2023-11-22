@@ -18,10 +18,10 @@
     package="com.android.contacts"
     android:sharedUserId="android.uid.shared">
 
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
     <original-package android:name="com.android.contacts" />
 
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
@@ -34,16 +34,17 @@
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.USE_CREDENTIALS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT"/>
     <!-- Following used for QuickContacts -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="com.android.voicemail.permission.READ_VOICEMAIL" />
 
     <application
         android:name="com.android.contacts.ContactsApplication"
@@ -52,6 +53,7 @@
         android:taskAffinity="android.task.contacts"
         android:hardwareAccelerated="true"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
     >
 
         <!-- The main Contacts activity with the contact list, favorites, and groups. -->
@@ -119,12 +121,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
-            <intent-filter>
-                <action android:name="com.android.contacts.action.FILTER_CONTACTS" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="vnd.android.cursor.dir/contact" />
             </intent-filter>
 
             <intent-filter>
@@ -218,6 +214,18 @@
             android:name=".common.list.CustomContactListFilterActivity"
             android:label="@string/custom_list_filter"
             android:theme="@style/ContactListFilterTheme" />
+
+        <activity
+            android:name=".common.activity.RequestPermissionsActivity"
+            android:label="@string/launcherActivityLabel"
+            android:theme="@style/PeopleTheme"
+            android:exported="false"/>
+
+        <activity
+            android:name=".common.activity.RequestImportVCardPermissionsActivity"
+            android:label="@string/launcherActivityLabel"
+            android:theme="@style/PeopleTheme"
+            android:exported="false"/>
 
         <activity
             android:name=".activities.ShowOrCreateActivity"
@@ -327,9 +335,9 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="false"/>
 
-        <!-- Create a new or edit an existing contact -->
+        <!-- Edit or create a contact with only the most important fields displayed initially. -->
         <activity
-            android:name=".activities.ContactEditorActivity"
+            android:name=".activities.CompactContactEditorActivity"
             android:label="@string/launcherActivityLabel"
             android:theme="@style/EditorActivityTheme"
             android:windowSoftInputMode="stateHidden|adjustResize">
@@ -343,6 +351,30 @@
             </intent-filter>
             <intent-filter android:label="@string/insertContactDescription">
                 <action android:name="android.intent.action.INSERT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.dir/person" />
+                <data android:mimeType="vnd.android.cursor.dir/contact" />
+                <data android:mimeType="vnd.android.cursor.dir/raw_contact" />
+            </intent-filter>
+        </activity>
+
+        <!-- Edit or create a contact with all fields displayed. -->
+        <activity
+            android:name=".activities.ContactEditorActivity"
+            android:label="@string/launcherActivityLabel"
+            android:theme="@style/EditorActivityTheme"
+            android:windowSoftInputMode="stateHidden|adjustResize"
+            android:exported="false">
+
+            <intent-filter android:label="@string/editContactDescription">
+                <action android:name="com.android.contacts.action.FULL_EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/person" />
+                <data android:mimeType="vnd.android.cursor.item/contact" />
+                <data android:mimeType="vnd.android.cursor.item/raw_contact" />
+            </intent-filter>
+            <intent-filter android:label="@string/insertContactDescription">
+                <action android:name="com.android.contacts.action.FULL_INSERT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="vnd.android.cursor.dir/person" />
                 <data android:mimeType="vnd.android.cursor.dir/contact" />
@@ -376,18 +408,6 @@
                 <data android:mimeType="image/*" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
-
-        <!--
-            Internal photo selection activity.  This activity handles all configuration changes by
-            itself.
-        -->
-        <activity android:name=".activities.PhotoSelectionActivity"
-            android:theme="@style/Theme.PhotoSelector"
-            android:launchMode="singleTop"
-            android:windowSoftInputMode="stateUnchanged"
-            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|screenLayout|fontScale|uiMode|orientation|screenSize|smallestScreenSize"
-            >
         </activity>
 
         <!-- vCard related -->

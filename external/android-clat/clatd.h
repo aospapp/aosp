@@ -18,8 +18,7 @@
 #ifndef __CLATD_H__
 #define __CLATD_H__
 
-#include <linux/if.h>
-#include <linux/if_tun.h>
+#include <sys/uio.h>
 
 #define MAXMTU 1500
 #define PACKETLEN (MAXMTU+sizeof(struct tun_pi))
@@ -33,9 +32,15 @@
 // how frequently (in seconds) to poll for an address change while there is no traffic
 #define NO_TRAFFIC_INTERFACE_POLL_FREQUENCY 90
 
-struct tun_data {
-  char device4[IFNAMSIZ];
-  int read_fd6, write_fd6, fd4;
-};
+// A clat_packet is an array of iovec structures representing a packet that we are translating.
+// The CLAT_POS_XXX constants represent the array indices within the clat_packet that contain
+// specific parts of the packet. The packet_* functions operate on all the packet segments past a
+// given position.
+typedef enum {
+    CLAT_POS_TUNHDR, CLAT_POS_IPHDR, CLAT_POS_FRAGHDR, CLAT_POS_TRANSPORTHDR,
+    CLAT_POS_ICMPERR_IPHDR, CLAT_POS_ICMPERR_FRAGHDR, CLAT_POS_ICMPERR_TRANSPORTHDR,
+    CLAT_POS_PAYLOAD, CLAT_POS_MAX
+} clat_packet_index;
+typedef struct iovec clat_packet[CLAT_POS_MAX];
 
 #endif /* __CLATD_H__ */

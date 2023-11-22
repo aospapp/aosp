@@ -22,11 +22,10 @@
 /**
  * A cache to avoid calling FindClass at runtime.
  *
- * Class lookup is relatively expensive (2.5us on passion-eng at the time of writing), so we do
- * all such lookups eagerly at startup. This means that code that never uses, say,
- * java.util.zip.Deflater still has to pay for the lookup, but it means that on a device the cost
- * is definitely paid during boot and amortized. A central cache also removes the temptation to
- * dynamically call FindClass rather than add a small cache to each file that needs one. Another
+ * Class lookup is relatively expensive, so we do these lookups at startup. This means that code
+ * that never uses, say, java.util.zip.Deflater still has to pay for the lookup, but it means that
+ * on device the cost is paid during boot and amortized. A central cache also removes the temptation
+ * to dynamically call FindClass rather than add a small cache to each file that needs one. Another
  * cost is that each class cached here requires a global reference, though in practice we save
  * enough by not having a global reference for each file that uses a class such as java.lang.String
  * which is used in several files.
@@ -69,9 +68,11 @@ struct JniConstants {
     static jclass methodClass;
     static jclass mutableIntClass;
     static jclass mutableLongClass;
+    static jclass netlinkSocketAddressClass;
     static jclass objectClass;
     static jclass objectArrayClass;
     static jclass outputStreamClass;
+    static jclass packetSocketAddressClass;
     static jclass parsePositionClass;
     static jclass patternSyntaxExceptionClass;
     static jclass realToStringClass;
@@ -92,6 +93,7 @@ struct JniConstants {
     static jclass structTimevalClass;
     static jclass structUcredClass;
     static jclass structUtsnameClass;
+    static jclass zipEntryClass;
 };
 
 #define NATIVE_METHOD(className, functionName, signature) \

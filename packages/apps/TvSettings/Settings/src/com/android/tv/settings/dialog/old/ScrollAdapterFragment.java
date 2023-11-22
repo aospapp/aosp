@@ -24,7 +24,6 @@ import android.view.ViewGroup;
 
 import com.android.tv.settings.widget.ScrollAdapter;
 import com.android.tv.settings.widget.ScrollAdapterView;
-import com.android.tv.settings.widget.ScrollAdapterView.OnItemChangeListener;
 
 /**
  * *************************

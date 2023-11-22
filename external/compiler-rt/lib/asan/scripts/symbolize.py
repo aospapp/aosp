@@ -7,6 +7,7 @@
 # License. See LICENSE.TXT for details.
 #
 #===------------------------------------------------------------------------===#
+import glob
 import os
 import re
 import sys
@@ -35,7 +36,8 @@ def patch_address(frameno, addr_s):
 def android_get_load_address(path):
   if load_addresses.has_key(path):
     return load_addresses[path]
-  readelf = os.path.join(os.environ['ANDROID_EABI_TOOLCHAIN'], 'arm-linux-androideabi-readelf')
+  readelf_glob = os.path.join(os.environ['ANDROID_TOOLCHAIN'], '*-readelf')
+  readelf = glob.glob(readelf_glob)[0]
   readelf_pipe = subprocess.Popen([readelf, "-l", path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
   for line in readelf_pipe.stdout:
       if ('LOAD' in line) and (' E ' in line):
@@ -59,7 +61,7 @@ def postprocess_file_name(file_name, paths_to_cut):
 def symbolize_addr2line(line, binary_prefix, paths_to_cut):
   global next_inline_frameno
   # Strip the log prefix ("I/asanwrapper( 1196): ").
-  line = re.sub(r'^[A-Z]/[^\s]*\(\s*\d+\): ', '', line)
+  line = re.sub(r'^.*?: ', '', line)
   #0 0x7f6e35cf2e45  (/blah/foo.so+0x11fe45)
   match = re.match(r'^(\s*#)([0-9]+) *(0x[0-9a-f]+) *\((.*)\+(0x[0-9a-f]+)\)', line, re.UNICODE)
   if match:
@@ -71,6 +73,10 @@ def symbolize_addr2line(line, binary_prefix, paths_to_cut):
     if binary.startswith('/'):
       binary = binary[1:]
     binary = os.path.join(binary_prefix, binary)
+
+    if not os.path.exists(binary):
+      print line.rstrip().encode('utf-8')
+      return
 
     load_addr = android_get_load_address(binary)
     addr = hex(int(addr, 16) + load_addr)

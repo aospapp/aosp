@@ -148,7 +148,7 @@ UNKNOWN_ABIS=$(convert_archs_to_abis $UNKNOWN_ARCH)
 # Convert comma-separated list to space-separated list
 LLVM_VERSION_LIST=$(commas_to_spaces $LLVM_VERSION_LIST)
 
-# If --arch is used to list x86 as a target architecture, Add x86-4.6 to
+# If --arch is used to list x86 as a target architecture, Add x86-4.8 to
 # the list of default toolchains to package. That is, unless you also
 # explicitely use --toolchains=<list>
 #
@@ -373,11 +373,6 @@ rm -rf $REFERENCE/samples/*/{obj,libs,build.xml,local.properties,Android.mk} &&
 rm -rf $REFERENCE/tests/build/*/{obj,libs} &&
 rm -rf $REFERENCE/tests/device/*/{obj,libs}
 
-# Regenerate HTML documentation, place the files under .../docs/
-$NDK_ROOT_DIR/build/tools/build-docs.sh \
-    --in-dir=$NDK_ROOT_DIR/docs/text \
-    --out-dir=$REFERENCE/docs
-
 # copy sources files
 if [ -d $DEVELOPMENT_ROOT/sources ] ; then
     echo "Copying NDK sources files"
@@ -396,11 +391,11 @@ if [ -z "$PREBUILT_NDK" ]; then
         unpack_prebuilt gnu-libstdc++-headers-$VERSION "$REFERENCE"
     done
     for ABI in $ABIS; do
-        unpack_prebuilt gabixx-libs-$ABI "$REFERENCE"
-        unpack_prebuilt stlport-libs-$ABI "$REFERENCE"
-        unpack_prebuilt libcxx-libs-$ABI "$REFERENCE"
+        unpack_prebuilt gabixx-libs-$ABI-g "$REFERENCE"
+        unpack_prebuilt stlport-libs-$ABI-g "$REFERENCE"
+        unpack_prebuilt libcxx-libs-$ABI-g "$REFERENCE"
         for VERSION in $DEFAULT_GCC_VERSION_LIST; do
-            unpack_prebuilt gnu-libstdc++-libs-$VERSION-$ABI "$REFERENCE"
+            unpack_prebuilt gnu-libstdc++-libs-$VERSION-$ABI-g "$REFERENCE"
         done
         unpack_prebuilt libportable-libs-$ABI "$REFERENCE"
         unpack_prebuilt compiler-rt-libs-$ABI "$REFERENCE"
@@ -438,10 +433,9 @@ for SYSTEM in $SYSTEMS; do
     copy_directory "$REFERENCE" "$DSTDIR"
     fail_panic "Could not copy reference. Aborting."
 
-    # Remove tests containing duplicated files in case-insensitive file system
-    if [ "$SYSTEM" = "windows" -o "$SYSTEM" = "darwin-x86" ]; then
-        rm -rf $DSTDIR/tests/build/c++-stl-source-extensions
-        find $DSTDIR/platforms | sort  | uniq -di | xargs rm
+    if [ "$DSTDIR" != "$DSTDIR64" ]; then
+        copy_directory "$DSTDIR" "$DSTDIR64"
+        echo "$RELEASE (64-bit)" > $DSTDIR64/RELEASE.TXT
     fi
 
     if [ "$PREBUILT_NDK" ]; then
@@ -520,7 +514,7 @@ for SYSTEM in $SYSTEMS; do
         echo "Remove ld.mcld deployed/packaged earlier by accident "
         find $DSTDIR/toolchains $DSTDIR64/toolchains  -name "*ld.mcld*" -exec rm -f {} \;
 
-        # Unpack llvm and clang
+        # Unpack clang/llvm
         for LLVM_VERSION in $LLVM_VERSION_LIST; do
             unpack_prebuilt llvm-$LLVM_VERSION-$SYSTEM "$DSTDIR" "$DSTDIR64"
         done
@@ -539,7 +533,6 @@ for SYSTEM in $SYSTEMS; do
         unpack_prebuilt ndk-stack-$SYSTEM "$DSTDIR" "$DSTDIR64" "yes"
         unpack_prebuilt ndk-depends-$SYSTEM "$DSTDIR" "$DSTDIR64" "yes"
         unpack_prebuilt ndk-make-$SYSTEM "$DSTDIR" "$DSTDIR64"
-        unpack_prebuilt ndk-sed-$SYSTEM "$DSTDIR" "$DSTDIR64"
         unpack_prebuilt ndk-awk-$SYSTEM "$DSTDIR" "$DSTDIR64"
         unpack_prebuilt ndk-perl-$SYSTEM "$DSTDIR" "$DSTDIR64"
         unpack_prebuilt ndk-python-$SYSTEM "$DSTDIR" "$DSTDIR64"
@@ -561,6 +554,17 @@ for SYSTEM in $SYSTEMS; do
         unpack_prebuilt misc "$DSTDIR" "$DSTDIR64"
     fi
 
+    # Remove duplicated files in case-insensitive file system
+    if [ "$SYSTEM" = "windows" -o "$SYSTEM" = "darwin-x86" ]; then
+        rm -rf $DSTDIR/tests/build/c++-stl-source-extensions
+        rm -rf $DSTDIR64/tests/build/c++-stl-source-extensions
+        find "$DSTDIR/platforms" | sort -f | uniq -di | xargs rm
+        find "$DSTDIR64/platforms" | sort -f | uniq -di | xargs rm
+    fi
+
+    # Remove include-fixed/linux/a.out.h.   See b.android.com/73728
+    find "$DSTDIR/toolchains" "$DSTDIR64/toolchains" -name a.out.h | grep include-fixed/ | xargs rm
+
     # Create an archive for the final package. Extension depends on the
     # host system.
     ARCHIVE=$BIN_RELEASE
@@ -571,14 +575,17 @@ for SYSTEM in $SYSTEMS; do
     fi
     case "$SYSTEM" in
         windows)
-            ARCHIVE64="$ARCHIVE-64bit-tools.zip"
+            ARCHIVE64="${ARCHIVE}_64.zip"
             ARCHIVE="$ARCHIVE.zip"
             ;;
         *)
-            ARCHIVE64="$ARCHIVE-64bit-tools.tar.bz2"
+            ARCHIVE64="${ARCHIVE}_64.tar.bz2"
             ARCHIVE="$ARCHIVE.tar.bz2"
             ;;
     esac
+    if [ "$TRY64" = "yes" ]; then
+        ARCHIVE=$ARCHIVE64
+    fi
     echo "Creating $ARCHIVE"
     # make all file universally readable, and all executable (including directory)
     # universally executable, punt intended

@@ -83,7 +83,7 @@ public class GridViewTest extends ActivityInstrumentationTestCase<GridViewCtsAct
 
         new GridView(mActivity, null);
 
-        new GridView(mActivity, null, com.android.internal.R.attr.gridViewStyle);
+        new GridView(mActivity, null, android.R.attr.gridViewStyle);
 
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.gridview_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);

@@ -28,11 +28,11 @@ using namespace android;
 using namespace android::renderscript;
 
 
-bool rsdScriptGroupInit(const Context *rsc, ScriptGroup *sg) {
+bool rsdScriptGroupInit(const Context *rsc, ScriptGroupBase *sg) {
     RsdHal *dc = (RsdHal *)rsc->mHal.drv;
 
     sg->mHal.drv = dc->mCpuRef->createScriptGroup(sg);
-    return sg->mHal.drv != NULL;
+    return sg->mHal.drv != nullptr;
 }
 
 void rsdScriptGroupSetInput(const Context *rsc, const ScriptGroup *sg,
@@ -43,13 +43,15 @@ void rsdScriptGroupSetOutput(const Context *rsc, const ScriptGroup *sg,
                              const ScriptKernelID *kid, Allocation *) {
 }
 
-void rsdScriptGroupExecute(const Context *rsc, const ScriptGroup *sg) {
-    RsdCpuReference::CpuScriptGroup *sgi = (RsdCpuReference::CpuScriptGroup *)sg->mHal.drv;
+void rsdScriptGroupExecute(const Context *rsc, const ScriptGroupBase *sg) {
+    RsdCpuReference::CpuScriptGroupBase *sgi =
+        (RsdCpuReference::CpuScriptGroupBase *)sg->mHal.drv;
     sgi->execute();
 }
 
-void rsdScriptGroupDestroy(const Context *rsc, const ScriptGroup *sg) {
-    RsdCpuReference::CpuScriptGroup *sgi = (RsdCpuReference::CpuScriptGroup *)sg->mHal.drv;
+void rsdScriptGroupDestroy(const Context *rsc, const ScriptGroupBase *sg) {
+    RsdCpuReference::CpuScriptGroupBase *sgi =
+        (RsdCpuReference::CpuScriptGroupBase *)sg->mHal.drv;
     delete sgi;
 }
 
@@ -59,14 +61,12 @@ void rsdScriptGroupUpdateCachedObject(const Context *rsc,
 {
     obj->p = sg;
 #ifdef __LP64__
-    obj->r = NULL;
-    if (sg != NULL) {
+    obj->r = nullptr;
+    if (sg != nullptr) {
         obj->v1 = sg->mHal.drv;
     } else {
-        obj->v1 = NULL;
+        obj->v1 = nullptr;
     }
-    obj->v2 = NULL;
+    obj->v2 = nullptr;
 #endif
 }
-
-

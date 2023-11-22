@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 #LOCAL_JAVA_LIBRARIES := android.test.runner
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := 19
 
 # Include all test java files.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

@@ -63,7 +63,6 @@ dexcore=$dalviktest/tests/dot/junit/dexcore.jar
 scriptdata=$dalviktestdir/data/scriptdata
 report=$dalviktest/report.html
 curdate=`date`
-curmode=""
 datadir=/tmp/${USER}
 base=$OUT
 framework=$base/system/framework
@@ -100,14 +99,6 @@ rm -rf --preserve-root $datadir/dalvik-cache
 mkdir -p $datadir
 mkdir -p $datadir/dalvik-cache
 
-if [ "$TARGET_SIMULATOR" = "true" ]; then
-    echo "Simulator mode, $interpreter interpreter";
-    curmode="simulator"
-else
-    echo "Emulator mode, $interpreter interpreter";
-    curmode="emulator"
-fi
-
 echo ""
 
 pre_report="<html><head><style>
@@ -118,7 +109,7 @@ table tr.lok { background:#aaaaff; }
 </style></head>
 <body>
 <h1>Dalvik VM test suite results</h1>
-Generated $curdate (using the $curmode)
+Generated $curdate (using the emulator)
 <p>
 <table width='100%'>
 <tr><td>Status</td><td>Target</td><td>Category</td><td>Details</td></tr>"
@@ -136,12 +127,8 @@ export jwarningcnt=0
 export jallcnt=0
 export jcolumns=0
 
-# TODO unhack
-if [ "$TARGET_SIMULATOR" = "true" ]; then
-    echo -n ""
-else
-    adb push $dexcore /data/local/tmp/dexcore.jar >> /dev/null 2>&1
-fi
+# TODO unhack; dimitry: unhack what?
+adb push $dexcore /data/local/tmp/dexcore.jar >> /dev/null 2>&1
 
 function classnameToJar()
 {
@@ -175,40 +162,25 @@ do
         # write dalvik output to file
         echo -n "mk_b:" > $datadir/dalvikout
 
-        if [ "$TARGET_SIMULATOR" = "true" ]; then
-            classpath=`classnameToJar ${mainclass}`
-            for dep in ${deps}; do
-                depJar=`classnameToJar ${dep}`
-                classpath=${classpath}:${depJar}
-            done
-            $valgrind $exe -Xmx512M -Xss32K -Xbootclasspath:$bpath $debug_opts \
-                -classpath $dexcore:$classpath $mainclass >> $datadir/dalvikout 2>&1
+        classpath="/data/local/tmp/dexcore.jar"
+        deps=${deps}" "${mainclass}
+        pushedjars=""
+        for dep in ${deps}; do
+            depJar=`classnameToJar ${dep}`
+            depFileName=`basename ${depJar}`
+            deviceFileName=/data/local/tmp/${depFileName}
+            adb push ${depJar} ${deviceFileName} &> /dev/null
+            classpath=${classpath}:${deviceFileName}
+            pushedjars=${pushedjars}" "${deviceFileName}
+        done
 
-            RESULTCODE=$?
-            if [ ${RESULTCODE} -ne 0 ]; then
-                echo "Dalvik VM failed, result=${RESULTCODE}" >> $datadir/dalvikout 2>&1
-            fi
-        else
-            classpath="/data/local/tmp/dexcore.jar"
-            deps=${deps}" "${mainclass}
-            pushedjars=""
-            for dep in ${deps}; do
-                depJar=`classnameToJar ${dep}`
-                depFileName=`basename ${depJar}`
-                deviceFileName=/data/local/tmp/${depFileName}
-                adb push ${depJar} ${deviceFileName} &> /dev/null
-                classpath=${classpath}:${deviceFileName}
-                pushedjars=${pushedjars}" "${deviceFileName}
-            done
+        adb shell dalvikvm -Djava.io.tmpdir=/data/local/tmp \
+            -classpath $classpath $mainclass >> $datadir/dalvikout 2>&1 && \
+            echo -n dvmpassed: >> $datadir/dalvikout 2>&1
 
-            adb shell dalvikvm -Djava.io.tmpdir=/data/local/tmp \
-                -classpath $classpath $mainclass >> $datadir/dalvikout 2>&1 && \
-                echo -n dvmpassed: >> $datadir/dalvikout 2>&1
-
-            for jar in ${pushedjars}; do
-                adb shell rm ${jar} &> /dev/null
-            done
-        fi
+        for jar in ${pushedjars}; do
+            adb shell rm ${jar} &> /dev/null
+        done
 
         echo -n "mk_s:" >> $datadir/dalvikout
         # Verify tmpout only contains mkdxc_start;mkdxc_stop -> no system.out/err

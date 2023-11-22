@@ -19,6 +19,7 @@
 
 #include "base/macros.h"
 #include "dex_file.h"
+#include "dex_instruction_utils.h"
 #include "offsets.h"
 
 namespace art {
@@ -38,6 +39,9 @@ class MirFieldInfo {
   uint16_t FieldIndex() const {
     return field_idx_;
   }
+  void SetFieldIndex(uint16_t field_idx) {
+    field_idx_ = field_idx;
+  }
 
   bool IsStatic() const {
     return (flags_ & kFlagIsStatic) != 0u;
@@ -49,6 +53,9 @@ class MirFieldInfo {
 
   const DexFile* DeclaringDexFile() const {
     return declaring_dex_file_;
+  }
+  void SetDeclaringDexFile(const DexFile* dex_file) {
+    declaring_dex_file_ = dex_file;
   }
 
   uint16_t DeclaringClassIndex() const {
@@ -63,18 +70,42 @@ class MirFieldInfo {
     return (flags_ & kFlagIsVolatile) != 0u;
   }
 
+  // IGET_QUICK, IGET_BYTE_QUICK, ...
+  bool IsQuickened() const {
+    return (flags_ & kFlagIsQuickened) != 0u;
+  }
+
+  DexMemAccessType MemAccessType() const {
+    return static_cast<DexMemAccessType>((flags_ >> kBitMemAccessTypeBegin) & kMemAccessTypeMask);
+  }
+
+  void CheckEquals(const MirFieldInfo& other) const {
+    CHECK_EQ(field_idx_, other.field_idx_);
+    CHECK_EQ(flags_, other.flags_);
+    CHECK_EQ(declaring_field_idx_, other.declaring_field_idx_);
+    CHECK_EQ(declaring_class_idx_, other.declaring_class_idx_);
+    CHECK_EQ(declaring_dex_file_, other.declaring_dex_file_);
+  }
+
  protected:
   enum {
     kBitIsStatic = 0,
     kBitIsVolatile,
-    kFieldInfoBitEnd
+    kBitIsQuickened,
+    kBitMemAccessTypeBegin,
+    kBitMemAccessTypeEnd = kBitMemAccessTypeBegin + 3,  // 3 bits for raw type.
+    kFieldInfoBitEnd = kBitMemAccessTypeEnd
   };
   static constexpr uint16_t kFlagIsVolatile = 1u << kBitIsVolatile;
   static constexpr uint16_t kFlagIsStatic = 1u << kBitIsStatic;
+  static constexpr uint16_t kFlagIsQuickened = 1u << kBitIsQuickened;
+  static constexpr uint16_t kMemAccessTypeMask = 7u;
+  static_assert((1u << (kBitMemAccessTypeEnd - kBitMemAccessTypeBegin)) - 1u == kMemAccessTypeMask,
+                "Invalid raw type mask");
 
-  MirFieldInfo(uint16_t field_idx, uint16_t flags)
+  MirFieldInfo(uint16_t field_idx, uint16_t flags, DexMemAccessType type)
       : field_idx_(field_idx),
-        flags_(flags),
+        flags_(flags | static_cast<uint16_t>(type) << kBitMemAccessTypeBegin),
         declaring_field_idx_(0u),
         declaring_class_idx_(0u),
         declaring_dex_file_(nullptr) {
@@ -93,7 +124,7 @@ class MirFieldInfo {
   uint16_t declaring_field_idx_;
   // The type index of the class declaring the field, 0 if unresolved.
   uint16_t declaring_class_idx_;
-  // The dex file that defines the class containing the field and the field, nullptr if unresolved.
+  // The dex file that defines the class containing the field and the field, null if unresolved.
   const DexFile* declaring_dex_file_;
 };
 
@@ -107,8 +138,10 @@ class MirIFieldLoweringInfo : public MirFieldInfo {
       LOCKS_EXCLUDED(Locks::mutator_lock_);
 
   // Construct an unresolved instance field lowering info.
-  explicit MirIFieldLoweringInfo(uint16_t field_idx)
-      : MirFieldInfo(field_idx, kFlagIsVolatile),  // Without kFlagIsStatic.
+  explicit MirIFieldLoweringInfo(uint16_t field_idx, DexMemAccessType type, bool is_quickened)
+      : MirFieldInfo(field_idx,
+                     kFlagIsVolatile | (is_quickened ? kFlagIsQuickened : 0u),
+                     type),  // Without kFlagIsStatic.
         field_offset_(0u) {
   }
 
@@ -124,21 +157,29 @@ class MirIFieldLoweringInfo : public MirFieldInfo {
     return field_offset_;
   }
 
+  void CheckEquals(const MirIFieldLoweringInfo& other) const {
+    MirFieldInfo::CheckEquals(other);
+    CHECK_EQ(field_offset_.Uint32Value(), other.field_offset_.Uint32Value());
+  }
+
  private:
   enum {
     kBitFastGet = kFieldInfoBitEnd,
     kBitFastPut,
     kIFieldLoweringInfoBitEnd
   };
-  COMPILE_ASSERT(kIFieldLoweringInfoBitEnd <= 16, too_many_flags);
+  static_assert(kIFieldLoweringInfoBitEnd <= 16, "Too many flags");
   static constexpr uint16_t kFlagFastGet = 1u << kBitFastGet;
   static constexpr uint16_t kFlagFastPut = 1u << kBitFastPut;
 
   // The member offset of the field, 0u if unresolved.
   MemberOffset field_offset_;
 
+  friend class NullCheckEliminationTest;
   friend class GlobalValueNumberingTest;
+  friend class GvnDeadCodeEliminationTest;
   friend class LocalValueNumberingTest;
+  friend class TypeInferenceTest;
 };
 
 class MirSFieldLoweringInfo : public MirFieldInfo {
@@ -154,8 +195,8 @@ class MirSFieldLoweringInfo : public MirFieldInfo {
       LOCKS_EXCLUDED(Locks::mutator_lock_);
 
   // Construct an unresolved static field lowering info.
-  explicit MirSFieldLoweringInfo(uint16_t field_idx)
-      : MirFieldInfo(field_idx, kFlagIsVolatile | kFlagIsStatic),
+  explicit MirSFieldLoweringInfo(uint16_t field_idx, DexMemAccessType type)
+      : MirFieldInfo(field_idx, kFlagIsVolatile | kFlagIsStatic, type),
         field_offset_(0u),
         storage_index_(DexFile::kDexNoIndex) {
   }
@@ -172,8 +213,12 @@ class MirSFieldLoweringInfo : public MirFieldInfo {
     return (flags_ & kFlagIsReferrersClass) != 0u;
   }
 
-  bool IsInitialized() const {
-    return (flags_ & kFlagIsInitialized) != 0u;
+  bool IsClassInitialized() const {
+    return (flags_ & kFlagClassIsInitialized) != 0u;
+  }
+
+  bool IsClassInDexCache() const {
+    return (flags_ & kFlagClassIsInDexCache) != 0u;
   }
 
   MemberOffset FieldOffset() const {
@@ -189,14 +234,16 @@ class MirSFieldLoweringInfo : public MirFieldInfo {
     kBitFastGet = kFieldInfoBitEnd,
     kBitFastPut,
     kBitIsReferrersClass,
-    kBitIsInitialized,
+    kBitClassIsInitialized,
+    kBitClassIsInDexCache,
     kSFieldLoweringInfoBitEnd
   };
-  COMPILE_ASSERT(kSFieldLoweringInfoBitEnd <= 16, too_many_flags);
+  static_assert(kSFieldLoweringInfoBitEnd <= 16, "Too many flags");
   static constexpr uint16_t kFlagFastGet = 1u << kBitFastGet;
   static constexpr uint16_t kFlagFastPut = 1u << kBitFastPut;
   static constexpr uint16_t kFlagIsReferrersClass = 1u << kBitIsReferrersClass;
-  static constexpr uint16_t kFlagIsInitialized = 1u << kBitIsInitialized;
+  static constexpr uint16_t kFlagClassIsInitialized = 1u << kBitClassIsInitialized;
+  static constexpr uint16_t kFlagClassIsInDexCache = 1u << kBitClassIsInDexCache;
 
   // The member offset of the field, 0u if unresolved.
   MemberOffset field_offset_;
@@ -206,7 +253,9 @@ class MirSFieldLoweringInfo : public MirFieldInfo {
 
   friend class ClassInitCheckEliminationTest;
   friend class GlobalValueNumberingTest;
+  friend class GvnDeadCodeEliminationTest;
   friend class LocalValueNumberingTest;
+  friend class TypeInferenceTest;
 };
 
 }  // namespace art

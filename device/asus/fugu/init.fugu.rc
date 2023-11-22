@@ -25,14 +25,6 @@ on early-init
     symlink /dev/dri/card0 /dev/card0
 
 on init
-    # See storage config details at http://source.android.com/tech/storage/
-    mkdir /mnt/shell/emulated 0700 shell shell
-    mkdir /storage/emulated 0555 root root
-
-    export EXTERNAL_STORAGE /storage/emulated/legacy
-    export EMULATED_STORAGE_SOURCE /mnt/shell/emulated
-    export EMULATED_STORAGE_TARGET /storage/emulated
-
     # Android creates by-name disk links with the disk controller
     # in the generated path, so that the names pulled out of the GPT
     # can be associated with the correct disk. Create a shortcut to
@@ -40,10 +32,8 @@ on init
     symlink /dev/block/pci/pci0000:00/0000:00:01.0/by-name /dev/block/by-name
 
     # Support legacy paths
-    symlink /storage/emulated/legacy /sdcard
-    symlink /storage/emulated/legacy /mnt/sdcard
-    symlink /storage/emulated/legacy /storage/sdcard0
-    symlink /mnt/shell/emulated/0 /storage/emulated/legacy
+    symlink /sdcard /mnt/sdcard
+    symlink /sdcard /storage/sdcard0
 
     # KSM options
     write /sys/kernel/mm/ksm/pages_to_scan 100
@@ -59,7 +49,6 @@ on fs
 
     mount_all ./fstab.fugu
     swapon_all ./fstab.fugu
-    setprop ro.crypto.fuse_sdcard true
 
     restorecon_recursive /factory
 
@@ -126,14 +115,10 @@ on post-fs
     chmod 0440 /sys/module/tngdisp/parameters/hdmi_edid_src_phy_addr
 
 on post-fs-data
-    mkdir /data/media 0770 media_rw media_rw
-
     # Create the directories used by the Wireless subsystem
     mkdir /data/misc/wifi 0770 wifi wifi
     mkdir /data/misc/wifi/sockets 0770 wifi wifi
     mkdir /data/misc/dhcp 0770 dhcp wifi
-
-    mkdir /data/tombstones 0771 system system
 
     # Bluetooth
     setprop ro.bt.bdaddr_path "/factory/bt/bd_addr.conf"
@@ -264,10 +249,6 @@ service iprenew_bt-pan /system/bin/dhcpcd -n
     group bluetooth system dhcp
     disabled
     oneshot
-
-# virtual sdcard daemon running as media_rw (1023)
-service sdcard /system/bin/sdcard -u 1023 -g 1023 -l /data/media /mnt/shell/emulated
-    class late_start
 
 # bugreport is triggered by holding down volume down, volume up and power
 service bugreport /system/bin/dumpstate -d -p -B \

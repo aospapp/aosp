@@ -136,7 +136,7 @@ void GenericPlayer::prepare() {
     SL_LOGD("GenericPlayer::prepare()");
     // do not attempt prepare more than once
     if (!(mStateFlags & (kFlagPrepared | kFlagPreparedUnsuccessfully))) {
-        sp<AMessage> msg = new AMessage(kWhatPrepare, id());
+        sp<AMessage> msg = new AMessage(kWhatPrepare, this);
         msg->post();
     }
 }
@@ -144,21 +144,21 @@ void GenericPlayer::prepare() {
 
 void GenericPlayer::play() {
     SL_LOGD("GenericPlayer::play()");
-    sp<AMessage> msg = new AMessage(kWhatPlay, id());
+    sp<AMessage> msg = new AMessage(kWhatPlay, this);
     msg->post();
 }
 
 
 void GenericPlayer::pause() {
     SL_LOGD("GenericPlayer::pause()");
-    sp<AMessage> msg = new AMessage(kWhatPause, id());
+    sp<AMessage> msg = new AMessage(kWhatPause, this);
     msg->post();
 }
 
 
 void GenericPlayer::stop() {
     SL_LOGD("GenericPlayer::stop()");
-    (new AMessage(kWhatPause, id()))->post();
+    (new AMessage(kWhatPause, this))->post();
 
     // after a stop, playback should resume from the start.
     seek(0);
@@ -171,7 +171,7 @@ void GenericPlayer::seek(int64_t timeMsec) {
         SL_LOGE("GenericPlayer::seek error, can't seek to negative time %" PRId64 "ms", timeMsec);
         return;
     }
-    sp<AMessage> msg = new AMessage(kWhatSeek, id());
+    sp<AMessage> msg = new AMessage(kWhatSeek, this);
     msg->setInt64(WHATPARAM_SEEK_SEEKTIME_MS, timeMsec);
     msg->post();
 }
@@ -179,7 +179,7 @@ void GenericPlayer::seek(int64_t timeMsec) {
 
 void GenericPlayer::loop(bool loop) {
     SL_LOGV("GenericPlayer::loop %s", loop ? "true" : "false");
-    sp<AMessage> msg = new AMessage(kWhatLoop, id());
+    sp<AMessage> msg = new AMessage(kWhatLoop, this);
     msg->setInt32(WHATPARAM_LOOP_LOOPING, (int32_t)loop);
     msg->post();
 }
@@ -187,7 +187,7 @@ void GenericPlayer::loop(bool loop) {
 
 void GenericPlayer::setBufferingUpdateThreshold(int16_t thresholdPercent) {
     SL_LOGV("GenericPlayer::setBufferingUpdateThreshold %d", thresholdPercent);
-    sp<AMessage> msg = new AMessage(kWhatBuffUpdateThres, id());
+    sp<AMessage> msg = new AMessage(kWhatBuffUpdateThres, this);
     msg->setInt32(WHATPARAM_BUFFERING_UPDATETHRESHOLD_PERCENT, (int32_t)thresholdPercent);
     msg->post();
 }
@@ -208,7 +208,7 @@ void GenericPlayer::setVolume(float leftVol, float rightVol)
         mAndroidAudioLevels.mFinalVolume[1] = rightVol;
     }
     // send a message for the volume to be updated by the object which implements the volume
-    (new AMessage(kWhatVolumeUpdate, id()))->post();
+    (new AMessage(kWhatVolumeUpdate, this))->post();
 }
 
 
@@ -216,7 +216,7 @@ void GenericPlayer::setVolume(float leftVol, float rightVol)
 void GenericPlayer::attachAuxEffect(int32_t effectId)
 {
     SL_LOGV("GenericPlayer::attachAuxEffect(id=%d)", effectId);
-    sp<AMessage> msg = new AMessage(kWhatAttachAuxEffect, id());
+    sp<AMessage> msg = new AMessage(kWhatAttachAuxEffect, this);
     msg->setInt32(WHATPARAM_ATTACHAUXEFFECT, effectId);
     msg->post();
 }
@@ -226,7 +226,7 @@ void GenericPlayer::attachAuxEffect(int32_t effectId)
 void GenericPlayer::setAuxEffectSendLevel(float level)
 {
     SL_LOGV("GenericPlayer::setAuxEffectSendLevel(level=%g)", level);
-    sp<AMessage> msg = new AMessage(kWhatSetAuxEffectSendLevel, id());
+    sp<AMessage> msg = new AMessage(kWhatSetAuxEffectSendLevel, this);
     msg->setFloat(WHATPARAM_SETAUXEFFECTSENDLEVEL, level);
     msg->post();
 }
@@ -257,7 +257,7 @@ void GenericPlayer::setPlayEvents(int32_t eventFlags, int32_t markerPositionMs,
     if (positionUpdatePeriodMs < 100) {
         positionUpdatePeriodMs = 100;
     }
-    sp<AMessage> msg = new AMessage(kWhatSetPlayEvents, id());
+    sp<AMessage> msg = new AMessage(kWhatSetPlayEvents, this);
     msg->setInt32(WHATPARAM_SETPLAYEVENTS_FLAGS, eventFlags);
     msg->setInt32(WHATPARAM_SETPLAYEVENTS_MARKER, markerPositionMs);
     msg->setInt32(WHATPARAM_SETPLAYEVENTS_UPDATE, positionUpdatePeriodMs);
@@ -285,7 +285,7 @@ void GenericPlayer::resetDataLocator() {
 void GenericPlayer::notify(const char* event, int data, bool async) {
     SL_LOGV("GenericPlayer::notify(event=%s, data=%d, async=%s)", event, data,
             async ? "true" : "false");
-    sp<AMessage> msg = new AMessage(kWhatNotif, id());
+    sp<AMessage> msg = new AMessage(kWhatNotif, this);
     msg->setInt32(event, (int32_t)data);
     if (async) {
         msg->post();
@@ -298,7 +298,7 @@ void GenericPlayer::notify(const char* event, int data, bool async) {
 void GenericPlayer::notify(const char* event, int data1, int data2, bool async) {
     SL_LOGV("GenericPlayer::notify(event=%s, data1=%d, data2=%d, async=%s)", event, data1, data2,
             async ? "true" : "false");
-    sp<AMessage> msg = new AMessage(kWhatNotif, id());
+    sp<AMessage> msg = new AMessage(kWhatNotif, this);
     msg->setRect(event, 0, 0, (int32_t)data1, (int32_t)data2);
     if (async) {
         msg->post();
@@ -565,14 +565,14 @@ void GenericPlayer::notifyCacheFill() {
 
 void GenericPlayer::seekComplete() {
     SL_LOGV("GenericPlayer::seekComplete");
-    sp<AMessage> msg = new AMessage(kWhatSeekComplete, id());
+    sp<AMessage> msg = new AMessage(kWhatSeekComplete, this);
     msg->post();
 }
 
 
 void GenericPlayer::bufferingUpdate(int16_t fillLevelPerMille) {
     SL_LOGV("GenericPlayer::bufferingUpdate");
-    sp<AMessage> msg = new AMessage(kWhatBufferingUpdate, id());
+    sp<AMessage> msg = new AMessage(kWhatBufferingUpdate, this);
     msg->setInt32(WHATPARAM_BUFFERING_UPDATE, fillLevelPerMille);
     msg->post();
 }
@@ -705,7 +705,7 @@ void GenericPlayer::updateOneShot(int positionMs)
             delayUs = 60000000LL;
         }
         //SL_LOGI("delayUs = %lld", delayUs);
-        sp<AMessage> msg = new AMessage(kWhatOneShot, id());
+        sp<AMessage> msg = new AMessage(kWhatOneShot, this);
         msg->setInt32(WHATPARAM_ONESHOT_GENERATION, mOneShotGeneration);
         msg->post(delayUs);
     }

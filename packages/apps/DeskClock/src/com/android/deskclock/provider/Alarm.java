@@ -185,6 +185,14 @@ public final class Alarm implements Parcelable, ClockContract.AlarmsColumns {
         return result;
     }
 
+    public static boolean isTomorrow(Alarm alarm) {
+        final Calendar now = Calendar.getInstance();
+        final int alarmHour = alarm.hour;
+        final int currHour = now.get(Calendar.HOUR_OF_DAY);
+        return alarmHour < currHour ||
+                (alarmHour == currHour && alarm.minutes <= now.get(Calendar.MINUTE));
+    }
+
     public static Alarm addAlarm(ContentResolver contentResolver, Alarm alarm) {
         ContentValues values = createContentValues(alarm);
         Uri uri = contentResolver.insert(CONTENT_URI, values);
@@ -298,17 +306,50 @@ public final class Alarm implements Parcelable, ClockContract.AlarmsColumns {
     }
 
     public AlarmInstance createInstanceAfter(Calendar time) {
-        Calendar nextInstanceTime = Calendar.getInstance();
-        nextInstanceTime.set(Calendar.YEAR, time.get(Calendar.YEAR));
-        nextInstanceTime.set(Calendar.MONTH, time.get(Calendar.MONTH));
-        nextInstanceTime.set(Calendar.DAY_OF_MONTH, time.get(Calendar.DAY_OF_MONTH));
+        Calendar nextInstanceTime = getNextAlarmTime(time);
+        AlarmInstance result = new AlarmInstance(nextInstanceTime, id);
+        result.mVibrate = vibrate;
+        result.mLabel = label;
+        result.mRingtone = alert;
+        return result;
+    }
+
+    /**
+     *
+     * @param currentTime
+     * @return Previous firing time, or null if this is a one-time alarm.
+     */
+    public Calendar getPreviousAlarmTime(Calendar currentTime) {
+        Calendar previousInstanceTime = Calendar.getInstance();
+        previousInstanceTime.set(Calendar.YEAR, currentTime.get(Calendar.YEAR));
+        previousInstanceTime.set(Calendar.MONTH, currentTime.get(Calendar.MONTH));
+        previousInstanceTime.set(Calendar.DAY_OF_MONTH, currentTime.get(Calendar.DAY_OF_MONTH));
+        previousInstanceTime.set(Calendar.HOUR_OF_DAY, hour);
+        previousInstanceTime.set(Calendar.MINUTE, minutes);
+        previousInstanceTime.set(Calendar.SECOND, 0);
+        previousInstanceTime.set(Calendar.MILLISECOND, 0);
+
+        int subtractDays = daysOfWeek.calculateDaysToPreviousAlarm(previousInstanceTime);
+        if (subtractDays > 0) {
+            previousInstanceTime.add(Calendar.DAY_OF_WEEK, -subtractDays);
+            return previousInstanceTime;
+        } else {
+            return null;
+        }
+    }
+
+    public Calendar getNextAlarmTime(Calendar currentTime) {
+        final Calendar nextInstanceTime = Calendar.getInstance();
+        nextInstanceTime.set(Calendar.YEAR, currentTime.get(Calendar.YEAR));
+        nextInstanceTime.set(Calendar.MONTH, currentTime.get(Calendar.MONTH));
+        nextInstanceTime.set(Calendar.DAY_OF_MONTH, currentTime.get(Calendar.DAY_OF_MONTH));
         nextInstanceTime.set(Calendar.HOUR_OF_DAY, hour);
         nextInstanceTime.set(Calendar.MINUTE, minutes);
         nextInstanceTime.set(Calendar.SECOND, 0);
         nextInstanceTime.set(Calendar.MILLISECOND, 0);
 
-        // If we are still behind the passed in time, then add a day
-        if (nextInstanceTime.getTimeInMillis() <= time.getTimeInMillis()) {
+        // If we are still behind the passed in currentTime, then add a day
+        if (nextInstanceTime.getTimeInMillis() <= currentTime.getTimeInMillis()) {
             nextInstanceTime.add(Calendar.DAY_OF_YEAR, 1);
         }
 
@@ -317,12 +358,7 @@ public final class Alarm implements Parcelable, ClockContract.AlarmsColumns {
         if (addDays > 0) {
             nextInstanceTime.add(Calendar.DAY_OF_WEEK, addDays);
         }
-
-        AlarmInstance result = new AlarmInstance(nextInstanceTime, id);
-        result.mVibrate = vibrate;
-        result.mLabel = label;
-        result.mRingtone = alert;
-        return result;
+        return nextInstanceTime;
     }
 
     @Override

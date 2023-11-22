@@ -4,8 +4,8 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FSDK_BASEFORM_H_
-#define _FSDK_BASEFORM_H_
+#ifndef FPDFSDK_INCLUDE_FSDK_BASEFORM_H_
+#define FPDFSDK_INCLUDE_FSDK_BASEFORM_H_
 
 #if _FX_OS_ == _FX_ANDROID_
 #include "time.h"
@@ -13,13 +13,21 @@
 #include <ctime>
 #endif
 
-class CPDFSDK_Document;
-class  CPDFSDK_DateTime;
-struct CPWL_Color;
-class CFFL_FormFiller;
-class CPDFSDK_PageView;
-class CPDFSDK_InterForm;
+#include "../../core/include/fpdfapi/fpdf_parser.h"
+#include "../../core/include/fpdfdoc/fpdf_doc.h"
+#include "../../core/include/fxcrt/fx_basic.h"
+#include "../../core/include/fxge/fx_dib.h"
+#include "fsdk_baseannot.h"
 
+class CFFL_FormFiller;
+class CPDFSDK_Annot;
+class CPDFSDK_DateTime;
+class CPDFSDK_Document;
+class CPDFSDK_InterForm;
+class CPDFSDK_PageView;
+class CPDF_Action;
+class CPDF_FormField;
+struct CPWL_Color;
 
 typedef struct _PDFSDK_FieldAction
 {
@@ -60,7 +68,7 @@ public:
 
 	int								GetFieldType() const;
 	//define layout order to 2.
-	virtual int						GetLayoutOrder() {return 2;}
+	virtual int						GetLayoutOrder() const {return 2;}
 	/*
 	FIELDFLAG_READONLY
 	FIELDFLAG_REQUIRED
@@ -206,14 +214,8 @@ public:
 	FX_BOOL							SubmitFields(const CFX_WideString& csDestination, const CFX_PtrArray& fields, 
 		FX_BOOL bIncludeOrExclude, FX_BOOL bUrlEncoded);
 	FX_BOOL							SubmitForm(const CFX_WideString& sDestination, FX_BOOL bUrlEncoded);
-	FX_BOOL							ImportFormFromFDFFile(const CFX_WideString& csFDFFileName, FX_BOOL bNotify);
-	FX_BOOL							ExportFormToFDFFile(const CFX_WideString& sFDFFileName);
 	FX_BOOL							ExportFormToFDFTextBuf(CFX_ByteTextBuf& textBuf);
-	FX_BOOL							ExportFieldsToFDFFile(const CFX_WideString& sFDFFileName, const CFX_PtrArray& fields,
-		FX_BOOL bIncludeOrExclude);
 	FX_BOOL							ExportFieldsToFDFTextBuf(const CFX_PtrArray& fields,FX_BOOL bIncludeOrExclude, CFX_ByteTextBuf& textBuf);
-	FX_BOOL							ExportFormToTxtFile(const CFX_WideString& sTxtFileName);
-	FX_BOOL							ImportFormFromTxtFile(const CFX_WideString& sTxtFileName);
 	CFX_WideString					GetTemporaryFileName(const CFX_WideString& sFileExt);
 	
 private:
@@ -259,34 +261,28 @@ private:
 
 #define CPDFSDK_Annots				CFX_ArrayTemplate<CPDFSDK_Annot*>
 #define CPDFSDK_SortAnnots			CGW_ArrayTemplate<CPDFSDK_Annot*>
-class CBA_AnnotIterator 
+class CBA_AnnotIterator
 {
 public:
 	CBA_AnnotIterator(CPDFSDK_PageView* pPageView, const CFX_ByteString& sType, const CFX_ByteString& sSubType);
-	virtual ~CBA_AnnotIterator();
-	
-	virtual CPDFSDK_Annot*				GetFirstAnnot();
-	virtual CPDFSDK_Annot*				GetLastAnnot();
-	virtual CPDFSDK_Annot*				GetNextAnnot(CPDFSDK_Annot* pAnnot);
-	virtual CPDFSDK_Annot*				GetPrevAnnot(CPDFSDK_Annot* pAnnot);
-	
-	virtual void						Release(){delete this;}
-	
+	~CBA_AnnotIterator();
+
+	CPDFSDK_Annot*				GetFirstAnnot();
+	CPDFSDK_Annot*				GetLastAnnot();
+	CPDFSDK_Annot*				GetNextAnnot(CPDFSDK_Annot* pAnnot);
+	CPDFSDK_Annot*				GetPrevAnnot(CPDFSDK_Annot* pAnnot);
+
 private:
 	void								GenerateResults();
 	static int							CompareByLeft(CPDFSDK_Annot* p1, CPDFSDK_Annot* p2);
 	static int							CompareByTop(CPDFSDK_Annot* p1, CPDFSDK_Annot* p2);
-	
 	static CPDF_Rect					GetAnnotRect(CPDFSDK_Annot* pAnnot);
-	
-private:
+
 	CPDFSDK_PageView*					m_pPageView;
 	CFX_ByteString						m_sType;
 	CFX_ByteString						m_sSubType;
 	int									m_nTabs;
-	
 	CPDFSDK_Annots						m_Annots;
 };
 
-#endif //#define _FSDK_BASEFORM_H_
-
+#endif  // FPDFSDK_INCLUDE_FSDK_BASEFORM_H_

@@ -44,15 +44,19 @@ class DlMallocSpace : public MallocSpace {
   // the caller should call Begin on the returned space to confirm the
   // request was granted.
   static DlMallocSpace* Create(const std::string& name, size_t initial_size, size_t growth_limit,
-                               size_t capacity, byte* requested_begin, bool can_move_objects);
+                               size_t capacity, uint8_t* requested_begin, bool can_move_objects);
 
   // Virtual to allow ValgrindMallocSpace to intercept.
   virtual mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                          size_t* usable_size) OVERRIDE LOCKS_EXCLUDED(lock_);
+                                          size_t* usable_size,
+                                          size_t* bytes_tl_bulk_allocated)
+      OVERRIDE LOCKS_EXCLUDED(lock_);
   // Virtual to allow ValgrindMallocSpace to intercept.
   virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                        size_t* usable_size) OVERRIDE LOCKS_EXCLUDED(lock_) {
-    return AllocNonvirtual(self, num_bytes, bytes_allocated, usable_size);
+                                size_t* usable_size, size_t* bytes_tl_bulk_allocated)
+      OVERRIDE LOCKS_EXCLUDED(lock_) {
+    return AllocNonvirtual(self, num_bytes, bytes_allocated, usable_size,
+                           bytes_tl_bulk_allocated);
   }
   // Virtual to allow ValgrindMallocSpace to intercept.
   virtual size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
@@ -67,15 +71,22 @@ class DlMallocSpace : public MallocSpace {
       LOCKS_EXCLUDED(lock_)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  // DlMallocSpaces don't have thread local state.
-  void RevokeThreadLocalBuffers(art::Thread*) OVERRIDE {
+  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) OVERRIDE {
+    return num_bytes;
   }
-  void RevokeAllThreadLocalBuffers() OVERRIDE {
+
+  // DlMallocSpaces don't have thread local state.
+  size_t RevokeThreadLocalBuffers(art::Thread*) OVERRIDE {
+    return 0U;
+  }
+  size_t RevokeAllThreadLocalBuffers() OVERRIDE {
+    return 0U;
   }
 
   // Faster non-virtual allocation path.
   mirror::Object* AllocNonvirtual(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                  size_t* usable_size) LOCKS_EXCLUDED(lock_);
+                                  size_t* usable_size, size_t* bytes_tl_bulk_allocated)
+      LOCKS_EXCLUDED(lock_);
 
   // Faster non-virtual allocation size path.
   size_t AllocationSizeNonvirtual(mirror::Object* obj, size_t* usable_size);
@@ -107,8 +118,8 @@ class DlMallocSpace : public MallocSpace {
   // allocations fail we GC before increasing the footprint limit and allowing the mspace to grow.
   void SetFootprintLimit(size_t limit) OVERRIDE;
 
-  MallocSpace* CreateInstance(const std::string& name, MemMap* mem_map, void* allocator,
-                              byte* begin, byte* end, byte* limit, size_t growth_limit,
+  MallocSpace* CreateInstance(MemMap* mem_map, const std::string& name, void* allocator,
+                              uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
                               bool can_move_objects);
 
   uint64_t GetBytesAllocated() OVERRIDE;
@@ -128,13 +139,14 @@ class DlMallocSpace : public MallocSpace {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  protected:
-  DlMallocSpace(const std::string& name, MemMap* mem_map, void* mspace, byte* begin, byte* end,
-                byte* limit, size_t growth_limit, bool can_move_objects, size_t starting_size,
-                size_t initial_size);
+  DlMallocSpace(MemMap* mem_map, size_t initial_size, const std::string& name, void* mspace,
+                uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
+                bool can_move_objects, size_t starting_size);
 
  private:
   mirror::Object* AllocWithoutGrowthLocked(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                           size_t* usable_size)
+                                           size_t* usable_size,
+                                           size_t* bytes_tl_bulk_allocated)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   void* CreateAllocator(void* base, size_t morecore_start, size_t initial_size,
@@ -144,7 +156,7 @@ class DlMallocSpace : public MallocSpace {
   static void* CreateMspace(void* base, size_t morecore_start, size_t initial_size);
 
   // The boundary tag overhead.
-  static const size_t kChunkOverhead = kWordSize;
+  static const size_t kChunkOverhead = sizeof(intptr_t);
 
   // Underlying malloc space.
   void* mspace_;

@@ -21,6 +21,7 @@
     <xsl:template match="/">
         <html>
             <head>
+                <title><xsl:value-of select="api-coverage/@title" /></title>
                 <script type="text/javascript">
                     function toggleVisibility(id) {
                         element = document.getElementById(id); 
@@ -87,7 +88,7 @@
                 &nbsp;(<xsl:value-of select="api-coverage/total/@numCovered" />/<xsl:value-of select="api-coverage/total/@numTotal" />)
                 </div>
                 <div class="apks" onclick="toggleVisibility('sourceApks')">
-                    Source APKs (<xsl:value-of select="count(api-coverage/debug/sources/apk)" />)
+                    Source Modules (<xsl:value-of select="count(api-coverage/debug/sources/apk)" />)
                 </div>
                 <div id="sourceApks" style="display: none">
                     <ul>
@@ -100,14 +101,17 @@
                     <xsl:for-each select="api-coverage/api/package">
                         <xsl:call-template name="packageOrClassListItem">
                             <xsl:with-param name="bulletClass" select="'package'" />
+                            <xsl:with-param name="toggleId" select="@name" />
                         </xsl:call-template>
                         <div class="packageDetails" id="{@name}" style="display: none">
                             <ul>
                                 <xsl:for-each select="class">
+                                    <xsl:variable name="packageClassId" select="concat(../@name, '.', @name)"/>
                                     <xsl:call-template name="packageOrClassListItem">
                                         <xsl:with-param name="bulletClass" select="'class'" />
+                                        <xsl:with-param name="toggleId" select="$packageClassId" />
                                     </xsl:call-template>
-                                    <div class="classDetails" id="{@name}" style="display: none">
+                                    <div class="classDetails" id="{$packageClassId}" style="display: none">
                                         <xsl:for-each select="constructor">
                                             <xsl:call-template name="methodListItem" />
                                         </xsl:for-each>
@@ -123,9 +127,10 @@
             </body>
         </html>
     </xsl:template>
-    
+
     <xsl:template name="packageOrClassListItem">
         <xsl:param name="bulletClass" />
+        <xsl:param name="toggleId"/>
 
         <xsl:variable name="colorClass">
             <xsl:choose>
@@ -134,7 +139,7 @@
                 <xsl:otherwise>green</xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
-        
+
         <xsl:variable name="deprecatedClass">
             <xsl:choose>
                 <xsl:when test="@deprecated = 'true'">deprecated</xsl:when>
@@ -142,15 +147,15 @@
             </xsl:choose>
         </xsl:variable>
 
-        <li class="{$bulletClass}" onclick="toggleVisibility('{@name}')">
+        <li class="{$bulletClass}" onclick="toggleVisibility('{$toggleId}')">
             <span class="{$colorClass} {$deprecatedClass}">
                 <b><xsl:value-of select="@name" /></b>
                 &nbsp;<xsl:value-of select="@coveragePercentage" />%
                 &nbsp;(<xsl:value-of select="@numCovered" />/<xsl:value-of select="@numTotal" />)
             </span>
-        </li>   
+        </li>
     </xsl:template>
-  
+
   <xsl:template name="methodListItem">
 
     <xsl:variable name="deprecatedClass">
@@ -165,6 +170,10 @@
         <xsl:when test="@covered = 'true'">[X]</xsl:when>
         <xsl:otherwise>[ ]</xsl:otherwise>
       </xsl:choose>
+      <xsl:if test="@visibility != ''">&nbsp;<xsl:value-of select="@visibility" /></xsl:if>
+      <xsl:if test="@abstract = 'true'">&nbsp;abstract</xsl:if>
+      <xsl:if test="@static = 'true'">&nbsp;static</xsl:if>
+      <xsl:if test="@final = 'true'">&nbsp;final</xsl:if>
       <xsl:if test="@returnType != ''">&nbsp;<xsl:value-of select="@returnType" /></xsl:if>
       <b>&nbsp;<xsl:value-of select="@name" /></b><xsl:call-template name="formatParameters" />
     </span>

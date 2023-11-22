@@ -2,7 +2,7 @@ page.title=Contact Us
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project     
+    Copyright 2015 The Android Open Source Project     
 
     Licensed under the Apache License, Version 2.0 (the "License");    
     you may not use this file except in compliance with the License.   
@@ -16,7 +16,7 @@ page.title=Contact Us
     See the License for the specific language governing permissions and    
     limitations under the License.   
 -->
-<p>Thanks for your interest in Android compatibility! This page describes the
+<p>This page describes the
 contact methods for inquiries regarding the Android compatibility program,
 including the Compatibility Definition Document (CDD) and Compatibility Test
 Suite (CTS). See the <a href="{@docRoot}community/index.html">Community</a>
@@ -37,18 +37,16 @@ href="https://groups.google.com/forum/?fromgroups#!forum/android-compatibility">
 href="mailto:android-compatibility+subscribe@googlegroups.com">android-compatibility</a></li>
 </ul>
 
-<p>To make best use of this list, please first read <em>Getting the Most from
-Our Lists</em> on the <a href="{@docRoot}community/index.html">Community</a>
-page. Users looking for help with Android devices should contact their carrier
-or manufacturer for help.</p>
+<p>To make best use of this list, please first read <a
+href="{@docRoot}source/community/index.html#getting-the-most-from-our-lists">Getting
+the Most from Our Lists</a> on the Community page. Users looking for help with
+Android devices should contact their carrier or manufacturer for help.</p>
 
-<h2 id="for-business-inquiries">For business inquiries</h2>
-<p>Finally, business inquiries about the compatibility program, including
-requests to use branding elements and similar, can be sent to the address <a
-href="mailto:android-partnerships@google.com">android-partnerships@google.com</a>.
-This address is for specific, private inquiries; general questions will be
-directed back to the android-compatibility list.</p>
+<h2 id="for-business-inquiries">For licensing Google Mobile Services</h2>
+<p>Please send inquiries about licensing Google Mobile Services through the <a
+href="https://docs.google.com/a/google.com/forms/d/1qAHuR-MbmXeYuJ1aBd3neaUjNGxnnnCd2kzb0MEJpGQ/viewform"
+target="_blank">GMS Inquiry</a> form. Other non-GMS partnership inquiries can be sent to <a
+href="mailto:android-partnerships@google.com">android-partnerships@google.com</a>
 
-<p>While we read every email that
-is received at the android-partnerships alias, we cannot respond to each of them.
-Please note, we will be in contact if we can help you.</p>
+<p>While we read every message received, we cannot respond to each of them. We
+promise to contact you if we can help!</p>

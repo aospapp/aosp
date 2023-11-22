@@ -18,6 +18,7 @@
 #define ANDROID_RS_SCRIPT_H
 
 #include "rsAllocation.h"
+#include "rsMap.h"
 
 #include <utility>
 
@@ -32,30 +33,44 @@ class ProgramRaster;
 class ProgramStore;
 #endif
 
-class ScriptKernelID : public ObjectBase {
+class IDBase : public ObjectBase {
 public:
-    ScriptKernelID(Context *rsc, Script *s, int slot, int sig);
-    virtual ~ScriptKernelID();
+    IDBase(Context *rsc, Script *s, int slot) :
+        ObjectBase(rsc), mScript(s), mSlot(slot) {}
+    virtual ~IDBase() {}
 
-    virtual void serialize(Context *rsc, OStream *stream) const;
+    virtual void serialize(Context *rsc, OStream *stream) const {}
     virtual RsA3DClassID getClassId() const;
 
     Script *mScript;
     int mSlot;
+};
+
+class ScriptKernelID : public IDBase {
+public:
+    ScriptKernelID(Context *rsc, Script *s, int slot, int sig);
+    virtual ~ScriptKernelID() {}
+
+    virtual RsA3DClassID getClassId() const;
+
     bool mHasKernelInput;
     bool mHasKernelOutput;
 };
 
-class ScriptFieldID : public ObjectBase {
+class ScriptInvokeID : public IDBase {
+public:
+    ScriptInvokeID(Context *rsc, Script *s, int slot);
+    virtual ~ScriptInvokeID() {}
+
+    virtual RsA3DClassID getClassId() const;
+};
+
+class ScriptFieldID : public IDBase {
 public:
     ScriptFieldID(Context *rsc, Script *s, int slot);
-    virtual ~ScriptFieldID();
+    virtual ~ScriptFieldID() {}
 
-    virtual void serialize(Context *rsc, OStream *stream) const;
     virtual RsA3DClassID getClassId() const;
-
-    Script *mScript;
-    int mSlot;
 };
 
 class Script : public ObjectBase {
@@ -73,15 +88,13 @@ public:
             size_t exportedPragmaCount;
             char const **exportedPragmaKeyList;
             char const **exportedPragmaValueList;
-            const std::pair<const char *, uint32_t> *exportedForeachFuncList;
+            const Pair<const char *, uint32_t> *exportedForeachFuncList;
 
             int (* root)();
         };
         DriverInfo info;
     };
     Hal mHal;
-
-    typedef void (* InvokeFunc_t)(void);
 
     Script(Context *);
     virtual ~Script();
@@ -108,35 +121,33 @@ public:
 
     virtual bool freeChildren();
 
-    virtual void runForEach(Context *rsc,
-                            uint32_t slot,
-                            const Allocation * ain,
-                            Allocation * aout,
-                            const void * usr,
-                            size_t usrBytes,
-                            const RsScriptCall *sc = NULL) = 0;
-
     virtual void runForEach(Context* rsc,
                             uint32_t slot,
-                            const Allocation** ains,
+                            const Allocation ** ains,
                             size_t inLen,
                             Allocation* aout,
                             const void* usr,
                             size_t usrBytes,
-                            const RsScriptCall *sc = NULL) = 0;
+                            const RsScriptCall *sc = nullptr) = 0;
 
     virtual void Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) = 0;
     virtual void setupScript(Context *rsc) = 0;
     virtual uint32_t run(Context *) = 0;
+    virtual bool isIntrinsic() const { return false; }
 
     bool hasObjectSlots() const {
         return mHasObjectSlots;
     }
     virtual void callUpdateCacheObject(const Context *rsc, void *dstObj) const;
 
+    uint32_t getApiLevel() const {
+        return mApiLevel;
+    }
+
 protected:
     bool mInitialized;
     bool mHasObjectSlots;
+    uint32_t mApiLevel;
     ObjectBaseRef<Allocation> *mSlots;
     ObjectBaseRef<const Type> *mTypes;
 

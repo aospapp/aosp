@@ -29,9 +29,12 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionManager;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -40,6 +43,7 @@ import android.text.style.TtsSpan;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
@@ -115,12 +119,14 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     // Haptic feedback (vibration) for dialer key presses.
     private HapticFeedback mHaptic = new HapticFeedback();
 
+    private EmergencyActionGroup mEmergencyActionGroup;
+
     // close activity when screen turns off
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
-                finish();
+                finishAndRemoveTask();
             }
         }
     };
@@ -195,14 +201,18 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         mDialButton = findViewById(R.id.floating_action_button);
 
         // Check whether we should show the onscreen "Dial" button and co.
-        Resources res = getResources();
-        if (res.getBoolean(R.bool.config_show_onscreen_dial_button)) {
+        // Read carrier config through the public API because PhoneGlobals is not available when we
+        // run as a secondary user.
+        CarrierConfigManager configMgr =
+                (CarrierConfigManager) getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle carrierConfig =
+                configMgr.getConfigForSubId(SubscriptionManager.getDefaultVoiceSubId());
+        if (carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_ONSCREEN_DIAL_BUTTON_BOOL)) {
             mDialButton.setOnClickListener(this);
         } else {
             mDialButton.setVisibility(View.GONE);
         }
-        View floatingActionButtonContainer = findViewById(R.id.floating_action_button_container);
-        ViewUtil.setupFloatingActionButton(floatingActionButtonContainer, getResources());
+        ViewUtil.setupFloatingActionButton(mDialButton, getResources());
 
         if (icicle != null) {
             super.onRestoreInstanceState(icicle);
@@ -235,10 +245,15 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         registerReceiver(mBroadcastReceiver, intentFilter);
 
         try {
-            mHaptic.init(this, res.getBoolean(R.bool.config_enable_dialer_key_vibration));
+            mHaptic.init(
+                    this,
+                    carrierConfig.getBoolean(
+                            CarrierConfigManager.KEY_ENABLE_DIALER_KEY_VIBRATION_BOOL));
         } catch (Resources.NotFoundException nfe) {
              Log.e(LOG_TAG, "Vibrate control bool missing.", nfe);
         }
+
+        mEmergencyActionGroup = (EmergencyActionGroup) findViewById(R.id.emergency_action_group);
     }
 
     @Override
@@ -337,6 +352,14 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                 break;
         }
         return false;
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        mEmergencyActionGroup.onPreTouchEvent(ev);
+        boolean handled = super.dispatchTouchEvent(ev);
+        mEmergencyActionGroup.onPostTouchEvent(ev);
+        return handled;
     }
 
     @Override

@@ -17,12 +17,14 @@
 #define LOG_TAG "Minikin"
 #include <cutils/log.h>
 
-#include <string>
-#include <vector>
+#include <math.h>
+#include <stdio.h>  // for debugging
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>  // for debugging
-#include <stdio.h>  // ditto
+#include <string>
+#include <vector>
 
 #include <utils/JenkinsHash.h>
 #include <utils/LruCache.h>
@@ -39,20 +41,49 @@
 using std::string;
 using std::vector;
 
+namespace minikin {
+
+Bitmap::Bitmap(int width, int height) : width(width), height(height) {
+    buf = new uint8_t[width * height]();
+}
+
+Bitmap::~Bitmap() {
+    delete[] buf;
+}
+
+void Bitmap::writePnm(std::ofstream &o) const {
+    o << "P5" << std::endl;
+    o << width << " " << height << std::endl;
+    o << "255" << std::endl;
+    o.write((const char *)buf, width * height);
+    o.close();
+}
+
+void Bitmap::drawGlyph(const android::GlyphBitmap& bitmap, int x, int y) {
+    int bmw = bitmap.width;
+    int bmh = bitmap.height;
+    x += bitmap.left;
+    y -= bitmap.top;
+    int x0 = std::max(0, x);
+    int x1 = std::min(width, x + bmw);
+    int y0 = std::max(0, y);
+    int y1 = std::min(height, y + bmh);
+    const unsigned char* src = bitmap.buffer + (y0 - y) * bmw + (x0 - x);
+    uint8_t* dst = buf + y0 * width;
+    for (int yy = y0; yy < y1; yy++) {
+        for (int xx = x0; xx < x1; xx++) {
+            int pixel = (int)dst[xx] + (int)src[xx - x];
+            pixel = pixel > 0xff ? 0xff : pixel;
+            dst[xx] = pixel;
+        }
+        src += bmw;
+        dst += width;
+    }
+}
+
+} // namespace minikin
+
 namespace android {
-
-// TODO: these should move into the header file, but for now we don't want
-// to cause namespace collisions with TextLayout.h
-enum {
-    kBidi_LTR = 0,
-    kBidi_RTL = 1,
-    kBidi_Default_LTR = 2,
-    kBidi_Default_RTL = 3,
-    kBidi_Force_LTR = 4,
-    kBidi_Force_RTL = 5,
-
-    kBidi_Mask = 0x7
-};
 
 const int kDirection_Mask = 0x1;
 
@@ -75,11 +106,11 @@ class LayoutCacheKey {
 public:
     LayoutCacheKey(const FontCollection* collection, const MinikinPaint& paint, FontStyle style,
             const uint16_t* chars, size_t start, size_t count, size_t nchars, bool dir)
-            : mStart(start), mCount(count), mId(collection->getId()), mStyle(style),
+            : mChars(chars), mNchars(nchars),
+            mStart(start), mCount(count), mId(collection->getId()), mStyle(style),
             mSize(paint.size), mScaleX(paint.scaleX), mSkewX(paint.skewX),
             mLetterSpacing(paint.letterSpacing),
-            mPaintFlags(paint.paintFlags), mIsRtl(dir),
-            mChars(chars), mNchars(nchars) {
+            mPaintFlags(paint.paintFlags), mHyphenEdit(paint.hyphenEdit), mIsRtl(dir) {
     }
     bool operator==(const LayoutCacheKey &other) const;
     hash_t hash() const;
@@ -113,6 +144,7 @@ private:
     float mSkewX;
     float mLetterSpacing;
     int32_t mPaintFlags;
+    HyphenEdit mHyphenEdit;
     bool mIsRtl;
     // Note: any fields added to MinikinPaint must also be reflected here.
     // TODO: language matching (possibly integrate into style)
@@ -171,13 +203,24 @@ private:
     static const size_t kMaxEntries = 100;
 };
 
+static unsigned int disabledDecomposeCompatibility(hb_unicode_funcs_t*, hb_codepoint_t,
+                                                   hb_codepoint_t*, void*) {
+    return 0;
+}
+
 class LayoutEngine : public Singleton<LayoutEngine> {
 public:
     LayoutEngine() {
+        unicodeFunctions = hb_unicode_funcs_create(hb_icu_get_unicode_funcs());
+        /* Disable the function used for compatibility decomposition */
+        hb_unicode_funcs_set_decompose_compatibility_func(
+                unicodeFunctions, disabledDecomposeCompatibility, NULL, NULL);
         hbBuffer = hb_buffer_create();
+        hb_buffer_set_unicode_funcs(hbBuffer, unicodeFunctions);
     }
 
     hb_buffer_t* hbBuffer;
+    hb_unicode_funcs_t* unicodeFunctions;
     LayoutCache layoutCache;
     HbFaceCache hbFaceCache;
 };
@@ -194,6 +237,7 @@ bool LayoutCacheKey::operator==(const LayoutCacheKey& other) const {
             && mSkewX == other.mSkewX
             && mLetterSpacing == other.mLetterSpacing
             && mPaintFlags == other.mPaintFlags
+            && mHyphenEdit == other.mHyphenEdit
             && mIsRtl == other.mIsRtl
             && mNchars == other.mNchars
             && !memcmp(mChars, other.mChars, mNchars * sizeof(uint16_t));
@@ -209,6 +253,7 @@ hash_t LayoutCacheKey::hash() const {
     hash = JenkinsHashMix(hash, hash_type(mSkewX));
     hash = JenkinsHashMix(hash, hash_type(mLetterSpacing));
     hash = JenkinsHashMix(hash, hash_type(mPaintFlags));
+    hash = JenkinsHashMix(hash, hash_type(mHyphenEdit.hasHyphen()));
     hash = JenkinsHashMix(hash, hash_type(mIsRtl));
     hash = JenkinsHashMixShorts(hash, mChars, mNchars);
     return JenkinsHashWhiten(hash);
@@ -216,44 +261,6 @@ hash_t LayoutCacheKey::hash() const {
 
 hash_t hash_type(const LayoutCacheKey& key) {
     return key.hash();
-}
-
-Bitmap::Bitmap(int width, int height) : width(width), height(height) {
-    buf = new uint8_t[width * height]();
-}
-
-Bitmap::~Bitmap() {
-    delete[] buf;
-}
-
-void Bitmap::writePnm(std::ofstream &o) const {
-    o << "P5" << std::endl;
-    o << width << " " << height << std::endl;
-    o << "255" << std::endl;
-    o.write((const char *)buf, width * height);
-    o.close();
-}
-
-void Bitmap::drawGlyph(const GlyphBitmap& bitmap, int x, int y) {
-    int bmw = bitmap.width;
-    int bmh = bitmap.height;
-    x += bitmap.left;
-    y -= bitmap.top;
-    int x0 = std::max(0, x);
-    int x1 = std::min(width, x + bmw);
-    int y0 = std::max(0, y);
-    int y1 = std::min(height, y + bmh);
-    const unsigned char* src = bitmap.buffer + (y0 - y) * bmw + (x0 - x);
-    uint8_t* dst = buf + y0 * width;
-    for (int yy = y0; yy < y1; yy++) {
-        for (int xx = x0; xx < x1; xx++) {
-            int pixel = (int)dst[xx] + (int)src[xx - x];
-            pixel = pixel > 0xff ? 0xff : pixel;
-            dst[xx] = pixel;
-        }
-        src += bmw;
-        dst += width;
-    }
 }
 
 void MinikinRect::join(const MinikinRect& r) {
@@ -310,12 +317,6 @@ static hb_bool_t harfbuzzGetGlyph(hb_font_t* hbFont, void* fontData, hb_codepoin
     MinikinPaint* paint = reinterpret_cast<MinikinPaint*>(fontData);
     MinikinFont* font = paint->font;
     uint32_t glyph_id;
-    /* HarfBuzz replaces broken input codepoints with (unsigned int) -1.
-     * Skia expects valid Unicode.
-     * Replace invalid codepoints with U+FFFD REPLACEMENT CHARACTER.
-     */
-    if (unicode > 0x10FFFF)
-        unicode = 0xFFFD;
     bool ok = font->GetGlyph(unicode, &glyph_id);
     if (ok) {
         *glyph = glyph_id;
@@ -406,7 +407,7 @@ int Layout::findFace(FakedFont face, LayoutContext* ctx) {
 static hb_script_t codePointToScript(hb_codepoint_t codepoint) {
     static hb_unicode_funcs_t* u = 0;
     if (!u) {
-        u = hb_icu_get_unicode_funcs();
+        u = LayoutEngine::getInstance().unicodeFunctions;
     }
     return hb_unicode_script(u, codepoint);
 }
@@ -516,6 +517,29 @@ static size_t getNextWordBreak(const uint16_t* chars, size_t offset, size_t len)
     return len;
 }
 
+/**
+ * Disable certain scripts (mostly those with cursive connection) from having letterspacing
+ * applied. See https://github.com/behdad/harfbuzz/issues/64 for more details.
+ */
+static bool isScriptOkForLetterspacing(hb_script_t script) {
+    return !(
+            script == HB_SCRIPT_ARABIC ||
+            script == HB_SCRIPT_NKO ||
+            script == HB_SCRIPT_PSALTER_PAHLAVI ||
+            script == HB_SCRIPT_MANDAIC ||
+            script == HB_SCRIPT_MONGOLIAN ||
+            script == HB_SCRIPT_PHAGS_PA ||
+            script == HB_SCRIPT_DEVANAGARI ||
+            script == HB_SCRIPT_BENGALI ||
+            script == HB_SCRIPT_GURMUKHI ||
+            script == HB_SCRIPT_MODI ||
+            script == HB_SCRIPT_SHARADA ||
+            script == HB_SCRIPT_SYLOTI_NAGRI ||
+            script == HB_SCRIPT_TIRHUTA ||
+            script == HB_SCRIPT_OGHAM
+            );
+}
+
 void Layout::doLayout(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
         int bidiFlags, const FontStyle &style, const MinikinPaint &paint) {
     AutoMutex _l(gMinikinLock);
@@ -587,12 +611,15 @@ void Layout::doLayout(const uint16_t* buf, size_t start, size_t count, size_t bu
 
 void Layout::doLayoutRunCached(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
         bool isRtl, LayoutContext* ctx, size_t dstStart) {
+    HyphenEdit hyphen = ctx->paint.hyphenEdit;
     if (!isRtl) {
         // left to right
         size_t wordstart = start == bufSize ? start : getPrevWordBreak(buf, start + 1);
         size_t wordend;
         for (size_t iter = start; iter < start + count; iter = wordend) {
             wordend = getNextWordBreak(buf, iter, bufSize);
+            // Only apply hyphen to the last word in the string.
+            ctx->paint.hyphenEdit = wordend >= start + count ? hyphen : HyphenEdit();
             size_t wordcount = std::min(start + count, wordend) - iter;
             doLayoutWord(buf + wordstart, iter - wordstart, wordcount, wordend - wordstart,
                     isRtl, ctx, iter - dstStart);
@@ -605,6 +632,8 @@ void Layout::doLayoutRunCached(const uint16_t* buf, size_t start, size_t count, 
         size_t wordend = end == 0 ? 0 : getNextWordBreak(buf, end - 1, bufSize);
         for (size_t iter = end; iter > start; iter = wordstart) {
             wordstart = getPrevWordBreak(buf, iter);
+            // Only apply hyphen to the last (leftmost) word in the string.
+            ctx->paint.hyphenEdit = iter == end ? hyphen : HyphenEdit();
             size_t bufStart = std::max(start, wordstart);
             doLayoutWord(buf + wordstart, bufStart - wordstart, iter - bufStart,
                     wordend - wordstart, isRtl, ctx, bufStart - dstStart);
@@ -675,15 +704,6 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
 
     double size = ctx->paint.size;
     double scaleX = ctx->paint.scaleX;
-    double letterSpace = ctx->paint.letterSpacing * size * scaleX;
-    double letterSpaceHalfLeft;
-    if ((ctx->paint.paintFlags & LinearTextFlag) == 0) {
-        letterSpace = round(letterSpace);
-        letterSpaceHalfLeft = floor(letterSpace * 0.5);
-    } else {
-        letterSpaceHalfLeft = letterSpace * 0.5;
-    }
-    double letterSpaceHalfRight = letterSpace - letterSpaceHalfLeft;
 
     float x = mAdvance;
     float y = 0;
@@ -713,7 +733,22 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
             srunend = srunstart;
             hb_script_t script = getScriptRun(buf + start, run.end, &srunend);
 
-            hb_buffer_reset(buffer);
+            double letterSpace = 0.0;
+            double letterSpaceHalfLeft = 0.0;
+            double letterSpaceHalfRight = 0.0;
+
+            if (ctx->paint.letterSpacing != 0.0 && isScriptOkForLetterspacing(script)) {
+                letterSpace = ctx->paint.letterSpacing * size * scaleX;
+                if ((ctx->paint.paintFlags & LinearTextFlag) == 0) {
+                    letterSpace = round(letterSpace);
+                    letterSpaceHalfLeft = floor(letterSpace * 0.5);
+                } else {
+                    letterSpaceHalfLeft = letterSpace * 0.5;
+                }
+                letterSpaceHalfRight = letterSpace - letterSpaceHalfLeft;
+            }
+
+            hb_buffer_clear_contents(buffer);
             hb_buffer_set_script(buffer, script);
             hb_buffer_set_direction(buffer, isRtl? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
             FontLanguage language = ctx->style.getLanguage();
@@ -722,6 +757,22 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
                 hb_buffer_set_language(buffer, hb_language_from_string(lang.c_str(), -1));
             }
             hb_buffer_add_utf16(buffer, buf, bufSize, srunstart + start, srunend - srunstart);
+            if (ctx->paint.hyphenEdit.hasHyphen() && srunend > srunstart) {
+                // TODO: check whether this is really the desired semantics. It could have the
+                // effect of assigning the hyphen width to a nonspacing mark
+                unsigned int lastCluster = start + srunend - 1;
+
+                hb_codepoint_t hyphenChar = 0x2010; // HYPHEN
+                hb_codepoint_t glyph;
+                // Fallback to ASCII HYPHEN-MINUS if the font didn't have a glyph for HYPHEN. Note
+                // that we intentionally don't do anything special if the font doesn't have a
+                // HYPHEN-MINUS either, so a tofu could be shown, hinting towards something
+                // missing.
+                if (!hb_font_get_glyph(hbFont, hyphenChar, 0, &glyph)) {
+                    hyphenChar = 0x002D; // HYPHEN-MINUS
+                }
+                hb_buffer_add(buffer, hyphenChar, lastCluster);
+            }
             hb_shape(hbFont, buffer, features.empty() ? NULL : &features[0], features.size());
             unsigned int numGlyphs;
             hb_glyph_info_t* info = hb_buffer_get_glyph_infos(buffer, &numGlyphs);
@@ -756,7 +807,12 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
                 ctx->paint.font->GetBounds(&glyphBounds, glyph_ix, ctx->paint);
                 glyphBounds.offset(x + xoff, y + yoff);
                 mBounds.join(glyphBounds);
-                mAdvances[info[i].cluster - start] += xAdvance;
+                if (info[i].cluster - start < count) {
+                    mAdvances[info[i].cluster - start] += xAdvance;
+                } else {
+                    ALOGE("cluster %d (start %d) out of bounds of count %d",
+                        info[i].cluster - start, start, count);
+                }
                 x += xAdvance;
             }
             if (numGlyphs)
@@ -804,7 +860,7 @@ void Layout::appendLayout(Layout* src, size_t start) {
     }
 }
 
-void Layout::draw(Bitmap* surface, int x0, int y0, float size) const {
+void Layout::draw(minikin::Bitmap* surface, int x0, int y0, float size) const {
     /*
     TODO: redo as MinikinPaint settings
     if (mProps.hasTag(minikinHinting)) {

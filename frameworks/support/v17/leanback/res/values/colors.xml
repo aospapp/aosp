@@ -46,10 +46,10 @@
     <color name="lb_speech_orb_recording">#ff4343</color>
     <color name="lb_speech_orb_not_recording_icon">#555555</color>
 
-    <color name="lb_basic_card_bg_color">#FF3B3B3B</color>
-    <color name="lb_basic_card_info_bg_color">#FF3B3B3B</color>
+    <color name="lb_basic_card_bg_color">#FF263238</color>
+    <color name="lb_basic_card_info_bg_color">#FF37474F</color>
     <color name="lb_basic_card_title_text_color">#FFEEEEEE</color>
-    <color name="lb_basic_card_content_text_color">#99EEEEEE</color>
+    <color name="lb_basic_card_content_text_color">#B3EEEEEE</color>
 
     <color name="lb_default_brand_color">#FF455A64</color>
     <color name="lb_default_search_color">#FFFFAA3F</color>
@@ -65,4 +65,14 @@
     <color name="lb_playback_controls_time_text_color">#B2EEEEEE</color>
 
     <color name="lb_search_plate_hint_text_color">#FFCCCCCC</color>
+
+    <!-- GuidedStepFragment -->
+    <color name="lb_tv_white">#FFCCCCCC</color>
+
+    <!-- refactor naming here -->
+    <color name="lb_guidedactions_background">#FF111111</color>
+    <color name="lb_guidedactions_selector_color">#26FFFFFF</color>
+    <color name="lb_guidedactions_item_unselected_text_color">#FFF1F1F1</color>
+    <!-- end refactor naming -->
+
 </resources>

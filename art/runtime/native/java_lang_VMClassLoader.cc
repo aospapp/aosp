@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "java_lang_VMClassLoader.h"
+
 #include "class_linker.h"
 #include "jni_internal.h"
 #include "mirror/class_loader.h"
@@ -24,7 +26,8 @@
 
 namespace art {
 
-static jclass VMClassLoader_findLoadedClass(JNIEnv* env, jclass, jobject javaLoader, jstring javaName) {
+static jclass VMClassLoader_findLoadedClass(JNIEnv* env, jclass, jobject javaLoader,
+                                            jstring javaName) {
   ScopedFastNativeObjectAccess soa(env);
   mirror::ClassLoader* loader = soa.Decode<mirror::ClassLoader*>(javaLoader);
   ScopedUtfChars name(env, javaName);
@@ -34,15 +37,15 @@ static jclass VMClassLoader_findLoadedClass(JNIEnv* env, jclass, jobject javaLoa
   ClassLinker* cl = Runtime::Current()->GetClassLinker();
   std::string descriptor(DotToDescriptor(name.c_str()));
   const size_t descriptor_hash = ComputeModifiedUtf8Hash(descriptor.c_str());
-  mirror::Class* c = cl->LookupClass(descriptor.c_str(), descriptor_hash, loader);
+  mirror::Class* c = cl->LookupClass(soa.Self(), descriptor.c_str(), descriptor_hash, loader);
   if (c != nullptr && c->IsResolved()) {
     return soa.AddLocalReference<jclass>(c);
   }
   if (loader != nullptr) {
     // Try the common case.
     StackHandleScope<1> hs(soa.Self());
-    c = cl->FindClassInPathClassLoader(soa, soa.Self(), descriptor.c_str(), descriptor_hash,
-                                       hs.NewHandle(loader));
+    cl->FindClassInPathClassLoader(soa, soa.Self(), descriptor.c_str(), descriptor_hash,
+                                   hs.NewHandle(loader), &c);
     if (c != nullptr) {
       return soa.AddLocalReference<jclass>(c);
     }
@@ -69,13 +72,15 @@ static jint VMClassLoader_getBootClassPathSize(JNIEnv*, jclass) {
  * with '/'); if it's not we'd need to make it absolute as part of forming
  * the URL string.
  */
-static jstring VMClassLoader_getBootClassPathResource(JNIEnv* env, jclass, jstring javaName, jint index) {
+static jstring VMClassLoader_getBootClassPathResource(JNIEnv* env, jclass, jstring javaName,
+                                                      jint index) {
   ScopedUtfChars name(env, javaName);
   if (name.c_str() == nullptr) {
     return nullptr;
   }
 
-  const std::vector<const DexFile*>& path = Runtime::Current()->GetClassLinker()->GetBootClassPath();
+  const std::vector<const DexFile*>& path =
+      Runtime::Current()->GetClassLinker()->GetBootClassPath();
   if (index < 0 || size_t(index) >= path.size()) {
     return nullptr;
   }

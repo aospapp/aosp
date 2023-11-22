@@ -29,8 +29,8 @@ import android.text.TextUtils;
 
 import com.android.tv.settings.widget.BitmapWorkerOptions;
 
-import java.util.LinkedHashSet;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 
 /**
  * AccountImageChangeObserver class...
@@ -45,16 +45,16 @@ public class AccountImageChangeObserver {
     private static AccountImageChangeObserver sObserver;
 
     private class ContactChangeContentObserver extends ContentObserver {
-        private Account mWatchedAccount;
-        private LinkedHashSet<Uri> mUrisToNotify;
-        private Object mLock = new Object();
-        private Context mContext;
+        private final Account mWatchedAccount;
+        private final LinkedHashSet<Uri> mUrisToNotify;
+        private final Object mLock = new Object();
+        private final Context mContext;
         private String mCurrentImageUri;
 
         public ContactChangeContentObserver(Context context, Account watchedAccount) {
             super(null);
             mWatchedAccount = watchedAccount;
-            mUrisToNotify = new LinkedHashSet<Uri>();
+            mUrisToNotify = new LinkedHashSet<>();
             mContext = context;
             mCurrentImageUri = AccountImageHelper.getAccountPictureUri(mContext, mWatchedAccount);
         }
@@ -89,13 +89,13 @@ public class AccountImageChangeObserver {
         }
     }
 
-    private HashMap<String, ContactChangeContentObserver> mObserverMap;
+    private final HashMap<String, ContactChangeContentObserver> mObserverMap;
 
 
     /**
      * get the singleton AccountImageChangeObserver for the application
      */
-    public final static AccountImageChangeObserver getInstance() {
+    public static AccountImageChangeObserver getInstance() {
         if (sObserver == null) {
             synchronized (sObserverInstanceLock) {
                 if (sObserver == null) {
@@ -107,7 +107,7 @@ public class AccountImageChangeObserver {
     }
 
     public AccountImageChangeObserver() {
-        mObserverMap = new HashMap<String, ContactChangeContentObserver>();
+        mObserverMap = new HashMap<>();
     }
 
     public synchronized void registerChangeUriIfPresent(BitmapWorkerOptions options) {

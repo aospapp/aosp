@@ -11,8 +11,13 @@ LOCAL_SRC_FILES := \
     VideoDecoderBase.cpp \
     VideoDecoderWMV.cpp \
     VideoDecoderMPEG4.cpp \
+    VideoDecoderMPEG2.cpp \
     VideoDecoderAVC.cpp \
     VideoDecoderTrace.cpp
+
+# VideoDecoderHost.cpp includes VideoDecoderWMV.h,
+# which hides overloaded virtual function parseBuffer.
+LOCAL_CLANG_CFLAGS += -Wno-overloaded-virtual
 
 LOCAL_C_INCLUDES := \
     $(TARGET_OUT_HEADERS)/libva \

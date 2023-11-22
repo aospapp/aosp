@@ -90,7 +90,7 @@
     <string name="cmas_response_monitor" msgid="681400164440495749">"نظارت"</string>
     <string name="cmas_response_avoid" msgid="156419597612629270">"اجتناب"</string>
     <string name="cmas_response_assess" msgid="9043534222710563415">"ارزیابی"</string>
-    <string name="cmas_response_none" msgid="5149009359674452959">"هیچکدام"</string>
+    <string name="cmas_response_none" msgid="5149009359674452959">"هیچ‌کدام"</string>
     <string name="cmas_severity_heading" msgid="8437057117822305243">"شدت:"</string>
     <string name="cmas_severity_extreme" msgid="1312013282860183082">"خیلی شدید"</string>
     <string name="cmas_severity_severe" msgid="7504359209737074524">"شدید"</string>

@@ -144,7 +144,7 @@
     <string name="message_failed" msgid="7887650587384601790">"Ошибка"</string>
     <string name="send_failed" msgid="2186285547449865010">"Не отправлено."</string>
     <string name="me_object_pronoun" msgid="4674452244417913816">"мне"</string>
-    <string name="me_subject_pronoun" msgid="7479328865714008288">"мне"</string>
+    <string name="me_subject_pronoun" msgid="7479328865714008288">"я"</string>
   <plurals name="confirm_delete_conversation">
     <item quantity="one" msgid="7605755011865575440">"Удалить эту цепочку?"</item>
     <item quantity="other" msgid="1585660381208712562">"Удалить эти цепочки (<xliff:g id="COUNT">%1$d</xliff:g>)?"</item>

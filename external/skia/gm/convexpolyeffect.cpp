@@ -12,9 +12,12 @@
 
 #if SK_SUPPORT_GPU
 
+#include "GrBatchTarget.h"
 #include "GrContext.h"
+#include "GrDefaultGeoProcFactory.h"
 #include "GrPathUtils.h"
 #include "GrTest.h"
+#include "GrTestBatch.h"
 #include "SkColorPriv.h"
 #include "SkDevice.h"
 #include "SkGeometry.h"
@@ -22,15 +25,60 @@
 
 #include "effects/GrConvexPolyEffect.h"
 
-namespace {
-extern const GrVertexAttrib kAttribs[] = {
-    {kVec2f_GrVertexAttribType, 0, kPosition_GrVertexAttribBinding},
-};
-}
-
 namespace skiagm {
+
+class ConvexPolyTestBatch : public GrTestBatch {
+public:
+    struct Geometry : public GrTestBatch::Geometry {
+        SkRect fBounds;
+    };
+
+    const char* name() const override { return "ConvexPolyTestBatch"; }
+
+    static GrBatch* Create(const GrGeometryProcessor* gp, const Geometry& geo) {
+        return SkNEW_ARGS(ConvexPolyTestBatch, (gp, geo));
+    }
+
+private:
+    ConvexPolyTestBatch(const GrGeometryProcessor* gp, const Geometry& geo)
+        : INHERITED(gp, geo.fBounds)
+        , fGeometry(geo) {
+    }
+
+    Geometry* geoData(int index) override {
+        SkASSERT(0 == index);
+        return &fGeometry;
+    }
+
+    const Geometry* geoData(int index) const override {
+        SkASSERT(0 == index);
+        return &fGeometry;
+    }
+
+    void onGenerateGeometry(GrBatchTarget* batchTarget, const GrPipeline* pipeline) override {
+        size_t vertexStride = this->geometryProcessor()->getVertexStride();
+        SkASSERT(vertexStride == sizeof(SkPoint));
+        QuadHelper helper;
+        SkPoint* verts = reinterpret_cast<SkPoint*>(helper.init(batchTarget, vertexStride, 1));
+        if (!verts) {
+            return;
+        }
+
+        // Make sure any artifacts around the exterior of path are visible by using overly
+        // conservative bounding geometry.
+        fGeometry.fBounds.outset(5.f, 5.f);
+        fGeometry.fBounds.toQuad(verts);
+
+        helper.issueDraw(batchTarget);
+    }
+
+    Geometry fGeometry;
+
+    typedef GrTestBatch INHERITED;
+};
+
 /**
- * This GM directly exercises a GrEffect that draws convex polygons.
+ * This GM directly exercises a GrProcessor that draws convex polygons.
  */
 class ConvexPolyEffect : public GM {
 public:
@@ -39,20 +87,15 @@ public:
     }
 
 protected:
-    virtual SkString onShortName() SK_OVERRIDE {
+    SkString onShortName() override {
         return SkString("convex_poly_effect");
     }
 
-    virtual SkISize onISize() SK_OVERRIDE {
+    SkISize onISize() override {
         return SkISize::Make(720, 800);
     }
 
-    virtual uint32_t onGetFlags() const SK_OVERRIDE {
-        // This is a GPU-specific GM.
-        return kGPUOnly_Flag;
-    }
-
-    virtual void onOnceBeforeDraw() SK_OVERRIDE {
+    void onOnceBeforeDraw() override {
         SkPath tri;
         tri.moveTo(5.f, 5.f);
         tri.lineTo(100.f, 20.f);
@@ -102,9 +145,10 @@ protected:
         fRects.addToTail(SkRect::MakeLTRB(100.f, 50.5f, 5.f, 0.5f));
     }
 
-    virtual void onDraw(SkCanvas* canvas) SK_OVERRIDE {
+    void onDraw(SkCanvas* canvas) override {
         GrRenderTarget* rt = canvas->internal_private_accessTopLayerRenderTarget();
         if (NULL == rt) {
+            this->drawGpuOnlyMessage(canvas);
             return;
         }
         GrContext* context = rt->getContext();
@@ -112,48 +156,45 @@ protected:
             return;
         }
 
+        static const GrColor color = 0xff000000;
+        SkAutoTUnref<const GrGeometryProcessor> gp(
+                GrDefaultGeoProcFactory::Create(GrDefaultGeoProcFactory::kPosition_GPType, color));
+
         SkScalar y = 0;
         for (SkTLList<SkPath>::Iter iter(fPaths, SkTLList<SkPath>::Iter::kHead_IterStart);
-             NULL != iter.get();
+             iter.get();
              iter.next()) {
             const SkPath* path = iter.get();
             SkScalar x = 0;
 
-            for (int et = 0; et < kGrEffectEdgeTypeCnt; ++et) {
+            for (int et = 0; et < kGrProcessorEdgeTypeCnt; ++et) {
                 GrTestTarget tt;
                 context->getTestTarget(&tt);
                 if (NULL == tt.target()) {
                     SkDEBUGFAIL("Couldn't get Gr test target.");
                     return;
                 }
-                GrDrawState* drawState = tt.target()->drawState();
-                drawState->setVertexAttribs<kAttribs>(SK_ARRAY_COUNT(kAttribs));
-
-                SkMatrix m;
+                const SkMatrix m = SkMatrix::MakeTrans(x, y);
                 SkPath p;
-                m.setTranslate(x, y);
                 path->transform(m, &p);
 
-                GrEffectEdgeType edgeType = (GrEffectEdgeType) et;
-                SkAutoTUnref<GrEffectRef> effect(GrConvexPolyEffect::Create(edgeType, p));
-                if (!effect) {
+                GrPrimitiveEdgeType edgeType = (GrPrimitiveEdgeType) et;
+                SkAutoTUnref<GrFragmentProcessor> fp(GrConvexPolyEffect::Create(edgeType, p));
+                if (!fp) {
                     continue;
                 }
-                drawState->addCoverageEffect(effect, 1);
-                drawState->setIdentityViewMatrix();
-                drawState->setRenderTarget(rt);
-                drawState->setColor(0xff000000);
 
-                SkPoint verts[4];
-                SkRect bounds = p.getBounds();
-                // Make sure any artifacts around the exterior of path are visible by using overly
-                // conservative bounding geometry.
-                bounds.outset(5.f, 5.f);
-                bounds.toQuad(verts);
+                GrPipelineBuilder pipelineBuilder;
+                pipelineBuilder.addCoverageProcessor(fp);
+                pipelineBuilder.setRenderTarget(rt);
 
-                tt.target()->setVertexSourceToArray(verts, 4);
-                tt.target()->setIndexSourceToBuffer(context->getQuadIndexBuffer());
-                tt.target()->drawIndexed(kTriangleFan_GrPrimitiveType, 0, 0, 4, 6);
+                ConvexPolyTestBatch::Geometry geometry;
+                geometry.fColor = color;
+                geometry.fBounds = p.getBounds();
+
+                SkAutoTUnref<GrBatch> batch(ConvexPolyTestBatch::Create(gp, geometry));
+
+                tt.target()->drawBatch(&pipelineBuilder, batch);
 
                 x += SkScalarCeilToScalar(path->getBounds().width() + 10.f);
             }
@@ -172,12 +213,12 @@ protected:
         }
 
         for (SkTLList<SkRect>::Iter iter(fRects, SkTLList<SkRect>::Iter::kHead_IterStart);
-             NULL != iter.get();
+             iter.get();
              iter.next()) {
 
             SkScalar x = 0;
 
-            for (int et = 0; et < kGrEffectEdgeTypeCnt; ++et) {
+            for (int et = 0; et < kGrProcessorEdgeTypeCnt; ++et) {
                 GrTestTarget tt;
                 context->getTestTarget(&tt);
                 if (NULL == tt.target()) {
@@ -186,27 +227,23 @@ protected:
                 }
                 SkRect rect = *iter.get();
                 rect.offset(x, y);
-                GrEffectEdgeType edgeType = (GrEffectEdgeType) et;
-                SkAutoTUnref<GrEffectRef> effect(GrConvexPolyEffect::Create(edgeType, rect));
-                if (!effect) {
+                GrPrimitiveEdgeType edgeType = (GrPrimitiveEdgeType) et;
+                SkAutoTUnref<GrFragmentProcessor> fp(GrConvexPolyEffect::Create(edgeType, rect));
+                if (!fp) {
                     continue;
                 }
 
-                GrDrawState* drawState = tt.target()->drawState();
-                drawState->setVertexAttribs<kAttribs>(SK_ARRAY_COUNT(kAttribs));
-                drawState->addCoverageEffect(effect, 1);
-                drawState->setIdentityViewMatrix();
-                drawState->setRenderTarget(rt);
-                drawState->setColor(0xff000000);
+                GrPipelineBuilder pipelineBuilder;
+                pipelineBuilder.addCoverageProcessor(fp);
+                pipelineBuilder.setRenderTarget(rt);
 
-                SkPoint verts[4];
-                SkRect bounds = rect;
-                bounds.outset(5.f, 5.f);
-                bounds.toQuad(verts);
+                ConvexPolyTestBatch::Geometry geometry;
+                geometry.fColor = color;
+                geometry.fBounds = rect;
 
-                tt.target()->setVertexSourceToArray(verts, 4);
-                tt.target()->setIndexSourceToBuffer(context->getQuadIndexBuffer());
-                tt.target()->drawIndexed(kTriangleFan_GrPrimitiveType, 0, 0, 4, 6);
+                SkAutoTUnref<GrBatch> batch(ConvexPolyTestBatch::Create(gp, geometry));
+
+                tt.target()->drawBatch(&pipelineBuilder, batch);
 
                 x += SkScalarCeilToScalar(rect.width() + 10.f);
             }

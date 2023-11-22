@@ -43,6 +43,7 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
     private TestResults mResults = new TestResults();
     private TestPackageResult mCurrentPkgResult = null;
     private boolean mIsDeviceInfoRun = false;
+    private boolean mIsExtendedDeviceInfoRun = false;
 
     @Override
     public void invocationStarted(IBuildInfo buildInfo) {
@@ -63,8 +64,11 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
             logCompleteRun(mCurrentPkgResult);
         }
         mIsDeviceInfoRun = DeviceInfoCollector.IDS.contains(id);
+        mIsExtendedDeviceInfoRun = DeviceInfoCollector.EXTENDED_IDS.contains(id);
         if (mIsDeviceInfoRun) {
             logResult("Collecting device info");
+        } else if (mIsExtendedDeviceInfoRun) {
+            logResult("Collecting extended device info");
         } else  {
             if (mCurrentPkgResult == null || !id.equals(mCurrentPkgResult.getId())) {
                 logResult("-----------------------------------------");
@@ -132,8 +136,12 @@ public class CtsTestLogReporter extends StubTestInvocationListener implements IS
     }
 
     private void logCompleteRun(TestPackageResult pkgResult) {
-        if (pkgResult.getAppPackageName().equals(DeviceInfoCollector.APP_PACKAGE_NAME)) {
+        String appPackageName = pkgResult.getAppPackageName();
+        if (appPackageName.equals(DeviceInfoCollector.APP_PACKAGE_NAME)) {
             logResult("Device info collection complete");
+            return;
+        } else if (appPackageName.equals(DeviceInfoCollector.EXTENDED_APP_PACKAGE_NAME)) {
+            logResult("Extended device info collection complete");
             return;
         }
         logResult("%s package complete: Passed %d, Failed %d, Not Executed %d",

@@ -4,25 +4,28 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_ARABIC_IMP
-#define _FX_ARABIC_IMP
-class CFX_BidiChar : public IFX_BidiChar, public CFX_Object
+#ifndef CORE_SRC_FXCRT_FX_ARABIC_H_
+#define CORE_SRC_FXCRT_FX_ARABIC_H_
+
+class CFX_BidiChar FX_FINAL : public IFX_BidiChar
 {
 public:
     CFX_BidiChar();
-    virtual void		Release()
+    virtual void		Release() FX_OVERRIDE
     {
         delete this;
     }
-    virtual void		SetPolicy(FX_BOOL bSeparateNeutral = TRUE)
+    virtual void		SetPolicy(FX_BOOL bSeparateNeutral = TRUE) FX_OVERRIDE
     {
         m_bSeparateNeutral = bSeparateNeutral;
     }
-    virtual FX_BOOL		AppendChar(FX_WCHAR wch);
-    virtual FX_BOOL		EndChar();
-    virtual FX_INT32	GetBidiInfo(FX_INT32 &iStart, FX_INT32 &iCount);
-    virtual void		Reset();
-protected:
+    virtual FX_BOOL		AppendChar(FX_WCHAR wch) FX_OVERRIDE;
+    virtual FX_BOOL		EndChar() FX_OVERRIDE;
+    virtual FX_INT32	GetBidiInfo(FX_INT32 &iStart, FX_INT32 &iCount) FX_OVERRIDE;
+    virtual void		Reset() FX_OVERRIDE;
+
+private:
+    ~CFX_BidiChar() { }
     FX_BOOL		m_bSeparateNeutral;
     FX_INT32	m_iCurStart;
     FX_INT32	m_iCurCount;
@@ -31,4 +34,5 @@ protected:
     FX_INT32	m_iLastStart;
     FX_INT32	m_iLastCount;
 };
-#endif
+
+#endif  // CORE_SRC_FXCRT_FX_ARABIC_H_

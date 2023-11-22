@@ -8,11 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang-c/Index.h"
-#include "gtest/gtest.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "gtest/gtest.h"
 #include <fstream>
 #include <set>
 #define DEBUG_TYPE "libclang-test"
@@ -316,6 +316,16 @@ TEST(libclang, VirtualFileOverlay_TopLevel) {
   T.map("/foo.h", "/real/foo.h");
 }
 
+TEST(libclang, VirtualFileOverlay_Empty) {
+  const char *contents =
+      "{\n"
+      "  'version': 0,\n"
+      "  'roots': [\n"
+      "  ]\n"
+      "}\n";
+  TestVFO T(contents);
+}
+
 TEST(libclang, ModuleMapDescriptor) {
   const char *Contents =
     "framework module TestFrame {\n"
@@ -347,7 +357,7 @@ public:
   CXTranslationUnit ClangTU;
   unsigned TUFlags;
 
-  void SetUp() {
+  void SetUp() override {
     llvm::SmallString<256> Dir;
     ASSERT_FALSE(llvm::sys::fs::createUniqueDirectory("libclang-test", Dir));
     TestDir = Dir.str();
@@ -355,7 +365,7 @@ public:
               clang_defaultEditingTranslationUnitOptions();
     Index = clang_createIndex(0, 0);
   }
-  void TearDown() {
+  void TearDown() override {
     clang_disposeTranslationUnit(ClangTU);
     clang_disposeIndex(Index);
     for (const std::string &Path : Files)

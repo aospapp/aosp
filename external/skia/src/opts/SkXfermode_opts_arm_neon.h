@@ -9,17 +9,14 @@ public:
                             void* procSIMD)
             : INHERITED(rec, mode), fProcSIMD(procSIMD) {}
 
-    virtual void xfer32(SkPMColor dst[], const SkPMColor src[], int count,
-                        const SkAlpha aa[]) const SK_OVERRIDE;
-    virtual void xfer16(uint16_t* SK_RESTRICT dst, const SkPMColor* SK_RESTRICT src,
-                        int count, const SkAlpha* SK_RESTRICT aa) const SK_OVERRIDE;
+    void xfer32(SkPMColor dst[], const SkPMColor src[], int count,
+                const SkAlpha aa[]) const override;
+    void xfer16(uint16_t* SK_RESTRICT dst, const SkPMColor* SK_RESTRICT src,
+                int count, const SkAlpha* SK_RESTRICT aa) const override;
 
     SK_TO_STRING_OVERRIDE()
-    SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkNEONProcCoeffXfermode)
 
 private:
-    SkNEONProcCoeffXfermode(SkReadBuffer& buffer);
-
     // void* is used to avoid pulling arm_neon.h in the core and having to build
     // it with -mfpu=neon.
     void* fProcSIMD;

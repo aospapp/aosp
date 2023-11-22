@@ -21,9 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.GwtCompatible;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 
 import javax.annotation.Nullable;
 
@@ -38,18 +36,6 @@ final class ComparatorOrdering<T> extends Ordering<T> implements Serializable {
 
   @Override public int compare(T a, T b) {
     return comparator.compare(a, b);
-  }
-
-  // Override just to remove a level of indirection from inner loops
-  @Override public int binarySearch(List<? extends T> sortedList, T key) {
-    return Collections.binarySearch(sortedList, key, comparator);
-  }
-
-  // Override just to remove a level of indirection from inner loops
-  @Override public <E extends T> List<E> sortedCopy(Iterable<E> iterable) {
-    List<E> list = Lists.newArrayList(iterable);
-    Collections.sort(list, comparator);
-    return list;
   }
 
   @Override public boolean equals(@Nullable Object object) {

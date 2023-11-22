@@ -59,6 +59,7 @@
     <string name="target_pane_output_prompt">Output</string>
     <string name="target_pane_configure_button_off">Not configured</string>
     <string name="target_pane_configure_button_on">Will be configured</string>
+    <string name="target_pane_prepare_button">Prep</string>
 
     <string name="target_subpane_texture_view_size_prompt">Size</string>
     <string name="target_subpane_surface_view_size_prompt">Size</string>

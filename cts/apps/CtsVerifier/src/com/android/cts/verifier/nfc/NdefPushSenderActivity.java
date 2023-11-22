@@ -23,6 +23,7 @@ import android.app.Dialog;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
+import android.nfc.NfcEvent;
 import android.nfc.NfcManager;
 import android.os.Bundle;
 import android.widget.TextView;
@@ -32,7 +33,8 @@ import java.nio.charset.Charset;
 /**
  * Test activity that sends a particular NDEF Push message to another NFC device.
  */
-public class NdefPushSenderActivity extends PassFailButtons.Activity {
+public class NdefPushSenderActivity extends PassFailButtons.Activity implements
+        NfcAdapter.CreateNdefMessageCallback {
 
     static final NdefMessage TEST_MESSAGE = getTestMessage();
 
@@ -76,13 +78,12 @@ public class NdefPushSenderActivity extends PassFailButtons.Activity {
             showDialog(NDEF_PUSH_NOT_ENABLED_DIALOG_ID);
         }
 
-        mNfcAdapter.enableForegroundNdefPush(this, TEST_MESSAGE);
+        mNfcAdapter.setNdefPushMessageCallback(this, this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        mNfcAdapter.disableForegroundNdefPush(this);
     }
 
     @Override
@@ -95,5 +96,10 @@ public class NdefPushSenderActivity extends PassFailButtons.Activity {
             default:
                 return super.onCreateDialog(id, args);
         }
+    }
+
+    @Override
+    public NdefMessage createNdefMessage(NfcEvent event) {
+        return getTestMessage();
     }
 }

@@ -352,6 +352,10 @@ static bool isGif(void* header, int header_size) {
             || !memcmp(GIF89_STAMP, header, GIF_STAMP_LEN);
 }
 
+static bool acceptsBuffers() {
+    return false;
+}
+
 static FrameSequence* createFramesequence(Stream* stream) {
     return new FrameSequence_gif(stream);
 }
@@ -361,6 +365,7 @@ static RegistryEntry gEntry = {
         isGif,
         createFramesequence,
         NULL,
+        acceptsBuffers,
 };
 static Registry gRegister(gEntry);
 

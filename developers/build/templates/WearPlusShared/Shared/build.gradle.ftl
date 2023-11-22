@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.0.0'
+        classpath 'com.android.tools.build:gradle:1.2.0'
     }
 }
 
@@ -31,11 +31,11 @@ repositories {
 
 <#if sample.dependency_shared?has_content>
 dependencies {
-
 <#list sample.dependency_shared as dep>
-    compile "${dep}"
+    <#-- Output dependency after checking if it is a play services depdency and
+    needs the latest version number attached. -->
+    <@update_play_services_dependency dep="${dep}" />
 </#list>
-
 }</#if>
 
 // The sample build uses multiple directories to
@@ -54,6 +54,11 @@ android {
     defaultConfig {
         minSdkVersion ${min_sdk}
         targetSdkVersion ${compile_sdk}
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
     }
 
     sourceSets {

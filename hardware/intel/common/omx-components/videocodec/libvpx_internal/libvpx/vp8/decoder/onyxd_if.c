@@ -313,8 +313,8 @@ int vp8dx_receive_compressed_data(VP8D_COMP *pbi, size_t size,
     VP8_COMMON *cm = &pbi->common;
     volatile int retcode;
 
-    size = size; // to remove warning
-    source = source;
+    (void) size;
+    (void) source;
     pbi->common.error.error_code = VPX_CODEC_OK;
 
     retcode = check_fragments_for_errors(pbi);

@@ -7,15 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 #include "ARM.h"
-#include <mcld/LinkerConfig.h>
-#include <mcld/LinkerScript.h>
-#include <mcld/Target/ELFEmulation.h>
-#include <mcld/Support/TargetRegistry.h>
+#include "mcld/LinkerConfig.h"
+#include "mcld/LinkerScript.h"
+#include "mcld/Target/ELFEmulation.h"
+#include "mcld/Support/TargetRegistry.h"
 
 namespace mcld {
 
-static bool MCLDEmulateARMELF(LinkerScript& pScript, LinkerConfig& pConfig)
-{
+static bool MCLDEmulateARMELF(LinkerScript& pScript, LinkerConfig& pConfig) {
   if (!MCLDEmulateELF(pScript, pConfig))
     return false;
 
@@ -46,8 +45,7 @@ static bool MCLDEmulateARMELF(LinkerScript& pScript, LinkerConfig& pConfig)
 //===----------------------------------------------------------------------===//
 // emulateARMLD - the help function to emulate ARM ld
 //===----------------------------------------------------------------------===//
-bool emulateARMLD(LinkerScript& pScript, LinkerConfig& pConfig)
-{
+bool emulateARMLD(LinkerScript& pScript, LinkerConfig& pConfig) {
   if (pConfig.targets().triple().isOSDarwin()) {
     assert(0 && "MachO linker has not supported yet");
     return false;
@@ -60,14 +58,15 @@ bool emulateARMLD(LinkerScript& pScript, LinkerConfig& pConfig)
   return MCLDEmulateARMELF(pScript, pConfig);
 }
 
-} // namespace of mcld
+}  // namespace mcld
 
 //===----------------------------------------------------------------------===//
 // ARMEmulation
 //===----------------------------------------------------------------------===//
 extern "C" void MCLDInitializeARMEmulation() {
   // Register the emulation
-  mcld::TargetRegistry::RegisterEmulation(mcld::TheARMTarget, mcld::emulateARMLD);
-  mcld::TargetRegistry::RegisterEmulation(mcld::TheThumbTarget, mcld::emulateARMLD);
+  mcld::TargetRegistry::RegisterEmulation(mcld::TheARMTarget,
+                                          mcld::emulateARMLD);
+  mcld::TargetRegistry::RegisterEmulation(mcld::TheThumbTarget,
+                                          mcld::emulateARMLD);
 }
-

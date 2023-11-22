@@ -24,34 +24,50 @@ class GrOvalRenderer : public SkRefCnt {
 public:
     SK_DECLARE_INST_COUNT(GrOvalRenderer)
 
-    GrOvalRenderer() : fRRectIndexBuffer(NULL) {}
-    ~GrOvalRenderer() {
-        this->reset();
-    }
-
-    void reset();
-
-    bool drawOval(GrDrawTarget* target, const GrContext* context, bool useAA,
-                  const SkRect& oval, const SkStrokeRec& stroke);
-    bool drawRRect(GrDrawTarget* target, GrContext* context, bool useAA,
-                   const SkRRect& rrect, const SkStrokeRec& stroke);
-    bool drawDRRect(GrDrawTarget* target, GrContext* context, bool useAA,
-                    const SkRRect& outer, const SkRRect& inner);
+    bool drawOval(GrDrawTarget*,
+                  GrPipelineBuilder*,
+                  GrColor,
+                  const SkMatrix& viewMatrix,
+                  bool useAA,
+                  const SkRect& oval,
+                  const SkStrokeRec& stroke);
+    bool drawRRect(GrDrawTarget*,
+                   GrPipelineBuilder*,
+                   GrColor,
+                   const SkMatrix& viewMatrix,
+                   bool useAA,
+                   const SkRRect& rrect,
+                   const SkStrokeRec& stroke);
+    bool drawDRRect(GrDrawTarget* target,
+                    GrPipelineBuilder*,
+                    GrColor,
+                    const SkMatrix& viewMatrix,
+                    bool useAA,
+                    const SkRRect& outer,
+                    const SkRRect& inner);
 
 private:
-    bool drawEllipse(GrDrawTarget* target, bool useCoverageAA,
+    bool drawEllipse(GrDrawTarget* target,
+                     GrPipelineBuilder*,
+                     GrColor,
+                     const SkMatrix& viewMatrix,
+                     bool useCoverageAA,
                      const SkRect& ellipse,
                      const SkStrokeRec& stroke);
-    bool drawDIEllipse(GrDrawTarget* target, bool useCoverageAA,
+    bool drawDIEllipse(GrDrawTarget* target,
+                       GrPipelineBuilder*,
+                       GrColor,
+                       const SkMatrix& viewMatrix,
+                       bool useCoverageAA,
                        const SkRect& ellipse,
                        const SkStrokeRec& stroke);
-    void drawCircle(GrDrawTarget* target, bool useCoverageAA,
+    void drawCircle(GrDrawTarget* target,
+                    GrPipelineBuilder*,
+                    GrColor,
+                    const SkMatrix& viewMatrix,
+                    bool useCoverageAA,
                     const SkRect& circle,
                     const SkStrokeRec& stroke);
-
-    GrIndexBuffer* rRectIndexBuffer(GrGpu* gpu);
-
-    GrIndexBuffer* fRRectIndexBuffer;
 
     typedef SkRefCnt INHERITED;
 };

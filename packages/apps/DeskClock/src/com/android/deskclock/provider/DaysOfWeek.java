@@ -49,7 +49,7 @@ public final class DaysOfWeek {
      * Need to have monday start at index 0 to be backwards compatible. This converts
      * Calendar.DAY_OF_WEEK constants to our internal bit structure.
      */
-    private static int convertDayToBitIndex(int day) {
+    static int convertDayToBitIndex(int day) {
         return (day + 5) % DAYS_IN_A_WEEK;
     }
 
@@ -57,7 +57,7 @@ public final class DaysOfWeek {
      * Need to have monday start at index 0 to be backwards compatible. This converts
      * our bit structure to Calendar.DAY_OF_WEEK constant value.
      */
-    private static int convertBitIndexToDay(int bitIndex) {
+    static int convertBitIndexToDay(int bitIndex) {
         return (bitIndex + 1) % DAYS_IN_A_WEEK + 1;
     }
 
@@ -68,20 +68,20 @@ public final class DaysOfWeek {
         mBitSet = bitSet;
     }
 
-    public String toString(Context context, boolean showNever) {
-        return toString(context, showNever, false);
+    public String toString(Context context, int firstDay) {
+        return toString(context, firstDay, false /* forAccessibility */);
     }
 
-    public String toAccessibilityString(Context context) {
-        return toString(context, false, true);
+    public String toAccessibilityString(Context context, int firstDay) {
+        return toString(context, firstDay, true /* forAccessibility */);
     }
 
-    private String toString(Context context, boolean showNever, boolean forAccessibility) {
+    private String toString(Context context, int firstDay, boolean forAccessibility) {
         StringBuilder ret = new StringBuilder();
 
         // no days
         if (mBitSet == NO_DAYS_SET) {
-            return showNever ? context.getText(R.string.never).toString() : "";
+            return "";
         }
 
         // every day
@@ -103,9 +103,14 @@ public final class DaysOfWeek {
                 dfs.getWeekdays() :
                 dfs.getShortWeekdays();
 
-        // selected days
-        for (int bitIndex = 0; bitIndex < DAYS_IN_A_WEEK; bitIndex++) {
-            if ((mBitSet & (1 << bitIndex)) != 0) {
+        // In this system, Mon = 0, Sun = 6, etc.
+        // startDay is stored corresponding to Calendar.DAY_OF_WEEK where Sun = 0, Mon = 2, etc.
+        final int startDay = convertDayToBitIndex(firstDay);
+
+        // selected days, starting from user-selected start day of week
+        // iterate starting from user-selected start of day
+        for (int bitIndex = startDay; bitIndex < DAYS_IN_A_WEEK + startDay; ++bitIndex) {
+            if ((mBitSet & (1 << (bitIndex % DAYS_IN_A_WEEK))) != 0) {
                 ret.append(dayList[convertBitIndexToDay(bitIndex)]);
                 dayCount -= 1;
                 if (dayCount > 0) ret.append(context.getText(R.string.day_concat));
@@ -145,6 +150,9 @@ public final class DaysOfWeek {
         return mBitSet;
     }
 
+    /**
+     * Returns set of Calendar.MONDAY, Calendar.TUESDAY, etc based on the current mBitSet value
+     */
     public HashSet<Integer> getSetDays() {
         final HashSet<Integer> result = new HashSet<Integer>();
         for (int bitIndex = 0; bitIndex < DAYS_IN_A_WEEK; bitIndex++) {
@@ -160,9 +168,42 @@ public final class DaysOfWeek {
     }
 
     /**
-     * Returns number of days from today until next alarm.
+     * Returns number of days backwards from today to previous alarm.
+     * ex:
+     * Daily alarm, current = Tuesday -> 1
+     * Weekly alarm on Wednesday, current = Tuesday -> 6
+     * One time alarm -> -1
      *
      * @param current must be set to today
+     */
+    public int calculateDaysToPreviousAlarm(Calendar current) {
+        if (!isRepeating()) {
+            return -1;
+        }
+
+        // We only use this on preemptively dismissed alarms, and alarms can only fire once a day,
+        // so there is no chance that the previous fire time is on the same day. Start dayCount on
+        // previous day.
+        int dayCount = -1;
+        int currentDayIndex = convertDayToBitIndex(current.get(Calendar.DAY_OF_WEEK));
+        for (; dayCount >= -DAYS_IN_A_WEEK; dayCount--) {
+            int previousAlarmBitIndex = (currentDayIndex + dayCount);
+            if (previousAlarmBitIndex < 0) {
+                // Ex. previousAlarmBitIndex = -1 means the day before index 0 = index 6
+                previousAlarmBitIndex = previousAlarmBitIndex + DAYS_IN_A_WEEK;
+            }
+            if (isBitEnabled(previousAlarmBitIndex)) {
+                break;
+            }
+        }
+        // return a positive value
+        return dayCount * -1;
+    }
+
+    /**
+     * Returns number of days from today until next alarm.
+     *
+     * @param current must be set to today or the day after the currentTime
      */
     public int calculateDaysToNextAlarm(Calendar current) {
         if (!isRepeating()) {
@@ -170,10 +211,10 @@ public final class DaysOfWeek {
         }
 
         int dayCount = 0;
-        int currentDayBit = convertDayToBitIndex(current.get(Calendar.DAY_OF_WEEK));
+        int currentDayIndex = convertDayToBitIndex(current.get(Calendar.DAY_OF_WEEK));
         for (; dayCount < DAYS_IN_A_WEEK; dayCount++) {
-            int nextAlarmBit = (currentDayBit + dayCount) % DAYS_IN_A_WEEK;
-            if (isBitEnabled(nextAlarmBit)) {
+            int nextAlarmBitIndex = (currentDayIndex + dayCount) % DAYS_IN_A_WEEK;
+            if (isBitEnabled(nextAlarmBitIndex)) {
                 break;
             }
         }

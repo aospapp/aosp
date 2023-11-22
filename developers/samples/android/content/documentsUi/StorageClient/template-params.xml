@@ -19,7 +19,7 @@
     <group>Content</group>
     <package>com.example.android.storageclient</package>
     <!-- change minSdk if needed-->
-    <minSdk>4</minSdk>
+    <minSdk>16</minSdk>
 
     <strings>
         <intro>
@@ -37,5 +37,44 @@
     <template src="SingleView"/>
     <common src="logger"/>
     <common src="activities"/>
+
+    <metadata>
+        <status>PUBLISHED</status>
+        <categories>Content</categories>
+        <technologies>Android</technologies>
+        <languages>Java</languages>
+        <solutions>Mobile</solutions>
+        <level>INTERMEDIATE</level>
+        <icon>screenshots/icon-web.png</icon>
+        <screenshots>
+            <img>screenshots/main.png</img>
+        </screenshots>
+        <api_refs>
+            <android>android.content.Intent</android>
+        </api_refs>
+
+        <description>
+            <![CDATA[
+Using the OPEN_DOCUMENT intent, a client app can access a list of Document Providers
+on the device, and choose a file from any of them.
+            ]]>
+        </description>
+
+        <intro>
+            <![CDATA[
+This sample aims to help you understand the OPEN_DOCUMENT intent, which allows a client
+application to access a list of Document Providers on the devices and choose a file from
+any of them.
+
+This sample first fires an intent to spin up the "file chooser" UI and select an image.
+Then, given the content:// URI of the selected image, it shows it on the screen using a
+DialogFragment. It also grabs metadata for the document specified by URI and logs that to
+the screen.
+
+To demonstrate this, click the "Show me" button to open up the Storage Access Framework
+interface, and choose an image on your device.  It will be displayed in this app.
+            ]]>
+        </intro>
+    </metadata>
 
 </sample>

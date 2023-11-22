@@ -17,16 +17,19 @@
 //   COMMON_INTERCEPTOR_READ_RANGE
 //   COMMON_INTERCEPTOR_WRITE_RANGE
 //   COMMON_INTERCEPTOR_INITIALIZE_RANGE
+//   COMMON_INTERCEPTOR_DIR_ACQUIRE
 //   COMMON_INTERCEPTOR_FD_ACQUIRE
 //   COMMON_INTERCEPTOR_FD_RELEASE
 //   COMMON_INTERCEPTOR_FD_ACCESS
 //   COMMON_INTERCEPTOR_SET_THREAD_NAME
+//   COMMON_INTERCEPTOR_ON_DLOPEN
 //   COMMON_INTERCEPTOR_ON_EXIT
 //   COMMON_INTERCEPTOR_MUTEX_LOCK
 //   COMMON_INTERCEPTOR_MUTEX_UNLOCK
 //   COMMON_INTERCEPTOR_MUTEX_REPAIR
 //   COMMON_INTERCEPTOR_SET_PTHREAD_NAME
 //   COMMON_INTERCEPTOR_HANDLE_RECVMSG
+//   COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED
 //===----------------------------------------------------------------------===//
 #include "interception/interception.h"
 #include "sanitizer_addrhashmap.h"
@@ -39,6 +42,12 @@
 #if SANITIZER_WINDOWS && !defined(va_copy)
 #define va_copy(dst, src) ((dst) = (src))
 #endif // _WIN32
+
+#if SANITIZER_FREEBSD
+#define pthread_setname_np pthread_set_name_np
+#define inet_aton __inet_aton
+#define inet_pton __inet_pton
+#endif
 
 #ifndef COMMON_INTERCEPTOR_INITIALIZE_RANGE
 #define COMMON_INTERCEPTOR_INITIALIZE_RANGE(p, size) {}
@@ -77,7 +86,7 @@
 #endif
 
 #ifndef COMMON_INTERCEPTOR_LIBRARY_LOADED
-#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, map) {}
+#define COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, handle) {}
 #endif
 
 #ifndef COMMON_INTERCEPTOR_LIBRARY_UNLOADED
@@ -87,6 +96,21 @@
 #ifndef COMMON_INTERCEPTOR_ENTER_NOIGNORE
 #define COMMON_INTERCEPTOR_ENTER_NOIGNORE(ctx, ...) \
   COMMON_INTERCEPTOR_ENTER(ctx, __VA_ARGS__)
+#endif
+
+#ifndef COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED
+#define COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED (0)
+#endif
+
+#define COMMON_INTERCEPTOR_READ_STRING_OF_LEN(ctx, s, len, n)       \
+    COMMON_INTERCEPTOR_READ_RANGE((ctx), (s),                       \
+      common_flags()->strict_string_checks ? (len) + 1 : (n) )
+
+#define COMMON_INTERCEPTOR_READ_STRING(ctx, s, n)                   \
+    COMMON_INTERCEPTOR_READ_STRING_OF_LEN((ctx), (s), REAL(strlen)(s), (n))
+
+#ifndef COMMON_INTERCEPTOR_ON_DLOPEN
+#define COMMON_INTERCEPTOR_ON_DLOPEN(filename, flag) {}
 #endif
 
 struct FileMetadata {
@@ -142,7 +166,8 @@ UNUSED static void DeleteInterceptorMetadata(void *addr) {
 INTERCEPTOR(char*, textdomain, const char *domainname) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, textdomain, domainname);
-  char* domain = REAL(textdomain)(domainname);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, domainname, 0);
+  char *domain = REAL(textdomain)(domainname);
   if (domain) {
     COMMON_INTERCEPTOR_INITIALIZE_RANGE(domain, REAL(strlen)(domain) + 1);
   }
@@ -168,12 +193,14 @@ INTERCEPTOR(int, strcmp, const char *s1, const char *s2) {
     c2 = (unsigned char)s2[i];
     if (c1 != c2 || c1 == '\0') break;
   }
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s1, i + 1);
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s2, i + 1);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, s1, i + 1);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, s2, i + 1);
   return CharCmpX(c1, c2);
 }
 
 INTERCEPTOR(int, strncmp, const char *s1, const char *s2, uptr size) {
+  if (COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED)
+    return internal_strncmp(s1, s2, size);
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, strncmp, s1, s2, size);
   unsigned char c1 = 0, c2 = 0;
@@ -212,8 +239,8 @@ INTERCEPTOR(int, strcasecmp, const char *s1, const char *s2) {
     c2 = (unsigned char)s2[i];
     if (CharCaseCmp(c1, c2) != 0 || c1 == '\0') break;
   }
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s1, i + 1);
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s2, i + 1);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, s1, i + 1);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, s2, i + 1);
   return CharCaseCmp(c1, c2);
 }
 
@@ -244,7 +271,7 @@ INTERCEPTOR(void*, memchr, const void *s, int c, SIZE_T n) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, memchr, s, c, n);
   void *res = REAL(memchr)(s, c, n);
-  uptr len = res ? (char*)res - (char*)s + 1 : n;
+  uptr len = res ? (char *)res - (const char *)s + 1 : n;
   COMMON_INTERCEPTOR_READ_RANGE(ctx, s, len);
   return res;
 }
@@ -708,12 +735,12 @@ INTERCEPTOR(char *, strptime, char *s, char *format, __sanitizer_tm *tm) {
   // its metadata. See
   // https://code.google.com/p/address-sanitizer/issues/detail?id=321.
   char *res = REAL(strptime)(s, format, tm);
-  if (res) {
-    COMMON_INTERCEPTOR_READ_RANGE(ctx, s, res - s);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, s, res ? res - s : 0);
+  if (res && tm) {
     // Do not call unpoison_tm here, because strptime does not, in fact,
     // initialize the entire struct tm. For example, tm_zone pointer is left
     // uninitialized.
-    if (tm) COMMON_INTERCEPTOR_WRITE_RANGE(ctx, tm, sizeof(*tm));
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, tm, sizeof(*tm));
   }
   return res;
 }
@@ -904,6 +931,16 @@ INTERCEPTOR(int, vsnprintf, char *str, SIZE_T size, const char *format,
             va_list ap)
 VSNPRINTF_INTERCEPTOR_IMPL(vsnprintf, str, size, format, ap)
 
+#if SANITIZER_INTERCEPT_PRINTF_L
+INTERCEPTOR(int, vsnprintf_l, char *str, SIZE_T size, void *loc,
+            const char *format, va_list ap)
+VSNPRINTF_INTERCEPTOR_IMPL(vsnprintf_l, str, size, loc, format, ap)
+
+INTERCEPTOR(int, snprintf_l, char *str, SIZE_T size, void *loc,
+            const char *format, ...)
+FORMAT_INTERCEPTOR_IMPL(snprintf_l, vsnprintf_l, str, size, loc, format)
+#endif  // SANITIZER_INTERCEPT_PRINTF_L
+
 INTERCEPTOR(int, vsprintf, char *str, const char *format, va_list ap)
 VSPRINTF_INTERCEPTOR_IMPL(vsprintf, str, format, ap)
 
@@ -980,6 +1017,14 @@ FORMAT_INTERCEPTOR_IMPL(__isoc99_snprintf, __isoc99_vsnprintf, str, size,
 #define INIT_PRINTF
 #endif
 
+#if SANITIZER_INTERCEPT_PRINTF_L
+#define INIT_PRINTF_L                     \
+  COMMON_INTERCEPT_FUNCTION(snprintf_l);  \
+  COMMON_INTERCEPT_FUNCTION(vsnprintf_l);
+#else
+#define INIT_PRINTF_L
+#endif
+
 #if SANITIZER_INTERCEPT_ISOC99_PRINTF
 #define INIT_ISOC99_PRINTF                       \
   COMMON_INTERCEPT_FUNCTION(__isoc99_printf);    \
@@ -996,8 +1041,18 @@ FORMAT_INTERCEPTOR_IMPL(__isoc99_snprintf, __isoc99_vsnprintf, str, size,
 
 #if SANITIZER_INTERCEPT_IOCTL
 #include "sanitizer_common_interceptors_ioctl.inc"
-INTERCEPTOR(int, ioctl, int d, unsigned request, void *arg) {
+INTERCEPTOR(int, ioctl, int d, unsigned long request, ...) {
+  // We need a frame pointer, because we call into ioctl_common_[pre|post] which
+  // can trigger a report and we need to be able to unwind through this
+  // function.  On Mac in debug mode we might not have a frame pointer, because
+  // ioctl_common_[pre|post] doesn't get inlined here.
+  ENABLE_FRAME_POINTER;
+
   void *ctx;
+  va_list ap;
+  va_start(ap, request);
+  void *arg = va_arg(ap, void *);
+  va_end(ap);
   COMMON_INTERCEPTOR_ENTER(ctx, ioctl, d, request, arg);
 
   CHECK(ioctl_initialized);
@@ -1005,6 +1060,10 @@ INTERCEPTOR(int, ioctl, int d, unsigned request, void *arg) {
   // Note: TSan does not use common flags, and they are zero-initialized.
   // This effectively disables ioctl handling in TSan.
   if (!common_flags()->handle_ioctl) return REAL(ioctl)(d, request, arg);
+
+  // Although request is unsigned long, the rest of the interceptor uses it
+  // as just "unsigned" to save space, because we know that all values fit in
+  // "unsigned" - they are compile-time constants.
 
   const ioctl_desc *desc = ioctl_lookup(request);
   ioctl_desc decoded_desc;
@@ -1030,7 +1089,8 @@ INTERCEPTOR(int, ioctl, int d, unsigned request, void *arg) {
 #endif
 
 #if SANITIZER_INTERCEPT_GETPWNAM_AND_FRIENDS || \
-    SANITIZER_INTERCEPT_GETPWENT || SANITIZER_INTERCEPT_FGETPWENT
+    SANITIZER_INTERCEPT_GETPWENT || SANITIZER_INTERCEPT_FGETPWENT || \
+    SANITIZER_INTERCEPT_GETPWENT_R || SANITIZER_INTERCEPT_GETPWNAM_R_AND_FRIENDS
 static void unpoison_passwd(void *ctx, __sanitizer_passwd *pwd) {
   if (pwd) {
     COMMON_INTERCEPTOR_WRITE_RANGE(ctx, pwd, sizeof(*pwd));
@@ -1077,7 +1137,9 @@ static void unpoison_group(void *ctx, __sanitizer_group *grp) {
   }
 }
 #endif  // SANITIZER_INTERCEPT_GETPWNAM_AND_FRIENDS ||
-        // SANITIZER_INTERCEPT_GETPWENT || SANITIZER_INTERCEPT_FGETPWENT
+        // SANITIZER_INTERCEPT_GETPWENT || SANITIZER_INTERCEPT_FGETPWENT ||
+        // SANITIZER_INTERCEPT_GETPWENT_R ||
+        // SANITIZER_INTERCEPT_GETPWNAM_R_AND_FRIENDS
 
 #if SANITIZER_INTERCEPT_GETPWNAM_AND_FRIENDS
 INTERCEPTOR(__sanitizer_passwd *, getpwnam, const char *name) {
@@ -1428,30 +1490,30 @@ static THREADLOCAL __sanitizer_glob_t *pglob_copy;
 
 static void wrapped_gl_closedir(void *dir) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
-  IndirectExternCall(pglob_copy->gl_closedir)(dir);
+  pglob_copy->gl_closedir(dir);
 }
 
 static void *wrapped_gl_readdir(void *dir) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
-  return IndirectExternCall(pglob_copy->gl_readdir)(dir);
+  return pglob_copy->gl_readdir(dir);
 }
 
 static void *wrapped_gl_opendir(const char *s) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(s, REAL(strlen)(s) + 1);
-  return IndirectExternCall(pglob_copy->gl_opendir)(s);
+  return pglob_copy->gl_opendir(s);
 }
 
 static int wrapped_gl_lstat(const char *s, void *st) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(2);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(s, REAL(strlen)(s) + 1);
-  return IndirectExternCall(pglob_copy->gl_lstat)(s, st);
+  return pglob_copy->gl_lstat(s, st);
 }
 
 static int wrapped_gl_stat(const char *s, void *st) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(2);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(s, REAL(strlen)(s) + 1);
-  return IndirectExternCall(pglob_copy->gl_stat)(s, st);
+  return pglob_copy->gl_stat(s, st);
 }
 
 INTERCEPTOR(int, glob, const char *pattern, int flags,
@@ -1459,6 +1521,7 @@ INTERCEPTOR(int, glob, const char *pattern, int flags,
             __sanitizer_glob_t *pglob) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, glob, pattern, flags, errfunc, pglob);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, pattern, 0);
   __sanitizer_glob_t glob_copy = {
       0,                  0,                   0,
       0,                  wrapped_gl_closedir, wrapped_gl_readdir,
@@ -1489,6 +1552,7 @@ INTERCEPTOR(int, glob64, const char *pattern, int flags,
             __sanitizer_glob_t *pglob) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, glob64, pattern, flags, errfunc, pglob);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, pattern, 0);
   __sanitizer_glob_t glob_copy = {
       0,                  0,                   0,
       0,                  wrapped_gl_closedir, wrapped_gl_readdir,
@@ -1535,8 +1599,14 @@ INTERCEPTOR_WITH_SUFFIX(int, wait, int *status) {
     COMMON_INTERCEPTOR_WRITE_RANGE(ctx, status, sizeof(*status));
   return res;
 }
+// On FreeBSD id_t is always 64-bit wide.
+#if SANITIZER_FREEBSD && (SANITIZER_WORDSIZE == 32)
+INTERCEPTOR_WITH_SUFFIX(int, waitid, int idtype, long long id, void *infop,
+                        int options) {
+#else
 INTERCEPTOR_WITH_SUFFIX(int, waitid, int idtype, int id, void *infop,
                         int options) {
+#endif
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, waitid, idtype, id, infop, options);
   // FIXME: under ASan the call below may write to freed memory and corrupt
@@ -1629,6 +1699,7 @@ INTERCEPTOR(char *, inet_ntop, int af, const void *src, char *dst, u32 size) {
 INTERCEPTOR(int, inet_pton, int af, const char *src, void *dst) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, inet_pton, af, src, dst);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, src, 0);
   // FIXME: figure out read size based on the address family.
   // FIXME: under ASan the call below may write to freed memory and corrupt
   // its metadata. See
@@ -2119,6 +2190,16 @@ INTERCEPTOR(int, sysinfo, void *info) {
 #endif
 
 #if SANITIZER_INTERCEPT_READDIR
+INTERCEPTOR(__sanitizer_dirent *, opendir, const char *path) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, opendir, path);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, path, REAL(strlen)(path) + 1);
+  __sanitizer_dirent *res = REAL(opendir)(path);
+  if (res != 0)
+    COMMON_INTERCEPTOR_DIR_ACQUIRE(ctx, path);
+  return res;
+}
+
 INTERCEPTOR(__sanitizer_dirent *, readdir, void *dirp) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, readdir, dirp);
@@ -2147,6 +2228,7 @@ INTERCEPTOR(int, readdir_r, void *dirp, __sanitizer_dirent *entry,
 }
 
 #define INIT_READDIR                  \
+  COMMON_INTERCEPT_FUNCTION(opendir); \
   COMMON_INTERCEPT_FUNCTION(readdir); \
   COMMON_INTERCEPT_FUNCTION(readdir_r);
 #else
@@ -2288,6 +2370,37 @@ INTERCEPTOR(char *, get_current_dir_name, int fake) {
 #define INIT_GET_CURRENT_DIR_NAME
 #endif
 
+UNUSED static inline void FixRealStrtolEndptr(const char *nptr, char **endptr) {
+  CHECK(endptr);
+  if (nptr == *endptr) {
+    // No digits were found at strtol call, we need to find out the last
+    // symbol accessed by strtoll on our own.
+    // We get this symbol by skipping leading blanks and optional +/- sign.
+    while (IsSpace(*nptr)) nptr++;
+    if (*nptr == '+' || *nptr == '-') nptr++;
+    *endptr = const_cast<char *>(nptr);
+  }
+  CHECK(*endptr >= nptr);
+}
+
+UNUSED static inline void StrtolFixAndCheck(void *ctx, const char *nptr,
+                             char **endptr, char *real_endptr, int base) {
+  if (endptr != 0) {
+    *endptr = real_endptr;
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, endptr, sizeof(*endptr));
+  }
+  // If base has unsupported value, strtol can exit with EINVAL
+  // without reading any characters. So do additional checks only
+  // if base is valid.
+  bool is_valid_base = (base == 0) || (2 <= base && base <= 36);
+  if (is_valid_base) {
+    FixRealStrtolEndptr(nptr, &real_endptr);
+  }
+  COMMON_INTERCEPTOR_READ_STRING(ctx, nptr, is_valid_base ?
+                                 (real_endptr - nptr) + 1 : 0);
+}
+
+
 #if SANITIZER_INTERCEPT_STRTOIMAX
 INTERCEPTOR(INTMAX_T, strtoimax, const char *nptr, char **endptr, int base) {
   void *ctx;
@@ -2295,8 +2408,9 @@ INTERCEPTOR(INTMAX_T, strtoimax, const char *nptr, char **endptr, int base) {
   // FIXME: under ASan the call below may write to freed memory and corrupt
   // its metadata. See
   // https://code.google.com/p/address-sanitizer/issues/detail?id=321.
-  INTMAX_T res = REAL(strtoimax)(nptr, endptr, base);
-  if (endptr) COMMON_INTERCEPTOR_WRITE_RANGE(ctx, endptr, sizeof(*endptr));
+  char *real_endptr;
+  INTMAX_T res = REAL(strtoimax)(nptr, &real_endptr, base);
+  StrtolFixAndCheck(ctx, nptr, endptr, real_endptr, base);
   return res;
 }
 
@@ -2306,8 +2420,9 @@ INTERCEPTOR(INTMAX_T, strtoumax, const char *nptr, char **endptr, int base) {
   // FIXME: under ASan the call below may write to freed memory and corrupt
   // its metadata. See
   // https://code.google.com/p/address-sanitizer/issues/detail?id=321.
-  INTMAX_T res = REAL(strtoumax)(nptr, endptr, base);
-  if (endptr) COMMON_INTERCEPTOR_WRITE_RANGE(ctx, endptr, sizeof(*endptr));
+  char *real_endptr;
+  INTMAX_T res = REAL(strtoumax)(nptr, &real_endptr, base);
+  StrtolFixAndCheck(ctx, nptr, endptr, real_endptr, base);
   return res;
 }
 
@@ -2540,6 +2655,19 @@ INTERCEPTOR(int, sched_getaffinity, int pid, SIZE_T cpusetsize, void *mask) {
 #define INIT_SCHED_GETAFFINITY
 #endif
 
+#if SANITIZER_INTERCEPT_SCHED_GETPARAM
+INTERCEPTOR(int, sched_getparam, int pid, void *param) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sched_getparam, pid, param);
+  int res = REAL(sched_getparam)(pid, param);
+  if (!res) COMMON_INTERCEPTOR_WRITE_RANGE(ctx, param, struct_sched_param_sz);
+  return res;
+}
+#define INIT_SCHED_GETPARAM COMMON_INTERCEPT_FUNCTION(sched_getparam);
+#else
+#define INIT_SCHED_GETPARAM
+#endif
+
 #if SANITIZER_INTERCEPT_STRERROR
 INTERCEPTOR(char *, strerror, int errnum) {
   void *ctx;
@@ -2613,7 +2741,7 @@ static THREADLOCAL scandir_compar_f scandir_compar;
 static int wrapped_scandir_filter(const struct __sanitizer_dirent *dir) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(dir, dir->d_reclen);
-  return IndirectExternCall(scandir_filter)(dir);
+  return scandir_filter(dir);
 }
 
 static int wrapped_scandir_compar(const struct __sanitizer_dirent **a,
@@ -2623,7 +2751,7 @@ static int wrapped_scandir_compar(const struct __sanitizer_dirent **a,
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(*a, (*a)->d_reclen);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(b, sizeof(*b));
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(*b, (*b)->d_reclen);
-  return IndirectExternCall(scandir_compar)(a, b);
+  return scandir_compar(a, b);
 }
 
 INTERCEPTOR(int, scandir, char *dirp, __sanitizer_dirent ***namelist,
@@ -2665,7 +2793,7 @@ static THREADLOCAL scandir64_compar_f scandir64_compar;
 static int wrapped_scandir64_filter(const struct __sanitizer_dirent64 *dir) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(dir, dir->d_reclen);
-  return IndirectExternCall(scandir64_filter)(dir);
+  return scandir64_filter(dir);
 }
 
 static int wrapped_scandir64_compar(const struct __sanitizer_dirent64 **a,
@@ -2675,7 +2803,7 @@ static int wrapped_scandir64_compar(const struct __sanitizer_dirent64 **a,
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(*a, (*a)->d_reclen);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(b, sizeof(*b));
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(*b, (*b)->d_reclen);
-  return IndirectExternCall(scandir64_compar)(a, b);
+  return scandir64_compar(a, b);
 }
 
 INTERCEPTOR(int, scandir64, char *dirp, __sanitizer_dirent64 ***namelist,
@@ -3558,6 +3686,7 @@ INTERCEPTOR(char *, tempnam, char *dir, char *pfx) {
 INTERCEPTOR(int, pthread_setname_np, uptr thread, const char *name) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, pthread_setname_np, thread, name);
+  COMMON_INTERCEPTOR_READ_STRING(ctx, name, 0);
   COMMON_INTERCEPTOR_SET_PTHREAD_NAME(ctx, thread, name);
   return REAL(pthread_setname_np)(thread, name);
 }
@@ -3848,6 +3977,12 @@ INTERCEPTOR(__sanitizer_clock_t, times, void *tms) {
 
 #if SANITIZER_INTERCEPT_TLS_GET_ADDR
 #define INIT_TLS_GET_ADDR COMMON_INTERCEPT_FUNCTION(__tls_get_addr)
+// If you see any crashes around this functions, there are 2 known issues with
+// it: 1. __tls_get_addr can be called with mis-aligned stack due to:
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=58066
+// 2. It can be called recursively if sanitizer code uses __tls_get_addr
+// to access thread local variables (it should not happen normally,
+// because sanitizers use initial-exec tls model).
 INTERCEPTOR(void *, __tls_get_addr, void *arg) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, __tls_get_addr, arg);
@@ -4609,6 +4744,8 @@ INTERCEPTOR(int, fclose, __sanitizer_FILE *fp) {
 INTERCEPTOR(void*, dlopen, const char *filename, int flag) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER_NOIGNORE(ctx, dlopen, filename, flag);
+  if (filename) COMMON_INTERCEPTOR_READ_STRING(ctx, filename, 0);
+  COMMON_INTERCEPTOR_ON_DLOPEN(filename, flag);
   void *res = REAL(dlopen)(filename, flag);
   COMMON_INTERCEPTOR_LIBRARY_LOADED(filename, res);
   return res;
@@ -4627,6 +4764,91 @@ INTERCEPTOR(int, dlclose, void *handle) {
 #else
 #define INIT_DLOPEN_DLCLOSE
 #endif
+
+#if SANITIZER_INTERCEPT_GETPASS
+INTERCEPTOR(char *, getpass, const char *prompt) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, getpass, prompt);
+  if (prompt)
+    COMMON_INTERCEPTOR_READ_RANGE(ctx, prompt, REAL(strlen)(prompt)+1);
+  char *res = REAL(getpass)(prompt);
+  if (res) COMMON_INTERCEPTOR_INITIALIZE_RANGE(res, REAL(strlen)(res)+1);
+  return res;
+}
+
+#define INIT_GETPASS COMMON_INTERCEPT_FUNCTION(getpass);
+#else
+#define INIT_GETPASS
+#endif
+
+#if SANITIZER_INTERCEPT_TIMERFD
+INTERCEPTOR(int, timerfd_settime, int fd, int flags, void *new_value,
+            void *old_value) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, timerfd_settime, fd, flags, new_value,
+                           old_value);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, new_value, struct_itimerspec_sz);
+  int res = REAL(timerfd_settime)(fd, flags, new_value, old_value);
+  if (res != -1 && old_value)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, old_value, struct_itimerspec_sz);
+  return res;
+}
+
+INTERCEPTOR(int, timerfd_gettime, int fd, void *curr_value) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, timerfd_gettime, fd, curr_value);
+  int res = REAL(timerfd_gettime)(fd, curr_value);
+  if (res != -1 && curr_value)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, curr_value, struct_itimerspec_sz);
+  return res;
+}
+#define INIT_TIMERFD                          \
+  COMMON_INTERCEPT_FUNCTION(timerfd_settime); \
+  COMMON_INTERCEPT_FUNCTION(timerfd_gettime);
+#else
+#define INIT_TIMERFD
+#endif
+
+#if SANITIZER_INTERCEPT_MLOCKX
+// Linux kernel has a bug that leads to kernel deadlock if a process
+// maps TBs of memory and then calls mlock().
+static void MlockIsUnsupported() {
+  static atomic_uint8_t printed;
+  if (atomic_exchange(&printed, 1, memory_order_relaxed))
+    return;
+  VPrintf(1, "INFO: %s ignores mlock/mlockall/munlock/munlockall\n",
+          SanitizerToolName);
+}
+
+INTERCEPTOR(int, mlock, const void *addr, uptr len) {
+  MlockIsUnsupported();
+  return 0;
+}
+
+INTERCEPTOR(int, munlock, const void *addr, uptr len) {
+  MlockIsUnsupported();
+  return 0;
+}
+
+INTERCEPTOR(int, mlockall, int flags) {
+  MlockIsUnsupported();
+  return 0;
+}
+
+INTERCEPTOR(int, munlockall, void) {
+  MlockIsUnsupported();
+  return 0;
+}
+
+#define INIT_MLOCKX                                                            \
+  COMMON_INTERCEPT_FUNCTION(mlock);                                            \
+  COMMON_INTERCEPT_FUNCTION(munlock);                                          \
+  COMMON_INTERCEPT_FUNCTION(mlockall);                                         \
+  COMMON_INTERCEPT_FUNCTION(munlockall);
+
+#else
+#define INIT_MLOCKX
+#endif  // SANITIZER_INTERCEPT_MLOCKX
 
 static void InitializeCommonInterceptors() {
   static u64 metadata_mem[sizeof(MetadataHashMap) / sizeof(u64) + 1];
@@ -4657,6 +4879,7 @@ static void InitializeCommonInterceptors() {
   INIT_SCANF;
   INIT_ISOC99_SCANF;
   INIT_PRINTF;
+  INIT_PRINTF_L;
   INIT_ISOC99_PRINTF;
   INIT_FREXP;
   INIT_FREXPF_FREXPL;
@@ -4707,6 +4930,7 @@ static void InitializeCommonInterceptors() {
   INIT_CANONICALIZE_FILE_NAME;
   INIT_CONFSTR;
   INIT_SCHED_GETAFFINITY;
+  INIT_SCHED_GETPARAM;
   INIT_STRERROR;
   INIT_STRERROR_R;
   INIT_XPG_STRERROR_R;
@@ -4786,4 +5010,7 @@ static void InitializeCommonInterceptors() {
   INIT_FFLUSH;
   INIT_FCLOSE;
   INIT_DLOPEN_DLCLOSE;
+  INIT_GETPASS;
+  INIT_TIMERFD;
+  INIT_MLOCKX;
 }

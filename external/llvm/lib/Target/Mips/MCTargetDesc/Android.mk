@@ -8,6 +8,7 @@ mips_mc_desc_TBLGEN_TABLES := \
 
 mips_mc_desc_SRC_FILES := \
   MipsABIFlagsSection.cpp \
+  MipsABIInfo.cpp \
   MipsAsmBackend.cpp \
   MipsELFObjectWriter.cpp \
   MipsELFStreamer.cpp \
@@ -15,6 +16,7 @@ mips_mc_desc_SRC_FILES := \
   MipsMCCodeEmitter.cpp \
   MipsMCExpr.cpp \
   MipsMCTargetDesc.cpp \
+  MipsOptionRecord.cpp \
   MipsNaClELFStreamer.cpp \
   MipsTargetStreamer.cpp
 

@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CLANG_CODEGEN_CGLOOPINFO_H
-#define CLANG_CODEGEN_CGLOOPINFO_H
+#ifndef LLVM_CLANG_LIB_CODEGEN_CGLOOPINFO_H
+#define LLVM_CLANG_LIB_CODEGEN_CGLOOPINFO_H
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
@@ -46,7 +46,7 @@ struct LoopAttributes {
   /// \brief llvm.loop.vectorize.width
   unsigned VectorizerWidth;
 
-  /// \brief llvm.loop.vectorize.unroll
+  /// \brief llvm.loop.interleave.count
   unsigned VectorizerUnroll;
 };
 
@@ -78,8 +78,8 @@ private:
 /// This stack can be used to prepare attributes which are applied when a loop
 /// is emitted.
 class LoopInfoStack {
-  LoopInfoStack(const LoopInfoStack &) LLVM_DELETED_FUNCTION;
-  void operator=(const LoopInfoStack &) LLVM_DELETED_FUNCTION;
+  LoopInfoStack(const LoopInfoStack &) = delete;
+  void operator=(const LoopInfoStack &) = delete;
 
 public:
   LoopInfoStack() {}
@@ -133,4 +133,4 @@ private:
 } // end namespace CodeGen
 } // end namespace clang
 
-#endif // CLANG_CODEGEN_CGLOOPINFO_H
+#endif

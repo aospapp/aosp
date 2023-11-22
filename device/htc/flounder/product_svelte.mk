@@ -17,8 +17,6 @@
 # to test low memory situations
 #
 
-PRODUCT_RUNTIMES := runtime_libart_default
-
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
 $(call inherit-product, device/htc/flounder/device.mk)
 
@@ -38,4 +36,3 @@ PRODUCT_PROPERTY_OVERRIDES += \
 	ro.sf.lcd_density=144
 
 PRODUCT_PROPERTY_OVERRIDES += dalvik.vm.jit.codecachesize=0
-

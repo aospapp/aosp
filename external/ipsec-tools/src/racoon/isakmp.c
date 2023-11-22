@@ -116,7 +116,7 @@
 #  ifndef SOL_UDP
 #   define SOL_UDP 17
 #  endif
-#ifdef ANDROID_CHANGES
+#if defined(ANDROID_CHANGES) && !defined(__linux)
 #define __linux
 #endif
 # endif /* __linux__ */
@@ -2937,8 +2937,9 @@ log_ph1established(iph1)
 		isakmp_pindex(&iph1->index, 0));
 	
 	EVT_PUSH(iph1->local, iph1->remote, EVTT_PHASE1_UP, NULL);
-	if(!iph1->rmconf->mode_cfg)
+	if(!iph1->rmconf->mode_cfg) {
 		EVT_PUSH(iph1->local, iph1->remote, EVTT_NO_ISAKMP_CFG, NULL);
+	}
 
 	racoon_free(src);
 	racoon_free(dst);

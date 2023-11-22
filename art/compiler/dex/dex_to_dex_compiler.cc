@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#include "art_field-inl.h"
+#include "art_method-inl.h"
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "dex_file-inl.h"
 #include "dex_instruction-inl.h"
 #include "driver/compiler_driver.h"
 #include "driver/dex_compilation_unit.h"
-#include "mirror/art_field-inl.h"
-#include "mirror/art_method-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache.h"
 #include "thread-inl.h"
@@ -120,14 +120,40 @@ void DexCompiler::Compile() {
         CompileInstanceFieldAccess(inst, dex_pc, Instruction::IGET_OBJECT_QUICK, false);
         break;
 
+      case Instruction::IGET_BOOLEAN:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IGET_BOOLEAN_QUICK, false);
+        break;
+
+      case Instruction::IGET_BYTE:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IGET_BYTE_QUICK, false);
+        break;
+
+      case Instruction::IGET_CHAR:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IGET_CHAR_QUICK, false);
+        break;
+
+      case Instruction::IGET_SHORT:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IGET_SHORT_QUICK, false);
+        break;
+
       case Instruction::IPUT:
-      case Instruction::IPUT_BOOLEAN:
-      case Instruction::IPUT_BYTE:
-      case Instruction::IPUT_CHAR:
-      case Instruction::IPUT_SHORT:
-        // These opcodes have the same implementation in interpreter so group
-        // them under IPUT_QUICK.
         CompileInstanceFieldAccess(inst, dex_pc, Instruction::IPUT_QUICK, true);
+        break;
+
+      case Instruction::IPUT_BOOLEAN:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IPUT_BOOLEAN_QUICK, true);
+        break;
+
+      case Instruction::IPUT_BYTE:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IPUT_BYTE_QUICK, true);
+        break;
+
+      case Instruction::IPUT_CHAR:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IPUT_CHAR_QUICK, true);
+        break;
+
+      case Instruction::IPUT_SHORT:
+        CompileInstanceFieldAccess(inst, dex_pc, Instruction::IPUT_SHORT_QUICK, true);
         break;
 
       case Instruction::IPUT_WIDE:
@@ -154,22 +180,21 @@ void DexCompiler::Compile() {
 }
 
 void DexCompiler::CompileReturnVoid(Instruction* inst, uint32_t dex_pc) {
-  DCHECK(inst->Opcode() == Instruction::RETURN_VOID);
-  // Are we compiling a non-clinit constructor?
-  if (!unit_.IsConstructor() || unit_.IsStatic()) {
-    return;
+  DCHECK_EQ(inst->Opcode(), Instruction::RETURN_VOID);
+  if (unit_.IsConstructor()) {
+    // Are we compiling a non clinit constructor which needs a barrier ?
+    if (!unit_.IsStatic() &&
+        driver_.RequiresConstructorBarrier(Thread::Current(), unit_.GetDexFile(),
+                                           unit_.GetClassDefIndex())) {
+      return;
+    }
   }
-  // Do we need a constructor barrier ?
-  if (!driver_.RequiresConstructorBarrier(Thread::Current(), unit_.GetDexFile(),
-                                         unit_.GetClassDefIndex())) {
-    return;
-  }
-  // Replace RETURN_VOID by RETURN_VOID_BARRIER.
+  // Replace RETURN_VOID by RETURN_VOID_NO_BARRIER.
   VLOG(compiler) << "Replacing " << Instruction::Name(inst->Opcode())
-                 << " by " << Instruction::Name(Instruction::RETURN_VOID_BARRIER)
+                 << " by " << Instruction::Name(Instruction::RETURN_VOID_NO_BARRIER)
                  << " at dex pc " << StringPrintf("0x%x", dex_pc) << " in method "
                  << PrettyMethod(unit_.GetDexMethodIndex(), GetDexFile(), true);
-  inst->SetOpcode(Instruction::RETURN_VOID_BARRIER);
+  inst->SetOpcode(Instruction::RETURN_VOID_NO_BARRIER);
 }
 
 Instruction* DexCompiler::CompileCheckCast(Instruction* inst, uint32_t dex_pc) {
@@ -212,7 +237,7 @@ void DexCompiler::CompileInstanceFieldAccess(Instruction* inst,
   bool is_volatile;
   bool fast_path = driver_.ComputeInstanceFieldInfo(field_idx, &unit_, is_put,
                                                     &field_offset, &is_volatile);
-  if (fast_path && !is_volatile && IsUint(16, field_offset.Int32Value())) {
+  if (fast_path && !is_volatile && IsUint<16>(field_offset.Int32Value())) {
     VLOG(compiler) << "Quickening " << Instruction::Name(inst->Opcode())
                    << " to " << Instruction::Name(new_opcode)
                    << " by replacing field index " << field_idx
@@ -226,10 +251,8 @@ void DexCompiler::CompileInstanceFieldAccess(Instruction* inst,
   }
 }
 
-void DexCompiler::CompileInvokeVirtual(Instruction* inst,
-                                uint32_t dex_pc,
-                                Instruction::Code new_opcode,
-                                bool is_range) {
+void DexCompiler::CompileInvokeVirtual(Instruction* inst, uint32_t dex_pc,
+                                       Instruction::Code new_opcode, bool is_range) {
   if (!kEnableQuickening || !PerformOptimizations()) {
     return;
   }
@@ -248,7 +271,7 @@ void DexCompiler::CompileInvokeVirtual(Instruction* inst,
                                              &target_method, &vtable_idx,
                                              &direct_code, &direct_method);
   if (fast_path && original_invoke_type == invoke_type) {
-    if (vtable_idx >= 0 && IsUint(16, vtable_idx)) {
+    if (vtable_idx >= 0 && IsUint<16>(vtable_idx)) {
       VLOG(compiler) << "Quickening " << Instruction::Name(inst->Opcode())
                      << "(" << PrettyMethod(method_idx, GetDexFile(), true) << ")"
                      << " to " << Instruction::Name(new_opcode)
@@ -272,12 +295,13 @@ void DexCompiler::CompileInvokeVirtual(Instruction* inst,
 }  // namespace art
 
 extern "C" void ArtCompileDEX(art::CompilerDriver& driver, const art::DexFile::CodeItem* code_item,
-                  uint32_t access_flags, art::InvokeType invoke_type,
-                  uint16_t class_def_idx, uint32_t method_idx, jobject class_loader,
-                  const art::DexFile& dex_file,
-                  art::DexToDexCompilationLevel dex_to_dex_compilation_level) {
+                              uint32_t access_flags, art::InvokeType invoke_type,
+                              uint16_t class_def_idx, uint32_t method_idx, jobject class_loader,
+                              const art::DexFile& dex_file,
+                              art::DexToDexCompilationLevel dex_to_dex_compilation_level) {
+  UNUSED(invoke_type);
   if (dex_to_dex_compilation_level != art::kDontDexToDexCompile) {
-    art::DexCompilationUnit unit(NULL, class_loader, art::Runtime::Current()->GetClassLinker(),
+    art::DexCompilationUnit unit(nullptr, class_loader, art::Runtime::Current()->GetClassLinker(),
                                  dex_file, code_item, class_def_idx, method_idx, access_flags,
                                  driver.GetVerifiedMethod(&dex_file, method_idx));
     art::optimizer::DexCompiler dex_compiler(driver, unit, dex_to_dex_compilation_level);

@@ -126,8 +126,8 @@ public class LocalSocketTest extends AndroidTestCase{
         socket.setReceiveBufferSize(1999);
         assertEquals(1999 << 1, socket.getReceiveBufferSize());
 
-        socket.setSendBufferSize(1998);
-        assertEquals(1998 << 1, socket.getSendBufferSize());
+        socket.setSendBufferSize(3998);
+        assertEquals(3998 << 1, socket.getSendBufferSize());
 
         // Timeout is not support at present, so set is ignored
         socket.setSoTimeout(1996);

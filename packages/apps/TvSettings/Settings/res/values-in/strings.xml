@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"Tambahkan akun"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"Sinkronisasi"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Hapus akun"</string>
-    <string name="search_title" msgid="5474988613144349415">"Penelusuran"</string>
     <string name="account_sync" msgid="773808124331714965">"Pilih aplikasi tersinkron"</string>
     <string name="sync_now" msgid="8732244492880016471">"Sinkronkan sekarang"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"Batalkan sinkronisasi"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"Penyinkronan tidak bekerja saat ini. Akan segera berfungsi lagi."</string>
     <string name="account_remove" msgid="4313580520737295272">"Hapus akun"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Tidak dapat membuang akun"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"Nama"</item>
-    <item msgid="6466271488216028049">"Foto"</item>
-    <item msgid="5763918836533170723">"Keamanan"</item>
-    <item msgid="5219275476980441834">"Google Wallet"</item>
-    <item msgid="5333563881963545303">"Riwayat Pembelian"</item>
-    <item msgid="6174147587962184914">"Hapus Akun"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"Jaringan"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Selalu aktifkan pemindaian Wi-Fi"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Izinkan layanan lokasi Google dan aplikasi lainnya untuk memindai jaringan, bahkan saat Wi-Fi tidak aktif"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"Lamunan"</string>
     <string name="device_display" msgid="101455384386372747">"Layar"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Suara sistem"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Pencadangan &amp; pemulihan"</string>
     <string name="device_reset" msgid="2827002349560023125">"Kembalikan ke setelan pabrik"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrasi"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Hapus data dalam cache?"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Ini akan menghapus data cache untuk semua apl."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"Aplikasi yang diunduh"</string>
     <string name="apps_system" msgid="2499191125802829425">"Aplikasi sistem"</string>
     <string name="apps_running" msgid="6430310491739956228">"Aplikasi yang berjalan"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"Jarak jauh"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"Kamera"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Tambahkan aksesori"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Tampilan Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Menyandingkan..."</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"Aksesori"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"Ganti nama"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Pembatalan penyandingan"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"Baterai <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Membatalkan penyandingan perangkat…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Tersambung"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Menelusuri aksesori..."</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"Tanggal &amp; waktu"</string>
     <string name="system_language" msgid="2337138146114609247">"Bahasa"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Keyboard"</string>
+    <string name="system_home" msgid="2858989138172296012">"Layar utama"</string>
     <string name="system_search" msgid="2837264654143247611">"Penelusuran"</string>
     <string name="system_security" msgid="8230080273993484407">"Keamanan &amp; pembatasan"</string>
     <string name="system_speech" msgid="8128688499687306982">"Ucapan"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"Nama perangkat"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Mulai Ulang"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Informasi hukum"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"Jaminan"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Lisensi sumber terbuka"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google hukum"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Data lisensi tidak tersedia"</string>
@@ -118,23 +109,13 @@
     <string name="about_version" msgid="1177287676732287266">"Versi"</string>
     <string name="about_serial" msgid="2723560490027171187">"Nomor seri"</string>
     <string name="about_build" msgid="9148789767199785676">"Bentukan"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"<xliff:g id="STEP_COUNT">%1$d</xliff:g> langkah lagi untuk menjadi pengembang"</item>
-    <item quantity="other" msgid="6907126743472136795">"<xliff:g id="STEP_COUNT">%1$d</xliff:g> langkah lagi untuk menjadi pengembang"</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="other"><xliff:g id="STEP_COUNT_1">%1$d</xliff:g> langkah lagi untuk menjadi pengembang</item>
+      <item quantity="one"><xliff:g id="STEP_COUNT_0">%1$d</xliff:g> langkah lagi untuk menjadi pengembang</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Iklan"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Sekarang Anda adalah seorang pengembang!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Tidak perlu, Anda sudah menjadi pengembang"</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"Tidak ada"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"Tersimpan"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"Dinonaktifkan"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"Koneksi internet buruk dihindari"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"Masalah autentikasi"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"Tidak dalam jangkauan"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"WPS yang tersedia"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" (WPS tersedia)"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"Diamankan dengan <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">", diamankan dengan <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Buruk"</item>
     <item msgid="5986166866411161790">"Cukup"</item>
@@ -154,10 +135,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"JARINGAN YANG TERSEDIA"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Menyambung via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Tambahkan jaringan baru"</string>
-    <string name="add_network" msgid="2074883912462075625">"Tambahkan jaringan"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"SSID jaringan"</string>
     <string name="security_type" msgid="524443802004143058">"Jenis keamanan"</string>
-    <string name="password" msgid="1322790875762726719">"Sandi"</string>
     <string name="wps_network" msgid="1052148085426051873">"Menyambung via WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Jaringan lain..."</string>
     <string name="skip_network" msgid="6380260543776712357">"Lewati"</string>
@@ -200,11 +178,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Tidak ada"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Manual"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"Simpan"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Statik"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Info status"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Opsi lanjutan"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>, <xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Masukkan alamat IP yang valid"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Masukkan alamat gerbang yang valid"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Masukkan alamat DNS yang valid"</string>
@@ -227,19 +203,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Jaringan tidak tersambung"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Sudah tersambung ke <xliff:g id="SSID">%1$s</xliff:g>. Sambungkan ke jaringan lain?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"jaringan tak dikenal"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"Opsi lanjutan"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>, <xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"Setelan IP"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"Uji sambungan"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"Statik"</string>
-    <string name="gateway" msgid="2467496590891949814">"Gerbang"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"Panjang awalan jaringan"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"Oke"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Batal"</string>
-    <string name="rename_device" msgid="8221482127562510757">"Ganti nama perangkat"</string>
     <string name="storage_title" msgid="2132026108559493394">"Penyimpanan"</string>
     <string name="storage_available" msgid="1241005580092138871">"Tersedia"</string>
     <string name="storage_size" msgid="8958530823208352781">"Ruang total: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +215,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"Audio"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Serbaneka"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Data dalam cache"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"Batal"</string>
+    <string name="storage_eject" msgid="113476702798691558">"Keluarkan"</string>
+    <string name="storage_format" msgid="3759273736493279595">"Hapus &amp; format"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"Format sebagai perangkat penyimpanan"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"Tidak terhubung"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"Pindahkan data"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"Lupakan penyimpanan internal ini"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Untuk menggunakan aplikasi atau data dalam drive ini, colokkan kembali drive tersebut. Selain itu, Anda dapat memilih untuk melupakan penyimpanan ini jika drive tidak tersedia.\n\nJika Anda memilih Lupakan, semua data di dalam drive akan hilang selamanya.\n\nAnda dapat memasang aplikasi lagi nanti, namun data yang tersimpan dalam drive ini akan hilang."</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"Penyimpanan perangkat"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"Penyimpanan yang dapat dicopot"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Setel ulang"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> telah dipasang"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"Tidak dapat memasang <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> dikeluarkan dengan aman"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"Tidak dapat mengeluarkan <xliff:g id="NAME">%1$s</xliff:g> dengan aman"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Tidak menemukan drive untuk dikeluarkan"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> telah diformat"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"Tidak dapat memformat <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Format sebagai penyimpanan internal"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Tindakan ini mengharuskan pemformatan drive USB untuk menjadikannya aman. Setelah memformat dengan aman, drive tersebut hanya akan berfungsi untuk perangkat ini. Pemformatan akan menghapus semua data yang saat ini tersimpan di drive. Agar data Anda tidak hilang, pertimbangkan untuk membuat cadangannya."</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Hapus &amp; Format"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Setelah memformat drive USB, Anda dapat menggunakannya di perangkat lain. Semua data akan dihapus. Pertimbangkan membuat cadangan data dengan memindahkan aplikasi ke penyimpanan internal lain."</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Memformat Drive USB…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Proses ini membutuhkan beberapa waktu. Jangan mencopot drive."</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Memindahkan data ke <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Pindahkan foto, file, dan data aplikasi Anda ke <xliff:g id="NAME">%1$s</xliff:g>. Pemindahan dapat berlangsung selama beberapa menit. Beberapa aplikasi tidak akan berfungsi dengan benar selama proses pemindahan."</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Pindahkan sekarang"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Pindahkan nanti"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Data dipindahkan ke <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Tidak bisa memindahkan data ke <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Memindahkan data ke <xliff:g id="NAME">%1$s</xliff:g>..."</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Pemindahan ini membutuhkan waktu beberapa lama. Jangan cabut drive.\nBeberapa aplikasi tidak akan berfungsi dengan benar selama proses pemindahan."</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"Drive ini tampaknya berjalan lambat."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Anda dapat melanjutkan, namun aplikasi yang dipindahkan ke lokasi ini dapat terhambat dan transfer data akan membutuhkan waktu yang lama. Pertimbangkan untuk menggunakan drive yang lebih cepat untuk kinerja yang lebih baik."</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"Format"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Cadangkan aplikasi"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Aplikasi yang disimpan di <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Aplikasi dan data yang disimpan di <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"Tersedia <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Keluarkan penyimpanan internal"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Aplikasi di penyimpanan perangkat ini akan berhenti berfungsi jika penyimpanan perangkat dikeluarkan. Drive USB diformat agar berfungsi hanya pada perangkat ini. Drive USB tidak akan berfungsi di perangkat lain."</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Mengeluarkan <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Penyimpanan yang terpakai"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Memindahkan <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Jangan mencopot drive selama pemindahan.\nAplikasi <xliff:g id="APPNAME">%1$s</xliff:g> pada perangkat ini tidak akan tersedia hingga pemindahan selesai."</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Lupakan penyimpanan internal?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Semua data yang tersimpan dalam drive ini akan hilang selamanya jika Anda memilih \'Lupakan\'. Ingin melanjutkan?"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Lupakan"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"Drive USB terhubung"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"Jelajahi"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Siapkan sebagai penyimpanan internal"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"Siapkan sebagai penyimpanan yang dapat dicopot"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"Keluarkan"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> dikeluarkan"</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"Beberapa aplikasi tidak akan tersedia atau berfungsi dengan benar sampai drive dihubungkan kembali."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"Ruang penyimpanan tidak cukup."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"Aplikasi tidak ada."</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikasi dilindungi hak cipta."</string>
+    <string name="invalid_location" msgid="5269044848535157307">"Lokasi pemasangan tidak valid."</string>
+    <string name="system_package" msgid="9200255718634512790">"Pembaruan sistem tidak dapat dipasang pada media eksternal."</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"Pelajari lebih lanjut"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Coba lagi"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Menelusuri router WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Tekan tombol Penyiapan Wi-Fi yang Dilindungi di router Anda.\nIni dapat disebut \"WPS\" atau berisi simbol di sebelah kiri."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Masukkan PIN <xliff:g id="NUMBER">%1$s</xliff:g> di router Wi-Fi Anda"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Setelah memasukkan PIN, penyiapan dapat memakan waktu hingga 2 menit untuk diselesaikan"</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"WPS sudah berlangsung dan dapat memakan waktu hingga 2 menit untuk selesai"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Tidak dapat menemukan router Wi-Fi"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Setelan keamanan router Wi-Fi (WEP) tidak didukung"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Setelan keamaan router Wi-Fi (TKIP) tidak didukung"</string>
@@ -266,17 +289,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"Setel tanggal"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Setel waktu"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Setel zona waktu"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Gunakan format 24 jam"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Tanggal &amp; waktu otomatis"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"Gunakan waktu yang disediakan jaringan"</string>
     <string name="system_location" msgid="502463575930545806">"Lokasi"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Biarkan aplikasi yang telah meminta izin untuk menggunakan informasi lokasi Anda"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"Lokasi jaringan Wi-Fi"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"Mungkinkan Google membantu aplikasi menentukan lokasi. Ini berarti mengirim data lokasi anonim ke Google, bahkan saat tidak ada aplikasi yang berjalan."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Izin lokasi"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"Izinkan layanan lokasi Google mengumpulkan data lokasi anonim. Beberapa data mungkin disimpan di perangkat Anda. Pengumpulan mungkin terjadi meskipun tidak ada aplikasi yang berjalan."</string>
-    <string name="location_title" msgid="7600163182794860262">"Lokasiku"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"Sistem"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Mode"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Permintaan lokasi terbaru"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Tidak ada aplikasi yang meminta lokasi baru-baru ini"</string>
@@ -318,9 +338,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"Opasitas teks"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Warna jendela"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Opasitas jendela"</string>
-    <string name="color_none" msgid="5281446963475996688">"Tidak ada"</string>
     <string name="color_white" msgid="65537523012024751">"Putih"</string>
-    <string name="color_gray" msgid="5637299846460438696">"Abu-abu"</string>
     <string name="color_black" msgid="8804213372565106403">"Hitam"</string>
     <string name="color_red" msgid="5630553203246525989">"Merah"</string>
     <string name="color_green" msgid="3745551274773976763">"Hijau"</string>
@@ -346,15 +364,13 @@
     <string name="system_drawing" msgid="6573389872154957039">"Gambar"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Pemantauan"</string>
     <string name="system_apps" msgid="6293850468968494924">"Aplikasi"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"Mengambil laporan bug"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"Sandi cadangan"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"Tetap terjaga"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"Pemeriksaan HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"Pengoptimalan HDMI"</string>
     <string name="system_reboot_confirm" msgid="534407910866199191">"Mulai ulang sekarang?"</string>
     <string name="system_desc_reboot_confirm" msgid="1367498732529710136">"Untuk memperbarui setelan ini, perangkat Anda perlu dimulai ulang"</string>
     <string name="system_never_check" msgid="6666520460705041617">"Jangan periksa"</string>
-    <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"Memeriksa konten DRM saja"</string>
+    <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"Hanya periksa konten DRM"</string>
     <string name="system_always_check" msgid="1866566828098009853">"Selalu periksa"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"Pencatatan log HCI Bluetooth"</string>
     <string name="system_email_address" msgid="8669468986250302378">"Alamat email"</string>
@@ -383,8 +399,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Jangan simpan kegiatan"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"Batas proses latar belakang"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"Menampilkan semua ANR"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"Mengirim laporan ke alamat email"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"Melindungi cadangan penuh desktop"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Menonaktifkan mode tidur"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Digunakan untuk konten DRM saja"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Optimalkan layar untuk resolusi maksimum atau jumlah frame maksimum. Tindakan ini hanya memengaruhi layar Ultra HD. Mengubah setelan ini akan memulai ulang perangkat Anda."</string>
@@ -399,7 +413,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Layar berkedip saat apl berjalan lama di utas utama"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Hamparan layar menampilkan penggunaan CPU saat ini"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mengukur waktu perenderan di adb shell dumpsys gfxinfo"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"Daerah (<xliff:g id="DATE">%s</xliff:g>)"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Aktif"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Nonaktif"</string>
     <string name="action_on_description" msgid="4559342592998850852">"Aktif"</string>
@@ -411,68 +424,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Perangkat dan data pribadi Anda lebih rentan diserang oleh aplikasi dari sumber yang tidak dikenal. Anda menyetujui bahwa kerusakan perangkat atau hilangnya data yang diakibatkan oleh penggunaan aplikasi ini merupakan tanggung jawab Anda semata-mata."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Verifikasi aplikasi"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Jangan izinkan atau peringatkan sebelum pemasangan aplikasi yang dapat menyebabkan kerusakan"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"Tidak pernah"</item>
-    <item msgid="5583820743908145007">"Untuk konten DRM"</item>
-    <item msgid="6148080515126921450">"Selalu"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Tidak pernah"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Untuk konten DRM"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Selalu"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"Resolusi terbaik"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"Framerate terbaik"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"Nonaktif"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Tampilkan area overdraw"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Lihat penghitung overdraw"</string>
     <string name="no_application" msgid="1746564297589309465">"Tidak ada"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"Tidak ada"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace (Grafis)"</item>
-    <item msgid="6650537879885155020">"Telepon tumpukan di glDapatkanKesalahan"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Tidak ada"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"Animasi nonaktif"</item>
+    <item msgid="8327257151534006014">"Skala animasi 0,5x"</item>
+    <item msgid="2105786719544636780">"Skala animasi 1x"</item>
+    <item msgid="5290554136790336403">"Skala animasi 1,5x"</item>
+    <item msgid="1232929590838082483">"Skala animasi 2x"</item>
+    <item msgid="1889239009419613796">"Skala animasi 5x"</item>
+    <item msgid="7268894934484547297">"Skala animasi 10x"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"Animasi mati"</item>
-    <item msgid="5618283113978106483">"Skala animasi 0,5x"</item>
-    <item msgid="397451685490290179">"Skala animasi 1x"</item>
-    <item msgid="6331600473492644688">"Skala animasi 1,5x"</item>
-    <item msgid="7004952449777104295">"Skala animasi 2x"</item>
-    <item msgid="1063528777234221038">"Skala animasi 5x"</item>
-    <item msgid="6926378938392529339">"Skala animasi 10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"Animasi mati"</item>
-    <item msgid="5578331490208019526">"Skala animasi 0,5x"</item>
-    <item msgid="5338802612080069593">"Skala animasi 1x"</item>
-    <item msgid="1309704285131661878">"Skala animasi 1,5x"</item>
-    <item msgid="5654221040036850960">"Skala animasi 2x"</item>
-    <item msgid="6092484055733043622">"Skala animasi 5x"</item>
-    <item msgid="4049359393103906268">"Skala animasi 10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"Animasi mati"</item>
-    <item msgid="1302400121783768928">"Skala animasi 0,5x"</item>
-    <item msgid="9088460595137551270">"Skala animasi 1x"</item>
-    <item msgid="5640745580399155880">"Skala animasi 1,5x"</item>
-    <item msgid="3320199023884342141">"Skala animasi 2x"</item>
-    <item msgid="5620232666163371843">"Skala animasi 5x"</item>
-    <item msgid="8580701701183364590">"Skala animasi 10x"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"Nonaktif"</item>
-    <item msgid="6446688182396957172">"Di layar dalam bentuk batang"</item>
-    <item msgid="9080500692341488612">"Di adb shell dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"Batas standar"</item>
-    <item msgid="6534728802931195545">"Tanpa proses latar belakang"</item>
-    <item msgid="290172167371846384">"Maksimal 1 proses"</item>
-    <item msgid="4818593824413771192">"Maksimal 2 proses"</item>
-    <item msgid="8337569181800165433">"Maksimal 3 proses"</item>
-    <item msgid="8261219565766202947">"Maksimal 4 proses"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"Sangat lambat"</item>
-    <item msgid="3458529225374884970">"Lambat"</item>
-    <item msgid="4131204219571166311">"Normal"</item>
-    <item msgid="786682416218616624">"Cepat"</item>
-    <item msgid="1708844147149066133">"Sangat cepat"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"Pilih jenis akun"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"Pilih akun"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"Tambahkan akun baru"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"Nonaktif"</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"Di layar dalam bentuk batang"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"Batas standar"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"Tanpa proses latar belakang"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"Maksimal 1 proses"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"Maksimal 2 proses"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"Maksimal 3 proses"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"Maksimal 4 proses"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Sangat lambat"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"Lambat"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"Biasa"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"Cepat"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Sangat cepat"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Keyboard saat ini"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfigurasikan"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Opsi keyboard"</string>
@@ -481,9 +464,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Ganti nama"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Tampilan Wi-Fi"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"Dibutuhkan PIN"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"Informasi jarak jauh: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"Mengumpulkan laporan bug!\nKami akan meminta info selengkapnya dari Anda setelah laporan siap."</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"Tidak dapat mengumpulkan laporan bug!\nCoba lagi nanti."</string>
     <string name="whichApplication" msgid="8382179653567099571">"Tindakan lengkap menggunakan"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Selalu gunakan opsi ini untuk tindakan ini?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Selalu gunakan"</string>
@@ -508,48 +488,39 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Mematikan perangkat HDMI bersama TV"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Otomatis nyalakan TV"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Menyalakan TV bersama perangkat HDMI"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"MASUKAN YANG TERHUBUNG"</item>
-    <item quantity="other" msgid="280747600882155182">"MASUKAN YANG TERHUBUNG"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"MASUKAN SIAGA"</item>
-    <item quantity="other" msgid="1673538341842385592">"MASUKAN SIAGA"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"MASUKAN YANG TIDAK TERHUBUNG"</item>
-    <item quantity="other" msgid="4526893384805247472">"MASUKAN YANG TIDAK TERHUBUNG"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"Terhubung"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"Siaga"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"Hubungan terputus"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="other">MASUKAN YANG TERHUBUNG</item>
+      <item quantity="one">MASUKAN YANG TERHUBUNG</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="other">MASUKAN SIAGA</item>
+      <item quantity="one">MASUKAN SIAGA</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="other">MASUKAN YANG TIDAK TERHUBUNG</item>
+      <item quantity="one">MASUKAN YANG TIDAK TERHUBUNG</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Batasi akses ke aplikasi dan konten lain di akun Anda"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Profil Dibatasi"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"Akses konten &amp; aplikasi"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Dikontrol oleh <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Aplikasi ini tidak didukung dalam profil yang dibatasi"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Aplikasi ini dapat mengakses akun Anda"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Lokasi"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Memungkinkan aplikasi menggunakan informasi lokasi Anda"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"Buat pengguna yang dibatasi"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Masuk ke profil yang dibatasi"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Keluar dari profil yang dibatasi"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Hapus profil yang dibatasi"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Setelan"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Aplikasi yang diizinkan"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"1 aplikasi diizinkan"</item>
-    <item quantity="other" msgid="5242661864373721262">"%d aplikasi diizinkan"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="other">%d aplikasi diizinkan</item>
+      <item quantity="one">1 aplikasi diizinkan</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"Diizinkan"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"Tidak diizinkan"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"Sesuaikan pembatasan"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Tunggu sebentar..."</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Ubah pin"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"Setel kode PIN baru yang digunakan untuk keluar dari profil yang dibatasi"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"Konfirmasi kode PIN yang digunakan untuk keluar dari profil yang dibatasi"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"Masukkan kode PIN untuk keluar dari profil yang dibatasi"</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"Hapus pengguna yang dibatasi?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Masukkan PIN untuk menonton saluran ini"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Masukkan PIN untuk menonton program ini"</string>
@@ -557,9 +528,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Setel PIN baru"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Masukkan lagi PIN baru"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Masukkan PIN lama"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"Anda sudah 5 kali salah memasukkan PIN.\nCoba lagi <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
-    <string name="pin_button_done" msgid="939191809977197451">"Selesai"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"Batal"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Anda salah memasukkan PIN sebanyak 5 kali.\nCoba lagi dalam <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> detik."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"PIN salah, coba lagi"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Pin tidak cocok, coba lagi"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Masukkan sandi untuk <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Berhasil tersambung."</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Berhasil disimpan."</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"versi <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"Buka"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Paksa berhenti"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Jika Anda menghentikan aplikasi secara paksa, mungkin fungsinya akan terganggu."</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Copot pemasangan"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Ingin mencopot pemasangan aplikasi ini?"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Copot pemasangan pembaruan"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Semua pembaruan untuk aplikasi sistem Android ini akan dicopot pemasangannya."</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Nonaktifkan"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Ingin menonaktifkan aplikasi ini?"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Aktifkan"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Ingin mengaktifkan aplikasi ini?"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Penyimpanan yang terpakai"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> digunakan di <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Hapus data"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Semua data aplikasi ini akan dihapus secara permanen. \nData yang dihapus mencakup semua file, setelan, akun, basis data, dll."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Hapus default"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Luncurkan apl untuk beberapa tindakan"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Tidak ada default yang disetel"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Hapus cache"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Notifikasi"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Izin"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"Oke"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"Batal"</string>
+    <string name="settings_on" msgid="6892236264945435013">"Aktif"</string>
+    <string name="settings_off" msgid="449272161738237637">"Nonaktif"</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"Tidak ada"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"Lamunan"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"Mulai sekarang"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Waktu melamun"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Lamunan dimulai setelah periode tidak aktif ini. Jika tidak ada lamunan yang dipilih, layar akan dimatikan."</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Setelah tidak aktif selama <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g>"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Waktu tidur"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Layar akan mati setelah tidak aktif dalam jangka waktu ini."</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Saat ini tidak ada akun yang menyimpan data cadangan"</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Berhenti mencadangkan sandi Wi-Fi, bookmark, setelan lainnya, dan data aplikasi, serta hapus semua salinan di server Google?"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Cadangkan data saya"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Cadangkan akun"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"Pemulihan otomatis"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"Setel ulang perangkat"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Tindakan ini akan menghapus semua data dari penyimpanan internal perangkat, termasuk akun Google, setelan serta data aplikasi dan sistem, dan aplikasi yang diunduh"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Hapus semua informasi pribadi dan aplikasi yang diunduh? Anda tidak dapat mengurungkan tindakan ini!"</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Hapus semua"</string>
+    <string name="select_title" msgid="3905067953686121845">"Pilih nama untuk ^1 Anda"</string>
+    <string name="select_description" msgid="4070142015460337658">"Nama akan membantu mengidentifikasi ^1 Anda saat diakses dari perangkat lain seperti ponsel, tablet, atau komputer."</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"Ruang Tamu"</item>
+    <item msgid="3722089849939477581">"Ruang Hiburan"</item>
+    <item msgid="6108590585438763574">"Ruang Keluarga"</item>
+    <item msgid="2581035245390468625">"Ruang Makan"</item>
+    <item msgid="3127487827308695324">"Kamar Pribadi"</item>
+    <item msgid="6172018430592195063">"Kamar Tidur"</item>
+    <item msgid="8120010459866284578">"Dapur"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"Masukkan Nama Khusus…"</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"Nama ^1 ini adalah"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" adalah nama ^2 ini. Ingin mengubahnya?"</string>
+    <string name="change_setting" msgid="2047402388786162246">"Ubah"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"Jangan ubah"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"Izin"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Izin aplikasi"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> dari <xliff:g id="COUNT_1">%d</xliff:g> aplikasi diizinkan"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Tingkat patch keamanan Android"</string>
 </resources>

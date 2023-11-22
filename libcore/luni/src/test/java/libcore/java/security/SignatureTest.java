@@ -31,6 +31,11 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.spec.DSAPrivateKeySpec;
 import java.security.spec.DSAPublicKeySpec;
+import java.security.spec.ECFieldFp;
+import java.security.spec.ECParameterSpec;
+import java.security.spec.ECPoint;
+import java.security.spec.ECPublicKeySpec;
+import java.security.spec.EllipticCurve;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPrivateKeySpec;
@@ -68,6 +73,49 @@ public class SignatureTest extends TestCase {
             Signature s = Signature.getInstance("FOO", mockProvider);
             s.initSign(new MockPrivateKey());
             assertEquals(mockProvider, s.getProvider());
+        }
+    }
+
+    public void testSignature_getInstance_DoesNotSupportKeyClass_Success() throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
+                put("Signature.FOO SupportedKeyClasses", "None");
+            }
+        };
+
+        Security.addProvider(mockProvider);
+        try {
+            Signature s = Signature.getInstance("FOO", mockProvider);
+            s.initSign(new MockPrivateKey());
+            assertEquals(mockProvider, s.getProvider());
+        } finally {
+            Security.removeProvider(mockProvider.getName());
+        }
+    }
+
+    /**
+     * Several exceptions can be thrown by init. Check that in this case we throw the right one,
+     * as the error could fall under the umbrella of other exceptions.
+     * http://b/18987633
+     */
+    public void testSignature_init_DoesNotSupportKeyClass_throwsInvalidKeyException()
+            throws Exception {
+        Provider mockProvider = new MockProvider("MockProvider") {
+            public void setup() {
+                put("Signature.FOO", MockSignatureSpi.AllKeyTypes.class.getName());
+                put("Signature.FOO SupportedKeyClasses", "None");
+            }
+        };
+
+        Security.addProvider(mockProvider);
+        try {
+            Signature s = Signature.getInstance("FOO");
+            s.initSign(new MockPrivateKey());
+            fail("Expected InvalidKeyException");
+        } catch (InvalidKeyException expected) {
+        } finally {
+            Security.removeProvider(mockProvider.getName());
         }
     }
 
@@ -238,6 +286,12 @@ public class SignatureTest extends TestCase {
     public void test_getInstance() throws Exception {
         Provider[] providers = Security.getProviders();
         for (Provider provider : providers) {
+            // Do not test AndroidKeyStore's Signature. It needs an AndroidKeyStore-specific key.
+            // It's OKish not to test AndroidKeyStore's Signature here because it's tested
+            // by cts/tests/test/keystore.
+            if (provider.getName().startsWith("AndroidKeyStore")) {
+                continue;
+            }
             Set<Provider.Service> services = provider.getServices();
             for (Provider.Service service : services) {
                 String type = service.getType();
@@ -370,9 +424,14 @@ public class SignatureTest extends TestCase {
         return data;
     }
 
-    // http://code.google.com/p/android/issues/detail?id=18566
-    // http://b/5038554
-    public void test18566() throws Exception {
+    /**
+     * This should actually fail because the ASN.1 encoding is incorrect. It is
+     * missing the NULL in the AlgorithmIdentifier field.
+     * <p>
+     * http://code.google.com/p/android/issues/detail?id=18566 <br/>
+     * http://b/5038554
+     */
+    public void test18566_AlgorithmOid_MissingNull_Failure() throws Exception {
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(PK_BYTES);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PublicKey pk = keyFactory.generatePublic(keySpec);
@@ -380,7 +439,7 @@ public class SignatureTest extends TestCase {
         Signature sig = Signature.getInstance("SHA256withRSA");
         sig.initVerify(pk);
         sig.update(CONTENT);
-        assertTrue(sig.verify(SIGNATURE));
+        assertFalse(sig.verify(SIGNATURE));
     }
 
     /*
@@ -1645,5 +1704,44 @@ public class SignatureTest extends TestCase {
         }
         es.shutdown();
         assertTrue("Test should not timeout", es.awaitTermination(1, TimeUnit.MINUTES));
+    }
+
+    public void testArbitraryCurve() throws Exception {
+        // These are the parameters for the BitCoin curve (secp256k1). See
+        // https://en.bitcoin.it/wiki/Secp256k1.
+        final BigInteger p = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16);
+        final BigInteger a = BigInteger.valueOf(0);
+        final BigInteger b = BigInteger.valueOf(7);
+        final BigInteger x = new BigInteger("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", 16);
+        final BigInteger y = new BigInteger("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16);
+        final BigInteger order = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16);
+        final int cofactor = 1;
+
+        final ECParameterSpec spec = new ECParameterSpec(new EllipticCurve(new ECFieldFp(p), a, b), new ECPoint(x, y), order, cofactor);
+        final KeyFactory factory = KeyFactory.getInstance("EC");
+
+        // $ openssl ecparam -name secp256k1 -genkey > key.pem
+        // $ openssl ec -text -noout < key.pem
+        final BigInteger Px = new BigInteger("2d45572747a625db5fd23b30f97044a682f2d42d31959295043c1fa0034c8ed3", 16);
+        final BigInteger Py = new BigInteger("4d330f52e4bba00145a331041c8bbcf300c4fbfdf3d63d8de7608155b2793808", 16);
+
+        final ECPublicKeySpec keySpec = new ECPublicKeySpec(new ECPoint(Px, Py), spec);
+        final PublicKey pub = factory.generatePublic(keySpec);
+
+        // $ echo -n "Satoshi Nakamoto" > signed
+        // $ openssl dgst -ecdsa-with-SHA1 -sign key.pem -out sig signed
+        final byte[] SIGNATURE = hexToBytes("304402205b41ece6dcc1c5bfcfdae74658d99c08c5e783f3926c11ecc1a8bea5d95cdf27022061a7d5fc687287e2e02dd7c6723e2e27fe0555f789590a37e96b1bb0355b4df0");
+
+        Signature ecdsaVerify = Signature.getInstance("SHA1withECDSA");
+        ecdsaVerify.initVerify(pub);
+        ecdsaVerify.update("Satoshi Nakamoto".getBytes("UTF-8"));
+        boolean result = ecdsaVerify.verify(SIGNATURE);
+        assertEquals(true, result);
+
+        ecdsaVerify = Signature.getInstance("SHA1withECDSA");
+        ecdsaVerify.initVerify(pub);
+        ecdsaVerify.update("Not Satoshi Nakamoto".getBytes("UTF-8"));
+        result = ecdsaVerify.verify(SIGNATURE);
+        assertEquals(false, result);
     }
 }

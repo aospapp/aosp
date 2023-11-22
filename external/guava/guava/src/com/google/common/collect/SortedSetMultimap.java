@@ -31,13 +31,18 @@ import javax.annotation.Nullable;
  * that is, they comprise a {@link SortedSet}. It cannot hold duplicate
  * key-value pairs; adding a key-value pair that's already in the multimap has
  * no effect. This interface does not specify the ordering of the multimap's
- * keys.
+ * keys. See the {@link Multimap} documentation for information common to all
+ * multimaps.
  *
  * <p>The {@link #get}, {@link #removeAll}, and {@link #replaceValues} methods
  * each return a {@link SortedSet} of values, while {@link Multimap#entries()}
  * returns a {@link Set} of map entries. Though the method signature doesn't say
  * so explicitly, the map returned by {@link #asMap} has {@code SortedSet}
  * values.
+ * 
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Multimap">
+ * {@code Multimap}</a>.
  *
  * @author Jared Levy
  * @since 2.0 (imported from Google Collections Library)
@@ -95,11 +100,12 @@ public interface SortedSetMultimap<K, V> extends SetMultimap<K, V> {
    * live collection. When passed a key that is not present, however, {@code
    * asMap().get(Object)} returns {@code null} instead of an empty collection.
    *
-   * <p>Though the method signature doesn't say so explicitly, the returned map
-   * has {@link SortedSet} values.
+   * <p><b>Note:</b> The returned map's values are guaranteed to be of type
+   * {@link SortedSet}. To obtain this map with the more specific generic type
+   * {@code Map<K, SortedSet<V>>}, call
+   * {@link Multimaps#asMap(SortedSetMultimap)} instead.
    */
-  @Override
-  Map<K, Collection<V>> asMap();
+  @Override Map<K, Collection<V>> asMap();
 
   /**
    * Returns the comparator that orders the multimap values, with {@code null}

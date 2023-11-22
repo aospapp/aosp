@@ -66,12 +66,11 @@ static void _DrawAxialShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2B
                 }
             }
         }
-        FX_FLOAT R, G, B;
+        FX_FLOAT R = 0.0f, G = 0.0f, B = 0.0f;
         pCS->GetRGB(pResults, R, G, B);
         rgb_array[i] = FXARGB_TODIB(FXARGB_MAKE(alpha, FXSYS_round(R * 255), FXSYS_round(G * 255), FXSYS_round(B * 255)));
     }
     int pitch = pBitmap->GetPitch();
-    int Bpp = pBitmap->GetBPP() / 8;
     for (int row = 0; row < height; row ++) {
         FX_DWORD* dib_buf = (FX_DWORD*)(pBitmap->GetBuffer() + row * pitch);
         for (int column = 0; column < width; column ++) {
@@ -147,7 +146,7 @@ static void _DrawRadialShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2
                 }
             }
         }
-        FX_FLOAT R, G, B;
+        FX_FLOAT R = 0.0f, G = 0.0f, B = 0.0f;
         pCS->GetRGB(pResults, R, G, B);
         rgb_array[i] = FXARGB_TODIB(FXARGB_MAKE(alpha, FXSYS_round(R * 255), FXSYS_round(G * 255), FXSYS_round(B * 255)));
     }
@@ -156,7 +155,6 @@ static void _DrawRadialShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2
     int width = pBitmap->GetWidth();
     int height = pBitmap->GetHeight();
     int pitch = pBitmap->GetPitch();
-    int Bpp = pBitmap->GetBPP() / 8;
     FX_BOOL bDecreasing = FALSE;
     if (start_r > end_r) {
         int length = (int)FXSYS_sqrt((FXSYS_Mul(start_x - end_x, start_x - end_x) + FXSYS_Mul(start_y - end_y, start_y - end_y)));
@@ -245,7 +243,6 @@ static void _DrawFuncShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2Bi
     int width = pBitmap->GetWidth();
     int height = pBitmap->GetHeight();
     int pitch = pBitmap->GetPitch();
-    int Bpp = pBitmap->GetBPP() / 8;
     int total_results = 0;
     for (int j = 0; j < nFuncs; j ++) {
         if (pFuncs[j]) {
@@ -278,7 +275,7 @@ static void _DrawFuncShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2Bi
                     }
                 }
             }
-            FX_FLOAT R, G, B;
+            FX_FLOAT R = 0.0f, G = 0.0f, B = 0.0f;
             pCS->GetRGB(pResults, R, G, B);
             dib_buf[column] = FXARGB_TODIB(FXARGB_MAKE(alpha, (FX_INT32)(R * 255), (FX_INT32)(G * 255), (FX_INT32)(B * 255)));
         }
@@ -389,6 +386,8 @@ static void _DrawFreeGouraudShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pOb
         return;
     }
     CPDF_MeshVertex triangle[3];
+    FXSYS_memset32(triangle, 0, sizeof(triangle));
+
     while (!stream.m_BitStream.IsEOF()) {
         CPDF_MeshVertex vertex;
         FX_DWORD flag = stream.GetVertex(vertex, pObject2Bitmap);
@@ -423,7 +422,7 @@ static void _DrawLatticeGouraudShading(CFX_DIBitmap* pBitmap, CFX_AffineMatrix* 
     if (!stream.Load(pShadingStream, pFuncs, nFuncs, pCS)) {
         return;
     }
-    CPDF_MeshVertex* vertex = FX_Alloc(CPDF_MeshVertex, row_verts * 2);
+    CPDF_MeshVertex* vertex = FX_Alloc2D(CPDF_MeshVertex, row_verts, 2);
     if (!stream.GetVertexRow(vertex, row_verts, pObject2Bitmap)) {
         FX_Free(vertex);
         return;
@@ -663,6 +662,32 @@ struct CPDF_PatchDrawer {
         }
     }
 };
+
+FX_BOOL _CheckCoonTensorPara(const CPDF_MeshStream &stream)
+{
+    FX_BOOL bCoorBits = ( stream.m_nCoordBits== 1   ||
+                          stream.m_nCoordBits == 2  ||
+                          stream.m_nCoordBits == 4  ||
+                          stream.m_nCoordBits == 8  ||
+                          stream.m_nCoordBits == 12 ||
+                          stream.m_nCoordBits == 16 ||
+                          stream.m_nCoordBits == 24 ||
+                          stream.m_nCoordBits == 32   );
+
+    FX_BOOL bCompBits = ( stream.m_nCompBits == 1  || 
+                          stream.m_nCompBits == 2  ||
+                          stream.m_nCompBits == 4  ||
+                          stream.m_nCompBits == 8  ||
+                          stream.m_nCompBits == 12 ||
+                          stream.m_nCompBits == 16   );
+
+    FX_BOOL bFlagBits = ( stream.m_nFlagBits == 2  ||
+                          stream.m_nFlagBits == 4  ||
+                          stream.m_nFlagBits == 8    );
+
+    return bCoorBits && bCompBits && bFlagBits; 
+}
+
 static void _DrawCoonPatchMeshes(FX_BOOL bTensor, CFX_DIBitmap* pBitmap, CFX_AffineMatrix* pObject2Bitmap,
                                  CPDF_Stream* pShadingStream, CPDF_Function** pFuncs, int nFuncs,
                                  CPDF_ColorSpace* pCS, int fill_mode, int alpha)
@@ -677,6 +702,11 @@ static void _DrawCoonPatchMeshes(FX_BOOL bTensor, CFX_DIBitmap* pBitmap, CFX_Aff
     if (!stream.Load(pShadingStream, pFuncs, nFuncs, pCS)) {
         return;
     }
+
+    if (!_CheckCoonTensorPara(stream)) {
+        return;
+    }
+ 
     CPDF_PatchDrawer patch;
     patch.alpha = alpha;
     patch.pDevice = &device;
@@ -688,15 +718,19 @@ static void _DrawCoonPatchMeshes(FX_BOOL bTensor, CFX_DIBitmap* pBitmap, CFX_Aff
         pPoints[i].m_Flag = FXPT_BEZIERTO;
     }
     CFX_FloatPoint coords[16];
+    for (int i = 0; i < 16; i ++) {
+        coords[i].Set(0.0f, 0.0f);
+    }
+
     int point_count = bTensor ? 16 : 12;
     while (!stream.m_BitStream.IsEOF()) {
         FX_DWORD flag = stream.GetFlag();
-        int iStartPoint = 0, iStartColor = 0, i;
+        int iStartPoint = 0, iStartColor = 0, i = 0;
         if (flag) {
             iStartPoint = 4;
             iStartColor = 2;
             CFX_FloatPoint tempCoords[4];
-            for (int i = 0; i < 4; i ++) {
+            for (i = 0; i < 4; i ++) {
                 tempCoords[i] = coords[(flag * 3 + i) % 12];
             }
             FXSYS_memcpy32(coords, tempCoords, sizeof(CFX_FloatPoint) * 4);
@@ -710,7 +744,7 @@ static void _DrawCoonPatchMeshes(FX_BOOL bTensor, CFX_DIBitmap* pBitmap, CFX_Aff
             pObject2Bitmap->Transform(coords[i].x, coords[i].y);
         }
         for (i = iStartColor; i < 4; i ++) {
-            FX_FLOAT r, g, b;
+            FX_FLOAT r=0.0f, g=0.0f, b=0.0f;
             stream.GetColor(r, g, b);
             patch.patch_colors[i].comp[0] = (FX_INT32)(r * 255);
             patch.patch_colors[i].comp[1] = (FX_INT32)(g * 255);
@@ -736,8 +770,6 @@ static void _DrawCoonPatchMeshes(FX_BOOL bTensor, CFX_DIBitmap* pBitmap, CFX_Aff
 void CPDF_RenderStatus::DrawShading(CPDF_ShadingPattern* pPattern, CFX_AffineMatrix* pMatrix,
                                     FX_RECT& clip_rect, int alpha, FX_BOOL bAlphaMode)
 {
-    int width = clip_rect.Width();
-    int height = clip_rect.Height();
     CPDF_Function** pFuncs = pPattern->m_pFunctions;
     int nFuncs = pPattern->m_nFuncs;
     CPDF_Dictionary* pDict = pPattern->m_pShadingObj->GetDict();
@@ -753,7 +785,7 @@ void CPDF_RenderStatus::DrawShading(CPDF_ShadingPattern* pPattern, CFX_AffineMat
             for (int i = 0; i < pColorSpace->CountComponents(); i ++) {
                 comps[i] = pBackColor->GetNumber(i);
             }
-            FX_FLOAT R, G, B;
+            FX_FLOAT R = 0.0f, G = 0.0f, B = 0.0f;
             pColorSpace->GetRGB(comps, R, G, B);
             background = ArgbEncode(255, (FX_INT32)(R * 255), (FX_INT32)(G * 255), (FX_INT32)(B * 255));
         }
@@ -849,18 +881,13 @@ FX_BOOL CPDF_RenderStatus::ProcessShading(CPDF_ShadingObject* pShadingObj, const
     matrix.Concat(*pObj2Device);
     DrawShading(pShadingObj->m_pShading, &matrix, rect, pShadingObj->m_GeneralState.GetAlpha(FALSE),
                 m_Options.m_ColorMode == RENDER_COLOR_ALPHA);
-#ifdef _FPDFAPI_MINI_
-    if (m_DitherBits) {
-        DitherObjectArea(pShadingObj, pObj2Device);
-    }
-#endif
     return TRUE;
 }
 static CFX_DIBitmap* DrawPatternBitmap(CPDF_Document* pDoc, CPDF_PageRenderCache* pCache,
                                        CPDF_TilingPattern* pPattern, const CFX_AffineMatrix* pObject2Device,
                                        int width, int height, int flags)
 {
-    CFX_DIBitmap* pBitmap = FX_NEW CFX_DIBitmap;
+    CFX_DIBitmap* pBitmap = new CFX_DIBitmap;
     if (!pBitmap->Create(width, height, pPattern->m_bColored ? FXDIB_Argb : FXDIB_8bppMask)) {
         delete pBitmap;
         return NULL;
@@ -961,7 +988,7 @@ void CPDF_RenderStatus::DrawTilingPattern(CPDF_TilingPattern* pPattern, CPDF_Pag
                 matrix.Translate(orig_x - mtPattern2Device.e, orig_y - mtPattern2Device.f);
                 m_pDevice->SaveState();
                 CPDF_RenderStatus status;
-                status.Initialize(m_Level + 1, m_pContext, m_pDevice, NULL, NULL, this, pStates, &m_Options,
+                status.Initialize(m_pContext, m_pDevice, NULL, NULL, this, pStates, &m_Options,
                                   pPattern->m_pForm->m_Transparency, m_bDropObjects, pFormResource);
                 status.RenderObjectList(pPattern->m_pForm, &matrix);
                 m_pDevice->RestoreState();
@@ -1068,13 +1095,11 @@ void CPDF_RenderStatus::DrawPathWithPattern(CPDF_PathObject* pPathObj, const CFX
 }
 void CPDF_RenderStatus::ProcessPathPattern(CPDF_PathObject* pPathObj, const CFX_AffineMatrix* pObj2Device, int& filltype, FX_BOOL& bStroke)
 {
-    FX_BOOL bPattern = FALSE;
     if(filltype) {
         CPDF_Color& FillColor = *pPathObj->m_ColorState.GetFillColor();
         if(FillColor.m_pCS && FillColor.m_pCS->GetFamily() == PDFCS_PATTERN) {
             DrawPathWithPattern(pPathObj, pObj2Device, &FillColor, FALSE);
             filltype = 0;
-            bPattern = TRUE;
         }
     }
     if(bStroke) {
@@ -1082,12 +1107,6 @@ void CPDF_RenderStatus::ProcessPathPattern(CPDF_PathObject* pPathObj, const CFX_
         if(StrokeColor.m_pCS && StrokeColor.m_pCS->GetFamily() == PDFCS_PATTERN) {
             DrawPathWithPattern(pPathObj, pObj2Device, &StrokeColor, TRUE);
             bStroke = FALSE;
-            bPattern = TRUE;
         }
     }
-#ifdef _FPDFAPI_MINI_
-    if (bPattern && m_DitherBits) {
-        DitherObjectArea(pPathObj, pObj2Device);
-    }
-#endif
 }

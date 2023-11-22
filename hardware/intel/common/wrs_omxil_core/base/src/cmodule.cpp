@@ -221,7 +221,6 @@ OMX_ERRORTYPE CModule::QueryComponentNameAndRoles(void)
     OMX_U8 **this_roles;
 
     OMX_U32 i;
-    OMX_ERRORTYPE ret;
 
     if (this->roles)
         return OMX_ErrorNone;

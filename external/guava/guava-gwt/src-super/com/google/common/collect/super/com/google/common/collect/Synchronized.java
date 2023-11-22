@@ -28,6 +28,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.SortedMap;
@@ -194,7 +196,7 @@ final class Synchronized {
 
   static class SynchronizedSet<E>
       extends SynchronizedCollection<E> implements Set<E> {
-    
+
     SynchronizedSet(Set<E> delegate, @Nullable Object mutex) {
       super(delegate, mutex);
     }
@@ -834,7 +836,7 @@ final class Synchronized {
         }
 
         @Override public Map.Entry<K, Collection<V>> next() {
-          final Map.Entry<K, Collection<V>> entry = iterator.next();
+          final Map.Entry<K, Collection<V>> entry = super.next();
           return new ForwardingMapEntry<K, Collection<V>>() {
             @Override protected Map.Entry<K, Collection<V>> delegate() {
               return entry;
@@ -1026,12 +1028,12 @@ final class Synchronized {
 
     private static final long serialVersionUID = 0;
   }
-  
+
   static <K, V> SortedMap<K, V> sortedMap(
       SortedMap<K, V> sortedMap, @Nullable Object mutex) {
     return new SynchronizedSortedMap<K, V>(sortedMap, mutex);
   }
-  
+
   static class SynchronizedSortedMap<K, V> extends SynchronizedMap<K, V>
       implements SortedMap<K, V> {
 
@@ -1195,9 +1197,64 @@ final class Synchronized {
           return iterator;
         }
         @Override public Collection<V> next() {
-          return typePreservingCollection(iterator.next(), mutex);
+          return typePreservingCollection(super.next(), mutex);
         }
       };
+    }
+
+    private static final long serialVersionUID = 0;
+  }
+
+  static <E> Queue<E> queue(Queue<E> queue, @Nullable Object mutex) {
+    return (queue instanceof SynchronizedQueue)
+        ? queue
+        : new SynchronizedQueue<E>(queue, mutex);
+  }
+
+  private static class SynchronizedQueue<E> extends SynchronizedCollection<E>
+      implements Queue<E> {
+
+    SynchronizedQueue(Queue<E> delegate, @Nullable Object mutex) {
+      super(delegate, mutex);
+    }
+
+    @Override Queue<E> delegate() {
+      return (Queue<E>) super.delegate();
+    }
+
+    @Override
+    public E element() {
+      synchronized (mutex) {
+        return delegate().element();
+      }
+    }
+
+    @Override
+    public boolean offer(E e) {
+      synchronized (mutex) {
+        return delegate().offer(e);
+      }
+    }
+
+    @Override
+    public E peek() {
+      synchronized (mutex) {
+        return delegate().peek();
+      }
+    }
+
+    @Override
+    public E poll() {
+      synchronized (mutex) {
+        return delegate().poll();
+      }
+    }
+
+    @Override
+    public E remove() {
+      synchronized (mutex) {
+        return delegate().remove();
+      }
     }
 
     private static final long serialVersionUID = 0;

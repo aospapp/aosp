@@ -68,7 +68,7 @@
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"Tetapan untuk Brazil"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"Tunjukkan siaran saluran 50"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"Saluran 50 digunakan di Brazil untuk memberi maklumat kemas kini kawasan"</string>
-    <string name="category_dev_settings_title" msgid="6194393458398329994">"Pilihan pemaju"</string>
+    <string name="category_dev_settings_title" msgid="6194393458398329994">"Pilihan pembangun"</string>
     <string name="cmas_category_heading" msgid="3923503130776640717">"Kategori Awasan:"</string>
     <string name="cmas_category_geo" msgid="4979494217069688527">"Geofizikal"</string>
     <string name="cmas_category_met" msgid="7563732573851773537">"Meteorologi"</string>

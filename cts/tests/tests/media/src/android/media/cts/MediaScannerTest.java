@@ -390,8 +390,6 @@ public class MediaScannerTest extends AndroidTestCase {
                     new String[] {"电视原声带", "格斗天王(限量精装版)(预购版)", null, "11.Open Arms.( cn808.net )", null} ),
             new MediaScanEntry(R.raw.gb18030_4,
                     new String[] {"莫扎特", "黄金古典", "柏林爱乐乐团", "第25号交响曲", "莫扎特"} ),
-            new MediaScanEntry(R.raw.gb18030_5,
-                    new String[] {"光良", "童话", "光良", "02.童话", "鍏夎壇"} ),
             new MediaScanEntry(R.raw.gb18030_6,
                     new String[] {"张韶涵", "潘朵拉", "張韶涵", "隐形的翅膀", "王雅君"} ),
             new MediaScanEntry(R.raw.gb18030_7, // this is actually utf-8

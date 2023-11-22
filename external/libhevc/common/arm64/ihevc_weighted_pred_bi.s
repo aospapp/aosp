@@ -219,28 +219,28 @@ core_loop:
     ld1         {v0.4h},[x0],#8             //load and increment the pi2_src1
     add         x10,x2,x5                   //pu1_dst_tmp = pu1_dst + dst_strd
     ld1         {v1.4h},[x1],#8             //load and increment the pi2_src2
-    smull       v4.4s, v0.4h, v7.4h[0]      //vmull_n_s16(pi2_src1_val1, (int16_t) wgt0)
+    smull       v4.4s, v0.4h, v7.h[0]       //vmull_n_s16(pi2_src1_val1, (int16_t) wgt0)
     ld1         {v2.4h},[x6],x3             //load and increment the pi2_src_tmp1 ii iteration
-    smull       v5.4s, v1.4h, v7.4h[1]      //vmull_n_s16(pi2_src2_val1, (int16_t) wgt1)
+    smull       v5.4s, v1.4h, v7.h[1]       //vmull_n_s16(pi2_src2_val1, (int16_t) wgt1)
     ld1         {v3.4h},[x8],x4             //load and increment the pi2_src_tmp1 ii iteration
     add         v4.4s,  v4.4s ,  v5.4s      //vaddq_s32(i4_tmp1_t1, i4_tmp1_t2)
 
     ld1         {v0.4h},[x6],x3             //load and increment the pi2_src1 iii iteration
-    smull       v6.4s, v2.4h, v7.4h[0]      //vmull_n_s16(pi2_src1_val2, (int16_t) wgt0) ii iteration
+    smull       v6.4s, v2.4h, v7.h[0]       //vmull_n_s16(pi2_src1_val2, (int16_t) wgt0) ii iteration
 
     ld1         {v1.4h},[x8],x4             //load and increment the pi2_src2 iii iteration
     add         v4.4s,  v4.4s ,  v30.4s     //vaddq_s32(i4_tmp1_t1, tmp_lvl_shift_t)
-    smull       v19.4s, v0.4h, v7.4h[0]     //vmull_n_s16(pi2_src1_val1, (int16_t) wgt0) iii iteration
+    smull       v19.4s, v0.4h, v7.h[0]      //vmull_n_s16(pi2_src1_val1, (int16_t) wgt0) iii iteration
 
     ld1         {v2.4h},[x6],x3             //load and increment the pi2_src_tmp1 iv iteration
-    smull       v17.4s, v3.4h, v7.4h[1]     //vmull_n_s16(pi2_src2_val2, (int16_t) wgt1) ii iteration
+    smull       v17.4s, v3.4h, v7.h[1]      //vmull_n_s16(pi2_src2_val2, (int16_t) wgt1) ii iteration
     sshl        v4.4s,v4.4s,v28.4s          //vshlq_s32(i4_tmp1_t1, tmp_shift_t)
 
     ld1         {v3.4h},[x8],x4             //load and increment the pi2_src_tmp1 iv iteration
     add         v6.4s,  v6.4s ,  v17.4s     //vaddq_s32(i4_tmp2_t1, i4_tmp2_t2) ii iteration
 
     sqxtun      v4.4h, v4.4s                //vqmovun_s32(sto_res_tmp1)
-    smull       v16.4s, v1.4h, v7.4h[1]     //vmull_n_s16(pi2_src2_val1, (int16_t) wgt1) iii iteration
+    smull       v16.4s, v1.4h, v7.h[1]      //vmull_n_s16(pi2_src2_val1, (int16_t) wgt1) iii iteration
 
     add         v6.4s,  v6.4s ,  v30.4s     //vaddq_s32(i4_tmp2_t1, tmp_lvl_shift_t) ii iteration
     //mov v5, v4                        //vcombine_u16(sto_res_tmp2, sto_res_tmp2)
@@ -248,13 +248,13 @@ core_loop:
 
     sshl        v6.4s,v6.4s,v28.4s
     //vshl.s32    q5,q5,q14                    //vshlq_s32(i4_tmp2_t1, tmp_shift_t) ii iteration
-    smull       v18.4s, v2.4h, v7.4h[0]     //vmull_n_s16(pi2_src1_val2, (int16_t) wgt0) iv iteration
+    smull       v18.4s, v2.4h, v7.h[0]      //vmull_n_s16(pi2_src1_val2, (int16_t) wgt0) iv iteration
     uqxtn       v4.8b,v4.8h
     //vqmovn.u16    d4,q2                        //vqmovn_u16(sto_res_tmp3)
     add         v19.4s,  v19.4s ,  v30.4s   //vaddq_s32(i4_tmp1_t1, tmp_lvl_shift_t) iii iteration
 
     sqxtun      v6.4h, v6.4s                //vqmovun_s32(sto_res_tmp1) ii iteration
-    smull       v20.4s, v3.4h, v7.4h[1]     //vmull_n_s16(pi2_src2_val2, (int16_t) wgt1) iv iteration
+    smull       v20.4s, v3.4h, v7.h[1]      //vmull_n_s16(pi2_src2_val2, (int16_t) wgt1) iv iteration
 
     sshl        v19.4s,v19.4s,v28.4s
     //vshl.s32    q7,q7,q14                    //vshlq_s32(i4_tmp1_t1, tmp_shift_t) iii iteration

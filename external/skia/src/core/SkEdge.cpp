@@ -36,11 +36,18 @@ int SkEdge::setLine(const SkPoint& p0, const SkPoint& p1, const SkIRect* clip,
     SkFDot6 x0, y0, x1, y1;
 
     {
+#ifdef SK_RASTERIZE_EVEN_ROUNDING
+        x0 = SkScalarRoundToFDot6(p0.fX, shift);
+        y0 = SkScalarRoundToFDot6(p0.fY, shift);
+        x1 = SkScalarRoundToFDot6(p1.fX, shift);
+        y1 = SkScalarRoundToFDot6(p1.fY, shift);
+#else
         float scale = float(1 << (shift + 6));
         x0 = int(p0.fX * scale);
         y0 = int(p0.fY * scale);
         x1 = int(p1.fX * scale);
         y1 = int(p1.fY * scale);
+#endif
     }
 
     int winding = 1;
@@ -59,12 +66,12 @@ int SkEdge::setLine(const SkPoint& p0, const SkPoint& p1, const SkIRect* clip,
         return 0;
     }
     // are we completely above or below the clip?
-    if (NULL != clip && (top >= clip->fBottom || bot <= clip->fTop)) {
+    if (clip && (top >= clip->fBottom || bot <= clip->fTop)) {
         return 0;
     }
 
     SkFixed slope = SkFDot6Div(x1 - x0, y1 - y0);
-    const int dy  = SkEdge_Compute_DY(top, y0);
+    const SkFDot6 dy  = SkEdge_Compute_DY(top, y0);
 
     fX          = SkFDot6ToFixed(x0 + SkFixedMul(slope, dy));   // + SK_Fixed1/2
     fDX         = slope;
@@ -105,7 +112,7 @@ int SkEdge::updateLine(SkFixed x0, SkFixed y0, SkFixed x1, SkFixed y1)
     x1 >>= 10;
 
     SkFixed slope = SkFDot6Div(x1 - x0, y1 - y0);
-    const int dy  = SkEdge_Compute_DY(top, y0);
+    const SkFDot6 dy  = SkEdge_Compute_DY(top, y0);
 
     fX          = SkFDot6ToFixed(x0 + SkFixedMul(slope, dy));   // + SK_Fixed1/2
     fDX         = slope;
@@ -171,6 +178,14 @@ int SkQuadraticEdge::setQuadratic(const SkPoint pts[3], int shift)
     SkFDot6 x0, y0, x1, y1, x2, y2;
 
     {
+#ifdef SK_RASTERIZE_EVEN_ROUNDING
+        x0 = SkScalarRoundToFDot6(pts[0].fX, shift);
+        y0 = SkScalarRoundToFDot6(pts[0].fY, shift);
+        x1 = SkScalarRoundToFDot6(pts[1].fX, shift);
+        y1 = SkScalarRoundToFDot6(pts[1].fY, shift);
+        x2 = SkScalarRoundToFDot6(pts[2].fX, shift);
+        y2 = SkScalarRoundToFDot6(pts[2].fY, shift);
+#else
         float scale = float(1 << (shift + 6));
         x0 = int(pts[0].fX * scale);
         y0 = int(pts[0].fY * scale);
@@ -178,6 +193,7 @@ int SkQuadraticEdge::setQuadratic(const SkPoint pts[3], int shift)
         y1 = int(pts[1].fY * scale);
         x2 = int(pts[2].fX * scale);
         y2 = int(pts[2].fY * scale);
+#endif
     }
 
     int winding = 1;
@@ -316,11 +332,20 @@ static SkFDot6 cubic_delta_from_line(SkFDot6 a, SkFDot6 b, SkFDot6 c, SkFDot6 d)
     return SkMax32(SkAbs32(oneThird), SkAbs32(twoThird));
 }
 
-int SkCubicEdge::setCubic(const SkPoint pts[4], const SkIRect* clip, int shift)
-{
+int SkCubicEdge::setCubic(const SkPoint pts[4], int shift) {
     SkFDot6 x0, y0, x1, y1, x2, y2, x3, y3;
 
     {
+#ifdef SK_RASTERIZE_EVEN_ROUNDING
+        x0 = SkScalarRoundToFDot6(pts[0].fX, shift);
+        y0 = SkScalarRoundToFDot6(pts[0].fY, shift);
+        x1 = SkScalarRoundToFDot6(pts[1].fX, shift);
+        y1 = SkScalarRoundToFDot6(pts[1].fY, shift);
+        x2 = SkScalarRoundToFDot6(pts[2].fX, shift);
+        y2 = SkScalarRoundToFDot6(pts[2].fY, shift);
+        x3 = SkScalarRoundToFDot6(pts[3].fX, shift);
+        y3 = SkScalarRoundToFDot6(pts[3].fY, shift);
+#else
         float scale = float(1 << (shift + 6));
         x0 = int(pts[0].fX * scale);
         y0 = int(pts[0].fY * scale);
@@ -330,6 +355,7 @@ int SkCubicEdge::setCubic(const SkPoint pts[4], const SkIRect* clip, int shift)
         y2 = int(pts[2].fY * scale);
         x3 = int(pts[3].fX * scale);
         y3 = int(pts[3].fY * scale);
+#endif
     }
 
     int winding = 1;
@@ -347,10 +373,6 @@ int SkCubicEdge::setCubic(const SkPoint pts[4], const SkIRect* clip, int shift)
 
     // are we a zero-height cubic (line)?
     if (top == bot)
-        return 0;
-
-    // are we completely above or below the clip?
-    if (clip && (top >= clip->fBottom || bot <= clip->fTop))
         return 0;
 
     // compute number of steps needed (1 << shift)
@@ -406,16 +428,6 @@ int SkCubicEdge::setCubic(const SkPoint pts[4], const SkIRect* clip, int shift)
     fCLastX = SkFDot6ToFixed(x3);
     fCLastY = SkFDot6ToFixed(y3);
 
-    if (clip)
-    {
-        do {
-            if (!this->updateCubic()) {
-                return 0;
-            }
-        } while (!this->intersectsClip(*clip));
-        this->chopLineWithClip(*clip);
-        return 1;
-    }
     return this->updateCubic();
 }
 

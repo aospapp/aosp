@@ -1,66 +1,73 @@
-#!/usr/bin/python
-
+#!/usr/bin/env python2
+#
+# Copyright (C) 2015 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the 'License');
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an 'AS IS' BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# pylint: disable=bad-indentation,bad-continuation
 import glob
 import os
 import re
-import string
-import subprocess
 import sys
+
+import symbols
+
+only_unwanted = False
+if len(sys.argv) > 1:
+  if sys.argv[1] in ('-u', '--unwanted'):
+    only_unwanted = True
 
 toolchain = os.environ['ANDROID_TOOLCHAIN']
 arch = re.sub(r'.*/linux-x86/([^/]+)/.*', r'\1', toolchain)
-
-def GetSymbolsFromSo(so_file):
-  # Example readelf output:
-  #   264: 0001623c     4 FUNC    GLOBAL DEFAULT    8 cabsf
-  #   266: 00016244     4 FUNC    GLOBAL DEFAULT    8 dremf
-  #   267: 00019018     4 OBJECT  GLOBAL DEFAULT   11 __fe_dfl_env
-  #   268: 00000000     0 FUNC    GLOBAL DEFAULT  UND __aeabi_dcmplt
-
-  r = re.compile(r' +\d+: [0-9a-f]+ +\d+ (I?FUNC|OBJECT) +\S+ +\S+ +\d+ (\S+)')
-
-  symbols = set()
-
-  for line in subprocess.check_output(['readelf', '--dyn-syms', '-W', so_file]).split('\n'):
-    if ' HIDDEN ' in line or ' UND ' in line:
-      continue
-    m = r.match(line)
-    if m:
-      symbol = m.group(2)
-      symbol = re.sub('@.*', '', symbol)
-      symbols.add(symbol)
-
-  return symbols
-
-def GetSymbolsFromAndroidSo(*files):
-  symbols = set()
-  for f in files:
-    symbols = symbols | GetSymbolsFromSo('%s/system/lib64/%s' % (os.environ['ANDROID_PRODUCT_OUT'], f))
-  return symbols
-
-def GetSymbolsFromSystemSo(*files):
-  symbols = set()
-  for f in files:
-    f = glob.glob('/lib/x86_64-linux-gnu/%s' % f)[-1]
-    symbols = symbols | GetSymbolsFromSo(f)
-  return symbols
+if arch == 'aarch64':
+  arch = 'arm64'
 
 def MangleGlibcNameToBionic(name):
   if name in glibc_to_bionic_names:
     return glibc_to_bionic_names[name]
   return name
 
+def GetNdkIgnored(arch):  # pylint: disable=redefined-outer-name
+  ignored_symbols = set()
+  files = glob.glob('%s/ndk/build/tools/unwanted-symbols/%s/*' %
+                    (os.getenv('ANDROID_BUILD_TOP'), arch))
+  for f in files:
+    ignored_symbols |= set(open(f, 'r').read().splitlines())
+  return ignored_symbols
+
 glibc_to_bionic_names = {
   '__res_init': 'res_init',
   '__res_mkquery': 'res_mkquery',
   '__res_query': 'res_query',
   '__res_search': 'res_search',
+  '__xpg_basename': '__gnu_basename',
 }
 
-glibc = GetSymbolsFromSystemSo('libc.so.*', 'librt.so.*', 'libpthread.so.*', 'libresolv.so.*', 'libm.so.*')
-bionic = GetSymbolsFromAndroidSo('libc.so', 'libm.so')
+glibc = symbols.GetFromSystemSo([
+    'libc.so.*',
+    'librt.so.*',
+    'libpthread.so.*',
+    'libresolv.so.*',
+    'libm.so.*',
+    'libutil.so.*',
+])
 
-glibc = map(MangleGlibcNameToBionic, glibc)
+bionic = symbols.GetFromAndroidSo(['libc.so', 'libm.so'])
+this_dir = os.path.dirname(os.path.realpath(__file__))
+posix = symbols.GetFromTxt(os.path.join(this_dir, 'posix-2013.txt'))
+ndk_ignored = GetNdkIgnored(arch)
+
+glibc = set(map(MangleGlibcNameToBionic, glibc))
 
 # bionic includes various BSD symbols to ease porting other BSD-licensed code.
 bsd_stuff = set([
@@ -100,6 +107,16 @@ macro_stuff = set([
   '__errno',
   '__fe_dfl_env',
   '__get_h_errno',
+  '__fpclassifyd',
+  '__isfinite',
+  '__isfinitef',
+  '__isfinitel',
+  '__isnormal',
+  '__isnormalf',
+  '__isnormall',
+  '__sF',
+  '__pthread_cleanup_pop',
+  '__pthread_cleanup_push',
 ])
 # bionic exposes various Linux features that glibc doesn't.
 linux_stuff = set([
@@ -133,21 +150,53 @@ weird_stuff = set([
   'mknodat',
   'stat',
   'stat64',
+  'optreset',
+  'sigsetjmp',
+])
+# These exist in glibc, but under slightly different names (generally one extra
+# or one fewer _). TODO: check against glibc names.
+libresolv_stuff = set([
+  '__res_send_setqhook',
+  '__res_send_setrhook',
+  '_resolv_flush_cache_for_net',
+  '_resolv_set_nameservers_for_net',
+  'dn_expand',
+  'nsdispatch',
+])
+# Implementation details we know we export (and can't get away from).
+known = set([
+  '_ctype_',
+  '__libc_init',
 ])
 
-print 'glibc:'
-for symbol in sorted(glibc):
-  print symbol
+if not only_unwanted:
+  #print 'glibc:'
+  #for symbol in sorted(glibc):
+  #  print symbol
+  #print
 
-print
-print 'bionic:'
-for symbol in sorted(bionic):
-  print symbol
+  #print 'bionic:'
+  #for symbol in sorted(bionic):
+  #  print symbol
+  #print
 
-print
-print 'in bionic but not glibc:'
-allowed_stuff = (bsd_stuff | FORTIFY_stuff | linux_stuff | macro_stuff | std_stuff | weird_stuff)
+  print 'in glibc (but not posix) but not bionic:'
+  for symbol in sorted((glibc - posix).difference(bionic)):
+    print symbol
+  print
+
+  print 'in posix (and implemented in glibc) but not bionic:'
+  for symbol in sorted((posix.intersection(glibc)).difference(bionic)):
+    print symbol
+  print
+
+  print 'in bionic but not glibc:'
+
+allowed_stuff = (bsd_stuff | FORTIFY_stuff | linux_stuff | macro_stuff |
+                 std_stuff | weird_stuff | libresolv_stuff | known)
 for symbol in sorted((bionic - allowed_stuff).difference(glibc)):
+  if symbol in ndk_ignored:
+    symbol += '*'
   print symbol
 
 sys.exit(0)

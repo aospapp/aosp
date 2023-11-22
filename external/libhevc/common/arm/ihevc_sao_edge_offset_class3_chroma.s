@@ -61,6 +61,7 @@
 @r8=>   ht
 
 .text
+.syntax unified
 .p2align 2
 
 .extern gi1_table_edge_idx
@@ -294,7 +295,7 @@ WIDTH_LOOP_16:
     CMP         r6,r7                       @col == wd
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
 
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
     MOVNE       r8,#-1
 
     VMOV.8      D8[0],r8                    @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
@@ -688,7 +689,7 @@ WD_16_HT_4_LOOP:
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
     CMP         r6,r7                       @col == wd
 
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
     MOVNE       r8,#-1
     VMOV.8      D8[0],r8                    @au1_mask = vsetq_lane_s8(-1, au1_mask, 0)
 
@@ -858,7 +859,7 @@ WIDTH_RESIDUE:
     LDR         r5,[sp,#0x108]              @Loads pu1_avail
     CMP         r6,r7                       @wd_residue == wd
 
-    LDREQB      r8,[r5]                     @pu1_avail[0]
+    LDRBEQ      r8,[r5]                     @pu1_avail[0]
 
     MOVNE       r8,#-1
     LDRB        r11,[r5,#1]                 @pu1_avail[1]

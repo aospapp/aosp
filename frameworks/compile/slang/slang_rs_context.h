@@ -158,7 +158,7 @@ class RSContext {
 
   bool processExport();
   inline void newExportable(RSExportable *E) {
-    if (E != NULL)
+    if (E != nullptr)
       mExportables.push_back(E);
   }
   typedef ExportableList::iterator exportable_iterator;

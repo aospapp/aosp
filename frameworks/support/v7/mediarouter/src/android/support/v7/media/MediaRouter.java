@@ -2197,23 +2197,19 @@ public final class MediaRouter {
 
         public void setMediaSessionCompat(final MediaSessionCompat session) {
             mCompatSession = session;
-            if (session == null) {
-                if (mRccMediaSession != null) {
-                    removeRemoteControlClient(mRccMediaSession.getRemoteControlClient());
-                    mRccMediaSession.removeOnActiveChangeListener(mSessionActiveListener);
-                }
-            }
             if (android.os.Build.VERSION.SDK_INT >= 21) {
-                setMediaSession(session.getMediaSession());
+                setMediaSession(session != null ? session.getMediaSession() : null);
             } else if (android.os.Build.VERSION.SDK_INT >= 14) {
                 if (mRccMediaSession != null) {
                     removeRemoteControlClient(mRccMediaSession.getRemoteControlClient());
                     mRccMediaSession.removeOnActiveChangeListener(mSessionActiveListener);
                 }
                 mRccMediaSession = session;
-                session.addOnActiveChangeListener(mSessionActiveListener);
-                if (session.isActive()) {
-                    addRemoteControlClient(session.getRemoteControlClient());
+                if (session != null) {
+                    session.addOnActiveChangeListener(mSessionActiveListener);
+                    if (session.isActive()) {
+                        addRemoteControlClient(session.getRemoteControlClient());
+                    }
                 }
             }
         }
@@ -2256,7 +2252,8 @@ public final class MediaRouter {
                         // Local route
                         mMediaSession.clearVolumeHandling();
                     } else {
-                        int controlType = VolumeProviderCompat.VOLUME_CONTROL_FIXED;
+                        @VolumeProviderCompat.ControlType int controlType =
+                                VolumeProviderCompat.VOLUME_CONTROL_FIXED;
                         if (mPlaybackInfo.volumeHandling
                                 == MediaRouter.RouteInfo.PLAYBACK_VOLUME_VARIABLE) {
                             controlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
@@ -2283,7 +2280,7 @@ public final class MediaRouter {
         private final class MediaSessionRecord {
             private final MediaSessionCompat mMsCompat;
 
-            private int mControlType;
+            private @VolumeProviderCompat.ControlType int mControlType;
             private int mMaxVolume;
             private VolumeProviderCompat mVpCompat;
 
@@ -2291,7 +2288,8 @@ public final class MediaRouter {
                 mMsCompat = MediaSessionCompat.obtain(mApplicationContext, mediaSession);
             }
 
-            public void configureVolume(int controlType, int max, int current) {
+            public void configureVolume(@VolumeProviderCompat.ControlType int controlType,
+                    int max, int current) {
                 if (mVpCompat != null && controlType == mControlType && max == mMaxVolume) {
                     // If we haven't changed control type or max just set the
                     // new current volume

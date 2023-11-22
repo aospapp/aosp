@@ -4,13 +4,13 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FX_CODEC_H_
-#define _FX_CODEC_H_
-#ifndef _FXCRT_EXTENSION_
+#ifndef CORE_INCLUDE_FXCODEC_FX_CODEC_H_
+#define CORE_INCLUDE_FXCODEC_FX_CODEC_H_
+
 #include "../fxcrt/fx_ext.h"
-#endif
 #include "fx_codec_def.h"
 #include "fx_codec_provider.h"
+
 class CFX_DIBSource;
 class ICodec_ScanlineDecoder;
 class ICodec_BasicModule;
@@ -22,7 +22,7 @@ class ICodec_IccModule;
 class ICodec_FlateModule;
 class ICodec_Jbig2Encoder;
 class ICodec_ScanlineDecoder;
-class CCodec_ModuleMgr : public CFX_Object
+class CCodec_ModuleMgr 
 {
 public:
 
@@ -80,7 +80,7 @@ protected:
     ICodec_FlateModule*	m_pFlateModule;
 
 };
-class ICodec_BasicModule : public CFX_Object
+class ICodec_BasicModule 
 {
 public:
 
@@ -92,7 +92,7 @@ public:
     virtual ICodec_ScanlineDecoder*	CreateRunLengthDecoder(FX_LPCBYTE src_buf, FX_DWORD src_size, int width, int height,
             int nComps, int bpc) = 0;
 };
-class ICodec_ScanlineDecoder : public CFX_Object
+class ICodec_ScanlineDecoder 
 {
 public:
 
@@ -118,7 +118,7 @@ public:
 
     virtual void		ClearImageData() = 0;
 };
-class ICodec_FlateModule : public CFX_Object
+class ICodec_FlateModule 
 {
 public:
 
@@ -133,7 +133,7 @@ public:
                                FX_LPBYTE& dest_buf, FX_DWORD& dest_size) = 0;
     virtual FX_BOOL		Encode(FX_LPCBYTE src_buf, FX_DWORD src_size, FX_LPBYTE& dest_buf, FX_DWORD& dest_size) = 0;
 };
-class ICodec_FaxModule : public CFX_Object
+class ICodec_FaxModule 
 {
 public:
 
@@ -146,7 +146,7 @@ public:
     virtual FX_BOOL		Encode(FX_LPCBYTE src_buf, int width, int height, int pitch,
                                FX_LPBYTE& dest_buf, FX_DWORD& dest_size) = 0;
 };
-class ICodec_JpegModule : public CFX_Object
+class ICodec_JpegModule 
 {
 public:
 
@@ -181,7 +181,7 @@ public:
 
     virtual FX_DWORD	GetAvailInput(void* pContext, FX_LPBYTE* avail_buf_ptr = NULL) = 0;
 };
-class ICodec_JpxModule : public CFX_Object
+class ICodec_JpxModule 
 {
 public:
 
@@ -197,7 +197,7 @@ public:
 
     virtual void		DestroyDecoder(FX_LPVOID ctx) = 0;
 };
-class ICodec_Jbig2Module : public CFX_Object
+class ICodec_Jbig2Module 
 {
 public:
 
@@ -218,13 +218,13 @@ public:
     virtual FXCODEC_STATUS		ContinueDecode(void* pJbig2Content, IFX_Pause* pPause) = 0;
     virtual void				DestroyJbig2Context(void* pJbig2Content) = 0;
 };
-class ICodec_Jbig2Encoder : public CFX_Object
+class ICodec_Jbig2Encoder 
 {
 public:
 
     virtual ~ICodec_Jbig2Encoder() {}
 };
-class ICodec_IccModule : public CFX_Object
+class ICodec_IccModule 
 {
 public:
     typedef enum {
@@ -267,11 +267,11 @@ public:
                                      ) = 0;
 
 
-    virtual FX_LPVOID	CreateTransform_sRGB(FX_LPCBYTE pProfileData, unsigned int dwProfileSize, int nComponents, int intent = 0,
+    virtual FX_LPVOID	CreateTransform_sRGB(FX_LPCBYTE pProfileData, FX_DWORD dwProfileSize, FX_INT32& nComponents, FX_INT32 intent = 0,
             FX_DWORD dwSrcFormat = Icc_FORMAT_DEFAULT) = 0;
 
-    virtual FX_LPVOID	CreateTransform_CMYK(FX_LPCBYTE pSrcProfileData, unsigned int dwSrcProfileSize, int nSrcComponents,
-            FX_LPCBYTE pDstProfileData, unsigned int dwDstProfileSize, int intent = 0,
+    virtual FX_LPVOID	CreateTransform_CMYK(FX_LPCBYTE pSrcProfileData, FX_DWORD dwSrcProfileSize, FX_INT32& nSrcComponents,
+            FX_LPCBYTE pDstProfileData, FX_DWORD dwDstProfileSize, FX_INT32 intent = 0,
             FX_DWORD dwSrcFormat = Icc_FORMAT_DEFAULT,
             FX_DWORD dwDstFormat = Icc_FORMAT_DEFAULT
                                           ) = 0;
@@ -281,8 +281,10 @@ public:
     virtual void			Translate(FX_LPVOID pTransform, FX_FLOAT* pSrcValues, FX_FLOAT* pDestValues) = 0;
 
     virtual void			TranslateScanline(FX_LPVOID pTransform, FX_LPBYTE pDest, FX_LPCBYTE pSrc, int pixels) = 0;
+    virtual void                        SetComponents(FX_DWORD nComponents) = 0;
 };
 void AdobeCMYK_to_sRGB(FX_FLOAT c, FX_FLOAT m, FX_FLOAT y, FX_FLOAT k, FX_FLOAT& R, FX_FLOAT& G, FX_FLOAT& B);
 void AdobeCMYK_to_sRGB1(FX_BYTE c, FX_BYTE m, FX_BYTE y, FX_BYTE k, FX_BYTE& R, FX_BYTE& G, FX_BYTE& B);
 FX_BOOL MD5ComputeID(FX_LPCVOID buf, FX_DWORD dwSize, FX_BYTE ID[16]);
-#endif
+
+#endif  // CORE_INCLUDE_FXCODEC_FX_CODEC_H_

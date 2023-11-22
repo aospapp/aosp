@@ -22,23 +22,23 @@ using namespace android;
 using namespace android::renderscript;
 
 Mesh::Mesh(Context *rsc) : ObjectBase(rsc) {
-    mHal.drv = NULL;
-    mHal.state.primitives = NULL;
+    mHal.drv = nullptr;
+    mHal.state.primitives = nullptr;
     mHal.state.primitivesCount = 0;
-    mHal.state.indexBuffers = NULL;
+    mHal.state.indexBuffers = nullptr;
     mHal.state.indexBuffersCount = 0;
-    mHal.state.vertexBuffers = NULL;
+    mHal.state.vertexBuffers = nullptr;
     mHal.state.vertexBuffersCount = 0;
     mInitialized = false;
 
-    mVertexBuffers = NULL;
-    mIndexBuffers = NULL;
+    mVertexBuffers = nullptr;
+    mIndexBuffers = nullptr;
 }
 
 Mesh::Mesh(Context *rsc,
            uint32_t vertexBuffersCount,
            uint32_t primitivesCount) : ObjectBase(rsc) {
-    mHal.drv = NULL;
+    mHal.drv = nullptr;
     mHal.state.primitivesCount = primitivesCount;
     mHal.state.indexBuffersCount = primitivesCount;
     mHal.state.primitives = new RsPrimitive[mHal.state.primitivesCount];
@@ -47,12 +47,12 @@ Mesh::Mesh(Context *rsc,
         mHal.state.primitives[i] = RS_PRIMITIVE_POINT;
     }
     for (uint32_t i = 0; i < mHal.state.indexBuffersCount; i ++) {
-        mHal.state.indexBuffers[i] = NULL;
+        mHal.state.indexBuffers[i] = nullptr;
     }
     mHal.state.vertexBuffersCount = vertexBuffersCount;
     mHal.state.vertexBuffers = new Allocation *[mHal.state.vertexBuffersCount];
     for (uint32_t i = 0; i < mHal.state.vertexBuffersCount; i ++) {
-        mHal.state.vertexBuffers[i] = NULL;
+        mHal.state.vertexBuffers[i] = nullptr;
     }
 
     mVertexBuffers = new ObjectBaseRef<Allocation>[mHal.state.vertexBuffersCount];
@@ -108,13 +108,13 @@ Mesh *Mesh::createFromStream(Context *rsc, IStream *stream) {
     RsA3DClassID classID = (RsA3DClassID)stream->loadU32();
     if (classID != RS_A3D_CLASS_ID_MESH) {
         ALOGE("mesh loading skipped due to invalid class id");
-        return NULL;
+        return nullptr;
     }
 
     const char *name = stream->loadString();
 
     uint32_t vertexBuffersCount = stream->loadU32();
-    ObjectBaseRef<Allocation> *vertexBuffers = NULL;
+    ObjectBaseRef<Allocation> *vertexBuffers = nullptr;
     if (vertexBuffersCount) {
         vertexBuffers = new ObjectBaseRef<Allocation>[vertexBuffersCount];
 
@@ -125,8 +125,8 @@ Mesh *Mesh::createFromStream(Context *rsc, IStream *stream) {
     }
 
     uint32_t primitivesCount = stream->loadU32();
-    ObjectBaseRef<Allocation> *indexBuffers = NULL;
-    RsPrimitive *primitives = NULL;
+    ObjectBaseRef<Allocation> *indexBuffers = nullptr;
+    RsPrimitive *primitives = nullptr;
     if (primitivesCount) {
         indexBuffers = new ObjectBaseRef<Allocation>[primitivesCount];
         primitives = new RsPrimitive[primitivesCount];
@@ -213,11 +213,11 @@ void Mesh::uploadAll(Context *rsc) {
 }
 
 void Mesh::computeBBox(Context *rsc) {
-    float *posPtr = NULL;
+    float *posPtr = nullptr;
     uint32_t vectorSize = 0;
     uint32_t stride = 0;
     uint32_t numVerts = 0;
-    Allocation *posAlloc = NULL;
+    Allocation *posAlloc = nullptr;
     // First we need to find the position ptr and stride
     for (uint32_t ct=0; ct < mHal.state.vertexBuffersCount; ct++) {
         const Type *bufferType = mHal.state.vertexBuffers[ct]->getType();

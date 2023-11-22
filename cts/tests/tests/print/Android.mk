@@ -18,15 +18,11 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src) \
-    src/android/print/cts/IPrivilegedOperations.aidl
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsPrintTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := mockito-target ctstestrunner ub-uiautomator
-
-# This test runner sets up/cleans up the device before/after running the tests.
-LOCAL_CTS_TEST_RUNNER := com.android.cts.tradefed.testtype.PrintTestRunner
+LOCAL_STATIC_JAVA_LIBRARIES := mockito-target ctstestrunner ub-uiautomator ctsdeviceutil
 
 LOCAL_SDK_VERSION := current
 

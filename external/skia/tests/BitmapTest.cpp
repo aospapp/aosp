@@ -6,8 +6,57 @@
  */
 
 #include "SkBitmap.h"
-
+#include "SkMallocPixelRef.h"
 #include "Test.h"
+
+// https://code.google.com/p/chromium/issues/detail?id=446164
+static void test_bigalloc(skiatest::Reporter* reporter) {
+    const int width = 0x40000001;
+    const int height = 0x00000096;
+    const SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
+
+    SkBitmap bm;
+    REPORTER_ASSERT(reporter, !bm.tryAllocPixels(info));
+
+    SkPixelRef* pr = SkMallocPixelRef::NewAllocate(info, info.minRowBytes(), NULL);
+    REPORTER_ASSERT(reporter, !pr);
+}
+
+static void test_allocpixels(skiatest::Reporter* reporter) {
+    const int width = 10;
+    const int height = 10;
+    const SkImageInfo info = SkImageInfo::MakeN32Premul(width, height);
+    const size_t explicitRowBytes = info.minRowBytes() + 24;
+
+    SkBitmap bm;
+    bm.setInfo(info);
+    REPORTER_ASSERT(reporter, info.minRowBytes() == bm.rowBytes());
+    bm.allocPixels();
+    REPORTER_ASSERT(reporter, info.minRowBytes() == bm.rowBytes());
+    bm.reset();
+    bm.allocPixels(info);
+    REPORTER_ASSERT(reporter, info.minRowBytes() == bm.rowBytes());
+
+    bm.setInfo(info, explicitRowBytes);
+    REPORTER_ASSERT(reporter, explicitRowBytes == bm.rowBytes());
+    bm.allocPixels();
+    REPORTER_ASSERT(reporter, explicitRowBytes == bm.rowBytes());
+    bm.reset();
+    bm.allocPixels(info, explicitRowBytes);
+    REPORTER_ASSERT(reporter, explicitRowBytes == bm.rowBytes());
+
+    bm.reset();
+    bm.setInfo(info, 0);
+    REPORTER_ASSERT(reporter, info.minRowBytes() == bm.rowBytes());
+    bm.reset();
+    bm.allocPixels(info, 0);
+    REPORTER_ASSERT(reporter, info.minRowBytes() == bm.rowBytes());
+
+    bm.reset();
+    bool success = bm.setInfo(info, info.minRowBytes() - 1);   // invalid for 32bit
+    REPORTER_ASSERT(reporter, !success);
+    REPORTER_ASSERT(reporter, bm.isNull());
+}
 
 static void test_bigwidth(skiatest::Reporter* reporter) {
     SkBitmap bm;
@@ -15,8 +64,7 @@ static void test_bigwidth(skiatest::Reporter* reporter) {
 
     SkImageInfo info = SkImageInfo::MakeA8(width, 1);
     REPORTER_ASSERT(reporter, bm.setInfo(info));
-    info.fColorType = kRGB_565_SkColorType;
-    REPORTER_ASSERT(reporter, bm.setInfo(info));
+    REPORTER_ASSERT(reporter, bm.setInfo(info.makeColorType(kRGB_565_SkColorType)));
 
     // for a 4-byte config, this width will compute a rowbytes of 0x80000000,
     // which does not fit in a int32_t. setConfig should detect this, and fail.
@@ -24,8 +72,7 @@ static void test_bigwidth(skiatest::Reporter* reporter) {
     // TODO: perhaps skia can relax this, and only require that rowBytes fit
     //       in a uint32_t (or larger), but for now this is the constraint.
 
-    info.fColorType = kN32_SkColorType;
-    REPORTER_ASSERT(reporter, !bm.setInfo(info));
+    REPORTER_ASSERT(reporter, !bm.setInfo(info.makeColorType(kN32_SkColorType)));
 }
 
 /**
@@ -39,11 +86,13 @@ DEF_TEST(Bitmap, reporter) {
             bool setConf = bm.setInfo(SkImageInfo::MakeN32Premul(width, height));
             REPORTER_ASSERT(reporter, setConf);
             if (setConf) {
-                REPORTER_ASSERT(reporter, bm.allocPixels(NULL));
+                bm.allocPixels();
             }
             REPORTER_ASSERT(reporter, SkToBool(width & height) != bm.empty());
         }
     }
 
     test_bigwidth(reporter);
+    test_allocpixels(reporter);
+    test_bigalloc(reporter);
 }

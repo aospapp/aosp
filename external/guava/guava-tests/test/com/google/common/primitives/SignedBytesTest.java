@@ -65,7 +65,7 @@ public class SignedBytesTest extends TestCase {
     assertEquals(LEAST, SignedBytes.saturatedCast(Long.MIN_VALUE));
   }
 
-  private void assertCastFails(long value) {
+  private static void assertCastFails(long value) {
     try {
       SignedBytes.checkedCast(value);
       fail("Cast to byte should have failed: " + value);
@@ -155,9 +155,7 @@ public class SignedBytesTest extends TestCase {
   }
 
   @GwtIncompatible("NullPointerTester")
-  public void testNulls() throws Exception {
-    NullPointerTester tester = new NullPointerTester();
-    tester.setDefault(byte[].class, new byte[0]);
-    tester.testAllPublicStaticMethods(SignedBytes.class);
+  public void testNulls() {
+    new NullPointerTester().testAllPublicStaticMethods(SignedBytes.class);
   }
 }

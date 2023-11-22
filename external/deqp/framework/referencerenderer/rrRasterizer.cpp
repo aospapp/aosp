@@ -239,6 +239,43 @@ bool doesLineSegmentExitDiamond (const SubpixelLineSegment& line, const tcu::Vec
 
 	const deInt64 halfPixel = 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
 
+	// Reject distant diamonds early
+	{
+		const tcu::Vector<deInt64,2>	u				= line.direction();
+		const tcu::Vector<deInt64,2>	v				= (diamondCenter - line.m_v0);
+		const deInt64					crossProduct	= (u.x() * v.y() - u.y() * v.x());
+
+		// crossProduct = |p| |l| sin(theta)
+		// distanceFromLine = |p| sin(theta)
+		// => distanceFromLine = crossProduct / |l|
+		//
+		// |distanceFromLine| > C
+		// => distanceFromLine^2 > C^2
+		// => crossProduct^2 / |l|^2 > C^2
+		// => crossProduct^2 > |l|^2 * C^2
+
+		const deInt64	floorSqrtMaxInt64			= 3037000499LL; //!< floor(sqrt(MAX_INT64))
+
+		const deInt64	broadRejectDistance			= 2 * halfPixel;
+		const deInt64	broadRejectDistanceSquared	= broadRejectDistance * broadRejectDistance;
+		const bool		crossProductOverflows		= (crossProduct > floorSqrtMaxInt64 || crossProduct < -floorSqrtMaxInt64);
+		const deInt64	crossProductSquared			= (crossProductOverflows) ? (0) : (crossProduct * crossProduct); // avoid overflow
+		const deInt64	lineLengthSquared			= tcu::lengthSquared(u);
+		const bool		limitValueCouldOverflow		= ((64 - deClz64(lineLengthSquared)) + (64 - deClz64(broadRejectDistanceSquared))) > 63;
+		const deInt64	limitValue					= (limitValueCouldOverflow) ? (0) : (lineLengthSquared * broadRejectDistanceSquared); // avoid overflow
+
+		// only cross overflows
+		if (crossProductOverflows && !limitValueCouldOverflow)
+			return false;
+
+		// both representable
+		if (!crossProductOverflows && !limitValueCouldOverflow)
+		{
+			if (crossProductSquared > limitValue)
+				return false;
+		}
+	}
+
 	const struct DiamondBound
 	{
 		tcu::Vector<deInt64,2>	p0;
@@ -281,7 +318,6 @@ bool doesLineSegmentExitDiamond (const SubpixelLineSegment& line, const tcu::Vec
 		CORNER_EDGE_CASE_BEHAVIOR	lineBehavior;			// would a line segment going through this corner intersect with the region
 		CORNER_START_CASE_BEHAVIOR	startBehavior;			// how the corner behaves if the start point at the corner
 		CORNER_END_CASE_BEHAVIOR	endBehavior;			// how the corner behaves if the end point at the corner
-
 	} corners[] =
 	{
 		{ tcu::Vector<deInt64,2>(0,				-halfPixel),	false,	DiamondCorners::CORNER_EDGE_CASE_HIT_SECOND_QUARTER,	DiamondCorners::CORNER_START_CASE_POSITIVE_Y_45,	DiamondCorners::CORNER_END_CASE_DIRECTION_AND_SECOND_QUARTER},
@@ -499,6 +535,13 @@ void TriangleRasterizer::rasterizeSingleSample (FragmentPacket* const fragmentPa
 	const deUint64	halfPixel	= 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
 	int				packetNdx	= 0;
 
+	// For depth interpolation; given barycentrics A, B, C = (1 - A - B)
+	// we can reformulate the usual z = z0*A + z1*B + z2*C into more
+	// stable equation z = A*(z0 - z2) + B*(z1 - z2) + z2.
+	const float		za			= m_v0.z()-m_v2.z();
+	const float		zb			= m_v1.z()-m_v2.z();
+	const float		zc			= m_v2.z();
+
 	while (m_curPos.y() <= m_bboxMax.y() && packetNdx < maxFragmentPackets)
 	{
 		const int		x0		= m_curPos.x();
@@ -561,15 +604,14 @@ void TriangleRasterizer::rasterizeSingleSample (FragmentPacket* const fragmentPa
 		// Compute depth values.
 		if (depthValues)
 		{
-			const tcu::Vec4		ooSum	= 1.0f / (e01f + e12f + e20f);
-			const tcu::Vec4		z0		= e12f * ooSum;
-			const tcu::Vec4		z1		= e20f * ooSum;
-			const tcu::Vec4		z2		= e01f * ooSum;
+			const tcu::Vec4		edgeSum	= e01f + e12f + e20f;
+			const tcu::Vec4		z0		= e12f / edgeSum;
+			const tcu::Vec4		z1		= e20f / edgeSum;
 
-			depthValues[packetNdx*4+0] = z0[0]*m_v0.z() + z1[0]*m_v1.z() + z2[0]*m_v2.z();
-			depthValues[packetNdx*4+1] = z0[1]*m_v0.z() + z1[1]*m_v1.z() + z2[1]*m_v2.z();
-			depthValues[packetNdx*4+2] = z0[2]*m_v0.z() + z1[2]*m_v1.z() + z2[2]*m_v2.z();
-			depthValues[packetNdx*4+3] = z0[3]*m_v0.z() + z1[3]*m_v1.z() + z2[3]*m_v2.z();
+			depthValues[packetNdx*4+0] = z0[0]*za + z1[0]*zb + zc;
+			depthValues[packetNdx*4+1] = z0[1]*za + z1[1]*zb + zc;
+			depthValues[packetNdx*4+2] = z0[2]*za + z1[2]*zb + zc;
+			depthValues[packetNdx*4+3] = z0[3]*za + z1[3]*zb + zc;
 		}
 
 		// Compute barycentrics and write out fragment packet
@@ -579,12 +621,12 @@ void TriangleRasterizer::rasterizeSingleSample (FragmentPacket* const fragmentPa
 			const tcu::Vec4		b0		= e12f * m_v0.w();
 			const tcu::Vec4		b1		= e20f * m_v1.w();
 			const tcu::Vec4		b2		= e01f * m_v2.w();
-			const tcu::Vec4		ooSum	= 1.0f / (b0 + b1 + b2);
+			const tcu::Vec4		bSum	= b0 + b1 + b2;
 
 			packet.position			= tcu::IVec2(x0, y0);
 			packet.coverage			= coverage;
-			packet.barycentric[0]	= b0 * ooSum;
-			packet.barycentric[1]	= b1 * ooSum;
+			packet.barycentric[0]	= b0 / bSum;
+			packet.barycentric[1]	= b1 / bSum;
 			packet.barycentric[2]	= 1.0f - packet.barycentric[0] - packet.barycentric[1];
 
 			packetNdx += 1;
@@ -664,6 +706,11 @@ void TriangleRasterizer::rasterizeMultiSample (FragmentPacket* const fragmentPac
 	const deInt64*	samplePos	= DE_NULL;
 	const deUint64	halfPixel	= 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
 	int				packetNdx	= 0;
+
+	// For depth interpolation, see rasterizeSingleSample
+	const float		za			= m_v0.z()-m_v2.z();
+	const float		zb			= m_v1.z()-m_v2.z();
+	const float		zc			= m_v2.z();
 
 	switch (NumSamples)
 	{
@@ -748,15 +795,14 @@ void TriangleRasterizer::rasterizeMultiSample (FragmentPacket* const fragmentPac
 				const tcu::Vec4&	e12f	= e12[sampleNdx].asFloat();
 				const tcu::Vec4&	e20f	= e20[sampleNdx].asFloat();
 
-				const tcu::Vec4		ooSum	= 1.0f / (e01f + e12f + e20f);
-				const tcu::Vec4		z0		= e12f * ooSum;
-				const tcu::Vec4		z1		= e20f * ooSum;
-				const tcu::Vec4		z2		= e01f * ooSum;
+				const tcu::Vec4		edgeSum	= e01f + e12f + e20f;
+				const tcu::Vec4		z0		= e12f / edgeSum;
+				const tcu::Vec4		z1		= e20f / edgeSum;
 
-				depthValues[(packetNdx*4+0)*NumSamples + sampleNdx] = z0[0]*m_v0.z() + z1[0]*m_v1.z() + z2[0]*m_v2.z();
-				depthValues[(packetNdx*4+1)*NumSamples + sampleNdx] = z0[1]*m_v0.z() + z1[1]*m_v1.z() + z2[1]*m_v2.z();
-				depthValues[(packetNdx*4+2)*NumSamples + sampleNdx] = z0[2]*m_v0.z() + z1[2]*m_v1.z() + z2[2]*m_v2.z();
-				depthValues[(packetNdx*4+3)*NumSamples + sampleNdx] = z0[3]*m_v0.z() + z1[3]*m_v1.z() + z2[3]*m_v2.z();
+				depthValues[(packetNdx*4+0)*NumSamples + sampleNdx] = z0[0]*za + z1[0]*zb + zc;
+				depthValues[(packetNdx*4+1)*NumSamples + sampleNdx] = z0[1]*za + z1[1]*zb + zc;
+				depthValues[(packetNdx*4+2)*NumSamples + sampleNdx] = z0[2]*za + z1[2]*zb + zc;
+				depthValues[(packetNdx*4+3)*NumSamples + sampleNdx] = z0[3]*za + z1[3]*zb + zc;
 			}
 		}
 
@@ -780,12 +826,12 @@ void TriangleRasterizer::rasterizeMultiSample (FragmentPacket* const fragmentPac
 			const tcu::Vec4		b0		= e12f * m_v0.w();
 			const tcu::Vec4		b1		= e20f * m_v1.w();
 			const tcu::Vec4		b2		= e01f * m_v2.w();
-			const tcu::Vec4		ooSum	= 1.0f / (b0 + b1 + b2);
+			const tcu::Vec4		bSum	= b0 + b1 + b2;
 
 			packet.position			= tcu::IVec2(x0, y0);
 			packet.coverage			= coverage;
-			packet.barycentric[0]	= b0 * ooSum;
-			packet.barycentric[1]	= b1 * ooSum;
+			packet.barycentric[0]	= b0 / bSum;
+			packet.barycentric[1]	= b1 / bSum;
 			packet.barycentric[2]	= 1.0f - packet.barycentric[0] - packet.barycentric[1];
 
 			packetNdx += 1;
@@ -819,7 +865,7 @@ SingleSampleLineRasterizer::SingleSampleLineRasterizer (const tcu::IVec4& viewpo
 {
 }
 
-SingleSampleLineRasterizer::~SingleSampleLineRasterizer	()
+SingleSampleLineRasterizer::~SingleSampleLineRasterizer (void)
 {
 }
 
@@ -830,7 +876,6 @@ void SingleSampleLineRasterizer::init (const tcu::Vec4& v0, const tcu::Vec4& v1,
 	// Bounding box \note: with wide lines, the line is actually moved as in the spec
 	const deInt32					lineWidthPixels	= (lineWidth > 1.0f) ? (deInt32)floor(lineWidth + 0.5f) : 1;
 
-	const tcu::IVec2				minorDirection	= (isXMajor ? tcu::IVec2(0, 1) : tcu::IVec2(1, 0));
 	const tcu::Vector<deInt64,2>	widthOffset		= (isXMajor ? tcu::Vector<deInt64,2>(0, -1) : tcu::Vector<deInt64,2>(-1, 0)) * (toSubpixelCoord(lineWidthPixels - 1) / 2);
 
 	const deInt64					x0				= toSubpixelCoord(v0.x()) + widthOffset.x();
@@ -880,16 +925,18 @@ void SingleSampleLineRasterizer::rasterize (FragmentPacket* const fragmentPacket
 {
 	DE_ASSERT(maxFragmentPackets > 0);
 
-	const deInt64								halfPixel		= 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
-	const deInt32								lineWidth		= (m_lineWidth > 1.0f) ? (deInt32)floor(m_lineWidth + 0.5f) : 1;
-	const bool									isXMajor		= de::abs((m_v1 - m_v0).x()) >= de::abs((m_v1 - m_v0).y());
-	const tcu::IVec2							minorDirection	= (isXMajor ? tcu::IVec2(0, 1) : tcu::IVec2(1, 0));
-	const tcu::Vector<deInt64,2>				widthOffset		= (isXMajor ? tcu::Vector<deInt64,2>(0, -1) : tcu::Vector<deInt64,2>(-1, 0)) * (toSubpixelCoord(lineWidth - 1) / 2);
-	const tcu::Vector<deInt64,2>				pa				= LineRasterUtil::toSubpixelVector(m_v0.xy()) + widthOffset;
-	const tcu::Vector<deInt64,2>				pb				= LineRasterUtil::toSubpixelVector(m_v1.xy()) + widthOffset;
-	const LineRasterUtil::SubpixelLineSegment	line			= LineRasterUtil::SubpixelLineSegment(pa, pb);
+	const deInt64								halfPixel			= 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
+	const deInt32								lineWidth			= (m_lineWidth > 1.0f) ? deFloorFloatToInt32(m_lineWidth + 0.5f) : 1;
+	const bool									isXMajor			= de::abs((m_v1 - m_v0).x()) >= de::abs((m_v1 - m_v0).y());
+	const tcu::IVec2							minorDirection		= (isXMajor) ? (tcu::IVec2(0, 1)) : (tcu::IVec2(1, 0));
+	const int									minViewportLimit	= (isXMajor) ? (m_viewport.y()) : (m_viewport.x());
+	const int									maxViewportLimit	= (isXMajor) ? (m_viewport.y() + m_viewport.w()) : (m_viewport.x() + m_viewport.z());
+	const tcu::Vector<deInt64,2>				widthOffset			= -minorDirection.cast<deInt64>() * (toSubpixelCoord(lineWidth - 1) / 2);
+	const tcu::Vector<deInt64,2>				pa					= LineRasterUtil::toSubpixelVector(m_v0.xy()) + widthOffset;
+	const tcu::Vector<deInt64,2>				pb					= LineRasterUtil::toSubpixelVector(m_v1.xy()) + widthOffset;
+	const LineRasterUtil::SubpixelLineSegment	line				= LineRasterUtil::SubpixelLineSegment(pa, pb);
 
-	int											packetNdx 		= 0;
+	int											packetNdx			= 0;
 
 	while (m_curPos.y() <= m_bboxMax.y() && packetNdx < maxFragmentPackets)
 	{
@@ -898,21 +945,19 @@ void SingleSampleLineRasterizer::rasterize (FragmentPacket* const fragmentPacket
 		// Should current fragment be drawn? == does the segment exit this diamond?
 		if (LineRasterUtil::doesLineSegmentExitDiamond(line, diamondPosition))
 		{
-			const tcu::Vector<deInt64,2> 	pr					= diamondPosition;
-			const float 					t					= tcu::dot((pr - pa).asFloat(), (pb - pa).asFloat()) / tcu::lengthSquared(pb.asFloat() - pa.asFloat());
+			const tcu::Vector<deInt64,2>	pr					= diamondPosition;
+			const float						t					= tcu::dot((pr - pa).asFloat(), (pb - pa).asFloat()) / tcu::lengthSquared(pb.asFloat() - pa.asFloat());
 
 			// Rasterize on only fragments that are would end up in the viewport (i.e. visible)
-			const int						minViewportLimit	= (isXMajor) ? (m_viewport.y())                  : (m_viewport.x());
-			const int						maxViewportLimit	= (isXMajor) ? (m_viewport.y() + m_viewport.w()) : (m_viewport.x() + m_viewport.z());
-			const int						fragmentLocation	= (isXMajor) ? (m_curPos.y())                    : (m_curPos.x());
-
+			const int						fragmentLocation	= (isXMajor) ? (m_curPos.y()) : (m_curPos.x());
 			const int						rowFragBegin		= de::max(0, minViewportLimit - fragmentLocation);
 			const int						rowFragEnd			= de::min(maxViewportLimit - fragmentLocation, lineWidth);
 
 			// Wide lines require multiple fragments.
 			for (; rowFragBegin + m_curRowFragment < rowFragEnd; m_curRowFragment++)
 			{
-				const tcu::IVec2 fragmentPos = m_curPos + minorDirection * (rowFragBegin + m_curRowFragment);
+				const int			replicationId	= rowFragBegin + m_curRowFragment;
+				const tcu::IVec2	fragmentPos		= m_curPos + minorDirection * replicationId;
 
 				// We only rasterize visible area
 				DE_ASSERT(LineRasterUtil::inViewport(fragmentPos, m_viewport));
@@ -1041,6 +1086,72 @@ void MultiSampleLineRasterizer::rasterize (FragmentPacket* const fragmentPackets
 			std::swap(nextFragmentPackets[packNdx].barycentric[0][fragNdx], nextFragmentPackets[packNdx].barycentric[1][fragNdx]);
 		}
 	}
+}
+
+LineExitDiamondGenerator::LineExitDiamondGenerator (void)
+{
+}
+
+LineExitDiamondGenerator::~LineExitDiamondGenerator (void)
+{
+}
+
+void LineExitDiamondGenerator::init (const tcu::Vec4& v0, const tcu::Vec4& v1)
+{
+	const deInt64					x0				= toSubpixelCoord(v0.x());
+	const deInt64					y0				= toSubpixelCoord(v0.y());
+	const deInt64					x1				= toSubpixelCoord(v1.x());
+	const deInt64					y1				= toSubpixelCoord(v1.y());
+
+	// line endpoints might be perturbed, add some margin
+	const deInt64					xMin			= de::min(x0, x1) - toSubpixelCoord(1);
+	const deInt64					xMax			= de::max(x0, x1) + toSubpixelCoord(1);
+	const deInt64					yMin			= de::min(y0, y1) - toSubpixelCoord(1);
+	const deInt64					yMax			= de::max(y0, y1) + toSubpixelCoord(1);
+
+	m_bboxMin.x() = floorSubpixelToPixelCoord(xMin, true);
+	m_bboxMin.y() = floorSubpixelToPixelCoord(yMin, true);
+	m_bboxMax.x() = ceilSubpixelToPixelCoord (xMax, true);
+	m_bboxMax.y() = ceilSubpixelToPixelCoord (yMax, true);
+
+	m_v0 = v0;
+	m_v1 = v1;
+
+	m_curPos = m_bboxMin;
+}
+
+void LineExitDiamondGenerator::rasterize (LineExitDiamond* const lineDiamonds, const int maxDiamonds, int& numWritten)
+{
+	DE_ASSERT(maxDiamonds > 0);
+
+	const deInt64								halfPixel			= 1ll << (RASTERIZER_SUBPIXEL_BITS-1);
+	const tcu::Vector<deInt64,2>				pa					= LineRasterUtil::toSubpixelVector(m_v0.xy());
+	const tcu::Vector<deInt64,2>				pb					= LineRasterUtil::toSubpixelVector(m_v1.xy());
+	const LineRasterUtil::SubpixelLineSegment	line				= LineRasterUtil::SubpixelLineSegment(pa, pb);
+
+	int											diamondNdx			= 0;
+
+	while (m_curPos.y() <= m_bboxMax.y() && diamondNdx < maxDiamonds)
+	{
+		const tcu::Vector<deInt64,2> diamondPosition = LineRasterUtil::toSubpixelVector(m_curPos) + tcu::Vector<deInt64,2>(halfPixel,halfPixel);
+
+		if (LineRasterUtil::doesLineSegmentExitDiamond(line, diamondPosition))
+		{
+			LineExitDiamond& packet = lineDiamonds[diamondNdx];
+			packet.position = m_curPos;
+			++diamondNdx;
+		}
+
+		++m_curPos.x();
+		if (m_curPos.x() > m_bboxMax.x())
+		{
+			++m_curPos.y();
+			m_curPos.x() = m_bboxMin.x();
+		}
+	}
+
+	DE_ASSERT(diamondNdx <= maxDiamonds);
+	numWritten = diamondNdx;
 }
 
 } // rr

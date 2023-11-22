@@ -53,23 +53,31 @@ static constexpr bool kMadviseZeroes = false;
 class MemMap {
  public:
   // Request an anonymous region of length 'byte_count' and a requested base address.
-  // Use NULL as the requested base address if you don't care.
+  // Use null as the requested base address if you don't care.
+  // "reuse" allows re-mapping an address range from an existing mapping.
   //
   // The word "anonymous" in this context means "not backed by a file". The supplied
   // 'ashmem_name' will be used -- on systems that support it -- to give the mapping
   // a name.
   //
-  // On success, returns returns a MemMap instance.  On failure, returns a NULL;
-  static MemMap* MapAnonymous(const char* ashmem_name, byte* addr, size_t byte_count, int prot,
-                              bool low_4gb, std::string* error_msg);
+  // On success, returns returns a MemMap instance.  On failure, returns null.
+  static MemMap* MapAnonymous(const char* ashmem_name, uint8_t* addr, size_t byte_count, int prot,
+                              bool low_4gb, bool reuse, std::string* error_msg);
+
+  // Create placeholder for a region allocated by direct call to mmap.
+  // This is useful when we do not have control over the code calling mmap,
+  // but when we still want to keep track of it in the list.
+  // The region is not considered to be owned and will not be unmmaped.
+  static MemMap* MapDummy(const char* name, uint8_t* addr, size_t byte_count);
 
   // Map part of a file, taking care of non-page aligned offsets.  The
   // "start" offset is absolute, not relative.
   //
-  // On success, returns returns a MemMap instance.  On failure, returns a NULL;
+  // On success, returns returns a MemMap instance.  On failure, returns null.
   static MemMap* MapFile(size_t byte_count, int prot, int flags, int fd, off_t start,
                          const char* filename, std::string* error_msg) {
-    return MapFileAtAddress(NULL, byte_count, prot, flags, fd, start, false, filename, error_msg);
+    return MapFileAtAddress(
+        nullptr, byte_count, prot, flags, fd, start, false, filename, error_msg);
   }
 
   // Map part of a file, taking care of non-page aligned offsets.  The
@@ -78,13 +86,12 @@ class MemMap {
   // mapping. "reuse" allows us to create a view into an existing
   // mapping where we do not take ownership of the memory.
   //
-  // On success, returns returns a MemMap instance.  On failure, returns a
-  // nullptr;
-  static MemMap* MapFileAtAddress(byte* addr, size_t byte_count, int prot, int flags, int fd,
+  // On success, returns returns a MemMap instance.  On failure, returns null.
+  static MemMap* MapFileAtAddress(uint8_t* addr, size_t byte_count, int prot, int flags, int fd,
                                   off_t start, bool reuse, const char* filename,
                                   std::string* error_msg);
 
-  // Releases the memory mapping
+  // Releases the memory mapping.
   ~MemMap() LOCKS_EXCLUDED(Locks::mem_maps_lock_);
 
   const std::string& GetName() const {
@@ -99,7 +106,7 @@ class MemMap {
     return prot_;
   }
 
-  byte* Begin() const {
+  uint8_t* Begin() const {
     return begin_;
   }
 
@@ -107,7 +114,10 @@ class MemMap {
     return size_;
   }
 
-  byte* End() const {
+  // Resize the mem-map by unmapping pages at the end. Currently only supports shrinking.
+  void SetSize(size_t new_size);
+
+  uint8_t* End() const {
     return Begin() + Size();
   }
 
@@ -120,7 +130,7 @@ class MemMap {
   }
 
   void* BaseEnd() const {
-    return reinterpret_cast<byte*>(BaseBegin()) + BaseSize();
+    return reinterpret_cast<uint8_t*>(BaseBegin()) + BaseSize();
   }
 
   bool HasAddress(const void* addr) const {
@@ -128,12 +138,12 @@ class MemMap {
   }
 
   // Unmap the pages at end and remap them to create another memory map.
-  MemMap* RemapAtEnd(byte* new_end, const char* tail_name, int tail_prot,
+  MemMap* RemapAtEnd(uint8_t* new_end, const char* tail_name, int tail_prot,
                      std::string* error_msg);
 
   static bool CheckNoGaps(MemMap* begin_map, MemMap* end_map)
       LOCKS_EXCLUDED(Locks::mem_maps_lock_);
-  static void DumpMaps(std::ostream& os)
+  static void DumpMaps(std::ostream& os, bool terse = false)
       LOCKS_EXCLUDED(Locks::mem_maps_lock_);
 
   typedef AllocationTrackingMultiMap<void*, MemMap*, kAllocatorTagMaps> Maps;
@@ -142,10 +152,10 @@ class MemMap {
   static void Shutdown() LOCKS_EXCLUDED(Locks::mem_maps_lock_);
 
  private:
-  MemMap(const std::string& name, byte* begin, size_t size, void* base_begin, size_t base_size,
+  MemMap(const std::string& name, uint8_t* begin, size_t size, void* base_begin, size_t base_size,
          int prot, bool reuse) LOCKS_EXCLUDED(Locks::mem_maps_lock_);
 
-  static void DumpMapsLocked(std::ostream& os)
+  static void DumpMapsLocked(std::ostream& os, bool terse)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::mem_maps_lock_);
   static bool HasMemMap(MemMap* map)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::mem_maps_lock_);
@@ -153,7 +163,7 @@ class MemMap {
       EXCLUSIVE_LOCKS_REQUIRED(Locks::mem_maps_lock_);
 
   const std::string name_;
-  byte* const begin_;  // Start of data.
+  uint8_t* const begin_;  // Start of data.
   size_t size_;  // Length of data.
 
   void* const base_begin_;  // Page-aligned base address.
@@ -175,6 +185,7 @@ class MemMap {
   friend class MemMapTest;  // To allow access to base_begin_ and base_size_.
 };
 std::ostream& operator<<(std::ostream& os, const MemMap& mem_map);
+std::ostream& operator<<(std::ostream& os, const MemMap::Maps& mem_maps);
 
 }  // namespace art
 

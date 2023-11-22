@@ -17,7 +17,6 @@
 package com.android.bluetooth.hfp;
 
 import com.android.bluetooth.R;
-
 import com.android.internal.telephony.GsmAlphabet;
 
 import android.bluetooth.BluetoothDevice;
@@ -31,8 +30,9 @@ import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.PhoneLookup;
 import android.telephony.PhoneNumberUtils;
 import android.util.Log;
-import com.android.bluetooth.Utils;
 
+import com.android.bluetooth.Utils;
+import com.android.bluetooth.util.DevicePolicyUtils;
 
 import java.util.HashMap;
 
@@ -239,7 +239,7 @@ public class AtPhonebook {
                     atCommandErrorCode = BluetoothCmeError.OPERATION_NOT_SUPPORTED;
                     break;
                 }
-                String pb = ((String)args[1]).trim();
+                String pb = args[1].trim();
                 while (pb.endsWith("\"")) pb = pb.substring(0, pb.length() - 1);
                 while (pb.startsWith("\"")) pb = pb.substring(1, pb.length());
                 if (getPhonebookResult(pb, false) == null && !"SM".equals(pb)) {
@@ -430,7 +430,8 @@ public class AtPhonebook {
             pbr.typeColumn = -1;
             pbr.nameColumn = -1;
         } else {
-            pbr.cursor = mContentResolver.query(Phone.CONTENT_URI, PHONES_PROJECTION,
+            final Uri phoneContentUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
+            pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION,
                     where, null, Phone.NUMBER + " LIMIT " + MAX_PHONEBOOK_SIZE);
             if (pbr.cursor == null) return false;
 
@@ -517,10 +518,11 @@ public class AtPhonebook {
                 // try caller id lookup
                 // TODO: This code is horribly inefficient. I saw it
                 // take 7 seconds to process 100 missed calls.
-                Cursor c = mContentResolver.
-                    query(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, number),
-                          new String[] {PhoneLookup.DISPLAY_NAME, PhoneLookup.TYPE},
-                          null, null, null);
+                Cursor c = mContentResolver.query(
+                        Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, number),
+                        new String[] {
+                                PhoneLookup.DISPLAY_NAME, PhoneLookup.TYPE
+                        }, null, null, null);
                 if (c != null) {
                     if (c.moveToFirst()) {
                         name = c.getString(0);
@@ -575,7 +577,6 @@ public class AtPhonebook {
             record = "+CPBR: " + index + ",\"" + number + "\"," + regionType + ",\"" + name + "\"";
             record = record + "\r\n\r\n";
             atCommandResponse = record;
-            log("processCpbrCommand - atCommandResponse = "+atCommandResponse);
             mStateMachine.atResponseStringNative(atCommandResponse, getByteAddress(device));
             if (!pbr.cursor.moveToNext()) {
                 break;

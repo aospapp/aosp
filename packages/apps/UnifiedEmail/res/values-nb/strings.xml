@@ -61,8 +61,8 @@
     <string name="remove_star" msgid="9126690774161840733">"Fjern stjerne"</string>
     <string name="remove_folder" msgid="2379905457788576297">"Fjern fra <xliff:g id="FOLDERNAME">%1$s</xliff:g>"</string>
     <string name="archive" msgid="5978663590021719939">"Arkivér"</string>
-    <string name="report_spam" msgid="4106897677959987340">"Meld fra om nettsøppel"</string>
-    <string name="mark_not_spam" msgid="8617774236231366651">"Rapportér som ikke nettsøppel"</string>
+    <string name="report_spam" msgid="4106897677959987340">"Rapportér søppelpost"</string>
+    <string name="mark_not_spam" msgid="8617774236231366651">"Rapportér som ikke søppelpost"</string>
     <string name="report_phishing" msgid="8454666464488413739">"Rapportér nettfisking"</string>
     <string name="delete" msgid="6784262386780496958">"Slett"</string>
     <string name="discard_drafts" msgid="5881484193628472105">"Forkast utkastene"</string>
@@ -382,7 +382,7 @@
   </plurals>
     <string name="drawer_open" msgid="2285557278907103851">"Åpne uttrekksmenyen for navigasjon"</string>
     <string name="drawer_close" msgid="2065829742127544297">"Lukk uttrekksmenyen for navigasjon"</string>
-    <string name="conversation_photo_welcome_text" msgid="836483155429003787">"Trykk på avsenderbildet for å velge den samtalen."</string>
+    <string name="conversation_photo_welcome_text" msgid="836483155429003787">"Trykk på avsenderbildet for å velge samtalen du vil lese."</string>
     <string name="long_press_to_select_tip" msgid="1660881999120625177">"Trykk og hold nede for å velge én samtale, og trykk deretter på andre samtaler du vil velge."</string>
     <string name="folder_icon_desc" msgid="6272938864914794739">"Mappeikon"</string>
     <string name="add_account" msgid="5905863370226612377">"Legg til konto"</string>
@@ -433,7 +433,7 @@
     <string name="view_entire_message" msgid="823281796655014454">"Se hele e-posten"</string>
     <string name="eml_loader_error_toast" msgid="6577383216635400167">"Kan ikke åpne denne filen"</string>
     <string name="help_and_info" msgid="3708286489943154681">"Hjelp"</string>
-    <string name="help_and_feedback" msgid="7211458338163287670">"Hjelp og tilbakemeldinger"</string>
+    <string name="help_and_feedback" msgid="7211458338163287670">"Hjelp og tilbakemelding"</string>
     <string name="feedback" msgid="204247008751740034">"Send tilbakemelding"</string>
     <string name="copyright" msgid="3121335168340432582">"©<xliff:g id="YEAR">%1$d</xliff:g> Google Inc."</string>
     <string name="version" msgid="1161745345056656547">"<xliff:g id="APP_NAME">%1$s</xliff:g> versjon <xliff:g id="VERSION">%2$s</xliff:g>"</string>
@@ -457,7 +457,7 @@
     <string name="preference_confirm_before_delete_title" msgid="7563587174619033835">"Bekreft før sletting"</string>
     <string name="preference_confirm_before_archive_title" msgid="7318645995655875718">"Bekreft før arkivering"</string>
     <string name="preference_confirm_before_send_title" msgid="4136585783513077039">"Bekreft før sending"</string>
-    <string name="preferences_conversation_mode_title" msgid="389352009651720838">"Automatisk tilpassing"</string>
+    <string name="preferences_conversation_mode_title" msgid="389352009651720838">"Tilpass meldinger automatisk"</string>
     <string name="preferences_conversation_mode_summary" msgid="5730999743867653106">"Krymp e-poster slik at de passer til skjermen"</string>
     <string name="preferences_disable_snap_headers_title" msgid="7257824136988429629">"E-postalternativer"</string>
   <string-array name="prefSummaries_snapHeader">

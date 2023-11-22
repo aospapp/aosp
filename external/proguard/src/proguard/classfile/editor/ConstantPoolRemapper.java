@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -53,6 +53,7 @@ implements   ClassVisitor,
              InstructionVisitor,
              StackMapFrameVisitor,
              VerificationTypeVisitor,
+             ParameterInfoVisitor,
              LocalVariableInfoVisitor,
              LocalVariableTypeInfoVisitor,
              AnnotationVisitor,
@@ -333,6 +334,16 @@ implements   ClassVisitor,
     }
 
 
+    public void visitMethodParametersAttribute(Clazz clazz, Method method, MethodParametersAttribute methodParametersAttribute)
+    {
+        methodParametersAttribute.u2attributeNameIndex =
+            remapConstantIndex(methodParametersAttribute.u2attributeNameIndex);
+
+        // Remap the constant pool references of the parameter information.
+        methodParametersAttribute.parametersAccept(clazz, method, this);
+    }
+
+
     public void visitExceptionsAttribute(Clazz clazz, Method method, ExceptionsAttribute exceptionsAttribute)
     {
         exceptionsAttribute.u2attributeNameIndex =
@@ -552,6 +563,15 @@ implements   ClassVisitor,
     }
 
 
+    // Implementations for ParameterInfoVisitor.
+
+    public void visitParameterInfo(Clazz clazz, Method method, int parameterIndex, ParameterInfo parameterInfo)
+    {
+        parameterInfo.u2nameIndex =
+            remapConstantIndex(parameterInfo.u2nameIndex);
+    }
+
+
     // Implementations for LocalVariableInfoVisitor.
 
     public void visitLocalVariableInfo(Clazz clazz, Method method, CodeAttribute codeAttribute, LocalVariableInfo localVariableInfo)
@@ -569,7 +589,7 @@ implements   ClassVisitor,
     {
         localVariableTypeInfo.u2nameIndex =
             remapConstantIndex(localVariableTypeInfo.u2nameIndex);
-        localVariableTypeInfo.u2signatureIndex       =
+        localVariableTypeInfo.u2signatureIndex =
             remapConstantIndex(localVariableTypeInfo.u2signatureIndex);
     }
 
@@ -637,8 +657,6 @@ implements   ClassVisitor,
     }
 
 
-    // Small utility methods.
-
     /**
      * Remaps all constant pool indices in the given array.
      */
@@ -650,6 +668,8 @@ implements   ClassVisitor,
         }
     }
 
+    // Small utility methods.
+
 
     /**
      * Returns the new constant pool index of the entry at the
@@ -657,6 +677,12 @@ implements   ClassVisitor,
      */
     private int remapConstantIndex(int constantIndex)
     {
-        return constantIndexMap[constantIndex];
+        int remappedConstantIndex = constantIndexMap[constantIndex];
+        if (remappedConstantIndex < 0)
+        {
+            throw new IllegalArgumentException("Can't remap constant index ["+constantIndex+"]");
+        }
+
+        return remappedConstantIndex;
     }
 }

@@ -80,7 +80,7 @@
     <string name="menu_show_original" msgid="2330398228979616661">"取消自動調整大小"</string>
     <string name="menu_settings" msgid="7993485401501778040">"設定"</string>
     <string name="menu_search" msgid="1949652467806052768">"搜尋"</string>
-    <string name="menu_toggle_drawer" msgid="8653049392208282481">"切換導覽匣"</string>
+    <string name="menu_toggle_drawer" msgid="8653049392208282481">"切換導覽列"</string>
     <string name="drawer_title" msgid="3766219846644975778">"瀏覽"</string>
     <string name="mark_important" msgid="8781680450177768820">"標示為重要"</string>
     <string name="mark_not_important" msgid="3342258155408116917">"標示為不重要"</string>

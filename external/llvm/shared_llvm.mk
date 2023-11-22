@@ -3,6 +3,8 @@ LOCAL_PATH:= $(call my-dir)
 llvm_pre_static_libraries := \
   libLLVMLinker \
   libLLVMipo \
+  libLLVMDebugInfoDWARF \
+  libLLVMDebugInfoPDB \
   libLLVMIRReader \
   libLLVMBitWriter \
   libLLVMBitReader
@@ -54,6 +56,7 @@ llvm_post_static_libraries := \
   libLLVMipa \
   libLLVMAnalysis \
   libLLVMTarget \
+  libLLVMMCDisassembler \
   libLLVMMC \
   libLLVMMCParser \
   libLLVMCore \
@@ -61,14 +64,13 @@ llvm_post_static_libraries := \
   libLLVMOption \
   libLLVMSupport \
   libLLVMVectorize \
+  libLLVMProfileData
 
 llvm_host_static_libraries := \
   libLLVMExecutionEngine \
-  libLLVMMCDisassembler \
   libLLVMRuntimeDyld \
-  libLLVMJIT \
   libLLVMMCJIT \
-  libLLVMProfileData
+  libLLVMOrcJIT
 
 ifeq (true,$(FORCE_BUILD_LLVM_COMPONENTS))
 # HOST LLVM shared library build

@@ -17,23 +17,10 @@
 /* Audio Record Test
 
 First run the program from shell:
-  # slesTest_recBuffQueue /sdcard/myrec.raw 4
+  % adb shell slesTest_recBuffQueue /sdcard/myrec.wav
 
 These use adb on host to retrive the file:
-  % adb pull /sdcard/myrec.raw myrec.raw
-
-How to examine the output with Audacity:
- Project / Import raw data
- Select myrec.raw file, then click Open button
- Choose these options:
-  Signed 16-bit PCM
-  Little-endian
-  1 Channel (Mono)
-  Sample rate 22050 Hz
- Click Import button
-
-How to convert with sox:
- sox -r 22050 -s -2 myrec.raw myrec.wav
+  % adb pull /sdcard/myrec.wav
 
 */
 
@@ -44,9 +31,18 @@ How to convert with sox:
 #include <unistd.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <system/audio.h>
+#include <audio_utils/primitives.h>
+#include <audio_utils/sndfile.h>
 
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
+
+audio_format_t transferFormat = AUDIO_FORMAT_DEFAULT;
+uint32_t sampleRate = 48000;
+int channelCount = 1;
+bool useIndexChannelMask = false;
+size_t frameSize;
 
 /* Preset number to use for recording */
 SLuint32 presetValue = SL_ANDROID_RECORDING_PRESET_NONE;
@@ -58,14 +54,13 @@ SLuint32 presetValue = SL_ANDROID_RECORDING_PRESET_NONE;
 /* Size of the recording buffer queue */
 #define NB_BUFFERS_IN_QUEUE 1
 /* Size of each buffer in the queue */
-#define BUFFER_SIZE_IN_SAMPLES 1024
-#define BUFFER_SIZE_IN_BYTES   (2*BUFFER_SIZE_IN_SAMPLES)
+#define BUFFER_SIZE_IN_BYTES 2048
 
 /* Local storage for Audio data */
 int8_t pcmData[NB_BUFFERS_IN_QUEUE * BUFFER_SIZE_IN_BYTES];
 
 /* destination for recorded data */
-static FILE* gFp;
+SNDFILE *sndfile;
 
 //-----------------------------------------------------------------
 /* Exits the application if an error is encountered */
@@ -74,7 +69,7 @@ static FILE* gFp;
 void ExitOnErrorFunc( SLresult result , int line)
 {
     if (SL_RESULT_SUCCESS != result) {
-        fprintf(stdout, "%u error code encountered at line %d, exiting\n", result, line);
+        fprintf(stderr, "%u error code encountered at line %d, exiting\n", result, line);
         exit(EXIT_FAILURE);
     }
 }
@@ -93,19 +88,19 @@ typedef struct CallbackCntxt_ {
 /* Callback for recording buffer queue events */
 void RecCallback(
         SLRecordItf caller,
-        void *pContext,
+        void *pContext __unused,
         SLuint32 event)
 {
     if (SL_RECORDEVENT_HEADATNEWPOS & event) {
         SLmillisecond pMsec = 0;
         (*caller)->GetPosition(caller, &pMsec);
-        fprintf(stdout, "SL_RECORDEVENT_HEADATNEWPOS current position=%ums\n", pMsec);
+        printf("SL_RECORDEVENT_HEADATNEWPOS current position=%ums\n", pMsec);
     }
 
     if (SL_RECORDEVENT_HEADATMARKER & event) {
         SLmillisecond pMsec = 0;
         (*caller)->GetPosition(caller, &pMsec);
-        fprintf(stdout, "SL_RECORDEVENT_HEADATMARKER current position=%ums\n", pMsec);
+        printf("SL_RECORDEVENT_HEADATMARKER current position=%ums\n", pMsec);
     }
 }
 
@@ -115,12 +110,31 @@ void RecBufferQueueCallback(
         SLAndroidSimpleBufferQueueItf queueItf,
         void *pContext)
 {
-    //fprintf(stdout, "RecBufferQueueCallback called\n");
+    //printf("RecBufferQueueCallback called\n");
 
     CallbackCntxt *pCntxt = (CallbackCntxt*)pContext;
 
     /* Save the recorded data  */
-    fwrite(pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES, 1, gFp);
+    sf_count_t frameCount = BUFFER_SIZE_IN_BYTES / frameSize;
+    switch (transferFormat) {
+    case AUDIO_FORMAT_PCM_8_BIT: {
+        short temp[BUFFER_SIZE_IN_BYTES];
+        memcpy_to_i16_from_u8(temp, (const unsigned char *) pCntxt->pDataBase, BUFFER_SIZE_IN_BYTES);
+        (void) sf_writef_short(sndfile, (const short *) temp, frameCount);
+        } break;
+    case AUDIO_FORMAT_PCM_16_BIT:
+        (void) sf_writef_short(sndfile, (const short *) pCntxt->pDataBase, frameCount);
+        break;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        (void) sf_writef_int(sndfile, (const int *) pCntxt->pDataBase, frameCount);
+        break;
+    case AUDIO_FORMAT_PCM_FLOAT:
+        (void) sf_writef_float(sndfile, (const float *) pCntxt->pDataBase, frameCount);
+        break;
+    default:
+        fprintf(stderr, "Unsupported transfer format %d\n", transferFormat);
+        exit(EXIT_FAILURE);
+    }
 
     /* Increase data pointer by buffer size */
     pCntxt->pData += BUFFER_SIZE_IN_BYTES;
@@ -137,6 +151,7 @@ void RecBufferQueueCallback(
     /*fprintf(stderr, "\tRecBufferQueueCallback now has pCntxt->pData=%p queue: "
             "count=%u playIndex=%u\n",
             pCntxt->pData, recQueueState.count, recQueueState.index);*/
+    //printf("RecBufferQueueCallback returned\n");
 }
 
 //-----------------------------------------------------------------
@@ -144,8 +159,29 @@ void RecBufferQueueCallback(
 /* Record to an audio path by opening a file descriptor on that path  */
 void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSeconds)
 {
-    gFp = fopen(path, "w");
-    if (NULL == gFp) {
+    SF_INFO info;
+    info.frames = 0;
+    info.samplerate = sampleRate;
+    info.channels = channelCount;
+    switch (transferFormat) {
+    case AUDIO_FORMAT_PCM_8_BIT:
+        info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_U8;
+        break;
+    case AUDIO_FORMAT_PCM_16_BIT:
+        info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_16;
+        break;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        info.format = SF_FORMAT_WAV | SF_FORMAT_PCM_32;
+        break;
+    case AUDIO_FORMAT_PCM_FLOAT:
+        info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
+        break;
+    default:
+        fprintf(stderr, "Unsupported transfer format %d\n", transferFormat);
+        exit(EXIT_FAILURE);
+    }
+    sndfile = sf_open(path, SFM_WRITE, &info);
+    if (sndfile == NULL) {
         ExitOnError(SL_RESULT_RESOURCE_ERROR);
     }
 
@@ -167,7 +203,10 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     /* Data sink for recorded audio */
     SLDataSink                recDest;
     SLDataLocator_AndroidSimpleBufferQueue recBuffQueue;
-    SLDataFormat_PCM          pcm;
+    /* As mentioned in the Android extension API documentation this is identical to
+     * OpenSL ES 1.1 SLDataFormat_PCM_EX, and can be used for an instance of SLDataFormat_PCM.
+     */
+    SLAndroidDataFormat_PCM_EX pcm;
 
     SLboolean required[NUM_EXPLICIT_INTERFACES_FOR_RECORDER];
     SLInterfaceID iidArray[NUM_EXPLICIT_INTERFACES_FOR_RECORDER];
@@ -204,12 +243,50 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     recBuffQueue.locatorType = SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE;
     recBuffQueue.numBuffers = NB_BUFFERS_IN_QUEUE;
     /*    set up the format of the data in the buffer queue */
-    pcm.formatType = SL_DATAFORMAT_PCM;
-    pcm.numChannels = 1;
-    pcm.samplesPerSec = SL_SAMPLINGRATE_22_05;
-    pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_16;
-    pcm.containerSize = 16;
-    pcm.channelMask = SL_SPEAKER_FRONT_LEFT;
+    pcm.formatType = transferFormat == AUDIO_FORMAT_PCM_FLOAT ||
+            transferFormat == AUDIO_FORMAT_PCM_8_BIT ?
+            SL_ANDROID_DATAFORMAT_PCM_EX : SL_DATAFORMAT_PCM;
+    pcm.numChannels = channelCount;
+    pcm.sampleRate = sampleRate * 1000; // milliHz
+    pcm.representation = SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT;
+    switch (transferFormat) {
+    case AUDIO_FORMAT_PCM_16_BIT:
+        pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_16;
+        pcm.containerSize = 16;
+        break;
+    case AUDIO_FORMAT_PCM_32_BIT:
+        pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_32;
+        pcm.containerSize = 32;
+        break;
+    case AUDIO_FORMAT_PCM_8_BIT:
+        pcm.bitsPerSample = SL_PCMSAMPLEFORMAT_FIXED_8;
+        pcm.containerSize = 8;
+        pcm.representation = SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT;
+        break;
+    case AUDIO_FORMAT_PCM_FLOAT:
+        pcm.bitsPerSample = 32;
+        pcm.containerSize = 32;
+        pcm.representation = SL_ANDROID_PCM_REPRESENTATION_FLOAT;
+        break;
+    default:
+        fprintf(stderr, "Unsupported transfer format %d\n", transferFormat);
+        exit(EXIT_FAILURE);
+    }
+    if (useIndexChannelMask) {
+        pcm.channelMask = (1 << channelCount) - 1;
+    } else {
+        switch (channelCount) {
+        case 1:
+            pcm.channelMask = SL_SPEAKER_FRONT_LEFT;
+            break;
+        case 2:
+            pcm.channelMask = SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT;
+            break;
+        default:
+            fprintf(stderr, "Unsupported channel count %d\n", channelCount);
+            exit(EXIT_FAILURE);
+        }
+    }
     pcm.endianness = SL_BYTEORDER_LITTLEENDIAN;
 
     recDest.pLocator = (void *) &recBuffQueue;
@@ -219,7 +296,7 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     result = (*EngineItf)->CreateAudioRecorder(EngineItf, &recorder, &recSource, &recDest,
             NUM_EXPLICIT_INTERFACES_FOR_RECORDER, iidArray, required);
     ExitOnError(result);
-    fprintf(stdout, "Recorder created\n");
+    printf("Recorder created\n");
 
     /* Get the Android configuration interface which is explicit */
     result = (*recorder)->GetInterface(recorder, SL_IID_ANDROIDCONFIGURATION, (void*)&configItf);
@@ -230,7 +307,7 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
         result = (*configItf)->SetConfiguration(configItf, SL_ANDROID_KEY_RECORDING_PRESET,
                 &presetValue, sizeof(SLuint32));
         ExitOnError(result);
-        fprintf(stdout, "Recorder parameterized with preset %u\n", presetValue);
+        printf("Recorder configured with preset %u\n", presetValue);
     } else {
         printf("Using default record preset\n");
     }
@@ -251,7 +328,7 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     /* Realize the recorder in synchronous mode. */
     result = (*recorder)->Realize(recorder, SL_BOOLEAN_FALSE);
     ExitOnError(result);
-    fprintf(stdout, "Recorder realized\n");
+    printf("Recorder realized\n");
 
     /* Get the record interface which is implicit */
     result = (*recorder)->GetInterface(recorder, SL_IID_RECORD, (void*)&recordItf);
@@ -267,7 +344,7 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     ExitOnError(result);
     result = (*recordItf)->RegisterCallback(recordItf, RecCallback, NULL);
     ExitOnError(result);
-    fprintf(stdout, "Recorder callback registered\n");
+    printf("Recorder callback registered\n");
 
     /* Get the buffer queue interface which was explicitly requested */
     result = (*recorder)->GetInterface(recorder, SL_IID_ANDROIDSIMPLEBUFFERQUEUE,
@@ -284,21 +361,21 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     ExitOnError(result);
 
     /* Enqueue buffers to map the region of memory allocated to store the recorded data */
-    fprintf(stdout,"Enqueueing buffer ");
+    printf("Enqueueing buffer ");
     for(int i = 0 ; i < NB_BUFFERS_IN_QUEUE ; i++) {
-        fprintf(stdout,"%d ", i);
+        printf("%d ", i);
         result = (*recBuffQueueItf)->Enqueue(recBuffQueueItf, cntxt.pData, BUFFER_SIZE_IN_BYTES);
         ExitOnError(result);
         cntxt.pData += BUFFER_SIZE_IN_BYTES;
     }
-    fprintf(stdout,"\n");
+    printf("\n");
     cntxt.pData = cntxt.pDataBase;
 
     /* ------------------------------------------------------ */
     /* Start recording */
     result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_RECORDING);
     ExitOnError(result);
-    fprintf(stdout, "Starting to record\n");
+    printf("Starting to record\n");
 
     /* Record for at least a second */
     if (durationInSeconds < 1) {
@@ -312,24 +389,25 @@ void TestRecToBuffQueue( SLObjectItf sl, const char* path, SLAint64 durationInSe
     /* Stop recording */
     result = (*recordItf)->SetRecordState(recordItf, SL_RECORDSTATE_STOPPED);
     ExitOnError(result);
-    fprintf(stdout, "Stopped recording\n");
+    printf("Stopped recording\n");
 
     /* Destroy the AudioRecorder object */
     (*recorder)->Destroy(recorder);
 
-    fclose(gFp);
+    sf_close(sndfile);
 }
 
 //-----------------------------------------------------------------
 int main(int argc, char* const argv[])
 {
+    int durationInSeconds = 10;
     SLresult    result;
     SLObjectItf sl;
 
     const char *prog = argv[0];
-    fprintf(stdout, "OpenSL ES test %s: exercises SLRecordItf and SLAndroidSimpleBufferQueueItf ",
+    printf("OpenSL ES test %s: exercises SLRecordItf and SLAndroidSimpleBufferQueueItf ",
             prog);
-    fprintf(stdout, "on an AudioRecorder object\n");
+    printf("on an AudioRecorder object\n");
 
     int i;
     for (i = 1; i < argc; ++i) {
@@ -338,8 +416,32 @@ int main(int argc, char* const argv[])
             break;
         }
         switch (arg[1]) {
+        case 'c':   // channel count
+            channelCount = atoi(&arg[2]);
+            break;
+        case 'd':   // duration in seconds
+            durationInSeconds = atoi(&arg[2]);
+            break;
+        case 'f':
+            transferFormat = AUDIO_FORMAT_PCM_FLOAT;
+            break;
+        case 'i':
+            useIndexChannelMask = true;
+            break;
         case 'p':   // preset number
             presetValue = atoi(&arg[2]);
+            break;
+        case 'r':
+            sampleRate = atoi(&arg[2]);
+            break;
+        case '1':
+            transferFormat = AUDIO_FORMAT_PCM_8_BIT;
+            break;
+        case '2':
+            transferFormat = AUDIO_FORMAT_PCM_16_BIT;
+            break;
+        case '4':
+            transferFormat = AUDIO_FORMAT_PCM_32_BIT;
             break;
         default:
             fprintf(stderr, "%s: unknown option %s\n", prog, arg);
@@ -347,8 +449,16 @@ int main(int argc, char* const argv[])
         }
     }
 
-    if (argc-i < 2) {
-        printf("Usage: \t%s [-p#] destination_file duration_in_seconds\n", prog);
+    if (transferFormat == AUDIO_FORMAT_DEFAULT) {
+        transferFormat = AUDIO_FORMAT_PCM_16_BIT;
+    }
+    frameSize = audio_bytes_per_sample(transferFormat) * channelCount;
+
+    if (argc-i != 1) {
+        printf("Usage: \t%s [-c#] [-d#] [-i] [-p#] [-r#] [-1/2/4/f] destination_file\n", prog);
+        printf("  -c# channel count, defaults to 1\n");
+        printf("  -d# duration in seconds, default to 10\n");
+        printf("  -i  index channel mask, not yet implemented\n");
         printf("  -p# is the preset value which defaults to SL_ANDROID_RECORDING_PRESET_NONE\n");
         printf("  possible values are:\n");
         printf("    -p%d SL_ANDROID_RECORDING_PRESET_NONE\n",
@@ -361,7 +471,10 @@ int main(int argc, char* const argv[])
                 SL_ANDROID_RECORDING_PRESET_VOICE_RECOGNITION);
         printf("    -p%d SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION\n",
                 SL_ANDROID_RECORDING_PRESET_VOICE_COMMUNICATION);
-        printf("Example: \"%s /sdcard/myrec.raw 4\" \n", prog);
+        printf("  -r# sample rate in Hz, defaults to 48000\n");
+        printf("  -[1/2/4/f] sample format: 8-bit unsigned, 16-bit signed, 32-bit signed, float, "
+                "defaults to 16-bit signed\n");
+        printf("Example: \"%s /sdcard/myrec.wav\" \n", prog);
         exit(EXIT_FAILURE);
     }
 
@@ -376,7 +489,7 @@ int main(int argc, char* const argv[])
     result = (*sl)->Realize(sl, SL_BOOLEAN_FALSE);
     ExitOnError(result);
 
-    TestRecToBuffQueue(sl, argv[i], (SLAint64)atoi(argv[i+1]));
+    TestRecToBuffQueue(sl, argv[i], durationInSeconds);
 
     /* Shutdown OpenSL ES */
     (*sl)->Destroy(sl);

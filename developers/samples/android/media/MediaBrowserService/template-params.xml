@@ -38,7 +38,8 @@ local UI.
     </strings>
 
     <!-- The basic templates have already been enabled. Uncomment more as desired. -->
-    <template src="basebuild" />
+    <template src="base-build" />
+    <template src="base-application" />
     <metadata>
     <status>PUBLISHED</status>
     <categories>Media</categories>

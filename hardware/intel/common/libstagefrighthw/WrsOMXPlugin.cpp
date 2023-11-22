@@ -139,6 +139,8 @@ OMX_ERRORTYPE WrsOMXPlugin::makeComponentInstance(
 
                 mComponents.push_back(comp);
                 return OMX_ErrorNone;
+            } else if(omx_res == OMX_ErrorInsufficientResources) {
+                return OMX_ErrorInsufficientResources;
             }
         }
     }

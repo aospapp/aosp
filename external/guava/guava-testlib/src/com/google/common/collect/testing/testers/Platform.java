@@ -16,26 +16,15 @@
 
 package com.google.common.collect.testing.testers;
 
-import java.lang.reflect.Method;
+import com.google.common.annotations.GwtCompatible;
 
 /**
  * This class is emulated in GWT.
  *
  * @author Hayward Chan
  */
-class Platform {
-
-  /**
-   * Delegate to {@link Class#getMethod(String, Class[])}.  Not
-   * usable in GWT.
-   */
-  static Method getMethod(Class<?> clazz, String methodName) {
-    try {
-      return clazz.getMethod(methodName);
-    } catch (NoSuchMethodException e) {
-      throw new RuntimeException(e);
-    }
-  }
+@GwtCompatible
+final class Platform {
 
   /**
    * Format the template with args, only supports the placeholder
@@ -54,4 +43,6 @@ class Platform {
   static int collectionIteratorTesterNumIterations() {
     return 5;
   }
+
+  private Platform() {}
 }

@@ -3,11 +3,11 @@
 
 static int64_t g_time;
 
-static void start(void) {
+static inline void start(void) {
     g_time = rsUptimeMillis();
 }
 
-static float end(void) {
+static inline float end(void) {
     int64_t t = rsUptimeMillis() - g_time;
     return ((float)t) / 1000.f;
 }
@@ -24,4 +24,3 @@ do { \
 /* These constants must match those in UnitTest.java */
 static const int RS_MSG_TEST_PASSED = 100;
 static const int RS_MSG_TEST_FAILED = 101;
-

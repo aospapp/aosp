@@ -19,7 +19,6 @@ package android.media.cts;
 import static android.media.AudioManager.ADJUST_LOWER;
 import static android.media.AudioManager.ADJUST_RAISE;
 import static android.media.AudioManager.ADJUST_SAME;
-import static android.media.AudioManager.FLAG_ALLOW_RINGER_MODES;
 import static android.media.AudioManager.MODE_IN_CALL;
 import static android.media.AudioManager.MODE_IN_COMMUNICATION;
 import static android.media.AudioManager.MODE_NORMAL;
@@ -45,40 +44,33 @@ import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.os.Vibrator;
 import android.provider.Settings;
-import android.telephony.TelephonyManager;
-import android.test.AndroidTestCase;
+import android.provider.Settings.System;
+import android.test.InstrumentationTestCase;
 import android.view.SoundEffectConstants;
 
 import java.util.TreeMap;
 
-public class AudioManagerTest extends AndroidTestCase {
+public class AudioManagerTest extends InstrumentationTestCase {
 
     private final static int MP3_TO_PLAY = R.raw.testmp3;
     private final static long TIME_TO_PLAY = 2000;
+    private final static String APPOPS_OP_STR = "android:write_settings";
     private AudioManager mAudioManager;
     private boolean mHasVibrator;
-    private boolean mUseMasterVolume;
     private boolean mUseFixedVolume;
-    private int[] mMasterVolumeRamp;
-    private TreeMap<Integer, Integer> mMasterVolumeMap = new TreeMap<Integer, Integer>();
     private boolean mIsTelevision;
+    private Context mContext;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        mContext = getInstrumentation().getContext();
+        Utils.enableAppOps(mContext.getPackageName(), APPOPS_OP_STR, getInstrumentation());
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         Vibrator vibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
         mHasVibrator = (vibrator != null) && vibrator.hasVibrator();
-        mUseMasterVolume = mContext.getResources().getBoolean(
-                Resources.getSystem().getIdentifier("config_useMasterVolume", "bool", "android"));
         mUseFixedVolume = mContext.getResources().getBoolean(
                 Resources.getSystem().getIdentifier("config_useFixedVolume", "bool", "android"));
-        mMasterVolumeRamp = mContext.getResources().getIntArray(
-                Resources.getSystem().getIdentifier("config_masterVolumeRamp", "array", "android"));
-        assertTrue((mMasterVolumeRamp.length > 0) && (mMasterVolumeRamp.length % 2 == 0));
-        for (int i = 0; i < mMasterVolumeRamp.length; i+=2) {
-            mMasterVolumeMap.put(mMasterVolumeRamp[i], mMasterVolumeRamp[i+1]);
-        }
         PackageManager packageManager = mContext.getPackageManager();
         mIsTelevision = packageManager != null
                 && (packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
@@ -350,6 +342,12 @@ public class AudioManagerTest extends AndroidTestCase {
             mAudioManager.setRingerMode(RINGER_MODE_NORMAL);
 
             int maxVolume = mAudioManager.getStreamMaxVolume(streams[i]);
+            int minVolume = mAudioManager.getStreamMinVolume(streams[i]);
+
+            // validate min
+            assertTrue(String.format("minVolume(%d) must be >= 0", minVolume), minVolume >= 0);
+            assertTrue(String.format("minVolume(%d) must be < maxVolume(%d)", minVolume, maxVolume),
+                    minVolume < maxVolume);
 
             mAudioManager.setStreamVolume(streams[i], 1, 0);
             if (mUseFixedVolume) {
@@ -384,7 +382,7 @@ public class AudioManagerTest extends AndroidTestCase {
             // volume lower
             mAudioManager.setStreamVolume(streams[i], maxVolume, 0);
             volume = mAudioManager.getStreamVolume(streams[i]);
-            while (volume > 0) {
+            while (volume > minVolume) {
                 volumeDelta = getVolumeDelta(mAudioManager.getStreamVolume(streams[i]));
                 mAudioManager.adjustStreamVolume(streams[i], ADJUST_LOWER, 0);
                 assertEquals(Math.max(0, volume - volumeDelta),
@@ -457,6 +455,88 @@ public class AudioManagerTest extends AndroidTestCase {
         assertFalse(mAudioManager.isMusicActive());
     }
 
+    public void testMute() {
+        int[] streams = {
+                AudioManager.STREAM_VOICE_CALL,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.STREAM_RING,
+                AudioManager.STREAM_ALARM,
+                AudioManager.STREAM_NOTIFICATION,
+                AudioManager.STREAM_SYSTEM };
+
+        int muteAffectedStreams = System.getInt(mContext.getContentResolver(),
+                System.MUTE_STREAMS_AFFECTED,
+                        // Same defaults as in AudioService. Should be kept in
+                        // sync.
+                        ((1 << AudioManager.STREAM_MUSIC) |
+                                (1 << AudioManager.STREAM_RING) |
+                                (1 << AudioManager.STREAM_NOTIFICATION) |
+                                (1 << AudioManager.STREAM_SYSTEM)));
+        if (mUseFixedVolume) {
+            for (int i = 0; i < streams.length; i++) {
+                mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_MUTE, 0);
+                assertFalse("Muting should not affect a fixed volume device.",
+                        mAudioManager.isStreamMute(streams[i]));
+
+                mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_TOGGLE_MUTE, 0);
+                assertFalse("Toggling mute should not affect a fixed volume device.",
+                        mAudioManager.isStreamMute(streams[i]));
+
+                mAudioManager.setStreamMute(streams[i], true);
+                assertFalse("Muting should not affect a fixed volume device.",
+                        mAudioManager.isStreamMute(streams[i]));
+            }
+            return;
+        }
+        // This ensures we're out of vibrate or silent modes.
+        mAudioManager.setRingerMode(RINGER_MODE_NORMAL);
+        for (int i = 0; i < streams.length; i++) {
+            // ensure each stream is on and turned up.
+            mAudioManager.setStreamVolume(streams[i], mAudioManager.getStreamMaxVolume(streams[i]),
+                    0);
+            if (((1 << streams[i]) & muteAffectedStreams) == 0) {
+                mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_MUTE, 0);
+                assertFalse("Stream " + streams[i] + " should not be affected by mute.",
+                        mAudioManager.isStreamMute(streams[i]));
+                mAudioManager.setStreamMute(streams[i], true);
+                assertFalse("Stream " + streams[i] + " should not be affected by mute.",
+                        mAudioManager.isStreamMute(streams[i]));
+                mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_TOGGLE_MUTE, 0);
+                assertFalse("Stream " + streams[i] + " should not be affected by mute.",
+                        mAudioManager.isStreamMute(streams[i]));
+                continue;
+            }
+            mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_MUTE, 0);
+            assertTrue("Muting stream " + streams[i] + " failed.",
+                    mAudioManager.isStreamMute(streams[i]));
+
+            mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_UNMUTE, 0);
+            assertFalse("Unmuting stream " + streams[i] + " failed.",
+                    mAudioManager.isStreamMute(streams[i]));
+
+            mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_TOGGLE_MUTE, 0);
+            assertTrue("Toggling mute on stream " + streams[i] + " failed.",
+                    mAudioManager.isStreamMute(streams[i]));
+
+            mAudioManager.adjustStreamVolume(streams[i], AudioManager.ADJUST_TOGGLE_MUTE, 0);
+            assertFalse("Toggling mute on stream " + streams[i] + " failed.",
+                    mAudioManager.isStreamMute(streams[i]));
+
+            mAudioManager.setStreamMute(streams[i], true);
+            assertTrue("Muting stream " + streams[i] + " using setStreamMute failed",
+                    mAudioManager.isStreamMute(streams[i]));
+
+            // mute it three more times to verify the ref counting is gone.
+            mAudioManager.setStreamMute(streams[i], true);
+            mAudioManager.setStreamMute(streams[i], true);
+            mAudioManager.setStreamMute(streams[i], true);
+
+            mAudioManager.setStreamMute(streams[i], false);
+            assertFalse("Unmuting stream " + streams[i] + " using setStreamMute failed.",
+                    mAudioManager.isStreamMute(streams[i]));
+        }
+    }
+
     public void testSetInvalidRingerMode() {
         int ringerMode = mAudioManager.getRingerMode();
         mAudioManager.setRingerMode(-1337);
@@ -467,11 +547,6 @@ public class AudioManagerTest extends AndroidTestCase {
     }
 
     private int getVolumeDelta(int volume) {
-        if (!mUseMasterVolume) {
-            return 1;
-        }
-        int volumeDelta = mMasterVolumeMap.floorEntry(volume).getValue();
-        assertTrue(volumeDelta > 0);
-        return volumeDelta;
+        return 1;
     }
 }

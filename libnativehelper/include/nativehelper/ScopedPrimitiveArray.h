@@ -50,11 +50,10 @@
         const PRIMITIVE_TYPE& operator[](size_t n) const { return mRawArray[n]; } \
         size_t size() const { return mEnv->GetArrayLength(mJavaArray); } \
     private: \
-        JNIEnv* mEnv; \
+        JNIEnv* const mEnv; \
         PRIMITIVE_TYPE ## Array mJavaArray; \
         PRIMITIVE_TYPE* mRawArray; \
-        Scoped ## NAME ## ArrayRO(const Scoped ## NAME ## ArrayRO&); \
-        void operator=(const Scoped ## NAME ## ArrayRO&); \
+        DISALLOW_COPY_AND_ASSIGN(Scoped ## NAME ## ArrayRO); \
     }
 
 INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RO(jboolean, Boolean);
@@ -101,11 +100,10 @@ INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RO(jshort, Short);
         PRIMITIVE_TYPE& operator[](size_t n) { return mRawArray[n]; } \
         size_t size() const { return mEnv->GetArrayLength(mJavaArray); } \
     private: \
-        JNIEnv* mEnv; \
+        JNIEnv* const mEnv; \
         PRIMITIVE_TYPE ## Array mJavaArray; \
         PRIMITIVE_TYPE* mRawArray; \
-        Scoped ## NAME ## ArrayRW(const Scoped ## NAME ## ArrayRW&); \
-        void operator=(const Scoped ## NAME ## ArrayRW&); \
+        DISALLOW_COPY_AND_ASSIGN(Scoped ## NAME ## ArrayRW); \
     }
 
 INSTANTIATE_SCOPED_PRIMITIVE_ARRAY_RW(jboolean, Boolean);

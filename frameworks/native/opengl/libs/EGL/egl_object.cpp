@@ -14,6 +14,9 @@
  ** limitations under the License.
  */
 
+#include <string>
+#include <sstream>
+
 #include <ctype.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -112,6 +115,14 @@ void egl_context_t::onMakeCurrent(EGLSurface draw, EGLSurface read) {
             String8 temp("GL_EXT_debug_marker ");
             temp.append(gl_extensions);
             gl_extensions.setTo(temp);
+        }
+
+        // tokenize the supported extensions for the glGetStringi() wrapper
+        std::stringstream ss;
+        std::string str;
+        ss << gl_extensions.string();
+        while (ss >> str) {
+            tokenized_gl_extensions.push(String8(str.c_str()));
         }
     }
 }

@@ -244,12 +244,13 @@ public class SipEditor extends PreferenceActivity
      * {@link android.telecom.PhoneAccount}.
      *
      * @param p The {@link SipProfile} to register.
+     * @param enableProfile {@code true} if profile should be enabled, too.
      * @throws IOException Exception resulting from profile save.
      */
-    private void saveAndRegisterProfile(SipProfile p) throws IOException {
+    private void saveAndRegisterProfile(SipProfile p, boolean enableProfile) throws IOException {
         if (p == null) return;
         mProfileDb.saveProfile(p);
-        mSipAccountRegistry.startSipService(this, p.getUriString());
+        mSipAccountRegistry.startSipService(this, p.getProfileName(), enableProfile);
     }
 
     /**
@@ -261,7 +262,7 @@ public class SipEditor extends PreferenceActivity
     private void deleteAndUnregisterProfile(SipProfile p) {
         if (p == null) return;
         mProfileDb.deleteProfile(p);
-        mSipAccountRegistry.stopSipService(this, p.getUriString());
+        mSipAccountRegistry.stopSipService(this, p.getProfileName());
     }
 
     private void setRemovedProfileAndFinish() {
@@ -372,7 +373,8 @@ public class SipEditor extends PreferenceActivity
             public void run() {
                 try {
                     deleteAndUnregisterProfile(oldProfile);
-                    saveAndRegisterProfile(newProfile);
+                    boolean autoEnableNewProfile = oldProfile == null;
+                    saveAndRegisterProfile(newProfile, autoEnableNewProfile);
                     finish();
                 } catch (Exception e) {
                     log("replaceProfile, can not save/register new SipProfile, exception: " + e);

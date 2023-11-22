@@ -76,7 +76,7 @@
         android:layout_toEndOf="@id/action_icon"
         android:orientation="vertical" >
 
-        <com.android.tv.settings.widget.ResizingTextView
+        <TextView
             android:id="@+id/action_title"
             style="@style/Canvas.Text.Dialog.List.Title"
             android:layout_width="wrap_content"
@@ -84,7 +84,7 @@
             android:maxLines="@integer/action_title_min_lines"
             android:ellipsize="end" />
 
-        <com.android.tv.settings.widget.ResizingTextView
+        <TextView
             android:id="@+id/action_description"
             style="@style/Canvas.Text.Dialog.List.Description"
             android:layout_width="wrap_content"

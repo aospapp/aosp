@@ -18,58 +18,52 @@
 
 #include "vp9/common/vp9_onyxc_int.h"
 #include "vp9/common/vp9_ppflags.h"
+#include "vp9/common/vp9_thread.h"
 
-#include "vp9/decoder/vp9_decoder.h"
 #include "vp9/decoder/vp9_dthread.h"
-#include "vp9/decoder/vp9_thread.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct {
-  int width;
-  int height;
-  int version;
-  int max_threads;
-  int inv_tile_order;
-} VP9D_CONFIG;
+// TODO(hkuang): combine this with TileWorkerData.
+typedef struct TileData {
+  VP9_COMMON *cm;
+  vp9_reader bit_reader;
+  DECLARE_ALIGNED(16, MACROBLOCKD, xd);
+} TileData;
 
 typedef struct VP9Decoder {
   DECLARE_ALIGNED(16, MACROBLOCKD, mb);
 
   DECLARE_ALIGNED(16, VP9_COMMON, common);
 
-  VP9D_CONFIG oxcf;
-
-  int64_t last_time_stamp;
   int ready_for_new_data;
 
   int refresh_frame_flags;
 
-  int decoded_key_frame;
+  int frame_parallel_decode;  // frame-based threading.
 
-  int initial_width;
-  int initial_height;
-
-  int do_loopfilter_inline;  // apply loopfilter to available rows immediately
   VP9Worker lf_worker;
-
   VP9Worker *tile_workers;
   int num_tile_workers;
 
+  TileData *tile_data;
+  int total_tiles;
+
   VP9LfSync lf_row_sync;
+
+  vpx_decrypt_cb decrypt_cb;
+  void *decrypt_state;
+
+  int max_threads;
+  int inv_tile_order;
 } VP9Decoder;
 
-void vp9_initialize_dec();
-
 int vp9_receive_compressed_data(struct VP9Decoder *pbi,
-                                size_t size, const uint8_t **dest,
-                                int64_t time_stamp);
+                                size_t size, const uint8_t **dest);
 
-int vp9_get_raw_frame(struct VP9Decoder *pbi,
-                      YV12_BUFFER_CONFIG *sd,
-                      int64_t *time_stamp, int64_t *time_end_stamp,
+int vp9_get_raw_frame(struct VP9Decoder *pbi, YV12_BUFFER_CONFIG *sd,
                       vp9_ppflags_t *flags);
 
 vpx_codec_err_t vp9_copy_reference_dec(struct VP9Decoder *pbi,
@@ -80,11 +74,7 @@ vpx_codec_err_t vp9_set_reference_dec(VP9_COMMON *cm,
                                       VP9_REFFRAME ref_frame_flag,
                                       YV12_BUFFER_CONFIG *sd);
 
-int vp9_get_reference_dec(struct VP9Decoder *pbi,
-                          int index, YV12_BUFFER_CONFIG **fb);
-
-
-struct VP9Decoder *vp9_decoder_create(const VP9D_CONFIG *oxcf);
+struct VP9Decoder *vp9_decoder_create();
 
 void vp9_decoder_remove(struct VP9Decoder *pbi);
 

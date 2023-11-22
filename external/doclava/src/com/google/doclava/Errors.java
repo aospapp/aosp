@@ -171,6 +171,8 @@ public class Errors {
   public static final Error BROKEN_SINCE_FILE = new Error(118, ERROR);
   public static final Error INVALID_CONTENT_TYPE = new Error(119, ERROR);
   public static final Error INVALID_SAMPLE_INDEX = new Error(120, ERROR);
+  public static final Error HIDDEN_TYPE_PARAMETER = new Error(121, HIDDEN);
+  public static final Error PRIVATE_SUPERCLASS = new Error(122, ERROR);
 
   public static final Error[] ERRORS =
       {UNRESOLVED_LINK, BAD_INCLUDE_TAG, UNKNOWN_TAG, UNKNOWN_PARAM_TAG_NAME,
@@ -182,7 +184,7 @@ public class Errors {
           CHANGED_TRANSIENT, CHANGED_VOLATILE, CHANGED_TYPE, CHANGED_VALUE, CHANGED_SUPERCLASS,
           CHANGED_SCOPE, CHANGED_ABSTRACT, CHANGED_THROWS, CHANGED_NATIVE, CHANGED_CLASS,
           CHANGED_DEPRECATED, CHANGED_SYNCHRONIZED, ADDED_FINAL_UNINSTANTIABLE, REMOVED_FINAL,
-          BROKEN_SINCE_FILE, INVALID_CONTENT_TYPE};
+          BROKEN_SINCE_FILE, INVALID_CONTENT_TYPE, HIDDEN_TYPE_PARAMETER, PRIVATE_SUPERCLASS};
 
   public static boolean setErrorLevel(int code, int level) {
     for (Error e : ERRORS) {

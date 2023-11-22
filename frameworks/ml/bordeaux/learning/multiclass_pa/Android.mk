@@ -27,12 +27,7 @@ LOCAL_MODULE := libmulticlass_pa
 LOCAL_SRC_FILES := native/multiclass_pa.cpp \
                    jni/jni_multiclass_pa.cpp
 
-LOCAL_PRELINK_MODULE := false
-
-LOCAL_CFLAGS := -DANDROID
 
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../native
-
-include external/stlport/libstlport.mk
 
 include $(BUILD_STATIC_LIBRARY)

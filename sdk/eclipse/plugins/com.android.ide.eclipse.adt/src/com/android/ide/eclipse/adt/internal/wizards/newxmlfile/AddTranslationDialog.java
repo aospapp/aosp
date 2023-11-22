@@ -275,7 +275,7 @@ public class AddTranslationDialog extends Dialog implements ControlListener, Sel
 
     /** Populate the languages dropdown */
     private void fillLanguages() {
-        Set<String> languageCodes = LocaleManager.getLanguageCodes();
+        List<String> languageCodes = LocaleManager.getLanguageCodes();
         List<String> labels = new ArrayList<String>();
         for (String code : languageCodes) {
             labels.add(code + ": " + LocaleManager.getLanguageName(code)); //$NON-NLS-1$
@@ -291,7 +291,7 @@ public class AddTranslationDialog extends Dialog implements ControlListener, Sel
         // TODO: When you switch languages, offer some "default" usable options. For example,
         // when you choose English, offer the countries that use English, and so on. Unfortunately
         // we don't have good data about this, we'd just need to hardcode a few common cases.
-        Set<String> regionCodes = LocaleManager.getRegionCodes();
+        List<String> regionCodes = LocaleManager.getRegionCodes();
         List<String> labels = new ArrayList<String>();
         for (String code : regionCodes) {
             labels.add(code + ": " + LocaleManager.getRegionName(code)); //$NON-NLS-1$

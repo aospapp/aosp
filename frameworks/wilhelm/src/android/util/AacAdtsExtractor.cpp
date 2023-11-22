@@ -137,14 +137,14 @@ AacAdtsExtractor::AacAdtsExtractor(const sp<DataSource> &source)
                 // Usually frameSize == 0 due to EOS is benign (and getFrameSize() doesn't SL_LOGE),
                 // but in this case we were told the total size of the data source and so an EOS
                 // should not happen.
-                SL_LOGE("AacAdtsExtractor() failed querying framesize at offset=%lld", offset);
+                SL_LOGE("AacAdtsExtractor() failed querying framesize at offset=%lld", (long long) offset);
                 return;
             }
 
             offset += frameSize;
             if (offset > streamSize) {
                 SL_LOGE("AacAdtsExtractor() frame of size %zu at offset=%lld is beyond EOF %lld",
-                        frameSize, offset, streamSize);
+                        frameSize, (long long) offset, (long long) streamSize);
                 return;
             }
             numFrames ++;

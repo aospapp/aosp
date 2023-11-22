@@ -27,12 +27,43 @@
  */
 
 #include <mntent.h>
+#include <string.h>
 
-mntent* getmntent(FILE*) {
-  return NULL;
+#include "private/ThreadLocalBuffer.h"
+
+static ThreadLocalBuffer<mntent> g_getmntent_mntent_tls_buffer;
+static ThreadLocalBuffer<char, BUFSIZ> g_getmntent_strings_tls_buffer;
+
+mntent* getmntent(FILE* fp) {
+  return getmntent_r(fp, g_getmntent_mntent_tls_buffer.get(),
+                     g_getmntent_strings_tls_buffer.get(),
+                     g_getmntent_strings_tls_buffer.size());
 }
 
-mntent* getmntent_r(FILE*, struct mntent*, char*, int) {
+mntent* getmntent_r(FILE* fp, struct mntent* e, char* buf, int buf_len) {
+  memset(e, 0, sizeof(*e));
+  while (fgets(buf, buf_len, fp) != NULL) {
+    // Entries look like "proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0".
+    // That is: mnt_fsname mnt_dir mnt_type mnt_opts 0 0.
+    int fsname0, fsname1, dir0, dir1, type0, type1, opts0, opts1;
+    if (sscanf(buf, " %n%*s%n %n%*s%n %n%*s%n %n%*s%n %d %d",
+               &fsname0, &fsname1, &dir0, &dir1, &type0, &type1, &opts0, &opts1,
+               &e->mnt_freq, &e->mnt_passno) == 2) {
+      e->mnt_fsname = &buf[fsname0];
+      buf[fsname1] = '\0';
+
+      e->mnt_dir = &buf[dir0];
+      buf[dir1] = '\0';
+
+      e->mnt_type = &buf[type0];
+      buf[type1] = '\0';
+
+      e->mnt_opts = &buf[opts0];
+      buf[opts1] = '\0';
+
+      return e;
+    }
+  }
   return NULL;
 }
 

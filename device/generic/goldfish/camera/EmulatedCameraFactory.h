@@ -80,6 +80,11 @@ public:
      */
     int setCallbacks(const camera_module_callbacks_t *callbacks);
 
+    /* Fill in vendor tags for the module
+     * This method is called in response to camera_module_t::get_vendor_tag_ops callback.
+     */
+    void getVendorTagOps(vendor_tag_ops_t* ops);
+
     /****************************************************************************
      * Camera HAL API callbacks.
      ***************************************************************************/
@@ -93,6 +98,13 @@ public:
 
     /* camera_module_t::set_callbacks callback entry point. */
     static int set_callbacks(const camera_module_callbacks_t *callbacks);
+
+    /* camera_module_t::get_vendor_tag_ops callback entry point */
+    static void get_vendor_tag_ops(vendor_tag_ops_t* ops);
+
+    /* camera_module_t::open_legacy callback entry point */
+    static int open_legacy(const struct hw_module_t* module, const char* id,
+            uint32_t halVersion, struct hw_device_t** device);
 
 private:
     /* hw_module_methods_t::open callback entry point. */

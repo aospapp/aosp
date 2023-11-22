@@ -38,7 +38,7 @@ RSExportVar::RSExportVar(RSContext *Context,
       mNumInits(0) {
   // mInit - Evaluate initializer expression
   const clang::Expr *Initializer = VD->getAnyInitializer();
-  if (Initializer != NULL) {
+  if (Initializer != nullptr) {
     switch (ET->getClass()) {
       case RSExportType::ExportClassPrimitive:
       case RSExportType::ExportClassVector: {

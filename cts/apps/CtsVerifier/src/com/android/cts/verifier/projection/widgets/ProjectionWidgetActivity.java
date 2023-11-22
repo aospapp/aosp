@@ -67,13 +67,5 @@ public class ProjectionWidgetActivity extends ProjectionActivity {
             button = (Button) view.findViewById(R.id.down_button);
             button.setOnClickListener(new InjectDPadClickListener(KeyEvent.KEYCODE_DPAD_DOWN));
         }
-        {
-            button = (Button) view.findViewById(R.id.right_button);
-            button.setOnClickListener(new InjectDPadClickListener(KeyEvent.KEYCODE_DPAD_RIGHT));
-        }
-        {
-            button = (Button) view.findViewById(R.id.left_button);
-            button.setOnClickListener(new InjectDPadClickListener(KeyEvent.KEYCODE_DPAD_LEFT));
-        }
     }
 }

@@ -22,6 +22,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureRequest.Builder;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.params.MeteringRectangle;
+import android.media.Image;
 import android.util.Log;
 import android.util.Size;
 
@@ -514,6 +515,37 @@ public class CameraErrorCollector extends ErrorCollector {
 
         if (!expectSimilarValues(
                 formattedMsg, "bottom pt too low", "bottom pt too high", actual.top, expected.top,
+                errorPercent)) return false;
+
+        return true;
+    }
+
+    /**
+     * Check that two sizes are similar enough by ensuring that their width and height
+     * are within {@code errorPercent} of each other.
+     *
+     * <p>Only the first error is collected, to avoid spamming several error messages when
+     * the rectangle is hugely dissimilar.</p>
+     *
+     * @param msg Message to be logged
+     * @param expected The reference 'expected' value to be used to check against
+     * @param actual The actual value that was received
+     * @param errorPercent Within how many percent the components should be
+     *
+     * @return {@code true} if all expects passed, {@code false} otherwise
+     */
+    public boolean expectSizesAreSimilar(String msg, Size expected, Size actual,
+            float errorPercent) {
+        String formattedMsg = String.format("%s: rects are not similar enough; expected (%s), " +
+                "actual (%s), error percent (%s), reason: ",
+                msg, expected, actual, errorPercent);
+
+        if (!expectSimilarValues(
+                formattedMsg, "too wide", "too narrow", actual.getWidth(), expected.getWidth(),
+                errorPercent)) return false;
+
+        if (!expectSimilarValues(
+                formattedMsg, "too tall", "too short", actual.getHeight(), expected.getHeight(),
                 errorPercent)) return false;
 
         return true;
@@ -1018,4 +1050,13 @@ public class CameraErrorCollector extends ErrorCollector {
         Set<T> sizeSet = new HashSet<T>(list);
         expectTrue(msg + " each element must be distinct", sizeSet.size() == list.size());
     }
+
+    public void expectImageProperties(String msg, Image image, int format, Size size,
+            long timestampNs) {
+        expectEquals(msg + "Image format is wrong.", image.getFormat(), format);
+        expectEquals(msg + "Image width is wrong.", image.getWidth(), size.getWidth());
+        expectEquals(msg + "Image height is wrong.", image.getHeight(), size.getHeight());
+        expectEquals(msg + "Image timestamp is wrong.", image.getTimestamp(), timestampNs);
+    }
+
 }

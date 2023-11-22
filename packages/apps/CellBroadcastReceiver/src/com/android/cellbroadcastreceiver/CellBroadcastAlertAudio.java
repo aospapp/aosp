@@ -37,6 +37,7 @@ import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import java.util.HashMap;
 import java.util.Locale;
 
 import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
@@ -71,6 +72,8 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
     /** Extra for alert audio ETWS behavior (always vibrate, even in silent mode). */
     public static final String ALERT_AUDIO_ETWS_VIBRATE_EXTRA =
             "com.android.cellbroadcastreceiver.ALERT_AUDIO_ETWS_VIBRATE";
+
+    private static final String TTS_UTTERANCE_ID = "com.android.cellbroadcastreceiver.UTTERANCE_ID";
 
     /** Pause duration between alert sound and alert speech. */
     private static final int PAUSE_DURATION_BEFORE_SPEAKING_MSEC = 1000;
@@ -126,12 +129,17 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
                 case ALERT_PAUSE_FINISHED:
                     if (DBG) log("ALERT_PAUSE_FINISHED");
+                    int res = TextToSpeech.ERROR;
                     if (mMessageBody != null && mTtsEngineReady && mTtsLanguageSupported) {
                         if (DBG) log("Speaking broadcast text: " + mMessageBody);
-                        mTts.speak(mMessageBody, TextToSpeech.QUEUE_FLUSH, null);
+                        HashMap<String, String> ttsHashMap = new HashMap<String, String>();
+                        ttsHashMap.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID,
+                                TTS_UTTERANCE_ID);
+                        res = mTts.speak(mMessageBody, TextToSpeech.QUEUE_FLUSH, ttsHashMap);
                         mState = STATE_SPEAKING;
-                    } else {
-                        loge("TTS engine not ready or language not supported");
+                    }
+                    if (res != TextToSpeech.SUCCESS) {
+                        loge("TTS engine not ready or language not supported or speak() failed");
                         stopSelf();
                         mState = STATE_IDLE;
                     }
@@ -163,6 +171,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         if (DBG) log("onInit() TTS engine status: " + status);
         if (status == TextToSpeech.SUCCESS) {
             mTtsEngineReady = true;
+            mTts.setOnUtteranceCompletedListener(this);
             // try to set the TTS language to match the broadcast
             setTtsLanguage();
         } else {
@@ -196,7 +205,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
      */
     @Override
     public void onUtteranceCompleted(String utteranceId) {
-        stopSelf();
+        if (utteranceId.equals(TTS_UTTERANCE_ID)) {
+            stopSelf();
+        }
     }
 
     @Override
@@ -259,6 +270,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
             case AudioManager.RINGER_MODE_SILENT:
                 if (DBG) log("Ringer mode: silent");
                 mEnableAudio = false;
+                mEnableVibrate = false;
                 break;
 
             case AudioManager.RINGER_MODE_VIBRATE:

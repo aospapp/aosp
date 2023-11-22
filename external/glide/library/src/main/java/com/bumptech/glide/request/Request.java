@@ -1,37 +1,59 @@
 package com.bumptech.glide.request;
 
-import com.bumptech.glide.request.target.Target;
-
 /**
- * A request that loads an asset for an {@link Target}.
+ * A request that loads a resource for an {@link com.bumptech.glide.request.target.Target}.
  */
 public interface Request {
 
     /**
      * Starts an asynchronous load.
      */
-    public void run();
+    void begin();
 
     /**
-     * Prevents any bitmaps being loaded from previous requests, releases any resources held by this request and
-     * displays the current placeholder if one was provided.
+     * Identical to {@link #clear()} except that the request may later be restarted.
      */
-    public void clear();
+    void pause();
+
+    /**
+     * Prevents any bitmaps being loaded from previous requests, releases any resources held by this request,
+     * displays the current placeholder if one was provided, and marks the request as having been cancelled.
+     */
+    void clear();
+
+    /**
+     * Returns true if this request is paused and may be restarted.
+     */
+    boolean isPaused();
 
     /**
      * Returns true if this request is running and has not completed or failed.
      */
-    public boolean isRunning();
+    boolean isRunning();
 
     /**
-     * Returns true if the request has successfully completed.
+     * Returns true if the request has completed successfully.
      */
-    public boolean isComplete();
+    boolean isComplete();
+
+    /**
+     * Returns true if a non-placeholder resource is set. For Requests that load more than one resource, isResourceSet
+     * may return true even if {@link #isComplete()}} returns false.
+     */
+    boolean isResourceSet();
+
+    /**
+     * Returns true if the request has been cancelled.
+     */
+    boolean isCancelled();
 
     /**
      * Returns true if the request has failed.
      */
-    public boolean isFailed();
+    boolean isFailed();
 
-    public void recycle();
+    /**
+     * Recycles the request object and releases its resources.
+     */
+    void recycle();
 }

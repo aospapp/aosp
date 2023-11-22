@@ -22,18 +22,17 @@
 
 namespace art {
 namespace mirror {
-  class ArtField;
-  class ArtMethod;
   class Class;
   class Object;
 }  // namespace mirror
+class ArtField;
+class ArtMethod;
 class Signature;
 class StringPiece;
-class ThrowLocation;
 
 // AbstractMethodError
 
-void ThrowAbstractMethodError(mirror::ArtMethod* method)
+void ThrowAbstractMethodError(ArtMethod* method)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 // ArithmeticException
@@ -60,7 +59,7 @@ void ThrowClassCircularityError(mirror::Class* c)
 void ThrowClassCastException(mirror::Class* dest_type, mirror::Class* src_type)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowClassCastException(const ThrowLocation* throw_location, const char* msg)
+void ThrowClassCastException(const char* msg)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 // ClassFormatError
@@ -75,17 +74,17 @@ void ThrowIllegalAccessErrorClass(mirror::Class* referrer, mirror::Class* access
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 void ThrowIllegalAccessErrorClassForMethodDispatch(mirror::Class* referrer, mirror::Class* accessed,
-                                                   mirror::ArtMethod* called,
+                                                   ArtMethod* called,
                                                    InvokeType type)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowIllegalAccessErrorMethod(mirror::Class* referrer, mirror::ArtMethod* accessed)
+void ThrowIllegalAccessErrorMethod(mirror::Class* referrer, ArtMethod* accessed)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowIllegalAccessErrorField(mirror::Class* referrer, mirror::ArtField* accessed)
+void ThrowIllegalAccessErrorField(mirror::Class* referrer, ArtField* accessed)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowIllegalAccessErrorFinalField(mirror::ArtMethod* referrer, mirror::ArtField* accessed)
+void ThrowIllegalAccessErrorFinalField(ArtMethod* referrer, ArtField* accessed)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 void ThrowIllegalAccessError(mirror::Class* referrer, const char* fmt, ...)
@@ -94,27 +93,27 @@ void ThrowIllegalAccessError(mirror::Class* referrer, const char* fmt, ...)
 
 // IllegalAccessException
 
-void ThrowIllegalAccessException(const ThrowLocation* throw_location, const char* msg)
+void ThrowIllegalAccessException(const char* msg)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 // IllegalArgumentException
 
-void ThrowIllegalArgumentException(const ThrowLocation* throw_location, const char* msg)
+void ThrowIllegalArgumentException(const char* msg)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 // IncompatibleClassChangeError
 
 void ThrowIncompatibleClassChangeError(InvokeType expected_type, InvokeType found_type,
-                                       mirror::ArtMethod* method, mirror::ArtMethod* referrer)
+                                       ArtMethod* method, ArtMethod* referrer)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(mirror::ArtMethod* interface_method,
+void ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(ArtMethod* interface_method,
                                                                 mirror::Object* this_object,
-                                                                mirror::ArtMethod* referrer)
+                                                                ArtMethod* referrer)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowIncompatibleClassChangeErrorField(mirror::ArtField* resolved_field, bool is_static,
-                                            mirror::ArtMethod* referrer)
+void ThrowIncompatibleClassChangeErrorField(ArtField* resolved_field, bool is_static,
+                                            ArtMethod* referrer)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 void ThrowIncompatibleClassChangeError(mirror::Class* referrer, const char* fmt, ...)
@@ -135,6 +134,10 @@ void ThrowLinkageError(mirror::Class* referrer, const char* fmt, ...)
     __attribute__((__format__(__printf__, 2, 3)))
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
+void ThrowWrappedLinkageError(mirror::Class* referrer, const char* fmt, ...)
+    __attribute__((__format__(__printf__, 2, 3)))
+    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
+
 // NegativeArraySizeException
 
 void ThrowNegativeArraySizeException(int size)
@@ -150,6 +153,9 @@ void ThrowNoSuchFieldError(const StringPiece& scope, mirror::Class* c,
                            const StringPiece& type, const StringPiece& name)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
+void ThrowNoSuchFieldException(mirror::Class* c, const StringPiece& name)
+    SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
 // NoSuchMethodError
 
 void ThrowNoSuchMethodError(InvokeType type, mirror::Class* c, const StringPiece& name,
@@ -161,25 +167,22 @@ void ThrowNoSuchMethodError(uint32_t method_idx)
 
 // NullPointerException
 
-void ThrowNullPointerExceptionForFieldAccess(const ThrowLocation& throw_location,
-                                             mirror::ArtField* field,
+void ThrowNullPointerExceptionForFieldAccess(ArtField* field,
                                              bool is_read)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowNullPointerExceptionForMethodAccess(const ThrowLocation& throw_location,
-                                              uint32_t method_idx,
+void ThrowNullPointerExceptionForMethodAccess(uint32_t method_idx,
                                               InvokeType type)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowNullPointerExceptionForMethodAccess(const ThrowLocation& throw_location,
-                                              mirror::ArtMethod* method,
+void ThrowNullPointerExceptionForMethodAccess(ArtMethod* method,
                                               InvokeType type)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowNullPointerExceptionFromDexPC(const ThrowLocation& throw_location)
+void ThrowNullPointerExceptionFromDexPC()
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
-void ThrowNullPointerException(const ThrowLocation* throw_location, const char* msg)
+void ThrowNullPointerException(const char* msg)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) COLD_ATTR;
 
 // RuntimeException

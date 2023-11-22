@@ -17,14 +17,15 @@
 #ifndef ART_RUNTIME_BASE_HISTOGRAM_INL_H_
 #define ART_RUNTIME_BASE_HISTOGRAM_INL_H_
 
-#include "histogram.h"
-
-#include "utils.h"
-
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <ostream>
+
+#include "histogram.h"
+
+#include "base/bit_utils.h"
+#include "base/time_utils.h"
 
 namespace art {
 
@@ -35,8 +36,11 @@ template <class Value> inline void Histogram<Value>::AddValue(Value value) {
     DCHECK_GT(new_max, max_);
     GrowBuckets(new_max);
   }
-
   BucketiseValue(value);
+}
+
+template <class Value> inline void Histogram<Value>::AdjustAndAddValue(Value value) {
+  AddValue(value / kAdjust);
 }
 
 template <class Value> inline Histogram<Value>::Histogram(const char* name)
@@ -162,6 +166,23 @@ inline void Histogram<Value>::PrintBins(std::ostream& os, const CumulativeData& 
 }
 
 template <class Value>
+inline void Histogram<Value>::DumpBins(std::ostream& os) const {
+  DCHECK_GT(sample_size_, 0ull);
+  bool dumped_one = false;
+  for (size_t bin_idx = 0; bin_idx < frequency_.size(); ++bin_idx) {
+    if (frequency_[bin_idx] != 0U) {
+      if (dumped_one) {
+        // Prepend a comma if not the first bin.
+        os << ",";
+      } else {
+        dumped_one = true;
+      }
+      os << GetRange(bin_idx) << ":" << frequency_[bin_idx];
+    }
+  }
+}
+
+template <class Value>
 inline void Histogram<Value>::PrintConfidenceIntervals(std::ostream &os, double interval,
                                                        const CumulativeData& data) const {
   static constexpr size_t kFractionalDigits = 3;
@@ -194,6 +215,11 @@ inline void Histogram<Value>::CreateHistogram(CumulativeData* out_data) const {
   DCHECK_EQ(out_data->freq_.back(), sample_size_);
   DCHECK_LE(std::abs(out_data->perc_.back() - 1.0), 0.001);
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfloat-equal"
+#endif
 
 template <class Value>
 inline double Histogram<Value>::Percentile(double per, const CumulativeData& data) const {
@@ -235,6 +261,9 @@ inline double Histogram<Value>::Percentile(double per, const CumulativeData& dat
   return value;
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 }  // namespace art
 #endif  // ART_RUNTIME_BASE_HISTOGRAM_INL_H_
-

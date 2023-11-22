@@ -18,10 +18,17 @@ package android.media.cts;
 
 import android.content.pm.PackageManager;
 import android.cts.util.MediaUtils;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.hardware.Camera;
+import android.media.CamcorderProfile;
+import android.media.EncoderCapabilities;
+import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
+import android.media.EncoderCapabilities.VideoEncoderCap;
 import android.media.MediaRecorder.OnErrorListener;
 import android.media.MediaRecorder.OnInfoListener;
 import android.media.MediaMetadataRetriever;
@@ -38,6 +45,7 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.lang.InterruptedException;
 import java.lang.Runnable;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -62,6 +70,12 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private static final int MAX_DURATION_MSEC = 2000;
     private static final float LATITUDE = 0.0000f;
     private static final float LONGITUDE  = -180.0f;
+    private static final int NORMAL_FPS = 30;
+    private static final int TIME_LAPSE_FPS = 5;
+    private static final int SLOW_MOTION_FPS = 120;
+    private static final List<VideoEncoderCap> mVideoEncoders =
+            EncoderCapabilities.getVideoEncoders();
+
     private boolean mOnInfoCalled;
     private boolean mOnErrorCalled;
     private File mOutFile;
@@ -138,8 +152,10 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
     @Override
     protected void tearDown() throws Exception {
-        mMediaRecorder.release();
-        mMediaRecorder = null;
+        if (mMediaRecorder != null) {
+            mMediaRecorder.release();
+            mMediaRecorder = null;
+        }
         if (mOutFile != null && mOutFile.exists()) {
             mOutFile.delete();
         }
@@ -159,13 +175,27 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     }
 
     public void testRecorderCamera() throws Exception {
+        int width;
+        int height;
+        Camera camera = null;
         if (!hasCamera()) {
             return;
+        }
+        // Try to get camera profile for QUALITY_LOW; if unavailable,
+        // set the video size to default value.
+        CamcorderProfile profile = CamcorderProfile.get(
+                0 /* cameraId */, CamcorderProfile.QUALITY_LOW);
+        if (profile != null) {
+            width = profile.videoFrameWidth;
+            height = profile.videoFrameHeight;
+        } else {
+            width = VIDEO_WIDTH;
+            height = VIDEO_HEIGHT;
         }
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoSize(width, height);
         mMediaRecorder.setVideoEncodingBitRate(VIDEO_BIT_RATE_IN_BPS);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
         mMediaRecorder.prepare();
@@ -475,6 +505,441 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         recordMedia(MAX_FILE_SIZE, mOutFile);
         // TODO: how can we trigger a recording error?
         assertFalse(mOnErrorCalled);
+    }
+
+    private void setupRecorder(String filename, boolean useSurface, boolean hasAudio)
+            throws Exception {
+        int codec = MediaRecorder.VideoEncoder.H264;
+        int frameRate = getMaxFrameRateForCodec(codec);
+        if (mMediaRecorder == null) {
+            mMediaRecorder = new MediaRecorder();
+        }
+
+        if (!useSurface) {
+            mCamera = Camera.open(0);
+            Camera.Parameters params = mCamera.getParameters();
+            frameRate = params.getPreviewFrameRate();
+            mCamera.unlock();
+            mMediaRecorder.setCamera(mCamera);
+            mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        }
+
+        mMediaRecorder.setVideoSource(useSurface ?
+                MediaRecorder.VideoSource.SURFACE : MediaRecorder.VideoSource.CAMERA);
+
+        if (hasAudio) {
+            mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        }
+
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+        mMediaRecorder.setOutputFile(filename);
+
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        mMediaRecorder.setVideoFrameRate(frameRate);
+        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+
+        if (hasAudio) {
+            mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        }
+    }
+
+    private Surface tryGetSurface(boolean shouldThrow) throws Exception {
+        Surface surface = null;
+        try {
+            surface = mMediaRecorder.getSurface();
+            assertFalse("failed to throw IllegalStateException", shouldThrow);
+        } catch (IllegalStateException e) {
+            assertTrue("threw unexpected exception: " + e, shouldThrow);
+        }
+        return surface;
+    }
+
+    private boolean validateGetSurface(boolean useSurface) {
+        Log.v(TAG,"validateGetSurface, useSurface=" + useSurface);
+        if (!useSurface && !hasCamera()) {
+            // pass if testing camera source but no hardware
+            return true;
+        }
+        Surface surface = null;
+        boolean success = true;
+        try {
+            setupRecorder(OUTPUT_PATH, useSurface, false /* hasAudio */);
+
+            /* Test: getSurface() before prepare()
+             * should throw IllegalStateException
+             */
+            surface = tryGetSurface(true /* shouldThow */);
+
+            mMediaRecorder.prepare();
+
+            /* Test: getSurface() after prepare()
+             * should succeed for surface source
+             * should fail for camera source
+             */
+            surface = tryGetSurface(!useSurface);
+
+            mMediaRecorder.start();
+
+            /* Test: getSurface() after start()
+             * should succeed for surface source
+             * should fail for camera source
+             */
+            surface = tryGetSurface(!useSurface);
+
+            try {
+                mMediaRecorder.stop();
+            } catch (Exception e) {
+                // stop() could fail if the recording is empty, as we didn't render anything.
+                // ignore any failure in stop, we just want it stopped.
+            }
+
+            /* Test: getSurface() after stop()
+             * should throw IllegalStateException
+             */
+            surface = tryGetSurface(true /* shouldThow */);
+        } catch (Exception e) {
+            Log.d(TAG, e.toString());
+            success = false;
+        } finally {
+            // reset to clear states, as stop() might have failed
+            mMediaRecorder.reset();
+
+            if (mCamera != null) {
+                mCamera.release();
+                mCamera = null;
+            }
+            if (surface != null) {
+                surface.release();
+                surface = null;
+            }
+        }
+
+        return success;
+    }
+
+    private void trySetInputSurface(Surface surface) throws Exception {
+        boolean testBadArgument = (surface == null);
+        try {
+            mMediaRecorder.setInputSurface(testBadArgument ? new Surface() : surface);
+            fail("failed to throw exception");
+        } catch (IllegalArgumentException e) {
+            // OK only if testing bad arg
+            assertTrue("threw unexpected exception: " + e, testBadArgument);
+        } catch (IllegalStateException e) {
+            // OK only if testing error case other than bad arg
+            assertFalse("threw unexpected exception: " + e, testBadArgument);
+        }
+    }
+
+    private boolean validatePersistentSurface(boolean errorCase) {
+        Log.v(TAG, "validatePersistentSurface, errorCase=" + errorCase);
+
+        Surface surface = MediaCodec.createPersistentInputSurface();
+        if (surface == null) {
+            return false;
+        }
+        Surface dummy = null;
+
+        boolean success = true;
+        try {
+            setupRecorder(OUTPUT_PATH, true /* useSurface */, false /* hasAudio */);
+
+            if (errorCase) {
+                /*
+                 * Test: should throw if called with non-persistent surface
+                 */
+                trySetInputSurface(null);
+            } else {
+                /*
+                 * Test: should succeed if called with a persistent surface before prepare()
+                 */
+                mMediaRecorder.setInputSurface(surface);
+            }
+
+            /*
+             * Test: getSurface() should fail before prepare
+             */
+            dummy = tryGetSurface(true /* shouldThow */);
+
+            mMediaRecorder.prepare();
+
+            /*
+             * Test: setInputSurface() should fail after prepare
+             */
+            trySetInputSurface(surface);
+
+            /*
+             * Test: getSurface() should fail if setInputSurface() succeeded
+             */
+            dummy = tryGetSurface(!errorCase /* shouldThow */);
+
+            mMediaRecorder.start();
+
+            /*
+             * Test: setInputSurface() should fail after start
+             */
+            trySetInputSurface(surface);
+
+            /*
+             * Test: getSurface() should fail if setInputSurface() succeeded
+             */
+            dummy = tryGetSurface(!errorCase /* shouldThow */);
+
+            try {
+                mMediaRecorder.stop();
+            } catch (Exception e) {
+                // stop() could fail if the recording is empty, as we didn't render anything.
+                // ignore any failure in stop, we just want it stopped.
+            }
+
+            /*
+             * Test: getSurface() should fail after stop
+             */
+            dummy = tryGetSurface(true /* shouldThow */);
+        } catch (Exception e) {
+            Log.d(TAG, e.toString());
+            success = false;
+        } finally {
+            // reset to clear states, as stop() might have failed
+            mMediaRecorder.reset();
+
+            if (mCamera != null) {
+                mCamera.release();
+                mCamera = null;
+            }
+            if (surface != null) {
+                surface.release();
+                surface = null;
+            }
+            if (dummy != null) {
+                dummy.release();
+                dummy = null;
+            }
+        }
+
+        return success;
+    }
+
+    public void testGetSurfaceApi() {
+        if (!hasH264()) {
+            MediaUtils.skipTest("no codecs");
+            return;
+        }
+
+        if (hasCamera()) {
+            // validate getSurface() with CAMERA source
+            assertTrue(validateGetSurface(false /* useSurface */));
+        }
+
+        // validate getSurface() with SURFACE source
+        assertTrue(validateGetSurface(true /* useSurface */));
+    }
+
+    public void testPersistentSurfaceApi() {
+        if (!hasH264()) {
+            MediaUtils.skipTest("no codecs");
+            return;
+        }
+
+        // test valid use case
+        assertTrue(validatePersistentSurface(false /* errorCase */));
+
+        // test invalid use case
+        assertTrue(validatePersistentSurface(true /* errorCase */));
+    }
+
+    private static int getMaxFrameRateForCodec(int codec) {
+        for (VideoEncoderCap cap : mVideoEncoders) {
+            if (cap.mCodec == codec) {
+                return cap.mMaxFrameRate < NORMAL_FPS ? cap.mMaxFrameRate : NORMAL_FPS;
+            }
+        }
+        fail("didn't find max FPS for codec");
+        return -1;
+    }
+
+    private boolean recordFromSurface(
+            String filename,
+            int captureRate,
+            boolean hasAudio,
+            Surface persistentSurface) {
+        Log.v(TAG, "recordFromSurface");
+        Surface surface = null;
+        try {
+            setupRecorder(filename, true /* useSurface */, hasAudio);
+
+            int sleepTimeMs;
+            if (captureRate > 0) {
+                mMediaRecorder.setCaptureRate(captureRate);
+                sleepTimeMs = 1000 / captureRate;
+            } else {
+                sleepTimeMs = 1000 / getMaxFrameRateForCodec(MediaRecorder.VideoEncoder.H264);
+            }
+
+            if (persistentSurface != null) {
+                Log.v(TAG, "using persistent surface");
+                surface = persistentSurface;
+                mMediaRecorder.setInputSurface(surface);
+            }
+
+            mMediaRecorder.prepare();
+
+            if (persistentSurface == null) {
+                surface = mMediaRecorder.getSurface();
+            }
+
+            Paint paint = new Paint();
+            paint.setTextSize(16);
+            paint.setColor(Color.RED);
+            int i;
+
+            /* Test: draw 10 frames at 30fps before start
+             * these should be dropped and not causing malformed stream.
+             */
+            for(i = 0; i < 10; i++) {
+                Canvas canvas = surface.lockCanvas(null);
+                int background = (i * 255 / 99);
+                canvas.drawARGB(255, background, background, background);
+                String text = "Frame #" + i;
+                canvas.drawText(text, 50, 50, paint);
+                surface.unlockCanvasAndPost(canvas);
+                Thread.sleep(sleepTimeMs);
+            }
+
+            Log.v(TAG, "start");
+            mMediaRecorder.start();
+
+            /* Test: draw another 90 frames at 30fps after start */
+            for(i = 10; i < 100; i++) {
+                Canvas canvas = surface.lockCanvas(null);
+                int background = (i * 255 / 99);
+                canvas.drawARGB(255, background, background, background);
+                String text = "Frame #" + i;
+                canvas.drawText(text, 50, 50, paint);
+                surface.unlockCanvasAndPost(canvas);
+                Thread.sleep(sleepTimeMs);
+            }
+
+            Log.v(TAG, "stop");
+            mMediaRecorder.stop();
+        } catch (Exception e) {
+            Log.v(TAG, "record video failed: " + e.toString());
+            return false;
+        } finally {
+            // We need to test persistent surface across multiple MediaRecorder
+            // instances, so must destroy mMediaRecorder here.
+            if (mMediaRecorder != null) {
+                mMediaRecorder.release();
+                mMediaRecorder = null;
+            }
+
+            // release surface if not using persistent surface
+            if (persistentSurface == null && surface != null) {
+                surface.release();
+                surface = null;
+            }
+        }
+        return true;
+    }
+
+    private boolean checkCaptureFps(String filename, int captureRate) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+
+        retriever.setDataSource(filename);
+
+        // verify capture rate meta key is present and correct
+        String captureFps = retriever.extractMetadata(
+                MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE);
+
+        if (captureFps == null) {
+            Log.d(TAG, "METADATA_KEY_CAPTURE_FRAMERATE is missing");
+            return false;
+        }
+
+        if (Math.abs(Float.parseFloat(captureFps) - captureRate) > 0.001) {
+            Log.d(TAG, "METADATA_KEY_CAPTURE_FRAMERATE is incorrect: "
+                    + captureFps + "vs. " + captureRate);
+            return false;
+        }
+
+        // verify other meta keys here if necessary
+        return true;
+    }
+
+    private boolean testRecordFromSurface(boolean persistent, boolean timelapse) {
+        Log.v(TAG, "testRecordFromSurface: " +
+                   "persistent=" + persistent + ", timelapse=" + timelapse);
+        boolean success = false;
+        Surface surface = null;
+        int noOfFailure = 0;
+        try {
+            if (persistent) {
+                surface = MediaCodec.createPersistentInputSurface();
+            }
+
+            for (int k = 0; k < 2; k++) {
+                String filename = (k == 0) ? OUTPUT_PATH : OUTPUT_PATH2;
+                boolean hasAudio = false;
+                int captureRate = 0;
+
+                if (timelapse) {
+                    // if timelapse/slow-mo, k chooses between low/high capture fps
+                    captureRate = (k == 0) ? TIME_LAPSE_FPS : SLOW_MOTION_FPS;
+                } else {
+                    // otherwise k chooses between no-audio and audio
+                    hasAudio = (k == 0) ? false : true;
+                }
+
+                if (hasAudio && (!hasMicrophone() || !hasAmrNb())) {
+                    // audio test waived if no audio support
+                    continue;
+                }
+
+                Log.v(TAG, "testRecordFromSurface - round " + k);
+                success = recordFromSurface(filename, captureRate, hasAudio, surface);
+                if (success) {
+                    checkTracksAndDuration(0, true /* hasVideo */, hasAudio, filename);
+
+                    // verify capture fps meta key
+                    if (timelapse && !checkCaptureFps(filename, captureRate)) {
+                        noOfFailure++;
+                    }
+                }
+                if (!success) {
+                    noOfFailure++;
+                }
+            }
+        } catch (Exception e) {
+            Log.v(TAG, e.toString());
+            noOfFailure++;
+        } finally {
+            if (surface != null) {
+                Log.v(TAG, "releasing persistent surface");
+                surface.release();
+                surface = null;
+            }
+        }
+        return (noOfFailure == 0);
+    }
+
+    // Test recording from surface source with/without audio)
+    public void testSurfaceRecording() {
+        assertTrue(testRecordFromSurface(false /* persistent */, false /* timelapse */));
+    }
+
+    // Test recording from persistent surface source with/without audio
+    public void testPersistentSurfaceRecording() {
+        assertTrue(testRecordFromSurface(true /* persistent */, false /* timelapse */));
+    }
+
+    // Test timelapse recording from surface without audio
+    public void testSurfaceRecordingTimeLapse() {
+        assertTrue(testRecordFromSurface(false /* persistent */, true /* timelapse */));
+    }
+
+    // Test timelapse recording from persisent surface without audio
+    public void testPersistentSurfaceRecordingTimeLapse() {
+        assertTrue(testRecordFromSurface(true /* persistent */, true /* timelapse */));
     }
 
     private void recordMedia(long maxFileSize, File outFile) throws Exception {

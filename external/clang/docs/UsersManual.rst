@@ -73,7 +73,7 @@ Basic Usage
 Intro to how to use a C compiler for newbies.
 
 compile + link compile then link debug info enabling optimizations
-picking a language to use, defaults to C99 by default. Autosenses based
+picking a language to use, defaults to C11 by default. Autosenses based
 on extension. using a makefile
 
 Command Line Options
@@ -481,7 +481,7 @@ TODO: Generate this from tblgen. Define one anchor per warning group.
    Warn about an unusable copy constructor when binding a reference to a
    temporary.
 
-   This option, which defaults to on, enables warnings about binding a
+   This option enables warnings about binding a
    reference to a temporary when the temporary doesn't have a usable
    copy constructor. For example:
 
@@ -577,17 +577,12 @@ feature.
 Current limitations
 ^^^^^^^^^^^^^^^^^^^
 
-1. For :option:`-Rpass` to provide column information, you
-   need to enable it explicitly. That is, you need to add
-   :option:`-gcolumn-info`. If you omit this, remarks will only show
-   line information.
-
-2. Optimization remarks that refer to function names will display the
+1. Optimization remarks that refer to function names will display the
    mangled name of the function. Since these remarks are emitted by the
    back end of the compiler, it does not know anything about the input
    language, nor its mangling rules.
 
-3. Some source locations are not displayed correctly. The front end has
+2. Some source locations are not displayed correctly. The front end has
    a more detailed source location tracking than the locations included
    in the debug info (e.g., the front end can locate code inside macro
    expansions). However, the locations used by :option:`-Rpass` are
@@ -642,7 +637,7 @@ Diagnostics <cl_diag_formatting>`.
 Diagnostic Mappings
 ^^^^^^^^^^^^^^^^^^^
 
-All diagnostics are mapped into one of these 5 classes:
+All diagnostics are mapped into one of these 6 classes:
 
 -  Ignored
 -  Note
@@ -962,6 +957,8 @@ are listed below.
       ``unsigned-integer-overflow`` and ``vptr``.
    -  ``-fsanitize=dataflow``: :doc:`DataFlowSanitizer`, a general data
       flow analysis.
+   -  ``-fsanitize=cfi``: :doc:`control flow integrity <ControlFlowIntegrity>`
+      checks. Implies ``-flto``.
 
    The following more fine-grained checks are also available:
 
@@ -971,6 +968,16 @@ are listed below.
       ``true`` nor ``false``.
    -  ``-fsanitize=bounds``: Out of bounds array indexing, in cases
       where the array bound can be statically determined.
+   -  ``-fsanitize=cfi-cast-strict``: Enables :ref:`strict cast checks
+      <cfi-strictness>`.
+   -  ``-fsanitize=cfi-derived-cast``: Base-to-derived cast to the wrong
+      dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-unrelated-cast``: Cast from ``void*`` or another
+      unrelated type to the wrong dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-nvcall``: Non-virtual call via an object whose vptr is of
+      the wrong dynamic type. Implies ``-flto``.
+   -  ``-fsanitize=cfi-vcall``: Virtual call via an object whose vptr is of the
+      wrong dynamic type. Implies ``-flto``.
    -  ``-fsanitize=enum``: Load of a value of an enumerated type which
       is not in the range of representable values for that enumerated
       type.
@@ -982,6 +989,8 @@ are listed below.
    -  ``-fsanitize=function``: Indirect call of a function through a
       function pointer of the wrong type (Linux, C++ and x86/x86_64 only).
    -  ``-fsanitize=integer-divide-by-zero``: Integer division by zero.
+   -  ``-fsanitize=nonnull-attribute``: Passing null pointer as a function
+      parameter which is declared to never be null.
    -  ``-fsanitize=null``: Use of a null pointer or creation of a null
       reference.
    -  ``-fsanitize=object-size``: An attempt to use bytes which the
@@ -991,11 +1000,15 @@ are listed below.
       more problems at higher optimization levels.
    -  ``-fsanitize=return``: In C++, reaching the end of a
       value-returning function without returning a value.
+   -  ``-fsanitize=returns-nonnull-attribute``: Returning null pointer
+      from a function which is declared to never return null.
    -  ``-fsanitize=shift``: Shift operators where the amount shifted is
       greater or equal to the promoted bit-width of the left hand side
       or less than zero, or where the left hand side is negative. For a
       signed left shift, also checks for signed overflow in C, and for
-      unsigned overflow in C++.
+      unsigned overflow in C++. You can use ``-fsanitize=shift-base`` or
+      ``-fsanitize=shift-exponent`` to check only left-hand side or
+      right-hand side of shift operation, respectively.
    -  ``-fsanitize=signed-integer-overflow``: Signed integer overflow,
       including all the checks added by ``-ftrapv``, and checking for
       overflow in signed division (``INT_MIN / -1``).
@@ -1027,17 +1040,14 @@ are listed below.
       uninitialized bits came from. Slows down execution by additional
       1.5x-2x.
 
-      Possible values for level are 0 (off), 1 (default), 2. Level 2 adds more
-      sections to MemorySanitizer reports describing the order of memory stores
-      the uninitialized value went through. Beware, this mode may use a lot of
-      extra memory.
+      Possible values for level are 0 (off), 1, 2 (default). Level 2
+      adds more sections to MemorySanitizer reports describing the
+      order of memory stores the uninitialized value went
+      through. This mode may use extra memory in programs that copy
+      uninitialized memory a lot.
 
    Extra features of UndefinedBehaviorSanitizer:
 
-   -  ``-fno-sanitize-recover``: By default, after a sanitizer diagnoses
-      an issue, it will attempt to continue executing the program if there
-      is a reasonable behavior it can give to the faulting operation. This
-      option causes the program to abort instead.
    -  ``-fsanitize-undefined-trap-on-error``: Causes traps to be emitted
       rather than calls to runtime libraries when a problem is detected.
       This option is intended for use in cases where the sanitizer runtime
@@ -1054,8 +1064,19 @@ are listed below.
 
    It is not possible to combine more than one of the ``-fsanitize=address``,
    ``-fsanitize=thread``, and ``-fsanitize=memory`` checkers in the same
-   program. The ``-fsanitize=undefined`` checks can be combined with other
-   sanitizers.
+   program. The ``-fsanitize=undefined`` checks can only be combined with
+   ``-fsanitize=address``.
+
+**-f[no-]sanitize-recover=check1,check2,...**
+
+   Controls which checks enabled by ``-fsanitize=`` flag are non-fatal.
+   If the check is fatal, program will halt after the first error
+   of this kind is detected and error report is printed.
+
+   By default, non-fatal checks are those enabled by UndefinedBehaviorSanitizer,
+   except for ``-fsanitize=return`` and ``-fsanitize=unreachable``. Some
+   sanitizers (e.g. :doc:`AddressSanitizer`) may not support recovery,
+   and always crash the program after the issue is detected.
 
 .. option:: -fno-assume-sane-operator-new
 
@@ -1115,6 +1136,37 @@ are listed below.
 
    This option restricts the generated code to use general registers
    only. This only applies to the AArch64 architecture.
+
+**-f[no-]max-unknown-pointer-align=[number]**
+   Instruct the code generator to not enforce a higher alignment than the given
+   number (of bytes) when accessing memory via an opaque pointer or reference.
+   This cap is ignored when directly accessing a variable or when the pointee
+   type has an explicit “aligned” attribute.
+
+   The value should usually be determined by the properties of the system allocator.
+   Some builtin types, especially vector types, have very high natural alignments;
+   when working with values of those types, Clang usually wants to use instructions
+   that take advantage of that alignment.  However, many system allocators do
+   not promise to return memory that is more than 8-byte or 16-byte-aligned.  Use
+   this option to limit the alignment that the compiler can assume for an arbitrary
+   pointer, which may point onto the heap.
+
+   This option does not affect the ABI alignment of types; the layout of structs and
+   unions and the value returned by the alignof operator remain the same.
+
+   This option can be overridden on a case-by-case basis by putting an explicit
+   “aligned” alignment on a struct, union, or typedef.  For example:
+
+   .. code-block:: console
+
+      #include <immintrin.h>
+      // Make an aligned typedef of the AVX-512 16-int vector type.
+      typedef __v16si __aligned_v16si __attribute__((aligned(64)));
+
+      void initialize_vector(__aligned_v16si *v) {
+        // The compiler may assume that ‘v’ is 64-byte aligned, regardless of the
+        // value of -fmax-unknown-pointer-align.
+      }
 
 
 Profile Guided Optimization
@@ -1444,9 +1496,12 @@ Differences between various standard modes
 ------------------------------------------
 
 clang supports the -std option, which changes what language mode clang
-uses. The supported modes for C are c89, gnu89, c94, c99, gnu99 and
-various aliases for those modes. If no -std option is specified, clang
-defaults to gnu99 mode.
+uses. The supported modes for C are c89, gnu89, c94, c99, gnu99, c11,
+gnu11, and various aliases for those modes. If no -std option is
+specified, clang defaults to gnu11 mode. Many C99 and C11 features are
+supported in earlier modes as a conforming extension, with a warning. Use
+``-pedantic-errors`` to request an error if a feature from a later standard
+revision is used in an earlier mode.
 
 Differences between all ``c*`` and ``gnu*`` modes:
 
@@ -1483,6 +1538,11 @@ Differences between ``*89`` and ``*99`` modes:
 -  Arrays which are not lvalues are not implicitly promoted to pointers
    in ``*89`` modes.
 -  Some warnings are different.
+
+Differences between ``*99`` and ``*11`` modes:
+
+-  Warnings for use of C11 features are disabled.
+-  ``__STDC_VERSION__`` is defined to ``201112L`` rather than ``199901L``.
 
 c94 mode is identical to c89 mode except that digraphs are enabled in
 c94 mode (FIXME: And ``__STDC_VERSION__`` should be defined!).
@@ -1811,55 +1871,94 @@ Execute ``clang-cl /?`` to see a list of supported options:
 
   ::
 
-    /?                     Display available options
-    /c                     Compile only
-    /D <macro[=value]>     Define macro
-    /fallback              Fall back to cl.exe if clang-cl fails to compile
-    /FA                    Output assembly code file during compilation
-    /Fa<file or directory> Output assembly code to this file during compilation
-    /Fe<file or directory> Set output executable file or directory (ends in / or \)
-    /FI<value>             Include file before parsing
-    /Fo<file or directory> Set output object file, or directory (ends in / or \)
-    /GF-                   Disable string pooling
-    /GR-                   Disable RTTI
-    /GR                    Enable RTTI
-    /help                  Display available options
-    /I <dir>               Add directory to include search path
-    /J                     Make char type unsigned
-    /LDd                   Create debug DLL
-    /LD                    Create DLL
-    /link <options>        Forward options to the linker
-    /MDd                   Use DLL debug run-time
-    /MD                    Use DLL run-time
-    /MTd                   Use static debug run-time
-    /MT                    Use static run-time
-    /Ob0                   Disable inlining
-    /Od                    Disable optimization
-    /Oi-                   Disable use of builtin functions
-    /Oi                    Enable use of builtin functions
-    /Os                    Optimize for size
-    /Ot                    Optimize for speed
-    /Ox                    Maximum optimization
-    /Oy-                   Disable frame pointer omission
-    /Oy                    Enable frame pointer omission
-    /O<n>                  Optimization level
-    /P                     Only run the preprocessor
-    /showIncludes          Print info about included files to stderr
-    /TC                    Treat all source files as C
-    /Tc <filename>         Specify a C source file
-    /TP                    Treat all source files as C++
-    /Tp <filename>         Specify a C++ source file
-    /U <macro>             Undefine macro
-    /W0                    Disable all warnings
-    /W1                    Enable -Wall
-    /W2                    Enable -Wall
-    /W3                    Enable -Wall
-    /W4                    Enable -Wall
-    /Wall                  Enable -Wall
-    /WX-                   Do not treat warnings as errors
-    /WX                    Treat warnings as errors
-    /w                     Disable all warnings
-    /Zs                    Syntax-check only
+    CL.EXE COMPATIBILITY OPTIONS:
+      /?                     Display available options
+      /arch:<value>          Set architecture for code generation
+      /C                     Don't discard comments when preprocessing
+      /c                     Compile only
+      /D <macro[=value]>     Define macro
+      /EH<value>             Exception handling model
+      /EP                    Disable linemarker output and preprocess to stdout
+      /E                     Preprocess to stdout
+      /fallback              Fall back to cl.exe if clang-cl fails to compile
+      /FA                    Output assembly code file during compilation
+      /Fa<file or directory> Output assembly code to this file during compilation
+      /Fe<file or directory> Set output executable file or directory (ends in / or \)
+      /FI <value>            Include file before parsing
+      /Fi<file>              Set preprocess output file name
+      /Fo<file or directory> Set output object file, or directory (ends in / or \)
+      /GF-                   Disable string pooling
+      /GR-                   Disable emission of RTTI data
+      /GR                    Enable emission of RTTI data
+      /Gw-                   Don't put each data item in its own section
+      /Gw                    Put each data item in its own section
+      /Gy-                   Don't put each function in its own section
+      /Gy                    Put each function in its own section
+      /help                  Display available options
+      /I <dir>               Add directory to include search path
+      /J                     Make char type unsigned
+      /LDd                   Create debug DLL
+      /LD                    Create DLL
+      /link <options>        Forward options to the linker
+      /MDd                   Use DLL debug run-time
+      /MD                    Use DLL run-time
+      /MTd                   Use static debug run-time
+      /MT                    Use static run-time
+      /Ob0                   Disable inlining
+      /Od                    Disable optimization
+      /Oi-                   Disable use of builtin functions
+      /Oi                    Enable use of builtin functions
+      /Os                    Optimize for size
+      /Ot                    Optimize for speed
+      /Ox                    Maximum optimization
+      /Oy-                   Disable frame pointer omission
+      /Oy                    Enable frame pointer omission
+      /O<n>                  Optimization level
+      /P                     Preprocess to file
+      /showIncludes          Print info about included files to stderr
+      /TC                    Treat all source files as C
+      /Tc <filename>         Specify a C source file
+      /TP                    Treat all source files as C++
+      /Tp <filename>         Specify a C++ source file
+      /U <macro>             Undefine macro
+      /vd<value>             Control vtordisp placement
+      /vmb                   Use a best-case representation method for member pointers
+      /vmg                   Use a most-general representation for member pointers
+      /vmm                   Set the default most-general representation to multiple inheritance
+      /vms                   Set the default most-general representation to single inheritance
+      /vmv                   Set the default most-general representation to virtual inheritance
+      /W0                    Disable all warnings
+      /W1                    Enable -Wall
+      /W2                    Enable -Wall
+      /W3                    Enable -Wall
+      /W4                    Enable -Wall
+      /Wall                  Enable -Wall
+      /WX-                   Do not treat warnings as errors
+      /WX                    Treat warnings as errors
+      /w                     Disable all warnings
+      /Zi                    Enable debug information
+      /Zp                    Set the default maximum struct packing alignment to 1
+      /Zp<value>             Specify the default maximum struct packing alignment
+      /Zs                    Syntax-check only
+
+    OPTIONS:
+      -###                  Print (but do not run) the commands to run for this compilation
+      -fms-compatibility-version=<value>
+                            Dot-separated value representing the Microsoft compiler version
+                            number to report in _MSC_VER (0 = don't define it (default))
+      -fmsc-version=<value> Microsoft compiler version number to report in _MSC_VER (0 = don't
+                            define it (default))
+      -fsanitize-blacklist=<value>
+                            Path to blacklist file for sanitizers
+      -fsanitize=<check>    Enable runtime instrumentation for bug detection: address (memory
+                            errors) | thread (race detection) | undefined (miscellaneous
+                            undefined behavior)
+      -mllvm <value>        Additional arguments to forward to LLVM's option processing
+      -Qunused-arguments    Don't emit warning for unused driver arguments
+      --target=<value>      Generate code for the given target
+      -v                    Show commands to run and use verbose output
+      -W<warning>           Enable the specified warning
+      -Xclang <arg>         Pass <arg> to the clang compiler
 
 The /fallback Option
 ^^^^^^^^^^^^^^^^^^^^

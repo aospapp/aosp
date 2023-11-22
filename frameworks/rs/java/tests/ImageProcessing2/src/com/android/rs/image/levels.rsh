@@ -21,7 +21,7 @@ float outWMinOutB;
 float overInWMinInB;
 rs_matrix3x3 colorMat;
 
-uchar4 __attribute__((kernel)) root(uchar4 in, uint32_t x, uint32_t y) {
+uchar4 __attribute__((kernel)) root(uchar4 in) {
     uchar4 out;
     float3 pixel = convert_float4(in).rgb;
     pixel = rsMatrixMultiply(&colorMat, pixel);
@@ -34,7 +34,7 @@ uchar4 __attribute__((kernel)) root(uchar4 in, uint32_t x, uint32_t y) {
     return out;
 }
 
-uchar4 __attribute__((kernel)) root4(uchar4 in, uint32_t x, uint32_t y) {
+uchar4 __attribute__((kernel)) root4(uchar4 in) {
     float4 pixel = convert_float4(in);
     pixel.rgb = rsMatrixMultiply(&colorMat, pixel.rgb);
     pixel = clamp(pixel, 0.f, 255.f);

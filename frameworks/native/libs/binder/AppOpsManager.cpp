@@ -44,7 +44,7 @@ sp<IAppOpsService> AppOpsManager::getService()
     int64_t startTime = 0;
     mLock.lock();
     sp<IAppOpsService> service = mService;
-    while (service == NULL || !service->asBinder()->isBinderAlive()) {
+    while (service == NULL || !IInterface::asBinder(service)->isBinderAlive()) {
         sp<IBinder> binder = defaultServiceManager()->checkService(_appops);
         if (binder == NULL) {
             // Wait for the app ops service to come back...
@@ -103,5 +103,14 @@ void AppOpsManager::stopWatchingMode(const sp<IAppOpsCallback>& callback) {
         service->stopWatchingMode(callback);
     }
 }
+
+int32_t AppOpsManager::permissionToOpCode(const String16& permission) {
+    sp<IAppOpsService> service = getService();
+    if (service != NULL) {
+        return service->permissionToOpCode(permission);
+    }
+    return -1;
+}
+
 
 }; // namespace android

@@ -28,8 +28,7 @@ class NoDex2OatTest {
     ScopedObjectAccess soa(Thread::Current());
     mirror::Class* klass = soa.Decode<mirror::Class*>(cls);
     const DexFile& dex_file = klass->GetDexFile();
-    const OatFile::OatDexFile* oat_dex_file =
-        Runtime::Current()->GetClassLinker()->FindOpenedOatDexFileForDexFile(dex_file);
+    const OatFile::OatDexFile* oat_dex_file = dex_file.GetOatDexFile();
     return oat_dex_file != nullptr;
   }
 };
@@ -38,7 +37,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_hasOat(JNIEnv*, jclass cls) {
   return NoDex2OatTest::hasOat(cls);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_Main_isDex2OatEnabled(JNIEnv*, jclass cls) {
+extern "C" JNIEXPORT jboolean JNICALL Java_Main_isDex2OatEnabled(JNIEnv*, jclass) {
   return Runtime::Current()->IsDex2OatEnabled();
 }
 

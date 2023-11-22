@@ -35,6 +35,7 @@ namespace android {
 enum {
     GET_SENSOR_LIST = IBinder::FIRST_CALL_TRANSACTION,
     CREATE_SENSOR_EVENT_CONNECTION,
+    ENABLE_DATA_INJECTION
 };
 
 class BpSensorServer : public BpInterface<ISensorServer>
@@ -45,14 +46,17 @@ public:
     {
     }
 
-    virtual Vector<Sensor> getSensorList()
+    virtual ~BpSensorServer();
+
+    virtual Vector<Sensor> getSensorList(const String16& opPackageName)
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISensorServer::getInterfaceDescriptor());
+        data.writeString16(opPackageName);
         remote()->transact(GET_SENSOR_LIST, data, &reply);
         Sensor s;
         Vector<Sensor> v;
-        int32_t n = reply.readInt32();
+        uint32_t n = reply.readUint32();
         v.setCapacity(n);
         while (n--) {
             reply.read(s);
@@ -61,14 +65,29 @@ public:
         return v;
     }
 
-    virtual sp<ISensorEventConnection> createSensorEventConnection()
+    virtual sp<ISensorEventConnection> createSensorEventConnection(const String8& packageName,
+             int mode, const String16& opPackageName)
     {
         Parcel data, reply;
         data.writeInterfaceToken(ISensorServer::getInterfaceDescriptor());
+        data.writeString8(packageName);
+        data.writeInt32(mode);
+        data.writeString16(opPackageName);
         remote()->transact(CREATE_SENSOR_EVENT_CONNECTION, data, &reply);
         return interface_cast<ISensorEventConnection>(reply.readStrongBinder());
     }
+
+    virtual int isDataInjectionEnabled() {
+        Parcel data, reply;
+        data.writeInterfaceToken(ISensorServer::getInterfaceDescriptor());
+        remote()->transact(ENABLE_DATA_INJECTION, data, &reply);
+        return reply.readInt32();
+    }
 };
+
+// Out-of-line virtual method definition to trigger vtable emission in this
+// translation unit (see clang warning -Wweak-vtables)
+BpSensorServer::~BpSensorServer() {}
 
 IMPLEMENT_META_INTERFACE(SensorServer, "android.gui.SensorServer");
 
@@ -80,20 +99,31 @@ status_t BnSensorServer::onTransact(
     switch(code) {
         case GET_SENSOR_LIST: {
             CHECK_INTERFACE(ISensorServer, data, reply);
-            Vector<Sensor> v(getSensorList());
+            const String16& opPackageName = data.readString16();
+            Vector<Sensor> v(getSensorList(opPackageName));
             size_t n = v.size();
-            reply->writeInt32(n);
-            for (size_t i=0 ; i<n ; i++) {
+            reply->writeUint32(static_cast<uint32_t>(n));
+            for (size_t i = 0; i < n; i++) {
                 reply->write(v[i]);
             }
             return NO_ERROR;
-        } break;
+        }
         case CREATE_SENSOR_EVENT_CONNECTION: {
             CHECK_INTERFACE(ISensorServer, data, reply);
-            sp<ISensorEventConnection> connection(createSensorEventConnection());
-            reply->writeStrongBinder(connection->asBinder());
+            String8 packageName = data.readString8();
+            int32_t mode = data.readInt32();
+            const String16& opPackageName = data.readString16();
+            sp<ISensorEventConnection> connection(createSensorEventConnection(packageName, mode,
+                    opPackageName));
+            reply->writeStrongBinder(IInterface::asBinder(connection));
             return NO_ERROR;
-        } break;
+        }
+        case ENABLE_DATA_INJECTION: {
+            CHECK_INTERFACE(ISensorServer, data, reply);
+            int32_t ret = isDataInjectionEnabled();
+            reply->writeInt32(static_cast<int32_t>(ret));
+            return NO_ERROR;
+        }
     }
     return BBinder::onTransact(code, data, reply, flags);
 }

@@ -29,58 +29,22 @@
 
     <PreferenceScreen
         android:key="button_voicemail_category_key"
-        android:title="@string/voicemail"
-        android:persistent="false">
-
-        <com.android.phone.settings.VoicemailProviderListPreference
-            android:key="button_voicemail_provider_key"
-            android:title="@string/voicemail_provider"
-            android:summary="@string/sum_voicemail_choose_provider"
-            android:defaultValue=""
-            android:persistent="true" />
-
-        <PreferenceScreen
-            android:key="button_voicemail_setting_key"
-            android:title="@string/voicemail_settings"
-            android:persistent="false">
-
-            <!-- Note for all com.android.phone.EditPhoneNumberPreference objects
-
-                 The last several attributes are for use with the EditText field
-                 in the dialog.  These attributes are forwarded to that field
-                 when the edittext is created.  The attributes include:
-                 1. android:singleLine
-                 2. android:autoText
-                 3. android:background -->
-
-            <com.android.phone.EditPhoneNumberPreference
-                android:key="button_voicemail_key"
-                android:title="@string/voicemail_settings_number_label"
-                android:persistent="false"
-                android:dialogTitle="@string/voicemail"
-                phone:confirmMode="confirm"
-                android:singleLine="true"
-                android:autoText="false" />
-
-        </PreferenceScreen>
-
-        <com.android.phone.settings.VoicemailRingtonePreference
-            android:key="@string/voicemail_notification_ringtone_key"
-            android:title="@string/voicemail_notification_ringtone_title"
-            android:persistent="false"
-            android:ringtoneType="notification" />
-
-        <CheckBoxPreference
-            android:key="@string/voicemail_notification_vibrate_key"
-            android:title="@string/voicemail_notification_vibrate_when_title"
-            android:persistent="true" />
-
-    </PreferenceScreen>
+        android:title="@string/voicemail" />
 
     <PreferenceScreen
         android:key="button_fdn_key"
         android:title="@string/fdn"
         android:persistent="false" />
+
+    <PreferenceScreen
+        android:key="@string/wifi_calling_settings_key"
+        android:title="@string/wifi_calling">
+
+        <intent android:action="android.intent.action.MAIN"
+            android:targetPackage="com.android.settings"
+            android:targetClass="com.android.settings.Settings$WifiCallingSettingsActivity"/>
+
+    </PreferenceScreen>
 
     <CheckBoxPreference
         android:key="button_enable_video_calling"
@@ -94,49 +58,16 @@
         android:persistent="false"
         android:summary="@string/auto_retry_mode_summary"/>
 
-    <com.android.phone.settings.TtyModeListPreference
-        android:key="@string/tty_mode_key"
-        android:title="@string/tty_mode_option_title"
-        android:summary="@string/tty_mode_option_summary"
-        android:persistent="false"
-        android:entries="@array/tty_mode_entries"
-        android:entryValues="@array/tty_mode_values"/>
-
-    <CheckBoxPreference
-        android:key="button_hac_key"
-        android:title="@string/hac_mode_title"
-        android:persistent="true"
-        android:summary="@string/hac_mode_summary"/>
-
-    <ListPreference
-        android:key="button_dtmf_settings"
-        android:title="@string/dtmf_tones_title"
-        android:summary="@string/dtmf_tones_summary"
-        android:entries="@array/dtmf_tone_entries"
-        android:entryValues="@array/dtmf_tone_values"/>
-
     <PreferenceScreen
         android:key="button_gsm_more_expand_key"
         android:title="@string/labelGSMMore"
         android:summary="@string/sum_gsm_call_settings"
-        android:persistent="false">
-
-        <intent android:action="android.intent.action.MAIN"
-            android:targetPackage="com.android.phone"
-            android:targetClass="com.android.phone.GsmUmtsCallOptions"/>
-
-    </PreferenceScreen>
+        android:persistent="false" />
 
     <PreferenceScreen
         android:key="button_cdma_more_expand_key"
         android:title="@string/labelCDMAMore"
         android:summary="@string/sum_cdma_call_settings"
-        android:persistent="false">
-
-        <intent android:action="android.intent.action.MAIN"
-            android:targetPackage="com.android.phone"
-            android:targetClass="com.android.phone.CdmaCallOptions"/>
-
-    </PreferenceScreen>
+        android:persistent="false" />
 
 </PreferenceScreen>

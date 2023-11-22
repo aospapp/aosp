@@ -99,10 +99,10 @@ sub DieDiag {
 if (grep /^--help-checkers$/, @ARGV) {
     my @options = qx($0 -h);
     foreach (@options) {
-	next unless /^ \+/;
-	s/^\s*//;
-	my ($sign, $name, @text) = split ' ', $_;
-	print $name, $/ if $sign eq '+';
+    next unless /^ \+/;
+    s/^\s*//;
+    my ($sign, $name, @text) = split ' ', $_;
+    print $name, $/ if $sign eq '+';
     }
     exit 0;
 }
@@ -388,6 +388,10 @@ sub ScanFile {
     }
     elsif (/<!-- BUGFILE (.*) -->$/) {
       $BugFile = abs_path($1);
+      if (!defined $BugFile) {
+         # The file no longer exists: use the original path.
+         $BugFile = $1;
+      }
       UpdatePrefix($BugFile);
     }
     elsif (/<!-- BUGPATHLENGTH (.*) -->$/) {
@@ -599,7 +603,7 @@ function CopyCheckedStateToCheckButtons(SummaryCheckButton) {
       if(Inputs[i] != SummaryCheckButton) {
         Inputs[i].checked = SummaryCheckButton.checked;
         Inputs[i].onclick();
-	  }
+      }
     }
   }
 }
@@ -1052,7 +1056,7 @@ sub RunBuildCommand {
     shift @$Args;
     unshift @$Args, $CXXAnalyzer;
   }
-  elsif ($Cmd eq "make" or $Cmd eq "gmake") {
+  elsif ($Cmd eq "make" or $Cmd eq "gmake" or $Cmd eq "mingw32-make") {
     AddIfNotPresent($Args, "CC=$CCAnalyzer");
     AddIfNotPresent($Args, "CXX=$CXXAnalyzer");
     if ($IgnoreErrors) {
@@ -1217,104 +1221,104 @@ LOADING CHECKERS:
  -load-plugin [plugin library]
 ENDTEXT
 
-# Query clang for list of checkers that are enabled.
+  # Query clang for list of checkers that are enabled.
 
-# create a list to load the plugins via the 'Xclang' command line
-# argument
-my @PluginLoadCommandline_xclang;
-foreach my $param ( @PluginsToLoad ) {
-  push ( @PluginLoadCommandline_xclang, "-Xclang" );
-  push ( @PluginLoadCommandline_xclang, $param );
-}
-my %EnabledCheckers;
-foreach my $lang ("c", "objective-c", "objective-c++", "c++") {
-  pipe(FROM_CHILD, TO_PARENT);
-  my $pid = fork();
-  if ($pid == 0) {
-    close FROM_CHILD;
-    open(STDOUT,">&", \*TO_PARENT);
-    open(STDERR,">&", \*TO_PARENT);
-    exec $Clang, ( @PluginLoadCommandline_xclang, '--analyze', '-x', $lang, '-', '-###');
+  # create a list to load the plugins via the 'Xclang' command line
+  # argument
+  my @PluginLoadCommandline_xclang;
+  foreach my $param ( @PluginsToLoad ) {
+    push ( @PluginLoadCommandline_xclang, "-Xclang" );
+    push ( @PluginLoadCommandline_xclang, $param );
   }
-  close(TO_PARENT);
-  while(<FROM_CHILD>) {
-    foreach my $val (split /\s+/) {
-      $val =~ s/\"//g;
-      if ($val =~ /-analyzer-checker\=([^\s]+)/) {
-        $EnabledCheckers{$1} = 1;
-      }
+  my %EnabledCheckers;
+  foreach my $lang ("c", "objective-c", "objective-c++", "c++") {
+    pipe(FROM_CHILD, TO_PARENT);
+    my $pid = fork();
+    if ($pid == 0) {
+      close FROM_CHILD;
+      open(STDOUT,">&", \*TO_PARENT);
+      open(STDERR,">&", \*TO_PARENT);
+      exec $Clang, ( @PluginLoadCommandline_xclang, '--analyze', '-x', $lang, '-', '-###');
     }
-  }
-  waitpid($pid,0);
-  close(FROM_CHILD);
-}
-
-# Query clang for complete list of checkers.
-if (defined $Clang && -x $Clang) {
-  pipe(FROM_CHILD, TO_PARENT);
-  my $pid = fork();
-  if ($pid == 0) {
-    close FROM_CHILD;
-    open(STDOUT,">&", \*TO_PARENT);
-    open(STDERR,">&", \*TO_PARENT);
-    exec $Clang, ('-cc1', @PluginsToLoad , '-analyzer-checker-help');
-  }
-  close(TO_PARENT);
-  my $foundCheckers = 0;
-  while(<FROM_CHILD>) {
-    if (/CHECKERS:/) {
-      $foundCheckers = 1;
-      last;
-    }
-  }
-  if (!$foundCheckers) {
-    print "  *** Could not query Clang for the list of available checkers.";
-  }
-  else {
-    print("\nAVAILABLE CHECKERS:\n\n");
-    my $skip = 0;
+    close(TO_PARENT);
     while(<FROM_CHILD>) {
-      if (/experimental/) {
-        $skip = 1;
-        next;
-      }
-      if ($skip) {
-        next if (!/^\s\s[^\s]/);
-        $skip = 0;
-      }
-      s/^\s\s//;
-      if (/^([^\s]+)/) {
-        # Is the checker enabled?
-        my $checker = $1;
-        my $enabled = 0;
-        my $aggregate = "";
-        foreach my $domain (split /\./, $checker) {
-          $aggregate .= $domain;
-          if ($EnabledCheckers{$aggregate}) {
-            $enabled =1;
-            last;
-          }
-          # append a dot, if an additional domain is added in the next iteration
-          $aggregate .= ".";
+      foreach my $val (split /\s+/) {
+        $val =~ s/\"//g;
+        if ($val =~ /-analyzer-checker\=([^\s]+)/) {
+          $EnabledCheckers{$1} = 1;
         }
+      }
+    }
+    waitpid($pid,0);
+    close(FROM_CHILD);
+  }
 
-        if ($enabled) {
-          print " + ";
+  # Query clang for complete list of checkers.
+  if (defined $Clang && -x $Clang) {
+    pipe(FROM_CHILD, TO_PARENT);
+    my $pid = fork();
+    if ($pid == 0) {
+      close FROM_CHILD;
+      open(STDOUT,">&", \*TO_PARENT);
+      open(STDERR,">&", \*TO_PARENT);
+      exec $Clang, ('-cc1', @PluginsToLoad , '-analyzer-checker-help');
+    }
+    close(TO_PARENT);
+    my $foundCheckers = 0;
+    while(<FROM_CHILD>) {
+      if (/CHECKERS:/) {
+        $foundCheckers = 1;
+        last;
+      }
+    }
+    if (!$foundCheckers) {
+      print "  *** Could not query Clang for the list of available checkers.";
+    }
+    else {
+      print("\nAVAILABLE CHECKERS:\n\n");
+      my $skip = 0;
+      while(<FROM_CHILD>) {
+        if (/experimental/) {
+          $skip = 1;
+          next;
+        }
+        if ($skip) {
+          next if (!/^\s\s[^\s]/);
+          $skip = 0;
+        }
+        s/^\s\s//;
+        if (/^([^\s]+)/) {
+          # Is the checker enabled?
+          my $checker = $1;
+          my $enabled = 0;
+          my $aggregate = "";
+          foreach my $domain (split /\./, $checker) {
+            $aggregate .= $domain;
+            if ($EnabledCheckers{$aggregate}) {
+              $enabled =1;
+              last;
+            }
+            # append a dot, if an additional domain is added in the next iteration
+            $aggregate .= ".";
+          }
+
+          if ($enabled) {
+            print " + ";
+          }
+          else {
+            print "   ";
+          }
         }
         else {
           print "   ";
         }
+        print $_;
       }
-      else {
-        print "   ";
-      }
-      print $_;
+      print "\nNOTE: \"+\" indicates that an analysis is enabled by default.\n"
     }
-    print "\nNOTE: \"+\" indicates that an analysis is enabled by default.\n"
+    waitpid($pid,0);
+    close(FROM_CHILD);
   }
-  waitpid($pid,0);
-  close(FROM_CHILD);
-}
 
 print <<ENDTEXT
 
@@ -1529,6 +1533,7 @@ while (@ARGV) {
   }
 
   if ($arg eq "-no-failure-reports") {
+    shift @ARGV;
     $ENV{"CCC_REPORT_FAILURES"} = 0;
     next;
   }
@@ -1558,14 +1563,14 @@ while (@ARGV) {
     next;
   }
   if ($arg eq "--use-analyzer") {
- 	shift @ARGV;
-  	$AnalyzerDiscoveryMethod = shift @ARGV;
-	next;
+     shift @ARGV;
+      $AnalyzerDiscoveryMethod = shift @ARGV;
+    next;
   }
   if ($arg =~ /^--use-analyzer=(.+)$/) {
     shift @ARGV;
-	$AnalyzerDiscoveryMethod = $1;
-	next;
+    $AnalyzerDiscoveryMethod = $1;
+    next;
   }
   if ($arg eq "--keep-empty") {
     shift @ARGV;
@@ -1598,17 +1603,17 @@ if (!defined $AnalyzerDiscoveryMethod) {
   if (!defined $Clang || ! -x $Clang) {
     if (!$RequestDisplayHelp && !$ForceDisplayHelp) {
       DieDiag("error: Cannot find an executable 'clang' relative to scan-build." .
-   	          "  Consider using --use-analyzer to pick a version of 'clang' to use for static analysis.\n");
+                 "  Consider using --use-analyzer to pick a version of 'clang' to use for static analysis.\n");
     }
   }
 }
 else {
   if ($AnalyzerDiscoveryMethod =~ /^[Xx]code$/) {
-	my $xcrun = `which xcrun`;
+    my $xcrun = `which xcrun`;
     chomp $xcrun;
-	if ($xcrun eq "") {
-  	  DieDiag("Cannot find 'xcrun' to find 'clang' for analysis.\n");
-	}
+    if ($xcrun eq "") {
+        DieDiag("Cannot find 'xcrun' to find 'clang' for analysis.\n");
+    }
     $Clang = `$xcrun -toolchain XcodeDefault -find clang`;
     chomp $Clang;
     if ($Clang eq "") {
@@ -1617,9 +1622,9 @@ else {
   }
   else {
     $Clang = $AnalyzerDiscoveryMethod;
-	if (!defined $Clang or not -x $Clang) {
-   	  DieDiag("Cannot find an executable clang at '$AnalyzerDiscoveryMethod'\n");
-	}
+    if (!defined $Clang or not -x $Clang) {
+         DieDiag("Cannot find an executable clang at '$AnalyzerDiscoveryMethod'\n");
+    }
   }
 }
 

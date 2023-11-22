@@ -77,6 +77,7 @@ public class TestSensorManager {
 
         mTestSensorEventListener = listener;
         String message = SensorCtsHelper.formatAssertionMessage("registerListener", mEnvironment);
+
         boolean result = mSensorManager.registerListener(
                 mTestSensorEventListener,
                 mEnvironment.getSensor(),
@@ -94,7 +95,10 @@ public class TestSensorManager {
      * @throws AssertionError if there was an error registering the listener with the
      * {@link SensorManager}
      */
-    public CountDownLatch registerListener(TestSensorEventListener listener, int eventCount) {
+    public CountDownLatch registerListener(
+            TestSensorEventListener listener,
+            int eventCount,
+            boolean specifyHandler) {
         if (mTestSensorEventListener != null) {
             Log.w(LOG_TAG, "Listener already registered, returning.");
             return null;
@@ -103,14 +107,38 @@ public class TestSensorManager {
         CountDownLatch latch = listener.getLatchForSensorEvents(eventCount);
         mTestSensorEventListener = listener;
         String message = SensorCtsHelper.formatAssertionMessage("registerListener", mEnvironment);
-        boolean result = mSensorManager.registerListener(
-                mTestSensorEventListener,
-                mEnvironment.getSensor(),
-                mEnvironment.getRequestedSamplingPeriodUs(),
-                mEnvironment.getMaxReportLatencyUs(),
-                mTestSensorEventListener.getHandler());
+
+        boolean result;
+        if (specifyHandler) {
+            result = mSensorManager.registerListener(
+                    mTestSensorEventListener,
+                    mEnvironment.getSensor(),
+                    mEnvironment.getRequestedSamplingPeriodUs(),
+                    mEnvironment.getMaxReportLatencyUs(),
+                    mTestSensorEventListener.getHandler());
+        } else {
+            result = mSensorManager.registerListener(
+                    mTestSensorEventListener,
+                    mEnvironment.getSensor(),
+                    mEnvironment.getRequestedSamplingPeriodUs(),
+                    mEnvironment.getMaxReportLatencyUs());
+        }
         Assert.assertTrue(message, result);
         return latch;
+    }
+
+    /**
+     * Register the listener. This method will perform a no-op if the sensor is already registered.
+     *
+     * @return A CountDownLatch initialized with eventCount which is used to wait for sensor
+     * events.
+     * @throws AssertionError if there was an error registering the listener with the
+     * {@link SensorManager}
+     */
+    public CountDownLatch registerListener(
+            TestSensorEventListener listener,
+            int eventCount) {
+        return registerListener(listener, eventCount, true);
     }
 
     /**

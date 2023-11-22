@@ -6,7 +6,6 @@ mcld_target_SRC_FILES := \
   ELFAttributeValue.cpp \
   ELFDynamic.cpp \
   ELFEmulation.cpp \
-  ELFMCLinker.cpp \
   GNUInfo.cpp \
   GNULDBackend.cpp \
   GOT.cpp \

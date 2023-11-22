@@ -15,15 +15,14 @@
  limitations under the License.
 -->
 
-
-
 <sample>
-    <name>MyCloud</name>
+    <name>StorageProvider</name>
     <group>Content</group>
     <package>com.example.android.storageprovider</package>
 
     <!-- change minSdk if needed-->
     <minSdk>19</minSdk>
+    <targetSdkVersion>22</targetSdkVersion>
 
     <strings>
         <intro>

@@ -17,6 +17,7 @@
 #include "bcinfo/MetadataExtractor.h"
 
 #include "bcinfo/BitcodeWrapper.h"
+#include "rsDefines.h"
 
 #define LOG_TAG "bcinfo"
 #include <cutils/log.h>
@@ -28,11 +29,34 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <cstdlib>
 
 namespace bcinfo {
+
+namespace {
+
+llvm::StringRef getStringOperand(const llvm::Metadata *node) {
+  if (auto *mds = llvm::dyn_cast_or_null<const llvm::MDString>(node)) {
+    return mds->getString();
+  }
+  return llvm::StringRef();
+}
+
+bool extractUIntFromMetadataString(uint32_t *value,
+    const llvm::Metadata *m) {
+  llvm::StringRef SigString = getStringOperand(m);
+  if (SigString != "") {
+    if (!SigString.getAsInteger(10, *value)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}
 
 // Name of metadata node where pragma info resides (should be synced with
 // slang.cpp)
@@ -59,29 +83,37 @@ static const llvm::StringRef ExportForEachMetadataName = "#rs_export_foreach";
 // synced with slang_rs_metadata.h)
 static const llvm::StringRef ObjectSlotMetadataName = "#rs_object_slots";
 
+static const llvm::StringRef ThreadableMetadataName = "#rs_is_threadable";
+
+// Name of metadata node where the checksum for this build is stored.  (should
+// be synced with libbcc/lib/Core/Source.cpp)
+static const llvm::StringRef ChecksumMetadataName = "#rs_build_checksum";
 
 MetadataExtractor::MetadataExtractor(const char *bitcode, size_t bitcodeSize)
-    : mModule(NULL), mBitcode(bitcode), mBitcodeSize(bitcodeSize),
+    : mModule(nullptr), mBitcode(bitcode), mBitcodeSize(bitcodeSize),
       mExportVarCount(0), mExportFuncCount(0), mExportForEachSignatureCount(0),
-      mExportVarNameList(NULL), mExportFuncNameList(NULL),
-      mExportForEachNameList(NULL), mExportForEachSignatureList(NULL),
-      mPragmaCount(0), mPragmaKeyList(NULL), mPragmaValueList(NULL),
-      mObjectSlotCount(0), mObjectSlotList(NULL),
-      mRSFloatPrecision(RS_FP_Full) {
+      mExportVarNameList(nullptr), mExportFuncNameList(nullptr),
+      mExportForEachNameList(nullptr), mExportForEachSignatureList(nullptr),
+      mExportForEachInputCountList(nullptr), mPragmaCount(0),
+      mPragmaKeyList(nullptr), mPragmaValueList(nullptr), mObjectSlotCount(0),
+      mObjectSlotList(nullptr), mRSFloatPrecision(RS_FP_Full),
+      mIsThreadable(true), mBuildChecksum(nullptr) {
   BitcodeWrapper wrapper(bitcode, bitcodeSize);
+  mTargetAPI = wrapper.getTargetAPI();
   mCompilerVersion = wrapper.getCompilerVersion();
   mOptimizationLevel = wrapper.getOptimizationLevel();
 }
 
 
 MetadataExtractor::MetadataExtractor(const llvm::Module *module)
-    : mModule(module), mBitcode(NULL), mBitcodeSize(0), mExportVarCount(0),
+    : mModule(module), mBitcode(nullptr), mBitcodeSize(0), mExportVarCount(0),
       mExportFuncCount(0), mExportForEachSignatureCount(0),
-      mExportVarNameList(NULL), mExportFuncNameList(NULL),
-      mExportForEachNameList(NULL), mExportForEachSignatureList(NULL),
-      mPragmaCount(0), mPragmaKeyList(NULL), mPragmaValueList(NULL),
-      mObjectSlotCount(0), mObjectSlotList(NULL),
-      mRSFloatPrecision(RS_FP_Full) {
+      mExportVarNameList(nullptr), mExportFuncNameList(nullptr),
+      mExportForEachNameList(nullptr), mExportForEachSignatureList(nullptr),
+      mExportForEachInputCountList(nullptr), mPragmaCount(0),
+      mPragmaKeyList(nullptr), mPragmaValueList(nullptr), mObjectSlotCount(0),
+      mObjectSlotList(nullptr), mRSFloatPrecision(RS_FP_Full),
+      mIsThreadable(true), mBuildChecksum(nullptr) {
   mCompilerVersion = RS_VERSION;  // Default to the actual current version.
   mOptimizationLevel = 3;
 }
@@ -91,50 +123,52 @@ MetadataExtractor::~MetadataExtractor() {
   if (mExportVarNameList) {
     for (size_t i = 0; i < mExportVarCount; i++) {
         delete [] mExportVarNameList[i];
-        mExportVarNameList[i] = NULL;
+        mExportVarNameList[i] = nullptr;
     }
   }
   delete [] mExportVarNameList;
-  mExportVarNameList = NULL;
+  mExportVarNameList = nullptr;
 
   if (mExportFuncNameList) {
     for (size_t i = 0; i < mExportFuncCount; i++) {
         delete [] mExportFuncNameList[i];
-        mExportFuncNameList[i] = NULL;
+        mExportFuncNameList[i] = nullptr;
     }
   }
   delete [] mExportFuncNameList;
-  mExportFuncNameList = NULL;
+  mExportFuncNameList = nullptr;
 
   if (mExportForEachNameList) {
     for (size_t i = 0; i < mExportForEachSignatureCount; i++) {
         delete [] mExportForEachNameList[i];
-        mExportForEachNameList[i] = NULL;
+        mExportForEachNameList[i] = nullptr;
     }
   }
   delete [] mExportForEachNameList;
-  mExportForEachNameList = NULL;
+  mExportForEachNameList = nullptr;
 
   delete [] mExportForEachSignatureList;
-  mExportForEachSignatureList = NULL;
+  mExportForEachSignatureList = nullptr;
 
   for (size_t i = 0; i < mPragmaCount; i++) {
     if (mPragmaKeyList) {
       delete [] mPragmaKeyList[i];
-      mPragmaKeyList[i] = NULL;
+      mPragmaKeyList[i] = nullptr;
     }
     if (mPragmaValueList) {
       delete [] mPragmaValueList[i];
-      mPragmaValueList[i] = NULL;
+      mPragmaValueList[i] = nullptr;
     }
   }
   delete [] mPragmaKeyList;
-  mPragmaKeyList = NULL;
+  mPragmaKeyList = nullptr;
   delete [] mPragmaValueList;
-  mPragmaValueList = NULL;
+  mPragmaValueList = nullptr;
 
   delete [] mObjectSlotList;
-  mObjectSlotList = NULL;
+  mObjectSlotList = nullptr;
+
+  delete [] mBuildChecksum;
 
   return;
 }
@@ -157,18 +191,14 @@ bool MetadataExtractor::populateObjectSlotMetadata(
 
   for (size_t i = 0; i < mObjectSlotCount; i++) {
     llvm::MDNode *ObjectSlot = ObjectSlotMetadata->getOperand(i);
-    if (ObjectSlot != NULL && ObjectSlot->getNumOperands() == 1) {
-      llvm::Value *SlotMDS = ObjectSlot->getOperand(0);
-      if (SlotMDS->getValueID() == llvm::Value::MDStringVal) {
-        llvm::StringRef Slot =
-            static_cast<llvm::MDString*>(SlotMDS)->getString();
-        uint32_t USlot = 0;
-        if (Slot.getAsInteger(10, USlot)) {
-          ALOGE("Non-integer object slot value '%s'", Slot.str().c_str());
-          return false;
-        }
-        TmpSlotList[i] = USlot;
+    if (ObjectSlot != nullptr && ObjectSlot->getNumOperands() == 1) {
+      if (!extractUIntFromMetadataString(&TmpSlotList[i], ObjectSlot->getOperand(0))) {
+        ALOGE("Non-integer object slot value");
+        return false;
       }
+    } else {
+      ALOGE("Corrupt object slot information");
+      return false;
     }
   }
 
@@ -178,17 +208,11 @@ bool MetadataExtractor::populateObjectSlotMetadata(
 }
 
 
-static const char *createStringFromValue(llvm::Value *v) {
-  if (v->getValueID() != llvm::Value::MDStringVal) {
-    return NULL;
-  }
-
-  llvm::StringRef ref = static_cast<llvm::MDString*>(v)->getString();
-
+static const char *createStringFromValue(llvm::Metadata *m) {
+  auto ref = getStringOperand(m);
   char *c = new char[ref.size() + 1];
   memcpy(c, ref.data(), ref.size());
   c[ref.size()] = '\0';
-
   return c;
 }
 
@@ -209,10 +233,10 @@ void MetadataExtractor::populatePragmaMetadata(
 
   for (size_t i = 0; i < mPragmaCount; i++) {
     llvm::MDNode *Pragma = PragmaMetadata->getOperand(i);
-    if (Pragma != NULL && Pragma->getNumOperands() == 2) {
-      llvm::Value *PragmaKeyMDS = Pragma->getOperand(0);
+    if (Pragma != nullptr && Pragma->getNumOperands() == 2) {
+      llvm::Metadata *PragmaKeyMDS = Pragma->getOperand(0);
       TmpKeyList[i] = createStringFromValue(PragmaKeyMDS);
-      llvm::Value *PragmaValueMDS = Pragma->getOperand(1);
+      llvm::Metadata *PragmaValueMDS = Pragma->getOperand(1);
       TmpValueList[i] = createStringFromValue(PragmaValueMDS);
     }
   }
@@ -255,8 +279,8 @@ void MetadataExtractor::populatePragmaMetadata(
       ALOGI("Switching to RS FP relaxed mode via setprop");
       mRSFloatPrecision = RS_FP_Relaxed;
     } else if (!Imprecise.compare(PrecisionPropBuf)) {
-      ALOGW("Switching to RS FP relaxed mode via setprop. rs_fp_imprecise was specified but is "
-              "deprecated ");
+      ALOGW("Switching to RS FP relaxed mode via setprop. rs_fp_imprecise was "
+            "specified but is deprecated ");
       mRSFloatPrecision = RS_FP_Relaxed;
     } else if (!Full.compare(PrecisionPropBuf)) {
       ALOGI("Switching to RS FP full mode via setprop");
@@ -284,7 +308,7 @@ bool MetadataExtractor::populateVarNameMetadata(
 
   for (size_t i = 0; i < mExportVarCount; i++) {
     llvm::MDNode *Name = VarNameMetadata->getOperand(i);
-    if (Name != NULL && Name->getNumOperands() > 1) {
+    if (Name != nullptr && Name->getNumOperands() > 1) {
       TmpNameList[i] = createStringFromValue(Name->getOperand(0));
     }
   }
@@ -310,7 +334,7 @@ bool MetadataExtractor::populateFuncNameMetadata(
 
   for (size_t i = 0; i < mExportFuncCount; i++) {
     llvm::MDNode *Name = FuncNameMetadata->getOperand(i);
-    if (Name != NULL && Name->getNumOperands() == 1) {
+    if (Name != nullptr && Name->getNumOperands() == 1) {
       TmpNameList[i] = createStringFromValue(Name->getOperand(0));
     }
   }
@@ -318,6 +342,28 @@ bool MetadataExtractor::populateFuncNameMetadata(
   mExportFuncNameList = TmpNameList;
 
   return true;
+}
+
+
+uint32_t MetadataExtractor::calculateNumInputs(const llvm::Function *Function,
+                                               uint32_t Signature) {
+
+  if (hasForEachSignatureIn(Signature)) {
+    uint32_t OtherCount = 0;
+
+    OtherCount += hasForEachSignatureUsrData(Signature);
+    OtherCount += hasForEachSignatureX(Signature);
+    OtherCount += hasForEachSignatureY(Signature);
+    OtherCount += hasForEachSignatureZ(Signature);
+    OtherCount += hasForEachSignatureCtxt(Signature);
+    OtherCount += hasForEachSignatureOut(Signature) &&
+                  Function->getReturnType()->isVoidTy();
+
+    return Function->arg_size() - OtherCount;
+
+  } else {
+    return 0;
+  }
 }
 
 
@@ -330,8 +376,9 @@ bool MetadataExtractor::populateForEachMetadata(
     // which means that we need to set the bottom 5 bits in the mask.
     mExportForEachSignatureCount = 1;
     char **TmpNameList = new char*[mExportForEachSignatureCount];
-    TmpNameList[0] = new char[5];
-    strncpy(TmpNameList[0], "root", 5);
+    size_t RootLen = strlen(kRoot) + 1;
+    TmpNameList[0] = new char[RootLen];
+    strncpy(TmpNameList[0], kRoot, RootLen);
 
     uint32_t *TmpSigList = new uint32_t[mExportForEachSignatureCount];
     TmpSigList[0] = 0x1f;
@@ -348,35 +395,38 @@ bool MetadataExtractor::populateForEachMetadata(
     }
   } else {
     mExportForEachSignatureCount = 0;
-    mExportForEachSignatureList = NULL;
+    mExportForEachSignatureList = nullptr;
     return true;
   }
 
   uint32_t *TmpSigList = new uint32_t[mExportForEachSignatureCount];
   const char **TmpNameList = new const char*[mExportForEachSignatureCount];
+  uint32_t *TmpInputCountList = new uint32_t[mExportForEachSignatureCount];
 
   for (size_t i = 0; i < mExportForEachSignatureCount; i++) {
     llvm::MDNode *SigNode = Signatures->getOperand(i);
-    if (SigNode != NULL && SigNode->getNumOperands() == 1) {
-      llvm::Value *SigVal = SigNode->getOperand(0);
-      if (SigVal->getValueID() == llvm::Value::MDStringVal) {
-        llvm::StringRef SigString =
-            static_cast<llvm::MDString*>(SigVal)->getString();
-        uint32_t Signature = 0;
-        if (SigString.getAsInteger(10, Signature)) {
-          ALOGE("Non-integer signature value '%s'", SigString.str().c_str());
-          return false;
-        }
-        TmpSigList[i] = Signature;
+    if (SigNode != nullptr && SigNode->getNumOperands() == 1) {
+      if (!extractUIntFromMetadataString(&TmpSigList[i], SigNode->getOperand(0))) {
+        ALOGE("Non-integer signature value");
+        return false;
       }
+    } else {
+      ALOGE("Corrupt signature information");
+      return false;
     }
   }
 
   if (Names) {
     for (size_t i = 0; i < mExportForEachSignatureCount; i++) {
       llvm::MDNode *Name = Names->getOperand(i);
-      if (Name != NULL && Name->getNumOperands() == 1) {
+      if (Name != nullptr && Name->getNumOperands() == 1) {
         TmpNameList[i] = createStringFromValue(Name->getOperand(0));
+
+        llvm::Function *Func =
+            mModule->getFunction(llvm::StringRef(TmpNameList[i]));
+
+        TmpInputCountList[i] = (Func != nullptr) ?
+          calculateNumInputs(Func, TmpSigList[i]) : 0;
       }
     }
   } else {
@@ -391,10 +441,51 @@ bool MetadataExtractor::populateForEachMetadata(
 
   mExportForEachNameList = TmpNameList;
   mExportForEachSignatureList = TmpSigList;
+  mExportForEachInputCountList = TmpInputCountList;
 
   return true;
 }
 
+
+void MetadataExtractor::readThreadableFlag(
+    const llvm::NamedMDNode *ThreadableMetadata) {
+
+  // Scripts are threadable by default.  If we read a valid metadata value for
+  // 'ThreadableMetadataName' and it is set to 'no', we mark script as non
+  // threadable.  All other exception paths retain the default value.
+
+  mIsThreadable = true;
+  if (ThreadableMetadata == nullptr)
+    return;
+
+  llvm::MDNode *mdNode = ThreadableMetadata->getOperand(0);
+  if (mdNode == nullptr)
+    return;
+
+  llvm::Metadata *mdValue = mdNode->getOperand(0);
+  if (mdValue == nullptr)
+    return;
+
+  if (getStringOperand(mdValue) == "no")
+    mIsThreadable = false;
+}
+
+void MetadataExtractor::readBuildChecksumMetadata(
+    const llvm::NamedMDNode *ChecksumMetadata) {
+
+  if (ChecksumMetadata == nullptr)
+    return;
+
+  llvm::MDNode *mdNode = ChecksumMetadata->getOperand(0);
+  if (mdNode == nullptr)
+    return;
+
+  llvm::Metadata *mdValue = mdNode->getOperand(0);
+  if (mdValue == nullptr)
+    return;
+
+  mBuildChecksum = createStringFromValue(mdValue);
+}
 
 bool MetadataExtractor::extract() {
   if (!(mBitcode && mBitcodeSize) && !mModule) {
@@ -412,7 +503,8 @@ bool MetadataExtractor::extract() {
     std::string error;
 
     // Module ownership is handled by the context, so we don't need to free it.
-    llvm::ErrorOr<llvm::Module* > errval = llvm::parseBitcodeFile(MEM.get(), *mContext);
+    llvm::ErrorOr<llvm::Module* > errval = llvm::parseBitcodeFile(MEM.get()->getMemBufferRef(),
+                                                                  *mContext);
     if (std::error_code ec = errval.getError()) {
         ALOGE("Could not parse bitcode file");
         ALOGE("%s", ec.message().c_str());
@@ -433,6 +525,10 @@ bool MetadataExtractor::extract() {
       mModule->getNamedMetadata(PragmaMetadataName);
   const llvm::NamedMDNode *ObjectSlotMetadata =
       mModule->getNamedMetadata(ObjectSlotMetadataName);
+  const llvm::NamedMDNode *ThreadableMetadata =
+      mModule->getNamedMetadata(ThreadableMetadataName);
+  const llvm::NamedMDNode *ChecksumMetadata =
+      mModule->getNamedMetadata(ChecksumMetadataName);
 
 
   if (!populateVarNameMetadata(ExportVarMetadata)) {
@@ -458,8 +554,10 @@ bool MetadataExtractor::extract() {
     return false;
   }
 
+  readThreadableFlag(ThreadableMetadata);
+  readBuildChecksumMetadata(ChecksumMetadata);
+
   return true;
 }
 
 }  // namespace bcinfo
-

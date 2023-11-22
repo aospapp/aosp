@@ -36,7 +36,7 @@ namespace space {
 size_t MallocSpace::bitmap_index_ = 0;
 
 MallocSpace::MallocSpace(const std::string& name, MemMap* mem_map,
-                         byte* begin, byte* end, byte* limit, size_t growth_limit,
+                         uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
                          bool create_bitmaps, bool can_move_objects, size_t starting_size,
                          size_t initial_size)
     : ContinuousMemMapAllocSpace(name, mem_map, begin, end, limit, kGcRetentionPolicyAlwaysCollect),
@@ -66,7 +66,7 @@ MallocSpace::MallocSpace(const std::string& name, MemMap* mem_map,
 }
 
 MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size, size_t* initial_size,
-                                  size_t* growth_limit, size_t* capacity, byte* requested_begin) {
+                                  size_t* growth_limit, size_t* capacity, uint8_t* requested_begin) {
   // Sanity check arguments
   if (starting_size > *initial_size) {
     *initial_size = starting_size;
@@ -75,13 +75,13 @@ MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size,
     LOG(ERROR) << "Failed to create alloc space (" << name << ") where the initial size ("
         << PrettySize(*initial_size) << ") is larger than its capacity ("
         << PrettySize(*growth_limit) << ")";
-    return NULL;
+    return nullptr;
   }
   if (*growth_limit > *capacity) {
     LOG(ERROR) << "Failed to create alloc space (" << name << ") where the growth limit capacity ("
         << PrettySize(*growth_limit) << ") is larger than the capacity ("
         << PrettySize(*capacity) << ")";
-    return NULL;
+    return nullptr;
   }
 
   // Page align growth limit and capacity which will be used to manage mmapped storage
@@ -90,7 +90,7 @@ MemMap* MallocSpace::CreateMemMap(const std::string& name, size_t starting_size,
 
   std::string error_msg;
   MemMap* mem_map = MemMap::MapAnonymous(name.c_str(), requested_begin, *capacity,
-                                         PROT_READ | PROT_WRITE, true, &error_msg);
+                                         PROT_READ | PROT_WRITE, true, false, &error_msg);
   if (mem_map == nullptr) {
     LOG(ERROR) << "Failed to allocate pages for alloc space (" << name << ") of size "
                << PrettySize(*capacity) << ": " << error_msg;
@@ -129,10 +129,10 @@ void MallocSpace::SetGrowthLimit(size_t growth_limit) {
 
 void* MallocSpace::MoreCore(intptr_t increment) {
   CheckMoreCoreForPrecondition();
-  byte* original_end = End();
+  uint8_t* original_end = End();
   if (increment != 0) {
     VLOG(heap) << "MallocSpace::MoreCore " << PrettySize(increment);
-    byte* new_end = original_end + increment;
+    uint8_t* new_end = original_end + increment;
     if (increment > 0) {
       // Should never be asked to increase the allocation beyond the capacity of the space. Enforced
       // by mspace_set_footprint_limit.
@@ -163,7 +163,7 @@ ZygoteSpace* MallocSpace::CreateZygoteSpace(const char* alloc_space_name, bool l
   // alloc space so that we won't mix thread local runs from different
   // alloc spaces.
   RevokeAllThreadLocalBuffers();
-  SetEnd(reinterpret_cast<byte*>(RoundUp(reinterpret_cast<uintptr_t>(End()), kPageSize)));
+  SetEnd(reinterpret_cast<uint8_t*>(RoundUp(reinterpret_cast<uintptr_t>(End()), kPageSize)));
   DCHECK(IsAligned<accounting::CardTable::kCardSize>(begin_));
   DCHECK(IsAligned<accounting::CardTable::kCardSize>(End()));
   DCHECK(IsAligned<kPageSize>(begin_));
@@ -173,7 +173,8 @@ ZygoteSpace* MallocSpace::CreateZygoteSpace(const char* alloc_space_name, bool l
   // stored in between objects.
   // Remaining size is for the new alloc space.
   const size_t growth_limit = growth_limit_ - size;
-  const size_t capacity = Capacity() - size;
+  // Use mem map limit in case error for clear growth limit.
+  const size_t capacity = NonGrowthLimitCapacity() - size;
   VLOG(heap) << "Begin " << reinterpret_cast<const void*>(begin_) << "\n"
              << "End " << reinterpret_cast<const void*>(End()) << "\n"
              << "Size " << size << "\n"
@@ -194,11 +195,11 @@ ZygoteSpace* MallocSpace::CreateZygoteSpace(const char* alloc_space_name, bool l
   void* allocator = CreateAllocator(End(), starting_size_, initial_size_, capacity,
                                     low_memory_mode);
   // Protect memory beyond the initial size.
-  byte* end = mem_map->Begin() + starting_size_;
+  uint8_t* end = mem_map->Begin() + starting_size_;
   if (capacity > initial_size_) {
     CHECK_MEMORY_CALL(mprotect, (end, capacity - initial_size_, PROT_NONE), alloc_space_name);
   }
-  *out_malloc_space = CreateInstance(alloc_space_name, mem_map.release(), allocator, End(), end,
+  *out_malloc_space = CreateInstance(mem_map.release(), alloc_space_name, allocator, End(), end,
                                      limit_, growth_limit, CanMoveObjects());
   SetLimit(End());
   live_bitmap_->SetHeapLimit(reinterpret_cast<uintptr_t>(End()));
@@ -245,6 +246,19 @@ void MallocSpace::SweepCallback(size_t num_ptrs, mirror::Object** ptrs, void* ar
   // of allocation.
   context->freed.objects += num_ptrs;
   context->freed.bytes += space->FreeList(self, num_ptrs, ptrs);
+}
+
+void MallocSpace::ClampGrowthLimit() {
+  size_t new_capacity = Capacity();
+  CHECK_LE(new_capacity, NonGrowthLimitCapacity());
+  GetLiveBitmap()->SetHeapSize(new_capacity);
+  GetMarkBitmap()->SetHeapSize(new_capacity);
+  if (temp_bitmap_.get() != nullptr) {
+    // If the bitmaps are clamped, then the temp bitmap is actually the mark bitmap.
+    temp_bitmap_->SetHeapSize(new_capacity);
+  }
+  GetMemMap()->SetSize(new_capacity);
+  limit_ = Begin() + new_capacity;
 }
 
 }  // namespace space

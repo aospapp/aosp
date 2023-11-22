@@ -16,19 +16,19 @@
 
 package com.android.deskclock;
 
+import android.Manifest;
 import android.animation.Animator;
-import android.animation.Animator.AnimatorListener;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.app.LoaderManager;
-import android.app.TimePickerDialog.OnTimeSetListener;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Loader;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -42,6 +42,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Vibrator;
+import android.preference.PreferenceManager;
+import android.support.v4.view.ViewCompat;
 import android.transition.AutoTransition;
 import android.transition.Fade;
 import android.transition.Transition;
@@ -56,7 +58,6 @@ import android.view.ViewTreeObserver;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CursorAdapter;
@@ -64,27 +65,25 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.TimePicker;
 import android.widget.Toast;
 
 import com.android.deskclock.alarms.AlarmStateManager;
+import com.android.deskclock.events.Events;
 import com.android.deskclock.provider.Alarm;
 import com.android.deskclock.provider.AlarmInstance;
 import com.android.deskclock.provider.DaysOfWeek;
 import com.android.deskclock.widget.ActionableToastBar;
 import com.android.deskclock.widget.TextTime;
 
-import java.text.DateFormatSymbols;
 import java.util.Calendar;
 import java.util.HashSet;
 
 /**
  * AlarmClock application.
  */
-public class AlarmClockFragment extends DeskClockFragment implements
-        LoaderManager.LoaderCallbacks<Cursor>, OnTimeSetListener, View.OnTouchListener {
+public abstract class AlarmClockFragment extends DeskClockFragment implements
+        LoaderManager.LoaderCallbacks<Cursor>, View.OnTouchListener {
     private static final float EXPAND_DECELERATION = 1f;
     private static final float COLLAPSE_DECELERATION = 0.7f;
 
@@ -104,11 +103,14 @@ public class AlarmClockFragment extends DeskClockFragment implements
     private static final String KEY_UNDO_SHOWING = "undoShowing";
     private static final String KEY_PREVIOUS_DAY_MAP = "previousDayMap";
     private static final String KEY_SELECTED_ALARM = "selectedAlarm";
-    private static final DeskClockExtensions sDeskClockExtensions = ExtensionsFactory
-                    .getDeskClockExtensions();
 
     private static final int REQUEST_CODE_RINGTONE = 1;
+    private static final int REQUEST_CODE_PERMISSIONS = 2;
     private static final long INVALID_ID = -1;
+    private static final String PREF_KEY_DEFAULT_ALARM_RINGTONE_URI = "default_alarm_ringtone_uri";
+
+    // Use transitions only in API 21+
+    private static final boolean USE_TRANSITION_FRAMEWORK = Utils.isLOrLater();
 
     // This extra is used when receiving an intent to create an alarm, but no alarm details
     // have been passed in, so the alarm page should start the process of creating a new alarm.
@@ -128,14 +130,14 @@ public class AlarmClockFragment extends DeskClockFragment implements
     private ActionableToastBar mUndoBar;
     private View mUndoFrame;
 
-    private Alarm mSelectedAlarm;
-    private long mScrollToAlarmId = INVALID_ID;
+    protected Alarm mSelectedAlarm;
+    protected long mScrollToAlarmId = INVALID_ID;
 
     private Loader mCursorLoader = null;
 
     // Saved states for undo
     private Alarm mDeletedAlarm;
-    private Alarm mAddedAlarm;
+    protected Alarm mAddedAlarm;
     private boolean mUndoShowing;
 
     private Interpolator mExpandInterpolator;
@@ -144,6 +146,35 @@ public class AlarmClockFragment extends DeskClockFragment implements
     private Transition mAddRemoveTransition;
     private Transition mRepeatTransition;
     private Transition mEmptyViewTransition;
+
+    // Abstract methods to to be overridden by for post- and pre-L implementations as necessary
+    protected abstract void setTimePickerListener();
+    protected abstract void showTimeEditDialog(Alarm alarm);
+    protected abstract void startCreatingAlarm();
+
+    protected void processTimeSet(int hourOfDay, int minute) {
+        if (mSelectedAlarm == null) {
+            // If mSelectedAlarm is null then we're creating a new alarm.
+            Alarm a = new Alarm();
+            a.alert = getDefaultRingtoneUri();
+            if (a.alert == null) {
+                a.alert = Uri.parse("content://settings/system/alarm_alert");
+            }
+            a.hour = hourOfDay;
+            a.minutes = minute;
+            a.enabled = true;
+
+            mAddedAlarm = a;
+            asyncAddAlarm(a);
+        } else {
+            mSelectedAlarm.hour = hourOfDay;
+            mSelectedAlarm.minutes = minute;
+            mSelectedAlarm.enabled = true;
+            mScrollToAlarmId = mSelectedAlarm.id;
+            asyncUpdateAlarm(mSelectedAlarm, true);
+            mSelectedAlarm = null;
+        }
+    }
 
     public AlarmClockFragment() {
         // Basic provider required by Fragment.java
@@ -179,18 +210,20 @@ public class AlarmClockFragment extends DeskClockFragment implements
         mExpandInterpolator = new DecelerateInterpolator(EXPAND_DECELERATION);
         mCollapseInterpolator = new DecelerateInterpolator(COLLAPSE_DECELERATION);
 
-        mAddRemoveTransition = new AutoTransition();
-        mAddRemoveTransition.setDuration(ANIMATION_DURATION);
+        if (USE_TRANSITION_FRAMEWORK) {
+            mAddRemoveTransition = new AutoTransition();
+            mAddRemoveTransition.setDuration(ANIMATION_DURATION);
 
-        mRepeatTransition = new AutoTransition();
-        mRepeatTransition.setDuration(ANIMATION_DURATION / 2);
-        mRepeatTransition.setInterpolator(new AccelerateDecelerateInterpolator());
+            mRepeatTransition = new AutoTransition();
+            mRepeatTransition.setDuration(ANIMATION_DURATION / 2);
+            mRepeatTransition.setInterpolator(new AccelerateDecelerateInterpolator());
 
-        mEmptyViewTransition = new TransitionSet()
-                .setOrdering(TransitionSet.ORDERING_SEQUENTIAL)
-                .addTransition(new Fade(Fade.OUT))
-                .addTransition(new Fade(Fade.IN))
-                .setDuration(ANIMATION_DURATION);
+            mEmptyViewTransition = new TransitionSet()
+                    .setOrdering(TransitionSet.ORDERING_SEQUENTIAL)
+                    .addTransition(new Fade(Fade.OUT))
+                    .addTransition(new Fade(Fade.IN))
+                    .setDuration(ANIMATION_DURATION);
+        }
 
         boolean isLandscape = getResources().getConfiguration().orientation
                 == Configuration.ORIENTATION_LANDSCAPE;
@@ -230,8 +263,9 @@ public class AlarmClockFragment extends DeskClockFragment implements
                     showUndoBar();
                 }
 
-                if ((count == 0 && prevAdapterCount > 0) ||  /* should fade in */
-                        (count > 0 && prevAdapterCount == 0) /* should fade out */) {
+                if (USE_TRANSITION_FRAMEWORK &&
+                    ((count == 0 && prevAdapterCount > 0) ||  /* should fade  in */
+                    (count > 0 && prevAdapterCount == 0) /* should fade out */)) {
                     TransitionManager.beginDelayedTransition(mMainLayout, mEmptyViewTransition);
                 }
                 mEmptyView.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
@@ -256,14 +290,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
         return v;
     }
 
-    private void setUndoBarRightMargin(int margin) {
-        FrameLayout.LayoutParams params =
-                (FrameLayout.LayoutParams) mUndoBar.getLayoutParams();
-        ((FrameLayout.LayoutParams) mUndoBar.getLayoutParams())
-            .setMargins(params.leftMargin, params.topMargin, margin, params.bottomMargin);
-        mUndoBar.requestLayout();
-    }
-
     @Override
     public void onResume() {
         super.onResume();
@@ -274,9 +300,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
             setLeftRightButtonAppearance();
         }
 
-        if (mAdapter != null) {
-            mAdapter.notifyDataSetChanged();
-        }
         // Check if another app asked us to create a blank new alarm.
         final Intent intent = getActivity().getIntent();
         if (intent.hasExtra(ALARM_CREATE_NEW_INTENT_EXTRA)) {
@@ -301,6 +324,8 @@ public class AlarmClockFragment extends DeskClockFragment implements
             // Remove the SCROLL_TO_ALARM extra now that we've processed it.
             intent.removeExtra(SCROLL_TO_ALARM_INTENT_EXTRA);
         }
+
+        setTimePickerListener();
     }
 
     private void hideUndoBar(boolean animate, MotionEvent event) {
@@ -358,32 +383,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
         // home was pressed, just dismiss any existing toast bar when restarting
         // the app.
         hideUndoBar(false, null);
-    }
-
-    // Callback used by TimePickerDialog
-    @Override
-    public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
-        if (mSelectedAlarm == null) {
-            // If mSelectedAlarm is null then we're creating a new alarm.
-            Alarm a = new Alarm();
-            a.alert = RingtoneManager.getActualDefaultRingtoneUri(getActivity(),
-                    RingtoneManager.TYPE_ALARM);
-            if (a.alert == null) {
-                a.alert = Uri.parse("content://settings/system/alarm_alert");
-            }
-            a.hour = hourOfDay;
-            a.minutes = minute;
-            a.enabled = true;
-            mAddedAlarm = a;
-            asyncAddAlarm(a);
-        } else {
-            mSelectedAlarm.hour = hourOfDay;
-            mSelectedAlarm.minutes = minute;
-            mSelectedAlarm.enabled = true;
-            mScrollToAlarmId = mSelectedAlarm.id;
-            asyncUpdateAlarm(mSelectedAlarm, true);
-            mSelectedAlarm = null;
-        }
     }
 
     private void showLabelDialog(final Alarm alarm) {
@@ -471,11 +470,40 @@ public class AlarmClockFragment extends DeskClockFragment implements
         mSelectedAlarm.alert = uri;
 
         // Save the last selected ringtone as the default for new alarms
-        if (!Alarm.NO_RINGTONE_URI.equals(uri)) {
-            RingtoneManager.setActualDefaultRingtoneUri(
-                    getActivity(), RingtoneManager.TYPE_ALARM, uri);
-        }
+        setDefaultRingtoneUri(uri);
+
         asyncUpdateAlarm(mSelectedAlarm, false);
+
+        // If the user chose an external ringtone and has not yet granted the permission to read
+        // external storage, ask them for that permission now.
+        if (!AlarmUtils.hasPermissionToDisplayRingtoneTitle(getActivity(), uri)) {
+            final String[] perms = {Manifest.permission.READ_EXTERNAL_STORAGE};
+            requestPermissions(perms, REQUEST_CODE_PERMISSIONS);
+        }
+    }
+
+    private Uri getDefaultRingtoneUri() {
+        final SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        final String ringtoneUriString = sp.getString(PREF_KEY_DEFAULT_ALARM_RINGTONE_URI, null);
+
+        final Uri ringtoneUri;
+        if (ringtoneUriString != null) {
+            ringtoneUri = Uri.parse(ringtoneUriString);
+        } else {
+            ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(getActivity(),
+                    RingtoneManager.TYPE_ALARM);
+        }
+
+        return ringtoneUri;
+    }
+
+    private void setDefaultRingtoneUri(Uri uri) {
+        final SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        if (uri == null) {
+            sp.edit().remove(PREF_KEY_DEFAULT_ALARM_RINGTONE_URI).apply();
+        } else {
+            sp.edit().putString(PREF_KEY_DEFAULT_ALARM_RINGTONE_URI, uri.toString()).apply();
+        }
     }
 
     @Override
@@ -491,26 +519,33 @@ public class AlarmClockFragment extends DeskClockFragment implements
         }
     }
 
-    public class AlarmItemAdapter extends CursorAdapter {
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        // The permission change may alter the cached ringtone titles so clear them.
+        // (e.g. READ_EXTERNAL_STORAGE is granted or revoked)
+        mRingtoneTitleCache.clear();
+    }
+
+    private class AlarmItemAdapter extends CursorAdapter {
         private final Context mContext;
         private final LayoutInflater mFactory;
-        private final String[] mShortWeekDayStrings;
-        private final String[] mLongWeekDayStrings;
-        private final int mColorLit;
-        private final int mColorDim;
         private final Typeface mRobotoNormal;
         private final ListView mList;
 
         private long mExpandedId;
         private ItemHolder mExpandedItemHolder;
-        private final HashSet<Long> mRepeatChecked = new HashSet<Long>();
-        private final HashSet<Long> mSelectedAlarms = new HashSet<Long>();
+        private final HashSet<Long> mRepeatChecked = new HashSet<>();
+        private final HashSet<Long> mSelectedAlarms = new HashSet<>();
         private Bundle mPreviousDaysOfWeekMap = new Bundle();
 
         private final boolean mHasVibrator;
         private final int mCollapseExpandHeight;
 
-        // This determines the order in which it is shown and processed in the UI.
+        // Determines the order that days of the week are shown in the UI
+        private int[] mDayOrder;
+
+        // A reference used to create mDayOrder
         private final int[] DAY_ORDER = new int[] {
                 Calendar.SUNDAY,
                 Calendar.MONDAY,
@@ -527,7 +562,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             LinearLayout alarmItem;
             TextTime clock;
             TextView tomorrowLabel;
-            Switch onoff;
+            CompoundButton onoff;
             TextView daysOfWeek;
             TextView label;
             ImageButton delete;
@@ -536,7 +571,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             TextView clickableLabel;
             CheckBox repeat;
             LinearLayout repeatDays;
-            Button[] dayButtons = new Button[7];
+            CompoundButton[] dayButtons = new CompoundButton[7];
             CheckBox vibrate;
             TextView ringtone;
             View hairLine;
@@ -570,13 +605,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             mFactory = LayoutInflater.from(context);
             mList = list;
 
-            DateFormatSymbols dfs = new DateFormatSymbols();
-            mShortWeekDayStrings = Utils.getShortWeekdays();
-            mLongWeekDayStrings = dfs.getWeekdays();
-
             Resources res = mContext.getResources();
-            mColorLit = res.getColor(R.color.clock_white);
-            mColorDim = res.getColor(R.color.clock_gray);
 
             mRobotoNormal = Typeface.create("sans-serif", Typeface.NORMAL);
 
@@ -595,10 +624,8 @@ public class AlarmClockFragment extends DeskClockFragment implements
                     .hasVibrator();
 
             mCollapseExpandHeight = (int) res.getDimension(R.dimen.collapse_expand_height);
-        }
 
-        public void removeSelectedId(int id) {
-            mSelectedAlarms.remove(id);
+            setDayOrder();
         }
 
         @Override
@@ -632,7 +659,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
          */
         @Override
         public synchronized Cursor swapCursor(Cursor cursor) {
-            if (mAddedAlarm != null || mDeletedAlarm != null) {
+            if (USE_TRANSITION_FRAMEWORK && (mAddedAlarm != null || mDeletedAlarm != null)) {
                 TransitionManager.beginDelayedTransition(mAlarmsList, mAddRemoveTransition);
             }
 
@@ -644,13 +671,24 @@ public class AlarmClockFragment extends DeskClockFragment implements
             return c;
         }
 
-        private void setNewHolder(View view) {
+        private void setDayOrder() {
+            // Value from preferences corresponds to Calendar.<WEEKDAY> value
+            // -1 in order to correspond to DAY_ORDER indexing
+            final int startDay = Utils.getZeroIndexedFirstDayOfWeek(mContext);
+            mDayOrder = new int[DaysOfWeek.DAYS_IN_A_WEEK];
+
+            for (int i = 0; i < DaysOfWeek.DAYS_IN_A_WEEK; ++i) {
+                mDayOrder[i] = DAY_ORDER[(startDay + i) % 7];
+            }
+        }
+
+        private ItemHolder setNewHolder(View view) {
             // standard view holder optimization
             final ItemHolder holder = new ItemHolder();
             holder.alarmItem = (LinearLayout) view.findViewById(R.id.alarm_item);
             holder.tomorrowLabel = (TextView) view.findViewById(R.id.tomorrowLabel);
             holder.clock = (TextTime) view.findViewById(R.id.digital_clock);
-            holder.onoff = (Switch) view.findViewById(R.id.onoff);
+            holder.onoff = (CompoundButton) view.findViewById(R.id.onoff);
             holder.onoff.setTypeface(mRobotoNormal);
             holder.daysOfWeek = (TextView) view.findViewById(R.id.daysOfWeek);
             holder.label = (TextView) view.findViewById(R.id.label);
@@ -666,10 +704,11 @@ public class AlarmClockFragment extends DeskClockFragment implements
 
             // Build button for each day.
             for (int i = 0; i < 7; i++) {
-                final Button dayButton = (Button) mFactory.inflate(
+                final CompoundButton dayButton = (CompoundButton) mFactory.inflate(
                         R.layout.day_button, holder.repeatDays, false /* attachToRoot */);
-                dayButton.setText(mShortWeekDayStrings[i]);
-                dayButton.setContentDescription(mLongWeekDayStrings[DAY_ORDER[i]]);
+                final int firstDay = Utils.getZeroIndexedFirstDayOfWeek(mContext);
+                dayButton.setText(Utils.getShortWeekday(i, firstDay));
+                dayButton.setContentDescription(Utils.getLongWeekday(i, firstDay));
                 holder.repeatDays.addView(dayButton);
                 holder.dayButtons[i] = dayButton;
             }
@@ -677,6 +716,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             holder.ringtone = (TextView) view.findViewById(R.id.choose_ringtone);
 
             view.setTag(holder);
+            return holder;
         }
 
         @Override
@@ -685,7 +725,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             Object tag = view.getTag();
             if (tag == null) {
                 // The view was converted but somehow lost its tag.
-                setNewHolder(view);
+                tag = setNewHolder(view);
             }
             final ItemHolder itemHolder = (ItemHolder) tag;
             itemHolder.alarm = alarm;
@@ -693,7 +733,18 @@ public class AlarmClockFragment extends DeskClockFragment implements
             // We must unset the listener first because this maybe a recycled view so changing the
             // state would affect the wrong alarm.
             itemHolder.onoff.setOnCheckedChangeListener(null);
-            itemHolder.onoff.setChecked(alarm.enabled);
+
+            // Hack to workaround b/21459481: the SwitchCompat instance must be detached from
+            // its parent in order to avoid running the checked animation, which may get stuck
+            // when ListView calls View#jumpDrawablesToCurrentState() on a recycled view.
+            if (itemHolder.onoff.isChecked() != alarm.enabled) {
+                final ViewGroup onoffParent = (ViewGroup) itemHolder.onoff.getParent();
+                final int onoffIndex = onoffParent.indexOfChild(itemHolder.onoff);
+
+                onoffParent.removeView(itemHolder.onoff);
+                itemHolder.onoff.setChecked(alarm.enabled);
+                onoffParent.addView(itemHolder.onoff, onoffIndex);
+            }
 
             if (mSelectedAlarms.contains(itemHolder.alarm.id)) {
                 setAlarmItemBackgroundAndElevation(itemHolder.alarmItem, true /* expanded */);
@@ -704,15 +755,15 @@ public class AlarmClockFragment extends DeskClockFragment implements
                 setAlarmItemBackgroundAndElevation(itemHolder.alarmItem, false /* expanded */);
                 setDigitalTimeAlpha(itemHolder, itemHolder.onoff.isChecked());
             }
-            itemHolder.clock.setFormat(
-                    (int)mContext.getResources().getDimension(R.dimen.alarm_label_size));
+            itemHolder.clock.setFormat(mContext,
+                    mContext.getResources().getDimensionPixelSize(R.dimen.alarm_label_size));
             itemHolder.clock.setTime(alarm.hour, alarm.minutes);
             itemHolder.clock.setClickable(true);
             itemHolder.clock.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
                     mSelectedAlarm = itemHolder.alarm;
-                    AlarmUtils.showTimeEditDialog(AlarmClockFragment.this, alarm);
+                    showTimeEditDialog(alarm);
                     expandAlarm(itemHolder, true);
                     itemHolder.alarmItem.post(mScrollRunnable);
                 }
@@ -738,7 +789,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             } else {
                 itemHolder.tomorrowLabel.setVisibility(View.VISIBLE);
                 final Resources resources = getResources();
-                final String labelText = isTomorrow(alarm) ?
+                final String labelText = Alarm.isTomorrow(alarm) ?
                         resources.getString(R.string.alarm_tomorrow) :
                         resources.getString(R.string.alarm_today);
                 itemHolder.tomorrowLabel.setText(labelText);
@@ -772,11 +823,11 @@ public class AlarmClockFragment extends DeskClockFragment implements
 
             // Set the repeat text or leave it blank if it does not repeat.
             final String daysOfWeekStr =
-                    alarm.daysOfWeek.toString(AlarmClockFragment.this.getActivity(), false);
+                    alarm.daysOfWeek.toString(context, Utils.getFirstDayOfWeek(context));
             if (daysOfWeekStr != null && daysOfWeekStr.length() != 0) {
                 itemHolder.daysOfWeek.setText(daysOfWeekStr);
                 itemHolder.daysOfWeek.setContentDescription(alarm.daysOfWeek.toAccessibilityString(
-                        AlarmClockFragment.this.getActivity()));
+                        context, Utils.getFirstDayOfWeek(context)));
                 itemHolder.daysOfWeek.setVisibility(View.VISIBLE);
                 itemHolder.daysOfWeek.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -835,10 +886,10 @@ public class AlarmClockFragment extends DeskClockFragment implements
         private void setAlarmItemBackgroundAndElevation(LinearLayout layout, boolean expanded) {
             if (expanded) {
                 layout.setBackgroundColor(getTintedBackgroundColor());
-                layout.setElevation(ALARM_ELEVATION);
+                ViewCompat.setElevation(layout, ALARM_ELEVATION);
             } else {
                 layout.setBackgroundResource(R.drawable.alarm_background_normal);
-                layout.setElevation(0);
+                ViewCompat.setElevation(layout, 0f);
             }
         }
 
@@ -848,14 +899,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
             final int green = Color.green(c) + (int) (TINTED_LEVEL * (255 - Color.green(c)));
             final int blue = Color.blue(c) + (int) (TINTED_LEVEL * (255 - Color.blue(c)));
             return Color.rgb(red, green, blue);
-        }
-
-        private boolean isTomorrow(Alarm alarm) {
-            final Calendar now = Calendar.getInstance();
-            final int alarmHour = alarm.hour;
-            final int currHour = now.get(Calendar.HOUR_OF_DAY);
-            return alarmHour < currHour ||
-                        (alarmHour == currHour && alarm.minutes <= now.get(Calendar.MINUTE));
         }
 
         private void bindExpandArea(final ItemHolder itemHolder, final Alarm alarm) {
@@ -885,7 +928,12 @@ public class AlarmClockFragment extends DeskClockFragment implements
                 @Override
                 public void onClick(View view) {
                     // Animate the resulting layout changes.
-                    TransitionManager.beginDelayedTransition(mList, mRepeatTransition);
+                    if (USE_TRANSITION_FRAMEWORK) {
+                        TransitionManager.beginDelayedTransition(mList, mRepeatTransition);
+                    }
+
+                    final Calendar now = Calendar.getInstance();
+                    final Calendar oldNextAlarmTime = alarm.getNextAlarmTime(now);
 
                     final boolean checked = ((CheckBox) view).isChecked();
                     if (checked) {
@@ -899,7 +947,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
                         final int bitSet = mPreviousDaysOfWeekMap.getInt("" + alarm.id);
                         alarm.daysOfWeek.setBitSet(bitSet);
                         if (!alarm.daysOfWeek.isRepeating()) {
-                            alarm.daysOfWeek.setDaysOfWeek(true, DAY_ORDER);
+                            alarm.daysOfWeek.setDaysOfWeek(true, mDayOrder);
                         }
                         updateDaysOfWeekButtons(itemHolder, alarm.daysOfWeek);
                     } else {
@@ -915,7 +963,11 @@ public class AlarmClockFragment extends DeskClockFragment implements
                         alarm.daysOfWeek.clearAllDays();
                     }
 
-                    asyncUpdateAlarm(alarm, false);
+                    // if the change altered the next scheduled alarm time, tell the user
+                    final Calendar newNextAlarmTime = alarm.getNextAlarmTime(now);
+                    final boolean popupToast = !oldNextAlarmTime.equals(newNextAlarmTime);
+
+                    asyncUpdateAlarm(alarm, popupToast);
                 }
             });
 
@@ -928,7 +980,11 @@ public class AlarmClockFragment extends DeskClockFragment implements
                     public void onClick(View view) {
                         final boolean isActivated =
                                 itemHolder.dayButtons[buttonIndex].isActivated();
-                        alarm.daysOfWeek.setDaysOfWeek(!isActivated, DAY_ORDER[buttonIndex]);
+
+                        final Calendar now = Calendar.getInstance();
+                        final Calendar oldNextAlarmTime = alarm.getNextAlarmTime(now);
+                        alarm.daysOfWeek.setDaysOfWeek(!isActivated, mDayOrder[buttonIndex]);
+
                         if (!isActivated) {
                             turnOnDayOfWeek(itemHolder, buttonIndex);
                         } else {
@@ -936,8 +992,10 @@ public class AlarmClockFragment extends DeskClockFragment implements
 
                             // See if this was the last day, if so, un-check the repeat box.
                             if (!alarm.daysOfWeek.isRepeating()) {
-                                // Animate the resulting layout changes.
-                                TransitionManager.beginDelayedTransition(mList, mRepeatTransition);
+                                if (USE_TRANSITION_FRAMEWORK) {
+                                    // Animate the resulting layout changes.
+                                    TransitionManager.beginDelayedTransition(mList, mRepeatTransition);
+                                }
 
                                 itemHolder.repeat.setChecked(false);
                                 itemHolder.repeatDays.setVisibility(View.GONE);
@@ -949,7 +1007,12 @@ public class AlarmClockFragment extends DeskClockFragment implements
                                         DaysOfWeek.NO_DAYS_SET);
                             }
                         }
-                        asyncUpdateAlarm(alarm, false);
+
+                        // if the change altered the next scheduled alarm time, tell the user
+                        final Calendar newNextAlarmTime = alarm.getNextAlarmTime(now);
+                        final boolean popupToast = !oldNextAlarmTime.equals(newNextAlarmTime);
+
+                        asyncUpdateAlarm(alarm, popupToast);
                     }
                 });
             }
@@ -968,8 +1031,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
             itemHolder.vibrate.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    final boolean checked = ((CheckBox) v).isChecked();
-                    alarm.vibrate = checked;
+                    alarm.vibrate = ((CheckBox) v).isChecked();
                     asyncUpdateAlarm(alarm, false);
                 }
             });
@@ -1003,7 +1065,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
         private void updateDaysOfWeekButtons(ItemHolder holder, DaysOfWeek daysOfWeek) {
             HashSet<Integer> setDays = daysOfWeek.getSetDays();
             for (int i = 0; i < 7; i++) {
-                if (setDays.contains(DAY_ORDER[i])) {
+                if (setDays.contains(mDayOrder[i])) {
                     turnOnDayOfWeek(holder, i);
                 } else {
                     turnOffDayOfWeek(holder, i);
@@ -1012,14 +1074,16 @@ public class AlarmClockFragment extends DeskClockFragment implements
         }
 
         private void turnOffDayOfWeek(ItemHolder holder, int dayIndex) {
-            final Button dayButton = holder.dayButtons[dayIndex];
+            final CompoundButton dayButton = holder.dayButtons[dayIndex];
             dayButton.setActivated(false);
+            dayButton.setChecked(false);
             dayButton.setTextColor(getResources().getColor(R.color.clock_white));
         }
 
         private void turnOnDayOfWeek(ItemHolder holder, int dayIndex) {
-            final Button dayButton = holder.dayButtons[dayIndex];
+            final CompoundButton dayButton = holder.dayButtons[dayIndex];
             dayButton.setActivated(true);
+            dayButton.setChecked(true);
             dayButton.setTextColor(Utils.getCurrentHourColor());
         }
 
@@ -1034,9 +1098,20 @@ public class AlarmClockFragment extends DeskClockFragment implements
             // Try the cache first
             String title = mRingtoneTitleCache.getString(uri.toString());
             if (title == null) {
-                // This is slow because a media player is created during Ringtone object creation.
-                Ringtone ringTone = RingtoneManager.getRingtone(mContext, uri);
-                title = ringTone.getTitle(mContext);
+                // If the user cannot read the ringtone file, insert our own name rather than the
+                // ugly one returned by Ringtone.getTitle().
+                if (!AlarmUtils.hasPermissionToDisplayRingtoneTitle(mContext, uri)) {
+                    title = getString(R.string.custom_ringtone);
+                } else {
+                    // This is slow because a media player is created during Ringtone object creation.
+                    final Ringtone ringTone = RingtoneManager.getRingtone(mContext, uri);
+                    if (ringTone == null) {
+                        LogUtils.i("No ringtone for uri %s", uri.toString());
+                        return null;
+                    }
+                    title = ringTone.getTitle(mContext);
+                }
+
                 if (title != null) {
                     mRingtoneTitleCache.putString(uri.toString(), title);
                 }
@@ -1045,7 +1120,12 @@ public class AlarmClockFragment extends DeskClockFragment implements
         }
 
         public void setNewAlarm(long alarmId) {
-            mExpandedId = alarmId;
+            if (mExpandedId != alarmId) {
+                if (mExpandedItemHolder != null) {
+                    collapseAlarm(mExpandedItemHolder, true);
+                }
+                mExpandedId = alarmId;
+            }
         }
 
         /**
@@ -1087,8 +1167,15 @@ public class AlarmClockFragment extends DeskClockFragment implements
             if (!animate) {
                 // Set the "end" layout and don't do the animation.
                 itemHolder.arrow.setRotation(ROTATE_180_DEGREE);
+                itemHolder.summary.setVisibility(View.GONE);
+                itemHolder.hairLine.setVisibility(View.GONE);
+                itemHolder.delete.setVisibility(View.VISIBLE);
                 return;
             }
+
+            // Mark the alarmItem as having transient state to prevent it from being recycled
+            // while it is animating.
+            itemHolder.alarmItem.setHasTransientState(true);
 
             // Add an onPreDrawListener, which gets called after measurement but before the draw.
             // This way we can check the height we need to animate to before any drawing.
@@ -1150,27 +1237,20 @@ public class AlarmClockFragment extends DeskClockFragment implements
                         }
                     });
                     // Set everything to their final values when the animation's done.
-                    animator.addListener(new AnimatorListener() {
+                    animator.addListener(new AnimatorListenerAdapter() {
                         @Override
                         public void onAnimationEnd(Animator animation) {
                             // Set it back to wrap content since we'd explicitly set the height.
                             itemHolder.alarmItem.getLayoutParams().height =
                                     LayoutParams.WRAP_CONTENT;
                             itemHolder.arrow.setRotation(ROTATE_180_DEGREE);
+                            itemHolder.summary.setAlpha(1);
+                            itemHolder.hairLine.setAlpha(1);
                             itemHolder.summary.setVisibility(View.GONE);
                             itemHolder.hairLine.setVisibility(View.GONE);
                             itemHolder.delete.setVisibility(View.VISIBLE);
+                            itemHolder.alarmItem.setHasTransientState(false);
                         }
-
-                        @Override
-                        public void onAnimationCancel(Animator animation) {
-                            // TODO we may have to deal with cancelations of the animation.
-                        }
-
-                        @Override
-                        public void onAnimationRepeat(Animator animation) { }
-                        @Override
-                        public void onAnimationStart(Animator animation) { }
                     });
                     animator.start();
 
@@ -1203,8 +1283,15 @@ public class AlarmClockFragment extends DeskClockFragment implements
                 // Set the "end" layout and don't do the animation.
                 itemHolder.arrow.setRotation(0);
                 itemHolder.hairLine.setTranslationY(0);
+                itemHolder.hairLine.setVisibility(View.VISIBLE);
+                itemHolder.summary.setAlpha(1);
+                itemHolder.summary.setVisibility(View.VISIBLE);
                 return;
             }
+
+            // Mark the alarmItem as having transient state to prevent it from being recycled
+            // while it is animating.
+            itemHolder.alarmItem.setHasTransientState(true);
 
             // Add an onPreDrawListener, which gets called after measurement but before the draw.
             // This way we can check the height we need to animate to before any drawing.
@@ -1273,6 +1360,7 @@ public class AlarmClockFragment extends DeskClockFragment implements
 
                             itemHolder.expandArea.setVisibility(View.GONE);
                             itemHolder.arrow.setRotation(0);
+                            itemHolder.alarmItem.setHasTransientState(false);
                         }
                     });
                     animator.start();
@@ -1335,13 +1423,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
         }
     }
 
-    private void startCreatingAlarm() {
-        // Set the "selected" alarm as null, and we'll create the new one when the timepicker
-        // comes back.
-        mSelectedAlarm = null;
-        AlarmUtils.showTimeEditDialog(this, null);
-    }
-
     private static AlarmInstance setupAlarmInstance(Context context, Alarm alarm) {
         ContentResolver cr = context.getContentResolver();
         AlarmInstance newInstance = alarm.createInstanceAfter(Calendar.getInstance());
@@ -1358,11 +1439,11 @@ public class AlarmClockFragment extends DeskClockFragment implements
             protected Void doInBackground(Void... parameters) {
                 // Activity may be closed at this point , make sure data is still valid
                 if (context != null && alarm != null) {
+                    Events.sendAlarmEvent(R.string.action_delete, R.string.label_deskclock);
+
                     ContentResolver cr = context.getContentResolver();
                     AlarmStateManager.deleteAllInstances(context, alarm.id);
                     Alarm.deleteAlarm(cr, alarm.id);
-                    sDeskClockExtensions.deleteAlarm(
-                            AlarmClockFragment.this.getActivity().getApplicationContext(), alarm.id);
                 }
                 return null;
             }
@@ -1371,13 +1452,14 @@ public class AlarmClockFragment extends DeskClockFragment implements
         deleteTask.execute();
     }
 
-    private void asyncAddAlarm(final Alarm alarm) {
+    protected void asyncAddAlarm(final Alarm alarm) {
         final Context context = AlarmClockFragment.this.getActivity().getApplicationContext();
         final AsyncTask<Void, Void, AlarmInstance> updateTask =
                 new AsyncTask<Void, Void, AlarmInstance>() {
             @Override
             protected AlarmInstance doInBackground(Void... parameters) {
                 if (context != null && alarm != null) {
+                    Events.sendAlarmEvent(R.string.action_create, R.string.label_deskclock);
                     ContentResolver cr = context.getContentResolver();
 
                     // Add alarm to db
@@ -1386,9 +1468,6 @@ public class AlarmClockFragment extends DeskClockFragment implements
 
                     // Create and add instance to db
                     if (newAlarm.enabled) {
-                        sDeskClockExtensions.addAlarm(
-                                AlarmClockFragment.this.getActivity().getApplicationContext(),
-                                newAlarm);
                         return setupAlarmInstance(context, newAlarm);
                     }
                 }
@@ -1405,12 +1484,13 @@ public class AlarmClockFragment extends DeskClockFragment implements
         updateTask.execute();
     }
 
-    private void asyncUpdateAlarm(final Alarm alarm, final boolean popToast) {
+    protected void asyncUpdateAlarm(final Alarm alarm, final boolean popToast) {
         final Context context = AlarmClockFragment.this.getActivity().getApplicationContext();
         final AsyncTask<Void, Void, AlarmInstance> updateTask =
                 new AsyncTask<Void, Void, AlarmInstance>() {
             @Override
             protected AlarmInstance doInBackground(Void ... parameters) {
+                Events.sendAlarmEvent(R.string.action_update, R.string.label_deskclock);
                 ContentResolver cr = context.getContentResolver();
 
                 // Dismiss all old instances

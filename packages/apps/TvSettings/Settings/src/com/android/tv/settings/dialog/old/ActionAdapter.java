@@ -117,7 +117,7 @@ public class ActionAdapter extends BaseAdapter implements ScrollAdapter,
     private final float mUnselectedDescriptionAlpha;
     private final float mSelectedChevronAlpha;
     private final float mDisabledChevronAlpha;
-    private List<Action> mActions;
+    private final List<Action> mActions;
     private Listener mListener;
     private OnFocusListener mOnFocusListener;
     private OnKeyListener mOnKeyListener;
@@ -144,7 +144,7 @@ public class ActionAdapter extends BaseAdapter implements ScrollAdapter,
         mSelectedChevronAlpha = getFloat(R.dimen.list_item_selected_chevron_background_alpha);
         mDisabledChevronAlpha = getFloat(R.dimen.list_item_disabled_chevron_background_alpha);
 
-        mActions = new ArrayList<Action>();
+        mActions = new ArrayList<>();
         mKeyPressed = false;
     }
 
@@ -249,7 +249,7 @@ public class ActionAdapter extends BaseAdapter implements ScrollAdapter,
      * Used for serialization only.
      */
     public ArrayList<Action> getActions() {
-        return new ArrayList<Action>(mActions);
+        return new ArrayList<>(mActions);
     }
 
     public void setActions(ArrayList<Action> actions) {

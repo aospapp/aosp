@@ -31,7 +31,7 @@ rules, types, classes, permissions, and more.  A full consideration of SELinux
 is out of the scope of this document, but an understanding of how to write
 policy rules is now essential when bringing up new Android devices. There is a
 great deal of information available regarding SELinux already. See <a
-href="{@docRoot}devices/tech/security/se-linux.html#supporting_documentation">Supporting
+href="{@docRoot}devices/tech/security/selinux/index.html#supporting_documentation">Supporting
 documentation</a> for suggested resources.</p>
 
 <h2 id=summary_of_steps>Summary of steps</h2>
@@ -44,9 +44,9 @@ Android device:</p>
   <li>Grant each service (process or daemon) started from <code>init</code> its own domain.
   <li>Identify these services by:
   <ul>
-    <li>Reviewing the init file and finding all services.
-    <li>Examining warnings in <code>dmesg</code>.
-    <li>Searching (<code>grep</code>) through processes to see which run in the init domain.
+    <li>Reviewing the init.&lt;device&gt;.rc file and finding all services.
+    <li>Examining warnings of the form <em>init:  Warning!  Service name needs a SELinux domain defined; please fix!</em> in <code>dmesg</code> output.
+    <li>Checking <code>ps -Z | grep init</code> output to see which services are running in the init domain.
   </ul>
   <li>Label all new processes, drivers, sockets, etc.
 All objects need to be labeled
@@ -76,16 +76,53 @@ files within the /device/manufacturer/device-name/sepolicy directory.</p>
 <p>Here are the files you must create or edit in order to implement SELinux:</p>
 
 <ul>
-  <li><em>New SELinux policy source (*.te) files</em> - Located in the <root>/device/manufacturer/device-name/sepolicy directory. These files define domains and their labels. The new policy files get
+  <li><em>New SELinux policy source (*.te) files</em> - Located in the
+<root>/device/manufacturer/device-name/sepolicy directory. These files define
+domains and their labels. The new policy files get
 concatenated with the existing policy files during compilation into a single
 SELinux kernel policy file.
-<p class="caution"><strong>Important:</strong> Do not alter the app.te file provided by the Android Open Source Project.
+<p class="caution"><strong>Important:</strong> Do not alter the app.te file
+provided by the Android Open Source Project.
 Doing so risks breaking all third-party applications.</p>
-  <li><em>Updated BoardConfig.mk makefile</em> - Located in the <device-name> directory containing the sepolicy subdirectory. It must be updated to reference the sepolicy subdirectory once created if it
+  <li><em>Updated BoardConfig.mk makefile</em> - Located in the <device-name>
+directory containing the sepolicy subdirectory. It must be updated to reference
+the sepolicy subdirectory once created if it
 wasn’t in initial implementation.
-  <li><em>Updated *_contexts files</em> - Located in the sepolicy subdirectory. These label files and
-are managed in the userspace. As you create new policies, update these files to
-reference them. In order to apply new *_contexts, you must run <code>restorecon</code> on the file to be relabeled.
+  <li><em>file_contexts</em> - Located in the sepolicy subdirectory. This file
+assigns labels to files and is used by various userspace components. As you
+create new policies, create or update this file to
+assign new labels to files. In order to apply new file_contexts, you must
+rebuild the filesystem image or run <code>restorecon</code> on the file to be
+relabeled.  On upgrades, changes to file_contexts are automatically applied to
+the system and userdata partitions as part of the upgrade.  Changes can also be
+automatically applied on upgrade to other partitions by adding
+restorecon_recursive calls to your init.<em>board</em>.rc file after the
+partition has been mounted read-write.
+  <li><em>genfs_contexts</em> - Located in the sepolicy subdirectory. This file
+assigns labels to filesystems such as proc or vfat that do not support extended
+attributes.  This configuration is loaded as part of the kernel policy but
+changes may not take effect for in-core inodes, requiring a reboot or
+unmounting and re-mounting the filesystem to fully apply the change.  Specific
+labels may also be assigned to specific mounts such as vfat using the context=
+mount option.
+  <li><em>property_contexts</em> - Located in the sepolicy subdirectory. This
+file assigns labels to Android system properties to control what processes can
+set them.  This configuration is read by the init process during startup and
+whenever the selinux.reload_policy property is set to 1.
+  <li><em>service_contexts</em> - Located in the sepolicy subdirectory. This
+file assigns labels to Android binder services to control what processes can
+add (register) and find (lookup) a binder reference for the service.  This
+configuration is read by the servicemanager process during startup and whenever
+the selinux.reload_policy property is set to 1.
+  <li><em>seapp_contexts</em> - Located in the sepolicy subdirectory. This file
+assigns labels to app processes and /data/data directories.  This configuration
+is read by the zygote process on each app launch and by installd during startup
+and whenever the selinux.reload_policy property is set to 1.
+  <li><em>mac_permissions.xml</em> - Located in the sepolicy subdirectory. This
+file assigns a seinfo tag to apps based on their signature and optionally their
+package name.  The seinfo tag can then be used as a key in the seapp_contexts
+file to assign a specific label to all apps with that seinfo tag.  This
+configuration is read by system_server during startup.
 </ul>
 
 <p>Then just update your BoardConfig.mk makefile - located in the directory
@@ -102,6 +139,11 @@ BOARD_SEPOLICY_UNION += \
         file_contexts \
         sepolicy.te
 </pre>
+
+<p class="note"><strong>Note:</strong> As of the M release,
+BOARD_SEPOLICY_UNION is no longer required as all policy files found within any
+directory included in the BOARD_SEPOLICY_DIRS variable are joined with the
+base policy automatically.</p>
 
 <p>After rebuilding your device, it is enabled with SELinux. You can now either
 customize your SELinux policies to accommodate your own additions to the
@@ -156,12 +198,20 @@ SELinux to protect your devices:</p>
   <li>Enable SELinux in the kernel:
 <code>CONFIG_SECURITY_SELINUX=y</code>
   <li>Change the kernel_cmdline parameter so that:<br/>
-<code>BOARD_KERNEL_CMDLINE := androidboot.selinux=permissive</code>
+<code>BOARD_KERNEL_CMDLINE := androidboot.selinux=permissive</code>.
+<br/>
+This is only for initial development of policy for the device.  Once you have
+an initial bootstrap policy, remove this parameter so that your device is
+enforcing or it will fail CTS.
   <li>Boot up the system in permissive and see what denials are encountered on boot:<br/>
-<code>su -c dmesg | grep denied > ~/t.tmp su -c dmesg | grep denied | audit2allow</code>
+On Ubuntu 14.04 or newer:
+<br/>
+<code>adb shell su -c dmesg | grep denied | audit2allow -p out/target/product/<em>board</em>/root/sepolicy</code>
+<br/>
+On Ubuntu 12.04:
+<code>adb shell su -c dmesg | grep denied | audit2allow</code>
   <li>Evaluate the output. See <a href="validate.html">Validation</a> for instructions and tools.
-  <li>Identify devices, and other new files that need labeling.Identify devices, and
-other new files that need labeling.
+  <li>Identify devices, and other new files that need labeling.
   <li>Use existing or new labels for your objects.
 Look at the *_contexts files to
 see how things were previously labeled and use knowledge of the label meanings
@@ -171,14 +221,14 @@ that label will be needed, as well.
   <li>Identify domains/processes that should have their own security domains. A policy will likely need to be written for each of these from scratch. All services spawned from <code>init</code>, for instance, should have their own. The following commands help reveal those that remain running (but ALL services need such a treatment):<br/>
 <code>$ adb shell su -c ps -Z | grep init</code><br/>
 <code>$ adb shell su -c dmesg | grep 'avc: '</code>
-  <li>Review init.<device>.rc to identify any which are without a type.
+  <li>Review init.&lt;device&gt;.rc to identify any which are without a type.
 These should
 be given domains EARLY in order to avoid adding rules to init or otherwise
 confusing <code>init</code> accesses with ones that are in their own policy.
-  <li>Set up <code>BOARD_CONFIG.mk</code> to use <code>BOARD_SEPOLICY_UNION</code> and <code>BOARD_SEPOLICY_DIRS</code>. See
-the README in /sepolicy for details on setting this up.
-  <li> Examine the init.&lt;device&gt;.rc file and make sure every use of “mount”
-corresponds to a properly labeled filesystem.
+  <li>Set up <code>BOARD_CONFIG.mk</code> to use <code>BOARD_SEPOLICY_*</code> variables. See
+the README in external/sepolicy for details on setting this up.
+  <li> Examine the init.&lt;device&gt;.rc and fstab.&lt;device&gt; file and make sure every use of “mount”
+corresponds to a properly labeled filesystem or that a context= mount option is specified.
   <li> Go through each denial and create SELinux policy to properly handle each. See
 the examples within <a href="customize.html">Customization</a>.
 </ol>

@@ -50,6 +50,7 @@ class DlMallocSpace;
 class RosAllocSpace;
 class ImageSpace;
 class LargeObjectSpace;
+class RegionSpace;
 class ZygoteSpace;
 
 static constexpr bool kDebugSpaces = kIsDebugBuild;
@@ -72,6 +73,7 @@ enum SpaceType {
   kSpaceTypeZygoteSpace,
   kSpaceTypeBumpPointerSpace,
   kSpaceTypeLargeObjectSpace,
+  kSpaceTypeRegionSpace,
 };
 std::ostream& operator<<(std::ostream& os, const SpaceType& space_type);
 
@@ -132,6 +134,11 @@ class Space {
   }
   virtual BumpPointerSpace* AsBumpPointerSpace();
 
+  bool IsRegionSpace() const {
+    return GetType() == kSpaceTypeRegionSpace;
+  }
+  virtual RegionSpace* AsRegionSpace();
+
   // Does this space hold large objects and implement the large object space abstraction?
   bool IsLargeObjectSpace() const {
     return GetType() == kSpaceTypeLargeObjectSpace;
@@ -180,7 +187,7 @@ class Space {
 
  private:
   friend class art::gc::Heap;
-  DISALLOW_COPY_AND_ASSIGN(Space);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(Space);
 };
 std::ostream& operator<<(std::ostream& os, const Space& space);
 
@@ -196,14 +203,24 @@ class AllocSpace {
   // succeeds, the output parameter bytes_allocated will be set to the
   // actually allocated bytes which is >= num_bytes.
   // Alloc can be called from multiple threads at the same time and must be thread-safe.
+  //
+  // bytes_tl_bulk_allocated - bytes allocated in bulk ahead of time for a thread local allocation,
+  // if applicable. It can be
+  // 1) equal to bytes_allocated if it's not a thread local allocation,
+  // 2) greater than bytes_allocated if it's a thread local
+  //    allocation that required a new buffer, or
+  // 3) zero if it's a thread local allocation in an existing
+  //    buffer.
+  // This is what is to be added to Heap::num_bytes_allocated_.
   virtual mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                size_t* usable_size) = 0;
+                                size_t* usable_size, size_t* bytes_tl_bulk_allocated) = 0;
 
   // Thread-unsafe allocation for when mutators are suspended, used by the semispace collector.
   virtual mirror::Object* AllocThreadUnsafe(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                                            size_t* usable_size)
+                                            size_t* usable_size,
+                                            size_t* bytes_tl_bulk_allocated)
       EXCLUSIVE_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    return Alloc(self, num_bytes, bytes_allocated, usable_size);
+    return Alloc(self, num_bytes, bytes_allocated, usable_size, bytes_tl_bulk_allocated);
   }
 
   // Return the storage space required by obj.
@@ -217,11 +234,15 @@ class AllocSpace {
 
   // Revoke any sort of thread-local buffers that are used to speed up allocations for the given
   // thread, if the alloc space implementation uses any.
-  virtual void RevokeThreadLocalBuffers(Thread* thread) = 0;
+  // Returns the total free bytes in the revoked thread local runs that's to be subtracted
+  // from Heap::num_bytes_allocated_ or zero if unnecessary.
+  virtual size_t RevokeThreadLocalBuffers(Thread* thread) = 0;
 
   // Revoke any sort of thread-local buffers that are used to speed up allocations for all the
   // threads, if the alloc space implementation uses any.
-  virtual void RevokeAllThreadLocalBuffers() = 0;
+  // Returns the total free bytes in the revoked thread local runs that's to be subtracted
+  // from Heap::num_bytes_allocated_ or zero if unnecessary.
+  virtual size_t RevokeAllThreadLocalBuffers() = 0;
 
   virtual void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) = 0;
 
@@ -246,27 +267,27 @@ class AllocSpace {
 class ContinuousSpace : public Space {
  public:
   // Address at which the space begins.
-  byte* Begin() const {
+  uint8_t* Begin() const {
     return begin_;
   }
 
   // Current address at which the space ends, which may vary as the space is filled.
-  byte* End() const {
+  uint8_t* End() const {
     return end_.LoadRelaxed();
   }
 
   // The end of the address range covered by the space.
-  byte* Limit() const {
+  uint8_t* Limit() const {
     return limit_;
   }
 
   // Change the end of the space. Be careful with use since changing the end of a space to an
   // invalid value may break the GC.
-  void SetEnd(byte* end) {
+  void SetEnd(uint8_t* end) {
     end_.StoreRelaxed(end);
   }
 
-  void SetLimit(byte* limit) {
+  void SetLimit(uint8_t* limit) {
     limit_ = limit;
   }
 
@@ -286,7 +307,7 @@ class ContinuousSpace : public Space {
   // Is object within this space? We check to see if the pointer is beyond the end first as
   // continuous spaces are iterated over from low to high.
   bool HasAddress(const mirror::Object* obj) const {
-    const byte* byte_ptr = reinterpret_cast<const byte*>(obj);
+    const uint8_t* byte_ptr = reinterpret_cast<const uint8_t*>(obj);
     return byte_ptr >= Begin() && byte_ptr < Limit();
   }
 
@@ -302,21 +323,21 @@ class ContinuousSpace : public Space {
 
  protected:
   ContinuousSpace(const std::string& name, GcRetentionPolicy gc_retention_policy,
-                  byte* begin, byte* end, byte* limit) :
+                  uint8_t* begin, uint8_t* end, uint8_t* limit) :
       Space(name, gc_retention_policy), begin_(begin), end_(end), limit_(limit) {
   }
 
   // The beginning of the storage for fast access.
-  byte* begin_;
+  uint8_t* begin_;
 
   // Current end of the space.
-  Atomic<byte*> end_;
+  Atomic<uint8_t*> end_;
 
   // Limit of the space.
-  byte* limit_;
+  uint8_t* limit_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(ContinuousSpace);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ContinuousSpace);
 };
 
 // A space where objects may be allocated higgledy-piggledy throughout virtual memory. Currently
@@ -345,7 +366,7 @@ class DiscontinuousSpace : public Space {
   std::unique_ptr<accounting::LargeObjectBitmap> mark_bitmap_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(DiscontinuousSpace);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(DiscontinuousSpace);
 };
 
 class MemMapSpace : public ContinuousSpace {
@@ -369,7 +390,7 @@ class MemMapSpace : public ContinuousSpace {
   }
 
  protected:
-  MemMapSpace(const std::string& name, MemMap* mem_map, byte* begin, byte* end, byte* limit,
+  MemMapSpace(const std::string& name, MemMap* mem_map, uint8_t* begin, uint8_t* end, uint8_t* limit,
               GcRetentionPolicy gc_retention_policy)
       : ContinuousSpace(name, gc_retention_policy, begin, end, limit),
         mem_map_(mem_map) {
@@ -379,7 +400,7 @@ class MemMapSpace : public ContinuousSpace {
   std::unique_ptr<MemMap> mem_map_;
 
  private:
-  DISALLOW_COPY_AND_ASSIGN(MemMapSpace);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(MemMapSpace);
 };
 
 // Used by the heap compaction interface to enable copying from one type of alloc space to another.
@@ -425,14 +446,14 @@ class ContinuousMemMapAllocSpace : public MemMapSpace, public AllocSpace {
   std::unique_ptr<accounting::ContinuousSpaceBitmap> mark_bitmap_;
   std::unique_ptr<accounting::ContinuousSpaceBitmap> temp_bitmap_;
 
-  ContinuousMemMapAllocSpace(const std::string& name, MemMap* mem_map, byte* begin,
-                             byte* end, byte* limit, GcRetentionPolicy gc_retention_policy)
+  ContinuousMemMapAllocSpace(const std::string& name, MemMap* mem_map, uint8_t* begin,
+                             uint8_t* end, uint8_t* limit, GcRetentionPolicy gc_retention_policy)
       : MemMapSpace(name, mem_map, begin, end, limit, gc_retention_policy) {
   }
 
  private:
   friend class gc::Heap;
-  DISALLOW_COPY_AND_ASSIGN(ContinuousMemMapAllocSpace);
+  DISALLOW_IMPLICIT_CONSTRUCTORS(ContinuousMemMapAllocSpace);
 };
 
 }  // namespace space

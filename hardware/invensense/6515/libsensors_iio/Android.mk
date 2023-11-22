@@ -15,8 +15,6 @@
 
 LOCAL_PATH := $(call my-dir)
 
-#ifneq ($(TARGET_SIMULATOR),true)
-
 # InvenSense fragment of the HAL
 include $(CLEAR_VARS)
 
@@ -24,9 +22,23 @@ LOCAL_MODULE := libinvensense_hal
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
-LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
+LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
 
+# ANDROID version check
+$(info YD>>PLATFORM_VERSION=$(PLATFORM_VERSION))
+MAJOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f1 -d.)
+MINOR_VERSION :=$(shell echo $(PLATFORM_VERSION) | cut -f2 -d.)
+VERSION_KK :=$(shell test $(MAJOR_VERSION) -eq 4 -a $(MINOR_VERSION) -gt 3 && echo true)
+VERSION_L  :=$(shell test $(MAJOR_VERSION) -eq 5 -a $(MINOR_VERSION) -eq 0 && echo true)
+$(info YD>>ANDRIOD VERSION=$(MAJOR_VERSION).$(MINOR_VERSION))
+$(info YD>>VERSION_L=$(VERSION_L), VERSION_KK=$(VERSION_KK))
+#ANDROID version check END
+
+ifeq ($(VERSION_KK),true)
 LOCAL_CFLAGS += -DANDROID_KITKAT
+else
+LOCAL_CFLAGS += -DANDROID_LOLLIPOP
+endif
 
 ifneq (,$(filter $(TARGET_BUILD_VARIANT),eng userdebug user))
 ifneq ($(COMPILE_INVENSENSE_COMPASS_CAL),0)
@@ -74,16 +86,12 @@ LOCAL_SHARED_LIBRARIES += libmllite
 LOCAL_SHARED_LIBRARIES += libmplmpu
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mpl
 LOCAL_CPPFLAGS += -DLINUX=1
-LOCAL_PRELINK_MODULE := false
 
 LOCAL_SHARED_LIBRARIES += libmllite
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mllite
 LOCAL_CPPFLAGS += -DLINUX=1
-LOCAL_PRELINK_MODULE := false
 
 include $(BUILD_SHARED_LIBRARY)
-
-#endif # !TARGET_SIMULATOR
 
 # Build a temporary HAL that links the InvenSense .so
 include $(CLEAR_VARS)
@@ -95,6 +103,11 @@ else
 ifneq ($(filter aosp_hammerhead, $(TARGET_PRODUCT)),)
 LOCAL_MODULE := sensors.hammerhead
 LOCAL_MODULE_OWNER := invensense
+else
+ifneq ($(filter aosp_flounder, $(TARGET_PRODUCT)),)
+LOCAL_MODULE := sensors.flounder
+LOCAL_MODULE_OWNER := invensense
+endif
 endif
 ifneq ($(filter dory guppy, $(TARGET_DEVICE)),)
 LOCAL_MODULE := sensors.invensense
@@ -104,7 +117,13 @@ endif
 else    # eng, user, & userdebug builds
 LOCAL_MODULE := sensors.invensense
 endif   # eng, user & userdebug builds
+$(info YD>>LOCAL_MODULE=$(LOCAL_MODULE))
+
+ifdef TARGET_2ND_ARCH
+LOCAL_MODULE_RELATIVE_PATH := hw
+else
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+endif
 
 LOCAL_SHARED_LIBRARIES += libmplmpu
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mllite
@@ -113,11 +132,14 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/mpl
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/driver/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/software/core/driver/include/linux
 
-LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE_TAGS := optional
-LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\"
+LOCAL_CFLAGS := -DLOG_TAG=\"Sensors\" -Werror -Wall
 
+ifeq ($(VERSION_KK),true)
 LOCAL_CFLAGS += -DANDROID_KITKAT
+else
+LOCAL_CFLAGS += -DANDROID_LOLLIPOP
+endif
 
 ifneq (,$(filter $(TARGET_BUILD_VARIANT),eng userdebug user))
 ifneq ($(COMPILE_INVENSENSE_COMPASS_CAL),0)
@@ -154,6 +176,7 @@ LOCAL_SHARED_LIBRARIES += libdl
 LOCAL_SHARED_LIBRARIES += liblog
 LOCAL_SHARED_LIBRARIES += libmllite
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
+$(info YD>>LOCAL_MODULE=$(LOCAL_MODULE), LOCAL_SRC_FILES=$(LOCAL_SRC_FILES), LOCAL_SHARED_LIBRARIES=$(LOCAL_SHARED_LIBRARIES))
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)

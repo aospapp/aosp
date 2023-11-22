@@ -787,8 +787,9 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                 {
                     if(ps_codec->i4_num_cores > MV_PRED_NUM_CORES_THRESHOLD)
                     {
-                        if((0 == ps_slice_hdr->i1_slice_disable_deblocking_filter_flag) &&
-                                        (0 == ps_codec->i4_slice_error))
+                        /* Boundary strength calculation is done irrespective of whether deblocking is disabled
+                         * in the slice or not, to handle deblocking slice boundaries */
+                        if((0 == ps_codec->i4_slice_error))
                         {
                             ihevcd_update_ctb_tu_cnt(ps_proc);
                             ps_proc->s_bs_ctxt.ps_pps = ps_proc->ps_pps;
@@ -819,7 +820,9 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                                 ihevcd_ctb_boundary_strength_pbslice(&ps_proc->s_bs_ctxt);
                             }
                         }
-                        else
+
+                        /* Boundary strength is set to zero if deblocking is disabled for the current slice */
+                        if((0 != ps_slice_hdr->i1_slice_disable_deblocking_filter_flag))
                         {
                             WORD32 bs_strd = (ps_sps->i2_pic_wd_in_ctb + 1) * (ctb_size * ctb_size / 8 / 16);
 
@@ -830,9 +833,8 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                                             ps_proc->i4_ctb_x * (ctb_size * ctb_size / 8 / 16) +
                                             ps_proc->i4_ctb_y * bs_strd);
 
-                            memset(pu4_vert_bs, 0, (ctb_size / 8 + 1) * (ctb_size / 4) / 8 * 2);
+                            memset(pu4_vert_bs, 0, (ctb_size / 8) * (ctb_size / 4) / 8 * 2);
                             memset(pu4_horz_bs, 0, (ctb_size / 8) * (ctb_size / 4) / 8 * 2);
-
                         }
                     }
                 }
@@ -1002,13 +1004,13 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
 
         while(num_ctb_tmp)
         {
-            slice_header_t *ps_slice_hdr = ps_proc->ps_slice_hdr;
+
 
             /* Check proc map to ensure dependencies for deblk are met */
             ihevcd_proc_map_check(ps_proc, proc_type, nctb);
 
             ihevcd_slice_hdr_update(ps_proc);
-            ps_slice_hdr = ps_proc->ps_slice_hdr;
+
 
             if(((0 == FRAME_ILF_PAD || ps_codec->i4_num_cores != 1)) &&
                (0 == ps_codec->i4_disable_deblk_pic))
@@ -1016,9 +1018,9 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
                 WORD32 i4_is_last_ctb_x = 0;
                 WORD32 i4_is_last_ctb_y = 0;
 
-                if(0 == ps_slice_hdr->i1_slice_disable_deblocking_filter_flag ||
-                                (ps_proc->i4_ctb_slice_x == 0) ||
-                                (ps_proc->i4_ctb_slice_y == 0))
+
+                /* Deblocking is done irrespective of whether it is disabled in the slice or not,
+                 * to handle deblocking the slice boundaries */
                 {
                     ps_proc->s_deblk_ctxt.ps_pps = ps_proc->ps_pps;
                     ps_proc->s_deblk_ctxt.ps_sps = ps_proc->ps_sps;
@@ -1111,18 +1113,20 @@ IHEVCD_ERROR_T ihevcd_process(process_ctxt_t *ps_proc)
 
         while(num_ctb_tmp)
         {
-            slice_header_t *ps_slice_hdr = ps_proc->ps_slice_hdr;
+
 
             /* Check proc map to ensure dependencies for SAO are met */
             ihevcd_proc_map_check(ps_proc, proc_type, nctb);
 
             ihevcd_slice_hdr_update(ps_proc);
-            ps_slice_hdr = ps_proc->ps_slice_hdr;
+
 
             if(0 == FRAME_ILF_PAD || ps_codec->i4_num_cores != 1)
             {
-                if((0 == ps_codec->i4_disable_sao_pic) &&
-                                (ps_slice_hdr->i1_slice_sao_luma_flag || ps_slice_hdr->i1_slice_sao_chroma_flag))
+                /* SAO is done even when it is disabled in the current slice, because
+                 * it is performed on a shifted CTB and the neighbor CTBs can belong
+                 * to different slices with SAO enabled */
+                if(0 == ps_codec->i4_disable_sao_pic)
                 {
                     ps_proc->s_sao_ctxt.ps_pps = ps_proc->ps_pps;
                     ps_proc->s_sao_ctxt.ps_sps = ps_proc->ps_sps;

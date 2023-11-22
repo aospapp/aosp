@@ -22,11 +22,11 @@ import android.content.SharedPreferences;
 import android.database.SQLException;
 import android.net.Uri;
 import android.os.AsyncResult;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Registrant;
 import android.os.RegistrantList;
-import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.provider.Telephony;
 import android.telecom.VideoProfile;
@@ -36,13 +36,13 @@ import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 
-import com.android.ims.ImsManager;
 import com.android.internal.telephony.CallTracker;
 
 import android.text.TextUtils;
 import android.telephony.Rlog;
 import android.util.Log;
 
+import com.android.ims.ImsManager;
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_DISABLE;
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_ENABLE;
 import static com.android.internal.telephony.CommandsInterface.CF_ACTION_ERASURE;
@@ -63,14 +63,12 @@ import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.IccPhoneBookInterfaceManager;
 import com.android.internal.telephony.MmiCode;
-import com.android.internal.telephony.OperatorInfo;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneBase;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneNotifier;
 import com.android.internal.telephony.PhoneProxy;
 import com.android.internal.telephony.PhoneSubInfo;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.UUSInfo;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.test.SimulatedRadioControl;
@@ -797,39 +795,47 @@ public class GSMPhone extends PhoneBase {
     @Override
     public Connection
     dial(String dialString, int videoState) throws CallStateException {
-        return dial(dialString, null, videoState);
+        return dial(dialString, null, videoState, null);
     }
 
     @Override
     public Connection
-    dial (String dialString, UUSInfo uusInfo, int videoState) throws CallStateException {
+    dial (String dialString, UUSInfo uusInfo, int videoState, Bundle intentExtras)
+            throws CallStateException {
+        boolean isEmergency = PhoneNumberUtils.isEmergencyNumber(dialString);
         ImsPhone imsPhone = mImsPhone;
 
-        boolean imsUseEnabled =
-                ImsManager.isVolteEnabledByPlatform(mContext) &&
-                ImsManager.isEnhanced4gLteModeSettingEnabledByUser(mContext) &&
-                ImsManager.isNonTtyOrTtyOnVolteEnabled(mContext);
-        if (!imsUseEnabled) {
-            Rlog.w(LOG_TAG, "IMS is disabled: forced to CS");
-        }
+        boolean imsUseEnabled = isImsUseEnabled()
+                 && imsPhone != null
+                 && (imsPhone.isVolteEnabled() || imsPhone.isVowifiEnabled())
+                 && (imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE);
+
+        boolean useImsForEmergency = ImsManager.isVolteEnabledByPlatform(mContext)
+                && imsPhone != null
+                && isEmergency
+                &&  mContext.getResources().getBoolean(
+                        com.android.internal.R.bool.useImsAlwaysForEmergencyCall)
+                && ImsManager.isNonTtyOrTtyOnVolteEnabled(mContext)
+                && (imsPhone.getServiceState().getState() != ServiceState.STATE_POWER_OFF);
 
         if (LOCAL_DEBUG) {
-            Rlog.d(LOG_TAG, "imsUseEnabled=" + imsUseEnabled + ", imsPhone=" + imsPhone
+            Rlog.d(LOG_TAG, "imsUseEnabled=" + imsUseEnabled
+                    + ", useImsForEmergency=" + useImsForEmergency
+                    + ", imsPhone=" + imsPhone
                     + ", imsPhone.isVolteEnabled()="
                     + ((imsPhone != null) ? imsPhone.isVolteEnabled() : "N/A")
+                    + ", imsPhone.isVowifiEnabled()="
+                    + ((imsPhone != null) ? imsPhone.isVowifiEnabled() : "N/A")
                     + ", imsPhone.getServiceState().getState()="
                     + ((imsPhone != null) ? imsPhone.getServiceState().getState() : "N/A"));
         }
 
-        if (imsUseEnabled && imsPhone != null && imsPhone.isVolteEnabled()
-                && ((imsPhone.getServiceState().getState() == ServiceState.STATE_IN_SERVICE
-                && !PhoneNumberUtils.isEmergencyNumber(dialString))
-                || (PhoneNumberUtils.isEmergencyNumber(dialString)
-                && mContext.getResources().getBoolean(
-                        com.android.internal.R.bool.useImsAlwaysForEmergencyCall))) ) {
+        ImsPhone.checkWfcWifiOnlyModeBeforeDial(mImsPhone, mContext);
+
+        if (imsUseEnabled || useImsForEmergency) {
             try {
                 if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "Trying IMS PS call");
-                return imsPhone.dial(dialString, videoState);
+                return imsPhone.dial(dialString, uusInfo, videoState, intentExtras);
             } catch (CallStateException e) {
                 if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "IMS PS call exception " + e +
                         "imsUseEnabled =" + imsUseEnabled + ", imsPhone =" + imsPhone);
@@ -841,13 +847,17 @@ public class GSMPhone extends PhoneBase {
             }
         }
 
+        if (mSST != null && mSST.mSS.getState() == ServiceState.STATE_OUT_OF_SERVICE
+                && mSST.mSS.getDataRegState() != ServiceState.STATE_IN_SERVICE && !isEmergency) {
+            throw new CallStateException("cannot dial in current state");
+        }
         if (LOCAL_DEBUG) Rlog.d(LOG_TAG, "Trying (non-IMS) CS call");
-        return dialInternal(dialString, null, VideoProfile.VideoState.AUDIO_ONLY);
+        return dialInternal(dialString, null, VideoProfile.STATE_AUDIO_ONLY, intentExtras);
     }
 
     @Override
     protected Connection
-    dialInternal (String dialString, UUSInfo uusInfo, int videoState)
+    dialInternal (String dialString, UUSInfo uusInfo, int videoState, Bundle intentExtras)
             throws CallStateException {
 
         // Need to make sure dialString gets parsed properly
@@ -866,9 +876,9 @@ public class GSMPhone extends PhoneBase {
                                "dialing w/ mmi '" + mmi + "'...");
 
         if (mmi == null) {
-            return mCT.dial(newDialString, uusInfo);
+            return mCT.dial(newDialString, uusInfo, intentExtras);
         } else if (mmi.isTemporaryModeCLIR()) {
-            return mCT.dial(mmi.mDialingNumber, mmi.getCLIRMode(), uusInfo);
+            return mCT.dial(mmi.mDialingNumber, mmi.getCLIRMode(), uusInfo, intentExtras);
         } else {
             mPendingMMIs.add(mmi);
             mMmiRegistrants.notifyRegistrants(new AsyncResult(null, mmi, null));
@@ -1062,6 +1072,12 @@ public class GSMPhone extends PhoneBase {
     public String getGroupIdLevel1() {
         IccRecords r = mIccRecords.get();
         return (r != null) ? r.getGid1() : null;
+    }
+
+    @Override
+    public String getGroupIdLevel2() {
+        IccRecords r = mIccRecords.get();
+        return (r != null) ? r.getGid2() : null;
     }
 
     @Override
@@ -1435,11 +1451,14 @@ public class GSMPhone extends PhoneBase {
                 mCi.getIMEI(obtainMessage(EVENT_GET_IMEI_DONE));
                 mCi.getIMEISV(obtainMessage(EVENT_GET_IMEISV_DONE));
                 mCi.getRadioCapability(obtainMessage(EVENT_GET_RADIO_CAPABILITY));
+                startLceAfterRadioIsAvailable();
             }
             break;
 
             case EVENT_RADIO_ON:
-                // do-nothing
+                // If this is on APM off, SIM may already be loaded. Send setPreferredNetworkType
+                // request to RIL to preserve user setting across APM toggling
+                setPreferredNetworkTypeIfSimLoaded();
                 break;
 
             case EVENT_REGISTERED_TO_NETWORK:

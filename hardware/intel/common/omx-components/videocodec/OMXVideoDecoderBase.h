@@ -27,7 +27,7 @@
 #include "graphics.h"
 #endif
 
-static const char* VA_VED_RAW_MIME_TYPE = "video/x-raw-vaved";
+static constexpr const char* VA_VED_RAW_MIME_TYPE = "video/x-raw-vaved";
 static const uint32_t VA_VED_COLOR_FORMAT = 0x20;
 
 
@@ -83,7 +83,10 @@ protected:
 #ifdef TARGET_HAS_ISV
     DECLARE_HANDLER(OMXVideoDecoderBase, DecoderVppBufferNum);
 #endif
+    DECLARE_HANDLER(OMXVideoDecoderBase, StoreMetaDataMode);
     DECLARE_HANDLER(OMXVideoDecoderBase, ErrorReportMode);
+    DECLARE_HANDLER(OMXVideoDecoderBase, CodecPriority);
+    DECLARE_HANDLER(OMXVideoDecoderBase, DecoderOperatingRate);
 
 private:
     enum {
@@ -111,6 +114,16 @@ private:
     uint32_t mVppBufferNum;
 #endif
 
+    // Codec priority. Higher value means lower priority
+    // Currently, only two levels are supported:
+    // 0: realtime priority - This will only be used by
+    //    media playback, capture, and possibly by realtime
+    //    communication scenarios if best effort performance is not suitable.
+    // 1: non-realtime priority (best effort). This is the default value.
+    uint32_t mCodecPriority;
+
+    uint32_t mOperatingRate;
+
 protected:
     IVideoDecoder *mVideoDecoder;
     int  mNativeBufferCount;
@@ -123,6 +136,15 @@ protected:
     GraphicBufferParam mGraphicBufferParam;
     uint32_t mOMXBufferHeaderTypePtrNum;
     OMX_BUFFERHEADERTYPE *mOMXBufferHeaderTypePtrArray[MAX_GRAPHIC_BUFFER_NUM];
+
+    enum AdaptivePlaybackMode {
+        METADATA_MODE,
+        LEGACY_MODE,
+    };
+    AdaptivePlaybackMode mAPMode;
+    uint32_t mMetaDataBuffersNum;
+    bool mFormatChanged;
+    uint32_t getStride(uint32_t width);
 };
 
 #endif /* OMX_VIDEO_DECODER_BASE_H_ */

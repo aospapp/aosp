@@ -16,26 +16,23 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.form.FormPage;
-
 import android.content.Context;
+import android.net.IpConfiguration;
 import android.net.IpConfiguration.IpAssignment;
 import android.net.IpConfiguration.ProxySettings;
-import android.net.IpConfiguration;
 import android.net.LinkAddress;
 import android.net.NetworkUtils;
 import android.net.ProxyInfo;
-import android.net.RouteInfo;
 import android.net.StaticIpConfiguration;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 import android.text.TextUtils;
 
-import java.net.InetAddress;
+import com.android.tv.settings.R;
+import com.android.tv.settings.form.FormPage;
+
 import java.net.Inet4Address;
-import java.util.Collection;
-import java.util.Iterator;
+import java.net.InetAddress;
 
 /**
  * Handles the form page flow of setting advanced options.
@@ -69,8 +66,8 @@ public class AdvancedWifiOptionsFlow {
     private FormPage mNetworkPrefixLengthPage;
     private FormPage mDns1Page;
     private FormPage mDns2Page;
-    private IpConfiguration mIpConfiguration;
-    private boolean mSettingsFlow;
+    private final IpConfiguration mIpConfiguration;
+    private final boolean mSettingsFlow;
 
     public AdvancedWifiOptionsFlow(Context context, PageHandler pageHandler,
             NetworkConfiguration initialConfiguration) {

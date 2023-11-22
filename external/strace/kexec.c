@@ -1,8 +1,14 @@
 #include "defs.h"
-#include <linux/kexec.h>
 
+#include "xlat/kexec_load_flags.h"
 #include "xlat/kexec_arch_values.h"
-#include "xlat/kexec_flags.h"
+
+#ifndef KEXEC_ARCH_MASK
+# define KEXEC_ARCH_MASK 0xffff0000
+#endif
+#ifndef KEXEC_SEGMENT_MAX
+# define KEXEC_SEGMENT_MAX 16
+#endif
 
 static void
 print_kexec_segments(struct tcb *tcp, unsigned long addr, unsigned long len)
@@ -23,7 +29,12 @@ print_kexec_segments(struct tcb *tcp, unsigned long addr, unsigned long len)
 # define seg_memsz \
 	(current_wordsize == 4 ? (uint64_t) seg.seg32.memsz : seg.seg64.memsz)
 #else
-	struct kexec_segment seg;
+	struct {
+		void *buf;
+		size_t bufsz;
+		void *mem;
+		size_t memsz;
+	} seg;
 # define sizeof_seg sizeof(seg)
 # define seg_buf seg.buf
 # define seg_bufsz seg.bufsz
@@ -47,8 +58,7 @@ print_kexec_segments(struct tcb *tcp, unsigned long addr, unsigned long len)
 	for (i = 0; i < len; ++i) {
 		if (i)
 			tprints(", ");
-		if (umoven(tcp, addr + i * sizeof_seg, sizeof_seg,
-			   (char *) &seg) < 0) {
+		if (umoven(tcp, addr + i * sizeof_seg, sizeof_seg, &seg) < 0) {
 			tprints("?");
 			failed = 1;
 			break;
@@ -62,8 +72,7 @@ print_kexec_segments(struct tcb *tcp, unsigned long addr, unsigned long len)
 		tprintf(" %#lx", addr);
 }
 
-int
-sys_kexec_load(struct tcb *tcp)
+SYS_FUNC(kexec_load)
 {
 	unsigned long n;
 
@@ -83,7 +92,7 @@ sys_kexec_load(struct tcb *tcp)
 	n &= ~KEXEC_ARCH_MASK;
 	if (n) {
 		tprints("|");
-		printflags(kexec_flags, n, "KEXEC_???");
+		printflags(kexec_load_flags, n, "KEXEC_???");
 	}
 
 	return 0;

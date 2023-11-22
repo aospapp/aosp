@@ -136,8 +136,8 @@ enum {
 #define PLAYBACK_PERIOD_COUNT 2
 #define PLAYBACK_DEFAULT_CHANNEL_COUNT 2
 #define PLAYBACK_DEFAULT_SAMPLING_RATE 48000
-#define PLAYBACK_START_THRESHOLD ((PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT) - 1)
-#define PLAYBACK_STOP_THRESHOLD (PLAYBACK_PERIOD_SIZE * PLAYBACK_PERIOD_COUNT)
+#define PLAYBACK_START_THRESHOLD(size, count) (((size) * (count)) - 1)
+#define PLAYBACK_STOP_THRESHOLD(size, count) ((size) * ((count) + 2))
 #define PLAYBACK_AVAILABLE_MIN 1
 
 
@@ -163,12 +163,13 @@ enum {
 #define CAPTURE_PERIOD_SIZE 1024
 #define CAPTURE_PERIOD_SIZE_LOW_LATENCY 256
 #define CAPTURE_PERIOD_COUNT 2
+#define CAPTURE_PERIOD_COUNT_LOW_LATENCY 2
 #define CAPTURE_DEFAULT_CHANNEL_COUNT 2
 #define CAPTURE_DEFAULT_SAMPLING_RATE 48000
 #define CAPTURE_START_THRESHOLD 1
 
-#define COMPRESS_CARD       2
-#define COMPRESS_DEVICE     0
+#define COMPRESS_CARD       0
+#define COMPRESS_DEVICE     5
 #define COMPRESS_OFFLOAD_FRAGMENT_SIZE (32 * 1024)
 #define COMPRESS_OFFLOAD_NUM_FRAGMENTS 4
 /* ToDo: Check and update a proper value in msec */
@@ -232,7 +233,8 @@ typedef enum {
     PCM_PLAYBACK = 0x1,
     PCM_CAPTURE = 0x2,
     VOICE_CALL = 0x4,
-    PCM_HOTWORD_STREAMING = 0x8
+    PCM_HOTWORD_STREAMING = 0x8,
+    PCM_CAPTURE_LOW_LATENCY = 0x10,
 } usecase_type_t;
 
 struct offload_cmd {
@@ -264,6 +266,7 @@ struct pcm_device {
 struct stream_out {
     struct audio_stream_out     stream;
     pthread_mutex_t             lock; /* see note below on mutex acquisition order */
+    pthread_mutex_t             pre_lock; /* acquire before lock to avoid DOS by playback thread */
     pthread_cond_t              cond;
     struct pcm_config           config;
     struct listnode             pcm_dev_list;
@@ -305,11 +308,15 @@ struct stream_out {
     // always modified with audio device and stream mutex locked.
     int32_t echo_reference_generation;
 #endif
+
+    bool                         is_fastmixer_affinity_set;
 };
 
 struct stream_in {
     struct audio_stream_in              stream;
     pthread_mutex_t                     lock; /* see note below on mutex acquisition order */
+    pthread_mutex_t                     pre_lock; /* acquire before lock to avoid DOS by
+                                                     capture thread */
     struct pcm_config                   config;
     struct listnode                     pcm_dev_list;
     int                                 standby;
@@ -317,6 +324,7 @@ struct stream_in {
     audio_devices_t                     devices;
     uint32_t                            main_channels;
     audio_usecase_t                     usecase;
+    usecase_type_t                      usecase_type;
     bool                                enable_aec;
     audio_input_flags_t                 input_flags;
 
@@ -354,6 +362,7 @@ struct stream_in {
 #endif
 
     struct audio_device*                dev;
+    bool                                is_fastcapture_affinity_set;
 };
 
 struct mixer_card {

@@ -22,6 +22,8 @@ import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.text.TextUtils;
 
+import java.util.Locale;
+
 /**
  * Utility class for configuring a new WiFi network.
  */
@@ -41,6 +43,8 @@ public class WifiConfig {
 
     /**
      * Adds a new WiFi network.
+     *
+     * @return the ID of the newly created network description. Returns -1 on failure.
      */
     public int addNetwork(String ssid, boolean hidden, String type, String password,
             String proxyHost, int proxyPort, String proxyBypassHosts, String pacUrl) {
@@ -53,7 +57,12 @@ public class WifiConfig {
         if (type == null || TextUtils.isEmpty(type)) {
             securityType = SecurityType.NONE;
         } else {
-            securityType = Enum.valueOf(SecurityType.class, type.toUpperCase());
+            try {
+                securityType = Enum.valueOf(SecurityType.class, type.toUpperCase(Locale.US));
+            } catch (IllegalArgumentException e) {
+                ProvisionLogger.loge("Invalid Wifi security type: " + type);
+                return -1;
+            }
         }
         // If we have a password, and no security type, assume WPA.
         // TODO: Remove this when the programmer supports it.
@@ -64,6 +73,7 @@ public class WifiConfig {
         wifiConf.SSID = ssid;
         wifiConf.status = WifiConfiguration.Status.ENABLED;
         wifiConf.hiddenSSID = hidden;
+        wifiConf.userApproved = WifiConfiguration.USER_APPROVED;
         switch (securityType) {
             case NONE:
                 wifiConf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);

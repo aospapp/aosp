@@ -17,9 +17,13 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.tv.quicksettings"
-    android:sharedUserId="android.uid.system" >
+    android:sharedUserId="android.uid.system"
+    android:versionCode="1"
+    android:versionName="1.0" >
 
-    <uses-sdk android:minSdkVersion="L" />
+    <uses-sdk
+        android:minSdkVersion="21"
+        android:targetSdkVersion="21" />
 
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
@@ -29,7 +33,8 @@
         android:label="@string/quicksettings_label"
         android:requiredForAllUsers="true"
         android:supportsRtl="true"
-        android:theme="@style/Theme.QuickSettings" >
+        android:theme="@style/Theme.QuickSettings"
+        android:usesCleartextTraffic="false" >
         <activity
             android:name="QuickSettings"
             android:label="@string/quicksettings_label_launcher"
@@ -54,7 +59,7 @@
         <activity
             android:name="SettingsDialog"
             android:exported="false"
-            android:theme="@style/Theme.QuickSettings" />
+            android:theme="@style/Theme.QuickSettings.Floating" />
     </application>
 
 </manifest>

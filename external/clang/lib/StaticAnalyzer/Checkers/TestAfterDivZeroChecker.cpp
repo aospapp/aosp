@@ -59,11 +59,11 @@ class DivisionBRVisitor : public BugReporterVisitorImpl<DivisionBRVisitor> {
 private:
   SymbolRef ZeroSymbol;
   const StackFrameContext *SFC;
-  bool Satisfied = false;
+  bool Satisfied;
 
 public:
   DivisionBRVisitor(SymbolRef ZeroSymbol, const StackFrameContext *SFC)
-      : ZeroSymbol(ZeroSymbol), SFC(SFC) {}
+      : ZeroSymbol(ZeroSymbol), SFC(SFC), Satisfied(false) {}
 
   void Profile(llvm::FoldingSetNodeID &ID) const override {
     ID.Add(ZeroSymbol);
@@ -176,7 +176,8 @@ void TestAfterDivZeroChecker::reportBug(SVal Val, CheckerContext &C) const {
                                    "already been used for division",
                       N);
 
-    R->addVisitor(new DivisionBRVisitor(Val.getAsSymbol(), C.getStackFrame()));
+    R->addVisitor(llvm::make_unique<DivisionBRVisitor>(Val.getAsSymbol(),
+                                                       C.getStackFrame()));
     C.emitReport(R);
   }
 }

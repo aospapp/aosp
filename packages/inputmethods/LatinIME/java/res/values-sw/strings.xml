@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Toa sauti unapobofya kitufe"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Ibuka kitufe kinapobonyezwa"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Mapendeleo"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Mwonekano na mipangilio"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Chaguo za lugha nyingi"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Akaunti na Faragha"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Mwonekano na Mipangilio"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Kuandika kwa Ishara"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Masahihisho ya maandishi"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Mahiri"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Mandhari"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Washa muundo wa kibodi inayogawanyika"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Usawazishaji wa Kibodi ya Google"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Usawazishaji umewashwa"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Sawazisha kamusi yako binafsi katika vifaa vyote"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Sawazisha sasa"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Futa data ya wingu"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Hufuta data yako iliyosawazishwa kutoka Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Data yako iliyosawazishwa itafutwa kutoka kwenye wingu. Je, una uhakika?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Futa"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Ghairi"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Kamusi yako ya kibinafsi itasawazishwa na nakala ihifadhiwe kwenye seva za Google. Maelezo ya takwimu ya marudio ya maneno yanaweza kukusanywa ili kusaidia kuboresha bidhaa zetu. Ukusanyaji na matumizi ya maelezo haya yatatii "<a href="https://www.google.com/policies/privacy">"Sera ya Faragha ya Google"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Tafadhali ongeza akaunti ya Google kwenye kifaa hiki ili uwashe kipengele hiki"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Usawazishaji haupatikani kwa vifaa vyenye akaunti za Google Apps for Business"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Badilisha hadi kwa mbinu zingine za ingizo"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Ufunguo wa kubadilisha lugha unashughulikia mbinu zingine za ingizo pia"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Kitufe cha kubadilisha lugha"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Gusa hapa ili uhifadhi"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Kamusi inapatikana"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Maandhari ya kibodi"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Badili akaunti"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Hakuna akaunti zilizochaguliwa"</string>
+    <string name="account_selected" msgid="2846876462199625974">"Kwa sasa unatumia <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"SAWA"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Ghairi"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Toka"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Chagua akaunti ya kutumia"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Kiingereza cha (Uingereza)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Kiingereza cha (Marekani)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Kihispania (Marekani)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hinglish"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Kiserbia (Kilatino)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Kiingereza (UK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Kiingereza (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Kihispania (US) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hinglish (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Kiserbia (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (cha Jadi)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Kikriliki)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Kilatini)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Thabiti)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Hakuna lugha (Alfabeti)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Alfabeti (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Alfabeti (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Mfumo sawa wa maingizo tayari upo: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Bonyeza kitufe cha muda wa kutetema"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Bonyeza kitufe cha kiwango cha sauti"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Ubofyaji kitufe kunakochelewa"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Emoji ya kibodi halisi"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Kitufe halisi cha Alt huonyesha kibao cha emoji"</string>
     <string name="button_default" msgid="3988017840431881491">"Chaguo-msingi"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Karibu kwenye <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"kwa Kuandika kwa ishara"</string>

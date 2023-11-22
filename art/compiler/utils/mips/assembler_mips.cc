@@ -16,6 +16,7 @@
 
 #include "assembler_mips.h"
 
+#include "base/bit_utils.h"
 #include "base/casts.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "memory_region.h"
@@ -332,7 +333,7 @@ void MipsAssembler::Jal(uint32_t address) {
 }
 
 void MipsAssembler::Jr(Register rs) {
-  EmitR(0, rs, static_cast<Register>(0), static_cast<Register>(0), 0, 0x08);
+  EmitR(0, rs, static_cast<Register>(0), static_cast<Register>(0), 0, 0x09);  // Jalr zero, rs
   Nop();
 }
 
@@ -420,7 +421,7 @@ void MipsAssembler::Nop() {
 }
 
 void MipsAssembler::Move(Register rt, Register rs) {
-  EmitI(0x8, rs, rt, 0);
+  EmitI(0x9, rs, rt, 0);    // Addiu
 }
 
 void MipsAssembler::Clear(Register rt) {
@@ -447,11 +448,11 @@ void MipsAssembler::Rem(Register rd, Register rs, Register rt) {
 }
 
 void MipsAssembler::AddConstant(Register rt, Register rs, int32_t value) {
-  Addi(rt, rs, value);
+  Addiu(rt, rs, value);
 }
 
 void MipsAssembler::LoadImmediate(Register rt, int32_t value) {
-  Addi(rt, ZERO, value);
+  Addiu(rt, ZERO, value);
 }
 
 void MipsAssembler::EmitLoad(ManagedRegister m_dst, Register src_register, int32_t src_offset,
@@ -536,6 +537,10 @@ void MipsAssembler::StoreDToOffset(DRegister reg, Register base, int32_t offset)
   Sdc1(reg, base, offset);
 }
 
+static dwarf::Reg DWARFReg(Register reg) {
+  return dwarf::Reg::MipsCore(static_cast<int>(reg));
+}
+
 constexpr size_t kFramePointerSize = 4;
 
 void MipsAssembler::BuildFrame(size_t frame_size, ManagedRegister method_reg,
@@ -549,10 +554,12 @@ void MipsAssembler::BuildFrame(size_t frame_size, ManagedRegister method_reg,
   // Push callee saves and return address
   int stack_offset = frame_size - kFramePointerSize;
   StoreToOffset(kStoreWord, RA, SP, stack_offset);
+  cfi_.RelOffset(DWARFReg(RA), stack_offset);
   for (int i = callee_save_regs.size() - 1; i >= 0; --i) {
     stack_offset -= kFramePointerSize;
     Register reg = callee_save_regs.at(i).AsMips().AsCoreRegister();
     StoreToOffset(kStoreWord, reg, SP, stack_offset);
+    cfi_.RelOffset(DWARFReg(reg), stack_offset);
   }
 
   // Write out Method*.
@@ -568,31 +575,40 @@ void MipsAssembler::BuildFrame(size_t frame_size, ManagedRegister method_reg,
 void MipsAssembler::RemoveFrame(size_t frame_size,
                                 const std::vector<ManagedRegister>& callee_save_regs) {
   CHECK_ALIGNED(frame_size, kStackAlignment);
+  cfi_.RememberState();
 
   // Pop callee saves and return address
   int stack_offset = frame_size - (callee_save_regs.size() * kFramePointerSize) - kFramePointerSize;
   for (size_t i = 0; i < callee_save_regs.size(); ++i) {
     Register reg = callee_save_regs.at(i).AsMips().AsCoreRegister();
     LoadFromOffset(kLoadWord, reg, SP, stack_offset);
+    cfi_.Restore(DWARFReg(reg));
     stack_offset += kFramePointerSize;
   }
   LoadFromOffset(kLoadWord, RA, SP, stack_offset);
+  cfi_.Restore(DWARFReg(RA));
 
   // Decrease frame to required size.
   DecreaseFrameSize(frame_size);
 
   // Then jump to the return address.
   Jr(RA);
+
+  // The CFI should be restored for any code that follows the exit block.
+  cfi_.RestoreState();
+  cfi_.DefCFAOffset(frame_size);
 }
 
 void MipsAssembler::IncreaseFrameSize(size_t adjust) {
   CHECK_ALIGNED(adjust, kStackAlignment);
   AddConstant(SP, SP, -adjust);
+  cfi_.AdjustCFAOffset(adjust);
 }
 
 void MipsAssembler::DecreaseFrameSize(size_t adjust) {
   CHECK_ALIGNED(adjust, kStackAlignment);
   AddConstant(SP, SP, adjust);
+  cfi_.AdjustCFAOffset(-adjust);
 }
 
 void MipsAssembler::Store(FrameOffset dest, ManagedRegister msrc, size_t size) {
@@ -680,13 +696,13 @@ void MipsAssembler::LoadRef(ManagedRegister mdest, FrameOffset src) {
   LoadFromOffset(kLoadWord, dest.AsCoreRegister(), SP, src.Int32Value());
 }
 
-void MipsAssembler::LoadRef(ManagedRegister mdest, ManagedRegister base,
-                            MemberOffset offs) {
+void MipsAssembler::LoadRef(ManagedRegister mdest, ManagedRegister base, MemberOffset offs,
+                            bool poison_reference) {
   MipsManagedRegister dest = mdest.AsMips();
   CHECK(dest.IsCoreRegister() && dest.IsCoreRegister());
   LoadFromOffset(kLoadWord, dest.AsCoreRegister(),
                  base.AsMips().AsCoreRegister(), offs.Int32Value());
-  if (kPoisonHeapReferences) {
+  if (kPoisonHeapReferences && poison_reference) {
     Subu(dest.AsCoreRegister(), ZERO, dest.AsCoreRegister());
   }
 }

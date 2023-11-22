@@ -15,6 +15,7 @@
  */
 package android.uirendering.cts.bitmapverifiers;
 
+import android.annotation.ColorInt;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
@@ -47,6 +48,7 @@ public abstract class PerPixelBitmapVerifier extends BitmapVerifier {
         mSpatialTolerance = spatialTolerance;
     }
 
+    @ColorInt
     protected int getExpectedColor(int x, int y) {
         return Color.WHITE;
     }

@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 using namespace llvm;
 
@@ -79,7 +80,7 @@ ScalarEvolutionAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool
 ScalarEvolutionAliasAnalysis::runOnFunction(Function &F) {
-  InitializeAliasAnalysis(this);
+  InitializeAliasAnalysis(this, &F.getParent()->getDataLayout());
   SE = &getAnalysis<ScalarEvolution>();
   return false;
 }
@@ -162,10 +163,10 @@ ScalarEvolutionAliasAnalysis::alias(const Location &LocA,
   if ((AO && AO != LocA.Ptr) || (BO && BO != LocB.Ptr))
     if (alias(Location(AO ? AO : LocA.Ptr,
                        AO ? +UnknownSize : LocA.Size,
-                       AO ? nullptr : LocA.TBAATag),
+                       AO ? AAMDNodes() : LocA.AATags),
               Location(BO ? BO : LocB.Ptr,
                        BO ? +UnknownSize : LocB.Size,
-                       BO ? nullptr : LocB.TBAATag)) == NoAlias)
+                       BO ? AAMDNodes() : LocB.AATags)) == NoAlias)
       return NoAlias;
 
   // Forward the query to the next analysis.

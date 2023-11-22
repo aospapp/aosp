@@ -31,10 +31,11 @@ public:
     virtual void freeSurfaceBuffers(void) = 0;
     virtual const VideoRenderBuffer* getOutput(bool draining = false, VideoErrorBuffer *output_buf = NULL) = 0;
     virtual const VideoFormatInfo* getFormatInfo(void) = 0;
-    virtual Decode_Status signalRenderDone(void * graphichandler) = 0;
+    virtual Decode_Status signalRenderDone(void * graphichandler, bool isNew = false) = 0;
     virtual bool checkBufferAvail() = 0;
     virtual Decode_Status getRawDataFromSurface(VideoRenderBuffer *renderBuffer = NULL, uint8_t *pRawData = NULL, uint32_t *pSize = NULL, bool internal = true) = 0;
     virtual void enableErrorReport(bool enabled) = 0;
+    virtual int getOutputQueueLength(void) = 0;
 };
 
 #endif /* VIDEO_DECODER_INTERFACE_H_ */

@@ -26,7 +26,6 @@ import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.Ascii;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Equivalences;
 import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -57,7 +56,11 @@ import javax.annotation.CheckReturnValue;
  * <li>values automatically wrapped in {@linkplain WeakReference weak} or
  *     {@linkplain SoftReference soft} references
  * <li>notification of evicted (or otherwise removed) entries
+ * <li>accumulation of cache access statistics
  * </ul>
+ *
+ * <p>These features are all optional; caches can be created using all or none of them. By default
+ * cache instances created by {@code CacheBuilder} will not perform any type of eviction.
  *
  * <p>Usage example: <pre>   {@code
  *
@@ -72,8 +75,19 @@ import javax.annotation.CheckReturnValue;
  *             }
  *           });}</pre>
  *
+ * <p>Or equivalently, <pre>   {@code
  *
- * These features are all optional.
+ *   // In real life this would come from a command-line flag or config file
+ *   String spec = "maximumSize=10000,expireAfterWrite=10m";
+ *
+ *   LoadingCache<Key, Graph> graphs = CacheBuilder.from(spec)
+ *       .removalListener(MY_LISTENER)
+ *       .build(
+ *           new CacheLoader<Key, Graph>() {
+ *             public Graph load(Key key) throws AnyException {
+ *               return createExpensiveGraph(key);
+ *             }
+ *           });}</pre>
  *
  * <p>The returned cache is implemented as a hash table with similar performance characteristics to
  * {@link ConcurrentHashMap}. It implements all optional operations of the {@link LoadingCache} and
@@ -102,7 +116,7 @@ import javax.annotation.CheckReturnValue;
  * <p>If {@linkplain #expireAfterWrite expireAfterWrite} or
  * {@linkplain #expireAfterAccess expireAfterAccess} is requested entries may be evicted on each
  * cache modification, on occasional cache accesses, or on calls to {@link Cache#cleanUp}. Expired
- * entries may be counted in {@link Cache#size}, but will never be visible to read or write
+ * entries may be counted by {@link Cache#size}, but will never be visible to read or write
  * operations.
  *
  * <p>If {@linkplain #weakKeys weakKeys}, {@linkplain #weakValues weakValues}, or
@@ -113,7 +127,7 @@ import javax.annotation.CheckReturnValue;
  * visible to read or write operations.
  *
  * <p>Certain cache configurations will result in the accrual of periodic maintenance tasks which
- * will be performed during write operations, or during occasional read operations in the absense of
+ * will be performed during write operations, or during occasional read operations in the absence of
  * writes. The {@link Cache#cleanUp} method of the returned cache will also perform maintenance, but
  * calling it should not be necessary with a high throughput cache. Only caches built with
  * {@linkplain #removalListener removalListener}, {@linkplain #expireAfterWrite expireAfterWrite},
@@ -125,13 +139,16 @@ import javax.annotation.CheckReturnValue;
  * retain all the configuration properties of the original cache. Note that the serialized form does
  * <i>not</i> include cache contents, but only configuration.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/CachesExplained">caching</a> for a higher-level
+ * explanation.
+ *
  * @param <K> the base key type for all caches created by this builder
  * @param <V> the base value type for all caches created by this builder
  * @author Charles Fry
  * @author Kevin Bourrillion
  * @since 10.0
  */
-@Beta
 @GwtCompatible(emulated = true)
 public final class CacheBuilder<K, V> {
   private static final int DEFAULT_INITIAL_CAPACITY = 16;
@@ -163,10 +180,10 @@ public final class CacheBuilder<K, V> {
       });
   static final CacheStats EMPTY_STATS = new CacheStats(0, 0, 0, 0, 0, 0);
 
-  static final Supplier<SimpleStatsCounter> CACHE_STATS_COUNTER =
-      new Supplier<SimpleStatsCounter>() {
+  static final Supplier<StatsCounter> CACHE_STATS_COUNTER =
+      new Supplier<StatsCounter>() {
     @Override
-    public SimpleStatsCounter get() {
+    public StatsCounter get() {
       return new SimpleStatsCounter();
     }
   };
@@ -219,7 +236,7 @@ public final class CacheBuilder<K, V> {
   RemovalListener<? super K, ? super V> removalListener;
   Ticker ticker;
 
-  Supplier<? extends StatsCounter> statsCounterSupplier = CACHE_STATS_COUNTER;
+  Supplier<? extends StatsCounter> statsCounterSupplier = NULL_STATS_COUNTER;
 
   // TODO(fry): make constructor private and update tests to use newBuilder
   CacheBuilder() {}
@@ -233,8 +250,34 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
+   * Constructs a new {@code CacheBuilder} instance with the settings specified in {@code spec}.
+   *
+   * @since 12.0
+   */
+  @Beta
+  @GwtIncompatible("To be supported")
+  public static CacheBuilder<Object, Object> from(CacheBuilderSpec spec) {
+    return spec.toCacheBuilder()
+        .lenientParsing();
+  }
+
+  /**
+   * Constructs a new {@code CacheBuilder} instance with the settings specified in {@code spec}.
+   * This is especially useful for command-line configuration of a {@code CacheBuilder}.
+   *
+   * @param spec a String in the format specified by {@link CacheBuilderSpec}
+   * @since 12.0
+   */
+  @Beta
+  @GwtIncompatible("To be supported")
+  public static CacheBuilder<Object, Object> from(String spec) {
+    return from(CacheBuilderSpec.parse(spec));
+  }
+
+  /**
    * Enables lenient parsing. Useful for tests and spec parsing.
    */
+  @GwtIncompatible("To be supported")
   CacheBuilder<K, V> lenientParsing() {
     strictParsing = false;
     return this;
@@ -243,9 +286,10 @@ public final class CacheBuilder<K, V> {
   /**
    * Sets a custom {@code Equivalence} strategy for comparing keys.
    *
-   * <p>By default, the cache uses {@link Equivalences#identity} to determine key equality when
-   * {@link #weakKeys} is specified, and {@link Equivalences#equals()} otherwise.
+   * <p>By default, the cache uses {@link Equivalence#identity} to determine key equality when
+   * {@link #weakKeys} is specified, and {@link Equivalence#equals()} otherwise.
    */
+  @GwtIncompatible("To be supported")
   CacheBuilder<K, V> keyEquivalence(Equivalence<Object> equivalence) {
     checkState(keyEquivalence == null, "key equivalence was already set to %s", keyEquivalence);
     keyEquivalence = checkNotNull(equivalence);
@@ -259,10 +303,11 @@ public final class CacheBuilder<K, V> {
   /**
    * Sets a custom {@code Equivalence} strategy for comparing values.
    *
-   * <p>By default, the cache uses {@link Equivalences#identity} to determine value equality when
-   * {@link #weakValues} or {@link #softValues} is specified, and {@link Equivalences#equals()}
+   * <p>By default, the cache uses {@link Equivalence#identity} to determine value equality when
+   * {@link #weakValues} or {@link #softValues} is specified, and {@link Equivalence#equals()}
    * otherwise.
    */
+  @GwtIncompatible("To be supported")
   CacheBuilder<K, V> valueEquivalence(Equivalence<Object> equivalence) {
     checkState(valueEquivalence == null,
         "value equivalence was already set to %s", valueEquivalence);
@@ -305,11 +350,23 @@ public final class CacheBuilder<K, V> {
    * higher value than you need can waste space and time, and a significantly lower value can lead
    * to thread contention. But overestimates and underestimates within an order of magnitude do not
    * usually have much noticeable impact. A value of one permits only one thread to modify the cache
-   * at a time, but since read operations can proceed concurrently, this still yields higher
-   * concurrency than full synchronization. Defaults to 4.
+   * at a time, but since read operations and cache loading computations can proceed concurrently,
+   * this still yields higher concurrency than full synchronization.
    *
-   * <p><b>Note:</b>The default may change in the future. If you care about this value, you should
-   * always choose it explicitly.
+   * <p> Defaults to 4. <b>Note:</b>The default may change in the future. If you care about this
+   * value, you should always choose it explicitly.
+   *
+   * <p>The current implementation uses the concurrency level to create a fixed number of hashtable
+   * segments, each governed by its own write lock. The segment lock is taken once for each explicit
+   * write, and twice for each cache loading computation (once prior to loading the new value,
+   * and once after loading completes). Much internal cache management is performed at the segment
+   * granularity. For example, access queues and write queues are kept per segment when they are
+   * required by the selected eviction algorithm. As such, when writing unit tests it is not
+   * uncommon to specify {@code concurrencyLevel(1)} in order to achieve more deterministic eviction
+   * behavior.
+   *
+   * <p>Note that future implementations may abandon segment locking in favor of more advanced
+   * concurrency controls.
    *
    * @throws IllegalArgumentException if {@code concurrencyLevel} is nonpositive
    * @throws IllegalStateException if a concurrency level was already set
@@ -335,9 +392,11 @@ public final class CacheBuilder<K, V> {
    * <p>When {@code size} is zero, elements will be evicted immediately after being loaded into the
    * cache. This can be useful in testing, or to disable caching temporarily without a code change.
    *
+   * <p>This feature cannot be used in conjunction with {@link #maximumWeight}.
+   *
    * @param size the maximum size of the cache
    * @throws IllegalArgumentException if {@code size} is negative
-   * @throws IllegalStateException if a maximum size was already set
+   * @throws IllegalStateException if a maximum size or weight was already set
    */
   public CacheBuilder<K, V> maximumSize(long size) {
     checkState(this.maximumSize == UNSET_INT, "maximum size was already set to %s",
@@ -364,11 +423,17 @@ public final class CacheBuilder<K, V> {
    * cache. This can be useful in testing, or to disable caching temporarily without a code
    * change.
    *
-   * @param weight the maximum weight the cache may contain
-   * @throws IllegalArgumentException if {@code size} is negative
-   * @throws IllegalStateException if a maximum size was already set
+   * <p>Note that weight is only used to determine whether the cache is over capacity; it has no
+   * effect on selecting which entry should be evicted next.
+   *
+   * <p>This feature cannot be used in conjunction with {@link #maximumSize}.
+   *
+   * @param weight the maximum total weight of entries the cache may contain
+   * @throws IllegalArgumentException if {@code weight} is negative
+   * @throws IllegalStateException if a maximum weight or size was already set
    * @since 11.0
    */
+  @GwtIncompatible("To be supported")
   public CacheBuilder<K, V> maximumWeight(long weight) {
     checkState(this.maximumWeight == UNSET_INT, "maximum weight was already set to %s",
         this.maximumWeight);
@@ -407,6 +472,7 @@ public final class CacheBuilder<K, V> {
    * @throws IllegalStateException if a maximum size was already set
    * @since 11.0
    */
+  @GwtIncompatible("To be supported")
   public <K1 extends K, V1 extends V> CacheBuilder<K1, V1> weigher(
       Weigher<? super K1, ? super V1> weigher) {
     checkState(this.weigher == null);
@@ -436,15 +502,6 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
-   * Specifies that each key (not value) stored in the cache should be strongly referenced.
-   *
-   * @throws IllegalStateException if the key strength was already set
-   */
-  CacheBuilder<K, V> strongKeys() {
-    return setKeyStrength(Strength.STRONG);
-  }
-
-  /**
    * Specifies that each key (not value) stored in the cache should be wrapped in a {@link
    * WeakReference} (by default, strong references are used).
    *
@@ -470,15 +527,6 @@ public final class CacheBuilder<K, V> {
 
   Strength getKeyStrength() {
     return firstNonNull(keyStrength, Strength.STRONG);
-  }
-
-  /**
-   * Specifies that each value (not key) stored in the cache should be strongly referenced.
-   *
-   * @throws IllegalStateException if the value strength was already set
-   */
-  CacheBuilder<K, V> strongValues() {
-    return setValueStrength(Strength.STRONG);
   }
 
   /**
@@ -609,8 +657,9 @@ public final class CacheBuilder<K, V> {
    * {@link CacheLoader#reload}.
    *
    * <p>As the default implementation of {@link CacheLoader#reload} is synchronous, it is
-   * recommended that users of this method override {@link CacheLoader#reload} with an asynchrnous
-   * implementation; otherwise refreshes will block other cache operations.
+   * recommended that users of this method override {@link CacheLoader#reload} with an asynchronous
+   * implementation; otherwise refreshes will be performed during unrelated cache read and write
+   * operations.
    *
    * <p>Currently automatic refreshes are performed when the first stale request for an entry
    * occurs. The request triggering refresh will make a blocking call to {@link CacheLoader#reload}
@@ -626,7 +675,8 @@ public final class CacheBuilder<K, V> {
    * @throws IllegalStateException if the refresh interval was already set
    * @since 11.0
    */
-  @GwtIncompatible("To be supported")
+  @Beta
+  @GwtIncompatible("To be supported (synchronously).")
   public CacheBuilder<K, V> refreshAfterWrite(long duration, TimeUnit unit) {
     checkNotNull(unit);
     checkState(refreshNanos == UNSET_INT, "refresh was already set to %s ns", refreshNanos);
@@ -648,7 +698,6 @@ public final class CacheBuilder<K, V> {
    *
    * @throws IllegalStateException if a ticker was already set
    */
-  @GwtIncompatible("To be supported")
   public CacheBuilder<K, V> ticker(Ticker ticker) {
     checkState(this.ticker == null);
     this.ticker = checkNotNull(ticker);
@@ -663,34 +712,27 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
-   * Specifies a listener instance, which all caches built using this {@code CacheBuilder} will
-   * notify each time an entry is removed from the cache by any means.
+   * Specifies a listener instance that caches should notify each time an entry is removed for any
+   * {@linkplain RemovalCause reason}. Each cache created by this builder will invoke this listener
+   * as part of the routine maintenance described in the class documentation above.
    *
-   * <p>Each cache built by this {@code CacheBuilder} after this method is called invokes the
-   * supplied listener after removing an element for any reason (see removal causes in {@link
-   * RemovalCause}). It will invoke the listener as part of the routine maintenance described
-   * in the class javadoc.
+   * <p><b>Warning:</b> after invoking this method, do not continue to use <i>this</i> cache
+   * builder reference; instead use the reference this method <i>returns</i>. At runtime, these
+   * point to the same instance, but only the returned reference has the correct generic type
+   * information so as to ensure type safety. For best results, use the standard method-chaining
+   * idiom illustrated in the class documentation above, configuring a builder and building your
+   * cache in a single statement. Failure to heed this advice can result in a {@link
+   * ClassCastException} being thrown by a cache operation at some <i>undefined</i> point in the
+   * future.
    *
-   * <p><b>Note:</b> <i>all exceptions thrown by {@code listener} will be logged (using
-   * {@link java.util.logging.Logger})and then swallowed</i>.
+   * <p><b>Warning:</b> any exception thrown by {@code listener} will <i>not</i> be propagated to
+   * the {@code Cache} user, only logged via a {@link Logger}.
    *
-   * <p><b>Important note:</b> Instead of returning <em>this</em> as a {@code CacheBuilder}
-   * instance, this method returns {@code CacheBuilder<K1, V1>}. From this point on, either the
-   * original reference or the returned reference may be used to complete configuration and build
-   * the cache, but only the "generic" one is type-safe. That is, it will properly prevent you from
-   * building caches whose key or value types are incompatible with the types accepted by the
-   * listener already provided; the {@code CacheBuilder} type cannot do this. For best results,
-   * simply use the standard method-chaining idiom, as illustrated in the documentation at top,
-   * configuring a {@code CacheBuilder} and building your {@link Cache} all in a single statement.
-   *
-   * <p><b>Warning:</b> if you ignore the above advice, and use this {@code CacheBuilder} to build
-   * a cache whose key or value type is incompatible with the listener, you will likely experience
-   * a {@link ClassCastException} at some <i>undefined</i> point in the future.
-   *
+   * @return the cache builder reference that should be used instead of {@code this} for any
+   *     remaining configuration and cache building
    * @throws IllegalStateException if a removal listener was already set
    */
   @CheckReturnValue
-  @GwtIncompatible("To be supported")
   public <K1 extends K, V1 extends V> CacheBuilder<K1, V1> removalListener(
       RemovalListener<? super K1, ? super V1> listener) {
     checkState(this.removalListener == null);
@@ -709,12 +751,20 @@ public final class CacheBuilder<K, V> {
   }
 
   /**
-   * Disable the accumulation of {@link CacheStats} during the operation of the cache.
+   * Enable the accumulation of {@link CacheStats} during the operation of the cache. Without this
+   * {@link Cache#stats} will return zero for all statistics. Note that recording stats requires
+   * bookkeeping to be performed with each operation, and thus imposes a performance penalty on
+   * cache operation.
+   *
+   * @since 12.0 (previously, stats collection was automatic)
    */
-  CacheBuilder<K, V> disableStats() {
-    checkState(statsCounterSupplier == CACHE_STATS_COUNTER);
-    statsCounterSupplier = NULL_STATS_COUNTER;
+  public CacheBuilder<K, V> recordStats() {
+    statsCounterSupplier = CACHE_STATS_COUNTER;
     return this;
+  }
+  
+  boolean isRecordingStats() {
+    return statsCounterSupplier == CACHE_STATS_COUNTER;
   }
 
   Supplier<? extends StatsCounter> getStatsCounterSupplier() {
@@ -788,12 +838,11 @@ public final class CacheBuilder<K, V> {
     if (concurrencyLevel != UNSET_INT) {
       s.add("concurrencyLevel", concurrencyLevel);
     }
+    if (maximumSize != UNSET_INT) {
+      s.add("maximumSize", maximumSize);
+    }
     if (maximumWeight != UNSET_INT) {
-      if (weigher == null) {
-        s.add("maximumSize", maximumWeight);
-      } else {
-        s.add("maximumWeight", maximumWeight);
-      }
+      s.add("maximumWeight", maximumWeight);
     }
     if (expireAfterWriteNanos != UNSET_INT) {
       s.add("expireAfterWrite", expireAfterWriteNanos + "ns");

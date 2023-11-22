@@ -67,7 +67,7 @@
     <string name="delete" msgid="6784262386780496958">"ಅಳಿಸು"</string>
     <string name="discard_drafts" msgid="5881484193628472105">"ಡ್ರಾಫ್ಟ್‌ಗಳನ್ನು ತಿರಸ್ಕರಿಸು"</string>
     <string name="discard_failed" msgid="7520780769812210279">"ತ್ಯಜಿಸು ವಿಫಲವಾಗಿದೆ"</string>
-    <string name="refresh" msgid="1533748989749277511">"ರೀಫ್ರೆಶ್‌‌ ಮಾಡಿ"</string>
+    <string name="refresh" msgid="1533748989749277511">"ರಿಫ್ರೆಶ್‌ ಮಾಡಿ"</string>
     <string name="reply" msgid="8337757482824207118">"ಪ್ರತ್ಯುತ್ತರ"</string>
     <string name="reply_all" msgid="5366796103758360957">"ಎಲ್ಲರಿಗೂ ಪ್ರತ್ಯುತ್ತರಿಸು"</string>
     <string name="resume_draft" msgid="1272723181782570649">"ಸಂಪಾದಿಸು"</string>
@@ -298,7 +298,7 @@
     <string name="wait_for_sync_title" msgid="4577632826912823075">"ಸಿಂಕ್‍ಗಾಗಿ ನಿರೀಕ್ಷಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="not_synced_title" msgid="3600180500934086346">"ಖಾತೆ ಸಿಂಕ್ ಆಗಿಲ್ಲ"</string>
     <string name="wait_for_manual_sync_body" msgid="2823149409451003378">"ಈ ಖಾತೆಯನ್ನು ಸ್ವಯಂಚಾಲಿತ ಸಿಂಕ್‍‍ಗೆ ಹೊಂದಿಸಲಾಗಿಲ್ಲ.\nಒಂದು ಬಾರಿ ಮೇಲ್‌ಗೆ ಸಿಂಕ್ ಮಾಡಲು "<b>"ಇದೀಗ ಸಿಂಕ್ ಮಾಡು"</b>", ಅಥವಾ ಈ ಖಾತೆಯನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಸಿಂಕ್ ಮೇಲ್‍‍ಗೆ ಹೊಂದಿಸಲು "<b>"ಸಿಂಕ್ ಸೆಟ್ಟಿಂಗ್‍‍ಗಳನ್ನು ಬದಲಿಸು"</b>" ಅನ್ನು ಸ್ಪರ್ಶಿಸಿ."</string>
-    <string name="manual_sync" msgid="2271479734895537848">"ಇದೀಗ ಸಿಂಕ್ ಮಾಡಿ"</string>
+    <string name="manual_sync" msgid="2271479734895537848">"ಸಿಂಕ್ ಮಾಡು"</string>
     <string name="change_sync_settings" msgid="3615852118397055361">"ಸಿಂಕ್ ಸೆಟ್ಟಿಂಗ್‍ಗಳನ್ನು ಬದಲಿಸಿ"</string>
     <string name="photo_load_failed" msgid="577471721679146999">"ಚಿತ್ರವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ"</string>
     <string name="cant_move_or_change_labels" msgid="4155490583610926755">"ಆಯ್ಕೆಯು ಬಹು ಖಾತೆಗಳನ್ನು ಒಳಗೊಂಡಿರುವ ಕಾರಣದಿಂದಾಗಿ ಸರಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
@@ -385,7 +385,7 @@
     <string name="conversation_photo_welcome_text" msgid="836483155429003787">"ಆ ಸಂವಾದವನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಕಳುಹಿಸುವವರ ಚಿತ್ರವನ್ನು ಸ್ಪರ್ಶಿಸಿ."</string>
     <string name="long_press_to_select_tip" msgid="1660881999120625177">"ಒಂದು ಸಂವಾದವನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಸ್ಪರ್ಶಿಸಿ &amp; ಹಿಡಿದಿಟ್ಟುಕೊಳ್ಳಿ, ನಂತರ ಹೆಚ್ಚು ಆಯ್ಕೆಗಾಗಿ ಸ್ಪರ್ಶಿಸಿ."</string>
     <string name="folder_icon_desc" msgid="6272938864914794739">"ಫೋಲ್ಡರ್ ಐಕಾನ್"</string>
-    <string name="add_account" msgid="5905863370226612377">"ಖಾತೆಯನ್ನು ಸೇರಿಸಿ"</string>
+    <string name="add_account" msgid="5905863370226612377">"ಖಾತೆ ಸೇರಿಸು"</string>
     <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"ಸಲಹೆ ವಜಾಗೊಳಿಸು"</string>
     <string name="auto_sync_off" msgid="3691189864057581214">"ಸ್ವಯಂಚಾಲಿತ ಸಿಂಕ್ ಆಫ್ ಆಗಿದೆ. ಆನ್ ಮಾಡಲು ಸ್ಪರ್ಶಿಸಿ."</string>
     <string name="account_sync_off" msgid="5720018952998097061">"ಖಾತೆ ಸಿಂಕ್ ಆಫ್ ಆಗಿದೆ. &lt; href=\'http://www.example.com\'&gt;Account settings.&lt;/a&gt; ನಲ್ಲಿ ಆನ್ ಮಾಡಿ"</string>

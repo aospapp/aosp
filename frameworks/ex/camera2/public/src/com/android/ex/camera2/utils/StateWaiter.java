@@ -87,7 +87,7 @@ public final class StateWaiter {
      *
      * <p>Note: Only one waiter allowed at a time!</p>
      *
-     * @param desired state to observe a transition to
+     * @param state state to observe a transition to
      * @param timeoutMs how long to wait in milliseconds
      *
      * @throws IllegalArgumentException if {@code state} was out of range
@@ -196,7 +196,7 @@ public final class StateWaiter {
 
         try {
             mQueuedStates.put(state);
-        } catch(InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new UnsupportedOperationException("Unable to set current state", e);
         }
     }

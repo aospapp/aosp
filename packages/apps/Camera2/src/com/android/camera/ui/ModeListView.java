@@ -43,9 +43,10 @@ import android.widget.LinearLayout;
 import com.android.camera.CaptureLayoutHelper;
 import com.android.camera.app.CameraAppUI;
 import com.android.camera.debug.Log;
+import com.android.camera.util.AndroidServices;
 import com.android.camera.util.CameraUtil;
 import com.android.camera.util.Gusterpolator;
-import com.android.camera.util.UsageStatistics;
+import com.android.camera.stats.UsageStatistics;
 import com.android.camera.widget.AnimationEffects;
 import com.android.camera.widget.SettingsCling;
 import com.android.camera2.R;
@@ -701,6 +702,11 @@ public class ModeListView extends FrameLayout
          * @param success indicates whether the animation finishes successfully
          */
         private void onAnimationEnd(boolean success) {
+            if (mSettingsButton.getLayerType() == View.LAYER_TYPE_HARDWARE) {
+                Log.v(TAG, "Disabling hardware layer for the Settings Button. (onAnimationEnd)");
+                mSettingsButton.setLayerType(View.LAYER_TYPE_NONE, null);
+            }
+
             mSettingsButton.setVisibility(VISIBLE);
             // If successfully finish hiding shimmy, then we should go back to
             // fully hidden state.
@@ -908,6 +914,7 @@ public class ModeListView extends FrameLayout
     }
 
     public interface ModeSwitchListener {
+        public void onModeButtonPressed(int modeIndex);
         public void onModeSelected(int modeIndex);
         public int getCurrentModeIndex();
         public void onSettingsSelected();
@@ -1063,6 +1070,9 @@ public class ModeListView extends FrameLayout
      * @param selectedItem the item being clicked
      */
     private void onItemSelected(ModeSelectorItem selectedItem) {
+        int modeId = selectedItem.getModeId();
+        mModeSwitchListener.onModeButtonPressed(modeId);
+
         mCurrentStateManager.getCurrentState().onItemSelected(selectedItem);
     }
 
@@ -1188,8 +1198,7 @@ public class ModeListView extends FrameLayout
     private void initializeModeSelectorItems() {
         mModeSelectorItems = new ModeSelectorItem[mTotalModes];
         // Inflate the mode selector items and add them to a linear layout
-        LayoutInflater inflater = (LayoutInflater) getContext()
-                .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        LayoutInflater inflater = AndroidServices.instance().provideLayoutInflater();
         mListView = (LinearLayout) findViewById(R.id.mode_list);
         for (int i = 0; i < mTotalModes; i++) {
             final ModeSelectorItem selectorItem =
@@ -1577,23 +1586,8 @@ public class ModeListView extends FrameLayout
         insertNewPosition(newPosition, mCurrentTime);
 
         for (int i = 0; i < mModeSelectorItems.length; i++) {
-            mModeSelectorItems[i].setVisibleWidth(calculateVisibleWidthForItem(i,
-                    (int) newPosition));
+            mModeSelectorItems[i].setVisibleWidth((int) newPosition);
         }
-    }
-
-    /**
-     * Calculate the width of a specified item based on its position relative to
-     * the item with longest width.
-     */
-    private int calculateVisibleWidthForItem(int itemId, int longestWidth) {
-        if (itemId == mFocusItem || mFocusItem == NO_ITEM_SELECTED) {
-            return longestWidth;
-        }
-
-        int delay = Math.abs(itemId - mFocusItem) * DELAY_MS;
-        return (int) getPosition(mCurrentTime - delay,
-                mModeSelectorItems[itemId].getVisibleWidth());
     }
 
     /**
@@ -1706,6 +1700,19 @@ public class ModeListView extends FrameLayout
             mModeListOpenListener.onModeListOpenProgress(openRatio);
         }
         if (mSettingsButton != null) {
+            // Disable the hardware layer when the ratio reaches 0.0 or 1.0.
+            if (openRatio >= 1.0f || openRatio <= 0.0f) {
+                if (mSettingsButton.getLayerType() == View.LAYER_TYPE_HARDWARE) {
+                    Log.v(TAG, "Disabling hardware layer for the Settings Button. (via alpha)");
+                    mSettingsButton.setLayerType(View.LAYER_TYPE_NONE, null);
+                }
+            } else {
+                if (mSettingsButton.getLayerType() != View.LAYER_TYPE_HARDWARE) {
+                    Log.v(TAG, "Enabling hardware layer for the Settings Button.");
+                    mSettingsButton.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                }
+            }
+
             mSettingsButton.setAlpha(openRatio);
         }
     }
@@ -1853,7 +1860,6 @@ public class ModeListView extends FrameLayout
                         "visibleWidth", width);
             }
             animator.setDuration(duration);
-            animator.setStartDelay(i * delay);
             animators.add(animator);
         }
 
@@ -1877,7 +1883,6 @@ public class ModeListView extends FrameLayout
         }
 
         ArrayList<Animator> animators = new ArrayList<Animator>();
-        int focusItem = mFocusItem == NO_ITEM_SELECTED ? 0 : mFocusItem;
         for (int i = 0; i < mTotalModes; i++) {
             ObjectAnimator animator = ObjectAnimator.ofInt(mModeSelectorItems[i],
                     "visibleWidth", width);

@@ -75,10 +75,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../../../../.. \
     $(LOCAL_PATH)/../../../../../../common_audio/signal_processing/include
 
-ifndef WEBRTC_STL
-LOCAL_SHARED_LIBRARIES += libstlport
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)
@@ -91,6 +88,9 @@ include $(BUILD_STATIC_LIBRARY)
 ifeq ($(WEBRTC_BUILD_NEON_LIBS),true)
 
 include $(CLEAR_VARS)
+
+# filters_neon.c does not compile with Clang, http://b/17457665.
+LOCAL_CLANG := false
 
 LOCAL_ARM_MODE := arm
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
@@ -116,10 +116,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/../../../../../.. \
     $(LOCAL_PATH)/../../../../../../common_audio/signal_processing/include
 
-ifndef WEBRTC_STL
-LOCAL_SHARED_LIBRARIES += libstlport
-include external/stlport/libstlport.mk
-else
+ifdef WEBRTC_STL
 LOCAL_NDK_STL_VARIANT := $(WEBRTC_STL)
 LOCAL_SDK_VERSION := 14
 LOCAL_MODULE := $(LOCAL_MODULE)_$(WEBRTC_STL)

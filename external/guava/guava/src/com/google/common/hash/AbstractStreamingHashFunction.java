@@ -33,12 +33,28 @@ import java.nio.charset.Charset;
  * @author Kevin Bourrillion
  */
 abstract class AbstractStreamingHashFunction implements HashFunction {
+  @Override public <T> HashCode hashObject(T instance, Funnel<? super T> funnel) {
+    return newHasher().putObject(instance, funnel).hash();
+  }
+
+  /**
+   * @deprecated Use {@link AbstractStreamingHashFunction#hashUnencodedChars} instead.
+   */
+  @Deprecated
   @Override public HashCode hashString(CharSequence input) {
-    return newHasher().putString(input).hash();
+    return hashUnencodedChars(input);
+  }
+
+  @Override public HashCode hashUnencodedChars(CharSequence input) {
+    return newHasher().putUnencodedChars(input).hash();
   }
 
   @Override public HashCode hashString(CharSequence input, Charset charset) {
     return newHasher().putString(input, charset).hash();
+  }
+
+  @Override public HashCode hashInt(int input) {
+    return newHasher().putInt(input).hash();
   }
 
   @Override public HashCode hashLong(long input) {
@@ -62,8 +78,8 @@ abstract class AbstractStreamingHashFunction implements HashFunction {
    * A convenience base class for implementors of {@code Hasher}; handles accumulating data
    * until an entire "chunk" (of implementation-dependent length) is ready to be hashed.
    *
-   * @author kevinb@google.com (Kevin Bourrillion)
-   * @author andreou@google.com (Dimitris Andreou)
+   * @author Kevin Bourrillion
+   * @author Dimitris Andreou
    */
   // TODO(kevinb): this class still needs some design-and-document-for-inheritance love
   protected static abstract class AbstractStreamingHasher extends AbstractHasher {
@@ -142,7 +158,7 @@ abstract class AbstractStreamingHashFunction implements HashFunction {
       return putBytes(ByteBuffer.wrap(bytes, off, len).order(ByteOrder.LITTLE_ENDIAN));
     }
 
-    private final Hasher putBytes(ByteBuffer readBuffer) {
+    private Hasher putBytes(ByteBuffer readBuffer) {
       // If we have room for all of it, this is easy
       if (readBuffer.remaining() <= buffer.remaining()) {
         buffer.put(readBuffer);
@@ -167,8 +183,17 @@ abstract class AbstractStreamingHashFunction implements HashFunction {
       return this;
     }
 
+    /**
+     * @deprecated Use {@link AbstractStreamingHasher#putUnencodedChars} instead.
+     */
+    @Deprecated
     @Override
     public final Hasher putString(CharSequence charSequence) {
+      return putUnencodedChars(charSequence);
+    }
+
+    @Override
+    public final Hasher putUnencodedChars(CharSequence charSequence) {
       for (int i = 0; i < charSequence.length(); i++) {
         putChar(charSequence.charAt(i));
       }

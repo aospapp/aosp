@@ -181,20 +181,29 @@ void PressureSensor::fillList(struct sensor_t *list)
 int PressureSensor::inv_init_sysfs_attributes(void)
 {
     VFUNC_LOG;
- 
-    pathP = (char*)malloc(sizeof(char[PRESSURE_MAX_SYSFS_ATTRB][MAX_SYSFS_NAME_LEN]));
-    char *sptr = pathP;
-    char **dptr = (char**)&pressureSysFs;
-    if (sptr == NULL)
+
+    pathP = (char*)calloc(PRESSURE_MAX_SYSFS_ATTRB,
+                          sizeof(char[MAX_SYSFS_NAME_LEN]));
+    if (pathP == NULL)
         return -1;
-    unsigned char i = 0;
-    do {
-        *dptr++ = sptr;
-        memset(sptr, 0, sizeof(sptr));
-        sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
-    } while (++i < PRESSURE_MAX_SYSFS_ATTRB);
- 
+
+    char *sptr = pathP;
+    char **dptr = reinterpret_cast<char **>(&pressureSysFs);
+    for (size_t i = 0; i < PRESSURE_MAX_SYSFS_ATTRB; i++) {
+      *dptr++ = sptr;
+      sptr += sizeof(char[MAX_SYSFS_NAME_LEN]);
+    }
+
     sprintf(pressureSysFs.pressure_enable, "%s%s", mSysfsPath, "/pressure_enable");
     sprintf(pressureSysFs.pressure_rate, "%s%s", mSysfsPath, "/pressure_rate");
+
+    // Supported by driver ?
+    FILE  *sysfsfp;
+    sysfsfp = fopen(pressureSysFs.pressure_rate, "r");
+    if (sysfsfp == NULL) {
+        LOGE("HAL: HAL configured to support Pressure sensor but not by driver");
+    } else {
+        fclose(sysfsfp);
+    }
     return 0;
 }

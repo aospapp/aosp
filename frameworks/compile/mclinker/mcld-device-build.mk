@@ -27,6 +27,11 @@ ifeq ($(HOST_OS),darwin)
 LOCAL_CFLAGS += -DDARWIN_FLEX=1
 endif
 
+ifeq ($(BUILD_ARM_FOR_X86),true)
+LOCAL_CFLAGS_x86 += -DPROVIDE_ARM_CODEGEN -DFORCE_BUILD_ARM
+LOCAL_CFLAGS_x86_64 += -DPROVIDE_ARM_CODEGEN -DFORCE_BUILD_ARM
+endif
+
 # Make sure bionic is first so we can include system headers.
 LOCAL_C_INCLUDES := \
   bionic \

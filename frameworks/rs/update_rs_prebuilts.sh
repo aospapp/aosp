@@ -4,7 +4,7 @@
 MY_ANDROID_DIR=$PWD/../../
 cd $MY_ANDROID_DIR
 
-if [ $OSTYPE == 'darwin13' ];
+if [ $OSTYPE == 'darwin14' ];
 then
 
   DARWIN=1
@@ -21,8 +21,8 @@ else
   SHORT_OSNAME=linux
   SONAME=so
   # Target architectures and their system library names.
-  TARGETS=(arm mips x86)
-  SYS_NAMES=(generic generic_mips generic_x86)
+  TARGETS=(arm mips x86 arm64)
+  SYS_NAMES=(generic generic_mips generic_x86 generic_arm64)
   NUM_CORES=`cat /proc/cpuinfo | grep processor | tail -n 1 | cut -f 2 -d :`
   NUM_CORES=$(($NUM_CORES+1))
 
@@ -38,6 +38,10 @@ export FORCE_BUILD_LLVM_COMPONENTS=true
 # this variable, we don't build the .so files, hence we never construct the
 # actual required compiler pieces.
 export FORCE_BUILD_RS_COMPAT=true
+
+# Disable JACK when buiding RS prebuilts. Without this variable, we won't be
+# able to get classes.jar.
+export UPDATE_RS_PREBUILTS_DISABLE_JACK=true
 
 # ANDROID_HOST_OUT is where the new prebuilts will be constructed/copied from.
 ANDROID_HOST_OUT=$MY_ANDROID_DIR/out/host/$SHORT_OSNAME-x86/
@@ -66,7 +70,10 @@ build_rs_libs() {
   cd $MY_ANDROID_DIR/frameworks/rs/driver/runtime && mma -j$NUM_CORES && cd - || exit 1
   # Build a sample support application to ensure that all the pieces are up to date.
   cd $MY_ANDROID_DIR/frameworks/rs/java/tests/RSTest_CompatLib/ && mma -j$NUM_CORES && cd - || exit 2
-
+  # Build libcompiler-rt.a
+  cd $MY_ANDROID_DIR/external/compiler-rt && mma -j$NUM_CORES && cd - || exit 3
+  # Build the blas libraries.
+  cd $MY_ANDROID_DIR/external/cblas && mma -j$NUM_CORES && cd - || exit 4
 }
 
 # Build everything by default
@@ -124,8 +131,18 @@ repo start pb_$DATE .
 if [ $DARWIN -eq 0 ]; then
   for i in $(seq 0 $((${#TARGETS[@]} - 1))); do
     t=${TARGETS[$i]}
-    sys_lib_dir=$MY_ANDROID_DIR/out/target/product/${SYS_NAMES[$i]}/system/lib
-    obj_lib_dir=$MY_ANDROID_DIR/out/target/product/${SYS_NAMES[$i]}/obj/lib
+    sys_name=${SYS_NAMES[$i]}
+    case "$sys_name" in 
+      *64)
+        sys_lib_dir=$MY_ANDROID_DIR/out/target/product/$sys_name/system/lib64
+        ;;
+      *)
+        sys_lib_dir=$MY_ANDROID_DIR/out/target/product/$sys_name/system/lib
+        ;;
+    esac
+    obj_lib_dir=$MY_ANDROID_DIR/out/target/product/$sys_name/obj/lib
+    obj_static_lib_dir=$MY_ANDROID_DIR/out/target/product/$sys_name/obj/STATIC_LIBRARIES
+
     for a in `find renderscript/lib/$t -name \*.so`; do
       file=`basename $a`
       cp `find $sys_lib_dir $obj_lib_dir -name $file | head -1` $a || exit 4
@@ -135,10 +152,16 @@ if [ $DARWIN -eq 0 ]; then
       file=`basename $a`
       cp `find $HOST_LIB_DIR $HOST_LIB64_DIR $sys_lib_dir $obj_lib_dir -name $file | head -1` $a || exit 5
     done
+
+    for a in `find renderscript/lib/$t -name \*.a`; do
+      file=`basename $a`
+      cp `find $obj_static_lib_dir -name $file | head -1` $a || exit 4
+    done
+
   done
 
   # javalib.jar
-  cp $MY_ANDROID_DIR/out/target/common/obj/JAVA_LIBRARIES/android-support-v8-renderscript_intermediates/javalib.jar renderscript/lib
+  cp $MY_ANDROID_DIR/out/target/common/obj/JAVA_LIBRARIES/android-support-v8-renderscript_intermediates/classes.jar renderscript/lib/javalib.jar
 
 fi
 
@@ -161,14 +184,21 @@ libc++.$SONAME
 libLLVM.$SONAME
 "
 
+TOOLS_LIB32="libc++.$SONAME"
+
 for a in $TOOLS_BIN; do
-  cp $ANDROID_HOST_OUT/bin/$a tools/$SHORT_OSNAME/
-  strip tools/$SHORT_OSNAME/$a
+  cp $ANDROID_HOST_OUT/bin/$a tools/$SHORT_OSNAME/bin
+  strip tools/$SHORT_OSNAME/bin/$a
 done
 
 for a in $TOOLS_LIB; do
-  cp $ANDROID_HOST_OUT/lib/$a tools/$SHORT_OSNAME/
-  strip tools/$SHORT_OSNAME/$a
+  cp $HOST_LIB64_DIR/$a tools/$SHORT_OSNAME/lib64
+  strip tools/$SHORT_OSNAME/lib64/$a
+done
+
+for a in $TOOLS_LIB32; do
+  cp $HOST_LIB_DIR/$a tools/$SHORT_OSNAME/lib
+  strip tools/$SHORT_OSNAME/lib/$a
 done
 
 if [ $DARWIN -eq 0 ]; then

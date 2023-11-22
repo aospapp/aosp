@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
-# This package provides the 'glue' layer between Chromium and WebView.
+# This package provides the system interfaces required to load WebView and allow
+# it to render.
 
 LOCAL_PATH := $(call my-dir)
-CHROMIUM_PATH := external/chromium_org
 
 # Native support library (libwebviewchromium_plat_support.so) - does NOT link
 # any native chromium code.
@@ -32,9 +32,9 @@ LOCAL_SRC_FILES:= \
         plat_support/graphic_buffer_impl.cpp \
 
 LOCAL_C_INCLUDES:= \
-        $(CHROMIUM_PATH) \
         external/skia/include/core \
         frameworks/base/core/jni/android/graphics \
+        frameworks/base/libs/hwui \
         frameworks/native/include/ui \
 
 LOCAL_SHARED_LIBRARIES += \
@@ -44,6 +44,7 @@ LOCAL_SHARED_LIBRARIES += \
         libskia \
         libui \
         libutils \
+        libhwui \
 
 LOCAL_MODULE_TAGS := optional
 
@@ -72,13 +73,3 @@ LOCAL_SHARED_LIBRARIES += \
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
-
-
-# Include the makefile for the main package unless we are using a prebuilt.
-ifneq ($(PRODUCT_PREBUILT_WEBVIEWCHROMIUM),yes)
-extra_java_files :=
-include $(LOCAL_PATH)/package.mk
-endif
-
-# Build other stuff
-include $(call first-makefiles-under,$(LOCAL_PATH))

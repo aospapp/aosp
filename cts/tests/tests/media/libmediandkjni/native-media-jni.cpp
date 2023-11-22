@@ -234,7 +234,7 @@ extern "C" jobject Java_android_media_cts_NativeDecoderTest_getDecodedDataNative
     AMediaFormat **format = new AMediaFormat*[numtracks];
     bool *sawInputEOS = new bool[numtracks];
     bool *sawOutputEOS = new bool[numtracks];
-    simplevector<int> sizes[numtracks];
+    simplevector<int> *sizes = new simplevector<int>[numtracks];
 
     ALOGV("input has %d tracks", numtracks);
     for (int i = 0; i < numtracks; i++) {
@@ -354,6 +354,8 @@ extern "C" jobject Java_android_media_cts_NativeDecoderTest_getDecodedDataNative
     }
     env->ReleaseIntArrayElements(ret, org, 0);
 
+    delete[] sizes;
+    delete[] sawOutputEOS;
     delete[] sawInputEOS;
     for (int i = 0; i < numtracks; i++) {
         AMediaFormat_delete(format[i]);

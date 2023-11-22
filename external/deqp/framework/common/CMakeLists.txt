@@ -3,6 +3,8 @@
 set(TCUTIL_SRCS
 	tcuApp.cpp
 	tcuApp.hpp
+	tcuArray.hpp
+	tcuArray.cpp
 	tcuBilinearImageCompare.cpp
 	tcuBilinearImageCompare.hpp
 	tcuCommandLine.cpp
@@ -12,6 +14,7 @@ set(TCUTIL_SRCS
 	tcuDefs.cpp
 	tcuDefs.hpp
 	tcuFloat.hpp
+	tcuFloat.cpp
 	tcuFloatFormat.hpp
 	tcuFloatFormat.cpp
 	tcuFormatUtil.hpp
@@ -24,6 +27,7 @@ set(TCUTIL_SRCS
 	tcuInterval.cpp
 	tcuInterval.hpp
 	tcuMatrix.hpp
+	tcuMatrix.cpp
 	tcuMatrixUtil.hpp
 	tcuPixelFormat.hpp
 	tcuPlatform.cpp
@@ -36,16 +40,16 @@ set(TCUTIL_SRCS
 	tcuRenderTarget.hpp
 	tcuResource.cpp
 	tcuResource.hpp
+	tcuResultCollector.cpp
+	tcuResultCollector.hpp
 	tcuSurface.cpp
 	tcuSurface.hpp
 	tcuTestCase.cpp
 	tcuTestCase.hpp
-	tcuTestCaseWrapper.cpp
-	tcuTestCaseWrapper.hpp
 	tcuTestContext.cpp
 	tcuTestContext.hpp
-	tcuTestExecutor.cpp
-	tcuTestExecutor.hpp
+	tcuTestSessionExecutor.cpp
+	tcuTestSessionExecutor.hpp
 	tcuTestLog.cpp
 	tcuTestLog.hpp
 	tcuTestPackage.cpp
@@ -73,6 +77,16 @@ set(TCUTIL_SRCS
 	tcuCPUWarmup.hpp
 	tcuFactoryRegistry.hpp
 	tcuFactoryRegistry.cpp
+	tcuSeedBuilder.hpp
+	tcuSeedBuilder.cpp
+	tcuMaybe.hpp
+	tcuMaybe.cpp
+	tcuEither.hpp
+	tcuEither.cpp
+	tcuTestHierarchyIterator.cpp
+	tcuTestHierarchyIterator.hpp
+	tcuTestHierarchyUtil.cpp
+	tcuTestHierarchyUtil.hpp
 	)
 
 set(TCUTIL_LIBS

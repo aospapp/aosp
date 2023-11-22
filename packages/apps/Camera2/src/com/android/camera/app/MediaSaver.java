@@ -16,7 +16,6 @@
 
 package com.android.camera.app;
 
-import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.location.Location;
 import android.net.Uri;
@@ -64,6 +63,11 @@ public interface MediaSaver {
     /**
      * Adds an image into {@link android.content.ContentResolver} and also
      * saves the file to the storage in the background.
+     * <p/>
+     * Equivalent to calling
+     * {@link #addImage(byte[], String, long, Location, int, int, int,
+     * ExifInterface, OnMediaSavedListener, String)}
+     * with <code>image/jpeg</code> as <code>mimeType</code>.
      *
      * @param data The JPEG image data.
      * @param title The title of the image.
@@ -78,11 +82,31 @@ public interface MediaSaver {
      *                    0, 90, 180 and 270.
      * @param exif The EXIF data of this image.
      * @param l A callback object used when the saving is done.
-     * @param resolver The {@link android.content.ContentResolver} to be
-     *                 updated.
      */
     void addImage(byte[] data, String title, long date, Location loc, int width, int height,
-            int orientation, ExifInterface exif, OnMediaSavedListener l, ContentResolver resolver);
+            int orientation, ExifInterface exif, OnMediaSavedListener l);
+
+    /**
+     * Adds an image into {@link android.content.ContentResolver} and also
+     * saves the file to the storage in the background.
+     *
+     * @param data The image data.
+     * @param title The title of the image.
+     * @param date The date when the image is created.
+     * @param loc The location where the image is created. Can be {@code null}.
+     * @param width The width of the image data before the orientation is
+     *              applied.
+     * @param height The height of the image data before the orientation is
+     *               applied.
+     * @param orientation The orientation of the image. The value should be a
+     *                    degree of rotation in clockwise. Valid values are
+     *                    0, 90, 180 and 270.
+     * @param exif The EXIF data of this image.
+     * @param l A callback object used when the saving is done.
+     * @param mimeType The mimeType of the image.
+     */
+    void addImage(byte[] data, String title, long date, Location loc, int width, int height,
+            int orientation, ExifInterface exif, OnMediaSavedListener l, String mimeType);
 
     /**
      * Adds an image into {@link android.content.ContentResolver} and also
@@ -98,11 +122,9 @@ public interface MediaSaver {
      *                    0, 90, 180 and 270.
      * @param exif The EXIF data of this image.
      * @param l A callback object used when the saving is done.
-     * @param resolver The {@link android.content.ContentResolver} to be
-     *                 updated.
      */
     void addImage(byte[] data, String title, long date, Location loc, int orientation,
-            ExifInterface exif, OnMediaSavedListener l, ContentResolver resolver);
+            ExifInterface exif, OnMediaSavedListener l);
 
     /**
      * Adds an image into {@link android.content.ContentResolver} and also
@@ -120,11 +142,9 @@ public interface MediaSaver {
      * @param orientation
      * @param exif The EXIF data of this image.
      * @param l A callback object used when the saving is done.
-     * @param resolver The {@link android.content.ContentResolver} to be
-     *                 updated.
      */
     void addImage(byte[] data, String title, Location loc, int width, int height, int orientation,
-            ExifInterface exif, OnMediaSavedListener l, ContentResolver resolver);
+            ExifInterface exif, OnMediaSavedListener l);
 
     /**
      * Adds the video data into the {@link android.content.ContentResolver} in
@@ -133,10 +153,8 @@ public interface MediaSaver {
      * @param path The path of the video file on the storage.
      * @param values The values to be stored in the database.
      * @param l A callback object used when the saving is done.
-     * @param resolver The {@link android.content.ContentResolver} to be
      */
-    void addVideo(String path, ContentValues values, OnMediaSavedListener l,
-                  ContentResolver resolver);
+    void addVideo(String path, ContentValues values, OnMediaSavedListener l);
 
     /**
      * Sets the queue listener.

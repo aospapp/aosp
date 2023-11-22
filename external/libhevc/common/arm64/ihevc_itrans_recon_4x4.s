@@ -140,11 +140,11 @@ ihevc_itrans_recon_4x4_av8:
 
 
     // first stage computation starts
-    smull       v6.4s, v1.4h, v4.4h[1]      //83 * pi2_src[1]
-    smlal       v6.4s, v3.4h, v4.4h[3]      //o[0] = 83 * pi2_src[1] + 36 * pi2_src[3]
-    smull       v5.4s, v1.4h, v4.4h[3]      //36 * pi2_src[1]
+    smull       v6.4s, v1.4h, v4.h[1]       //83 * pi2_src[1]
+    smlal       v6.4s, v3.4h, v4.h[3]       //o[0] = 83 * pi2_src[1] + 36 * pi2_src[3]
+    smull       v5.4s, v1.4h, v4.h[3]       //36 * pi2_src[1]
     ld1         {v22.s}[0],[x2],x5
-    smlsl       v5.4s, v3.4h, v4.4h[1]      //o[1] = 36 * pi2_src[1] - 83 * pi2_src[3]
+    smlsl       v5.4s, v3.4h, v4.h[1]       //o[1] = 36 * pi2_src[1] - 83 * pi2_src[3]
 
     saddl       v7.4s, v0.4h, v2.4h         //pi2_src[0] + pi2_src[2]
     ssubl       v17.4s, v0.4h, v2.4h        //pi2_src[0] - pi2_src[2]
@@ -173,11 +173,11 @@ ihevc_itrans_recon_4x4_av8:
     // first stage ends
     // output in d0,d1,d2,d3
     // second stage starts
-    smull       v6.4s, v1.4h, v4.4h[1]      //83 * pi2_src[1]
+    smull       v6.4s, v1.4h, v4.h[1]       //83 * pi2_src[1]
     ld1         {v22.s}[1],[x2],x5
-    smlal       v6.4s, v3.4h, v4.4h[3]      //o[0] = 83 * pi2_src[1] + 36 * pi2_src[3]
-    smull       v5.4s, v1.4h, v4.4h[3]      //36 * pi2_src[1]
-    smlsl       v5.4s, v3.4h, v4.4h[1]      //o[1] = 36 * pi2_src[1] - 83 * pi2_src[3]
+    smlal       v6.4s, v3.4h, v4.h[3]       //o[0] = 83 * pi2_src[1] + 36 * pi2_src[3]
+    smull       v5.4s, v1.4h, v4.h[3]       //36 * pi2_src[1]
+    smlsl       v5.4s, v3.4h, v4.h[1]       //o[1] = 36 * pi2_src[1] - 83 * pi2_src[3]
     ld1         {v23.s}[0],[x2],x5
 
     saddl       v7.4s, v0.4h, v2.4h         //pi2_src[0] + pi2_src[2]

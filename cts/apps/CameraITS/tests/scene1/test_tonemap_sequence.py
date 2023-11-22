@@ -40,7 +40,7 @@ def main():
         means = []
 
         # Capture 3 manual shots with a linear tonemap.
-        req = its.objects.manual_capture_request(sens, exp_time, True)
+        req = its.objects.manual_capture_request(sens, exp_time, True, props)
         for i in [0,1,2]:
             cap = cam.do_capture(req)
             img = its.image.convert_capture_to_rgb_image(cap)

@@ -16,26 +16,20 @@
  */
 package com.squareup.okhttp;
 
-import com.squareup.okhttp.internal.Platform;
-import com.squareup.okhttp.internal.Util;
-import com.squareup.okhttp.internal.http.HttpAuthenticator;
 import com.squareup.okhttp.internal.http.HttpConnection;
 import com.squareup.okhttp.internal.http.HttpEngine;
 import com.squareup.okhttp.internal.http.HttpTransport;
-import com.squareup.okhttp.internal.http.OkHeaders;
+import com.squareup.okhttp.internal.http.RouteException;
+import com.squareup.okhttp.internal.http.SocketConnector;
 import com.squareup.okhttp.internal.http.SpdyTransport;
+import com.squareup.okhttp.internal.http.Transport;
 import com.squareup.okhttp.internal.spdy.SpdyConnection;
-import java.io.Closeable;
 import java.io.IOException;
-import java.net.Proxy;
 import java.net.Socket;
-import javax.net.ssl.SSLSocket;
-import okio.ByteString;
-import okio.OkBuffer;
-import okio.Source;
-
-import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_PROXY_AUTH;
+import java.net.UnknownServiceException;
+import java.util.List;
+import okio.BufferedSink;
+import okio.BufferedSource;
 
 /**
  * The sockets and streams of an HTTP, HTTPS, or HTTPS+SPDY connection. May be
@@ -44,7 +38,7 @@ import static java.net.HttpURLConnection.HTTP_PROXY_AUTH;
  *
  * <p>Typically instances of this class are created, connected and exercised
  * automatically by the HTTP client. Applications may use this class to monitor
- * HTTP connections as members of a {@link ConnectionPool connection pool}.
+ * HTTP connections as members of a {@linkplain ConnectionPool connection pool}.
  *
  * <p>Do not confuse this class with the misnamed {@code HttpURLConnection},
  * which isn't so much a connection as a single request/response exchange.
@@ -55,15 +49,15 @@ import static java.net.HttpURLConnection.HTTP_PROXY_AUTH;
  * <ul>
  *   <li>Server Name Indication (SNI) enables one IP address to negotiate secure
  *       connections for multiple domain names.
- *   <li>Next Protocol Negotiation (NPN) enables the HTTPS port (443) to be used
- *       for both HTTP and SPDY protocols.
+ *   <li>Application Layer Protocol Negotiation (ALPN) enables the HTTPS port
+ *       (443) to be used for different HTTP and SPDY protocols.
  * </ul>
  * Unfortunately, older HTTPS servers refuse to connect when such options are
  * presented. Rather than avoiding these options entirely, this class allows a
  * connection to be attempted with modern options and then retried without them
  * should the attempt fail.
  */
-public final class Connection implements Closeable {
+public final class Connection {
   private final ConnectionPool pool;
   private final Route route;
 
@@ -71,7 +65,7 @@ public final class Connection implements Closeable {
   private boolean connected = false;
   private HttpConnection httpConnection;
   private SpdyConnection spdyConnection;
-  private int httpMinorVersion = 1; // Assume HTTP/1.1
+  private Protocol protocol = Protocol.HTTP_1_1;
   private long idleStartTimeNs;
   private Handshake handshake;
   private int recycleCount;
@@ -88,13 +82,13 @@ public final class Connection implements Closeable {
     this.route = route;
   }
 
-  public Object getOwner() {
+  Object getOwner() {
     synchronized (pool) {
       return owner;
     }
   }
 
-  public void setOwner(Object owner) {
+  void setOwner(Object owner) {
     if (isSpdy()) return; // SPDY connections are shared.
     synchronized (pool) {
       if (this.owner != null) throw new IllegalStateException("Connection already has an owner!");
@@ -108,7 +102,7 @@ public final class Connection implements Closeable {
    * false if the connection cannot be pooled or reused, such as if it was
    * closed with {@link #closeIfOwnedBy}.
    */
-  public boolean clearOwner() {
+  boolean clearOwner() {
     synchronized (pool) {
       if (owner == null) {
         // No owner? Don't reuse this connection.
@@ -124,7 +118,7 @@ public final class Connection implements Closeable {
    * Closes this connection if it is currently owned by {@code owner}. This also
    * strips the ownership of the connection so it cannot be pooled or reused.
    */
-  public void closeIfOwnedBy(Object owner) throws IOException {
+  void closeIfOwnedBy(Object owner) throws IOException {
     if (isSpdy()) throw new IllegalStateException();
     synchronized (pool) {
       if (this.owner != owner) {
@@ -138,98 +132,70 @@ public final class Connection implements Closeable {
     socket.close();
   }
 
-  public void connect(int connectTimeout, int readTimeout, TunnelRequest tunnelRequest)
-      throws IOException {
+  void connect(int connectTimeout, int readTimeout, int writeTimeout, Request request,
+      List<ConnectionSpec> connectionSpecs, boolean connectionRetryEnabled) throws RouteException {
     if (connected) throw new IllegalStateException("already connected");
 
-    if (route.proxy.type() == Proxy.Type.DIRECT || route.proxy.type() == Proxy.Type.HTTP) {
-      socket = route.address.socketFactory.createSocket();
+    SocketConnector socketConnector = new SocketConnector(this, pool);
+    SocketConnector.ConnectedSocket connectedSocket;
+    if (route.address.getSslSocketFactory() != null) {
+      // https:// communication
+      connectedSocket = socketConnector.connectTls(connectTimeout, readTimeout, writeTimeout,
+          request, route, connectionSpecs, connectionRetryEnabled);
     } else {
-      socket = new Socket(route.proxy);
+      // http:// communication.
+      if (!connectionSpecs.contains(ConnectionSpec.CLEARTEXT)) {
+        throw new RouteException(
+            new UnknownServiceException(
+                "CLEARTEXT communication not supported: " + connectionSpecs));
+      }
+      connectedSocket = socketConnector.connectCleartext(connectTimeout, readTimeout, route);
     }
 
-    socket.setSoTimeout(readTimeout);
-    Platform.get().connectSocket(socket, route.inetSocketAddress, connectTimeout);
+    socket = connectedSocket.socket;
+    handshake = connectedSocket.handshake;
+    protocol = connectedSocket.alpnProtocol == null
+        ? Protocol.HTTP_1_1 : connectedSocket.alpnProtocol;
 
-    if (route.address.sslSocketFactory != null) {
-      upgradeToTls(tunnelRequest);
-    } else {
-      httpConnection = new HttpConnection(pool, this, socket);
+    try {
+      if (protocol == Protocol.SPDY_3 || protocol == Protocol.HTTP_2) {
+        socket.setSoTimeout(0); // SPDY timeouts are set per-stream.
+        spdyConnection = new SpdyConnection.Builder(route.address.uriHost, true, socket)
+            .protocol(protocol).build();
+        spdyConnection.sendConnectionPreface();
+      } else {
+        httpConnection = new HttpConnection(pool, this, socket);
+      }
+    } catch (IOException e) {
+      throw new RouteException(e);
     }
     connected = true;
   }
 
   /**
-   * Create an {@code SSLSocket} and perform the TLS handshake and certificate
-   * validation.
+   * Connects this connection if it isn't already. This creates tunnels, shares
+   * the connection with the connection pool, and configures timeouts.
    */
-  private void upgradeToTls(TunnelRequest tunnelRequest) throws IOException {
-    Platform platform = Platform.get();
+  void connectAndSetOwner(OkHttpClient client, Object owner, Request request)
+      throws RouteException {
+    setOwner(owner);
 
-    // Make an SSL Tunnel on the first message pair of each SSL + proxy connection.
-    if (requiresTunnel()) {
-      makeTunnel(tunnelRequest);
-    }
-
-    // Create the wrapper over connected socket.
-    socket = route.address.sslSocketFactory
-        .createSocket(socket, route.address.uriHost, route.address.uriPort, true /* autoClose */);
-    SSLSocket sslSocket = (SSLSocket) socket;
-    if (route.modernTls) {
-      platform.enableTlsExtensions(sslSocket, route.address.uriHost);
-    } else {
-      platform.supportTlsIntolerantServer(sslSocket);
-    }
-
-    boolean useNpn = false;
-    if (route.modernTls) {
-      boolean http2 = route.address.protocols.contains(Protocol.HTTP_2);
-      boolean spdy3 = route.address.protocols.contains(Protocol.SPDY_3);
-      if (http2 && spdy3) {
-        platform.setNpnProtocols(sslSocket, Protocol.HTTP2_SPDY3_AND_HTTP);
-        useNpn = true;
-      } else if (http2) {
-        platform.setNpnProtocols(sslSocket, Protocol.HTTP2_AND_HTTP_11);
-        useNpn = true;
-      } else if (spdy3) {
-        platform.setNpnProtocols(sslSocket, Protocol.SPDY3_AND_HTTP11);
-        useNpn = true;
+    if (!isConnected()) {
+      List<ConnectionSpec> connectionSpecs = route.address.getConnectionSpecs();
+      connect(client.getConnectTimeout(), client.getReadTimeout(), client.getWriteTimeout(),
+          request, connectionSpecs, client.getRetryOnConnectionFailure());
+      if (isSpdy()) {
+        client.getConnectionPool().share(this);
       }
+      client.routeDatabase().connected(getRoute());
     }
 
-    // Force handshake. This can throw!
-    sslSocket.startHandshake();
-
-    // Verify that the socket's certificates are acceptable for the target host.
-    if (!route.address.hostnameVerifier.verify(route.address.uriHost, sslSocket.getSession())) {
-      throw new IOException("Hostname '" + route.address.uriHost + "' was not verified");
-    }
-
-    handshake = Handshake.get(sslSocket.getSession());
-
-    ByteString maybeProtocol;
-    Protocol selectedProtocol = Protocol.HTTP_11;
-    if (useNpn && (maybeProtocol = platform.getNpnSelectedProtocol(sslSocket)) != null) {
-      selectedProtocol = Protocol.find(maybeProtocol); // Throws IOE on unknown.
-    }
-
-    if (selectedProtocol.spdyVariant) {
-      sslSocket.setSoTimeout(0); // SPDY timeouts are set per-stream.
-      spdyConnection = new SpdyConnection.Builder(route.address.getUriHost(), true, socket)
-          .protocol(selectedProtocol).build();
-      spdyConnection.sendConnectionHeader();
-    } else {
-      httpConnection = new HttpConnection(pool, this, socket);
-    }
+    setTimeouts(client.getReadTimeout(), client.getWriteTimeout());
   }
 
   /** Returns true if {@link #connect} has been attempted on this connection. */
-  public boolean isConnected() {
+  boolean isConnected() {
     return connected;
-  }
-
-  @Override public void close() throws IOException {
-    if (socket != null) socket.close();
   }
 
   /** Returns the route used by this connection. */
@@ -245,8 +211,18 @@ public final class Connection implements Closeable {
     return socket;
   }
 
+  BufferedSource rawSource() {
+    if (httpConnection == null) throw new UnsupportedOperationException();
+    return httpConnection.rawSource();
+  }
+
+  BufferedSink rawSink() {
+    if (httpConnection == null) throw new UnsupportedOperationException();
+    return httpConnection.rawSink();
+  }
+
   /** Returns true if this connection is alive. */
-  public boolean isAlive() {
+  boolean isAlive() {
     return !socket.isClosed() && !socket.isInputShutdown() && !socket.isOutputShutdown();
   }
 
@@ -255,34 +231,26 @@ public final class Connection implements Closeable {
    * connection. This is more expensive and more accurate than {@link
    * #isAlive()}; callers should check {@link #isAlive()} first.
    */
-  public boolean isReadable() {
+  boolean isReadable() {
     if (httpConnection != null) return httpConnection.isReadable();
     return true; // SPDY connections, and connections before connect() are both optimistic.
   }
 
-  public void resetIdleStartTime() {
+  void resetIdleStartTime() {
     if (spdyConnection != null) throw new IllegalStateException("spdyConnection != null");
     this.idleStartTimeNs = System.nanoTime();
   }
 
   /** Returns true if this connection is idle. */
-  public boolean isIdle() {
+  boolean isIdle() {
     return spdyConnection == null || spdyConnection.isIdle();
-  }
-
-  /**
-   * Returns true if this connection has been idle for longer than
-   * {@code keepAliveDurationNs}.
-   */
-  public boolean isExpired(long keepAliveDurationNs) {
-    return getIdleStartTimeNs() < System.nanoTime() - keepAliveDurationNs;
   }
 
   /**
    * Returns the time in ns when this connection became idle. Undefined if
    * this connection is not idle.
    */
-  public long getIdleStartTimeNs() {
+  long getIdleStartTimeNs() {
     return spdyConnection == null ? idleStartTimeNs : spdyConnection.getIdleStartTimeNs();
   }
 
@@ -291,7 +259,7 @@ public final class Connection implements Closeable {
   }
 
   /** Returns the transport appropriate for this connection. */
-  public Object newTransport(HttpEngine httpEngine) throws IOException {
+  Transport newTransport(HttpEngine httpEngine) throws IOException {
     return (spdyConnection != null)
         ? new SpdyTransport(httpEngine, spdyConnection)
         : new HttpTransport(httpEngine, httpConnection);
@@ -301,38 +269,43 @@ public final class Connection implements Closeable {
    * Returns true if this is a SPDY connection. Such connections can be used
    * in multiple HTTP requests simultaneously.
    */
-  public boolean isSpdy() {
+  boolean isSpdy() {
     return spdyConnection != null;
   }
 
   /**
-   * Returns the minor HTTP version that should be used for future requests on
-   * this connection. Either 0 for HTTP/1.0, or 1 for HTTP/1.1. The default
-   * value is 1 for new connections.
+   * Returns the protocol negotiated by this connection, or {@link
+   * Protocol#HTTP_1_1} if no protocol has been negotiated.
    */
-  public int getHttpMinorVersion() {
-    return httpMinorVersion;
-  }
-
-  public void setHttpMinorVersion(int httpMinorVersion) {
-    this.httpMinorVersion = httpMinorVersion;
+  public Protocol getProtocol() {
+    return protocol;
   }
 
   /**
-   * Returns true if the HTTP connection needs to tunnel one protocol over
-   * another, such as when using HTTPS through an HTTP proxy. When doing so,
-   * we must avoid buffering bytes intended for the higher-level protocol.
+   * Sets the protocol negotiated by this connection. Typically this is used
+   * when an HTTP/1.1 request is sent and an HTTP/1.0 response is received.
    */
-  public boolean requiresTunnel() {
-    return route.address.sslSocketFactory != null && route.proxy.type() == Proxy.Type.HTTP;
+  void setProtocol(Protocol protocol) {
+    if (protocol == null) throw new IllegalArgumentException("protocol == null");
+    this.protocol = protocol;
   }
 
-  public void updateReadTimeout(int newTimeout) throws IOException {
-    if (!connected) throw new IllegalStateException("updateReadTimeout - not connected");
-    socket.setSoTimeout(newTimeout);
+  void setTimeouts(int readTimeoutMillis, int writeTimeoutMillis)
+      throws RouteException {
+    if (!connected) throw new IllegalStateException("setTimeouts - not connected");
+
+    // Don't set timeouts on shared SPDY connections.
+    if (httpConnection != null) {
+      try {
+        socket.setSoTimeout(readTimeoutMillis);
+      } catch (IOException e) {
+        throw new RouteException(e);
+      }
+      httpConnection.setTimeouts(readTimeoutMillis, writeTimeoutMillis);
+    }
   }
 
-  public void incrementRecycleCount() {
+  void incrementRecycleCount() {
     recycleCount++;
   }
 
@@ -340,54 +313,21 @@ public final class Connection implements Closeable {
    * Returns the number of times this connection has been returned to the
    * connection pool.
    */
-  public int recycleCount() {
+  int recycleCount() {
     return recycleCount;
   }
 
-  /**
-   * To make an HTTPS connection over an HTTP proxy, send an unencrypted
-   * CONNECT request to create the proxy connection. This may need to be
-   * retried if the proxy requires authorization.
-   */
-  private void makeTunnel(TunnelRequest tunnelRequest) throws IOException {
-    HttpConnection tunnelConnection = new HttpConnection(pool, this, socket);
-    Request request = tunnelRequest.getRequest();
-    String requestLine = tunnelRequest.requestLine();
-    while (true) {
-      tunnelConnection.writeRequest(request.headers(), requestLine);
-      tunnelConnection.flush();
-      Response response = tunnelConnection.readResponse().request(request).build();
-      // The response body from a CONNECT should be empty, but if it is not then we should consume
-      // it before proceeding.
-      long contentLength = OkHeaders.contentLength(response);
-      if (contentLength != -1) {
-        Source body = tunnelConnection.newFixedLengthSource(null, contentLength);
-        Util.skipAll(body, Integer.MAX_VALUE);
-      } else {
-        tunnelConnection.emptyResponseBody();
-      }
-
-      switch (response.code()) {
-        case HTTP_OK:
-          // Assume the server won't send a TLS ServerHello until we send a TLS ClientHello. If that
-          // happens, then we will have buffered bytes that are needed by the SSLSocket!
-          // This check is imperfect: it doesn't tell us whether a handshake will succeed, just that
-          // it will almost certainly fail because the proxy has sent unexpected data.
-          if (tunnelConnection.bufferSize() > 0) {
-            throw new IOException("TLS tunnel buffered too many bytes!");
-          }
-          return;
-
-        case HTTP_PROXY_AUTH:
-          request = HttpAuthenticator.processAuthHeader(
-              route.address.authenticator, response, route.proxy);
-          if (request != null) continue;
-          throw new IOException("Failed to authenticate with proxy");
-
-        default:
-          throw new IOException(
-              "Unexpected response code for CONNECT: " + response.code());
-      }
-    }
+  @Override public String toString() {
+    return "Connection{"
+        + route.address.uriHost + ":" + route.address.uriPort
+        + ", proxy="
+        + route.proxy
+        + " hostAddress="
+        + route.inetSocketAddress.getAddress().getHostAddress()
+        + " cipherSuite="
+        + (handshake != null ? handshake.cipherSuite() : "none")
+        + " protocol="
+        + protocol
+        + '}';
   }
 }

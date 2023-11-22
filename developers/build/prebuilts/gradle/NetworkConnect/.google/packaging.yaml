@@ -1,3 +1,4 @@
+
 # GOOGLE SAMPLE PACKAGING DATA
 #
 # This file is used by Google as part of our samples packaging process.
@@ -9,4 +10,8 @@ categories:   [Connectivity]
 languages:    [Java]
 solutions:    [Mobile]
 github:       android-NetworkConnect
+level:        INTERMEDIATE
+icon:         screenshots/icon-web.png
+apiRefs:
+    - android:android.os.AsyncTask
 license: apache2

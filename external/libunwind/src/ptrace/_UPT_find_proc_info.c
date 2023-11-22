@@ -33,7 +33,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 #include "_UPT_internal.h"
 
 static int
-get_unwind_info (struct elf_dyn_info *edi, pid_t pid, unw_addr_space_t as, unw_word_t ip)
+get_unwind_info (struct elf_dyn_info *edi, pid_t pid, unw_addr_space_t as, unw_word_t ip, void *as_arg)
 {
   /* ANDROID support update. */
   unsigned long segbase, mapoff;
@@ -63,7 +63,7 @@ get_unwind_info (struct elf_dyn_info *edi, pid_t pid, unw_addr_space_t as, unw_w
   invalidate_edi(edi);
 
   /* ANDROID support update. */
-  if (tdep_get_elf_image (as, &ei, pid, ip, &segbase, &mapoff, &path) < 0)
+  if (tdep_get_elf_image (as, &ei, pid, ip, &segbase, &mapoff, &path, as_arg) < 0)
     return -UNW_ENOINFO;
 
   ret = tdep_find_unwind_table (edi, &ei, as, path, segbase, mapoff, ip);
@@ -101,7 +101,7 @@ _UPT_find_proc_info (unw_addr_space_t as, unw_word_t ip, unw_proc_info_t *pi,
   struct UPT_info *ui = arg;
   int ret = -UNW_ENOINFO;
 
-  if (get_unwind_info (&ui->edi, ui->pid, as, ip) < 0)
+  if (get_unwind_info (&ui->edi, ui->pid, as, ip, arg) < 0)
     return -UNW_ENOINFO;
 
 #if UNW_TARGET_IA64

@@ -38,6 +38,9 @@ ${value.notes | javadoc(metadata)}\
     % if entry.applied_visibility == 'hidden' or value.hidden:
      * @hide
     %endif
+    % if value.deprecated:
+     * @deprecated Please refer to this API documentation to find the alternatives
+    % endif
      */
     public static final int ${jenum_value(entry, value)} = ${enum_calculate_value_string(value)};
 

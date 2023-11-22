@@ -23,14 +23,17 @@ int SkForceLinking(bool doNotPassTrue) {
 #ifndef SK_BUILD_FOR_ANDROID_FRAMEWORK
         CreatePKMImageDecoder();
         CreateKTXImageDecoder();
+        CreateASTCImageDecoder();
 #endif
         // Only link GIF and PNG on platforms that build them. See images.gyp
-#if !defined(SK_BUILD_FOR_MAC) && !defined(SK_BUILD_FOR_WIN) && !defined(SK_BUILD_FOR_NACL) \
-        && !defined(SK_BUILD_FOR_IOS)
+#if !defined(SK_BUILD_FOR_MAC) && !defined(SK_BUILD_FOR_WIN) && !defined(SK_BUILD_FOR_IOS)
         CreateGIFImageDecoder();
 #endif
 #if !defined(SK_BUILD_FOR_MAC) && !defined(SK_BUILD_FOR_WIN) && !defined(SK_BUILD_FOR_IOS)
         CreatePNGImageDecoder();
+#endif
+#if defined(SK_BUILD_FOR_IOS)
+        CreatePNGImageEncoder_IOS();
 #endif
         return -1;
     }

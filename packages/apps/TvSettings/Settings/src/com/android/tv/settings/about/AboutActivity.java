@@ -16,17 +16,7 @@
 
 package com.android.tv.settings.about;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.PreferenceUtils;
-import com.android.tv.settings.dialog.old.Action;
-import com.android.tv.settings.dialog.old.ActionAdapter;
-import com.android.tv.settings.dialog.old.ActionFragment;
-import com.android.tv.settings.dialog.old.ContentFragment;
-import com.android.tv.settings.dialog.old.DialogActivity;
-import com.android.tv.settings.name.DeviceManager;
-
 import android.app.Fragment;
-import android.app.FragmentTransaction;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -34,32 +24,46 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.support.annotation.NonNull;
+import android.support.v17.leanback.app.GuidedStepFragment;
+import android.support.v17.leanback.widget.GuidanceStylist;
+import android.support.v17.leanback.widget.GuidedAction;
 import android.text.TextUtils;
+import android.text.format.DateFormat;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
-import java.util.ArrayList;
+import com.android.tv.settings.PreferenceUtils;
+import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.Layout;
+import com.android.tv.settings.dialog.SettingsLayoutActivity;
+import com.android.tv.settings.name.DeviceManager;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Activity which shows the build / model / legal info / etc.
  */
-public class AboutActivity extends DialogActivity implements ActionAdapter.Listener,
-        ActionAdapter.OnFocusListener {
+public class AboutActivity extends SettingsLayoutActivity {
 
     private static final String TAG = "AboutActivity";
 
     /**
      * Action keys for switching over in onActionClicked.
      */
-    private static final String KEY_LEGAL_INFO = "about_legal_info";
-    private static final String KEY_BUILD = "build";
-    private static final String KEY_VERSION = "version";
-    private static final String KEY_REBOOT = "reboot";
+    private static final int KEY_BUILD = 0;
+    private static final int KEY_VERSION = 1;
+    private static final int KEY_REBOOT = 2;
 
     /**
      * Intent action of SettingsLicenseActivity (for displaying open source licenses.)
@@ -102,36 +106,26 @@ public class AboutActivity extends DialogActivity implements ActionAdapter.Liste
     private int mDeveloperClickCount;
     private PreferenceUtils mPreferenceUtils;
     private Toast mToast;
-    private int mSelectedIndex;
-    private long[] mHits = new long[3];
+    private final long[] mHits = new long[3];
     private int mHitsIndex;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mPreferenceUtils = new PreferenceUtils(this);
-        setContentAndActionFragments(ContentFragment.newInstance(
-                        getString(R.string.about_preference), null, null, R.drawable.ic_settings_about,
-                        getResources().getColor(R.color.icon_background)),
-                ActionFragment.newInstance(getActions()));
-        mSelectedIndex = 0;
     }
 
     @Override
     public void onResume() {
         super.onResume();
         mDeveloperClickCount = 0;
+        mDeviceNameLayoutGetter.refreshView();
     }
 
     @Override
-    public void onActionFocused(Action action) {
-        mSelectedIndex = getActions().indexOf(action);
-    }
-
-    @Override
-    public void onActionClicked(Action action) {
-        final String key = action.getKey();
-        if (TextUtils.equals(key, KEY_BUILD)) {
+    public void onActionClicked(Layout.Action action) {
+        final int key = action.getId();
+        if (key == KEY_BUILD) {
             mDeveloperClickCount++;
             if (!mPreferenceUtils.isDeveloperEnabled()) {
                 int numLeft = NUM_DEVELOPER_CLICKS - mDeveloperClickCount;
@@ -149,7 +143,7 @@ public class AboutActivity extends DialogActivity implements ActionAdapter.Liste
                     showToast(getString(R.string.show_dev_already));
                 }
             }
-        } else if (TextUtils.equals(key, KEY_VERSION)) {
+        } else if (key == KEY_VERSION) {
             mHits[mHitsIndex] = SystemClock.uptimeMillis();
             mHitsIndex = (mHitsIndex + 1) % mHits.length;
             if (mHits[mHitsIndex] >= SystemClock.uptimeMillis() - 500) {
@@ -157,14 +151,12 @@ public class AboutActivity extends DialogActivity implements ActionAdapter.Liste
                 intent.setComponent(mPlatLogoActivity);
                 startActivity(intent);
             }
-        } else if (TextUtils.equals(key, KEY_LEGAL_INFO)) {
-            ArrayList<Action> actions = getLegalActions();
-            setContentAndActionFragments(ContentFragment.newInstance(
-                    getString(R.string.about_legal_info), null, null),
-                    ActionFragment.newInstance(actions));
-        } else if (TextUtils.equals(key, KEY_REBOOT)) {
-            PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
-            pm.reboot(null);
+        } else if (key == KEY_REBOOT) {
+            final Fragment f = new RebootConfirmFragment();
+            getFragmentManager().beginTransaction()
+                    .replace(android.R.id.content, f)
+                    .addToBackStack(null)
+                    .commit();
         } else {
             Intent intent = action.getIntent();
             if (intent != null) {
@@ -179,90 +171,90 @@ public class AboutActivity extends DialogActivity implements ActionAdapter.Liste
         }
     }
 
-    private ArrayList<Action> getLegalActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
-        actions.add(new Action.Builder()
-                .intent(systemIntent(SETTINGS_LEGAL_LICENSE_INTENT_ACTION))
-                .title(getString(R.string.about_legal_license))
-                .build());
-        actions.add(new Action.Builder()
-                .intent(systemIntent(SETTINGS_LEGAL_TERMS_OF_SERVICE))
-                .title(getString(R.string.about_terms_of_service))
-                .build());
+    private final Layout.LayoutGetter mDeviceNameLayoutGetter = new Layout.LayoutGetter() {
+        @Override
+        public Layout get() {
+            return new Layout().add(new Layout.Action.Builder(getResources(),
+                    new Intent(SETTINGS_DEVICE_NAME_INTENT_ACTION))
+                    .title(R.string.device_name)
+                    .description(DeviceManager.getDeviceName(AboutActivity.this))
+                    .build());
+        }
+    };
 
-        return actions;
-    }
+    @Override
+    public Layout createLayout() {
+        final Resources res = getResources();
 
-    private ArrayList<Action> getActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
-        actions.add(new Action.Builder()
-                .key("update")
-                .title(getString(R.string.about_system_update))
-                .intent(systemIntent(SETTINGS_UPDATE_SYSTEM))
+        final Layout.Header header = new Layout.Header.Builder(res)
+                .icon(R.drawable.ic_settings_about)
+                .title(R.string.about_preference)
+                .build();
+
+        header.add(new Layout.Action.Builder(res, systemIntent(SETTINGS_UPDATE_SYSTEM))
+                .title(R.string.about_system_update)
                 .build());
-        actions.add(new Action.Builder()
-                .key("name")
-                .title(getString(R.string.device_name))
-                .description(DeviceManager.getDeviceName(this))
-                .intent(new Intent(SETTINGS_DEVICE_NAME_INTENT_ACTION))
+        header.add(mDeviceNameLayoutGetter);
+        header.add(new Layout.Action.Builder(res, KEY_REBOOT)
+                .title(R.string.restart_button_label)
                 .build());
-        actions.add(new Action.Builder()
-                .key(KEY_REBOOT)
-                .title(getString(R.string.restart_button_label))
-                .build());
-        actions.add(new Action.Builder()
-                .key(KEY_LEGAL_INFO)
-                .title(getString(R.string.about_legal_info))
-                .build());
-        Intent adsIntent = new Intent();
+        header.add(new Layout.Header.Builder(res)
+                .title(R.string.about_legal_info)
+                .build()
+                .add(new Layout.Action.Builder(res,
+                        systemIntent(SETTINGS_LEGAL_LICENSE_INTENT_ACTION))
+                        .title(R.string.about_legal_license)
+                        .build())
+                .add(new Layout.Action.Builder(res, systemIntent(SETTINGS_LEGAL_TERMS_OF_SERVICE))
+                        .title(R.string.about_terms_of_service)
+                        .build()));
+
+        final Intent adsIntent = new Intent();
         adsIntent.setPackage(SETTINGS_ADS_ACTIVITY_PACKAGE);
         adsIntent.setAction(SETTINGS_ADS_ACTIVITY_ACTION);
         adsIntent.addCategory(Intent.CATEGORY_DEFAULT);
-        List<ResolveInfo> resolveInfos = getPackageManager().queryIntentActivities(adsIntent,
+        final List<ResolveInfo> resolveInfos = getPackageManager().queryIntentActivities(adsIntent,
                 PackageManager.MATCH_DEFAULT_ONLY);
         if (!resolveInfos.isEmpty()) {
-            // Launch the phone ads id activity.
-            actions.add(new Action.Builder()
-                    .key("ads")
-                    .title(getString(R.string.about_ads))
-                    .intent(adsIntent)
-                    .enabled(true)
+            header.add(new Layout.Action.Builder(res, adsIntent)
+                    .title(R.string.about_ads)
                     .build());
         }
-        actions.add(new Action.Builder()
-                .key("model")
-                .title(getString(R.string.about_model))
-                .description(Build.MODEL)
-                .enabled(false)
-                .build());
-        actions.add(new Action.Builder()
-                .key(KEY_VERSION)
-                .title(getString(R.string.about_version))
-                .description(Build.VERSION.RELEASE)
-                .enabled(true)
-                .build());
-        actions.add(new Action.Builder()
-                .key("serial")
-                .title(getString(R.string.about_serial))
-                .description(Build.SERIAL)
-                .enabled(false)
-                .build());
-        actions.add(new Action.Builder()
-                .key(KEY_BUILD)
-                .title(getString(R.string.about_build))
-                .description(Build.DISPLAY)
-                .enabled(true)
-                .build());
-        return actions;
-    }
 
-    private void displayFragment(Fragment fragment) {
-        getFragmentManager()
-            .beginTransaction()
-            .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN)
-            .replace(android.R.id.content, fragment)
-            .addToBackStack(null)
-            .commit();
+        header.add(new Layout.Status.Builder(res)
+                .title(R.string.about_model)
+                .description(Build.MODEL)
+                .build());
+
+        String patch = Build.VERSION.SECURITY_PATCH;
+        if (!TextUtils.isEmpty(patch)) {
+            try {
+                SimpleDateFormat template = new SimpleDateFormat("yyyy-MM-dd");
+                Date patchDate = template.parse(patch);
+                String format = DateFormat.getBestDateTimePattern(Locale.getDefault(), "dMMMMyyyy");
+                patch = DateFormat.format(format, patchDate).toString();
+            } catch (ParseException e) {
+                // broken parse; fall through and use the raw string
+            }
+            header.add(new Layout.Status.Builder(res)
+                    .title(R.string.security_patch)
+                    .description(patch)
+                    .build());
+        }
+
+        header.add(new Layout.Action.Builder(res, KEY_VERSION)
+                .title(R.string.about_version)
+                .description(Build.VERSION.RELEASE)
+                .build());
+        header.add(new Layout.Status.Builder(res)
+                .title(R.string.about_serial)
+                .description(Build.SERIAL)
+                .build());
+        header.add(new Layout.Action.Builder(res, KEY_BUILD)
+                .title(R.string.about_build)
+                .description(Build.DISPLAY)
+                .build());
+        return new Layout().breadcrumb(getString(R.string.header_category_device)).add(header);
     }
 
     private void showToast(String toastString) {
@@ -289,5 +281,49 @@ public class AboutActivity extends DialogActivity implements ActionAdapter.Liste
             }
         }
         return null;  // No system image package found.
+    }
+
+    public static class RebootConfirmFragment extends GuidedStepFragment {
+
+        private static final int ACTION_RESTART = 1;
+
+        @Override
+        public void onViewCreated(View view, Bundle savedInstanceState) {
+            super.onViewCreated(view, savedInstanceState);
+            setSelectedActionPosition(1);
+        }
+
+        @Override
+        public @NonNull GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
+            return new GuidanceStylist.Guidance(
+                    getString(R.string.system_reboot_confirm),
+                    "",
+                    getString(R.string.about_preference),
+                    getActivity().getDrawable(R.drawable.ic_settings_warning)
+                    );
+        }
+
+        @Override
+        public void onCreateActions(@NonNull List<GuidedAction> actions,
+                Bundle savedInstanceState) {
+            actions.add(new GuidedAction.Builder()
+                    .title(getString(R.string.restart_button_label))
+                    .id(ACTION_RESTART)
+                    .build());
+            actions.add(new GuidedAction.Builder()
+                    .title(getString(android.R.string.cancel))
+                    .build());
+        }
+
+        @Override
+        public void onGuidedActionClicked(GuidedAction action) {
+            if (action.getId() == ACTION_RESTART) {
+                PowerManager pm =
+                        (PowerManager) getActivity().getSystemService(Context.POWER_SERVICE);
+                pm.reboot(null);
+            } else {
+                getFragmentManager().popBackStack();
+            }
+        }
     }
 }

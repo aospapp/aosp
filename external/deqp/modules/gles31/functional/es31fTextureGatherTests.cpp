@@ -1335,7 +1335,6 @@ TextureGatherCase::IterateResult TextureGatherCase::iterate (void)
 	TestLog&						log								= m_testCtx.getLog();
 	const tcu::ScopedLogSection		iterationSection				(log, "Iteration" + de::toString(m_currentIteration), "Iteration " + de::toString(m_currentIteration));
 	const glu::RenderContext&		renderCtx						= m_context.getRenderContext();
-	const tcu::IVec2				renderSize						= RENDER_SIZE;
 	const glw::Functions&			gl								= renderCtx.getFunctions();
 	const GatherArgs&				gatherArgs						= getGatherArgs(m_currentIteration);
 	const string					refZExpr						= "v_normalizedCoord.x";
@@ -2126,7 +2125,7 @@ void TextureGatherTests::init (void)
 					TestCaseGroup* const		formatGroup		= new TestCaseGroup(m_context, formats[formatNdx].name, "");
 					textureTypeGroup->addChild(formatGroup);
 
-					for (int noCornersI = 0; noCornersI <= (textureType == TEXTURETYPE_CUBE)?1:0; noCornersI++)
+					for (int noCornersI = 0; noCornersI <= ((textureType == TEXTURETYPE_CUBE)?1:0); noCornersI++)
 					{
 						const bool				noCorners		= noCornersI!= 0;
 						TestCaseGroup* const	cornersGroup	= noCorners
@@ -2268,7 +2267,9 @@ void TextureGatherTests::init (void)
 							}
 						}
 
-						if (!isDepthFormat(format)) // What shadow textures should return for incomplete textures is unclear.
+						// What shadow textures should return for incomplete textures is unclear.
+						// Integer and unsigned integer lookups from incomplete textures return undefined values.
+						if (!isDepthFormat(format) && !isSIntFormatType(format.type) && !isUIntFormatType(format.type))
 						{
 							TestCaseGroup* const incompleteGroup = new TestCaseGroup(m_context, "incomplete", "Test that textureGather* takes components from (0,0,0,1) for incomplete textures");
 							formatGroup->addChild(incompleteGroup);

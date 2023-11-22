@@ -48,5 +48,5 @@ void bwFilterKernel(const uchar4 *in, uchar4 *out) {
     localMax = fmax(g,b);
     localMax = fmax(r,localMax);
     avg = (localMin+localMax) * 0.5f;
-    out->r = out->g = out->b = rsClamp(avg, 0, 255);
+    out->r = out->g = out->b = clamp((int) avg, 0, 255);
 }

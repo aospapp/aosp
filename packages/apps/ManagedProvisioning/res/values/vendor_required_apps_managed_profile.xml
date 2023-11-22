@@ -18,7 +18,7 @@
 -->
 <resources>
     <!-- A list of apps to be retained in the managed profile by a particular vendor.
-    Apps with launcher icons will be removed if they are not present in this list. -->
+            Takes precedence over the disallowed apps lists. -->
     <string-array name="vendor_required_apps_managed_profile">
     </string-array>
 </resources>

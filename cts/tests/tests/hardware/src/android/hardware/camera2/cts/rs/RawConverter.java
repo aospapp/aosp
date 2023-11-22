@@ -77,7 +77,7 @@ public class RawConverter {
      * polynomial approximates the default tonemapping curve used for ACR3.
      */
     private static final float[] DEFAULT_ACR3_TONEMAP_CURVE_COEFFS = new float[] {
-            1.041f, -2.973f, 2.932f, 0f
+            -0.7836f, 0.8469f, 0.943f, 0.0209f
     };
 
     /**
@@ -163,6 +163,7 @@ public class RawConverter {
      * @param rs a {@link RenderScript} context to use.
      * @param inputWidth width of the input RAW16 image in pixels.
      * @param inputHeight height of the input RAW16 image in pixels.
+     * @param inputStride stride of the input RAW16 image in bytes.
      * @param rawImageInput a byte array containing a RAW16 image.
      * @param staticMetadata the {@link CameraCharacteristics} for this RAW capture.
      * @param dynamicMetadata the {@link CaptureResult} for this RAW capture.
@@ -176,7 +177,7 @@ public class RawConverter {
      *                   image to be rendered.
      */
     public static void convertToSRGB(RenderScript rs, int inputWidth, int inputHeight,
-            byte[] rawImageInput, CameraCharacteristics staticMetadata,
+            int inputStride, byte[] rawImageInput, CameraCharacteristics staticMetadata,
             CaptureResult dynamicMetadata, int outputOffsetX, int outputOffsetY,
             /*out*/Bitmap argbOutput) {
         int cfa = staticMetadata.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
@@ -209,7 +210,7 @@ public class RawConverter {
 
         LensShadingMap shadingMap = dynamicMetadata.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP);
 
-        convertToSRGB(rs, inputWidth, inputHeight, cfa, blackLevelPattern, whiteLevel,
+        convertToSRGB(rs, inputWidth, inputHeight, inputStride, cfa, blackLevelPattern, whiteLevel,
                 rawImageInput, ref1, ref2, calib1, calib2, color1, color2,
                 forward1, forward2, neutral, shadingMap, outputOffsetX, outputOffsetY, argbOutput);
     }
@@ -219,8 +220,8 @@ public class RawConverter {
      *
      * @see #convertToSRGB
      */
-    private static void convertToSRGB(RenderScript rs, int inputWidth, int inputHeight, int cfa,
-            int[] blackLevelPattern, int whiteLevel, byte[] rawImageInput,
+    private static void convertToSRGB(RenderScript rs, int inputWidth, int inputHeight,
+            int inputStride, int cfa, int[] blackLevelPattern, int whiteLevel, byte[] rawImageInput,
             int referenceIlluminant1, int referenceIlluminant2, float[] calibrationTransform1,
             float[] calibrationTransform2, float[] colorMatrix1, float[] colorMatrix2,
             float[] forwardTransform1, float[] forwardTransform2, Rational[/*3*/] neutralColorPoint,
@@ -237,6 +238,12 @@ public class RawConverter {
         }
         if (outputOffsetX < 0 || outputOffsetY < 0) {
             throw new IllegalArgumentException("Negative offset passed to convertToSRGB");
+        }
+        if ((inputStride / 2) < inputWidth) {
+            throw new IllegalArgumentException("Stride too small.");
+        }
+        if ((inputStride % 2) != 0) {
+            throw new IllegalArgumentException("Invalid stride for RAW16 format, see graphics.h.");
         }
         int outWidth = argbOutput.getWidth();
         int outHeight = argbOutput.getHeight();
@@ -314,7 +321,7 @@ public class RawConverter {
 
         // Setup input allocation (16-bit raw pixels)
         Type.Builder typeBuilder = new Type.Builder(rs, Element.U16(rs));
-        typeBuilder.setX(inputWidth);
+        typeBuilder.setX((inputStride / 2));
         typeBuilder.setY(inputHeight);
         Type inputType = typeBuilder.create();
         Allocation input = Allocation.createTyped(rs, inputType);
@@ -601,8 +608,11 @@ public class RawConverter {
         float[] referenceNeutral = new float[3];
         map(inverseInterpolatedCC, cameraNeutral, /*out*/referenceNeutral);
         if (DEBUG) Log.d(TAG, "Reference neutral: " + Arrays.toString(referenceNeutral));
-        float[] D = new float[] { 1/referenceNeutral[0], 0, 0,  0, 1/referenceNeutral[1], 0, 0, 0,
-                1/referenceNeutral[2] };
+        float maxNeutral = Math.max(Math.max(referenceNeutral[0], referenceNeutral[1]),
+                referenceNeutral[2]);
+        float[] D = new float[] { maxNeutral/referenceNeutral[0], 0, 0,
+                                  0, maxNeutral/referenceNeutral[1], 0,
+                                  0, 0, maxNeutral/referenceNeutral[2] };
         if (DEBUG) Log.d(TAG, "Reference Neutral Diagonal: " + Arrays.toString(D));
 
         float[] intermediate = new float[9];

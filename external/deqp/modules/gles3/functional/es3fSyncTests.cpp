@@ -170,12 +170,12 @@ void FenceSyncCase::deinit (void)
 
 FenceSyncCase::IterateResult FenceSyncCase::iterate (void)
 {
-	TestLog&			log		= m_testCtx.getLog();
-	std::vector<float>	vertices;
-	bool				testOk	= true;
+	TestLog&					log			= m_testCtx.getLog();
+	std::vector<float>			vertices;
+	bool						testOk		= true;
 
-	std::string header = "Case iteration " + de::toString(m_iterNdx+1) + " / " + de::toString(NUM_CASE_ITERATIONS);
-	log << TestLog::Section(header, header);
+	std::string					header		= "Case iteration " + de::toString(m_iterNdx+1) + " / " + de::toString(NUM_CASE_ITERATIONS);
+	const tcu::ScopedLogSection	section		(log, header, header);
 
 	enableLogging(true);
 
@@ -231,7 +231,7 @@ FenceSyncCase::IterateResult FenceSyncCase::iterate (void)
 			case GL_TIMEOUT_EXPIRED:	 log << TestLog::Message << "// GL_TIMEOUT_EXPIRED"		<< TestLog::EndMessage; break;
 			case GL_CONDITION_SATISFIED: log << TestLog::Message << "// GL_CONDITION_SATISFIED"	<< TestLog::EndMessage; break;
 			case GL_WAIT_FAILED:		 log << TestLog::Message << "// GL_WAIT_FAILED"			<< TestLog::EndMessage; testOk = false; break;
-			default:					 log << TestLog::EndSection; TCU_FAIL("// Illegal return value!");
+			default:					 TCU_FAIL("// Illegal return value!");
 		}
 	}
 
@@ -260,11 +260,10 @@ FenceSyncCase::IterateResult FenceSyncCase::iterate (void)
 	if (!testOk)
 	{
 		m_testCtx.setTestResult(QP_TEST_RESULT_FAIL, "Fail");
-		log << TestLog::EndSection;
 		return STOP;
 	}
 
-	log << TestLog::Message << "// Sync objects created and deleted successfully." << TestLog::EndMessage << TestLog::EndSection;
+	log << TestLog::Message << "// Sync objects created and deleted successfully." << TestLog::EndMessage;
 
 	return (++m_iterNdx < NUM_CASE_ITERATIONS) ? CONTINUE : STOP;
 }
@@ -283,17 +282,17 @@ void SyncTests::init (void)
 	// Fence sync tests.
 
 	addChild(new FenceSyncCase(m_context, "wait_sync_smalldraw",	"",	10,		COMMAND_WAIT_SYNC,	0, GL_TIMEOUT_IGNORED,	0));
-	addChild(new FenceSyncCase(m_context, "wait_sync_largedraw",	"",	100000,	COMMAND_WAIT_SYNC,	0, GL_TIMEOUT_IGNORED,	0));
+	addChild(new FenceSyncCase(m_context, "wait_sync_largedraw",	"",	10000,	COMMAND_WAIT_SYNC,	0, GL_TIMEOUT_IGNORED,	0));
 
 	addChild(new FenceSyncCase(m_context, "client_wait_sync_smalldraw",			"",	10,		COMMAND_CLIENT_WAIT_SYNC,	0, 0,	0));
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_largedraw",			"",	100000,	COMMAND_CLIENT_WAIT_SYNC,	0, 0,	0));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_largedraw",			"",	10000,	COMMAND_CLIENT_WAIT_SYNC,	0, 0,	0));
 	addChild(new FenceSyncCase(m_context, "client_wait_sync_timeout_smalldraw",	"",	10,		COMMAND_CLIENT_WAIT_SYNC,	0, 10,	0));
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_timeout_largedraw",	"",	100000,	COMMAND_CLIENT_WAIT_SYNC,	0, 10,	0));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_timeout_largedraw",	"",	10000,	COMMAND_CLIENT_WAIT_SYNC,	0, 10,	0));
 
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_flush_auto",	"",	100000, COMMAND_CLIENT_WAIT_SYNC,	GL_SYNC_FLUSH_COMMANDS_BIT, 0,	0));
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_flush_manual",	"",	100000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	CASE_FLUSH_BEFORE_WAIT));
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_noflush",		"",	100000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	0));
-	addChild(new FenceSyncCase(m_context, "client_wait_sync_finish",		"",	100000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	CASE_FINISH_BEFORE_WAIT));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_flush_auto",	"",	10000, COMMAND_CLIENT_WAIT_SYNC,	GL_SYNC_FLUSH_COMMANDS_BIT, 0,	0));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_flush_manual",	"",	10000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	CASE_FLUSH_BEFORE_WAIT));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_noflush",		"",	10000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	0));
+	addChild(new FenceSyncCase(m_context, "client_wait_sync_finish",		"",	10000, COMMAND_CLIENT_WAIT_SYNC,	0,							0,	CASE_FINISH_BEFORE_WAIT));
 }
 
 } // Functional

@@ -211,8 +211,8 @@
     <string name="search_suggestion_desc" msgid="4165491276003825492">"候補: <xliff:g id="SUGGESTION">%s</xliff:g>"</string>
     <string name="add_label" msgid="3285338046038610902">"フォルダを追加"</string>
   <plurals name="new_incoming_messages">
-    <item quantity="one" msgid="1532079301006372605">"<xliff:g id="COUNT">%1$d</xliff:g>件の新着メッセージ"</item>
-    <item quantity="other" msgid="4085982174357328926">"<xliff:g id="COUNT">%1$d</xliff:g>件の新着メッセージ"</item>
+    <item quantity="one" msgid="1532079301006372605">"新着メール<xliff:g id="COUNT">%1$d</xliff:g>件"</item>
+    <item quantity="other" msgid="4085982174357328926">"新着メール<xliff:g id="COUNT">%1$d</xliff:g>件"</item>
   </plurals>
     <string name="date_and_view_details" msgid="2952994746916149969">"<xliff:g id="DATE">%1$s</xliff:g>&lt;a href=\'http://www.example.com\'&gt;詳細を表示&lt;/a&gt;"</string>
     <string name="hide_details" msgid="8018801050702453314">"詳細を表示しない"</string>
@@ -271,7 +271,7 @@
     <string name="tap_to_configure_folder_sync" msgid="3280434399275638071">"フォルダを同期"</string>
     <string name="widget_large_unread_count" msgid="8699435859096455837">"%d超"</string>
     <string name="large_unseen_count" msgid="3055042669246912518">"新着<xliff:g id="COUNT">%d</xliff:g>件以上"</string>
-    <string name="unseen_count" msgid="5509898665569695288">"<xliff:g id="COUNT">%d</xliff:g>通の新着"</string>
+    <string name="unseen_count" msgid="5509898665569695288">"新着<xliff:g id="COUNT">%d</xliff:g>件"</string>
   <plurals name="actionbar_unread_messages">
     <item quantity="other" msgid="3863201473731766006">"<xliff:g id="COUNT">%1$d</xliff:g>件の未読"</item>
   </plurals>
@@ -351,8 +351,8 @@
     <string name="veiled_summary_unknown_person" msgid="2122359944161241551"></string>
     <string name="label_notification_ticker" msgid="323232821061341014">"<xliff:g id="LABEL">%s</xliff:g>: <xliff:g id="NOTIFICATION">%s</xliff:g>"</string>
   <plurals name="new_messages">
-    <item quantity="one" msgid="3446656407520493241">"<xliff:g id="COUNT">%1$d</xliff:g>件の新着メッセージ"</item>
-    <item quantity="other" msgid="3531683811183204615">"<xliff:g id="COUNT">%1$d</xliff:g>件の新着メッセージ"</item>
+    <item quantity="one" msgid="3446656407520493241">"新着メール<xliff:g id="COUNT">%1$d</xliff:g>件"</item>
+    <item quantity="other" msgid="3531683811183204615">"新着メール<xliff:g id="COUNT">%1$d</xliff:g>件"</item>
   </plurals>
     <string name="single_new_message_notification_title" msgid="7954710563222504868">"<xliff:g id="SENDER">%1$s</xliff:g>: <xliff:g id="SUBJECT">%2$s</xliff:g>"</string>
     <string name="silent_ringtone" msgid="1570794756474381886">"マナーモード"</string>
@@ -434,7 +434,7 @@
     <string name="eml_loader_error_toast" msgid="6577383216635400167">"このファイルを開けません"</string>
     <string name="help_and_info" msgid="3708286489943154681">"ヘルプ"</string>
     <string name="help_and_feedback" msgid="7211458338163287670">"ヘルプとフィードバック"</string>
-    <string name="feedback" msgid="204247008751740034">"ご意見、ご感想"</string>
+    <string name="feedback" msgid="204247008751740034">"フィードバック"</string>
     <string name="copyright" msgid="3121335168340432582">"©<xliff:g id="YEAR">%1$d</xliff:g> Google Inc."</string>
     <string name="version" msgid="1161745345056656547">"<xliff:g id="APP_NAME">%1$s</xliff:g>、バージョン<xliff:g id="VERSION">%2$s</xliff:g>"</string>
     <string name="view_app_page" msgid="3241990517052398927"></string>

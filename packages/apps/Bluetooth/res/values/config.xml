@@ -27,4 +27,10 @@
     <bool name="pbap_use_profile_for_owner_vcard">true</bool>
     <bool name="profile_supported_map">true</bool>
     <bool name="profile_supported_avrcp_controller">false</bool>
+    <bool name="profile_supported_sap">false</bool>
+
+    <!-- If true, we will require location to be enabled on the device to
+         fire Bluetooth LE scan result callbacks in addition to having one
+         of the location permissions. -->
+    <bool name="strict_location_check">true</bool>
 </resources>

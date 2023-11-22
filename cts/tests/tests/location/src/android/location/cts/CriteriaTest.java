@@ -113,6 +113,19 @@ public class CriteriaTest extends AndroidTestCase {
         assertTrue(criteria.isAltitudeRequired());
     }
 
+    public void testAccessBearingAccuracy() {
+        Criteria criteria = new Criteria();
+
+        criteria.setBearingAccuracy(Criteria.ACCURACY_LOW);
+        assertEquals(Criteria.ACCURACY_LOW, criteria.getBearingAccuracy());
+
+        criteria.setBearingAccuracy(Criteria.ACCURACY_HIGH);
+        assertEquals(Criteria.ACCURACY_HIGH, criteria.getBearingAccuracy());
+
+        criteria.setBearingAccuracy(Criteria.NO_REQUIREMENT);
+        assertEquals(Criteria.NO_REQUIREMENT, criteria.getBearingAccuracy());
+      }
+
     public void testAccessBearingRequired() {
         Criteria criteria = new Criteria();
 
@@ -133,6 +146,35 @@ public class CriteriaTest extends AndroidTestCase {
         assertTrue(criteria.isCostAllowed());
     }
 
+    public void testAccessHorizontalAccuracy() {
+        Criteria criteria = new Criteria();
+
+        criteria.setHorizontalAccuracy(Criteria.ACCURACY_LOW);
+        assertEquals(Criteria.ACCURACY_LOW, criteria.getHorizontalAccuracy());
+
+        criteria.setHorizontalAccuracy(Criteria.ACCURACY_MEDIUM);
+        assertEquals(Criteria.ACCURACY_MEDIUM, criteria.getHorizontalAccuracy());
+
+        criteria.setHorizontalAccuracy(Criteria.ACCURACY_HIGH);
+        assertEquals(Criteria.ACCURACY_HIGH, criteria.getHorizontalAccuracy());
+
+        criteria.setHorizontalAccuracy(Criteria.NO_REQUIREMENT);
+        assertEquals(Criteria.NO_REQUIREMENT, criteria.getHorizontalAccuracy());
+    }
+
+    public void testAccessSpeedAccuracy() {
+        Criteria criteria = new Criteria();
+
+        criteria.setSpeedAccuracy(Criteria.ACCURACY_LOW);
+        assertEquals(Criteria.ACCURACY_LOW, criteria.getSpeedAccuracy());
+
+        criteria.setSpeedAccuracy(Criteria.ACCURACY_HIGH);
+        assertEquals(Criteria.ACCURACY_HIGH, criteria.getSpeedAccuracy());
+
+        criteria.setSpeedAccuracy(Criteria.NO_REQUIREMENT);
+        assertEquals(Criteria.NO_REQUIREMENT, criteria.getSpeedAccuracy());
+    }
+
     public void testAccessSpeedRequired() {
         Criteria criteria = new Criteria();
 
@@ -141,6 +183,19 @@ public class CriteriaTest extends AndroidTestCase {
 
         criteria.setSpeedRequired(true);
         assertTrue(criteria.isSpeedRequired());
+    }
+
+    public void testAccessVerticalAccuracy() {
+        Criteria criteria = new Criteria();
+
+        criteria.setVerticalAccuracy(Criteria.ACCURACY_LOW);
+        assertEquals(Criteria.ACCURACY_LOW, criteria.getVerticalAccuracy());
+
+       criteria.setVerticalAccuracy(Criteria.ACCURACY_HIGH);
+        assertEquals(Criteria.ACCURACY_HIGH, criteria.getVerticalAccuracy());
+
+        criteria.setVerticalAccuracy(Criteria.NO_REQUIREMENT);
+        assertEquals(Criteria.NO_REQUIREMENT, criteria.getVerticalAccuracy());
     }
 
     public void testWriteToParcel() {

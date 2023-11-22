@@ -68,10 +68,12 @@ install(FILES openjpeg.h opj_stdint.h
   DESTINATION ${OPENJPEG_INSTALL_INCLUDE_DIR} COMPONENT Headers
 )
 
+if(BUILD_DOC)
 # install man page of the library
 install(
   FILES       ${OPENJPEG_SOURCE_DIR}/doc/man/man3/libopenjp2.3
   DESTINATION ${OPENJPEG_INSTALL_MAN_DIR}/man3)
+endif()
 
 # internal utilities to generate t1_luts.h (part of the jp2 lib)
 # no need to install:
@@ -95,4 +97,14 @@ if(OPENJPEG_CPPCHECK)
     add_custom_command(TARGET ${OPENJPEG_LIBRARY_NAME}
       COMMAND ${CPPCHECK_EXECUTABLE} -DWIN32 ${f})
   endforeach()
+endif()
+
+if(OPJ_USE_DSYMUTIL)
+  if(BUILD_SHARED_LIBS)
+    GET_TARGET_PROPERTY(OPENJPEG_LIBRARY_LOCATION ${OPENJPEG_LIBRARY_NAME} LOCATION)
+    add_custom_command(TARGET ${OPENJPEG_LIBRARY_NAME} POST_BUILD
+    COMMAND "dsymutil" "${OPENJPEG_LIBRARY_LOCATION}"
+    COMMENT "dsymutil ${OPENJPEG_LIBRARY_LOCATION}"
+    DEPENDS ${OPENJPEG_LIBRARY_NAME})
+  endif()
 endif()

@@ -107,6 +107,12 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private final int INDEX_ALGORITHM_AWB = 1;
     private final int INDEX_ALGORITHM_AF = 2;
 
+    private enum TorchSeqState {
+        RAMPING_UP,
+        FIRED,
+        RAMPING_DOWN
+    }
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -147,7 +153,8 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 changeExposure(requestBuilder, DEFAULT_EXP_TIME_NS, DEFAULT_SENSITIVITY);
 
                 Size previewSz =
-                        getMaxPreviewSize(mCamera.getId(), mCameraManager, PREVIEW_SIZE_BOUND);
+                        getMaxPreviewSize(mCamera.getId(), mCameraManager,
+                        getPreviewSizeBound(mWindowManager, PREVIEW_SIZE_BOUND));
 
                 startPreview(requestBuilder, previewSz, listener);
                 waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
@@ -188,45 +195,62 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 openDevice(mCameraIds[i]);
 
                 if (!mStaticInfo.isManualLensShadingMapSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " doesn't support lens shading controls, skipping test");
+                    continue;
+                }
+
+                List<Integer> lensShadingMapModes = Arrays.asList(CameraTestUtils.toObject(
+                        mStaticInfo.getAvailableLensShadingMapModesChecked()));
+
+                if (!lensShadingMapModes.contains(STATISTICS_LENS_SHADING_MAP_MODE_ON)) {
                     continue;
                 }
 
                 SimpleCaptureCallback listener = new SimpleCaptureCallback();
                 CaptureRequest.Builder requestBuilder =
                         mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-
-                // Shading map mode OFF, lensShadingMapMode ON, camera device
-                // should output unity maps.
-                requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_OFF);
                 requestBuilder.set(CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE,
                         STATISTICS_LENS_SHADING_MAP_MODE_ON);
 
                 Size previewSz =
-                        getMaxPreviewSize(mCamera.getId(), mCameraManager, PREVIEW_SIZE_BOUND);
+                        getMaxPreviewSize(mCamera.getId(), mCameraManager,
+                        getPreviewSizeBound(mWindowManager, PREVIEW_SIZE_BOUND));
+                List<Integer> lensShadingModes = Arrays.asList(CameraTestUtils.toObject(
+                        mStaticInfo.getAvailableLensShadingModesChecked()));
 
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, previewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_OFF);
+                // Shading map mode OFF, lensShadingMapMode ON, camera device
+                // should output unity maps.
+                if (lensShadingModes.contains(SHADING_MODE_OFF)) {
+                    requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_OFF);
+                    listener = new SimpleCaptureCallback();
+                    startPreview(requestBuilder, previewSz, listener);
+                    waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+                    verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_OFF);
+                }
 
                 // Shading map mode FAST, lensShadingMapMode ON, camera device
                 // should output valid maps.
-                requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_FAST);
+                if (lensShadingModes.contains(SHADING_MODE_FAST)) {
+                    requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_FAST);
 
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, previewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                // Allow at most one lock OFF state as the exposure is changed once.
-                verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_FAST);
+                    listener = new SimpleCaptureCallback();
+                    startPreview(requestBuilder, previewSz, listener);
+                    waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+                    // Allow at most one lock OFF state as the exposure is changed once.
+                    verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_FAST);
+                }
 
                 // Shading map mode HIGH_QUALITY, lensShadingMapMode ON, camera device
                 // should output valid maps.
-                requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_HIGH_QUALITY);
+                if (lensShadingModes.contains(SHADING_MODE_HIGH_QUALITY)) {
+                    requestBuilder.set(CaptureRequest.SHADING_MODE, SHADING_MODE_HIGH_QUALITY);
 
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, previewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_HIGH_QUALITY);
+                    listener = new SimpleCaptureCallback();
+                    startPreview(requestBuilder, previewSz, listener);
+                    waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+                    verifyShadingMap(listener, NUM_FRAMES_VERIFIED, SHADING_MODE_HIGH_QUALITY);
+                }
 
                 stopPreview();
             } finally {
@@ -250,13 +274,14 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 // Without manual sensor control, exposure time cannot be verified
                 if (!mStaticInfo.isCapabilitySupported(
                         CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
-                    return;
+                    continue;
                 }
 
                 int[] modes = mStaticInfo.getAeAvailableAntiBandingModesChecked();
 
                 Size previewSz =
-                        getMaxPreviewSize(mCamera.getId(), mCameraManager, PREVIEW_SIZE_BOUND);
+                        getMaxPreviewSize(mCamera.getId(), mCameraManager,
+                        getPreviewSizeBound(mWindowManager, PREVIEW_SIZE_BOUND));
 
                 for (int mode : modes) {
                     antiBandingTestByMode(previewSz, mode);
@@ -281,6 +306,11 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 openDevice(mCameraIds[i]);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
 
                 Size maxPreviewSz = mOrderedPreviewSizes.get(0); // Max preview size.
 
@@ -308,6 +338,11 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 openDevice(mCameraIds[i]);
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
 
                 SimpleCaptureCallback listener = new SimpleCaptureCallback();
                 CaptureRequest.Builder requestBuilder =
@@ -345,7 +380,11 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 openDevice(mCameraIds[i]);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 faceDetectionTestByCamera();
             } finally {
                 closeDevice();
@@ -379,7 +418,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-                if (!mStaticInfo.isManualColorCorrectionSupported()) {
+                if (!mStaticInfo.isColorCorrectionSupported()) {
                     Log.i(TAG, "Camera " + id +
                             " doesn't support color correction controls, skipping test");
                     continue;
@@ -460,7 +499,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 awbModeAndLockTestByCamera();
             } finally {
                 closeDevice();
@@ -475,7 +517,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 afModeTestByCamera();
             } finally {
                 closeDevice();
@@ -498,7 +543,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     Log.i(TAG, "Camera " + id + " doesn't support any stabilization modes");
                     continue;
                 }
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 stabilizationTestByCamera();
             } finally {
                 closeDevice();
@@ -514,7 +562,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 Size maxPreviewSize = mOrderedPreviewSizes.get(0);
                 digitalZoomTestByCamera(maxPreviewSize);
             } finally {
@@ -531,7 +582,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 digitalZoomPreviewCombinationTestByCamera();
             } finally {
                 closeDevice();
@@ -546,8 +600,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
-                sceneModeTestByCamera();
+                if (mStaticInfo.isSceneModeSupported()) {
+                    sceneModeTestByCamera();
+                }
             } finally {
                 closeDevice();
             }
@@ -561,7 +616,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         for (String id : mCameraIds) {
             try {
                 openDevice(id);
-
+                if (!mStaticInfo.isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
+                    continue;
+                }
                 effectModeTestByCamera();
             } finally {
                 closeDevice();
@@ -746,35 +804,55 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         result = listener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
         validateColorCorrectionResult(result,
                 previewRequestBuilder.get(CaptureRequest.COLOR_CORRECTION_MODE));
-
+        int colorCorrectionMode = CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX;
         // TRANSFORM_MATRIX mode
         // Only test unit gain and identity transform
-        RggbChannelVector UNIT_GAIN = new RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f);
+        List<Integer> availableControlModes = Arrays.asList(
+                CameraTestUtils.toObject(mStaticInfo.getAvailableControlModesChecked()));
+        List<Integer> availableAwbModes = Arrays.asList(
+                CameraTestUtils.toObject(mStaticInfo.getAwbAvailableModesChecked()));
+        boolean isManualCCSupported =
+                availableControlModes.contains(CaptureRequest.CONTROL_MODE_OFF) ||
+                availableAwbModes.contains(CaptureRequest.CONTROL_AWB_MODE_OFF);
+        if (isManualCCSupported) {
+            if (!availableControlModes.contains(CaptureRequest.CONTROL_MODE_OFF)) {
+                // Only manual AWB mode is supported
+                manualRequestBuilder.set(CaptureRequest.CONTROL_MODE,
+                        CaptureRequest.CONTROL_MODE_AUTO);
+                manualRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE,
+                        CaptureRequest.CONTROL_AWB_MODE_OFF);
+            } else {
+                // All 3A manual controls are supported, it doesn't matter what we set for AWB mode.
+                manualRequestBuilder.set(CaptureRequest.CONTROL_MODE,
+                        CaptureRequest.CONTROL_MODE_OFF);
+            }
 
-        ColorSpaceTransform IDENTITY_TRANSFORM = new ColorSpaceTransform(
-            new Rational[] {
-                ONE_R, ZERO_R, ZERO_R,
-                ZERO_R, ONE_R, ZERO_R,
-                ZERO_R, ZERO_R, ONE_R
-            });
+            RggbChannelVector UNIT_GAIN = new RggbChannelVector(1.0f, 1.0f, 1.0f, 1.0f);
 
-        int colorCorrectionMode = CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX;
-        manualRequestBuilder.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF);
-        manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, colorCorrectionMode);
-        manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, UNIT_GAIN);
-        manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, IDENTITY_TRANSFORM);
-        request = manualRequestBuilder.build();
-        mSession.capture(request, listener, mHandler);
-        result = listener.getCaptureResultForRequest(request, NUM_RESULTS_WAIT_TIMEOUT);
-        RggbChannelVector gains = result.get(CaptureResult.COLOR_CORRECTION_GAINS);
-        ColorSpaceTransform transform = result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM);
-        validateColorCorrectionResult(result, colorCorrectionMode);
-        mCollector.expectEquals("control mode result/request mismatch",
-                CaptureResult.CONTROL_MODE_OFF, result.get(CaptureResult.CONTROL_MODE));
-        mCollector.expectEquals("Color correction gain result/request mismatch",
-                UNIT_GAIN, gains);
-        mCollector.expectEquals("Color correction gain result/request mismatch",
-                IDENTITY_TRANSFORM, transform);
+            ColorSpaceTransform IDENTITY_TRANSFORM = new ColorSpaceTransform(
+                new Rational[] {
+                    ONE_R, ZERO_R, ZERO_R,
+                    ZERO_R, ONE_R, ZERO_R,
+                    ZERO_R, ZERO_R, ONE_R
+                });
+
+            manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_MODE, colorCorrectionMode);
+            manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_GAINS, UNIT_GAIN);
+            manualRequestBuilder.set(CaptureRequest.COLOR_CORRECTION_TRANSFORM, IDENTITY_TRANSFORM);
+            request = manualRequestBuilder.build();
+            mSession.capture(request, listener, mHandler);
+            result = listener.getCaptureResultForRequest(request, NUM_RESULTS_WAIT_TIMEOUT);
+            RggbChannelVector gains = result.get(CaptureResult.COLOR_CORRECTION_GAINS);
+            ColorSpaceTransform transform = result.get(CaptureResult.COLOR_CORRECTION_TRANSFORM);
+            validateColorCorrectionResult(result, colorCorrectionMode);
+            mCollector.expectEquals("control mode result/request mismatch",
+                    CaptureResult.CONTROL_MODE_OFF, result.get(CaptureResult.CONTROL_MODE));
+            mCollector.expectEquals("Color correction gain result/request mismatch",
+                    UNIT_GAIN, gains);
+            mCollector.expectEquals("Color correction gain result/request mismatch",
+                    IDENTITY_TRANSFORM, transform);
+
+        }
 
         // FAST mode
         colorCorrectionMode = CaptureRequest.COLOR_CORRECTION_MODE_FAST;
@@ -891,16 +969,39 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         waitForNumResults(listener, flashModeTorchRequests - NUM_FLASH_REQUESTS_TESTED);
 
         // Verify the results
+        TorchSeqState state = TorchSeqState.RAMPING_UP;
         for (int i = 0; i < NUM_FLASH_REQUESTS_TESTED; i++) {
             result = listener.getCaptureResultForRequest(torchRequest,
                     NUM_RESULTS_WAIT_TIMEOUT);
-
-            // Result mode must be TORCH, state must be FIRED
-            mCollector.expectEquals("Flash mode result must be TORCH",
+            int flashMode = result.get(CaptureResult.FLASH_MODE);
+            int flashState = result.get(CaptureResult.FLASH_STATE);
+            // Result mode must be TORCH
+            mCollector.expectEquals("Flash mode result " + i + " must be TORCH",
                     CaptureResult.FLASH_MODE_TORCH, result.get(CaptureResult.FLASH_MODE));
-            mCollector.expectEquals("Flash state result must be FIRED",
-                    CaptureResult.FLASH_STATE_FIRED, result.get(CaptureResult.FLASH_STATE));
+            if (state == TorchSeqState.RAMPING_UP &&
+                    flashState == CaptureResult.FLASH_STATE_FIRED) {
+                state = TorchSeqState.FIRED;
+            } else if (state == TorchSeqState.FIRED &&
+                    flashState == CaptureResult.FLASH_STATE_PARTIAL) {
+                state = TorchSeqState.RAMPING_DOWN;
+            }
+
+            if (i == 0 && mStaticInfo.isPerFrameControlSupported()) {
+                mCollector.expectTrue(
+                        "Per frame control device must enter FIRED state on first torch request",
+                        state == TorchSeqState.FIRED);
+            }
+
+            if (state == TorchSeqState.FIRED) {
+                mCollector.expectEquals("Flash state result " + i + " must be FIRED",
+                        CaptureResult.FLASH_STATE_FIRED, result.get(CaptureResult.FLASH_STATE));
+            } else {
+                mCollector.expectEquals("Flash state result " + i + " must be PARTIAL",
+                        CaptureResult.FLASH_STATE_PARTIAL, result.get(CaptureResult.FLASH_STATE));
+            }
         }
+        mCollector.expectTrue("Torch state FIRED never seen",
+                state == TorchSeqState.FIRED || state == TorchSeqState.RAMPING_DOWN);
 
         // Test flash OFF mode control
         requestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
@@ -1046,7 +1147,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private void aeAutoModeTestLock(int mode) throws Exception {
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
+        if (mStaticInfo.isAeLockSupported()) {
+            requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
+        }
         requestBuilder.set(CaptureRequest.CONTROL_AE_MODE, mode);
         configurePreviewOutput(requestBuilder);
 
@@ -1077,9 +1180,12 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         SimpleCaptureCallback listener =  new SimpleCaptureCallback();
 
         CaptureResult[] resultsDuringLock = new CaptureResult[numCapturesDuringLock];
+        boolean canSetAeLock = mStaticInfo.isAeLockSupported();
 
         // Reset the AE lock to OFF, since we are reusing this builder many times
-        requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
+        if (canSetAeLock) {
+            requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, false);
+        }
 
         // Just send several captures with auto AE, lock off.
         CaptureRequest request = requestBuilder.build();
@@ -1087,6 +1193,11 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             mSession.capture(request, listener, mHandler);
         }
         waitForNumResults(listener, NUM_CAPTURES_BEFORE_LOCK);
+
+        if (!canSetAeLock) {
+            // Without AE lock, the remaining tests items won't work
+            return;
+        }
 
         // Then fire several capture to lock the AE.
         requestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
@@ -1112,7 +1223,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
 
         // Can't read manual sensor/exposure settings without manual sensor
         if (mStaticInfo.isCapabilitySupported(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MANUAL_SENSOR)) {
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_READ_SENSOR_SETTINGS)) {
             int sensitivityLocked =
                     getValueNotNull(resultsDuringLock[0], CaptureResult.SENSOR_SENSITIVITY);
             long expTimeLocked =
@@ -1155,7 +1266,9 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 changeExposure(requestBuilder, expTimes[i], sensitivities[j]);
                 mSession.capture(requestBuilder.build(), listener, mHandler);
 
-                CaptureResult result = listener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
+                // make sure timeout is long enough for long exposure time
+                long timeout = WAIT_FOR_RESULT_TIMEOUT_MS + expTimes[i];
+                CaptureResult result = listener.getCaptureResult(timeout);
                 long resultExpTime = getValueNotNull(result, CaptureResult.SENSOR_EXPOSURE_TIME);
                 int resultSensitivity = getValueNotNull(result, CaptureResult.SENSOR_SENSITIVITY);
                 validateExposureTime(expTimes[i], resultExpTime);
@@ -1344,7 +1457,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                     }
                 }
             }
-            mCollector.expectValuesInRange("Face scores are invalid", faceIds,
+            mCollector.expectValuesInRange("Face scores are invalid", faceScores,
                     Face.SCORE_MIN, Face.SCORE_MAX);
             mCollector.expectValuesUnique("Face ids are invalid", faceIds);
         }
@@ -1358,72 +1471,69 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             return;
         }
 
-        SimpleCaptureCallback listener;
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-
-        Size maxPreviewSz = mOrderedPreviewSizes.get(0); // Max preview size.
-
         int[] toneMapModes = mStaticInfo.getAvailableToneMapModesChecked();
         for (int mode : toneMapModes) {
-            requestBuilder.set(CaptureRequest.TONEMAP_MODE, mode);
             if (VERBOSE) {
                 Log.v(TAG, "Testing tonemap mode " + mode);
             }
 
-            if (mode == CaptureRequest.TONEMAP_MODE_CONTRAST_CURVE) {
-                TonemapCurve tcLinear = new TonemapCurve(
-                        TONEMAP_CURVE_LINEAR, TONEMAP_CURVE_LINEAR, TONEMAP_CURVE_LINEAR);
-                requestBuilder.set(CaptureRequest.TONEMAP_CURVE, tcLinear);
-                // Create a new listener for each run to avoid the results from one run spill
-                // into another run.
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, maxPreviewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                verifyToneMapModeResults(listener, NUM_FRAMES_VERIFIED, mode,
-                        TONEMAP_CURVE_LINEAR);
+            requestBuilder.set(CaptureRequest.TONEMAP_MODE, mode);
+            switch (mode) {
+                case CaptureRequest.TONEMAP_MODE_CONTRAST_CURVE:
+                    TonemapCurve toneCurve = new TonemapCurve(TONEMAP_CURVE_LINEAR,
+                            TONEMAP_CURVE_LINEAR, TONEMAP_CURVE_LINEAR);
+                    requestBuilder.set(CaptureRequest.TONEMAP_CURVE, toneCurve);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
 
-                TonemapCurve tcSrgb = new TonemapCurve(
-                        TONEMAP_CURVE_SRGB, TONEMAP_CURVE_SRGB, TONEMAP_CURVE_SRGB);
-                requestBuilder.set(CaptureRequest.TONEMAP_CURVE, tcSrgb);
-                // Create a new listener for each run to avoid the results from one run spill
-                // into another run.
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, maxPreviewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                verifyToneMapModeResults(listener, NUM_FRAMES_VERIFIED, mode,
-                        TONEMAP_CURVE_SRGB);
-            } else {
-                // Create a new listener for each run to avoid the results from one run spill
-                // into another run.
-                listener = new SimpleCaptureCallback();
-                startPreview(requestBuilder, maxPreviewSz, listener);
-                waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
-                verifyToneMapModeResults(listener, NUM_FRAMES_VERIFIED, mode,
-                        /*inputToneCurve*/null);
+                    toneCurve = new TonemapCurve(TONEMAP_CURVE_SRGB,
+                            TONEMAP_CURVE_SRGB, TONEMAP_CURVE_SRGB);
+                    requestBuilder.set(CaptureRequest.TONEMAP_CURVE, toneCurve);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    break;
+                case CaptureRequest.TONEMAP_MODE_GAMMA_VALUE:
+                    requestBuilder.set(CaptureRequest.TONEMAP_GAMMA, 1.0f);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    requestBuilder.set(CaptureRequest.TONEMAP_GAMMA, 2.2f);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    requestBuilder.set(CaptureRequest.TONEMAP_GAMMA, 5.0f);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    break;
+                case CaptureRequest.TONEMAP_MODE_PRESET_CURVE:
+                    requestBuilder.set(CaptureRequest.TONEMAP_PRESET_CURVE,
+                            CaptureRequest.TONEMAP_PRESET_CURVE_REC709);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    requestBuilder.set(CaptureRequest.TONEMAP_PRESET_CURVE,
+                            CaptureRequest.TONEMAP_PRESET_CURVE_SRGB);
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    break;
+                default:
+                    testToneMapMode(NUM_FRAMES_VERIFIED, requestBuilder);
+                    break;
             }
         }
 
-        stopPreview();
+
     }
 
     /**
-     * Verify tonemap results.
-     * <p>
-     * Assumes R,G,B channels use the same tone curve
-     * </p>
+     * Test tonemap mode with speficied request settings
      *
-     * @param listener The capture listener used to get the capture results
      * @param numFramesVerified Number of results to be verified
-     * @param tonemapMode Tonemap mode to verify
-     * @param inputToneCurve Tonemap curve used by all 3 channels, ignored when
-     * map mode is not CONTRAST_CURVE.
+     * @param requestBuilder the request builder of settings to be tested
      */
-    private void verifyToneMapModeResults(SimpleCaptureCallback listener, int numFramesVerified,
-            int tonemapMode, float[] inputToneCurve) {
+    private void testToneMapMode (int numFramesVerified,
+            CaptureRequest.Builder requestBuilder)  throws Exception  {
         final int MIN_TONEMAP_CURVE_POINTS = 2;
         final Float ZERO = new Float(0);
         final Float ONE = new Float(1.0f);
+
+        SimpleCaptureCallback listener = new SimpleCaptureCallback();
+        int tonemapMode = requestBuilder.get(CaptureRequest.TONEMAP_MODE);
+        Size maxPreviewSz = mOrderedPreviewSizes.get(0); // Max preview size.
+        startPreview(requestBuilder, maxPreviewSz, listener);
+        waitForSettingsApplied(listener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
 
         int maxCurvePoints = mStaticInfo.getMaxTonemapCurvePointChecked();
         for (int i = 0; i < numFramesVerified; i++) {
@@ -1446,6 +1556,14 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                  * between request and result, as they may have different array
                  * size.
                  */
+            } else if (tonemapMode == CaptureResult.TONEMAP_MODE_GAMMA_VALUE) {
+                mCollector.expectEquals("Capture result gamma value should match request",
+                        requestBuilder.get(CaptureRequest.TONEMAP_GAMMA),
+                        result.get(CaptureResult.TONEMAP_GAMMA));
+            } else if (tonemapMode == CaptureResult.TONEMAP_MODE_PRESET_CURVE) {
+                mCollector.expectEquals("Capture result preset curve should match request",
+                        requestBuilder.get(CaptureRequest.TONEMAP_PRESET_CURVE),
+                        result.get(CaptureResult.TONEMAP_PRESET_CURVE));
             }
 
             // Tonemap curve result availability and basic sanity check for all modes.
@@ -1462,6 +1580,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             mCollector.expectInRange("Tonemap curve blue length is out of range",
                     mapBlue.length, MIN_TONEMAP_CURVE_POINTS, maxCurvePoints * 2);
         }
+        stopPreview();
     }
 
     /**
@@ -1475,6 +1594,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private void awbModeAndLockTestByCamera() throws Exception {
         int[] awbModes = mStaticInfo.getAwbAvailableModesChecked();
         Size maxPreviewSize = mOrderedPreviewSizes.get(0);
+        boolean canSetAwbLock = mStaticInfo.isAwbLockSupported();
         CaptureRequest.Builder requestBuilder =
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
         startPreview(requestBuilder, maxPreviewSize, /*listener*/null);
@@ -1490,7 +1610,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             verifyCaptureResultForKey(CaptureResult.CONTROL_AWB_MODE, mode, listener,
                     NUM_FRAMES_VERIFIED);
 
-            if (mode == CameraMetadata.CONTROL_AWB_MODE_AUTO) {
+            if (mode == CameraMetadata.CONTROL_AWB_MODE_AUTO && canSetAwbLock) {
                 // Verify color correction transform and gains stay unchanged after a lock.
                 requestBuilder.set(CaptureRequest.CONTROL_AWB_LOCK, true);
                 listener = new SimpleCaptureCallback();
@@ -1503,7 +1623,10 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
                 }
 
             }
-            verifyAwbCaptureResultUnchanged(listener, NUM_FRAMES_VERIFIED);
+            // Don't verify auto mode result if AWB lock is not supported
+            if (mode != CameraMetadata.CONTROL_AWB_MODE_AUTO || canSetAwbLock) {
+                verifyAwbCaptureResultUnchanged(listener, NUM_FRAMES_VERIFIED);
+            }
         }
     }
 
@@ -1899,12 +2022,12 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
     private long[] getExposureTimeTestValues() {
         long[] testValues = new long[DEFAULT_NUM_EXPOSURE_TIME_STEPS + 1];
         long maxExpTime = mStaticInfo.getExposureMaximumOrDefault(DEFAULT_EXP_TIME_NS);
-        long minxExpTime = mStaticInfo.getExposureMinimumOrDefault(DEFAULT_EXP_TIME_NS);
+        long minExpTime = mStaticInfo.getExposureMinimumOrDefault(DEFAULT_EXP_TIME_NS);
 
-        long range = maxExpTime - minxExpTime;
+        long range = maxExpTime - minExpTime;
         double stepSize = range / (double)DEFAULT_NUM_EXPOSURE_TIME_STEPS;
         for (int i = 0; i < testValues.length; i++) {
-            testValues[i] = minxExpTime + (long)(stepSize * i);
+            testValues[i] = maxExpTime - (long)(stepSize * i);
             testValues[i] = mStaticInfo.getExposureClampToRange(testValues[i]);
         }
 
@@ -1953,7 +2076,7 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         }
         int[] testValues = new int[numSteps + 1];
         for (int i = 0; i < testValues.length; i++) {
-            testValues[i] = minSensitivity + stepSize * i;
+            testValues[i] = maxSensitivity - stepSize * i;
             testValues[i] = mStaticInfo.getSensitivityClampToRange(testValues[i]);
         }
 
@@ -2011,12 +2134,6 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
         validatePipelineDepth(result);
     }
 
-    private <T> T getValueNotNull(CaptureResult result, CaptureResult.Key<T> key) {
-        T value = result.get(key);
-        assertNotNull("Value of Key " + key.getName() + " shouldn't be null", value);
-        return value;
-    }
-
     /**
      * Basic verification for the control mode capture result.
      *
@@ -2059,6 +2176,16 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
      */
     private void verifyFpsNotSlowDown(CaptureRequest.Builder requestBuilder,
             int numFramesVerified)  throws Exception {
+        boolean frameDurationAvailable = true;
+        // Allow a few frames for AE to settle on target FPS range
+        final int NUM_FRAME_TO_SKIP = 6;
+        float frameDurationErrorMargin = FRAME_DURATION_ERROR_MARGIN;
+        if (!mStaticInfo.areKeysAvailable(CaptureResult.SENSOR_FRAME_DURATION)) {
+            frameDurationAvailable = false;
+            // Allow a larger error margin (1.5%) for timestamps
+            frameDurationErrorMargin = 0.015f;
+        }
+
         Range<Integer>[] fpsRanges = mStaticInfo.getAeAvailableTargetFpsRangesChecked();
         boolean antiBandingOffIsSupported = mStaticInfo.isAntiBandingOffModeSupported();
         Range<Integer> fpsRange;
@@ -2099,20 +2226,33 @@ public class CaptureRequestTest extends Camera2SurfaceViewTestCase {
             resultListener = new SimpleCaptureCallback();
             startPreview(requestBuilder, previewSz, resultListener);
             waitForSettingsApplied(resultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+            // Wait several more frames for AE to settle on target FPS range
+            waitForNumResults(resultListener, NUM_FRAME_TO_SKIP);
 
             long[] frameDurationRange = new long[]{
                     (long) (1e9 / fpsRange.getUpper()), (long) (1e9 / fpsRange.getLower())};
+            long captureTime = 0, prevCaptureTime = 0;
             for (int j = 0; j < numFramesVerified; j++) {
+                long frameDuration = frameDurationRange[0];
                 CaptureResult result =
                         resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
                 validatePipelineDepth(result);
-                long frameDuration = getValueNotNull(result, CaptureResult.SENSOR_FRAME_DURATION);
+                if (frameDurationAvailable) {
+                    frameDuration = getValueNotNull(result, CaptureResult.SENSOR_FRAME_DURATION);
+                } else {
+                    // if frame duration is not available, check timestamp instead
+                    captureTime = getValueNotNull(result, CaptureResult.SENSOR_TIMESTAMP);
+                    if (j > 0) {
+                        frameDuration = captureTime - prevCaptureTime;
+                    }
+                    prevCaptureTime = captureTime;
+                }
                 mCollector.expectInRange(
                         "Frame duration must be in the range of " +
                                 Arrays.toString(frameDurationRange),
                         frameDuration,
-                        (long) (frameDurationRange[0] * (1 - FRAME_DURATION_ERROR_MARGIN)),
-                        (long) (frameDurationRange[1] * (1 + FRAME_DURATION_ERROR_MARGIN)));
+                        (long) (frameDurationRange[0] * (1 - frameDurationErrorMargin)),
+                        (long) (frameDurationRange[1] * (1 + frameDurationErrorMargin)));
             }
         }
 

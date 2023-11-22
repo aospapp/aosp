@@ -15,7 +15,6 @@
  */
 package android.support.v17.leanback.app;
 
-import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v17.leanback.R;
 import android.support.v17.leanback.transition.TransitionHelper;
@@ -26,10 +25,11 @@ import android.view.ViewTreeObserver;
 /**
  * @hide
  */
-class BaseSupportFragment extends Fragment {
+class BaseSupportFragment extends BrandedSupportFragment {
 
     private boolean mEntranceTransitionEnabled = false;
     private boolean mStartEntranceTransitionPending = false;
+    private boolean mEntranceTransitionPreparePending = false;
     private Object mEntranceTransition;
 
     static TransitionHelper sTransitionHelper = TransitionHelper.getInstance();
@@ -37,6 +37,10 @@ class BaseSupportFragment extends Fragment {
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        if (mEntranceTransitionPreparePending) {
+            mEntranceTransitionPreparePending = false;
+            onEntranceTransitionPrepare();
+        }
         if (mStartEntranceTransitionPending) {
             mStartEntranceTransitionPending = false;
             startEntranceTransition();
@@ -72,6 +76,11 @@ class BaseSupportFragment extends Fragment {
     public void prepareEntranceTransition() {
         if (TransitionHelper.systemSupportsEntranceTransitions()) {
             mEntranceTransitionEnabled = true;
+            if (getView() == null) {
+                mEntranceTransitionPreparePending = true;
+                return;
+            }
+            onEntranceTransitionPrepare();
         }
     }
 
@@ -102,7 +111,15 @@ class BaseSupportFragment extends Fragment {
     }
 
     /**
-     * Callback when entrance transition is started.
+     * Callback when entrance transition is prepared.  This is when fragment should
+     * stop user input and animations.
+     */
+    protected void onEntranceTransitionPrepare() {
+    }
+
+    /**
+     * Callback when entrance transition is started.  This is when fragment should
+     * stop processing layout.
      */
     protected void onEntranceTransitionStart() {
     }
@@ -133,6 +150,10 @@ class BaseSupportFragment extends Fragment {
             mStartEntranceTransitionPending = true;
             return;
         }
+        if (mEntranceTransitionPreparePending) {
+            mEntranceTransitionPreparePending = false;
+            onEntranceTransitionPrepare();
+        }
         // wait till views get their initial position before start transition
         final View view = getView();
         view.getViewTreeObserver().addOnPreDrawListener(
@@ -142,7 +163,10 @@ class BaseSupportFragment extends Fragment {
                 view.getViewTreeObserver().removeOnPreDrawListener(this);
                 internalCreateEntranceTransition();
                 mEntranceTransitionEnabled = false;
-                runEntranceTransition(mEntranceTransition);
+                if (mEntranceTransition != null) {
+                    onEntranceTransitionStart();
+                    runEntranceTransition(mEntranceTransition);
+                }
                 return false;
             }
         });
@@ -155,10 +179,6 @@ class BaseSupportFragment extends Fragment {
             return;
         }
         sTransitionHelper.setTransitionListener(mEntranceTransition, new TransitionListener() {
-            @Override
-            public void onTransitionStart(Object transition) {
-                onEntranceTransitionStart();
-            }
             @Override
             public void onTransitionEnd(Object transition) {
                 mEntranceTransition = null;

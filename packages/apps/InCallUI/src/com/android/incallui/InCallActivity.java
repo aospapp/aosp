@@ -18,7 +18,10 @@ package com.android.incallui;
 
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.DialogFragment;
+import android.app.Fragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.content.Context;
@@ -27,16 +30,17 @@ import android.content.DialogInterface.OnClickListener;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.graphics.Point;
-import android.net.Uri;
+import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.Trace;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
-import android.telecom.TelecomManager;
-import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import android.view.Display;
 import android.view.MenuItem;
+import android.view.OrientationEventListener;
+import android.view.Surface;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.KeyEvent;
@@ -48,8 +52,6 @@ import android.view.accessibility.AccessibilityEvent;
 import com.android.phone.common.animation.AnimUtils;
 import com.android.phone.common.animation.AnimationListenerAdapter;
 import com.android.contacts.common.interactions.TouchPointManager;
-import com.android.contacts.common.util.MaterialColorMapUtils;
-import com.android.contacts.common.util.MaterialColorMapUtils.MaterialPalette;
 import com.android.contacts.common.widget.SelectPhoneAccountDialogFragment;
 import com.android.contacts.common.widget.SelectPhoneAccountDialogFragment.SelectPhoneAccountListener;
 import com.android.incallui.Call.State;
@@ -59,14 +61,21 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Phone app "in call" screen.
+ * Main activity that the user interacts with while in a live call.
  */
-public class InCallActivity extends Activity {
+public class InCallActivity extends Activity implements FragmentDisplayManager {
+
+    public static final String TAG = InCallActivity.class.getSimpleName();
 
     public static final String SHOW_DIALPAD_EXTRA = "InCallActivity.show_dialpad";
     public static final String DIALPAD_TEXT_EXTRA = "InCallActivity.dialpad_text";
     public static final String NEW_OUTGOING_CALL_EXTRA = "InCallActivity.new_outgoing_call";
-    public static final String SHOW_CIRCULAR_REVEAL_EXTRA = "InCallActivity.show_circular_reveal";
+
+    private static final String TAG_DIALPAD_FRAGMENT = "tag_dialpad_fragment";
+    private static final String TAG_CONFERENCE_FRAGMENT = "tag_conference_manager_fragment";
+    private static final String TAG_CALLCARD_FRAGMENT = "tag_callcard_fragment";
+    private static final String TAG_ANSWER_FRAGMENT = "tag_answer_fragment";
+    private static final String TAG_SELECT_ACCT_FRAGMENT = "tag_select_acct_fragment";
 
     private CallButtonFragment mCallButtonFragment;
     private CallCardFragment mCallCardFragment;
@@ -75,7 +84,7 @@ public class InCallActivity extends Activity {
     private ConferenceManagerFragment mConferenceManagerFragment;
     private FragmentManager mChildFragmentManager;
 
-    private boolean mIsForegroundActivity;
+    private boolean mIsVisible;
     private AlertDialog mDialog;
 
     /** Use to pass 'showDialpad' from {@link #onNewIntent} to {@link #onResume} */
@@ -100,15 +109,30 @@ public class InCallActivity extends Activity {
     AnimationListenerAdapter mSlideOutListener = new AnimationListenerAdapter() {
         @Override
         public void onAnimationEnd(Animation animation) {
-            showDialpad(false);
+            showFragment(TAG_DIALPAD_FRAGMENT, false, true);
         }
     };
 
+    private SelectPhoneAccountListener mSelectAcctListener = new SelectPhoneAccountListener() {
+        @Override
+        public void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle,
+                boolean setDefault) {
+            InCallPresenter.getInstance().handleAccountSelection(selectedAccountHandle,
+                    setDefault);
+        }
+        @Override
+        public void onDialogDismissed() {
+            InCallPresenter.getInstance().cancelAccountSelection();
+        }
+    };
+
+    /** Listener for orientation changes. */
+    private OrientationEventListener mOrientationEventListener;
+
     /**
-     * Stores the current orientation of the activity.  Used to determine if a change in orientation
-     * has occurred.
+     * Used to determine if a change in rotation has occurred.
      */
-    private int mCurrentOrientation;
+    private static int sPreviousRotation = -1;
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -136,16 +160,12 @@ public class InCallActivity extends Activity {
         // TODO(klp): Do we need to add this back when prox sensor is not available?
         // lp.inputFeatures |= WindowManager.LayoutParams.INPUT_FEATURE_DISABLE_USER_ACTIVITY;
 
-        // Inflate everything in incall_screen.xml and add it to the screen.
         setContentView(R.layout.incall_screen);
-
-        initializeInCall();
 
         internalResolveIntent(getIntent());
 
-        mCurrentOrientation = getResources().getConfiguration().orientation;
-        mIsLandscape = getResources().getConfiguration().orientation
-                == Configuration.ORIENTATION_LANDSCAPE;
+        mIsLandscape = getResources().getConfiguration().orientation ==
+                Configuration.ORIENTATION_LANDSCAPE;
 
         final boolean isRtl = TextUtils.getLayoutDirectionFromLocale(Locale.getDefault()) ==
                 View.LAYOUT_DIRECTION_RTL;
@@ -173,13 +193,55 @@ public class InCallActivity extends Activity {
             mShowDialpadRequested = icicle.getBoolean(SHOW_DIALPAD_EXTRA);
             mAnimateDialpadOnShow = false;
             mDtmfText = icicle.getString(DIALPAD_TEXT_EXTRA);
+
+            SelectPhoneAccountDialogFragment dialogFragment = (SelectPhoneAccountDialogFragment)
+                getFragmentManager().findFragmentByTag(TAG_SELECT_ACCT_FRAGMENT);
+            if (dialogFragment != null) {
+                dialogFragment.setListener(mSelectAcctListener);
+            }
         }
+
+        mOrientationEventListener = new OrientationEventListener(this,
+                SensorManager.SENSOR_DELAY_NORMAL) {
+            @Override
+            public void onOrientationChanged(int orientation) {
+                // Device is flat, don't change orientation.
+                if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
+                    return;
+                }
+
+                int newRotation = Surface.ROTATION_0;
+                // We only shift if we're within 22.5 (23) degrees of the target
+                // orientation. This avoids flopping back and forth when holding
+                // the device at 45 degrees or so.
+                if (orientation >= 337 || orientation <= 23) {
+                    newRotation = Surface.ROTATION_0;
+                } else if (orientation >= 67 && orientation <= 113) {
+                    // Why not 90? Because screen and sensor orientation are
+                    // reversed.
+                    newRotation = Surface.ROTATION_270;
+                } else if (orientation >= 157 && orientation <= 203) {
+                    newRotation = Surface.ROTATION_180;
+                } else if (orientation >= 247 && orientation <= 293) {
+                    newRotation = Surface.ROTATION_90;
+                }
+
+                // Orientation is the current device orientation in degrees.  Ultimately we want
+                // the rotation (in fixed 90 degree intervals).
+                if (newRotation != sPreviousRotation) {
+                    doOrientationChanged(newRotation);
+                }
+            }
+        };
+
         Log.d(this, "onCreate(): exit");
     }
 
     @Override
     protected void onSaveInstanceState(Bundle out) {
-        out.putBoolean(SHOW_DIALPAD_EXTRA, mCallButtonFragment.isDialpadVisible());
+        // TODO: The dialpad fragment should handle this as part of its own state
+        out.putBoolean(SHOW_DIALPAD_EXTRA,
+                mCallButtonFragment != null && mCallButtonFragment.isDialpadVisible());
         if (mDialpadFragment != null) {
             out.putString(DIALPAD_TEXT_EXTRA, mDialpadFragment.getDtmfText());
         }
@@ -191,16 +253,26 @@ public class InCallActivity extends Activity {
         Log.d(this, "onStart()...");
         super.onStart();
 
+        mIsVisible = true;
+
+        if (mOrientationEventListener.canDetectOrientation()) {
+            Log.v(this, "Orientation detection enabled.");
+            mOrientationEventListener.enable();
+        } else {
+            Log.v(this, "Orientation detection disabled.");
+            mOrientationEventListener.disable();
+        }
+
         // setting activity should be last thing in setup process
         InCallPresenter.getInstance().setActivity(this);
+
+        InCallPresenter.getInstance().onActivityStarted();
     }
 
     @Override
     protected void onResume() {
         Log.i(this, "onResume()...");
         super.onResume();
-
-        mIsForegroundActivity = true;
 
         InCallPresenter.getInstance().setThemeColors();
         InCallPresenter.getInstance().onUiShowing(true);
@@ -227,10 +299,6 @@ public class InCallActivity extends Activity {
     @Override
     protected void onPause() {
         Log.d(this, "onPause()...");
-        super.onPause();
-
-        mIsForegroundActivity = false;
-
         if (mDialpadFragment != null ) {
             mDialpadFragment.onDialerKeyUp(null);
         }
@@ -239,11 +307,16 @@ public class InCallActivity extends Activity {
         if (isFinishing()) {
             InCallPresenter.getInstance().unsetActivity(this);
         }
+        super.onPause();
     }
 
     @Override
     protected void onStop() {
         Log.d(this, "onStop()...");
+        mIsVisible = false;
+        InCallPresenter.getInstance().updateIsChangingConfigurations();
+        InCallPresenter.getInstance().onActivityStopped();
+        mOrientationEventListener.disable();
         super.onStop();
     }
 
@@ -251,41 +324,50 @@ public class InCallActivity extends Activity {
     protected void onDestroy() {
         Log.d(this, "onDestroy()...  this = " + this);
         InCallPresenter.getInstance().unsetActivity(this);
+        InCallPresenter.getInstance().updateIsChangingConfigurations();
         super.onDestroy();
     }
 
     /**
-     * Returns true when theActivity is in foreground (between onResume and onPause).
+     * When fragments have a parent fragment, onAttachFragment is not called on the parent
+     * activity. To fix this, register our own callback instead that is always called for
+     * all fragments.
+     *
+     * @see {@link BaseFragment#onAttach(Activity)}
      */
-    /* package */ boolean isForegroundActivity() {
-        return mIsForegroundActivity;
-    }
-
-    private boolean hasPendingErrorDialog() {
-        return mDialog != null;
+    @Override
+    public void onFragmentAttached(Fragment fragment) {
+        if (fragment instanceof DialpadFragment) {
+            mDialpadFragment = (DialpadFragment) fragment;
+        } else if (fragment instanceof AnswerFragment) {
+            mAnswerFragment = (AnswerFragment) fragment;
+        } else if (fragment instanceof CallCardFragment) {
+            mCallCardFragment = (CallCardFragment) fragment;
+            mChildFragmentManager = mCallCardFragment.getChildFragmentManager();
+        } else if (fragment instanceof ConferenceManagerFragment) {
+            mConferenceManagerFragment = (ConferenceManagerFragment) fragment;
+        } else if (fragment instanceof CallButtonFragment) {
+            mCallButtonFragment = (CallButtonFragment) fragment;
+        }
     }
 
     /**
-     * Dismisses the in-call screen.
-     *
-     * We never *really* finish() the InCallActivity, since we don't want to get destroyed and then
-     * have to be re-created from scratch for the next call.  Instead, we just move ourselves to the
-     * back of the activity stack.
-     *
-     * This also means that we'll no longer be reachable via the BACK button (since moveTaskToBack()
-     * puts us behind the Home app, but the home app doesn't allow the BACK key to move you any
-     * farther down in the history stack.)
-     *
-     * (Since the Phone app itself is never killed, this basically means that we'll keep a single
-     * InCallActivity instance around for the entire uptime of the device.  This noticeably improves
-     * the UI responsiveness for incoming calls.)
+     * Returns true when the Activity is currently visible (between onStart and onStop).
      */
+    /* package */ boolean isVisible() {
+        return mIsVisible;
+    }
+
+    private boolean hasPendingDialogs() {
+        return mDialog != null || (mAnswerFragment != null && mAnswerFragment.hasPendingDialogs());
+    }
+
     @Override
     public void finish() {
         Log.i(this, "finish().  Dialog showing: " + (mDialog != null));
 
         // skip finish if we are still showing a dialog.
-        if (!hasPendingErrorDialog() && !mAnswerFragment.hasPendingDialogs()) {
+        if (!hasPendingDialogs()) {
             super.finish();
         }
     }
@@ -318,22 +400,23 @@ public class InCallActivity extends Activity {
         // BACK is also used to exit out of any "special modes" of the
         // in-call UI:
 
-        if (!mConferenceManagerFragment.isVisible() && !mCallCardFragment.isVisible()) {
+        if ((mConferenceManagerFragment == null || !mConferenceManagerFragment.isVisible())
+                && (mCallCardFragment == null || !mCallCardFragment.isVisible())) {
             return;
         }
 
         if (mDialpadFragment != null && mDialpadFragment.isVisible()) {
             mCallButtonFragment.displayDialpad(false /* show */, true /* animate */);
             return;
-        } else if (mConferenceManagerFragment.isVisible()) {
-            showConferenceCallManager(false);
+        } else if (mConferenceManagerFragment != null && mConferenceManagerFragment.isVisible()) {
+            showConferenceFragment(false);
             return;
         }
 
         // Always disable the Back key while an incoming call is ringing
         final Call call = CallList.getInstance().getIncomingCall();
         if (call != null) {
-            Log.d(this, "Consume Back press for an incoming call");
+            Log.i(this, "Consume Back press for an incoming call");
             return;
         }
 
@@ -429,32 +512,28 @@ public class InCallActivity extends Activity {
         // key events to the DTMFDialer's onDialerKeyDown.
         if (mDialpadFragment != null && mDialpadFragment.isVisible()) {
             return mDialpadFragment.onDialerKeyDown(event);
-
-            // TODO: If the dialpad isn't currently visible, maybe
-            // consider automatically bringing it up right now?
-            // (Just to make sure the user sees the digits widget...)
-            // But this probably isn't too critical since it's awkward to
-            // use the hard keyboard while in-call in the first place,
-            // especially now that the in-call UI is portrait-only...
         }
 
         return false;
     }
 
-    @Override
-    public void onConfigurationChanged(Configuration config) {
-        InCallPresenter.getInstance().getProximitySensor().onConfigurationChanged(config);
-        Log.d(this, "onConfigurationChanged "+config.orientation);
-
-        // Check to see if the orientation changed to prevent triggering orientation change events
+    /**
+     * Handles changes in device rotation.
+     *
+     * @param rotation The new device rotation (one of: {@link Surface#ROTATION_0},
+     *      {@link Surface#ROTATION_90}, {@link Surface#ROTATION_180},
+     *      {@link Surface#ROTATION_270}).
+     */
+    private void doOrientationChanged(int rotation) {
+        Log.d(this, "doOrientationChanged prevOrientation=" + sPreviousRotation +
+                " newOrientation=" + rotation);
+        // Check to see if the rotation changed to prevent triggering rotation change events
         // for other configuration changes.
-        if (config.orientation != mCurrentOrientation) {
-            mCurrentOrientation = config.orientation;
-            InCallPresenter.getInstance().onDeviceRotationChange(
-                    getWindowManager().getDefaultDisplay().getRotation());
-            InCallPresenter.getInstance().onDeviceOrientationChange(mCurrentOrientation);
+        if (rotation != sPreviousRotation) {
+            sPreviousRotation = rotation;
+            InCallPresenter.getInstance().onDeviceRotationChange(rotation);
+            InCallPresenter.getInstance().onDeviceOrientationChange(sPreviousRotation);
         }
-        super.onConfigurationChanged(config);
     }
 
     public CallButtonFragment getCallButtonFragment() {
@@ -465,10 +544,13 @@ public class InCallActivity extends Activity {
         return mCallCardFragment;
     }
 
+    public AnswerFragment getAnswerFragment() {
+        return mAnswerFragment;
+    }
+
     private void internalResolveIntent(Intent intent) {
         final String action = intent.getAction();
-
-        if (action.equals(intent.ACTION_MAIN)) {
+        if (action.equals(Intent.ACTION_MAIN)) {
             // This action is the normal way to bring up the in-call UI.
             //
             // But we do check here for one extra that can come along with the
@@ -485,6 +567,7 @@ public class InCallActivity extends Activity {
                 relaunchedFromDialer(showDialpad);
             }
 
+            boolean newOutgoingCall = false;
             if (intent.getBooleanExtra(NEW_OUTGOING_CALL_EXTRA, false)) {
                 intent.removeExtra(NEW_OUTGOING_CALL_EXTRA);
                 Call call = CallList.getInstance().getOutgoingCall();
@@ -494,7 +577,7 @@ public class InCallActivity extends Activity {
 
                 Bundle extras = null;
                 if (call != null) {
-                    extras = call.getTelecommCall().getDetails().getExtras();
+                    extras = call.getTelecommCall().getDetails().getIntentExtras();
                 }
                 if (extras == null) {
                     // Initialize the extras bundle to avoid NPE
@@ -512,12 +595,9 @@ public class InCallActivity extends Activity {
                     }
                 }
 
-                // This is only true in the case where an outgoing call is initiated by tapping
-                // on the "Select account dialog", in which case we skip the initial animation. In
-                // most other cases the circular reveal is done by OutgoingCallAnimationActivity.
-                final boolean showCircularReveal =
-                        intent.getBooleanExtra(SHOW_CIRCULAR_REVEAL_EXTRA, false);
-                mCallCardFragment.animateForNewOutgoingCall(touchPoint, showCircularReveal);
+                // Start animation for new outgoing call
+                CircularRevealFragment.startCircularReveal(getFragmentManager(), touchPoint,
+                        InCallPresenter.getInstance());
 
                 // InCallActivity is responsible for disconnecting a new outgoing call if there
                 // is no way of making it (i.e. no valid call capable accounts)
@@ -526,13 +606,14 @@ public class InCallActivity extends Activity {
                 }
 
                 dismissKeyguard(true);
+                newOutgoingCall = true;
             }
 
             Call pendingAccountSelectionCall = CallList.getInstance().getWaitingForAccountCall();
             if (pendingAccountSelectionCall != null) {
-                mCallCardFragment.setVisible(false);
+                showCallCardFragment(false);
                 Bundle extras = pendingAccountSelectionCall
-                        .getTelecommCall().getDetails().getExtras();
+                        .getTelecommCall().getDetails().getIntentExtras();
 
                 final List<PhoneAccountHandle> phoneAccountHandles;
                 if (extras != null) {
@@ -542,24 +623,12 @@ public class InCallActivity extends Activity {
                     phoneAccountHandles = new ArrayList<>();
                 }
 
-                SelectPhoneAccountListener listener = new SelectPhoneAccountListener() {
-                    @Override
-                    public void onPhoneAccountSelected(PhoneAccountHandle selectedAccountHandle,
-                            boolean setDefault) {
-                        InCallPresenter.getInstance().handleAccountSelection(selectedAccountHandle,
-                                setDefault);
-                    }
-                    @Override
-                    public void onDialogDismissed() {
-                        InCallPresenter.getInstance().cancelAccountSelection();
-                    }
-                };
-
-                SelectPhoneAccountDialogFragment.showAccountDialog(getFragmentManager(),
+                DialogFragment dialogFragment = SelectPhoneAccountDialogFragment.newInstance(
                         R.string.select_phone_account_for_calls, true, phoneAccountHandles,
-                        listener);
-            } else {
-                mCallCardFragment.setVisible(true);
+                        mSelectAcctListener);
+                dialogFragment.show(getFragmentManager(), TAG_SELECT_ACCT_FRAGMENT);
+            } else if (!newOutgoingCall) {
+                showCallCardFragment(true);
             }
 
             return;
@@ -580,40 +649,6 @@ public class InCallActivity extends Activity {
         }
     }
 
-    private void initializeInCall() {
-        if (mCallCardFragment == null) {
-            mCallCardFragment = (CallCardFragment) getFragmentManager()
-                    .findFragmentById(R.id.callCardFragment);
-        }
-
-        mChildFragmentManager = mCallCardFragment.getChildFragmentManager();
-
-        if (mCallButtonFragment == null) {
-            mCallButtonFragment = (CallButtonFragment) mChildFragmentManager
-                    .findFragmentById(R.id.callButtonFragment);
-            mCallButtonFragment.getView().setVisibility(View.INVISIBLE);
-        }
-
-        if (mAnswerFragment == null) {
-            mAnswerFragment = (AnswerFragment) mChildFragmentManager
-                    .findFragmentById(R.id.answerFragment);
-        }
-
-        if (mConferenceManagerFragment == null) {
-            mConferenceManagerFragment = (ConferenceManagerFragment) getFragmentManager()
-                    .findFragmentById(R.id.conferenceManagerFragment);
-            mConferenceManagerFragment.getView().setVisibility(View.INVISIBLE);
-        }
-    }
-
-    /**
-     * Simulates a user click to hide the dialpad. This will update the UI to show the call card,
-     * update the checked state of the dialpad button, and update the proximity sensor state.
-     */
-    public void hideDialpadForDisconnect() {
-        mCallButtonFragment.displayDialpad(false /* show */, true /* animate */);
-    }
-
     public void dismissKeyguard(boolean dismiss) {
         if (mDismissKeyguard == dismiss) {
             return;
@@ -626,51 +661,113 @@ public class InCallActivity extends Activity {
         }
     }
 
-    private void showDialpad(boolean showDialpad) {
-        // If the dialpad is being shown and it has not already been loaded, replace the dialpad
-        // placeholder with the actual fragment before continuing.
-        if (mDialpadFragment == null && showDialpad) {
-            final FragmentTransaction loadTransaction = mChildFragmentManager.beginTransaction();
-            View fragmentContainer = findViewById(R.id.dialpadFragmentContainer);
-            mDialpadFragment = new DialpadFragment();
-            loadTransaction.replace(fragmentContainer.getId(), mDialpadFragment,
-                    DialpadFragment.class.getName());
-            loadTransaction.commitAllowingStateLoss();
-            mChildFragmentManager.executePendingTransactions();
+    private void showFragment(String tag, boolean show, boolean executeImmediately) {
+        Trace.beginSection("showFragment - " + tag);
+        final FragmentManager fm = getFragmentManagerForTag(tag);
+
+        if (fm == null) {
+            Log.w(TAG, "Fragment manager is null for : " + tag);
+            return;
         }
 
-        final FragmentTransaction ft = mChildFragmentManager.beginTransaction();
-        if (showDialpad) {
-            ft.show(mDialpadFragment);
-        } else {
-            ft.hide(mDialpadFragment);
+        Fragment fragment = fm.findFragmentByTag(tag);
+        if (!show && fragment == null) {
+            // Nothing to show, so bail early.
+            return;
         }
-        ft.commitAllowingStateLoss();
+
+        final FragmentTransaction transaction = fm.beginTransaction();
+        if (show) {
+            if (fragment == null) {
+                fragment = createNewFragmentForTag(tag);
+                transaction.add(getContainerIdForFragment(tag), fragment, tag);
+            } else {
+                transaction.show(fragment);
+            }
+        } else {
+            transaction.hide(fragment);
+        }
+
+        transaction.commitAllowingStateLoss();
+        if (executeImmediately) {
+            fm.executePendingTransactions();
+        }
+        Trace.endSection();
     }
 
-    public void displayDialpad(boolean showDialpad, boolean animate) {
+    private Fragment createNewFragmentForTag(String tag) {
+        if (TAG_DIALPAD_FRAGMENT.equals(tag)) {
+            mDialpadFragment = new DialpadFragment();
+            return mDialpadFragment;
+        } else if (TAG_ANSWER_FRAGMENT.equals(tag)) {
+            mAnswerFragment = new AnswerFragment();
+            return mAnswerFragment;
+        } else if (TAG_CONFERENCE_FRAGMENT.equals(tag)) {
+            mConferenceManagerFragment = new ConferenceManagerFragment();
+            return mConferenceManagerFragment;
+        } else if (TAG_CALLCARD_FRAGMENT.equals(tag)) {
+            mCallCardFragment = new CallCardFragment();
+            return mCallCardFragment;
+        }
+        throw new IllegalStateException("Unexpected fragment: " + tag);
+    }
+
+    private FragmentManager getFragmentManagerForTag(String tag) {
+        if (TAG_DIALPAD_FRAGMENT.equals(tag)) {
+            return mChildFragmentManager;
+        } else if (TAG_ANSWER_FRAGMENT.equals(tag)) {
+            return mChildFragmentManager;
+        } else if (TAG_CONFERENCE_FRAGMENT.equals(tag)) {
+            return getFragmentManager();
+        } else if (TAG_CALLCARD_FRAGMENT.equals(tag)) {
+            return getFragmentManager();
+        }
+        throw new IllegalStateException("Unexpected fragment: " + tag);
+    }
+
+    private int getContainerIdForFragment(String tag) {
+        if (TAG_DIALPAD_FRAGMENT.equals(tag)) {
+            return R.id.answer_and_dialpad_container;
+        } else if (TAG_ANSWER_FRAGMENT.equals(tag)) {
+            return R.id.answer_and_dialpad_container;
+        } else if (TAG_CONFERENCE_FRAGMENT.equals(tag)) {
+            return R.id.main;
+        } else if (TAG_CALLCARD_FRAGMENT.equals(tag)) {
+            return R.id.main;
+        }
+        throw new IllegalStateException("Unexpected fragment: " + tag);
+    }
+
+    public void showDialpadFragment(boolean show, boolean animate) {
         // If the dialpad is already visible, don't animate in. If it's gone, don't animate out.
-        if ((showDialpad && isDialpadVisible()) || (!showDialpad && !isDialpadVisible())) {
+        if ((show && isDialpadVisible()) || (!show && !isDialpadVisible())) {
             return;
         }
         // We don't do a FragmentTransaction on the hide case because it will be dealt with when
         // the listener is fired after an animation finishes.
         if (!animate) {
-            showDialpad(showDialpad);
+            showFragment(TAG_DIALPAD_FRAGMENT, show, true);
         } else {
-            if (showDialpad) {
-                showDialpad(true);
+            if (show) {
+                showFragment(TAG_DIALPAD_FRAGMENT, true, true);
                 mDialpadFragment.animateShowDialpad();
             }
-            mCallCardFragment.onDialpadVisiblityChange(showDialpad);
-            mDialpadFragment.getView().startAnimation(showDialpad ? mSlideIn : mSlideOut);
+            mCallCardFragment.onDialpadVisibilityChange(show);
+            mDialpadFragment.getView().startAnimation(show ? mSlideIn : mSlideOut);
         }
 
-        InCallPresenter.getInstance().getProximitySensor().onDialpadVisible(showDialpad);
+        final ProximitySensor sensor = InCallPresenter.getInstance().getProximitySensor();
+        if (sensor != null) {
+            sensor.onDialpadVisible(show);
+        }
     }
 
     public boolean isDialpadVisible() {
         return mDialpadFragment != null && mDialpadFragment.isVisible();
+    }
+
+    public void showCallCardFragment(boolean show) {
+        showFragment(TAG_CALLCARD_FRAGMENT, show, true);
     }
 
     /**
@@ -679,16 +776,21 @@ public class InCallActivity extends Activity {
      * @param show {@code true} if the conference manager should be shown, {@code false} if it
      *                         should be hidden.
      */
-    public void showConferenceCallManager(boolean show) {
-        mConferenceManagerFragment.setVisible(show);
+    public void showConferenceFragment(boolean show) {
+        showFragment(TAG_CONFERENCE_FRAGMENT, show, true);
+        mConferenceManagerFragment.onVisibilityChanged(show);
 
         // Need to hide the call card fragment to ensure that accessibility service does not try to
         // give focus to the call card when the conference manager is visible.
         mCallCardFragment.getView().setVisibility(show ? View.GONE : View.VISIBLE);
     }
 
+    public void showAnswerFragment(boolean show) {
+        showFragment(TAG_ANSWER_FRAGMENT, show, true);
+    }
+
     public void showPostCharWaitDialog(String callId, String chars) {
-        if (isForegroundActivity()) {
+        if (isVisible()) {
             final PostCharDialogFragment fragment = new PostCharDialogFragment(callId,  chars);
             fragment.show(getFragmentManager(), "postCharWait");
 
@@ -725,7 +827,9 @@ public class InCallActivity extends Activity {
             mDialog.dismiss();
             mDialog = null;
         }
-        mAnswerFragment.dismissPendingDialogues();
+        if (mAnswerFragment != null) {
+            mAnswerFragment.dismissPendingDialogs();
+        }
     }
 
     /**
@@ -756,6 +860,23 @@ public class InCallActivity extends Activity {
 
     private void onDialogDismissed() {
         mDialog = null;
+        CallList.getInstance().onErrorDialogDismissed();
         InCallPresenter.getInstance().onDismissDialog();
+    }
+
+    public void setExcludeFromRecents(boolean exclude) {
+        ActivityManager am = (ActivityManager)getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.AppTask> tasks = am.getAppTasks();
+        int taskId = getTaskId();
+        for (int i=0; i<tasks.size(); i++) {
+            ActivityManager.AppTask task = tasks.get(i);
+            if (task.getTaskInfo().id == taskId) {
+                try {
+                    task.setExcludeFromRecents(exclude);
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "RuntimeException when excluding task from recents.", e);
+                }
+            }
+        }
     }
 }

@@ -28,6 +28,7 @@
 #include "fake-pipeline2/Sensor.h"
 #include "fake-pipeline2/JpegCompressor.h"
 #include <camera/CameraMetadata.h>
+#include <utils/SortedVector.h>
 #include <utils/List.h>
 #include <utils/Mutex.h>
 
@@ -87,18 +88,20 @@ protected:
 
     virtual status_t processCaptureRequest(camera3_capture_request *request);
 
+    virtual status_t flush();
+
     /** Debug methods */
 
     virtual void dump(int fd);
 
-    /** Tag query methods */
-    virtual const char *getVendorSectionName(uint32_t tag);
-
-    virtual const char *getVendorTagName(uint32_t tag);
-
-    virtual int getVendorTagType(uint32_t tag);
-
 private:
+
+    /**
+     * Get the requested capability set for this camera
+     */
+    status_t getCameraCapabilities();
+
+    bool hasCapability(AvailableCapabilities cap);
 
     /**
      * Build the static info metadata buffer for this device
@@ -136,14 +139,6 @@ private:
     // no concept of a stream id.
     static const uint32_t kGenericStreamId = 1;
     static const int32_t  kAvailableFormats[];
-    static const uint32_t kAvailableRawSizes[];
-    static const uint64_t kAvailableRawMinDurations[];
-    static const uint32_t kAvailableProcessedSizesBack[];
-    static const uint32_t kAvailableProcessedSizesFront[];
-    static const uint64_t kAvailableProcessedMinDurations[];
-    static const uint32_t kAvailableJpegSizesBack[];
-    static const uint32_t kAvailableJpegSizesFront[];
-    static const uint64_t kAvailableJpegMinDurations[];
 
     static const int64_t  kSyncWaitTimeout     = 10000000; // 10 ms
     static const int32_t  kMaxSyncTimeoutCount = 1000; // 1000 kSyncWaitTimeouts
@@ -159,8 +154,7 @@ private:
     /* Facing back (true) or front (false) switch. */
     bool               mFacingBack;
 
-    /* Full mode (true) or limited mode (false) switch */
-    bool               mFullMode;
+    SortedVector<AvailableCapabilities> mCapabilities;
 
     /**
      * Cache for default templates. Once one is requested, the pointer must be
@@ -173,7 +167,6 @@ private:
      */
     struct PrivateStreamInfo {
         bool alive;
-        bool registered;
     };
 
     // Shortcut to the input stream
@@ -283,8 +276,6 @@ private:
     uint8_t mAeMode;
     uint8_t mAfMode;
     uint8_t mAwbMode;
-    int     mAfTriggerId;
-    int     mAeTriggerId;
 
     int     mAeCounter;
     nsecs_t mAeCurrentExposureTime;

@@ -103,29 +103,29 @@ HRESULT STDMETHODCALLTYPE SkBaseIStream::Stat(STATSTG* pStatstg
 /**
  * SkIStream
  */
-SkIStream::SkIStream(SkStream* stream, bool unrefOnRelease)
+SkIStream::SkIStream(SkStream* stream, bool deleteOnRelease)
     : SkBaseIStream()
     , fSkStream(stream)
-    , fUnrefOnRelease(unrefOnRelease)
+    , fDeleteOnRelease(deleteOnRelease)
     , fLocation()
 {
     this->fSkStream->rewind();
 }
 
 SkIStream::~SkIStream() {
-    if (NULL != this->fSkStream && fUnrefOnRelease) {
-        this->fSkStream->unref();
+    if (fDeleteOnRelease) {
+        delete this->fSkStream;
     }
 }
 
 HRESULT SkIStream::CreateFromSkStream(SkStream* stream
-                                    , bool unrefOnRelease
+                                    , bool deleteOnRelease
                                     , IStream ** ppStream)
 {
     if (NULL == stream) {
         return E_INVALIDARG;
     }
-    *ppStream = new SkIStream(stream, unrefOnRelease);
+    *ppStream = new SkIStream(stream, deleteOnRelease);
     return S_OK;
 }
 
@@ -196,7 +196,7 @@ HRESULT STDMETHODCALLTYPE SkIStream::Seek(LARGE_INTEGER liDistanceToMove
         break;
     }
 
-    if (NULL != lpNewFilePointer) {
+    if (lpNewFilePointer) {
         lpNewFilePointer->QuadPart = this->fLocation.QuadPart;
     }
     return hr;
@@ -228,7 +228,7 @@ SkWIStream::SkWIStream(SkWStream* stream)
 { }
 
 SkWIStream::~SkWIStream() {
-    if (NULL != this->fSkWStream) {
+    if (this->fSkWStream) {
         this->fSkWStream->flush();
     }
 }

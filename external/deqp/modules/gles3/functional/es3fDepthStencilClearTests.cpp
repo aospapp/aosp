@@ -93,7 +93,7 @@ tcu::TextureFormat getDepthFormat (int depthBits)
 	{
 		case 8:		return tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNORM_INT8);
 		case 16:	return tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNORM_INT16);
-		case 24:	return tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNSIGNED_INT_24_8);
+		case 24:	return tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::UNORM_INT24);
 		case 32:	return tcu::TextureFormat(tcu::TextureFormat::D, tcu::TextureFormat::FLOAT);
 		default:
 			TCU_FAIL("Can't map depth buffer format");
@@ -106,7 +106,7 @@ tcu::TextureFormat getStencilFormat (int stencilBits)
 	{
 		case 8:		return tcu::TextureFormat(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT8);
 		case 16:	return tcu::TextureFormat(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT16);
-		case 24:	return tcu::TextureFormat(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT_24_8);
+		case 24:	return tcu::TextureFormat(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT24);
 		case 32:	return tcu::TextureFormat(tcu::TextureFormat::S, tcu::TextureFormat::UNSIGNED_INT32);
 		default:
 			TCU_FAIL("Can't map depth buffer format");
@@ -431,13 +431,13 @@ void DepthStencilClearCase::renderReference (tcu::Surface& dst, const vector<Cle
 					continue;
 
 				for (int x = clearRect.x(); x < clearRect.x()+clearRect.z(); x++)
-					rowAccess.setPixel(Vec4(de::clamp(clear->clearDepth, 0.0f, 1.0f)), x, 0);
+					rowAccess.setPixDepth(de::clamp(clear->clearDepth, 0.0f, 1.0f), x, 0);
 			}
 
 			// Map to colors.
 			for (int x = 0; x < dst.getWidth(); x++)
 			{
-				float		depth		= rowAccess.getPixel(x, 0).x();
+				float		depth		= rowAccess.getPixDepth(x, 0);
 				float		step		= deFloatFloor(depth * (float)DEPTH_STEPS) / (float)(DEPTH_STEPS-1);
 				tcu::RGBA	oldColor	= dst.getPixel(x, y);
 				tcu::RGBA	newColor	= tcu::RGBA(oldColor.getRed(), oldColor.getGreen(), deClamp32(deRoundFloatToInt32(step * 255.0f), 0, 255), oldColor.getAlpha());
@@ -476,16 +476,16 @@ void DepthStencilClearCase::renderReference (tcu::Surface& dst, const vector<Cle
 
 				for (int x = clearRect.x(); x < clearRect.x()+clearRect.z(); x++)
 				{
-					deUint32	oldVal	= rowAccess.getPixelUint(x, 0).w();
+					deUint32	oldVal	= rowAccess.getPixStencil(x, 0);
 					deUint32	newVal	= ((oldVal & ~clear->stencilMask) | (clear->clearStencil & clear->stencilMask)) & bufMask;
-					rowAccess.setPixel(tcu::UVec4(newVal), x, 0);
+					rowAccess.setPixStencil(newVal, x, 0);
 				}
 			}
 
 			// Map to colors.
 			for (int x = 0; x < dst.getWidth(); x++)
 			{
-				deUint32	stencil		= rowAccess.getPixelUint(x, 0).w();
+				deUint32	stencil		= rowAccess.getPixStencil(x, 0);
 				float		step		= (float)(stencil / ((1u<<stencilBits) / (deUint32)STENCIL_STEPS)) / (float)(STENCIL_STEPS-1);
 				tcu::RGBA	oldColor	= dst.getPixel(x, y);
 				tcu::RGBA	newColor	= tcu::RGBA(oldColor.getRed(), deClamp32(deRoundFloatToInt32(step * 255.0f), 0, 255), oldColor.getBlue(), oldColor.getAlpha());

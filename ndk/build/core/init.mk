@@ -296,7 +296,6 @@ $(call ndk_log,HOST_TAG set to $(HOST_TAG))
 HOST_PREBUILT_ROOT := $(call host-prebuilt-tag, $(NDK_ROOT))
 HOST_PREBUILT := $(strip $(wildcard $(HOST_PREBUILT_ROOT)/bin))
 HOST_AWK := $(strip $(NDK_HOST_AWK))
-HOST_SED  := $(strip $(NDK_HOST_SED))
 HOST_MAKE := $(strip $(NDK_HOST_MAKE))
 HOST_PYTHON := $(strip $(NDK_HOST_PYTHON))
 ifdef HOST_PREBUILT
@@ -306,9 +305,6 @@ ifdef HOST_PREBUILT
     ifneq ($(HOST_OS),cygwin)
         ifndef HOST_AWK
             HOST_AWK := $(wildcard $(HOST_PREBUILT)/awk$(HOST_EXEEXT))
-        endif
-        ifndef HOST_SED
-            HOST_SED  := $(wildcard $(HOST_PREBUILT)/sed$(HOST_EXEEXT))
         endif
         ifndef HOST_MAKE
             HOST_MAKE := $(wildcard $(HOST_PREBUILT)/make$(HOST_EXEEXT))
@@ -491,17 +487,17 @@ $(foreach _platform,$(NDK_ALL_PLATFORMS),\
 NDK_PREVIEW_LEVEL := L
 NDK_ALL_PLATFORM_LEVELS := $(filter android-%,$(NDK_ALL_PLATFORMS))
 NDK_ALL_PLATFORM_LEVELS := $(patsubst android-%,%,$(NDK_ALL_PLATFORM_LEVELS))
+ifneq (,$(filter $(NDK_PREVIEW_LEVEL),$(NDK_ALL_PLATFORM_LEVELS)))
+    $(call __ndk_info,Please remove stale preview platforms/android-$(NDK_PREVIEW_LEVEL))
+    $(call __ndk_info,API level android-L is renamed as android-21.)
+    $(call __ndk_error,Aborting)
+endif
 $(call ndk_log,Found stable platform levels: $(NDK_ALL_PLATFORM_LEVELS))
 
-# Hack to pull $(NDK_PREVIEW_LEVEL) ahead of all (numeric) level
 NDK_MAX_PLATFORM_LEVEL := 3
-_max_theoretical_api_level := 99
 $(foreach level,$(NDK_ALL_PLATFORM_LEVELS),\
-  $(eval NDK_MAX_PLATFORM_LEVEL := $$(if $$(subst $$(NDK_PREVIEW_LEVEL),,$$(level)),$$(call max,$$(NDK_MAX_PLATFORM_LEVEL),$$(level)),$(_max_theoretical_api_level)))\
+  $(eval NDK_MAX_PLATFORM_LEVEL := $$(call max,$$(NDK_MAX_PLATFORM_LEVEL),$$(level)))\
 )
-ifeq ($(NDK_MAX_PLATFORM_LEVEL),$(_max_theoretical_api_level))
-NDK_MAX_PLATFORM_LEVEL := $(NDK_PREVIEW_LEVEL)
-endif
 
 $(call ndk_log,Found max platform level: $(NDK_MAX_PLATFORM_LEVEL))
 
@@ -513,7 +509,7 @@ $(call ndk_log,Found max platform level: $(NDK_MAX_PLATFORM_LEVEL))
 # in build/toolchains/<name>/ that will be included here.
 #
 # Each one of these files should define the following variables:
-#   TOOLCHAIN_NAME   toolchain name (e.g. arm-linux-androideabi-4.6)
+#   TOOLCHAIN_NAME   toolchain name (e.g. arm-linux-androideabi-4.9)
 #   TOOLCHAIN_ABIS   list of target ABIs supported by the toolchain.
 #
 # Then, it should include $(ADD_TOOLCHAIN) which will perform
@@ -554,7 +550,7 @@ endif
 endif
 
 # The first API level ndk-build enforces -fPIE for executable
-NDK_PIE_PLATFORM_LEVEL := 16
+NDK_FIRST_PIE_PLATFORM_LEVEL := 16
 
 # the list of all toolchains in this NDK
 NDK_ALL_TOOLCHAINS :=
@@ -597,13 +593,13 @@ endif
 # version number. Unlike NDK_TOOLCHAIN, this only changes the suffix of
 # the toolchain path we're using.
 #
-# For example, if GCC 4.6 is the default, defining NDK_TOOLCHAIN_VERSION=4.8
+# For example, if GCC 4.8 is the default, defining NDK_TOOLCHAIN_VERSION=4.9
 # will ensure that ndk-build uses the following toolchains, depending on
 # the target architecture:
 #
-#    arm -> arm-linux-androideabi-4.8
-#    x86 -> x86-android-linux-4.8
-#    mips -> mipsel-linux-android-4.8
+#    arm -> arm-linux-androideabi-4.9
+#    x86 -> x86-android-linux-4.9
+#    mips -> mipsel-linux-android-4.9
 #
 # This is used in setup-toolchain.mk
 #

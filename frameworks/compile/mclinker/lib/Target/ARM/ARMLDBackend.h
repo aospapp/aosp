@@ -6,45 +6,44 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef TARGET_ARM_ARMLDBACKEND_H
-#define TARGET_ARM_ARMLDBACKEND_H
+#ifndef TARGET_ARM_ARMLDBACKEND_H_
+#define TARGET_ARM_ARMLDBACKEND_H_
 
 #include "ARMELFDynamic.h"
+#include "ARMException.h"
 #include "ARMGOT.h"
 #include "ARMPLT.h"
-#include <mcld/LD/LDSection.h>
-#include <mcld/Target/GNULDBackend.h>
-#include <mcld/Target/OutputRelocSection.h>
+#include "mcld/LD/LDSection.h"
+#include "mcld/Target/GNULDBackend.h"
+#include "mcld/Target/OutputRelocSection.h"
 
 namespace mcld {
 
 class ARMELFAttributeData;
-class LinkerConfig;
 class GNUInfo;
+class LinkerConfig;
 
 //===----------------------------------------------------------------------===//
 /// ARMGNULDBackend - linker backend of ARM target of GNU ELF format
 ///
-class ARMGNULDBackend : public GNULDBackend
-{
-public:
+class ARMGNULDBackend : public GNULDBackend {
+ public:
   // max branch offsets for ARM, THUMB, and THUMB2
-  // @ref gold/arm.cc:99
   static const int32_t ARM_MAX_FWD_BRANCH_OFFSET = ((((1 << 23) - 1) << 2) + 8);
   static const int32_t ARM_MAX_BWD_BRANCH_OFFSET = ((-((1 << 23) << 2)) + 8);
-  static const int32_t THM_MAX_FWD_BRANCH_OFFSET = ((1 << 22) -2 + 4);
+  static const int32_t THM_MAX_FWD_BRANCH_OFFSET = ((1 << 22) - 2 + 4);
   static const int32_t THM_MAX_BWD_BRANCH_OFFSET = (-(1 << 22) + 4);
   static const int32_t THM2_MAX_FWD_BRANCH_OFFSET = (((1 << 24) - 2) + 4);
   static const int32_t THM2_MAX_BWD_BRANCH_OFFSET = (-(1 << 24) + 4);
 
-public:
+ public:
   ARMGNULDBackend(const LinkerConfig& pConfig, GNUInfo* pInfo);
   ~ARMGNULDBackend();
 
-public:
+ public:
   typedef std::vector<llvm::ELF::Elf32_Dyn*> ELF32DynList;
 
-public:
+ public:
   /// initTargetSections - initialize target dependent sections in output.
   void initTargetSections(Module& pModule, ObjectBuilder& pBuilder);
 
@@ -71,7 +70,6 @@ public:
   /// dynamic - the dynamic section of the target machine.
   /// Use co-variant return type to return its own dynamic section.
   const ARMELFDynamic& dynamic() const;
-
 
   /// emitSectionData - write out the section data into the memory region.
   /// When writers get a LDSection whose kind is LDFileFormat::Target, writers
@@ -106,7 +104,7 @@ public:
   ARMELFAttributeData& getAttributeData();
   const ARMELFAttributeData& getAttributeData() const;
 
-  LDSymbol* getGOTSymbol()             { return m_pGOTSymbol; }
+  LDSymbol* getGOTSymbol() { return m_pGOTSymbol; }
   const LDSymbol* getGOTSymbol() const { return m_pGOTSymbol; }
 
   /// getTargetSectionOrder - compute the layout order of ARM target sections
@@ -115,13 +113,20 @@ public:
   /// finalizeTargetSymbols - finalize the symbol value
   bool finalizeTargetSymbols();
 
+  /// preMergeSections - hooks to be executed before merging sections
+  virtual void preMergeSections(Module& pModule);
+
+  /// postMergeSections - hooks to be executed after merging sections
+  virtual void postMergeSections(Module& pModule);
+
   /// mergeSection - merge target dependent sections
   bool mergeSection(Module& pModule, const Input& pInput, LDSection& pSection);
 
   /// setUpReachedSectionsForGC - set the reference from section XXX to
   /// .ARM.exidx.XXX to make sure GC correctly handle section exidx
-  void setUpReachedSectionsForGC(const Module& pModule,
-           GarbageCollection::SectionReachedListMap& pSectReachedListMap) const;
+  void setUpReachedSectionsForGC(
+      const Module& pModule,
+      GarbageCollection::SectionReachedListMap& pSectReachedListMap) const;
 
   /// readSection - read target dependent sections
   bool readSection(Input& pInput, SectionData& pSD);
@@ -130,7 +135,7 @@ public:
   /// function pointer access
   bool mayHaveUnsafeFunctionPointerAccess(const LDSection& pSection) const;
 
-private:
+ private:
   void defineGOTSymbol(IRBuilder& pBuilder);
 
   /// maxFwdBranchOffset
@@ -140,6 +145,9 @@ private:
 
   /// mayRelax - Backends should override this function if they need relaxation
   bool mayRelax() { return true; }
+
+  /// relax - the relaxation pass
+  virtual bool relax(Module& pModule, IRBuilder& pBuilder);
 
   /// doRelax - Backend can orevride this function to add its relaxation
   /// implementation. Return true if the output (e.g., .text) is "relaxed"
@@ -151,18 +159,30 @@ private:
   bool initTargetStubs();
 
   /// getRelEntrySize - the size in BYTE of rel type relocation
-  size_t getRelEntrySize()
-  { return 8; }
+  size_t getRelEntrySize() { return 8; }
 
   /// getRelEntrySize - the size in BYTE of rela type relocation
-  size_t getRelaEntrySize()
-  { assert(0 && "ARM backend with Rela type relocation\n"); return 12; }
+  size_t getRelaEntrySize() {
+    assert(0 && "ARM backend with Rela type relocation\n");
+    return 12;
+  }
 
   /// doCreateProgramHdrs - backend can implement this function to create the
   /// target-dependent segments
   virtual void doCreateProgramHdrs(Module& pModule);
 
-private:
+  /// scanInputExceptionSections - scan exception-related input sections in
+  /// the Module, build the ARMExData, and reclaim GC'ed sections
+  void scanInputExceptionSections(Module& pModule);
+
+  /// scanInputExceptionSections - scan exception-related input sections in
+  /// the Input, build the ARMInputExMap, and reclaim GC'ed sections
+  void scanInputExceptionSections(Module& pModule, Input& pInput);
+
+  /// rewriteExceptionSection - rewrite the output .ARM.exidx section.
+  void rewriteARMExIdxSection(Module& pModule);
+
+ private:
   Relocator* m_pRelocator;
 
   ARMGOT* m_pGOT;
@@ -181,14 +201,16 @@ private:
   LDSymbol* m_pEXIDXEnd;
 
   //     variable name           :  ELF
-  LDSection* m_pEXIDX;           // .ARM.exidx
-  LDSection* m_pEXTAB;           // .ARM.extab
-  LDSection* m_pAttributes;      // .ARM.attributes
-//  LDSection* m_pPreemptMap;      // .ARM.preemptmap
-//  LDSection* m_pDebugOverlay;    // .ARM.debug_overlay
-//  LDSection* m_pOverlayTable;    // .ARM.overlay_table
+  LDSection* m_pEXIDX;       // .ARM.exidx
+  LDSection* m_pEXTAB;       // .ARM.extab
+  LDSection* m_pAttributes;  // .ARM.attributes
+  //  LDSection* m_pPreemptMap;      // .ARM.preemptmap
+  //  LDSection* m_pDebugOverlay;    // .ARM.debug_overlay
+  //  LDSection* m_pOverlayTable;    // .ARM.overlay_table
+
+  // m_ExData - exception handling section data structures
+  ARMExData m_ExData;
 };
-} // namespace of mcld
+}  // namespace mcld
 
-#endif
-
+#endif  // TARGET_ARM_ARMLDBACKEND_H_

@@ -34,10 +34,12 @@ import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.AsyncResult;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IPowerManager;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -47,6 +49,7 @@ import android.os.UpdateLock;
 import android.os.UserHandle;
 import android.preference.PreferenceManager;
 import android.provider.Settings.System;
+import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
@@ -64,7 +67,9 @@ import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.phone.common.CallLogAsync;
+import com.android.phone.settings.SettingsConstants;
 import com.android.server.sip.SipService;
+import com.android.services.telephony.activation.SimActivationManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -143,7 +148,9 @@ public class PhoneGlobals extends ContextWrapper {
     CallNotifier notifier;
     CallerInfoCache callerInfoCache;
     NotificationMgr notificationMgr;
-    PhoneInterfaceManager phoneMgr;
+    public PhoneInterfaceManager phoneMgr;
+    public SimActivationManager simActivationManager;
+    CarrierConfigLoader configLoader;
 
     private BluetoothManager bluetoothManager;
     private CallGatewayManager callGatewayManager;
@@ -152,7 +159,7 @@ public class PhoneGlobals extends ContextWrapper {
     static int mDockState = Intent.EXTRA_DOCK_STATE_UNDOCKED;
     static boolean sVoiceCapable = true;
 
-    // Internal PhoneApp Call state tracker
+    // TODO: Remove, no longer used.
     CdmaPhoneCallState cdmaPhoneCallState;
 
     // The currently-active PUK entry activity and progress dialog.
@@ -233,7 +240,8 @@ public class PhoneGlobals extends ContextWrapper {
                 // TODO: This event should be handled by the lock screen, just
                 // like the "SIM missing" and "Sim locked" cases (bug 1804111).
                 case EVENT_SIM_NETWORK_LOCKED:
-                    if (getResources().getBoolean(R.bool.ignore_sim_network_locked_events)) {
+                    if (getCarrierConfig().getBoolean(
+                            CarrierConfigManager.KEY_IGNORE_SIM_NETWORK_LOCKED_EVENTS_BOOL)) {
                         // Some products don't have the concept of a "SIM network lock"
                         Log.i(LOG_TAG, "Ignoring EVENT_SIM_NETWORK_LOCKED event; "
                               + "not showing 'SIM network unlock' PIN entry screen");
@@ -336,12 +344,8 @@ public class PhoneGlobals extends ContextWrapper {
             startService(intent);
 
             mCM = CallManager.getInstance();
-            boolean hasCdmaPhoneType = false;
             for (Phone phone : PhoneFactory.getPhones()) {
                 mCM.registerPhone(phone);
-                if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
-                    hasCdmaPhoneType = true;
-                }
             }
 
             // Create the NotificationMgr singleton, which is used to display
@@ -350,11 +354,9 @@ public class PhoneGlobals extends ContextWrapper {
 
             mHandler.sendEmptyMessage(EVENT_START_SIP_SERVICE);
 
-            if (hasCdmaPhoneType) {
-                // Create an instance of CdmaPhoneCallState and initialize it to IDLE
-                cdmaPhoneCallState = new CdmaPhoneCallState();
-                cdmaPhoneCallState.CdmaPhoneCallStateInit();
-            }
+            // Create an instance of CdmaPhoneCallState and initialize it to IDLE
+            cdmaPhoneCallState = new CdmaPhoneCallState();
+            cdmaPhoneCallState.CdmaPhoneCallStateInit();
 
             // before registering for phone state changes
             mPowerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -399,6 +401,8 @@ public class PhoneGlobals extends ContextWrapper {
 
             phoneMgr = PhoneInterfaceManager.init(this, PhoneFactory.getDefaultPhone());
 
+            configLoader = CarrierConfigLoader.init(this);
+
             // Create the CallNotifer singleton, which handles
             // asynchronous events from the telephony layer (like
             // launching the incoming-call UI when an incoming call comes
@@ -440,6 +444,8 @@ public class PhoneGlobals extends ContextWrapper {
         cdmaOtaScreenState = new OtaUtils.CdmaOtaScreenState();
         cdmaOtaInCallScreenUiState = new OtaUtils.CdmaOtaInCallScreenUiState();
 
+        simActivationManager = new SimActivationManager();
+
         // XXX pre-load the SimProvider so that it's ready
         resolver.getType(Uri.parse("content://icc/adn"));
 
@@ -456,9 +462,9 @@ public class PhoneGlobals extends ContextWrapper {
                     android.provider.Settings.System.HEARING_AID,
                     0);
             AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-            audioManager.setParameter(CallFeaturesSetting.HAC_KEY, hac != 0 ?
-                                      CallFeaturesSetting.HAC_VAL_ON :
-                                      CallFeaturesSetting.HAC_VAL_OFF);
+            audioManager.setParameter(SettingsConstants.HAC_KEY,
+                    hac == SettingsConstants.HAC_ENABLED
+                            ? SettingsConstants.HAC_VAL_ON : SettingsConstants.HAC_VAL_OFF);
         }
     }
 
@@ -499,6 +505,14 @@ public class PhoneGlobals extends ContextWrapper {
 
     /* package */ CallManager getCallManager() {
         return mCM;
+    }
+
+    public PersistableBundle getCarrierConfig() {
+        return getCarrierConfigForSubId(SubscriptionManager.getDefaultSubId());
+    }
+
+    public PersistableBundle getCarrierConfigForSubId(int subId) {
+        return configLoader.getConfigForSubId(subId);
     }
 
     /**
@@ -651,7 +665,7 @@ public class PhoneGlobals extends ContextWrapper {
         synchronized (this) {
             if (mWakeState == WakeState.SLEEP) {
                 if (DBG) Log.d(LOG_TAG, "pulse screen lock");
-                mPowerManager.wakeUp(SystemClock.uptimeMillis());
+                mPowerManager.wakeUp(SystemClock.uptimeMillis(), "android.phone:WAKE");
             }
         }
     }
@@ -761,14 +775,8 @@ public class PhoneGlobals extends ContextWrapper {
         if (DBG) Log.d(LOG_TAG, "initForNewRadioTechnology...");
 
         final Phone phone = PhoneFactory.getPhone(phoneId);
-
-        if (phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
-            // Create an instance of CdmaPhoneCallState and initialize it to IDLE
-            cdmaPhoneCallState = new CdmaPhoneCallState();
-            cdmaPhoneCallState.CdmaPhoneCallStateInit();
-        }
-        if (!TelephonyCapabilities.supportsOtasp(phone)) {
-            //Clean up OTA data in GSM/UMTS. It is valid only for CDMA
+        if (phone == null || !TelephonyCapabilities.supportsOtasp(phone)) {
+            // Clean up OTA for non-CDMA since it is only valid for CDMA.
             clearOtaState();
         }
 
@@ -776,7 +784,7 @@ public class PhoneGlobals extends ContextWrapper {
         callStateMonitor.updateAfterRadioTechnologyChange();
 
         // Update registration for ICC status after radio technology change
-        IccCard sim = phone.getIccCard();
+        IccCard sim = phone == null ? null : phone.getIccCard();
         if (sim != null) {
             if (DBG) Log.d(LOG_TAG, "Update registration for ICC status...");
 
@@ -811,6 +819,7 @@ public class PhoneGlobals extends ContextWrapper {
                 }
                 Phone phone = SubscriptionManager.isValidPhoneId(phoneId) ?
                         PhoneFactory.getPhone(phoneId) : PhoneFactory.getDefaultPhone();
+
                 // The "data disconnected due to roaming" notification is shown
                 // if (a) you have the "data roaming" feature turned off, and
                 // (b) you just lost data connectivity because you're roaming.
@@ -897,11 +906,13 @@ public class PhoneGlobals extends ContextWrapper {
          */
 
         // If service just returned, start sending out the queued messages
-        ServiceState ss = ServiceState.newFromBundle(intent.getExtras());
-
-        if (ss != null) {
-            int state = ss.getState();
-            notificationMgr.updateNetworkSelection(state);
+        Bundle extras = intent.getExtras();
+        if (extras != null) {
+            ServiceState ss = ServiceState.newFromBundle(extras);
+            if (ss != null) {
+                int state = ss.getState();
+                notificationMgr.updateNetworkSelection(state);
+            }
         }
     }
 
@@ -942,6 +953,15 @@ public class PhoneGlobals extends ContextWrapper {
      */
     public void refreshMwiIndicator(int subId) {
         notificationMgr.refreshMwi(subId);
+    }
+
+    /**
+     * Dismisses the message waiting (voicemail) indicator.
+     *
+     * @param subId the subscription id we should dismiss the notification for.
+     */
+    public void clearMwiIndicator(int subId) {
+        notificationMgr.updateMwi(subId, false);
     }
 
     /**

@@ -170,7 +170,7 @@ public:
   };
 
 protected:
-  IntType SizeType, IntMaxType, UIntMaxType, PtrDiffType, IntPtrType, WCharType,
+  IntType SizeType, IntMaxType, PtrDiffType, IntPtrType, WCharType,
           WIntType, Char16Type, Char32Type, Int64Type, SigAtomicType,
           ProcessIDType;
 
@@ -206,21 +206,43 @@ protected:
 public:
   IntType getSizeType() const { return SizeType; }
   IntType getIntMaxType() const { return IntMaxType; }
-  IntType getUIntMaxType() const { return UIntMaxType; }
+  IntType getUIntMaxType() const {
+    return getCorrespondingUnsignedType(IntMaxType);
+  }
   IntType getPtrDiffType(unsigned AddrSpace) const {
     return AddrSpace == 0 ? PtrDiffType : getPtrDiffTypeV(AddrSpace);
   }
   IntType getIntPtrType() const { return IntPtrType; }
   IntType getUIntPtrType() const {
-    return getIntTypeByWidth(getTypeWidth(IntPtrType), false);
+    return getCorrespondingUnsignedType(IntPtrType);
   }
   IntType getWCharType() const { return WCharType; }
   IntType getWIntType() const { return WIntType; }
   IntType getChar16Type() const { return Char16Type; }
   IntType getChar32Type() const { return Char32Type; }
   IntType getInt64Type() const { return Int64Type; }
+  IntType getUInt64Type() const {
+    return getCorrespondingUnsignedType(Int64Type);
+  }
   IntType getSigAtomicType() const { return SigAtomicType; }
   IntType getProcessIDType() const { return ProcessIDType; }
+
+  static IntType getCorrespondingUnsignedType(IntType T) {
+    switch (T) {
+    case SignedChar:
+      return UnsignedChar;
+    case SignedShort:
+      return UnsignedShort;
+    case SignedInt:
+      return UnsignedInt;
+    case SignedLong:
+      return UnsignedLong;
+    case SignedLongLong:
+      return UnsignedLongLong;
+    default:
+      llvm_unreachable("Unexpected signed integer type");
+    }
+  }
 
   /// \brief Return the width (in bits) of the specified integer type enum.
   ///
@@ -348,6 +370,15 @@ public:
   /// \brief Return the maximum width lock-free atomic operation which can be
   /// inlined given the supported features of the given target.
   unsigned getMaxAtomicInlineWidth() const { return MaxAtomicInlineWidth; }
+  /// \brief Returns true if the given target supports lock-free atomic
+  /// operations at the specified width and alignment.
+  virtual bool hasBuiltinAtomic(uint64_t AtomicSizeInBits,
+                                uint64_t AlignmentInBits) const {
+    return AtomicSizeInBits <= AlignmentInBits &&
+           AtomicSizeInBits <= getMaxAtomicInlineWidth() &&
+           (AtomicSizeInBits <= getCharWidth() ||
+            llvm::isPowerOf2_64(AtomicSizeInBits / getCharWidth()));
+  }
 
   /// \brief Return the maximum vector alignment supported for the given target.
   unsigned getMaxVectorAlign() const { return MaxVectorAlign; }
@@ -424,7 +455,13 @@ public:
   /// \brief Return the constant suffix for the specified integer type enum.
   ///
   /// For example, SignedLong -> "L".
-  static const char *getTypeConstantSuffix(IntType T);
+  const char *getTypeConstantSuffix(IntType T) const;
+
+  /// \brief Return the printf format modifier for the specified
+  /// integer type enum.
+  ///
+  /// For example, SignedLong -> "l".
+  static const char *getTypeFormatModifier(IntType T);
 
   /// \brief Check whether the given real type should use the "fpret" flavor of
   /// Objective-C message passing on this target.
@@ -491,22 +528,31 @@ public:
       CI_None = 0x00,
       CI_AllowsMemory = 0x01,
       CI_AllowsRegister = 0x02,
-      CI_ReadWrite = 0x04,       // "+r" output constraint (read and write).
-      CI_HasMatchingInput = 0x08 // This output operand has a matching input.
+      CI_ReadWrite = 0x04,         // "+r" output constraint (read and write).
+      CI_HasMatchingInput = 0x08,  // This output operand has a matching input.
+      CI_ImmediateConstant = 0x10, // This operand must be an immediate constant
+      CI_EarlyClobber = 0x20,      // "&" output constraint (early clobber).
     };
     unsigned Flags;
     int TiedOperand;
+    struct {
+      int Min;
+      int Max;
+    } ImmRange;
 
     std::string ConstraintStr;  // constraint: "=rm"
     std::string Name;           // Operand name: [foo] with no []'s.
   public:
     ConstraintInfo(StringRef ConstraintStr, StringRef Name)
-      : Flags(0), TiedOperand(-1), ConstraintStr(ConstraintStr.str()),
-      Name(Name.str()) {}
+        : Flags(0), TiedOperand(-1), ConstraintStr(ConstraintStr.str()),
+          Name(Name.str()) {
+      ImmRange.Min = ImmRange.Max = 0;
+    }
 
     const std::string &getConstraintStr() const { return ConstraintStr; }
     const std::string &getName() const { return Name; }
     bool isReadWrite() const { return (Flags & CI_ReadWrite) != 0; }
+    bool earlyClobber() { return (Flags & CI_EarlyClobber) != 0; }
     bool allowsRegister() const { return (Flags & CI_AllowsRegister) != 0; }
     bool allowsMemory() const { return (Flags & CI_AllowsMemory) != 0; }
 
@@ -525,10 +571,22 @@ public:
       return (unsigned)TiedOperand;
     }
 
+    bool requiresImmediateConstant() const {
+      return (Flags & CI_ImmediateConstant) != 0;
+    }
+    int getImmConstantMin() const { return ImmRange.Min; }
+    int getImmConstantMax() const { return ImmRange.Max; }
+
     void setIsReadWrite() { Flags |= CI_ReadWrite; }
+    void setEarlyClobber() { Flags |= CI_EarlyClobber; }
     void setAllowsMemory() { Flags |= CI_AllowsMemory; }
     void setAllowsRegister() { Flags |= CI_AllowsRegister; }
     void setHasMatchingInput() { Flags |= CI_HasMatchingInput; }
+    void setRequiresImmediate(int Min, int Max) {
+      Flags |= CI_ImmediateConstant;
+      ImmRange.Min = Min;
+      ImmRange.Max = Max;
+    }
 
     /// \brief Indicate that this is an input operand that is tied to
     /// the specified output operand. 
@@ -549,13 +607,21 @@ public:
   bool validateInputConstraint(ConstraintInfo *OutputConstraints,
                                unsigned NumOutputs,
                                ConstraintInfo &info) const;
+
+  virtual bool validateOutputSize(StringRef /*Constraint*/,
+                                  unsigned /*Size*/) const {
+    return true;
+  }
+
   virtual bool validateInputSize(StringRef /*Constraint*/,
                                  unsigned /*Size*/) const {
     return true;
   }
-  virtual bool validateConstraintModifier(StringRef /*Constraint*/,
-                                          const char /*Modifier*/,
-                                          unsigned /*Size*/) const {
+  virtual bool
+  validateConstraintModifier(StringRef /*Constraint*/,
+                             char /*Modifier*/,
+                             unsigned /*Size*/,
+                             std::string &/*SuggestedModifier*/) const {
     return true;
   }
   bool resolveSymbolicName(const char *&Name,
@@ -570,6 +636,12 @@ public:
     if (*Constraint == 'p')
       return std::string("r");
     return std::string(1, *Constraint);
+  }
+
+  /// \brief Returns true if NaN encoding is IEEE 754-2008.
+  /// Only MIPS allows a different encoding.
+  virtual bool isNan2008() const {
+    return true;
   }
 
   /// \brief Returns a string of target-specific clobbers, in LLVM format.
@@ -770,7 +842,8 @@ public:
 
   enum CallingConvCheckResult {
     CCCR_OK,
-    CCCR_Warning
+    CCCR_Warning,
+    CCCR_Ignore,
   };
 
   /// \brief Determines whether a given calling convention is valid for the
@@ -784,6 +857,12 @@ public:
       case CC_C:
         return CCCR_OK;
     }
+  }
+
+  /// Controls if __builtin_longjmp / __builtin_setjmp can be lowered to
+  /// llvm.eh.sjlj.longjmp / llvm.eh.sjlj.setjmp.
+  virtual bool hasSjLjLowering() const {
+    return false;
   }
 
 protected:

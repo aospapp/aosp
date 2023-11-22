@@ -53,4 +53,28 @@
     <item msgid="375085478373011304">"VPN და აპები"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi პროფილი"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"%s-ის დეტალები"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"დეტალები"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"ინსტალაცია"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"ინსტალაცია..."</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"გაუქმება"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"დახურვა"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"არცერთი"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"სახელი: %1$s\nFQDN: %2$s\nროუმინგის კონსორციუმები: %3$s\nRealm: %4$s\nაუთენტ. მეთოდი: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"მომხმარებლის სახელი: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"კლიენტის სერტიფიკატი:\n%1$s\nგასაღები: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
+    <!-- String.format failed for translation -->
+    <!-- no translation found for wifi_trust_config_text (5916047381475747783) -->
+    <skip />
+    <string name="install_done_title" msgid="4822989918460334497">"ავტორიზაციის მონაცემები დაყენებულია"</string>
+    <string name="install_done" msgid="1522718684172097080">"<xliff:g id="NAME">%1$s</xliff:g> ავტორიზაციის მონაცემები დაემატა შენახულ Wi-Fi ქსელებს."</string>
+    <string name="done_label" msgid="5597425930652904250">"შესრულდა"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"დააინსტალიერეთ Wi-Fi ავტორიზაციის მონაცემები <xliff:g id="NAME">%1$s</xliff:g>-ის საშუალებით ხელმისაწვდომ ქსელებთან დასაკავშირებლად."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"გადმოწერილ ფაილს პრობლემები აქვს და ვერ დაინსტალირდება. დარწმუნდით, რომ ფაილი სწორი წყაროდან გადმოწერეთ."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Wi-Fi ავტორიზაციის მონაცემები ვერ დაყენდება. ფაილის გადმოწერა ხელახლა სცადეთ."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"ინსტალაცია გაუქმდა"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"ინსტალაცია ვერ ხერხდება"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"ჩართეთ Wi-Fi და ხელახლა სცადეთ."</string>
 </resources>

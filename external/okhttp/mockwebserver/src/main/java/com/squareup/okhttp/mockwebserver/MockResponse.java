@@ -15,49 +15,44 @@
  */
 package com.squareup.okhttp.mockwebserver;
 
-import com.squareup.okhttp.internal.Util;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import com.squareup.okhttp.Headers;
+import com.squareup.okhttp.ws.WebSocketListener;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import okio.Buffer;
 
 /** A scripted response to be replayed by the mock web server. */
 public final class MockResponse implements Cloneable {
   private static final String CHUNKED_BODY_HEADER = "Transfer-encoding: chunked";
 
   private String status = "HTTP/1.1 200 OK";
-  private List<String> headers = new ArrayList<String>();
+  private Headers.Builder headers = new Headers.Builder();
 
-  /** The response body content, or null if {@code bodyStream} is set. */
-  private byte[] body;
-  /** The response body content, or null if {@code body} is set. */
-  private InputStream bodyStream;
+  private Buffer body;
 
-  private int throttleBytesPerPeriod = Integer.MAX_VALUE;
-  private long throttlePeriod = 1;
-  private TimeUnit throttleUnit = TimeUnit.SECONDS;
+  private long throttleBytesPerPeriod = Long.MAX_VALUE;
+  private long throttlePeriodAmount = 1;
+  private TimeUnit throttlePeriodUnit = TimeUnit.SECONDS;
 
   private SocketPolicy socketPolicy = SocketPolicy.KEEP_OPEN;
 
-  private int bodyDelayTimeMs = 0;
+  private long bodyDelayAmount = 0;
+  private TimeUnit bodyDelayUnit = TimeUnit.MILLISECONDS;
 
-  private List<PushPromise> promises = new ArrayList<PushPromise>();
+  private List<PushPromise> promises = new ArrayList<>();
+  private WebSocketListener webSocketListener;
 
   /** Creates a new mock response with an empty body. */
   public MockResponse() {
-    setBody(new byte[0]);
+    setHeader("Content-Length", 0);
   }
 
   @Override public MockResponse clone() {
     try {
       MockResponse result = (MockResponse) super.clone();
-      result.headers = new ArrayList<String>(headers);
-      result.promises = new ArrayList<PushPromise>(promises);
+      result.headers = headers.build().newBuilder();
+      result.promises = new ArrayList<>(promises);
       return result;
     } catch (CloneNotSupportedException e) {
       throw new AssertionError();
@@ -70,8 +65,7 @@ public final class MockResponse implements Cloneable {
   }
 
   public MockResponse setResponseCode(int code) {
-    this.status = "HTTP/1.1 " + code + " OK";
-    return this;
+    return setStatus("HTTP/1.1 " + code + " OK");
   }
 
   public MockResponse setStatus(String status) {
@@ -80,8 +74,8 @@ public final class MockResponse implements Cloneable {
   }
 
   /** Returns the HTTP headers, such as "Content-Length: 0". */
-  public List<String> getHeaders() {
-    return headers;
+  public Headers getHeaders() {
+    return headers.build();
   }
 
   /**
@@ -89,7 +83,7 @@ public final class MockResponse implements Cloneable {
    * "Transfer-encoding" headers that were added by default.
    */
   public MockResponse clearHeaders() {
-    headers.clear();
+    headers = new Headers.Builder();
     return this;
   }
 
@@ -107,7 +101,8 @@ public final class MockResponse implements Cloneable {
    * headers with the same name.
    */
   public MockResponse addHeader(String name, Object value) {
-    return addHeader(name + ": " + String.valueOf(value));
+    headers.add(name, String.valueOf(value));
+    return this;
   }
 
   /**
@@ -119,77 +114,54 @@ public final class MockResponse implements Cloneable {
     return addHeader(name, value);
   }
 
+  /** Replaces all headers with those specified in {@code headers}. */
+  public MockResponse setHeaders(Headers headers) {
+    this.headers = headers.newBuilder();
+    return this;
+  }
+
   /** Removes all headers named {@code name}. */
   public MockResponse removeHeader(String name) {
-    name += ":";
-    for (Iterator<String> i = headers.iterator(); i.hasNext(); ) {
-      String header = i.next();
-      if (name.regionMatches(true, 0, header, 0, name.length())) {
-        i.remove();
-      }
-    }
+    headers.removeAll(name);
     return this;
   }
 
-  /** Returns the raw HTTP payload, or null if this response is streamed. */
-  public byte[] getBody() {
-    return body;
+  /** Returns a copy of the raw HTTP payload. */
+  public Buffer getBody() {
+    return body != null ? body.clone() : null;
   }
 
-  /** Returns an input stream containing the raw HTTP payload. */
-  InputStream getBodyStream() {
-    return bodyStream != null ? bodyStream : new ByteArrayInputStream(body);
-  }
-
-  public MockResponse setBody(byte[] body) {
-    setHeader("Content-Length", body.length);
-    this.body = body;
-    this.bodyStream = null;
-    return this;
-  }
-
-  public MockResponse setBody(InputStream bodyStream, long bodyLength) {
-    setHeader("Content-Length", bodyLength);
-    this.body = null;
-    this.bodyStream = bodyStream;
+  public MockResponse setBody(Buffer body) {
+    setHeader("Content-Length", body.size());
+    this.body = body.clone(); // Defensive copy.
     return this;
   }
 
   /** Sets the response body to the UTF-8 encoded bytes of {@code body}. */
   public MockResponse setBody(String body) {
-    try {
-      return setBody(body.getBytes("UTF-8"));
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
+    return setBody(new Buffer().writeUtf8(body));
   }
 
   /**
    * Sets the response body to {@code body}, chunked every {@code maxChunkSize}
    * bytes.
    */
-  public MockResponse setChunkedBody(byte[] body, int maxChunkSize) {
+  public MockResponse setChunkedBody(Buffer body, int maxChunkSize) {
     removeHeader("Content-Length");
     headers.add(CHUNKED_BODY_HEADER);
 
-    try {
-      ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-      int pos = 0;
-      while (pos < body.length) {
-        int chunkSize = Math.min(body.length - pos, maxChunkSize);
-        bytesOut.write(Integer.toHexString(chunkSize).getBytes(Util.US_ASCII));
-        bytesOut.write("\r\n".getBytes(Util.US_ASCII));
-        bytesOut.write(body, pos, chunkSize);
-        bytesOut.write("\r\n".getBytes(Util.US_ASCII));
-        pos += chunkSize;
-      }
-      bytesOut.write("0\r\n\r\n".getBytes(Util.US_ASCII)); // Last chunk + empty trailer + crlf.
-
-      this.body = bytesOut.toByteArray();
-      return this;
-    } catch (IOException e) {
-      throw new AssertionError(); // In-memory I/O doesn't throw IOExceptions.
+    Buffer bytesOut = new Buffer();
+    while (!body.exhausted()) {
+      long chunkSize = Math.min(body.size(), maxChunkSize);
+      bytesOut.writeHexadecimalUnsignedLong(chunkSize);
+      bytesOut.writeUtf8("\r\n");
+      bytesOut.write(body, chunkSize);
+      bytesOut.writeUtf8("\r\n");
     }
+    bytesOut.writeUtf8("0\r\n\r\n"); // Last chunk + empty trailer + CRLF.
+
+    this.body = bytesOut;
+    return this;
   }
 
   /**
@@ -197,11 +169,7 @@ public final class MockResponse implements Cloneable {
    * every {@code maxChunkSize} bytes.
    */
   public MockResponse setChunkedBody(String body, int maxChunkSize) {
-    try {
-      return setChunkedBody(body.getBytes("UTF-8"), maxChunkSize);
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError();
-    }
+    return setChunkedBody(new Buffer().writeUtf8(body), maxChunkSize);
   }
 
   public SocketPolicy getSocketPolicy() {
@@ -218,41 +186,39 @@ public final class MockResponse implements Cloneable {
    * series of {@code bytesPerPeriod} bytes are written. Use this to simulate
    * network behavior.
    */
-  public MockResponse throttleBody(int bytesPerPeriod, long period, TimeUnit unit) {
+  public MockResponse throttleBody(long bytesPerPeriod, long period, TimeUnit unit) {
     this.throttleBytesPerPeriod = bytesPerPeriod;
-    this.throttlePeriod = period;
-    this.throttleUnit = unit;
+    this.throttlePeriodAmount = period;
+    this.throttlePeriodUnit = unit;
     return this;
   }
 
-  public int getThrottleBytesPerPeriod() {
+  public long getThrottleBytesPerPeriod() {
     return throttleBytesPerPeriod;
   }
 
-  public long getThrottlePeriod() {
-    return throttlePeriod;
-  }
-
-  public TimeUnit getThrottleUnit() {
-    return throttleUnit;
+  public long getThrottlePeriod(TimeUnit unit) {
+    return unit.convert(throttlePeriodAmount, throttlePeriodUnit);
   }
 
   /**
    * Set the delayed time of the response body to {@code delay}. This applies to the
    * response body only; response headers are not affected.
    */
-  public MockResponse setBodyDelayTimeMs(int delay) {
-    bodyDelayTimeMs = delay;
+  public MockResponse setBodyDelay(long delay, TimeUnit unit) {
+    bodyDelayAmount = delay;
+    bodyDelayUnit = unit;
     return this;
   }
 
-  public int getBodyDelayTimeMs() {
-    return bodyDelayTimeMs;
+  public long getBodyDelay(TimeUnit unit) {
+    return unit.convert(bodyDelayAmount, bodyDelayUnit);
   }
 
   /**
-   * When {@link MockWebServer#setNpnProtocols(java.util.List) protocols}
-   * include a SPDY variant, this attaches a pushed stream to this response.
+   * When {@link MockWebServer#setProtocols(java.util.List) protocols}
+   * include {@linkplain com.squareup.okhttp.Protocol#HTTP_2}, this attaches a
+   * pushed stream to this response.
    */
   public MockResponse withPush(PushPromise promise) {
     this.promises.add(promise);
@@ -262,6 +228,23 @@ public final class MockResponse implements Cloneable {
   /** Returns the streams the server will push with this response. */
   public List<PushPromise> getPushPromises() {
     return promises;
+  }
+
+  /**
+   * Attempts to perform a web socket upgrade on the connection. This will overwrite any previously
+   * set status or body.
+   */
+  public MockResponse withWebSocketUpgrade(WebSocketListener listener) {
+    setStatus("HTTP/1.1 101 Switching Protocols");
+    setHeader("Connection", "Upgrade");
+    setHeader("Upgrade", "websocket");
+    body = null;
+    webSocketListener = listener;
+    return this;
+  }
+
+  public WebSocketListener getWebSocketListener() {
+    return webSocketListener;
   }
 
   @Override public String toString() {

@@ -126,6 +126,7 @@ void registerOptions (de::cmdline::Parser& parser)
 	};
 	static const NamedValue<tcu::ScreenRotation> s_screenRotations[] =
 	{
+		{ "unspecified",	SCREENROTATION_UNSPECIFIED	},
 		{ "0",				SCREENROTATION_0			},
 		{ "90",				SCREENROTATION_90			},
 		{ "180",			SCREENROTATION_180			},
@@ -674,6 +675,16 @@ void CommandLine::clear (void)
 	m_caseTree = DE_NULL;
 }
 
+const de::cmdline::CommandLine& CommandLine::getCommandLine (void) const
+{
+	return m_cmdLine;
+}
+
+void CommandLine::registerExtendedOptions (de::cmdline::Parser& parser)
+{
+	DE_UNREF(parser);
+}
+
 /*--------------------------------------------------------------------*//*!
  * \brief Parse command line from standard argc, argv pair.
  * \note parse() must be called exactly once.
@@ -688,6 +699,7 @@ bool CommandLine::parse (int argc, const char* const* argv)
 
 	opt::registerOptions(parser);
 	opt::registerLegacyOptions(parser);
+	registerExtendedOptions(parser);
 
 	clear();
 

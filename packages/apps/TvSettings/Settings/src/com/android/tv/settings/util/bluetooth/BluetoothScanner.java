@@ -16,8 +16,6 @@
 
 package com.android.tv.settings.util.bluetooth;
 
-import java.util.ArrayList;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -26,6 +24,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.util.Log;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Listens for unconfigured or problematic devices to show up on
@@ -89,34 +90,6 @@ public class BluetoothScanner {
         public boolean hasConfigurationType() {
             return configurationType != 0;
         }
-
-        public boolean needsPlaceSetup() {
-            if (!hasConfigurationType() ||
-                    (configurationType & PairingUtils.TASK_SETUP_PLACE) ==
-                    PairingUtils.TASK_SETUP_PLACE) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        /**
-         * Note this is not 100% conclusive. There was a brief period when a device
-         * may require network setup, but not specify it. With these devices we can get
-         * more confidence if we check if the device appears in a list of devices
-         * belonging to a Place. If so we can assume this device requires only
-         * network setup.
-         * @return
-         */
-        public boolean needsNetworkSetup() {
-            if (hasConfigurationType() &&
-                    (configurationType & PairingUtils.TASK_SETUP_NETWORK) ==
-                    PairingUtils.TASK_SETUP_NETWORK) {
-                return true;
-            } else {
-                return false;
-            }
-        }
     }
 
     public static class Listener {
@@ -141,7 +114,7 @@ public class BluetoothScanner {
      * cached before this call returns.
      */
     public static void startListening(Context context, Listener listener,
-            BluetoothDeviceCriteria criteria) {
+            List<BluetoothDeviceCriteria> criteria) {
         if (sReceiver == null) {
             sReceiver = new Receiver(context.getApplicationContext());
         }
@@ -154,11 +127,12 @@ public class BluetoothScanner {
      * leaves the scan running for 20 seconds to keep the cache warm just
      * in case it's needed again.
      */
-    public static void stopListening(Listener listener) {
+    public static boolean stopListening(Listener listener) {
         Log.d(TAG, "stopListening sReceiver=" + sReceiver);
         if (sReceiver != null) {
-            sReceiver.stopListening(listener);
+            return sReceiver.stopListening(listener);
         }
+        return false;
     }
 
     /**
@@ -187,27 +161,27 @@ public class BluetoothScanner {
     }
 
     private static class ClientRecord {
-        public Listener listener;
-        public ArrayList<Device> devices;
-        public BluetoothDeviceCriteria matcher;
+        public final Listener listener;
+        public final ArrayList<Device> devices;
+        public final List<BluetoothDeviceCriteria> matchers;
 
-        public ClientRecord(Listener listener, BluetoothDeviceCriteria matcher) {
+        public ClientRecord(Listener listener, List<BluetoothDeviceCriteria> matchers) {
             this.listener = listener;
-            devices = new ArrayList<Device>();
-            this.matcher = matcher;
+            devices = new ArrayList<>();
+            this.matchers = matchers;
         }
     }
 
     private static class Receiver extends BroadcastReceiver {
         private final Handler mHandler = new Handler();
         // TODO mListenerLock should probably now protect mClients
-        private final ArrayList<ClientRecord> mClients = new ArrayList<ClientRecord>();
-        private final ArrayList<Device> mPresentDevices = new ArrayList<Device>();
-        private Context mContext;
-        private BluetoothAdapter mBtAdapter;
+        private final ArrayList<ClientRecord> mClients = new ArrayList<>();
+        private final ArrayList<Device> mPresentDevices = new ArrayList<>();
+        private final Context mContext;
+        private final BluetoothAdapter mBtAdapter;
         private static boolean mKeepScanning;
         private boolean mRegistered = false;
-        private Object mListenerLock = new Object();
+        private final Object mListenerLock = new Object();
 
         public Receiver(Context context) {
             mContext = context;
@@ -218,15 +192,15 @@ public class BluetoothScanner {
 
         /**
          * @param listener
-         * @param matcher Pattern matcher to determine whether this listener
+         * @param matchers Pattern matchers to determine whether this listener
          * will be notified about changes in status of a discovered device. Note
          * that the matcher is only run against the device when the device is
          * first discovered, not each time it appears in scan results. Device
          * properties are assumed to be stable.
          */
-        public void startListening(Listener listener, BluetoothDeviceCriteria matcher) {
+        public void startListening(Listener listener, List<BluetoothDeviceCriteria> matchers) {
             int size = 0;
-            ClientRecord newClient = new ClientRecord(listener, matcher);
+            ClientRecord newClient = new ClientRecord(listener, matchers);
             synchronized (mListenerLock) {
                 for (int ptr = mClients.size() - 1; ptr > -1; ptr--) {
                     if (mClients.get(ptr).listener == listener) {
@@ -256,9 +230,12 @@ public class BluetoothScanner {
             final int N = mPresentDevices.size();
             for (int i=0; i<N; i++) {
                 Device target = mPresentDevices.get(i);
-                if (newClient.matcher.isMatchingDevice(target.btDevice)) {
-                    newClient.devices.add(target);
-                    newClient.listener.onDeviceAdded(target);
+                for (BluetoothDeviceCriteria matcher : newClient.matchers) {
+                    if (matcher.isMatchingDevice(target.btDevice)) {
+                        newClient.devices.add(target);
+                        newClient.listener.onDeviceAdded(target);
+                        break;
+                    }
                 }
             }
 
@@ -272,13 +249,15 @@ public class BluetoothScanner {
             scanNow();
         }
 
-        public void stopListening(Listener listener) {
-            int size = 0;
+        public boolean stopListening(Listener listener) {
+            final int size;
+            boolean stopped = false;
             synchronized (mListenerLock) {
                 for (int ptr = mClients.size() - 1; ptr > -1; ptr--) {
                     ClientRecord client = mClients.get(ptr);
                     if (client.listener == listener) {
                         mClients.remove(ptr);
+                        stopped = true;
                         break;
                     }
                 }
@@ -288,6 +267,7 @@ public class BluetoothScanner {
                 mHandler.removeCallbacks(mStopTask);
                 mHandler.postDelayed(mStopTask, 20 * 1000 /* ms */);
             }
+            return stopped;
         }
 
         public void scanNow() {
@@ -303,7 +283,7 @@ public class BluetoothScanner {
         }
 
         public void stopNow() {
-            int size = 0;
+            final int size;
             synchronized (mListenerLock) {
                 size = mClients.size();
             }
@@ -426,11 +406,11 @@ public class BluetoothScanner {
                     device.consecutiveMisses = -1;
 
                     device.setNameString(name);
-                        // Save it
-                        mPresentDevices.add(device);
+                    // Save it
+                    mPresentDevices.add(device);
 
-                        // Tell the listeners
-                        sendDeviceAdded(device);
+                    // Tell the listeners
+                    sendDeviceAdded(device);
                 } else {
                     if (DEBUG) {
                         Log.d(TAG, "Device is an existing device.");
@@ -509,9 +489,12 @@ public class BluetoothScanner {
             synchronized (mListenerLock) {
                 for (int ptr = mClients.size() - 1; ptr > -1; ptr--) {
                     ClientRecord client = mClients.get(ptr);
-                    if (client.matcher.isMatchingDevice(device.btDevice)) {
-                        client.devices.add(device);
-                        client.listener.onDeviceAdded(device);
+                    for (BluetoothDeviceCriteria matcher : client.matchers) {
+                        if (matcher.isMatchingDevice(device.btDevice)) {
+                            client.devices.add(device);
+                            client.listener.onDeviceAdded(device);
+                            break;
+                        }
                     }
                 }
             }

@@ -25,9 +25,6 @@
 #ifndef UI_PIXELFORMAT_H
 #define UI_PIXELFORMAT_H
 
-#include <stdint.h>
-#include <sys/types.h>
-#include <utils/Errors.h>
 #include <hardware/hardware.h>
 
 namespace android {
@@ -63,14 +60,12 @@ enum {
     PIXEL_FORMAT_BGRA_8888   = HAL_PIXEL_FORMAT_BGRA_8888,   // 4x8-bit BGRA
     PIXEL_FORMAT_RGBA_5551   = 6,                            // 16-bit ARGB
     PIXEL_FORMAT_RGBA_4444   = 7,                            // 16-bit ARGB
-    PIXEL_FORMAT_sRGB_A_8888 = HAL_PIXEL_FORMAT_sRGB_A_8888, // 4x8-bit sRGB + A
-    PIXEL_FORMAT_sRGB_X_8888 = HAL_PIXEL_FORMAT_sRGB_X_8888, // 4x8-bit sRGB, no A
 };
 
 typedef int32_t PixelFormat;
 
-ssize_t bytesPerPixel(PixelFormat format);
-ssize_t bitsPerPixel(PixelFormat format);
+uint32_t bytesPerPixel(PixelFormat format);
+uint32_t bitsPerPixel(PixelFormat format);
 
 }; // namespace android
 

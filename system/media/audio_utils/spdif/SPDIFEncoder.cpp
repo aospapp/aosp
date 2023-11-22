@@ -1,26 +1,28 @@
 /*
-**
-** Copyright 2014, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-**
-**     http://www.apache.org/licenses/LICENSE-2.0
-**
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
-
+ * Copyright 2014, The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <stdint.h>
+#include <string.h>
 
 #define LOG_TAG "AudioSPDIF"
 #include <utils/Log.h>
 #include <audio_utils/spdif/SPDIFEncoder.h>
+
+#include "AC3FrameScanner.h"
+#include "DTSFrameScanner.h"
 
 namespace android {
 
@@ -31,9 +33,8 @@ const unsigned short SPDIFEncoder::kSPDIFSync2 = 0x4E1F; // Pb
 static int32_t sEndianDetector = 1;
 #define isLittleEndian()  (*((uint8_t *)&sEndianDetector))
 
-SPDIFEncoder::SPDIFEncoder()
-  : mState(STATE_IDLE)
-  , mSampleRate(48000)
+SPDIFEncoder::SPDIFEncoder(audio_format_t format)
+  : mSampleRate(48000)
   , mBurstBuffer(NULL)
   , mBurstBufferSizeBytes(0)
   , mRateMultiplier(1)
@@ -41,9 +42,22 @@ SPDIFEncoder::SPDIFEncoder()
   , mByteCursor(0)
   , mBitstreamNumber(0)
   , mPayloadBytesPending(0)
+  , mScanning(true)
 {
-    // TODO support other compressed audio formats
-    mFramer = new AC3FrameScanner();
+    switch(format) {
+        case AUDIO_FORMAT_AC3:
+        case AUDIO_FORMAT_E_AC3:
+            mFramer = new AC3FrameScanner();
+            break;
+        case AUDIO_FORMAT_DTS:
+        case AUDIO_FORMAT_DTS_HD:
+            mFramer = new DTSFrameScanner();
+            break;
+        default:
+            ALOGE("SPDIFEncoder: ERROR invalid audio format = 0x%08X", format);
+            mFramer = NULL;
+            break;
+    }
 
     mBurstBufferSizeBytes = sizeof(uint16_t)
             * SPDIF_ENCODED_CHANNEL_COUNT
@@ -55,9 +69,28 @@ SPDIFEncoder::SPDIFEncoder()
     clearBurstBuffer();
 }
 
+SPDIFEncoder::SPDIFEncoder()
+    : SPDIFEncoder(AUDIO_FORMAT_AC3)
+{
+}
+
 SPDIFEncoder::~SPDIFEncoder()
 {
     delete[] mBurstBuffer;
+    delete mFramer;
+}
+
+bool SPDIFEncoder::isFormatSupported(audio_format_t format)
+{
+    switch(format) {
+        case AUDIO_FORMAT_AC3:
+        case AUDIO_FORMAT_E_AC3:
+        case AUDIO_FORMAT_DTS:
+        case AUDIO_FORMAT_DTS_HD:
+            return true;
+        default:
+            return false;
+    }
 }
 
 int SPDIFEncoder::getBytesPerOutputFrame()
@@ -71,7 +104,7 @@ void SPDIFEncoder::writeBurstBufferShorts(const uint16_t *buffer, size_t numShor
     size_t bytesToWrite = numShorts * sizeof(uint16_t);
     if ((mByteCursor + bytesToWrite) > mBurstBufferSizeBytes) {
         ALOGE("SPDIFEncoder: Burst buffer overflow!\n");
-        clearBurstBuffer();
+        reset();
         return;
     }
     memcpy(&mBurstBuffer[mByteCursor >> 1], buffer, bytesToWrite);
@@ -127,19 +160,29 @@ void SPDIFEncoder::sendZeroPad()
     }
 }
 
+void SPDIFEncoder::reset()
+{
+    ALOGV("SPDIFEncoder: reset()");
+    clearBurstBuffer();
+    if (mFramer != NULL) {
+        mFramer->resetBurst();
+    }
+    mPayloadBytesPending = 0;
+    mScanning = true;
+}
+
 void SPDIFEncoder::flushBurstBuffer()
 {
     const int preambleSize = 4 * sizeof(uint16_t);
     if (mByteCursor > preambleSize) {
-        // Set number of bits for valid payload before zeroPad.
-        uint16_t lengthCode = (mByteCursor - preambleSize) * 8;
-        mBurstBuffer[3] = lengthCode;
+        // Set lengthCode for valid payload before zeroPad.
+        uint16_t numBytes = (mByteCursor - preambleSize);
+        mBurstBuffer[3] = mFramer->convertBytesToLengthCode(numBytes);
 
         sendZeroPad();
         writeOutput(mBurstBuffer, mByteCursor);
     }
-    clearBurstBuffer();
-    mFramer->resetBurst();
+    reset();
 }
 
 void SPDIFEncoder::clearBurstBuffer()
@@ -181,13 +224,11 @@ ssize_t SPDIFEncoder::write( const void *buffer, size_t numBytes )
 {
     size_t bytesLeft = numBytes;
     const uint8_t *data = (const uint8_t *)buffer;
-    ALOGV("SPDIFEncoder: state = %d, write(buffer[0] = 0x%02X, numBytes = %u)",
-        mState, (uint) *data, numBytes);
+    ALOGV("SPDIFEncoder: mScanning = %d, write(buffer[0] = 0x%02X, numBytes = %u)",
+        mScanning, (uint) *data, numBytes);
     while (bytesLeft > 0) {
-        State nextState = mState;
-        switch (mState) {
+        if (mScanning) {
         // Look for beginning of next encoded frame.
-        case STATE_IDLE:
             if (mFramer->scan(*data)) {
                 if (mByteCursor == 0) {
                     startDataBurst();
@@ -197,42 +238,31 @@ ssize_t SPDIFEncoder::write( const void *buffer, size_t numBytes )
                     startDataBurst();
                 }
                 mPayloadBytesPending = startSyncFrame();
-                nextState = STATE_BURST;
+                mScanning = false;
             }
             data++;
             bytesLeft--;
-            break;
-
-        // Write payload until we hit end of frame.
-        case STATE_BURST:
-            {
-                size_t bytesToWrite = bytesLeft;
-                // Only write as many as we need to finish the frame.
-                if (bytesToWrite > mPayloadBytesPending) {
-                    bytesToWrite = mPayloadBytesPending;
-                }
-                writeBurstBufferBytes(data, bytesToWrite);
-
-                data += bytesToWrite;
-                bytesLeft -= bytesToWrite;
-                mPayloadBytesPending -= bytesToWrite;
-
-                // If we have all the payload then send a data burst.
-                if (mPayloadBytesPending == 0) {
-                    if (mFramer->isLastInBurst()) {
-                        flushBurstBuffer();
-                    }
-                    nextState = STATE_IDLE;
-                }
+        } else {
+            // Write payload until we hit end of frame.
+            size_t bytesToWrite = bytesLeft;
+            // Only write as many as we need to finish the frame.
+            if (bytesToWrite > mPayloadBytesPending) {
+                bytesToWrite = mPayloadBytesPending;
             }
-            break;
+            writeBurstBufferBytes(data, bytesToWrite);
 
-        default:
-            ALOGE("SPDIFEncoder: illegal state = %d\n", mState);
-            nextState = STATE_IDLE;
-            break;
+            data += bytesToWrite;
+            bytesLeft -= bytesToWrite;
+            mPayloadBytesPending -= bytesToWrite;
+
+            // If we have all the payload then send a data burst.
+            if (mPayloadBytesPending == 0) {
+                if (mFramer->isLastInBurst()) {
+                    flushBurstBuffer();
+                }
+                mScanning = true;
+            }
         }
-        mState = nextState;
     }
     return numBytes;
 }

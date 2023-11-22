@@ -22,6 +22,7 @@ codegen_selectiondag_SRC_FILES := \
   SelectionDAGDumper.cpp \
   SelectionDAGISel.cpp \
   SelectionDAGPrinter.cpp \
+  StatepointLowering.cpp \
   TargetLowering.cpp \
   TargetSelectionDAGInfo.cpp
 

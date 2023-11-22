@@ -26,6 +26,7 @@
 #include "OverrideLog.h"
 #include "Mutex.h"
 #include <errno.h>
+#include <string.h>
 
 /*******************************************************************************
 **

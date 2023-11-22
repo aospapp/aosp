@@ -58,7 +58,7 @@
 
   #if defined(__arm__)
     #define DEFAULT_ARM_CODEGEN
-  #elif defined(__arch64__)
+  #elif defined(__aarch64__)
     #define DEFAULT_ARM64_CODEGEN
   #elif defined(__mips__)
     #if defined(__LP64__)

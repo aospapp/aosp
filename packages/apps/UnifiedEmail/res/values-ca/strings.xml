@@ -245,7 +245,7 @@
     <string name="hide_elided" msgid="5768235486834692733">"▼ Amaga el text citat"</string>
     <string name="message_invite_title" msgid="5985161025144867256">"Invitació del calendari"</string>
     <string name="message_invite_calendar_view" msgid="9181966650840809197">"Mostra-ho al calendari"</string>
-    <string name="message_invite_label_attending" msgid="4194264767870003397">"Hi aniràs?"</string>
+    <string name="message_invite_label_attending" msgid="4194264767870003397">"Hi assistireu?"</string>
     <string name="message_invite_accept" msgid="8002758842580134835">"Sí"</string>
     <string name="message_invite_tentative" msgid="3199418731566655887">"Potser"</string>
     <string name="message_invite_decline" msgid="6331040872447290777">"No"</string>
@@ -297,7 +297,7 @@
     <string name="shortcut_name_title" msgid="1562534040126088628">"Tecla de drecera per posar nom a la carpeta"</string>
     <string name="wait_for_sync_title" msgid="4577632826912823075">"S\'està esperant per sincronitzar"</string>
     <string name="not_synced_title" msgid="3600180500934086346">"El compte no s\'ha sincronitzat"</string>
-    <string name="wait_for_manual_sync_body" msgid="2823149409451003378">"Aquest compte no està configurat per sincronitzar automàticament.\nToca "<b>"Sincronitza ara"</b>" per sincronitzar el correu una vegada o bé "<b>"Canvia la configuració de sincronització"</b>" per configurar aquest compte per sincronitzar el correu de manera automàtica."</string>
+    <string name="wait_for_manual_sync_body" msgid="2823149409451003378">"Aquest compte no està configurat per sincronitzar-se automàticament.\nToqueu "<b>"Sincronitza ara"</b>" per sincronitzar el correu una vegada o bé "<b>"Canvia config. sincronització"</b>" per configurar la sincronització automàtica del correu en aquest compte."</string>
     <string name="manual_sync" msgid="2271479734895537848">"Sincronitza ara"</string>
     <string name="change_sync_settings" msgid="3615852118397055361">"Canvia config. sincronització"</string>
     <string name="photo_load_failed" msgid="577471721679146999">"No s\'ha pogut carr. la imatge"</string>
@@ -386,7 +386,7 @@
     <string name="long_press_to_select_tip" msgid="1660881999120625177">"Mantén premuda una conversa per seleccionar-la i, a continuació, toca\'n més per seleccionar-les."</string>
     <string name="folder_icon_desc" msgid="6272938864914794739">"Icona de la carpeta"</string>
     <string name="add_account" msgid="5905863370226612377">"Afegeix un compte"</string>
-    <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"Omet el consell"</string>
+    <string name="dismiss_tip_hover_text" msgid="5400049020835024519">"Ignora el consell"</string>
     <string name="auto_sync_off" msgid="3691189864057581214">"La sincronització automàtica està desactivada. Toqueu aquí per activar-la."</string>
     <string name="account_sync_off" msgid="5720018952998097061">"La sincronització del compte està desactivada. Activeu-la a &lt;a href=\'http://www.example.com\'&gt;Configuració del compte.&lt;/a&gt;"</string>
     <string name="unsent_messages_in_outbox" msgid="146722891559469589">"<xliff:g id="NUMBER">%1$s</xliff:g> missatges no enviats a <xliff:g id="OUTBOX">%2$s</xliff:g>"</string>
@@ -434,7 +434,7 @@
     <string name="eml_loader_error_toast" msgid="6577383216635400167">"No es pot obrir aquest fitxer."</string>
     <string name="help_and_info" msgid="3708286489943154681">"Ajuda"</string>
     <string name="help_and_feedback" msgid="7211458338163287670">"Ajuda i suggeriments"</string>
-    <string name="feedback" msgid="204247008751740034">"Envia comentaris"</string>
+    <string name="feedback" msgid="204247008751740034">"Envia suggeriments"</string>
     <string name="copyright" msgid="3121335168340432582">"©<xliff:g id="YEAR">%1$d</xliff:g> Google Inc."</string>
     <string name="version" msgid="1161745345056656547">"<xliff:g id="APP_NAME">%1$s</xliff:g> versió <xliff:g id="VERSION">%2$s</xliff:g>"</string>
     <string name="view_app_page" msgid="3241990517052398927"></string>

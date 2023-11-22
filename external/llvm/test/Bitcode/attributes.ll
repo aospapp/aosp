@@ -1,4 +1,5 @@
 ; RUN: llvm-as < %s | llvm-dis | FileCheck %s
+; RUN: verify-uselistorder < %s
 ; PR12696
 
 define void @f1(i8 zeroext)
@@ -227,6 +228,27 @@ define void @f38() unnamed_addr jumptable {
 ; CHECK: define void @f38() unnamed_addr #24
     call void bitcast (void (i8*)* @f36 to void ()*)()
     unreachable
+}
+
+define dereferenceable(2) i8* @f39(i8* dereferenceable(1) %a) {
+; CHECK: define dereferenceable(2) i8* @f39(i8* dereferenceable(1) %a) {
+        ret i8* %a
+}
+
+define dereferenceable(18446744073709551606) i8* @f40(i8* dereferenceable(18446744073709551615) %a) {
+; CHECK: define dereferenceable(18446744073709551606) i8* @f40(i8* dereferenceable(18446744073709551615) %a) {
+        ret i8* %a
+}
+
+define void @f41(i8* align 32, double* align 64) {
+; CHECK: define void @f41(i8* align 32, double* align 64) {
+        ret void
+}
+
+; CHECK: define dereferenceable_or_null(8) i8* @f42(i8* dereferenceable_or_null(8) %foo)
+define dereferenceable_or_null(8) i8* @f42(i8* dereferenceable_or_null(8) %foo) {
+ entry:
+  ret i8* %foo
 }
 
 ; CHECK: attributes #0 = { noreturn }

@@ -65,6 +65,8 @@ public class RSTestCore {
         unitTests.add(new UT_unsigned(this, mRes, mCtx));
         unitTests.add(new UT_array_init(this, mRes, mCtx));
         unitTests.add(new UT_array_alloc(this, mRes, mCtx));
+        unitTests.add(new UT_alloc_copy(this, mRes, mCtx));
+        unitTests.add(new UT_alloc_copyPadded(this, mRes, mCtx));
         unitTests.add(new UT_kernel(this, mRes, mCtx));
         unitTests.add(new UT_kernel_struct(this, mRes, mCtx));
         unitTests.add(new UT_bug_char(this, mRes, mCtx));

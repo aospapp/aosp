@@ -67,8 +67,10 @@ public interface RequestKey {
 
     /**
      * Create an {@link FileDescriptorFactory} for a local file stored on the device and pass it to
-     * the given callback. This method will be called first; if it returns null,
-     * {@link #createInputStream()} will be called.
+     * the given callback. This method will be called in favor of {@link #createInputStream()}},
+     * which will only be called if null is returned from this method,
+     * or {@link Callback#fileDescriptorFactoryCreated(RequestKey, FileDescriptorFactory)} is called
+     * with a null FileDescriptorFactory.
      *
      * Clients should implement this method if files are in the local cache folder, or if files must
      * be downloaded and cached.
@@ -77,8 +79,9 @@ public interface RequestKey {
      *
      * @param key      The key to create a FileDescriptorFactory for. This key will be passed to the
      *                 callback so it can check whether the key has changed.
-     * @param callback The callback to notify once the FileDescriptorFactory has been created. Do
-     *                 not invoke the callback directly from this method. Instead, create a handler
+     * @param callback The callback to notify once the FileDescriptorFactory is created or has failed
+     *                 to be created.
+     *                 Do not invoke the callback directly from this method. Instead, create a handler
      *                 and post a Runnable.
      *
      * @return If the client will attempt to create a FileDescriptorFactory, return a Cancelable
@@ -117,7 +120,7 @@ public interface RequestKey {
          * the UI thread.
          * @param key The key that the FileDescriptorFactory was created for. The callback should
          *            check that the key has not changed.
-         * @param factory The FileDescriptorFactory to decode from.
+         * @param factory The FileDescriptorFactory to decode from. Pass null to cancel decode.
          */
         void fileDescriptorFactoryCreated(RequestKey key, FileDescriptorFactory factory);
     }

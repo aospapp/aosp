@@ -140,6 +140,7 @@ EGLContext_t::EGLContext_t(EGLDisplay dpy, EGLConfig config, EGLContext_t* share
     versionString(NULL),
     vendorString(NULL),
     rendererString(NULL),
+    shaderVersionString(NULL),
     extensionString(NULL),
     deletePending(0)
 {
@@ -158,6 +159,7 @@ EGLContext_t::~EGLContext_t()
     delete [] versionString;
     delete [] vendorString;
     delete [] rendererString;
+    delete [] shaderVersionString;
     delete [] extensionString;
 }
 
@@ -416,6 +418,7 @@ static const char *getGLString(int glEnum)
 #define GL_VENDOR                         0x1F00
 #define GL_RENDERER                       0x1F01
 #define GL_VERSION                        0x1F02
+#define GL_SHADING_LANGUAGE_VERSION       0x8B8C
 #define GL_EXTENSIONS                     0x1F03
 
     switch(glEnum) {
@@ -427,6 +430,9 @@ static const char *getGLString(int glEnum)
             break;
         case GL_RENDERER:
             strPtr = &tInfo->currentContext->rendererString;
+            break;
+        case GL_SHADING_LANGUAGE_VERSION:
+            strPtr = &tInfo->currentContext->shaderVersionString;
             break;
         case GL_EXTENSIONS:
             strPtr = &tInfo->currentContext->extensionString;

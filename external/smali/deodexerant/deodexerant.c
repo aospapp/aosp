@@ -48,14 +48,20 @@ void main(int argc, char **argv) {
 	void *libdvm = dlopen("libdvm.so", RTLD_LAZY);
 
 	if (libdvm == NULL) {
-		printf("Failed to load libdvm\n");
+		printf("Failed to load libdvm: %s\n", dlerror());
 		return;
 	}
 
 	dvmGetInlineOpsTablePtr dvmGetInlineOpsTable = dlsym(libdvm, "dvmGetInlineOpsTable");
 
 	if (dvmGetInlineOpsTable == NULL) {
-		printf("Failed to load dvmGetInlineOpsTable\n");
+		// clear the error, and retry with the c++ mangled name
+		dlerror();
+		dvmGetInlineOpsTable = dlsym(libdvm, "_Z20dvmGetInlineOpsTablev");
+	}
+
+	if (dvmGetInlineOpsTable == NULL) {
+		printf("Failed to load dvmGetInlineOpsTable: %s\n", dlerror());
 		dlclose(libdvm);
 		return;
 	}
@@ -63,7 +69,13 @@ void main(int argc, char **argv) {
 	dvmGetInlineOpsTableLengthPtr dvmGetInlineOpsTableLength = dlsym(libdvm, "dvmGetInlineOpsTableLength");
 
 	if (dvmGetInlineOpsTableLength == NULL) {
-		printf("Failed to load dvmGetInlineOpsTableLength\n");
+		// clear the error, and retry with the c++ mangled name
+		dlerror();
+		dvmGetInlineOpsTableLength = dlsym(libdvm, "_Z26dvmGetInlineOpsTableLengthv");
+	}
+
+	if (dvmGetInlineOpsTableLength == NULL) {
+		printf("Failed to load dvmGetInlineOpsTableLength: %s\n", dlerror());
 		dlclose(libdvm);
 		return;
 	}

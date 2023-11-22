@@ -28,8 +28,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
+import android.Manifest;
 
-class RttService extends SystemService {
+public final class RttService extends SystemService {
 
     public static final boolean DBG = true;
 
@@ -144,6 +145,16 @@ class RttService extends SystemService {
             Integer key;
             ClientInfo ci;
             RttManager.RttParams[] params;
+
+            @Override
+            public String toString() {
+                String str = getClass().getName() + "@" + Integer.toHexString(hashCode());
+                if(this.key != null) {
+                    return str + " key: " + this.key;
+                } else {
+                    return str + " key: " + " , null";
+                }
+            }
         }
 
         private class ClientInfo {
@@ -198,12 +209,14 @@ class RttService extends SystemService {
             }
 
             void reportAborted(int key) {
-                mChannel.sendMessage(RttManager.CMD_OP_ABORTED, key);
-                mRequests.remove(key);
+                mChannel.sendMessage(RttManager.CMD_OP_ABORTED, 0, key);
+                //All Queued RTT request will be cleaned
+                cleanup();
             }
 
             void cleanup() {
                 mRequests.clear();
+                mRequestQueue.clear();
             }
         }
 
@@ -271,20 +284,32 @@ class RttService extends SystemService {
                             transitionTo(mRequestPendingState);
                             break;
                         case RttManager.CMD_OP_START_RANGING: {
-                                RttManager.ParcelableRttParams params =
-                                        (RttManager.ParcelableRttParams)msg.obj;
-                                if (params == null) {
-                                    replyFailed(msg,
-                                            RttManager.REASON_INVALID_REQUEST, "No params");
-                                } else if (ci.addRttRequest(msg.arg2, params) == false) {
-                                    replyFailed(msg,
-                                            RttManager.REASON_INVALID_REQUEST, "Unspecified");
-                                } else {
-                                    sendMessage(CMD_ISSUE_NEXT_REQUEST);
-                                }
+                            //check permission
+                            if(DBG) Log.d(TAG, "UID is: " + msg.sendingUid);
+                            if (!enforcePermissionCheck(msg)) {
+                                Log.e(TAG, "UID: " + msg.sendingUid + " has no" +
+                                        " LOCATION_HARDWARE Permission");
+                                break;
                             }
+
+                            RttManager.ParcelableRttParams params =
+                                    (RttManager.ParcelableRttParams)msg.obj;
+                            if (params == null) {
+                                replyFailed(msg,
+                                        RttManager.REASON_INVALID_REQUEST, "No params");
+                            } else if (ci.addRttRequest(msg.arg2, params) == false) {
+                                replyFailed(msg,
+                                        RttManager.REASON_INVALID_REQUEST, "Unspecified");
+                            } else {
+                                sendMessage(CMD_ISSUE_NEXT_REQUEST);
+                            }
+                        }
                             break;
                         case RttManager.CMD_OP_STOP_RANGING:
+                            if(!enforcePermissionCheck(msg)) {
+                                break;
+                            }
+
                             for (Iterator<RttRequest> it = mRequestQueue.iterator();
                                     it.hasNext(); ) {
                                 RttRequest request = it.next();
@@ -312,6 +337,7 @@ class RttService extends SystemService {
                         case CMD_DRIVER_UNLOADED:
                             if (mOutstandingRequest != null) {
                                 WifiNative.cancelRtt(mOutstandingRequest.params);
+                                if (DBG) Log.d(TAG, "abort key: " + mOutstandingRequest.key);
                                 mOutstandingRequest.ci.reportAborted(mOutstandingRequest.key);
                                 mOutstandingRequest = null;
                             }
@@ -323,23 +349,38 @@ class RttService extends SystemService {
                                 if (mOutstandingRequest == null) {
                                     transitionTo(mEnabledState);
                                 }
+                                if(mOutstandingRequest != null) {
+                                    if (DBG) Log.d(TAG, "new mOutstandingRequest.key is: " +
+                                            mOutstandingRequest.key);
+                                } else {
+                                    if (DBG) Log.d(TAG,
+                                            "CMD_ISSUE_NEXT_REQUEST: mOutstandingRequest =null ");
+                                }
                             } else {
                                 /* just wait; we'll issue next request after
                                  * current one is finished */
-                                if (DBG) Log.d(TAG, "Ignoring CMD_ISSUE_NEXT_REQUEST");
+                                 if (DBG) Log.d(TAG, "Current mOutstandingRequest.key is: " +
+                                         mOutstandingRequest.key);
+                                 if (DBG) Log.d(TAG, "Ignoring CMD_ISSUE_NEXT_REQUEST");
                             }
                             break;
                         case CMD_RTT_RESPONSE:
-                            if (DBG) Log.d(TAG, "Received an RTT response");
+                            if (DBG) Log.d(TAG, "Received an RTT response from: " + msg.arg2);
                             mOutstandingRequest.ci.reportResult(
                                     mOutstandingRequest, (RttManager.RttResult[])msg.obj);
                             mOutstandingRequest = null;
                             sendMessage(CMD_ISSUE_NEXT_REQUEST);
                             break;
                         case RttManager.CMD_OP_STOP_RANGING:
+                            if(!enforcePermissionCheck(msg)) {
+                                Log.e(TAG, "UID: " + msg.sendingUid + " has no " +
+                                        "LOCATION_HARDWARE Permission");
+                                break;
+                            }
+
                             if (mOutstandingRequest != null
                                     && msg.arg2 == mOutstandingRequest.key) {
-                                if (DBG) Log.d(TAG, "Cancelling ongoing RTT");
+                                if (DBG) Log.d(TAG, "Cancelling ongoing RTT of: " + msg.arg2);
                                 WifiNative.cancelRtt(mOutstandingRequest.params);
                                 mOutstandingRequest.ci.reportAborted(mOutstandingRequest.key);
                                 mOutstandingRequest = null;
@@ -390,6 +431,17 @@ class RttService extends SystemService {
             }
         }
 
+        boolean enforcePermissionCheck(Message msg) {
+            try {
+                mContext.enforcePermission(Manifest.permission.LOCATION_HARDWARE,
+                         -1, msg.sendingUid, "LocationRTT");
+            } catch (SecurityException e) {
+                replyFailed(msg,RttManager.REASON_PERMISSION_DENIED, "No params");
+                return false;
+            }
+            return true;
+        }
+
         private WifiNative.RttEventHandler mEventHandler = new WifiNative.RttEventHandler() {
             @Override
             public void onRttResults(RttManager.RttResult[] result) {
@@ -401,18 +453,25 @@ class RttService extends SystemService {
             RttRequest request = null;
             while (mRequestQueue.isEmpty() == false) {
                 request = mRequestQueue.remove();
-                if (WifiNative.requestRtt(request.params, mEventHandler)) {
-                    if (DBG) Log.d(TAG, "Issued next RTT request");
-                    return request;
-                } else {
-                    request.ci.reportFailed(request,
-                            RttManager.REASON_UNSPECIFIED, "Failed to start");
+                if(request !=  null) {
+                    if (WifiNative.requestRtt(request.params, mEventHandler)) {
+                        if (DBG) Log.d(TAG, "Issued next RTT request with key: " + request.key);
+                        return request;
+                    } else {
+                        Log.e(TAG, "Fail to issue key at native layer");
+                        request.ci.reportFailed(request,
+                                RttManager.REASON_UNSPECIFIED, "Failed to start");
+                    }
                 }
             }
 
             /* all requests exhausted */
             if (DBG) Log.d(TAG, "No more requests left");
             return null;
+        }
+        @Override
+        public RttManager.RttCapabilities getRttCapabilities() {
+            return WifiNative.getRttCapabilities();
         }
     }
 
@@ -442,4 +501,6 @@ class RttService extends SystemService {
             mImpl.startService(getContext());
         }
     }
+
+
 }

@@ -256,7 +256,7 @@ public class BaseRecipientAdapter extends BaseAdapter implements Filterable, Acc
                     results.values = new DefaultFilterResult(
                             entries, entryMap, nonAggregatedEntries,
                             existingDestinations, paramsList);
-                    results.count = 1;
+                    results.count = entries.size();
                 }
             } finally {
                 if (defaultDirectoryCursor != null) {
@@ -281,12 +281,9 @@ public class BaseRecipientAdapter extends BaseAdapter implements Filterable, Acc
                 mNonAggregatedEntries = defaultFilterResult.nonAggregatedEntries;
                 mExistingDestinations = defaultFilterResult.existingDestinations;
 
-                // If there are no local results, in the new result set, cache off what had been
-                // shown to the user for use until the first directory result is returned
-                if (defaultFilterResult.entries.size() == 0 &&
-                        defaultFilterResult.paramsList != null) {
-                    cacheCurrentEntries();
-                }
+                cacheCurrentEntriesIfNeeded(defaultFilterResult.entries.size(),
+                        defaultFilterResult.paramsList == null ? 0 :
+                                defaultFilterResult.paramsList.size());
 
                 updateEntries(defaultFilterResult.entries);
 
@@ -324,10 +321,17 @@ public class BaseRecipientAdapter extends BaseAdapter implements Filterable, Acc
                         + existingDestinations.size()
                         + ", remaining limit: " + limit + ") ");
             }
-            final Cursor directoryCursor = mContentResolver.query(
-                    DirectoryListQuery.URI, DirectoryListQuery.PROJECTION,
-                    null, null, null);
-            return setupOtherDirectories(mContext, directoryCursor, mAccount);
+            Cursor directoryCursor = null;
+            try {
+                directoryCursor = mContentResolver.query(
+                        DirectoryListQuery.URI, DirectoryListQuery.PROJECTION,
+                        null, null, null);
+                return setupOtherDirectories(mContext, directoryCursor, mAccount);
+            } finally {
+                if (directoryCursor != null) {
+                    directoryCursor.close();
+                }
+            }
         } else {
             // We don't need to search other directories.
             return null;
@@ -385,7 +389,7 @@ public class BaseRecipientAdapter extends BaseAdapter implements Filterable, Acc
                 }
                 if (!tempEntries.isEmpty()) {
                     results.values = tempEntries;
-                    results.count = 1;
+                    results.count = tempEntries.size();
                 }
             }
 
@@ -816,6 +820,19 @@ public class BaseRecipientAdapter extends BaseAdapter implements Filterable, Acc
         mEntries = newEntries;
         mEntriesUpdatedObserver.onChanged(newEntries);
         notifyDataSetChanged();
+    }
+
+    /**
+     * If there are no local results and we are searching alternate results,
+     * in the new result set, cache off what had been shown to the user for use until
+     * the first directory result is returned
+     * @param newEntryCount number of newly loaded entries
+     * @param paramListCount number of alternate filters it will search (including the current one).
+     */
+    protected void cacheCurrentEntriesIfNeeded(int newEntryCount, int paramListCount) {
+        if (newEntryCount == 0 && paramListCount > 1) {
+            cacheCurrentEntries();
+        }
     }
 
     protected void cacheCurrentEntries() {

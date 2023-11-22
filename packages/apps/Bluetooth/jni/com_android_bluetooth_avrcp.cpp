@@ -59,15 +59,21 @@ static void btavrcp_remote_features_callback(bt_bdaddr_t* bd_addr, btrc_remote_f
     }
     addr = sCallbackEnv->NewByteArray(sizeof(bt_bdaddr_t));
     if (!addr) {
-        ALOGE("Fail to new jbyteArray bd addr for connection state");
+        ALOGE("Unable to allocate byte array for bd_addr");
         checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
         return;
     }
 
-    sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t), (jbyte*) bd_addr);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getRcFeatures, addr, (jint)features);
+    if (mCallbacksObj) {
+        sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(bt_bdaddr_t), (jbyte*) bd_addr);
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getRcFeatures, addr, (jint)features);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
+
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
-    sCallbackEnv->DeleteLocalRef(addr);
+    /* TODO: I think we leak the addr object, we should add a
+     * sCallbackEnv->DeleteLocalRef(addr) */
 }
 
 static void btavrcp_get_play_status_callback() {
@@ -78,7 +84,11 @@ static void btavrcp_get_play_status_callback() {
         return;
     }
 
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getPlayStatus);
+    if (mCallbacksObj) {
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getPlayStatus);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
 }
 
@@ -98,21 +108,26 @@ static void btavrcp_get_element_attr_callback(uint8_t num_attr, btrc_media_attr_
         return;
     }
     sCallbackEnv->SetIntArrayRegion(attrs, 0, num_attr, (jint *)p_attrs);
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getElementAttr, (jbyte)num_attr, attrs);
+    if (mCallbacksObj) {
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getElementAttr, (jbyte)num_attr, attrs);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
     sCallbackEnv->DeleteLocalRef(attrs);
 }
 
 static void btavrcp_register_notification_callback(btrc_event_id_t event_id, uint32_t param) {
-    ALOGI("%s", __FUNCTION__);
-
     if (!checkCallbackThread()) {
         ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
         return;
     }
-
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_registerNotification,
+    if (mCallbacksObj) {
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_registerNotification,
                                  (jint)event_id, (jint)param);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
 }
 
@@ -123,9 +138,13 @@ static void btavrcp_volume_change_callback(uint8_t volume, uint8_t ctype) {
         ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
         return;
     }
+    if (mCallbacksObj) {
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_volumeChangeCallback, (jint)volume,
+                                                     (jint)ctype);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
 
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_volumeChangeCallback, (jint)volume,
-                                                                             (jint)ctype);
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
 }
 
@@ -136,9 +155,12 @@ static void btavrcp_passthrough_command_callback(int id, int pressed) {
         ALOGE("Callback: '%s' is not called on the correct thread", __FUNCTION__);
         return;
     }
-
-    sCallbackEnv->CallVoidMethod(mCallbacksObj, method_handlePassthroughCmd, (jint)id,
-                                                                             (jint)pressed);
+    if (mCallbacksObj) {
+        sCallbackEnv->CallVoidMethod(mCallbacksObj, method_handlePassthroughCmd,
+                      (jint)id, (jint)pressed);
+    } else {
+        ALOGE("%s: mCallbacksObj is null", __FUNCTION__);
+    }
     checkAndClearExceptionFromCallback(sCallbackEnv, __FUNCTION__);
 }
 
@@ -367,7 +389,6 @@ static jboolean registerNotificationRspPlayPosNative(JNIEnv *env, jobject object
     bt_status_t status;
     btrc_register_notification_t param;
 
-    ALOGI("%s: sBluetoothAvrcpInterface: %p", __FUNCTION__, sBluetoothAvrcpInterface);
     if (!sBluetoothAvrcpInterface) return JNI_FALSE;
 
     param.song_pos = (uint32_t)playPos;

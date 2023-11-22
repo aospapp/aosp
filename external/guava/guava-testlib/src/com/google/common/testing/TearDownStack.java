@@ -16,6 +16,8 @@
 
 package com.google.common.testing;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
@@ -34,8 +36,7 @@ import java.util.logging.Logger;
 @Beta
 @GwtCompatible
 public class TearDownStack implements TearDownAccepter {
-  public static final Logger logger
-      = Logger.getLogger(TearDownStack.class.getName());
+  private static final Logger logger = Logger.getLogger(TearDownStack.class.getName());
 
   final LinkedList<TearDown> stack = new LinkedList<TearDown>();
 
@@ -51,7 +52,7 @@ public class TearDownStack implements TearDownAccepter {
 
   @Override
   public final void addTearDown(TearDown tearDown) {
-    stack.addFirst(tearDown);
+    stack.addFirst(checkNotNull(tearDown));
   }
 
   /**
@@ -64,8 +65,7 @@ public class TearDownStack implements TearDownAccepter {
         tearDown.tearDown();
       } catch (Throwable t) {
         if (suppressThrows) {
-          TearDownStack.logger.log(Level.INFO,
-              "exception thrown during tearDown: " + t.getMessage(), t);
+          logger.log(Level.INFO, "exception thrown during tearDown", t);
         } else {
           exceptions.add(t);
         }

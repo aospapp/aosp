@@ -30,7 +30,7 @@
 #include "wpas_glue.h"
 
 
-struct wpa_driver_ops *wpa_drivers[] = { NULL };
+const struct wpa_driver_ops *const wpa_drivers[] = { NULL };
 
 
 struct extra_radius_attr {
@@ -461,7 +461,7 @@ static void eapol_test_eap_param_needed(void *ctx, enum wpa_ctrl_req_type field,
 	len = os_snprintf(buf, buflen,
 			  WPA_CTRL_REQ "%s-%d:%s needed for SSID ",
 			  field_name, ssid->id, txt);
-	if (len < 0 || (size_t) len >= buflen) {
+	if (os_snprintf_error(buflen, len)) {
 		os_free(buf);
 		return;
 	}
@@ -480,6 +480,7 @@ static void eapol_test_eap_param_needed(void *ctx, enum wpa_ctrl_req_type field,
 
 
 static void eapol_test_cert_cb(void *ctx, int depth, const char *subject,
+			       const char *altsubject[], int num_altsubject,
 			       const char *cert_hash,
 			       const struct wpabuf *cert)
 {
@@ -508,6 +509,14 @@ static void eapol_test_cert_cb(void *ctx, int depth, const char *subject,
 		if (e->server_cert_file)
 			eapol_test_write_cert(e->server_cert_file,
 					      subject, cert);
+	}
+
+	if (altsubject) {
+		int i;
+
+		for (i = 0; i < num_altsubject; i++)
+			wpa_msg(e->wpa_s, MSG_INFO, WPA_EVENT_EAP_PEER_ALT
+				"depth=%d %s", depth, altsubject[i]);
 	}
 }
 
@@ -568,6 +577,7 @@ static int test_eapol(struct eapol_test_data *e, struct wpa_supplicant *wpa_s,
 	ctx->opensc_engine_path = wpa_s->conf->opensc_engine_path;
 	ctx->pkcs11_engine_path = wpa_s->conf->pkcs11_engine_path;
 	ctx->pkcs11_module_path = wpa_s->conf->pkcs11_module_path;
+	ctx->openssl_ciphers = wpa_s->conf->openssl_ciphers;
 	ctx->eap_param_needed = eapol_test_eap_param_needed;
 	ctx->cert_cb = eapol_test_cert_cb;
 	ctx->cert_in_cb = 1;
@@ -928,9 +938,12 @@ static void wpa_init_conf(struct eapol_test_data *e,
 		*pos++ = a[3];
 	}
 #else /* CONFIG_NATIVE_WINDOWS or CONFIG_ANSI_C_EXTRA */
-	inet_aton(authsrv, &as->addr.u.v4);
+	if (hostapd_parse_ip_addr(authsrv, &as->addr) < 0) {
+		wpa_printf(MSG_ERROR, "Invalid IP address '%s'",
+			   authsrv);
+		assert(0);
+	}
 #endif /* CONFIG_NATIVE_WINDOWS or CONFIG_ANSI_C_EXTRA */
-	as->addr.af = AF_INET;
 	as->port = port;
 	as->shared_secret = (u8 *) os_strdup(secret);
 	as->shared_secret_len = os_strlen(secret);

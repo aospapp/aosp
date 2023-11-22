@@ -21,23 +21,42 @@ common_cppflags += -std=gnu++11
 common_additional_dependencies := \
     $(LOCAL_PATH)/Android.mk \
     $(LOCAL_PATH)/Android.build.dlext_testzip.mk \
+    $(LOCAL_PATH)/Android.build.dlopen_2_parents_reloc.mk \
+    $(LOCAL_PATH)/Android.build.dlopen_check_order_dlsym.mk \
+    $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_siblings.mk \
+    $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_main_executable.mk \
+    $(LOCAL_PATH)/Android.build.pthread_atfork.mk \
     $(LOCAL_PATH)/Android.build.testlib.mk \
+    $(LOCAL_PATH)/Android.build.versioned_lib.mk \
     $(TEST_PATH)/Android.build.mk
 
 # -----------------------------------------------------------------------------
-# Library used by dlfcn tests.
+# Library to test gnu-styled hash
 # -----------------------------------------------------------------------------
 ifneq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),mips mips64))
-no-elf-hash-table-library_src_files := \
-    empty.cpp \
+libgnu-hash-table-library_src_files := \
+    dlext_test_library.cpp \
 
-no-elf-hash-table-library_ldflags := \
+libgnu-hash-table-library_ldflags := \
     -Wl,--hash-style=gnu \
 
-module := no-elf-hash-table-library
+module := libgnu-hash-table-library
 module_tag := optional
 include $(LOCAL_PATH)/Android.build.testlib.mk
 endif
+
+# -----------------------------------------------------------------------------
+# Library to test sysv-styled hash
+# -----------------------------------------------------------------------------
+libsysv-hash-table-library_src_files := \
+    dlext_test_library.cpp \
+
+libsysv-hash-table-library_ldflags := \
+    -Wl,--hash-style=sysv \
+
+module := libsysv-hash-table-library
+module_tag := optional
+include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
 # Library used by dlext tests - with GNU RELRO program header
@@ -100,6 +119,17 @@ build_type := target
 build_target := SHARED_LIBRARY
 include $(TEST_PATH)/Android.build.mk
 
+# ----------------------------------------------------------------------------
+# Library with soname which does not match filename
+# ----------------------------------------------------------------------------
+libdlext_test_different_soname_src_files := \
+    dlext_test_library.cpp \
+
+module := libdlext_test_different_soname
+module_tag := optional
+libdlext_test_different_soname_ldflags := -Wl,-soname=libdlext_test_soname.so
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
 # -----------------------------------------------------------------------------
 # Library used by dlext tests - zipped and aligned
 # -----------------------------------------------------------------------------
@@ -121,86 +151,70 @@ module := libtest_simple
 include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
-# Libraries used by dlfcn tests to verify correct load order:
-# libtest_check_order_2_right.so
+# Library used by dlfcn nodelete tests
 # -----------------------------------------------------------------------------
-libtest_check_order_2_right_src_files := \
-    dlopen_testlib_answer.cpp
+libtest_nodelete_1_src_files := \
+    dlopen_nodelete_1.cpp
 
-libtest_check_order_2_right_cflags := -D__ANSWER=42
-module := libtest_check_order_2_right
+module := libtest_nodelete_1
 include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order_a.so
+# Library used by dlfcn nodelete tests
 # -----------------------------------------------------------------------------
-libtest_check_order_a_src_files := \
-    dlopen_testlib_answer.cpp
+libtest_nodelete_2_src_files := \
+    dlopen_nodelete_2.cpp
 
-libtest_check_order_a_cflags := -D__ANSWER=1
-module := libtest_check_order_a
+module := libtest_nodelete_2
 include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order_b.so
+# Library used by dlfcn nodelete tests
 # -----------------------------------------------------------------------------
-libtest_check_order_b_src_files := \
-    dlopen_testlib_answer.cpp
+libtest_nodelete_dt_flags_1_src_files := \
+    dlopen_nodelete_dt_flags_1.cpp
 
-libtest_check_order_b_cflags := -D__ANSWER=2 -D__ANSWER2=43
-module := libtest_check_order_b
+libtest_nodelete_dt_flags_1_ldflags := -Wl,-z,nodelete
+
+module := libtest_nodelete_dt_flags_1
 include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order_c.so
+# Build library with two parents
 # -----------------------------------------------------------------------------
-libtest_check_order_3_c_src_files := \
-    dlopen_testlib_answer.cpp
-
-libtest_check_order_3_c_cflags := -D__ANSWER=3
-module := libtest_check_order_3_c
-include $(LOCAL_PATH)/Android.build.testlib.mk
+include $(LOCAL_PATH)/Android.build.dlopen_2_parents_reloc.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order_d.so
+# Build libtest_check_order_dlsym.so with its dependencies.
 # -----------------------------------------------------------------------------
-libtest_check_order_d_src_files := \
-   dlopen_testlib_answer.cpp
-
-libtest_check_order_d_shared_libraries := libtest_check_order_b
-libtest_check_order_d_cflags := -D__ANSWER=4 -D__ANSWER2=4
-module := libtest_check_order_d
-include $(LOCAL_PATH)/Android.build.testlib.mk
+include $(LOCAL_PATH)/Android.build.dlopen_check_order_dlsym.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order_left.so
+# Build libtest_check_order_siblings.so with its dependencies.
 # -----------------------------------------------------------------------------
-libtest_check_order_1_left_src_files := \
-    empty.cpp
-
-libtest_check_order_1_left_shared_libraries := libtest_check_order_a libtest_check_order_b
-
-module := libtest_check_order_1_left
-include $(LOCAL_PATH)/Android.build.testlib.mk
+include $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_siblings.mk
 
 # -----------------------------------------------------------------------------
-# libtest_check_order.so
+# Build libtest_check_order_root.so with its dependencies.
 # -----------------------------------------------------------------------------
-libtest_check_order_src_files := \
-    empty.cpp
+include $(LOCAL_PATH)/Android.build.dlopen_check_order_reloc_main_executable.mk
 
-libtest_check_order_shared_libraries := libtest_check_order_1_left \
-  libtest_check_order_2_right libtest_check_order_3_c
+# -----------------------------------------------------------------------------
+# Build libtest_versioned_lib.so with its dependencies.
+# -----------------------------------------------------------------------------
+include $(LOCAL_PATH)/Android.build.versioned_lib.mk
 
-module := libtest_check_order
-include $(LOCAL_PATH)/Android.build.testlib.mk
+# -----------------------------------------------------------------------------
+# Build libraries needed by pthread_atfork tests
+# -----------------------------------------------------------------------------
+include $(LOCAL_PATH)/Android.build.pthread_atfork.mk
 
 # -----------------------------------------------------------------------------
 # Library with dependency loop used by dlfcn tests
 #
 # libtest_with_dependency_loop -> a -> b -> c -> a
 # -----------------------------------------------------------------------------
-libtest_with_dependency_loop_src_files := dlopen_testlib_invalid.cpp
+libtest_with_dependency_loop_src_files := dlopen_testlib_loopy_root.cpp
 
 libtest_with_dependency_loop_shared_libraries := \
     libtest_with_dependency_loop_a
@@ -211,7 +225,7 @@ include $(LOCAL_PATH)/Android.build.testlib.mk
 # -----------------------------------------------------------------------------
 # libtest_with_dependency_loop_a.so
 # -----------------------------------------------------------------------------
-libtest_with_dependency_loop_a_src_files := dlopen_testlib_invalid.cpp
+libtest_with_dependency_loop_a_src_files := dlopen_testlib_loopy_a.cpp
 
 libtest_with_dependency_loop_a_shared_libraries := \
     libtest_with_dependency_loop_b_tmp
@@ -224,7 +238,7 @@ include $(LOCAL_PATH)/Android.build.testlib.mk
 #
 # this is temporary placeholder - will be removed
 # -----------------------------------------------------------------------------
-libtest_with_dependency_loop_b_tmp_src_files := dlopen_testlib_invalid.cpp
+libtest_with_dependency_loop_b_tmp_src_files := dlopen_testlib_loopy_invalid.cpp
 libtest_with_dependency_loop_b_tmp_ldflags := -Wl,-soname=libtest_with_dependency_loop_b.so
 
 module := libtest_with_dependency_loop_b_tmp
@@ -233,7 +247,7 @@ include $(LOCAL_PATH)/Android.build.testlib.mk
 # -----------------------------------------------------------------------------
 # libtest_with_dependency_loop_b.so
 # -----------------------------------------------------------------------------
-libtest_with_dependency_loop_b_src_files := dlopen_testlib_invalid.cpp
+libtest_with_dependency_loop_b_src_files := dlopen_testlib_loopy_b.cpp
 libtest_with_dependency_loop_b_shared_libraries := libtest_with_dependency_loop_c
 
 module := libtest_with_dependency_loop_b
@@ -242,7 +256,7 @@ include $(LOCAL_PATH)/Android.build.testlib.mk
 # -----------------------------------------------------------------------------
 # libtest_with_dependency_loop_c.so
 # -----------------------------------------------------------------------------
-libtest_with_dependency_loop_c_src_files := dlopen_testlib_invalid.cpp
+libtest_with_dependency_loop_c_src_files := dlopen_testlib_loopy_c.cpp
 
 libtest_with_dependency_loop_c_shared_libraries := \
     libtest_with_dependency_loop_a
@@ -295,7 +309,7 @@ build_target := SHARED_LIBRARY
 build_type := host
 include $(TEST_PATH)/Android.build.mk
 
-ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
+ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),arm64 x86 x86_64))
     ifeq ($(TARGET_ARCH),arm64)
       libtest_ifunc_multilib := 64
       # TODO: This is a workaround - remove it once gcc
@@ -304,6 +318,7 @@ ifeq ($(TARGET_ARCH),$(filter $(TARGET_ARCH),x86 x86_64))
     endif
 
     build_type := target
+    libtest_ifunc_clang_target := false
     include $(TEST_PATH)/Android.build.mk
 endif
 
@@ -318,10 +333,112 @@ module := libtest_atexit
 include $(LOCAL_PATH)/Android.build.testlib.mk
 
 # -----------------------------------------------------------------------------
+# This library is used by dl_load test to check symbol preempting
+# by main executable
+# -----------------------------------------------------------------------------
+libdl_preempt_test_1_src_files := dl_preempt_library_1.cpp
+
+module := libdl_preempt_test_1
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# This library is used by dl_load test to check symbol preempting
+# by libdl_preempt_test_1.so
+# -----------------------------------------------------------------------------
+libdl_preempt_test_2_src_files := dl_preempt_library_2.cpp
+
+module := libdl_preempt_test_2
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library with DF_1_GLOBAL
+# -----------------------------------------------------------------------------
+libdl_test_df_1_global_src_files := dl_df_1_global.cpp
+libdl_test_df_1_global_ldflags := -Wl,-z,global
+
+# TODO (dimitry): host ld.gold does not yet support -z global
+# remove this line once it is updated.
+libdl_test_df_1_global_ldflags_host := -fuse-ld=bfd
+
+module := libdl_test_df_1_global
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library using symbol from libdl_test_df_1_global
+# -----------------------------------------------------------------------------
+libtest_dlsym_df_1_global_src_files := dl_df_1_use_global.cpp
+module := libtest_dlsym_df_1_global
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
 # Library with weak function
 # -----------------------------------------------------------------------------
 libtest_dlsym_weak_func_src_files := \
     dlsym_weak_function.cpp
 
 module := libtest_dlsym_weak_func
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library to check RTLD_LOCAL with dlsym in 'this'
+# -----------------------------------------------------------------------------
+libtest_dlsym_from_this_src_files := dlsym_from_this_symbol.cpp
+
+libtest_dlsym_from_this_shared_libraries_target := libdl
+libtest_dlsym_from_this_shared_libraries := libtest_dlsym_from_this_child
+
+module := libtest_dlsym_from_this
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+libtest_dlsym_from_this_child_src_files := dlsym_from_this_functions.cpp
+
+libtest_dlsym_from_this_child_shared_libraries := libtest_dlsym_from_this_grandchild
+
+module := libtest_dlsym_from_this_child
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+libtest_dlsym_from_this_grandchild_src_files := dlsym_from_this_symbol2.cpp
+
+module := libtest_dlsym_from_this_grandchild
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Empty library
+# -----------------------------------------------------------------------------
+libtest_empty_src_files := empty.cpp
+
+module := libtest_empty
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library with weak undefined function
+# -----------------------------------------------------------------------------
+libtest_dlopen_weak_undefined_func_src_files := \
+    dlopen_weak_undefined.cpp
+
+module := libtest_dlopen_weak_undefined_func
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library with constructor that calls dlopen() b/7941716
+# -----------------------------------------------------------------------------
+libtest_dlopen_from_ctor_src_files := \
+   dlopen_testlib_dlopen_from_ctor.cpp
+
+module := libtest_dlopen_from_ctor
+
+libtest_dlopen_from_ctor_shared_libraries_target := libdl
+
+include $(LOCAL_PATH)/Android.build.testlib.mk
+
+# -----------------------------------------------------------------------------
+# Library that depends on the library with constructor that calls dlopen() b/7941716
+# -----------------------------------------------------------------------------
+
+libtest_dlopen_from_ctor_main_src_files := empty.cpp
+libtest_dlopen_from_ctor_main_shared_libraries := libtest_dlopen_from_ctor
+
+module := libtest_dlopen_from_ctor_main
 include $(LOCAL_PATH)/Android.build.testlib.mk

@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2007 The Android Open Source Project
  *
@@ -10,38 +9,40 @@
 #ifndef SkPicture_DEFINED
 #define SkPicture_DEFINED
 
-#include "SkBitmap.h"
 #include "SkImageDecoder.h"
+#include "SkLazyPtr.h"
 #include "SkRefCnt.h"
+#include "SkTDArray.h"
 
 #if SK_SUPPORT_GPU
 class GrContext;
 #endif
 
-class SkBBHFactory;
+class SkBitmap;
 class SkBBoxHierarchy;
 class SkCanvas;
-class SkDrawPictureCallback;
 class SkData;
-class SkPicturePlayback;
-class SkPictureRecord;
+class SkPictureData;
+class SkPixelSerializer;
 class SkStream;
 class SkWStream;
 
 struct SkPictInfo;
+
+class SkRecord;
+
+namespace SkRecords {
+    class CollectLayers;
+};
 
 /** \class SkPicture
 
     The SkPicture class records the drawing commands made to a canvas, to
     be played back at a later time.
 */
-class SK_API SkPicture : public SkRefCnt {
+class SK_API SkPicture : public SkNVRefCnt<SkPicture> {
 public:
-    SK_DECLARE_INST_COUNT(SkPicture)
-
-    // AccelData provides a base class for device-specific acceleration
-    // data. It is added to the picture via a call to a device's optimize
-    // method.
+    // AccelData provides a base class for device-specific acceleration data.
     class AccelData : public SkRefCnt {
     public:
         typedef uint8_t Domain;
@@ -56,27 +57,10 @@ public:
         static Domain GenerateDomain();
     private:
         Key fKey;
-
-        typedef SkRefCnt INHERITED;
     };
 
-    SkPicture();
-    /** Make a copy of the contents of src. If src records more drawing after
-        this call, those elements will not appear in this picture.
-    */
-    SkPicture(const SkPicture& src);
-
     /**  PRIVATE / EXPERIMENTAL -- do not call */
-    void EXPERIMENTAL_addAccelData(const AccelData* data) const {
-        SkRefCnt_SafeAssign(fAccelData, data);
-    }
-    /**  PRIVATE / EXPERIMENTAL -- do not call */
-    const AccelData* EXPERIMENTAL_getAccelData(AccelData::Key key) const {
-        if (NULL != fAccelData && fAccelData->getKey() == key) {
-            return fAccelData;
-        }
-        return NULL;
-    }
+    const AccelData* EXPERIMENTAL_getAccelData(AccelData::Key) const;
 
     /**
      *  Function signature defining a function that sets up an SkBitmap from encoded data. On
@@ -93,7 +77,7 @@ public:
 
     /**
      *  Recreate a picture that was serialized into a stream.
-     *  @param SkStream Serialized picture data.
+     *  @param SkStream Serialized picture data. Ownership is unchanged by this call.
      *  @param proc Function pointer for installing pixelrefs on SkBitmaps representing the
      *              encoded bitmap data from the stream.
      *  @return A new SkPicture representing the serialized data, or NULL if the stream is
@@ -112,69 +96,52 @@ public:
      */
     static SkPicture* CreateFromBuffer(SkReadBuffer&);
 
-    virtual ~SkPicture();
+    ~SkPicture();
 
     /**
-     *  Swap the contents of the two pictures. Guaranteed to succeed.
-     */
-    void swap(SkPicture& other);
+    *  Subclasses of this can be passed to playback(). During the playback
+    *  of the picture, this callback will periodically be invoked. If its
+    *  abort() returns true, then picture playback will be interrupted.
+    *
+    *  The resulting drawing is undefined, as there is no guarantee how often the
+    *  callback will be invoked. If the abort happens inside some level of nested
+    *  calls to save(), restore will automatically be called to return the state
+    *  to the same level it was before the playback call was made.
+    */
+    class SK_API AbortCallback {
+    public:
+        AbortCallback() {}
+        virtual ~AbortCallback() {}
 
-    /**
-     *  Creates a thread-safe clone of the picture that is ready for playback.
-     */
-    SkPicture* clone() const;
+        virtual bool abort() = 0;
+    };
 
-    /**
-     * Creates multiple thread-safe clones of this picture that are ready for
-     * playback. The resulting clones are stored in the provided array of
-     * SkPictures.
-     */
-    void clone(SkPicture* pictures, int count) const;
-
-    /** Replays the drawing commands on the specified canvas.
+    /** Replays the drawing commands on the specified canvas. Note that
+        this has the effect of unfurling this picture into the destination
+        canvas. Using the SkCanvas::drawPicture entry point gives the destination
+        canvas the option of just taking a ref.
         @param canvas the canvas receiving the drawing commands.
+        @param callback a callback that allows interruption of playback
     */
-    void draw(SkCanvas* canvas, SkDrawPictureCallback* = NULL) const;
+    void playback(SkCanvas* canvas, AbortCallback* = NULL) const;
 
-    /** Return the width of the picture's recording canvas. This
-        value reflects what was passed to setSize(), and does not necessarily
-        reflect the bounds of what has been recorded into the picture.
-        @return the width of the picture's recording canvas
+    /** Return the cull rect used when creating this picture: { 0, 0, cullWidth, cullHeight }.
+        It does not necessarily reflect the bounds of what has been recorded into the picture.
+        @return the cull rect used to create this picture
     */
-    int width() const { return fWidth; }
+    SkRect cullRect() const { return fCullRect; }
 
-    /** Return the height of the picture's recording canvas. This
-        value reflects what was passed to setSize(), and does not necessarily
-        reflect the bounds of what has been recorded into the picture.
-        @return the height of the picture's recording canvas
-    */
-    int height() const { return fHeight; }
-
-    /** Return a non-zero, unique value representing the picture. This call is
-        only valid when not recording. Between a beginRecording/endRecording
-        pair it will just return 0 (the invalid ID). Each beginRecording/
-        endRecording pair will cause a different generation ID to be returned.
-    */
+    /** Return a non-zero, unique value representing the picture.
+     */
     uint32_t uniqueID() const;
 
     /**
-     *  Function to encode an SkBitmap to an SkData. A function with this
-     *  signature can be passed to serialize() and SkWriteBuffer.
-     *  Returning NULL will tell the SkWriteBuffer to use
-     *  SkBitmap::flatten() to store the bitmap.
-     *
-     *  @param pixelRefOffset DEPRECATED -- caller assumes it will return 0.
-     *  @return SkData If non-NULL, holds encoded data representing the passed
-     *      in bitmap. The caller is responsible for calling unref().
-     */
-    typedef SkData* (*EncodeBitmap)(size_t* pixelRefOffset, const SkBitmap& bm);
-
-    /**
-     *  Serialize to a stream. If non NULL, encoder will be used to encode
+     *  Serialize to a stream. If non NULL, serializer will be used to serialize
      *  any bitmaps in the picture.
-     *  encoder will never be called with a NULL pixelRefOffset.
+     *
+     *  TODO: Use serializer to serialize SkImages as well.
      */
-    void serialize(SkWStream*, EncodeBitmap encoder = NULL) const;
+    void serialize(SkWStream*, SkPixelSerializer* serializer = NULL) const;
 
     /**
      *  Serialize to a buffer.
@@ -184,18 +151,8 @@ public:
     /**
      * Returns true if any bitmaps may be produced when this SkPicture
      * is replayed.
-     * Returns false if called while still recording.
      */
     bool willPlayBackBitmaps() const;
-
-#ifdef SK_BUILD_FOR_ANDROID
-    /** Signals that the caller is prematurely done replaying the drawing
-        commands. This can be called from a canvas virtual while the picture
-        is drawing. Has no effect if the picture is not drawing.
-        @deprecated preserving for legacy purposes
-    */
-    void abortPlayback();
-#endif
 
     /** Return true if the SkStream/Buffer represents a serialized picture, and
         fills out SkPictInfo. After this function returns, the data source is not
@@ -206,7 +163,7 @@ public:
         If false is returned, SkPictInfo is unmodified.
     */
     static bool InternalOnly_StreamIsSKP(SkStream*, SkPictInfo*);
-    static bool InternalOnly_BufferIsSKP(SkReadBuffer&, SkPictInfo*);
+    static bool InternalOnly_BufferIsSKP(SkReadBuffer*, SkPictInfo*);
 
     /** Return true if the picture is suitable for rendering on the GPU.
      */
@@ -215,7 +172,34 @@ public:
     bool suitableForGpuRasterization(GrContext*, const char ** = NULL) const;
 #endif
 
-protected:
+    /** Return the approximate number of operations in this picture.  This
+     *  number may be greater or less than the number of SkCanvas calls
+     *  recorded: some calls may be recorded as more than one operation, or some
+     *  calls may be optimized away.
+     */
+    int approximateOpCount() const;
+
+    /** Return true if this picture contains text.
+     */
+    bool hasText() const;
+
+    // An array of refcounted const SkPicture pointers.
+    class SnapshotArray : ::SkNoncopyable {
+    public:
+        SnapshotArray(const SkPicture* pics[], int count) : fPics(pics), fCount(count) {}
+        ~SnapshotArray() { for (int i = 0; i < fCount; i++) { fPics[i]->unref(); } }
+
+        const SkPicture* const* begin() const { return fPics; }
+        int count() const { return fCount; }
+    private:
+        SkAutoTMalloc<const SkPicture*> fPics;
+        int fCount;
+    };
+
+    // Sent via SkMessageBus from destructor.
+    struct DeletionMessage { int32_t fUniqueID; };
+
+private:
     // V2 : adds SkPixelRef's generation ID.
     // V3 : PictInfo tag at beginning, and EOF tag at the end
     // V4 : move SkPictInfo to be the header
@@ -245,97 +229,81 @@ protected:
     // V26: Removed boolean from SkColorShader for inheriting color from SkPaint.
     // V27: Remove SkUnitMapper from gradients (and skia).
     // V28: No longer call bitmap::flatten inside SkWriteBuffer::writeBitmap.
+    // V29: Removed SaveFlags parameter from save().
+    // V30: Remove redundant SkMatrix from SkLocalMatrixShader.
+    // V31: Add a serialized UniqueID to SkImageFilter.
+    // V32: Removed SkPaintOptionsAndroid from SkPaint
+    // V33: Serialize only public API of effects.
+    // V34: Add SkTextBlob serialization.
+    // V35: Store SkRect (rather then width & height) in header
+    // V36: Remove (obsolete) alphatype from SkColorTable
+    // V37: Added shadow only option to SkDropShadowImageFilter (last version to record CLEAR)
+    // V38: Added PictureResolution option to SkPictureImageFilter
+    // V39: Added FilterLevel option to SkPictureImageFilter
+    // V40: Remove UniqueID serialization from SkImageFilter.
+    // V41: Added serialization of SkBitmapSource's filterQuality parameter
 
     // Note: If the picture version needs to be increased then please follow the
     // steps to generate new SKPs in (only accessible to Googlers): http://goo.gl/qATVcw
 
     // Only SKPs within the min/current picture version range (inclusive) can be read.
-    static const uint32_t MIN_PICTURE_VERSION = 19;
-    static const uint32_t CURRENT_PICTURE_VERSION = 28;
+    static const uint32_t MIN_PICTURE_VERSION = 35;     // Produced by Chrome M39.
+    static const uint32_t CURRENT_PICTURE_VERSION = 41;
 
-    mutable uint32_t      fUniqueID;
-
-    // fPlayback, fRecord, fWidth & fHeight are protected to allow derived classes to
-    // install their own SkPicturePlayback-derived players,SkPictureRecord-derived
-    // recorders and set the picture size
-    SkPicturePlayback*    fPlayback;
-    int                   fWidth, fHeight;
-    mutable const AccelData* fAccelData;
-
-    void needsNewGenID() { fUniqueID = SK_InvalidGenID; }
-
-    // Create a new SkPicture from an existing SkPicturePlayback. Ref count of
-    // playback is unchanged.
-    SkPicture(SkPicturePlayback*, int width, int height);
-
-    SkPicture(int width, int height, const SkPictureRecord& record, bool deepCopyOps);
-
-private:
-    static void WriteTagSize(SkWriteBuffer& buffer, uint32_t tag, size_t size);
-    static void WriteTagSize(SkWStream* stream, uint32_t tag, size_t size);
-
-    // An OperationList encapsulates a set of operation offsets into the picture byte
-    // stream along with the CTMs needed for those operation.
-    class OperationList : ::SkNoncopyable {
-    public:
-        virtual ~OperationList() {}
-
-        // If valid returns false then there is no optimization data
-        // present. All the draw operations need to be issued.
-        virtual bool valid() const { return false; }
-
-        // The following three entry points should only be accessed if
-        // 'valid' returns true.
-        virtual int numOps() const { SkASSERT(false); return 0; };
-        // The offset in the picture of the operation to execute.
-        virtual uint32_t offset(int index) const { SkASSERT(false); return 0; };
-        // The CTM that must be installed for the operation to behave correctly
-        virtual const SkMatrix& matrix(int index) const { SkASSERT(false); return SkMatrix::I(); }
-
-        static const OperationList& InvalidList();
-    };
-
-    /** PRIVATE / EXPERIMENTAL -- do not call
-        Return the operations required to render the content inside 'queryRect'.
-    */
-    const OperationList& EXPERIMENTAL_getActiveOps(const SkIRect& queryRect) const;
-
-    /** PRIVATE / EXPERIMENTAL -- do not call
-        Return the ID of the operation currently being executed when playing
-        back. 0 indicates no call is active.
-    */
-    size_t EXPERIMENTAL_curOpID() const;
+    static_assert(MIN_PICTURE_VERSION <= 41,
+                  "Remove kFontFileName and related code from SkFontDescriptor.cpp.");
 
     void createHeader(SkPictInfo* info) const;
     static bool IsValidPictInfo(const SkPictInfo& info);
 
-    friend class SkFlatPicture;
-    friend class SkPicturePlayback;
-    friend class SkPictureRecorder; // just for SkPicture-based constructor
-    friend class SkGpuDevice;
-    friend class GrGatherCanvas;
-    friend class GrGatherDevice;
-    friend class SkDebugCanvas;
+    // Takes ownership of the (optional) SnapshotArray.
+    // For performance, we take ownership of the caller's refs on the SkRecord, BBH, and AccelData.
+    SkPicture(const SkRect& cullRect,
+              SkRecord*,
+              SnapshotArray*,
+              SkBBoxHierarchy*,
+              AccelData*,
+              size_t approxBytesUsedBySubPictures);
 
-    typedef SkRefCnt INHERITED;
+    static SkPicture* Forwardport(const SkPictInfo&, const SkPictureData*);
+    static SkPictureData* Backport(const SkRecord&, const SkPictInfo&,
+                                   SkPicture const* const drawablePics[], int drawableCount);
+
+    // uint32_t fRefCnt; from SkNVRefCnt<SkPicture>
+    mutable uint32_t                      fUniqueID;
+    const SkRect                          fCullRect;
+    SkAutoTUnref<const SkRecord>          fRecord;
+    SkAutoTDelete<const SnapshotArray>    fDrawablePicts;
+    SkAutoTUnref<const SkBBoxHierarchy>   fBBH;
+    SkAutoTUnref<const AccelData>         fAccelData;
+    const size_t                          fApproxBytesUsedBySubPictures;
+
+    // helpers for fDrawablePicts
+    int drawableCount() const;
+    // will return NULL if drawableCount() returns 0
+    SkPicture const* const* drawablePicts() const;
+
+    struct PathCounter;
+
+    struct Analysis {
+        Analysis() {}  // Only used by SkPictureData codepath.
+        explicit Analysis(const SkRecord&);
+
+        bool suitableForGpuRasterization(const char** reason, int sampleCount) const;
+
+        uint8_t     fNumSlowPathsAndDashEffects;
+        bool        fWillPlaybackBitmaps : 1;
+        bool        fHasText             : 1;
+    };
+    SkLazyPtr<Analysis> fAnalysis;
+    const Analysis& analysis() const;
+
+    friend class SkPictureRecorder;            // SkRecord-based constructor.
+    friend class GrLayerHoister;               // access to fRecord
+    friend class ReplaceDraw;
+    friend class SkPictureUtils;
+    friend class SkRecordedDrawable;
 };
-
-/**
- *  Subclasses of this can be passed to canvas.drawPicture. During the drawing
- *  of the picture, this callback will periodically be invoked. If its
- *  abortDrawing() returns true, then picture playback will be interrupted.
- *
- *  The resulting drawing is undefined, as there is no guarantee how often the
- *  callback will be invoked. If the abort happens inside some level of nested
- *  calls to save(), restore will automatically be called to return the state
- *  to the same level it was before the drawPicture call was made.
- */
-class SK_API SkDrawPictureCallback {
-public:
-    SkDrawPictureCallback() {}
-    virtual ~SkDrawPictureCallback() {}
-
-    virtual bool abortDrawing() = 0;
-};
+SK_COMPILE_ASSERT(sizeof(SkPicture) <= 88, SkPictureSize);
 
 #endif

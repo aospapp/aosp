@@ -60,7 +60,7 @@ public class NotificationTemplateViewWrapper extends NotificationViewWrapper {
         super(view);
         mIconDarkAlpha = ctx.getResources().getInteger(R.integer.doze_small_icon_alpha);
         mIconBackgroundDarkColor =
-                ctx.getResources().getColor(R.color.doze_small_icon_background_color);
+                ctx.getColor(R.color.doze_small_icon_background_color);
         mLinearOutSlowInInterpolator = AnimationUtils.loadInterpolator(ctx,
                 android.R.interpolator.linear_out_slow_in);
         resolveViews();
@@ -79,7 +79,8 @@ public class NotificationTemplateViewWrapper extends NotificationViewWrapper {
 
         // If the icon already has a color filter, we assume that we already forced the icon to be
         // white when we created the notification.
-        mIconForceGraysaleWhenDark = mIcon != null && mIcon.getDrawable().getColorFilter() != null;
+        final Drawable iconDrawable = mIcon != null ? mIcon.getDrawable() : null;
+        mIconForceGraysaleWhenDark = iconDrawable != null && iconDrawable.getColorFilter() != null;
     }
 
     private ImageView resolveIcon(ImageView largeIcon, ImageView rightIcon) {

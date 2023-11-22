@@ -20,7 +20,6 @@ import junit.framework.TestCase;
 
 import java.util.Arrays;
 
-import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -183,6 +182,44 @@ public class DrawableContainerTest extends TestCase {
         dr.reset();
         mDrawableContainer.setDither(true);
         assertTrue(dr.hasSetDitherCalled());
+    }
+
+    public void testSetHotspotBounds() {
+        Rect bounds = new Rect(10, 15, 100, 150);
+        assertConstantStateNotSet();
+        assertNull(mDrawableContainer.getCurrent());
+
+        mDrawableContainer.setConstantState(mDrawableContainerState);
+
+        MockDrawable dr = new MockDrawable();
+        addAndSelectDrawable(dr);
+
+        dr.reset();
+        mDrawableContainer.setHotspotBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
+        Rect outRect = new Rect();
+        mDrawableContainer.getHotspotBounds(outRect);
+        assertEquals(bounds, outRect);
+
+        dr.reset();
+    }
+
+    public void testGetHotspotBounds() {
+        Rect bounds = new Rect(10, 15, 100, 150);
+        assertConstantStateNotSet();
+        assertNull(mDrawableContainer.getCurrent());
+
+        mDrawableContainer.setConstantState(mDrawableContainerState);
+
+        MockDrawable dr = new MockDrawable();
+        addAndSelectDrawable(dr);
+
+        dr.reset();
+        mDrawableContainer.setHotspotBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
+        Rect outRect = new Rect();
+        mDrawableContainer.getHotspotBounds(outRect);
+        assertEquals(bounds, outRect);
+
+        dr.reset();
     }
 
     public void testSetColorFilter() {

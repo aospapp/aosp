@@ -73,10 +73,7 @@ class DexDepsXmlHandler extends DefaultHandler {
             if (apiPackage != null) {
                 ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
                 if (apiClass != null) {
-                    ApiConstructor apiConstructor = apiClass.getConstructor(mCurrentParameterTypes);
-                    if (apiConstructor != null) {
-                        apiConstructor.setCovered(true);
-                    }
+                    apiClass.markConstructorCovered(mCurrentParameterTypes);
                 }
             }
         }  else if ("method".equalsIgnoreCase(localName)) {
@@ -84,11 +81,8 @@ class DexDepsXmlHandler extends DefaultHandler {
             if (apiPackage != null) {
                 ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
                 if (apiClass != null) {
-                    ApiMethod apiMethod = apiClass.getMethod(mCurrentMethodName,
-                            mCurrentParameterTypes, mCurrentMethodReturnType);
-                    if (apiMethod != null) {
-                        apiMethod.setCovered(true);
-                    }
+                    apiClass.markMethodCovered(
+                            mCurrentMethodName, mCurrentParameterTypes, mCurrentMethodReturnType);
                 }
             }
         }

@@ -28,6 +28,7 @@
  */
 
 #include "defs.h"
+#include <fcntl.h>
 #include <linux/version.h>
 #include <sys/timex.h>
 #include <linux/ioctl.h>
@@ -38,6 +39,16 @@
 #endif
 #ifndef UTIME_OMIT
 #define UTIME_OMIT ((1l << 30) - 2l)
+#endif
+
+#if SUPPORTED_PERSONALITIES > 1
+# if defined X86_64 || defined X32
+#  define current_time_t_is_compat (current_personality == 1)
+# else
+#  define current_time_t_is_compat (current_wordsize == 4)
+# endif
+#else
+# define current_time_t_is_compat 0
 #endif
 
 struct timeval32
@@ -54,8 +65,7 @@ tprint_timeval32(struct tcb *tcp, const struct timeval32 *tv)
 static void
 tprint_timeval(struct tcb *tcp, const struct timeval *tv)
 {
-	tprintf("{%lu, %lu}",
-		(unsigned long) tv->tv_sec, (unsigned long) tv->tv_usec);
+	tprintf("{%ju, %ju}", (uintmax_t) tv->tv_sec, (uintmax_t) tv->tv_usec);
 }
 
 void
@@ -66,51 +76,41 @@ printtv_bitness(struct tcb *tcp, long addr, enum bitness_t bitness, int special)
 	tprints(buf);
 }
 
+static char *
+do_sprinttv(char *buf, const uintmax_t sec, const uintmax_t usec,
+	    const int special)
+{
+	if (special) {
+		switch (usec) {
+			case UTIME_NOW:
+				return stpcpy(buf, "UTIME_NOW");
+			case UTIME_OMIT:
+				return stpcpy(buf, "UTIME_OMIT");
+		}
+	}
+	return buf + sprintf(buf, "{%ju, %ju}", sec, usec);
+}
+
 char *
 sprinttv(char *buf, struct tcb *tcp, long addr, enum bitness_t bitness, int special)
 {
-	int rc;
-
 	if (addr == 0)
 		return stpcpy(buf, "NULL");
 
 	if (!verbose(tcp))
 		return buf + sprintf(buf, "%#lx", addr);
 
-	if (bitness == BITNESS_32
-#if SUPPORTED_PERSONALITIES > 1
-	    || current_wordsize == 4
-#endif
-		)
+	if (bitness == BITNESS_32 || current_time_t_is_compat)
 	{
 		struct timeval32 tv;
 
-		rc = umove(tcp, addr, &tv);
-		if (rc >= 0) {
-			if (special && tv.tv_sec == 0) {
-				if (tv.tv_usec == UTIME_NOW)
-					return stpcpy(buf, "UTIME_NOW");
-				if (tv.tv_usec == UTIME_OMIT)
-					return stpcpy(buf, "UTIME_OMIT");
-			}
-			return buf + sprintf(buf, "{%u, %u}",
-				tv.tv_sec, tv.tv_usec);
-		}
+		if (umove(tcp, addr, &tv) >= 0)
+			return do_sprinttv(buf, tv.tv_sec, tv.tv_usec, special);
 	} else {
 		struct timeval tv;
 
-		rc = umove(tcp, addr, &tv);
-		if (rc >= 0) {
-			if (special && tv.tv_sec == 0) {
-				if (tv.tv_usec == UTIME_NOW)
-					return stpcpy(buf, "UTIME_NOW");
-				if (tv.tv_usec == UTIME_OMIT)
-					return stpcpy(buf, "UTIME_OMIT");
-			}
-			return buf + sprintf(buf, "{%lu, %lu}",
-				(unsigned long) tv.tv_sec,
-				(unsigned long) tv.tv_usec);
-		}
+		if (umove(tcp, addr, &tv) >= 0)
+			return do_sprinttv(buf, tv.tv_sec, tv.tv_usec, special);
 	}
 
 	return stpcpy(buf, "{...}");
@@ -135,7 +135,7 @@ sprint_timespec(char *buf, struct tcb *tcp, long addr)
 		int rc;
 
 #if SUPPORTED_PERSONALITIES > 1
-		if (current_wordsize == 4) {
+		if (current_time_t_is_compat) {
 			struct timeval32 tv;
 
 			rc = umove(tcp, addr, &tv);
@@ -149,40 +149,28 @@ sprint_timespec(char *buf, struct tcb *tcp, long addr)
 
 			rc = umove(tcp, addr, &ts);
 			if (rc >= 0)
-				sprintf(buf, "{%lu, %lu}",
-					(unsigned long) ts.tv_sec,
-					(unsigned long) ts.tv_nsec);
+				sprintf(buf, "{%ju, %ju}",
+					(uintmax_t) ts.tv_sec,
+					(uintmax_t) ts.tv_nsec);
 		}
 		if (rc < 0)
 			strcpy(buf, "{...}");
 	}
 }
 
-int
-sys_time(struct tcb *tcp)
+SYS_FUNC(time)
 {
 	if (exiting(tcp)) {
-		printnum(tcp, tcp->u_arg[0], "%ld");
+		printnum_long(tcp, tcp->u_arg[0], "%ld");
 	}
 	return 0;
 }
 
-int
-sys_stime(struct tcb *tcp)
-{
-	if (exiting(tcp)) {
-		printnum(tcp, tcp->u_arg[0], "%ld");
-	}
-	return 0;
-}
-
-int
-sys_gettimeofday(struct tcb *tcp)
+SYS_FUNC(gettimeofday)
 {
 	if (exiting(tcp)) {
 		if (syserror(tcp)) {
-			tprintf("%#lx, %#lx",
-				tcp->u_arg[0], tcp->u_arg[1]);
+			tprintf("%#lx, %#lx", tcp->u_arg[0], tcp->u_arg[1]);
 			return 0;
 		}
 		printtv(tcp, tcp->u_arg[0]);
@@ -193,8 +181,7 @@ sys_gettimeofday(struct tcb *tcp)
 }
 
 #ifdef ALPHA
-int
-sys_osf_gettimeofday(struct tcb *tcp)
+SYS_FUNC(osf_gettimeofday)
 {
 	if (exiting(tcp)) {
 		if (syserror(tcp)) {
@@ -209,8 +196,7 @@ sys_osf_gettimeofday(struct tcb *tcp)
 }
 #endif
 
-int
-sys_settimeofday(struct tcb *tcp)
+SYS_FUNC(settimeofday)
 {
 	if (entering(tcp)) {
 		printtv(tcp, tcp->u_arg[0]);
@@ -221,8 +207,7 @@ sys_settimeofday(struct tcb *tcp)
 }
 
 #ifdef ALPHA
-int
-sys_osf_settimeofday(struct tcb *tcp)
+SYS_FUNC(osf_settimeofday)
 {
 	if (entering(tcp)) {
 		printtv_bitness(tcp, tcp->u_arg[0], BITNESS_32, 0);
@@ -233,8 +218,7 @@ sys_osf_settimeofday(struct tcb *tcp)
 }
 #endif
 
-int
-sys_adjtime(struct tcb *tcp)
+SYS_FUNC(adjtime)
 {
 	if (entering(tcp)) {
 		printtv(tcp, tcp->u_arg[0]);
@@ -248,8 +232,7 @@ sys_adjtime(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_nanosleep(struct tcb *tcp)
+SYS_FUNC(nanosleep)
 {
 	if (entering(tcp)) {
 		print_timespec(tcp, tcp->u_arg[0]);
@@ -291,12 +274,7 @@ printitv_bitness(struct tcb *tcp, long addr, enum bitness_t bitness)
 	else {
 		int rc;
 
-		if (bitness == BITNESS_32
-#if SUPPORTED_PERSONALITIES > 1
-		    || current_wordsize == 4
-#endif
-			)
-		{
+		if (bitness == BITNESS_32 || current_time_t_is_compat) {
 			struct {
 				struct timeval32 it_interval, it_value;
 			} itv;
@@ -329,8 +307,7 @@ printitv_bitness(struct tcb *tcp, long addr, enum bitness_t bitness)
 #define printitv(tcp, addr)	\
 	printitv_bitness((tcp), (addr), BITNESS_CURRENT)
 
-int
-sys_getitimer(struct tcb *tcp)
+SYS_FUNC(getitimer)
 {
 	if (entering(tcp)) {
 		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
@@ -345,8 +322,7 @@ sys_getitimer(struct tcb *tcp)
 }
 
 #ifdef ALPHA
-int
-sys_osf_getitimer(struct tcb *tcp)
+SYS_FUNC(osf_getitimer)
 {
 	if (entering(tcp)) {
 		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
@@ -361,8 +337,7 @@ sys_osf_getitimer(struct tcb *tcp)
 }
 #endif
 
-int
-sys_setitimer(struct tcb *tcp)
+SYS_FUNC(setitimer)
 {
 	if (entering(tcp)) {
 		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
@@ -379,8 +354,7 @@ sys_setitimer(struct tcb *tcp)
 }
 
 #ifdef ALPHA
-int
-sys_osf_setitimer(struct tcb *tcp)
+SYS_FUNC(osf_setitimer)
 {
 	if (entering(tcp)) {
 		printxval(itimer_which, tcp->u_arg[0], "ITIMER_???");
@@ -457,7 +431,7 @@ tprint_timex(struct tcb *tcp, long addr)
 	struct timex tx;
 
 #if SUPPORTED_PERSONALITIES > 1
-	if (current_wordsize == 4)
+	if (current_time_t_is_compat)
 		return tprint_timex32(tcp, addr);
 #endif
 	if (umove(tcp, addr, &tx) < 0)
@@ -475,20 +449,20 @@ tprint_timex(struct tcb *tcp, long addr)
 #else
 	tprints("{modes=");
 	printflags(adjtimex_modes, tx.modes, "ADJ_???");
-	tprintf(", offset=%ld, freq=%ld, maxerror=%ld, ",
-		(long) tx.offset, (long) tx.freq, (long) tx.maxerror);
-	tprintf("esterror=%lu, status=", (long) tx.esterror);
+	tprintf(", offset=%jd, freq=%jd, maxerror=%ju, esterror=%ju, status=",
+		(intmax_t) tx.offset, (intmax_t) tx.freq,
+		(uintmax_t) tx.maxerror, (uintmax_t) tx.esterror);
 	printflags(adjtimex_status, tx.status, "STA_???");
-	tprintf(", constant=%ld, precision=%lu, ",
-		(long) tx.constant, (long) tx.precision);
-	tprintf("tolerance=%ld, time=", (long) tx.tolerance);
+	tprintf(", constant=%jd, precision=%ju, tolerance=%jd, time=",
+		(intmax_t) tx.constant, (uintmax_t) tx.precision,
+		(intmax_t) tx.tolerance);
 	tprint_timeval(tcp, &tx.time);
-	tprintf(", tick=%ld, ppsfreq=%ld, jitter=%ld",
-		(long) tx.tick, (long) tx.ppsfreq, (long) tx.jitter);
-	tprintf(", shift=%d, stabil=%ld, jitcnt=%ld",
-		tx.shift, (long) tx.stabil, (long) tx.jitcnt);
-	tprintf(", calcnt=%ld, errcnt=%ld, stbcnt=%ld",
-		(long) tx.calcnt, (long) tx.errcnt, (long) tx.stbcnt);
+	tprintf(", tick=%jd, ppsfreq=%jd, jitter=%jd",
+		(intmax_t) tx.tick, (intmax_t) tx.ppsfreq, (intmax_t) tx.jitter);
+	tprintf(", shift=%d, stabil=%jd, jitcnt=%jd",
+		tx.shift, (intmax_t) tx.stabil, (intmax_t) tx.jitcnt);
+	tprintf(", calcnt=%jd, errcnt=%jd, stbcnt=%jd",
+		(intmax_t) tx.calcnt, (intmax_t) tx.errcnt, (intmax_t) tx.stbcnt);
 #endif
 	tprints("}");
 	return 0;
@@ -511,8 +485,7 @@ do_adjtimex(struct tcb *tcp, long addr)
 	return 0;
 }
 
-int
-sys_adjtimex(struct tcb *tcp)
+SYS_FUNC(adjtimex)
 {
 	if (exiting(tcp))
 		return do_adjtimex(tcp, tcp->u_arg[0]);
@@ -545,8 +518,7 @@ printclockname(int clockid)
 		printxval(clocknames, clockid, "CLOCK_???");
 }
 
-int
-sys_clock_settime(struct tcb *tcp)
+SYS_FUNC(clock_settime)
 {
 	if (entering(tcp)) {
 		printclockname(tcp->u_arg[0]);
@@ -556,8 +528,7 @@ sys_clock_settime(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_clock_gettime(struct tcb *tcp)
+SYS_FUNC(clock_gettime)
 {
 	if (entering(tcp)) {
 		printclockname(tcp->u_arg[0]);
@@ -571,8 +542,7 @@ sys_clock_gettime(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_clock_nanosleep(struct tcb *tcp)
+SYS_FUNC(clock_nanosleep)
 {
 	if (entering(tcp)) {
 		printclockname(tcp->u_arg[0]);
@@ -590,8 +560,7 @@ sys_clock_nanosleep(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_clock_adjtime(struct tcb *tcp)
+SYS_FUNC(clock_adjtime)
 {
 	if (exiting(tcp))
 		return do_adjtimex(tcp, tcp->u_arg[1]);
@@ -687,8 +656,7 @@ printsigevent(struct tcb *tcp, long arg)
 	}
 }
 
-int
-sys_timer_create(struct tcb *tcp)
+SYS_FUNC(timer_create)
 {
 	if (entering(tcp)) {
 		printclockname(tcp->u_arg[0]);
@@ -706,8 +674,7 @@ sys_timer_create(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_timer_settime(struct tcb *tcp)
+SYS_FUNC(timer_settime)
 {
 	if (entering(tcp)) {
 		tprintf("%#lx, ", tcp->u_arg[0]);
@@ -724,8 +691,7 @@ sys_timer_settime(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_timer_gettime(struct tcb *tcp)
+SYS_FUNC(timer_gettime)
 {
 	if (entering(tcp)) {
 		tprintf("%#lx, ", tcp->u_arg[0]);
@@ -753,7 +719,7 @@ print_rtc(struct tcb *tcp, const struct rtc_time *rt)
 }
 
 int
-rtc_ioctl(struct tcb *tcp, long code, long arg)
+rtc_ioctl(struct tcb *tcp, const unsigned int code, long arg)
 {
 	switch (code) {
 	case RTC_ALM_SET:
@@ -824,14 +790,9 @@ rtc_ioctl(struct tcb *tcp, long code, long arg)
 	return 1;
 }
 
-#ifndef TFD_TIMER_ABSTIME
-#define TFD_TIMER_ABSTIME (1 << 0)
-#endif
-
 #include "xlat/timerfdflags.h"
 
-int
-sys_timerfd(struct tcb *tcp)
+SYS_FUNC(timerfd)
 {
 	if (entering(tcp)) {
 		/* It does not matter that the kernel uses itimerspec.  */
@@ -845,8 +806,7 @@ sys_timerfd(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_timerfd_create(struct tcb *tcp)
+SYS_FUNC(timerfd_create)
 {
 	if (entering(tcp)) {
 		printclockname(tcp->u_arg[0]);
@@ -856,8 +816,7 @@ sys_timerfd_create(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_timerfd_settime(struct tcb *tcp)
+SYS_FUNC(timerfd_settime)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);
@@ -871,8 +830,7 @@ sys_timerfd_settime(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_timerfd_gettime(struct tcb *tcp)
+SYS_FUNC(timerfd_gettime)
 {
 	if (entering(tcp)) {
 		printfd(tcp, tcp->u_arg[0]);

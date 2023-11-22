@@ -48,6 +48,7 @@ llvm_llc_STATIC_LIBRARIES := \
   libLLVMipo \
   libLLVMipa \
   libLLVMLinker \
+  libLLVMMCDisassembler \
   libLLVMMC \
   libLLVMMCParser \
   libLLVMScalarOpts \
@@ -118,6 +119,7 @@ LOCAL_C_INCLUDES += external/llvm/include
 
 LOCAL_STATIC_LIBRARIES_arm += $(llvm_llc_arm_STATIC_LIBRARIES)
 LOCAL_STATIC_LIBRARIES_mips += $(llvm_llc_mips_STATIC_LIBRARIES)
+LOCAL_STATIC_LIBRARIES_mips64 += $(llvm_llc_mips_STATIC_LIBRARIES)
 LOCAL_STATIC_LIBRARIES_x86 += $(llvm_llc_x86_STATIC_LIBRARIES)
 LOCAL_STATIC_LIBRARIES_x86_64 += $(llvm_llc_x86_STATIC_LIBRARIES)
 LOCAL_STATIC_LIBRARIES_arm64 += $(llvm_llc_aarch64_STATIC_LIBRARIES)

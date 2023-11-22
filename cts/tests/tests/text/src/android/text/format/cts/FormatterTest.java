@@ -32,24 +32,24 @@ public class FormatterTest extends AndroidTestCase {
         BigDecimal bd = new BigDecimal((long) 1024, mc);
 
         // test different long values with various length
-        assertEquals("0.00B", Formatter.formatFileSize(mContext, 0));
+        assertEquals("0.00 B", Formatter.formatFileSize(mContext, 0));
 
-        assertEquals("899B", Formatter.formatFileSize(mContext, 899));
+        assertEquals("899 B", Formatter.formatFileSize(mContext, 899));
 
-        assertEquals("1.00KB", Formatter.formatFileSize(mContext, bd.pow(1).longValue()));
+        assertEquals("1.00 KB", Formatter.formatFileSize(mContext, bd.pow(1).longValue()));
 
-        assertEquals("1.00MB", Formatter.formatFileSize(mContext, bd.pow(2).longValue()));
+        assertEquals("1.00 MB", Formatter.formatFileSize(mContext, bd.pow(2).longValue()));
 
-        assertEquals("1.00GB", Formatter.formatFileSize(mContext, bd.pow(3).longValue()));
+        assertEquals("1.00 GB", Formatter.formatFileSize(mContext, bd.pow(3).longValue()));
 
-        assertEquals("1.00TB", Formatter.formatFileSize(mContext, bd.pow(4).longValue()));
+        assertEquals("1.00 TB", Formatter.formatFileSize(mContext, bd.pow(4).longValue()));
 
-        assertEquals("1.00PB", Formatter.formatFileSize(mContext, bd.pow(5).longValue()));
+        assertEquals("1.00 PB", Formatter.formatFileSize(mContext, bd.pow(5).longValue()));
 
-        assertEquals("1024PB", Formatter.formatFileSize(mContext, bd.pow(6).longValue()));
+        assertEquals("1024 PB", Formatter.formatFileSize(mContext, bd.pow(6).longValue()));
 
         // test Negative value
-        assertEquals("-1.00B", Formatter.formatFileSize(mContext, -1));
+        assertEquals("-1.00 B", Formatter.formatFileSize(mContext, -1));
     }
 
     public void testFormatIpAddress() {

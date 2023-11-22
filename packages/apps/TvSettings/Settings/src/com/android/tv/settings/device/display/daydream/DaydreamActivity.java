@@ -17,9 +17,10 @@
 package com.android.tv.settings.device.display.daydream;
 
 // This setting controls when we will start dreaming
-import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
-// This setting controls when we'll turn the output off and go to sleep
-import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.provider.Settings;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.old.Action;
@@ -28,18 +29,12 @@ import com.android.tv.settings.dialog.old.ActionFragment;
 import com.android.tv.settings.dialog.old.ContentFragment;
 import com.android.tv.settings.dialog.old.DialogActivity;
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Bundle;
-import android.preference.PreferenceManager;
-import android.provider.Settings;
-import android.util.Log;
-
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
+
+import static android.provider.Settings.Secure.SLEEP_TIMEOUT;
+import static android.provider.Settings.System.SCREEN_OFF_TIMEOUT;
+
+// This setting controls when we'll turn the output off and go to sleep
 
 /**
  * Activity that allows the setting of daydreams.
@@ -47,7 +42,12 @@ import java.util.List;
 public class DaydreamActivity extends DialogActivity implements ActionAdapter.Listener {
 
     enum ActionType {
-        SELECT, LIST_DREAM_TIMEOUT, LIST_SYSTEM_SLEEP_TIMEOUT, SET_DREAM_TIMEOUT, SET_SYSTEM_SLEEP_TIMEOUT, TEST;
+        SELECT,
+        LIST_DREAM_TIMEOUT,
+        LIST_SYSTEM_SLEEP_TIMEOUT,
+        SET_DREAM_TIMEOUT,
+        SET_SYSTEM_SLEEP_TIMEOUT,
+        TEST
     }
 
     /** If there is no setting in the provider, use this. */
@@ -171,7 +171,7 @@ public class DaydreamActivity extends DialogActivity implements ActionAdapter.Li
     }
 
     private ArrayList<Action> getMainActions() {
-        ArrayList<Action> actions = new ArrayList<Action>();
+        ArrayList<Action> actions = new ArrayList<>();
         actions.add(new Action.Builder().key(ActionType.SELECT.name())
                 .title(getString(R.string.device_daydreams_select))
                 .description(mDreamBackend.getActiveDreamTitle()).build());
@@ -223,7 +223,7 @@ public class DaydreamActivity extends DialogActivity implements ActionAdapter.Li
         String[] sleepOptionValues = getResources().getStringArray(valuesResId);
         String[] sleepOptionEntries = getResources().getStringArray(entriesResId);
 
-        ArrayList<Action> actions = new ArrayList<Action>();
+        ArrayList<Action> actions = new ArrayList<>();
         for (int index = 0; index < sleepOptionValues.length; ++index) {
             long loopValue = Long.parseLong(sleepOptionValues[index]);
             Action sleepAction = new Action.Builder().key(key)
@@ -244,7 +244,6 @@ public class DaydreamActivity extends DialogActivity implements ActionAdapter.Li
     private String getEntry(int valuesResId, int entriesResId, long value) {
         String[] sleepOptionValues = getResources().getStringArray(valuesResId);
         String[] sleepOptionEntries = getResources().getStringArray(entriesResId);
-        long sleepValue = getDreamTimeoutValue();
         for (int index = 0; index < sleepOptionValues.length; ++index) {
             long loopValue = Long.parseLong(sleepOptionValues[index]);
             if (loopValue == value) {

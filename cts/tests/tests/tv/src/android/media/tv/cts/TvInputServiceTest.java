@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.cts.util.PollingCheck;
+import android.media.PlaybackParams;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
@@ -28,9 +29,15 @@ import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
 import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingSession;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.test.ActivityInstrumentationTestCase2;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.Surface;
+import android.view.SurfaceView;
+import android.view.View;
+import android.widget.LinearLayout;
 
 import com.android.cts.tv.R;
 
@@ -46,8 +53,8 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     private static final long TIME_OUT = 15000L;
     private static final String mDummyTrackId = "dummyTrackId";
     private static final TvTrackInfo mDummyTrack =
-            new TvTrackInfo.Builder(TvTrackInfo.TYPE_SUBTITLE, mDummyTrackId)
-            .setLanguage("und").build();
+            new TvTrackInfo.Builder(TvTrackInfo.TYPE_VIDEO, mDummyTrackId)
+            .setVideoWidth(1920).setVideoHeight(1080).setLanguage("und").build();
 
     private TvView mTvView;
     private Activity mActivity;
@@ -55,6 +62,8 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     private TvInputManager mManager;
     private TvInputInfo mStubInfo;
     private final StubCallback mCallback = new StubCallback();
+    private final StubTimeShiftPositionCallback mTimeShiftPositionCallback =
+            new StubTimeShiftPositionCallback();
 
     private static class StubCallback extends TvView.TvInputCallback {
         private int mChannelRetunedCount;
@@ -62,8 +71,10 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         private int mVideoUnavailableCount;
         private int mTrackSelectedCount;
         private int mTrackChangedCount;
+        private int mVideoSizeChanged;
         private int mContentAllowedCount;
         private int mContentBlockedCount;
+        private int mTimeShiftStatusChangedCount;
 
         @Override
         public void onChannelRetuned(String inputId, Uri channelUri) {
@@ -91,6 +102,11 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }
 
         @Override
+        public void onVideoSizeChanged(String inputId, int width, int height) {
+            mVideoSizeChanged++;
+        }
+
+        @Override
         public void onContentAllowed(String inputId) {
             mContentAllowedCount++;
         }
@@ -98,6 +114,42 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         @Override
         public void onContentBlocked(String inputId, TvContentRating rating) {
             mContentBlockedCount++;
+        }
+
+        @Override
+        public void onTimeShiftStatusChanged(String inputId, int status) {
+            mTimeShiftStatusChangedCount++;
+        }
+
+        public void resetCounts() {
+            mChannelRetunedCount = 0;
+            mVideoAvailableCount = 0;
+            mVideoUnavailableCount = 0;
+            mTrackSelectedCount = 0;
+            mTrackChangedCount = 0;
+            mContentAllowedCount = 0;
+            mContentBlockedCount = 0;
+            mTimeShiftStatusChangedCount = 0;
+        }
+    }
+
+    private static class StubTimeShiftPositionCallback extends TvView.TimeShiftPositionCallback {
+        private int mTimeShiftStartPositionChanged;
+        private int mTimeShiftCurrentPositionChanged;
+
+        @Override
+        public void onTimeShiftStartPositionChanged(String inputId, long timeMs) {
+            mTimeShiftStartPositionChanged++;
+        }
+
+        @Override
+        public void onTimeShiftCurrentPositionChanged(String inputId, long timeMs) {
+            mTimeShiftCurrentPositionChanged++;
+        }
+
+        public void resetCounts() {
+            mTimeShiftStartPositionChanged = 0;
+            mTimeShiftCurrentPositionChanged = 0;
         }
     }
 
@@ -135,7 +187,18 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         verifyCommandSetStreamVolume();
         verifyCommandSetCaptionEnabled();
         verifyCommandSelectTrack();
-        verifyCommandDispatchKeyEvent();
+        verifyCommandDispatchKeyDown();
+        verifyCommandDispatchKeyMultiple();
+        verifyCommandDispatchKeyUp();
+        verifyCommandDispatchTouchEvent();
+        verifyCommandDispatchTrackballEvent();
+        verifyCommandDispatchGenericMotionEvent();
+        verifyCommandTimeShiftPause();
+        verifyCommandTimeShiftResume();
+        verifyCommandTimeShiftSeekTo();
+        verifyCommandTimeShiftSetPlaybackParams();
+        verifyCommandSetTimeShiftPositionCallback();
+        verifyCommandOverlayViewSizeChanged();
         verifyCallbackChannelRetuned();
         verifyCallbackVideoAvailable();
         verifyCallbackVideoUnavailable();
@@ -143,6 +206,8 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         verifyCallbackTrackSelected();
         verifyCallbackContentAllowed();
         verifyCallbackContentBlocked();
+        verifyCallbackTimeShiftStatusChanged();
+        verifyCallbackLayoutSurface();
 
         runTestOnUiThread(new Runnable() {
             @Override
@@ -161,12 +226,13 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             @Override
             protected boolean check() {
                 CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTuneCount > 0;
+                return session != null && session.mTuneCount > 0 && session.mCreateOverlayView > 0;
             }
         }.run();
     }
 
     public void verifyCommandSetStreamVolume() {
+        resetCounts();
         mTvView.setStreamVolume(1.0f);
         mInstrumentation.waitForIdleSync();
         new PollingCheck(TIME_OUT) {
@@ -179,6 +245,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCommandSetCaptionEnabled() {
+        resetCounts();
         mTvView.setCaptionEnabled(true);
         mInstrumentation.waitForIdleSync();
         new PollingCheck(TIME_OUT) {
@@ -191,18 +258,21 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCommandSelectTrack() {
-        mTvView.selectTrack(TvTrackInfo.TYPE_AUDIO, "dummyTrackId");
+        resetCounts();
+        verifyCallbackTracksChanged();
+        mTvView.selectTrack(mDummyTrack.getType(), mDummyTrack.getId());
         mInstrumentation.waitForIdleSync();
         new PollingCheck(TIME_OUT) {
             @Override
             protected boolean check() {
                 CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mSetStreamVolumeCount > 0;
+                return session != null && session.mSelectTrackCount > 0;
             }
         }.run();
     }
 
-    public void verifyCommandDispatchKeyEvent() {
+    public void verifyCommandDispatchKeyDown() {
+        resetCounts();
         mTvView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_K));
         mInstrumentation.waitForIdleSync();
         new PollingCheck(TIME_OUT) {
@@ -214,7 +284,167 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }.run();
     }
 
+    public void verifyCommandDispatchKeyMultiple() {
+        resetCounts();
+        mTvView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_MULTIPLE, KeyEvent.KEYCODE_K));
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mKeyMultipleCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandDispatchKeyUp() {
+        resetCounts();
+        mTvView.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_K));
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mKeyUpCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandDispatchTouchEvent() {
+        resetCounts();
+        long now = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
+                1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        mTvView.dispatchTouchEvent(event);
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTouchEventCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandDispatchTrackballEvent() {
+        resetCounts();
+        long now = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
+                1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
+        event.setSource(InputDevice.SOURCE_TRACKBALL);
+        mTvView.dispatchTouchEvent(event);
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTrackballEventCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandDispatchGenericMotionEvent() {
+        resetCounts();
+        long now = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
+                1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
+        mTvView.dispatchGenericMotionEvent(event);
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mGenricMotionEventCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandTimeShiftPause() {
+        resetCounts();
+        mTvView.timeShiftPause();
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTimeShiftPauseCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandTimeShiftResume() {
+        resetCounts();
+        mTvView.timeShiftResume();
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTimeShiftResumeCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandTimeShiftSeekTo() {
+        resetCounts();
+        mTvView.timeShiftSeekTo(0);
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTimeShiftSeekToCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandTimeShiftSetPlaybackParams() {
+        resetCounts();
+        mTvView.timeShiftSetPlaybackParams(new PlaybackParams().setSpeed(2.0f)
+                .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT));
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mTimeShiftSetPlaybackParamsCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandSetTimeShiftPositionCallback() {
+        resetCounts();
+        mTvView.setTimeShiftPositionCallback(mTimeShiftPositionCallback);
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                return mTimeShiftPositionCallback.mTimeShiftCurrentPositionChanged > 0
+                        && mTimeShiftPositionCallback.mTimeShiftStartPositionChanged > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCommandOverlayViewSizeChanged() {
+        resetCounts();
+        mActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                mTvView.setLayoutParams(new LinearLayout.LayoutParams(10, 20));
+            }
+        });
+        mInstrumentation.waitForIdleSync();
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                CountingSession session = CountingTvInputService.sSession;
+                return session != null && session.mOverlayViewSizeChangedCount > 0;
+            }
+        }.run();
+    }
+
     public void verifyCallbackChannelRetuned() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         Uri fakeChannelUri = TvContract.buildChannelUri(0);
@@ -228,6 +458,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCallbackVideoAvailable() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         session.notifyVideoAvailable();
@@ -240,6 +471,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCallbackVideoUnavailable() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         session.notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING);
@@ -252,6 +484,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCallbackTracksChanged() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         ArrayList<TvTrackInfo> tracks = new ArrayList<>();
@@ -265,7 +498,23 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }.run();
     }
 
+    public void verifyCallbackVideoSizeChanged() {
+        resetCounts();
+        CountingSession session = CountingTvInputService.sSession;
+        assertNotNull(session);
+        ArrayList<TvTrackInfo> tracks = new ArrayList<>();
+        tracks.add(mDummyTrack);
+        session.notifyTracksChanged(tracks);
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                return mCallback.mVideoSizeChanged > 0;
+            }
+        }.run();
+    }
+
     public void verifyCallbackTrackSelected() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         session.notifyTrackSelected(mDummyTrack.getType(), mDummyTrack.getId());
@@ -278,6 +527,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCallbackContentAllowed() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         session.notifyContentAllowed();
@@ -290,6 +540,7 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
     }
 
     public void verifyCallbackContentBlocked() {
+        resetCounts();
         CountingSession session = CountingTvInputService.sSession;
         assertNotNull(session);
         TvContentRating rating = TvContentRating.createRating("android.media.tv", "US_TVPG",
@@ -303,13 +554,59 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }.run();
     }
 
+    public void verifyCallbackTimeShiftStatusChanged() {
+        resetCounts();
+        CountingSession session = CountingTvInputService.sSession;
+        assertNotNull(session);
+        session.notifyTimeShiftStatusChanged(TvInputManager.TIME_SHIFT_STATUS_AVAILABLE);
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                return mCallback.mTimeShiftStatusChangedCount > 0;
+            }
+        }.run();
+    }
+
+    public void verifyCallbackLayoutSurface() {
+        resetCounts();
+        final int left = 10;
+        final int top = 20;
+        final int right = 30;
+        final int bottom = 40;
+        CountingSession session = CountingTvInputService.sSession;
+        assertNotNull(session);
+        session.layoutSurface(left, top, right, bottom);
+        new PollingCheck(TIME_OUT) {
+            @Override
+            protected boolean check() {
+                int childCount = mTvView.getChildCount();
+                for (int i = 0; i < childCount; ++i) {
+                    View v = mTvView.getChildAt(i);
+                    if (v instanceof SurfaceView) {
+                        return v.getLeft() == left && v.getTop() == top && v.getRight() == right
+                                && v.getBottom() == bottom;
+                    }
+                }
+                return false;
+            }
+        }.run();
+    }
+
+    private void resetCounts() {
+        if (CountingTvInputService.sSession != null) {
+            CountingTvInputService.sSession.resetCounts();
+        }
+        mCallback.resetCounts();
+        mTimeShiftPositionCallback.resetCounts();
+    }
+
     public static class CountingTvInputService extends StubTvInputService {
-        static CountingTvInputService sInstance;
         static CountingSession sSession;
 
         @Override
         public Session onCreateSession(String inputId) {
             sSession = new CountingSession(this);
+            sSession.setOverlayViewEnabled(true);
             return sSession;
         }
 
@@ -318,10 +615,46 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             public volatile int mSetStreamVolumeCount;
             public volatile int mSetCaptionEnabledCount;
             public volatile int mSelectTrackCount;
+            public volatile int mCreateOverlayView;
             public volatile int mKeyDownCount;
+            public volatile int mKeyLongPressCount;
+            public volatile int mKeyMultipleCount;
+            public volatile int mKeyUpCount;
+            public volatile int mTouchEventCount;
+            public volatile int mTrackballEventCount;
+            public volatile int mGenricMotionEventCount;
+            public volatile int mOverlayViewSizeChangedCount;
+            public volatile int mTimeShiftPauseCount;
+            public volatile int mTimeShiftResumeCount;
+            public volatile int mTimeShiftSeekToCount;
+            public volatile int mTimeShiftSetPlaybackParamsCount;
+            public volatile long mTimeShiftGetCurrentPositionCount;
+            public volatile long mTimeShiftGetStartPositionCount;
 
             CountingSession(Context context) {
                 super(context);
+            }
+
+            public void resetCounts() {
+                mTuneCount = 0;
+                mSetStreamVolumeCount = 0;
+                mSetCaptionEnabledCount = 0;
+                mSelectTrackCount = 0;
+                mCreateOverlayView = 0;
+                mKeyDownCount = 0;
+                mKeyLongPressCount = 0;
+                mKeyMultipleCount = 0;
+                mKeyUpCount = 0;
+                mTouchEventCount = 0;
+                mTrackballEventCount = 0;
+                mGenricMotionEventCount = 0;
+                mOverlayViewSizeChangedCount = 0;
+                mTimeShiftPauseCount = 0;
+                mTimeShiftResumeCount = 0;
+                mTimeShiftSeekToCount = 0;
+                mTimeShiftSetPlaybackParamsCount = 0;
+                mTimeShiftGetCurrentPositionCount = 0;
+                mTimeShiftGetStartPositionCount = 0;
             }
 
             @Override
@@ -356,9 +689,86 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             }
 
             @Override
+            public View onCreateOverlayView() {
+                mCreateOverlayView++;
+                return null;
+            }
+
+            @Override
             public boolean onKeyDown(int keyCode, KeyEvent event) {
                 mKeyDownCount++;
                 return false;
+            }
+
+            @Override
+            public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+                mKeyLongPressCount++;
+                return false;
+            }
+
+            @Override
+            public boolean onKeyMultiple(int keyCode, int count, KeyEvent event) {
+                mKeyMultipleCount++;
+                return false;
+            }
+
+            @Override
+            public boolean onKeyUp(int keyCode, KeyEvent event) {
+                mKeyUpCount++;
+                return false;
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                mTouchEventCount++;
+                return false;
+            }
+
+            @Override
+            public boolean onTrackballEvent(MotionEvent event) {
+                mTrackballEventCount++;
+                return false;
+            }
+
+            @Override
+            public boolean onGenericMotionEvent(MotionEvent event) {
+                mGenricMotionEventCount++;
+                return false;
+            }
+
+            @Override
+            public void onTimeShiftPause() {
+                mTimeShiftPauseCount++;
+            }
+
+            @Override
+            public void onTimeShiftResume() {
+                mTimeShiftResumeCount++;
+            }
+
+            @Override
+            public void onTimeShiftSeekTo(long timeMs) {
+                mTimeShiftSeekToCount++;
+            }
+
+            @Override
+            public void onTimeShiftSetPlaybackParams(PlaybackParams param) {
+                mTimeShiftSetPlaybackParamsCount++;
+            }
+
+            @Override
+            public long onTimeShiftGetCurrentPosition() {
+                return ++mTimeShiftGetCurrentPositionCount;
+            }
+
+            @Override
+            public long onTimeShiftGetStartPosition() {
+                return ++mTimeShiftGetStartPositionCount;
+            }
+
+            @Override
+            public void onOverlayViewSizeChanged(int width, int height) {
+                mOverlayViewSizeChangedCount++;
             }
         }
     }

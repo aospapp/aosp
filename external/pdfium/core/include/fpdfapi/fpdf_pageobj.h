@@ -4,14 +4,12 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_PAGEOBJ_H_
-#define _FPDF_PAGEOBJ_H_
-#ifndef _FPDF_RESOURCE_
-#include "fpdf_resource.h"
-#endif
-#ifndef _FX_GE_H_
+#ifndef CORE_INCLUDE_FPDFAPI_FPDF_PAGEOBJ_H_
+#define CORE_INCLUDE_FPDFAPI_FPDF_PAGEOBJ_H_
+
 #include "../fxge/fx_ge.h"
-#endif
+#include "fpdf_resource.h"
+
 class CPDF_Path;
 class CPDF_ClipPathData;
 class CPDF_ClipPath;
@@ -99,7 +97,7 @@ public:
         return m_pObject->IsRect();
     }
 };
-class CPDF_ClipPathData : public CFX_Object
+class CPDF_ClipPathData 
 {
 public:
 
@@ -161,11 +159,11 @@ public:
 
     void				Transform(const CFX_AffineMatrix& matrix);
 };
-class CPDF_ColorStateData : public CFX_Object
+class CPDF_ColorStateData 
 {
 public:
 
-    CPDF_ColorStateData() {}
+    CPDF_ColorStateData(): m_FillRGB(0), m_StrokeRGB(0) {}
 
     CPDF_ColorStateData(const CPDF_ColorStateData& src);
 
@@ -208,7 +206,7 @@ class CPDF_GraphState : public CFX_CountRef<CFX_GraphStateData>
 {
 public:
 };
-class CPDF_TextStateData : public CFX_Object
+class CPDF_TextStateData 
 {
 public:
 
@@ -219,6 +217,8 @@ public:
     ~CPDF_TextStateData();
 
     CPDF_Font*			m_pFont;
+
+    CPDF_Document*		m_pDocument;
 
     FX_FLOAT			m_FontSize;
 
@@ -265,7 +265,7 @@ public:
 
 };
 class CPDF_TransferFunc;
-class CPDF_GeneralStateData : public CFX_Object
+class CPDF_GeneralStateData 
 {
 public:
 
@@ -334,7 +334,7 @@ public:
         return m_pObject ? FXSYS_round((bStroke ? m_pObject->m_StrokeAlpha : m_pObject->m_FillAlpha) * 255) : 255;
     }
 };
-class CPDF_ContentMarkItem : public CFX_Object
+class CPDF_ContentMarkItem 
 {
 public:
 
@@ -386,7 +386,7 @@ private:
 
     void*				m_pParam;
 };
-class CPDF_ContentMarkData : public CFX_Object
+class CPDF_ContentMarkData 
 {
 public:
 
@@ -432,7 +432,7 @@ public:
 #define PDFPAGE_SHADING		4
 #define PDFPAGE_FORM		5
 #define PDFPAGE_INLINES		6
-class CPDF_GraphicStates : public CFX_Object
+class CPDF_GraphicStates 
 {
 public:
 
@@ -453,10 +453,8 @@ public:
 class CPDF_PageObject : public CPDF_GraphicStates
 {
 public:
-
     static CPDF_PageObject* Create(int type);
-
-    void				Release();
+    virtual ~CPDF_PageObject();
 
     CPDF_PageObject*	Clone() const;
 
@@ -503,9 +501,8 @@ protected:
 
     CPDF_PageObject() {}
 
-    virtual ~CPDF_PageObject() {}
 };
-struct CPDF_TextObjectItem : public CFX_Object {
+struct CPDF_TextObjectItem  {
 
     FX_DWORD			m_CharCode;
 
@@ -718,4 +715,5 @@ protected:
     virtual void		Transform(const CFX_AffineMatrix& matrix) {}
     virtual void		CopyData(const CPDF_PageObject* pSrcObjet) {}
 };
-#endif
+
+#endif  // CORE_INCLUDE_FPDFAPI_FPDF_PAGEOBJ_H_

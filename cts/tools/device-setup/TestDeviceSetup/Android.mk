@@ -29,7 +29,7 @@ LOCAL_SDK_VERSION := current
 
 LOCAL_PACKAGE_NAME := TestDeviceSetup
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)
 
 # ======================================================
 # also build a static host library for the device info constants

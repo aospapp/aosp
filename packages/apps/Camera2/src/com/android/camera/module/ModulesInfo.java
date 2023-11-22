@@ -17,18 +17,24 @@
 package com.android.camera.module;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.res.Resources;
 
 import com.android.camera.CaptureModule;
 import com.android.camera.PhotoModule;
 import com.android.camera.VideoModule;
 import com.android.camera.app.AppController;
 import com.android.camera.app.ModuleManager;
-import com.android.camera.debug.DebugPropertyHelper;
+import com.android.camera.captureintent.CaptureIntentModule;
 import com.android.camera.debug.Log;
+import com.android.camera.one.OneCamera;
+import com.android.camera.one.OneCameraException;
+import com.android.camera.one.config.OneCameraFeatureConfig;
+import com.android.camera.one.config.OneCameraFeatureConfig.HdrPlusSupportLevel;
+import com.android.camera.settings.SettingsScopeNamespaces;
 import com.android.camera.util.GcamHelper;
 import com.android.camera.util.PhotoSphereHelper;
 import com.android.camera.util.RefocusHelper;
-import com.android.camera.util.SystemProperties;
 import com.android.camera2.R;
 
 /**
@@ -38,34 +44,40 @@ import com.android.camera2.R;
 public class ModulesInfo {
     private static final Log.Tag TAG = new Log.Tag("ModulesInfo");
 
-    /** Selects CaptureModule if true, PhotoModule if false. */
-    private static final boolean ENABLE_CAPTURE_MODULE =
-            DebugPropertyHelper.isCaptureModuleEnabled();
-
-    public static void setupModules(Context context, ModuleManager moduleManager) {
+    public static void setupModules(Context context, ModuleManager moduleManager,
+            OneCameraFeatureConfig config) {
+        Resources res = context.getResources();
         int photoModuleId = context.getResources().getInteger(R.integer.camera_mode_photo);
-        registerPhotoModule(moduleManager, photoModuleId);
+        registerPhotoModule(moduleManager, photoModuleId, SettingsScopeNamespaces.PHOTO,
+                config.isUsingCaptureModule());
         moduleManager.setDefaultModuleIndex(photoModuleId);
-        registerVideoModule(moduleManager, context.getResources()
-                .getInteger(R.integer.camera_mode_video));
+        registerVideoModule(moduleManager, res.getInteger(R.integer.camera_mode_video),
+                SettingsScopeNamespaces.VIDEO);
         if (PhotoSphereHelper.hasLightCycleCapture(context)) {
-            registerWideAngleModule(moduleManager, context.getResources()
-                    .getInteger(R.integer.camera_mode_panorama));
-            registerPhotoSphereModule(moduleManager, context.getResources()
-                    .getInteger(R.integer.camera_mode_photosphere));
+            registerWideAngleModule(moduleManager, res.getInteger(R.integer.camera_mode_panorama),
+                    SettingsScopeNamespaces.PANORAMA);
+            registerPhotoSphereModule(moduleManager,
+                    res.getInteger(R.integer.camera_mode_photosphere),
+                    SettingsScopeNamespaces.PANORAMA);
         }
         if (RefocusHelper.hasRefocusCapture(context)) {
-            registerRefocusModule(moduleManager, context.getResources()
-                    .getInteger(R.integer.camera_mode_refocus));
+            registerRefocusModule(moduleManager, res.getInteger(R.integer.camera_mode_refocus),
+                    SettingsScopeNamespaces.REFOCUS);
         }
-        if (GcamHelper.hasGcamAsSeparateModule()) {
-            registerGcamModule(moduleManager, context.getResources()
-                    .getInteger(R.integer.camera_mode_gcam));
+        if (GcamHelper.hasGcamAsSeparateModule(config)) {
+            registerGcamModule(moduleManager, res.getInteger(R.integer.camera_mode_gcam),
+                    SettingsScopeNamespaces.PHOTO,
+                    config.getHdrPlusSupportLevel(OneCamera.Facing.BACK));
         }
+        int imageCaptureIntentModuleId = res.getInteger(R.integer.camera_mode_capture_intent);
+        registerCaptureIntentModule(moduleManager, imageCaptureIntentModuleId,
+                SettingsScopeNamespaces.PHOTO, config.isUsingCaptureModule());
     }
 
-    private static void registerPhotoModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerPhotoModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace, final boolean enableCaptureModule) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
+
             @Override
             public int getModuleId() {
                 return moduleId;
@@ -77,17 +89,24 @@ public class ModulesInfo {
                 // capture module is using OneCamera. At some point we'll
                 // refactor all modules to use OneCamera, then the new module
                 // doesn't have to manage it itself.
-                return !ENABLE_CAPTURE_MODULE;
+                return !enableCaptureModule;
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
-                return ENABLE_CAPTURE_MODULE ? new CaptureModule(app) : new PhotoModule(app);
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
+                Log.v(TAG, "EnableCaptureModule = " + enableCaptureModule);
+                return enableCaptureModule ? new CaptureModule(app) : new PhotoModule(app);
             }
         });
     }
 
-    private static void registerVideoModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerVideoModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
             @Override
             public int getModuleId() {
@@ -100,13 +119,19 @@ public class ModulesInfo {
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
                 return new VideoModule(app);
             }
         });
     }
 
-    private static void registerWideAngleModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerWideAngleModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
             @Override
             public int getModuleId() {
@@ -119,13 +144,19 @@ public class ModulesInfo {
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
                 return PhotoSphereHelper.createWideAnglePanoramaModule(app);
             }
         });
     }
 
-    private static void registerPhotoSphereModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerPhotoSphereModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
             @Override
             public int getModuleId() {
@@ -138,13 +169,19 @@ public class ModulesInfo {
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
                 return PhotoSphereHelper.createPanoramaModule(app);
             }
         });
     }
 
-    private static void registerRefocusModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerRefocusModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
             @Override
             public int getModuleId() {
@@ -157,13 +194,19 @@ public class ModulesInfo {
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
                 return RefocusHelper.createRefocusModule(app);
             }
         });
     }
 
-    private static void registerGcamModule(ModuleManager moduleManager, final int moduleId) {
+    private static void registerGcamModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace, final HdrPlusSupportLevel hdrPlusSupportLevel) {
         moduleManager.registerModule(new ModuleManager.ModuleAgent() {
             @Override
             public int getModuleId() {
@@ -176,8 +219,44 @@ public class ModulesInfo {
             }
 
             @Override
-            public ModuleController createModule(AppController app) {
-                return GcamHelper.createGcamModule(app);
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
+                return GcamHelper.createGcamModule(app, hdrPlusSupportLevel);
+            }
+        });
+    }
+
+    private static void registerCaptureIntentModule(ModuleManager moduleManager, final int moduleId,
+            final String namespace, final boolean enableCaptureModule) {
+        moduleManager.registerModule(new ModuleManager.ModuleAgent() {
+            @Override
+            public int getModuleId() {
+                return moduleId;
+            }
+
+            @Override
+            public boolean requestAppForCamera() {
+                return !enableCaptureModule;
+            }
+
+            @Override
+            public String getScopeNamespace() {
+                return namespace;
+            }
+
+            @Override
+            public ModuleController createModule(AppController app, Intent intent) {
+                if(enableCaptureModule) {
+                    try {
+                        return new CaptureIntentModule(app, intent, namespace);
+                    } catch (OneCameraException ignored) {
+                    }
+                }
+                return new PhotoModule(app);
             }
         });
     }

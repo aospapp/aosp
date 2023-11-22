@@ -16,7 +16,8 @@
 
 #include <memory>
 
-#include "bit_vector.h"
+#include "allocator.h"
+#include "bit_vector-inl.h"
 #include "gtest/gtest.h"
 
 namespace art {
@@ -56,10 +57,10 @@ TEST(BitVector, Test) {
 
   BitVector::IndexIterator iterator = bv.Indexes().begin();
   EXPECT_TRUE(iterator != bv.Indexes().end());
-  EXPECT_EQ(0, *iterator);
+  EXPECT_EQ(0u, *iterator);
   ++iterator;
   EXPECT_TRUE(iterator != bv.Indexes().end());
-  EXPECT_EQ(static_cast<int>(kBits - 1), *iterator);
+  EXPECT_EQ(kBits - 1u, *iterator);
   ++iterator;
   EXPECT_TRUE(iterator == bv.Indexes().end());
 }
@@ -70,7 +71,7 @@ TEST(BitVector, NoopAllocator) {
   uint32_t bits[kWords];
   memset(bits, 0, sizeof(bits));
 
-  BitVector bv(0U, false, Allocator::GetNoopAllocator(), kWords, bits);
+  BitVector bv(false, Allocator::GetNoopAllocator(), kWords, bits);
   EXPECT_EQ(kWords, bv.GetStorageSize());
   EXPECT_EQ(kWords * sizeof(uint32_t), bv.GetSizeOf());
   EXPECT_EQ(bits, bv.GetRawStorage());
@@ -127,7 +128,7 @@ TEST(BitVector, SetInitialBits) {
   uint32_t bits[kWords];
   memset(bits, 0, sizeof(bits));
 
-  BitVector bv(0U, false, Allocator::GetNoopAllocator(), kWords, bits);
+  BitVector bv(false, Allocator::GetNoopAllocator(), kWords, bits);
   bv.SetInitialBits(0u);
   EXPECT_EQ(0u, bv.NumSetBits());
   bv.SetInitialBits(1u);
@@ -138,6 +139,76 @@ TEST(BitVector, SetInitialBits) {
   EXPECT_EQ(63u, bv.NumSetBits());
   bv.SetInitialBits(64u);
   EXPECT_EQ(64u, bv.NumSetBits());
+}
+
+TEST(BitVector, UnionIfNotIn) {
+  {
+    BitVector first(2, true, Allocator::GetMallocAllocator());
+    BitVector second(5, true, Allocator::GetMallocAllocator());
+    BitVector third(5, true, Allocator::GetMallocAllocator());
+
+    second.SetBit(64);
+    third.SetBit(64);
+    bool changed = first.UnionIfNotIn(&second, &third);
+    EXPECT_EQ(0u, first.NumSetBits());
+    EXPECT_FALSE(changed);
+  }
+
+  {
+    BitVector first(2, true, Allocator::GetMallocAllocator());
+    BitVector second(5, true, Allocator::GetMallocAllocator());
+    BitVector third(5, true, Allocator::GetMallocAllocator());
+
+    second.SetBit(64);
+    bool changed = first.UnionIfNotIn(&second, &third);
+    EXPECT_EQ(1u, first.NumSetBits());
+    EXPECT_TRUE(changed);
+    EXPECT_TRUE(first.IsBitSet(64));
+  }
+}
+
+TEST(BitVector, Subset) {
+  {
+    BitVector first(2, true, Allocator::GetMallocAllocator());
+    BitVector second(5, true, Allocator::GetMallocAllocator());
+
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+    second.SetBit(4);
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+  }
+
+  {
+    BitVector first(5, true, Allocator::GetMallocAllocator());
+    BitVector second(5, true, Allocator::GetMallocAllocator());
+
+    first.SetBit(5);
+    EXPECT_FALSE(first.IsSubsetOf(&second));
+    second.SetBit(4);
+    EXPECT_FALSE(first.IsSubsetOf(&second));
+  }
+
+  {
+    BitVector first(5, true, Allocator::GetMallocAllocator());
+    BitVector second(5, true, Allocator::GetMallocAllocator());
+
+    first.SetBit(16);
+    first.SetBit(32);
+    first.SetBit(48);
+    second.SetBit(16);
+    second.SetBit(32);
+    second.SetBit(48);
+
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+    second.SetBit(8);
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+    second.SetBit(40);
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+    second.SetBit(52);
+    EXPECT_TRUE(first.IsSubsetOf(&second));
+
+    first.SetBit(9);
+    EXPECT_FALSE(first.IsSubsetOf(&second));
+  }
 }
 
 }  // namespace art

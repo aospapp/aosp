@@ -212,21 +212,20 @@ void CwMcuSensor::sync_time_thread_in_class(void) {
                     time_slope = 1;
                     memset(last_mcu_timestamp, 0, sizeof(last_mcu_timestamp));
                     memset(last_cpu_timestamp, 0, sizeof(last_cpu_timestamp));
-                    for (int i=0; i<numSensors; i++) {
-                        offset_reset[i] = true;
-                    }
                 } else if ((mcu_current_time <= last_mcu_sync_time) || (last_mcu_sync_time == 0)) {
                     ALOGV("Sync: time_slope was not estimated yet\n");
                     time_slope = 1;
                     time_offset = cpu_current_time - mcu_current_time;
-                    for (int i=0; i<numSensors; i++) {
-                        offset_reset[i] = true;
-                    }
                 } else {
                     time_slope = (float)(cpu_current_time - last_cpu_sync_time) /
                                  (float)(mcu_current_time - last_mcu_sync_time);
                     time_offset = cpu_current_time - mcu_current_time;
                 }
+
+                for (int i=0; i<numSensors; i++) {
+                    offset_reset[i] = true;
+                }
+
                 ALOGV("Sync: time_offset = %" PRId64 ", time_slope = %f\n", time_offset, time_slope);
                 ALOGV("Sync: mcu_current_time = %" PRId64 ", last_mcu_sync_time = %" PRId64 "\n", mcu_current_time, last_mcu_sync_time);
                 ALOGV("Sync: cpu_current_time = %" PRId64 ", last_cpu_sync_time = %" PRId64 "\n", cpu_current_time, last_cpu_sync_time);
@@ -789,7 +788,7 @@ int CwMcuSensor::setEnable(int32_t handle, int en) {
         return -EINVAL;
     }
 
-    offset_reset[what] = !!flags;
+    if (en) offset_reset[what] = true;
 
     strcpy(&fixed_sysfs_path[fixed_sysfs_path_len], "enable");
     fd = open(fixed_sysfs_path, O_RDWR);
@@ -1098,6 +1097,11 @@ int CwMcuSensor::readEvents(sensors_event_t* data, int count) {
                 ALOGV("offset changed, id = %d, offset = %" PRId64 "\n", id, time_offset);
                 offset_reset[id] = false;
                 event_cpu_time = event_mcu_time + time_offset;
+                if (event_cpu_time <= last_cpu_timestamp[id]) {
+                    int64_t event_mcu_diff = (event_mcu_time - last_mcu_timestamp[id]);
+                    int64_t event_cpu_diff = event_mcu_diff * time_slope;
+                    event_cpu_time = last_cpu_timestamp[id] + event_cpu_diff;
+                }
             } else {
                 int64_t event_mcu_diff = (event_mcu_time - last_mcu_timestamp[id]);
                 int64_t event_cpu_diff = event_mcu_diff * time_slope;

@@ -1999,6 +1999,13 @@ public final class ConversationCursor implements Cursor, ConversationCursorOpera
     }
 
     @Override
+    public void setExtras(Bundle extras) {
+        if (mUnderlyingCursor != null) {
+            mUnderlyingCursor.setExtras(extras);
+        }
+    }
+
+    @Override
     public Bundle getExtras() {
         return mUnderlyingCursor != null ? mUnderlyingCursor.getExtras() : Bundle.EMPTY;
     }

@@ -69,7 +69,11 @@ public:
 
 	void					setTerminateAfter	(bool terminate)	{ m_terminateAfter = terminate;	}
 	bool					getTerminateAfter	(void) const		{ return m_terminateAfter; 		}
+
 protected:
+							TestContext			(const TestContext&);
+	TestContext&			operator=			(const TestContext&);
+
 	Platform&				m_platform;			//!< Platform port implementation.
 	Archive&				m_rootArchive;		//!< Root archive.
 	TestLog&				m_log;				//!< Test log.
@@ -80,37 +84,6 @@ protected:
 	qpTestResult			m_testResult;		//!< Latest test result.
 	std::string				m_testResultDesc;	//!< Latest test result description.
 	bool					m_terminateAfter;	//!< Should tester terminate after execution of the current test
-};
-
-/*--------------------------------------------------------------------*//*!
- * \brief Test result collector
- *
- * This utility class collects test results with associated messages,
- * optionally logs them, and finally sets the test result of a TestContext to
- * the most severe collected result. This allows multiple problems to be
- * easily reported from a single test run.
- *//*--------------------------------------------------------------------*/
-class ResultCollector
-{
-public:
-					ResultCollector			(void);
-					ResultCollector			(TestLog& log, const std::string& prefix = "");
-
-	qpTestResult	getResult				(void) const  { return m_result; }
-
-	void			fail					(const std::string& msg);
-	bool			check					(bool condition, const std::string& msg);
-
-	void			addResult				(qpTestResult result, const std::string& msg);
-	bool			checkResult				(bool condition, qpTestResult result, const std::string& msg);
-
-	void			setTestContextResult	(TestContext& testCtx);
-
-private:
-	TestLog*		m_log;
-	std::string		m_prefix;
-	qpTestResult	m_result;
-	std::string		m_message;
 };
 
 } // tcu

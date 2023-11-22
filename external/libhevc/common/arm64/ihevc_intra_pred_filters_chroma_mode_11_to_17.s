@@ -207,7 +207,7 @@ end_loop_copy:
     strh        w11, [x6], #2
     sxtw        x11,w11
 
-    cmp         x9, #-1
+    cmn         x9, #1
     bge         prologue_8_16_32
 
     add         x6, sp, x4, lsl #1          //ref_temp + 2 * nt

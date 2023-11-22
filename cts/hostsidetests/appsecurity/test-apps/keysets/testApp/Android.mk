@@ -23,4 +23,4 @@ LOCAL_STATIC_JAVA_LIBRARIES := android-support-test
 LOCAL_PACKAGE_NAME := CtsKeySetTestApp
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_SUPPORT_PACKAGE)

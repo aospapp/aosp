@@ -14,4 +14,8 @@
         See the License for the specific language governing permissions and
         limitations under the License.
 -->
+<#if sample.wearable.has_handheld_app?has_content && sample.wearable.has_handheld_app?lower_case == "true">
 include ':${meta.module}', ':Wearable'
+<#else>
+include ':Wearable'
+</#if>

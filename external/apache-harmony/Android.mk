@@ -33,8 +33,7 @@ endef
 
 harmony_test_resource_dirs := $(call harmony-test-resource-dirs,$(harmony_test_dirs))
 
-harmony_test_javac_flags=-encoding UTF-8
-harmony_test_javac_flags+=-Xmaxwarns 9999999
+harmony_test_javac_flags:=-Xmaxwarns 9999999
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_test_src_files)
@@ -47,6 +46,7 @@ LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
+ifeq ($(HOST_OS),linux)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(harmony_test_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := $(harmony_test_resource_dirs)
@@ -56,5 +56,6 @@ LOCAL_JAVACFLAGS := $(harmony_test_javac_flags)
 LOCAL_MODULE := apache-harmony-tests-hostdex
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+endif  # HOST_OS == linux
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

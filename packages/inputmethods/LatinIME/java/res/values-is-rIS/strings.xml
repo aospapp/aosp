@@ -27,12 +27,25 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Hljóð þegar ýtt er á lykil"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Stækkaðir stafir við innslátt"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Kjörstillingar"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Útlit og skipulag"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Fjölmálavalkostir"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Reikningar og persónuvernd"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Útlit og uppsetning"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Bendingainnsláttur"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Textaleiðrétting"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Ítarlegt"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Þema"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Virkja skipt lyklaborð"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Samstilling Google lyklaborðs"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Kveikt er á samstillingu"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Samstilltu orðabókina þína á milli tækja"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Samstilla núna"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Eyða gögnum í skýi"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Eyðir samstilltum gögnum af Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Samstilltum gögnum frá þér verður eytt úr skýinu. Ertu viss?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Eyða"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Hætta við"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Orðabókin þín verður samstillt og afrituð á netþjóna Google. Hugsanlega verður talnagögnum um tíðni orða safnað til að gera vörur okkar betri. Söfnun og notkun allra upplýsinga fellur undir "<a href="https://www.google.com/policies/privacy">"persónuverndarstefnu Google"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Bættu Google reikningi við tækið til að virkja þennan eiginleika"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Samstilling er ekki í boði fyrir tæki með Google Apps fyrirtækjareikning"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Skipta um innsláttaraðferð"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Lykill til að skipta um mál inniheldur aðrar innsláttaraðferðir"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Lykill til að breyta tungumáli"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Snertu hér til að vista"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Orðabók í boði"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Þema lyklaborðs"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Skipta um reikning"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Engir reikningar valdir"</string>
+    <string name="account_selected" msgid="2846876462199625974">"<xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> í notkun"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"Í lagi"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Hætta við"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Skrá út"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Veldu reikning til að nota"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Enskt (Bretland)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Enskt (Bandaríkin)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Spænskt (US)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hinglish"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Serbneskt (latneskt)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Enskt (Bretland) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Enskt (Bandaríkin) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Spænskt (Bandaríkin) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hinglish (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Serbneskt (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (hefðbundið)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (kyrillískt)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (latneskt)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (lítið)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Ekkert tungumál (stafróf)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Stafróf (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Stafróf (QWERTZ)"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Sama innsláttaraðferð er þegar fyrir hendi: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Lengd lyklatitrings"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Styrkur lyklahljóða"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Töf áður en lykli er haldið inni"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Emoji fyrir vélbúnaðarlyklaborð"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Alt-lykillinn á lyklaborðinu birtir töflu yfir emoji-tákn"</string>
     <string name="button_default" msgid="3988017840431881491">"Sjálfgefið"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Velkomin(n) í <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"með bendingainnslætti"</string>

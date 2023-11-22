@@ -112,6 +112,8 @@ typedef enum {
     // indicate the modular drm type
     IS_SUBSAMPLE_ENCRYPTION = 0x200000,
 
+    // indicate meta data mode
+    WANT_STORE_META_DATA = 0x400000,
 } VIDEO_BUFFER_FLAG;
 
 typedef enum

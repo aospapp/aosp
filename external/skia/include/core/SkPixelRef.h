@@ -8,11 +8,13 @@
 #ifndef SkPixelRef_DEFINED
 #define SkPixelRef_DEFINED
 
+#include "SkAtomics.h"
 #include "SkBitmap.h"
-#include "SkRefCnt.h"
-#include "SkString.h"
-#include "SkFlattenable.h"
 #include "SkImageInfo.h"
+#include "SkMutex.h"
+#include "SkRefCnt.h"
+#include "SkSize.h"
+#include "SkString.h"
 #include "SkTDArray.h"
 
 //#define xed
@@ -34,7 +36,6 @@
 class SkColorTable;
 class SkData;
 struct SkIRect;
-class SkMutex;
 
 class GrTexture;
 
@@ -46,7 +47,7 @@ class GrTexture;
 
     This class can be shared/accessed between multiple threads.
 */
-class SK_API SkPixelRef : public SkFlattenable {
+class SK_API SkPixelRef : public SkRefCnt {
 public:
     SK_DECLARE_INST_COUNT(SkPixelRef)
 
@@ -85,11 +86,7 @@ public:
         }
     };
 
-    /**
-     *  Returns true if the lockcount > 0
-     */
-    bool isLocked() const { return fLockCount > 0; }
-
+    SkDEBUGCODE(bool isLocked() const { return fLockCount > 0; })
     SkDEBUGCODE(int getLockCount() const { return fLockCount; })
 
     /**
@@ -127,12 +124,13 @@ public:
     uint32_t getGenerationID() const;
 
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
-    /** Returns a non-zero, unique value corresponding to this SkPixelRef,
-        which is unchanged when the pixels are changed and even when this
-        object is deleted.
+    /** Returns a non-zero, unique value corresponding to this SkPixelRef.
+        Unlike the generation ID, this ID remains the same even when the pixels
+        are changed. IDs are not reused (until uint32_t wraps), so it is safe
+        to consider this ID unique even after this SkPixelRef is deleted.
 
-        Can be used as a key which must remain unique across changes and
-        deletions.
+        Can be used as a key which uniquely identifies this SkPixelRef
+        regardless of changes to its pixels or deletion of this object.
      */
     uint32_t getStableID() const { return fStableID; }
 #endif
@@ -195,73 +193,41 @@ public:
         return this->onRefEncodedData();
     }
 
-    /**
-     *  Experimental -- tells the caller if it is worth it to call decodeInto().
-     *  Just an optimization at this point, to avoid checking the cache first.
-     *  We may remove/change this call in the future.
-     */
-    bool implementsDecodeInto() {
-        return this->onImplementsDecodeInto();
-    }
-
-    /**
-     *  Return a decoded instance of this pixelRef in bitmap. If this cannot be
-     *  done, return false and the bitmap parameter is ignored/unchanged.
-     *
-     *  pow2 is the requeste power-of-two downscale that the caller needs. This
-     *  can be ignored, and the "original" size can be returned, but if the
-     *  underlying codec can efficiently return a smaller size, that should be
-     *  done. Some examples:
-     *
-     *  To request the "base" version (original scale), pass 0 for pow2
-     *  To request 1/2 scale version (1/2 width, 1/2 height), pass 1 for pow2
-     *  To request 1/4 scale version (1/4 width, 1/4 height), pass 2 for pow2
-     *  ...
-     *
-     *  If this returns true, then bitmap must be "locked" such that
-     *  bitmap->getPixels() will return the correct address.
-     */
-    bool decodeInto(int pow2, SkBitmap* bitmap) {
-        SkASSERT(pow2 >= 0);
-        return this->onDecodeInto(pow2, bitmap);
-    }
-
     /** Are we really wrapping a texture instead of a bitmap?
      */
     virtual GrTexture* getTexture() { return NULL; }
+
+    /**
+     *  If any planes or rowBytes is NULL, this should output the sizes and return true
+     *  if it can efficiently return YUV planar data. If it cannot, it should return false.
+     *
+     *  If all planes and rowBytes are not NULL, then it should copy the associated Y,U,V data
+     *  into those planes of memory supplied by the caller. It should validate that the sizes
+     *  match what it expected. If the sizes do not match, it should return false.
+     *
+     *  If colorSpace is not NULL, the YUV color space of the data should be stored in the address
+     *  it points at.
+     */
+    bool getYUV8Planes(SkISize sizes[3], void* planes[3], size_t rowBytes[3],
+                       SkYUVColorSpace* colorSpace) {
+        return this->onGetYUV8Planes(sizes, planes, rowBytes, colorSpace);
+    }
 
     bool readPixels(SkBitmap* dst, const SkIRect* subset = NULL);
 
     /**
      *  Makes a deep copy of this PixelRef, respecting the requested config.
      *  @param colorType Desired colortype.
+     *  @param profileType Desired colorprofiletype.
      *  @param subset Subset of this PixelRef to copy. Must be fully contained within the bounds of
      *         of this PixelRef.
      *  @return A new SkPixelRef, or NULL if either there is an error (e.g. the destination could
      *          not be created with the given config), or this PixelRef does not support deep
      *          copies.
      */
-    virtual SkPixelRef* deepCopy(SkColorType colortype, const SkIRect* subset) {
+    virtual SkPixelRef* deepCopy(SkColorType, SkColorProfileType, const SkIRect* /*subset*/) {
         return NULL;
     }
-
-#ifdef SK_BUILD_FOR_ANDROID
-    /**
-     *  Acquire a "global" ref on this object.
-     *  The default implementation just calls ref(), but subclasses can override
-     *  this method to implement additional behavior.
-     */
-    virtual void globalRef(void* data=NULL);
-
-    /**
-     *  Release a "global" ref on this object.
-     *  The default implementation just calls unref(), but subclasses can override
-     *  this method to implement additional behavior.
-     */
-    virtual void globalUnref();
-#endif
-
-    SK_DEFINE_FLATTENABLE_TYPE(SkPixelRef)
 
     // Register a listener that may be called the next time our generation ID changes.
     //
@@ -278,6 +244,12 @@ public:
 
     // Takes ownership of listener.
     void addGenIDChangeListener(GenIDChangeListener* listener);
+
+    // Call when this pixelref is part of the key to a resourcecache entry. This allows the cache
+    // to know automatically those entries can be purged when this pixelref is changed or deleted.
+    void notifyAddedToCache() {
+        fAddedToCache.store(true);
+    }
 
 protected:
     /**
@@ -302,11 +274,6 @@ protected:
     /** Default impl returns true */
     virtual bool onLockPixelsAreWritable() const;
 
-    // returns false;
-    virtual bool onImplementsDecodeInto();
-    // returns false;
-    virtual bool onDecodeInto(int pow2, SkBitmap* bitmap);
-
     /**
      *  For pixelrefs that don't have access to their raw pixels, they may be
      *  able to make a copy of them (e.g. if the pixels are on the GPU).
@@ -317,6 +284,10 @@ protected:
 
     // default impl returns NULL.
     virtual SkData* onRefEncodedData();
+
+    // default impl returns false.
+    virtual bool onGetYUV8Planes(SkISize sizes[3], void* planes[3], size_t rowBytes[3],
+                                 SkYUVColorSpace* colorSpace);
 
     /**
      *  Returns the size (in bytes) of the internally allocated memory.
@@ -333,10 +304,6 @@ protected:
     */
     SkBaseMutex* mutex() const { return fMutex; }
 
-    // serialization
-    SkPixelRef(SkReadBuffer&, SkBaseMutex*);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
-
     // only call from constructor. Flags this to always be locked, removing
     // the need to grab the mutex and call onLockPixels/onUnlockPixels.
     // Performance tweak to avoid those calls (esp. in multi-thread use case).
@@ -352,8 +319,10 @@ private:
     LockRec         fRec;
     int             fLockCount;
 
-    mutable uint32_t fGenerationID;
-    mutable bool     fUniqueGenerationID;
+    // Bottom bit indicates the Gen ID is unique.
+    bool genIDIsUnique() const { return SkToBool(fTaggedGenID.load() & 1); }
+    mutable SkAtomic<uint32_t> fTaggedGenID;
+
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
     const uint32_t fStableID;
 #endif
@@ -362,10 +331,12 @@ private:
 
     SkString    fURI;
 
+    // Set true by caches when they cache content that's derived from the current pixels.
+    SkAtomic<bool> fAddedToCache;
     // can go from false to true, but never from true to false
-    bool    fIsImmutable;
+    bool fIsImmutable;
     // only ever set in constructor, const after that
-    bool    fPreLocked;
+    bool fPreLocked;
 
     void needsNewGenID();
     void callGenIDChangeListeners();
@@ -377,7 +348,7 @@ private:
     friend class SkBitmap;  // only for cloneGenID
     void cloneGenID(const SkPixelRef&);
 
-    typedef SkFlattenable INHERITED;
+    typedef SkRefCnt INHERITED;
 };
 
 class SkPixelRefFactory : public SkRefCnt {
@@ -388,7 +359,7 @@ public:
      *  the pixelref will ref() the colortable.
      *  On failure return NULL.
      */
-    virtual SkPixelRef* create(const SkImageInfo&, SkColorTable*) = 0;
+    virtual SkPixelRef* create(const SkImageInfo&, size_t rowBytes, SkColorTable*) = 0;
 };
 
 #endif

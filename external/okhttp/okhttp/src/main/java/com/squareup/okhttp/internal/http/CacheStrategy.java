@@ -1,16 +1,25 @@
 package com.squareup.okhttp.internal.http;
 
 import com.squareup.okhttp.CacheControl;
-import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseSource;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
+
 import java.util.Date;
 
-import static com.squareup.okhttp.internal.Util.EMPTY_INPUT_STREAM;
+import static com.squareup.okhttp.internal.http.StatusLine.HTTP_PERM_REDIRECT;
+import static com.squareup.okhttp.internal.http.StatusLine.HTTP_TEMP_REDIRECT;
+import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
+import static java.net.HttpURLConnection.HTTP_GONE;
+import static java.net.HttpURLConnection.HTTP_MOVED_PERM;
+import static java.net.HttpURLConnection.HTTP_MOVED_TEMP;
+import static java.net.HttpURLConnection.HTTP_MULT_CHOICE;
+import static java.net.HttpURLConnection.HTTP_NOT_AUTHORITATIVE;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
+import static java.net.HttpURLConnection.HTTP_NO_CONTENT;
+import static java.net.HttpURLConnection.HTTP_OK;
+import static java.net.HttpURLConnection.HTTP_REQ_TOO_LONG;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -22,76 +31,59 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * response (if the cached data is potentially stale).
  */
 public final class CacheStrategy {
-  private static final Response.Body EMPTY_BODY = new Response.Body() {
-    @Override public boolean ready() throws IOException {
-      return true;
-    }
-    @Override public MediaType contentType() {
-      return null;
-    }
-    @Override public long contentLength() {
-      return 0;
-    }
-    @Override public InputStream byteStream() {
-      return EMPTY_INPUT_STREAM;
-    }
-  };
-
-  private static final StatusLine GATEWAY_TIMEOUT_STATUS_LINE;
-  static {
-    try {
-      GATEWAY_TIMEOUT_STATUS_LINE = new StatusLine("HTTP/1.1 504 Gateway Timeout");
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
-  }
-
   /** The request to send on the network, or null if this call doesn't use the network. */
   public final Request networkRequest;
 
   /** The cached response to return or validate; or null if this call doesn't use a cache. */
   public final Response cacheResponse;
 
-  public final ResponseSource source;
-
-  private CacheStrategy(
-      Request networkRequest, Response cacheResponse, ResponseSource source) {
+  private CacheStrategy(Request networkRequest, Response cacheResponse) {
     this.networkRequest = networkRequest;
     this.cacheResponse = cacheResponse;
-    this.source = source;
   }
 
   /**
-   * Returns true if this response can be stored to later serve another
+   * Returns true if {@code response} can be stored to later serve another
    * request.
    */
   public static boolean isCacheable(Response response, Request request) {
-    // Always go to network for uncacheable response codes (RFC 2616, 13.4),
+    // Always go to network for uncacheable response codes (RFC 7231 section 6.1),
     // This implementation doesn't support caching partial content.
-    int responseCode = response.code();
-    if (responseCode != HttpURLConnection.HTTP_OK
-        && responseCode != HttpURLConnection.HTTP_NOT_AUTHORITATIVE
-        && responseCode != HttpURLConnection.HTTP_MULT_CHOICE
-        && responseCode != HttpURLConnection.HTTP_MOVED_PERM
-        && responseCode != HttpURLConnection.HTTP_GONE) {
-      return false;
+    switch (response.code()) {
+      case HTTP_OK:
+      case HTTP_NOT_AUTHORITATIVE:
+      case HTTP_NO_CONTENT:
+      case HTTP_MULT_CHOICE:
+      case HTTP_MOVED_PERM:
+      case HTTP_NOT_FOUND:
+      case HTTP_BAD_METHOD:
+      case HTTP_GONE:
+      case HTTP_REQ_TOO_LONG:
+      case HTTP_NOT_IMPLEMENTED:
+      case HTTP_PERM_REDIRECT:
+      // These codes can be cached unless headers forbid it.
+      break;
+
+      case HTTP_MOVED_TEMP:
+      case HTTP_TEMP_REDIRECT:
+        // These codes can only be cached with the right response headers.
+        // http://tools.ietf.org/html/rfc7234#section-3
+        // s-maxage is not checked because OkHttp is a private cache that should ignore s-maxage.
+        if (response.header("Expires") != null
+            || response.cacheControl().maxAgeSeconds() != -1
+            || response.cacheControl().isPublic()
+            || response.cacheControl().isPrivate()) {
+          break;
+        }
+        // Fall-through.
+
+      default:
+        // All other codes cannot be cached.
+        return false;
     }
 
-    // Responses to authorized requests aren't cacheable unless they include
-    // a 'public', 'must-revalidate' or 's-maxage' directive.
-    CacheControl responseCaching = response.cacheControl();
-    if (request.header("Authorization") != null
-        && !responseCaching.isPublic()
-        && !responseCaching.mustRevalidate()
-        && responseCaching.sMaxAgeSeconds() == -1) {
-      return false;
-    }
-
-    if (responseCaching.noStore()) {
-      return false;
-    }
-
-    return true;
+    // A 'no-store' directive on request or response prevents the response from being cached.
+    return !response.cacheControl().noStore() && !request.cacheControl().noStore();
   }
 
   public static class Factory {
@@ -137,9 +129,10 @@ public final class CacheStrategy {
       this.cacheResponse = cacheResponse;
 
       if (cacheResponse != null) {
-        for (int i = 0; i < cacheResponse.headers().size(); i++) {
-          String fieldName = cacheResponse.headers().name(i);
-          String value = cacheResponse.headers().value(i);
+        Headers headers = cacheResponse.headers();
+        for (int i = 0, size = headers.size(); i < size; i++) {
+          String fieldName = headers.name(i);
+          String value = headers.value(i);
           if ("Date".equalsIgnoreCase(fieldName)) {
             servedDate = HttpDate.parse(value);
             servedDateString = value;
@@ -151,7 +144,7 @@ public final class CacheStrategy {
           } else if ("ETag".equalsIgnoreCase(fieldName)) {
             etag = value;
           } else if ("Age".equalsIgnoreCase(fieldName)) {
-            ageSeconds = HeaderParser.parseSeconds(value);
+            ageSeconds = HeaderParser.parseSeconds(value, -1);
           } else if (OkHeaders.SENT_MILLIS.equalsIgnoreCase(fieldName)) {
             sentRequestMillis = Long.parseLong(value);
           } else if (OkHeaders.RECEIVED_MILLIS.equalsIgnoreCase(fieldName)) {
@@ -168,15 +161,9 @@ public final class CacheStrategy {
     public CacheStrategy get() {
       CacheStrategy candidate = getCandidate();
 
-      if (candidate.source != ResponseSource.CACHE && request.cacheControl().onlyIfCached()) {
-        // We're forbidden from using the network, but the cache is insufficient.
-        Response noneResponse = new Response.Builder()
-            .request(candidate.networkRequest)
-            .statusLine(GATEWAY_TIMEOUT_STATUS_LINE)
-            .setResponseSource(ResponseSource.NONE)
-            .body(EMPTY_BODY)
-            .build();
-        return new CacheStrategy(null, noneResponse, ResponseSource.NONE);
+      if (candidate.networkRequest != null && request.cacheControl().onlyIfCached()) {
+        // We're forbidden from using the network and the cache is insufficient.
+        return new CacheStrategy(null, null);
       }
 
       return candidate;
@@ -186,24 +173,24 @@ public final class CacheStrategy {
     private CacheStrategy getCandidate() {
       // No cached response.
       if (cacheResponse == null) {
-        return new CacheStrategy(request, null, ResponseSource.NETWORK);
+        return new CacheStrategy(request, null);
       }
 
       // Drop the cached response if it's missing a required handshake.
       if (request.isHttps() && cacheResponse.handshake() == null) {
-        return new CacheStrategy(request, null, ResponseSource.NETWORK);
+        return new CacheStrategy(request, null);
       }
 
       // If this response shouldn't have been stored, it should never be used
       // as a response source. This check should be redundant as long as the
       // persistence store is well-behaved and the rules are constant.
       if (!isCacheable(cacheResponse, request)) {
-        return new CacheStrategy(request, null, ResponseSource.NETWORK);
+        return new CacheStrategy(request, null);
       }
 
       CacheControl requestCaching = request.cacheControl();
       if (requestCaching.noCache() || hasConditions(request)) {
-        return new CacheStrategy(request, cacheResponse, ResponseSource.NETWORK);
+        return new CacheStrategy(request, null);
       }
 
       long ageMillis = cacheResponseAge();
@@ -225,8 +212,7 @@ public final class CacheStrategy {
       }
 
       if (!responseCaching.noCache() && ageMillis + minFreshMillis < freshMillis + maxStaleMillis) {
-        Response.Builder builder = cacheResponse.newBuilder()
-            .setResponseSource(ResponseSource.CACHE); // Overwrite any stored response source.
+        Response.Builder builder = cacheResponse.newBuilder();
         if (ageMillis + minFreshMillis >= freshMillis) {
           builder.addHeader("Warning", "110 HttpURLConnection \"Response is stale\"");
         }
@@ -234,25 +220,23 @@ public final class CacheStrategy {
         if (ageMillis > oneDayMillis && isFreshnessLifetimeHeuristic()) {
           builder.addHeader("Warning", "113 HttpURLConnection \"Heuristic expiration\"");
         }
-        return new CacheStrategy(null, builder.build(), ResponseSource.CACHE);
+        return new CacheStrategy(null, builder.build());
       }
 
       Request.Builder conditionalRequestBuilder = request.newBuilder();
 
-      if (lastModified != null) {
+      if (etag != null) {
+        conditionalRequestBuilder.header("If-None-Match", etag);
+      } else if (lastModified != null) {
         conditionalRequestBuilder.header("If-Modified-Since", lastModifiedString);
       } else if (servedDate != null) {
         conditionalRequestBuilder.header("If-Modified-Since", servedDateString);
       }
 
-      if (etag != null) {
-        conditionalRequestBuilder.header("If-None-Match", etag);
-      }
-
       Request conditionalRequest = conditionalRequestBuilder.build();
       return hasConditions(conditionalRequest)
-          ? new CacheStrategy(conditionalRequest, cacheResponse, ResponseSource.CONDITIONAL_CACHE)
-          : new CacheStrategy(conditionalRequest, null, ResponseSource.NETWORK);
+          ? new CacheStrategy(conditionalRequest, cacheResponse)
+          : new CacheStrategy(conditionalRequest, null);
     }
 
     /**

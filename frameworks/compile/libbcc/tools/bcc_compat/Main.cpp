@@ -30,8 +30,6 @@
 #include <bcc/BCCContext.h>
 #include <bcc/Compiler.h>
 #include <bcc/Config/Config.h>
-#include <bcc/ExecutionEngine/SymbolResolverProxy.h>
-#include <bcc/ExecutionEngine/SymbolResolvers.h>
 #include <bcc/Renderscript/RSCompilerDriver.h>
 #include <bcc/Script.h>
 #include <bcc/Source.h>
@@ -117,31 +115,31 @@ void BCCVersionPrinter() {
 
 RSScript *PrepareRSScript(BCCContext &pContext,
                           const llvm::cl::list<std::string> &pBitcodeFiles) {
-  RSScript *result = NULL;
+  RSScript *result = nullptr;
 
   for (unsigned i = 0; i < pBitcodeFiles.size(); i++) {
     const std::string &input_bitcode = pBitcodeFiles[i];
     Source *source = Source::CreateFromFile(pContext, input_bitcode);
-    if (source == NULL) {
+    if (source == nullptr) {
       llvm::errs() << "Failed to load llvm module from file `" << input_bitcode
                    << "'!\n";
-      return NULL;
+      return nullptr;
     }
 
-    if (result != NULL) {
-      if (!result->mergeSource(*source, /* pPreserveSource */false)) {
+    if (result != nullptr) {
+      if (!result->mergeSource(*source)) {
         llvm::errs() << "Failed to merge the llvm module `" << input_bitcode
                      << "' to compile!\n";
         delete source;
-        return NULL;
+        return nullptr;
       }
     } else {
       result = new (std::nothrow) RSScript(*source);
-      if (result == NULL) {
+      if (result == nullptr) {
         llvm::errs() << "Out of memory when create script for file `"
                      << input_bitcode << "'!\n";
         delete source;
-        return NULL;
+        return nullptr;
       }
     }
   }
@@ -151,11 +149,11 @@ RSScript *PrepareRSScript(BCCContext &pContext,
 
 static inline
 bool ConfigCompiler(RSCompilerDriver &pCompilerDriver) {
-  RSCompiler *compiler = pCompilerDriver.getCompiler();
-  CompilerConfig *config = NULL;
+  Compiler *compiler = pCompilerDriver.getCompiler();
+  CompilerConfig *config = nullptr;
 
   config = new (std::nothrow) CompilerConfig(OptTargetTriple);
-  if (config == NULL) {
+  if (config == nullptr) {
     llvm::errs() << "Out of memory when create the compiler configuration!\n";
     return false;
   }
@@ -170,6 +168,14 @@ bool ConfigCompiler(RSCompilerDriver &pCompilerDriver) {
     config->setFeatureString(fv);
   }
 
+  // Explicitly set X86 feature vector
+  if ((config->getTriple().find("i686") != std::string::npos) ||
+    (config->getTriple().find("x86_64") != std::string::npos)) {
+    std::vector<std::string> fv;
+    fv.push_back("+sse3");
+    config->setFeatureString(fv);
+  }
+
   // Compatibility mode on x86 requires atom code generation.
   if (config->getTriple().find("i686") != std::string::npos) {
     config->setCPU("atom");
@@ -178,6 +184,11 @@ bool ConfigCompiler(RSCompilerDriver &pCompilerDriver) {
   // Setup the config according to the value of command line option.
   if (OptPIC) {
     config->setRelocationModel(llvm::Reloc::PIC_);
+    // For x86_64, CodeModel needs to be small if PIC_ reloc is used.
+    // Otherwise, we end up with TEXTRELs in the shared library.
+    if (config->getTriple().find("x86_64") != std::string::npos) {
+        config->setCodeModel(llvm::CodeModel::Small);
+    }
   }
   switch (OptOptLevel) {
     case '0': config->setOptimizationLevel(llvm::CodeGenOpt::None); break;
@@ -263,9 +274,9 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  RSScript *s = NULL;
+  RSScript *s = nullptr;
   s = PrepareRSScript(context, OptInputFilenames);
-  if (!rscd.buildForCompatLib(*s, OutputFilename.c_str(), OptRuntimePath.c_str())) {
+  if (!rscd.buildForCompatLib(*s, OutputFilename.c_str(), nullptr, OptRuntimePath.c_str(), false)) {
     fprintf(stderr, "Failed to compile script!");
     return EXIT_FAILURE;
   }

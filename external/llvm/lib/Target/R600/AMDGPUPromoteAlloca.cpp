@@ -18,6 +18,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "amdgpu-promote-alloca"
 
@@ -36,11 +37,9 @@ class AMDGPUPromoteAlloca : public FunctionPass,
 public:
   AMDGPUPromoteAlloca(const AMDGPUSubtarget &st) : FunctionPass(ID), ST(st),
                                                    LocalMemAvailable(0) { }
-  virtual bool doInitialization(Module &M);
-  virtual bool runOnFunction(Function &F);
-  virtual const char *getPassName() const {
-    return "AMDGPU Promote Alloca";
-  }
+  bool doInitialization(Module &M) override;
+  bool runOnFunction(Function &F) override;
+  const char *getPassName() const override { return "AMDGPU Promote Alloca"; }
   void visitAlloca(AllocaInst &I);
 };
 
@@ -89,7 +88,7 @@ bool AMDGPUPromoteAlloca::runOnFunction(Function &F) {
           continue;
         if (Use->getParent()->getParent() == &F)
           LocalMemAvailable -=
-              Mod->getDataLayout()->getTypeAllocSize(GVTy->getElementType());
+              Mod->getDataLayout().getTypeAllocSize(GVTy->getElementType());
       }
     }
   }
@@ -107,14 +106,16 @@ static VectorType *arrayTypeToVecType(const Type *ArrayTy) {
                          ArrayTy->getArrayNumElements());
 }
 
-static Value* calculateVectorIndex(Value *Ptr,
-                                  std::map<GetElementPtrInst*, Value*> GEPIdx) {
+static Value *
+calculateVectorIndex(Value *Ptr,
+                     const std::map<GetElementPtrInst *, Value *> &GEPIdx) {
   if (isa<AllocaInst>(Ptr))
     return Constant::getNullValue(Type::getInt32Ty(Ptr->getContext()));
 
   GetElementPtrInst *GEP = cast<GetElementPtrInst>(Ptr);
 
-  return GEPIdx[GEP];
+  auto I = GEPIdx.find(GEP);
+  return I == GEPIdx.end() ? nullptr : I->second;
 }
 
 static Value* GEPToVectorIndex(GetElementPtrInst *GEP) {
@@ -234,7 +235,8 @@ static bool tryPromoteAllocaToVector(AllocaInst *Alloca) {
   return true;
 }
 
-static void collectUsesWithPtrTypes(Value *Val, std::vector<Value*> &WorkList) {
+static bool collectUsesWithPtrTypes(Value *Val, std::vector<Value*> &WorkList) {
+  bool Success = true;
   for (User *User : Val->users()) {
     if(std::find(WorkList.begin(), WorkList.end(), User) != WorkList.end())
       continue;
@@ -242,11 +244,20 @@ static void collectUsesWithPtrTypes(Value *Val, std::vector<Value*> &WorkList) {
       WorkList.push_back(User);
       continue;
     }
+
+    // FIXME: Correctly handle ptrtoint instructions.
+    Instruction *UseInst = dyn_cast<Instruction>(User);
+    if (UseInst && UseInst->getOpcode() == Instruction::PtrToInt)
+      return false;
+
     if (!User->getType()->isPointerTy())
       continue;
+
     WorkList.push_back(User);
-    collectUsesWithPtrTypes(User, WorkList);
+
+    Success &= collectUsesWithPtrTypes(User, WorkList);
   }
+  return Success;
 }
 
 void AMDGPUPromoteAlloca::visitAlloca(AllocaInst &I) {
@@ -266,20 +277,27 @@ void AMDGPUPromoteAlloca::visitAlloca(AllocaInst &I) {
   // value from the reqd_work_group_size function attribute if it is
   // available.
   unsigned WorkGroupSize = 256;
-  int AllocaSize = WorkGroupSize *
-      Mod->getDataLayout()->getTypeAllocSize(AllocaTy);
+  int AllocaSize =
+      WorkGroupSize * Mod->getDataLayout().getTypeAllocSize(AllocaTy);
 
   if (AllocaSize > LocalMemAvailable) {
     DEBUG(dbgs() << " Not enough local memory to promote alloca.\n");
     return;
   }
 
+  std::vector<Value*> WorkList;
+
+  if (!collectUsesWithPtrTypes(&I, WorkList)) {
+    DEBUG(dbgs() << " Do not know how to convert all uses\n");
+    return;
+  }
+
   DEBUG(dbgs() << "Promoting alloca to local memory\n");
   LocalMemAvailable -= AllocaSize;
 
+  Type *GVTy = ArrayType::get(I.getAllocatedType(), 256);
   GlobalVariable *GV = new GlobalVariable(
-      *Mod, ArrayType::get(I.getAllocatedType(), 256), false,
-      GlobalValue::ExternalLinkage, 0, I.getName(), 0,
+      *Mod, GVTy, false, GlobalValue::ExternalLinkage, 0, I.getName(), 0,
       GlobalVariable::NotThreadLocal, AMDGPUAS::LOCAL_ADDRESS);
 
   FunctionType *FTy = FunctionType::get(
@@ -315,14 +333,10 @@ void AMDGPUPromoteAlloca::visitAlloca(AllocaInst &I) {
   Indices.push_back(Constant::getNullValue(Type::getInt32Ty(Mod->getContext())));
   Indices.push_back(TID);
 
-  Value *Offset = Builder.CreateGEP(GV, Indices);
+  Value *Offset = Builder.CreateGEP(GVTy, GV, Indices);
   I.mutateType(Offset->getType());
   I.replaceAllUsesWith(Offset);
   I.eraseFromParent();
-
-  std::vector<Value*> WorkList;
-
-  collectUsesWithPtrTypes(Offset, WorkList);
 
   for (std::vector<Value*>::iterator i = WorkList.begin(),
                                      e = WorkList.end(); i != e; ++i) {
@@ -331,6 +345,13 @@ void AMDGPUPromoteAlloca::visitAlloca(AllocaInst &I) {
     if (!Call) {
       Type *EltTy = V->getType()->getPointerElementType();
       PointerType *NewTy = PointerType::get(EltTy, AMDGPUAS::LOCAL_ADDRESS);
+
+      // The operand's value should be corrected on its own.
+      if (isa<AddrSpaceCastInst>(V))
+        continue;
+
+      // FIXME: It doesn't really make sense to try to do this for all
+      // instructions.
       V->mutateType(NewTy);
       continue;
     }
@@ -345,8 +366,8 @@ void AMDGPUPromoteAlloca::visitAlloca(AllocaInst &I) {
       Function *F = Call->getCalledFunction();
       FunctionType *NewType = FunctionType::get(Call->getType(), ArgTypes,
                                                 F->isVarArg());
-      Constant *C = Mod->getOrInsertFunction(StringRef(F->getName().str() + ".local"), NewType,
-                                             F->getAttributes());
+      Constant *C = Mod->getOrInsertFunction((F->getName() + ".local").str(),
+                                             NewType, F->getAttributes());
       Function *NewF = cast<Function>(C);
       Call->setCalledFunction(NewF);
       continue;

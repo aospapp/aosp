@@ -27,7 +27,7 @@
     <string name="add_file_attachment" msgid="2604880054248593993">"Bestand bijvoegen"</string>
     <string name="add_photo_attachment" msgid="7163589794940909528">"Foto bijvoegen"</string>
     <string name="save_draft" msgid="2669523480789672118">"Concept opslaan"</string>
-    <string name="discard" msgid="4905982179911608430">"Verwijderen"</string>
+    <string name="discard" msgid="4905982179911608430">"Weggooien"</string>
     <string name="compose" msgid="2602861958391035523">"Opstellen"</string>
     <string name="compose_title" msgid="5673376086133995913">"Opstellen"</string>
   <string-array name="compose_modes">
@@ -65,8 +65,8 @@
     <string name="mark_not_spam" msgid="8617774236231366651">"Melden dat dit geen spam is"</string>
     <string name="report_phishing" msgid="8454666464488413739">"Phishing melden"</string>
     <string name="delete" msgid="6784262386780496958">"Verwijderen"</string>
-    <string name="discard_drafts" msgid="5881484193628472105">"Concepten verwijderen"</string>
-    <string name="discard_failed" msgid="7520780769812210279">"Annuleren mislukt"</string>
+    <string name="discard_drafts" msgid="5881484193628472105">"Concepten weggooien"</string>
+    <string name="discard_failed" msgid="7520780769812210279">"Niet opslaan mislukt"</string>
     <string name="refresh" msgid="1533748989749277511">"Vernieuwen"</string>
     <string name="reply" msgid="8337757482824207118">"Beantwoorden"</string>
     <string name="reply_all" msgid="5366796103758360957">"Allen beantwoorden"</string>
@@ -154,10 +154,10 @@
     <item quantity="other" msgid="2001972798185641108">"Deze <xliff:g id="COUNT">%1$d</xliff:g> conversaties archiveren?"</item>
   </plurals>
   <plurals name="confirm_discard_drafts_conversation">
-    <item quantity="one" msgid="2030421499893210789">"Dit bericht verwijderen?"</item>
-    <item quantity="other" msgid="782234447471532005">"Deze <xliff:g id="COUNT">%1$d</xliff:g> berichten verwijderen?"</item>
+    <item quantity="one" msgid="2030421499893210789">"Dit bericht weggooien?"</item>
+    <item quantity="other" msgid="782234447471532005">"Deze <xliff:g id="COUNT">%1$d</xliff:g> berichten weggooien?"</item>
   </plurals>
-    <string name="confirm_discard_text" msgid="5172680524418848519">"Dit bericht verwijderen?"</string>
+    <string name="confirm_discard_text" msgid="5172680524418848519">"Dit bericht weggooien?"</string>
     <string name="loading_conversations" msgid="7255732786298655246">"Laden…"</string>
     <string name="empty_inbox" msgid="5901734942362315228">"U bent klaar. Nog een fijne dag gewenst."</string>
     <string name="empty_search" msgid="8564899353449880818">"Oeps! We hebben geen resultaten gevonden voor \'<xliff:g id="SEARCH_QUERY">%1$s</xliff:g>\'."</string>
@@ -380,8 +380,8 @@
     <item quantity="one" msgid="3315412388217832914">"<xliff:g id="COUNT">%1$d</xliff:g> bericht wordt permanent verwijderd."</item>
     <item quantity="other" msgid="263840304486020101">"<xliff:g id="COUNT">%1$d</xliff:g> berichten worden permanent verwijderd."</item>
   </plurals>
-    <string name="drawer_open" msgid="2285557278907103851">"Navigatielade openen"</string>
-    <string name="drawer_close" msgid="2065829742127544297">"Navigatielade sluiten"</string>
+    <string name="drawer_open" msgid="2285557278907103851">"Zijmenu openen"</string>
+    <string name="drawer_close" msgid="2065829742127544297">"Zijmenu sluiten"</string>
     <string name="conversation_photo_welcome_text" msgid="836483155429003787">"Raak de afbeelding van een afzender aan om dat gesprek te selecteren."</string>
     <string name="long_press_to_select_tip" msgid="1660881999120625177">"Blijf aanraken om één gesprek te selecteren en raak aan om meer te selecteren."</string>
     <string name="folder_icon_desc" msgid="6272938864914794739">"Mappictogram"</string>
@@ -423,7 +423,7 @@
     <string name="set_end_date_dialog_title" msgid="7543009262788808443">"Einddatum (optioneel)"</string>
     <string name="custom_date" msgid="5794846334232367838">"Aangepast"</string>
     <string name="date_none" msgid="1061426502665431412">"Geen"</string>
-    <string name="discard_changes" msgid="5699760550972324746">"Wijzigingen annuleren?"</string>
+    <string name="discard_changes" msgid="5699760550972324746">"Wijzigingen niet opslaan?"</string>
     <string name="vacation_responder_changes_saved" msgid="91448817268121249">"Wijzigingen in automatisch antwoord opgeslagen"</string>
     <string name="vacation_responder_changes_discarded" msgid="21756037735539983">"Wijzigingen in automatisch antwoord geannuleerd"</string>
     <string name="vacation_responder_off" msgid="4429909341193366667">"Uit"</string>
@@ -479,6 +479,6 @@
     <string name="activity_preferences" msgid="8966077432517613292">"Instellingen"</string>
     <string name="overflow_description" msgid="7886090597023240426">"Meer opties"</string>
     <string name="security_hold_required_text" msgid="6619955920101834286">"Beveiligingsupdate vereist voor <xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g>"</string>
-    <string name="update_security_text" msgid="3527335757205741077">"nu bijwerken"</string>
+    <string name="update_security_text" msgid="3527335757205741077">"nu updaten"</string>
     <string name="forms_are_disabled" msgid="2876312737118986789">"Formulieren zijn uitgeschakeld in Gmail"</string>
 </resources>

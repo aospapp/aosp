@@ -17,7 +17,6 @@
 package com.android.server.telecom;
 
 import android.content.Context;
-import android.telecom.CallState;
 import android.telecom.DisconnectCause;
 import android.telecom.ParcelableConnection;
 import android.telecom.Phone;
@@ -102,6 +101,7 @@ final class CreateConnectionProcessor {
     CreateConnectionProcessor(
             Call call, ConnectionServiceRepository repository, CreateConnectionResponse response,
             PhoneAccountRegistrar phoneAccountRegistrar, Context context) {
+        Log.v(this, "CreateConnectionProcessor created for Call = %s", call);
         mCall = call;
         mRepository = repository;
         mResponse = response;
@@ -168,22 +168,23 @@ final class CreateConnectionProcessor {
         if (mAttemptRecordIterator.hasNext()) {
             attempt = mAttemptRecordIterator.next();
 
-            if (!mPhoneAccountRegistrar.phoneAccountHasPermission(
+            if (!mPhoneAccountRegistrar.phoneAccountRequiresBindPermission(
                     attempt.connectionManagerPhoneAccount)) {
                 Log.w(this,
-                        "Connection mgr does not have BIND_CONNECTION_SERVICE for attempt: %s",
-                        attempt);
+                        "Connection mgr does not have BIND_TELECOM_CONNECTION_SERVICE for "
+                                + "attempt: %s", attempt);
                 attemptNextPhoneAccount();
                 return;
             }
 
             // If the target PhoneAccount differs from the ConnectionManager phone acount, ensure it
-            // also has BIND_CONNECTION_SERVICE permission.
+            // also requires the BIND_TELECOM_CONNECTION_SERVICE permission.
             if (!attempt.connectionManagerPhoneAccount.equals(attempt.targetPhoneAccount) &&
-                    !mPhoneAccountRegistrar.phoneAccountHasPermission(attempt.targetPhoneAccount)) {
+                    !mPhoneAccountRegistrar.phoneAccountRequiresBindPermission(
+                            attempt.targetPhoneAccount)) {
                 Log.w(this,
-                        "Target PhoneAccount does not have BIND_CONNECTION_SERVICE for attempt: %s",
-                        attempt);
+                        "Target PhoneAccount does not have BIND_TELECOM_CONNECTION_SERVICE for "
+                                + "attempt: %s", attempt);
                 attemptNextPhoneAccount();
                 return;
             }
@@ -205,7 +206,6 @@ final class CreateConnectionProcessor {
                 mCall.setConnectionService(service);
                 setTimeoutIfNeeded(service, attempt);
 
-                Log.i(this, "Attempting to call from %s", service.getComponentName());
                 service.createConnection(mCall, new Response(service));
             }
         } else {
@@ -265,8 +265,13 @@ final class CreateConnectionProcessor {
         }
 
         // Connection managers are only allowed to manage SIM subscriptions.
-        PhoneAccount targetPhoneAccount = mPhoneAccountRegistrar.getPhoneAccount(
+        // TODO: Should this really be checking the "calling user" test for phone account?
+        PhoneAccount targetPhoneAccount = mPhoneAccountRegistrar.getPhoneAccountCheckCallingUser(
                 targetPhoneAccountHandle);
+        if (targetPhoneAccount == null) {
+            Log.d(this, "shouldSetConnectionManager, phone account not found");
+            return false;
+        }
         boolean isSimSubscription = (targetPhoneAccount.getCapabilities() &
                 PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION) != 0;
         if (!isSimSubscription) {
@@ -324,12 +329,14 @@ final class CreateConnectionProcessor {
             // Next, add the connection manager account as a backup if it can place emergency calls.
             PhoneAccountHandle callManagerHandle = mPhoneAccountRegistrar.getSimCallManager();
             if (mShouldUseConnectionManager && callManagerHandle != null) {
+                // TODO: Should this really be checking the "calling user" test for phone account?
                 PhoneAccount callManager = mPhoneAccountRegistrar
-                        .getPhoneAccount(callManagerHandle);
-                if (callManager.hasCapabilities(PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)) {
+                        .getPhoneAccountCheckCallingUser(callManagerHandle);
+                if (callManager != null && callManager.hasCapabilities(
+                        PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)) {
                     CallAttemptRecord callAttemptRecord = new CallAttemptRecord(callManagerHandle,
                             mPhoneAccountRegistrar.
-                                    getDefaultOutgoingPhoneAccount(mCall.getHandle().getScheme())
+                                    getOutgoingPhoneAccountForScheme(mCall.getHandle().getScheme())
                     );
 
                     if (!mAttemptRecords.contains(callAttemptRecord)) {

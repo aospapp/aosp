@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-#include "arm_lir.h"
 #include "codegen_arm.h"
+
+#include "arm_lir.h"
+#include "base/logging.h"
+#include "dex/mir_graph.h"
 #include "dex/quick/mir_to_lir-inl.h"
 
 namespace art {
@@ -113,6 +116,32 @@ void ArmMir2Lir::GenArithOpDouble(Instruction::Code opcode,
   StoreValueWide(rl_dest, rl_result);
 }
 
+void ArmMir2Lir::GenMultiplyByConstantFloat(RegLocation rl_dest, RegLocation rl_src1,
+                                            int32_t constant) {
+  RegLocation rl_result;
+  RegStorage r_tmp = AllocTempSingle();
+  LoadConstantNoClobber(r_tmp, constant);
+  rl_src1 = LoadValue(rl_src1, kFPReg);
+  rl_result = EvalLoc(rl_dest, kFPReg, true);
+  NewLIR3(kThumb2Vmuls, rl_result.reg.GetReg(), rl_src1.reg.GetReg(), r_tmp.GetReg());
+  StoreValue(rl_dest, rl_result);
+}
+
+void ArmMir2Lir::GenMultiplyByConstantDouble(RegLocation rl_dest, RegLocation rl_src1,
+                                             int64_t constant) {
+  RegLocation rl_result;
+  RegStorage r_tmp = AllocTempDouble();
+  DCHECK(r_tmp.IsDouble());
+  LoadConstantWide(r_tmp, constant);
+  rl_src1 = LoadValueWide(rl_src1, kFPReg);
+  DCHECK(rl_src1.wide);
+  rl_result = EvalLocWide(rl_dest, kFPReg, true);
+  DCHECK(rl_dest.wide);
+  DCHECK(rl_result.wide);
+  NewLIR3(kThumb2Vmuld, rl_result.reg.GetReg(), rl_src1.reg.GetReg(), r_tmp.GetReg());
+  StoreValueWide(rl_dest, rl_result);
+}
+
 void ArmMir2Lir::GenConversion(Instruction::Code opcode, RegLocation rl_dest, RegLocation rl_src) {
   int op = kThumbBkpt;
   int src_reg;
@@ -158,7 +187,8 @@ void ArmMir2Lir::GenConversion(Instruction::Code opcode, RegLocation rl_dest, Re
       return;
     }
     case Instruction::FLOAT_TO_LONG:
-      GenConversionCall(kQuickF2l, rl_dest, rl_src);
+      CheckEntrypointTypes<kQuickF2l, int64_t, float>();  // int64_t -> kCoreReg
+      GenConversionCall(kQuickF2l, rl_dest, rl_src, kCoreReg);
       return;
     case Instruction::LONG_TO_FLOAT: {
       rl_src = LoadValueWide(rl_src, kFPReg);
@@ -188,7 +218,8 @@ void ArmMir2Lir::GenConversion(Instruction::Code opcode, RegLocation rl_dest, Re
       return;
     }
     case Instruction::DOUBLE_TO_LONG:
-      GenConversionCall(kQuickD2l, rl_dest, rl_src);
+      CheckEntrypointTypes<kQuickD2l, int64_t, double>();  // int64_t -> kCoreReg
+      GenConversionCall(kQuickD2l, rl_dest, rl_src, kCoreReg);
       return;
     default:
       LOG(FATAL) << "Unexpected opcode: " << opcode;

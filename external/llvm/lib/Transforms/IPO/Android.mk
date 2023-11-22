@@ -16,6 +16,7 @@ transforms_ipo_SRC_FILES := \
   Inliner.cpp \
   Internalize.cpp \
   LoopExtractor.cpp \
+  LowerBitSets.cpp \
   MergeFunctions.cpp \
   PartialInlining.cpp \
   PassManagerBuilder.cpp \

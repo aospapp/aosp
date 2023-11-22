@@ -24,7 +24,7 @@ int get_next_trim(struct thread_data *td, struct io_u *io_u)
 		return 1;
 
 	assert(td->trim_entries);
-	ipo = flist_entry(td->trim_list.next, struct io_piece, trim_list);
+	ipo = flist_first_entry(&td->trim_list, struct io_piece, trim_list);
 	remove_trim_entry(td, ipo);
 
 	io_u->offset = ipo->offset;
@@ -75,13 +75,8 @@ int io_u_should_trim(struct thread_data *td, struct io_u *io_u)
 	if (!td->o.trim_percentage)
 		return 0;
 
-	if (td->o.use_os_rand) {
-		r = os_random_long(&td->trim_state);
-		val = (OS_RAND_MAX / 100ULL);
-	} else {
-		r = __rand(&td->__trim_state);
-		val = (FRAND_MAX / 100ULL);
-	}
+	r = __rand(&td->trim_state);
+	val = (FRAND_MAX / 100ULL);
 
 	val *= (unsigned long long) td->o.trim_percentage;
 	return r <= val;

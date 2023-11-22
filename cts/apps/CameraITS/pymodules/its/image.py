@@ -64,11 +64,14 @@ def convert_capture_to_rgb_image(cap,
     if cap["format"] == "raw10":
         assert(props is not None)
         cap = unpack_raw10_capture(cap, props)
+    if cap["format"] == "raw12":
+        assert(props is not None)
+        cap = unpack_raw12_capture(cap, props)
     if cap["format"] == "yuv":
         y = cap["data"][0:w*h]
         u = cap["data"][w*h:w*h*5/4]
         v = cap["data"][w*h*5/4:w*h*6/4]
-        return convert_yuv420_to_rgb_image(y, u, v, w, h)
+        return convert_yuv420_planar_to_rgb_image(y, u, v, w, h)
     elif cap["format"] == "jpeg":
         return decompress_jpeg_to_rgb_image(cap["data"])
     elif cap["format"] == "raw":
@@ -114,15 +117,65 @@ def unpack_raw10_image(img):
         raise its.error.Error('Invalid raw-10 buffer width')
     w = img.shape[1]*4/5
     h = img.shape[0]
-    # Cut out the 4x8b MSBs and shift to bits [10:2] in 16b words.
+    # Cut out the 4x8b MSBs and shift to bits [9:2] in 16b words.
     msbs = numpy.delete(img, numpy.s_[4::5], 1)
     msbs = msbs.astype(numpy.uint16)
     msbs = numpy.left_shift(msbs, 2)
     msbs = msbs.reshape(h,w)
-    # Cut out the 4x2b LSBs and put each in bits [2:0] of their own 8b words.
+    # Cut out the 4x2b LSBs and put each in bits [1:0] of their own 8b words.
     lsbs = img[::, 4::5].reshape(h,w/4)
     lsbs = numpy.right_shift(
             numpy.packbits(numpy.unpackbits(lsbs).reshape(h,w/4,4,2),3), 6)
+    lsbs = lsbs.reshape(h,w)
+    # Fuse the MSBs and LSBs back together
+    img16 = numpy.bitwise_or(msbs, lsbs).reshape(h,w)
+    return img16
+
+def unpack_raw12_capture(cap, props):
+    """Unpack a raw-12 capture to a raw-16 capture.
+
+    Args:
+        cap: A raw-12 capture object.
+        props: Camera properties object.
+
+    Returns:
+        New capture object with raw-16 data.
+    """
+    # Data is packed as 4x10b pixels in 5 bytes, with the first 4 bytes holding
+    # the MSBs of the pixels, and the 5th byte holding 4x2b LSBs.
+    w,h = cap["width"], cap["height"]
+    if w % 2 != 0:
+        raise its.error.Error('Invalid raw-12 buffer width')
+    cap = copy.deepcopy(cap)
+    cap["data"] = unpack_raw12_image(cap["data"].reshape(h,w*3/2))
+    cap["format"] = "raw"
+    return cap
+
+def unpack_raw12_image(img):
+    """Unpack a raw-12 image to a raw-16 image.
+
+    Output image will have the 12 LSBs filled in each 16b word, and the 4 MSBs
+    will be set to zero.
+
+    Args:
+        img: A raw-12 image, as a uint8 numpy array.
+
+    Returns:
+        Image as a uint16 numpy array, with all row padding stripped.
+    """
+    if img.shape[1] % 3 != 0:
+        raise its.error.Error('Invalid raw-12 buffer width')
+    w = img.shape[1]*2/3
+    h = img.shape[0]
+    # Cut out the 2x8b MSBs and shift to bits [11:4] in 16b words.
+    msbs = numpy.delete(img, numpy.s_[2::3], 1)
+    msbs = msbs.astype(numpy.uint16)
+    msbs = numpy.left_shift(msbs, 4)
+    msbs = msbs.reshape(h,w)
+    # Cut out the 2x4b LSBs and put each in bits [3:0] of their own 8b words.
+    lsbs = img[::, 2::3].reshape(h,w/2)
+    lsbs = numpy.right_shift(
+            numpy.packbits(numpy.unpackbits(lsbs).reshape(h,w/2,2,4),3), 4)
     lsbs = lsbs.reshape(h,w)
     # Fuse the MSBs and LSBs back together
     img16 = numpy.bitwise_or(msbs, lsbs).reshape(h,w)
@@ -158,6 +211,9 @@ def convert_capture_to_planes(cap, props=None):
     if cap["format"] == "raw10":
         assert(props is not None)
         cap = unpack_raw10_capture(cap, props)
+    if cap["format"] == "raw12":
+        assert(props is not None)
+        cap = unpack_raw12_capture(cap, props)
     if cap["format"] == "yuv":
         y = cap["data"][0:w*h]
         u = cap["data"][w*h:w*h*5/4]
@@ -176,6 +232,36 @@ def convert_capture_to_planes(cap, props=None):
         img = numpy.ndarray(shape=(h*w,), dtype='<u2',
                             buffer=cap["data"][0:w*h*2])
         img = img.astype(numpy.float32).reshape(h,w) / white_level
+        # Crop the raw image to the active array region.
+        if props.has_key("android.sensor.info.activeArraySize") \
+                and props["android.sensor.info.activeArraySize"] is not None \
+                and props.has_key("android.sensor.info.pixelArraySize") \
+                and props["android.sensor.info.pixelArraySize"] is not None:
+            # Note that the Rect class is defined such that the left,top values
+            # are "inside" while the right,bottom values are "outside"; that is,
+            # it's inclusive of the top,left sides only. So, the width is
+            # computed as right-left, rather than right-left+1, etc.
+            wfull = props["android.sensor.info.pixelArraySize"]["width"]
+            hfull = props["android.sensor.info.pixelArraySize"]["height"]
+            xcrop = props["android.sensor.info.activeArraySize"]["left"]
+            ycrop = props["android.sensor.info.activeArraySize"]["top"]
+            wcrop = props["android.sensor.info.activeArraySize"]["right"]-xcrop
+            hcrop = props["android.sensor.info.activeArraySize"]["bottom"]-ycrop
+            assert(wfull >= wcrop >= 0)
+            assert(hfull >= hcrop >= 0)
+            assert(wfull - wcrop >= xcrop >= 0)
+            assert(hfull - hcrop >= ycrop >= 0)
+            if w == wfull and h == hfull:
+                # Crop needed; extract the center region.
+                img = img[ycrop:ycrop+hcrop,xcrop:xcrop+wcrop]
+                w = wcrop
+                h = hcrop
+            elif w == wcrop and h == hcrop:
+                # No crop needed; image is already cropped to the active array.
+                None
+            else:
+                raise its.error.Error('Invalid image size metadata')
+        # Separate the image planes.
         imgs = [img[::2].reshape(w*h/2)[::2].reshape(h/2,w/2,1),
                 img[::2].reshape(w*h/2)[1::2].reshape(h/2,w/2,1),
                 img[1::2].reshape(w*h/2)[::2].reshape(h/2,w/2,1),
@@ -285,10 +371,10 @@ def convert_raw_to_rgb_image(r_plane, gr_plane, gb_plane, b_plane,
     img = numpy.dot(img.reshape(w*h,3), ccm.T).reshape(h,w,3).clip(0.0,1.0)
     return img
 
-def convert_yuv420_to_rgb_image(y_plane, u_plane, v_plane,
-                                w, h,
-                                ccm_yuv_to_rgb=DEFAULT_YUV_TO_RGB_CCM,
-                                yuv_off=DEFAULT_YUV_OFFSETS):
+def convert_yuv420_planar_to_rgb_image(y_plane, u_plane, v_plane,
+                                       w, h,
+                                       ccm_yuv_to_rgb=DEFAULT_YUV_TO_RGB_CCM,
+                                       yuv_off=DEFAULT_YUV_OFFSETS):
     """Convert a YUV420 8-bit planar image to an RGB image.
 
     Args:
@@ -316,16 +402,44 @@ def convert_yuv420_to_rgb_image(y_plane, u_plane, v_plane,
     rgb.reshape(w*h*3)[:] = flt.reshape(w*h*3)[:]
     return rgb.astype(numpy.float32) / 255.0
 
+def load_rgb_image(fname):
+    """Load a standard image file (JPG, PNG, etc.).
+
+    Args:
+        fname: The path of the file to load.
+
+    Returns:
+        RGB float-3 image array, with pixel values in [0.0, 1.0].
+    """
+    img = Image.open(fname)
+    w = img.size[0]
+    h = img.size[1]
+    a = numpy.array(img)
+    if len(a.shape) == 3 and a.shape[2] == 3:
+        # RGB
+        return a.reshape(h,w,3) / 255.0
+    elif len(a.shape) == 2 or len(a.shape) == 3 and a.shape[2] == 1:
+        # Greyscale; convert to RGB
+        return a.reshape(h*w).repeat(3).reshape(h,w,3) / 255.0
+    else:
+        raise its.error.Error('Unsupported image type')
+
 def load_yuv420_to_rgb_image(yuv_fname,
                              w, h,
+                             layout="planar",
                              ccm_yuv_to_rgb=DEFAULT_YUV_TO_RGB_CCM,
                              yuv_off=DEFAULT_YUV_OFFSETS):
     """Load a YUV420 image file, and return as an RGB image.
+
+    Supported layouts include "planar" and "nv21". The "yuv" formatted captures
+    returned from the device via do_capture are in the "planar" layout; other
+    layouts may only be needed for loading files from other sources.
 
     Args:
         yuv_fname: The path of the YUV420 file.
         w: The width of the image.
         h: The height of the image.
+        layout: (Optional) the layout of the YUV data (as a string).
         ccm_yuv_to_rgb: (Optional) the 3x3 CCM to convert from YUV to RGB.
         yuv_off: (Optional) offsets to subtract from each of Y,U,V values.
 
@@ -333,13 +447,24 @@ def load_yuv420_to_rgb_image(yuv_fname,
         RGB float-3 image array, with pixel values in [0.0, 1.0].
     """
     with open(yuv_fname, "rb") as f:
-        y = numpy.fromfile(f, numpy.uint8, w*h, "")
-        v = numpy.fromfile(f, numpy.uint8, w*h/4, "")
-        u = numpy.fromfile(f, numpy.uint8, w*h/4, "")
-        return convert_yuv420_to_rgb_image(y,u,v,w,h,ccm_yuv_to_rgb,yuv_off)
+        if layout == "planar":
+            # Plane of Y, plane of V, plane of U.
+            y = numpy.fromfile(f, numpy.uint8, w*h, "")
+            v = numpy.fromfile(f, numpy.uint8, w*h/4, "")
+            u = numpy.fromfile(f, numpy.uint8, w*h/4, "")
+        elif layout == "nv21":
+            # Plane of Y, plane of interleaved VUVUVU...
+            y = numpy.fromfile(f, numpy.uint8, w*h, "")
+            vu = numpy.fromfile(f, numpy.uint8, w*h/2, "")
+            v = vu[0::2]
+            u = vu[1::2]
+        else:
+            raise its.error.Error('Unsupported image layout')
+        return convert_yuv420_planar_to_rgb_image(
+                y,u,v,w,h,ccm_yuv_to_rgb,yuv_off)
 
-def load_yuv420_to_yuv_planes(yuv_fname, w, h):
-    """Load a YUV420 image file, and return separate Y, U, and V plane images.
+def load_yuv420_planar_to_yuv_planes(yuv_fname, w, h):
+    """Load a YUV420 planar image file, and return Y, U, and V plane images.
 
     Args:
         yuv_fname: The path of the YUV420 file.
@@ -540,169 +665,24 @@ def downscale_image(img, f):
     img = numpy.vstack(chs).T.reshape(h/f,w/f,chans)
     return img
 
-def __get_color_checker_patch(img, xc,yc, patch_size):
-    r = patch_size/2
-    tile = img[yc-r:yc+r:, xc-r:xc+r:, ::]
-    return tile
-
-def __measure_color_checker_patch(img, xc,yc, patch_size):
-    tile = __get_color_checker_patch(img, xc,yc, patch_size)
-    means = tile.mean(1).mean(0)
-    return means
-
-def get_color_checker_chart_patches(img, debug_fname_prefix=None):
-    """Return the center coords of each patch in a color checker chart.
-
-    Assumptions:
-    * Chart is vertical or horizontal w.r.t. camera, but not diagonal.
-    * Chart is (roughly) planar-parallel to the camera.
-    * Chart is centered in frame (roughly).
-    * Around/behind chart is white/grey background.
-    * The only black pixels in the image are from the chart.
-    * Chart is 100% visible and contained within image.
-    * No other objects within image.
-    * Image is well-exposed.
-    * Standard color checker chart with standard-sized black borders.
-
-    The values returned are in the coordinate system of the chart; that is,
-    patch (0,0) is the brown patch that is in the chart's top-left corner when
-    it is in the normal upright/horizontal orientation. (The chart may be any
-    of the four main orientations in the image.)
+def compute_image_sharpness(img):
+    """Calculate the sharpness of input image.
 
     Args:
-        img: Input image, as a numpy array with pixels in [0,1].
-        debug_fname_prefix: If not None, the (string) name of a file prefix to
-            use to save a number of debug images for visualizing the output of
-            this function; can be used to see if the patches are being found
-            successfully.
+        img: Numpy float RGB/luma image array, with pixel values in [0,1].
 
     Returns:
-        6x4 list of lists of integer (x,y) coords of the center of each patch,
-        ordered in the "chart order" (6x4 row major).
+        A sharpness estimation value based on the average of gradient magnitude.
+        Larger value means the image is sharper.
     """
+    chans = img.shape[2]
+    assert(chans == 1 or chans == 3)
+    luma = img
+    if (chans == 3):
+        luma = 0.299 * img[:,:,0] + 0.587 * img[:,:,1] + 0.114 * img[:,:,2]
 
-    # Shrink the original image.
-    DOWNSCALE_FACTOR = 4
-    img_small = downscale_image(img, DOWNSCALE_FACTOR)
-
-    # Make a threshold image, which is 1.0 where the image is black,
-    # and 0.0 elsewhere.
-    BLACK_PIXEL_THRESH = 0.2
-    mask_img = scipy.stats.threshold(
-                img_small.max(2), BLACK_PIXEL_THRESH, 1.1, 0.0)
-    mask_img = 1.0 - scipy.stats.threshold(mask_img, -0.1, 0.1, 1.0)
-
-    if debug_fname_prefix is not None:
-        h,w = mask_img.shape
-        write_image(img, debug_fname_prefix+"_0.jpg")
-        write_image(mask_img.repeat(3).reshape(h,w,3),
-                debug_fname_prefix+"_1.jpg")
-
-    # Mask image flattened to a single row or column (by averaging).
-    # Also apply a threshold to these arrays.
-    FLAT_PIXEL_THRESH = 0.05
-    flat_row = mask_img.mean(0)
-    flat_col = mask_img.mean(1)
-    flat_row = [0 if v < FLAT_PIXEL_THRESH else 1 for v in flat_row]
-    flat_col = [0 if v < FLAT_PIXEL_THRESH else 1 for v in flat_col]
-
-    # Start and end of the non-zero region of the flattened row/column.
-    flat_row_nonzero = [i for i in range(len(flat_row)) if flat_row[i]>0]
-    flat_col_nonzero = [i for i in range(len(flat_col)) if flat_col[i]>0]
-    flat_row_min, flat_row_max = min(flat_row_nonzero), max(flat_row_nonzero)
-    flat_col_min, flat_col_max = min(flat_col_nonzero), max(flat_col_nonzero)
-
-    # Orientation of chart, and number of grid cells horz. and vertically.
-    orient = "h" if flat_row_max-flat_row_min>flat_col_max-flat_col_min else "v"
-    xgrids = 6 if orient=="h" else 4
-    ygrids = 6 if orient=="v" else 4
-
-    # Get better bounds on the patches region, lopping off some of the excess
-    # black border.
-    HRZ_BORDER_PAD_FRAC = 0.0138
-    VERT_BORDER_PAD_FRAC = 0.0395
-    xpad = HRZ_BORDER_PAD_FRAC if orient=="h" else VERT_BORDER_PAD_FRAC
-    ypad = HRZ_BORDER_PAD_FRAC if orient=="v" else VERT_BORDER_PAD_FRAC
-    xchart = flat_row_min + (flat_row_max - flat_row_min) * xpad
-    ychart = flat_col_min + (flat_col_max - flat_col_min) * ypad
-    wchart = (flat_row_max - flat_row_min) * (1 - 2*xpad)
-    hchart = (flat_col_max - flat_col_min) * (1 - 2*ypad)
-
-    # Get the colors of the 4 corner patches, in clockwise order, by measuring
-    # the average value of a small patch at each of the 4 patch centers.
-    colors = []
-    centers = []
-    for (x,y) in [(0,0), (xgrids-1,0), (xgrids-1,ygrids-1), (0,ygrids-1)]:
-        xc = xchart + (x + 0.5)*wchart/xgrids
-        yc = ychart + (y + 0.5)*hchart/ygrids
-        xc = int(xc * DOWNSCALE_FACTOR + 0.5)
-        yc = int(yc * DOWNSCALE_FACTOR + 0.5)
-        centers.append((xc,yc))
-        chan_means = __measure_color_checker_patch(img, xc,yc, 32)
-        colors.append(sum(chan_means) / len(chan_means))
-
-    # The brightest corner is the white patch, the darkest is the black patch.
-    # The black patch should be counter-clockwise from the white patch.
-    white_patch_index = None
-    for i in range(4):
-        if colors[i] == max(colors) and \
-                colors[(i-1+4)%4] == min(colors):
-            white_patch_index = i%4
-    assert(white_patch_index is not None)
-
-    # Return the coords of the origin (top-left when the chart is in the normal
-    # upright orientation) patch's center, and the vector displacement to the
-    # center of the second patch on the first row of the chart (when in the
-    # normal upright orientation).
-    origin_index = (white_patch_index+1)%4
-    prev_index = (origin_index-1+4)%4
-    next_index = (origin_index+1)%4
-    origin_center = centers[origin_index]
-    prev_center = centers[prev_index]
-    next_center = centers[next_index]
-    vec_across = tuple([(next_center[i]-origin_center[i])/5.0 for i in [0,1]])
-    vec_down = tuple([(prev_center[i]-origin_center[i])/3.0 for i in [0,1]])
-
-    # Compute the center of each patch.
-    patches = [[],[],[],[]]
-    for yi in range(4):
-        for xi in range(6):
-            x0,y0 = origin_center
-            dxh,dyh = vec_across
-            dxv,dyv = vec_down
-            xc = int(x0 + dxh*xi + dxv*yi)
-            yc = int(y0 + dyh*xi + dyv*yi)
-            patches[yi].append((xc,yc))
-
-    # Sanity check: test that the R,G,B,black,white patches are correct.
-    sanity_failed = False
-    patch_info = [(2,2,[0]), # Red
-                  (2,1,[1]), # Green
-                  (2,0,[2]), # Blue
-                  (3,0,[0,1,2]), # White
-                  (3,5,[])] # Black
-    for i in range(len(patch_info)):
-        yi,xi,high_chans = patch_info[i]
-        low_chans = [i for i in [0,1,2] if i not in high_chans]
-        xc,yc = patches[yi][xi]
-        means = __measure_color_checker_patch(img, xc,yc, 64)
-        if (min([means[i] for i in high_chans]+[1]) < \
-                max([means[i] for i in low_chans]+[0])):
-            sanity_failed = True
-
-    if debug_fname_prefix is not None:
-        gridimg = numpy.zeros([4*(32+2), 6*(32+2), 3])
-        for yi in range(4):
-            for xi in range(6):
-                xc,yc = patches[yi][xi]
-                tile = __get_color_checker_patch(img, xc,yc, 32)
-                gridimg[yi*(32+2)+1:yi*(32+2)+1+32,
-                        xi*(32+2)+1:xi*(32+2)+1+32, :] = tile
-        write_image(gridimg, debug_fname_prefix+"_2.png")
-
-    assert(not sanity_failed)
-
-    return patches
+    [gy, gx] = numpy.gradient(luma)
+    return numpy.average(numpy.sqrt(gy*gy + gx*gx))
 
 class __UnitTest(unittest.TestCase):
     """Run a suite of unit tests on this module.

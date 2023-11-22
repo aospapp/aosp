@@ -29,16 +29,6 @@ import java.util.Locale;
  * implementations for all "serviceName.algName".
  */
 public class Services {
-
-    /**
-     * The HashMap that contains information about preferred implementations for
-     * all serviceName.algName in the registered providers.
-     * Set the initial size to 600 so we don't grow to 1024 by default because
-     * initialization adds a few entries more than the growth threshold.
-     */
-    private static final HashMap<String, ArrayList<Provider.Service>> services
-            = new HashMap<String, ArrayList<Provider.Service>>(600);
-
     /**
      * Save default SecureRandom service as well.
      * Avoids similar provider/services iteration in SecureRandom constructor.
@@ -63,6 +53,23 @@ public class Services {
     private static final ArrayList<Provider> providers = new ArrayList<Provider>(20);
 
     /**
+     * Try to load and register a provider by name from the given class-loader.
+     */
+    private static boolean initProvider(String providerClassName, ClassLoader classLoader) {
+        try {
+            Class<?> providerClass = Class.forName(providerClassName.trim(), true, classLoader);
+            Provider p = (Provider) providerClass.newInstance();
+            providers.add(p);
+            providersNames.put(p.getName(), p);
+            return true;
+        } catch (ClassNotFoundException ignored) {
+        } catch (IllegalAccessException ignored) {
+        } catch (InstantiationException ignored) {
+        }
+        return false;
+    }
+
+    /**
      * Hash for quick provider access by name.
      */
     private static final HashMap<String, Provider> providersNames
@@ -70,25 +77,24 @@ public class Services {
     static {
         String providerClassName = null;
         int i = 1;
-        ClassLoader cl = ClassLoader.getSystemClassLoader();
+        ClassLoader cl = Services.class.getClassLoader();
 
         while ((providerClassName = Security.getProperty("security.provider." + i++)) != null) {
-            try {
-                Class<?> providerClass = Class.forName(providerClassName.trim(), true, cl);
-                Provider p = (Provider) providerClass.newInstance();
-                providers.add(p);
-                providersNames.put(p.getName(), p);
-                initServiceInfo(p);
-            } catch (ClassNotFoundException ignored) {
-            } catch (IllegalAccessException ignored) {
-            } catch (InstantiationException ignored) {
+            if (!initProvider(providerClassName, cl)) {
+                // Not on the boot classpath. Try the system class-loader.
+                // Note: DO NOT USE A LOCAL FOR GETSYSTEMCLASSLOADER! This will break compile-time
+                //       initialization.
+                if (!initProvider(providerClassName, ClassLoader.getSystemClassLoader())) {
+                    // TODO: Logging?
+                }
             }
         }
         Engine.door.renumProviders();
+        setNeedRefresh();
     }
 
     /**
-     * Returns a copy of the registered providers as an array.
+     * Returns the actual registered providers.
      */
     public static synchronized ArrayList<Provider> getProviders() {
         return providers;
@@ -128,54 +134,39 @@ public class Services {
     }
 
     /**
-     * Adds information about provider services into HashMap.
+     * Looks up the requested service by type and algorithm. The service
+     * {@code type} and should be provided in the same format used when
+     * registering a service with a provider, for example, "KeyFactory.RSA".
+     * Callers can cache the returned service information but such caches should
+     * be validated against the result of Service.getCacheVersion() before use.
+     * Returns {@code null} if there are no services found.
      */
-    public static synchronized void initServiceInfo(Provider p) {
-        for (Provider.Service service : p.getServices()) {
-            String type = service.getType();
-            if (cachedSecureRandomService == null && type.equals("SecureRandom")) {
-                cachedSecureRandomService = service;
-            }
-            String key = type + "." + service.getAlgorithm().toUpperCase(Locale.US);
-            appendServiceLocked(key, service);
-            for (String alias : Engine.door.getAliases(service)) {
-                key = type + "." + alias.toUpperCase(Locale.US);
-                appendServiceLocked(key, service);
+    public static synchronized ArrayList<Provider.Service> getServices(String type,
+            String algorithm) {
+        ArrayList<Provider.Service> services = null;
+        for (Provider p : providers) {
+            Provider.Service s = p.getService(type, algorithm);
+            if (s != null) {
+                if (services == null) {
+                    services = new ArrayList<>(providers.size());
+                }
+                services.add(s);
             }
         }
+        return services;
     }
 
     /**
-     * Add or append the service to the key.
+     * Finds the first service offered of {@code type} and returns it.
      */
-    private static void appendServiceLocked(String key, Provider.Service service) {
-        ArrayList<Provider.Service> serviceList = services.get(key);
-        if (serviceList == null) {
-            serviceList = new ArrayList<Provider.Service>(1);
-            services.put(key, serviceList);
+    private static synchronized Provider.Service getFirstServiceOfType(String type) {
+        for (Provider p : providers) {
+            Provider.Service s = Engine.door.getService(p, type);
+            if (s != null) {
+                return s;
+            }
         }
-        serviceList.add(service);
-    }
-
-    /**
-     * Returns true if services does not contain any provider information.
-     */
-    public static synchronized boolean isEmpty() {
-        return services.isEmpty();
-    }
-
-    /**
-     * Looks up the requested service by type and algorithm. The
-     * service key should be provided in the same format used when
-     * registering a service with a provider, for example,
-     * "KeyFactory.RSA".
-     *
-     * Callers can cache the returned service information but such
-     * caches should be validated against the result of
-     * Service.getCacheVersion() before use.
-     */
-    public static synchronized ArrayList<Provider.Service> getServices(String key) {
-        return services.get(key);
+        return null;
     }
 
     /**
@@ -203,13 +194,7 @@ public class Services {
     public static synchronized int getCacheVersion() {
         if (needRefresh) {
             cacheVersion++;
-            synchronized (services) {
-                services.clear();
-            }
-            cachedSecureRandomService = null;
-            for (Provider p : providers) {
-                initServiceInfo(p);
-            }
+            cachedSecureRandomService = getFirstServiceOfType("SecureRandom");
             needRefresh = false;
         }
         return cacheVersion;

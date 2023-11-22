@@ -17,21 +17,21 @@
 package com.google.common.collect;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.Objects;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
-import java.util.AbstractCollection;
-import java.util.AbstractMap;
-import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -74,11 +74,16 @@ import javax.annotation.Nullable;
  * implementations, synchronization is unnecessary between a thread that writes
  * to one cell and a thread that reads from another.
  *
+ * <p>See the Guava User Guide article on <a href=
+ * "http://code.google.com/p/guava-libraries/wiki/NewCollectionTypesExplained#Table">
+ * {@code Table}</a>.
+ *
  * @author Jared Levy
  * @since 10.0
  */
 @Beta
-public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
+@GwtCompatible(emulated = true)
+public final class ArrayTable<R, C, V> extends AbstractTable<R, C, V> implements Serializable {
 
   /**
    * Creates an empty {@code ArrayTable}.
@@ -123,16 +128,9 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    * @throws IllegalArgumentException if the provided table is empty
    */
   public static <R, C, V> ArrayTable<R, C, V> create(Table<R, C, V> table) {
-    return new ArrayTable<R, C, V>(table);
-  }
-
-  /**
-   * Creates an {@code ArrayTable} with the same mappings, allowed keys, and
-   * iteration ordering as the provided {@code ArrayTable}.
-   */
-  public static <R, C, V> ArrayTable<R, C, V> create(
-      ArrayTable<R, C, V> table) {
-    return new ArrayTable<R, C, V>(table);
+    return (table instanceof ArrayTable<?, ?, ?>)
+      ? new ArrayTable<R, C, V>((ArrayTable<R, C, V>) table)
+      : new ArrayTable<R, C, V>(table);
   }
 
   private final ImmutableList<R> rowList;
@@ -155,22 +153,23 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
      * columnKeys is empty but rowKeys isn't, the table is empty but
      * containsRow() can return true and rowKeySet() isn't empty.
      */
-    ImmutableMap.Builder<R, Integer> rowBuilder = ImmutableMap.builder();
-    for (int i = 0; i < rowList.size(); i++) {
-      rowBuilder.put(rowList.get(i), i);
-    }
-    rowKeyToIndex = rowBuilder.build();
-
-    ImmutableMap.Builder<C, Integer> columnBuilder = ImmutableMap.builder();
-    for (int i = 0; i < columnList.size(); i++) {
-      columnBuilder.put(columnList.get(i), i);
-    }
-    columnKeyToIndex = columnBuilder.build();
+    rowKeyToIndex = index(rowList);
+    columnKeyToIndex = index(columnList);
 
     @SuppressWarnings("unchecked")
     V[][] tmpArray
         = (V[][]) new Object[rowList.size()][columnList.size()];
     array = tmpArray;
+    // Necessary because in GWT the arrays are initialized with "undefined" instead of null.
+    eraseAll();
+  }
+
+  private static <E> ImmutableMap<E, Integer> index(List<E> list) {
+    ImmutableMap.Builder<E, Integer> columnBuilder = ImmutableMap.builder();
+    for (int i = 0; i < list.size(); i++) {
+      columnBuilder.put(list.get(i), i);
+    }
+    return columnBuilder.build();
   }
 
   private ArrayTable(Table<R, C, V> table) {
@@ -186,8 +185,115 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
     @SuppressWarnings("unchecked")
     V[][] copy = (V[][]) new Object[rowList.size()][columnList.size()];
     array = copy;
+    // Necessary because in GWT the arrays are initialized with "undefined" instead of null.
+    eraseAll();
     for (int i = 0; i < rowList.size(); i++) {
       System.arraycopy(table.array[i], 0, copy[i], 0, table.array[i].length);
+    }
+  }
+
+  private abstract static class ArrayMap<K, V> extends Maps.ImprovedAbstractMap<K, V> {
+    private final ImmutableMap<K, Integer> keyIndex;
+
+    private ArrayMap(ImmutableMap<K, Integer> keyIndex) {
+      this.keyIndex = keyIndex;
+    }
+
+    @Override
+    public Set<K> keySet() {
+      return keyIndex.keySet();
+    }
+
+    K getKey(int index) {
+      return keyIndex.keySet().asList().get(index);
+    }
+
+    abstract String getKeyRole();
+
+    @Nullable abstract V getValue(int index);
+
+    @Nullable abstract V setValue(int index, V newValue);
+
+    @Override
+    public int size() {
+      return keyIndex.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return keyIndex.isEmpty();
+    }
+
+    @Override
+    protected Set<Entry<K, V>> createEntrySet() {
+      return new Maps.EntrySet<K, V>() {
+        @Override
+        Map<K, V> map() {
+          return ArrayMap.this;
+        }
+
+        @Override
+        public Iterator<Entry<K, V>> iterator() {
+          return new AbstractIndexedListIterator<Entry<K, V>>(size()) {
+            @Override
+            protected Entry<K, V> get(final int index) {
+              return new AbstractMapEntry<K, V>() {
+                @Override
+                public K getKey() {
+                  return ArrayMap.this.getKey(index);
+                }
+
+                @Override
+                public V getValue() {
+                  return ArrayMap.this.getValue(index);
+                }
+
+                @Override
+                public V setValue(V value) {
+                  return ArrayMap.this.setValue(index, value);
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+
+    // TODO(user): consider an optimized values() implementation
+
+    @Override
+    public boolean containsKey(@Nullable Object key) {
+      return keyIndex.containsKey(key);
+    }
+
+    @Override
+    public V get(@Nullable Object key) {
+      Integer index = keyIndex.get(key);
+      if (index == null) {
+        return null;
+      } else {
+        return getValue(index);
+      }
+    }
+
+    @Override
+    public V put(K key, V value) {
+      Integer index = keyIndex.get(key);
+      if (index == null) {
+        throw new IllegalArgumentException(
+            getKeyRole() + " " + key + " not in " + keyIndex.keySet());
+      }
+      return setValue(index, value);
+    }
+
+    @Override
+    public V remove(Object key) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -222,6 +328,9 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    *     allowed column keys
    */
   public V at(int rowIndex, int columnIndex) {
+    // In GWT array access never throws IndexOutOfBoundsException.
+    checkElementIndex(rowIndex, rowList.size());
+    checkElementIndex(columnIndex, columnList.size());
     return array[rowIndex][columnIndex];
   }
 
@@ -241,6 +350,9 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    *     allowed column keys
    */
   public V set(int rowIndex, int columnIndex, @Nullable V value) {
+    // In GWT array access never throws IndexOutOfBoundsException.
+    checkElementIndex(rowIndex, rowList.size());
+    checkElementIndex(columnIndex, columnList.size());
     V oldValue = array[rowIndex][columnIndex];
     array[rowIndex][columnIndex] = value;
     return oldValue;
@@ -256,6 +368,7 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    *
    * @param valueClass class of values stored in the returned array
    */
+  @GwtIncompatible("reflection")
   public V[][] toArray(Class<V> valueClass) {
     // Can change to use varargs in JDK 1.6 if we want
     @SuppressWarnings("unchecked") // TODO: safe?
@@ -331,12 +444,8 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
   public V get(@Nullable Object rowKey, @Nullable Object columnKey) {
     Integer rowIndex = rowKeyToIndex.get(rowKey);
     Integer columnIndex = columnKeyToIndex.get(columnKey);
-    return getIndexed(rowIndex, columnIndex);
-  }
-
-  private V getIndexed(Integer rowIndex, Integer columnIndex) {
     return (rowIndex == null || columnIndex == null)
-        ? null : array[rowIndex][columnIndex];
+        ? null : at(rowIndex, columnIndex);
   }
 
   /**
@@ -383,9 +492,7 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    */
   @Override
   public void putAll(Table<? extends R, ? extends C, ? extends V> table) {
-    for (Cell<? extends R, ? extends C, ? extends V> cell : table.cellSet()) {
-      put(cell.getRowKey(), cell.getColumnKey(), cell.getValue());
-    }
+    super.putAll(table);
   }
 
   /**
@@ -428,27 +535,6 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
     return rowList.size() * columnList.size();
   }
 
-  @Override public boolean equals(@Nullable Object obj) {
-    if (obj instanceof Table) {
-      Table<?, ?, ?> other = (Table<?, ?, ?>) obj;
-      return cellSet().equals(other.cellSet());
-    }
-    return false;
-  }
-
-  @Override public int hashCode() {
-    return cellSet().hashCode();
-  }
-
-  /**
-   * Returns the string representation {@code rowMap().toString()}.
-   */
-  @Override public String toString() {
-    return rowMap().toString();
-  }
-
-  private transient CellSet cellSet;
-
   /**
    * Returns an unmodifiable set of all row key / column key / value
    * triplets. Changes to the table will update the returned set.
@@ -464,50 +550,31 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    */
   @Override
   public Set<Cell<R, C, V>> cellSet() {
-    CellSet set = cellSet;
-    return (set == null) ? cellSet = new CellSet() : set;
+    return super.cellSet();
   }
 
-  private class CellSet extends AbstractSet<Cell<R, C, V>> {
-
-    @Override public Iterator<Cell<R, C, V>> iterator() {
-      return new AbstractIndexedListIterator<Cell<R, C, V>>(size()) {
-        @Override protected Cell<R, C, V> get(final int index) {
-          return new Tables.AbstractCell<R, C, V>() {
-            final int rowIndex = index / columnList.size();
-            final int columnIndex = index % columnList.size();
-            @Override
-            public R getRowKey() {
-              return rowList.get(rowIndex);
-            }
-            @Override
-            public C getColumnKey() {
-              return columnList.get(columnIndex);
-            }
-            @Override
-            public V getValue() {
-              return array[rowIndex][columnIndex];
-            }
-          };
-        }
-      };
-    }
-
-    @Override public int size() {
-      return ArrayTable.this.size();
-    }
-
-    @Override public boolean contains(Object obj) {
-      if (obj instanceof Cell) {
-        Cell<?, ?, ?> cell = (Cell<?, ?, ?>) obj;
-        Integer rowIndex = rowKeyToIndex.get(cell.getRowKey());
-        Integer columnIndex = columnKeyToIndex.get(cell.getColumnKey());
-        return rowIndex != null
-            && columnIndex != null
-            && Objects.equal(array[rowIndex][columnIndex], cell.getValue());
+  @Override
+  Iterator<Cell<R, C, V>> cellIterator() {
+    return new AbstractIndexedListIterator<Cell<R, C, V>>(size()) {
+      @Override protected Cell<R, C, V> get(final int index) {
+        return new Tables.AbstractCell<R, C, V>() {
+          final int rowIndex = index / columnList.size();
+          final int columnIndex = index % columnList.size();
+          @Override
+          public R getRowKey() {
+            return rowList.get(rowIndex);
+          }
+          @Override
+          public C getColumnKey() {
+            return columnList.get(columnIndex);
+          }
+          @Override
+          public V getValue() {
+            return at(rowIndex, columnIndex);
+          }
+        };
       }
-      return false;
-    }
+    };
   }
 
   /**
@@ -530,68 +597,27 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
         ? ImmutableMap.<R, V>of() : new Column(columnIndex);
   }
 
-  private class Column extends AbstractMap<R, V> {
+  private class Column extends ArrayMap<R, V> {
     final int columnIndex;
 
     Column(int columnIndex) {
+      super(rowKeyToIndex);
       this.columnIndex = columnIndex;
     }
 
-    ColumnEntrySet entrySet;
-
-    @Override public Set<Entry<R, V>> entrySet() {
-      ColumnEntrySet set = entrySet;
-      return (set == null) ? entrySet = new ColumnEntrySet(columnIndex) : set;
+    @Override
+    String getKeyRole() {
+      return "Row";
     }
 
-    @Override public V get(Object rowKey) {
-      Integer rowIndex = rowKeyToIndex.get(rowKey);
-      return getIndexed(rowIndex, columnIndex);
+    @Override
+    V getValue(int index) {
+      return at(index, columnIndex);
     }
 
-    @Override public boolean containsKey(Object rowKey) {
-      return rowKeyToIndex.containsKey(rowKey);
-    }
-
-    @Override public V put(R rowKey, V value) {
-      checkNotNull(rowKey);
-      Integer rowIndex = rowKeyToIndex.get(rowKey);
-      checkArgument(rowIndex != null, "Row %s not in %s", rowKey, rowList);
-      return set(rowIndex, columnIndex, value);
-    }
-
-    @Override public Set<R> keySet() {
-      return rowKeySet();
-    }
-  }
-
-  private class ColumnEntrySet extends AbstractSet<Entry<R, V>> {
-    final int columnIndex;
-
-    ColumnEntrySet(int columnIndex) {
-      this.columnIndex = columnIndex;
-    }
-
-    @Override public Iterator<Entry<R, V>> iterator() {
-      return new AbstractIndexedListIterator<Entry<R, V>>(size()) {
-        @Override protected Entry<R, V> get(final int rowIndex) {
-          return new AbstractMapEntry<R, V>() {
-            @Override public R getKey() {
-              return rowList.get(rowIndex);
-            }
-            @Override public V getValue() {
-              return array[rowIndex][columnIndex];
-            }
-            @Override public V setValue(V value) {
-              return ArrayTable.this.set(rowIndex, columnIndex, value);
-            }
-          };
-        }
-      };
-    }
-
-    @Override public int size() {
-      return rowList.size();
+    @Override
+    V setValue(int index, V newValue) {
+      return set(index, columnIndex, newValue);
     }
   }
 
@@ -614,44 +640,29 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
     return (map == null) ? columnMap = new ColumnMap() : map;
   }
 
-  private class ColumnMap extends AbstractMap<C, Map<R, V>> {
-    transient ColumnMapEntrySet entrySet;
-
-    @Override public Set<Entry<C, Map<R, V>>> entrySet() {
-      ColumnMapEntrySet set = entrySet;
-      return (set == null) ? entrySet = new ColumnMapEntrySet() : set;
+  private class ColumnMap extends ArrayMap<C, Map<R, V>> {
+    private ColumnMap() {
+      super(columnKeyToIndex);
     }
 
-    @Override public Map<R, V> get(Object columnKey) {
-      Integer columnIndex = columnKeyToIndex.get(columnKey);
-      return (columnIndex == null) ? null : new Column(columnIndex);
+    @Override
+    String getKeyRole() {
+      return "Column";
     }
 
-    @Override public boolean containsKey(Object columnKey) {
-      return containsColumn(columnKey);
+    @Override
+    Map<R, V> getValue(int index) {
+      return new Column(index);
     }
 
-    @Override public Set<C> keySet() {
-      return columnKeySet();
-    }
-
-    @Override public Map<R, V> remove(Object columnKey) {
+    @Override
+    Map<R, V> setValue(int index, Map<R, V> newValue) {
       throw new UnsupportedOperationException();
     }
-  }
 
-  private class ColumnMapEntrySet extends AbstractSet<Entry<C, Map<R, V>>> {
-    @Override public Iterator<Entry<C, Map<R, V>>> iterator() {
-      return new AbstractIndexedListIterator<Entry<C, Map<R, V>>>(size()) {
-        @Override protected Entry<C, Map<R, V>> get(int index) {
-          return Maps.<C, Map<R, V>>immutableEntry(columnList.get(index),
-              new Column(index));
-        }
-      };
-    }
-
-    @Override public int size() {
-      return columnList.size();
+    @Override
+    public Map<R, V> put(C key, Map<R, V> value) {
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -675,69 +686,27 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
     return (rowIndex == null) ? ImmutableMap.<C, V>of() : new Row(rowIndex);
   }
 
-  private class Row extends AbstractMap<C, V> {
+  private class Row extends ArrayMap<C, V> {
     final int rowIndex;
 
     Row(int rowIndex) {
+      super(columnKeyToIndex);
       this.rowIndex = rowIndex;
     }
 
-    RowEntrySet entrySet;
-
-    @Override public Set<Entry<C, V>> entrySet() {
-      RowEntrySet set = entrySet;
-      return (set == null) ? entrySet = new RowEntrySet(rowIndex) : set;
+    @Override
+    String getKeyRole() {
+      return "Column";
     }
 
-    @Override public V get(Object columnKey) {
-      Integer columnIndex = columnKeyToIndex.get(columnKey);
-      return getIndexed(rowIndex, columnIndex);
+    @Override
+    V getValue(int index) {
+      return at(rowIndex, index);
     }
 
-    @Override public boolean containsKey(Object columnKey) {
-      return containsColumn(columnKey);
-    }
-
-    @Override public V put(C columnKey, V value) {
-      checkNotNull(columnKey);
-      Integer columnIndex = columnKeyToIndex.get(columnKey);
-      checkArgument(columnIndex != null,
-          "Column %s not in %s", columnKey, columnList);
-      return set(rowIndex, columnIndex, value);
-    }
-
-    @Override public Set<C> keySet() {
-      return columnKeySet();
-    }
-  }
-
-  private class RowEntrySet extends AbstractSet<Entry<C, V>> {
-    final int rowIndex;
-
-    RowEntrySet(int rowIndex) {
-      this.rowIndex = rowIndex;
-    }
-
-    @Override public Iterator<Entry<C, V>> iterator() {
-      return new AbstractIndexedListIterator<Entry<C, V>>(size()) {
-        @Override protected Entry<C, V> get(final int columnIndex) {
-          return new AbstractMapEntry<C, V>() {
-            @Override public C getKey() {
-              return columnList.get(columnIndex);
-            }
-            @Override public V getValue() {
-              return array[rowIndex][columnIndex];
-            }
-            @Override public V setValue(V value) {
-              return ArrayTable.this.set(rowIndex, columnIndex, value);
-            }
-          };
-        }
-      };
-    }
-
-    @Override public int size() {
-      return columnList.size();
+    @Override
+    V setValue(int index, V newValue) {
+      return set(rowIndex, index, newValue);
     }
   }
 
@@ -760,48 +729,31 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
     return (map == null) ? rowMap = new RowMap() : map;
   }
 
-  private class RowMap extends AbstractMap<R, Map<C, V>> {
-    transient RowMapEntrySet entrySet;
-
-    @Override public Set<Entry<R, Map<C, V>>> entrySet() {
-      RowMapEntrySet set = entrySet;
-      return (set == null) ? entrySet = new RowMapEntrySet() : set;
+  private class RowMap extends ArrayMap<R, Map<C, V>> {
+    private RowMap() {
+      super(rowKeyToIndex);
     }
 
-    @Override public Map<C, V> get(Object rowKey) {
-      Integer rowIndex = rowKeyToIndex.get(rowKey);
-      return (rowIndex == null) ? null : new Row(rowIndex);
+    @Override
+    String getKeyRole() {
+      return "Row";
     }
 
-    @Override public boolean containsKey(Object rowKey) {
-      return containsRow(rowKey);
+    @Override
+    Map<C, V> getValue(int index) {
+      return new Row(index);
     }
 
-    @Override public Set<R> keySet() {
-      return rowKeySet();
+    @Override
+    Map<C, V> setValue(int index, Map<C, V> newValue) {
+      throw new UnsupportedOperationException();
     }
 
-    @Override public Map<C, V> remove(Object rowKey) {
+    @Override
+    public Map<C, V> put(R key, Map<C, V> value) {
       throw new UnsupportedOperationException();
     }
   }
-
-  private class RowMapEntrySet extends AbstractSet<Entry<R, Map<C, V>>> {
-    @Override public Iterator<Entry<R, Map<C, V>>> iterator() {
-      return new AbstractIndexedListIterator<Entry<R, Map<C, V>>>(size()) {
-        @Override protected Entry<R, Map<C, V>> get(int index) {
-          return Maps.<R, Map<C, V>>immutableEntry(rowList.get(index),
-              new Row(index));
-        }
-      };
-    }
-
-    @Override public int size() {
-      return rowList.size();
-    }
-  }
-
-  private transient Collection<V> values;
 
   /**
    * Returns an unmodifiable collection of all values, which may contain
@@ -814,28 +766,7 @@ public final class ArrayTable<R, C, V> implements Table<R, C, V>, Serializable {
    */
   @Override
   public Collection<V> values() {
-    Collection<V> v = values;
-    return (v == null) ? values = new Values() : v;
-  }
-
-  private class Values extends AbstractCollection<V> {
-    @Override public Iterator<V> iterator() {
-      return new AbstractIndexedListIterator<V>(size()) {
-        @Override protected V get(int index) {
-          int rowIndex = index / columnList.size();
-          int columnIndex = index % columnList.size();
-          return array[rowIndex][columnIndex];
-        }
-      };
-    }
-
-    @Override public int size() {
-      return ArrayTable.this.size();
-    }
-
-    @Override public boolean contains(Object value) {
-      return containsValue(value);
-    }
+    return super.values();
   }
 
   private static final long serialVersionUID = 0;

@@ -13,27 +13,29 @@ subdirs := \
   lib/Bitcode/Writer \
   lib/ExecutionEngine \
   lib/ExecutionEngine/RuntimeDyld \
-  lib/ExecutionEngine/JIT \
   lib/ExecutionEngine/MCJIT \
+  lib/ExecutionEngine/Orc \
   lib/ExecutionEngine/Interpreter \
   lib/CodeGen \
   lib/CodeGen/AsmPrinter \
   lib/CodeGen/SelectionDAG \
-  lib/DebugInfo \
+  lib/DebugInfo/DWARF \
+  lib/DebugInfo/PDB \
   lib/IR \
   lib/IRReader \
   lib/Linker \
   lib/LTO \
   lib/MC \
-  lib/MC/MCAnalysis \
   lib/MC/MCDisassembler \
   lib/MC/MCParser \
   lib/Object \
   lib/Option \
+  lib/Passes \
   lib/ProfileData \
   lib/Support \
   lib/TableGen \
   lib/Target \
+  lib/Transforms/Hello \
   lib/Transforms/IPO \
   lib/Transforms/InstCombine \
   lib/Transforms/Instrumentation \
@@ -83,14 +85,18 @@ subdirs += \
 # LLVM Command Line Tools
 subdirs += \
   tools/bugpoint \
+  tools/bugpoint-passes \
+  tools/dsymutil \
   tools/llc \
   tools/lli \
+  tools/lli/ChildTarget \
   tools/llvm-ar \
   tools/llvm-as \
   tools/llvm-bcanalyzer \
   tools/llvm-c-test \
   tools/llvm-config \
   tools/llvm-cov \
+  tools/llvm-cxxdump \
   tools/llvm-dis \
   tools/llvm-diff \
   tools/llvm-dwarfdump \
@@ -101,13 +107,16 @@ subdirs += \
   tools/llvm-mcmarkup \
   tools/llvm-nm \
   tools/llvm-objdump \
+  tools/llvm-pdbdump \
   tools/llvm-profdata \
   tools/llvm-readobj \
   tools/llvm-rtdyld \
   tools/llvm-size \
+  tools/llvm-symbolizer \
   tools/macho-dump \
   tools/obj2yaml \
   tools/opt \
+  tools/verify-uselistorder \
   tools/yaml2obj \
 
 # LLVM Command Line Utilities

@@ -2,8 +2,8 @@
 *.pyc
 .sconsign.dblite
 obj/
-cctest*
-bench_*
+test-*
+bench-*
 libvixl*
 example-*
 vixl_stats.csv

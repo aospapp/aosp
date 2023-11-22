@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc.
+ * Copyright (C) 2009 The Guava Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,20 @@
 
 package com.google.common.collect;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.testing.EqualsTester;
 
 /**
  * Tests {@link EmptyImmutableTable}
  *
- * @author gak@google.com (Gregory Kick)
+ * @author Gregory Kick
  */
+@GwtCompatible(emulated = true)
 public class EmptyImmutableTableTest extends AbstractImmutableTableTest {
-  private static final ImmutableTable<Character, Integer, String> INSTANCE =
-      ImmutableTable.of();
+  private static final ImmutableTable<Character, Integer, String> INSTANCE = ImmutableTable.of();
 
-  @Override Iterable<ImmutableTable<Character, Integer, String>>
-      getTestInstances() {
+  @Override Iterable<ImmutableTable<Character, Integer, String>> getTestInstances() {
     return ImmutableSet.of(INSTANCE);
   }
 
@@ -37,11 +38,20 @@ public class EmptyImmutableTableTest extends AbstractImmutableTableTest {
   }
 
   public void testEqualsObject() {
+    Table<Character, Integer, String> nonEmptyTable = HashBasedTable.create();
+    nonEmptyTable.put('A', 1, "blah");
+
     new EqualsTester()
-        .addEqualityGroup(INSTANCE, HashBasedTable.create(),
-            TreeBasedTable.create())
-        .addEqualityGroup(ArrayTable.create(ImmutableSet.of("A"),
-            ImmutableSet.of(1)))
+        .addEqualityGroup(INSTANCE, HashBasedTable.create(), TreeBasedTable.create())
+        .addEqualityGroup(nonEmptyTable)
+        .testEquals();
+  }
+
+  @GwtIncompatible("ArrayTable")
+  public void testEqualsObjectNullValues() {
+    new EqualsTester()
+        .addEqualityGroup(INSTANCE)
+        .addEqualityGroup(ArrayTable.create(ImmutableSet.of('A'), ImmutableSet.of(1)))
         .testEquals();
   }
 
@@ -108,10 +118,4 @@ public class EmptyImmutableTableTest extends AbstractImmutableTableTest {
   public void testValues() {
     assertTrue(INSTANCE.values().isEmpty());
   }
-
-  public void testReadResolve() {
-    assertSame(EmptyImmutableTable.INSTANCE,
-        EmptyImmutableTable.INSTANCE.readResolve());
-  }
-
 }

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"CB-meddelelser"</string>
     <string name="sms_cb_settings" msgid="971917159442705371">"Indstillinger for Cell Broadcast-beskeder"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Denne bruger har ikke adgang til indstillingerne for mobilmeddelelser"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Denne bruger har ikke adgang til indstillingerne for Cell Broadcast"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Der er ingen aktive advarsler i dit område. Du kan ændre indstillingerne for advarslen ved hjælp af menuen Indstillinger."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Indstillinger"</string>
@@ -51,7 +51,7 @@
     <string name="alert_sound_duration_title" msgid="4712853569849108005">"Varighed for advarselslyd"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alarm for påmindelse"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"Læs advarselsmeddelelser op"</string>
-    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Brug \"tekst til tale\" for at indtale beskeder om nødalarmer"</string>
+    <string name="enable_alert_speech_summary" msgid="356086178962268831">"Brug Oplæsning for at indtale beskeder om nødalarmer"</string>
     <string name="category_etws_settings_title" msgid="4072774251965938576">"Indstillinger for ETWS"</string>
     <string name="enable_etws_test_alerts_title" msgid="2569886288897109169">"Vis testudsendelser fra ETWS"</string>
     <string name="enable_etws_test_alerts_summary" msgid="7988690174166347072">"Vis testmeddelelser for ETWS (varslingssystem ved jordskælv og tsunami)"</string>

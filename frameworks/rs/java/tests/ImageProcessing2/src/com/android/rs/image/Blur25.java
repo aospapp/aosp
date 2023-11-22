@@ -95,20 +95,4 @@ public class Blur25 extends TestBase {
             mScript.forEach_vert(mOutPixelsAllocation);
         }
     }
-
-    public void setupBenchmark() {
-        if (mUseIntrinsic) {
-            mIntrinsic.setRadius(MAX_RADIUS);
-        } else {
-            mScript.invoke_setRadius(MAX_RADIUS);
-        }
-    }
-
-    public void exitBenchmark() {
-        if (mUseIntrinsic) {
-            mIntrinsic.setRadius(mRadius);
-        } else {
-            mScript.invoke_setRadius((int)mRadius);
-        }
-    }
 }

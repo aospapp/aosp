@@ -53,10 +53,25 @@ static jobject nativeDecodeByteArray(JNIEnv* env, jobject clazz,
                 "couldn't read array bytes");
         return NULL;
     }
-    MemoryStream stream(bytes + offset, length);
+    MemoryStream stream(bytes + offset, length, NULL);
     FrameSequence* frameSequence = FrameSequence::create(&stream);
     env->ReleasePrimitiveArrayCritical(byteArray, bytes, 0);
     return createJavaFrameSequence(env, frameSequence);
+}
+
+static jobject nativeDecodeByteBuffer(JNIEnv* env, jobject clazz,
+        jobject buf, jint offset, jint limit) {
+    jobject globalBuf = env->NewGlobalRef(buf);
+    JavaVM* vm;
+    env->GetJavaVM(&vm);
+    MemoryStream stream(
+        (reinterpret_cast<uint8_t*>(
+            env->GetDirectBufferAddress(globalBuf))) + offset,
+        limit,
+        globalBuf);
+    FrameSequence* frameSequence = FrameSequence::create(&stream);
+    jobject finalSequence = createJavaFrameSequence(env, frameSequence);
+    return finalSequence;
 }
 
 static jobject nativeDecodeStream(JNIEnv* env, jobject clazz,
@@ -69,6 +84,10 @@ static jobject nativeDecodeStream(JNIEnv* env, jobject clazz,
 static void nativeDestroyFrameSequence(JNIEnv* env, jobject clazz,
         jlong frameSequenceLong) {
     FrameSequence* frameSequence = reinterpret_cast<FrameSequence*>(frameSequenceLong);
+    jobject buf = frameSequence->getRawByteBuffer();
+    if (buf != NULL) {
+        env->DeleteGlobalRef(buf);
+    }
     delete frameSequence;
 }
 
@@ -122,6 +141,10 @@ static JNINativeMethod gMethods[] = {
     {   "nativeDecodeByteArray",
         "([BII)L" JNI_PACKAGE "/FrameSequence;",
         (void*) nativeDecodeByteArray
+    },
+    {   "nativeDecodeByteBuffer",
+        "(Ljava/nio/ByteBuffer;II)L" JNI_PACKAGE "/FrameSequence;",
+        (void*) nativeDecodeByteBuffer
     },
     {   "nativeDecodeStream",
         "(Ljava/io/InputStream;[B)L" JNI_PACKAGE "/FrameSequence;",

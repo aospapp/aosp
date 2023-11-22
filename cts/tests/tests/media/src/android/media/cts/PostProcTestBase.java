@@ -40,30 +40,18 @@ public class PostProcTestBase extends AndroidTestCase {
     }
 
     protected boolean isBassBoostAvailable() {
-        if (!hasAudioOutput()) {
-            return false;
-        }
         return AudioEffect.isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_BASS_BOOST);
     }
 
     protected boolean isVirtualizerAvailable() {
-        if (!hasAudioOutput()) {
-            return false;
-        }
         return AudioEffect.isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_VIRTUALIZER);
     }
 
     protected boolean isPresetReverbAvailable() {
-        if (!hasAudioOutput()) {
-            return false;
-        }
         return AudioEffect.isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_PRESET_REVERB);
     }
 
     protected boolean isEnvReverbAvailable() {
-        if (!hasAudioOutput()) {
-            return false;
-        }
         return AudioEffect.isEffectTypeAvailable(AudioEffect.EFFECT_TYPE_ENV_REVERB);
     }
 

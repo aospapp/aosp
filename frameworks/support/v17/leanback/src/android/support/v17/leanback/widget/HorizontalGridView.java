@@ -31,8 +31,21 @@ import android.util.TypedValue;
 import android.view.View;
 
 /**
- * A view that shows items in a horizontal scrolling list. The items come from
+ * A {@link android.view.ViewGroup} that shows items in a horizontal scrolling list. The items come from
  * the {@link RecyclerView.Adapter} associated with this view.
+ * <p>
+ * {@link RecyclerView.Adapter} can optionally implement {@link FacetProviderAdapter} which
+ * provides {@link FacetProvider} for a given view type;  {@link RecyclerView.ViewHolder}
+ * can also implement {@link FacetProvider}.  Facet from ViewHolder
+ * has a higher priority than the one from FacetProiderAdapter associated with viewType.
+ * Supported optional facets are:
+ * <ol>
+ * <li> {@link ItemAlignmentFacet}
+ * When this facet is provided by ViewHolder or FacetProviderAdapter,  it will
+ * override the item alignment settings set on HorizontalGridView.  This facet also allows multiple
+ * alignment positions within one ViewHolder.
+ * </li>
+ * </ol>
  */
 public class HorizontalGridView extends BaseGridView {
 
@@ -77,17 +90,14 @@ public class HorizontalGridView extends BaseGridView {
 
     void setRowHeight(TypedArray array) {
         TypedValue typedValue = array.peekValue(R.styleable.lbHorizontalGridView_rowHeight);
-        int size;
-        if (typedValue != null && typedValue.type == TypedValue.TYPE_DIMENSION) {
-            size = array.getDimensionPixelSize(R.styleable.lbHorizontalGridView_rowHeight, 0);
-        } else {
-            size = array.getInt(R.styleable.lbHorizontalGridView_rowHeight, 0);
+        if (typedValue != null) {
+            int size = array.getLayoutDimension(R.styleable.lbHorizontalGridView_rowHeight, 0);
+            setRowHeight(size);
         }
-        setRowHeight(size);
     }
 
     /**
-     * Set the number of rows.  Defaults to one.
+     * Sets the number of rows.  Defaults to one.
      */
     public void setNumRows(int numRows) {
         mLayoutManager.setNumRows(numRows);
@@ -95,10 +105,11 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Set the row height.
+     * Sets the row height.
      *
-     * @param height May be WRAP_CONTENT, or a size in pixels. If zero,
-     * row height will be fixed based on number of rows and view height.
+     * @param height May be {@link android.view.ViewGroup.LayoutParams#WRAP_CONTENT WRAP_CONTENT},
+     *               or a size in pixels. If zero, row height will be fixed based on number of
+     *               rows and view height.
      */
     public void setRowHeight(int height) {
         mLayoutManager.setRowHeight(height);
@@ -106,7 +117,7 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Set fade out left edge to transparent.   Note turn on fading edge is very expensive
+     * Sets the fade out left edge to transparent.   Note turn on fading edge is very expensive
      * that you should turn off when HorizontalGridView is scrolling.
      */
     public final void setFadingLeftEdge(boolean fading) {
@@ -121,14 +132,14 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Return true if fading left edge.
+     * Returns true if left edge fading is enabled.
      */
     public final boolean getFadingLeftEdge() {
         return mFadingLowEdge;
     }
 
     /**
-     * Set left edge fading length in pixels.
+     * Sets the left edge fading length in pixels.
      */
     public final void setFadingLeftEdgeLength(int fadeLength) {
         if (mLowFadeShaderLength != fadeLength) {
@@ -144,14 +155,14 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Get left edge fading length in pixels.
+     * Returns the left edge fading length in pixels.
      */
     public final int getFadingLeftEdgeLength() {
         return mLowFadeShaderLength;
     }
 
     /**
-     * Set distance in pixels between fading start position and left padding edge.
+     * Sets the distance in pixels between fading start position and left padding edge.
      * The fading start position is positive when start position is inside left padding
      * area.  Default value is 0, means that the fading starts from left padding edge.
      */
@@ -163,7 +174,7 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Get distance in pixels between fading start position and left padding edge.
+     * Returns the distance in pixels between fading start position and left padding edge.
      * The fading start position is positive when start position is inside left padding
      * area.  Default value is 0, means that the fading starts from left padding edge.
      */
@@ -172,7 +183,7 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Set fade out right edge to transparent.   Note turn on fading edge is very expensive
+     * Sets the fade out right edge to transparent.   Note turn on fading edge is very expensive
      * that you should turn off when HorizontalGridView is scrolling.
      */
     public final void setFadingRightEdge(boolean fading) {
@@ -187,14 +198,14 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Return true if fading right edge.
+     * Returns true if fading right edge is enabled.
      */
     public final boolean getFadingRightEdge() {
         return mFadingHighEdge;
     }
 
     /**
-     * Set right edge fading length in pixels.
+     * Sets the right edge fading length in pixels.
      */
     public final void setFadingRightEdgeLength(int fadeLength) {
         if (mHighFadeShaderLength != fadeLength) {
@@ -210,14 +221,14 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Get right edge fading length in pixels.
+     * Returns the right edge fading length in pixels.
      */
     public final int getFadingRightEdgeLength() {
         return mHighFadeShaderLength;
     }
 
     /**
-     * Get distance in pixels between fading start position and right padding edge.
+     * Returns the distance in pixels between fading start position and right padding edge.
      * The fading start position is positive when start position is inside right padding
      * area.  Default value is 0, means that the fading starts from right padding edge.
      */
@@ -229,7 +240,7 @@ public class HorizontalGridView extends BaseGridView {
     }
 
     /**
-     * Set distance in pixels between fading start position and right padding edge.
+     * Sets the distance in pixels between fading start position and right padding edge.
      * The fading start position is positive when start position is inside right padding
      * area.  Default value is 0, means that the fading starts from right padding edge.
      */

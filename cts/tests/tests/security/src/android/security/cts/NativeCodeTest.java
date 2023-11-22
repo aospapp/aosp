@@ -42,12 +42,6 @@ public class NativeCodeTest extends TestCase {
         assertTrue(doPerfEventTest2());
     }
 
-    public void testSockDiag() throws Exception {
-        int result = doSockDiagTest();
-        assertFalse("Encountered unexpected error: " + result + ".", (result == -1));
-        assertEquals(0, result);
-    }
-
     public void testFutex() throws Exception {
         assertTrue("Device is vulnerable to CVE-2014-3153, a vulnerability in the futex() system "
                    + "call. Please apply the security patch at "
@@ -56,6 +50,20 @@ public class NativeCodeTest extends TestCase {
                    doFutexTest());
     }
 
+    public void testNvmapIocFromId() throws Exception {
+        assertTrue("Device is vulnerable to CVE-2014-5332. "
+                   + "NVIDIA has released code fixes to upstream repositories and device vendors. "
+                   + "For more information, see "
+                   + "https://nvidia.custhelp.com/app/answers/detail/a_id/3618",
+                   doNvmapIocFromIdTest());
+    }
+
+    public void testPingPongRoot() throws Exception {
+        assertTrue("Device is vulnerable to CVE-2015-3636, a vulnerability in the ping "
+                   + "socket implementation. Please apply the security patch at "
+                   + "https://github.com/torvalds/linux/commit/a134f083e79f",
+                   doPingPongRootTest());
+    }
     /**
      * Returns true iff this device is vulnerable to CVE-2013-2094.
      * A patch for CVE-2013-2094 can be found at
@@ -77,12 +85,6 @@ public class NativeCodeTest extends TestCase {
      * Credit: https://github.com/deater/perf_event_tests/blob/master/exploits/arm_perf_exploit.c
      */
     private static native boolean doPerfEventTest2();
-
-    /**
-     * Hangs if device is vulnerable to CVE-2013-1763, returns -1 if
-     * unexpected error occurs, 0 otherwise.
-     */
-    private static native int doSockDiagTest();
 
     /**
      * ANDROID-11234878 / CVE-2013-6282
@@ -110,8 +112,32 @@ public class NativeCodeTest extends TestCase {
     private static native boolean doFutexTest();
 
     /**
+     * ANDROID-17453812 / CVE-2014-5332
+     *
+     * Returns true if the device is patched against the NVMAP_IOC_FROM_ID ioctl call.
+     *
+     * More information on this vulnreability is available at
+     * https://nvidia.custhelp.com/app/answers/detail/a_id/3618
+     */
+    private static native boolean doNvmapIocFromIdTest();
+
+    /**
      * Returns true if the device is immune to CVE-2014-1710,
      * false if the device is vulnerable.
      */
     private static native boolean doCVE20141710Test();
+
+    /**
+     * CVE-2015-3636
+     *
+     * Returns true if the patch is applied, crashes the system otherwise.
+     *
+     * Detects if the following patch is present.
+     * https://github.com/torvalds/linux/commit/a134f083e79f
+     *
+     * Credit: Wen Xu and wushi of KeenTeam.
+     * http://seclists.org/oss-sec/2015/q2/333
+     */
+    private static native boolean doPingPongRootTest();
+
 }

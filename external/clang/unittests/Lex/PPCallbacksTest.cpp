@@ -27,8 +27,6 @@
 #include "llvm/Support/Path.h"
 #include "gtest/gtest.h"
 
-using namespace llvm;
-using namespace llvm::sys;
 using namespace clang;
 
 namespace {
@@ -56,15 +54,11 @@ class VoidModuleLoader : public ModuleLoader {
 // Stub to collect data from InclusionDirective callbacks.
 class InclusionDirectiveCallbacks : public PPCallbacks {
 public:
-  void InclusionDirective(SourceLocation HashLoc, 
-    const Token &IncludeTok, 
-    StringRef FileName, 
-    bool IsAngled, 
-    CharSourceRange FilenameRange, 
-    const FileEntry *File, 
-    StringRef SearchPath, 
-    StringRef RelativePath, 
-    const Module *Imported) {
+  void InclusionDirective(SourceLocation HashLoc, const Token &IncludeTok,
+                          StringRef FileName, bool IsAngled,
+                          CharSourceRange FilenameRange, const FileEntry *File,
+                          StringRef SearchPath, StringRef RelativePath,
+                          const Module *Imported) override {
       this->HashLoc = HashLoc;
       this->IncludeTok = IncludeTok;
       this->FileName = FileName.str();
@@ -97,9 +91,10 @@ public:
 
   PragmaOpenCLExtensionCallbacks() : Name("Not called."), State(99) {};
 
-  void PragmaOpenCLExtension(
-    clang::SourceLocation NameLoc, const clang::IdentifierInfo *Name,
-    clang::SourceLocation StateLoc, unsigned State) {
+  void PragmaOpenCLExtension(clang::SourceLocation NameLoc,
+                             const clang::IdentifierInfo *Name,
+                             clang::SourceLocation StateLoc,
+                             unsigned State) override {
       this->NameLoc = NameLoc;
       this->Name = Name->getName();
       this->StateLoc = StateLoc;
@@ -142,7 +137,7 @@ protected:
       FileMgr.getVirtualFile(HeaderPath, 0, 0);
 
       // Add header's parent path to search path.
-      StringRef SearchPath = path::parent_path(HeaderPath);
+      StringRef SearchPath = llvm::sys::path::parent_path(HeaderPath);
       const DirectoryEntry *DE = FileMgr.getDirectory(SearchPath);
       DirectoryLookup DL(DE, SrcMgr::C_User, false);
       HeaderInfo.AddSearchPath(DL, IsSystemHeader);
@@ -160,8 +155,9 @@ protected:
   // the InclusionDirective callback.
   CharSourceRange InclusionDirectiveFilenameRange(const char* SourceText, 
       const char* HeaderPath, bool SystemHeader) {
-    MemoryBuffer *Buf = MemoryBuffer::getMemBuffer(SourceText);
-    SourceMgr.setMainFileID(SourceMgr.createFileID(Buf));
+    std::unique_ptr<llvm::MemoryBuffer> Buf =
+        llvm::MemoryBuffer::getMemBuffer(SourceText);
+    SourceMgr.setMainFileID(SourceMgr.createFileID(std::move(Buf)));
 
     VoidModuleLoader ModLoader;
 
@@ -176,7 +172,7 @@ protected:
                     /*OwnsHeaderSearch =*/false);
     PP.Initialize(*Target);
     InclusionDirectiveCallbacks* Callbacks = new InclusionDirectiveCallbacks;
-    PP.addPPCallbacks(Callbacks); // Takes ownership.
+    PP.addPPCallbacks(std::unique_ptr<PPCallbacks>(Callbacks));
 
     // Lex source text.
     PP.EnterMainSourceFile();
@@ -197,8 +193,9 @@ protected:
     LangOptions OpenCLLangOpts;
     OpenCLLangOpts.OpenCL = 1;
 
-    MemoryBuffer* sourceBuf = MemoryBuffer::getMemBuffer(SourceText, "test.cl");
-    SourceMgr.setMainFileID(SourceMgr.createFileID(sourceBuf));
+    std::unique_ptr<llvm::MemoryBuffer> SourceBuf =
+        llvm::MemoryBuffer::getMemBuffer(SourceText, "test.cl");
+    SourceMgr.setMainFileID(SourceMgr.createFileID(std::move(SourceBuf)));
 
     VoidModuleLoader ModLoader;
     HeaderSearch HeaderInfo(new HeaderSearchOptions, SourceMgr, Diags, 
@@ -221,7 +218,7 @@ protected:
     Sema S(PP, Context, Consumer);
     Parser P(PP, S, false);
     PragmaOpenCLExtensionCallbacks* Callbacks = new PragmaOpenCLExtensionCallbacks;
-    PP.addPPCallbacks(Callbacks); // Takes ownership.
+    PP.addPPCallbacks(std::unique_ptr<PPCallbacks>(Callbacks));
 
     // Lex source text.
     PP.EnterMainSourceFile();

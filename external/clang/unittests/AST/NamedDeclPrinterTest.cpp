@@ -37,7 +37,7 @@ public:
   explicit PrintMatch(bool suppressUnwrittenScope)
     : NumFoundDecls(0), SuppressUnwrittenScope(suppressUnwrittenScope) {}
 
-  virtual void run(const MatchFinder::MatchResult &Result) {
+  void run(const MatchFinder::MatchResult &Result) override {
     const NamedDecl *ND = Result.Nodes.getNodeAs<NamedDecl>("id");
     if (!ND)
       return;
@@ -68,8 +68,8 @@ PrintedNamedDeclMatches(StringRef Code, const std::vector<std::string> &Args,
   PrintMatch Printer(SuppressUnwrittenScope);
   MatchFinder Finder;
   Finder.addMatcher(NodeMatch, &Printer);
-  std::unique_ptr<FrontendActionFactory> Factory(
-      newFrontendActionFactory(&Finder));
+  std::unique_ptr<FrontendActionFactory> Factory =
+      newFrontendActionFactory(&Finder);
 
   if (!runToolOnCodeWithArgs(Factory->create(), Code, Args, FileName))
     return testing::AssertionFailure()

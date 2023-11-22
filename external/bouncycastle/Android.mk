@@ -38,7 +38,6 @@ ifneq ($(TARGET_BUILD_PDK),true)
     LOCAL_MODULE := bouncycastle
     LOCAL_MODULE_TAGS := optional
     LOCAL_SRC_FILES := $(android_bcprov_src_files)
-    LOCAL_JAVACFLAGS := -encoding UTF-8
     LOCAL_JAVA_LIBRARIES := core-libart conscrypt
     LOCAL_NO_STANDARD_LIBRARIES := true
     LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
@@ -50,7 +49,6 @@ ifneq ($(TARGET_BUILD_PDK),true)
     LOCAL_MODULE := bouncycastle-nojarjar
     LOCAL_MODULE_TAGS := optional
     LOCAL_SRC_FILES := $(android_bcprov_src_files)
-    LOCAL_JAVACFLAGS := -encoding UTF-8
     LOCAL_JAVA_LIBRARIES := core-libart conscrypt
     LOCAL_NO_STANDARD_LIBRARIES := true
     LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
@@ -62,7 +60,6 @@ ifneq ($(TARGET_BUILD_PDK),true)
     LOCAL_MODULE_TAGS := optional
     LOCAL_SDK_VERSION := 9
     LOCAL_SRC_FILES := $(ri_bcprov_src_files)
-    LOCAL_JAVACFLAGS := -encoding UTF-8
     LOCAL_MODULE_TAGS := optional
     LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
     include $(BUILD_STATIC_JAVA_LIBRARY)
@@ -108,26 +105,26 @@ bouncycastle-proguard-deadcode: $(full_classes_compiled_jar) $(full_java_libs)
 		    public java.lang.String getPaddingName(); \
 		}"
 
-# Conscrypt isn't built in the PDK, so this cannot be built because it has a
-# dependency on conscrypt-hostdex.
+# Conscrypt isn't built in the PDK or on non-linux OSes, so this cannot be built
+# because it has a dependency on conscrypt-hostdex.
 ifneq ($(TARGET_BUILD_PDK),true)
+  ifeq ($(HOST_OS),linux)
     include $(CLEAR_VARS)
     LOCAL_MODULE := bouncycastle-hostdex
     LOCAL_MODULE_TAGS := optional
     LOCAL_SRC_FILES := $(all_bcprov_src_files)
-    LOCAL_JAVACFLAGS := -encoding UTF-8
     LOCAL_MODULE_TAGS := optional
     LOCAL_JAVA_LIBRARIES := conscrypt-hostdex
     LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
     LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+  endif  # ($(HOST_OS),linux)
 endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := bouncycastle-host
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(ri_bcprov_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_MODULE_TAGS := optional
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_HOST_JAVA_LIBRARY)
@@ -136,7 +133,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := bouncycastle-bcpkix-host
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-java-files-under,bcpkix/src/main/java)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := bouncycastle-host
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk

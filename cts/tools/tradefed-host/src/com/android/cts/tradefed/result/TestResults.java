@@ -104,9 +104,9 @@ class TestResults extends AbstractXmlPullParser {
      * @param serializer
      * @throws IOException
      */
-    public void serialize(KXmlSerializer serializer) throws IOException {
+    public void serialize(KXmlSerializer serializer, String buildId) throws IOException {
         mDeviceInfo.serialize(serializer);
-        serializeHostInfo(serializer);
+        serializeHostInfo(serializer, buildId);
         serializeTestSummary(serializer);
         // sort before serializing
         List<TestPackageResult> pkgs = new ArrayList<TestPackageResult>(mPackageResults.values());
@@ -121,7 +121,7 @@ class TestResults extends AbstractXmlPullParser {
      *
      * @param serializer
      */
-    private void serializeHostInfo(KXmlSerializer serializer) throws IOException {
+    private void serializeHostInfo(KXmlSerializer serializer, String buildId) throws IOException {
         serializer.startTag(ns, "HostInfo");
 
         String hostName = "";
@@ -143,6 +143,7 @@ class TestResults extends AbstractXmlPullParser {
 
         serializer.startTag(ns, "Cts");
         serializer.attribute(ns, "version", CtsBuildProvider.CTS_BUILD_VERSION);
+        serializer.attribute(ns, "build", buildId);
         // TODO: consider outputting other tradefed options here
         serializer.startTag(ns, "IntValue");
         serializer.attribute(ns, "name", "testStatusTimeoutMs");

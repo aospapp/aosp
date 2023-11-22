@@ -333,6 +333,10 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public String prettySignature() {
     return name() + prettyParameters();
   }
+
+  public String prettyQualifiedSignature() {
+    return qualifiedName() + prettyParameters();
+  }
   
   /**
    * Returns a printable version of the parameters of this method's signature.
@@ -405,7 +409,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
               containingClass(), position()));
         }
       }
-      mThrowsTags = rv.toArray(new ThrowsTagInfo[rv.size()]);
+
+      mThrowsTags = rv.toArray(ThrowsTagInfo.getArray(rv.size()));
     }
     return mThrowsTags;
   }
@@ -423,6 +428,12 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public ParamTagInfo[] paramTags() {
     if (mParamTags == null) {
       final int N = mParameters.size();
+
+      if (N == 0) {
+          // Early out for empty case.
+          mParamTags = ParamTagInfo.EMPTY_ARRAY;
+          return ParamTagInfo.EMPTY_ARRAY;
+      }
 
       String[] names = new String[N];
       String[] comments = new String[N];
@@ -464,7 +475,7 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       }
 
       // construct the results, and cache them for next time
-      mParamTags = new ParamTagInfo[N];
+      mParamTags = ParamTagInfo.getArray(N);
       for (i = 0; i < N; i++) {
         mParamTags[i] =
             new ParamTagInfo("@param", "@param", names[i] + " " + comments[i], parent(),
@@ -592,6 +603,18 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       TypeInfo.makeHDF(data, base + ".generic.typeArguments", mTypeParameters, false);
     }
 
+    int numAnnotationDocumentation = 0;
+    for (AnnotationInstanceInfo aii : annotations()) {
+      String annotationDocumentation = Doclava.getDocumentationStringForAnnotation(
+          aii.type().qualifiedName());
+      if (annotationDocumentation != null) {
+        data.setValue(base + ".annotationdocumentation." + numAnnotationDocumentation + ".text",
+            annotationDocumentation);
+        numAnnotationDocumentation++;
+      }
+    }
+
+
     AnnotationInstanceInfo.makeLinkListHDF(
       data,
       base + ".showAnnotations",
@@ -709,6 +732,8 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
   public String qualifiedName() {
     String parentQName = (containingClass() != null)
         ? (containingClass().qualifiedName() + ".") : "";
+    // TODO: This logic doesn't work well with constructors, as name() for constructors already
+    // contains the containingClass's name, leading to things like A.B.B() being rendered as A.B.A.B()
     return parentQName + name();
   }
 
@@ -757,21 +782,22 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       }
 
       if (!consistent) {
-        Errors.error(Errors.CHANGED_TYPE, mInfo.position(), "Method " + mInfo.qualifiedName()
-            + " has changed return type from " + mReturnType + " to " + mInfo.mReturnType);
+        Errors.error(Errors.CHANGED_TYPE, mInfo.position(), "Method "
+            + mInfo.prettyQualifiedSignature() + " has changed return type from " + mReturnType
+            + " to " + mInfo.mReturnType);
       }
     }
 
     if (mIsAbstract != mInfo.mIsAbstract) {
       consistent = false;
-      Errors.error(Errors.CHANGED_ABSTRACT, mInfo.position(), "Method " + mInfo.qualifiedName()
-          + " has changed 'abstract' qualifier");
+      Errors.error(Errors.CHANGED_ABSTRACT, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " has changed 'abstract' qualifier");
     }
 
     if (mIsNative != mInfo.mIsNative) {
       consistent = false;
-      Errors.error(Errors.CHANGED_NATIVE, mInfo.position(), "Method " + mInfo.qualifiedName()
-          + " has changed 'native' qualifier");
+      Errors.error(Errors.CHANGED_NATIVE, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " has changed 'native' qualifier");
     }
 
     if (!mIsStatic) {
@@ -781,30 +807,32 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       // and (b) the method is not already inferred to be 'final' by virtue of its class.
       if (!isEffectivelyFinal() && mInfo.isEffectivelyFinal()) {
         consistent = false;
-        Errors.error(Errors.ADDED_FINAL, mInfo.position(), "Method " + mInfo.qualifiedName()
-            + " has added 'final' qualifier");
+        Errors.error(Errors.ADDED_FINAL, mInfo.position(), "Method "
+            + mInfo.prettyQualifiedSignature() + " has added 'final' qualifier");
       } else if (isEffectivelyFinal() && !mInfo.isEffectivelyFinal()) {
         consistent = false;
-        Errors.error(Errors.REMOVED_FINAL, mInfo.position(), "Method " + mInfo.qualifiedName()
-            + " has removed 'final' qualifier");
+        Errors.error(Errors.REMOVED_FINAL, mInfo.position(), "Method "
+            + mInfo.prettyQualifiedSignature() + " has removed 'final' qualifier");
       }
     }
 
     if (mIsStatic != mInfo.mIsStatic) {
       consistent = false;
-      Errors.error(Errors.CHANGED_STATIC, mInfo.position(), "Method " + mInfo.qualifiedName()
-          + " has changed 'static' qualifier");
+      Errors.error(Errors.CHANGED_STATIC, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " has changed 'static' qualifier");
     }
 
     if (!scope().equals(mInfo.scope())) {
       consistent = false;
-      Errors.error(Errors.CHANGED_SCOPE, mInfo.position(), "Method " + mInfo.qualifiedName()
-          + " changed scope from " + scope() + " to " + mInfo.scope());
+      Errors.error(Errors.CHANGED_SCOPE, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " changed scope from " + scope()
+          + " to " + mInfo.scope());
     }
 
     if (!isDeprecated() == mInfo.isDeprecated()) {
-      Errors.error(Errors.CHANGED_DEPRECATED, mInfo.position(), "Method " + mInfo.qualifiedName()
-          + " has changed deprecation state " + isDeprecated() + " --> " + mInfo.isDeprecated());
+      Errors.error(Errors.CHANGED_DEPRECATED, mInfo.position(), "Method "
+          + mInfo.prettyQualifiedSignature() + " has changed deprecation state " + isDeprecated()
+          + " --> " + mInfo.isDeprecated());
       consistent = false;
     }
 
@@ -823,8 +851,9 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       if (!mInfo.throwsException(exception)) {
         // exclude 'throws' changes to finalize() overrides with no arguments
         if (!name().equals("finalize") || (!mParameters.isEmpty())) {
-          Errors.error(Errors.CHANGED_THROWS, mInfo.position(), "Method " + mInfo.qualifiedName()
-              + " no longer throws exception " + exception.qualifiedName());
+          Errors.error(Errors.CHANGED_THROWS, mInfo.position(), "Method "
+              + mInfo.prettyQualifiedSignature() + " no longer throws exception "
+              + exception.qualifiedName());
           consistent = false;
         }
       }
@@ -834,8 +863,9 @@ public class MethodInfo extends MemberInfo implements AbstractMethodInfo, Resolv
       // exclude 'throws' changes to finalize() overrides with no arguments
       if (!throwsException(exec)) {
         if (!name().equals("finalize") || (!mParameters.isEmpty())) {
-          Errors.error(Errors.CHANGED_THROWS, mInfo.position(), "Method " + mInfo.qualifiedName()
-              + " added thrown exception " + exec.qualifiedName());
+          Errors.error(Errors.CHANGED_THROWS, mInfo.position(), "Method "
+              + mInfo.prettyQualifiedSignature() + " added thrown exception "
+              + exec.qualifiedName());
           consistent = false;
         }
       }

@@ -16,15 +16,24 @@
 
 package com.android.dialer.calllog;
 
+import android.content.ContentValues;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.CallLog.Calls;
+import android.provider.ContactsContract;
 import android.telecom.PhoneAccountHandle;
 
-import com.android.contacts.common.CallUtil;
+import com.android.contacts.common.model.Contact;
+import com.android.contacts.common.model.ContactLoader;
 import com.android.dialer.CallDetailActivity;
+import com.android.dialer.DialtactsActivity;
+import com.android.dialer.PhoneCallDetails;
+import com.android.dialer.util.IntentUtil;
+import com.android.dialer.util.TelecomUtil;
+
+import java.util.ArrayList;
 
 /**
  * Used to create an intent to attach to an action in the call log.
@@ -46,7 +55,7 @@ public abstract class IntentProvider {
         return new IntentProvider() {
             @Override
             public Intent getIntent(Context context) {
-                return CallUtil.getCallIntent(number, accountHandle);
+                return IntentUtil.getCallIntent(number, accountHandle);
             }
         };
     }
@@ -60,7 +69,7 @@ public abstract class IntentProvider {
         return new IntentProvider() {
             @Override
             public Intent getIntent(Context context) {
-                return CallUtil.getVideoCallIntent(number, accountHandle);
+                return IntentUtil.getVideoCallIntent(number, accountHandle);
             }
         };
     }
@@ -69,25 +78,16 @@ public abstract class IntentProvider {
         return new IntentProvider() {
             @Override
             public Intent getIntent(Context context) {
-                return CallUtil.getVoicemailIntent();
+                return IntentUtil.getVoicemailIntent();
             }
         };
     }
 
-    public static IntentProvider getPlayVoicemailIntentProvider(final long rowId,
-            final String voicemailUri) {
+    public static IntentProvider getSendSmsIntentProvider(final String number) {
         return new IntentProvider() {
             @Override
             public Intent getIntent(Context context) {
-                Intent intent = new Intent(context, CallDetailActivity.class);
-                intent.setData(ContentUris.withAppendedId(
-                        Calls.CONTENT_URI_WITH_VOICEMAIL, rowId));
-                if (voicemailUri != null) {
-                    intent.putExtra(CallDetailActivity.EXTRA_VOICEMAIL_URI,
-                            Uri.parse(voicemailUri));
-                }
-                intent.putExtra(CallDetailActivity.EXTRA_VOICEMAIL_START_PLAYBACK, true);
-                return intent;
+                return IntentUtil.getSendSmsIntent(number);
             }
         };
     }
@@ -111,16 +111,86 @@ public abstract class IntentProvider {
                     intent.putExtra(CallDetailActivity.EXTRA_VOICEMAIL_URI,
                             Uri.parse(voicemailUri));
                 }
-                intent.putExtra(CallDetailActivity.EXTRA_VOICEMAIL_START_PLAYBACK, false);
 
                 if (extraIds != null && extraIds.length > 0) {
                     intent.putExtra(CallDetailActivity.EXTRA_CALL_LOG_IDS, extraIds);
                 } else {
                     // If there is a single item, use the direct URI for it.
-                    intent.setData(ContentUris.withAppendedId(
-                            Calls.CONTENT_URI_WITH_VOICEMAIL, id));
+                    intent.setData(ContentUris.withAppendedId(TelecomUtil.getCallLogUri(context),
+                            id));
                 }
                 return intent;
+            }
+        };
+    }
+
+    /**
+     * Retrieves an add contact intent for the given contact and phone call details.
+     */
+    public static IntentProvider getAddContactIntentProvider(
+            final Uri lookupUri,
+            final CharSequence name,
+            final CharSequence number,
+            final int numberType,
+            final boolean isNewContact) {
+        return new IntentProvider() {
+            @Override
+            public Intent getIntent(Context context) {
+                Contact contactToSave = null;
+
+                if (lookupUri != null) {
+                    contactToSave = ContactLoader.parseEncodedContactEntity(lookupUri);
+                }
+
+                if (contactToSave != null) {
+                    // Populate the intent with contact information stored in the lookup URI.
+                    // Note: This code mirrors code in Contacts/QuickContactsActivity.
+                    final Intent intent;
+                    if (isNewContact) {
+                        intent = IntentUtil.getNewContactIntent();
+                    } else {
+                        intent = IntentUtil.getAddToExistingContactIntent();
+                    }
+
+                    ArrayList<ContentValues> values = contactToSave.getContentValues();
+                    // Only pre-fill the name field if the provided display name is an nickname
+                    // or better (e.g. structured name, nickname)
+                    if (contactToSave.getDisplayNameSource()
+                            >= ContactsContract.DisplayNameSources.NICKNAME) {
+                        intent.putExtra(ContactsContract.Intents.Insert.NAME,
+                                contactToSave.getDisplayName());
+                    } else if (contactToSave.getDisplayNameSource()
+                            == ContactsContract.DisplayNameSources.ORGANIZATION) {
+                        // This is probably an organization. Instead of copying the organization
+                        // name into a name entry, copy it into the organization entry. This
+                        // way we will still consider the contact an organization.
+                        final ContentValues organization = new ContentValues();
+                        organization.put(ContactsContract.CommonDataKinds.Organization.COMPANY,
+                                contactToSave.getDisplayName());
+                        organization.put(ContactsContract.Data.MIMETYPE,
+                                ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE);
+                        values.add(organization);
+                    }
+
+                    // Last time used and times used are aggregated values from the usage stat
+                    // table. They need to be removed from data values so the SQL table can insert
+                    // properly
+                    for (ContentValues value : values) {
+                        value.remove(ContactsContract.Data.LAST_TIME_USED);
+                        value.remove(ContactsContract.Data.TIMES_USED);
+                    }
+
+                    intent.putExtra(ContactsContract.Intents.Insert.DATA, values);
+
+                    return intent;
+                } else {
+                    // If no lookup uri is provided, rely on the available phone number and name.
+                    if (isNewContact) {
+                        return IntentUtil.getNewContactIntent(name, number, numberType);
+                    } else {
+                        return IntentUtil.getAddToExistingContactIntent(name, number, numberType);
+                    }
+                }
             }
         };
     }

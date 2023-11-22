@@ -20,13 +20,14 @@
 #include <string>
 
 #include "atomic.h"
+#include "base/time_utils.h"
+#include "class_linker-inl.h"
 #include "common_runtime_test.h"
 #include "handle_scope-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/string-inl.h"  // Strings are easiest to allocate
 #include "scoped_thread_state_change.h"
 #include "thread_pool.h"
-#include "utils.h"
 
 namespace art {
 
@@ -58,7 +59,7 @@ class MonitorTest : public CommonRuntimeTest {
 static const size_t kMaxHandles = 1000000;  // Use arbitrary large amount for now.
 static void FillHeap(Thread* self, ClassLinker* class_linker,
                      std::unique_ptr<StackHandleScope<kMaxHandles>>* hsp,
-                     std::vector<Handle<mirror::Object>>* handles)
+                     std::vector<MutableHandle<mirror::Object>>* handles)
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
   Runtime::Current()->GetHeap()->SetIdealFootprint(1 * GB);
 
@@ -73,7 +74,7 @@ static void FillHeap(Thread* self, ClassLinker* class_linker,
   // Start allocating with 128K
   size_t length = 128 * KB / 4;
   while (length > 10) {
-    Handle<mirror::Object> h((*hsp)->NewHandle<mirror::Object>(
+    MutableHandle<mirror::Object> h((*hsp)->NewHandle<mirror::Object>(
         mirror::ObjectArray<mirror::Object>::Alloc(self, ca.Get(), length / 4)));
     if (self->IsExceptionPending() || h.Get() == nullptr) {
       self->ClearException();
@@ -92,7 +93,7 @@ static void FillHeap(Thread* self, ClassLinker* class_linker,
 
   // Allocate simple objects till it fails.
   while (!self->IsExceptionPending()) {
-    Handle<mirror::Object> h = (*hsp)->NewHandle<mirror::Object>(c->AllocObject(self));
+    MutableHandle<mirror::Object> h = (*hsp)->NewHandle<mirror::Object>(c->AllocObject(self));
     if (!self->IsExceptionPending() && h.Get() != nullptr) {
       handles->push_back(h);
     }
@@ -115,8 +116,8 @@ class CreateTask : public Task {
       ScopedObjectAccess soa(self);
 
       monitor_test_->thread_ = self;        // Pass the Thread.
-      monitor_test_->object_.Get()->MonitorEnter(self);     // Lock the object. This should transition
-      LockWord lock_after = monitor_test_->object_.Get()->GetLockWord(false);     // it to thinLocked.
+      monitor_test_->object_.Get()->MonitorEnter(self);  // Lock the object. This should transition
+      LockWord lock_after = monitor_test_->object_.Get()->GetLockWord(false);  // it to thinLocked.
       LockWord::LockState new_state = lock_after.GetState();
 
       // Cannot use ASSERT only, as analysis thinks we'll keep holding the mutex.
@@ -307,7 +308,7 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
 
   // Fill the heap.
   std::unique_ptr<StackHandleScope<kMaxHandles>> hsp;
-  std::vector<Handle<mirror::Object>> handles;
+  std::vector<MutableHandle<mirror::Object>> handles;
   {
     Thread* self = Thread::Current();
     ScopedObjectAccess soa(self);
@@ -341,8 +342,7 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
 
   // Wake the watchdog.
   {
-    Thread* self = Thread::Current();
-    ScopedObjectAccess soa(self);
+    ScopedObjectAccess soa(Thread::Current());
 
     test->watchdog_object_.Get()->MonitorEnter(self);     // Lock the object.
     test->watchdog_object_.Get()->NotifyAll(self);        // Wake up waiting parties.
@@ -357,6 +357,8 @@ static void CommonWaitSetup(MonitorTest* test, ClassLinker* class_linker, uint64
 TEST_F(MonitorTest, CheckExceptionsWait1) {
   // Make the CreateTask wait 10ms, the UseTask wait 10ms.
   // => The use task will get the lock first and get to self == owner check.
+  // This will lead to OOM and monitor error messages in the log.
+  ScopedLogSeverity sls(LogSeverity::FATAL);
   CommonWaitSetup(this, class_linker_, 10, 50, false, false, 2, 50, true,
                   "Monitor test thread pool 1");
 }
@@ -365,6 +367,8 @@ TEST_F(MonitorTest, CheckExceptionsWait1) {
 TEST_F(MonitorTest, CheckExceptionsWait2) {
   // Make the CreateTask wait 0ms, the UseTask wait 10ms.
   // => The create task will get the lock first and get to ms >= 0
+  // This will lead to OOM and monitor error messages in the log.
+  ScopedLogSeverity sls(LogSeverity::FATAL);
   CommonWaitSetup(this, class_linker_, 0, -1, true, false, 10, 50, true,
                   "Monitor test thread pool 2");
 }
@@ -374,6 +378,8 @@ TEST_F(MonitorTest, CheckExceptionsWait3) {
   // Make the CreateTask wait 0ms, then Wait for a long time. Make the InterruptTask wait 10ms,
   // after which it will interrupt the create task and then wait another 10ms.
   // => The create task will get to the interrupted-exception throw.
+  // This will lead to OOM and monitor error messages in the log.
+  ScopedLogSeverity sls(LogSeverity::FATAL);
   CommonWaitSetup(this, class_linker_, 0, 500, true, true, 10, 50, true,
                   "Monitor test thread pool 3");
 }

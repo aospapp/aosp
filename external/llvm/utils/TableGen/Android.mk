@@ -1,4 +1,6 @@
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
+LLVM_ROOT_PATH := $(LOCAL_PATH)/../..
+include $(LLVM_ROOT_PATH)/llvm.mk
 
 tablegen_SRC_FILES := \
   AsmMatcherEmitter.cpp \
@@ -34,6 +36,7 @@ tablegen_SRC_FILES := \
   X86RecognizableInstr.cpp
 
 include $(CLEAR_VARS)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
 LOCAL_MODULE := llvm-tblgen
 LOCAL_MODULE_TAGS := optional

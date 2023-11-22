@@ -31,9 +31,12 @@ set(DEQP_GL_SHARED_SRCS
 	glsShaderPerformanceCase.hpp
 	glsShaderRenderCase.cpp
 	glsShaderRenderCase.hpp
+	glsStateQueryUtil.cpp
 	glsStateQueryUtil.hpp
 	glsScissorTests.cpp
 	glsScissorTests.hpp
+	glsTextureStateQueryTests.cpp
+	glsTextureStateQueryTests.hpp
 	glsTextureTestUtil.cpp
 	glsTextureTestUtil.hpp
 	glsUniformBlockCase.cpp

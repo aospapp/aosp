@@ -18,10 +18,10 @@ package com.android.internal.telephony;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Binder;
-import android.os.RemoteException;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.Rlog;
 
@@ -36,6 +36,7 @@ public class PhoneSubInfo {
 
     private Phone mPhone;
     private Context mContext;
+    private AppOpsManager mAppOps;
     private static final String READ_PHONE_STATE =
         android.Manifest.permission.READ_PHONE_STATE;
     // TODO: change getCompleteVoiceMailNumber() to require READ_PRIVILEGED_PHONE_STATE
@@ -47,6 +48,7 @@ public class PhoneSubInfo {
     public PhoneSubInfo(Phone phone) {
         mPhone = phone;
         mContext = phone.getContext();
+        mAppOps = mContext.getSystemService(AppOpsManager.class);
     }
 
     public void dispose() {
@@ -65,24 +67,30 @@ public class PhoneSubInfo {
     /**
      * Retrieves the unique device ID, e.g., IMEI for GSM phones and MEID for CDMA phones.
      */
-    public String getDeviceId() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getDeviceId(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getDeviceId")) {
+            return null;
+        }
         return mPhone.getDeviceId();
     }
 
     /**
      * Retrieves the IMEI.
      */
-    public String getImei() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getImei(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getImei")) {
+            return null;
+        }
         return mPhone.getImei();
     }
 
     /**
      * Retrieves the NAI.
      */
-    public String getNai() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getNai(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getNai")) {
+            return null;
+        }
         return mPhone.getNai();
     }
 
@@ -90,64 +98,82 @@ public class PhoneSubInfo {
      * Retrieves the software version number for the device, e.g., IMEI/SV
      * for GSM phones.
      */
-    public String getDeviceSvn() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getDeviceSvn(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getDeviceSvn")) {
+            return null;
+        }
+
         return mPhone.getDeviceSvn();
     }
 
     /**
      * Retrieves the unique subscriber ID, e.g., IMSI for GSM phones.
      */
-    public String getSubscriberId() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getSubscriberId(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getSubscriberId")) {
+            return null;
+        }
         return mPhone.getSubscriberId();
     }
 
     /**
      * Retrieves the Group Identifier Level1 for GSM phones.
      */
-    public String getGroupIdLevel1() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getGroupIdLevel1(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getGroupIdLevel1")) {
+            return null;
+        }
         return mPhone.getGroupIdLevel1();
     }
 
     /**
      * Retrieves the serial number of the ICC, if applicable.
      */
-    public String getIccSerialNumber() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getIccSerialNumber(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getIccSerialNumber")) {
+            return null;
+        }
         return mPhone.getIccSerialNumber();
     }
 
     /**
      * Retrieves the phone number string for line 1.
      */
-    public String getLine1Number() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getLine1Number(String callingPackage) {
+        // This is open to apps with WRITE_SMS.
+        if (!checkReadPhoneNumber(callingPackage, "getLine1Number")) {
+            return null;
+        }
         return mPhone.getLine1Number();
     }
 
     /**
      * Retrieves the alpha identifier for line 1.
      */
-    public String getLine1AlphaTag() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getLine1AlphaTag(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getLine1AlphaTag")) {
+            return null;
+        }
         return mPhone.getLine1AlphaTag();
     }
 
     /**
      * Retrieves the MSISDN string.
      */
-    public String getMsisdn() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getMsisdn(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getMsisdn")) {
+            return null;
+        }
         return mPhone.getMsisdn();
     }
 
     /**
      * Retrieves the voice mail number.
      */
-    public String getVoiceMailNumber() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getVoiceMailNumber(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getVoiceMailNumber")) {
+            return null;
+        }
         String number = PhoneNumberUtils.extractNetworkPortion(mPhone.getVoiceMailNumber());
         if (VDBG) log("VM: PhoneSubInfo.getVoiceMailNUmber: " + number);
         return number;
@@ -169,8 +195,10 @@ public class PhoneSubInfo {
     /**
      * Retrieves the alpha identifier associated with the voice mail number.
      */
-    public String getVoiceMailAlphaTag() {
-        mContext.enforceCallingOrSelfPermission(READ_PHONE_STATE, "Requires READ_PHONE_STATE");
+    public String getVoiceMailAlphaTag(String callingPackage) {
+        if (!checkReadPhoneState(callingPackage, "getVoiceMailAlphaTag")) {
+            return null;
+        }
         return mPhone.getVoiceMailAlphaTag();
     }
 
@@ -335,5 +363,41 @@ public class PhoneSubInfo {
         pw.println("Phone Subscriber Info:");
         pw.println("  Phone Type = " + mPhone.getPhoneName());
         pw.println("  Device ID = " + mPhone.getDeviceId());
+    }
+
+    private boolean checkReadPhoneState(String callingPackage, String message) {
+        try {
+            mContext.enforceCallingOrSelfPermission(
+                    android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE, message);
+
+            // SKIP checking run-time OP_READ_PHONE_STATE since self or using PRIVILEGED
+            return true;
+        } catch (SecurityException e) {
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.READ_PHONE_STATE,
+                    message);
+        }
+
+        return mAppOps.noteOp(AppOpsManager.OP_READ_PHONE_STATE, Binder.getCallingUid(),
+            callingPackage) == AppOpsManager.MODE_ALLOWED;
+    }
+
+
+    /**
+     * Besides READ_PHONE_STATE, WRITE_SMS also allows apps to get phone numbers.
+     */
+    private boolean checkReadPhoneNumber(String callingPackage, String message) {
+        // Default SMS app can always read it.
+        if (mAppOps.noteOp(AppOpsManager.OP_WRITE_SMS,
+                Binder.getCallingUid(), callingPackage) == AppOpsManager.MODE_ALLOWED) {
+            return true;
+        }
+        try {
+            return checkReadPhoneState(callingPackage, message);
+        } catch (SecurityException e) {
+            // Can be read with READ_SMS too.
+            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.READ_SMS, message);
+            return mAppOps.noteOp(AppOpsManager.OP_READ_SMS,
+                    Binder.getCallingUid(), callingPackage) == AppOpsManager.MODE_ALLOWED;
+        }
     }
 }

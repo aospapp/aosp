@@ -17,10 +17,11 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <OMXAL/OpenMAXAL.h>
 #include <OMXAL/OpenMAXAL_Android.h>
 
-int main(int argc, char **argv)
+int main(int argc __unused, char **argv __unused)
 {
     XAresult result;
     XAObjectItf engineObject;

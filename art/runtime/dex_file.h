@@ -25,6 +25,7 @@
 #include "base/hash_map.h"
 #include "base/logging.h"
 #include "base/mutex.h"  // For Locks::mutator_lock_.
+#include "base/value_object.h"
 #include "globals.h"
 #include "invoke_type.h"
 #include "jni.h"
@@ -36,14 +37,14 @@ namespace art {
 // TODO: remove dependencies on mirror classes, primarily by moving
 // EncodedStaticFieldValueIterator to its own file.
 namespace mirror {
-  class ArtField;
-  class ArtMethod;
   class ClassLoader;
   class DexCache;
 }  // namespace mirror
+class ArtField;
+class ArtMethod;
 class ClassLinker;
 class MemMap;
-class OatFile;
+class OatDexFile;
 class Signature;
 template<class T> class Handle;
 class StringPiece;
@@ -52,10 +53,10 @@ class ZipArchive;
 // TODO: move all of the macro functionality into the DexCache class.
 class DexFile {
  public:
-  static const byte kDexMagic[];
-  static const byte kDexMagicVersion[];
-  static const size_t kSha1DigestSize = 20;
-  static const uint32_t kDexEndianConstant = 0x12345678;
+  static const uint8_t kDexMagic[];
+  static const uint8_t kDexMagicVersion[];
+  static constexpr size_t kSha1DigestSize = 20;
+  static constexpr uint32_t kDexEndianConstant = 0x12345678;
 
   // name of the DexFile entry within a zip archive
   static const char* kClassesDex;
@@ -207,10 +208,10 @@ class DexFile {
     // (class or interface). These are all in the lower 16b and do not contain runtime flags.
     uint32_t GetJavaAccessFlags() const {
       // Make sure that none of our runtime-only flags are set.
-      COMPILE_ASSERT((kAccValidClassFlags & kAccJavaFlagsMask) == kAccValidClassFlags,
-                     valid_class_flags_not_subset_of_java_flags);
-      COMPILE_ASSERT((kAccValidInterfaceFlags & kAccJavaFlagsMask) == kAccValidInterfaceFlags,
-                     valid_interface_flags_not_subset_of_java_flags);
+      static_assert((kAccValidClassFlags & kAccJavaFlagsMask) == kAccValidClassFlags,
+                    "Valid class flags not a subset of Java flags");
+      static_assert((kAccValidInterfaceFlags & kAccJavaFlagsMask) == kAccValidInterfaceFlags,
+                    "Valid interface flags not a subset of Java flags");
 
       if ((access_flags_ & kAccInterface) != 0) {
         // Interface.
@@ -385,20 +386,25 @@ class DexFile {
 
   // Opens .dex files found in the container, guessing the container format based on file extension.
   static bool Open(const char* filename, const char* location, std::string* error_msg,
-                   std::vector<const DexFile*>* dex_files);
+                   std::vector<std::unique_ptr<const DexFile>>* dex_files);
+
+  // Checks whether the given file has the dex magic, or is a zip file with a classes.dex entry.
+  // If this function returns false, Open will not succeed. The inverse is not true, however.
+  static bool MaybeDex(const char* filename);
 
   // Opens .dex file, backed by existing memory
-  static const DexFile* Open(const uint8_t* base, size_t size,
-                             const std::string& location,
-                             uint32_t location_checksum,
-                             const OatFile* oat_file,
-                             std::string* error_msg) {
-    return OpenMemory(base, size, location, location_checksum, NULL, oat_file, error_msg);
+  static std::unique_ptr<const DexFile> Open(const uint8_t* base, size_t size,
+                                             const std::string& location,
+                                             uint32_t location_checksum,
+                                             const OatDexFile* oat_dex_file,
+                                             std::string* error_msg) {
+    return OpenMemory(base, size, location, location_checksum, nullptr, oat_dex_file, error_msg);
   }
 
   // Open all classesXXX.dex files from a zip archive.
   static bool OpenFromZip(const ZipArchive& zip_archive, const std::string& location,
-                          std::string* error_msg, std::vector<const DexFile*>* dex_files);
+                          std::string* error_msg,
+                          std::vector<std::unique_ptr<const DexFile>>* dex_files);
 
   // Closes a .dex file.
   virtual ~DexFile();
@@ -419,13 +425,24 @@ class DexFile {
     }
   }
 
-  std::string GetBaseLocation() const {
-    size_t pos = location_.rfind(kMultiDexSeparator);
+  static std::string GetBaseLocation(const std::string& location) {
+    return GetBaseLocation(location.c_str());
+  }
+
+  // Returns the ':classes*.dex' part of the dex location. Returns an empty
+  // string if there is no multidex suffix for the given location.
+  // The kMultiDexSeparator is included in the returned suffix.
+  static std::string GetMultiDexSuffix(const std::string& location) {
+    size_t pos = location.rfind(kMultiDexSeparator);
     if (pos == std::string::npos) {
-      return location_;
+      return "";
     } else {
-      return location_.substr(0, pos);
+      return location.substr(pos);
     }
+  }
+
+  std::string GetBaseLocation() const {
+    return GetBaseLocation(location_);
   }
 
   // For DexFiles directly from .dex files, this is the checksum from the DexFile::Header.
@@ -435,7 +452,7 @@ class DexFile {
   }
 
   const Header& GetHeader() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return *header_;
   }
 
@@ -443,14 +460,14 @@ class DexFile {
   uint32_t GetVersion() const;
 
   // Returns true if the byte string points to the magic value.
-  static bool IsMagicValid(const byte* magic);
+  static bool IsMagicValid(const uint8_t* magic);
 
   // Returns true if the byte string after the magic is the correct value.
-  static bool IsVersionValid(const byte* magic);
+  static bool IsVersionValid(const uint8_t* magic);
 
   // Returns the number of string identifiers in the .dex file.
   size_t NumStringIds() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->string_ids_size_;
   }
 
@@ -482,7 +499,7 @@ class DexFile {
   const char* StringDataAndUtf16LengthByIdx(uint32_t idx, uint32_t* utf16_length) const {
     if (idx == kDexNoIndex) {
       *utf16_length = 0;
-      return NULL;
+      return nullptr;
     }
     const StringId& string_id = GetStringId(idx);
     return GetStringDataAndUtf16Length(string_id, utf16_length);
@@ -497,11 +514,11 @@ class DexFile {
   const StringId* FindStringId(const char* string) const;
 
   // Looks up a string id for a given utf16 string.
-  const StringId* FindStringId(const uint16_t* string) const;
+  const StringId* FindStringId(const uint16_t* string, size_t length) const;
 
   // Returns the number of type identifiers in the .dex file.
   uint32_t NumTypeIds() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->type_ids_size_;
   }
 
@@ -540,7 +557,7 @@ class DexFile {
 
   // Returns the number of field identifiers in the .dex file.
   size_t NumFieldIds() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->field_ids_size_;
   }
 
@@ -580,7 +597,7 @@ class DexFile {
 
   // Returns the number of method identifiers in the .dex file.
   size_t NumMethodIds() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->method_ids_size_;
   }
 
@@ -630,7 +647,7 @@ class DexFile {
   }
   // Returns the number of class definitions in the .dex file.
   uint32_t NumClassDefs() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->class_defs_size_;
   }
 
@@ -660,17 +677,17 @@ class DexFile {
 
   const TypeList* GetInterfacesList(const ClassDef& class_def) const {
     if (class_def.interfaces_off_ == 0) {
-        return NULL;
+        return nullptr;
     } else {
-      const byte* addr = begin_ + class_def.interfaces_off_;
+      const uint8_t* addr = begin_ + class_def.interfaces_off_;
       return reinterpret_cast<const TypeList*>(addr);
     }
   }
 
   // Returns a pointer to the raw memory mapped class_data_item
-  const byte* GetClassData(const ClassDef& class_def) const {
+  const uint8_t* GetClassData(const ClassDef& class_def) const {
     if (class_def.class_data_off_ == 0) {
-      return NULL;
+      return nullptr;
     } else {
       return begin_ + class_def.class_data_off_;
     }
@@ -679,9 +696,9 @@ class DexFile {
   //
   const CodeItem* GetCodeItem(const uint32_t code_off) const {
     if (code_off == 0) {
-      return NULL;  // native or abstract method
+      return nullptr;  // native or abstract method
     } else {
-      const byte* addr = begin_ + code_off;
+      const uint8_t* addr = begin_ + code_off;
       return reinterpret_cast<const CodeItem*>(addr);
     }
   }
@@ -692,7 +709,7 @@ class DexFile {
 
   // Returns the number of prototype identifiers in the .dex file.
   size_t NumProtoIds() const {
-    DCHECK(header_ != NULL) << GetLocation();
+    DCHECK(header_ != nullptr) << GetLocation();
     return header_->proto_ids_size_;
   }
 
@@ -732,14 +749,14 @@ class DexFile {
 
   const TypeList* GetProtoParameters(const ProtoId& proto_id) const {
     if (proto_id.parameters_off_ == 0) {
-      return NULL;
+      return nullptr;
     } else {
-      const byte* addr = begin_ + proto_id.parameters_off_;
+      const uint8_t* addr = begin_ + proto_id.parameters_off_;
       return reinterpret_cast<const TypeList*>(addr);
     }
   }
 
-  const byte* GetEncodedStaticFieldValuesArray(const ClassDef& class_def) const {
+  const uint8_t* GetEncodedStaticFieldValuesArray(const ClassDef& class_def) const {
     if (class_def.static_values_off_ == 0) {
       return 0;
     } else {
@@ -750,9 +767,9 @@ class DexFile {
   static const TryItem* GetTryItems(const CodeItem& code_item, uint32_t offset);
 
   // Get the base of the encoded data for the given DexCode.
-  static const byte* GetCatchHandlerData(const CodeItem& code_item, uint32_t offset) {
-    const byte* handler_data =
-        reinterpret_cast<const byte*>(GetTryItems(code_item, code_item.tries_size_));
+  static const uint8_t* GetCatchHandlerData(const CodeItem& code_item, uint32_t offset) {
+    const uint8_t* handler_data =
+        reinterpret_cast<const uint8_t*>(GetTryItems(code_item, code_item.tries_size_));
     return handler_data + offset;
   }
 
@@ -763,9 +780,9 @@ class DexFile {
   static int32_t FindCatchHandlerOffset(const CodeItem &code_item, uint32_t address);
 
   // Get the pointer to the start of the debugging data
-  const byte* GetDebugInfoStream(const CodeItem* code_item) const {
+  const uint8_t* GetDebugInfoStream(const CodeItem* code_item) const {
     if (code_item->debug_info_off_ == 0) {
-      return NULL;
+      return nullptr;
     } else {
       return begin_ + code_item->debug_info_off_;
     }
@@ -805,7 +822,8 @@ class DexFile {
 
   struct LocalInfo {
     LocalInfo()
-        : name_(NULL), descriptor_(NULL), signature_(NULL), start_address_(0), is_live_(false) {}
+        : name_(nullptr), descriptor_(nullptr), signature_(nullptr), start_address_(0),
+          is_live_(false) {}
 
     const char* name_;  // E.g., list
     const char* descriptor_;  // E.g., Ljava/util/LinkedList;
@@ -828,10 +846,10 @@ class DexFile {
 
   void InvokeLocalCbIfLive(void* context, int reg, uint32_t end_address,
                            LocalInfo* local_in_reg, DexDebugNewLocalCb local_cb) const {
-    if (local_cb != NULL && local_in_reg[reg].is_live_) {
+    if (local_cb != nullptr && local_in_reg[reg].is_live_) {
       local_cb(context, reg, local_in_reg[reg].start_address_, end_address,
           local_in_reg[reg].name_, local_in_reg[reg].descriptor_,
-          local_in_reg[reg].signature_ != NULL ? local_in_reg[reg].signature_ : "");
+          local_in_reg[reg].signature_ != nullptr ? local_in_reg[reg].signature_ : "");
     }
   }
 
@@ -843,7 +861,7 @@ class DexFile {
   // Returns -2 for native methods (as expected in exception traces).
   //
   // This is used by runtime; therefore use art::Method not art::DexFile::Method.
-  int32_t GetLineNumFromPC(mirror::ArtMethod* method, uint32_t rel_pc) const
+  int32_t GetLineNumFromPC(ArtMethod* method, uint32_t rel_pc) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   void DecodeDebugInfo(const CodeItem* code_item, bool is_static, uint32_t method_idx,
@@ -852,7 +870,7 @@ class DexFile {
 
   const char* GetSourceFile(const ClassDef& class_def) const {
     if (class_def.source_file_idx_ == 0xffffffff) {
-      return NULL;
+      return nullptr;
     } else {
       return StringDataByIdx(class_def.source_file_idx_);
     }
@@ -866,7 +884,7 @@ class DexFile {
 
   bool DisableWrite() const;
 
-  const byte* Begin() const {
+  const uint8_t* Begin() const {
     return begin_;
   }
 
@@ -874,7 +892,13 @@ class DexFile {
     return size_;
   }
 
-  static std::string GetMultiDexClassesDexName(size_t number, const char* dex_location);
+  // Return the name of the index-th classes.dex in a multidex zip file. This is classes.dex for
+  // index == 0, and classes{index + 1}.dex else.
+  static std::string GetMultiDexClassesDexName(size_t index);
+
+  // Return the (possibly synthetic) dex location for a multidex entry. This is dex_location for
+  // index == 0, and dex_location + multi-dex-separator + GetMultiDexClassesDexName(index) else.
+  static std::string GetMultiDexLocation(size_t index, const char* dex_location);
 
   // Returns the canonical form of the given dex location.
   //
@@ -891,17 +915,18 @@ class DexFile {
   //     the dex_location where it's file name part has been made canonical.
   static std::string GetDexCanonicalLocation(const char* dex_location);
 
-  const OatFile* GetOatFile() const {
-    return oat_file_;
+  const OatDexFile* GetOatDexFile() const {
+    return oat_dex_file_;
   }
 
  private:
   // Opens a .dex file
-  static const DexFile* OpenFile(int fd, const char* location, bool verify, std::string* error_msg);
+  static std::unique_ptr<const DexFile> OpenFile(int fd, const char* location,
+                                                 bool verify, std::string* error_msg);
 
   // Opens dex files from within a .jar, .zip, or .apk file
   static bool OpenZip(int fd, const std::string& location, std::string* error_msg,
-                      std::vector<const DexFile*>* dex_files);
+                      std::vector<std::unique_ptr<const DexFile>>* dex_files);
 
   enum class ZipOpenErrorCode {  // private
     kNoError,
@@ -912,32 +937,32 @@ class DexFile {
     kVerifyError
   };
 
-  // Opens .dex file from the entry_name in a zip archive. error_code is undefined when non-nullptr
+  // Opens .dex file from the entry_name in a zip archive. error_code is undefined when non-null
   // return.
-  static const DexFile* Open(const ZipArchive& zip_archive, const char* entry_name,
-                             const std::string& location, std::string* error_msg,
-                             ZipOpenErrorCode* error_code);
+  static std::unique_ptr<const DexFile> Open(const ZipArchive& zip_archive, const char* entry_name,
+                                             const std::string& location, std::string* error_msg,
+                                             ZipOpenErrorCode* error_code);
 
   // Opens a .dex file at the given address backed by a MemMap
-  static const DexFile* OpenMemory(const std::string& location,
-                                   uint32_t location_checksum,
-                                   MemMap* mem_map,
-                                   std::string* error_msg);
+  static std::unique_ptr<const DexFile> OpenMemory(const std::string& location,
+                                                   uint32_t location_checksum,
+                                                   MemMap* mem_map,
+                                                   std::string* error_msg);
 
   // Opens a .dex file at the given address, optionally backed by a MemMap
-  static const DexFile* OpenMemory(const byte* dex_file,
-                                   size_t size,
-                                   const std::string& location,
-                                   uint32_t location_checksum,
-                                   MemMap* mem_map,
-                                   const OatFile* oat_file,
-                                   std::string* error_msg);
+  static std::unique_ptr<const DexFile> OpenMemory(const uint8_t* dex_file,
+                                                   size_t size,
+                                                   const std::string& location,
+                                                   uint32_t location_checksum,
+                                                   MemMap* mem_map,
+                                                   const OatDexFile* oat_dex_file,
+                                                   std::string* error_msg);
 
-  DexFile(const byte* base, size_t size,
+  DexFile(const uint8_t* base, size_t size,
           const std::string& location,
           uint32_t location_checksum,
           MemMap* mem_map,
-          const OatFile* oat_file);
+          const OatDexFile* oat_dex_file);
 
   // Top-level initializer that calls other Init methods.
   bool Init(std::string* error_msg);
@@ -947,7 +972,7 @@ class DexFile {
 
   void DecodeDebugInfo0(const CodeItem* code_item, bool is_static, uint32_t method_idx,
       DexDebugNewPositionCb position_cb, DexDebugNewLocalCb local_cb,
-      void* context, const byte* stream, LocalInfo* local_in_reg) const;
+      void* context, const uint8_t* stream, LocalInfo* local_in_reg) const;
 
   // Check whether a location denotes a multidex dex file. This is a very simple check: returns
   // whether the string contains the separator character.
@@ -955,7 +980,7 @@ class DexFile {
 
 
   // The base address of the memory mapping.
-  const byte* const begin_;
+  const uint8_t* const begin_;
 
   // The size of the underlying memory allocation in bytes.
   const size_t size_;
@@ -1020,12 +1045,19 @@ class DexFile {
   };
   typedef HashMap<const char*, const ClassDef*, UTF16EmptyFn, UTF16HashCmp, UTF16HashCmp> Index;
   mutable Atomic<Index*> class_def_index_;
-  mutable Mutex build_class_def_index_mutex_ DEFAULT_MUTEX_ACQUIRED_AFTER;
 
-  // The oat file this dex file was loaded from. May be null in case the dex file is not coming
-  // from an oat file, e.g., directly from an apk.
-  const OatFile* oat_file_;
+  // If this dex file was loaded from an oat file, oat_dex_file_ contains a
+  // pointer to the OatDexFile it was loaded from. Otherwise oat_dex_file_ is
+  // null.
+  const OatDexFile* oat_dex_file_;
 };
+
+struct DexFileReference {
+  DexFileReference(const DexFile* file, uint32_t idx) : dex_file(file), index(idx) { }
+  const DexFile* dex_file;
+  uint32_t index;
+};
+
 std::ostream& operator<<(std::ostream& os, const DexFile& dex_file);
 
 // Iterate over a dex file's ProtoId's paramters
@@ -1034,7 +1066,7 @@ class DexFileParameterIterator {
   DexFileParameterIterator(const DexFile& dex_file, const DexFile::ProtoId& proto_id)
       : dex_file_(dex_file), size_(0), pos_(0) {
     type_list_ = dex_file_.GetProtoParameters(proto_id);
-    if (type_list_ != NULL) {
+    if (type_list_ != nullptr) {
       size_ = type_list_->Size();
     }
   }
@@ -1055,7 +1087,7 @@ class DexFileParameterIterator {
 };
 
 // Abstract the signature of a method.
-class Signature {
+class Signature : public ValueObject {
  public:
   std::string ToString() const;
 
@@ -1087,7 +1119,7 @@ std::ostream& operator<<(std::ostream& os, const Signature& sig);
 // Iterate and decode class_data_item
 class ClassDataItemIterator {
  public:
-  ClassDataItemIterator(const DexFile& dex_file, const byte* raw_class_data_item)
+  ClassDataItemIterator(const DexFile& dex_file, const uint8_t* raw_class_data_item)
       : dex_file_(dex_file), pos_(0), ptr_pos_(raw_class_data_item), last_idx_(0) {
     ReadClassDataHeader();
     if (EndOfInstanceFieldsPos() > 0) {
@@ -1202,7 +1234,7 @@ class ClassDataItemIterator {
   uint32_t GetMethodCodeItemOffset() const {
     return method_.code_off_;
   }
-  const byte* EndDataPointer() const {
+  const uint8_t* EndDataPointer() const {
     CHECK(!HasNext());
     return ptr_pos_;
   }
@@ -1264,7 +1296,7 @@ class ClassDataItemIterator {
 
   const DexFile& dex_file_;
   size_t pos_;  // integral number of items passed
-  const byte* ptr_pos_;  // pointer into stream of class_data_item
+  const uint8_t* ptr_pos_;  // pointer into stream of class_data_item
   uint32_t last_idx_;  // last read field or method index to apply delta to
   DISALLOW_IMPLICIT_CONSTRUCTORS(ClassDataItemIterator);
 };
@@ -1277,9 +1309,9 @@ class EncodedStaticFieldValueIterator {
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
   template<bool kTransactionActive>
-  void ReadValueToField(mirror::ArtField* field) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+  void ReadValueToField(ArtField* field) const SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
-  bool HasNext() { return pos_ < array_size_; }
+  bool HasNext() const { return pos_ < array_size_; }
 
   void Next();
 
@@ -1303,8 +1335,8 @@ class EncodedStaticFieldValueIterator {
   };
 
  private:
-  static const byte kEncodedValueTypeMask = 0x1f;  // 0b11111
-  static const byte kEncodedValueArgShift = 5;
+  static constexpr uint8_t kEncodedValueTypeMask = 0x1f;  // 0b11111
+  static constexpr uint8_t kEncodedValueArgShift = 5;
 
   const DexFile& dex_file_;
   Handle<mirror::DexCache>* const dex_cache_;  // Dex cache to resolve literal objects.
@@ -1312,7 +1344,7 @@ class EncodedStaticFieldValueIterator {
   ClassLinker* linker_;  // Linker to resolve literal objects.
   size_t array_size_;  // Size of array.
   size_t pos_;  // Current position.
-  const byte* ptr_;  // Pointer into encoded data array.
+  const uint8_t* ptr_;  // Pointer into encoded data array.
   ValueType type_;  // Type of current encoded value.
   jvalue jval_;  // Value of current encoded value.
   DISALLOW_IMPLICIT_CONSTRUCTORS(EncodedStaticFieldValueIterator);
@@ -1326,7 +1358,7 @@ class CatchHandlerIterator {
     CatchHandlerIterator(const DexFile::CodeItem& code_item,
                          const DexFile::TryItem& try_item);
 
-    explicit CatchHandlerIterator(const byte* handler_data) {
+    explicit CatchHandlerIterator(const uint8_t* handler_data) {
       Init(handler_data);
     }
 
@@ -1341,20 +1373,20 @@ class CatchHandlerIterator {
       return remaining_count_ != -1 || catch_all_;
     }
     // End of this set of catch blocks, convenience method to locate next set of catch blocks
-    const byte* EndDataPointer() const {
+    const uint8_t* EndDataPointer() const {
       CHECK(!HasNext());
       return current_data_;
     }
 
   private:
     void Init(const DexFile::CodeItem& code_item, int32_t offset);
-    void Init(const byte* handler_data);
+    void Init(const uint8_t* handler_data);
 
     struct CatchHandlerItem {
       uint16_t type_idx_;  // type index of the caught exception type
       uint32_t address_;  // handler address
     } handler_;
-    const byte *current_data_;  // the current handler in dex file.
+    const uint8_t* current_data_;  // the current handler in dex file.
     int32_t remaining_count_;   // number of handlers not read.
     bool catch_all_;            // is there a handler that will catch all exceptions in case
                                 // that all typed handler does not match.

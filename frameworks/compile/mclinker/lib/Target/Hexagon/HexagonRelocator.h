@@ -6,33 +6,32 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef TARGET_HEXAGON_HEXAGONRELOCATOR_H
-#define TARGET_HEXAGON_HEXAGONRELOCATOR_H
+#ifndef TARGET_HEXAGON_HEXAGONRELOCATOR_H_
+#define TARGET_HEXAGON_HEXAGONRELOCATOR_H_
 
-#include <mcld/LD/Relocator.h>
-#include <mcld/Target/GOT.h>
-#include <mcld/Target/PLT.h>
-#include <mcld/Target/KeyEntryMap.h>
+#include "mcld/LD/Relocator.h"
+#include "mcld/Target/GOT.h"
+#include "mcld/Target/PLT.h"
+#include "mcld/Target/KeyEntryMap.h"
 #include "HexagonLDBackend.h"
 
 namespace mcld {
 
-class ResolveInfo;
 class LinkerConfig;
+class ResolveInfo;
 
 /** \class HexagonRelocator
  *  \brief HexagonRelocator creates and destroys the Hexagon relocations.
  *
  */
-class HexagonRelocator : public Relocator
-{
-public:
+class HexagonRelocator : public Relocator {
+ public:
   typedef KeyEntryMap<ResolveInfo, PLTEntryBase> SymPLTMap;
   typedef KeyEntryMap<ResolveInfo, HexagonGOTEntry> SymGOTMap;
   typedef KeyEntryMap<ResolveInfo, HexagonGOTEntry> SymGOTPLTMap;
   typedef KeyEntryMap<Relocation, Relocation> RelRelMap;
 
-public:
+ public:
   /** \enum ReservedEntryType
    *  \brief The reserved entry type of reserved space in ResolveInfo.
    *
@@ -52,10 +51,10 @@ public:
    *
    */
   enum ReservedEntryType {
-    None         = 0,
-    ReserveRel   = 1,
-    ReserveGOT   = 2,
-    ReservePLT   = 4,
+    None = 0,
+    ReserveRel = 1,
+    ReserveGOT = 2,
+    ReservePLT = 4,
   };
 
   /** \enum EntryValue
@@ -63,10 +62,7 @@ public:
    *  layout, so we mark the entry during scanRelocation and fill up the actual
    *  value when applying relocations.
    */
-  enum EntryValue {
-    Default = 0,
-    SymVal  = 1
-  };
+  enum EntryValue { Default = 0, SymVal = 1 };
 
   HexagonRelocator(HexagonLDBackend& pParent, const LinkerConfig& pConfig);
   ~HexagonRelocator();
@@ -87,32 +83,37 @@ public:
 
   // Handle partial linking
   void partialScanRelocation(Relocation& pReloc,
-                             Module& pModule,
-                             const LDSection& pSection);
+                             Module& pModule);
 
-  HexagonLDBackend& getTarget()
-  { return m_Target; }
+  HexagonLDBackend& getTarget() { return m_Target; }
 
-  const HexagonLDBackend& getTarget() const
-  { return m_Target; }
+  const HexagonLDBackend& getTarget() const { return m_Target; }
 
   const char* getName(Relocation::Type pType) const;
 
   Size getSize(Relocation::Type pType) const;
 
   const SymPLTMap& getSymPLTMap() const { return m_SymPLTMap; }
-  SymPLTMap&       getSymPLTMap()       { return m_SymPLTMap; }
+  SymPLTMap& getSymPLTMap() { return m_SymPLTMap; }
 
   const SymGOTMap& getSymGOTMap() const { return m_SymGOTMap; }
-  SymGOTMap&       getSymGOTMap()       { return m_SymGOTMap; }
+  SymGOTMap& getSymGOTMap() { return m_SymGOTMap; }
 
   const SymGOTPLTMap& getSymGOTPLTMap() const { return m_SymGOTPLTMap; }
-  SymGOTPLTMap&       getSymGOTPLTMap()       { return m_SymGOTPLTMap; }
+  SymGOTPLTMap& getSymGOTPLTMap() { return m_SymGOTPLTMap; }
 
   const RelRelMap& getRelRelMap() const { return m_RelRelMap; }
-  RelRelMap&       getRelRelMap()       { return m_RelRelMap; }
+  RelRelMap& getRelRelMap() { return m_RelRelMap; }
 
-protected:
+  /// getDebugStringOffset - get the offset from the relocation target. This is
+  /// used to get the debug string offset.
+  uint32_t getDebugStringOffset(Relocation& pReloc) const { return 0; }
+
+  /// applyDebugStringOffset - apply the relocation target to specific offset.
+  /// This is used to set the debug string offset.
+  void applyDebugStringOffset(Relocation& pReloc, uint32_t pOffset) {}
+
+ protected:
   /// addCopyReloc - add a copy relocation into .rela.dyn for pSym
   /// @param pSym - A resolved copy symbol that defined in BSS section
   void addCopyReloc(ResolveInfo& pSym, HexagonLDBackend& pTarget);
@@ -124,7 +125,7 @@ protected:
                                      const ResolveInfo& pSym,
                                      HexagonLDBackend& pTarget);
 
-private:
+ private:
   virtual void scanLocalReloc(Relocation& pReloc,
                               IRBuilder& pBuilder,
                               Module& pModule,
@@ -142,7 +143,6 @@ private:
   RelRelMap m_RelRelMap;
 };
 
-} // namespace of mcld
+}  // namespace mcld
 
-#endif
-
+#endif  // TARGET_HEXAGON_HEXAGONRELOCATOR_H_

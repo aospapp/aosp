@@ -16,14 +16,11 @@
 
 package android.location.cts;
 
-
-import android.content.Context;
 import android.location.Criteria;
 import android.location.LocationManager;
 import android.location.LocationProvider;
-import android.test.AndroidTestCase;
 
-public class LocationProviderTest extends AndroidTestCase {
+public class LocationProviderTest extends BaseMockLocationTest {
     private static final String PROVIDER_NAME = "location_provider_test";
 
     private LocationManager mLocationManager;
@@ -31,8 +28,8 @@ public class LocationProviderTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mLocationManager =
-            (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager = getInstrumentation().getContext().getSystemService(
+                LocationManager.class);
         addTestProvider(PROVIDER_NAME);
     }
 

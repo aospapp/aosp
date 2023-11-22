@@ -45,10 +45,12 @@ public interface Os {
     public boolean access(String path, int mode) throws ErrnoException;
     public InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException;
     public void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException;
+    public void bind(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException;
     public void chmod(String path, int mode) throws ErrnoException;
     public void chown(String path, int uid, int gid) throws ErrnoException;
     public void close(FileDescriptor fd) throws ErrnoException;
     public void connect(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException;
+    public void connect(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException;
     public FileDescriptor dup(FileDescriptor oldFd) throws ErrnoException;
     public FileDescriptor dup2(FileDescriptor oldFd, int newFd) throws ErrnoException;
     public String[] environ();
@@ -56,9 +58,9 @@ public interface Os {
     public void execve(String filename, String[] argv, String[] envp) throws ErrnoException;
     public void fchmod(FileDescriptor fd, int mode) throws ErrnoException;
     public void fchown(FileDescriptor fd, int uid, int gid) throws ErrnoException;
-    public int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
-    public int fcntlLong(FileDescriptor fd, int cmd, long arg) throws ErrnoException;
     public int fcntlFlock(FileDescriptor fd, int cmd, StructFlock arg) throws ErrnoException, InterruptedIOException;
+    public int fcntlInt(FileDescriptor fd, int cmd, int arg) throws ErrnoException;
+    public int fcntlVoid(FileDescriptor fd, int cmd) throws ErrnoException;
     public void fdatasync(FileDescriptor fd) throws ErrnoException;
     public StructStat fstat(FileDescriptor fd) throws ErrnoException;
     public StructStatVfs fstatvfs(FileDescriptor fd) throws ErrnoException;
@@ -72,6 +74,7 @@ public interface Os {
     /* TODO: break into getnameinfoHost and getnameinfoService? */
     public String getnameinfo(InetAddress address, int flags) throws GaiException;
     public SocketAddress getpeername(FileDescriptor fd) throws ErrnoException;
+    public int getpgid(int pid) throws ErrnoException;
     public int getpid();
     public int getppid();
     public StructPasswd getpwnam(String name) throws ErrnoException;
@@ -85,6 +88,7 @@ public interface Os {
     public StructUcred getsockoptUcred(FileDescriptor fd, int level, int option) throws ErrnoException;
     public int gettid();
     public int getuid();
+    public int getxattr(String path, String name, byte[] outValue) throws ErrnoException;
     public String if_indextoname(int index);
     public InetAddress inet_pton(int family, String address);
     public InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
@@ -105,7 +109,7 @@ public interface Os {
     public void munlock(long address, long byteCount) throws ErrnoException;
     public void munmap(long address, long byteCount) throws ErrnoException;
     public FileDescriptor open(String path, int flags, int mode) throws ErrnoException;
-    public FileDescriptor[] pipe() throws ErrnoException;
+    public FileDescriptor[] pipe2(int flags) throws ErrnoException;
     /* TODO: if we used the non-standard ppoll(2) behind the scenes, we could take a long timeout. */
     public int poll(StructPollfd[] fds, int timeoutMs) throws ErrnoException;
     public void posix_fallocate(FileDescriptor fd, long offset, long length) throws ErrnoException;
@@ -121,14 +125,19 @@ public interface Os {
     public int recvfrom(FileDescriptor fd, ByteBuffer buffer, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
     public int recvfrom(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
     public void remove(String path) throws ErrnoException;
+    public void removexattr(String path, String name) throws ErrnoException;
     public void rename(String oldPath, String newPath) throws ErrnoException;
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
+    public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException;
     public long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException;
     public void setegid(int egid) throws ErrnoException;
     public void setenv(String name, String value, boolean overwrite) throws ErrnoException;
     public void seteuid(int euid) throws ErrnoException;
     public void setgid(int gid) throws ErrnoException;
+    public void setpgid(int pid, int pgid) throws ErrnoException;
+    public void setregid(int rgid, int egid) throws ErrnoException;
+    public void setreuid(int ruid, int euid) throws ErrnoException;
     public int setsid() throws ErrnoException;
     public void setsockoptByte(FileDescriptor fd, int level, int option, int value) throws ErrnoException;
     public void setsockoptIfreq(FileDescriptor fd, int level, int option, String value) throws ErrnoException;
@@ -139,6 +148,7 @@ public interface Os {
     public void setsockoptLinger(FileDescriptor fd, int level, int option, StructLinger value) throws ErrnoException;
     public void setsockoptTimeval(FileDescriptor fd, int level, int option, StructTimeval value) throws ErrnoException;
     public void setuid(int uid) throws ErrnoException;
+    public void setxattr(String path, String name, byte[] value, int flags) throws ErrnoException;
     public void shutdown(FileDescriptor fd, int how) throws ErrnoException;
     public FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException;
     public void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException;

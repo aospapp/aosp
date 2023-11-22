@@ -55,18 +55,6 @@ uint32_t ScriptIntrinsic::run(Context *rsc) {
     return 0;
 }
 
-
-void ScriptIntrinsic::runForEach(Context *rsc,
-                         uint32_t slot,
-                         const Allocation * ain,
-                         Allocation * aout,
-                         const void * usr,
-                         size_t usrBytes,
-                         const RsScriptCall *sc) {
-
-    rsc->mHal.funcs.script.invokeForEach(rsc, this, slot, ain, aout, usr, usrBytes, sc);
-}
-
 void ScriptIntrinsic::runForEach(Context* rsc,
                          uint32_t slot,
                          const Allocation** ains,
@@ -76,7 +64,8 @@ void ScriptIntrinsic::runForEach(Context* rsc,
                          size_t usrBytes,
                          const RsScriptCall* sc) {
 
-    rsc->mHal.funcs.script.invokeForEachMulti(rsc, this, slot, ains, inLen, aout, usr, usrBytes, sc);
+    rsc->mHal.funcs.script.invokeForEachMulti(rsc, this, slot, ains, inLen,
+                                              aout, usr, usrBytes, sc);
 }
 
 void ScriptIntrinsic::Invoke(Context *rsc, uint32_t slot, const void *data, size_t len) {
@@ -99,7 +88,7 @@ RsScript rsi_ScriptIntrinsicCreate(Context *rsc, uint32_t id, RsElement ve) {
     ScriptIntrinsic *si = new ScriptIntrinsic(rsc);
     if (!si->init(rsc, (RsScriptIntrinsicID)id, (Element *)ve)) {
         delete si;
-        return NULL;
+        return nullptr;
     }
     si->incUserRef();
     return si;
@@ -107,5 +96,3 @@ RsScript rsi_ScriptIntrinsicCreate(Context *rsc, uint32_t id, RsElement ve) {
 
 }
 }
-
-

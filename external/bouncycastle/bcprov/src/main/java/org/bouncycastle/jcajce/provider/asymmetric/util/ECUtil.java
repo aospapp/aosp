@@ -1,5 +1,6 @@
 package org.bouncycastle.jcajce.provider.asymmetric.util;
 
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -16,7 +17,9 @@ import org.bouncycastle.asn1.sec.SECNamedCurves;
 // END android-removed
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x9.X962NamedCurves;
+import org.bouncycastle.asn1.x9.X962Parameters;
 import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.ec.CustomNamedCurves;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
@@ -217,6 +220,25 @@ public class ECUtil
         throw new InvalidKeyException("can't identify EC private key.");
     }
 
+    public static int getOrderBitLength(BigInteger order, BigInteger privateValue)
+    {
+        if (order == null)     // implicitly CA
+        {
+            ECParameterSpec implicitCA = BouncyCastleProvider.CONFIGURATION.getEcImplicitlyCa();
+
+            if (implicitCA == null)
+            {
+                return privateValue.bitLength();   // a guess but better than an exception!
+            }
+
+            return implicitCA.getN().bitLength();
+        }
+        else
+        {
+            return order.bitLength();
+        }
+    }
+
     public static ASN1ObjectIdentifier getNamedCurveOid(
         String name)
     {
@@ -247,11 +269,15 @@ public class ECUtil
     public static X9ECParameters getNamedCurveByOid(
         ASN1ObjectIdentifier oid)
     {
-        X9ECParameters params = X962NamedCurves.getByOID(oid);
-        
+        X9ECParameters params = CustomNamedCurves.getByOID(oid);
+
         if (params == null)
         {
-            params = SECNamedCurves.getByOID(oid);
+            params = X962NamedCurves.getByOID(oid);
+            if (params == null)
+            {
+                params = SECNamedCurves.getByOID(oid);
+            }
             if (params == null)
             {
                 params = NISTNamedCurves.getByOID(oid);

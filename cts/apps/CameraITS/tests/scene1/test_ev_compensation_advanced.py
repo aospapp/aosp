@@ -41,10 +41,12 @@ def main():
         range_max = ev_compensation_range[1]
         ev_per_step = its.objects.rational_to_float(
                 props['android.control.aeCompensationStep'])
-        steps_per_ev = int(1.0 / ev_per_step)
-        evs = range(range_min, range_max + 1, steps_per_ev)
+        steps_per_ev = int(round(1.0 / ev_per_step))
+        ev_steps = range(range_min, range_max + 1, steps_per_ev)
+        imid = len(ev_steps) / 2
+        ev_shifts = [pow(2, step * ev_per_step) for step in ev_steps]
         lumas = []
-        for ev in evs:
+        for ev in ev_steps:
             # Re-converge 3A, and lock AE once converged. skip AF trigger as
             # dark/bright scene could make AF convergence fail and this test
             # doesn't care the image sharpness.
@@ -65,19 +67,16 @@ def main():
             tile = its.image.get_image_patch(y, 0.45,0.45,0.1,0.1)
             lumas.append(its.image.compute_image_means(tile)[0])
 
-        luma_increase_per_step = pow(2, ev_per_step)
         print "ev_step_size_in_stops", ev_per_step
-        imid = len(lumas) / 2
-        expected_lumas = [lumas[imid] / pow(luma_increase_per_step, i)
-                          for i in range(imid , 0, -1)]  + \
-                         [lumas[imid] * pow(luma_increase_per_step, i-imid)
-                          for i in range(imid, len(evs))]
+        shift_mid = ev_shifts[imid]
+        luma_normal = lumas[imid] / shift_mid
+        expected_lumas = [luma_normal * ev_shift for ev_shift in ev_shifts]
 
-        pylab.plot(evs, lumas, 'r')
-        pylab.plot(evs, expected_lumas, 'b')
+        pylab.plot(ev_steps, lumas, 'r')
+        pylab.plot(ev_steps, expected_lumas, 'b')
         matplotlib.pyplot.savefig("%s_plot_means.png" % (NAME))
 
-        luma_diffs = [expected_lumas[i] - lumas[i] for i in range(len(evs))]
+        luma_diffs = [expected_lumas[i] - lumas[i] for i in range(len(ev_steps))]
         max_diff = max(abs(i) for i in luma_diffs)
         avg_diff = abs(numpy.array(luma_diffs)).mean()
         print "Max delta between modeled and measured lumas:", max_diff

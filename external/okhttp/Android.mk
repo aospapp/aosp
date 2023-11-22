@@ -16,48 +16,47 @@
 LOCAL_PATH := $(call my-dir)
 
 okhttp_common_src_files := $(call all-java-files-under,okhttp/src/main/java)
-okhttp_common_src_files += $(call all-java-files-under,okio/src/main/java)
+okhttp_common_src_files += $(call all-java-files-under,okhttp-urlconnection/src/main/java)
+okhttp_common_src_files += $(call all-java-files-under,okhttp-android-support/src/main/java)
+okhttp_common_src_files += $(call all-java-files-under,okio/okio/src/main/java)
 okhttp_system_src_files := $(filter-out %/Platform.java, $(okhttp_common_src_files))
 okhttp_system_src_files += $(call all-java-files-under, android/main/java)
 
 okhttp_test_src_files := $(call all-java-files-under,okhttp-tests/src/test/java)
+okhttp_test_src_files += $(call all-java-files-under,okhttp-urlconnection/src/test/java)
+okhttp_test_src_files += $(call all-java-files-under,okhttp-android-support/src/test/java)
+okhttp_test_src_files += $(call all-java-files-under,okio/okio/src/test/java)
 okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/main/java)
+okhttp_test_src_files += $(call all-java-files-under,mockwebserver/src/test/java)
 okhttp_test_src_files += $(call all-java-files-under,android/test/java)
-okhttp_test_src_files := $(filter-out mockwebserver/src/main/java/com/squareup/okhttp/internal/spdy/SpdyServer.java, $(okhttp_test_src_files))
+okhttp_test_src_files += $(call all-java-files-under,okhttp-ws/src/main/java)
+okhttp_test_src_files += $(call all-java-files-under,okhttp-ws-tests/src/test/java)
+
+# Exclude tests Android currently has problems with:
+# 1) Parameterized (requires JUnit 4.11).
+# 2) New dependencies like gson.
+okhttp_test_src_excludes := \
+    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformUrlTest.java \
+    okhttp-tests/src/test/java/com/squareup/okhttp/WebPlatformTestRun.java
+
+okhttp_test_src_files := \
+    $(filter-out $(okhttp_test_src_excludes), $(okhttp_test_src_files))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_system_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 LOCAL_JAVA_LIBRARIES := core-libart conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_JAVA_LIBRARY)
 
-# static version of okhttp for inclusion in apps targeting older releases
-include $(CLEAR_VARS)
-LOCAL_MODULE := okhttp-static
-LOCAL_MODULE_TAGS := optional
-LOCAL_SRC_FILES := $(okhttp_common_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
-# This is set when building apps - exclude platform targets.
-ifneq ($(TARGET_BUILD_APPS),)
-    LOCAL_SDK_VERSION := 11
-else
-    LOCAL_JAVA_LIBRARIES := core-libart
-    LOCAL_NO_STANDARD_LIBRARIES := true
-endif
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
 # non-jarjar'd version of okhttp to compile the tests against
 include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-nojarjar
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_system_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_JAVA_LIBRARIES := core-libart conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
@@ -67,18 +66,18 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-tests-nojarjar
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_test_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_JAVA_LIBRARIES := core-libart okhttp-nojarjar junit4-target bouncycastle-nojarjar conscrypt
 LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
+ifeq ($(HOST_OS),linux)
 include $(CLEAR_VARS)
 LOCAL_MODULE := okhttp-hostdex
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(okhttp_system_src_files)
-LOCAL_JAVACFLAGS := -encoding UTF-8
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
 LOCAL_JAVA_LIBRARIES := conscrypt-hostdex
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+endif  # ($(HOST_OS),linux)

@@ -11,7 +11,7 @@
 #include "SkImageEncoder.h"
 #include "SkMovie.h"
 #include "SkStream.h"
-#include "SkStreamHelpers.h"
+#include "SkStreamPriv.h"
 #include "SkTemplates.h"
 #include "SkUnPreMultiply.h"
 
@@ -32,7 +32,7 @@ static void malloc_release_proc(void* info, const void* data, size_t size) {
 static CGDataProviderRef SkStreamToDataProvider(SkStream* stream) {
     // TODO: use callbacks, so we don't have to load all the data into RAM
     SkAutoMalloc storage;
-    const size_t len = CopyStreamToStorage(&storage, stream);
+    const size_t len = SkCopyStreamToStorage(&storage, stream);
     void* data = storage.detach();
 
     return CGDataProviderCreateWithData(data, data, len, malloc_release_proc);
@@ -40,6 +40,9 @@ static CGDataProviderRef SkStreamToDataProvider(SkStream* stream) {
 
 static CGImageSourceRef SkStreamToCGImageSource(SkStream* stream) {
     CGDataProviderRef data = SkStreamToDataProvider(stream);
+    if (!data) {
+        return NULL;
+    }
     CGImageSourceRef imageSrc = CGImageSourceCreateWithDataProvider(data, 0);
     CGDataProviderRelease(data);
     return imageSrc;
@@ -50,7 +53,83 @@ protected:
     virtual Result onDecode(SkStream* stream, SkBitmap* bm, Mode);
 };
 
+static void argb_4444_force_opaque(void* row, int count) {
+    uint16_t* row16 = (uint16_t*)row;
+    for (int i = 0; i < count; ++i) {
+        row16[i] |= 0xF000;
+    }
+}
+
+static void argb_8888_force_opaque(void* row, int count) {
+    // can use RGBA or BGRA, they have the same shift for alpha
+    const uint32_t alphaMask = 0xFF << SK_RGBA_A32_SHIFT;
+    uint32_t* row32 = (uint32_t*)row;
+    for (int i = 0; i < count; ++i) {
+        row32[i] |= alphaMask;
+    }
+}
+
+static void alpha_8_force_opaque(void* row, int count) {
+    memset(row, 0xFF, count);
+}
+
+static void force_opaque(SkBitmap* bm) {
+    SkAutoLockPixels alp(*bm);
+    if (!bm->getPixels()) {
+        return;
+    }
+
+    void (*proc)(void*, int);
+    switch (bm->colorType()) {
+        case kARGB_4444_SkColorType:
+            proc = argb_4444_force_opaque;
+            break;
+        case kRGBA_8888_SkColorType:
+        case kBGRA_8888_SkColorType:
+            proc = argb_8888_force_opaque;
+            break;
+        case kAlpha_8_SkColorType:
+            proc = alpha_8_force_opaque;
+            break;
+        default:
+            return;
+    }
+
+    char* row = (char*)bm->getPixels();
+    for (int y = 0; y < bm->height(); ++y) {
+        proc(row, bm->width());
+        row += bm->rowBytes();
+    }
+    bm->setAlphaType(kOpaque_SkAlphaType);
+}
+
 #define BITMAP_INFO (kCGBitmapByteOrder32Big | kCGImageAlphaPremultipliedLast)
+
+class AutoCFDataRelease {
+    CFDataRef fDR;
+public:
+    AutoCFDataRelease(CFDataRef dr) : fDR(dr) {}
+    ~AutoCFDataRelease() { if (fDR) { CFRelease(fDR); } }
+
+    operator CFDataRef () { return fDR; }
+};
+
+static bool colorspace_is_sRGB(CGColorSpaceRef cs) {
+#ifdef SK_BUILD_FOR_IOS
+    return true;    // iOS seems to define itself to always return sRGB <reed>
+#else
+    AutoCFDataRelease data(CGColorSpaceCopyICCProfile(cs));
+    if (data) {
+        // found by inspection -- need a cleaner way to sniff a profile
+        const CFIndex ICC_PROFILE_OFFSET_TO_SRGB_TAG = 52;
+
+        if (CFDataGetLength(data) >= ICC_PROFILE_OFFSET_TO_SRGB_TAG + 4) {
+            return !memcmp(CFDataGetBytePtr(data) + ICC_PROFILE_OFFSET_TO_SRGB_TAG, "sRGB", 4);
+        }
+    }
+    return false;
+#endif
+}
 
 SkImageDecoder::Result SkImageDecoder_CG::onDecode(SkStream* stream, SkBitmap* bm, Mode mode) {
     CGImageSourceRef imageSrc = SkStreamToCGImageSource(stream);
@@ -68,8 +147,17 @@ SkImageDecoder::Result SkImageDecoder_CG::onDecode(SkStream* stream, SkBitmap* b
 
     const int width = SkToInt(CGImageGetWidth(image));
     const int height = SkToInt(CGImageGetHeight(image));
+    SkColorProfileType cpType = kLinear_SkColorProfileType;
 
-    bm->setInfo(SkImageInfo::MakeN32Premul(width, height));
+    CGColorSpaceRef cs = CGImageGetColorSpace(image);
+    if (cs) {
+        CGColorSpaceModel m = CGColorSpaceGetModel(cs);
+        if (kCGColorSpaceModelRGB == m && colorspace_is_sRGB(cs)) {
+            cpType = kSRGB_SkColorProfileType;
+        }
+    }
+
+    bm->setInfo(SkImageInfo::MakeN32Premul(width, height, cpType));
     if (SkImageDecoder::kDecodeBounds_Mode == mode) {
         return kSuccess;
     }
@@ -89,8 +177,10 @@ SkImageDecoder::Result SkImageDecoder_CG::onDecode(SkStream* stream, SkBitmap* b
         case kCGImageAlphaNone:
         case kCGImageAlphaNoneSkipLast:
         case kCGImageAlphaNoneSkipFirst:
-            SkASSERT(SkBitmap::ComputeIsOpaque(*bm));
-            bm->setAlphaType(kOpaque_SkAlphaType);
+            // We're opaque, but we can't rely on the data always having 0xFF
+            // in the alpha slot (which Skia wants), so we have to ram it in
+            // ourselves.
+            force_opaque(bm);
             break;
         default:
             // we don't know if we're opaque or not, so compute it.
@@ -247,6 +337,17 @@ static SkImageEncoder* sk_imageencoder_cg_factory(SkImageEncoder::Type t) {
 }
 
 static SkImageEncoder_EncodeReg gEReg(sk_imageencoder_cg_factory);
+
+#ifdef SK_BUILD_FOR_IOS
+class SkPNGImageEncoder_IOS : public SkImageEncoder_CG {
+public:
+    SkPNGImageEncoder_IOS()
+        : SkImageEncoder_CG(kPNG_Type) {
+    }
+};
+
+DEFINE_ENCODER_CREATOR(PNGImageEncoder_IOS);
+#endif
 
 struct FormatConversion {
     CFStringRef             fUTType;

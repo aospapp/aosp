@@ -16,13 +16,17 @@
 
 package com.android.phone;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
+import android.os.PersistableBundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
-import android.content.res.Resources;
-
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
+import android.content.ComponentName;
+
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
 
@@ -38,6 +42,7 @@ public class GsmUmtsOptions {
     private static final String BUTTON_APN_EXPAND_KEY = "button_apn_key";
     private static final String BUTTON_OPERATOR_SELECTION_EXPAND_KEY = "button_carrier_sel_key";
     private static final String BUTTON_CARRIER_SETTINGS_KEY = "carrier_settings_key";
+    public static final String EXTRA_SUB_ID = "sub_id";
     private PreferenceActivity mPrefActivity;
     private PreferenceScreen mPrefScreen;
     private int mSubId;
@@ -63,21 +68,26 @@ public class GsmUmtsOptions {
         } else {
             log("Not a CDMA phone");
             Resources res = mPrefActivity.getResources();
+            PersistableBundle carrierConfig =
+                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mSubId);
 
-            // Determine which options to display, for GSM these are defaulted
-            // are defaulted to true in Phone/res/values/config.xml. But for
-            // some operators like verizon they maybe overriden in operator
-            // specific resources or device specific overlays.
-            if (!res.getBoolean(R.bool.config_apn_expand) && mButtonAPNExpand != null) {
+            // Determine which options to display. For GSM these are defaulted to true in
+            // CarrierConfigManager, but they maybe overriden by DefaultCarrierConfigService or a
+            // carrier app.
+            // Note: these settings used to be controlled with overlays in
+            // Telephony/res/values/config.xml
+            if (!carrierConfig.getBoolean(CarrierConfigManager.KEY_APN_EXPAND_BOOL)
+                    && mButtonAPNExpand != null) {
                 mPrefScreen.removePreference(mButtonAPNExpand);
                 removedAPNExpand = true;
             }
-            if (!res.getBoolean(R.bool.config_operator_selection_expand)) {
+            if (!carrierConfig.getBoolean(
+                    CarrierConfigManager.KEY_OPERATOR_SELECTION_EXPAND_BOOL)) {
                 mPrefScreen.removePreference(mPrefScreen
                         .findPreference(BUTTON_OPERATOR_SELECTION_EXPAND_KEY));
             }
 
-            if (res.getBoolean(R.bool.csp_enabled)) {
+            if (carrierConfig.getBoolean(CarrierConfigManager.KEY_CSP_ENABLED_BOOL)) {
                 if (PhoneFactory.getDefaultPhone().isCspPlmnEnabled()) {
                     log("[CSP] Enabling Operator Selection menu.");
                     mButtonOperatorSelectionExpand.setEnabled(true);
@@ -89,8 +99,8 @@ public class GsmUmtsOptions {
             }
 
             // Read platform settings for carrier settings
-            final boolean isCarrierSettingsEnabled = mPrefActivity.getResources().getBoolean(
-                    R.bool.config_carrier_settings_enable);
+            final boolean isCarrierSettingsEnabled = carrierConfig.getBoolean(
+                CarrierConfigManager.KEY_CARRIER_SETTINGS_ENABLE_BOOL);
             if (!isCarrierSettingsEnabled) {
                 Preference pref = mPrefScreen.findPreference(BUTTON_CARRIER_SETTINGS_KEY);
                 if (pref != null) {
@@ -109,7 +119,21 @@ public class GsmUmtsOptions {
                             final Intent intent = new Intent(Settings.ACTION_APN_SETTINGS);
                             // This will setup the Home and Search affordance
                             intent.putExtra(":settings:show_fragment_as_subsetting", true);
-                            intent.putExtra("sub_id", mSubId);
+                            intent.putExtra(EXTRA_SUB_ID, mSubId);
+                            mPrefActivity.startActivity(intent);
+                            return true;
+                        }
+            });
+        }
+        if (mPrefScreen.findPreference(BUTTON_OPERATOR_SELECTION_EXPAND_KEY) != null) {
+            mButtonOperatorSelectionExpand.setOnPreferenceClickListener(
+                    new Preference.OnPreferenceClickListener() {
+                        @Override
+                        public boolean onPreferenceClick(Preference preference) {
+                            final Intent intent = new Intent(Intent.ACTION_MAIN);
+                            intent.setComponent(new ComponentName("com.android.phone",
+                                    "com.android.phone.NetworkSetting"));
+                            intent.putExtra(EXTRA_SUB_ID, mSubId);
                             mPrefActivity.startActivity(intent);
                             return true;
                         }

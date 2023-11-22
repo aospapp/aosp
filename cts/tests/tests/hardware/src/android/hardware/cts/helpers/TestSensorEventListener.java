@@ -18,12 +18,16 @@ package android.hardware.cts.helpers;
 
 import junit.framework.Assert;
 
+import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener2;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
+import android.util.Log;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -49,13 +53,15 @@ public class TestSensorEventListener implements SensorEventListener2 {
     private static final long EVENT_TIMEOUT_US = TimeUnit.SECONDS.toMicros(5);
     private static final long FLUSH_TIMEOUT_US = TimeUnit.SECONDS.toMicros(10);
 
-    private final List<TestSensorEvent> mCollectedEvents = new ArrayList<>();
+    private final ArrayList<TestSensorEvent> mCollectedEvents = new ArrayList<>();
+    private final ArrayList<Long> mTimeStampFlushCompleteEvents = new ArrayList<>();
     private final List<CountDownLatch> mEventLatches = new ArrayList<>();
     private final List<CountDownLatch> mFlushLatches = new ArrayList<>();
     private final AtomicInteger mEventsReceivedOutsideHandler = new AtomicInteger();
 
     private final Handler mHandler;
     private final TestSensorEnvironment mEnvironment;
+    private final PowerManager.WakeLock mTestSensorEventListenerWakeLock;
 
     /**
      * @deprecated Use {@link TestSensorEventListener(TestSensorEnvironment)}.
@@ -78,6 +84,10 @@ public class TestSensorEventListener implements SensorEventListener2 {
     public TestSensorEventListener(TestSensorEnvironment environment, Handler handler) {
         mEnvironment = environment;
         mHandler = handler;
+        PowerManager pm = (PowerManager) environment.getContext().getSystemService(
+                Context.POWER_SERVICE);
+        mTestSensorEventListenerWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+                                                "TestSensorEventListenerWakeLock");
     }
 
     /**
@@ -93,6 +103,9 @@ public class TestSensorEventListener implements SensorEventListener2 {
         synchronized (mEventLatches) {
             for (CountDownLatch latch : mEventLatches) {
                 latch.countDown();
+                if (latch.getCount() == 0 && !mTestSensorEventListenerWakeLock.isHeld()) {
+                    mTestSensorEventListenerWakeLock.acquire();
+                }
             }
         }
     }
@@ -136,6 +149,10 @@ public class TestSensorEventListener implements SensorEventListener2 {
     @Override
     public void onFlushCompleted(Sensor sensor) {
         checkHandler();
+        long timestampNs = SystemClock.elapsedRealtimeNanos();
+        synchronized (mTimeStampFlushCompleteEvents) {
+           mTimeStampFlushCompleteEvents.add(timestampNs);
+        }
         synchronized (mFlushLatches) {
             for (CountDownLatch latch : mFlushLatches) {
                 latch.countDown();
@@ -155,7 +172,8 @@ public class TestSensorEventListener implements SensorEventListener2 {
      */
     public List<TestSensorEvent> getCollectedEvents() {
         synchronized (mCollectedEvents){
-            return Collections.unmodifiableList(mCollectedEvents);
+            List<TestSensorEvent> collectedEventsList = (List)mCollectedEvents.clone();
+            return Collections.unmodifiableList(collectedEventsList);
         }
     }
 
@@ -174,7 +192,8 @@ public class TestSensorEventListener implements SensorEventListener2 {
      * It will overwrite the file if it already exists, the file is created in a relative directory
      * named 'events' under the sensor test directory (part of external storage).
      */
-    public void logCollectedEventsToFile(String fileName) throws IOException {
+    public void logCollectedEventsToFile(String fileName, long deviceWakeUpTimeMs)
+        throws IOException {
         StringBuilder builder = new StringBuilder();
         builder.append("Sensor='").append(mEnvironment.getSensor()).append("', ");
         builder.append("SamplingRateOverloaded=")
@@ -183,14 +202,53 @@ public class TestSensorEventListener implements SensorEventListener2 {
                 .append(mEnvironment.getRequestedSamplingPeriodUs()).append("us, ");
         builder.append("MaxReportLatency=")
                 .append(mEnvironment.getMaxReportLatencyUs()).append("us");
-
         synchronized (mCollectedEvents) {
-            for (TestSensorEvent event : mCollectedEvents) {
+            int i = 0, j = 0;
+            while (i < mCollectedEvents.size() && j < mTimeStampFlushCompleteEvents.size()) {
+                if (mCollectedEvents.get(i).receivedTimestamp <
+                        mTimeStampFlushCompleteEvents.get(j)) {
+                    TestSensorEvent event = mCollectedEvents.get(i);
+                    if (deviceWakeUpTimeMs != -1 && deviceWakeUpTimeMs <
+                            event.receivedTimestamp/1000000) {
+                        builder.append("\n");
+                        builder.append("AP wake-up time=").append(deviceWakeUpTimeMs).append("ms");
+                        deviceWakeUpTimeMs = -1;
+                    }
+                    builder.append("\n");
+                    builder.append("Timestamp=").append(event.timestamp/1000000).append("ms, ");
+                    builder.append("ReceivedTimestamp=").append(event.receivedTimestamp/1000000).
+                        append("ms, ");
+                    builder.append("Accuracy=").append(event.accuracy).append(", ");
+                    builder.append("Values=").append(Arrays.toString(event.values));
+                    ++i;
+                } else {
+                    builder.append("\n");
+                    builder.append("ReceivedTimestamp=")
+                    .append(mTimeStampFlushCompleteEvents.get(j)/1000000)
+                    .append("ms Flush complete Event");
+                    ++j;
+                }
+            }
+            for (;i < mCollectedEvents.size(); ++i) {
+                TestSensorEvent event = mCollectedEvents.get(i);
+                if (deviceWakeUpTimeMs != -1 && deviceWakeUpTimeMs <
+                        event.receivedTimestamp/1000000) {
+                    builder.append("\n");
+                    builder.append("AP wake-up time=").append(deviceWakeUpTimeMs).append("ms");
+                    deviceWakeUpTimeMs = -1;
+                }
                 builder.append("\n");
-                builder.append("Timestamp=").append(event.timestamp).append("ns, ");
-                builder.append("ReceivedTimestamp=").append(event.receivedTimestamp).append("ns, ");
+                builder.append("Timestamp=").append(event.timestamp/1000000).append("ms, ");
+                builder.append("ReceivedTimestamp=").append(event.receivedTimestamp/1000000).
+                    append("ms, ");
                 builder.append("Accuracy=").append(event.accuracy).append(", ");
                 builder.append("Values=").append(Arrays.toString(event.values));
+            }
+            for (;j < mTimeStampFlushCompleteEvents.size(); ++j) {
+                builder.append("\n");
+                builder.append("ReceivedTimestamp=")
+                    .append(mTimeStampFlushCompleteEvents.get(j)/1000000)
+                    .append("ms Flush complete Event");
             }
         }
 
@@ -207,8 +265,11 @@ public class TestSensorEventListener implements SensorEventListener2 {
      *
      * @throws AssertionError if there was a timeout after {@link #FLUSH_TIMEOUT_US} &micro;s
      */
-    public void waitForFlushComplete(CountDownLatch latch) throws InterruptedException {
-        clearEvents();
+    public void waitForFlushComplete(CountDownLatch latch,
+                                      boolean clearCollectedEvents) throws InterruptedException {
+        if (clearCollectedEvents) {
+            clearEvents();
+        }
         try {
             String message = SensorCtsHelper.formatAssertionMessage(
                     "WaitForFlush",
@@ -228,8 +289,11 @@ public class TestSensorEventListener implements SensorEventListener2 {
      *
      * @throws AssertionError if there was a timeout after {@link #FLUSH_TIMEOUT_US} &micro;s
      */
-    public void waitForEvents(CountDownLatch latch, int eventCount) throws InterruptedException {
-        clearEvents();
+    public void waitForEvents(CountDownLatch latch, int eventCount,
+                               boolean clearCollectedEvents) throws InterruptedException {
+        if (clearCollectedEvents) {
+            clearEvents();
+        }
         try {
             long samplingPeriodUs = mEnvironment.getMaximumExpectedSamplingPeriodUs();
             // timeout is 2 * event count * expected period + batch timeout + default wait
@@ -276,6 +340,12 @@ public class TestSensorEventListener implements SensorEventListener2 {
                 "Events arrived outside the associated Looper. Expected=0, Found=%d",
                 eventsOutsideHandler);
         Assert.assertEquals(message, 0 /* expected */, eventsOutsideHandler);
+    }
+
+    public void releaseWakeLock() {
+        if (mTestSensorEventListenerWakeLock.isHeld()) {
+            mTestSensorEventListenerWakeLock.release();
+        }
     }
 
     /**

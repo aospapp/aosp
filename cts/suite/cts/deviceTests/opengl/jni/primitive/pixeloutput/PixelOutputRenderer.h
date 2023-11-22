@@ -18,9 +18,9 @@
 
 class PixelOutputRenderer: public Renderer {
 public:
-    PixelOutputRenderer(ANativeWindow* window, bool offscreen, int workload);
+    PixelOutputRenderer(ANativeWindow* window, bool offscreen);
     virtual ~PixelOutputRenderer() {};
-    bool setUp();
+    bool setUp(int workload);
     bool tearDown();
     void drawWorkload();
 private:
@@ -28,6 +28,7 @@ private:
     GLuint mTextureUniformHandle;
     GLuint mPositionHandle;
     GLuint mTexCoordHandle;
+    int mWorkload;
 };
 
 #endif

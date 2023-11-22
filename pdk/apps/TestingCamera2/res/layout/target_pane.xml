@@ -28,15 +28,21 @@
             android:id="@+id/target_pane_camera_spinner"
             android:layout_width="0px"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="2"
             android:prompt="@string/target_pane_camera_prompt" />
         <ToggleButton
             android:id="@+id/target_pane_configure_toggle"
             android:layout_width="0px"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="2"
             android:textOn="@string/target_pane_configure_button_on"
             android:textOff="@string/target_pane_configure_button_off" />
+        <Button
+            android:id="@+id/target_pane_prepare_button"
+            android:layout_width="0px"
+            android:layout_height="wrap_content"
+            android:text="@string/target_pane_prepare_button"
+            android:layout_weight="1" />
     </LinearLayout>
     <Spinner
         android:id="@+id/target_pane_output_spinner"

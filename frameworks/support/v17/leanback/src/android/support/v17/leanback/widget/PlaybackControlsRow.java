@@ -26,19 +26,22 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.view.KeyEvent;
 
 /**
- * A row of playback controls to be displayed by a {@link PlaybackControlsRowPresenter}.
+ * A {@link Row} of playback controls to be displayed by a {@link PlaybackControlsRowPresenter}.
  *
  * This row consists of some optional item detail, a series of primary actions,
  * and an optional series of secondary actions.
  *
+ * <p>
  * Controls are specified via an {@link ObjectAdapter} containing one or more
  * {@link Action}s.
- *
+ * </p>
+ * <p>
  * Adapters should have their {@link PresenterSelector} set to an instance of
  * {@link ControlButtonPresenterSelector}.
- *
+ * </p>
  */
 public class PlaybackControlsRow extends Row {
 
@@ -145,7 +148,7 @@ public class PlaybackControlsRow extends Row {
         }
 
         /**
-         * Gets the current index.
+         * Returns the current index.
          */
         public int getIndex() {
             return mIndex;
@@ -183,6 +186,9 @@ public class PlaybackControlsRow extends Row {
             labels[PLAY] = context.getString(R.string.lb_playback_controls_play);
             labels[PAUSE] = context.getString(R.string.lb_playback_controls_pause);
             setLabels(labels);
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_PLAY);
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_PAUSE);
         }
     }
 
@@ -229,6 +235,7 @@ public class PlaybackControlsRow extends Row {
             }
             setLabels(labels);
             setSecondaryLabels(labels2);
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
         }
     }
 
@@ -275,6 +282,7 @@ public class PlaybackControlsRow extends Row {
             }
             setLabels(labels);
             setSecondaryLabels(labels2);
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_REWIND);
         }
     }
 
@@ -291,6 +299,7 @@ public class PlaybackControlsRow extends Row {
             setIcon(getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_skip_next));
             setLabel1(context.getString(R.string.lb_playback_controls_skip_next));
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_NEXT);
         }
     }
 
@@ -307,6 +316,7 @@ public class PlaybackControlsRow extends Row {
             setIcon(getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_skip_previous));
             setLabel1(context.getString(R.string.lb_playback_controls_skip_previous));
+            addKeyCode(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
         }
     }
 
@@ -406,8 +416,7 @@ public class PlaybackControlsRow extends Row {
          * @param context Context used for loading resources.
          */
         public RepeatAction(Context context) {
-            this(context, getColorFromTheme(context,
-                    R.attr.playbackControlsIconHighlightColor));
+            this(context, getIconHighlightColor(context));
         }
 
         /**
@@ -433,10 +442,12 @@ public class PlaybackControlsRow extends Row {
             BitmapDrawable repeatOneDrawable = (BitmapDrawable) getStyledDrawable(context,
                     R.styleable.lbPlaybackControlsActionIcons_repeat_one);
             drawables[NONE] = repeatDrawable;
-            drawables[ALL] = new BitmapDrawable(context.getResources(),
-                    createBitmap(repeatDrawable.getBitmap(), repeatAllColor));
-            drawables[ONE] = new BitmapDrawable(context.getResources(),
-                    createBitmap(repeatOneDrawable.getBitmap(), repeatOneColor));
+            drawables[ALL] = repeatDrawable == null ? null
+                    : new BitmapDrawable(context.getResources(),
+                            createBitmap(repeatDrawable.getBitmap(), repeatAllColor));
+            drawables[ONE] = repeatOneDrawable == null ? null
+                    : new BitmapDrawable(context.getResources(),
+                            createBitmap(repeatOneDrawable.getBitmap(), repeatOneColor));
             setDrawables(drawables);
 
             String[] labels = new String[drawables.length];
@@ -460,8 +471,7 @@ public class PlaybackControlsRow extends Row {
          * @param context Context used for loading resources.
          */
         public ShuffleAction(Context context) {
-            this(context, getColorFromTheme(context,
-                    R.attr.playbackControlsIconHighlightColor));
+            this(context, getIconHighlightColor(context));
         }
 
         /**
@@ -498,8 +508,7 @@ public class PlaybackControlsRow extends Row {
          * @param context Context used for loading resources.
          */
         public HighQualityAction(Context context) {
-            this(context, getColorFromTheme(context,
-                    R.attr.playbackControlsIconHighlightColor));
+            this(context, getIconHighlightColor(context));
         }
 
         /**
@@ -536,8 +545,7 @@ public class PlaybackControlsRow extends Row {
          * @param context Context used for loading resources.
          */
         public ClosedCaptioningAction(Context context) {
-            this(context, getColorFromTheme(context,
-                    R.attr.playbackControlsIconHighlightColor));
+            this(context, getIconHighlightColor(context));
         }
 
         /**
@@ -571,16 +579,21 @@ public class PlaybackControlsRow extends Row {
         return dst;
     }
 
-    private static int getColorFromTheme(Context context, int attributeResId) {
+    private static int getIconHighlightColor(Context context) {
         TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(attributeResId, outValue, true);
-        return outValue.data;
+        if (context.getTheme().resolveAttribute(R.attr.playbackControlsIconHighlightColor,
+                outValue, true)) {
+            return outValue.data;
+        }
+        return context.getResources().getColor(R.color.lb_playback_icon_highlight_no_theme);
     }
 
     private static Drawable getStyledDrawable(Context context, int index) {
         TypedValue outValue = new TypedValue();
-        context.getTheme().resolveAttribute(
-                R.attr.playbackControlsActionIcons, outValue, false);
+        if (!context.getTheme().resolveAttribute(
+                R.attr.playbackControlsActionIcons, outValue, false)) {
+            return null;
+        }
         TypedArray array = context.getTheme().obtainStyledAttributes(outValue.data,
                 R.styleable.lbPlaybackControlsActionIcons);
         Drawable drawable = array.getDrawable(index);
@@ -614,7 +627,7 @@ public class PlaybackControlsRow extends Row {
     }
 
     /**
-     * Gets the main item for the details page.
+     * Returns the main item for the details page.
      */
     public final Object getItem() {
         return mItem;
@@ -622,6 +635,8 @@ public class PlaybackControlsRow extends Row {
 
     /**
      * Sets a {link @Drawable} image for this row.
+     * <p>If set after the row has been bound to a view, the adapter must be notified that
+     * this row has changed.</p>
      *
      * @param drawable The drawable to set.
      */
@@ -631,6 +646,8 @@ public class PlaybackControlsRow extends Row {
 
     /**
      * Sets a {@link Bitmap} for this row.
+     * <p>If set after the row has been bound to a view, the adapter must be notified that
+     * this row has changed.</p>
      *
      * @param context The context to retrieve display metrics from.
      * @param bm The bitmap to set.
@@ -640,7 +657,7 @@ public class PlaybackControlsRow extends Row {
     }
 
     /**
-     * Gets the image {@link Drawable} of this row.
+     * Returns the image {@link Drawable} of this row.
      *
      * @return The overview's image drawable, or null if no drawable has been
      *         assigned.
@@ -651,6 +668,8 @@ public class PlaybackControlsRow extends Row {
 
     /**
      * Sets the primary actions {@link ObjectAdapter}.
+     * <p>If set after the row has been bound to a view, the adapter must be notified that
+     * this row has changed.</p>
      */
     public final void setPrimaryActionsAdapter(ObjectAdapter adapter) {
         mPrimaryActionsAdapter = adapter;
@@ -658,6 +677,8 @@ public class PlaybackControlsRow extends Row {
 
     /**
      * Sets the secondary actions {@link ObjectAdapter}.
+     * <p>If set after the row has been bound to a view, the adapter must be notified that
+     * this row has changed.</p>
      */
     public final void setSecondaryActionsAdapter(ObjectAdapter adapter) {
         mSecondaryActionsAdapter = adapter;
@@ -679,6 +700,8 @@ public class PlaybackControlsRow extends Row {
 
     /**
      * Sets the total time in milliseconds for the playback controls row.
+     * <p>If set after the row has been bound to a view, the adapter must be notified that
+     * this row has changed.</p>
      */
     public void setTotalTime(int ms) {
         mTotalTimeMs = ms;
@@ -729,6 +752,34 @@ public class PlaybackControlsRow extends Row {
         return mBufferedProgressMs;
     }
 
+    /**
+     * Returns the Action associated with the given keycode, or null if no associated action exists.
+     * Searches the primary adapter first, then the secondary adapter.
+     */
+    public Action getActionForKeyCode(int keyCode) {
+        Action action = getActionForKeyCode(getPrimaryActionsAdapter(), keyCode);
+        if (action != null) {
+            return action;
+        }
+        return getActionForKeyCode(getSecondaryActionsAdapter(), keyCode);
+    }
+
+    /**
+     * Returns the Action associated with the given keycode, or null if no associated action exists.
+     */
+    public Action getActionForKeyCode(ObjectAdapter adapter, int keyCode) {
+        if (adapter != mPrimaryActionsAdapter && adapter != mSecondaryActionsAdapter) {
+            throw new IllegalArgumentException("Invalid adapter");
+        }
+        for (int i = 0; i < adapter.size(); i++) {
+            Action action = (Action) adapter.get(i);
+            if (action.respondsToKeyCode(keyCode)) {
+                return action;
+            }
+        }
+        return null;
+    }
+
     interface OnPlaybackStateChangedListener {
         public void onCurrentTimeChanged(int currentTimeMs);
         public void onBufferedProgressChanged(int bufferedProgressMs);
@@ -737,14 +788,14 @@ public class PlaybackControlsRow extends Row {
     /**
      * Sets a listener to be called when the playback state changes.
      */
-    public void setOnPlaybackStateChangedListener(OnPlaybackStateChangedListener listener) {
+    void setOnPlaybackStateChangedListener(OnPlaybackStateChangedListener listener) {
         mListener = listener;
     }
 
     /**
      * Returns the playback state listener.
      */
-    public OnPlaybackStateChangedListener getOnPlaybackStateChangedListener() {
+    OnPlaybackStateChangedListener getOnPlaybackStateChangedListener() {
         return mListener;
     }
 

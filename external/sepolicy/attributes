@@ -42,6 +42,15 @@ attribute port_type;
 # All types used for property service
 attribute property_type;
 
+# All service_manager types created by system_server
+attribute system_server_service;
+
+# services which should be available to all but isolated apps
+attribute app_api_service;
+
+# services which export only system_api
+attribute system_api_service;
+
 # All types used for services managed by service_manager.
 attribute service_manager_type;
 
@@ -52,9 +61,6 @@ attribute mlstrustedsubject;
 # All types that can override MLS restrictions.
 # i.e. files that can be read by lower and written by higher
 attribute mlstrustedobject;
-
-# Domains that are allowed all permissions ("unconfined").
-attribute unconfineddomain;
 
 # All domains used for apps.
 attribute appdomain;

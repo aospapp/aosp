@@ -106,12 +106,78 @@ enum {
 /*****************************************************************************/
 
 /*
+   Android Lollipop
+   Populate sensor_t structure according to hardware sensors.h
+   {name, vendor, version, handle,
+    type, maxRange, resolution, power, minDelay, fifoReservedEventCount, fifoMaxEventCount,
+    stringType, requiredPermission, maxDelay, flags, reserved[]}
+*/
+#if defined ANDROID_LOLLIPOP
+static struct sensor_t sBaseSensorList[] =
+{
+    {"MPL Gyroscope", "Invensense", 1, SENSORS_GYROSCOPE_HANDLE,
+     SENSOR_TYPE_GYROSCOPE, 2000.0f, 1.0f, 0.5f, 10000, 0, 124,
+     SENSOR_STRING_TYPE_GYROSCOPE, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Raw Gyroscope", "Invensense", 1, SENSORS_RAW_GYROSCOPE_HANDLE,
+     SENSOR_TYPE_GYROSCOPE_UNCALIBRATED, 2000.0f, 1.0f, 0.5f, 10000, 0, 124,
+     SENSOR_STRING_TYPE_GYROSCOPE_UNCALIBRATED, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Accelerometer", "Invensense", 1, SENSORS_ACCELERATION_HANDLE,
+     SENSOR_TYPE_ACCELEROMETER, 10240.0f, 1.0f, 0.5f, 10000, 0, 124,
+     SENSOR_STRING_TYPE_ACCELEROMETER, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Magnetic Field", "Invensense", 1, SENSORS_MAGNETIC_FIELD_HANDLE,
+     SENSOR_TYPE_MAGNETIC_FIELD, 10240.0f, 1.0f, 0.5f, 10000, 0, 124,
+     SENSOR_STRING_TYPE_MAGNETIC_FIELD, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Raw Magnetic Field", "Invensense", 1, SENSORS_RAW_MAGNETIC_FIELD_HANDLE,
+     SENSOR_TYPE_MAGNETIC_FIELD_UNCALIBRATED, 10240.0f, 1.0f, 0.5f, 10000, 0, 124,
+     SENSOR_STRING_TYPE_MAGNETIC_FIELD_UNCALIBRATED, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+#ifdef ENABLE_PRESSURE
+    {"MPL Pressure", "Invensense", 1, SENSORS_PRESSURE_HANDLE,
+     SENSOR_TYPE_PRESSURE, 10240.0f, 1.0f, 0.5f, 10000, 0, 165,
+     SENSOR_STRING_TYPE_PRESSURE, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+#endif
+    {"MPL Orientation", "Invensense", 1, SENSORS_ORIENTATION_HANDLE,
+     SENSOR_TYPE_ORIENTATION, 360.0f, 1.0f, 9.7f, 10000, 0, 0,
+     SENSOR_STRING_TYPE_ORIENTATION, "", 0, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Rotation Vector", "Invensense", 1, SENSORS_ROTATION_VECTOR_HANDLE,
+     SENSOR_TYPE_ROTATION_VECTOR, 10240.0f, 1.0f, 0.5f, 10000, 0, 0,
+     SENSOR_STRING_TYPE_ROTATION_VECTOR, "", 0, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Game Rotation Vector", "Invensense", 1, SENSORS_GAME_ROTATION_VECTOR_HANDLE,
+     SENSOR_TYPE_GAME_ROTATION_VECTOR, 10240.0f, 1.0f, 0.5f, 10000, 0, 62,
+     SENSOR_STRING_TYPE_GAME_ROTATION_VECTOR, "", 200000, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Linear Acceleration", "Invensense", 1, SENSORS_LINEAR_ACCEL_HANDLE,
+     SENSOR_TYPE_LINEAR_ACCELERATION, 10240.0f, 1.0f, 0.5f, 10000, 0, 0,
+     SENSOR_STRING_TYPE_LINEAR_ACCELERATION, "", 0, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Gravity", "Invensense", 1, SENSORS_GRAVITY_HANDLE,
+     SENSOR_TYPE_GRAVITY, 10240.0f, 1.0f, 0.5f, 10000, 0, 0,
+     SENSOR_STRING_TYPE_GRAVITY, "", 0, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+    {"MPL Significant Motion", "Invensense", 1, SENSORS_SIGNIFICANT_MOTION_HANDLE,
+     SENSOR_TYPE_SIGNIFICANT_MOTION, 100.0f, 1.0f, 1.1f, 0, 0, 0,
+     SENSOR_STRING_TYPE_SIGNIFICANT_MOTION, "", 0,
+     SENSOR_FLAG_ONE_SHOT_MODE | SENSOR_FLAG_WAKE_UP, {}},
+    {"MPL Step Detector", "Invensense", 1, SENSORS_PEDOMETER_HANDLE,
+     SENSOR_TYPE_STEP_DETECTOR, 100.0f, 1.0f, 1.1f, 0, 0, 124,
+     SENSOR_STRING_TYPE_STEP_DETECTOR, "", 0, SENSOR_FLAG_SPECIAL_REPORTING_MODE, {}},
+    {"MPL Step Counter", "Invensense", 1, SENSORS_STEP_COUNTER_HANDLE,
+     SENSOR_TYPE_STEP_COUNTER, 100.0f, 1.0f, 1.1f, 0, 0, 0,
+     SENSOR_STRING_TYPE_STEP_COUNTER, "", 0, SENSOR_FLAG_ON_CHANGE_MODE, {}},
+    {"MPL Geomagnetic Rotation Vector", "Invensense", 1,
+     SENSORS_GEOMAGNETIC_ROTATION_VECTOR_HANDLE,
+     SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR, 10240.0f, 1.0f, 0.5f, 5000, 0, 0,
+     SENSOR_STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR, "", 0, SENSOR_FLAG_CONTINUOUS_MODE, {}},
+#ifdef ENABLE_DMP_SCREEN_AUTO_ROTATION
+    {"MPL Screen Orientation", "Invensense ", 1, SENSORS_SCREEN_ORIENTATION_HANDLE,
+     SENSOR_TYPE_SCREEN_ORIENTATION, 100.0f, 1.0f, 1.1f, 0, 0, 0,
+     SENSOR_STRING_TYPE_SCREEN_ORIENTATION, "", 0, SENSOR_FLAG_ON_CHANGE_MODE, {}},
+#endif
+};
+/*
    Android KitKat
    Populate sensor_t structure according to hardware sensors.h
-   {    name, vendor, version, handle, type, maxRange, resolution, power, minDelay,
-    fifoReservedEventCount, fifoMaxEventCount, reserved[]    }
+   {name, vendor, version,
+    handle,
+    type, maxRange, resolution, power, minDelay, fifoReservedEventCount, fifoMaxEventCount, reserved[]}
 */
-#if defined ANDROID_KITKAT
+#elif defined ANDROID_KITKAT
 static struct sensor_t sBaseSensorList[] =
 {
     {"MPL Gyroscope", "Invensense", 1, SENSORS_GYROSCOPE_HANDLE,

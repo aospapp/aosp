@@ -16,19 +16,13 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.FormPageResultListener;
-
 import android.app.Fragment;
-import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
 
-import java.util.ArrayList;
+import com.android.tv.settings.R;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
 
 /**
  * Manual-style add wifi network (the kind you'd use for adding a hidden or out-of-range network.)

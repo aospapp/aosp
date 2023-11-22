@@ -16,8 +16,9 @@
 
 package com.google.common.util.concurrent;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
+
+import javax.annotation.Nullable;
 
 /**
  * Unchecked variant of {@link java.util.concurrent.ExecutionException}. As with
@@ -26,17 +27,16 @@ import com.google.common.annotations.GwtCompatible;
  *
  * <p>{@code UncheckedExecutionException} is intended as an alternative to
  * {@code ExecutionException} when the exception thrown by a task is an
- * unchecked exception. This allows the client code to continue to distinguish
- * between checked and unchecked exceptions, even when they come from other
- * threads.
+ * unchecked exception. However, it may also wrap a checked exception in some
+ * cases.
  *
  * <p>When wrapping an {@code Error} from another thread, prefer {@link
- * ExecutionError}.
+ * ExecutionError}. When wrapping a checked exception, prefer {@code
+ * ExecutionException}.
  *
  * @author Charles Fry
  * @since 10.0
  */
-@Beta
 @GwtCompatible
 public class UncheckedExecutionException extends RuntimeException {
   /**
@@ -47,21 +47,21 @@ public class UncheckedExecutionException extends RuntimeException {
   /**
    * Creates a new instance with the given detail message.
    */
-  protected UncheckedExecutionException(String message) {
+  protected UncheckedExecutionException(@Nullable String message) {
     super(message);
   }
 
   /**
    * Creates a new instance with the given detail message and cause.
    */
-  public UncheckedExecutionException(String message, Throwable cause) {
+  public UncheckedExecutionException(@Nullable String message, @Nullable Throwable cause) {
     super(message, cause);
   }
 
   /**
    * Creates a new instance with the given cause.
    */
-  public UncheckedExecutionException(Throwable cause) {
+  public UncheckedExecutionException(@Nullable Throwable cause) {
     super(cause);
   }
 

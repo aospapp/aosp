@@ -16,16 +16,21 @@
 
 package android.support.v7.widget;
 
+import android.app.Instrumentation;
 import android.graphics.Rect;
+import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.view.ViewCompat;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +38,8 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
+import android.support.v7.recyclerview.test.R;
 
 abstract public class BaseRecyclerViewInstrumentationTest extends
         ActivityInstrumentationTestCase2<TestActivity> {
@@ -46,6 +53,8 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
     protected AdapterHelper mAdapterHelper;
 
     Throwable mainThreadException;
+
+    Thread mInstrumentationThread;
 
     public BaseRecyclerViewInstrumentationTest() {
         this(false);
@@ -62,6 +71,12 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         }
     }
 
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        mInstrumentationThread = Thread.currentThread();
+    }
+
     void setHasTransientState(final View view, final boolean value) {
         try {
             runTestOnUiThread(new Runnable() {
@@ -75,6 +90,12 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         }
     }
 
+    protected void enableAccessibility()
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Method getUIAutomation = Instrumentation.class.getMethod("getUiAutomation");
+        getUIAutomation.invoke(getInstrumentation());
+    }
+
     void setAdapter(final RecyclerView.Adapter adapter) throws Throwable {
         runTestOnUiThread(new Runnable() {
             @Override
@@ -82,6 +103,12 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
                 mRecyclerView.setAdapter(adapter);
             }
         });
+    }
+
+    protected WrappedRecyclerView inflateWrappedRV() {
+        return (WrappedRecyclerView)
+                LayoutInflater.from(getActivity()).inflate(R.layout.wrapped_test_rv,
+                        getRecyclerViewContainer(), false);
     }
 
     void swapAdapter(final RecyclerView.Adapter adapter,
@@ -100,6 +127,9 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
     }
 
     void postExceptionToInstrumentation(Throwable t) {
+        if (mInstrumentationThread == Thread.currentThread()) {
+            throw new RuntimeException(t);
+        }
         if (mainThreadException != null) {
             Log.e(TAG, "receiving another main thread exception. dropping.", t);
         } else {
@@ -142,8 +172,8 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         return new Rect(
                 mRecyclerView.getPaddingLeft(),
                 mRecyclerView.getPaddingTop(),
-                mRecyclerView.getPaddingLeft() + mRecyclerView.getWidth(),
-                mRecyclerView.getPaddingTop() + mRecyclerView.getHeight()
+                mRecyclerView.getWidth() - mRecyclerView.getPaddingRight(),
+                mRecyclerView.getHeight() - mRecyclerView.getPaddingBottom()
         );
     }
 
@@ -182,8 +212,20 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
                     }
                 });
         if (running) {
+            latch.countDown();
             latch.await(seconds, TimeUnit.SECONDS);
         }
+    }
+
+    public boolean requestFocus(final View view) {
+        final boolean[] result = new boolean[1];
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                result[0] = view.requestFocus();
+            }
+        });
+        return result[0];
     }
 
     public void setRecyclerView(final RecyclerView recyclerView) throws Throwable {
@@ -191,7 +233,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
     }
     public void setRecyclerView(final RecyclerView recyclerView, boolean assignDummyPool)
             throws Throwable {
-        setRecyclerView(recyclerView, true, true);
+        setRecyclerView(recyclerView, assignDummyPool, true);
     }
     public void setRecyclerView(final RecyclerView recyclerView, boolean assignDummyPool,
             boolean addPositionCheckItemAnimator)
@@ -214,6 +256,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
 
                 @Override
                 public void putRecycledView(RecyclerView.ViewHolder scrap) {
+                    assertNull(scrap.mOwnerRecyclerView);
                     super.putRecycledView(scrap);
                 }
             };
@@ -227,7 +270,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
                     RecyclerView.ViewHolder vh = parent.getChildViewHolder(view);
                     if (!vh.isRemoved()) {
                         assertNotSame("If getItemOffsets is called, child should have a valid"
-                                            + " adapter position unless it is removed",
+                                            + " adapter position unless it is removed : " + vh,
                                     vh.getAdapterPosition(), RecyclerView.NO_POSITION);
                     }
                 }
@@ -288,13 +331,17 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
 
     void smoothScrollToPosition(final int position)
             throws Throwable {
-        Log.d(TAG, "SMOOTH scrolling to " + position);
+        if (mDebug) {
+            Log.d(TAG, "SMOOTH scrolling to " + position);
+        }
         runTestOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mRecyclerView.smoothScrollToPosition(position);
             }
         });
+        getInstrumentation().waitForIdleSync();
+        Thread.sleep(200); //give scroller some time so start
         while (mRecyclerView.getLayoutManager().isSmoothScrolling() ||
                 mRecyclerView.getScrollState() != RecyclerView.SCROLL_STATE_IDLE) {
             if (mDebug) {
@@ -302,8 +349,19 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             }
             Thread.sleep(200);
         }
-        Log.d(TAG, "SMOOTH scrolling done");
+        if (mDebug) {
+            Log.d(TAG, "SMOOTH scrolling done");
+        }
         getInstrumentation().waitForIdleSync();
+    }
+
+    void freezeLayout(final boolean freeze) throws Throwable {
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mRecyclerView.setLayoutFrozen(freeze);
+            }
+        });
     }
 
     class TestViewHolder extends RecyclerView.ViewHolder {
@@ -320,20 +378,48 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             return super.toString() + " item:" + mBoundItem;
         }
     }
+    class DumbLayoutManager extends TestLayoutManager {
+        ReentrantLock mLayoutLock = new ReentrantLock();
+        public void blockLayout() {
+            mLayoutLock.lock();
+        }
 
-    class TestLayoutManager extends RecyclerView.LayoutManager {
-
-        CountDownLatch layoutLatch;
+        public void unblockLayout() {
+            mLayoutLock.unlock();
+        }
+        @Override
+        public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+            mLayoutLock.lock();
+            detachAndScrapAttachedViews(recycler);
+            layoutRange(recycler, 0, state.getItemCount());
+            if (layoutLatch != null) {
+                layoutLatch.countDown();
+            }
+            mLayoutLock.unlock();
+        }
+    }
+    public class TestLayoutManager extends RecyclerView.LayoutManager {
+        int mScrollVerticallyAmount;
+        int mScrollHorizontallyAmount;
+        protected CountDownLatch layoutLatch;
 
         public void expectLayouts(int count) {
             layoutLatch = new CountDownLatch(count);
         }
 
-        public void waitForLayout(long timeout, TimeUnit timeUnit) throws Throwable {
+        public void waitForLayout(long timeout, TimeUnit timeUnit, boolean waitForIdle)
+                throws Throwable {
             layoutLatch.await(timeout * (mDebug ? 100 : 1), timeUnit);
             assertEquals("all expected layouts should be executed at the expected time",
                     0, layoutLatch.getCount());
-            getInstrumentation().waitForIdleSync();
+            if (waitForIdle) {
+                getInstrumentation().waitForIdleSync();
+            }
+        }
+
+        public void waitForLayout(long timeout, TimeUnit timeUnit)
+                throws Throwable {
+            waitForLayout(timeout, timeUnit, true);
         }
 
         public void assertLayoutCount(int count, String msg, long timeout) throws Throwable {
@@ -347,7 +433,11 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         }
 
         public void waitForLayout(long timeout) throws Throwable {
-            waitForLayout(timeout * (mDebug ? 10000 : 1), TimeUnit.SECONDS);
+            waitForLayout(timeout * (mDebug ? 10000 : 1), TimeUnit.SECONDS, true);
+        }
+
+        public void waitForLayout(long timeout, boolean waitForIdle) throws Throwable {
+            waitForLayout(timeout * (mDebug ? 10000 : 1), TimeUnit.SECONDS, waitForIdle);
         }
 
         @Override
@@ -378,7 +468,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             return (RecyclerView.LayoutParams) v.getLayoutParams();
         }
 
-        void layoutRange(RecyclerView.Recycler recycler, int start, int end) {
+        protected void layoutRange(RecyclerView.Recycler recycler, int start, int end) {
             assertScrap(recycler);
             if (mDebug) {
                 Log.d(TAG, "will layout items from " + start + " to " + end);
@@ -405,8 +495,14 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
                 addView(view);
 
                 measureChildWithMargins(view, 0, 0);
-                layoutDecorated(view, 0, top, getDecoratedMeasuredWidth(view)
-                        , top + getDecoratedMeasuredHeight(view));
+                if (getLayoutDirection() == ViewCompat.LAYOUT_DIRECTION_RTL) {
+                    layoutDecorated(view, getWidth() - getDecoratedMeasuredWidth(view), top,
+                            getWidth(), top + getDecoratedMeasuredHeight(view));
+                } else {
+                    layoutDecorated(view, 0, top, getDecoratedMeasuredWidth(view)
+                            , top + getDecoratedMeasuredHeight(view));
+                }
+
                 top += view.getMeasuredHeight();
             }
         }
@@ -433,12 +529,14 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         @Override
         public int scrollHorizontallyBy(int dx, RecyclerView.Recycler recycler,
                 RecyclerView.State state) {
+            mScrollHorizontallyAmount += dx;
             return dx;
         }
 
         @Override
         public int scrollVerticallyBy(int dy, RecyclerView.Recycler recycler,
                 RecyclerView.State state) {
+            mScrollVerticallyAmount += dy;
             return dy;
         }
     }
@@ -466,16 +564,22 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
         }
     }
 
-    class TestAdapter extends RecyclerView.Adapter<TestViewHolder>
+    public class TestAdapter extends RecyclerView.Adapter<TestViewHolder>
             implements AttachDetachCountingAdapter {
+
+        public static final String DEFAULT_ITEM_PREFIX = "Item ";
 
         ViewAttachDetachCounter mAttachmentCounter = new ViewAttachDetachCounter();
         List<Item> mItems;
 
-        TestAdapter(int count) {
+        public TestAdapter(int count) {
             mItems = new ArrayList<Item>(count);
-            for (int i = 0; i < count; i++) {
-                mItems.add(new Item(i, "Item " + i));
+            addItems(0, count, DEFAULT_ITEM_PREFIX);
+        }
+
+        private void addItems(int pos, int count, String prefix) {
+            for (int i = 0; i < count; i++, pos++) {
+                mItems.add(pos, new Item(pos, prefix));
             }
         }
 
@@ -511,9 +615,29 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
 
         @Override
         public void onBindViewHolder(TestViewHolder holder, int position) {
+            assertNotNull(holder.mOwnerRecyclerView);
+            assertEquals(position, holder.getAdapterPosition());
             final Item item = mItems.get(position);
             ((TextView) (holder.itemView)).setText(item.mText + "(" + item.mAdapterIndex + ")");
             holder.mBoundItem = item;
+        }
+
+        public Item getItemAt(int position) {
+            return mItems.get(position);
+        }
+
+        @Override
+        public void onViewRecycled(TestViewHolder holder) {
+            super.onViewRecycled(holder);
+            final int adapterPosition = holder.getAdapterPosition();
+            final boolean shouldHavePosition = !holder.isRemoved() && holder.isBound() &&
+                    !holder.isAdapterPositionUnknown() && !holder.isInvalid();
+            String log = "Position check for " + holder.toString();
+            assertEquals(log, shouldHavePosition, adapterPosition != RecyclerView.NO_POSITION);
+            if (shouldHavePosition) {
+                assertTrue(log, mItems.size() > adapterPosition);
+                assertSame(log, holder.mBoundItem, mItems.get(adapterPosition));
+            }
         }
 
         public void deleteAndNotify(final int start, final int count) throws Throwable {
@@ -556,6 +680,11 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             for (int i = start; i < end && i < mItems.size(); i++) {
                 mItems.get(i).mAdapterIndex += offset;
             }
+        }
+
+        public void addAndNotify(final int count) throws Throwable {
+            assertEquals(0, mItems.size());
+            new AddRemoveRunnable(DEFAULT_ITEM_PREFIX, new int[]{0, count}).runOnMainThread();
         }
 
         public void addAndNotify(final int start, final int count) throws Throwable {
@@ -631,10 +760,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             runTestOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Item item = mItems.remove(from);
-                    mItems.add(to, item);
-                    offsetOriginalIndices(from, to - 1);
-                    item.mAdapterIndex = to;
+                    moveInUIThread(from, to);
                     if (notifyChange) {
                         notifyDataSetChanged();
                     }
@@ -649,15 +775,26 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             runTestOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Item item = mItems.remove(from);
-                    mItems.add(to, item);
-                    offsetOriginalIndices(from, to - 1);
-                    item.mAdapterIndex = to;
+                    moveInUIThread(from, to);
                     notifyItemMoved(from, to);
                 }
             });
         }
 
+        public void clearOnUIThread() {
+            assertEquals("clearOnUIThread called from a wrong thread",
+                    Looper.getMainLooper(), Looper.myLooper());
+            mItems = new ArrayList<Item>();
+            notifyDataSetChanged();
+        }
+
+        protected void moveInUIThread(int from, int to) {
+            Item item = mItems.remove(from);
+            offsetOriginalIndices(from, -1);
+            mItems.add(to, item);
+            offsetOriginalIndices(to + 1, 1);
+            item.mAdapterIndex = to;
+        }
 
 
         @Override
@@ -667,10 +804,16 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
 
 
         private class AddRemoveRunnable implements Runnable {
+            final String mNewItemPrefix;
             final int[][] mStartCountTuples;
 
-            public AddRemoveRunnable(int[][] startCountTuples) {
+            public AddRemoveRunnable(String newItemPrefix, int[]... startCountTuples) {
+                mNewItemPrefix = newItemPrefix;
                 mStartCountTuples = startCountTuples;
+            }
+
+            public AddRemoveRunnable(int[][] startCountTuples) {
+                this("new item ", startCountTuples);
             }
 
             public void runOnMainThread() throws Throwable {
@@ -695,9 +838,7 @@ abstract public class BaseRecyclerViewInstrumentationTest extends
             private void add(int[] tuple) {
                 // offset others
                 offsetOriginalIndices(tuple[0], tuple[1]);
-                for (int i = 0; i < tuple[1]; i++) {
-                    mItems.add(tuple[0], new Item(i, "new item " + i));
-                }
+                addItems(tuple[0], tuple[1], mNewItemPrefix);
                 notifyItemRangeInserted(tuple[0], tuple[1]);
             }
 

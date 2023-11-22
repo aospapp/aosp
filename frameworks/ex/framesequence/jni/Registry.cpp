@@ -34,15 +34,26 @@ Registry::Registry(const RegistryEntry& entry) {
 
 const RegistryEntry* Registry::Find(Stream* stream) {
     Registry* registry = gHead;
-    int headerSize = gHeaderBytesRequired;
-    char header[headerSize];
-    headerSize = stream->peek(header, headerSize);
-    while (registry) {
-        if (headerSize >= registry->mImpl.requiredHeaderBytes
-                && registry->mImpl.checkHeader(header, headerSize)) {
-            return &(registry->mImpl);
+
+    if (stream->getRawBuffer() != NULL) {
+        while (registry) {
+            if (registry->mImpl.acceptsBuffer()) {
+                return &(registry->mImpl);
+            }
+            registry = registry->mNext;
         }
-        registry = registry->mNext;
+    } else {
+        int headerSize = gHeaderBytesRequired;
+        char header[headerSize];
+        headerSize = stream->peek(header, headerSize);
+        while (registry) {
+            if (headerSize >= registry->mImpl.requiredHeaderBytes
+                    && registry->mImpl.checkHeader(header, headerSize)) {
+                return &(registry->mImpl);
+            }
+            registry = registry->mNext;
+        }
     }
     return 0;
 }
+

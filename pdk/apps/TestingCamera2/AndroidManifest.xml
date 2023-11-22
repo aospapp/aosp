@@ -30,7 +30,7 @@
 
     <uses-sdk
         android:minSdkVersion="21"
-        android:targetSdkVersion="21" />
+        android:targetSdkVersion="10000" />
 
     <uses-feature
         android:name="android.hardware.camera.front"

@@ -223,11 +223,9 @@ public class AndroidCamera2Capabilities extends CameraCapabilities {
                 return SceneMode.SUNSET;
             case CONTROL_SCENE_MODE_THEATRE:
                 return SceneMode.THEATRE;
+            case CONTROL_SCENE_MODE_HDR:
+                return SceneMode.HDR;
             // TODO: We cannot expose FACE_PRIORITY, or HIGH_SPEED_VIDEO
-        }
-
-        if (sm == LegacyVendorTags.CONTROL_SCENE_MODE_HDR) {
-            return SceneMode.HDR;
         }
 
         Log.w(TAG, "Unable to convert from API 2 scene mode: " + sm);

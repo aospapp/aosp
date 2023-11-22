@@ -51,20 +51,30 @@ void readPixels (tcu::Surface& dst, int x, int y, int width, int height)
 	vgReadPixels(dst.getAccess().getDataPtr(), width*4, VG_sRGBA_8888, 0, 0, width, height);
 }
 
+void finish (void)
+{
+	vgFinish();
+}
+
 #else // DEQP_SUPPORT_VG
 
 void clear (int x, int y, int width, int height, const tcu::Vec4& color)
 {
 	DE_UNREF(x && y && width && height);
 	DE_UNREF(color);
-	throw tcu::NotSupportedError("OpenVG is not supported", "", __FILE__, __LINE__);
+	TCU_THROW(NotSupportedError, "OpenVG is not supported");
 }
 
 void readPixels (tcu::Surface& dst, int x, int y, int width, int height)
 {
 	DE_UNREF(x && y && width && height);
 	DE_UNREF(dst);
-	throw tcu::NotSupportedError("OpenVG is not supported", "", __FILE__, __LINE__);
+	TCU_THROW(NotSupportedError, "OpenVG is not supported");
+}
+
+void finish (void)
+{
+	TCU_THROW(NotSupportedError, "OpenVG is not supported");
 }
 
 #endif // DEQP_SUPPORT_VG

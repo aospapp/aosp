@@ -3,9 +3,22 @@ package com.bumptech.glide.load.engine.cache;
 import com.bumptech.glide.load.Key;
 import com.bumptech.glide.load.engine.Resource;
 
+/**
+ * A simple class that ignores all puts and returns null for all gets.
+ */
 public class MemoryCacheAdapter implements MemoryCache {
 
     private ResourceRemovedListener listener;
+
+    @Override
+    public int getCurrentSize() {
+        return 0;
+    }
+
+    @Override
+    public int getMaxSize() {
+        return 0;
+    }
 
     @Override
     public void setSizeMultiplier(float multiplier) {
@@ -13,12 +26,12 @@ public class MemoryCacheAdapter implements MemoryCache {
     }
 
     @Override
-    public Resource remove(Key key) {
+    public Resource<?> remove(Key key) {
         return null;
     }
 
     @Override
-    public Resource put(Key key, Resource resource) {
+    public Resource<?> put(Key key, Resource<?> resource) {
         listener.onResourceRemoved(resource);
         return null;
     }

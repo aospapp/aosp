@@ -91,15 +91,15 @@ static const char* FP_FRAGMENT =
         "  gl_FragColor = (diffuse * texture2D(u_Texture, v_TexCoordinate));\n"
         "}";
 
-FullPipelineRenderer::FullPipelineRenderer(ANativeWindow* window, bool offscreen, int workload) :
-        Renderer(window, offscreen, workload), mProgram(NULL), mSceneGraph(NULL),
+FullPipelineRenderer::FullPipelineRenderer(ANativeWindow* window, bool offscreen) :
+        Renderer(window, offscreen), mProgram(NULL), mSceneGraph(NULL),
         mModelMatrix(NULL), mViewMatrix(NULL), mProjectionMatrix(NULL), mMesh(NULL),
         mTextureId(0) {
 }
 
-bool FullPipelineRenderer::setUp() {
+bool FullPipelineRenderer::setUp(int workload) {
     SCOPED_TRACE();
-    if (!Renderer::setUp()) {
+    if (!Renderer::setUp(workload)) {
         return false;
     }
 
@@ -147,7 +147,7 @@ bool FullPipelineRenderer::setUp() {
         return false;
     }
 
-    float count = mWorkload * mWorkload;
+    float count = workload * workload;
     float middle = count / 2.0f;
     float scale = 2.0f / count;
 

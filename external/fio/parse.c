@@ -18,6 +18,10 @@
 #include "minmax.h"
 #include "lib/ieee754.h"
 
+#ifdef CONFIG_ARITHMETIC
+#include "y.tab.h"
+#endif
+
 static struct fio_option *__fio_options;
 
 static int vp_cmp(const void *p1, const void *p2)
@@ -264,34 +268,72 @@ static unsigned long long get_mult_bytes(const char *str, int len, void *data,
 	return __get_mult_bytes(p, data, percent);
 }
 
+extern int evaluate_arithmetic_expression(const char *buffer, long long *ival,
+					  double *dval, double implied_units,
+					  int is_time);
+
 /*
  * Convert string into a floating number. Return 1 for success and 0 otherwise.
  */
-int str_to_float(const char *str, double *val)
+int str_to_float(const char *str, double *val, int is_time)
 {
-	return (1 == sscanf(str, "%lf", val));
+#ifdef CONFIG_ARITHMETIC
+	int rc;
+	long long ival;
+	double dval;
+
+	if (str[0] == '(') {
+		rc = evaluate_arithmetic_expression(str, &ival, &dval, 1.0, is_time);
+		if (!rc) {
+			*val = dval;
+			return 1;
+		}
+	}
+#endif
+	return 1 == sscanf(str, "%lf", val);
 }
 
 /*
  * convert string into decimal value, noting any size suffix
  */
 int str_to_decimal(const char *str, long long *val, int kilo, void *data,
-		   int is_seconds)
+		   int is_seconds, int is_time)
 {
 	int len, base;
+	int rc = 1;
+#ifdef CONFIG_ARITHMETIC
+	long long ival;
+	double dval;
+	double implied_units = 1.0;
+#endif
 
 	len = strlen(str);
 	if (!len)
 		return 1;
 
-	if (strstr(str, "0x") || strstr(str, "0X"))
-		base = 16;
-	else
-		base = 10;
+#ifdef CONFIG_ARITHMETIC
+	if (is_seconds)
+		implied_units = 1000000.0;
+	if (str[0] == '(')
+		rc = evaluate_arithmetic_expression(str, &ival, &dval, implied_units, is_time);
+	if (str[0] == '(' && !rc) {
+		if (!kilo && is_seconds)
+			*val = ival / 1000000LL;
+		else
+			*val = ival;
+	}
+#endif
 
-	*val = strtoll(str, NULL, base);
-	if (*val == LONG_MAX && errno == ERANGE)
-		return 1;
+	if (rc == 1) {
+		if (strstr(str, "0x") || strstr(str, "0X"))
+			base = 16;
+		else
+			base = 10;
+
+		*val = strtoll(str, NULL, base);
+		if (*val == LONG_MAX && errno == ERANGE)
+			return 1;
+	}
 
 	if (kilo) {
 		unsigned long long mult;
@@ -310,12 +352,12 @@ int str_to_decimal(const char *str, long long *val, int kilo, void *data,
 
 int check_str_bytes(const char *p, long long *val, void *data)
 {
-	return str_to_decimal(p, val, 1, data, 0);
+	return str_to_decimal(p, val, 1, data, 0, 0);
 }
 
 int check_str_time(const char *p, long long *val, int is_seconds)
 {
-	return str_to_decimal(p, val, 0, NULL, is_seconds);
+	return str_to_decimal(p, val, 0, NULL, is_seconds, 1);
 }
 
 void strip_blank_front(char **p)
@@ -357,7 +399,7 @@ static int check_range_bytes(const char *str, long *val, void *data)
 {
 	long long __val;
 
-	if (!str_to_decimal(str, &__val, 1, data, 0)) {
+	if (!str_to_decimal(str, &__val, 1, data, 0, 0)) {
 		*val = __val;
 		return 0;
 	}
@@ -380,7 +422,7 @@ static int check_int(const char *p, int *val)
 	return 1;
 }
 
-static int opt_len(const char *str)
+static size_t opt_len(const char *str)
 {
 	char *postfix;
 
@@ -461,6 +503,10 @@ static int __handle_option(struct fio_option *o, const char *ptr, void *data,
 		fio_opt_str_val_fn *fn = o->cb;
 		char tmp[128], *p;
 
+		if (!is_time && o->is_time)
+			is_time = o->is_time;
+
+		tmp[sizeof(tmp) - 1] = '\0';
 		strncpy(tmp, ptr, sizeof(tmp) - 1);
 		p = strchr(tmp, ',');
 		if (p)
@@ -564,7 +610,7 @@ static int __handle_option(struct fio_option *o, const char *ptr, void *data,
 					o->maxlen);
 			return 1;
 		}
-		if (!str_to_float(ptr, &uf)) {
+		if (!str_to_float(ptr, &uf, 0)) { /* this breaks if we ever have lists of times */
 			log_err("not a floating point value: %s\n", ptr);
 			return 1;
 		}
@@ -660,6 +706,7 @@ static int __handle_option(struct fio_option *o, const char *ptr, void *data,
 		char tmp[128];
 		char *p1, *p2;
 
+		tmp[sizeof(tmp) - 1] = '\0';
 		strncpy(tmp, ptr, sizeof(tmp) - 1);
 
 		/* Handle bsrange with separate read,write values: */
@@ -972,7 +1019,7 @@ int parse_option(char *opt, const char *input,
  * Option match, levenshtein distance. Handy for not quite remembering what
  * the option name is.
  */
-static int string_distance(const char *s1, const char *s2)
+int string_distance(const char *s1, const char *s2)
 {
 	unsigned int s1_len = strlen(s1);
 	unsigned int s2_len = strlen(s2);
@@ -990,11 +1037,13 @@ static int string_distance(const char *s1, const char *s2)
 		q[0] = p[0] + 1;
 		for (j = 1; j <= s2_len; j++) {
 			unsigned int sub = p[j - 1];
+			unsigned int pmin;
 
 			if (s1[i - 1] != s2[j - 1])
 				sub++;
 
-			q[j] = min(p[j] + 1, min(q[j - 1] + 1, sub));
+			pmin = min(q[j - 1] + 1, sub);
+			q[j] = min(p[j] + 1, pmin);
 		}
 		r = p;
 		p = q;
@@ -1167,7 +1216,7 @@ void option_init(struct fio_option *o)
 		o->minfp = DBL_MIN;
 		o->maxfp = DBL_MAX;
 	}
-	if (o->type == FIO_OPT_STR_SET && o->def) {
+	if (o->type == FIO_OPT_STR_SET && o->def && !o->no_warn_def) {
 		log_err("Option %s: string set option with"
 				" default will always be true\n", o->name);
 	}
@@ -1181,8 +1230,6 @@ void option_init(struct fio_option *o)
 	if (o->type == FIO_OPT_STR || o->type == FIO_OPT_STR_STORE ||
 	    o->type == FIO_OPT_STR_MULTI)
 		return;
-	if (o->cb && (o->off1 || o->off2 || o->off3 || o->off4))
-		log_err("Option %s: both cb and offset given\n", o->name);
 }
 
 /*

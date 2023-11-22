@@ -21,7 +21,7 @@
 #include "camera_common.h"
 
 /**
- * Camera device HAL 3.2 [ CAMERA_DEVICE_API_VERSION_3_2 ]
+ * Camera device HAL 3.3 [ CAMERA_DEVICE_API_VERSION_3_3 ]
  *
  * This is the current recommended version of the camera device HAL.
  *
@@ -29,8 +29,13 @@
  * android.hardware.camera2 API in LIMITED or FULL modes.
  *
  * Camera devices that support this version of the HAL must return
- * CAMERA_DEVICE_API_VERSION_3_2 in camera_device_t.common.version and in
+ * CAMERA_DEVICE_API_VERSION_3_3 in camera_device_t.common.version and in
  * camera_info_t.device_version (from camera_module_t.get_camera_info).
+ *
+ * CAMERA_DEVICE_API_VERSION_3_3:
+ *    Camera modules that may contain version 3.3 devices must implement at
+ *    least version 2.2 of the camera module interface (as defined by
+ *    camera_module_t.common.module_api_version).
  *
  * CAMERA_DEVICE_API_VERSION_3_2:
  *    Camera modules that may contain version 3.2 devices must implement at
@@ -54,6 +59,7 @@
  *   S7. Key Performance Indicator (KPI) glossary
  *   S8. Sample Use Cases
  *   S9. Notes on Controls and Metadata
+ *   S10. Reprocessing flow and controls
  */
 
 /**
@@ -119,6 +125,18 @@
  *   - change the input buffer return path. The buffer is returned in
  *     process_capture_result instead of process_capture_request.
  *
+ * 3.3: Minor revision of expanded-capability HAL:
+ *
+ *   - OPAQUE and YUV reprocessing API updates.
+ *
+ *   - Basic support for depth output buffers.
+ *
+ *   - Addition of data_space field to camera3_stream_t.
+ *
+ *   - Addition of rotation field to camera3_stream_t.
+ *
+ *   - Addition of camera3 stream configuration operation mode to camera3_stream_configuration_t
+ *
  */
 
 /**
@@ -178,8 +196,13 @@
  *    not-yet-registered streams.
  *
  * 9. When the capture of a request begins (sensor starts exposing for the
- *    capture), the HAL calls camera3_callback_ops_t->notify() with the SHUTTER
- *    event, including the frame number and the timestamp for start of exposure.
+ *    capture) or processing a reprocess request begins, the HAL
+ *    calls camera3_callback_ops_t->notify() with the SHUTTER event, including
+ *    the frame number and the timestamp for start of exposure. For a reprocess
+ *    request, the timestamp must be the start of exposure of the input image
+ *    which can be looked up with android.sensor.timestamp from
+ *    camera3_capture_request_t.settings when process_capture_request() is
+ *    called.
  *
  *    <= CAMERA_DEVICE_API_VERSION_3_1:
  *
@@ -191,7 +214,8 @@
  *    The camera3_callback_ops_t->notify() call with the SHUTTER event should
  *    be made as early as possible since the framework will be unable to
  *    deliver gralloc buffers to the application layer (for that frame) until
- *    it has a valid timestamp for the start of exposure.
+ *    it has a valid timestamp for the start of exposure (or the input image's
+ *    start of exposure for a reprocess request).
  *
  *    Both partial metadata results and the gralloc buffers may be sent to the
  *    framework at any time before or after the SHUTTER event.
@@ -1109,6 +1133,56 @@
  *       as input.
  *     - And a HAL_PIXEL_FORMAT_BLOB (JPEG) output stream.
  *
+ * S8.2 ZSL (OPAQUE) reprocessing with CAMERA3_STREAM_INPUT stream.
+ *
+ * CAMERA_DEVICE_API_VERSION_3_3:
+ *   When OPAQUE_REPROCESSING capability is supported by the camera device, the INPUT stream
+ *   can be used for application/framework implemented use case like Zero Shutter Lag (ZSL).
+ *   This kind of stream will be used by the framework as follows:
+ *
+ *   1. Application/framework configures an opaque (RAW or YUV based) format output stream that is
+ *      used to produce the ZSL output buffers. The stream pixel format will be
+ *      HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED.
+ *
+ *   2. Application/framework configures an opaque format input stream that is used to
+ *      send the reprocessing ZSL buffers to the HAL. The stream pixel format will
+ *      also be HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED.
+ *
+ *   3. Application/framework configures a YUV/JPEG output stream that is used to receive the
+ *      reprocessed data. The stream pixel format will be YCbCr_420/HAL_PIXEL_FORMAT_BLOB.
+ *
+ *   4. Application/framework picks a ZSL buffer from the ZSL output stream when a ZSL capture is
+ *      issued by the application, and sends the data back as an input buffer in a
+ *      reprocessing request, then sends to the HAL for reprocessing.
+ *
+ *   5. The HAL sends back the output YUV/JPEG result to framework.
+ *
+ *   The HAL can select the actual opaque buffer format and configure the ISP pipeline
+ *   appropriately based on the HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED format and
+ *   the gralloc usage flag GRALLOC_USAGE_HW_CAMERA_ZSL.
+
+ * S8.3 YUV reprocessing with CAMERA3_STREAM_INPUT stream.
+ *
+ *   When YUV reprocessing is supported by the HAL, the INPUT stream
+ *   can be used for the YUV reprocessing use cases like lucky-shot and image fusion.
+ *   This kind of stream will be used by the framework as follows:
+ *
+ *   1. Application/framework configures an YCbCr_420 format output stream that is
+ *      used to produce the output buffers.
+ *
+ *   2. Application/framework configures an YCbCr_420 format input stream that is used to
+ *      send the reprocessing YUV buffers to the HAL.
+ *
+ *   3. Application/framework configures a YUV/JPEG output stream that is used to receive the
+ *      reprocessed data. The stream pixel format will be YCbCr_420/HAL_PIXEL_FORMAT_BLOB.
+ *
+ *   4. Application/framework processes the output buffers (could be as simple as picking
+ *      an output buffer directly) from the output stream when a capture is issued, and sends
+ *      the data back as an input buffer in a reprocessing request, then sends to the HAL
+ *      for reprocessing.
+ *
+ *   5. The HAL sends back the output YUV/JPEG result to framework.
+ *
  */
 
 /**
@@ -1137,6 +1211,100 @@
  *      be included in the 'available modes' tag to represent this operating
  *      mode.
  */
+
+/**
+ *   S10. Reprocessing flow and controls
+ *
+ *   This section describes the OPAQUE and YUV reprocessing flow and controls. OPAQUE reprocessing
+ *   uses an opaque format that is not directly application-visible, and the application can
+ *   only select some of the output buffers and send back to HAL for reprocessing, while YUV
+ *   reprocessing gives the application opportunity to process the buffers before reprocessing.
+ *
+ *   S8 gives the stream configurations for the typical reprocessing uses cases,
+ *   this section specifies the buffer flow and controls in more details.
+ *
+ *   S10.1 OPAQUE (typically for ZSL use case) reprocessing flow and controls
+ *
+ *   For OPAQUE reprocessing (e.g. ZSL) use case, after the application creates the specific
+ *   output and input streams, runtime buffer flow and controls are specified as below:
+ *
+ *   1. Application starts output streaming by sending repeating requests for output
+ *      opaque buffers and preview. The buffers are held by an application
+ *      maintained circular buffer. The requests are based on CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG
+ *      capture template, which should have all necessary settings that guarantee output
+ *      frame rate is not slowed down relative to sensor output frame rate.
+ *
+ *   2. When a capture is issued, the application selects one output buffer based
+ *      on application buffer selection logic, e.g. good AE and AF statistics etc.
+ *      Application then creates an reprocess request based on the capture result associated
+ *      with this selected buffer. The selected output buffer is now added to this reprocess
+ *      request as an input buffer, the output buffer of this reprocess request should be
+ *      either JPEG output buffer or YUV output buffer, or both, depending on the application
+ *      choice.
+ *
+ *   3. Application then alters the reprocess settings to get best image quality. The HAL must
+ *      support and only support below controls if the HAL support OPAQUE_REPROCESSING capability:
+ *          - android.jpeg.* (if JPEG buffer is included as one of the output)
+ *          - android.noiseReduction.mode (change to HIGH_QUALITY if it is supported)
+ *          - android.edge.mode (change to HIGH_QUALITY if it is supported)
+ *       All other controls must be ignored by the HAL.
+ *   4. HAL processed the input buffer and return the output buffers in the capture results
+ *      as normal.
+ *
+ *   S10.2 YUV reprocessing flow and controls
+ *
+ *   The YUV reprocessing buffer flow is similar as OPAQUE reprocessing, with below difference:
+ *
+ *   1. Application may want to have finer granularity control of the intermediate YUV images
+ *      (before reprocessing). For example, application may choose
+ *          - android.noiseReduction.mode == MINIMAL
+ *      to make sure the no YUV domain noise reduction has applied to the output YUV buffers,
+ *      then it can do its own advanced noise reduction on them. For OPAQUE reprocessing case, this
+ *      doesn't matter, as long as the final reprocessed image has the best quality.
+ *   2. Application may modify the YUV output buffer data. For example, for image fusion use
+ *      case, where multiple output images are merged together to improve the signal-to-noise
+ *      ratio (SNR). The input buffer may be generated from multiple buffers by the application.
+ *      To avoid excessive amount of noise reduction and insufficient amount of edge enhancement
+ *      being applied to the input buffer, the application can hint the HAL  how much effective
+ *      exposure time improvement has been done by the application, then the HAL can adjust the
+ *      noise reduction and edge enhancement paramters to get best reprocessed image quality.
+ *      Below tag can be used for this purpose:
+ *          - android.reprocess.effectiveExposureFactor
+ *      The value would be exposure time increase factor applied to the original output image,
+ *      for example, if there are N image merged, the exposure time increase factor would be up
+ *      to sqrt(N). See this tag spec for more details.
+ *
+ *   S10.3 Reprocessing pipeline characteristics
+ *
+ *   Reprocessing pipeline has below different characteristics comparing with normal output
+ *   pipeline:
+ *
+ *   1. The reprocessing result can be returned ahead of the pending normal output results. But
+ *      the FIFO ordering must be maintained for all reprocessing results. For example, there are
+ *      below requests (A stands for output requests, B stands for reprocessing requests)
+ *      being processed by the HAL:
+ *          A1, A2, A3, A4, B1, A5, B2, A6...
+ *      result of B1 can be returned before A1-A4, but result of B2 must be returned after B1.
+ *   2. Single input rule: For a given reprocessing request, all output buffers must be from the
+ *      input buffer, rather than sensor output. For example, if a reprocess request include both
+ *      JPEG and preview buffers, all output buffers must be produced from the input buffer
+ *      included by the reprocessing request, rather than sensor. The HAL must not output preview
+ *      buffers from sensor, while output JPEG buffer from the input buffer.
+ *   3. Input buffer will be from camera output directly (ZSL case) or indirectly(image fusion
+ *      case). For the case where buffer is modified, the size will remain same. The HAL can
+ *      notify CAMERA3_MSG_ERROR_REQUEST if buffer from unknown source is sent.
+ *   4. Result as reprocessing request: The HAL can expect that a reprocessing request is a copy
+ *      of one of the output results with minor allowed setting changes. The HAL can notify
+ *      CAMERA3_MSG_ERROR_REQUEST if a request from unknown source is issued.
+ *   5. Output buffers may not be used as inputs across the configure stream boundary, This is
+ *      because an opaque stream like the ZSL output stream may have different actual image size
+ *      inside of the ZSL buffer to save power and bandwidth for smaller resolution JPEG capture.
+ *      The HAL may notify CAMERA3_MSG_ERROR_REQUEST if this case occurs.
+ *   6. HAL Reprocess requests error reporting during flush should follow the same rule specified
+ *      by flush() method.
+ *
+ */
+
 __BEGIN_DECLS
 
 struct camera3_device;
@@ -1184,6 +1352,9 @@ typedef enum camera3_stream_type {
      * quality images (that otherwise would cause a frame rate performance
      * loss), or to do off-line reprocessing.
      *
+     * CAMERA_DEVICE_API_VERSION_3_3:
+     *    The typical use cases are OPAQUE (typically ZSL) and YUV reprocessing,
+     *    see S8.2, S8.3 and S10 for more details.
      */
     CAMERA3_STREAM_INPUT = 1,
 
@@ -1207,6 +1378,102 @@ typedef enum camera3_stream_type {
     CAMERA3_NUM_STREAM_TYPES
 
 } camera3_stream_type_t;
+
+/**
+ * camera3_stream_rotation_t:
+ *
+ * The required counterclockwise rotation of camera stream.
+ */
+typedef enum camera3_stream_rotation {
+    /* No rotation */
+    CAMERA3_STREAM_ROTATION_0 = 0,
+
+    /* Rotate by 90 degree counterclockwise */
+    CAMERA3_STREAM_ROTATION_90 = 1,
+
+    /* Rotate by 180 degree counterclockwise */
+    CAMERA3_STREAM_ROTATION_180 = 2,
+
+    /* Rotate by 270 degree counterclockwise */
+    CAMERA3_STREAM_ROTATION_270 = 3
+} camera3_stream_rotation_t;
+
+/**
+ * camera3_stream_configuration_mode_t:
+ *
+ * This defines the general operation mode for the HAL (for a given stream configuration), where
+ * modes besides NORMAL have different semantics, and usually limit the generality of the API in
+ * exchange for higher performance in some particular area.
+ */
+typedef enum camera3_stream_configuration_mode {
+    /**
+     * Normal stream configuration operation mode. This is the default camera operation mode,
+     * where all semantics of HAL APIs and metadata controls apply.
+     */
+    CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE = 0,
+
+    /**
+     * Special constrained high speed operation mode for devices that can not support high
+     * speed output in NORMAL mode. All streams in this configuration are operating at high speed
+     * mode and have different characteristics and limitations to achieve high speed output.
+     * The NORMAL mode can still be used for high speed output if the HAL can support high speed
+     * output while satisfying all the semantics of HAL APIs and metadata controls. It is
+     * recommended for the HAL to support high speed output in NORMAL mode (by advertising the high
+     * speed FPS ranges in android.control.aeAvailableTargetFpsRanges) if possible.
+     *
+     * This mode has below limitations/requirements:
+     *
+     *   1. The HAL must support up to 2 streams with sizes reported by
+     *      android.control.availableHighSpeedVideoConfigurations.
+     *   2. In this mode, the HAL is expected to output up to 120fps or higher. This mode must
+     *      support the targeted FPS range and size configurations reported by
+     *      android.control.availableHighSpeedVideoConfigurations.
+     *   3. The HAL must support HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED output stream format.
+     *   4. To achieve efficient high speed streaming, the HAL may have to aggregate
+     *      multiple frames together and send to camera device for processing where the request
+     *      controls are same for all the frames in this batch (batch mode). The HAL must support
+     *      max batch size and the max batch size requirements defined by
+     *      android.control.availableHighSpeedVideoConfigurations.
+     *   5. In this mode, the HAL must override aeMode, awbMode, and afMode to ON, ON, and
+     *      CONTINUOUS_VIDEO, respectively. All post-processing block mode controls must be
+     *      overridden to be FAST. Therefore, no manual control of capture and post-processing
+     *      parameters is possible. All other controls operate the same as when
+     *      android.control.mode == AUTO. This means that all other android.control.* fields
+     *      must continue to work, such as
+     *
+     *      android.control.aeTargetFpsRange
+     *      android.control.aeExposureCompensation
+     *      android.control.aeLock
+     *      android.control.awbLock
+     *      android.control.effectMode
+     *      android.control.aeRegions
+     *      android.control.afRegions
+     *      android.control.awbRegions
+     *      android.control.afTrigger
+     *      android.control.aePrecaptureTrigger
+     *
+     *      Outside of android.control.*, the following controls must work:
+     *
+     *      android.flash.mode (TORCH mode only, automatic flash for still capture will not work
+     *      since aeMode is ON)
+     *      android.lens.opticalStabilizationMode (if it is supported)
+     *      android.scaler.cropRegion
+     *      android.statistics.faceDetectMode (if it is supported)
+     *
+     * For more details about high speed stream requirements, see
+     * android.control.availableHighSpeedVideoConfigurations and CONSTRAINED_HIGH_SPEED_VIDEO
+     * capability defined in android.request.availableCapabilities.
+     *
+     * This mode only needs to be supported by HALs that include CONSTRAINED_HIGH_SPEED_VIDEO in
+     * the android.request.availableCapabilities static metadata.
+     */
+    CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE = 1,
+
+    /**
+     * First value for vendor-defined stream configuration modes.
+     */
+    CAMERA3_VENDOR_STREAM_CONFIGURATION_MODE_START = 0x8000
+} camera3_stream_configuration_mode_t;
 
 /**
  * camera3_stream_t:
@@ -1326,6 +1593,61 @@ typedef struct camera3_stream {
      */
     void *priv;
 
+    /**
+     * A field that describes the contents of the buffer. The format and buffer
+     * dimensions define the memory layout and structure of the stream buffers,
+     * while dataSpace defines the meaning of the data within the buffer.
+     *
+     * For most formats, dataSpace defines the color space of the image data.
+     * In addition, for some formats, dataSpace indicates whether image- or
+     * depth-based data is requested.  See system/core/include/system/graphics.h
+     * for details of formats and valid dataSpace values for each format.
+     *
+     * Version information:
+     *
+     * < CAMERA_DEVICE_API_VERSION_3_3:
+     *
+     *   Not defined and should not be accessed. dataSpace should be assumed to
+     *   be HAL_DATASPACE_UNKNOWN, and the appropriate color space, etc, should
+     *   be determined from the usage flags and the format.
+     *
+     * >= CAMERA_DEVICE_API_VERSION_3_3:
+     *
+     *   Always set by the camera service. HAL must use this dataSpace to
+     *   configure the stream to the correct colorspace, or to select between
+     *   color and depth outputs if supported.
+     */
+    android_dataspace_t data_space;
+
+    /**
+     * The required output rotation of the stream, one of
+     * the camera3_stream_rotation_t values. This must be inspected by HAL along
+     * with stream width and height. For example, if the rotation is 90 degree
+     * and the stream width and height is 720 and 1280 respectively, camera service
+     * will supply buffers of size 720x1280, and HAL should capture a 1280x720 image
+     * and rotate the image by 90 degree counterclockwise. The rotation field is
+     * no-op when the stream type is input. Camera HAL must ignore the rotation
+     * field for an input stream.
+     *
+     * <= CAMERA_DEVICE_API_VERSION_3_2:
+     *
+     *    Not defined and must not be accessed. HAL must not apply any rotation
+     *    on output images.
+     *
+     * >= CAMERA_DEVICE_API_VERSION_3_3:
+     *
+     *    Always set by camera service. HAL must inspect this field during stream
+     *    configuration and returns -EINVAL if HAL cannot perform such rotation.
+     *    HAL must always support CAMERA3_STREAM_ROTATION_0, so a
+     *    configure_streams() call must not fail for unsupported rotation if
+     *    rotation field of all streams is CAMERA3_STREAM_ROTATION_0.
+     *
+     */
+    int rotation;
+
+    /* reserved for future use */
+    void *reserved[7];
+
 } camera3_stream_t;
 
 /**
@@ -1355,6 +1677,19 @@ typedef struct camera3_stream_configuration {
      */
     camera3_stream_t **streams;
 
+    /**
+     * >= CAMERA_DEVICE_API_VERSION_3_3:
+     *
+     * The operation mode of streams in this configuration, one of the value defined in
+     * camera3_stream_configuration_mode_t.
+     * The HAL can use this mode as an indicator to set the stream property (e.g.,
+     * camera3_stream->max_buffers) appropriately. For example, if the configuration is
+     * CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE, the HAL may want to set aside more
+     * buffers for batch mode operation (see android.control.availableHighSpeedVideoConfigurations
+     * for batch mode definition).
+     *
+     */
+    uint32_t operation_mode;
 } camera3_stream_configuration_t;
 
 /**
@@ -1550,7 +1885,7 @@ typedef enum camera3_msg_type {
     CAMERA3_MSG_ERROR = 1,
 
     /**
-     * The exposure of a given request has
+     * The exposure of a given request or processing a reprocess request has
      * begun. camera3_notify_msg.message.shutter contains the information
      * the capture.
      */
@@ -1641,12 +1976,13 @@ typedef struct camera3_error_msg {
  */
 typedef struct camera3_shutter_msg {
     /**
-     * Frame number of the request that has begun exposure
+     * Frame number of the request that has begun exposure or reprocessing.
      */
     uint32_t frame_number;
 
     /**
-     * Timestamp for the start of capture. This must match the capture result
+     * Timestamp for the start of capture. For a reprocess request, this must
+     * be input image's start of capture. This must match the capture result
      * metadata's sensor exposure start timestamp.
      */
     uint64_t timestamp;
@@ -2120,9 +2456,10 @@ typedef struct camera3_callback_ops {
      * >= CAMERA_DEVICE_API_VERSION_3_2:
      *
      * Buffers delivered to the framework will not be dispatched to the
-     * application layer until a start of exposure timestamp has been received
-     * via a SHUTTER notify() call. It is highly recommended to
-     * dispatch this call as early as possible.
+     * application layer until a start of exposure timestamp (or input image's
+     * start of exposure timestamp for a reprocess request) has been received
+     * via a SHUTTER notify() call. It is highly recommended to dispatch this
+     * call as early as possible.
      *
      * ------------------------------------------------------------------------
      * Performance requirements:
@@ -2380,6 +2717,14 @@ typedef struct camera3_device_ops {
      *
      *          - Including too many output streams of a certain format.
      *
+     *          - Unsupported rotation configuration (only applies to
+     *            devices with version >= CAMERA_DEVICE_API_VERSION_3_3)
+     *
+     *          - Stream sizes/formats don't satisfy the
+     *            camera3_stream_configuration_t->operation_mode requirements for non-NORMAL mode,
+     *            or the requested operation_mode is not supported by the HAL.
+     *            (only applies to devices with version >= CAMERA_DEVICE_API_VERSION_3_3)
+     *
      *          Note that the framework submitting an invalid stream
      *          configuration is not normal operation, since stream
      *          configurations are checked before configure. An invalid
@@ -2613,6 +2958,14 @@ typedef struct camera3_device_ops {
      * interruptible hardware blocks should be stopped, and any uninterruptible
      * blocks should be waited on.
      *
+     * flush() may be called concurrently to process_capture_request(), with the expectation that
+     * process_capture_request will return quickly and the request submitted in that
+     * process_capture_request call is treated like all other in-flight requests.  Due to
+     * concurrency issues, it is possible that from the HAL's point of view, a
+     * process_capture_request() call may be started after flush has been invoked but has not
+     * returned yet. If such a call happens before flush() returns, the HAL should treat the new
+     * capture request like other in-flight pending requests (see #4 below).
+     *
      * More specifically, the HAL must follow below requirements for various cases:
      *
      * 1. For captures that are too late for the HAL to cancel/stop, and will be
@@ -2656,6 +3009,12 @@ typedef struct camera3_device_ops {
      *
      *    3.7. For fully-missing metadata, calling CAMERA3_MSG_ERROR_RESULT is sufficient, no
      *         need to call process_capture_result with NULL metadata or equivalent.
+     *
+     * 4. If a flush() is invoked while a process_capture_request() invocation is active, that
+     *    process call should return as soon as possible. In addition, if a process_capture_request()
+     *    call is made after flush() has been invoked but before flush() has returned, the
+     *    capture request provided by the late process_capture_request call should be treated like
+     *    a pending request in case #2 above.
      *
      * flush() should only return when there are no more outstanding buffers or
      * requests left in the HAL. The framework may call configure_streams (as

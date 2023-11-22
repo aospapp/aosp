@@ -19,18 +19,11 @@
 #include "tsan_flags.h"
 
 // May be overriden by front-end.
-extern "C" void WEAK __tsan_malloc_hook(void *ptr, uptr size) {
-  (void)ptr;
-  (void)size;
-}
 extern "C" void WEAK __sanitizer_malloc_hook(void *ptr, uptr size) {
   (void)ptr;
   (void)size;
 }
 
-extern "C" void WEAK __tsan_free_hook(void *ptr) {
-  (void)ptr;
-}
 extern "C" void WEAK __sanitizer_free_hook(void *ptr) {
   (void)ptr;
 }
@@ -52,7 +45,7 @@ Allocator *allocator() {
 }
 
 void InitializeAllocator() {
-  allocator()->Init();
+  allocator()->Init(common_flags()->allocator_may_return_null);
 }
 
 void AllocatorThreadStart(ThreadState *thr) {
@@ -70,35 +63,47 @@ void AllocatorPrintStats() {
 }
 
 static void SignalUnsafeCall(ThreadState *thr, uptr pc) {
-  if (!thr->in_signal_handler || !flags()->report_signal_unsafe)
+  if (atomic_load(&thr->in_signal_handler, memory_order_relaxed) == 0 ||
+      !flags()->report_signal_unsafe)
     return;
-  StackTrace stack;
-  stack.ObtainCurrent(thr, pc);
+  VarSizeStackTrace stack;
+  ObtainCurrentStack(thr, pc, &stack);
   ThreadRegistryLock l(ctx->thread_registry);
   ScopedReport rep(ReportTypeSignalUnsafe);
   if (!IsFiredSuppression(ctx, rep, stack)) {
-    rep.AddStack(&stack, true);
+    rep.AddStack(stack, true);
     OutputReport(thr, rep);
   }
 }
 
-void *user_alloc(ThreadState *thr, uptr pc, uptr sz, uptr align) {
+void *user_alloc(ThreadState *thr, uptr pc, uptr sz, uptr align, bool signal) {
   if ((sz >= (1ull << 40)) || (align >= (1ull << 40)))
-    return AllocatorReturnNull();
+    return allocator()->ReturnNullOrDie();
   void *p = allocator()->Allocate(&thr->alloc_cache, sz, align);
   if (p == 0)
     return 0;
   if (ctx && ctx->initialized)
     OnUserAlloc(thr, pc, (uptr)p, sz, true);
-  SignalUnsafeCall(thr, pc);
+  if (signal)
+    SignalUnsafeCall(thr, pc);
   return p;
 }
 
-void user_free(ThreadState *thr, uptr pc, void *p) {
+void *user_calloc(ThreadState *thr, uptr pc, uptr size, uptr n) {
+  if (CallocShouldReturnNullDueToOverflow(size, n))
+    return allocator()->ReturnNullOrDie();
+  void *p = user_alloc(thr, pc, n * size);
+  if (p)
+    internal_memset(p, 0, n * size);
+  return p;
+}
+
+void user_free(ThreadState *thr, uptr pc, void *p, bool signal) {
   if (ctx && ctx->initialized)
     OnUserFree(thr, pc, (uptr)p, true);
   allocator()->Deallocate(&thr->alloc_cache, p);
-  SignalUnsafeCall(thr, pc);
+  if (signal)
+    SignalUnsafeCall(thr, pc);
 }
 
 void OnUserAlloc(ThreadState *thr, uptr pc, uptr p, uptr sz, bool write) {
@@ -147,7 +152,6 @@ void invoke_malloc_hook(void *ptr, uptr size) {
   ThreadState *thr = cur_thread();
   if (ctx == 0 || !ctx->initialized || thr->ignore_interceptors)
     return;
-  __tsan_malloc_hook(ptr, size);
   __sanitizer_malloc_hook(ptr, size);
 }
 
@@ -155,13 +159,11 @@ void invoke_free_hook(void *ptr) {
   ThreadState *thr = cur_thread();
   if (ctx == 0 || !ctx->initialized || thr->ignore_interceptors)
     return;
-  __tsan_free_hook(ptr);
   __sanitizer_free_hook(ptr);
 }
 
 void *internal_alloc(MBlockType typ, uptr sz) {
   ThreadState *thr = cur_thread();
-  CHECK_LE(sz, InternalSizeClassMap::kMaxSize);
   if (thr->nomalloc) {
     thr->nomalloc = 0;  // CHECK calls internal_malloc().
     CHECK(0);
@@ -188,52 +190,31 @@ uptr __sanitizer_get_current_allocated_bytes() {
   allocator()->GetStats(stats);
   return stats[AllocatorStatAllocated];
 }
-uptr __tsan_get_current_allocated_bytes() {
-  return __sanitizer_get_current_allocated_bytes();
-}
 
 uptr __sanitizer_get_heap_size() {
   uptr stats[AllocatorStatCount];
   allocator()->GetStats(stats);
   return stats[AllocatorStatMapped];
 }
-uptr __tsan_get_heap_size() {
-  return __sanitizer_get_heap_size();
-}
 
 uptr __sanitizer_get_free_bytes() {
   return 1;
-}
-uptr __tsan_get_free_bytes() {
-  return __sanitizer_get_free_bytes();
 }
 
 uptr __sanitizer_get_unmapped_bytes() {
   return 1;
 }
-uptr __tsan_get_unmapped_bytes() {
-  return __sanitizer_get_unmapped_bytes();
-}
 
 uptr __sanitizer_get_estimated_allocated_size(uptr size) {
   return size;
-}
-uptr __tsan_get_estimated_allocated_size(uptr size) {
-  return __sanitizer_get_estimated_allocated_size(size);
 }
 
 int __sanitizer_get_ownership(const void *p) {
   return allocator()->GetBlockBegin(p) != 0;
 }
-int __tsan_get_ownership(const void *p) {
-  return __sanitizer_get_ownership(p);
-}
 
 uptr __sanitizer_get_allocated_size(const void *p) {
   return user_alloc_usable_size(p);
-}
-uptr __tsan_get_allocated_size(const void *p) {
-  return __sanitizer_get_allocated_size(p);
 }
 
 void __tsan_on_thread_idle() {

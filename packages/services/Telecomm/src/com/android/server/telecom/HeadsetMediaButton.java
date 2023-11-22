@@ -20,12 +20,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.session.MediaSession;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.view.KeyEvent;
 
 /**
  * Static class to handle listening to the headset media buttons.
  */
-final class HeadsetMediaButton extends CallsManagerListenerBase {
+public class HeadsetMediaButton extends CallsManagerListenerBase {
 
     // Types of media button presses
     static final int SHORT_PRESS = 1;
@@ -35,35 +38,72 @@ final class HeadsetMediaButton extends CallsManagerListenerBase {
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION).build();
 
+    private static final int MSG_MEDIA_SESSION_INITIALIZE = 0;
+    private static final int MSG_MEDIA_SESSION_SET_ACTIVE = 1;
+
     private final MediaSession.Callback mSessionCallback = new MediaSession.Callback() {
         @Override
         public boolean onMediaButtonEvent(Intent intent) {
             KeyEvent event = (KeyEvent) intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
             Log.v(this, "SessionCallback.onMediaButton()...  event = %s.", event);
             if ((event != null) && (event.getKeyCode() == KeyEvent.KEYCODE_HEADSETHOOK)) {
-                Log.v(this, "SessionCallback: HEADSETHOOK");
-                boolean consumed = handleHeadsetHook(event);
-                Log.v(this, "==> handleHeadsetHook(): consumed = %b.", consumed);
-                return consumed;
+                synchronized (mLock) {
+                    Log.v(this, "SessionCallback: HEADSETHOOK");
+                    boolean consumed = handleHeadsetHook(event);
+                    Log.v(this, "==> handleHeadsetHook(): consumed = %b.", consumed);
+                    return consumed;
+                }
             }
             return true;
         }
     };
 
+    private final Handler mMediaSessionHandler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MSG_MEDIA_SESSION_INITIALIZE: {
+                    MediaSession session = new MediaSession(
+                            mContext,
+                            HeadsetMediaButton.class.getSimpleName());
+                    session.setCallback(mSessionCallback);
+                    session.setFlags(MediaSession.FLAG_EXCLUSIVE_GLOBAL_PRIORITY
+                            | MediaSession.FLAG_HANDLES_MEDIA_BUTTONS);
+                    session.setPlaybackToLocal(AUDIO_ATTRIBUTES);
+                    mSession = session;
+                    break;
+                }
+                case MSG_MEDIA_SESSION_SET_ACTIVE: {
+                    if (mSession != null) {
+                        boolean activate = msg.arg1 != 0;
+                        if (activate != mSession.isActive()) {
+                            mSession.setActive(activate);
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+    };
+
+    private final Context mContext;
     private final CallsManager mCallsManager;
+    private final TelecomSystem.SyncRoot mLock;
+    private MediaSession mSession;
 
-    private final MediaSession mSession;
-
-    HeadsetMediaButton(Context context, CallsManager callsManager) {
+    public HeadsetMediaButton(
+            Context context,
+            CallsManager callsManager,
+            TelecomSystem.SyncRoot lock) {
+        mContext = context;
         mCallsManager = callsManager;
+        mLock = lock;
 
         // Create a MediaSession but don't enable it yet. This is a
         // replacement for MediaButtonReceiver
-        mSession = new MediaSession(context, HeadsetMediaButton.class.getSimpleName());
-        mSession.setCallback(mSessionCallback);
-        mSession.setFlags(MediaSession.FLAG_EXCLUSIVE_GLOBAL_PRIORITY
-                | MediaSession.FLAG_HANDLES_MEDIA_BUTTONS);
-        mSession.setPlaybackToLocal(AUDIO_ATTRIBUTES);
+        mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_INITIALIZE).sendToTarget();
     }
 
     /**
@@ -86,18 +126,14 @@ final class HeadsetMediaButton extends CallsManagerListenerBase {
     /** ${inheritDoc} */
     @Override
     public void onCallAdded(Call call) {
-        if (!mSession.isActive()) {
-            mSession.setActive(true);
-        }
+        mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 1, 0).sendToTarget();
     }
 
     /** ${inheritDoc} */
     @Override
     public void onCallRemoved(Call call) {
         if (!mCallsManager.hasAnyCalls()) {
-            if (mSession.isActive()) {
-                mSession.setActive(false);
-            }
+            mMediaSessionHandler.obtainMessage(MSG_MEDIA_SESSION_SET_ACTIVE, 0, 0).sendToTarget();
         }
     }
 }

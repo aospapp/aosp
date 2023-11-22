@@ -248,12 +248,14 @@ public class MediaCodecCencPlayer implements MediaTimeProvider {
 
         if (null == mCrypto && (mEncryptedVideo || mEncryptedAudio)) {
             try {
-                mCrypto = new MediaCrypto(CLEARKEY_SCHEME_UUID, mSessionId);
+                byte[] initData = new byte[0];
+                mCrypto = new MediaCrypto(CLEARKEY_SCHEME_UUID, initData);
             } catch (MediaCryptoException e) {
                 reset();
                 Log.e(TAG, "Failed to create MediaCrypto instance.");
                 throw e;
             }
+            mCrypto.setMediaDrmSession(mSessionId);
         } else {
             reset();
             mCrypto.release();

@@ -16,7 +16,9 @@
 
 package com.android.testingcamera2.v1;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -108,7 +110,7 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     private final Set<View> mManualControls = new HashSet<View>();
     private final Set<View> mAutoControls = new HashSet<View>();
 
-
+    private static final int PERMISSIONS_REQUEST_CAMERA = 1;
 
     Handler mMainHandler;
     boolean mUseMediaCodec;
@@ -196,9 +198,45 @@ public class TestingCamera2 extends Activity implements SurfaceHolder.Callback {
     @Override
     public void onResume() {
         super.onResume();
-        try {
-            if (VERBOSE) Log.v(TAG, String.format("onResume"));
+        if (VERBOSE) Log.v(TAG, String.format("onResume"));
 
+        if ((checkSelfPermission(Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED )
+            || (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED)
+            || (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)) {
+            Log.i(TAG, "Requested camera/video permissions");
+            requestPermissions(new String[] {
+                        Manifest.permission.CAMERA,
+                        Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    PERMISSIONS_REQUEST_CAMERA);
+            return;
+        }
+
+        setUpPreview();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_CAMERA) {
+            for (int i = 0; i < grantResults.length; i++) {
+                if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
+                    Log.i(TAG, "At least one permission denied, can't continue: " + permissions[i]);
+                    finish();
+                    return;
+                }
+            }
+
+            Log.i(TAG, "All permissions granted");
+            setUpPreview();
+        }
+    }
+
+    private void setUpPreview() {
+        try {
             mCameraOps.minimalPreviewConfig(mPreviewView.getHolder());
             mCurrentPreviewHolder = mPreviewView.getHolder();
         } catch (ApiFailureException e) {

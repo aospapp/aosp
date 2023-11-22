@@ -259,6 +259,12 @@ int EmulatedCameraFactory::setCallbacks(
     return OK;
 }
 
+void EmulatedCameraFactory::getVendorTagOps(vendor_tag_ops_t* ops) {
+    ALOGV("%s: ops = %p", __FUNCTION__, ops);
+
+    // No vendor tags defined for emulator yet, so not touching ops
+}
+
 /****************************************************************************
  * Camera HAL API callbacks.
  ***************************************************************************/
@@ -300,6 +306,17 @@ int EmulatedCameraFactory::set_callbacks(
         const camera_module_callbacks_t *callbacks)
 {
     return gEmulatedCameraFactory.setCallbacks(callbacks);
+}
+
+void EmulatedCameraFactory::get_vendor_tag_ops(vendor_tag_ops_t* ops)
+{
+    gEmulatedCameraFactory.getVendorTagOps(ops);
+}
+
+int EmulatedCameraFactory::open_legacy(const struct hw_module_t* module,
+        const char* id, uint32_t halVersion, struct hw_device_t** device) {
+    // Not supporting legacy open
+    return -ENOSYS;
 }
 
 /********************************************************************************

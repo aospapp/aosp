@@ -17,830 +17,928 @@
 #include <algorithm>
 #include <memory>
 
-#include "compiler_internals.h"
+#include "base/logging.h"
+#include "base/scoped_arena_containers.h"
 #include "dataflow_iterator-inl.h"
-#include "dex_instruction.h"
+#include "compiler_ir.h"
+#include "dex_flags.h"
 #include "dex_instruction-inl.h"
+#include "dex/mir_field_info.h"
 #include "dex/verified_method.h"
 #include "dex/quick/dex_file_method_inliner.h"
 #include "dex/quick/dex_file_to_method_inliner_map.h"
+#include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
-#include "utils/scoped_arena_containers.h"
+#include "driver/dex_compilation_unit.h"
+#include "utils.h"
 
 namespace art {
 
-  // Instruction characteristics used to statically identify computation-intensive methods.
-const uint32_t MIRGraph::analysis_attributes_[kMirOpLast] = {
+enum InstructionAnalysisAttributeOps : uint8_t {
+  kUninterestingOp = 0,
+  kArithmeticOp,
+  kFpOp,
+  kSingleOp,
+  kDoubleOp,
+  kIntOp,
+  kLongOp,
+  kBranchOp,
+  kInvokeOp,
+  kArrayOp,
+  kHeavyweightOp,
+  kSimpleConstOp,
+  kMoveOp,
+  kSwitch
+};
+
+enum InstructionAnalysisAttributeMasks : uint16_t {
+  kAnNone = 1 << kUninterestingOp,
+  kAnMath = 1 << kArithmeticOp,
+  kAnFp = 1 << kFpOp,
+  kAnLong = 1 << kLongOp,
+  kAnInt = 1 << kIntOp,
+  kAnSingle = 1 << kSingleOp,
+  kAnDouble = 1 << kDoubleOp,
+  kAnFloatMath = 1 << kFpOp,
+  kAnBranch = 1 << kBranchOp,
+  kAnInvoke = 1 << kInvokeOp,
+  kAnArrayOp = 1 << kArrayOp,
+  kAnHeavyWeight = 1 << kHeavyweightOp,
+  kAnSimpleConst = 1 << kSimpleConstOp,
+  kAnMove = 1 << kMoveOp,
+  kAnSwitch = 1 << kSwitch,
+  kAnComputational = kAnMath | kAnArrayOp | kAnMove | kAnSimpleConst,
+};
+
+// Instruction characteristics used to statically identify computation-intensive methods.
+static const uint16_t kAnalysisAttributes[kMirOpLast] = {
   // 00 NOP
-  AN_NONE,
+  kAnNone,
 
   // 01 MOVE vA, vB
-  AN_MOVE,
+  kAnMove,
 
   // 02 MOVE_FROM16 vAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 03 MOVE_16 vAAAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 04 MOVE_WIDE vA, vB
-  AN_MOVE,
+  kAnMove,
 
   // 05 MOVE_WIDE_FROM16 vAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 06 MOVE_WIDE_16 vAAAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 07 MOVE_OBJECT vA, vB
-  AN_MOVE,
+  kAnMove,
 
   // 08 MOVE_OBJECT_FROM16 vAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 09 MOVE_OBJECT_16 vAAAA, vBBBB
-  AN_MOVE,
+  kAnMove,
 
   // 0A MOVE_RESULT vAA
-  AN_MOVE,
+  kAnMove,
 
   // 0B MOVE_RESULT_WIDE vAA
-  AN_MOVE,
+  kAnMove,
 
   // 0C MOVE_RESULT_OBJECT vAA
-  AN_MOVE,
+  kAnMove,
 
   // 0D MOVE_EXCEPTION vAA
-  AN_MOVE,
+  kAnMove,
 
   // 0E RETURN_VOID
-  AN_BRANCH,
+  kAnBranch,
 
   // 0F RETURN vAA
-  AN_BRANCH,
+  kAnBranch,
 
   // 10 RETURN_WIDE vAA
-  AN_BRANCH,
+  kAnBranch,
 
   // 11 RETURN_OBJECT vAA
-  AN_BRANCH,
+  kAnBranch,
 
   // 12 CONST_4 vA, #+B
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 13 CONST_16 vAA, #+BBBB
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 14 CONST vAA, #+BBBBBBBB
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 15 CONST_HIGH16 VAA, #+BBBB0000
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 16 CONST_WIDE_16 vAA, #+BBBB
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 17 CONST_WIDE_32 vAA, #+BBBBBBBB
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 18 CONST_WIDE vAA, #+BBBBBBBBBBBBBBBB
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 19 CONST_WIDE_HIGH16 vAA, #+BBBB000000000000
-  AN_SIMPLECONST,
+  kAnSimpleConst,
 
   // 1A CONST_STRING vAA, string@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 1B CONST_STRING_JUMBO vAA, string@BBBBBBBB
-  AN_NONE,
+  kAnNone,
 
   // 1C CONST_CLASS vAA, type@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 1D MONITOR_ENTER vAA
-  AN_NONE,
+  kAnNone,
 
   // 1E MONITOR_EXIT vAA
-  AN_NONE,
+  kAnNone,
 
   // 1F CHK_CAST vAA, type@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 20 INSTANCE_OF vA, vB, type@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 21 ARRAY_LENGTH vA, vB
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 22 NEW_INSTANCE vAA, type@BBBB
-  AN_HEAVYWEIGHT,
+  kAnHeavyWeight,
 
   // 23 NEW_ARRAY vA, vB, type@CCCC
-  AN_HEAVYWEIGHT,
+  kAnHeavyWeight,
 
   // 24 FILLED_NEW_ARRAY {vD, vE, vF, vG, vA}
-  AN_HEAVYWEIGHT,
+  kAnHeavyWeight,
 
   // 25 FILLED_NEW_ARRAY_RANGE {vCCCC .. vNNNN}, type@BBBB
-  AN_HEAVYWEIGHT,
+  kAnHeavyWeight,
 
   // 26 FILL_ARRAY_DATA vAA, +BBBBBBBB
-  AN_NONE,
+  kAnNone,
 
   // 27 THROW vAA
-  AN_HEAVYWEIGHT | AN_BRANCH,
+  kAnHeavyWeight | kAnBranch,
 
   // 28 GOTO
-  AN_BRANCH,
+  kAnBranch,
 
   // 29 GOTO_16
-  AN_BRANCH,
+  kAnBranch,
 
   // 2A GOTO_32
-  AN_BRANCH,
+  kAnBranch,
 
   // 2B PACKED_SWITCH vAA, +BBBBBBBB
-  AN_SWITCH,
+  kAnSwitch,
 
   // 2C SPARSE_SWITCH vAA, +BBBBBBBB
-  AN_SWITCH,
+  kAnSwitch,
 
   // 2D CMPL_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // 2E CMPG_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // 2F CMPL_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // 30 CMPG_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // 31 CMP_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 32 IF_EQ vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 33 IF_NE vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 34 IF_LT vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 35 IF_GE vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 36 IF_GT vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 37 IF_LE vA, vB, +CCCC
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 38 IF_EQZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 39 IF_NEZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 3A IF_LTZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 3B IF_GEZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 3C IF_GTZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 3D IF_LEZ vAA, +BBBB
-  AN_MATH | AN_BRANCH | AN_INT,
+  kAnMath | kAnBranch | kAnInt,
 
   // 3E UNUSED_3E
-  AN_NONE,
+  kAnNone,
 
   // 3F UNUSED_3F
-  AN_NONE,
+  kAnNone,
 
   // 40 UNUSED_40
-  AN_NONE,
+  kAnNone,
 
   // 41 UNUSED_41
-  AN_NONE,
+  kAnNone,
 
   // 42 UNUSED_42
-  AN_NONE,
+  kAnNone,
 
   // 43 UNUSED_43
-  AN_NONE,
+  kAnNone,
 
   // 44 AGET vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 45 AGET_WIDE vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 46 AGET_OBJECT vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 47 AGET_BOOLEAN vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 48 AGET_BYTE vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 49 AGET_CHAR vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4A AGET_SHORT vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4B APUT vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4C APUT_WIDE vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4D APUT_OBJECT vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4E APUT_BOOLEAN vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 4F APUT_BYTE vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 50 APUT_CHAR vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 51 APUT_SHORT vAA, vBB, vCC
-  AN_ARRAYOP,
+  kAnArrayOp,
 
   // 52 IGET vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 53 IGET_WIDE vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 54 IGET_OBJECT vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 55 IGET_BOOLEAN vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 56 IGET_BYTE vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 57 IGET_CHAR vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 58 IGET_SHORT vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 59 IPUT vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5A IPUT_WIDE vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5B IPUT_OBJECT vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5C IPUT_BOOLEAN vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5D IPUT_BYTE vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5E IPUT_CHAR vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 5F IPUT_SHORT vA, vB, field@CCCC
-  AN_NONE,
+  kAnNone,
 
   // 60 SGET vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 61 SGET_WIDE vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 62 SGET_OBJECT vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 63 SGET_BOOLEAN vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 64 SGET_BYTE vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 65 SGET_CHAR vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 66 SGET_SHORT vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 67 SPUT vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 68 SPUT_WIDE vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 69 SPUT_OBJECT vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 6A SPUT_BOOLEAN vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 6B SPUT_BYTE vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 6C SPUT_CHAR vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 6D SPUT_SHORT vAA, field@BBBB
-  AN_NONE,
+  kAnNone,
 
   // 6E INVOKE_VIRTUAL {vD, vE, vF, vG, vA}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 6F INVOKE_SUPER {vD, vE, vF, vG, vA}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 70 INVOKE_DIRECT {vD, vE, vF, vG, vA}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 71 INVOKE_STATIC {vD, vE, vF, vG, vA}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 72 INVOKE_INTERFACE {vD, vE, vF, vG, vA}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
-  // 73 UNUSED_73
-  AN_NONE,
+  // 73 RETURN_VOID_NO_BARRIER
+  kAnBranch,
 
   // 74 INVOKE_VIRTUAL_RANGE {vCCCC .. vNNNN}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 75 INVOKE_SUPER_RANGE {vCCCC .. vNNNN}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 76 INVOKE_DIRECT_RANGE {vCCCC .. vNNNN}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 77 INVOKE_STATIC_RANGE {vCCCC .. vNNNN}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 78 INVOKE_INTERFACE_RANGE {vCCCC .. vNNNN}
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  kAnInvoke | kAnHeavyWeight,
 
   // 79 UNUSED_79
-  AN_NONE,
+  kAnNone,
 
   // 7A UNUSED_7A
-  AN_NONE,
+  kAnNone,
 
   // 7B NEG_INT vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 7C NOT_INT vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 7D NEG_LONG vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 7E NOT_LONG vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 7F NEG_FLOAT vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // 80 NEG_DOUBLE vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // 81 INT_TO_LONG vA, vB
-  AN_MATH | AN_INT | AN_LONG,
+  kAnMath | kAnInt | kAnLong,
 
   // 82 INT_TO_FLOAT vA, vB
-  AN_MATH | AN_FP | AN_INT | AN_SINGLE,
+  kAnMath | kAnFp | kAnInt | kAnSingle,
 
   // 83 INT_TO_DOUBLE vA, vB
-  AN_MATH | AN_FP | AN_INT | AN_DOUBLE,
+  kAnMath | kAnFp | kAnInt | kAnDouble,
 
   // 84 LONG_TO_INT vA, vB
-  AN_MATH | AN_INT | AN_LONG,
+  kAnMath | kAnInt | kAnLong,
 
   // 85 LONG_TO_FLOAT vA, vB
-  AN_MATH | AN_FP | AN_LONG | AN_SINGLE,
+  kAnMath | kAnFp | kAnLong | kAnSingle,
 
   // 86 LONG_TO_DOUBLE vA, vB
-  AN_MATH | AN_FP | AN_LONG | AN_DOUBLE,
+  kAnMath | kAnFp | kAnLong | kAnDouble,
 
   // 87 FLOAT_TO_INT vA, vB
-  AN_MATH | AN_FP | AN_INT | AN_SINGLE,
+  kAnMath | kAnFp | kAnInt | kAnSingle,
 
   // 88 FLOAT_TO_LONG vA, vB
-  AN_MATH | AN_FP | AN_LONG | AN_SINGLE,
+  kAnMath | kAnFp | kAnLong | kAnSingle,
 
   // 89 FLOAT_TO_DOUBLE vA, vB
-  AN_MATH | AN_FP | AN_SINGLE | AN_DOUBLE,
+  kAnMath | kAnFp | kAnSingle | kAnDouble,
 
   // 8A DOUBLE_TO_INT vA, vB
-  AN_MATH | AN_FP | AN_INT | AN_DOUBLE,
+  kAnMath | kAnFp | kAnInt | kAnDouble,
 
   // 8B DOUBLE_TO_LONG vA, vB
-  AN_MATH | AN_FP | AN_LONG | AN_DOUBLE,
+  kAnMath | kAnFp | kAnLong | kAnDouble,
 
   // 8C DOUBLE_TO_FLOAT vA, vB
-  AN_MATH | AN_FP | AN_SINGLE | AN_DOUBLE,
+  kAnMath | kAnFp | kAnSingle | kAnDouble,
 
   // 8D INT_TO_BYTE vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 8E INT_TO_CHAR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 8F INT_TO_SHORT vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 90 ADD_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 91 SUB_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 92 MUL_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 93 DIV_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 94 REM_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 95 AND_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 96 OR_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 97 XOR_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 98 SHL_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 99 SHR_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 9A USHR_INT vAA, vBB, vCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // 9B ADD_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 9C SUB_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 9D MUL_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 9E DIV_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // 9F REM_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A0 AND_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A1 OR_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A2 XOR_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A3 SHL_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A4 SHR_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A5 USHR_LONG vAA, vBB, vCC
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // A6 ADD_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // A7 SUB_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // A8 MUL_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // A9 DIV_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // AA REM_FLOAT vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // AB ADD_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // AC SUB_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // AD MUL_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // AE DIV_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // AF REM_DOUBLE vAA, vBB, vCC
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // B0 ADD_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B1 SUB_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B2 MUL_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B3 DIV_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B4 REM_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B5 AND_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B6 OR_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B7 XOR_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B8 SHL_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // B9 SHR_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // BA USHR_INT_2ADDR vA, vB
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // BB ADD_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // BC SUB_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // BD MUL_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // BE DIV_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // BF REM_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C0 AND_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C1 OR_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C2 XOR_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C3 SHL_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C4 SHR_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C5 USHR_LONG_2ADDR vA, vB
-  AN_MATH | AN_LONG,
+  kAnMath | kAnLong,
 
   // C6 ADD_FLOAT_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // C7 SUB_FLOAT_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // C8 MUL_FLOAT_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // C9 DIV_FLOAT_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // CA REM_FLOAT_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_SINGLE,
+  kAnMath | kAnFp | kAnSingle,
 
   // CB ADD_DOUBLE_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // CC SUB_DOUBLE_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // CD MUL_DOUBLE_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // CE DIV_DOUBLE_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // CF REM_DOUBLE_2ADDR vA, vB
-  AN_MATH | AN_FP | AN_DOUBLE,
+  kAnMath | kAnFp | kAnDouble,
 
   // D0 ADD_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D1 RSUB_INT vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D2 MUL_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D3 DIV_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D4 REM_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D5 AND_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D6 OR_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D7 XOR_INT_LIT16 vA, vB, #+CCCC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D8 ADD_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // D9 RSUB_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DA MUL_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DB DIV_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DC REM_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DD AND_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DE OR_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // DF XOR_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // E0 SHL_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // E1 SHR_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
   // E2 USHR_INT_LIT8 vAA, vBB, #+CC
-  AN_MATH | AN_INT,
+  kAnMath | kAnInt,
 
-  // E3 IGET_VOLATILE
-  AN_NONE,
+  // E3 IGET_QUICK
+  kAnNone,
 
-  // E4 IPUT_VOLATILE
-  AN_NONE,
+  // E4 IGET_WIDE_QUICK
+  kAnNone,
 
-  // E5 SGET_VOLATILE
-  AN_NONE,
+  // E5 IGET_OBJECT_QUICK
+  kAnNone,
 
-  // E6 SPUT_VOLATILE
-  AN_NONE,
+  // E6 IPUT_QUICK
+  kAnNone,
 
-  // E7 IGET_OBJECT_VOLATILE
-  AN_NONE,
+  // E7 IPUT_WIDE_QUICK
+  kAnNone,
 
-  // E8 IGET_WIDE_VOLATILE
-  AN_NONE,
+  // E8 IPUT_OBJECT_QUICK
+  kAnNone,
 
-  // E9 IPUT_WIDE_VOLATILE
-  AN_NONE,
+  // E9 INVOKE_VIRTUAL_QUICK
+  kAnInvoke | kAnHeavyWeight,
 
-  // EA SGET_WIDE_VOLATILE
-  AN_NONE,
+  // EA INVOKE_VIRTUAL_RANGE_QUICK
+  kAnInvoke | kAnHeavyWeight,
 
-  // EB SPUT_WIDE_VOLATILE
-  AN_NONE,
+  // EB IPUT_BOOLEAN_QUICK
+  kAnNone,
 
-  // EC BREAKPOINT
-  AN_NONE,
+  // EC IPUT_BYTE_QUICK
+  kAnNone,
 
-  // ED THROW_VERIFICATION_ERROR
-  AN_HEAVYWEIGHT | AN_BRANCH,
+  // ED IPUT_CHAR_QUICK
+  kAnNone,
 
-  // EE EXECUTE_INLINE
-  AN_NONE,
+  // EE IPUT_SHORT_QUICK
+  kAnNone,
 
-  // EF EXECUTE_INLINE_RANGE
-  AN_NONE,
+  // EF IGET_BOOLEAN_QUICK
+  kAnNone,
 
-  // F0 INVOKE_OBJECT_INIT_RANGE
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  // F0 IGET_BYTE_QUICK
+  kAnNone,
 
-  // F1 RETURN_VOID_BARRIER
-  AN_BRANCH,
+  // F1 IGET_CHAR_QUICK
+  kAnNone,
 
-  // F2 IGET_QUICK
-  AN_NONE,
+  // F2 IGET_SHORT_QUICK
+  kAnNone,
 
-  // F3 IGET_WIDE_QUICK
-  AN_NONE,
+  // F3 UNUSED_F3
+  kAnNone,
 
-  // F4 IGET_OBJECT_QUICK
-  AN_NONE,
+  // F4 UNUSED_F4
+  kAnNone,
 
-  // F5 IPUT_QUICK
-  AN_NONE,
+  // F5 UNUSED_F5
+  kAnNone,
 
-  // F6 IPUT_WIDE_QUICK
-  AN_NONE,
+  // F6 UNUSED_F6
+  kAnNone,
 
-  // F7 IPUT_OBJECT_QUICK
-  AN_NONE,
+  // F7 UNUSED_F7
+  kAnNone,
 
-  // F8 INVOKE_VIRTUAL_QUICK
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  // F8 UNUSED_F8
+  kAnNone,
 
-  // F9 INVOKE_VIRTUAL_QUICK_RANGE
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  // F9 UNUSED_F9
+  kAnNone,
 
-  // FA INVOKE_SUPER_QUICK
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  // FA UNUSED_FA
+  kAnNone,
 
-  // FB INVOKE_SUPER_QUICK_RANGE
-  AN_INVOKE | AN_HEAVYWEIGHT,
+  // FB UNUSED_FB
+  kAnNone,
 
-  // FC IPUT_OBJECT_VOLATILE
-  AN_NONE,
+  // FC UNUSED_FC
+  kAnNone,
 
-  // FD SGET_OBJECT_VOLATILE
-  AN_NONE,
+  // FD UNUSED_FD
+  kAnNone,
 
-  // FE SPUT_OBJECT_VOLATILE
-  AN_NONE,
+  // FE UNUSED_FE
+  kAnNone,
 
   // FF UNUSED_FF
-  AN_NONE,
+  kAnNone,
 
   // Beginning of extended MIR opcodes
   // 100 MIR_PHI
-  AN_NONE,
+  kAnNone,
 
   // 101 MIR_COPY
-  AN_NONE,
+  kAnNone,
 
   // 102 MIR_FUSED_CMPL_FLOAT
-  AN_NONE,
+  kAnNone,
 
   // 103 MIR_FUSED_CMPG_FLOAT
-  AN_NONE,
+  kAnNone,
 
   // 104 MIR_FUSED_CMPL_DOUBLE
-  AN_NONE,
+  kAnNone,
 
   // 105 MIR_FUSED_CMPG_DOUBLE
-  AN_NONE,
+  kAnNone,
 
   // 106 MIR_FUSED_CMP_LONG
-  AN_NONE,
+  kAnNone,
 
   // 107 MIR_NOP
-  AN_NONE,
+  kAnNone,
 
   // 108 MIR_NULL_CHECK
-  AN_NONE,
+  kAnNone,
 
   // 109 MIR_RANGE_CHECK
-  AN_NONE,
+  kAnNone,
 
-  // 110 MIR_DIV_ZERO_CHECK
-  AN_NONE,
+  // 10A MIR_DIV_ZERO_CHECK
+  kAnNone,
 
-  // 111 MIR_CHECK
-  AN_NONE,
+  // 10B MIR_CHECK
+  kAnNone,
 
-  // 112 MIR_CHECKPART2
-  AN_NONE,
+  // 10C MIR_CHECKPART2
+  kAnNone,
 
-  // 113 MIR_SELECT
-  AN_NONE,
+  // 10D MIR_SELECT
+  kAnNone,
+
+  // 10E MirOpConstVector
+  kAnNone,
+
+  // 10F MirOpMoveVector
+  kAnNone,
+
+  // 110 MirOpPackedMultiply
+  kAnNone,
+
+  // 111 MirOpPackedAddition
+  kAnNone,
+
+  // 112 MirOpPackedSubtract
+  kAnNone,
+
+  // 113 MirOpPackedShiftLeft
+  kAnNone,
+
+  // 114 MirOpPackedSignedShiftRight
+  kAnNone,
+
+  // 115 MirOpPackedUnsignedShiftRight
+  kAnNone,
+
+  // 116 MirOpPackedAnd
+  kAnNone,
+
+  // 117 MirOpPackedOr
+  kAnNone,
+
+  // 118 MirOpPackedXor
+  kAnNone,
+
+  // 119 MirOpPackedAddReduce
+  kAnNone,
+
+  // 11A MirOpPackedReduce
+  kAnNone,
+
+  // 11B MirOpPackedSet
+  kAnNone,
+
+  // 11C MirOpReserveVectorRegisters
+  kAnNone,
+
+  // 11D MirOpReturnVectorRegisters
+  kAnNone,
+
+  // 11E MirOpMemBarrier
+  kAnNone,
+
+  // 11F MirOpPackedArrayGet
+  kAnArrayOp,
+
+  // 120 MirOpPackedArrayPut
+  kAnArrayOp,
 };
 
 struct MethodStats {
@@ -871,11 +969,11 @@ void MIRGraph::AnalyzeBlock(BasicBlock* bb, MethodStats* stats) {
    * edges until we reach an explicit branch or return.
    */
   BasicBlock* ending_bb = bb;
-  if (ending_bb->last_mir_insn != NULL) {
-    uint32_t ending_flags = analysis_attributes_[ending_bb->last_mir_insn->dalvikInsn.opcode];
-    while ((ending_flags & AN_BRANCH) == 0) {
+  if (ending_bb->last_mir_insn != nullptr) {
+    uint32_t ending_flags = kAnalysisAttributes[ending_bb->last_mir_insn->dalvikInsn.opcode];
+    while ((ending_flags & kAnBranch) == 0) {
       ending_bb = GetBasicBlock(ending_bb->fall_through);
-      ending_flags = analysis_attributes_[ending_bb->last_mir_insn->dalvikInsn.opcode];
+      ending_flags = kAnalysisAttributes[ending_bb->last_mir_insn->dalvikInsn.opcode];
     }
   }
   /*
@@ -901,32 +999,32 @@ void MIRGraph::AnalyzeBlock(BasicBlock* bb, MethodStats* stats) {
   bool done = false;
   while (!done) {
     tbb->visited = true;
-    for (MIR* mir = tbb->first_mir_insn; mir != NULL; mir = mir->next) {
+    for (MIR* mir = tbb->first_mir_insn; mir != nullptr; mir = mir->next) {
       if (MIR::DecodedInstruction::IsPseudoMirOp(mir->dalvikInsn.opcode)) {
         // Skip any MIR pseudo-op.
         continue;
       }
-      uint32_t flags = analysis_attributes_[mir->dalvikInsn.opcode];
+      uint16_t flags = kAnalysisAttributes[mir->dalvikInsn.opcode];
       stats->dex_instructions += loop_scale_factor;
-      if ((flags & AN_BRANCH) == 0) {
-        computational_block &= ((flags & AN_COMPUTATIONAL) != 0);
+      if ((flags & kAnBranch) == 0) {
+        computational_block &= ((flags & kAnComputational) != 0);
       } else {
         stats->branch_ops += loop_scale_factor;
       }
-      if ((flags & AN_MATH) != 0) {
+      if ((flags & kAnMath) != 0) {
         stats->math_ops += loop_scale_factor;
         has_math = true;
       }
-      if ((flags & AN_FP) != 0) {
+      if ((flags & kAnFp) != 0) {
         stats->fp_ops += loop_scale_factor;
       }
-      if ((flags & AN_ARRAYOP) != 0) {
+      if ((flags & kAnArrayOp) != 0) {
         stats->array_ops += loop_scale_factor;
       }
-      if ((flags & AN_HEAVYWEIGHT) != 0) {
+      if ((flags & kAnHeavyWeight) != 0) {
         stats->heavyweight_ops += loop_scale_factor;
       }
-      if ((flags & AN_SWITCH) != 0) {
+      if ((flags & kAnSwitch) != 0) {
         stats->has_switch = true;
       }
     }
@@ -1019,14 +1117,11 @@ bool MIRGraph::SkipCompilation(std::string* skip_message) {
     return true;
   }
 
-  if (!compiler_options.IsCompilationEnabled()) {
-    *skip_message = "Compilation disabled";
-    return true;
-  }
+  DCHECK(compiler_options.IsCompilationEnabled());
 
   // Set up compilation cutoffs based on current filter mode.
-  size_t small_cutoff = 0;
-  size_t default_cutoff = 0;
+  size_t small_cutoff;
+  size_t default_cutoff;
   switch (compiler_filter) {
     case CompilerOptions::kBalanced:
       small_cutoff = compiler_options.GetSmallMethodThreshold();
@@ -1037,11 +1132,13 @@ bool MIRGraph::SkipCompilation(std::string* skip_message) {
       default_cutoff = compiler_options.GetSmallMethodThreshold();
       break;
     case CompilerOptions::kSpeed:
+    case CompilerOptions::kTime:
       small_cutoff = compiler_options.GetHugeMethodThreshold();
       default_cutoff = compiler_options.GetHugeMethodThreshold();
       break;
     default:
       LOG(FATAL) << "Unexpected compiler_filter_: " << compiler_filter;
+      UNREACHABLE();
   }
 
   // If size < cutoff, assume we'll compile - but allow removal.
@@ -1058,7 +1155,7 @@ bool MIRGraph::SkipCompilation(std::string* skip_message) {
     skip_compilation = true;
     *skip_message = "Huge method: " + std::to_string(GetNumDalvikInsns());
     // If we're got a huge number of basic blocks, don't bother with further analysis.
-    if (static_cast<size_t>(num_blocks_) > (compiler_options.GetHugeMethodThreshold() / 2)) {
+    if (static_cast<size_t>(GetNumBlocks()) > (compiler_options.GetHugeMethodThreshold() / 2)) {
       return true;
     }
   } else if (compiler_options.IsLargeMethod(GetNumDalvikInsns()) &&
@@ -1099,7 +1196,7 @@ bool MIRGraph::SkipCompilation(std::string* skip_message) {
 
   ClearAllVisitedFlags();
   AllNodesIterator iter(this);
-  for (BasicBlock* bb = iter.Next(); bb != NULL; bb = iter.Next()) {
+  for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
     AnalyzeBlock(bb, &stats);
   }
 
@@ -1107,12 +1204,13 @@ bool MIRGraph::SkipCompilation(std::string* skip_message) {
 }
 
 void MIRGraph::DoCacheFieldLoweringInfo() {
+  static constexpr uint32_t kFieldIndexFlagQuickened = 0x80000000;
   // All IGET/IPUT/SGET/SPUT instructions take 2 code units and there must also be a RETURN.
-  const uint32_t max_refs = (current_code_item_->insns_size_in_code_units_ - 1u) / 2u;
+  const uint32_t max_refs = (GetNumDalvikInsns() - 1u) / 2u;
   ScopedArenaAllocator allocator(&cu_->arena_stack);
-  uint16_t* field_idxs =
-      reinterpret_cast<uint16_t*>(allocator.Alloc(max_refs * sizeof(uint16_t), kArenaAllocMisc));
-
+  auto* field_idxs = allocator.AllocArray<uint32_t>(max_refs, kArenaAllocMisc);
+  DexMemAccessType* field_types = allocator.AllocArray<DexMemAccessType>(
+      max_refs, kArenaAllocMisc);
   // Find IGET/IPUT/SGET/SPUT insns, store IGET/IPUT fields at the beginning, SGET/SPUT at the end.
   size_t ifield_pos = 0u;
   size_t sfield_pos = max_refs;
@@ -1122,80 +1220,101 @@ void MIRGraph::DoCacheFieldLoweringInfo() {
       continue;
     }
     for (MIR* mir = bb->first_mir_insn; mir != nullptr; mir = mir->next) {
-      if (mir->dalvikInsn.opcode >= Instruction::IGET &&
-          mir->dalvikInsn.opcode <= Instruction::SPUT_SHORT) {
-        const Instruction* insn = Instruction::At(current_code_item_->insns_ + mir->offset);
-        // Get field index and try to find it among existing indexes. If found, it's usually among
-        // the last few added, so we'll start the search from ifield_pos/sfield_pos. Though this
-        // is a linear search, it actually performs much better than map based approach.
-        if (mir->dalvikInsn.opcode <= Instruction::IPUT_SHORT) {
-          uint16_t field_idx = insn->VRegC_22c();
-          size_t i = ifield_pos;
-          while (i != 0u && field_idxs[i - 1] != field_idx) {
-            --i;
-          }
-          if (i != 0u) {
-            mir->meta.ifield_lowering_info = i - 1;
-          } else {
-            mir->meta.ifield_lowering_info = ifield_pos;
-            field_idxs[ifield_pos++] = field_idx;
-          }
+      // Get field index and try to find it among existing indexes. If found, it's usually among
+      // the last few added, so we'll start the search from ifield_pos/sfield_pos. Though this
+      // is a linear search, it actually performs much better than map based approach.
+      const bool is_iget_or_iput = IsInstructionIGetOrIPut(mir->dalvikInsn.opcode);
+      const bool is_iget_or_iput_quick = IsInstructionIGetQuickOrIPutQuick(mir->dalvikInsn.opcode);
+      if (is_iget_or_iput || is_iget_or_iput_quick) {
+        uint32_t field_idx;
+        DexMemAccessType access_type;
+        if (is_iget_or_iput) {
+          field_idx = mir->dalvikInsn.vC;
+          access_type = IGetOrIPutMemAccessType(mir->dalvikInsn.opcode);
         } else {
-          uint16_t field_idx = insn->VRegB_21c();
-          size_t i = sfield_pos;
-          while (i != max_refs && field_idxs[i] != field_idx) {
-            ++i;
-          }
-          if (i != max_refs) {
-            mir->meta.sfield_lowering_info = max_refs - i - 1u;
-          } else {
-            mir->meta.sfield_lowering_info = max_refs - sfield_pos;
-            field_idxs[--sfield_pos] = field_idx;
-          }
+          DCHECK(is_iget_or_iput_quick);
+          // Set kFieldIndexFlagQuickened so that we don't deduplicate against non quickened field
+          // indexes.
+          field_idx = mir->offset | kFieldIndexFlagQuickened;
+          access_type = IGetQuickOrIPutQuickMemAccessType(mir->dalvikInsn.opcode);
         }
-        DCHECK_LE(ifield_pos, sfield_pos);
+        size_t i = ifield_pos;
+        while (i != 0u && field_idxs[i - 1] != field_idx) {
+          --i;
+        }
+        if (i != 0u) {
+          mir->meta.ifield_lowering_info = i - 1;
+          DCHECK_EQ(field_types[i - 1], access_type);
+        } else {
+          mir->meta.ifield_lowering_info = ifield_pos;
+          field_idxs[ifield_pos] = field_idx;
+          field_types[ifield_pos] = access_type;
+          ++ifield_pos;
+        }
+      } else if (IsInstructionSGetOrSPut(mir->dalvikInsn.opcode)) {
+        auto field_idx = mir->dalvikInsn.vB;
+        size_t i = sfield_pos;
+        while (i != max_refs && field_idxs[i] != field_idx) {
+          ++i;
+        }
+        if (i != max_refs) {
+          mir->meta.sfield_lowering_info = max_refs - i - 1u;
+          DCHECK_EQ(field_types[i], SGetOrSPutMemAccessType(mir->dalvikInsn.opcode));
+        } else {
+          mir->meta.sfield_lowering_info = max_refs - sfield_pos;
+          --sfield_pos;
+          field_idxs[sfield_pos] = field_idx;
+          field_types[sfield_pos] = SGetOrSPutMemAccessType(mir->dalvikInsn.opcode);
+        }
       }
+      DCHECK_LE(ifield_pos, sfield_pos);
     }
   }
 
   if (ifield_pos != 0u) {
     // Resolve instance field infos.
-    DCHECK_EQ(ifield_lowering_infos_.Size(), 0u);
-    ifield_lowering_infos_.Resize(ifield_pos);
+    DCHECK_EQ(ifield_lowering_infos_.size(), 0u);
+    ifield_lowering_infos_.reserve(ifield_pos);
     for (size_t pos = 0u; pos != ifield_pos; ++pos) {
-      ifield_lowering_infos_.Insert(MirIFieldLoweringInfo(field_idxs[pos]));
+      const uint32_t field_idx = field_idxs[pos];
+      const bool is_quickened = (field_idx & kFieldIndexFlagQuickened) != 0;
+      const uint32_t masked_field_idx = field_idx & ~kFieldIndexFlagQuickened;
+      CHECK_LT(masked_field_idx, 1u << 16);
+      ifield_lowering_infos_.push_back(
+          MirIFieldLoweringInfo(masked_field_idx, field_types[pos], is_quickened));
     }
     MirIFieldLoweringInfo::Resolve(cu_->compiler_driver, GetCurrentDexCompilationUnit(),
-                                ifield_lowering_infos_.GetRawStorage(), ifield_pos);
+                                   ifield_lowering_infos_.data(), ifield_pos);
   }
 
   if (sfield_pos != max_refs) {
     // Resolve static field infos.
-    DCHECK_EQ(sfield_lowering_infos_.Size(), 0u);
-    sfield_lowering_infos_.Resize(max_refs - sfield_pos);
+    DCHECK_EQ(sfield_lowering_infos_.size(), 0u);
+    sfield_lowering_infos_.reserve(max_refs - sfield_pos);
     for (size_t pos = max_refs; pos != sfield_pos;) {
       --pos;
-      sfield_lowering_infos_.Insert(MirSFieldLoweringInfo(field_idxs[pos]));
+      sfield_lowering_infos_.push_back(MirSFieldLoweringInfo(field_idxs[pos], field_types[pos]));
     }
     MirSFieldLoweringInfo::Resolve(cu_->compiler_driver, GetCurrentDexCompilationUnit(),
-                                sfield_lowering_infos_.GetRawStorage(), max_refs - sfield_pos);
+                                   sfield_lowering_infos_.data(), max_refs - sfield_pos);
   }
 }
 
 void MIRGraph::DoCacheMethodLoweringInfo() {
   static constexpr uint16_t invoke_types[] = { kVirtual, kSuper, kDirect, kStatic, kInterface };
+  static constexpr uint32_t kMethodIdxFlagQuickened = 0x80000000;
 
   // Embed the map value in the entry to avoid extra padding in 64-bit builds.
   struct MapEntry {
     // Map key: target_method_idx, invoke_type, devirt_target. Ordered to avoid padding.
     const MethodReference* devirt_target;
-    uint16_t target_method_idx;
+    uint32_t target_method_idx;
+    uint32_t vtable_idx;
     uint16_t invoke_type;
     // Map value.
     uint32_t lowering_info_index;
   };
 
-  // Sort INVOKEs by method index, then by opcode, then by devirtualization target.
   struct MapEntryComparator {
     bool operator()(const MapEntry& lhs, const MapEntry& rhs) const {
       if (lhs.target_method_idx != rhs.target_method_idx) {
@@ -1203,6 +1322,9 @@ void MIRGraph::DoCacheMethodLoweringInfo() {
       }
       if (lhs.invoke_type != rhs.invoke_type) {
         return lhs.invoke_type < rhs.invoke_type;
+      }
+      if (lhs.vtable_idx != rhs.vtable_idx) {
+        return lhs.vtable_idx < rhs.vtable_idx;
       }
       if (lhs.devirt_target != rhs.devirt_target) {
         if (lhs.devirt_target == nullptr) {
@@ -1221,49 +1343,54 @@ void MIRGraph::DoCacheMethodLoweringInfo() {
   ScopedArenaAllocator allocator(&cu_->arena_stack);
 
   // All INVOKE instructions take 3 code units and there must also be a RETURN.
-  uint32_t max_refs = (current_code_item_->insns_size_in_code_units_ - 1u) / 3u;
+  const uint32_t max_refs = (GetNumDalvikInsns() - 1u) / 3u;
 
   // Map invoke key (see MapEntry) to lowering info index and vice versa.
   // The invoke_map and sequential entries are essentially equivalent to Boost.MultiIndex's
   // multi_index_container with one ordered index and one sequential index.
   ScopedArenaSet<MapEntry, MapEntryComparator> invoke_map(MapEntryComparator(),
                                                           allocator.Adapter());
-  const MapEntry** sequential_entries = reinterpret_cast<const MapEntry**>(
-      allocator.Alloc(max_refs * sizeof(sequential_entries[0]), kArenaAllocMisc));
+  const MapEntry** sequential_entries =
+      allocator.AllocArray<const MapEntry*>(max_refs, kArenaAllocMisc);
 
   // Find INVOKE insns and their devirtualization targets.
+  const VerifiedMethod* verified_method = GetCurrentDexCompilationUnit()->GetVerifiedMethod();
   AllNodesIterator iter(this);
   for (BasicBlock* bb = iter.Next(); bb != nullptr; bb = iter.Next()) {
     if (bb->block_type != kDalvikByteCode) {
       continue;
     }
     for (MIR* mir = bb->first_mir_insn; mir != nullptr; mir = mir->next) {
-      if (mir->dalvikInsn.opcode >= Instruction::INVOKE_VIRTUAL &&
-          mir->dalvikInsn.opcode <= Instruction::INVOKE_INTERFACE_RANGE &&
-          mir->dalvikInsn.opcode != Instruction::RETURN_VOID_BARRIER) {
-        // Decode target method index and invoke type.
-        const Instruction* insn = Instruction::At(current_code_item_->insns_ + mir->offset);
-        uint16_t target_method_idx;
-        uint16_t invoke_type_idx;
-        if (mir->dalvikInsn.opcode <= Instruction::INVOKE_INTERFACE) {
-          target_method_idx = insn->VRegB_35c();
-          invoke_type_idx = mir->dalvikInsn.opcode - Instruction::INVOKE_VIRTUAL;
+      const bool is_quick_invoke = IsInstructionQuickInvoke(mir->dalvikInsn.opcode);
+      const bool is_invoke = IsInstructionInvoke(mir->dalvikInsn.opcode);
+      if (is_quick_invoke || is_invoke) {
+        uint32_t vtable_index = 0;
+        uint32_t target_method_idx = 0;
+        uint32_t invoke_type_idx = 0;  // Default to virtual (in case of quickened).
+        DCHECK_EQ(invoke_types[invoke_type_idx], kVirtual);
+        if (is_quick_invoke) {
+          // We need to store the vtable index since we can't necessarily recreate it at resolve
+          // phase if the dequickening resolved to an interface method.
+          vtable_index = mir->dalvikInsn.vB;
+          // Fake up the method index by storing the mir offset so that we can read the dequicken
+          // info in resolve.
+          target_method_idx = mir->offset | kMethodIdxFlagQuickened;
         } else {
-          target_method_idx = insn->VRegB_3rc();
-          invoke_type_idx = mir->dalvikInsn.opcode - Instruction::INVOKE_VIRTUAL_RANGE;
+          DCHECK(is_invoke);
+          // Decode target method index and invoke type.
+          invoke_type_idx = InvokeInstructionType(mir->dalvikInsn.opcode);
+          target_method_idx = mir->dalvikInsn.vB;
         }
-
         // Find devirtualization target.
         // TODO: The devirt map is ordered by the dex pc here. Is there a way to get INVOKEs
         // ordered by dex pc as well? That would allow us to keep an iterator to devirt targets
         // and increment it as needed instead of making O(log n) lookups.
-        const VerifiedMethod* verified_method = GetCurrentDexCompilationUnit()->GetVerifiedMethod();
         const MethodReference* devirt_target = verified_method->GetDevirtTarget(mir->offset);
-
         // Try to insert a new entry. If the insertion fails, we will have found an old one.
         MapEntry entry = {
             devirt_target,
             target_method_idx,
+            vtable_index,
             invoke_types[invoke_type_idx],
             static_cast<uint32_t>(invoke_map.size())
         };
@@ -1274,26 +1401,28 @@ void MIRGraph::DoCacheMethodLoweringInfo() {
       }
     }
   }
-
   if (invoke_map.empty()) {
     return;
   }
-
   // Prepare unique method infos, set method info indexes for their MIRs.
-  DCHECK_EQ(method_lowering_infos_.Size(), 0u);
   const size_t count = invoke_map.size();
-  method_lowering_infos_.Resize(count);
+  method_lowering_infos_.reserve(count);
   for (size_t pos = 0u; pos != count; ++pos) {
     const MapEntry* entry = sequential_entries[pos];
-    MirMethodLoweringInfo method_info(entry->target_method_idx,
-                                      static_cast<InvokeType>(entry->invoke_type));
+    const bool is_quick = (entry->target_method_idx & kMethodIdxFlagQuickened) != 0;
+    const uint32_t masked_method_idx = entry->target_method_idx & ~kMethodIdxFlagQuickened;
+    MirMethodLoweringInfo method_info(masked_method_idx,
+                                      static_cast<InvokeType>(entry->invoke_type), is_quick);
     if (entry->devirt_target != nullptr) {
       method_info.SetDevirtualizationTarget(*entry->devirt_target);
     }
-    method_lowering_infos_.Insert(method_info);
+    if (is_quick) {
+      method_info.SetVTableIndex(entry->vtable_idx);
+    }
+    method_lowering_infos_.push_back(method_info);
   }
   MirMethodLoweringInfo::Resolve(cu_->compiler_driver, GetCurrentDexCompilationUnit(),
-                                 method_lowering_infos_.GetRawStorage(), count);
+                                 method_lowering_infos_.data(), count);
 }
 
 bool MIRGraph::SkipCompilationByName(const std::string& methodname) {

@@ -104,20 +104,25 @@ public class NetworkMonitor {
         }
     };
 
-    public static boolean isConnectedToWifi(Context context) {
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(
-                Context.CONNECTIVITY_SERVICE);
+    private static NetworkInfo getActiveNetworkInfo(Context context) {
+        ConnectivityManager cm =
+                (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (cm != null) {
-            NetworkInfo ni = cm.getActiveNetworkInfo();
-            if (ni != null) {
-                DetailedState detailedState = ni.getDetailedState();
-                return detailedState.equals(DetailedState.CONNECTED);
-            } else {
-                return false;
-            }
-        } else {
-            return false;
+            return cm.getActiveNetworkInfo();
         }
+        return null;
+    }
+
+    public static boolean isConnectedToNetwork(Context context) {
+        NetworkInfo info = getActiveNetworkInfo(context);
+        return info != null && info.isConnected();
+    }
+
+    public static boolean isConnectedToWifi(Context context) {
+        NetworkInfo info = getActiveNetworkInfo(context);
+        return info != null
+                && info.isConnected()
+                && info.getType() == ConnectivityManager.TYPE_WIFI;
     }
 
     public boolean isNetworkConnected() {

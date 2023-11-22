@@ -58,7 +58,7 @@ http://source.android.com/source/using-repo.html#start
 
 3. Edit the Javadoc file(s) and save your changes.
 
-4. If a page was added or removed, update the corresponding *.toc.cs file to
+4. If a page was added or removed, update the corresponding _toc.cs file to
 reflect the change.
 
 5. Run the following make command from the root of the project parent directory:

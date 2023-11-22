@@ -17,12 +17,12 @@ define void @callee1(%struct.small_arg* noalias nocapture sret %agg.result, %str
 entry:
   %0 = bitcast %struct.small_arg* %x to i32*
   %1 = bitcast %struct.small_arg* %agg.result to i32*
-  %2 = load i32* %0, align 2
+  %2 = load i32, i32* %0, align 2
   store i32 %2, i32* %1, align 2
   ret void
 }
 ; CHECK: @callee1
-; CHECK: lwz {{[0-9]+}}, 120(1)
+; CHECK: lwz {{[0-9]+}}, 104(1)
 ; CHECK: blr
 
 define void @caller1() {
@@ -32,7 +32,7 @@ entry:
   ret void
 }
 ; CHECK: @caller1
-; CHECK: stw {{[0-9]+}}, 120(1)
+; CHECK: stw {{[0-9]+}}, 104(1)
 ; CHECK: bl test1
 
 declare void @test1(%struct.small_arg* sret, %struct.large_arg* byval, %struct.small_arg* byval)
@@ -42,17 +42,17 @@ entry:
   ret float %x
 }
 ; CHECK: @callee2
-; CHECK: lfs {{[0-9]+}}, 152(1)
+; CHECK: lfs {{[0-9]+}}, 136(1)
 ; CHECK: blr
 
 define void @caller2() {
 entry:
-  %0 = load float* @gf, align 4
+  %0 = load float, float* @gf, align 4
   %call = tail call float @test2(float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00, float %0)
   ret void
 }
 ; CHECK: @caller2
-; CHECK: stfs {{[0-9]+}}, 152(1)
+; CHECK: stfs {{[0-9]+}}, 136(1)
 ; CHECK: bl test2
 
 declare float @test2(float, float, float, float, float, float, float, float, float, float, float, float, float, float)

@@ -18,6 +18,7 @@
 
 #include <cutils/log.h>
 
+#include <malloc.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>

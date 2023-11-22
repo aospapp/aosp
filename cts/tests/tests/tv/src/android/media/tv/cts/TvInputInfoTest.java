@@ -20,8 +20,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
+import android.os.Parcel;
 import android.test.AndroidTestCase;
 
 /**
@@ -46,6 +48,53 @@ public class TvInputInfoTest extends AndroidTestCase {
             }
         }
         mPackageManager = getContext().getPackageManager();
+    }
+
+    public void testTvInputInfoOp() throws Exception {
+        if (!Utils.hasTvInputFramework(getContext())) {
+            return;
+        }
+        // Test describeContents
+        assertEquals(0, mStubInfo.describeContents());
+
+        // Test equals
+        assertTrue(mStubInfo.equals(mStubInfo));
+
+        // Test getId
+        final ComponentName componentName =
+                new ComponentName(getContext(), StubTunerTvInputService.class);
+        final String id = TvContract.buildInputId(componentName);
+        assertEquals(id, mStubInfo.getId());
+
+        // Test getServiceInfo
+        assertEquals(getContext().getPackageManager().getServiceInfo(componentName, 0).name,
+                mStubInfo.getServiceInfo().name);
+
+        // Test hashCode
+        assertEquals(id.hashCode(), mStubInfo.hashCode());
+
+        // Test writeToParcel
+        Parcel p = Parcel.obtain();
+        mStubInfo.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        TvInputInfo infoFromParcel = TvInputInfo.CREATOR.createFromParcel(p);
+        assertEquals(mStubInfo.createSettingsIntent().getComponent(),
+                infoFromParcel.createSettingsIntent().getComponent());
+        assertEquals(mStubInfo.createSetupIntent().getComponent(),
+                infoFromParcel.createSetupIntent().getComponent());
+        assertEquals(mStubInfo.describeContents(), infoFromParcel.describeContents());
+        assertTrue(mStubInfo.equals(infoFromParcel));
+        assertEquals(mStubInfo.getId(), infoFromParcel.getId());
+        assertEquals(mStubInfo.getParentId(), infoFromParcel.getParentId());
+        assertEquals(mStubInfo.getServiceInfo().name, infoFromParcel.getServiceInfo().name);
+        assertEquals(mStubInfo.getType(), infoFromParcel.getType());
+        assertEquals(mStubInfo.hashCode(), infoFromParcel.hashCode());
+        assertEquals(mStubInfo.isPassthroughInput(), infoFromParcel.isPassthroughInput());
+        assertEquals(mStubInfo.loadIcon(getContext()).getConstantState(),
+                infoFromParcel.loadIcon(getContext()).getConstantState());
+        assertEquals(mStubInfo.loadLabel(getContext()), infoFromParcel.loadLabel(getContext()));
+        assertEquals(mStubInfo.toString(), infoFromParcel.toString());
+        p.recycle();
     }
 
     public void testGetIntentForSettingsActivity() throws Exception {

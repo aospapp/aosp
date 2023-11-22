@@ -17,15 +17,22 @@
 package com.android.keychain;
 
 import android.app.Activity;
+import android.app.ActivityManagerNative;
+import android.app.admin.IDevicePolicyManager;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.security.Credentials;
 import android.security.IKeyChainAliasCallback;
 import android.security.KeyChain;
@@ -49,6 +56,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.ExecutionException;
 import java.util.List;
 
 import javax.security.auth.x500.X500Principal;
@@ -118,7 +126,7 @@ public class KeyChainActivity extends Activity {
                     // onActivityResult is called with REQUEST_UNLOCK
                     return;
                 }
-                showCertChooserDialog();
+                chooseCertificate();
                 return;
             case UNLOCK_REQUESTED:
                 // we've already asked, but have not heard back, probably just rotated.
@@ -134,21 +142,66 @@ public class KeyChainActivity extends Activity {
         }
     }
 
-    private void showCertChooserDialog() {
-        new AliasLoader().execute();
+    private void chooseCertificate() {
+        // Start loading the set of certs to choose from now- if device policy doesn't return an
+        // alias, having aliases loading already will save some time waiting for UI to start.
+        final AliasLoader loader = new AliasLoader();
+        loader.execute();
+
+        final IKeyChainAliasCallback.Stub callback = new IKeyChainAliasCallback.Stub() {
+            @Override public void alias(String alias) {
+                // Use policy-suggested alias if provided
+                if (alias != null) {
+                    finish(alias);
+                    return;
+                }
+
+                // No suggested alias - instead finish loading and show UI to pick one
+                final CertificateAdapter certAdapter;
+                try {
+                    certAdapter = loader.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    Log.e(TAG, "Loading certificate aliases interrupted", e);
+                    finish(null);
+                    return;
+                }
+                runOnUiThread(new Runnable() {
+                    @Override public void run() {
+                        displayCertChooserDialog(certAdapter);
+                    }
+                });
+            }
+        };
+
+        // Give a profile or device owner the chance to intercept the request, if a private key
+        // access listener is registered with the DevicePolicyManagerService.
+        IDevicePolicyManager devicePolicyManager = IDevicePolicyManager.Stub.asInterface(
+                ServiceManager.getService(Context.DEVICE_POLICY_SERVICE));
+
+        Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
+        String alias = getIntent().getStringExtra(KeyChain.EXTRA_ALIAS);
+        try {
+            int uid = ActivityManagerNative.getDefault().getLaunchedFromUid(getActivityToken());
+            devicePolicyManager.choosePrivateKeyAlias(uid, uri, alias, callback);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Unable to request alias from DevicePolicyManager", e);
+            // Proceed without a suggested alias.
+            try {
+                callback.alias(null);
+            } catch (RemoteException shouldNeverHappen) {
+                finish(null);
+            }
+        }
     }
 
     private class AliasLoader extends AsyncTask<Void, Void, CertificateAdapter> {
         @Override protected CertificateAdapter doInBackground(Void... params) {
-            String[] aliasArray = mKeyStore.saw(Credentials.USER_PRIVATE_KEY);
+            String[] aliasArray = mKeyStore.list(Credentials.USER_PRIVATE_KEY);
             List<String> aliasList = ((aliasArray == null)
                                       ? Collections.<String>emptyList()
                                       : Arrays.asList(aliasArray));
             Collections.sort(aliasList);
             return new CertificateAdapter(aliasList);
-        }
-        @Override protected void onPostExecute(CertificateAdapter adapter) {
-            displayCertChooserDialog(adapter);
         }
     }
 
@@ -228,17 +281,11 @@ public class KeyChainActivity extends Activity {
         }
         String appMessage = String.format(res.getString(R.string.requesting_application),
                                           applicationLabel);
-
         String contextMessage = appMessage;
-        String host = getIntent().getStringExtra(KeyChain.EXTRA_HOST);
-        if (host != null) {
-            String hostString = host;
-            int port = getIntent().getIntExtra(KeyChain.EXTRA_PORT, -1);
-            if (port != -1) {
-                hostString += ":" + port;
-            }
+        Uri uri = getIntent().getParcelableExtra(KeyChain.EXTRA_URI);
+        if (uri != null) {
             String hostMessage = String.format(res.getString(R.string.requesting_server),
-                                               hostString);
+                                               uri.getAuthority());
             if (contextMessage == null) {
                 contextMessage = hostMessage;
             } else {
@@ -363,7 +410,7 @@ public class KeyChainActivity extends Activity {
             case REQUEST_UNLOCK:
                 if (mKeyStore.isUnlocked()) {
                     mState = State.INITIAL;
-                    showCertChooserDialog();
+                    chooseCertificate();
                 } else {
                     // user must have canceled unlock, give up
                     mState = State.UNLOCK_CANCELED;

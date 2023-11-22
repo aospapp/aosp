@@ -19,6 +19,7 @@ package com.android.cts.splitapp;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -27,9 +28,17 @@ import android.content.pm.ProviderInfo;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
+import android.system.Os;
+import android.system.OsConstants;
+import android.system.StructStat;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.util.DisplayMetrics;
@@ -39,7 +48,12 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
@@ -51,8 +65,13 @@ public class SplitAppTest extends AndroidTestCase {
     private static final String TAG = "SplitAppTest";
     private static final String PKG = "com.android.cts.splitapp";
 
+    private static final long MB_IN_BYTES = 1 * 1024 * 1024;
+
     public static boolean sFeatureTouched = false;
     public static String sFeatureValue = null;
+
+    public void testNothing() throws Exception {
+    }
 
     public void testSingleBase() throws Exception {
         final Resources r = getContext().getResources();
@@ -311,6 +330,131 @@ public class SplitAppTest extends AndroidTestCase {
         assertEquals(0, result.size());
     }
 
+    /**
+     * Write app data in a number of locations that expect to remain intact over
+     * long periods of time, such as across app moves.
+     */
+    public void testDataWrite() throws Exception {
+        final String token = String.valueOf(android.os.Process.myUid());
+        writeString(getContext().getFileStreamPath("my_int"), token);
+
+        final SQLiteDatabase db = getContext().openOrCreateDatabase("my_db",
+                Context.MODE_PRIVATE, null);
+        try {
+            db.execSQL("DROP TABLE IF EXISTS my_table");
+            db.execSQL("CREATE TABLE my_table(value INTEGER)");
+            db.execSQL("INSERT INTO my_table VALUES (101), (102), (103)");
+        } finally {
+            db.close();
+        }
+    }
+
+    /**
+     * Verify that data written by {@link #testDataWrite()} is still intact.
+     */
+    public void testDataRead() throws Exception {
+        final String token = String.valueOf(android.os.Process.myUid());
+        assertEquals(token, readString(getContext().getFileStreamPath("my_int")));
+
+        final SQLiteDatabase db = getContext().openOrCreateDatabase("my_db",
+                Context.MODE_PRIVATE, null);
+        try {
+            final Cursor cursor = db.query("my_table", null, null, null, null, null, "value ASC");
+            try {
+                assertEquals(3, cursor.getCount());
+                assertTrue(cursor.moveToPosition(0));
+                assertEquals(101, cursor.getInt(0));
+                assertTrue(cursor.moveToPosition(1));
+                assertEquals(102, cursor.getInt(0));
+                assertTrue(cursor.moveToPosition(2));
+                assertEquals(103, cursor.getInt(0));
+            } finally {
+                cursor.close();
+            }
+        } finally {
+            db.close();
+        }
+    }
+
+    /**
+     * Verify that app is installed on internal storage.
+     */
+    public void testDataInternal() throws Exception {
+        final StructStat internal = Os.stat(Environment.getDataDirectory().getAbsolutePath());
+        final StructStat actual = Os.stat(getContext().getFilesDir().getAbsolutePath());
+        assertEquals(internal.st_dev, actual.st_dev);
+    }
+
+    /**
+     * Verify that app is not installed on internal storage.
+     */
+    public void testDataNotInternal() throws Exception {
+        final StructStat internal = Os.stat(Environment.getDataDirectory().getAbsolutePath());
+        final StructStat actual = Os.stat(getContext().getFilesDir().getAbsolutePath());
+        MoreAsserts.assertNotEqual(internal.st_dev, actual.st_dev);
+    }
+
+    public void testPrimaryDataWrite() throws Exception {
+        final String token = String.valueOf(android.os.Process.myUid());
+        writeString(new File(getContext().getExternalFilesDir(null), "my_ext"), token);
+    }
+
+    public void testPrimaryDataRead() throws Exception {
+        final String token = String.valueOf(android.os.Process.myUid());
+        assertEquals(token, readString(new File(getContext().getExternalFilesDir(null), "my_ext")));
+    }
+
+    /**
+     * Verify shared storage behavior when on internal storage.
+     */
+    public void testPrimaryInternal() throws Exception {
+        assertTrue("emulated", Environment.isExternalStorageEmulated());
+        assertFalse("removable", Environment.isExternalStorageRemovable());
+        assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState());
+    }
+
+    /**
+     * Verify shared storage behavior when on physical storage.
+     */
+    public void testPrimaryPhysical() throws Exception {
+        assertFalse("emulated", Environment.isExternalStorageEmulated());
+        assertTrue("removable", Environment.isExternalStorageRemovable());
+        assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState());
+    }
+
+    /**
+     * Verify shared storage behavior when on adopted storage.
+     */
+    public void testPrimaryAdopted() throws Exception {
+        assertTrue("emulated", Environment.isExternalStorageEmulated());
+        assertTrue("removable", Environment.isExternalStorageRemovable());
+        assertEquals(Environment.MEDIA_MOUNTED, Environment.getExternalStorageState());
+    }
+
+    /**
+     * Verify that shared storage is unmounted.
+     */
+    public void testPrimaryUnmounted() throws Exception {
+        MoreAsserts.assertNotEqual(Environment.MEDIA_MOUNTED,
+                Environment.getExternalStorageState());
+    }
+
+    /**
+     * Verify that shared storage lives on same volume as app.
+     */
+    public void testPrimaryOnSameVolume() throws Exception {
+        final File current = getContext().getFilesDir();
+        final File primary = Environment.getExternalStorageDirectory();
+
+        // Shared storage may jump through another filesystem for permission
+        // enforcement, so we verify that total/free space are identical.
+        final long totalDelta = Math.abs(current.getTotalSpace() - primary.getTotalSpace());
+        final long freeDelta = Math.abs(current.getFreeSpace() - primary.getFreeSpace());
+        if (totalDelta > MB_IN_BYTES || freeDelta > MB_IN_BYTES) {
+            fail("Expected primary storage to be on same volume as app");
+        }
+    }
+
     public void testCodeCacheWrite() throws Exception {
         assertTrue(new File(getContext().getFilesDir(), "normal.raw").createNewFile());
         assertTrue(new File(getContext().getCodeCacheDir(), "cache.raw").createNewFile());
@@ -388,6 +532,24 @@ public class SplitAppTest extends AndroidTestCase {
             assertEquals(expected, in.readLine());
         } finally {
             if (in != null) in.close();
+        }
+    }
+
+    private static void writeString(File file, String value) throws IOException {
+        final DataOutputStream os = new DataOutputStream(new FileOutputStream(file));
+        try {
+            os.writeUTF(value);
+        } finally {
+            os.close();
+        }
+    }
+
+    private static String readString(File file) throws IOException {
+        final DataInputStream is = new DataInputStream(new FileInputStream(file));
+        try {
+            return is.readUTF();
+        } finally {
+            is.close();
         }
     }
 }

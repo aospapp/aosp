@@ -72,7 +72,7 @@ Type::Type(void *id, sp<RS> rs) : BaseObj(id, rs) {
     mDimZ = 0;
     mDimMipmaps = false;
     mDimFaces = false;
-    mElement = NULL;
+    mElement = nullptr;
     mYuvFormat = RS_YUV_NONE;
 }
 
@@ -109,6 +109,7 @@ sp<const Type> Type::create(sp<RS> rs, sp<const Element> e, uint32_t dimX, uint3
     t->mDimZ = dimZ;
     t->mDimMipmaps = false;
     t->mDimFaces = false;
+    t->mYuvFormat = RS_YUV_NONE;
 
     t->calcElementCount();
 
@@ -123,6 +124,7 @@ Type::Builder::Builder(sp<RS> rs, sp<const Element> e) {
     mDimZ = 0;
     mDimMipmaps = false;
     mDimFaces = false;
+    mYuvFormat = RS_YUV_NONE;
 }
 
 void Type::Builder::setX(uint32_t value) {
@@ -172,19 +174,30 @@ sp<const Type> Type::Builder::create() {
     if (mDimZ > 0) {
         if ((mDimX < 1) || (mDimY < 1)) {
             ALOGE("Both X and Y dimension required when Z is present.");
+            return nullptr;
         }
         if (mDimFaces) {
             ALOGE("Cube maps not supported with 3D types.");
+            return nullptr;
         }
     }
     if (mDimY > 0) {
         if (mDimX < 1) {
             ALOGE("X dimension required when Y is present.");
+            return nullptr;
         }
     }
     if (mDimFaces) {
         if (mDimY < 1) {
             ALOGE("Cube maps require 2D Types.");
+            return nullptr;
+        }
+    }
+
+    if (mYuvFormat) {
+        if (mDimZ || mDimFaces || mDimMipmaps) {
+            ALOGE("YUV only supports basic 2D.");
+            return nullptr;
         }
     }
 
@@ -201,7 +214,7 @@ sp<const Type> Type::Builder::create() {
     }
 
     void * id = RS::dispatch->TypeCreate(mRS->getContext(), mElement->getID(), mDimX, mDimY, mDimZ,
-                                         mDimMipmaps, mDimFaces, 0);
+                                         mDimMipmaps, mDimFaces, nativeYuv);
     Type *t = new Type(id, mRS);
     t->mElement = mElement;
     t->mDimX = mDimX;
@@ -209,6 +222,7 @@ sp<const Type> Type::Builder::create() {
     t->mDimZ = mDimZ;
     t->mDimMipmaps = mDimMipmaps;
     t->mDimFaces = mDimFaces;
+    t->mYuvFormat = mYuvFormat;
 
     t->calcElementCount();
     return t;

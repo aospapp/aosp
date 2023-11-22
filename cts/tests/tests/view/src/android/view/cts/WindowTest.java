@@ -49,6 +49,7 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
+import android.view.SearchEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -1105,11 +1106,20 @@ public class WindowTest extends ActivityInstrumentationTestCase2<WindowCtsActivi
             return mIsOnPanelClosedCalled;
         }
 
+        public boolean onSearchRequested(SearchEvent searchEvent) {
+            return onSearchRequested();
+        }
+
         public boolean onSearchRequested() {
             return false;
         }
 
         public ActionMode onWindowStartingActionMode(ActionMode.Callback callback) {
+            return null;
+        }
+
+        public ActionMode onWindowStartingActionMode(
+                ActionMode.Callback callback, int type) {
             return null;
         }
 

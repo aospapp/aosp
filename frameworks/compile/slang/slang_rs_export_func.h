@@ -56,7 +56,7 @@ class RSExportFunc : public RSExportable {
       mName(Name.data(), Name.size()),
       mMangledName(),
       mShouldMangle(false),
-      mParamPacketType(NULL) {
+      mParamPacketType(nullptr) {
 
     mShouldMangle = Context->getMangleContext().shouldMangleDeclName(FD);
 
@@ -74,12 +74,12 @@ class RSExportFunc : public RSExportable {
   typedef RSExportRecordType::const_field_iterator const_param_iterator;
 
   inline const_param_iterator params_begin() const {
-    slangAssert((mParamPacketType != NULL) &&
+    slangAssert((mParamPacketType != nullptr) &&
                 "Get parameter from export function having no parameter!");
     return mParamPacketType->fields_begin();
   }
   inline const_param_iterator params_end() const {
-    slangAssert((mParamPacketType != NULL) &&
+    slangAssert((mParamPacketType != nullptr) &&
                 "Get parameter from export function having no parameter!");
     return mParamPacketType->fields_end();
   }
@@ -98,7 +98,7 @@ class RSExportFunc : public RSExportable {
 
   // Check whether the given ParamsPacket type (in LLVM type) is "size
   // equivalent" to the one obtained from getParamPacketType(). If the @Params
-  // is NULL, means there must be no any parameters.
+  // is nullptr, means there must be no any parameters.
   bool checkParameterPacketType(llvm::StructType *ParamTy) const;
 };  // RSExportFunc
 

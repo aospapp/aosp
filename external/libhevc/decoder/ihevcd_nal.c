@@ -358,7 +358,7 @@ IHEVCD_ERROR_T ihevcd_nal_unit(codec_t *ps_codec)
             break;
 
         case NAL_CRA         :
-            ps_codec->i4_rasl_output_flag = (0 == ps_codec->u4_pic_cnt) ? 0 : 1;
+            ps_codec->i4_rasl_output_flag = (0 != ps_codec->i4_cra_as_first_pic) ? 0 : 1;
             break;
 
         default:
@@ -393,6 +393,7 @@ IHEVCD_ERROR_T ihevcd_nal_unit(codec_t *ps_codec)
             }
 
             ps_codec->i4_header_in_slice_mode = 0;
+            ps_codec->i4_cra_as_first_pic = 0;
 
             ret = ihevcd_parse_slice_header(ps_codec, &s_nal);
             DEBUG_PRINT_NAL_INFO(ps_codec, s_nal.i1_nal_unit_type);
@@ -425,6 +426,7 @@ IHEVCD_ERROR_T ihevcd_nal_unit(codec_t *ps_codec)
                 sps_t *ps_sps = ps_codec->ps_sps_base + MAX_SPS_CNT - 1;
                 ihevcd_copy_sps(ps_codec, ps_sps->i1_sps_id, MAX_SPS_CNT - 1);
             }
+            ps_codec->i4_error_code = ret;
 
             DEBUG_PRINT_NAL_INFO(ps_codec, s_nal.i1_nal_unit_type);
             break;
@@ -444,8 +446,12 @@ IHEVCD_ERROR_T ihevcd_nal_unit(codec_t *ps_codec)
                 pps_t *ps_pps = ps_codec->ps_pps_base + MAX_PPS_CNT - 1;
                 ihevcd_copy_pps(ps_codec, ps_pps->i1_pps_id, MAX_PPS_CNT - 1);
             }
-
+            ps_codec->i4_error_code = ret;
             DEBUG_PRINT_NAL_INFO(ps_codec, s_nal.i1_nal_unit_type);
+            break;
+
+        case NAL_EOS        :
+            ps_codec->i4_cra_as_first_pic = 1;
             break;
 
         default:

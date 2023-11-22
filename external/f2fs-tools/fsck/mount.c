@@ -9,11 +9,21 @@
  * published by the Free Software Foundation.
  */
 #include "fsck.h"
+#include <locale.h>
 
-void print_inode_info(struct f2fs_inode *inode)
+void print_inode_info(struct f2fs_inode *inode, int name)
 {
 	unsigned int i = 0;
 	int namelen = le32_to_cpu(inode->i_namelen);
+
+	if (name && namelen) {
+		inode->i_name[namelen] = '\0';
+		MSG(0, " - File name         : %s\n", inode->i_name);
+		setlocale(LC_ALL, "");
+		MSG(0, " - File size         : %'llu (bytes)\n",
+				le64_to_cpu(inode->i_size));
+		return;
+	}
 
 	DISP_u32(inode, i_mode);
 	DISP_u32(inode, i_uid);
@@ -76,7 +86,7 @@ void print_node_info(struct f2fs_node *node_block)
 	/* Is this inode? */
 	if (ino == nid) {
 		DBG(0, "Node ID [0x%x:%u] is inode\n", nid, nid);
-		print_inode_info(&node_block->i);
+		print_inode_info(&node_block->i, 0);
 	} else {
 		int i;
 		u32 *dump_blk = (u32 *)node_block;
@@ -133,6 +143,7 @@ void print_raw_sb_info(struct f2fs_sb_info *sbi)
 	DISP_u32(sb, node_ino);
 	DISP_u32(sb, meta_ino);
 	DISP_u32(sb, cp_payload);
+	DISP("%s", sb, version);
 	printf("\n");
 }
 
@@ -210,12 +221,15 @@ int sanity_check_raw_super(struct f2fs_super_block *raw_super)
 		return -1;
 	}
 
-	if (F2FS_LOG_SECTOR_SIZE != le32_to_cpu(raw_super->log_sectorsize)) {
+	if (le32_to_cpu(raw_super->log_sectorsize) > F2FS_MAX_LOG_SECTOR_SIZE ||
+		le32_to_cpu(raw_super->log_sectorsize) <
+						F2FS_MIN_LOG_SECTOR_SIZE) {
 		return -1;
 	}
 
-	if (F2FS_LOG_SECTORS_PER_BLOCK !=
-				le32_to_cpu(raw_super->log_sectors_per_block)) {
+	if (le32_to_cpu(raw_super->log_sectors_per_block) +
+				le32_to_cpu(raw_super->log_sectorsize) !=
+						F2FS_MAX_LOG_SECTOR_SIZE) {
 		return -1;
 	}
 
@@ -225,6 +239,7 @@ int sanity_check_raw_super(struct f2fs_super_block *raw_super)
 int validate_super_block(struct f2fs_sb_info *sbi, int block)
 {
 	u64 offset;
+
 	sbi->raw_super = malloc(sizeof(struct f2fs_super_block));
 
 	if (block == 0)
@@ -235,8 +250,38 @@ int validate_super_block(struct f2fs_sb_info *sbi, int block)
 	if (dev_read(sbi->raw_super, offset, sizeof(struct f2fs_super_block)))
 		return -1;
 
-	if (!sanity_check_raw_super(sbi->raw_super))
+	if (!sanity_check_raw_super(sbi->raw_super)) {
+		/* get kernel version */
+		if (config.kd >= 0) {
+			dev_read_version(config.version, 0, VERSION_LEN);
+			get_kernel_version(config.version);
+		} else {
+			memset(config.version, 0, VERSION_LEN);
+		}
+
+		/* build sb version */
+		memcpy(config.sb_version, sbi->raw_super->version, VERSION_LEN);
+		get_kernel_version(config.sb_version);
+		memcpy(config.init_version, sbi->raw_super->init_version, VERSION_LEN);
+		get_kernel_version(config.init_version);
+
+		MSG(0, "Info: MKFS version\n  \"%s\"\n", config.init_version);
+		MSG(0, "Info: FSCK version\n  from \"%s\"\n    to \"%s\"\n",
+					config.sb_version, config.version);
+		if (memcmp(config.sb_version, config.version, VERSION_LEN)) {
+			int ret;
+
+			memcpy(sbi->raw_super->version,
+						config.version, VERSION_LEN);
+			ret = dev_write(sbi->raw_super, offset,
+					sizeof(struct f2fs_super_block));
+			ASSERT(ret >= 0);
+
+			config.auto_fix = 0;
+			config.fix_on = 1;
+		}
 		return 0;
+	}
 
 	free(sbi->raw_super);
 	MSG(0, "\tCan't find a valid F2FS superblock at 0x%x\n", block);
@@ -763,6 +808,7 @@ void seg_info_from_raw_sit(struct seg_entry *se,
 	memcpy(se->cur_valid_map, raw_sit->valid_map, SIT_VBLOCK_MAP_SIZE);
 	memcpy(se->ckpt_valid_map, raw_sit->valid_map, SIT_VBLOCK_MAP_SIZE);
 	se->type = GET_SIT_TYPE(raw_sit);
+	se->orig_type = GET_SIT_TYPE(raw_sit);
 	se->mtime = le64_to_cpu(raw_sit->mtime);
 }
 
@@ -1021,7 +1067,8 @@ void rewrite_sit_area_bitmap(struct f2fs_sb_info *sbi)
 		se = get_seg_entry(sbi, segno);
 		type = se->type;
 		if (type >= NO_CHECK_TYPE) {
-			ASSERT(valid_blocks);
+			ASSERT_MSG("Invalide type and valid blocks=%x,%x",
+					segno, valid_blocks);
 			type = 0;
 		}
 		sit->vblocks = cpu_to_le16((type << SIT_VBLOCKS_SHIFT) |

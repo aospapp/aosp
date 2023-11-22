@@ -16,8 +16,6 @@
 
 package com.android.internal.telephony;
 
-import android.content.Intent;
-
 /**
  * The intents that the telephony services broadcast.
  *
@@ -319,6 +317,7 @@ public class TelephonyIntents {
     public static final String EXTRA_PLMN       = "plmn";
     public static final String EXTRA_SHOW_SPN   = "showSpn";
     public static final String EXTRA_SPN        = "spn";
+    public static final String EXTRA_DATA_SPN   = "spnData";
 
     /**
      * <p>Broadcast Action: It indicates one column of a subinfo record has been changed

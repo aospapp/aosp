@@ -1,13 +1,15 @@
 #!/bin/sh
 
-export HDBMEGS=128
+export HDBMEGS=64
+keep_hdb=false
 
 build_in_dir()
 {
 	cd "$1" || exit 1
-	rm -f hdb.img 2>/dev/null
-	nice -n10 ./native-build.sh ../hdc.img
-	rm -f hdb.img 2>/dev/null
+	rm -f hdb.img
+	nice -n10 time ./native-build.sh ../hdc.img
+	$keep_hdb || rm -f hdb.img
+	echo >&3 "Finished: $1"
 }
 
 started=false
@@ -15,7 +17,7 @@ for dir; do
 	test -d "$dir" || continue
 	test -e "$dir/native-build.sh" || continue
 	echo "Starting: $dir"
-	build_in_dir "$dir" </dev/null >"$dir.log" 2>&1 &
+	build_in_dir "$dir" 3>&1 </dev/null >"$dir.log" 2>&1 &
 	started=true
 done
 

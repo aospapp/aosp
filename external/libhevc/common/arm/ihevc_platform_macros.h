@@ -123,6 +123,7 @@ static INLINE UWORD32 CLZ(UWORD32 u4_word)
     else
         return 32;
 }
+
 static INLINE UWORD32 CTZ(UWORD32 u4_word)
 {
     if(0 == u4_word)
@@ -135,6 +136,77 @@ static INLINE UWORD32 CTZ(UWORD32 u4_word)
     }
 }
 
+
+/**
+******************************************************************************
+ *  @brief  returns postion of msb bit for 32bit input
+******************************************************************************
+ */
+#define GET_POS_MSB_32(r,word)                         \
+{                                                      \
+    if(word)                                           \
+    {                                                  \
+        r = 31 - __builtin_clz(word);                  \
+    }                                                  \
+    else                                               \
+    {                                                  \
+        r = -1;                                        \
+    }                                                  \
+}
+
+/**
+******************************************************************************
+ *  @brief  returns postion of msb bit for 64bit input
+******************************************************************************
+ */
+#define GET_POS_MSB_64(r,word)                         \
+{                                                      \
+    if(word)                                           \
+    {                                                  \
+        r = 63 - __builtin_clzll(word);                \
+    }                                                  \
+    else                                               \
+    {                                                  \
+        r = -1;                                        \
+    }                                                  \
+}
+
+
+/**
+******************************************************************************
+ *  @brief  returns max number of bits required to represent input word (max 32bits)
+******************************************************************************
+ */
+#define GETRANGE(r,word)                               \
+{                                                      \
+    if(word)                                           \
+    {                                                  \
+        r = 32 - __builtin_clz(word);                  \
+    }                                                  \
+    else                                               \
+    {                                                  \
+        r = 1;                                         \
+    }                                                  \
+}
+
+#if 0 /*  Equivalent C code for GETRANGE */
+#define GETRANGE(r,word)    \
+{                           \
+    UWORD32 temp;           \
+    r = 0;                  \
+    temp = (UWORD32)word;   \
+    if(0 == word)           \
+        r = 1;              \
+    else                    \
+    {                       \
+        while(temp)         \
+        {                   \
+            temp >>= 1;     \
+            r++;            \
+        }                   \
+    }\
+}
+#endif
 
 
 

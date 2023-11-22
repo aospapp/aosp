@@ -16,7 +16,11 @@
 
 package android.hardware.cts.helpers.sensoroperations;
 
-import junit.framework.Assert;
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import android.hardware.cts.helpers.SensorCtsHelper;
 import android.hardware.cts.helpers.SensorStats;
@@ -25,6 +29,7 @@ import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.TestSensorEvent;
 import android.hardware.cts.helpers.TestSensorEventListener;
 import android.hardware.cts.helpers.TestSensorManager;
+import android.hardware.cts.helpers.SuspendStateMonitor;
 import android.hardware.cts.helpers.reporting.ISensorTestNode;
 import android.hardware.cts.helpers.sensorverification.EventGapVerification;
 import android.hardware.cts.helpers.sensorverification.EventOrderingVerification;
@@ -36,13 +41,11 @@ import android.hardware.cts.helpers.sensorverification.MagnitudeVerification;
 import android.hardware.cts.helpers.sensorverification.MeanVerification;
 import android.hardware.cts.helpers.sensorverification.StandardDeviationVerification;
 import android.os.Handler;
+import android.os.SystemClock;
+import android.os.PowerManager.WakeLock;
 import android.util.Log;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import junit.framework.Assert;
 
 /**
  * A {@link SensorOperation} used to verify that sensor events and sensor values are correct.
@@ -61,6 +64,7 @@ public class TestSensorOperation extends SensorOperation {
     private final TestSensorEnvironment mEnvironment;
     private final Executor mExecutor;
     private final Handler mHandler;
+    private long mDeviceWakeUpTimeMs = -1;
 
     /**
      * An interface that defines an abstraction for operations to be performed by the
@@ -118,7 +122,22 @@ public class TestSensorOperation extends SensorOperation {
     public void execute(ISensorTestNode parent) throws InterruptedException {
         getStats().addValue("sensor_name", mEnvironment.getSensor().getName());
         TestSensorEventListener listener = new TestSensorEventListener(mEnvironment, mHandler);
-        mExecutor.execute(mSensorManager, listener);
+
+        if (mEnvironment.isDeviceSuspendTest()) {
+            SuspendStateMonitor suspendStateMonitor = new SuspendStateMonitor();
+            long startTimeMs = SystemClock.elapsedRealtime();
+            // Device should go into suspend here.
+            mExecutor.execute(mSensorManager, listener);
+            long endTimeMs = SystemClock.elapsedRealtime();
+            // Check if the device has gone into suspend during test execution.
+            mDeviceWakeUpTimeMs = suspendStateMonitor.getLastWakeUpTime();
+            suspendStateMonitor.cancel();
+            Assert.assertTrue("Device did not go into suspend during test execution",
+                                       startTimeMs < mDeviceWakeUpTimeMs &&
+                                       mDeviceWakeUpTimeMs < endTimeMs);
+        } else {
+            mExecutor.execute(mSensorManager, listener);
+        }
 
         boolean failed = false;
         StringBuilder sb = new StringBuilder();
@@ -126,7 +145,6 @@ public class TestSensorOperation extends SensorOperation {
         for (ISensorVerification verification : mVerifications) {
             failed |= evaluateResults(collectedEvents, verification, sb);
         }
-
         if (failed) {
             trySaveCollectedEvents(parent, listener);
 
@@ -193,7 +211,7 @@ public class TestSensorOperation extends SensorOperation {
         }
 
         try {
-            listener.logCollectedEventsToFile(sanitizedFileName);
+            listener.logCollectedEventsToFile(sanitizedFileName, mDeviceWakeUpTimeMs);
         } catch (IOException e) {
             Log.w(TAG, "Unable to save collected events to file: " + sanitizedFileName, e);
         }
@@ -214,8 +232,91 @@ public class TestSensorOperation extends SensorOperation {
                     throws InterruptedException {
                 try {
                     CountDownLatch latch = sensorManager.registerListener(listener, eventCount);
-                    listener.waitForEvents(latch, eventCount);
+                    listener.waitForEvents(latch, eventCount, true);
                 } finally {
+                    sensorManager.unregisterListener();
+                }
+            }
+        };
+        return new TestSensorOperation(environment, executor);
+    }
+
+    /**
+     * Creates an operation that will wait for a given amount of events to arrive.
+     *
+     * @param environment The test environment.
+     * @param eventCount The number of events to wait for.
+     */
+    public static TestSensorOperation createOperation(
+            final TestSensorEnvironment environment,
+            final WakeLock wakeLock,
+            final boolean flushBeforeAfterSuspend) {
+        Executor executor = new Executor() {
+            @Override
+            public void execute(TestSensorManager sensorManager, TestSensorEventListener listener)
+                    throws InterruptedException {
+                try {
+                    sensorManager.registerListener(listener);
+                    if (flushBeforeAfterSuspend) {
+                        int initialNumEvents1 = listener.getCollectedEvents().size();
+                        SensorCtsHelper.sleep(2, TimeUnit.SECONDS);
+                        CountDownLatch flushLatch1 = sensorManager.requestFlush();
+                        listener.waitForFlushComplete(flushLatch1, false);
+                        Assert.assertTrue("1.No sensor events collected on calling flush " +
+                                environment.toString(),
+                                listener.getCollectedEvents().size() - initialNumEvents1 > 0);
+                    }
+
+                    Log.i(TAG, "Collected sensor events size1=" +
+                            listener.getCollectedEvents().size());
+                    int initialNumEvents2 = listener.getCollectedEvents().size();
+                    if (wakeLock.isHeld()) {
+                        wakeLock.release();
+                    }
+                    listener.releaseWakeLock();
+
+                    SuspendStateMonitor suspendMonitor = new SuspendStateMonitor();
+                    long approxStartTimeMs = SystemClock.elapsedRealtime();
+                    // Allow the device to go into suspend. Wait for wake-up.
+                    suspendMonitor.waitForWakeUp(15);
+                    suspendMonitor.cancel();
+
+                    if (!wakeLock.isHeld()) {
+                        wakeLock.acquire();
+                    }
+
+                    CountDownLatch flushLatch2 = sensorManager.requestFlush();
+                    listener.waitForFlushComplete(flushLatch2, false);
+
+                    Log.i(TAG, "Collected sensor events size2=" +
+                            listener.getCollectedEvents().size());
+
+                    if (listener.getCollectedEvents().size() - initialNumEvents2 <= 0 &&
+                            suspendMonitor.getLastWakeUpTime() > 0) {
+                        // Fail
+                        String str = String.format("No Sensor events collected by calling flush " +
+                                "after device wake up. Approx time after which device went into " +
+                                "suspend %dms ,approx AP wake-up time %dms %s",
+                                approxStartTimeMs, suspendMonitor.getLastWakeUpTime(),
+                                environment.toString());
+                        Assert.fail(str);
+                    }
+                    if (flushBeforeAfterSuspend) {
+                        int initialNumEvents3 = listener.getCollectedEvents().size();
+                        SensorCtsHelper.sleep(2, TimeUnit.SECONDS);
+                        CountDownLatch flushLatch3 = sensorManager.requestFlush();
+                        listener.waitForFlushComplete(flushLatch3, false);
+                        Assert.assertTrue("3.No sensor events collected on calling flush " +
+                                environment.toString(),
+                                listener.getCollectedEvents().size() - initialNumEvents3 > 0);
+                    }
+                    Log.i(TAG, "Collected sensor events size3=" +
+                            listener.getCollectedEvents().size());
+                } finally {
+                    if(!wakeLock.isHeld()) {
+                        wakeLock.acquire();
+                    }
+                    listener.releaseWakeLock();
                     sensorManager.unregisterListener();
                 }
             }
@@ -269,7 +370,7 @@ public class TestSensorOperation extends SensorOperation {
                     sensorManager.registerListener(listener);
                     SensorCtsHelper.sleep(duration, timeUnit);
                     CountDownLatch latch = sensorManager.requestFlush();
-                    listener.waitForFlushComplete(latch);
+                    listener.waitForFlushComplete(latch, true);
                 } finally {
                     sensorManager.unregisterListener();
                 }

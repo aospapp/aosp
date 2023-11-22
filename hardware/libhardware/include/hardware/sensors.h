@@ -35,6 +35,7 @@ __BEGIN_DECLS
 #define SENSORS_DEVICE_API_VERSION_1_1  HARDWARE_DEVICE_API_VERSION_2(1, 1, SENSORS_HEADER_VERSION)
 #define SENSORS_DEVICE_API_VERSION_1_2  HARDWARE_DEVICE_API_VERSION_2(1, 2, SENSORS_HEADER_VERSION)
 #define SENSORS_DEVICE_API_VERSION_1_3  HARDWARE_DEVICE_API_VERSION_2(1, 3, SENSORS_HEADER_VERSION)
+#define SENSORS_DEVICE_API_VERSION_1_4  HARDWARE_DEVICE_API_VERSION_2(1, 4, SENSORS_HEADER_VERSION)
 
 /**
  * Please see the Sensors section of source.android.com for an
@@ -93,6 +94,29 @@ enum {
 #define SENSOR_PERMISSION_BODY_SENSORS "android.permission.BODY_SENSORS"
 
 /*
+ * Availability: SENSORS_DEVICE_API_VERSION_1_4
+ * Sensor HAL modes used in set_operation_mode method
+ */
+enum {
+    /*
+     * Operating modes for the HAL.
+     */
+
+    /*
+     * Normal mode operation. This is the default state of operation.
+     * The HAL shall initialize into this mode on device startup.
+     */
+    SENSOR_HAL_NORMAL_MODE        = 0,
+
+    /*
+     * Data Injection mode. In this mode, the device shall not source data from the
+     * physical sensors as it would in normal mode. Instead sensor data is
+     * injected by the sensor service.
+     */
+    SENSOR_HAL_DATA_INJECTION_MODE      = 0x1
+};
+
+/*
  * Availability: SENSORS_DEVICE_API_VERSION_1_3
  * Sensor flags used in sensor_t.flags.
  */
@@ -114,7 +138,16 @@ enum {
     SENSOR_FLAG_CONTINUOUS_MODE        = 0,    // 0000
     SENSOR_FLAG_ON_CHANGE_MODE         = 0x2,  // 0010
     SENSOR_FLAG_ONE_SHOT_MODE          = 0x4,  // 0100
-    SENSOR_FLAG_SPECIAL_REPORTING_MODE = 0x6   // 0110
+    SENSOR_FLAG_SPECIAL_REPORTING_MODE = 0x6,  // 0110
+
+    /*
+     * Set this flag if the sensor supports data_injection mode and allows data to be injected
+     * from the SensorService. When in data_injection ONLY sensors with this flag set are injected
+     * sensor data and only sensors with this flag set are activated. Eg: Accelerometer and Step
+     * Counter sensors can be set with this flag and SensorService will inject accelerometer data
+     * and read the corresponding step counts.
+     */
+    SENSOR_FLAG_SUPPORTS_DATA_INJECTION = 0x8  // 1000
 };
 
 /*
@@ -122,6 +155,12 @@ enum {
  */
 #define REPORTING_MODE_MASK              (0xE)
 #define REPORTING_MODE_SHIFT             (1)
+
+/*
+ * Mask and shift for data_injection mode sensor flags defined above.
+ */
+#define DATA_INJECTION_MASK              (0x10)
+#define DATA_INJECTION_SHIFT             (4)
 
 /*
  * Sensor type
@@ -602,6 +641,22 @@ enum {
 #define SENSOR_TYPE_PICK_UP_GESTURE                            (25)
 #define SENSOR_STRING_TYPE_PICK_UP_GESTURE                     "android.sensor.pick_up_gesture"
 
+/*
+ * SENSOR_TYPE_WRIST_TILT_GESTURE
+ * trigger-mode: special
+ * wake-up sensor: yes
+ *
+ * A sensor of this type triggers an event each time a tilt of the wrist-worn
+ * device is detected.
+ *
+ * This sensor must be low power, as it is likely to be activated 24/7.
+ * The only allowed value to return is 1.0.
+ *
+ * Implement only the wake-up version of this sensor.
+ */
+#define SENSOR_TYPE_WRIST_TILT_GESTURE                         (26)
+#define SENSOR_STRING_TYPE_WRIST_TILT_GESTURE                  "android.sensor.wrist_tilt_gesture"
+
 /**
  * Values returned by the accelerometer in various locations in the universe.
  * all values are in SI units (m/s^2)
@@ -791,6 +846,18 @@ struct sensors_module_t {
      */
     int (*get_sensors_list)(struct sensors_module_t* module,
             struct sensor_t const** list);
+
+    /**
+     *  Place the module in a specific mode. The following modes are defined
+     *
+     *  0 - Normal operation. Default state of the module.
+     *  1 - Loopback mode. Data is injected for the the supported
+     *      sensors by the sensor service in this mode.
+     * @return 0 on success
+     *         -EINVAL if requested mode is not supported
+     *         -EPERM if operation is not allowed
+     */
+    int (*set_operation_mode)(unsigned int mode);
 };
 
 struct sensor_t {
@@ -988,7 +1055,16 @@ typedef struct sensors_poll_device_1 {
      */
     int (*flush)(struct sensors_poll_device_1* dev, int sensor_handle);
 
-    void (*reserved_procs[8])(void);
+    /*
+     * Inject a single sensor sample to be to this device.
+     * data points to the sensor event to be injected
+     * @return 0 on success
+     *         -EPERM if operation is not allowed
+     *         -EINVAL if sensor event cannot be injected
+     */
+    int (*inject_sensor_data)(struct sensors_poll_device_1 *dev, const sensors_event_t *data);
+
+    void (*reserved_procs[7])(void);
 
 } sensors_poll_device_1_t;
 

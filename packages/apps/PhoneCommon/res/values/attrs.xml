@@ -22,4 +22,13 @@
     <declare-styleable name="ResizingText">
         <attr name="resizing_text_min_size" format="dimension"/>
     </declare-styleable>
+
+    <declare-styleable name="Theme.Dialpad">
+        <attr name="dialpad_text_color" format="color" />
+        <attr name="dialpad_text_color_primary" format="color" />
+        <attr name="dialpad_text_color_secondary" format="color" />
+        <attr name="dialpad_icon_tint" format="color" />
+        <attr name="dialpad_voicemail_tint" format="color" />
+        <attr name="dialpad_background" format="color" />
+    </declare-styleable>
 </resources>

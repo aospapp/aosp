@@ -33,7 +33,7 @@
     <string name="password_error" msgid="2042471639556516356">"Introduceţi parola corectă."</string>
     <string name="password_empty_error" msgid="591713406761723025">"Introduceţi parola."</string>
     <string name="name_empty_error" msgid="3808800768660110354">"Introduceţi un nume."</string>
-    <string name="name_char_error" msgid="3176618568784938968">"Introduceţi un nume care conţine doar litere şi numere."</string>
+    <string name="name_char_error" msgid="3176618568784938968">"Introduceţi un nume care conţine doar litere și numere."</string>
     <string name="storage_error" msgid="8306802455802770779">"Nu se poate salva certificatul. Atingeţi OK pentru a încerca din nou."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Nu se poate salva certificatul. Spaţiul de stocare a certificatelor nu este activat sau nu este corect iniţializat."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Certificatul nu este instalat."</string>
@@ -53,4 +53,26 @@
     <item msgid="375085478373011304">"VPN și aplicații"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="wifi_title" msgid="8475811746333426489">"Profil Wi-Fi"</string>
+    <string name="wifi_detail_title" msgid="3627332137252994395">"Detalii pentru %s"</string>
+    <string name="wifi_detail_label" msgid="3032151019356747583">"Detalii"</string>
+    <string name="wifi_install_label" msgid="1449629407724323233">"Instalați"</string>
+    <string name="wifi_installing_label" msgid="8387393993627129025">"Se instalează"</string>
+    <string name="wifi_cancel_label" msgid="1328748037608392134">"Anulați"</string>
+    <string name="wifi_dismiss_label" msgid="1916684434873972698">"Închideți"</string>
+    <string name="wifi_no_config" msgid="1835743123288916755">"Niciuna"</string>
+    <string name="wifi_config_text" msgid="8259587306773310314">"Nume: %1$s\nFQDN: %2$s\nRoaming Consortiums: %3$s\nRealm: %4$s\nMetodă de autentificare: EAP-%5$s\n"</string>
+    <string name="wifi_ttls_config_text" msgid="2002413183253872168">"Nume de utilizator: %s\n"</string>
+    <string name="wifi_tls_config_text" msgid="9062328536640168510">"Certificat client:\n%1$s\nCheie: %2$s\n"</string>
+    <string name="wifi_sim_config_text" msgid="1666019954520831840">"SIM: %s\n"</string>
+    <string name="wifi_trust_config_text" msgid="5916047381475747783">"Certificat de încredere:\n%s\n"</string>
+    <string name="install_done_title" msgid="4822989918460334497">"Datele de conectare au fost instalate"</string>
+    <string name="install_done" msgid="1522718684172097080">"Datele de conectare la <xliff:g id="NAME">%1$s</xliff:g> au fost adăugate la rețelele Wi-Fi salvate."</string>
+    <string name="done_label" msgid="5597425930652904250">"TERMINAT"</string>
+    <string name="wifi_installer_detail" msgid="63879632832701669">"Instalați datele de conectare la Wi-Fi pentru a vă conecta la rețelele disponibile prin <xliff:g id="NAME">%1$s</xliff:g>."</string>
+    <string name="wifi_installer_download_error" msgid="5429453090956277692">"Fișierul descărcat are probleme și nu poate fi instalat. Asigurați-vă că ați descărcat fișierul din sursa corespunzătoare."</string>
+    <string name="wifi_installer_fail" msgid="894483173306576331">"Datele de conectare la Wi-Fi nu pot fi instalate. Încercați să descărcați din nou fișierul."</string>
+    <string name="wifi_installer_fail_no_wifi_title" msgid="8358191074828840533">"Instalarea a fost anulată"</string>
+    <string name="wifi_installer_fail_title" msgid="5547079779067835479">"Nu se poate instala"</string>
+    <string name="wifi_installer_fail_no_wifi" msgid="2044576439984209921">"Activați conexiunea Wi-Fi și încercați din nou."</string>
 </resources>

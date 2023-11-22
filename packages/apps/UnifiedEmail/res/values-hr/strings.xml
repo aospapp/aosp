@@ -195,8 +195,8 @@
     <item quantity="other" msgid="8520761617935818623">"Arhiviranih razgovora: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
   </plurals>
   <plurals name="conversation_deleted">
-    <item quantity="one" msgid="4819167474123685161">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; izbirsan razgovor"</item>
-    <item quantity="other" msgid="6287534453625638257">"Izbrisanih razgovora: &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt;"</item>
+    <item quantity="one" msgid="4819167474123685161">"&lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; poruka izbrisana"</item>
+    <item quantity="other" msgid="6287534453625638257">"Izbrisano &lt;b&gt;<xliff:g id="COUNT">%1$d</xliff:g>&lt;/b&gt; poruka"</item>
   </plurals>
     <string name="deleted" msgid="7378013910782008375">"Izbrisano"</string>
     <string name="archived" msgid="6283673603512713022">"Arhivirano"</string>

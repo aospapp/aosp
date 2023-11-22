@@ -47,7 +47,7 @@ FX_BOOL	CPWL_CBListBox::OnLButtonUp(const CPDF_Point & point, FX_DWORD nFlag)
 	return TRUE;
 }
 
-FX_BOOL CPWL_CBListBox::OnKeyDown(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag)
+FX_BOOL CPWL_CBListBox::OnKeyDownWithExit(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag)
 {
 	if (!m_pList) return FALSE;
 
@@ -93,7 +93,7 @@ FX_BOOL CPWL_CBListBox::OnKeyDown(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag
 	return TRUE;
 }
 
-FX_BOOL	CPWL_CBListBox::OnChar(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag)
+FX_BOOL	CPWL_CBListBox::OnCharWithExit(FX_WORD nChar, FX_BOOL & bExit, FX_DWORD nFlag)
 {
 	if (!m_pList) return FALSE;
 
@@ -266,7 +266,7 @@ void CPWL_ComboBox::SetSelect(FX_INT32 nItemIndex)
 	if (m_pList)
 		m_pList->Select(nItemIndex);
 
-	m_pEdit->SetText(m_pList->GetText());
+	m_pEdit->SetText(m_pList->GetText().c_str());
 
 	m_nSelectItem = nItemIndex;
 }
@@ -552,7 +552,7 @@ FX_BOOL CPWL_ComboBox::OnKeyDown(FX_WORD nChar, FX_DWORD nFlag)
 		if (m_pList->GetCurSel() > 0)
 		{
 			FX_BOOL bExit = FALSE;
-			if (m_pList->OnKeyDown(nChar,bExit,nFlag))
+			if (m_pList->OnKeyDownWithExit(nChar,bExit,nFlag))
 			{
 				if (bExit) return FALSE;
 				SetSelectText();				
@@ -563,7 +563,7 @@ FX_BOOL CPWL_ComboBox::OnKeyDown(FX_WORD nChar, FX_DWORD nFlag)
 		if (m_pList->GetCurSel() < m_pList->GetCount() - 1)
 		{
 			FX_BOOL bExit = FALSE;
-			if (m_pList->OnKeyDown(nChar,bExit,nFlag))
+			if (m_pList->OnKeyDownWithExit(nChar,bExit,nFlag))
 			{
 				if (bExit) return FALSE;
 				SetSelectText();				
@@ -592,7 +592,7 @@ FX_BOOL CPWL_ComboBox::OnChar(FX_WORD nChar, FX_DWORD nFlag)
 	}
 	else
 	{
-		if (m_pList->OnChar(nChar,bExit,nFlag))
+		if (m_pList->OnCharWithExit(nChar,bExit,nFlag))
 		{
 			return bExit;
 		}
@@ -638,7 +638,7 @@ void CPWL_ComboBox::SetSelectText()
 {
 	CFX_WideString swText = m_pList->GetText();
 	m_pEdit->SelectAll();
-	m_pEdit->ReplaceSel(m_pList->GetText());
+	m_pEdit->ReplaceSel(m_pList->GetText().c_str());
 	m_pEdit->SelectAll();
 
 	m_nSelectItem = m_pList->GetCurSel();

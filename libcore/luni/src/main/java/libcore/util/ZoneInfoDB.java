@@ -41,7 +41,8 @@ import libcore.io.MemoryMappedFile;
  */
 public final class ZoneInfoDB {
   private static final TzData DATA =
-      new TzData(System.getenv("ANDROID_ROOT") + "/usr/share/zoneinfo/tzdata");
+      new TzData(System.getenv("ANDROID_DATA") + "/misc/zoneinfo/current/tzdata",
+          System.getenv("ANDROID_ROOT") + "/usr/share/zoneinfo/tzdata");
 
   public static class TzData {
     /**
@@ -247,6 +248,10 @@ public final class ZoneInfoDB {
       ZoneInfo zoneInfo = cache.get(id);
       // The object from the cache is cloned because TimeZone / ZoneInfo are mutable.
       return zoneInfo == null ? null : (ZoneInfo) zoneInfo.clone();
+    }
+
+    public boolean hasTimeZone(String id) throws IOException {
+      return cache.get(id) != null;
     }
   }
 

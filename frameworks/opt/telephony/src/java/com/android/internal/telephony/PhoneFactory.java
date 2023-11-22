@@ -29,6 +29,7 @@ import android.provider.Settings.SettingNotFoundException;
 import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.util.LocalLog;
 
 import com.android.internal.telephony.cdma.CDMALTEPhone;
 import com.android.internal.telephony.cdma.CDMAPhone;
@@ -42,9 +43,11 @@ import com.android.internal.telephony.sip.SipPhone;
 import com.android.internal.telephony.sip.SipPhoneFactory;
 import com.android.internal.telephony.uicc.IccCardProxy;
 import com.android.internal.telephony.uicc.UiccController;
+import com.android.internal.util.IndentingPrintWriter;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.util.HashMap;
 
 /**
  * {@hide}
@@ -53,6 +56,7 @@ public class PhoneFactory {
     static final String LOG_TAG = "PhoneFactory";
     static final int SOCKET_OPEN_RETRY_MILLIS = 2 * 1000;
     static final int SOCKET_OPEN_MAX_RETRY = 3;
+    static final boolean DBG = false;
 
     //***** Class Variables
 
@@ -72,6 +76,8 @@ public class PhoneFactory {
     static private boolean sMadeDefaults = false;
     static private PhoneNotifier sPhoneNotifier;
     static private Context sContext;
+
+    static private final HashMap<String, LocalLog>sLocalLogs = new HashMap<String, LocalLog>();
 
     //***** Class Methods
 
@@ -151,9 +157,11 @@ public class PhoneFactory {
                     if (phoneType == PhoneConstants.PHONE_TYPE_GSM) {
                         phone = new GSMPhone(context,
                                 sCommandsInterfaces[i], sPhoneNotifier, i);
+                        phone.startMonitoringImsService();
                     } else if (phoneType == PhoneConstants.PHONE_TYPE_CDMA) {
                         phone = new CDMALTEPhone(context,
                                 sCommandsInterfaces[i], sPhoneNotifier, i);
+                        phone.startMonitoringImsService();
                     }
                     Rlog.i(LOG_TAG, "Creating Phone with type = " + phoneType + " sub = " + i);
 
@@ -226,15 +234,18 @@ public class PhoneFactory {
                 throw new IllegalStateException("Default phones haven't been made yet!");
                 // CAF_MSIM FIXME need to introduce default phone id ?
             } else if (phoneId == SubscriptionManager.DEFAULT_PHONE_INDEX) {
-                dbgInfo = "phoneId == DEFAULT_PHONE_ID return sProxyPhone";
+                if (DBG) dbgInfo = "phoneId == DEFAULT_PHONE_ID return sProxyPhone";
                 phone = sProxyPhone;
             } else {
-                dbgInfo = "phoneId != DEFAULT_PHONE_ID return sProxyPhones[phoneId]";
+                if (DBG) dbgInfo = "phoneId != DEFAULT_PHONE_ID return sProxyPhones[phoneId]";
                 phone = (((phoneId >= 0)
                                 && (phoneId < TelephonyManager.getDefault().getPhoneCount()))
                         ? sProxyPhones[phoneId] : null);
             }
-            Rlog.d(LOG_TAG, "getPhone:- " + dbgInfo + " phoneId=" + phoneId + " phone=" + phone);
+            if (DBG) {
+                Rlog.d(LOG_TAG, "getPhone:- " + dbgInfo + " phoneId=" + phoneId +
+                        " phone=" + phone);
+            }
             return phone;
         }
     }
@@ -276,7 +287,7 @@ public class PhoneFactory {
 
         // Update MCC MNC device configuration information
         String defaultMccMnc = TelephonyManager.getDefault().getSimOperatorNumericForPhone(phoneId);
-        Rlog.d(LOG_TAG, "update mccmnc=" + defaultMccMnc);
+        if (DBG) Rlog.d(LOG_TAG, "update mccmnc=" + defaultMccMnc);
         MccTable.updateMccMncConfiguration(sContext, defaultMccMnc, false);
 
         // Broadcast an Intent for default sub change
@@ -406,6 +417,43 @@ public class PhoneFactory {
         return ImsPhoneFactory.makePhone(sContext, phoneNotifier, defaultPhone);
     }
 
+    /**
+     * Adds a local log category.
+     *
+     * Only used within the telephony process.  Use localLog to add log entries.
+     *
+     * TODO - is there a better way to do this?  Think about design when we have a minute.
+     *
+     * @param key the name of the category - will be the header in the service dump.
+     * @param size the number of lines to maintain in this category
+     */
+    public static void addLocalLog(String key, int size) {
+        synchronized(sLocalLogs) {
+            if (sLocalLogs.containsKey(key)) {
+                throw new IllegalArgumentException("key " + key + " already present");
+            }
+            sLocalLogs.put(key, new LocalLog(size));
+        }
+    }
+
+    /**
+     * Add a line to the named Local Log.
+     *
+     * This will appear in the TelephonyDebugService dump.
+     *
+     * @param key the name of the log category to put this in.  Must be created
+     *            via addLocalLog.
+     * @param log the string to add to the log.
+     */
+    public static void localLog(String key, String log) {
+        synchronized(sLocalLogs) {
+            if (sLocalLogs.containsKey(key) == false) {
+                throw new IllegalArgumentException("key " + key + " not found");
+            }
+            sLocalLogs.get(key).log(log);
+        }
+    }
+
     public static void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("PhoneFactory:");
         PhoneProxy [] phones = (PhoneProxy[])PhoneFactory.getPhones();
@@ -454,5 +502,25 @@ public class PhoneFactory {
             e.printStackTrace();
         }
         pw.flush();
+        pw.println("++++++++++++++++++++++++++++++++");
+
+        try {
+            sSubInfoRecordUpdater.dump(fd, pw, args);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        pw.flush();
+
+        pw.println("++++++++++++++++++++++++++++++++");
+        synchronized (sLocalLogs) {
+            final IndentingPrintWriter ipw = new IndentingPrintWriter(pw, "  ");
+            for (String key : sLocalLogs.keySet()) {
+                ipw.println(key);
+                ipw.increaseIndent();
+                sLocalLogs.get(key).dump(fd, ipw, args);
+                ipw.decreaseIndent();
+            }
+            ipw.flush();
+        }
     }
 }

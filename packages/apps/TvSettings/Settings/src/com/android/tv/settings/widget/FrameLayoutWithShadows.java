@@ -27,9 +27,9 @@ import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.RectShape;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.ViewDebug.ExportedProperty;
 import android.view.ViewGroup;
 import android.view.ViewParent;
-import android.view.ViewDebug.ExportedProperty;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -130,12 +130,12 @@ public class FrameLayoutWithShadows extends FrameLayout {
         }
     }
 
-    private Rect rect = new Rect();
-    private RectF rectf = new RectF();
+    private final Rect rect = new Rect();
+    private final RectF rectf = new RectF();
     private int mShadowResourceId;
     private int mBottomResourceId;
     private float mShadowsAlpha = 1f;
-    private ArrayList<ShadowView> mRecycleBin = new ArrayList<ShadowView>(MAX_RECYCLE);
+    private final ArrayList<ShadowView> mRecycleBin = new ArrayList<>(MAX_RECYCLE);
 
     public FrameLayoutWithShadows(Context context) {
         this(context, null);
@@ -296,7 +296,7 @@ public class FrameLayoutWithShadows extends FrameLayout {
         shadowView.setAlpha(mShadowsAlpha);
         shadowView.setBackground(shadow);
         if (mBottomResourceId != 0) {
-            Drawable d = getResources().getDrawable(mBottomResourceId);
+            Drawable d = getContext().getDrawable(mBottomResourceId);
             shadowView.setDrawableBottom(d.mutate());
         }
         return shadowView;
@@ -307,9 +307,9 @@ public class FrameLayoutWithShadows extends FrameLayout {
      * clean-up of any previous shadow set for this view.
      */
     public View addShadowView(View view) {
-        Drawable shadow = null;
+        final Drawable shadow;
         if (mShadowResourceId != 0) {
-            shadow = getContext().getResources().getDrawable(mShadowResourceId);
+            shadow = getContext().getDrawable(mShadowResourceId);
         } else {
             return null;
         }

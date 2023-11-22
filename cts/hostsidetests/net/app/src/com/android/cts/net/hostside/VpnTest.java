@@ -87,6 +87,7 @@ public class VpnTest extends InstrumentationTestCase {
     Network mNetwork;
     NetworkCallback mCallback;
     final Object mLock = new Object();
+    final Object mLockShutdown = new Object();
 
     private boolean supportedHardware() {
         final PackageManager pm = getInstrumentation().getContext().getPackageManager();
@@ -204,7 +205,9 @@ public class VpnTest extends InstrumentationTestCase {
         mActivity.startService(intent);
         synchronized (mLock) {
             if (mNetwork == null) {
+                 Log.i(TAG, "bf mLock");
                  mLock.wait(TIMEOUT_MS);
+                 Log.i(TAG, "af mLock");
             }
         }
 
@@ -214,10 +217,27 @@ public class VpnTest extends InstrumentationTestCase {
 
         // Unfortunately, when the available callback fires, the VPN UID ranges are not yet
         // configured. Give the system some time to do so. http://b/18436087 .
-        try { Thread.sleep(300); } catch(InterruptedException e) {}
+        try { Thread.sleep(3000); } catch(InterruptedException e) {}
     }
 
     private void stopVpn() {
+        // Register a callback so we will be notified when our VPN comes up.
+        final NetworkRequest request = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_VPN)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        mCallback = new NetworkCallback() {
+            public void onLost(Network network) {
+                synchronized (mLockShutdown) {
+                    Log.i(TAG, "Got lost callback for network=" + network + ",mNetwork = " + mNetwork);
+                    if( mNetwork == network){
+                        mLockShutdown.notify();
+                    }
+                }
+            }
+       };
+        mCM.registerNetworkCallback(request, mCallback);  // Unregistered in tearDown.
         // Simply calling mActivity.stopService() won't stop the service, because the system binds
         // to the service for the purpose of sending it a revoke command if another VPN comes up,
         // and stopping a bound service has no effect. Instead, "start" the service again with an
@@ -225,6 +245,13 @@ public class VpnTest extends InstrumentationTestCase {
         Intent intent = new Intent(mActivity, MyVpnService.class)
                 .putExtra(mPackageName + ".cmd", "disconnect");
         mActivity.startService(intent);
+        synchronized (mLockShutdown) {
+            try {
+                 Log.i(TAG, "bf mLockShutdown");
+                 mLockShutdown.wait(TIMEOUT_MS);
+                 Log.i(TAG, "af mLockShutdown");
+            } catch(InterruptedException e) {}
+        }
     }
 
     private static void closeQuietly(Closeable c) {
@@ -433,7 +460,7 @@ public class VpnTest extends InstrumentationTestCase {
         if (!supportedHardware()) return;
 
         startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
-                 new String[] {"192.0.2.0/24", "2001:db8::/32"},
+                 new String[] {"0.0.0.0/0", "::/0"},
                  "", "");
 
         checkTrafficOnVpn();
@@ -443,7 +470,7 @@ public class VpnTest extends InstrumentationTestCase {
         if (!supportedHardware()) return;
 
         startVpn(new String[] {"192.0.2.2/32", "2001:db8:1:2::ffe/128"},
-                 new String[] {"0.0.0.0/0", "::/0"},
+                 new String[] {"192.0.2.0/24", "2001:db8::/32"},
                  mPackageName, "");
 
         checkTrafficOnVpn();

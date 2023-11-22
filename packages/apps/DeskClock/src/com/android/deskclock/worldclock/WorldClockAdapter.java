@@ -95,7 +95,7 @@ public class WorldClockAdapter extends BaseAdapter {
             SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(mContext);
             String homeTZ = sharedPref.getString(SettingsActivity.KEY_HOME_TZ, "");
             CityObj c = new CityObj(
-                    mContext.getResources().getString(R.string.home_label), homeTZ, null);
+                    mContext.getResources().getString(R.string.home_label), homeTZ, null, null);
             Object[] temp = new Object[mCitiesList.length + 1];
             temp[0] = c;
             for (int i = 0; i < mCitiesList.length; i++) {
@@ -216,9 +216,8 @@ public class WorldClockAdapter extends BaseAdapter {
     }
 
     private void updateView(View clock, CityObj cityObj) {
-        View nameLayout= clock.findViewById(R.id.city_name_layout);
-        TextView name = (TextView)(nameLayout.findViewById(R.id.city_name));
-        TextView dayOfWeek = (TextView)(nameLayout.findViewById(R.id.city_day));
+        TextView name = (TextView)(clock.findViewById(R.id.city_name));
+        TextView dayOfWeek = (TextView)(clock.findViewById(R.id.city_day));
         TextClock dclock = (TextClock)(clock.findViewById(R.id.digital_clock));
         AnalogClock aclock = (AnalogClock)(clock.findViewById(R.id.analog_clock));
 
@@ -231,8 +230,8 @@ public class WorldClockAdapter extends BaseAdapter {
             dclock.setVisibility(View.VISIBLE);
             aclock.setVisibility(View.GONE);
             dclock.setTimeZone(cityObj.mTimeZone);
-            Utils.setTimeFormat(dclock,
-                    (int)mContext.getResources().getDimension(R.dimen.label_font_size));
+            Utils.setTimeFormat(mContext, dclock,
+                    mContext.getResources().getDimensionPixelSize(R.dimen.label_font_size));
         }
         CityObj cityInDb = mCitiesDb.get(cityObj.mCityId);
         // Home city or city not in DB , use data from the save selected cities list

@@ -27,13 +27,13 @@ namespace renderscript {
 
 class RsdCpuScriptIntrinsicConvolve5x5 : public RsdCpuScriptIntrinsic {
 public:
-    virtual void populateScript(Script *);
-    virtual void invokeFreeChildren();
+    void populateScript(Script *) override;
+    void invokeFreeChildren() override;
 
-    virtual void setGlobalVar(uint32_t slot, const void *data, size_t dataLength);
-    virtual void setGlobalObj(uint32_t slot, ObjectBase *data);
+    void setGlobalVar(uint32_t slot, const void *data, size_t dataLength) override;
+    void setGlobalObj(uint32_t slot, ObjectBase *data) override;
 
-    virtual ~RsdCpuScriptIntrinsicConvolve5x5();
+    ~RsdCpuScriptIntrinsicConvolve5x5() override;
     RsdCpuScriptIntrinsicConvolve5x5(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e);
 
 protected:
@@ -42,24 +42,24 @@ protected:
     ObjectBaseRef<Allocation> alloc;
 
 
-    static void kernelU1(const RsForEachStubParamStruct *p,
+    static void kernelU1(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelU2(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelU2(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelU4(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelU4(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelF1(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelF1(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelF2(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelF2(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
-    static void kernelF4(const RsForEachStubParamStruct *p,
+                         uint32_t outstep);
+    static void kernelF4(const RsExpandKernelDriverInfo *info,
                          uint32_t xstart, uint32_t xend,
-                         uint32_t instep, uint32_t outstep);
+                         uint32_t outstep);
 
 
 };
@@ -86,15 +86,15 @@ void RsdCpuScriptIntrinsicConvolve5x5::setGlobalVar(uint32_t slot,
 }
 
 
-static void OneU4(const RsForEachStubParamStruct *p, uint32_t x, uchar4 *out,
+static void OneU4(const RsExpandKernelDriverInfo *info, uint32_t x, uchar4 *out,
                   const uchar4 *py0, const uchar4 *py1, const uchar4 *py2, const uchar4 *py3, const uchar4 *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float4 px = convert_float4(py0[x0]) * coeff[0] +
                 convert_float4(py0[x1]) * coeff[1] +
@@ -129,15 +129,15 @@ static void OneU4(const RsForEachStubParamStruct *p, uint32_t x, uchar4 *out,
     *out = convert_uchar4(px);
 }
 
-static void OneU2(const RsForEachStubParamStruct *p, uint32_t x, uchar2 *out,
+static void OneU2(const RsExpandKernelDriverInfo *info, uint32_t x, uchar2 *out,
                   const uchar2 *py0, const uchar2 *py1, const uchar2 *py2, const uchar2 *py3, const uchar2 *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float2 px = convert_float2(py0[x0]) * coeff[0] +
                 convert_float2(py0[x1]) * coeff[1] +
@@ -172,15 +172,15 @@ static void OneU2(const RsForEachStubParamStruct *p, uint32_t x, uchar2 *out,
     *out = convert_uchar2(px);
 }
 
-static void OneU1(const RsForEachStubParamStruct *p, uint32_t x, uchar *out,
+static void OneU1(const RsExpandKernelDriverInfo *info, uint32_t x, uchar *out,
                   const uchar *py0, const uchar *py1, const uchar *py2, const uchar *py3, const uchar *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float px = (float)(py0[x0]) * coeff[0] +
                (float)(py0[x1]) * coeff[1] +
@@ -215,15 +215,15 @@ static void OneU1(const RsForEachStubParamStruct *p, uint32_t x, uchar *out,
     *out = px;
 }
 
-static void OneF4(const RsForEachStubParamStruct *p, uint32_t x, float4 *out,
+static void OneF4(const RsExpandKernelDriverInfo *info, uint32_t x, float4 *out,
                   const float4 *py0, const float4 *py1, const float4 *py2, const float4 *py3, const float4 *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float4 px = py0[x0] * coeff[0] +
                 py0[x1] * coeff[1] +
@@ -257,15 +257,15 @@ static void OneF4(const RsForEachStubParamStruct *p, uint32_t x, float4 *out,
     *out = px;
 }
 
-static void OneF2(const RsForEachStubParamStruct *p, uint32_t x, float2 *out,
+static void OneF2(const RsExpandKernelDriverInfo *info, uint32_t x, float2 *out,
                   const float2 *py0, const float2 *py1, const float2 *py2, const float2 *py3, const float2 *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float2 px = py0[x0] * coeff[0] +
                 py0[x1] * coeff[1] +
@@ -299,15 +299,15 @@ static void OneF2(const RsForEachStubParamStruct *p, uint32_t x, float2 *out,
     *out = px;
 }
 
-static void OneF1(const RsForEachStubParamStruct *p, uint32_t x, float *out,
+static void OneF1(const RsExpandKernelDriverInfo *info, uint32_t x, float *out,
                   const float *py0, const float *py1, const float *py2, const float *py3, const float *py4,
                   const float* coeff) {
 
     uint32_t x0 = rsMax((int32_t)x-2, 0);
     uint32_t x1 = rsMax((int32_t)x-1, 0);
     uint32_t x2 = x;
-    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(p->dimX-1));
-    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(p->dimX-1));
+    uint32_t x3 = rsMin((int32_t)x+1, (int32_t)(info->dim.x-1));
+    uint32_t x4 = rsMin((int32_t)x+2, (int32_t)(info->dim.x-1));
 
     float px = py0[x0] * coeff[0] +
                py0[x1] * coeff[1] +
@@ -346,10 +346,10 @@ extern "C" void rsdIntrinsicConvolve5x5_K(void *dst, const void *y0, const void 
                                           const void *y2, const void *y3, const void *y4,
                                           const short *coef, uint32_t count);
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelU4(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelU4(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -357,11 +357,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU4(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const uchar4 *py0 = (const uchar4 *)(pin + stride * y0);
     const uchar4 *py1 = (const uchar4 *)(pin + stride * y1);
@@ -369,12 +369,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU4(const RsForEachStubParamStruct *
     const uchar4 *py3 = (const uchar4 *)(pin + stride * y3);
     const uchar4 *py4 = (const uchar4 *)(pin + stride * y4);
 
-    uchar4 *out = (uchar4 *)p->out;
+    uchar4 *out = (uchar4 *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneU4(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU4(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -400,16 +400,16 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU4(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneU4(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU4(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelU2(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelU2(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -417,11 +417,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU2(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const uchar2 *py0 = (const uchar2 *)(pin + stride * y0);
     const uchar2 *py1 = (const uchar2 *)(pin + stride * y1);
@@ -429,12 +429,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU2(const RsForEachStubParamStruct *
     const uchar2 *py3 = (const uchar2 *)(pin + stride * y3);
     const uchar2 *py4 = (const uchar2 *)(pin + stride * y4);
 
-    uchar2 *out = (uchar2 *)p->out;
+    uchar2 *out = (uchar2 *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneU2(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU2(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -449,16 +449,16 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU2(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneU2(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU2(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelU1(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelU1(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -466,11 +466,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU1(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const uchar *py0 = (const uchar *)(pin + stride * y0);
     const uchar *py1 = (const uchar *)(pin + stride * y1);
@@ -478,12 +478,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU1(const RsForEachStubParamStruct *
     const uchar *py3 = (const uchar *)(pin + stride * y3);
     const uchar *py4 = (const uchar *)(pin + stride * y4);
 
-    uchar *out = (uchar *)p->out;
+    uchar *out = (uchar *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneU1(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU1(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -498,16 +498,16 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelU1(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneU1(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneU1(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelF4(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelF4(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -515,11 +515,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF4(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const float4 *py0 = (const float4 *)(pin + stride * y0);
     const float4 *py1 = (const float4 *)(pin + stride * y1);
@@ -527,12 +527,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF4(const RsForEachStubParamStruct *
     const float4 *py3 = (const float4 *)(pin + stride * y3);
     const float4 *py4 = (const float4 *)(pin + stride * y4);
 
-    float4 *out = (float4 *)p->out;
+    float4 *out = (float4 *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneF4(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF4(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -547,16 +547,16 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF4(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneF4(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF4(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelF2(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelF2(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -564,11 +564,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF2(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const float2 *py0 = (const float2 *)(pin + stride * y0);
     const float2 *py1 = (const float2 *)(pin + stride * y1);
@@ -576,12 +576,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF2(const RsForEachStubParamStruct *
     const float2 *py3 = (const float2 *)(pin + stride * y3);
     const float2 *py4 = (const float2 *)(pin + stride * y4);
 
-    float2 *out = (float2 *)p->out;
+    float2 *out = (float2 *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneF2(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF2(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -596,16 +596,16 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF2(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneF2(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF2(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
 }
 
-void RsdCpuScriptIntrinsicConvolve5x5::kernelF1(const RsForEachStubParamStruct *p,
+void RsdCpuScriptIntrinsicConvolve5x5::kernelF1(const RsExpandKernelDriverInfo *info,
                                                 uint32_t xstart, uint32_t xend,
-                                                uint32_t instep, uint32_t outstep) {
-    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)p->usr;
+                                                uint32_t outstep) {
+    RsdCpuScriptIntrinsicConvolve5x5 *cp = (RsdCpuScriptIntrinsicConvolve5x5 *)info->usr;
     if (!cp->alloc.get()) {
         ALOGE("Convolve5x5 executed without input, skipping");
         return;
@@ -613,11 +613,11 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF1(const RsForEachStubParamStruct *
     const uchar *pin = (const uchar *)cp->alloc->mHal.drvState.lod[0].mallocPtr;
     const size_t stride = cp->alloc->mHal.drvState.lod[0].stride;
 
-    uint32_t y0 = rsMax((int32_t)p->y-2, 0);
-    uint32_t y1 = rsMax((int32_t)p->y-1, 0);
-    uint32_t y2 = p->y;
-    uint32_t y3 = rsMin((int32_t)p->y+1, (int32_t)(p->dimY-1));
-    uint32_t y4 = rsMin((int32_t)p->y+2, (int32_t)(p->dimY-1));
+    uint32_t y0 = rsMax((int32_t)info->current.y-2, 0);
+    uint32_t y1 = rsMax((int32_t)info->current.y-1, 0);
+    uint32_t y2 = info->current.y;
+    uint32_t y3 = rsMin((int32_t)info->current.y+1, (int32_t)(info->dim.y-1));
+    uint32_t y4 = rsMin((int32_t)info->current.y+2, (int32_t)(info->dim.y-1));
 
     const float *py0 = (const float *)(pin + stride * y0);
     const float *py1 = (const float *)(pin + stride * y1);
@@ -625,12 +625,12 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF1(const RsForEachStubParamStruct *
     const float *py3 = (const float *)(pin + stride * y3);
     const float *py4 = (const float *)(pin + stride * y4);
 
-    float *out = (float *)p->out;
+    float *out = (float *)info->outPtr[0];
     uint32_t x1 = xstart;
     uint32_t x2 = xend;
 
     while((x1 < x2) && (x1 < 2)) {
-        OneF1(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF1(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -645,7 +645,7 @@ void RsdCpuScriptIntrinsicConvolve5x5::kernelF1(const RsForEachStubParamStruct *
 #endif
 
     while(x1 < x2) {
-        OneF1(p, x1, out, py0, py1, py2, py3, py4, cp->mFp);
+        OneF1(info, x1, out, py0, py1, py2, py3, py4, cp->mFp);
         out++;
         x1++;
     }
@@ -705,6 +705,3 @@ RsdCpuScriptImpl * rsdIntrinsic_Convolve5x5(RsdCpuReferenceImpl *ctx,
 
     return new RsdCpuScriptIntrinsicConvolve5x5(ctx, s, e);
 }
-
-
-

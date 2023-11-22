@@ -16,13 +16,14 @@
 
 package com.android.internal.telephony.dataconnection;
 
-import com.android.internal.util.AsyncChannel;
-import com.android.internal.util.Protocol;
-import com.android.internal.telephony.PhoneConstants;
-
 import android.net.NetworkRequest;
 import android.os.Message;
 import android.telephony.Rlog;
+import android.util.LocalLog;
+
+import com.android.internal.util.AsyncChannel;
+import com.android.internal.util.Protocol;
+import com.android.internal.telephony.PhoneConstants;
 
 public class DcSwitchAsyncChannel extends AsyncChannel {
     private static final boolean DBG = true;
@@ -34,50 +35,61 @@ public class DcSwitchAsyncChannel extends AsyncChannel {
 
     // ***** Event codes for driving the state machine
     private static final int BASE = Protocol.BASE_DATA_CONNECTION_TRACKER + 0x00002000;
-    static final int REQ_CONNECT = BASE + 0;
-    static final int RSP_CONNECT = BASE + 1;
-    static final int REQ_DISCONNECT = BASE + 2;
-    static final int RSP_DISCONNECT = BASE + 3;
-    static final int REQ_DISCONNECT_ALL = BASE + 4;
-    static final int RSP_DISCONNECT_ALL = BASE + 5;
-    static final int REQ_IS_IDLE_STATE = BASE + 6;
-    static final int RSP_IS_IDLE_STATE = BASE + 7;
-    static final int REQ_IS_IDLE_OR_DETACHING_STATE = BASE + 8;
-    static final int RSP_IS_IDLE_OR_DETACHING_STATE = BASE + 9;
-    static final int EVENT_DATA_ATTACHED = BASE + 10;
-    static final int EVENT_DATA_DETACHED = BASE + 11;
+    static final int REQ_CONNECT =                    BASE + 0;
+    static final int REQ_RETRY_CONNECT  =             BASE + 1;
+    static final int REQ_DISCONNECT_ALL =             BASE + 2;
+    static final int REQ_IS_IDLE_STATE =              BASE + 3;
+    static final int RSP_IS_IDLE_STATE =              BASE + 4;
+    static final int REQ_IS_IDLE_OR_DETACHING_STATE = BASE + 5;
+    static final int RSP_IS_IDLE_OR_DETACHING_STATE = BASE + 6;
+    static final int EVENT_DATA_ATTACHED =            BASE + 7;
+    static final int EVENT_DATA_DETACHED =            BASE + 8;
+    static final int EVENT_EMERGENCY_CALL_STARTED =   BASE + 9;
+    static final int EVENT_EMERGENCY_CALL_ENDED =     BASE + 10;
 
-    private static final int CMD_TO_STRING_COUNT = EVENT_DATA_DETACHED - BASE + 1;
+    private static final int CMD_TO_STRING_COUNT = EVENT_EMERGENCY_CALL_ENDED - BASE + 1;
     private static String[] sCmdToString = new String[CMD_TO_STRING_COUNT];
     static {
         sCmdToString[REQ_CONNECT - BASE] = "REQ_CONNECT";
-        sCmdToString[RSP_CONNECT - BASE] = "RSP_CONNECT";
-        sCmdToString[REQ_DISCONNECT - BASE] = "REQ_DISCONNECT";
-        sCmdToString[RSP_DISCONNECT - BASE] = "RSP_DISCONNECT";
+        sCmdToString[REQ_RETRY_CONNECT - BASE] = "REQ_RETRY_CONNECT";
         sCmdToString[REQ_DISCONNECT_ALL - BASE] = "REQ_DISCONNECT_ALL";
-        sCmdToString[RSP_DISCONNECT_ALL - BASE] = "RSP_DISCONNECT_ALL";
         sCmdToString[REQ_IS_IDLE_STATE - BASE] = "REQ_IS_IDLE_STATE";
         sCmdToString[RSP_IS_IDLE_STATE - BASE] = "RSP_IS_IDLE_STATE";
         sCmdToString[REQ_IS_IDLE_OR_DETACHING_STATE - BASE] = "REQ_IS_IDLE_OR_DETACHING_STATE";
         sCmdToString[RSP_IS_IDLE_OR_DETACHING_STATE - BASE] = "RSP_IS_IDLE_OR_DETACHING_STATE";
         sCmdToString[EVENT_DATA_ATTACHED - BASE] = "EVENT_DATA_ATTACHED";
         sCmdToString[EVENT_DATA_DETACHED - BASE] = "EVENT_DATA_DETACHED";
+        sCmdToString[EVENT_EMERGENCY_CALL_STARTED - BASE] = "EVENT_EMERGENCY_CALL_STARTED";
+        sCmdToString[EVENT_EMERGENCY_CALL_ENDED - BASE] = "EVENT_EMERGENCY_CALL_ENDED";
     }
 
     public static class RequestInfo {
         boolean executed;
-        NetworkRequest request;
-        int priority;
+        final NetworkRequest request;
+        final int priority;
+        final int phoneId;
+        private final LocalLog requestLog;
 
-        public RequestInfo(NetworkRequest request, int priority) {
+        public RequestInfo(NetworkRequest request, int priority, LocalLog l, int phoneId) {
             this.request = request;
             this.priority = priority;
+            this.requestLog = l;
+            this.executed = false;
+            this.phoneId = phoneId;
+        }
+
+        public void log(String str) {
+            requestLog.log(str);
+        }
+
+        public LocalLog getLog() {
+            return requestLog;
         }
 
         @Override
         public String toString() {
             return "[ request=" + request + ", executed=" + executed +
-                ", priority=" + priority + "]";
+                ", priority=" + priority + ", phoneId=" + phoneId + "]";
         }
     }
 
@@ -95,62 +107,34 @@ public class DcSwitchAsyncChannel extends AsyncChannel {
         tagId = id;
     }
 
-    private int rspConnect(Message response) {
-        int retVal = response.arg1;
-        if (DBG) log("rspConnect=" + retVal);
-        return retVal;
+    public int connect(RequestInfo apnRequest) {
+        sendMessage(REQ_CONNECT, apnRequest);
+        return PhoneConstants.APN_REQUEST_STARTED;
     }
 
-    public int connectSync(RequestInfo apnRequest) {
-        Message response = sendMessageSynchronously(REQ_CONNECT, apnRequest);
-        if ((response != null) && (response.what == RSP_CONNECT)) {
-            return rspConnect(response);
-        } else {
-            if (DBG) log("rspConnect error response=" + response);
-            return PhoneConstants.APN_REQUEST_FAILED;
-        }
+    public void retryConnect() {
+        sendMessage(REQ_RETRY_CONNECT);
     }
 
-    private int rspDisconnect(Message response) {
-        int retVal = response.arg1;
-        if (DBG) log("rspDisconnect=" + retVal);
-        return retVal;
-    }
-
-    public int disconnectSync(RequestInfo apnRequest) {
-        Message response = sendMessageSynchronously(REQ_DISCONNECT, apnRequest);
-        if ((response != null) && (response.what == RSP_DISCONNECT)) {
-            return rspDisconnect(response);
-        } else {
-            if (DBG) log("rspDisconnect error response=" + response);
-            return PhoneConstants.APN_REQUEST_FAILED;
-        }
-    }
-
-    private int rspDisconnectAll(Message response) {
-        int retVal = response.arg1;
-        if (DBG) log("rspDisconnectAll=" + retVal);
-        return retVal;
-    }
-
-    public int disconnectAllSync() {
-        Message response = sendMessageSynchronously(REQ_DISCONNECT_ALL);
-        if ((response != null) && (response.what == RSP_DISCONNECT_ALL)) {
-            return rspDisconnectAll(response);
-        } else {
-            if (DBG) log("rspDisconnectAll error response=" + response);
-            return PhoneConstants.APN_REQUEST_FAILED;
-        }
+    public int disconnectAll() {
+        sendMessage(REQ_DISCONNECT_ALL);
+        return PhoneConstants.APN_REQUEST_STARTED;
     }
 
     public void notifyDataAttached() {
         sendMessage(EVENT_DATA_ATTACHED);
-        if (DBG) log("notifyDataAttached");
     }
 
     public void notifyDataDetached() {
         sendMessage(EVENT_DATA_DETACHED);
-        if (DBG) log("EVENT_DATA_DETACHED");
+    }
+
+    public void notifyEmergencyCallToggled(int start) {
+        if (start != 0) {
+            sendMessage(EVENT_EMERGENCY_CALL_STARTED);
+        } else {
+            sendMessage(EVENT_EMERGENCY_CALL_ENDED);
+        }
     }
 
     private boolean rspIsIdle(Message response) {

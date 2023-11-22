@@ -19,16 +19,8 @@ package com.android.cts.appsecurity;
 import com.android.cts.tradefed.build.CtsBuildHelper;
 import com.android.cts.util.AbiUtils;
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.InstrumentationResultParser;
-import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestIdentifier;
-import com.android.ddmlib.testrunner.TestResult;
-import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.result.CollectingTestListener;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
@@ -36,14 +28,12 @@ import com.android.tradefed.testtype.IBuildReceiver;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Map;
 
 /**
- * Set of tests that verify various security checks involving multiple apps are properly enforced.
+ * Set of tests that verify various security checks involving multiple apps are
+ * properly enforced.
  */
 public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
-
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
 
     // testSharedUidDifferentCerts constants
     private static final String SHARED_UI_APK = "CtsSharedUidInstall.apk";
@@ -69,18 +59,6 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
     private static final String APP_ACCESS_DATA_APK = "CtsAppAccessData.apk";
     private static final String APP_ACCESS_DATA_PKG = "com.android.cts.appaccessdata";
 
-    // External storage constants
-    private static final String COMMON_EXTERNAL_STORAGE_APP_CLASS = "com.android.cts.externalstorageapp.CommonExternalStorageTest";
-    private static final String EXTERNAL_STORAGE_APP_APK = "CtsExternalStorageApp.apk";
-    private static final String EXTERNAL_STORAGE_APP_PKG = "com.android.cts.externalstorageapp";
-    private static final String EXTERNAL_STORAGE_APP_CLASS = EXTERNAL_STORAGE_APP_PKG + ".ExternalStorageTest";
-    private static final String READ_EXTERNAL_STORAGE_APP_APK = "CtsReadExternalStorageApp.apk";
-    private static final String READ_EXTERNAL_STORAGE_APP_PKG = "com.android.cts.readexternalstorageapp";
-    private static final String READ_EXTERNAL_STORAGE_APP_CLASS = READ_EXTERNAL_STORAGE_APP_PKG + ".ReadExternalStorageTest";
-    private static final String WRITE_EXTERNAL_STORAGE_APP_APK = "CtsWriteExternalStorageApp.apk";
-    private static final String WRITE_EXTERNAL_STORAGE_APP_PKG = "com.android.cts.writeexternalstorageapp";
-    private static final String WRITE_EXTERNAL_STORAGE_APP_CLASS = WRITE_EXTERNAL_STORAGE_APP_PKG + ".WriteExternalStorageTest";
-
     // testInstrumentationDiffCert constants
     private static final String TARGET_INSTRUMENT_APK = "CtsTargetInstrumentationApp.apk";
     private static final String TARGET_INSTRUMENT_PKG = "com.android.cts.targetinstrumentationapp";
@@ -97,13 +75,6 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
     private static final String PERMISSION_DIFF_CERT_APK = "CtsUsePermissionDiffCert.apk";
     private static final String PERMISSION_DIFF_CERT_PKG =
         "com.android.cts.usespermissiondiffcertapp";
-
-    private static final String READ_EXTERNAL_STORAGE = "android.permission.READ_EXTERNAL_STORAGE";
-
-    private static final String MULTIUSER_STORAGE_APK = "CtsMultiUserStorageApp.apk";
-    private static final String MULTIUSER_STORAGE_PKG = "com.android.cts.multiuserstorageapp";
-    private static final String MULTIUSER_STORAGE_CLASS = MULTIUSER_STORAGE_PKG
-            + ".MultiUserStorageTest";
 
     private static final String LOG_TAG = "AppSecurityTests";
 
@@ -155,8 +126,7 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNotNull("shared uid app with different cert than existing app installed " +
                     "successfully", installResult);
             assertEquals("INSTALL_FAILED_SHARED_USER_INCOMPATIBLE", installResult);
-        }
-        finally {
+        } finally {
             getDevice().uninstallPackage(SHARED_UI_PKG);
             getDevice().uninstallPackage(SHARED_UI_DIFF_CERT_PKG);
         }
@@ -182,8 +152,7 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNotNull("app upgrade with different cert than existing app installed " +
                     "successfully", installResult);
             assertEquals("INSTALL_FAILED_UPDATE_INCOMPATIBLE", installResult);
-        }
-        finally {
+        } finally {
             getDevice().uninstallPackage(SIMPLE_APP_PKG);
         }
     }
@@ -204,111 +173,17 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNull(String.format("failed to install app with data. Reason: %s", installResult),
                     installResult);
             // run appwithdata's tests to create private data
-            assertTrue("failed to create app's private data", runDeviceTests(APP_WITH_DATA_PKG,
-                    APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD));
+            runDeviceTests(APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD);
 
             installResult = getDevice().installPackage(getTestAppFile(APP_ACCESS_DATA_APK),
                     false, options);
             assertNull(String.format("failed to install app access data. Reason: %s",
                     installResult), installResult);
             // run appaccessdata's tests which attempt to access appwithdata's private data
-            assertTrue("could access app's private data", runDeviceTests(APP_ACCESS_DATA_PKG));
-        }
-        finally {
+            runDeviceTests(APP_ACCESS_DATA_PKG);
+        } finally {
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
             getDevice().uninstallPackage(APP_ACCESS_DATA_PKG);
-        }
-    }
-
-    /**
-     * Verify that app with no external storage permissions works correctly.
-     */
-    public void testExternalStorageNone() throws Exception {
-        try {
-            wipePrimaryExternalStorage(getDevice());
-
-            getDevice().uninstallPackage(EXTERNAL_STORAGE_APP_PKG);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(EXTERNAL_STORAGE_APP_APK), false, options));
-            assertTrue("Failed external storage with no permissions",
-                    runDeviceTests(EXTERNAL_STORAGE_APP_PKG));
-        } finally {
-            getDevice().uninstallPackage(EXTERNAL_STORAGE_APP_PKG);
-        }
-    }
-
-    /**
-     * Verify that app with
-     * {@link android.Manifest.permission#READ_EXTERNAL_STORAGE} works
-     * correctly.
-     */
-    public void testExternalStorageRead() throws Exception {
-        try {
-            wipePrimaryExternalStorage(getDevice());
-
-            getDevice().uninstallPackage(READ_EXTERNAL_STORAGE_APP_PKG);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(READ_EXTERNAL_STORAGE_APP_APK), false, options));
-            assertTrue("Failed external storage with read permissions",
-                    runDeviceTests(READ_EXTERNAL_STORAGE_APP_PKG));
-        } finally {
-            getDevice().uninstallPackage(READ_EXTERNAL_STORAGE_APP_PKG);
-        }
-    }
-
-    /**
-     * Verify that app with
-     * {@link android.Manifest.permission#WRITE_EXTERNAL_STORAGE} works
-     * correctly.
-     */
-    public void testExternalStorageWrite() throws Exception {
-        try {
-            wipePrimaryExternalStorage(getDevice());
-
-            getDevice().uninstallPackage(WRITE_EXTERNAL_STORAGE_APP_PKG);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(WRITE_EXTERNAL_STORAGE_APP_APK), false, options));
-            assertTrue("Failed external storage with write permissions",
-                    runDeviceTests(WRITE_EXTERNAL_STORAGE_APP_PKG));
-        } finally {
-            getDevice().uninstallPackage(WRITE_EXTERNAL_STORAGE_APP_PKG);
-        }
-    }
-
-    /**
-     * Verify that app with WRITE_EXTERNAL can leave gifts in external storage
-     * directories belonging to other apps, and those apps can read.
-     */
-    public void testExternalStorageGifts() throws Exception {
-        try {
-            wipePrimaryExternalStorage(getDevice());
-
-            getDevice().uninstallPackage(EXTERNAL_STORAGE_APP_PKG);
-            getDevice().uninstallPackage(READ_EXTERNAL_STORAGE_APP_PKG);
-            getDevice().uninstallPackage(WRITE_EXTERNAL_STORAGE_APP_PKG);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(EXTERNAL_STORAGE_APP_APK), false, options));
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(READ_EXTERNAL_STORAGE_APP_APK), false, options));
-            assertNull(getDevice()
-                    .installPackage(getTestAppFile(WRITE_EXTERNAL_STORAGE_APP_APK), false, options));
-
-            assertTrue("Failed to write gifts", runDeviceTests(WRITE_EXTERNAL_STORAGE_APP_PKG,
-                    WRITE_EXTERNAL_STORAGE_APP_CLASS, "doWriteGifts"));
-
-            assertTrue("Read failed to verify gifts", runDeviceTests(READ_EXTERNAL_STORAGE_APP_PKG,
-                    READ_EXTERNAL_STORAGE_APP_CLASS, "doVerifyGifts"));
-            assertTrue("None failed to verify gifts", runDeviceTests(EXTERNAL_STORAGE_APP_PKG,
-                    EXTERNAL_STORAGE_APP_CLASS, "doVerifyGifts"));
-
-        } finally {
-            getDevice().uninstallPackage(EXTERNAL_STORAGE_APP_PKG);
-            getDevice().uninstallPackage(READ_EXTERNAL_STORAGE_APP_PKG);
-            getDevice().uninstallPackage(WRITE_EXTERNAL_STORAGE_APP_PKG);
         }
     }
 
@@ -327,8 +202,7 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNull(String.format("failed to install app with data. Reason: %s", installResult),
                     installResult);
             // run appwithdata's tests to create private data
-            assertTrue("failed to create app's private data", runDeviceTests(APP_WITH_DATA_PKG,
-                    APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD));
+            runDeviceTests(APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CREATE_METHOD);
 
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
 
@@ -337,11 +211,9 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNull(String.format("failed to install app with data second time. Reason: %s",
                     installResult), installResult);
             // run appwithdata's 'check if file exists' test
-            assertTrue("app's private data still exists after install", runDeviceTests(
-                    APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS, APP_WITH_DATA_CHECK_NOEXIST_METHOD));
-
-        }
-        finally {
+            runDeviceTests(APP_WITH_DATA_PKG, APP_WITH_DATA_CLASS,
+                    APP_WITH_DATA_CHECK_NOEXIST_METHOD);
+        } finally {
             getDevice().uninstallPackage(APP_WITH_DATA_PKG);
         }
     }
@@ -371,10 +243,8 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             // run INSTRUMENT_DIFF_CERT_PKG tests
             // this test will attempt to call startInstrumentation directly and verify
             // SecurityException is thrown
-            assertTrue("running instrumentation with diff cert unexpectedly succeeded",
-                    runDeviceTests(INSTRUMENT_DIFF_CERT_PKG));
-        }
-        finally {
+            runDeviceTests(INSTRUMENT_DIFF_CERT_PKG);
+        } finally {
             getDevice().uninstallPackage(TARGET_INSTRUMENT_PKG);
             getDevice().uninstallPackage(INSTRUMENT_DIFF_CERT_PKG);
         }
@@ -409,191 +279,20 @@ public class AppSecurityTests extends DeviceTestCase implements IAbiReceiver, IB
             assertNull(String.format("failed to install permission app with diff cert. Reason: %s",
                     installResult), installResult);
             // run PERMISSION_DIFF_CERT_PKG tests which try to access the permission
-            TestRunResult result = doRunTests(PERMISSION_DIFF_CERT_PKG, null, null);
-            assertDeviceTestsPass(result);
-        }
-        finally {
+            runDeviceTests(PERMISSION_DIFF_CERT_PKG);
+        } finally {
             getDevice().uninstallPackage(DECLARE_PERMISSION_PKG);
             getDevice().uninstallPackage(DECLARE_PERMISSION_COMPAT_PKG);
             getDevice().uninstallPackage(PERMISSION_DIFF_CERT_PKG);
         }
     }
 
-    /**
-     * Test multi-user emulated storage environment, ensuring that each user has
-     * isolated storage.
-     */
-    public void testMultiUserStorage() throws Exception {
-        final String PACKAGE = MULTIUSER_STORAGE_PKG;
-        final String CLAZZ = MULTIUSER_STORAGE_CLASS;
-
-        if (!isMultiUserSupportedOnDevice(getDevice())) {
-            Log.d(LOG_TAG, "Single user device; skipping isolated storage tests");
-            return;
-        }
-
-        int owner = 0;
-        int secondary = -1;
-        try {
-            // Create secondary user
-            secondary = createUserOnDevice(getDevice());
-
-            // Install our test app
-            getDevice().uninstallPackage(MULTIUSER_STORAGE_PKG);
-            String[] options = {AbiUtils.createAbiFlag(mAbi.getName())};
-            final String installResult = getDevice()
-                    .installPackage(getTestAppFile(MULTIUSER_STORAGE_APK), false, options);
-            assertNull("Failed to install: " + installResult, installResult);
-
-            // Clear data from previous tests
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "cleanIsolatedStorage", owner));
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "cleanIsolatedStorage", secondary));
-
-            // Have both users try writing into isolated storage
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "writeIsolatedStorage", owner));
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "writeIsolatedStorage", secondary));
-
-            // Verify they both have isolated view of storage
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "readIsolatedStorage", owner));
-            assertDeviceTestsPass(
-                    doRunTestsAsUser(PACKAGE, CLAZZ, "readIsolatedStorage", secondary));
-        } finally {
-            getDevice().uninstallPackage(MULTIUSER_STORAGE_PKG);
-            if (secondary != -1) {
-                removeUserOnDevice(getDevice(), secondary);
-            }
-        }
+    private void runDeviceTests(String packageName) throws DeviceNotAvailableException {
+        Utils.runDeviceTests(getDevice(), packageName);
     }
 
-    /**
-     * Helper method that checks that all tests in given result passed, and attempts to generate
-     * a meaningful error message if they failed.
-     *
-     * @param result
-     */
-    private void assertDeviceTestsPass(TestRunResult result) {
-        // TODO: consider rerunning if this occurred
-        assertFalse(String.format("Failed to successfully run device tests for %s. Reason: %s",
-                result.getName(), result.getRunFailureMessage()), result.isRunFailure());
-
-        if (result.hasFailedTests()) {
-            // build a meaningful error message
-            StringBuilder errorBuilder = new StringBuilder("on-device tests failed:\n");
-            for (Map.Entry<TestIdentifier, TestResult> resultEntry :
-                result.getTestResults().entrySet()) {
-                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
-                    errorBuilder.append(resultEntry.getKey().toString());
-                    errorBuilder.append(":\n");
-                    errorBuilder.append(resultEntry.getValue().getStackTrace());
-                }
-            }
-            fail(errorBuilder.toString());
-        }
-    }
-
-    /**
-     * Helper method that will the specified packages tests on device.
-     *
-     * @param pkgName Android application package for tests
-     * @return <code>true</code> if all tests passed.
-     * @throws DeviceNotAvailableException if connection to device was lost.
-     */
-    private boolean runDeviceTests(String pkgName) throws DeviceNotAvailableException {
-        return runDeviceTests(pkgName, null, null);
-    }
-
-    /**
-     * Helper method that will the specified packages tests on device.
-     *
-     * @param pkgName Android application package for tests
-     * @return <code>true</code> if all tests passed.
-     * @throws DeviceNotAvailableException if connection to device was lost.
-     */
-    private boolean runDeviceTests(String pkgName, String testClassName, String testMethodName)
+    private void runDeviceTests(String packageName, String testClassName, String testMethodName)
             throws DeviceNotAvailableException {
-        TestRunResult runResult = doRunTests(pkgName, testClassName, testMethodName);
-        return !runResult.hasFailedTests();
-    }
-
-    /**
-     * Helper method to run tests and return the listener that collected the results.
-     *
-     * @param pkgName Android application package for tests
-     * @return the {@link TestRunResult}
-     * @throws DeviceNotAvailableException if connection to device was lost.
-     */
-    private TestRunResult doRunTests(String pkgName, String testClassName,
-            String testMethodName) throws DeviceNotAvailableException {
-
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(pkgName,
-                RUNNER, getDevice().getIDevice());
-        if (testClassName != null && testMethodName != null) {
-            testRunner.setMethodName(testClassName, testMethodName);
-        }
-        CollectingTestListener listener = new CollectingTestListener();
-        getDevice().runInstrumentationTests(testRunner, listener);
-        return listener.getCurrentRunResults();
-    }
-
-    private static boolean isMultiUserSupportedOnDevice(ITestDevice device)
-            throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String output = device.executeShellCommand("pm get-max-users");
-        try {
-            return Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim()) > 1;
-        } catch (NumberFormatException e) {
-            fail("Failed to parse result: " + output);
-        }
-        return false;
-    }
-
-    private static int createUserOnDevice(ITestDevice device) throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String name = "CTS_" + System.currentTimeMillis();
-        final String output = device.executeShellCommand("pm create-user " + name);
-        if (output.startsWith("Success")) {
-            try {
-                return Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim());
-            } catch (NumberFormatException e) {
-                fail("Failed to parse result: " + output);
-            }
-        } else {
-            fail("Failed to create user: " + output);
-        }
-        throw new IllegalStateException();
-    }
-
-    private static void removeUserOnDevice(ITestDevice device, int userId)
-            throws DeviceNotAvailableException {
-        // TODO: move this to ITestDevice once it supports users
-        final String output = device.executeShellCommand("pm remove-user " + userId);
-        if (output.startsWith("Error")) {
-            fail("Failed to remove user: " + output);
-        }
-    }
-
-    private TestRunResult doRunTestsAsUser(
-            String pkgName, String testClassName, String testMethodName, int userId)
-            throws DeviceNotAvailableException {
-        // TODO: move this to RemoteAndroidTestRunner once it supports users
-        final String cmd = "am instrument --user " + userId + " -w -r -e class " + testClassName
-                + "#" + testMethodName + " " + pkgName + "/" + RUNNER;
-        Log.i(LOG_TAG, "Running " + cmd + " on " + getDevice().getSerialNumber());
-
-        CollectingTestListener listener = new CollectingTestListener();
-        InstrumentationResultParser parser = new InstrumentationResultParser(pkgName, listener);
-
-        getDevice().executeShellCommand(cmd, parser);
-        return listener.getCurrentRunResults();
-    }
-
-    private static void wipePrimaryExternalStorage(ITestDevice device)
-            throws DeviceNotAvailableException {
-        device.executeShellCommand("rm -rf /sdcard/*");
+        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
     }
 }

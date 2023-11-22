@@ -37,6 +37,7 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        StubTextToSpeechService.sSynthesizeTextWait = null;
         mTts = TextToSpeechWrapper.createTextToSpeechMockWrapper(getContext());
         assertNotNull(mTts);
     }
@@ -73,6 +74,31 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
         assertTrue("speak() completion timeout", waitForUtterance());
     }
+
+    public void testSpeakStop() throws Exception {
+        final Object synthesizeTextWait = new Object();
+        StubTextToSpeechService.sSynthesizeTextWait = synthesizeTextWait;
+
+        getTts().stop();
+        final int iterations = 20;
+        for (int i = 0; i < iterations; i++) {
+            int result = getTts().speak(UTTERANCE, TextToSpeech.QUEUE_ADD, null,
+                    UTTERANCE_ID + Integer.toString(i));
+            assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
+        }
+        getTts().stop();
+
+        // Wake up the Stubs #onSynthesizeSpeech (one that will be stopped in-progress)
+        synchronized (synthesizeTextWait) {
+          synthesizeTextWait.notify();
+        }
+
+        for (int i = 0; i < iterations; i++) {
+            assertTrue("speak() stop callback timeout", mTts.waitForStop(
+                    UTTERANCE_ID + Integer.toString(i)));
+        }
+    }
+
 
     public void testMediaPlayerFails() throws Exception {
         File sampleFile = new File(Environment.getExternalStorageDirectory(), "notsound.wav");

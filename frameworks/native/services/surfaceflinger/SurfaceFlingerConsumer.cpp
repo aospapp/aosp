@@ -21,6 +21,8 @@
 
 #include <private/gui/SyncFeatures.h>
 
+#include <gui/BufferItem.h>
+
 #include <utils/Errors.h>
 #include <utils/NativeHandle.h>
 #include <utils/Trace.h>
@@ -30,7 +32,7 @@ namespace android {
 // ---------------------------------------------------------------------------
 
 status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
-        const DispSync& dispSync)
+        const DispSync& dispSync, uint64_t maxFrameNumber)
 {
     ATRACE_CALL();
     ALOGV("updateTexImage");
@@ -47,12 +49,13 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
         return err;
     }
 
-    BufferQueue::BufferItem item;
+    BufferItem item;
 
     // Acquire the next buffer.
     // In asynchronous mode the list is guaranteed to be one buffer
     // deep, while in synchronous mode we use the oldest buffer.
-    err = acquireBufferLocked(&item, computeExpectedPresent(dispSync));
+    err = acquireBufferLocked(&item, computeExpectedPresent(dispSync),
+            maxFrameNumber);
     if (err != NO_ERROR) {
         if (err == BufferQueue::NO_BUFFER_AVAILABLE) {
             err = NO_ERROR;
@@ -72,7 +75,7 @@ status_t SurfaceFlingerConsumer::updateTexImage(BufferRejecter* rejecter,
     int buf = item.mBuf;
     if (rejecter && rejecter->reject(mSlots[buf].mGraphicBuffer, item)) {
         releaseBufferLocked(buf, mSlots[buf].mGraphicBuffer, EGL_NO_SYNC_KHR);
-        return NO_ERROR;
+        return BUFFER_REJECTED;
     }
 
     // Release the previous buffer.
@@ -101,17 +104,23 @@ status_t SurfaceFlingerConsumer::bindTextureImage()
     return bindTextureImageLocked();
 }
 
-status_t SurfaceFlingerConsumer::acquireBufferLocked(
-        BufferQueue::BufferItem *item, nsecs_t presentWhen) {
-    status_t result = GLConsumer::acquireBufferLocked(item, presentWhen);
+status_t SurfaceFlingerConsumer::acquireBufferLocked(BufferItem* item,
+        nsecs_t presentWhen, uint64_t maxFrameNumber) {
+    status_t result = GLConsumer::acquireBufferLocked(item, presentWhen,
+            maxFrameNumber);
     if (result == NO_ERROR) {
         mTransformToDisplayInverse = item->mTransformToDisplayInverse;
+        mSurfaceDamage = item->mSurfaceDamage;
     }
     return result;
 }
 
 bool SurfaceFlingerConsumer::getTransformToDisplayInverse() const {
     return mTransformToDisplayInverse;
+}
+
+const Region& SurfaceFlingerConsumer::getSurfaceDamage() const {
+    return mSurfaceDamage;
 }
 
 sp<NativeHandle> SurfaceFlingerConsumer::getSidebandStream() const {

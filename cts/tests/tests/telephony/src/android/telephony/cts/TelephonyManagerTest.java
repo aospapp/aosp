@@ -81,9 +81,11 @@ public class TelephonyManagerTest extends AndroidTestCase {
                 mListener = new PhoneStateListener() {
                     @Override
                     public void onCellLocationChanged(CellLocation location) {
-                        synchronized (mLock) {
-                            mOnCellLocationChangedCalled = true;
-                            mLock.notify();
+                        if(!mOnCellLocationChangedCalled) {
+                            synchronized (mLock) {
+                                mOnCellLocationChangedCalled = true;
+                                mLock.notify();
+                            }
                         }
                     }
                 };
@@ -158,7 +160,28 @@ public class TelephonyManagerTest extends AndroidTestCase {
         mTelephonyManager.getNeighboringCellInfo();
         mTelephonyManager.isNetworkRoaming();
         mTelephonyManager.getDeviceId();
+        mTelephonyManager.getDeviceId(mTelephonyManager.getDefaultSim());
         mTelephonyManager.getDeviceSoftwareVersion();
+        mTelephonyManager.getPhoneCount();
+    }
+
+    /**
+     * Tests that the phone count returned is valid.
+     */
+    public void testGetPhoneCount() {
+        int phoneCount = mTelephonyManager.getPhoneCount();
+        int phoneType = mTelephonyManager.getPhoneType();
+        switch (phoneType) {
+            case TelephonyManager.PHONE_TYPE_GSM:
+            case TelephonyManager.PHONE_TYPE_CDMA:
+                assertTrue("Phone count should be > 0", phoneCount > 0);
+                break;
+            case TelephonyManager.PHONE_TYPE_NONE:
+                assertTrue("Phone count should be 0", phoneCount == 0 || phoneCount == 1);
+                break;
+            default:
+                throw new IllegalArgumentException("Did you add a new phone type? " + phoneType);
+        }
     }
 
     /**
@@ -168,6 +191,24 @@ public class TelephonyManagerTest extends AndroidTestCase {
      */
     public void testGetDeviceId() {
         String deviceId = mTelephonyManager.getDeviceId();
+        verifyDeviceId(deviceId);
+    }
+
+    /**
+     * Tests that the device properly reports either a valid IMEI if
+     * GSM, a valid MEID or ESN if CDMA, or a valid MAC address if
+     * only a WiFi device.
+     */
+    public void testGetDeviceIdForSlotId() {
+        String deviceId = mTelephonyManager.getDeviceId(mTelephonyManager.getDefaultSim());
+        verifyDeviceId(deviceId);
+        // Also verify that no exception is thrown for any slot id (including invalid ones)
+        for (int i = -1; i <= mTelephonyManager.getPhoneCount(); i++) {
+            mTelephonyManager.getDeviceId(i);
+        }
+    }
+
+    private void verifyDeviceId(String deviceId) {
         int phoneType = mTelephonyManager.getPhoneType();
         switch (phoneType) {
             case TelephonyManager.PHONE_TYPE_GSM:

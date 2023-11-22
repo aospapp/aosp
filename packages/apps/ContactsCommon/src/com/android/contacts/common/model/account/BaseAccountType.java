@@ -256,7 +256,7 @@ public abstract class BaseAccountType extends AccountType {
     protected DataKind addDataKindPhone(Context context) throws DefinitionException {
         DataKind kind = addKind(new DataKind(Phone.CONTENT_ITEM_TYPE, R.string.phoneLabelsGroup,
                 Weight.PHONE, true));
-        kind.iconAltRes = R.drawable.ic_text_holo_light;
+        kind.iconAltRes = R.drawable.ic_message_24dp;
         kind.iconAltDescriptionRes = R.string.sms;
         kind.actionHeader = new PhoneActionInflater();
         kind.actionAltHeader = new PhoneActionAltInflater();
@@ -422,12 +422,12 @@ public abstract class BaseAccountType extends AccountType {
         DataKind kind = addKind(new DataKind(SipAddress.CONTENT_ITEM_TYPE,
                     R.string.label_sip_address, Weight.SIP_ADDRESS, true));
 
-        kind.typeOverallMax = 1;
         kind.actionHeader = new SimpleInflater(R.string.label_sip_address);
         kind.actionBody = new SimpleInflater(SipAddress.SIP_ADDRESS);
         kind.fieldList = Lists.newArrayList();
         kind.fieldList.add(new EditField(SipAddress.SIP_ADDRESS,
                                          R.string.label_sip_address, FLAGS_SIP_ADDRESS));
+        kind.typeOverallMax = 1;
 
         return kind;
     }
@@ -1045,7 +1045,7 @@ public abstract class BaseAccountType extends AccountType {
                     Phone.CONTENT_ITEM_TYPE, Phone.TYPE, R.string.phoneLabelsGroup, Weight.PHONE,
                     new PhoneActionInflater(), new SimpleInflater(Phone.NUMBER));
 
-            kind.iconAltRes = R.drawable.ic_text_holo_light;
+            kind.iconAltRes = R.drawable.ic_message_24dp;
             kind.iconAltDescriptionRes = R.string.sms;
             kind.actionAltHeader = new PhoneActionAltInflater();
 

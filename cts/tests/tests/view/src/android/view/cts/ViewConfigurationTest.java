@@ -42,11 +42,17 @@ public class ViewConfigurationTest extends InstrumentationTestCase {
         ViewConfiguration.getTouchSlop();
         ViewConfiguration.getWindowTouchSlop();
         ViewConfiguration.getMinimumFlingVelocity();
+        ViewConfiguration.getMaximumFlingVelocity();
         ViewConfiguration.getMaximumDrawingCacheSize();
         ViewConfiguration.getZoomControlsTimeout();
         ViewConfiguration.getGlobalActionKeyTimeout();
         ViewConfiguration.getScrollFriction();
+        ViewConfiguration.getScrollBarFadeDuration();
+        ViewConfiguration.getScrollDefaultDelay();
         ViewConfiguration.getDoubleTapTimeout();
+        ViewConfiguration.getKeyRepeatTimeout();
+        ViewConfiguration.getKeyRepeatDelay();
+        ViewConfiguration.getDefaultActionModeHideDuration();
     }
 
     @SuppressWarnings("deprecation")
@@ -61,9 +67,14 @@ public class ViewConfigurationTest extends InstrumentationTestCase {
         vc.getScaledEdgeSlop();
         vc.getScaledFadingEdgeLength();
         vc.getScaledMaximumDrawingCacheSize();
+        vc.getScaledMaximumFlingVelocity();
         vc.getScaledMinimumFlingVelocity();
+        vc.getScaledOverflingDistance();
+        vc.getScaledOverscrollDistance();
+        vc.getScaledPagingTouchSlop();
         vc.getScaledScrollBarSize();
         vc.getScaledTouchSlop();
         vc.getScaledWindowTouchSlop();
+        vc.hasPermanentMenuKey();
     }
 }

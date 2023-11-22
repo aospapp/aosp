@@ -22,8 +22,6 @@ import android.speech.SpeechRecognizer;
 import android.speech.RecognizerIntent;
 import android.support.v17.leanback.widget.ObjectAdapter;
 import android.support.v17.leanback.widget.ObjectAdapter.DataObserver;
-import android.support.v17.leanback.widget.OnItemClickedListener;
-import android.support.v17.leanback.widget.OnItemSelectedListener;
 import android.support.v17.leanback.widget.OnItemViewClickedListener;
 import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.Row;
@@ -200,8 +198,6 @@ public class SearchFragment extends Fragment {
     private SearchResultProvider mProvider;
     private String mPendingQuery = null;
 
-    private OnItemSelectedListener mOnItemSelectedListener;
-    private OnItemClickedListener mOnItemClickedListener;
     private OnItemViewSelectedListener mOnItemViewSelectedListener;
     private OnItemViewClickedListener mOnItemViewClickedListener;
     private ObjectAdapter mResultAdapter;
@@ -233,7 +229,7 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * Create a search fragment with a given search query.
+     * Creates a search fragment with a given search query.
      *
      * <p>You should only use this if you need to start the search fragment with a
      * pre-filled query.
@@ -310,34 +306,17 @@ public class SearchFragment extends Fragment {
         mRowsFragment.setOnItemViewSelectedListener(new OnItemViewSelectedListener() {
             @Override
             public void onItemSelected(ViewHolder itemViewHolder, Object item,
-                    RowPresenter.ViewHolder rowViewHolder, Row row) {
+                                       RowPresenter.ViewHolder rowViewHolder, Row row) {
                 int position = mRowsFragment.getVerticalGridView().getSelectedPosition();
                 if (DEBUG) Log.v(TAG, String.format("onItemSelected %d", position));
                 mSearchBar.setVisibility(0 >= position ? View.VISIBLE : View.GONE);
-                if (null != mOnItemSelectedListener) {
-                    mOnItemSelectedListener.onItemSelected(item, row);
-                }
                 if (null != mOnItemViewSelectedListener) {
                     mOnItemViewSelectedListener.onItemSelected(itemViewHolder, item,
                             rowViewHolder, row);
                 }
             }
         });
-        mRowsFragment.setOnItemViewClickedListener(new OnItemViewClickedListener() {
-            @Override
-            public void onItemClicked(ViewHolder itemViewHolder, Object item,
-                    RowPresenter.ViewHolder rowViewHolder, Row row) {
-                int position = mRowsFragment.getVerticalGridView().getSelectedPosition();
-                if (DEBUG) Log.v(TAG, String.format("onItemClicked %d", position));
-                if (null != mOnItemClickedListener) {
-                    mOnItemClickedListener.onItemClicked(item, row);
-                }
-                if (null != mOnItemViewClickedListener) {
-                    mOnItemViewClickedListener.onItemClicked(itemViewHolder, item,
-                            rowViewHolder, row);
-                }
-            }
-        });
+        mRowsFragment.setOnItemViewClickedListener(mOnItemViewClickedListener);
         mRowsFragment.setExpand(true);
         if (null != mProvider) {
             onSetSearchResultProvider();
@@ -409,7 +388,7 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * Set the search provider that is responsible for returning results for the
+     * Sets the search provider that is responsible for returning results for the
      * search query.
      */
     public void setSearchResultProvider(SearchResultProvider searchResultProvider) {
@@ -417,28 +396,6 @@ public class SearchFragment extends Fragment {
             mProvider = searchResultProvider;
             onSetSearchResultProvider();
         }
-    }
-
-    /**
-     * Sets an item selection listener for the results.
-     *
-     * @param listener The item selection listener to be invoked when an item in
-     *        the search results is selected.
-     * @deprecated Use {@link #setOnItemViewSelectedListener(OnItemViewSelectedListener)}
-     */
-    public void setOnItemSelectedListener(OnItemSelectedListener listener) {
-        mOnItemSelectedListener = listener;
-    }
-
-    /**
-     * Sets an item clicked listener for the results.
-     *
-     * @param listener The item clicked listener to be invoked when an item in
-     *        the search results is clicked.
-     * @deprecated Use {@link #setOnItemViewClickedListener(OnItemViewClickedListener)}
-     */
-    public void setOnItemClickedListener(OnItemClickedListener listener) {
-        mOnItemClickedListener = listener;
     }
 
     /**
@@ -458,7 +415,12 @@ public class SearchFragment extends Fragment {
      *        the search results is clicked.
      */
     public void setOnItemViewClickedListener(OnItemViewClickedListener listener) {
-        mOnItemViewClickedListener = listener;
+        if (listener != mOnItemViewClickedListener) {
+            mOnItemViewClickedListener = listener;
+            if (mRowsFragment != null) {
+                mRowsFragment.setOnItemViewClickedListener(mOnItemViewClickedListener);
+            }
+        }
     }
 
     /**
@@ -505,7 +467,7 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * Display the completions shown by the IME. An application may provide
+     * Displays the completions shown by the IME. An application may provide
      * a list of query completions that the system will show in the IME.
      *
      * @param completions A list of completions to show in the IME. Setting to
@@ -516,7 +478,7 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * Set this callback to have the fragment pass speech recognition requests
+     * Sets this callback to have the fragment pass speech recognition requests
      * to the activity rather than using an internal recognizer.
      */
     public void setSpeechRecognitionCallback(SpeechRecognitionCallback callback) {

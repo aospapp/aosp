@@ -17,29 +17,10 @@ LOCAL_PATH:= $(call my-dir)
 ###############################################
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
-        enc/alpha.c \
-        enc/analysis.c \
-        enc/backward_references.c \
-        enc/config.c \
-        enc/cost.c \
-        enc/filter.c \
-        enc/frame.c\
-        enc/histogram.c \
-        enc/iterator.c \
-        enc/picture.c \
-        enc/picture_csp.c \
-        enc/picture_psnr.c \
-        enc/picture_rescale.c \
-        enc/picture_tools.c \
-        enc/quant.c \
-        enc/syntax.c \
-        enc/tree.c \
-        enc/token.c \
-        enc/vp8l.c \
-        enc/webpenc.c \
         dsp/alpha_processing.c \
-        dsp/cpu.c \
+        dsp/alpha_processing_sse2.c \
         dsp/cpu-features.c \
+        dsp/cpu.c \
         dsp/enc.c \
         dsp/enc_avx2.c \
         dsp/enc_mips32.c \
@@ -50,7 +31,27 @@ LOCAL_SRC_FILES := \
         dsp/lossless_neon.c \
         dsp/lossless_sse2.c \
         dsp/yuv.c \
-        dsp/yuv_sse2.c \
+        enc/alpha.c \
+        enc/analysis.c \
+        enc/backward_references.c \
+        enc/config.c \
+        enc/cost.c \
+        enc/filter.c \
+        enc/frame.c \
+        enc/histogram.c \
+        enc/iterator.c \
+        enc/picture.c \
+        enc/picture_csp.c \
+        enc/picture_psnr.c \
+        enc/picture_rescale.c \
+        enc/picture_tools.c \
+        enc/quant.c \
+        enc/syntax.c \
+        enc/token.c \
+        enc/tree.c \
+        enc/vp8l.c \
+        enc/webpenc.c \
+        utils/bit_reader.c \
         utils/bit_writer.c \
         utils/color_cache.c \
         utils/filters.c \
@@ -88,9 +89,11 @@ LOCAL_SRC_FILES := \
         dec/vp8.c \
         dec/vp8l.c \
         dec/webp.c \
+        demux/demux.c \
         dsp/alpha_processing.c \
-        dsp/cpu.c \
+        dsp/alpha_processing_sse2.c \
         dsp/cpu-features.c \
+        dsp/cpu.c \
         dsp/dec.c \
         dsp/dec_clip_tables.c \
         dsp/dec_mips32.c \
@@ -106,7 +109,6 @@ LOCAL_SRC_FILES := \
         dsp/yuv.c \
         dsp/yuv_mips32.c \
         dsp/yuv_sse2.c \
-        demux/demux.c \
         utils/bit_reader.c \
         utils/color_cache.c \
         utils/filters.c \

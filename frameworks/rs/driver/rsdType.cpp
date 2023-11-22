@@ -46,9 +46,9 @@ void rsdTypeUpdateCachedObject(const Context *rsc,
 {
     obj->p = t;
 #ifdef __LP64__
-    obj->r = NULL;
-    obj->v1 = NULL;
-    obj->v2 = NULL;
+    obj->r = nullptr;
+    obj->v1 = nullptr;
+    obj->v2 = nullptr;
 #endif
 }
 

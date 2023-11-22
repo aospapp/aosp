@@ -18,6 +18,7 @@ package com.google.common.collect;
 
 import com.google.common.collect.ImmutableClassToInstanceMapTest.TestClassToInstanceMapGenerator;
 import com.google.common.collect.testing.MapTestSuiteBuilder;
+import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
 import com.google.common.collect.testing.testers.MapPutTester;
@@ -72,7 +73,8 @@ public class MutableClassToInstanceMapTest extends TestCase {
             MapFeature.RESTRICTS_KEYS,
             MapFeature.ALLOWS_NULL_VALUES,
             CollectionSize.ANY,
-            MapFeature.ALLOWS_NULL_QUERIES)
+            CollectionFeature.SUPPORTS_ITERATOR_REMOVE,
+            MapFeature.ALLOWS_ANY_NULL_QUERIES)
         .suppressing(remapTest)
         .createTestSuite());
 

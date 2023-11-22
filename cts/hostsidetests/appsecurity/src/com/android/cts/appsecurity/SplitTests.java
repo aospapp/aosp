@@ -36,14 +36,15 @@ import java.util.List;
  * Tests that verify installing of various split APKs from host side.
  */
 public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
-    private static final String PKG = "com.android.cts.splitapp";
+    static final String PKG = "com.android.cts.splitapp";
+    static final String CLASS = ".SplitAppTest";
 
-    private static final String APK = "CtsSplitApp.apk";
+    static final String APK = "CtsSplitApp.apk";
 
-    private static final String APK_mdpi = "CtsSplitApp_mdpi-v4.apk";
-    private static final String APK_hdpi = "CtsSplitApp_hdpi-v4.apk";
-    private static final String APK_xhdpi = "CtsSplitApp_xhdpi-v4.apk";
-    private static final String APK_xxhdpi = "CtsSplitApp_xxhdpi-v4.apk";
+    static final String APK_mdpi = "CtsSplitApp_mdpi-v4.apk";
+    static final String APK_hdpi = "CtsSplitApp_hdpi-v4.apk";
+    static final String APK_xhdpi = "CtsSplitApp_xhdpi-v4.apk";
+    static final String APK_xxhdpi = "CtsSplitApp_xxhdpi-v4.apk";
 
     private static final String APK_v7 = "CtsSplitApp_v7.apk";
     private static final String APK_fr = "CtsSplitApp_fr.apk";
@@ -69,7 +70,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
     private static final String APK_FEATURE = "CtsSplitAppFeature.apk";
     private static final String APK_FEATURE_v7 = "CtsSplitAppFeature_v7.apk";
 
-    private static final HashMap<String, String> ABI_TO_APK = new HashMap<>();
+    static final HashMap<String, String> ABI_TO_APK = new HashMap<>();
 
     static {
         ABI_TO_APK.put("x86", APK_x86);
@@ -113,18 +114,18 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testSingleBase() throws Exception {
         new InstallMultiple().addApk(APK).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testSingleBase");
+        runDeviceTests(PKG, CLASS, "testSingleBase");
     }
 
     public void testDensitySingle() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_mdpi).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testDensitySingle");
+        runDeviceTests(PKG, CLASS, "testDensitySingle");
     }
 
     public void testDensityAll() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_mdpi).addApk(APK_hdpi).addApk(APK_xhdpi)
                 .addApk(APK_xxhdpi).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testDensityAll");
+        runDeviceTests(PKG, CLASS, "testDensityAll");
     }
 
     /**
@@ -133,11 +134,11 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
      */
     public void testDensityBest() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_mdpi).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testDensityBest1");
+        runDeviceTests(PKG, CLASS, "testDensityBest1");
 
         // Now splice in an additional split which offers better resources
         new InstallMultiple().inheritFrom(PKG).addApk(APK_xxhdpi).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testDensityBest2");
+        runDeviceTests(PKG, CLASS, "testDensityBest2");
     }
 
     /**
@@ -146,12 +147,12 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
      */
     public void testApi() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testApi");
+        runDeviceTests(PKG, CLASS, "testApi");
     }
 
     public void testLocale() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_de).addApk(APK_fr).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testLocale");
+        runDeviceTests(PKG, CLASS, "testLocale");
     }
 
     /**
@@ -164,7 +165,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
         assertNotNull("Failed to find APK for ABI " + abi, apk);
 
         new InstallMultiple().addApk(APK).addApk(apk).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testNative");
+        runDeviceTests(PKG, CLASS, "testNative");
     }
 
     /**
@@ -179,7 +180,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
         assertNotNull("Failed to find APK for ABI " + abi, apk);
 
         new InstallMultiple().useNaturalAbi().addApk(APK).addApk(apk).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testNative");
+        runDeviceTests(PKG, CLASS, "testNative");
     }
 
     /**
@@ -192,7 +193,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
             inst.addApk(apk);
         }
         inst.run();
-        runDeviceTests(PKG, ".SplitAppTest", "testNative");
+        runDeviceTests(PKG, CLASS, "testNative");
     }
 
     /**
@@ -207,7 +208,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
             inst.addApk(apk);
         }
         inst.run();
-        runDeviceTests(PKG, ".SplitAppTest", "testNative");
+        runDeviceTests(PKG, CLASS, "testNative");
     }
 
     public void testDuplicateBase() throws Exception {
@@ -238,21 +239,21 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testDiffRevision() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_DIFF_REVISION_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_12");
+        runDeviceTests(PKG, CLASS, "testRevision0_12");
     }
 
     public void testDiffRevisionInheritBase() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_0");
+        runDeviceTests(PKG, CLASS, "testRevision0_0");
         new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_REVISION_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_12");
+        runDeviceTests(PKG, CLASS, "testRevision0_12");
     }
 
     public void testDiffRevisionInheritSplit() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testRevision0_0");
+        runDeviceTests(PKG, CLASS, "testRevision0_0");
         new InstallMultiple().inheritFrom(PKG).addApk(APK_DIFF_REVISION).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testRevision12_0");
+        runDeviceTests(PKG, CLASS, "testRevision12_0");
     }
 
     public void testDiffRevisionDowngrade() throws Exception {
@@ -262,12 +263,12 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
 
     public void testFeatureBase() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_FEATURE).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testFeatureBase");
+        runDeviceTests(PKG, CLASS, "testFeatureBase");
     }
 
     public void testFeatureApi() throws Exception {
         new InstallMultiple().addApk(APK).addApk(APK_FEATURE).addApk(APK_FEATURE_v7).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testFeatureApi");
+        runDeviceTests(PKG, CLASS, "testFeatureApi");
     }
 
     public void testInheritUpdatedBase() throws Exception {
@@ -283,35 +284,72 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
      */
     public void testClearCodeCache() throws Exception {
         new InstallMultiple().addApk(APK).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testCodeCacheWrite");
+        runDeviceTests(PKG, CLASS, "testCodeCacheWrite");
         new InstallMultiple().addArg("-r").addApk(APK_DIFF_VERSION).run();
-        runDeviceTests(PKG, ".SplitAppTest", "testCodeCacheRead");
+        runDeviceTests(PKG, CLASS, "testCodeCacheRead");
     }
 
-    class InstallMultiple {
-        private List<String> mArgs = new ArrayList<>();
-        private List<File> mApks = new ArrayList<>();
+    private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {
+        public InstallMultiple() {
+            super(getDevice(), mCtsBuild, mAbi);
+        }
+    }
+
+    public static class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
+        private final ITestDevice mDevice;
+        private final CtsBuildHelper mBuild;
+        private final IAbi mAbi;
+
+        private final List<String> mArgs = new ArrayList<>();
+        private final List<File> mApks = new ArrayList<>();
         private boolean mUseNaturalAbi;
 
-        InstallMultiple addArg(String arg) {
+        public BaseInstallMultiple(ITestDevice device, CtsBuildHelper build, IAbi abi) {
+            mDevice = device;
+            mBuild = build;
+            mAbi = abi;
+            addArg("-g");
+        }
+
+        T addArg(String arg) {
             mArgs.add(arg);
-            return this;
+            return (T) this;
         }
 
-        InstallMultiple addApk(String apk) throws FileNotFoundException {
-            mApks.add(mCtsBuild.getTestApp(apk));
-            return this;
+        T addApk(String apk) throws FileNotFoundException {
+            mApks.add(mBuild.getTestApp(apk));
+            return (T) this;
         }
 
-        InstallMultiple inheritFrom(String packageName) {
+        T inheritFrom(String packageName) {
             addArg("-r");
             addArg("-p " + packageName);
-            return this;
+            return (T) this;
         }
 
-        InstallMultiple useNaturalAbi() {
+        T useNaturalAbi() {
             mUseNaturalAbi = true;
-            return this;
+            return (T) this;
+        }
+
+        T locationAuto() {
+            addArg("--install-location 0");
+            return (T) this;
+        }
+
+        T locationInternalOnly() {
+            addArg("--install-location 1");
+            return (T) this;
+        }
+
+        T locationPreferExternal() {
+            addArg("--install-location 2");
+            return (T) this;
+        }
+
+        T forceUuid(String uuid) {
+            addArg("--force-uuid " + uuid);
+            return (T) this;
         }
 
         void run() throws DeviceNotAvailableException {
@@ -323,7 +361,7 @@ public class SplitTests extends DeviceTestCase implements IAbiReceiver, IBuildRe
         }
 
         private void run(boolean expectingSuccess) throws DeviceNotAvailableException {
-            final ITestDevice device = getDevice();
+            final ITestDevice device = mDevice;
 
             // Create an install session
             final StringBuilder cmd = new StringBuilder();

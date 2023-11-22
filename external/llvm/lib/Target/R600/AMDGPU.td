@@ -25,6 +25,11 @@ def FeatureIRStructurizer : SubtargetFeature <"disable-irstructurizer",
         "false",
         "Disable IR Structurizer">;
 
+def FeaturePromoteAlloca : SubtargetFeature <"promote-alloca",
+        "EnablePromoteAlloca",
+        "true",
+        "Enable promote alloca pass">;
+
 // Target features
 
 def FeatureIfCvt : SubtargetFeature <"disable-ifcvt",
@@ -36,6 +41,26 @@ def FeatureFP64 : SubtargetFeature<"fp64",
         "FP64",
         "true",
         "Enable double precision operations">;
+
+def FeatureFP64Denormals : SubtargetFeature<"fp64-denormals",
+        "FP64Denormals",
+        "true",
+        "Enable double precision denormal handling",
+        [FeatureFP64]>;
+
+def FeatureFastFMAF32 : SubtargetFeature<"fast-fmaf",
+        "FastFMAF32",
+        "true",
+        "Assuming f32 fma is at least as fast as mul + add",
+        []>;
+
+// Some instructions do not support denormals despite this flag. Using
+// fp32 denormals also causes instructions to run at the double
+// precision rate for the device.
+def FeatureFP32Denormals : SubtargetFeature<"fp32-denormals",
+        "FP32Denormals",
+        "true",
+        "Enable single precision denormal handling">;
 
 def Feature64BitPtr : SubtargetFeature<"64BitPtr",
         "Is64bit",
@@ -62,6 +87,27 @@ def FeatureCFALUBug : SubtargetFeature<"cfalubug",
         "true",
         "GPU has CF_ALU bug">;
 
+// XXX - This should probably be removed once enabled by default
+def FeatureEnableLoadStoreOpt : SubtargetFeature <"load-store-opt",
+        "EnableLoadStoreOpt",
+        "true",
+        "Enable SI load/store optimizer pass">;
+
+def FeatureFlatAddressSpace : SubtargetFeature<"flat-address-space",
+        "FlatAddressSpace",
+        "true",
+        "Support flat address space">;
+
+def FeatureVGPRSpilling : SubtargetFeature<"vgpr-spilling",
+        "EnableVGPRSpilling",
+        "true",
+        "Enable spilling of VGPRs to scratch memory">;
+
+def FeatureSGPRInitBug : SubtargetFeature<"sgpr-init-bug",
+        "SGPRInitBug",
+        "true",
+        "VI SGPR initilization bug requiring a fixed SGPR allocation size">;
+
 class SubtargetFeatureFetchLimit <string Value> :
                           SubtargetFeature <"fetch"#Value,
         "TexVTXClauseSize",
@@ -87,6 +133,20 @@ class SubtargetFeatureLocalMemorySize <int Value> : SubtargetFeature<
         !cast<string>(Value),
         "The size of local memory in bytes">;
 
+def FeatureGCN : SubtargetFeature<"gcn",
+        "IsGCN",
+        "true",
+        "GCN or newer GPU">;
+
+def FeatureGCN1Encoding : SubtargetFeature<"gcn1-encoding",
+        "GCN1Encoding",
+        "true",
+        "Encoding format for SI and CI">;
+
+def FeatureGCN3Encoding : SubtargetFeature<"gcn3-encoding",
+        "GCN3Encoding",
+        "true",
+        "Encoding format for VI">;
 class SubtargetFeatureGeneration <string Value,
                                   list<SubtargetFeature> Implies> :
         SubtargetFeature <Value, "Gen", "AMDGPUSubtarget::"#Value,
@@ -111,19 +171,36 @@ def FeatureNorthernIslands : SubtargetFeatureGeneration<"NORTHERN_ISLANDS",
 >;
 
 def FeatureSouthernIslands : SubtargetFeatureGeneration<"SOUTHERN_ISLANDS",
-        [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize32768]>;
+        [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize32768,
+         FeatureWavefrontSize64, FeatureGCN, FeatureGCN1Encoding]>;
 
 def FeatureSeaIslands : SubtargetFeatureGeneration<"SEA_ISLANDS",
-        [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize65536]>;
+        [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize65536,
+         FeatureWavefrontSize64, FeatureGCN, FeatureFlatAddressSpace,
+         FeatureGCN1Encoding]>;
+
+def FeatureVolcanicIslands : SubtargetFeatureGeneration<"VOLCANIC_ISLANDS",
+        [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize65536,
+         FeatureWavefrontSize64, FeatureFlatAddressSpace, FeatureGCN,
+         FeatureGCN3Encoding]>;
+
 //===----------------------------------------------------------------------===//
 
 def AMDGPUInstrInfo : InstrInfo {
   let guessInstructionProperties = 1;
+  let noNamedPositionallyEncodedOperands = 1;
+}
+
+def AMDGPUAsmParser : AsmParser {
+  // Some of the R600 registers have the same name, so this crashes.
+  // For example T0_XYZW and T0_XY both have the asm name T0.
+  let ShouldEmitMatchRegisterName = 0;
 }
 
 def AMDGPU : Target {
   // Pull in Instruction Info:
   let InstructionSet = AMDGPUInstrInfo;
+  let AssemblyParsers = [AMDGPUAsmParser];
 }
 
 // Dummy Instruction itineraries for pseudo instructions
@@ -136,8 +213,10 @@ def NullALU : InstrItinClass;
 
 class PredicateControl {
   Predicate SubtargetPredicate;
+  list<Predicate> AssemblerPredicates = [];
   list<Predicate> OtherPredicates = [];
   list<Predicate> Predicates = !listconcat([SubtargetPredicate],
+                                            AssemblerPredicates,
                                             OtherPredicates);
 }
 

@@ -17,6 +17,7 @@
 #include "indirect_reference_table-inl.h"
 
 #include "jni_internal.h"
+#include "nth_caller_visitor.h"
 #include "reference_table.h"
 #include "runtime.h"
 #include "scoped_thread_state_change.h"
@@ -27,6 +28,8 @@
 #include <cstdlib>
 
 namespace art {
+
+static constexpr bool kDumpStackOnNonLocalReference = false;
 
 template<typename T>
 class MutatorLockedDumpable {
@@ -56,14 +59,16 @@ std::ostream& operator<<(std::ostream& os, const MutatorLockedDumpable<T>& rhs)
 
 void IndirectReferenceTable::AbortIfNoCheckJNI() {
   // If -Xcheck:jni is on, it'll give a more detailed error before aborting.
-  if (!Runtime::Current()->GetJavaVM()->check_jni) {
+  JavaVMExt* vm = Runtime::Current()->GetJavaVM();
+  if (!vm->IsCheckJniEnabled()) {
     // Otherwise, we want to abort rather than hand back a bad reference.
     LOG(FATAL) << "JNI ERROR (app bug): see above.";
   }
 }
 
 IndirectReferenceTable::IndirectReferenceTable(size_t initialCount,
-                                               size_t maxCount, IndirectRefKind desiredKind)
+                                               size_t maxCount, IndirectRefKind desiredKind,
+                                               bool abort_on_error)
     : kind_(desiredKind),
       max_entries_(maxCount) {
   CHECK_GT(initialCount, 0U);
@@ -73,15 +78,27 @@ IndirectReferenceTable::IndirectReferenceTable(size_t initialCount,
   std::string error_str;
   const size_t table_bytes = maxCount * sizeof(IrtEntry);
   table_mem_map_.reset(MemMap::MapAnonymous("indirect ref table", nullptr, table_bytes,
-                                            PROT_READ | PROT_WRITE, false, &error_str));
-  CHECK(table_mem_map_.get() != nullptr) << error_str;
-  CHECK_EQ(table_mem_map_->Size(), table_bytes);
+                                            PROT_READ | PROT_WRITE, false, false, &error_str));
+  if (abort_on_error) {
+    CHECK(table_mem_map_.get() != nullptr) << error_str;
+    CHECK_EQ(table_mem_map_->Size(), table_bytes);
+    CHECK(table_mem_map_->Begin() != nullptr);
+  } else if (table_mem_map_.get() == nullptr ||
+             table_mem_map_->Size() != table_bytes ||
+             table_mem_map_->Begin() == nullptr) {
+    table_mem_map_.reset();
+    LOG(ERROR) << error_str;
+    return;
+  }
   table_ = reinterpret_cast<IrtEntry*>(table_mem_map_->Begin());
-  CHECK(table_ != nullptr);
   segment_state_.all = IRT_FIRST_SEGMENT;
 }
 
 IndirectReferenceTable::~IndirectReferenceTable() {
+}
+
+bool IndirectReferenceTable::IsValid() const {
+  return table_mem_map_.get() != nullptr;
 }
 
 IndirectRef IndirectReferenceTable::Add(uint32_t cookie, mirror::Object* obj) {
@@ -89,9 +106,9 @@ IndirectRef IndirectReferenceTable::Add(uint32_t cookie, mirror::Object* obj) {
   prevState.all = cookie;
   size_t topIndex = segment_state_.parts.topIndex;
 
-  CHECK(obj != NULL);
+  CHECK(obj != nullptr);
   VerifyObject(obj);
-  DCHECK(table_ != NULL);
+  DCHECK(table_ != nullptr);
   DCHECK_GE(segment_state_.parts.numHoles, prevState.parts.numHoles);
 
   if (topIndex == max_entries_) {
@@ -125,20 +142,22 @@ IndirectRef IndirectReferenceTable::Add(uint32_t cookie, mirror::Object* obj) {
   }
   table_[index].Add(obj);
   result = ToIndirectRef(index);
-  if (false) {
+  if ((false)) {
     LOG(INFO) << "+++ added at " << ExtractIndex(result) << " top=" << segment_state_.parts.topIndex
               << " holes=" << segment_state_.parts.numHoles;
   }
 
-  DCHECK(result != NULL);
+  DCHECK(result != nullptr);
   return result;
 }
 
 void IndirectReferenceTable::AssertEmpty() {
-  if (UNLIKELY(begin() != end())) {
-    ScopedObjectAccess soa(Thread::Current());
-    LOG(FATAL) << "Internal Error: non-empty local reference table\n"
-               << MutatorLockedDumpable<IndirectReferenceTable>(*this);
+  for (size_t i = 0; i < Capacity(); ++i) {
+    if (!table_[i].GetReference()->IsNull()) {
+      ScopedObjectAccess soa(Thread::Current());
+      LOG(FATAL) << "Internal Error: non-empty local reference table\n"
+                 << MutatorLockedDumpable<IndirectReferenceTable>(*this);
+    }
   }
 }
 
@@ -156,13 +175,23 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
   int topIndex = segment_state_.parts.topIndex;
   int bottomIndex = prevState.parts.topIndex;
 
-  DCHECK(table_ != NULL);
+  DCHECK(table_ != nullptr);
   DCHECK_GE(segment_state_.parts.numHoles, prevState.parts.numHoles);
 
-  if (GetIndirectRefKind(iref) == kHandleScopeOrInvalid &&
-      Thread::Current()->HandleScopeContains(reinterpret_cast<jobject>(iref))) {
-    LOG(WARNING) << "Attempt to remove local handle scope entry from IRT, ignoring";
-    return true;
+  if (GetIndirectRefKind(iref) == kHandleScopeOrInvalid) {
+    auto* self = Thread::Current();
+    if (self->HandleScopeContains(reinterpret_cast<jobject>(iref))) {
+      auto* env = self->GetJniEnv();
+      DCHECK(env != nullptr);
+      if (env->check_jni) {
+        ScopedObjectAccess soa(self);
+        LOG(WARNING) << "Attempt to remove non-JNI local reference, dumping thread";
+        if (kDumpStackOnNonLocalReference) {
+          self->Dump(LOG(WARNING));
+        }
+      }
+      return true;
+    }
   }
   const int idx = ExtractIndex(iref);
   if (idx < bottomIndex) {
@@ -189,7 +218,7 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
     int numHoles = segment_state_.parts.numHoles - prevState.parts.numHoles;
     if (numHoles != 0) {
       while (--topIndex > bottomIndex && numHoles != 0) {
-        if (false) {
+        if ((false)) {
           LOG(INFO) << "+++ checking for hole at " << topIndex - 1
                     << " (cookie=" << cookie << ") val="
                     << table_[topIndex - 1].GetReference()->Read<kWithoutReadBarrier>();
@@ -197,7 +226,7 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
         if (!table_[topIndex - 1].GetReference()->IsNull()) {
           break;
         }
-        if (false) {
+        if ((false)) {
           LOG(INFO) << "+++ ate hole at " << (topIndex - 1);
         }
         numHoles--;
@@ -206,14 +235,13 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
       segment_state_.parts.topIndex = topIndex;
     } else {
       segment_state_.parts.topIndex = topIndex-1;
-      if (false) {
+      if ((false)) {
         LOG(INFO) << "+++ ate last entry " << topIndex - 1;
       }
     }
   } else {
-    // Not the top-most entry.  This creates a hole.  We NULL out the
-    // entry to prevent somebody from deleting it twice and screwing up
-    // the hole count.
+    // Not the top-most entry.  This creates a hole.  We null out the entry to prevent somebody
+    // from deleting it twice and screwing up the hole count.
     if (table_[idx].GetReference()->IsNull()) {
       LOG(INFO) << "--- WEIRD: removing null entry " << idx;
       return false;
@@ -224,7 +252,7 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
 
     *table_[idx].GetReference() = GcRoot<mirror::Object>(nullptr);
     segment_state_.parts.numHoles++;
-    if (false) {
+    if ((false)) {
       LOG(INFO) << "+++ left hole at " << idx << ", holes=" << segment_state_.parts.numHoles;
     }
   }
@@ -239,11 +267,13 @@ void IndirectReferenceTable::Trim() {
   madvise(release_start, release_end - release_start, MADV_DONTNEED);
 }
 
-void IndirectReferenceTable::VisitRoots(RootCallback* callback, void* arg,
-                                        const RootInfo& root_info) {
+void IndirectReferenceTable::VisitRoots(RootVisitor* visitor, const RootInfo& root_info) {
+  BufferedRootVisitor<kDefaultBufferedRootCount> root_visitor(visitor, root_info);
   for (auto ref : *this) {
-    callback(ref, arg, root_info);
-    DCHECK(*ref != nullptr);
+    if (!ref->IsNull()) {
+      root_visitor.VisitRoot(*ref);
+      DCHECK(!ref->IsNull());
+    }
   }
 }
 
@@ -252,13 +282,7 @@ void IndirectReferenceTable::Dump(std::ostream& os) const {
   ReferenceTable::Table entries;
   for (size_t i = 0; i < Capacity(); ++i) {
     mirror::Object* obj = table_[i].GetReference()->Read<kWithoutReadBarrier>();
-    if (UNLIKELY(obj == nullptr)) {
-      // Remove NULLs.
-    } else if (UNLIKELY(obj == kClearedJniWeakGlobal)) {
-      // ReferenceTable::Dump() will handle kClearedJniWeakGlobal
-      // while the read barrier won't.
-      entries.push_back(GcRoot<mirror::Object>(obj));
-    } else {
+    if (obj != nullptr) {
       obj = table_[i].GetReference()->Read();
       entries.push_back(GcRoot<mirror::Object>(obj));
     }

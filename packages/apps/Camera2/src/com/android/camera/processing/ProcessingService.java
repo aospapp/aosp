@@ -29,12 +29,13 @@ import android.os.PowerManager.WakeLock;
 import android.os.Process;
 import android.support.v4.content.LocalBroadcastManager;
 
-import com.android.camera.app.CameraApp;
 import com.android.camera.app.CameraServices;
+import com.android.camera.app.CameraServicesImpl;
 import com.android.camera.debug.Log;
 import com.android.camera.session.CaptureSession;
 import com.android.camera.session.CaptureSession.ProgressListener;
 import com.android.camera.session.CaptureSessionManager;
+import com.android.camera.util.AndroidServices;
 import com.android.camera2.R;
 
 import java.util.concurrent.locks.Lock;
@@ -71,7 +72,7 @@ public class ProcessingService extends Service implements ProgressListener {
     }
 
     private static final Log.Tag TAG = new Log.Tag("ProcessingService");
-    private static final int THREAD_PRIORITY = Process.THREAD_PRIORITY_DISPLAY;
+    private static final int THREAD_PRIORITY = Process.THREAD_PRIORITY_BACKGROUND;
     private static final int CAMERA_NOTIFICATION_ID = 2;
     private Notification.Builder mNotificationBuilder;
     private NotificationManager mNotificationManager;
@@ -100,12 +101,11 @@ public class ProcessingService extends Service implements ProgressListener {
 
     @Override
     public void onCreate() {
-        mProcessingServiceManager = ProcessingServiceManager.getInstance();
+        mProcessingServiceManager = ProcessingServiceManager.instance();
         mSessionManager = getServices().getCaptureSessionManager();
 
         // Keep CPU awake while allowing screen and keyboard to switch off.
-        PowerManager powerManager = (PowerManager) getSystemService(
-                Context.POWER_SERVICE);
+        PowerManager powerManager = AndroidServices.instance().providePowerManager();
         mWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG.toString());
         mWakeLock.acquire();
 
@@ -114,7 +114,7 @@ public class ProcessingService extends Service implements ProgressListener {
         intentFilter.addAction(ACTION_RESUME_PROCESSING_SERVICE);
         LocalBroadcastManager.getInstance(this).registerReceiver(mServiceController, intentFilter);
         mNotificationBuilder = createInProgressNotificationBuilder();
-        mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        mNotificationManager = AndroidServices.instance().provideNotificationManager();
     }
 
     @Override
@@ -220,6 +220,9 @@ public class ProcessingService extends Service implements ProgressListener {
             return;
         }
         CaptureSession session = task.getSession();
+
+        // TODO: Get rid of this null check. There should not be a task without
+        // a session.
         if (session == null) {
             // TODO: Timestamp is not required right now, refactor this to make it clearer.
             session = mSessionManager.createNewSession(task.getName(), 0, task.getLocation());
@@ -245,7 +248,7 @@ public class ProcessingService extends Service implements ProgressListener {
      * Returns the common camera services.
      */
     private CameraServices getServices() {
-        return (CameraApp) this.getApplication();
+        return CameraServicesImpl.instance();
     }
 
     private void postNotification() {
@@ -270,8 +273,8 @@ public class ProcessingService extends Service implements ProgressListener {
     }
 
     @Override
-    public void onStatusMessageChanged(CharSequence message) {
-        mNotificationBuilder.setContentText(message);
+    public void onStatusMessageChanged(int messageId) {
+        mNotificationBuilder.setContentText(messageId > 0 ? getString(messageId) : "");
         postNotification();
     }
 }

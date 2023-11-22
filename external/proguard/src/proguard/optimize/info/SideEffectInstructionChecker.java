@@ -2,7 +2,7 @@
  * ProGuard -- shrinking, optimization, obfuscation, and preverification
  *             of Java bytecode.
  *
- * Copyright (c) 2002-2013 Eric Lafortune (eric@graphics.cornell.edu)
+ * Copyright (c) 2002-2014 Eric Lafortune (eric@graphics.cornell.edu)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -33,7 +33,8 @@ import java.util.*;
 
 /**
  * This class can tell whether an instruction has any side effects outside of
- * its method. Return instructions can be included or not.
+ * its method. Return instructions and local field accesses can be included or
+ * not.
  *
  * @see ReadWriteFieldMarker
  * @see StaticInitializerContainingClassMarker
@@ -47,17 +48,25 @@ implements   InstructionVisitor,
              ConstantVisitor,
              MemberVisitor
 {
-    private static final boolean OPTIMIZE_CONSERVATIVELY = System.getProperty("optimize.conservatively") != null;
+    static final boolean OPTIMIZE_CONSERVATIVELY = System.getProperty("optimize.conservatively") != null;
 
 
     private final boolean includeReturnInstructions;
     private final boolean includeLocalFieldAccess;
 
     // A return value for the visitor methods.
+    private boolean writingField;
     private Clazz   referencingClass;
     private boolean hasSideEffects;
 
 
+    /**
+     * Creates a new SideEffectInstructionChecker
+     * @param includeReturnInstructions specifies whether return instructions
+     *                                  count as side effects.
+     * @param includeLocalFieldAccess   specifies whether reading or writing
+     *                                  local fields counts as side effects.
+     */
     public SideEffectInstructionChecker(boolean includeReturnInstructions,
                                         boolean includeLocalFieldAccess)
     {
@@ -96,6 +105,10 @@ implements   InstructionVisitor,
         // Check for instructions that might cause side effects.
         switch (opcode)
         {
+            case InstructionConstants.OP_IDIV:
+            case InstructionConstants.OP_LDIV:
+            case InstructionConstants.OP_IREM:
+            case InstructionConstants.OP_LREM:
             case InstructionConstants.OP_IALOAD:
             case InstructionConstants.OP_LALOAD:
             case InstructionConstants.OP_FALOAD:
@@ -104,8 +117,13 @@ implements   InstructionVisitor,
             case InstructionConstants.OP_BALOAD:
             case InstructionConstants.OP_CALOAD:
             case InstructionConstants.OP_SALOAD:
+            case InstructionConstants.OP_NEWARRAY:
+            case InstructionConstants.OP_ARRAYLENGTH:
+            case InstructionConstants.OP_ANEWARRAY:
+            case InstructionConstants.OP_MULTIANEWARRAY:
                 // These instructions strictly taken may cause a side effect
-                // (NullPointerException, ArrayIndexOutOfBoundsException).
+                // (ArithmeticException, NullPointerException,
+                // ArrayIndexOutOfBoundsException, NegativeArraySizeException).
                 hasSideEffects = OPTIMIZE_CONSERVATIVELY;
                 break;
 
@@ -160,16 +178,53 @@ implements   InstructionVisitor,
         switch (opcode)
         {
             case InstructionConstants.OP_GETSTATIC:
+                // Check if accessing the field might cause any side effects.
+                writingField = false;
+                clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
+                break;
+
             case InstructionConstants.OP_PUTSTATIC:
-            case InstructionConstants.OP_INVOKESPECIAL:
-            case InstructionConstants.OP_INVOKESTATIC:
-                // Check if the field is write-only or volatile, or if the
-                // invoked method is causing any side effects.
+                // Check if accessing the field might cause any side effects.
+                writingField = true;
                 clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
                 break;
 
             case InstructionConstants.OP_GETFIELD:
+                if (OPTIMIZE_CONSERVATIVELY)
+                {
+                    // These instructions strictly taken may cause a side effect
+                    // (NullPointerException).
+                    hasSideEffects = true;
+                }
+                else
+                {
+                    // Check if the field is write-only or volatile.
+                    writingField = false;
+                    clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
+                }
+                break;
+
             case InstructionConstants.OP_PUTFIELD:
+                if (OPTIMIZE_CONSERVATIVELY)
+                {
+                    // These instructions strictly taken may cause a side effect
+                    // (NullPointerException).
+                    hasSideEffects = true;
+                }
+                else
+                {
+                    // Check if the field is write-only or volatile.
+                    writingField = true;
+                    clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
+                }
+                break;
+
+            case InstructionConstants.OP_INVOKESPECIAL:
+            case InstructionConstants.OP_INVOKESTATIC:
+                // Check if the invoked method is causing any side effects.
+                clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
+                break;
+
             case InstructionConstants.OP_INVOKEVIRTUAL:
             case InstructionConstants.OP_INVOKEINTERFACE:
             case InstructionConstants.OP_INVOKEDYNAMIC:
@@ -181,15 +236,16 @@ implements   InstructionVisitor,
                 }
                 else
                 {
-                    // Check if the field is write-only or volatile, or if the
-                    // invoked method is causing any side effects.
+                    // Check if the invoked method is causing any side effects.
                     clazz.constantPoolEntryAccept(constantInstruction.constantIndex, this);
                 }
                 break;
 
+            case InstructionConstants.OP_ANEWARRAY:
             case InstructionConstants.OP_CHECKCAST:
+            case InstructionConstants.OP_MULTIANEWARRAY:
                 // This instructions strictly taken may cause a side effect
-                // (ClassCastException).
+                // (ClassCastException, NegativeArraySizeException).
                 hasSideEffects = OPTIMIZE_CONSERVATIVELY;
                 break;
         }
@@ -252,11 +308,9 @@ implements   InstructionVisitor,
     {
         hasSideEffects =
             (includeLocalFieldAccess || !programClass.equals(referencingClass)) &&
-            ((ReadWriteFieldMarker.isRead(programField) &&
-              ReadWriteFieldMarker.isWritten(programField))                                ||
-             ((programField.getAccessFlags() & ClassConstants.INTERNAL_ACC_VOLATILE) != 0) ||
-             (!programClass.equals(referencingClass) &&
-              !initializedSuperClasses(referencingClass).containsAll(initializedSuperClasses(programClass))));
+            ((writingField && ReadWriteFieldMarker.isRead(programField))        ||
+             (programField.getAccessFlags() & ClassConstants.ACC_VOLATILE) != 0 ||
+             mayHaveSideEffects(referencingClass, programClass));
     }
 
 
@@ -267,8 +321,7 @@ implements   InstructionVisitor,
         hasSideEffects =
             !NoSideEffectMethodMarker.hasNoSideEffects(programMethod) &&
             (SideEffectMethodMarker.hasSideEffects(programMethod) ||
-             (!programClass.equals(referencingClass) &&
-              !initializedSuperClasses(referencingClass).containsAll(initializedSuperClasses(programClass))));
+             mayHaveSideEffects(referencingClass, programClass));
     }
 
 
@@ -285,6 +338,21 @@ implements   InstructionVisitor,
     }
 
 
+    // Small utility methods.
+
+    /**
+     * Returns whether a field reference or method invocation from the
+     * referencing class to the referenced class might have any side
+     * effects.
+     */
+    private boolean mayHaveSideEffects(Clazz referencingClass, Clazz referencedClass)
+    {
+        return
+            !referencedClass.equals(referencingClass) &&
+            !initializedSuperClasses(referencingClass).containsAll(initializedSuperClasses(referencedClass));
+    }
+
+
     /**
      * Returns the set of superclasses and interfaces that are initialized.
      */
@@ -296,8 +364,8 @@ implements   InstructionVisitor,
         // static initializers.
         clazz.hierarchyAccept(true, true, true, false,
                               new StaticInitializerContainingClassFilter(
-                              new NamedMethodVisitor(ClassConstants.INTERNAL_METHOD_NAME_CLINIT,
-                                                     ClassConstants.INTERNAL_METHOD_TYPE_CLINIT,
+                              new NamedMethodVisitor(ClassConstants.METHOD_NAME_CLINIT,
+                                                     ClassConstants.METHOD_TYPE_CLINIT,
                               new SideEffectMethodFilter(
                               new MemberToClassVisitor(
                               new ClassCollector(set))))));

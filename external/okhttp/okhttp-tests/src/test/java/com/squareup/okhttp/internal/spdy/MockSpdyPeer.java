@@ -30,9 +30,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
-import okio.OkBuffer;
 import okio.Okio;
 
 /** Replays prerecorded outgoing frames and records incoming frames. */
@@ -40,10 +40,10 @@ public final class MockSpdyPeer implements Closeable {
   private int frameCount = 0;
   private boolean client = false;
   private Variant variant = new Spdy3();
-  private final OkBuffer bytesOut = new OkBuffer();
+  private final Buffer bytesOut = new Buffer();
   private FrameWriter frameWriter = variant.newWriter(bytesOut, client);
-  private final List<OutFrame> outFrames = new ArrayList<OutFrame>();
-  private final BlockingQueue<InFrame> inFrames = new LinkedBlockingQueue<InFrame>();
+  private final List<OutFrame> outFrames = new ArrayList<>();
+  private final BlockingQueue<InFrame> inFrames = new LinkedBlockingQueue<>();
   private int port;
   private final ExecutorService executor = Executors.newSingleThreadExecutor(
       Util.threadFactory("MockSpdyPeer", false));
@@ -63,13 +63,18 @@ public final class MockSpdyPeer implements Closeable {
     frameCount++;
   }
 
+  /** Maximum length of an outbound data frame. */
+  public int maxOutboundDataLength() {
+    return frameWriter.maxDataLength();
+  }
+
   /** Count of frames sent or received. */
   public int frameCount() {
     return frameCount;
   }
 
   public FrameWriter sendFrame() {
-    outFrames.add(new OutFrame(frameCount++, bytesOut.size(), Integer.MAX_VALUE));
+    outFrames.add(new OutFrame(frameCount++, bytesOut.size(), false));
     return frameWriter;
   }
 
@@ -78,17 +83,27 @@ public final class MockSpdyPeer implements Closeable {
    * won't be generated naturally.
    */
   public void sendFrame(byte[] frame) throws IOException {
-    outFrames.add(new OutFrame(frameCount++, bytesOut.size(), Integer.MAX_VALUE));
+    outFrames.add(new OutFrame(frameCount++, bytesOut.size(), false));
     bytesOut.write(frame);
   }
 
   /**
-   * Sends a frame, truncated to {@code truncateToLength} bytes. This is only
-   * useful for testing error handling as the truncated frame will be
-   * malformed.
+   * Shortens the last frame from its original length to {@code length}. This
+   * will cause the peer to close the socket as soon as this frame has been
+   * written; otherwise the peer stays open until explicitly closed.
    */
-  public FrameWriter sendTruncatedFrame(int truncateToLength) {
-    outFrames.add(new OutFrame(frameCount++, bytesOut.size(), truncateToLength));
+  public FrameWriter truncateLastFrame(int length) {
+    OutFrame lastFrame = outFrames.remove(outFrames.size() - 1);
+    if (length >= bytesOut.size() - lastFrame.start) throw new IllegalArgumentException();
+
+    // Move everything from bytesOut into a new buffer.
+    Buffer fullBuffer = new Buffer();
+    bytesOut.read(fullBuffer, bytesOut.size());
+
+    // Copy back all but what we're truncating.
+    fullBuffer.read(bytesOut, lastFrame.start + length);
+
+    outFrames.add(new OutFrame(lastFrame.sequence, lastFrame.start, true));
     return frameWriter;
   }
 
@@ -107,7 +122,7 @@ public final class MockSpdyPeer implements Closeable {
           readAndWriteFrames();
         } catch (IOException e) {
           Util.closeQuietly(MockSpdyPeer.this);
-          throw new RuntimeException(e);
+          e.printStackTrace();
         }
       }
     });
@@ -121,7 +136,7 @@ public final class MockSpdyPeer implements Closeable {
     FrameReader reader = variant.newReader(Okio.buffer(Okio.source(in)), client);
 
     Iterator<OutFrame> outFramesIterator = outFrames.iterator();
-    byte[] outBytes = bytesOut.readByteString(bytesOut.size()).toByteArray();
+    byte[] outBytes = bytesOut.readByteArray();
     OutFrame nextOutFrame = null;
 
     for (int i = 0; i < frameCount; i++) {
@@ -131,18 +146,25 @@ public final class MockSpdyPeer implements Closeable {
 
       if (nextOutFrame != null && nextOutFrame.sequence == i) {
         long start = nextOutFrame.start;
-        int truncateToLength = nextOutFrame.truncateToLength;
+        boolean truncated;
         long end;
         if (outFramesIterator.hasNext()) {
           nextOutFrame = outFramesIterator.next();
           end = nextOutFrame.start;
+          truncated = false;
         } else {
           end = outBytes.length;
+          truncated = nextOutFrame.truncated;
         }
 
-        // write a frame
-        int length = (int) Math.min(end - start, truncateToLength);
+        // Write a frame.
+        int length = (int) (end - start);
         out.write(outBytes, (int) start, length);
+
+        // If the last frame was truncated, immediately close the connection.
+        if (truncated) {
+          socket.close();
+        }
       } else {
         // read a frame
         InFrame inFrame = new InFrame(i, reader);
@@ -150,7 +172,6 @@ public final class MockSpdyPeer implements Closeable {
         inFrames.add(inFrame);
       }
     }
-    Util.closeQuietly(socket);
   }
 
   public Socket openSocket() throws IOException {
@@ -174,12 +195,12 @@ public final class MockSpdyPeer implements Closeable {
   private static class OutFrame {
     private final int sequence;
     private final long start;
-    private final int truncateToLength;
+    private final boolean truncated;
 
-    private OutFrame(int sequence, long start, int truncateToLength) {
+    private OutFrame(int sequence, long start, boolean truncated) {
       this.sequence = sequence;
       this.start = start;
-      this.truncateToLength = truncateToLength;
+      this.truncated = truncated;
     }
   }
 
@@ -192,7 +213,6 @@ public final class MockSpdyPeer implements Closeable {
     public boolean inFinished;
     public int streamId;
     public int associatedStreamId;
-    public int priority;
     public ErrorCode errorCode;
     public long windowSizeIncrement;
     public List<Header> headerBlock;
@@ -222,15 +242,13 @@ public final class MockSpdyPeer implements Closeable {
     }
 
     @Override public void headers(boolean outFinished, boolean inFinished, int streamId,
-        int associatedStreamId, int priority, List<Header> headerBlock,
-        HeadersMode headersMode) {
+        int associatedStreamId, List<Header> headerBlock, HeadersMode headersMode) {
       if (this.type != -1) throw new IllegalStateException();
       this.type = Spdy3.TYPE_HEADERS;
       this.outFinished = outFinished;
       this.inFinished = inFinished;
       this.streamId = streamId;
       this.associatedStreamId = associatedStreamId;
-      this.priority = priority;
       this.headerBlock = headerBlock;
       this.headersMode = headersMode;
     }
@@ -274,16 +292,22 @@ public final class MockSpdyPeer implements Closeable {
       this.windowSizeIncrement = windowSizeIncrement;
     }
 
-    @Override public void priority(int streamId, int priority) {
+    @Override public void priority(int streamId, int streamDependency, int weight,
+        boolean exclusive) {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public void pushPromise(int streamId, int associatedStreamId, List<Header> headerBlock) {
-      this.type = Http20Draft09.TYPE_PUSH_PROMISE;
+      this.type = Http2.TYPE_PUSH_PROMISE;
       this.streamId = streamId;
       this.associatedStreamId = associatedStreamId;
       this.headerBlock = headerBlock;
+    }
+
+    @Override public void alternateService(int streamId, String origin, ByteString protocol,
+        String host, int port, long maxAge) {
+      throw new UnsupportedOperationException();
     }
   }
 }

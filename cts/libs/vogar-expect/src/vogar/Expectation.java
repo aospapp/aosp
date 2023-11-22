@@ -16,7 +16,6 @@
 
 package vogar;
 
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -36,14 +35,6 @@ import java.util.regex.Pattern;
  * </pre>
  */
 public final class Expectation {
-
-    /** The pattern to use when no expected output is specified */
-    public static final Pattern MATCH_ALL_PATTERN
-            = Pattern.compile(".*", Pattern.MULTILINE | Pattern.DOTALL);
-
-    /** The expectation of a general successful run. */
-    public static final Expectation SUCCESS = new Expectation(Result.SUCCESS, MATCH_ALL_PATTERN,
-            Collections.<String>emptySet(), "", -1);
 
     /** Justification for this expectation */
     private final String description;

@@ -16,7 +16,6 @@
 
 package android.graphics.drawable.cts;
 
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;

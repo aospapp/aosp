@@ -25,20 +25,31 @@ import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 
 /**
- * Computes or retrieves values, based on a key, for use in populating a {@code Cache}.
+ * Computes or retrieves values, based on a key, for use in populating a {@link LoadingCache}.
  *
  * <p>Most implementations will only need to implement {@link #load}. Other methods may be
  * overridden as desired.
  *
+ * <p>Usage example: <pre>   {@code
+ *
+ *   CacheLoader<Key, Graph> loader = new CacheLoader<Key, Graph>() {
+ *     public Graph load(Key key) throws AnyException {
+ *       return createExpensiveGraph(key);
+ *     }
+ *   };
+ *   LoadingCache<Key, Graph> cache = CacheBuilder.newBuilder().build(loader);}</pre>
+ *
  * @author Charles Fry
  * @since 10.0
  */
-@Beta
 @GwtCompatible(emulated = true)
 public abstract class CacheLoader<K, V> {
   /**
@@ -51,13 +62,17 @@ public abstract class CacheLoader<K, V> {
    *
    * @param key the non-null key whose value should be loaded
    * @return the value associated with {@code key}; <b>must not be null</b>
+   * @throws Exception if unable to load the result
+   * @throws InterruptedException if this method is interrupted. {@code InterruptedException} is
+   *     treated like any other {@code Exception} in all respects except that, when it is caught,
+   *     the thread's interrupt status is set
    */
   public abstract V load(K key) throws Exception;
 
   /**
    * Computes or retrieves a replacement value corresponding to an already-cached {@code key}. This
    * method is called when an existing cache entry is refreshed by
-   * {@link CacheBuilder#refreshAfterWrite}, or through a call to {@link Cache#refresh}.
+   * {@link CacheBuilder#refreshAfterWrite}, or through a call to {@link LoadingCache#refresh}.
    *
    * <p>This implementation synchronously delegates to {@link #load}. It is recommended that it be
    * overridden with an asynchronous implementation when using
@@ -69,16 +84,22 @@ public abstract class CacheLoader<K, V> {
    * @param oldValue the non-null old value corresponding to {@code key}
    * @return the future new value associated with {@code key};
    *     <b>must not be null, must not return null</b>
+   * @throws Exception if unable to reload the result
+   * @throws InterruptedException if this method is interrupted. {@code InterruptedException} is
+   *     treated like any other {@code Exception} in all respects except that, when it is caught,
+   *     the thread's interrupt status is set
    * @since 11.0
    */
   @GwtIncompatible("Futures")
   public ListenableFuture<V> reload(K key, V oldValue) throws Exception {
+    checkNotNull(key);
+    checkNotNull(oldValue);
     return Futures.immediateFuture(load(key));
   }
 
   /**
    * Computes or retrieves the values corresponding to {@code keys}. This method is called by
-   * {@link Cache#getAll}.
+   * {@link LoadingCache#getAll}.
    *
    * <p>If the returned map doesn't contain all requested {@code keys} then the entries it does
    * contain will be cached, but {@code getAll} will throw an exception. If the returned map
@@ -86,22 +107,33 @@ public abstract class CacheLoader<K, V> {
    * but only the entries for {@code keys} will be returned from {@code getAll}.
    *
    * <p>This method should be overriden when bulk retrieval is significantly more efficient than
-   * many individual lookups. Note that {@link Cache#getAll} will defer to individual calls to
-   * {@link Cache#get} if this method is not overriden.
+   * many individual lookups. Note that {@link LoadingCache#getAll} will defer to individual calls
+   * to {@link LoadingCache#get} if this method is not overriden.
    *
    * @param keys the unique, non-null keys whose values should be loaded
    * @return a map from each key in {@code keys} to the value associated with that key;
    *     <b>may not contain null values</b>
+   * @throws Exception if unable to load the result
+   * @throws InterruptedException if this method is interrupted. {@code InterruptedException} is
+   *     treated like any other {@code Exception} in all respects except that, when it is caught,
+   *     the thread's interrupt status is set
    * @since 11.0
    */
   public Map<K, V> loadAll(Iterable<? extends K> keys) throws Exception {
-    // This will be caught by getAll(), causing it to fall back to multiple calls to Cache.get
+    // This will be caught by getAll(), causing it to fall back to multiple calls to
+    // LoadingCache.get
     throw new UnsupportedLoadingOperationException();
   }
 
   /**
-   * Returns a {@code CacheLoader} which creates values by applying a {@code Function} to the key.
+   * Returns a cache loader based on an <i>existing</i> function instance. Note that there's no need
+   * to create a <i>new</i> function just to pass it in here; just subclass {@code CacheLoader} and
+   * implement {@link #load load} instead.
+   *
+   * @param function the function to be used for loading values; must never return {@code null}
+   * @return a cache loader that loads values by passing each key to {@code function}
    */
+  @Beta
   public static <K, V> CacheLoader<K, V> from(Function<K, V> function) {
     return new FunctionToCacheLoader<K, V>(function);
   }
@@ -116,18 +148,64 @@ public abstract class CacheLoader<K, V> {
 
     @Override
     public V load(K key) {
-      return computingFunction.apply(key);
+      return computingFunction.apply(checkNotNull(key));
     }
 
     private static final long serialVersionUID = 0;
   }
 
   /**
-   * Returns a {@code CacheLoader} which obtains values from a {@code Supplier} (independent of the
-   * key).
+   * Returns a cache loader based on an <i>existing</i> supplier instance. Note that there's no need
+   * to create a <i>new</i> supplier just to pass it in here; just subclass {@code CacheLoader} and
+   * implement {@link #load load} instead.
+   *
+   * @param supplier the supplier to be used for loading values; must never return {@code null}
+   * @return a cache loader that loads values by calling {@link Supplier#get}, irrespective of the
+   *     key
    */
+  @Beta
   public static <V> CacheLoader<Object, V> from(Supplier<V> supplier) {
     return new SupplierToCacheLoader<V>(supplier);
+  }
+
+  /**
+   * Returns a {@code CacheLoader} which wraps {@code loader}, executing calls to
+   * {@link CacheLoader#reload} using {@code executor}.
+   *
+   * <p>This method is useful only when {@code loader.reload} has a synchronous implementation,
+   * such as {@linkplain #reload the default implementation}.
+   *
+   * @since 17.0
+   */
+  @Beta
+  @GwtIncompatible("Executor + Futures")
+  public static <K, V> CacheLoader<K, V> asyncReloading(final CacheLoader<K, V> loader,
+      final Executor executor) {
+    checkNotNull(loader);
+    checkNotNull(executor);
+    return new CacheLoader<K, V>() {
+      @Override
+      public V load(K key) throws Exception {
+        return loader.load(key);
+      }
+
+      @Override
+      public ListenableFuture<V> reload(final K key, final V oldValue) throws Exception {
+        ListenableFutureTask<V> task = ListenableFutureTask.create(new Callable<V>() {
+          @Override
+          public V call() throws Exception {
+            return loader.reload(key, oldValue).get();
+          }
+        });
+        executor.execute(task);
+        return task;
+      }
+
+      @Override
+      public Map<K, V> loadAll(Iterable<? extends K> keys) throws Exception {
+        return loader.loadAll(keys);
+      }
+    };
   }
 
   private static final class SupplierToCacheLoader<V>
@@ -140,6 +218,7 @@ public abstract class CacheLoader<K, V> {
 
     @Override
     public V load(Object key) {
+      checkNotNull(key);
       return computingSupplier.get();
     }
 

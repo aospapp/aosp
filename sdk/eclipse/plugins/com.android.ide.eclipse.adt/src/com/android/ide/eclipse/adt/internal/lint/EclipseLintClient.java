@@ -49,6 +49,7 @@ import com.android.tools.lint.detector.api.Location.Handle;
 import com.android.tools.lint.detector.api.Position;
 import com.android.tools.lint.detector.api.Project;
 import com.android.tools.lint.detector.api.Severity;
+import com.android.tools.lint.detector.api.TextFormat;
 import com.android.tools.lint.detector.api.XmlContext;
 import com.android.utils.Pair;
 import com.android.utils.SdkUtils;
@@ -292,6 +293,19 @@ public class EclipseLintClient extends LintClient {
                     model.releaseFromRead();
                 }
             }
+
+            @Override
+            @NonNull
+            public Location getNameLocation(@NonNull XmlContext context, @NonNull Node node) {
+                return getLocation(context, node);
+            }
+
+            @Override
+            @NonNull
+            public Location getValueLocation(@NonNull XmlContext context, @NonNull Attr node) {
+                return getLocation(context, node);
+            }
+
         };
     }
 
@@ -379,7 +393,8 @@ public class EclipseLintClient extends LintClient {
     @Override
     public void report(@NonNull Context context, @NonNull Issue issue, @NonNull Severity s,
             @Nullable Location location,
-            @NonNull String message, @Nullable Object data) {
+            @NonNull String message, @NonNull TextFormat format) {
+        message = format.toText(message);
         int severity = getMarkerSeverity(s);
         IMarker marker = null;
         if (location != null) {
@@ -666,8 +681,8 @@ public class EclipseLintClient extends LintClient {
             return "";
         }
 
-        String summary = issue.getDescription(Issue.OutputFormat.TEXT);
-        String explanation = issue.getExplanation(Issue.OutputFormat.TEXT);
+        String summary = issue.getBriefDescription(TextFormat.TEXT);
+        String explanation = issue.getExplanation(TextFormat.TEXT);
 
         StringBuilder sb = new StringBuilder(summary.length() + explanation.length() + 20);
         try {
@@ -888,7 +903,12 @@ public class EclipseLintClient extends LintClient {
                 libraries = super.getClassPath(project).getLibraries();
             }
 
-            info = new ClassPathInfo(sources, classes, libraries);
+
+            // No test folders in Eclipse:
+            // https://bugs.eclipse.org/bugs/show_bug.cgi?id=224708
+            List<File> tests = Collections.emptyList();
+
+            info = new ClassPathInfo(sources, classes, libraries, tests);
             mProjectInfo.put(project, info);
         }
 
@@ -901,7 +921,7 @@ public class EclipseLintClient extends LintClient {
      * @return the issue registry to use to access detectors and issues
      */
     public static IssueRegistry getRegistry() {
-        return new BuiltinIssueRegistry();
+        return new EclipseLintIssueRegistry();
     }
 
     @Override
@@ -913,7 +933,12 @@ public class EclipseLintClient extends LintClient {
     @Override
     @NonNull
     public IAndroidTarget[] getTargets() {
-        return Sdk.getCurrent().getTargets();
+        Sdk sdk = Sdk.getCurrent();
+        if (sdk != null) {
+            return sdk.getTargets();
+        } else {
+            return new IAndroidTarget[0];
+        }
     }
 
     private boolean mSearchForSuperClasses;

@@ -30,11 +30,9 @@ public:
     }
 
 private:
-    JNIEnv* mEnv;
+    JNIEnv* const mEnv;
 
-    // Disallow copy and assignment.
-    ScopedLocalFrame(const ScopedLocalFrame&);
-    void operator=(const ScopedLocalFrame&);
+    DISALLOW_COPY_AND_ASSIGN(ScopedLocalFrame);
 };
 
 #endif  // SCOPED_LOCAL_FRAME_H_included

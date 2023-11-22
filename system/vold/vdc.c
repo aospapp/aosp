@@ -54,14 +54,19 @@ int main(int argc, char **argv) {
         exit(5);
     }
 
-    while ((sock = socket_local_client("vold",
+    const char* sockname = "vold";
+    if (!strcmp(argv[1], "cryptfs")) {
+        sockname = "cryptd";
+    }
+
+    while ((sock = socket_local_client(sockname,
                                  ANDROID_SOCKET_NAMESPACE_RESERVED,
                                  SOCK_STREAM)) < 0) {
         if(!wait_for_socket) {
             fprintf(stderr, "Error connecting (%s)\n", strerror(errno));
             exit(4);
         } else {
-            sleep(1);
+            usleep(10000);
         }
     }
 
@@ -74,6 +79,7 @@ int main(int argc, char **argv) {
 
 static int do_cmd(int sock, int argc, char **argv) {
     char final_cmd[255] = "0 "; /* 0 is a (now required) sequence number */
+
     int i;
     size_t ret;
 
@@ -145,8 +151,7 @@ static int do_monitor(int sock, int stop_after_cmd) {
                     int code;
                     char tmp[4];
 
-                    strncpy(tmp, buffer + offset, 3);
-                    tmp[3] = '\0';
+                    strlcpy(tmp, buffer + offset, sizeof(tmp));
                     code = atoi(tmp);
 
                     printf("%s\n", buffer + offset);
@@ -167,4 +172,3 @@ static void usage(char *progname) {
     fprintf(stderr,
             "Usage: %s [--wait] <monitor>|<cmd> [arg1] [arg2...]\n", progname);
  }
-

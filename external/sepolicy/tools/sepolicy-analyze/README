@@ -53,6 +53,18 @@ sepolicy-analyze
     permissive domains can be helpful during development, they
     should not be present in a final -user build.
 
+    BOOLEANS (booleans)
+    sepolicy-analyze out/target/product/<board>/root/sepolicy booleans
+
+    Displays the boolean names in the policy (if any).
+    Policy booleans are forbidden in Android policy, so if there is any
+    output, the policy will fail CTS.
+
+    ATTRIBUTE (attribute)
+    sepolicy-analyze out/target/product/<board>/root/sepolicy attribute <name>
+
+    Displays the types associated with the specified attribute name.
+
     NEVERALLOW CHECKING (neverallow)
     sepolicy-analyze out/target/product/<board>/root/sepolicy neverallow \
     [-w] [-d] [-f neverallows.conf] | [-n "neverallow string"]

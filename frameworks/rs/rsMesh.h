@@ -45,7 +45,7 @@ public:
             Allocation **vertexBuffers;
             uint32_t vertexBuffersCount;
 
-            // indexBuffers[i] could be NULL, in which case only primitives[i] is used
+            // indexBuffers[i] could be nullptr, in which case only primitives[i] is used
             Allocation **indexBuffers;
             uint32_t indexBuffersCount;
             RsPrimitive *primitives;

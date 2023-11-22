@@ -77,10 +77,11 @@ struct psb_buffer_s {
     unsigned int buffer_ofs; /* several buffers may share one BO (camera/RAR), and use offset to distinguish it */
     struct psb_buffer_s *next;
     unsigned char *user_ptr; /* user pointer for user buffers */
+    int fd; /* fd of user buffers if it is from GFX; else it is -1*/
     psb_driver_data_p driver_data; /* for RAR buffer release */
     uint32_t size;
     void *handle;
-	unsigned char *virtual_addr;
+    unsigned char *virtual_addr;
     int unfence_flag;
 };
 
@@ -103,6 +104,7 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
                            psb_buffer_type_t type,
                            psb_buffer_p buf,
                            void * vaddr,
+                           int fd,
                            unsigned int flags
                           );
 

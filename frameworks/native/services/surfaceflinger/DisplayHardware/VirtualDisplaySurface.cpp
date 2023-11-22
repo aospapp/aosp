@@ -18,6 +18,8 @@
 #include "VirtualDisplaySurface.h"
 #include "HWComposer.h"
 
+#include <gui/BufferItem.h>
+
 // ---------------------------------------------------------------------------
 namespace android {
 // ---------------------------------------------------------------------------
@@ -234,6 +236,7 @@ void VirtualDisplaySurface::onFrameCommitted() {
             status_t result = mSource[SOURCE_SINK]->queueBuffer(sslot,
                     QueueBufferInput(
                         systemTime(), false /* isAutoTimestamp */,
+                        HAL_DATASPACE_UNKNOWN,
                         Rect(mSinkBufferWidth, mSinkBufferHeight),
                         NATIVE_WINDOW_SCALING_MODE_FREEZE, 0 /* transform */,
                         true /* async*/,
@@ -254,7 +257,7 @@ void VirtualDisplaySurface::onFrameCommitted() {
     resetPerFrameState();
 }
 
-void VirtualDisplaySurface::dump(String8& /* result */) const {
+void VirtualDisplaySurface::dumpAsString(String8& /* result */) const {
 }
 
 void VirtualDisplaySurface::resizeBuffers(const uint32_t w, const uint32_t h) {
@@ -284,7 +287,7 @@ status_t VirtualDisplaySurface::setBufferCount(int bufferCount) {
 }
 
 status_t VirtualDisplaySurface::dequeueBuffer(Source source,
-        uint32_t format, uint32_t usage, int* sslot, sp<Fence>* fence) {
+        PixelFormat format, uint32_t usage, int* sslot, sp<Fence>* fence) {
     LOG_FATAL_IF(mDisplayId < 0, "mDisplayId=%d but should not be < 0.", mDisplayId);
     // Don't let a slow consumer block us
     bool async = (source == SOURCE_SINK);
@@ -329,7 +332,7 @@ status_t VirtualDisplaySurface::dequeueBuffer(Source source,
 }
 
 status_t VirtualDisplaySurface::dequeueBuffer(int* pslot, sp<Fence>* fence, bool async,
-        uint32_t w, uint32_t h, uint32_t format, uint32_t usage) {
+        uint32_t w, uint32_t h, PixelFormat format, uint32_t usage) {
     if (mDisplayId < 0)
         return mSource[SOURCE_SINK]->dequeueBuffer(pslot, fence, async, w, h, format, usage);
 
@@ -364,7 +367,7 @@ status_t VirtualDisplaySurface::dequeueBuffer(int* pslot, sp<Fence>* fence, bool
         usage |= GRALLOC_USAGE_HW_COMPOSER;
         const sp<GraphicBuffer>& buf = mProducerBuffers[mOutputProducerSlot];
         if ((usage & ~buf->getUsage()) != 0 ||
-                (format != 0 && format != (uint32_t)buf->getPixelFormat()) ||
+                (format != 0 && format != buf->getPixelFormat()) ||
                 (w != 0 && w != mSinkBufferWidth) ||
                 (h != 0 && h != mSinkBufferHeight)) {
             VDS_LOGV("dequeueBuffer: dequeueing new output buffer: "
@@ -435,7 +438,7 @@ status_t VirtualDisplaySurface::queueBuffer(int pslot,
         // Now acquire the buffer from the scratch pool -- should be the same
         // slot and fence as we just queued.
         Mutex::Autolock lock(mMutex);
-        BufferQueue::BufferItem item;
+        BufferItem item;
         result = acquireBufferLocked(&item, 0);
         if (result != NO_ERROR)
             return result;
@@ -453,12 +456,13 @@ status_t VirtualDisplaySurface::queueBuffer(int pslot,
         // Extract the GLES release fence for HWC to acquire
         int64_t timestamp;
         bool isAutoTimestamp;
+        android_dataspace dataSpace;
         Rect crop;
         int scalingMode;
         uint32_t transform;
         bool async;
-        input.deflate(&timestamp, &isAutoTimestamp, &crop, &scalingMode,
-                &transform, &async, &mFbFence);
+        input.deflate(&timestamp, &isAutoTimestamp, &dataSpace, &crop,
+                &scalingMode, &transform, &async, &mFbFence);
 
         mFbProducerSlot = pslot;
         mOutputFence = mFbFence;
@@ -517,9 +521,22 @@ status_t VirtualDisplaySurface::setSidebandStream(const sp<NativeHandle>& /*stre
 }
 
 void VirtualDisplaySurface::allocateBuffers(bool /* async */,
-        uint32_t /* width */, uint32_t /* height */, uint32_t /* format */,
+        uint32_t /* width */, uint32_t /* height */, PixelFormat /* format */,
         uint32_t /* usage */) {
     // TODO: Should we actually allocate buffers for a virtual display?
+}
+
+status_t VirtualDisplaySurface::allowAllocation(bool /* allow */) {
+    return INVALID_OPERATION;
+}
+
+status_t VirtualDisplaySurface::setGenerationNumber(uint32_t /* generation */) {
+    ALOGE("setGenerationNumber not supported on VirtualDisplaySurface");
+    return INVALID_OPERATION;
+}
+
+String8 VirtualDisplaySurface::getConsumerName() const {
+    return String8("VirtualDisplaySurface");
 }
 
 void VirtualDisplaySurface::updateQueueBufferOutput(

@@ -346,16 +346,16 @@ public class ImsUt implements ImsUtInterface {
      */
     @Override
     public void updateCallForward(int action, int condition, String number,
-            int timeSeconds, Message result) {
+            int serviceClass, int timeSeconds, Message result) {
         if (DBG) {
             log("updateCallForward :: Ut=" + miUt + ", action=" + action
                     + ", condition=" + condition + ", number=" + number
-                    + ", timeSeconds=" + timeSeconds);
+                    +  ", serviceClass=" + serviceClass + ", timeSeconds=" + timeSeconds);
         }
 
         synchronized(mLockObj) {
             try {
-                int id = miUt.updateCallForward(action, condition, number, timeSeconds);
+                int id = miUt.updateCallForward(action, condition, number, serviceClass, timeSeconds);
 
                 if (id < 0) {
                     sendFailureReport(result,
@@ -375,14 +375,15 @@ public class ImsUt implements ImsUtInterface {
      * Modifies the configuration of the call waiting.
      */
     @Override
-    public void updateCallWaiting(boolean enable, Message result) {
+    public void updateCallWaiting(boolean enable, int serviceClass, Message result) {
         if (DBG) {
-            log("updateCallWaiting :: Ut=" + miUt + ", enable=" + enable);
+            log("updateCallWaiting :: Ut=" + miUt + ", enable=" + enable
+            + ",serviceClass="  + serviceClass);
         }
 
         synchronized(mLockObj) {
             try {
-                int id = miUt.updateCallWaiting(enable);
+                int id = miUt.updateCallWaiting(enable, serviceClass);
 
                 if (id < 0) {
                     sendFailureReport(result,

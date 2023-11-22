@@ -64,6 +64,7 @@ public class CdmaConnection extends Connection {
     int mCause = DisconnectCause.NOT_DISCONNECTED;
     PostDialState mPostDialState = PostDialState.NOT_STARTED;
     int mPreciseCause = 0;
+    String mVendorCause;
 
     Handler mHandler;
 
@@ -136,9 +137,10 @@ public class CdmaConnection extends Connection {
         mHandler = new MyHandler(mOwner.getLooper());
 
         mDialString = dialString;
-        Rlog.d(LOG_TAG, "[CDMAConn] CdmaConnection: dialString=" + dialString);
+        Rlog.d(LOG_TAG, "[CDMAConn] CdmaConnection: dialString=" + maskDialString(dialString));
         dialString = formatDialString(dialString);
-        Rlog.d(LOG_TAG, "[CDMAConn] CdmaConnection:formated dialString=" + dialString);
+        Rlog.d(LOG_TAG,
+                "[CDMAConn] CdmaConnection:formated dialString=" + maskDialString(dialString));
 
         mAddress = PhoneNumberUtils.extractNetworkPortionAlt(dialString);
         mPostDialString = PhoneNumberUtils.extractPostDialPortion(dialString);
@@ -322,6 +324,7 @@ public class CdmaConnection extends Connection {
     onHangupLocal() {
         mCause = DisconnectCause.LOCAL;
         mPreciseCause = 0;
+        mVendorCause = null;
     }
 
     /**
@@ -399,8 +402,9 @@ public class CdmaConnection extends Connection {
     }
 
     /*package*/ void
-    onRemoteDisconnect(int causeCode) {
+    onRemoteDisconnect(int causeCode, String vendorCause) {
         this.mPreciseCause = causeCode;
+        this.mVendorCause = vendorCause;
         onDisconnect(disconnectCauseFromCode(causeCode));
     }
 
@@ -911,6 +915,14 @@ public class CdmaConnection extends Connection {
         Rlog.d(LOG_TAG, "[CDMAConn] " + msg);
     }
 
+    private String maskDialString(String dialString) {
+        if (VDBG) {
+            return dialString;
+        }
+
+        return "<MASKED>";
+    }
+
     @Override
     public int getNumberPresentation() {
         return mNumberPresentation;
@@ -924,6 +936,11 @@ public class CdmaConnection extends Connection {
 
     public int getPreciseDisconnectCause() {
         return mPreciseCause;
+    }
+
+    @Override
+    public String getVendorDisconnectCause() {
+        return mVendorCause;
     }
 
     @Override

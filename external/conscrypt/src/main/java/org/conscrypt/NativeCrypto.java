@@ -20,21 +20,22 @@ import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
-import java.security.interfaces.DSAPrivateKey;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.RSAPrivateKey;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.net.ssl.SSLException;
@@ -45,25 +46,15 @@ import javax.security.auth.x500.X500Principal;
  */
 public final class NativeCrypto {
 
+    public static final boolean isBoringSSL;
+
     // --- OpenSSL library initialization --------------------------------------
     static {
-        /*
-         * If we're compiled as part of Android, should use a different JNI
-         * library name. Detect this by looking for the jarjar'd package name.
-         */
-        if ("com.android.org.conscrypt".equals(NativeCrypto.class.getPackage().getName())) {
-            System.loadLibrary("javacrypto");
-        } else if ("com.google.android.gms.org.conscrypt".equals(NativeCrypto.class.getPackage().getName())) {
-            System.loadLibrary("gmscore");
-            System.loadLibrary("conscrypt_gmscore_jni");
-        } else {
-            System.loadLibrary("conscrypt_jni");
-        }
-
-        clinit();
+        NativeCryptoJni.init();
+        isBoringSSL = clinit();
     }
 
-    private native static void clinit();
+    private native static boolean clinit();
 
     // --- ENGINE functions ----------------------------------------------------
     public static native void ENGINE_load_dynamic();
@@ -78,7 +69,7 @@ public final class NativeCrypto {
 
     public static native int ENGINE_free(long e);
 
-    public static native long ENGINE_load_private_key(long e, String key_id);
+    public static native long ENGINE_load_private_key(long e, String key_id) throws InvalidKeyException;
 
     public static native String ENGINE_get_id(long engineRef);
 
@@ -95,75 +86,60 @@ public final class NativeCrypto {
 
     public static native long EVP_PKEY_new_mac_key(int type, byte[] key);
 
-    public static native int EVP_PKEY_size(long pkey);
+    public static native int EVP_PKEY_size(NativeRef.EVP_PKEY pkey);
 
-    public static native int EVP_PKEY_type(long pkey);
+    public static native int EVP_PKEY_type(NativeRef.EVP_PKEY pkey);
 
-    public static native String EVP_PKEY_print_public(long pkeyRef);
+    public static native String EVP_PKEY_print_public(NativeRef.EVP_PKEY pkeyRef);
 
-    public static native String EVP_PKEY_print_private(long pkeyRef);
+    public static native String EVP_PKEY_print_private(NativeRef.EVP_PKEY pkeyRef);
 
     public static native void EVP_PKEY_free(long pkey);
 
-    public static native int EVP_PKEY_cmp(long pkey1, long pkey2);
+    public static native int EVP_PKEY_cmp(NativeRef.EVP_PKEY pkey1, NativeRef.EVP_PKEY pkey2);
 
-    public static native byte[] i2d_PKCS8_PRIV_KEY_INFO(long pkey);
+    public static native byte[] i2d_PKCS8_PRIV_KEY_INFO(NativeRef.EVP_PKEY pkey);
 
     public static native long d2i_PKCS8_PRIV_KEY_INFO(byte[] data);
 
-    public static native byte[] i2d_PUBKEY(long pkey);
+    public static native byte[] i2d_PUBKEY(NativeRef.EVP_PKEY pkey);
 
     public static native long d2i_PUBKEY(byte[] data);
 
-    public static native long getRSAPrivateKeyWrapper(RSAPrivateKey key, byte[] modulus);
+    public static native long getRSAPrivateKeyWrapper(PrivateKey key, byte[] modulus);
 
-    public static native long getDSAPrivateKeyWrapper(DSAPrivateKey key);
-
-    public static native long getECPrivateKeyWrapper(ECPrivateKey key, long ecGroupRef);
+    public static native long getECPrivateKeyWrapper(PrivateKey key,
+            NativeRef.EC_GROUP ecGroupRef);
 
     public static native long RSA_generate_key_ex(int modulusBits, byte[] publicExponent);
 
-    public static native int RSA_size(long pkey);
+    public static native int RSA_size(NativeRef.EVP_PKEY pkey);
 
-    public static native int RSA_private_encrypt(int flen, byte[] from, byte[] to, long pkey,
-            int padding);
+    public static native int RSA_private_encrypt(int flen, byte[] from, byte[] to,
+            NativeRef.EVP_PKEY pkey, int padding);
 
-    public static native int RSA_public_decrypt(int flen, byte[] from, byte[] to, long pkey,
-            int padding) throws BadPaddingException, SignatureException;
+    public static native int RSA_public_decrypt(int flen, byte[] from, byte[] to,
+            NativeRef.EVP_PKEY pkey, int padding) throws BadPaddingException, SignatureException;
 
-    public static native int RSA_public_encrypt(int flen, byte[] from, byte[] to, long pkey,
-            int padding);
+    public static native int RSA_public_encrypt(int flen, byte[] from, byte[] to,
+            NativeRef.EVP_PKEY pkey, int padding);
 
-    public static native int RSA_private_decrypt(int flen, byte[] from, byte[] to, long pkey,
-            int padding) throws BadPaddingException, SignatureException;
+    public static native int RSA_private_decrypt(int flen, byte[] from, byte[] to,
+            NativeRef.EVP_PKEY pkey, int padding) throws BadPaddingException, SignatureException;
 
     /**
      * @return array of {n, e}
      */
-    public static native byte[][] get_RSA_public_params(long rsa);
+    public static native byte[][] get_RSA_public_params(NativeRef.EVP_PKEY rsa);
 
     /**
      * @return array of {n, e, d, p, q, dmp1, dmq1, iqmp}
      */
-    public static native byte[][] get_RSA_private_params(long rsa);
+    public static native byte[][] get_RSA_private_params(NativeRef.EVP_PKEY rsa);
 
-    public static native long DSA_generate_key(int primeBits, byte[] seed, byte[] g, byte[] p,
-            byte[] q);
+    public static native byte[] i2d_RSAPublicKey(NativeRef.EVP_PKEY rsa);
 
-    /**
-     * @return array of {g, p, q, y(pub), x(priv)}
-     */
-    public static native byte[][] get_DSA_params(long dsa);
-
-    public static native void set_DSA_flag_nonce_from_hash(long dsa);
-
-    public static native byte[] i2d_RSAPublicKey(long rsa);
-
-    public static native byte[] i2d_RSAPrivateKey(long rsa);
-
-    public static native byte[] i2d_DSAPublicKey(long dsa);
-
-    public static native byte[] i2d_DSAPrivateKey(long dsa);
+    public static native byte[] i2d_RSAPrivateKey(NativeRef.EVP_PKEY rsa);
 
     // --- DH public/private key handling functions ----------------------------
 
@@ -171,12 +147,12 @@ public final class NativeCrypto {
 
     public static native long DH_generate_parameters_ex(int primeBits, long generator);
 
-    public static native void DH_generate_key(long pkeyRef);
+    public static native void DH_generate_key(NativeRef.EVP_PKEY pkeyRef);
 
     /**
      * @return array of {p, g, y(pub), x(priv)}
      */
-    public static native byte[][] get_DH_params(long dh);
+    public static native byte[][] get_DH_params(NativeRef.EVP_PKEY dh);
 
     // --- EC functions --------------------------
 
@@ -190,164 +166,176 @@ public final class NativeCrypto {
      */
     public static final int EC_CURVE_GF2M = 2;
 
-    /**
-     * EC_GROUP_set_asn1_flag: indicates an EC_GROUP is a NamedCurve.
-     */
-    public static final int OPENSSL_EC_NAMED_CURVE = 0x001;
-
-    /**
-     * EC_GROUP_set_point_conversion_form: indicates compressed ASN.1 format
-     */
-    public static final int POINT_CONVERSION_COMPRESSED = 2;
-
-    /**
-     * EC_GROUP_set_point_conversion_form: indicates uncompressed ASN.1 format
-     */
-    public static final int POINT_CONVERSION_UNCOMPRESSED = 4;
-
-    /**
-     * EC_GROUP_set_point_conversion_form: indicates hybrid ASN.1 format
-     */
-    public static final int POINT_CONVERSION_HYBRID = 4;
-
-    public static native long EVP_PKEY_new_EC_KEY(long groupRef, long pubkeyRef, byte[] privkey);
+    public static native long EVP_PKEY_new_EC_KEY(NativeRef.EC_GROUP groupRef,
+            NativeRef.EC_POINT pubkeyRef, byte[] privkey);
 
     public static native long EC_GROUP_new_by_curve_name(String curveName);
 
-    public static native long EC_GROUP_new_curve(int type, byte[] p, byte[] a, byte[] b);
+    public static native long EC_GROUP_new_arbitrary(byte[] p, byte[] a, byte[] b, byte[] x,
+                                                     byte[] y, byte[] order, int cofactor);
 
-    public static native long EC_GROUP_dup(long groupRef);
+    public static native void EC_GROUP_set_asn1_flag(NativeRef.EC_GROUP groupRef, int flag);
 
-    public static native void EC_GROUP_set_asn1_flag(long groupRef, int flag);
+    public static native void EC_GROUP_set_point_conversion_form(NativeRef.EC_GROUP groupRef,
+            int form);
 
-    public static native void EC_GROUP_set_point_conversion_form(long groupRef, int form);
+    public static native String EC_GROUP_get_curve_name(NativeRef.EC_GROUP groupRef);
 
-    public static native String EC_GROUP_get_curve_name(long groupRef);
+    public static native byte[][] EC_GROUP_get_curve(NativeRef.EC_GROUP groupRef);
 
-    public static native byte[][] EC_GROUP_get_curve(long groupRef);
+    public static native void EC_GROUP_clear_free(long groupRef);
 
-    public static native void EC_GROUP_clear_free(long ctx);
+    public static native boolean EC_GROUP_cmp(NativeRef.EC_GROUP ctx1, NativeRef.EC_GROUP ctx2);
 
-    public static native boolean EC_GROUP_cmp(long ctx1, long ctx2);
+    public static native long EC_GROUP_get_generator(NativeRef.EC_GROUP groupRef);
 
-    public static native void EC_GROUP_set_generator(long groupCtx, long pointCtx, byte[] n, byte[] h);
+    public static native int get_EC_GROUP_type(NativeRef.EC_GROUP groupRef);
 
-    public static native long EC_GROUP_get_generator(long groupCtx);
+    public static native byte[] EC_GROUP_get_order(NativeRef.EC_GROUP groupRef);
 
-    public static native int get_EC_GROUP_type(long groupCtx);
+    public static native int EC_GROUP_get_degree(NativeRef.EC_GROUP groupRef);
 
-    public static native byte[] EC_GROUP_get_order(long groupCtx);
+    public static native byte[] EC_GROUP_get_cofactor(NativeRef.EC_GROUP groupRef);
 
-    public static native int EC_GROUP_get_degree(long groupCtx);
-
-    public static native byte[] EC_GROUP_get_cofactor(long groupCtx);
-
-    public static native long EC_POINT_new(long groupRef);
+    public static native long EC_POINT_new(NativeRef.EC_GROUP groupRef);
 
     public static native void EC_POINT_clear_free(long pointRef);
 
-    public static native boolean EC_POINT_cmp(long groupRef, long pointRef1, long pointRef2);
+    public static native boolean EC_POINT_cmp(NativeRef.EC_GROUP groupRef,
+            NativeRef.EC_POINT pointRef1, NativeRef.EC_POINT pointRef2);
 
-    public static native byte[][] EC_POINT_get_affine_coordinates(long groupCtx, long pointCtx);
+    public static native byte[][] EC_POINT_get_affine_coordinates(NativeRef.EC_GROUP groupRef,
+            NativeRef.EC_POINT pointRef);
 
-    public static native void EC_POINT_set_affine_coordinates(long groupCtx, long pointCtx, byte[] x,
-            byte[] y);
+    public static native void EC_POINT_set_affine_coordinates(NativeRef.EC_GROUP groupRef,
+            NativeRef.EC_POINT pointRef, byte[] x, byte[] y);
 
-    public static native long EC_KEY_generate_key(long groupRef);
+    public static native long EC_KEY_generate_key(NativeRef.EC_GROUP groupRef);
 
-    public static native long EC_KEY_get0_group(long pkeyRef);
+    public static native long EC_KEY_get1_group(NativeRef.EVP_PKEY pkeyRef);
 
-    public static native byte[] EC_KEY_get_private_key(long keyRef);
+    public static native byte[] EC_KEY_get_private_key(NativeRef.EVP_PKEY keyRef);
 
-    public static native long EC_KEY_get_public_key(long keyRef);
+    public static native long EC_KEY_get_public_key(NativeRef.EVP_PKEY keyRef);
 
-    public static native void EC_KEY_set_nonce_from_hash(long keyRef, boolean enabled);
+    public static native void EC_KEY_set_nonce_from_hash(NativeRef.EVP_PKEY keyRef,
+            boolean enabled);
 
-    public static native int ECDH_compute_key(
-            byte[] out, int outOffset, long publicKeyRef, long privateKeyRef);
+    public static native int ECDH_compute_key(byte[] out, int outOffset,
+            NativeRef.EVP_PKEY publicKeyRef, NativeRef.EVP_PKEY privateKeyRef);
 
     // --- Message digest functions --------------
 
+    // These return const references
     public static native long EVP_get_digestbyname(String name);
 
-    public static native int EVP_MD_size(long evp_md);
+    public static native int EVP_MD_size(long evp_md_const);
 
-    public static native int EVP_MD_block_size(long evp_md);
+    public static native int EVP_MD_block_size(long evp_md_const);
 
     // --- Message digest context functions --------------
 
     public static native long EVP_MD_CTX_create();
 
-    public static native void EVP_MD_CTX_init(OpenSSLDigestContext ctx);
+    public static native void EVP_MD_CTX_init(NativeRef.EVP_MD_CTX ctx);
 
     public static native void EVP_MD_CTX_destroy(long ctx);
 
-    public static native int EVP_MD_CTX_copy(OpenSSLDigestContext dst_ctx,
-            OpenSSLDigestContext src_ctx);
+    public static native int EVP_MD_CTX_copy(NativeRef.EVP_MD_CTX dst_ctx,
+            NativeRef.EVP_MD_CTX src_ctx);
 
     // --- Digest handling functions -------------------------------------------
 
-    public static native int EVP_DigestInit(OpenSSLDigestContext ctx, long evp_md);
+    public static native int EVP_DigestInit(NativeRef.EVP_MD_CTX ctx, long evp_md);
 
-    public static native void EVP_DigestUpdate(OpenSSLDigestContext ctx, byte[] buffer,
-            int offset, int length);
+    public static native void EVP_DigestUpdate(NativeRef.EVP_MD_CTX ctx,
+            byte[] buffer, int offset, int length);
 
-    public static native int EVP_DigestFinal(OpenSSLDigestContext ctx, byte[] hash, int offset);
+    public static native int EVP_DigestFinal(NativeRef.EVP_MD_CTX ctx, byte[] hash,
+            int offset);
 
     // --- MAC handling functions ----------------------------------------------
 
-    public static native void EVP_DigestSignInit(OpenSSLDigestContext evp_md_ctx, long evp_md,
-            long evp_pkey);
+    public static native void EVP_DigestSignInit(NativeRef.EVP_MD_CTX evp_md_ctx,
+            long evp_md, NativeRef.EVP_PKEY evp_pkey);
 
-    public static native void EVP_DigestSignUpdate(OpenSSLDigestContext evp_md_ctx, byte[] in);
+    public static native void EVP_DigestSignUpdate(NativeRef.EVP_MD_CTX evp_md_ctx,
+            byte[] in);
 
-    public static native byte[] EVP_DigestSignFinal(OpenSSLDigestContext evp_md_ctx);
+    public static native byte[] EVP_DigestSignFinal(NativeRef.EVP_MD_CTX evp_md_ctx);
 
     // --- Signature handling functions ----------------------------------------
 
-    public static native int EVP_SignInit(OpenSSLDigestContext ctx, long evpRef);
+    public static native int EVP_SignInit(NativeRef.EVP_MD_CTX ctx, long evpRef);
 
-    public static native void EVP_SignUpdate(OpenSSLDigestContext ctx, byte[] buffer,
-                                               int offset, int length);
+    public static native void EVP_SignUpdate(NativeRef.EVP_MD_CTX ctx, byte[] buffer,
+            int offset, int length);
 
-    public static native int EVP_SignFinal(OpenSSLDigestContext ctx, byte[] signature, int offset,
-            long key);
+    public static native int EVP_SignFinal(NativeRef.EVP_MD_CTX ctx, byte[] signature,
+            int offset, NativeRef.EVP_PKEY key);
 
-    public static native int EVP_VerifyInit(OpenSSLDigestContext ctx, long evpRef);
+    public static native int EVP_VerifyInit(NativeRef.EVP_MD_CTX ctx, long evpRef);
 
-    public static native void EVP_VerifyUpdate(OpenSSLDigestContext ctx, byte[] buffer,
-                                               int offset, int length);
+    public static native void EVP_VerifyUpdate(NativeRef.EVP_MD_CTX ctx,
+            byte[] buffer, int offset, int length);
 
-    public static native int EVP_VerifyFinal(OpenSSLDigestContext ctx, byte[] signature,
-                                             int offset, int length, long key);
-
+    public static native int EVP_VerifyFinal(NativeRef.EVP_MD_CTX ctx,
+            byte[] signature, int offset, int length, NativeRef.EVP_PKEY key);
 
     // --- Block ciphers -------------------------------------------------------
 
+    // These return const references
     public static native long EVP_get_cipherbyname(String string);
 
-    public static native void EVP_CipherInit_ex(long ctx, long evpCipher, byte[] key, byte[] iv,
-            boolean encrypting);
+    public static native void EVP_CipherInit_ex(NativeRef.EVP_CIPHER_CTX ctx, long evpCipher,
+            byte[] key, byte[] iv, boolean encrypting);
 
-    public static native int EVP_CipherUpdate(long ctx, byte[] out, int outOffset, byte[] in,
-            int inOffset, int inLength);
+    public static native int EVP_CipherUpdate(NativeRef.EVP_CIPHER_CTX ctx, byte[] out,
+            int outOffset, byte[] in, int inOffset, int inLength);
 
-    public static native int EVP_CipherFinal_ex(long ctx, byte[] out, int outOffset)
-            throws BadPaddingException, IllegalBlockSizeException;
+    public static native int EVP_CipherFinal_ex(NativeRef.EVP_CIPHER_CTX ctx, byte[] out,
+            int outOffset) throws BadPaddingException, IllegalBlockSizeException;
 
     public static native int EVP_CIPHER_iv_length(long evpCipher);
 
     public static native long EVP_CIPHER_CTX_new();
 
-    public static native int EVP_CIPHER_CTX_block_size(long ctx);
+    public static native int EVP_CIPHER_CTX_block_size(NativeRef.EVP_CIPHER_CTX ctx);
 
-    public static native int get_EVP_CIPHER_CTX_buf_len(long ctx);
+    public static native int get_EVP_CIPHER_CTX_buf_len(NativeRef.EVP_CIPHER_CTX ctx);
 
-    public static native void EVP_CIPHER_CTX_set_padding(long ctx, boolean enablePadding);
+    public static native boolean get_EVP_CIPHER_CTX_final_used(NativeRef.EVP_CIPHER_CTX ctx);
 
-    public static native void EVP_CIPHER_CTX_set_key_length(long ctx, int keyBitSize);
+    public static native void EVP_CIPHER_CTX_set_padding(NativeRef.EVP_CIPHER_CTX ctx,
+            boolean enablePadding);
+
+    public static native void EVP_CIPHER_CTX_set_key_length(NativeRef.EVP_CIPHER_CTX ctx,
+            int keyBitSize);
 
     public static native void EVP_CIPHER_CTX_free(long ctx);
+
+    // --- AEAD ----------------------------------------------------------------
+    public static native long EVP_aead_aes_128_gcm();
+
+    public static native long EVP_aead_aes_256_gcm();
+
+    public static native long EVP_AEAD_CTX_init(long evpAead, byte[] key, int tagLen);
+
+    public static native void EVP_AEAD_CTX_cleanup(long ctx);
+
+    public static native int EVP_AEAD_max_overhead(long evpAead);
+
+    public static native int EVP_AEAD_nonce_length(long evpAead);
+
+    public static native int EVP_AEAD_max_tag_len(long evpAead);
+
+    public static native int EVP_AEAD_CTX_seal(NativeRef.EVP_AEAD_CTX ctx, byte[] out,
+            int outOffset, byte[] nonce, byte[] in, int inOffset, int inLength, byte[] ad)
+            throws BadPaddingException;
+
+    public static native int EVP_AEAD_CTX_open(NativeRef.EVP_AEAD_CTX ctx, byte[] out,
+            int outOffset, byte[] nonce, byte[] in, int inOffset, int inLength, byte[] ad)
+            throws BadPaddingException;
 
     // --- RAND seeding --------------------------------------------------------
 
@@ -471,7 +459,8 @@ public final class NativeCrypto {
 
     public static native byte[] X509_get_serialNumber(long x509ctx);
 
-    public static native void X509_verify(long x509ctx, long pkeyCtx) throws BadPaddingException;
+    public static native void X509_verify(long x509ctx, NativeRef.EVP_PKEY pkeyCtx)
+            throws BadPaddingException;
 
     public static native byte[] get_X509_cert_info_enc(long x509ctx);
 
@@ -480,12 +469,6 @@ public final class NativeCrypto {
     public static native int get_X509_ex_flags(long x509ctx);
 
     public static native int X509_check_issued(long ctx, long ctx2);
-
-    // --- X509 EXFLAG ---------------------------------------------------------
-
-    public static final int EXFLAG_CA = 0x10;
-
-    public static final int EXFLAG_CRITICAL = 0x200;
 
     // --- PKCS7 ---------------------------------------------------------------
 
@@ -541,7 +524,7 @@ public final class NativeCrypto {
 
     public static native byte[] get_X509_CRL_signature(long x509ctx);
 
-    public static native void X509_CRL_verify(long x509CrlCtx, long pkeyCtx);
+    public static native void X509_CRL_verify(long x509CrlCtx, NativeRef.EVP_PKEY pkeyCtx);
 
     public static native byte[] get_X509_CRL_crl_enc(long x509CrlCtx);
 
@@ -578,7 +561,7 @@ public final class NativeCrypto {
 
     // --- BIO stream creation -------------------------------------------------
 
-    public static native long create_BIO_InputStream(OpenSSLBIOInputStream is);
+    public static native long create_BIO_InputStream(OpenSSLBIOInputStream is, boolean isFinite);
 
     public static native long create_BIO_OutputStream(OutputStream os);
 
@@ -596,12 +579,23 @@ public final class NativeCrypto {
     private static final String SUPPORTED_PROTOCOL_TLSV1_1 = "TLSv1.1";
     private static final String SUPPORTED_PROTOCOL_TLSV1_2 = "TLSv1.2";
 
+    // STANDARD_TO_OPENSSL_CIPHER_SUITES is a map from OpenSSL-style
+    // cipher-suite names to the standard name for the same (i.e. the name that
+    // is registered with IANA).
     public static final Map<String, String> OPENSSL_TO_STANDARD_CIPHER_SUITES
             = new HashMap<String, String>();
+
+    // STANDARD_TO_OPENSSL_CIPHER_SUITES is a map from "standard" cipher suite
+    // names (i.e. the names that are registered with IANA) to the
+    // OpenSSL-style name for the same.
     public static final Map<String, String> STANDARD_TO_OPENSSL_CIPHER_SUITES
             = new LinkedHashMap<String, String>();
 
-    private static void add(String standard, String openssl) {
+    // SUPPORTED_CIPHER_SUITES_SET contains all the cipher suites supported by
+    // OpenSSL, named using "standard" (as opposed to OpenSSL-style) names.
+    public static final Set<String> SUPPORTED_CIPHER_SUITES_SET = new HashSet<String>();
+
+    private static void add(String openssl, String standard) {
         OPENSSL_TO_STANDARD_CIPHER_SUITES.put(openssl, standard);
         STANDARD_TO_OPENSSL_CIPHER_SUITES.put(standard, openssl);
     }
@@ -637,127 +631,93 @@ public final class NativeCrypto {
     public static final String TLS_FALLBACK_SCSV = "TLS_FALLBACK_SCSV";
 
     static {
-        add("SSL_RSA_WITH_RC4_128_MD5",              "RC4-MD5");
-        add("SSL_RSA_WITH_RC4_128_SHA",              "RC4-SHA");
-        add("TLS_RSA_WITH_AES_128_CBC_SHA",          "AES128-SHA");
-        add("TLS_RSA_WITH_AES_256_CBC_SHA",          "AES256-SHA");
-        add("TLS_ECDH_ECDSA_WITH_RC4_128_SHA",       "ECDH-ECDSA-RC4-SHA");
-        add("TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA",   "ECDH-ECDSA-AES128-SHA");
-        add("TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA",   "ECDH-ECDSA-AES256-SHA");
-        add("TLS_ECDH_RSA_WITH_RC4_128_SHA",         "ECDH-RSA-RC4-SHA");
-        add("TLS_ECDH_RSA_WITH_AES_128_CBC_SHA",     "ECDH-RSA-AES128-SHA");
-        add("TLS_ECDH_RSA_WITH_AES_256_CBC_SHA",     "ECDH-RSA-AES256-SHA");
-        add("TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",      "ECDHE-ECDSA-RC4-SHA");
-        add("TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",  "ECDHE-ECDSA-AES128-SHA");
-        add("TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",  "ECDHE-ECDSA-AES256-SHA");
-        add("TLS_ECDHE_RSA_WITH_RC4_128_SHA",        "ECDHE-RSA-RC4-SHA");
-        add("TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",    "ECDHE-RSA-AES128-SHA");
-        add("TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",    "ECDHE-RSA-AES256-SHA");
-        add("TLS_DHE_RSA_WITH_AES_128_CBC_SHA",      "DHE-RSA-AES128-SHA");
-        add("TLS_DHE_RSA_WITH_AES_256_CBC_SHA",      "DHE-RSA-AES256-SHA");
-        add("TLS_DHE_DSS_WITH_AES_128_CBC_SHA",      "DHE-DSS-AES128-SHA");
-        add("TLS_DHE_DSS_WITH_AES_256_CBC_SHA",      "DHE-DSS-AES256-SHA");
-        add("SSL_RSA_WITH_3DES_EDE_CBC_SHA",         "DES-CBC3-SHA");
-        add("TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA",  "ECDH-ECDSA-DES-CBC3-SHA");
-        add("TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA",    "ECDH-RSA-DES-CBC3-SHA");
-        add("TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA", "ECDHE-ECDSA-DES-CBC3-SHA");
-        add("TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",   "ECDHE-RSA-DES-CBC3-SHA");
-        add("SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA",     "EDH-RSA-DES-CBC3-SHA");
-        add("SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA",     "EDH-DSS-DES-CBC3-SHA");
-        add("SSL_RSA_WITH_DES_CBC_SHA",              "DES-CBC-SHA");
-        add("SSL_DHE_RSA_WITH_DES_CBC_SHA",          "EDH-RSA-DES-CBC-SHA");
-        add("SSL_DHE_DSS_WITH_DES_CBC_SHA",          "EDH-DSS-DES-CBC-SHA");
-        add("SSL_RSA_EXPORT_WITH_RC4_40_MD5",        "EXP-RC4-MD5");
-        add("SSL_RSA_EXPORT_WITH_DES40_CBC_SHA",     "EXP-DES-CBC-SHA");
-        add("SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA", "EXP-EDH-RSA-DES-CBC-SHA");
-        add("SSL_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA", "EXP-EDH-DSS-DES-CBC-SHA");
-        add("SSL_RSA_WITH_NULL_MD5",                 "NULL-MD5");
-        add("SSL_RSA_WITH_NULL_SHA",                 "NULL-SHA");
-        add("TLS_ECDH_ECDSA_WITH_NULL_SHA",          "ECDH-ECDSA-NULL-SHA");
-        add("TLS_ECDH_RSA_WITH_NULL_SHA",            "ECDH-RSA-NULL-SHA");
-        add("TLS_ECDHE_ECDSA_WITH_NULL_SHA",         "ECDHE-ECDSA-NULL-SHA");
-        add("TLS_ECDHE_RSA_WITH_NULL_SHA",           "ECDHE-RSA-NULL-SHA");
-        add("SSL_DH_anon_WITH_RC4_128_MD5",          "ADH-RC4-MD5");
-        add("TLS_DH_anon_WITH_AES_128_CBC_SHA",      "ADH-AES128-SHA");
-        add("TLS_DH_anon_WITH_AES_256_CBC_SHA",      "ADH-AES256-SHA");
-        add("SSL_DH_anon_WITH_3DES_EDE_CBC_SHA",     "ADH-DES-CBC3-SHA");
-        add("SSL_DH_anon_WITH_DES_CBC_SHA",          "ADH-DES-CBC-SHA");
-        add("TLS_ECDH_anon_WITH_RC4_128_SHA",        "AECDH-RC4-SHA");
-        add("TLS_ECDH_anon_WITH_AES_128_CBC_SHA",    "AECDH-AES128-SHA");
-        add("TLS_ECDH_anon_WITH_AES_256_CBC_SHA",    "AECDH-AES256-SHA");
-        add("TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA",   "AECDH-DES-CBC3-SHA");
-        add("SSL_DH_anon_EXPORT_WITH_RC4_40_MD5",    "EXP-ADH-RC4-MD5");
-        add("SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA", "EXP-ADH-DES-CBC-SHA");
-        add("TLS_ECDH_anon_WITH_NULL_SHA",           "AECDH-NULL-SHA");
-
-        // TLSv1.2 cipher suites
-        add("TLS_RSA_WITH_NULL_SHA256",                "NULL-SHA256");
-        add("TLS_RSA_WITH_AES_128_CBC_SHA256",         "AES128-SHA256");
-        add("TLS_RSA_WITH_AES_256_CBC_SHA256",         "AES256-SHA256");
-        add("TLS_RSA_WITH_AES_128_GCM_SHA256",         "AES128-GCM-SHA256");
-        add("TLS_RSA_WITH_AES_256_GCM_SHA384",         "AES256-GCM-SHA384");
-        add("TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",     "DHE-RSA-AES128-SHA256");
-        add("TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",     "DHE-RSA-AES256-SHA256");
-        add("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",     "DHE-RSA-AES128-GCM-SHA256");
-        add("TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",     "DHE-RSA-AES256-GCM-SHA384");
-        add("TLS_DHE_DSS_WITH_AES_128_CBC_SHA256",     "DHE-DSS-AES128-SHA256");
-        add("TLS_DHE_DSS_WITH_AES_256_CBC_SHA256",     "DHE-DSS-AES256-SHA256");
-        add("TLS_DHE_DSS_WITH_AES_128_GCM_SHA256",     "DHE-DSS-AES128-GCM-SHA256");
-        add("TLS_DHE_DSS_WITH_AES_256_GCM_SHA384",     "DHE-DSS-AES256-GCM-SHA384");
-        add("TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256",    "ECDH-RSA-AES128-SHA256");
-        add("TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384",    "ECDH-RSA-AES256-SHA384");
-        add("TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256",    "ECDH-RSA-AES128-GCM-SHA256");
-        add("TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384",    "ECDH-RSA-AES256-GCM-SHA384");
-        add("TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256",  "ECDH-ECDSA-AES128-SHA256");
-        add("TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384",  "ECDH-ECDSA-AES256-SHA384");
-        add("TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256",  "ECDH-ECDSA-AES128-GCM-SHA256");
-        add("TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384",  "ECDH-ECDSA-AES256-GCM-SHA384");
-        add("TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",   "ECDHE-RSA-AES128-SHA256");
-        add("TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",   "ECDHE-RSA-AES256-SHA384");
-        add("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",   "ECDHE-RSA-AES128-GCM-SHA256");
-        add("TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",   "ECDHE-RSA-AES256-GCM-SHA384");
-        add("TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256", "ECDHE-ECDSA-AES128-SHA256");
-        add("TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384", "ECDHE-ECDSA-AES256-SHA384");
-        add("TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256");
-        add("TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", "ECDHE-ECDSA-AES256-GCM-SHA384");
-        add("TLS_DH_anon_WITH_AES_128_CBC_SHA256",     "ADH-AES128-SHA256");
-        add("TLS_DH_anon_WITH_AES_256_CBC_SHA256",     "ADH-AES256-SHA256");
-        add("TLS_DH_anon_WITH_AES_128_GCM_SHA256",     "ADH-AES128-GCM-SHA256");
-        add("TLS_DH_anon_WITH_AES_256_GCM_SHA384",     "ADH-AES256-GCM-SHA384");
-
-        // No Kerberos in Android
-        // add("TLS_KRB5_WITH_RC4_128_SHA",           "KRB5-RC4-SHA");
-        // add("TLS_KRB5_WITH_RC4_128_MD5",           "KRB5-RC4-MD5");
-        // add("TLS_KRB5_WITH_3DES_EDE_CBC_SHA",      "KRB5-DES-CBC3-SHA");
-        // add("TLS_KRB5_WITH_3DES_EDE_CBC_MD5",      "KRB5-DES-CBC3-MD5");
-        // add("TLS_KRB5_WITH_DES_CBC_SHA",           "KRB5-DES-CBC-SHA");
-        // add("TLS_KRB5_WITH_DES_CBC_MD5",           "KRB5-DES-CBC-MD5");
-        // add("TLS_KRB5_EXPORT_WITH_RC4_40_SHA",     "EXP-KRB5-RC4-SHA");
-        // add("TLS_KRB5_EXPORT_WITH_RC4_40_MD5",     "EXP-KRB5-RC4-MD5");
-        // add("TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA", "EXP-KRB5-DES-CBC-SHA");
-        // add("TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5", "EXP-KRB5-DES-CBC-MD5");
-
-        // not implemented by either RI or OpenSSL
-        // add("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA", null);
-        // add("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA", null);
-
-        // EXPORT1024 suites were never standardized but were widely implemented.
-        // OpenSSL 0.9.8c and later have disabled TLS1_ALLOW_EXPERIMENTAL_CIPHERSUITES
-        // add("SSL_RSA_EXPORT1024_WITH_DES_CBC_SHA", "EXP1024-DES-CBC-SHA");
-        // add("SSL_RSA_EXPORT1024_WITH_RC4_56_SHA",  "EXP1024-RC4-SHA");
-
-        // No RC2
-        // add("SSL_RSA_EXPORT_WITH_RC2_CBC_40_MD5",  "EXP-RC2-CBC-MD5");
-        // add("TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA", "EXP-KRB5-RC2-CBC-SHA");
-        // add("TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5", "EXP-KRB5-RC2-CBC-MD5");
-
-        // Pre-Shared Key (PSK) cipher suites
-        add("TLS_PSK_WITH_3DES_EDE_CBC_SHA", "PSK-3DES-EDE-CBC-SHA");
-        add("TLS_PSK_WITH_AES_128_CBC_SHA", "PSK-AES128-CBC-SHA");
-        add("TLS_PSK_WITH_AES_256_CBC_SHA", "PSK-AES256-CBC-SHA");
-        add("TLS_PSK_WITH_RC4_128_SHA", "PSK-RC4-SHA");
-        add("TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA", "ECDHE-PSK-AES128-CBC-SHA");
-        add("TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA", "ECDHE-PSK-AES256-CBC-SHA");
+        add("ADH-AES128-GCM-SHA256",		"TLS_DH_anon_WITH_AES_128_GCM_SHA256");
+        add("ADH-AES128-SHA",			"TLS_DH_anon_WITH_AES_128_CBC_SHA");
+        add("ADH-AES128-SHA256",		"TLS_DH_anon_WITH_AES_128_CBC_SHA256");
+        add("ADH-AES256-GCM-SHA384",		"TLS_DH_anon_WITH_AES_256_GCM_SHA384");
+        add("ADH-AES256-SHA",			"TLS_DH_anon_WITH_AES_256_CBC_SHA");
+        add("ADH-AES256-SHA256",		"TLS_DH_anon_WITH_AES_256_CBC_SHA256");
+        add("ADH-DES-CBC-SHA",			"SSL_DH_anon_WITH_DES_CBC_SHA");
+        add("ADH-DES-CBC3-SHA",			"SSL_DH_anon_WITH_3DES_EDE_CBC_SHA");
+        add("ADH-RC4-MD5",			"SSL_DH_anon_WITH_RC4_128_MD5");
+        add("AECDH-AES128-SHA",			"TLS_ECDH_anon_WITH_AES_128_CBC_SHA");
+        add("AECDH-AES256-SHA",			"TLS_ECDH_anon_WITH_AES_256_CBC_SHA");
+        add("AECDH-DES-CBC3-SHA",		"TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA");
+        add("AECDH-NULL-SHA",			"TLS_ECDH_anon_WITH_NULL_SHA");
+        add("AECDH-RC4-SHA",			"TLS_ECDH_anon_WITH_RC4_128_SHA");
+        add("AES128-GCM-SHA256",		"TLS_RSA_WITH_AES_128_GCM_SHA256");
+        add("AES128-SHA",			"TLS_RSA_WITH_AES_128_CBC_SHA");
+        add("AES128-SHA256",			"TLS_RSA_WITH_AES_128_CBC_SHA256");
+        add("AES256-GCM-SHA384",		"TLS_RSA_WITH_AES_256_GCM_SHA384");
+        add("AES256-SHA",			"TLS_RSA_WITH_AES_256_CBC_SHA");
+        add("AES256-SHA256",			"TLS_RSA_WITH_AES_256_CBC_SHA256");
+        add("DES-CBC-SHA",			"SSL_RSA_WITH_DES_CBC_SHA");
+        add("DES-CBC3-SHA",			"SSL_RSA_WITH_3DES_EDE_CBC_SHA");
+        add("DHE-RSA-AES128-GCM-SHA256",	"TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
+        add("DHE-RSA-AES128-SHA",		"TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
+        add("DHE-RSA-AES128-SHA256",		"TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
+        add("DHE-RSA-AES256-GCM-SHA384",	"TLS_DHE_RSA_WITH_AES_256_GCM_SHA384");
+        add("DHE-RSA-AES256-SHA",		"TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
+        add("DHE-RSA-AES256-SHA256",		"TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
+        add("DHE-RSA-CHACHA20-POLY1305",	"TLS_DHE_RSA_WITH_CHACHA20_POLY1305");
+        add("ECDH-ECDSA-AES128-GCM-SHA256",    	"TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256");
+        add("ECDH-ECDSA-AES128-SHA",		"TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA");
+        add("ECDH-ECDSA-AES128-SHA256",		"TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256");
+        add("ECDH-ECDSA-AES256-GCM-SHA384",    	"TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384");
+        add("ECDH-ECDSA-AES256-SHA",		"TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA");
+        add("ECDH-ECDSA-AES256-SHA384",		"TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384");
+        add("ECDH-ECDSA-DES-CBC3-SHA",		"TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA");
+        add("ECDH-ECDSA-NULL-SHA",		"TLS_ECDH_ECDSA_WITH_NULL_SHA");
+        add("ECDH-ECDSA-RC4-SHA",		"TLS_ECDH_ECDSA_WITH_RC4_128_SHA");
+        add("ECDH-RSA-AES128-GCM-SHA256",      	"TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256");
+        add("ECDH-RSA-AES128-SHA",		"TLS_ECDH_RSA_WITH_AES_128_CBC_SHA");
+        add("ECDH-RSA-AES128-SHA256",		"TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256");
+        add("ECDH-RSA-AES256-GCM-SHA384",      	"TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384");
+        add("ECDH-RSA-AES256-SHA",		"TLS_ECDH_RSA_WITH_AES_256_CBC_SHA");
+        add("ECDH-RSA-AES256-SHA384",		"TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384");
+        add("ECDH-RSA-DES-CBC3-SHA",		"TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA");
+        add("ECDH-RSA-NULL-SHA",		"TLS_ECDH_RSA_WITH_NULL_SHA");
+        add("ECDH-RSA-RC4-SHA",			"TLS_ECDH_RSA_WITH_RC4_128_SHA");
+        add("ECDHE-ECDSA-AES128-GCM-SHA256",   	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256");
+        add("ECDHE-ECDSA-AES128-SHA",		"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA");
+        add("ECDHE-ECDSA-AES128-SHA256",	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256");
+        add("ECDHE-ECDSA-AES256-GCM-SHA384",   	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384");
+        add("ECDHE-ECDSA-AES256-SHA",		"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA");
+        add("ECDHE-ECDSA-AES256-SHA384",	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384");
+        add("ECDHE-ECDSA-CHACHA20-POLY1305",   	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305");
+        add("ECDHE-ECDSA-DES-CBC3-SHA",		"TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA");
+        add("ECDHE-ECDSA-NULL-SHA",		"TLS_ECDHE_ECDSA_WITH_NULL_SHA");
+        add("ECDHE-ECDSA-RC4-SHA",		"TLS_ECDHE_ECDSA_WITH_RC4_128_SHA");
+        add("ECDHE-PSK-AES128-CBC-SHA",		"TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA");
+        add("ECDHE-PSK-AES128-GCM-SHA256",     	"TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256");
+        add("ECDHE-PSK-AES256-CBC-SHA",		"TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA");
+        add("ECDHE-PSK-AES256-GCM-SHA384",     	"TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384");
+        add("ECDHE-RSA-AES128-GCM-SHA256",     	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
+        add("ECDHE-RSA-AES128-SHA",		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA");
+        add("ECDHE-RSA-AES128-SHA256",		"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256");
+        add("ECDHE-RSA-AES256-GCM-SHA384",     	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384");
+        add("ECDHE-RSA-AES256-SHA",		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA");
+        add("ECDHE-RSA-AES256-SHA384",		"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384");
+        add("ECDHE-RSA-CHACHA20-POLY1305",     	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305");
+        add("ECDHE-RSA-DES-CBC3-SHA",		"TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA");
+        add("ECDHE-RSA-NULL-SHA",		"TLS_ECDHE_RSA_WITH_NULL_SHA");
+        add("ECDHE-RSA-RC4-SHA",		"TLS_ECDHE_RSA_WITH_RC4_128_SHA");
+        add("EDH-RSA-DES-CBC-SHA",		"SSL_DHE_RSA_WITH_DES_CBC_SHA");
+        add("EDH-RSA-DES-CBC3-SHA",		"SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA");
+        add("EXP-ADH-DES-CBC-SHA",		"SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA");
+        add("EXP-ADH-RC4-MD5",			"SSL_DH_anon_EXPORT_WITH_RC4_40_MD5");
+        add("EXP-DES-CBC-SHA",			"SSL_RSA_EXPORT_WITH_DES40_CBC_SHA");
+        add("EXP-EDH-RSA-DES-CBC-SHA",		"SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA");
+        add("EXP-RC4-MD5",			"SSL_RSA_EXPORT_WITH_RC4_40_MD5");
+        add("NULL-MD5",				"SSL_RSA_WITH_NULL_MD5");
+        add("NULL-SHA",				"SSL_RSA_WITH_NULL_SHA");
+        add("NULL-SHA256",			"TLS_RSA_WITH_NULL_SHA256");
+        add("PSK-3DES-EDE-CBC-SHA",		"TLS_PSK_WITH_3DES_EDE_CBC_SHA");
+        add("PSK-AES128-CBC-SHA",		"TLS_PSK_WITH_AES_128_CBC_SHA");
+        add("PSK-AES256-CBC-SHA",		"TLS_PSK_WITH_AES_256_CBC_SHA");
+        add("PSK-RC4-SHA",			"TLS_PSK_WITH_RC4_128_SHA");
+        add("RC4-MD5",				"SSL_RSA_WITH_RC4_128_MD5");
+        add("RC4-SHA",				"SSL_RSA_WITH_RC4_128_SHA");
 
         // Signaling Cipher Suite Value for secure renegotiation handled as special case.
         // add("TLS_EMPTY_RENEGOTIATION_INFO_SCSV", null);
@@ -768,58 +728,23 @@ public final class NativeCrypto {
 
     private static final String[] SUPPORTED_CIPHER_SUITES;
     static {
-        int size = STANDARD_TO_OPENSSL_CIPHER_SUITES.size();
+        // Cipher selection string must work with OpenSSL and BoringSSL.
+        String[] allOpenSSLCipherSuites = get_cipher_names("ALL:-EXP:-SRP:-SEED:-CAMELLIA:-DSS:-RC2:-DES-CBC-MD5:-DES-CBC3-MD5");
+
+        int size = allOpenSSLCipherSuites.length;
         SUPPORTED_CIPHER_SUITES = new String[size + 2];
-        STANDARD_TO_OPENSSL_CIPHER_SUITES.keySet().toArray(SUPPORTED_CIPHER_SUITES);
+        for (int i = 0; i < size; i++) {
+            String standardName = OPENSSL_TO_STANDARD_CIPHER_SUITES.get(allOpenSSLCipherSuites[i]);
+            if (standardName == null) {
+                throw new IllegalArgumentException("Unknown cipher suite supported by native code: " +
+                                                   allOpenSSLCipherSuites[i]);
+            }
+            SUPPORTED_CIPHER_SUITES[i] = standardName;
+            SUPPORTED_CIPHER_SUITES_SET.add(standardName);
+        }
         SUPPORTED_CIPHER_SUITES[size] = TLS_EMPTY_RENEGOTIATION_INFO_SCSV;
         SUPPORTED_CIPHER_SUITES[size + 1] = TLS_FALLBACK_SCSV;
     }
-
-    // EVP_PKEY types from evp.h and objects.h
-    public static final int EVP_PKEY_RSA  = 6;   // NID_rsaEcnryption
-    public static final int EVP_PKEY_DSA  = 116; // NID_dsa
-    public static final int EVP_PKEY_DH   = 28;  // NID_dhKeyAgreement
-    public static final int EVP_PKEY_EC   = 408; // NID_X9_62_id_ecPublicKey
-    public static final int EVP_PKEY_HMAC = 855; // NID_hmac
-    public static final int EVP_PKEY_CMAC = 894; // NID_cmac
-
-    // RSA padding modes from rsa.h
-    public static final int RSA_PKCS1_PADDING = 1;
-    public static final int RSA_NO_PADDING    = 3;
-
-    // SSL mode from ssl.h
-    public static final long SSL_MODE_SEND_FALLBACK_SCSV   = 0x00000080L;
-    public static final long SSL_MODE_CBC_RECORD_SPLITTING = 0x00000100L;
-    public static final long SSL_MODE_HANDSHAKE_CUTTHROUGH = 0x00000200L;
-
-    // SSL options from ssl.h
-    public static final long SSL_OP_TLSEXT_PADDING                         = 0x00000010L;
-    public static final long SSL_OP_NO_TICKET                              = 0x00004000L;
-    public static final long SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION = 0x00010000L;
-    public static final long SSL_OP_NO_SSLv3                               = 0x02000000L;
-    public static final long SSL_OP_NO_TLSv1                               = 0x04000000L;
-    public static final long SSL_OP_NO_TLSv1_1                             = 0x10000000L;
-    public static final long SSL_OP_NO_TLSv1_2                             = 0x08000000L;
-
-    /*
-     * Client certificate types as defined in
-     * TLS 1.0 spec., 7.4.4. Certificate request.
-     * EC constants from RFC 4492.
-     * OpenSSL constants from ssl/tls1.h.
-     */
-    public static final byte TLS_CT_RSA_SIGN = 1;
-    public static final byte TLS_CT_DSS_SIGN = 2;
-    public static final byte TLS_CT_RSA_FIXED_DH = 3;
-    public static final byte TLS_CT_DSS_FIXED_DH = 4;
-    public static final byte TLS_CT_ECDSA_SIGN = 64;
-    public static final byte TLS_CT_RSA_FIXED_ECDH = 65;
-    public static final byte TLS_CT_ECDSA_FIXED_ECDH = 66;
-
-    /*
-     * Used in the SSL_get_shutdown and SSL_set_shutdown functions.
-     */
-    public static final int SSL_SENT_SHUTDOWN = 1;
-    public static final int SSL_RECEIVED_SHUTDOWN = 2;
 
     public static native long SSL_CTX_new();
 
@@ -856,8 +781,6 @@ public final class NativeCrypto {
         "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
         "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
         "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
-        "TLS_DHE_DSS_WITH_AES_128_CBC_SHA",
-        "TLS_DHE_DSS_WITH_AES_256_CBC_SHA",
         "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",
         "TLS_ECDHE_RSA_WITH_RC4_128_SHA",
         "TLS_RSA_WITH_AES_128_GCM_SHA256",
@@ -889,11 +812,11 @@ public final class NativeCrypto {
 
     public static native byte[] SSL_get_tls_channel_id(long ssl) throws SSLException;
 
-    public static native void SSL_set1_tls_channel_id(long ssl, long pkey);
+    public static native void SSL_set1_tls_channel_id(long ssl, NativeRef.EVP_PKEY pkey);
 
     public static native void SSL_use_certificate(long ssl, long[] x509refs);
 
-    public static native void SSL_use_PrivateKey(long ssl, long pkey);
+    public static native void SSL_use_PrivateKey(long ssl, NativeRef.EVP_PKEY pkey);
 
     public static native void SSL_check_private_key(long ssl) throws SSLException;
 
@@ -918,12 +841,36 @@ public final class NativeCrypto {
 
     public static native void set_SSL_psk_server_callback_enabled(long ssl, boolean enabled);
 
-    public static final String[] DEFAULT_PROTOCOLS = new String[] {
+    /** Protocols to enable by default when "TLSv1.2" is requested. */
+    public static final String[] TLSV12_PROTOCOLS = new String[] {
+        SUPPORTED_PROTOCOL_TLSV1,
+        SUPPORTED_PROTOCOL_TLSV1_1,
+        SUPPORTED_PROTOCOL_TLSV1_2,
+    };
+
+    /** Protocols to enable by default when "TLSv1.1" is requested. */
+    public static final String[] TLSV11_PROTOCOLS = new String[] {
+        SUPPORTED_PROTOCOL_TLSV1,
+        SUPPORTED_PROTOCOL_TLSV1_1,
+        SUPPORTED_PROTOCOL_TLSV1_2,
+    };
+
+    /** Protocols to enable by default when "TLSv1" is requested. */
+    public static final String[] TLSV1_PROTOCOLS  = new String[] {
+        SUPPORTED_PROTOCOL_TLSV1,
+        SUPPORTED_PROTOCOL_TLSV1_1,
+        SUPPORTED_PROTOCOL_TLSV1_2,
+    };
+
+    /** Protocols to enable by default when "SSLv3" is requested. */
+    public static final String[] SSLV3_PROTOCOLS  = new String[] {
         SUPPORTED_PROTOCOL_SSLV3,
         SUPPORTED_PROTOCOL_TLSV1,
         SUPPORTED_PROTOCOL_TLSV1_1,
         SUPPORTED_PROTOCOL_TLSV1_2,
     };
+
+    public static final String[] DEFAULT_PROTOCOLS = TLSV12_PROTOCOLS;
 
     public static String[] getSupportedProtocols() {
         return new String[] { SUPPORTED_PROTOCOL_SSLV3,
@@ -938,22 +885,22 @@ public final class NativeCrypto {
         // openssl uses negative logic letting you disable protocols.
         // so first, assume we need to set all (disable all) and clear none (enable none).
         // in the loop, selectively move bits from set to clear (from disable to enable)
-        long optionsToSet = (SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1_2);
+        long optionsToSet = (NativeConstants.SSL_OP_NO_SSLv3 | NativeConstants.SSL_OP_NO_TLSv1 | NativeConstants.SSL_OP_NO_TLSv1_1 | NativeConstants.SSL_OP_NO_TLSv1_2);
         long optionsToClear = 0;
         for (int i = 0; i < protocols.length; i++) {
             String protocol = protocols[i];
             if (protocol.equals(SUPPORTED_PROTOCOL_SSLV3)) {
-                optionsToSet &= ~SSL_OP_NO_SSLv3;
-                optionsToClear |= SSL_OP_NO_SSLv3;
+                optionsToSet &= ~NativeConstants.SSL_OP_NO_SSLv3;
+                optionsToClear |= NativeConstants.SSL_OP_NO_SSLv3;
             } else if (protocol.equals(SUPPORTED_PROTOCOL_TLSV1)) {
-                optionsToSet &= ~SSL_OP_NO_TLSv1;
-                optionsToClear |= SSL_OP_NO_TLSv1;
+                optionsToSet &= ~NativeConstants.SSL_OP_NO_TLSv1;
+                optionsToClear |= NativeConstants.SSL_OP_NO_TLSv1;
             } else if (protocol.equals(SUPPORTED_PROTOCOL_TLSV1_1)) {
-                optionsToSet &= ~SSL_OP_NO_TLSv1_1;
-                optionsToClear |= SSL_OP_NO_TLSv1_1;
+                optionsToSet &= ~NativeConstants.SSL_OP_NO_TLSv1_1;
+                optionsToClear |= NativeConstants.SSL_OP_NO_TLSv1_1;
             } else if (protocol.equals(SUPPORTED_PROTOCOL_TLSV1_2)) {
-                optionsToSet &= ~SSL_OP_NO_TLSv1_2;
-                optionsToClear |= SSL_OP_NO_TLSv1_2;
+                optionsToSet &= ~NativeConstants.SSL_OP_NO_TLSv1_2;
+                optionsToClear |= NativeConstants.SSL_OP_NO_TLSv1_2;
             } else {
                 // error checked by checkEnabledProtocols
                 throw new IllegalStateException();
@@ -993,58 +940,6 @@ public final class NativeCrypto {
      */
     public static native long[] SSL_get_ciphers(long ssl);
 
-    /*
-     * Constants for SSL_CIPHER algorithm_mkey (key exchange algorithm).
-     * OpenSSL constants from ssl/ssl_locl.h.
-     */
-    /** RSA key exchange */
-    public static final int SSL_kRSA =   0x00000001;
-    /** DH cert, RSA CA cert -- no such ciphersuite supported! */
-    public static final int SSL_kDHr =   0x00000002;
-    /** DH cert, DSA CA cert -- no such ciphersuite supported! */
-    public static final int SSL_kDHd =   0x00000004;
-    /** tmp DH key no DH cert */
-    public static final int SSL_kEDH =   0x00000008;
-    /** Kerberos5 key exchange */
-    public static final int SSL_kKRB5 =  0x00000010;
-    /** ECDH cert, RSA CA cert */
-    public static final int SSL_kECDHr = 0x00000020;
-    /** ECDH cert, ECDSA CA cert */
-    public static final int SSL_kECDHe = 0x00000040;
-    /** ephemeral ECDH */
-    public static final int SSL_kEECDH = 0x00000080;
-    /** PSK */
-    public static final int SSL_kPSK =   0x00000100;
-    /** GOST key exchange */
-    public static final int SSL_kGOST =  0x00000200;
-    /** SRP */
-    public static final int SSL_kSRP =   0x00000400;
-
-    /*
-     * Constants for SSL_CIPHER algorithm_auth (server authentication).
-     * OpenSSL constants from ssl/ssl_locl.h.
-     */
-    /** RSA auth */
-    public static final int SSL_aRSA =    0x00000001;
-    /** DSS auth */
-    public static final int SSL_aDSS =    0x00000002;
-    /** no auth (i.e. use ADH or AECDH) */
-    public static final int SSL_aNULL =   0x00000004;
-    /** Fixed DH auth (kDHd or kDHr) -- no such ciphersuites supported! */
-    public static final int SSL_aDH =     0x00000008;
-    /** Fixed ECDH auth (kECDHe or kECDHr) */
-    public static final int SSL_aECDH =   0x00000010;
-    /** KRB5 auth */
-    public static final int SSL_aKRB5 =   0x00000020;
-    /** ECDSA auth*/
-    public static final int SSL_aECDSA =  0x00000040;
-    /** PSK auth */
-    public static final int SSL_aPSK =    0x00000080;
-    /** GOST R 34.10-94 signature auth */
-    public static final int SSL_aGOST94 = 0x00000100;
-    /** GOST R 34.10-2001 signature auth */
-    public static final int SSL_aGOST01 = 0x00000200;
-
     public static native int get_SSL_CIPHER_algorithm_mkey(long sslCipher);
     public static native int get_SSL_CIPHER_algorithm_auth(long sslCipher);
 
@@ -1057,7 +952,7 @@ public final class NativeCrypto {
                 continue;
             }
             if (cipherSuite.equals(TLS_FALLBACK_SCSV)) {
-                SSL_set_mode(ssl, SSL_MODE_SEND_FALLBACK_SCSV);
+                SSL_set_mode(ssl, NativeConstants.SSL_MODE_SEND_FALLBACK_SCSV);
                 continue;
             }
             String openssl = STANDARD_TO_OPENSSL_CIPHER_SUITES.get(cipherSuite);
@@ -1081,10 +976,14 @@ public final class NativeCrypto {
                     cipherSuite.equals(TLS_FALLBACK_SCSV)) {
                 continue;
             }
-            if (STANDARD_TO_OPENSSL_CIPHER_SUITES.containsKey(cipherSuite)) {
+            if (SUPPORTED_CIPHER_SUITES_SET.contains(cipherSuite)) {
                 continue;
             }
-            if (OPENSSL_TO_STANDARD_CIPHER_SUITES.containsKey(cipherSuite)) {
+
+            // For backwards compatibility, it's allowed for |cipherSuite| to
+            // be an OpenSSL-style cipher-suite name.
+            String standardName = OPENSSL_TO_STANDARD_CIPHER_SUITES.get(cipherSuite);
+            if (standardName != null && SUPPORTED_CIPHER_SUITES_SET.contains(standardName)) {
                 // TODO log warning about using backward compatability
                 continue;
             }
@@ -1111,6 +1010,9 @@ public final class NativeCrypto {
 
     public static native void SSL_set_session_creation_enabled(
             long sslNativePointer, boolean creationEnabled) throws SSLException;
+
+    public static native void SSL_set_reject_peer_renegotiations(
+            long sslNativePointer, boolean renegotiationRejected) throws SSLException;
 
     public static native void SSL_set_tlsext_host_name(long sslNativePointer, String hostname)
             throws SSLException;
@@ -1324,44 +1226,9 @@ public final class NativeCrypto {
         public void onSSLStateChange(long sslSessionNativePtr, int type, int val);
     }
 
-    // Values used in the SSLHandshakeCallbacks#onSSLStateChange as the {@code type}.
-    public static final int SSL_ST_CONNECT = 0x1000;
-    public static final int SSL_ST_ACCEPT = 0x2000;
-    public static final int SSL_ST_MASK = 0x0FFF;
-    public static final int SSL_ST_INIT = (SSL_ST_CONNECT | SSL_ST_ACCEPT);
-    public static final int SSL_ST_BEFORE = 0x4000;
-    public static final int SSL_ST_OK = 0x03;
-    public static final int SSL_ST_RENEGOTIATE = (0x04 | SSL_ST_INIT);
-
-    public static final int SSL_CB_LOOP = 0x01;
-    public static final int SSL_CB_EXIT = 0x02;
-    public static final int SSL_CB_READ = 0x04;
-    public static final int SSL_CB_WRITE = 0x08;
-    public static final int SSL_CB_ALERT = 0x4000;
-    public static final int SSL_CB_READ_ALERT = (SSL_CB_ALERT | SSL_CB_READ);
-    public static final int SSL_CB_WRITE_ALERT = (SSL_CB_ALERT | SSL_CB_WRITE);
-    public static final int SSL_CB_ACCEPT_LOOP = (SSL_ST_ACCEPT | SSL_CB_LOOP);
-    public static final int SSL_CB_ACCEPT_EXIT = (SSL_ST_ACCEPT | SSL_CB_EXIT);
-    public static final int SSL_CB_CONNECT_LOOP = (SSL_ST_CONNECT | SSL_CB_LOOP);
-    public static final int SSL_CB_CONNECT_EXIT = (SSL_ST_CONNECT | SSL_CB_EXIT);
-    public static final int SSL_CB_HANDSHAKE_START = 0x10;
-    public static final int SSL_CB_HANDSHAKE_DONE = 0x20;
-
-    /*
-     * From ssl/ssl3.h
-     */
-    public static final int SSL3_RT_HEADER_LENGTH = 5;
-    public static final int SSL_RT_MAX_CIPHER_BLOCK_SIZE = 16;
-    public static final int SSL3_RT_MAX_MD_SIZE = 64;
-    public static final int SSL3_RT_MAX_PLAIN_LENGTH = 16384;
-    public static final int SSL3_RT_MAX_ENCRYPTED_OVERHEAD = 256 + SSL3_RT_MAX_MD_SIZE;
-    public static final int SSL3_RT_SEND_MAX_ENCRYPTED_OVERHEAD = SSL_RT_MAX_CIPHER_BLOCK_SIZE
-            + SSL3_RT_MAX_MD_SIZE;
-    public static final int SSL3_RT_MAX_COMPRESSED_LENGTH = SSL3_RT_MAX_PLAIN_LENGTH;
-    public static final int SSL3_RT_MAX_ENCRYPTED_LENGTH = SSL3_RT_MAX_ENCRYPTED_OVERHEAD
-            + SSL3_RT_MAX_COMPRESSED_LENGTH;
-    public static final int SSL3_RT_MAX_PACKET_SIZE = SSL3_RT_MAX_ENCRYPTED_LENGTH
-            + SSL3_RT_HEADER_LENGTH;
-
     public static native long ERR_peek_last_error();
+
+    public static native String SSL_CIPHER_get_kx_name(long cipherAddress);
+
+    public static native String[] get_cipher_names(String selection);
 }

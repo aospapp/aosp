@@ -15,6 +15,7 @@
  */
 
 #include "RenderScript.h"
+#include "rsCppInternal.h"
 
 using namespace android;
 using namespace RSC;
@@ -23,8 +24,8 @@ ScriptC::ScriptC(sp<RS> rs,
                  const void *codeTxt, size_t codeLength,
                  const char *cachedName, size_t cachedNameLength,
                  const char *cacheDir, size_t cacheDirLength)
-: Script(NULL, rs) {
+: Script(nullptr, rs) {
     mID = RS::dispatch->ScriptCCreate(rs->getContext(), cachedName, cachedNameLength,
-                                      rs->mCacheDir.c_str(), rs->mCacheDir.length(), (const char *)codeTxt, codeLength);
+                                      rs->mCacheDir, rs->mCacheDirLen, (const char *)codeTxt, codeLength);
 }
 

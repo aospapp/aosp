@@ -20,26 +20,23 @@ import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.Protocol;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
 import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.internal.spdy.ErrorCode;
 import com.squareup.okhttp.internal.spdy.Header;
 import com.squareup.okhttp.internal.spdy.SpdyConnection;
 import com.squareup.okhttp.internal.spdy.SpdyStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.CacheRequest;
 import java.net.ProtocolException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import okio.ByteString;
-import okio.Deadline;
-import okio.OkBuffer;
 import okio.Okio;
 import okio.Sink;
-import okio.Source;
 
 import static com.squareup.okhttp.internal.spdy.Header.RESPONSE_STATUS;
 import static com.squareup.okhttp.internal.spdy.Header.TARGET_AUTHORITY;
@@ -78,9 +75,7 @@ public final class SpdyTransport implements Transport {
     this.spdyConnection = spdyConnection;
   }
 
-  @Override public Sink createRequestBody(Request request) throws IOException {
-    // TODO: if bufferRequestBody is set, we must buffer the whole request
-    writeRequestHeaders(request);
+  @Override public Sink createRequestBody(Request request, long contentLength) throws IOException {
     return stream.getSink();
   }
 
@@ -88,20 +83,20 @@ public final class SpdyTransport implements Transport {
     if (stream != null) return;
 
     httpEngine.writingRequestHeaders();
-    boolean hasRequestBody = httpEngine.hasRequestBody();
+    boolean permitsRequestBody = httpEngine.permitsRequestBody();
     boolean hasResponseBody = true;
-    String version = RequestLine.version(httpEngine.getConnection().getHttpMinorVersion());
+    String version = RequestLine.version(httpEngine.getConnection().getProtocol());
     stream = spdyConnection.newStream(
-        writeNameValueBlock(request, spdyConnection.getProtocol(), version), hasRequestBody,
+        writeNameValueBlock(request, spdyConnection.getProtocol(), version), permitsRequestBody,
         hasResponseBody);
-    stream.setReadTimeout(httpEngine.client.getReadTimeout());
+    stream.readTimeout().timeout(httpEngine.client.getReadTimeout(), TimeUnit.MILLISECONDS);
   }
 
   @Override public void writeRequestBody(RetryableSink requestBody) throws IOException {
-    throw new UnsupportedOperationException();
+    requestBody.writeToSocket(stream.getSink());
   }
 
-  @Override public void flushRequest() throws IOException {
+  @Override public void finishRequest() throws IOException {
     stream.getSink().close();
   }
 
@@ -117,8 +112,7 @@ public final class SpdyTransport implements Transport {
   public static List<Header> writeNameValueBlock(Request request, Protocol protocol,
       String version) {
     Headers headers = request.headers();
-    // TODO: make the known header names constants.
-    List<Header> result = new ArrayList<Header>(headers.size() + 10);
+    List<Header> result = new ArrayList<>(headers.size() + 10);
     result.add(new Header(TARGET_METHOD, request.method()));
     result.add(new Header(TARGET_PATH, RequestLine.requestPath(request.url())));
     String host = HttpEngine.hostHeader(request.url());
@@ -126,14 +120,14 @@ public final class SpdyTransport implements Transport {
       result.add(new Header(VERSION, version));
       result.add(new Header(TARGET_HOST, host));
     } else if (Protocol.HTTP_2 == protocol) {
-      result.add(new Header(TARGET_AUTHORITY, host));
+      result.add(new Header(TARGET_AUTHORITY, host)); // Optional in HTTP/2
     } else {
       throw new AssertionError();
     }
     result.add(new Header(TARGET_SCHEME, request.url().getProtocol()));
 
     Set<ByteString> names = new LinkedHashSet<ByteString>();
-    for (int i = 0; i < headers.size(); i++) {
+    for (int i = 0, size = headers.size(); i < size; i++) {
       // header names must be lowercase.
       ByteString name = ByteString.encodeUtf8(headers.name(i).toLowerCase(Locale.US));
       String value = headers.value(i);
@@ -180,8 +174,8 @@ public final class SpdyTransport implements Transport {
     String version = "HTTP/1.1"; // :version present only in spdy/3.
 
     Headers.Builder headersBuilder = new Headers.Builder();
-    headersBuilder.set(OkHeaders.SELECTED_PROTOCOL, protocol.name.utf8());
-    for (int i = 0; i < headerBlock.size(); i++) {
+    headersBuilder.set(OkHeaders.SELECTED_PROTOCOL, protocol.toString());
+    for (int i = 0, size = headerBlock.size(); i < size; i++) {
       ByteString name = headerBlock.get(i).name;
       String values = headerBlock.get(i).value.utf8();
       for (int start = 0; start < values.length(); ) {
@@ -201,26 +195,24 @@ public final class SpdyTransport implements Transport {
       }
     }
     if (status == null) throw new ProtocolException("Expected ':status' header not present");
-    if (version == null) throw new ProtocolException("Expected ':version' header not present");
 
+    StatusLine statusLine = StatusLine.parse(version + " " + status);
     return new Response.Builder()
-        .statusLine(new StatusLine(version + " " + status))
+        .protocol(protocol)
+        .code(statusLine.code)
+        .message(statusLine.message)
         .headers(headersBuilder.build());
   }
 
-  @Override public void emptyTransferStream() {
-    // Do nothing.
-  }
-
-  @Override public Source getTransferStream(CacheRequest cacheRequest) throws IOException {
-    return new SpdySource(stream, cacheRequest);
+  @Override public ResponseBody openResponseBody(Response response) throws IOException {
+    return new RealResponseBody(response.headers(), Okio.buffer(stream.getSource()));
   }
 
   @Override public void releaseConnectionOnIdle() {
   }
 
   @Override public void disconnect(HttpEngine engine) throws IOException {
-    stream.close(ErrorCode.CANCEL);
+    if (stream != null) stream.close(ErrorCode.CANCEL);
   }
 
   @Override public boolean canReuseConnection() {
@@ -235,91 +227,6 @@ public final class SpdyTransport implements Transport {
       return HTTP_2_PROHIBITED_HEADERS.contains(name);
     } else {
       throw new AssertionError(protocol);
-    }
-  }
-
-  /** An HTTP message body terminated by the end of the underlying stream. */
-  private static class SpdySource implements Source {
-    private final SpdyStream stream;
-    private final Source source;
-    private final CacheRequest cacheRequest;
-    private final OutputStream cacheBody;
-
-    private boolean inputExhausted;
-    private boolean closed;
-
-    SpdySource(SpdyStream stream, CacheRequest cacheRequest) throws IOException {
-      this.stream = stream;
-      this.source = stream.getSource();
-
-      // Some apps return a null body; for compatibility we treat that like a null cache request.
-      OutputStream cacheBody = cacheRequest != null ? cacheRequest.getBody() : null;
-      if (cacheBody == null) {
-        cacheRequest = null;
-      }
-
-      this.cacheBody = cacheBody;
-      this.cacheRequest = cacheRequest;
-    }
-
-    @Override public long read(OkBuffer sink, long byteCount)
-        throws IOException {
-      if (byteCount < 0) throw new IllegalArgumentException("byteCount < 0: " + byteCount);
-      if (closed) throw new IllegalStateException("closed");
-      if (inputExhausted) return -1;
-
-      long read = source.read(sink, byteCount);
-      if (read == -1) {
-        inputExhausted = true;
-        if (cacheRequest != null) {
-          cacheBody.close();
-        }
-        return -1;
-      }
-
-      if (cacheBody != null) {
-        Okio.copy(sink, sink.size() - read, read, cacheBody);
-      }
-
-      return read;
-    }
-
-    @Override public Source deadline(Deadline deadline) {
-      source.deadline(deadline);
-      return this;
-    }
-
-    @Override public void close() throws IOException {
-      if (closed) return;
-
-      if (!inputExhausted && cacheBody != null) {
-        discardStream(); // Could make inputExhausted true!
-      }
-
-      closed = true;
-
-      if (!inputExhausted) {
-        stream.closeLater(ErrorCode.CANCEL);
-        if (cacheRequest != null) {
-          cacheRequest.abort();
-        }
-      }
-    }
-
-    private boolean discardStream() {
-      try {
-        long socketTimeout = stream.getReadTimeoutMillis();
-        stream.setReadTimeout(socketTimeout);
-        stream.setReadTimeout(DISCARD_STREAM_TIMEOUT_MILLIS);
-        try {
-          Util.skipAll(this, DISCARD_STREAM_TIMEOUT_MILLIS);
-          return true;
-        } finally {
-          stream.setReadTimeout(socketTimeout);
-        }
-      } catch (IOException e) {
-        return false;
-      }
     }
   }
 }

@@ -80,11 +80,11 @@
 #include "ihevcd_statistics.h"
 #include "ihevcd_itrans_recon_dc.h"
 
-const UWORD32 gau4_ihevcd_4_bit_reverse[] = { 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
+static const UWORD32 gau4_ihevcd_4_bit_reverse[] = { 0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
 
 
 /* Globals */
-WORD32 g_i4_ip_funcs[MAX_NUM_IP_MODES] =
+static const WORD32 g_i4_ip_funcs[MAX_NUM_IP_MODES] =
   { IP_FUNC_MODE_0, /* Mode 0 */
     IP_FUNC_MODE_1, /* Mode 1 */
     IP_FUNC_MODE_2, /* Mode 2 */

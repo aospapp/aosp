@@ -4,8 +4,10 @@
  
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FFL_RADIOBUTTON_H_
-#define _FFL_RADIOBUTTON_H_
+#ifndef FPDFSDK_INCLUDE_FORMFILLER_FFL_RADIOBUTTON_H_
+#define FPDFSDK_INCLUDE_FORMFILLER_FFL_RADIOBUTTON_H_
+
+#include "FFL_FormFiller.h"
 
 class CFFL_RadioButton : public CFFL_Button
 {
@@ -21,5 +23,4 @@ public:
 	virtual void				SaveData(CPDFSDK_PageView* pPageView);
 };
 
-#endif //_FFL_RADIOBUTTON_H_
-
+#endif  // FPDFSDK_INCLUDE_FORMFILLER_FFL_RADIOBUTTON_H_

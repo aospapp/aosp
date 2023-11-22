@@ -24,7 +24,7 @@
 #include "class.h"
 #include "class-inl.h"
 #include "class_linker-inl.h"
-#include "field_helper.h"
+#include "dex_file-inl.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc/heap.h"
 #include "iftable-inl.h"
@@ -71,11 +71,11 @@ Object* Object::CopyObject(Thread* self, mirror::Object* dest, mirror::Object* s
                            size_t num_bytes) {
   // Copy instance data.  We assume memcpy copies by words.
   // TODO: expose and use move32.
-  byte* src_bytes = reinterpret_cast<byte*>(src);
-  byte* dst_bytes = reinterpret_cast<byte*>(dest);
+  uint8_t* src_bytes = reinterpret_cast<uint8_t*>(src);
+  uint8_t* dst_bytes = reinterpret_cast<uint8_t*>(dest);
   size_t offset = sizeof(Object);
   memcpy(dst_bytes + offset, src_bytes + offset, num_bytes - offset);
-  if (kUseBakerOrBrooksReadBarrier) {
+  if (kUseReadBarrier) {
     // We need a RB here. After the memcpy that covers the whole
     // object above, copy references fields one by one again with a
     // RB. TODO: Optimize this later?
@@ -106,9 +106,8 @@ class CopyObjectVisitor {
       : self_(self), orig_(orig), num_bytes_(num_bytes) {
   }
 
-  void operator()(Object* obj, size_t usable_size) const
+  void operator()(Object* obj, size_t usable_size ATTRIBUTE_UNUSED) const
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
-    UNUSED(usable_size);
     Object::CopyObject(self_, obj, orig_->Get(), num_bytes_);
   }
 
@@ -159,7 +158,8 @@ int32_t Object::IdentityHashCode() const {
       case LockWord::kUnlocked: {
         // Try to compare and swap in a new hash, if we succeed we will return the hash on the next
         // loop iteration.
-        LockWord hash_word(LockWord::FromHashCode(GenerateIdentityHashCode()));
+        LockWord hash_word = LockWord::FromHashCode(GenerateIdentityHashCode(),
+                                                    lw.ReadBarrierState());
         DCHECK_EQ(hash_word.GetState(), LockWord::kHashCode);
         if (const_cast<Object*>(this)->CasLockWordWeakRelaxed(lw, hash_word)) {
           return hash_word.GetHashCode();
@@ -192,8 +192,7 @@ int32_t Object::IdentityHashCode() const {
       }
     }
   }
-  LOG(FATAL) << "Unreachable";
-  return 0;
+  UNREACHABLE();
 }
 
 void Object::CheckFieldAssignmentImpl(MemberOffset field_offset, Object* new_value) {
@@ -203,19 +202,20 @@ void Object::CheckFieldAssignmentImpl(MemberOffset field_offset, Object* new_val
       !runtime->GetHeap()->IsObjectValidationEnabled() || !c->IsResolved()) {
     return;
   }
-  for (Class* cur = c; cur != NULL; cur = cur->GetSuperClass()) {
-    ObjectArray<ArtField>* fields = cur->GetIFields();
-    if (fields != NULL) {
-      size_t num_ifields = fields->GetLength();
-      for (size_t i = 0; i < num_ifields; ++i) {
-        ArtField* field = fields->Get(i);
-        if (field->GetOffset().Int32Value() == field_offset.Int32Value()) {
-          CHECK_NE(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
-          StackHandleScope<1> hs(Thread::Current());
-          FieldHelper fh(hs.NewHandle(field));
-          CHECK(fh.GetType()->IsAssignableFrom(new_value->GetClass()));
-          return;
+  for (Class* cur = c; cur != nullptr; cur = cur->GetSuperClass()) {
+    ArtField* fields = cur->GetIFields();
+    for (size_t i = 0, count = cur->NumInstanceFields(); i < count; ++i) {
+      StackHandleScope<1> hs(Thread::Current());
+      Handle<Object> h_object(hs.NewHandle(new_value));
+      ArtField* field = &fields[i];
+      if (field->GetOffset().Int32Value() == field_offset.Int32Value()) {
+        CHECK_NE(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
+        // TODO: resolve the field type for moving GC.
+        mirror::Class* field_type = field->GetType<!kMovingCollector>();
+        if (field_type != nullptr) {
+          CHECK(field_type->IsAssignableFrom(new_value->GetClass()));
         }
+        return;
       }
     }
   }
@@ -224,23 +224,28 @@ void Object::CheckFieldAssignmentImpl(MemberOffset field_offset, Object* new_val
     return;
   }
   if (IsClass()) {
-    ObjectArray<ArtField>* fields = AsClass()->GetSFields();
-    if (fields != NULL) {
-      size_t num_sfields = fields->GetLength();
-      for (size_t i = 0; i < num_sfields; ++i) {
-        ArtField* field = fields->Get(i);
-        if (field->GetOffset().Int32Value() == field_offset.Int32Value()) {
-          CHECK_NE(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
-          StackHandleScope<1> hs(Thread::Current());
-          FieldHelper fh(hs.NewHandle(field));
-          CHECK(fh.GetType()->IsAssignableFrom(new_value->GetClass()));
-          return;
+    ArtField* fields = AsClass()->GetSFields();
+    for (size_t i = 0, count = AsClass()->NumStaticFields(); i < count; ++i) {
+      ArtField* field = &fields[i];
+      if (field->GetOffset().Int32Value() == field_offset.Int32Value()) {
+        CHECK_NE(field->GetTypeAsPrimitiveType(), Primitive::kPrimNot);
+        // TODO: resolve the field type for moving GC.
+        mirror::Class* field_type = field->GetType<!kMovingCollector>();
+        if (field_type != nullptr) {
+          CHECK(field_type->IsAssignableFrom(new_value->GetClass()));
         }
+        return;
       }
     }
   }
   LOG(FATAL) << "Failed to find field for assignment to " << reinterpret_cast<void*>(this)
       << " of type " << PrettyDescriptor(c) << " at offset " << field_offset;
+  UNREACHABLE();
+}
+
+ArtField* Object::FindFieldByOffset(MemberOffset offset) {
+  return IsClass() ? ArtField::FindStaticFieldWithOffset(AsClass(), offset.Uint32Value())
+      : ArtField::FindInstanceFieldWithOffset(GetClass(), offset.Uint32Value());
 }
 
 }  // namespace mirror

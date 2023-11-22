@@ -87,21 +87,21 @@
     <string name="voicemail_settings_number_label">Voicemail number</string>
 
     <!-- Card titles -->
-    <!-- In-call screen: status label for a call in the "dialing" state -->
+    <!-- In-call screen: status label for a call in the "dialing" state [CHAR LIMIT=25] -->
     <string name="card_title_dialing">Dialing</string>
-    <!-- In-call screen: status label for a re-dialing call -->
+    <!-- In-call screen: status label for a re-dialing call [CHAR LIMIT=25] -->
     <string name="card_title_redialing">Redialing</string>
-    <!-- In-call screen: status label for a conference call -->
+    <!-- In-call screen: status label for a conference call [CHAR LIMIT=25] -->
     <string name="card_title_conf_call">Conference call</string>
-    <!-- In-call screen: status label for an incoming call -->
+    <!-- In-call screen: status label for an incoming call [CHAR LIMIT=25] -->
     <string name="card_title_incoming_call">Incoming call</string>
-    <!-- In-call screen: status label displayed briefly after a call ends -->
+    <!-- In-call screen: status label displayed briefly after a call ends [CHAR LIMIT=25] -->
     <string name="card_title_call_ended">Call ended</string>
-    <!-- In-call screen: status label for call that's on hold -->
+    <!-- In-call screen: status label for call that's on hold [CHAR LIMIT=25] -->
     <string name="card_title_on_hold">On hold</string>
-    <!-- In-call screen: status label for a call that's in the process of hanging up -->
+    <!-- In-call screen: status label for a call that's in the process of hanging up [CHAR LIMIT=25] -->
     <string name="card_title_hanging_up">Hanging up</string>
-    <!-- In-call screen: status label for a call that's in CDMA flash mode -->
+    <!-- In-call screen: status label for a call that's in CDMA flash mode [CHAR LIMIT=25] -->
     <string name="card_title_in_call">In call</string>
     <!-- In-call screen: special status label that shows your own phone
          number during emergency callback mode (ECM) [CHAR LIMIT=30] -->
@@ -114,6 +114,8 @@
     <string name="card_title_video_call_requesting">Requesting video</string>
     <!-- In-call screen: status label when there is a problem connecting a video call. -->
     <string name="card_title_video_call_error">Can\'t connect video call</string>
+    <!-- In-call screen: status label when the remote party rejects a video call request. -->
+    <string name="card_title_video_call_rejected">Video request rejected</string>
 
     <!-- In-call screen: string shown to the user when their outgoing number is different than the
          number reported by TelephonyManager#getLine1Number() -->
@@ -141,13 +143,18 @@
     <!-- Missed call notification message used for a single missed call, including
          the caller-id info from the missed call -->
     <string name="notification_missedCallTicker">Missed call from <xliff:g id="missed_call_from">%s</xliff:g></string>
-    <!-- The "label" of the in-call Notification for an ongoing call, used
-         as the format string for a Chronometer widget. [CHAR LIMIT=60] -->
+    <!-- The "label" of the in-call Notification for an ongoing call. [CHAR LIMIT=60] -->
     <string name="notification_ongoing_call">Ongoing call</string>
+    <!-- The "label" of the in-call Notification for an ongoing call, which is being made over
+         Wi-Fi. [CHAR LIMIT=60] -->
+    <string name="notification_ongoing_call_wifi">Ongoing Wi-Fi call</string>
     <!-- The "label" of the in-call Notification for a call that's on hold -->
     <string name="notification_on_hold">On hold</string>
-    <!-- The "label" of the in-call Notification for an incoming ringing call -->
+    <!-- The "label" of the in-call Notification for an incoming ringing call. [CHAR LIMIT=60] -->
     <string name="notification_incoming_call">Incoming call</string>
+    <!-- The "label" of the in-call Notification for an incoming ringing call,
+         which is being made over Wi-Fi. [CHAR LIMIT=60] -->
+    <string name="notification_incoming_call_wifi">Incoming Wi-Fi call</string>
     <!-- The "label" of the in-call Notification for an incoming ringing video call. -->
     <string name="notification_incoming_video_call">Incoming video call</string>
     <!-- The "label" of the in-call Notification for upgrading an existing call to a video call. -->
@@ -191,13 +198,13 @@
          [CHAR LIMIT=12] -->
     <string name="notification_action_dismiss">Dismiss</string>
 
-    <!-- Message for "call back" Action, which is displayed in the missed call notificaiton.
+    <!-- Message for "call back" Action, which is displayed in the missed call notification.
          The user will be able to call back to the person or the phone number.
-         [CHAR LIMIT=60] -->
+         [CHAR LIMIT=12] -->
     <string name="notification_missedCall_call_back">Call back</string>
     <!-- Message for "reply via sms" action, which is displayed in the missed call notification.
          The user will be able to send text messages using the phone number.
-         [CHAR LIMIT=60] -->
+         [CHAR LIMIT=12] -->
     <string name="notification_missedCall_message">Message</string>
 
     <!-- In-call screen: call failure message displayed in an error dialog -->
@@ -248,21 +255,14 @@
          to dial using the physical keyboard -->
     <string name="dialerKeyboardHintText">Use keyboard to dial</string>
 
-    <!-- Text for the overflow "Hold call" menu item. -->
-    <string name="overflowHoldMenuItemText">Hold call</string>
-    <!-- Text for the overflow "Resume call" menu item. -->
-    <string name="overflowResumeMenuItemText">Resume call</string>
-    <!-- Text for the overflow "Add call" menu item. -->
-    <string name="overflowAddMenuItemText">Add call</string>
-    <!-- Text for the onscreen "Merge calls" menu item. -->
-    <string name="overflowMergeMenuItemText">Merge calls</string>
-    <!-- Text for the onscreen "Swap calls" menu item. -->
-    <string name="overflowSwapMenuItemText">Swap calls</string>
-
-    <!-- Text for the onscreen "Hold" button -->
-    <string name="onscreenHoldText">Hold</string>
+    <!-- Text for the onscreen "Hold" button when it is not selected. Pressing it will put
+         the call on hold. -->
+    <string name="onscreenHoldText_unselected">Hold Call</string>
+    <!-- Text for the onscreen "Hold" button when it is selected. Pressing it will resume
+         the call from a previously held state. -->
+    <string name="onscreenHoldText_selected">Resume Call</string>
     <!-- Text for the onscreen "End call" button -->
-    <string name="onscreenEndCallText">End</string>
+    <string name="onscreenEndCallText">End Call</string>
     <!-- Text for the onscreen "Show Dialpad" button -->
     <string name="onscreenShowDialpadText">Dialpad</string>
     <!-- Text for the onscreen "Mute" button -->
@@ -293,6 +293,18 @@
     <string name="onscreenPauseVideoText">Pause video</string>
     <!-- Text for the onscreen overflow button, to see additional actions which can be done. -->
     <string name="onscreenOverflowText">More options</string>
+
+    <!-- Message indicating that Video Started flowing for IMS-VT calls -->
+    <string name="player_started">Player Started</string>
+    <!-- Message indicating that Video Stopped flowing for IMS-VT calls -->
+    <string name="player_stopped">Player Stopped</string>
+    <!-- Message indicating that camera failure has occurred for the selected camera and
+         as result camera is not ready -->
+    <string name="camera_not_ready">Camera not ready</string>
+    <!-- Message indicating that camera is ready/available -->
+    <string name="camera_ready">Camera ready</string>
+    <!-- Message indicating unknown call session event -->
+    <string name="unknown_call_session_event">"Unkown call session event"</string>
 
     <!-- For incoming calls, this is a string we can get from a CDMA network instead of
          the actual phone number, to indicate there's no number present.  DO NOT TRANSLATE. -->
@@ -354,6 +366,18 @@
     <!-- Description of the target to decline a request to upgrade from an audio call to a video call.
          [CHAR LIMIT=NONE] -->
     <string name="description_target_decline_upgrade_to_video_request">Decline video request</string>
+    <!-- Description of the target to accept a request to upgrade from any call to a video transmit call.
+         [CHAR LIMIT=NONE] -->
+    <string name="description_target_accept_upgrade_to_video_transmit_request">Accept video transmit request</string>
+    <!-- Description of the target to decline a request to upgrade from any call to a video transmit call.
+         [CHAR LIMIT=NONE] -->
+    <string name="description_target_decline_upgrade_to_video_transmit_request">Decline video transmit request</string>
+        <!-- Description of the target to accept a request to upgrade from any call to a video receive call.
+         [CHAR LIMIT=NONE] -->
+    <string name="description_target_accept_upgrade_to_video_receive_request">Accept video receive request</string>
+    <!-- Description of the target to decline a request to upgrade from any call to a video receive call.
+         [CHAR LIMIT=NONE] -->
+    <string name="description_target_decline_upgrade_to_video_receive_request">Decline video receive request</string>
 
     <!-- Description of the up direction in which one can to slide the handle in the phone answer screen. [CHAR LIMIT=NONE] -->
     <string name="description_direction_up">Slide up for <xliff:g id="target_description" example="Unlock">%s</xliff:g>.</string>
@@ -398,10 +422,6 @@
          [CHAR LIMIT=30] -->
     <string name="vibrate_on_ring_title">Vibrate when ringing</string>
 
-    <!--  Setting option name to enable or disable dialpad autocomplete functionality
-         [CHAR LIMIT=30] -->
-    <string name="dial_pad_autocomplete">Dialpad autocomplete</string>
-
     <!-- Title for the category "ringtone", which is shown above ringtone and vibration
          related settings.
          [CHAR LIMIT=30] -->
@@ -412,4 +432,28 @@
 
     <!-- This can be used in any application wanting to disable the text "Emergency number" -->
     <string name="emergency_call_dialog_number_for_display">Emergency number</string>
+
+    <!-- Phrase describing a time duration using seconds [CHAR LIMIT=16] -->
+    <plurals name="duration_seconds">
+        <item quantity="one">1 second</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> seconds</item>
+    </plurals>
+    <!-- Phrase describing a time duration using minutes [CHAR LIMIT=16] -->
+    <plurals name="duration_minutes">
+        <item quantity="one">1 minute</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> minutes</item>
+    </plurals>
+    <!-- Phrase describing a time duration using hours [CHAR LIMIT=16] -->
+    <plurals name="duration_hours">
+        <item quantity="one">1 hour</item>
+        <item quantity="other"><xliff:g id="count">%d</xliff:g> hours</item>
+    </plurals>
+
+    <!-- Description of the profile photo shown when the device's camera is disabled udring a video
+        call. [CHAR LIMIT=NONE] -->
+    <string name="profile_photo_description">Profile photo</string>
+
+    <!-- Description of the "camera off" icon displayed when the device's camera is disabled during
+         a video call. [CHAR LIMIT=NONE] -->
+    <string name="camera_off_description">Camera off</string>
 </resources>

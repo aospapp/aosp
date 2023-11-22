@@ -36,6 +36,7 @@ import org.w3c.dom.Element;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /** A list of render previews */
@@ -85,7 +86,7 @@ class RenderPreviewList {
         return new File(AdtUtils.getAbsolutePath(mProject).toFile(), PREVIEW_FILE_NAME);
     }
 
-    void load(List<Device> deviceList) throws IOException {
+    void load(Collection<Device> deviceList) throws IOException {
         File file = getManualFile();
         if (file.exists()) {
             load(file, deviceList);
@@ -112,7 +113,7 @@ class RenderPreviewList {
         }
     }
 
-    void load(File file, List<Device> deviceList) throws IOException {
+    void load(File file, Collection<Device> deviceList) throws IOException {
         mList.clear();
 
         String xml = Files.toString(file, Charsets.UTF_8);

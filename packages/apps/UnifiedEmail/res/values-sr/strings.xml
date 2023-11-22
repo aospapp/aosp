@@ -86,7 +86,7 @@
     <string name="mark_not_important" msgid="3342258155408116917">"Означи као неважно"</string>
     <string name="add_cc_label" msgid="2249679001141195213">"Додај Cc/Bcc"</string>
     <string name="add_bcc_label" msgid="963745641238037813">"Додај Bcc"</string>
-    <string name="quoted_text" msgid="977782904293216533">"Уврсти наведени текст"</string>
+    <string name="quoted_text" msgid="977782904293216533">"Додај и цитирани текст"</string>
     <string name="quoted_text_label" msgid="2296807722849923934">"Цитирај текст"</string>
     <string name="respond_inline" msgid="6609746292081928078">"Одговори у тексту"</string>
     <string name="bytes" msgid="651011686747499628">"<xliff:g id="COUNT">%s</xliff:g> B"</string>
@@ -241,8 +241,8 @@
     <string name="message_saved" msgid="3291655042310241793">"Порука је сачувана као недовршена."</string>
     <string name="sending_message" msgid="2487846954946637084">"Слање поруке…"</string>
     <string name="invalid_recipient" msgid="9157434699389936584">"Адреса <xliff:g id="WRONGEMAIL">%s</xliff:g> је неважећа."</string>
-    <string name="show_elided" msgid="3456154624105704327">"Прикажи наведени текст"</string>
-    <string name="hide_elided" msgid="5768235486834692733">"▼ Сакриј наведени текст"</string>
+    <string name="show_elided" msgid="3456154624105704327">"Прикажи цитирани текст"</string>
+    <string name="hide_elided" msgid="5768235486834692733">"▼ Сакриј цитирани текст"</string>
     <string name="message_invite_title" msgid="5985161025144867256">"Позивница за Календар"</string>
     <string name="message_invite_calendar_view" msgid="9181966650840809197">"Прикажи у Календару"</string>
     <string name="message_invite_label_attending" msgid="4194264767870003397">"Идете?"</string>
@@ -406,14 +406,14 @@
     <string name="date_message_received_print" msgid="4168417403884350040">"<xliff:g id="DAY_AND_DATE">%1$s</xliff:g> у <xliff:g id="TIME">%2$s</xliff:g>"</string>
     <string name="draft_to_heading" msgid="7370121943946205024">"Недовршена за:"</string>
     <string name="draft_heading" msgid="7032951343184552800">"Недовршена"</string>
-    <string name="quoted_text_hidden_print" msgid="5256754205675159141">"Наведени текст је сакривен"</string>
+    <string name="quoted_text_hidden_print" msgid="5256754205675159141">"Цитирани текст је сакривен"</string>
   <plurals name="num_attachments">
     <item quantity="one" msgid="5494465717267988888">"<xliff:g id="COUNT">%1$d</xliff:g> прилог"</item>
     <item quantity="other" msgid="5422167728480739361">"<xliff:g id="COUNT">%1$d</xliff:g> прилога"</item>
   </plurals>
     <string name="no_subject" msgid="5622708348540036959">"(без наслова)"</string>
-    <string name="vacation_responder" msgid="5570132559074523806">"Одговор на одмору"</string>
-    <string name="preferences_vacation_responder_title" msgid="2268482117730576123">"Одговор на одмору"</string>
+    <string name="vacation_responder" msgid="5570132559074523806">"Аутоматски одговор"</string>
+    <string name="preferences_vacation_responder_title" msgid="2268482117730576123">"Аутоматски одговор"</string>
     <string name="vacation_responder_body_hint_text" msgid="9087613123105158494">"Порука"</string>
     <string name="send_to_contacts_text" msgid="124432913980620545">"Пошаљи само мојим контактима"</string>
     <string name="send_to_domain_text" msgid="5064559546745918393">"Пошаљи само на <xliff:g id="DOMAIN">%1$s</xliff:g>"</string>
@@ -424,8 +424,8 @@
     <string name="custom_date" msgid="5794846334232367838">"Прилагођено"</string>
     <string name="date_none" msgid="1061426502665431412">"Нема"</string>
     <string name="discard_changes" msgid="5699760550972324746">"Желите ли да одбаците промене?"</string>
-    <string name="vacation_responder_changes_saved" msgid="91448817268121249">"Промене одговора на одмору су сачуване"</string>
-    <string name="vacation_responder_changes_discarded" msgid="21756037735539983">"Промене одговора на одмору су одбачене"</string>
+    <string name="vacation_responder_changes_saved" msgid="91448817268121249">"Промене аутоматског одговора су сачуване"</string>
+    <string name="vacation_responder_changes_discarded" msgid="21756037735539983">"Промене аутоматског одговора су одбачене"</string>
     <string name="vacation_responder_off" msgid="4429909341193366667">"Искључено"</string>
     <string name="vacation_responder_on" msgid="4913238379320882449">"Укључено од <xliff:g id="DATE">%1$s</xliff:g>"</string>
     <string name="vacation_responder_on_with_end_date" msgid="4360941815371475955">"Укључено од <xliff:g id="START_DATE">%1$s</xliff:g> до <xliff:g id="END_DATE">%2$s</xliff:g>"</string>

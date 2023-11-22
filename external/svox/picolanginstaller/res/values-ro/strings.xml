@@ -25,6 +25,6 @@
     <string name="uninstall_message" msgid="174096141356529599">"Datele vocale au fost instalate. Acum puteţi elimina în siguranţă acest program de instalare."</string>
     <string name="uninstall" msgid="6195983436684617741">"Dezinstalaţi"</string>
     <string name="retry_message" product="nosdcard" msgid="8048316007107408391">"Instalarea datelor vocale nu a reuşit. Asiguraţi-vă că stocarea USB are un spaţiu liber de minimum 6 MO."</string>
-    <string name="retry_message" product="default" msgid="4262829785604216441">"Instalarea datelor vocale nu a reuşit. Asiguraţi-vă că aţi introdus cardul SD în dispozitiv şi că acesta are un spaţiu liber de minimum 6 MO. În cazul în care cardul se află deja în dispozitiv, încercaţi să îl scoateţi şi să îl introduceţi din nou."</string>
+    <string name="retry_message" product="default" msgid="4262829785604216441">"Instalarea datelor vocale nu a reușit. Asiguraţi-vă că aţi introdus cardul SD în dispozitiv și că acesta are un spaţiu liber de minimum 6 MO. În cazul în care cardul se află deja în dispozitiv, încercaţi să îl scoateţi și să îl introduceţi din nou."</string>
     <string name="retry" msgid="7470276488993209974">"Încercaţi din nou"</string>
 </resources>

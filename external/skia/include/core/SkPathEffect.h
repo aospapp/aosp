@@ -131,11 +131,16 @@ public:
 
     virtual DashType asADash(DashInfo* info) const;
 
+    SK_TO_STRING_PUREVIRT()
     SK_DEFINE_FLATTENABLE_TYPE(SkPathEffect)
+
+#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
+    /// Override for subclasses as appropriate.
+    virtual bool exposedInAndroidJavaAPI() const { return false; }
+#endif
 
 protected:
     SkPathEffect() {}
-    SkPathEffect(SkReadBuffer& buffer) : INHERITED(buffer) {}
 
 private:
     // illegal
@@ -157,11 +162,13 @@ public:
 
 protected:
     SkPairPathEffect(SkPathEffect* pe0, SkPathEffect* pe1);
-    SkPairPathEffect(SkReadBuffer&);
-    virtual void flatten(SkWriteBuffer&) const SK_OVERRIDE;
+
+    void flatten(SkWriteBuffer&) const override;
 
     // these are visible to our subclasses
     SkPathEffect* fPE0, *fPE1;
+
+    SK_TO_STRING_OVERRIDE()    
 
 private:
     typedef SkPathEffect INHERITED;
@@ -184,14 +191,17 @@ public:
     }
 
     virtual bool filterPath(SkPath* dst, const SkPath& src,
-                            SkStrokeRec*, const SkRect*) const SK_OVERRIDE;
+                            SkStrokeRec*, const SkRect*) const override;
 
+    SK_TO_STRING_OVERRIDE()    
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkComposePathEffect)
 
+#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
+    bool exposedInAndroidJavaAPI() const override { return true; }
+#endif
+
 protected:
-    SkComposePathEffect(SkPathEffect* outer, SkPathEffect* inner)
-        : INHERITED(outer, inner) {}
-    explicit SkComposePathEffect(SkReadBuffer& buffer) : INHERITED(buffer) {}
+    SkComposePathEffect(SkPathEffect* outer, SkPathEffect* inner) : INHERITED(outer, inner) {}
 
 private:
     // illegal
@@ -218,14 +228,17 @@ public:
     }
 
     virtual bool filterPath(SkPath* dst, const SkPath& src,
-                            SkStrokeRec*, const SkRect*) const SK_OVERRIDE;
+                            SkStrokeRec*, const SkRect*) const override;
 
+    SK_TO_STRING_OVERRIDE()    
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkSumPathEffect)
 
+#ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
+    bool exposedInAndroidJavaAPI() const override { return true; }
+#endif
+
 protected:
-    SkSumPathEffect(SkPathEffect* first, SkPathEffect* second)
-        : INHERITED(first, second) {}
-    explicit SkSumPathEffect(SkReadBuffer& buffer) : INHERITED(buffer) {}
+    SkSumPathEffect(SkPathEffect* first, SkPathEffect* second) : INHERITED(first, second) {}
 
 private:
     // illegal

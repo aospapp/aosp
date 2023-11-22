@@ -21,27 +21,26 @@
 
     <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="1">
+            android:layout_height="320dp"
+            android:layout_weight="2">
         <TextView
-                android:id="@+id/byod_instructions"
+                android:id="@+id/test_instructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="10dip"
-                android:text="@string/provisioning_byod_instructions"
                 android:textSize="18dip" />
     </ScrollView>
 
     <Button
-        android:id="@+id/byod_start"
+        android:id="@+id/prepare_test_button"
         android:layout_width="204dp"
-        android:layout_height="wrap_content"
-        android:text="@string/provisioning_byod_start" />
+        android:layout_height="wrap_content" />
 
     <ListView
-        android:id="@id/android:list"
+        android:id="@+id/android:list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_weight="3" />
 
     <include layout="@layout/pass_fail_buttons" />
 

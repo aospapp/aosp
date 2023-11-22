@@ -114,6 +114,7 @@ class WifiController extends StateMachine {
     static final int CMD_SET_AP                     = BASE + 10;
     static final int CMD_DEFERRED_TOGGLE            = BASE + 11;
     static final int CMD_USER_PRESENT               = BASE + 12;
+    static final int CMD_AP_START_FAILURE           = BASE + 13;
 
     private DefaultState mDefaultState = new DefaultState();
     private StaEnabledState mStaEnabledState = new StaEnabledState();
@@ -172,6 +173,7 @@ class WifiController extends StateMachine {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_DEVICE_IDLE);
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        filter.addAction(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
         mContext.registerReceiver(
                 new BroadcastReceiver() {
                     @Override
@@ -182,6 +184,14 @@ class WifiController extends StateMachine {
                         } else if (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
                             mNetworkInfo = (NetworkInfo) intent.getParcelableExtra(
                                     WifiManager.EXTRA_NETWORK_INFO);
+                        } else if (action.equals(WifiManager.WIFI_AP_STATE_CHANGED_ACTION)) {
+                            int state = intent.getIntExtra(
+                                    WifiManager.EXTRA_WIFI_AP_STATE,
+                                    WifiManager.WIFI_AP_STATE_FAILED);
+                            if(state == WifiManager.WIFI_AP_STATE_FAILED) {
+                                loge(TAG + "SoftAP start failed");
+                                sendMessage(CMD_AP_START_FAILURE);
+                            }
                         }
                     }
                 },
@@ -371,6 +381,7 @@ class WifiController extends StateMachine {
                 case CMD_WIFI_TOGGLED:
                 case CMD_AIRPLANE_TOGGLED:
                 case CMD_EMERGENCY_MODE_CHANGED:
+                case CMD_AP_START_FAILURE:
                     break;
                 case CMD_USER_PRESENT:
                     mFirstUserSignOnSeen = true;
@@ -398,6 +409,7 @@ class WifiController extends StateMachine {
             mDisabledTimestamp = SystemClock.elapsedRealtime();
             mDeferredEnableSerialNumber++;
             mHaveDeferredEnable = false;
+            mWifiStateMachine.clearANQPCache();
         }
         @Override
         public boolean processMessage(Message msg) {
@@ -519,6 +531,7 @@ class WifiController extends StateMachine {
             mDisabledTimestamp = SystemClock.elapsedRealtime();
             mDeferredEnableSerialNumber++;
             mHaveDeferredEnable = false;
+            mWifiStateMachine.clearANQPCache();
         }
 
         @Override
@@ -607,6 +620,12 @@ class WifiController extends StateMachine {
                         transitionTo(mApStaDisabledState);
                     }
                     break;
+                case CMD_AP_START_FAILURE:
+                    if(!mSettingsStore.isScanAlwaysAvailable()) {
+                        transitionTo(mApStaDisabledState);
+                    } else {
+                        transitionTo(mStaDisabledWithScanState);
+                    }
                 default:
                     return NOT_HANDLED;
             }

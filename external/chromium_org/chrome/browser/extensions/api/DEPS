@@ -1,5 +1,0 @@
-include_rules = [
-  "+apps",
-  "+chrome/browser/apps",
-  "+device/hid",
-]

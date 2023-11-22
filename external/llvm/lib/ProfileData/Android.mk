@@ -1,9 +1,15 @@
 LOCAL_PATH:= $(call my-dir)
 
 profiledata_SRC_FILES := \
-  InstrProf.cpp          \
-  InstrProfReader.cpp    \
-  InstrProfWriter.cpp    \
+  CoverageMapping.cpp \
+  CoverageMappingReader.cpp \
+  CoverageMappingWriter.cpp \
+  InstrProf.cpp \
+  InstrProfReader.cpp \
+  InstrProfWriter.cpp \
+  SampleProf.cpp \
+  SampleProfReader.cpp \
+  SampleProfWriter.cpp
 
 # For the host
 # =====================================================

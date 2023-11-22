@@ -5,13 +5,12 @@
 package com.bumptech.glide.load.engine.cache;
 
 import android.util.Log;
+
+import com.bumptech.glide.disklrucache.DiskLruCache;
 import com.bumptech.glide.load.Key;
-import com.jakewharton.disklrucache.DiskLruCache;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * The default DiskCache implementation. There must be no more than one active instance for a given
@@ -24,8 +23,12 @@ public class DiskLruCacheWrapper implements DiskCache {
 
     private static final int APP_VERSION = 1;
     private static final int VALUE_COUNT = 1;
-    private static DiskLruCacheWrapper WRAPPER = null;
+    private static DiskLruCacheWrapper wrapper = null;
+
     private final SafeKeyGenerator safeKeyGenerator;
+    private final File directory;
+    private final int maxSize;
+    private DiskLruCache diskLruCache;
 
     /**
      * Get a DiskCache in the given directory and size. If a disk cache has alread been created with
@@ -36,17 +39,13 @@ public class DiskLruCacheWrapper implements DiskCache {
      * @param maxSize The max size for the disk cache
      * @return The new disk cache with the given arguments, or the current cache if one already exists
      */
-    public synchronized static DiskCache get(File directory, int maxSize) {
-        if (WRAPPER == null) {
-            WRAPPER = new DiskLruCacheWrapper(directory, maxSize);
+    public static synchronized DiskCache get(File directory, int maxSize) {
+        // TODO calling twice with different arguments makes it return the cache for the same directory, it's public!
+        if (wrapper == null) {
+            wrapper = new DiskLruCacheWrapper(directory, maxSize);
         }
-        return WRAPPER;
+        return wrapper;
     }
-
-    private final File directory;
-    private final int maxSize;
-
-    private DiskLruCache diskLruCache;
 
     protected DiskLruCacheWrapper(File directory, int maxSize) {
         this.directory = directory;
@@ -62,16 +61,16 @@ public class DiskLruCacheWrapper implements DiskCache {
     }
 
     @Override
-    public InputStream get(Key key) {
+    public File get(Key key) {
         String safeKey = safeKeyGenerator.getSafeKey(key);
-        InputStream result = null;
+        File result = null;
         try {
             //It is possible that the there will be a put in between these two gets. If so that shouldn't be a problem
             //because we will always put the same value at the same key so our input streams will still represent
             //the same data
-            final DiskLruCache.Snapshot snapshot = getDiskCache().get(safeKey);
-            if (snapshot != null) {
-                result = snapshot.getInputStream(0);
+            final DiskLruCache.Value value = getDiskCache().get(safeKey);
+            if (value != null) {
+                result = value.getFile(0);
             }
         } catch (IOException e) {
             if (Log.isLoggable(TAG, Log.WARN)) {
@@ -86,21 +85,15 @@ public class DiskLruCacheWrapper implements DiskCache {
         String safeKey = safeKeyGenerator.getSafeKey(key);
         try {
             DiskLruCache.Editor editor = getDiskCache().edit(safeKey);
-            //editor will be null if there are two concurrent puts
-            //worst case just silently fail
+            // Editor will be null if there are two concurrent puts. In the worst case we will just silently fail.
             if (editor != null) {
-                boolean success = false;
-                OutputStream os = null;
                 try {
-                    os = editor.newOutputStream(0);
-                    success = writer.write(os);
-                } finally {
-                    if (os != null) {
-                        os.close();
+                    File file = editor.getFile(0);
+                    if (writer.write(file)) {
+                        editor.commit();
                     }
-                }
-                if (success) {
-                    editor.commit();
+                } finally {
+                    editor.abortUnlessCommitted();
                 }
             }
         } catch (IOException e) {

@@ -73,6 +73,12 @@ public class TimeZoneTest extends TestCase {
         assertFalse(tz.inDaylightTime(date));
     }
 
+    public void testGetDisplayNameShort_nonHourOffsets() {
+        TimeZone iranTz = TimeZone.getTimeZone("Asia/Tehran");
+        assertEquals("GMT+03:30", iranTz.getDisplayName(false, TimeZone.SHORT, Locale.UK));
+        assertEquals("GMT+04:30", iranTz.getDisplayName(true, TimeZone.SHORT, Locale.UK));
+    }
+
     public void testPreHistoricOffsets() throws Exception {
         // "Africa/Bissau" has just a few transitions and hasn't changed in a long time.
         // 1912-01-01 00:02:19-0100 ... 1912-01-01 00:02:20-0100
@@ -256,12 +262,12 @@ public class TimeZoneTest extends TestCase {
     }
 
     // http://b/7955614
-    public void test_getDisplayName_GMT_short_names() throws Exception {
-        TimeZone tz = TimeZone.getTimeZone("America/Santiago");
-        assertEquals("Chile Summer Time", tz.getDisplayName(true, TimeZone.LONG, Locale.US));
-        assertEquals("Chile Standard Time", tz.getDisplayName(false, TimeZone.LONG, Locale.US));
-        assertEquals("GMT-03:00", tz.getDisplayName(true, TimeZone.SHORT, Locale.US));
-        assertEquals("GMT-03:00", tz.getDisplayName(false, TimeZone.SHORT, Locale.US));
+    public void testApia() throws Exception {
+        TimeZone tz = TimeZone.getTimeZone("Pacific/Apia");
+        assertEquals("Apia Daylight Time", tz.getDisplayName(true, TimeZone.LONG, Locale.US));
+        assertEquals("Apia Standard Time", tz.getDisplayName(false, TimeZone.LONG, Locale.US));
+        assertEquals("GMT+14:00", tz.getDisplayName(true, TimeZone.SHORT, Locale.US));
+        assertEquals("GMT+13:00", tz.getDisplayName(false, TimeZone.SHORT, Locale.US));
     }
 
     private static boolean isGmtString(String s) {
@@ -289,5 +295,33 @@ public class TimeZoneTest extends TestCase {
           assertNotNull(tz.getDisplayName(false, TimeZone.LONG, locale));
         }
       }
+    }
+
+    // http://b/18839557
+    public void testOverflowing32BitUnixDates() {
+        final TimeZone tz = TimeZone.getTimeZone("America/New_York");
+
+        // This timezone didn't have any daylight savings prior to 1917 and this
+        // date is sometime in 1901.
+        assertFalse(tz.inDaylightTime(new Date(-2206292400000L)));
+        assertEquals(-18000000, tz.getOffset(-2206292400000L));
+
+        // Nov 30th 2039, no daylight savings as per current rules.
+        assertFalse(tz.inDaylightTime(new Date(2206292400000L)));
+        assertEquals(-18000000, tz.getOffset(2206292400000L));
+    }
+
+    public void testTimeZoneIDLocalization() {
+        Locale defaultLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("en"));
+            TimeZone en_timezone = TimeZone.getTimeZone("GMT+09:00");
+            Locale.setDefault(new Locale("ar"));
+            TimeZone ar_timezone = TimeZone.getTimeZone("GMT+09:00");
+
+            assertEquals(en_timezone.getID(), ar_timezone.getID());
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 }

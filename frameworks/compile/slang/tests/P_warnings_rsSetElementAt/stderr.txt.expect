@@ -10,3 +10,4 @@ setelementat.rs:29:5: warning: untyped rsSetElementAt() can reduce performance. 
 setelementat.rs:30:5: warning: untyped rsSetElementAt() can reduce performance. Use rsSetElementAt_int() instead.
 setelementat.rs:31:5: warning: untyped rsSetElementAt() can reduce performance. Use rsSetElementAt_uint() instead.
 setelementat.rs:32:5: warning: untyped rsSetElementAt() can reduce performance. Use rsSetElementAt_long() instead.
+setelementat.rs:33:5: warning: untyped rsSetElementAt() can reduce performance. Use rsSetElementAt_ulong() instead.

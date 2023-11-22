@@ -16,20 +16,12 @@
 
 package android.mediastress.cts;
 
-import android.media.CamcorderProfile;
-import android.media.MediaRecorder.AudioEncoder;
-import android.media.MediaRecorder.VideoEncoder;
-
 public class HEVCR720pAacLongPlayerTest extends MediaPlayerStressTest {
     private static final String VIDEO_PATH_MIDDLE = "bbb_full/1280x720/mp4_libx265_libfaac/";
     private final String[] mMedias = {
         "bbb_full.ffmpeg.1280x720.mp4.libx265_880kbps_24fps.libfaac_stereo_128kbps_48000Hz.mp4",
         "bbb_full.ffmpeg.1280x720.mp4.libx265_1140kbps_30fps.libfaac_stereo_128kbps_48000Hz.mp4"
     };
-
-    public HEVCR720pAacLongPlayerTest() {
-        super(CamcorderProfile.QUALITY_720P, VideoEncoder.H264, AudioEncoder.AAC);
-    }
 
     public void testPlay00() throws Exception {
         doTestVideoPlaybackLong(0);

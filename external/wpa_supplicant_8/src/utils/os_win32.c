@@ -12,6 +12,7 @@
 #include <wincrypt.h>
 
 #include "os.h"
+#include "common.h"
 
 void os_sleep(os_time_t sec, os_time_t usec)
 {
@@ -212,6 +213,24 @@ char * os_readfile(const char *name, size_t *len)
 	fclose(f);
 
 	return buf;
+}
+
+
+int os_fsync(FILE *stream)
+{
+	HANDLE hFile;
+
+	if (stream == NULL)
+		return -1;
+
+	hFile = _get_osfhandle(_fileno(stream));
+	if (hFile == INVALID_HANDLE_VALUE)
+		return -1;
+
+	if (!FlushFileBuffers(hFile))
+		return -1;
+
+	return 0;
 }
 
 

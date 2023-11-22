@@ -24,8 +24,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.app.UiAutomation;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.Button;
 import android.widget.EditText;
@@ -43,6 +45,8 @@ import java.util.List;
  */
 public class AccessibilityEndToEndTest extends
         AccessibilityActivityTestCase<AccessibilityEndToEndActivity> {
+
+    private static final String LOG_TAG = "AccessibilityEndToEndTest";
 
     /**
      * Creates a new instance for testing {@link AccessibilityEndToEndActivity}.
@@ -309,16 +313,26 @@ public class AccessibilityEndToEndTest extends
     @MediumTest
     @SuppressWarnings("deprecation")
     public void testTypeNotificationStateChangedAccessibilityEvent() throws Throwable {
+        // No notification UI on televisions.
+        if((getActivity().getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION) {
+            Log.i(LOG_TAG, "Skipping: testTypeNotificationStateChangedAccessibilityEvent" +
+                    " - No notification UI on televisions.");
+            return;
+        }
+
         String message = getActivity().getString(R.string.notification_message);
 
         // create the notification to send
         final int notificationId = 1;
-        final Notification notification = new Notification();
-        notification.icon = android.R.drawable.stat_notify_call_mute;
-        notification.contentIntent = PendingIntent.getActivity(getActivity(), 0, new Intent(),
-                PendingIntent.FLAG_CANCEL_CURRENT);
-        notification.tickerText = message;
-        notification.setLatestEventInfo(getActivity(), "", "", notification.contentIntent);
+        final Notification notification = new Notification.Builder(getActivity())
+                .setSmallIcon(android.R.drawable.stat_notify_call_mute)
+                .setContentIntent(PendingIntent.getActivity(getActivity(), 0, new Intent(),
+                        PendingIntent.FLAG_CANCEL_CURRENT))
+                .setTicker(message)
+                .setContentTitle("")
+                .setContentText("")
+                .build();
 
         // create and populate the expected event
         final AccessibilityEvent expected = AccessibilityEvent.obtain();

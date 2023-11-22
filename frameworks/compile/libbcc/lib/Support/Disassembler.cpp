@@ -71,20 +71,20 @@ DisassembleResult Disassemble(llvm::raw_ostream &pOutput, const char *pTriple,
   DisassembleResult result = kDisassembleSuccess;
   uint64_t i = 0;
 
-  const llvm::MCSubtargetInfo *subtarget_info = NULL;
-  const llvm::MCDisassembler *disassembler = NULL;
-  const llvm::MCInstrInfo *mc_inst_info = NULL;
-  const llvm::MCRegisterInfo *mc_reg_info = NULL;
-  const llvm::MCAsmInfo *asm_info = NULL;
-  llvm::MCInstPrinter *inst_printer = NULL;
+  const llvm::MCSubtargetInfo *subtarget_info = nullptr;
+  const llvm::MCDisassembler *disassembler = nullptr;
+  const llvm::MCInstrInfo *mc_inst_info = nullptr;
+  const llvm::MCRegisterInfo *mc_reg_info = nullptr;
+  const llvm::MCAsmInfo *asm_info = nullptr;
+  llvm::MCInstPrinter *inst_printer = nullptr;
 
-  BufferMemoryObject *input_function = NULL;
+  BufferMemoryObject *input_function = nullptr;
 
   std::string error;
   const llvm::Target* target =
       llvm::TargetRegistry::lookupTarget(pTriple, error);
 
-  if (target == NULL) {
+  if (target == nullptr) {
     ALOGE("Invalid target triple for disassembler: %s (%s)!",
           pTriple, error.c_str());
     return kDisassembleUnknownTarget;
@@ -93,7 +93,7 @@ DisassembleResult Disassemble(llvm::raw_ostream &pOutput, const char *pTriple,
   subtarget_info =
       target->createMCSubtargetInfo(pTriple, /* CPU */"", /* Features */"");;
 
-  if (subtarget_info == NULL) {
+  if (subtarget_info == nullptr) {
     result = kDisassembleFailedSetup;
     goto bail;
   }
@@ -106,8 +106,8 @@ DisassembleResult Disassemble(llvm::raw_ostream &pOutput, const char *pTriple,
 
   asm_info = target->createMCAsmInfo(pTriple);
 
-  if ((disassembler == NULL) || (mc_inst_info == NULL) ||
-      (mc_reg_info == NULL) || (asm_info == NULL)) {
+  if ((disassembler == nullptr) || (mc_inst_info == nullptr) ||
+      (mc_reg_info == nullptr) || (asm_info == nullptr)) {
     result = kDisassembleFailedSetup;
     goto bail;
   }
@@ -116,14 +116,14 @@ DisassembleResult Disassemble(llvm::raw_ostream &pOutput, const char *pTriple,
                                              *asm_info, *mc_inst_info,
                                              *mc_reg_info, *subtarget_info);
 
-  if (inst_printer == NULL) {
+  if (inst_printer == nullptr) {
     result = kDisassembleFailedSetup;
     goto bail;
   }
 
   input_function = new (std::nothrow) BufferMemoryObject(pFunc, pFuncSize);
 
-  if (input_function == NULL) {
+  if (input_function == nullptr) {
     result = kDisassembleOutOfMemory;
     goto bail;
   }
@@ -193,7 +193,7 @@ DisassembleResult Disassemble(OutputFile &pOutput, const char *pTriple,
 
   // Open the output file decorated in llvm::raw_ostream.
   llvm::raw_ostream *output = pOutput.dup();
-  if (output == NULL) {
+  if (output == nullptr) {
     return kDisassembleFailedPrepareOutput;
   }
 

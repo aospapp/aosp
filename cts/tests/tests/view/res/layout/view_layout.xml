@@ -21,7 +21,8 @@
     android:id="@+id/viewlayout_root"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:scrollIndicators="left|right">
 
     <android.view.cts.MockView
         android:id="@+id/mock_view"
@@ -34,6 +35,7 @@
         android:layout_height="200px"
         android:scrollbars="horizontal|vertical"
         android:fadingEdge="horizontal|vertical"
+        android:scrollIndicators="top|bottom"
         android:fadingEdgeLength="20px"/>
 
     <android.view.cts.MockView

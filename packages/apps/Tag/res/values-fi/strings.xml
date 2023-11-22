@@ -17,15 +17,15 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="5128188288358721369">"Tags"</string>
-    <string name="title_scanned_tag" msgid="4347835407095551450">"Uusi tunniste skannattu"</string>
-    <string name="title_existing_tag" msgid="5656560272594190244">"Tunniste"</string>
-    <string name="tag_unknown" msgid="2897956823877728783">"Tuntematon tunnistetyyppi"</string>
-    <string name="tag_empty" msgid="3726529819932095782">"Tyhjä tunniste"</string>
+    <string name="title_scanned_tag" msgid="4347835407095551450">"Uusi tagi skannattu"</string>
+    <string name="title_existing_tag" msgid="5656560272594190244">"Tagi"</string>
+    <string name="tag_unknown" msgid="2897956823877728783">"Tuntematon tagityyppi"</string>
+    <string name="tag_empty" msgid="3726529819932095782">"Tyhjä tagi"</string>
     <string name="button_done" msgid="7048822758098308158">"Valmis"</string>
     <string name="action_text" msgid="577417996159152923">"Lähetä tekstiviesti numeroon <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="action_call" msgid="6226253647953184035">"Soita numeroon <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
-    <string name="empty_tag_prompt" msgid="4206394383309956030">"Tämä tunniste on tyhjä."</string>
+    <string name="empty_tag_prompt" msgid="4206394383309956030">"Tämä tagi on tyhjä."</string>
     <string name="import_vcard" msgid="5104299047930666528">"Tuo ^1"</string>
-    <string name="mime_display_name" msgid="5926357152623764485">"NFC-tunnisteen tiedot"</string>
+    <string name="mime_display_name" msgid="5926357152623764485">"NFC-tagin tiedot"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Henkilön ^1 yhteystiedot"</string>
 </resources>

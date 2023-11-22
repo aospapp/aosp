@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#if defined(__ANDROID__)
+/* libnativehelper is built by NDK 19 in one variant, which doesn't yet have the GNU strerror_r. */
+#undef _GNU_SOURCE
+#endif
+
 #define LOG_TAG "JNIHelp"
 
 #include "JniConstants.h"
@@ -54,12 +59,10 @@ public:
     }
 
 private:
-    C_JNIEnv* mEnv;
+    C_JNIEnv* const mEnv;
     T mLocalRef;
 
-    // Disallow copy and assignment.
-    scoped_local_ref(const scoped_local_ref&);
-    void operator=(const scoped_local_ref&);
+    DISALLOW_COPY_AND_ASSIGN(scoped_local_ref);
 };
 
 static jclass findClass(C_JNIEnv* env, const char* className) {

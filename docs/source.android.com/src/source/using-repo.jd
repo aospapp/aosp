@@ -2,7 +2,7 @@ page.title=Repo command reference
 @jd:body
 
 <!--
-    Copyright 2013 The Android Open Source Project
+    Copyright 2014 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -25,18 +25,25 @@ page.title=Repo command reference
   </div>
 </div>
 <p>Repo usage takes the following form: </p>
-<pre><code>repo COMMAND OPTIONS
+<pre><code>repo <em>&lt;COMMAND&gt;</em> <em>&lt;OPTIONS&gt;</em>
 </code></pre>
-<p>Optional elements are shown in brackets [ ]. Once Repo is installed, you can get information about any command by running   </p>
-<pre><code>repo help COMMAND
+<p>Optional elements are shown in brackets [ ]. For example, many commands take
+a project list as an argument. You can specify project-list as a list of names
+or a list of paths to local source directories for the projects:</p>
+<pre><code>repo sync [<em>&lt;PROJECT0&gt;</em> <em>&lt;PROJECT1&gt;</em> <em>&lt;PROJECTN&gt;</em>]
+repo sync [<em>&lt;/PATH/TO/PROJECT0&gt;</em> ... <em>&lt;/PATH/TO/PROJECTN&gt;</em>]
 </code></pre>
-<p>Many commands take a project list as an argument. You can specify project-list as a list of names or a list of paths to local source directories for the projects:</p>
-<pre><code>repo sync [PROJECT0 PROJECT1 ... PROJECTN]
-repo sync [/PATH/TO/PROJECT0 ... /PATH/TO/PROJECTN]
+
+<h2 id="help">help</h2>
+<p>Once Repo is installed, you can find the latest documentation starting with a summary of all commands by running:</p>
+<pre><code>repo help
+</code></pre>
+<p>You can get information about any command by running this within a Repo tree:</p>
+<pre><code>repo help <em>&lt;COMMAND&gt;</em>
 </code></pre>
 
 <h2 id="init">init</h2>
-<pre><code>$ repo init -u URL [OPTIONS]
+<pre><code>$ repo init -u <em>&lt;URL&gt;</em> [<em>&lt;OPTIONS&gt;</em>]
 </code></pre>
 <p>Installs Repo in the current directory. This creates a <code>.repo/</code> directory that contains Git repositories for the Repo source code and the standard Android manifest files. The <code>.repo/</code> directory also contains <code>manifest.xml</code>, which is a symlink to the selected manifest in the <code>.repo/manifests/</code> directory.</p>
 <p>Options:</p>
@@ -53,7 +60,7 @@ repo sync [/PATH/TO/PROJECT0 ... /PATH/TO/PROJECTN]
 </ul>
 <p><em>Note: For all remaining Repo commands, the current working directory must either be the parent directory of <code>.repo/</code> or a subdirectory of the parent directory.</em></p>
 <h2 id="sync">sync</h2>
-<pre><code>repo sync [PROJECT_LIST]
+<pre><code>repo sync [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>Downloads new changes and updates the working files in your local environment. If you run <code>repo sync</code> without any arguments, it will synchronize the files for all the projects.</p>
 <p>When you run <code>repo sync</code>, this is what happens:</p>
@@ -64,9 +71,9 @@ repo sync [/PATH/TO/PROJECT0 ... /PATH/TO/PROJECTN]
 <li>
 <p>If the project has already been synchronized once, then <code>repo sync</code> is equivalent to:</p>
 <pre><code>git remote update 
-git rebase origin/BRANCH
+git rebase origin/<em>&lt;BRANCH&gt;</em>
 </code></pre>
-<p>where <code>BRANCH</code> is the currently checked-out branch in the local project directory. If the local branch is not tracking a branch in the remote repository, then no synchronization will occur for the project.</p>
+<p>where <code><em>&lt;BRANCH&gt;</em></code> is the currently checked-out branch in the local project directory. If the local branch is not tracking a branch in the remote repository, then no synchronization will occur for the project.</p>
 </li>
 <li>
 <p>If the git rebase operation results in merge conflicts, you will need to use the normal Git commands (for example, <code>git rebase --continue</code>) to resolve the conflicts.</p>
@@ -86,7 +93,7 @@ git rebase origin/BRANCH
 </li>
 </ul>
 <h2 id="upload">upload</h2>
-<pre><code>repo upload [PROJECT_LIST]
+<pre><code>repo upload [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>For the specified projects, Repo compares the local branches to the remote branches updated during the last repo sync. Repo will prompt you to select one or more of the branches that have not yet been uploaded for review.</p>
 <p>After you select one or more branches, all commits on the selected branches
@@ -105,14 +112,10 @@ single commit, use git rebase -i before you run repo upload.</p>
 <p>Make sure the updated branch is the currently checked out branch.</p>
 </li>
 <li>
-<p>Use <code>repo upload --replace PROJECT</code> to open the change matching editor.</p>
-</li>
-<li>
 <p>For each commit in the series, enter the Gerrit change ID inside the brackets:</p>
 <pre><code># Replacing from branch foo 
 [ 3021 ] 35f2596c Refactor part of GetUploadableBranches to lookup one specific...
 [ 2829 ] ec18b4ba Update proto client to support patch set replacments 
-[ 3022 ] c99883fe Teach 'repo upload --replace' how to add replacement patch se...
 # Insert change numbers in the brackets to add a new patch set.
 # To create a new change record, leave the brackets empty.
 </code></pre>
@@ -120,11 +123,11 @@ single commit, use git rebase -i before you run repo upload.</p>
 </ul>
 <p>After the upload is complete the changes will have an additional Patch Set.</p>
 <h2 id="diff">diff</h2>
-<pre><code>repo diff [PROJECT_LIST]
+<pre><code>repo diff [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>Shows outstanding changes between commit and working tree using <code>git diff</code>. </p>
 <h2 id="download">download</h2>
-<pre><code>repo download TARGET CHANGE
+<pre><code>repo download <em>&lt;TARGET&gt;</em> <em>&lt;CHANGE&gt;</em>
 </code></pre>
 <p>Downloads the specified change from the review system and makes it available in your project's local working directory.</p>
 <p>For example, to download <a href="https://android-review.googlesource.com/23823">change 23823</a> into your platform/frameworks/base directory:</p>
@@ -136,7 +139,7 @@ the web in <a href="https://android-review.googlesource.com/">Gerrit</a> and whe
 <code>repo download</code> will be able to find it for all users, because of replication
 delays to all servers worldwide.</p>
 <h2 id="forall">forall</h2>
-<pre><code>repo forall [PROJECT_LIST] -c COMMAND
+<pre><code>repo forall [<em>&lt;PROJECT_LIST&gt;</em>] -c <em>&lt;COMMAND&gt;</em>
 </code></pre>
 <p>Executes the given shell command in each project.  The following additional environment variables are made available by <code>repo forall</code>:</p>
 <ul>
@@ -169,18 +172,18 @@ delays to all servers worldwide.</p>
 </li>
 </ul>
 <h2 id="prune">prune</h2>
-<pre><code>repo prune [PROJECT_LIST]
+<pre><code>repo prune [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>Prunes (deletes) topics that are already merged.</p>
 <h2 id="start">start</h2>
-<pre><code>repo start BRANCH_NAME [PROJECT_LIST]
+<pre><code>repo start <em>&lt;BRANCH_NAME&gt;</em> [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>Begins a new branch for development, starting from the revision specified in the manifest.</p>
-<p>The <code>BRANCH_NAME</code> argument should provide a short description of the change you are trying to make to the projects.If you don't know, consider using the name default.</p>
-<p>The <code>PROJECT_LIST</code> specifies which projects will participate in this topic branch. </p>
+<p>The <code><em>&lt;BRANCH_NAME&gt;</em></code> argument should provide a short description of the change you are trying to make to the projects.If you don't know, consider using the name default.</p>
+<p>The <code><em>&lt;PROJECT_LIST&gt;</em></code> specifies which projects will participate in this topic branch. </p>
 <p><em>Note: "." is a useful shorthand for the project in the current working directory.</em></p>
 <h2 id="status">status</h2>
-<pre><code>repo status [PROJECT_LIST]
+<pre><code>repo status [<em>&lt;PROJECT_LIST&gt;</em>]
 </code></pre>
 <p>Compares the working tree to the staging area (index) and the most recent commit on this branch (HEAD) in each project specified.  Displays a summary line for each file where there is a difference between these three states.</p>
 <p>To see the status for only the current branch, run <code>repo status</code>. The status information will be listed by project. For each file in the project, a two-letter code is used:</p>

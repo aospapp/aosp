@@ -257,7 +257,7 @@ SLresult ThreadPool_add(ThreadPool *tp, ClosureKind kind, ClosureHandler_generic
         return SL_RESULT_RESOURCE_ERROR;
     }
     closure->mKind = kind;
-    switch(kind) {
+    switch (kind) {
       case CLOSURE_KIND_PPI:
         closure->mHandler.mHandler_ppi = (ClosureHandler_ppi)handler;
         break;

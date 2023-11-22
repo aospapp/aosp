@@ -18,6 +18,7 @@
 #define ART_COMPILER_OPTIMIZING_SSA_PHI_ELIMINATION_H_
 
 #include "nodes.h"
+#include "optimization.h"
 
 namespace art {
 
@@ -25,15 +26,20 @@ namespace art {
  * Optimization phase that removes dead phis from the graph. Dead phis are unused
  * phis, or phis only used by other phis.
  */
-class SsaDeadPhiElimination : public ValueObject {
+class SsaDeadPhiElimination : public HOptimization {
  public:
   explicit SsaDeadPhiElimination(HGraph* graph)
-      : graph_(graph), worklist_(graph->GetArena(), kDefaultWorklistSize) {}
+      : HOptimization(graph, true, kSsaDeadPhiEliminationPassName),
+        worklist_(graph->GetArena(), kDefaultWorklistSize) {}
 
-  void Run();
+  void Run() OVERRIDE;
+
+  void MarkDeadPhis();
+  void EliminateDeadPhis();
+
+  static constexpr const char* kSsaDeadPhiEliminationPassName = "dead_phi_elimination";
 
  private:
-  HGraph* const graph_;
   GrowableArray<HPhi*> worklist_;
 
   static constexpr size_t kDefaultWorklistSize = 8;
@@ -47,15 +53,17 @@ class SsaDeadPhiElimination : public ValueObject {
  * registers might be updated with the same value, or not updated at all. We can just
  * replace the phi with the value when entering the loop.
  */
-class SsaRedundantPhiElimination : public ValueObject {
+class SsaRedundantPhiElimination : public HOptimization {
  public:
   explicit SsaRedundantPhiElimination(HGraph* graph)
-      : graph_(graph), worklist_(graph->GetArena(), kDefaultWorklistSize) {}
+      : HOptimization(graph, true, kSsaRedundantPhiEliminationPassName),
+        worklist_(graph->GetArena(), kDefaultWorklistSize) {}
 
-  void Run();
+  void Run() OVERRIDE;
+
+  static constexpr const char* kSsaRedundantPhiEliminationPassName = "redundant_phi_elimination";
 
  private:
-  HGraph* const graph_;
   GrowableArray<HPhi*> worklist_;
 
   static constexpr size_t kDefaultWorklistSize = 8;

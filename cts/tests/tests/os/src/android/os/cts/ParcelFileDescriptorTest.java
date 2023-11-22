@@ -358,6 +358,15 @@ public class ParcelFileDescriptorTest extends AndroidTestCase {
         }
     }
 
+    // http://b/21578056
+    public void testFileNamesWithNonBmpChars() throws Exception {
+        final File file = File.createTempFile("treble_clef_\ud834\udd1e", ".tmp");
+        final ParcelFileDescriptor pfd = ParcelFileDescriptor.open(file,
+                ParcelFileDescriptor.MODE_READ_ONLY);
+        assertNotNull(pfd);
+        pfd.close();
+    }
+
     static ParcelFileDescriptor makeParcelFileDescriptor(Context con) throws Exception {
         final String fileName = "testParcelFileDescriptor";
 

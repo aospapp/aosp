@@ -65,6 +65,7 @@ import android.test.mock.MockContentResolver;
 import android.test.mock.MockContext;
 import android.util.Log;
 
+import com.android.providers.contacts.util.ContactsPermissions;
 import com.android.providers.contacts.util.MockSharedPreferences;
 
 import com.google.android.collect.Sets;
@@ -263,6 +264,10 @@ public class ContactsActor {
      */
     public ContactsActor(final Context overallContext, String packageName,
             Class<? extends ContentProvider> providerClass, String authority) throws Exception {
+
+        // Force permission check even when called by self.
+        ContactsPermissions.ALLOW_SELF_CALL = false;
+
         resolver = new MockContentResolver();
         context = new RestrictionMockContext(overallContext, packageName, resolver,
                 mGrantedPermissions, mGrantedUriPermissions);
@@ -323,10 +328,6 @@ public class ContactsActor {
         return mProviderContext;
     }
 
-    public void addAuthority(String authority) {
-        resolver.addProvider(authority, provider);
-    }
-
     public <T extends ContentProvider> T addProvider(Class<T> providerClass,
             String authority) throws Exception {
         return addProvider(providerClass, authority, mProviderContext);
@@ -342,6 +343,12 @@ public class ContactsActor {
         info.authority = stripOutUserIdFromAuthority(authority);
         provider.attachInfoForTesting(providerContext, info);
         resolver.addProvider(authority, provider);
+
+        // In case of LegacyTest, "authority" here is actually multiple authorities.
+        // Register all authority here.
+        for (String a : authority.split(";")) {
+            resolver.addProvider(a, provider);
+        }
         return provider;
     }
 

@@ -34,29 +34,14 @@ final class RoundedRectHelper {
     }
 
     /**
-     * Sets a rounded rectangle background on the given view, and clips the view to the
-     * background.  If clipping isn't supported on the android runtime, a simple rectangle
-     * background is set instead.
-     *
-     * @param view The view to be modified
-     * @param color The color of the background
+     * Sets or removes a rounded rectangle outline on the given view.
      */
-    public void setRoundedRectBackground(View view, int color) {
-        mImpl.setRoundedRectBackground(view, color);
-    }
-
-    /**
-     * Clears the background of the view to transparent.
-     *
-     * @param view The view to be modified
-     */
-    public void clearBackground(View view) {
-        mImpl.clearBackground(view);
+    public void setClipToRoundedOutline(View view, boolean clip) {
+        mImpl.setClipToRoundedOutline(view, clip);
     }
 
     static interface Impl {
-        public void setRoundedRectBackground(View view, int color);
-        public void clearBackground(View view);
+        public void setClipToRoundedOutline(View view, boolean clip);
     }
 
     /**
@@ -64,16 +49,8 @@ final class RoundedRectHelper {
      */
     private static final class StubImpl implements Impl {
         @Override
-        public void setRoundedRectBackground(View view, int color) {
-            // We could set a rounded rect background, but we don't
-            // because we can't do setClipToOutline.
-            // So just set a regular rectangle.
-            view.setBackgroundColor(color);
-        }
-
-        @Override
-        public void clearBackground(View view) {
-            view.setBackground(null);
+        public void setClipToRoundedOutline(View view, boolean clip) {
+            // Not supported
         }
     }
 
@@ -82,13 +59,8 @@ final class RoundedRectHelper {
      */
     private static final class Api21Impl implements Impl {
         @Override
-        public void setRoundedRectBackground(View view, int color) {
-            RoundedRectHelperApi21.setRoundedRectBackground(view, color);
-        }
-
-        @Override
-        public void clearBackground(View view) {
-            RoundedRectHelperApi21.clearBackground(view);
+        public void setClipToRoundedOutline(View view, boolean clip) {
+            RoundedRectHelperApi21.setClipToRoundedOutline(view, clip);
         }
     }
 

@@ -310,7 +310,7 @@ public class ArrayMapTest extends AndroidTestCase {
 
     private static void dump(ArrayMap map1, ArrayMap map2) {
         Log.e("test", "ArrayMap of " + map1.size() + " entries:");
-        for (int i=0; i<map2.size(); i++) {
+        for (int i=0; i<map1.size(); i++) {
             Log.e("test", "    " + map1.keyAt(i) + " -> " + map1.valueAt(i));
         }
         Log.e("test", "ArrayMap of " + map2.size() + " entries:");

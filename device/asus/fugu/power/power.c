@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "IntelPowerHAL"
@@ -114,8 +116,6 @@ static void fugu_power_init(struct power_module *module)
 
 static void fugu_power_set_interactive(struct power_module *module, int on)
 {
-    struct dirent **device_list = NULL;
-
     ALOGI("setInteractive: on=%d", on);
     (void) module; /* unused */
     (void) on; /* unused */
@@ -140,7 +140,6 @@ static inline uint64_t timespec_to_us(struct timespec *t)
 static void fugu_power_hint(struct power_module *module, power_hint_t hint, void *data)
 {
     struct intel_power_module *mod = (struct intel_power_module *) module;
-    char sysfs_val[80];
     struct timespec curr_time;
     struct timespec diff_time;
     uint64_t diff;

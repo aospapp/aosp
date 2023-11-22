@@ -43,6 +43,12 @@
 #endif
 
 
+static inline uint16_t hb_uint16_swap (const uint16_t v)
+{ return (v >> 8) | (v << 8); }
+static inline uint32_t hb_uint32_swap (const uint32_t v)
+{ return (hb_uint16_swap (v) << 16) | hb_uint16_swap (v >> 16); }
+
+
 typedef HRESULT (WINAPI *SIOT) /*ScriptItemizeOpenType*/(
   const WCHAR *pwcInChars,
   int cInChars,
@@ -245,7 +251,7 @@ retry:
       goto retry;
     }
 
-#ifdef HAVE_ATEXIT
+#ifdef HB_USE_ATEXIT
     atexit (free_uniscribe_funcs); /* First person registers atexit() callback. */
 #endif
   }
@@ -310,6 +316,7 @@ _hb_generate_unique_face_name (wchar_t *face_name, unsigned int *plen)
   const char *enc = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
   UUID id;
   UuidCreate ((UUID*) &id);
+  ASSERT_STATIC (2 + 3 * (16/2) < LF_FACESIZE);
   unsigned int name_str_len = 0;
   face_name[name_str_len++] = 'F';
   face_name[name_str_len++] = '_';
@@ -902,8 +909,7 @@ retry:
       FAIL ("ScriptShapeOpenType() set fNoGlyphIndex");
     if (unlikely (hr == E_OUTOFMEMORY))
     {
-      buffer->ensure (buffer->allocated * 2);
-      if (buffer->in_error)
+      if (unlikely (!buffer->ensure (buffer->allocated * 2)))
 	FAIL ("Buffer resize failed");
       goto retry;
     }
@@ -972,8 +978,7 @@ retry:
 
 #undef utf16_index
 
-  buffer->ensure (glyphs_len);
-  if (buffer->in_error)
+  if (unlikely (!buffer->ensure (glyphs_len)))
     FAIL ("Buffer in error");
 
 #undef FAIL

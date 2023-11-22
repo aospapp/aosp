@@ -63,12 +63,12 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
     private static final int SOCKET_TIMEOUT = 10000;
     private static final int READ_TIMEOUT = 10000;
 
-    private WeakReference<ImageView> mImageView;
+    private final WeakReference<ImageView> mImageView;
     private int mOriginalWidth;
     private int mOriginalHeight;
-    private RecycleBitmapPool mRecycledBitmaps;
+    private final RecycleBitmapPool mRecycledBitmaps;
 
-    private RefcountObject.RefcountListener mRefcountListener =
+    private final RefcountObject.RefcountListener mRefcountListener =
             new RefcountObject.RefcountListener() {
         @Override
         public void onRefcountZero(RefcountObject object) {
@@ -78,7 +78,7 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
 
 
     DrawableLoader(ImageView imageView, RecycleBitmapPool recycledBitmapPool) {
-        mImageView = new WeakReference<ImageView>(imageView);
+        mImageView = new WeakReference<>(imageView);
         mRecycledBitmaps = recycledBitmapPool;
     }
 
@@ -133,11 +133,9 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
 
     @Override
     protected void onPostExecute(Drawable bitmap) {
-        if (mImageView != null) {
-            final ImageView imageView = mImageView.get();
-            if (imageView != null) {
-                imageView.setImageDrawable(bitmap);
-            }
+        final ImageView imageView = mImageView.get();
+        if (imageView != null) {
+            imageView.setImageDrawable(bitmap);
         }
     }
 
@@ -156,8 +154,6 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
         if (DEBUG) {
             Log.d(TAG, "Loading " + iconResource.toString());
         }
-        String packageName = iconResource.packageName;
-        String resourceName = iconResource.resourceName;
         try {
             Object drawable = loadDrawable(outputOptions.getContext(), iconResource);
             if (drawable instanceof InputStream) {
@@ -234,7 +230,7 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
             // Reset buffer to original position and disable the overrideMarkLimit
             bufferedStream.reset();
             bufferedStream.setOverrideMarkLimit(0);
-            Bitmap bitmap = null;
+            Bitmap bitmap;
             try {
                 bitmapOptions.inJustDecodeBounds = false;
                 bitmapOptions.inSampleSize = scale;
@@ -253,7 +249,7 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
                 Log.d(TAG, "bitmap was null");
                 return null;
             }
-            RefcountObject<Bitmap> object = new RefcountObject<Bitmap>(bitmap);
+            RefcountObject<Bitmap> object = new RefcountObject<>(bitmap);
             object.addRef();
             object.setRefcountListener(mRefcountListener);
             RefcountBitmapDrawable d = new RefcountBitmapDrawable(
@@ -323,8 +319,7 @@ class DrawableLoader extends AsyncTask<BitmapWorkerOptions, Void, Drawable> {
      */
     private static Object loadDrawable(Context context, ShortcutIconResource r)
             throws NameNotFoundException {
-        Resources resources = context.getPackageManager()
-                .getResourcesForApplication(r.packageName);
+        Resources resources = context.getPackageManager().getResourcesForApplication(r.packageName);
         if (resources == null) {
             return null;
         }

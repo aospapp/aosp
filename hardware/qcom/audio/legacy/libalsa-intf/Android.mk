@@ -44,11 +44,6 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES:= libc libcutils #libutils #libmedia libhardware_legacy
 LOCAL_CFLAGS := -DQC_PROP -DCONFIG_DIR=\"/system/etc/snd_soc_msm/\"
 
-ifeq ($(TARGET_SIMULATOR),true)
- LOCAL_LDLIBS += -ldl
-else
- LOCAL_SHARED_LIBRARIES += libdl
-endif
-LOCAL_PRELINK_MODULE := false
+LOCAL_SHARED_LIBRARIES += libdl
 include $(BUILD_SHARED_LIBRARY)
 endif

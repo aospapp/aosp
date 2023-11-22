@@ -15,8 +15,8 @@
  */
 package com.android.ide.eclipse.adt.internal.preferences;
 
-import static com.android.tools.lint.detector.api.Issue.OutputFormat.RAW;
-import static com.android.tools.lint.detector.api.Issue.OutputFormat.TEXT;
+import static com.android.tools.lint.detector.api.TextFormat.RAW;
+import static com.android.tools.lint.detector.api.TextFormat.TEXT;
 
 import com.android.annotations.NonNull;
 import com.android.ide.eclipse.adt.AdtPlugin;
@@ -30,6 +30,7 @@ import com.android.tools.lint.detector.api.Category;
 import com.android.tools.lint.detector.api.Issue;
 import com.android.tools.lint.detector.api.Project;
 import com.android.tools.lint.detector.api.Severity;
+import com.android.tools.lint.detector.api.TextFormat;
 
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
@@ -451,8 +452,8 @@ public class LintPreferencePage extends PropertyPage implements IWorkbenchPrefer
             Object data = item != null ? item.getData() : null;
             if (data instanceof Issue) {
                 Issue issue = (Issue) data;
-                String summary = issue.getDescription(Issue.OutputFormat.TEXT);
-                String explanation = issue.getExplanation(Issue.OutputFormat.TEXT);
+                String summary = issue.getBriefDescription(TextFormat.TEXT);
+                String explanation = issue.getExplanation(TextFormat.TEXT);
 
                 StringBuilder sb = new StringBuilder(summary.length() + explanation.length() + 20);
                 sb.append(summary);
@@ -571,7 +572,7 @@ public class LintPreferencePage extends PropertyPage implements IWorkbenchPrefer
                 || issue.getCategory().getName().toLowerCase(Locale.US).startsWith(filter)
                 || issue.getCategory().getFullName().toLowerCase(Locale.US).startsWith(filter)
                 || issue.getId().toLowerCase(Locale.US).contains(filter)
-                || issue.getDescription(RAW).toLowerCase(Locale.US).contains(filter);
+                || issue.getBriefDescription(RAW).toLowerCase(Locale.US).contains(filter);
     }
 
     private class ContentProvider extends TreeNodeContentProvider {
@@ -715,7 +716,7 @@ public class LintPreferencePage extends PropertyPage implements IWorkbenchPrefer
                 case 0:
                     return issue.getId();
                 case 1:
-                    return issue.getDescription(TEXT);
+                    return issue.getBriefDescription(TEXT);
             }
 
             return null;

@@ -169,6 +169,9 @@ static float3 tonemap(float3 rgb) {
         case 4: // impossible
         case 5: // impossible
         default:
+            finalRGB.x = 0.f;
+            finalRGB.y = 0.f;
+            finalRGB.z = 0.f;
             LOGD("raw_converter.rs: Logic error in tonemap.", 0);
             break;
     }

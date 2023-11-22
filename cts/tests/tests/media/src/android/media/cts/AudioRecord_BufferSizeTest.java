@@ -53,6 +53,11 @@ public class AudioRecord_BufferSizeTest extends AndroidTestCase {
             } catch (Throwable e) {
                 Log.e(TAG, "Sample rate: " + SAMPLE_RATES_IN_HZ[i], e);
                 failedSampleRates.add(SAMPLE_RATES_IN_HZ[i]);
+                if (mAudioRecord != null) {
+                    // clean up.  AudioRecords are in scarce supply.
+                    mAudioRecord.release();
+                    mAudioRecord = null;
+                }
             }
         }
         assertTrue("Failed sample rates: " + failedSampleRates + " See log for more details.",
@@ -61,36 +66,32 @@ public class AudioRecord_BufferSizeTest extends AndroidTestCase {
 
     private void record(int sampleRateInHz) {
         int bufferSize = AudioRecord.getMinBufferSize(sampleRateInHz, CHANNEL_CONFIG, AUDIO_FORMAT);
-        byte[] buffer = new byte[bufferSize];
         assertTrue(bufferSize > 0);
 
         createAudioRecord(sampleRateInHz, bufferSize);
-        checkRecordingState(AudioRecord.STATE_INITIALIZED);
+        // RecordingState changes are reflected synchronously (no need to poll)
+        assertEquals(AudioRecord.RECORDSTATE_STOPPED, mAudioRecord.getRecordingState());
 
         mAudioRecord.startRecording();
-        checkRecordingState(AudioRecord.RECORDSTATE_RECORDING);
+        assertEquals(AudioRecord.RECORDSTATE_RECORDING, mAudioRecord.getRecordingState());
 
+        // it is preferred to use a short array to read AudioFormat.ENCODING_PCM_16BIT data
+        // but it's ok to read using using a byte array.  16 bit PCM data will be
+        // stored as two bytes, native endian.
+        byte[] buffer = new byte[bufferSize];
         assertTrue(mAudioRecord.read(buffer, 0, bufferSize) > 0);
 
         mAudioRecord.stop();
-        checkRecordingState(AudioRecord.RECORDSTATE_STOPPED);
+        assertEquals(AudioRecord.RECORDSTATE_STOPPED, mAudioRecord.getRecordingState());
 
         mAudioRecord.release();
+        mAudioRecord = null;
     }
 
     private void createAudioRecord(final int sampleRateInHz, final int bufferSize) {
         mAudioRecord = new AudioRecord(AudioSource.DEFAULT, sampleRateInHz,
                 CHANNEL_CONFIG, AUDIO_FORMAT, bufferSize);
         assertNotNull(mAudioRecord);
-    }
-
-    private void checkRecordingState(final int state) {
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return mAudioRecord.getRecordingState() == state;
-            }
-        }.run();
     }
 
     private boolean hasMicrophone() {

@@ -28,11 +28,18 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 /* Must not conflict with PROT_{NONE,READ,WRITE}. */
 #define MAP_FLAGS_DEVICE_MEM  0x8000
 
+enum map_create_type
+  {
+    UNW_MAP_CREATE_REMOTE,
+    UNW_MAP_CREATE_LOCAL,
+  };
+
 struct map_info
   {
     uintptr_t start;
     uintptr_t end;
     uintptr_t offset;
+    uintptr_t load_base;
     int flags;
     char *path;
 
@@ -59,7 +66,7 @@ void map_free_info (struct map_info *);
 
 struct map_info *map_find_from_addr (struct map_info *, unw_word_t);
 
-struct map_info *map_create_list (pid_t);
+struct map_info *map_create_list (int, pid_t);
 
 void map_destroy_list (struct map_info *);
 

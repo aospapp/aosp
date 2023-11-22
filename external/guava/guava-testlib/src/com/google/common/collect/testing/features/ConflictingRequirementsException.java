@@ -16,16 +16,17 @@
 
 package com.google.common.collect.testing.features;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.Set;
 
 /**
  * Thrown when requirements on a tester method or class conflict with
  * each other.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public class ConflictingRequirementsException extends Exception {
   private Set<Feature<?>> conflicts;
   private Object source;

@@ -88,8 +88,6 @@ OMXVideoDecoderVP9HWR::~OMXVideoDecoderVP9HWR()
 {
     LOGV("OMXVideoDecoderVP9HWR is destructed.");
 
-    unsigned int i = 0;
-
     if (mVADisplay) {
         vaTerminate(mVADisplay);
         mVADisplay = NULL;
@@ -401,7 +399,6 @@ OMX_ERRORTYPE OMXVideoDecoderVP9HWR::ProcessorProcess(
 {
     OMX_ERRORTYPE ret;
     OMX_BUFFERHEADERTYPE *inBuffer = *pBuffers[INPORT_INDEX];
-    OMX_BUFFERHEADERTYPE *outBuffer = *pBuffers[OUTPORT_INDEX];
     OMX_BOOL isResolutionChange = OMX_FALSE;
 
     if (inBuffer->pBuffer == NULL) {
@@ -593,11 +590,6 @@ OMX_ERRORTYPE OMXVideoDecoderVP9HWR::FillRenderBuffer(OMX_BUFFERHEADERTYPE **pBu
 
         void *dst = buffer->pBuffer;
         uint8_t *dst_y = (uint8_t *)dst;
-        const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionInput
-                                      = this->ports[INPORT_INDEX]->GetPortDefinition();
-
-        size_t inBufferWidth = paramPortDefinitionInput->format.video.nFrameWidth;
-        size_t inBufferHeight = paramPortDefinitionInput->format.video.nFrameHeight;
 
         const OMX_PARAM_PORTDEFINITIONTYPE *paramPortDefinitionOutput
                                       = this->ports[OUTPORT_INDEX]->GetPortDefinition();

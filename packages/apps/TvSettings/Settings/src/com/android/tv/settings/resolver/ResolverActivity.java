@@ -26,7 +26,6 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.LabeledIntent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PatternMatcher;
@@ -35,8 +34,8 @@ import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.internal.content.PackageMonitor;
-import com.android.tv.settings.R;
 import com.android.tv.settings.BaseSettingsActivity;
+import com.android.tv.settings.R;
 import com.android.tv.settings.dialog.old.Action;
 import com.android.tv.settings.dialog.old.ActionAdapter;
 import com.android.tv.settings.dialog.old.ActionFragment;
@@ -380,12 +379,11 @@ public class ResolverActivity extends BaseSettingsActivity implements ActionAdap
         }
     }
 
-    private final class DisplayResolveInfo {
-        ResolveInfo ri;
-        CharSequence displayLabel;
-        Drawable displayIcon;
-        CharSequence extendedInfo;
-        Intent origIntent;
+    private static final class DisplayResolveInfo {
+        final ResolveInfo ri;
+        final CharSequence displayLabel;
+        final CharSequence extendedInfo;
+        final Intent origIntent;
 
         DisplayResolveInfo(ResolveInfo pri, CharSequence pLabel,
                 CharSequence pInfo, Intent pOrigIntent) {
@@ -402,7 +400,7 @@ public class ResolverActivity extends BaseSettingsActivity implements ActionAdap
         private final Intent mIntent;
         private final int mLaunchedFromUid;
 
-        private List<DisplayResolveInfo> mList;
+        private final List<DisplayResolveInfo> mList;
 
         public ResolveListHelper(Context context, Intent intent,
                 Intent[] initialIntents, List<ResolveInfo> rList, int launchedFromUid) {
@@ -411,12 +409,11 @@ public class ResolverActivity extends BaseSettingsActivity implements ActionAdap
             mInitialIntents = initialIntents;
             mBaseResolveList = rList;
             mLaunchedFromUid = launchedFromUid;
-            mList = new ArrayList<DisplayResolveInfo>();
+            mList = new ArrayList<>();
             rebuildList();
         }
 
         public void handlePackagesChanged() {
-            final int oldItemCount = getCount();
             rebuildList();
             refreshActionList();
             ActionAdapter adapter = (ActionAdapter) ((ActionFragment) mActionFragment).getAdapter();
@@ -554,8 +551,7 @@ public class ResolverActivity extends BaseSettingsActivity implements ActionAdap
                 }
                 if (!usePkg) {
                     // Use HashSet to track duplicates
-                    HashSet<CharSequence> duplicates =
-                            new HashSet<CharSequence>();
+                    HashSet<CharSequence> duplicates = new HashSet<>();
                     duplicates.add(startApp);
                     for (int j = start + 1; j <= end; j++) {
                         ResolveInfo jRi = rList.get(j);

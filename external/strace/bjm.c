@@ -34,7 +34,6 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
-#include <sys/user.h>
 
 /* Bits of module.flags.  */
 
@@ -73,8 +72,7 @@ struct module_info
 #include "xlat/modflags.h"
 #include "xlat/delete_module_flags.h"
 
-int
-sys_query_module(struct tcb *tcp)
+SYS_FUNC(query_module)
 {
 	if (entering(tcp)) {
 		printstr(tcp, tcp->u_arg[0], -1);
@@ -164,8 +162,7 @@ sys_query_module(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_create_module(struct tcb *tcp)
+SYS_FUNC(create_module)
 {
 	if (entering(tcp)) {
 		printpath(tcp, tcp->u_arg[0]);
@@ -174,8 +171,7 @@ sys_create_module(struct tcb *tcp)
 	return RVAL_HEX;
 }
 
-int
-sys_delete_module(struct tcb *tcp)
+SYS_FUNC(delete_module)
 {
 	if (entering(tcp)) {
 		printstr(tcp, tcp->u_arg[0], -1);
@@ -185,8 +181,7 @@ sys_delete_module(struct tcb *tcp)
 	return 0;
 }
 
-int
-sys_init_module(struct tcb *tcp)
+SYS_FUNC(init_module)
 {
 	if (entering(tcp)) {
 		tprintf("%#lx, %lu, ", tcp->u_arg[0], tcp->u_arg[1]);
@@ -200,8 +195,7 @@ sys_init_module(struct tcb *tcp)
 
 #include "xlat/module_init_flags.h"
 
-int
-sys_finit_module(struct tcb *tcp)
+SYS_FUNC(finit_module)
 {
 	if (exiting(tcp))
 		return 0;

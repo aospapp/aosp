@@ -28,11 +28,14 @@
 namespace art {
 
 namespace mirror {
-class ArtMethod;
+class Array;
 class Class;
 class Object;
+template<class MirrorType>
+class CompressedReference;
 }  // namespace mirror
 
+class ArtMethod;
 class Thread;
 
 // Pointers to functions that are called by quick compiler generated code via thread-local storage.
@@ -62,6 +65,10 @@ extern mirror::Object* JniMethodEndWithReference(jobject result, uint32_t saved_
 extern mirror::Object* JniMethodEndWithReferenceSynchronized(jobject result,
                                                              uint32_t saved_local_ref_cookie,
                                                              jobject locked, Thread* self)
+    NO_THREAD_SAFETY_ANALYSIS HOT_ATTR;
+
+extern void ReadBarrierJni(mirror::CompressedReference<mirror::Object>* handle_on_stack,
+                           Thread* self)
     NO_THREAD_SAFETY_ANALYSIS HOT_ATTR;
 
 }  // namespace art

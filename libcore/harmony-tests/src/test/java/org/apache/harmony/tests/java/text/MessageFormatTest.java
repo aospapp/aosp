@@ -184,6 +184,9 @@ public class MessageFormatTest extends TestCase {
   }
 
   public void test_parseLjava_lang_String() throws ParseException {
+    // This test assumes a default DateFormat.is24Hour setting.
+    DateFormat.is24Hour = null;
+
     String pattern = "A {3, number, currency} B {2, time} C {0, number, percent} D {4}  E {1,choice,0#off|1#on} F {0, date}";
     MessageFormat mf = new MessageFormat(pattern);
     String sToParse = "A $12,345.00 B 9:56:07 AM C 3,200% D 1/15/70 9:56 AM  E on F Jan 1, 1970";
@@ -949,5 +952,13 @@ public class MessageFormatTest extends TestCase {
 
     String res = MessageFormat.format("bgcolor=\"{10}\"", messageArgs);
     assertEquals(res, "bgcolor=\"example10\"");
+  }
+
+  // http://b/19011159
+  public void test19011159() {
+    final String pattern = "ab{0,choice,0#1'2''3'''4''''.}yz";
+    final MessageFormat format = new MessageFormat(pattern, Locale.ENGLISH);
+    final Object[] zero0 = new Object[] { 0 };
+    assertEquals("ab12'3'4''.yz", format.format(zero0));
   }
 }

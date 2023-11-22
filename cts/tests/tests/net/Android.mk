@@ -24,17 +24,18 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_JAVA_LIBRARIES := voip-common conscrypt
+LOCAL_JAVA_LIBRARIES := voip-common conscrypt org.apache.http.legacy
 
-LOCAL_JNI_SHARED_LIBRARIES := libnativedns_jni
+LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libnativedns_jni \
+                              libnativemultinetwork_jni
 
 # include CtsTestServer as a temporary hack to free net.cts from cts.stub.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsNetTestCases
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestserver ctsdeviceutil ctstestrunner \
-                               core-tests-support
+LOCAL_STATIC_JAVA_LIBRARIES := core-tests-support  ctsdeviceutil \
+                               ctstestrunner ctstestserver mockwebserver
 
 # uncomment when b/13249961 is fixed
 #LOCAL_SDK_VERSION := current

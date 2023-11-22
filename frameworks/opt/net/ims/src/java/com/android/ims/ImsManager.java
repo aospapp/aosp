@@ -17,15 +17,18 @@
 package com.android.ims;
 
 import android.app.PendingIntent;
+import android.app.QueuedWork;
 import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
+import android.telephony.CarrierConfigManager;
 import android.telephony.Rlog;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -58,6 +61,8 @@ public class ImsManager {
     public static final int PROPERTY_DBG_VOLTE_AVAIL_OVERRIDE_DEFAULT = 0;
     public static final String PROPERTY_DBG_VT_AVAIL_OVERRIDE = "persist.dbg.vt_avail_ovr";
     public static final int PROPERTY_DBG_VT_AVAIL_OVERRIDE_DEFAULT = 0;
+    public static final String PROPERTY_DBG_WFC_AVAIL_OVERRIDE = "persist.dbg.wfc_avail_ovr";
+    public static final int PROPERTY_DBG_WFC_AVAIL_OVERRIDE_DEFAULT = 0;
 
     /**
      * For accessing the IMS related service.
@@ -93,6 +98,14 @@ public class ImsManager {
      */
     public static final String ACTION_IMS_SERVICE_DOWN =
             "com.android.ims.IMS_SERVICE_DOWN";
+
+    /**
+     * Action to broadcast when ImsService registration fails.
+     * Internal use only.
+     * @hide
+     */
+    public static final String ACTION_IMS_REGISTRATION_ERROR =
+            "com.android.ims.REGISTRATION_ERROR";
 
     /**
      * Part of the ACTION_IMS_SERVICE_UP or _DOWN intents.
@@ -171,7 +184,7 @@ public class ImsManager {
         int enabled = android.provider.Settings.Global.getInt(
                     context.getContentResolver(),
                     android.provider.Settings.Global.ENHANCED_4G_MODE_ENABLED, ImsConfig.FeatureValueConstants.ON);
-        return (enabled == 1)? true:false;
+        return (enabled == 1) ? true : false;
     }
 
     /**
@@ -201,8 +214,8 @@ public class ImsManager {
      * supported.
      */
     public static boolean isNonTtyOrTtyOnVolteEnabled(Context context) {
-        if (context.getResources().getBoolean(
-                com.android.internal.R.bool.config_carrier_volte_tty_supported)) {
+        if (getBooleanCarrierConfig(context,
+                    CarrierConfigManager.KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL)) {
             return true;
         }
 
@@ -220,14 +233,10 @@ public class ImsManager {
             return true;
         }
 
-        boolean disabledByGlobalSetting = android.provider.Settings.Global.getInt(
-                context.getContentResolver(),
-                android.provider.Settings.Global.VOLTE_FEATURE_DISABLED, 0) == 1;
-
         return context.getResources().getBoolean(
-                com.android.internal.R.bool.config_device_volte_available) && context.getResources()
-                .getBoolean(com.android.internal.R.bool.config_carrier_volte_available)
-                && !disabledByGlobalSetting;
+                com.android.internal.R.bool.config_device_volte_available)
+                && getBooleanCarrierConfig(context,
+                        CarrierConfigManager.KEY_CARRIER_VOLTE_AVAILABLE_BOOL);
     }
 
     /*
@@ -235,11 +244,11 @@ public class ImsManager {
      */
     public static boolean isVolteProvisionedOnDevice(Context context) {
         boolean isProvisioned = true;
-        if (context.getResources().getBoolean(
-                        com.android.internal.R.bool.config_carrier_volte_provisioned)) {
+        if (getBooleanCarrierConfig(context,
+                    CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL)) {
             isProvisioned = false; // disable on any error
             ImsManager mgr = ImsManager.getInstance(context,
-                    SubscriptionManager.getDefaultVoiceSubId());
+                    SubscriptionManager.getDefaultVoicePhoneId());
             if (mgr != null) {
                 try {
                     ImsConfig config = mgr.getConfigInterface();
@@ -270,14 +279,174 @@ public class ImsManager {
         return
                 context.getResources().getBoolean(
                         com.android.internal.R.bool.config_device_vt_available) &&
-                context.getResources().getBoolean(
-                        com.android.internal.R.bool.config_carrier_vt_available);
+                getBooleanCarrierConfig(context,
+                        CarrierConfigManager.KEY_CARRIER_VT_AVAILABLE_BOOL);
+    }
+
+    /**
+     * Returns the user configuration of WFC setting
+     */
+    public static boolean isWfcEnabledByUser(Context context) {
+        int enabled = android.provider.Settings.Global.getInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_ENABLED,
+                ImsConfig.FeatureValueConstants.OFF);
+        return (enabled == 1) ? true : false;
+    }
+
+    /**
+     * Change persistent WFC enabled setting
+     */
+    public static void setWfcSetting(Context context, boolean enabled) {
+        int value = enabled ? 1 : 0;
+        android.provider.Settings.Global.putInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_ENABLED, value);
+
+        ImsManager imsManager = ImsManager.getInstance(context,
+                SubscriptionManager.getDefaultVoicePhoneId());
+        if (imsManager != null) {
+            try {
+                ImsConfig config = imsManager.getConfigInterface();
+                config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_WIFI,
+                        TelephonyManager.NETWORK_TYPE_IWLAN,
+                        enabled ? ImsConfig.FeatureValueConstants.ON
+                                : ImsConfig.FeatureValueConstants.OFF, null);
+
+                if (enabled) {
+                    imsManager.turnOnIms();
+                } else if (getBooleanCarrierConfig(context,
+                        CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)
+                        && (!isVolteEnabledByPlatform(context)
+                        || !isEnhanced4gLteModeSettingEnabledByUser(context))) {
+                    log("setWfcSetting() : imsServiceAllowTurnOff -> turnOffIms");
+                    imsManager.turnOffIms();
+                }
+
+                // Force IMS to register over LTE when turning off WFC
+                setWfcModeInternal(context, enabled
+                        ? getWfcMode(context)
+                        : ImsConfig.WfcModeFeatureValueConstants.CELLULAR_PREFERRED);
+            } catch (ImsException e) {
+                loge("setWfcSetting(): " + e);
+            }
+        }
+    }
+
+    /**
+     * Returns the user configuration of WFC modem setting
+     */
+    public static int getWfcMode(Context context) {
+        int setting = android.provider.Settings.Global.getInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_MODE,
+                ImsConfig.WfcModeFeatureValueConstants.WIFI_PREFERRED);
+        if (DBG) log("getWfcMode - setting=" + setting);
+        return setting;
+    }
+
+    /**
+     * Returns the user configuration of WFC modem setting
+     */
+    public static void setWfcMode(Context context, int wfcMode) {
+        if (DBG) log("setWfcMode - setting=" + wfcMode);
+        android.provider.Settings.Global.putInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_MODE, wfcMode);
+
+        setWfcModeInternal(context, wfcMode);
+    }
+
+    private static void setWfcModeInternal(Context context, int wfcMode) {
+        final ImsManager imsManager = ImsManager.getInstance(context,
+                SubscriptionManager.getDefaultVoicePhoneId());
+        if (imsManager != null) {
+            final int value = wfcMode;
+            QueuedWork.singleThreadExecutor().submit(new Runnable() {
+                public void run() {
+                    try {
+                        imsManager.getConfigInterface().setProvisionedValue(
+                                ImsConfig.ConfigConstants.VOICE_OVER_WIFI_MODE,
+                                value);
+                    } catch (ImsException e) {
+                        // do nothing
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Returns the user configuration of WFC roaming setting
+     */
+    public static boolean isWfcRoamingEnabledByUser(Context context) {
+        int enabled = android.provider.Settings.Global.getInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_ROAMING_ENABLED,
+                ImsConfig.FeatureValueConstants.OFF);
+        return (enabled == 1) ? true : false;
+    }
+
+    /**
+     * Change persistent WFC roaming enabled setting
+     */
+    public static void setWfcRoamingSetting(Context context, boolean enabled) {
+        final int value = enabled
+                ? ImsConfig.FeatureValueConstants.ON
+                : ImsConfig.FeatureValueConstants.OFF;
+        android.provider.Settings.Global.putInt(context.getContentResolver(),
+                android.provider.Settings.Global.WFC_IMS_ROAMING_ENABLED, value);
+
+        final ImsManager imsManager = ImsManager.getInstance(context,
+                SubscriptionManager.getDefaultVoicePhoneId());
+        if (imsManager != null) {
+            QueuedWork.singleThreadExecutor().submit(new Runnable() {
+                public void run() {
+                    try {
+                        imsManager.getConfigInterface().setProvisionedValue(
+                                ImsConfig.ConfigConstants.VOICE_OVER_WIFI_ROAMING,
+                                value);
+                    } catch (ImsException e) {
+                        // do nothing
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Returns a platform configuration for WFC which may override the user
+     * setting. Note: WFC presumes that VoLTE is enabled (these are
+     * configuration settings which must be done correctly).
+     */
+    public static boolean isWfcEnabledByPlatform(Context context) {
+        if (SystemProperties.getInt(PROPERTY_DBG_WFC_AVAIL_OVERRIDE,
+                PROPERTY_DBG_WFC_AVAIL_OVERRIDE_DEFAULT) == 1) {
+            return true;
+        }
+
+        return
+               context.getResources().getBoolean(
+                       com.android.internal.R.bool.config_device_wfc_ims_available) &&
+               getBooleanCarrierConfig(context,
+                       CarrierConfigManager.KEY_CARRIER_WFC_IMS_AVAILABLE_BOOL);
     }
 
     private ImsManager(Context context, int phoneId) {
         mContext = context;
         mPhoneId = phoneId;
         createImsService(true);
+    }
+
+    /*
+     * Returns a flag indicating whether the IMS service is available.
+     */
+    public boolean isServiceAvailable() {
+        if (mImsService != null) {
+            return true;
+        }
+
+        IBinder binder = ServiceManager.checkService(getImsServiceName(mPhoneId));
+        if (binder != null) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -596,10 +765,32 @@ public class ImsManager {
                     ImsReasonInfo.CODE_LOCAL_IMS_SERVICE_DOWN);
         }
 
-        if (!context.getResources().getBoolean(
-                com.android.internal.R.bool.config_carrier_volte_tty_supported)) {
+        if (!getBooleanCarrierConfig(context,
+                CarrierConfigManager.KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL)) {
             setAdvanced4GMode((uiTtyMode == TelecomManager.TTY_MODE_OFF) &&
                     isEnhanced4gLteModeSettingEnabledByUser(context));
+        }
+    }
+
+    /**
+     * Get the boolean config from carrier config manager.
+     *
+     * @param context the context to get carrier service
+     * @param key config key defined in CarrierConfigManager
+     * @return boolean value of corresponding key.
+     */
+    private static boolean getBooleanCarrierConfig(Context context, String key) {
+        CarrierConfigManager configManager = (CarrierConfigManager) context.getSystemService(
+                Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle b = null;
+        if (configManager != null) {
+            b = configManager.getConfig();
+        }
+        if (b != null) {
+            return b.getBoolean(key);
+        } else {
+            // Return static default defined in CarrierConfigManager.
+            return CarrierConfigManager.getDefaultConfig().getBoolean(key);
         }
     }
 
@@ -699,15 +890,15 @@ public class ImsManager {
         return proxy;
     }
 
-    private void log(String s) {
+    private static void log(String s) {
         Rlog.d(TAG, s);
     }
 
-    private void loge(String s) {
+    private static void loge(String s) {
         Rlog.e(TAG, s);
     }
 
-    private void loge(String s, Throwable t) {
+    private static void loge(String s, Throwable t) {
         Rlog.e(TAG, s, t);
     }
 
@@ -724,25 +915,36 @@ public class ImsManager {
         }
     }
 
+    private boolean isImsTurnOffAllowed() {
+        return getBooleanCarrierConfig(mContext,
+                CarrierConfigManager.KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL)
+                && (!isWfcEnabledByPlatform(mContext)
+                || !isWfcEnabledByUser(mContext));
+    }
+
     private void setAdvanced4GMode(boolean turnOn) throws ImsException {
         checkAndThrowExceptionIfServiceUnavailable();
 
-        ImsConfig config = getConfigInterface();
-        if (config != null) {
-            config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE,
-                    TelephonyManager.NETWORK_TYPE_LTE, turnOn ? 1 : 0, null);
-            if (isVtEnabledByPlatform(mContext)) {
-                // TODO: once VT is available on platform replace the '1' with the current
-                // user configuration of VT.
-                config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VIDEO_OVER_LTE,
+        try {
+            ImsConfig config = getConfigInterface();
+            if (config != null && (turnOn || !isImsTurnOffAllowed())) {
+                config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE,
                         TelephonyManager.NETWORK_TYPE_LTE, turnOn ? 1 : 0, null);
+                if (isVtEnabledByPlatform(mContext)) {
+                    // TODO: once VT is available on platform:
+                    // - replace the '1' with the current user configuration of VT.
+                    // - separate exception checks for setFeatureValue() failures for VoLTE and VT.
+                    //   I.e. if VoLTE fails still try to configure VT.
+                    config.setFeatureValue(ImsConfig.FeatureConstants.FEATURE_TYPE_VIDEO_OVER_LTE,
+                            TelephonyManager.NETWORK_TYPE_LTE, turnOn ? 1 : 0, null);
+                }
             }
+        } catch (ImsException e) {
+            log("setAdvanced4GMode() : " + e);
         }
-
         if (turnOn) {
             turnOnIms();
-        } else if (mContext.getResources().getBoolean(
-                com.android.internal.R.bool.imsServiceAllowTurnOff)) {
+        } else if (isImsTurnOffAllowed()) {
             log("setAdvanced4GMode() : imsServiceAllowTurnOff -> turnOffIms");
             turnOffIms();
         }
@@ -810,13 +1012,24 @@ public class ImsManager {
         }
 
         @Override
-        public void registrationDisconnected() {
+        public void registrationProgressing() {
             if (DBG) {
-                log("registrationDisconnected ::");
+                log("registrationProgressing ::");
             }
 
             if (mListener != null) {
-                mListener.onImsDisconnected();
+                mListener.onImsProgressing();
+            }
+        }
+
+        @Override
+        public void registrationDisconnected(ImsReasonInfo imsReasonInfo) {
+            if (DBG) {
+                log("registrationDisconnected :: imsReasonInfo" + imsReasonInfo);
+            }
+
+            if (mListener != null) {
+                mListener.onImsDisconnected(imsReasonInfo);
             }
         }
 

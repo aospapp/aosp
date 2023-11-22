@@ -755,7 +755,6 @@ static block gen_offset_from_nonce(ae_ctx* ctx, const void* nonce) {
         block bl;
     } tmp;
     unsigned idx;
-    uint32_t tagadd;
 
 /* Replace cached nonce Top if needed */
 #if (OCB_TAG_LEN > 0)

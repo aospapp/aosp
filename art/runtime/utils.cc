@@ -25,12 +25,11 @@
 #include <unistd.h>
 #include <memory>
 
+#include "art_field-inl.h"
+#include "art_method-inl.h"
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
 #include "dex_file-inl.h"
-#include "field_helper.h"
-#include "mirror/art_field-inl.h"
-#include "mirror/art_method-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
@@ -39,14 +38,6 @@
 #include "os.h"
 #include "scoped_thread_state_change.h"
 #include "utf-inl.h"
-
-#if !defined(HAVE_POSIX_CLOCKS)
-#include <sys/time.h>
-#endif
-
-#if defined(HAVE_PRCTL)
-#include <sys/prctl.h>
-#endif
 
 #if defined(__APPLE__)
 #include "AvailabilityMacros.h"  // For MAC_OS_X_VERSION_MAX_ALLOWED
@@ -61,13 +52,18 @@
 
 namespace art {
 
+#if defined(__linux__)
+static constexpr bool kUseAddr2line = !kIsTargetBuild;
+#endif
+
 pid_t GetTid() {
 #if defined(__APPLE__)
   uint64_t owner;
-  CHECK_PTHREAD_CALL(pthread_threadid_np, (NULL, &owner), __FUNCTION__);  // Requires Mac OS 10.6
+  CHECK_PTHREAD_CALL(pthread_threadid_np, (nullptr, &owner), __FUNCTION__);  // Requires Mac OS 10.6
   return owner;
+#elif defined(__BIONIC__)
+  return gettid();
 #else
-  // Neither bionic nor glibc exposes gettid(2).
   return syscall(__NR_gettid);
 #endif
 }
@@ -91,7 +87,7 @@ void GetThreadStack(pthread_t thread, void** stack_base, size_t* stack_size, siz
   // (On Mac OS 10.7, it's the end.)
   int stack_variable;
   if (stack_addr > &stack_variable) {
-    *stack_base = reinterpret_cast<byte*>(stack_addr) - *stack_size;
+    *stack_base = reinterpret_cast<uint8_t*>(stack_addr) - *stack_size;
   } else {
     *stack_base = stack_addr;
   }
@@ -107,18 +103,43 @@ void GetThreadStack(pthread_t thread, void** stack_base, size_t* stack_size, siz
   CHECK_PTHREAD_CALL(pthread_attr_getstack, (&attributes, stack_base, stack_size), __FUNCTION__);
   CHECK_PTHREAD_CALL(pthread_attr_getguardsize, (&attributes, guard_size), __FUNCTION__);
   CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attributes), __FUNCTION__);
+
+#if defined(__GLIBC__)
+  // If we're the main thread, check whether we were run with an unlimited stack. In that case,
+  // glibc will have reported a 2GB stack for our 32-bit process, and our stack overflow detection
+  // will be broken because we'll die long before we get close to 2GB.
+  bool is_main_thread = (::art::GetTid() == getpid());
+  if (is_main_thread) {
+    rlimit stack_limit;
+    if (getrlimit(RLIMIT_STACK, &stack_limit) == -1) {
+      PLOG(FATAL) << "getrlimit(RLIMIT_STACK) failed";
+    }
+    if (stack_limit.rlim_cur == RLIM_INFINITY) {
+      size_t old_stack_size = *stack_size;
+
+      // Use the kernel default limit as our size, and adjust the base to match.
+      *stack_size = 8 * MB;
+      *stack_base = reinterpret_cast<uint8_t*>(*stack_base) + (old_stack_size - *stack_size);
+
+      VLOG(threads) << "Limiting unlimited stack (reported as " << PrettySize(old_stack_size) << ")"
+                    << " to " << PrettySize(*stack_size)
+                    << " with base " << *stack_base;
+    }
+  }
+#endif
+
 #endif
 }
 
 bool ReadFileToString(const std::string& file_name, std::string* result) {
-  std::unique_ptr<File> file(new File);
-  if (!file->Open(file_name, O_RDONLY)) {
+  File file;
+  if (!file.Open(file_name, O_RDONLY)) {
     return false;
   }
 
   std::vector<char> buf(8 * KB);
   while (true) {
-    int64_t n = TEMP_FAILURE_RETRY(read(file->Fd(), &buf[0], buf.size()));
+    int64_t n = TEMP_FAILURE_RETRY(read(file.Fd(), &buf[0], buf.size()));
     if (n == -1) {
       return false;
     }
@@ -129,111 +150,68 @@ bool ReadFileToString(const std::string& file_name, std::string* result) {
   }
 }
 
-std::string GetIsoDate() {
-  time_t now = time(NULL);
-  tm tmbuf;
-  tm* ptm = localtime_r(&now, &tmbuf);
-  return StringPrintf("%04d-%02d-%02d %02d:%02d:%02d",
-      ptm->tm_year + 1900, ptm->tm_mon+1, ptm->tm_mday,
-      ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
-}
-
-uint64_t MilliTime() {
-#if defined(HAVE_POSIX_CLOCKS)
-  timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000) + now.tv_nsec / UINT64_C(1000000);
-#else
-  timeval now;
-  gettimeofday(&now, NULL);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000) + now.tv_usec / UINT64_C(1000);
-#endif
-}
-
-uint64_t MicroTime() {
-#if defined(HAVE_POSIX_CLOCKS)
-  timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000) + now.tv_nsec / UINT64_C(1000);
-#else
-  timeval now;
-  gettimeofday(&now, NULL);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000) + now.tv_usec;
-#endif
-}
-
-uint64_t NanoTime() {
-#if defined(HAVE_POSIX_CLOCKS)
-  timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_nsec;
-#else
-  timeval now;
-  gettimeofday(&now, NULL);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_usec * UINT64_C(1000);
-#endif
-}
-
-uint64_t ThreadCpuNanoTime() {
-#if defined(HAVE_POSIX_CLOCKS)
-  timespec now;
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
-  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_nsec;
-#else
-  UNIMPLEMENTED(WARNING);
-  return -1;
-#endif
-}
-
-void NanoSleep(uint64_t ns) {
-  timespec tm;
-  tm.tv_sec = 0;
-  tm.tv_nsec = ns;
-  nanosleep(&tm, NULL);
-}
-
-void InitTimeSpec(bool absolute, int clock, int64_t ms, int32_t ns, timespec* ts) {
-  int64_t endSec;
-
-  if (absolute) {
-#if !defined(__APPLE__)
-    clock_gettime(clock, ts);
-#else
-    UNUSED(clock);
-    timeval tv;
-    gettimeofday(&tv, NULL);
-    ts->tv_sec = tv.tv_sec;
-    ts->tv_nsec = tv.tv_usec * 1000;
-#endif
-  } else {
-    ts->tv_sec = 0;
-    ts->tv_nsec = 0;
+bool PrintFileToLog(const std::string& file_name, LogSeverity level) {
+  File file;
+  if (!file.Open(file_name, O_RDONLY)) {
+    return false;
   }
-  endSec = ts->tv_sec + ms / 1000;
-  if (UNLIKELY(endSec >= 0x7fffffff)) {
-    std::ostringstream ss;
-    LOG(INFO) << "Note: end time exceeds epoch: " << ss.str();
-    endSec = 0x7ffffffe;
-  }
-  ts->tv_sec = endSec;
-  ts->tv_nsec = (ts->tv_nsec + (ms % 1000) * 1000000) + ns;
 
-  // Catch rollover.
-  if (ts->tv_nsec >= 1000000000L) {
-    ts->tv_sec++;
-    ts->tv_nsec -= 1000000000L;
+  constexpr size_t kBufSize = 256;  // Small buffer. Avoid stack overflow and stack size warnings.
+  char buf[kBufSize + 1];           // +1 for terminator.
+  size_t filled_to = 0;
+  while (true) {
+    DCHECK_LT(filled_to, kBufSize);
+    int64_t n = TEMP_FAILURE_RETRY(read(file.Fd(), &buf[filled_to], kBufSize - filled_to));
+    if (n <= 0) {
+      // Print the rest of the buffer, if it exists.
+      if (filled_to > 0) {
+        buf[filled_to] = 0;
+        LOG(level) << buf;
+      }
+      return n == 0;
+    }
+    // Scan for '\n'.
+    size_t i = filled_to;
+    bool found_newline = false;
+    for (; i < filled_to + n; ++i) {
+      if (buf[i] == '\n') {
+        // Found a line break, that's something to print now.
+        buf[i] = 0;
+        LOG(level) << buf;
+        // Copy the rest to the front.
+        if (i + 1 < filled_to + n) {
+          memmove(&buf[0], &buf[i + 1], filled_to + n - i - 1);
+          filled_to = filled_to + n - i - 1;
+        } else {
+          filled_to = 0;
+        }
+        found_newline = true;
+        break;
+      }
+    }
+    if (found_newline) {
+      continue;
+    } else {
+      filled_to += n;
+      // Check if we must flush now.
+      if (filled_to == kBufSize) {
+        buf[kBufSize] = 0;
+        LOG(level) << buf;
+        filled_to = 0;
+      }
+    }
   }
 }
 
 std::string PrettyDescriptor(mirror::String* java_descriptor) {
-  if (java_descriptor == NULL) {
+  if (java_descriptor == nullptr) {
     return "null";
   }
   return PrettyDescriptor(java_descriptor->ToModifiedUtf8().c_str());
 }
 
 std::string PrettyDescriptor(mirror::Class* klass) {
-  if (klass == NULL) {
+  if (klass == nullptr) {
     return "null";
   }
   std::string temp;
@@ -289,8 +267,8 @@ std::string PrettyDescriptor(const char* descriptor) {
   return result;
 }
 
-std::string PrettyField(mirror::ArtField* f, bool with_type) {
-  if (f == NULL) {
+std::string PrettyField(ArtField* f, bool with_type) {
+  if (f == nullptr) {
     return "null";
   }
   std::string result;
@@ -298,8 +276,8 @@ std::string PrettyField(mirror::ArtField* f, bool with_type) {
     result += PrettyDescriptor(f->GetTypeDescriptor());
     result += ' ';
   }
-  StackHandleScope<1> hs(Thread::Current());
-  result += PrettyDescriptor(FieldHelper(hs.NewHandle(f)).GetDeclaringClassDescriptor());
+  std::string temp;
+  result += PrettyDescriptor(f->GetDeclaringClass()->GetDescriptor(&temp));
   result += '.';
   result += f->GetName();
   return result;
@@ -361,14 +339,17 @@ std::string PrettyArguments(const char* signature) {
 
 std::string PrettyReturnType(const char* signature) {
   const char* return_type = strchr(signature, ')');
-  CHECK(return_type != NULL);
+  CHECK(return_type != nullptr);
   ++return_type;  // Skip ')'.
   return PrettyDescriptor(return_type);
 }
 
-std::string PrettyMethod(mirror::ArtMethod* m, bool with_signature) {
+std::string PrettyMethod(ArtMethod* m, bool with_signature) {
   if (m == nullptr) {
     return "null";
+  }
+  if (!m->IsRuntimeMethod()) {
+    m = m->GetInterfaceMethodIfProxy(Runtime::Current()->GetClassLinker()->GetImagePointerSize());
   }
   std::string result(PrettyDescriptor(m->GetDeclaringClassDescriptor()));
   result += '.';
@@ -409,10 +390,10 @@ std::string PrettyMethod(uint32_t method_idx, const DexFile& dex_file, bool with
 }
 
 std::string PrettyTypeOf(mirror::Object* obj) {
-  if (obj == NULL) {
+  if (obj == nullptr) {
     return "null";
   }
-  if (obj->GetClass() == NULL) {
+  if (obj->GetClass() == nullptr) {
     return "(raw)";
   }
   std::string temp;
@@ -424,7 +405,7 @@ std::string PrettyTypeOf(mirror::Object* obj) {
 }
 
 std::string PrettyClass(mirror::Class* c) {
-  if (c == NULL) {
+  if (c == nullptr) {
     return "null";
   }
   std::string result;
@@ -435,7 +416,7 @@ std::string PrettyClass(mirror::Class* c) {
 }
 
 std::string PrettyClassAndClassLoader(mirror::Class* c) {
-  if (c == NULL) {
+  if (c == nullptr) {
     return "null";
   }
   std::string result;
@@ -445,6 +426,35 @@ std::string PrettyClassAndClassLoader(mirror::Class* c) {
   result += PrettyTypeOf(c->GetClassLoader());
   // TODO: add an identifying hash value for the loader
   result += ">";
+  return result;
+}
+
+std::string PrettyJavaAccessFlags(uint32_t access_flags) {
+  std::string result;
+  if ((access_flags & kAccPublic) != 0) {
+    result += "public ";
+  }
+  if ((access_flags & kAccProtected) != 0) {
+    result += "protected ";
+  }
+  if ((access_flags & kAccPrivate) != 0) {
+    result += "private ";
+  }
+  if ((access_flags & kAccFinal) != 0) {
+    result += "final ";
+  }
+  if ((access_flags & kAccStatic) != 0) {
+    result += "static ";
+  }
+  if ((access_flags & kAccTransient) != 0) {
+    result += "transient ";
+  }
+  if ((access_flags & kAccVolatile) != 0) {
+    result += "volatile ";
+  }
+  if ((access_flags & kAccSynchronized) != 0) {
+    result += "synchronized ";
+  }
   return result;
 }
 
@@ -474,88 +484,6 @@ std::string PrettySize(int64_t byte_count) {
                       negative_str, byte_count / kBytesPerUnit[i], kUnitStrings[i]);
 }
 
-std::string PrettyDuration(uint64_t nano_duration, size_t max_fraction_digits) {
-  if (nano_duration == 0) {
-    return "0";
-  } else {
-    return FormatDuration(nano_duration, GetAppropriateTimeUnit(nano_duration),
-                          max_fraction_digits);
-  }
-}
-
-TimeUnit GetAppropriateTimeUnit(uint64_t nano_duration) {
-  const uint64_t one_sec = 1000 * 1000 * 1000;
-  const uint64_t one_ms  = 1000 * 1000;
-  const uint64_t one_us  = 1000;
-  if (nano_duration >= one_sec) {
-    return kTimeUnitSecond;
-  } else if (nano_duration >= one_ms) {
-    return kTimeUnitMillisecond;
-  } else if (nano_duration >= one_us) {
-    return kTimeUnitMicrosecond;
-  } else {
-    return kTimeUnitNanosecond;
-  }
-}
-
-uint64_t GetNsToTimeUnitDivisor(TimeUnit time_unit) {
-  const uint64_t one_sec = 1000 * 1000 * 1000;
-  const uint64_t one_ms  = 1000 * 1000;
-  const uint64_t one_us  = 1000;
-
-  switch (time_unit) {
-    case kTimeUnitSecond:
-      return one_sec;
-    case kTimeUnitMillisecond:
-      return one_ms;
-    case kTimeUnitMicrosecond:
-      return one_us;
-    case kTimeUnitNanosecond:
-      return 1;
-  }
-  return 0;
-}
-
-std::string FormatDuration(uint64_t nano_duration, TimeUnit time_unit,
-                           size_t max_fraction_digits) {
-  const char* unit = nullptr;
-  uint64_t divisor = GetNsToTimeUnitDivisor(time_unit);
-  switch (time_unit) {
-    case kTimeUnitSecond:
-      unit = "s";
-      break;
-    case kTimeUnitMillisecond:
-      unit = "ms";
-      break;
-    case kTimeUnitMicrosecond:
-      unit = "us";
-      break;
-    case kTimeUnitNanosecond:
-      unit = "ns";
-      break;
-  }
-  const uint64_t whole_part = nano_duration / divisor;
-  uint64_t fractional_part = nano_duration % divisor;
-  if (fractional_part == 0) {
-    return StringPrintf("%" PRIu64 "%s", whole_part, unit);
-  } else {
-    static constexpr size_t kMaxDigits = 30;
-    size_t avail_digits = kMaxDigits;
-    char fraction_buffer[kMaxDigits];
-    char* ptr = fraction_buffer;
-    uint64_t multiplier = 10;
-    // This infinite loops if fractional part is 0.
-    while (avail_digits > 1 && fractional_part * multiplier < divisor) {
-      multiplier *= 10;
-      *ptr++ = '0';
-      avail_digits--;
-    }
-    snprintf(ptr, avail_digits, "%" PRIu64, fractional_part);
-    fraction_buffer[std::min(kMaxDigits - 1, max_fraction_digits)] = '\0';
-    return StringPrintf("%" PRIu64 ".%s%s", whole_part, fraction_buffer, unit);
-  }
-}
-
 std::string PrintableChar(uint16_t ch) {
   std::string result;
   result += '\'';
@@ -574,7 +502,7 @@ std::string PrintableString(const char* utf) {
   const char* p = utf;
   size_t char_count = CountModifiedUtf8Chars(p);
   for (size_t i = 0; i < char_count; ++i) {
-    uint16_t ch = GetUtf16FromUtf8(&p);
+    uint32_t ch = GetUtf16FromUtf8(&p);
     if (ch == '\\') {
       result += "\\\\";
     } else if (ch == '\n') {
@@ -583,10 +511,20 @@ std::string PrintableString(const char* utf) {
       result += "\\r";
     } else if (ch == '\t') {
       result += "\\t";
-    } else if (NeedsEscaping(ch)) {
-      StringAppendF(&result, "\\u%04x", ch);
     } else {
-      result += ch;
+      const uint16_t leading = GetLeadingUtf16Char(ch);
+
+      if (NeedsEscaping(leading)) {
+        StringAppendF(&result, "\\u%04x", leading);
+      } else {
+        result += leading;
+      }
+
+      const uint32_t trailing = GetTrailingUtf16Char(ch);
+      if (trailing != 0) {
+        // All high surrogates will need escaping.
+        StringAppendF(&result, "\\u%04x", trailing);
+      }
     }
   }
   result += '"';
@@ -599,7 +537,7 @@ std::string MangleForJni(const std::string& s) {
   size_t char_count = CountModifiedUtf8Chars(s.c_str());
   const char* cp = &s[0];
   for (size_t i = 0; i < char_count; ++i) {
-    uint16_t ch = GetUtf16FromUtf8(&cp);
+    uint32_t ch = GetUtf16FromUtf8(&cp);
     if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9')) {
       result.push_back(ch);
     } else if (ch == '.' || ch == '/') {
@@ -611,7 +549,13 @@ std::string MangleForJni(const std::string& s) {
     } else if (ch == '[') {
       result += "_3";
     } else {
-      StringAppendF(&result, "_0%04x", ch);
+      const uint16_t leading = GetLeadingUtf16Char(ch);
+      const uint32_t trailing = GetTrailingUtf16Char(ch);
+
+      StringAppendF(&result, "_0%04x", leading);
+      if (trailing != 0) {
+        StringAppendF(&result, "_0%04x", trailing);
+      }
     }
   }
   return result;
@@ -654,7 +598,7 @@ std::string DescriptorToName(const char* descriptor) {
   return descriptor;
 }
 
-std::string JniShortName(mirror::ArtMethod* m) {
+std::string JniShortName(ArtMethod* m) {
   std::string class_name(m->GetDeclaringClassDescriptor());
   // Remove the leading 'L' and trailing ';'...
   CHECK_EQ(class_name[0], 'L') << class_name;
@@ -672,7 +616,7 @@ std::string JniShortName(mirror::ArtMethod* m) {
   return short_name;
 }
 
-std::string JniLongName(mirror::ArtMethod* m) {
+std::string JniLongName(ArtMethod* m) {
   std::string long_name;
   long_name += JniShortName(m);
   long_name += "__";
@@ -706,41 +650,60 @@ bool IsValidPartOfMemberNameUtf8Slow(const char** pUtf8Ptr) {
    * document.
    */
 
-  uint16_t utf16 = GetUtf16FromUtf8(pUtf8Ptr);
+  const uint32_t pair = GetUtf16FromUtf8(pUtf8Ptr);
+  const uint16_t leading = GetLeadingUtf16Char(pair);
 
-  // Perform follow-up tests based on the high 8 bits.
-  switch (utf16 >> 8) {
-  case 0x00:
-    // It's only valid if it's above the ISO-8859-1 high space (0xa0).
-    return (utf16 > 0x00a0);
-  case 0xd8:
-  case 0xd9:
-  case 0xda:
-  case 0xdb:
-    // It's a leading surrogate. Check to see that a trailing
-    // surrogate follows.
-    utf16 = GetUtf16FromUtf8(pUtf8Ptr);
-    return (utf16 >= 0xdc00) && (utf16 <= 0xdfff);
-  case 0xdc:
-  case 0xdd:
-  case 0xde:
-  case 0xdf:
-    // It's a trailing surrogate, which is not valid at this point.
-    return false;
-  case 0x20:
-  case 0xff:
-    // It's in the range that has spaces, controls, and specials.
-    switch (utf16 & 0xfff8) {
-    case 0x2000:
-    case 0x2008:
-    case 0x2028:
-    case 0xfff0:
-    case 0xfff8:
-      return false;
-    }
-    break;
+  // We have a surrogate pair resulting from a valid 4 byte UTF sequence.
+  // No further checks are necessary because 4 byte sequences span code
+  // points [U+10000, U+1FFFFF], which are valid codepoints in a dex
+  // identifier. Furthermore, GetUtf16FromUtf8 guarantees that each of
+  // the surrogate halves are valid and well formed in this instance.
+  if (GetTrailingUtf16Char(pair) != 0) {
+    return true;
   }
-  return true;
+
+
+  // We've encountered a one, two or three byte UTF-8 sequence. The
+  // three byte UTF-8 sequence could be one half of a surrogate pair.
+  switch (leading >> 8) {
+    case 0x00:
+      // It's only valid if it's above the ISO-8859-1 high space (0xa0).
+      return (leading > 0x00a0);
+    case 0xd8:
+    case 0xd9:
+    case 0xda:
+    case 0xdb:
+      {
+        // We found a three byte sequence encoding one half of a surrogate.
+        // Look for the other half.
+        const uint32_t pair2 = GetUtf16FromUtf8(pUtf8Ptr);
+        const uint16_t trailing = GetLeadingUtf16Char(pair2);
+
+        return (GetTrailingUtf16Char(pair2) == 0) && (0xdc00 <= trailing && trailing <= 0xdfff);
+      }
+    case 0xdc:
+    case 0xdd:
+    case 0xde:
+    case 0xdf:
+      // It's a trailing surrogate, which is not valid at this point.
+      return false;
+    case 0x20:
+    case 0xff:
+      // It's in the range that has spaces, controls, and specials.
+      switch (leading & 0xfff8) {
+        case 0x2000:
+        case 0x2008:
+        case 0x2028:
+        case 0xfff0:
+        case 0xfff8:
+          return false;
+      }
+      return true;
+    default:
+      return true;
+  }
+
+  UNREACHABLE();
 }
 
 /* Return whether the pointed-at modified-UTF-8 encoded character is
@@ -793,7 +756,8 @@ bool IsValidMemberName(const char* s) {
 }
 
 enum ClassNameType { kName, kDescriptor };
-static bool IsValidClassName(const char* s, ClassNameType type, char separator) {
+template<ClassNameType kType, char kSeparator>
+static bool IsValidClassName(const char* s) {
   int arrayCount = 0;
   while (*s == '[') {
     arrayCount++;
@@ -805,7 +769,8 @@ static bool IsValidClassName(const char* s, ClassNameType type, char separator) 
     return false;
   }
 
-  if (arrayCount != 0) {
+  ClassNameType type = kType;
+  if (type != kDescriptor && arrayCount != 0) {
     /*
      * If we're looking at an array of some sort, then it doesn't
      * matter if what is being asked for is a class name; the
@@ -873,7 +838,7 @@ static bool IsValidClassName(const char* s, ClassNameType type, char separator) 
       return (type == kDescriptor) && !sepOrFirst && (s[1] == '\0');
     case '/':
     case '.':
-      if (c != separator) {
+      if (c != kSeparator) {
         // The wrong separator character.
         return false;
       }
@@ -895,18 +860,18 @@ static bool IsValidClassName(const char* s, ClassNameType type, char separator) 
 }
 
 bool IsValidBinaryClassName(const char* s) {
-  return IsValidClassName(s, kName, '.');
+  return IsValidClassName<kName, '.'>(s);
 }
 
 bool IsValidJniClassName(const char* s) {
-  return IsValidClassName(s, kName, '/');
+  return IsValidClassName<kName, '/'>(s);
 }
 
 bool IsValidDescriptor(const char* s) {
-  return IsValidClassName(s, kDescriptor, '/');
+  return IsValidClassName<kDescriptor, '/'>(s);
 }
 
-void Split(const std::string& s, char separator, std::vector<std::string>& result) {
+void Split(const std::string& s, char separator, std::vector<std::string>* result) {
   const char* p = s.data();
   const char* end = p + s.size();
   while (p != end) {
@@ -917,12 +882,12 @@ void Split(const std::string& s, char separator, std::vector<std::string>& resul
       while (++p != end && *p != separator) {
         // Skip to the next occurrence of the separator.
       }
-      result.push_back(std::string(start, p - start));
+      result->push_back(std::string(start, p - start));
     }
   }
 }
 
-std::string Trim(std::string s) {
+std::string Trim(const std::string& s) {
   std::string result;
   unsigned int start_index = 0;
   unsigned int end_index = s.size() - 1;
@@ -952,7 +917,7 @@ std::string Trim(std::string s) {
 }
 
 template <typename StringT>
-std::string Join(std::vector<StringT>& strings, char separator) {
+std::string Join(const std::vector<StringT>& strings, char separator) {
   if (strings.empty()) {
     return "";
   }
@@ -966,9 +931,8 @@ std::string Join(std::vector<StringT>& strings, char separator) {
 }
 
 // Explicit instantiations.
-template std::string Join<std::string>(std::vector<std::string>& strings, char separator);
-template std::string Join<const char*>(std::vector<const char*>& strings, char separator);
-template std::string Join<char*>(std::vector<char*>& strings, char separator);
+template std::string Join<std::string>(const std::vector<std::string>& strings, char separator);
+template std::string Join<const char*>(const std::vector<const char*>& strings, char separator);
 
 bool StartsWith(const std::string& s, const char* prefix) {
   return s.compare(0, strlen(prefix), prefix) == 0;
@@ -1002,21 +966,17 @@ void SetThreadName(const char* thread_name) {
   } else {
     s = thread_name + len - 15;
   }
-#if defined(HAVE_ANDROID_PTHREAD_SETNAME_NP)
+#if defined(__linux__)
   // pthread_setname_np fails rather than truncating long strings.
-  char buf[16];       // MAX_TASK_COMM_LEN=16 is hard-coded into bionic
+  char buf[16];       // MAX_TASK_COMM_LEN=16 is hard-coded in the kernel.
   strncpy(buf, s, sizeof(buf)-1);
   buf[sizeof(buf)-1] = '\0';
   errno = pthread_setname_np(pthread_self(), buf);
   if (errno != 0) {
     PLOG(WARNING) << "Unable to set the name of current thread to '" << buf << "'";
   }
-#elif defined(__APPLE__) && MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
+#else  // __APPLE__
   pthread_setname_np(thread_name);
-#elif defined(HAVE_PRCTL)
-  prctl(PR_SET_NAME, (unsigned long) s, 0, 0, 0);  // NOLINT (unsigned long)
-#else
-  UNIMPLEMENTED(WARNING) << thread_name;
 #endif
 }
 
@@ -1030,11 +990,11 @@ void GetTaskStats(pid_t tid, char* state, int* utime, int* stime, int* task_cpu)
   stats = stats.substr(stats.find(')') + 2);
   // Extract the three fields we care about.
   std::vector<std::string> fields;
-  Split(stats, ' ', fields);
+  Split(stats, ' ', &fields);
   *state = fields[0][0];
-  *utime = strtoull(fields[11].c_str(), NULL, 10);
-  *stime = strtoull(fields[12].c_str(), NULL, 10);
-  *task_cpu = strtoull(fields[36].c_str(), NULL, 10);
+  *utime = strtoull(fields[11].c_str(), nullptr, 10);
+  *stime = strtoull(fields[12].c_str(), nullptr, 10);
+  *task_cpu = strtoull(fields[36].c_str(), nullptr, 10);
 }
 
 std::string GetSchedulerGroupName(pid_t tid) {
@@ -1047,14 +1007,14 @@ std::string GetSchedulerGroupName(pid_t tid) {
     return "";
   }
   std::vector<std::string> cgroup_lines;
-  Split(cgroup_file, '\n', cgroup_lines);
+  Split(cgroup_file, '\n', &cgroup_lines);
   for (size_t i = 0; i < cgroup_lines.size(); ++i) {
     std::vector<std::string> cgroup_fields;
-    Split(cgroup_lines[i], ':', cgroup_fields);
+    Split(cgroup_lines[i], ':', &cgroup_fields);
     std::vector<std::string> cgroups;
-    Split(cgroup_fields[1], ',', cgroups);
-    for (size_t i = 0; i < cgroups.size(); ++i) {
-      if (cgroups[i] == "cpu") {
+    Split(cgroup_fields[1], ',', &cgroups);
+    for (size_t j = 0; j < cgroups.size(); ++j) {
+      if (cgroups[j] == "cpu") {
         return cgroup_fields[2].substr(1);  // Skip the leading slash.
       }
     }
@@ -1062,20 +1022,99 @@ std::string GetSchedulerGroupName(pid_t tid) {
   return "";
 }
 
-void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix,
-    mirror::ArtMethod* current_method) {
-  // We may be called from contexts where current_method is not null, so we must assert this.
-  if (current_method != nullptr) {
-    Locks::mutator_lock_->AssertSharedHeld(Thread::Current());
+#if defined(__linux__)
+
+ALWAYS_INLINE
+static inline void WritePrefix(std::ostream* os, const char* prefix, bool odd) {
+  if (prefix != nullptr) {
+    *os << prefix;
   }
-#ifdef __linux__
+  *os << "  ";
+  if (!odd) {
+    *os << " ";
+  }
+}
+
+static bool RunCommand(std::string cmd, std::ostream* os, const char* prefix) {
+  FILE* stream = popen(cmd.c_str(), "r");
+  if (stream) {
+    if (os != nullptr) {
+      bool odd_line = true;               // We indent them differently.
+      bool wrote_prefix = false;          // Have we already written a prefix?
+      constexpr size_t kMaxBuffer = 128;  // Relatively small buffer. Should be OK as we're on an
+                                          // alt stack, but just to be sure...
+      char buffer[kMaxBuffer];
+      while (!feof(stream)) {
+        if (fgets(buffer, kMaxBuffer, stream) != nullptr) {
+          // Split on newlines.
+          char* tmp = buffer;
+          for (;;) {
+            char* new_line = strchr(tmp, '\n');
+            if (new_line == nullptr) {
+              // Print the rest.
+              if (*tmp != 0) {
+                if (!wrote_prefix) {
+                  WritePrefix(os, prefix, odd_line);
+                }
+                wrote_prefix = true;
+                *os << tmp;
+              }
+              break;
+            }
+            if (!wrote_prefix) {
+              WritePrefix(os, prefix, odd_line);
+            }
+            char saved = *(new_line + 1);
+            *(new_line + 1) = 0;
+            *os << tmp;
+            *(new_line + 1) = saved;
+            tmp = new_line + 1;
+            odd_line = !odd_line;
+            wrote_prefix = false;
+          }
+        }
+      }
+    }
+    pclose(stream);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static void Addr2line(const std::string& map_src, uintptr_t offset, std::ostream& os,
+                      const char* prefix) {
+  std::string cmdline(StringPrintf("addr2line --functions --inlines --demangle -e %s %zx",
+                                   map_src.c_str(), offset));
+  RunCommand(cmdline.c_str(), &os, prefix);
+}
+#endif
+
+void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix,
+    ArtMethod* current_method, void* ucontext_ptr) {
+#if __linux__
+  // b/18119146
+  if (RUNNING_ON_VALGRIND != 0) {
+    return;
+  }
+
   std::unique_ptr<Backtrace> backtrace(Backtrace::Create(BACKTRACE_CURRENT_PROCESS, tid));
-  if (!backtrace->Unwind(0)) {
+  if (!backtrace->Unwind(0, reinterpret_cast<ucontext*>(ucontext_ptr))) {
     os << prefix << "(backtrace::Unwind failed for thread " << tid << ")\n";
     return;
   } else if (backtrace->NumFrames() == 0) {
     os << prefix << "(no native stack frames for thread " << tid << ")\n";
     return;
+  }
+
+  // Check whether we have and should use addr2line.
+  bool use_addr2line;
+  if (kUseAddr2line) {
+    // Try to run it to see whether we have it. Push an argument so that it doesn't assume a.out
+    // and print to stderr.
+    use_addr2line = (gAborting > 0) && RunCommand("addr2line -h", nullptr, nullptr);
+  } else {
+    use_addr2line = false;
   }
 
   for (Backtrace::const_iterator it = backtrace->begin();
@@ -1089,17 +1128,26 @@ void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix,
     // after the <RELATIVE_ADDR>. There can be any prefix data before the
     // #XX. <RELATIVE_ADDR> has to be a hex number but with no 0x prefix.
     os << prefix << StringPrintf("#%02zu pc ", it->num);
-    if (!it->map) {
-      os << StringPrintf("%08" PRIxPTR "  ???", it->pc);
+    bool try_addr2line = false;
+    if (!BacktraceMap::IsValid(it->map)) {
+      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  ???"
+                                                            : "%08" PRIxPTR "  ???",
+                         it->pc);
     } else {
-      os << StringPrintf("%08" PRIxPTR "  ", it->pc - it->map->start)
-         << it->map->name << " (";
+      os << StringPrintf(Is64BitInstructionSet(kRuntimeISA) ? "%016" PRIxPTR "  "
+                                                            : "%08" PRIxPTR "  ",
+                         BacktraceMap::GetRelativePc(it->map, it->pc));
+      os << it->map.name;
+      os << " (";
       if (!it->func_name.empty()) {
         os << it->func_name;
         if (it->func_offset != 0) {
           os << "+" << it->func_offset;
         }
-      } else if (current_method != nullptr && current_method->IsWithinQuickCode(it->pc)) {
+        try_addr2line = true;
+      } else if (
+          current_method != nullptr && Locks::mutator_lock_->IsSharedHeld(Thread::Current()) &&
+          current_method->PcIsWithinQuickCode(it->pc)) {
         const void* start_of_code = current_method->GetEntryPointFromQuickCompiledCode();
         os << JniLongName(current_method) << "+"
            << (it->pc - reinterpret_cast<uintptr_t>(start_of_code));
@@ -1109,7 +1157,12 @@ void DumpNativeStack(std::ostream& os, pid_t tid, const char* prefix,
       os << ")";
     }
     os << "\n";
+    if (try_addr2line && use_addr2line) {
+      Addr2line(it->map.name, it->pc - it->map.start, os, prefix);
+    }
   }
+#else
+  UNUSED(os, tid, prefix, current_method, ucontext_ptr);
 #endif
 }
 
@@ -1134,7 +1187,7 @@ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool inclu
   }
 
   std::vector<std::string> kernel_stack_frames;
-  Split(kernel_stack, '\n', kernel_stack_frames);
+  Split(kernel_stack, '\n', &kernel_stack_frames);
   // We skip the last stack frame because it's always equivalent to "[<ffffffff>] 0xffffffff",
   // which looking at the source appears to be the kernel's way of saying "that's all, folks!".
   kernel_stack_frames.pop_back();
@@ -1143,7 +1196,7 @@ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool inclu
     // into "futex_wait_queue_me+0xcd/0x110".
     const char* text = kernel_stack_frames[i].c_str();
     const char* close_bracket = strchr(text, ']');
-    if (close_bracket != NULL) {
+    if (close_bracket != nullptr) {
       text = close_bracket + 2;
     }
     os << prefix;
@@ -1158,7 +1211,7 @@ void DumpKernelStack(std::ostream& os, pid_t tid, const char* prefix, bool inclu
 
 const char* GetAndroidRoot() {
   const char* android_root = getenv("ANDROID_ROOT");
-  if (android_root == NULL) {
+  if (android_root == nullptr) {
     if (OS::DirectoryExists("/system")) {
       android_root = "/system";
     } else {
@@ -1186,7 +1239,7 @@ const char* GetAndroidData() {
 
 const char* GetAndroidDataSafe(std::string* error_msg) {
   const char* android_data = getenv("ANDROID_DATA");
-  if (android_data == NULL) {
+  if (android_data == nullptr) {
     if (OS::DirectoryExists("/data")) {
       android_data = "/data";
     } else {
@@ -1225,30 +1278,56 @@ void GetDalvikCache(const char* subdir, const bool create_if_absent, std::string
   }
 }
 
-std::string GetDalvikCacheOrDie(const char* subdir, const bool create_if_absent) {
+static std::string GetDalvikCacheImpl(const char* subdir,
+                                      const bool create_if_absent,
+                                      const bool abort_on_error) {
   CHECK(subdir != nullptr);
   const char* android_data = GetAndroidData();
   const std::string dalvik_cache_root(StringPrintf("%s/dalvik-cache/", android_data));
   const std::string dalvik_cache = dalvik_cache_root + subdir;
-  if (create_if_absent && !OS::DirectoryExists(dalvik_cache.c_str())) {
+  if (!OS::DirectoryExists(dalvik_cache.c_str())) {
+    if (!create_if_absent) {
+      // TODO: Check callers. Traditional behavior is to not to abort, even when abort_on_error.
+      return "";
+    }
+
     // Don't create the system's /data/dalvik-cache/... because it needs special permissions.
-    if (strcmp(android_data, "/data") != 0) {
-      int result = mkdir(dalvik_cache_root.c_str(), 0700);
-      if (result != 0 && errno != EEXIST) {
-        PLOG(FATAL) << "Failed to create dalvik-cache directory " << dalvik_cache_root;
-        return "";
+    if (strcmp(android_data, "/data") == 0) {
+      if (abort_on_error) {
+        LOG(FATAL) << "Failed to find dalvik-cache directory " << dalvik_cache
+                   << ", cannot create /data dalvik-cache.";
+        UNREACHABLE();
       }
-      result = mkdir(dalvik_cache.c_str(), 0700);
-      if (result != 0) {
+      return "";
+    }
+
+    int result = mkdir(dalvik_cache_root.c_str(), 0700);
+    if (result != 0 && errno != EEXIST) {
+      if (abort_on_error) {
+        PLOG(FATAL) << "Failed to create dalvik-cache root directory " << dalvik_cache_root;
+        UNREACHABLE();
+      }
+      return "";
+    }
+
+    result = mkdir(dalvik_cache.c_str(), 0700);
+    if (result != 0) {
+      if (abort_on_error) {
         PLOG(FATAL) << "Failed to create dalvik-cache directory " << dalvik_cache;
-        return "";
+        UNREACHABLE();
       }
-    } else {
-      LOG(FATAL) << "Failed to find dalvik-cache directory " << dalvik_cache;
       return "";
     }
   }
   return dalvik_cache;
+}
+
+std::string GetDalvikCache(const char* subdir, const bool create_if_absent) {
+  return GetDalvikCacheImpl(subdir, create_if_absent, false);
+}
+
+std::string GetDalvikCacheOrDie(const char* subdir, const bool create_if_absent) {
+  return GetDalvikCacheImpl(subdir, create_if_absent, true);
 }
 
 bool GetDalvikCacheFilename(const char* location, const char* cache_location,
@@ -1293,32 +1372,17 @@ std::string GetSystemImageFilename(const char* location, const InstructionSet is
   return filename;
 }
 
-std::string DexFilenameToOdexFilename(const std::string& location, const InstructionSet isa) {
-  // location = /foo/bar/baz.jar
-  // odex_location = /foo/bar/<isa>/baz.odex
-
-  CHECK_GE(location.size(), 4U) << location;  // must be at least .123
-  std::string odex_location(location);
-  InsertIsaDirectory(isa, &odex_location);
-  size_t dot_index = odex_location.size() - 3 - 1;  // 3=dex or zip or apk
-  CHECK_EQ('.', odex_location[dot_index]) << location;
-  odex_location.resize(dot_index + 1);
-  CHECK_EQ('.', odex_location[odex_location.size()-1]) << location << " " << odex_location;
-  odex_location += "odex";
-  return odex_location;
-}
-
 bool IsZipMagic(uint32_t magic) {
   return (('P' == ((magic >> 0) & 0xff)) &&
           ('K' == ((magic >> 8) & 0xff)));
 }
 
 bool IsDexMagic(uint32_t magic) {
-  return DexFile::IsMagicValid(reinterpret_cast<const byte*>(&magic));
+  return DexFile::IsMagicValid(reinterpret_cast<const uint8_t*>(&magic));
 }
 
 bool IsOatMagic(uint32_t magic) {
-  return (memcmp(reinterpret_cast<const byte*>(magic),
+  return (memcmp(reinterpret_cast<const uint8_t*>(magic),
                  OatHeader::kOatMagic,
                  sizeof(OatHeader::kOatMagic)) == 0);
 }
@@ -1337,7 +1401,7 @@ bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg) {
     CHECK(arg_str != nullptr) << i;
     args.push_back(arg_str);
   }
-  args.push_back(NULL);
+  args.push_back(nullptr);
 
   // fork and exec
   pid_t pid = fork();
@@ -1374,6 +1438,14 @@ bool Exec(std::vector<std::string>& arg_vector, std::string* error_msg) {
     }
   }
   return true;
+}
+
+void EncodeUnsignedLeb128(uint32_t data, std::vector<uint8_t>* dst) {
+  Leb128Encoder(dst).PushBackUnsigned(data);
+}
+
+void EncodeSignedLeb128(int32_t data, std::vector<uint8_t>* dst) {
+  Leb128Encoder(dst).PushBackSigned(data);
 }
 
 std::string PrettyDescriptor(Primitive::Type type) {

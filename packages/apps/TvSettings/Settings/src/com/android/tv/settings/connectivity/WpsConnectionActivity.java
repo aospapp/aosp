@@ -16,23 +16,18 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.setup.MessageWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.util.ThemeHelper;
-
-import com.android.tv.settings.dialog.old.DialogActivity;
-
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WpsCallback;
 import android.net.wifi.WpsInfo;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
+import com.android.tv.settings.dialog.old.DialogActivity;
+import com.android.tv.settings.util.ThemeHelper;
 
 import java.util.ArrayList;
 

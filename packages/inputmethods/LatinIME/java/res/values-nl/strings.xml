@@ -27,17 +27,30 @@
     <string name="sound_on_keypress" msgid="6093592297198243644">"Geluid bij toetsaanslag"</string>
     <string name="popup_on_keypress" msgid="123894815723512944">"Pop-up bij toetsaanslag"</string>
     <string name="settings_screen_preferences" msgid="2696713156722014624">"Voorkeuren"</string>
-    <string name="settings_screen_appearance" msgid="9153102634339912029">"Uiterlijk en indelingen"</string>
-    <string name="settings_screen_multilingual" msgid="1391301621464509659">"Meertalige opties"</string>
+    <string name="settings_screen_accounts" msgid="2786418968536696670">"Accounts en privacy"</string>
+    <string name="settings_screen_appearance" msgid="7358046399111611615">"Uiterlijk en lay-out"</string>
     <string name="settings_screen_gesture" msgid="8826372746901183556">"Invoer met bewegingen"</string>
     <string name="settings_screen_correction" msgid="1616818407747682955">"Tekstcorrectie"</string>
     <string name="settings_screen_advanced" msgid="7472408607625972994">"Geavanceerd"</string>
     <string name="settings_screen_theme" msgid="2137262503543943871">"Thema"</string>
+    <string name="enable_split_keyboard" msgid="4177264923999493614">"Gesplitst toetsenbord inschakelen"</string>
+    <string name="cloud_sync_title" msgid="8579271074443847055">"Google-toetsenbordsynchronisatie"</string>
+    <string name="cloud_sync_summary" msgid="7684887161145650857">"Synchronisatie is ingeschakeld"</string>
+    <string name="cloud_sync_summary_disabled" msgid="4553338970382825796">"Uw persoonlijke woordenboek synchroniseren op meerdere apparaten"</string>
+    <string name="sync_now_title" msgid="3088838136743277721">"Nu synchroniseren"</string>
+    <string name="clear_sync_data_title" msgid="8582001557037069154">"Cloudgegevens verwijderen"</string>
+    <string name="clear_sync_data_summary" msgid="993477139012576584">"Hiermee worden uw gesynchroniseerde gegevens verwijderd van Google"</string>
+    <string name="clear_sync_data_confirmation" msgid="2811931135574727678">"Wilt u gesynchroniseerde gegevens echt verwijderen uit de cloud?"</string>
+    <string name="clear_sync_data_ok" msgid="613104067705915132">"Verwijderen"</string>
+    <string name="cloud_sync_cancel" msgid="5877481252150919037">"Annuleren"</string>
+    <string name="cloud_sync_opt_in_text" msgid="9176039655776298248">"Uw persoonlijke woordenboek wordt gesynchroniseerd en er wordt een back-up gemaakt op servers van Google. De statistische gegevens voor woordfrequentie kunnen worden verzameld om onze producten te verbeteren. Het verzamelen en gebruik van alle gegevens is in overeenstemming met het "<a href="https://www.google.com/policies/privacy">"Privacybeleid van Google"</a>"."</string>
+    <string name="add_account_to_enable_sync" msgid="7836932571852055265">"Voeg een Google-account toe om deze functie in te schakelen"</string>
+    <string name="cloud_sync_summary_disabled_work_profile" msgid="1381770407303129164">"Synchronisatie is niet beschikbaar voor Google Apps for Business-accounts"</string>
     <string name="include_other_imes_in_language_switch_list" msgid="4533689960308565519">"Invoermeth. overschakelen"</string>
     <string name="include_other_imes_in_language_switch_list_summary" msgid="840637129103317635">"Schakelknop voor taal ook van toepassing op andere invoermethoden"</string>
     <string name="show_language_switch_key" msgid="5915478828318774384">"Schakelknop voor taal"</string>
     <string name="show_language_switch_key_summary" msgid="7343403647474265713">"Weergeven wanneer meerdere invoertalen zijn geselecteerd"</string>
-    <string name="key_preview_popup_dismiss_delay" msgid="6213164897443068248">"Vertr.sluiten toetspop-up"</string>
+    <string name="key_preview_popup_dismiss_delay" msgid="6213164897443068248">"Pop-up vertraagd sluiten"</string>
     <string name="key_preview_popup_dismiss_no_delay" msgid="2096123151571458064">"Geen vertraging"</string>
     <string name="key_preview_popup_dismiss_default_delay" msgid="2166964333903906734">"Standaard"</string>
     <string name="abbreviation_unit_milliseconds" msgid="8700286094028323363">"<xliff:g id="MILLISECONDS">%s</xliff:g> ms"</string>
@@ -55,7 +68,7 @@
     <string name="main_dictionary" msgid="4798763781818361168">"Algemeen woordenboek"</string>
     <string name="prefs_show_suggestions" msgid="8026799663445531637">"Correctievoorstellen weergeven"</string>
     <string name="prefs_show_suggestions_summary" msgid="1583132279498502825">"Voorgestelde woorden weergeven tijdens typen"</string>
-    <string name="prefs_block_potentially_offensive_title" msgid="5078480071057408934">"Aanstootgevende woorden blokk."</string>
+    <string name="prefs_block_potentially_offensive_title" msgid="5078480071057408934">"Grof taalgebruik blokkeren"</string>
     <string name="prefs_block_potentially_offensive_summary" msgid="2371835479734991364">"Geen potentieel aanstootgevende woorden voorstellen"</string>
     <string name="auto_correction" msgid="7630720885194996950">"Autocorrectie"</string>
     <string name="auto_correction_summary" msgid="5625751551134658006">"Met spatiebalk en interpunctie worden verkeerd gespelde woorden automatisch gecorrigeerd"</string>
@@ -65,13 +78,13 @@
     <string name="auto_correction_threshold_mode_very_aggressive" msgid="1853309024129480416">"Zeer agressief"</string>
     <string name="bigram_prediction" msgid="1084449187723948550">"Suggesties voor volgend woord"</string>
     <string name="bigram_prediction_summary" msgid="3896362682751109677">"Het vorige woord gebruiken bij het doen van suggesties"</string>
-    <string name="gesture_input" msgid="826951152254563827">"Typen via tekenen inschakelen"</string>
-    <string name="gesture_input_summary" msgid="9180350639305731231">"Voer een woord in door van letter naar letter te schuiven"</string>
+    <string name="gesture_input" msgid="826951152254563827">"Bewegingsinvoer inschakelen"</string>
+    <string name="gesture_input_summary" msgid="9180350639305731231">"Voer een woord in door van letter naar letter te bewegen"</string>
     <string name="gesture_preview_trail" msgid="3802333369335722221">"Gebarenspoor weergeven"</string>
     <string name="gesture_floating_preview_text" msgid="4443240334739381053">"Dynamisch zwevend voorbeeld"</string>
     <string name="gesture_floating_preview_text_summary" msgid="4472696213996203533">"Het voorgestelde woord weergeven tijdens het tekenen"</string>
     <string name="gesture_space_aware" msgid="2078291600664682496">"Gebaar voor woordgroep"</string>
-    <string name="gesture_space_aware_summary" msgid="4371385818348528538">"Spaties invoeren bij gebaren door naar de spatietoets te bewegen"</string>
+    <string name="gesture_space_aware_summary" msgid="4371385818348528538">"Spaties invoeren door naar de spatietoets te bewegen"</string>
     <string name="voice_input" msgid="3583258583521397548">"Toets voor spraakinvoer"</string>
     <string name="voice_input_disabled_summary" msgid="8141750303464726129">"Geen spraakinvoermethoden ingeschakeld. Ga naar \'Instellingen voor taal en invoer\'."</string>
     <string name="configure_input_method" msgid="373356270290742459">"Invoermethoden configureren"</string>
@@ -82,15 +95,25 @@
     <string name="hint_add_to_dictionary_without_word" msgid="3040385779511255101">"Tik hier om op te slaan"</string>
     <string name="has_dictionary" msgid="6071847973466625007">"Woordenboek beschikbaar"</string>
     <string name="keyboard_layout" msgid="8451164783510487501">"Toetsenbordthema"</string>
+    <string name="switch_accounts" msgid="3321216593719006162">"Schakelen tussen accounts"</string>
+    <string name="no_accounts_selected" msgid="2073821619103904330">"Geen accounts geselecteerd"</string>
+    <string name="account_selected" msgid="2846876462199625974">"<xliff:g id="EMAIL_ADDRESS">%1$s</xliff:g> wordt momenteel gebruikt"</string>
+    <string name="account_select_ok" msgid="9141195141763227797">"OK"</string>
+    <string name="account_select_cancel" msgid="5181012062618504340">"Annuleren"</string>
+    <string name="account_select_sign_out" msgid="3299651159390187933">"Uitloggen"</string>
+    <string name="account_select_title" msgid="6279711684772922649">"Selecteer een account om te gebruiken"</string>
     <string name="subtype_en_GB" msgid="88170601942311355">"Engels (GB)"</string>
     <string name="subtype_en_US" msgid="6160452336634534239">"Engels (VS)"</string>
     <string name="subtype_es_US" msgid="5583145191430180200">"Spaans (VS)"</string>
+    <string name="subtype_hi_ZZ" msgid="8860448146262798623">"Hindi-Engels"</string>
+    <string name="subtype_sr_ZZ" msgid="9059219552986034343">"Servisch (Latijns)"</string>
     <string name="subtype_with_layout_en_GB" msgid="1931018968641592304">"Engels (VK) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_en_US" msgid="8809311287529805422">"Engels (VS) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_with_layout_es_US" msgid="510930471167541338">"Spaans (VS) (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_hi_ZZ" msgid="6827402953860547044">"Hindi-Engels (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
+    <string name="subtype_with_layout_sr_ZZ" msgid="2859024772719772407">"Servisch (<xliff:g id="KEYBOARD_LAYOUT">%s</xliff:g>)"</string>
     <string name="subtype_generic_traditional" msgid="8584594350973800586">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (traditioneel)"</string>
-    <string name="subtype_generic_cyrillic" msgid="7486451947618138947">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Cyrillisch)"</string>
-    <string name="subtype_generic_latin" msgid="9128716486310604145">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (Latijns)"</string>
+    <string name="subtype_generic_compact" msgid="3353673321203202922">"<xliff:g id="LANGUAGE_NAME">%s</xliff:g> (compact)"</string>
     <string name="subtype_no_language" msgid="7137390094240139495">"Geen taal (alfabet)"</string>
     <string name="subtype_no_language_qwerty" msgid="244337630616742604">"Alfabet (QWERTY)"</string>
     <string name="subtype_no_language_qwertz" msgid="443066912507547976">"Alfabet (QWERTZ)"</string>
@@ -100,8 +123,8 @@
     <string name="subtype_no_language_pcqwerty" msgid="5354918232046200018">"Alfabet (pc)"</string>
     <string name="subtype_emoji" msgid="7483586578074549196">"Emoji"</string>
     <string name="keyboard_theme" msgid="4909551808526178852">"Toetsenbordthema"</string>
-    <string name="custom_input_styles_title" msgid="8429952441821251512">"Aangep. invoerstijlen"</string>
-    <string name="add_style" msgid="6163126614514489951">"Stijl toev."</string>
+    <string name="custom_input_styles_title" msgid="8429952441821251512">"Aangepaste invoer"</string>
+    <string name="add_style" msgid="6163126614514489951">"Stijl toevoegen"</string>
     <string name="add" msgid="8299699805688017798">"Toevoegen"</string>
     <string name="remove" msgid="4486081658752944606">"Verwijderen"</string>
     <string name="save" msgid="7646738597196767214">"Opslaan"</string>
@@ -113,6 +136,9 @@
     <string name="custom_input_style_already_exists" msgid="8008728952215449707">"Dezelfde invoerstijl bestaat al: <xliff:g id="INPUT_STYLE_NAME">%s</xliff:g>"</string>
     <string name="prefs_keypress_vibration_duration_settings" msgid="7918341459947439226">"Trilingsduur bij toetsgebruik"</string>
     <string name="prefs_keypress_sound_volume_settings" msgid="6027007337036891623">"Geluidsvolume bij toetsgebruik"</string>
+    <string name="prefs_key_longpress_timeout_settings" msgid="6102240298932897873">"Lengte toetsinvoer"</string>
+    <string name="prefs_enable_emoji_alt_physical_key" msgid="5963640002335470112">"Emoji voor fysiek toetsenbord"</string>
+    <string name="prefs_enable_emoji_alt_physical_key_summary" msgid="5259484820941627827">"Emoji-palet weergeven met fysieke Alt-toets"</string>
     <string name="button_default" msgid="3988017840431881491">"Standaard"</string>
     <string name="setup_welcome_title" msgid="6112821709832031715">"Welkom bij <xliff:g id="APPLICATION_NAME">%s</xliff:g>"</string>
     <string name="setup_welcome_additional_description" msgid="8150252008545768953">"met Invoer met bewegingen"</string>

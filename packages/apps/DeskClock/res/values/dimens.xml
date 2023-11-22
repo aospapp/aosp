@@ -19,7 +19,7 @@
 
 <!-- These resources are around just to allow their values to be customized
      for different hardware and product builds. -->
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources>
     <dimen name="label_text_size">14sp</dimen>
     <dimen name="time_text_size">120dip</dimen>
     <dimen name="ampm_text_size">20dip</dimen>
@@ -37,7 +37,6 @@
     <dimen name="top_text_spacing_digital">4dp</dimen>
     <dimen name="bottom_text_spacing_analog">14dp</dimen>
     <dimen name="bottom_text_spacing_analog_small">6dp</dimen>
-    <dimen name="digital_screensaver_clock_text_size">104sp</dimen>
 
     <dimen name="alarm_side_padding">12dip</dimen>
     <dimen name="clock_side_padding">12dip</dimen>
@@ -65,14 +64,15 @@
 
     <dimen name="alarm_lockscreen_alarm_horizontal_padding">16dp</dimen>
     <dimen name="alarm_lockscreen_alarm_vertical_padding">48dp</dimen>
-    <dimen name="alarm_lockscreen_pulse_size">256dp</dimen>
+    <dimen name="alarm_lockscreen_pulse_radius">128dp</dimen>
     <dimen name="alarm_lockscreen_bottom_margin">40dp</dimen>
 
-    <dimen name="big_font_size">88sp</dimen>
+    <dimen name="big_font_size">60sp</dimen>
     <dimen name="medium_font_size">56sp</dimen>
     <dimen name="small_font_size">32sp</dimen>
     <dimen name="label_font_size">16sp</dimen>
-    <dimen name="widget_label_font_size">14sp</dimen>
+    <!-- Use dp on purpose to ensure consistency across multiple screen sizes. -->
+    <dimen name="widget_label_font_size">14dp</dimen>
     <dimen name="main_ampm_font_size">32sp</dimen>
     <dimen name="header_font_size">24sp</dimen>
     <dimen name="body_font_size">18sp</dimen>
@@ -80,6 +80,10 @@
     <dimen name="alarm_time_font_size">64sp</dimen>
     <dimen name="alarm_info_font_size">36sp</dimen>
     <dimen name="no_alarm_font_size">16sp</dimen>
+
+    <dimen name="alarm_picker_dialog_horizontal_margin">30dp</dimen>
+    <dimen name="alarm_picker_dialog_vertical_margin">20dp</dimen>
+    <dimen name="alarm_picker_margin_bottom">10dp</dimen>
 
     <dimen name="body_font_padding">4dp</dimen>
     <dimen name="button_font_size">24sp</dimen>
@@ -135,7 +139,7 @@
     <!-- Bottom padding for alarm lock screen hint text -->
     <dimen name="alarm_alert_hint_padding">32dip</dimen>
 
-    <!-- Size of analog clock in world clock. -->
+    <!-- Size of time zone analog clocks in world clock. -->
     <dimen name="world_clock_analog_size">100dip</dimen>
     <dimen name="world_clock_margin">32dp</dimen>
 
@@ -150,7 +154,8 @@
 
     <!-- Digital Widget settings (keyguard|home_screen) -->
     <!-- Clock and world clock sizes -->
-    <dimen name="widget_big_font_size">75sp</dimen>
+    <!-- Use dp on purpose to ensure consistency across multiple screen sizes. -->
+    <dimen name="widget_big_font_size">75dp</dimen>
     <dimen name="widget_medium_font_size">32sp</dimen>
     <dimen name="widget_24_medium_font_size">40sp</dimen>
 
@@ -178,5 +183,11 @@
 
     <!-- The minimum height/width of any touch target -->
     <dimen name="touch_target_min_size">48dip</dimen>
+
+    <!-- Dimens for cities fastscroll -->
+    <dimen name="fastscroll_thumb_height">48dp</dimen>
+    <dimen name="fastscroll_thumb_width">8dp</dimen>
+    <dimen name="fastscroll_preview_padding">8dp</dimen>
+    <dimen name="fastscroll_track_width">8dp</dimen>
 
 </resources>

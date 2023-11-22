@@ -6,9 +6,8 @@
 
 #include "../../../include/fpdfapi/fpdf_parser.h"
 #include "../../../include/fpdfapi/fpdf_module.h"
-extern FX_LPVOID PDFPreviewInitCache(CPDF_Document* pDoc);
-extern void PDFPreviewClearCache(FX_LPVOID pCache);
-CPDF_Document::CPDF_Document(IPDF_DocParser* pParser) : CPDF_IndirectObjects(pParser)
+
+CPDF_Document::CPDF_Document(CPDF_Parser* pParser) : CPDF_IndirectObjects(pParser)
 {
     ASSERT(pParser != NULL);
     m_pRootDict = NULL;
@@ -61,11 +60,13 @@ void CPDF_Document::LoadAsynDoc(CPDF_Dictionary *pLinearized)
 {
     m_bLinearized = TRUE;
     m_LastObjNum = m_pParser->GetLastObjNum();
-    m_pRootDict = GetIndirectObject(m_pParser->GetRootObjNum())->GetDict();
+    CPDF_Object* indirectObj = GetIndirectObject(m_pParser->GetRootObjNum());
+    m_pRootDict = indirectObj ? indirectObj->GetDict() : NULL;
     if (m_pRootDict == NULL) {
         return;
     }
-    m_pInfoDict = GetIndirectObject(m_pParser->GetInfoObjNum())->GetDict();
+    indirectObj = GetIndirectObject(m_pParser->GetInfoObjNum());
+    m_pInfoDict = indirectObj ? indirectObj->GetDict() : NULL;
     CPDF_Array* pIDArray = m_pParser->GetIDArray();
     if (pIDArray) {
         m_ID1 = pIDArray->GetString(0);
@@ -93,12 +94,12 @@ void CPDF_Document::LoadPages()
 extern void FPDF_TTFaceMapper_ReleaseDoc(CPDF_Document*);
 CPDF_Document::~CPDF_Document()
 {
-    if (m_pDocRender) {
-        CPDF_ModuleMgr::Get()->GetRenderModule()->DestroyDocData(m_pDocRender);
-    }
     if (m_pDocPage) {
         CPDF_ModuleMgr::Get()->GetPageModule()->ReleaseDoc(this);
         CPDF_ModuleMgr::Get()->GetPageModule()->ClearStockFont(this);
+    }
+    if (m_pDocRender) {
+        CPDF_ModuleMgr::Get()->GetRenderModule()->DestroyDocData(m_pDocRender);
     }
 }
 #define		FX_MAX_PAGE_LEVEL			1024
@@ -190,9 +191,9 @@ int CPDF_Document::_FindPageIndex(CPDF_Dictionary* pNode, FX_DWORD& skip_count, 
         }
         if (count && count == pKidList->GetCount()) {
             for (FX_DWORD i = 0; i < count; i ++) {
-                CPDF_Reference* pKid = (CPDF_Reference*)pKidList->GetElement(i);
+                CPDF_Object* pKid = pKidList->GetElement(i);
                 if (pKid && pKid->GetType() == PDFOBJ_REFERENCE) {
-                    if (pKid->GetRefObjNum() == objnum) {
+                    if (((CPDF_Reference*) pKid)->GetRefObjNum() == objnum) {
                         m_PageList.SetAt(index + i, objnum);
                         return index + i;
                     }
@@ -296,39 +297,6 @@ int CPDF_Document::_GetPageCount() const
     }
     return _CountPages(pPages, 0);
 }
-static FX_BOOL _EnumPages(CPDF_Dictionary* pPages, IPDF_EnumPageHandler* pHandler)
-{
-    CPDF_Array* pKidList = pPages->GetArray(FX_BSTRC("Kids"));
-    if (pKidList == NULL) {
-        return pHandler->EnumPage(pPages);
-    }
-    for (FX_DWORD i = 0; i < pKidList->GetCount(); i ++) {
-        CPDF_Dictionary* pKid = pKidList->GetDict(i);
-        if (pKid == NULL) {
-            continue;
-        }
-        if (!pKid->KeyExist(FX_BSTRC("Kids"))) {
-            if (!pHandler->EnumPage(pKid)) {
-                return FALSE;
-            }
-        } else {
-            return _EnumPages(pKid, pHandler);
-        }
-    }
-    return TRUE;
-}
-void CPDF_Document::EnumPages(IPDF_EnumPageHandler* pHandler)
-{
-    CPDF_Dictionary* pRoot = GetRoot();
-    if (pRoot == NULL) {
-        return;
-    }
-    CPDF_Dictionary* pPages = pRoot->GetDict(FX_BSTRC("Pages"));
-    if (pPages == NULL) {
-        return;
-    }
-    _EnumPages(pPages, pHandler);
-}
 FX_BOOL CPDF_Document::IsContentUsedElsewhere(FX_DWORD objnum, CPDF_Dictionary* pThisPageDict)
 {
     for (int i = 0; i < m_PageList.GetSize(); i ++) {
@@ -336,15 +304,18 @@ FX_BOOL CPDF_Document::IsContentUsedElsewhere(FX_DWORD objnum, CPDF_Dictionary* 
         if (pPageDict == pThisPageDict) {
             continue;
         }
-        CPDF_Object* pContents = pPageDict->GetElement(FX_BSTRC("Contents"));
+        CPDF_Object* pContents = pPageDict ? pPageDict->GetElement(FX_BSTRC("Contents")) : NULL;
         if (pContents == NULL) {
             continue;
         }
         if (pContents->GetDirectType() == PDFOBJ_ARRAY) {
             CPDF_Array* pArray = (CPDF_Array*)pContents->GetDirect();
             for (FX_DWORD j = 0; j < pArray->GetCount(); j ++) {
-                CPDF_Reference* pRef = (CPDF_Reference*)pArray->GetElement(j);
-                if (pRef->GetRefObjNum() == objnum) {
+                CPDF_Object* pRef = pArray->GetElement(j);
+                if (pRef == NULL || pRef->GetType() != PDFOBJ_REFERENCE) {
+                    continue;
+                }
+                if (((CPDF_Reference*) pRef)->GetRefObjNum() == objnum) {
                     return TRUE;
                 }
             }

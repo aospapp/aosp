@@ -1,6 +1,27 @@
 # -*- coding: utf-8 -*-
 
+#-------------------------------------------------------------------------
+# drawElements Quality Program utilities
+# --------------------------------------
+#
+# Copyright 2015 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#-------------------------------------------------------------------------
+
 import os
+import sys
 import copy
 import platform
 import multiprocessing
@@ -108,7 +129,7 @@ class VSProjectGenerator(CMakeGenerator):
 			return False
 
 	def isAvailable (self):
-		if _winreg != None:
+		if sys.platform == 'win32' and _winreg != None:
 			nativeArch = VSProjectGenerator.getNativeArch()
 			if nativeArch == self.ARCH_32BIT and self.arch == self.ARCH_64BIT:
 				return False
@@ -159,6 +180,16 @@ ANY_VS_X64_GENERATOR	= selectFirstAvailableGenerator([
 								VS2010_X64_GENERATOR,
 							])
 ANY_UNIX_GENERATOR		= selectFirstAvailableGenerator([
+								NINJA_GENERATOR,
+								MAKEFILE_GENERATOR,
+							])
+ANY_GENERATOR			= selectFirstAvailableGenerator([
+								VS2013_X64_GENERATOR,
+								VS2012_X64_GENERATOR,
+								VS2010_X64_GENERATOR,
+								VS2013_X32_GENERATOR,
+								VS2012_X32_GENERATOR,
+								VS2010_X32_GENERATOR,
 								NINJA_GENERATOR,
 								MAKEFILE_GENERATOR,
 							])

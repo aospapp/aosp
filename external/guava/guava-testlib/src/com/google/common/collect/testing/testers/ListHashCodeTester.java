@@ -16,19 +16,22 @@
 
 package com.google.common.collect.testing.testers;
 
+import com.google.common.annotations.GwtCompatible;
+import com.google.common.annotations.GwtIncompatible;
+import com.google.common.collect.testing.Helpers;
+
 import java.lang.reflect.Method;
 
 /**
  * Tests {@link java.util.List#hashCode}.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible(emulated = true)
 public class ListHashCodeTester<E> extends AbstractListTester<E> {
   public void testHashCode() {
     int expectedHashCode = 1;
-    for (E element : getSampleElements()) {
+    for (E element : getOrderedElements()) {
       expectedHashCode = 31 * expectedHashCode +
           ((element == null) ? 0 : element.hashCode());
     }
@@ -42,7 +45,8 @@ public class ListHashCodeTester<E> extends AbstractListTester<E> {
    * list tests on unhashable objects can suppress it with
    * {@code FeatureSpecificTestSuiteBuilder.suppressing()}.
    */
+  @GwtIncompatible("reflection")
   public static Method getHashCodeMethod() {
-    return Platform.getMethod(ListHashCodeTester.class, "testHashCode");
+    return Helpers.getMethod(ListHashCodeTester.class, "testHashCode");
   }
 }

@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"Bæta reikningi við"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"Samstilling"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Fjarlægja reikning"</string>
-    <string name="search_title" msgid="5474988613144349415">"Leita"</string>
     <string name="account_sync" msgid="773808124331714965">"Velja samstillt forrit"</string>
     <string name="sync_now" msgid="8732244492880016471">"Samstilla núna"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"Hætta við samstillingu"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"Samstilling virkar ekki eins og er. Hún verður aftur í boði innan skamms."</string>
     <string name="account_remove" msgid="4313580520737295272">"Fjarlægja reikning"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"Ekki hægt að fjarlægja reikning"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"Nafn"</item>
-    <item msgid="6466271488216028049">"Mynd"</item>
-    <item msgid="5763918836533170723">"Öryggi"</item>
-    <item msgid="5219275476980441834">"Google Wallet"</item>
-    <item msgid="5333563881963545303">"Innkaupaferill"</item>
-    <item msgid="6174147587962184914">"Fjarlægja reikning"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"Net"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Leit alltaf í boði"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Leyfa staðsetningarþjónustu Google og öðrum forritum að leita að netum, jafnvel þótt slökkt sé á Wi-Fi"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"Skjávari"</string>
     <string name="device_display" msgid="101455384386372747">"Skjár"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Kerfishljóð"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"Afritun og endurheimt"</string>
     <string name="device_reset" msgid="2827002349560023125">"Núllstilling"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kvörðun"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Hreinsa gögn í skyndiminni?"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Þetta eyðir gögnum allra forrita úr skyndiminni."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"Sótt forrit"</string>
     <string name="apps_system" msgid="2499191125802829425">"Kerfisforrit"</string>
     <string name="apps_running" msgid="6430310491739956228">"Forrit í gangi"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"Fjarstýring"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"Myndavél"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Bæta aukabúnaði við"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"Wi-Fi skjábirting"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Parar…"</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"Aukabúnaður"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"Endurnefna"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"Afpara"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"Rafhlaða <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Hættir pörun tækis…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Tengdur"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Leitar að aukabúnaði…"</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"Dagsetning og tími"</string>
     <string name="system_language" msgid="2337138146114609247">"Tungumál"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Lyklaborð"</string>
+    <string name="system_home" msgid="2858989138172296012">"Heimaskjár"</string>
     <string name="system_search" msgid="2837264654143247611">"Leita"</string>
     <string name="system_security" msgid="8230080273993484407">"Öryggi og takmarkanir"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tal"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"Heiti tækis"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Endurræsa"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"Lagalegar upplýsingar"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"Ábyrgð"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"Leyfi opins kóða"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Lagalegt efni Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"Leyfisgögn eru óaðgengileg"</string>
@@ -118,23 +109,13 @@
     <string name="about_version" msgid="1177287676732287266">"Útgáfa"</string>
     <string name="about_serial" msgid="2723560490027171187">"Raðnúmer"</string>
     <string name="about_build" msgid="9148789767199785676">"Smíði"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"Þú ert nú <xliff:g id="STEP_COUNT">%1$d</xliff:g> skrefi frá því að gerast þróunaraðili"</item>
-    <item quantity="other" msgid="6907126743472136795">"Þú ert nú <xliff:g id="STEP_COUNT">%1$d</xliff:g> skrefum frá því að gerast þróunaraðili"</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="one">Þú ert nú <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> skrefi frá því að gerast þróunaraðili</item>
+      <item quantity="other">Þú ert nú <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> skrefum frá því að gerast þróunaraðili</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"Auglýsingar"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"Nú ertu orðin(n) þróunaraðili!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"Þetta er óþarfi; þú ert nú þegar þróunaraðili"</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"Ekkert"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"Vistað"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"Slökkt"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"Komist hjá lélegri nettengingu"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"Vandamál við auðkenningu"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"Ekkert samband"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"WPS tiltækt"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" (WPS tiltækt)"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"Tryggt með <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">", tryggt með <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Lélegt"</item>
     <item msgid="5986166866411161790">"Sæmilegt"</item>
@@ -154,10 +135,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"TILTÆK NET"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Tengjast gegnum WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Bæta nýju neti við"</string>
-    <string name="add_network" msgid="2074883912462075625">"Bæta við neti"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"SSID netkerfis"</string>
     <string name="security_type" msgid="524443802004143058">"Gerð öryggis"</string>
-    <string name="password" msgid="1322790875762726719">"Aðgangsorð"</string>
     <string name="wps_network" msgid="1052148085426051873">"Tengjast gegnum WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Annað net…"</string>
     <string name="skip_network" msgid="6380260543776712357">"Sleppa"</string>
@@ -200,11 +178,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"Ekkert"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"Handvirkt"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"Vista"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"Föst"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"Staða"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"Ítarlegir valkostir"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>, <xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"Sláðu inn gilda IP-tölu"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"Sláðu inn gilt gáttarvistfang"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"Sláðu inn gilt DNS-vistfang"</string>
@@ -227,19 +203,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Engin nettenging"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Tenging við <xliff:g id="SSID">%1$s</xliff:g> er þegar fyrir hendi. Viltu tengjast öðru neti?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"óþekkt net"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"Ítarlegir valkostir"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>, <xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"IP-stillingar"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"Prófa tengingu"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"Föst"</string>
-    <string name="gateway" msgid="2467496590891949814">"Gátt"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"Lengd netforskeytis"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"Í lagi"</string>
     <string name="title_cancel" msgid="4846143417666038604">"Hætta við"</string>
-    <string name="rename_device" msgid="8221482127562510757">"Endurnefna tæki"</string>
     <string name="storage_title" msgid="2132026108559493394">"Geymsla"</string>
     <string name="storage_available" msgid="1241005580092138871">"Laust"</string>
     <string name="storage_size" msgid="8958530823208352781">"Pláss samtals: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +215,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"Hljóð"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"Ýmislegt"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"Gögn í skyndiminni"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"Hætta við"</string>
+    <string name="storage_eject" msgid="113476702798691558">"Aftengja"</string>
+    <string name="storage_format" msgid="3759273736493279595">"Aftengja og forsníða"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"Forsníða sem geymslu tækis"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"Ekki tengt"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"Flytja gögn"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"Gleyma þessari innbyggðu geymslu"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Til að nota forrit eða gögn á þessu drifi skaltu setja það aftur í. Að öðrum kosti geturðu valið að gleyma þessari geymslu ef drifið er ekki tiltækt.\n\nEf þú velur að gleyma henni glatast öll gögn á drifinu að eilífu.\n\nÞú getur sett forritin upp aftur síðar en gögnin sem eru vistuð á drifinu glatast."</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"Geymsla tækis"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"Tengd geymsla"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Endurstilla"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> var tengt"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"Ekki var hægt að tengja <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> var aftengt á öruggan hátt"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"Ekki var hægt að aftengja <xliff:g id="NAME">%1$s</xliff:g> á öruggan hátt"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"Ekkert drif fannst til að aftengja"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> var forsniðið"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"Ekki var hægt að forsníða <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"Forsníða sem innbyggða geymslu"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"Þetta krefst þess að USB-drifið sé forsniðið til að gera það öruggt. Þegar búið er að forsníða drifið virkar það bara í þessu tæki. Þetta eyðir öllum gögnum sem vistuð eru á drifinu. Til að forðast að þessi gögn glatist þarftu að taka öryggisafrit af þeim."</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"Eyða og forsníða"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"Þegar þetta USB-drif hefur verið forsniðið geturðu notað það í öðrum tækjum. Öllum gögnum verður eytt. Þú gætir viljað taka öryggisafrit fyrst með því að færa forrit yfir í aðra innbyggða geymslu."</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"Forsníður USB-drif…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"Þetta getur tekið smástund. Ekki fjarlægja drifið."</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"Færa gögn yfir á <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"Færðu myndir, skrár og forritsgögn yfir á <xliff:g id="NAME">%1$s</xliff:g>. Þetta getur tekið nokkrar mínútur. Sum forrit virka ekki rétt meðan á flutningi stendur."</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"Færa núna"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"Færa síðar"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"Flutti gögn yfir á <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"Ekki tókst að flytja gögn yfir á <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"Færir gögn yfir á <xliff:g id="NAME">%1$s</xliff:g>..."</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"Þetta getur tekið smástund. Ekki fjarlægja drifið.\nSum forrit virka ekki rétt meðan á flutningi stendur."</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"Þetta drif virðist vera hægvirkt."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"Þú getur haldið áfram en forrit sem færð eru á þennan stað kunna að hökta og gagnaflutningur gæti tekið langan tíma. Íhugaðu að nota drif sem virkar hraðar til að bæta afköstin."</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"Forsníða"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"Afrita forrit"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"Forrit sem geymd eru á <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"Forrit og gögn sem geymd eru á <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> laus"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"Aftengja innbyggða geymslu"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"Forritin á þessum geymslumiðli hætta að virka þegar hann er aftengdur. USB-drifið er forsniðið þannig að það virkar eingöngu með þessu tæki. Það mun ekki virka með öðrum tækjum."</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"Aftengir <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"Notað pláss"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"Flytur <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"Ekki fjarlægja drifið meðan á flutningnum stendur.\n<xliff:g id="APPNAME">%1$s</xliff:g> forritið í þessu tæki verður ekki aðgengilegt fyrr en að flutningi loknum."</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"Gleyma innbyggðri geymslu?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"Öll gögn sem eru vistuð á drifinu glatast að eilífu ef þú velur „Gleyma“. Viltu halda áfram?"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"Gleyma"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"USB-drif tengt"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"Skoða"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"Setja upp sem innri geymslu"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"Setja upp sem færanlega geymslu"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"Aftengja"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> fjarlægt"</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"Sum forrit verða ekki í boði eða virka ekki rétt fyrr en búið er að tengja drifið aftur."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"Ekki nægilegt geymslurými."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"Forritið er ekki til."</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"Forritið er afritunarvarið."</string>
+    <string name="invalid_location" msgid="5269044848535157307">"Uppsetningarstaður er ógildur."</string>
+    <string name="system_package" msgid="9200255718634512790">"Ekki er hægt að setja upp kerfisuppfærslur á ytri geymslumiðlum."</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"Frekari upplýsingar"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Reyna aftur"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"Leitar að WPS-beini…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"Ýttu á hnappinn fyrir varða Wi-Fi uppsetningu á beininum.\nHann kann að vera merktur með „WPS“ eða tákninu hér til vinstri."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Sláðu inn PIN-númerið <xliff:g id="NUMBER">%1$s</xliff:g> í Wi-Fi beininum"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Þegar þú hefur slegið PIN-númerið inn getur tekið allt að tvær mínútur að ljúka uppsetningunni"</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"WPS er nú þegar í gangi og allt að tvær mínútur getur tekið að ljúka því"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Ekki tókst að finna Wi-Fi beini"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Öryggisstilling Wi-Fi beinis (WEP) er ekki studd"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Öryggisstilling Wi-Fi beinis (TKIP) er ekki studd"</string>
@@ -266,17 +289,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"Stilla dagsetningu"</string>
     <string name="system_set_time" msgid="4661804115501057452">"Stilla tíma"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"Velja tímabelti"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"Nota 24 tíma kerfið"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"Sjálfvirk dagsetning og tími"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"Nota tíma frá símkerfi"</string>
     <string name="system_location" msgid="502463575930545806">"Staðsetning"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"Leyfa forritum sem hafa beðið þig um heimild að nota upplýsingar um staðsetningu þína"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"Staðsetning frá Wi-Fi"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"Leyfa Google að aðstoða forrit við að ákvarða staðsetningu. Í þessu felst sending nafnlausra staðsetningargagna til Google, jafnvel þegar engin forrit eru opin."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"Samþykki vegna staðsetningar"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"Leyfa staðsetningarþjónustu Google að safna nafnlausum staðsetningargögnum. Einhver gögn kunna að verða geymd í tækinu. Gögnum kann að vera safnað þótt engin forrit séu í gangi."</string>
-    <string name="location_title" msgid="7600163182794860262">"Staðsetningin mín"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"Kerfi"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"Stilling"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Nýlegar staðsetningarbeiðnir"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Engin forrit hafa óskað eftir staðsetningu nýlega"</string>
@@ -318,9 +338,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"Gegnsæi texta"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"Litur glugga"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"Gegnsæi glugga"</string>
-    <string name="color_none" msgid="5281446963475996688">"Enginn"</string>
     <string name="color_white" msgid="65537523012024751">"Hvítur"</string>
-    <string name="color_gray" msgid="5637299846460438696">"Grár"</string>
     <string name="color_black" msgid="8804213372565106403">"Svartur"</string>
     <string name="color_red" msgid="5630553203246525989">"Rauður"</string>
     <string name="color_green" msgid="3745551274773976763">"Grænn"</string>
@@ -346,8 +364,6 @@
     <string name="system_drawing" msgid="6573389872154957039">"Teikning"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"Eftirlit"</string>
     <string name="system_apps" msgid="6293850468968494924">"Forrit"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"Útbúa villutilkynningu"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"Aðgangsorð öryggisafritunar"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"Vaka"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"HDCP-athugun"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"HDMI-fínstilling"</string>
@@ -383,8 +399,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Ekki vista virkni"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"Takmörkun á bakgrunnsvinnslu"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"Öll forrit sem svara ekki"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"Senda skýrslu á netfang"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"Vernda heildaröryggisafrit af skjáborði"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Ekki fara í svefnstöðu"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Nota aðeins fyrir höfundarréttarvarið efni"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Fínstilla skjá fyrir hámarksupplausn eða hámarksrammatíðni. Þetta hefur aðeins áhrif á Ultra HD skjái. Tækið verður endurræst ef þú breytir þessari stillingu."</string>
@@ -399,7 +413,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Blikka skjá ef forrit gera tímafreka hluti á aðalþræði"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Skjáyfirlögn sem sýnir núverandi örgjörvanotkun"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mæla tíma teikningar í adb shell dumpsys gfxinfo"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"Svæðisbundið (<xliff:g id="DATE">%s</xliff:g>)"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Kveikt"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Slökkt"</string>
     <string name="action_on_description" msgid="4559342592998850852">"Kveikt"</string>
@@ -411,68 +424,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Tækið þitt og persónuleg gögn um þig eru berskjaldaðri fyrir árásum forrita af óþekktum uppruna. Þú samþykkir að bera fulla ábyrgð á hverju því tjóni sem verða kann á tækinu eða gagnatapi sem leiða kann af notkun þessara forrita."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Staðfesta forrit"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Loka fyrir eða vara við uppsetningu forrita sem kunna að vera skaðleg"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"Aldrei"</item>
-    <item msgid="5583820743908145007">"Fyrir höfundarréttarvarið efni"</item>
-    <item msgid="6148080515126921450">"Alltaf"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Aldrei"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"Fyrir höfundarréttarvarið efni"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"Alltaf"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"Hæsta upplausn"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"Besta rammatíðni"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"Slökkt"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Sýna yfirteiknunarsvæði"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Sýna teljara yfirteiknunar"</string>
     <string name="no_application" msgid="1746564297589309465">"Ekkert"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"Ekkert"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace (grafík)"</item>
-    <item msgid="6650537879885155020">"Kallastafli á glGetError"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Engin"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"Slökkva á hreyfiáhrifum"</item>
+    <item msgid="8327257151534006014">"Lengd hreyfiáhrifa 0,5x"</item>
+    <item msgid="2105786719544636780">"Lengd hreyfiáhrifa 1x"</item>
+    <item msgid="5290554136790336403">"Lengd hreyfiáhrifa 1,5x"</item>
+    <item msgid="1232929590838082483">"Lengd hreyfiáhrifa 2x"</item>
+    <item msgid="1889239009419613796">"Lengd hreyfiáhrifa 5x"</item>
+    <item msgid="7268894934484547297">"Lengd hreyfiáhrifa 10x"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"Slökkva á hreyfiáhrifum"</item>
-    <item msgid="5618283113978106483">"Lengd hreyfiáhrifa 0,5x"</item>
-    <item msgid="397451685490290179">"Lengd hreyfiáhrifa 1x"</item>
-    <item msgid="6331600473492644688">"Lengd hreyfiáhrifa 1,5x"</item>
-    <item msgid="7004952449777104295">"Lengd hreyfiáhrifa 2x"</item>
-    <item msgid="1063528777234221038">"Lengd hreyfiáhrifa 5x"</item>
-    <item msgid="6926378938392529339">"Lengd hreyfiáhrifa 10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"Slökkva á hreyfiáhrifum"</item>
-    <item msgid="5578331490208019526">"Lengd hreyfiáhrifa 0,5x"</item>
-    <item msgid="5338802612080069593">"Lengd hreyfiáhrifa 1x"</item>
-    <item msgid="1309704285131661878">"Lengd hreyfiáhrifa 1,5x"</item>
-    <item msgid="5654221040036850960">"Lengd hreyfiáhrifa 2x"</item>
-    <item msgid="6092484055733043622">"Lengd hreyfiáhrifa 5x"</item>
-    <item msgid="4049359393103906268">"Lengd hreyfiáhrifa 10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"Slökkva á hreyfiáhrifum"</item>
-    <item msgid="1302400121783768928">"Lengd hreyfiáhrifa 0,5x"</item>
-    <item msgid="9088460595137551270">"Lengd hreyfiáhrifa 1x"</item>
-    <item msgid="5640745580399155880">"Lengd hreyfiáhrifa 1,5x"</item>
-    <item msgid="3320199023884342141">"Lengd hreyfiáhrifa 2x"</item>
-    <item msgid="5620232666163371843">"Lengd hreyfiáhrifa 5x"</item>
-    <item msgid="8580701701183364590">"Lengd hreyfiáhrifa 10x"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"Slökkt"</item>
-    <item msgid="6446688182396957172">"Á skjánum sem stikur"</item>
-    <item msgid="9080500692341488612">"Í adb-skel dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"Venjulegt hámark"</item>
-    <item msgid="6534728802931195545">"Engar bakgrunnsvinnslur"</item>
-    <item msgid="290172167371846384">"Að hámarki 1 vinnsla"</item>
-    <item msgid="4818593824413771192">"Að hámarki 2 vinnslur"</item>
-    <item msgid="8337569181800165433">"Að hámarki 3 vinnslur"</item>
-    <item msgid="8261219565766202947">"Að hámarki 4 vinnslur"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"Mjög hægt"</item>
-    <item msgid="3458529225374884970">"Hægt"</item>
-    <item msgid="4131204219571166311">"Venjulegt"</item>
-    <item msgid="786682416218616624">"Hratt"</item>
-    <item msgid="1708844147149066133">"Mjög hratt"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"Veldu gerð reiknings"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"Veldu reikning"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"Bæta nýjum reikningi við"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"Slökkt"</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"Á skjánum sem stikur"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"Venjulegt hámark"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"Engar bakgrunnsvinnslur"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"Að hámarki 1 vinnsla"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"Að hámarki 2 vinnslur"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"Að hámarki 3 vinnslur"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"Að hámarki 4 vinnslur"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"Mjög hægt"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"Hægt"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"Venjulegt"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"Hratt"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"Mjög hratt"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Opið lyklaborð"</string>
     <string name="title_configure" msgid="6929522003149212388">"Stilla"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Valkostir lyklaborðs"</string>
@@ -481,9 +464,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Endurnefna"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"Wi-Fi skjábirting"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"PIN-númers krafist"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"Upplýsingar um fjarstýringu: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"Verið er að búa til villuskýrslu!\nVið biðjum þig um frekari upplýsingar þegar skýrslan er tilbúin."</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"Ekki tókst að útbúa villuskýrslu!\nReyndu aftur síðar."</string>
     <string name="whichApplication" msgid="8382179653567099571">"Ljúka aðgerð með"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"Nota alltaf þennan valkost fyrir þessa aðgerð?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"Nota alltaf"</string>
@@ -508,48 +488,39 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"Slökkva á HDMI-tækjum ásamt sjónvarpinu"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"Kveikja sjálfkrafa á sjónvarpi"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"Kveikja á sjónvarpinu með HDMI-tæki"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"TENGT INNTAK"</item>
-    <item quantity="other" msgid="280747600882155182">"TENGD INNTÖK"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"INNTAK Í BIÐSTÖÐU"</item>
-    <item quantity="other" msgid="1673538341842385592">"INNTÖK Í BIÐSTÖÐU"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"ÓTENGT INNTAK"</item>
-    <item quantity="other" msgid="4526893384805247472">"ÓTENGD INNTÖK"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"Tengt"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"Biðstaða"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"Aftengt"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="one">TENGT INNTAK</item>
+      <item quantity="other">TENGT INNTAK</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="one">INNTAK Í BIÐSTÖÐU</item>
+      <item quantity="other">INNTAK Í BIÐSTÖÐU</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="one">ÓTENGT INNTAK</item>
+      <item quantity="other">ÓTENGT INNTAK</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"Takmarka aðgang að forritum og öðru efni á reikningnum þínum"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"Takmarkaður prófíll"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"Aðgangur að forritum og efni"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"Stjórnað af <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"Ekki er stuðningur við þetta forrit í takmörkuðum prófílum"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"Þetta forrit hefur aðgang að reikningunum þínum"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"Staðsetning"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"Leyfa forritum að nota staðsetninguna þína"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"Búa til takmarkaðan notanda"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"Fara í takmarkaðan prófíl"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"Hætta í takmörkuðum prófíl"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"Eyða takmörkuðum prófíl"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"Stillingar"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"Leyfð forrit"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"Eitt forrit leyft"</item>
-    <item quantity="other" msgid="5242661864373721262">"%d forrit leyfð"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="one">%d forrit leyft</item>
+      <item quantity="other">%d forrit leyfð</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"Leyft"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"Ekki leyft"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"Sérsníða takmarkanir"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"Augnablik…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"Breyta PIN-númeri"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"Veldu nýtt PIN-númer til að nota til að fara úr takmörkuðum prófíl"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"Staðfestu PIN-númerið sem notað er til að hætta í takmörkuðum prófíl"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"Sláðu inn PIN-númer til að hætta í takmörkuðum prófíl"</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"Fjarlægja takmarkaðan notanda?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"Sláðu inn PIN-númer til að horfa á þessa rás"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"Sláðu inn PIN-númer til að horfa á þennan þátt"</string>
@@ -557,9 +528,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"Veldu nýtt PIN-númer"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"Sláðu nýtt PIN-númer inn aftur"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"Sláðu inn gamla PIN-númerið"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"Þú slóst inn rangt PIN-númer fimm sinnum. \nReyndu aftur <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
-    <string name="pin_button_done" msgid="939191809977197451">"Lokið"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"Hætta v."</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"Þú slóst inn rangt PIN-númer fimm sinnum.\nReyndu aftur eftir <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> sekúndur."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"Rangt PIN-númer, reyndu aftur"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"Reyndu aftur; PIN-númerin stemma ekki"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"Sláðu inn aðgangsorð fyrir <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"Tengingu komið á."</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"Vistað."</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"útgáfa <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"Opna"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Þvinga fram lokun"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ef þú þvingar fram lokun forrits gæti það látið illa."</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Fjarlægja"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Viltu fjarlægja þetta forrit?"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Fjarlægja uppfærslur"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Allar uppfærslur á þessu Android kerfisforriti verða fjarlægðar."</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Gera óvirkt"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"Viltu gera þetta forrit óvirkt?"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"Virkja"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"Viltu gera þetta forrit virkt?"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"Notað pláss"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> í notkun í <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"Hreinsa gögn"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"Öllum gögnum úr þessu forriti verður eytt fyrir fullt og allt.\nÞar á meðal eru allar skrár, stillingar, reikningar, gagnagrunnar o.s.frv."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"Hreinsa sjálfgildi"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"Ræsir þetta forrit við sumar aðgerðir"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"Engin sjálfgildi stillt"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Hreinsa skyndiminni"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Tilkynningar"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Heimildir"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"Í lagi"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"Hætta við"</string>
+    <string name="settings_on" msgid="6892236264945435013">"Kveikt"</string>
+    <string name="settings_off" msgid="449272161738237637">"Slökkt"</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"Enginn"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"Skjávari"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"Byrja núna"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"Hvenær á að ræsa skjávara"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"Skjávari birtist eftir svona langt aðgerðaleysi. Ef enginn skjávari er valinn er slökkt á skjánum."</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Eftir <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> án aðgerða"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"Hvenær slokknar á skjánum"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Slökkt verður á skjánum eftir aðgerðaleysi í þetta langan tíma."</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"Enginn reikningur geymir öryggisafrituð gögn eins og er"</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"Hætta að taka öryggisafrit af Wi-Fi aðgangsorðum, bókamerkjum, öðrum stillingum og gögnum forrita, og eyða öllum afritum af þjónum Google?"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"Taka öryggisafrit af gögnunum mínum"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"Reikningur öryggisafritunar"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"Sjálfvirk endurheimt"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"Endurstilla tæki"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Þetta eyðir öllum gögnum úr innbyggðri geymslu tækisins, þar á meðal Google reikningnum þínum, gögnum og stillingum kerfis og forrita og sóttum forritum"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Eyða öllum persónulegum upplýsingum og sóttum forritum? Þú getur ekki afturkallað þessa aðgerð!"</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Eyða öllu"</string>
+    <string name="select_title" msgid="3905067953686121845">"Veldu heiti fyrir ^1"</string>
+    <string name="select_description" msgid="4070142015460337658">"Heiti gerir þér kleift að bera kennsl á ^1 þegar þú færð aðgang að því úr öðrum tækjum á borð við síma, spjaldtölvu eða tölvu."</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"Stofa"</item>
+    <item msgid="3722089849939477581">"Sjónvarpsherbergi"</item>
+    <item msgid="6108590585438763574">"Fjölskylduherbergi"</item>
+    <item msgid="2581035245390468625">"Borðstofa"</item>
+    <item msgid="3127487827308695324">"Lesstofa"</item>
+    <item msgid="6172018430592195063">"Svefnherbergi"</item>
+    <item msgid="8120010459866284578">"Eldhús"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"Sláðu inn eigið heiti..."</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"Þetta ^1 hefur verið nefnt"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"Heiti þessa ^2 tækis er „^1“. Viltu breyta því?"</string>
+    <string name="change_setting" msgid="2047402388786162246">"Breyta"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"Ekki breyta"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"Heimildir"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"Heimildir forrits"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> forrit af <xliff:g id="COUNT_1">%d</xliff:g> leyfð"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Stig Android öryggisplásturs"</string>
 </resources>

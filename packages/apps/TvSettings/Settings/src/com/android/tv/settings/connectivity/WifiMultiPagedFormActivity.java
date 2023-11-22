@@ -16,24 +16,22 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-import com.android.tv.settings.connectivity.FormPageDisplayer.FormPageInfo;
-import com.android.tv.settings.connectivity.FormPageDisplayer.UserActivityListener;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
-import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
-import com.android.tv.settings.connectivity.setup.PasswordInputWizardFragment;
-import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
-import com.android.tv.settings.form.FormPage;
-import com.android.tv.settings.form.MultiPagedForm;
-import com.android.tv.settings.form.FormPageResultListener;
-import com.android.tv.settings.form.FormResultListener;
-
 import android.app.Fragment;
-import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
-import android.view.View;
+
+import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.FormPageDisplayer.FormPageInfo;
+import com.android.tv.settings.connectivity.FormPageDisplayer.UserActivityListener;
+import com.android.tv.settings.connectivity.setup.PasswordInputWizardFragment;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment;
+import com.android.tv.settings.connectivity.setup.SelectFromListWizardFragment.ListItem;
+import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
+import com.android.tv.settings.form.FormPage;
+import com.android.tv.settings.form.FormPageResultListener;
+import com.android.tv.settings.form.FormResultListener;
+import com.android.tv.settings.form.MultiPagedForm;
 
 import java.util.ArrayList;
 

@@ -17,15 +17,10 @@
 package com.android.tv.settings.system;
 
 import android.app.Activity;
-import android.app.FragmentManager;
-import android.app.FragmentTransaction;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.setup.TextInputWizardFragment;
@@ -42,7 +37,6 @@ public class InputsCustomLabelActivity extends Activity
 
     public static final String KEY_ID = "id";
     public static final String KEY_LABEL = "label";
-    public static final int REULST_OK = 0;
 
     private String mId;
 
@@ -51,8 +45,6 @@ public class InputsCustomLabelActivity extends Activity
         super.onCreate(savedInstanceState);
         setTheme(ThemeHelper.getThemeResource(getIntent()));
         setContentView(R.layout.setup_auth_activity);
-
-        findViewById(R.id.progress_bar).setVisibility(View.GONE);
 
         Intent intent = getIntent();
         mId = intent.getStringExtra(KEY_ID);

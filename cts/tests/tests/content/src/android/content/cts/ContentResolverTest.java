@@ -58,6 +58,11 @@ public class ContentResolverTest extends AndroidTestCase {
     private static final Uri SELF_URI = Uri.parse("content://" + AUTHORITY + "/self/");
     private static final Uri CRASH_URI = Uri.parse("content://" + AUTHORITY + "/crash/");
 
+    private static final Uri LEVEL1_URI = Uri.parse("content://" + AUTHORITY + "/level/");
+    private static final Uri LEVEL2_URI = Uri.parse("content://" + AUTHORITY + "/level/child");
+    private static final Uri LEVEL3_URI = Uri.parse("content://" + AUTHORITY
+            + "/level/child/grandchild/");
+
     private static final String REMOTE_AUTHORITY = "remotectstest";
     private static final Uri REMOTE_TABLE1_URI = Uri.parse("content://"
                 + REMOTE_AUTHORITY + "/testtable1/");
@@ -88,7 +93,7 @@ public class ContentResolverTest extends AndroidTestCase {
         mContext = getContext();
         mContentResolver = mContext.getContentResolver();
 
-        android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 0);
+        MockContentProvider.setCrashOnLaunch(mContext, false);
 
         // add three rows to database when every test case start.
         ContentValues values = new ContentValues();
@@ -151,13 +156,12 @@ public class ContentResolverTest extends AndroidTestCase {
             fail("Content provider process is not gone!");
         }
         try {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 1);
+            MockContentProvider.setCrashOnLaunch(mContext, true);
             String type1 = mContentResolver.getType(REMOTE_TABLE1_URI);
-            assertEquals(android.provider.Settings.System.getInt(mContentResolver,
-                "__cts_crash_on_launch", 0), 0);
+            assertFalse(MockContentProvider.getCrashOnLaunch(mContext));
             assertTrue(type1.startsWith(ContentResolver.CURSOR_DIR_BASE_TYPE, 0));
         } finally {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 0);
+            MockContentProvider.setCrashOnLaunch(mContext, false);
         }
     }
 
@@ -352,12 +356,11 @@ public class ContentResolverTest extends AndroidTestCase {
 
     public void testCrashingQuery() {
         try {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 1);
+            MockContentProvider.setCrashOnLaunch(mContext, true);
             mCursor = mContentResolver.query(REMOTE_CRASH_URI, null, null, null, null);
-            assertEquals(android.provider.Settings.System.getInt(mContentResolver,
-                "__cts_crash_on_launch", 0), 0);
+            assertFalse(MockContentProvider.getCrashOnLaunch(mContext));
         } finally {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 0);
+            MockContentProvider.setCrashOnLaunch(mContext, false);
         }
 
         assertNotNull(mCursor);
@@ -570,16 +573,15 @@ public class ContentResolverTest extends AndroidTestCase {
     public void testCrashingOpenAssetFileDescriptor() throws IOException {
         AssetFileDescriptor afd = null;
         try {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 1);
+            MockContentProvider.setCrashOnLaunch(mContext, true);
             afd = mContentResolver.openAssetFileDescriptor(REMOTE_CRASH_URI, "rw");
-            assertEquals(android.provider.Settings.System.getInt(mContentResolver,
-                    "__cts_crash_on_launch", 0), 0);
+            assertFalse(MockContentProvider.getCrashOnLaunch(mContext));
             assertNotNull(afd);
             String str = consumeAssetFileDescriptor(afd);
             afd = null;
             assertEquals(str, "This is the openAssetFile test data!");
         } finally {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 0);
+            MockContentProvider.setCrashOnLaunch(mContext, false);
             if (afd != null) {
                 afd.close();
             }
@@ -602,17 +604,16 @@ public class ContentResolverTest extends AndroidTestCase {
     public void testCrashingOpenTypedAssetFileDescriptor() throws IOException {
         AssetFileDescriptor afd = null;
         try {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 1);
+            MockContentProvider.setCrashOnLaunch(mContext, true);
             afd = mContentResolver.openTypedAssetFileDescriptor(
                     REMOTE_CRASH_URI, "text/plain", null);
-            assertEquals(android.provider.Settings.System.getInt(mContentResolver,
-                    "__cts_crash_on_launch", 0), 0);
+            assertFalse(MockContentProvider.getCrashOnLaunch(mContext));
             assertNotNull(afd);
             String str = consumeAssetFileDescriptor(afd);
             afd = null;
             assertEquals(str, "This is the openTypedAssetFile test data!");
         } finally {
-            android.provider.Settings.System.putInt(mContentResolver, "__cts_crash_on_launch", 0);
+            MockContentProvider.setCrashOnLaunch(mContext, false);
             if (afd != null) {
                 afd.close();
             }
@@ -955,6 +956,53 @@ public class ContentResolverTest extends AndroidTestCase {
         } catch (NullPointerException e) {
             //expected.
         }
+    }
+
+    public void testRegisterContentObserverDescendantBehavior() throws Exception {
+        final MockContentObserver mco1 = new MockContentObserver();
+        final MockContentObserver mco2 = new MockContentObserver();
+
+        // Register one content observer with notifyDescendants set to false, and
+        // another with true.
+        mContentResolver.registerContentObserver(LEVEL2_URI, false, mco1);
+        mContentResolver.registerContentObserver(LEVEL2_URI, true, mco2);
+
+        // Initially nothing has happened.
+        assertFalse(mco1.hadOnChanged());
+        assertFalse(mco2.hadOnChanged());
+
+        // Fire a change with the exact URI.
+        // Should signal both observers due to exact match, notifyDescendants doesn't matter.
+        mContentResolver.notifyChange(LEVEL2_URI, null);
+        Thread.sleep(200);
+        assertTrue(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco1.reset();
+        mco2.reset();
+
+        // Fire a change with a descendant URI.
+        // Should only signal observer with notifyDescendants set to true.
+        mContentResolver.notifyChange(LEVEL3_URI, null);
+        Thread.sleep(200);
+        assertFalse(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco2.reset();
+
+        // Fire a change with an ancestor URI.
+        // Should signal both observers due to ancestry, notifyDescendants doesn't matter.
+        mContentResolver.notifyChange(LEVEL1_URI, null);
+        Thread.sleep(200);
+        assertTrue(mco1.hadOnChanged());
+        assertTrue(mco2.hadOnChanged());
+        mco1.reset();
+        mco2.reset();
+
+        // Fire a change with an unrelated URI.
+        // Should signal neither observer.
+        mContentResolver.notifyChange(TABLE1_URI, null);
+        Thread.sleep(200);
+        assertFalse(mco1.hadOnChanged());
+        assertFalse(mco2.hadOnChanged());
     }
 
     public void testNotifyChange1() {

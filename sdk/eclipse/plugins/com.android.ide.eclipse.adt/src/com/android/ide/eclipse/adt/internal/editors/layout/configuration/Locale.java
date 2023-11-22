@@ -16,74 +16,94 @@
 
 package com.android.ide.eclipse.adt.internal.editors.layout.configuration;
 
-import static com.android.ide.common.resources.configuration.LanguageQualifier.FAKE_LANG_VALUE;
-import static com.android.ide.common.resources.configuration.RegionQualifier.FAKE_REGION_VALUE;
+import static com.android.ide.common.resources.configuration.LocaleQualifier.FAKE_VALUE;
 
 import com.android.annotations.NonNull;
-import com.android.ide.common.resources.configuration.LanguageQualifier;
-import com.android.ide.common.resources.configuration.RegionQualifier;
-import com.google.common.base.Objects;
+import com.android.annotations.Nullable;
+import com.android.ide.common.resources.configuration.FolderConfiguration;
+import com.android.ide.common.resources.configuration.LocaleQualifier;
 
 import org.eclipse.swt.graphics.Image;
 
-/** A language,region pair */
+/**
+ * A language,region pair
+ */
 public class Locale {
-    /** A special marker region qualifier representing any region */
-    public static final RegionQualifier ANY_REGION = new RegionQualifier(FAKE_REGION_VALUE);
-
-    /** A special marker language qualifier representing any language */
-    public static final LanguageQualifier ANY_LANGUAGE = new LanguageQualifier(FAKE_LANG_VALUE);
-
-    /** A locale which matches any language and region */
-    public static final Locale ANY = new Locale(ANY_LANGUAGE, ANY_REGION);
-
-    /** The language qualifier, or {@link #ANY_LANGUAGE} if this locale matches any language  */
-    @NonNull
-    public final LanguageQualifier language;
-
-    /** The language qualifier, or {@link #ANY_REGION} if this locale matches any region  */
-    @NonNull
-    public final RegionQualifier region;
+    /**
+     * A special marker region qualifier representing any region
+     */
+    public static final LocaleQualifier ANY_QUALIFIER = new LocaleQualifier(FAKE_VALUE);
 
     /**
-     * Constructs a new {@linkplain Locale} matching a given language in a given locale.
-     *
-     * @param language the language
-     * @param region the region
+     * A locale which matches any language and region
      */
-    private Locale(@NonNull LanguageQualifier language, @NonNull RegionQualifier region) {
-        if (language.getValue().equals(FAKE_LANG_VALUE)) {
-            language = ANY_LANGUAGE;
-        }
-        if (region.getValue().equals(FAKE_REGION_VALUE)) {
-            region = ANY_REGION;
-        }
-        this.language = language;
-        this.region = region;
+    public static final Locale ANY = new Locale(ANY_QUALIFIER);
+
+    /**
+     * The locale qualifier, or {@link #ANY_QUALIFIER} if this locale matches
+     * any locale
+     */
+    @NonNull
+    public final LocaleQualifier qualifier;
+
+    /**
+     * Constructs a new {@linkplain Locale} matching a given language in a given
+     * locale.
+     *
+     * @param locale the locale
+     */
+    private Locale(@NonNull
+    LocaleQualifier locale) {
+        qualifier = locale;
     }
 
     /**
-     * Constructs a new {@linkplain Locale} matching a given language in a given specific locale.
+     * Constructs a new {@linkplain Locale} matching a given language in a given
+     * specific locale.
      *
-     * @param language the language
-     * @param region the region
-     * @return a locale with the given language and region
+     * @param locale the locale
+     * @return a locale with the given locale
      */
     @NonNull
-    public static Locale create(
-            @NonNull LanguageQualifier language,
-            @NonNull RegionQualifier region) {
-        return new Locale(language, region);
+    public static Locale create(@NonNull
+    LocaleQualifier locale) {
+        return new Locale(locale);
     }
 
     /**
-     * Constructs a new {@linkplain Locale} for the given language, matching any regions.
+     * Constructs a new {@linkplain Locale} for the given folder configuration
      *
-     * @param language the language
+     * @param folder the folder configuration
      * @return a locale with the given language and region
      */
-    public static Locale create(@NonNull LanguageQualifier language) {
-        return new Locale(language, ANY_REGION);
+    public static Locale create(FolderConfiguration folder) {
+        LocaleQualifier locale = folder.getLocaleQualifier();
+        if (locale == null) {
+            return ANY;
+        } else {
+            return new Locale(locale);
+        }
+    }
+
+    /**
+     * Constructs a new {@linkplain Locale} for the given locale string, e.g.
+     * "zh", "en-rUS", or "b+eng+US".
+     *
+     * @param localeString the locale description
+     * @return the corresponding locale
+     */
+    @NonNull
+    public static Locale create(@NonNull
+    String localeString) {
+        // Load locale. Note that this can get overwritten by the
+        // project-wide settings read below.
+
+        LocaleQualifier qualifier = LocaleQualifier.getQualifier(localeString);
+        if (qualifier != null) {
+            return new Locale(qualifier);
+        } else {
+            return ANY;
+        }
     }
 
     /**
@@ -93,19 +113,17 @@ public class Locale {
      */
     @NonNull
     public Image getFlagImage() {
-        Image image = null;
-        String languageCode = hasLanguage() ? language.getValue() : null;
-        String regionCode = hasRegion() ? region.getValue() : null;
-        if (languageCode == null && regionCode == null) {
+        String languageCode = qualifier.hasLanguage() ? qualifier.getLanguage() : null;
+        if (languageCode == null) {
             return FlagManager.getGlobeIcon();
-        } else {
-            FlagManager icons = FlagManager.get();
-            image = icons.getFlag(languageCode, regionCode);
-            if (image == null) {
-                image = FlagManager.getEmptyIcon();
-            }
-
+        }
+        String regionCode = hasRegion() ? qualifier.getRegion() : null;
+        FlagManager icons = FlagManager.get();
+        Image image = icons.getFlag(languageCode, regionCode);
+        if (image != null) {
             return image;
+        } else {
+            return FlagManager.getGlobeIcon();
         }
     }
 
@@ -116,7 +134,7 @@ public class Locale {
      * @return true if this locale specifies a specific language
      */
     public boolean hasLanguage() {
-        return language != ANY_LANGUAGE;
+        return !qualifier.hasFakeValue();
     }
 
     /**
@@ -125,46 +143,7 @@ public class Locale {
      * @return true if this locale specifies a region
      */
     public boolean hasRegion() {
-        return region != ANY_REGION;
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((language == null) ? 0 : language.hashCode());
-        result = prime * result + ((region == null) ? 0 : region.hashCode());
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        Locale other = (Locale) obj;
-        if (language == null) {
-            if (other.language != null)
-                return false;
-        } else if (!language.equals(other.language))
-            return false;
-        if (region == null) {
-            if (other.region != null)
-                return false;
-        } else if (!region.equals(other.region))
-            return false;
-        return true;
-    }
-
-    @Override
-    public String toString() {
-        return Objects.toStringHelper(this).omitNullValues()
-            .addValue(language.getValue())
-            .addValue(region.getValue())
-            .toString();
+        return qualifier.getRegion() != null && !FAKE_VALUE.equals(qualifier.getRegion());
     }
 
     /**
@@ -172,10 +151,34 @@ public class Locale {
      * language is returned. If language is not set, empty string is returned.
      */
     public String toLocaleId() {
-        // Return lang-reg only if both lang and reg are present. Else return
-        // lang.
-        return hasLanguage() && hasRegion() ?
-                language.getValue() + "-" + region.getValue()
-                : hasLanguage() ? language.getValue() : "";
+        return qualifier == ANY_QUALIFIER ? "" : qualifier.getTag();
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + qualifier.hashCode();
+        return result;
+    }
+
+    @Override
+    public boolean equals(@Nullable
+    Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Locale other = (Locale) obj;
+        if (!qualifier.equals(other.qualifier))
+            return false;
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return qualifier.getTag();
     }
 }

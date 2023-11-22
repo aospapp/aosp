@@ -1,17 +1,15 @@
 // Copyright 2014 PDFium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
- 
+
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#ifndef _FPDF_SERIAL_
-#define _FPDF_SERIAL_
-#ifndef _FPDF_PAGE_
+#ifndef CORE_INCLUDE_FPDFAPI_FPDF_SERIAL_H_
+#define CORE_INCLUDE_FPDFAPI_FPDF_SERIAL_H_
+
 #include "fpdf_page.h"
-#endif
-#ifndef _FPDF_PAGEOBJ_H_
 #include "fpdf_pageobj.h"
-#endif
+
 class CPDF_ObjectStream;
 class CPDF_XRefStream;
 CFX_ByteTextBuf& operator << (CFX_ByteTextBuf& buf, const CPDF_Object* pObj);
@@ -113,13 +111,15 @@ protected:
 #define FPDFCREATE_NO_ORIGINAL		2
 #define FPDFCREATE_PROGRESSIVE		4
 #define FPDFCREATE_OBJECTSTREAM		8
-class CPDF_Creator : public CFX_Object
+class CPDF_Creator 
 {
 public:
 
     CPDF_Creator(CPDF_Document* pDoc);
 
     ~CPDF_Creator();
+
+    void				RemoveSecurity();
 
     FX_BOOL				Create(FX_LPCWSTR filename, FX_DWORD flags = 0);
 
@@ -200,4 +200,5 @@ protected:
     friend class CPDF_ObjectStream;
     friend class CPDF_XRefStream;
 };
-#endif
+
+#endif  // CORE_INCLUDE_FPDFAPI_FPDF_SERIAL_H_

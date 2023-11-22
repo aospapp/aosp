@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"ទូរស័ព្ទ"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"ការគ្រប់គ្រងការហៅទូរស័ព្ទ"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"ទូរស័ព្ទ"</string>
     <string name="unknown" msgid="6878797917991465859">"មិន​ស្គាល់"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"ខកខាន​ទទួល"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"ខកខាន​ទទួល"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"ឆ្លើយតប​រហ័ស"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"បាន​ផ្ញើ​សារ​ទៅ <xliff:g id="PHONE_NUMBER">%s</xliff:g> ។"</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"ការហៅពេលមានអាសន្នដែលត្រូវបានអនុញ្ញាតដោយម្ចាស់ឧបករណ៍តែប៉ុណ្ណោះ។"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"គណនីហៅទូរស័ព្ទ"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"មានតែការហៅពេលអាសន្នប៉ុណ្ណោះត្រូវបានអនុញ្ញាតដោយម្ចាស់ឧបករណ៍។"</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"កម្មវិធីនេះមិនអាចធ្វើការហៅចេញដោយគ្មានការអនុញ្ញាត ទូរស័ព្ទ បានទេ។"</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"ដើម្បីធ្វើការហៅ បញ្ចូលលេខដែលមានសុពលភាព។"</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"មិន​អាច​បន្ថែម​​​នៅ​ពេល​នេះ​​បាន​ទេ។"</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"សូមបិទដំណើរការរបៀប TTY ដើម្បីធ្វើការហៅជាវីដេអូ។"</string>
     <string name="no_vm_number" msgid="4164780423805688336">"បាត់​​ចំនួន​​សារ​ជា​សំឡេង"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"គ្មាន​ចំនួន​សារ​ជា​សំឡេង​​ត្រូវ​បាន​រក្សា​ទុក​នៅ​លើ​ស៊ី​ម​កាត​ទេ​។"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"បន្ថែម​លេខ"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"ប្តូរកម្មវិធីហៅទូរស័ព្ទលំនាំដើម?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"ប្រើ <xliff:g id="NEW_APP">%1$s</xliff:g> ជំនួសឲ្យ <xliff:g id="CURRENT_APP">%2$s</xliff:g> ជាកម្មវិធីហៅទូរស័ព្ទលំនាំដើមរបស់អ្នក?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"ប្រើ <xliff:g id="NEW_APP">%s</xliff:g> ជាកម្មវិធីហៅទូរស័ព្ទលំនាំដើមរបស់អ្នក?"</string>
 </resources>

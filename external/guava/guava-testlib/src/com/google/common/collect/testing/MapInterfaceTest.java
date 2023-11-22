@@ -18,6 +18,8 @@ package com.google.common.collect.testing;
 
 import static java.util.Collections.singleton;
 
+import com.google.common.annotations.GwtCompatible;
+
 import junit.framework.TestCase;
 
 import java.util.Arrays;
@@ -40,13 +42,12 @@ import java.util.Set;
  * class under test is ordered, and check the order if so.
  * TODO: Refactor to share code with SetTestBuilder &c.
  *
- * <p>This class is GWT compatible.
- *
  * @param <K> the type of keys used by the maps under test
  * @param <V> the type of mapped values used the maps under test
  *
  * @author George van den Driessche
  */
+@GwtCompatible
 public abstract class MapInterfaceTest<K, V> extends TestCase {
 
   /** A key type that is not assignable to any classes but Object. */

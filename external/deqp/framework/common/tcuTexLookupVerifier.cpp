@@ -52,18 +52,13 @@ static inline bool coordsInBounds (const ConstPixelBufferAccess& access, int x, 
 	return de::inBounds(x, 0, access.getWidth()) && de::inBounds(y, 0, access.getHeight()) && de::inBounds(z, 0, access.getDepth());
 }
 
-static inline bool isSRGB (TextureFormat format)
-{
-	return format.order == TextureFormat::sRGB || format.order == TextureFormat::sRGBA;
-}
-
 template<typename ScalarType>
 inline Vector<ScalarType, 4> lookup (const ConstPixelBufferAccess& access, const Sampler& sampler, int i, int j, int k)
 {
 	if (coordsInBounds(access, i, j, k))
 		return access.getPixelT<ScalarType>(i, j, k);
 	else
-		return sampler.borderColor.cast<ScalarType>();
+		return sampleTextureBorder<ScalarType>(access.getFormat(), sampler);
 }
 
 template<>
@@ -76,7 +71,7 @@ inline Vector<float, 4> lookup (const ConstPixelBufferAccess& access, const Samp
 		return isSRGB(access.getFormat()) ? sRGBToLinear(p) : p;
 	}
 	else
-		return sampler.borderColor;
+		return sampleTextureBorder<float>(access.getFormat(), sampler);
 }
 
 static inline bool isColorValid (const LookupPrecision& prec, const Vec4& ref, const Vec4& result)
@@ -2470,32 +2465,32 @@ static bool isCubeGatherResultValid (const TextureCubeView&			texture,
 	return false;
 }
 
-bool isGatherResultValid (const TextureCubeView&		texture,
-								 const Sampler&				sampler,
-								 const LookupPrecision&		prec,
-								 const Vec3&				coord,
-								 int						componentNdx,
-								 const Vec4&				result)
+bool isGatherResultValid (const TextureCubeView&	texture,
+						  const Sampler&			sampler,
+						  const LookupPrecision&	prec,
+						  const Vec3&				coord,
+						  int						componentNdx,
+						  const Vec4&				result)
 {
 	return isCubeGatherResultValid(texture, sampler, prec, coord, componentNdx, result);
 }
 
 bool isGatherResultValid (const TextureCubeView&		texture,
-								 const Sampler&				sampler,
-								 const IntLookupPrecision&	prec,
-								 const Vec3&				coord,
-								 int						componentNdx,
-								 const IVec4&				result)
+						  const Sampler&				sampler,
+						  const IntLookupPrecision&		prec,
+						  const Vec3&					coord,
+						  int							componentNdx,
+						  const IVec4&					result)
 {
 	return isCubeGatherResultValid(texture, sampler, prec, coord, componentNdx, result);
 }
 
 bool isGatherResultValid (const TextureCubeView&		texture,
-								 const Sampler&				sampler,
-								 const IntLookupPrecision&	prec,
-								 const Vec3&				coord,
-								 int						componentNdx,
-								 const UVec4&				result)
+						  const Sampler&				sampler,
+						  const IntLookupPrecision&		prec,
+						  const Vec3&					coord,
+						  int							componentNdx,
+						  const UVec4&					result)
 {
 	return isCubeGatherResultValid(texture, sampler, prec, coord, componentNdx, result);
 }

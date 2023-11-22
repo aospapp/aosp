@@ -5,6 +5,8 @@ include $(CLEAR_VARS)
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 
+LOCAL_CLANG := true
+
 LOCAL_SRC_FILES:= \
     scrypt_test.cpp
 
@@ -17,8 +19,6 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := \
     libscrypt_static \
-    libgtest \
-    libgtest_main
 
 LOCAL_MODULE := scrypt_test
 

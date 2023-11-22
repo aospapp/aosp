@@ -6,75 +6,101 @@
  */
 
 #include "SkDiscardableMemory.h"
-#include "SkScaledImageCache.h"
+#include "SkResourceCache.h"
 #include "Test.h"
 
-static void make_bm(SkBitmap* bm, int w, int h) {
-    bm->allocN32Pixels(w, h);
+namespace {
+static void* gGlobalAddress;
+struct TestingKey : public SkResourceCache::Key {
+    intptr_t    fValue;
+
+    TestingKey(intptr_t value, uint64_t sharedID = 0) : fValue(value) {
+        this->init(&gGlobalAddress, sharedID, sizeof(fValue));
+    }
+};
+struct TestingRec : public SkResourceCache::Rec {
+    TestingRec(const TestingKey& key, uint32_t value) : fKey(key), fValue(value) {}
+
+    TestingKey  fKey;
+    intptr_t    fValue;
+
+    const Key& getKey() const override { return fKey; }
+    size_t bytesUsed() const override { return sizeof(fKey) + sizeof(fValue); }
+
+    static bool Visitor(const SkResourceCache::Rec& baseRec, void* context) {
+        const TestingRec& rec = static_cast<const TestingRec&>(baseRec);
+        intptr_t* result = (intptr_t*)context;
+        
+        *result = rec.fValue;
+        return true;
+    }
+};
 }
 
 static const int COUNT = 10;
 static const int DIM = 256;
 
-static void test_cache(skiatest::Reporter* reporter, SkScaledImageCache& cache,
-                       bool testPurge) {
-    SkScaledImageCache::ID* id;
-
-    SkBitmap bm[COUNT];
-
-    const SkScalar scale = 2;
+static void test_cache(skiatest::Reporter* reporter, SkResourceCache& cache, bool testPurge) {
     for (int i = 0; i < COUNT; ++i) {
-        make_bm(&bm[i], DIM, DIM);
-    }
+        TestingKey key(i);
+        intptr_t value = -1;
 
-    for (int i = 0; i < COUNT; ++i) {
-        SkBitmap tmp;
+        REPORTER_ASSERT(reporter, !cache.find(key, TestingRec::Visitor, &value));
+        REPORTER_ASSERT(reporter, -1 == value);
 
-        SkScaledImageCache::ID* id = cache.findAndLock(bm[i], scale, scale, &tmp);
-        REPORTER_ASSERT(reporter, NULL == id);
+        cache.add(SkNEW_ARGS(TestingRec, (key, i)));
 
-        make_bm(&tmp, DIM, DIM);
-        id = cache.addAndLock(bm[i], scale, scale, tmp);
-        REPORTER_ASSERT(reporter, NULL != id);
-
-        SkBitmap tmp2;
-        SkScaledImageCache::ID* id2 = cache.findAndLock(bm[i], scale, scale,
-                                                        &tmp2);
-        REPORTER_ASSERT(reporter, id == id2);
-        REPORTER_ASSERT(reporter, tmp.pixelRef() == tmp2.pixelRef());
-        REPORTER_ASSERT(reporter, tmp.width() == tmp2.width());
-        REPORTER_ASSERT(reporter, tmp.height() == tmp2.height());
-        cache.unlock(id2);
-
-        cache.unlock(id);
+        REPORTER_ASSERT(reporter, cache.find(key, TestingRec::Visitor, &value));
+        REPORTER_ASSERT(reporter, i == value);
     }
 
     if (testPurge) {
         // stress test, should trigger purges
-        float incScale = 2;
-        for (size_t i = 0; i < COUNT * 100; ++i) {
-            incScale += 1;
-
-            SkBitmap tmp;
-            make_bm(&tmp, DIM, DIM);
-
-            SkScaledImageCache::ID* id = cache.addAndLock(bm[0], incScale,
-                                                          incScale, tmp);
-            REPORTER_ASSERT(reporter, NULL != id);
-            cache.unlock(id);
+        for (int i = 0; i < COUNT * 100; ++i) {
+            TestingKey key(i);
+            cache.add(SkNEW_ARGS(TestingRec, (key, i)));
         }
     }
 
     // test the originals after all that purging
     for (int i = 0; i < COUNT; ++i) {
-        SkBitmap tmp;
-        id = cache.findAndLock(bm[i], scale, scale, &tmp);
-        if (id) {
-            cache.unlock(id);
-        }
+        intptr_t value;
+        (void)cache.find(TestingKey(i), TestingRec::Visitor, &value);
     }
 
     cache.setTotalByteLimit(0);
+}
+
+static void test_cache_purge_shared_id(skiatest::Reporter* reporter, SkResourceCache& cache) {
+    for (int i = 0; i < COUNT; ++i) {
+        TestingKey key(i, i & 1);   // every other key will have a 1 for its sharedID        
+        cache.add(SkNEW_ARGS(TestingRec, (key, i)));
+    }
+
+    // Ensure that everyone is present
+    for (int i = 0; i < COUNT; ++i) {
+        TestingKey key(i, i & 1);   // every other key will have a 1 for its sharedID
+        intptr_t value = -1;
+
+        REPORTER_ASSERT(reporter, cache.find(key, TestingRec::Visitor, &value));
+        REPORTER_ASSERT(reporter, value == i);
+    }
+
+    // Now purge the ones that had a non-zero sharedID (the odd-indexed ones)
+    cache.purgeSharedID(1);
+
+    // Ensure that only the even ones are still present
+    for (int i = 0; i < COUNT; ++i) {
+        TestingKey key(i, i & 1);   // every other key will have a 1 for its sharedID
+        intptr_t value = -1;
+
+        if (i & 1) {
+            REPORTER_ASSERT(reporter, !cache.find(key, TestingRec::Visitor, &value));
+        } else {
+            REPORTER_ASSERT(reporter, cache.find(key, TestingRec::Visitor, &value));
+            REPORTER_ASSERT(reporter, value == i);
+        }
+    }
 }
 
 #include "SkDiscardableMemoryPool.h"
@@ -89,45 +115,37 @@ DEF_TEST(ImageCache, reporter) {
     static const size_t defLimit = DIM * DIM * 4 * COUNT + 1024;    // 1K slop
 
     {
-        SkScaledImageCache cache(defLimit);
+        SkResourceCache cache(defLimit);
         test_cache(reporter, cache, true);
     }
     {
         SkAutoTUnref<SkDiscardableMemoryPool> pool(
                 SkDiscardableMemoryPool::Create(defLimit, NULL));
         gPool = pool.get();
-        SkScaledImageCache cache(pool_factory);
+        SkResourceCache cache(pool_factory);
         test_cache(reporter, cache, true);
     }
     {
-        SkScaledImageCache cache(SkDiscardableMemory::Create);
+        SkResourceCache cache(SkDiscardableMemory::Create);
         test_cache(reporter, cache, false);
+    }
+    {
+        SkResourceCache cache(defLimit);
+        test_cache_purge_shared_id(reporter, cache);
     }
 }
 
 DEF_TEST(ImageCache_doubleAdd, r) {
     // Adding the same key twice should be safe.
-    SkScaledImageCache cache(4096);
+    SkResourceCache cache(4096);
 
-    SkBitmap original;
-    original.allocN32Pixels(40, 40);
+    TestingKey key(1);
 
-    SkBitmap scaled1;
-    scaled1.allocN32Pixels(20, 20);
+    cache.add(SkNEW_ARGS(TestingRec, (key, 2)));
+    cache.add(SkNEW_ARGS(TestingRec, (key, 3)));
 
-    SkBitmap scaled2;
-    scaled2.allocN32Pixels(20, 20);
-
-    SkScaledImageCache::ID* id1 = cache.addAndLock(original, 0.5f, 0.5f, scaled1);
-    SkScaledImageCache::ID* id2 = cache.addAndLock(original, 0.5f, 0.5f, scaled2);
-    // We don't really care if id1 == id2 as long as unlocking both works.
-    cache.unlock(id1);
-    cache.unlock(id2);
-
-    SkBitmap tmp;
-    // Lookup should return the value that was added last.
-    SkScaledImageCache::ID* id = cache.findAndLock(original, 0.5f, 0.5f, &tmp);
-    REPORTER_ASSERT(r, NULL != id);
-    REPORTER_ASSERT(r, tmp.getGenerationID() == scaled2.getGenerationID());
-    cache.unlock(id);
+    // Lookup can return either value.
+    intptr_t value = -1;
+    REPORTER_ASSERT(r, cache.find(key, TestingRec::Visitor, &value));
+    REPORTER_ASSERT(r, 2 == value || 3 == value);
 }

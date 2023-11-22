@@ -25,6 +25,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
 #include <fcntl.h>
+#include <stddef.h>
 #include <unistd.h>
 
 #include <sys/mman.h>
@@ -43,79 +44,132 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 # define elf_w(x)	_Uelf64_##x
 #endif
 
-extern int elf_w (get_proc_name) (unw_addr_space_t as,
-				  pid_t pid, unw_word_t ip,
-				  char *buf, size_t len,
-				  unw_word_t *offp);
+#define GET_FIELD(ei, offset, struct_name, elf_struct, field, check_cached) \
+  { \
+    if (!check_cached || (elf_struct)->field == 0) { \
+      if (sizeof((elf_struct)->field) != elf_w (memory_read) ( \
+          ei, ei->u.memory.map->start + offset + offsetof(struct_name, field), \
+          (uint8_t*) &((elf_struct)->field), sizeof((elf_struct)->field), false)) { \
+        return false; \
+      } \
+    } \
+  }
 
-extern int elf_w (get_proc_name_in_image) (unw_addr_space_t as,
-					   struct elf_image *ei,
-					   unsigned long segbase,
-					   unsigned long mapoff,
-					   unw_word_t ip,
-					   char *buf, size_t buf_len, unw_word_t *offp);
+#define GET_EHDR_FIELD(ei, ehdr, field, check_cached) \
+  GET_FIELD(ei, 0, Elf_W(Ehdr), ehdr, field, check_cached)
 
-static inline int
-elf_w (valid_object) (struct elf_image *ei)
-{
-  if (ei->size <= EI_VERSION)
-    return 0;
+#define GET_PHDR_FIELD(ei, offset, phdr, field) \
+  GET_FIELD(ei, offset, Elf_W(Phdr), phdr, field, false)
 
-  return (memcmp (ei->image, ELFMAG, SELFMAG) == 0
-	  && ((uint8_t *) ei->image)[EI_CLASS] == ELF_CLASS
-	  && ((uint8_t *) ei->image)[EI_VERSION] != EV_NONE
-	  && ((uint8_t *) ei->image)[EI_VERSION] <= EV_CURRENT);
+#define GET_SHDR_FIELD(ei, offset, shdr, field) \
+  GET_FIELD(ei, offset, Elf_W(Shdr), shdr, field, false)
+
+#define GET_SYM_FIELD(ei, offset, sym, field) \
+  GET_FIELD(ei, offset, Elf_W(Sym), sym, field, false)
+
+#define GET_DYN_FIELD(ei, offset, dyn, field) \
+  GET_FIELD(ei, offset, Elf_W(Dyn), dyn, field, false)
+
+extern bool elf_w (get_proc_name) (
+    unw_addr_space_t as, pid_t pid, unw_word_t ip, char* buf, size_t len,
+    unw_word_t* offp, void* as_arg);
+
+extern bool elf_w (get_proc_name_in_image) (
+    unw_addr_space_t as, struct elf_image* ei, unsigned long segbase,
+    unsigned long mapoff, unw_word_t ip, char* buf, size_t buf_len, unw_word_t* offp);
+
+extern bool elf_w (get_load_base) (struct elf_image* ei, unw_word_t mapoff, unw_word_t* load_base);
+
+extern size_t elf_w (memory_read) (
+    struct elf_image* ei, unw_word_t addr, uint8_t* buffer, size_t bytes, bool string_read);
+
+static inline bool elf_w (valid_object_mapped) (struct elf_image* ei) {
+  if (ei->u.mapped.size <= EI_VERSION) {
+    return false;
+  }
+
+  uint8_t* e_ident = (uint8_t*) ei->u.mapped.image;
+  return (memcmp (ei->u.mapped.image, ELFMAG, SELFMAG) == 0
+          && e_ident[EI_CLASS] == ELF_CLASS && e_ident[EI_VERSION] != EV_NONE
+          && e_ident[EI_VERSION] <= EV_CURRENT);
 }
 
-static inline int
-elf_map_image (struct elf_image *ei, const char *path)
-{
+static inline bool elf_w (valid_object_memory) (struct elf_image* ei) {
+  uint8_t e_ident[EI_NIDENT];
+  struct map_info* map = ei->u.memory.map;
+  if (SELFMAG != elf_w (memory_read) (ei, map->start, e_ident, SELFMAG, false)) {
+    return false;
+  }
+  if (memcmp (e_ident, ELFMAG, SELFMAG) != 0) {
+    return false;
+  }
+  // Read the rest of the ident data.
+  if (EI_NIDENT - SELFMAG != elf_w (memory_read) (
+      ei, map->start + SELFMAG, e_ident + SELFMAG, EI_NIDENT - SELFMAG, false)) {
+    return false;
+  }
+  return e_ident[EI_CLASS] == ELF_CLASS && e_ident[EI_VERSION] != EV_NONE
+         && e_ident[EI_VERSION] <= EV_CURRENT;
+}
+
+static inline bool elf_map_image (struct elf_image* ei, const char* path) {
   struct stat stat;
   int fd;
 
   fd = open (path, O_RDONLY);
-  if (fd < 0)
-    return -1;
-
-  if (fstat (fd, &stat) < 0)
-    {
-      close (fd);
-      return -1;
-    }
-
-  ei->size = stat.st_size;
-  ei->image = mmap (NULL, ei->size, PROT_READ, MAP_PRIVATE, fd, 0);
-  close (fd);
-  if (ei->image == MAP_FAILED)
-    return -1;
-
-  if (!elf_w (valid_object) (ei))
-  {
-    munmap(ei->image, ei->size);
-    return -1;
+  if (fd < 0) {
+    return false;
   }
 
-  return 0;
+  if (fstat (fd, &stat) == -1) {
+    close (fd);
+    return false;
+  }
+
+  ei->u.mapped.size = stat.st_size;
+  ei->u.mapped.image = mmap (NULL, ei->u.mapped.size, PROT_READ, MAP_PRIVATE, fd, 0);
+  close (fd);
+  if (ei->u.mapped.image == MAP_FAILED) {
+    return false;
+  }
+
+  ei->valid = elf_w (valid_object_mapped) (ei);
+  if (!ei->valid) {
+    munmap (ei->u.mapped.image, ei->u.mapped.size);
+    return false;
+  }
+
+  ei->mapped = true;
+  // Set to true for cases where this is called outside of elf_map_cached.
+  ei->load_attempted = true;
+
+  return true;
 }
 
-/* ANDROID support update */
-static inline int
-elf_map_cached_image (struct map_info *map, unw_word_t ip)
-{
+static inline bool elf_map_cached_image (
+    unw_addr_space_t as, void* as_arg, struct map_info* map, unw_word_t ip) {
   intrmask_t saved_mask;
-  int return_value = 0;
 
-  /* Lock while loading the cached elf image. */
+  // Lock while loading the cached elf image.
   lock_acquire (&map->ei_lock, saved_mask);
-  if (map->ei.image == NULL)
-    {
-      if (elf_map_image(&map->ei, map->path) < 0)
-        {
-          map->ei.image = NULL;
-          return_value = -1;
-        }
+  if (!map->ei.load_attempted) {
+    map->ei.load_attempted = true;
+
+    if (!elf_map_image (&map->ei, map->path)) {
+      // If the image cannot be loaded, we'll read data directly from
+      // the process using the access_mem function.
+      if (map->flags & PROT_READ) {
+        map->ei.u.memory.map = map;
+        map->ei.u.memory.as = as;
+        map->ei.u.memory.as_arg = as_arg;
+        map->ei.valid = elf_w (valid_object_memory) (&map->ei);
+      }
     }
+    unw_word_t load_base;
+    if (map->ei.valid && elf_w (get_load_base) (&map->ei, map->offset, &load_base)) {
+      map->load_base = load_base;
+    }
+  }
   lock_release (&map->ei_lock, saved_mask);
-  return return_value;
+  return map->ei.valid;
 }
-/* End of ANDROID update */

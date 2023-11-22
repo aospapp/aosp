@@ -21,11 +21,16 @@ import android.content.ContentResolver;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
-import android.test.AndroidTestCase;
+import android.test.InstrumentationTestCase;
 
-public class Settings_SystemTest extends AndroidTestCase {
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Scanner;
+
+public class Settings_SystemTest extends InstrumentationTestCase {
     private ContentResolver cr;
 
     private static final String INT_FIELD = "IntField";
@@ -37,7 +42,7 @@ public class Settings_SystemTest extends AndroidTestCase {
     protected void setUp() throws Exception {
         super.setUp();
 
-        cr = mContext.getContentResolver();
+        cr = getInstrumentation().getContext().getContentResolver();
         assertNotNull(cr);
     }
 
@@ -53,9 +58,34 @@ public class Settings_SystemTest extends AndroidTestCase {
 
         selection = System.NAME + "=\"" + STRING_FIELD + "\"";
         cr.delete(System.CONTENT_URI, selection, null);
+    }
 
-        selection = System.NAME + "=\"" + System.SHOW_GTALK_SERVICE_STATUS + "\"";
-        cr.delete(System.CONTENT_URI, selection, null);
+    private void enableAppOps() {
+        StringBuilder cmd = new StringBuilder();
+        cmd.append("appops set ");
+        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(" android:write_settings allow");
+        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+
+        StringBuilder query = new StringBuilder();
+        query.append("appops get ");
+        query.append(getInstrumentation().getContext().getPackageName());
+        query.append(" android:write_settings");
+        String queryStr = query.toString();
+
+        String result = "No operations.";
+        while (result.contains("No operations")) {
+            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
+                    queryStr);
+            InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
+            result = convertStreamToString(inputStream);
+        }
+    }
+
+    private String convertStreamToString(InputStream is) {
+        try (Scanner scanner = new Scanner(is).useDelimiter("\\A")) {
+            return scanner.hasNext() ? scanner.next() : "";
+        }
     }
 
     public void testSystemSettings() throws SettingNotFoundException {
@@ -76,16 +106,15 @@ public class Settings_SystemTest extends AndroidTestCase {
 
             String stringValue = "cts";
 
-            // insert 5 rows, and update 1 rows
+            // insert 4 rows, and update 1 rows
             assertTrue(System.putInt(cr, INT_FIELD, 10));
             assertTrue(System.putLong(cr, LONG_FIELD, 20l));
             assertTrue(System.putFloat(cr, FLOAT_FIELD, 30.0f));
             assertTrue(System.putString(cr, STRING_FIELD, stringValue));
-            System.setShowGTalkServiceStatus(cr, true);
 
             c = cr.query(System.CONTENT_URI, null, null, null, null);
             assertNotNull(c);
-            assertEquals(origCount + 5, c.getCount());
+            assertEquals(origCount + 4, c.getCount());
             c.close();
 
             // get these rows to assert
@@ -94,7 +123,6 @@ public class Settings_SystemTest extends AndroidTestCase {
             assertEquals(30.0f, System.getFloat(cr, FLOAT_FIELD), 0.001);
 
             assertEquals(stringValue, System.getString(cr, STRING_FIELD));
-            assertTrue(System.getShowGTalkServiceStatus(cr));
 
             // delete the tested rows again
             deleteTestedRows();

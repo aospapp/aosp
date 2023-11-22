@@ -56,20 +56,6 @@
                  android:layout_weight="1"
                  android:text="@string/pwa_button_down" />
 
-             <Button
-                 android:id="@+id/left_button"
-                 android:layout_width="match_parent"
-                 android:layout_height="match_parent"
-                 android:layout_weight="1"
-                 android:text="@string/pwa_button_left" />
-
-             <Button
-                 android:id="@+id/right_button"
-                 android:layout_width="match_parent"
-                 android:layout_height="wrap_content"
-                 android:layout_weight="1"
-                 android:text="@string/pwa_button_right" />
-
          </LinearLayout>
      </LinearLayout>
 

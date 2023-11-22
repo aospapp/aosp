@@ -17,6 +17,7 @@ package android.jobscheduler.cts;
 
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
+import android.app.job.JobParameters;
 
 /**
  * Schedules jobs with various timing constraints and ensures that they are executed when
@@ -26,6 +27,8 @@ import android.app.job.JobInfo;
 public class TimingConstraintsTest extends ConstraintTest {
     private static final int TIMING_JOB_ID = TimingConstraintsTest.class.hashCode() + 0;
     private static final int CANCEL_JOB_ID = TimingConstraintsTest.class.hashCode() + 1;
+    private static final int EXPIRED_JOB_ID = TimingConstraintsTest.class.hashCode() + 2;
+    private static final int UNEXPIRED_JOB_ID = TimingConstraintsTest.class.hashCode() + 3;
 
     public void testScheduleOnce() throws Exception {
         JobInfo oneTimeJob = new JobInfo.Builder(TIMING_JOB_ID, kJobServiceComponent)
@@ -62,5 +65,45 @@ public class TimingConstraintsTest extends ConstraintTest {
         mJobScheduler.cancel(CANCEL_JOB_ID);
         assertTrue("Cancel failed: job executed when it shouldn't have.",
                 kTestEnvironment.awaitTimeout());
+    }
+
+    /**
+     * Ensure that when a job is executed because its deadline has expired, that
+     * {@link JobParameters#isOverrideDeadlineExpired()} returns the correct value.
+     */
+    public void testJobParameters_expiredDeadline() throws Exception {
+
+        JobInfo deadlineJob =
+                new JobInfo.Builder(EXPIRED_JOB_ID, kJobServiceComponent)
+                        .setOverrideDeadline(2000L)
+                        .build();
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(deadlineJob);
+        assertTrue("Failed to execute deadline job", kTestEnvironment.awaitExecution());
+        assertTrue("Job that had its deadline expire didn't have" +
+                        " JobParameters#isOverrideDeadlineExpired=true",
+                kTestEnvironment.getLastJobParameters().isOverrideDeadlineExpired());
+    }
+
+
+    /**
+     * Ensure that when a job is executed and its deadline hasn't expired, that
+     * {@link JobParameters#isOverrideDeadlineExpired()} returns the correct value.
+     */
+    public void testJobParameters_unexpiredDeadline() throws Exception {
+
+        JobInfo deadlineJob =
+                new JobInfo.Builder(UNEXPIRED_JOB_ID, kJobServiceComponent)
+                        .setMinimumLatency(500L)
+                        .setRequiresCharging(true)
+                        .build();
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(deadlineJob);
+        // Run everything by pretending the device was just plugged in.
+        sendExpediteStableChargingBroadcast();
+        assertTrue("Failed to execute non-deadline job", kTestEnvironment.awaitExecution());
+        assertFalse("Job that ran early (unexpired) didn't have" +
+                        " JobParameters#isOverrideDeadlineExpired=false",
+                kTestEnvironment.getLastJobParameters().isOverrideDeadlineExpired());
     }
 }

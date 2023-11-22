@@ -41,8 +41,21 @@ public class MediaSessionCompatApi14 {
     final static int STATE_CONNECTING = 8;
     final static int STATE_SKIPPING_TO_PREVIOUS = 9;
     final static int STATE_SKIPPING_TO_NEXT = 10;
+    final static int STATE_SKIPPING_TO_QUEUE_ITEM = 11;
+
+    /***** PlaybackState actions *****/
+    private static final long ACTION_STOP = 1 << 0;
+    private static final long ACTION_PAUSE = 1 << 1;
+    private static final long ACTION_PLAY = 1 << 2;
+    private static final long ACTION_REWIND = 1 << 3;
+    private static final long ACTION_SKIP_TO_PREVIOUS = 1 << 4;
+    private static final long ACTION_SKIP_TO_NEXT = 1 << 5;
+    private static final long ACTION_FAST_FORWARD = 1 << 6;
+    private static final long ACTION_PLAY_PAUSE = 1 << 9;
 
     /***** MediaMetadata keys ********/
+    private static final String METADATA_KEY_ART = "android.media.metadata.ART";
+    private static final String METADATA_KEY_ALBUM_ART = "android.media.metadata.ALBUM_ART";
     private static final String METADATA_KEY_TITLE = "android.media.metadata.TITLE";
     private static final String METADATA_KEY_ARTIST = "android.media.metadata.ARTIST";
     private static final String METADATA_KEY_DURATION = "android.media.metadata.DURATION";
@@ -52,10 +65,8 @@ public class MediaSessionCompatApi14 {
     private static final String METADATA_KEY_COMPOSER = "android.media.metadata.COMPOSER";
     private static final String METADATA_KEY_COMPILATION = "android.media.metadata.COMPILATION";
     private static final String METADATA_KEY_DATE = "android.media.metadata.DATE";
-    private static final String METADATA_KEY_YEAR = "android.media.metadata.YEAR";
     private static final String METADATA_KEY_GENRE = "android.media.metadata.GENRE";
     private static final String METADATA_KEY_TRACK_NUMBER = "android.media.metadata.TRACK_NUMBER";
-    private static final String METADATA_KEY_NUM_TRACKS = "android.media.metadata.NUM_TRACKS";
     private static final String METADATA_KEY_DISC_NUMBER = "android.media.metadata.DISC_NUMBER";
     private static final String METADATA_KEY_ALBUM_ARTIST = "android.media.metadata.ALBUM_ARTIST";
 
@@ -65,6 +76,11 @@ public class MediaSessionCompatApi14 {
 
     public static void setState(Object rccObj, int state) {
         ((RemoteControlClient) rccObj).setPlaybackState(getRccStateFromState(state));
+    }
+
+    public static void setTransportControlFlags(Object rccObj, long actions) {
+        ((RemoteControlClient) rccObj).setTransportControlFlags(
+                getRccTransportControlFlagsFromActions(actions));
     }
 
     public static void setMetadata(Object rccObj, Bundle metadata) {
@@ -104,6 +120,7 @@ public class MediaSessionCompatApi14 {
             case STATE_SKIPPING_TO_PREVIOUS:
                 return RemoteControlClient.PLAYSTATE_SKIPPING_BACKWARDS;
             case STATE_SKIPPING_TO_NEXT:
+            case STATE_SKIPPING_TO_QUEUE_ITEM:
                 return RemoteControlClient.PLAYSTATE_SKIPPING_FORWARDS;
             case STATE_STOPPED:
                 return RemoteControlClient.PLAYSTATE_STOPPED;
@@ -112,7 +129,47 @@ public class MediaSessionCompatApi14 {
         }
     }
 
+    static int getRccTransportControlFlagsFromActions(long actions) {
+        int transportControlFlags = 0;
+        if ((actions & ACTION_STOP) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_STOP;
+        }
+        if ((actions & ACTION_PAUSE) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PAUSE;
+        }
+        if ((actions & ACTION_PLAY) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PLAY;
+        }
+        if ((actions & ACTION_REWIND) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_REWIND;
+        }
+        if ((actions & ACTION_SKIP_TO_PREVIOUS) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PREVIOUS;
+        }
+        if ((actions & ACTION_SKIP_TO_NEXT) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_NEXT;
+        }
+        if ((actions & ACTION_FAST_FORWARD) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_FAST_FORWARD;
+        }
+        if ((actions & ACTION_PLAY_PAUSE) != 0) {
+            transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PLAY_PAUSE;
+        }
+        return transportControlFlags;
+    }
+
     static void buildOldMetadata(Bundle metadata, RemoteControlClient.MetadataEditor editor) {
+        if (metadata == null) {
+            return;
+        }
+        if (metadata.containsKey(METADATA_KEY_ART)) {
+            Bitmap art = metadata.getParcelable(METADATA_KEY_ART);
+            editor.putBitmap(RemoteControlClient.MetadataEditor.BITMAP_KEY_ARTWORK, art);
+        } else if (metadata.containsKey(METADATA_KEY_ALBUM_ART)) {
+            // Fall back to album art if the track art wasn't available
+            Bitmap art = metadata.getParcelable(METADATA_KEY_ALBUM_ART);
+            editor.putBitmap(RemoteControlClient.MetadataEditor.BITMAP_KEY_ARTWORK, art);
+        }
         if (metadata.containsKey(METADATA_KEY_ALBUM)) {
             editor.putString(MediaMetadataRetriever.METADATA_KEY_ALBUM,
                     metadata.getString(METADATA_KEY_ALBUM));
@@ -153,10 +210,6 @@ public class MediaSessionCompatApi14 {
             editor.putString(MediaMetadataRetriever.METADATA_KEY_GENRE,
                     metadata.getString(METADATA_KEY_GENRE));
         }
-        if (metadata.containsKey(METADATA_KEY_NUM_TRACKS)) {
-            editor.putLong(MediaMetadataRetriever.METADATA_KEY_NUM_TRACKS,
-                    metadata.getLong(METADATA_KEY_NUM_TRACKS));
-        }
         if (metadata.containsKey(METADATA_KEY_TITLE)) {
             editor.putString(MediaMetadataRetriever.METADATA_KEY_TITLE,
                     metadata.getString(METADATA_KEY_TITLE));
@@ -168,10 +221,6 @@ public class MediaSessionCompatApi14 {
         if (metadata.containsKey(METADATA_KEY_WRITER)) {
             editor.putString(MediaMetadataRetriever.METADATA_KEY_WRITER,
                     metadata.getString(METADATA_KEY_WRITER));
-        }
-        if (metadata.containsKey(METADATA_KEY_YEAR)) {
-            editor.putString(MediaMetadataRetriever.METADATA_KEY_YEAR,
-                    metadata.getString(METADATA_KEY_YEAR));
         }
     }
 

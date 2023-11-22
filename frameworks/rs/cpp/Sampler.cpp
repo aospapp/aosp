@@ -15,6 +15,7 @@
  */
 
 #include "RenderScript.h"
+#include "rsCppInternal.h"
 
 using namespace android;
 using namespace RSC;
@@ -24,9 +25,20 @@ Sampler::Sampler(sp<RS> rs, void* id):
 {
     RsSamplerValue mMin = RS_SAMPLER_INVALID;
     RsSamplerValue mMag = RS_SAMPLER_INVALID;
-    RsSamplerValue mWrapS = RS_SAMPLER_INVALID;;
-    RsSamplerValue mWrapT = RS_SAMPLER_INVALID;;
+    RsSamplerValue mWrapS = RS_SAMPLER_INVALID;
+    RsSamplerValue mWrapT = RS_SAMPLER_INVALID;
     float mAniso = 0.f;
+}
+
+Sampler::Sampler(sp<RS> rs, void* id, RsSamplerValue min, RsSamplerValue mag,
+                 RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy):
+    BaseObj(id, rs)
+{
+    RsSamplerValue mMin = min;
+    RsSamplerValue mMag = mag;
+    RsSamplerValue mWrapS = wrapS;
+    RsSamplerValue mWrapT = wrapT;
+    float mAniso = anisotropy;
 }
 
 RsSamplerValue Sampler::getMinification() {
@@ -49,25 +61,27 @@ float Sampler::getAnisotropy() {
     return mAniso;
 }
 
-sp<Sampler> Sampler::create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag, RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy) {
+sp<Sampler> Sampler::create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag,
+                            RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy) {
     // we aren't supporting wrapR in C++ API atm, so always pass wrap for that
-    void* id = RS::dispatch->SamplerCreate(rs->getContext(), min, mag, wrapS, wrapT, RS_SAMPLER_WRAP, anisotropy);
-    return new Sampler(rs, id);
+    void* id = RS::dispatch->SamplerCreate(rs->getContext(), min, mag, wrapS, wrapT,
+                                           RS_SAMPLER_WRAP, anisotropy);
+    return new Sampler(rs, id, min, mag, wrapS, wrapT, anisotropy);
 }
 
 #define CREATE_SAMPLER(N, MIN, MAG, WRAPS, WRAPT) sp<const Sampler> Sampler::N(sp<RS> rs) { \
-        if (rs->mSamplers.N == NULL) {                                  \
+        if (rs->mSamplers.N == nullptr) {                                \
             rs->mSamplers.N = (create(rs, MIN, MAG, WRAPS, WRAPT, 0.f)); \
-        }                                                               \
-        return rs->mSamplers.N;                                         \
+        }                                                                \
+        return rs->mSamplers.N;                                          \
     }
 
-CREATE_SAMPLER(CLAMP_NEAREST, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST);
-CREATE_SAMPLER(CLAMP_LINEAR, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR);
-CREATE_SAMPLER(CLAMP_LINEAR_MIP_LINEAR, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR);
-CREATE_SAMPLER(WRAP_NEAREST, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST);
-CREATE_SAMPLER(WRAP_LINEAR, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR);
-CREATE_SAMPLER(WRAP_LINEAR_MIP_LINEAR, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR);
-CREATE_SAMPLER(MIRRORED_REPEAT_NEAREST, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST);
-CREATE_SAMPLER(MIRRORED_REPEAT_LINEAR, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR);
-CREATE_SAMPLER(MIRRORED_REPEAT_LINEAR_MIP_LINEAR, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR);
+CREATE_SAMPLER(CLAMP_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP);
+CREATE_SAMPLER(CLAMP_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP);
+CREATE_SAMPLER(CLAMP_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_CLAMP, RS_SAMPLER_CLAMP);
+CREATE_SAMPLER(WRAP_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP);
+CREATE_SAMPLER(WRAP_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP);
+CREATE_SAMPLER(WRAP_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_WRAP, RS_SAMPLER_WRAP);
+CREATE_SAMPLER(MIRRORED_REPEAT_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_NEAREST, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT);
+CREATE_SAMPLER(MIRRORED_REPEAT_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT);
+CREATE_SAMPLER(MIRRORED_REPEAT_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR_MIP_LINEAR, RS_SAMPLER_LINEAR, RS_SAMPLER_MIRRORED_REPEAT, RS_SAMPLER_MIRRORED_REPEAT);

@@ -26,7 +26,6 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import libcore.io.IoUtils;
@@ -82,14 +81,14 @@ public class SSLContextTest extends TestCase {
     }
 
     public void test_SSLContext_defaultConfiguration() throws Exception {
-        SSLDefaultConfigurationAsserts.assertSSLContext(SSLContext.getDefault());
+        SSLConfigurationAsserts.assertSSLContextDefaultConfiguration(SSLContext.getDefault());
 
         for (String protocol : StandardNames.SSL_CONTEXT_PROTOCOLS) {
             SSLContext sslContext = SSLContext.getInstance(protocol);
             if (!protocol.equals(StandardNames.SSL_CONTEXT_PROTOCOLS_DEFAULT)) {
                 sslContext.init(null, null, null);
             }
-            SSLDefaultConfigurationAsserts.assertSSLContext(sslContext);
+            SSLConfigurationAsserts.assertSSLContextDefaultConfiguration(sslContext);
         }
     }
 
@@ -147,6 +146,27 @@ public class SSLContextTest extends TestCase {
         assertEnabledCipherSuites(
                 Arrays.asList(StandardNames.CIPHER_SUITE_SECURE_RENEGOTIATION),
                 sslContext);
+    }
+
+    public void test_SSLContext_init_correctProtocolVersionsEnabled() throws Exception {
+        for (String tlsVersion : StandardNames.SSL_CONTEXT_PROTOCOLS) {
+            // Don't test the "Default" instance.
+            if (StandardNames.SSL_CONTEXT_PROTOCOLS_DEFAULT.equals(tlsVersion)) {
+                continue;
+            }
+
+            SSLContext context = SSLContext.getInstance(tlsVersion);
+            context.init(null, null, null);
+
+            StandardNames.assertSSLContextEnabledProtocols(tlsVersion, ((SSLSocket) (context.getSocketFactory()
+                    .createSocket())).getEnabledProtocols());
+            StandardNames.assertSSLContextEnabledProtocols(tlsVersion, ((SSLServerSocket) (context
+                    .getServerSocketFactory().createServerSocket())).getEnabledProtocols());
+            StandardNames.assertSSLContextEnabledProtocols(tlsVersion, context.getDefaultSSLParameters()
+                    .getProtocols());
+            StandardNames.assertSSLContextEnabledProtocols(tlsVersion, context.createSSLEngine()
+                    .getEnabledProtocols());
+        }
     }
 
     private static void assertEnabledCipherSuites(

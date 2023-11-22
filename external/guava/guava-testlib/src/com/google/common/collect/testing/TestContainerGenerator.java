@@ -16,6 +16,8 @@
 
 package com.google.common.collect.testing;
 
+import com.google.common.annotations.GwtCompatible;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +28,9 @@ import java.util.Map;
  * there isn't an established collective noun that encompasses both of these,
  * 'container' is used.
  *
- * <p>This class is GWT compatible.
- *
  * @author George van den Driessche
  */
+@GwtCompatible
 public interface TestContainerGenerator<T, E> {
   /**
    * Returns the sample elements that this generate populates its container

@@ -6,12 +6,16 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#ifndef MCLD_TARGET_TARGETLDBACKEND_H
-#define MCLD_TARGET_TARGETLDBACKEND_H
+#ifndef MCLD_TARGET_TARGETLDBACKEND_H_
+#define MCLD_TARGET_TARGETLDBACKEND_H_
+#include "mcld/Fragment/Relocation.h"
+#include "mcld/LD/GarbageCollection.h"
+#include "mcld/Support/Compiler.h"
+#include "mcld/Support/GCFactoryListTraits.h"
 
 #include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/ilist.h>
 #include <llvm/Support/DataTypes.h>
-#include <mcld/LD/GarbageCollection.h>
 
 namespace mcld {
 
@@ -23,12 +27,10 @@ class DynObjReader;
 class DynObjWriter;
 class ExecWriter;
 class FileOutputBuffer;
-class SectionReachedListMap;
 class IRBuilder;
 class Input;
 class LDSection;
 class LDSymbol;
-class Layout;
 class LinkerConfig;
 class Module;
 class ObjectBuilder;
@@ -37,27 +39,29 @@ class ObjectWriter;
 class Relocator;
 class ResolveInfo;
 class SectionData;
+class SectionReachedListMap;
 class StubFactory;
 
 //===----------------------------------------------------------------------===//
 /// TargetLDBackend - Generic interface to target specific assembler backends.
 //===----------------------------------------------------------------------===//
-class TargetLDBackend
-{
-  TargetLDBackend(const TargetLDBackend &);   // DO NOT IMPLEMENT
-  void operator=(const TargetLDBackend &);  // DO NOT IMPLEMENT
+class TargetLDBackend {
+ public:
+  typedef llvm::iplist<Relocation, GCFactoryListTraits<Relocation> >
+      ExtraRelocList;
+  typedef ExtraRelocList::iterator extra_reloc_iterator;
 
-protected:
-  TargetLDBackend(const LinkerConfig& pConfig);
+ protected:
+  explicit TargetLDBackend(const LinkerConfig& pConfig);
 
-public:
+ public:
   virtual ~TargetLDBackend();
 
   // -----  target dependent  ----- //
-  virtual void initTargetSegments(IRBuilder& pBuilder) { }
-  virtual void initTargetSections(Module& pModule, ObjectBuilder& pBuilder) { }
-  virtual void initTargetSymbols(IRBuilder& pBuilder, Module& pModule) { }
-  virtual void initTargetRelocation(IRBuilder& pBuilder) { }
+  virtual void initTargetSegments(IRBuilder& pBuilder) {}
+  virtual void initTargetSections(Module& pModule, ObjectBuilder& pBuilder) {}
+  virtual void initTargetSymbols(IRBuilder& pBuilder, Module& pModule) {}
+  virtual void initTargetRelocation(IRBuilder& pBuilder) {}
   virtual bool initStandardSymbols(IRBuilder& pBuilder, Module& pModule) = 0;
 
   virtual bool initRelocator() = 0;
@@ -67,10 +71,10 @@ public:
 
   // -----  format dependent  ----- //
   virtual ArchiveReader* createArchiveReader(Module&) = 0;
-  virtual ObjectReader*  createObjectReader(IRBuilder&) = 0;
-  virtual DynObjReader*  createDynObjReader(IRBuilder&) = 0;
-  virtual BinaryReader*  createBinaryReader(IRBuilder&) = 0;
-  virtual ObjectWriter*  createWriter() = 0;
+  virtual ObjectReader* createObjectReader(IRBuilder&) = 0;
+  virtual DynObjReader* createDynObjReader(IRBuilder&) = 0;
+  virtual BinaryReader* createBinaryReader(IRBuilder&) = 0;
+  virtual ObjectWriter* createWriter() = 0;
 
   virtual bool initStdSections(ObjectBuilder& pBuilder) = 0;
 
@@ -111,28 +115,36 @@ public:
   /// sections.
   virtual bool allocateCommonSymbols(Module& pModule) = 0;
 
+  /// preMergeSections - hooks to be executed before merging sections
+  virtual void preMergeSections(Module& pModule) { }
+
+  /// postMergeSections - hooks to be executed after merging sections
+  virtual void postMergeSections(Module& pModule) { }
+
   /// mergeSection - merge target dependent sections.
   virtual bool mergeSection(Module& pModule,
                             const Input& pInputFile,
-                            LDSection& pInputSection)
-  { return true; }
+                            LDSection& pInputSection) {
+    return true;
+  }
 
   /// setUpReachedSectionsForGC - set the reference between two sections for
   /// some special target sections. GC will set up the reference for the Regular
   /// and BSS sections. Backends can also set up the reference if need.
-  virtual void setUpReachedSectionsForGC(const Module& pModule,
-        GarbageCollection::SectionReachedListMap& pSectReachedListMap) const { }
+  virtual void setUpReachedSectionsForGC(
+      const Module& pModule,
+      GarbageCollection::SectionReachedListMap& pSectReachedListMap) const {}
 
   /// updateSectionFlags - update pTo's flags when merging pFrom
   /// update the output section flags based on input section flags.
   /// FIXME: (Luba) I know ELF need to merge flags, but I'm not sure if
   /// MachO and COFF also need this.
-  virtual bool updateSectionFlags(LDSection& pTo, const LDSection& pFrom)
-  { return true; }
+  virtual bool updateSectionFlags(LDSection& pTo, const LDSection& pFrom) {
+    return true;
+  }
 
   /// readSection - read a target dependent section
-  virtual bool readSection(Input& pInput, SectionData& pSD)
-  { return true; }
+  virtual bool readSection(Input& pInput, SectionData& pSD) { return true; }
 
   /// sizeInterp - compute the size of program interpreter's name
   /// In ELF executables, this is the length of dynamic linker's path name
@@ -147,7 +159,7 @@ public:
   virtual bool initTargetStubs() { return true; }
 
   virtual BranchIslandFactory* getBRIslandFactory() = 0;
-  virtual StubFactory*         getStubFactory() = 0;
+  virtual StubFactory* getStubFactory() = 0;
 
   /// relax - the relaxation pass
   virtual bool relax(Module& pModule, IRBuilder& pBuilder) = 0;
@@ -175,16 +187,37 @@ public:
 
   /// mayHaveUnsafeFunctionPointerAccess - check if the section may have unsafe
   /// function pointer access
-  virtual bool mayHaveUnsafeFunctionPointerAccess(const LDSection& pSection)
-      const = 0;
+  virtual bool mayHaveUnsafeFunctionPointerAccess(
+      const LDSection& pSection) const = 0;
 
-protected:
+  extra_reloc_iterator extra_reloc_begin() {
+    return m_ExtraReloc.begin();
+  }
+
+  extra_reloc_iterator extra_reloc_end() {
+    return m_ExtraReloc.end();
+  }
+
+ protected:
   const LinkerConfig& config() const { return m_Config; }
 
-private:
+  /// addExtraRelocation - Add an extra relocation which are automatically
+  /// generated by the LD backend.
+  void addExtraRelocation(Relocation* reloc) {
+    m_ExtraReloc.push_back(reloc);
+  }
+
+ private:
   const LinkerConfig& m_Config;
+
+  /// m_ExtraReloc - Extra relocations that are automatically generated by the
+  /// linker.
+  ExtraRelocList m_ExtraReloc;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(TargetLDBackend);
 };
 
-} // End mcld namespace
+}  // namespace mcld
 
-#endif
+#endif  // MCLD_TARGET_TARGETLDBACKEND_H_

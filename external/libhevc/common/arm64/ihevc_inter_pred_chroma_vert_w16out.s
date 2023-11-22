@@ -125,10 +125,10 @@ ihevc_inter_pred_chroma_vert_w16out_av8:
     tst         x6,#3                       //checks (wd & 3)
     abs         v3.8b, v0.8b                //vabs_s8(coeff)
     lsl         x10,x6,#1                   //2*wd
-    dup         v0.8b, v3.8b[0]             //coeffabs_0
-    dup         v1.8b, v3.8b[1]             //coeffabs_1
-    dup         v2.8b, v3.8b[2]             //coeffabs_2
-    dup         v3.8b, v3.8b[3]             //coeffabs_3
+    dup         v0.8b, v3.b[0]              //coeffabs_0
+    dup         v1.8b, v3.b[1]              //coeffabs_1
+    dup         v2.8b, v3.b[2]              //coeffabs_2
+    dup         v3.8b, v3.b[3]              //coeffabs_3
 
     bgt         outer_loop_wd_2             //jumps to loop handling wd ==2
 
@@ -189,14 +189,14 @@ inner_loop_wd_2:
     subs        x12,x12,#4                  //2wd - 4
     add         x0,x0,#4                    //pu1_src + 4
     ld1         {v6.s}[1],[x6],x2           //loads pu1_src_tmp
-    dup         v7.2s, v6.2s[1]
+    dup         v7.2s, v6.s[1]
     ld1         {v7.s}[1],[x6],x2           //loads pu1_src_tmp
     umull       v4.8h, v7.8b, v1.8b         //vmull_u8(vreinterpret_u8_u32(src_tmp2), coeffabs_1)
-    dup         v7.2s, v7.2s[1]
+    dup         v7.2s, v7.s[1]
     ld1         {v7.s}[1],[x6],x2
     umlsl       v4.8h, v6.8b, v0.8b
     umlal       v4.8h, v7.8b, v2.8b
-    dup         v7.2s, v7.2s[1]
+    dup         v7.2s, v7.s[1]
     ld1         {v7.s}[1],[x6]
     add         x6,x1,x3,lsl #1             //pu1_dst + dst_strd
     umlsl       v4.8h, v7.8b, v3.8b

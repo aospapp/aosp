@@ -49,21 +49,22 @@ if [ -n "${TF_DEBUG}" ]; then
   RDBG_FLAG=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=${TF_DEBUG_PORT}
 fi
 
+# get OS
+HOST=`uname`
+if [ "$HOST" == "Linux" ]; then
+    OS="linux-x86"
+elif [ "$HOST" == "Darwin" ]; then
+    OS="darwin-x86"
+else
+    echo "Unrecognized OS"
+    exit
+fi
 
 # check if in Android build env
 if [ ! -z "${ANDROID_BUILD_TOP}" ]; then
     if [ ! -z "${ANDROID_HOST_OUT}" ]; then
       CTS_ROOT=${ANDROID_HOST_OUT}/cts
     else
-      HOST=`uname`
-      if [ "$HOST" == "Linux" ]; then
-          OS="linux-x86"
-      elif [ "$HOST" == "Darwin" ]; then
-          OS="darwin-x86"
-      else
-          echo "Unrecognized OS"
-          exit
-      fi
       CTS_ROOT=${ANDROID_BUILD_TOP}/${OUT_DIR:-out}/host/${OS}/cts
     fi
     if [ ! -d ${CTS_ROOT} ]; then
@@ -84,6 +85,16 @@ for JAR in $JARS; do
     checkFile ${JAR_DIR}/${JAR}
     JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}
 done
+
+# load any shared libraries for host-side executables
+LIB_DIR=${CTS_ROOT}/android-cts/lib
+if [ "$HOST" == "Linux" ]; then
+    LD_LIBRARY_PATH=${LIB_DIR}:${LIB_DIR}64:${LD_LIBRARY_PATH}
+    export LD_LIBRARY_PATH
+elif [ "$HOST" == "Darwin" ]; then
+    DYLD_LIBRARY_PATH=${LIB_DIR}:${LIB_DIR}64:${DYLD_LIBRARY_PATH}
+    export DYLD_LIBRARY_PATH
+fi
 
 java $RDBG_FLAG \
   -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.cts.tradefed.command.CtsConsole "$@"

@@ -58,13 +58,10 @@ LOCAL_CPPFLAGS :=	\
 # Make sure bionic is first so we can include system headers.
 LOCAL_C_INCLUDES :=	\
 	bionic \
-	external/libcxx/include \
 	$(LLVM_ROOT_PATH)	\
 	$(LLVM_ROOT_PATH)/include	\
 	$(LLVM_ROOT_PATH)/device/include	\
 	$(LOCAL_C_INCLUDES)
-
-include external/libcxx/libcxx.mk
 
 ###########################################################
 ## Commands for running tblgen to compile a td file

@@ -206,7 +206,7 @@ static SLboolean head_atend = SL_BOOLEAN_FALSE;
 
 //-----------------------------------------------------------------
 /* Callback for SLPlayItf through which we receive the SL_PLAYEVENT_HEADATEND event */
-void PlayCallback(SLPlayItf caller, void *pContext, SLuint32 event) {
+void PlayCallback(SLPlayItf caller, void *pContext __unused, SLuint32 event) {
     SLmillisecond position;
     SLresult res = (*caller)->GetPosition(caller, &position);
     ExitOnError(res);
@@ -230,13 +230,13 @@ void PlayCallback(SLPlayItf caller, void *pContext, SLuint32 event) {
 /* Callback for AndroidBufferQueueItf through which we supply ADTS buffers */
 SLresult AndroidBufferQueueCallback(
         SLAndroidBufferQueueItf caller,
-        void *pCallbackContext,        /* input */
+        void *pCallbackContext __unused, /* input */
         void *pBufferContext,          /* input */
-        void *pBufferData,             /* input */
-        SLuint32 dataSize,             /* input */
-        SLuint32 dataUsed,             /* input */
-        const SLAndroidBufferItem *pItems,/* input */
-        SLuint32 itemsLength           /* input */)
+        void *pBufferData __unused,    /* input */
+        SLuint32 dataSize __unused,    /* input */
+        SLuint32 dataUsed __unused,    /* input */
+        const SLAndroidBufferItem *pItems __unused, /* input */
+        SLuint32 itemsLength __unused  /* input */)
 {
     // mutex on all global variables
     pthread_mutex_lock(&eosLock);
@@ -263,7 +263,8 @@ SLresult AndroidBufferQueueCallback(
         }
     } else if (filelen == 0) {
         // signal EOS to the decoder rather than just starving it
-        printf("Enqueue EOS: encoded frames=%zu, decoded frames=%zu\n", encodedFrames, decodedFrames);
+        printf("Enqueue EOS: encoded frames=%zu, decoded frames=%zu\n", encodedFrames,
+                decodedFrames);
         printf("You should now see %u ADTS completion%s followed by 1 EOS completion\n",
                 NB_BUFFERS_IN_ADTS_QUEUE - 1, NB_BUFFERS_IN_ADTS_QUEUE != 2 ? "s" : "");
         SLAndroidBufferItem msgEos;

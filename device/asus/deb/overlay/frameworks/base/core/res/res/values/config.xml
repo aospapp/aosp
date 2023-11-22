@@ -275,4 +275,13 @@
         <item>hspa:4094,87380,704512,4096,16384,262144</item>
         <item>lte:524288,1048576,2560000,262144,524288,1048576</item>
     </string-array>
+
+    <!-- The RadioAccessFamilies supported by the device.
+         Empty is viewed as "all".  Only used on devices which
+         don't support RIL_REQUEST_GET_RADIO_CAPABILITY
+         format is UMTS|LTE|... -->
+    <string translatable="false" name="config_radio_access_family">GSM | WCDMA | LTE</string>
+
+    <!-- Flag indicating if device supports EAP SIM, AKA, AKA' -->
+    <bool name="config_eap_sim_based_auth_supported">false</bool>
 </resources>

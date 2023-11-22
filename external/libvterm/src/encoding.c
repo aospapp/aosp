@@ -2,7 +2,7 @@
 
 #define UNICODE_INVALID 0xFFFD
 
-#ifdef DEBUG
+#if defined(DEBUG) && DEBUG > 1
 # define DEBUG_PRINT_UTF8
 #endif
 
@@ -212,6 +212,7 @@ encodings[] = {
   { 0 },
 };
 
+/* This ought to be INTERNAL but isn't because it's used by unit testing */
 VTermEncoding *vterm_lookup_encoding(VTermEncodingType type, char designation)
 {
   for(int i = 0; encodings[i].designation; i++)

@@ -34,7 +34,7 @@ BitcodeWrapper::BitcodeWrapper(const char *bitcode, size_t bitcodeSize)
       mHeaderVersion(0), mTargetAPI(0), mCompilerVersion(0),
       mOptimizationLevel(3) {
   InMemoryWrapperInput inMem(mBitcode, mBitcodeSize);
-  BitcodeWrapperer wrapperer(&inMem, NULL);
+  BitcodeWrapperer wrapperer(&inMem, nullptr);
   if (wrapperer.IsInputBitcodeWrapper()) {
     mFileType = BC_WRAPPER;
     mHeaderVersion = wrapperer.getAndroidHeaderVersion();

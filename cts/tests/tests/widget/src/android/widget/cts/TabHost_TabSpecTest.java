@@ -65,7 +65,7 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
         mTabHost.addTab(tabSpec);
         mTabHost.setCurrentTab(1);
         View currentTabView = mTabHost.getCurrentTabView();
-        int idTitle = com.android.internal.R.id.title;
+        int idTitle = android.R.id.title;
         TextView tvTitle = (TextView) currentTabView.findViewById(idTitle);
         assertEquals(TAG_TAB2, tvTitle.getText().toString());
 
@@ -90,8 +90,8 @@ public class TabHost_TabSpecTest extends ActivityInstrumentationTestCase2<TabHos
         mTabHost.addTab(tabSpec);
         mTabHost.setCurrentTab(1);
         View currentTabView = mTabHost.getCurrentTabView();
-        int idTitle = com.android.internal.R.id.title;
-        int idIcon = com.android.internal.R.id.icon;
+        int idTitle = android.R.id.title;
+        int idIcon = android.R.id.icon;
         TextView tvTitle = (TextView) currentTabView.findViewById(idTitle);
         ImageView ivIcon = ((ImageView) currentTabView.findViewById(idIcon));
         assertEquals("", tvTitle.getText().toString());

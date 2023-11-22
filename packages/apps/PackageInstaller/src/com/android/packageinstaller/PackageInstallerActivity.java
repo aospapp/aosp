@@ -36,6 +36,7 @@ import android.content.pm.PackageUserState;
 import android.content.pm.ResolveInfo;
 import android.content.pm.VerificationParams;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.os.UserManager;
@@ -125,64 +126,59 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
                 }
             }
         });
-
+        // If the app supports runtime permissions the new permissions will
+        // be requested at runtime, hence we do not show them at install.
+        boolean supportsRuntimePermissions = mPkgInfo.applicationInfo.targetSdkVersion
+                >= Build.VERSION_CODES.M;
         boolean permVisible = false;
         mScrollView = null;
         mOkCanInstall = false;
         int msg = 0;
-        if (mPkgInfo != null) {
-            AppSecurityPermissions perms = new AppSecurityPermissions(this, mPkgInfo);
-            final int NP = perms.getPermissionCount(AppSecurityPermissions.WHICH_PERSONAL);
-            final int ND = perms.getPermissionCount(AppSecurityPermissions.WHICH_DEVICE);
-            if (mAppInfo != null) {
-                msg = (mAppInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
-                        ? R.string.install_confirm_question_update_system
-                        : R.string.install_confirm_question_update;
-                mScrollView = new CaffeinatedScrollView(this);
-                mScrollView.setFillViewport(true);
-                boolean newPermissionsFound =
+
+        AppSecurityPermissions perms = new AppSecurityPermissions(this, mPkgInfo);
+        final int N = perms.getPermissionCount(AppSecurityPermissions.WHICH_ALL);
+        if (mAppInfo != null) {
+            msg = (mAppInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                    ? R.string.install_confirm_question_update_system
+                    : R.string.install_confirm_question_update;
+            mScrollView = new CaffeinatedScrollView(this);
+            mScrollView.setFillViewport(true);
+            boolean newPermissionsFound = false;
+            if (!supportsRuntimePermissions) {
+                newPermissionsFound =
                         (perms.getPermissionCount(AppSecurityPermissions.WHICH_NEW) > 0);
                 mInstallFlowAnalytics.setNewPermissionsFound(newPermissionsFound);
                 if (newPermissionsFound) {
                     permVisible = true;
                     mScrollView.addView(perms.getPermissionsView(
                             AppSecurityPermissions.WHICH_NEW));
-                } else {
-                    LayoutInflater inflater = (LayoutInflater)getSystemService(
-                            Context.LAYOUT_INFLATER_SERVICE);
-                    TextView label = (TextView)inflater.inflate(R.layout.label, null);
-                    label.setText(R.string.no_new_perms);
-                    mScrollView.addView(label);
                 }
-                adapter.addTab(tabHost.newTabSpec(TAB_ID_NEW).setIndicator(
-                        getText(R.string.newPerms)), mScrollView);
-            } else  {
-                findViewById(R.id.tabscontainer).setVisibility(View.GONE);
-                findViewById(R.id.divider).setVisibility(View.VISIBLE);
             }
-            if (NP > 0 || ND > 0) {
-                permVisible = true;
+            if (!supportsRuntimePermissions && !newPermissionsFound) {
                 LayoutInflater inflater = (LayoutInflater)getSystemService(
                         Context.LAYOUT_INFLATER_SERVICE);
-                View root = inflater.inflate(R.layout.permissions_list, null);
-                if (mScrollView == null) {
-                    mScrollView = (CaffeinatedScrollView)root.findViewById(R.id.scrollview);
-                }
-                if (NP > 0) {
-                    ((ViewGroup)root.findViewById(R.id.privacylist)).addView(
-                            perms.getPermissionsView(AppSecurityPermissions.WHICH_PERSONAL));
-                } else {
-                    root.findViewById(R.id.privacylist).setVisibility(View.GONE);
-                }
-                if (ND > 0) {
-                    ((ViewGroup)root.findViewById(R.id.devicelist)).addView(
-                            perms.getPermissionsView(AppSecurityPermissions.WHICH_DEVICE));
-                } else {
-                    root.findViewById(R.id.devicelist).setVisibility(View.GONE);
-                }
-                adapter.addTab(tabHost.newTabSpec(TAB_ID_ALL).setIndicator(
-                        getText(R.string.allPerms)), root);
+                TextView label = (TextView)inflater.inflate(R.layout.label, null);
+                label.setText(R.string.no_new_perms);
+                mScrollView.addView(label);
             }
+            adapter.addTab(tabHost.newTabSpec(TAB_ID_NEW).setIndicator(
+                    getText(R.string.newPerms)), mScrollView);
+        } else  {
+            findViewById(R.id.tabscontainer).setVisibility(View.GONE);
+            findViewById(R.id.divider).setVisibility(View.VISIBLE);
+        }
+        if (!supportsRuntimePermissions && N > 0) {
+            permVisible = true;
+            LayoutInflater inflater = (LayoutInflater)getSystemService(
+                    Context.LAYOUT_INFLATER_SERVICE);
+            View root = inflater.inflate(R.layout.permissions_list, null);
+            if (mScrollView == null) {
+                mScrollView = (CaffeinatedScrollView)root.findViewById(R.id.scrollview);
+            }
+            ((ViewGroup)root.findViewById(R.id.permission_list)).addView(
+                        perms.getPermissionsView(AppSecurityPermissions.WHICH_ALL));
+            adapter.addTab(tabHost.newTabSpec(TAB_ID_ALL).setIndicator(
+                    getText(R.string.allPerms)), root);
         }
         mInstallFlowAnalytics.setPermissionsDisplayed(permVisible);
         if (!permVisible) {
@@ -356,7 +352,8 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
             try {
                 mSourceInfo = mPm.getApplicationInfo(callerPackage, 0);
                 if (mSourceInfo != null) {
-                    if ((mSourceInfo.flags & ApplicationInfo.FLAG_PRIVILEGED) != 0) {
+                    if ((mSourceInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_PRIVILEGED)
+                            != 0) {
                         // Privileged apps are not considered an unknown source.
                         return false;
                     }
@@ -593,7 +590,7 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
         ApplicationInfo sourceInfo = getSourceInfo();
         if (sourceInfo != null) {
             if (uidFromIntent != VerificationParams.NO_UID &&
-                    (mSourceInfo.flags & ApplicationInfo.FLAG_PRIVILEGED) != 0) {
+                    (mSourceInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_PRIVILEGED) != 0) {
                 return uidFromIntent;
 
             }
@@ -623,7 +620,8 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
                         ApplicationInfo applicationInfo =
                                 mPm.getApplicationInfo(packageName, 0);
 
-                        if ((applicationInfo.flags & ApplicationInfo.FLAG_PRIVILEGED) != 0) {
+                        if ((applicationInfo.privateFlags & ApplicationInfo.PRIVATE_FLAG_PRIVILEGED)
+                                != 0) {
                             return uidFromIntent;
                         }
                     } catch (NameNotFoundException ex) {
@@ -663,39 +661,10 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
                     // story ends; assume success.
                     mInstallFlowAnalytics.setFlowFinishedWithPackageManagerResult(
                             PackageManager.INSTALL_SUCCEEDED);
+                    finish();
                 } else {
-                    // Start subactivity to actually install the application
-                    Intent newIntent = new Intent();
-                    newIntent.putExtra(PackageUtil.INTENT_ATTR_APPLICATION_INFO,
-                            mPkgInfo.applicationInfo);
-                    newIntent.setData(mPackageURI);
-                    newIntent.setClass(this, InstallAppProgress.class);
-                    newIntent.putExtra(InstallAppProgress.EXTRA_MANIFEST_DIGEST, mPkgDigest);
-                    newIntent.putExtra(
-                            InstallAppProgress.EXTRA_INSTALL_FLOW_ANALYTICS, mInstallFlowAnalytics);
-                    String installerPackageName = getIntent().getStringExtra(
-                            Intent.EXTRA_INSTALLER_PACKAGE_NAME);
-                    if (mOriginatingURI != null) {
-                        newIntent.putExtra(Intent.EXTRA_ORIGINATING_URI, mOriginatingURI);
-                    }
-                    if (mReferrerURI != null) {
-                        newIntent.putExtra(Intent.EXTRA_REFERRER, mReferrerURI);
-                    }
-                    if (mOriginatingUid != VerificationParams.NO_UID) {
-                        newIntent.putExtra(Intent.EXTRA_ORIGINATING_UID, mOriginatingUid);
-                    }
-                    if (installerPackageName != null) {
-                        newIntent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME,
-                                installerPackageName);
-                    }
-                    if (getIntent().getBooleanExtra(Intent.EXTRA_RETURN_RESULT, false)) {
-                        newIntent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
-                        newIntent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
-                    }
-                    if(localLOGV) Log.i(TAG, "downloaded app uri="+mPackageURI);
-                    startActivity(newIntent);
+                    startInstall();
                 }
-                finish();
             } else {
                 mScrollView.pageScroll(View.FOCUS_DOWN);
             }
@@ -709,5 +678,39 @@ public class PackageInstallerActivity extends Activity implements OnCancelListen
                     InstallFlowAnalytics.RESULT_CANCELLED_BY_USER);
             finish();
         }
+    }
+
+    private void startInstall() {
+        // Start subactivity to actually install the application
+        Intent newIntent = new Intent();
+        newIntent.putExtra(PackageUtil.INTENT_ATTR_APPLICATION_INFO,
+                mPkgInfo.applicationInfo);
+        newIntent.setData(mPackageURI);
+        newIntent.setClass(this, InstallAppProgress.class);
+        newIntent.putExtra(InstallAppProgress.EXTRA_MANIFEST_DIGEST, mPkgDigest);
+        newIntent.putExtra(
+                InstallAppProgress.EXTRA_INSTALL_FLOW_ANALYTICS, mInstallFlowAnalytics);
+        String installerPackageName = getIntent().getStringExtra(
+                Intent.EXTRA_INSTALLER_PACKAGE_NAME);
+        if (mOriginatingURI != null) {
+            newIntent.putExtra(Intent.EXTRA_ORIGINATING_URI, mOriginatingURI);
+        }
+        if (mReferrerURI != null) {
+            newIntent.putExtra(Intent.EXTRA_REFERRER, mReferrerURI);
+        }
+        if (mOriginatingUid != VerificationParams.NO_UID) {
+            newIntent.putExtra(Intent.EXTRA_ORIGINATING_UID, mOriginatingUid);
+        }
+        if (installerPackageName != null) {
+            newIntent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME,
+                    installerPackageName);
+        }
+        if (getIntent().getBooleanExtra(Intent.EXTRA_RETURN_RESULT, false)) {
+            newIntent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
+            newIntent.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
+        }
+        if(localLOGV) Log.i(TAG, "downloaded app uri="+mPackageURI);
+        startActivity(newIntent);
+        finish();
     }
 }

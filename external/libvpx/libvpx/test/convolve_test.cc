@@ -21,28 +21,28 @@
 #include "vpx_ports/mem.h"
 
 namespace {
-typedef void (*convolve_fn_t)(const uint8_t *src, ptrdiff_t src_stride,
-                              uint8_t *dst, ptrdiff_t dst_stride,
-                              const int16_t *filter_x, int filter_x_stride,
-                              const int16_t *filter_y, int filter_y_stride,
-                              int w, int h);
+typedef void (*ConvolveFunc)(const uint8_t *src, ptrdiff_t src_stride,
+                             uint8_t *dst, ptrdiff_t dst_stride,
+                             const int16_t *filter_x, int filter_x_stride,
+                             const int16_t *filter_y, int filter_y_stride,
+                             int w, int h);
 
 struct ConvolveFunctions {
-  ConvolveFunctions(convolve_fn_t h8, convolve_fn_t h8_avg,
-                    convolve_fn_t v8, convolve_fn_t v8_avg,
-                    convolve_fn_t hv8, convolve_fn_t hv8_avg)
+  ConvolveFunctions(ConvolveFunc h8, ConvolveFunc h8_avg,
+                    ConvolveFunc v8, ConvolveFunc v8_avg,
+                    ConvolveFunc hv8, ConvolveFunc hv8_avg)
       : h8_(h8), v8_(v8), hv8_(hv8), h8_avg_(h8_avg), v8_avg_(v8_avg),
         hv8_avg_(hv8_avg) {}
 
-  convolve_fn_t h8_;
-  convolve_fn_t v8_;
-  convolve_fn_t hv8_;
-  convolve_fn_t h8_avg_;
-  convolve_fn_t v8_avg_;
-  convolve_fn_t hv8_avg_;
+  ConvolveFunc h8_;
+  ConvolveFunc v8_;
+  ConvolveFunc hv8_;
+  ConvolveFunc h8_avg_;
+  ConvolveFunc v8_avg_;
+  ConvolveFunc hv8_avg_;
 };
 
-typedef std::tr1::tuple<int, int, const ConvolveFunctions*> convolve_param_t;
+typedef std::tr1::tuple<int, int, const ConvolveFunctions *> ConvolveParam;
 
 // Reference 8-tap subpixel filter, slightly modified to fit into this test.
 #define VP9_FILTER_WEIGHT 128
@@ -169,7 +169,7 @@ void filter_average_block2d_8_c(const uint8_t *src_ptr,
                     output_width, output_height);
 }
 
-class ConvolveTest : public ::testing::TestWithParam<convolve_param_t> {
+class ConvolveTest : public ::testing::TestWithParam<ConvolveParam> {
  public:
   static void SetUpTestCase() {
     // Force input_ to be unaligned, output to be 16 byte aligned.
@@ -221,8 +221,12 @@ class ConvolveTest : public ::testing::TestWithParam<convolve_param_t> {
     }
 
     ::libvpx_test::ACMRandom prng;
-    for (int i = 0; i < kInputBufferSize; ++i)
-      input_[i] = prng.Rand8Extremes();
+    for (int i = 0; i < kInputBufferSize; ++i) {
+      if (i & 1)
+        input_[i] = 255;
+      else
+        input_[i] = prng.Rand8Extremes();
+    }
   }
 
   void SetConstantInput(int value) {
@@ -260,7 +264,7 @@ TEST_P(ConvolveTest, CopyHoriz) {
   uint8_t* const out = output();
   DECLARE_ALIGNED(256, const int16_t, filter8[8]) = {0, 0, 0, 128, 0, 0, 0, 0};
 
-  REGISTER_STATE_CHECK(
+  ASM_REGISTER_STATE_CHECK(
       UUT_->h8_(in, kInputStride, out, kOutputStride, filter8, 16, filter8, 16,
                 Width(), Height()));
 
@@ -277,7 +281,7 @@ TEST_P(ConvolveTest, CopyVert) {
   uint8_t* const out = output();
   DECLARE_ALIGNED(256, const int16_t, filter8[8]) = {0, 0, 0, 128, 0, 0, 0, 0};
 
-  REGISTER_STATE_CHECK(
+  ASM_REGISTER_STATE_CHECK(
       UUT_->v8_(in, kInputStride, out, kOutputStride, filter8, 16, filter8, 16,
                 Width(), Height()));
 
@@ -294,7 +298,7 @@ TEST_P(ConvolveTest, Copy2D) {
   uint8_t* const out = output();
   DECLARE_ALIGNED(256, const int16_t, filter8[8]) = {0, 0, 0, 128, 0, 0, 0, 0};
 
-  REGISTER_STATE_CHECK(
+  ASM_REGISTER_STATE_CHECK(
       UUT_->hv8_(in, kInputStride, out, kOutputStride, filter8, 16, filter8, 16,
                  Width(), Height()));
 
@@ -306,19 +310,13 @@ TEST_P(ConvolveTest, Copy2D) {
           << "(" << x << "," << y << ")";
 }
 
-const int16_t (*kTestFilterList[])[8] = {
-  vp9_bilinear_filters,
-  vp9_sub_pel_filters_8,
-  vp9_sub_pel_filters_8s,
-  vp9_sub_pel_filters_8lp
-};
-const int kNumFilterBanks = sizeof(kTestFilterList) /
-                            sizeof(kTestFilterList[0]);
+const int kNumFilterBanks = 4;
 const int kNumFilters = 16;
 
 TEST(ConvolveTest, FiltersWontSaturateWhenAddedPairwise) {
   for (int filter_bank = 0; filter_bank < kNumFilterBanks; ++filter_bank) {
-    const int16_t (*filters)[8] = kTestFilterList[filter_bank];
+    const InterpKernel *filters =
+        vp9_get_interp_kernel(static_cast<INTERP_FILTER>(filter_bank));
     for (int i = 0; i < kNumFilters; i++) {
       const int p0 = filters[i][0] + filters[i][1];
       const int p1 = filters[i][2] + filters[i][3];
@@ -345,7 +343,10 @@ TEST_P(ConvolveTest, MatchesReferenceSubpixelFilter) {
 
 
   for (int filter_bank = 0; filter_bank < kNumFilterBanks; ++filter_bank) {
-    const int16_t (*filters)[8] = kTestFilterList[filter_bank];
+    const InterpKernel *filters =
+        vp9_get_interp_kernel(static_cast<INTERP_FILTER>(filter_bank));
+    const InterpKernel *const eighttap_smooth =
+        vp9_get_interp_kernel(EIGHTTAP_SMOOTH);
 
     for (int filter_x = 0; filter_x < kNumFilters; ++filter_x) {
       for (int filter_y = 0; filter_y < kNumFilters; ++filter_y) {
@@ -354,18 +355,18 @@ TEST_P(ConvolveTest, MatchesReferenceSubpixelFilter) {
                            ref, kOutputStride,
                            Width(), Height());
 
-        if (filters == vp9_sub_pel_filters_8lp || (filter_x && filter_y))
-          REGISTER_STATE_CHECK(
+        if (filters == eighttap_smooth || (filter_x && filter_y))
+          ASM_REGISTER_STATE_CHECK(
               UUT_->hv8_(in, kInputStride, out, kOutputStride,
                          filters[filter_x], 16, filters[filter_y], 16,
                          Width(), Height()));
         else if (filter_y)
-          REGISTER_STATE_CHECK(
+          ASM_REGISTER_STATE_CHECK(
               UUT_->v8_(in, kInputStride, out, kOutputStride,
                         kInvalidFilter, 16, filters[filter_y], 16,
                         Width(), Height()));
         else
-          REGISTER_STATE_CHECK(
+          ASM_REGISTER_STATE_CHECK(
               UUT_->h8_(in, kInputStride, out, kOutputStride,
                         filters[filter_x], 16, kInvalidFilter, 16,
                         Width(), Height()));
@@ -399,12 +400,11 @@ TEST_P(ConvolveTest, MatchesReferenceAveragingSubpixelFilter) {
     }
   }
 
-  const int kNumFilterBanks = sizeof(kTestFilterList) /
-      sizeof(kTestFilterList[0]);
-
   for (int filter_bank = 0; filter_bank < kNumFilterBanks; ++filter_bank) {
-    const int16_t (*filters)[8] = kTestFilterList[filter_bank];
-    const int kNumFilters = 16;
+    const InterpKernel *filters =
+        vp9_get_interp_kernel(static_cast<INTERP_FILTER>(filter_bank));
+    const InterpKernel *const eighttap_smooth =
+        vp9_get_interp_kernel(EIGHTTAP_SMOOTH);
 
     for (int filter_x = 0; filter_x < kNumFilters; ++filter_x) {
       for (int filter_y = 0; filter_y < kNumFilters; ++filter_y) {
@@ -413,18 +413,18 @@ TEST_P(ConvolveTest, MatchesReferenceAveragingSubpixelFilter) {
                                    ref, kOutputStride,
                                    Width(), Height());
 
-        if (filters == vp9_sub_pel_filters_8lp || (filter_x && filter_y))
-          REGISTER_STATE_CHECK(
+        if (filters == eighttap_smooth || (filter_x && filter_y))
+          ASM_REGISTER_STATE_CHECK(
               UUT_->hv8_avg_(in, kInputStride, out, kOutputStride,
                              filters[filter_x], 16, filters[filter_y], 16,
                              Width(), Height()));
         else if (filter_y)
-          REGISTER_STATE_CHECK(
+          ASM_REGISTER_STATE_CHECK(
               UUT_->v8_avg_(in, kInputStride, out, kOutputStride,
                             filters[filter_x], 16, filters[filter_y], 16,
                             Width(), Height()));
         else
-          REGISTER_STATE_CHECK(
+          ASM_REGISTER_STATE_CHECK(
               UUT_->h8_avg_(in, kInputStride, out, kOutputStride,
                             filters[filter_x], 16, filters[filter_y], 16,
                             Width(), Height()));
@@ -494,9 +494,10 @@ TEST_P(ConvolveTest, ChangeFilterWorks) {
    */
 
   /* Test the horizontal filter. */
-  REGISTER_STATE_CHECK(UUT_->h8_(in, kInputStride, out, kOutputStride,
-                                 kChangeFilters[kInitialSubPelOffset],
-                                 kInputPixelStep, NULL, 0, Width(), Height()));
+  ASM_REGISTER_STATE_CHECK(
+      UUT_->h8_(in, kInputStride, out, kOutputStride,
+                kChangeFilters[kInitialSubPelOffset],
+                kInputPixelStep, NULL, 0, Width(), Height()));
 
   for (int x = 0; x < Width(); ++x) {
     const int kFilterPeriodAdjust = (x >> 3) << 3;
@@ -508,9 +509,10 @@ TEST_P(ConvolveTest, ChangeFilterWorks) {
   }
 
   /* Test the vertical filter. */
-  REGISTER_STATE_CHECK(UUT_->v8_(in, kInputStride, out, kOutputStride,
-                                 NULL, 0, kChangeFilters[kInitialSubPelOffset],
-                                 kInputPixelStep, Width(), Height()));
+  ASM_REGISTER_STATE_CHECK(
+      UUT_->v8_(in, kInputStride, out, kOutputStride,
+                NULL, 0, kChangeFilters[kInitialSubPelOffset],
+                kInputPixelStep, Width(), Height()));
 
   for (int y = 0; y < Height(); ++y) {
     const int kFilterPeriodAdjust = (y >> 3) << 3;
@@ -522,12 +524,11 @@ TEST_P(ConvolveTest, ChangeFilterWorks) {
   }
 
   /* Test the horizontal and vertical filters in combination. */
-  REGISTER_STATE_CHECK(UUT_->hv8_(in, kInputStride, out, kOutputStride,
-                                  kChangeFilters[kInitialSubPelOffset],
-                                  kInputPixelStep,
-                                  kChangeFilters[kInitialSubPelOffset],
-                                  kInputPixelStep,
-                                  Width(), Height()));
+  ASM_REGISTER_STATE_CHECK(
+      UUT_->hv8_(in, kInputStride, out, kOutputStride,
+                 kChangeFilters[kInitialSubPelOffset], kInputPixelStep,
+                 kChangeFilters[kInitialSubPelOffset], kInputPixelStep,
+                 Width(), Height()));
 
   for (int y = 0; y < Height(); ++y) {
     const int kFilterPeriodAdjustY = (y >> 3) << 3;
@@ -553,16 +554,17 @@ TEST_P(ConvolveTest, ChangeFilterWorks) {
 TEST_P(ConvolveTest, CheckScalingFiltering) {
   uint8_t* const in = input();
   uint8_t* const out = output();
+  const InterpKernel *const eighttap = vp9_get_interp_kernel(EIGHTTAP);
 
   SetConstantInput(127);
 
   for (int frac = 0; frac < 16; ++frac) {
     for (int step = 1; step <= 32; ++step) {
       /* Test the horizontal and vertical filters in combination. */
-      REGISTER_STATE_CHECK(UUT_->hv8_(in, kInputStride, out, kOutputStride,
-                                      vp9_sub_pel_filters_8[frac], step,
-                                      vp9_sub_pel_filters_8[frac], step,
-                                      Width(), Height()));
+      ASM_REGISTER_STATE_CHECK(UUT_->hv8_(in, kInputStride, out, kOutputStride,
+                                          eighttap[frac], step,
+                                          eighttap[frac], step,
+                                          Width(), Height()));
 
       CheckGuardBlocks();
 
@@ -643,7 +645,51 @@ INSTANTIATE_TEST_CASE_P(SSSE3, ConvolveTest, ::testing::Values(
     make_tuple(64, 64, &convolve8_ssse3)));
 #endif
 
-#if HAVE_NEON
+#if HAVE_AVX2
+// TODO(jzern): these prototypes can be removed after the avx2 versions are
+// reenabled in vp9_rtcd_defs.pl.
+extern "C" {
+void vp9_convolve8_vert_avx2(const uint8_t *src, ptrdiff_t src_stride,
+                             uint8_t *dst, ptrdiff_t dst_stride,
+                             const int16_t *filter_x, int x_step_q4,
+                             const int16_t *filter_y, int y_step_q4,
+                             int w, int h);
+void vp9_convolve8_horiz_avx2(const uint8_t *src, ptrdiff_t src_stride,
+                              uint8_t *dst, ptrdiff_t dst_stride,
+                              const int16_t *filter_x, int x_step_q4,
+                              const int16_t *filter_y, int y_step_q4,
+                              int w, int h);
+void vp9_convolve8_avx2(const uint8_t *src, ptrdiff_t src_stride,
+                        uint8_t *dst, ptrdiff_t dst_stride,
+                        const int16_t *filter_x, int x_step_q4,
+                        const int16_t *filter_y, int y_step_q4,
+                        int w, int h);
+}
+
+const ConvolveFunctions convolve8_avx2(
+    vp9_convolve8_horiz_avx2, vp9_convolve8_avg_horiz_ssse3,
+    vp9_convolve8_vert_avx2, vp9_convolve8_avg_vert_ssse3,
+    vp9_convolve8_avx2, vp9_convolve8_avg_ssse3);
+
+INSTANTIATE_TEST_CASE_P(AVX2, ConvolveTest, ::testing::Values(
+    make_tuple(4, 4, &convolve8_avx2),
+    make_tuple(8, 4, &convolve8_avx2),
+    make_tuple(4, 8, &convolve8_avx2),
+    make_tuple(8, 8, &convolve8_avx2),
+    make_tuple(8, 16, &convolve8_avx2)));
+
+INSTANTIATE_TEST_CASE_P(DISABLED_AVX2, ConvolveTest, ::testing::Values(
+    make_tuple(16, 8, &convolve8_avx2),
+    make_tuple(16, 16, &convolve8_avx2),
+    make_tuple(32, 16, &convolve8_avx2),
+    make_tuple(16, 32, &convolve8_avx2),
+    make_tuple(32, 32, &convolve8_avx2),
+    make_tuple(64, 32, &convolve8_avx2),
+    make_tuple(32, 64, &convolve8_avx2),
+    make_tuple(64, 64, &convolve8_avx2)));
+#endif
+
+#if HAVE_NEON_ASM
 const ConvolveFunctions convolve8_neon(
     vp9_convolve8_horiz_neon, vp9_convolve8_avg_horiz_neon,
     vp9_convolve8_vert_neon, vp9_convolve8_avg_vert_neon,

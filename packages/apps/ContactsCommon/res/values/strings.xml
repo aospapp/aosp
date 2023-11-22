@@ -18,7 +18,8 @@
 
     <!-- Toast shown when text is copied to the clipboard [CHAR LIMIT=64] -->
     <string name="toast_text_copied">Text copied</string>
-
+    <!-- Option displayed in context menu to copy long pressed item to clipboard [CHAR LIMIT=64] -->
+    <string name="copy_text">Copy to clipboard</string>
 
     <!-- Action string for calling a custom phone number -->
     <string name="call_custom">Call
@@ -122,7 +123,7 @@
 
     <!-- Confirmation dialog for clearing frequents. [CHAR LIMIT=NONE] -->
     <string name="clearFrequentsConfirmation">You\'ll clear the frequently contacted list in the
-        People and Phone apps, and force email apps to learn your addressing preferences from
+        Contacts and Phone apps, and force email apps to learn your addressing preferences from
         scratch.
     </string>
 
@@ -427,8 +428,8 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
     <!-- Action string for selecting a SIM subscription for importing contacts, without a phone number -->
     <string name="import_from_sim_summary_no_number">Import from SIM <xliff:g id="sim_name">%1$s</xliff:g></string>
 
-    <!-- Action string for selecting (USB) storage for importing contacts [CHAR LIMIT=30] -->
-    <string name="import_from_sdcard" product="default">Import from storage</string>
+    <!-- Action string for selecting a .vcf file to import contacts from [CHAR LIMIT=30] -->
+    <string name="import_from_vcf_file" product="default">Import from .vcf file</string>
 
     <!-- Message shown in a Dialog confirming a user's cancel request toward existing vCard import.
          The argument is file name for the vCard import the user wants to cancel.
@@ -458,6 +459,10 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
          Note that user may have contacts data but all of them are probably not allowed to be
          exported because of security/permission reasons. [CHAR LIMIT=NONE] -->
     <string name="fail_reason_no_exportable_contact">There is no exportable contact.</string>
+
+    <!-- The user doesn't have all permissions required to use the current screen. So
+         close the current screen and show the user this message. -->
+    <string name="missing_required_permission">You have disabled a required permission.</string>
 
     <!-- The failed reason shown when some error happend during contacts export.
          Some exact reason must follow this. [CHAR LIMIT=NONE] -->
@@ -502,6 +507,9 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
     <!-- The title shown when exporting vCard is successfuly finished [CHAR LIMIT=40] -->
     <string name="exporting_vcard_finished_title">Finished exporting <xliff:g id="filename" example="export.vcf">%s</xliff:g>.</string>
 
+    <!-- The title shown when exporting vCard has finished successfully but the destination filename could not be resolved. [CHAR LIMIT=NONE] -->
+    <string name="exporting_vcard_finished_title_fallback">Finished exporting contacts.</string>
+
     <!-- The title shown when exporting vCard is canceled (probably by a user)
          The argument is file name the user canceled importing.
          [CHAR LIMIT=40] -->
@@ -536,14 +544,6 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
 
     <!-- Dialog message shown when exporting Contact data failed. [CHAR LIMIT=NONE] -->
     <string name="exporting_contact_failed_message">The contact data wasn\'t exported.\nReason: \"<xliff:g id="fail_reason">%s</xliff:g>\"</string>
-
-    <!-- Dialog message shown when (USB) storage does not exist [CHAR LIMIT=30] -->
-    <string name="no_sdcard_message" product="nosdcard">No storage was found.</string>
-    <!-- Dialog message shown when SDcard does not exist. [CHAR LIMIT=30] -->
-    <string name="no_sdcard_message" product="default">No SD card was found.</string>
-
-    <!-- Dialog message shown when a user confirms whether he/she export Contact data [CHAR LIMIT=NONE] -->
-    <string name="confirm_export_message">Your contact list will be exported to file: <xliff:g id="vcard_filename">%s</xliff:g>.</string>
 
     <!-- Description shown when importing vCard data.
          The argument is the name of a contact which is being read.
@@ -583,6 +583,10 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
          The argument is file name the user exported.
          [CHAR LIMIT=40] -->
     <string name="vcard_export_will_start_message"><xliff:g id="filename" example="import.vcf">%s</xliff:g> will be exported shortly.</string>
+
+    <!-- The message shown when a vCard export request is accepted but the destination filename could not be resolved. [CHAR LIMIT=NONE] -->
+    <string name="vcard_export_will_start_message_fallback">The file will be exported shortly.</string>
+
     <!-- The message shown when a given vCard export request is rejected by the system. [CHAR LIMIT=NONE] -->
     <string name="vcard_export_request_rejected_message">vCard export request was rejected. Try again later.</string>
     <!-- Used when file name is unknown in vCard processing. It typically happens
@@ -611,29 +615,6 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
     <!-- Dialog title shown when a user confirms whether he/she export Contact data. [CHAR LIMIT=32] -->
     <string name="confirm_export_title">Export contacts?</string>
 
-    <!-- Dialog title shown when a user is asked to select vCard file. [CHAR LIMIT=25] -->
-    <string name="select_vcard_title">Choose vCard file</string>
-
-    <!-- One of alternatives shown when the system allows a user to select how many vCard files
-         should be imported. This message shows only when the system is certain that there's more
-         than one vCard files available in the system. -->
-    <string name="import_one_vcard_string">Import one vCard file</string>
-
-    <!-- One of alternatives shown when the system allows a user to select how many vCard files
-         should be imported. This message shows only when the system is certain that there's more
-         than one vCard files available in the system. -->
-    <string name="import_multiple_vcard_string">Import multiple vCard files</string>
-
-    <!-- One of alternatives shown when the system allows a user to select how many vCard files
-         should be imported. This message shows only when the system is certain that there's more
-         than one vCard files available in the system. -->
-    <string name="import_all_vcard_string">Import all vCard files</string>
-
-    <!-- Dialog message shown when searching VCard data from (USB) storage [CHAR LIMIT=NONE] -->
-    <string name="searching_vcard_message" product="nosdcard">Searching for vCard data in storage\u2026</string>
-    <!-- Dialog message shown when searching VCard data from SD Card. [CHAR LIMIT=NONE] -->
-    <string name="searching_vcard_message" product="default">Searching for vCard data on SD card\u2026</string>
-
     <!-- The title shown when vCard importer is caching files to be imported into local temporary
          data storage.  [CHAR LIMIT=40] -->
     <string name="caching_vcard_title">Caching</string>
@@ -652,8 +633,8 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
          [CHAR LIMIT=20] -->
     <string name="progress_notifier_message">Importing <xliff:g id="current_number">%s</xliff:g>/<xliff:g id="total_number">%s</xliff:g>: <xliff:g id="name" example="Joe Due">%s</xliff:g></string>
 
-    <!-- Action that exports all contacts to (USB) storage [CHAR LIMIT=25] -->
-    <string name="export_to_sdcard" product="default">Export to storage</string>
+    <!-- Action that exports all contacts to a user selected destination. [CHAR LIMIT=25] -->
+    <string name="export_to_vcf_file" product="default">Export to .vcf file</string>
 
     <!-- Contact preferences related strings -->
 
@@ -677,6 +658,9 @@ a        ren't members of any other group. [CHAR LIMIT=25] -->
 
     <!-- Action that shares visible contacts -->
     <string name="share_visible_contacts">Share visible contacts</string>
+
+    <!-- A framework exception (ie, transaction too large) can be thrown while attempting to share all visible contacts. If so, show this toast. -->
+    <string name="share_visible_contacts_failure">Failed to share visible contacts.</string>
 
     <!-- Dialog title when selecting the bulk operation to perform from a list. [CHAR LIMIT=36] -->
     <string name="dialog_import_export">Import/export contacts</string>

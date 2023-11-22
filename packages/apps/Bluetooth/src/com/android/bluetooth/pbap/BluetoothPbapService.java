@@ -56,6 +56,8 @@ import android.os.ServiceManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.Utils;
 
 
@@ -234,6 +236,7 @@ public class BluetoothPbapService extends Service {
     // process the intent from receiver
     private void parseIntent(final Intent intent) {
         String action = intent.getStringExtra("action");
+        if (action == null) return;             // Nothing to do
         if (VERBOSE) Log.v(TAG, "action: " + action);
 
         int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
@@ -502,7 +505,7 @@ public class BluetoothPbapService extends Service {
             mAuth.setChallenged(false);
             mAuth.setCancelled(false);
         }
-        BluetoothPbapRfcommTransport transport = new BluetoothPbapRfcommTransport(mConnSocket);
+        BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
         mServerSession = new ServerSession(transport, mPbapServer, mAuth);
         setState(BluetoothPbap.STATE_CONNECTED);
 

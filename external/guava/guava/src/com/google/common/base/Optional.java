@@ -22,7 +22,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -59,6 +58,10 @@ import javax.annotation.Nullable;
  * <p>This class is not intended as a direct analogue of any existing "option" or "maybe"
  * construct from other programming environments, though it may bear some similarities.
  *
+ * <p>See the Guava User Guide article on <a
+ * href="http://code.google.com/p/guava-libraries/wiki/UsingAndAvoidingNullExplained#Optional">
+ * using {@code Optional}</a>.
+ *
  * @param <T> the type of instance that can be contained. {@code Optional} is naturally
  *     covariant on this type, so it is safe to cast an {@code Optional<T>} to {@code
  *     Optional<S>} for any supertype {@code S} of {@code T}.
@@ -66,15 +69,13 @@ import javax.annotation.Nullable;
  * @author Kevin Bourrillion
  * @since 10.0
  */
-@Beta
-@GwtCompatible
+@GwtCompatible(serializable = true)
 public abstract class Optional<T> implements Serializable {
   /**
    * Returns an {@code Optional} instance with no contained reference.
    */
-  @SuppressWarnings("unchecked")
   public static <T> Optional<T> absent() {
-    return (Optional<T>) Absent.INSTANCE;
+    return Absent.withType();
   }
 
   /**
@@ -94,7 +95,7 @@ public abstract class Optional<T> implements Serializable {
         : new Present<T>(nullableReference);
   }
 
-  private Optional() {}
+  Optional() {}
 
   /**
    * Returns {@code true} if this holder contains a (non-null) instance.
@@ -114,6 +115,30 @@ public abstract class Optional<T> implements Serializable {
    * Returns the contained instance if it is present; {@code defaultValue} otherwise. If
    * no default value should be required because the instance is known to be present, use
    * {@link #get()} instead. For a default value of {@code null}, use {@link #orNull}.
+   *
+   * <p>Note about generics: The signature {@code public T or(T defaultValue)} is overly
+   * restrictive. However, the ideal signature, {@code public <S super T> S or(S)}, is not legal
+   * Java. As a result, some sensible operations involving subtypes are compile errors:
+   * <pre>   {@code
+   *
+   *   Optional<Integer> optionalInt = getSomeOptionalInt();
+   *   Number value = optionalInt.or(0.5); // error
+   *
+   *   FluentIterable<? extends Number> numbers = getSomeNumbers();
+   *   Optional<? extends Number> first = numbers.first();
+   *   Number value = first.or(0.5); // error}</pre>
+   *
+   * <p>As a workaround, it is always safe to cast an {@code Optional<? extends T>} to {@code
+   * Optional<T>}. Casting either of the above example {@code Optional} instances to {@code
+   * Optional<Number>} (where {@code Number} is the desired output type) solves the problem:
+   * <pre>   {@code
+   *
+   *   Optional<Number> optionalInt = (Optional) getSomeOptionalInt();
+   *   Number value = optionalInt.or(0.5); // fine
+   *
+   *   FluentIterable<? extends Number> numbers = getSomeNumbers();
+   *   Optional<Number> first = (Optional) numbers.first();
+   *   Number value = first.or(0.5); // fine}</pre>
    */
   public abstract T or(T defaultValue);
 
@@ -125,26 +150,38 @@ public abstract class Optional<T> implements Serializable {
 
   /**
    * Returns the contained instance if it is present; {@code supplier.get()} otherwise. If the
-   * supplier returns {@code null}, a {@link NullPointerException} will be thrown.
+   * supplier returns {@code null}, a {@link NullPointerException} is thrown.
    *
    * @throws NullPointerException if the supplier returns {@code null}
    */
+  @Beta
   public abstract T or(Supplier<? extends T> supplier);
 
   /**
    * Returns the contained instance if it is present; {@code null} otherwise. If the
    * instance is known to be present, use {@link #get()} instead.
    */
-  @Nullable public abstract T orNull();
+  @Nullable
+  public abstract T orNull();
 
   /**
-   * Returns an immutable singleton {@link Set} whose only element is the
-   * contained instance if it is present; an empty immutable {@link Set}
-   * otherwise.
+   * Returns an immutable singleton {@link Set} whose only element is the contained instance
+   * if it is present; an empty immutable {@link Set} otherwise.
    *
    * @since 11.0
    */
   public abstract Set<T> asSet();
+
+  /**
+   * If the instance is present, it is transformed with the given {@link Function}; otherwise,
+   * {@link Optional#absent} is returned. If the function returns {@code null}, a
+   * {@link NullPointerException} is thrown.
+   *
+   * @throws NullPointerException if the function returns {@code null}
+   *
+   * @since 12.0
+   */
+  public abstract <V> Optional<V> transform(Function<? super T, V> function);
 
   /**
    * Returns {@code true} if {@code object} is an {@code Optional} instance, and either
@@ -152,36 +189,44 @@ public abstract class Optional<T> implements Serializable {
    * are absent. Note that {@code Optional} instances of differing parameterized types can
    * be equal.
    */
-  @Override public abstract boolean equals(@Nullable Object object);
+  @Override
+  public abstract boolean equals(@Nullable Object object);
 
   /**
    * Returns a hash code for this instance.
    */
-  @Override public abstract int hashCode();
+  @Override
+  public abstract int hashCode();
 
   /**
    * Returns a string representation for this instance. The form of this string
    * representation is unspecified.
    */
-  @Override public abstract String toString();
+  @Override
+  public abstract String toString();
 
   /**
    * Returns the value of each present instance from the supplied {@code optionals}, in order,
    * skipping over occurrences of {@link Optional#absent}. Iterators are unmodifiable and are
    * evaluated lazily.
    *
-   * @since 11.0
+   * @since 11.0 (generics widened in 13.0)
    */
-  public static <T> Iterable<T> presentInstances(final Iterable<Optional<T>> optionals) {
+  @Beta
+  public static <T> Iterable<T> presentInstances(
+      final Iterable<? extends Optional<? extends T>> optionals) {
     checkNotNull(optionals);
     return new Iterable<T>() {
-      @Override public Iterator<T> iterator() {
+      @Override
+      public Iterator<T> iterator() {
         return new AbstractIterator<T>() {
-          private final Iterator<Optional<T>> iterator = checkNotNull(optionals.iterator());
+          private final Iterator<? extends Optional<? extends T>> iterator =
+              checkNotNull(optionals.iterator());
 
-          @Override protected T computeNext() {
+          @Override
+          protected T computeNext() {
             while (iterator.hasNext()) {
-              Optional<T> optional = iterator.next();
+              Optional<? extends T> optional = iterator.next();
               if (optional.isPresent()) {
                 return optional.get();
               }
@@ -189,118 +234,9 @@ public abstract class Optional<T> implements Serializable {
             return endOfData();
           }
         };
-      };
+      }
     };
   }
 
   private static final long serialVersionUID = 0;
-
-  private static final class Present<T> extends Optional<T> {
-    private final T reference;
-
-    Present(T reference) {
-      this.reference = reference;
-    }
-
-    @Override public boolean isPresent() {
-      return true;
-    }
-
-    @Override public T get() {
-      return reference;
-    }
-
-    @Override public T or(T defaultValue) {
-      checkNotNull(defaultValue, "use orNull() instead of or(null)");
-      return reference;
-    }
-
-    @Override public Optional<T> or(Optional<? extends T> secondChoice) {
-      checkNotNull(secondChoice);
-      return this;
-    }
-
-    @Override public T or(Supplier<? extends T> supplier) {
-      checkNotNull(supplier);
-      return reference;
-    }
-
-    @Override public T orNull() {
-      return reference;
-    }
-
-    @Override public Set<T> asSet() {
-      return Collections.singleton(reference);
-    }
-
-    @Override public boolean equals(@Nullable Object object) {
-      if (object instanceof Present) {
-        Present<?> other = (Present<?>) object;
-        return reference.equals(other.reference);
-      }
-      return false;
-    }
-
-    @Override public int hashCode() {
-      return 0x598df91c + reference.hashCode();
-    }
-
-    @Override public String toString() {
-      return "Optional.of(" + reference + ")";
-    }
-
-    private static final long serialVersionUID = 0;
-  }
-
-  private static final class Absent extends Optional<Object> {
-    private static final Absent INSTANCE = new Absent();
-
-    @Override public boolean isPresent() {
-      return false;
-    }
-
-    @Override public Object get() {
-      throw new IllegalStateException("value is absent");
-    }
-
-    @Override public Object or(Object defaultValue) {
-      return checkNotNull(defaultValue, "use orNull() instead of or(null)");
-    }
-
-    @SuppressWarnings("unchecked") // safe covariant cast
-    @Override public Optional<Object> or(Optional<?> secondChoice) {
-      return (Optional) checkNotNull(secondChoice);
-    }
-
-    @Override public Object or(Supplier<?> supplier) {
-      return checkNotNull(supplier.get(),
-          "use orNull() instead of a Supplier that returns null");
-    }
-
-    @Override @Nullable public Object orNull() {
-      return null;
-    }
-
-    @Override public Set<Object> asSet() {
-      return Collections.emptySet();
-    }
-
-    @Override public boolean equals(@Nullable Object object) {
-      return object == this;
-    }
-
-    @Override public int hashCode() {
-      return 0x598df91c;
-    }
-
-    @Override public String toString() {
-      return "Optional.absent()";
-    }
-
-    private Object readResolve() {
-      return INSTANCE;
-    }
-
-    private static final long serialVersionUID = 0;
-  }
 }

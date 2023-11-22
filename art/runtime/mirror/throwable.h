@@ -51,9 +51,11 @@ class MANAGED Throwable : public Object {
     return java_lang_Throwable_.Read();
   }
 
+  int32_t GetStackDepth() SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
+
   static void SetClass(Class* java_lang_Throwable);
   static void ResetClass();
-  static void VisitRoots(RootCallback* callback, void* arg)
+  static void VisitRoots(RootVisitor* visitor)
       SHARED_LOCKS_REQUIRED(Locks::mutator_lock_);
 
  private:

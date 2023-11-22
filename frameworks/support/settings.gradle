@@ -22,8 +22,29 @@ project(':support-recyclerview-v7').projectDir = new File(rootDir, 'v7/recyclerv
 include ':support-cardview-v7'
 project(':support-cardview-v7').projectDir = new File(rootDir, 'v7/cardview')
 
+include ':support-preference-v7'
+project(':support-preference-v7').projectDir = new File(rootDir, 'v7/preference')
+
+include ':support-preference-v14'
+project(':support-preference-v14').projectDir = new File(rootDir, 'v14/preference')
+
+include ':support-preference-leanback-v17'
+project(':support-preference-leanback-v17').projectDir = new File(rootDir, 'v17/preference-leanback')
+
 include ':support-v13'
 project(':support-v13').projectDir = new File(rootDir, 'v13')
 
 include ':support-leanback-v17'
 project(':support-leanback-v17').projectDir = new File(rootDir, 'v17/leanback')
+
+include ':support-recommendation'
+project(':support-recommendation').projectDir = new File(rootDir, 'recommendation')
+
+include ':support-design'
+project(':support-design').projectDir = new File(rootDir, 'design')
+
+include ':support-percent'
+project(':support-percent').projectDir = new File(rootDir, 'percent')
+
+include ':support-customtabs'
+project(':support-customtabs').projectDir = new File(rootDir, 'customtabs')

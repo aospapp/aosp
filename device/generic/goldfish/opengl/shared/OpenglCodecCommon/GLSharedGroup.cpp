@@ -240,6 +240,12 @@ GLSharedGroup::~GLSharedGroup()
     clearObjectMap(m_shaders);
 }
 
+bool GLSharedGroup::isObject(GLuint obj)
+{
+    android::AutoMutex _lock(m_lock);
+    return ((m_shaders.valueFor(obj)!=NULL) || (m_programs.valueFor(obj)!=NULL));
+}
+
 BufferData * GLSharedGroup::getBufferData(GLuint bufferId)
 {
     android::AutoMutex _lock(m_lock);

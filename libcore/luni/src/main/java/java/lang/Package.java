@@ -51,6 +51,7 @@ import java.net.URL;
 public class Package implements AnnotatedElement {
     private static final Annotation[] NO_ANNOTATIONS = new Annotation[0];
 
+    private final ClassLoader classLoader;
     private final String name;
     private final String specTitle;
     private final String specVersion;
@@ -60,8 +61,10 @@ public class Package implements AnnotatedElement {
     private final String implVendor;
     private final URL sealBase;
 
-    Package(String name, String specTitle, String specVersion, String specVendor,
-            String implTitle, String implVersion, String implVendor, URL sealBase) {
+    Package(ClassLoader classLoader, String name, String specTitle, String specVersion,
+            String specVendor, String implTitle, String implVersion, String implVendor,
+            URL sealBase) {
+        this.classLoader = classLoader;
         this.name = name;
         this.specTitle = specTitle;
         this.specVersion = specVersion;
@@ -96,7 +99,8 @@ public class Package implements AnnotatedElement {
      */
     public Annotation[] getAnnotations() {
         try {
-            Class<?> c = Class.forName(getName() + ".package-info");
+            Class<?> c = Class.forName(getName() + ".package-info", false /* initialize */,
+                    classLoader);
             return c.getAnnotations();
         } catch (Exception ex) {
             return NO_ANNOTATIONS;
@@ -175,11 +179,11 @@ public class Package implements AnnotatedElement {
      * @see ClassLoader#getPackage(java.lang.String)
      */
     public static Package getPackage(String packageName) {
-        ClassLoader classloader = VMStack.getCallingClassLoader();
-        if (classloader == null) {
-            classloader = ClassLoader.getSystemClassLoader();
+        ClassLoader classLoader = VMStack.getCallingClassLoader();
+        if (classLoader == null) {
+            classLoader = ClassLoader.getSystemClassLoader();
         }
-        return classloader.getPackage(packageName);
+        return classLoader.getPackage(packageName);
     }
 
     /**
@@ -189,11 +193,11 @@ public class Package implements AnnotatedElement {
      * @see ClassLoader#getPackages
      */
     public static Package[] getPackages() {
-        ClassLoader classloader = VMStack.getCallingClassLoader();
-        if (classloader == null) {
-            classloader = ClassLoader.getSystemClassLoader();
+        ClassLoader classLoader = VMStack.getCallingClassLoader();
+        if (classLoader == null) {
+            classLoader = ClassLoader.getSystemClassLoader();
         }
-        return classloader.getPackages();
+        return classLoader.getPackages();
     }
 
     /**

@@ -77,7 +77,7 @@ FX_DWORD FPF_SkiaGetSubstFont(FX_DWORD dwHash)
             return pItem->dwSubSt;
         }
     }
-    return NULL;
+    return 0;
 }
 static const FPF_SKIAFONTMAP g_SkiaSansFontMap[] = {
     {0x58c5083,		0xd5b8d10f},
@@ -208,7 +208,7 @@ static FX_DWORD	FPF_SKIAGetFamilyHash(FX_BSTR bsFamily, FX_DWORD dwStyle, FX_BYT
         bsFont += "Serif";
     }
     bsFont += uCharset;
-    return FPF_GetHashCode_StringA((FX_LPCSTR)bsFont, bsFont.GetLength(), TRUE);
+    return FPF_GetHashCode_StringA(bsFont.c_str(), bsFont.GetLength(), TRUE);
 }
 static FX_BOOL FPF_SkiaIsCJK(FX_BYTE uCharset)
 {
@@ -283,7 +283,7 @@ IFPF_Font* CFPF_SkiaFontMgr::CreateFont(FX_BSTR bsFamilyname, FX_BYTE uCharset, 
 {
     FX_DWORD dwHash = FPF_SKIAGetFamilyHash(bsFamilyname, dwStyle, uCharset);
     IFPF_Font *pFont = NULL;
-    if (m_FamilyFonts.Lookup((void*)(uintptr_t)dwHash, (void*&)pFont)) {
+    if (m_FamilyFonts.Lookup((void*)(FX_UINTPTR)dwHash, (void*&)pFont)) {
         if (pFont) {
             return pFont->Retain();
         }
@@ -352,16 +352,12 @@ IFPF_Font* CFPF_SkiaFontMgr::CreateFont(FX_BSTR bsFamilyname, FX_BYTE uCharset, 
     }
     if (nItem > -1) {
         CFPF_SkiaFontDescriptor *pFontDes = (CFPF_SkiaFontDescriptor*)m_FontFaces.ElementAt(nItem);
-        CFPF_SkiaFont *pFont = FX_NEW CFPF_SkiaFont;
-        if (pFont) {
-            if (pFont->InitFont(this, pFontDes, bsFamilyname, dwStyle, uCharset)) {
-                m_FamilyFonts.SetAt((void*)(uintptr_t)dwHash, (void*)pFont);
-                return pFont->Retain();
-            }
-            pFont->Release();
-            pFont = NULL;
+        CFPF_SkiaFont *pFont = new CFPF_SkiaFont;
+        if (pFont->InitFont(this, pFontDes, bsFamilyname, dwStyle, uCharset)) {
+            m_FamilyFonts.SetAt((void*)(FX_UINTPTR)dwHash, (void*)pFont);
+            return pFont->Retain();
         }
-        return pFont;
+        pFont->Release();
     }
     return NULL;
 }
@@ -464,10 +460,7 @@ void CFPF_SkiaFontMgr::ScanFile(FX_BSTR file)
 {
     FXFT_Face face = GetFontFace(file);
     if (face) {
-        CFPF_SkiaPathFont *pFontDesc = FX_NEW CFPF_SkiaPathFont;
-        if (!pFontDesc) {
-            return;
-        }
+        CFPF_SkiaPathFont *pFontDesc = new CFPF_SkiaPathFont;
         pFontDesc->SetPath(file.GetCStr());
         ReportFace(face, pFontDesc);
         m_FontFaces.Add(pFontDesc);

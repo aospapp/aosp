@@ -1,23 +1,27 @@
-/*
- * Copyright (c) 2012 Bump Technologies Inc. All rights reserved.
- */
 package com.bumptech.glide.load.resource.bitmap;
 
+import android.annotation.TargetApi;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.media.ExifInterface;
+import android.os.Build;
 import android.util.Log;
+
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 
 /**
- * A class for storing methods to resize Bitmaps
+ * A class with methods to efficiently resize Bitmaps.
  */
-public class TransformationUtils {
+public final class TransformationUtils {
     private static final String TAG = "TransformationUtils";
     public static final int PAINT_FLAGS = Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG;
+
+    private TransformationUtils() {
+        // Utility class.
+    }
 
     /**
      * A potentially expensive operation to crop the given Bitmap so that it fills the given dimensions. This operation
@@ -25,11 +29,11 @@ public class TransformationUtils {
      * as well.
      *
      * @param recycled A mutable Bitmap with dimensions width and height that we can load the cropped portion of toCrop
-     *                 into
-     * @param toCrop The Bitmap to resize
-     * @param width The width of the final Bitmap
-     * @param height The height of the final Bitmap
-     * @return The resized Bitmap (will be recycled if recycled is not null)
+     *                 into.
+     * @param toCrop The Bitmap to resize.
+     * @param width The width in pixels of the final Bitmap.
+     * @param height The height in pixels of the final Bitmap.
+     * @return The resized Bitmap (will be recycled if recycled is not null).
      */
     public static Bitmap centerCrop(Bitmap recycled, Bitmap toCrop, int width, int height) {
         if (toCrop == null) {
@@ -37,9 +41,7 @@ public class TransformationUtils {
         } else if (toCrop.getWidth() == width && toCrop.getHeight() == height) {
             return toCrop;
         }
-        //from ImageView/Bitmap.createScaledBitmap
-        //https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/core/java/android/widget/ImageView.java
-        //https://android.googlesource.com/platform/frameworks/base/+/refs/heads/master/graphics/java/android/graphics/Bitmap.java
+        // From ImageView/Bitmap.createScaledBitmap.
         final float scale;
         float dx = 0, dy = 0;
         Matrix m = new Matrix();
@@ -52,14 +54,18 @@ public class TransformationUtils {
         }
 
         m.setScale(scale, scale);
-        m.postTranslate((int) dx + 0.5f, (int) dy + 0.5f);
+        m.postTranslate((int) (dx + 0.5f), (int) (dy + 0.5f));
         final Bitmap result;
         if (recycled != null) {
             result = recycled;
         } else {
-            result = Bitmap.createBitmap(width, height, toCrop.getConfig() == null ?
-                                                            Bitmap.Config.ARGB_8888 : toCrop.getConfig());
+            result = Bitmap.createBitmap(width, height, toCrop.getConfig() == null
+                        ? Bitmap.Config.ARGB_8888 : toCrop.getConfig());
         }
+
+        // We don't add or remove alpha, so keep the alpha setting of the Bitmap we were given.
+        TransformationUtils.setAlpha(toCrop, result);
+
         Canvas canvas = new Canvas(result);
         Paint paint = new Paint(PAINT_FLAGS);
         canvas.drawBitmap(toCrop, m, paint);
@@ -72,8 +78,8 @@ public class TransformationUtils {
      *
      * @param toFit The Bitmap to shrink.
      * @param pool The BitmapPool to try to reuse a bitmap from.
-     * @param width The width the final image will fit within.
-     * @param height The height the final image will fit within.
+     * @param width The width in pixels the final image will fit within.
+     * @param height The height in pixels the final image will fit within.
      * @return A new Bitmap shrunk to fit within the given dimensions, or toFit if toFit's width or height matches the
      * given dimensions and toFit fits within the given dimensions
      */
@@ -106,6 +112,8 @@ public class TransformationUtils {
         if (toReuse == null) {
             toReuse = Bitmap.createBitmap(targetWidth, targetHeight, config);
         }
+        // We don't add or remove alpha, so keep the alpha setting of the Bitmap we were given.
+        TransformationUtils.setAlpha(toFit, toReuse);
 
         if (Log.isLoggable(TAG, Log.VERBOSE)) {
             Log.v(TAG, "request: " + width + "x" + height);
@@ -124,25 +132,37 @@ public class TransformationUtils {
     }
 
     /**
+     * Sets the alpha of the Bitmap we're going to re-use to the alpha of the Bitmap we're going to transform. This
+     * keeps {@link android.graphics.Bitmap#hasAlpha()}} consistent before and after the transformation for
+     * transformations that don't add or remove transparent pixels.
+     *
+     * @param toTransform The {@link android.graphics.Bitmap} that will be transformed.
+     * @param outBitmap The {@link android.graphics.Bitmap} that will be returned from the transformation.
+     */
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
+    public static void setAlpha(Bitmap toTransform, Bitmap outBitmap) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && outBitmap != null) {
+            outBitmap.setHasAlpha(toTransform.hasAlpha());
+        }
+    }
+
+    /**
      * Returns a matrix with rotation set based on Exif orientation tag.
      * If the orientation is undefined or 0 null is returned.
      *
+     * @deprecated No longer used by Glide, scheduled to be removed in Glide 4.0
      * @param pathToOriginal Path to original image file that may have exif data.
      * @return  A rotation in degrees based on exif orientation
      */
+    @TargetApi(Build.VERSION_CODES.ECLAIR)
+    @Deprecated
     public static int getOrientation(String pathToOriginal) {
         int degreesToRotate = 0;
-        try{
+        try {
             ExifInterface exif = new ExifInterface(pathToOriginal);
             int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-            if (orientation == ExifInterface.ORIENTATION_ROTATE_90){
-                degreesToRotate = 90;
-            } else if (orientation == ExifInterface.ORIENTATION_ROTATE_180){
-                degreesToRotate = 180;
-            } else if (orientation == ExifInterface.ORIENTATION_ROTATE_270){
-                degreesToRotate = 270;
-            }
-        } catch (Exception e){
+            return getExifOrientationDegrees(orientation);
+        } catch (Exception e) {
             if (Log.isLoggable(TAG, Log.ERROR)) {
                 Log.e(TAG, "Unable to get orientation for image with path=" + pathToOriginal, e);
             }
@@ -154,12 +174,13 @@ public class TransformationUtils {
      * This is an expensive operation that copies the image in place with the pixels rotated.
      * If possible rather use getOrientationMatrix, and set that as the imageMatrix on an ImageView.
      *
+     * @deprecated No longer used by Glide, scheduled to be removed in Glide 4.0
      * @param pathToOriginal Path to original image file that may have exif data.
      * @param imageToOrient Image Bitmap to orient.
      * @return The oriented bitmap. May be the imageToOrient without modification, or a new Bitmap.
      */
-    @SuppressWarnings("unused")
-    public static Bitmap orientImage(String pathToOriginal, Bitmap imageToOrient){
+    @Deprecated
+    public static Bitmap orientImage(String pathToOriginal, Bitmap imageToOrient) {
         int degreesToRotate = getOrientation(pathToOriginal);
         return rotateImage(imageToOrient, degreesToRotate);
     }
@@ -169,15 +190,17 @@ public class TransformationUtils {
      * If possible rather use getOrientationMatrix, and set that as the imageMatrix on an ImageView.
      *
      * @param imageToOrient Image Bitmap to orient.
-     * @param degreesToRotate number of degrees to rotate the image by. If zero the original image is returned unmodified.
+     * @param degreesToRotate number of degrees to rotate the image by. If zero the original image is returned
+     *                        unmodified.
      * @return The oriented bitmap. May be the imageToOrient without modification, or a new Bitmap.
      */
     public static Bitmap rotateImage(Bitmap imageToOrient, int degreesToRotate) {
-        try{
-            if(degreesToRotate != 0) {
+        Bitmap result = imageToOrient;
+        try {
+            if (degreesToRotate != 0) {
                 Matrix matrix = new Matrix();
                 matrix.setRotate(degreesToRotate);
-                imageToOrient = Bitmap.createBitmap(
+                result = Bitmap.createBitmap(
                         imageToOrient,
                         0,
                         0,
@@ -190,9 +213,8 @@ public class TransformationUtils {
             if (Log.isLoggable(TAG, Log.ERROR)) {
                 Log.e(TAG, "Exception when trying to orient image", e);
             }
-            e.printStackTrace();
         }
-        return imageToOrient;
+        return result;
     }
 
     /**
@@ -224,15 +246,44 @@ public class TransformationUtils {
     }
 
     /**
-     * Rotate and/or flip the image to match the given exif orientation
+     * Rotate and/or flip the image to match the given exif orientation.
      *
-     * @param toOrient The bitmap to rotate/flip
-     * @param pool A pool that may or may not contain an image of the necessary dimensions
-     * @param exifOrientation the exif orientation [1-8]
-     * @return The rotated and/or flipped image or toOrient if no rotation or flip was necessary
+     * @param toOrient The bitmap to rotate/flip.
+     * @param pool A pool that may or may not contain an image of the necessary dimensions.
+     * @param exifOrientation the exif orientation [1-8].
+     * @return The rotated and/or flipped image or toOrient if no rotation or flip was necessary.
      */
     public static Bitmap rotateImageExif(Bitmap toOrient, BitmapPool pool, int exifOrientation) {
+        if (exifOrientation == ExifInterface.ORIENTATION_NORMAL
+                || exifOrientation == ExifInterface.ORIENTATION_UNDEFINED) {
+            return toOrient;
+        }
         final Matrix matrix = new Matrix();
+        initializeMatrixForRotation(exifOrientation, matrix);
+
+        // From Bitmap.createBitmap.
+        final RectF newRect = new RectF(0, 0, toOrient.getWidth(), toOrient.getHeight());
+        matrix.mapRect(newRect);
+
+        final int newWidth = Math.round(newRect.width());
+        final int newHeight = Math.round(newRect.height());
+
+        Bitmap result = pool.get(newWidth, newHeight, toOrient.getConfig());
+        if (result == null) {
+            result = Bitmap.createBitmap(newWidth, newHeight, toOrient.getConfig());
+        }
+
+        matrix.postTranslate(-newRect.left, -newRect.top);
+
+        final Canvas canvas = new Canvas(result);
+        final Paint paint = new Paint(PAINT_FLAGS);
+        canvas.drawBitmap(toOrient, matrix, paint);
+
+        return result;
+    }
+
+    // Visible for testing.
+    static void initializeMatrixForRotation(int exifOrientation, Matrix matrix) {
         switch (exifOrientation) {
             case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
                 matrix.setScale(-1, 1);
@@ -258,28 +309,8 @@ public class TransformationUtils {
             case ExifInterface.ORIENTATION_ROTATE_270:
                 matrix.setRotate(-90);
                 break;
-            default: //case ExifInterface.ORIENTATION_NORMAL
-                return toOrient;
+            default:
+                // Do nothing.
         }
-
-        // From Bitmap.createBitmap.
-        final RectF newRect = new RectF(0, 0, toOrient.getWidth(), toOrient.getHeight());
-        matrix.mapRect(newRect);
-
-        final int newWidth = Math.round(newRect.width());
-        final int newHeight = Math.round(newRect.height());
-
-        Bitmap result = pool.get(newWidth, newHeight, toOrient.getConfig());
-        if (result == null) {
-            result = Bitmap.createBitmap(newWidth, newHeight, toOrient.getConfig());
-        }
-
-        matrix.postTranslate(-newRect.left, -newRect.top);
-
-        final Canvas canvas = new Canvas(result);
-        final Paint paint = new Paint(PAINT_FLAGS);
-        canvas.drawBitmap(toOrient, matrix, paint);
-
-        return result;
     }
 }

@@ -17,6 +17,8 @@
 package com.android.camera.hardware;
 
 import com.android.camera.app.CameraProvider;
+import com.android.camera.one.OneCamera;
+import com.android.camera.one.config.OneCameraFeatureConfig;
 import com.android.camera.util.GcamHelper;
 import com.android.ex.camera2.portability.CameraCapabilities;
 
@@ -37,7 +39,8 @@ public class HardwareSpecImpl implements HardwareSpec {
      * Compute the supported values for all
      * {@link com.android.camera.hardware.HardwareSpec} methods
      */
-    public HardwareSpecImpl(CameraProvider provider, CameraCapabilities capabilities) {
+    public HardwareSpecImpl(CameraProvider provider, CameraCapabilities capabilities,
+                            OneCameraFeatureConfig featureConfig, boolean isFrontCamera) {
         // Cache whether front camera is supported.
         mIsFrontCameraSupported = (provider.getFirstFrontCameraId() != -1);
 
@@ -45,7 +48,10 @@ public class HardwareSpecImpl implements HardwareSpec {
         mIsHdrSupported = capabilities.supports(CameraCapabilities.SceneMode.HDR);
 
         // Cache whether hdr plus is supported.
-        mIsHdrPlusSupported = GcamHelper.hasGcamCapture();
+        OneCamera.Facing cameraFacing =
+                isFrontCamera ? OneCamera.Facing.FRONT : OneCamera.Facing.BACK;
+        mIsHdrPlusSupported = featureConfig.getHdrPlusSupportLevel(cameraFacing) !=
+                OneCameraFeatureConfig.HdrPlusSupportLevel.NONE;
 
         // Cache whether flash is supported.
         mIsFlashSupported = isFlashSupported(capabilities);

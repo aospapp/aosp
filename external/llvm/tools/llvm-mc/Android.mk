@@ -34,8 +34,12 @@ llvm_mc_STATIC_LIBRARIES := \
   libLLVMX86AsmPrinter \
   libLLVMX86Utils \
   libLLVMX86Disassembler \
+  libLLVMX86CodeGen \
   libLLVMAsmPrinter \
+  libLLVMCodeGen \
+  libLLVMTransformUtils \
   libLLVMTarget \
+  libLLVMAnalysis \
   libLLVMMC \
   libLLVMObject \
   libLLVMBitReader \

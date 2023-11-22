@@ -616,7 +616,9 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
     {
         /* Check the loop filter flags and copy the original values for back up */
         /* Luma */
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_luma_flag)
+
+        /* Done unconditionally since SAO is done on a shifted CTB and the constituent CTBs
+         * can belong to different slice with their own sao_enable flag */
         {
             UWORD32 u4_no_loop_filter_flag;
             WORD32 loop_filter_bit_pos;
@@ -695,7 +697,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         }
 
         /* Chroma */
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag)
+
         {
             UWORD32 u4_no_loop_filter_flag;
             WORD32 loop_filter_bit_pos;
@@ -789,6 +791,13 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         WORD32 ctby_tl_t = 0, ctby_tl_l = 0, ctby_tl_r = 0, ctby_tl_d = 0, ctby_tl = 0;
         WORD32 au4_idx_tl[8], idx_tl;
 
+        slice_header_t *ps_slice_hdr_top_left;
+        {
+            WORD32 top_left_ctb_indx = (ps_sao_ctxt->i4_ctb_y - 1) * ps_sps->i2_pic_wd_in_ctb +
+                                        (ps_sao_ctxt->i4_ctb_x - 1);
+            ps_slice_hdr_top_left = ps_slice_hdr_base + pu1_slice_idx[top_left_ctb_indx];
+        }
+
 
         pu1_src_luma -= (sao_wd_luma + sao_ht_luma * src_strd);
         pu1_src_chroma -= (sao_wd_chroma + sao_ht_chroma * src_strd);
@@ -798,7 +807,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         pu1_src_left_luma = ps_sao_ctxt->pu1_sao_src_left_luma + (ps_sao_ctxt->i4_ctb_y << log2_ctb_size) - sao_ht_luma;
         pu1_src_left_chroma = ps_sao_ctxt->pu1_sao_src_left_chroma + (ps_sao_ctxt->i4_ctb_y << log2_ctb_size) - (2 * sao_ht_chroma);
 
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_luma_flag)
+        if(ps_slice_hdr_top_left->i1_slice_sao_luma_flag)
         {
             if(0 == ps_sao->b3_y_type_idx)
             {
@@ -960,6 +969,11 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                             au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_tl[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                             au4_ilf_across_tile_slice_enable[7] = (ps_slice_hdr_base + au4_idx_tl[7])->i1_slice_loop_filter_across_slices_enabled_flag;
 
+                            if(au4_idx_tl[5] > idx_tl)
+                            {
+                                au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + au4_idx_tl[5])->i1_slice_loop_filter_across_slices_enabled_flag;
+                            }
+
                             /*
                              * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                              * of the pixel having a greater address is checked. Accordingly, set the availability flags.
@@ -1093,8 +1107,19 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
             }
 
         }
+        else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+        {
+            /* Update left, top and top-left */
+            for(row = 0; row < sao_ht_luma; row++)
+            {
+                pu1_src_left_luma[row] = pu1_src_luma[row * src_strd + (sao_wd_luma - 1)];
+            }
+            pu1_sao_src_luma_top_left_ctb[0] = pu1_src_top_luma[sao_wd_luma - 1];
 
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag)
+            ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_luma, &pu1_src_luma[(sao_ht_luma - 1) * src_strd], sao_wd_luma);
+        }
+
+        if(ps_slice_hdr_top_left->i1_slice_sao_chroma_flag)
         {
             if(0 == ps_sao->b3_cb_type_idx)
             {
@@ -1251,7 +1276,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                             else
                             {
                                 au4_ilf_across_tile_slice_enable[4] = (ps_slice_hdr_base + idx_tl)->i1_slice_loop_filter_across_slices_enabled_flag;
-                                au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + idx_tl)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + au4_idx_tl[5])->i1_slice_loop_filter_across_slices_enabled_flag;
                             }
                             au4_ilf_across_tile_slice_enable[2] = (ps_slice_hdr_base + idx_tl)->i1_slice_loop_filter_across_slices_enabled_flag;
                             au4_ilf_across_tile_slice_enable[0] = (ps_slice_hdr_base + idx_tl)->i1_slice_loop_filter_across_slices_enabled_flag;
@@ -1415,6 +1440,18 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                 }
             }
         }
+        else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+        {
+            for(row = 0; row < sao_ht_chroma; row++)
+            {
+                pu1_src_left_chroma[2 * row] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 2)];
+                pu1_src_left_chroma[2 * row + 1] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 1)];
+            }
+            pu1_sao_src_chroma_top_left_ctb[0] = pu1_src_top_chroma[sao_wd_chroma - 2];
+            pu1_sao_src_chroma_top_left_ctb[1] = pu1_src_top_chroma[sao_wd_chroma - 1];
+
+            ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_chroma, &pu1_src_chroma[(sao_ht_chroma - 1) * src_strd], sao_wd_chroma);
+        }
 
         pu1_src_luma += sao_wd_luma + sao_ht_luma * src_strd;
         pu1_src_chroma += sao_wd_chroma + sao_ht_chroma * src_strd;
@@ -1435,6 +1472,13 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         WORD32 au4_idx_t[8], idx_t;
 
         WORD32 remaining_cols;
+
+        slice_header_t *ps_slice_hdr_top;
+        {
+            WORD32 top_ctb_indx = (ps_sao_ctxt->i4_ctb_y - 1) * ps_sps->i2_pic_wd_in_ctb +
+                                        (ps_sao_ctxt->i4_ctb_x);
+            ps_slice_hdr_top = ps_slice_hdr_base + pu1_slice_idx[top_ctb_indx];
+        }
 
         remaining_cols = ps_sps->i2_pic_width_in_luma_samples - ((ps_sao_ctxt->i4_ctb_x << log2_ctb_size) + sao_wd_luma);
         if(remaining_cols <= SAO_SHIFT_CTB)
@@ -1457,7 +1501,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
 
         if(0 != sao_wd_luma)
         {
-            if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_luma_flag)
+            if(ps_slice_hdr_top->i1_slice_sao_luma_flag)
             {
                 if(0 == ps_sao->b3_y_type_idx)
                 {
@@ -1583,6 +1627,12 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                 au4_ilf_across_tile_slice_enable[1] = (ps_slice_hdr_base + au4_idx_t[1])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_t[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[7] = (ps_slice_hdr_base + au4_idx_t[7])->i1_slice_loop_filter_across_slices_enabled_flag;
+
+                                if(au4_idx_t[6] < idx_t)
+                                {
+                                    au4_ilf_across_tile_slice_enable[6] = (ps_slice_hdr_base + idx_t)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 /*
                                  * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                                  * of the pixel having a greater address is checked. Accordingly, set the availability flags
@@ -1703,11 +1753,22 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                     }
                 }
             }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                /* Update left, top and top-left */
+                for(row = 0; row < sao_ht_luma; row++)
+                {
+                    pu1_src_left_luma[row] = pu1_src_luma[row * src_strd + (sao_wd_luma - 1)];
+                }
+                pu1_sao_src_luma_top_left_ctb[0] = pu1_src_top_luma[sao_wd_luma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_luma, &pu1_src_luma[(sao_ht_luma - 1) * src_strd], sao_wd_luma);
+            }
         }
 
         if(0 != sao_wd_chroma)
         {
-            if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag)
+            if(ps_slice_hdr_top->i1_slice_sao_chroma_flag)
             {
                 if(0 == ps_sao->b3_cb_type_idx)
                 {
@@ -1837,11 +1898,17 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                     au4_ilf_across_tile_slice_enable[6] = (ps_slice_hdr_base + au4_idx_t[6])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 }
 
-                                au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + idx_t)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + au4_idx_t[5])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[2] = (ps_slice_hdr_base + idx_t)->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[1] = (ps_slice_hdr_base + au4_idx_t[1])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_t[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[7] = (ps_slice_hdr_base + au4_idx_t[7])->i1_slice_loop_filter_across_slices_enabled_flag;
+
+                                if(idx_t > au4_idx_t[6])
+                                {
+                                    au4_ilf_across_tile_slice_enable[6] = (ps_slice_hdr_base + idx_t)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 /*
                                  * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                                  * of the pixel having a greater address is checked. Accordingly, set the availability flags
@@ -1981,6 +2048,18 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
 
                 }
             }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                for(row = 0; row < sao_ht_chroma; row++)
+                {
+                    pu1_src_left_chroma[2 * row] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 2)];
+                    pu1_src_left_chroma[2 * row + 1] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 1)];
+                }
+                pu1_sao_src_chroma_top_left_ctb[0] = pu1_src_top_chroma[sao_wd_chroma - 2];
+                pu1_sao_src_chroma_top_left_ctb[1] = pu1_src_top_chroma[sao_wd_chroma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_chroma, &pu1_src_chroma[(sao_ht_chroma - 1) * src_strd], sao_wd_chroma);
+            }
         }
 
         pu1_src_luma += sao_ht_luma * src_strd;
@@ -2001,6 +2080,13 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         WORD32 au4_idx_l[8], idx_l;
 
         WORD32 remaining_rows;
+        slice_header_t *ps_slice_hdr_left;
+        {
+            WORD32 left_ctb_indx = (ps_sao_ctxt->i4_ctb_y) * ps_sps->i2_pic_wd_in_ctb +
+                                        (ps_sao_ctxt->i4_ctb_x - 1);
+            ps_slice_hdr_left = ps_slice_hdr_base + pu1_slice_idx[left_ctb_indx];
+        }
+
         remaining_rows = ps_sps->i2_pic_height_in_luma_samples - ((ps_sao_ctxt->i4_ctb_y << log2_ctb_size) + sao_ht_luma);
         if(remaining_rows <= SAO_SHIFT_CTB)
         {
@@ -2023,7 +2109,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
 
         if(0 != sao_ht_luma)
         {
-            if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_luma_flag)
+            if(ps_slice_hdr_left->i1_slice_sao_luma_flag)
             {
                 if(0 == ps_sao->b3_y_type_idx)
                 {
@@ -2143,6 +2229,12 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                 au4_ilf_across_tile_slice_enable[1] = (ps_slice_hdr_base + au4_idx_l[1])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_l[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[7] = (ps_slice_hdr_base + au4_idx_l[7])->i1_slice_loop_filter_across_slices_enabled_flag;
+
+                                if(idx_l < au4_idx_l[5])
+                                {
+                                    au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + au4_idx_l[5])->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 /*
                                  * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                                  * of the pixel having a greater address is checked. Accordingly, set the availability flags
@@ -2259,11 +2351,23 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
 
                 }
             }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                /* Update left, top and top-left */
+                for(row = 0; row < sao_ht_luma; row++)
+                {
+                    pu1_src_left_luma[row] = pu1_src_luma[row * src_strd + (sao_wd_luma - 1)];
+                }
+                /*Update in next location*/
+                pu1_sao_src_top_left_luma_curr_ctb[0] = pu1_src_top_luma[sao_wd_luma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_luma, &pu1_src_luma[(sao_ht_luma - 1) * src_strd], sao_wd_luma);
+            }
         }
 
         if(0 != sao_ht_chroma)
         {
-            if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag)
+            if(ps_slice_hdr_left->i1_slice_sao_chroma_flag)
             {
                 if(0 == ps_sao->b3_cb_type_idx)
                 {
@@ -2390,6 +2494,12 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                     au4_ilf_across_tile_slice_enable[2] =  (ps_slice_hdr_base + idx_l)->i1_slice_loop_filter_across_slices_enabled_flag;
                                     au4_ilf_across_tile_slice_enable[5] = au4_ilf_across_tile_slice_enable[4] = au4_ilf_across_tile_slice_enable[2];
                                 }
+
+                                if(au4_idx_l[5] > idx_l)
+                                {
+                                    au4_ilf_across_tile_slice_enable[5] = (ps_slice_hdr_base + au4_idx_l[5])->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 //  au4_ilf_across_tile_slice_enable[5] = au4_ilf_across_tile_slice_enable[2] = (ps_slice_hdr_base + idx_l)->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[1] = (ps_slice_hdr_base + au4_idx_l[1])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_l[3])->i1_slice_loop_filter_across_slices_enabled_flag;
@@ -2538,6 +2648,18 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                     }
 
                 }
+            }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                for(row = 0; row < sao_ht_chroma; row++)
+                {
+                    pu1_src_left_chroma[2 * row] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 2)];
+                    pu1_src_left_chroma[2 * row + 1] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 1)];
+                }
+                pu1_sao_src_top_left_chroma_curr_ctb[0] = pu1_src_top_chroma[sao_wd_chroma - 2];
+                pu1_sao_src_top_left_chroma_curr_ctb[1] = pu1_src_top_chroma[sao_wd_chroma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_chroma, &pu1_src_chroma[(sao_ht_chroma - 1) * src_strd], sao_wd_chroma);
             }
 
         }
@@ -2729,6 +2851,11 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                 au4_ilf_across_tile_slice_enable[3] = (ps_slice_hdr_base + au4_idx_c[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[7] = (ps_slice_hdr_base + au4_idx_c[7])->i1_slice_loop_filter_across_slices_enabled_flag;
 
+                                if(au4_idx_c[6] < idx_c)
+                                {
+                                    au4_ilf_across_tile_slice_enable[6] = (ps_slice_hdr_base + idx_c)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 /*
                                  * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                                  * of the pixel having a greater address is checked. Accordingly, set the availability flags
@@ -2857,6 +2984,19 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                     pu1_sao_src_top_left_luma_top_right[0] = pu1_src_luma[(sao_ht_luma - 1) * src_strd + sao_wd_luma];
                     pu1_sao_src_top_left_luma_bot_left[0] = pu1_src_luma[(sao_ht_luma)*src_strd + sao_wd_luma - 1];
                 }
+            }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                /* Update left, top and top-left */
+                for(row = 0; row < sao_ht_luma; row++)
+                {
+                    pu1_src_left_luma[row] = pu1_src_luma[row * src_strd + (sao_wd_luma - 1)];
+                }
+                pu1_sao_src_top_left_luma_curr_ctb[0] = pu1_src_top_luma[sao_wd_luma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_luma, &pu1_src_luma[(sao_ht_luma - 1) * src_strd], sao_wd_luma);
+
+                pu1_sao_src_top_left_luma_top_right[0] = pu1_src_luma[(sao_ht_luma - 1) * src_strd + sao_wd_luma];
             }
         }
 
@@ -3017,6 +3157,11 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                                 au4_ilf_across_tile_slice_enable[3] &= (ps_slice_hdr_base + au4_idx_c[3])->i1_slice_loop_filter_across_slices_enabled_flag;
                                 au4_ilf_across_tile_slice_enable[7] &= (ps_slice_hdr_base + au4_idx_c[7])->i1_slice_loop_filter_across_slices_enabled_flag;
 
+                                if(idx_c > au4_idx_c[6])
+                                {
+                                    au4_ilf_across_tile_slice_enable[6] = (ps_slice_hdr_base + idx_c)->i1_slice_loop_filter_across_slices_enabled_flag;
+                                }
+
                                 /*
                                  * Between each neighbor and the current CTB, the i1_slice_loop_filter_across_slices_enabled_flag
                                  * of the pixel having a greater address is checked. Accordingly, set the availability flags
@@ -3172,6 +3317,21 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
                 pu1_sao_src_top_left_chroma_bot_left[0] = pu1_src_chroma[(sao_ht_chroma)*src_strd + sao_wd_chroma - 2];
                 pu1_sao_src_top_left_chroma_bot_left[1] = pu1_src_chroma[(sao_ht_chroma)*src_strd + sao_wd_chroma - 1];
             }
+            else if((!ps_slice_hdr->i1_first_slice_in_pic_flag) || (ps_pps->i1_tiles_enabled_flag))
+            {
+                for(row = 0; row < sao_ht_chroma; row++)
+                {
+                    pu1_src_left_chroma[2 * row] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 2)];
+                    pu1_src_left_chroma[2 * row + 1] = pu1_src_chroma[row * src_strd + (sao_wd_chroma - 1)];
+                }
+                pu1_sao_src_top_left_chroma_curr_ctb[0] = pu1_src_top_chroma[sao_wd_chroma - 2];
+                pu1_sao_src_top_left_chroma_curr_ctb[1] = pu1_src_top_chroma[sao_wd_chroma - 1];
+
+                ps_codec->s_func_selector.ihevc_memcpy_fptr(pu1_src_top_chroma, &pu1_src_chroma[(sao_ht_chroma - 1) * src_strd], sao_wd_chroma);
+
+                pu1_sao_src_top_left_chroma_top_right[0] = pu1_src_chroma[(sao_ht_chroma - 1) * src_strd + sao_wd_chroma];
+                pu1_sao_src_top_left_chroma_top_right[1] = pu1_src_chroma[(sao_ht_chroma - 1) * src_strd + sao_wd_chroma + 1];
+            }
 
         }
     }
@@ -3182,7 +3342,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
 /* If no loop filter is enabled copy the backed up values */
     {
         /* Luma */
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_luma_flag && no_loop_filter_enabled_luma)
+        if(no_loop_filter_enabled_luma)
         {
             UWORD32 u4_no_loop_filter_flag;
             WORD32 loop_filter_bit_pos;
@@ -3260,7 +3420,7 @@ void ihevcd_sao_shift_ctb(sao_ctxt_t *ps_sao_ctxt)
         }
 
         /* Chroma */
-        if(ps_sao_ctxt->ps_slice_hdr->i1_slice_sao_chroma_flag && no_loop_filter_enabled_chroma)
+        if(no_loop_filter_enabled_chroma)
         {
             UWORD32 u4_no_loop_filter_flag;
             WORD32 loop_filter_bit_pos;

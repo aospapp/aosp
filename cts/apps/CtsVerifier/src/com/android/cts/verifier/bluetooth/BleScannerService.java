@@ -170,7 +170,7 @@ public class BleScannerService extends Service {
             if (serviceData.get(new ParcelUuid(BleAdvertiserService.POWER_LEVEL_UUID)) != null) {
                 byte[] data =
                         serviceData.get(new ParcelUuid(BleAdvertiserService.POWER_LEVEL_UUID));
-                if (data.length == 3) {
+                if (data.length == BleAdvertiserService.POWER_LEVEL_DATA.length) {
                     Intent powerIntent = new Intent(BLE_POWER_LEVEL);
                     powerIntent.putExtra(EXTRA_MAC_ADDRESS, result.getDevice().getAddress());
                     powerIntent.putExtra(EXTRA_POWER_LEVEL, record.getTxPowerLevel());

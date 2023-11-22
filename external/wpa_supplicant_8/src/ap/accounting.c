@@ -10,6 +10,8 @@
 
 #include "utils/common.h"
 #include "utils/eloop.h"
+#include "eapol_auth/eapol_auth_sm.h"
+#include "eapol_auth/eapol_auth_sm_i.h"
 #include "radius/radius.h"
 #include "radius/radius_client.h"
 #include "hostapd.h"
@@ -50,12 +52,19 @@ static struct radius_msg * accounting_msg(struct hostapd_data *hapd,
 	if (sta) {
 		radius_msg_make_authenticator(msg, (u8 *) sta, sizeof(*sta));
 
-		os_snprintf(buf, sizeof(buf), "%08X-%08X",
-			    sta->acct_session_id_hi, sta->acct_session_id_lo);
-		if (!radius_msg_add_attr(msg, RADIUS_ATTR_ACCT_SESSION_ID,
-					 (u8 *) buf, os_strlen(buf))) {
-			wpa_printf(MSG_INFO, "Could not add Acct-Session-Id");
-			goto fail;
+		if ((hapd->conf->wpa & 2) &&
+		    !hapd->conf->disable_pmksa_caching &&
+		    sta->eapol_sm && sta->eapol_sm->acct_multi_session_id_hi) {
+			os_snprintf(buf, sizeof(buf), "%08X+%08X",
+				    sta->eapol_sm->acct_multi_session_id_hi,
+				    sta->eapol_sm->acct_multi_session_id_lo);
+			if (!radius_msg_add_attr(
+				    msg, RADIUS_ATTR_ACCT_MULTI_SESSION_ID,
+				    (u8 *) buf, os_strlen(buf))) {
+				wpa_printf(MSG_INFO,
+					   "Could not add Acct-Multi-Session-Id");
+				goto fail;
+			}
 		}
 	} else {
 		radius_msg_make_authenticator(msg, (u8 *) hapd, sizeof(*hapd));
@@ -450,10 +459,14 @@ int accounting_init(struct hostapd_data *hapd)
 {
 	struct os_time now;
 
-	/* Acct-Session-Id should be unique over reboots. If reliable clock is
-	 * not available, this could be replaced with reboot counter, etc. */
+	/* Acct-Session-Id should be unique over reboots. Using a random number
+	 * is preferred. If that is not available, take the current time. Mix
+	 * in microseconds to make this more likely to be unique. */
 	os_get_time(&now);
-	hapd->acct_session_id_hi = now.sec;
+	if (os_get_random((u8 *) &hapd->acct_session_id_hi,
+			  sizeof(hapd->acct_session_id_hi)) < 0)
+		hapd->acct_session_id_hi = now.sec;
+	hapd->acct_session_id_hi ^= now.usec;
 
 	if (radius_client_register(hapd->radius, RADIUS_ACCT,
 				   accounting_receive, hapd))
@@ -466,7 +479,7 @@ int accounting_init(struct hostapd_data *hapd)
 
 
 /**
- * accounting_deinit: Deinitilize accounting
+ * accounting_deinit: Deinitialize accounting
  * @hapd: hostapd BSS data
  */
 void accounting_deinit(struct hostapd_data *hapd)

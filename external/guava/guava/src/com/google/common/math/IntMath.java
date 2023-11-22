@@ -23,10 +23,10 @@ import static com.google.common.math.MathPreconditions.checkNonNegative;
 import static com.google.common.math.MathPreconditions.checkPositive;
 import static com.google.common.math.MathPreconditions.checkRoundingUnnecessary;
 import static java.lang.Math.abs;
+import static java.lang.Math.min;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
@@ -48,7 +48,6 @@ import java.math.RoundingMode;
  * @author Louis Wasserman
  * @since 11.0
  */
-@Beta
 @GwtCompatible(emulated = true)
 public final class IntMath {
   // NOTE: Whenever both tests are cheap and functional, it's faster to use &, | instead of &&, ||
@@ -63,6 +62,18 @@ public final class IntMath {
   public static boolean isPowerOfTwo(int x) {
     return x > 0 & (x & (x - 1)) == 0;
   }
+  
+  /**
+   * Returns 1 if {@code x < y} as unsigned integers, and 0 otherwise. Assumes that x - y fits into
+   * a signed int. The implementation is branch-free, and benchmarks suggest it is measurably (if
+   * narrowly) faster than the straightforward ternary expression.
+   */
+  @VisibleForTesting
+  static int lessThanBranchFree(int x, int y) {
+    // The double negation is optimized away by normal Java, but is necessary for GWT
+    // to make sure bit twiddling works as expected.
+    return ~~(x - y) >>> (Integer.SIZE - 1);
+  }
 
   /**
    * Returns the base-2 logarithm of {@code x}, rounded according to the specified rounding mode.
@@ -71,8 +82,8 @@ public final class IntMath {
    * @throws ArithmeticException if {@code mode} is {@link RoundingMode#UNNECESSARY} and {@code x}
    *         is not a power of two
    */
-  @GwtIncompatible("need BigIntegerMath to adequately test")
   @SuppressWarnings("fallthrough")
+  // TODO(kevinb): remove after this warning is disabled globally
   public static int log2(int x, RoundingMode mode) {
     checkPositive("x", x);
     switch (mode) {
@@ -95,7 +106,7 @@ public final class IntMath {
         int cmp = MAX_POWER_OF_SQRT2_UNSIGNED >>> leadingZeros;
           // floor(2^(logFloor + 0.5))
         int logFloor = (Integer.SIZE - 1) - leadingZeros;
-        return (x <= cmp) ? logFloor : logFloor + 1;
+        return logFloor + lessThanBranchFree(cmp, x);
 
       default:
         throw new AssertionError();
@@ -117,7 +128,7 @@ public final class IntMath {
   public static int log10(int x, RoundingMode mode) {
     checkPositive("x", x);
     int logFloor = log10Floor(x);
-    int floorPow = POWERS_OF_10[logFloor];
+    int floorPow = powersOf10[logFloor];
     switch (mode) {
       case UNNECESSARY:
         checkRoundingUnnecessary(x == floorPow);
@@ -127,31 +138,42 @@ public final class IntMath {
         return logFloor;
       case CEILING:
       case UP:
-        return (x == floorPow) ? logFloor : logFloor + 1;
+        return logFloor + lessThanBranchFree(floorPow, x);
       case HALF_DOWN:
       case HALF_UP:
       case HALF_EVEN:
         // sqrt(10) is irrational, so log10(x) - logFloor is never exactly 0.5
-        return (x <= HALF_POWERS_OF_10[logFloor]) ? logFloor : logFloor + 1;
+        return logFloor + lessThanBranchFree(halfPowersOf10[logFloor], x);
       default:
         throw new AssertionError();
     }
   }
 
   private static int log10Floor(int x) {
-    for (int i = 1; i < POWERS_OF_10.length; i++) {
-      if (x < POWERS_OF_10[i]) {
-        return i - 1;
-      }
-    }
-    return POWERS_OF_10.length - 1;
+    /*
+     * Based on Hacker's Delight Fig. 11-5, the two-table-lookup, branch-free implementation.
+     *
+     * The key idea is that based on the number of leading zeros (equivalently, floor(log2(x))),
+     * we can narrow the possible floor(log10(x)) values to two.  For example, if floor(log2(x))
+     * is 6, then 64 <= x < 128, so floor(log10(x)) is either 1 or 2.
+     */
+    int y = maxLog10ForLeadingZeros[Integer.numberOfLeadingZeros(x)];
+    /*
+     * y is the higher of the two possible values of floor(log10(x)). If x < 10^y, then we want the
+     * lower of the two possible values, or y - 1, otherwise, we want y.
+     */
+    return y - lessThanBranchFree(x, powersOf10[y]);
   }
 
-  @VisibleForTesting static final int[] POWERS_OF_10 =
-      {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+  // maxLog10ForLeadingZeros[i] == floor(log10(2^(Long.SIZE - i)))
+  @VisibleForTesting static final byte[] maxLog10ForLeadingZeros = {9, 9, 9, 8, 8, 8,
+    7, 7, 7, 6, 6, 6, 6, 5, 5, 5, 4, 4, 4, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1, 0, 0, 0, 0};
 
-  // HALF_POWERS_OF_10[i] = largest int less than 10^(i + 0.5)
-  @VisibleForTesting static final int[] HALF_POWERS_OF_10 =
+  @VisibleForTesting static final int[] powersOf10 = {1, 10, 100, 1000, 10000,
+    100000, 1000000, 10000000, 100000000, 1000000000};
+
+  // halfPowersOf10[i] = largest int less than 10^(i + 0.5)
+  @VisibleForTesting static final int[] halfPowersOf10 =
       {3, 31, 316, 3162, 31622, 316227, 3162277, 31622776, 316227766, Integer.MAX_VALUE};
 
   /**
@@ -181,6 +203,8 @@ public final class IntMath {
         } else {
           return 0;
         }
+      default:
+        // continue below to handle the general case
     }
     for (int accum = 1;; k >>= 1) {
       switch (k) {
@@ -215,17 +239,23 @@ public final class IntMath {
         return sqrtFloor;
       case CEILING:
       case UP:
-        return (sqrtFloor * sqrtFloor == x) ? sqrtFloor : sqrtFloor + 1;
+        return sqrtFloor + lessThanBranchFree(sqrtFloor * sqrtFloor, x);
       case HALF_DOWN:
       case HALF_UP:
       case HALF_EVEN:
         int halfSquare = sqrtFloor * sqrtFloor + sqrtFloor;
         /*
-         * We wish to test whether or not x <= (sqrtFloor + 0.5)^2 = halfSquare + 0.25.
-         * Since both x and halfSquare are integers, this is equivalent to testing whether or not
-         * x <= halfSquare.  (We have to deal with overflow, though.)
+         * We wish to test whether or not x <= (sqrtFloor + 0.5)^2 = halfSquare + 0.25. Since both
+         * x and halfSquare are integers, this is equivalent to testing whether or not x <=
+         * halfSquare. (We have to deal with overflow, though.)
+         * 
+         * If we treat halfSquare as an unsigned int, we know that
+         *            sqrtFloor^2 <= x < (sqrtFloor + 1)^2
+         * halfSquare - sqrtFloor <= x < halfSquare + sqrtFloor + 1
+         * so |x - halfSquare| <= sqrtFloor.  Therefore, it's safe to treat x - halfSquare as a
+         * signed int, so lessThanBranchFree is safe for use.
          */
-        return (x <= halfSquare | halfSquare < 0) ? sqrtFloor : sqrtFloor + 1;
+        return sqrtFloor + lessThanBranchFree(halfSquare, x);
       default:
         throw new AssertionError();
     }
@@ -244,7 +274,6 @@ public final class IntMath {
    * @throws ArithmeticException if {@code q == 0}, or if {@code mode == UNNECESSARY} and {@code a}
    *         is not an integer multiple of {@code b}
    */
-  @GwtIncompatible("failing tests")
   @SuppressWarnings("fallthrough")
   public static int divide(int p, int q, RoundingMode mode) {
     checkNotNull(mode);
@@ -303,8 +332,8 @@ public final class IntMath {
   }
 
   /**
-   * Returns {@code x mod m}. This differs from {@code x % m} in that it always returns a
-   * non-negative result.
+   * Returns {@code x mod m}, a non-negative value less than {@code m}.
+   * This differs from {@code x % m}, which might be negative.
    *
    * <p>For example:<pre> {@code
    *
@@ -315,6 +344,8 @@ public final class IntMath {
    * mod(8, 4) == 0}</pre>
    *
    * @throws ArithmeticException if {@code m <= 0}
+   * @see <a href="http://docs.oracle.com/javase/specs/jls/se7/html/jls-15.html#jls-15.17.3">
+   *      Remainder Operator</a>
    */
   public static int mod(int x, int m) {
     if (m <= 0) {
@@ -338,13 +369,41 @@ public final class IntMath {
      */
     checkNonNegative("a", a);
     checkNonNegative("b", b);
-    // The simple Euclidean algorithm is the fastest for ints, and is easily the most readable.
-    while (b != 0) {
-      int t = b;
-      b = a % b;
-      a = t;
+    if (a == 0) {
+      // 0 % b == 0, so b divides a, but the converse doesn't hold.
+      // BigInteger.gcd is consistent with this decision.
+      return b;
+    } else if (b == 0) {
+      return a; // similar logic
     }
-    return a;
+    /*
+     * Uses the binary GCD algorithm; see http://en.wikipedia.org/wiki/Binary_GCD_algorithm.
+     * This is >40% faster than the Euclidean algorithm in benchmarks.
+     */
+    int aTwos = Integer.numberOfTrailingZeros(a);
+    a >>= aTwos; // divide out all 2s
+    int bTwos = Integer.numberOfTrailingZeros(b);
+    b >>= bTwos; // divide out all 2s
+    while (a != b) { // both a, b are odd
+      // The key to the binary GCD algorithm is as follows:
+      // Both a and b are odd.  Assume a > b; then gcd(a - b, b) = gcd(a, b).
+      // But in gcd(a - b, b), a - b is even and b is odd, so we can divide out powers of two.
+
+      // We bend over backwards to avoid branching, adapting a technique from
+      // http://graphics.stanford.edu/~seander/bithacks.html#IntegerMinOrMax
+
+      int delta = a - b; // can't overflow, since a and b are nonnegative
+
+      int minDeltaOrZero = delta & (delta >> (Integer.SIZE - 1));
+      // equivalent to Math.min(delta, 0)
+
+      a = delta - minDeltaOrZero - minDeltaOrZero; // sets a to Math.abs(a - b)
+      // a is now nonnegative and even
+
+      b += minDeltaOrZero; // sets b to min(old a, b)
+      a >>= Integer.numberOfTrailingZeros(a); // divide out all 2s, since 2 doesn't divide b
+    }
+    return a << min(aTwos, bTwos);
   }
 
   /**
@@ -388,7 +447,6 @@ public final class IntMath {
    * @throws ArithmeticException if {@code b} to the {@code k}th power overflows in signed
    *         {@code int} arithmetic
    */
-  @GwtIncompatible("failing tests")
   public static int checkedPow(int b, int k) {
     checkNonNegative("exponent", k);
     switch (b) {
@@ -404,6 +462,8 @@ public final class IntMath {
       case (-2):
         checkNoOverflow(k < Integer.SIZE);
         return ((k & 1) == 0) ? 1 << k : -1 << k;
+      default:
+        // continue below to handle the general case
     }
     int accum = 1;
     while (true) {
@@ -434,13 +494,12 @@ public final class IntMath {
    *
    * @throws IllegalArgumentException if {@code n < 0}
    */
-  @GwtIncompatible("need BigIntegerMath to adequately test")
   public static int factorial(int n) {
     checkNonNegative("n", n);
-    return (n < FACTORIALS.length) ? FACTORIALS[n] : Integer.MAX_VALUE;
+    return (n < factorials.length) ? factorials[n] : Integer.MAX_VALUE;
   }
 
-  static final int[] FACTORIALS = {
+  private static final int[] factorials = {
       1,
       1,
       1 * 2,
@@ -469,7 +528,7 @@ public final class IntMath {
     if (k > (n >> 1)) {
       k = n - k;
     }
-    if (k >= BIGGEST_BINOMIALS.length || n > BIGGEST_BINOMIALS[k]) {
+    if (k >= biggestBinomials.length || n > biggestBinomials[k]) {
       return Integer.MAX_VALUE;
     }
     switch (k) {
@@ -487,8 +546,8 @@ public final class IntMath {
     }
   }
 
-  // binomial(BIGGEST_BINOMIALS[k], k) fits in an int, but not binomial(BIGGEST_BINOMIALS[k]+1,k).
-  @VisibleForTesting static int[] BIGGEST_BINOMIALS = {
+  // binomial(biggestBinomials[k], k) fits in an int, but not binomial(biggestBinomials[k]+1,k).
+  @VisibleForTesting static int[] biggestBinomials = {
     Integer.MAX_VALUE,
     Integer.MAX_VALUE,
     65536,
@@ -507,6 +566,19 @@ public final class IntMath {
     34,
     33
   };
+
+  /**
+   * Returns the arithmetic mean of {@code x} and {@code y}, rounded towards
+   * negative infinity. This method is overflow resilient.
+   *
+   * @since 14.0
+   */
+  public static int mean(int x, int y) {
+    // Efficient method for computing the arithmetic mean.
+    // The alternative (x + y) / 2 fails for large values.
+    // The alternative (x + y) >>> 1 fails for negative values.
+    return (x & y) + ((x ^ y) >> 1);
+  }
 
   private IntMath() {}
 }

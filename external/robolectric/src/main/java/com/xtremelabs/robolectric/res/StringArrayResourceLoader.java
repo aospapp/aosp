@@ -35,7 +35,6 @@ public class StringArrayResourceLoader extends XpathResourceXmlLoader {
 
             String value = childNode.getTextContent();
             if (value.startsWith("@")) {
-                value = value.substring(1);
                 arrayValues.add(stringResourceLoader.getValue(value , isSystem));
             } else {
                 arrayValues.add(value);

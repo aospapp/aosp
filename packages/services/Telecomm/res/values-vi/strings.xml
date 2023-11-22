@@ -16,7 +16,8 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="telecommAppLabel" product="default" msgid="3477737022166975496">"Điện thoại"</string>
+    <string name="telecommAppLabel" product="default" msgid="9166784827254469057">"Quản lý cuộc gọi điện thoại"</string>
+    <string name="userCallActivityLabel" product="default" msgid="5415173590855187131">"Điện thoại"</string>
     <string name="unknown" msgid="6878797917991465859">"Không xác định"</string>
     <string name="notification_missedCallTitle" msgid="7554385905572364535">"Cuộc gọi nhỡ"</string>
     <string name="notification_missedCallsTitle" msgid="1361677948941502522">"Cuộc gọi nhỡ"</string>
@@ -35,10 +36,16 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Trả lời nhanh"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Đã gửi tin nhắn tới <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
-    <string name="outgoing_call_not_allowed" msgid="1435394568102165287">"Chỉ chủ sở hữu thiết bị mới được phép thực hiện cuộc gọi khẩn cấp"</string>
+    <string name="enable_account_preference_title" msgid="2021848090086481720">"Tài khoản gọi"</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="8504993498756056279">"Chỉ chủ sở hữu thiết bị mới được phép thực hiện cuộc gọi khẩn cấp."</string>
+    <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Ứng dụng này không thể thực hiện cuộc gọi đi mà không có quyền của Điện thoại."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Để thực hiện cuộc gọi, hãy nhập một số hợp lệ."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Không thể thêm cuộc gọi tại thời điểm này."</string>
+    <string name="video_call_not_allowed_if_tty_enabled" msgid="7593649283571253283">"Vui lòng tắt Chế độ TTY để thực hiện cuộc gọi điện video."</string>
     <string name="no_vm_number" msgid="4164780423805688336">"Thiếu số thư thoại"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Không có số thư thoại nào được lưu trữ trên thẻ SIM."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Thêm số điện thoại"</string>
+    <string name="change_default_dialer_dialog_title" msgid="4430590714918044425">"Thay đổi ứng dụng Trình quay số mặc định?"</string>
+    <string name="change_default_dialer_with_previous_app_set_text" msgid="3213396537499337949">"Sử dụng <xliff:g id="NEW_APP">%1$s</xliff:g> làm ứng dụng trình quay số mặc định của bạn thay vì <xliff:g id="CURRENT_APP">%2$s</xliff:g>?"</string>
+    <string name="change_default_dialer_no_previous_app_set_text" msgid="7608426684114545221">"Sử dụng <xliff:g id="NEW_APP">%s</xliff:g> làm ứng dụng trình quay số mặc định của bạn?"</string>
 </resources>

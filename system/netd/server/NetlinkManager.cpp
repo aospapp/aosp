@@ -30,10 +30,24 @@
 
 #include <cutils/log.h>
 
+#include <netlink/attr.h>
+#include <netlink/genl/genl.h>
+#include <netlink/handlers.h>
+#include <netlink/msg.h>
+
+#include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nfnetlink_log.h>
+#include <linux/netfilter/nfnetlink_compat.h>
+
+#include <arpa/inet.h>
+
 #include "NetlinkManager.h"
 #include "NetlinkHandler.h"
 
+#include "pcap-netfilter-linux-android.h"
+
 const int NetlinkManager::NFLOG_QUOTA_GROUP = 1;
+const int NetlinkManager::NETFILTER_STRICT_GROUP = 2;
 
 NetlinkManager *NetlinkManager::sInstance = NULL;
 
@@ -51,7 +65,7 @@ NetlinkManager::~NetlinkManager() {
 }
 
 NetlinkHandler *NetlinkManager::setupSocket(int *sock, int netlinkFamily,
-    int groups, int format) {
+    int groups, int format, bool configNflog) {
 
     struct sockaddr_nl nladdr;
     int sz = 64 * 1024;
@@ -62,7 +76,7 @@ NetlinkHandler *NetlinkManager::setupSocket(int *sock, int netlinkFamily,
     nladdr.nl_pid = getpid();
     nladdr.nl_groups = groups;
 
-    if ((*sock = socket(PF_NETLINK, SOCK_DGRAM, netlinkFamily)) < 0) {
+    if ((*sock = socket(PF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, netlinkFamily)) < 0) {
         ALOGE("Unable to create netlink socket: %s", strerror(errno));
         return NULL;
     }
@@ -85,6 +99,21 @@ NetlinkHandler *NetlinkManager::setupSocket(int *sock, int netlinkFamily,
         return NULL;
     }
 
+    if (configNflog) {
+        if (android_nflog_send_config_cmd(*sock, 0, NFULNL_CFG_CMD_PF_UNBIND, AF_INET) < 0) {
+            ALOGE("Failed NFULNL_CFG_CMD_PF_UNBIND: %s", strerror(errno));
+            return NULL;
+        }
+        if (android_nflog_send_config_cmd(*sock, 0, NFULNL_CFG_CMD_PF_BIND, AF_INET) < 0) {
+            ALOGE("Failed NFULNL_CFG_CMD_PF_BIND: %s", strerror(errno));
+            return NULL;
+        }
+        if (android_nflog_send_config_cmd(*sock, 0, NFULNL_CFG_CMD_BIND, AF_UNSPEC) < 0) {
+            ALOGE("Failed NFULNL_CFG_CMD_BIND: %s", strerror(errno));
+            return NULL;
+        }
+    }
+
     NetlinkHandler *handler = new NetlinkHandler(this, *sock, format);
     if (handler->start()) {
         ALOGE("Unable to start NetlinkHandler: %s", strerror(errno));
@@ -97,7 +126,7 @@ NetlinkHandler *NetlinkManager::setupSocket(int *sock, int netlinkFamily,
 
 int NetlinkManager::start() {
     if ((mUeventHandler = setupSocket(&mUeventSock, NETLINK_KOBJECT_UEVENT,
-         0xffffffff, NetlinkListener::NETLINK_FORMAT_ASCII)) == NULL) {
+         0xffffffff, NetlinkListener::NETLINK_FORMAT_ASCII, false)) == NULL) {
         return -1;
     }
 
@@ -107,13 +136,19 @@ int NetlinkManager::start() {
                                      RTMGRP_IPV6_IFADDR |
                                      RTMGRP_IPV6_ROUTE |
                                      (1 << (RTNLGRP_ND_USEROPT - 1)),
-         NetlinkListener::NETLINK_FORMAT_BINARY)) == NULL) {
+         NetlinkListener::NETLINK_FORMAT_BINARY, false)) == NULL) {
         return -1;
     }
 
     if ((mQuotaHandler = setupSocket(&mQuotaSock, NETLINK_NFLOG,
-        NFLOG_QUOTA_GROUP, NetlinkListener::NETLINK_FORMAT_BINARY)) == NULL) {
-        ALOGE("Unable to open quota2 logging socket");
+            NFLOG_QUOTA_GROUP, NetlinkListener::NETLINK_FORMAT_BINARY, false)) == NULL) {
+        ALOGE("Unable to open quota socket");
+        // TODO: return -1 once the emulator gets a new kernel.
+    }
+
+    if ((mStrictHandler = setupSocket(&mStrictSock, NETLINK_NETFILTER,
+            0, NetlinkListener::NETLINK_FORMAT_BINARY_UNICAST, true)) == NULL) {
+        ALOGE("Unable to open strict socket");
         // TODO: return -1 once the emulator gets a new kernel.
     }
 
@@ -156,6 +191,19 @@ int NetlinkManager::stop() {
 
         close(mQuotaSock);
         mQuotaSock = -1;
+    }
+
+    if (mStrictHandler) {
+        if (mStrictHandler->stop()) {
+            ALOGE("Unable to stop strict NetlinkHandler: %s", strerror(errno));
+            status = -1;
+        }
+
+        delete mStrictHandler;
+        mStrictHandler = NULL;
+
+        close(mStrictSock);
+        mStrictSock = -1;
     }
 
     return status;

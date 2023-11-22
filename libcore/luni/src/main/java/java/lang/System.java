@@ -50,6 +50,7 @@ import java.nio.channels.spi.SelectorProvider;
 import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -81,7 +82,10 @@ public final class System {
      */
     public static final PrintStream err;
 
-    private static final String lineSeparator;
+    private static final String PATH_SEPARATOR = ":";
+    private static final String LINE_SEPARATOR = "\n";
+    private static final String FILE_SEPARATOR = "/";
+
     private static final Properties unchangeableSystemProperties;
     private static Properties systemProperties;
 
@@ -107,7 +111,33 @@ public final class System {
         in = new BufferedInputStream(new FileInputStream(FileDescriptor.in));
         unchangeableSystemProperties = initUnchangeableSystemProperties();
         systemProperties = createSystemProperties();
-        lineSeparator = System.getProperty("line.separator");
+
+        addLegacyLocaleSystemProperties();
+    }
+
+    private static void addLegacyLocaleSystemProperties() {
+        final String locale = getProperty("user.locale", "");
+        if (!locale.isEmpty()) {
+            Locale l = Locale.forLanguageTag(locale);
+            setUnchangeableSystemProperty("user.language", l.getLanguage());
+            setUnchangeableSystemProperty("user.region", l.getCountry());
+            setUnchangeableSystemProperty("user.variant", l.getVariant());
+        } else {
+            // If "user.locale" isn't set we fall back to our old defaults of
+            // language="en" and region="US" (if unset) and don't attempt to set it.
+            // The Locale class will fall back to using user.language and
+            // user.region if unset.
+            final String language = getProperty("user.language", "");
+            final String region = getProperty("user.region", "");
+
+            if (language.isEmpty()) {
+                setUnchangeableSystemProperty("user.language", "en");
+            }
+
+            if (region.isEmpty()) {
+                setUnchangeableSystemProperty("user.region", "US");
+            }
+        }
     }
 
     /**
@@ -742,17 +772,11 @@ public final class System {
         p.put("java.vm.vendor", projectName);
         p.put("java.vm.version", runtime.vmVersion());
 
-        p.put("file.separator", "/");
-        p.put("line.separator", "\n");
-        p.put("path.separator", ":");
-
         p.put("java.runtime.name", "Android Runtime");
         p.put("java.runtime.version", "0.9");
         p.put("java.vm.vendor.url", projectUrl);
 
         p.put("file.encoding", "UTF-8");
-        p.put("user.language", "en");
-        p.put("user.region", "US");
 
         try {
             StructPasswd passwd = Libcore.os.getpwuid(Libcore.os.getuid());
@@ -771,18 +795,48 @@ public final class System {
         p.put("android.icu.unicode.version", ICU.getUnicodeVersion());
         p.put("android.icu.cldr.version", ICU.getCldrVersion());
 
+        // Property override for ICU4J : this is the location of the ICU4C data. This
+        // is prioritized over the properties in ICUConfig.properties. The issue with using
+        // that is that it doesn't play well with jarjar and it needs complicated build rules
+        // to change its default value.
+        String icuDataPath = generateIcuDataPath();
+        p.put("android.icu.impl.ICUBinary.dataPath", icuDataPath);
+
         parsePropertyAssignments(p, specialProperties());
 
         // Override built-in properties with settings from the command line.
         parsePropertyAssignments(p, runtime.properties());
+
+        if (p.containsKey("file.separator")) {
+            logE("Ignoring command line argument: -Dfile.separator");
+        }
+
+        if (p.containsKey("line.separator")) {
+            logE("Ignoring command line argument: -Dline.separator");
+        }
+
+        if (p.containsKey("path.separator")) {
+            logE("Ignoring command line argument: -Dpath.separator");
+        }
+
+        // We ignore values for "file.separator", "line.separator" and "path.separator" from
+        // the command line. They're fixed on the operating systems we support.
+        p.put("file.separator", FILE_SEPARATOR);
+        p.put("line.separator", LINE_SEPARATOR);
+        p.put("path.separator", PATH_SEPARATOR);
+
         return p;
     }
 
     /**
      * Inits an unchangeable system property with the given value.
-     * This is useful when the environment needs to change under native bridge emulation.
+     *
+     * This is called from native code when the environment needs to change under native
+     * bridge emulation.
+     *
+     * @hide also visible for tests.
      */
-    private static void initUnchangeableSystemProperty(String name, String value) {
+    public static void setUnchangeableSystemProperty(String name, String value) {
         checkPropertyName(name);
         unchangeableSystemProperties.put(name, value);
     }
@@ -805,6 +859,37 @@ public final class System {
         Properties p = new PropertiesWithNonOverrideableDefaults(unchangeableSystemProperties);
         setDefaultChangeableProperties(p);
         return p;
+    }
+
+    private static String generateIcuDataPath() {
+        StringBuilder icuDataPathBuilder = new StringBuilder();
+        // ICU should first look in ANDROID_DATA. This is used for (optional) timezone data.
+        String dataIcuDataPath = getEnvironmentPath("ANDROID_DATA", "/misc/zoneinfo/current/icu");
+        if (dataIcuDataPath != null) {
+            icuDataPathBuilder.append(dataIcuDataPath);
+        }
+
+        // ICU should always look in ANDROID_ROOT.
+        String systemIcuDataPath = getEnvironmentPath("ANDROID_ROOT", "/usr/icu");
+        if (systemIcuDataPath != null) {
+            if (icuDataPathBuilder.length() > 0) {
+                icuDataPathBuilder.append(":");
+            }
+            icuDataPathBuilder.append(systemIcuDataPath);
+        }
+        return icuDataPathBuilder.toString();
+    }
+
+    /**
+     * Creates a path by combining the value of an environment variable with a relative path.
+     * Returns {@code null} if the environment variable is not set.
+     */
+    private static String getEnvironmentPath(String environmentVariable, String path) {
+        String variable = getenv(environmentVariable);
+        if (variable == null) {
+            return null;
+        }
+        return variable + path;
     }
 
     /**
@@ -964,14 +1049,17 @@ public final class System {
     public static native int identityHashCode(Object anObject);
 
     /**
-     * Returns the system's line separator. On Android, this is {@code "\n"}. The value
-     * comes from the value of the {@code line.separator} system property when the VM
-     * starts. Later changes to the property will not affect the value returned by this
-     * method.
+     * Returns the system's line separator. On Android, this is {@code "\n"}. The value comes from
+     * the value of the {@code line.separator} system property.
+     *
+     * <p>On Android versions before Lollipop the {@code line.separator} system property can be
+     * modified but this method continues to return the original value. The system property cannot
+     * be modified on later versions of Android.
+     *
      * @since 1.7
      */
     public static String lineSeparator() {
-        return lineSeparator;
+        return LINE_SEPARATOR;
     }
 
     /**
@@ -1106,7 +1194,12 @@ public final class System {
      * named by the argument. On Android, this would turn {@code "MyLibrary"} into
      * {@code "libMyLibrary.so"}.
      */
-    public static native String mapLibraryName(String nickname);
+    public static String mapLibraryName(String nickname) {
+        if (nickname == null) {
+            throw new NullPointerException("nickname == null");
+        }
+        return "lib" + nickname + ".so";
+    }
 
     /**
      * Used to set System.err, System.in, and System.out.

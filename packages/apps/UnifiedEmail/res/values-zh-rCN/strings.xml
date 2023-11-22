@@ -312,7 +312,7 @@
     <string name="show" msgid="2874876876336599985">"显示"</string>
     <string name="sync_error" msgid="1795794969006241678">"无法同步。"</string>
     <string name="sync_error_message" msgid="4182644657243736635">"您的设备存储空间不足，无法同步。"</string>
-    <string name="storage" msgid="4783683938444150638">"存储"</string>
+    <string name="storage" msgid="4783683938444150638">"存储空间"</string>
     <string name="senders_split_token" msgid="6549228851819460081">"、"</string>
     <string name="draft_count_format" msgid="9122583199850209286">" (<xliff:g id="COUNT">%1$s</xliff:g>)"</string>
     <string name="all_folders_heading" msgid="9023770187629170967">"所有文件夹"</string>

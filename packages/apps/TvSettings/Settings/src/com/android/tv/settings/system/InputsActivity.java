@@ -29,16 +29,13 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 
-import com.android.tv.settings.dialog.SettingsLayoutActivity;
-import com.android.tv.settings.dialog.Layout;
-import com.android.tv.settings.dialog.Layout.Header;
-import com.android.tv.settings.dialog.Layout.Action;
-import com.android.tv.settings.dialog.Layout.Status;
-import com.android.tv.settings.dialog.Layout.Static;
-import com.android.tv.settings.dialog.Layout.StringGetter;
-import com.android.tv.settings.dialog.Layout.LayoutGetter;
-
 import com.android.tv.settings.R;
+import com.android.tv.settings.dialog.Layout;
+import com.android.tv.settings.dialog.Layout.Action;
+import com.android.tv.settings.dialog.Layout.Header;
+import com.android.tv.settings.dialog.Layout.LayoutGetter;
+import com.android.tv.settings.dialog.Layout.Static;
+import com.android.tv.settings.dialog.SettingsLayoutActivity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,7 +76,7 @@ public class InputsActivity extends SettingsLayoutActivity {
         R.string.inputs_aux
     };
 
-    private static final LinkedHashMap<Integer, Integer> STATE_STRING_ID_MAP =
+    private static final Map<Integer, Integer> STATE_STRING_ID_MAP =
             new LinkedHashMap<Integer, Integer>() {{
                 put(TvInputManager.INPUT_STATE_CONNECTED,
                         R.plurals.inputs_header_connected_input);
@@ -103,14 +100,14 @@ public class InputsActivity extends SettingsLayoutActivity {
         super.onCreate(savedInstanceState);
     }
 
-    LayoutGetter mInputListLayout = new LayoutGetter() {
+    final LayoutGetter mInputListLayout = new LayoutGetter() {
         @Override
         public Layout get() {
             return getExternalTvInputListLayout();
         }
     };
 
-    LayoutGetter mCecSettingsLayout = new LayoutGetter() {
+    final LayoutGetter mCecSettingsLayout = new LayoutGetter() {
         @Override
         public Layout get() {
             boolean hdmiControl = readCecOption(getCecOptionKey(ACTION_HDMI_CONTROL));
@@ -205,12 +202,12 @@ public class InputsActivity extends SettingsLayoutActivity {
                             .add(new Action.Builder(mRes, action)
                                     .title(R.string.on)
                                     .data(on)
-                                    .checked(checked == true)
+                                    .checked(checked)
                                     .build())
                             .add(new Action.Builder(mRes, action)
                                     .title(R.string.off)
                                     .data(off)
-                                    .checked(checked == false)
+                                    .checked(!checked)
                                     .build());
 
                 return layout;
@@ -274,7 +271,7 @@ public class InputsActivity extends SettingsLayoutActivity {
 
     private Layout getExternalTvInputListLayout() {
         HashMap<Integer, ArrayList<Pair<String, TvInputInfo>>> externalInputs =
-                new HashMap<Integer, ArrayList<Pair<String, TvInputInfo>>>();
+                new HashMap<>();
         for (TvInputInfo info : mTvInputManager.getTvInputList()) {
             if (info.getType() != TvInputInfo.TYPE_TUNER &&
                     TextUtils.isEmpty(info.getParentId())) {
@@ -286,9 +283,9 @@ public class InputsActivity extends SettingsLayoutActivity {
                     continue;
                 }
 
-                ArrayList list = externalInputs.get(state);
+                ArrayList<Pair<String, TvInputInfo>> list = externalInputs.get(state);
                 if (list == null) {
-                    list = new ArrayList<Pair<String, TvInputInfo>>();
+                    list = new ArrayList<>();
                     externalInputs.put(state, list);
                 }
                 // Cache label because loadLabel does binder call internally
@@ -307,7 +304,7 @@ public class InputsActivity extends SettingsLayoutActivity {
         }
 
         Layout layout = new Layout();
-        for (LinkedHashMap.Entry<Integer, Integer> state : STATE_STRING_ID_MAP.entrySet()) {
+        for (Map.Entry<Integer, Integer> state : STATE_STRING_ID_MAP.entrySet()) {
             ArrayList<Pair<String, TvInputInfo>> list = externalInputs.get(state.getKey());
             if (list != null && list.size() > 0) {
                 String header = mRes.getQuantityString(state.getValue(), list.size());
@@ -410,11 +407,9 @@ public class InputsActivity extends SettingsLayoutActivity {
     }
 
     private void displayCustomLabelActivity(Bundle data) {
-        String id = data.getString(KEY_ID);
         Intent intent = new Intent(this, InputsCustomLabelActivity.class);
         intent.putExtra(InputsCustomLabelActivity.KEY_ID, data.getString(KEY_ID));
-        intent.putExtra(InputsCustomLabelActivity.KEY_LABEL,
-                data.getString(KEY_LABEL));
+        intent.putExtra(InputsCustomLabelActivity.KEY_LABEL, data.getString(KEY_LABEL));
         startActivityForResult(intent, REQUEST_CODE_CUSTOM_LABEL);
     }
 

@@ -3,29 +3,55 @@ package com.bumptech.glide.gifdecoder;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * A header object containing the number of frames in an animated GIF image as well as basic metadata like width and
+ * height that can be used to decode each individual frame of the GIF. Can be shared by one or more
+ * {@link com.bumptech.glide.gifdecoder.GifDecoder}s to play the same animated GIF in multiple views.
+ */
 public class GifHeader {
 
-    public int[] gct = null;
-    /**
-     * Global status code of GIF data parsing
-     */
-    public int status = GifDecoder.STATUS_OK;
-    public int frameCount = 0;
+    int[] gct = null;
+    int status = GifDecoder.STATUS_OK;
+    int frameCount = 0;
 
-    public GifFrame currentFrame;
-    public List<GifFrame> frames = new ArrayList<GifFrame>();
-     // logical screen size
-    public int width; // full image width
-    public int height; // full image height
+    GifFrame currentFrame;
+    List<GifFrame> frames = new ArrayList<GifFrame>();
+    // Logical screen size.
+    // Full image width.
+    int width;
+    // Full image height.
+    int height;
 
-    public boolean gctFlag; // 1 : global color table flag
-    // 2-4 : color resolution
-    // 5 : gct sort flag
-    public int gctSize; // 6-8 : gct size
-    public int bgIndex; // background color index
-    public int pixelAspect; // pixel aspect ratio
+    // 1 : global color table flag.
+    boolean gctFlag;
+    // 2-4 : color resolution.
+    // 5 : gct sort flag.
+    // 6-8 : gct size.
+    int gctSize;
+    // Background color index.
+    int bgIndex;
+    // Pixel aspect ratio.
+    int pixelAspect;
     //TODO: this is set both during reading the header and while decoding frames...
-    public int bgColor;
-    public boolean isTransparent;
-    public int loopCount;
+    int bgColor;
+    int loopCount;
+
+    public int getHeight() {
+        return height;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public int getNumFrames() {
+        return frameCount;
+    }
+
+    /**
+     * Global status code of GIF data parsing.
+     */
+    public int getStatus() {
+        return status;
+    }
 }

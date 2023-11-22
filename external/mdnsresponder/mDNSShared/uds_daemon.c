@@ -27,10 +27,6 @@
 #include <sys/resource.h>
 #endif
 
-#ifdef __ANDROID__
-#include <cutils/sockets.h>
-#endif
-
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -38,6 +34,10 @@
 #include "DNSCommon.h"
 #include "uDNS.h"
 #include "uds_daemon.h"
+
+#ifdef __ANDROID__
+#include "cutils/sockets.h"
+#endif
 
 // Normally we append search domains only for queries with a single label that are not
 // fully qualified. This can be overridden to apply search domains for queries (that are
@@ -2118,31 +2118,27 @@ mDNSlocal void AutomaticBrowseDomainChange(mDNS *const m, DNSQuestion *q, const 
 	}
 
 mDNSlocal mStatus handle_sethost_request(request_state *request)
-	{
+{
 	get_flags(&request->msgptr, request->msgend);
 	char hostName[MAX_DOMAIN_LABEL];
 	int len = 0;
-
-	if (get_string(&request->msgptr, request->msgend, hostName, MAX_DOMAIN_LABEL) < 0) return(mStatus_BadParamErr);
-
+	if (get_string(&request->msgptr, request->msgend, hostName,
+		MAX_DOMAIN_LABEL) < 0) return (mStatus_BadParamErr);
 	LogOperation("%3d: DNSSetHostname(%X, %d, nonstr ) START",
-			request->sd, request->flags);
-
-        // if we start using this as a callback for notification when the hostname changes we may need to cleanup from it
-//	request->terminate = sethost_termination_callback;
-
+		request->sd, request->flags);
+	// if we start using this as a callback for notification when the
+	// hostname changes we may need to cleanup from it
+	//  request->terminate = sethost_termination_callback;
 	if(hostName[0] == 0) return mStatus_BadParamErr;
-
-        while (len < MAX_DOMAIN_LABEL && hostName[len+1] && hostName[len+1] != '.') len++;
-
+		while (len < MAX_DOMAIN_LABEL && hostName[len+1]
+			&& hostName[len+1] != '.') len++;
 	strncpy(&(mDNSStorage.nicelabel.c[1]), hostName, len);
 	mDNSStorage.nicelabel.c[0] = len;
 	strncpy(&(mDNSStorage.hostlabel.c[1]), hostName, len);
 	mDNSStorage.hostlabel.c[0] = len;
-
 	mDNS_SetFQDN(&mDNSStorage);
 	return mStatus_NoError;
-	}
+}
 
 mDNSlocal mStatus handle_browse_request(request_state *request)
 	{
@@ -3785,8 +3781,8 @@ mDNSlocal void request_callback(int fd, short filter, void *info)
 			case port_mapping_request:     min_size += sizeof(mDNSu32) + 4 /* udp/tcp */ + 4 /* int/ext port */    + 4 /* ttl */;  break;
 			case addrinfo_request:         min_size += sizeof(mDNSu32) + 4 /* v4/v6 */   + 1 /* hostname */;                       break;
 			case send_bpf:                 // Same as cancel_request below
-			case cancel_request:           min_size = 0;                                                                           break;
-                        case sethost_request:          min_size = sizeof(mDNSu32) + 1 /* hostname */;                                          break;
+			case cancel_request:           min_size = 0;									       break;
+			case sethost_request:          min_size = sizeof(mDNSu32) + 1 /* hostname */;                                          break;
 			default: LogMsg("ERROR: validate_message - unsupported req type: %d", req->hdr.op); min_size = -1;                     break;
 			}
 
@@ -3835,7 +3831,6 @@ mDNSlocal void request_callback(int fd, short filter, void *info)
 			case getproperty_request:                handle_getproperty_request (req);  break;
 			case port_mapping_request:         err = handle_port_mapping_request(req);  break;
 			case addrinfo_request:             err = handle_addrinfo_request    (req);  break;
-                        case sethost_request:              err = handle_sethost_request     (req);  break;
 			case send_bpf:                     /* Do nothing for send_bpf */            break;
 
 			// These are all operations that work with an existing request_state object
@@ -3844,6 +3839,7 @@ mDNSlocal void request_callback(int fd, short filter, void *info)
 			case update_record_request:        err = handle_update_request      (req);  break;
 			case remove_record_request:        err = handle_removerecord_request(req);  break;
 			case cancel_request:                     handle_cancel_request      (req);  break;
+			case sethost_request:              err = handle_sethost_request     (req);  break;
 			default: LogMsg("%3d: ERROR: Unsupported UDS req: %d", req->sd, req->hdr.op);
 			}
 

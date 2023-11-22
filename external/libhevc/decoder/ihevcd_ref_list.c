@@ -505,7 +505,7 @@ WORD32 ihevcd_ref_list(codec_t *ps_codec, pps_t *ps_pps, sps_t *ps_sps, slice_he
             ps_mv_buf = (mv_buf_t *)ps_codec->ps_mv_buf;
             for(i = 0; i < BUF_MGR_MAX_CNT; i++)
             {
-                if(ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
+                if(ps_mv_buf && ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
                 {
                     ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, i, BUF_MGR_REF);
                     break;

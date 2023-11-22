@@ -24,35 +24,19 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.StackFrame;
 
-import java.util.Arrays;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands.StackFrameCommandSet;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
-import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
+
+import java.util.Arrays;
 
 /**
  * JDWP Unit test for StackFrame.SetValues command.
  */
-public class SetValuesTest extends JDWPStackFrameTestCase {
-
-    String testedMethodName = "nestledMethod3";
-    String testedThreadName = "";
-
-    VarInfo[] varInfos;
-
-    String varSignatures[] = { "Lorg/apache/harmony/jpda/tests/jdwp/StackFrame/StackTraceDebuggee;", "Z",
-            "I", "Ljava/lang/String;" };
-
-    String varNames[] = { "this", "boolLocalVariable", "intLocalVariable",
-            "strLocalVariable" };
-
-    byte varTags[] = { JDWPConstants.Tag.OBJECT_TAG, JDWPConstants.Tag.BOOLEAN_TAG,
-            JDWPConstants.Tag.INT_TAG, JDWPConstants.Tag.STRING_TAG };
-
-    private String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/StackFrame/StackTraceDebuggee;";
-
+public class SetValuesTest extends JDWPStackTraceBaseTest {
     /**
      * This testcase exercises StackFrame.SetValues command.
      * <BR>The test starts StackTraceDebuggee, sets breakpoint at the beginning of
@@ -65,34 +49,123 @@ public class SetValuesTest extends JDWPStackFrameTestCase {
      *
      */
     public void testSetValues001() {
-        logWriter.println("==> testSetValues001 started...");
-        testedThreadName = synchronizer.receiveMessage();
-        // release on run()
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-
-        // pass nestledMethod1()
-        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-
-        // enter nestledMethod2()
-        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        //release debuggee
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-        synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_READY);
-
-        //sets and checks local variables of tested method
+        // Sets and checks local variables of tested method
         examineGetValues();
+    }
 
-        // signal to finish debuggee
-        synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
-        logWriter.println("==> testSetValues001 - OK.");
+    /**
+     * This testcase exercises StackFrame.SetValues command.
+     * <BR>The test starts StackTraceDebuggee and waits for it to reach the
+     * tested method - 'nestledMethod3'.
+     * <BR> Then it performs StackFrame.SetValues command with an invalid
+     * thread ID and checks the command returns error INVALID_OBJECT.
+     */
+    public void testSetValues002_InvalidObjectError() {
+        long invalidThreadID = -1;
+        logWriter.println("Send StackFrame.SetValues with invalid thread " + invalidThreadID);
+        CommandPacket packet = new CommandPacket(StackFrameCommandSet.CommandSetID,
+                StackFrameCommandSet.SetValuesCommand);
+        packet.setNextValueAsThreadID(invalidThreadID);
+        packet.setNextValueAsFrameID(0);
+        packet.setNextValueAsInt(0);
+        ReplyPacket replyPacket = debuggeeWrapper.vmMirror.performCommand(packet);
+        checkReplyPacket(replyPacket, "StackFrame.SetValues",
+                JDWPConstants.Error.INVALID_OBJECT);
+    }
 
+    /**
+     * This testcase exercises StackFrame.SetValues command.
+     * <BR>The test starts StackTraceDebuggee and waits for it to reach the
+     * tested method - 'nestledMethod3'.
+     * <BR> Then it performs StackFrame.SetValues command to a non-suspended
+     * thread and checks the command returns error THREAD_NOT_SUSPENDED.
+     */
+    public void testSetValues003_ThreadNotSuspendedError() {
+        long threadID = getThreadID();
+
+        CommandPacket packet = new CommandPacket(StackFrameCommandSet.CommandSetID,
+                StackFrameCommandSet.SetValuesCommand);
+        packet.setNextValueAsThreadID(threadID);
+        packet.setNextValueAsFrameID(0);
+        packet.setNextValueAsInt(0);
+        ReplyPacket replyPacket = debuggeeWrapper.vmMirror.performCommand(packet);
+        checkReplyPacket(replyPacket, "StackFrame.SetValues",
+                JDWPConstants.Error.THREAD_NOT_SUSPENDED);
+    }
+
+    /**
+     * This testcase exercises StackFrame.SetValues command.
+     * <BR>The test starts StackTraceDebuggee and waits for it to reach the
+     * tested method - 'nestledMethod3'.
+     * <BR> Then it performs StackFrame.SetValues command to an invalid
+     * frame ID and checks the command returns error INVALID_FRAMEID.
+     */
+    public void testSetValues004_InvalidFrameIDError() {
+        long threadID = getThreadID();
+
+        // suspend thread
+        jdwpSuspendThread(threadID);
+
+        long invalidFrameID = -1;
+        logWriter.println("Send StackFrame.SetValues with invalid frameID " + invalidFrameID);
+        CommandPacket packet = new CommandPacket(StackFrameCommandSet.CommandSetID,
+                StackFrameCommandSet.SetValuesCommand);
+        packet.setNextValueAsThreadID(threadID);
+        packet.setNextValueAsFrameID(invalidFrameID);
+        packet.setNextValueAsInt(0);
+        ReplyPacket replyPacket = debuggeeWrapper.vmMirror.performCommand(packet);
+        checkReplyPacket(replyPacket, "StackFrame.SetValues",
+                JDWPConstants.Error.INVALID_FRAMEID);
+    }
+
+    /**
+     * This testcase exercises StackFrame.SetValues command.
+     * <BR>The test starts StackTraceDebuggee and waits for it to reach the
+     * tested method - 'nestledMethod3'.
+     * <BR> Then it performs StackFrame.SetValues command to an invalid
+     * slot ID and checks the command returns error INVALID_SLOT.
+     */
+    public void testSetValues005_InvalidSlotError() {
+        //sets and checks local variables of tested method
+
+        long threadID = getThreadID();
+
+        // suspend thread
+        jdwpSuspendThread(threadID);
+
+        FrameInfo frameInfo = findFrameInfo(threadID);
+
+        //getting Variable Table
+        logWriter.println("");
+        logWriter.println("=> Getting Variable Table...");
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
+        logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
+        logWriter.println("=> referenceTypeID for Debuggee class = "
+                + refTypeID);
+        varInfos = jdwpGetVariableTable(refTypeID, frameInfo.location.methodID);
+        if (GetValuesTest.checkVarTable(logWriter, varInfos, varTags, varSignatures, varNames)) {
+            logWriter.println("=> Variable table check passed.");
+        } else {
+            printErrorAndFail("Variable table check failed.");
+        }
+
+        int invalidSlotId = -1;
+        logWriter.println("Send StackFrame.SetValues with invalid slot " + invalidSlotId);
+        CommandPacket packet = new CommandPacket(StackFrameCommandSet.CommandSetID,
+                StackFrameCommandSet.SetValuesCommand);
+        packet.setNextValueAsThreadID(threadID);
+        packet.setNextValueAsFrameID(frameInfo.frameID);
+        packet.setNextValueAsInt(1);
+        packet.setNextValueAsInt(invalidSlotId);
+        packet.setNextValueAsByte(JDWPConstants.Tag.OBJECT_TAG);
+        packet.setNextValueAsObjectID(0 /* null */);
+        ReplyPacket replyPacket = debuggeeWrapper.vmMirror.performCommand(packet);
+        checkReplyPacket(replyPacket, "StackFrame.SetValues",
+                JDWPConstants.Error.INVALID_SLOT);
     }
 
     private void examineGetValues() {
-
-        long refTypeID = getClassIDBySignature(debuggeeSignature);
+        long refTypeID = getClassIDBySignature(getDebuggeeClassSignature());
         logWriter.println("=> Debuggee class = " + getDebuggeeClassName());
         logWriter.println("=> referenceTypeID for Debuggee class = "
                 + refTypeID);
@@ -106,54 +179,14 @@ public class SetValuesTest extends JDWPStackFrameTestCase {
         // suspend thread
         jdwpSuspendThread(threadID);
 
-        //get number of frames
-        int frameCount = jdwpGetFrameCount(threadID);
-        logWriter.println("=> frames count = " + frameCount);
-
-        //get frames info
-        FrameInfo[] frameIDs = jdwpGetFrames(threadID, 0, frameCount);
-        if (frameIDs.length != frameCount) {
-            printErrorAndFail("Received number of frames = "
-                    + frameIDs.length + " differ from expected number = "
-                    + frameCount);
-        }
-
-        //check and print methods info
-        long methodID = 0;
-        long frameID = 0;
-        String methodName = "";
-        boolean testedMethodChecked = false;
-        for (int i = 0; i < frameCount; i++) {
-            logWriter.println("\n");
-            methodName = getMethodName(frameIDs[i].location.classID,
-                    frameIDs[i].location.methodID);
-            logWriter.println("=> method name = " + methodName);
-            logWriter.println("=> methodID = " + frameIDs[i].location.methodID);
-            logWriter.println("=> frameID = " + frameIDs[i].frameID);
-            logWriter.println("\n");
-            if (methodName.equals(testedMethodName)) {
-                methodID = frameIDs[i].location.methodID;
-                frameID = frameIDs[i].frameID;
-                methodName = getMethodName(frameIDs[i].location.classID,
-                        frameIDs[i].location.methodID);
-                testedMethodChecked = true;
-            }
-        }
-        if (testedMethodChecked) {
-            logWriter.println("=> Tested method is found");
-            logWriter.println("=> method name = " + testedMethodName);
-            logWriter.println("=> methodID = " + methodID);
-            logWriter.println("=> frameID = " + frameID);
-
-        } else {
-            printErrorAndFail("Tested method is not found");
-        }
+        // find frame for the tested method
+        FrameInfo frameInfo = findFrameInfo(threadID);
 
         //getting Variable Table
         logWriter.println("");
         logWriter.println("=> Getting Variable Table...");
-        varInfos = jdwpGetVariableTable(refTypeID, methodID);
-        if (GetValuesTest.checkVarTable(logWriter, varInfos, varTags, varSignatures, varNames)) {
+        varInfos = jdwpGetVariableTable(refTypeID, frameInfo.location.methodID);
+        if (checkVarTable(logWriter, varInfos, varTags, varSignatures, varNames)) {
             logWriter.println("=> Variable table check passed.");
         } else {
             printErrorAndFail("Variable table check failed.");
@@ -166,7 +199,7 @@ public class SetValuesTest extends JDWPStackFrameTestCase {
                 JDWPCommands.StackFrameCommandSet.CommandSetID,
                 JDWPCommands.StackFrameCommandSet.SetValuesCommand);
         packet.setNextValueAsThreadID(threadID);
-        packet.setNextValueAsLong(frameID);
+        packet.setNextValueAsFrameID(frameInfo.frameID);
 
         packet.setNextValueAsInt(varTags.length-2);
         packet.setNextValueAsInt(varInfoByName("boolLocalVariable").getSlot());
@@ -184,10 +217,10 @@ public class SetValuesTest extends JDWPStackFrameTestCase {
                 JDWPCommands.StackFrameCommandSet.CommandSetID,
                 JDWPCommands.StackFrameCommandSet.GetValuesCommand);
         packet.setNextValueAsThreadID(threadID);
-        packet.setNextValueAsFrameID(frameID);
+        packet.setNextValueAsFrameID(frameInfo.frameID);
 
         logWriter.println("=> Thread: " + threadID);
-        logWriter.println("=> Frame: " + frameID);
+        logWriter.println("=> Frame: " + frameInfo.frameID);
         packet.setNextValueAsInt(varTags.length);
         for (int i = 0; i < varTags.length; i++) {
             logWriter.println("");
@@ -217,85 +250,74 @@ public class SetValuesTest extends JDWPStackFrameTestCase {
         //print and check values of variables
         logWriter.println("=> Values of variables: ");
 
-        Value val;
-
-        val = reply.getNextValueAsValue();
-        if (val.getTag() == JDWPConstants.Tag.BOOLEAN_TAG) {
-            logWriter.println("=>Tag is correct");
-            boolean boolValue = val.getBooleanValue();
-            if (!boolValue) {
-                logWriter.println("=> "+varInfos[1].getName() + " = " + boolValue);
-                logWriter.println("");
-            } else {
-                logWriter
+        for (int i = 0; i < numberOfValues; ++i ) {
+            Value val = reply.getNextValueAsValue();
+            switch (val.getTag()) {
+                case JDWPConstants.Tag.BOOLEAN_TAG: {
+                    logWriter.println("=>Tag is correct");
+                    boolean boolValue = val.getBooleanValue();
+                    if (!boolValue) {
+                        logWriter.println("=> "+varInfos[1].getName() + " = " + boolValue);
+                        logWriter.println("");
+                    } else {
+                        logWriter
                         .printError("Unexpected value of boolean variable: "
                                 + boolValue + " instead of: false");
-                logWriter.printError("");
-                success = false;
-            }
-        } else {
-            logWriter.printError("Unexpected tag of variable: "
-                    + JDWPConstants.Tag.getName(val.getTag()) + " instead of: boolean");
-            logWriter.printError("");
-            success = false;
-        }
+                        logWriter.printError("");
+                        success = false;
+                    }
+                    break;
+                }
 
-        val = reply.getNextValueAsValue();
-        if (val.getTag() == JDWPConstants.Tag.INT_TAG) {
-            logWriter.println("=>Tag is correct");
-            int intValue = val.getIntValue();
-            if (intValue == 12345) {
-                logWriter.println("=> "+varInfos[2].getName() + " = " + intValue);
-                logWriter.println("");
-            } else {
-                logWriter
+                case JDWPConstants.Tag.INT_TAG: {
+                    logWriter.println("=>Tag is correct");
+                    int intValue = val.getIntValue();
+                    if (intValue == 12345) {
+                        logWriter.println("=> "+varInfos[2].getName() + " = " + intValue);
+                        logWriter.println("");
+                    } else {
+                        logWriter
                         .printError("Unexpected value of int variable: "
                                 + intValue + " instead of: 12345");
-                logWriter.printError("");
-                success = false;
-            }
-        } else {
-            logWriter.printError("Unexpected tag of variable: "
-                    + JDWPConstants.Tag.getName(val.getTag()) + " instead of: integer");
-            logWriter.printError("");
-            success = false;
-        }
+                        logWriter.printError("");
+                        success = false;
+                    }
+                    break;
+                }
 
-        val = reply.getNextValueAsValue();
-        if (val.getTag() == JDWPConstants.Tag.STRING_TAG) {
-            logWriter.println("=>Tag is correct");
-            long strLocalVariableID = val.getLongValue();
-            String strLocalVariable = getStringValue(strLocalVariableID);
-            if (strLocalVariable.equals("test string")) {
-                logWriter.println("=> "+varInfos[2].getName() + " = "
-                        + strLocalVariable);
-                logWriter.println("");
-            } else {
-                logWriter
+                case JDWPConstants.Tag.STRING_TAG: {
+                    logWriter.println("=>Tag is correct");
+                    long strLocalVariableID = val.getLongValue();
+                    String strLocalVariable = getStringValue(strLocalVariableID);
+                    if (strLocalVariable.equals("test string")) {
+                        logWriter.println("=> "+varInfos[2].getName() + " = "
+                                + strLocalVariable);
+                        logWriter.println("");
+                    } else {
+                        logWriter
                         .printError("Unexpected value of string variable: "
                                 + strLocalVariable
                                 + " instead of: "
                                 + "test string");
-                logWriter.printError("");
-                success = false;
-            }
-        } else {
-            logWriter.printError("Unexpected tag of variable: "
-                    + JDWPConstants.Tag.getName(val.getTag()) + " instead of: string");
-            logWriter.printError("");
-            success = false;
-        }
+                        logWriter.printError("");
+                        success = false;
+                    }
+                    break;
+                }
 
-        val = reply.getNextValueAsValue();
-        if (val.getTag() == JDWPConstants.Tag.OBJECT_TAG) {
-            logWriter.println("=> Tag is correct");
-            logWriter.println("");
-        } else {
-            logWriter.printError("Unexpected tag of variable: "
-                    + JDWPConstants.Tag.getName(val.getTag()) + " instead of: CLASS_OBJECT_TAG");
-            logWriter.printError("");
-            success = false;
-        }
+                case JDWPConstants.Tag.OBJECT_TAG: {
+                    logWriter.println("=> Tag is correct");
+                    logWriter.println("");
+                    break;
+                }
+                default:
+                    logWriter.printError("Unexpected tag of variable: "
+                            + JDWPConstants.Tag.getName(val.getTag()));
+                    logWriter.printError("");
+                    success = false;
+                    break;
+            }  // switch
+        }  // for
 
         assertTrue(logWriter.getErrorMessage(), success);
     }

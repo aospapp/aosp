@@ -27,7 +27,6 @@
     <string name="add_account" msgid="4098060223200619258">"ເພີ່ມບັນຊີ"</string>
     <string name="account_header_sync" msgid="2679585471372319471">"ຊິ້ງຂໍ້ມູນ"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"ລຶບບັນຊີ"</string>
-    <string name="search_title" msgid="5474988613144349415">"ຊອກຫາ"</string>
     <string name="account_sync" msgid="773808124331714965">"​ເລືອກ​ແອັບຯ​ທີ່​ຊິ້ງ​​​ຂໍ້​ມູນແລ້ວ"</string>
     <string name="sync_now" msgid="8732244492880016471">"ຊິ້ງຂໍ້ມູນດຽວນີ້"</string>
     <string name="sync_cancel" msgid="5839264070098894371">"ຍົກເລີກການຊິ້ງຂໍ້ມູນ"</string>
@@ -37,17 +36,12 @@
     <string name="sync_is_failing" msgid="8229476000384257186">"ບໍ່​ສາ​ມາດ​ຊິ້ງ​ຂໍ້​ມູນ​ໄດ້​. ມັນ​ຈະ​ກັບ​ມາ​ໃຊ້​ໄດ້​ໃນ​ໄວໆ​ນີ້."</string>
     <string name="account_remove" msgid="4313580520737295272">"ລຶບບັນຊີ"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"ບໍ່​ສາ​ມາດ​ລຶບ​ບັ​ນ​ຊີ​ໄດ້"</string>
-  <string-array name="account_detail_settings">
-    <item msgid="2736778804563540468">"ຊື່"</item>
-    <item msgid="6466271488216028049">"ຮູບພາບ"</item>
-    <item msgid="5763918836533170723">"ຄວາມ​ປອດ​ໄພ"</item>
-    <item msgid="5219275476980441834">"Google Wallet"</item>
-    <item msgid="5333563881963545303">"ປະ​ຫວັດ​ການ​ສັ່ງ​ຊື້"</item>
-    <item msgid="6174147587962184914">"​ລຶບ​ບັນ​ຊີ"</item>
-  </string-array>
     <string name="connectivity_network" msgid="8321537111272398501">"ເຄືອຂ່າຍ"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi​-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"ອີເທີເນັດ"</string>
+    <string name="wifi_setting_always_scan" msgid="8883713018717323351">"ມີ​ການ​ສະ​ແກນ​ຢູ່​ສະ​ເໝີ"</string>
+    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"ໃຫ້​ການ​ບໍ​ລິ​ການ​ຈຸດ​ທີ່​ຕັ້ງ​ຂອງ google ແລະ​ແອັບ​ອື່ນ​ສະ​ແກນ​ຫາ​ເຄືອ​ຂ່າຍ, ແມ້​ແຕ່​ເມື່ອ Wi-Fi ປິດ"</string>
+    <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wifi"</string>
     <string name="device_daydream" msgid="4933581408059561077">"Daydream"</string>
     <string name="device_display" msgid="101455384386372747">"ການສະແດງຜົນ"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"ສຽງ​ລະບົບ"</string>
@@ -57,15 +51,11 @@
     <string name="device_backup_restore" msgid="5627523987587511884">"ການສຳຮອງ &amp; ການກູ້ຂໍ້ມູນ"</string>
     <string name="device_reset" msgid="2827002349560023125">"ຣີເຊັດຄ່າຈາກໂຮງງານ"</string>
     <string name="device_calibration" msgid="8632962533376605191">"ການ​ປັບ​ທຽບ"</string>
-    <!-- no translation found for device_storage_clear_cache_title (3365635664766067643) -->
-    <skip />
-    <!-- no translation found for device_storage_clear_cache_message (6495570470005696210) -->
-    <skip />
+    <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"ລຶບຂໍ້ມູນທີ່ເກັບໄວ້ບໍ?"</string>
+    <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"ອັນນີ້ຈະລຶບຂໍ້ມູນທີ່ເກັບໄວ້ສຳ​ລັບທຸກແອັບຯ."</string>
     <string name="apps_downloaded" msgid="4222190849854323480">"​ແອັບຯ​ທີ່​ດາວ​ໂຫລດ​ແລ້ວ"</string>
     <string name="apps_system" msgid="2499191125802829425">"ແອັບຯລະບົບ"</string>
     <string name="apps_running" msgid="6430310491739956228">"​ແອັບຯ​ທີ່​​ເຮັດ​ວຽກ​ຢູ່"</string>
-    <string name="accessories_remote" msgid="2188138914890229082">"ຣ​ີ​ໂໝດ"</string>
-    <string name="accessories_camera" msgid="503302832375993697">"ກ້ອງຖ່າຍຮູບ"</string>
     <string name="accessories_add" msgid="1347802656349218830">"​ເພີ່ມ​ອຸ​ປະ​ກອນ​ເສີມ"</string>
     <string name="accessories_wifi_display" msgid="1107690327150126038">"ຈໍສະແດງຜົນ Wi-Fi"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"ກຳລັງຈັບຄູ່..."</string>
@@ -76,6 +66,7 @@
     <string name="accessory_options" msgid="4799658564005710297">"ອຸ​ປະ​ກອນ​ເສີມ"</string>
     <string name="accessory_rename" msgid="3250766501262581206">"ປ່ຽນຊື່"</string>
     <string name="accessory_unpair" msgid="8242725516604465355">"ຍົກເລີກການຈັບຄູ່"</string>
+    <string name="accessory_battery" msgid="7021788232835772126">"ແບັດ​ເຕີ​ຣີ <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"ກຳ​ລັງ​ຍົກ​ເລີກ​ການ​ຈັບ​ຄ​ູ່…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"ເຊື່ອມ​ຕໍ່ແລ້ວ"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"ກຳ​ລັງ​ຊອກ​ຫາ​ອຸ​ປະ​ກອນ​ເສີມ…"</string>
@@ -98,6 +89,7 @@
     <string name="system_date_time" msgid="8898457978560618950">"ວັນທີ &amp; ເວລາ"</string>
     <string name="system_language" msgid="2337138146114609247">"ພາສາ"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"ແປ້ນ​ພິມ"</string>
+    <string name="system_home" msgid="2858989138172296012">"ຫນ້າ​ຈໍຫຼັກ"</string>
     <string name="system_search" msgid="2837264654143247611">"ຊອກຫາ"</string>
     <string name="system_security" msgid="8230080273993484407">"ຄວາມປອດໄພ &amp; ການຈຳກັດ"</string>
     <string name="system_speech" msgid="8128688499687306982">"ການ​​ເວົ້າ"</string>
@@ -110,7 +102,6 @@
     <string name="device_name" msgid="2670488158531273028">"ຊື່​ອຸ​ປະ​ກອນ"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"ຣີສະຕາດ"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"​ຂໍ້​ມູນ​ທາງ​ກົດ​ໝາຍ"</string>
-    <string name="about_warranty" msgid="5736003473060436384">"​ການ​ຮັບ​ປະ​ກັນ"</string>
     <string name="about_legal_license" msgid="7867205982113209033">"​ລິ​ຂະ​ສິດ​ໂອ​ເພນ​ຊອດ"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google ຕາມ​ກົດ​ໝາຍ"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"ບໍ່​ມີ​ຂໍ້​ມູນ​ລິ​ຂະ​ສິດ"</string>
@@ -118,23 +109,13 @@
     <string name="about_version" msgid="1177287676732287266">"ເວີຊັນ"</string>
     <string name="about_serial" msgid="2723560490027171187">"ໝາຍເລກຊີຣຽວ"</string>
     <string name="about_build" msgid="9148789767199785676">"​ການ​ສ້າງ"</string>
-  <plurals name="show_dev_countdown">
-    <item quantity="one" msgid="5656331074727404150">"ຕອນ​ນີ້ທ່ານ​ຫ່າງ​ຈາກ​ການເປັນ​ນັກພັດ​ທະນາ​ພຽງ <xliff:g id="STEP_COUNT">%1$d</xliff:g> ຂັ້ນຕອນ"</item>
-    <item quantity="other" msgid="6907126743472136795">"ຕອນ​ນີ້ທ່ານ​ຫ່າງ​ຈາກ​ການເປັນ​ນັກພັດ​ທະນາ​ພຽງ <xliff:g id="STEP_COUNT">%1$d</xliff:g> ຂັ້ນຕອນ"</item>
-  </plurals>
+    <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
+      <item quantity="other">ປະ​ຈຸ​ບັນ​ທ່ານ​ຢູ່​ໄກ​ຈາກ​ການ​ເປັນ​ຜູ້​ພັດ​ທະ​ນາ <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> ບາດ​ກ້າວ</item>
+      <item quantity="one">ປະ​ຈຸ​ບັນ​ທ່ານ​ຢູ່​ໄກ​ຈາກ​ການ​ເປັນ​ຜູ້​ພັດ​ທະ​ນາ <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> ບາດ​ກ້າວ</item>
+    </plurals>
     <string name="about_ads" msgid="3364786994943748337">"ໂຄສະນາ"</string>
     <string name="show_dev_on" msgid="8997172736024819952">"ຕອນ​ນີ້​ທ່ານ​ເປັນ​ນັກ​ພັດທະນາ​ແລ້ວ!"</string>
     <string name="show_dev_already" msgid="7525967300421794483">"ບໍ່ຈຳເປັນ, ທ່ານເປັນ​ນັກພັດ​ທະນາ​ຢູ່ແລ້ວ"</string>
-    <string name="wifi_security_none" msgid="1241101191574932821">"ບໍ່ມີ"</string>
-    <string name="wifi_remembered" msgid="710973813096194477">"​ບັນ​ທຶກ​ແລ້ວ"</string>
-    <string name="wifi_disabled_generic" msgid="5100439885010143290">"ປິດ​ນຳໃຊ້​ແລ້ວ"</string>
-    <string name="wifi_disabled_network_failure" msgid="7558613087615078317">"ຫຼີກ​ເວັ້ນ​ການ​ເຊື່ອມ​ຕໍ່​ທີ່​ສັນຍານ​ອ່ອນ"</string>
-    <string name="wifi_disabled_password_failure" msgid="1318626812163574372">"ເກີດ​ບັນ​ຫາ​ການ​ກວດ​ພິສູດ​ສິດ"</string>
-    <string name="wifi_not_in_range" msgid="342867509887486418">"​ບໍ່​ຢູ່​ໃນ​ໄລ​ຍະ​ທີ່​​ເຊື່ອມ​ຕໍ່​ໄດ້"</string>
-    <string name="wifi_wps_available_first_item" msgid="2505782834128907733">"ສາມາດໃຊ້ WPS ໄດ້"</string>
-    <string name="wifi_wps_available_second_item" msgid="375469856423243587">" (ສາມາດໃຊ້ WPS ໄດ້)"</string>
-    <string name="wifi_secured_first_item" msgid="9147292132572887175">"ຖືກປ້ອງກັນດ້ວຍ <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
-    <string name="wifi_secured_second_item" msgid="4204734116810783051">", ປ້ອງກັນດ້ວຍ <xliff:g id="WIFI_SECURITY_SHORT">%1$s</xliff:g>"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"ອ່ອນ"</item>
     <item msgid="5986166866411161790">"ພໍໃຊ້"</item>
@@ -154,10 +135,7 @@
     <string name="wifi_setting_available_networks" msgid="1244646604369133314">"ເຄືອ​ຂ່າຍທີ່​ມີຢູ່"</string>
     <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"​ເຊື່ອມ​ຕໍ່​ຜ່ານ WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"ເພີ່ມ​ເຄືອ​ຂ່າຍ​ໃໝ່"</string>
-    <string name="add_network" msgid="2074883912462075625">"ເພີ່ມເຄືອຂ່າຍ"</string>
-    <string name="network_ssid" msgid="7653487431810593891">"SSID ເຄືອຂ່າຍ"</string>
     <string name="security_type" msgid="524443802004143058">"​ປະ​ເພດ​ຄວາມ​ປອດ​ໄພ"</string>
-    <string name="password" msgid="1322790875762726719">"ລະຫັດຜ່ານ"</string>
     <string name="wps_network" msgid="1052148085426051873">"ເຊື່ອມ​ຕໍ່​ຜ່ານ WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"ເຄືອຂ່າຍອື່ນໆ..."</string>
     <string name="skip_network" msgid="6380260543776712357">"ຂ້າມ"</string>
@@ -200,11 +178,9 @@
     <string name="wifi_action_proxy_none" msgid="4457231399674182650">"ບໍ່ມີ"</string>
     <string name="wifi_action_proxy_manual" msgid="8402002777441261064">"ຕັ້ງຄ່າເອງ"</string>
     <string name="wifi_action_dhcp" msgid="6338911832360962268">"DHCP"</string>
-    <string name="wifi_action_save" msgid="4673786410274206843">"ບັນທຶກ"</string>
     <string name="wifi_action_static" msgid="1025855501453321749">"ຄົງທີ່"</string>
     <string name="wifi_action_status_info" msgid="7664354971197839253">"​ຂໍ້​ມູນ​ສະ​ຖາ​ນະ"</string>
     <string name="wifi_action_advanced_options_title" msgid="3242132674399983503">"​ໂຕ​ເລືອກ​ຂັ້ນ​ສູງ"</string>
-    <string name="wifi_action_advanced_options_description" msgid="8615353318560146504">"<xliff:g id="PROXY_SETTINGS_SUMMARY">%1$s</xliff:g>, <xliff:g id="IP_SETTINGS_SUMMARY">%2$s</xliff:g>"</string>
     <string name="wifi_ip_settings_invalid_ip_address" msgid="5228247770505105107">"ໃສ່ທີ່ຢູ່ IP ທີ່ຖືກຕ້ອງ"</string>
     <string name="wifi_ip_settings_invalid_gateway" msgid="3292444764474145026">"ໃສ່ທີ່ຢູ່ Gateway ທີ່ຖືກຕ້ອງ"</string>
     <string name="wifi_ip_settings_invalid_dns" msgid="6172189835428184828">"ໃສ່ທີ່ຢູ່ DNS ທີ່ຖືກຕ້ອງ"</string>
@@ -227,19 +203,8 @@
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"ບໍ່​ໄດ້​ເຊື່ອມ​ຕໍ່​ເຄືອ​ຂ່າຍ​ເທື່ອ"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"ເຊື່ອມຕໍ່ກັບ <xliff:g id="SSID">%1$s</xliff:g> ແລ້ວ. ຕ້ອງ​ການ​ເຊື່ອມຕໍ່​ກັບເຄືອຂ່າຍ​ອື່ນບໍ?"</string>
     <string name="wifi_summary_unknown_network" msgid="7903601448928422642">"​ເຄື​ອ​ຂ່າຍ​ທີ່ບໍ່​ຮູ້​ຈັກ"</string>
-    <string name="connectivity_advanced_options" msgid="2858199826425132228">"​ໂຕ​ເລືອກ​ຂັ້ນ​ສູງ"</string>
-    <string name="connectivity_advanced_options_description" msgid="370129113175689226">"<xliff:g id="SSID_0">%1$s</xliff:g>, <xliff:g id="SSID_1">%2$s</xliff:g>"</string>
-    <string name="title_ip_settings" msgid="6408399523925189065">"ການຕັ້ງຄ່າ IP"</string>
-    <string name="title_test_connection" msgid="1202798409060082670">"ທົດ​ສອບ​ການ​ເຊື່ອມ​ຕໍ່"</string>
-    <string name="dhcp" msgid="5536822848499568335">"DHCP"</string>
-    <string name="title_static" msgid="6690544371649264526">"ຄົງທີ່"</string>
-    <string name="gateway" msgid="2467496590891949814">"​ເກດ​ເວ"</string>
-    <string name="title_network_prefix_length" msgid="3222416880787889272">"ຄວາມຍາວ Network prefix"</string>
-    <string name="title_dns_1" msgid="1513875539231931892">"DNS 1"</string>
-    <string name="title_dns_2" msgid="7805767982172685879">"DNS 2"</string>
     <string name="title_ok" msgid="1021329453788761592">"ຕົກລົງ"</string>
     <string name="title_cancel" msgid="4846143417666038604">"​ຍົກ​ເລີກ"</string>
-    <string name="rename_device" msgid="8221482127562510757">"​ປ່ຽນ​ຊື່​ອຸ​ປະ​ກອນ"</string>
     <string name="storage_title" msgid="2132026108559493394">"ບ່ອນເກັບຂໍ້ມູນ"</string>
     <string name="storage_available" msgid="1241005580092138871">"ຫວ່າງ"</string>
     <string name="storage_size" msgid="8958530823208352781">"ພື້ນ​ທີ່​ທັງ​ໝົດ: <xliff:g id="TOTAL_SPACE">%1$s</xliff:g>"</string>
@@ -250,13 +215,71 @@
     <string name="storage_music_usage" msgid="3509327591741514083">"ສຽງ"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"ອື່ນໆ."</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"ຂໍ້ມູນທີ່ເກັບໄວ້"</string>
-    <string name="wifi_wps_cancel_scan" msgid="3562470978552920877">"​ຍົກ​ເລີກ"</string>
+    <string name="storage_eject" msgid="113476702798691558">"ເອົາອອກ"</string>
+    <string name="storage_format" msgid="3759273736493279595">"ລຶບ ແລະ​ຟໍ​ແມັດ"</string>
+    <string name="storage_format_for_private" msgid="7095270113028182032">"ຟໍ​ແມັດ​ເປັນ​ບ່ອນ​ຈັດ​ເກັບ​ຂໍ້​ມູນ​ອຸ​ປະ​ກອນ"</string>
+    <string name="storage_not_connected" msgid="6378589497819596096">"ບໍ່ໄດ້ເຊື່ອມຕໍ່"</string>
+    <string name="storage_migrate" msgid="658894157418304023">"ຍ້າຍ​ຂໍ້​ມູນ​ອອກ"</string>
+    <string name="storage_forget" msgid="8541387048014779836">"ລືມບ່ອນເກັບຂໍ້ມູນພາຍໃນເຄື່ອງນີ້"</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"ເພື່ອໃຊ້ແອັບ ຫຼືຂໍ້ມູນທີ່ດຣາຍນີ້ມີ, ໃຫ້ສຽບມັນເຂົ້າໃໝ່. ອີກວິທີໜຶ່ງ, ທ່ານສາມາດເລືອກລືມບ່ອນເກັບຂໍ້ມູນນີ້ ຖ້າດຣາຍບໍ່ມີໃຫ້ໃຊ້ງານ.\n\nຖ້າທ່ານເລືອກ ລືມ, ທຸກຂໍ້ມູນທີ່ດຣາຍປະກອບມີຈະເສຍໄປຕະຫຼອດການ.\n\nທ່ານສາມາດຕິດຕັ້ງແອັບຄືນໃໝ່ໃນພາຍຫຼັງ, ແຕ່ຂໍ້ມູນທີ່ເກັບໄວ້ເທິງດຣາຍນີ້ຈະເສຍໄປ."</string>
+    <string name="storage_device_storage_section" msgid="7797805634316822741">"ບ່ອນຈັດເກັບຂໍ້ມູນອຸປະກອນ"</string>
+    <string name="storage_removable_storage_section" msgid="3264955106565590076">"ໜ່ວຍຈັດເກັບຂໍ້ມູນທີ່ຖອດອອກໄດ້"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"ຕັ້ງຄ່າຄືນໃໝ່"</string>
+    <string name="storage_mount_success" msgid="4624254886950093443">"<xliff:g id="NAME">%1$s</xliff:g> ຖືກ​ເອົາ​ຕໍ່​ໃສ່​ແລ້ວ"</string>
+    <string name="storage_mount_failure" msgid="2469026716895846633">"ບໍ່​ສາ​ມາດ​ຕໍ່​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g> ໄດ້"</string>
+    <string name="storage_unmount_success" msgid="7921627277443856151">"<xliff:g id="NAME">%1$s</xliff:g> ຖືກ​ເອົາ​ອອກ​ໄປ​ຢ່າງ​ປອດ​ໄພ​ແລ້ວ"</string>
+    <string name="storage_unmount_failure" msgid="6322048355281833871">"ບໍ່​ສາ​ມາດ​ເອົາ <xliff:g id="NAME">%1$s</xliff:g> ອອກ​ໄດ້​ຢ່າງ​ປອດ​ໄພ"</string>
+    <string name="storage_unmount_failure_cant_find" msgid="240731723168567217">"ບໍ່ສາມາດຊອກພົບດຣາຍເພື່ອເອົາອອກ"</string>
+    <string name="storage_format_success" msgid="6252068844653804319">"<xliff:g id="NAME">%1$s</xliff:g> ຖືກ​ຟໍ​ແມັດ​ແລ້ວ"</string>
+    <string name="storage_format_failure" msgid="7336977074523932399">"ບໍ່​ສາ​ມາດ​ຟໍ​ແມັດ <xliff:g id="NAME">%1$s</xliff:g> ໄດ້"</string>
+    <string name="storage_wizard_format_as_private_title" msgid="1433086533563409114">"ຟໍ​ແມັດ​ເປັນ​ບ່ອນ​ຈັດ​ເກັບຂໍ້​ມູນ​ພາຍ​ໃນເຄື່ອງ"</string>
+    <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"ອັນ​ນີ້​ຕ້ອງ​ການ​ໃຫ້ USB ດ​ຣ້າຍ​ຖືກ​ຟໍ​ແມັດ ເພື່ອ​ເຮັດ​ໃຫ້​ມັນ​ປອດ​ໄພ. ຫຼັງ​ຈາກ​ທຳ​ການ​ຟໍ​ແມັດ​ໄດ້​ຢ່າງ​ປອດ​ໄພ​ແລ້ວ, ດ​ຣ້າຍ​ນີ້​ຈະ​ເຮັດ​ວຽກ​ກັບ​ແຕ່​ອຸ​ປະ​ກອນ​ນີ້​ເທົ່າ​ນັ້ນ. ການ​ຟໍ​ແມັດ​ແມ່ນ​ຈະ​ລຶບ​ທຸກ​ຂໍ້​ມູນ​ທີ່​ເກັບ​ໄວ້​ຢູ່​ໃນ​ດ​ຣ້າຍ​ໃນ​ປະ​ຈຸ​ບັນ. ເພື່ອ​ຫຼີກ​ເວັ້ນ​ການ​ເສຍ​ຂໍ້​ມູນ, ໃຫ້​ທຳ​ການ​ສຳ​ຮອງ​ມັນ​ໄວ້​ກ່ອນ."</string>
+    <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"ລຶບ ແລະ​ຟໍ​ແມັດ"</string>
+    <string name="storage_wizard_format_as_public_description" msgid="8591201523650249337">"ຫຼັງ​ຈາກ​ການ​ຟໍ​ແມັດ, ທ່ານ​ສາ​ມາດ​ໃຊ້ USB ດ​ຣ້າຍ​ນີ້​ຢູ່​ໃນ​ອຸ​ປະ​ກອນ​ອື່ນ​ໄດ້. ທຸກ​ຂໍ້​ມູນ​ຈະ​ຖືກ​ລຶບ. ໃຫ້​ຄິດ​ສຳ​ຮອງ​ໄວ້​ກ່ອນ ໂດຍ​ການ​ຍ້າຍ​ແອັບ​ໄປ​ຫາ​ບ່ອນ​ຈັດ​ເກັບ​ພາຍ​ໃນ​ອັນ​ອື່ນ."</string>
+    <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"ກຳ​ລັງ​ຟໍ​ແມັດ USB ດ​ຣ້າຍ…"</string>
+    <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"ອັນ​ນີ້​ອາດ​ຈະ​ໃຊ້​ເວ​ລາ​ຈັກ​ໜ້ອຍ. ກະ​ລຸ​ນາ​ຢ່າ​ເອົາ​ມັນ​ອອກ​ໄປ​ຈາກດ​ຣ້າຍ."</string>
+    <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"ຍ້າຍ​ຂໍ້​ມູນ​ໄປ​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"ຍ້າຍ​ຮູບ, ໄຟ​ລ໌ ແລະ ຂໍ້​ມູນ​ແອັບ​ຂອງ​ທ່ານ​ໄປ​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g>. ອັນ​ນີ້​ອາດ​ຈະ​ໃຊ້​ເວ​ລາ​ສອງ​ສາມ​ນາ​ທີ. ບາງ​ແອັບ​ຈະ​ບໍ່​ເຮັດ​ວຽກ​ຢ່າງ​ຖືກ​ຕ້ອງ​ໃນ​ຂະ​ນະ​ທີ່​ຍ້າຍ."</string>
+    <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"ຍ້າຍ​ດຽວ​ນີ້"</string>
+    <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"ຍ້າຍ​ພາຍ​ຫຼັງ"</string>
+    <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"ຍ້າຍ​ຂໍ້​ມຸນ​ອອກ​ໄປ​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g> ແລ້ວ"</string>
+    <string name="storage_wizard_migrate_toast_failure" msgid="6452532191705420237">"ບໍ່​ສາ​ມາດ​ຍ້າຍ​ຂໍ້​ມູນ​ອອກ​ໄປ​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g> ໄດ້"</string>
+    <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"ກຳ​ລັງ​ຍ້າຍ​ຂໍ້​ມູນ​ໄປ​ໃສ່ <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"ອັນ​ນີ້​ອາດ​ຈະ​ໃຊ້​ເວ​ລາ​ຈັກ​ໜ້ອຍ. ກະ​ລຸ​ນາ​ຢ່າ​ເອົາ​ມັນ​ອອກ​ໄປ​ຈາກດ​ຣ້າຍ.\nບາງ​ແອັບ​ຈະ​ບໍ່​ເຮັດ​ວຽກ​ຢ່າງ​ຖືກ​ຕ້ອງ​ໃນ​ຂະ​ນະ​ທີ່​ຍ້າຍ."</string>
+    <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"ປະ​ກົດ​ວ່າ​ດ​ຣ້າຍ​ນີ້​ຊ້າ."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"ທ່ານ​ສາ​ມາດ​ສືບ​ຕໍ່​ໄດ້, ແຕ່​ແອັບ​ທີ່​ຖືກ​ຍ້າຍ​ໄປ​ຫາ​ທີ່​ຕັ້ງ​ນີ້​ແລ້ວ​ອາດ​ຈະ​ເປັນ​ກະ​ຕຸ​ກະ​ຕັກ ແລະ​ການ​ໂອນ​ຂໍ້​ມູ​ນ​ອາດ​ຈະ​ໃຊ້​ເວ​ລາ​ດົນ. ພິ​ຈາ​ລະ​ນາ​ໃຊ້ທີ່​ໄວ​ກ່​ວາ ເພື່ອ​ໃຫ້​ມີ​ການ​ປະ​ຕິ​ບັດ​ໄດ້​ໄວ​ກ່​ວາ."</string>
+    <string name="storage_wizard_format_action" msgid="3986485572528374905">"ຟໍແມັດ"</string>
+    <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"ສຳ​ຮອງ​ແອັບ"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"ແອັບ​ເກັບ​ໄວ້​ຢູ່​ໃນ <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"ແອັບ ແລະ​ຂໍ້​ມູນ​ເກັບ​ໄວ້​ຢູ່​ໃນ <xliff:g id="NAME">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"ໃຊ້​ໄດ້​ອີກ <xliff:g id="SIZE">%1$s</xliff:g>"</string>
+    <string name="storage_wizard_eject_internal_title" msgid="3717872796166039893">"ຖອດບ່ອນຈັດເກັບພາຍໃນ​ອອກ"</string>
+    <string name="storage_wizard_eject_internal_description" msgid="6107781224687080575">"ແອັບ​ຢູ່​ໃນ​ບ່ອນ​ຈັດ​ເກັບ​ຂໍ້​ມູນອຸ​ປະ​ກອນ​ນີ້ຈະ​ຢຸດ​ເຮັດ​ວຽກ ເມື່ອ​ມັນ​ຖືກ​ດີດ​ອອກ. USB ດ​ຣ້າຍນີ້​ຖືກ​ຟໍ​ແມັດ ເພື່ອ​ໃຫ້​ເຮັດ​ວຽກ​ຢູ່​ໃນ​ອຸ​ປະ​ກອນ​ນີ້​ເທົ່າ​ນັ້ນ. ມັນ​ຈະ​ບໍ່​ເຮັດ​ວຽກ​ຢູ່​ໃນ​ອຸ​ປະ​ກອນ​ອື່ນ."</string>
+    <string name="sotrage_wizard_eject_progress_title" msgid="8034235439954334978">"ກຳລັງເອົາອອກ <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_title" msgid="37057801779891287">"ບ່ອນ​ຈັດ​ເກັບ​ຂໍ້​ມູນ​ໃຊ້​ແລ້ວ"</string>
+    <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"ກຳ​ລັງ​ຍ້າຍ <xliff:g id="NAME">%1$s</xliff:g>…"</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"ຢ່າ​ເອົາ​ດ​ຣ້າຍ​ອອກ​ໄປ​ໃນ​ລະ​ຫວ່າງ​ການ​ຍ້າຍ.\nແອັບ <xliff:g id="APPNAME">%1$s</xliff:g> ຢູ່​ໃນ​ອຸ​ປະ​ກອນ​ນີ້​ຈະ​ບໍ່​ມີ​ໃຫ້​ຈົນ​ກ່​ວາ​ການ​ຍ້າຍ​ສຳ​ເລັດ."</string>
+    <string name="storage_wizard_forget_confirm_title" msgid="1183642893909026951">"ລືມບ່ອນເກັບຂໍ້ມູນພາຍໃນເຄື່ອງ?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"ທຸກຂໍ້ມູນຂອງທ່ານທີ່ເກັບໄວ້ໃນດຣາຍນີ້ຈະເສຍໄປຕະຫຼອດການ ດ້ວຍ \'ລືມ\'. ທ່ານຕ້ອງການດຳເນີນຕໍ່ບໍ?"</string>
+    <string name="storage_wizard_forget_action" msgid="2532812620271112355">"ລືມ"</string>
+    <string name="storage_new_title" msgid="3098495209500607438">"USB ດ​ຣ້າຍ​ເຊື່ອມ​ຕໍ່​ແລ້ວ"</string>
+    <string name="storage_new_action_browse" msgid="9041125660441839453">"ທ່ອງ​ເນັດ"</string>
+    <string name="storage_new_action_adopt" msgid="1903427557119380415">"ຕັ້ງ​ເປັນ​ບ່ອນ​ຈັດ​ເກັບ​ພາຍ​ໃນ"</string>
+    <string name="storage_new_action_format_public" msgid="5604328981214071670">"ຕັ້ງ​ເປັນ​ບ່ອນ​ຈັດ​ເກັບ​ຖອດ​ອອກ​ໄດ້"</string>
+    <string name="storage_new_action_eject" msgid="4069294152676217949">"ເອົາອອກ"</string>
+    <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> ຖືກ​ເອົາ​ອອກ​ໄປ​ແລ້ວ"</string>
+    <string name="storage_missing_description" msgid="8400374014342069781">"ບາງ​ແອັບ​ຈະ​ບໍ່​ມີ ຫຼື ບໍ່​ຟັງ​ຄ໌​ຊັນ​ໄດ້​ຖືກ​ຕ້ອງ​ຈົນ​ກ່​ວາ​ເຊື່ອມ​ຕໍ່​ດ​ຣ້າຍ​ເວີ​ຄືນ​ໃໝ່​ແລ້ວ."</string>
+    <string name="insufficient_storage" msgid="5670157010939153746">"ພື້ນທີ່ຈັດເກັບຂໍ້ມູນບໍ່ພຽງພໍ."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"ບໍ່ມີແອັບຯ."</string>
+    <string name="app_forward_locked" msgid="6078781450044847966">"ແອັບຯຖືກປ້ອງກັນການສຳເນົາ."</string>
+    <string name="invalid_location" msgid="5269044848535157307">"ບ່ອນຕິດຕັ້ງບໍ່ຖືກຕ້ອງ."</string>
+    <string name="system_package" msgid="9200255718634512790">"ການອັບເດດລະບົບ ບໍ່ສາມາດຖືກຕິດຕັ້ງໃສ່ບ່ອນຈັດເກັບຂໍ້ມູນພາຍນອກໄດ້."</string>
+    <string name="learn_more_action" msgid="7015991954404958779">"ຮຽນຮູ້ເພີ່ມ​ເຕີມ"</string>
     <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"ລອງໃໝ່"</string>
     <string name="wifi_wps_title" msgid="1872305810119408482">"ກຳ​ລັງ​ຊອກ​ຫາເຣົາ​ເຕີ WPS…"</string>
     <string name="wifi_wps_instructions" msgid="3618110962669110034">"ກົດ​ປຸ່ມ Wi-Fi Protected Setup ໃນ​ເຣົາ​ເຕີ​ຂອງ​ທ່ານ.\nມັນ​ອາດ​ຂຽນ​ໄວ້​ວ່າ \"WPS\" ຫຼື​ເປັນ​ຮູບ​ສັນ​ຍາ​ລັກ​ທາງ​ຊ້າຍ."</string>
     <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"ໃສ່ລະຫັດ PIN <xliff:g id="NUMBER">%1$s</xliff:g> ໃນ Wi-Fi router ຂອງທ່ານ"</string>
     <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"ຫຼັງຈາກ​ທີ່ໃສ່​ລະຫັດ PIN, ການຕັ້ງ​ຄ່າອາດ​ຈະໃຊ້​ເວລາ​ຮອດ 2 ນາທີ"</string>
-    <string name="wifi_wps_in_progress" msgid="7082889465182680949">"WPS ກຳລັງ​ເຮັດວຽກ​ຢູ່ ແລະ ອາດ​ຈະໃຊ້​ເວລາເຖິງ 2 ນາທີ​ ຈຶ່ງ​ຈະສຳເລັດ"</string>
     <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"​ບໍ່​ສາ​ມາດ​ຊອກ​ເຫັນ Wi-Fi router"</string>
     <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"ບໍ່​ຮອງ​ຮັບການຕັ້ງ​ຄ່າຄວາມ​ປອດໄພ Wi-Fi (WEP)"</string>
     <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"ບໍ່​ຮອງ​ຮັບການຕັ້ງ​ຄ່າຄວາມ​ປອດໄພ Wi-Fi (TKIP)"</string>
@@ -266,17 +289,14 @@
     <string name="system_set_date" msgid="2437586307768561116">"ຕັ້ງວັນທີ"</string>
     <string name="system_set_time" msgid="4661804115501057452">"ກໍານົດເວລາ"</string>
     <string name="system_set_time_zone" msgid="8239601932757697259">"​ຕັ້ງເຂດເວລາ"</string>
+    <string name="desc_set_time_zone" msgid="2948629174438460709">"<xliff:g id="OFFSET">%1$s</xliff:g>, <xliff:g id="NAME">%2$s</xliff:g>"</string>
     <string name="system_set_time_format" msgid="4447882066895090612">"ໃຊ້ຮູບແບບ 24 ຊົ່ວໂມງ"</string>
+    <string name="desc_set_time_format" msgid="3131006238681763219">"<xliff:g id="STATE">%1$s</xliff:g> (<xliff:g id="SAMPLE">%2$s</xliff:g>)"</string>
     <string name="system_auto_date_time" msgid="3629668599205033272">"ວັນທີ &amp; ເວລາອັດຕະໂນມັດ"</string>
     <string name="desc_auto_date_time" msgid="6997571927680580633">"ໃຊ້​ເວ​ລາ​ຈາກ​ເຄືອ​ຂ່າຍ"</string>
     <string name="system_location" msgid="502463575930545806">"ສະຖານທີ່"</string>
     <string name="system_desc_location" msgid="4243551425631207495">"ໃຫ້​ແອັບຯ​ທີ່​ໄດ້​ຂໍ​ການ​ອະ​ນຸ​ຍາດ​ຈາກ​ທ່ານ​ແລ້ວ​ສາ​ມາດ​ໃຊ້​ຂໍ້​ມູນ​ສະ​ຖານ​ທີ່​ຂອງ​ທ່ານ​ໄດ້"</string>
-    <string name="system_network_location" msgid="3095006393148731886">"ສະ​ຖານ​ທີ່​ເຄືອ​ຂ່າຍ Wi-Fi"</string>
-    <string name="system_desc_network_location" msgid="3394374680078903193">"ໃຫ້ Google ຊ່ວຍ​ຊອກ​ຫາ​ສະ​ຖານ​ທີ່. ນີ້​ໝາຍ​ເຖິງ​ການ​ສົ່ງ​ຂໍ້​ມູນ​ສະ​ຖານ​ທີ່​ທີ່ບໍ່​ລະ​ບຸ​ໂຕ​ຕົນ​ໄປ​ໃຫ້ Google, ເຖິງ​ແມ່ນ​ວ່າ​ຈະ​ບໍ່​ມີ​ແອັບຯ​ເປີດ​ໃຊ້​ຢູ່​ກໍ​ຕາມ."</string>
     <string name="system_network_location_confirm" msgid="8435144328428634060">"ການ​ຍິນຍອມ​ກ່ຽວກັບ​ສະຖານທີ່"</string>
-    <string name="system_desc_network_location_confirm" msgid="3929125496258579850">"ອະນຸຍາດ​ໃຫ້​ບໍລິການ​ສະຖານທີ່​ຂອງ Google ເກັບກ​ຳຂໍ້ມູນ​ສະຖານທີ່​ໄດ້ ໂດຍ​ບໍ່​ລະບຸ​ໂຕຕົນ​ຂອງ​ທ່ານ. ບາງ​ຂໍ້ມູນ​ອາດ​ຖືກ​ເກັບ​ໄວ້​ໃນ​ອຸປະກອນ​ຂອງ​ທ່ານ. ການ​ເກັບ​ກຳ​ຂໍ້ມູນ​ນັ້ນ​ຈະ​ເກີດ​ຂຶ້ນ​ໄດ້ ເຖິງ​ແມ່ນ​ວ່າ​ຈະ​ບໍ່​ມີ​ແອັບ​ພລິເຄຊັນ​ໃດ​ເຮັດ​ວຽກ​ຢູ່​ກໍ​ຕາມ."</string>
-    <string name="location_title" msgid="7600163182794860262">"ຂໍ້​ມູນສະ​ຖານ​ທີ່​ຂອງ​ຂ້ອຍ"</string>
-    <string name="header_category_system" msgid="3243287334177831637">"ລະບົບ"</string>
     <string name="location_mode_title" msgid="6573195849329396150">"ໂຫມດ"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"ການ​ຮ້ອງ​ຂໍ​ຂໍ້​ມູ​ນ​ສະ​ຖານ​ທີ່ຫຼ້າ​ສຸດ"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"ບໍ່​ມີ​ແອັບຯ​ໃດ​ທີ່​ຂໍ​ຂໍ້​ມູນ​ສະ​ຖານ​ທີ່​ເມື່ອ​ໄວໆ​ນີ້"</string>
@@ -318,9 +338,7 @@
     <string name="captions_textopacity" msgid="5536765490446288641">"ຄວາມໂປ່ງແສງຂອງຂໍ້ຄວາມ"</string>
     <string name="captions_windowcolor" msgid="8986165172260903279">"ສີຂອງໜ້າຈໍ"</string>
     <string name="captions_windowopacity" msgid="2784473496224936703">"ຄວາມ​ເຂັ້ມ​ຂອງ​ສີ​ໜ້າຈໍ"</string>
-    <string name="color_none" msgid="5281446963475996688">"ບໍ່ມີ"</string>
     <string name="color_white" msgid="65537523012024751">"ສີຂາວ"</string>
-    <string name="color_gray" msgid="5637299846460438696">"ເທົາ"</string>
     <string name="color_black" msgid="8804213372565106403">"ດຳ"</string>
     <string name="color_red" msgid="5630553203246525989">"ແດງ"</string>
     <string name="color_green" msgid="3745551274773976763">"ຂຽວ"</string>
@@ -346,8 +364,6 @@
     <string name="system_drawing" msgid="6573389872154957039">"ການແຕ້ມ"</string>
     <string name="system_monitoring" msgid="8424072546138094053">"ກຳລັງກວດສອບ"</string>
     <string name="system_apps" msgid="6293850468968494924">"ແອັບຯ"</string>
-    <string name="system_take_bug_report" msgid="3550575498907672342">"ຈົດ​ລາຍງານ​ຂໍ້​ບົກພ່ອງ"</string>
-    <string name="system_backup_password" msgid="6622796686823406402">"ລະ​ຫັດ​ຜ່ານ​ສຳ​ຮອງ"</string>
     <string name="system_stay_awake" msgid="1212296404230848490">"ເປີດໜ້າຈໍຕະຫຼອດ"</string>
     <string name="system_hdcp_checking" msgid="8470793875143334320">"ການກວດສອບ HDCP"</string>
     <string name="system_hdmi_optimization" msgid="9120919064234265144">"ການ​ປັບ​ແຕ່ງ HDMI"</string>
@@ -383,8 +399,6 @@
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"ບໍ່ຕ້ອງ​ຮັກສາ​ການ​ເຮັດວຽກ"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"ການ​ຈຳ​ກັດ​ໂປຣ​ເຊສ​ໃນ​ພື້ນຫຼັງ"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"ສະ​ແດງ ANRs ທັງ​ຫມົດ"</string>
-    <string name="system_desc_take_bug_report" msgid="1627218971851223147">"​ສົ່ງ​ລາຍ​ງານ​ໄປ​ຫາ​ທີ່​ຢູ່​ອີ​ເມວ"</string>
-    <string name="system_desc_backup_password" msgid="6454962099870874762">"ປົກ​ປ້ອງ​ການ​ສຳ​ຮອງ​ຂໍ້​ມູນ​ເດັກ​ສະ​ທັອບ​ເຕັມ​ຮູບ​ແບບ"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"​ປິດ​ນຳ​ໃຊ້​ການ​ປິດ​ໜ້າ​ຈໍ"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"ໃຊ້​ສຳ​ລັບເນື້ອ​ຫາ DRM ເທົ່າ​ນັ້ນ"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"ປັບແຕ່ງ​ຫນ້າຈໍເພື່ອ​ຄວາມລະອຽດ​ສູງສຸດ ຫຼືຄວາມ​ໄວສູງສຸດ ມັນຈະ​ສາມາດ​ໃຊ້ໄດ້​ກັບຈໍ Ultra HD ເທົ່ານັ້ນ. ການປ່ຽນ​ແປງການ​ຕັ້ງຄ່ານີ້​ຈະປິດອຸ​ປະກອນຂອງ​ທ່ານແລ້ວ​ເປີດໃຫມ່."</string>
@@ -399,7 +413,6 @@
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"ກະພິບ​ໜ້າ​ຈໍ​ເມື່ອ​ມີ​ແອັບຯ ເຮັດ​ວຽກ​ດົນ​ເກີນ​ໄປ​ໃນ​ເທຣດ​ຫຼັກ"</string>
     <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"ການ​ວາງ​ຊ້ອນ​ໜ້າຈໍ​ທີ່​ສະແດງ​ການ​ນຳ​ໃຊ້ CPU ໃນ​ປັດຈຸບັນ"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"ວັດແທກ​ໄລຍະ​ເວລາ​ສະແດງ​ຜົນ​ໃນ adb shell"</string>
-    <string name="normal_date_format" msgid="4118071594685269322">"ທ້ອງຖິ່ນ (<xliff:g id="DATE">%s</xliff:g>)"</string>
     <string name="action_on_title" msgid="6852389884236870765">"ເປີດ"</string>
     <string name="action_off_title" msgid="3157728958166559966">"ປິດ"</string>
     <string name="action_on_description" msgid="4559342592998850852">"ເປີດ"</string>
@@ -411,68 +424,38 @@
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"​ອຸ​ປະ​ກອນ​ ແລະ​ຂໍ້​ມູນ​ສ່ວນ​ໂຕ​ຂອງ​ທ່ານ​ຈະ​ມີ​ຄວາມ​ສ່ຽງ​ຕໍ່​ການ​ຖ​ືກ​ໂຈມ​ຕີຫຼາຍ​ຂຶ້ນ​ໂດຍ​ແອັບຯ​ຈາກ​ແຫລ່ງ​ທີ່ບໍ່​ຮູ້​ຈັກ. ທ່ານຍອມ​ຮັບ​ວ່າ​ຈະ​ຮັບ​ຜິດ​ຊອບ​ຕໍ່​ຄວາມ​ເສຍ​ຫາຍ​ໃດໆ ຕໍ່​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ ຫຼື​ການ​ສູນ​ເສຍ​ຂອງ​ຂໍ້​ມູນ​ທີ່​​ອາດ​ເປັນ​ຜົນ​ມາ​ຈາກ​ການ​ນຳ​​ໃຊ້​ແອັບຯ​ເຫຼົ່າ​ນີ້​ແຕ່​ພຽງ​ຜູ່​ດຽວ."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"ຢືນຢັນແອັບຯ"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"ບໍ່​ອະນຸຍາດ ຫຼື​ແຈ້ງເຕືອນ​ກ່ອນ​ການ​ຕິດຕັ້ງ​ແອັບຯ ທີ່​ອາດ​ກໍ່​ໃຫ້​ເກີດ​ບັນຫາ"</string>
-  <string-array name="hdcp_checking_summaries">
-    <item msgid="28682351350387246">"ບໍ່​ມີ​ປິດ"</item>
-    <item msgid="5583820743908145007">"ຈາກເນື້ອຫາ DRM"</item>
-    <item msgid="6148080515126921450">"ທຸກ​ເທື່ອ"</item>
-  </string-array>
+    <string name="system_hdcp_checking_never" msgid="1758043078676276985">"​ບໍ່​ເລີຍ"</string>
+    <string name="system_hdcp_checking_drm" msgid="8563220452241389905">"ຈາກເນື້ອໃນ DRM"</string>
+    <string name="system_hdcp_checking_always" msgid="7264575337360957746">"​ທຸກ​ເທື່ອ"</string>
+    <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"ຄວາມ​ລະ​ອຽດ​ທີ່​ສ​ຸດ"</string>
+    <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"ເຟ​ຣມ​ເມີ​ເຣດ​ດີ​ທີ່​ສຸດ"</string>
+    <string name="system_hw_overdraw_off" msgid="8790815645038325739">"ປິດ"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"ສະແດງຂອບເຂດການແຕ້ມທັບ"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"ສະແດງເຄື່ອງ​ນັບ​ການ​ແຕ້ມ​ທັບ"</string>
     <string name="no_application" msgid="1746564297589309465">"ບໍ່ມີຫຍັງ"</string>
-  <string-array name="enable_opengl_traces_entries">
-    <item msgid="7803412455089800607">"ບໍ່ມີ"</item>
-    <item msgid="1284340221135955876">"Logcat"</item>
-    <item msgid="5054298948370382226">"Systrace (ກຣາບຟິກ)"</item>
-    <item msgid="6650537879885155020">"Call stack ໃນ glGetError"</item>
+    <string name="enable_opengl_traces_none" msgid="6074804146602749420">"ບໍ່ມີ"</string>
+  <string-array name="animation_scale_entries">
+    <item msgid="7477134110460336436">"ອະ​ນິ​ເມ​ຊັນ​ປິດ"</item>
+    <item msgid="8327257151534006014">"ຂະໜາດອະນິເມຊັນ .5x"</item>
+    <item msgid="2105786719544636780">"ຂະໜາດອະນິເມຊັນ 1x"</item>
+    <item msgid="5290554136790336403">"ຂະໜາດອະນິເມຊັນ 1.5x"</item>
+    <item msgid="1232929590838082483">"ຂະໜາດອະນິເມຊັນ 2x"</item>
+    <item msgid="1889239009419613796">"ຂະໜາດອະນິເມຊັນ 5x"</item>
+    <item msgid="7268894934484547297">"ຂະໜາດອະນິເມຊັນ 10x"</item>
   </string-array>
-  <string-array name="window_animation_scale_entries">
-    <item msgid="258143468897415016">"ປິດອະນິເມຊັນ"</item>
-    <item msgid="5618283113978106483">"ຂະໜາດອະນິເມຊັນ .5x"</item>
-    <item msgid="397451685490290179">"ຂະໜາດອະນິເມຊັນ 1x"</item>
-    <item msgid="6331600473492644688">"ຂະໜາດອະນິເມຊັນ 1.5x"</item>
-    <item msgid="7004952449777104295">"ຂະໜາດອະນິເມຊັນ 2x"</item>
-    <item msgid="1063528777234221038">"ຂະໜາດອະນິເມຊັນ 5x"</item>
-    <item msgid="6926378938392529339">"ຂະໜາດອະນິເມຊັນ 10x"</item>
-  </string-array>
-  <string-array name="transition_animation_scale_entries">
-    <item msgid="5604755386232556553">"ປິດອະນິເມຊັນ"</item>
-    <item msgid="5578331490208019526">"ຂະໜາດອະນິເມຊັນ .5x"</item>
-    <item msgid="5338802612080069593">"ຂະໜາດອະນິເມຊັນ 1x"</item>
-    <item msgid="1309704285131661878">"ຂະໜາດອະນິເມຊັນ 1.5x"</item>
-    <item msgid="5654221040036850960">"ຂະໜາດອະນິເມຊັນ 2x"</item>
-    <item msgid="6092484055733043622">"ຂະໜາດອະນິເມຊັນ 5x"</item>
-    <item msgid="4049359393103906268">"ຂະໜາດອະນິເມຊັນ 10x"</item>
-  </string-array>
-  <string-array name="animator_duration_scale_entries">
-    <item msgid="6966595852691619795">"ປິດອະນິເມຊັນ"</item>
-    <item msgid="1302400121783768928">"ຂະໜາດອະນິເມຊັນ .5x"</item>
-    <item msgid="9088460595137551270">"ຂະໜາດອະນິເມຊັນ 1x"</item>
-    <item msgid="5640745580399155880">"ຂະໜາດອະນິເມຊັນ 1.5x"</item>
-    <item msgid="3320199023884342141">"ຂະໜາດອະນິເມຊັນ 2x"</item>
-    <item msgid="5620232666163371843">"ຂະໜາດອະນິເມຊັນ 5x"</item>
-    <item msgid="8580701701183364590">"ຂະໜາດອະນິເມຊັນ 10x"</item>
-  </string-array>
-  <string-array name="track_frame_time_entries">
-    <item msgid="3161533682947406047">"ປິດ"</item>
-    <item msgid="6446688182396957172">"ເປັນແຖບເທິງໜ້າຈໍ"</item>
-    <item msgid="9080500692341488612">"ໃນ adb shell dumpsys gfxinfo"</item>
-  </string-array>
-  <string-array name="app_process_limit_entries">
-    <item msgid="9052853079905663082">"ຂີດຈຳກັດມາດຕະຖານ"</item>
-    <item msgid="6534728802931195545">"ບໍ່ມີໂປຣເຊສພື້ນຫຼັງ"</item>
-    <item msgid="290172167371846384">"ຫຼາຍສຸດ 1 ໂປຣເຊສ"</item>
-    <item msgid="4818593824413771192">"ຫຼາຍສຸດ"</item>
-    <item msgid="8337569181800165433">"ຫຼາຍສຸດ 3 ໂປຣເຊສ"</item>
-    <item msgid="8261219565766202947">"ສູງສຸດ 4 ໂປຣເຊສ"</item>
-  </string-array>
-  <string-array name="tts_rate_entries">
-    <item msgid="6425501867101281228">"ຊ້າຫຼາຍ"</item>
-    <item msgid="3458529225374884970">"​ຊ້າ"</item>
-    <item msgid="4131204219571166311">"ປານກາງ"</item>
-    <item msgid="786682416218616624">"ໄວ"</item>
-    <item msgid="1708844147149066133">"ໄວຫຼາຍ"</item>
-  </string-array>
-    <string name="choose_account_type_title" msgid="34004552592079689">"ເລືອກປະເພດບັນຊີ"</string>
-    <string name="choose_account_title" msgid="6672090823838639972">"ເລືອກບັນຊີ"</string>
-    <string name="add_account_button_label" msgid="7950769159839284068">"ເພີ່ມບັນຊີໃໝ່"</string>
+    <string name="track_frame_time_off" msgid="5050360262132715904">"ປິດ"</string>
+    <string name="track_frame_time_bars" msgid="4470692840177888414">"ຢູ່​ເທິງ​ໜ້າ​ຈໍ​ເປັນ​ແຖບ"</string>
+    <string name="app_process_limit_standard" msgid="8878199798843299844">"ຂີດຈຳກັດມາດຕະຖານ"</string>
+    <string name="app_process_limit_zero" msgid="2667197109226789876">"ບໍ່​ມີ​ຂະ​ບວນ​ການ​ພື້ນ​ຫຼັງ"</string>
+    <string name="app_process_limit_one" msgid="6417937037944753355">"ເກືອບ​ທັງ​ໝົດ​ 1 ຂ​ະ​ບວນ​ການ"</string>
+    <string name="app_process_limit_two" msgid="1067649339026655778">"ເກືອບ​ທັງ​ໝົດ​ 2 ຂ​ະ​ບວນ​ການ"</string>
+    <string name="app_process_limit_three" msgid="7234034351975161398">"ເກືອບ​ທັງ​ໝົດ​ 3 ຂ​ະ​ບວນ​ການ"</string>
+    <string name="app_process_limit_four" msgid="8907156918309381955">"ເກືອບ​ທັງ​ໝົດ​ 4 ຂ​ະ​ບວນ​ການ"</string>
+    <string name="tts_rate_very_slow" msgid="3572500793504698102">"ຊ້າຫຼາຍ"</string>
+    <string name="tts_rate_slow" msgid="4826007209157112605">"ຊ້າ"</string>
+    <string name="tts_rate_normal" msgid="362011908545519639">"​ປົກ​ກະ​ຕິ"</string>
+    <string name="tts_rate_fast" msgid="3792863158623953072">"ໄວ"</string>
+    <string name="tts_rate_very_fast" msgid="5876670536911919074">"ໄວຫຼາຍ"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"ແປ້ນ​ພິມ​ປັດ​ຈຸ​ບັນ"</string>
     <string name="title_configure" msgid="6929522003149212388">"ປັບຄ່າ"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"ໂຕ​ເລືອກ​ແປ້ນ​ພິມ"</string>
@@ -481,9 +464,6 @@
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"ປ່ຽນຊື່"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"ຈໍສະແດງຜົນ Wi-Fi"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"ຕ້ອງ​ໃຊ້​ລະ​ຫັດ PIN"</string>
-    <string name="accessories_remote_list_title" msgid="3115459158860792046">"​ຂໍ້​ມູນ​ຣີ​ໂໝດ: <xliff:g id="SERIALNUMBER">%1$s</xliff:g>"</string>
-    <string name="system_collecting_bug_report" msgid="5923988155158351543">"ກຳ​ລັງ​ເກັບ​ກຳ​ລາຍ​ງານ​ຂໍ້​ຜິດ​ພາດ!\nພວກ​ເຮົາ​ຈະ​ຖາມ​ຂໍ້​ມູນ​ເພີ່ມ​ເຕີມ​ກັບ​ທ່ານ​ເມື່ອ​ລາຍ​ງານ​ພ້ອມ​ແລ້ວ."</string>
-    <string name="system_collecting_bug_report_error" msgid="1396108342854067722">"ບໍ່​ສາ​ມາດ​ເກັບ​ຂໍ້​ມູນ​ການ​ລາຍ​ງານ​ຂໍ້​ຜິດ​ພາດ​ໄດ້!\nກະ​ລຸ​ນາ​ລອງ​ໃໝ່​ໃນ​ພາຍຫຼັງ."</string>
     <string name="whichApplication" msgid="8382179653567099571">"​ດຳ​ເນີນ​ການ​ໂດຍ​ໃຊ້"</string>
     <string name="alwaysUseQuestion" msgid="7128459989232213727">"ໃຊ້​ໂຕ​ເລືອກ​ນີ້​ທຸກ​ຄັ້ງ​ສຳ​ລັບ​ຄຳ​ສັ່ງ​ນີ້?"</string>
     <string name="alwaysUseOption" msgid="1057645533268907906">"​ໃຊ້​ທຸກ​ເທື່ອ"</string>
@@ -508,48 +488,39 @@
     <string name="inputs_device_auto_off_desc" msgid="2679638131351116942">"ປິດ​ອຸ​ປະ​ກອນ HDMI ກັບ​ໂທ​ລະ​ພາບ"</string>
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"​ເປີດ​ໂທ​ລະ​ພາບ​ອັດ​ຕະ​ໂນ​ມັດ"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"ເປີດ​ໂທ​ລະ​ພາບ​ກັບ​ອຸ​ປະ​ກອນ HDMI"</string>
-  <plurals name="inputs_header_connected_input">
-    <item quantity="one" msgid="5569334300062609355">"ອິນພຸດ​ທີ່​ເຊື່ອມ​ຕໍ່​ແລ້ວ"</item>
-    <item quantity="other" msgid="280747600882155182">"ອິນພຸດ​ທີ່​ເຊື່ອມ​ຕໍ່​ແລ້ວ"</item>
-  </plurals>
-  <plurals name="inputs_header_standby_input">
-    <item quantity="one" msgid="737206065869471978">"ອິນພຸດ​ສະແຕນບາຍ"</item>
-    <item quantity="other" msgid="1673538341842385592">"ອິນພຸດ​ສະແຕນບາຍ"</item>
-  </plurals>
-  <plurals name="inputs_header_disconnected_input">
-    <item quantity="one" msgid="4711426139459946065">"ອິນພຸດ​ທີ່​ຍັງ​ບໍ່​ໄດ້​ເຊື່ອມ​ຕໍ່"</item>
-    <item quantity="other" msgid="4526893384805247472">"ອິນພຸດ​ທີ່​ຍັງ​ບໍ່​ໄດ້​ເຊື່ອມ​ຕໍ່"</item>
-  </plurals>
-    <string name="inputs_state_connected" msgid="2463661081264605403">"ເຊື່ອມ​ຕໍ່ແລ້ວ"</string>
-    <string name="inputs_state_connected_standby" msgid="2861557722523733817">"ສະແຕນບາຍ"</string>
-    <string name="inputs_state_disconnected" msgid="558532410057350104">"​ຕັດ​ການ​ເຊື່ອມ​ຕໍ່​ແລ້ວ"</string>
+    <plurals name="inputs_header_connected_input" formatted="false" msgid="4694899943180976672">
+      <item quantity="other">ການ​ປ້ອນ​ເຂົ້າ​ເຊື່ອ​ມ​ຕໍ່​ແລ້ວ</item>
+      <item quantity="one">ການ​ປ້ອນ​ເຂົ້າ​ເຊື່ອ​ມ​ຕໍ່​ແລ້ວ</item>
+    </plurals>
+    <plurals name="inputs_header_standby_input" formatted="false" msgid="1903575597797993135">
+      <item quantity="other">ການ​ປ້ອນ​ເຂົ້າ​ທີ່​ກຽມ​ພ້ອມ​ຢູ່</item>
+      <item quantity="one">ການ​ປ້ອນ​ເຂົ້າ​ທີ່​ກຽມ​ພ້ອມ​ຢູ່</item>
+    </plurals>
+    <plurals name="inputs_header_disconnected_input" formatted="false" msgid="2979766871256996256">
+      <item quantity="other">ການ​ປ້ອນ​ເຂົ້າ​ທີ່​ບໍ່​ໄດ້ເຊື່ອ​ມ​ຕໍ່</item>
+      <item quantity="one">ການ​ປ້ອນ​ເຂົ້າ​ທີ່​ບໍ່​ໄດ້ເຊື່ອ​ມ​ຕໍ່</item>
+    </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"​ຈຳ​ກັດ​ການ​ເຂົ້າ​ເຖິງ​ແອັບຯ ແລະ ເນື້ອ​ຫາ​ຕ່າງໆ​ໃນ​ບັນ​ຊີ​ຂອງ​ທ່ານ"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"ໂປຣໄຟລ໌​ຈຳກັດ"</string>
-    <string name="user_restrictions_title" msgid="8317193312532216351">"ແອັບຯ &amp; ການ​ເຂົ້າ​ເຖິງ​ເນື້ອ​ຫາ"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"​ຄວບ​ຄຸມ​ໂດຍ <xliff:g id="APP">%1$s</xliff:g>"</string>
     <string name="app_not_supported_in_limited" msgid="6818309827329010677">"ແອັບຯ​ນີ້​ບໍ່​ຮອງຮັບ​ການ​ນຳໃຊ້​ໃນ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
     <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"ແອັບຯ​ນີ້​ສາມາດ​ເຂົ້າເຖິງ​ບັນຊີ​ຂອງ​ທ່ານ​ໄດ້"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"ສະຖານທີ່"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"ໃຫ້​ແອັບຯ​ສາມາດ​ໃຊ້​ຂໍ້ມູນ​ສະຖານທີ່​ຂອງ​ທ່ານ​ໄດ້"</string>
-    <string name="restricted_profile_create" msgid="7081117593480952518">"ສ້າງ​ຜູ່ໃຊ້​ທີ່​ຖືກ​ຈຳກັດ"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"ເຂົ້າ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
     <string name="restricted_profile_switch_out" msgid="1893784095623209495">"ອອກ​ຈາກ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
     <string name="restricted_profile_delete_title" msgid="3445944923018324707">"ລຶບ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"ການ​ຕັ້ງ​ຄ່າ"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"ແອັບຯ​ທີ່​ອະນຸຍາດ"</string>
-  <plurals name="restricted_profile_configure_apps_description">
-    <item quantity="one" msgid="5114936540577834412">"ອະນຸຍາດ 1 ແອັບຯ"</item>
-    <item quantity="other" msgid="5242661864373721262">"ອະນຸຍາດ %d ແອັບຯ"</item>
-  </plurals>
+    <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
+      <item quantity="other">%d ແອັບ​ຯ​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ</item>
+      <item quantity="one">1 ແອັບ​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ</item>
+    </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"ອະນຸຍາດແລ້ວ"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"ບໍ່​ອະນຸຍາດ"</string>
     <string name="restricted_profile_customize_restrictions" msgid="8418415019078825537">"ປັບແຕ່ງ​ການ​ຈຳກັດ"</string>
     <string name="restricted_profile_configure_apps_description_loading" msgid="5269477581791409700">"ລໍ​ຖ້າ​ຈັກ​ໜ້ອຍ…"</string>
     <string name="restricted_profile_change_password_title" msgid="2848537651211816659">"​ປ່ຽນ​ລະ​ຫັດ PIN"</string>
-    <string name="restricted_profile_set_password" msgid="3989154189940037175">"ກຳນົດ​ລະຫັດ​ PIN ໃໝ່​ເພື່ອ​ໃຊ້​ອອກ​ຈາກ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
-    <string name="restricted_profile_confirm_password" msgid="5749967525546068650">"ຢືນຢັນ​ລະຫັດ PIN ທີ່​ໃຊ້​ເພື່ອ​ອອກ​ຈາກ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
-    <string name="restricted_profile_enter_password" msgid="5961473119032585585">"ໃສ່​ລະຫັດ PIN ທີ່​ໃຊ້​ເພື່ອ​ອອກ​ຈາກ​ໂປຣໄຟລ໌​ທີ່​ຖືກ​ຈຳກັດ"</string>
-    <string name="restricted_profile_delete_dialog_title" msgid="2998929625283492853">"ລຶບ​ຜູ່ໃຊ້​ທີ່​ຖືກ​ຈຳກັດບໍ?"</string>
     <string name="restriction_description" msgid="3104855945910233028">"<xliff:g id="DESCRIPTION">%1$s</xliff:g>\n<xliff:g id="VALUE">%2$s</xliff:g>"</string>
     <string name="pin_enter_unlock_channel" msgid="5980400420298506069">"ໃສ່​ລະຫັດ PIN ເພື່ອ​ເບິ່ງ​ຊ່ອງ​ນີ້"</string>
     <string name="pin_enter_unlock_program" msgid="52453773316071511">"ໃສ່​ລະຫັດ PIN ເພື່ອ​ເບິ່ງ​ລາຍການ​ນີ້"</string>
@@ -557,9 +528,74 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"ຕັ້ງ​ລະ​ຫັດ​ PIN ໃໝ່"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"ໃສ່​ລະ​ຫັດ PIN ໃໝ່​ຄືນ"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"ໃສ່​ລະ​ຫັດ PIN ເກົ່າ"</string>
-    <string name="pin_enter_wrong" msgid="5653864140710683928">"​ທ່ານ​ໄດ້​ປ້ອນ​ລະ​ຫັດ​ PIN ຜິດ 5.\nລອງ​ໃໝ່​ອີກ​ຄັ້ງ <xliff:g id="RELATIVE_TIME_SPAN">%1$s</xliff:g>."</string>
-    <string name="pin_button_done" msgid="939191809977197451">"ແລ້ວໆ"</string>
-    <string name="pin_button_cancel" msgid="5541414789309863965">"​ຍົກ​ເລີກ"</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"ທ່ານ​ໄດ້​ປ້ອນ​ລະ​ຫັດ PIN ຜິດ 5 ຄັ້ງແລ້ວ.\nກະ​ລຸ​ນາລອງ​ໃໝ່​ອີກໃນ <xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> ວິ​ນາ​ທີ."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"ລະຫັດ PIN ຜິດ, ກະລຸນາ​ລອງ​ໃໝ່"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"ລະ​ຫັດ PIN ບໍ່​ກົງ​ກັນ, ກະ​ລຸ​ນາ​ລອງ​ໃໝ່​ອີກ​ຄັ້ງ"</string>
+    <string name="wifi_setup_input_password" msgid="1596168874369038536">"ປ້ອນ​ລະ​ຫັດ​ຜ່ານ​ສຳ​ລັບ <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_connection_success" msgid="6262755735033937164">"ເຊື່ອມ​ຕໍ່​ສຳ​ເລັດ​ແລ້ວ."</string>
+    <string name="wifi_setup_save_success" msgid="4829154865874318015">"ບັນທຶກໄດ້ສຳເລັດ."</string>
+    <string name="device_apps_app_management_version" msgid="1004679024556315208">"ເວີ​ຊັນ <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
+    <string name="device_apps_app_management_open" msgid="8009823973422120839">"ເປີດ"</string>
+    <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"ບັງ​ຄັບ​ໃຫ້​ຢຸດ"</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"ຖ້າ​ທ່ານ​ບັ"</string>
+    <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"ຖອນ​ການ​ຕິດ​ຕັ້ງ"</string>
+    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"ທ່ານຕ້ອງການຖອນການຕິດຕັ້ງແອັບຯນີ້ບໍ່?"</string>
+    <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ຖອນການຕິດຕັ້ງອັບເດດ"</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"ການອັບເດດທັງໝົດທີ່ມີຂອງແອັບຯລະບົບ Android ນີ້ຈະຖືກຖອນການຕິດຕັ້ງ."</string>
+    <string name="device_apps_app_management_disable" msgid="6136528600052941589">"ປິດໃຊ້​ງານ"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"ທ່ານ​ຕ້ອງ​ການ​ປິດ​ໃຊ້​ງານ​ແອັບ​ຯນີ້​ບໍ?"</string>
+    <string name="device_apps_app_management_enable" msgid="3246823119203444608">"ເປີດໃຊ້ງານ"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"ທ່ານ​ຕ້ອງ​ການ​ເປີດ​ໃຊ້​ງານ​ແອັບ​ຯນີ້​ບໍ?"</string>
+    <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"ບ່ອນ​ຈັດ​ເກັບ​ຂໍ້​ມູນ​ໃຊ້​ແລ້ວ"</string>
+    <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="SIZE">%1$s</xliff:g> ໃຊ້​ແລ້ວ​ຢູ່​ໃນ <xliff:g id="VOLUME">%2$s</xliff:g>"</string>
+    <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"ລຶບຂໍ້ມູນ"</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"ຂໍ້ມູນທັງໝົດຂອງແອັບຯນີ້ຈະຖືກລຶບອອກຖາວອນ.\nອັນ​ນີ້​ລວມເຖິງໄຟລ໌, ການຕັ້ງຄ່າ, ບັນຊີ, ຖານຂໍ້ມູນ ແລະອື່ນໆທັງໝົດນຳ."</string>
+    <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"ລຶບຄ່າ​ເລີ່ມ​ຕົ້ນ"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"ຕັ້ງ​ເພື່ອ​ເປີດ​ໃຊ້​ແອັບຯ​ນີ້​ສຳ​ລັບ​ການ​ດຳ​ເນີນ​ການ​ບາງ​ອັນ"</string>
+    <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"ບໍ່​ໄດ້​ຕັ້ງ​ຄ່າ​ເລີ່ມ​ຕົ້ນ"</string>
+    <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"ລຶບລ້າງແຄ​ຊ໌"</string>
+    <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"ການແຈ້ງ​ເຕືອນ"</string>
+    <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"ການອະນຸຍາດ"</string>
+    <string name="settings_ok" msgid="3321630456511355983">"ຕົກລົງ"</string>
+    <string name="settings_cancel" msgid="304280412158061225">"​ຍົກ​ເລີກ"</string>
+    <string name="settings_on" msgid="6892236264945435013">"​ເປີດ"</string>
+    <string name="settings_off" msgid="449272161738237637">"ປິດ"</string>
+    <string name="device_daydreams_none" msgid="7364189761517824834">"ບໍ່ມີ"</string>
+    <string name="device_daydreams_select" msgid="3691552535056569158">"​ເດດ​ຣີມ"</string>
+    <string name="device_daydreams_test" msgid="9038920213402659591">"ເລີ່ມ​ຕົ້ນ​ດຽວ​ນີ້"</string>
+    <string name="device_daydreams_sleep" msgid="8766795993034660366">"ເມື່ອ​ໃດ​ຈະ​ເດດ​ຣີມ"</string>
+    <string name="device_daydreams_sleep_description" msgid="5269460120567642259">"ການ​ເດດ​ຣີມ​ເລີ່ມ​ຕົ້ນ​ຫຼັງ​ຈາກ​ໄລ​ຍະ​ການ​ຢູ່​ຊື່ໆ​ນີ້. ຖ້າ​ບໍ່​ໄດ້​ເລືອກ​ເດດ​ຣີມ​ໄວ້, ການ​ສະ​ແດງ​ຜົນ​ປິດ."</string>
+    <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"ຫຼັງ​ຈາກ <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> ການ​ຢູ່​ຊື່ໆ"</string>
+    <string name="device_daydreams_screen_off" msgid="5002473979169042970">"ເວ​ລາ​ຈະ​ຫຼັບ"</string>
+    <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"ປິດໜ້າ​ຈໍຫຼັງ​ຈາກໄລ​ຍະ​ທີ່​ຢູ່​ຊື່ໆ​ນີ້."</string>
+    <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"ບໍ່ມີບັນຊີໃດຈັດເກັບຂໍ້ມູນສຳຮອງໄວ້ໃນ​ປະ​ຈຸ​ບັນ"</string>
+    <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"​ຢຸດ​ການ​ສຳ​ຮອງ​ລະ​ຫັດ​ຜ່ານ Wi-Fi, ບຸກ​ມາກ​ສ໌, ການ​ຕັ້ງ​ຄ່າ​ອື່ນ, ແລະ​ຂໍ້​ມູນ​ແອັບຯ​ຂອງ​ທ່ານ, ແລະ​ລຶບ​ທຸກ​ສຳ​ເນົາ​ຢູ່​ໃນ​ເຊີບ​ເວີ Google?"</string>
+    <string name="privacy_backup_data" msgid="1796662583830120812">"ສຳຮອງຂໍ້ມູນຂອງຂ້ອຍ"</string>
+    <string name="privacy_backup_account" msgid="9059939814827165020">"ບັນ​ຊີ​ເກັບ​ສຳ​ຮອງ"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"ກູ້​ຄືນ​ອັດ​ຕະ​ໂນ​ມັດ"</string>
+    <string name="factory_reset_device" msgid="7422459553658815011">"ຕັ້ງອຸ​ປະ​ກອນຄືນ​ໃໝ່"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"​ອັນ​ນີ້​ອາດ​ຈະ​ລຶບ​ທຸກ​ຂໍ້​ມູນ​ຈາກ​ບ່ອນ​ຈັດ​ເກັບ​ຂອງ​ອຸ​ປະ​ກອນ​ຂອງ​ທ່ານ, ລວມ​ທັງ: ບັນ​ຊີ Google ຂອງ​ທ່ານ, ລະ​ບົບ ແລະ​ຂໍ້​ມູນ​ແອັບຯ ແລະ​ການ​ຕັ້ງ​ຄ່າ, ແລະ​ແອັບຯ​ທີ່​ດາວ​ໂຫຼດ​ແລ້ວ"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"ລຶບ​ຂໍ້​ມູນ​ສ່ວນຕົວ ແລະ​ແອັບຯ​ທີ່​ດາວ​ໂຫລດໄວ້​ທັງໝົດ​ບໍ່? ທ່ານ​ຈະ​ບໍ່​ສາມາດ​ເອົາ​ກັບ​ຄືນ​ມາ​ໄດ້​ອີກ!"</string>
+    <string name="confirm_factory_reset_device" msgid="8923287482399582268">"ລຶບທຸກສິ່ງທຸກຢ່າງ"</string>
+    <string name="select_title" msgid="3905067953686121845">"ເລືອກຊື່ສຳລັບ ^1 ຂອງທ່ານ"</string>
+    <string name="select_description" msgid="4070142015460337658">"ຊື່ທີ່ຈະ​ຊ່ວຍ​ລະບຸ ^1 ຂອງ​ທ່ານ​ໃນ​ເວລາ​ທີ່ເຂົ້າ​ນຳໃຊ້​ມັນຈາກ​ອຸປະກອນ​ອື່ນໆ​ ເຊັ່ນ: ໂທລະສັບ, ແທັບເລັດ ຫຼື ຄອມພິວ​ເຕີຂອງ​ທ່ານ."</string>
+  <string-array name="rooms">
+    <item msgid="7085399612393981553">"ຫ້ອງ​ຮັບ​ແຂກ"</item>
+    <item msgid="3722089849939477581">"ຫ້ອງ​ມີ​ເດຍ"</item>
+    <item msgid="6108590585438763574">"ຫ້ອງ​ຄອບ​ຄົວ"</item>
+    <item msgid="2581035245390468625">"ຫ້ອງ​ກິນ​ເຂົ້າ"</item>
+    <item msgid="3127487827308695324">"ຫ້ອງ​ນ້ອຍ"</item>
+    <item msgid="6172018430592195063">"ຫ້ອງນອນ"</item>
+    <item msgid="8120010459866284578">"ເຮືອນ​ຄົວ"</item>
+  </string-array>
+    <string name="custom_room" msgid="8991561978321502549">"ປ້ອນ​ຊື່​ກຳ​ນົດ​ເອງ…"</string>
+    <string name="settings_status_title" msgid="3890412726442124167">"^1 ຖືກຕັ້ງຊື່ແລ້ວ"</string>
+    <string name="settings_status_description" msgid="3600745966132434139">"\"^1\" ແມ່ນຊື່​ຂອງ ^2 ນີ້. ທ່ານ​ຕ້ອງການ​ປ່ຽນ​ແປງ​ມັນບໍ?"</string>
+    <string name="change_setting" msgid="2047402388786162246">"ປ່ຽນແປງ"</string>
+    <string name="keep_settings" msgid="6798327196645732517">"ຢ່າ​ປ່ຽນ​ແປງ"</string>
+    <string name="apps_permissions" msgid="1283592091618660965">"ການອະນຸຍາດ"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"ການ​ອະ​ນຸ​ຍາດ​ແອັບ"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> ໃນ <xliff:g id="COUNT_1">%d</xliff:g> ແອັບ​ໄດ້​ຮັບ​ອະ​ນຸ​ຍາດ​ແລ້ວ"</string>
+    <string name="security_patch" msgid="2131617390189164481">"ລະ​ດັບ​ບ່ອນ​ຄວາມ​ປອດ​ໄພ Android"</string>
 </resources>

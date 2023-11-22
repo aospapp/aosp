@@ -15,6 +15,8 @@
  *
  */
 
+#include <inttypes.h>
+
 #include <media/hardware/HardwareAPI.h>
 #include <system/graphics.h>
 #include "isv_bufmanager.h"
@@ -97,12 +99,15 @@ status_t ISVBuffer::initBufferInfo(uint32_t hackFormat)
     }
 
     if (STATUS_OK != mWorker->allocSurface(&mWidth, &mHeight, mStride, mColorFormat, mGrallocHandle, &mSurface)) {
-        ALOGE("%s: alloc surface failed, mGrallocHandle %p", __func__, mGrallocHandle);
+        ALOGE("%s: alloc surface failed, mGrallocHandle %lu", __func__, mGrallocHandle);
         return UNKNOWN_ERROR;
     }
 
-    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: mWidth %d, mHeight %d, mStride %d, mColorFormat %d, mGrallocHandle %p, mSurface %d",
-            __func__, mWidth, mHeight, mStride, mColorFormat, mGrallocHandle, mSurface);
+    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG,
+             "%s: mWidth %d, mHeight %d, mStride %d, mColorFormat %d, "
+             "mGrallocHandle %p, mSurface %d",
+            __func__, mWidth, mHeight, mStride, mColorFormat,
+            reinterpret_cast<void*>(mGrallocHandle), mSurface);
     return OK;
 }
 
@@ -165,13 +170,13 @@ status_t ISVBufferManager::freeBuffer(unsigned long handle)
         if (isvBuffer->getHandle() == handle) {
             delete isvBuffer;
             mBuffers.removeAt(i);
-            ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: remove handle 0x%08x, and then mBuffers.size() %d", __func__,
+            ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: remove handle 0x%08lx, and then mBuffers.size() %d", __func__,
                     handle, mBuffers.size());
             return OK;
         }
     }
 
-    ALOGW("%s: can't find buffer %u", __func__, handle);
+    ALOGW("%s: can't find buffer %lu", __func__, handle);
     return UNKNOWN_ERROR;
 }
 
@@ -184,7 +189,7 @@ status_t ISVBufferManager::useBuffer(unsigned long handle)
     for (uint32_t i = 0; i < mBuffers.size(); i++) {
         ISVBuffer* isvBuffer = mBuffers.itemAt(i);
         if (isvBuffer->getHandle() == handle) {
-            ALOGE("%s: this buffer 0x%08x has already been registered", __func__, handle);
+            ALOGE("%s: this buffer 0x%08lx has already been registered", __func__, handle);
             return UNKNOWN_ERROR;
         }
     }
@@ -193,8 +198,9 @@ status_t ISVBufferManager::useBuffer(unsigned long handle)
                                          mMetaDataMode ? ISVBuffer::ISV_BUFFER_METADATA : ISVBuffer::ISV_BUFFER_GRALLOC,
                                          mNeedClearBuffers ? ISVBuffer::ISV_BUFFER_NEED_CLEAR : 0);
 
-    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: add handle 0x%08x, and then mBuffers.size() %d", __func__,
-            handle, mBuffers.size());
+    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG,
+        "%s: add handle 0x%08lx, and then mBuffers.size() %d", __func__,
+        handle, mBuffers.size());
     mBuffers.push_back(isvBuffer);
     return OK;
 
@@ -209,7 +215,9 @@ status_t ISVBufferManager::useBuffer(const sp<ANativeWindowBuffer> nativeBuffer)
     for (uint32_t i = 0; i < mBuffers.size(); i++) {
         ISVBuffer* isvBuffer = mBuffers.itemAt(i);
         if (isvBuffer->getHandle() == (unsigned long)nativeBuffer->handle) {
-            ALOGE("%s: this buffer 0x%08x has already been registered", __func__, nativeBuffer->handle);
+            ALOGE(
+                "%s: this buffer 0x%08" PRIxPTR " has already been registered",
+                __func__, reinterpret_cast<uintptr_t>(nativeBuffer->handle));
             return UNKNOWN_ERROR;
         }
     }
@@ -221,8 +229,10 @@ status_t ISVBufferManager::useBuffer(const sp<ANativeWindowBuffer> nativeBuffer)
             mMetaDataMode ? ISVBuffer::ISV_BUFFER_METADATA : ISVBuffer::ISV_BUFFER_GRALLOC,
             mNeedClearBuffers ? ISVBuffer::ISV_BUFFER_NEED_CLEAR : 0);
 
-    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: add handle 0x%08x, and then mBuffers.size() %d", __func__,
-            nativeBuffer->handle, mBuffers.size());
+    ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG,
+             "%s: add handle 0x%08" PRIxPTR ", and then mBuffers.size() %d",
+             __func__, reinterpret_cast<uintptr_t>(nativeBuffer->handle),
+             mBuffers.size());
     mBuffers.push_back(isvBuffer);
     return OK;
 }

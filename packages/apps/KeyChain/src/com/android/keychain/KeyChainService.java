@@ -160,7 +160,7 @@ public class KeyChainService extends IntentService {
             if (!mKeyStore.put(Credentials.USER_CERTIFICATE + alias, userCertificate, -1,
                     KeyStore.FLAG_ENCRYPTED)) {
                 Log.e(TAG, "Failed to import user certificate " + userCertificate);
-                if (!mKeyStore.delKey(Credentials.USER_PRIVATE_KEY + alias)) {
+                if (!mKeyStore.delete(Credentials.USER_PRIVATE_KEY + alias)) {
                     Log.e(TAG, "Failed to delete private key after certificate importing failed");
                 }
                 return false;

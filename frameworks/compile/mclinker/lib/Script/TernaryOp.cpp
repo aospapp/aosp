@@ -6,19 +6,20 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-#include <mcld/Script/TernaryOp.h>
-#include <mcld/Script/Operand.h>
-#include <mcld/ADT/SizeTraits.h>
+#include "mcld/Script/TernaryOp.h"
 
-using namespace mcld;
+#include "mcld/ADT/SizeTraits.h"
+#include "mcld/Script/Operand.h"
+
+namespace mcld {
+
 //===----------------------------------------------------------------------===//
 // TernaryOp
 //===----------------------------------------------------------------------===//
-template<>
-IntOperand*
-TernaryOp<Operator::TERNARY_IF>::eval(const Module& pModule,
-                                      const TargetLDBackend& pBackend)
-{
+template <>
+IntOperand* TernaryOp<Operator::TERNARY_IF>::eval(
+    const Module& pModule,
+    const TargetLDBackend& pBackend) {
   IntOperand* res = result();
   if (m_pOperand[0]->value())
     res->setValue(m_pOperand[1]->value());
@@ -28,11 +29,10 @@ TernaryOp<Operator::TERNARY_IF>::eval(const Module& pModule,
 }
 
 /* DATA_SEGMENT_ALIGN(maxpagesize, commonpagesize) */
-template<>
-IntOperand*
-TernaryOp<Operator::DATA_SEGMENT_ALIGN>::eval(const Module& pModule,
-                                              const TargetLDBackend& pBackend)
-{
+template <>
+IntOperand* TernaryOp<Operator::DATA_SEGMENT_ALIGN>::eval(
+    const Module& pModule,
+    const TargetLDBackend& pBackend) {
   /* This is equivalent to either
        (ALIGN(maxpagesize) + (. & (maxpagesize - 1)))
      or
@@ -56,3 +56,4 @@ TernaryOp<Operator::DATA_SEGMENT_ALIGN>::eval(const Module& pModule,
   return res;
 }
 
+}  // namespace mcld

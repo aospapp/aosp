@@ -16,21 +16,21 @@
 
 package com.android.tv.settings.connectivity;
 
-import com.android.tv.settings.R;
-
 import android.content.Context;
 import android.net.EthernetManager;
 import android.net.IpConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Parcelable;
 
+import com.android.tv.settings.R;
+
 /**
  * Ethernet configuration that implements NetworkConfiguration.
  */
 class EthernetConfig implements NetworkConfiguration {
-    private EthernetManager mEthernetManager;
+    private final EthernetManager mEthernetManager;
     private IpConfiguration mIpConfiguration;
-    private String mName;
+    private final String mName;
 
     EthernetConfig(Context context) {
         mEthernetManager = (EthernetManager) context.getSystemService(Context.ETHERNET_SERVICE);

@@ -25,7 +25,7 @@
     <auto_add_support_lib>false</auto_add_support_lib>
 
     <!-- change minSdk if needed-->
-    <minSdk>14</minSdk>
+    <minSdk>21</minSdk>
     <compileSdkVersion>21</compileSdkVersion>
 
 

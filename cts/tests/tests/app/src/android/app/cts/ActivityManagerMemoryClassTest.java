@@ -24,6 +24,8 @@ import android.test.ActivityInstrumentationTestCase2;
 import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * {@link ActivityInstrumentationTestCase2} that tests {@link ActivityManager#getMemoryClass()}
@@ -35,6 +37,75 @@ public class ActivityManagerMemoryClassTest
 
     public ActivityManagerMemoryClassTest() {
         super(ActivityManagerMemoryClassLaunchActivity.class);
+    }
+
+    public static class ExpectedMemorySizesClass {
+        private static final Map<Integer, Integer> expectedMemorySizeForSmallNormalScreen
+            =  new HashMap<Integer, Integer>();
+        private static final Map<Integer, Integer> expectedMemorySizeForLargeScreen
+            =  new HashMap<Integer, Integer>();
+        private static final Map<Integer, Integer> expectedMemorySizeForXLargeScreen
+            =  new HashMap<Integer, Integer>();
+
+        static {
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_LOW, 32);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_MEDIUM, 32);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_TV, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_HIGH, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_280, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_XHIGH, 48);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_360, 64);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_400, 96);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_420, 112);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_XXHIGH, 128);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_560, 192);
+            expectedMemorySizeForSmallNormalScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 256);
+        }
+
+        static {
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_LOW, 32);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_MEDIUM, 64);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_TV, 80);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_HIGH, 80);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_280, 96);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_XHIGH, 128);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_360, 160);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_400, 192);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_420, 228);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_XXHIGH, 256);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_560, 384);
+            expectedMemorySizeForLargeScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 512);
+        }
+
+        static {
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_LOW, 48);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_MEDIUM, 80);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_TV, 96);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_HIGH, 96);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_280, 144);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_XHIGH, 192);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_360, 240);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_400, 288);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_420, 336);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_XXHIGH, 384);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_560, 576);
+            expectedMemorySizeForXLargeScreen.put(DisplayMetrics.DENSITY_XXXHIGH, 768);
+        }
+
+        public static Integer getExpectedMemorySize(int screenSize, int screenDensity) {
+           switch (screenSize) {
+                case Configuration.SCREENLAYOUT_SIZE_SMALL:
+                case Configuration.SCREENLAYOUT_SIZE_NORMAL:
+                    return expectedMemorySizeForSmallNormalScreen.get(screenDensity);
+                case Configuration.SCREENLAYOUT_SIZE_LARGE:
+                    return expectedMemorySizeForLargeScreen.get(screenDensity);
+                case Configuration.SCREENLAYOUT_SIZE_XLARGE:
+                    return expectedMemorySizeForXLargeScreen.get(screenDensity);
+                default:
+                    throw new IllegalArgumentException("No memory requirement specified "
+                        + " for screen layout size " + screenSize);
+           }
+        }
     }
 
     public void testGetMemoryClass() throws Exception {
@@ -70,46 +141,8 @@ public class ActivityManagerMemoryClassTest
     }
 
     private void assertMemoryForScreenDensity(int memoryClass, int screenDensity, int screenSize) {
-        int expectedMinimumMemory = -1;
-        boolean isXLarge = screenSize == Configuration.SCREENLAYOUT_SIZE_XLARGE;
-        switch (screenDensity) {
-            case DisplayMetrics.DENSITY_LOW:
-                expectedMinimumMemory = 16;
-                break;
-
-            case DisplayMetrics.DENSITY_MEDIUM:
-                expectedMinimumMemory = isXLarge ? 32 : 16;
-                break;
-
-            case DisplayMetrics.DENSITY_HIGH:
-            case DisplayMetrics.DENSITY_TV:
-                expectedMinimumMemory = isXLarge ? 64 : 32;
-                break;
-
-            case DisplayMetrics.DENSITY_XHIGH:
-                expectedMinimumMemory = isXLarge ? 128 : 64;
-                break;
-
-            case DisplayMetrics.DENSITY_400:
-                expectedMinimumMemory = isXLarge ? 192 : 128;
-                break;
-
-            case DisplayMetrics.DENSITY_XXHIGH:
-                expectedMinimumMemory = isXLarge ? 256 : 128;
-                break;
-
-            case DisplayMetrics.DENSITY_560:
-                expectedMinimumMemory = isXLarge ? 512 : 256;
-                break;
-
-            case DisplayMetrics.DENSITY_XXXHIGH:
-                expectedMinimumMemory = isXLarge ? 512 : 256;
-                break;
-
-            default:
-                throw new IllegalArgumentException("No memory requirement specified "
-                        + " for screen density " + screenDensity);
-        }
+        int expectedMinimumMemory = ExpectedMemorySizesClass.getExpectedMemorySize(screenSize,
+                                                                                   screenDensity);
 
         assertTrue("Expected to have at least " + expectedMinimumMemory
                 + "mb of memory for screen density " + screenDensity,

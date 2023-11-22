@@ -28,7 +28,7 @@
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
     <string name="bt_enable_line1" msgid="7203551583048149">"ब्लूटूथ सेवाओं के उपयोग के लिए, आपको पहले ब्लूटूथ चालू करना चाहिए."</string>
     <string name="bt_enable_line2" msgid="4341936569415937994">"अभी ब्लूटूथ चालू करें?"</string>
-    <string name="bt_enable_cancel" msgid="1988832367505151727">"रहने दें"</string>
+    <string name="bt_enable_cancel" msgid="1988832367505151727">"अभी नहीं"</string>
     <string name="bt_enable_ok" msgid="3432462749994538265">"चालू करें"</string>
     <string name="incoming_file_confirm_title" msgid="8139874248612182627">"फ़ाइल स्थानांतरण"</string>
     <string name="incoming_file_confirm_content" msgid="2752605552743148036">"आवक फ़ाइल स्वीकार करें?"</string>
@@ -104,22 +104,29 @@
     <string name="btopp_live_folder" msgid="7967791481444474554">"ब्लूटूथ प्राप्त"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> प्राप्ति पूर्ण."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> भेजना पूर्ण."</string>
-    <string name="inbound_history_title" msgid="6940914942271327563">"अंतर्गामी स्थानांतरण"</string>
-    <string name="outbound_history_title" msgid="4279418703178140526">"बहिर्गामी स्थानांतरण"</string>
+    <string name="inbound_history_title" msgid="6940914942271327563">"इनबाउंड स्थानांतरण"</string>
+    <string name="outbound_history_title" msgid="4279418703178140526">"आउटबाउंड स्थानांतरण"</string>
     <string name="no_transfers" msgid="3482965619151865672">"स्थानांतरण इतिहास खाली है."</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"सूची से सभी आइटम साफ़ कर दिए जाएंगे."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"ब्लूटूथ शेयर: भेजी गई फ़ाइलें"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"ब्लूटूथ शेयर: प्राप्त फ़ाइलें"</string>
-    <string name="noti_caption" msgid="7508708288885707365">"<xliff:g id="SUCCESSFUL_NUMBER_0">%1$s</xliff:g> सफल, <xliff:g id="UNSUCCESSFUL_NUMBER">%2$s</xliff:g> विफल."</string>
+    <plurals name="noti_caption_unsuccessful" formatted="false" msgid="2020750076679526122">
+      <item quantity="one"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> असफल.</item>
+      <item quantity="other"><xliff:g id="UNSUCCESSFUL_NUMBER_1">%1$d</xliff:g> असफल.</item>
+    </plurals>
+    <plurals name="noti_caption_success" formatted="false" msgid="1572472450257645181">
+      <item quantity="one"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> सफल, %2$s</item>
+      <item quantity="other"><xliff:g id="SUCCESSFUL_NUMBER_1">%1$d</xliff:g> सफल, %2$s</item>
+    </plurals>
     <string name="transfer_menu_clear_all" msgid="790017462957873132">"सूची साफ़ करें"</string>
     <string name="transfer_menu_open" msgid="3368984869083107200">"खोलें"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"सूची से साफ़ करें"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"साफ़ करें"</string>
-    <string name="bluetooth_map_email_settings_save" msgid="5349902976213455385">"जोड़ें"</string>
-    <string name="bluetooth_map_email_settings_cancel" msgid="5019472404940038118">"रहने दें"</string>
-    <string name="bluetooth_map_email_settings_intro" msgid="6219461401455143988">"वे ईमेल खाते चुनें जिन्हें आप ब्लूटूथ के द्वारा साझा करना चाहते हैं. फिर भी कनेक्ट करते समय आपको खातों की सभी एक्सेस को स्वीकार करना होगा."</string>
-    <string name="bluetooth_map_email_settings_count" msgid="8884933619108905375">"शेष स्लॉट:"</string>
-    <string name="bluetooth_map_email_settings_app_icon" msgid="6905622365985483669">"ऐप्लिकेशन आइकन"</string>
-    <string name="bluetooth_map_email_settings_title" msgid="2181388147513118336">"ब्लूटूथ संदेश साझाकरण सेटिंग"</string>
-    <string name="bluetooth_map_email_settings_no_account_slots_left" msgid="5989596869950397488">"खाता नहीं चुना जा सकता. 0 स्लॉट शेष"</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"सहेजें"</string>
+    <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"अभी नहीं"</string>
+    <string name="bluetooth_map_settings_intro" msgid="6793938602201480648">"वे खाते चुनें जिन्हें आप ब्लूटूथ के द्वारा साझा करना चाहते हैं. आपको अभी भी कनेक्ट करते समय खातों की सभी ऐक्सेस को स्वीकार करना होगा."</string>
+    <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"शेष स्लॉट:"</string>
+    <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"ऐप्लिकेशन आइकन"</string>
+    <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"ब्लूटूथ संदेश साझाकरण सेटिंग"</string>
+    <string name="bluetooth_map_settings_no_account_slots_left" msgid="1796029082612965251">"खाता नहीं चुना जा सकता. 0 स्लॉट शेष"</string>
 </resources>

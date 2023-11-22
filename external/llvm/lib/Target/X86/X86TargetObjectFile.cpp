@@ -8,11 +8,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86TargetObjectFile.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
+#include "llvm/MC/MCValue.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Target/TargetLowering.h"
 
@@ -44,16 +47,29 @@ MCSymbol *X86_64MachoTargetObjectFile::getCFIPersonalitySymbol(
   return TM.getSymbol(GV, Mang);
 }
 
-void
-X86LinuxTargetObjectFile::Initialize(MCContext &Ctx, const TargetMachine &TM) {
-  TargetLoweringObjectFileELF::Initialize(Ctx, TM);
-  InitializeELF(TM.Options.UseInitArray);
+const MCExpr *X86_64MachoTargetObjectFile::getIndirectSymViaGOTPCRel(
+    const MCSymbol *Sym, const MCValue &MV, int64_t Offset,
+    MachineModuleInfo *MMI, MCStreamer &Streamer) const {
+  // On Darwin/X86-64, we need to use foo@GOTPCREL+4 to access the got entry
+  // from a data section. In case there's an additional offset, then use
+  // foo@GOTPCREL+4+<offset>.
+  unsigned FinalOff = Offset+MV.getConstant()+4;
+  const MCExpr *Res =
+    MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_GOTPCREL, getContext());
+  const MCExpr *Off = MCConstantExpr::Create(FinalOff, getContext());
+  return MCBinaryExpr::CreateAdd(Res, Off, getContext());
 }
 
-const MCExpr *
-X86LinuxTargetObjectFile::getDebugThreadLocalSymbol(
+const MCExpr *X86ELFTargetObjectFile::getDebugThreadLocalSymbol(
     const MCSymbol *Sym) const {
   return MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_DTPOFF, getContext());
+}
+
+void
+X86LinuxNaClTargetObjectFile::Initialize(MCContext &Ctx,
+                                         const TargetMachine &TM) {
+  TargetLoweringObjectFileELF::Initialize(Ctx, TM);
+  InitializeELF(TM.Options.UseInitArray);
 }
 
 const MCExpr *X86WindowsTargetObjectFile::getExecutableRelativeSymbol(
@@ -79,14 +95,12 @@ const MCExpr *X86WindowsTargetObjectFile::getExecutableRelativeSymbol(
       SubRHS->getPointerAddressSpace() != 0)
     return nullptr;
 
-  // Both ptrtoint instructions must wrap global variables:
+  // Both ptrtoint instructions must wrap global objects:
   // - Only global variables are eligible for image relative relocations.
-  // - The subtrahend refers to the special symbol __ImageBase, a global.
-  const GlobalVariable *GVLHS =
-      dyn_cast<GlobalVariable>(SubLHS->getPointerOperand());
-  const GlobalVariable *GVRHS =
-      dyn_cast<GlobalVariable>(SubRHS->getPointerOperand());
-  if (!GVLHS || !GVRHS)
+  // - The subtrahend refers to the special symbol __ImageBase, a GlobalVariable.
+  const auto *GOLHS = dyn_cast<GlobalObject>(SubLHS->getPointerOperand());
+  const auto *GVRHS = dyn_cast<GlobalVariable>(SubRHS->getPointerOperand());
+  if (!GOLHS || !GVRHS)
     return nullptr;
 
   // We expect __ImageBase to be a global variable without a section, externally
@@ -99,10 +113,71 @@ const MCExpr *X86WindowsTargetObjectFile::getExecutableRelativeSymbol(
     return nullptr;
 
   // An image-relative, thread-local, symbol makes no sense.
-  if (GVLHS->isThreadLocal())
+  if (GOLHS->isThreadLocal())
     return nullptr;
 
-  return MCSymbolRefExpr::Create(TM.getSymbol(GVLHS, Mang),
+  return MCSymbolRefExpr::Create(TM.getSymbol(GOLHS, Mang),
                                  MCSymbolRefExpr::VK_COFF_IMGREL32,
                                  getContext());
+}
+
+static std::string APIntToHexString(const APInt &AI) {
+  unsigned Width = (AI.getBitWidth() / 8) * 2;
+  std::string HexString = utohexstr(AI.getLimitedValue(), /*LowerCase=*/true);
+  unsigned Size = HexString.size();
+  assert(Width >= Size && "hex string is too large!");
+  HexString.insert(HexString.begin(), Width - Size, '0');
+
+  return HexString;
+}
+
+
+static std::string scalarConstantToHexString(const Constant *C) {
+  Type *Ty = C->getType();
+  APInt AI;
+  if (isa<UndefValue>(C)) {
+    AI = APInt(Ty->getPrimitiveSizeInBits(), /*val=*/0);
+  } else if (Ty->isFloatTy() || Ty->isDoubleTy()) {
+    const auto *CFP = cast<ConstantFP>(C);
+    AI = CFP->getValueAPF().bitcastToAPInt();
+  } else if (Ty->isIntegerTy()) {
+    const auto *CI = cast<ConstantInt>(C);
+    AI = CI->getValue();
+  } else {
+    llvm_unreachable("unexpected constant pool element type!");
+  }
+  return APIntToHexString(AI);
+}
+
+const MCSection *
+X86WindowsTargetObjectFile::getSectionForConstant(SectionKind Kind,
+                                                  const Constant *C) const {
+  if (Kind.isReadOnly()) {
+    if (C) {
+      Type *Ty = C->getType();
+      SmallString<32> COMDATSymName;
+      if (Ty->isFloatTy() || Ty->isDoubleTy()) {
+        COMDATSymName = "__real@";
+        COMDATSymName += scalarConstantToHexString(C);
+      } else if (const auto *VTy = dyn_cast<VectorType>(Ty)) {
+        uint64_t NumBits = VTy->getBitWidth();
+        if (NumBits == 128 || NumBits == 256) {
+          COMDATSymName = NumBits == 128 ? "__xmm@" : "__ymm@";
+          for (int I = VTy->getNumElements() - 1, E = -1; I != E; --I)
+            COMDATSymName +=
+                scalarConstantToHexString(C->getAggregateElement(I));
+        }
+      }
+      if (!COMDATSymName.empty()) {
+        unsigned Characteristics = COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
+                                   COFF::IMAGE_SCN_MEM_READ |
+                                   COFF::IMAGE_SCN_LNK_COMDAT;
+        return getContext().getCOFFSection(".rdata", Characteristics, Kind,
+                                           COMDATSymName,
+                                           COFF::IMAGE_COMDAT_SELECT_ANY);
+      }
+    }
+  }
+
+  return TargetLoweringObjectFile::getSectionForConstant(Kind, C);
 }

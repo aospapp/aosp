@@ -22,7 +22,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#if SANITIZER_WINDOWS && !defined(va_copy)
+#if SANITIZER_WINDOWS && defined(_MSC_VER) && _MSC_VER < 1800 &&               \
+      !defined(va_copy)
 # define va_copy(dst, src) ((dst) = (src))
 #endif
 
@@ -112,7 +113,7 @@ static int AppendPointer(char **buff, const char *buff_end, u64 ptr_value) {
   int result = 0;
   result += AppendString(buff, buff_end, -1, "0x");
   result += AppendUnsigned(buff, buff_end, ptr_value, 16,
-                           (SANITIZER_WORDSIZE == 64) ? 12 : 8, true);
+                           SANITIZER_POINTER_FORMAT_LENGTH, true);
   return result;
 }
 

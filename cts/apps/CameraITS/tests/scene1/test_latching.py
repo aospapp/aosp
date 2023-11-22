@@ -45,20 +45,20 @@ def main():
         b_means = []
 
         reqs = [
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s*2,e,   True),
-            its.objects.manual_capture_request(s*2,e,   True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s,  e*2, True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s*2,e,   True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s,  e*2, True),
-            its.objects.manual_capture_request(s,  e,   True),
-            its.objects.manual_capture_request(s,  e*2, True),
-            its.objects.manual_capture_request(s,  e*2, True),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s*2,e,   True, props),
+            its.objects.manual_capture_request(s*2,e,   True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s,  e*2, True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s*2,e,   True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s,  e*2, True, props),
+            its.objects.manual_capture_request(s,  e,   True, props),
+            its.objects.manual_capture_request(s,  e*2, True, props),
+            its.objects.manual_capture_request(s,  e*2, True, props),
             ]
 
         caps = cam.do_capture(reqs, fmt)

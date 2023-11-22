@@ -1,8 +1,10 @@
 LOCAL_PATH := $(call my-dir)
 
 x86_codegen_TBLGEN_TABLES := \
+  X86GenAsmMatcher.inc \
   X86GenAsmWriter.inc \
   X86GenAsmWriter1.inc \
+  X86GenDisassemblerTables.inc \
   X86GenRegisterInfo.inc \
   X86GenInstrInfo.inc \
   X86GenDAGISel.inc \
@@ -12,8 +14,7 @@ x86_codegen_TBLGEN_TABLES := \
 
 x86_codegen_SRC_FILES := \
   X86AsmPrinter.cpp \
-  X86AtomicExpandPass.cpp \
-  X86CodeEmitter.cpp \
+  X86CallFrameOptimization.cpp \
   X86FastISel.cpp \
   X86FixupLEAs.cpp \
   X86FloatingPoint.cpp \
@@ -21,7 +22,6 @@ x86_codegen_SRC_FILES := \
   X86ISelDAGToDAG.cpp \
   X86ISelLowering.cpp \
   X86InstrInfo.cpp \
-  X86JITInfo.cpp \
   X86MachineFunctionInfo.cpp \
   X86MCInstLower.cpp \
   X86PadShortFunction.cpp \

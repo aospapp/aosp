@@ -32,6 +32,6 @@ bool Script::reset(Source &pSource, bool pPreserveCurrent) {
   return doReset();
 }
 
-bool Script::mergeSource(Source &pSource, bool pPreserveSource) {
-  return mSource->merge(pSource, pPreserveSource);
+bool Script::mergeSource(Source &pSource) {
+  return mSource->merge(pSource);
 }

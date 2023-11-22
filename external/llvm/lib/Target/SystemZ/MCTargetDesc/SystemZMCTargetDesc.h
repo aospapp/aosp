@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SYSTEMZMCTARGETDESC_H
-#define SYSTEMZMCTARGETDESC_H
+#ifndef LLVM_LIB_TARGET_SYSTEMZ_MCTARGETDESC_SYSTEMZMCTARGETDESC_H
+#define LLVM_LIB_TARGET_SYSTEMZ_MCTARGETDESC_SYSTEMZMCTARGETDESC_H
 
 #include "llvm/Support/DataTypes.h"
 
@@ -23,6 +23,7 @@ class MCRegisterInfo;
 class MCSubtargetInfo;
 class StringRef;
 class Target;
+class raw_pwrite_stream;
 class raw_ostream;
 
 extern Target TheSystemZTarget;
@@ -71,14 +72,13 @@ inline unsigned getRegAsGRH32(unsigned Reg) {
 
 MCCodeEmitter *createSystemZMCCodeEmitter(const MCInstrInfo &MCII,
                                           const MCRegisterInfo &MRI,
-                                          const MCSubtargetInfo &STI,
                                           MCContext &Ctx);
 
 MCAsmBackend *createSystemZMCAsmBackend(const Target &T,
                                         const MCRegisterInfo &MRI,
                                         StringRef TT, StringRef CPU);
 
-MCObjectWriter *createSystemZObjectWriter(raw_ostream &OS, uint8_t OSABI);
+MCObjectWriter *createSystemZObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI);
 } // end namespace llvm
 
 // Defines symbolic names for SystemZ registers.

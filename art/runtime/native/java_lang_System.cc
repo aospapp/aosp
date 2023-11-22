@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "java_lang_System.h"
+
 #include "common_throws.h"
 #include "gc/accounting/card_table-inl.h"
 #include "jni_internal.h"
@@ -37,8 +39,7 @@ static void ThrowArrayStoreException_NotAnArray(const char* identifier, mirror::
     SHARED_LOCKS_REQUIRED(Locks::mutator_lock_) {
   std::string actualType(PrettyTypeOf(array));
   Thread* self = Thread::Current();
-  ThrowLocation throw_location = self->GetCurrentLocationForThrow();
-  self->ThrowNewExceptionF(throw_location, "Ljava/lang/ArrayStoreException;",
+  self->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
                            "%s of type %s is not an array", identifier, actualType.c_str());
 }
 
@@ -50,11 +51,11 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
 
   // Null pointer checks.
   if (UNLIKELY(javaSrc == nullptr)) {
-    ThrowNullPointerException(nullptr, "src == null");
+    ThrowNullPointerException("src == null");
     return;
   }
   if (UNLIKELY(javaDst == nullptr)) {
-    ThrowNullPointerException(nullptr, "dst == null");
+    ThrowNullPointerException("dst == null");
     return;
   }
 
@@ -76,8 +77,7 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
   if (UNLIKELY(srcPos < 0) || UNLIKELY(dstPos < 0) || UNLIKELY(count < 0) ||
       UNLIKELY(srcPos > srcArray->GetLength() - count) ||
       UNLIKELY(dstPos > dstArray->GetLength() - count)) {
-    ThrowLocation throw_location = soa.Self()->GetCurrentLocationForThrow();
-    soa.Self()->ThrowNewExceptionF(throw_location, "Ljava/lang/ArrayIndexOutOfBoundsException;",
+    soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayIndexOutOfBoundsException;",
                                    "src.length=%d srcPos=%d dst.length=%d dstPos=%d length=%d",
                                    srcArray->GetLength(), srcPos, dstArray->GetLength(), dstPos,
                                    count);
@@ -93,7 +93,7 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
     switch (dstComponentPrimitiveType) {
       case Primitive::kPrimVoid:
         LOG(FATAL) << "Unreachable, cannot have arrays of type void";
-        return;
+        UNREACHABLE();
       case Primitive::kPrimBoolean:
       case Primitive::kPrimByte:
         DCHECK_EQ(Primitive::ComponentSize(dstComponentPrimitiveType), 1U);
@@ -122,7 +122,7 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
       }
       default:
         LOG(FATAL) << "Unknown array type: " << PrettyTypeOf(srcArray);
-        return;
+        UNREACHABLE();
     }
   }
   // If one of the arrays holds a primitive type the other array must hold the exact same type.
@@ -130,8 +130,7 @@ static void System_arraycopy(JNIEnv* env, jclass, jobject javaSrc, jint srcPos, 
                srcComponentType->IsPrimitive())) {
     std::string srcType(PrettyTypeOf(srcArray));
     std::string dstType(PrettyTypeOf(dstArray));
-    ThrowLocation throw_location = soa.Self()->GetCurrentLocationForThrow();
-    soa.Self()->ThrowNewExceptionF(throw_location, "Ljava/lang/ArrayStoreException;",
+    soa.Self()->ThrowNewExceptionF("Ljava/lang/ArrayStoreException;",
                                    "Incompatible types: src=%s, dst=%s",
                                    srcType.c_str(), dstType.c_str());
     return;

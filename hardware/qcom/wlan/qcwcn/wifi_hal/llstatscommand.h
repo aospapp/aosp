@@ -39,7 +39,6 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "link_layer_stats.h"
-#include "vendor_definitions.h"
 
 #ifdef __GNUC__
 #define PRINTF_FORMAT(a,b) __attribute__ ((format (printf, (a), (b))))
@@ -54,15 +53,6 @@
 extern "C"
 {
 #endif /* __cplusplus */
-
-/* Response and Event Callbacks */
-typedef struct {
-    /* Various Events Callback */
-    void (*on_link_stats_results) (wifi_request_id id,
-                                   wifi_iface_stat *iface_stat,
-                                   int num_radios,
-                                   wifi_radio_stat *radio_stat);
-} LLStatsCallbackHandler;
 
 typedef struct{
     u32 stats_clear_rsp_mask;
@@ -89,7 +79,7 @@ private:
 
     LLStatsResultsParams mResultsParams;
 
-    LLStatsCallbackHandler mHandler;
+    wifi_stats_result_handler mHandler;
 
     wifi_request_id mRequestId;
 
@@ -112,13 +102,12 @@ public:
 
     virtual int handleResponse(WifiEvent &reply);
 
-    virtual int handleEvent(WifiEvent &event);
-
-    virtual int setCallbackHandler(LLStatsCallbackHandler nHandler, u32 event);
-
-    virtual void unregisterHandler(u32 subCmd);
-
     virtual void getClearRspParams(u32 *stats_clear_rsp_mask, u8 *stop_rsp);
+
+    virtual wifi_error get_wifi_iface_stats(wifi_iface_stat *stats,
+                                            struct nlattr **tb_vendor);
+
+    virtual void setHandler(wifi_stats_result_handler handler);
 };
 
 #ifdef __cplusplus

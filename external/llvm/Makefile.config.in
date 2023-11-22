@@ -202,10 +202,8 @@ DOT        := @DOT@
 DOXYGEN    := @DOXYGEN@
 GROFF      := @GROFF@
 GZIPBIN    := @GZIPBIN@
-OCAMLC     := @OCAMLC@
-OCAMLOPT   := @OCAMLOPT@
-OCAMLDEP   := @OCAMLDEP@
-OCAMLDOC   := @OCAMLDOC@
+GO         := @GO@
+OCAMLFIND  := @OCAMLFIND@
 GAS        := @GAS@
 POD2HTML   := @POD2HTML@
 POD2MAN    := @POD2MAN@
@@ -216,6 +214,9 @@ HAVE_LIBZ  := @HAVE_LIBZ@
 HAVE_DLOPEN := @HAVE_DLOPEN@
 HAVE_PTHREAD := @HAVE_PTHREAD@
 HAVE_TERMINFO := @HAVE_TERMINFO@
+
+HAVE_OCAMLOPT := @HAVE_OCAMLOPT@
+HAVE_OCAML_OUNIT := @HAVE_OCAML_OUNIT@
 
 LIBS       := @LIBS@
 
@@ -259,9 +260,6 @@ CLANG_PLUGIN_SUPPORT = @CLANG_PLUGIN_SUPPORT@
 # When ENABLE_CLANG_ARCMT is enabled, clang will have ARCMigrationTool.
 ENABLE_CLANG_ARCMT = @ENABLE_CLANG_ARCMT@
 
-# When ENABLE_CLANG_REWRITER is enabled, clang will have Rewriter.
-ENABLE_CLANG_REWRITER = @ENABLE_CLANG_REWRITER@
-
 # When ENABLE_CLANG_STATIC_ANALYZER is enabled, clang will have StaticAnalyzer.
 ENABLE_CLANG_STATIC_ANALYZER = @ENABLE_CLANG_STATIC_ANALYZER@
 
@@ -294,6 +292,11 @@ ENABLE_TERMINFO = @ENABLE_TERMINFO@
 # code will include expensive checks, otherwise they are excluded.
 #ENABLE_EXPENSIVE_CHECKS = 0
 @ENABLE_EXPENSIVE_CHECKS@
+
+# --enable-abi-breaking-checks : decide whether we should compile in asserts and
+# checks that make the build ABI incompatible with an llvm built without these
+# checks enabled.
+ENABLE_ABI_BREAKING_CHECKS = @ENABLE_ABI_BREAKING_CHECKS@
 
 # When DEBUG_RUNTIME is enabled, the runtime libraries will retain debug
 # symbols.
@@ -373,7 +376,6 @@ HUGE_VAL_SANITY = @HUGE_VAL_SANITY@
 
 # Bindings that we should build
 BINDINGS_TO_BUILD := @BINDINGS_TO_BUILD@
-ALL_BINDINGS      := @ALL_BINDINGS@
 OCAML_LIBDIR      := @OCAML_LIBDIR@
 
 # When compiling under Mingw/Cygwin, executables such as tblgen
@@ -399,6 +401,8 @@ COVERED_SWITCH_DEFAULT = @COVERED_SWITCH_DEFAULT@
 NO_UNINITIALIZED = @NO_UNINITIALIZED@
 # -Wno-maybe-uninitialized
 NO_MAYBE_UNINITIALIZED = @NO_MAYBE_UNINITIALIZED@
+# -Wno-comment
+NO_COMMENT = @NO_COMMENT@
 
 # Was polly found in tools/polly?
 LLVM_HAS_POLLY = @LLVM_HAS_POLLY@

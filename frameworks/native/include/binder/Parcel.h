@@ -60,6 +60,7 @@ public:
     status_t            appendFrom(const Parcel *parcel,
                                    size_t start, size_t len);
 
+    bool                allowFds() const;
     bool                pushAllowFds(bool allowFds);
     void                restoreAllowFds(bool lastValue);
 
@@ -94,7 +95,9 @@ public:
     void*               writeInplace(size_t len);
     status_t            writeUnpadded(const void* data, size_t len);
     status_t            writeInt32(int32_t val);
+    status_t            writeUint32(uint32_t val);
     status_t            writeInt64(int64_t val);
+    status_t            writeUint64(uint64_t val);
     status_t            writeFloat(float val);
     status_t            writeDouble(double val);
     status_t            writeCString(const char* str);
@@ -128,16 +131,18 @@ public:
     // will be closed once the parcel is destroyed.
     status_t            writeDupFileDescriptor(int fd);
 
-    // Writes a raw fd and optional comm channel fd to the parcel as a ParcelFileDescriptor.
-    // A dup's of the fds are made, which will be closed once the parcel is destroyed.
-    // Null values are passed as -1.
-    status_t            writeParcelFileDescriptor(int fd, int commChannel = -1);
-
     // Writes a blob to the parcel.
     // If the blob is small, then it is stored in-place, otherwise it is
-    // transferred by way of an anonymous shared memory region.
+    // transferred by way of an anonymous shared memory region.  Prefer sending
+    // immutable blobs if possible since they may be subsequently transferred between
+    // processes without further copying whereas mutable blobs always need to be copied.
     // The caller should call release() on the blob after writing its contents.
-    status_t            writeBlob(size_t len, WritableBlob* outBlob);
+    status_t            writeBlob(size_t len, bool mutableCopy, WritableBlob* outBlob);
+
+    // Write an existing immutable blob file descriptor to the parcel.
+    // This allows the client to send the same blob to multiple processes
+    // as long as it keeps a dup of the blob file descriptor handy for later.
+    status_t            writeDupImmutableBlobFileDescriptor(int fd);
 
     status_t            writeObject(const flat_binder_object& val, bool nullMetaData);
 
@@ -152,8 +157,12 @@ public:
     const void*         readInplace(size_t len) const;
     int32_t             readInt32() const;
     status_t            readInt32(int32_t *pArg) const;
+    uint32_t            readUint32() const;
+    status_t            readUint32(uint32_t *pArg) const;
     int64_t             readInt64() const;
     status_t            readInt64(int64_t *pArg) const;
+    uint64_t            readUint64() const;
+    status_t            readUint64(uint64_t *pArg) const;
     float               readFloat() const;
     status_t            readFloat(float *pArg) const;
     double              readDouble() const;
@@ -191,11 +200,6 @@ public:
     // Retrieve a file descriptor from the parcel.  This returns the raw fd
     // in the parcel, which you do not own -- use dup() to get your own copy.
     int                 readFileDescriptor() const;
-
-    // Reads a ParcelFileDescriptor from the parcel.  Returns the raw fd as
-    // the result, and the optional comm channel fd in outCommChannel.
-    // Null values are returned as -1.
-    int                 readParcelFileDescriptor(int& outCommChannel) const;
 
     // Reads a blob from the parcel.
     // The caller should call release() on the blob after reading its contents.
@@ -274,16 +278,19 @@ private:
         Blob();
         ~Blob();
 
+        void clear();
         void release();
         inline size_t size() const { return mSize; }
+        inline int fd() const { return mFd; };
+        inline bool isMutable() const { return mMutable; }
 
     protected:
-        void init(bool mapped, void* data, size_t size);
-        void clear();
+        void init(int fd, void* data, size_t size, bool isMutable);
 
-        bool mMapped;
+        int mFd; // owned by parcel so not closed when released
         void* mData;
         size_t mSize;
+        bool mMutable;
     };
 
     class FlattenableHelperInterface {
@@ -324,6 +331,7 @@ public:
         friend class Parcel;
     public:
         inline const void* data() const { return mData; }
+        inline void* mutableData() { return isMutable() ? mData : NULL; }
     };
 
     class WritableBlob : public Blob {
@@ -331,6 +339,12 @@ public:
     public:
         inline void* data() { return mData; }
     };
+
+private:
+    size_t mBlobAshmemSize;
+
+public:
+    size_t getBlobAshmemSize() const;
 };
 
 // ---------------------------------------------------------------------------

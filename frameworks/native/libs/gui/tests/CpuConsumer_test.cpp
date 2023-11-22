@@ -94,7 +94,7 @@ protected:
             mPendingFrames--;
         }
 
-        virtual void onFrameAvailable() {
+        virtual void onFrameAvailable(const BufferItem&) {
             Mutex::Autolock lock(mMutex);
             mPendingFrames++;
             mCondition.signal();
@@ -125,7 +125,7 @@ protected:
             mPendingFrames--;
         }
 
-        virtual void onFrameAvailable() {
+        virtual void onFrameAvailable(const BufferItem&) {
             Mutex::Autolock lock(mMutex);
             mPendingFrames++;
             mFrameCondition.signal();
@@ -166,7 +166,7 @@ void checkPixel(const CpuConsumer::LockedBuffer &buf,
         uint32_t x, uint32_t y, uint32_t r, uint32_t g=0, uint32_t b=0) {
     // Ignores components that don't exist for given pixel
     switch(buf.format) {
-        case HAL_PIXEL_FORMAT_RAW_SENSOR: {
+        case HAL_PIXEL_FORMAT_RAW16: {
             String8 msg;
             uint16_t *bPtr = (uint16_t*)buf.data;
             bPtr += y * buf.stride + x;
@@ -429,7 +429,7 @@ void checkBayerRawBuffer(const CpuConsumer::LockedBuffer &buf) {
 
 void checkAnyBuffer(const CpuConsumer::LockedBuffer &buf, int format) {
     switch (format) {
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             checkBayerRawBuffer(buf);
             break;
         case HAL_PIXEL_FORMAT_Y8:
@@ -457,9 +457,12 @@ void configureANW(const sp<ANativeWindow>& anw,
         const CpuConsumerTestParams& params,
         int maxBufferSlack) {
     status_t err;
-    err = native_window_set_buffers_geometry(anw.get(),
-            params.width, params.height, params.format);
-    ASSERT_NO_ERROR(err, "set_buffers_geometry error: ");
+    err = native_window_set_buffers_dimensions(anw.get(),
+            params.width, params.height);
+    ASSERT_NO_ERROR(err, "set_buffers_dimensions error: ");
+
+    err = native_window_set_buffers_format(anw.get(), params.format);
+    ASSERT_NO_ERROR(err, "set_buffers_format error: ");
 
     err = native_window_set_usage(anw.get(),
             GRALLOC_USAGE_SW_WRITE_OFTEN);
@@ -505,7 +508,7 @@ void produceOneFrame(const sp<ANativeWindow>& anw,
         case HAL_PIXEL_FORMAT_YV12:
             fillYV12Buffer(img, params.width, params.height, *stride);
             break;
-        case HAL_PIXEL_FORMAT_RAW_SENSOR:
+        case HAL_PIXEL_FORMAT_RAW16:
             fillBayerRawBuffer(img, params.width, params.height, buf->getStride());
             break;
         case HAL_PIXEL_FORMAT_Y8:
@@ -537,7 +540,7 @@ void produceOneFrame(const sp<ANativeWindow>& anw,
     ASSERT_NO_ERROR(err, "queueBuffer error:");
 };
 
-// This test is disabled because the HAL_PIXEL_FORMAT_RAW_SENSOR format is not
+// This test is disabled because the HAL_PIXEL_FORMAT_RAW16 format is not
 // supported on all devices.
 TEST_P(CpuConsumerTest, FromCpuSingle) {
     status_t err;
@@ -571,7 +574,7 @@ TEST_P(CpuConsumerTest, FromCpuSingle) {
     mCC->unlockBuffer(b);
 }
 
-// This test is disabled because the HAL_PIXEL_FORMAT_RAW_SENSOR format is not
+// This test is disabled because the HAL_PIXEL_FORMAT_RAW16 format is not
 // supported on all devices.
 TEST_P(CpuConsumerTest, FromCpuManyInQueue) {
     status_t err;
@@ -614,7 +617,7 @@ TEST_P(CpuConsumerTest, FromCpuManyInQueue) {
     }
 }
 
-// This test is disabled because the HAL_PIXEL_FORMAT_RAW_SENSOR format is not
+// This test is disabled because the HAL_PIXEL_FORMAT_RAW16 format is not
 // supported on all devices.
 TEST_P(CpuConsumerTest, FromCpuLockMax) {
     status_t err;
@@ -710,12 +713,12 @@ CpuConsumerTestParams y16TestSets[] = {
 };
 
 CpuConsumerTestParams rawTestSets[] = {
-    { 512,   512, 1, HAL_PIXEL_FORMAT_RAW_SENSOR},
-    { 512,   512, 3, HAL_PIXEL_FORMAT_RAW_SENSOR},
-    { 2608, 1960, 1, HAL_PIXEL_FORMAT_RAW_SENSOR},
-    { 2608, 1960, 3, HAL_PIXEL_FORMAT_RAW_SENSOR},
-    { 100,   100, 1, HAL_PIXEL_FORMAT_RAW_SENSOR},
-    { 100,   100, 3, HAL_PIXEL_FORMAT_RAW_SENSOR},
+    { 512,   512, 1, HAL_PIXEL_FORMAT_RAW16},
+    { 512,   512, 3, HAL_PIXEL_FORMAT_RAW16},
+    { 2608, 1960, 1, HAL_PIXEL_FORMAT_RAW16},
+    { 2608, 1960, 3, HAL_PIXEL_FORMAT_RAW16},
+    { 100,   100, 1, HAL_PIXEL_FORMAT_RAW16},
+    { 100,   100, 3, HAL_PIXEL_FORMAT_RAW16},
 };
 
 CpuConsumerTestParams rgba8888TestSets[] = {

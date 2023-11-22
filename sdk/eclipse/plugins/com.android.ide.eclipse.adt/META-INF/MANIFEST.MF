@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Android Development Toolkit
 Bundle-SymbolicName: com.android.ide.eclipse.adt;singleton:=true
-Bundle-Version: 23.0.2.qualifier
+Bundle-Version: 24.0.2.qualifier
 Bundle-ClassPath: .,
  libs/sdkuilib.jar,
  libs/ninepatch.jar,
@@ -11,10 +11,10 @@ Bundle-ClassPath: .,
  libs/asset-studio.jar,
  libs/lint-api.jar,
  libs/lint-checks.jar,
- libs/lombok-ast-0.2.2.jar,
- libs/asm-4.0.jar,
- libs/asm-tree-4.0.jar,
- libs/asm-analysis-4.0.jar,
+ libs/lombok-ast-0.2.3.jar,
+ libs/asm-5.0.3.jar,
+ libs/asm-tree-5.0.3.jar,
+ libs/asm-analysis-5.0.3.jar,
  libs/propertysheet.jar,
  libs/ant-glob.jar,
  libs/swtmenubar.jar,

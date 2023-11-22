@@ -15,27 +15,31 @@
  */
 package android.uirendering.cts.bitmapverifiers;
 
+import android.annotation.ColorInt;
+
 /**
  * Checks to see if a bitmap is entirely a single color
  */
 public class ColorVerifier extends PerPixelBitmapVerifier {
+    @ColorInt
     private int mColor;
 
-    public ColorVerifier(int color) {
+    public ColorVerifier(@ColorInt int color) {
         this(color, DEFAULT_THRESHOLD);
     }
 
-    public ColorVerifier(int color, int colorTolerance) {
+    public ColorVerifier(@ColorInt int color, int colorTolerance) {
         super(colorTolerance);
         mColor = color;
     }
 
-    public ColorVerifier(int color, int colorThreshold, float spatialTolerance) {
+    public ColorVerifier(@ColorInt int color, int colorThreshold, float spatialTolerance) {
         super(colorThreshold, spatialTolerance);
         mColor = color;
     }
 
     @Override
+    @ColorInt
     protected int getExpectedColor(int x, int y) {
         return mColor;
     }

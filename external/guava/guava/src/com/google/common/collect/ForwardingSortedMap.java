@@ -16,6 +16,8 @@
 
 package com.google.common.collect;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtCompatible;
 
@@ -91,6 +93,21 @@ public abstract class ForwardingSortedMap<K, V> extends ForwardingMap<K, V>
     return delegate().tailMap(fromKey);
   }
 
+  /**
+   * A sensible implementation of {@link SortedMap#keySet} in terms of the methods of
+   * {@code ForwardingSortedMap}. In many cases, you may wish to override
+   * {@link ForwardingSortedMap#keySet} to forward to this implementation or a subclass thereof.
+   *
+   * @since 15.0
+   */
+  @Beta
+  protected class StandardKeySet extends Maps.SortedKeySet<K, V> {
+    /** Constructor for use by subclasses. */
+    public StandardKeySet() {
+      super(ForwardingSortedMap.this);
+    }
+  }
+
   // unsafe, but worst case is a CCE is thrown, which callers will be expecting
   @SuppressWarnings("unchecked")
   private int unsafeCompare(Object k1, Object k2) {
@@ -133,7 +150,13 @@ public abstract class ForwardingSortedMap<K, V> extends ForwardingMap<K, V>
    * to this implementation.
    *
    * @since 7.0
+   * @deprecated This implementation is extremely awkward, is rarely worthwhile,
+   * and has been discovered to interact badly with
+   * http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6467933 in Java 6
+   * when used with certain null-friendly comparators.  It is scheduled for
+   * deletion in Guava 16.0.
    */
+  @Deprecated
   @Override @Beta protected V standardRemove(@Nullable Object key) {
     try {
       // any CCE will be caught
@@ -166,6 +189,7 @@ public abstract class ForwardingSortedMap<K, V> extends ForwardingMap<K, V>
    * @since 7.0
    */
   @Beta protected SortedMap<K, V> standardSubMap(K fromKey, K toKey) {
+    checkArgument(unsafeCompare(fromKey, toKey) <= 0, "fromKey must be <= toKey");
     return tailMap(fromKey).headMap(toKey);
   }
 }

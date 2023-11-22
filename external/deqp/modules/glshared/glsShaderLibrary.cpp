@@ -997,6 +997,12 @@ void ShaderParser::parseRequirement (ShaderCase::CaseRequirement& valueBlock)
 
 		valueBlock = ShaderCase::CaseRequirement::createLimitRequirement(limitEnum, limitValue);
 	}
+	else if (m_curTokenStr == "full_glsl_es_100_support")
+	{
+		advanceToken();
+
+		valueBlock = ShaderCase::CaseRequirement::createFullGLSLES100SpecificationRequirement();
+	}
 	else
 		parseError(string("invalid requirement value: " + m_curTokenStr));
 }
@@ -1015,6 +1021,8 @@ void ShaderParser::parseExpectResult (ShaderCase::ExpectResult& expectResult)
 		expectResult = ShaderCase::EXPECT_COMPILE_LINK_FAIL;
 	else if (m_curTokenStr == "validation_fail")
 		expectResult = ShaderCase::EXPECT_VALIDATION_FAIL;
+	else if (m_curTokenStr == "build_successful")
+		expectResult = ShaderCase::EXPECT_BUILD_SUCCESSFUL;
 	else
 		parseError(string("invalid expected result value: " + m_curTokenStr));
 

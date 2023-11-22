@@ -18,18 +18,14 @@ package com.android.tv.settings.util;
 
 import android.accounts.Account;
 import android.content.ContentUris;
-import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.ContactsContract;
-import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.RawContacts;
-import android.provider.ContactsContract.CommonDataKinds.Photo;
 import android.text.TextUtils;
-import android.util.Log;
 
 import com.android.tv.settings.R;
 

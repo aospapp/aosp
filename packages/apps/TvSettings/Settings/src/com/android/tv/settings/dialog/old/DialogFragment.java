@@ -41,7 +41,7 @@ import com.android.tv.settings.R;
 public class DialogFragment extends Fragment implements ActionAdapter.Listener, LiteFragment {
 
     private Activity mActivity;
-    private BaseDialogFragment mBase = new BaseDialogFragment(this);
+    private final BaseDialogFragment mBase = new BaseDialogFragment(this);
 
     @Override
     public void onActionClicked(Action action) {
@@ -61,8 +61,7 @@ public class DialogFragment extends Fragment implements ActionAdapter.Listener, 
             if (fragment instanceof ContentFragment) {
                 ContentFragment cf = (ContentFragment) fragment;
                 mBase.performEntryTransition(getRealActivity(),
-                        (ViewGroup) ((DialogActivity)
-                                getRealActivity()).findViewById(android.R.id.content),
+                        (ViewGroup) getRealActivity().findViewById(android.R.id.content),
                         cf.getIconResourceId(), cf.getIconResourceUri(),
                         cf.getIcon(), cf.getTitle(), cf.getDescription(), cf.getBreadCrumb());
             }

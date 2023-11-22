@@ -16,7 +16,12 @@
 
 package com.android.ide.eclipse.adt.internal.editors.layout.configuration;
 
+import com.android.SdkConstants;
 import com.android.ide.common.resources.LocaleManager;
+import com.google.common.base.Function;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 
 import org.eclipse.swt.graphics.Image;
 
@@ -72,103 +77,109 @@ public class FlagManagerTest extends TestCase {
         assertSame(ca, manager.getFlagForFolderName("values-en"));
     }
 
-    public void testAvailableIcons() {
-        // Icons we have in WindowBuilder
+    public void testAvailableImages() {
+        // Images we have from WindowBuilder (which are really the famfamfam
+        // icons;
+        // see http://www.famfamfam.com/lab/icons/flags)
         String[] icons = new String[] {
                 "ad", "ae", "af", "ag", "ai", "al", "am", "ao", "ar", "as", "at", "au", "aw", "ax",
                 "az", "ba", "bb", "bd", "be", "bf", "bg", "bh", "bi", "bj", "bm", "bn", "bo", "br",
-                "bs", "bt", "bv", "bw", "by", "bz", "ca", "cc", "cd", "cf", "cg", "ch", "ci", "ck",
-                "cl", "cm", "cn", "co", "cr", "cu", "cv", "cx", "cy", "cz", "de", "dj", "dk", "dm",
-                "do", "dz", "ec", "ee", "eg", "eh", "er", "es", "et", "fi", "fj", "fk", "fm", "fo",
-                "fr", "ga", "gb", "gd", "ge", "gf", "gh", "gi", "gl", "gm", "gn", "gp", "gq", "gr",
-                "gs", "gt", "gu", "gw", "gy", "hk", "hm", "hn", "hr", "ht", "hu", "id", "ie", "il",
-                "in", "io", "iq", "ir", "is", "it", "jm", "jo", "jp", "ke", "kg", "kh", "ki", "km",
-                "kn", "kp", "kr", "kw", "ky", "kz", "la", "lb", "lc", "li", "lk", "lr", "ls", "lt",
-                "lu", "lv", "ly", "ma", "mc", "md", "me", "mg", "mh", "mk", "ml", "mm", "mn", "mo",
-                "mp", "mq", "mr", "ms", "mt", "mu", "mv", "mw", "mx", "my", "mz", "na", "nc", "ne",
-                "nf", "ng", "ni", "nl", "no", "np", "nr", "nu", "nz", "om", "pa", "pe", "pf", "pg",
-                "ph", "pk", "pl", "pm", "pn", "pr", "ps", "pt", "pw", "py", "qa", "re", "ro", "rs",
-                "ru", "rw", "sa", "sb", "sc", "sd", "se", "sg", "sh", "si", "sj", "sk", "sl", "sm",
-                "sn", "so", "sr", "st", "sv", "sy", "sz", "tc", "td", "tf", "tg", "th", "tj", "tk",
-                "tl", "tm", "tn", "to", "tr", "tt", "tv", "tw", "tz", "ua", "ug", "um", "us", "uy",
-                "uz", "va", "vc", "ve", "vg", "vi", "vn", "vu", "wf", "ws", "ye", "yt", "za", "zm",
-                "zw",
+                "bs", "bt", "bv", "bw", "by", "bz", "ca", "catalonia", "cc", "cd", "cf", "cg",
+                "ch", "ci", "ck", "cl", "cm", "cn", "co", "cr", "cu", "cv", "cx", "cy", "cz", "de",
+                "dj", "dk", "dm", "do", "dz", "ec", "ee", "eg", "eh", "england", "er", "es", "et",
+                "fi", "fj", "fk", "fm", "fo", "fr", "ga", "gb", "gd", "ge", "gf", "gg", "gh", "gi",
+                "gl", "gm", "gn", "gp", "gq", "gr", "gs", "gt", "gu", "gw", "gy", "hk", "hm", "hn",
+                "hr", "ht", "hu", "id", "ie", "il", "im", "in", "io", "iq", "ir", "is", "it", "jm",
+                "jo", "jp", "ke", "kg", "kh", "ki", "km", "kn", "kp", "kr", "kw", "ky", "kz", "la",
+                "lb", "lc", "li", "lk", "lr", "ls", "lt", "lu", "lv", "ly", "ma", "mc", "md", "me",
+                "mg", "mh", "mk", "ml", "mm", "mn", "mo", "mp", "mq", "mr", "ms", "mt", "mu", "mv",
+                "mw", "mx", "my", "mz", "na", "nc", "ne", "nf", "ng", "ni", "nl", "no", "np", "nr",
+                "nu", "nz", "om", "pa", "pe", "pf", "pg", "ph", "pk", "pl", "pm", "pn", "pr", "ps",
+                "pt", "pw", "py", "qa", "re", "ro", "rs", "ru", "rw", "sa", "sb", "sc", "scotland",
+                "sd", "se", "sg", "sh", "si", "sj", "sk", "sl", "sm", "sn", "so", "sr", "ss", "st",
+                "sv", "sy", "sz", "tc", "td", "tf", "tg", "th", "tj", "tk", "tl", "tm", "tn", "to",
+                "tr", "tt", "tv", "tw", "tz", "ua", "ug", "um", "us", "uy", "uz", "va", "vc", "ve",
+                "vg", "vi", "vn", "vu", "wales", "wf", "ws", "ye", "yt", "za", "zm", "zw"
         };
-        Set<String> sIcons = new HashSet<String>(100);
-        Map<String, String> regionNames = LocaleManager.getRegionNamesMap();
-        Map<String, String> languageToCountry = LocaleManager.getLanguageToCountryMap();
-        Map<String, String> languageNames = LocaleManager.getLanguageNamesMap();
-        List<String> unused = new ArrayList<String>();
-        for (String code : icons) {
-            code = code.toUpperCase(Locale.US);
-            sIcons.add(code);
 
-            String country = regionNames.get(code);
-            if (country == null) {
+        Set<String> sImages = new HashSet<String>(100);
+        for (String code : icons) {
+            if (code.length() > 2) {
+                continue;
+            }
+            code = code.toUpperCase(Locale.US);
+            sImages.add(code);
+
+            if (!LocaleManager.isValidRegionCode(code)) {
                 System.out.println("No region name found for region code " + code);
             }
+        }
 
-            if (!languageToCountry.values().contains(code)) {
-                unused.add(code.toLowerCase() + ".png");
+        Set<String> unused = Sets.newHashSet(LocaleManager.getRegionCodes(false));
+        Set<String> reachable = Sets.newHashSet();
+        Multimap<String, String> regionToLanguages = ArrayListMultimap.create();
+        for (String language : LocaleManager.getLanguageCodes(false)) {
+            for (String region : LocaleManager.getRelevantRegions(language)) {
+                reachable.add(region);
+                regionToLanguages.put(region, language);
             }
         }
-        if (!unused.isEmpty()) {
-            System.out.println("The following icons are not referenced by any of the " +
-                    "language to country bindings: " + unused);
-        }
+        unused.removeAll(reachable);
 
-        // Make sure all our language bindings are languages we have maps for
-        for (Map.Entry<String, String> entry : languageToCountry.entrySet()) {
-            String language = entry.getKey();
-            String region = entry.getValue();
-
-            if (!sIcons.contains(region)) {
-                System.out.println("No icon found for region " + region + "  "
-                        + LocaleManager.getRegionName(region) + " (used for language "
-                        + language + "(" + languageNames.get(language) + "))");
-            }
-        }
-    }
-
-    /* Utility useful for identifying strings which must be using \\u in the string names
-     * to ensure that they are handled properly during the build (outside of Eclipse,
-     * where this source file is marked as using UTF-8.
-    public void testPrintable() {
-        Set<String> languageCodes = LocaleManager.getLanguageCodes();
-        for (String code : languageCodes) {
-            String name = LocaleManager.getLanguageName(code);
-            assertNotNull(name);
-            checkEncoding(name);
-        }
-
-        Set<String> regionCodes = LocaleManager.getRegionCodes();
-        for (String code : regionCodes) {
-            String name = LocaleManager.getRegionName(code);
-            assertNotNull(name);
-            checkEncoding(name);
-        }
-    }
-
-    private static void checkEncoding(String s) {
-        for (int i = 0, n = s.length(); i < n; i++) {
-            char c = s.charAt(i);
-            if (c >= 128) {
-                System.out.println("Need unicode encoding for '" + s + "'");
+        for (String region : reachable) {
+            if (!sImages.contains(region)) {
                 StringBuilder sb = new StringBuilder();
-                for (int j = 0, m = s.length(); j < m; j++) {
-                    char d = s.charAt(j);
-                    if (d < 128) {
-                        sb.append(d);
-                    } else {
-                        sb.append('\\');
-                        sb.append('u');
-                        sb.append(String.format("%04x", (int)d));
-                    }
+
+                sb.append("No icon found for region ").append(region).append("  ")
+                        .append(LocaleManager.getRegionName(region));
+                sb.append(", used for languages ");
+
+                for (String language : regionToLanguages.get(region)) {
+                    sb.append(language).append("(").append(LocaleManager.getLanguageName(language))
+                            .append(") ");
                 }
-                System.out.println(" Replacement=" + sb);
-                return;
+                System.out.println(sb.toString());
             }
         }
+
+        // Known regions that we don't have language to region mappings for
+        unused.remove("AQ");
+        unused.remove("VA");
+        unused.remove("GS");
+        unused.remove("TF");
+        unused.remove("BV");
+        unused.remove("HM");
+
+        if (!unused.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("The following icons are not referenced by any of the "
+                    + "language to country bindings:");
+            for (String code : unused) {
+                sb.append(code.toLowerCase(Locale.US)).append(SdkConstants.DOT_PNG).append(" (");
+                sb.append(LocaleManager.getRegionName(code)).append(") ");
+            }
+            System.out.println(sb.toString());
+        }
     }
-     */
+
+    public void testMissingFlag() {
+        Image icon = FlagManager.get().getFlag("AQ");
+        assertNotNull(icon);
+        assertSame(FlagManager.get().getEmptyIcon(), icon);
+
+        icon = FlagManager.get().getFlag("AQ");
+        assertNotNull(icon);
+        assertSame(FlagManager.get().getEmptyIcon(), icon);
+
+        icon = FlagManager.get().getFlag("WO"); // Not used in ISO 3166-1
+        assertNotNull(icon);
+        assertSame(FlagManager.get().getEmptyIcon(), icon);
+    }
+
+    public void testKnownFlag() {
+        Image icon = FlagManager.get().getFlag("US");
+        assertNotNull(icon);
+        assertNotSame(FlagManager.get().getEmptyIcon(), icon);
+    }
 }
+

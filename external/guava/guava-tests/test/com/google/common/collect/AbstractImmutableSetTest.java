@@ -18,7 +18,7 @@ package com.google.common.collect;
 
 import static com.google.common.collect.testing.IteratorFeature.UNMODIFIABLE;
 import static java.util.Arrays.asList;
-import static org.junit.contrib.truth.Truth.ASSERT;
+import static org.truth0.Truth.ASSERT;
 
 import com.google.common.annotations.GwtCompatible;
 import com.google.common.annotations.GwtIncompatible;
@@ -121,7 +121,7 @@ public abstract class AbstractImmutableSetTest extends TestCase {
     try {
       copyOf((String[]) null);
       fail();
-    } catch(NullPointerException expected) {
+    } catch (NullPointerException expected) {
     }
   }
 
@@ -295,8 +295,17 @@ public abstract class AbstractImmutableSetTest extends TestCase {
         .add("d", "e", "f")
         .add("g", "h", "i", "j")
         .build();
-    ASSERT.that(set).hasContentsInOrder(
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j");
+    ASSERT.that(set).has().exactly(
+        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j").inOrder();
+  }
+
+  public void testReuseBuilderWithNonDuplicateElements() {
+    ImmutableSet.Builder<String> builder = this.<String>builder()
+        .add("a")
+        .add("b");
+    ASSERT.that(builder.build()).has().exactly("a", "b").inOrder();
+    builder.add("c", "d");
+    ASSERT.that(builder.build()).has().exactly("a", "b", "c", "d").inOrder();
   }
 
   public void testBuilderWithDuplicateElements() {
@@ -311,6 +320,16 @@ public abstract class AbstractImmutableSetTest extends TestCase {
     assertEquals(1, set.size());
   }
 
+  public void testReuseBuilderWithDuplicateElements() {
+    ImmutableSet.Builder<String> builder = this.<String>builder()
+        .add("a")
+        .add("a", "a")
+        .add("b");
+    ASSERT.that(builder.build()).has().exactly("a", "b").inOrder();
+    builder.add("a", "b", "c", "c");
+    ASSERT.that(builder.build()).has().exactly("a", "b", "c").inOrder();
+  }
+
   public void testBuilderAddAll() {
     List<String> a = asList("a", "b", "c");
     List<String> b = asList("c", "d", "e");
@@ -318,7 +337,7 @@ public abstract class AbstractImmutableSetTest extends TestCase {
         .addAll(a)
         .addAll(b)
         .build();
-    ASSERT.that(set).hasContentsInOrder("a", "b", "c", "d", "e");
+    ASSERT.that(set).has().exactly("a", "b", "c", "d", "e").inOrder();
   }
 
   static final int LAST_COLOR_ADDED = 0x00BFFF;

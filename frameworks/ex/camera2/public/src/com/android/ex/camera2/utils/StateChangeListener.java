@@ -17,5 +17,5 @@
 package com.android.ex.camera2.utils;
 
 public interface StateChangeListener {
-    public void onStateChanged(int state);
+    void onStateChanged(int state);
 }

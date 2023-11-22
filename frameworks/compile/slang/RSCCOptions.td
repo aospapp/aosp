@@ -91,7 +91,7 @@ def rs_package_name : Separate<["-"], "rs-package-name">,
   HelpText<"package name for referencing RS classes">;
 def rs_package_name_EQ : Joined<["-"], "rs-package-name=">, Alias<rs_package_name>;
 
-def W : Joined<["-"], "W">;
+def W : Joined<["-"], "W">, HelpText<"Enable the specified warning">;
 def w : Flag<["-"], "w">, HelpText<"Suppress all warnings">;
 
 //===----------------------------------------------------------------------===//

@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -9,6 +8,7 @@
 #include <netpacket/packet.h>
 #include <linux/filter.h>
 #include <linux/errqueue.h>
+#include <errno.h>
 
 #include <linux/pkt_sched.h>
 #include <netlink/object-api.h>
@@ -30,7 +30,7 @@
 #include "wifi_hal.h"
 #include "common.h"
 #include "cpp_bindings.h"
-
+#include "rtt.h"
 /*
  BUGBUG: normally, libnl allocates ports for all connections it makes; but
  being a static library, it doesn't really know how many other netlink connections
@@ -45,6 +45,7 @@
 #define FEATURE_SET                  0
 #define FEATURE_SET_MATRIX           1
 #define ATTR_NODFS_VALUE             3
+#define ATTR_COUNTRY_CODE            4
 
 static void internal_event_handler(wifi_handle handle, int events);
 static int internal_no_seq_check(nl_msg *msg, void *arg);
@@ -52,12 +53,21 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg);
 static int wifi_get_multicast_id(wifi_handle handle, const char *name, const char *group);
 static int wifi_add_membership(wifi_handle handle, const char *group);
 static wifi_error wifi_init_interfaces(wifi_handle handle);
+static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
+                        iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh);
+static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface);
 
 typedef enum wifi_attr {
     ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET,
     ANDR_WIFI_ATTRIBUTE_FEATURE_SET,
     ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI
 } wifi_attr_t;
+
+enum wifi_rssi_monitor_attr {
+    RSSI_MONITOR_ATTRIBUTE_MAX_RSSI,
+    RSSI_MONITOR_ATTRIBUTE_MIN_RSSI,
+    RSSI_MONITOR_ATTRIBUTE_START,
+};
 
 /* Initialize/Cleanup */
 
@@ -100,6 +110,59 @@ static nl_sock * wifi_create_nl_socket(int port)
     return sock;
 }
 
+/*initialize function pointer table with Broadcom HHAL API*/
+wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
+{
+    if (fn == NULL) {
+        return WIFI_ERROR_UNKNOWN;
+    }
+    fn->wifi_initialize = wifi_initialize;
+    fn->wifi_cleanup = wifi_cleanup;
+    fn->wifi_event_loop = wifi_event_loop;
+    fn->wifi_get_supported_feature_set = wifi_get_supported_feature_set;
+    fn->wifi_get_concurrency_matrix = wifi_get_concurrency_matrix;
+    fn->wifi_set_scanning_mac_oui =  wifi_set_scanning_mac_oui;
+    fn->wifi_get_ifaces = wifi_get_ifaces;
+    fn->wifi_get_iface_name = wifi_get_iface_name;
+    fn->wifi_start_gscan = wifi_start_gscan;
+    fn->wifi_stop_gscan = wifi_stop_gscan;
+    fn->wifi_get_cached_gscan_results = wifi_get_cached_gscan_results;
+    fn->wifi_set_bssid_hotlist = wifi_set_bssid_hotlist;
+    fn->wifi_reset_bssid_hotlist = wifi_reset_bssid_hotlist;
+    fn->wifi_set_significant_change_handler = wifi_set_significant_change_handler;
+    fn->wifi_reset_significant_change_handler = wifi_reset_significant_change_handler;
+    fn->wifi_get_gscan_capabilities = wifi_get_gscan_capabilities;
+    fn->wifi_get_link_stats = wifi_get_link_stats;
+    fn->wifi_get_valid_channels = wifi_get_valid_channels;
+    fn->wifi_rtt_range_request = wifi_rtt_range_request;
+    fn->wifi_rtt_range_cancel = wifi_rtt_range_cancel;
+    fn->wifi_get_rtt_capabilities = wifi_get_rtt_capabilities;
+    fn->wifi_set_nodfs_flag = wifi_set_nodfs_flag;
+    fn->wifi_start_logging = wifi_start_logging;
+    fn->wifi_set_epno_list = wifi_set_epno_list;
+    fn->wifi_set_country_code = wifi_set_country_code;
+    fn->wifi_get_firmware_memory_dump = wifi_get_firmware_memory_dump;
+    fn->wifi_set_log_handler = wifi_set_log_handler;
+    fn->wifi_reset_log_handler = wifi_reset_log_handler;
+    fn->wifi_set_alert_handler = wifi_set_alert_handler;
+    fn->wifi_reset_alert_handler = wifi_reset_alert_handler;
+    fn->wifi_get_firmware_version = wifi_get_firmware_version;
+    fn->wifi_get_ring_buffers_status = wifi_get_ring_buffers_status;
+    fn->wifi_get_logger_supported_feature_set = wifi_get_logger_supported_feature_set;
+    fn->wifi_get_ring_data = wifi_get_ring_data;
+    fn->wifi_get_driver_version = wifi_get_driver_version;
+    fn->wifi_set_ssid_white_list = wifi_set_ssid_white_list;
+    fn->wifi_set_gscan_roam_params = wifi_set_gscan_roam_params;
+    fn->wifi_set_bssid_preference = wifi_set_bssid_preference;
+    fn->wifi_set_bssid_blacklist = wifi_set_bssid_blacklist;
+    fn->wifi_enable_lazy_roam = wifi_enable_lazy_roam;
+    fn->wifi_start_rssi_monitoring = wifi_start_rssi_monitoring;
+    fn->wifi_stop_rssi_monitoring = wifi_stop_rssi_monitoring;
+    fn->wifi_start_sending_offloaded_packet = wifi_start_sending_offloaded_packet;
+    fn->wifi_stop_sending_offloaded_packet = wifi_stop_sending_offloaded_packet;
+    return WIFI_SUCCESS;
+}
+
 wifi_error wifi_initialize(wifi_handle *handle)
 {
     srand(getpid());
@@ -114,6 +177,11 @@ wifi_error wifi_initialize(wifi_handle *handle)
     memset(info, 0, sizeof(*info));
 
     ALOGI("Creating socket");
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, info->cleanup_socks) == -1) {
+        ALOGE("Could not create cleanup sockets");
+        return WIFI_ERROR_UNKNOWN;
+    }
+
     struct nl_sock *cmd_sock = wifi_create_nl_socket(WIFI_HAL_CMD_SOCK_PORT);
     if (cmd_sock == NULL) {
         ALOGE("Could not create handle");
@@ -202,6 +270,8 @@ static void internal_cleaned_up_handler(wifi_handle handle)
     wifi_cleaned_up_handler cleaned_up_handler = info->cleaned_up_handler;
 
     if (info->cmd_sock != 0) {
+        close(info->cleanup_socks[0]);
+        close(info->cleanup_socks[1]);
         nl_socket_free(info->cmd_sock);
         nl_socket_free(info->event_sock);
         info->cmd_sock = NULL;
@@ -221,7 +291,47 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     info->cleaned_up_handler = handler;
     info->clean_up = true;
 
-    ALOGI("Wifi cleanup completed");
+    pthread_mutex_lock(&info->cb_lock);
+
+    int bad_commands = 0;
+
+    for (int i = 0; i < info->num_event_cb; i++) {
+        cb_info *cbi = &(info->event_cb[i]);
+        WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
+        ALOGE("Command left in event_cb %p:%s", cmd, cmd->getType());
+    }
+
+    while (info->num_cmd > bad_commands) {
+        int num_cmd = info->num_cmd;
+        cmd_info *cmdi = &(info->cmd[bad_commands]);
+        WifiCommand *cmd = cmdi->cmd;
+        if (cmd != NULL) {
+            ALOGD("Cancelling command %p:%s", cmd, cmd->getType());
+            pthread_mutex_unlock(&info->cb_lock);
+            cmd->cancel();
+            pthread_mutex_lock(&info->cb_lock);
+            /* release reference added when command is saved */
+            cmd->releaseRef();
+            if (num_cmd == info->num_cmd) {
+                ALOGE("Cancelling command %p:%s did not work", cmd, cmd->getType());
+                bad_commands++;
+            }
+        }
+    }
+
+    for (int i = 0; i < info->num_event_cb; i++) {
+        cb_info *cbi = &(info->event_cb[i]);
+        WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
+        ALOGE("Leaked command %p", cmd);
+    }
+
+    pthread_mutex_unlock(&info->cb_lock);
+
+    if (write(info->cleanup_socks[0], "T", 1) < 1) {
+        ALOGE("could not write to cleanup socket");
+    } else {
+        ALOGI("Wifi cleanup completed");
+    }
 }
 
 static int internal_pollin_handler(wifi_handle handle)
@@ -244,37 +354,43 @@ void wifi_event_loop(wifi_handle handle)
         info->in_event_loop = true;
     }
 
-    pollfd pfd;
-    memset(&pfd, 0, sizeof(pfd));
+    pollfd pfd[2];
+    memset(&pfd[0], 0, sizeof(pollfd) * 2);
 
-    pfd.fd = nl_socket_get_fd(info->event_sock);
-    pfd.events = POLLIN;
+    pfd[0].fd = nl_socket_get_fd(info->event_sock);
+    pfd[0].events = POLLIN;
+    pfd[1].fd = info->cleanup_socks[1];
+    pfd[1].events = POLLIN;
 
+    char buf[2048];
     /* TODO: Add support for timeouts */
 
     do {
         int timeout = -1;                   /* Infinite timeout */
-        pfd.revents = 0;
+        pfd[0].revents = 0;
+        pfd[1].revents = 0;
         // ALOGI("Polling socket");
-        int result = poll(&pfd, 1, -1);
+        int result = poll(pfd, 2, timeout);
         if (result < 0) {
-            ALOGE("Error polling socket");
-        } else if (pfd.revents & POLLERR) {
+            // ALOGE("Error polling socket");
+        } else if (pfd[0].revents & POLLERR) {
             ALOGE("POLL Error; error no = %d", errno);
-            char buf[2048];
-            int result2 = read(pfd.fd, buf, sizeof(buf));
+            int result2 = read(pfd[0].fd, buf, sizeof(buf));
             ALOGE("Read after POLL returned %d, error no = %d", result2, errno);
-        } else if (pfd.revents & POLLHUP) {
+        } else if (pfd[0].revents & POLLHUP) {
             ALOGE("Remote side hung up");
             break;
-        } else if (pfd.revents & POLLIN) {
+        } else if (pfd[0].revents & POLLIN) {
             // ALOGI("Found some events!!!");
             internal_pollin_handler(handle);
+        } else if (pfd[1].revents & POLLIN) {
+            ALOGI("Got a signal to exit!!!");
+            int result2 = read(pfd[1].fd, buf, sizeof(buf));
+            ALOGE("Read after POLL returned %d, error no = %d", result2, errno);
         } else {
-            ALOGE("Unknown event - %0x", pfd.revents);
+            ALOGE("Unknown event - %0x, %0x", pfd[0].revents, pfd[1].revents);
         }
     } while (!info->clean_up);
-
 
     ALOGI("Cleaning up");
     internal_cleaned_up_handler(handle);
@@ -289,6 +405,8 @@ static int internal_no_seq_check(struct nl_msg *msg, void *arg)
 
 static int internal_valid_message_handler(nl_msg *msg, void *arg)
 {
+    // ALOGI("got an event");
+
     wifi_handle handle = (wifi_handle)arg;
     hal_info *info = getHalInfo(handle);
 
@@ -306,13 +424,13 @@ static int internal_valid_message_handler(nl_msg *msg, void *arg)
     if (cmd == NL80211_CMD_VENDOR) {
         vendor_id = event.get_u32(NL80211_ATTR_VENDOR_ID);
         subcmd = event.get_u32(NL80211_ATTR_VENDOR_SUBCMD);
-        ALOGI("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
+        ALOGV("event received %s, vendor_id = 0x%0x, subcmd = 0x%0x",
                 event.get_cmdString(), vendor_id, subcmd);
     } else {
-        // ALOGI("event received %s", event.get_cmdString());
+        // ALOGV("event received %s", event.get_cmdString());
     }
 
-    // ALOGI("event received %s, vendor_id = 0x%0x", event.get_cmdString(), vendor_id);
+    // ALOGV("event received %s, vendor_id = 0x%0x", event.get_cmdString(), vendor_id);
     // event.log();
 
     bool dispatched = false;
@@ -362,7 +480,7 @@ private:
     int   mId;
 public:
     GetMulticastIdCommand(wifi_handle handle, const char *name, const char *group)
-        : WifiCommand(handle, 0)
+        : WifiCommand("GetMulticastIdCommand", handle, 0)
     {
         mName = name;
         mGroup = group;
@@ -437,7 +555,7 @@ private:
     int set_size_max;
 public:
     SetPnoMacAddrOuiCommand(wifi_interface_handle handle, oui scan_oui)
-        : WifiCommand(handle, 0)
+        : WifiCommand("SetPnoMacAddrOuiCommand", handle, 0)
     {
         mOui = scan_oui;
     }
@@ -489,7 +607,7 @@ private:
     u32 mNoDfs;
 public:
     SetNodfsCommand(wifi_interface_handle handle, u32 nodfs)
-        : WifiCommand(handle, 0) {
+        : WifiCommand("SetNodfsCommand", handle, 0) {
         mNoDfs = nodfs;
     }
     virtual int create() {
@@ -512,6 +630,151 @@ public:
     }
 };
 
+class SetCountryCodeCommand : public WifiCommand {
+private:
+    const char *mCountryCode;
+public:
+    SetCountryCodeCommand(wifi_interface_handle handle, const char *country_code)
+        : WifiCommand("SetCountryCodeCommand", handle, 0) {
+        mCountryCode = country_code;
+        }
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_SET_COUNTRY_CODE);
+        if (ret < 0) {
+             ALOGE("Can't create message to send to driver - %d", ret);
+             return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_string(ATTR_COUNTRY_CODE, mCountryCode);
+        if (ret < 0) {
+            return ret;
+        }
+
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+
+    }
+};
+
+class SetRSSIMonitorCommand : public WifiCommand {
+private:
+    s8 mMax_rssi;
+    s8 mMin_rssi;
+    wifi_rssi_event_handler mHandler;
+public:
+    SetRSSIMonitorCommand(wifi_request_id id, wifi_interface_handle handle,
+                s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh)
+        : WifiCommand("SetRSSIMonitorCommand", handle, id), mMax_rssi(max_rssi), mMin_rssi
+        (min_rssi), mHandler(eh)
+        {
+        }
+   int createRequest(WifiRequest& request, int enable) {
+        int result = request.create(GOOGLE_OUI, WIFI_SUBCMD_SET_RSSI_MONITOR);
+        if (result < 0) {
+            return result;
+        }
+
+        nlattr *data = request.attr_start(NL80211_ATTR_VENDOR_DATA);
+        result = request.put_u32(RSSI_MONITOR_ATTRIBUTE_MAX_RSSI, (enable ? mMax_rssi: 0));
+        if (result < 0) {
+            return result;
+        }
+        ALOGD("create request");
+        result = request.put_u32(RSSI_MONITOR_ATTRIBUTE_MIN_RSSI, (enable? mMin_rssi: 0));
+        if (result < 0) {
+            return result;
+        }
+        result = request.put_u32(RSSI_MONITOR_ATTRIBUTE_START, enable);
+        if (result < 0) {
+            return result;
+        }
+        request.attr_end(data);
+        return result;
+    }
+
+    int start() {
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, 1);
+        if (result < 0) {
+            return result;
+        }
+        result = requestResponse(request);
+        if (result < 0) {
+            ALOGI("Failed to set RSSI Monitor, result = %d", result);
+            return result;
+        }
+        ALOGI("Successfully set RSSI monitoring");
+        registerVendorHandler(GOOGLE_OUI, GOOGLE_RSSI_MONITOR_EVENT);
+
+
+        if (result < 0) {
+            unregisterVendorHandler(GOOGLE_OUI, GOOGLE_RSSI_MONITOR_EVENT);
+            return result;
+        }
+        ALOGI("Done!");
+        return result;
+    }
+
+    virtual int cancel() {
+
+        WifiRequest request(familyId(), ifaceId());
+        int result = createRequest(request, 0);
+        if (result != WIFI_SUCCESS) {
+            ALOGE("failed to create request; result = %d", result);
+        } else {
+            result = requestResponse(request);
+            if (result != WIFI_SUCCESS) {
+                ALOGE("failed to stop RSSI monitoring = %d", result);
+            }
+        }
+        unregisterVendorHandler(GOOGLE_OUI, GOOGLE_RSSI_MONITOR_EVENT);
+        return WIFI_SUCCESS;
+    }
+
+    virtual int handleResponse(WifiEvent& reply) {
+        /* Nothing to do on response! */
+        return NL_SKIP;
+    }
+
+   virtual int handleEvent(WifiEvent& event) {
+        ALOGI("Got a RSSI monitor event");
+
+        nlattr *vendor_data = event.get_attribute(NL80211_ATTR_VENDOR_DATA);
+        int len = event.get_vendor_data_len();
+
+        if (vendor_data == NULL || len == 0) {
+            ALOGI("RSSI monitor: No data");
+            return NL_SKIP;
+        }
+        /* driver<->HAL event structure */
+        #define RSSI_MONITOR_EVT_VERSION   1
+        typedef struct {
+            u8 version;
+            s8 cur_rssi;
+            mac_addr BSSID;
+        } rssi_monitor_evt;
+
+        rssi_monitor_evt *data = (rssi_monitor_evt *)event.get_vendor_data();
+
+        if (data->version != RSSI_MONITOR_EVT_VERSION) {
+            ALOGI("Event version mismatch %d, expected %d", data->version, RSSI_MONITOR_EVT_VERSION);
+            return NL_SKIP;
+        }
+
+        if (*mHandler.on_rssi_threshold_breached) {
+            (*mHandler.on_rssi_threshold_breached)(id(), data->BSSID, data->cur_rssi);
+        } else {
+            ALOGW("No RSSI monitor handler registered");
+        }
+
+        return NL_SKIP;
+    }
+
+};
+
 class GetFeatureSetCommand : public WifiCommand {
 
 private:
@@ -523,7 +786,7 @@ private:
 public:
     GetFeatureSetCommand(wifi_interface_handle handle, int feature, feature_set *set,
          feature_set set_matrix[], int *size, int max_size)
-        : WifiCommand(handle, 0)
+        : WifiCommand("GetFeatureSetCommand", handle, 0)
     {
         feature_type = feature;
         fset = set;
@@ -554,7 +817,7 @@ public:
 protected:
     virtual int handleResponse(WifiEvent& reply) {
 
-        ALOGD("In GetFeatureSetCommand::handleResponse");
+        ALOGV("In GetFeatureSetCommand::handleResponse");
 
         if (reply.get_cmd() != NL80211_CMD_VENDOR) {
             ALOGD("Ignoring reply with cmd = %d", reply.get_cmd());
@@ -567,7 +830,7 @@ protected:
         nlattr *vendor_data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
-        ALOGD("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
+        ALOGV("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
         if (vendor_data == NULL || len == 0) {
             ALOGE("no vendor data in GetFeatureSetCommand response; ignoring it");
             return NL_SKIP;
@@ -591,7 +854,7 @@ protected:
             for (nl_iterator it(vendor_data); it.has_next(); it.next()) {
                 if (it.get_type() == ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET) {
                     num_features_set = it.get_u32();
-                    ALOGI("Got feature list with %d concurrent sets", num_features_set);
+                    ALOGV("Got feature list with %d concurrent sets", num_features_set);
                     if(set_size_max && (num_features_set > set_size_max))
                         num_features_set = set_size_max;
                     *fm_size = num_features_set;
@@ -731,6 +994,41 @@ wifi_error wifi_set_nodfs_flag(wifi_interface_handle handle, u32 nodfs)
 {
     SetNodfsCommand command(handle, nodfs);
     return (wifi_error) command.requestResponse();
+}
+
+wifi_error wifi_set_country_code(wifi_interface_handle handle, const char *country_code)
+{
+    SetCountryCodeCommand command(handle, country_code);
+    return (wifi_error) command.requestResponse();
+}
+
+static wifi_error wifi_start_rssi_monitoring(wifi_request_id id, wifi_interface_handle
+                        iface, s8 max_rssi, s8 min_rssi, wifi_rssi_event_handler eh)
+{
+    ALOGD("Start RSSI monitor %d", id);
+    wifi_handle handle = getWifiHandle(iface);
+    SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface, max_rssi, min_rssi, eh);
+    wifi_register_cmd(handle, id, cmd);
+    return (wifi_error)cmd->start();
+}
+
+
+static wifi_error wifi_stop_rssi_monitoring(wifi_request_id id, wifi_interface_handle iface)
+{
+    ALOGD("Stopping RSSI monitor");
+
+    if(id == -1) {
+        wifi_rssi_event_handler handler;
+        s8 max_rssi = 0, min_rssi = 0;
+        wifi_handle handle = getWifiHandle(iface);
+        memset(&handler, 0, sizeof(handler));
+        SetRSSIMonitorCommand *cmd = new SetRSSIMonitorCommand(id, iface,
+                                                    max_rssi, min_rssi, handler);
+        cmd->cancel();
+        cmd->releaseRef();
+        return WIFI_SUCCESS;
+    }
+    return wifi_cancel_cmd(id, iface);
 }
 
 /////////////////////////////////////////////////////////////////////////////

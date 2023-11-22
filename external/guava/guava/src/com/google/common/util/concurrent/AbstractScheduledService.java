@@ -18,13 +18,17 @@ package com.google.common.util.concurrent;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,9 +43,9 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This class uses the {@link ScheduledExecutorService} returned from {@link #executor} to run
  * the {@link #startUp} and {@link #shutDown} methods and also uses that service to schedule the 
  * {@link #runOneIteration} that will be executed periodically as specified by its 
- * {@link Scheduler}. When this service is asked to stop via {@link #stop} or {@link #stopAndWait}, 
- * it will cancel the periodic task (but not interrupt it) and wait for it to stop before running 
- * the {@link #shutDown} method.  
+ * {@link Scheduler}. When this service is asked to stop via {@link #stopAsync} it will cancel the 
+ * periodic task (but not interrupt it) and wait for it to stop before running the 
+ * {@link #shutDown} method.  
  * 
  * <p>Subclasses are guaranteed that the life cycle methods ({@link #runOneIteration}, {@link 
  * #startUp} and {@link #shutDown}) will never run concurrently. Notably, if any execution of {@link
@@ -52,7 +56,7 @@ import javax.annotation.concurrent.GuardedBy;
  * 
  * <h3>Usage Example</h3>
  * 
- * Here is a sketch of a service which crawls a website and uses the scheduling capabilities to 
+ * <p>Here is a sketch of a service which crawls a website and uses the scheduling capabilities to 
  * rate limit itself. <pre> {@code
  * class CrawlingService extends AbstractScheduledService {
  *   private Set<Uri> visited;
@@ -79,7 +83,7 @@ import javax.annotation.concurrent.GuardedBy;
  *   }
  * }}</pre>
  * 
- * This class uses the life cycle methods to read in a list of starting URIs and save the set of 
+ * <p>This class uses the life cycle methods to read in a list of starting URIs and save the set of 
  * outstanding URIs when shutting down.  Also, it takes advantage of the scheduling functionality to
  * rate limit the number of queries we perform.
  * 
@@ -96,9 +100,8 @@ public abstract class AbstractScheduledService implements Service {
    * 
    * <p>Consider using the {@link #newFixedDelaySchedule} and {@link #newFixedRateSchedule} factory 
    * methods, these provide {@link Scheduler} instances for the common use case of running the 
-   * service with a fixed schedule.  If more flexibility is needed then consider subclassing the 
-   * {@link CustomScheduler} abstract class in preference to creating your own {@link Scheduler} 
-   * implementation. 
+   * service with a fixed schedule.  If more flexibility is needed then consider subclassing  
+   * {@link CustomScheduler}. 
    * 
    * @author Luke Sandberg
    * @since 11.0
@@ -183,7 +186,11 @@ public abstract class AbstractScheduledService implements Service {
     };
     
     @Override protected final void doStart() {
-      executorService = executor();
+      executorService = MoreExecutors.renamingDecorator(executor(), new Supplier<String>() {
+        @Override public String get() {
+          return serviceName() + " " + state();
+        }
+      });
       executorService.execute(new Runnable() {
         @Override public void run() {
           lock.lock();
@@ -229,6 +236,9 @@ public abstract class AbstractScheduledService implements Service {
     }
   };
   
+  /** Constructor for use by subclasses. */
+  protected AbstractScheduledService() {}
+
   /** 
    * Run one iteration of the scheduled task. If any invocation of this method throws an exception, 
    * the service will transition to the {@link Service.State#FAILED} state and this method will no 
@@ -236,11 +246,19 @@ public abstract class AbstractScheduledService implements Service {
    */
   protected abstract void runOneIteration() throws Exception;
 
-  /** Start the service. */
-  protected abstract void startUp() throws Exception;
+  /** 
+   * Start the service.
+   * 
+   * <p>By default this method does nothing.
+   */
+  protected void startUp() throws Exception {}
 
-  /** Stop the service. This is guaranteed not to run concurrently with {@link #runOneIteration}. */
-  protected abstract void shutDown() throws Exception;
+  /**
+   * Stop the service. This is guaranteed not to run concurrently with {@link #runOneIteration}.
+   * 
+   * <p>By default this method does nothing. 
+   */
+  protected void shutDown() throws Exception {}
 
   /**
    * Returns the {@link Scheduler} object used to configure this service.  This method will only be
@@ -250,28 +268,66 @@ public abstract class AbstractScheduledService implements Service {
   
   /**
    * Returns the {@link ScheduledExecutorService} that will be used to execute the {@link #startUp},
-   * {@link #runOneIteration} and {@link #shutDown} methods.  The executor will not be 
-   * {@link ScheduledExecutorService#shutdown} when this service stops. Subclasses may override this
-   * method to use a custom {@link ScheduledExecutorService} instance.
+   * {@link #runOneIteration} and {@link #shutDown} methods.  If this method is overridden the 
+   * executor will not be {@linkplain ScheduledExecutorService#shutdown shutdown} when this 
+   * service {@linkplain Service.State#TERMINATED terminates} or 
+   * {@linkplain Service.State#TERMINATED fails}. Subclasses may override this method to supply a 
+   * custom {@link ScheduledExecutorService} instance. This method is guaranteed to only be called 
+   * once.
    * 
    * <p>By default this returns a new {@link ScheduledExecutorService} with a single thread thread
-   * pool.  This method will only be called once.
+   * pool that sets the name of the thread to the {@linkplain #serviceName() service name}.  
+   * Also, the pool will be {@linkplain ScheduledExecutorService#shutdown() shut down} when the 
+   * service {@linkplain Service.State#TERMINATED terminates} or 
+   * {@linkplain Service.State#TERMINATED fails}.
    */
   protected ScheduledExecutorService executor() {
-    return Executors.newSingleThreadScheduledExecutor();
+    final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
+        new ThreadFactory() {
+          @Override public Thread newThread(Runnable runnable) {
+            return MoreExecutors.newThread(serviceName(), runnable);
+          }
+        });
+    // Add a listener to shutdown the executor after the service is stopped.  This ensures that the
+    // JVM shutdown will not be prevented from exiting after this service has stopped or failed.
+    // Technically this listener is added after start() was called so it is a little gross, but it
+    // is called within doStart() so we know that the service cannot terminate or fail concurrently
+    // with adding this listener so it is impossible to miss an event that we are interested in.
+    addListener(new Listener() {
+      @Override public void terminated(State from) {
+        executor.shutdown();
+      }
+      @Override public void failed(State from, Throwable failure) {
+        executor.shutdown();
+      }}, MoreExecutors.sameThreadExecutor());
+    return executor;
   }
 
+  /**
+   * Returns the name of this service. {@link AbstractScheduledService} may include the name in 
+   * debugging output.
+   *
+   * @since 14.0
+   */
+  protected String serviceName() {
+    return getClass().getSimpleName();
+  }
+  
   @Override public String toString() {
-    return getClass().getSimpleName() + " [" + state() + "]";
+    return serviceName() + " [" + state() + "]";
   }
 
   // We override instead of using ForwardingService so that these can be final.
 
-  @Override public final ListenableFuture<State> start() {
+  @Deprecated
+  @Override
+   public final ListenableFuture<State> start() {
     return delegate.start();
   }
 
-  @Override public final State startAndWait() {
+  @Deprecated
+  @Override
+   public final State startAndWait() {
     return delegate.startAndWait();
   }
 
@@ -283,12 +339,74 @@ public abstract class AbstractScheduledService implements Service {
     return delegate.state();
   }
 
-  @Override public final ListenableFuture<State> stop() {
+  @Deprecated
+  @Override
+   public final ListenableFuture<State> stop() {
     return delegate.stop();
   }
 
-  @Override public final State stopAndWait() {
+  @Deprecated
+  @Override
+   public final State stopAndWait() {
     return delegate.stopAndWait();
+  }
+
+  /**
+   * @since 13.0
+   */
+  @Override public final void addListener(Listener listener, Executor executor) {
+    delegate.addListener(listener, executor);
+  }
+  
+  /**
+   * @since 14.0
+   */
+  @Override public final Throwable failureCause() {
+    return delegate.failureCause();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final Service startAsync() {
+    delegate.startAsync();
+    return this;
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final Service stopAsync() {
+    delegate.stopAsync();
+    return this;
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitRunning() {
+    delegate.awaitRunning();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitRunning(long timeout, TimeUnit unit) throws TimeoutException {
+    delegate.awaitRunning(timeout, unit);
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitTerminated() {
+    delegate.awaitTerminated();
+  }
+  
+  /**
+   * @since 15.0
+   */
+  @Override public final void awaitTerminated(long timeout, TimeUnit unit) throws TimeoutException {
+    delegate.awaitTerminated(timeout, unit);
   }
   
   /**

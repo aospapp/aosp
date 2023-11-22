@@ -34,6 +34,7 @@ public class Main {
     test_Math_max_F();
     test_Math_min_D();
     test_Math_max_D();
+    test_Math_sqrt();
     test_Math_ceil();
     test_Math_floor();
     test_Math_rint();
@@ -54,6 +55,7 @@ public class Main {
     test_StrictMath_max_F();
     test_StrictMath_min_D();
     test_StrictMath_max_D();
+    test_StrictMath_sqrt();
     test_StrictMath_ceil();
     test_StrictMath_floor();
     test_StrictMath_rint();
@@ -119,18 +121,29 @@ public class Main {
     }
   }
 
+  // Break up the charAt tests. The optimizing compiler doesn't optimize methods with try-catch yet,
+  // so we need to separate out the tests that are expected to throw exception
+
   public static void test_String_charAt() {
-    String testStr = "Now is the time";
+    String testStr = "Now is the time to test some stuff";
 
-    Assert.assertEquals('N', testStr.charAt(0));
-    Assert.assertEquals('o', testStr.charAt(1));
-    Assert.assertEquals(' ', testStr.charAt(10));
-    Assert.assertEquals('e', testStr.charAt(14));  // 14 = testStr.length()-1 as a constant.
-    Assert.assertEquals('N', test_String_charAt_inner(testStr, 0));
-    Assert.assertEquals('o', test_String_charAt_inner(testStr, 1));
-    Assert.assertEquals(' ', test_String_charAt_inner(testStr, 10));
-    Assert.assertEquals('e', test_String_charAt_inner(testStr, testStr.length()-1));
+    Assert.assertEquals(testStr.length() - 1, 33);  // 33 = testStr.length()-1 as a constant.
+    Assert.assertEquals('f', testStr.charAt(33));
 
+    test_String_charAt(testStr, 'N', 'o', ' ', 'f');
+    test_String_charAt(testStr.substring(3,15), ' ', 'i', 'm', 'e');
+  }
+  public static void test_String_charAt(String testStr, char a, char b, char c, char d) {
+    Assert.assertEquals(a, testStr.charAt(0));
+    Assert.assertEquals(b, testStr.charAt(1));
+    Assert.assertEquals(c, testStr.charAt(10));
+    Assert.assertEquals(d, testStr.charAt(testStr.length()-1));
+
+    test_String_charAtExc(testStr);
+    test_String_charAtExc2(testStr);
+  }
+
+  private static void test_String_charAtExc(String testStr) {
     try {
       testStr.charAt(-1);
       Assert.fail();
@@ -142,7 +155,12 @@ public class Main {
     } catch (StringIndexOutOfBoundsException expected) {
     }
     try {
-      testStr.charAt(15);  // 15 = "Now is the time".length()
+      if (testStr.length() == 34) {
+          testStr.charAt(34);  // 34 = "Now is the time to test some stuff".length()
+      } else {
+          Assert.assertEquals(testStr.length(), 12);  // 12 = " is the time".length()
+          testStr.charAt(12);
+      }
       Assert.fail();
     } catch (StringIndexOutOfBoundsException expected) {
     }
@@ -157,7 +175,13 @@ public class Main {
     } catch (StringIndexOutOfBoundsException expected) {
     }
     try {
-      test_String_charAt_inner(testStr, 15);  // 15 = "Now is the time".length()
+      if (testStr.length() == 34) {
+        // 34 = "Now is the time to test some stuff".length()
+        test_String_charAt_inner(testStr, 34);
+      } else {
+        Assert.assertEquals(testStr.length(), 12);  // 12 = " is the time".length()
+        test_String_charAt_inner(testStr, 12);
+      }
       Assert.fail();
     } catch (StringIndexOutOfBoundsException expected) {
     }
@@ -182,6 +206,27 @@ public class Main {
     return s.charAt(index);
   }
 
+  private static void test_String_charAtExc2(String testStr) {
+    try {
+      test_String_charAtExc3(testStr);
+      Assert.fail();
+    } catch (StringIndexOutOfBoundsException expected) {
+    }
+    try {
+      test_String_charAtExc4(testStr);
+      Assert.fail();
+    } catch (StringIndexOutOfBoundsException expected) {
+    }
+  }
+
+  private static void test_String_charAtExc3(String testStr) {
+    Assert.assertEquals('N', testStr.charAt(-1));
+  }
+
+  private static void test_String_charAtExc4(String testStr) {
+    Assert.assertEquals('N', testStr.charAt(100));
+  }
+
   static int start;
   private static int[] negIndex = { -100000 };
   public static void test_String_indexOf() {
@@ -190,15 +235,6 @@ public class Main {
     String str3 = "abc";
     String str10 = "abcdefghij";
     String str40 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabc";
-
-    int supplementaryChar = 0x20b9f;
-    String surrogatePair = "\ud842\udf9f";
-    String stringWithSurrogates = "hello " + surrogatePair + " world";
-
-    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar), "hello ".length());
-    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 2), "hello ".length());
-    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 6), 6);
-    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 7), -1);
 
     Assert.assertEquals(str0.indexOf('a'), -1);
     Assert.assertEquals(str3.indexOf('a'), 0);
@@ -224,22 +260,121 @@ public class Main {
     Assert.assertEquals(str40.indexOf('a',10), 10);
     Assert.assertEquals(str40.indexOf('b',40), -1);
 
+    testIndexOfNull();
+
+    // Same data as above, but stored so it's not a literal in the next test. -2 stands for
+    // indexOf(I) instead of indexOf(II).
+    start--;
+    int[][] searchData = {
+        { 'a', -2, -1 },
+        { 'a', -2, 0 },
+        { 'b', -2, 1 },
+        { 'c', -2, 2 },
+        { 'j', -2, 9 },
+        { 'a', -2, 0 },
+        { 'b', -2, 38 },
+        { 'c', -2, 39 },
+        { 'a', 20, -1 },
+        { 'a', 0, -1 },
+        { 'a', -1, -1 },
+        { '/', ++start, -1 },
+        { 'a', negIndex[0], -1 },
+        { 'a', 0, 0 },
+        { 'a', 1, -1 },
+        { 'a', 1234, -1 },
+        { 'b', 0, 1 },
+        { 'b', 1, 1 },
+        { 'c', 2, 2 },
+        { 'j', 5, 9 },
+        { 'j', 9, 9 },
+        { 'a', 10, 10 },
+        { 'b', 40, -1 },
+    };
+    testStringIndexOfChars(searchData);
+
+    testSurrogateIndexOf();
+  }
+
+  private static void testStringIndexOfChars(int[][] searchData) {
+    // Use a try-catch to avoid inlining.
+    try {
+      testStringIndexOfCharsImpl(searchData);
+    } catch (Exception e) {
+      System.out.println("Unexpected exception");
+    }
+  }
+
+  private static void testStringIndexOfCharsImpl(int[][] searchData) {
+    String str0 = "";
+    String str1 = "/";
+    String str3 = "abc";
+    String str10 = "abcdefghij";
+    String str40 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabc";
+
+    Assert.assertEquals(str0.indexOf(searchData[0][0]), searchData[0][2]);
+    Assert.assertEquals(str3.indexOf(searchData[1][0]), searchData[1][2]);
+    Assert.assertEquals(str3.indexOf(searchData[2][0]), searchData[2][2]);
+    Assert.assertEquals(str3.indexOf(searchData[3][0]), searchData[3][2]);
+    Assert.assertEquals(str10.indexOf(searchData[4][0]), searchData[4][2]);
+    Assert.assertEquals(str40.indexOf(searchData[5][0]), searchData[5][2]);
+    Assert.assertEquals(str40.indexOf(searchData[6][0]), searchData[6][2]);
+    Assert.assertEquals(str40.indexOf(searchData[7][0]), searchData[7][2]);
+    Assert.assertEquals(str0.indexOf(searchData[8][0], searchData[8][1]), searchData[8][2]);
+    Assert.assertEquals(str0.indexOf(searchData[9][0], searchData[9][1]), searchData[9][2]);
+    Assert.assertEquals(str0.indexOf(searchData[10][0], searchData[10][1]), searchData[10][2]);
+    Assert.assertEquals(str1.indexOf(searchData[11][0], searchData[11][1]), searchData[11][2]);
+    Assert.assertEquals(str1.indexOf(searchData[12][0], searchData[12][1]), searchData[12][2]);
+    Assert.assertEquals(str3.indexOf(searchData[13][0], searchData[13][1]), searchData[13][2]);
+    Assert.assertEquals(str3.indexOf(searchData[14][0], searchData[14][1]), searchData[14][2]);
+    Assert.assertEquals(str3.indexOf(searchData[15][0], searchData[15][1]), searchData[15][2]);
+    Assert.assertEquals(str3.indexOf(searchData[16][0], searchData[16][1]), searchData[16][2]);
+    Assert.assertEquals(str3.indexOf(searchData[17][0], searchData[17][1]), searchData[17][2]);
+    Assert.assertEquals(str3.indexOf(searchData[18][0], searchData[18][1]), searchData[18][2]);
+    Assert.assertEquals(str10.indexOf(searchData[19][0], searchData[19][1]), searchData[19][2]);
+    Assert.assertEquals(str10.indexOf(searchData[20][0], searchData[20][1]), searchData[20][2]);
+    Assert.assertEquals(str40.indexOf(searchData[21][0], searchData[21][1]), searchData[21][2]);
+    Assert.assertEquals(str40.indexOf(searchData[22][0], searchData[22][1]), searchData[22][2]);
+  }
+
+  private static void testSurrogateIndexOf() {
+    int supplementaryChar = 0x20b9f;
+    String surrogatePair = "\ud842\udf9f";
+    String stringWithSurrogates = "hello " + surrogatePair + " world";
+
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar), "hello ".length());
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 2), "hello ".length());
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 6), 6);
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar, 7), -1);
+
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar - 0x10000), -1);
+    Assert.assertEquals(stringWithSurrogates.indexOf(supplementaryChar | 0x80000000), -1);
+  }
+
+  private static void testIndexOfNull() {
     String strNull = null;
     try {
-      strNull.indexOf('a');
+      testNullIndex(strNull, 'a');
       Assert.fail();
     } catch (NullPointerException expected) {
     }
     try {
-      strNull.indexOf('a', 0);
+      testNullIndex(strNull, 'a', 0);
       Assert.fail();
     } catch (NullPointerException expected) {
     }
     try {
-      strNull.indexOf('a', -1);
+        testNullIndex(strNull, 'a', -1);
       Assert.fail();
     } catch (NullPointerException expected) {
     }
+  }
+
+  private static int testNullIndex(String strNull, int c) {
+    return strNull.indexOf(c);
+  }
+
+  private static int testNullIndex(String strNull, int c, int startIndex) {
+    return strNull.indexOf(c, startIndex);
   }
 
   public static void test_String_compareTo() {
@@ -312,6 +447,7 @@ public class Main {
   }
 
   public static void test_Math_abs_I() {
+    Math.abs(-1);
     Assert.assertEquals(Math.abs(0), 0);
     Assert.assertEquals(Math.abs(123), 123);
     Assert.assertEquals(Math.abs(-123), 123);
@@ -322,15 +458,18 @@ public class Main {
   }
 
   public static void test_Math_abs_J() {
+    Math.abs(-1L);
     Assert.assertEquals(Math.abs(0L), 0L);
     Assert.assertEquals(Math.abs(123L), 123L);
     Assert.assertEquals(Math.abs(-123L), 123L);
     Assert.assertEquals(Math.abs(Long.MAX_VALUE), Long.MAX_VALUE);
     Assert.assertEquals(Math.abs(Long.MIN_VALUE), Long.MIN_VALUE);
     Assert.assertEquals(Math.abs(Long.MIN_VALUE - 1), Long.MAX_VALUE);
+    Assert.assertEquals(Math.abs(2147483648L), 2147483648L);
   }
 
   public static void test_Math_min_I() {
+    Math.min(1, 0);
     Assert.assertEquals(Math.min(0, 0), 0);
     Assert.assertEquals(Math.min(1, 0), 0);
     Assert.assertEquals(Math.min(0, 1), 0);
@@ -340,6 +479,7 @@ public class Main {
   }
 
   public static void test_Math_max_I() {
+    Math.max(1, 0);
     Assert.assertEquals(Math.max(0, 0), 0);
     Assert.assertEquals(Math.max(1, 0), 1);
     Assert.assertEquals(Math.max(0, 1), 1);
@@ -349,6 +489,7 @@ public class Main {
   }
 
   public static void test_Math_min_J() {
+    Math.min(1L, 0L);
     Assert.assertEquals(Math.min(0L, 0L), 0L);
     Assert.assertEquals(Math.min(1L, 0L), 0L);
     Assert.assertEquals(Math.min(0L, 1L), 0L);
@@ -358,6 +499,7 @@ public class Main {
   }
 
   public static void test_Math_max_J() {
+    Math.max(1L, 0L);
     Assert.assertEquals(Math.max(0L, 0L), 0L);
     Assert.assertEquals(Math.max(1L, 0L), 1L);
     Assert.assertEquals(Math.max(0L, 1L), 1L);
@@ -367,6 +509,7 @@ public class Main {
   }
 
   public static void test_Math_min_F() {
+    Math.min(1.0f, Float.NaN);
     Assert.assertTrue(Float.isNaN(Math.min(1.0f, Float.NaN)));
     Assert.assertTrue(Float.isNaN(Math.min(Float.NaN, 1.0f)));
     Assert.assertEquals(Math.min(-0.0f, 0.0f), -0.0f);
@@ -381,6 +524,7 @@ public class Main {
   }
 
   public static void test_Math_max_F() {
+    Math.max(1.0f, Float.NaN);
     Assert.assertTrue(Float.isNaN(Math.max(1.0f, Float.NaN)));
     Assert.assertTrue(Float.isNaN(Math.max(Float.NaN, 1.0f)));
     Assert.assertEquals(Math.max(-0.0f, 0.0f), 0.0f);
@@ -395,6 +539,7 @@ public class Main {
   }
 
   public static void test_Math_min_D() {
+    Math.min(1.0d, Double.NaN);
     Assert.assertTrue(Double.isNaN(Math.min(1.0d, Double.NaN)));
     Assert.assertTrue(Double.isNaN(Math.min(Double.NaN, 1.0d)));
     Assert.assertEquals(Math.min(-0.0d, 0.0d), -0.0d);
@@ -409,6 +554,7 @@ public class Main {
   }
 
   public static void test_Math_max_D() {
+    Math.max(1.0d, Double.NaN);
     Assert.assertTrue(Double.isNaN(Math.max(1.0d, Double.NaN)));
     Assert.assertTrue(Double.isNaN(Math.max(Double.NaN, 1.0d)));
     Assert.assertEquals(Math.max(-0.0d, 0.0d), 0.0d);
@@ -422,7 +568,15 @@ public class Main {
     Assert.assertEquals(Math.max(Double.MIN_VALUE, Double.MAX_VALUE), Double.MAX_VALUE);
   }
 
+  public static void test_Math_sqrt() {
+    Math.sqrt(+4.0);
+    Assert.assertEquals(Math.sqrt(+4.0), +2.0d, 0.0);
+    Assert.assertEquals(Math.sqrt(+49.0), +7.0d, 0.0);
+    Assert.assertEquals(Math.sqrt(+1.44), +1.2d, 0.0);
+  }
+
   public static void test_Math_ceil() {
+    Math.ceil(-0.9);
     Assert.assertEquals(Math.ceil(+0.0), +0.0d, 0.0);
     Assert.assertEquals(Math.ceil(-0.0), -0.0d, 0.0);
     Assert.assertEquals(Math.ceil(-0.9), -0.0d, 0.0);
@@ -444,6 +598,7 @@ public class Main {
   }
 
   public static void test_Math_floor() {
+    Math.floor(+2.1);
     Assert.assertEquals(Math.floor(+0.0), +0.0d, 0.0);
     Assert.assertEquals(Math.floor(-0.0), -0.0d, 0.0);
     Assert.assertEquals(Math.floor(+2.0), +2.0d, 0.0);
@@ -462,6 +617,7 @@ public class Main {
   }
 
   public static void test_Math_rint() {
+    Math.rint(+2.1);
     Assert.assertEquals(Math.rint(+0.0), +0.0d, 0.0);
     Assert.assertEquals(Math.rint(-0.0), -0.0d, 0.0);
     Assert.assertEquals(Math.rint(+2.0), +2.0d, 0.0);
@@ -480,6 +636,7 @@ public class Main {
   }
 
   public static void test_Math_round_D() {
+    Math.round(2.1d);
     Assert.assertEquals(Math.round(+0.0d), (long)+0.0);
     Assert.assertEquals(Math.round(-0.0d), (long)+0.0);
     Assert.assertEquals(Math.round(2.0d), 2l);
@@ -501,6 +658,7 @@ public class Main {
   }
 
   public static void test_Math_round_F() {
+    Math.round(2.1f);
     Assert.assertEquals(Math.round(+0.0f), (int)+0.0);
     Assert.assertEquals(Math.round(-0.0f), (int)+0.0);
     Assert.assertEquals(Math.round(2.0f), 2);
@@ -521,6 +679,7 @@ public class Main {
   }
 
   public static void test_StrictMath_abs_I() {
+    StrictMath.abs(-1);
     Assert.assertEquals(StrictMath.abs(0), 0);
     Assert.assertEquals(StrictMath.abs(123), 123);
     Assert.assertEquals(StrictMath.abs(-123), 123);
@@ -531,6 +690,7 @@ public class Main {
   }
 
   public static void test_StrictMath_abs_J() {
+    StrictMath.abs(-1L);
     Assert.assertEquals(StrictMath.abs(0L), 0L);
     Assert.assertEquals(StrictMath.abs(123L), 123L);
     Assert.assertEquals(StrictMath.abs(-123L), 123L);
@@ -540,6 +700,7 @@ public class Main {
   }
 
   public static void test_StrictMath_min_I() {
+    StrictMath.min(1, 0);
     Assert.assertEquals(StrictMath.min(0, 0), 0);
     Assert.assertEquals(StrictMath.min(1, 0), 0);
     Assert.assertEquals(StrictMath.min(0, 1), 0);
@@ -549,6 +710,7 @@ public class Main {
   }
 
   public static void test_StrictMath_max_I() {
+    StrictMath.max(1, 0);
     Assert.assertEquals(StrictMath.max(0, 0), 0);
     Assert.assertEquals(StrictMath.max(1, 0), 1);
     Assert.assertEquals(StrictMath.max(0, 1), 1);
@@ -558,6 +720,7 @@ public class Main {
   }
 
   public static void test_StrictMath_min_J() {
+    StrictMath.min(1L, 0L);
     Assert.assertEquals(StrictMath.min(0L, 0L), 0L);
     Assert.assertEquals(StrictMath.min(1L, 0L), 0L);
     Assert.assertEquals(StrictMath.min(0L, 1L), 0L);
@@ -567,6 +730,7 @@ public class Main {
   }
 
   public static void test_StrictMath_max_J() {
+    StrictMath.max(1L, 0L);
     Assert.assertEquals(StrictMath.max(0L, 0L), 0L);
     Assert.assertEquals(StrictMath.max(1L, 0L), 1L);
     Assert.assertEquals(StrictMath.max(0L, 1L), 1L);
@@ -576,6 +740,7 @@ public class Main {
   }
 
   public static void test_StrictMath_min_F() {
+    StrictMath.min(1.0f, Float.NaN);
     Assert.assertTrue(Float.isNaN(StrictMath.min(1.0f, Float.NaN)));
     Assert.assertTrue(Float.isNaN(StrictMath.min(Float.NaN, 1.0f)));
     Assert.assertEquals(StrictMath.min(-0.0f, 0.0f), -0.0f);
@@ -590,6 +755,7 @@ public class Main {
   }
 
   public static void test_StrictMath_max_F() {
+    StrictMath.max(1.0f, Float.NaN);
     Assert.assertTrue(Float.isNaN(StrictMath.max(1.0f, Float.NaN)));
     Assert.assertTrue(Float.isNaN(StrictMath.max(Float.NaN, 1.0f)));
     Assert.assertEquals(StrictMath.max(-0.0f, 0.0f), 0.0f);
@@ -604,6 +770,7 @@ public class Main {
   }
 
   public static void test_StrictMath_min_D() {
+    StrictMath.min(1.0d, Double.NaN);
     Assert.assertTrue(Double.isNaN(StrictMath.min(1.0d, Double.NaN)));
     Assert.assertTrue(Double.isNaN(StrictMath.min(Double.NaN, 1.0d)));
     Assert.assertEquals(StrictMath.min(-0.0d, 0.0d), -0.0d);
@@ -618,6 +785,7 @@ public class Main {
   }
 
   public static void test_StrictMath_max_D() {
+    StrictMath.max(1.0d, Double.NaN);
     Assert.assertTrue(Double.isNaN(StrictMath.max(1.0d, Double.NaN)));
     Assert.assertTrue(Double.isNaN(StrictMath.max(Double.NaN, 1.0d)));
     Assert.assertEquals(StrictMath.max(-0.0d, 0.0d), 0.0d);
@@ -631,7 +799,15 @@ public class Main {
     Assert.assertEquals(StrictMath.max(Double.MIN_VALUE, Double.MAX_VALUE), Double.MAX_VALUE);
   }
 
+  public static void test_StrictMath_sqrt() {
+    StrictMath.sqrt(+4.0);
+    Assert.assertEquals(StrictMath.sqrt(+4.0), +2.0d, 0.0);
+    Assert.assertEquals(StrictMath.sqrt(+49.0), +7.0d, 0.0);
+    Assert.assertEquals(StrictMath.sqrt(+1.44), +1.2d, 0.0);
+  }
+
   public static void test_StrictMath_ceil() {
+    StrictMath.ceil(-0.9);
     Assert.assertEquals(StrictMath.ceil(+0.0), +0.0d, 0.0);
     Assert.assertEquals(StrictMath.ceil(-0.0), -0.0d, 0.0);
     Assert.assertEquals(StrictMath.ceil(-0.9), -0.0d, 0.0);
@@ -653,6 +829,7 @@ public class Main {
   }
 
   public static void test_StrictMath_floor() {
+    StrictMath.floor(+2.1);
     Assert.assertEquals(StrictMath.floor(+0.0), +0.0d, 0.0);
     Assert.assertEquals(StrictMath.floor(-0.0), -0.0d, 0.0);
     Assert.assertEquals(StrictMath.floor(+2.0), +2.0d, 0.0);
@@ -671,6 +848,7 @@ public class Main {
   }
 
   public static void test_StrictMath_rint() {
+    StrictMath.rint(+2.1);
     Assert.assertEquals(StrictMath.rint(+0.0), +0.0d, 0.0);
     Assert.assertEquals(StrictMath.rint(-0.0), -0.0d, 0.0);
     Assert.assertEquals(StrictMath.rint(+2.0), +2.0d, 0.0);
@@ -689,6 +867,7 @@ public class Main {
   }
 
   public static void test_StrictMath_round_D() {
+    StrictMath.round(2.1d);
     Assert.assertEquals(StrictMath.round(+0.0d), (long)+0.0);
     Assert.assertEquals(StrictMath.round(-0.0d), (long)+0.0);
     Assert.assertEquals(StrictMath.round(2.0d), 2l);
@@ -710,6 +889,7 @@ public class Main {
   }
 
   public static void test_StrictMath_round_F() {
+    StrictMath.round(2.1f);
     Assert.assertEquals(StrictMath.round(+0.0f), (int)+0.0);
     Assert.assertEquals(StrictMath.round(-0.0f), (int)+0.0);
     Assert.assertEquals(StrictMath.round(2.0f), 2);
@@ -730,6 +910,7 @@ public class Main {
   }
 
   public static void test_Float_floatToRawIntBits() {
+    Float.floatToRawIntBits(-1.0f);
     Assert.assertEquals(Float.floatToRawIntBits(-1.0f), 0xbf800000);
     Assert.assertEquals(Float.floatToRawIntBits(0.0f), 0);
     Assert.assertEquals(Float.floatToRawIntBits(1.0f), 0x3f800000);
@@ -739,6 +920,7 @@ public class Main {
   }
 
   public static void test_Float_intBitsToFloat() {
+    Float.intBitsToFloat(0xbf800000);
     Assert.assertEquals(Float.intBitsToFloat(0xbf800000), -1.0f);
     Assert.assertEquals(Float.intBitsToFloat(0x00000000), 0.0f);
     Assert.assertEquals(Float.intBitsToFloat(0x3f800000), 1.0f);
@@ -748,6 +930,7 @@ public class Main {
   }
 
   public static void test_Double_doubleToRawLongBits() {
+    Double.doubleToRawLongBits(-1.0);
     Assert.assertEquals(Double.doubleToRawLongBits(-1.0), 0xbff0000000000000L);
     Assert.assertEquals(Double.doubleToRawLongBits(0.0), 0x0000000000000000L);
     Assert.assertEquals(Double.doubleToRawLongBits(1.0), 0x3ff0000000000000L);
@@ -757,6 +940,7 @@ public class Main {
   }
 
   public static void test_Double_longBitsToDouble() {
+    Double.longBitsToDouble(0xbff0000000000000L);
     Assert.assertEquals(Double.longBitsToDouble(0xbff0000000000000L), -1.0);
     Assert.assertEquals(Double.longBitsToDouble(0x0000000000000000L), 0.0);
     Assert.assertEquals(Double.longBitsToDouble(0x3ff0000000000000L), 1.0);
@@ -766,6 +950,7 @@ public class Main {
   }
 
   public static void test_Short_reverseBytes() {
+      Short.reverseBytes((short)0x1357);
       Assert.assertEquals(Short.reverseBytes((short)0x0000), (short)0x0000);
       Assert.assertEquals(Short.reverseBytes((short)0xffff), (short)0xffff);
       Assert.assertEquals(Short.reverseBytes((short)0x8000), (short)0x0080);
@@ -777,6 +962,7 @@ public class Main {
   }
 
   public static void test_Integer_reverseBytes() {
+      Integer.reverseBytes(0x13579bdf);
       Assert.assertEquals(Integer.reverseBytes(0x00000000), 0x00000000);
       Assert.assertEquals(Integer.reverseBytes(0xffffffff), 0xffffffff);
       Assert.assertEquals(Integer.reverseBytes(0x80000000), 0x00000080);
@@ -786,6 +972,7 @@ public class Main {
   }
 
   public static void test_Long_reverseBytes() {
+      Long.reverseBytes(0x13579bdf2468ace0L);
       Assert.assertEquals(Long.reverseBytes(0x0000000000000000L), 0x0000000000000000L);
       Assert.assertEquals(Long.reverseBytes(0xffffffffffffffffL), 0xffffffffffffffffL);
       Assert.assertEquals(Long.reverseBytes(0x8000000000000000L), 0x0000000000000080L);
@@ -794,6 +981,7 @@ public class Main {
   }
 
   public static void test_Integer_reverse() {
+    Integer.reverse(0x12345678);
     Assert.assertEquals(Integer.reverse(1), 0x80000000);
     Assert.assertEquals(Integer.reverse(-1), 0xffffffff);
     Assert.assertEquals(Integer.reverse(0), 0);
@@ -804,6 +992,7 @@ public class Main {
   }
 
   public static void test_Long_reverse() {
+    Long.reverse(0x1234567812345678L);
     Assert.assertEquals(Long.reverse(1L), 0x8000000000000000L);
     Assert.assertEquals(Long.reverse(-1L), 0xffffffffffffffffL);
     Assert.assertEquals(Long.reverse(0L), 0L);
@@ -811,6 +1000,45 @@ public class Main {
     Assert.assertEquals(Long.reverse(0x8765432187654321L), 0x84c2a6e184c2a6e1L);
     Assert.assertEquals(Long.reverse(Long.MAX_VALUE), 0xfffffffffffffffeL);
     Assert.assertEquals(Long.reverse(Long.MIN_VALUE), 1L);
+
+    Assert.assertEquals(test_Long_reverse_b22324327(0xaaaaaaaaaaaaaaaaL, 0x5555555555555555L),
+            157472205507277347L);
+  }
+
+  // A bit more complicated than the above. Use local variables to stress register allocation.
+  private static long test_Long_reverse_b22324327(long l1, long l2) {
+    // A couple of local integers. Use them in a loop, so they get promoted.
+    int i1 = 0, i2 = 1, i3 = 2, i4 = 3, i5 = 4, i6 = 5, i7 = 6, i8 = 7;
+    for (int k = 0; k < 10; k++) {
+      i1 += 1;
+      i2 += 2;
+      i3 += 3;
+      i4 += 4;
+      i5 += 5;
+      i6 += 6;
+      i7 += 7;
+      i8 += 8;
+    }
+
+    // Do the Long.reverse() calls, save the results.
+    long r1 = Long.reverse(l1);
+    long r2 = Long.reverse(l2);
+
+    // Some more looping with the ints.
+    for (int k = 0; k < 10; k++) {
+      i1 += 1;
+      i2 += 2;
+      i3 += 3;
+      i4 += 4;
+      i5 += 5;
+      i6 += 6;
+      i7 += 7;
+      i8 += 8;
+    }
+
+    // Include everything in the result, so things are kept live. Try to be a little bit clever to
+    // avoid things being folded somewhere.
+    return (r1 / i1) + (r2 / i2) + i3 + i4 + i5 + i6 + i7 + i8;
   }
 
   static Object runtime;
@@ -858,6 +1086,7 @@ public class Main {
     b[1] = 0x12;
     b[2] = 0x11;
     long address = (long)address_of.invoke(runtime, b);
+    peek_short.invoke(null, address, false);
     Assert.assertEquals((short)peek_short.invoke(null, address, false), 0x1213);  // Aligned read
     Assert.assertEquals((short)peek_short.invoke(null, address + 1, false), 0x1112);  // Unaligned read
   }
@@ -870,6 +1099,7 @@ public class Main {
     b[3] = 0x12;
     b[4] = 0x11;
     long address = (long)address_of.invoke(runtime, b);
+    peek_int.invoke(null, address, false);
     Assert.assertEquals((int)peek_int.invoke(null, address, false), 0x12131415);
     Assert.assertEquals((int)peek_int.invoke(null, address + 1, false), 0x11121314);
   }
@@ -886,6 +1116,7 @@ public class Main {
     b[7] = 0x12;
     b[8] = 0x11;
     long address = (long)address_of.invoke(runtime, b);
+    peek_long.invoke(null, address, false);
     Assert.assertEquals((long)peek_long.invoke(null, address, false), 0x1213141516171819L);
     Assert.assertEquals((long)peek_long.invoke(null, address + 1, false), 0x1112131415161718L);
   }

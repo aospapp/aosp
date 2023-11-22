@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include "java_lang_reflect_Method.h"
+
+#include "art_method-inl.h"
 #include "class_linker.h"
 #include "jni_internal.h"
-#include "mirror/art_method.h"
-#include "mirror/art_method-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
@@ -28,23 +29,24 @@
 namespace art {
 
 static jobject Method_invoke(JNIEnv* env, jobject javaMethod, jobject javaReceiver,
-                             jobject javaArgs, jboolean accessible) {
+                             jobject javaArgs) {
   ScopedFastNativeObjectAccess soa(env);
-  return InvokeMethod(soa, javaMethod, javaReceiver, javaArgs, (accessible == JNI_TRUE));
+  return InvokeMethod(soa, javaMethod, javaReceiver, javaArgs);
 }
 
 static jobject Method_getExceptionTypesNative(JNIEnv* env, jobject javaMethod) {
   ScopedFastNativeObjectAccess soa(env);
-  mirror::ArtMethod* proxy_method = mirror::ArtMethod::FromReflectedMethod(soa, javaMethod);
+  ArtMethod* proxy_method = ArtMethod::FromReflectedMethod(soa, javaMethod);
   CHECK(proxy_method->GetDeclaringClass()->IsProxyClass());
   mirror::Class* proxy_class = proxy_method->GetDeclaringClass();
   int throws_index = -1;
-  size_t num_virt_methods = proxy_class->NumVirtualMethods();
-  for (size_t i = 0; i < num_virt_methods; i++) {
-    if (proxy_class->GetVirtualMethod(i) == proxy_method) {
+  size_t i = 0;
+  for (const auto& m : proxy_class->GetVirtualMethods(sizeof(void*))) {
+    if (&m == proxy_method) {
       throws_index = i;
       break;
     }
+    ++i;
   }
   CHECK_NE(throws_index, -1);
   mirror::ObjectArray<mirror::Class>* declared_exceptions =
@@ -53,7 +55,7 @@ static jobject Method_getExceptionTypesNative(JNIEnv* env, jobject javaMethod) {
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(Method, invoke, "!(Ljava/lang/Object;[Ljava/lang/Object;Z)Ljava/lang/Object;"),
+  NATIVE_METHOD(Method, invoke, "!(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"),
   NATIVE_METHOD(Method, getExceptionTypesNative, "!()[Ljava/lang/Class;"),
 };
 

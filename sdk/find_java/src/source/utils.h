@@ -73,7 +73,7 @@ public:
     CString()                              { mStr = NULL; }
     CString(const CString &str)            { mStr = NULL; set(str.mStr); }
     explicit CString(const char *str)      { mStr = NULL; set(str); }
-    CString(const char *start, int length) { mStr = NULL; set(start, length); }
+    CString(const char *start, size_t length) { mStr = NULL; set(start, length); }
 
     CString& operator=(const CString &str) {
         return set(str.cstr());
@@ -89,7 +89,7 @@ public:
         return *this;
     }
 
-    CString& set(const char *start, int length) {
+    CString& set(const char *start, size_t length) {
         _free();
         if (start != NULL) {
             mStr = (char *)malloc(length + 1);
@@ -103,7 +103,7 @@ public:
         _free();
         // _vscprintf(str, ap) is only available with the MSVCRT, not MinGW.
         // Instead we'll iterate till we have enough space to generate the string.
-        int len = strlen(str) + 1024;
+        size_t len = strlen(str) + 1024;
         mStr = (char *)malloc(len);
         strcpy(mStr, str); // provide a default in case vsnprintf totally fails
         for (int guard = 0; guard < 10; guard++) {
@@ -145,7 +145,7 @@ public:
         return mStr == NULL || *mStr == 0;
     }
 
-    int length() const {
+    size_t length() const {
         return mStr == NULL ? 0 : strlen(mStr);
     }
 
@@ -163,7 +163,7 @@ public:
         if (mStr == NULL) {
             set(str, length);
         } else {
-            int   l1 = strlen(mStr);
+            size_t l1 = strlen(mStr);
             mStr = (char *)realloc((void *)mStr, l1 + length + 1);
             strncpy(mStr + l1, str, length);
             mStr[l1 + length] = 0;
@@ -256,7 +256,7 @@ public:
     CPath& addPath(const char *s) {
         _ASSERT(s != NULL);
         if (s != NULL && s[0] != 0) {
-            int n = length();
+            size_t n = length();
             if (n > 0 && s[0] != '\\' && mStr[n-1] != '\\') add("\\");
             add(s);
         }
@@ -308,12 +308,12 @@ public:
     // If the path ends with the given searchName, replace in-place by the new name
     void replaceName(const char *searchName, const char* newName) {
         if (mStr == NULL) return;
-        int n = length();
-        int sn = strlen(searchName);
+        size_t n = length();
+        size_t sn = strlen(searchName);
         if (n < sn) return;
         // if mStr ends with searchName
         if (strcmp(mStr + n - sn, searchName) == 0) {
-            int sn2 = strlen(newName);
+            size_t sn2 = strlen(newName);
             if (sn2 > sn) {
                 mStr = (char *)realloc((void *)mStr, n + sn2 - sn + 1);
             }
@@ -330,7 +330,7 @@ public:
         const char *longPath = mStr;
         if (mStr == NULL) return false;
 
-        DWORD lenShort = strlen(longPath) + 1;
+        DWORD lenShort = (DWORD)strlen(longPath) + 1; // GetShortPathName deals with DWORDs
         char * shortPath = (char *)malloc(lenShort);
 
         DWORD length = GetShortPathName(longPath, shortPath, lenShort);
@@ -365,16 +365,6 @@ int execNoWait(const char *app, const char *params, const char *workDir);
 int execWait(const char *cmd);
 
 bool getModuleDir(CPath *outDir);
-
-// Disables the FS redirection done by WOW64.
-// Because this runs as a 32-bit app, Windows automagically remaps some
-// folder under the hood (e.g. "Programs Files(x86)" is mapped as "Program Files").
-// This prevents the app from correctly searching for java.exe in these folders.
-// The registry is also remapped.
-PVOID disableWow64FsRedirection();
-
-// Reverts the redirection disabled in disableWow64FsRedirection.
-void revertWow64FsRedirection(PVOID oldWow64Value);
 
 #endif /* _WIN32 */
 #endif /* _H_UTILS */
